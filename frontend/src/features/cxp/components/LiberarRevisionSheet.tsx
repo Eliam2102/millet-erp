@@ -1,4 +1,5 @@
 import { useEffect } from 'react';
+import { folioFactura } from '@/features/cxp/lib/formato';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { toast } from 'sonner';
@@ -17,6 +18,7 @@ import {
   applyServerErrors,
   esApiError,
   useFormIdempotencyKey,
+  codigoSoporte,
 } from '@/lib/api';
 import {
   LiberarRevisionSchema,
@@ -85,9 +87,7 @@ export function LiberarRevisionSheet({
               return;
             }
             toast.error(error.problem.title, {
-              description: error.traceId
-                ? `Código: ${error.traceId}`
-                : undefined,
+              description: codigoSoporte(error),
             });
             return;
           }
@@ -101,12 +101,12 @@ export function LiberarRevisionSheet({
 
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
-      <SheetContent side="right" className="sm:max-w-md">
+      <SheetContent side="right" size="form">
         <SheetHeader>
           <SheetTitle>Liberar revisión</SheetTitle>
           <SheetDescription>
             {factura
-              ? `Folio ${factura.serieProveedor ?? ''}${factura.folioProveedor ?? '—'}. Documenta brevemente qué decisión tomaste.`
+              ? `Folio ${folioFactura(factura)}. Documenta brevemente qué decisión tomaste.`
               : 'Selecciona una factura.'}
           </SheetDescription>
         </SheetHeader>
@@ -127,19 +127,21 @@ export function LiberarRevisionSheet({
                 {error.message}
               </p>
             )}
-            <p className="text-xs text-muted-foreground">
-              Mínimo 5 caracteres, máximo 2000. Queda en auditoría.
-            </p>
+            {!error && (
+              <p className="text-xs text-muted-foreground">
+                Mínimo 5 caracteres, máximo 2000. Queda en auditoría.
+              </p>
+            )}
           </div>
 
-          <SheetFooter className="px-0">
+          <SheetFooter className="sticky bottom-0 -mx-4 border-t bg-surface-card px-4 py-3">
             <Button
               type="button"
               variant="ghost"
               onClick={() => onOpenChange(false)}
               disabled={liberar.isPending}
             >
-              Volver
+              Cancelar
             </Button>
             <Button type="submit" disabled={liberar.isPending || !factura}>
               {liberar.isPending ? 'Liberando…' : 'Liberar revisión'}

@@ -19,6 +19,7 @@ import {
   applyServerErrors,
   esApiError,
   useFormIdempotencyKey,
+  codigoSoporte,
 } from '@/lib/api';
 import {
   ActualizarSerieSchema,
@@ -138,9 +139,7 @@ export function SerieFilaEditable({
               return;
             }
             toast.error(err.problem.title, {
-              description: err.traceId
-                ? `Código: ${err.traceId}`
-                : undefined,
+              description: codigoSoporte(err),
             });
             setConfirmReinicioOpen(false);
             return;

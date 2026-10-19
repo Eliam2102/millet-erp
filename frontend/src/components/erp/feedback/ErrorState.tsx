@@ -1,7 +1,7 @@
 import { TriangleAlert } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
-import { type ProblemDetails } from '@/lib/api/error';
+import { codigoSoporte, type ProblemDetails } from '@/lib/api/error';
 import { cn } from '@/lib/utils';
 
 /**
@@ -40,8 +40,9 @@ export function ErrorState({
   className,
 }: ErrorStateProps) {
   const tituloFinal = title ?? problem?.title ?? 'Algo salió mal';
-  const detalle = problem?.detail;
-  const traceId = problem?.traceId;
+  const noEncontrado = problem?.status === 404;
+  const detalle = noEncontrado ? undefined : problem?.detail;
+  const codigo = codigoSoporte(problem);
 
   return (
     <div
@@ -52,15 +53,15 @@ export function ErrorState({
         <TriangleAlert className="h-4 w-4" />
         <AlertTitle>{tituloFinal}</AlertTitle>
         <AlertDescription>
-          {detalle ?? 'Si el problema persiste, reporta el código a soporte.'}
-          {traceId != null && (
+          {detalle ?? (noEncontrado ? 'El registro no existe o ya no está disponible.' : 'Intenta de nuevo; si persiste, avisa a soporte.')}
+          {codigo != null && (
             <span className="mt-2 block font-mono text-xs opacity-80">
-              Código: {traceId}
+              {codigo}
             </span>
           )}
         </AlertDescription>
       </Alert>
-      {onRetry != null && (
+      {onRetry != null && !noEncontrado && (
         <Button variant="outline" onClick={onRetry}>
           Reintentar
         </Button>

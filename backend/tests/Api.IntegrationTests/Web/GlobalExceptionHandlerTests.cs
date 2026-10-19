@@ -160,6 +160,35 @@ public class GlobalExceptionHandlerTests
     }
 
     [Fact]
+    public async Task Should_Map_Concurrent_Cliente_Rfc_Unique_Violation_To_409()
+    {
+        var postgres = new PostgresException(
+            messageText: "duplicate key value violates unique constraint",
+            severity: "ERROR",
+            invariantSeverity: "ERROR",
+            sqlState: PostgresErrorCodes.UniqueViolation,
+            detail: "",
+            hint: "",
+            position: 0,
+            internalPosition: 0,
+            internalQuery: "",
+            where: "",
+            schemaName: "compartido",
+            tableName: "clientes",
+            columnName: "rfc",
+            dataTypeName: "",
+            constraintName: "ux_clientes_rfc_no_generico",
+            file: "",
+            line: "",
+            routine: "");
+
+        var (status, code, _) = await Handle(new DbUpdateException("race", postgres));
+
+        status.Should().Be(StatusCodes.Status409Conflict);
+        code.Should().Be("CLIENTE_RFC_DUPLICADO");
+    }
+
+    [Fact]
     public async Task Should_Map_ForbiddenException_To_403()
     {
         var (status, code, _) = await Handle(new ForbiddenException("INSUFICIENTE", "sin permiso"));

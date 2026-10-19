@@ -14,8 +14,8 @@ const CODIGOS: CatalogoErroresSync = {
     accion: 'El cliente no se creó. Configura el mapeo de moneda y reintenta.',
   },
   conflicto_correlacion: {
-    titulo: 'Conflicto con un cliente manual',
-    accion: 'Ya existe un cliente dado de alta a mano con esta referencia. Revísalo y reintenta; no se fusiona solo.',
+    titulo: 'Coincidencia de RFC con otro cliente',
+    accion: 'Ya existe en el ERP un cliente con el mismo RFC o la misma referencia. Revisa el ligado en Datos maestros → Clientes (Ligados pendientes de revisión); no se crea otro cliente.',
     conflicto: true,
   },
   fila_invalida: {

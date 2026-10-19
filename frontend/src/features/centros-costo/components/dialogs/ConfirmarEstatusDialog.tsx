@@ -11,7 +11,7 @@ import {
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
 import { useConflictDialog } from '@/components/erp/collaboration/conflict-dialog-context';
-import { esApiError } from '@/lib/api';
+import { esApiError, codigoSoporte } from '@/lib/api';
 import { etiquetaNivel, type NivelDim } from '@/features/centros-costo/lib/etiquetas';
 import {
   useCambiarEstatusCatalogo,
@@ -102,9 +102,7 @@ export function ConfirmarEstatusDialog({
           }
           if (esApiError(error)) {
             toast.error(error.problem.title, {
-              description: error.traceId
-                ? `Código: ${error.traceId}`
-                : undefined,
+              description: codigoSoporte(error),
             });
             return;
           }

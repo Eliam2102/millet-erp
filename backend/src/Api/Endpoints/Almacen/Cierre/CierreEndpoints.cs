@@ -34,6 +34,39 @@ public static class CierreEndpoints
         .ProducesProblem(StatusCodes.Status403Forbidden)
         .ProducesProblem(StatusCodes.Status422UnprocessableEntity);
 
+        app.MapGet("/api/v1/almacen/cierre-mes/periodos", async (
+            DocumentoSucursalScope documentos,
+            IMediator mediator,
+            CancellationToken ct) =>
+        {
+            await documentos.VerificarSucursalAsync(null, PermisosCanonicos.AlmacenCierreMesGestionarTodasSucursales, ct);
+            return Results.Ok(await mediator.Send(new ListarPeriodosCierreQuery(), ct));
+        })
+        .RequireAuthorization(PermissionPolicyProvider.Prefix + PermisosCanonicos.AlmacenCierreMesEjecutar)
+        .WithTags("Almacen")
+        .WithName("ListarPeriodosCierreMes")
+        .WithSummary("Periodos mensuales concluidos con su estado (Cerrado/Abierto).")
+        .Produces<IReadOnlyList<PeriodoCierreItem>>(StatusCodes.Status200OK)
+        .ProducesProblem(StatusCodes.Status403Forbidden);
+
+        app.MapGet("/api/v1/almacen/cierre-mes/revision-previa", async (
+            int anio,
+            int mes,
+            DocumentoSucursalScope documentos,
+            IMediator mediator,
+            CancellationToken ct) =>
+        {
+            await documentos.VerificarSucursalAsync(null, PermisosCanonicos.AlmacenCierreMesGestionarTodasSucursales, ct);
+            return Results.Ok(await mediator.Send(new ObtenerRevisionPreviaCierreQuery(anio, mes), ct));
+        })
+        .RequireAuthorization(PermissionPolicyProvider.Prefix + PermisosCanonicos.AlmacenCierreMesEjecutar)
+        .WithTags("Almacen")
+        .WithName("ObtenerRevisionPreviaCierreMes")
+        .WithSummary("Revisión previa del cierre: mismas validaciones que el cierre, solo lectura.")
+        .Produces<RevisionPreviaCierreResponse>(StatusCodes.Status200OK)
+        .ProducesProblem(StatusCodes.Status403Forbidden)
+        .ProducesProblem(StatusCodes.Status422UnprocessableEntity);
+
         return app;
     }
 }

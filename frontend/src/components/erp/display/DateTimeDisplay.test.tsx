@@ -55,4 +55,31 @@ describe('<DateTimeDisplay>', () => {
     render(<DateTimeDisplay value={null} empty="Sin fecha" />);
     expect(screen.getByText('Sin fecha')).toBeInTheDocument();
   });
+
+  it('variant=corta: "9 may" en el año actual y con año en otro', () => {
+    const anio = new Date().getFullYear();
+    render(<DateTimeDisplay value={`${anio}-05-09`} variant="corta" />);
+    expect(screen.getByText('9 may')).toBeInTheDocument();
+    render(<DateTimeDisplay value="2020-09-21" variant="corta" />);
+    expect(screen.getByText('21 sep 2020')).toBeInTheDocument();
+  });
+
+  it('variant=media: "21 sep 2026"; DateOnly sin corrimiento y ISO en TZ México', () => {
+    render(<DateTimeDisplay value="2026-09-21" variant="media" />);
+    expect(screen.getByText('21 sep 2026')).toBeInTheDocument();
+    // 2026-09-22T03:00Z → 21 sep 21:00 México.
+    render(<DateTimeDisplay value="2026-09-22T03:00:00Z" variant="media" />);
+    expect(screen.getAllByText('21 sep 2026')).toHaveLength(2);
+  });
+
+  it('medianoche UTC se trata como fecha de calendario (sin día anterior)', () => {
+    render(<DateTimeDisplay value="2026-10-09T00:00:00+00:00" variant="media" />);
+    expect(screen.getByText('9 oct 2026')).toBeInTheDocument();
+  });
+
+  it('vencida: text-danger-fg font-medium', () => {
+    render(<DateTimeDisplay value="2026-09-21" variant="media" vencida />);
+    const el = screen.getByText('21 sep 2026');
+    expect(el).toHaveClass('text-danger-fg', 'font-medium');
+  });
 });

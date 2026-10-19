@@ -38,38 +38,43 @@ function escribirObservaciones() {
   fireEvent.change(textarea, { target: { value: 'Cambio sin guardar' } });
 }
 
-describe('<NuevaRecepcionSheet> — confirmación de descarte (patrón P4)', () => {
+describe('<NuevaRecepcionSheet> — confirmación de descarte', () => {
   it('sin cambios, Esc cierra directo sin pedir confirmación', () => {
-    const confirmSpy = vi.spyOn(window, 'confirm');
     const onOpenChange = renderSheet();
 
     fireEvent.keyDown(document, { key: 'Escape' });
 
-    expect(confirmSpy).not.toHaveBeenCalled();
+    expect(screen.queryByText('¿Descartar los cambios?')).toBeNull();
     expect(onOpenChange).toHaveBeenCalledWith(false);
   });
 
-  it('con cambios sin guardar, Esc pide confirmación y no cierra si se rechaza', () => {
-    const confirmSpy = vi.spyOn(window, 'confirm').mockReturnValue(false);
+  it('con cambios sin guardar, Esc abre el diálogo y «Seguir editando» no cierra', () => {
     const onOpenChange = renderSheet();
     escribirObservaciones();
 
     fireEvent.keyDown(document, { key: 'Escape' });
 
-    expect(confirmSpy).toHaveBeenCalledWith(
-      expect.stringContaining('cambios sin guardar'),
-    );
+    expect(screen.getByText('¿Descartar los cambios?')).toBeTruthy();
+    fireEvent.click(screen.getByRole('button', { name: 'Seguir editando' }));
     expect(onOpenChange).not.toHaveBeenCalled();
   });
 
-  it('con cambios sin guardar, Cancelar pide confirmación y cierra si se acepta', () => {
-    const confirmSpy = vi.spyOn(window, 'confirm').mockReturnValue(true);
+  it('con cambios sin guardar, Cancelar abre el diálogo y «Descartar» cierra', () => {
     const onOpenChange = renderSheet();
     escribirObservaciones();
 
     fireEvent.click(screen.getByRole('button', { name: 'Cancelar' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Descartar' }));
 
-    expect(confirmSpy).toHaveBeenCalledTimes(1);
     expect(onOpenChange).toHaveBeenCalledWith(false);
+  });
+
+  it('cambiar de variante con datos pide confirmación', () => {
+    renderSheet();
+    escribirObservaciones();
+
+    fireEvent.click(screen.getByRole('button', { name: /Variante B/ }));
+
+    expect(screen.getByText('¿Cambiar el tipo de recepción?')).toBeTruthy();
   });
 });

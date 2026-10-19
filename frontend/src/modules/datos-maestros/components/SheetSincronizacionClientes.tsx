@@ -20,6 +20,7 @@ import {
   useIniciarSincronizacion,
   useReintentarCliente,
 } from '@/modules/datos-maestros/api';
+import { useInvalidarF1AAlTerminar } from '@/modules/datos-maestros/api/use-invalidar-f1a-al-terminar';
 import type {
   EjecucionSyncResumen,
   EstadoEjecucionSync,
@@ -42,6 +43,8 @@ const ESTADO_UI: Record<EstadoEjecucionSync, [string, string]> = {
   Fallida: ['Fallida', 'border-destructive/40 bg-destructive/10 text-destructive'],
   Cancelada: ['Cancelada', 'text-muted-foreground'],
 };
+
+const SIN_EJECUCIONES: readonly { id: string; estado: EstadoEjecucionSync }[] = [];
 
 export function EstadoEjecucionBadge({ estado }: { estado: EstadoEjecucionSync }) {
   const [texto, tono] = ESTADO_UI[estado] ?? [estado, ''];
@@ -98,6 +101,7 @@ function ErrorConsulta({ error, onRetry }: { error: unknown; onRetry: () => void
 function ListaEjecuciones({ onAbrir }: { onAbrir: (id: string) => void }) {
   const query = useEjecucionesSync({ limit: 20 });
   const iniciar = useIniciarSincronizacion();
+  useInvalidarF1AAlTerminar(query.data?.items ?? SIN_EJECUCIONES);
 
   function handleIniciar() {
     iniciar.mutate(undefined, {
@@ -168,6 +172,7 @@ function DetalleEjecucion({ id, onVolver }: { id: string; onVolver: () => void }
   const query = useEjecucionSync(id);
   const reintentar = useReintentarCliente();
   const d = query.data;
+  useInvalidarF1AAlTerminar(d != null ? [d] : SIN_EJECUCIONES);
 
   // Reproceso por referencia (mismo endpoint y permiso que el detalle del cliente).
   function handleReintentar(referencia: string) {

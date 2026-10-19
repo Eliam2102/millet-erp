@@ -5,10 +5,12 @@ import { useState } from 'react';
 import { Link, useParams, useSearch } from '@tanstack/react-router';
 import { Ban, Download, FileCode, Mail, Printer, Receipt, X } from 'lucide-react';
 import { toast } from 'sonner';
+import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { CancelarComprobanteForm } from '@/features/facturacion/components/CancelarComprobanteForm';
+import { SolicitarReembolsoNcDialog } from '@/features/facturacion/components/SolicitarReembolsoNcDialog';
 import { CobroFacturaPanel } from '@/features/facturacion/components/CobroFacturaPanel';
 import { TimbradoFallidoBanner } from '@/features/facturacion/components/TimbradoFallidoBanner';
 import { IntentosTimbradoPanel } from '@/features/facturacion/components/IntentosTimbradoPanel';
@@ -82,6 +84,12 @@ function Contenido({
   const puedeNc = useHasPermission(
     PermisosCanonicos.FacturacionNotasCreditoBonificacion,
   );
+  const puedeReembolsar = useHasPermission(
+    PermisosCanonicos.FacturacionNotasCreditoReembolsoSolicitar,
+  );
+  const [reembolsoNc, setReembolsoNc] = useState<
+    NonNullable<typeof f.notasCreditoAplicadas>[number] | null
+  >(null);
   const cancelacion = useCancelacionEstatus(f.id);
   const [accion, setAccion] = useState<'cancelar' | 'nc' | null>(null);
   const timbrada = f.estado === 'Timbrado' || f.estado === 'Cancelado';
@@ -336,6 +344,7 @@ function Contenido({
                   <th className="px-3 py-2 text-left">Motivo</th>
                   <th className="px-3 py-2 text-left">UUID</th>
                   <th className="px-3 py-2 text-right">Total</th>
+                  <th className="px-3 py-2 text-left">Reembolso</th>
                 </tr>
               </thead>
               <tbody>
@@ -349,11 +358,34 @@ function Contenido({
                     <td className="px-3 py-2 text-right font-mono">
                       {nc.total.toFixed(2)}
                     </td>
+                    <td className="px-3 py-2">
+                      {nc.reembolsoSolicitado ? (
+                        <Badge variant="info">Solicitado</Badge>
+                      ) : puedeReembolsar && nc.motivo !== 'Amortizacion' && nc.motivo !== 'Ranura' ? (
+                        <Button
+                          size="sm"
+                          variant="secondary"
+                          data-print="hidden"
+                          onClick={() => setReembolsoNc(nc)}
+                        >
+                          Solicitar reembolso
+                        </Button>
+                      ) : null}
+                    </td>
                   </tr>
                 ))}
               </tbody>
             </table>
           </div>
+          {reembolsoNc && (
+            <SolicitarReembolsoNcDialog
+              notaCreditoId={reembolsoNc.id}
+              folio={reembolsoNc.folio}
+              total={reembolsoNc.total}
+              moneda={f.moneda}
+              onCerrar={() => setReembolsoNc(null)}
+            />
+          )}
         </section>
       )}
 

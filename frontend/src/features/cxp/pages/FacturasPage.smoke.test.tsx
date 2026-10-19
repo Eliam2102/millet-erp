@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { render, screen, waitFor } from '@testing-library/react';
+import { render, screen, waitFor, within } from '@testing-library/react';
 import axe, { type AxeResults } from 'axe-core';
 import { http, HttpResponse } from 'msw';
 import { mswServer } from '@/test/mocks/server';
@@ -107,7 +107,7 @@ describe('<FacturasPage> — smoke', () => {
     await waitFor(() =>
       expect(screen.getByText(/A-999/i)).toBeInTheDocument(),
     );
-    expect(screen.getByText(/^Capturada$/i)).toBeInTheDocument();
+    expect(within(screen.getByRole('table')).getByText(/^Capturada$/i)).toBeInTheDocument();
     expect(screen.getByText('Proveedor DEMO')).toBeInTheDocument();
     expect(screen.getByText('OC-DEMO2026-000101')).toBeInTheDocument();
     expect(screen.queryByText('11111111…')).not.toBeInTheDocument();

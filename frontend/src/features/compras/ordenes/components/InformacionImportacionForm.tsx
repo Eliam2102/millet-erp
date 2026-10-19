@@ -17,6 +17,7 @@ import {
 import { IncotermSelector } from '@/components/erp';
 import {
   applyServerErrors,
+  codigoSoporte,
   esApiError,
   useFormIdempotencyKey,
   type ApiError,
@@ -502,7 +503,7 @@ function EditView({
       }}
       className={cn(
         'space-y-3 rounded-md border p-3',
-        'border-amber-400 bg-amber-50/40',
+        'border-warning bg-warning-bg/40',
       )}
       aria-label="Editar información de importación"
       data-component="info-importacion-edit"
@@ -720,7 +721,7 @@ function enumDesdeForm<T extends number>(v: string): T | null {
 function descripcionError(err: ApiError): string | undefined {
   const partes = [
     err.problem.detail,
-    err.traceId ? `Código: ${err.traceId}` : null,
+    codigoSoporte(err),
   ].filter((p): p is string => Boolean(p));
   return partes.length > 0 ? partes.join(' · ') : undefined;
 }

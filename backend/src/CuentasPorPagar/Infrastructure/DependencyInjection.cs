@@ -131,6 +131,8 @@ public static class DependencyInjection
         services.AddScoped<IConceptoContableReadPort, NoOpConceptoContableReadPort>();
         services.AddScoped<IPeriodoContablePort, Adapters.PeriodoContableAdapter>();
         services.AddScoped<IAlmacenRecepcionReadPort, Almacen.AlmacenRecepcionReadPortAdapter>();
+        services.AddScoped<IAlmacenRevisionReadPort, Almacen.AlmacenRevisionReadPortAdapter>();
+        services.AddScoped<Application.FacturaProveedor.Revision.DetencionPorDanoService>();
 
         // F7-PR5: parser de estados de cuenta TC + algoritmo de conciliación.
         services.AddSingleton<

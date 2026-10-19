@@ -55,6 +55,26 @@ public class IniciarConteoFamiliaTests
         conteo.Lineas.Should().HaveCount(2);
     }
 
+    [Fact]
+    public async Task Vista_previa_cuenta_las_lineas_con_el_mismo_criterio_de_familia()
+    {
+        await using var db = await NuevaDbAsync();
+        await SembrarConteoAsync(db, familia: null);
+        var articulos = new FakeArticulos(new Dictionary<Guid, ArticuloLectura>()
+        {
+            [ArticuloSellante] = Lectura(ArticuloSellante, "SEL-01", "SELLANTES"),
+            [ArticuloPintura] = Lectura(ArticuloPintura, "PIN-01", "PINTURAS"),
+        });
+        var handler = new VistaPreviaConteoHandler(db, articulos);
+
+        (await handler.Handle(new VistaPreviaConteoQuery(SubAlmacenId, null), CancellationToken.None))
+            .CantidadLineas.Should().Be(2);
+        (await handler.Handle(new VistaPreviaConteoQuery(SubAlmacenId, " sellantes "), CancellationToken.None))
+            .CantidadLineas.Should().Be(1);
+        (await handler.Handle(new VistaPreviaConteoQuery(SubAlmacenId, "VIDRIO"), CancellationToken.None))
+            .CantidadLineas.Should().Be(0);
+    }
+
     private static async Task<ConteoInventario> SembrarConteoAsync(AlmacenDbContext db, string? familia)
     {
         var conteo = new ConteoInventario(

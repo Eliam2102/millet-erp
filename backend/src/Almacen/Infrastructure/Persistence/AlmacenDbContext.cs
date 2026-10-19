@@ -94,6 +94,7 @@ public class AlmacenDbContext : BaseDbContext
     public DbSet<EventoProcesado> EventosProcesados => Set<EventoProcesado>();
 
     /// <summary>F6-PR1: devoluciones a proveedor (sub-flujo 8.B).</summary>
+    public DbSet<Domain.Revision.DictamenRevision> DictamenesRevision => Set<Domain.Revision.DictamenRevision>();
     public DbSet<DevolucionAProveedor> DevolucionesProveedor => Set<DevolucionAProveedor>();
     public DbSet<LineaDevolucionProveedor> LineasDevolucionProveedor => Set<LineaDevolucionProveedor>();
     public DbSet<EvidenciaDevolucionProveedor> EvidenciasDevolucionProveedor => Set<EvidenciaDevolucionProveedor>();
@@ -139,6 +140,7 @@ public class AlmacenDbContext : BaseDbContext
         modelBuilder.ApplyConfiguration(new DevolucionAProveedorConfiguration());
         modelBuilder.ApplyConfiguration(new LineaDevolucionProveedorConfiguration());
         modelBuilder.ApplyConfiguration(new EvidenciaDevolucionProveedorConfiguration());
+        modelBuilder.ApplyConfiguration(new DictamenRevisionConfiguration());
         modelBuilder.ApplyConfiguration(new ConteoInventarioConfiguration());
         modelBuilder.ApplyConfiguration(new LineaConteoConfiguration());
         modelBuilder.ApplyConfiguration(new RecuentoConteoConfiguration());

@@ -18,7 +18,7 @@ import {
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { applyServerErrors, esApiError, useFormIdempotencyKey } from '@/lib/api';
+import { applyServerErrors, esApiError, useFormIdempotencyKey, codigoSoporte } from '@/lib/api';
 import { CapturarFacturaSchema, type CapturarFacturaValues } from '@/features/cxp/schemas/factura';
 import { useCapturarFacturaConOc } from '@/features/cxp/api/useFacturas';
 import { EstadoPasivo, MotivoCancelacion, type CfdiListItem } from '@/features/cxp/api/types';
@@ -34,6 +34,8 @@ import {
   proponerRetenciones,
   totalRetenciones,
   alertaRetenciones,
+  CONCEPTO_SIN_RETENCION,
+  etiquetaConcepto,
 } from '@/features/cxp/lib/retenciones-p8';
 import { useHasPermission } from '@/lib/auth/useHasPermission';
 import { PermisosCanonicos } from '@/lib/auth/permission-codes';
@@ -238,7 +240,7 @@ export function CapturarFacturaSheet({
           ...values,
           retencionesDetalle:
             cfdiParseadoQuery.data?.retencionesDetalle ??
-            (!cfdiBase && !alertaRetenciones(totalRetenido, propuesta) ? propuesta : null),
+            (!cfdiBase && !alertaRetenciones(totalRetenido, propuesta, conceptoRetencion) ? propuesta : null),
           fechaDocumento: toIso(values.fechaDocumento),
           fechaContabilizacion: toIso(values.fechaContabilizacion),
           tipoCambio: values.tipoCambio ?? null,
@@ -288,7 +290,7 @@ export function CapturarFacturaSheet({
               return;
             }
             toast.error(error.problem.title, {
-              description: error.traceId ? `Código: ${error.traceId}` : undefined,
+              description: codigoSoporte(error),
             });
             return;
           }
@@ -567,17 +569,22 @@ export function CapturarFacturaSheet({
                   <SelectValue placeholder="Selecciona concepto" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="sin-concepto">Sin concepto: por confirmar</SelectItem>
-                  {[...new Set(catalogo.data?.filter((r) => r.activa).map((r) => r.concepto))].map(
+                  <SelectItem value="sin-concepto">Usar la retención del proveedor</SelectItem>
+                  {[
+                    ...new Set([
+                      CONCEPTO_SIN_RETENCION,
+                      ...(catalogo.data?.filter((r) => r.activa).map((r) => r.concepto) ?? []),
+                    ]),
+                  ].map(
                     (c) => (
                       <SelectItem key={c} value={c}>
-                        {c}
+                        {etiquetaConcepto(c)}
                       </SelectItem>
                     ),
                   )}
                 </SelectContent>
               </Select>
-              <p className="text-xs text-ink-muted">Supuesto SAT, valida Fiscal (D03).</p>
+              <p className="text-xs text-ink-muted">Si no eliges, se usa la retención configurada en el proveedor; Fiscal revisa si el XML no coincide.</p>
               {catalogo.isError && (
                 <p role="alert" className="text-warning-note-fg">
                   No se pudo consultar el catálogo fiscal. La captura puede continuar; revisa con
@@ -608,13 +615,13 @@ export function CapturarFacturaSheet({
                   Usar retención propuesta
                 </Button>
               )}
-              {alertaRetenciones(totalRetenido, propuesta) && (
+              {alertaRetenciones(totalRetenido, propuesta, conceptoRetencion) && (
                 <p
                   role="note"
                   className="rounded-md bg-warning-note-bg px-3 py-2 text-warning-note-fg"
                 >
-                  Las retenciones difieren del catálogo. Revisa con Fiscal; puedes continuar la
-                  captura.
+                  Las retenciones difieren del catálogo del concepto. Puedes capturar, pero Fiscal debe
+                  revisarlas antes de autorizar el pago.
                 </p>
               )}
             </section>

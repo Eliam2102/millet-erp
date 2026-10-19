@@ -59,6 +59,10 @@ public sealed class ListarOrdenesCompraHandler
         {
             query = query.Where(o => o.SubEstadoPago == sp);
         }
+        if (request.EstadoComercialProveedor is { } ec)
+        {
+            query = query.Where(o => o.EstadoComercialProveedor == ec);
+        }
         if (request.ProveedorId is Guid p)
         {
             query = query.Where(o => o.ProveedorId == p);
@@ -80,6 +84,20 @@ public sealed class ListarOrdenesCompraHandler
             var ref_ = request.ReferenciaProveedor.Trim().ToUpperInvariant();
             query = query.Where(o => o.ReferenciaProveedor != null
                 && o.ReferenciaProveedor.Contains(ref_));
+        }
+
+        if (!string.IsNullOrWhiteSpace(request.Q))
+        {
+            // Escapa los comodines de LIKE del texto del usuario (\ es el escape por defecto en Npgsql).
+            var patron = "%" + request.Q.Trim()
+                .Replace("\\", "\\\\").Replace("%", "\\%").Replace("_", "\\_") + "%";
+            // Folio es un VO con value converter: EF no traduce ILike sobre esa columna (le aplica el
+            // converter al patrón). Se resuelven los ids por SQL y se componen como subconsulta; el
+            // resultado se intersecta con `query`, que ya trae el filtro de sucursal y el de empresa.
+            var idsPorFolio = _db.Database.SqlQuery<Guid>(
+                $"SELECT id AS \"Value\" FROM compras.ordenes_compra WHERE folio ILIKE {patron}");
+            query = query.Where(o => idsPorFolio.Contains(o.Id)
+                || (o.ReferenciaProveedor != null && EF.Functions.ILike(o.ReferenciaProveedor, patron)));
         }
 
         var total = await query.CountAsync(cancellationToken);
@@ -115,7 +133,11 @@ public sealed class ListarOrdenesCompraHandler
                 o.CompradorTitularId,
                 o.Moneda,
                 o.FechaDocumento,
-                o.ReferenciaProveedor))
+                o.ReferenciaProveedor)
+            {
+                EstadoComercialProveedor = o.EstadoComercialProveedor,
+                FechaCompromisoProveedor = o.FechaCompromisoProveedor,
+            })
             .ToListAsync(cancellationToken);
 
         // Enriquecer la etiqueta del proveedor (id → razón social) vía read-port

@@ -21,7 +21,7 @@ namespace Millet.Api.IntegrationTests.DatosMaestros;
 public sealed class ProveedorToleranciaTests(WebApplicationFactory<Program> factory) : IClassFixture<WebApplicationFactory<Program>>
 {
     [Fact]
-    public async Task G113c_Compras403_CxpEdita_Audita_YApiNoAdmitePorcentaje()
+    public async Task G113c_Compras403_CxpEdita_Audita_YPorcentajeHasta100()
     {
         var ambiente = new AdjuntosProveedorAmbiente(factory);
         var proveedorId = await ambiente.SeedProveedorAsync();
@@ -63,6 +63,11 @@ public sealed class ProveedorToleranciaTests(WebApplicationFactory<Program> fact
             Assert.Equal(HttpStatusCode.BadRequest, (await cxp.PutAsJsonAsync(url, new { })).StatusCode);
             var negativo = await cxp.PutAsJsonAsync(url, new { montoMxn = -1 });
             Assert.Equal(HttpStatusCode.BadRequest, negativo.StatusCode);
+            Assert.Equal(HttpStatusCode.BadRequest, (await cxp.PutAsJsonAsync(url, new { montoMxn = 101, esPorcentaje = true })).StatusCode);
+            Assert.Equal(HttpStatusCode.NoContent, (await cxp.PutAsJsonAsync(url, new { montoMxn = 2.5m, esPorcentaje = true })).StatusCode);
+            var enPorcentaje = await AdjuntosProveedorAmbiente.LeerAsync(await cxp.GetAsync($"{AdjuntosProveedorAmbiente.Base}/{proveedorId}"));
+            Assert.Equal(2.5m, enPorcentaje.GetProperty("toleranciaFacturaContraOcMxn").GetDecimal());
+            Assert.True(enPorcentaje.GetProperty("toleranciaFacturaContraOcEsPorcentaje").GetBoolean());
             Assert.Equal(HttpStatusCode.NoContent, (await cxp.PutAsJsonAsync(url, new { montoMxn = (decimal?)null })).StatusCode);
         }
         finally { await LimpiarAsync(ambiente, proveedorId); }
@@ -89,9 +94,9 @@ public sealed class ProveedorToleranciaTests(WebApplicationFactory<Program> fact
         try
         {
             (await admin.PatchAsJsonAsync(parametroUrl, new { valor = "0.99" })).EnsureSuccessStatusCode();
-            async Task Configurar(decimal? monto) => (await admin.PutAsJsonAsync(
-                $"{AdjuntosProveedorAmbiente.Base}/{proveedorId}/tolerancia", new { montoMxn = monto })).EnsureSuccessStatusCode();
-            async Task<Guid> Capturar(decimal diferencia, EstadoPasivo esperado, decimal foto)
+            async Task Configurar(decimal? monto, bool esPorcentaje = false) => (await admin.PutAsJsonAsync(
+                $"{AdjuntosProveedorAmbiente.Base}/{proveedorId}/tolerancia", new { montoMxn = monto, esPorcentaje })).EnsureSuccessStatusCode();
+            async Task<Guid> Capturar(decimal diferencia, EstadoPasivo esperado, decimal foto, ToleranciaTipo tipo = ToleranciaTipo.MontoAbsoluto)
             {
                 var total = 10000m + diferencia;
                 var ahora = DateTimeOffset.UtcNow;
@@ -110,7 +115,7 @@ public sealed class ProveedorToleranciaTests(WebApplicationFactory<Program> fact
                 var factura = await db.FacturasProveedor.AsNoTracking().SingleAsync(f => f.Id == id);
                 Assert.Equal(esperado, factura.Estado);
                 Assert.Equal(foto, factura.ToleranciaValor);
-                Assert.Equal(ToleranciaTipo.MontoAbsoluto, factura.ToleranciaTipo);
+                Assert.Equal(tipo, factura.ToleranciaTipo);
                 var tipoEvento = esperado == EstadoPasivo.Cancelada
                     ? "cuentas_por_pagar.factura.rechazada-por-tolerancia.v1"
                     : "cuentas_por_pagar.factura.registrada.v1";
@@ -137,6 +142,10 @@ public sealed class ProveedorToleranciaTests(WebApplicationFactory<Program> fact
                 Assert.Equal(5m, anterior.ToleranciaValor);
                 Assert.Equal(EstadoPasivo.Capturada, anterior.Estado);
             }
+            // G1.13 en porcentaje: 2.5 % de una OC de 10,000 admite hasta 250 pesos.
+            await Configurar(2.5m, esPorcentaje: true);
+            await Capturar(200, EstadoPasivo.Capturada, 2.5m, ToleranciaTipo.Porcentaje);
+            await Capturar(300, EstadoPasivo.Cancelada, 2.5m, ToleranciaTipo.Porcentaje);
             await Configurar(null);
             await Capturar(0.50m, EstadoPasivo.Capturada, 0.99m);
             await Capturar(1.50m, EstadoPasivo.Cancelada, 0.99m);

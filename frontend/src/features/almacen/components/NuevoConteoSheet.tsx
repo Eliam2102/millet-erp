@@ -1,5 +1,6 @@
 import { hoyLocalISO } from '@/lib/datetime';
-import { Controller, useForm } from 'react-hook-form';
+import { useState } from 'react';
+import { Controller, useForm, useWatch } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useNavigate } from '@tanstack/react-router';
 import { toast } from 'sonner';
@@ -21,16 +22,24 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { UsuarioSelector } from '@/components/erp';
+import { CategoriaSelector } from '@/components/erp/selectors/CategoriaSelector';
+import { AvisoEnLinea } from '@/components/erp/feedback/AvisoEnLinea';
+import { useCategoriasArticuloList } from '@/modules/catalogos/api';
 import {
   applyServerErrors,
   esApiError,
   useFormIdempotencyKey,
+  codigoSoporte,
 } from '@/lib/api';
 import {
   CrearConteoSchema,
   type CrearConteoValues,
 } from '@/features/almacen/schemas/conteo';
-import { useCrearConteo, useSubAlmacenes } from '@/features/almacen/api';
+import {
+  useCrearConteo,
+  useSubAlmacenes,
+  useVistaPreviaConteo,
+} from '@/features/almacen/api';
 import {
   TipoConteo,
   TipoConteoLabels,
@@ -56,7 +65,7 @@ export function NuevoConteoSheet({
 }: NuevoConteoSheetProps) {
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
-      <SheetContent side="right" className="sm:max-w-md">
+      <SheetContent side="right" size="form">
         <SheetHeader>
           <SheetTitle>Nuevo conteo</SheetTitle>
           <SheetDescription>
@@ -89,6 +98,10 @@ function FormBody({
   const crear = useCrearConteo();
   const subAlmacenesQuery = useSubAlmacenes({ limit: 500 });
 
+  const categoriasQuery = useCategoriasArticuloList();
+  // El selector trabaja con id; el conteo guarda el nombre de la categoría (familia).
+  const [categoriaId, setCategoriaId] = useState<string | null>(null);
+
   const hoyIso = hoyLocalISO();
 
   const form = useForm<CrearConteoValues>({
@@ -102,7 +115,13 @@ function FormBody({
     },
   });
 
+  const subAlmacenWatched = useWatch({ control: form.control, name: 'subAlmacenId' });
+  const familiaWatched = useWatch({ control: form.control, name: 'filtroFamilia' });
+  const vistaPrevia = useVistaPreviaConteo(subAlmacenWatched ?? null, familiaWatched ?? null);
+  const sinLineas = vistaPrevia.data?.cantidadLineas === 0;
+
   function onSubmit(values: CrearConteoValues) {
+    if (sinLineas) return;
     crear.mutate(
       {
         command: {
@@ -136,7 +155,7 @@ function FormBody({
               return;
             }
             toast.error(error.problem.title, {
-              description: error.traceId ? `Código: ${error.traceId}` : undefined,
+              description: codigoSoporte(error),
             });
             return;
           }
@@ -250,19 +269,32 @@ function FormBody({
           label="Familia (categoría del artículo, opcional)"
           error={form.formState.errors.filtroFamilia?.message}
         >
-          <Controller
-            name="filtroFamilia"
-            control={form.control}
-            render={({ field }) => (
-              <Input
-                {...field}
-                value={field.value ?? ''}
-                maxLength={50}
-                placeholder="Ej. SELLANTES"
-              />
-            )}
+          <CategoriaSelector
+            value={categoriaId}
+            placeholder="Todas las familias"
+            onChange={(id) => {
+              setCategoriaId(id);
+              const nombre = categoriasQuery.data?.find((c) => c.id === id)?.nombre;
+              form.setValue('filtroFamilia', nombre ?? null, { shouldDirty: true });
+            }}
           />
         </Field>
+
+        {vistaPrevia.data &&
+          (sinLineas ? (
+            <AvisoEnLinea tono="error" titulo="El conteo no tendría líneas">
+              No hay saldos con ese sub-almacén y esa familia. Cambia el
+              filtro para poder planificarlo.
+            </AvisoEnLinea>
+          ) : (
+            <p className="text-sm text-muted-foreground" aria-live="polite">
+              Este conteo tendrá{' '}
+              <span className="font-medium tabular-nums text-foreground">
+                {vistaPrevia.data.cantidadLineas}
+              </span>{' '}
+              {vistaPrevia.data.cantidadLineas === 1 ? 'línea' : 'líneas'}.
+            </p>
+          ))}
       </form>
 
       <SheetFooter>
@@ -277,7 +309,7 @@ function FormBody({
         <Button
           type="submit"
           form="nuevo-conteo-form"
-          disabled={crear.isPending}
+          disabled={crear.isPending || sinLineas}
         >
           {crear.isPending ? 'Planificando…' : 'Planificar conteo'}
         </Button>

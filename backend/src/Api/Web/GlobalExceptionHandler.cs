@@ -49,10 +49,11 @@ public sealed class GlobalExceptionHandler : IExceptionHandler
         else
         {
             _logger.LogInformation(
-                "Domain exception: {ExceptionType} {Code} -> HTTP {Status}",
+                "Domain exception: {ExceptionType} {Code} -> HTTP {Status}: {Message}",
                 exception.GetType().Name,
                 problem.Extensions.TryGetValue("code", out var code) ? code : "(none)",
-                problem.Status);
+                problem.Status,
+                exception.Message);
         }
 
         httpContext.Response.StatusCode = problem.Status ?? StatusCodes.Status500InternalServerError;
@@ -109,7 +110,7 @@ public sealed class GlobalExceptionHandler : IExceptionHandler
             ReceptorFiscalInvalidoException rfi => CreateReceptorProblem(rfi, httpContext, traceId),
             Millet.DatosMaestros.Application.Clientes.ClienteRfcDuplicadoException crd => CreateClienteRfcProblem(crd, httpContext, traceId),
             BusinessRuleException bre => CreateProblem(bre.Code, bre.Message, StatusCodes.Status422UnprocessableEntity, httpContext, traceId),
-            EntityNotFoundException enfe => CreateProblem(enfe.Code, enfe.Message, StatusCodes.Status404NotFound, httpContext, traceId),
+            EntityNotFoundException enfe => CreateProblem(enfe.Code, SinIdentificadores(enfe.Message), StatusCodes.Status404NotFound, httpContext, traceId),
             ConcurrencyException ce => CreateProblem(ce.Code, ce.Message, StatusCodes.Status409Conflict, httpContext, traceId),
             // Token de concurrencia (Version) violado: otro usuario/proceso modificó la fila.
             DbUpdateConcurrencyException => CreateProblem(
@@ -134,6 +135,15 @@ public sealed class GlobalExceptionHandler : IExceptionHandler
                 => CreateSaldoInsuficienteProblem(httpContext, traceId),
             PostgresException pgd when EsSaldoInsuficiente(pgd)
                 => CreateSaldoInsuficienteProblem(httpContext, traceId),
+            DbUpdateException { InnerException: PostgresException pg }
+                when pg.SqlState == PostgresErrorCodes.UniqueViolation
+                    && pg.ConstraintName == "ux_clientes_rfc_no_generico"
+                => CreateProblem(
+                    "CLIENTE_RFC_DUPLICADO",
+                    "Ya existe un cliente con ese RFC. Usa el cliente existente.",
+                    StatusCodes.Status409Conflict,
+                    httpContext,
+                    traceId),
             ForbiddenException fe => CreateProblem(fe.Code, fe.Message, StatusCodes.Status403Forbidden, httpContext, traceId),
             CrossTenantViolationException cte => CreateProblem(cte.Code, cte.Message, StatusCodes.Status403Forbidden, httpContext, traceId),
             MissingEmpresaContextException mece => CreateProblem(mece.Code, mece.Message, StatusCodes.Status500InternalServerError, httpContext, traceId),
@@ -184,6 +194,14 @@ public sealed class GlobalExceptionHandler : IExceptionHandler
         "lectura_deshabilitada" or "aplicacion_deshabilitada" or "origen_sin_configurar" or "origen_deshabilitado" => StatusCodes.Status503ServiceUnavailable,
         _ => StatusCodes.Status500InternalServerError,
     };
+
+    // C-07: el 404 no expone UUIDs al usuario ("No existe rol con id '…'." -> "No existe rol.");
+    // el mensaje original sigue en el log (TryHandleAsync).
+    private static readonly System.Text.RegularExpressions.Regex IdEnMensaje = new(
+        @"\s*(?:con id\s*)?'?[0-9a-fA-F]{8}-(?:[0-9a-fA-F]{4}-){3}[0-9a-fA-F]{12}'?",
+        System.Text.RegularExpressions.RegexOptions.Compiled);
+
+    public static string SinIdentificadores(string message) => IdEnMensaje.Replace(message, string.Empty);
 
     private static ProblemDetails CreateProblem(
         string code, string message, int status, HttpContext httpContext, string traceId)

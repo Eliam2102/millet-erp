@@ -128,7 +128,8 @@ public sealed class AlfakHistorialAlmacenHandler
                     else if (mov.Tipo == TipoMovimiento.SalidaConsumo
                         || mov.Tipo == TipoMovimiento.SalidaPorVale
                         || mov.Tipo == TipoMovimiento.SalidaPorDevolucionAProveedor
-                        || mov.Tipo == TipoMovimiento.BajaPorDano)
+                        || mov.Tipo == TipoMovimiento.BajaPorDano
+                        || mov.Tipo == TipoMovimiento.SalidaPorLiberacionRevision)
                     {
                         salidas += mov.Cantidad;
                     }

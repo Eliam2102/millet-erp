@@ -16,7 +16,7 @@ import {
   useRegistrarSaldoInicial,
 } from '@/features/tesoreria/api/useTesoreria';
 import type { CuentaSaldoResponse } from '@/features/tesoreria/api/types';
-import { esApiError, useBodyScopedIdempotencyKey } from '@/lib/api';
+import { esApiError, useBodyScopedIdempotencyKey, codigoSoporte } from '@/lib/api';
 
 export interface CuentaBancariaSheetProps {
   /** true = sheet visible. En modo edición además viene `cuenta`. */
@@ -91,7 +91,7 @@ function CuentaBancariaForm({
   function onError(error: unknown, titulo: string) {
     toast.error(esApiError(error) ? error.problem.title : titulo, {
       description: esApiError(error)
-        ? (error.problem.detail ?? `Código: ${error.traceId}`)
+        ? (error.problem.detail ?? codigoSoporte(error))
         : undefined,
     });
   }

@@ -157,6 +157,10 @@ namespace Millet.Integraciones.Aw.Infrastructure.Persistence.Migrations
                         .HasColumnType("uuid")
                         .HasColumnName("reintento_de_id");
 
+                    b.Property<string>("ResumenProductos")
+                        .HasColumnType("text")
+                        .HasColumnName("resumen_productos");
+
                     b.Property<int>("SinCambios")
                         .HasColumnType("integer")
                         .HasColumnName("sin_cambios");

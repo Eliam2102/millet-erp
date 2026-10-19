@@ -2603,6 +2603,10 @@ namespace Millet.Compartido.Infrastructure.Migrations.Compartido
                         .HasColumnType("boolean")
                         .HasColumnName("aplica_persona_fisica");
 
+                    b.Property<bool>("AplicaPersonaMoral")
+                        .HasColumnType("boolean")
+                        .HasColumnName("aplica_persona_moral");
+
                     b.Property<string>("Codigo")
                         .IsRequired()
                         .HasMaxLength(3)
@@ -2666,6 +2670,7 @@ namespace Millet.Compartido.Infrastructure.Migrations.Compartido
                         {
                             Id = new Guid("00000002-0002-0000-0000-000000000001"),
                             AplicaPersonaFisica = false,
+                            AplicaPersonaMoral = true,
                             Codigo = "601",
                             CreatedAt = new DateTimeOffset(new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
                             CreatedBy = "seed",
@@ -2679,6 +2684,7 @@ namespace Millet.Compartido.Infrastructure.Migrations.Compartido
                         {
                             Id = new Guid("00000002-0002-0000-0000-000000000002"),
                             AplicaPersonaFisica = false,
+                            AplicaPersonaMoral = true,
                             Codigo = "603",
                             CreatedAt = new DateTimeOffset(new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
                             CreatedBy = "seed",
@@ -2692,6 +2698,7 @@ namespace Millet.Compartido.Infrastructure.Migrations.Compartido
                         {
                             Id = new Guid("00000002-0002-0000-0000-000000000003"),
                             AplicaPersonaFisica = true,
+                            AplicaPersonaMoral = false,
                             Codigo = "605",
                             CreatedAt = new DateTimeOffset(new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
                             CreatedBy = "seed",
@@ -2705,6 +2712,7 @@ namespace Millet.Compartido.Infrastructure.Migrations.Compartido
                         {
                             Id = new Guid("00000002-0002-0000-0000-000000000004"),
                             AplicaPersonaFisica = true,
+                            AplicaPersonaMoral = false,
                             Codigo = "606",
                             CreatedAt = new DateTimeOffset(new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
                             CreatedBy = "seed",
@@ -2718,6 +2726,7 @@ namespace Millet.Compartido.Infrastructure.Migrations.Compartido
                         {
                             Id = new Guid("00000002-0002-0000-0000-000000000005"),
                             AplicaPersonaFisica = true,
+                            AplicaPersonaMoral = false,
                             Codigo = "612",
                             CreatedAt = new DateTimeOffset(new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
                             CreatedBy = "seed",
@@ -2731,6 +2740,7 @@ namespace Millet.Compartido.Infrastructure.Migrations.Compartido
                         {
                             Id = new Guid("00000002-0002-0000-0000-000000000006"),
                             AplicaPersonaFisica = true,
+                            AplicaPersonaMoral = false,
                             Codigo = "621",
                             CreatedAt = new DateTimeOffset(new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
                             CreatedBy = "seed",
@@ -2744,6 +2754,7 @@ namespace Millet.Compartido.Infrastructure.Migrations.Compartido
                         {
                             Id = new Guid("00000002-0002-0000-0000-000000000007"),
                             AplicaPersonaFisica = true,
+                            AplicaPersonaMoral = false,
                             Codigo = "625",
                             CreatedAt = new DateTimeOffset(new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
                             CreatedBy = "seed",
@@ -2757,6 +2768,7 @@ namespace Millet.Compartido.Infrastructure.Migrations.Compartido
                         {
                             Id = new Guid("00000002-0002-0000-0000-000000000008"),
                             AplicaPersonaFisica = true,
+                            AplicaPersonaMoral = true,
                             Codigo = "626",
                             CreatedAt = new DateTimeOffset(new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
                             CreatedBy = "seed",
@@ -2770,6 +2782,7 @@ namespace Millet.Compartido.Infrastructure.Migrations.Compartido
                         {
                             Id = new Guid("00000002-0002-0000-0000-000000000009"),
                             AplicaPersonaFisica = true,
+                            AplicaPersonaMoral = false,
                             Codigo = "607",
                             CreatedAt = new DateTimeOffset(new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
                             CreatedBy = "seed",
@@ -2783,6 +2796,7 @@ namespace Millet.Compartido.Infrastructure.Migrations.Compartido
                         {
                             Id = new Guid("00000002-0002-0000-0000-000000000010"),
                             AplicaPersonaFisica = true,
+                            AplicaPersonaMoral = false,
                             Codigo = "608",
                             CreatedAt = new DateTimeOffset(new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
                             CreatedBy = "seed",
@@ -2796,6 +2810,7 @@ namespace Millet.Compartido.Infrastructure.Migrations.Compartido
                         {
                             Id = new Guid("00000002-0002-0000-0000-000000000011"),
                             AplicaPersonaFisica = false,
+                            AplicaPersonaMoral = true,
                             Codigo = "610",
                             CreatedAt = new DateTimeOffset(new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
                             CreatedBy = "seed",
@@ -2809,6 +2824,7 @@ namespace Millet.Compartido.Infrastructure.Migrations.Compartido
                         {
                             Id = new Guid("00000002-0002-0000-0000-000000000012"),
                             AplicaPersonaFisica = true,
+                            AplicaPersonaMoral = false,
                             Codigo = "611",
                             CreatedAt = new DateTimeOffset(new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
                             CreatedBy = "seed",
@@ -2822,6 +2838,7 @@ namespace Millet.Compartido.Infrastructure.Migrations.Compartido
                         {
                             Id = new Guid("00000002-0002-0000-0000-000000000013"),
                             AplicaPersonaFisica = true,
+                            AplicaPersonaMoral = false,
                             Codigo = "614",
                             CreatedAt = new DateTimeOffset(new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
                             CreatedBy = "seed",
@@ -2835,6 +2852,7 @@ namespace Millet.Compartido.Infrastructure.Migrations.Compartido
                         {
                             Id = new Guid("00000002-0002-0000-0000-000000000014"),
                             AplicaPersonaFisica = true,
+                            AplicaPersonaMoral = false,
                             Codigo = "615",
                             CreatedAt = new DateTimeOffset(new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
                             CreatedBy = "seed",
@@ -2848,6 +2866,7 @@ namespace Millet.Compartido.Infrastructure.Migrations.Compartido
                         {
                             Id = new Guid("00000002-0002-0000-0000-000000000015"),
                             AplicaPersonaFisica = true,
+                            AplicaPersonaMoral = false,
                             Codigo = "616",
                             CreatedAt = new DateTimeOffset(new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
                             CreatedBy = "seed",
@@ -2861,6 +2880,7 @@ namespace Millet.Compartido.Infrastructure.Migrations.Compartido
                         {
                             Id = new Guid("00000002-0002-0000-0000-000000000016"),
                             AplicaPersonaFisica = false,
+                            AplicaPersonaMoral = true,
                             Codigo = "620",
                             CreatedAt = new DateTimeOffset(new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
                             CreatedBy = "seed",
@@ -2874,6 +2894,7 @@ namespace Millet.Compartido.Infrastructure.Migrations.Compartido
                         {
                             Id = new Guid("00000002-0002-0000-0000-000000000017"),
                             AplicaPersonaFisica = false,
+                            AplicaPersonaMoral = true,
                             Codigo = "622",
                             CreatedAt = new DateTimeOffset(new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
                             CreatedBy = "seed",
@@ -2887,6 +2908,7 @@ namespace Millet.Compartido.Infrastructure.Migrations.Compartido
                         {
                             Id = new Guid("00000002-0002-0000-0000-000000000018"),
                             AplicaPersonaFisica = false,
+                            AplicaPersonaMoral = true,
                             Codigo = "623",
                             CreatedAt = new DateTimeOffset(new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
                             CreatedBy = "seed",
@@ -2900,6 +2922,7 @@ namespace Millet.Compartido.Infrastructure.Migrations.Compartido
                         {
                             Id = new Guid("00000002-0002-0000-0000-000000000019"),
                             AplicaPersonaFisica = false,
+                            AplicaPersonaMoral = true,
                             Codigo = "624",
                             CreatedAt = new DateTimeOffset(new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
                             CreatedBy = "seed",
@@ -4069,6 +4092,147 @@ namespace Millet.Compartido.Infrastructure.Migrations.Compartido
                     b.ToTable("cambios_fiscales_aw", "compartido");
                 });
 
+            modelBuilder.Entity("Millet.DatosMaestros.Domain.CambioMaestroAw", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<string>("Campo")
+                        .IsRequired()
+                        .HasMaxLength(60)
+                        .HasColumnType("character varying(60)")
+                        .HasColumnName("campo");
+
+                    b.Property<string>("Causa")
+                        .IsRequired()
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)")
+                        .HasColumnName("causa");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at");
+
+                    b.Property<string>("CreatedBy")
+                        .HasColumnType("text")
+                        .HasColumnName("created_by");
+
+                    b.Property<DateTimeOffset?>("DeletedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("deleted_at");
+
+                    b.Property<string>("Dueno")
+                        .IsRequired()
+                        .HasMaxLength(3)
+                        .HasColumnType("character varying(3)")
+                        .HasColumnName("dueno");
+
+                    b.Property<Guid?>("EjecucionId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("ejecucion_id");
+
+                    b.Property<Guid?>("EntidadId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("entidad_id");
+
+                    b.Property<short>("Estado")
+                        .HasColumnType("smallint")
+                        .HasColumnName("estado");
+
+                    b.Property<string>("HuellaPrevia")
+                        .IsRequired()
+                        .ValueGeneratedOnAdd()
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)")
+                        .HasDefaultValue("")
+                        .HasColumnName("huella_previa");
+
+                    b.Property<DateTime>("OcurridoEnUtc")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("ocurrido_en_utc");
+
+                    b.Property<string>("ReferenciaExterna")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("character varying(50)")
+                        .HasColumnName("referencia_externa");
+
+                    b.Property<string>("Resolucion")
+                        .HasMaxLength(40)
+                        .HasColumnType("character varying(40)")
+                        .HasColumnName("resolucion");
+
+                    b.Property<DateTimeOffset?>("ResueltoEnUtc")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("resuelto_en_utc");
+
+                    b.Property<Guid?>("ResueltoPor")
+                        .HasColumnType("uuid")
+                        .HasColumnName("resuelto_por");
+
+                    b.Property<short>("Tipo")
+                        .HasColumnType("smallint")
+                        .HasColumnName("tipo");
+
+                    b.Property<string>("TipoEntidad")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)")
+                        .HasColumnName("tipo_entidad");
+
+                    b.Property<DateTimeOffset>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("updated_at");
+
+                    b.Property<string>("UpdatedBy")
+                        .HasColumnType("text")
+                        .HasColumnName("updated_by");
+
+                    b.Property<string>("ValorAntes")
+                        .HasMaxLength(400)
+                        .HasColumnType("character varying(400)")
+                        .HasColumnName("valor_antes");
+
+                    b.Property<string>("ValorDespues")
+                        .HasMaxLength(400)
+                        .HasColumnType("character varying(400)")
+                        .HasColumnName("valor_despues");
+
+                    b.Property<int>("Version")
+                        .IsConcurrencyToken()
+                        .HasColumnType("integer")
+                        .HasColumnName("version");
+
+                    b.Property<string>("VersionEvento")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)")
+                        .HasColumnName("version_evento");
+
+                    b.Property<string>("VersionMatriz")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)")
+                        .HasColumnName("version_matriz");
+
+                    b.HasKey("Id")
+                        .HasName("pk_cambios_maestros_aw");
+
+                    b.HasIndex("EjecucionId")
+                        .HasDatabaseName("ix_cambios_maestros_aw_ejecucion_id");
+
+                    b.HasIndex("TipoEntidad", "Estado")
+                        .HasDatabaseName("ix_cambios_maestros_aw_tipo_entidad_estado");
+
+                    b.HasIndex("TipoEntidad", "ReferenciaExterna", "Campo", "Tipo", "VersionEvento", "HuellaPrevia")
+                        .IsUnique()
+                        .HasDatabaseName("ix_cambios_maestros_aw_tipo_entidad_referencia_externa_campo_t");
+
+                    b.ToTable("cambios_maestros_aw", "compartido");
+                });
+
             modelBuilder.Entity("Millet.DatosMaestros.Domain.ClasificacionCliente", b =>
                 {
                     b.Property<Guid>("Id")
@@ -4347,7 +4511,9 @@ namespace Millet.Compartido.Infrastructure.Migrations.Compartido
                         .HasDatabaseName("ix_clientes_referencia_externa");
 
                     b.HasIndex("Rfc")
-                        .HasDatabaseName("ix_clientes_rfc");
+                        .IsUnique()
+                        .HasDatabaseName("ux_clientes_rfc_no_generico")
+                        .HasFilter("rfc NOT IN ('XAXX010101000','XEXX010101000')");
 
                     b.ToTable("clientes", "compartido", t =>
                         {
@@ -4645,6 +4811,164 @@ namespace Millet.Compartido.Infrastructure.Migrations.Compartido
                     b.ToTable("cliente_sincronizacion_aw", "compartido", t =>
                         {
                             t.HasCheckConstraint("ck_cliente_sincronizacion_aw_resultado", "resultado BETWEEN 0 AND 4");
+                        });
+                });
+
+            modelBuilder.Entity("Millet.DatosMaestros.Domain.CuentaBancariaProveedor", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<string>("Banco")
+                        .IsRequired()
+                        .HasMaxLength(120)
+                        .HasColumnType("character varying(120)")
+                        .HasColumnName("banco");
+
+                    b.Property<DateTimeOffset>("CapturadaEn")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("capturada_en");
+
+                    b.Property<Guid?>("CapturadaPorId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("capturada_por_id");
+
+                    b.Property<string>("CapturadaPorNombre")
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)")
+                        .HasColumnName("capturada_por_nombre");
+
+                    b.Property<string>("Clabe")
+                        .HasMaxLength(18)
+                        .HasColumnType("character varying(18)")
+                        .HasColumnName("clabe");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at");
+
+                    b.Property<string>("CreatedBy")
+                        .HasColumnType("text")
+                        .HasColumnName("created_by");
+
+                    b.Property<DateTimeOffset?>("DeletedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("deleted_at");
+
+                    b.Property<Guid?>("DocumentoAdjuntoId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("documento_adjunto_id");
+
+                    b.Property<short>("Estado")
+                        .HasColumnType("smallint")
+                        .HasColumnName("estado");
+
+                    b.Property<string>("Moneda")
+                        .IsRequired()
+                        .HasMaxLength(3)
+                        .HasColumnType("character varying(3)")
+                        .HasColumnName("moneda");
+
+                    b.Property<string>("MotivoEstado")
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)")
+                        .HasColumnName("motivo_estado");
+
+                    b.Property<string>("NotaValidacion")
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)")
+                        .HasColumnName("nota_validacion");
+
+                    b.Property<string>("NumeroCuenta")
+                        .HasMaxLength(40)
+                        .HasColumnType("character varying(40)")
+                        .HasColumnName("numero_cuenta");
+
+                    b.Property<bool>("Predeterminada")
+                        .HasColumnType("boolean")
+                        .HasColumnName("predeterminada");
+
+                    b.Property<Guid>("ProveedorId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("proveedor_id");
+
+                    b.Property<string>("Swift")
+                        .HasMaxLength(11)
+                        .HasColumnType("character varying(11)")
+                        .HasColumnName("swift");
+
+                    b.Property<string>("Titular")
+                        .IsRequired()
+                        .HasMaxLength(254)
+                        .HasColumnType("character varying(254)")
+                        .HasColumnName("titular");
+
+                    b.Property<DateTimeOffset?>("UltimoCambioEn")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("ultimo_cambio_en");
+
+                    b.Property<Guid?>("UltimoCambioPorId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("ultimo_cambio_por_id");
+
+                    b.Property<string>("UltimoCambioPorNombre")
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)")
+                        .HasColumnName("ultimo_cambio_por_nombre");
+
+                    b.Property<DateTimeOffset>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("updated_at");
+
+                    b.Property<string>("UpdatedBy")
+                        .HasColumnType("text")
+                        .HasColumnName("updated_by");
+
+                    b.Property<DateTimeOffset?>("ValidadaEn")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("validada_en");
+
+                    b.Property<Guid?>("ValidadaPorId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("validada_por_id");
+
+                    b.Property<string>("ValidadaPorNombre")
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)")
+                        .HasColumnName("validada_por_nombre");
+
+                    b.Property<int>("Version")
+                        .IsConcurrencyToken()
+                        .HasColumnType("integer")
+                        .HasColumnName("version");
+
+                    b.HasKey("Id")
+                        .HasName("pk_proveedor_cuentas_bancarias");
+
+                    b.HasIndex("ProveedorId")
+                        .HasDatabaseName("ix_proveedor_cuentas_bancarias_proveedor_id");
+
+                    b.HasIndex("ProveedorId", "Clabe")
+                        .IsUnique()
+                        .HasDatabaseName("ux_proveedor_cuentas_clabe")
+                        .HasFilter("clabe IS NOT NULL AND estado <> 3");
+
+                    b.HasIndex("ProveedorId", "NumeroCuenta")
+                        .IsUnique()
+                        .HasDatabaseName("ux_proveedor_cuentas_numero")
+                        .HasFilter("numero_cuenta IS NOT NULL AND estado <> 3");
+
+                    b.ToTable("proveedor_cuentas_bancarias", "compartido", t =>
+                        {
+                            t.HasCheckConstraint("ck_proveedor_cuentas_clabe_formato", "clabe IS NULL OR clabe ~ '^[0-9]{18}$'");
+
+                            t.HasCheckConstraint("ck_proveedor_cuentas_estado", "estado BETWEEN 0 AND 3");
+
+                            t.HasCheckConstraint("ck_proveedor_cuentas_moneda", "moneda IN ('MXN','USD')");
+
+                            t.HasCheckConstraint("ck_proveedor_cuentas_numero", "clabe IS NOT NULL OR numero_cuenta IS NOT NULL");
                         });
                 });
 
@@ -5417,21 +5741,6 @@ namespace Millet.Compartido.Infrastructure.Migrations.Compartido
                         .HasColumnType("uuid")
                         .HasColumnName("id");
 
-                    b.Property<string>("Banco")
-                        .HasMaxLength(120)
-                        .HasColumnType("character varying(120)")
-                        .HasColumnName("banco");
-
-                    b.Property<string>("Beneficiario")
-                        .HasMaxLength(254)
-                        .HasColumnType("character varying(254)")
-                        .HasColumnName("beneficiario");
-
-                    b.Property<string>("Clabe")
-                        .HasMaxLength(18)
-                        .HasColumnType("character varying(18)")
-                        .HasColumnName("clabe");
-
                     b.Property<string>("Clave")
                         .IsRequired()
                         .HasMaxLength(20)
@@ -5442,6 +5751,11 @@ namespace Millet.Compartido.Infrastructure.Migrations.Compartido
                         .HasMaxLength(20)
                         .HasColumnType("character varying(20)")
                         .HasColumnName("clave_legacy");
+
+                    b.Property<string>("ConceptoRetencion")
+                        .HasMaxLength(80)
+                        .HasColumnType("character varying(80)")
+                        .HasColumnName("concepto_retencion");
 
                     b.Property<short?>("CondicionesPagoDias")
                         .HasColumnType("smallint")
@@ -5482,11 +5796,20 @@ namespace Millet.Compartido.Infrastructure.Migrations.Compartido
                         .HasColumnType("character varying(254)")
                         .HasColumnName("nombre_comercial");
 
+                    b.Property<short?>("Origen")
+                        .HasColumnType("smallint")
+                        .HasColumnName("origen");
+
                     b.Property<string>("RazonSocial")
                         .IsRequired()
                         .HasMaxLength(254)
                         .HasColumnType("character varying(254)")
                         .HasColumnName("razon_social");
+
+                    b.Property<string>("RegimenFiscalCodigo")
+                        .HasMaxLength(3)
+                        .HasColumnType("character varying(3)")
+                        .HasColumnName("regimen_fiscal_codigo");
 
                     b.Property<string>("Rfc")
                         .IsRequired()
@@ -5503,6 +5826,10 @@ namespace Millet.Compartido.Infrastructure.Migrations.Compartido
                         .HasColumnType("smallint")
                         .HasColumnName("tipo_persona");
 
+                    b.Property<bool>("ToleranciaFacturaContraOcEsPorcentaje")
+                        .HasColumnType("boolean")
+                        .HasColumnName("tolerancia_factura_contra_oc_es_porcentaje");
+
                     b.Property<decimal?>("ToleranciaFacturaContraOcMxn")
                         .HasPrecision(18, 4)
                         .HasColumnType("numeric(18,4)")
@@ -5515,6 +5842,10 @@ namespace Millet.Compartido.Infrastructure.Migrations.Compartido
                     b.Property<string>("UpdatedBy")
                         .HasColumnType("text")
                         .HasColumnName("updated_by");
+
+                    b.Property<int?>("ValidadoConMatrizVersion")
+                        .HasColumnType("integer")
+                        .HasColumnName("validado_con_matriz_version");
 
                     b.Property<DateTimeOffset?>("ValidadoEn")
                         .HasColumnType("timestamp with time zone")
@@ -5546,8 +5877,6 @@ namespace Millet.Compartido.Infrastructure.Migrations.Compartido
 
                     b.ToTable("proveedores", "compartido", t =>
                         {
-                            t.HasCheckConstraint("ck_proveedores_clabe_formato", "clabe IS NULL OR clabe ~ '^[0-9]{18}$'");
-
                             t.HasCheckConstraint("ck_proveedores_condiciones_pago", "condiciones_pago_dias IS NULL OR condiciones_pago_dias BETWEEN 0 AND 365");
 
                             t.HasCheckConstraint("ck_proveedores_estatus", "estatus BETWEEN 0 AND 2");
@@ -5804,6 +6133,94 @@ namespace Millet.Compartido.Infrastructure.Migrations.Compartido
                         });
                 });
 
+            modelBuilder.Entity("Millet.SharedKernel.Domain.Adjuntos.AdjuntoExcepcion", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at");
+
+                    b.Property<string>("CreatedBy")
+                        .HasColumnType("text")
+                        .HasColumnName("created_by");
+
+                    b.Property<DateTimeOffset?>("DeletedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("deleted_at");
+
+                    b.Property<Guid>("EntidadId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("entidad_id");
+
+                    b.Property<string>("Motivo")
+                        .IsRequired()
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)")
+                        .HasColumnName("motivo");
+
+                    b.Property<DateTimeOffset>("OtorgadaEn")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("otorgada_en");
+
+                    b.Property<Guid?>("OtorgadaPorId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("otorgada_por_id");
+
+                    b.Property<string>("OtorgadaPorNombre")
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)")
+                        .HasColumnName("otorgada_por_nombre");
+
+                    b.Property<DateTimeOffset?>("RevocadaEn")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("revocada_en");
+
+                    b.Property<Guid?>("RevocadaPorId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("revocada_por_id");
+
+                    b.Property<Guid>("TipoDocumentoId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("tipo_documento_id");
+
+                    b.Property<string>("TipoEntidad")
+                        .IsRequired()
+                        .HasMaxLength(60)
+                        .HasColumnType("character varying(60)")
+                        .HasColumnName("tipo_entidad");
+
+                    b.Property<DateTimeOffset>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("updated_at");
+
+                    b.Property<string>("UpdatedBy")
+                        .HasColumnType("text")
+                        .HasColumnName("updated_by");
+
+                    b.Property<int>("Version")
+                        .IsConcurrencyToken()
+                        .HasColumnType("integer")
+                        .HasColumnName("version");
+
+                    b.HasKey("Id")
+                        .HasName("pk_adjunto_excepciones");
+
+                    b.HasIndex("TipoDocumentoId")
+                        .HasDatabaseName("ix_adjunto_excepciones_tipo_documento_id");
+
+                    b.HasIndex("TipoEntidad", "EntidadId")
+                        .HasDatabaseName("ix_adjunto_excepciones_tipo_entidad_entidad_id");
+
+                    b.ToTable("adjunto_excepciones", "compartido", t =>
+                        {
+                            t.HasCheckConstraint("ck_adjunto_excepciones_motivo", "char_length(motivo) BETWEEN 10 AND 500");
+                        });
+                });
+
             modelBuilder.Entity("Millet.SharedKernel.Domain.Adjuntos.AdjuntoTipoDocumento", b =>
                 {
                     b.Property<Guid>("Id")
@@ -5814,6 +6231,10 @@ namespace Millet.Compartido.Infrastructure.Migrations.Compartido
                     b.Property<bool>("Activo")
                         .HasColumnType("boolean")
                         .HasColumnName("activo");
+
+                    b.Property<short>("AplicaOrigen")
+                        .HasColumnType("smallint")
+                        .HasColumnName("aplica_origen");
 
                     b.Property<string>("Codigo")
                         .IsRequired()
@@ -5842,6 +6263,14 @@ namespace Millet.Compartido.Infrastructure.Migrations.Compartido
                     b.Property<bool>("Obligatorio")
                         .HasColumnType("boolean")
                         .HasColumnName("obligatorio");
+
+                    b.Property<bool>("ObligatorioPersonaFisica")
+                        .HasColumnType("boolean")
+                        .HasColumnName("obligatorio_persona_fisica");
+
+                    b.Property<bool>("ObligatorioPersonaMoral")
+                        .HasColumnType("boolean")
+                        .HasColumnName("obligatorio_persona_moral");
 
                     b.Property<int>("Orden")
                         .HasColumnType("integer")
@@ -5891,11 +6320,14 @@ namespace Millet.Compartido.Infrastructure.Migrations.Compartido
                         {
                             Id = new Guid("00000011-0006-0000-0000-000000000001"),
                             Activo = true,
+                            AplicaOrigen = (short)0,
                             Codigo = "soporte",
                             CreatedAt = new DateTimeOffset(new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
                             CreatedBy = "seed",
                             Nombre = "Documento de soporte",
                             Obligatorio = false,
+                            ObligatorioPersonaFisica = false,
+                            ObligatorioPersonaMoral = false,
                             Orden = 1,
                             SoloPersonaMoral = false,
                             TipoEntidad = "requisicion",
@@ -5907,11 +6339,14 @@ namespace Millet.Compartido.Infrastructure.Migrations.Compartido
                         {
                             Id = new Guid("00000011-0006-0000-0000-000000000002"),
                             Activo = true,
+                            AplicaOrigen = (short)0,
                             Codigo = "soporte",
                             CreatedAt = new DateTimeOffset(new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
                             CreatedBy = "seed",
                             Nombre = "Documento de soporte",
                             Obligatorio = false,
+                            ObligatorioPersonaFisica = false,
+                            ObligatorioPersonaMoral = false,
                             Orden = 1,
                             SoloPersonaMoral = false,
                             TipoEntidad = "factura_proveedor",
@@ -5923,11 +6358,14 @@ namespace Millet.Compartido.Infrastructure.Migrations.Compartido
                         {
                             Id = new Guid("00000011-0006-0000-0000-000000000003"),
                             Activo = true,
+                            AplicaOrigen = (short)0,
                             Codigo = "soporte",
                             CreatedAt = new DateTimeOffset(new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
                             CreatedBy = "seed",
                             Nombre = "Documento soporte",
                             Obligatorio = false,
+                            ObligatorioPersonaFisica = false,
+                            ObligatorioPersonaMoral = false,
                             Orden = 1,
                             SoloPersonaMoral = false,
                             TipoEntidad = "poliza",
@@ -5937,13 +6375,73 @@ namespace Millet.Compartido.Infrastructure.Migrations.Compartido
                         },
                         new
                         {
+                            Id = new Guid("00000011-0006-0000-0000-000000000006"),
+                            Activo = true,
+                            AplicaOrigen = (short)0,
+                            Codigo = "foto_dano",
+                            CreatedAt = new DateTimeOffset(new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            CreatedBy = "seed",
+                            Nombre = "Foto o evidencia del daño",
+                            Obligatorio = false,
+                            ObligatorioPersonaFisica = false,
+                            ObligatorioPersonaMoral = false,
+                            Orden = 1,
+                            SoloPersonaMoral = false,
+                            TipoEntidad = "linea_revision",
+                            UpdatedAt = new DateTimeOffset(new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            UpdatedBy = "seed",
+                            Version = 1
+                        },
+                        new
+                        {
+                            Id = new Guid("00000011-0006-0000-0000-000000000004"),
+                            Activo = true,
+                            AplicaOrigen = (short)0,
+                            Codigo = "cotizacion",
+                            CreatedAt = new DateTimeOffset(new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            CreatedBy = "seed",
+                            Nombre = "Cotización del proveedor",
+                            Obligatorio = false,
+                            ObligatorioPersonaFisica = false,
+                            ObligatorioPersonaMoral = false,
+                            Orden = 1,
+                            SoloPersonaMoral = false,
+                            TipoEntidad = "cotizacion_compra",
+                            UpdatedAt = new DateTimeOffset(new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            UpdatedBy = "seed",
+                            Version = 1
+                        },
+                        new
+                        {
+                            Id = new Guid("00000011-0006-0000-0000-000000000005"),
+                            Activo = true,
+                            AplicaOrigen = (short)0,
+                            Codigo = "evidencia_respuesta",
+                            CreatedAt = new DateTimeOffset(new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            CreatedBy = "seed",
+                            Nombre = "Evidencia de la respuesta del proveedor",
+                            Obligatorio = false,
+                            ObligatorioPersonaFisica = false,
+                            ObligatorioPersonaMoral = false,
+                            Orden = 1,
+                            SoloPersonaMoral = false,
+                            TipoEntidad = "oc_respuesta_proveedor",
+                            UpdatedAt = new DateTimeOffset(new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            UpdatedBy = "seed",
+                            Version = 1
+                        },
+                        new
+                        {
                             Id = new Guid("00000011-0001-0000-0000-000000000001"),
                             Activo = true,
+                            AplicaOrigen = (short)1,
                             Codigo = "constancia_situacion_fiscal",
                             CreatedAt = new DateTimeOffset(new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
                             CreatedBy = "seed",
                             Nombre = "Constancia de situación fiscal",
                             Obligatorio = true,
+                            ObligatorioPersonaFisica = true,
+                            ObligatorioPersonaMoral = true,
                             Orden = 1,
                             SoloPersonaMoral = false,
                             TipoEntidad = "proveedor",
@@ -5956,11 +6454,14 @@ namespace Millet.Compartido.Infrastructure.Migrations.Compartido
                         {
                             Id = new Guid("00000011-0001-0000-0000-000000000002"),
                             Activo = true,
+                            AplicaOrigen = (short)0,
                             Codigo = "contrato",
                             CreatedAt = new DateTimeOffset(new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
                             CreatedBy = "seed",
                             Nombre = "Contrato",
                             Obligatorio = true,
+                            ObligatorioPersonaFisica = true,
+                            ObligatorioPersonaMoral = true,
                             Orden = 2,
                             SoloPersonaMoral = false,
                             TipoEntidad = "proveedor",
@@ -5972,11 +6473,14 @@ namespace Millet.Compartido.Infrastructure.Migrations.Compartido
                         {
                             Id = new Guid("00000011-0001-0000-0000-000000000003"),
                             Activo = true,
+                            AplicaOrigen = (short)0,
                             Codigo = "acta_constitutiva",
                             CreatedAt = new DateTimeOffset(new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
                             CreatedBy = "seed",
                             Nombre = "Acta constitutiva",
                             Obligatorio = true,
+                            ObligatorioPersonaFisica = false,
+                            ObligatorioPersonaMoral = true,
                             Orden = 3,
                             SoloPersonaMoral = true,
                             TipoEntidad = "proveedor",
@@ -5988,11 +6492,14 @@ namespace Millet.Compartido.Infrastructure.Migrations.Compartido
                         {
                             Id = new Guid("00000011-0001-0000-0000-000000000004"),
                             Activo = true,
+                            AplicaOrigen = (short)0,
                             Codigo = "identificacion_representante_legal",
                             CreatedAt = new DateTimeOffset(new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
                             CreatedBy = "seed",
                             Nombre = "Identificación del representante legal",
                             Obligatorio = true,
+                            ObligatorioPersonaFisica = true,
+                            ObligatorioPersonaMoral = true,
                             Orden = 4,
                             SoloPersonaMoral = false,
                             TipoEntidad = "proveedor",
@@ -6004,11 +6511,14 @@ namespace Millet.Compartido.Infrastructure.Migrations.Compartido
                         {
                             Id = new Guid("00000011-0001-0000-0000-000000000005"),
                             Activo = true,
+                            AplicaOrigen = (short)0,
                             Codigo = "comprobante_domicilio",
                             CreatedAt = new DateTimeOffset(new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
                             CreatedBy = "seed",
                             Nombre = "Comprobante de domicilio",
                             Obligatorio = true,
+                            ObligatorioPersonaFisica = true,
+                            ObligatorioPersonaMoral = true,
                             Orden = 5,
                             SoloPersonaMoral = false,
                             TipoEntidad = "proveedor",
@@ -6019,13 +6529,75 @@ namespace Millet.Compartido.Infrastructure.Migrations.Compartido
                         },
                         new
                         {
+                            Id = new Guid("00000011-0001-0000-0000-000000000006"),
+                            Activo = true,
+                            AplicaOrigen = (short)0,
+                            Codigo = "estado_cuenta_bancaria",
+                            CreatedAt = new DateTimeOffset(new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            CreatedBy = "seed",
+                            Nombre = "Estado de cuenta o carta bancaria",
+                            Obligatorio = false,
+                            ObligatorioPersonaFisica = false,
+                            ObligatorioPersonaMoral = false,
+                            Orden = 6,
+                            SoloPersonaMoral = false,
+                            TipoEntidad = "proveedor",
+                            UpdatedAt = new DateTimeOffset(new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            UpdatedBy = "seed",
+                            Version = 1,
+                            VigenciaMeses = 3
+                        },
+                        new
+                        {
+                            Id = new Guid("00000011-0001-0000-0000-000000000007"),
+                            Activo = true,
+                            AplicaOrigen = (short)1,
+                            Codigo = "opinion_cumplimiento",
+                            CreatedAt = new DateTimeOffset(new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            CreatedBy = "seed",
+                            Nombre = "Opinión de cumplimiento (32-D)",
+                            Obligatorio = false,
+                            ObligatorioPersonaFisica = false,
+                            ObligatorioPersonaMoral = false,
+                            Orden = 7,
+                            SoloPersonaMoral = false,
+                            TipoEntidad = "proveedor",
+                            UpdatedAt = new DateTimeOffset(new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            UpdatedBy = "seed",
+                            Version = 1,
+                            VigenciaMeses = 1
+                        },
+                        new
+                        {
+                            Id = new Guid("00000011-0001-0000-0000-000000000008"),
+                            Activo = true,
+                            AplicaOrigen = (short)0,
+                            Codigo = "fotografias_domicilio",
+                            CreatedAt = new DateTimeOffset(new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            CreatedBy = "seed",
+                            Nombre = "Fotografías del domicilio fiscal",
+                            Obligatorio = false,
+                            ObligatorioPersonaFisica = false,
+                            ObligatorioPersonaMoral = false,
+                            Orden = 8,
+                            SoloPersonaMoral = false,
+                            TipoEntidad = "proveedor",
+                            UpdatedAt = new DateTimeOffset(new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            UpdatedBy = "seed",
+                            Version = 1
+                        },
+                        new
+                        {
                             Id = new Guid("0000000e-0003-0000-0000-000000000001"),
                             Activo = true,
+                            AplicaOrigen = (short)0,
                             Codigo = "IMP_FACTURA",
                             CreatedAt = new DateTimeOffset(new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
                             CreatedBy = "seed",
                             Nombre = "Factura comercial",
                             Obligatorio = true,
+                            ObligatorioPersonaFisica = false,
+                            ObligatorioPersonaMoral = false,
                             Orden = 1,
                             SoloPersonaMoral = false,
                             TipoEntidad = "expediente_ce",
@@ -6037,11 +6609,14 @@ namespace Millet.Compartido.Infrastructure.Migrations.Compartido
                         {
                             Id = new Guid("0000000e-0003-0000-0000-000000000002"),
                             Activo = true,
+                            AplicaOrigen = (short)0,
                             Codigo = "IMP_PACKING",
                             CreatedAt = new DateTimeOffset(new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
                             CreatedBy = "seed",
                             Nombre = "Packing list",
                             Obligatorio = true,
+                            ObligatorioPersonaFisica = false,
+                            ObligatorioPersonaMoral = false,
                             Orden = 2,
                             SoloPersonaMoral = false,
                             TipoEntidad = "expediente_ce",
@@ -6053,11 +6628,14 @@ namespace Millet.Compartido.Infrastructure.Migrations.Compartido
                         {
                             Id = new Guid("0000000e-0003-0000-0000-000000000003"),
                             Activo = true,
+                            AplicaOrigen = (short)0,
                             Codigo = "IMP_TRANSPORTE",
                             CreatedAt = new DateTimeOffset(new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
                             CreatedBy = "seed",
                             Nombre = "BL o AWB",
                             Obligatorio = true,
+                            ObligatorioPersonaFisica = false,
+                            ObligatorioPersonaMoral = false,
                             Orden = 3,
                             SoloPersonaMoral = false,
                             TipoEntidad = "expediente_ce",
@@ -6069,11 +6647,14 @@ namespace Millet.Compartido.Infrastructure.Migrations.Compartido
                         {
                             Id = new Guid("0000000e-0003-0000-0000-000000000004"),
                             Activo = true,
+                            AplicaOrigen = (short)0,
                             Codigo = "IMP_PEDIMENTO",
                             CreatedAt = new DateTimeOffset(new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
                             CreatedBy = "seed",
                             Nombre = "Pedimento",
                             Obligatorio = true,
+                            ObligatorioPersonaFisica = false,
+                            ObligatorioPersonaMoral = false,
                             Orden = 4,
                             SoloPersonaMoral = false,
                             TipoEntidad = "expediente_ce",
@@ -6085,11 +6666,14 @@ namespace Millet.Compartido.Infrastructure.Migrations.Compartido
                         {
                             Id = new Guid("0000000e-0003-0000-0000-000000000005"),
                             Activo = true,
+                            AplicaOrigen = (short)0,
                             Codigo = "IMP_OC",
                             CreatedAt = new DateTimeOffset(new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
                             CreatedBy = "seed",
                             Nombre = "Orden de compra",
                             Obligatorio = true,
+                            ObligatorioPersonaFisica = false,
+                            ObligatorioPersonaMoral = false,
                             Orden = 5,
                             SoloPersonaMoral = false,
                             TipoEntidad = "expediente_ce",
@@ -6101,11 +6685,14 @@ namespace Millet.Compartido.Infrastructure.Migrations.Compartido
                         {
                             Id = new Guid("0000000e-0003-0000-0000-000000000006"),
                             Activo = true,
+                            AplicaOrigen = (short)0,
                             Codigo = "IMP_REGULATORIOS",
                             CreatedAt = new DateTimeOffset(new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
                             CreatedBy = "seed",
                             Nombre = "Regulatorios",
                             Obligatorio = false,
+                            ObligatorioPersonaFisica = false,
+                            ObligatorioPersonaMoral = false,
                             Orden = 6,
                             SoloPersonaMoral = false,
                             TipoEntidad = "expediente_ce",
@@ -6117,11 +6704,14 @@ namespace Millet.Compartido.Infrastructure.Migrations.Compartido
                         {
                             Id = new Guid("0000000e-0003-0000-0000-000000000007"),
                             Activo = true,
+                            AplicaOrigen = (short)0,
                             Codigo = "EXP_PACKING",
                             CreatedAt = new DateTimeOffset(new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
                             CreatedBy = "seed",
                             Nombre = "Packing list",
                             Obligatorio = true,
+                            ObligatorioPersonaFisica = false,
+                            ObligatorioPersonaMoral = false,
                             Orden = 7,
                             SoloPersonaMoral = false,
                             TipoEntidad = "expediente_ce",
@@ -6133,11 +6723,14 @@ namespace Millet.Compartido.Infrastructure.Migrations.Compartido
                         {
                             Id = new Guid("0000000e-0003-0000-0000-000000000008"),
                             Activo = true,
+                            AplicaOrigen = (short)0,
                             Codigo = "EXP_FACTURA",
                             CreatedAt = new DateTimeOffset(new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
                             CreatedBy = "seed",
                             Nombre = "Factura comercial",
                             Obligatorio = true,
+                            ObligatorioPersonaFisica = false,
+                            ObligatorioPersonaMoral = false,
                             Orden = 8,
                             SoloPersonaMoral = false,
                             TipoEntidad = "expediente_ce",
@@ -6149,11 +6742,14 @@ namespace Millet.Compartido.Infrastructure.Migrations.Compartido
                         {
                             Id = new Guid("0000000e-0003-0000-0000-000000000009"),
                             Activo = true,
+                            AplicaOrigen = (short)0,
                             Codigo = "EXP_BL",
                             CreatedAt = new DateTimeOffset(new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
                             CreatedBy = "seed",
                             Nombre = "BL",
                             Obligatorio = true,
+                            ObligatorioPersonaFisica = false,
+                            ObligatorioPersonaMoral = false,
                             Orden = 9,
                             SoloPersonaMoral = false,
                             TipoEntidad = "expediente_ce",
@@ -6165,11 +6761,14 @@ namespace Millet.Compartido.Infrastructure.Migrations.Compartido
                         {
                             Id = new Guid("0000000e-0003-0000-0000-00000000000a"),
                             Activo = true,
+                            AplicaOrigen = (short)0,
                             Codigo = "EXP_PEDIMENTO",
                             CreatedAt = new DateTimeOffset(new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
                             CreatedBy = "seed",
                             Nombre = "Pedimento",
                             Obligatorio = true,
+                            ObligatorioPersonaFisica = false,
+                            ObligatorioPersonaMoral = false,
                             Orden = 10,
                             SoloPersonaMoral = false,
                             TipoEntidad = "expediente_ce",
@@ -6181,11 +6780,14 @@ namespace Millet.Compartido.Infrastructure.Migrations.Compartido
                         {
                             Id = new Guid("0000000e-0003-0000-0000-00000000000b"),
                             Activo = true,
+                            AplicaOrigen = (short)0,
                             Codigo = "EXP_ORIGEN",
                             CreatedAt = new DateTimeOffset(new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
                             CreatedBy = "seed",
                             Nombre = "Certificado de origen",
                             Obligatorio = false,
+                            ObligatorioPersonaFisica = false,
+                            ObligatorioPersonaMoral = false,
                             Orden = 11,
                             SoloPersonaMoral = false,
                             TipoEntidad = "expediente_ce",
@@ -6197,11 +6799,14 @@ namespace Millet.Compartido.Infrastructure.Migrations.Compartido
                         {
                             Id = new Guid("0000000e-0003-0000-0000-00000000000c"),
                             Activo = true,
+                            AplicaOrigen = (short)0,
                             Codigo = "EXP_ISF",
                             CreatedAt = new DateTimeOffset(new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
                             CreatedBy = "seed",
                             Nombre = "ISF",
                             Obligatorio = false,
+                            ObligatorioPersonaFisica = false,
+                            ObligatorioPersonaMoral = false,
                             Orden = 12,
                             SoloPersonaMoral = false,
                             TipoEntidad = "expediente_ce",
@@ -6213,11 +6818,14 @@ namespace Millet.Compartido.Infrastructure.Migrations.Compartido
                         {
                             Id = new Guid("0000000e-0003-0000-0000-00000000000d"),
                             Activo = true,
+                            AplicaOrigen = (short)0,
                             Codigo = "EXP_CARTA_PORTE",
                             CreatedAt = new DateTimeOffset(new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
                             CreatedBy = "seed",
                             Nombre = "Carta Porte",
                             Obligatorio = false,
+                            ObligatorioPersonaFisica = false,
+                            ObligatorioPersonaMoral = false,
                             Orden = 13,
                             SoloPersonaMoral = false,
                             TipoEntidad = "expediente_ce",
@@ -6229,11 +6837,14 @@ namespace Millet.Compartido.Infrastructure.Migrations.Compartido
                         {
                             Id = new Guid("0000000e-0003-0000-0000-00000000000e"),
                             Activo = true,
+                            AplicaOrigen = (short)0,
                             Codigo = "EXP_POD",
                             CreatedAt = new DateTimeOffset(new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
                             CreatedBy = "seed",
                             Nombre = "POD",
                             Obligatorio = false,
+                            ObligatorioPersonaFisica = false,
+                            ObligatorioPersonaMoral = false,
                             Orden = 14,
                             SoloPersonaMoral = false,
                             TipoEntidad = "expediente_ce",
@@ -6640,6 +7251,16 @@ namespace Millet.Compartido.Infrastructure.Migrations.Compartido
                         .HasConstraintName("fk_cliente_sincronizacion_aw_clientes_cliente_id");
                 });
 
+            modelBuilder.Entity("Millet.DatosMaestros.Domain.CuentaBancariaProveedor", b =>
+                {
+                    b.HasOne("Millet.DatosMaestros.Domain.Proveedor", null)
+                        .WithMany()
+                        .HasForeignKey("ProveedorId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired()
+                        .HasConstraintName("fk_proveedor_cuentas_bancarias_proveedores_proveedor_id");
+                });
+
             modelBuilder.Entity("Millet.DatosMaestros.Domain.DiferenciaFiscalAwCorridaFila", b =>
                 {
                     b.HasOne("Millet.DatosMaestros.Domain.DiferenciaFiscalAwCorrida", null)
@@ -6794,6 +7415,16 @@ namespace Millet.Compartido.Infrastructure.Migrations.Compartido
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired()
                         .HasConstraintName("fk_adjuntos_adjunto_tipos_documento_tipo_documento_id");
+                });
+
+            modelBuilder.Entity("Millet.SharedKernel.Domain.Adjuntos.AdjuntoExcepcion", b =>
+                {
+                    b.HasOne("Millet.SharedKernel.Domain.Adjuntos.AdjuntoTipoDocumento", null)
+                        .WithMany()
+                        .HasForeignKey("TipoDocumentoId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired()
+                        .HasConstraintName("fk_adjunto_excepciones_adjunto_tipos_documento_tipo_documento_");
                 });
 
             modelBuilder.Entity("Millet.DatosMaestros.Domain.DiferenciaFiscalAwCorrida", b =>

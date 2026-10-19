@@ -47,9 +47,9 @@ export function ResumenCubrimiento({
     <div
       className={cn(
         'inline-flex items-center gap-2 rounded-md border px-3 py-1.5 text-sm',
-        completo && 'border-emerald-300 bg-emerald-50 text-emerald-900',
-        sinCobertura && 'border-amber-300 bg-amber-50 text-amber-900',
-        !completo && !sinCobertura && 'border-slate-300 bg-slate-50 text-slate-900',
+        completo && 'border-success bg-success-bg text-success-fg',
+        sinCobertura && 'border-warning bg-warning-bg text-warning-fg',
+        !completo && !sinCobertura && 'border-line bg-surface-muted text-ink-muted',
         className,
       )}
       role="status"

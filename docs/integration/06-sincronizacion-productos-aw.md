@@ -82,6 +82,10 @@ Las medidas (`alto_mm`, `ancho_mm`, `espesor_mm`) son nullables: **nulo signific
 
 La edición manual (`PATCH /{id}`) también valida versión: `GET /{id}` expone `version` y `ETag`; el PATCH acepta `If-Match` opcional y, si la versión es vieja, responde 409 `PRODUCTO_AW_CONFLICTO_VERSION` sin escribir (sin `If-Match` se comporta como antes). El formulario manda la versión con que se abrió y recarga el detalle al recibir el 409.
 
+### 8.1 Descripción editada en el ERP, bitácora y baja (86e3qcgyn)
+
+La descripción del producto es **dato de A+W** (matriz `MatrizCampoDuenoAw`, versión `0-propuesta`). Si alguien la edita en el ERP y A+W manda otro valor, la sincronización **no la pisa**: aplica el resto de los campos, conserva el valor del ERP y deja un conflicto `EditadoEnErp` pendiente (valor del ERP y valor de A+W, versión del evento = `HashOrigen`). La `Accion` del servicio no cambia, así que el reintento por referencia sigue respondiendo 200. «Aplicar A+W» en la pantalla «Sincronización con A+W → Productos» restituye el valor de A+W y deja el conflicto resuelto (`POST /api/v1/datos-maestros/productos-aw/conflictos-aw/{id}/resolver`). Los cambios de descripción, unidad, medidas y estatus que sí se aplican quedan en la bitácora `compartido.cambios_maestros_aw` (`GET /api/v1/datos-maestros/productos-aw/{id}/cambios-aw`), idempotente por referencia, campo, tipo y versión de evento. La baja y la reactivación desde A+W (`KZ_GESPERRT`) conservan el mismo producto y dejan una fila `Baja` o `Reactivacion`; nunca se borra. Cada medida es una variante y las variantes nunca se colapsan, ni siquiera entre productos con el mismo `CodigoModelo`. Los datos fiscales y de aduana siguen sin pisarse desde A+W.
+
 ## 9. Contrato de lectura y endpoints (D1/D2)
 
 **Puerto:** `IProductoAwContratoReadPort` (`ObtenerPorReferenciaAsync`, `ObtenerPorIdAsync`) en `Millet.DatosMaestros.Application.ProductosAw`; adaptador `ProductoAwContratoReadAdapter` sobre `CompartidoDbContext` (solo lectura). Devuelve inactivos con su `estatus`; nunca borra. Inventario, producción y facturación futuros lo consumen sin tocar tablas.

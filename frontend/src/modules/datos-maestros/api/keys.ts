@@ -79,8 +79,8 @@ export const datosMaestrosKeys = {
     [...datosMaestrosKeys.proveedores(), 'list', filtros] as const,
   proveedor: (id: string) =>
     [...datosMaestrosKeys.proveedores(), 'detail', id] as const,
-  proveedorDatosBancarios: (id: string) =>
-    [...datosMaestrosKeys.proveedor(id), 'datos-bancarios'] as const,
+  proveedorCuentasBancarias: (id: string) =>
+    [...datosMaestrosKeys.proveedor(id), 'cuentas-bancarias'] as const,
 
   articulos: () => [...datosMaestrosKeys.all, 'articulos'] as const,
   articulosList: (filtros: ListarArticulosFiltros) =>

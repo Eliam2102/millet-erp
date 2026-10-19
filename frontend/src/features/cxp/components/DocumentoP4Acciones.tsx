@@ -28,7 +28,7 @@ export function DocumentoP4Acciones({ tipo, documento }: { tipo: Tipo; documento
     {tipo === 'notas-cargo' && puedeAplicarCargo && documento.estado === 3 && <Button size="sm" variant="secondary" onClick={() => setAccion('formalizar')}>Ligar NC fiscal</Button>}
     {tipo === 'notas-credito' && puedeCapturar && documento.estado === 1 && documento.tipoRelacionCfdi !== 7 && <Button size="sm" variant="secondary" onClick={() => setAccion('vincular-factura')}>Vincular factura</Button>}
     {tipo === 'anticipos' && puedeCapturar && (documento.estado === 1 || documento.estado === 2) && <Button size="sm" variant="secondary" onClick={() => setAccion('amortizar-nc')}>Amortizar con NC tipo 07</Button>}
-    <Sheet open={accion !== null} onOpenChange={(open) => { if (!open) setAccion(null); }}><SheetContent>
+    <Sheet open={accion !== null} onOpenChange={(open) => { if (!open) setAccion(null); }}><SheetContent size="legacy">
       <SheetHeader><SheetTitle>{accion === 'cancelar' ? 'Cancelar documento' : accion === 'formalizar' ? 'Ligar NC fiscal' : accion === 'aplicar' ? 'Aplicar cargo' : accion === 'amortizar-nc' ? 'Amortizar con NC tipo 07' : 'Vincular factura'}</SheetTitle>
       <SheetDescription>Verifica el documento del proveedor antes de registrar la operación.</SheetDescription></SheetHeader>
       {accion && <Formulario key={accion} accion={accion} tipo={tipo} documento={documento} onClose={() => setAccion(null)} />}

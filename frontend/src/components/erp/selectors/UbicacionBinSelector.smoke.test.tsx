@@ -213,4 +213,35 @@ describe('<UbicacionBinSelector>', () => {
     expect(trigger).toBeDisabled();
     expect(trigger).toHaveTextContent(/Elige artículo y sub-almacén primero/i);
   });
+
+  it('accionSinUbicaciones: se muestra con lista vacía y no con items', async () => {
+    const asign = (items: unknown[]) =>
+      http.get('*/api/v1/almacen/asignaciones', () =>
+        HttpResponse.json({ items, offset: 0, limit: 500, total: items.length }),
+      );
+    mswServer.use(
+      asign([]),
+      http.get('*/api/v1/almacen/ubicaciones', () =>
+        HttpResponse.json({ items: [UBIC_RACK], offset: 0, limit: 500, total: 1 }),
+      ),
+    );
+    const props = {
+      modo: 'asignacion' as const,
+      articuloId: ART,
+      subAlmacenId: SUB,
+      value: null,
+      onChange: () => {},
+      accionSinUbicaciones: <span>ACCION</span>,
+    };
+    const { unmount } = render(<UbicacionBinSelector {...props} />, { wrapper: createQueryWrapper() });
+    await waitFor(() => expect(screen.getByText('ACCION')).toBeInTheDocument());
+    unmount();
+    mswServer.use(
+      asign([{ id: 'a1', ubicacionId: RACK, articuloId: ART, estatus: 0, articuloClave: null, articuloDescripcion: null }]),
+    );
+    render(<UbicacionBinSelector {...props} />, { wrapper: createQueryWrapper() });
+    await waitFor(() => expect(screen.getByRole('combobox')).toBeEnabled());
+    await new Promise((r) => setTimeout(r, 50));
+    expect(screen.queryByText('ACCION')).not.toBeInTheDocument();
+  });
 });

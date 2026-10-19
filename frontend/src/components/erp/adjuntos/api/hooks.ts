@@ -134,6 +134,34 @@ export function useDarDeBajaAdjunto(base: string) {
   });
 }
 
+/** Otorga una excepción a un documento obligatorio (motivo 10-500; permiso validar). */
+export function useOtorgarExcepcion(base: string) {
+  const qc = useQueryClient();
+  return useMutation<unknown, Error, { tipoDocumentoId: string; motivo: string }>({
+    mutationFn: async (body) =>
+      (
+        await apiRequest<{ id: string }>(`${base}/expediente/excepciones`, {
+          method: 'POST',
+          body,
+          idempotencyKey: crypto.randomUUID(),
+        })
+      ).data,
+    onSuccess: () => invalidar(qc, base),
+  });
+}
+
+export function useRevocarExcepcion(base: string) {
+  const qc = useQueryClient();
+  return useMutation<unknown, Error, { excepcionId: string }>({
+    mutationFn: async ({ excepcionId }) =>
+      apiRequest<void>(`${base}/expediente/excepciones/${excepcionId}/revocar`, {
+        method: 'POST',
+        idempotencyKey: crypto.randomUUID(),
+      }),
+    onSuccess: () => invalidar(qc, base),
+  });
+}
+
 /** Dispara la descarga del enlace temporal (TTL 60 s) de inmediato. */
 export function abrirEnlaceDescarga(url: string) {
   const a = document.createElement('a');

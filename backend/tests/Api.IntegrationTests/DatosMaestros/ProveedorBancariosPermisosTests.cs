@@ -1,7 +1,5 @@
 using System.Net;
 using System.Net.Http.Json;
-using System.Text.Json;
-using System.Text.RegularExpressions;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
@@ -14,197 +12,118 @@ using Millet.SharedKernel.Infrastructure.Persistence;
 namespace Millet.Api.IntegrationTests.DatosMaestros;
 
 /// <summary>
-/// Pruebas de integración de permisos bancarios de proveedor por rol (G1.9 / F1-ADM-05).
-/// Criterios de aceptación:
-/// - G1.9-a: Rol CxP ve cuenta enmascarada y PATCH responde 403.
-/// - G1.9-b: Rol Tesorería edita datos bancarios -> 204, audita en core.audit_log sin CLABE completa, re-envío idéntico no duplica auditoría.
-/// - G1.9-c: Perfil sin permisos bancarios (Compras) -> GET y PATCH responden 403.
+/// 86e3pdmee · ADM-02: varias cuentas bancarias por proveedor con validación.
+/// - Captura con <c>bancarios-editar</c>: la cuenta queda «Por validar».
+/// - Valida un administrador (<c>cuentas-administrar</c>) distinto de quien capturó, con estado de cuenta vigente.
+/// - Sin permiso no se ve ni se captura; sin <c>cuentas-administrar</c> el número va enmascarado.
+/// - La bitácora nunca lleva la CLABE completa.
 /// </summary>
 public class ProveedorBancariosPermisosTests : IClassFixture<WebApplicationFactory<Program>>
 {
+    private const string Clabe = "012180000000001234";
+    private static readonly Guid TipoEstadoCuenta = Guid.Parse("00000011-0001-0000-0000-000000000006");
     private readonly WebApplicationFactory<Program> _factory;
 
     public ProveedorBancariosPermisosTests(WebApplicationFactory<Program> factory) => _factory = factory;
 
+    private static string Cuentas(Guid proveedorId) => $"{AdjuntosProveedorAmbiente.Base}/{proveedorId}/cuentas-bancarias";
+
+    private static HttpRequestMessage Accion(Guid proveedorId, Guid cuentaId, string ruta, int version, object body)
+    {
+        var req = new HttpRequestMessage(HttpMethod.Post, $"{Cuentas(proveedorId)}/{cuentaId}/{ruta}") { Content = JsonContent.Create(body) };
+        req.Headers.Add("X-Expected-Version", version.ToString());
+        req.Headers.Add("Idempotency-Key", Guid.NewGuid().ToString());
+        return req;
+    }
+
     [Fact]
-    public async Task G19a_Cxp_Ve_Clabe_Enmascarada_Y_Patch_Responde_403()
+    public async Task Tesoreria_captura_por_validar_y_otro_administrador_valida_con_estado_de_cuenta()
     {
         var amb = new AdjuntosProveedorAmbiente(_factory);
         var provId = await amb.SeedProveedorAsync(TipoPersonaProveedor.Moral, EstatusCatalogo.Activo);
-
-        // Pre-cargar datos bancarios con SuperAdmin
-        var admin = await amb.SuperAdminAsync();
-        var patchInicial = await admin.PatchAsJsonAsync(
-            $"{AdjuntosProveedorAmbiente.Base}/{provId}/datos-bancarios",
-            new
-            {
-                banco = "BBVA",
-                clabe = "012345678901234567",
-                beneficiario = "Beneficiario Uno",
-            });
-        Assert.Equal(HttpStatusCode.NoContent, patchInicial.StatusCode);
-
-        // Cliente con permisos exactos del rol cxp
-        var (cxpClient, _) = await amb.ClienteConPermisosAsync(
+        var (tesoreria, _) = await amb.ClienteConPermisosAsync(
             PermisosCanonicos.DatosMaestrosProveedoresBancariosVer,
-            PermisosCanonicos.DatosMaestrosProveedoresValidar,
-            PermisosCanonicos.DatosMaestrosProveedoresGestionar);
+            PermisosCanonicos.DatosMaestrosProveedoresBancariosEditar);
 
-        // GET: 200 con CLABE enmascarada
-        var getResp = await cxpClient.GetAsync($"{AdjuntosProveedorAmbiente.Base}/{provId}/datos-bancarios");
-        Assert.Equal(HttpStatusCode.OK, getResp.StatusCode);
-        var getJson = await AdjuntosProveedorAmbiente.LeerAsync(getResp);
-        var clabe = getJson.GetProperty("clabe").GetString();
-        Assert.NotNull(clabe);
-        Assert.Matches(@"^\*+\d{4}$", clabe);
-        Assert.EndsWith("4567", clabe);
-        Assert.False(getJson.GetProperty("clabeCompleta").GetBoolean());
+        var alta = await tesoreria.PostAsJsonAsync(Cuentas(provId), new { banco = "BBVA", clabe = Clabe, moneda = "MXN", titular = "Proveedor SA" });
+        Assert.Equal(HttpStatusCode.Created, alta.StatusCode);
+        var cuenta = await AdjuntosProveedorAmbiente.LeerAsync(alta);
+        Assert.Equal((int)EstadoCuentaBancariaProveedor.PorValidar, cuenta.GetProperty("estado").GetInt32());
+        var cuentaId = cuenta.GetProperty("id").GetGuid();
 
-        // PATCH: 403 Forbidden
-        var patchResp = await cxpClient.PatchAsJsonAsync(
-            $"{AdjuntosProveedorAmbiente.Base}/{provId}/datos-bancarios",
-            new { banco = "Banorte", clabe = "987654321098765432" });
-        Assert.Equal(HttpStatusCode.Forbidden, patchResp.StatusCode);
-    }
+        var duplicada = await tesoreria.PostAsJsonAsync(Cuentas(provId), new { banco = "BBVA", clabe = Clabe, moneda = "MXN", titular = "Proveedor SA" });
+        Assert.Equal(HttpStatusCode.Conflict, duplicada.StatusCode);
 
-    [Fact]
-    public async Task G19b_Tesoreria_Edita_Datos_Bancarios_204_Y_Audita_Sin_Clabe_Completa()
-    {
-        var amb = new AdjuntosProveedorAmbiente(_factory);
-        var provId = await amb.SeedProveedorAsync(TipoPersonaProveedor.Moral, EstatusCatalogo.Activo);
+        // Tesorería no puede validar (no tiene cuentas-administrar) y ve el número enmascarado.
+        var sinPermiso = await tesoreria.SendAsync(Accion(provId, cuentaId, "validar", cuenta.GetProperty("version").GetInt32(),
+            new { documentoAdjuntoId = Guid.NewGuid(), cotejoCompleto = true }));
+        Assert.Equal(HttpStatusCode.Forbidden, sinPermiso.StatusCode);
+        var lista = await AdjuntosProveedorAmbiente.LeerAsync(await tesoreria.GetAsync(Cuentas(provId)));
+        Assert.Matches(@"^\*+1234$", lista[0].GetProperty("numero").GetString()!);
 
-        // Pre-cargar datos bancarios iniciales con SuperAdmin
         var admin = await amb.SuperAdminAsync();
-        var clabeInicial = "012345678901234567";
-        var patchInicial = await admin.PatchAsJsonAsync(
-            $"{AdjuntosProveedorAmbiente.Base}/{provId}/datos-bancarios",
-            new
-            {
-                banco = "BBVA",
-                clabe = clabeInicial,
-                beneficiario = "Beneficiario Inicial",
-            });
-        Assert.Equal(HttpStatusCode.NoContent, patchInicial.StatusCode);
-
-        // Limpiar o contar auditorías previas de la inicial
-        int logsPrevios;
-        using (var scope = _factory.Services.CreateScope())
-        {
-            var coreDb = scope.ServiceProvider.GetRequiredService<CoreDbContext>();
-            logsPrevios = await coreDb.AuditLog.CountAsync(a => a.EntidadId == provId && a.Operacion == "proveedor.bancarios-cambiados");
-        }
-
-        // Cliente con permisos exactos del rol tesoreria (SIN CompartidoCatalogosAdministrar)
-        var (tesoreriaClient, usuarioTesoreriaId) = await amb.ClienteConPermisosAsync(
+        var documento = await AdjuntosProveedorAmbiente.SubirOkAsync(admin, provId, TipoEstadoCuenta);
+        var (validador, _) = await amb.ClienteConPermisosAsync(
             PermisosCanonicos.DatosMaestrosProveedoresBancariosVer,
-            PermisosCanonicos.DatosMaestrosProveedoresBancariosEditar,
-            PermisosCanonicos.DatosMaestrosProveedoresGestionar);
+            PermisosCanonicos.DatosMaestrosProveedoresCuentasAdministrar);
+        var validar = await validador.SendAsync(Accion(provId, cuentaId, "validar", cuenta.GetProperty("version").GetInt32(),
+            new { documentoAdjuntoId = documento, cotejoCompleto = true, nota = "Llamada al teléfono registrado" }));
+        Assert.Equal(HttpStatusCode.OK, validar.StatusCode);
+        var validada = await AdjuntosProveedorAmbiente.LeerAsync(validar);
+        Assert.Equal((int)EstadoCuentaBancariaProveedor.Activa, validada.GetProperty("estado").GetInt32());
+        Assert.True(validada.GetProperty("predeterminada").GetBoolean());
 
-        var clabeNueva = "987654321098765432";
-        var patchTesoreria = await tesoreriaClient.PatchAsJsonAsync(
-            $"{AdjuntosProveedorAmbiente.Base}/{provId}/datos-bancarios",
-            new
-            {
-                banco = "Citibanamex",
-                clabe = clabeNueva,
-                beneficiario = "Beneficiario Nuevo",
-            });
-        Assert.Equal(HttpStatusCode.NoContent, patchTesoreria.StatusCode);
-
-        // GET devuelve la nueva CLABE enmascarada
-        var getResp = await tesoreriaClient.GetAsync($"{AdjuntosProveedorAmbiente.Base}/{provId}/datos-bancarios");
-        Assert.Equal(HttpStatusCode.OK, getResp.StatusCode);
-        var getJson = await AdjuntosProveedorAmbiente.LeerAsync(getResp);
-        Assert.Equal("Citibanamex", getJson.GetProperty("banco").GetString());
-        var clabeObtenida = getJson.GetProperty("clabe").GetString();
-        Assert.NotNull(clabeObtenida);
-        Assert.EndsWith("5432", clabeObtenida);
-        Assert.Matches(@"^\*+\d{4}$", clabeObtenida);
-
-        // Verificar core.audit_log
-        using (var scope = _factory.Services.CreateScope())
-        {
-            var coreDb = scope.ServiceProvider.GetRequiredService<CoreDbContext>();
-            var auditEntries = await coreDb.AuditLog
-                .Where(a => a.EntidadId == provId && a.Operacion == "proveedor.bancarios-cambiados")
-                .OrderBy(a => a.Timestamp)
-                .ToListAsync();
-
-            Assert.Equal(logsPrevios + 1, auditEntries.Count);
-            // Se busca por usuario y no por Timestamp: el reloj de pruebas puede empatar las filas.
-            var entry = Assert.Single(auditEntries, a => a.UsuarioId == usuarioTesoreriaId);
-            Assert.Equal("proveedor.bancarios-cambiados", entry.Operacion);
-            Assert.Equal("Proveedor", entry.Entidad);
-
-            // Prohibido contener 18 dígitos seguidos
-            Assert.DoesNotMatch(@"\d{18}", entry.Cambios);
-            Assert.DoesNotMatch(@"\d{18}", entry.Resumen);
-
-            // Contiene los últimos 4 anteriores y nuevos
-            Assert.Contains("4567", entry.Cambios);
-            Assert.Contains("5432", entry.Cambios);
-            Assert.Contains("4567", entry.Resumen);
-            Assert.Contains("5432", entry.Resumen);
-        }
-
-        // Repetir PATCH con los mismos valores -> 204 y NO crea segunda fila de auditoría
-        var patchRepetido = await tesoreriaClient.PatchAsJsonAsync(
-            $"{AdjuntosProveedorAmbiente.Base}/{provId}/datos-bancarios",
-            new
-            {
-                banco = "Citibanamex",
-                clabe = clabeNueva,
-                beneficiario = "Beneficiario Nuevo",
-            });
-        Assert.Equal(HttpStatusCode.NoContent, patchRepetido.StatusCode);
-
-        using (var scope = _factory.Services.CreateScope())
-        {
-            var coreDb = scope.ServiceProvider.GetRequiredService<CoreDbContext>();
-            var auditCount = await coreDb.AuditLog
-                .CountAsync(a => a.EntidadId == provId && a.Operacion == "proveedor.bancarios-cambiados");
-            Assert.Equal(logsPrevios + 1, auditCount);
-        }
+        using var scope = _factory.Services.CreateScope();
+        var core = scope.ServiceProvider.GetRequiredService<CoreDbContext>();
+        var bitacora = await core.AuditLog.Where(a => a.AggregateRootId == provId && a.Operacion.StartsWith("proveedor.cuenta-")).ToListAsync();
+        Assert.Equal(2, bitacora.Count);
+        Assert.All(bitacora, a => Assert.DoesNotContain(Clabe, a.Resumen + a.Cambios + a.EntidadEtiqueta));
     }
 
     [Fact]
-    public async Task G19c_Compras_Sin_Permisos_Bancarios_Responde_403_En_Get_Y_Patch()
+    public async Task Quien_capturo_no_valida_aunque_sea_administrador()
     {
         var amb = new AdjuntosProveedorAmbiente(_factory);
         var provId = await amb.SeedProveedorAsync(TipoPersonaProveedor.Moral, EstatusCatalogo.Activo);
+        var admin = await amb.SuperAdminAsync();
+        var alta = await AdjuntosProveedorAmbiente.LeerAsync(await admin.PostAsJsonAsync(Cuentas(provId),
+            new { banco = "Banorte", clabe = "072180000000004569", moneda = "MXN", titular = "Proveedor SA" }));
+        var documento = await AdjuntosProveedorAmbiente.SubirOkAsync(admin, provId, TipoEstadoCuenta);
 
-        // Cliente solo con gestión de proveedores (perfil Compras)
-        var (comprasClient, _) = await amb.ClienteConPermisosAsync(
-            PermisosCanonicos.DatosMaestrosProveedoresGestionar);
-
-        // GET datos bancarios -> 403 Forbidden
-        var getResp = await comprasClient.GetAsync($"{AdjuntosProveedorAmbiente.Base}/{provId}/datos-bancarios");
-        Assert.Equal(HttpStatusCode.Forbidden, getResp.StatusCode);
-
-        // PATCH datos bancarios -> 403 Forbidden
-        var patchResp = await comprasClient.PatchAsJsonAsync(
-            $"{AdjuntosProveedorAmbiente.Base}/{provId}/datos-bancarios",
-            new { banco = "Banco Prueba" });
-        Assert.Equal(HttpStatusCode.Forbidden, patchResp.StatusCode);
+        var validar = await admin.SendAsync(Accion(provId, alta.GetProperty("id").GetGuid(), "validar", alta.GetProperty("version").GetInt32(),
+            new { documentoAdjuntoId = documento, cotejoCompleto = true }));
+        Assert.Equal(HttpStatusCode.UnprocessableEntity, validar.StatusCode);
+        Assert.Equal("PROVEEDOR_CUENTA_MISMA_PERSONA", await AdjuntosProveedorAmbiente.CodigoAsync(validar));
     }
 
     [Fact]
-    public async Task G19_PatchGrueso_Catalogos_ConAdministrarSinBancariosEditar_Responde_403_SinPermiso()
+    public async Task Compras_sin_permisos_bancarios_responde_403_al_ver_y_al_capturar()
     {
         var amb = new AdjuntosProveedorAmbiente(_factory);
         var provId = await amb.SeedProveedorAsync(TipoPersonaProveedor.Moral, EstatusCatalogo.Activo);
+        var (compras, _) = await amb.ClienteConPermisosAsync(PermisosCanonicos.DatosMaestrosProveedoresGestionar);
 
-        // catalogos.administrar abre el PATCH grueso, pero sin bancarios-editar no debe tocar la CLABE.
-        var (cliente, _) = await amb.ClienteConPermisosAsync(
-            PermisosCanonicos.CompartidoCatalogosAdministrar,
-            PermisosCanonicos.DatosMaestrosProveedoresGestionar);
+        Assert.Equal(HttpStatusCode.Forbidden, (await compras.GetAsync(Cuentas(provId))).StatusCode);
+        var alta = await compras.PostAsJsonAsync(Cuentas(provId), new { banco = "BBVA", clabe = Clabe, moneda = "MXN", titular = "Proveedor SA" });
+        Assert.Equal(HttpStatusCode.Forbidden, alta.StatusCode);
+    }
 
-        var resp = await cliente.PatchAsJsonAsync(
-            $"/api/v1/catalogos/proveedores/{provId}",
-            new { clabe = "987654321098765432" });
+    [Fact]
+    public async Task Tesoreria_con_bancarios_editar_no_puede_marcar_predeterminada_responde_403()
+    {
+        var amb = new AdjuntosProveedorAmbiente(_factory);
+        var provId = await amb.SeedProveedorAsync(TipoPersonaProveedor.Moral, EstatusCatalogo.Activo);
+        var (tesoreria, _) = await amb.ClienteConPermisosAsync(
+            PermisosCanonicos.DatosMaestrosProveedoresBancariosVer,
+            PermisosCanonicos.DatosMaestrosProveedoresBancariosEditar);
 
-        Assert.Equal(HttpStatusCode.Forbidden, resp.StatusCode);
-        var json = await AdjuntosProveedorAmbiente.LeerAsync(resp);
-        Assert.Equal("PROVEEDOR_BANCARIOS_SIN_PERMISO", json.GetProperty("code").GetString());
+        var r = await tesoreria.SendAsync(Accion(provId, Guid.NewGuid(), "predeterminada", 1, new { }));
+
+        Assert.Equal(HttpStatusCode.Forbidden, r.StatusCode);
+
+        // Con cuentas-administrar el permiso alcanza (la cuenta no existe: 404, no 403).
+        var (admin, _) = await amb.ClienteConPermisosAsync(PermisosCanonicos.DatosMaestrosProveedoresCuentasAdministrar);
+        var r2 = await admin.SendAsync(Accion(provId, Guid.NewGuid(), "predeterminada", 1, new { }));
+        Assert.Equal(HttpStatusCode.NotFound, r2.StatusCode);
     }
 }

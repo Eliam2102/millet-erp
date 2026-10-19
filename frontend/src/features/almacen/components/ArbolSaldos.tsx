@@ -8,6 +8,8 @@ import type {
   NivelNodoJerarquia,
   NodoJerarquiaSaldo,
 } from '@/features/almacen/api/types';
+import { MoneyDisplay } from '@/components/erp/display/MoneyDisplay';
+import { formatCantidad } from '@/lib/format-cantidad';
 
 /**
  * Árbol de la consulta jerárquica de saldos (PR6, ADR-0047). Carga PEREZOSA:
@@ -182,16 +184,16 @@ function FilaNodo({
           </span>
         )}
         {nodo.esDefault && (
-          <Badge variant="outline" className="shrink-0 text-[10px]">
+          <Badge variant="outline" className="shrink-0 text-2xs">
             ÚNICA
           </Badge>
         )}
 
         <span className="ml-auto shrink-0 text-right font-mono">
-          {formatearCantidad(nodo.cantidad)}
+          {formatCantidad(nodo.cantidad, 2)}
         </span>
         <span className="w-32 shrink-0 text-right text-xs text-muted-foreground">
-          {formatearMonto(nodo.valorInventarioMxn)}
+          <MoneyDisplay amount={nodo.valorInventarioMxn} currency="MXN" strong />
         </span>
       </div>
 
@@ -212,17 +214,3 @@ function FilaNodo({
   );
 }
 
-function formatearCantidad(v: number): string {
-  return v.toLocaleString('es-MX', {
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 2,
-  });
-}
-
-function formatearMonto(v: number): string {
-  return new Intl.NumberFormat('es-MX', {
-    style: 'currency',
-    currency: 'MXN',
-    minimumFractionDigits: 2,
-  }).format(v);
-}

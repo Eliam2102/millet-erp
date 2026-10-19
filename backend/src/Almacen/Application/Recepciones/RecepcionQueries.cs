@@ -2,6 +2,7 @@ using MediatR;
 using Millet.SharedKernel.Application;
 using Microsoft.EntityFrameworkCore;
 using Millet.Almacen.Application.Catalogo;
+using Millet.Almacen.Domain.Catalogo;
 using Millet.Almacen.Domain.Movimientos;
 using Millet.Almacen.Domain.Ports;
 using Millet.Almacen.Infrastructure.Persistence;
@@ -64,7 +65,12 @@ public sealed record RecepcionLineaItem(
     string UnidadMedida,
     decimal CostoUnitarioMxn,
     decimal MontoTotalMxn, decimal? CantidadCapturada = null, string? UnidadCapturada = null,
-    Guid? CentroCostoId = null, string? CentroCostoClave = null, string? CentroCostoNombre = null);
+    Guid? CentroCostoId = null, string? CentroCostoClave = null, string? CentroCostoNombre = null,
+    // Rack destino de la línea (bin N4) y su ruta "ALM › SUB · BIN" (mismo formato que
+    // los selectores). Null = línea histórica sin bin o bin no resuelto.
+    Guid? UbicacionId = null, string? UbicacionClave = null,
+    // ALM-04: línea que entró al sub-almacén de material en revisión (no disponible hasta el dictamen) y su motivo de daño.
+    bool EnRevision = false, string? MotivoDano = null);
 
 public sealed record ListarRecepcionesQuery(
     EstadoMovimiento? Estado,
@@ -73,7 +79,9 @@ public sealed record ListarRecepcionesQuery(
     DateOnly? Desde,
     DateOnly? Hasta,
     int Offset,
-    int Limit) : IRequest<AlmacenPagedResponse<RecepcionListItem>>, IDocumentoScopedQuery
+    int Limit,
+    Guid? ProveedorId = null,
+    string? Q = null) : IRequest<AlmacenPagedResponse<RecepcionListItem>>, IDocumentoScopedQuery
 {
     public string TipoDocumento => "recepcion";
     public string PermisoTodasSucursales => "almacen.entradas.leer-todas-sucursales";
@@ -96,17 +104,8 @@ public sealed class ListarRecepcionesHandler
     public async Task<AlmacenPagedResponse<RecepcionListItem>> Handle(
         ListarRecepcionesQuery request, CancellationToken cancellationToken)
     {
-        IQueryable<MovimientoInventario> query = _db.Movimientos.AsNoTracking()
-            .Where(m => m.Tipo == TipoMovimiento.EntradaCompra);
-        if (request.DocumentosPermitidos is { } permitidos) query = query.Where(x => permitidos.Contains(x.Id));
+        var query = await RecepcionesFiltro.AplicarAsync(_db, _ordenesCompra, request, cancellationToken);
         if (request.Estado is EstadoMovimiento e) query = query.Where(m => m.Estado == e);
-        // PR6a: el sub-almacén ya no vive en la cabecera; se filtra vía la vista.
-        if (request.SubAlmacenId is Guid sid)
-            query = query.Where(m => _db.MovimientosSubAlmacen
-                .Any(v => v.MovimientoId == m.Id && v.SubAlmacenId == sid));
-        if (request.OrdenCompraId is Guid ocid) query = query.Where(m => m.OcId == ocid);
-        if (request.Desde is DateOnly d) query = query.Where(m => m.FechaMovimiento >= d);
-        if (request.Hasta is DateOnly h) query = query.Where(m => m.FechaMovimiento <= h);
 
         var total = await query.CountAsync(cancellationToken);
         var items = await query
@@ -150,6 +149,69 @@ public sealed class ListarRecepcionesHandler
     }
 }
 
+/// <summary>
+/// Filtros de la bandeja de recepciones salvo el estado, compartidos por el listado
+/// y por los conteos por estado (UX-F3-05) para que ambos coincidan siempre.
+/// </summary>
+internal static class RecepcionesFiltro
+{
+    public static async Task<IQueryable<MovimientoInventario>> AplicarAsync(
+        AlmacenDbContext db, IComprasOcReadPort ordenesCompra, ListarRecepcionesQuery request, CancellationToken cancellationToken)
+    {
+        var query = db.Movimientos.AsNoTracking()
+            .Where(m => m.Tipo == TipoMovimiento.EntradaCompra)
+            // ALM-04: el movimiento de material en revisión es parte de la recepción principal; no se lista aparte.
+            .Where(m => m.RecepcionOrigenId == null);
+        if (request.DocumentosPermitidos is { } permitidos) query = query.Where(x => permitidos.Contains(x.Id));
+        // PR6a: el sub-almacén ya no vive en la cabecera; se filtra vía la vista.
+        if (request.SubAlmacenId is Guid sid)
+            query = query.Where(m => db.MovimientosSubAlmacen
+                .Any(v => v.MovimientoId == m.Id && v.SubAlmacenId == sid));
+        if (request.OrdenCompraId is Guid ocid) query = query.Where(m => m.OcId == ocid);
+        if (request.Desde is DateOnly d) query = query.Where(m => m.FechaMovimiento >= d);
+        if (request.Hasta is DateOnly h) query = query.Where(m => m.FechaMovimiento <= h);
+        // Proveedor: la recepción no lo guarda; se resuelve vía las OC del proveedor (puerto de Compras).
+        if (request.ProveedorId is Guid pid)
+        {
+            var ocsProveedor = (await ordenesCompra.ObtenerIdsPorProveedorAsync(pid, cancellationToken)).ToArray();
+            query = query.Where(m => m.OcId != null && ocsProveedor.Contains(m.OcId.Value));
+        }
+        // Búsqueda por folio de la recepción (server-side); los folios se generan en mayúsculas.
+        if (!string.IsNullOrWhiteSpace(request.Q))
+        {
+            var q = request.Q.Trim().ToUpperInvariant();
+            query = query.Where(m => m.Folio != null && m.Folio.Contains(q));
+        }
+
+        return query;
+    }
+}
+
+public sealed record ConteosRecepcionesPorEstadoQuery(
+    Guid? SubAlmacenId, Guid? OrdenCompraId, DateOnly? Desde, DateOnly? Hasta, Guid? ProveedorId = null, string? Q = null)
+    : IRequest<IReadOnlyList<ConteoPorEstadoItem>>, IDocumentoScopedQuery
+{
+    public string TipoDocumento => "recepcion";
+    public string PermisoTodasSucursales => "almacen.entradas.leer-todas-sucursales";
+    public IReadOnlyList<Guid>? SucursalesPermitidas { get; set; }
+    public IReadOnlyList<Guid>? DocumentosPermitidos { get; set; }
+}
+
+public sealed class ConteosRecepcionesPorEstadoHandler(AlmacenDbContext db, IComprasOcReadPort ordenesCompra)
+    : IRequestHandler<ConteosRecepcionesPorEstadoQuery, IReadOnlyList<ConteoPorEstadoItem>>
+{
+    public async Task<IReadOnlyList<ConteoPorEstadoItem>> Handle(
+        ConteosRecepcionesPorEstadoQuery request, CancellationToken cancellationToken)
+    {
+        var lista = new ListarRecepcionesQuery(null, request.SubAlmacenId, request.OrdenCompraId, request.Desde, request.Hasta,
+            0, 0, request.ProveedorId, request.Q) { DocumentosPermitidos = request.DocumentosPermitidos };
+        var query = await RecepcionesFiltro.AplicarAsync(db, ordenesCompra, lista, cancellationToken);
+        return await query.GroupBy(m => m.Estado)
+            .Select(g => new ConteoPorEstadoItem((int)g.Key, g.Count()))
+            .ToListAsync(cancellationToken);
+    }
+}
+
 public sealed record ObtenerRecepcionPorIdQuery(Guid Id) : IRequest<RecepcionDetalle?>;
 
 public sealed class ObtenerRecepcionPorIdHandler
@@ -183,6 +245,15 @@ public sealed class ObtenerRecepcionPorIdHandler
                 && m.Tipo == TipoMovimiento.EntradaCompra, cancellationToken);
         if (mov is null) return null;
 
+        // ALM-04: las líneas del movimiento de revisión (hermano) se muestran dentro de la recepción principal.
+        var hermanos = await _db.Movimientos.AsNoTracking()
+            .Include(m => m.Lineas)
+            .Where(m => m.RecepcionOrigenId == mov.Id && m.Tipo == TipoMovimiento.EntradaCompra && m.Estado == EstadoMovimiento.Registrado)
+            .ToListAsync(cancellationToken);
+        var lineas = mov.Lineas.OrderBy(l => l.Posicion)
+            .Concat(hermanos.SelectMany(h => h.Lineas.OrderBy(l => l.Posicion)))
+            .ToList();
+
         // Enriquecimiento de nombres (ADR-0042). Cada resolución cae al id/clave
         // cruda si el read-port no la encuentra (campo null en el DTO).
 
@@ -199,11 +270,35 @@ public sealed class ObtenerRecepcionPorIdHandler
             .FirstOrDefaultAsync(cancellationToken);
 
         // Artículo: batch sobre los ids distintos de las líneas (anti-N+1).
-        var articuloIds = mov.Lineas.Select(l => l.ArticuloId).Distinct().ToArray();
+        var articuloIds = lineas.Select(l => l.ArticuloId).Distinct().ToArray();
         var articulos = await _articulos.ObtenerPorIdsAsync(articuloIds, cancellationToken);
 
-        var centroIds = mov.Lineas.Where(x => x.CentroCostoId.HasValue).Select(x => x.CentroCostoId!.Value).Distinct().ToArray();
+        var centroIds = lineas.Where(x => x.CentroCostoId.HasValue).Select(x => x.CentroCostoId!.Value).Distinct().ToArray();
         var centros = await _centros.ObtenerAsync(centroIds, cancellationToken);
+
+        // Ruta del rack de cada línea: una consulta con los bins distintos (anti-N+1).
+        var ubicacionIds = lineas
+            .Where(l => l.UbicacionId is not null)
+            .Select(l => l.UbicacionId!.Value)
+            .Distinct()
+            .ToArray();
+        Dictionary<Guid, string> rutasUbicacion = ubicacionIds.Length > 0
+            ? (await (
+                from u in _db.Ubicaciones.AsNoTracking()
+                join sa in _db.SubAlmacenes.AsNoTracking() on u.SubAlmacenId equals sa.Id
+                join al in _db.Almacenes.AsNoTracking() on sa.AlmacenId equals al.Id
+                where ubicacionIds.Contains(u.Id)
+                select new { u.Id, u.Clave, SubClave = sa.Clave, AlmacenClave = al.Clave })
+                .ToListAsync(cancellationToken))
+                .ToDictionary(x => x.Id, x => $"{x.AlmacenClave} › {x.SubClave} · {x.Clave}")
+            : new Dictionary<Guid, string>();
+
+        var binsRevision = ubicacionIds.Length > 0
+            ? await (from u in _db.Ubicaciones.AsNoTracking()
+                     join sa in _db.SubAlmacenes.AsNoTracking() on u.SubAlmacenId equals sa.Id
+                     where ubicacionIds.Contains(u.Id) && sa.Tipo == TipoSubAlmacen.MaterialEnRevision
+                     select u.Id).ToListAsync(cancellationToken)
+            : [];
 
         // Folio de OC: lectura de presentación state-agnostic (resuelve aunque
         // la OC ya esté Cerrada/Cancelada). Batch aunque la recepción tenga 1 OC.
@@ -254,18 +349,21 @@ public sealed class ObtenerRecepcionPorIdHandler
             Observaciones: mov.ComentarioLibre,
             RegistradoAt: mov.RegistradoAt,
             RegistradoPor: mov.RegistradoPor,
-            Lineas: mov.Lineas
-                .OrderBy(l => l.Posicion)
-                .Select(l =>
+            Lineas: lineas
+                .Select((l, i) =>
                 {
+                    var enRevision = l.UbicacionId is Guid bin && binsRevision.Contains(bin);
                     articulos.TryGetValue(l.ArticuloId, out var art);
                     var centro = l.CentroCostoId is Guid cc ? centros.GetValueOrDefault(cc) : null;
                     return new RecepcionLineaItem(
-                        l.Id, l.Posicion, l.ArticuloId,
+                        l.Id, i + 1, l.ArticuloId,
                         art?.Clave, art?.Descripcion,
                         l.Cantidad, l.UnidadMedida,
                         l.CostoUnitarioMxn, l.MontoTotalMxn, l.CantidadCapturada, l.UnidadCapturada,
-                        l.CentroCostoId, centro?.Clave, centro?.Nombre);
+                        l.CentroCostoId, centro?.Clave, centro?.Nombre,
+                        l.UbicacionId,
+                        l.UbicacionId is Guid ub && rutasUbicacion.TryGetValue(ub, out var ruta) ? ruta : null,
+                        enRevision, enRevision ? l.ComentarioLinea : null);
                 })
                 .ToList(),
             CfdiUuidFiscal: cfdiUuidFiscal,

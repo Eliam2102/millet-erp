@@ -414,6 +414,7 @@ monto), `MovimientosBancariosQuery` + `MovimientoDetalleQuery`,
 | `cuentas_por_cobrar.propuesta-aplicacion.creada.v1` | `cuentas-por-cobrar-events` / `tesoreria-subscription` | Crea `deposito_confirmacion` en `Pendiente` |
 | `facturacion.caja-sesion.cerrada.v1` | `facturacion-events` / `tesoreria-subscription` | Crea expectativa de depósito (deposito_confirmacion con `caja_sesion_id`) |
 | `facturacion.recibo-pago.timbrado.v1` | (misma subscription) | Marca `repp_timbrado=true` en la confirmación correspondiente |
+| `facturacion.nota-credito.reembolso-solicitado.v1` | (misma subscription `facturacion-events` / `tesoreria-subscription`) | Crea `devolucion_cliente` de origen NC en `Solicitada`; idempotente por `EventoProcesado` y por `nota_credito_id` (índice único `ux_devolucion_cliente_nota_credito`) |
 
 Filtros SQL por `EventType` en el Bicep, igual que las subscriptions
 existentes. Naming exacto se alinea al patrón del `servicebus.bicep`
@@ -500,6 +501,67 @@ aplicación de pagos de CxC).
 | Conector bancario vivo | `<IntegracionBanco>` | Ingesta por archivo | `Millet.Integraciones.<Banco>` tras `IExtractoFuente` |
 | Validación fiscal REPP recibido | `<ValidacionReppRecibido>` | Registro manual | Servicio SAT post-MVP [T-G10] |
 | `MetodoPago` en evento de pasivo | `<MetodoPagoEnPasivo>` | Columna nullable + captura manual opcional | Enriquecer evento CxP v1 (aditivo) o read-port [T-G11] |
+
+---
+
+## Devoluciones de dinero a clientes (T9.6 · F1-TES-02)
+
+Esta sección documenta lo ya construido en Tesorería para devolver dinero a un cliente. Código de referencia: `backend/src/Tesoreria/Domain/Devoluciones/DevolucionCliente.cs`, `backend/src/Tesoreria/Application/Devoluciones/*`, `backend/src/Tesoreria/Application/EventListeners/ProyectarReembolsoNotaCreditoCommand.cs`, `backend/src/Api/Endpoints/Tesoreria/DevolucionesEndpoints.cs` y `MovimientosEndpoints.cs`. Pruebas de integración de punta a punta: `backend/tests/Api.IntegrationTests/Tesoreria/DevolucionesClienteTests.cs`.
+
+### Agregado y orígenes
+
+El agregado `DevolucionCliente` (tabla `devolucion_cliente`) tiene dos orígenes:
+
+- **Depósito erróneo** (`OrigenDevolucionCliente.DepositoErroneo`): un ingreso bancario que no corresponde a una cobranza. Se solicita desde el movimiento y exige banco, CLABE y titular del cliente desde el principio. El tope es el monto del depósito.
+- **Nota de crédito** (`OrigenDevolucionCliente.NotaCredito`): Facturación pide devolver en dinero una NC timbrada. La solicitud nace en Tesorería sin cuenta destino; Tesorería la captura al editar. El tope es el total de la NC.
+
+### Estados y transiciones
+
+`Solicitada` (1) pasa a `Autorizada` (2) o `Rechazada` (3) o `Cancelada` (5); `Autorizada` pasa a `Pagada` (4). Solo una devolución `Solicitada` puede editarse, cancelarse, autorizarse o rechazarse (`DEV_NO_EDITABLE`, `DEV_NO_PENDIENTE`); solo una `Autorizada` puede pagarse (`DEV_NO_AUTORIZADA`). Todas las transiciones llevan `X-Expected-Version` (ADR-0012) e `Idempotency-Key` (ADR-0020), y las que cambian dinero comprometido se serializan con un advisory lock (`DevolucionLectura.LockKey`).
+
+### Reglas
+
+- **Tope (T9.6-a).** La suma de lo comprometido (estados `Solicitada`, `Autorizada` y `Pagada`) más la devolución nueva no puede exceder el origen. Se valida al solicitar, al editar (la propia solicitud no se cuenta dos veces) y de nuevo al pagar. Códigos: `DEV_IMPORTE_EXCEDE_DEPOSITO` y `DEV_IMPORTE_EXCEDE_NC`.
+- **Segregación.** Quien solicita no autoriza (`DEV_MISMO_USUARIO`, 422). Para editar se exige ser el solicitante o tener el permiso de autorizar.
+- **Depósito.** Debe ser un ingreso (`DEV_DEPOSITO_NO_INGRESO`), no una reversa (`DEV_DEPOSITO_ES_REVERSA`), no estar confirmado contra una propuesta de CxC (`DEV_DEPOSITO_CONFIRMADO`) y, si ya está identificado con un cliente, el cliente debe coincidir (`DEV_CLIENTE_DISTINTO_AL_DEPOSITO`). El cliente debe existir (`DEV_CLIENTE_NO_ENCONTRADO`). El cliente de una devolución de NC no puede cambiarse (`DEV_CLIENTE_NO_EDITABLE`).
+- **Autorizar** exige destino completo (`DEV_DESTINO_INCOMPLETO`). Rechazar y cancelar exigen motivo (`DEV_MOTIVO_VACIO`).
+- **Pago.** El período contable debe estar abierto (`MOV_PERIODO_CERRADO`) y quien paga confirma que verificó saldo en la banca (`fondosVerificados: true`; con `false` el endpoint responde 400).
+  - *Depósito erróneo:* sale de la misma cuenta donde entró (`DEV_CUENTA_DISTINTA_AL_DEPOSITO`) y registra un **contramovimiento** egreso ligado al depósito (`ContramovimientoDe`, `MotivoReversa` con el motivo de la solicitud). El depósito original no se borra ni se modifica en monto: su estado de aplicación pasa a `Aplicado` y deja de poder confirmarse contra CxC.
+  - *Nota de crédito:* requiere `cuentaBancariaId` (`DEV_CUENTA_REQUERIDA`) en la misma moneda (`DEV_CUENTA_OTRA_MONEDA`). Registra un egreso con beneficiario cliente ligado a la solicitud (`MovimientoPagoId`), sin `ContramovimientoDe`.
+- **Idempotencia del reembolso de NC.** El consumidor crea la solicitud una sola vez: por `EventoProcesado` (mismo evento) y por el índice único `ux_devolucion_cliente_nota_credito` (misma NC en otro evento).
+
+### Endpoints y permisos
+
+| Endpoint | Permiso |
+|---|---|
+| `POST /api/v1/tesoreria/movimientos/{id}/solicitar-devolucion` | `tesoreria.devoluciones.solicitar` |
+| `GET /api/v1/tesoreria/devoluciones`, `/conteos-por-estado`, `/{id}` | `tesoreria.devoluciones.ver` |
+| `PUT /api/v1/tesoreria/devoluciones/{id}`, `POST .../{id}/cancelar` | `tesoreria.devoluciones.solicitar` |
+| `POST .../{id}/autorizar`, `POST .../{id}/rechazar` | `tesoreria.devoluciones.autorizar` |
+| `POST .../{id}/pagar` | `tesoreria.devoluciones.pagar` |
+| `GET /api/v1/tesoreria/clientes-lookup` | `tesoreria.devoluciones.solicitar` |
+
+Del lado de Facturación, `POST /api/v1/facturacion/notas-credito/{id}/solicitar-reembolso` (permiso `facturacion.notas-credito.reembolso-solicitar`) deja el evento en el Outbox de Facturación en la misma transacción que marca la NC.
+
+### Sucursal (ADR-0051) y datos sensibles
+
+El grupo de endpoints verifica la sucursal del documento con `DocumentoSucursalScope` (tipo `devolucion_cliente`, permisos `tesoreria.documentos.leer-todas-sucursales` o `gestionar-todas-sucursales`). Un usuario operativo solo ve y opera devoluciones de sus sucursales; el listado se filtra por las sucursales permitidas. La CLABE destino es PII: se devuelve enmascarada salvo con `tesoreria.movimientos.ver-cuenta-completa`.
+
+### Decisiones y pendientes
+
+- **Supuesto E11.** El evento `facturacion.nota-credito.reembolso-solicitado.v1` viaja por el topic `facturacion-events` y la subscription `tesoreria-subscription`. Está por validar entre Eliam y Uziel. Payload: `empresaId`, `ocurridoEn`, `notaCreditoId`, `folio`, `uuid`, `clienteId`, `receptorRfc` (Tesorería lo ignora), `importe`, `totalNotaCredito`, `moneda`, `sucursalId`, `motivo`, `solicitadoPor`.
+- **Infraestructura pendiente de desplegar.** El filtro SQL de la subscription `tesoreria-subscription` sobre `facturacion-events` en `infra/modules/servicebus.bicep` ya incluye el nuevo `EventType`, pero el cambio no se ha desplegado. Antes de `create` hay que correr `what-if` (regla del repositorio). Sin el despliegue, el evento no llega a Tesorería en Azure.
+- **NC ya registrada en el ERP.** Comentario de Eliam del 15-oct: la NC de "devolución de anticipo no aplicado" ya existe en el ERP cuando se pide el reembolso. La emisión de esa NC en Facturación queda abierta (I13.1, a cargo de Uziel).
+- **Contradicción registrada, sin resolver.** `docs/modulos/facturacion/13-anticipos-ciclo-completo.md` [Decisión 13-K] dice que las NC siempre acreditan al saldo de la factura y nunca se reembolsan en efectivo. T9.6 sí devuelve dinero por NC. La implementación no cambia el saldo por cobrar de la factura al solicitar el reembolso. El owner debe reconciliar ambos textos.
+- **Corridas de pago.** Incluir devoluciones autorizadas en una corrida queda fuera de alcance hasta TES-01 (las corridas no están construidas). Criterio C-16 ("puede entrar a una corrida"): fuera de alcance, solo de prueba.
+- **Sin reversa.** Una devolución pagada no se revierte (por ejemplo, transferencia rechazada por el banco); requiere un flujo propio.
+- **Sin evento hacia Contabilidad.** No se publica `tesoreria.devolucion-cliente.pagada.v1`; falta el contrato contable con Uziel.
+- **Reapertura.** Reabrir el reembolso de una NC rechazada por Tesorería está fuera de alcance. La NC conserva la marca de reembolso solicitado.
+- **Pagar ≠ autorizar (decisión del owner pendiente).** Hoy un mismo usuario puede autorizar y luego pagar una devolución si tiene ambos permisos. La segregación vigente es: quien solicita o edita por última vez no autoriza (`DEV_MISMO_USUARIO`). Imponer además que quien paga sea distinto de quien autoriza queda a decisión del owner; no está implementado.
+- **Carrera depósito↔CxC (cerrada).** Confirmar un depósito contra CxC con una devolución Solicitada o Autorizada sobre ese ingreso se rechaza con `DEP_DEVOLUCION_EN_CURSO`; pagar la devolución de un depósito ya confirmado se rechaza con `DEV_DEPOSITO_CONFIRMADO`. Ambos flujos corren bajo el mismo advisory lock (`DevolucionLectura.LockKey`). El tope del depósito al pagar suma todo egreso con `ContramovimientoDe` igual al depósito, no solo devoluciones pagadas.
+- **Rechazo o cancelación de la devolución de NC no libera la NC en Facturación (S3).** La NC conserva la marca de reembolso solicitado y no puede volver a pedirse. Pendiente de flujo de reapertura; no implementado.
+- **CA6.17 «NC por anticipo no aplicado» no alcanzable (Q1).** Hoy ningún flujo emite esa NC hacia el reembolso. Por confirmar con Eliam; no implementado.
+- **Cuenta de pago de la NC sin validar sucursal.** Al pagar el reembolso de una NC, Tesorería elige la cuenta bancaria sin comprobar que pertenezca a la sucursal de la devolución (solo se valida moneda). Pendiente; no implementado.
 
 ---
 

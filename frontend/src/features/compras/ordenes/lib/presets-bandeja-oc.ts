@@ -116,6 +116,7 @@ function matchSearch(a: BandejaOcSearch, b: BandejaOcSearch): boolean {
     a.subEstadoRecepcion === b.subEstadoRecepcion &&
     a.subEstadoFacturacion === b.subEstadoFacturacion &&
     a.subEstadoPago === b.subEstadoPago &&
+    a.estadoComercialProveedor === b.estadoComercialProveedor &&
     a.proveedorId === b.proveedorId &&
     a.compradorTitularId === b.compradorTitularId &&
     a.fechaDesde === b.fechaDesde &&

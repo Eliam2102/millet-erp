@@ -1,6 +1,7 @@
 using MediatR;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Logging.Abstractions;
 using Millet.Administracion.Domain;
 using Millet.Catalogos.Domain;
 using Millet.Compartido.Infrastructure.Persistence;
@@ -131,7 +132,8 @@ public sealed class ToleranciaProveedorCapturaTests
                 .AddSingleton<INotificationHandler<FacturaProveedorRechazadaPorToleranciaDomainEvent>>(Eventos)
                 .BuildServiceProvider();
             Handler = new(Cxp, _oc, new ProveedorReadPortAdapter(Maestros, Empresa), new SinBlobs(), new Millet.CuentasPorPagar.Infrastructure.Parsing.XmlCfdiParser(),
-                Empresa, new Mediator(_services), Clock, new ToleranciaGeneralReadPortAdapter(Maestros));
+                Empresa, new Mediator(_services), Clock, new ToleranciaGeneralReadPortAdapter(Maestros),
+                new Millet.CuentasPorPagar.Application.FacturaProveedor.Revision.DetencionPorDanoService(Cxp, new AlmacenRevisionFake(), new DependenciasFake(), NullLogger<Millet.CuentasPorPagar.Application.FacturaProveedor.Revision.DetencionPorDanoService>.Instance));
         }
 
         public async Task PrepararAsync(decimal? monto)

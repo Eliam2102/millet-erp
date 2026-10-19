@@ -44,6 +44,18 @@ public sealed partial class DemoSesionSeedHostedService
                 db.Ubicaciones.Add(rack);
             }
             rack.CambiarEstatus(EstatusCatalogo.Activo);
+            // ALM-04: rack de material en revisión del mismo almacén; la recepción con daño no entra a la ÚNICA.
+            var matRev = await db.SubAlmacenes.FirstOrDefaultAsync(s => s.AlmacenId == sub.AlmacenId && s.Clave == "MAT-REV", ct);
+            if (matRev is not null)
+            {
+                var rackRevision = await db.Ubicaciones.SingleOrDefaultAsync(u => u.SubAlmacenId == matRev.Id && u.Clave == "REV-01", ct);
+                if (rackRevision is null)
+                {
+                    rackRevision = new Ubicacion(Id($"DEMO-RACK/{matRev.Id}/REV-01"), matRev.Id, "REV-01", "Material en revisión DEMO");
+                    db.Ubicaciones.Add(rackRevision);
+                }
+                rackRevision.CambiarEstatus(EstatusCatalogo.Activo);
+            }
             foreach (var (_, articuloId) in sucursal)
             {
                 var asignacion = await db.AsignacionesArticuloUbicacion

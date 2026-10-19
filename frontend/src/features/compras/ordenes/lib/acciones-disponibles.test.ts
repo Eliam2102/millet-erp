@@ -595,3 +595,28 @@ describe('matriz §6.1 — cobertura', () => {
     }
   });
 });
+
+describe('accionTransmitirAAutorizacion con revisión previa', () => {
+  const permisos = [PermisosCanonicos.ComprasOrdenesCrear];
+  const borrador = { estado: EstadoOrdenCompra.Borrador };
+
+  it('deshabilita con motivo visible mientras falten requisitos', () => {
+    const r = accionTransmitirAAutorizacion(borrador, permisos, { pendientes: 2, total: 4 });
+    expect(r).toMatchObject({
+      visible: true,
+      habilitada: false,
+      motivoDeshabilitada: 'Faltan 2 de 4 requisitos · ver revisión previa',
+    });
+  });
+
+  it('habilita sin pendientes o sin revisión', () => {
+    expect(accionTransmitirAAutorizacion(borrador, permisos, { pendientes: 0, total: 4 }).habilitada).toBe(true);
+    expect(accionTransmitirAAutorizacion(borrador, permisos).habilitada).toBe(true);
+  });
+
+  it('sigue oculta fuera de Borrador/Rechazada o sin permiso', () => {
+    const pend = { pendientes: 1, total: 4 };
+    expect(accionTransmitirAAutorizacion({ estado: EstadoOrdenCompra.Autorizada }, permisos, pend).visible).toBe(false);
+    expect(accionTransmitirAAutorizacion(borrador, [], pend).visible).toBe(false);
+  });
+});

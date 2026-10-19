@@ -46,7 +46,7 @@ afterEach(() => {
 });
 
 describe('<NotasCargoPage> — smoke', () => {
-  it('Borrador con permiso de autorizar muestra botón Autorizar', async () => {
+  it('Borrador no ofrece Autorizar en la fila: la regla del creador vive en el detalle', async () => {
     mswServer.use(
       http.get('*/api/v1/cuentas-por-pagar/notas-cargo', () =>
         HttpResponse.json({
@@ -65,6 +65,8 @@ describe('<NotasCargoPage> — smoke', () => {
               estado: EstadoNotaCargo.Borrador,
               fechaCreacion: '2026-05-20T00:00:00Z',
               version: 1,
+              proveedorNombre: 'Fletes del Bajío SA',
+              proveedorRfc: 'FBA010101AB1',
             },
           ],
           offset: 0,
@@ -79,8 +81,9 @@ describe('<NotasCargoPage> — smoke', () => {
         screen.getByText(/NCG-2026-000001/i),
       ).toBeInTheDocument(),
     );
-    expect(
-      screen.getByRole('button', { name: /Autorizar/i }),
-    ).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /Autorizar/i })).toBeNull();
+    // El folio es el enlace al detalle y la fila muestra proveedor con su RFC.
+    expect(screen.getByRole('link', { name: /NCG-2026-000001/i })).toBeInTheDocument();
+    expect(screen.getByText('FBA010101AB1')).toBeInTheDocument();
   });
 });

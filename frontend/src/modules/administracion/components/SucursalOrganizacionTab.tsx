@@ -51,7 +51,7 @@ import {
   useReactivarAsignacionSucursalDepartamento,
   useReactivarAsignacionSucursalPuesto,
 } from '@/modules/administracion/api';
-import { esApiError } from '@/lib/api';
+import { esApiError, codigoSoporte } from '@/lib/api';
 import { useHasPermission } from '@/lib/auth/useHasPermission';
 import { PermisosCanonicos } from '@/lib/auth/permission-codes';
 import { SucursalTabErrorState } from '@/modules/administracion/components/SucursalTabErrorState';
@@ -86,8 +86,8 @@ export function SucursalOrganizacionTab({
   const [modalDeptoOpen, setModalDeptoOpen] = useState(false);
   const [modalPuestoOpen, setModalPuestoOpen] = useState(false);
 
-  const deptosAsignados = deptosQuery.data?.items ?? [];
-  const puestosAsignados = puestosQuery.data?.items ?? [];
+  const deptosAsignados = useMemo(() => deptosQuery.data?.items ?? [], [deptosQuery.data?.items]);
+  const puestosAsignados = useMemo(() => puestosQuery.data?.items ?? [], [puestosQuery.data?.items]);
 
   // Mapear cantidad de puestos por departamento
   const puestosCountPorDepto = useMemo(() => {
@@ -1047,7 +1047,7 @@ function handleError(accion: string) {
   return (error: unknown) => {
     if (esApiError(error)) {
       toast.error(error.problem.title, {
-        description: error.traceId ? `Código: ${error.traceId}` : undefined,
+        description: codigoSoporte(error),
       });
     } else {
       toast.error(`Error al ${accion}.`);

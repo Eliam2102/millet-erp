@@ -1,4 +1,7 @@
-import { createFileRoute, redirect } from '@tanstack/react-router';
+import { createFileRoute, redirect, useParams, useSearch } from '@tanstack/react-router';
+import { MasterDetail } from '@/components/erp/MasterDetail';
+import { ListaComprobacionesCompacta } from '@/features/cxp/components/ListasCompactasCxp';
+import { ComprobacionesSearchSchema, type ComprobacionesSearch } from '@/features/cxp/lib/comprobaciones-search-schema';
 import { ComprobacionDetallePage } from '@/features/cxp/pages/ComprobacionDetallePage';
 import { useAuthStore } from '@/lib/auth/auth-store';
 import { PermisosCanonicos } from '@/lib/auth/permission-codes';
@@ -16,5 +19,17 @@ export const Route = createFileRoute('/_app/cxp/comprobaciones/$id')({
       throw redirect({ to: '/cxp' });
     }
   },
-  component: ComprobacionDetallePage,
+  component: DetalleRoute,
+  // Hereda el search de la bandeja para que «Volver» y la lista conserven filtros y página.
+  validateSearch: (input: Record<string, unknown>): ComprobacionesSearch => ComprobacionesSearchSchema.parse(input),
 });
+
+function DetalleRoute() {
+  const { id } = useParams({ strict: false }) as { id: string };
+  const search = useSearch({ from: '/_app/cxp/comprobaciones/$id' });
+  return (
+    <MasterDetail titulo="Comprobaciones" bandejaTo="/cxp/comprobaciones" bandejaSearch={search} lista={<ListaComprobacionesCompacta idActivo={id} search={search} />}>
+      <ComprobacionDetallePage />
+    </MasterDetail>
+  );
+}

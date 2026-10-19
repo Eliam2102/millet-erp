@@ -18,12 +18,15 @@ public sealed class EliminarLineaOcHandler : IRequestHandler<EliminarLineaOcComm
     private readonly ComprasDbContext _db;
     private readonly IClock _clock;
     private readonly IPublisher _publisher;
+    private readonly ICurrentUserContext _currentUser;
 
     public EliminarLineaOcHandler(
         ComprasDbContext db,
         IClock clock,
-        IPublisher publisher)
+        IPublisher publisher,
+        ICurrentUserContext currentUser)
     {
+        _currentUser = currentUser;
         _db = db;
         _clock = clock;
         _publisher = publisher;
@@ -48,6 +51,9 @@ public sealed class EliminarLineaOcHandler : IRequestHandler<EliminarLineaOcComm
                     "REQUISICION_NO_ENCONTRADA",
                     $"No se encontró requisición '{rqId}' a liberar.");
             rq.LiberarDeOc();
+            await Cotizaciones.CotizacionesComparativo.LiberarPorOcAsync(_db, oc.Id,
+                _currentUser.UserId ?? throw new UnauthorizedAccessException("Sin usuario autenticado."),
+                _clock.UtcNow, "Se eliminó la última línea de la OC.", cancellationToken);
         }
 
         await _db.SaveChangesAsync(cancellationToken);

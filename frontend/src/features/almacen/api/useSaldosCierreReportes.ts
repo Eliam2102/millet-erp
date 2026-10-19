@@ -14,9 +14,12 @@ import type {
   ExistenciaMpCnkFila,
   NodoJerarquiaSaldo,
   PagedResponse,
+  PeriodoCierreItem,
+  RevisionPreviaCierreResponse,
   ReporteResponse,
   SaldoListItem,
   SaldoUbicacionItem,
+  SaldosTotalesResponse,
 } from '@/features/almacen/api/types';
 
 /**
@@ -55,6 +58,21 @@ export function useSaldos(filtros: ListarSaldosFiltros = {}) {
       const { data } = await apiRequest<PagedResponse<SaldoListItem>>(path, {
         signal,
       });
+      return data;
+    },
+  });
+}
+
+/** Totales (valor MXN, cantidad si hay una sola UM) con los mismos filtros que el listado. */
+export function useSaldosTotales(filtros: Omit<ListarSaldosFiltros, 'offset' | 'limit'> = {}) {
+  return useQuery({
+    queryKey: almacenKeys.saldosTotales(filtros),
+    queryFn: async ({ signal }) => {
+      const query = buildQuery(filtros);
+      const { data } = await apiRequest<SaldosTotalesResponse>(
+        query ? `/api/v1/almacen/saldos/totales?${query}` : '/api/v1/almacen/saldos/totales',
+        { signal },
+      );
       return data;
     },
   });
@@ -111,6 +129,33 @@ export function useHijosJerarquia(params: HijosJerarquiaParams) {
         ? `/api/v1/almacen/saldos/jerarquia?${query}`
         : '/api/v1/almacen/saldos/jerarquia';
       const { data } = await apiRequest<NodoJerarquiaSaldo[]>(path, { signal });
+      return data;
+    },
+  });
+}
+
+export function usePeriodosCierre() {
+  return useQuery({
+    queryKey: almacenKeys.cierrePeriodos(),
+    queryFn: async ({ signal }) => {
+      const { data } = await apiRequest<PeriodoCierreItem[]>(
+        '/api/v1/almacen/cierre-mes/periodos',
+        { signal },
+      );
+      return data;
+    },
+  });
+}
+
+/** Revisión previa del cierre (solo lectura): mismas validaciones que el cierre. */
+export function useRevisionPreviaCierre(anio: number, mes: number) {
+  return useQuery({
+    queryKey: almacenKeys.cierreRevision(anio, mes),
+    queryFn: async ({ signal }) => {
+      const { data } = await apiRequest<RevisionPreviaCierreResponse>(
+        `/api/v1/almacen/cierre-mes/revision-previa?anio=${anio}&mes=${mes}`,
+        { signal },
+      );
       return data;
     },
   });

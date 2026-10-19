@@ -1,8 +1,4 @@
-import {
-  EstadoBadge,
-  EnAlmacenBadge,
-  DateTimeDisplay,
-} from '@/components/erp';
+import { DateTimeDisplay } from '@/components/erp';
 import {
   clasificacionToString,
   prioridadToString,
@@ -35,29 +31,11 @@ export function CabeceraRequisicion({
 }: CabeceraRequisicionProps) {
   return (
     <section className="rounded-md border bg-card p-4">
-      <header className="flex flex-wrap items-center justify-between gap-3">
-        <div>
-          <h1 className="font-mono text-2xl font-semibold tracking-tight">
-            {rq.folio}
-          </h1>
-          <p className="text-sm text-muted-foreground">
-            Solicitada{' '}
-            <DateTimeDisplay value={rq.fechaSolicitud} variant="long" />
-          </p>
-        </div>
-        <EstadoBadge
-          tipo="requisicion"
-          estado={rq.estado}
-          situacion={rq.situacionSurtido}
-          className="text-sm"
-        />
-        <EnAlmacenBadge
-          enAlmacen={rq.enAlmacen}
-          className="text-sm"
-        />
-      </header>
 
-      <dl className="mt-4 grid grid-cols-1 gap-x-6 gap-y-2 text-sm md:grid-cols-2 lg:grid-cols-3">
+      <dl className="grid grid-cols-1 gap-x-6 gap-y-2 text-sm @lg:grid-cols-2 @3xl:grid-cols-3">
+        <Item label="Solicitada">
+          <DateTimeDisplay value={rq.fechaSolicitud} variant="long" />
+        </Item>
         <Item label="Requisitante">{requisitanteLabel(rq)}</Item>
         <Item label="Departamento">{departamentoLabel(rq)}</Item>
         <Item label="Sucursal">{resolverNombre(rq.sucursalId)}</Item>
@@ -91,15 +69,15 @@ export function CabeceraRequisicion({
       )}
 
       {rq.motivoTerminacionTexto != null && (
-        <div className="mt-3 rounded-md border border-rose-200 bg-rose-50 p-3 text-sm">
-          <p className="mb-1 text-xs font-medium uppercase tracking-wide text-rose-700">
+        <div className="mt-3 rounded-md border border-danger bg-danger-bg p-3 text-sm">
+          <p className="mb-1 text-xs font-medium uppercase tracking-wide text-danger-fg">
             Motivo de terminación
           </p>
-          <p className="whitespace-pre-wrap text-rose-900">
+          <p className="whitespace-pre-wrap text-danger-fg">
             {rq.motivoTerminacionTexto}
           </p>
           {rq.fechaTerminacion && (
-            <p className="mt-1 text-xs text-rose-700">
+            <p className="mt-1 text-xs text-danger-fg">
               <DateTimeDisplay
                 value={rq.fechaTerminacion}
                 variant="datetime"

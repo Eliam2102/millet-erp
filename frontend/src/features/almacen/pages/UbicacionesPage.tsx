@@ -1,3 +1,4 @@
+import { PageHeader } from '@/components/erp/PageHeader';
 import { useMemo, useState } from 'react';
 import { useNavigate, useSearch } from '@tanstack/react-router';
 import { Ban, Pencil, Plus, RotateCcw } from 'lucide-react';
@@ -44,7 +45,7 @@ import { useHasPermission } from '@/lib/auth/useHasPermission';
 import { PermisosCanonicos } from '@/lib/auth/permission-codes';
 import { esApiError } from '@/lib/api';
 import { UbicacionSheet } from '@/features/almacen/components/UbicacionSheet';
-import { cn } from '@/lib/utils';
+import { EstadoAlmacenBadge } from '@/features/almacen/components/EstadoAlmacenBadge';
 
 const FROM = '/_app/almacen/ubicaciones' as const;
 const SENTINEL_ALL = '__all__';
@@ -145,20 +146,20 @@ export function UbicacionesPage() {
 
   return (
     <div className="space-y-4">
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <div>
-          <h1 className="text-2xl font-semibold tracking-tight">Ubicaciones</h1>
-          <p className="text-sm text-muted-foreground">
-            Ubicaciones físicas (racks, pasillos) dentro de cada sub-almacén.
-          </p>
-        </div>
-        {puedeAdministrar && (
-          <Button onClick={abrirCrear}>
-            <Plus className="mr-2 h-4 w-4" />
-            Nueva ubicación
-          </Button>
-        )}
-      </div>
+      <PageHeader
+        titulo="Ubicaciones"
+        descripcion="Ubicaciones físicas (racks, pasillos) dentro de cada sub-almacén."
+        acciones={
+          <>
+            {puedeAdministrar && (
+              <Button onClick={abrirCrear}>
+                <Plus className="mr-2 size-3.5" />
+                Nueva ubicación
+              </Button>
+            )}
+          </>
+        }
+      />
 
       <FiltrosToolbar search={search} onChange={actualizarSearch} />
 
@@ -383,14 +384,14 @@ function TablaUbicaciones({
               <td className="px-3 py-2">
                 <span className="font-mono text-xs">{u.clave}</span>
                 {u.esDefault && (
-                  <span className="ml-2 inline-flex items-center rounded-full bg-sky-100 px-2 py-0.5 text-[10px] font-medium text-sky-800">
+                  <span className="ml-2 inline-flex items-center rounded-full bg-info-bg px-2 py-0.5 text-2xs font-medium text-info-fg">
                     default de enrutamiento
                   </span>
                 )}
               </td>
               <td className="px-3 py-2">{u.nombre}</td>
               <td className="px-3 py-2">
-                <EstatusBadge estatus={u.estatus} />
+                <EstadoAlmacenBadge tipo="catalogo" estado={u.estatus} />
               </td>
               {puedeAdministrar && (
                 <td className="px-3 py-2 text-right">
@@ -444,17 +445,3 @@ function TablaUbicaciones({
   );
 }
 
-function EstatusBadge({ estatus }: { estatus: EstatusCatalogo }) {
-  return (
-    <span
-      className={cn(
-        'inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium',
-        estatus === EstatusCatalogo.Activo && 'bg-emerald-100 text-emerald-800',
-        estatus === EstatusCatalogo.Inactivo && 'bg-slate-200 text-slate-700',
-        estatus === EstatusCatalogo.Borrador && 'bg-amber-100 text-amber-800',
-      )}
-    >
-      {EstatusCatalogoLabels[estatus]}
-    </span>
-  );
-}

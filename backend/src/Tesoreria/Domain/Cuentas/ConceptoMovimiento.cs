@@ -12,6 +12,9 @@ namespace Millet.Tesoreria.Domain.Cuentas;
 /// </summary>
 public sealed class ConceptoMovimiento : BaseEntity, IAuditable
 {
+    /// <summary>Concepto sembrado de egreso para toda devolución de dinero a un cliente (C-04).</summary>
+    public static readonly Guid DevolucionClienteId = Guid.Parse("0000000b-1001-0000-0000-00000000000e");
+
     public string Nombre { get; private set; } = default!;
     public ClasificacionFlujo ClasificacionFlujo { get; private set; }
     public bool EsEjemplo { get; private set; }

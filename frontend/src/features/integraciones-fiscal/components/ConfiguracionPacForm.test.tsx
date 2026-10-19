@@ -207,7 +207,7 @@ describe('<ConfiguracionPacForm> — secretos, CSD y permisos', () => {
 
     await waitFor(() =>
       expect(toast.error).toHaveBeenCalledWith('No fue posible guardar la configuración.', {
-        description: 'Código: trace-seguro',
+        description: undefined,
       }),
     );
     expect(toast.error).not.toHaveBeenCalledWith(

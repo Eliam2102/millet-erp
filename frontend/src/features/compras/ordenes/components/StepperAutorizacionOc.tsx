@@ -92,18 +92,18 @@ function derivarPasos(estado: EstadoOrdenCompra): PasoInfo[] {
 }
 
 const PASO_BG: Record<EstadoPaso, string> = {
-  pendiente: 'bg-slate-100 text-slate-500 ring-slate-200',
-  actual: 'bg-amber-100 text-amber-900 ring-amber-300',
-  completo: 'bg-emerald-100 text-emerald-900 ring-emerald-300',
-  rechazado: 'bg-rose-200 text-rose-950 ring-rose-300',
+  pendiente: 'bg-surface-muted text-ink-muted ring-line',
+  actual: 'bg-warning-bg text-warning-fg ring-warning',
+  completo: 'bg-success-bg text-success-fg ring-success',
+  rechazado: 'bg-danger-bg text-danger-fg ring-danger',
 };
 
 const CONECTOR_BG: Record<EstadoPaso, string> = {
   // El conector usa el estado del paso de la IZQUIERDA (origen).
-  pendiente: 'bg-slate-200',
-  actual: 'bg-amber-300',
-  completo: 'bg-emerald-400',
-  rechazado: 'bg-rose-300',
+  pendiente: 'bg-surface-muted',
+  actual: 'bg-warning',
+  completo: 'bg-success',
+  rechazado: 'bg-danger',
 };
 
 export function StepperAutorizacionOc({

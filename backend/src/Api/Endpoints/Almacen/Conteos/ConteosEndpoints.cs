@@ -1,4 +1,5 @@
 using MediatR;
+using Millet.SharedKernel.Application;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Millet.Almacen.Application.Catalogo;
@@ -29,6 +30,7 @@ public static class ConteosEndpoints
             [FromQuery] EstadoConteo? estado,
             [FromQuery] TipoConteo? tipo,
             [FromQuery] Guid? subAlmacenId,
+            [FromQuery] string? q,
             [FromQuery] int? offset,
             [FromQuery] int? limit,
             IMediator mediator,
@@ -37,12 +39,44 @@ public static class ConteosEndpoints
             var off = offset is < 0 ? 0 : offset ?? 0;
             var lim = limit is null or <= 0 ? 50 : Math.Min(limit.Value, 500);
             return Results.Ok(await mediator.Send(
-                new ListarConteosQuery(estado, tipo, subAlmacenId, off, lim), ct));
+                new ListarConteosQuery(estado, tipo, subAlmacenId, off, lim, q), ct));
         })
         .RequireAuthorization(PermissionPolicyProvider.Prefix + PermisosCanonicos.AlmacenInventariosLeer)
         .WithName("ListarConteos")
         .WithSummary("Listar conteos de inventario (bandeja)")
         .Produces<AlmacenPagedResponse<ConteoListItem>>(StatusCodes.Status200OK);
+
+        // GET /conteos-por-estado (tabs de la bandeja; mismos filtros salvo estado).
+        group.MapGet("/conteos-por-estado", async (
+            [FromQuery] TipoConteo? tipo,
+            [FromQuery] Guid? subAlmacenId,
+            [FromQuery] string? q,
+            IMediator mediator,
+            CancellationToken ct) =>
+            Results.Ok(await mediator.Send(new ConteosInventarioPorEstadoQuery(tipo, subAlmacenId, q), ct)))
+        .RequireAuthorization(PermissionPolicyProvider.Prefix + PermisosCanonicos.AlmacenInventariosLeer)
+        .WithName("ConteosInventarioPorEstado")
+        .WithSummary("Conteo de inventarios por estado, con los filtros de la bandeja salvo el estado")
+        .Produces<IReadOnlyList<ConteoPorEstadoItem>>(StatusCodes.Status200OK);
+
+        // GET /vista-previa (cuántas líneas tendría un conteo con ese sub-almacén y familia).
+        group.MapGet("/vista-previa", async (
+            [FromQuery] Guid? subAlmacenId,
+            [FromQuery] string? familia,
+            DocumentoSucursalScope documentos,
+            IMediator mediator,
+            CancellationToken ct) =>
+        {
+            if (subAlmacenId is Guid sub)
+                await documentos.VerificarAsync("sub_almacen", sub, PermisosCanonicos.AlmacenInventariosGestionarTodasSucursales, ct);
+            else
+                await documentos.VerificarSucursalAsync(null, PermisosCanonicos.AlmacenInventariosGestionarTodasSucursales, ct);
+            return Results.Ok(await mediator.Send(new VistaPreviaConteoQuery(subAlmacenId, familia), ct));
+        })
+        .RequireAuthorization(PermissionPolicyProvider.Prefix + PermisosCanonicos.AlmacenInventariosCrear)
+        .WithName("VistaPreviaConteo")
+        .WithSummary("Número de líneas que tendría un conteo con el sub-almacén y la familia dados")
+        .Produces<VistaPreviaConteoDto>(StatusCodes.Status200OK);
 
         // GET /{id} (detalle).
         group.MapGet("/{id:guid}", async (Guid id, DocumentoSucursalScope documentos, IMediator mediator, CancellationToken ct) =>

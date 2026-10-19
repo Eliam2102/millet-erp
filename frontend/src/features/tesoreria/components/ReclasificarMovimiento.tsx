@@ -18,7 +18,7 @@ export function ReclasificarMovimiento({ movimiento }: { movimiento: MovimientoB
     <ConceptoSelector value={conceptoId} onChange={setConceptoId} />
     <Label htmlFor="reclasificar-motivo">Motivo de la reclasificación</Label>
     <Input id="reclasificar-motivo" value={motivo} maxLength={400} onChange={e => setMotivo(e.target.value)} />
-    <Button disabled={!conceptoId || !motivo.trim() || mutation.isPending} onClick={() => {
+    <Button aria-describedby={!conceptoId || !motivo.trim() ? 'reclasificar-bloqueo' : undefined} disabled={!conceptoId || !motivo.trim() || mutation.isPending} onClick={() => {
       if (!conceptoId) return;
       const command = { movimientoId: movimiento.id, conceptoId, motivo: motivo.trim(), version: movimiento.version };
       mutation.mutate({ ...command, idempotencyKey: keyFor(command) }, {
@@ -26,5 +26,6 @@ export function ReclasificarMovimiento({ movimiento }: { movimiento: MovimientoB
         onError: e => toast.error(esApiError(e) ? e.problem.detail ?? e.problem.title : 'No se pudo reclasificar'),
       });
     }}>Reclasificar</Button>
+    {(!conceptoId || !motivo.trim()) && <p id="reclasificar-bloqueo" className="text-xs text-ink-muted">Captura el motivo para reclasificar</p>}
   </section>;
 }

@@ -27,6 +27,6 @@ public sealed class ObtenerExpedienteHandler : IRequestHandler<ObtenerExpediente
             request.TipoEntidad, request.EntidadId, AdjuntoOperacion.Ver, cancellationToken);
         return await ExpedienteAdjuntos.CalcularAsync(
             _db, propietario.TipoEntidad, request.EntidadId, padre.EsPersonaMoral,
-            AdjuntoSoporte.Hoy(_clock), cancellationToken);
+            AdjuntoSoporte.Hoy(_clock), cancellationToken, padre.EsNacional);
     }
 }

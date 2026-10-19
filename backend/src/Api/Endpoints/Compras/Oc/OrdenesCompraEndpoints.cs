@@ -5,6 +5,7 @@ using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using Millet.Administracion.Application.Abstractions;
 using Millet.Api.Auth;
+using Millet.Api.Endpoints.Adjuntos;
 using Millet.Api.Web;
 using Millet.SharedKernel.Application.Adjuntos;
 using Millet.Compras.Application.Oc.ActualizarCabecera;
@@ -30,6 +31,7 @@ using Millet.Compras.Application.Oc.ListarPartidasAbiertas;
 using Millet.Compras.Application.Oc.ListarPendientesAutorizacion;
 using Millet.Compras.Application.Oc.ListarRequisicionesDisponibles;
 using Millet.Compras.Application.Oc.Rechazar;
+using Millet.Compras.Application.Oc.RespuestaProveedor;
 using Millet.Compras.Application.Oc.Lineas.ActualizarLinea;
 using Millet.Compras.Application.Oc.Lineas.ActualizarTextoAdicional;
 using Millet.Compras.Application.Oc.Lineas.AgregarLineaDesdeRequisicion;
@@ -944,11 +946,13 @@ public static class OrdenesCompraEndpoints
             [FromQuery] bool? soloConPendienteRecepcion,
             [FromQuery] SubEstadoFacturacion? subEstadoFacturacion,
             [FromQuery] SubEstadoPago? subEstadoPago,
+            [FromQuery] EstadoComercialProveedorOc? estadoComercialProveedor,
             [FromQuery] Guid? proveedorId,
             [FromQuery] Guid? compradorTitularId,
             [FromQuery] DateOnly? fechaDesde,
             [FromQuery] DateOnly? fechaHasta,
             [FromQuery] string? referenciaProveedor,
+            [FromQuery] string? q,
             // Defaults explícitos (= 0) hacen page/pageSize OPCIONALES en
             // la binding de minimal API. Sin el default, ASP.NET Core trata
             // el parámetro como required y truena con BadHttpRequestException
@@ -966,11 +970,13 @@ public static class OrdenesCompraEndpoints
                     SoloConPendienteRecepcion: soloConPendienteRecepcion,
                     SubEstadoFacturacion: subEstadoFacturacion,
                     SubEstadoPago: subEstadoPago,
+                    EstadoComercialProveedor: estadoComercialProveedor,
                     ProveedorId: proveedorId,
                     CompradorTitularId: compradorTitularId,
                     FechaDocumentoDesde: fechaDesde,
                     FechaDocumentoHasta: fechaHasta,
                     ReferenciaProveedor: referenciaProveedor,
+                    Q: q,
                     Page: page == 0 ? 1 : page,
                     PageSize: pageSize == 0 ? 50 : pageSize),
                 cancellationToken);
@@ -981,7 +987,8 @@ public static class OrdenesCompraEndpoints
         .WithSummary("Bandeja principal de OCs con filtros y paginación (F6-PR3)")
         .WithDescription(
             "Filtros opcionales: estado, sub-estados, proveedor, comprador, " +
-            "rango de fechas, referencia proveedor. `soloConPendienteRecepcion=true` " +
+            "rango de fechas, referencia proveedor, `q` (folio o referencia, contiene, " +
+            "sin distinguir mayúsculas). `soloConPendienteRecepcion=true` " +
             "lista solo OCs con recepción != Completa (las que aún aceptan recepción). " +
             "Paginación offset-based " +
             "(`page`, `pageSize`; default 50, max 200). Orden default: " +
@@ -1306,6 +1313,36 @@ public static class OrdenesCompraEndpoints
         .ProducesProblem(StatusCodes.Status404NotFound)
         .ProducesProblem(StatusCodes.Status409Conflict)
         .ProducesProblem(StatusCodes.Status422UnprocessableEntity);
+
+        // --- F1-COM-11: respuesta del proveedor (confirmación o rechazo) ---
+        group.MapPost("/{id:guid}/respuestas-proveedor", async (
+            Guid id, [FromBody] RegistrarRespuestaProveedorRequest body, IMediator mediator,
+            ComprasDbContext scopeDb, ICurrentUserContext scopeUser,
+            ICurrentUserPermissions scopePermisos, IUsuarioSucursalReadPort scopeSucursales,
+            CancellationToken cancellationToken) =>
+        {
+            await OcSucursalScope.VerificarAsync(id, scopeDb, scopeUser, scopePermisos, scopeSucursales, cancellationToken, escritura: true);
+            var response = await mediator.Send(new RegistrarRespuestaProveedorCommand(id, body.Tipo, body.FechaRespuesta,
+                body.Evidencia, body.ContactoProveedor, body.Motivo, body.Compromisos ?? []), cancellationToken);
+            return Results.Created($"/api/v1/compras/ordenes/{id}", response);
+        })
+        .WithMetadata(new RequireIdempotencyKeyAttribute())
+        .RequireAuthorization(PermissionPolicyProvider.Prefix + PermisosCanonicos.ComprasOrdenesRegistrarRespuestaProveedor)
+        .WithName("RegistrarRespuestaProveedorOrdenCompra")
+        .WithSummary("Registrar la confirmación o el rechazo del proveedor (F1-COM-11)")
+        .WithDescription("Solo en OC autorizada. No modifica cantidades, recepción, facturación, pago ni el estado de la OC; una nueva fecha prometida es otra respuesta y conserva la anterior. Header `Idempotency-Key` obligatorio.")
+        .Produces<RespuestaProveedorOcResponse>(StatusCodes.Status201Created)
+        .ProducesProblem(StatusCodes.Status400BadRequest)
+        .ProducesProblem(StatusCodes.Status401Unauthorized)
+        .ProducesProblem(StatusCodes.Status403Forbidden)
+        .ProducesProblem(StatusCodes.Status404NotFound)
+        .ProducesProblem(StatusCodes.Status409Conflict)
+        .ProducesProblem(StatusCodes.Status422UnprocessableEntity);
+
+        // F1-COM-11: evidencia por respuesta del proveedor (servicio genérico G1.2, ADR-0058).
+        group.MapGroup("/respuestas-proveedor/{id:guid}").MapAdjuntos("oc_respuesta_proveedor",
+            PermisosCanonicos.ComprasOrdenesLeer, PermisosCanonicos.ComprasOrdenesRegistrarRespuestaProveedor,
+            PermisosCanonicos.ComprasOrdenesRegistrarRespuestaProveedor);
 
         // --- F3-PR2: rechazar (EnAutorizacion N1/N2 → Rechazada) ---
         group.MapPost("/{id:guid}/rechazar", async (
@@ -1748,4 +1785,5 @@ public static class OrdenesCompraEndpoints
     /// <summary>Body del PATCH texto-adicional (F2-PR2).</summary>
     public sealed record ActualizarTextoAdicionalRequest(string? TextoAdicional);
     public sealed record ResolverCancelacionOcRequest(bool Confirmar, string Motivo);
+    public sealed record RegistrarRespuestaProveedorRequest(TipoRespuestaProveedorOc Tipo, DateOnly FechaRespuesta, string Evidencia, string? ContactoProveedor, string? Motivo, IReadOnlyList<CompromisoEntregaInput>? Compromisos);
 }

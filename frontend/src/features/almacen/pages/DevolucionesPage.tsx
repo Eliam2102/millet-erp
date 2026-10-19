@@ -1,7 +1,18 @@
+import { PageHeader } from '@/components/erp/PageHeader';
 import { useMemo, useState } from 'react';
-import { useNavigate, useSearch } from '@tanstack/react-router';
+import { Link, useNavigate, useSearch } from '@tanstack/react-router';
 import { ChevronDown, Plus } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { Checkbox } from '@/components/ui/checkbox';
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableContainer,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '@/components/ui/table';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -9,15 +20,12 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
-import {
   EmptyState,
   ErrorState,
+  BarraFiltros,
+  PaginacionTabla,
+  TabsEstado,
+  useConteosPorEstado,
   ProveedorSelector,
   SortableHeader,
   TableSkeleton,
@@ -26,6 +34,7 @@ import {
   type SortState,
 } from '@/components/erp';
 import { useDevolucionesProveedor } from '@/features/almacen/api/useDevolucionesProveedor';
+import { almacenKeys } from '@/features/almacen/api/keys';
 import {
   EstadoDevolucionProveedor,
   EstadoDevolucionProveedorLabels,
@@ -41,10 +50,13 @@ import {
   type MatRevModo,
 } from '@/features/almacen/components/MatRevSheet';
 import type { DevolucionesSearch } from '@/features/almacen/lib/devoluciones-search-schema';
-import { cn } from '@/lib/utils';
+import { EstadoAlmacenBadge } from '@/features/almacen/components/EstadoAlmacenBadge';
+import { BusquedaFolio } from '@/components/erp/data/BusquedaFolio';
+import { offsetLimitAPagina, paginaAOffsetLimit } from '@/components/erp/data/paginacion';
+import { MoneyDisplay } from '@/components/erp/display/MoneyDisplay';
+import { DateTimeDisplay } from '@/components/erp/display/DateTimeDisplay';
 
 const FROM = '/_app/almacen/devoluciones/' as const;
-const SENTINEL_ALL = '__all__';
 
 type SortKey =
   | 'proveedorId'
@@ -80,61 +92,84 @@ export function DevolucionesPage() {
     estado: search.estado,
     proveedorId: search.proveedorId,
     soloPendientesNcFiscal: search.soloPendientesNcFiscal,
-    limit: 200,
+    q: search.q,
+    ...paginaAOffsetLimit(search),
   });
+
+  const conteos = useConteosPorEstado(
+    almacenKeys.devolucionesProveedor(),
+    '/api/v1/almacen/devoluciones-proveedor',
+    {
+      proveedorId: search.proveedorId,
+      soloPendientesNcFiscal: search.soloPendientesNcFiscal,
+      q: search.q,
+    },
+  );
 
   function actualizarSearch(parcial: Partial<DevolucionesSearch>) {
     navigate({
       to: '/almacen/devoluciones',
-      search: { ...search, ...parcial },
+      // Cambiar un filtro regresa a la página 1; la paginación pasa su propia página.
+      search: { ...search, page: undefined, ...parcial },
     });
   }
 
   return (
     <div className="space-y-4">
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <div>
-          <h1 className="text-2xl font-semibold tracking-tight">
-            Devoluciones a proveedor
-          </h1>
-          <p className="text-sm text-muted-foreground">
-            Sub-flujo 8.B con estado de Borrador → En autorización → Autorizada →
-            Registrada → Conciliada NC fiscal. Devoluciones internas y MAT-REV
-            en el menú "Otras acciones".
-          </p>
-        </div>
-        <div className="flex items-center gap-2">
-          {puedeIniciarProveedor && (
-            <Button onClick={() => setSheetProveedorAbierto(true)}>
-              <Plus className="mr-2 h-4 w-4" />
-              Nueva devolución a proveedor
-            </Button>
-          )}
-          {puedeCapturarInterna && (
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button variant="outline">
-                  Otras acciones
-                  <ChevronDown className="ml-2 h-4 w-4" />
+      <PageHeader
+        titulo="Devoluciones a proveedor"
+        descripcion={
+          <>
+            Devoluciones al proveedor con estado de Borrador → En autorización → Autorizada →
+            Registrada → Conciliada NC fiscal. Las devoluciones internas y las de material en revisión
+            están en el menú "Otras acciones".
+          </>
+        }
+        acciones={
+          <>
+            <div className="flex items-center gap-2">
+              {puedeIniciarProveedor && (
+                <Button onClick={() => setSheetProveedorAbierto(true)}>
+                  <Plus className="mr-2 size-3.5" />
+                  Nueva devolución a proveedor
                 </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end">
-                <DropdownMenuItem onClick={() => setSheetInternaAbierto(true)}>
-                  Devolución interna (8.A)
-                </DropdownMenuItem>
-                <DropdownMenuItem onClick={() => setMatRevSheet('baja')}>
-                  MAT-REV — Baja por daño
-                </DropdownMenuItem>
-                <DropdownMenuItem onClick={() => setMatRevSheet('reincorporar')}>
-                  MAT-REV — Reincorporar
-                </DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
-          )}
-        </div>
-      </div>
+              )}
+              {puedeCapturarInterna && (
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button variant="outline">
+                      Otras acciones
+                      <ChevronDown className="ml-2 h-4 w-4" />
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end">
+                    <DropdownMenuItem onClick={() => setSheetInternaAbierto(true)}>
+                      Devolución interna
+                    </DropdownMenuItem>
+                    <DropdownMenuItem onClick={() => setMatRevSheet('baja')}>
+                      Material en revisión: baja por daño
+                    </DropdownMenuItem>
+                    <DropdownMenuItem onClick={() => setMatRevSheet('reincorporar')}>
+                      Material en revisión: reincorporar
+                    </DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
+              )}
+            </div>
+          </>
+        }
+      />
 
-      <FiltrosToolbar search={search} onChange={actualizarSearch} />
+      <TabsEstado
+        opciones={TABS_ESTADO}
+        valor={search.estado}
+        onChange={(estado) =>
+          actualizarSearch({ estado: estado as EstadoDevolucionProveedor | undefined })
+        }
+        conteos={conteos.data}
+      />
+
+      <FiltrosToolbar search={search} total={query.data?.total} onChange={actualizarSearch} />
 
       {query.isError ? (
         <ErrorState
@@ -157,6 +192,7 @@ export function DevolucionesPage() {
         <EmptyState
           title="Sin devoluciones a proveedor"
           description={
+            search.q ||
             search.estado != null ||
             search.proveedorId ||
             search.soloPendientesNcFiscal
@@ -165,7 +201,15 @@ export function DevolucionesPage() {
           }
         />
       ) : (
-        <TablaDevoluciones items={query.data!.items} />
+        <div className="overflow-hidden rounded-lg border border-line-row bg-surface-card">
+          <TablaDevoluciones items={query.data!.items} />
+          <PaginacionTabla
+            total={query.data!.total}
+            offset={query.data!.offset}
+            limit={query.data!.limit}
+            onChange={(offset, limit) => actualizarSearch(offsetLimitAPagina(offset, limit))}
+          />
+        </div>
       )}
 
       <NuevaDevolucionProveedorSheet
@@ -187,94 +231,72 @@ export function DevolucionesPage() {
   );
 }
 
+const TABS_ESTADO = [
+  EstadoDevolucionProveedor.Borrador,
+  EstadoDevolucionProveedor.EnAutorizacion,
+  EstadoDevolucionProveedor.Autorizada,
+  EstadoDevolucionProveedor.Registrada,
+  EstadoDevolucionProveedor.ConciliadaConNcFiscal,
+  EstadoDevolucionProveedor.Rechazada,
+].map((e) => ({ valor: e as number, label: EstadoDevolucionProveedorLabels[e] }));
+
 interface FiltrosToolbarProps {
   search: DevolucionesSearch;
+  total: number | undefined;
   onChange: (parcial: Partial<DevolucionesSearch>) => void;
 }
 
-function FiltrosToolbar({ search, onChange }: FiltrosToolbarProps) {
-  const algun =
-    search.estado != null ||
-    search.proveedorId ||
-    search.soloPendientesNcFiscal;
+function FiltrosToolbar({ search, total, onChange }: FiltrosToolbarProps) {
+  const algun = search.q || search.proveedorId || search.soloPendientesNcFiscal;
 
   return (
-    <div className="flex flex-wrap items-end gap-3">
-      <div className="space-y-1">
-        <label className="text-xs text-muted-foreground">Estado</label>
-        <Select
-          value={search.estado != null ? String(search.estado) : SENTINEL_ALL}
-          onValueChange={(v) =>
-            onChange({
-              estado:
-                v === SENTINEL_ALL
-                  ? undefined
-                  : (Number(v) as EstadoDevolucionProveedor),
-            })
-          }
-        >
-          <SelectTrigger className="w-52">
-            <SelectValue placeholder="Todos" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value={SENTINEL_ALL}>Todos</SelectItem>
-            {(
-              [
-                EstadoDevolucionProveedor.Borrador,
-                EstadoDevolucionProveedor.EnAutorizacion,
-                EstadoDevolucionProveedor.Autorizada,
-                EstadoDevolucionProveedor.Registrada,
-                EstadoDevolucionProveedor.ConciliadaConNcFiscal,
-                EstadoDevolucionProveedor.Rechazada,
-              ] as const
-            ).map((e) => (
-              <SelectItem key={e} value={String(e)}>
-                {EstadoDevolucionProveedorLabels[e]}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-      </div>
-      <div className="space-y-1">
-        <label className="text-xs text-muted-foreground">Proveedor</label>
+    <BarraFiltros
+      aria-label="Filtros de devoluciones"
+      busqueda={
+        <BusquedaFolio
+          aria-label="Buscar por folio de salida"
+          valor={search.q}
+          onCommit={(q) => onChange({ q })}
+          placeholder="Folio de la salida"
+        />
+      }
+      filtros={
         <ProveedorSelector
           value={search.proveedorId ?? null}
           onChange={(id) => onChange({ proveedorId: id ?? undefined })}
-          placeholder="Todos"
-          className="w-72"
+          placeholder="Todos los proveedores"
+          className="h-ctl-md w-56 text-xs"
         />
-      </div>
-      <div className="flex items-center gap-2 pb-1">
-        <input
-          id="solo-pendientes-nc"
-          type="checkbox"
-          checked={search.soloPendientesNcFiscal ?? false}
-          onChange={(e) =>
-            onChange({
-              soloPendientesNcFiscal: e.target.checked || undefined,
-            })
-          }
-          className="h-4 w-4"
-        />
-        <label htmlFor="solo-pendientes-nc" className="text-sm">
-          Solo pendientes de NC fiscal
-        </label>
-      </div>
-      {algun && (
-        <Button
-          variant="ghost"
-          onClick={() =>
-            onChange({
-              estado: undefined,
-              proveedorId: undefined,
-              soloPendientesNcFiscal: undefined,
-            })
-          }
-        >
-          Limpiar filtros
-        </Button>
-      )}
-    </div>
+      }
+      masFiltros={
+        <div className="flex items-center gap-2">
+          <Checkbox
+            id="solo-pendientes-nc"
+            checked={search.soloPendientesNcFiscal ?? false}
+            onCheckedChange={(checked) =>
+              onChange({
+                soloPendientesNcFiscal: checked === true || undefined,
+              })
+            }
+          />
+          <label htmlFor="solo-pendientes-nc" className="text-sm">
+            Solo pendientes de NC fiscal
+          </label>
+        </div>
+      }
+      masFiltrosActivos={search.soloPendientesNcFiscal ? 1 : 0}
+      onLimpiar={
+        algun
+          ? () =>
+              onChange({
+                q: undefined,
+                proveedorId: undefined,
+                soloPendientesNcFiscal: undefined,
+              })
+          : undefined
+      }
+      total={total != null ? `${total} ${total === 1 ? 'devolución' : 'devoluciones'}` : undefined}
+    />
   );
 }
 
@@ -294,46 +316,46 @@ function TablaDevoluciones({
   }, [items, sort]);
 
   return (
-    <div className="overflow-x-auto rounded-md border">
-      <table className="w-full text-sm">
-        <thead className="bg-muted/50">
-          <tr>
-            <th className="px-3 py-2 text-left">
+    <TableContainer>
+      <Table>
+        <TableHeader>
+          <TableRow>
+            <TableHead>
               <SortableHeader
                 columnKey="proveedorId"
                 label="Proveedor"
                 current={sort}
                 onSortChange={setSort}
               />
-            </th>
-            <th className="px-3 py-2 text-left">
+            </TableHead>
+            <TableHead>
               <SortableHeader
                 columnKey="estado"
                 label="Estado"
                 current={sort}
                 onSortChange={setSort}
               />
-            </th>
-            <th className="px-3 py-2 text-right">
+            </TableHead>
+            <TableHead className="text-right">
               <SortableHeader
                 columnKey="montoTotalMxn"
                 label="Monto"
                 current={sort}
                 onSortChange={setSort}
               />
-            </th>
-            <th className="px-3 py-2 text-left">
+            </TableHead>
+            <TableHead>
               <SortableHeader
                 columnKey="solicitadaAt"
                 label="Solicitada"
                 current={sort}
                 onSortChange={setSort}
               />
-            </th>
-            <th className="px-3 py-2 text-left">Folio salida</th>
-          </tr>
-        </thead>
-        <tbody>
+            </TableHead>
+            <TableHead>Folio salida</TableHead>
+          </TableRow>
+        </TableHeader>
+        <TableBody>
           {ordenados.map((d) => {
             const rowProps = clickableRowProps(() =>
               navigate({
@@ -342,72 +364,47 @@ function TablaDevoluciones({
               }),
             );
             return (
-            <tr
-              key={d.id}
-              {...rowProps}
-              className={`border-t hover:bg-muted/30 ${rowProps.className}`}
-              aria-label={`Abrir devolución a proveedor ${d.proveedorNombre ?? truncarId(d.proveedorId)}`}
-            >
-              <td className="px-3 py-2 text-primary">
-                {d.proveedorNombre ?? (
-                  <span className="font-mono text-xs" title={d.proveedorId}>
-                    {truncarId(d.proveedorId)}
-                  </span>
-                )}
-              </td>
-              <td className="px-3 py-2">
-                <EstadoBadge estado={d.estado} />
-              </td>
-              <td className="px-3 py-2 text-right font-mono">
-                {formatearMonto(d.montoTotalMxn)}
-              </td>
-              <td className="px-3 py-2 whitespace-nowrap">
-                {new Date(d.solicitadaAt).toLocaleString('es-MX')}
-              </td>
-              <td className="px-3 py-2 font-mono text-xs">
-                {d.folioMovimientoSalida ?? (
-                  <span className="italic text-muted-foreground">—</span>
-                )}
-              </td>
-            </tr>
+              <TableRow
+                key={d.id}
+                {...rowProps}
+                className={`hover:bg-surface-subtle ${rowProps.className}`}
+              >
+                <TableCell>
+                  <Link
+                    to="/almacen/devoluciones/proveedor/$id"
+                    params={{ id: d.id }}
+                    onClick={(e) => e.stopPropagation()}
+                    className="text-brand hover:underline"
+                    aria-label={`Abrir devolución a proveedor ${d.proveedorNombre ?? truncarId(d.proveedorId)}`}
+                  >
+                    {d.proveedorNombre ?? (
+                      <span className="font-mono text-xs" title={d.proveedorId}>
+                        {truncarId(d.proveedorId)}
+                      </span>
+                    )}
+                  </Link>
+                </TableCell>
+                <TableCell>
+                  <EstadoAlmacenBadge tipo="devolucion-proveedor" estado={d.estado} />
+                </TableCell>
+                <TableCell className="text-right tabular-nums">
+                  <MoneyDisplay amount={d.montoTotalMxn} currency="MXN" strong />
+                </TableCell>
+                <TableCell className="whitespace-nowrap">
+                  <DateTimeDisplay value={d.solicitadaAt} variant="corta" />
+                </TableCell>
+                <TableCell className="font-mono text-xs">
+                  {d.folioMovimientoSalida ?? (
+                    <span className="italic text-ink-muted">—</span>
+                  )}
+                </TableCell>
+              </TableRow>
             );
           })}
-        </tbody>
-      </table>
-    </div>
+        </TableBody>
+      </Table>
+    </TableContainer>
   );
-}
-
-function EstadoBadge({ estado }: { estado: EstadoDevolucionProveedor }) {
-  return (
-    <span
-      className={cn(
-        'inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium',
-        estado === EstadoDevolucionProveedor.Borrador &&
-          'bg-slate-200 text-slate-700',
-        estado === EstadoDevolucionProveedor.EnAutorizacion &&
-          'bg-amber-100 text-amber-800',
-        estado === EstadoDevolucionProveedor.Autorizada &&
-          'bg-blue-100 text-blue-800',
-        estado === EstadoDevolucionProveedor.Registrada &&
-          'bg-violet-100 text-violet-800',
-        estado === EstadoDevolucionProveedor.ConciliadaConNcFiscal &&
-          'bg-emerald-100 text-emerald-800',
-        estado === EstadoDevolucionProveedor.Rechazada &&
-          'bg-rose-100 text-rose-800',
-      )}
-    >
-      {EstadoDevolucionProveedorLabels[estado]}
-    </span>
-  );
-}
-
-function formatearMonto(v: number): string {
-  return new Intl.NumberFormat('es-MX', {
-    style: 'currency',
-    currency: 'MXN',
-    minimumFractionDigits: 2,
-  }).format(v);
 }
 
 function truncarId(id: string): string {

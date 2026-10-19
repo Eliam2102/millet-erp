@@ -1,3 +1,4 @@
+import type { ComponentProps } from 'react';
 import { useState } from 'react';
 import { Check, ChevronsUpDown, Loader2, Search } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -40,6 +41,8 @@ export interface ProveedorSelectorProps {
   placeholder?: string;
   disabled?: boolean;
   className?: string;
+  /** Props extra del trigger (id y aria-* que entrega `Field`). */
+  triggerProps?: ComponentProps<'button'>;
   /**
    * Etiqueta inicial ("clave · razón social") del proveedor pre-seleccionado
    * al EDITAR, cuando <c>value</c> viene del DTO enriquecido. Permite mostrar
@@ -61,6 +64,7 @@ export function ProveedorSelector({
   placeholder = 'Buscar proveedor…',
   disabled,
   className,
+  triggerProps,
   initialLabel,
   permitirBusquedaPorNombre = true,
 }: ProveedorSelectorProps) {
@@ -149,6 +153,7 @@ export function ProveedorSelector({
           role="combobox"
           aria-expanded={open}
           aria-label="Seleccionar proveedor"
+          {...triggerProps}
           disabled={disabled}
           className={cn(
             'w-full justify-between font-normal',

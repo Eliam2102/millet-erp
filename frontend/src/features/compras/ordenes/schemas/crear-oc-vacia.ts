@@ -57,7 +57,7 @@ export const CrearOrdenCompraVaciaSchema = z
     // <c>useForm&lt;CrearOrdenCompraVaciaValues&gt;</c>.
     moneda: z
       .string()
-      .regex(/^[A-Z]{3}$/, 'La moneda debe ser un código ISO 4217 (3 letras).'),
+      .regex(/^[A-Z]{3}$/, 'La moneda debe tener 3 letras, por ejemplo MXN.'),
     tipoCambio: z
       .number()
       .positive('El tipo de cambio debe ser mayor a 0.')

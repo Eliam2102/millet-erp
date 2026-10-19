@@ -60,6 +60,15 @@ public interface IAlmacenSaldoQueryPort
         Guid sucursalId,
         Guid articuloId,
         CancellationToken cancellationToken);
+
+    /// <summary>
+    /// Devuelve los ids de la lista cuyo sub-almacén es <c>TipoSubAlmacen.MaterialEnRevision</c>
+    /// (material dañado en revisión, ALM-04). Lo usa CxP para detener facturas con motivo
+    /// «Daños» (P8.4a).
+    /// </summary>
+    Task<IReadOnlySet<Guid>> FiltrarSubAlmacenesEnRevisionAsync(
+        IReadOnlyCollection<Guid> subAlmacenIds,
+        CancellationToken cancellationToken);
 }
 
 /// <summary>

@@ -7,6 +7,7 @@ using Millet.SharedKernel.Application.Exceptions;
 using Millet.Tesoreria.Application.EventListeners;
 using Millet.Tesoreria.Application.Integration;
 using Millet.Tesoreria.Domain.Depositos;
+using Millet.Tesoreria.Domain.Devoluciones;
 using Millet.Tesoreria.Application.Movimientos;
 using Millet.Tesoreria.Domain.Ports;
 using Millet.Tesoreria.Infrastructure.Persistence;
@@ -118,6 +119,18 @@ public sealed class ConfirmarDepositoHandler
     public async Task<DepositoConfirmacionResponse> Handle(
         ConfirmarDepositoCommand command, CancellationToken cancellationToken)
     {
+        // Mismo lock que solicitar/pagar devoluciones: la carrera depósito↔devolución se serializa.
+        if (!_db.Database.IsRelational()) return await ConfirmarAsync(command, cancellationToken);
+        DepositoConfirmacionResponse? resultado = null;
+        await Millet.SharedKernel.Infrastructure.Persistence.PostgresAdvisoryLock.ExecuteAsync(_db,
+            Millet.Tesoreria.Application.Devoluciones.DevolucionLectura.LockKey,
+            async ct => resultado = await ConfirmarAsync(command, ct), cancellationToken);
+        return resultado!;
+    }
+
+    private async Task<DepositoConfirmacionResponse> ConfirmarAsync(
+        ConfirmarDepositoCommand command, CancellationToken cancellationToken)
+    {
         if (_currentEmpresa.Current is not Guid empresaId)
             throw new ForbiddenException("EMPRESA_NO_SELECCIONADA",
                 "El usuario no tiene una empresa seleccionada.");
@@ -138,6 +151,11 @@ public sealed class ConfirmarDepositoHandler
                 .CrearAsync(command.Ingreso, cancellationToken)
             : await _db.MovimientosBancarios.FirstOrDefaultAsync(m => m.Id == command.MovimientoBancarioId, cancellationToken)
                 ?? throw new EntityNotFoundException("MOV_NO_ENCONTRADO", "No se encontró el ingreso bancario.");
+
+        if (command.Ingreso is null && await _db.DevolucionesCliente.AnyAsync(d => d.MovimientoOrigenId == movimiento.Id
+                && (d.Estado == EstadoDevolucionCliente.Solicitada || d.Estado == EstadoDevolucionCliente.Autorizada), cancellationToken))
+            throw new BusinessRuleException("DEP_DEVOLUCION_EN_CURSO",
+                "El ingreso tiene una devolución a cliente solicitada o autorizada. Cancélala o recházala antes de confirmar el depósito.");
 
         // RN-6 + cotejo monto/moneda validados en el dominio.
         deposito.Confirmar(movimiento, usuarioId, _clock.UtcNow);

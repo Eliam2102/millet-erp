@@ -62,6 +62,7 @@ export {
   useLineasParaCapturar,
   useCapturarLinea,
   useEnviarConteoAConciliacion,
+  useVistaPreviaConteo,
 } from '@/features/almacen/api/useConteos';
 export {
   useLineasComparacion,
@@ -74,7 +75,10 @@ export {
 } from '@/features/almacen/api/useAprobacionConteo';
 export {
   useSaldos,
+  useSaldosTotales,
   useEjecutarCierreMes,
+  usePeriodosCierre,
+  useRevisionPreviaCierre,
   useReporteAlfakHistorial,
   useReporteExistenciaMpCnk,
 } from '@/features/almacen/api/useSaldosCierreReportes';
@@ -96,3 +100,7 @@ export {
   useCrearAsignacion,
   useDesasignar,
 } from '@/features/almacen/api/useAsignaciones';
+export {
+  useDictaminarMaterialEnRevision,
+  useMaterialEnRevision,
+} from '@/features/almacen/api/useMaterialEnRevision';

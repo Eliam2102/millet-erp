@@ -15,6 +15,7 @@ import {
   applyServerErrors,
   esApiError,
   useFormIdempotencyKey,
+  codigoSoporte,
 } from '@/lib/api';
 import {
   RegistrarTipoCambioSchema,
@@ -102,9 +103,7 @@ export function TipoCambioInlineForm({
               return;
             }
             toast.error(error.problem.title, {
-              description: error.traceId
-                ? `Código: ${error.traceId}`
-                : undefined,
+              description: codigoSoporte(error),
             });
             return;
           }
@@ -226,14 +225,14 @@ function FieldInline({
       <label className="mb-1 flex items-center gap-1 text-xs font-medium">
         {label}
         {required && (
-          <span aria-hidden="true" className="text-rose-600">
+          <span aria-hidden="true" className="text-danger">
             *
           </span>
         )}
       </label>
       {children}
       {error != null && (
-        <p role="alert" className="mt-1 text-xs text-rose-600">
+        <p role="alert" className="mt-1 text-xs text-danger">
           {error}
         </p>
       )}

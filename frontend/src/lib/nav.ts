@@ -37,9 +37,11 @@ import {
   Repeat,
   RotateCcw,
   Scale,
+  ShieldAlert,
   ShoppingCart,
   Sliders,
   Truck,
+  Undo2,
   Unlock,
   Upload,
   Users,
@@ -216,6 +218,14 @@ const moduloAlmacen: NavModulo = {
             'Bandeja de entradas. Captura recepciones Variante A (con factura) y Variante B (con packing list, factura pendiente).',
           to: '/almacen/recepciones',
           icon: PackagePlus,
+          permission: PermisosCanonicos.AlmacenEntradasLeer,
+        },
+        {
+          label: 'Material en revisión',
+          description:
+            'Material dañado en recepción pendiente de dictamen del Gerente de almacén/calidad.',
+          to: '/almacen/revision',
+          icon: ShieldAlert,
           permission: PermisosCanonicos.AlmacenEntradasLeer,
         },
         {
@@ -545,6 +555,19 @@ const moduloTesoreria: NavModulo = {
           permissionsAny: [
             PermisosCanonicos.TesoreriaDepositosConfirmar,
             PermisosCanonicos.TesoreriaDepositosRechazar,
+          ],
+        },
+        {
+          label: 'Devoluciones a clientes',
+          description:
+            'Depósitos erróneos y reembolsos de notas de crédito: autorizar y pagar con contramovimiento ligado.',
+          to: '/tesoreria/devoluciones',
+          icon: Undo2,
+          permissionsAny: [
+            PermisosCanonicos.TesoreriaDevolucionesVer,
+            PermisosCanonicos.TesoreriaDevolucionesSolicitar,
+            PermisosCanonicos.TesoreriaDevolucionesAutorizar,
+            PermisosCanonicos.TesoreriaDevolucionesPagar,
           ],
         },
         {

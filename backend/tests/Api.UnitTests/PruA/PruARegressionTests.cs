@@ -445,7 +445,7 @@ public sealed class PruARegressionTests
         Task<ProveedorDto?> IProveedorReadPort.ObtenerAsync(Guid id, CancellationToken ct) => Task.FromResult<ProveedorDto?>(new(id, "AAA010101AAA", "Proveedor FIX", null, false, true));
         public Task<ProveedorDto?> ObtenerPorRfcAsync(string rfc, CancellationToken ct) => ((IProveedorReadPort)this).ObtenerAsync(Proveedor, ct);
         public Task<IReadOnlyDictionary<Guid, string>> ObtenerNombresPorIdsAsync(IReadOnlyCollection<Guid> ids, CancellationToken ct) => Task.FromResult<IReadOnlyDictionary<Guid, string>>(ids.ToDictionary(id => id, _ => "Proveedor FIX"));
-        Task<ProveedorBancoDto?> IProveedorBancoReadPort.ObtenerAsync(Guid id, CancellationToken ct) => Task.FromResult<ProveedorBancoDto?>(new(id, "FIX", "Proveedor FIX", null, null, null, Rfc: "AAA010101AAA"));
+        Task<ProveedorBancoDto?> IProveedorBancoReadPort.ObtenerAsync(Guid id, CancellationToken ct) => Task.FromResult<ProveedorBancoDto?>(new(id, "FIX", "Proveedor FIX", [new(Guid.NewGuid(), "FIX Banco", "002010077777777771", true, null, "MXN", "Proveedor FIX", true, "Activa")], Rfc: "AAA010101AAA"));
         public Task<IReadOnlyDictionary<Guid, ProveedorBancoDto>> ObtenerVariosAsync(IReadOnlyCollection<Guid> ids, CancellationToken ct) => Task.FromResult<IReadOnlyDictionary<Guid, ProveedorBancoDto>>(new Dictionary<Guid, ProveedorBancoDto>());
         public Task<decimal> ObtenerLimiteAcumuladoAsync(Guid id, CancellationToken ct) => Task.FromResult(1000m);
         Task<OrdenCompraDto?> IComprasOcReadPort.ObtenerAsync(Guid id, CancellationToken ct) => Task.FromResult<OrdenCompraDto?>(null);

@@ -1,3 +1,4 @@
+import { useEffect } from 'react';
 import { hoyLocalISO } from '@/lib/datetime';
 import { Controller, useFieldArray, useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -13,7 +14,6 @@ import {
 } from '@/components/ui/sheet';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import {
   applyServerErrors,
@@ -27,9 +27,11 @@ import {
 import { useCrearComprobacionAduanales } from '@/features/cxp/api/useComprobaciones';
 import {
   EmpleadoSelector,
+  Field,
   ProveedorSelector,
   SucursalSelector,
 } from '@/components/erp';
+import { useConfirmarDescarte } from '@/components/erp/forms/useConfirmarDescarte';
 import { FacturaPicker } from '@/features/cxp/components/FacturaPicker';
 
 /**
@@ -47,9 +49,15 @@ export function NuevaComprobacionAduanalesSheet({
   open,
   onOpenChange,
 }: NuevaComprobacionAduanalesSheetProps) {
+  const { setDirty, solicitarCierre, dialogo } = useConfirmarDescarte(() =>
+    onOpenChange(false),
+  );
   return (
-    <Sheet open={open} onOpenChange={onOpenChange}>
-      <SheetContent side="right" className="sm:max-w-xl">
+    <Sheet
+      open={open}
+      onOpenChange={(next) => (next ? onOpenChange(next) : solicitarCierre())}
+    >
+      <SheetContent side="right" size="form">
         <SheetHeader>
           <SheetTitle>Nueva comprobación — Aduanales</SheetTitle>
           <SheetDescription>
@@ -58,13 +66,28 @@ export function NuevaComprobacionAduanalesSheet({
             Finanzas) antes de liberarse.
           </SheetDescription>
         </SheetHeader>
-        {open && <Form onClose={() => onOpenChange(false)} />}
+        {open && (
+          <Form
+            onCancel={() => solicitarCierre()}
+            onCreated={() => solicitarCierre(true)}
+            onDirtyChange={setDirty}
+          />
+        )}
       </SheetContent>
+      {dialogo}
     </Sheet>
   );
 }
 
-function Form({ onClose }: { onClose: () => void }) {
+function Form({
+  onCancel,
+  onCreated,
+  onDirtyChange,
+}: {
+  onCancel: () => void;
+  onCreated: () => void;
+  onDirtyChange: (dirty: boolean) => void;
+}) {
   const idempotencyKey = useFormIdempotencyKey();
   const crear = useCrearComprobacionAduanales();
   const hoy = hoyLocalISO();
@@ -89,6 +112,11 @@ function Form({ onClose }: { onClose: () => void }) {
     name: 'facturaProveedorIds' as never,
   });
 
+  const isDirty = form.formState.isDirty;
+  useEffect(() => {
+    onDirtyChange(isDirty);
+  }, [isDirty, onDirtyChange]);
+
   function onSubmit(values: CrearComprobacionAduanalesValues) {
     crear.mutate(
       { command: values, idempotencyKey },
@@ -97,7 +125,7 @@ function Form({ onClose }: { onClose: () => void }) {
           toast.success(
             `Comprobación aduanal creada — pedimento ${res.numeroPedimento}`,
           );
-          onClose();
+          onCreated();
         },
         onError: (error) => {
           if (esApiError(error)) {
@@ -121,40 +149,49 @@ function Form({ onClose }: { onClose: () => void }) {
     <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4 px-4">
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
         <Campo label="Sucursal" required error={form.formState.errors.sucursalId?.message}>
-          <Controller
-            control={form.control}
-            name="sucursalId"
-            render={({ field }) => (
-              <SucursalSelector
-                value={field.value || null}
-                onChange={(id) => field.onChange(id ?? '')}
-              />
-            )}
-          />
+          {(control) => (
+            <Controller
+              control={form.control}
+              name="sucursalId"
+              render={({ field }) => (
+                <SucursalSelector
+                  value={field.value || null}
+                  onChange={(id) => field.onChange(id ?? '')}
+                  triggerProps={control}
+                />
+              )}
+            />
+          )}
         </Campo>
         <Campo label="Responsable" required error={form.formState.errors.responsableId?.message}>
-          <Controller
-            control={form.control}
-            name="responsableId"
-            render={({ field }) => (
-              <EmpleadoSelector
-                value={field.value || null}
-                onChange={(id) => field.onChange(id ?? '')}
-              />
-            )}
-          />
+          {(control) => (
+            <Controller
+              control={form.control}
+              name="responsableId"
+              render={({ field }) => (
+                <EmpleadoSelector
+                  value={field.value || null}
+                  onChange={(id) => field.onChange(id ?? '')}
+                  triggerProps={control}
+                />
+              )}
+            />
+          )}
         </Campo>
         <Campo label="Agencia aduanal (proveedor)" required error={form.formState.errors.proveedorId?.message}>
-          <Controller
-            control={form.control}
-            name="proveedorId"
-            render={({ field }) => (
-              <ProveedorSelector
-                value={field.value || null}
-                onChange={(id) => field.onChange(id ?? '')}
-              />
-            )}
-          />
+          {(control) => (
+            <Controller
+              control={form.control}
+              name="proveedorId"
+              render={({ field }) => (
+                <ProveedorSelector
+                  value={field.value || null}
+                  onChange={(id) => field.onChange(id ?? '')}
+                  triggerProps={control}
+                />
+              )}
+            />
+          )}
         </Campo>
         <Campo label="Número de pedimento" required error={form.formState.errors.numeroPedimento?.message}>
           <Input placeholder="26 47 3807 6014923" {...form.register('numeroPedimento')} />
@@ -170,7 +207,7 @@ function Form({ onClose }: { onClose: () => void }) {
         </Campo>
       </div>
 
-      <Campo label="Observaciones">
+      <Campo label="Observaciones" optional>
         <Textarea rows={2} {...form.register('observaciones')} />
       </Campo>
 
@@ -185,7 +222,7 @@ function Form({ onClose }: { onClose: () => void }) {
             size="sm"
             onClick={() => append('' as never)}
           >
-            <Plus className="mr-1 h-3 w-3" />
+            <Plus className="mr-1 size-3.5" />
             Agregar factura
           </Button>
         </header>
@@ -203,6 +240,7 @@ function Form({ onClose }: { onClose: () => void }) {
                     value={f.value || null}
                     onChange={(id) => f.onChange(id ?? '')}
                     className="flex-1"
+                    triggerProps={{ 'aria-label': `Factura ${index + 1}` }}
                   />
                 )}
               />
@@ -212,27 +250,28 @@ function Form({ onClose }: { onClose: () => void }) {
                   variant="ghost"
                   size="sm"
                   onClick={() => remove(index)}
-                  className="shrink-0 text-destructive hover:bg-destructive/10"
+                  aria-label={`Quitar factura ${index + 1}`}
+                  className="shrink-0 text-danger-fg hover:bg-danger-bg"
                 >
-                  <Trash2 className="h-3 w-3" />
+                  <Trash2 className="h-3 w-3" aria-hidden="true" />
                 </Button>
               )}
             </div>
           ))}
         </div>
         {form.formState.errors.facturaProveedorIds?.message && (
-          <p className="text-xs text-destructive">
+          <p role="alert" className="text-xs text-danger-fg">
             {form.formState.errors.facturaProveedorIds.message}
           </p>
         )}
-        <p className="text-xs text-muted-foreground">
+        <p className="text-xs text-ink-muted">
           Las facturas deben estar en estado <strong>Capturada</strong> y tener
           OC asociada. Captúralas primero vía la bandeja de Facturas.
         </p>
       </section>
 
       <SheetFooter className="px-0">
-        <Button type="button" variant="ghost" onClick={onClose} disabled={crear.isPending}>
+        <Button type="button" variant="ghost" onClick={onCancel} disabled={crear.isPending}>
           Cancelar
         </Button>
         <Button type="submit" disabled={crear.isPending}>
@@ -243,22 +282,5 @@ function Form({ onClose }: { onClose: () => void }) {
   );
 }
 
-interface CampoProps {
-  label: string;
-  required?: boolean;
-  error?: string;
-  children: React.ReactNode;
-}
-
-function Campo({ label, required, error, children }: CampoProps) {
-  return (
-    <div className="space-y-1">
-      <Label className="text-xs">
-        {label}
-        {required && <span className="ml-1 text-destructive">*</span>}
-      </Label>
-      {children}
-      {error && <p className="text-xs text-destructive">{error}</p>}
-    </div>
-  );
-}
+/** Alias local: `Field` accesible (label asociado, aria-*). */
+const Campo = Field;

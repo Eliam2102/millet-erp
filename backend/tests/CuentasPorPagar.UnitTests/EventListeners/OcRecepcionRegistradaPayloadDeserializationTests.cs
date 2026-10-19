@@ -131,4 +131,40 @@ public sealed class OcRecepcionRegistradaPayloadDeserializationTests
         payload.Lineas[0].LineaOcId.Should().Be(lineaOcId);
         payload.Lineas[0].Cantidad.Should().Be(5m);
     }
+
+    [Fact]
+    public void Deserializa_SubAlmacenId_de_linea_y_queda_null_si_no_viene()
+    {
+        var sub = Guid.NewGuid();
+        var json = $$"""
+        {
+          "empresaId": "{{Guid.NewGuid()}}",
+          "ocurridoEn": "2026-07-23T12:00:00+00:00",
+          "recepcionId": "{{Guid.NewGuid()}}",
+          "folioRecepcion": "REC-2026-000043",
+          "ordenCompraId": "{{Guid.NewGuid()}}",
+          "fechaMovimiento": "2026-07-23",
+          "facturaPendiente": false,
+          "cfdiRecibidoId": null,
+          "observaciones": null,
+          "lineas": [
+            {
+              "lineaRecepcionId": "{{Guid.NewGuid()}}", "lineaOcId": null,
+              "articuloId": "{{Guid.NewGuid()}}", "unidadMedida": "PZA", "cantidad": 1,
+              "costoUnitarioMxn": 1, "montoTotalMxn": 1, "subAlmacenId": "{{sub}}"
+            },
+            {
+              "lineaRecepcionId": "{{Guid.NewGuid()}}", "lineaOcId": null,
+              "articuloId": "{{Guid.NewGuid()}}", "unidadMedida": "PZA", "cantidad": 1,
+              "costoUnitarioMxn": 1, "montoTotalMxn": 1
+            }
+          ]
+        }
+        """;
+
+        var payload = JsonSerializer.Deserialize<OcRecepcionRegistradaPayload>(json, JsonOpts);
+
+        payload!.Lineas[0].SubAlmacenId.Should().Be(sub);
+        payload.Lineas[1].SubAlmacenId.Should().BeNull();
+    }
 }

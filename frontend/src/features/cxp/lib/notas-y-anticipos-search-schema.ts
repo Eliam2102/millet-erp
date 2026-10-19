@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { PaginaSearchShape } from '@/components/erp/data/paginacion';
 import {
   EstadoAnticipo,
   EstadoNotaCargo,
@@ -17,6 +18,8 @@ export const NotasCreditoSearchSchema = z.object({
     ])
     .optional(),
   proveedorId: z.string().regex(UUID_RE).optional(),
+  q: z.string().min(1).max(200).optional(),
+  ...PaginaSearchShape,
 });
 
 export type NotasCreditoSearch = z.infer<typeof NotasCreditoSearchSchema>;
@@ -45,6 +48,8 @@ export const NotasCargoSearchSchema = z.object({
     ])
     .optional(),
   proveedorId: z.string().regex(UUID_RE).optional(),
+  q: z.string().min(1).max(200).optional(),
+  ...PaginaSearchShape,
 });
 
 export type NotasCargoSearch = z.infer<typeof NotasCargoSearchSchema>;

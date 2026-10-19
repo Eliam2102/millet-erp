@@ -587,7 +587,10 @@ else
 // PLATFORM-TODO(<MigrarAdjuntosOcAlmacen>): OC, vale, packing list y evidencias de Almacén siguen con su patrón propio. Ver ADR-0058.
 builder.Services.AddScoped<Millet.Compartido.Application.Adjuntos.AdjuntoAcceso>();
 builder.Services.AddScoped<Millet.SharedKernel.Application.Adjuntos.IAdjuntoPropietario, Millet.Compras.Application.Adjuntos.RequisicionAdjuntoPropietario>();
+builder.Services.AddScoped<Millet.SharedKernel.Application.Adjuntos.IAdjuntoPropietario, Millet.Compras.Application.Adjuntos.RespuestaProveedorOcAdjuntoPropietario>();
+builder.Services.AddScoped<Millet.SharedKernel.Application.Adjuntos.IAdjuntoPropietario, Millet.Compras.Application.Adjuntos.CotizacionAdjuntoPropietario>();
 builder.Services.AddScoped<Millet.SharedKernel.Application.Adjuntos.IAdjuntoPropietario, Millet.CuentasPorPagar.Application.Adjuntos.FacturaProveedorAdjuntoPropietario>();
+builder.Services.AddScoped<Millet.SharedKernel.Application.Adjuntos.IAdjuntoPropietario, Millet.Api.Endpoints.Almacen.Revision.LineaRevisionAdjuntoPropietario>();
 builder.Services.AddScoped<Millet.SharedKernel.Application.Adjuntos.IAdjuntoPropietario, Millet.Contabilidad.Application.Polizas.PolizaAdjuntoPropietario>();
 builder.Services.AddScoped<
     Millet.SharedKernel.Application.Adjuntos.IAdjuntoPropietario,
@@ -797,6 +800,9 @@ builder.Services.AddScoped<
 builder.Services.AddScoped<
     Millet.Almacen.Domain.Ports.IProveedorReadPort,
     Millet.Compartido.Infrastructure.PublicAdapters.ProveedorReadAdapter>();
+builder.Services.AddScoped<
+    Millet.Almacen.Domain.Ports.IAdjuntosEntidadReadPort,
+    Millet.Compartido.Infrastructure.PublicAdapters.AdjuntosEntidadReadAdapter>();
 
 // Adapter CxP → hosteado en CuentasPorPagar.Infrastructure.PublicAdapters
 // (CxP referencia Almacén vía Compras; Almacén no referencia CxP — bounded
@@ -1445,6 +1451,7 @@ app.MapLineasEndpoints();
 app.MapAprobadoresEndpoints();
 app.MapComprasSettingsEndpoints();
 app.MapUmbralesAprobacionEndpoints();
+app.MapCotizacionesEndpoints();
 
 // === Settings genéricos /api/v1/{modulo}/settings (F-Admin-PR1.1, ADR-0034) ===
 app.MapSettingsEndpoints();
@@ -1506,6 +1513,9 @@ Millet.Api.Endpoints.Almacen.Vales.ValeBlobEndpoints.MapValeBlobEndpoints(app);
 // === Almacén — Devoluciones internas 8.A + MAT-REV (F5-PR1) ===
 Millet.Api.Endpoints.Almacen.DevolucionesInternas.DevolucionesInternasEndpoints
     .MapDevolucionesInternasEndpoints(app);
+
+// === Almacén — Material en revisión (ALM-04) ===
+Millet.Api.Endpoints.Almacen.Revision.MaterialEnRevisionEndpoints.MapMaterialEnRevisionEndpoints(app);
 
 // === Almacén — Devoluciones a proveedor 8.B (F6-PR1) ===
 Millet.Api.Endpoints.Almacen.DevolucionesProveedor.DevolucionesProveedorEndpoints
@@ -1582,6 +1592,7 @@ Millet.Api.Endpoints.Catalogos.CatalogosSatFiscalApiEndpoints.MapCatalogosSatFis
 // === Datos Maestros — queries enriquecidas (F-Admin-PR4.5) ===
 Millet.Api.Endpoints.DatosMaestros.DatosMaestrosEndpoints.MapDatosMaestrosEndpoints(app);
 Millet.Api.Endpoints.DatosMaestros.F1AEndpoints.MapF1AEndpoints(app);
+Millet.Api.Endpoints.DatosMaestros.SincronizacionAwEndpoints.MapSincronizacionAwEndpoints(app);
 Millet.Api.Endpoints.DatosMaestros.ClientesSincronizacionEndpoints.MapClientesSincronizacionEndpoints(app);
 Millet.Api.Endpoints.DatosMaestros.ProductosAwSincronizacionEndpoints.MapProductosAwSincronizacionEndpoints(app);
 Millet.Api.Endpoints.DatosMaestros.DiferenciasFiscalesAwEndpoints.MapDiferenciasFiscalesAwEndpoints(app);
@@ -1735,6 +1746,7 @@ Millet.Api.Endpoints.Tesoreria.PagosACuentaEndpoints.MapTesoreriaPagosACuentaEnd
 
 // === Tesorería — Confirmación de depósitos de cliente (TES-PR7, TES-9) ===
 Millet.Api.Endpoints.Tesoreria.DepositosEndpoints.MapTesoreriaDepositosEndpoints(app);
+Millet.Api.Endpoints.Tesoreria.DevolucionesEndpoints.MapTesoreriaDevolucionesEndpoints(app);
 
 // === Tesorería — REPP recibido de proveedor: pendientes SLA + registro (TES-PR8, TES-4) ===
 Millet.Api.Endpoints.Tesoreria.ReppEndpoints.MapTesoreriaReppEndpoints(app);

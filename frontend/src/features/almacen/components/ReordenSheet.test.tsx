@@ -73,3 +73,28 @@ describe('<ReordenSheet> — Idempotency-Key por submit (PR B)', () => {
     expect(key1).not.toBe(key2);
   });
 });
+
+describe('<ReordenSheet> — aviso de cambios al cerrar (UX-F2-ALM-06)', () => {
+  it('sin cambios, Cancelar cierra directo', () => {
+    const onOpenChange = vi.fn();
+    render(<ReordenSheet open onOpenChange={onOpenChange} editando={EDITANDO} />, {
+      wrapper: createQueryWrapper(),
+    });
+    fireEvent.click(screen.getByRole('button', { name: 'Cancelar' }));
+    expect(onOpenChange).toHaveBeenCalledWith(false);
+  });
+
+  it('con cambios, Cancelar pide confirmación y no cierra hasta descartar', async () => {
+    const onOpenChange = vi.fn();
+    render(<ReordenSheet open onOpenChange={onOpenChange} editando={EDITANDO} />, {
+      wrapper: createQueryWrapper(),
+    });
+    fireEvent.change(screen.getByLabelText(/^Mínimo/), { target: { value: '15' } });
+    await waitFor(() => expect(screen.getByLabelText(/^Mínimo/)).toHaveValue(15));
+    fireEvent.click(screen.getByRole('button', { name: 'Cancelar' }));
+    expect(await screen.findByText('¿Descartar los cambios?')).toBeInTheDocument();
+    expect(onOpenChange).not.toHaveBeenCalled();
+    fireEvent.click(screen.getByRole('button', { name: 'Descartar' }));
+    expect(onOpenChange).toHaveBeenCalledWith(false);
+  });
+});

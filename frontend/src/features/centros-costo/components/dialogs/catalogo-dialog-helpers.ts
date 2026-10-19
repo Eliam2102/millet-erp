@@ -1,6 +1,6 @@
 import type { QueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
-import { applyServerErrors, esApiError } from '@/lib/api';
+import { applyServerErrors, esApiError, codigoSoporte } from '@/lib/api';
 import type { FormConSetError } from '@/lib/api/apply-server-errors';
 import type { ConflictDialogApi } from '@/components/erp/collaboration/conflict-dialog-context';
 import { handleCeCoMutationError } from '@/features/centros-costo/lib/handle-conflict';
@@ -56,7 +56,7 @@ export function manejarErrorDialogoCatalogo(
     }
 
     toast.error(error.problem.title, {
-      description: error.traceId ? `Código: ${error.traceId}` : undefined,
+      description: codigoSoporte(error),
     });
     return;
   }

@@ -34,6 +34,8 @@ public sealed class ResolverCancelacionOcHandler(ComprasDbContext db, ICurrentUs
             var rqIds = resultado.LiberacionesParciales.Select(l => l.RequisicionId).Distinct().ToArray();
             var rqs = await db.Requisiciones.Where(r => rqIds.Contains(r.Id)).ToListAsync(cancellationToken);
             foreach (var rq in rqs.Where(r => r.ComprometidaEnOcId == oc.Id)) rq.LiberarDeOc();
+            await Cotizaciones.CotizacionesComparativo.LiberarPorOcAsync(db, oc.Id, userId, clock.UtcNow,
+                $"OC cancelada con recepciones: {command.Motivo}", cancellationToken);
             // El saldo se deriva de las líneas; lo recibido permanece consumido en la OC cancelada.
             await publisher.Publish(resultado.EventoCancelada, cancellationToken);
         }

@@ -20,6 +20,9 @@ public sealed class NotaCreditoConfiguration : IEntityTypeConfiguration<NotaCred
         builder.Property(e => e.FacturaRelacionadaId);
         builder.Property(e => e.ImporteAfectaInventario).HasPrecision(18, 2).IsRequired();
 
+        builder.Property(e => e.ReembolsoSolicitadoEn);
+        builder.Property(e => e.ImporteReembolsoSolicitado).HasPrecision(18, 2);
+
         builder.Property(e => e.ClaveProdServSat).HasMaxLength(10).IsRequired();
         builder.Property(e => e.ClaveUnidadSat).HasMaxLength(10).IsRequired();
         builder.Property(e => e.Descripcion).HasMaxLength(1000).IsRequired();

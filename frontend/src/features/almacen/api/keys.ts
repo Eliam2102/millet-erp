@@ -29,6 +29,9 @@ export interface ListarRecepcionesFiltros {
   hasta?: string;
   offset?: number;
   limit?: number;
+  proveedorId?: string;
+  /** Búsqueda por folio, server-side. */
+  q?: string;
 }
 
 export interface ListarSalidasFiltros {
@@ -49,6 +52,8 @@ export interface ListarSalidasFiltros {
   soloPorVencer?: boolean;
   offset?: number;
   limit?: number;
+  /** Búsqueda por folio, server-side. */
+  q?: string;
 }
 
 export interface ListarDevolucionesProveedorFiltros {
@@ -57,6 +62,8 @@ export interface ListarDevolucionesProveedorFiltros {
   soloPendientesNcFiscal?: boolean;
   offset?: number;
   limit?: number;
+  /** Búsqueda por folio de la salida, server-side. */
+  q?: string;
 }
 
 export interface ListarConteosFiltros {
@@ -65,6 +72,8 @@ export interface ListarConteosFiltros {
   subAlmacenId?: string;
   offset?: number;
   limit?: number;
+  /** Búsqueda por familia (el conteo no tiene folio), server-side. */
+  q?: string;
 }
 
 export interface ListarSaldosFiltros {
@@ -139,6 +148,10 @@ export const almacenKeys = {
   subAlmacenesList: (filtros: ListarSubAlmacenesFiltros) =>
     [...almacenKeys.subAlmacenes(), 'list', filtros] as const,
 
+  // Material en revisión (ALM-04)
+  revision: (f: { soloPendientes: boolean; q?: string }) =>
+    [...almacenKeys.all, 'revision', f] as const,
+
   // Recepciones
   recepciones: () => [...almacenKeys.all, 'recepciones'] as const,
   recepcionesList: (filtros: ListarRecepcionesFiltros) =>
@@ -170,6 +183,8 @@ export const almacenKeys = {
   conteos: () => [...almacenKeys.all, 'conteos'] as const,
   conteosList: (filtros: ListarConteosFiltros) =>
     [...almacenKeys.conteos(), 'list', filtros] as const,
+  conteoVistaPrevia: (subAlmacenId: string | null, familia: string | null) =>
+    [...almacenKeys.conteos(), 'vista-previa', subAlmacenId, familia] as const,
   conteoById: (id: string) => [...almacenKeys.conteos(), 'byId', id] as const,
   lineasParaCapturar: (conteoId: string) =>
     [...almacenKeys.conteoById(conteoId), 'lineas-para-capturar'] as const,
@@ -180,6 +195,8 @@ export const almacenKeys = {
   saldos: () => [...almacenKeys.all, 'saldos'] as const,
   saldosList: (filtros: ListarSaldosFiltros) =>
     [...almacenKeys.saldos(), 'list', filtros] as const,
+  saldosTotales: (filtros: ListarSaldosFiltros) =>
+    [...almacenKeys.saldos(), 'totales', filtros] as const,
   // C7.2b: saldo por ubicación de un artículo (selector de bin en salidas)
   saldosPorUbicacion: (articuloId: string, subAlmacenId: string) =>
     [...almacenKeys.saldos(), 'por-ubicacion', articuloId, subAlmacenId] as const,
@@ -187,6 +204,11 @@ export const almacenKeys = {
   // expansión del árbol se cachea de forma independiente)
   saldosJerarquia: (params: HijosJerarquiaParams) =>
     [...almacenKeys.saldos(), 'jerarquia', params] as const,
+
+  // Cierre de mes
+  cierrePeriodos: () => [...almacenKeys.all, 'cierre-mes', 'periodos'] as const,
+  cierreRevision: (anio: number, mes: number) =>
+    [...almacenKeys.all, 'cierre-mes', 'revision-previa', anio, mes] as const,
 
   // Reabasto / reorden (config N1-N2)
   reorden: () => [...almacenKeys.all, 'reorden'] as const,

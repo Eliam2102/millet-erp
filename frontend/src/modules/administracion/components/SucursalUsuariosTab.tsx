@@ -20,7 +20,7 @@ import {
   useDesactivarAsignacionUsuarioSucursal,
   useReactivarAsignacionUsuarioSucursal,
 } from '@/modules/administracion/api';
-import { esApiError } from '@/lib/api';
+import { esApiError, codigoSoporte } from '@/lib/api';
 import { SucursalTabErrorState } from '@/modules/administracion/components/SucursalTabErrorState';
 import { FilaAsignacionSucursal } from '@/modules/administracion/components/FilaAsignacionSucursal';
 
@@ -39,7 +39,7 @@ export function SucursalUsuariosTab({
   const [filtro, setFiltro] = useState('');
   const [modalAsignarOpen, setModalAsignarOpen] = useState(false);
 
-  const asignados = asignadosQuery.data?.items ?? [];
+  const asignados = useMemo(() => asignadosQuery.data?.items ?? [], [asignadosQuery.data?.items]);
 
   const asignadosFiltrados = useMemo(() => {
     const q = filtro.trim().toLowerCase();
@@ -387,7 +387,7 @@ function handleError(accion: string) {
       toast.error(error.problem.title, {
         description:
           error.problem.detail ||
-          (error.traceId ? `Código: ${error.traceId}` : undefined),
+          (codigoSoporte(error)),
       });
     } else {
       toast.error(`Error al ${accion}.`);

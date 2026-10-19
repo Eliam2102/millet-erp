@@ -73,7 +73,7 @@ export function CuentaBancariaSelector({
                   {c.numeroCuenta}
                 </span>
                 <span className="text-xs text-muted-foreground">
-                  {'saldo' in c && typeof c.saldo === 'number' ? formatoMonto(c.saldo, c.moneda) : c.moneda}
+                  {'saldo' in c && typeof c.saldo === 'number' ? `${formatoMonto(c.saldo, c.moneda)} en libros` : c.moneda}
                 </span>
               </span>
             </SelectItem>

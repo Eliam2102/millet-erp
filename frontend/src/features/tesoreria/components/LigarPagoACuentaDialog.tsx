@@ -1,3 +1,4 @@
+import { DateTimeDisplay } from '@/components/erp/display/DateTimeDisplay';
 import { useMemo, useState } from 'react';
 import { toast } from 'sonner';
 import {
@@ -22,8 +23,8 @@ import {
   usePasivosPendientes,
 } from '@/features/tesoreria/api/useTesoreria';
 import type { PagoACuentaAbiertoResponse } from '@/features/tesoreria/api/types';
-import { formatoFecha, formatoMonto } from '@/features/tesoreria/lib/formato';
-import { esApiError, useBodyScopedIdempotencyKey } from '@/lib/api';
+import { formatoMonto } from '@/features/tesoreria/lib/formato';
+import { esApiError, useBodyScopedIdempotencyKey, codigoSoporte } from '@/lib/api';
 
 export interface LigarPagoACuentaDialogProps {
   pago: PagoACuentaAbiertoResponse | null;
@@ -119,7 +120,7 @@ export function LigarPagoACuentaDialog({
             esApiError(error) ? error.problem.title : 'No se pudo ligar el pago',
             {
               description: esApiError(error)
-                ? (error.problem.detail ?? `Código: ${error.traceId}`)
+                ? (error.problem.detail ?? codigoSoporte(error))
                 : undefined,
             },
           );
@@ -134,8 +135,13 @@ export function LigarPagoACuentaDialog({
         <DialogHeader>
           <DialogTitle>Ligar pago a cuenta al pasivo</DialogTitle>
           <DialogDescription>
-            {pago != null &&
-              `Movimiento de ${formatoMonto(pago.monto, pago.moneda)} del ${formatoFecha(pago.fechaValor)} — restante por ligar ${formatoMonto(restante, pago.moneda)}. Sin re-desembolso.`}
+            {pago != null && (
+              <>
+                Movimiento de {formatoMonto(pago.monto, pago.moneda)} del{' '}
+                <DateTimeDisplay value={pago.fechaValor} variant="corta" /> — restante por ligar{' '}
+                {formatoMonto(restante, pago.moneda)}. Sin re-desembolso.
+              </>
+            )}
           </DialogDescription>
         </DialogHeader>
 
@@ -166,7 +172,7 @@ export function LigarPagoACuentaDialog({
                       {p.folioProveedor ?? p.facturaProveedorId.slice(0, 8)}
                     </span>{' '}
                     · {formatoMonto(p.saldoPendiente, p.moneda)} · vence{' '}
-                    {formatoFecha(p.fechaVencimiento)}
+                    <DateTimeDisplay value={p.fechaVencimiento} variant="corta" />
                   </SelectItem>
                 ))}
               </SelectContent>

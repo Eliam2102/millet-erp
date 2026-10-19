@@ -1,3 +1,4 @@
+import { erroresDeClasificacion } from '@/modules/datos-maestros/lib/clasificacion-fiscal';
 import {
   useCallback,
   useEffect,
@@ -7,7 +8,7 @@ import {
   type ReactNode,
 } from 'react';
 import { useNavigate } from '@tanstack/react-router';
-import { Controller, useForm } from 'react-hook-form';
+import { Controller, useForm, useWatch } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
@@ -31,6 +32,7 @@ import {
   applyServerErrors,
   esApiError,
   useFormIdempotencyKey,
+  codigoSoporte,
 } from '@/lib/api';
 import {
   NuevoProveedorContext,
@@ -42,7 +44,13 @@ import {
 } from '@/modules/datos-maestros/schemas/proveedor';
 import { useCrearProveedor } from '@/modules/datos-maestros/api';
 import {
+  ClasificacionFiscalCampos,
+  type ClasificacionFiscalValores,
+  type ErroresClasificacionFiscal,
+} from '@/modules/datos-maestros/components/ClasificacionFiscalCampos';
+import {
   EstatusCatalogo,
+  OrigenProveedor,
   TipoPersonaProveedor,
 } from '@/modules/datos-maestros/api/types';
 
@@ -54,6 +62,10 @@ import {
  * <para><b>Confirm al cerrar con isDirty</b>: imita
  * <c>NuevaEmpresaProvider</c>. Apertura siempre vía
  * <c>useNuevoProveedor().abrir()</c>.</para>
+ *
+ * <para><b>Clasificación fiscal</b>: origen, régimen y retención viajan en el
+ * mismo POST del alta (una sola transacción). Un proveedor extranjero no
+ * captura RFC: el backend guarda el genérico XEXX010101000.</para>
  *
  * <para><b>Post-submit</b>: invalida la lista, toast con clave, navega
  * a <c>/admin/datos-maestros/proveedores/$id</c> y cierra el Sheet
@@ -146,6 +158,13 @@ function NuevoProveedorForm({
   const navigate = useNavigate();
   const idempotencyKey = useFormIdempotencyKey();
   const crear = useCrearProveedor();
+  const [fiscal, setFiscal] = useState<ClasificacionFiscalValores>({
+    origen: null,
+    regimenFiscalCodigo: null,
+    conceptoRetencion: null,
+  });
+  const [erroresFiscal, setErroresFiscal] = useState<ErroresClasificacionFiscal>({});
+  const extranjero = fiscal.origen === OrigenProveedor.Extranjero;
 
   const form = useForm<CrearProveedorValues>({
     resolver: zodResolver(CrearProveedorSchema),
@@ -153,6 +172,7 @@ function NuevoProveedorForm({
       clave: '',
       razonSocial: '',
       rfc: '',
+      origen: null,
       tipoPersona: TipoPersonaProveedor.Moral,
       nombreComercial: null,
       email: null,
@@ -161,6 +181,7 @@ function NuevoProveedorForm({
     },
   });
 
+  const tipoPersona = useWatch({ control: form.control, name: 'tipoPersona' });
   const isDirty = form.formState.isDirty;
   useEffect(() => {
     onDirtyChange(isDirty);
@@ -172,13 +193,16 @@ function NuevoProveedorForm({
         payload: {
           clave: values.clave,
           razonSocial: values.razonSocial,
-          rfc: values.rfc,
+          rfc: extranjero ? null : values.rfc,
           tipoPersona: values.tipoPersona,
           nombreComercial: values.nombreComercial,
           email: values.email,
           telefono: values.telefono,
           condicionesPagoDias: values.condicionesPagoDias,
           monedaPreferidaId: null,
+          origen: fiscal.origen,
+          regimenFiscalCodigo: fiscal.regimenFiscalCodigo,
+          conceptoRetencion: fiscal.conceptoRetencion,
         },
         idempotencyKey,
       },
@@ -210,6 +234,17 @@ function NuevoProveedorForm({
               });
               return;
             }
+            if (
+              error.code === 'PROVEEDOR_REGIMEN_REQUERIDO' ||
+              error.code === 'PROVEEDOR_REGIMEN_NO_EXISTE' ||
+              error.code === 'PROVEEDOR_REGIMEN_INVALIDO' ||
+              error.code === 'PROVEEDOR_REGIMEN_NO_APLICA'
+            ) {
+              setErroresFiscal(
+                erroresDeClasificacion(error.code, error.problem.detail ?? error.problem.title),
+              );
+              return;
+            }
             if (error.code === 'PROVEEDOR_RFC_DUPLICADO') {
               form.setError('rfc', {
                 type: error.code,
@@ -228,9 +263,7 @@ function NuevoProveedorForm({
               return;
             }
             toast.error(error.problem.title, {
-              description: error.traceId
-                ? `Código: ${error.traceId}`
-                : undefined,
+              description: codigoSoporte(error),
             });
             return;
           }
@@ -273,19 +306,25 @@ function NuevoProveedorForm({
         />
       </FormRow>
 
-      <FormRow
-        label="RFC"
-        required
-        hint="12 caracteres (persona moral) o 13 (persona física)."
-        error={form.formState.errors.rfc?.message}
-      >
-        <UppercaseInput
-          maxLength={13}
-          placeholder="ACM010101ABC"
-          className="font-mono"
-          {...form.register('rfc')}
-        />
-      </FormRow>
+      {extranjero ? (
+        <p className="rounded-md bg-surface-subtle p-3 text-xs text-ink-muted">
+          Un proveedor extranjero no tiene RFC: se guarda el RFC genérico XEXX010101000.
+        </p>
+      ) : (
+        <FormRow
+          label="RFC"
+          required
+          hint="12 caracteres (persona moral) o 13 (persona física)."
+          error={form.formState.errors.rfc?.message}
+        >
+          <UppercaseInput
+            maxLength={13}
+            placeholder="ACM010101ABC"
+            className="font-mono"
+            {...form.register('rfc')}
+          />
+        </FormRow>
+      )}
 
       <FormRow
         label="Tipo persona"
@@ -298,7 +337,11 @@ function NuevoProveedorForm({
           render={({ field }) => (
             <Select
               value={String(field.value)}
-              onValueChange={(v) => field.onChange(Number(v))}
+              onValueChange={(v) => {
+                field.onChange(Number(v));
+                // El régimen depende del tipo de persona: se vuelve a elegir.
+                setFiscal((f) => ({ ...f, regimenFiscalCodigo: null }));
+              }}
             >
               <SelectTrigger>
                 <SelectValue />
@@ -363,6 +406,28 @@ function NuevoProveedorForm({
         />
       </FormRow>
 
+      <fieldset className="space-y-3 border-t pt-3">
+        <legend className="text-sm font-semibold">Clasificación fiscal (opcional)</legend>
+        <ClasificacionFiscalCampos
+          idBase="nuevo-proveedor"
+          valores={fiscal}
+          onChange={(v) => {
+            setFiscal(v);
+            // El zod del form necesita el origen para decidir si el RFC es obligatorio.
+            form.setValue('origen', v.origen);
+            if (v.origen === OrigenProveedor.Extranjero) {
+              form.setValue('rfc', '');
+              form.clearErrors('rfc');
+            }
+            setErroresFiscal({});
+            onDirtyChange(true);
+          }}
+          errores={erroresFiscal}
+          disabled={crear.isPending}
+          tipoPersona={tipoPersona}
+        />
+      </fieldset>
+
       <div className="flex flex-wrap items-center justify-end gap-2 border-t pt-3">
         <Button
           type="button"
@@ -394,17 +459,17 @@ function FormRow({ label, required, hint, error, children }: FormRowProps) {
       <label className="flex items-center gap-1 text-sm font-medium">
         {label}
         {required && (
-          <span aria-hidden="true" className="text-rose-600">
+          <span aria-hidden="true" className="text-danger-fg">
             *
           </span>
         )}
       </label>
       {children}
       {hint != null && error == null && (
-        <p className="text-xs text-muted-foreground">{hint}</p>
+        <p className="text-xs text-ink-muted">{hint}</p>
       )}
       {error != null && (
-        <p role="alert" className="text-xs text-rose-600">
+        <p role="alert" className="text-xs text-danger-fg">
           {error}
         </p>
       )}

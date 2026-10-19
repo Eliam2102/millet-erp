@@ -1,3 +1,4 @@
+import { DateTimeDisplay } from '@/components/erp/display/DateTimeDisplay';
 import { ConceptoSelector } from './ConceptoSelector';
 import { hoyLocalISO } from '@/lib/datetime';
 import { useMemo, useState } from 'react';
@@ -30,7 +31,7 @@ import {
   type DepositoConfirmacionResponse,
 } from '@/features/tesoreria/api/types';
 import { CuentaBancariaSelector } from '@/features/tesoreria/components/CuentaBancariaSelector';
-import { formatoFecha, formatoMonto } from '@/features/tesoreria/lib/formato';
+import { formatoMonto } from '@/features/tesoreria/lib/formato';
 import { useQueryClient } from '@tanstack/react-query';
 import {
   esApiError,
@@ -239,7 +240,7 @@ export function ConfirmarDepositoDialog({
                   {items.map((m) => (
                     <SelectItem key={m.id} value={m.id}>
                       <span className="font-mono text-xs">
-                        {formatoFecha(m.fechaValor)}
+                        <DateTimeDisplay value={m.fechaValor} variant="corta" />
                       </span>{' '}
                       · {formatoMonto(m.monto, m.moneda)}
                       {m.referenciaBancaria ? ` · ${m.referenciaBancaria}` : ''}

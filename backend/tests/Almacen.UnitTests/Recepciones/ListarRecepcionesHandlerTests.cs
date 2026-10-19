@@ -73,13 +73,52 @@ public class ListarRecepcionesHandlerTests
         item.OrdenCompraFolio.Should().BeNull();
     }
 
+    [Fact]
+    public async Task Filtra_por_proveedor_via_OC_y_busca_por_folio()
+    {
+        await using var db = await NuevaDbAsync();
+        AgregarRecepcion(db, Oc1, "A", new DateOnly(2026, 6, 4), "M-ENT2026-000001");
+        AgregarRecepcion(db, Oc2, "B", new DateOnly(2026, 6, 3), "M-ENT2026-000002");
+        await db.SaveChangesAsync();
+        var proveedor = Guid.NewGuid();
+        var handler = new ListarRecepcionesHandler(db, new FakeOcReadPort { OcsPorProveedor = new() { [proveedor] = new[] { Oc2 } } });
+
+        var porProveedor = await handler.Handle(
+            new ListarRecepcionesQuery(null, null, null, null, null, 0, 50, ProveedorId: proveedor),
+            CancellationToken.None);
+        porProveedor.Items.Should().ContainSingle().Which.OrdenCompraId.Should().Be(Oc2);
+
+        var porFolio = await handler.Handle(
+            new ListarRecepcionesQuery(null, null, null, null, null, 0, 50, Q: "000001"),
+            CancellationToken.None);
+        porFolio.Items.Should().ContainSingle().Which.OrdenCompraId.Should().Be(Oc1);
+    }
+
+    [Fact]
+    public async Task Oculta_el_movimiento_de_revision_hermano_de_la_recepcion_principal()
+    {
+        await using var db = await NuevaDbAsync();
+        AgregarRecepcion(db, Oc1, "A", new DateOnly(2026, 6, 4), "M-ENT2026-000001");
+        AgregarRecepcion(db, Oc1, "A", new DateOnly(2026, 6, 4), "M-ENT2026-000002");
+        await db.SaveChangesAsync();
+        var principal = db.Movimientos.Local.Single(m => m.Folio == "M-ENT2026-000001");
+        var revision = db.Movimientos.Local.Single(m => m.Folio == "M-ENT2026-000002");
+        typeof(MovimientoInventario).GetProperty("RecepcionOrigenId")!.SetValue(revision, principal.Id);
+        await db.SaveChangesAsync();
+
+        var page = await new ListarRecepcionesHandler(db, new FakeOcReadPort()).Handle(
+            new ListarRecepcionesQuery(null, null, null, null, null, Offset: 0, Limit: 50), CancellationToken.None);
+
+        page.Items.Should().ContainSingle().Which.Id.Should().Be(principal.Id);
+    }
+
     // ─── Infra de test ───
 
     private static readonly Guid UbicId = Guid.NewGuid();
     private static readonly Guid SubId = Guid.NewGuid();
 
     private static void AgregarRecepcion(
-        AlmacenDbContext db, Guid? ocId, string articuloClave, DateOnly fecha)
+        AlmacenDbContext db, Guid? ocId, string articuloClave, DateOnly fecha, string? folio = null)
     {
         var mov = new MovimientoInventario(
             id: Guid.NewGuid(),
@@ -102,6 +141,7 @@ public class ListarRecepcionesHandlerTests
                 });
         }
 
+        if (folio is not null) mov.Registrar(new FolioMovimiento(folio), Guid.NewGuid());
         db.Movimientos.Add(mov);
     }
 
@@ -120,7 +160,13 @@ public class ListarRecepcionesHandlerTests
     private sealed class FakeOcReadPort : IComprasOcReadPort
     {
         public Dictionary<Guid, string> Folios { get; set; } = new();
+        public Dictionary<Guid, Guid[]> OcsPorProveedor { get; set; } = new();
         public int Llamadas { get; private set; }
+
+        public Task<IReadOnlyCollection<Guid>> ObtenerIdsPorProveedorAsync(
+            Guid proveedorId, CancellationToken cancellationToken) =>
+            Task.FromResult<IReadOnlyCollection<Guid>>(
+                OcsPorProveedor.GetValueOrDefault(proveedorId) ?? Array.Empty<Guid>());
         public Guid[] UltimosIds { get; private set; } = Array.Empty<Guid>();
 
         public Task<OcLectura?> ObtenerAsync(Guid ocId, CancellationToken cancellationToken) =>

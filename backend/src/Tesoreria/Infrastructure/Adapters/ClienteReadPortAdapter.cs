@@ -40,4 +40,18 @@ public sealed class ClienteReadPortAdapter : IClienteReadPort
             .Select(c => new ClienteRefDto(c.Id, c.Clave, c.RazonSocial))
             .ToDictionaryAsync(c => c.Id, cancellationToken);
     }
+
+    public async Task<IReadOnlyList<ClienteRefDto>> BuscarAsync(
+        string texto, int limite, CancellationToken cancellationToken)
+    {
+        using var bypass = _empresaContext.Bypass();
+        return await _db.Clientes.AsNoTracking()
+            .Where(c => EF.Functions.ILike(c.RazonSocial, $"%{texto}%")
+                || EF.Functions.ILike(c.Clave, $"%{texto}%")
+                || (c.Rfc != null && EF.Functions.ILike(c.Rfc, $"%{texto}%")))
+            .OrderBy(c => c.RazonSocial)
+            .Take(limite)
+            .Select(c => new ClienteRefDto(c.Id, c.Clave, c.RazonSocial))
+            .ToListAsync(cancellationToken);
+    }
 }

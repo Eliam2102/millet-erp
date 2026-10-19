@@ -3,6 +3,7 @@ import { ClasificacionClienteSelector } from './ClasificacionClienteSelector';
 import { Controller, useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { toast } from 'sonner';
+import { Link } from '@tanstack/react-router';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Input } from '@/components/ui/input';
@@ -14,7 +15,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { applyServerErrors, esApiError } from '@/lib/api';
+import { applyServerErrors, esApiError, codigoSoporte } from '@/lib/api';
 import {
   ActualizarClienteSchema,
   type ActualizarClienteValues,
@@ -161,6 +162,8 @@ export function ClienteDatosForm({ cliente }: ClienteDatosFormProps) {
         },
         onError: (error) => {
           if (esApiError(error)) {
+            // El aviso del banner ya explica el RFC duplicado; no duplicar con toast.
+            if (error.problem.clientesExistentes?.length) return;
             if (
               applyServerErrors(
                 form as unknown as Parameters<typeof applyServerErrors>[0],
@@ -170,9 +173,7 @@ export function ClienteDatosForm({ cliente }: ClienteDatosFormProps) {
               return;
             }
             toast.error(error.problem.title, {
-              description: error.traceId
-                ? `Código: ${error.traceId}`
-                : undefined,
+              description: codigoSoporte(error),
             });
             return;
           }
@@ -193,6 +194,10 @@ export function ClienteDatosForm({ cliente }: ClienteDatosFormProps) {
       <Controller name="clasificacionId" control={form.control} render={({ field }) =>
         <ClasificacionClienteSelector value={field.value} onChange={field.onChange} disabled={!canEditar} />} />
       {form.formState.errors.clasificacionId && <p role="alert" className="text-xs text-danger-fg">{form.formState.errors.clasificacionId.message}</p>}
+      {actualizar.error && esApiError(actualizar.error) && actualizar.error.problem.clientesExistentes &&
+        <div role="alert" className="md:col-span-2 rounded-md bg-warning-note-bg p-3 text-warning-note-fg"><p>Ya existe un cliente con ese RFC. Usa el existente:</p>
+          {actualizar.error.problem.clientesExistentes.map(c => <Link key={c.id} to="/admin/datos-maestros/clientes/$id" params={{ id: c.id }} className="block text-brand">{c.clave} · {c.razonSocial}</Link>)}
+        </div>}
       <FormRow label="Clave" hint="No editable.">
         <Input
           value={cliente.clave}

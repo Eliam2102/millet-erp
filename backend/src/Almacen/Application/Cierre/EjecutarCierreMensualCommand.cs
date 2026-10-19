@@ -83,42 +83,24 @@ public sealed class EjecutarCierreMensualHandler
                 $"El periodo {request.Anio}/{request.Mes:00} ya está cerrado.");
         }
 
-        // Validación: no conteos pendientes con fecha del mes.
-        var inicioMes = new DateOnly(request.Anio, request.Mes, 1);
-        var finMes = inicioMes.AddMonths(1).AddDays(-1);
-        var finMesUtc = new DateTimeOffset(inicioMes.AddMonths(1).ToDateTime(TimeOnly.MinValue, DateTimeKind.Utc));
-        var conteosPendientes = await _db.Set<ConteoInventario>().AsNoTracking()
-            .Where(c => (c.FechaPlanificada <= finMes || c.FechaInicio < finMesUtc)
-                && c.Estado != EstadoConteo.Aplicado
-                && c.Estado != EstadoConteo.Rechazado)
-            .Select(c => c.Id)
-            .ToListAsync(cancellationToken);
-        if (conteosPendientes.Count > 0)
+        // Validaciones pre-cierre (mismas que expone la revisión previa).
+        var pendientes = await RevisionPreviaCierre.EvaluarPendientesAsync(_db, request.Anio, request.Mes, cancellationToken);
+        if (pendientes.ConteosPendientes.Count > 0)
         {
             throw new BusinessRuleException(
                 "CIERRE_CONTEOS_PENDIENTES",
-                $"No se puede cerrar: {conteosPendientes.Count} conteo(s) pendientes que afectan al mes. " +
-                $"Aplicar o rechazar antes: {string.Join(", ", conteosPendientes.Take(5))}.");
+                $"No se puede cerrar: {pendientes.ConteosPendientes.Count} conteo(s) pendientes que afectan al mes. " +
+                $"Aplicar o rechazar antes: {string.Join(", ", pendientes.ConteosPendientes.Take(5))}.");
         }
 
-        if (await _db.Movimientos.AsNoTracking().AnyAsync(m =>
-            m.FechaMovimiento >= inicioMes && m.FechaMovimiento <= finMes
-            && m.Tipo == TipoMovimiento.SalidaPorVale && m.PendienteRegularizacion
-            && m.Estado == EstadoMovimiento.Registrado, cancellationToken))
+        if (pendientes.ValesPendientes > 0)
             throw new BusinessRuleException("CIERRE_VALES_PENDIENTES", "No se puede cerrar el mes: hay vales urgentes pendientes de regularizar con una requisición.");
 
-        // Validación: no movimientos Borrador/Validado con fecha del mes.
-        var movimientosPendientes = await _db.Movimientos.AsNoTracking()
-            .Where(m => m.FechaMovimiento >= inicioMes
-                && m.FechaMovimiento <= finMes
-                && (m.Estado == EstadoMovimiento.Borrador
-                    || m.Estado == EstadoMovimiento.Validado))
-            .CountAsync(cancellationToken);
-        if (movimientosPendientes > 0)
+        if (pendientes.MovimientosPendientes > 0)
         {
             throw new BusinessRuleException(
                 "CIERRE_MOVIMIENTOS_PENDIENTES",
-                $"No se puede cerrar: {movimientosPendientes} movimiento(s) en Borrador/Validado del mes. " +
+                $"No se puede cerrar: {pendientes.MovimientosPendientes} movimiento(s) en Borrador/Validado del mes. " +
                 "Firmar o cancelar antes.");
         }
 

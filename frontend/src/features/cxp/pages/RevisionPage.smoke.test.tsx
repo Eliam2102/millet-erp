@@ -7,12 +7,14 @@ import { createQueryWrapper } from '@/test/test-query-client';
 import { RevisionPage } from '@/features/cxp/pages/RevisionPage';
 import { useAuthStore } from '@/lib/auth/auth-store';
 
+const searchMock = vi.hoisted(() => ({ value: {} as Record<string, string> }));
+
 vi.mock('@tanstack/react-router', () => ({
   Link: ({ children, to }: { children: React.ReactNode; to: string }) => (
     <a href={to}>{children}</a>
   ),
   useNavigate: () => () => {},
-  useSearch: () => ({}),
+  useSearch: () => searchMock.value,
 }));
 
 beforeEach(() => {
@@ -37,6 +39,7 @@ beforeEach(() => {
 });
 
 afterEach(() => {
+  searchMock.value = {};
   useAuthStore.setState({
     status: 'idle',
     accessToken: null,
@@ -56,7 +59,7 @@ describe('<RevisionPage> — smoke', () => {
       screen.getByRole('heading', { name: /Revisión por área/i }),
     ).toBeInTheDocument();
     expect(
-      screen.getByText(/Selecciona una dependencia/i),
+      screen.getByText(/Selecciona un área revisora/i),
     ).toBeInTheDocument();
   });
 
@@ -66,7 +69,7 @@ describe('<RevisionPage> — smoke', () => {
     });
     await waitFor(() =>
       expect(
-        screen.getByText(/Selecciona una dependencia/i),
+        screen.getByText(/Selecciona un área revisora/i),
       ).toBeInTheDocument(),
     );
     const results: AxeResults = await axe.run(container, {
@@ -82,5 +85,29 @@ describe('<RevisionPage> — smoke', () => {
       throw new Error(`axe-core violations:\n${detalle}`);
     }
     expect(results.violations).toHaveLength(0);
+  });
+
+  it('muestra días hábiles contra el plazo y el aviso emitido', async () => {
+    searchMock.value = { dependenciaRevisoraId: 'area-mtto' };
+    mswServer.use(
+      http.get('*/api/v1/cuentas-por-pagar/facturas/en-revision*', () =>
+        HttpResponse.json({
+          items: [
+            {
+              id: 'f-1', proveedorId: 'p-1', sucursalId: 's-1',
+              folioProveedor: '123', serieProveedor: null,
+              fechaDocumento: '2026-10-16T00:00:00Z', fechaVencimiento: '2026-11-30',
+              total: 1160, saldoPendiente: 1160, moneda: 'MXN',
+              motivoRevisionId: 'm-1', fechaEntradaRevision: '2026-10-16T21:00:00Z',
+              diasEnRevision: 5, version: 1, slaDias: 5, nivelAviso: 2,
+            },
+          ],
+          offset: 0, limit: 50, total: 1,
+        }),
+      ),
+    );
+    render(<RevisionPage />, { wrapper: createQueryWrapper() });
+    expect(await screen.findByText('5 de 5')).toBeInTheDocument();
+    expect(screen.getByText('Plazo vencido')).toBeInTheDocument();
   });
 });

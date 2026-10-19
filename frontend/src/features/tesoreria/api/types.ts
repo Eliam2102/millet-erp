@@ -111,6 +111,81 @@ export const ESTADO_DEPOSITO_LABELS: Record<
   [EstadoDepositoConfirmacion.Rechazada]: 'Rechazada',
 };
 
+/** Mirror de `EstadoDevolucionCliente` (ck_devolucion_cliente_estado). */
+export const EstadoDevolucionCliente = {
+  Solicitada: 1,
+  Autorizada: 2,
+  Rechazada: 3,
+  Pagada: 4,
+  Cancelada: 5,
+} as const;
+export type EstadoDevolucionCliente =
+  (typeof EstadoDevolucionCliente)[keyof typeof EstadoDevolucionCliente];
+
+export const ESTADO_DEVOLUCION_LABELS: Record<EstadoDevolucionCliente, string> = {
+  [EstadoDevolucionCliente.Solicitada]: 'Solicitada',
+  [EstadoDevolucionCliente.Autorizada]: 'Autorizada',
+  [EstadoDevolucionCliente.Rechazada]: 'Rechazada',
+  [EstadoDevolucionCliente.Pagada]: 'Pagada',
+  [EstadoDevolucionCliente.Cancelada]: 'Cancelada',
+};
+
+/** Mirror de `OrigenDevolucionCliente`. */
+export const OrigenDevolucionCliente = {
+  DepositoErroneo: 1,
+  NotaCredito: 2,
+} as const;
+export type OrigenDevolucionCliente =
+  (typeof OrigenDevolucionCliente)[keyof typeof OrigenDevolucionCliente];
+
+export const ORIGEN_DEVOLUCION_LABELS: Record<OrigenDevolucionCliente, string> = {
+  [OrigenDevolucionCliente.DepositoErroneo]: 'Depósito erróneo',
+  [OrigenDevolucionCliente.NotaCredito]: 'Nota de crédito',
+};
+
+/** Espejo de `DevolucionClienteResponse` (T9.6). */
+export interface DevolucionClienteResponse {
+  id: string;
+  /** Folio propio «DEV-T-0001» (secuencia por empresa). */
+  folio: string;
+  /** Último editor: quien edita la solicitud tampoco la autoriza ni la rechaza. */
+  editadaPor: string | null;
+  origen: OrigenDevolucionCliente;
+  estado: EstadoDevolucionCliente;
+  clienteId: string;
+  clienteClave: string | null;
+  clienteRazonSocial: string | null;
+  importe: number;
+  importeMaximoOrigen: number;
+  /** Máximo del origen menos lo comprometido en OTRAS devoluciones (excluye esta). */
+  disponibleOrigen: number;
+  moneda: string;
+  motivo: string;
+  movimientoOrigenId: string | null;
+  notaCreditoId: string | null;
+  notaCreditoFolio: string | null;
+  notaCreditoUuid: string | null;
+  destinoBanco: string | null;
+  destinoClabe: string | null;
+  destinoTitular: string | null;
+  solicitadaPor: string | null;
+  solicitadaEn: string;
+  autorizadaPor: string | null;
+  autorizadaEn: string | null;
+  motivoRechazo: string | null;
+  motivoCancelacion: string | null;
+  movimientoPagoId: string | null;
+  pagadaEn: string | null;
+  sucursalId: string | null;
+  version: number;
+}
+
+export interface ClienteRefDto {
+  id: string;
+  clave: string;
+  razonSocial: string;
+}
+
 /** Mirror de `ClasificacionFlujo` (ck_concepto_movimiento_clasificacion). */
 export const ClasificacionFlujo = {
   Operacion: 1,
@@ -171,10 +246,18 @@ export interface MovimientoBancarioResponse {
   estadoConciliacion: EstadoConciliacionMovimiento;
   beneficiarioTipo: BeneficiarioTipo | null;
   beneficiarioRef: string | null;
+  /** Razón social del beneficiario (cliente o proveedor), resuelta en el servidor. */
+  beneficiarioNombre?: string | null;
+  beneficiarioClave?: string | null;
   contramovimientoDe: string | null;
   motivoNoAplicado: string | null;
   motivoReversa?: string | null;
   motivoReclasificacion?: string | null;
+  /** Cuenta destino del pago a proveedor (número enmascarado salvo permiso PII). */
+  destinoBanco?: string | null;
+  destinoNumeroCuenta?: string | null;
+  destinoTitular?: string | null;
+  fondosVerificados?: boolean | null;
   creadoPor: string;
   creadoEn: string;
   version: number;
@@ -208,6 +291,8 @@ export interface PasivoPendienteResponse {
   banco: string | null;
   clabe: string | null;
   beneficiario: string | null;
+  /** «Proveedor» en facturas; otro valor en pasivos internos (reposición de caja, viáticos), que no usan cuenta de proveedor. */
+  tipoBeneficiario?: string;
   ordenCompraId: string | null;
   montoTotal: number;
   saldoPendiente: number;
@@ -219,6 +304,19 @@ export interface PasivoPendienteResponse {
   metodoPago: string | null;
   recibidoEn: string;
   pagoACuentaAbiertoMovimientoId: string | null;
+}
+
+/** Cuenta bancaria del proveedor (GET /tesoreria/proveedores/{id}/cuentas). */
+export interface CuentaProveedorPago {
+  id: string;
+  banco: string;
+  numero: string;
+  esClabe: boolean;
+  swift: string | null;
+  moneda: string;
+  titular: string | null;
+  predeterminada: boolean;
+  estado: 'Activa' | 'PorValidar' | 'Inhabilitada';
 }
 
 /** Item del command RegistrarPagoProveedor. */

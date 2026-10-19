@@ -25,6 +25,7 @@ interface RegimenFiscalOpcion {
   codigo: string;
   nombre: string;
   aplicaPersonaFisica: boolean;
+  aplicaPersonaMoral: boolean;
 }
 
 export interface RegimenFiscalSelectorProps {
@@ -54,13 +55,16 @@ export function RegimenFiscalSelector({
         .filter((r) =>
           aplicaPersonaFisica == null
             ? true
-            : r.aplicaPersonaFisica === aplicaPersonaFisica,
+            : aplicaPersonaFisica
+              ? r.aplicaPersonaFisica
+              : (r.aplicaPersonaMoral ?? !r.aplicaPersonaFisica),
         )
         .map((r) => ({
           id: r.codigo,
           codigo: r.codigo,
           nombre: r.nombre,
           aplicaPersonaFisica: r.aplicaPersonaFisica,
+          aplicaPersonaMoral: r.aplicaPersonaMoral ?? !r.aplicaPersonaFisica,
         })),
     [query.data, aplicaPersonaFisica],
   );
@@ -79,7 +83,11 @@ export function RegimenFiscalSelector({
           <span className="font-mono text-xs">{r.codigo}</span>
           <p className="truncate text-sm">{r.nombre}</p>
           <p className="text-xs text-muted-foreground">
-            {r.aplicaPersonaFisica ? 'Persona física' : 'Persona moral'}
+            {r.aplicaPersonaFisica && r.aplicaPersonaMoral
+              ? 'Persona física y moral'
+              : r.aplicaPersonaFisica
+                ? 'Persona física'
+                : 'Persona moral'}
           </p>
         </div>
       )}

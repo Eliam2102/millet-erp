@@ -15,7 +15,13 @@ namespace Millet.CuentasPorPagar.Application.Viaticos.Queries;
 /// <b>líneas de la comprobación</b> capturada. Etiquetas de
 /// empleado/jefe/puesto resueltas server-side (ADR-0042).
 /// </summary>
-public sealed record ObtenerSolicitudViaticosQuery(Guid Id) : IRequest<SolicitudViaticosDetalleResponse>;
+public sealed record ObtenerSolicitudViaticosQuery(Guid Id) : IRequest<SolicitudViaticosDetalleResponse>, Millet.SharedKernel.Application.IDocumentoScopedQuery
+{
+    public string PermisoTodasSucursales => "cuentas_por_pagar.documentos.leer-todas-sucursales";
+    public string TipoDocumento => ViaticosAlcance.TipoDocumento;
+    public IReadOnlyList<Guid>? SucursalesPermitidas { get; set; }
+    public IReadOnlyList<Guid>? DocumentosPermitidos { get; set; }
+}
 
 public sealed record LineaViaticosDetalleResponse(
     Guid Id,
@@ -75,10 +81,13 @@ public sealed class ObtenerSolicitudViaticosHandler
     private readonly IEmpleadoReadPort _empleados;
     private readonly IPuestoReadPort _puestos;
 
+    private readonly Millet.SharedKernel.Application.ICurrentUserContext _usuario;
+
     public ObtenerSolicitudViaticosHandler(
-        CuentasPorPagarDbContext db, IEmpleadoReadPort empleados, IPuestoReadPort puestos)
+        CuentasPorPagarDbContext db, IEmpleadoReadPort empleados, IPuestoReadPort puestos,
+        Millet.SharedKernel.Application.ICurrentUserContext usuario)
     {
-        _db = db; _empleados = empleados; _puestos = puestos;
+        _db = db; _empleados = empleados; _puestos = puestos; _usuario = usuario;
     }
 
     public async Task<SolicitudViaticosDetalleResponse> Handle(
@@ -90,6 +99,14 @@ public sealed class ObtenerSolicitudViaticosHandler
             .FirstOrDefaultAsync(x => x.Id == query.Id, cancellationToken)
             ?? throw new EntityNotFoundException(
                 "VIA_NO_ENCONTRADA", $"No se encontró la solicitud de viáticos '{query.Id}'.");
+
+        // ADR-0051: fuera de sus sucursales solo ve sus propias solicitudes y las de sus subordinados.
+        if (query.DocumentosPermitidos is { } permitidos && !permitidos.Contains(s.Id))
+        {
+            var mio = await ViaticosAlcance.MiEmpleadoAsync(_empleados, _usuario, cancellationToken);
+            if (mio is null || (s.EmpleadoId != mio && s.JefeDirectoId != mio))
+                throw new ForbiddenException("SUCURSAL_NO_ASOCIADA", "La solicitud de viáticos es de una sucursal a la que no tienes acceso.");
+        }
 
         // Etiquetas best-effort — el detalle no se cae si un catálogo no resuelve.
         var empleado = await _empleados.ObtenerAsync(s.EmpleadoId, cancellationToken);

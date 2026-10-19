@@ -1,3 +1,4 @@
+import { PageHeader } from '@/components/erp/PageHeader';
 import { useMemo, useState } from 'react';
 import { useNavigate, useSearch } from '@tanstack/react-router';
 import { ArrowLeft, Ban, Plus } from 'lucide-react';
@@ -46,7 +47,7 @@ import { useHasPermission } from '@/lib/auth/useHasPermission';
 import { PermisosCanonicos } from '@/lib/auth/permission-codes';
 import { esApiError } from '@/lib/api';
 import { AsignacionSheet } from '@/features/almacen/components/AsignacionSheet';
-import { cn } from '@/lib/utils';
+import { EstadoAlmacenBadge } from '@/features/almacen/components/EstadoAlmacenBadge';
 
 const FROM = '/_app/almacen/asignaciones' as const;
 const SENTINEL_ALL = '__all__';
@@ -145,29 +146,27 @@ export function AsignacionesPage() {
             })
           }
         >
-          <ArrowLeft className="mr-1 h-4 w-4" />
+          <ArrowLeft className="mr-1 size-3.5" />
           {volverAlArticulo.etiqueta
             ? `Volver a ${volverAlArticulo.etiqueta}`
             : 'Volver al artículo'}
         </Button>
       )}
 
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <div>
-          <h1 className="text-2xl font-semibold tracking-tight">
-            Ubicación de artículos
-          </h1>
-          <p className="text-sm text-muted-foreground">
-            Define en qué ubicación vive cada artículo.
-          </p>
-        </div>
-        {puedeAdministrar && (
-          <Button onClick={() => setSheetAbierto(true)}>
-            <Plus className="mr-2 h-4 w-4" />
-            Asignar artículo
-          </Button>
-        )}
-      </div>
+      <PageHeader
+        titulo="Ubicación de artículos"
+        descripcion="Define en qué ubicación vive cada artículo."
+        acciones={
+          <>
+            {puedeAdministrar && (
+              <Button onClick={() => setSheetAbierto(true)}>
+                <Plus className="mr-2 size-3.5" />
+                Asignar artículo
+              </Button>
+            )}
+          </>
+        }
+      />
 
       <FiltrosToolbar search={search} onChange={actualizarSearch} />
 
@@ -373,7 +372,7 @@ function TablaAsignaciones({
               <td className="px-3 py-2">{articulo}</td>
               <td className="px-3 py-2 font-mono text-xs">{ubicacion}</td>
               <td className="px-3 py-2">
-                <EstatusBadge estatus={item.estatus} />
+                <EstadoAlmacenBadge tipo="catalogo" estado={item.estatus} />
               </td>
               {puedeAdministrar && (
                 <td className="px-3 py-2 text-right">
@@ -399,17 +398,3 @@ function TablaAsignaciones({
   );
 }
 
-function EstatusBadge({ estatus }: { estatus: EstatusCatalogo }) {
-  return (
-    <span
-      className={cn(
-        'inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium',
-        estatus === EstatusCatalogo.Activo && 'bg-emerald-100 text-emerald-800',
-        estatus === EstatusCatalogo.Inactivo && 'bg-slate-200 text-slate-700',
-        estatus === EstatusCatalogo.Borrador && 'bg-amber-100 text-amber-800',
-      )}
-    >
-      {EstatusCatalogoLabels[estatus]}
-    </span>
-  );
-}

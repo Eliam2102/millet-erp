@@ -14,7 +14,7 @@ INSERT INTO aw_origen.ka_zahlbed (bez, bruttotage, nummer) VALUES
  ('<indf>', NULL, 0), ('CONTADO', 0, 1), ('REPARTO', 0, 2), ('7 DIAS', 7, 3), ('15 DIAS', 15, 4), ('21 DIAS', 21, 5),
  ('30 DIAS', 30, 6), ('45 DIAS', 45, 7), ('60 DIAS', 60, 8), ('75 DIAS', 75, 9), ('90 DIAS', 90, 10);
 
--- ───────── Clientes: 60 ─────────
+-- ───────── Clientes: 62 ─────────
 INSERT INTO aw_origen.ku_kunden (id, mandant, name1, name2, name3, strasse, ort, plz, provinz, land, ust_id, steuernummer,
                                  tlf1, tlf2, mail, zahlbed, waehrung, kredit_limit, kredit_limit1, kredit_limit_net,
                                  kz_status, kz_gesperrt, datum, transaction_time, bonitaet)
@@ -49,6 +49,11 @@ SELECT i, 1,
        WHEN i % 12 <> 0 AND (i % 3 = 0 OR i % 11 = 0) THEN 'SIN OBLIGACIONES DEMO'
        WHEN i % 2 = 0 THEN 'MORAL DEMO' ELSE 'FISICA DEMO' END
 FROM generate_series(1, 60) AS i;
+
+-- 86e3qcgyn: dos clientes de A+W con el mismo RFC no genérico; no deben fusionarse.
+INSERT INTO aw_origen.ku_kunden (id, mandant, name1, name2, name3, strasse, ort, plz, provinz, land, ust_id, steuernummer, tlf1, tlf2, mail, zahlbed, waehrung, kredit_limit, kredit_limit1, kredit_limit_net, kz_status, kz_gesperrt, datum, transaction_time) VALUES
+ (61, 1, 'CLIENTE DEMO NORTE', '', '', 'CALLE DEMO 61', 'MONTERREY', '64000', 'NL', 'MEX', 'DEMO010101AB1', '', '5500000061', '', 'cliente061@demo.invalid', 'CONTADO', 'PESOSMX', 0, 0, 0, 0, 0, DATE '2020-03-01', NULL),
+ (62, 1, 'CLIENTE DEMO NORTE SUC', '', '', 'CALLE DEMO 62', 'MONTERREY', '64000', 'NL', 'MEX', 'DEMO010101AB1', '', '5500000062', '', 'cliente062@demo.invalid', 'CONTADO', 'PESOSMX', 0, 0, 0, 0, 0, DATE '2020-03-02', NULL);
 
 -- ───────── Productos: float (1-12), componentes PVB (41-42) y perfiles intercalarios (43-44) ─────────
 INSERT INTO aw_origen.erp_articulo (producto_ref, descripcion, unidad_medida, codigo_modelo, grupo, tipo, wgr, wgr_descripcion, variantes)

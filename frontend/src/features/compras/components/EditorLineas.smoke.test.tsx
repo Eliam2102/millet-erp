@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
-import { render, screen } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { http, HttpResponse } from 'msw';
 import { mswServer } from '@/test/mocks/server';
 import { createQueryWrapper } from '@/test/test-query-client';
@@ -140,5 +140,20 @@ describe('<EditorLineas> — smoke', () => {
     expect(
       screen.queryByRole('button', { name: /agregar línea/i }),
     ).not.toBeInTheDocument();
+  });
+
+  it('notas: si falla el guardado conserva el texto, muestra el error en línea y no cierra', async () => {
+    mswServer.use(
+      http.patch('*/api/v1/compras/requisiciones/rq-1/lineas/l-1/notas', () =>
+        HttpResponse.json({ title: 'No se pudo guardar', status: 500 }, { status: 500 }),
+      ),
+    );
+    render(<EditorLineas rq={makeRq()} />, { wrapper: createQueryWrapper() });
+    fireEvent.click(screen.getByRole('button', { name: /añadir/i }));
+    const input = screen.getByLabelText('Notas de la línea 1');
+    fireEvent.change(input, { target: { value: 'Entregar en rampa 2' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Guardar notas de la línea 1' }));
+    await waitFor(() => expect(screen.getByRole('alert')).toBeInTheDocument());
+    expect(screen.getByLabelText('Notas de la línea 1')).toHaveValue('Entregar en rampa 2');
   });
 });

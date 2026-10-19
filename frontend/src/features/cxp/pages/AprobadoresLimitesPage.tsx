@@ -1,3 +1,5 @@
+import { PageHeader } from '@/components/erp/PageHeader';
+import { ConfirmarAccionDialog } from '@/components/erp/feedback/ConfirmarAccionDialog';
 import { hoyLocalISO } from '@/lib/datetime';
 import { useState } from 'react';
 import { useNavigate, useSearch } from '@tanstack/react-router';
@@ -69,23 +71,20 @@ export function AprobadoresLimitesPage() {
 
   return (
     <div className="space-y-4">
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <div>
-          <h1 className="text-2xl font-semibold tracking-tight">
-            Aprobadores con límite
-          </h1>
-          <p className="text-sm text-muted-foreground">
-            Catálogo de aprobadores con monto máximo por tipo de gasto.
-            Backend valida los topes al autorizar comprobaciones/viáticos.
-          </p>
-        </div>
-        {puedeAdmin && (
-          <Button onClick={() => setSheetAbierto(true)}>
-            <Plus className="mr-2 h-4 w-4" />
-            Nuevo aprobador
-          </Button>
-        )}
-      </div>
+      <PageHeader
+        titulo="Aprobadores con límite"
+        descripcion="Catálogo de aprobadores con monto máximo por tipo de gasto. Los topes se validan al autorizar comprobaciones/viáticos."
+        acciones={
+          <>
+            {puedeAdmin && (
+              <Button onClick={() => setSheetAbierto(true)}>
+                <Plus className="mr-2 size-3.5" />
+                Nuevo aprobador
+              </Button>
+            )}
+          </>
+        }
+      />
 
       <div className="flex flex-wrap items-end gap-3">
         <div className="space-y-1">
@@ -191,13 +190,9 @@ function Tabla({
   const cerrar = useCerrarAprobadorLimite();
   const hoy = hoyLocalISO();
 
+  const [aCerrar, setACerrar] = useState<AprobadorLimite | null>(null);
+
   function handleCerrar(a: AprobadorLimite) {
-    if (
-      !window.confirm(
-        `¿Cerrar la vigencia del aprobador (empleado ${a.empleadoId.slice(0, 8)}…) hoy ${hoy}?`,
-      )
-    )
-      return;
     cerrar
       .mutateAsync({ id: a.id, versionEsperada: a.version, fecha: hoy })
       .then(
@@ -209,7 +204,8 @@ function Tabla({
           }
           toast.error('Error al cerrar.');
         },
-      );
+      )
+      .finally(() => setACerrar(null));
   }
 
   return (
@@ -245,10 +241,10 @@ function Tabla({
                     variant="ghost"
                     size="sm"
                     className="text-destructive"
-                    onClick={() => handleCerrar(a)}
+                    onClick={() => setACerrar(a)}
                     disabled={cerrar.isPending}
                   >
-                    <Ban className="mr-1 h-3 w-3" />
+                    <Ban className="mr-1 size-3.5" />
                     Cerrar
                   </Button>
                 )}
@@ -257,6 +253,23 @@ function Tabla({
           ))}
         </tbody>
       </table>
+      <ConfirmarAccionDialog
+        open={aCerrar !== null}
+        onOpenChange={(o) => !o && setACerrar(null)}
+        titulo="Cerrar vigencia del aprobador"
+        resumen={
+          aCerrar && (
+            <>
+              Se cerrará hoy ({hoy}) la vigencia del aprobador de {TipoGastoAprobadorLabels[aCerrar.tipoGasto]} por{' '}
+              {fmt(aCerrar.montoMax, aCerrar.moneda)}. Después ya no podrá autorizar con ese límite.
+            </>
+          )
+        }
+        verbo="Cerrar vigencia"
+        tono="peligro"
+        pendiente={cerrar.isPending}
+        onConfirmar={() => aCerrar && handleCerrar(aCerrar)}
+      />
     </div>
   );
 }

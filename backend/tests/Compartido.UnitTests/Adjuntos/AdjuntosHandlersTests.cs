@@ -178,6 +178,22 @@ public sealed class AdjuntosHandlersTests
     }
 
     [Fact]
+    public async Task Vigencia_explicita_no_puede_pasar_de_los_meses_del_tipo()
+    {
+        var (e, id) = await PrepararAsync();
+        using var _ = e;
+        var hoy = new DateOnly(2026, 10, 31);
+
+        // El estado de cuenta/CSF vale 3 meses: un día más se rechaza y sin subir blob.
+        var act = () => Subidor(e).Handle(Subir(id, Siembra.TipoCsf, vigencia: hoy.AddMonths(3).AddDays(1)), default);
+        (await act.Should().ThrowAsync<BusinessRuleException>()).Which.Code.Should().Be("ADJUNTO_VIGENCIA_EXCEDE");
+        e.Blob.Blobs.Should().BeEmpty();
+
+        var ok = await SubirOkAsync(e, id, Siembra.TipoCsf, hoy.AddMonths(3));
+        ok.VigenteHasta.Should().Be(hoy.AddMonths(3));
+    }
+
+    [Fact]
     public async Task Vigente_al_31_oct_aparece_vencida_el_1_nov()
     {
         var (e, id) = await PrepararAsync();

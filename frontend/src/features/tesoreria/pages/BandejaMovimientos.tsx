@@ -1,3 +1,4 @@
+import { DateTimeDisplay } from '@/components/erp/display/DateTimeDisplay';
 import { RegistrarIngresoSheet } from '../components/RegistrarIngresoSheet';
 import { useHasPermission } from '@/lib/auth/useHasPermission';
 import { PermisosCanonicos } from '@/lib/auth/permission-codes';
@@ -26,7 +27,7 @@ import {
   SENTIDO_MOVIMIENTO_LABELS,
   SentidoMovimiento,
 } from '@/features/tesoreria/api/types';
-import { formatoFecha, formatoMonto } from '@/features/tesoreria/lib/formato';
+import { formatoMonto } from '@/features/tesoreria/lib/formato';
 import type { MovimientosSearch } from '@/features/tesoreria/lib/movimientos-search-schema';
 import { esApiError } from '@/lib/api';
 
@@ -191,7 +192,7 @@ export function BandejaMovimientos() {
             <tbody className="divide-y">
               {items.map((m) => (
                 <tr key={m.id} className="hover:bg-muted/30">
-                  <td className="px-3 py-2 text-xs">{formatoFecha(m.fechaValor)}</td>
+                  <td className="px-3 py-2 text-xs"><DateTimeDisplay value={m.fechaValor} variant="corta" /></td>
                   <td className="max-w-64 truncate px-3 py-2 text-xs">
                     {nombresCuenta.get(m.cuentaBancariaId) ??
                       m.cuentaBancariaId.slice(0, 8)}

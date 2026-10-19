@@ -74,6 +74,11 @@ export const PermisosCanonicos = {
   ComprasOrdenesCancelarDoble: 'compras.ordenes.cancelar-doble',
   ComprasOrdenesReportesPartidasAbiertas:
     'compras.ordenes.reportes-partidas-abiertas',
+  ComprasOrdenesRegistrarRespuestaProveedor: 'compras.ordenes.registrar-respuesta-proveedor',
+
+  // Compras — Cotizaciones (F1-COM-02)
+  ComprasCotizacionesLeer: 'compras.cotizaciones.leer',
+  ComprasCotizacionesGestionar: 'compras.cotizaciones.gestionar',
 
   // Compras — Configuración por empresa (PR-A 2026-05-13). El owner edita
   // settings como AutoGenerarOcAlAutorizar via PATCH /api/v1/compras/configuracion.
@@ -116,6 +121,9 @@ export const PermisosCanonicos = {
     'datos_maestros.proveedores.bancarios-ver',
   DatosMaestrosProveedoresBancariosEditar:
     'datos_maestros.proveedores.bancarios-editar',
+  // Validar/rechazar/inhabilitar/reactivar cuentas bancarias de proveedor.
+  DatosMaestrosProveedoresCuentasAdministrar:
+    'datos_maestros.proveedores.cuentas-administrar',
   // Expediente documental del proveedor (F1-ADM-11 G1.2).
   DatosMaestrosProveedoresAdjuntosVer:
     'datos_maestros.proveedores.adjuntos-ver',
@@ -128,6 +136,8 @@ export const PermisosCanonicos = {
     'datos_maestros.proveedores.tolerancia-editar',
   DatosMaestrosProveedoresValidar:
     'datos_maestros.proveedores.validar',
+  DatosMaestrosProveedoresExpedienteConfigurar:
+    'datos_maestros.proveedores.expediente-configurar',
   DatosMaestrosArticulosGestionar: 'datos_maestros.articulos.gestionar',
   DatosMaestrosArticulosToleranciaEditar:
     'datos_maestros.articulos.tolerancia-editar',
@@ -203,6 +213,7 @@ export const PermisosCanonicos = {
   AlmacenDevolucionesInternasCapturar: 'almacen.devoluciones-internas.capturar',
   AlmacenDevolucionesProveedorIniciar: 'almacen.devoluciones-proveedor.iniciar',
   AlmacenDevolucionesProveedorAutorizar: 'almacen.devoluciones-proveedor.autorizar',
+  AlmacenCuarentenaDictaminar: 'almacen.cuarentena.dictaminar',
   AlmacenDevolucionesProveedorRegistrar: 'almacen.devoluciones-proveedor.registrar',
 
   AlmacenInventariosLeer: 'almacen.inventarios.leer',
@@ -355,6 +366,10 @@ export const PermisosCanonicos = {
     'tesoreria.pasivos.solicitar-cancelacion',
   TesoreriaPasivosVer: 'tesoreria.pasivos.ver',
   TesoreriaReportesVer: 'tesoreria.reportes.ver',
+  TesoreriaDevolucionesVer: 'tesoreria.devoluciones.ver',
+  TesoreriaDevolucionesSolicitar: 'tesoreria.devoluciones.solicitar',
+  TesoreriaDevolucionesAutorizar: 'tesoreria.devoluciones.autorizar',
+  TesoreriaDevolucionesPagar: 'tesoreria.devoluciones.pagar',
 
   // Facturación — CFDI 4.0 emitido. Mirror manual de backend
   // PermisosCanonicos.cs §"Facturación" (namespace GUID 00000009-*). 24
@@ -380,6 +395,7 @@ export const PermisosCanonicos = {
   FacturacionNotasCreditoBonificacion:
     'facturacion.notas-credito.bonificacion-emitir',
   FacturacionNotasCreditoLeer: 'facturacion.notas-credito.leer',
+  FacturacionNotasCreditoReembolsoSolicitar: 'facturacion.notas-credito.reembolso-solicitar',
   FacturacionCartaPorteEmitir: 'facturacion.carta-porte.emitir',
   FacturacionCartaPorteLeer: 'facturacion.carta-porte.leer',
   FacturacionReppEmitir: 'facturacion.repp.emitir',

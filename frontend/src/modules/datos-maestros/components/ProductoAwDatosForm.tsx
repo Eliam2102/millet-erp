@@ -4,14 +4,14 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { applyServerErrors, esApiError } from '@/lib/api';
+import { applyServerErrors, esApiError, codigoSoporte } from '@/lib/api';
 import { ClaveSatSelector } from '@/components/erp/selectors/ClaveSatSelector';
 import {
   ActualizarProductoAwSchema,
   type ActualizarProductoAwValues,
 } from '@/modules/datos-maestros/schemas/producto-aw';
 import { useActualizarProductoAw } from '@/modules/datos-maestros/api';
-import type { ProductoAwDetalle } from '@/modules/datos-maestros/api/types';
+import { OrigenMaster, type ProductoAwDetalle } from '@/modules/datos-maestros/api/types';
 import { UnidadMedidaSelect } from '@/modules/catalogos/components/UnidadMedidaSelect';
 import { CategoriaSelector } from '@/components/erp/selectors/CategoriaSelector';
 import { useHasPermission } from '@/lib/auth/useHasPermission';
@@ -132,9 +132,7 @@ export function ProductoAwDatosForm({ producto }: ProductoAwDatosFormProps) {
               return;
             }
             toast.error(error.problem.title, {
-              description: error.traceId
-                ? `Código: ${error.traceId}`
-                : undefined,
+              description: codigoSoporte(error),
             });
             return;
           }
@@ -167,9 +165,12 @@ export function ProductoAwDatosForm({ producto }: ProductoAwDatosFormProps) {
       <FormRow
         label="Unidad de medida"
         hint={
-          producto.unidadMedidaId == null
+          (producto.unidadMedidaId == null
             ? `De A+W: «${producto.unidadMedida}». Asigna una unidad del catálogo.`
-            : 'Del catálogo de unidades.'
+            : 'Del catálogo de unidades.')
+          + (producto.origen === OrigenMaster.Aw
+            ? ' Dato de A+W: si lo cambias aquí, la siguiente corrida lo marcará en conflicto.'
+            : '')
         }
         error={form.formState.errors.unidadMedidaId?.message}
       >
@@ -192,6 +193,9 @@ export function ProductoAwDatosForm({ producto }: ProductoAwDatosFormProps) {
           label="Descripción"
           required
           error={form.formState.errors.descripcion?.message}
+          hint={producto.origen === OrigenMaster.Aw
+            ? 'Dato de A+W: si lo cambias aquí, la siguiente corrida lo marcará en conflicto.'
+            : undefined}
         >
           <Input
             maxLength={254}
@@ -463,20 +467,23 @@ interface FormRowProps {
 function FormRow({ label, required, hint, error, children }: FormRowProps) {
   return (
     <div className="space-y-1.5">
-      <label className="flex items-center gap-1 text-sm font-medium">
-        {label}
-        {required && (
-          <span aria-hidden="true" className="text-rose-600">
-            *
-          </span>
-        )}
+      {/* El label envuelve el control: asociación implícita, sin ids por campo. */}
+      <label className="block space-y-1.5">
+        <span className="flex items-center gap-1 text-sm font-medium">
+          {label}
+          {required && (
+            <span aria-hidden="true" className="text-danger-fg">
+              *
+            </span>
+          )}
+        </span>
+        {children}
       </label>
-      {children}
       {hint != null && error == null && (
         <p className="text-xs text-muted-foreground">{hint}</p>
       )}
       {error != null && (
-        <p role="alert" className="text-xs text-rose-600">
+        <p role="alert" className="text-xs text-danger-fg">
           {error}
         </p>
       )}

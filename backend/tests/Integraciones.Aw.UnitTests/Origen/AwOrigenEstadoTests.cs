@@ -57,4 +57,19 @@ public sealed class AwOrigenEstadoTests
         await db.SaveChangesAsync();
         (await activo.LeerAsync(default)).Origen.Should().Be("Demo");
     }
+
+    [Fact]
+    public async Task Expone_los_flags_de_lectura_y_aplicacion_de_la_configuracion()
+    {
+        await using var db = Db();
+        var config = new ConfigurationBuilder().AddInMemoryCollection(new Dictionary<string, string?>
+        {
+            ["IntegracionesAw:Clientes:LecturaHabilitada"] = "true",
+            ["IntegracionesAw:Productos:OrigenHabilitado"] = "true",
+        }).Build();
+        var estado = await new AwOrigenActivo(db, config, new Ambiente("Development")).LeerAsync(default);
+        estado.LecturaHabilitada.Should().BeTrue();
+        estado.AplicacionHabilitada.Should().BeFalse();
+        estado.OrigenProductosHabilitado.Should().BeTrue();
+    }
 }

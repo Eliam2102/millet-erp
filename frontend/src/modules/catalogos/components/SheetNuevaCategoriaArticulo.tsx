@@ -158,7 +158,7 @@ function NuevaCategoriaArticuloForm({
       <div className="space-y-1.5">
         <label className="flex items-center gap-1 text-sm font-medium">
           Nombre
-          <span aria-hidden="true" className="text-rose-600">
+          <span aria-hidden="true" className="text-danger">
             *
           </span>
         </label>
@@ -169,7 +169,7 @@ function NuevaCategoriaArticuloForm({
           {...form.register('nombre')}
         />
         {form.formState.errors.nombre?.message != null && (
-          <p role="alert" className="text-xs text-rose-600">
+          <p role="alert" className="text-xs text-danger">
             {form.formState.errors.nombre.message}
           </p>
         )}

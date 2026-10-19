@@ -1,3 +1,4 @@
+import type { ComponentProps } from 'react';
 import { useSucursales } from '@/features/catalogos/api';
 import { CatalogoEagerCombobox } from '@/components/erp/selectors/CatalogoEagerCombobox';
 
@@ -11,6 +12,8 @@ export interface SucursalSelectorProps {
   placeholder?: string;
   disabled?: boolean;
   className?: string;
+  /** Props extra del trigger (id y aria-* que entrega `Field`). */
+  triggerProps?: ComponentProps<'button'>;
 }
 
 export function SucursalSelector({
@@ -19,6 +22,7 @@ export function SucursalSelector({
   placeholder = 'Selecciona sucursal',
   disabled,
   className,
+  triggerProps,
 }: SucursalSelectorProps) {
   const query = useSucursales();
   const items = query.data?.items ?? [];
@@ -44,6 +48,7 @@ export function SucursalSelector({
       ariaLabel="Seleccionar sucursal"
       disabled={disabled}
       className={className}
+      triggerProps={triggerProps}
     />
   );
 }

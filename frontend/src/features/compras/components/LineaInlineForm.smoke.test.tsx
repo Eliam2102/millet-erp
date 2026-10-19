@@ -86,7 +86,7 @@ describe('<LineaInlineForm> — smoke', () => {
     // Border dashed (modo agregar).
     const form = container.querySelector('form');
     expect(form?.className).toMatch(/border-dashed/);
-    expect(form?.className).not.toMatch(/border-amber/);
+    expect(form?.className).not.toMatch(/border-warning/);
   });
 
   it('modo editar: muestra "Guardar cambios" + border amber', () => {
@@ -107,7 +107,7 @@ describe('<LineaInlineForm> — smoke', () => {
     // Border amber (modo editar) — UX warning de "modificando registro
     // existente".
     const form = container.querySelector('form');
-    expect(form?.className).toMatch(/border-amber/);
+    expect(form?.className).toMatch(/border-warning/);
     expect(form?.className).not.toMatch(/border-dashed/);
   });
 
@@ -137,20 +137,18 @@ describe('<LineaInlineForm> — smoke', () => {
       <LineaInlineForm requisicionId="rq-1" onCancel={() => {}} />,
       { wrapper: createQueryWrapper() },
     );
-    // Colapsado por default. El toggle dice "Detalles (cuenta contable,
-    // proyecto, notas)" — el CC-Máquina ya NO vive aquí (Fase E PR2: salió
+    // Colapsado por default. El toggle dice "Detalles (proyecto, notas)" — el CC-Máquina ya NO vive aquí (Fase E PR2: salió
     // a su sub-fila siempre-visible).
     const toggle = screen.getByRole('button', {
-      name: /^Detalles \(cuenta contable/i,
+      name: /^Detalles \(proyecto/i,
     });
     expect(toggle).toHaveAttribute('aria-expanded', 'false');
     fireEvent.click(toggle);
     expect(toggle).toHaveAttribute('aria-expanded', 'true');
-    // Expandido: quedan 2 inputs "opcional" (proyecto + cuenta contable);
-    // el CC-Máquina se movió fuera.
-    expect(
-      screen.getAllByPlaceholderText('opcional').length,
-    ).toBeGreaterThanOrEqual(2);
+    // Expandido: proyecto y notas (cuenta contable oculta, Q2).
+    expect(screen.getByLabelText('Proyecto')).toBeInTheDocument();
+    expect(screen.getByLabelText('Notas')).toBeInTheDocument();
+    expect(screen.queryByLabelText(/cuenta contable/i)).not.toBeInTheDocument();
   });
 
   it('CC-Máquina: el picker está siempre visible (fuera de Detalles) en modo agregar', () => {

@@ -30,7 +30,7 @@ export function CatalogoConceptos() {
   }
   return <>
     <Button variant="outline" onClick={() => setOpen(true)}>Administrar conceptos</Button>
-    <Sheet open={open} onOpenChange={setOpen}><SheetContent className="overflow-y-auto">
+    <Sheet open={open} onOpenChange={setOpen}><SheetContent size="legacy" className="overflow-y-auto">
       <SheetHeader><SheetTitle>Conceptos de flujo de efectivo</SheetTitle>
         <SheetDescription>Subconceptos agrupados en operación, inversión y financiamiento. Los ejemplos requieren validación de Millet.</SheetDescription></SheetHeader>
       <div className="space-y-4 p-4">

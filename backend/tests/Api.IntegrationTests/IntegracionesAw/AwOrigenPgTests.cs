@@ -25,14 +25,14 @@ namespace Millet.Api.IntegrationTests.IntegracionesAw;
 /// <see cref="AwProductosPgOrigen"/> con los sincronizadores REALES contra el PostgreSQL de la prueba. El esquema y el
 /// seeder son los mismos archivos que usa la demo (<c>schema.sql</c> + <c>seed.sql</c>), aplicados aquí en el esquema
 /// <c>aw_origen</c> de la BD de la prueba y borrados al terminar. Los clientes/productos sincronizados (referencias
-/// 1..60, rango exclusivo del seed de esta copia) se borran del destino antes y después de cada prueba.
+/// 1..62, rango exclusivo del seed de esta copia) se borran del destino antes y después de cada prueba.
 /// </summary>
 [Collection("AwClientesSync")]
 public class AwOrigenPgTests(WebApplicationFactory<Program> factory)
     : IClassFixture<WebApplicationFactory<Program>>, IAsyncLifetime
 {
     private const int Lote = 25;
-    private const int Clientes = 60, Productos = 47;
+    private const int Clientes = 62, Productos = 47;
     private string _cs = "";
 
     // ---------- ciclo de vida: esquema + seeder del origen y destino limpios ----------
@@ -118,6 +118,7 @@ public class AwOrigenPgTests(WebApplicationFactory<Program> factory)
         await ConDb(async db =>
         {
             await db.Set<ClienteSincronizacionAw>().Where(r => refs.Contains(r.ReferenciaExterna)).ExecuteDeleteAsync();
+            await db.CambiosMaestrosAw.Where(c => c.TipoEntidad == "Cliente" && refs.Contains(c.ReferenciaExterna)).ExecuteDeleteAsync();
             await db.Clientes.IgnoreQueryFilters()
                 .Where(c => c.Origen == OrigenMaster.Aw && c.ReferenciaExterna != null && refs.Contains(c.ReferenciaExterna))
                 .ExecuteDeleteAsync();
@@ -288,7 +289,7 @@ public class AwOrigenPgTests(WebApplicationFactory<Program> factory)
     {
         var e = await BarridoClientes(OrigenClientes(), OptsClientes());
 
-        // 60 leídos; el 58 trae NAME1 vacío -> fila_invalida (único error).
+        // 62 leídos; el 58 trae NAME1 vacío -> fila_invalida (único error). El 61 y el 62 comparten RFC (no genérico).
         Assert.Equal(AwClientesEjecucionEstado.Parcial, e.Estado);
         Assert.Equal((Clientes, Clientes - 1, 1), (e.Leidos, e.Creados, e.Errores));
         Assert.Equal(("58", "fila_invalida"), (Assert.Single(e.ErroresPorReferencia).Referencia, e.ErroresPorReferencia.Single().Codigo));
@@ -317,6 +318,13 @@ public class AwOrigenPgTests(WebApplicationFactory<Program> factory)
         Assert.Equal(r10.DomicilioOrigenCp, c10.CodigoPostalFiscal);
         Assert.Equal("XAXX010101000", cs["3"].Rfc); // UST_ID válido se aplica solo en demo
         Assert.Equal("DEMO010", r10.CandidatoFiscalUstId);
+
+        // 61 y 62 comparten RFC: ambos se crean (no se fusionan) y el segundo queda con un conflicto RfcCompartido pendiente.
+        Assert.Equal(("DEMO010101AB1", null), (cs["61"].Rfc, cs["62"].Rfc));
+        var conflictos = await ConDb(db => db.CambiosMaestrosAw.AsNoTracking()
+            .Where(c => c.TipoEntidad == "Cliente" && c.Tipo == TipoCambioMaestroAw.RfcCompartido).ToListAsync());
+        var conflicto = Assert.Single(conflictos);
+        Assert.Equal(("62", EstadoCambioMaestroAw.Pendiente, "DEMO010101AB1", cs["62"].Id), (conflicto.ReferenciaExterna, conflicto.Estado, conflicto.ValorDespues, conflicto.EntidadId));
 
         // Segundo barrido: idempotente. Un cambio en el origen se aplica en el siguiente barrido.
         var e2 = await BarridoClientes(OrigenClientes(), OptsClientes());

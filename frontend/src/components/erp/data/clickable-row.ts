@@ -17,6 +17,10 @@ import type { KeyboardEvent } from 'react';
  * </tr>
  * ```
  *
+ * <para>Sin <c>role="button"</c> (rompe la semántica de tabla): el folio de
+ * la fila debe ser un <c>&lt;Link&gt;</c> (abre en pestaña nueva) y la fila es
+ * solo un atajo de clic.</para>
+ *
  * <para><b>Importante</b>: si dentro de la fila hay otros elementos
  * interactivos (botones, links anidados), llamar a
  * <c>event.stopPropagation()</c> en sus handlers para evitar que el
@@ -33,9 +37,8 @@ export function clickableRowProps(navigate: () => void) {
         navigate();
       }
     },
-    role: 'button' as const,
     tabIndex: 0,
     className:
-      'cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-primary/40',
+      'cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-brand',
   };
 }

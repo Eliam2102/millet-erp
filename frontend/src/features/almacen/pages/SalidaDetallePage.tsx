@@ -1,15 +1,14 @@
+import { PageHeader } from '@/components/erp/PageHeader';
 import { RegularizacionValeBadge } from '../components/RegularizacionValeBadge';
 import { useEffect, useState } from 'react';
 import { Link, useParams } from '@tanstack/react-router';
 import { ArrowLeft, FileDown, Printer, RotateCw } from 'lucide-react';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
-import { ErrorState, TableSkeleton } from '@/components/erp';
+import { ErrorState, DetalleSkeleton } from '@/components/erp';
 import { useSalida } from '@/features/almacen/api/useSalidas';
 import { useValeBlob } from '@/features/almacen/api/useValeBlob';
 import {
-  EstadoMovimiento,
-  EstadoMovimientoLabels,
   type SalidaDetalle,
 } from '@/features/almacen/api/types';
 import { esApiError } from '@/lib/api';
@@ -18,7 +17,12 @@ import { PermisosCanonicos } from '@/lib/auth/permission-codes';
 import { RegularizarValeSheet } from '@/features/almacen/components/RegularizarValeSheet';
 import { formatCcMaquinaLabel } from '@/features/centros-costo/lib/cc-maquina-label';
 import { ubicacionLabel } from '@/features/almacen/components/impresion/salida-display';
-import { cn } from '@/lib/utils';
+import { EstadoAlmacenBadge } from '@/features/almacen/components/EstadoAlmacenBadge';
+import { MoneyDisplay } from '@/components/erp/display/MoneyDisplay';
+import { formatCantidad } from '@/lib/format-cantidad';
+import { formatDateTime } from '@/lib/datetime';
+import { DateTimeDisplay } from '@/components/erp/display/DateTimeDisplay';
+import { useDecimalesUnidad } from '@/components/erp/forms/useDecimalesUnidad';
 
 const FROM = '/_app/almacen/salidas/$id' as const;
 
@@ -33,6 +37,7 @@ const FROM = '/_app/almacen/salidas/$id' as const;
 export function SalidaDetallePage() {
   const { id } = useParams({ from: FROM });
   const query = useSalida(id);
+  const decimalesUnidad = useDecimalesUnidad();
   const puedePorVale = useHasPermission(
     PermisosCanonicos.AlmacenSalidasPorVale,
   );
@@ -43,7 +48,7 @@ export function SalidaDetallePage() {
       <div className="flex items-center gap-2">
         <Button asChild variant="ghost" size="sm">
           <Link to="/almacen/salidas" search={{}}>
-            <ArrowLeft className="mr-2 h-4 w-4" />
+            <ArrowLeft className="mr-2 size-3.5" />
             Salidas
           </Link>
         </Button>
@@ -56,51 +61,50 @@ export function SalidaDetallePage() {
           onRetry={() => query.refetch()}
         />
       ) : query.isLoading ? (
-        <TableSkeleton
-          rows={4}
-          columns={[
-            { width: 'w-40' },
-            { width: 'w-48' },
-            { width: 'w-32' },
-            { width: 'w-32' },
-            { width: 'w-32' },
-          ]}
-        />
+        <DetalleSkeleton />
       ) : query.data == null ? null : (
         <div className="space-y-6">
-          <header className="space-y-1">
-            <div className="flex flex-wrap items-center gap-3">
-              <h1 className="text-2xl font-semibold tracking-tight font-mono">
-                {query.data.folio}
-              </h1>
-              <EstadoMovimientoBadge estado={query.data.estado} />
-              {query.data.esPorVale && <RegularizacionValeBadge salida={query.data} />}
-            </div>
-            <p className="text-sm text-muted-foreground">
-              Fecha de movimiento: {query.data.fechaMovimiento}
-              {query.data.registradoAt && (
-                <>
-                  {' '}
-                  · Registrado:{' '}
-                  {new Date(query.data.registradoAt).toLocaleString('es-MX')}
-                </>
-              )}
-            </p>
-            <div className="mt-2 flex flex-wrap gap-2">
-              {query.data.esPorVale &&
-                !query.data.rqRegularizadoraId &&
-                puedePorVale && (
-                  <Button onClick={() => setRegularizarOpen(true)}>
-                    <RotateCw className="mr-2 h-4 w-4" />
-                    Regularizar vale
-                  </Button>
+          <PageHeader
+            titulo={query.data.folio}
+            estado={
+              <>
+                <EstadoAlmacenBadge tipo="movimiento" estado={query.data.estado} />
+                {query.data.esPorVale && <RegularizacionValeBadge salida={query.data} />}
+              </>
+            }
+            descripcion={
+              <>
+                Fecha de movimiento:{' '}
+                <DateTimeDisplay value={query.data.fechaMovimiento} variant="media" />
+                {query.data.registradoAt && (
+                  <>
+                    {' '}
+                    · Registrado:{' '}
+                    <DateTimeDisplay value={query.data.registradoAt} variant="media" />
+                  </>
                 )}
-              {query.data.esPorVale && query.data.valeBlobRef && (
-                <VerValeButton salidaId={query.data.id} />
-              )}
-              <ImprimirComprobanteButton salida={query.data} />
-            </div>
-          </header>
+              </>
+            }
+            acciones={
+              <>
+                <div className="mt-2 flex flex-wrap gap-2">
+                  {query.data.esPorVale &&
+                    !query.data.rqRegularizadoraId &&
+                    puedePorVale && (
+                      <Button onClick={() => setRegularizarOpen(true)}>
+                        <RotateCw className="mr-2 size-3.5" />
+                        Regularizar vale
+                      </Button>
+                    )}
+                  {query.data.esPorVale && query.data.valeBlobRef && (
+                    <VerValeButton salidaId={query.data.id} />
+                  )}
+                  <ImprimirComprobanteButton salida={query.data} />
+                </div>
+              </>
+            }
+            mono
+          />
 
           <section className="grid grid-cols-1 gap-x-6 gap-y-2 rounded-md border p-4 md:grid-cols-2">
             <Campo
@@ -139,7 +143,7 @@ export function SalidaDetallePage() {
               />
             )}
             {query.data.esPorVale && query.data.fechaLimiteRegularizacion && (
-              <Campo label="Límite de regularización" valor={new Date(query.data.fechaLimiteRegularizacion).toLocaleString('es-MX')} />
+              <Campo label="Límite de regularización" valor={formatDateTime(query.data.fechaLimiteRegularizacion)} />
             )}
             {query.data.esPorVale && query.data.rqRegularizadoraId && (
               <Campo
@@ -212,18 +216,15 @@ export function SalidaDetallePage() {
                       </td>
                       {/* Ubicación (bin) de donde salió la línea; mismo texto que el comprobante PDF. */}
                       <td className="px-3 py-2 font-mono text-xs">{ubicacionLabel(l)}</td>
-                      <td className="px-3 py-2 text-right font-mono">
-                        {l.cantidad.toLocaleString('es-MX', {
-                          minimumFractionDigits: 2,
-                          maximumFractionDigits: 4,
-                        })}
+                      <td className="py-2 pl-3 pr-4 text-right tabular-nums">
+                        {formatCantidad(l.cantidad, decimalesUnidad.porCodigo(l.unidadMedida))}
                       </td>
                       <td className="px-3 py-2">{l.unidadMedida}{l.unidadCapturada && <span className="block text-xs text-muted-foreground">Captura: {l.cantidadCapturada} {l.unidadCapturada}</span>}</td>
-                      <td className="px-3 py-2 text-right font-mono">
-                        {formatearMonto(l.costoUnitarioMxn)}
+                      <td className="py-2 pl-3 pr-4 text-right tabular-nums">
+                        <MoneyDisplay amount={l.costoUnitarioMxn} currency="MXN" strong />
                       </td>
-                      <td className="px-3 py-2 text-right font-mono">
-                        {formatearMonto(l.montoTotalMxn)}
+                      <td className="py-2 pl-3 pr-4 text-right tabular-nums">
+                        <MoneyDisplay amount={l.montoTotalMxn} currency="MXN" strong />
                       </td>
                     </tr>
                   ))}
@@ -265,30 +266,7 @@ function Campo({
   );
 }
 
-function EstadoMovimientoBadge({ estado }: { estado: EstadoMovimiento }) {
-  return (
-    <span
-      className={cn(
-        'inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium',
-        estado === EstadoMovimiento.Borrador && 'bg-slate-200 text-slate-700',
-        estado === EstadoMovimiento.Validado && 'bg-blue-100 text-blue-800',
-        estado === EstadoMovimiento.Registrado &&
-          'bg-emerald-100 text-emerald-800',
-        estado === EstadoMovimiento.Cancelado && 'bg-rose-100 text-rose-800',
-      )}
-    >
-      {EstadoMovimientoLabels[estado]}
-    </span>
-  );
-}
 
-function formatearMonto(v: number): string {
-  return new Intl.NumberFormat('es-MX', {
-    style: 'currency',
-    currency: 'MXN',
-    minimumFractionDigits: 2,
-  }).format(v);
-}
 
 /**
  * Botón "Ver vale" — descarga el blob authenticated y lo abre en
@@ -327,7 +305,7 @@ function VerValeButton({ salidaId }: { salidaId: string }) {
       onClick={abrir}
       disabled={valeQuery.isLoading || valeQuery.isFetching}
     >
-      <FileDown className="mr-2 h-4 w-4" />
+      <FileDown className="mr-2 size-3.5" />
       {valeQuery.isLoading || valeQuery.isFetching
         ? 'Cargando vale…'
         : 'Ver vale escaneado'}
@@ -368,7 +346,7 @@ function ImprimirComprobanteButton({ salida }: { salida: SalidaDetalle }) {
       onClick={imprimir}
       disabled={generando}
     >
-      <Printer className="mr-2 h-4 w-4" />
+      <Printer className="mr-2 size-3.5" />
       {generando ? 'Generando PDF…' : 'Imprimir comprobante'}
     </Button>
   );

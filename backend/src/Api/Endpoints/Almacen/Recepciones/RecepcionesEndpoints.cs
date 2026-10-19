@@ -1,4 +1,5 @@
 using MediatR;
+using Millet.SharedKernel.Application;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Millet.Almacen.Application.Catalogo;
@@ -38,18 +39,37 @@ public static class RecepcionesEndpoints
             [FromQuery] DateOnly? hasta,
             [FromQuery] int? offset,
             [FromQuery] int? limit,
+            [FromQuery] Guid? proveedorId,
+            [FromQuery] string? q,
             IMediator mediator,
             CancellationToken ct) =>
         {
             var (off, lim) = NormalizePaging(offset, limit);
             var response = await mediator.Send(
-                new ListarRecepcionesQuery(estado, subAlmacenId, ordenCompraId, desde, hasta, off, lim), ct);
+                new ListarRecepcionesQuery(estado, subAlmacenId, ordenCompraId, desde, hasta, off, lim, proveedorId, q), ct);
             return Results.Ok(response);
         })
         .RequireAuthorization(PermissionPolicyProvider.Prefix + PermisosCanonicos.AlmacenEntradasLeer)
         .WithName("ListarRecepciones")
         .WithSummary("Listar recepciones (bandeja con filtros estado/sub-almacén/OC/fecha)")
         .Produces<AlmacenPagedResponse<RecepcionListItem>>(StatusCodes.Status200OK);
+
+        // --- Conteos por estado (tabs de la bandeja; mismos filtros salvo estado) ---
+        group.MapGet("/conteos-por-estado", async (
+            [FromQuery] Guid? subAlmacenId,
+            [FromQuery] Guid? ordenCompraId,
+            [FromQuery] DateOnly? desde,
+            [FromQuery] DateOnly? hasta,
+            [FromQuery] Guid? proveedorId,
+            [FromQuery] string? q,
+            IMediator mediator,
+            CancellationToken ct) =>
+            Results.Ok(await mediator.Send(
+                new ConteosRecepcionesPorEstadoQuery(subAlmacenId, ordenCompraId, desde, hasta, proveedorId, q), ct)))
+        .RequireAuthorization(PermissionPolicyProvider.Prefix + PermisosCanonicos.AlmacenEntradasLeer)
+        .WithName("ConteosRecepcionesPorEstado")
+        .WithSummary("Conteo de recepciones por estado, con los filtros de la bandeja salvo el estado")
+        .Produces<IReadOnlyList<ConteoPorEstadoItem>>(StatusCodes.Status200OK);
 
         // --- Obtener Recepción por Id ---
         group.MapGet("/{id:guid}", async (

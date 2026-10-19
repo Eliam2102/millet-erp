@@ -164,7 +164,7 @@ public sealed class DiferenciasFiscalesAwHandlersTests : IAsyncDisposable
         _clientes.LecturaHabilitada = false;
         var r = await ReporteAsync();
         r.Filas.Should().BeEmpty();
-        r.Avisos.Should().ContainSingle().Which.Should().Contain("LecturaHabilitada");
+        r.Avisos.Should().ContainSingle().Which.Should().Contain("apagada").And.NotContain("LecturaHabilitada");
 
         _clientes.LecturaHabilitada = true;
         _origen.Error = new AwReaderException("host secreto", "timeout", isTransient: true);

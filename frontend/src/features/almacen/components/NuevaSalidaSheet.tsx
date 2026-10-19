@@ -9,7 +9,7 @@ import {
 } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useQueries } from '@tanstack/react-query';
-import { useNavigate } from '@tanstack/react-router';
+import { Link, useNavigate } from '@tanstack/react-router';
 import { Plus, Trash2 } from 'lucide-react';
 import { toast } from 'sonner';
 import {
@@ -48,6 +48,7 @@ import {
   applyServerErrors,
   esApiError,
   useFormIdempotencyKey,
+  codigoSoporte,
 } from '@/lib/api';
 import {
   RegistrarSalidaConRqSchema,
@@ -79,6 +80,14 @@ import { saldosPorUbicacionQueryOptions } from '@/features/almacen/api/useSaldos
 import { UbicacionBinSelector } from '@/components/erp/selectors/UbicacionBinSelector';
 import { useRequisicion } from '@/features/compras/api/useRequisicion';
 import { cn } from '@/lib/utils';
+import { AvisoEnLinea } from '@/components/erp/feedback/AvisoEnLinea';
+import { ConfirmarAccionDialog } from '@/components/erp/feedback/ConfirmarAccionDialog';
+import { useConfirmarDescarte } from '@/components/erp/forms/useConfirmarDescarte';
+import {
+  AVISOS_SALIDA,
+  CODIGOS_SALIDA,
+} from '@/features/almacen/components/nueva-salida-helpers';
+import { Field } from '@/features/almacen/components/internal/Field';
 
 /**
  * <c>&lt;NuevaSalidaSheet/&gt;</c> — slide-from-right para registrar
@@ -118,8 +127,16 @@ export function NuevaSalidaSheet({
   puedeRegistrarConRq,
   puedeRegistrarVale,
 }: NuevaSalidaSheetProps) {
+  // Cerrar (Esc, clic fuera, X y Cancelar) pide confirmación si hay cambios.
+  const { setDirty, solicitarCierre, dialogo } = useConfirmarDescarte(() =>
+    onOpenChange(false),
+  );
+
   return (
-    <Sheet open={open} onOpenChange={onOpenChange}>
+    <Sheet
+      open={open}
+      onOpenChange={(next) => (next ? onOpenChange(next) : solicitarCierre())}
+    >
       <SheetContent side="right" className="sm:max-w-3xl">
         <SheetHeader>
           <SheetTitle>Nueva salida</SheetTitle>
@@ -134,11 +151,13 @@ export function NuevaSalidaSheet({
           <NuevaSalidaFormBody
             puedeRegistrarConRq={puedeRegistrarConRq}
             puedeRegistrarVale={puedeRegistrarVale}
-            onSuccess={() => onOpenChange(false)}
-            onCancel={() => onOpenChange(false)}
+            onSuccess={() => solicitarCierre(true)}
+            onCancel={() => solicitarCierre()}
+            onDirtyChange={setDirty}
           />
         )}
       </SheetContent>
+      {dialogo}
     </Sheet>
   );
 }
@@ -148,11 +167,13 @@ function NuevaSalidaFormBody({
   puedeRegistrarVale,
   onSuccess,
   onCancel,
+  onDirtyChange,
 }: {
   puedeRegistrarConRq: boolean;
   puedeRegistrarVale: boolean;
   onSuccess: () => void;
   onCancel: () => void;
+  onDirtyChange: (dirty: boolean) => void;
 }) {
   const navigate = useNavigate();
   const idempotencyKey = useFormIdempotencyKey();
@@ -187,8 +208,29 @@ function NuevaSalidaFormBody({
 
   const lookup = useDecimalesUnidad();
 
-  function cambiarVariante(siguiente: Variante) {
+  const isDirty = form.formState.isDirty || valeAdjunto != null;
+  useEffect(() => {
+    onDirtyChange(isDirty);
+  }, [isDirty, onDirtyChange]);
+  useEffect(() => () => onDirtyChange(false), [onDirtyChange]);
+
+  // Cambiar de variante reinicia el form: con datos capturados pide confirmación.
+  const [varianteSolicitada, setVarianteSolicitada] = useState<Variante | null>(null);
+  const [avisoServidor, setAvisoServidor] = useState<{
+    titulo: string;
+    detalle: string;
+    sucursal: boolean;
+  } | null>(null);
+
+  function solicitarVariante(siguiente: Variante) {
     if (siguiente === variante) return;
+    if (isDirty) setVarianteSolicitada(siguiente);
+    else cambiarVariante(siguiente);
+  }
+
+  function cambiarVariante(siguiente: Variante) {
+    setVarianteSolicitada(null);
+    setAvisoServidor(null);
     setVariante(siguiente);
     setValeAdjunto(null);
     form.reset(defaultValuesParaVariante(siguiente, hoyIso));
@@ -322,43 +364,44 @@ function NuevaSalidaFormBody({
   }
 
   function manejarError(error: unknown) {
-    if (esApiError(error)) {
-      if (error.code === 'SALIDA_STOCK_INSUFICIENTE') {
-        toast.error('Stock insuficiente para alguna línea.', {
-          description:
-            error.problem.detail ?? error.problem.title,
-        });
-        return;
-      }
-      if (error.code === 'SALIDA_RQ_NO_AUTORIZADA') {
-        form.setError('requisicionId', {
-          type: error.code,
-          message: 'La RQ no está autorizada o ya fue surtida.',
-        });
-        return;
-      }
-      if (error.code === 'SALIDA_SUCURSAL_DISTINTA') {
-        form.setError('requisicionId', {
-          type: error.code,
-          message:
-            error.problem.detail ?? 'La requisición es de otra sucursal.',
-        });
-        return;
-      }
-      if (
-        applyServerErrors(
-          form as unknown as Parameters<typeof applyServerErrors>[0],
-          error,
-        )
-      ) {
-        return;
-      }
-      toast.error(error.problem.title, {
-        description: error.traceId ? `Código: ${error.traceId}` : undefined,
+    if (!esApiError(error)) {
+      toast.error('Error inesperado al registrar la salida.');
+      return;
+    }
+    setAvisoServidor(null);
+    if (error.code === 'SALIDA_RQ_NO_AUTORIZADA') {
+      form.setError('requisicionId', {
+        type: error.code,
+        message: 'La RQ no está autorizada o ya fue surtida.',
       });
       return;
     }
-    toast.error('Error inesperado al registrar la salida.');
+    if (error.code === 'SALIDA_SUCURSAL_DISTINTA') {
+      form.setError('requisicionId', {
+        type: error.code,
+        message: error.problem.detail ?? 'La requisición es de otra sucursal.',
+      });
+      return;
+    }
+    const resultado = applyServerErrors(
+      form as unknown as Parameters<typeof applyServerErrors>[0],
+      error,
+      { codigos: CODIGOS_SALIDA },
+    );
+    if (resultado === 'callout') {
+      // El servidor no indica la línea: aviso persistente con qué falta y cómo se destraba.
+      const aviso = AVISOS_SALIDA[error.code ?? ''];
+      setAvisoServidor({
+        titulo: aviso?.titulo ?? 'No se pudo registrar',
+        detalle: `${error.problem.detail ?? error.problem.title} ${aviso?.ayuda ?? ''}`.trim(),
+        sucursal: error.code === 'SALIDA_SUCURSAL_REQUERIDA',
+      });
+      return;
+    }
+    if (resultado) return;
+    toast.error(error.problem.title, {
+      description: codigoSoporte(error),
+    });
   }
 
   const isPending = registrarA.isPending || registrarB.isPending;
@@ -378,7 +421,7 @@ function NuevaSalidaFormBody({
               <VarianteOption
                 value="A"
                 active={variante === 'A'}
-                onSelect={cambiarVariante}
+                onSelect={solicitarVariante}
                 titulo="Con RQ"
                 descripcion="Salida normal contra requisición aprobada."
               />
@@ -387,7 +430,7 @@ function NuevaSalidaFormBody({
               <VarianteOption
                 value="B"
                 active={variante === 'B'}
-                onSelect={cambiarVariante}
+                onSelect={solicitarVariante}
                 titulo="Vale urgente"
                 descripcion="Sin RQ; adjunta vale firmado. Regulariza en 48 h."
               />
@@ -493,6 +536,22 @@ function NuevaSalidaFormBody({
           />
         </Field>
 
+        {avisoServidor && (
+          <AvisoEnLinea
+            tono="error"
+            titulo={avisoServidor.titulo}
+            accion={
+              avisoServidor.sucursal ? (
+                <Link to="/almacen/almacenes" className="font-medium underline">
+                  Ir a Almacenes
+                </Link>
+              ) : undefined
+            }
+          >
+            {avisoServidor.detalle}
+          </AvisoEnLinea>
+        )}
+
         {variante === 'A' ? (
           <FilasDesdeRq form={form} />
         ) : (
@@ -517,6 +576,16 @@ function NuevaSalidaFormBody({
           {isPending ? 'Registrando…' : 'Registrar salida'}
         </Button>
       </SheetFooter>
+
+      <ConfirmarAccionDialog
+        open={varianteSolicitada != null}
+        onOpenChange={(o) => !o && setVarianteSolicitada(null)}
+        titulo="¿Cambiar el tipo de salida?"
+        resumen="Se perderán la requisición, las líneas y el vale capturados."
+        verbo="Cambiar tipo"
+        tono="peligro"
+        onConfirmar={() => varianteSolicitada && cambiarVariante(varianteSolicitada)}
+      />
     </>
   );
 }
@@ -634,7 +703,7 @@ function FilasDesdeRq({
     return (
       <section
         role="alert"
-        className="rounded-md border border-rose-300 bg-rose-50 p-4 text-sm text-rose-700"
+        className="rounded-md border border-danger bg-danger-bg p-4 text-sm text-danger-fg"
       >
         No se pudo cargar la RQ. Verifica el id o vuelve a intentar.
       </section>
@@ -678,7 +747,7 @@ function FilasDesdeRq({
       )}
 
       {errorMessage && (
-        <p role="alert" className="text-xs text-rose-600">
+        <p role="alert" className="text-xs text-danger">
           {errorMessage}
         </p>
       )}
@@ -725,7 +794,7 @@ function FilasDesdeRq({
           existencia ahí. Nunca reemplaza un rack ya capturado.
         </p>
         {sinCobertura > 0 && (
-          <p role="alert" className="mt-2 text-xs text-amber-700">
+          <p role="alert" className="mt-2 text-xs text-warning-fg">
             {sinCobertura}{' '}
             {sinCobertura === 1 ? 'línea sin existencia' : 'líneas sin existencia'}{' '}
             en {claveHelper ?? 'la ubicación elegida'} — elígeles rack
@@ -883,7 +952,7 @@ function FilaLineaRq({
                 />
                 <p
                   id={`fila-${index}-max`}
-                  className="mt-1 text-[11px] text-muted-foreground"
+                  className="mt-1 text-2xs text-muted-foreground"
                 >
                   Máximo: {formatCantidad(fila.pendienteEntregar)}
                 </p>
@@ -919,7 +988,7 @@ function FilaLineaRq({
                     Ubicación (rack) de salida
                     {!!ubicacionHelperId &&
                       fila.ubicacionId === ubicacionHelperId && (
-                        <span className="rounded bg-emerald-100 px-1.5 py-0.5 text-[10px] font-medium text-emerald-700">
+                        <span className="rounded bg-success-bg px-1.5 py-0.5 text-2xs font-medium text-success-fg">
                           coincide
                         </span>
                       )}
@@ -1063,14 +1132,14 @@ function LineasCapturaLibre({
             })
           }
         >
-          <Plus className="mr-2 h-4 w-4" />
+          <Plus className="mr-2 size-3.5" />
           Agregar línea
         </Button>
       </div>
 
       {form.formState.errors.lineas &&
         !Array.isArray(form.formState.errors.lineas) && (
-          <p role="alert" className="text-xs text-rose-600">
+          <p role="alert" className="text-xs text-danger">
             {form.formState.errors.lineas.message}
           </p>
         )}
@@ -1114,7 +1183,7 @@ function LineasCapturaLibre({
           existencia ahí. Nunca reemplaza un rack ya capturado.
         </p>
         {sinCobertura > 0 && (
-          <p role="alert" className="mt-2 text-xs text-amber-700">
+          <p role="alert" className="mt-2 text-xs text-warning-fg">
             {sinCobertura}{' '}
             {sinCobertura === 1 ? 'línea sin existencia' : 'líneas sin existencia'}{' '}
             en {claveHelper ?? 'la ubicación elegida'} — elígeles rack
@@ -1339,10 +1408,10 @@ function BadgeEntrega({ fila }: { fila: FilaSalidaValues }) {
   return (
     <span
       className={cn(
-        'rounded px-1.5 py-0.5 text-[10px] font-medium',
+        'rounded px-1.5 py-0.5 text-2xs font-medium',
         esParcial
-          ? 'bg-amber-100 text-amber-800'
-          : 'bg-emerald-100 text-emerald-800',
+          ? 'bg-warning-bg text-warning-fg'
+          : 'bg-success-bg text-success-fg',
       )}
     >
       {esParcial
@@ -1415,38 +1484,6 @@ function VarianteOption({
   );
 }
 
-function Field({
-  label,
-  required,
-  error,
-  children,
-}: {
-  // PR5: ReactNode y no string — el label de la ubicación lleva el badge
-  // "coincide" cuando la fila ya apunta al bin del helper.
-  label: React.ReactNode;
-  required?: boolean;
-  error?: string;
-  children: React.ReactNode;
-}) {
-  return (
-    <div className="space-y-1.5">
-      <label className="flex items-center gap-1 text-sm font-medium">
-        {label}
-        {required && (
-          <span aria-hidden="true" className="text-rose-600">
-            *
-          </span>
-        )}
-      </label>
-      {children}
-      {error != null && (
-        <p role="alert" className="text-xs text-rose-600">
-          {error}
-        </p>
-      )}
-    </div>
-  );
-}
 
 // ─── Form values type + helpers ────────────────────────────────────────────
 

@@ -36,6 +36,16 @@ export function proponerRetenciones(
 export function totalRetenciones(detalle: readonly RetencionCfdi[]): number {
   return Math.round(detalle.reduce((sum, r) => sum + r.importe, 0) * 100) / 100;
 }
-export function alertaRetenciones(total: number, propuesta: readonly RetencionCfdi[]): boolean {
+/** Concepto de proveedores sin retención (mismo valor que el backend). */
+export const CONCEPTO_SIN_RETENCION = 'SIN_RETENCION';
+export function etiquetaConcepto(c: string): string {
+  return c === CONCEPTO_SIN_RETENCION ? 'Sin retención (compra de bienes)' : c;
+}
+export function alertaRetenciones(
+  total: number,
+  propuesta: readonly RetencionCfdi[],
+  concepto?: string | null,
+): boolean {
+  if (concepto === CONCEPTO_SIN_RETENCION) return total > 0.01;
   return propuesta.length > 0 && Math.abs(total - totalRetenciones(propuesta)) > 0.010000001;
 }

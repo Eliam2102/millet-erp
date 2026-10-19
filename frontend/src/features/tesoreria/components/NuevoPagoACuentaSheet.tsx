@@ -15,7 +15,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { ProveedorSelector } from '@/components/erp/selectors/ProveedorSelector';
 import { CuentaBancariaSelector } from './CuentaBancariaSelector';
 import { useRegistrarPagoACuenta } from '@/features/tesoreria/api/useTesoreria';
-import { esApiError, useBodyScopedIdempotencyKey } from '@/lib/api';
+import { esApiError, useBodyScopedIdempotencyKey, codigoSoporte } from '@/lib/api';
 
 export interface NuevoPagoACuentaSheetProps {
   open: boolean;
@@ -99,7 +99,7 @@ export function NuevoPagoACuentaSheet({
               : 'No se pudo registrar el pago a cuenta',
             {
               description: esApiError(error)
-                ? (error.problem.detail ?? `Código: ${error.traceId}`)
+                ? (error.problem.detail ?? codigoSoporte(error))
                 : undefined,
             },
           );

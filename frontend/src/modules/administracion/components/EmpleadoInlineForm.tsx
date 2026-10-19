@@ -10,6 +10,7 @@ import {
   applyServerErrors,
   esApiError,
   useBodyScopedIdempotencyKey,
+  codigoSoporte,
 } from '@/lib/api';
 import {
   EmpleadoSchema,
@@ -330,7 +331,7 @@ export function EmpleadoInlineForm({
         return;
       }
       toast.error(error.problem.title || error.message, {
-        description: error.traceId ? `Código: ${error.traceId}` : undefined,
+        description: codigoSoporte(error),
       });
       return;
     }
