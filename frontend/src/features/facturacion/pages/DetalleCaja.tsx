@@ -95,8 +95,8 @@ function TarjetaAjustes(props: { cajaId: string }) {
         <div>
           <h3 className="font-medium">Ajustes de la caja</h3>
           <p className="text-xs text-muted-foreground">
-            Cancelaciones sin sesión abierta; los pendientes se drenan en la próxima
-            apertura ([Decisión 12-C]).
+            Las cancelaciones registradas mientras la caja está cerrada generan ajustes al saldo.
+            Los ajustes pendientes se aplican cuando vuelvas a abrir la caja.
           </p>
         </div>
         <label className="flex shrink-0 items-center gap-2 text-xs text-muted-foreground">
@@ -150,11 +150,11 @@ function TarjetaAjustes(props: { cajaId: string }) {
                   </td>
                   <td className="px-3 py-2">
                     {a.aplicadoEnSesionId == null ? (
-                      <span className="inline-flex rounded-full bg-amber-100 px-2 py-0.5 text-xs font-medium text-amber-800">
+                      <span className="inline-flex rounded-full bg-warning-bg px-2 py-0.5 text-xs font-medium text-warning-fg">
                         Pendiente
                       </span>
                     ) : (
-                      <span className="inline-flex rounded-full bg-emerald-100 px-2 py-0.5 text-xs font-medium text-emerald-800">
+                      <span className="inline-flex rounded-full bg-success-bg px-2 py-0.5 text-xs font-medium text-success-fg">
                         Aplicado
                       </span>
                     )}
@@ -210,7 +210,7 @@ function TarjetaDatosGenerales(props: {
     <div
       className={cn(
         'rounded-md border bg-card p-4',
-        editando && 'border-amber-400 bg-amber-50/40',
+        editando && 'border-line bg-warning-note-bg',
       )}
     >
       <div className="flex flex-wrap items-start justify-between gap-3">
@@ -372,7 +372,7 @@ function TarjetaSucursales(props: { cajaId: string; inicial: string[] }) {
   return (
     <TarjetaAlcance
       titulo="Sucursales del alcance"
-      hint="Vacío = todas las sucursales (comodín, 12-cajas.md §4.1)."
+      hint="Si no seleccionas sucursales, la caja abarca todas."
       dirty={dirty}
       guardando={reemplazar.isPending}
       onGuardar={() =>
@@ -470,7 +470,7 @@ function TarjetaUsuarios(props: { cajaId: string; inicial: string[] }) {
   return (
     <TarjetaAlcance
       titulo="Cajeros relacionados"
-      hint="Pueden abrir sesión de esta caja sin autorización de supervisor (12-cajas.md §5.3)."
+      hint="Pueden abrir esta caja sin autorización del supervisor."
       dirty={dirty}
       guardando={reemplazar.isPending}
       onGuardar={() =>

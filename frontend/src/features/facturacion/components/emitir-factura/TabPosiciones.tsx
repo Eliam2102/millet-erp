@@ -319,6 +319,7 @@ function ConceptoInline({
               valueAsNumber: true,
             })}
           />
+          {errs?.cantidad && <p className="text-xs text-destructive">{errs.cantidad.message}</p>}
         </div>
         <div className="sm:col-span-2">
           <Label className="text-xs">Valor unit. *</Label>
@@ -330,6 +331,7 @@ function ConceptoInline({
               valueAsNumber: true,
             })}
           />
+          {errs?.valorUnitario && <p className="text-xs text-destructive">{errs.valorUnitario.message}</p>}
         </div>
         <div className="sm:col-span-2">
           <Label className="text-xs">Descuento</Label>
@@ -341,6 +343,7 @@ function ConceptoInline({
               valueAsNumber: true,
             })}
           />
+          {errs?.descuento && <p className="text-xs text-destructive">{errs.descuento.message}</p>}
         </div>
         {!fiscalFija && (
           <>
@@ -690,7 +693,7 @@ function ConceptoFilaCompacta({
               )}
             </>
           ) : (
-            <>La partida tiene errores — revísala con Editar.</>
+            <>La partida tiene errores — revísala con Editar. {Object.values(errs ?? {}).map((error) => error?.message).filter((message): message is string => typeof message === 'string').join(' ')}</>
           )}
         </p>
       )}

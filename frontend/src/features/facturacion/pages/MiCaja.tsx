@@ -14,6 +14,7 @@ import { AlertTriangle, Copy, FileText, Plus, Truck } from 'lucide-react';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { ContextoSucursal } from '@/components/erp/display/ContextoSucursal';
 import { Label } from '@/components/ui/label';
 import {
   Select,
@@ -657,8 +658,9 @@ function MovimientoInlineForm(props: { sesionId: string; onCerrar: () => void })
 
   return (
     <div className="grid gap-3 rounded-md border border-dashed border-primary/40 bg-primary/5 p-3 md:grid-cols-12">
+      <div className="md:col-span-12"><ContextoSucursal /></div>
       <div className="space-y-1 md:col-span-2">
-        <Label>Tipo</Label>
+        <Label>Tipo *</Label>
         <Select value={tipo} onValueChange={setTipo}>
           <SelectTrigger aria-label="Tipo de movimiento">
             <SelectValue />
@@ -670,7 +672,7 @@ function MovimientoInlineForm(props: { sesionId: string; onCerrar: () => void })
         </Select>
       </div>
       <div className="space-y-1 md:col-span-2">
-        <Label>Forma</Label>
+        <Label>Forma *</Label>
         <Select value={formaPago} onValueChange={setFormaPago}>
           <SelectTrigger aria-label="Forma de pago">
             <SelectValue />
@@ -685,7 +687,7 @@ function MovimientoInlineForm(props: { sesionId: string; onCerrar: () => void })
         </Select>
       </div>
       <div className="space-y-1 md:col-span-2">
-        <Label htmlFor="mov-importe">Importe</Label>
+        <Label htmlFor="mov-importe">Importe *</Label>
         <Input
           id="mov-importe"
           inputMode="decimal"
@@ -695,13 +697,15 @@ function MovimientoInlineForm(props: { sesionId: string; onCerrar: () => void })
         />
       </div>
       <div className="space-y-1 md:col-span-3">
-        <Label htmlFor="mov-desc">Descripción</Label>
+        <Label htmlFor="mov-desc">Descripción *</Label>
         <Input
+          aria-describedby="mov-desc-ayuda"
           id="mov-desc"
           value={descripcion}
           onChange={(e) => setDescripcion(e.target.value)}
           maxLength={254}
         />
+        <p id="mov-desc-ayuda" className="text-xs text-ink-muted">Por qué se movió el dinero, quién autorizó y a quién se entregó</p>
       </div>
       <div className="space-y-1 md:col-span-3">
         <Label htmlFor="mov-ref">Referencia</Label>

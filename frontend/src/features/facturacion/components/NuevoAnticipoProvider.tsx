@@ -1,3 +1,4 @@
+import { ContextoSucursal } from '@/components/erp/display/ContextoSucursal';
 import { useCallback, useMemo, useRef, useState, type ReactNode } from 'react';
 import {
   Sheet,
@@ -67,6 +68,7 @@ export function NuevoAnticipoProvider({ children }: { children: ReactNode }) {
         <SheetContent side="right" className="w-full overflow-y-auto sm:max-w-3xl">
           <SheetHeader>
             <SheetTitle>Nuevo anticipo</SheetTitle>
+            <ContextoSucursal />
             <SheetDescription>
               Emite una factura de anticipo (serie FANT). Es nominal: requiere
               el RFC y datos fiscales del cliente. Se amortiza en la factura

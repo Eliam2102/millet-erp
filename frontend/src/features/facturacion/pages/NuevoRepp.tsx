@@ -189,13 +189,16 @@ export function NuevoRepp({ onClose, onDirtyChange }: NuevoReppProps) {
             {...form.register('tcPago', { setValueAs: numeroONull })}
           />
         </Campo>
-        <Campo label="Referencia de pago">
+        <Campo label="Referencia de pago" error={form.formState.errors.referenciaPago?.message}>
           <Input placeholder="Opcional" {...form.register('referenciaPago')} />
         </Campo>
-        <Campo label="Cuenta ordenante">
+        <Campo label="Cuenta ordenante" error={form.formState.errors.cuentaOrdenante?.message}>
           <Input placeholder="Opcional" {...form.register('cuentaOrdenante')} />
         </Campo>
-        <Campo label="Cuenta beneficiaria">
+        <Campo
+          label="Cuenta beneficiaria"
+          error={form.formState.errors.cuentaBeneficiaria?.message}
+        >
           <Input placeholder="Opcional" {...form.register('cuentaBeneficiaria')} />
         </Campo>
       </section>
@@ -242,6 +245,7 @@ export function NuevoRepp({ onClose, onDirtyChange }: NuevoReppProps) {
                 <div className="sm:col-span-3">
                   <Label className="text-xs">Importe pagado *</Label>
                   <Input
+                    aria-invalid={!!errs?.importePagado}
                     type="number"
                     step="0.01"
                     min="0"

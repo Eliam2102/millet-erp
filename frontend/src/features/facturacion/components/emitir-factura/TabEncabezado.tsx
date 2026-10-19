@@ -96,7 +96,7 @@ export function TabEncabezado({
   return (
     <div className="space-y-5">
       {esActivo && (
-        <div className="space-y-2 rounded-md border border-amber-300 bg-amber-50/60 px-3 py-2">
+        <div className="space-y-2 rounded-md border border-line bg-warning-note-bg px-3 py-2">
           <p className="text-sm">
             Venta de activo fijo: requiere autorización del Contador General.
           </p>
@@ -277,7 +277,7 @@ export function TabEncabezado({
             )}
           />
         </Campo>
-        <Campo label="Comportamiento fiscal" required>
+        <Campo label="Comportamiento fiscal" required hint="Exportación (CCE) habilita los datos de comercio exterior y aduana; si hay expediente ligado, se toma su clave. Venta de activo fijo pide autorización del Contador General. Con anticipo permite aplicar anticipos en Totales, opción disponible también para los demás comportamientos. Mostrador inmediato, Traslado con Carta Porte y Administrativa no abren campos adicionales en este formulario.">
           <select
             className="h-9 w-full rounded-md border border-input bg-transparent px-3 text-sm shadow-sm"
             {...form.register('comportamientoFiscal', { valueAsNumber: true })}

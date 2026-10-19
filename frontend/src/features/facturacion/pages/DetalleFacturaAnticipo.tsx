@@ -1,3 +1,4 @@
+import { CobrarEnCajaLink } from '@/features/facturacion/components/CobrarEnCajaLink';
 import { ResumenImportes } from '@/components/erp/display/ResumenImportes';
 import { useState } from 'react';
 import { Link, useParams, useSearch } from '@tanstack/react-router';
@@ -104,6 +105,7 @@ function Contenido({ f }: { f: FacturaAnticipoDetalleResponse }) {
         data-print="hidden"
       >
         <div className="flex flex-wrap items-center gap-2">
+          <CobrarEnCajaLink comprobanteId={f.id} folio={f.folio} />
           <Button
             variant="outline"
             size="sm"

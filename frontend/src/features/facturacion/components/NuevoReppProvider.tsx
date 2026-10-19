@@ -1,3 +1,4 @@
+import { ContextoSucursal } from '@/components/erp/display/ContextoSucursal';
 import { useCallback, useMemo, useRef, useState, type ReactNode } from 'react';
 import {
   Sheet,
@@ -67,6 +68,7 @@ export function NuevoReppProvider({ children }: { children: ReactNode }) {
         <SheetContent side="right" className="w-full overflow-y-auto sm:max-w-3xl">
           <SheetHeader>
             <SheetTitle>Nuevo complemento de pago (REPP)</SheetTitle>
+            <ContextoSucursal />
             <SheetDescription>
               Pago 2.0 multi-factura. Captura el pago y las facturas que cubre;
               todas deben ser del mismo receptor.

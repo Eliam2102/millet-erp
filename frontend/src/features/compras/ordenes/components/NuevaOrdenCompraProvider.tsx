@@ -1,3 +1,4 @@
+import { ContextoSucursal } from '@/components/erp/display/ContextoSucursal';
 import { useCallback, useMemo, useState, type ReactNode } from 'react';
 import { useConfirmarDescarte } from '@/components/erp/forms/useConfirmarDescarte';
 import {
@@ -77,6 +78,7 @@ export function NuevaOrdenCompraProvider({ children }: { children: ReactNode }) 
                 ? `Convertir RQ ${desdeRequisicion.folio ?? ''} a OC`.trim()
                 : 'Nueva orden de compra'}
             </SheetTitle>
+            <ContextoSucursal />
             <SheetDescription>
               {desdeRequisicion
                 ? 'La sucursal viene de la RQ origen. Llena los campos restantes (proveedor, condiciones de pago, etc.).'

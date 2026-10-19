@@ -14,6 +14,7 @@ export function ErrorTimbradoAviso({ error }: { error: unknown }) {
       <TriangleAlert className="size-4" aria-hidden="true" />
       <AlertDescription>
         <p>{mensajeErrorTimbrado(error)}</p>
+        <p>Revisa los datos indicados antes de volver a emitir; si persiste, solicita revisión a Facturación.</p>
         {esApiError(error) && error.code === 'CONFIG_PAC_NO_DISPONIBLE' && puedeConsultar && (
           <Link to="/admin/integraciones/fiscal" className="font-medium text-brand underline">
             Abrir integraciones fiscales

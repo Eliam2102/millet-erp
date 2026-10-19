@@ -52,7 +52,7 @@ export function ResumenImportes({
           (fila, index) =>
             fila.monto !== undefined && (
               <div key={index} className="flex items-baseline justify-between gap-4">
-                <dt className="text-ink-muted">{fila.etiqueta}</dt>
+                <dt className="text-ink-strong">{fila.etiqueta}</dt>
                 <dd className="text-right tabular-nums">
                   {'resta' in fila && fila.resta && fila.monto !== 0 ? '−' : ''}
                   {formatMoney({

@@ -7,7 +7,8 @@ import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { SucursalSelector } from '@/components/erp';
+import { MonedaSelector } from '@/components/erp/selectors/MonedaSelector';
+import { SucursalSelector, UsoCfdiSelector, FormaPagoSelector } from '@/components/erp';
 import { EmisorInfoBar } from '@/features/facturacion/components/EmisorInfoBar';
 import {
   ReceptorFiscalInfo,
@@ -263,7 +264,7 @@ function FormInner({
           />
         )}
         <Campo label="Uso CFDI" required error={form.formState.errors.receptorUsoCfdi?.message}>
-          <Input className="uppercase" maxLength={5} {...form.register('receptorUsoCfdi')} />
+          <Controller name="receptorUsoCfdi" control={form.control} render={({ field }) => <UsoCfdiSelector value={field.value || null} onChange={(value) => field.onChange(value ?? '')} />} />
         </Campo>
       </Seccion>
 
@@ -311,11 +312,11 @@ function FormInner({
             ))}
           </select>
         </Campo>
-        <Campo label="Forma de pago" required error={form.formState.errors.formaPago?.message} hint="Clave SAT c_FormaPago (01, 03, 04…).">
-          <Input maxLength={5} {...form.register('formaPago')} />
+        <Campo label="Forma de pago" required error={form.formState.errors.formaPago?.message}>
+          <Controller name="formaPago" control={form.control} render={({ field }) => <FormaPagoSelector value={field.value || null} onChange={(value) => field.onChange(value ?? '')} />} />
         </Campo>
         <Campo label="Moneda" required error={form.formState.errors.moneda?.message}>
-          <Input className="uppercase" maxLength={3} {...form.register('moneda')} />
+          <Controller name="moneda" control={form.control} render={({ field }) => <MonedaSelector value={field.value || null} onChange={(value) => field.onChange(value ?? '')} />} />
         </Campo>
         <Campo label="Tipo de cambio" error={form.formState.errors.tipoCambio?.message} hint="Solo si no es MXN.">
           <Input type="number" step="0.0001" min="0" {...form.register('tipoCambio', { setValueAs: numeroONull })} />

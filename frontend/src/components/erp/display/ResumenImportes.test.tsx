@@ -32,6 +32,7 @@ describe('ResumenImportes', () => {
       'Otra retención',
       'Total',
     ]);
+    for (const label of Array.from(resumen.querySelectorAll('dt')).slice(0, -1)) expect(label).toHaveClass('text-ink-strong');
     expect(screen.getByText('$0.00')).toBeInTheDocument();
     for (const importe of ['−$4.00', '−$3.00', '−$1.00'])
       expect(screen.getByText(importe)).toBeInTheDocument();

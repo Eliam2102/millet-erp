@@ -1,3 +1,4 @@
+import { PaginacionTabla } from '@/components/erp/data/PaginacionTabla';
 import { useEffect, useState } from 'react';
 import { HandCoins, Search } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -37,6 +38,13 @@ function tipoComprobante(tipo: string): string {
  * NC, solo pesos, sin doble cobro) son las mismas.
  */
 export function PorCobrarCaja() {
+  const [destino] = useState(() => new URLSearchParams(window.location.search));
+  const [cerrado, setCerrado] = useState(false);
+  const directo = useComprobantesCobrables(
+    destino.get('folio'),
+    destino.has('cobrar') && destino.has('folio') && !cerrado,
+  );
+  const [offset, setOffset] = useState(0);
   const [texto, setTexto] = useState('');
   const [busqueda, setBusqueda] = useState('');
   const [cobrando, setCobrando] = useState<ComprobanteCobrableItem | null>(null);
@@ -49,6 +57,16 @@ export function PorCobrarCaja() {
 
   const cobrables = useComprobantesCobrables(busqueda === '' ? null : busqueda);
   const items = cobrables.data ?? [];
+  const seleccionado =
+    cobrando ??
+    (!cerrado
+      ? directo.data?.find((c) => c.comprobanteId === destino.get('cobrar') && c.total > 0)
+      : null);
+  const cerrar = () => {
+    setCobrando(null);
+    setCerrado(true);
+  };
+  const inicio = Math.min(offset, Math.max(0, Math.ceil(items.length / 10) - 1) * 10);
 
   return (
     <section className="space-y-2" aria-labelledby="por-cobrar-titulo">
@@ -65,7 +83,10 @@ export function PorCobrarCaja() {
           <Search className="pointer-events-none absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
           <Input
             value={texto}
-            onChange={(e) => setTexto(e.target.value)}
+            onChange={(e) => {
+              setTexto(e.target.value);
+              setOffset(0);
+            }}
             placeholder="Buscar folio o cliente…"
             aria-label="Buscar comprobantes por cobrar"
             className="pl-8"
@@ -73,6 +94,19 @@ export function PorCobrarCaja() {
         </div>
       </div>
 
+      {destino.has('cobrar') && !cerrado && directo.isSuccess && !seleccionado && (
+        <p role="status" className="text-sm text-warning-fg">
+          El comprobante solicitado no está disponible para cobrar en esta caja. Revisa el folio, el
+          saldo y el alcance de tu caja.
+        </p>
+      )}
+      {destino.has('cobrar') && directo.isError && !cerrado && (
+        <ErrorState
+          title="No se pudo consultar el comprobante solicitado"
+          problem={esApiError(directo.error) ? directo.error.problem : undefined}
+          onRetry={() => directo.refetch()}
+        />
+      )}
       {cobrables.isLoading ? (
         <TableSkeleton rows={3} />
       ) : cobrables.isError ? (
@@ -101,7 +135,7 @@ export function PorCobrarCaja() {
               </tr>
             </thead>
             <tbody>
-              {items.map((c) => (
+              {items.slice(inicio, inicio + 10).map((c) => (
                 <tr key={c.comprobanteId} className="border-t">
                   <td className="px-3 py-2">
                     <span className="font-mono text-xs">{c.folio}</span>
@@ -133,6 +167,13 @@ export function PorCobrarCaja() {
               ))}
             </tbody>
           </table>
+          <PaginacionTabla
+            total={items.length}
+            offset={inicio}
+            limit={10}
+            tamanos={[]}
+            onChange={setOffset}
+          />
           {items.length >= LIMITE && (
             <p className="border-t px-3 py-2 text-xs text-muted-foreground">
               Se muestran los {LIMITE} más recientes. Usa el buscador para encontrar otro folio.
@@ -141,27 +182,27 @@ export function PorCobrarCaja() {
         </div>
       )}
 
-      <Sheet open={cobrando != null} onOpenChange={(abierto) => !abierto && setCobrando(null)}>
+      <Sheet open={seleccionado != null} onOpenChange={(abierto) => !abierto && cerrar()}>
         <SheetContent side="right" size="md">
-          {cobrando && (
+          {seleccionado && (
             <>
               <SheetHeader>
-                <SheetTitle>Cobrar {cobrando.folio}</SheetTitle>
+                <SheetTitle>Cobrar {seleccionado.folio}</SheetTitle>
                 <SheetDescription>
-                  {tipoComprobante(cobrando.tipo)} · {cobrando.receptorNombre} · por cobrar{' '}
-                  {formatearMxn(cobrando.total)}
+                  {tipoComprobante(seleccionado.tipo)} · {seleccionado.receptorNombre} · por cobrar{' '}
+                  {formatearMxn(seleccionado.total)}
                 </SheetDescription>
               </SheetHeader>
               <SheetBody>
                 <RegistrarCobroCard
-                  key={cobrando.comprobanteId}
-                  comprobanteId={cobrando.comprobanteId}
-                  folio={cobrando.folio}
-                  total={cobrando.total}
-                  moneda={cobrando.tipo === 'Pago' ? 'MXN' : cobrando.moneda}
+                  key={seleccionado.comprobanteId}
+                  comprobanteId={seleccionado.comprobanteId}
+                  folio={seleccionado.folio}
+                  total={seleccionado.total}
+                  moneda={seleccionado.tipo === 'Pago' ? 'MXN' : seleccionado.moneda}
                   abiertoInicial
-                  onCerrar={() => setCobrando(null)}
-                  onRegistrado={() => setCobrando(null)}
+                  onCerrar={() => cerrar()}
+                  onRegistrado={() => cerrar()}
                 />
               </SheetBody>
             </>
