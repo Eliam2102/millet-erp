@@ -107,7 +107,7 @@ export function ConfirmDuplicarDialog({
             </h3>
             <ul className="space-y-1 text-ink-secondary">
               <ItemList>Adjuntos (cotización, ficha técnica, etc.)</ItemList>
-              <ItemList>Autorizaciones (firmas N1/N2)</ItemList>
+              <ItemList>Autorizaciones (firmas de Nivel 1 y Nivel 2)</ItemList>
               <ItemList>Sub-estados (recepción, facturación, pago)</ItemList>
               <ItemList>
                 Motivo de rechazo/cancelación de la OC origen

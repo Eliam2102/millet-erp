@@ -10,6 +10,7 @@ import {
   applyServerErrors,
   esApiError,
   useBodyScopedIdempotencyKey,
+  codigoSoporte,
 } from '@/lib/api';
 import {
   PuestoSchema,
@@ -98,7 +99,7 @@ export function PuestoInlineForm({
         return;
       }
       toast.error(error.problem.title, {
-        description: error.traceId ? `Código: ${error.traceId}` : undefined,
+        description: codigoSoporte(error),
       });
       return;
     }

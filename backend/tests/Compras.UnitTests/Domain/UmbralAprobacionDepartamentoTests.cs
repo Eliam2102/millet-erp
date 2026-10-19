@@ -73,4 +73,35 @@ public class UmbralAprobacionDepartamentoTests
 
         Assert.Equal(Hoy.AddDays(-1), u.VigenteHasta);
     }
+
+    [Fact]
+    public void Constructor_Sin_Modo_Deja_SoloDisponibilidad_Y_Sin_Minimo()
+    {
+        var u = Nuevo(null, 10_000m);
+
+        Assert.Equal(ModoNivel2.SoloDisponibilidad, u.ModoNivel2);
+        Assert.Null(u.MontoMinimoDisponibilidad);
+    }
+
+    [Fact]
+    public void Constructor_Con_Minimo_Negativo_Lanza()
+    {
+        var ex = Assert.Throws<ValidationException>(() =>
+            new UmbralAprobacionDepartamento(
+                Guid.CreateVersion7(), Guid.CreateVersion7(), Hoy, 10_000m,
+                montoMinimoDisponibilidad: -1m));
+
+        Assert.Equal("UMBRAL_MONTO_MINIMO_NEGATIVO", ex.Errors.Single().Code);
+    }
+
+    [Fact]
+    public void ActualizarMontos_Con_Modo_Invalido_Lanza()
+    {
+        var u = Nuevo(null, 10_000m);
+
+        var ex = Assert.Throws<ValidationException>(() =>
+            u.ActualizarMontos(null, 10_000m, "MXN", (ModoNivel2)99, null));
+
+        Assert.Equal("UMBRAL_MODO_NIVEL2_INVALIDO", ex.Errors.Single().Code);
+    }
 }

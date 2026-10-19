@@ -16,6 +16,12 @@ namespace Millet.Api.Auth.Models;
 /// tenga que hacer un fetch extra al inicio de la sesión. Es
 /// <c>null</c> si no hay empresa seleccionada.
 /// </para>
+///
+/// <para>
+/// <see cref="EmpleadoId"/> es el empleado ligado al usuario
+/// (<c>Empleado.UsuarioId</c>) o <c>null</c> si no lo tiene. Permite al FE
+/// anticipar <c>VIA_USUARIO_SIN_EMPLEADO</c> (autorizar viáticos como jefe).
+/// </para>
 /// </summary>
 public sealed record MeResponse(
     Guid UserId,
@@ -25,4 +31,5 @@ public sealed record MeResponse(
     Guid? CurrentEmpresaId,
     Guid? DepartamentoId,
     IReadOnlyList<string> Permisos,
-    ComprasSettingsResponse? ComprasSettings);
+    ComprasSettingsResponse? ComprasSettings,
+    Guid? EmpleadoId = null);

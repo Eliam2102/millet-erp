@@ -97,7 +97,7 @@ export function TimelineOrdenCompra({
               )}
               aria-hidden="true"
             >
-              <Icon className="h-3 w-3 text-white" />
+              <Icon className="h-3 w-3 text-surface-card" />
             </span>
 
             {/* Contenido */}
@@ -155,32 +155,32 @@ function resolverEventoVisual(operacion: string, entidad: string) {
   // autorizar, etc.) en lugar del CRUD genérico de audit_log.
   if (entidad === 'AutorizacionOC' || entidad.toLowerCase().includes('autoriz')) {
     return operacion === 'crear'
-      ? { Icon: CheckCircle2, color: 'bg-emerald-600' }
-      : { Icon: XCircle, color: 'bg-rose-600' };
+      ? { Icon: CheckCircle2, color: 'bg-success' }
+      : { Icon: XCircle, color: 'bg-danger' };
   }
   if (entidad === 'AdjuntoOC' || entidad.toLowerCase().includes('adjunto')) {
-    return { Icon: Paperclip, color: 'bg-slate-500' };
+    return { Icon: Paperclip, color: 'bg-line' };
   }
   if (entidad === 'OrdenCompraPdf') {
-    return { Icon: FileText, color: 'bg-indigo-600' };
+    return { Icon: FileText, color: 'bg-info' };
   }
   if (entidad === 'LineaOrdenCompra') {
-    if (operacion === 'crear') return { Icon: Plus, color: 'bg-emerald-600' };
-    if (operacion === 'borrar') return { Icon: Trash2, color: 'bg-rose-600' };
-    return { Icon: Pencil, color: 'bg-amber-600' };
+    if (operacion === 'crear') return { Icon: Plus, color: 'bg-success' };
+    if (operacion === 'borrar') return { Icon: Trash2, color: 'bg-danger' };
+    return { Icon: Pencil, color: 'bg-warning' };
   }
   if (entidad === 'OrdenCompra') {
     if (operacion === 'crear')
-      return { Icon: Plus, color: 'bg-emerald-600' };
+      return { Icon: Plus, color: 'bg-success' };
     if (operacion === 'borrar')
-      return { Icon: Ban, color: 'bg-rose-600' };
+      return { Icon: Ban, color: 'bg-danger' };
     // Update genérico — sin más contexto del backend; el resumen ayuda.
-    return { Icon: Pencil, color: 'bg-amber-600' };
+    return { Icon: Pencil, color: 'bg-warning' };
   }
   // Default
-  if (operacion === 'crear') return { Icon: Plus, color: 'bg-emerald-600' };
-  if (operacion === 'borrar') return { Icon: Trash2, color: 'bg-rose-600' };
-  return { Icon: Pencil, color: 'bg-slate-500' };
+  if (operacion === 'crear') return { Icon: Plus, color: 'bg-success' };
+  if (operacion === 'borrar') return { Icon: Trash2, color: 'bg-danger' };
+  return { Icon: Pencil, color: 'bg-line' };
 }
 
 // Imports de íconos no usados en el switch principal pero los exporto

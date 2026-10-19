@@ -11,6 +11,7 @@ import {
   SheetTitle,
 } from '@/components/ui/sheet';
 import { Button } from '@/components/ui/button';
+import { useConfirmarDescarte } from '@/components/erp/forms/useConfirmarDescarte';
 import { Input } from '@/components/ui/input';
 import {
   Select,
@@ -23,6 +24,7 @@ import {
   applyServerErrors,
   esApiError,
   useFormIdempotencyKey,
+  codigoSoporte,
 } from '@/lib/api';
 import {
   CrearSubAlmacenSchema,
@@ -40,6 +42,7 @@ import {
   TipoSubAlmacenLabels,
   type SubAlmacenListItem,
 } from '@/features/almacen/api/types';
+import { Field } from '@/features/almacen/components/internal/Field';
 
 /**
  * <c>&lt;SubAlmacenSheet/&gt;</c> — slide-from-right para crear o
@@ -91,6 +94,15 @@ export function SubAlmacenSheet({
     },
   });
 
+  // Cerrar (Esc, clic fuera, X, Cancelar) con cambios pide confirmación; guardar cierra con force.
+  const { setDirty, solicitarCierre, dialogo } = useConfirmarDescarte(() =>
+    onOpenChange(false),
+  );
+  const isDirty = form.formState.isDirty;
+  useEffect(() => {
+    setDirty(isDirty);
+  }, [isDirty, setDirty]);
+
   useEffect(() => {
     if (open) {
       form.reset(
@@ -127,7 +139,7 @@ export function SubAlmacenSheet({
         {
           onSuccess: () => {
             toast.success('Sub-almacén actualizado');
-            onOpenChange(false);
+            solicitarCierre(true);
           },
           onError: (error) => manejarError(error),
         },
@@ -138,7 +150,7 @@ export function SubAlmacenSheet({
         {
           onSuccess: () => {
             toast.success('Sub-almacén creado');
-            onOpenChange(false);
+            solicitarCierre(true);
           },
           onError: (error) => manejarError(error),
         },
@@ -171,7 +183,7 @@ export function SubAlmacenSheet({
         return;
       }
       toast.error(error.problem.title, {
-        description: error.traceId ? `Código: ${error.traceId}` : undefined,
+        description: codigoSoporte(error),
       });
       return;
     }
@@ -182,8 +194,11 @@ export function SubAlmacenSheet({
   const isEdit = editando != null;
 
   return (
-    <Sheet open={open} onOpenChange={onOpenChange}>
-      <SheetContent side="right" className="sm:max-w-md">
+    <Sheet
+      open={open}
+      onOpenChange={(next) => (next ? onOpenChange(next) : solicitarCierre())}
+    >
+      <SheetContent side="right" size="form">
         <SheetHeader>
           <SheetTitle>
             {isEdit ? 'Editar sub-almacén' : 'Nuevo sub-almacén'}
@@ -199,9 +214,10 @@ export function SubAlmacenSheet({
           id="sub-almacen-form"
           onSubmit={form.handleSubmit(onSubmit)}
           noValidate
-          className="flex-1 space-y-3 overflow-y-auto px-6"
+          className="grid flex-1 grid-cols-2 content-start gap-x-4 gap-y-3.5 overflow-y-auto px-6"
         >
           <Field
+            className="col-span-2"
             label="Almacén"
             required
             error={form.formState.errors.almacenId?.message}
@@ -231,6 +247,7 @@ export function SubAlmacenSheet({
           </Field>
 
           <Field
+            className="col-span-2"
             label="Clave"
             required
             error={form.formState.errors.clave?.message}
@@ -251,6 +268,7 @@ export function SubAlmacenSheet({
           </Field>
 
           <Field
+            className="col-span-2"
             label="Nombre"
             required
             error={form.formState.errors.nombre?.message}
@@ -330,7 +348,7 @@ export function SubAlmacenSheet({
           <Button
             type="button"
             variant="ghost"
-            onClick={() => onOpenChange(false)}
+            onClick={() => solicitarCierre()}
             disabled={isPending}
           >
             Cancelar
@@ -344,37 +362,8 @@ export function SubAlmacenSheet({
           </Button>
         </SheetFooter>
       </SheetContent>
+      {dialogo}
     </Sheet>
   );
 }
 
-function Field({
-  label,
-  required,
-  error,
-  children,
-}: {
-  label: string;
-  required?: boolean;
-  error?: string;
-  children: React.ReactNode;
-}) {
-  return (
-    <div className="space-y-1.5">
-      <label className="flex items-center gap-1 text-sm font-medium">
-        {label}
-        {required && (
-          <span aria-hidden="true" className="text-rose-600">
-            *
-          </span>
-        )}
-      </label>
-      {children}
-      {error != null && (
-        <p role="alert" className="text-xs text-rose-600">
-          {error}
-        </p>
-      )}
-    </div>
-  );
-}

@@ -1,4 +1,5 @@
 using Microsoft.EntityFrameworkCore;
+using Millet.Almacen.Domain.Catalogo;
 using Millet.Almacen.Domain.Ports.Externos;
 using Millet.Almacen.Infrastructure.Persistence;
 
@@ -108,12 +109,13 @@ public sealed class AlmacenSaldoQueryAdapter : IAlmacenSaldoQueryPort
             from s in _db.SaldosInventario.AsNoTracking()
             join sa in _db.SubAlmacenes.AsNoTracking() on s.SubAlmacenId equals sa.Id
             where s.ArticuloId == articuloId && sa.AlmacenId == almacenId
-            select s)
+            select new { s.Cantidad, s.CantidadDisponible, sa.Tipo })
             .GroupBy(_ => 1)
             .Select(g => new
             {
                 Cantidad = g.Sum(x => (decimal?)x.Cantidad) ?? 0m,
-                Disponible = g.Sum(x => (decimal?)x.CantidadDisponible) ?? 0m,
+                // ALM-04: el material en revisión cuenta en físico, no en disponible.
+                Disponible = g.Sum(x => x.Tipo != TipoSubAlmacen.MaterialEnRevision ? (decimal?)x.CantidadDisponible : 0m) ?? 0m,
             })
             .FirstOrDefaultAsync(cancellationToken);
 
@@ -137,12 +139,13 @@ public sealed class AlmacenSaldoQueryAdapter : IAlmacenSaldoQueryPort
             join sa in _db.SubAlmacenes.AsNoTracking() on s.SubAlmacenId equals sa.Id
             join al in _db.Almacenes.AsNoTracking() on sa.AlmacenId equals al.Id
             where s.ArticuloId == articuloId && al.SucursalId == sucursalId
-            select s)
+            select new { s.Cantidad, s.CantidadDisponible, sa.Tipo })
             .GroupBy(_ => 1)
             .Select(g => new
             {
                 Cantidad = g.Sum(x => (decimal?)x.Cantidad) ?? 0m,
-                Disponible = g.Sum(x => (decimal?)x.CantidadDisponible) ?? 0m,
+                // ALM-04: el material en revisión cuenta en físico, no en disponible.
+                Disponible = g.Sum(x => x.Tipo != TipoSubAlmacen.MaterialEnRevision ? (decimal?)x.CantidadDisponible : 0m) ?? 0m,
             })
             .FirstOrDefaultAsync(cancellationToken);
 
@@ -153,5 +156,65 @@ public sealed class AlmacenSaldoQueryAdapter : IAlmacenSaldoQueryPort
             CantidadDisponible: Math.Max(0m, (totales?.Disponible ?? 0m) - await _db.ApartadosRequisicion
                 .Where(a => a.SucursalId == sucursalId && a.ArticuloId == articuloId)
                 .SumAsync(a => a.Pendiente, cancellationToken)));
+    }
+
+    public async Task<IReadOnlySet<Guid>> FiltrarSubAlmacenesEnRevisionAsync(
+        IReadOnlyCollection<Guid> subAlmacenIds,
+        CancellationToken cancellationToken)
+    {
+        if (subAlmacenIds.Count == 0) return new HashSet<Guid>();
+        return (await _db.SubAlmacenes.AsNoTracking()
+            .Where(s => subAlmacenIds.Contains(s.Id) && s.Tipo == TipoSubAlmacen.MaterialEnRevision)
+            .Select(s => s.Id)
+            .ToListAsync(cancellationToken)).ToHashSet();
+    }
+
+    public async Task<IReadOnlyDictionary<Guid, DisponibilidadArticuloSucursal>> ConsultarDisponibilidadPorSucursalLoteAsync(
+        Guid sucursalId,
+        IReadOnlyCollection<Guid> articuloIds,
+        CancellationToken cancellationToken)
+    {
+        var resultado = new Dictionary<Guid, DisponibilidadArticuloSucursal>();
+        if (articuloIds.Count == 0)
+        {
+            return resultado;
+        }
+
+        var ids = articuloIds.Distinct().ToList();
+
+        var saldos = await (
+            from s in _db.SaldosInventario.AsNoTracking()
+            join sa in _db.SubAlmacenes.AsNoTracking() on s.SubAlmacenId equals sa.Id
+            join al in _db.Almacenes.AsNoTracking() on sa.AlmacenId equals al.Id
+            where ids.Contains(s.ArticuloId) && al.SucursalId == sucursalId
+            select new { s.ArticuloId, s.Cantidad, s.CantidadDisponible, sa.Tipo })
+            .GroupBy(s => s.ArticuloId)
+            .Select(g => new
+            {
+                ArticuloId = g.Key,
+                Cantidad = g.Sum(x => x.Cantidad),
+                // ALM-04: el material en revisión cuenta en físico, no en disponible.
+                Disponible = g.Sum(x => x.Tipo != TipoSubAlmacen.MaterialEnRevision ? x.CantidadDisponible : 0m),
+            })
+            .ToDictionaryAsync(x => x.ArticuloId, cancellationToken);
+
+        var apartados = await _db.ApartadosRequisicion
+            .Where(a => a.SucursalId == sucursalId && ids.Contains(a.ArticuloId))
+            .GroupBy(a => a.ArticuloId)
+            .Select(g => new { ArticuloId = g.Key, Pendiente = g.Sum(a => a.Pendiente) })
+            .ToDictionaryAsync(x => x.ArticuloId, x => x.Pendiente, cancellationToken);
+
+        foreach (var id in ids)
+        {
+            saldos.TryGetValue(id, out var t);
+            apartados.TryGetValue(id, out var apartado);
+            resultado[id] = new DisponibilidadArticuloSucursal(
+                sucursalId,
+                id,
+                t?.Cantidad ?? 0m,
+                Math.Max(0m, (t?.Disponible ?? 0m) - apartado));
+        }
+
+        return resultado;
     }
 }

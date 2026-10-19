@@ -1,3 +1,4 @@
+import { PageHeader } from '@/components/erp/PageHeader';
 import { useState } from 'react';
 import {
   Link,
@@ -19,7 +20,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
-import { ErrorState, TableSkeleton } from '@/components/erp';
+import { ErrorState, DetalleSkeleton } from '@/components/erp';
 import {
   useConteo,
   useEnviarConteoAConciliacion,
@@ -27,14 +28,13 @@ import {
 } from '@/features/almacen/api/useConteos';
 import {
   EstadoConteo,
-  EstadoConteoLabels,
   TipoConteo,
   TipoConteoLabels,
 } from '@/features/almacen/api/types';
 import { useHasPermission, useHasAnyPermission } from '@/lib/auth/useHasPermission';
 import { PermisosCanonicos } from '@/lib/auth/permission-codes';
-import { esApiError } from '@/lib/api';
-import { cn } from '@/lib/utils';
+import { esApiError, codigoSoporte } from '@/lib/api';
+import { EstadoAlmacenBadge } from '@/features/almacen/components/EstadoAlmacenBadge';
 
 const FROM = '/_app/almacen/inventarios/$id' as const;
 
@@ -117,7 +117,7 @@ export function InventarioDetallePage() {
       <div className="flex items-center gap-2">
         <Button asChild variant="ghost" size="sm">
           <Link to="/almacen/inventarios" search={{}}>
-            <ArrowLeft className="mr-2 h-4 w-4" />
+            <ArrowLeft className="mr-2 size-3.5" />
             Inventarios
           </Link>
         </Button>
@@ -130,69 +130,69 @@ export function InventarioDetallePage() {
           onRetry={() => query.refetch()}
         />
       ) : query.isLoading ? (
-        <TableSkeleton
-          rows={4}
-          columns={[
-            { width: 'w-40' },
-            { width: 'w-48' },
-            { width: 'w-32' },
-            { width: 'w-32' },
-            { width: 'w-32' },
-          ]}
-        />
+        <DetalleSkeleton />
       ) : query.data == null ? null : (
         <div className="space-y-6">
-          <header className="space-y-2">
-            <div className="flex flex-wrap items-center gap-3">
-              <h1 className="text-2xl font-semibold tracking-tight">
+          <PageHeader
+            titulo={
+              <>
                 Conteo {TipoConteoLabels[query.data.tipo]}
-              </h1>
-              <EstadoBadge estado={query.data.estado} />
-            </div>
-            <p className="text-sm text-muted-foreground">
-              Planificado: {query.data.fechaPlanificada}
-              {query.data.fechaInicio && (
-                <>
-                  {' '}
-                  · Iniciado:{' '}
-                  {new Date(query.data.fechaInicio).toLocaleString('es-MX')}
-                </>
-              )}
-              {query.data.snapshotCapturadoAt && (
-                <>
-                  {' '}
-                  · Snapshot:{' '}
-                  {new Date(
-                    query.data.snapshotCapturadoAt,
-                  ).toLocaleString('es-MX')}
-                </>
-              )}
-            </p>
-
-            <Acciones
-              estado={query.data.estado}
-              tipo={query.data.tipo}
-              capturadas={query.data.cantidadCapturadas}
-              total={query.data.cantidadLineas}
-              puedeCrear={puedeCrear}
-              puedeCapturar={puedeCapturar}
-              puedeAprobar={puedeAprobar}
-              onIniciar={() => setIniciarOpen(true)}
-              onCapturar={() =>
-                navigate({
-                  to: '/almacen/inventarios/$id/captura',
-                  params: { id: query.data!.id },
-                })
-              }
-              onAprobar={() =>
-                navigate({
-                  to: '/almacen/inventarios/$id/aprobacion',
-                  params: { id: query.data!.id },
-                })
-              }
-              onEnviar={() => setEnviarOpen(true)}
-            />
-          </header>
+              </>
+            }
+            estado={
+              <>
+                <EstadoAlmacenBadge tipo="conteo" estado={query.data.estado} />
+              </>
+            }
+            descripcion={
+              <>
+                Planificado: {query.data.fechaPlanificada}
+                {query.data.fechaInicio && (
+                  <>
+                    {' '}
+                    · Iniciado:{' '}
+                    {new Date(query.data.fechaInicio).toLocaleString('es-MX')}
+                  </>
+                )}
+                {query.data.snapshotCapturadoAt && (
+                  <>
+                    {' '}
+                    · Snapshot:{' '}
+                    {new Date(
+                      query.data.snapshotCapturadoAt,
+                    ).toLocaleString('es-MX')}
+                  </>
+                )}
+              </>
+            }
+            acciones={
+              <>
+                <Acciones
+                  estado={query.data.estado}
+                  tipo={query.data.tipo}
+                  capturadas={query.data.cantidadCapturadas}
+                  total={query.data.cantidadLineas}
+                  puedeCrear={puedeCrear}
+                  puedeCapturar={puedeCapturar}
+                  puedeAprobar={puedeAprobar}
+                  onIniciar={() => setIniciarOpen(true)}
+                  onCapturar={() =>
+                    navigate({
+                      to: '/almacen/inventarios/$id/captura',
+                      params: { id: query.data!.id },
+                    })
+                  }
+                  onAprobar={() =>
+                    navigate({
+                      to: '/almacen/inventarios/$id/aprobacion',
+                      params: { id: query.data!.id },
+                    })
+                  }
+                  onEnviar={() => setEnviarOpen(true)}
+                />
+              </>
+            }
+          />
 
           <section className="grid grid-cols-1 gap-x-6 gap-y-2 rounded-md border p-4 md:grid-cols-2">
             <Campo
@@ -245,9 +245,9 @@ export function InventarioDetallePage() {
               pasará a <b>En curso</b>. A partir de este momento el contador
               puede capturar.
               {query.data?.tipo === TipoConteo.Anual && (
-                <span className="mt-2 block text-amber-700">
+                <span className="mt-2 block text-warning-fg">
                   <b>Conteo anual</b>: las salidas se bloquean durante la
-                  captura (A18).
+                  captura.
                 </span>
               )}
             </AlertDialogDescription>
@@ -323,7 +323,7 @@ function Acciones({
     return (
       <div className="flex gap-2">
         <Button onClick={onIniciar}>
-          <Play className="mr-2 h-4 w-4" />
+          <Play className="mr-2 size-3.5" />
           Iniciar (tomar snapshot)
         </Button>
       </div>
@@ -335,7 +335,7 @@ function Acciones({
       <div className="flex gap-2">
         {puedeCapturar && (
           <Button onClick={onCapturar} variant="default">
-            <ClipboardCheck className="mr-2 h-4 w-4" />
+            <ClipboardCheck className="mr-2 size-3.5" />
             Capturar (sin sesgo)
           </Button>
         )}
@@ -350,7 +350,7 @@ function Acciones({
                 : `Captura faltante: ${capturadas} / ${total}`
             }
           >
-            <Send className="mr-2 h-4 w-4" />
+            <Send className="mr-2 size-3.5" />
             Enviar a conciliación
           </Button>
         )}
@@ -362,7 +362,7 @@ function Acciones({
       return (
         <div className="flex gap-2">
           <Button onClick={onAprobar}>
-            <GitCompareArrows className="mr-2 h-4 w-4" />
+            <GitCompareArrows className="mr-2 size-3.5" />
             Aprobar / comparar
           </Button>
         </div>
@@ -379,7 +379,7 @@ function Acciones({
     return (
       <div className="flex gap-2">
         <Button onClick={onAprobar}>
-          <GitCompareArrows className="mr-2 h-4 w-4" />
+          <GitCompareArrows className="mr-2 size-3.5" />
           Ver / aplicar conteo
         </Button>
       </div>
@@ -409,29 +409,11 @@ function Campo({
   );
 }
 
-function EstadoBadge({ estado }: { estado: EstadoConteo }) {
-  return (
-    <span
-      className={cn(
-        'inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium',
-        estado === EstadoConteo.Planificado && 'bg-slate-200 text-slate-700',
-        estado === EstadoConteo.EnCurso && 'bg-blue-100 text-blue-800',
-        estado === EstadoConteo.EnConciliacion &&
-          'bg-amber-100 text-amber-800',
-        estado === EstadoConteo.Aprobado && 'bg-violet-100 text-violet-800',
-        estado === EstadoConteo.Aplicado && 'bg-emerald-100 text-emerald-800',
-        estado === EstadoConteo.Rechazado && 'bg-rose-100 text-rose-800',
-      )}
-    >
-      {EstadoConteoLabels[estado]}
-    </span>
-  );
-}
 
 function manejarError(error: unknown) {
   if (esApiError(error)) {
     toast.error(error.problem.title, {
-      description: error.traceId ? `Código: ${error.traceId}` : undefined,
+      description: codigoSoporte(error),
     });
     return;
   }

@@ -18,7 +18,8 @@ const MSG_N1_MENOR_N2 =
 
 /**
  * Esquema Zod del formulario de una fila de umbrales. Los campos viajan
- * como texto para no perder lo tecleado; N1 vacío = sin umbral N1.
+ * como texto para no perder lo tecleado; N1 vacío = sin umbral N1; mínimo por
+ * disponibilidad vacío = sin mínimo.
  *
  * <para>Reglas: N2 obligatorio; N1 opcional; ambos montos con formato
  * válido; N1 estrictamente menor que N2 (mismo criterio que
@@ -28,6 +29,8 @@ export const UmbralAprobacionSchema = z
   .object({
     umbralMenorCuantia: z.string().trim(),
     umbralMonto: z.string().trim().min(1, 'Define el umbral N2.'),
+    modoNivel2: z.enum(['SoloMonto', 'SoloDisponibilidad', 'Ambos']),
+    montoMinimoDisponibilidad: z.string().trim(),
   })
   .superRefine((v, ctx) => {
     const n1Capturado = v.umbralMenorCuantia !== '';
@@ -36,6 +39,13 @@ export const UmbralAprobacionSchema = z
       ctx.addIssue({
         code: 'custom',
         path: ['umbralMenorCuantia'],
+        message: MSG_MONTO,
+      });
+    }
+    if (v.montoMinimoDisponibilidad !== '' && !MONTO_RE.test(v.montoMinimoDisponibilidad)) {
+      ctx.addIssue({
+        code: 'custom',
+        path: ['montoMinimoDisponibilidad'],
         message: MSG_MONTO,
       });
     }
@@ -70,6 +80,9 @@ export function valoresIniciales(
         ? ''
         : String(umbral.umbralMenorCuantia),
     umbralMonto: umbral ? String(umbral.umbralMonto) : '',
+    modoNivel2: umbral?.modoNivel2 ?? 'SoloDisponibilidad',
+    montoMinimoDisponibilidad:
+      umbral?.montoMinimoDisponibilidad == null ? '' : String(umbral.montoMinimoDisponibilidad),
   };
 }
 
@@ -86,5 +99,8 @@ export function aUpsertUmbral(
         : Number(values.umbralMenorCuantia),
     umbralMonto: Number(values.umbralMonto),
     moneda: 'MXN',
+    modoNivel2: values.modoNivel2,
+    montoMinimoDisponibilidad:
+      values.montoMinimoDisponibilidad === '' ? null : Number(values.montoMinimoDisponibilidad),
   };
 }

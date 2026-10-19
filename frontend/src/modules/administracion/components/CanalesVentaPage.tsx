@@ -24,7 +24,7 @@ import {
 } from '@/modules/administracion/api';
 import { useHasPermission } from '@/lib/auth/useHasPermission';
 import { PermisosCanonicos } from '@/lib/auth/permission-codes';
-import { esApiError, useFormIdempotencyKey } from '@/lib/api';
+import { esApiError, useFormIdempotencyKey, codigoSoporte } from '@/lib/api';
 import { CanalVentaInlineForm } from '@/modules/administracion/components/CanalVentaInlineForm';
 
 /**
@@ -71,9 +71,7 @@ export function CanalesVentaPage() {
         onError: (error) => {
           if (esApiError(error)) {
             toast.error(error.problem.title, {
-              description: error.traceId
-                ? `Código: ${error.traceId}`
-                : undefined,
+              description: codigoSoporte(error),
             });
           } else {
             toast.error('Error al actualizar el canal de venta.');

@@ -1,3 +1,4 @@
+import { PageHeader } from '@/components/erp/PageHeader';
 import { AppLauncherCard } from '@/components/layout/AppLauncherCard';
 import { useAuthStore } from '@/lib/auth/auth-store';
 import { filtrarModuloPorPermisos, type NavModulo } from '@/lib/nav';
@@ -33,17 +34,11 @@ export function AlmacenLandingPage() {
   const hayCards = filtrado.secciones.some((s) => s.cards.length > 0);
 
   return (
-    <div className="mx-auto max-w-5xl space-y-6 px-4 py-8">
-      <header className="space-y-1">
-        <h1 className="flex items-center gap-2 text-2xl font-semibold">
-          <Package className="h-6 w-6 text-primary" />
-          Almacén
-        </h1>
-        <p className="text-sm text-muted-foreground">
-          Inventario físico no-vidrio: recepciones, salidas, devoluciones,
-          conteos y reportes.
-        </p>
-      </header>
+    <div className="space-y-6">
+      <PageHeader
+        titulo="Almacén"
+        descripcion="Inventario físico no-vidrio: recepciones, salidas, devoluciones, conteos y reportes."
+      />
 
       {!hayCards && (
         <div
@@ -62,7 +57,7 @@ export function AlmacenLandingPage() {
               <h2 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
                 {seccion.label}
               </h2>
-              <div className="grid grid-cols-1 gap-3 md:grid-cols-2 lg:grid-cols-3">
+              <div className="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4">
                 {seccion.cards.map((card) => (
                   <AppLauncherCard
                     key={card.to}
@@ -113,7 +108,7 @@ const moduloAlmacenLanding: NavModulo = {
         {
           label: 'Devoluciones',
           description:
-            'Devoluciones internas (8.A) y a proveedor (8.B) con conciliación NC fiscal.',
+            'Devoluciones internas y a proveedor con conciliación NC fiscal.',
           to: '/almacen/devoluciones',
           icon: RotateCcw,
           permissionsAny: [
@@ -185,7 +180,7 @@ const moduloAlmacenLanding: NavModulo = {
         {
           label: 'Sub-almacenes',
           description:
-            'Subdivisión física de cada almacén por tipo de material (Insumos / Materiales directos / MAT-REV / Transitorio).',
+            'Subdivisión física de cada almacén por tipo de material (Insumos / Materiales directos / Material en revisión / Transitorio).',
           to: '/almacen/sub-almacenes',
           icon: Layers,
           // Mismo gate que su ruta (almacen.almacenes.leer), patrón de la

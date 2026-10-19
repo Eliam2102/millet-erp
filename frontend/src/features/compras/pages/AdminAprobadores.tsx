@@ -3,6 +3,7 @@ import { useNavigate, useSearch } from '@tanstack/react-router';
 import { Plus, Trash2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { nombreUsuarioOGuion } from '@/lib/nombre-usuario';
 import {
   AlertDialog,
@@ -49,12 +50,13 @@ import {
   type AprobadorVigenteResponse,
 } from '@/features/compras/api/types';
 import { DesignarAprobadorDialog } from '@/features/compras/components/DesignarAprobadorDialog';
-import { esApiError, useFormIdempotencyKey } from '@/lib/api';
+import { esApiError, useFormIdempotencyKey, codigoSoporte } from '@/lib/api';
 import {
   DEFAULT_ADMIN_APROBADORES_SEARCH,
   type AdminAprobadoresSearch,
 } from '@/features/compras/lib/admin-aprobadores-search-schema';
 import { cn } from '@/lib/utils';
+import { PageHeader } from '@/components/erp/PageHeader';
 
 const FROM = '/_app/compras/admin/aprobadores' as const;
 const SENTINEL_ALL = '__all__';
@@ -97,53 +99,45 @@ export function AdminAprobadores() {
 
   return (
     <div className="space-y-4">
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <h1 className="text-2xl font-semibold tracking-tight">
-          Aprobadores
-        </h1>
-        <Button onClick={() => setModalDesignarAbierto(true)}>
-          <Plus className="mr-2 h-4 w-4" />
-          Designar aprobador
-        </Button>
-      </div>
+      <PageHeader
+        titulo="Aprobadores"
+        acciones={
+          <Button onClick={() => setModalDesignarAbierto(true)}>
+            <Plus className="mr-2 h-4 w-4" />
+            Designar aprobador
+          </Button>
+        }
+      />
 
-      {/* Tabs */}
-      <div
-        role="tablist"
-        aria-label="Vigentes o histórico"
-        className="flex gap-1 border-b"
+      <Tabs
+        value={search.tab}
+        onValueChange={(v) => actualizarSearch({ tab: v as typeof search.tab })}
+        className="space-y-4"
       >
-        <TabButton
-          activo={search.tab === 'vigentes'}
-          onClick={() => actualizarSearch({ tab: 'vigentes' })}
-        >
-          Vigentes
-        </TabButton>
-        <TabButton
-          activo={search.tab === 'historico'}
-          onClick={() => actualizarSearch({ tab: 'historico' })}
-        >
-          Histórico
-        </TabButton>
-      </div>
+        <TabsList aria-label="Vigentes o histórico">
+          <TabsTrigger value="vigentes">Vigentes</TabsTrigger>
+          <TabsTrigger value="historico">Histórico</TabsTrigger>
+        </TabsList>
 
-      {/* Filtros (compartidos por ambas tabs) */}
-      <FiltrosToolbar search={search} onChange={actualizarSearch} />
+        {/* Filtros (compartidos por ambas tabs) */}
+        <FiltrosToolbar search={search} onChange={actualizarSearch} />
 
-      {search.tab === 'vigentes' ? (
-        <PanelVigentes
-          search={search}
-          deptosMap={deptosMap}
-          usuariosMap={usuariosMap}
-          onRevocar={(a) => setARevocar(a)}
-        />
-      ) : (
-        <PanelHistorico
-          search={search}
-          deptosMap={deptosMap}
-          usuariosMap={usuariosMap}
-        />
-      )}
+        <TabsContent value="vigentes" className="mt-0">
+          <PanelVigentes
+            search={search}
+            deptosMap={deptosMap}
+            usuariosMap={usuariosMap}
+            onRevocar={(a) => setARevocar(a)}
+          />
+        </TabsContent>
+        <TabsContent value="historico" className="mt-0">
+          <PanelHistorico
+            search={search}
+            deptosMap={deptosMap}
+            usuariosMap={usuariosMap}
+          />
+        </TabsContent>
+      </Tabs>
 
       <DesignarAprobadorDialog
         open={modalDesignarAbierto}
@@ -162,32 +156,6 @@ export function AdminAprobadores() {
 
 // ─── Tabs ────────────────────────────────────────────────────────
 
-function TabButton({
-  activo,
-  onClick,
-  children,
-}: {
-  activo: boolean;
-  onClick: () => void;
-  children: React.ReactNode;
-}) {
-  return (
-    <button
-      type="button"
-      role="tab"
-      aria-selected={activo}
-      onClick={onClick}
-      className={cn(
-        '-mb-px border-b-2 px-4 py-2 text-sm font-medium transition-colors',
-        activo
-          ? 'border-primary text-foreground'
-          : 'border-transparent text-muted-foreground hover:text-foreground',
-      )}
-    >
-      {children}
-    </button>
-  );
-}
 
 // ─── Filtros ──────────────────────────────────────────────────────
 
@@ -431,7 +399,7 @@ function PanelVigentesTabla({
                       motivo: a.motivo,
                     })
                   }
-                  className="text-rose-700 hover:bg-rose-50 hover:text-rose-800"
+                  className="text-danger-fg hover:bg-danger-bg hover:text-danger-fg"
                   aria-label={`Revocar aprobador ${a.id}`}
                 >
                   <Trash2 className="h-4 w-4" />
@@ -613,7 +581,7 @@ function PanelHistoricoTabla({
             return (
               <tr
                 key={a.id}
-                className={cn('border-t', vigente && 'bg-emerald-50/50')}
+                className={cn('border-t', vigente && 'bg-success-bg/50')}
               >
                 <td className="px-3 py-2">{a.depto}</td>
                 <td className="px-3 py-2">{ROL_APROBADOR_LABEL[a.rol]}</td>
@@ -623,7 +591,7 @@ function PanelHistoricoTabla({
                 </td>
                 <td className="px-3 py-2">
                   {vigente ? (
-                    <span className="rounded bg-emerald-100 px-1.5 py-0.5 text-xs text-emerald-800">
+                    <span className="rounded bg-success-bg px-1.5 py-0.5 text-xs text-success-fg">
                       Vigente
                     </span>
                   ) : (
@@ -667,9 +635,7 @@ function RevocarConfirm({
         onError: (error) => {
           if (esApiError(error)) {
             toast.error(error.problem.title, {
-              description: error.traceId
-                ? `Código: ${error.traceId}`
-                : undefined,
+              description: codigoSoporte(error),
             });
           } else {
             toast.error('Error inesperado al revocar.');

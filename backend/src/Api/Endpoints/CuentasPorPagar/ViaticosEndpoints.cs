@@ -35,17 +35,30 @@ public static class ViaticosEndpoints
             [FromQuery] Guid? jefeDirectoId,
             [FromQuery] int? offset,
             [FromQuery] int? limit,
+            [FromQuery] string? q,
             IMediator mediator,
             CancellationToken cancellationToken) =>
         {
             var response = await mediator.Send(
-                new ListarSolicitudesViaticosQuery(estado, empleadoId, jefeDirectoId, offset ?? 0, limit ?? 50),
+                new ListarSolicitudesViaticosQuery(estado, empleadoId, jefeDirectoId, offset ?? 0, limit ?? 50, q),
                 cancellationToken);
             return Results.Ok(response);
         })
         .RequireAuthorization(PermissionPolicyProvider.Prefix + PermisosCanonicos.CuentasPorPagarViaticosLeer)
         .WithName("ListarSolicitudesViaticos")
         .Produces<PagedResponse<SolicitudViaticosListItemResponse>>(StatusCodes.Status200OK);
+
+        group.MapGet("/conteos-por-estado", async (
+            [FromQuery] Guid? empleadoId,
+            [FromQuery] Guid? jefeDirectoId,
+            [FromQuery] string? q,
+            IMediator mediator,
+            CancellationToken cancellationToken) =>
+            Results.Ok(await mediator.Send(new ConteosViaticosPorEstadoQuery(empleadoId, jefeDirectoId, q), cancellationToken)))
+        .RequireAuthorization(PermissionPolicyProvider.Prefix + PermisosCanonicos.CuentasPorPagarViaticosLeer)
+        .WithName("ConteosViaticosPorEstado")
+        .WithSummary("Conteo por estado, con los filtros de la bandeja salvo el estado")
+        .Produces<IReadOnlyList<Millet.SharedKernel.Application.ConteoPorEstadoItem>>(StatusCodes.Status200OK);
 
         group.MapPost("/", async (
             [FromBody] SolicitarAnticipoViaticosCommand command,

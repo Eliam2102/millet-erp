@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { render, screen, waitFor } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { http, HttpResponse } from 'msw';
 import { mswServer } from '@/test/mocks/server';
 import { createQueryWrapper } from '@/test/test-query-client';
@@ -153,6 +153,34 @@ describe('<ClienteDetalle> — smoke', () => {
       screen.queryByRole('button', { name: /^desactivar$/i }),
     ).not.toBeInTheDocument();
     expect(screen.getByText('Inactivo')).toBeInTheDocument();
+  });
+
+  it('cliente inactivo con permiso muestra Reactivar y lo llama una vez', async () => {
+    mswServer.use(
+      http.get('*/api/v1/datos-maestros/clientes/c-1', () =>
+        HttpResponse.json({ ...CLIENTE_DETALLE, estatus: 1 }),
+      ),
+    );
+    let llamadas = 0;
+    mswServer.use(
+      http.post('*/api/v1/datos-maestros/clientes/c-1/reactivar', () => {
+        llamadas += 1;
+        return new HttpResponse(null, { status: 204 });
+      }),
+    );
+
+    render(<ClienteDetalle />, { wrapper: createQueryWrapper() });
+
+    await waitFor(() =>
+      expect(screen.getByText('CLI-001')).toBeInTheDocument(),
+    );
+    expect(
+      screen.queryByRole('button', { name: /^desactivar$/i }),
+    ).not.toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: /^reactivar$/i }));
+
+    await waitFor(() => expect(llamadas).toBe(1));
   });
 
   it('muestra la sección de origen A+W y no dice Sincronizado con Error', async () => {

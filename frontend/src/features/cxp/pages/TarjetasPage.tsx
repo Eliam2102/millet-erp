@@ -1,3 +1,4 @@
+import { PageHeader } from '@/components/erp/PageHeader';
 import { hoyLocalISO } from '@/lib/datetime';
 import { useState } from 'react';
 import { useNavigate, useSearch } from '@tanstack/react-router';
@@ -33,6 +34,9 @@ import { esApiError } from '@/lib/api';
 import { EstadoTarjetaChip } from '@/features/cxp/components/EstadoChips';
 import { NuevaTarjetaSheet } from '@/features/cxp/components/NuevaTarjetaSheet';
 import type { TarjetasSearch } from '@/features/cxp/lib/tc-search-schema';
+import { MoneyDisplay } from '@/components/erp/display/MoneyDisplay';
+import { ConfirmarAccionDialog } from '@/components/erp/feedback/ConfirmarAccionDialog';
+import { MotivoDialog } from '@/components/erp/feedback/MotivoDialog';
 
 const FROM = '/_app/cxp/tc/tarjetas' as const;
 const SENTINEL_ALL = '__all__';
@@ -67,23 +71,20 @@ export function TarjetasPage() {
 
   return (
     <div className="space-y-4">
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <div>
-          <h1 className="text-2xl font-semibold tracking-tight">
-            Tarjetas de crédito
-          </h1>
-          <p className="text-sm text-muted-foreground">
-            Master de TC empresariales. Solo se almacenan los últimos 4
-            dígitos. Cancelar es irreversible (no se puede reactivar).
-          </p>
-        </div>
-        {puedeAdmin && (
-          <Button onClick={() => setNuevaAbierta(true)}>
-            <Plus className="mr-2 h-4 w-4" />
-            Nueva tarjeta
-          </Button>
-        )}
-      </div>
+      <PageHeader
+        titulo="Tarjetas de crédito"
+        descripcion="Master de TC empresariales. Solo se almacenan los últimos 4 dígitos. Cancelar es irreversible (no se puede reactivar)."
+        acciones={
+          <>
+            {puedeAdmin && (
+              <Button onClick={() => setNuevaAbierta(true)}>
+                <Plus className="mr-2 size-3.5" />
+                Nueva tarjeta
+              </Button>
+            )}
+          </>
+        }
+      />
 
       <Filtros search={search} onChange={actualizarSearch} />
 
@@ -187,6 +188,11 @@ function Tabla({
   const bloquear = useBloquearTarjeta();
   const reactivar = useReactivarTarjeta();
   const cancelar = useCancelarTarjeta();
+  const [dialogo, setDialogo] = useState<{
+    tipo: 'bloquear' | 'cancelar';
+    t: Tarjeta;
+  } | null>(null);
+  const [errorMotivo, setErrorMotivo] = useState<string | null>(null);
 
   function dispatch(label: string, p: Promise<unknown>) {
     p.then(
@@ -202,21 +208,8 @@ function Tabla({
   }
 
   function handleBloquear(t: Tarjeta) {
-    const motivo = window.prompt('Motivo del bloqueo (5-200 chars):', '');
-    if (!motivo || motivo.trim().length < 5) {
-      toast.error('Motivo demasiado corto.');
-      return;
-    }
-    const hoy = hoyLocalISO();
-    dispatch(
-      'Tarjeta bloqueada',
-      bloquear.mutateAsync({
-        id: t.id,
-        versionEsperada: t.version,
-        command: { motivo: motivo.trim(), fecha: hoy },
-        idempotencyKey: crypto.randomUUID(),
-      }),
-    );
+    setErrorMotivo(null);
+    setDialogo({ tipo: 'bloquear', t });
   }
 
   function handleReactivar(t: Tarjeta) {
@@ -231,17 +224,7 @@ function Tabla({
   }
 
   function handleCancelar(t: Tarjeta) {
-    if (!window.confirm(`¿Cancelar tarjeta ${t.numeroEnmascarado}? Es irreversible.`)) return;
-    const hoy = hoyLocalISO();
-    dispatch(
-      'Tarjeta cancelada',
-      cancelar.mutateAsync({
-        id: t.id,
-        versionEsperada: t.version,
-        fecha: hoy,
-        idempotencyKey: crypto.randomUUID(),
-      }),
-    );
+    setDialogo({ tipo: 'cancelar', t });
   }
 
   return (
@@ -266,8 +249,8 @@ function Tabla({
                 {t.numeroEnmascarado}
               </td>
               <td className="px-3 py-2">{t.emisora}</td>
-              <td className="px-3 py-2 text-right font-mono">
-                {formatearMonto(t.limiteCreditoMxn, 'MXN')}
+              <td className="py-2 pl-3 pr-4 text-right tabular-nums">
+                <MoneyDisplay amount={t.limiteCreditoMxn} currency={'MXN'} strong />
               </td>
               <td className="px-3 py-2 text-xs text-muted-foreground">
                 {t.diaCorte} / {t.diaLimitePago}
@@ -284,7 +267,7 @@ function Tabla({
                       onClick={() => handleBloquear(t)}
                       disabled={bloquear.isPending}
                     >
-                      <Lock className="mr-1 h-3 w-3" />
+                      <Lock className="mr-1 size-3.5" />
                       Bloquear
                     </Button>
                     <Button
@@ -294,7 +277,7 @@ function Tabla({
                       className="text-destructive"
                       disabled={cancelar.isPending}
                     >
-                      <Ban className="mr-1 h-3 w-3" />
+                      <Ban className="mr-1 size-3.5" />
                       Cancelar
                     </Button>
                   </>
@@ -307,7 +290,7 @@ function Tabla({
                       onClick={() => handleReactivar(t)}
                       disabled={reactivar.isPending}
                     >
-                      <Unlock className="mr-1 h-3 w-3" />
+                      <Unlock className="mr-1 size-3.5" />
                       Reactivar
                     </Button>
                     <Button
@@ -317,7 +300,7 @@ function Tabla({
                       className="text-destructive"
                       disabled={cancelar.isPending}
                     >
-                      <Ban className="mr-1 h-3 w-3" />
+                      <Ban className="mr-1 size-3.5" />
                       Cancelar
                     </Button>
                   </>
@@ -333,18 +316,64 @@ function Tabla({
           ))}
         </tbody>
       </table>
+      {dialogo?.tipo === 'bloquear' && (
+        <MotivoDialog
+          titulo="Bloquear tarjeta"
+          descripcion={<>Tarjeta {dialogo.t.nombreAlias} ({dialogo.t.numeroEnmascarado}). Podrás reactivarla después.</>}
+          etiqueta="Motivo del bloqueo"
+          min={5}
+          max={200}
+          verbo="Bloquear tarjeta"
+          error={errorMotivo}
+          onCerrar={() => setDialogo(null)}
+          onConfirmar={async (motivo) => {
+            const t = dialogo.t;
+            try {
+              await bloquear.mutateAsync({
+                id: t.id,
+                versionEsperada: t.version,
+                command: { motivo, fecha: hoyLocalISO() },
+                idempotencyKey: crypto.randomUUID(),
+              });
+              toast.success('Tarjeta bloqueada');
+              setDialogo(null);
+            } catch (e) {
+              setErrorMotivo(
+                esApiError(e) ? (e.problem.detail ?? e.problem.title) : 'No se pudo bloquear la tarjeta.',
+              );
+            }
+          }}
+        />
+      )}
+      <ConfirmarAccionDialog
+        open={dialogo?.tipo === 'cancelar'}
+        onOpenChange={(o) => !o && setDialogo(null)}
+        titulo="Cancelar tarjeta"
+        resumen={
+          <>
+            Se cancelará la tarjeta {dialogo?.t.nombreAlias} ({dialogo?.t.numeroEnmascarado}). Es
+            irreversible.
+          </>
+        }
+        verbo="Cancelar tarjeta"
+        tono="peligro"
+        pendiente={cancelar.isPending}
+        onConfirmar={() => {
+          const t = dialogo?.t;
+          if (!t) return;
+          dispatch(
+            'Tarjeta cancelada',
+            cancelar.mutateAsync({
+              id: t.id,
+              versionEsperada: t.version,
+              fecha: hoyLocalISO(),
+              idempotencyKey: crypto.randomUUID(),
+            }),
+          );
+          setDialogo(null);
+        }}
+      />
     </div>
   );
 }
 
-function formatearMonto(v: number, moneda: string): string {
-  try {
-    return new Intl.NumberFormat('es-MX', {
-      style: 'currency',
-      currency: moneda,
-      minimumFractionDigits: 2,
-    }).format(v);
-  } catch {
-    return `${v.toFixed(2)} ${moneda}`;
-  }
-}

@@ -1,8 +1,9 @@
 import { useMemo, useState } from 'react';
-import { Link } from '@tanstack/react-router';
+import { Link, useNavigate, useSearch } from '@tanstack/react-router';
 import { Inbox, Clock } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import {
   EmptyState,
   ErrorState,
@@ -10,6 +11,7 @@ import {
   EstadoBadge,
   DateTimeDisplay,
   MoneyDisplay,
+  PaginacionTabla,
 } from '@/components/erp';
 import {
   usePendientesAutorizacionOc,
@@ -35,6 +37,8 @@ import { PermisosCanonicos } from '@/lib/auth/permission-codes';
 import { EstadoOrdenCompra } from '@/features/compras/ordenes/api/types';
 import { cn } from '@/lib/utils';
 import { nombreUsuarioOGuion } from '@/lib/nombre-usuario';
+import { PageHeader } from '@/components/erp/PageHeader';
+import { ConfirmarAccionDialog } from '@/components/erp/feedback/ConfirmarAccionDialog';
 
 /**
  * <c>P2 Bandeja de pendientes de autorización OC</c> (UF4-PR1).
@@ -42,7 +46,7 @@ import { nombreUsuarioOGuion } from '@/lib/nombre-usuario';
  * <para>Filtrado server-side por nivel — el endpoint
  * <c>/pendientes-autorizacion</c> acepta <c>?nivel=Nivel1|Nivel2</c>
  * (mapea a estados <c>EnAutorizacionJefeCompras</c> /
- * <c>EnAutorizacionDireccion</c>). Orden FIFO (más viejas arriba).</para>
+ * <c>EnAutorizacionDireccion</c>). Las más antiguas aparecen primero.</para>
  *
  * <para>Cada fila muestra a quién se compra, cantidad, monto e indicadores
  * (proveedor conocido, recurrente, menor cuantía, falta N2) para decidir sin
@@ -65,15 +69,31 @@ export function BandejaPendientesOc() {
 
   // Default: si solo tiene N1, fija a N1; solo N2, a N2; ambos, a N1.
   const nivelDefault: NivelAutorizacionFiltro = canN1 ? 'Nivel1' : 'Nivel2';
-  const [nivelActivo, setNivelActivo] =
-    useState<NivelAutorizacionFiltro>(nivelDefault);
+  const [nivelActivo, setNivelActivo] = useState<NivelAutorizacionFiltro>(nivelDefault);
 
   const tieneAmbos = canN1 && canN2;
   const puedeAutorizar = nivelActivo === 'Nivel1' ? canN1 : canN2;
   const nivelNumerico =
     nivelActivo === 'Nivel1' ? NivelAutorizacion.Nivel1 : NivelAutorizacion.Nivel2;
 
-  const query = usePendientesAutorizacionOc({ nivel: nivelActivo });
+  // strict:false: la ruta valida page/pageSize; defensa si se monta sin search.
+  const rawSearch = useSearch({ strict: false }) as { page?: number; pageSize?: number };
+  const page = rawSearch.page ?? 1;
+  const pageSize = rawSearch.pageSize ?? 25;
+  const navigate = useNavigate();
+  function setPagina(nextPage: number, nextPageSize: number) {
+    void navigate({
+      to: '/compras/ordenes/pendientes-autorizacion',
+      search: { page: nextPage, pageSize: nextPageSize },
+    });
+  }
+
+  function cambiarNivel(nivel: NivelAutorizacionFiltro) {
+    setNivelActivo(nivel);
+    if (page > 1) setPagina(1, pageSize);
+  }
+
+  const query = usePendientesAutorizacionOc({ nivel: nivelActivo, page, pageSize });
   // limit alto + includeInactivas para no perder proveedores
   // históricos en la columna proveedor de la bandeja (respaldo si el
   // backend no resolvió el nombre).
@@ -84,16 +104,17 @@ export function BandejaPendientesOc() {
   const usuariosQuery = useUsuarios();
 
   const autorizarMasivo = useAutorizarMasivoOc();
-  const [seleccion, setSeleccion] = useState<ReadonlySet<string>>(
-    () => new Set(),
+  const [seleccion, setSeleccion] = useState<ReadonlySet<string>>(() => new Set());
+  const [resultados, setResultados] = useState<Record<string, AutorizacionMasivaOcItemResultado>>(
+    {},
   );
-  const [resultados, setResultados] = useState<
-    Record<string, AutorizacionMasivaOcItemResultado>
-  >({});
   const [errorAprobacion, setErrorAprobacion] = useState<string | null>(null);
-  const [resumen, setResumen] = useState<readonly ResultadoAprobacionItem[]>(
-    [],
-  );
+  const [resumen, setResumen] = useState<readonly ResultadoAprobacionItem[]>([]);
+  const [porConfirmar, setPorConfirmar] = useState<readonly OrdenPendienteAutorizacion[]>([]);
+  const totalesPorMoneda = new Map<string, number>();
+  for (const oc of porConfirmar) {
+    totalesPorMoneda.set(oc.moneda, (totalesPorMoneda.get(oc.moneda) ?? 0) + oc.totalAPagar);
+  }
 
   // Captura "ahora" una vez al montar — Date.now() es impuro y no puede
   // llamarse durante el render. El valor es solo informativo para
@@ -104,10 +125,7 @@ export function BandejaPendientesOc() {
     () => mapById(proveedoresQuery.data?.items),
     [proveedoresQuery.data],
   );
-  const usuariosMap = useMemo(
-    () => mapById(usuariosQuery.data?.items),
-    [usuariosQuery.data],
-  );
+  const usuariosMap = useMemo(() => mapById(usuariosQuery.data?.items), [usuariosQuery.data]);
 
   function resolverProveedor(oc: OrdenPendienteAutorizacion): string {
     if (oc.proveedorNombre) return oc.proveedorNombre;
@@ -157,14 +175,10 @@ export function BandejaPendientesOc() {
         nivel: nivelNumerico,
         idempotencyKey: crypto.randomUUID(),
       });
-      const porId = Object.fromEntries(
-        respuesta.resultados.map((x) => [x.id, x]),
-      );
+      const porId = Object.fromEntries(respuesta.resultados.map((x) => [x.id, x]));
       setResultados((prev) => ({ ...prev, ...porId }));
       setResumen(resultadosConFolio(respuesta.resultados, folioPorId));
-      const okIds = new Set(
-        respuesta.resultados.filter((x) => x.ok).map((x) => x.id),
-      );
+      const okIds = new Set(respuesta.resultados.filter((x) => x.ok).map((x) => x.id));
       setSeleccion((prev) => new Set([...prev].filter((id) => !okIds.has(id))));
     } catch {
       setErrorAprobacion(
@@ -173,22 +187,30 @@ export function BandejaPendientesOc() {
     }
   }
 
-  if (query.isLoading) {
-    return (
-      <div className="space-y-4 p-6">
-        <header>
-          <h1 className="text-2xl font-semibold tracking-tight">
-            Pendientes de autorización
-          </h1>
-        </header>
-        <TableSkeleton rows={8} />
-      </div>
-    );
-  }
+  return (
+    <Tabs
+      value={nivelActivo}
+      onValueChange={(v) => cambiarNivel(v as NivelAutorizacionFiltro)}
+      className="space-y-4"
+      data-component="bandeja-pendientes-oc"
+    >
+      <PageHeader
+        titulo="OC por autorizar"
+        descripcion={`Órdenes esperando firma ${nivelActivo === 'Nivel1' ? 'Nivel 1 (Jefe Compras)' : 'Nivel 2 (Dirección)'}, las más viejas primero.`}
+        acciones={
+          tieneAmbos && (
+            <TabsList aria-label="Nivel de autorización" className="flex gap-1 border-b">
+              <TabsTrigger value="Nivel1">Nivel 1 (Jefe Compras)</TabsTrigger>
+              <TabsTrigger value="Nivel2">Nivel 2 (Dirección)</TabsTrigger>
+            </TabsList>
+          )
+        }
+      />
 
-  if (query.error != null) {
-    return (
-      <div className="p-6">
+      <TabsContent value={nivelActivo} className="mt-0 space-y-4">
+      {query.isLoading ? (
+        <TableSkeleton rows={8} />
+      ) : query.error != null ? (
         <ErrorState
           title="No se pudieron cargar las OCs pendientes"
           problem={esApiError(query.error) ? query.error.problem : undefined}
@@ -196,46 +218,38 @@ export function BandejaPendientesOc() {
             void query.refetch();
           }}
         />
-      </div>
-    );
-  }
+      ) : (
+      <>
+      <ResumenAprobacionMasiva resultados={resumen} onCerrar={() => setResumen([])} />
 
-  return (
-    <div className="space-y-4 p-6" data-component="bandeja-pendientes-oc">
-      <header className="flex flex-wrap items-baseline justify-between gap-3">
-        <div>
-          <h1 className="text-2xl font-semibold tracking-tight">
-            Pendientes de autorización
-          </h1>
-          <p className="text-sm text-muted-foreground">
-            Órdenes esperando firma{' '}
-            {nivelActivo === 'Nivel1' ? 'Nivel 1 (Jefe Compras)' : 'Nivel 2 (Dirección)'}.
-            Orden FIFO — las más viejas aparecen arriba.
+      <ConfirmarAccionDialog
+        open={porConfirmar.length > 0}
+        onOpenChange={(v) => {
+          if (!v) setPorConfirmar([]);
+        }}
+        titulo={`Aprobar ${porConfirmar.length} OC`}
+        resumen={
+          <p>
+            Vas a firmar {nivelActivo === 'Nivel1' ? 'el Nivel 1' : 'el Nivel 2'} de{' '}
+            {porConfirmar.length} {porConfirmar.length === 1 ? 'orden' : 'órdenes'} por un total
+            de{' '}
+            {[...totalesPorMoneda].map(([moneda, total], i) => (
+              <span key={moneda}>
+                {i > 0 && ' + '}
+                <MoneyDisplay amount={total} currency={moneda} />
+              </span>
+            ))}
+            . Tu firma queda registrada con tu usuario y no se puede deshacer.
           </p>
-        </div>
-        {tieneAmbos && (
-          <nav
-            role="tablist"
-            aria-label="Nivel de autorización"
-            className="flex gap-1 border-b"
-          >
-            <NivelTab
-              activo={nivelActivo === 'Nivel1'}
-              onClick={() => setNivelActivo('Nivel1')}
-              label="Nivel 1 (Jefe Compras)"
-            />
-            <NivelTab
-              activo={nivelActivo === 'Nivel2'}
-              onClick={() => setNivelActivo('Nivel2')}
-              label="Nivel 2 (Dirección)"
-            />
-          </nav>
-        )}
-      </header>
-
-      <ResumenAprobacionMasiva
-        resultados={resumen}
-        onCerrar={() => setResumen([])}
+        }
+        verbo={`Aprobar ${porConfirmar.length} OC`}
+        tono="primario"
+        pendiente={autorizarMasivo.isPending}
+        onConfirmar={() => {
+          const lote = porConfirmar;
+          setPorConfirmar([]);
+          void aprobar(lote);
+        }}
       />
 
       {(seleccionadas.length > 0 || errorAprobacion) && (
@@ -245,7 +259,7 @@ export function BandejaPendientesOc() {
               type="button"
               size="sm"
               disabled={autorizarMasivo.isPending}
-              onClick={() => aprobar(seleccionadas)}
+              onClick={() => setPorConfirmar(seleccionadas)}
             >
               Aprobar seleccionadas ({seleccionadas.length})
             </Button>
@@ -305,45 +319,30 @@ export function BandejaPendientesOc() {
                   bloqueado={autorizarMasivo.isPending}
                   resultado={resultados[oc.id]}
                   onSeleccion={(on) => alternarSeleccion(oc.id, on)}
-                  onAprobarRapido={() => aprobar([oc])}
+                  onAprobarRapido={() => setPorConfirmar([oc])}
                 />
               ))}
             </tbody>
           </table>
         </div>
       )}
-    </div>
+
+      {((query.data?.totalCount ?? 0) > 0 || page > 1) && (
+        <PaginacionTabla
+          total={query.data?.totalCount ?? 0}
+          offset={(page - 1) * pageSize}
+          limit={pageSize}
+          onChange={(offset, limit) => setPagina(Math.floor(offset / limit) + 1, limit)}
+        />
+      )}
+      </>
+      )}
+      </TabsContent>
+    </Tabs>
   );
 }
 
 // ─── Subcomponentes ───────────────────────────────────────────────
-
-function NivelTab({
-  activo,
-  onClick,
-  label,
-}: {
-  activo: boolean;
-  onClick: () => void;
-  label: string;
-}) {
-  return (
-    <button
-      type="button"
-      role="tab"
-      aria-selected={activo}
-      onClick={onClick}
-      className={cn(
-        '-mb-px border-b-2 px-3 py-1.5 text-sm font-medium transition-colors',
-        activo
-          ? 'border-primary text-primary'
-          : 'border-transparent text-muted-foreground hover:text-foreground',
-      )}
-    >
-      {label}
-    </button>
-  );
-}
 
 function FilaOc({
   oc,
@@ -376,10 +375,7 @@ function FilaOc({
   // fechaDocumento es date-only (ADR-0040); parsear como medianoche local
   // para no correr un día con new Date('YYYY-MM-DD') (medianoche UTC).
   const fechaDoc = parseDateOnlyLocal(oc.fechaDocumento).getTime();
-  const diasEsperando = Math.max(
-    0,
-    Math.floor((ahoraMs - fechaDoc) / (1000 * 60 * 60 * 24)),
-  );
+  const diasEsperando = Math.max(0, Math.floor((ahoraMs - fechaDoc) / (1000 * 60 * 60 * 24)));
   const aprobableRapido = puedeAutorizar && (oc.esMenorCuantia || oc.proveedorConocido);
 
   return (
@@ -431,7 +427,7 @@ function FilaOc({
           {aprobableRapido && (
             <Button
               type="button"
-              variant="outline"
+              variant="secondary"
               size="sm"
               disabled={bloqueado}
               aria-label={`Aprobar ${oc.folio}`}
@@ -441,12 +437,10 @@ function FilaOc({
             </Button>
           )}
           <Button asChild size="sm" variant="ghost">
-            <Link
-              to="/compras/ordenes/$id"
-              params={{ id: oc.id }}
-              data-action="ver-detalle"
-            >
-              {oc.estado === EstadoOrdenCompra.CancelacionSolicitada ? 'Confirmar / Rechazar cancelación' : 'Ver detalle'}
+            <Link to="/compras/ordenes/$id" params={{ id: oc.id }} data-action="ver-detalle">
+              {oc.estado === EstadoOrdenCompra.CancelacionSolicitada
+                ? 'Confirmar / Rechazar cancelación'
+                : 'Ver detalle'}
             </Link>
           </Button>
         </div>
@@ -472,11 +466,7 @@ function ResultadoFila({ resultado }: { resultado: AutorizacionMasivaOcItemResul
  * autorización, no debería ver la entrada. El componente acepta
  * children y devuelve null sin permiso (o lo renderea sino).
  */
-export function GateBandejaPendientesOc({
-  children,
-}: {
-  children: React.ReactNode;
-}) {
+export function GateBandejaPendientesOc({ children }: { children: React.ReactNode }) {
   const tienePermiso = useHasAnyPermission([
     PermisosCanonicos.ComprasOrdenesAutorizarNivel1,
     PermisosCanonicos.ComprasOrdenesAutorizarNivel2,

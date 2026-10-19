@@ -1,6 +1,9 @@
+import { PageHeader } from '@/components/erp/PageHeader';
 import { useMemo } from 'react';
 import { useNavigate, useSearch } from '@tanstack/react-router';
 import { Button } from '@/components/ui/button';
+import { Field } from '@/features/almacen/components/internal/Field';
+import { Checkbox } from '@/components/ui/checkbox';
 import {
   Select,
   SelectContent,
@@ -63,15 +66,10 @@ export function SaldosJerarquiaPage() {
 
   return (
     <div className="space-y-4">
-      <header>
-        <h1 className="text-2xl font-semibold tracking-tight">
-          Consulta jerárquica
-        </h1>
-        <p className="text-sm text-muted-foreground">
-          Saldos por sucursal → almacén → sub-almacén → rack, con rollup por
-          nivel. El árbol carga cada nivel al expandirlo.
-        </p>
-      </header>
+      <PageHeader
+        titulo="Consulta jerárquica"
+        descripcion="Saldos por sucursal → almacén → sub-almacén → rack, con rollup por nivel. El árbol carga cada nivel al expandirlo."
+      />
 
       <div className="flex flex-wrap items-end gap-3">
         <Tabs
@@ -93,19 +91,17 @@ export function SaldosJerarquiaPage() {
         </Tabs>
 
         {modo === 'articulo' ? (
-          <div className="space-y-1">
-            <label className="text-xs text-muted-foreground">Artículo</label>
+          <Field label="Artículo" className="gap-1">
             <ArticuloSelector
               value={search.articuloId ?? null}
               onChange={(id) => actualizarSearch({ articuloId: id ?? undefined })}
               placeholder="Buscar artículo"
               className="w-72"
             />
-          </div>
+          </Field>
         ) : (
           <>
-            <div className="space-y-1">
-              <label className="text-xs text-muted-foreground">Almacén</label>
+            <Field label="Almacén" className="gap-1">
               <Select
                 value={search.almacenId ?? SENTINEL_ALL}
                 onValueChange={(v) =>
@@ -129,11 +125,8 @@ export function SaldosJerarquiaPage() {
                   ))}
                 </SelectContent>
               </Select>
-            </div>
-            <div className="space-y-1">
-              <label className="text-xs text-muted-foreground">
-                Sub-almacén
-              </label>
+            </Field>
+            <Field label="Sub-almacén" className="gap-1">
               <Select
                 value={search.subAlmacenId ?? SENTINEL_ALL}
                 onValueChange={(v) =>
@@ -157,19 +150,17 @@ export function SaldosJerarquiaPage() {
                   ))}
                 </SelectContent>
               </Select>
-            </div>
+            </Field>
           </>
         )}
 
-        <div className="flex items-center gap-2 pb-1">
-          <input
+        <div className="flex items-center gap-2 pb-1.5">
+          <Checkbox
             id="incluir-vacios"
-            type="checkbox"
             checked={search.incluirVacios ?? false}
-            onChange={(e) =>
-              actualizarSearch({ incluirVacios: e.target.checked || undefined })
+            onCheckedChange={(checked) =>
+              actualizarSearch({ incluirVacios: checked === true || undefined })
             }
-            className="h-4 w-4"
           />
           <label htmlFor="incluir-vacios" className="text-sm">
             Incluir vacíos
@@ -187,7 +178,7 @@ export function SaldosJerarquiaPage() {
               })
             }
           >
-            Limpiar
+            Limpiar filtros
           </Button>
         )}
       </div>

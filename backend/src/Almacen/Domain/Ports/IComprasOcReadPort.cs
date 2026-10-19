@@ -12,6 +12,12 @@ public interface IComprasOcReadPort
     Task<IReadOnlyDictionary<Guid, string>> ObtenerFoliosAsync(
         IReadOnlyCollection<Guid> ocIds,
         CancellationToken cancellationToken);
+
+    /// <summary>Ids de las OC de un proveedor (cualquier estado), para filtrar recepciones por proveedor.</summary>
+    Task<IReadOnlyCollection<Guid>> ObtenerIdsPorProveedorAsync(
+        Guid proveedorId,
+        CancellationToken cancellationToken)
+        => Task.FromResult<IReadOnlyCollection<Guid>>(Array.Empty<Guid>());
 }
 
 /// <summary>

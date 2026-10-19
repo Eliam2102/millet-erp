@@ -1,11 +1,10 @@
 import { useAuthStore } from '@/lib/auth/auth-store';
 import { PermisosCanonicos } from '@/lib/auth/permission-codes';
-import { ModoNivel2Selector } from '@/features/compras/components/ModoNivel2Selector';
 import { UmbralesAprobacionSection } from '@/features/compras/components/UmbralesAprobacionSection';
 
 /**
  * <c>/compras/configuracion</c> — configuración del módulo Compras de la
- * empresa actual: modo de nivel 2 y umbrales N1/N2 por departamento.
+ * empresa actual: umbrales N1/N2 y modo de nivel 2 por departamento.
  *
  * <para>La lectura exige <c>compras.configuracion.leer</c> (guard en la
  * ruta). La edición exige <c>compras.configuracion.editar</c>; sin ese
@@ -20,7 +19,7 @@ export function ConfiguracionCompras() {
       <div>
         <h1 className="text-2xl font-semibold tracking-tight">Configuración de Compras</h1>
         <p className="text-sm text-ink-muted">
-          Reglas de autorización de requisiciones para la empresa actual.
+          Reglas de autorización de requisiciones por departamento para la empresa actual.
         </p>
       </div>
 
@@ -30,7 +29,6 @@ export function ConfiguracionCompras() {
         </div>
       )}
 
-      <ModoNivel2Selector puedeEditar={puedeEditar} />
       <UmbralesAprobacionSection puedeEditar={puedeEditar} />
     </div>
   );

@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, type ComponentProps } from 'react';
 import { Check, ChevronsUpDown, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
@@ -44,6 +44,8 @@ export interface FacturaPickerProps {
   placeholder?: string;
   disabled?: boolean;
   className?: string;
+  /** Props extra del trigger (id y aria-* que entrega `Field`). */
+  triggerProps?: ComponentProps<'button'>;
 }
 
 export function FacturaPicker({
@@ -54,6 +56,7 @@ export function FacturaPicker({
   placeholder = 'Selecciona factura…',
   disabled,
   className,
+  triggerProps,
 }: FacturaPickerProps) {
   const [open, setOpen] = useState(false);
 
@@ -87,6 +90,7 @@ export function FacturaPicker({
           aria-expanded={open}
           aria-label="Seleccionar factura"
           disabled={disabled}
+          {...triggerProps}
           className={cn(
             'w-full justify-between font-normal',
             !seleccionada && 'text-muted-foreground',
@@ -139,10 +143,10 @@ export function FacturaPicker({
                             <span className="truncate font-mono text-xs">
                               {folio}
                             </span>
-                            <span className="rounded bg-muted px-1.5 py-0.5 text-[10px] font-medium text-muted-foreground">
+                            <span className="rounded bg-muted px-1.5 py-0.5 text-2xs font-medium text-muted-foreground">
                               {f.moneda} {f.total.toFixed(2)}
                             </span>
-                            <span className="text-[10px] text-muted-foreground">
+                            <span className="text-2xs text-muted-foreground">
                               {EstadoPasivoLabels[f.estado]}
                             </span>
                           </div>

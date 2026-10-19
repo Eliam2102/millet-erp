@@ -1,14 +1,12 @@
-import { useMemo, useState } from 'react';
 import { CabeceraOrdenCompra } from '@/features/compras/ordenes/components/CabeceraOrdenCompra';
 import { InformacionLogisticaForm } from '@/features/compras/ordenes/components/InformacionLogisticaForm';
 import { InformacionImportacionForm } from '@/features/compras/ordenes/components/InformacionImportacionForm';
 import { TotalesFinancierosForm } from '@/features/compras/ordenes/components/TotalesFinancierosForm';
 import type { OrdenCompraDetalleResponse } from '@/features/compras/ordenes/api/types';
-import { cn } from '@/lib/utils';
 
 /**
  * <c>&lt;TabInformacion/&gt;</c> — contenido del Tab "Información" del
- * detalle de OC con sub-tabs anidados (UF3-PR1):
+ * detalle de OC con secciones apiladas (UX-F1-09; antes sub-tabs anidados):
  *
  * <list>
  *   <item><b>Cabecera</b>: <c>&lt;CabeceraOrdenCompra/&gt;</c> (datos
@@ -32,80 +30,37 @@ export interface TabInformacionProps {
   resolverNombre: (id: string | null | undefined) => string;
 }
 
-type SubTabId = 'cabecera' | 'logistica' | 'importacion' | 'financiera';
-
-const SUB_TAB_LABEL: Record<SubTabId, string> = {
-  cabecera: 'Cabecera',
-  logistica: 'Logística',
-  importacion: 'Importación',
-  financiera: 'Financiera',
-};
-
 export function TabInformacion({ oc, resolverNombre }: TabInformacionProps) {
-  const [activo, setActivo] = useState<SubTabId>('cabecera');
-
-  const subTabs = useMemo<SubTabId[]>(
-    () =>
-      oc.esImportacion
-        ? ['cabecera', 'logistica', 'importacion', 'financiera']
-        : ['cabecera', 'logistica', 'financiera'],
-    [oc.esImportacion],
-  );
-
-  // Si el sub-tab activo era "importacion" y oc.esImportacion cambia a
-  // false (poco común post-creación pero defensivo), reset a cabecera.
-  // Pattern derived state (setState durante el render — React permite
-  // si el targetKey cambió desde la última observación).
-  const [trackedEsImport, setTrackedEsImport] = useState(oc.esImportacion);
-  if (oc.esImportacion !== trackedEsImport) {
-    setTrackedEsImport(oc.esImportacion);
-    if (!subTabs.includes(activo)) {
-      setActivo('cabecera');
-    }
-  }
-
+  // Secciones apiladas (sin tabs anidadas): todo permanece montado, así que
+  // lo editado en Logística/Financiera no se pierde.
   return (
-    <div className="space-y-3" data-component="tab-informacion">
-      <nav
-        role="tablist"
-        aria-label="Sub-secciones de información"
-        className="flex flex-wrap gap-1 border-b"
-      >
-        {subTabs.map((id) => (
-          <button
-            key={id}
-            type="button"
-            role="tab"
-            aria-selected={activo === id}
-            id={`subtab-${id}`}
-            aria-controls={`subtab-panel-${id}`}
-            onClick={() => setActivo(id)}
-            data-subtab={id}
-            data-activo={activo === id || undefined}
-            className={cn(
-              '-mb-px border-b-2 px-3 py-1.5 text-sm font-medium transition-colors',
-              activo === id
-                ? 'border-primary text-primary'
-                : 'border-transparent text-muted-foreground hover:text-foreground',
-            )}
-          >
-            {SUB_TAB_LABEL[id]}
-          </button>
-        ))}
-      </nav>
-
-      <div
-        role="tabpanel"
-        id={`subtab-panel-${activo}`}
-        aria-labelledby={`subtab-${activo}`}
-      >
-        {activo === 'cabecera' && (
-          <CabeceraOrdenCompra oc={oc} resolverNombre={resolverNombre} />
-        )}
-        {activo === 'logistica' && <InformacionLogisticaForm oc={oc} />}
-        {activo === 'importacion' && <InformacionImportacionForm oc={oc} />}
-        {activo === 'financiera' && <TotalesFinancierosForm oc={oc} />}
-      </div>
+    <div className="space-y-6" data-component="tab-informacion">
+      <section data-subtab="cabecera" aria-labelledby="info-cabecera">
+        <h3 id="info-cabecera" className="mb-2 text-sm font-semibold text-ink">
+          Cabecera
+        </h3>
+        <CabeceraOrdenCompra oc={oc} resolverNombre={resolverNombre} />
+      </section>
+      <section data-subtab="logistica" aria-labelledby="info-logistica">
+        <h3 id="info-logistica" className="mb-2 text-sm font-semibold text-ink">
+          Logística
+        </h3>
+        <InformacionLogisticaForm oc={oc} />
+      </section>
+      {oc.esImportacion && (
+        <section data-subtab="importacion" aria-labelledby="info-importacion">
+          <h3 id="info-importacion" className="mb-2 text-sm font-semibold text-ink">
+            Importación
+          </h3>
+          <InformacionImportacionForm oc={oc} />
+        </section>
+      )}
+      <section data-subtab="financiera" aria-labelledby="info-financiera">
+        <h3 id="info-financiera" className="mb-2 text-sm font-semibold text-ink">
+          Financiera
+        </h3>
+        <TotalesFinancierosForm oc={oc} />
+      </section>
     </div>
   );
 }

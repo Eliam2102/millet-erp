@@ -155,10 +155,17 @@ public class MovimientoInventarioTests
     [InlineData(TipoMovimiento.AjustePrecioFactura, "AJF")]
     [InlineData(TipoMovimiento.BajaPorDano, "BAJ")]
     [InlineData(TipoMovimiento.ReincorporacionTrasRevision, "REI")]
+    [InlineData(TipoMovimiento.SalidaPorLiberacionRevision, "LIB")]
     public void Folio_usa_prefijo_correcto_por_tipo(TipoMovimiento tipo, string prefijoEsperado)
     {
         var folio = FolioMovimiento.Construir(tipo, 2026, 7);
         folio.Valor.Should().StartWith($"M-{prefijoEsperado}2026-");
+    }
+
+    [Fact]
+    public void Liberacion_de_revision_es_salida()
+    {
+        TipoMovimientoExtensions.EsEntrada(TipoMovimiento.SalidaPorLiberacionRevision).Should().BeFalse();
     }
 
     [Fact]
@@ -256,5 +263,26 @@ public class MovimientoInventarioTests
 
         validar.Should().NotThrow();
         mov.Estado.Should().Be(EstadoMovimiento.Validado);
+    }
+
+    [Fact]
+    public void VincularRecepcionPrincipal_asigna_en_entrada_por_compra()
+    {
+        var mov = new MovimientoInventario(Guid.NewGuid(), TipoMovimiento.EntradaCompra, Emp(), new DateOnly(2026, 10, 17));
+        var principal = Guid.NewGuid();
+
+        mov.VincularRecepcionPrincipal(principal);
+
+        mov.RecepcionOrigenId.Should().Be(principal);
+    }
+
+    [Fact]
+    public void VincularRecepcionPrincipal_falla_si_no_es_entrada_por_compra()
+    {
+        var mov = new MovimientoInventario(Guid.NewGuid(), TipoMovimiento.SalidaConsumo, Emp(), new DateOnly(2026, 10, 17));
+
+        var act = () => mov.VincularRecepcionPrincipal(Guid.NewGuid());
+
+        act.Should().Throw<BusinessRuleException>().Which.Code.Should().Be("MOV_NO_ENTRADA_COMPRA");
     }
 }

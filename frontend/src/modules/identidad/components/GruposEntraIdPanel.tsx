@@ -12,7 +12,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
-import { esApiError } from '@/lib/api';
+import { esApiError, codigoSoporte } from '@/lib/api';
 import { useDesasociarGrupoEntraId } from '@/modules/identidad/api';
 import type { RolGrupoEntraIdResponse } from '@/modules/identidad/api/types';
 import { useHasPermission } from '@/lib/auth/useHasPermission';
@@ -66,9 +66,7 @@ export function GruposEntraIdPanel({
         onError: (error) => {
           if (esApiError(error)) {
             toast.error(error.problem.title, {
-              description: error.traceId
-                ? `Código: ${error.traceId}`
-                : undefined,
+              description: codigoSoporte(error),
             });
           } else {
             toast.error('Error al desasociar el grupo.');

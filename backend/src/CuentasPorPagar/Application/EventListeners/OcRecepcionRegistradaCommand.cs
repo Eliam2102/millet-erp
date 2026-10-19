@@ -20,6 +20,11 @@ namespace Millet.CuentasPorPagar.Application.EventListeners;
 /// <c>(EventId, EventType)</c>. Re-entregas at-least-once del Service
 /// Bus no proyectan dos veces.
 /// </para>
+///
+/// <para>
+/// **P8.4a**: si la recepción trae líneas en MAT-REV (daño), detiene las
+/// facturas ligadas a la OC (Capturada/Autorizada) con el motivo «Daños».
+/// </para>
 /// </summary>
 public sealed record OcRecepcionRegistradaCommand(
     Guid EventId,
@@ -38,13 +43,15 @@ public sealed class OcRecepcionRegistradaHandler : IRequestHandler<OcRecepcionRe
     private readonly IClock _clock;
     private readonly Integration.Mappers.PasivoAutorizadoParaPagoMapper _pasivos;
     private readonly ILogger<OcRecepcionRegistradaHandler> _logger;
+    private readonly Application.FacturaProveedor.Revision.DetencionPorDanoService _danos;
 
     public OcRecepcionRegistradaHandler(
         CuentasPorPagarDbContext db,
         IClock clock,
-        ILogger<OcRecepcionRegistradaHandler> logger, Integration.Mappers.PasivoAutorizadoParaPagoMapper pasivos)
+        ILogger<OcRecepcionRegistradaHandler> logger, Integration.Mappers.PasivoAutorizadoParaPagoMapper pasivos,
+        Application.FacturaProveedor.Revision.DetencionPorDanoService danos)
     {
-        _db = db; _clock = clock; _logger = logger; _pasivos = pasivos;
+        _db = db; _clock = clock; _logger = logger; _pasivos = pasivos; _danos = danos;
     }
 
     public async Task Handle(OcRecepcionRegistradaCommand request, CancellationToken cancellationToken)
@@ -96,11 +103,24 @@ public sealed class OcRecepcionRegistradaHandler : IRequestHandler<OcRecepcionRe
             procesadoEn: ahora,
             detalle: $"Recepcion={p.RecepcionId} OC={p.OrdenCompraId} FacturaPendiente={p.FacturaPendiente}"));
 
+        var lineasDano = await _danos.LineasOcConDanoAsync(p.Lineas, cancellationToken);
+        if (lineasDano.Count > 0)
+        {
+            var ligadas = await _db.FacturasProveedor.Include(f => f.Lineas)
+                .Where(f => f.OrdenCompraId == p.OrdenCompraId &&
+                    (f.Estado == Domain.FacturaProveedor.EstadoPasivo.Capturada || f.Estado == Domain.FacturaProveedor.EstadoPasivo.Autorizada))
+                .ToListAsync(cancellationToken);
+            foreach (var f in ligadas) await _danos.DetenerSiAplicaAsync(f, lineasDano, ahora, cancellationToken);
+        }
+
         var facturas = await _db.FacturasProveedor.Where(f => f.OrdenCompraId == p.OrdenCompraId &&
             f.Estado == Domain.FacturaProveedor.EstadoPasivo.Autorizada).ToListAsync(cancellationToken);
         foreach (var f in facturas)
+        {
+            if (f.Estado != Domain.FacturaProveedor.EstadoPasivo.Autorizada) continue;
             await _pasivos.PublicarAsync(new Domain.FacturaProveedor.Events.FacturaProveedorAutorizadaDomainEvent(
                 f.EmpresaId, f.Id, f.OrdenCompraId, ahora), cancellationToken, considerarRecepcionesLocales: true);
+        }
         await _db.SaveChangesAsync(cancellationToken);
 
         _logger.LogInformation(

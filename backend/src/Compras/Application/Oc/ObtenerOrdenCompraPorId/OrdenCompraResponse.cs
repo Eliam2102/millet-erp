@@ -105,6 +105,20 @@ public sealed record OrdenCompraResponse(
     public int CicloAutorizacion { get; init; }
     public IReadOnlyList<AutorizacionOcResponse> Autorizaciones { get; init; } = [];
     public IReadOnlyList<SolicitudCancelacionOcResponse> SolicitudesCancelacion { get; init; } = [];
+
+    // F1-COM-11: estado comercial, compromiso vigente e historial de respuestas del proveedor (más reciente primero).
+    public EstadoComercialProveedorOc EstadoComercialProveedor { get; init; }
+    public DateOnly? FechaCompromisoProveedor { get; init; }
+    public IReadOnlyList<RespuestaProveedorOcResponse> RespuestasProveedor { get; init; } = [];
+
+    /// <summary>
+    /// Campos de cabecera que siguen en TBD; la OC no se puede transmitir mientras la lista no esté vacía.
+    /// Valores posibles: <c>proveedor</c>, <c>condicionesPago</c>, <c>usoPrincipal</c>.
+    /// </summary>
+    public IReadOnlyList<string>? CamposPorCapturar { get; init; }
+
+    /// <summary>F1-COM-02: cotización elegida que originó la OC (null si se creó sin comparativo).</summary>
+    public CotizacionElegidaOcResponse? CotizacionElegida { get; init; }
 }
 
 public sealed record AutorizacionOcResponse(Guid Id, int Ciclo, NivelAutorizacion Nivel,
@@ -117,3 +131,14 @@ public sealed record AutorizacionOcResponse(Guid Id, int Ciclo, NivelAutorizacio
 public sealed record SolicitudCancelacionOcResponse(Guid Id, Guid SolicitanteId,
     DateTimeOffset FechaSolicitud, Guid MotivoCancelacionId, string MotivoSolicitud,
     Guid? ResolutorId, DateTimeOffset? FechaResolucion, bool? Confirmada, string? MotivoResolucion);
+
+/// <summary>Precio cotizado por unidad de la requisición de una partida (para avisar si la línea de la OC se aparta de él).</summary>
+public sealed record PrecioCotizadoLineaResponse(Guid LineaRequisicionId, decimal PrecioPorUnidadRequisicion);
+
+public sealed record CotizacionElegidaOcResponse(
+    Guid CotizacionId, Guid RequisicionId, Guid ProveedorId, string? FolioProveedor, string MotivoEleccion, DateTimeOffset ElegidaEn,
+    IReadOnlyList<PrecioCotizadoLineaResponse> Precios);
+
+public sealed record CompromisoEntregaOcResponse(Guid Id, Guid LineaOrdenCompraId, decimal Cantidad, DateOnly FechaPrometida);
+
+public sealed record RespuestaProveedorOcResponse(Guid Id, int Numero, TipoRespuestaProveedorOc Tipo, DateOnly FechaRespuesta, string Evidencia, string? ContactoProveedor, string? Motivo, bool TieneDiferencias, Guid RegistradaPorId, DateTimeOffset RegistradaEn, bool Vigente, IReadOnlyList<CompromisoEntregaOcResponse> Compromisos);

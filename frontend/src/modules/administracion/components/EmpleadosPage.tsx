@@ -46,7 +46,7 @@ import { useDepartamentos, usePuestos, useSucursales } from '@/features/catalogo
 import type { EmpleadoListItem } from '@/features/catalogos/api';
 import { useHasAllPermissions, useHasPermission } from '@/lib/auth/useHasPermission';
 import { PermisosCanonicos } from '@/lib/auth/permission-codes';
-import { esApiError } from '@/lib/api';
+import { esApiError, codigoSoporte } from '@/lib/api';
 import { EmpleadoInlineForm } from '@/modules/administracion/components/EmpleadoInlineForm';
 import { EmpleadoAccesoPanel } from '@/modules/administracion/components/EmpleadoAccesoPanel';
 
@@ -158,7 +158,7 @@ export function EmpleadosPage() {
   ]);
 
   const query = useEmpleadosAdmin();
-  const empleados = query.data ?? [];
+  const empleados = useMemo(() => query.data ?? [], [query.data]);
 
   const sucursalesQuery = useSucursales();
   const sucursales = sucursalesQuery.data?.items ?? [];
@@ -195,7 +195,7 @@ export function EmpleadosPage() {
   function onErrorEstatus(error: Error) {
     if (esApiError(error)) {
       toast.error(error.problem.title, {
-        description: error.traceId ? `Código: ${error.traceId}` : undefined,
+        description: codigoSoporte(error),
       });
     } else {
       toast.error('Error al actualizar el empleado.');

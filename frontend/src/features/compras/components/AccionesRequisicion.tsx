@@ -1,5 +1,7 @@
 import { useState } from 'react';
-import { Ban, Lock, ShoppingCart, Send, ShieldCheck, Trash2, X } from 'lucide-react';
+import { ConMotivo } from '@/features/compras/components/ConMotivo';
+import { Link } from '@tanstack/react-router';
+import { Ban, FileSpreadsheet, Lock, ShoppingCart, Send, ShieldCheck, Trash2, X } from 'lucide-react';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -20,6 +22,7 @@ import {
   accionCancelar,
   accionCerrarManual,
   accionConvertirAOc,
+  accionVerCotizaciones,
   accionEliminarRequisicion,
   accionRechazar,
   accionTransmitir,
@@ -42,6 +45,7 @@ import { ModalMotivo } from '@/features/compras/components/ModalMotivo';
 import { esApiError } from '@/lib/api';
 import { esConflictoConcurrencia } from '@/lib/api/error';
 import { useAuthStore } from '@/lib/auth/auth-store';
+import { useComparativoCotizaciones } from '@/features/compras/api/useCotizaciones';
 import { useAutoGenerarOcAlAutorizar } from '@/lib/auth/useComprasSettings';
 import { useConflictDialog } from '@/components/erp/collaboration/conflict-dialog-context';
 import { useNuevaOrdenCompra } from '@/features/compras/ordenes/components/nueva-orden-compra-context';
@@ -131,6 +135,13 @@ export function AccionesRequisicion({ rq }: AccionesRequisicionProps) {
     permisos,
     autoGenerarOcAlAutorizar,
   );
+  const accVerCotizaciones = accionVerCotizaciones(rq, permisos);
+  // D1 (F1-COM-02): con cotizaciones registradas la OC se genera desde el comparativo, no con precios estimados.
+  // El backend lo exige (COT_ELEGIR_DESDE_COMPARATIVO); aquí solo se redirige la acción.
+  const comparativo = useComparativoCotizaciones(
+    accConvertirAOc.visible && accVerCotizaciones.visible ? rq.id : undefined,
+  );
+  const tieneCotizaciones = (comparativo.data?.cotizaciones.length ?? 0) > 0;
 
   // ADR-0043: "piezas en vuelo" para el aviso del cierre manual — saldo a
   // compra aún no recibido, derivado de la propia RQ (sin consultar la OC).
@@ -284,10 +295,10 @@ export function AccionesRequisicion({ rq }: AccionesRequisicionProps) {
             error.status === 422
           ) {
             setModalCancelarAbierto(false);
-            toast.error('La cancelación falló downstream', {
+            toast.error('La cancelación no terminó', {
               description: error.traceId
-                ? `Algunos efectos no se aplicaron (reservas / OCs / A+W). Revisa con soporte. Código: ${error.traceId}`
-                : 'Algunos efectos no se aplicaron (reservas / OCs / A+W). Revisa con soporte antes de reintentar.',
+                ? `Algunas reservas u órdenes de compra no se liberaron. Avisa a soporte con el código ${error.traceId}.`
+                : 'Algunas reservas u órdenes de compra no se liberaron. Avisa a soporte antes de reintentar.',
               duration: 15000,
               action: {
                 label: 'Reintentar',
@@ -330,10 +341,10 @@ export function AccionesRequisicion({ rq }: AccionesRequisicionProps) {
             error.status === 422
           ) {
             setModalCerrarManualAbierto(false);
-            toast.error('El cierre manual falló downstream', {
+            toast.error('El cierre no terminó', {
               description: error.traceId
-                ? `Algunos efectos no se aplicaron (liberación de reservas). Revisa con soporte. Código: ${error.traceId}`
-                : 'Algunos efectos no se aplicaron (liberación de reservas). Revisa con soporte antes de reintentar.',
+                ? `No se liberaron algunas reservas de stock. Avisa a soporte con el código ${error.traceId}.`
+                : 'No se liberaron algunas reservas de stock. Avisa a soporte antes de reintentar.',
               duration: 15000,
               action: {
                 label: 'Reintentar',
@@ -364,70 +375,66 @@ export function AccionesRequisicion({ rq }: AccionesRequisicionProps) {
         aria-label="Acciones de la requisición"
       >
         {accTransmitir.visible && (
-          <Button
+          <ConMotivo motivo={accTransmitir.motivoDeshabilitada}>
+            <Button
             type="button"
             disabled={!accTransmitir.habilitada || isPending}
             onClick={() => setConfirmacion({ tipo: 'transmitir' })}
-            title={accTransmitir.motivoDeshabilitada}
           >
             <Send className="mr-2 h-4 w-4" />
             Transmitir
           </Button>
+          </ConMotivo>
         )}
         {accN1.visible && (
-          <Button
+          <ConMotivo motivo={accN1.motivoDeshabilitada}>
+            <Button
             type="button"
             variant="default"
             disabled={!accN1.habilitada || isPending}
             onClick={() =>
               setConfirmacion({ tipo: 'aprobar', nivel: NivelAutorizacion.Nivel1 })
             }
-            title={accN1.motivoDeshabilitada}
-            className="bg-emerald-600 text-white hover:bg-emerald-700"
           >
             <ShieldCheck className="mr-2 h-4 w-4" />
             Aprobar Nivel 1
           </Button>
+          </ConMotivo>
         )}
         {n1Autorizada && (
           <Badge
             variant="outline"
-            className="gap-1 border-emerald-300 bg-emerald-50 text-emerald-700"
+            className="gap-1 border-success bg-success-bg text-success-fg"
             data-n1-autorizada=""
           >
             <ShieldCheck className="h-3.5 w-3.5" />
             Nivel 1 autorizado
-            <span className="font-normal text-emerald-600">
+            <span className="font-normal text-success-fg">
               <DateTimeDisplay value={n1Autorizada.fechaHora} />
             </span>
           </Badge>
         )}
         {accN2.visible && (
-          <Button
+          <ConMotivo motivo={accN2.motivoDeshabilitada}>
+            <Button
             type="button"
             variant="default"
             disabled={!accN2.habilitada || isPending}
             onClick={() =>
               setConfirmacion({ tipo: 'aprobar', nivel: NivelAutorizacion.Nivel2 })
             }
-            title={accN2.motivoDeshabilitada}
-            className={
-              accN2.habilitada
-                ? 'bg-emerald-600 text-white hover:bg-emerald-700'
-                : undefined
-            }
           >
             <ShieldCheck className="mr-2 h-4 w-4" />
             Aprobar Nivel 2
           </Button>
+          </ConMotivo>
         )}
         {accRechazar.visible && (
           <Button
             type="button"
-            variant="outline"
+            variant="secondary-danger"
             disabled={!accRechazar.habilitada || isPending}
             onClick={() => setModalRechazoAbierto(true)}
-            className="border-rose-300 text-rose-700 hover:bg-rose-50"
           >
             <X className="mr-2 h-4 w-4" />
             Rechazar
@@ -436,10 +443,9 @@ export function AccionesRequisicion({ rq }: AccionesRequisicionProps) {
         {accEliminar.visible && (
           <Button
             type="button"
-            variant="outline"
+            variant="secondary-danger"
             disabled={!accEliminar.habilitada || isPending}
             onClick={() => setModalEliminarAbierto(true)}
-            className="border-rose-300 text-rose-700 hover:bg-rose-50"
           >
             <Trash2 className="mr-2 h-4 w-4" />
             Eliminar
@@ -448,10 +454,9 @@ export function AccionesRequisicion({ rq }: AccionesRequisicionProps) {
         {accCancelar.visible && (
           <Button
             type="button"
-            variant="outline"
+            variant="secondary-danger"
             disabled={!accCancelar.habilitada || isPending}
             onClick={() => setModalCancelarAbierto(true)}
-            className="border-amber-300 text-amber-700 hover:bg-amber-50"
           >
             <Ban className="mr-2 h-4 w-4" />
             Cancelar
@@ -460,17 +465,41 @@ export function AccionesRequisicion({ rq }: AccionesRequisicionProps) {
         {accCerrarManual.visible && (
           <Button
             type="button"
-            variant="outline"
+            variant="secondary"
             disabled={!accCerrarManual.habilitada || isPending}
             onClick={() => setModalCerrarManualAbierto(true)}
-            className="border-zinc-300 text-zinc-700 hover:bg-zinc-100"
           >
             <Lock className="mr-2 h-4 w-4" />
             Cerrar
           </Button>
         )}
-        {accConvertirAOc.visible && (
-          <Button
+        {accVerCotizaciones.visible && (
+          <Button variant="secondary" asChild>
+            <Link
+              to="/compras/requisiciones/$id/cotizaciones"
+              params={{ id: rq.id }}
+              data-action="ver-cotizaciones"
+            >
+              <FileSpreadsheet className="mr-2 h-4 w-4" aria-hidden="true" />
+              Cotizaciones
+            </Link>
+          </Button>
+        )}
+        {accConvertirAOc.visible && tieneCotizaciones && (
+          <Button asChild>
+            <Link
+              to="/compras/requisiciones/$id/cotizaciones"
+              params={{ id: rq.id }}
+              data-action="elegir-cotizacion-para-oc"
+            >
+              <ShoppingCart className="mr-2 h-4 w-4" aria-hidden="true" />
+              Elegir cotización y generar OC
+            </Link>
+          </Button>
+        )}
+        {accConvertirAOc.visible && !tieneCotizaciones && (
+          <ConMotivo motivo={accConvertirAOc.motivoDeshabilitada}>
+            <Button
             type="button"
             disabled={!accConvertirAOc.habilitada || isPending}
             onClick={() =>
@@ -482,13 +511,12 @@ export function AccionesRequisicion({ rq }: AccionesRequisicionProps) {
                 },
               })
             }
-            title={accConvertirAOc.motivoDeshabilitada}
-            className="bg-indigo-600 text-white hover:bg-indigo-700"
             data-action="convertir-a-oc"
           >
             <ShoppingCart className="mr-2 h-4 w-4" />
             Convertir a OC
           </Button>
+          </ConMotivo>
         )}
       </div>
 

@@ -51,6 +51,9 @@ public sealed class PermisoFaltanteResultHandler : IAuthorizationMiddlewareResul
             .Distinct(StringComparer.Ordinal)
             .ToArray();
 
+        await AccesoDenegadoAudit.RegistrarAsync(
+            context, permisosFaltantes.Length > 0 ? "PERMISO_FALTANTE" : "ACCESO_DENEGADO", permisosFaltantes.Length > 0 ? string.Join(",", permisosFaltantes) : null, context.RequestAborted);
+
         var traceId = Activity.Current?.TraceId.ToString() ?? context.TraceIdentifier;
         var code = permisosFaltantes.Length > 0 ? "PERMISO_FALTANTE" : "ACCESO_DENEGADO";
         var detail = permisosFaltantes.Length > 0

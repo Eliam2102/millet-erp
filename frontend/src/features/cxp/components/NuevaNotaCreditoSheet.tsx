@@ -1,5 +1,5 @@
 import { hoyLocalISO } from '@/lib/datetime';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Controller, useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { toast } from 'sonner';
@@ -14,7 +14,6 @@ import {
 } from '@/components/ui/sheet';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
 import {
   Select,
   SelectContent,
@@ -50,6 +49,8 @@ import { useHasPermission } from '@/lib/auth/useHasPermission';
 import { PermisosCanonicos } from '@/lib/auth/permission-codes';
 import { fetchProveedoresPorRfc } from '@/features/catalogos/api';
 import { ProveedorSelector } from '@/components/erp';
+import { Field } from '@/components/erp/forms/Field';
+import { useConfirmarDescarte } from '@/components/erp/forms/useConfirmarDescarte';
 
 /** TipoRelacion del catálogo SAT c_TipoRelacion → enum del backend. */
 const TIPO_RELACION_POR_CODIGO: Record<string, TipoRelacionCfdi> = {
@@ -82,9 +83,15 @@ export function NuevaNotaCreditoSheet({
   open,
   onOpenChange,
 }: NuevaNotaCreditoSheetProps) {
+  const { setDirty, solicitarCierre, dialogo } = useConfirmarDescarte(() =>
+    onOpenChange(false),
+  );
   return (
-    <Sheet open={open} onOpenChange={onOpenChange}>
-      <SheetContent side="right" className="sm:max-w-xl">
+    <Sheet
+      open={open}
+      onOpenChange={(next) => (next ? onOpenChange(next) : solicitarCierre())}
+    >
+      <SheetContent side="right" size="form">
         <SheetHeader>
           <SheetTitle>Capturar nota de crédito</SheetTitle>
           <SheetDescription>
@@ -92,13 +99,28 @@ export function NuevaNotaCreditoSheet({
             se vincula automáticamente por UUID relacionado.
           </SheetDescription>
         </SheetHeader>
-        {open && <NuevaNcForm onClose={() => onOpenChange(false)} />}
+        {open && (
+          <NuevaNcForm
+            onCancel={() => solicitarCierre()}
+            onCaptured={() => solicitarCierre(true)}
+            onDirtyChange={setDirty}
+          />
+        )}
       </SheetContent>
+      {dialogo}
     </Sheet>
   );
 }
 
-function NuevaNcForm({ onClose }: { onClose: () => void }) {
+function NuevaNcForm({
+  onCancel,
+  onCaptured,
+  onDirtyChange,
+}: {
+  onCancel: () => void;
+  onCaptured: () => void;
+  onDirtyChange: (dirty: boolean) => void;
+}) {
   const idempotencyKey = useFormIdempotencyKey();
   const capturar = useCapturarNotaCredito();
   const hoy = hoyLocalISO();
@@ -129,6 +151,11 @@ function NuevaNcForm({ onClose }: { onClose: () => void }) {
       uuidRelacionCfdi: '',
     },
   });
+
+  const isDirty = form.formState.isDirty || cfdiSel !== null;
+  useEffect(() => {
+    onDirtyChange(isDirty);
+  }, [isDirty, onDirtyChange]);
 
   /** Prellena relación (01/03/07) y UUID origen desde el XML parseado. */
   function aplicarRelacionParseada(parseado: CfdiParseado) {
@@ -201,7 +228,7 @@ function NuevaNcForm({ onClose }: { onClose: () => void }) {
       {
         onSuccess: () => {
           toast.success('NC capturada');
-          onClose();
+          onCaptured();
         },
         onError: (error) => {
           if (esApiError(error)) {
@@ -223,8 +250,10 @@ function NuevaNcForm({ onClose }: { onClose: () => void }) {
 
   return (
     <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4 px-4">
-      <div className="space-y-1">
-        <Label className="text-xs">CFDI de la NC (egreso)</Label>
+      <div className="space-y-1.5" role="group" aria-labelledby="nc-cfdi-label">
+        <span id="nc-cfdi-label" className="text-xs font-medium text-ink-strong">
+          CFDI de la NC (egreso)
+        </span>
         <div className="flex gap-2">
           <CfdiPorProcesarPicker
             tipo={TipoCfdi.Egreso}
@@ -239,12 +268,12 @@ function NuevaNcForm({ onClose }: { onClose: () => void }) {
               variant="outline"
               onClick={() => setCargarCfdiOpen(true)}
             >
-              <Upload className="mr-1 h-4 w-4" aria-hidden="true" />
+              <Upload className="mr-1 size-3.5" aria-hidden="true" />
               Cargar XML
             </Button>
           )}
         </div>
-        <p className="text-xs text-muted-foreground">
+        <p className="text-xs text-ink-muted">
           Al vincular se prellenan UUID, importes y la relación con la
           factura origen desde el XML.
         </p>
@@ -260,16 +289,19 @@ function NuevaNcForm({ onClose }: { onClose: () => void }) {
           />
         </Campo>
         <Campo label="Proveedor" error={form.formState.errors.proveedorId?.message} required>
-          <Controller
-            control={form.control}
-            name="proveedorId"
-            render={({ field }) => (
-              <ProveedorSelector
-                value={field.value || null}
-                onChange={(id) => field.onChange(id ?? '')}
-              />
-            )}
-          />
+          {(control) => (
+            <Controller
+              control={form.control}
+              name="proveedorId"
+              render={({ field }) => (
+                <ProveedorSelector
+                  value={field.value || null}
+                  onChange={(id) => field.onChange(id ?? '')}
+                  triggerProps={control}
+                />
+              )}
+            />
+          )}
         </Campo>
         <Campo label="Serie" error={form.formState.errors.serieProveedor?.message}>
           <Input placeholder="A" {...form.register('serieProveedor')} />
@@ -284,12 +316,13 @@ function NuevaNcForm({ onClose }: { onClose: () => void }) {
           <Input placeholder="MXN" maxLength={3} className="uppercase" {...form.register('moneda')} />
         </Campo>
         <Campo label="Tipo NC" required>
+          {(control) => (
           <Controller
             control={form.control}
             name="tipo"
             render={({ field }) => (
               <Select value={String(field.value)} onValueChange={(v) => field.onChange(Number(v))}>
-                <SelectTrigger>
+                <SelectTrigger {...control}>
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
@@ -306,6 +339,7 @@ function NuevaNcForm({ onClose }: { onClose: () => void }) {
               </Select>
             )}
           />
+          )}
         </Campo>
         <Campo label="UUID CFDI relacionado" error={form.formState.errors.uuidRelacionCfdi?.message} required>
           <Input placeholder="00000000-…" {...form.register('uuidRelacionCfdi')} />
@@ -328,7 +362,7 @@ function NuevaNcForm({ onClose }: { onClose: () => void }) {
       </div>
 
       <SheetFooter className="px-0">
-        <Button type="button" variant="ghost" onClick={onClose} disabled={capturar.isPending}>
+        <Button type="button" variant="ghost" onClick={onCancel} disabled={capturar.isPending}>
           Cancelar
         </Button>
         <Button type="submit" disabled={capturar.isPending}>
@@ -357,22 +391,5 @@ function NuevaNcForm({ onClose }: { onClose: () => void }) {
   );
 }
 
-interface CampoProps {
-  label: string;
-  required?: boolean;
-  error?: string;
-  children: React.ReactNode;
-}
-
-function Campo({ label, required, error, children }: CampoProps) {
-  return (
-    <div className="space-y-1">
-      <Label className="text-xs">
-        {label}
-        {required && <span className="ml-1 text-destructive">*</span>}
-      </Label>
-      {children}
-      {error && <p className="text-xs text-destructive">{error}</p>}
-    </div>
-  );
-}
+/** Alias local: `Field` accesible (label asociado, aria-*). */
+const Campo = Field;

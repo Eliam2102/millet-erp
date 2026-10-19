@@ -123,6 +123,12 @@ public static class PermisosCanonicos
     public const string ComprasOrdenesReportesPartidasAbiertas         = "compras.ordenes.reportes-partidas-abiertas";
     public const string ComprasOrdenesCerrarManual                     = "compras.ordenes.cerrar-manual";
     public const string ComprasOrdenesLeerTodasSucursales              = "compras.ordenes.leer-todas-sucursales";
+    // F1-COM-11 (86e3jvu93): respuesta del proveedor sobre la OC autorizada.
+    public const string ComprasOrdenesRegistrarRespuestaProveedor      = "compras.ordenes.registrar-respuesta-proveedor";
+
+    // ----- Compras — Cotizaciones (F1-COM-02, 86e3jvu2a). Namespace GUID 00000003-0005-* -----
+    public const string ComprasCotizacionesLeer                        = "compras.cotizaciones.leer";
+    public const string ComprasCotizacionesGestionar                   = "compras.cotizaciones.gestionar";
 
     // ----- Configuración del módulo Compras (Settings, decisión 2026-05-13) -----
     public const string ComprasConfiguracionLeer                       = "compras.configuracion.leer";
@@ -155,6 +161,11 @@ public static class PermisosCanonicos
     // (banco/CLABE/beneficiario).
     public const string DatosMaestrosProveedoresBancariosVer           = "datos_maestros.proveedores.bancarios-ver";
     public const string DatosMaestrosProveedoresBancariosEditar        = "datos_maestros.proveedores.bancarios-editar";
+    // 86e3pdmee: validar (contra estado de cuenta), rechazar, inhabilitar y
+    // reactivar cuentas bancarias de proveedor; ve el número completo.
+    public const string DatosMaestrosProveedoresCuentasAdministrar     = "datos_maestros.proveedores.cuentas-administrar";
+    // 86e3pdmee · ADM-01: matriz de documentos del expediente por tipo de proveedor.
+    public const string DatosMaestrosProveedoresExpedienteConfigurar   = "datos_maestros.proveedores.expediente-configurar";
     // F1-ADM-11 G1.2: expediente documental (adjuntos) del proveedor, por operación.
     public const string DatosMaestrosProveedoresAdjuntosVer            = "datos_maestros.proveedores.adjuntos-ver";
     public const string DatosMaestrosProveedoresAdjuntosSubir          = "datos_maestros.proveedores.adjuntos-subir";
@@ -188,6 +199,8 @@ public static class PermisosCanonicos
     // menos una card. Ver ADR-0034 y 01-diseno §6.3 de Administración.
     public const string AdminEmpresasLeer                              = "admin.empresas.leer";
     public const string AdminAuditoriaLeer                             = "admin.auditoria.leer";
+    /// <summary>ADM-03 / ADR-0051: bypass de sucursal de la bitácora; sin él solo se ven las sucursales del usuario.</summary>
+    public const string AdminAuditoriaLeerTodasSucursales              = "admin.auditoria.leer-todas-sucursales";
 
     // ----- Administración — Empresas + Sucursales + Departamentos (F-Admin-PR2.3) -----
     // CRUD completo del catálogo organizacional. Convención kebab-case
@@ -269,6 +282,7 @@ public static class PermisosCanonicos
 
     public const string AlmacenDevolucionesProveedorIniciar            = "almacen.devoluciones-proveedor.iniciar";
     public const string AlmacenDevolucionesProveedorAutorizar          = "almacen.devoluciones-proveedor.autorizar";
+    public const string AlmacenCuarentenaDictaminar                    = "almacen.cuarentena.dictaminar";
     public const string AlmacenDevolucionesProveedorRegistrar          = "almacen.devoluciones-proveedor.registrar";
 
     public const string AlmacenInventariosLeer                         = "almacen.inventarios.leer";
@@ -430,6 +444,7 @@ public static class PermisosCanonicos
     public const string FacturacionAnticiposLeer               = "facturacion.anticipos.leer";
     public const string FacturacionNotasCreditoBonificacion    = "facturacion.notas-credito.bonificacion-emitir";
     public const string FacturacionNotasCreditoLeer            = "facturacion.notas-credito.leer";
+    public const string FacturacionNotasCreditoReembolsoSolicitar = "facturacion.notas-credito.reembolso-solicitar";
     public const string FacturacionCartaPorteEmitir            = "facturacion.carta-porte.emitir";
     public const string FacturacionCartaPorteLeer              = "facturacion.carta-porte.leer";
     public const string FacturacionReppEmitir                  = "facturacion.repp.emitir";
@@ -497,6 +512,11 @@ public static class PermisosCanonicos
     // debe exigir el permiso de ejecución `tesoreria.pagos.aplicar`.
     public const string TesoreriaPasivosVer                     = "tesoreria.pasivos.ver";
     public const string TesoreriaReportesVer                    = "tesoreria.reportes.ver";
+    // T9.6 (86e3jvvh7): devoluciones de dinero a clientes (depósito erróneo y reembolso de NC).
+    public const string TesoreriaDevolucionesVer                = "tesoreria.devoluciones.ver";
+    public const string TesoreriaDevolucionesSolicitar          = "tesoreria.devoluciones.solicitar";
+    public const string TesoreriaDevolucionesAutorizar          = "tesoreria.devoluciones.autorizar";
+    public const string TesoreriaDevolucionesPagar              = "tesoreria.devoluciones.pagar";
 
     // ----- Centros de Costo (CECO-A1; modelo Dim desde CECO-PR4) -----
     // Namespace GUID 0000000c-* reservado para el módulo Centros de Costo.
@@ -641,8 +661,11 @@ public static class PermisosCanonicos
         (Guid.Parse("00000003-0003-0000-0000-00000000000a"), ComprasOrdenesReportesPartidasAbiertas,       "Consultar reporte de partidas abiertas de órdenes de compra"),
         (Guid.Parse("00000003-0003-0000-0000-00000000000b"), ComprasOrdenesCerrarManual,                   "Cerrar órdenes de compra manualmente (servicios/residuales)"),
         (Guid.Parse("00000003-0003-0000-0000-00000000000c"), ComprasOrdenesLeerTodasSucursales,            "Consultar órdenes de compra y sus adjuntos de todas las sucursales de la empresa"),
+        (Guid.Parse("00000003-0003-0000-0000-00000000000d"), ComprasOrdenesRegistrarRespuestaProveedor,   "Registrar la confirmación o el rechazo del proveedor sobre una orden de compra autorizada, con fechas prometidas y evidencia"),
         (Guid.Parse("00000003-0004-0000-0000-000000000001"), ComprasConfiguracionLeer,                     "Leer la configuración del módulo Compras de la empresa actual"),
         (Guid.Parse("00000003-0004-0000-0000-000000000002"), ComprasConfiguracionEditar,                   "Editar la configuración del módulo Compras de la empresa actual"),
+        (Guid.Parse("00000003-0005-0000-0000-000000000001"), ComprasCotizacionesLeer,                      "Consultar cotizaciones y el comparativo de una requisición"),
+        (Guid.Parse("00000003-0005-0000-0000-000000000002"), ComprasCotizacionesGestionar,                 "Registrar, editar, eliminar y elegir cotizaciones de proveedores (solo Compras)"),
         (Guid.Parse("00000004-0001-0000-0000-000000000001"), CompartidoCatalogosLeer,                      "Consultar catálogos cross-empresa (proveedores, artículos)"),
         (Guid.Parse("00000004-0002-0000-0000-000000000001"), CompartidoCatalogosAdministrar,               "Administrar catálogos cross-empresa (reclasificar naturaleza, etc)"),
         (Guid.Parse("00000005-0001-0000-0000-000000000001"), AdminEmpresasLeer,                            "Listar empresas y sus datos generales (mínimo del andamio /admin)"),
@@ -651,6 +674,7 @@ public static class PermisosCanonicos
         (Guid.Parse("00000005-0001-0000-0000-000000000004"), AdminEmpresasDesactivar,                      "Desactivar empresas (sin sucursales activas)"),
         (Guid.Parse("00000005-0001-0000-0000-000000000005"), AdminEmpresasSucursalesGestionar,             "Crear, editar y desactivar sucursales del catálogo organizacional"),
         (Guid.Parse("00000005-0002-0000-0000-000000000001"), AdminAuditoriaLeer,                           "Consultar la bitácora consolidada de auditoría (mínimo del andamio /admin)"),
+        (Guid.Parse("00000005-0002-0000-0000-000000000002"), AdminAuditoriaLeerTodasSucursales,            "Consultar la bitácora de todas las sucursales de la empresa"),
         (Guid.Parse("00000005-0003-0000-0000-000000000001"), AdminDepartamentosGestionar,                  "Crear, editar y desactivar departamentos del catálogo organizacional"),
         (Guid.Parse("00000005-0003-0000-0000-000000000002"), AdminDepartamentosLeer,                       "Consultar departamentos del catálogo organizacional"),
         (Guid.Parse("00000005-0004-0000-0000-000000000001"), AdminSeriesGestionar,                         "Crear, editar y desactivar series de folios cross-módulo (OC, CFDI, póliza)"),
@@ -674,7 +698,9 @@ public static class PermisosCanonicos
         // Datos Maestros granulares (F-Admin-PR4.5).
         (Guid.Parse("00000004-0009-0000-0000-000000000001"), DatosMaestrosProveedoresGestionar,            "Crear, editar y desactivar proveedores del catálogo cross-empresa"),
         (Guid.Parse("00000004-0009-0000-0000-000000000002"), DatosMaestrosProveedoresBancariosVer,         "Consultar datos bancarios de proveedores (CLABE enmascarada)"),
-        (Guid.Parse("00000004-0009-0000-0000-000000000003"), DatosMaestrosProveedoresBancariosEditar,      "Cambiar banco, CLABE y beneficiario de proveedores"),
+        (Guid.Parse("00000004-0009-0000-0000-000000000003"), DatosMaestrosProveedoresBancariosEditar,      "Agregar cuentas bancarias de proveedores (quedan por validar)"),
+        (Guid.Parse("00000004-0009-0000-0000-000000000009"), DatosMaestrosProveedoresCuentasAdministrar,   "Validar, rechazar, inhabilitar y reactivar cuentas bancarias de proveedores y ver el número completo"),
+        (Guid.Parse("00000004-0009-0000-0000-00000000000a"), DatosMaestrosProveedoresExpedienteConfigurar, "Configurar qué documentos del expediente de proveedor son obligatorios u opcionales y a quién aplican"),
         (Guid.Parse("00000004-0009-0000-0000-000000000004"), DatosMaestrosProveedoresAdjuntosVer,          "Consultar y descargar los documentos del expediente de un proveedor"),
         (Guid.Parse("00000004-0009-0000-0000-000000000005"), DatosMaestrosProveedoresAdjuntosSubir,        "Adjuntar documentos al expediente de un proveedor"),
         (Guid.Parse("00000004-0009-0000-0000-000000000006"), DatosMaestrosProveedoresAdjuntosBaja,         "Dar de baja documentos del expediente de un proveedor y consultar su historial"),
@@ -774,6 +800,7 @@ public static class PermisosCanonicos
         (Guid.Parse("00000008-0005-0000-0000-000000000001"), AlmacenDevolucionesProveedorIniciar,         "Iniciar devoluciones a proveedor (sub-flujo 8.B)"),
         (Guid.Parse("00000008-0005-0000-0000-000000000002"), AlmacenDevolucionesProveedorAutorizar,       "Autorizar devoluciones a proveedor (Dirección, compartido con cxp.notas-cargo.autorizar)"),
         (Guid.Parse("00000008-0005-0000-0000-000000000003"), AlmacenDevolucionesProveedorRegistrar,       "Registrar la salida física de la devolución a proveedor"),
+        (Guid.Parse("00000008-000f-0000-0000-000000000001"), AlmacenCuarentenaDictaminar,                 "Dictaminar material en revisión: liberar, rechazar al proveedor o dar de baja (Gerente de almacén/calidad)"),
         (Guid.Parse("00000008-0006-0000-0000-000000000001"), AlmacenInventariosLeer,                      "Consultar conteos de inventario físico"),
         (Guid.Parse("00000008-0006-0000-0000-000000000002"), AlmacenInventariosCrear,                     "Crear y planificar conteos de inventario (rotativo y anual)"),
         (Guid.Parse("00000008-0006-0000-0000-000000000003"), AlmacenInventariosCapturar,                  "Capturar conteo sin ver cantidad teórica (captura sin sesgo, A6)"),
@@ -806,6 +833,7 @@ public static class PermisosCanonicos
         (Guid.Parse("00000009-0003-0000-0000-000000000003"), FacturacionAnticiposLeer,               "Consultar el Control de Anticipos (saldos por cliente)"),
         (Guid.Parse("00000009-0004-0000-0000-000000000001"), FacturacionNotasCreditoBonificacion,    "Emitir notas de crédito por bonificación (relación 01)"),
         (Guid.Parse("00000009-0004-0000-0000-000000000002"), FacturacionNotasCreditoLeer,            "Consultar notas de crédito emitidas"),
+        (Guid.Parse("00000009-0004-0000-0000-000000000003"), FacturacionNotasCreditoReembolsoSolicitar, "Solicitar a Tesorería el reembolso en dinero de una nota de crédito timbrada"),
         (Guid.Parse("00000009-0005-0000-0000-000000000001"), FacturacionCartaPorteEmitir,            "Emitir Carta Porte 3.1 (CFDI tipo T o I), incluyendo tramos siguientes"),
         (Guid.Parse("00000009-0005-0000-0000-000000000002"), FacturacionCartaPorteLeer,              "Consultar Carta Portes emitidas"),
         (Guid.Parse("00000009-0006-0000-0000-000000000001"), FacturacionReppEmitir,                  "Emitir complementos de pago (REPP / Pago 2.0)"),
@@ -852,6 +880,10 @@ public static class PermisosCanonicos
         (Guid.Parse("0000000b-0009-0000-0000-000000000001"), TesoreriaPasivosSolicitarCancelacion,  "Solicitar a CxP la cancelación de un pasivo desde la bandeja"),
         (Guid.Parse("0000000b-0009-0000-0000-000000000002"), TesoreriaPasivosVer,                   "Consultar la bandeja de pasivos autorizados pendientes de pago"),
         (Guid.Parse("0000000b-000a-0000-0000-000000000001"), TesoreriaReportesVer,                  "Consultar los reportes del módulo Tesorería (flujo de efectivo, auxiliares)"),
+        (Guid.Parse("0000000b-000b-0000-0000-000000000001"), TesoreriaDevolucionesVer, "Consultar devoluciones de dinero a clientes"),
+        (Guid.Parse("0000000b-000b-0000-0000-000000000002"), TesoreriaDevolucionesSolicitar, "Solicitar, editar y cancelar devoluciones de dinero a clientes por depósito erróneo"),
+        (Guid.Parse("0000000b-000b-0000-0000-000000000003"), TesoreriaDevolucionesAutorizar, "Autorizar o rechazar devoluciones de dinero a clientes (Gerente o Jefe de Tesorería)"),
+        (Guid.Parse("0000000b-000b-0000-0000-000000000004"), TesoreriaDevolucionesPagar, "Registrar el pago de devoluciones autorizadas con su contramovimiento ligado"),
 
         // Centros de Costo (CECO-A1; modelo Dim desde CECO-PR4). Namespace 0000000c-*.
         (Guid.Parse("0000000c-0001-0000-0000-000000000001"), CentrosCostoCatalogoLeer,                "Consultar el catálogo de centros de costo (árboles, niveles y grupos)"),

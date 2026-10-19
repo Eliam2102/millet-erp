@@ -26,6 +26,9 @@ public class AplicarClienteAwServiceTests : IClassFixture<WebApplicationFactory<
 
     private static string NuevaRef() => "T" + Guid.NewGuid().ToString("N")[..8];
 
+    // RFC no genérico y único por ejecución: ux_clientes_rfc_no_generico impide duplicados en la BD compartida.
+    private static string NuevoRfc() => "ZZZ" + Random.Shared.Next(0, 1_000_000).ToString("D6") + Guid.NewGuid().ToString("N")[..3].ToUpperInvariant();
+
     private static AplicarClienteAwSnapshot Snap(string referencia, string razon = "CLIENTE DEMO 001") => new(
         referencia, razon, DateTime.UtcNow, "1", "0-borrador",
         Rfc: Rfc, CodigoPostalFiscal: "06600",
@@ -175,8 +178,9 @@ public class AplicarClienteAwServiceTests : IClassFixture<WebApplicationFactory<
     public async Task Correccion_fiscal_local_posterior_al_alta_sobrevive_a_nueva_lectura()
     {
         var r = NuevaRef();
+        var rfc = NuevoRfc();
         await Aplicar(Snap(r));
-        await Editar(r, c => c.ActualizarDatos(rfc: "AAA010101AAA", regimenFiscal: "601", codigoPostalFiscal: "44100"));
+        await Editar(r, c => c.ActualizarDatos(rfc: rfc, regimenFiscal: "601", codigoPostalFiscal: "44100"));
 
         var res = await Aplicar(Snap(r, razon: "OTRO NAME") with
         {
@@ -185,7 +189,7 @@ public class AplicarClienteAwServiceTests : IClassFixture<WebApplicationFactory<
 
         Assert.Equal(AplicarClienteAwAccion.Actualizado, res.Accion);
         var (cs, _) = await Leer(r);
-        Assert.Equal("AAA010101AAA", cs[0].Rfc);
+        Assert.Equal(rfc, cs[0].Rfc);
         Assert.Equal("601", cs[0].RegimenFiscal);
         Assert.Equal("44100", cs[0].CodigoPostalFiscal);
         Assert.Equal("CLIENTE DEMO 001", cs[0].RazonSocial);

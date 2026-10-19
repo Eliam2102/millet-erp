@@ -40,6 +40,7 @@ import {
   applyServerErrors,
   esApiError,
   useFormIdempotencyKey,
+  codigoSoporte,
 } from '@/lib/api';
 import {
   BajaPorDanoSchema,
@@ -79,8 +80,8 @@ export interface MatRevSheetProps {
 export function MatRevSheet({ open, onOpenChange, modo }: MatRevSheetProps) {
   const titulo =
     modo === 'baja'
-      ? 'Baja por daño (MAT-REV)'
-      : 'Reincorporar tras revisión (MAT-REV)';
+      ? 'Baja por daño (material en revisión)'
+      : 'Reincorporar tras revisión';
   const descripcion =
     modo === 'baja'
       ? 'Decisión Calidad: el material en revisión se da de baja por destrucción. No vuelve al inventario activo.'
@@ -206,7 +207,7 @@ function FormBody({
               return;
             }
             toast.error(error.problem.title, {
-              description: error.traceId ? `Código: ${error.traceId}` : undefined,
+              description: codigoSoporte(error),
             });
             return;
           }
@@ -218,7 +219,7 @@ function FormBody({
 
   const isPending = baja.isPending || reincorporar.isPending;
   const subAlmacenLabel =
-    modo === 'baja' ? 'Sub-almacén MAT-REV (origen)' : 'Sub-almacén destino';
+    modo === 'baja' ? 'Sub-almacén de material en revisión (origen)' : 'Sub-almacén destino';
   const subAlmacenField =
     modo === 'baja' ? 'subAlmacenMatRevId' : 'subAlmacenDestinoId';
   // C7.2b: bin por línea. Baja (salida) elige por saldo; reincorporación
@@ -319,7 +320,7 @@ function FormBody({
                 lineasFA.append({ articuloId: '', cantidad: 1, ubicacionId: null })
               }
             >
-              <Plus className="mr-2 h-4 w-4" />
+              <Plus className="mr-2 size-3.5" />
               Agregar línea
             </Button>
           </div>

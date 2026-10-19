@@ -55,6 +55,7 @@ function makeOc(
 ): OrdenCompraDetalleResponse {
   return {
     id: 'oc-1',
+    moneda: 'MXN',
     estado: EstadoOrdenCompra.Borrador,
     sinRequisicionPrevia: true,
     lineas,
@@ -111,7 +112,7 @@ describe('<EditorLineas> (OC) — columna CC-Máquina (Fase E PR3)', () => {
     { wrapper: createQueryWrapper() });
     const fila = screen.getByText(etiqueta).closest('tr');
     expect(fila).not.toBeNull();
-    expect(within(fila!).getByText(subtotal.toFixed(2))).toBeInTheDocument();
+    expect(within(fila!).getByText(`$${subtotal.toFixed(2)}`)).toBeInTheDocument();
   });
   it('encabezado CC-Máquina presente', () => {
     render(<EditorLineas oc={makeOc([makeLinea()])} />, {

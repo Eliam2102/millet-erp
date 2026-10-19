@@ -16,10 +16,9 @@ namespace Millet.Compras.UnitTests.Matriz;
 
 /// <summary>
 /// Pruebas unitarias de <see cref="EvaluadorMultidimensional"/> por
-/// <see cref="ModoNivel2"/> (S3). Desde la minuta Millet del 12-oct la RQ no
-/// lleva monto: el monto contra el umbral se valida en la OC. Estas pruebas
-/// cubren que la RQ nunca sube a N2 por monto, que la disponibilidad se activa
-/// según el modo y que los artículos de servicio no cuentan como faltante.
+/// <see cref="ModoNivel2"/> por departamento: monto contra umbral, disponibilidad
+/// con monto mínimo, fila general de respaldo, fail-safe sin umbral y servicios
+/// fuera del faltante.
 /// </summary>
 public sealed class EvaluadorMultidimensionalModoTests
 {
@@ -29,43 +28,113 @@ public sealed class EvaluadorMultidimensionalModoTests
     private static readonly Guid Servicio = Guid.CreateVersion7();
 
     [Fact]
-    public async Task Sin_Fila_De_Settings_Sin_Existencia_Solo_N1()
+    public async Task CA3_1_Ambos_Umbral20k_Rq15k_Con_Stock_Basta_N1()
     {
-        // Sin fila de settings el modo es SoloMonto: en la RQ no hay criterio de disponibilidad.
-        var nivel = await EvaluarAsync(modo: null, precio: 100m, cantidad: 2m, disponible: 0m);
+        var nivel = await EvaluarAsync(ModoNivel2.Ambos, 20_000m, null, 15_000m, 1m, 10m);
 
         Assert.Equal(RequiereNivel.SoloN1, nivel);
     }
 
     [Fact]
-    public async Task SoloMonto_Monto_Excedido_No_Sube_A_N2_En_La_Requisicion()
+    public async Task CA3_1_SoloMonto_Umbral20k_Rq15k_Con_Stock_Basta_N1()
     {
-        // Total 2 × 1000 = 2000: la RQ ya no sube a N2 por monto (lo valida la OC).
-        var nivel = await EvaluarAsync(ModoNivel2.SoloMonto, precio: 1_000m, cantidad: 2m, disponible: 0m);
+        var nivel = await EvaluarAsync(ModoNivel2.SoloMonto, 20_000m, null, 15_000m, 1m, 10m);
 
         Assert.Equal(RequiereNivel.SoloN1, nivel);
     }
 
     [Fact]
-    public async Task SoloDisponibilidad_Ignora_Monto_Excedido_Si_Hay_Existencia()
+    public async Task CA3_2_Ambos_Rq25k_Pide_N2()
     {
-        var nivel = await EvaluarAsync(ModoNivel2.SoloDisponibilidad, precio: 1_000m, cantidad: 2m, disponible: 10m);
-
-        Assert.Equal(RequiereNivel.SoloN1, nivel);
-    }
-
-    [Fact]
-    public async Task SoloDisponibilidad_Sin_Existencia_Suficiente_Exige_N2()
-    {
-        var nivel = await EvaluarAsync(ModoNivel2.SoloDisponibilidad, precio: 100m, cantidad: 2m, disponible: 1m);
+        var nivel = await EvaluarAsync(ModoNivel2.Ambos, 20_000m, null, 25_000m, 1m, 10m);
 
         Assert.Equal(RequiereNivel.N1YN2, nivel);
     }
 
     [Fact]
+    public async Task CA3_2_SoloMonto_Rq25k_Pide_N2()
+    {
+        var nivel = await EvaluarAsync(ModoNivel2.SoloMonto, 20_000m, null, 25_000m, 1m, 10m);
+
+        Assert.Equal(RequiereNivel.N1YN2, nivel);
+    }
+
+    [Fact]
+    public async Task CA3_3_SoloDisponibilidad_Rq5k_Sin_Existencia_Pide_N2()
+    {
+        var nivel = await EvaluarAsync(ModoNivel2.SoloDisponibilidad, 20_000m, null, 5_000m, 1m, 0m);
+
+        Assert.Equal(RequiereNivel.N1YN2, nivel);
+    }
+
+    [Fact]
+    public async Task C3_1a_SoloMonto_Rq5k_Sin_Existencia_Basta_N1()
+    {
+        var nivel = await EvaluarAsync(ModoNivel2.SoloMonto, 20_000m, null, 5_000m, 1m, 0m);
+
+        Assert.Equal(RequiereNivel.SoloN1, nivel);
+    }
+
+    [Fact]
+    public async Task SoloDisponibilidad_Rq25k_Con_Stock_Basta_N1()
+    {
+        var nivel = await EvaluarAsync(ModoNivel2.SoloDisponibilidad, 20_000m, null, 25_000m, 1m, 10m);
+
+        Assert.Equal(RequiereNivel.SoloN1, nivel);
+    }
+
+    [Fact]
+    public async Task Monto_Igual_Al_Umbral_Se_Queda_En_N1()
+    {
+        var nivel = await EvaluarAsync(ModoNivel2.SoloMonto, 20_000m, null, 20_000m, 1m, 10m);
+
+        Assert.Equal(RequiereNivel.SoloN1, nivel);
+    }
+
+    [Fact]
+    public async Task Minimo_No_Superado_No_Dispara_Disponibilidad()
+    {
+        var nivel = await EvaluarAsync(ModoNivel2.Ambos, 20_000m, 10_000m, 5_000m, 1m, 0m);
+
+        Assert.Equal(RequiereNivel.SoloN1, nivel);
+    }
+
+    [Fact]
+    public async Task Minimo_Superado_Dispara_Disponibilidad()
+    {
+        var nivel = await EvaluarAsync(ModoNivel2.SoloDisponibilidad, 20_000m, 3_000m, 5_000m, 1m, 0m);
+
+        Assert.Equal(RequiereNivel.N1YN2, nivel);
+    }
+
+    [Fact]
+    public async Task Minimo_Usa_Importe_A_Comprar_No_El_Total()
+    {
+        var nivel = await EvaluarAsync(ModoNivel2.SoloDisponibilidad, 20_000m, 3_000m, 1_000m, 10m, 8m);
+
+        Assert.Equal(RequiereNivel.SoloN1, nivel);
+    }
+
+    [Fact]
+    public async Task Sin_Umbral_Vigente_Exige_N2()
+    {
+        var nivel = await EvaluarAsync(null, 20_000m, null, 100m, 1m, 10m);
+
+        Assert.Equal(RequiereNivel.N1YN2, nivel);
+    }
+
+    [Fact]
+    public async Task Depto_Sin_Fila_Usa_Fila_General()
+    {
+        var nivel = await EvaluarAsync(ModoNivel2.SoloMonto, 20_000m, null, 15_000m, 1m, 0m, departamentoFila: Guid.Empty);
+
+        Assert.Equal(RequiereNivel.SoloN1, nivel);
+    }
+
+    [Fact]
     public async Task SoloDisponibilidad_Articulo_Servicio_No_Cuenta_Como_Faltante()
     {
-        var nivel = await EvaluarAsync(ModoNivel2.SoloDisponibilidad, precio: 100m, cantidad: 2m, disponible: 0m, esServicio: true);
+        var nivel = await EvaluarAsync(ModoNivel2.SoloDisponibilidad, 20_000m, null, 100m, 2m, 0m, esServicio: true);
 
         Assert.Equal(RequiereNivel.SoloN1, nivel);
     }
@@ -75,57 +144,37 @@ public sealed class EvaluadorMultidimensionalModoTests
     {
         var consultas = new List<Guid>();
 
-        var nivel = await EvaluarAsync(ModoNivel2.Ambos, precio: 100m, cantidad: 2m, disponible: 0m,
-            esServicio: true, consultas: consultas);
+        var nivel = await EvaluarAsync(ModoNivel2.Ambos, 20_000m, null, 100m, 2m, 0m, esServicio: true, consultas: consultas);
 
         Assert.Equal(RequiereNivel.SoloN1, nivel);
         Assert.DoesNotContain(Servicio, consultas);
     }
 
     [Fact]
-    public async Task Ambos_Exige_N2_Por_Disponibilidad_Aunque_Monto_Sea_Bajo()
+    public async Task SoloMonto_No_Consulta_Stock()
     {
-        var nivel = await EvaluarAsync(ModoNivel2.Ambos, precio: 100m, cantidad: 2m, disponible: 0m);
+        var consultas = new List<Guid>();
 
-        Assert.Equal(RequiereNivel.N1YN2, nivel);
-    }
-
-    [Fact]
-    public async Task Ambos_Con_Existencia_Total_Y_Monto_Excedido_No_Sube_A_N2()
-    {
-        var nivel = await EvaluarAsync(ModoNivel2.Ambos, precio: 1_000m, cantidad: 2m, disponible: 10m);
+        var nivel = await EvaluarAsync(ModoNivel2.SoloMonto, 20_000m, null, 5_000m, 1m, 0m, consultas: consultas);
 
         Assert.Equal(RequiereNivel.SoloN1, nivel);
-    }
-
-    [Fact]
-    public async Task Linea_Sin_Precio_Con_Faltante_Exige_N2_Por_Disponibilidad()
-    {
-        // Precio 0 (RQ sin precio estimado): la evaluación depende solo de la existencia.
-        var nivel = await EvaluarAsync(ModoNivel2.SoloDisponibilidad, precio: 0m, cantidad: 2m, disponible: 0m);
-
-        Assert.Equal(RequiereNivel.N1YN2, nivel);
-    }
-
-    [Fact]
-    public void Setter_Rechaza_Valor_Fuera_De_Enum()
-    {
-        var settings = new ComprasSettings(Guid.CreateVersion7(), Empresa, autoGenerarOcAlAutorizar: false);
-
-        Assert.Equal(ModoNivel2.SoloMonto, settings.ModoNivel2);
-        Assert.Throws<BusinessRuleException>(() => settings.EstablecerModoNivel2((ModoNivel2)99));
+        Assert.Empty(consultas);
     }
 
     private static async Task<RequiereNivel> EvaluarAsync(
         ModoNivel2? modo,
+        decimal umbral,
+        decimal? minimo,
         decimal precio,
         decimal cantidad,
         decimal disponible,
         bool esServicio = false,
+        Guid? departamentoFila = null,
         List<Guid>? consultas = null)
     {
         var dbName = Guid.NewGuid().ToString();
         var empresa = new BypassedEmpresaContext();
+        var hoy = DateOnly.FromDateTime(DateTime.UtcNow);
         await using var db = new ComprasDbContext(
             new DbContextOptionsBuilder<ComprasDbContext>().UseInMemoryDatabase(dbName).Options, empresa);
         await using var compartido = new CompartidoDbContext(
@@ -133,9 +182,9 @@ public sealed class EvaluadorMultidimensionalModoTests
 
         if (modo is ModoNivel2 m)
         {
-            var settings = new ComprasSettings(Guid.CreateVersion7(), Empresa, autoGenerarOcAlAutorizar: false);
-            settings.EstablecerModoNivel2(m);
-            db.ComprasSettings.Add(settings);
+            db.UmbralesAprobacionDepartamento.Add(new UmbralAprobacionDepartamento(
+                Empresa, departamentoFila ?? Departamento, hoy.AddDays(-1), umbral,
+                modoNivel2: m, montoMinimoDisponibilidad: minimo));
             await db.SaveChangesAsync();
         }
 
@@ -161,7 +210,8 @@ public sealed class EvaluadorMultidimensionalModoTests
             new NaturalezaResolverService(compartido),
             new StockFalso(articuloId, disponible, consultas),
             new ConversionIdentidad(),
-            new ArticulosFalsos(esServicio ? Servicio : Guid.Empty));
+            new ArticulosFalsos(esServicio ? Servicio : Guid.Empty),
+            new TestClock(DateTimeOffset.UtcNow));
 
         return await evaluador.EvaluarAsync(requisicion);
     }

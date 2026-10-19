@@ -187,6 +187,13 @@ public static class AuthEndpoints
                                       where e.UsuarioId == userId
                                       select p.Nombre).FirstOrDefaultAsync(cancellationToken);
 
+            // Empleado ligado al usuario (null si no hay): el FE deshabilita
+            // «Autorizar como jefe» con explicación en vez de fallar en backend.
+            Guid? empleadoId = await compartidoDb.Empleados.AsNoTracking()
+                .Where(e => e.UsuarioId == userId)
+                .Select(e => (Guid?)e.Id)
+                .FirstOrDefaultAsync(cancellationToken);
+
             return Results.Ok(new MeResponse(
                 UserId: userId,
                 Email: string.Empty, // El JWT no incluye email en current user context; PR siguiente lo agrega si se necesita
@@ -195,7 +202,8 @@ public static class AuthEndpoints
                 CurrentEmpresaId: currentEmpresa.Current,
                 DepartamentoId: departamentoId,
                 Permisos: permisos,
-                ComprasSettings: comprasSettings));
+                ComprasSettings: comprasSettings,
+                EmpleadoId: empleadoId));
         })
         .RequireAuthorization()
         .WithName("GetMe");

@@ -214,9 +214,9 @@ public sealed class AwClientesSincronizador
     private void VerificarOperable()
     {
         if (!_options.LecturaHabilitada)
-            throw new AwClientesSyncException("lectura_deshabilitada", "La lectura de clientes A+W está deshabilitada (IntegracionesAw:Clientes:LecturaHabilitada).");
+            throw new AwClientesSyncException("lectura_deshabilitada", "La lectura de clientes A+W está apagada en este ambiente. Avisa a TI.");
         if (!_options.AplicacionHabilitada)
-            throw new AwClientesSyncException("aplicacion_deshabilitada", "La aplicación de clientes A+W está deshabilitada (IntegracionesAw:Clientes:AplicacionHabilitada).");
+            throw new AwClientesSyncException("aplicacion_deshabilitada", "La aplicación de clientes A+W está apagada en este ambiente. Avisa a TI.");
     }
 
     private async Task<string> NombreOrigenActivoAsync(CancellationToken ct)

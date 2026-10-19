@@ -84,7 +84,7 @@ public sealed class DiferenciasFiscalesAwService
 
         if (!_clientes.LecturaHabilitada)
         {
-            avisos.Add("No se compararon clientes: la lectura de clientes de A+W está apagada en este ambiente (IntegracionesAw:Clientes:LecturaHabilitada).");
+            avisos.Add("No se compararon clientes: la lectura de clientes de A+W está apagada en este ambiente.");
             return 0;
         }
 

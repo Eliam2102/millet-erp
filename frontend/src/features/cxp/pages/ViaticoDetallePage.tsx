@@ -1,16 +1,22 @@
-import { Link, useParams } from '@tanstack/react-router';
+import { PageHeader } from '@/components/erp/PageHeader';
+import { Link, useParams, useSearch } from '@tanstack/react-router';
+import { Badge } from '@/components/ui/badge';
 import { AlertTriangle, ArrowLeft } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { ErrorState, TableSkeleton } from '@/components/erp';
+import { ErrorState, DetalleSkeleton } from '@/components/erp';
+import { useState } from 'react';
 import { useSolicitudViaticos } from '@/features/cxp/api/useViaticos';
+import { AccionesViatico } from '@/features/cxp/components/AccionesViatico';
+import { CapturarComprobacionViaticosSheet } from '@/features/cxp/components/CapturarComprobacionViaticosSheet';
 import { TipoDestinoViaticoLabels } from '@/features/cxp/api/types';
 import { esApiError } from '@/lib/api';
 import { EstadoSolicitudViaticosChip } from '@/features/cxp/components/EstadoChips';
 import { Campo, Importe } from '@/features/cxp/components/DetalleCampos';
 import {
   formatearFechaHora,
-  formatearMonto,
 } from '@/features/cxp/lib/formato';
+import { MoneyDisplay } from '@/components/erp/display/MoneyDisplay';
+import { DateTimeDisplay } from '@/components/erp/display/DateTimeDisplay';
 
 /**
  * <c>P3 — Detalle de Solicitud de Viáticos</c> (serie detalles CxP,
@@ -22,14 +28,16 @@ const FROM = '/_app/cxp/viaticos/$id' as const;
 
 export function ViaticoDetallePage() {
   const { id } = useParams({ from: FROM });
+  const search = useSearch({ from: FROM });
   const query = useSolicitudViaticos(id);
+  const [comprobarAbierto, setComprobarAbierto] = useState(false);
 
   return (
     <div className="space-y-4">
       <div className="flex items-center gap-2">
         <Button asChild variant="ghost" size="sm">
-          <Link to="/cxp/viaticos" search={{}}>
-            <ArrowLeft className="mr-2 h-4 w-4" />
+          <Link to="/cxp/viaticos" search={search}>
+            <ArrowLeft className="mr-2 size-3.5" />
             Viáticos
           </Link>
         </Button>
@@ -42,41 +50,49 @@ export function ViaticoDetallePage() {
           onRetry={() => query.refetch()}
         />
       ) : query.isLoading ? (
-        <TableSkeleton
-          rows={6}
-          columns={[
-            { width: 'w-40' },
-            { width: 'w-32' },
-            { width: 'w-32' },
-            { width: 'w-32' },
-          ]}
-        />
+        <DetalleSkeleton />
       ) : query.data == null ? null : (
         <div className="space-y-6">
-          <header className="space-y-2">
-            <div className="flex flex-wrap items-center gap-3">
-              <h1 className="text-2xl font-semibold tracking-tight">
-                {query.data.destino}
-              </h1>
-              <EstadoSolicitudViaticosChip estado={query.data.estado} />
-              <span className="inline-flex items-center rounded-full bg-slate-100 px-2 py-0.5 text-xs font-medium text-slate-700">
-                {TipoDestinoViaticoLabels[query.data.tipoDestino]}
-              </span>
-              {query.data.excedePolitica && (
-                <span className="inline-flex items-center rounded-full bg-amber-100 px-2 py-0.5 text-xs font-medium text-amber-800">
-                  <AlertTriangle className="mr-1 h-3 w-3" />
-                  Excede política
-                </span>
-              )}
-            </div>
-            <p className="text-sm text-muted-foreground">
-              {query.data.fechaSalida} → {query.data.fechaRegreso} (
-              {query.data.diasEstimados} días) · Solicitada:{' '}
-              {formatearFechaHora(query.data.fechaSolicitud)}
-            </p>
-          </header>
+          <PageHeader
+            titulo={query.data.destino}
+            estado={
+              <>
+                <EstadoSolicitudViaticosChip estado={query.data.estado} />
+                <Badge variant="neutral">
+                  {TipoDestinoViaticoLabels[query.data.tipoDestino]}
+                </Badge>
+                {query.data.excedePolitica && (
+                  <Badge variant="warning">
+                    <AlertTriangle className="mr-1 size-3.5" />
+                    Excede política
+                  </Badge>
+                )}
+              </>
+            }
+            descripcion={
+              <>
+                <DateTimeDisplay value={query.data.fechaSalida} variant="media" /> → <DateTimeDisplay value={query.data.fechaRegreso} variant="media" /> (
+                {query.data.diasEstimados} días) · Solicitada:{' '}
+                {formatearFechaHora(query.data.fechaSolicitud)}
+              </>
+            }
+          />
 
-          <section className="grid grid-cols-1 gap-x-6 gap-y-2 rounded-md border p-4 md:grid-cols-2">
+          {/* Sub-topbar: mismas acciones que la fila de la bandeja (CXP-29). */}
+          <AccionesViatico
+            s={query.data}
+            moneda={query.data.moneda}
+            empleadoNombre={query.data.empleadoNombre}
+            onComprobar={() => setComprobarAbierto(true)}
+            className="justify-start rounded-md border bg-surface-subtle px-3 py-2"
+          />
+          <CapturarComprobacionViaticosSheet
+            open={comprobarAbierto}
+            onOpenChange={setComprobarAbierto}
+            solicitud={query.data}
+          />
+
+          <dl className="grid grid-cols-1 gap-x-6 gap-y-2 rounded-md border p-4 @xl:grid-cols-2 @3xl:grid-cols-4 @5xl:grid-cols-6">
             <Campo
               label="Empleado"
               valor={query.data.empleadoNombre ?? query.data.empleadoId}
@@ -101,7 +117,7 @@ export function ViaticoDetallePage() {
                 <dd className="text-sm">{query.data.justificacionExceso}</dd>
               </div>
             )}
-          </section>
+          </dl>
 
           <section className="rounded-md border p-4">
             <h2 className="mb-2 text-sm font-semibold uppercase tracking-wide text-muted-foreground">
@@ -236,11 +252,9 @@ export function ViaticoDetallePage() {
                         </td>
                         <td className="px-3 py-2">
                           {l.esTicketNoFiscal ? (
-                            <span className="inline-flex items-center rounded-full bg-slate-200 px-2 py-0.5 text-xs font-medium text-slate-700">
-                              No fiscal
-                            </span>
+                            <Badge variant="neutral">No fiscal</Badge>
                           ) : (
-                            <span className="font-mono text-xs">
+                            <span className="break-all font-mono text-xs">
                               {l.uuidCfdi ?? '—'}
                               {l.folioProveedor != null &&
                                 ` · ${l.folioProveedor}`}
@@ -250,17 +264,17 @@ export function ViaticoDetallePage() {
                         <td className="max-w-64 truncate px-3 py-2">
                           {l.concepto}
                         </td>
-                        <td className="px-3 py-2 text-right font-mono">
-                          {formatearMonto(l.subtotal, l.moneda)}
+                        <td className="py-2 pl-3 pr-4 text-right tabular-nums">
+                          <MoneyDisplay amount={l.subtotal} currency={l.moneda} strong />
                         </td>
-                        <td className="px-3 py-2 text-right font-mono">
-                          {formatearMonto(l.impuestosTrasladados, l.moneda)}
+                        <td className="py-2 pl-3 pr-4 text-right tabular-nums">
+                          <MoneyDisplay amount={l.impuestosTrasladados} currency={l.moneda} strong />
                         </td>
-                        <td className="px-3 py-2 text-right font-mono">
-                          {formatearMonto(l.retenciones, l.moneda)}
+                        <td className="py-2 pl-3 pr-4 text-right tabular-nums">
+                          <MoneyDisplay amount={l.retenciones} currency={l.moneda} strong />
                         </td>
-                        <td className="px-3 py-2 text-right font-mono">
-                          {formatearMonto(l.total, l.moneda)}
+                        <td className="py-2 pl-3 pr-4 text-right tabular-nums">
+                          <MoneyDisplay amount={l.total} currency={l.moneda} strong />
                         </td>
                       </tr>
                     ))}

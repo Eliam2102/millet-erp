@@ -18,6 +18,7 @@ public sealed class UmbralAprobacionDepartamentoConfiguration : IEntityTypeConfi
         {
             t.HasCheckConstraint("ck_umbrales_moneda_iso", "moneda ~ '^[A-Z]{3}$'");
             t.HasCheckConstraint("ck_umbrales_monto_no_negativo", "umbral_monto >= 0");
+            t.HasCheckConstraint("ck_umbrales_monto_minimo_no_negativo", "monto_minimo_disponibilidad IS NULL OR monto_minimo_disponibilidad >= 0");
         });
 
         builder.HasKey(u => new { u.EmpresaId, u.DepartamentoId, u.VigenteDesde });
@@ -30,5 +31,7 @@ public sealed class UmbralAprobacionDepartamentoConfiguration : IEntityTypeConfi
         builder.Property(u => u.UmbralMenorCuantia).HasPrecision(15, 2);
         builder.Property(u => u.UmbralMonto).HasPrecision(15, 2).IsRequired();
         builder.Property(u => u.Moneda).HasMaxLength(3).HasDefaultValue("MXN").IsRequired();
+        builder.Property(u => u.ModoNivel2).IsRequired().HasDefaultValue(ModoNivel2.SoloDisponibilidad);
+        builder.Property(u => u.MontoMinimoDisponibilidad).HasPrecision(15, 2);
     }
 }

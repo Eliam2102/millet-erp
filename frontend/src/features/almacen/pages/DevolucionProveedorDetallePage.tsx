@@ -1,12 +1,13 @@
-import { useState } from 'react';
+import { PageHeader } from '@/components/erp/PageHeader';
+import { useState, type ReactNode } from 'react';
 import { Link, useParams } from '@tanstack/react-router';
 import { ArrowLeft, Check, Send, Truck, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { ErrorState, TableSkeleton } from '@/components/erp';
+import { ErrorState, DetalleSkeleton } from '@/components/erp';
 import { useDevolucionProveedor } from '@/features/almacen/api/useDevolucionesProveedor';
+import { useSubAlmacenes } from '@/features/almacen/api/useAlmacenes';
 import {
   EstadoDevolucionProveedor,
-  EstadoDevolucionProveedorLabels,
 } from '@/features/almacen/api/types';
 import { useHasPermission } from '@/lib/auth/useHasPermission';
 import { PermisosCanonicos } from '@/lib/auth/permission-codes';
@@ -18,7 +19,11 @@ import {
   RegistrarSalidaDevolucionSheet,
   SolicitarAutorizacionConfirm,
 } from '@/features/almacen/components/DevolucionAccionesDialogs';
-import { cn } from '@/lib/utils';
+import { EstadoAlmacenBadge } from '@/features/almacen/components/EstadoAlmacenBadge';
+import { MoneyDisplay } from '@/components/erp/display/MoneyDisplay';
+import { formatCantidad } from '@/lib/format-cantidad';
+import { DateTimeDisplay } from '@/components/erp/display/DateTimeDisplay';
+import { useDecimalesUnidad } from '@/components/erp/forms/useDecimalesUnidad';
 
 const FROM = '/_app/almacen/devoluciones/proveedor/$id' as const;
 
@@ -40,6 +45,11 @@ const FROM = '/_app/almacen/devoluciones/proveedor/$id' as const;
 export function DevolucionProveedorDetallePage() {
   const { id } = useParams({ from: FROM });
   const query = useDevolucionProveedor(id);
+  const decimalesUnidad = useDecimalesUnidad();
+  const subAlmacenes = useSubAlmacenes({ limit: 200 });
+  const subAlmacenOrigen = subAlmacenes.data?.items?.find(
+    (s) => s.id === query.data?.subAlmacenOrigenId,
+  );
 
   const puedeIniciar = useHasPermission(
     PermisosCanonicos.AlmacenDevolucionesProveedorIniciar,
@@ -58,10 +68,10 @@ export function DevolucionProveedorDetallePage() {
 
   return (
     <div className="space-y-4">
-      <div className="flex items-center gap-2">
+      <div className="flex items-center gap-2 md:hidden">
         <Button asChild variant="ghost" size="sm">
           <Link to="/almacen/devoluciones" search={{}}>
-            <ArrowLeft className="mr-2 h-4 w-4" />
+            <ArrowLeft className="mr-2 size-3.5" />
             Devoluciones
           </Link>
         </Button>
@@ -74,56 +84,52 @@ export function DevolucionProveedorDetallePage() {
           onRetry={() => query.refetch()}
         />
       ) : query.isLoading ? (
-        <TableSkeleton
-          rows={4}
-          columns={[
-            { width: 'w-40' },
-            { width: 'w-48' },
-            { width: 'w-32' },
-            { width: 'w-32' },
-            { width: 'w-32' },
-          ]}
-        />
+        <DetalleSkeleton />
       ) : query.data == null ? null : (
         <div className="space-y-6">
-          <header className="space-y-2">
-            <div className="flex flex-wrap items-center gap-3">
-              <h1 className="text-2xl font-semibold tracking-tight">
-                Devolución a proveedor
-              </h1>
-              <EstadoBadge estado={query.data.estado} />
-            </div>
-            <p className="text-sm text-muted-foreground">
-              Solicitada el{' '}
-              {new Date(query.data.solicitadaAt).toLocaleString('es-MX')}
-              {query.data.autorizadaAt && (
-                <>
-                  {' '}
-                  · Autorizada el{' '}
-                  {new Date(query.data.autorizadaAt).toLocaleString('es-MX')}
-                </>
-              )}
-              {query.data.registradaAt && (
-                <>
-                  {' '}
-                  · Registrada el{' '}
-                  {new Date(query.data.registradaAt).toLocaleString('es-MX')}
-                </>
-              )}
-            </p>
-
-            <Acciones
-              estado={query.data.estado}
-              tieneEvidencias={query.data.evidencias.length > 0}
-              puedeIniciar={puedeIniciar}
-              puedeAutorizar={puedeAutorizar}
-              puedeRegistrar={puedeRegistrar}
-              onSolicitar={() => setSolicitarOpen(true)}
-              onAutorizar={() => setAutorizarOpen(true)}
-              onRechazar={() => setRechazarOpen(true)}
-              onRegistrarSalida={() => setRegistrarSalidaOpen(true)}
-            />
-          </header>
+          <PageHeader
+            titulo="Devolución a proveedor"
+            estado={
+              <>
+                <EstadoAlmacenBadge tipo="devolucion-proveedor" estado={query.data.estado} />
+              </>
+            }
+            descripcion={
+              <>
+                Solicitada el{' '}
+                <DateTimeDisplay value={query.data.solicitadaAt} variant="datetime" />
+                {query.data.autorizadaAt && (
+                  <>
+                    {' '}
+                    · Autorizada el{' '}
+                    <DateTimeDisplay value={query.data.autorizadaAt} variant="datetime" />
+                  </>
+                )}
+                {query.data.registradaAt && (
+                  <>
+                    {' '}
+                    · Registrada el{' '}
+                    <DateTimeDisplay value={query.data.registradaAt} variant="datetime" />
+                  </>
+                )}
+              </>
+            }
+            acciones={
+              <>
+                <Acciones
+                  estado={query.data.estado}
+                  tieneEvidencias={query.data.evidencias.length > 0}
+                  puedeIniciar={puedeIniciar}
+                  puedeAutorizar={puedeAutorizar}
+                  puedeRegistrar={puedeRegistrar}
+                  onSolicitar={() => setSolicitarOpen(true)}
+                  onAutorizar={() => setAutorizarOpen(true)}
+                  onRechazar={() => setRechazarOpen(true)}
+                  onRegistrarSalida={() => setRegistrarSalidaOpen(true)}
+                />
+              </>
+            }
+          />
 
           <section className="grid grid-cols-1 gap-x-6 gap-y-2 rounded-md border p-4 md:grid-cols-2">
             {/* Razón social resuelta en backend (ADR-0042); si el puerto no
@@ -138,23 +144,61 @@ export function DevolucionProveedorDetallePage() {
             />
             <Campo
               label="Recepción origen"
-              valor={query.data.recepcionOrigenId ?? '—'}
-              mono
+              valor={
+                query.data.recepcionOrigenId ? (
+                  <Link
+                    to="/almacen/recepciones/$id"
+                    params={{ id: query.data.recepcionOrigenId }}
+                    className="text-brand hover:underline"
+                  >
+                    {query.data.recepcionOrigenFolio ?? 'Ver recepción'}
+                  </Link>
+                ) : (
+                  '—'
+                )
+              }
             />
             <Campo
               label="OC origen"
-              valor={query.data.ordenCompraOrigenId ?? '—'}
-              mono
+              valor={
+                query.data.ordenCompraOrigenId ? (
+                  <Link
+                    to="/compras/ordenes/$id"
+                    params={{ id: query.data.ordenCompraOrigenId }}
+                    className="text-brand hover:underline"
+                  >
+                    {query.data.ordenCompraOrigenFolio ?? 'Ver orden de compra'}
+                  </Link>
+                ) : (
+                  '—'
+                )
+              }
             />
             <Campo
               label="Factura proveedor origen"
-              valor={query.data.facturaProveedorOrigenId ?? '—'}
-              mono
+              valor={
+                query.data.facturaProveedorOrigenId ? (
+                  <Link
+                    to="/cxp/facturas/$id"
+                    params={{ id: query.data.facturaProveedorOrigenId }}
+                    className="text-brand hover:underline"
+                  >
+                    Ver factura
+                  </Link>
+                ) : (
+                  '—'
+                )
+              }
             />
             <Campo
               label="Sub-almacén origen"
-              valor={query.data.subAlmacenOrigenId ?? '—'}
-              mono
+              valor={
+                query.data.subAlmacenOrigenClave
+                  ? `${query.data.subAlmacenOrigenClave} · ${query.data.subAlmacenOrigenNombre}`
+                  : subAlmacenOrigen
+                    ? `${subAlmacenOrigen.clave} · ${subAlmacenOrigen.nombre}`
+                    : '—'
+              }
             />
             <Campo
               label="Folio movimiento salida"
@@ -187,6 +231,7 @@ export function DevolucionProveedorDetallePage() {
           <EvidenciasManager
             devolucionId={query.data.id}
             evidencias={query.data.evidencias}
+            lineaRevisionId={query.data.lineas.find((l) => l.lineaRecepcionOrigenId)?.lineaRecepcionOrigenId}
             canAdd={
               puedeIniciar &&
               (query.data.estado === EstadoDevolucionProveedor.Borrador ||
@@ -233,18 +278,15 @@ export function DevolucionProveedorDetallePage() {
                           </code>
                         )}
                       </td>
-                      <td className="px-3 py-2 text-right font-mono">
-                        {l.cantidad.toLocaleString('es-MX', {
-                          minimumFractionDigits: 2,
-                          maximumFractionDigits: 4,
-                        })}
+                      <td className="py-2 pl-3 pr-4 text-right tabular-nums">
+                        {formatCantidad(l.cantidad, decimalesUnidad.porCodigo(l.unidadMedida))}
                       </td>
                       <td className="px-3 py-2">{l.unidadMedida}</td>
-                      <td className="px-3 py-2 text-right font-mono">
-                        {formatearMonto(l.costoUnitarioMxn)}
+                      <td className="py-2 pl-3 pr-4 text-right tabular-nums">
+                        <MoneyDisplay amount={l.costoUnitarioMxn} currency="MXN" strong />
                       </td>
-                      <td className="px-3 py-2 text-right font-mono">
-                        {formatearMonto(l.montoTotalMxn)}
+                      <td className="py-2 pl-3 pr-4 text-right tabular-nums">
+                        <MoneyDisplay amount={l.montoTotalMxn} currency="MXN" strong />
                       </td>
                     </tr>
                   ))}
@@ -314,7 +356,7 @@ function Acciones({
               : 'Agrega al menos una evidencia antes de solicitar'
           }
         >
-          <Send className="mr-2 h-4 w-4" />
+          <Send className="mr-2 size-3.5" />
           Solicitar autorización
         </Button>
       </div>
@@ -324,11 +366,11 @@ function Acciones({
     return (
       <div className="flex gap-2">
         <Button onClick={onAutorizar}>
-          <Check className="mr-2 h-4 w-4" />
+          <Check className="mr-2 size-3.5" />
           Autorizar
         </Button>
-        <Button variant="destructive" onClick={onRechazar}>
-          <X className="mr-2 h-4 w-4" />
+        <Button variant="secondary-danger" onClick={onRechazar}>
+          <X className="mr-2 size-3.5" />
           Rechazar
         </Button>
       </div>
@@ -338,7 +380,7 @@ function Acciones({
     return (
       <div className="flex gap-2">
         <Button onClick={onRegistrarSalida}>
-          <Truck className="mr-2 h-4 w-4" />
+          <Truck className="mr-2 size-3.5" />
           Registrar salida física
         </Button>
       </div>
@@ -360,7 +402,7 @@ function Campo({
   mono,
 }: {
   label: string;
-  valor: string;
+  valor: ReactNode;
   mono?: boolean;
 }) {
   return (
@@ -375,34 +417,4 @@ function Campo({
   );
 }
 
-function EstadoBadge({ estado }: { estado: EstadoDevolucionProveedor }) {
-  return (
-    <span
-      className={cn(
-        'inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium',
-        estado === EstadoDevolucionProveedor.Borrador &&
-          'bg-slate-200 text-slate-700',
-        estado === EstadoDevolucionProveedor.EnAutorizacion &&
-          'bg-amber-100 text-amber-800',
-        estado === EstadoDevolucionProveedor.Autorizada &&
-          'bg-blue-100 text-blue-800',
-        estado === EstadoDevolucionProveedor.Registrada &&
-          'bg-violet-100 text-violet-800',
-        estado === EstadoDevolucionProveedor.ConciliadaConNcFiscal &&
-          'bg-emerald-100 text-emerald-800',
-        estado === EstadoDevolucionProveedor.Rechazada &&
-          'bg-rose-100 text-rose-800',
-      )}
-    >
-      {EstadoDevolucionProveedorLabels[estado]}
-    </span>
-  );
-}
 
-function formatearMonto(v: number): string {
-  return new Intl.NumberFormat('es-MX', {
-    style: 'currency',
-    currency: 'MXN',
-    minimumFractionDigits: 2,
-  }).format(v);
-}

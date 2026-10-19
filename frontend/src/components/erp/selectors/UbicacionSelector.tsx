@@ -19,6 +19,8 @@ export interface UbicacionSelectorProps {
   placeholder?: string;
   disabled?: boolean;
   className?: string;
+  /** Si se pasa, solo se ofrecen las ubicaciones cuyo id está en el conjunto. */
+  soloIds?: ReadonlySet<string>;
 }
 
 export function UbicacionSelector({
@@ -28,9 +30,11 @@ export function UbicacionSelector({
   placeholder = 'Selecciona ubicación',
   disabled,
   className,
+  soloIds,
 }: UbicacionSelectorProps) {
   const query = useUbicaciones({ limit: 500 });
-  const items = query.data?.items ?? [];
+  const todas = query.data?.items ?? [];
+  const items = soloIds ? todas.filter((u) => soloIds.has(u.id)) : todas;
 
   return (
     <CatalogoEagerCombobox

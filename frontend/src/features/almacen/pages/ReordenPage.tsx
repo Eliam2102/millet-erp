@@ -1,8 +1,18 @@
+import { PageHeader } from '@/components/erp/PageHeader';
 import { useMemo, useState } from 'react';
 import { useNavigate, useSearch } from '@tanstack/react-router';
 import { Ban, Pencil, Plus, Power } from 'lucide-react';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableContainer,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '@/components/ui/table';
 import {
   Select,
   SelectContent,
@@ -24,6 +34,7 @@ import {
   ArticuloSelector,
   EmptyState,
   ErrorState,
+  PaginacionTabla,
   SortableHeader,
   TableSkeleton,
   compareItemsBy,
@@ -52,6 +63,10 @@ import { PermisosCanonicos } from '@/lib/auth/permission-codes';
 import { esApiError } from '@/lib/api';
 import { ReordenSheet } from '@/features/almacen/components/ReordenSheet';
 import { cn } from '@/lib/utils';
+import { Field } from '@/features/almacen/components/internal/Field';
+import { offsetLimitAPagina, paginaAOffsetLimit } from '@/components/erp/data/paginacion';
+import { EstadoAlmacenBadge } from '@/features/almacen/components/EstadoAlmacenBadge';
+import { formatCantidad } from '@/lib/format-cantidad';
 
 const FROM = '/_app/almacen/reorden' as const;
 const SENTINEL_ALL = '__all__';
@@ -102,13 +117,14 @@ export function ReordenPage() {
     articuloId: search.articuloId,
     nivel: search.nivel,
     estatus: search.estatus,
-    limit: 500,
+    ...paginaAOffsetLimit(search),
   });
 
   const desactivar = useDesactivarReorden();
 
   function actualizarSearch(parcial: Partial<ReordenSearch>) {
-    navigate({ to: '/almacen/reorden', search: { ...search, ...parcial } });
+    // Cambiar un filtro regresa a la página 1; la paginación pasa su propia página.
+    navigate({ to: '/almacen/reorden', search: { ...search, page: undefined, ...parcial } });
   }
 
   function resolverEntidad(item: ConfiguracionReordenListItem): string {
@@ -161,27 +177,25 @@ export function ReordenPage() {
 
   return (
     <div className="space-y-4">
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <div>
-          <h1 className="text-2xl font-semibold tracking-tight">Reabasto</h1>
-          <p className="text-sm text-muted-foreground">
-            Puntos de reabasto por artículo en una sucursal o almacén. El motor
-            propone requisiciones cuando la existencia cae por debajo del
-            objetivo.
-          </p>
-        </div>
-        {puedeAdministrar && (
-          <Button
-            onClick={() => {
-              setEditando(null);
-              setSheetAbierto(true);
-            }}
-          >
-            <Plus className="mr-2 h-4 w-4" />
-            Nuevo reabasto
-          </Button>
-        )}
-      </div>
+      <PageHeader
+        titulo="Reabasto"
+        descripcion="Puntos de reabasto por artículo en una sucursal o almacén. El motor propone requisiciones cuando la existencia cae por debajo del objetivo."
+        acciones={
+          <>
+            {puedeAdministrar && (
+              <Button
+                onClick={() => {
+                  setEditando(null);
+                  setSheetAbierto(true);
+                }}
+              >
+                <Plus className="mr-2 size-3.5" />
+                Nuevo reabasto
+              </Button>
+            )}
+          </>
+        }
+      />
 
       {/* Interruptor operativo del motor de reorden (AlmacenSettings).
           El estado lo ve quien puede leer la bandeja; cambiarlo exige
@@ -191,8 +205,8 @@ export function ReordenPage() {
           className={cn(
             'flex flex-wrap items-center justify-between gap-3 rounded-md border px-4 py-3',
             settingsQuery.data.reabastoAutomaticoActivo
-              ? 'border-emerald-300 bg-emerald-50'
-              : 'border-amber-300 bg-amber-50',
+              ? 'border-success bg-success-bg'
+              : 'border-warning bg-warning-bg',
           )}
         >
           <div className="flex items-center gap-3">
@@ -200,8 +214,8 @@ export function ReordenPage() {
               className={cn(
                 'h-5 w-5 shrink-0',
                 settingsQuery.data.reabastoAutomaticoActivo
-                  ? 'text-emerald-700'
-                  : 'text-amber-700',
+                  ? 'text-success-fg'
+                  : 'text-warning-fg',
               )}
             />
             <div>
@@ -270,16 +284,24 @@ export function ReordenPage() {
           }
         />
       ) : (
-        <TablaReorden
-          items={query.data!.items}
-          resolverEntidad={resolverEntidad}
-          puedeAdministrar={puedeAdministrar}
-          onEditar={(item) => {
-            setEditando(item);
-            setSheetAbierto(true);
-          }}
-          onDesactivar={setConfirmDesactivar}
-        />
+        <div className="overflow-hidden rounded-lg border border-line-row bg-surface-card">
+          <TablaReorden
+            items={query.data!.items}
+            resolverEntidad={resolverEntidad}
+            puedeAdministrar={puedeAdministrar}
+            onEditar={(item) => {
+              setEditando(item);
+              setSheetAbierto(true);
+            }}
+            onDesactivar={setConfirmDesactivar}
+          />
+          <PaginacionTabla
+            total={query.data?.total ?? 0}
+            offset={query.data?.offset ?? 0}
+            limit={query.data?.limit ?? paginaAOffsetLimit(search).limit}
+            onChange={(offset, limit) => actualizarSearch(offsetLimitAPagina(offset, limit))}
+          />
+        </div>
       )}
 
       <ReordenSheet
@@ -380,17 +402,15 @@ function FiltrosToolbar({ search, onChange }: FiltrosToolbarProps) {
     search.articuloId != null || search.nivel != null || search.estatus != null;
   return (
     <div className="flex flex-wrap items-end gap-3">
-      <div className="space-y-1">
-        <label className="text-xs text-muted-foreground">Artículo</label>
-        <div className="w-64">
-          <ArticuloSelector
-            value={search.articuloId ?? null}
-            onChange={(id) => onChange({ articuloId: id ?? undefined })}
-          />
-        </div>
-      </div>
-      <div className="space-y-1">
-        <label className="text-xs text-muted-foreground">Nivel</label>
+      <Field label="Artículo" className="gap-1">
+        <ArticuloSelector
+          value={search.articuloId ?? null}
+          onChange={(id) => onChange({ articuloId: id ?? undefined })}
+          className="w-64"
+        />
+      </Field>
+      <Field label="Nivel" className="gap-1">
+        {(c) => (
         <Select
           value={search.nivel != null ? String(search.nivel) : SENTINEL_ALL}
           onValueChange={(v) =>
@@ -400,7 +420,7 @@ function FiltrosToolbar({ search, onChange }: FiltrosToolbarProps) {
             })
           }
         >
-          <SelectTrigger className="w-44">
+          <SelectTrigger {...c} className="w-44">
             <SelectValue placeholder="Todos" />
           </SelectTrigger>
           <SelectContent>
@@ -413,9 +433,10 @@ function FiltrosToolbar({ search, onChange }: FiltrosToolbarProps) {
             </SelectItem>
           </SelectContent>
         </Select>
-      </div>
-      <div className="space-y-1">
-        <label className="text-xs text-muted-foreground">Estatus</label>
+        )}
+      </Field>
+      <Field label="Estatus" className="gap-1">
+        {(c) => (
         <Select
           value={search.estatus != null ? String(search.estatus) : SENTINEL_ALL}
           onValueChange={(v) =>
@@ -427,7 +448,7 @@ function FiltrosToolbar({ search, onChange }: FiltrosToolbarProps) {
             })
           }
         >
-          <SelectTrigger className="w-44">
+          <SelectTrigger {...c} className="w-44">
             <SelectValue placeholder="Todos" />
           </SelectTrigger>
           <SelectContent>
@@ -440,7 +461,8 @@ function FiltrosToolbar({ search, onChange }: FiltrosToolbarProps) {
             </SelectItem>
           </SelectContent>
         </Select>
-      </div>
+        )}
+      </Field>
       {hayFiltros && (
         <Button
           variant="ghost"
@@ -499,59 +521,59 @@ function TablaReorden({
   }, [enriquecidos, sort]);
 
   return (
-    <div className="overflow-x-auto rounded-md border">
-      <table className="w-full text-sm">
-        <thead className="bg-muted/50">
-          <tr>
-            <th className="px-3 py-2 text-left">
+    <TableContainer>
+      <Table>
+        <TableHeader>
+          <TableRow>
+            <TableHead className="w-full">
               <SortableHeader
                 columnKey="articulo"
                 label="Artículo"
                 current={sort}
                 onSortChange={setSort}
               />
-            </th>
-            <th className="px-3 py-2 text-left">
+            </TableHead>
+            <TableHead>
               <SortableHeader
                 columnKey="nivel"
                 label="Nivel"
                 current={sort}
                 onSortChange={setSort}
               />
-            </th>
-            <th className="px-3 py-2 text-left">
+            </TableHead>
+            <TableHead>
               <SortableHeader
                 columnKey="entidad"
                 label="Entidad"
                 current={sort}
                 onSortChange={setSort}
               />
-            </th>
-            <th className="px-3 py-2 text-right font-medium">Mín</th>
-            <th className="px-3 py-2 text-right font-medium">Máx</th>
-            <th className="px-3 py-2 text-right font-medium">P. reorden</th>
-            <th className="px-3 py-2 text-center font-medium">Auto</th>
-            <th className="px-3 py-2 text-left">
+            </TableHead>
+            <TableHead className="text-right">Mín</TableHead>
+            <TableHead className="hidden text-right xl:table-cell">Máx</TableHead>
+            <TableHead className="text-right">P. reorden</TableHead>
+            <TableHead className="hidden text-center xl:table-cell">Auto</TableHead>
+            <TableHead>
               <SortableHeader
                 columnKey="estatus"
                 label="Estatus"
                 current={sort}
                 onSortChange={setSort}
               />
-            </th>
+            </TableHead>
             {puedeAdministrar && (
-              <th className="px-3 py-2 text-right font-medium">Acciones</th>
+              <TableHead className="text-right">Acciones</TableHead>
             )}
-          </tr>
-        </thead>
-        <tbody>
+          </TableRow>
+        </TableHeader>
+        <TableBody>
           {ordenados.map(({ item, articulo, entidad }) => (
-            <tr key={item.id} className="border-t">
-              <td className="px-3 py-2">{articulo}</td>
-              <td className="px-3 py-2">
-                <NivelBadge nivel={item.nivel} />
-              </td>
-              <td className="px-3 py-2">{entidad}</td>
+            <TableRow key={item.id}>
+              <TableCell className="max-w-0 truncate" title={articulo}>{articulo}</TableCell>
+              <TableCell>
+                <EstadoAlmacenBadge tipo="nivel-reorden" estado={item.nivel} />
+              </TableCell>
+              <TableCell>{entidad}</TableCell>
               <ValorCelda
                 valor={item.minimo}
                 activo={item.objetivo === ObjetivoReposicion.Minimo}
@@ -559,19 +581,20 @@ function TablaReorden({
               <ValorCelda
                 valor={item.maximo}
                 activo={item.objetivo === ObjetivoReposicion.Maximo}
+                className="hidden xl:table-cell"
               />
               <ValorCelda
                 valor={item.puntoReorden}
                 activo={item.objetivo === ObjetivoReposicion.Reorden}
               />
-              <td className="px-3 py-2 text-center">
+              <TableCell className="hidden text-center xl:table-cell">
                 {item.autoRequisicion ? 'Sí' : 'No'}
-              </td>
-              <td className="px-3 py-2">
-                <EstatusBadge estatus={item.estatus} />
-              </td>
+              </TableCell>
+              <TableCell>
+                <EstadoAlmacenBadge tipo="catalogo" estado={item.estatus} />
+              </TableCell>
               {puedeAdministrar && (
-                <td className="px-3 py-2 text-right">
+                <TableCell className="text-right">
                   <Button
                     type="button"
                     size="sm"
@@ -592,57 +615,38 @@ function TablaReorden({
                       <Ban className="h-4 w-4" />
                     </Button>
                   )}
-                </td>
+                </TableCell>
               )}
-            </tr>
+            </TableRow>
           ))}
-        </tbody>
-      </table>
-    </div>
+        </TableBody>
+      </Table>
+    </TableContainer>
   );
 }
 
 /** Celda numérica; resalta el valor que dicta el Objetivo (meta activa). */
-function ValorCelda({ valor, activo }: { valor: number; activo: boolean }) {
+function ValorCelda({
+  valor,
+  activo,
+  className,
+}: {
+  valor: number;
+  activo: boolean;
+  className?: string;
+}) {
   return (
-    <td
+    <TableCell
       className={cn(
-        'px-3 py-2 text-right tabular-nums',
-        activo && 'font-semibold text-foreground',
+        'text-right tabular-nums',
+        activo && 'font-semibold text-ink-strong',
+        className,
       )}
       title={activo ? 'Objetivo de reabasto' : undefined}
     >
-      {valor}
-    </td>
+      {formatCantidad(valor)}
+    </TableCell>
   );
 }
 
-function NivelBadge({ nivel }: { nivel: NivelReorden }) {
-  return (
-    <span
-      className={cn(
-        'inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium',
-        nivel === NivelReorden.Sucursal
-          ? 'bg-sky-100 text-sky-800'
-          : 'bg-violet-100 text-violet-800',
-      )}
-    >
-      {NivelReordenLabels[nivel]}
-    </span>
-  );
-}
 
-function EstatusBadge({ estatus }: { estatus: EstatusCatalogo }) {
-  return (
-    <span
-      className={cn(
-        'inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium',
-        estatus === EstatusCatalogo.Activo && 'bg-emerald-100 text-emerald-800',
-        estatus === EstatusCatalogo.Inactivo && 'bg-slate-200 text-slate-700',
-        estatus === EstatusCatalogo.Borrador && 'bg-amber-100 text-amber-800',
-      )}
-    >
-      {EstatusCatalogoLabels[estatus]}
-    </span>
-  );
-}

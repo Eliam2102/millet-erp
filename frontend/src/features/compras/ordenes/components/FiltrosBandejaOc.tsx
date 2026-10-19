@@ -21,6 +21,8 @@ import {
   PopoverTrigger,
 } from '@/components/ui/popover';
 import {
+  ESTADO_COMERCIAL_PROVEEDOR_LABELS,
+  EstadoComercialProveedorOc,
   EstadoOrdenCompra,
   estadoOcToString,
   SubEstadoFacturacion,
@@ -116,6 +118,15 @@ export function FiltrosBandejaOc({
     });
   }
 
+  function handleEstadoComercialChange(value: string) {
+    setFiltro({
+      estadoComercialProveedor:
+        value === SENTINEL_ALL
+          ? undefined
+          : (Number(value) as EstadoComercialProveedorOc),
+    });
+  }
+
   function handleLimpiar() {
     onChange({ page: 1, pageSize: search.pageSize });
   }
@@ -127,7 +138,8 @@ export function FiltrosBandejaOc({
   const subFiltrosActivos =
     (search.subEstadoRecepcion != null ? 1 : 0) +
     (search.subEstadoFacturacion != null ? 1 : 0) +
-    (search.subEstadoPago != null ? 1 : 0);
+    (search.subEstadoPago != null ? 1 : 0) +
+    (search.estadoComercialProveedor != null ? 1 : 0);
 
   const hayFiltrosActivos =
     search.estado != null ||
@@ -314,6 +326,33 @@ export function FiltrosBandejaOc({
                 {Object.values(SubEstadoPago).map((s) => (
                   <SelectItem key={s} value={String(s)}>
                     {subEstadoPagoToString(s)}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+
+          <div>
+            <label className="mb-1 block text-xs font-medium">Respuesta del proveedor</label>
+            <Select
+              value={
+                search.estadoComercialProveedor != null
+                  ? String(search.estadoComercialProveedor)
+                  : SENTINEL_ALL
+              }
+              onValueChange={handleEstadoComercialChange}
+            >
+              <SelectTrigger
+                className="h-8 text-xs"
+                aria-label="Filtro de estado comercial del proveedor"
+              >
+                <SelectValue placeholder="Respuesta: cualquiera" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value={SENTINEL_ALL}>Respuesta: cualquiera</SelectItem>
+                {Object.values(EstadoComercialProveedorOc).map((s) => (
+                  <SelectItem key={s} value={String(s)}>
+                    {ESTADO_COMERCIAL_PROVEEDOR_LABELS[s]}
                   </SelectItem>
                 ))}
               </SelectContent>

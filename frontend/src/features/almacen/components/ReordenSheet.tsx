@@ -13,6 +13,7 @@ import {
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Checkbox } from '@/components/ui/checkbox';
+import { useConfirmarDescarte } from '@/components/erp/forms/useConfirmarDescarte';
 import {
   Select,
   SelectContent,
@@ -21,7 +22,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { ArticuloSelector, EntidadReordenSelector } from '@/components/erp';
-import { applyServerErrors, esApiError } from '@/lib/api';
+import { applyServerErrors, esApiError, codigoSoporte } from '@/lib/api';
 import {
   CrearReordenSchema,
   type CrearReordenValues,
@@ -36,6 +37,8 @@ import {
   ObjetivoReposicion,
   type ConfiguracionReordenListItem,
 } from '@/features/almacen/api/types';
+import { Field } from '@/features/almacen/components/internal/Field';
+import type { FieldControlProps } from '@/components/erp/forms/Field';
 
 /**
  * <c>&lt;ReordenSheet/&gt;</c> — slide-from-right para crear o editar una
@@ -78,6 +81,15 @@ export function ReordenSheet({ open, onOpenChange, editando }: ReordenSheetProps
     resolver: zodResolver(CrearReordenSchema),
     defaultValues: DEFAULTS,
   });
+
+  // Cerrar (Esc, clic fuera, X, Cancelar) con cambios pide confirmación; guardar cierra con force.
+  const { setDirty, solicitarCierre, dialogo } = useConfirmarDescarte(() =>
+    onOpenChange(false),
+  );
+  const isDirty = form.formState.isDirty;
+  useEffect(() => {
+    setDirty(isDirty);
+  }, [isDirty, setDirty]);
 
   useEffect(() => {
     if (open) {
@@ -127,7 +139,7 @@ export function ReordenSheet({ open, onOpenChange, editando }: ReordenSheetProps
         {
           onSuccess: () => {
             toast.success('Reabasto actualizado');
-            onOpenChange(false);
+            solicitarCierre(true);
           },
           onError: manejarError,
         },
@@ -138,7 +150,7 @@ export function ReordenSheet({ open, onOpenChange, editando }: ReordenSheetProps
         {
           onSuccess: () => {
             toast.success('Reabasto configurado');
-            onOpenChange(false);
+            solicitarCierre(true);
           },
           onError: manejarError,
         },
@@ -163,7 +175,7 @@ export function ReordenSheet({ open, onOpenChange, editando }: ReordenSheetProps
         return;
       }
       toast.error(error.problem.title, {
-        description: error.traceId ? `Código: ${error.traceId}` : undefined,
+        description: codigoSoporte(error),
       });
       return;
     }
@@ -173,8 +185,11 @@ export function ReordenSheet({ open, onOpenChange, editando }: ReordenSheetProps
   const isPending = crear.isPending || editar.isPending;
 
   return (
-    <Sheet open={open} onOpenChange={onOpenChange}>
-      <SheetContent side="right" className="sm:max-w-md">
+    <Sheet
+      open={open}
+      onOpenChange={(next) => (next ? onOpenChange(next) : solicitarCierre())}
+    >
+      <SheetContent side="right" size="form">
         <SheetHeader>
           <SheetTitle>
             {editando ? 'Editar reabasto' : 'Nuevo reabasto'}
@@ -190,10 +205,11 @@ export function ReordenSheet({ open, onOpenChange, editando }: ReordenSheetProps
           id="reorden-form"
           onSubmit={form.handleSubmit(onSubmit)}
           noValidate
-          className="flex-1 space-y-3 overflow-y-auto px-6"
+          className="grid flex-1 grid-cols-2 content-start gap-x-4 gap-y-3.5 overflow-y-auto px-6"
         >
           {/* ── Llave: artículo · nivel · entidad (inmutable al editar) ── */}
           <Field
+            className="col-span-2"
             label="Artículo"
             required
             error={form.formState.errors.articuloId?.message}
@@ -266,46 +282,45 @@ export function ReordenSheet({ open, onOpenChange, editando }: ReordenSheetProps
             />
           </Field>
 
-          <div className="border-t pt-3" />
+          <div className="col-span-2 border-t border-line-row" />
 
           {/* ── Política: objetivo · mín/máx/punto-reorden · auto-RQ ── */}
-          <p className="text-xs text-ink-muted">Al alcanzar el punto de reorden, repone hasta el máximo. Una cantidad fija sustituye ese cálculo.</p>
-          <Field label="Cantidad fija (opcional)" error={form.formState.errors.cantidadFija?.message}>
-            <Controller name="cantidadFija" control={form.control} render={({ field }) => (
-              <Input type="number" min="0" step="0.0001" value={field.value ?? ''}
-                onChange={(e) => field.onChange(e.target.value === '' ? null : Number(e.target.value))} />
-            )} />
+          <p className="col-span-2 text-xs text-ink-muted">Al alcanzar el punto de reorden, repone hasta el máximo. Una cantidad fija sustituye ese cálculo.</p>
+          <Field
+            label="Mínimo"
+            required
+            error={form.formState.errors.minimo?.message}
+          >
+            <NumberField name="minimo" control={form.control} />
           </Field>
-
-          <div className="grid grid-cols-3 gap-2">
-            <Field
-              label="Mínimo"
-              required
-              error={form.formState.errors.minimo?.message}
-            >
-              <NumberField name="minimo" control={form.control} />
-            </Field>
-            <Field
-              label="Máximo"
-              required
-              error={form.formState.errors.maximo?.message}
-            >
-              <NumberField name="maximo" control={form.control} />
-            </Field>
-            <Field
-              label="Punto reorden"
-              required
-              error={form.formState.errors.puntoReorden?.message}
-            >
-              <NumberField name="puntoReorden" control={form.control} />
-            </Field>
-          </div>
+          <Field
+            label="Máximo"
+            required
+            error={form.formState.errors.maximo?.message}
+          >
+            <NumberField name="maximo" control={form.control} />
+          </Field>
+          <Field
+            label="Punto de reorden"
+            required
+            error={form.formState.errors.puntoReorden?.message}
+          >
+            <NumberField name="puntoReorden" control={form.control} />
+          </Field>
+          <Field label="Cantidad fija (opcional)" error={form.formState.errors.cantidadFija?.message}>
+            {(c) => (
+              <Controller name="cantidadFija" control={form.control} render={({ field }) => (
+                <Input {...c} type="number" min="0" step="0.0001" value={field.value ?? ''}
+                  onChange={(e) => field.onChange(e.target.value === '' ? null : Number(e.target.value))} />
+              )} />
+            )}
+          </Field>
 
           <Controller
             name="autoRequisicion"
             control={form.control}
             render={({ field }) => (
-              <label className="flex items-center gap-2 text-sm">
+              <label className="col-span-2 flex items-center gap-2 text-sm">
                 <Checkbox
                   checked={field.value}
                   onCheckedChange={(v) => field.onChange(v === true)}
@@ -320,7 +335,7 @@ export function ReordenSheet({ open, onOpenChange, editando }: ReordenSheetProps
           <Button
             type="button"
             variant="ghost"
-            onClick={() => onOpenChange(false)}
+            onClick={() => solicitarCierre()}
             disabled={isPending}
           >
             Cancelar
@@ -334,6 +349,7 @@ export function ReordenSheet({ open, onOpenChange, editando }: ReordenSheetProps
           </Button>
         </SheetFooter>
       </SheetContent>
+      {dialogo}
     </Sheet>
   );
 }
@@ -342,16 +358,18 @@ export function ReordenSheet({ open, onOpenChange, editando }: ReordenSheetProps
 function NumberField({
   name,
   control,
+  ...aria
 }: {
   name: 'minimo' | 'maximo' | 'puntoReorden';
   control: ReturnType<typeof useForm<CrearReordenValues>>['control'];
-}) {
+} & Partial<FieldControlProps>) {
   return (
     <Controller
       name={name}
       control={control}
       render={({ field }) => (
         <Input
+          {...aria}
           type="number"
           inputMode="decimal"
           min={0}
@@ -365,33 +383,3 @@ function NumberField({
   );
 }
 
-function Field({
-  label,
-  required,
-  error,
-  children,
-}: {
-  label: string;
-  required?: boolean;
-  error?: string;
-  children: React.ReactNode;
-}) {
-  return (
-    <div className="space-y-1.5">
-      <label className="flex items-center gap-1 text-sm font-medium">
-        {label}
-        {required && (
-          <span aria-hidden="true" className="text-rose-600">
-            *
-          </span>
-        )}
-      </label>
-      {children}
-      {error != null && (
-        <p role="alert" className="text-xs text-rose-600">
-          {error}
-        </p>
-      )}
-    </div>
-  );
-}

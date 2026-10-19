@@ -19,12 +19,12 @@ export function EstadoCfdiBadge({ estado }: { estado: EstadoCfdiRecibido }) {
       className={cn(
         'inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium',
         estado === EstadoCfdiRecibido.PorProcesar &&
-          'bg-amber-100 text-amber-800',
+          'bg-warning-bg text-warning-fg',
         estado === EstadoCfdiRecibido.ConvertidoEnPasivo &&
-          'bg-emerald-100 text-emerald-800',
+          'bg-success-bg text-success-fg',
         estado === EstadoCfdiRecibido.Duplicado &&
-          'bg-purple-100 text-purple-800',
-        estado === EstadoCfdiRecibido.Descartado && 'bg-slate-200 text-slate-700',
+          'bg-info-bg text-info-fg',
+        estado === EstadoCfdiRecibido.Descartado && 'bg-neutral-bg text-neutral-fg',
       )}
     >
       {EstadoCfdiRecibidoLabels[estado]}

@@ -142,7 +142,7 @@ function Detalle({ cfdiId }: { cfdiId: string }) {
           onClick={handleDescargarXml}
           disabled={!d.tieneXml || descargando}
         >
-          <Download className="mr-1 h-3 w-3" />
+          <Download className="mr-1 size-3.5" />
           {descargando ? 'Descargando…' : 'Descargar XML'}
         </Button>
         <Button
@@ -152,7 +152,7 @@ function Detalle({ cfdiId }: { cfdiId: string }) {
           onClick={() => setMostrarPdf((v) => !v)}
           disabled={!d.tienePdf}
         >
-          <FileText className="mr-1 h-3 w-3" />
+          <FileText className="mr-1 size-3.5" />
           {mostrarPdf ? 'Ocultar PDF' : 'Ver PDF'}
         </Button>
         {!d.tienePdf && (

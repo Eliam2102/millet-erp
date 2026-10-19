@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { PaginaSearchShape } from '@/components/erp/data/paginacion';
 import {
   EstatusCatalogo,
   NivelReorden,
@@ -22,6 +23,7 @@ export const AlmacenesSearchSchema = z.object({
     ])
     .optional(),
   sucursalId: z.string().min(1).optional(),
+  ...PaginaSearchShape,
 });
 
 export type AlmacenesSearch = z.infer<typeof AlmacenesSearchSchema>;
@@ -69,6 +71,7 @@ export const ReordenSearchSchema = z.object({
       z.literal(EstatusCatalogo.Borrador),
     ])
     .optional(),
+  ...PaginaSearchShape,
 });
 
 export type ReordenSearch = z.infer<typeof ReordenSearchSchema>;

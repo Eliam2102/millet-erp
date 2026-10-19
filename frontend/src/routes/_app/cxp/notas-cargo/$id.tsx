@@ -1,4 +1,7 @@
-import { createFileRoute, redirect } from '@tanstack/react-router';
+import { createFileRoute, redirect, useParams, useSearch } from '@tanstack/react-router';
+import { MasterDetail } from '@/components/erp/MasterDetail';
+import { ListaNotasCargoCompacta } from '@/features/cxp/components/ListasCompactasCxp';
+import { NotasCargoSearchSchema, type NotasCargoSearch } from '@/features/cxp/lib/notas-y-anticipos-search-schema';
 import { NotaCargoDetallePage } from '@/features/cxp/pages/NotaCargoDetallePage';
 import { useAuthStore } from '@/lib/auth/auth-store';
 import { PermisosCanonicos } from '@/lib/auth/permission-codes';
@@ -14,5 +17,17 @@ export const Route = createFileRoute('/_app/cxp/notas-cargo/$id')({
       throw redirect({ to: '/cxp' });
     }
   },
-  component: NotaCargoDetallePage,
+  component: DetalleRoute,
+  // Hereda el search de la bandeja para que «Volver» y la lista conserven filtros y página.
+  validateSearch: (input: Record<string, unknown>): NotasCargoSearch => NotasCargoSearchSchema.parse(input),
 });
+
+function DetalleRoute() {
+  const { id } = useParams({ strict: false }) as { id: string };
+  const search = useSearch({ from: '/_app/cxp/notas-cargo/$id' });
+  return (
+    <MasterDetail titulo="Notas de cargo" bandejaTo="/cxp/notas-cargo" bandejaSearch={search} lista={<ListaNotasCargoCompacta idActivo={id} search={search} />}>
+      <NotaCargoDetallePage />
+    </MasterDetail>
+  );
+}

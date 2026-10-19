@@ -1,9 +1,18 @@
 import { hoyLocalISO } from '@/lib/datetime';
+import { useEffect } from 'react';
+import { Link } from '@tanstack/react-router';
 import { Controller, useForm, useWatch } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { toast } from 'sonner';
-import { EmpleadoSelector, PuestoSelector } from '@/components/erp';
-import { AlertTriangle } from 'lucide-react';
+import {
+  AvisoEnLinea,
+  EmpleadoSelector,
+  Field,
+  MoneyField,
+  PuestoSelector,
+} from '@/components/erp';
+import { useConfirmarDescarte } from '@/components/erp/forms/useConfirmarDescarte';
+import { MoneyDisplay } from '@/components/erp';
 import {
   Sheet,
   SheetContent,
@@ -14,7 +23,6 @@ import {
 } from '@/components/ui/sheet';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import {
   Select,
@@ -33,6 +41,7 @@ import {
   type SolicitarAnticipoViaticosValues,
 } from '@/features/cxp/schemas/viaticos';
 import { useSolicitarAnticipoViaticos } from '@/features/cxp/api/useViaticos';
+import { usePoliticasViaticos } from '@/features/cxp/api/useAdminCxp';
 import {
   TipoDestinoViatico,
   TipoDestinoViaticoLabels,
@@ -47,11 +56,11 @@ import {
  * es Internacional o cuando el usuario ingresa un monto alto (el backend
  * decide la verdad). Justificación marcada con asterisco contextual.</para>
  *
- * <para>PLATFORM-TODO(&lt;PoliticaViaticosCheckEnVivo&gt;): hoy el
- * backend solo evalúa al submit. Cuando exista un endpoint
- * <c>GET /viaticos/preview-politica?puestoId=...&tipoDestino=...&dias=...</c>,
- * agregar un &lt;PoliticaViaticosCheck&gt; live con monto sugerido + flag
- * de exceso antes del POST.</para>
+ * <para>El tope y el exceso se muestran en vivo con la misma query que
+ * <c>PoliticasViaticosPage</c> (tope = monto máx/día × días). Sin política para
+ * puesto + destino, el envío se bloquea con motivo (el backend responde
+ * <c>VIA_POLITICA_NO_DEFINIDA</c>). Si la query falla (p. ej. sin permiso),
+ * solo se avisa y el backend sigue siendo la verdad.</para>
  */
 export interface NuevaSolicitudViaticosSheetProps {
   open: boolean;
@@ -62,23 +71,44 @@ export function NuevaSolicitudViaticosSheet({
   open,
   onOpenChange,
 }: NuevaSolicitudViaticosSheetProps) {
+  const { setDirty, solicitarCierre, dialogo } = useConfirmarDescarte(() =>
+    onOpenChange(false),
+  );
   return (
-    <Sheet open={open} onOpenChange={onOpenChange}>
-      <SheetContent side="right" className="sm:max-w-xl">
+    <Sheet
+      open={open}
+      onOpenChange={(next) => (next ? onOpenChange(next) : solicitarCierre())}
+    >
+      <SheetContent side="right" size="form">
         <SheetHeader>
           <SheetTitle>Nueva solicitud de viáticos</SheetTitle>
           <SheetDescription>
-            El backend evalúa contra política del puesto y destino. Si excede,
+            El sistema evalúa contra política del puesto y destino. Si excede,
             requerirá firma adicional de Dirección de Finanzas.
           </SheetDescription>
         </SheetHeader>
-        {open && <Form onClose={() => onOpenChange(false)} />}
+        {open && (
+          <Form
+            onCancel={() => solicitarCierre()}
+            onSolicitada={() => solicitarCierre(true)}
+            onDirtyChange={setDirty}
+          />
+        )}
       </SheetContent>
+      {dialogo}
     </Sheet>
   );
 }
 
-function Form({ onClose }: { onClose: () => void }) {
+function Form({
+  onCancel,
+  onSolicitada,
+  onDirtyChange,
+}: {
+  onCancel: () => void;
+  onSolicitada: () => void;
+  onDirtyChange: (dirty: boolean) => void;
+}) {
   const idempotencyKey = useFormIdempotencyKey();
   const solicitar = useSolicitarAnticipoViaticos();
   const hoy = hoyLocalISO();
@@ -107,6 +137,9 @@ function Form({ onClose }: { onClose: () => void }) {
     control: form.control,
     name: 'empleadoId',
   });
+  const puestoId = useWatch({ control: form.control, name: 'puestoId' });
+  const moneda = useWatch({ control: form.control, name: 'moneda' });
+  const monto = useWatch({ control: form.control, name: 'montoSolicitado' });
   const fechaSalida = useWatch({ control: form.control, name: 'fechaSalida' });
   const fechaRegreso = useWatch({ control: form.control, name: 'fechaRegreso' });
   const dias =
@@ -119,6 +152,32 @@ function Form({ onClose }: { onClose: () => void }) {
         )
       : 0;
 
+
+  const isDirty = form.formState.isDirty;
+  useEffect(() => {
+    onDirtyChange(isDirty);
+  }, [isDirty, onDirtyChange]);
+
+  // Política vigente para el par puesto + destino (misma query que la admin).
+  const politicas = usePoliticasViaticos({
+    puestoId: puestoId || undefined,
+    tipoDestino,
+    limit: 200,
+  });
+  const politica = puestoId
+    ? politicas.data?.items.find(
+        (p) => p.puestoId === puestoId && p.tipoDestino === tipoDestino,
+      )
+    : undefined;
+  const sinPolitica =
+    !!puestoId && politicas.isSuccess && politica === undefined;
+  const tope = politica ? politica.montoMaxDia * dias : null;
+  const excede =
+    tope !== null && politica?.moneda === moneda && monto > tope;
+  const motivoBloqueo = sinPolitica
+    ? 'No hay política de viáticos para este puesto y destino; pide a RH que la dé de alta.'
+    : undefined;
+
   function onSubmit(values: SolicitarAnticipoViaticosValues) {
     solicitar.mutate(
       { command: values, idempotencyKey },
@@ -128,7 +187,7 @@ function Form({ onClose }: { onClose: () => void }) {
             ? ` — excede tope de política (${res.topePolitica.toFixed(2)}). Pasa a Dirección de Finanzas.`
             : '';
           toast.success(`Solicitud creada${aviso}`);
-          onClose();
+          onSolicitada();
         },
         onError: (error) => {
           if (esApiError(error)) {
@@ -158,11 +217,13 @@ function Form({ onClose }: { onClose: () => void }) {
         >
           {/* Al elegir empleado se prellenan puesto (tope de la política)
               y jefe directo (autorizador N1), ambos editables. */}
+          {(control) => (
           <Controller
             control={form.control}
             name="empleadoId"
             render={({ field }) => (
               <EmpleadoSelector
+                triggerProps={control}
                 value={field.value || null}
                 onChange={(id) => field.onChange(id ?? '')}
                 onSelectItem={(empleado) => {
@@ -181,39 +242,46 @@ function Form({ onClose }: { onClose: () => void }) {
               />
             )}
           />
+          )}
         </Campo>
         <Campo
           label="Puesto"
           required
           error={form.formState.errors.puestoId?.message}
         >
+          {(control) => (
           <Controller
             control={form.control}
             name="puestoId"
             render={({ field }) => (
               <PuestoSelector
+                triggerProps={control}
                 value={field.value || null}
                 onChange={(id) => field.onChange(id ?? '')}
               />
             )}
           />
+          )}
         </Campo>
         <Campo
           label="Jefe directo"
           required
           error={form.formState.errors.jefeDirectoId?.message}
         >
+          {(control) => (
           <Controller
             control={form.control}
             name="jefeDirectoId"
             render={({ field }) => (
               <EmpleadoSelector
+                triggerProps={control}
                 value={field.value || null}
                 onChange={(id) => field.onChange(id ?? '')}
                 excludeId={empleadoSeleccionado || null}
               />
             )}
           />
+          )}
         </Campo>
         <Campo
           label="Destino"
@@ -226,6 +294,7 @@ function Form({ onClose }: { onClose: () => void }) {
           />
         </Campo>
         <Campo label="Tipo destino" required>
+          {(control) => (
           <Controller
             control={form.control}
             name="tipoDestino"
@@ -234,7 +303,7 @@ function Form({ onClose }: { onClose: () => void }) {
                 value={String(field.value)}
                 onValueChange={(v) => field.onChange(Number(v))}
               >
-                <SelectTrigger>
+                <SelectTrigger {...control}>
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
@@ -250,14 +319,7 @@ function Form({ onClose }: { onClose: () => void }) {
               </Select>
             )}
           />
-        </Campo>
-        <Campo label="Moneda" required>
-          <Input
-            placeholder="MXN"
-            maxLength={3}
-            className="uppercase"
-            {...form.register('moneda')}
-          />
+          )}
         </Campo>
         <Campo
           label="Fecha salida"
@@ -278,21 +340,64 @@ function Form({ onClose }: { onClose: () => void }) {
           required
           error={form.formState.errors.montoSolicitado?.message}
         >
-          <Input
-            type="number"
-            step="0.01"
-            min="0"
-            {...form.register('montoSolicitado', { valueAsNumber: true })}
-          />
+          {(control) => (
+            <MoneyField
+              value={monto > 0 ? { amount: monto, currency: moneda } : null}
+              defaultCurrency={moneda}
+              onChange={(m) => {
+                form.setValue('montoSolicitado', m?.amount ?? 0, {
+                  shouldDirty: true,
+                  shouldValidate: form.formState.isSubmitted,
+                });
+                if (m) form.setValue('moneda', m.currency, { shouldDirty: true });
+              }}
+              inputProps={{ ...control, min: 0 }}
+            />
+          )}
         </Campo>
       </div>
 
-      {tipoDestino === TipoDestinoViatico.Internacional && (
-        <div className="rounded-md border border-amber-300 bg-amber-50 px-3 py-2 text-xs text-amber-900">
-          <AlertTriangle className="mr-1 inline h-3 w-3" />
+      {sinPolitica && (
+        <div id="aviso-sin-politica">
+          <AvisoEnLinea
+            tono="error"
+            titulo="Sin política de viáticos"
+            accion={
+              <Link
+                to="/cxp/admin/politicas-viaticos"
+                className="font-medium underline"
+              >
+                Ver políticas
+              </Link>
+            }
+          >
+            No hay política para este puesto y destino; pide a RH que la dé de
+            alta. No se puede solicitar hasta entonces.
+          </AvisoEnLinea>
+        </div>
+      )}
+      {puestoId && politicas.isError && (
+        <AvisoEnLinea tono="advertencia">
+          No se pudo verificar la política del puesto; el sistema la validará al
+          enviar.
+        </AvisoEnLinea>
+      )}
+      {politica && tope !== null && (
+        <AvisoEnLinea tono="advertencia" titulo={excede ? 'Excede el tope de la política' : 'Tope de la política'}>
+          Tope: <MoneyDisplay money={{ amount: tope, currency: politica.moneda }} /> (
+          <MoneyDisplay
+            money={{ amount: politica.montoMaxDia, currency: politica.moneda }}
+          />{' '}
+          por día × {dias} día{dias === 1 ? '' : 's'}).
+          {excede &&
+            ' El monto solicitado lo supera: agrega justificación y pasará a Dirección de Finanzas.'}
+        </AvisoEnLinea>
+      )}
+      {tipoDestino === TipoDestinoViatico.Internacional && !politica && !sinPolitica && (
+        <AvisoEnLinea tono="advertencia">
           Viaje internacional: probable exceso de política. Agrega justificación
           si excedes el tope.
-        </div>
+        </AvisoEnLinea>
       )}
 
       <Campo
@@ -301,7 +406,7 @@ function Form({ onClose }: { onClose: () => void }) {
       >
         <Textarea
           rows={3}
-          placeholder="Solo necesaria si superas el tope. El backend valida al recibir."
+          placeholder="Solo necesaria si superas el tope. Se valida al enviar."
           {...form.register('justificacionExceso')}
         />
       </Campo>
@@ -310,12 +415,17 @@ function Form({ onClose }: { onClose: () => void }) {
         <Button
           type="button"
           variant="ghost"
-          onClick={onClose}
+          onClick={onCancel}
           disabled={solicitar.isPending}
         >
           Cancelar
         </Button>
-        <Button type="submit" disabled={solicitar.isPending}>
+        <Button
+          type="submit"
+          disabled={solicitar.isPending || sinPolitica}
+          title={motivoBloqueo}
+          aria-describedby={sinPolitica ? 'aviso-sin-politica' : undefined}
+        >
           {solicitar.isPending ? 'Solicitando…' : 'Solicitar viáticos'}
         </Button>
       </SheetFooter>
@@ -323,22 +433,5 @@ function Form({ onClose }: { onClose: () => void }) {
   );
 }
 
-interface CampoProps {
-  label: string;
-  required?: boolean;
-  error?: string;
-  children: React.ReactNode;
-}
-
-function Campo({ label, required, error, children }: CampoProps) {
-  return (
-    <div className="space-y-1">
-      <Label className="text-xs">
-        {label}
-        {required && <span className="ml-1 text-destructive">*</span>}
-      </Label>
-      {children}
-      {error && <p className="text-xs text-destructive">{error}</p>}
-    </div>
-  );
-}
+/** Alias local: `Field` accesible (label asociado, aria-*). */
+const Campo = Field;

@@ -24,7 +24,7 @@ export function OrigenBadge({ origen, className }: OrigenBadgeProps) {
     <Badge
       variant="outline"
       className={cn(
-        'gap-1 border-violet-300 bg-violet-50 font-medium text-violet-700',
+        'gap-1 border-line bg-neutral-bg font-medium text-neutral-fg',
         className,
       )}
       data-origen="sistema"

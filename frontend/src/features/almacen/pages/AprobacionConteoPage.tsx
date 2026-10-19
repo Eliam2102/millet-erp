@@ -1,3 +1,4 @@
+import { PageHeader } from '@/components/erp/PageHeader';
 import { useMemo, useState } from 'react';
 import { Controller, useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -13,6 +14,15 @@ import {
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableContainer,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '@/components/ui/table';
 import { Input } from '@/components/ui/input';
 import {
   AlertDialog,
@@ -50,7 +60,6 @@ import {
 } from '@/features/almacen/api/useAprobacionConteo';
 import {
   EstadoConteo,
-  EstadoConteoLabels,
   TipoConteo,
   type LineaConteoComparacionDto,
 } from '@/features/almacen/api/types';
@@ -62,11 +71,15 @@ import {
   type AprobarLineaIndividualmenteValues,
   type RechazarConteoValues,
 } from '@/features/almacen/schemas/aprobacion-conteo';
-import { esApiError, useFormIdempotencyKey } from '@/lib/api';
+import { esApiError, useFormIdempotencyKey, codigoSoporte } from '@/lib/api';
 import { VariacionBadge } from '@/features/almacen/components/VariacionBadge';
 import { Field } from '@/features/almacen/components/internal/Field';
 import { cn } from '@/lib/utils';
 import { montoNetoConteo } from '@/features/almacen/lib/monto-neto-conteo';
+import { EstadoAlmacenBadge } from '@/features/almacen/components/EstadoAlmacenBadge';
+import { formatMoney, mxn } from '@/lib/money';
+import { MoneyDisplay } from '@/components/erp/display/MoneyDisplay';
+import { formatCantidad } from '@/lib/format-cantidad';
 
 const FROM = '/_app/almacen/inventarios/$id/aprobacion' as const;
 
@@ -107,6 +120,20 @@ export function AprobacionConteoPage() {
   const [aplicarOpen, setAplicarOpen] = useState(false);
 
   const aplicarIdempotencyKey = useFormIdempotencyKey();
+
+  // Mismo criterio que el backend al aprobar: requiere recuento, sin recuento
+  // ni aprobación individual.
+  const pendientesRecuento = useMemo(
+    () =>
+      (comparacionQuery.data ?? []).filter(
+        (l) => l.requiereRecuento && !l.aprobadoIndividualmente && !l.recuentoRealizado,
+      ).length,
+    [comparacionQuery.data],
+  );
+  const motivoNoAprobar =
+    pendientesRecuento > 0
+      ? `${pendientesRecuento} ${pendientesRecuento === 1 ? 'línea pendiente' : 'líneas pendientes'} de recuento o aprobación individual`
+      : null;
 
   const montoNeto = useMemo(
     () => montoNetoConteo(comparacionQuery.data ?? []),
@@ -149,7 +176,7 @@ export function AprobacionConteoPage() {
       {
         onSuccess: (resp) => {
           toast.success(
-            `${resp.movimientosGenerados} movimientos aplicados (monto neto ${formatearMonto(resp.montoNetoMxn)})`,
+            `${resp.movimientosGenerados} movimientos aplicados (monto neto ${formatMoney(mxn(resp.montoNetoMxn))})`,
           );
           setAplicarOpen(false);
         },
@@ -168,7 +195,7 @@ export function AprobacionConteoPage() {
       <div className="flex items-center justify-between gap-2">
         <Button asChild variant="ghost" size="sm">
           <Link to="/almacen/inventarios/$id" params={{ id: id ?? '' }}>
-            <ArrowLeft className="mr-2 h-4 w-4" />
+            <ArrowLeft className="mr-2 size-3.5" />
             Volver al detalle
           </Link>
         </Button>
@@ -214,59 +241,70 @@ export function AprobacionConteoPage() {
         />
       ) : (
         <>
-          <header className="space-y-2">
-            <div className="flex flex-wrap items-center gap-3">
-              <h1 className="text-2xl font-semibold tracking-tight">
-                Aprobación de conteo
-              </h1>
-              {conteo && (
-                <span className="inline-flex items-center rounded-full bg-slate-200 px-2 py-0.5 text-xs font-medium text-slate-700">
-                  {EstadoConteoLabels[conteo.estado]}
+          <PageHeader
+            titulo="Aprobación de conteo"
+            estado={
+              <>
+                {conteo && (
+                  <EstadoAlmacenBadge tipo="conteo" estado={conteo.estado} />
+                )}
+              </>
+            }
+            descripcion={
+              <>
+                Monto neto del ajuste:{' '}
+                <span className="font-semibold">
+                  <MoneyDisplay amount={montoNeto} currency="MXN" />
                 </span>
-              )}
-            </div>
-            <p className="text-sm text-muted-foreground">
-              Monto neto del ajuste:{' '}
-              <span className="font-mono font-semibold">
-                {formatearMonto(montoNeto)}
-              </span>
-
-            </p>
-
-            <div className="flex flex-wrap gap-2">
-              {enConciliacion && (
-                <>
-                  <Button variant="outline" onClick={ejecutarEvaluar}>
-                    <Calculator className="mr-2 h-4 w-4" />
-                    Evaluar variaciones (A7)
-                  </Button>
-                  <Button onClick={() => setAprobarConteoOpen(true)}>
-                    <Check className="mr-2 h-4 w-4" />
-                    Aprobar conteo
-                  </Button>
-                  <Button
-                    variant="destructive"
-                    onClick={() => setRechazarOpen(true)}
-                  >
-                    <X className="mr-2 h-4 w-4" />
-                    Rechazar
-                  </Button>
-                </>
-              )}
-              {aprobado && (
-                <Button onClick={() => setAplicarOpen(true)}>
-                  <Wallet className="mr-2 h-4 w-4" />
-                  Aplicar (generar movimientos)
-                </Button>
-              )}
-              {aplicado && (
-                <p className="text-sm text-emerald-700 flex items-center gap-2">
-                  <Lock className="h-4 w-4" />
-                  Conteo aplicado. Ajustes generados en el inventario.
-                </p>
-              )}
-            </div>
-          </header>
+              </>
+            }
+            acciones={
+              <>
+                <div className="flex flex-wrap gap-2">
+                  {enConciliacion && (
+                    <>
+                      <Button variant="outline" onClick={ejecutarEvaluar}>
+                        <Calculator className="mr-2 size-3.5" />
+                        Evaluar variaciones (A7)
+                      </Button>
+                      <Button
+                        onClick={() => setAprobarConteoOpen(true)}
+                        disabled={motivoNoAprobar != null}
+                        aria-describedby={motivoNoAprobar ? 'motivo-no-aprobar' : undefined}
+                      >
+                        <Check className="mr-2 size-3.5" />
+                        Aprobar conteo
+                      </Button>
+                      <Button
+                        variant="secondary-danger"
+                        onClick={() => setRechazarOpen(true)}
+                      >
+                        <X className="mr-2 size-3.5" />
+                        Rechazar
+                      </Button>
+                    </>
+                  )}
+                  {enConciliacion && motivoNoAprobar && (
+                    <p id="motivo-no-aprobar" className="basis-full text-sm text-muted-foreground">
+                      No puedes aprobar aún: {motivoNoAprobar}.
+                    </p>
+                  )}
+                  {aprobado && (
+                    <Button onClick={() => setAplicarOpen(true)}>
+                      <Wallet className="mr-2 size-3.5" />
+                      Aplicar (generar movimientos)
+                    </Button>
+                  )}
+                  {aplicado && (
+                    <p className="text-sm text-success-fg flex items-center gap-2">
+                      <Lock className="h-4 w-4" />
+                      Conteo aplicado. Ajustes generados en el inventario.
+                    </p>
+                  )}
+                </div>
+              </>
+            }
+          />
 
           <TablaComparacion
             items={comparacionQuery.data ?? []}
@@ -282,6 +320,7 @@ export function AprobacionConteoPage() {
         <RecuentoDialog
           conteoId={id}
           lineaId={recuentoLineaId}
+          linea={comparacionQuery.data?.find((l) => l.id === recuentoLineaId)}
           open={recuentoLineaId != null}
           onOpenChange={(v) => !v && setRecuentoLineaId(null)}
         />
@@ -368,13 +407,13 @@ export function AprobacionConteoPage() {
 
 function BloqueoInventarioAnualBanner() {
   return (
-    <div className="flex items-start gap-3 rounded-md border border-rose-200 bg-rose-50 px-4 py-3 text-sm">
-      <Lock className="mt-0.5 h-5 w-5 shrink-0 text-rose-700" />
+    <div className="flex items-start gap-3 rounded-md border border-danger bg-danger-bg px-4 py-3 text-sm">
+      <Lock className="mt-0.5 h-5 w-5 shrink-0 text-danger-fg" />
       <div>
-        <p className="font-medium text-rose-900">
-          Inventario anual — salidas bloqueadas (A18)
+        <p className="font-medium text-danger-fg">
+          Inventario anual — salidas bloqueadas
         </p>
-        <p className="text-rose-800">
+        <p className="text-danger-fg">
           Mientras este conteo esté activo, los almacenes no pueden surtir
           salidas. Coordina con producción y termina el ciclo lo antes
           posible.
@@ -385,13 +424,6 @@ function BloqueoInventarioAnualBanner() {
 }
 
 // ─── Tabla de comparación ───────────────────────────────────────────────────
-
-function formatearCantidad(valor: number): string {
-  return valor.toLocaleString('es-MX', {
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 4,
-  });
-}
 
 function TablaComparacion({
   items,
@@ -413,81 +445,78 @@ function TablaComparacion({
   }
 
   return (
-    <div className="overflow-x-auto rounded-md border">
-      <table className="w-full text-sm">
-        <thead className="bg-muted/50">
-          <tr>
-            <th className="px-3 py-2 text-left">Artículo</th>
-            <th className="px-3 py-2 text-left">Sub-almacén</th>
-            <th className="px-3 py-2 text-left">Rack</th>
-            <th className="px-3 py-2 text-right">Teórica</th>
-            <th className="px-3 py-2 text-right">Real</th>
-            <th className="px-3 py-2 text-left">Variación</th>
-            <th className="px-3 py-2 text-left">Estado</th>
+    <TableContainer>
+      <Table>
+        <TableHeader>
+          <TableRow>
+            <TableHead>Artículo</TableHead>
+            <TableHead>Sub-almacén</TableHead>
+            <TableHead>Rack</TableHead>
+            <TableHead className="text-right">Teórica</TableHead>
+            <TableHead className="text-right">Real</TableHead>
+            <TableHead>Variación</TableHead>
+            <TableHead>Estado</TableHead>
             {puedeAccionar && (
-              <th className="px-3 py-2 text-right">Acciones</th>
+              <TableHead className="text-right">Acciones</TableHead>
             )}
-          </tr>
-        </thead>
-        <tbody>
+          </TableRow>
+        </TableHeader>
+        <TableBody>
           {items.map((l) => (
-            <tr key={l.id} className="border-t">
-              <td className="px-3 py-2">
+            <TableRow key={l.id}>
+              <TableCell>
                 <EtiquetaArticulo
                   articuloId={l.articuloId}
                   clave={l.articuloClave}
                   descripcion={l.articuloDescripcion}
                 />
-              </td>
-              <td className="px-3 py-2">
+              </TableCell>
+              <TableCell>
                 <EtiquetaSubAlmacen
                   subAlmacenId={l.subAlmacenId}
                   clave={l.subAlmacenClave}
                 />
-              </td>
-              <td className="px-3 py-2 font-mono text-xs">{l.ubicacionClave}</td>
-              <td className="px-3 py-2 text-right font-mono">
-                {l.cantidadTeorica.toLocaleString('es-MX', {
-                  minimumFractionDigits: 2,
-                  maximumFractionDigits: 4,
-                })}
-              </td>
-              <td className="px-3 py-2 text-right font-mono">
-                {l.cantidadVigente != null ? formatearCantidad(l.cantidadVigente) : '—'}
+              </TableCell>
+              <TableCell className="font-mono text-xs">{l.ubicacionClave}</TableCell>
+              <TableCell className="text-right font-mono">
+                {formatCantidad(l.cantidadTeorica)}
+              </TableCell>
+              <TableCell className="text-right font-mono">
+                {l.cantidadVigente != null ? formatCantidad(l.cantidadVigente) : '—'}
                 {l.recuentoRealizado && l.cantidadRealCapturada != null && (
                   <div className="text-xs font-normal text-muted-foreground">
-                    Captura original: {formatearCantidad(l.cantidadRealCapturada)}
+                    Captura original: {formatCantidad(l.cantidadRealCapturada)}
                   </div>
                 )}
-              </td>
-              <td className="px-3 py-2">
+              </TableCell>
+              <TableCell>
                 <VariacionBadge
                   variacionAbsoluta={l.variacionAbsoluta}
                   variacionPorcentaje={l.variacionPorcentaje}
                   variacionValorMxn={l.variacionValorMxn}
                   requiereRecuento={l.requiereRecuento}
                 />
-              </td>
-              <td className="px-3 py-2">
+              </TableCell>
+              <TableCell>
                 {l.aprobadoIndividualmente ? (
                   <span
                     className={cn(
-                      'inline-flex items-center gap-1 rounded-full bg-emerald-100 px-2 py-0.5 text-xs font-medium text-emerald-800',
+                      'inline-flex items-center gap-1 rounded-full bg-success-bg px-2 py-0.5 text-xs font-medium text-success-fg',
                     )}
                   >
                     <Check className="h-3 w-3" />
                     Aprobada
                   </span>
                 ) : l.requiereRecuento ? (
-                  <span className="inline-flex items-center rounded-full bg-rose-100 px-2 py-0.5 text-xs font-medium text-rose-800">
+                  <span className="inline-flex items-center rounded-full bg-danger-bg px-2 py-0.5 text-xs font-medium text-danger-fg">
                     Pendiente
                   </span>
                 ) : (
                   <span className="text-xs text-muted-foreground">OK</span>
                 )}
-              </td>
+              </TableCell>
               {puedeAccionar && (
-                <td className="px-3 py-2 text-right">
+                <TableCell className="text-right">
                   <div className="flex items-center justify-end gap-1">
                     <Button
                       type="button"
@@ -510,13 +539,13 @@ function TablaComparacion({
                       </Button>
                     )}
                   </div>
-                </td>
+                </TableCell>
               )}
-            </tr>
+            </TableRow>
           ))}
-        </tbody>
-      </table>
-    </div>
+        </TableBody>
+      </Table>
+    </TableContainer>
   );
 }
 
@@ -525,11 +554,13 @@ function TablaComparacion({
 function RecuentoDialog({
   conteoId,
   lineaId,
+  linea,
   open,
   onOpenChange,
 }: {
   conteoId: string;
   lineaId: string;
+  linea?: LineaConteoComparacionDto;
   open: boolean;
   onOpenChange: (open: boolean) => void;
 }) {
@@ -564,7 +595,15 @@ function RecuentoDialog({
           <DialogTitle>Agregar recuento</DialogTitle>
           <DialogDescription>
             Captura la cantidad recontada por el contador en una segunda
-            pasada. El backend re-evalúa la variación (A7).
+            pasada. El sistema vuelve a calcular la variación.
+            {linea && (
+              <span className="mt-1 block font-medium text-foreground">
+                {linea.articuloClave ?? linea.articuloId.slice(0, 8)}
+                {linea.articuloDescripcion ? ` · ${linea.articuloDescripcion}` : ''}
+                {' · '}rack {linea.ubicacionClave}
+                {linea.unidadMedida ? ` · en ${linea.unidadMedida}` : ''}
+              </span>
+            )}
           </DialogDescription>
         </DialogHeader>
         <form
@@ -810,21 +849,28 @@ function RechazarConteoDialog({
 
 // ─── Helpers ────────────────────────────────────────────────────────────────
 
+const MENSAJES_APROBACION: Record<string, string> = {
+  CONTEO_APROBAR_LINEAS_PENDIENTES_RECUENTO:
+    'Hay líneas pendientes: haz el recuento o apruébalas una por una antes de aprobar el conteo.',
+  CONTEO_NIVEL_APROBACION_INSUFICIENTE:
+    'Tu permiso no alcanza el nivel que pide el monto neto del ajuste. Pide a un aprobador de nivel superior que apruebe el conteo.',
+};
+
 function manejarError(error: unknown) {
   if (esApiError(error)) {
+    const mensaje = error.code ? MENSAJES_APROBACION[error.code] : undefined;
+    if (mensaje) {
+      toast.error(mensaje, {
+        description: codigoSoporte(error),
+      });
+      return;
+    }
     toast.error(error.problem.title, {
-      description: error.problem.detail ?? (error.traceId ? `Código: ${error.traceId}` : undefined),
+      description: error.problem.detail ?? (codigoSoporte(error)),
     });
     return;
   }
   toast.error('Error inesperado.');
 }
 
-function formatearMonto(v: number): string {
-  return new Intl.NumberFormat('es-MX', {
-    style: 'currency',
-    currency: 'MXN',
-    minimumFractionDigits: 2,
-  }).format(v);
-}
 

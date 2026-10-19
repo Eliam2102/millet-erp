@@ -1,3 +1,4 @@
+import type { ComponentProps } from 'react';
 import { useUsosPrincipales } from '@/features/catalogos/api';
 import { CatalogoEagerCombobox } from '@/components/erp/selectors/CatalogoEagerCombobox';
 
@@ -16,6 +17,8 @@ export interface UsoPrincipalSelectorProps {
   placeholder?: string;
   disabled?: boolean;
   className?: string;
+  /** Props extra del trigger (id y aria-* que entrega `Field`). */
+  triggerProps?: ComponentProps<'button'>;
 }
 
 export function UsoPrincipalSelector({
@@ -24,6 +27,7 @@ export function UsoPrincipalSelector({
   placeholder = 'Selecciona uso principal',
   disabled,
   className,
+  triggerProps,
 }: UsoPrincipalSelectorProps) {
   const query = useUsosPrincipales();
   const items = query.data ?? [];
@@ -36,7 +40,7 @@ export function UsoPrincipalSelector({
       value={value}
       onChange={onChange}
       itemToLabel={(u) => `${u.clave} ${u.nombre}`}
-      renderTrigger={(u) => `${u.clave} · ${u.nombre}`}
+      renderTrigger={(u) => u.nombre}
       renderItem={(u) => (
         <div className="min-w-0 flex-1">
           <span className="font-mono text-xs">{u.clave}</span>
@@ -49,6 +53,7 @@ export function UsoPrincipalSelector({
       ariaLabel="Seleccionar uso principal"
       disabled={disabled}
       className={className}
+      triggerProps={triggerProps}
     />
   );
 }

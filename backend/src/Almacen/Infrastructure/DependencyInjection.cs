@@ -34,6 +34,7 @@ public static class DependencyInjection
         services.AddScoped<IComprasCrearRqSistemaPort, NoOpComprasCrearRqSistemaPort>();
         services.AddScoped<IArticuloReadPort, NoOpArticuloReadPort>();
         services.AddScoped<IProveedorReadPort, NoOpProveedorReadPort>();
+        services.AddScoped<IAdjuntosEntidadReadPort, NoOpAdjuntosEntidadReadPort>();
         services.AddScoped<ICxpDocumentosReadPort, NoOpCxpDocumentosReadPort>();
         services.AddScoped<ISucursalReadPort, NoOpSucursalReadPort>();
         // IEmpleadoReadPort se registra en Program.cs con el adapter real

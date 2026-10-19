@@ -29,4 +29,23 @@ public interface IConsultarStockPort
         Guid sucursalId,
         Guid articuloId,
         CancellationToken cancellationToken);
+
+    /// <summary>
+    /// Disponibilidad de varios artículos de una sucursal. Implementación por
+    /// defecto, una consulta por artículo: la usan el stub y los fakes de prueba.
+    /// El adapter productivo la sobrescribe con una sola ida a Almacén.
+    /// </summary>
+    async Task<IReadOnlyDictionary<Guid, DisponibilidadStock>> ConsultarPorSucursalLoteAsync(
+        Guid sucursalId,
+        IReadOnlyCollection<Guid> articuloIds,
+        CancellationToken cancellationToken)
+    {
+        var resultado = new Dictionary<Guid, DisponibilidadStock>();
+        foreach (var articuloId in articuloIds)
+        {
+            resultado[articuloId] = await ConsultarPorSucursalAsync(sucursalId, articuloId, cancellationToken);
+        }
+
+        return resultado;
+    }
 }

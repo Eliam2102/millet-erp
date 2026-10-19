@@ -18,7 +18,8 @@ import { esApiError } from '@/lib/api';
 export interface PermisosAdjuntos {
   ver: string;
   subir: string;
-  baja: string;
+  /** Sin `baja` el archivo es historial inmutable: no hay baja ni vista de bajas. */
+  baja?: string;
 }
 
 export function DocumentoAdjuntosSection({
@@ -29,22 +30,22 @@ export function DocumentoAdjuntosSection({
   soloLectura = false,
 }: {
   base: string;
-  tipo: 'requisicion' | 'factura_proveedor' | 'poliza';
+  tipo: 'requisicion' | 'factura_proveedor' | 'poliza' | 'linea_revision' | 'oc_respuesta_proveedor';
   /** Prefijo de la convención `{permiso}.adjuntos-ver|subir|baja`. Se ignora si llegan `permisos`. */
   permiso?: string;
   permisos?: PermisosAdjuntos;
   /** Oculta subir y dar de baja aunque haya permiso (p. ej. póliza ya autorizada). */
   soloLectura?: boolean;
 }) {
-  const codigos = permisos ?? {
+  const codigos: PermisosAdjuntos = permisos ?? {
     ver: `${permiso}.adjuntos-ver`,
     subir: `${permiso}.adjuntos-subir`,
     baja: `${permiso}.adjuntos-baja`,
   };
   const canVer = useHasPermission(codigos.ver);
   const canSubir = useHasPermission(codigos.subir) && !soloLectura;
-  const tienePermisoBaja = useHasPermission(codigos.baja);
-  const canBaja = tienePermisoBaja && !soloLectura;
+  const tienePermisoBaja = useHasPermission(codigos.baja ?? '');
+  const canBaja = codigos.baja !== undefined && tienePermisoBaja && !soloLectura;
   const [verBajas, setVerBajas] = useState(false);
   const lista = useAdjuntos(base, { enabled: canVer, incluirBajas: tienePermisoBaja && verBajas });
   const tipos = useTiposDocumento(tipo, { enabled: canVer });

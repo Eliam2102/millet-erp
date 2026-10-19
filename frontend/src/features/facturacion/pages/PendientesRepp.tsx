@@ -305,7 +305,7 @@ export function PendientesRepp() {
           if (!open) cerrar();
         }}
       >
-        <SheetContent className="flex flex-col overflow-y-auto">
+        <SheetContent size="legacy" className="flex flex-col overflow-y-auto">
           <SheetHeader>
             <SheetTitle>Revisar pago confirmado</SheetTitle>
             <SheetDescription>

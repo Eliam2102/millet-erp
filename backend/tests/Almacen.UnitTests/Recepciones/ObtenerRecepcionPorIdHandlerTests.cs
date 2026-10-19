@@ -146,6 +146,45 @@ public class ObtenerRecepcionPorIdHandlerTests
     }
 
     private static readonly Guid UbicId = Guid.NewGuid();
+    private static readonly Guid AlmacenId = Guid.NewGuid();
+
+    [Fact]
+    public async Task Resuelve_rack_de_cada_linea_con_ruta_completa()
+    {
+        await using var db = await NuevaDbConRecepcionAsync(conSubAlmacen: true);
+        var handler = new ObtenerRecepcionPorIdHandler(
+            db, new FakeArticuloReadPort(), new FakeOcReadPort(), new FakeCxpDocumentosReadPort(), new CentrosReadPort());
+        var dto = await handler.Handle(new ObtenerRecepcionPorIdQuery(RecepcionId(db)), CancellationToken.None);
+        dto!.Lineas.Should().OnlyContain(l => l.UbicacionId == UbicId && l.UbicacionClave == "ALM › ALM-CEN · U1");
+    }
+
+    [Fact]
+    public async Task ALM04_incluye_las_lineas_del_movimiento_de_revision_marcadas_en_revision()
+    {
+        await using var db = await NuevaDbConRecepcionAsync(conSubAlmacen: true);
+        var principalId = RecepcionId(db);
+        var subRevId = Guid.NewGuid();
+        var rackRevId = Guid.NewGuid();
+        db.SubAlmacenes.Add(new SubAlmacen(subRevId, AlmacenId, "MAT-REV", "Material en revisión", TipoSubAlmacen.MaterialEnRevision));
+        db.Ubicaciones.Add(new Ubicacion(rackRevId, subRevId, "REV-01", "Revisión 1"));
+        var rev = new MovimientoInventario(Guid.NewGuid(), TipoMovimiento.EntradaCompra, Guid.NewGuid(), new DateOnly(2026, 6, 1));
+        rev.AgregarLinea(new LineaMovimiento(Guid.NewGuid(), rev.Id, 1, ArtA, 2m, "PZA", 10m, comentarioLinea: "Hojas rotas", ubicacionId: rackRevId));
+        typeof(MovimientoInventario).GetProperty("RecepcionOrigenId")!.SetValue(rev, principalId);
+        rev.Registrar(new FolioMovimiento("M-ENT2026-000099"), Guid.NewGuid());
+        db.Movimientos.Add(rev);
+        await db.SaveChangesAsync();
+
+        var handler = new ObtenerRecepcionPorIdHandler(
+            db, new FakeArticuloReadPort(), new FakeOcReadPort(), new FakeCxpDocumentosReadPort(), new CentrosReadPort());
+        var dto = await handler.Handle(new ObtenerRecepcionPorIdQuery(principalId), CancellationToken.None);
+
+        dto!.Lineas.Should().HaveCount(4);
+        dto.Lineas.Select(l => l.Posicion).Should().Equal(1, 2, 3, 4);
+        var enRevision = dto.Lineas.Should().ContainSingle(l => l.EnRevision).Subject;
+        enRevision.MotivoDano.Should().Be("Hojas rotas");
+        enRevision.UbicacionId.Should().Be(rackRevId);
+        dto.Lineas.Where(l => !l.EnRevision).Should().OnlyContain(l => l.MotivoDano == null);
+    }
 
     private static async Task<AlmacenDbContext> NuevaDbConRecepcionAsync(bool conSubAlmacen)
     {
@@ -160,8 +199,9 @@ public class ObtenerRecepcionPorIdHandlerTests
         db.Ubicaciones.Add(new Ubicacion(UbicId, SubId, "U1", "Ubicación 1"));
         if (conSubAlmacen)
         {
+            db.Almacenes.Add(new Millet.Almacen.Domain.Catalogo.Almacen(AlmacenId, "ALM", "Almacén", Guid.NewGuid()));
             db.SubAlmacenes.Add(new SubAlmacen(
-                SubId, almacenId: Guid.NewGuid(), clave: "ALM-CEN",
+                SubId, almacenId: AlmacenId, clave: "ALM-CEN",
                 nombre: "Almacén Central", tipo: TipoSubAlmacen.Insumos));
         }
 

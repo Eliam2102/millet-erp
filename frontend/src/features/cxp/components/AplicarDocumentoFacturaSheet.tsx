@@ -10,6 +10,7 @@ import { useAnticipos, useNotasCredito, useAplicarAnticipoAFactura, useAplicarNc
 import { EstadoAnticipo, EstadoNotaCredito, type FacturaDetalle } from '@/features/cxp/api/types';
 import { esApiError, useFormIdempotencyKey } from '@/lib/api';
 import { calcularAplicacion } from '@/features/cxp/lib/aplicaciones-p4';
+import { MoneyDisplay } from '@/components/erp/display/MoneyDisplay';
 type Tipo = 'anticipo' | 'nc';
 export function AplicarDocumentoFacturaSheet({ factura, tipo, onClose }: { factura: FacturaDetalle; tipo: Tipo | null; onClose: () => void }) {
   return <Sheet open={tipo !== null} onOpenChange={(open) => { if (!open) onClose(); }}>
@@ -31,7 +32,6 @@ function Formulario({ factura, tipo, onClose }: { factura: FacturaDetalle; tipo:
   const documento = documentos.find(d => d.id === documentoId);
   const preview = calcularAplicacion(factura.saldoPendiente, documento?.saldo ?? 0, Number(importe), factura.moneda, documento?.moneda ?? '', documento?.reconocido ?? 0);
   const query = tipo === 'anticipo' ? anticipos : notas; const pendiente = aplicarAnticipo.isPending || aplicarNc.isPending;
-  const moneda = (v: number) => new Intl.NumberFormat('es-MX', { style: 'currency', currency: factura.moneda }).format(v);
   function confirmar() {
     if (!documento || preview.error) return;
     const opciones = { onSuccess: () => { toast.success(tipo === 'anticipo' ? 'Anticipo aplicado' : 'NC aplicada'); onClose(); },
@@ -44,11 +44,11 @@ function Formulario({ factura, tipo, onClose }: { factura: FacturaDetalle; tipo:
     {query.isError ? <ErrorState title="No se pudieron cargar los documentos" onRetry={() => query.refetch()} /> : null}
     <Label htmlFor="p4-documento">Documento abierto</Label>
     <Select value={documentoId} onValueChange={setDocumentoId}><SelectTrigger id="p4-documento"><SelectValue placeholder={query.isLoading ? 'Cargando documentos…' : 'Seleccionar documento'} /></SelectTrigger>
-      <SelectContent>{documentos.map(d => <SelectItem key={d.id} value={d.id}>{d.folio} · {d.saldo.toFixed(2)} {d.moneda}</SelectItem>)}</SelectContent></Select>
+      <SelectContent>{documentos.map(d => <SelectItem key={d.id} value={d.id}>{d.folio} · <MoneyDisplay amount={d.saldo} currency={d.moneda} /></SelectItem>)}</SelectContent></Select>
     {!query.isLoading && documentos.length === 0 && <p className="text-ink-muted">No hay documentos abiertos del proveedor disponibles para esta factura.</p>}
     <Label htmlFor="p4-importe">Importe a aplicar</Label><Input id="p4-importe" type="number" min="0.01" step="0.01" value={importe} onChange={e => setImporte(e.target.value)} />
-    <dl className="rounded-lg bg-surface-subtle p-3 tabular-nums"><dt>Saldo antes</dt><dd>{moneda(preview.saldoAntes)} {factura.moneda}</dd>
-      <dt>Saldo después</dt><dd>{moneda(preview.saldoDespues)} {factura.moneda}</dd></dl>
+    <dl className="rounded-lg bg-surface-subtle p-3 tabular-nums"><dt>Saldo antes</dt><dd><MoneyDisplay amount={preview.saldoAntes} currency={factura.moneda} /></dd>
+      <dt>Saldo después</dt><dd><MoneyDisplay amount={preview.saldoDespues} currency={factura.moneda} /></dd></dl>
     {documento && preview.error && <p role="alert" className="text-danger-fg">{preview.error}</p>}
     {documento && documento.reconocido > 0 && <p role="note" className="text-ink-muted">Esta NC formaliza un cargo descontado previamente; ese importe se reconoce sin descontarlo otra vez.</p>}
     <div className="flex justify-end gap-2"><Button variant="ghost" onClick={onClose}>Cancelar</Button>

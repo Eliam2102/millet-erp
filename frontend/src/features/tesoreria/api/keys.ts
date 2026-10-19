@@ -36,6 +36,13 @@ export interface DepositosFiltros {
   limit?: number;
 }
 
+export interface DevolucionesFiltros {
+  estado?: number;
+  origen?: number;
+  offset?: number;
+  limit?: number;
+}
+
 export const tesoreriaKeys = {
   all: ['tesoreria'] as const,
 
@@ -57,6 +64,10 @@ export const tesoreriaKeys = {
   pasivosList: (filtros: PasivosFiltros) =>
     [...tesoreriaKeys.pasivos(), 'list', filtros] as const,
 
+  // Cuentas bancarias del proveedor para pagar
+  cuentasProveedor: (proveedorId: string) =>
+    [...tesoreriaKeys.all, 'proveedor-cuentas', proveedorId] as const,
+
   // Pagos a cuenta abiertos (TES-FE-PR4)
   pagosCuenta: () => [...tesoreriaKeys.all, 'pagos-cuenta'] as const,
   pagosCuentaList: (filtros: Record<string, unknown>) =>
@@ -66,6 +77,13 @@ export const tesoreriaKeys = {
   depositos: () => [...tesoreriaKeys.all, 'depositos'] as const,
   depositosList: (filtros: DepositosFiltros) =>
     [...tesoreriaKeys.depositos(), 'list', filtros] as const,
+
+  // Devoluciones a clientes (T9.6)
+  devoluciones: () => [...tesoreriaKeys.all, 'devoluciones'] as const,
+  devolucionesList: (filtros: DevolucionesFiltros) =>
+    [...tesoreriaKeys.devoluciones(), 'list', filtros] as const,
+  devolucion: (id: string) => [...tesoreriaKeys.devoluciones(), 'byId', id] as const,
+  clientesLookup: (texto: string) => [...tesoreriaKeys.all, 'clientes-lookup', texto] as const,
 
   // REPP recibido de proveedor (TES-FE-PR6b)
   repp: () => [...tesoreriaKeys.all, 'repp'] as const,

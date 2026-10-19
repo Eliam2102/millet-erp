@@ -6,7 +6,37 @@ import { Check, ChevronDown, ChevronUp } from "lucide-react"
 
 import { cn } from "@/lib/utils"
 
-const Select = SelectPrimitive.Root
+// `Field` entrega `id`/`aria-*` al Select (Root no renderiza DOM): se reenvían al Trigger.
+type TriggerA11y = Record<string, unknown>
+const SelectA11yContext = React.createContext<TriggerA11y>({})
+
+function Select({
+  id,
+  "aria-invalid": ariaInvalid,
+  "aria-describedby": ariaDescribedby,
+  "aria-required": ariaRequired,
+  ...props
+}: React.ComponentProps<typeof SelectPrimitive.Root> & {
+  id?: string
+  "aria-invalid"?: boolean
+  "aria-describedby"?: string
+  "aria-required"?: boolean
+}) {
+  const a11y = React.useMemo(
+    () => ({
+      id,
+      "aria-invalid": ariaInvalid,
+      "aria-describedby": ariaDescribedby,
+      "aria-required": ariaRequired,
+    }),
+    [id, ariaInvalid, ariaDescribedby, ariaRequired]
+  )
+  return (
+    <SelectA11yContext.Provider value={a11y}>
+      <SelectPrimitive.Root {...props} />
+    </SelectA11yContext.Provider>
+  )
+}
 
 const SelectGroup = SelectPrimitive.Group
 
@@ -15,9 +45,12 @@ const SelectValue = SelectPrimitive.Value
 const SelectTrigger = React.forwardRef<
   React.ElementRef<typeof SelectPrimitive.Trigger>,
   React.ComponentPropsWithoutRef<typeof SelectPrimitive.Trigger>
->(({ className, children, ...props }, ref) => (
+>(({ className, children, ...props }, ref) => {
+  const a11y = React.useContext(SelectA11yContext)
+  return (
   <SelectPrimitive.Trigger
     ref={ref}
+    {...Object.fromEntries(Object.entries(a11y).filter(([, v]) => v !== undefined))}
     className={cn(
       "flex h-ctl-xl max-sm:min-h-touch w-full items-center justify-between rounded-md border border-line-control bg-surface-card text-ink px-3 py-2 text-sm ring-offset-background data-[placeholder]:text-muted-foreground focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand aria-invalid:border-danger disabled:cursor-not-allowed disabled:opacity-50 [&>span]:line-clamp-1",
       className
@@ -29,7 +62,8 @@ const SelectTrigger = React.forwardRef<
       <ChevronDown className="size-3 text-ink-subtle" />
     </SelectPrimitive.Icon>
   </SelectPrimitive.Trigger>
-))
+  )
+})
 SelectTrigger.displayName = SelectPrimitive.Trigger.displayName
 
 const SelectScrollUpButton = React.forwardRef<

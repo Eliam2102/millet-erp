@@ -34,6 +34,7 @@ public static class DevolucionesProveedorEndpoints
             [FromQuery] EstadoDevolucionProveedor? estado,
             [FromQuery] Guid? proveedorId,
             [FromQuery] bool? soloPendientesNcFiscal,
+            [FromQuery] string? q,
             [FromQuery] int? offset,
             [FromQuery] int? limit,
             IMediator mediator,
@@ -43,13 +44,31 @@ public static class DevolucionesProveedorEndpoints
             await VerificarLecturaDevolucionesAsync(permisos, ct);
             var (off, lim) = NormalizePaging(offset, limit);
             var response = await mediator.Send(
-                new ListarDevolucionesProveedorQuery(estado, proveedorId, soloPendientesNcFiscal, off, lim), ct);
+                new ListarDevolucionesProveedorQuery(estado, proveedorId, soloPendientesNcFiscal, off, lim, q), ct);
             return Results.Ok(response);
         })
         .RequireAuthorization()
         .WithName("ListarDevolucionesProveedor")
         .WithSummary("Listar devoluciones a proveedor (bandeja con filtros, incluye \"pendientes de NC fiscal\")")
         .Produces<AlmacenPagedResponse<DevolucionProveedorListItem>>(StatusCodes.Status200OK);
+
+        // GET /conteos-por-estado (tabs de la bandeja; mismos filtros salvo estado)
+        group.MapGet("/conteos-por-estado", async (
+            [FromQuery] Guid? proveedorId,
+            [FromQuery] bool? soloPendientesNcFiscal,
+            [FromQuery] string? q,
+            IMediator mediator,
+            ICurrentUserPermissions permisos,
+            CancellationToken ct) =>
+        {
+            await VerificarLecturaDevolucionesAsync(permisos, ct);
+            return Results.Ok(await mediator.Send(
+                new ConteosDevolucionesProveedorPorEstadoQuery(proveedorId, soloPendientesNcFiscal, q), ct));
+        })
+        .RequireAuthorization()
+        .WithName("ConteosDevolucionesProveedorPorEstado")
+        .WithSummary("Conteo de devoluciones a proveedor por estado, con los filtros de la bandeja salvo el estado")
+        .Produces<IReadOnlyList<ConteoPorEstadoItem>>(StatusCodes.Status200OK);
 
         // GET /{id}
         group.MapGet("/{id:guid}", async (

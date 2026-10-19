@@ -40,7 +40,7 @@ public sealed record RepartoLinea(
 /// </summary>
 public static class RepartoDisponibilidadService
 {
-    /// <summary>Reparto por línea, en el mismo orden de <paramref name="lineas"/>.</summary>
+    /// <summary>Reparto por línea, en el mismo orden de <paramref name="lineas"/>. Una consulta de stock por requisición (lote).</summary>
     public static async Task<IReadOnlyList<RepartoLinea>> RepartirAsync(
         IConsultarStockPort stock,
         IConversionUnidadPort conversion,
@@ -50,9 +50,19 @@ public static class RepartoDisponibilidadService
         IEnumerable<LineaRequisicion> lineas,
         CancellationToken cancellationToken)
     {
+        var lineasLista = lineas.ToList();
+        var idsInventario = lineasLista
+            .Where(l => clasificacionRq != Clasificacion.Servicio && !EsServicio(l, articulos))
+            .Select(l => l.ArticuloId)
+            .Distinct()
+            .ToList();
+        var stockPorArticulo = idsInventario.Count > 0
+            ? await stock.ConsultarPorSucursalLoteAsync(sucursalId, idsInventario, cancellationToken)
+            : new Dictionary<Guid, DisponibilidadStock>();
+
         var resultado = new List<RepartoLinea>();
         var disponiblesEnBase = new Dictionary<Guid, decimal>();
-        foreach (var linea in lineas)
+        foreach (var linea in lineasLista)
         {
             if (clasificacionRq == Clasificacion.Servicio || EsServicio(linea, articulos))
             {
@@ -60,7 +70,7 @@ public static class RepartoDisponibilidadService
                 continue;
             }
 
-            var disponibilidad = await stock.ConsultarPorSucursalAsync(sucursalId, linea.ArticuloId, cancellationToken);
+            var disponibilidad = stockPorArticulo.GetValueOrDefault(linea.ArticuloId) ?? new DisponibilidadStock(0m, 0m);
             var conversionLinea = await conversion.ConvertirAsync(
                 linea.ArticuloId, linea.Cantidad, null, linea.UnidadMedida, cancellationToken);
             var disponibleBase = disponiblesEnBase.GetValueOrDefault(linea.ArticuloId, disponibilidad.Disponible);

@@ -10,12 +10,14 @@ import { createQueryWrapper } from '@/test/test-query-client';
 const escenario = vi.hoisted(() => ({ cancelada: false }));
 vi.mock('@tanstack/react-router', () => ({
   useParams: () => ({ id: 'factura-ficticia-p3' }),
+  useSearch: () => ({}),
   Link: ({ children, to, params }: { children: ReactNode; to: string; params?: { id: string } }) =>
     <a href={params ? to.replace('$id', params.id) : to}>{children}</a>,
 }));
 vi.mock('@/lib/auth/useHasPermission', () => ({ useHasPermission: () => true }));
 vi.mock('@/features/cxp/api/useFacturas', () => ({
   useAutorizarFactura: () => ({ isPending: false, mutate: vi.fn() }),
+  useMarcarRetencionesRevisadas: () => ({ isPending: false, mutateAsync: vi.fn() }),
   useFactura: () => ({ isLoading: false, isError: false, data: {
     id: 'factura-ficticia-p3', proveedorId: 'proveedor', sucursalId: 'sucursal',
     folioProveedor: 'P3-FICTICIA', serieProveedor: null, estado: escenario.cancelada ? EstadoPasivo.Cancelada : EstadoPasivo.Autorizada,
@@ -37,9 +39,9 @@ vi.mock('@/features/cxp/components/EvidenciasList', () => ({ EvidenciasList: () 
 
 beforeEach(() => {
   mswServer.use(
-    http.get('/api/v1/cuentas-por-pagar/facturas/factura-ficticia-p3/adjuntos', () =>
+    http.get('*/api/v1/cuentas-por-pagar/facturas/factura-ficticia-p3/adjuntos', () =>
       HttpResponse.json([])),
-    http.get('/api/v1/adjuntos/tipos', () => HttpResponse.json([])),
+    http.get('*/api/v1/adjuntos/tipos', () => HttpResponse.json([])),
   );
 });
 

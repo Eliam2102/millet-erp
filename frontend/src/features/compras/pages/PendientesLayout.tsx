@@ -115,7 +115,9 @@ export function PendientesLayout({
     <div className="flex flex-col gap-4 md:h-[calc(100vh-3.5rem-3rem)] md:flex-row">
       <aside
         className={cn(
-          'flex flex-col gap-3 md:w-80 md:shrink-0 md:overflow-hidden',
+          'flex flex-col gap-3 md:shrink-0 md:overflow-hidden',
+          // Con detalle abierto la lista se estrecha bajo 2xl (el panel decide).
+          idActivo != null ? 'md:w-64 2xl:w-80' : 'md:w-80',
           idActivo != null ? 'hidden md:flex' : 'flex',
         )}
         aria-label="Lista de pendientes"
@@ -139,7 +141,7 @@ export function PendientesLayout({
             >
               <SelectTrigger
                 aria-label="Filtrar por departamento"
-                className="h-9 w-auto min-w-40 gap-1 font-medium"
+                className="h-9 w-full gap-1 font-medium"
               >
                 <SelectValue placeholder="Todos los departamentos" />
               </SelectTrigger>
@@ -180,7 +182,7 @@ export function PendientesLayout({
 
       <section
         className={cn(
-          'min-w-0 flex-1 md:overflow-y-auto',
+          '@container min-w-0 flex-1 md:overflow-y-auto',
           idActivo == null ? 'hidden md:block' : 'block',
         )}
         aria-label="Detalle de requisición pendiente"

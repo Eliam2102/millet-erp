@@ -88,6 +88,7 @@ public sealed class AgregarLineaDesdeRequisicionHandler
                 "RQ_YA_COMPROMETIDA",
                 $"La RQ '{rq.Folio.Valor}' ya está comprometida en otra OC.");
         }
+        await Cotizaciones.CotizacionesComparativo.ExigirSinCotizacionesAsync(_db, rq.Id, cancellationToken);
         if (rq.SucursalId != oc.SucursalDestinoId)
         {
             throw new BusinessRuleException(

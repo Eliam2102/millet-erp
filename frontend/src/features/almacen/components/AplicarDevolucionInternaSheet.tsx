@@ -25,6 +25,7 @@ import {
   applyServerErrors,
   esApiError,
   useFormIdempotencyKey,
+  codigoSoporte,
 } from '@/lib/api';
 import {
   AplicarDevolucionInternaSchema,
@@ -35,6 +36,7 @@ import {
   useSubAlmacenes,
 } from '@/features/almacen/api';
 import { Field } from '@/features/almacen/components/internal/Field';
+import { AsignarUbicacionEnLinea } from '@/features/almacen/components/AsignarUbicacionEnLinea';
 import { UbicacionBinSelector } from '@/components/erp/selectors/UbicacionBinSelector';
 import { useSalida } from '@/features/almacen/api/useSalidas';
 
@@ -64,11 +66,11 @@ export function AplicarDevolucionInternaSheet({
     <Sheet open={open} onOpenChange={onOpenChange}>
       <SheetContent side="right" className="sm:max-w-2xl">
         <SheetHeader>
-          <SheetTitle>Devolución interna (8.A)</SheetTitle>
+          <SheetTitle>Devolución interna</SheetTitle>
           <SheetDescription>
             Devuelve material desde el solicitante al almacén
-            (MAT-REV, sub-almacén destino, o regreso al origen). El
-            backend restituye al costo de la salida origen.
+            (material en revisión, sub-almacén destino, o regreso al origen). El
+            sistema restituye al costo de la salida origen.
           </SheetDescription>
         </SheetHeader>
 
@@ -163,7 +165,7 @@ function FormBody({
               return;
             }
             toast.error(error.problem.title, {
-              description: error.traceId ? `Código: ${error.traceId}` : undefined,
+              description: codigoSoporte(error),
             });
             return;
           }
@@ -327,7 +329,7 @@ function FormBody({
                 })
               }
             >
-              <Plus className="mr-2 h-4 w-4" />
+              <Plus className="mr-2 size-3.5" />
               Agregar línea
             </Button>
           </div>
@@ -418,6 +420,19 @@ function FormBody({
                             subAlmacenId={subAlmacenDestinoId}
                             value={field.value ?? null}
                             onChange={(id) => field.onChange(id ?? '')}
+                            accionSinUbicaciones={
+                              articuloId ? (
+                                <AsignarUbicacionEnLinea
+                                  articuloId={articuloId}
+                                  onAsignada={(ubicacionId) =>
+                                    form.setValue(`lineas.${index}.ubicacionId`, ubicacionId, {
+                                      shouldDirty: true,
+                                      shouldValidate: true,
+                                    })
+                                  }
+                                />
+                              ) : undefined
+                            }
                           />
                         )}
                       />

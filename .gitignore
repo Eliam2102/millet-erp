@@ -85,3 +85,6 @@ __pycache__/
 *.py[cod]
 # Binario local de captura de correo (Windows)
 MailHog.exe
+
+# Almacenamiento local de CFDI de CxP (appsettings: RootPath ./blob-cxp)
+backend/src/Api/blob-cxp/

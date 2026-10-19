@@ -20,6 +20,7 @@ import type {
   SubEstadoRecepcion,
   SubEstadoFacturacion,
   SubEstadoPago,
+  EstadoComercialProveedorOc,
 } from '@/features/compras/ordenes/api/types';
 
 /**
@@ -39,6 +40,8 @@ export interface ListarOrdenesCompraFiltros {
   soloConPendienteRecepcion?: boolean;
   subEstadoFacturacion?: SubEstadoFacturacion;
   subEstadoPago?: SubEstadoPago;
+  /** F1-COM-11: estado comercial de la respuesta del proveedor. */
+  estadoComercialProveedor?: EstadoComercialProveedorOc;
   proveedorId?: string;
   compradorTitularId?: string;
   /** ISO 8601. */
@@ -47,6 +50,8 @@ export interface ListarOrdenesCompraFiltros {
   fechaHasta?: string;
   /** Texto libre para buscar por referencia del proveedor (no por folio). */
   referenciaProveedor?: string;
+  /** Búsqueda libre por folio o referencia del proveedor (contiene, sin mayúsculas). */
+  q?: string;
   /** Default backend = 1. */
   page?: number;
   /** Default backend = 50. Máx 200. */
@@ -62,6 +67,6 @@ export const ordenesKeys = {
   detail: (id: string) => [...ordenesKeys.all, 'detail', id] as const,
 
   /** UF4-PR1: bandeja P2 de pendientes-autorización filtrada por nivel. */
-  pendientes: (nivel: 'Nivel1' | 'Nivel2' | 'todos') =>
-    [...ordenesKeys.all, 'pendientes', nivel] as const,
+  pendientes: (nivel: 'Nivel1' | 'Nivel2' | 'todos', page?: number, pageSize?: number) =>
+    [...ordenesKeys.all, 'pendientes', nivel, ...(page != null ? [page, pageSize] : [])] as const,
 } as const;

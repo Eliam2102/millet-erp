@@ -305,6 +305,12 @@ export interface RecepcionLineaItem {
   unidadCapturada?: string | null;
   costoUnitarioMxn: number;
   montoTotalMxn: number;
+  /** Rack destino de la línea y su ruta «ALM › SUB · BIN». null = línea histórica. */
+  ubicacionId?: string | null;
+  ubicacionClave?: string | null;
+  /** ALM-04: la línea está en material en revisión (no disponible hasta el dictamen). */
+  enRevision?: boolean;
+  motivoDano?: string | null;
 }
 
 export interface RecepcionDetalle {
@@ -406,6 +412,9 @@ export interface RegistrarRecepcionLineaInput {
   // C7.2b: bin real destino (rack N4). Obligatorio en entradas.
   ubicacionId: string | null;
   comentario: string | null;
+  /** ALM-04: parte de la cantidad dañada; entra a material en revisión. */
+  cantidadDanada?: number;
+  motivoDano?: string | null;
 }
 
 export interface RegistrarRecepcionResponse {
@@ -711,6 +720,11 @@ export interface DevolucionProveedorDetalle {
   proveedorNombre: string | null;
   /** Folio de la NC fiscal que concilió (ADR-0042); null → id truncado. */
   notaCreditoFolio: string | null;
+  /** Folios de origen (C-02b); null → texto genérico. */
+  recepcionOrigenFolio?: string | null;
+  ordenCompraOrigenFolio?: string | null;
+  subAlmacenOrigenClave?: string | null;
+  subAlmacenOrigenNombre?: string | null;
 }
 
 export interface IniciarDevolucionAProveedorCommand {
@@ -853,6 +867,8 @@ export interface LineaConteoParaCapturarDto {
   articuloClave: string | null;
   articuloDescripcion: string | null;
   subAlmacenClave: string | null;
+  /** Unidad de medida del maestro de artículos (decimales y etiqueta de captura). */
+  unidadMedida: string | null;
 }
 
 /**
@@ -884,6 +900,12 @@ export interface LineaConteoComparacionDto {
   articuloClave: string | null;
   articuloDescripcion: string | null;
   subAlmacenClave: string | null;
+  unidadMedida: string | null;
+}
+
+/** Líneas que tendría un conteo con el sub-almacén y la familia elegidos. */
+export interface VistaPreviaConteo {
+  cantidadLineas: number;
 }
 
 export interface CrearConteoCommand {
@@ -943,6 +965,15 @@ export interface SaldoListItem {
   // Resueltos en backend (ADR-0042). null = no resolvió → el front cae al id.
   articuloClave: string | null;
   articuloDescripcion: string | null;
+}
+
+/** Mirror de <c>SaldosTotalesResponse</c>: totales de todo el conjunto filtrado.
+ * La cantidad solo viene si todos los artículos comparten una única UM. */
+export interface SaldosTotalesResponse {
+  valorInventarioMxn: number;
+  cantidadTotal: number | null;
+  unidadMedida: string | null;
+  articulos: number;
 }
 
 /** Mirror de <c>SaldoUbicacionItem</c> (C7.2b) — una ubicación con existencia
@@ -1011,6 +1042,32 @@ export interface EjecutarCierreMensualResponse {
   cerradoAt: string;
 }
 
+/** Periodo mensual concluido con su estado (GET cierre-mes/periodos). */
+export interface PeriodoCierreItem {
+  anio: number;
+  mes: number;
+  cerrado: boolean;
+  cerradoAt: string | null;
+}
+
+/** Una validación del cierre; <c>codigo</c> = el que lanza el cierre al fallar. */
+export interface RevisionPreviaCheck {
+  codigo: string;
+  titulo: string;
+  ok: boolean;
+  cantidad: number;
+  detalle: string;
+}
+
+export interface RevisionPreviaCierreResponse {
+  anio: number;
+  mes: number;
+  yaCerrado: boolean;
+  periodoNoConcluido: boolean;
+  puedeCerrar: boolean;
+  checks: RevisionPreviaCheck[];
+}
+
 // ─── Reportes operativos (FE-F6-PR1, ADR-0036) ──────────────────────────────
 
 /**
@@ -1055,4 +1112,66 @@ export interface ExistenciaMpCnkFila {
   cantidadDisponible: number;
   costoPromedioMxn: number;
   valorInventarioMxn: number;
+}
+
+/** ALM-04: línea de material en revisión (espejo de `MaterialEnRevisionItem`). */
+export interface MaterialEnRevisionItem {
+  lineaRevisionId: string;
+  movimientoRevisionId: string;
+  recepcionId: string;
+  recepcionFolio: string;
+  fechaRecepcion: string;
+  ordenCompraId: string | null;
+  ordenCompraFolio: string | null;
+  articuloId: string;
+  articuloClave: string | null;
+  articuloDescripcion: string | null;
+  unidadMedida: string;
+  cantidadEnRevision: number;
+  cantidadDictaminada: number;
+  cantidadEnDevolucion: number;
+  cantidadPendiente: number;
+  motivoDano: string | null;
+  ubicacionRevisionId: string;
+  subAlmacenRevisionId: string;
+  ubicacionDisponibleSugeridaId: string | null;
+  fechaLimite: string | null;
+  vencida: boolean;
+  /** true = falta el calendario de días hábiles: no se pudo calcular `fechaLimite`. */
+  plazoNoCalculable: boolean;
+  dictamenes: DictamenRevisionItem[];
+}
+
+/** ALM-04 G1.3: resultado del dictamen (espejo de `ResultadoDictamen`). */
+export const ResultadoDictamen = { Liberar: 0, Rechazar: 1, Baja: 2 } as const;
+export type ResultadoDictamen = (typeof ResultadoDictamen)[keyof typeof ResultadoDictamen];
+export const ResultadoDictamenLabels: Record<ResultadoDictamen, string> = {
+  [ResultadoDictamen.Liberar]: 'Liberar',
+  [ResultadoDictamen.Rechazar]: 'Rechazar al proveedor',
+  [ResultadoDictamen.Baja]: 'Dar de baja',
+};
+
+export interface DictamenRevisionItem {
+  id: string;
+  resultado: ResultadoDictamen;
+  cantidad: number;
+  motivo: string;
+  dictaminadoPor: string;
+  dictaminadoAt: string;
+  devolucionAProveedorId: string | null;
+}
+
+export interface DictaminarMaterialEnRevisionRequest {
+  resultado: ResultadoDictamen;
+  cantidad: number;
+  motivo: string;
+  fechaMovimiento: string;
+  ubicacionDestinoId: string | null;
+}
+
+export interface DictamenRevisionResponse {
+  dictamenId: string;
+  resultado: ResultadoDictamen;
+  folio: string | null;
+  devolucionAProveedorId: string | null;
 }

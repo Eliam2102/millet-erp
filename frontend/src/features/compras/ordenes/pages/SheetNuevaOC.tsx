@@ -27,6 +27,7 @@ import {
   CondicionesPagoSelector,
   UsoPrincipalSelector,
   DatePickerField,
+  Field,
   TextAreaField,
   DecimalField,
 } from '@/components/erp';
@@ -492,17 +493,17 @@ export function SheetNuevaOC({
         {/* Chips de RQs seleccionadas (modo Consolidación) */}
         {rqsSeleccionadas.length > 0 && (
           <div
-            className="flex flex-wrap gap-1.5 rounded-md border border-blue-200 bg-blue-50/40 p-2 text-xs"
+            className="flex flex-wrap gap-1.5 rounded-md border border-info bg-info-bg/40 p-2 text-xs"
             data-component="rqs-seleccionadas-chips"
           >
-            <span className="font-medium text-blue-900">
+            <span className="font-medium text-info-fg">
               Consolidando {rqsSeleccionadas.length}{' '}
               {rqsSeleccionadas.length === 1 ? 'RQ' : 'RQs'}:
             </span>
             {rqsSeleccionadas.map((rq) => (
               <span
                 key={rq.id}
-                className="inline-flex items-center gap-1 rounded-full border border-blue-300 bg-white px-2 py-0.5 font-mono text-blue-900"
+                className="inline-flex items-center gap-1 rounded-full border border-info bg-surface-card px-2 py-0.5 font-mono text-info-fg"
                 data-rq-chip={rq.id}
               >
                 {rq.folio} · {rq.totalLineas}L
@@ -513,7 +514,7 @@ export function SheetNuevaOC({
                       prev.filter((r) => r.id !== rq.id),
                     )
                   }
-                  className="text-blue-700 hover:text-blue-900"
+                  className="text-info-fg hover:text-info-fg"
                   aria-label={`Quitar ${rq.folio} de la consolidación`}
                 >
                   ×
@@ -534,21 +535,24 @@ export function SheetNuevaOC({
 
         {/* Panel motivo + uploader stub (solo modo SinRq) */}
         {sinRequisicionPrevia && (
-          <div className="space-y-3 rounded-md border border-amber-200 bg-amber-50/40 p-3">
+          <div className="space-y-3 rounded-md border border-warning bg-warning-bg/40 p-3">
             <Controller
               control={form.control}
               name="motivoSinRequisicion"
               render={({ field, fieldState }) => (
-                <FieldGroup
+                <Field
                   label="Motivo (obligatorio)"
                   error={fieldState.error?.message}
                 >
+{(c) => (<>
                   <TextAreaField
+                    textareaProps={c}
                     value={field.value ?? null}
                     onChange={field.onChange}
                     minRows={2}
                   />
-                </FieldGroup>
+                </>)}
+</Field>
               )}
             />
             <UploadCorreoAutorizacion />
@@ -561,12 +565,15 @@ export function SheetNuevaOC({
             control={form.control}
             name="proveedorId"
             render={({ field, fieldState }) => (
-              <FieldGroup label="Proveedor" error={fieldState.error?.message}>
+              <Field label="Proveedor" error={fieldState.error?.message}>
+{(c) => (<>
                 <ProveedorSelector
+                  triggerProps={c}
                   value={field.value ?? null}
                   onChange={(v) => field.onChange(v ?? '')}
                 />
-              </FieldGroup>
+              </>)}
+</Field>
             )}
           />
         </div>
@@ -577,12 +584,14 @@ export function SheetNuevaOC({
             control={form.control}
             name="sucursalDestinoId"
             render={({ field, fieldState }) => (
-              <FieldGroup
+              <Field
                 label="Sucursal destino"
                 required
                 error={fieldState.error?.message}
               >
+{(c) => (<>
                 <SucursalSelector
+                  triggerProps={c}
                   value={field.value ?? null}
                   onChange={(v) => field.onChange(v ?? '')}
                 />
@@ -591,7 +600,8 @@ export function SheetNuevaOC({
                     ? `Esta compra se registrará para ${sucursalesMap.get(field.value)?.clave} · ${sucursalesMap.get(field.value)?.nombre}.`
                     : 'Elige para qué sucursal se realiza esta compra.'} Tu cuenta conserva su alcance corporativo o sus sucursales autorizadas.
                 </p>
-              </FieldGroup>
+              </>)}
+</Field>
             )}
           />
         </div>
@@ -602,15 +612,18 @@ export function SheetNuevaOC({
             control={form.control}
             name="condicionesPagoId"
             render={({ field, fieldState }) => (
-              <FieldGroup
+              <Field
                 label="Condiciones de pago"
                 error={fieldState.error?.message}
               >
+{(c) => (<>
                 <CondicionesPagoSelector
+                  triggerProps={c}
                   value={field.value || null}
                   onChange={(v) => field.onChange(v ?? '')}
                 />
-              </FieldGroup>
+              </>)}
+</Field>
             )}
           />
 
@@ -618,15 +631,18 @@ export function SheetNuevaOC({
             control={form.control}
             name="usoPrincipalId"
             render={({ field, fieldState }) => (
-              <FieldGroup
+              <Field
                 label="Uso principal"
                 error={fieldState.error?.message}
               >
+{(c) => (<>
                 <UsoPrincipalSelector
+                  triggerProps={c}
                   value={field.value || null}
                   onChange={(v) => field.onChange(v ?? '')}
                 />
-              </FieldGroup>
+              </>)}
+</Field>
             )}
           />
         </div>
@@ -636,9 +652,10 @@ export function SheetNuevaOC({
             control={form.control}
             name="moneda"
             render={({ field, fieldState }) => (
-              <FieldGroup label="Moneda" error={fieldState.error?.message}>
+              <Field label="Moneda" error={fieldState.error?.message}>
+{(c) => (<>
                 <Select value={field.value || 'MXN'} onValueChange={field.onChange}>
-                  <SelectTrigger data-field="moneda">
+                  <SelectTrigger data-field="moneda" {...c}>
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
@@ -649,7 +666,8 @@ export function SheetNuevaOC({
                     ))}
                   </SelectContent>
                 </Select>
-              </FieldGroup>
+              </>)}
+</Field>
             )}
           />
           {moneda !== 'MXN' && (
@@ -657,17 +675,20 @@ export function SheetNuevaOC({
               control={form.control}
               name="tipoCambio"
               render={({ field, fieldState }) => (
-                <FieldGroup
+                <Field
                   label={`Tipo de cambio (${moneda} → MXN)`}
                   error={fieldState.error?.message}
                 >
+{(c) => (<>
                   <DecimalField
+                    inputProps={c}
                     value={field.value ?? null}
                     onChange={field.onChange}
                     min={0.000001}
                     step={0.000001}
                   />
-                </FieldGroup>
+                </>)}
+</Field>
               )}
             />
           )}
@@ -675,45 +696,56 @@ export function SheetNuevaOC({
             control={form.control}
             name="fechaDocumento"
             render={({ field, fieldState }) => (
-              <FieldGroup
+              <Field
                 label="Fecha del documento"
                 error={fieldState.error?.message}
               >
+{(c) => (<>
                 <DatePickerField
+                  id={c.id}
                   value={field.value ?? null}
                   onChange={(v) => field.onChange(v ?? '')}
                 />
-              </FieldGroup>
+              </>)}
+</Field>
             )}
           />
         </div>
 
         {/* Sección logística básica (importación + fecha entrega) */}
         <div className="grid gap-3 md:grid-cols-2">
-          <FieldGroup label="Bandera">
-            <label className="flex items-center gap-2 text-sm">
-              <input
-                type="checkbox"
-                {...form.register('esImportacion')}
-                className="h-4 w-4 rounded border-input"
-                data-field="es-importacion"
-              />
-              Es importación o exportación (incoterm, país, BL y demás datos se capturan en el detalle de la OC antes de enviarla a autorización)
-            </label>
-          </FieldGroup>
+          <Field label="Tipo de operación">
+            {(c) => (
+              <div className="flex items-start gap-2 text-sm">
+                <input
+                  {...c}
+                  type="checkbox"
+                  {...form.register('esImportacion')}
+                  className="mt-0.5 h-4 w-4 rounded border-input"
+                  data-field="es-importacion"
+                />
+                <label htmlFor={c.id}>
+                  Es importación o exportación (incoterm, país, BL y demás datos se capturan en el detalle de la OC antes de enviarla a autorización)
+                </label>
+              </div>
+            )}
+          </Field>
           <Controller
             control={form.control}
             name="fechaEntregaEsperada"
             render={({ field, fieldState }) => (
-              <FieldGroup
+              <Field
                 label="Fecha entrega esperada (opcional)"
                 error={fieldState.error?.message}
               >
+{(c) => (<>
                 <DatePickerField
+                  id={c.id}
                   value={field.value ?? null}
                   onChange={(v) => field.onChange(v ?? null)}
                 />
-              </FieldGroup>
+              </>)}
+</Field>
             )}
           />
         </div>
@@ -723,16 +755,19 @@ export function SheetNuevaOC({
           control={form.control}
           name="observaciones"
           render={({ field, fieldState }) => (
-            <FieldGroup
+            <Field
               label="Observaciones (opcional)"
               error={fieldState.error?.message}
             >
+{(c) => (<>
               <TextAreaField
+                textareaProps={c}
                 value={field.value ?? null}
                 onChange={(v) => field.onChange(v || null)}
                 minRows={3}
               />
-            </FieldGroup>
+            </>)}
+</Field>
           )}
         />
 
@@ -756,43 +791,6 @@ export function SheetNuevaOC({
         </div>
       </form>
     </>
-  );
-}
-
-/**
- * Helper local: agrupa label + child + error de campo. Usado por los
- * <c>&lt;Select&gt;</c> y checkbox que no tienen el wrapper estándar
- * de los <c>*Field</c> del UX kit.
- */
-function FieldGroup({
-  label,
-  error,
-  required,
-  children,
-}: {
-  label: string;
-  error?: string;
-  required?: boolean;
-  children: React.ReactNode;
-}) {
-  return (
-    <div className="space-y-1">
-      <label className="text-xs font-medium text-foreground">
-        {label}
-        {required && (
-          <>
-            <span aria-hidden="true" className="text-destructive"> *</span>
-            <span className="sr-only"> (obligatorio)</span>
-          </>
-        )}
-      </label>
-      {children}
-      {error && (
-        <p className="text-xs text-destructive" role="alert">
-          {error}
-        </p>
-      )}
-    </div>
   );
 }
 

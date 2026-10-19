@@ -1,9 +1,14 @@
 import { describe, expect, it } from 'vitest';
-import { formatearFecha } from './formato';
+import { folioFactura } from './formato';
 
-describe('formatearFecha', () => {
-  it('no retrocede un día con fechas de calendario a medianoche UTC', () => {
-    expect(formatearFecha('2026-10-09T00:00:00+00:00')).toBe('09/10/2026');
-    expect(formatearFecha('2026-10-09')).toBe('09/10/2026');
+describe('folioFactura', () => {
+  it('une serie y folio con guion', () => {
+    expect(folioFactura({ serieProveedor: 'A', folioProveedor: '123' })).toBe('A-123');
+  });
+  it('omite la serie vacía', () => {
+    expect(folioFactura({ serieProveedor: null, folioProveedor: '123' })).toBe('123');
+  });
+  it('sin folio ni serie', () => {
+    expect(folioFactura({})).toBe('Sin folio');
   });
 });

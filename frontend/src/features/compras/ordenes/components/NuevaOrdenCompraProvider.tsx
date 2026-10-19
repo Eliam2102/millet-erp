@@ -1,4 +1,5 @@
-import { useCallback, useMemo, useRef, useState, type ReactNode } from 'react';
+import { useCallback, useMemo, useState, type ReactNode } from 'react';
+import { useConfirmarDescarte } from '@/components/erp/forms/useConfirmarDescarte';
 import {
   Sheet,
   SheetContent,
@@ -34,33 +35,23 @@ export function NuevaOrdenCompraProvider({
   const [abierto, setAbierto] = useState(false);
   const [desdeRequisicion, setDesdeRequisicion] =
     useState<DesdeRequisicionContext | null>(null);
-  const isDirtyRef = useRef(false);
-
-  const setDirty = useCallback((dirty: boolean) => {
-    isDirtyRef.current = dirty;
+  const alCerrar = useCallback(() => {
+    setAbierto(false);
+    setDesdeRequisicion(null);
   }, []);
-
-  const cerrarConConfirm = useCallback((opts?: { force?: boolean }) => {
-    if (opts?.force === true || !isDirtyRef.current) {
-      isDirtyRef.current = false;
-      setAbierto(false);
-      setDesdeRequisicion(null);
-      return;
-    }
-    const confirmar = window.confirm(
-      'Tienes cambios sin guardar en la nueva OC. ¿Descartarlos y cerrar?\n\n(Tu borrador queda guardado localmente; la próxima vez te lo ofreceremos recuperar.)',
-    );
-    if (confirmar) {
-      isDirtyRef.current = false;
-      setAbierto(false);
-      setDesdeRequisicion(null);
-    }
-  }, []);
+  const { setDirty, solicitarCierre, dialogo } = useConfirmarDescarte(
+    alCerrar,
+    'Tu borrador queda guardado localmente; la próxima vez te lo ofreceremos recuperar.',
+  );
+  const cerrarConConfirm = useCallback(
+    (opts?: { force?: boolean }) => solicitarCierre(opts?.force),
+    [solicitarCierre],
+  );
 
   const api = useMemo<NuevaOrdenCompraApi>(
     () => ({
       abrir: (opts) => {
-        isDirtyRef.current = false;
+        setDirty(false);
         setDesdeRequisicion(opts?.desdeRequisicion ?? null);
         setAbierto(true);
       },
@@ -111,6 +102,7 @@ export function NuevaOrdenCompraProvider({
           </div>
         </SheetContent>
       </Sheet>
+      {dialogo}
     </NuevaOrdenCompraContext.Provider>
   );
 }

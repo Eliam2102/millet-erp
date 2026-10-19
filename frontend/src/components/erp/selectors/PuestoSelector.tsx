@@ -1,3 +1,4 @@
+import type { ComponentProps } from 'react';
 import { usePuestos } from '@/features/catalogos/api';
 import { usePuestosDeSucursal } from '@/modules/administracion/api';
 import { EstatusCatalogo } from '@/features/compras/api/types';
@@ -21,6 +22,8 @@ export interface PuestoSelectorProps {
   placeholder?: string;
   disabled?: boolean;
   className?: string;
+  /** Props extra del trigger (id y aria-* que entrega `Field`). */
+  triggerProps?: ComponentProps<'button'>;
 }
 
 export function PuestoSelector({
@@ -31,6 +34,7 @@ export function PuestoSelector({
   placeholder = 'Selecciona puesto',
   disabled,
   className,
+  triggerProps,
 }: PuestoSelectorProps) {
   const globalQuery = usePuestos();
   const sucursalQuery = usePuestosDeSucursal(sucursalId ?? null);
@@ -96,6 +100,7 @@ export function PuestoSelector({
       ariaLabel="Seleccionar puesto"
       disabled={disabled}
       className={className}
+      triggerProps={triggerProps}
     />
   );
 }

@@ -98,7 +98,7 @@ export function ReporteAlfakPage() {
               setHasta(finMes);
             }}
           >
-            Reset filtros
+            Limpiar filtros
           </Button>
         </div>
       }

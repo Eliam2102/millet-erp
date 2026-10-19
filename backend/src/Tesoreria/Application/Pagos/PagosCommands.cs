@@ -45,7 +45,11 @@ public sealed record RegistrarPagoProveedorCommand(
     DateOnly FechaValor,
     IReadOnlyList<AplicacionPagoItem> Aplicaciones,
     string? ReferenciaBancaria = null,
-    Guid? ConceptoId = null) : IRequest<PagoProveedorResponse>;
+    Guid? ConceptoId = null,
+    // 86e3pdmee: cuenta del proveedor elegida (null = la predeterminada activa de la moneda)
+    // y confirmación de fondos (no hay integración bancaria; owner 17-oct).
+    Guid? CuentaProveedorId = null,
+    bool FondosVerificados = false) : IRequest<PagoProveedorResponse>;
 
 public sealed class RegistrarPagoProveedorValidator : AbstractValidator<RegistrarPagoProveedorCommand>
 {
@@ -54,6 +58,8 @@ public sealed class RegistrarPagoProveedorValidator : AbstractValidator<Registra
         RuleFor(c => c.CuentaBancariaId).NotEmpty();
         RuleFor(c => c.FechaValor).NotEmpty();
         RuleFor(c => c.ReferenciaBancaria).MaximumLength(120);
+        RuleFor(c => c.FondosVerificados).Equal(true)
+            .WithMessage("Confirma que verificaste en la banca que la cuenta tiene fondos para este pago.");
         RuleFor(c => c.Aplicaciones).NotEmpty()
             .WithMessage("El pago debe aplicar al menos a un pasivo.");
         RuleForEach(c => c.Aplicaciones).ChildRules(a =>
@@ -167,11 +173,13 @@ public sealed class RegistrarPagoProveedorHandler
 
         // F1-ADM-05 G1.1 / Plano G1 §3.1: el proveedor debe estar Activo para recibir pagos.
         // Si está EnRevision o Inactivo, se bloquea la operación (G1.1-b).
+        CuentaDestinoPago? destino = null;
         if (!hayInternos)
         {
             var infoProveedor = await _proveedorBancoPort.ObtenerAsync(proveedorId, cancellationToken);
             if (infoProveedor is not null)
             {
+
                 if (infoProveedor.EnRevision)
                 {
                     throw new BusinessRuleException(
@@ -185,6 +193,21 @@ public sealed class RegistrarPagoProveedorHandler
                         "PROVEEDOR_NO_ACTIVO",
                         $"El proveedor '{infoProveedor.RazonSocial}' no está activo y no admite pagos.");
                 }
+
+                // 86e3pdmee: solo se paga a una cuenta activa del proveedor en la moneda de la cuenta de egreso.
+                var elegida = command.CuentaProveedorId is Guid cuentaProveedorId
+                    ? infoProveedor.Cuentas.FirstOrDefault(c => c.Id == cuentaProveedorId)
+                    : infoProveedor.CuentaPara(cuenta.Moneda);
+                if (elegida is null)
+                    throw new BusinessRuleException("PROVEEDOR_SIN_CUENTA_ACTIVA",
+                        $"El proveedor '{infoProveedor.RazonSocial}' no tiene una cuenta activa en {cuenta.Moneda}. Regístrala y valídala en Datos maestros antes de pagar.");
+                if (!elegida.Activa)
+                    throw new BusinessRuleException("PROVEEDOR_CUENTA_NO_ACTIVA",
+                        $"La cuenta {elegida.Banco} {Clabe.Enmascarar(elegida.Numero)} no está activa; solo se paga a cuentas activas.");
+                if (elegida.Moneda != cuenta.Moneda)
+                    throw new BusinessRuleException("PROVEEDOR_CUENTA_OTRA_MONEDA",
+                        $"La cuenta del proveedor es {elegida.Moneda} y la cuenta de egreso es {cuenta.Moneda}.");
+                destino = new CuentaDestinoPago(elegida.Id, elegida.Banco, elegida.Numero, elegida.Titular);
             }
         }
 
@@ -225,7 +248,9 @@ public sealed class RegistrarPagoProveedorHandler
             referenciaBancaria: command.ReferenciaBancaria,
             conceptoId: command.ConceptoId,
             creadoPor: usuarioId,
-            ahora: ahora);
+            ahora: ahora,
+            destino: destino,
+            fondosVerificados: command.FondosVerificados);
         _db.MovimientosBancarios.Add(movimiento);
 
         var aplicaciones = new List<AplicacionPagoProveedor>(command.Aplicaciones.Count);

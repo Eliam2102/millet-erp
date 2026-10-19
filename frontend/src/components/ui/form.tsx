@@ -54,10 +54,11 @@ const useFormField = () => {
 
   const fieldState = getFieldState(fieldContext.name, formState)
 
-  const { id } = itemContext
+  const { id, tieneDescripcion } = itemContext
 
   return {
     id,
+    tieneDescripcion,
     name: fieldContext.name,
     formItemId: `${id}-form-item`,
     formDescriptionId: `${id}-form-item-description`,
@@ -68,6 +69,9 @@ const useFormField = () => {
 
 type FormItemContextValue = {
   id: string
+  /** `FormDescription` se registra aquí para que `aria-describedby` no apunte a ids inexistentes. */
+  setTieneDescripcion: (tiene: boolean) => void
+  tieneDescripcion: boolean
 }
 
 const FormItemContext = React.createContext<FormItemContextValue | null>(null)
@@ -77,9 +81,10 @@ const FormItem = React.forwardRef<
   React.HTMLAttributes<HTMLDivElement>
 >(({ className, ...props }, ref) => {
   const id = React.useId()
+  const [tieneDescripcion, setTieneDescripcion] = React.useState(false)
 
   return (
-    <FormItemContext.Provider value={{ id }}>
+    <FormItemContext.Provider value={{ id, tieneDescripcion, setTieneDescripcion }}>
       <div ref={ref} className={cn("space-y-2", className)} {...props} />
     </FormItemContext.Provider>
   )
@@ -95,7 +100,7 @@ const FormLabel = React.forwardRef<
   return (
     <Label
       ref={ref}
-      className={cn(error && "text-destructive", className)}
+      className={cn(error && "text-danger-fg", className)}
       htmlFor={formItemId}
       {...props}
     />
@@ -107,17 +112,18 @@ const FormControl = React.forwardRef<
   React.ElementRef<typeof Slot>,
   React.ComponentPropsWithoutRef<typeof Slot>
 >(({ ...props }, ref) => {
-  const { error, formItemId, formDescriptionId, formMessageId } = useFormField()
+  const { error, formItemId, formDescriptionId, formMessageId, tieneDescripcion } =
+    useFormField()
+  const describedBy =
+    [tieneDescripcion && formDescriptionId, error && formMessageId]
+      .filter(Boolean)
+      .join(" ") || undefined
 
   return (
     <Slot
       ref={ref}
       id={formItemId}
-      aria-describedby={
-        !error
-          ? `${formDescriptionId}`
-          : `${formDescriptionId} ${formMessageId}`
-      }
+      aria-describedby={describedBy}
       aria-invalid={!!error}
       {...props}
     />
@@ -130,12 +136,19 @@ const FormDescription = React.forwardRef<
   React.HTMLAttributes<HTMLParagraphElement>
 >(({ className, ...props }, ref) => {
   const { formDescriptionId } = useFormField()
+  const itemContext = React.useContext(FormItemContext)
+  const setTieneDescripcion = itemContext?.setTieneDescripcion
+
+  React.useEffect(() => {
+    setTieneDescripcion?.(true)
+    return () => setTieneDescripcion?.(false)
+  }, [setTieneDescripcion])
 
   return (
     <p
       ref={ref}
       id={formDescriptionId}
-      className={cn("text-sm text-muted-foreground", className)}
+      className={cn("text-sm text-ink-muted", className)}
       {...props}
     />
   )
@@ -157,7 +170,7 @@ const FormMessage = React.forwardRef<
     <p
       ref={ref}
       id={formMessageId}
-      className={cn("text-sm font-medium text-destructive", className)}
+      className={cn("text-sm font-medium text-danger-fg", className)}
       {...props}
     >
       {body}

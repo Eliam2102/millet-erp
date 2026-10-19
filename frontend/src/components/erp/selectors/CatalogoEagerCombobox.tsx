@@ -1,3 +1,4 @@
+import type { ComponentProps } from 'react';
 import { useMemo, useState, type ReactNode } from 'react';
 import { Check, ChevronsUpDown, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -74,6 +75,8 @@ export interface CatalogoEagerComboboxProps<TItem extends { id: string }> {
   ariaLabel: string;
   disabled?: boolean;
   className?: string;
+  /** Props extra del trigger (id y aria-* que entrega `Field`). */
+  triggerProps?: ComponentProps<'button'>;
   /** Ancho del popover. Default <c>w-[min(28rem,90vw)]</c>. */
   popoverWidthClassName?: string;
 }
@@ -95,6 +98,7 @@ export function CatalogoEagerCombobox<TItem extends { id: string }>({
   ariaLabel,
   disabled,
   className,
+  triggerProps,
   popoverWidthClassName = 'w-[min(28rem,90vw)]',
 }: CatalogoEagerComboboxProps<TItem>) {
   const [open, setOpen] = useState(false);
@@ -118,6 +122,7 @@ export function CatalogoEagerCombobox<TItem extends { id: string }>({
           role="combobox"
           aria-expanded={open}
           aria-label={ariaLabel}
+          {...triggerProps}
           disabled={disabled}
           className={cn(
             'w-full justify-between font-normal',

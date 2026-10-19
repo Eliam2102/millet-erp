@@ -25,7 +25,7 @@ import {
   ErrorState,
   TableSkeleton,
 } from '@/components/erp';
-import { esApiError, useFormIdempotencyKey } from '@/lib/api';
+import { esApiError, useFormIdempotencyKey, codigoSoporte } from '@/lib/api';
 import { useHasPermission } from '@/lib/auth/useHasPermission';
 import { PermisosCanonicos } from '@/lib/auth/permission-codes';
 import { useSucursales } from '@/features/catalogos/api';
@@ -377,9 +377,7 @@ function SeriesTabla({
         onError: (err) => {
           if (esApiError(err)) {
             toast.error(err.problem.title, {
-              description: err.traceId
-                ? `Código: ${err.traceId}`
-                : undefined,
+              description: codigoSoporte(err),
             });
           } else {
             toast.error('Error al desactivar la serie.');

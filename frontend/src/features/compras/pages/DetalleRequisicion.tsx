@@ -8,6 +8,7 @@ import {
 } from '@tanstack/react-router';
 import { History, Printer, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { Skeleton } from '@/components/ui/skeleton';
 import {
   CollaborationIndicator,
   EditandoBanner,
@@ -129,8 +130,12 @@ export function DetalleRequisicion() {
 
   if (requisicionQuery.isLoading || requisicionQuery.data == null) {
     return (
-      <div className="space-y-4">
-        <h1 className="text-2xl font-semibold tracking-tight">Cargando…</h1>
+      <div className="flex flex-col gap-4" aria-busy="true">
+        <header className="flex items-center gap-3 border-b px-4 py-2">
+          <Skeleton className="h-7 w-32" />
+          <Skeleton className="h-5 w-24 rounded-full" />
+          <Skeleton className="ml-4 h-8 w-28" />
+        </header>
         <TableSkeleton
           rows={5}
           columns={[
@@ -154,13 +159,13 @@ export function DetalleRequisicion() {
           las acciones de workflow al centro, y los utilities (Imprimir,
           Histórico, Cerrar) a la derecha. */}
       <header
-        className="sticky top-14 z-10 flex flex-wrap items-center gap-3 border-b bg-background/95 px-4 py-2 backdrop-blur"
+        className="sticky top-14 z-10 md:top-0 flex flex-wrap items-center gap-3 border-b bg-background/95 px-4 py-2 backdrop-blur"
         data-print="hidden"
       >
         <div className="flex min-w-0 items-center gap-2">
-          <span className="truncate font-mono text-sm font-semibold">
+          <h1 className="truncate font-mono text-3xl font-semibold text-ink">
             {rq.folio}
-          </span>
+          </h1>
           <EstadoBadge
             tipo="requisicion"
             estado={rq.estado}

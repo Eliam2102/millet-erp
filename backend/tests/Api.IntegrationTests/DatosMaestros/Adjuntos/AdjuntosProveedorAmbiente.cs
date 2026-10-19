@@ -154,7 +154,8 @@ public sealed class AdjuntosProveedorAmbiente
     // --- Datos ---
 
     public async Task<Guid> SeedProveedorAsync(
-        TipoPersonaProveedor tipo = TipoPersonaProveedor.Moral, EstatusCatalogo estatus = EstatusCatalogo.Activo)
+        TipoPersonaProveedor tipo = TipoPersonaProveedor.Moral, EstatusCatalogo estatus = EstatusCatalogo.Activo,
+        bool clasificar = true)
     {
         using var scope = Factory.Services.CreateScope();
         var db = scope.ServiceProvider.GetRequiredService<CompartidoDbContext>();
@@ -162,6 +163,9 @@ public sealed class AdjuntosProveedorAmbiente
         var n = Guid.NewGuid().ToString("N");
         var rfc = tipo == TipoPersonaProveedor.Moral ? $"AD{n[..10]}".ToUpperInvariant() : $"AD{n[..11]}".ToUpperInvariant();
         var p = new Proveedor(Guid.CreateVersion7(), $"AP-{n[..10]}", $"Proveedor adjuntos {n[..6]}", rfc, tipo, estatus);
+        // 86e3pdmee: sin origen no se valida; los proveedores de prueba nacen nacionales con su régimen (601 moral, 612 física).
+        if (clasificar)
+            p.ActualizarClasificacionFiscal(OrigenProveedor.Nacional, tipo == TipoPersonaProveedor.Moral ? "601" : "612", null);
         db.Proveedores.Add(p);
         await db.SaveChangesAsync();
         return p.Id;

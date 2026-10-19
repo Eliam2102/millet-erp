@@ -1,4 +1,5 @@
 using MediatR;
+using Millet.Compras.Domain;
 
 namespace Millet.Compras.Application.Umbrales;
 
@@ -15,8 +16,12 @@ namespace Millet.Compras.Application.Umbrales;
 /// </summary>
 /// <param name="UmbralMenorCuantia">N1. <c>null</c> = sin umbral N1.</param>
 /// <param name="UmbralMonto">N2. Debe ser mayor que N1 cuando N1 existe.</param>
+/// <param name="ModoNivel2">Modo de nivel 2 de la requisición para el departamento.</param>
+/// <param name="MontoMinimoDisponibilidad">Importe mínimo a comprar que dispara N2 por disponibilidad; <c>null</c> = sin mínimo.</param>
 public sealed record UpsertUmbralCommand(
     Guid DepartamentoId,
     decimal? UmbralMenorCuantia,
     decimal UmbralMonto,
-    string Moneda = "MXN") : IRequest<UmbralAprobacionResponse>;
+    string Moneda = "MXN",
+    ModoNivel2 ModoNivel2 = ModoNivel2.SoloDisponibilidad,
+    decimal? MontoMinimoDisponibilidad = null) : IRequest<UmbralAprobacionResponse>;

@@ -1,3 +1,4 @@
+import { DateTimeDisplay } from '@/components/erp/display/DateTimeDisplay';
 import { useState } from 'react';
 import { ReceiptText } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -7,7 +8,7 @@ import { EmptyState, ErrorState, TableSkeleton } from '@/components/erp';
 import { useReppPendientes } from '@/features/tesoreria/api/useTesoreria';
 import type { ReppPendienteResponse } from '@/features/tesoreria/api/types';
 import { RegistrarReppSheet } from '@/features/tesoreria/components/RegistrarReppSheet';
-import { formatoFecha, formatoMonto } from '@/features/tesoreria/lib/formato';
+import { formatoMonto } from '@/features/tesoreria/lib/formato';
 import { useHasPermission } from '@/lib/auth/useHasPermission';
 import { PermisosCanonicos } from '@/lib/auth/permission-codes';
 import { esApiError } from '@/lib/api';
@@ -136,7 +137,7 @@ export function BandejaReppPendientes() {
                   </td>
                   <td className="px-3 py-2 text-right tabular-nums">{formatoMonto(r.importePendiente, r.moneda)}</td>
                   <td className="px-3 py-2 text-xs">
-                    {formatoFecha(r.fechaPrimerPago)}
+                    <DateTimeDisplay value={r.fechaPrimerPago} variant="corta" />
                   </td>
                   <td
                     className={cn(

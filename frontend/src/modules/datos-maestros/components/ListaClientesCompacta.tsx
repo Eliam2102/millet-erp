@@ -1,5 +1,6 @@
 import { Link } from '@tanstack/react-router';
 import { ChevronRight } from 'lucide-react';
+import { Badge } from '@/components/ui/badge';
 import type { ClienteItem } from '@/modules/datos-maestros/api/types';
 import {
   EstatusCatalogoBadge,
@@ -81,6 +82,17 @@ function ItemCompacto({ item, activo }: ItemCompactoProps) {
               resultado={item.origenAw.resultado}
               className="text-[10px] py-0"
             />
+          )}
+          {item.clasificacionId == null ? (
+            <Badge variant="warning" className="text-[10px] py-0">
+              Sin clasificar
+            </Badge>
+          ) : (
+            item.clasificacionNombre && (
+              <span className="text-[10px] text-ink-muted">
+                {item.clasificacionNombre}
+              </span>
+            )
           )}
         </div>
       </Link>

@@ -1,3 +1,4 @@
+import { PageHeader } from '@/components/erp/PageHeader';
 import { useState } from 'react';
 import { useNavigate, useSearch } from '@tanstack/react-router';
 import { AlertTriangle, MoreVertical, Plus, Undo2, Zap } from 'lucide-react';
@@ -39,6 +40,7 @@ import { RegistrarRefundTcSheet } from '@/features/cxp/components/RegistrarRefun
 import { RegistrarMovimientoEspecialSheet } from '@/features/cxp/components/RegistrarMovimientoEspecialSheet';
 import { DisputarMovimientoTcSheet } from '@/features/cxp/components/DisputarMovimientoTcSheet';
 import type { MovimientosTcSearch } from '@/features/cxp/lib/tc-search-schema';
+import { MoneyDisplay } from '@/components/erp/display/MoneyDisplay';
 
 const FROM = '/_app/cxp/tc/movimientos' as const;
 const SENTINEL_ALL = '__all__';
@@ -86,36 +88,33 @@ export function MovimientosTcPage() {
 
   return (
     <div className="space-y-4">
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <div>
-          <h1 className="text-2xl font-semibold tracking-tight">
-            Movimientos TC
-          </h1>
-          <p className="text-sm text-muted-foreground">
-            Cargos a tarjetas. Flujo A genera factura automática; Flujo B
-            solo registra el movimiento.
-          </p>
-        </div>
-        {puedeRegistrar && (
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button>
-                <Plus className="mr-2 h-4 w-4" />
-                Nuevo movimiento
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end">
-              <DropdownMenuItem onSelect={() => setSheetAbierto(true)}>
-                Compra (Flujo A/B)
-              </DropdownMenuItem>
-              <DropdownMenuItem onSelect={() => setEspecialAbierto(true)}>
-                <Zap className="mr-2 h-3 w-3" />
-                Especial (intereses/anualidad/comisión)
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
-        )}
-      </div>
+      <PageHeader
+        titulo="Movimientos TC"
+        descripcion="Cargos a tarjetas. Flujo A genera factura automática; Flujo B solo registra el movimiento."
+        acciones={
+          <>
+            {puedeRegistrar && (
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button>
+                    <Plus className="mr-2 size-3.5" />
+                    Nuevo movimiento
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end">
+                  <DropdownMenuItem onSelect={() => setSheetAbierto(true)}>
+                    Compra (Flujo A/B)
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onSelect={() => setEspecialAbierto(true)}>
+                    <Zap className="mr-2 size-3.5" />
+                    Especial (intereses/anualidad/comisión)
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+            )}
+          </>
+        }
+      />
 
       <Filtros search={search} onChange={actualizarSearch} />
 
@@ -178,8 +177,8 @@ export function MovimientosTcPage() {
                     <td className="px-3 py-2 text-xs text-muted-foreground">
                       {m.conceptoContable}
                     </td>
-                    <td className="px-3 py-2 text-right font-mono">
-                      {formatearMonto(m.montoMxn, 'MXN')}
+                    <td className="py-2 pl-3 pr-4 text-right tabular-nums">
+                      <MoneyDisplay amount={m.montoMxn} currency={'MXN'} strong />
                     </td>
                     <td className="px-3 py-2 text-xs">
                       {TipoMovimientoTcLabels[m.tipo]}
@@ -209,7 +208,7 @@ export function MovimientosTcPage() {
                             <DropdownMenuItem
                               onSelect={() => setRefundTarget(m)}
                             >
-                              <Undo2 className="mr-2 h-3 w-3" />
+                              <Undo2 className="mr-2 size-3.5" />
                               Registrar refund
                             </DropdownMenuItem>
                           )}
@@ -218,7 +217,7 @@ export function MovimientosTcPage() {
                               onSelect={() => setDisputarTarget(m)}
                               className="text-destructive focus:text-destructive"
                             >
-                              <AlertTriangle className="mr-2 h-3 w-3" />
+                              <AlertTriangle className="mr-2 size-3.5" />
                               Marcar en disputa
                             </DropdownMenuItem>
                           )}
@@ -418,14 +417,3 @@ function abreviar(id: string): string {
   return id.length > 12 ? `${id.slice(0, 8)}…` : id;
 }
 
-function formatearMonto(v: number, moneda: string): string {
-  try {
-    return new Intl.NumberFormat('es-MX', {
-      style: 'currency',
-      currency: moneda,
-      minimumFractionDigits: 2,
-    }).format(v);
-  } catch {
-    return `${v.toFixed(2)} ${moneda}`;
-  }
-}

@@ -1,4 +1,5 @@
-import { createFileRoute, redirect } from '@tanstack/react-router';
+import { createFileRoute, redirect, useParams } from '@tanstack/react-router';
+import { MasterDetailAlmacen, ListaRecepcionesCompacta } from '@/features/almacen/components/MasterDetailAlmacen';
 import { RecepcionDetallePage } from '@/features/almacen/pages/RecepcionDetallePage';
 import { useAuthStore } from '@/lib/auth/auth-store';
 import { PermisosCanonicos } from '@/lib/auth/permission-codes';
@@ -15,5 +16,14 @@ export const Route = createFileRoute('/_app/almacen/recepciones/$id')({
       throw redirect({ to: '/almacen' });
     }
   },
-  component: RecepcionDetallePage,
+  component: DetalleRoute,
 });
+
+function DetalleRoute() {
+  const { id } = useParams({ strict: false }) as { id: string };
+  return (
+    <MasterDetailAlmacen titulo="Recepciones" bandejaTo="/almacen/recepciones" lista={<ListaRecepcionesCompacta idActivo={id} />}>
+      <RecepcionDetallePage />
+    </MasterDetailAlmacen>
+  );
+}

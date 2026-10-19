@@ -60,6 +60,51 @@ public sealed class EventosContablesG16Tests
         (await db.AplicacionesPagoProveedor.SumAsync(a => a.ImporteAplicado)).Should().Be(1000m);
     }
 
+    [Fact]
+    public async Task Pago_exige_cuenta_activa_del_proveedor_y_guarda_copia_de_la_cuenta_usada()
+    {
+        var (db, cuenta, pasivo) = Escenario(null);
+        await using var _ = db;
+        await db.SaveChangesAsync();
+        var porValidar = new CuentaProveedorDto(Guid.NewGuid(), "Banorte", "072180000000004569", true, null, "MXN", "Prov SA", false, "PorValidar");
+        var activa = new CuentaProveedorDto(Guid.NewGuid(), "BBVA", "012180000000001234", true, null, "MXN", "Prov SA", true, "Activa");
+        var proveedores = new ConCuentas();
+        RegistrarPagoProveedorHandler Handler() => new(db, new FakeEmpresa(), new FakeUser(), new Abierto(),
+            proveedores, new ElegibleSinLimite(), new Captura(), new FakeClock());
+        Task Pagar(Guid? cuentaProveedor) => Handler().Handle(new(cuenta.Id, Fecha, [new(pasivo.FacturaProveedorId, 100m)],
+            CuentaProveedorId: cuentaProveedor, FondosVerificados: true), default);
+
+        proveedores.Cuentas = [porValidar];
+        await FluentActions.Awaiting(() => Pagar(null)).Should().ThrowAsync<Millet.SharedKernel.Application.Exceptions.BusinessRuleException>()
+            .Where(e => e.Code == "PROVEEDOR_SIN_CUENTA_ACTIVA");
+        await FluentActions.Awaiting(() => Pagar(porValidar.Id)).Should().ThrowAsync<Millet.SharedKernel.Application.Exceptions.BusinessRuleException>()
+            .Where(e => e.Code == "PROVEEDOR_CUENTA_NO_ACTIVA");
+
+        proveedores.Cuentas = [porValidar, activa];
+        await Pagar(null);
+        var movimiento = await db.MovimientosBancarios.SingleAsync();
+        movimiento.DestinoCuentaId.Should().Be(activa.Id);
+        movimiento.DestinoNumeroCuenta.Should().Be(activa.Numero);
+        movimiento.FondosVerificados.Should().BeTrue();
+    }
+
+    [Fact]
+    public void Registrar_pago_exige_confirmar_fondos()
+    {
+        var validator = new RegistrarPagoProveedorValidator();
+        validator.Validate(new RegistrarPagoProveedorCommand(Guid.NewGuid(), Fecha, [new(Guid.NewGuid(), 1m)]))
+            .Errors.Should().Contain(e => e.PropertyName == "FondosVerificados");
+    }
+
+    private sealed class ConCuentas : IProveedorBancoReadPort
+    {
+        public IReadOnlyList<CuentaProveedorDto> Cuentas { get; set; } = [];
+        public Task<ProveedorBancoDto?> ObtenerAsync(Guid id, CancellationToken ct) =>
+            Task.FromResult<ProveedorBancoDto?>(new(id, "PROV", "Prov SA", Cuentas));
+        public Task<IReadOnlyDictionary<Guid, ProveedorBancoDto>> ObtenerVariosAsync(IReadOnlyCollection<Guid> ids, CancellationToken ct) =>
+            Task.FromResult<IReadOnlyDictionary<Guid, ProveedorBancoDto>>(new Dictionary<Guid, ProveedorBancoDto>());
+    }
+
     private sealed class ElegibleFijo : IElegibleFacturaReadPort
     {
         public decimal Monto { get; set; } = 800m;

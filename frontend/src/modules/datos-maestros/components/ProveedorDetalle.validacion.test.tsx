@@ -42,6 +42,9 @@ const PROVEEDOR_EN_REVISION = {
   estatus: EstatusCatalogo.EnRevision,
   validadoEn: null,
   motivoRechazo: null,
+  origen: 0,
+  regimenFiscalCodigo: '601',
+  conceptoRetencion: null,
 };
 
 beforeEach(() => {
@@ -118,6 +121,42 @@ describe('<ProveedorDetalle> — Validación y Rechazo de CxP (G1.1)', () => {
 
     // Validar está deshabilitado porque el expediente está incompleto
     expect(btnValidar).toBeDisabled();
+  });
+
+  it('el tooltip de Validar suma faltantes y vencidos', async () => {
+    mswServer.use(
+      http.get('*/api/v1/datos-maestros/proveedores/p-rev', () => HttpResponse.json(PROVEEDOR_EN_REVISION)),
+      http.get('*/api/v1/datos-maestros/proveedores/p-rev/expediente', () =>
+        HttpResponse.json({
+          tipoEntidad: 'proveedor', entidadId: 'p-rev', completo: false, documentos: [],
+          faltantes: ['contrato'], vencidos: ['comprobante_domicilio', 'constancia_situacion_fiscal'], porVencer: [],
+        }),
+      ),
+    );
+    render(<ProveedorDetalle />, { wrapper: createQueryWrapper() });
+    const btn = await screen.findByRole('button', { name: /validar proveedor/i });
+    await waitFor(() =>
+      expect(btn).toHaveAttribute('title', 'Expediente incompleto (1 faltante y 2 vencidos)'),
+    );
+    expect(btn).toBeDisabled();
+  });
+
+  it('no permite validar un proveedor sin clasificar y explica por qué', async () => {
+    mswServer.use(
+      http.get('*/api/v1/datos-maestros/proveedores/p-rev', () =>
+        HttpResponse.json({ ...PROVEEDOR_EN_REVISION, origen: null, regimenFiscalCodigo: null }),
+      ),
+      http.get('*/api/v1/datos-maestros/proveedores/p-rev/expediente', () =>
+        HttpResponse.json({
+          tipoEntidad: 'proveedor', entidadId: 'p-rev', completo: true, documentos: [],
+          faltantes: [], vencidos: [], porVencer: [],
+        }),
+      ),
+    );
+    render(<ProveedorDetalle />, { wrapper: createQueryWrapper() });
+    const btn = await screen.findByRole('button', { name: /validar proveedor/i });
+    expect(btn).toBeDisabled();
+    expect(btn).toHaveAttribute('title', expect.stringMatching(/clasifica al proveedor/i));
   });
 
   it('habilita botón Validar proveedor cuando el expediente está completo', async () => {

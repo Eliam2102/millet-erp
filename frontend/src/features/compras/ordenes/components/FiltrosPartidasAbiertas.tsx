@@ -80,7 +80,8 @@ export function FiltrosPartidasAbiertas({
         </Button>
       </div>
 
-      <div className="space-y-3">
+      {/* Bajo 2xl los filtros van en rejilla (no en una columna de 1000 px); en 2xl el aside de 260 px los apila a todo el ancho. */}
+      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4 2xl:grid-cols-1">
         <Field label="Estado">
           <Select
             value={search.estado != null ? String(search.estado) : SENTINEL_ALL}

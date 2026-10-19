@@ -64,6 +64,8 @@ export interface MeResponse {
   departamentoId: string | null;
   permisos: string[];
   comprasSettings: ComprasSettings | null;
+  /** Empleado ligado al usuario; <c>null</c> si no tiene (UX-F2-CXP-04). */
+  empleadoId?: string | null;
 }
 
 /**

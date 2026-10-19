@@ -186,6 +186,8 @@ describe('<DetalleRequisicion> — smoke', () => {
       ).toBeGreaterThan(0),
     );
     expect(screen.getByText('Líneas')).toBeInTheDocument();
+    // Un solo H1 (el folio, en el sub-topbar).
+    expect(screen.getAllByRole('heading', { level: 1 })).toHaveLength(1);
     // UF7-PR4: el histórico vive en un modal; en el sub-topbar hay un
     // botón "Histórico" que lo abre.
     expect(
@@ -202,7 +204,7 @@ describe('<DetalleRequisicion> — smoke', () => {
     ).toBeInTheDocument();
   });
 
-  it('estado loading: muestra el breadcrumb con "Cargando…"', () => {
+  it('estado loading: skeleton con la forma del detalle, sin H1', () => {
     mswServer.use(
       http.get(
         '*/api/v1/compras/requisiciones/rq-1',
@@ -210,7 +212,8 @@ describe('<DetalleRequisicion> — smoke', () => {
       ),
     );
     render(<DetalleRequisicion />, { wrapper: wrapperConStubs() });
-    expect(screen.getByText(/Cargando…/i)).toBeInTheDocument();
+    expect(document.querySelector('[aria-busy="true"]')).not.toBeNull();
+    expect(screen.queryByRole('heading', { level: 1 })).not.toBeInTheDocument();
   });
 
   it('error 403: delega a DetalleErrorBoundary', async () => {

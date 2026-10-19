@@ -35,7 +35,10 @@ public sealed class Proveedor : BaseEntity, IAuditable
     /// <summary>Diferencia máxima factura contra OC en MXN; null usa el parámetro general.</summary>
     public decimal? ToleranciaFacturaContraOcMxn { get; private set; }
 
-    public void ActualizarToleranciaFacturaContraOc(decimal? monto)
+    /// <summary>G1.13: true interpreta <see cref="ToleranciaFacturaContraOcMxn"/> como % del total de la OC.</summary>
+    public bool ToleranciaFacturaContraOcEsPorcentaje { get; private set; }
+
+    public void ActualizarToleranciaFacturaContraOc(decimal? monto, bool esPorcentaje = false)
     {
         if (monto < 0)
             throw new BusinessRuleException("PROVEEDOR_TOLERANCIA_NEGATIVA",
@@ -43,7 +46,11 @@ public sealed class Proveedor : BaseEntity, IAuditable
         if (monto > 99999999999999.9999m || (monto.HasValue && decimal.Round(monto.Value, 4) != monto.Value))
             throw new BusinessRuleException("PROVEEDOR_TOLERANCIA_PRECISION",
                 "La tolerancia admite hasta 14 enteros y 4 decimales, igual que la foto en la factura.");
+        if (esPorcentaje && monto > 100)
+            throw new BusinessRuleException("PROVEEDOR_TOLERANCIA_PORCENTAJE",
+                "La tolerancia en porcentaje no puede pasar de 100 %.");
         ToleranciaFacturaContraOcMxn = monto;
+        ToleranciaFacturaContraOcEsPorcentaje = monto.HasValue && esPorcentaje;
     }
 
     // ----- Validación CxP y Expediente (F1-ADM-05 G1.1) -----
@@ -53,20 +60,38 @@ public sealed class Proveedor : BaseEntity, IAuditable
     public DateTimeOffset? ValidadoEn { get; private set; }
     /// <summary>Motivo obligatorio en caso de rechazo del proveedor.</summary>
     public string? MotivoRechazo { get; private set; }
+    /// <summary>Versión de la matriz del expediente con la que se validó (86e3pdmee · ADM-01).</summary>
+    public int? ValidadoConMatrizVersion { get; private set; }
 
-    // ----- Datos bancarios para pago (TES-PR3, T-G1) -----
-    // Tesorería los resuelve vía IProveedorBancoReadPort para ejecutar la
-    // transferencia; el evento de pasivo de CxP no los trae
-    // (PLATFORM-TODO(PayloadEnriquecido)). PII: la CLABE se enmascara en
-    // logs (enricher Serilog) y en DTOs salvo permiso explícito.
-    /// <summary>Banco del proveedor (texto libre, catálogo pendiente).</summary>
-    public string? Banco { get; private set; }
+    // Datos bancarios: varias cuentas por proveedor en CuentaBancariaProveedor (86e3pdmee · ADM-02).
 
-    /// <summary>CLABE interbancaria (18 dígitos) para transferencias.</summary>
-    public string? Clabe { get; private set; }
+    // ----- Clasificación fiscal (86e3pdmee · ADM-01) -----
+    // Null = «por revisar» (proveedores heredados sin clasificar; no se inventan datos).
+    public OrigenProveedor? Origen { get; private set; }
+    /// <summary>Código SAT de régimen fiscal (3 dígitos, catálogo compartido); null en extranjeros o por revisar.</summary>
+    public string? RegimenFiscalCodigo { get; private set; }
+    /// <summary>
+    /// Concepto de retención esperado (catálogo de retenciones de CxP, o
+    /// <c>SIN_RETENCION</c>). CxP lo toma como predeterminado al capturar y
+    /// compara el XML contra él (decisión del owner, 17-oct).
+    /// </summary>
+    public string? ConceptoRetencion { get; private set; }
 
-    /// <summary>Nombre del beneficiario de la transferencia si difiere de la razón social.</summary>
-    public string? Beneficiario { get; private set; }
+    public void ActualizarClasificacionFiscal(OrigenProveedor? origen, string? regimenFiscalCodigo, string? conceptoRetencion)
+    {
+        var regimen = string.IsNullOrWhiteSpace(regimenFiscalCodigo) ? null : regimenFiscalCodigo.Trim();
+        if (regimen is not null && (regimen.Length != 3 || !regimen.All(char.IsAsciiDigit)))
+            throw new BusinessRuleException("PROVEEDOR_REGIMEN_INVALIDO", "El régimen fiscal es el código SAT de 3 dígitos.");
+        if (origen == OrigenProveedor.Nacional && regimen is null)
+            throw new BusinessRuleException("PROVEEDOR_REGIMEN_REQUERIDO", "Un proveedor nacional requiere régimen fiscal.");
+        var concepto = string.IsNullOrWhiteSpace(conceptoRetencion) ? null : conceptoRetencion.Trim().ToUpperInvariant();
+        if (concepto?.Length > 80)
+            throw new BusinessRuleException("PROVEEDOR_CONCEPTO_RETENCION_INVALIDO", "El concepto de retención admite hasta 80 caracteres.");
+        Origen = origen;
+        RegimenFiscalCodigo = origen == OrigenProveedor.Extranjero ? null : regimen;
+        ConceptoRetencion = concepto;
+    }
+
 
     /// <summary>
     /// RFC genéricos SAT ("público en general" nacional/extranjero). Se
@@ -74,6 +99,9 @@ public sealed class Proveedor : BaseEntity, IAuditable
     /// legítimos comparten estos valores.
     /// </summary>
     public static readonly string[] RfcGenericos = ["XAXX010101000", "XEXX010101000"];
+
+    /// <summary>RFC genérico para proveedores extranjeros, que no tienen RFC (86e3pdmee).</summary>
+    public const string RfcGenericoExtranjero = "XEXX010101000";
 
     public static bool EsRfcGenerico(string rfc) =>
         RfcGenericos.Contains(rfc.Trim().ToUpperInvariant());
@@ -125,8 +153,7 @@ public sealed class Proveedor : BaseEntity, IAuditable
     }
 
     /// <summary>
-    /// PATCH parcial sobre los campos editables del proveedor (B.5;
-    /// datos bancarios desde TES-PR3). Convención: parámetro <c>null</c>
+    /// PATCH parcial sobre los campos editables del proveedor (B.5). Convención: parámetro <c>null</c>
     /// = no tocar; flag <c>limpiarX = true</c> = setear nullable a null.
     /// Inmutables: <see cref="BaseEntity.Id"/>, <see cref="Clave"/>
     /// (business key) y <see cref="ClaveLegacy"/> (solo cutover SAP).
@@ -140,17 +167,11 @@ public sealed class Proveedor : BaseEntity, IAuditable
         Guid? monedaPreferidaId = null,
         string? email = null,
         string? telefono = null,
-        string? banco = null,
-        string? clabe = null,
-        string? beneficiario = null,
         bool limpiarNombreComercial = false,
         bool limpiarCondicionesPago = false,
         bool limpiarMonedaPreferida = false,
         bool limpiarEmail = false,
-        bool limpiarTelefono = false,
-        bool limpiarBanco = false,
-        bool limpiarClabe = false,
-        bool limpiarBeneficiario = false)
+        bool limpiarTelefono = false)
     {
         if (razonSocial is not null)
         {
@@ -188,34 +209,6 @@ public sealed class Proveedor : BaseEntity, IAuditable
         if (telefono is not null) Telefono = telefono;
         else if (limpiarTelefono) Telefono = null;
 
-        if (banco is not null)
-        {
-            if (banco.Length is 0 or > 120)
-                throw new BusinessRuleException("PROVEEDOR_BANCO_INVALIDO",
-                    "El banco no puede estar vacío ni exceder 120 caracteres.");
-            Banco = banco;
-        }
-        else if (limpiarBanco) Banco = null;
-
-        if (clabe is not null)
-        {
-            var c = clabe.Trim();
-            if (c.Length != 18 || !c.All(char.IsAsciiDigit))
-                throw new BusinessRuleException("PROVEEDOR_CLABE_INVALIDA",
-                    "La CLABE debe tener 18 dígitos.");
-            Clabe = c;
-        }
-        else if (limpiarClabe) Clabe = null;
-
-        if (beneficiario is not null)
-        {
-            if (beneficiario.Length is 0 or > 254)
-                throw new BusinessRuleException("PROVEEDOR_BENEFICIARIO_INVALIDO",
-                    "El beneficiario no puede estar vacío ni exceder 254 caracteres.");
-            Beneficiario = beneficiario;
-        }
-        else if (limpiarBeneficiario) Beneficiario = null;
-
         if (tipoPersona is TipoPersonaProveedor tp) TipoPersona = tp;
     }
 
@@ -240,7 +233,7 @@ public sealed class Proveedor : BaseEntity, IAuditable
     /// Valida el proveedor en revisión tras comprobar la completitud de su expediente (F1-ADM-05 G1.1).
     /// Pasa de EnRevision a Activo.
     /// </summary>
-    public void Validar(Guid validadorId, DateTimeOffset fecha)
+    public void Validar(Guid validadorId, DateTimeOffset fecha, int? matrizVersion = null)
     {
         if (Estatus != EstatusCatalogo.EnRevision)
         {
@@ -252,6 +245,7 @@ public sealed class Proveedor : BaseEntity, IAuditable
         Estatus = EstatusCatalogo.Activo;
         ValidadoPorId = validadorId;
         ValidadoEn = fecha;
+        ValidadoConMatrizVersion = matrizVersion;
         MotivoRechazo = null;
     }
 
@@ -280,4 +274,10 @@ public sealed class Proveedor : BaseEntity, IAuditable
         ValidadoEn = fecha;
         MotivoRechazo = motivo.Trim();
     }
+}
+
+public enum OrigenProveedor : short
+{
+    Nacional = 0,
+    Extranjero = 1,
 }

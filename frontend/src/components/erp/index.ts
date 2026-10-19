@@ -12,6 +12,7 @@ export {
   ErrorState,
   type ErrorStateProps,
 } from '@/components/erp/feedback/ErrorState';
+export { DetalleSkeleton, type DetalleSkeletonProps } from '@/components/erp/feedback/DetalleSkeleton';
 export {
   TableSkeleton,
   type TableSkeletonProps,
@@ -57,6 +58,7 @@ export {
   type SortState,
 } from '@/components/erp/display/sort';
 export { clickableRowProps } from '@/components/erp/data/clickable-row';
+export { PaginacionTabla, type PaginacionTablaProps } from '@/components/erp/data/PaginacionTabla';
 export {
   EstadoBadge,
   EnAlmacenBadge,
@@ -242,3 +244,29 @@ export {
   ReporteShell,
   type ReporteShellProps,
 } from '@/components/erp/reportes/ReporteShell';
+export {
+  Field,
+  type FieldProps,
+  type FieldControlProps,
+} from '@/components/erp/forms/Field';
+export {
+  AvisoEnLinea,
+  type AvisoEnLineaProps,
+} from '@/components/erp/feedback/AvisoEnLinea';
+export {
+  ConfirmarAccionDialog,
+  type ConfirmarAccionDialogProps,
+} from '@/components/erp/feedback/ConfirmarAccionDialog';
+export {
+  MotivoDialog,
+  type MotivoDialogProps,
+} from '@/components/erp/feedback/MotivoDialog';
+export {
+  useConfirmarDescarte,
+  type ConfirmarDescarteApi,
+} from '@/components/erp/forms/useConfirmarDescarte';
+export { PageHeader, type PageHeaderProps } from '@/components/erp/PageHeader';
+export { BarraFiltros } from '@/components/erp/data/BarraFiltros';
+export { FiltroActivoChip } from '@/components/erp/data/FiltroActivoChip';
+export { TabsEstado, type TabEstadoOpcion } from '@/components/erp/data/TabsEstado';
+export { useConteosPorEstado } from '@/components/erp/data/useConteosPorEstado';

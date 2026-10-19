@@ -20,6 +20,12 @@ public sealed class RegimenFiscal : BaseEntity, IAuditable
     /// <summary>Aplica a personas físicas (true) o personas morales (false). Algunos regímenes aplican a ambos — usar la naturaleza dominante.</summary>
     public bool AplicaPersonaFisica { get; private set; }
 
+    /// <summary>
+    /// Aplica a personas morales. Independiente de <see cref="AplicaPersonaFisica"/> porque el SAT
+    /// marca ambas en algunos regímenes (p. ej. 626 RESICO); el proveedor se valida contra estos dos.
+    /// </summary>
+    public bool AplicaPersonaMoral { get; private set; }
+
     public EstatusCatalogo Estatus { get; private set; } = EstatusCatalogo.Activo;
 
     private RegimenFiscal() { }
@@ -29,7 +35,8 @@ public sealed class RegimenFiscal : BaseEntity, IAuditable
         string codigo,
         string nombre,
         bool aplicaPersonaFisica,
-        EstatusCatalogo estatus = EstatusCatalogo.Activo) : base(id)
+        EstatusCatalogo estatus = EstatusCatalogo.Activo,
+        bool? aplicaPersonaMoral = null) : base(id)
     {
         if (string.IsNullOrWhiteSpace(codigo) || codigo.Length != 3)
             throw new BusinessRuleException("REGIMEN_FISCAL_CODIGO_INVALIDO",
@@ -41,6 +48,7 @@ public sealed class RegimenFiscal : BaseEntity, IAuditable
         Codigo = codigo;
         Nombre = nombre;
         AplicaPersonaFisica = aplicaPersonaFisica;
+        AplicaPersonaMoral = aplicaPersonaMoral ?? !aplicaPersonaFisica;
         Estatus = estatus;
     }
 }

@@ -1,3 +1,4 @@
+using Millet.DatosMaestros.Domain;
 using System.Net;
 using System.Net.Http.Headers;
 using System.Net.Http.Json;
@@ -249,7 +250,7 @@ public sealed partial class DemoSesionSeedTests
         var activo = await maestros.Proveedores.SingleAsync(p => p.Clave == "DEMO-PROV-ACT");
         Assert.Equal(EstatusCatalogo.EnRevision, revision.Estatus);
         Assert.Equal(EstatusCatalogo.Activo, activo.Estatus);
-        Assert.NotNull(activo.Clabe);
+        Assert.True(await maestros.CuentasBancariasProveedor.AnyAsync(c => c.ProveedorId == activo.Id && c.Estado == EstadoCuentaBancariaProveedor.Activa));
         Assert.Equal(3, await maestros.Adjuntos.CountAsync(a => a.EntidadId == revision.Id));
         Assert.Equal(5, await maestros.Adjuntos.CountAsync(a => a.EntidadId == activo.Id));
         Assert.Equal(5, await maestros.AdjuntoTiposDocumento.CountAsync(t => t.TipoEntidad == "proveedor" && t.Activo && t.Obligatorio));

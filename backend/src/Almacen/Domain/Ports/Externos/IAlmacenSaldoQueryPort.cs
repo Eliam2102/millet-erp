@@ -60,6 +60,24 @@ public interface IAlmacenSaldoQueryPort
         Guid sucursalId,
         Guid articuloId,
         CancellationToken cancellationToken);
+
+    /// <summary>
+    /// Devuelve los ids de la lista cuyo sub-almacén es <c>TipoSubAlmacen.MaterialEnRevision</c>
+    /// (material dañado en revisión, ALM-04). Lo usa CxP para detener facturas con motivo
+    /// «Daños» (P8.4a).
+    /// </summary>
+    Task<IReadOnlySet<Guid>> FiltrarSubAlmacenesEnRevisionAsync(
+        IReadOnlyCollection<Guid> subAlmacenIds,
+        CancellationToken cancellationToken);
+
+    /// <summary>
+    /// Igual que <c>ConsultarDisponibilidadPorSucursalAsync</c>, para varios artículos en una sola ida a la BD.
+    /// Devuelve una entrada por cada id solicitado (cero si no hay saldo).
+    /// </summary>
+    Task<IReadOnlyDictionary<Guid, DisponibilidadArticuloSucursal>> ConsultarDisponibilidadPorSucursalLoteAsync(
+        Guid sucursalId,
+        IReadOnlyCollection<Guid> articuloIds,
+        CancellationToken cancellationToken);
 }
 
 /// <summary>

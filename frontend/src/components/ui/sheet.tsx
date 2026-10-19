@@ -37,7 +37,7 @@ const SheetOverlay = React.forwardRef<
   <DialogPrimitive.Overlay
     ref={ref}
     className={cn(
-      'fixed inset-0 z-50 bg-black/60 data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0',
+      'fixed inset-0 z-50 bg-[var(--mt-scrim-sheet)] data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0',
       className,
     )}
     {...props}
@@ -56,28 +56,41 @@ const sideClasses = {
     'inset-x-0 bottom-0 border-t data-[state=closed]:slide-out-to-bottom data-[state=open]:slide-in-from-bottom',
 } as const;
 
+const sizeClasses = {
+  form: 'sm:max-w-[560px]',
+  wide: 'sm:max-w-5xl',
+  legacy: 'sm:max-w-3xl',
+} as const;
+
 interface SheetContentProps
   extends React.ComponentPropsWithoutRef<typeof DialogPrimitive.Content> {
   /** De qué lado entra el panel. Default: <c>right</c>. */
   side?: keyof typeof sideClasses;
   overlayClassName?: string;
+  /**
+   * Ancho en pantallas sm+. <c>form</c> = 560 px (DS 4.8, default);
+   * <c>wide</c> = <c>max-w-5xl</c> para captura con líneas; <c>legacy</c> =
+   * <c>max-w-3xl</c>, ancho histórico fijado explícitamente en los callers
+   * que aún no se han clasificado. El caller puede overridear con className.
+   */
+  size?: keyof typeof sizeClasses;
 }
 
 const SheetContent = React.forwardRef<
   React.ElementRef<typeof DialogPrimitive.Content>,
   SheetContentProps
->(({ side = 'right', className, overlayClassName, children, ...props }, ref) => (
+>(({ side = 'right', size = 'form', className, overlayClassName, children, ...props }, ref) => (
   <SheetPortal>
     <SheetOverlay className={overlayClassName} />
     <DialogPrimitive.Content
       ref={ref}
       className={cn(
-        'fixed z-50 flex flex-col gap-4 bg-background shadow-lg transition-transform duration-300',
+        'fixed z-50 flex flex-col gap-4 bg-background shadow-sheet transition-transform duration-300',
         'data-[state=open]:animate-in data-[state=closed]:animate-out',
         sideClasses[side],
         // Tamaño por default — el caller puede overridarlo con className.
         side === 'right' || side === 'left'
-          ? 'w-full sm:max-w-3xl'
+          ? cn('w-full', sizeClasses[size])
           : 'h-auto',
         className,
       )}
@@ -117,7 +130,7 @@ function SheetFooter({
   return (
     <div
       className={cn(
-        'flex flex-col-reverse gap-2 border-t px-6 py-4 sm:flex-row sm:justify-end',
+        'flex items-center justify-between gap-2 border-t border-line-divider px-6 py-4 [&>:only-child]:ml-auto',
         className,
       )}
       {...props}
@@ -131,7 +144,7 @@ const SheetTitle = React.forwardRef<
 >(({ className, ...props }, ref) => (
   <DialogPrimitive.Title
     ref={ref}
-    className={cn('text-lg font-semibold text-foreground', className)}
+    className={cn('text-xl font-semibold text-ink', className)}
     {...props}
   />
 ));
@@ -143,7 +156,7 @@ const SheetDescription = React.forwardRef<
 >(({ className, ...props }, ref) => (
   <DialogPrimitive.Description
     ref={ref}
-    className={cn('text-sm text-muted-foreground', className)}
+    className={cn('text-xs text-ink-muted', className)}
     {...props}
   />
 ));

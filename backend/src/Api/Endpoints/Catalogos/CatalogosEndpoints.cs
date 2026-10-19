@@ -303,7 +303,10 @@ public static class CatalogosEndpoints
                     CondicionesPagoDias: request.CondicionesPagoDias,
                     MonedaPreferidaId: request.MonedaPreferidaId,
                     Email: request.Email,
-                    Telefono: request.Telefono),
+                    Telefono: request.Telefono,
+                    Origen: request.Origen,
+                    RegimenFiscalCodigo: request.RegimenFiscalCodigo,
+                    ConceptoRetencion: request.ConceptoRetencion),
                 cancellationToken);
             return Results.Created($"/api/v1/catalogos/proveedores/{response.Id}", response);
         })
@@ -351,13 +354,7 @@ public static class CatalogosEndpoints
                     LimpiarCondicionesPago: body.LimpiarCondicionesPago ?? false,
                     LimpiarMonedaPreferida: body.LimpiarMonedaPreferida ?? false,
                     LimpiarEmail: body.LimpiarEmail ?? false,
-                    LimpiarTelefono: body.LimpiarTelefono ?? false,
-                    Banco: body.Banco,
-                    Clabe: body.Clabe,
-                    Beneficiario: body.Beneficiario,
-                    LimpiarBanco: body.LimpiarBanco ?? false,
-                    LimpiarClabe: body.LimpiarClabe ?? false,
-                    LimpiarBeneficiario: body.LimpiarBeneficiario ?? false),
+                    LimpiarTelefono: body.LimpiarTelefono ?? false),
                 cancellationToken);
             return Results.NoContent();
         })
@@ -514,15 +511,18 @@ public static class CatalogosEndpoints
     public sealed record CrearProveedorRequest(
         string Clave,
         string RazonSocial,
-        string Rfc,
+        string? Rfc,
         TipoPersonaProveedor TipoPersona,
         string? NombreComercial,
         short? CondicionesPagoDias,
         Guid? MonedaPreferidaId,
         string? Email,
-        string? Telefono);
+        string? Telefono,
+        OrigenProveedor? Origen = null,
+        string? RegimenFiscalCodigo = null,
+        string? ConceptoRetencion = null);
 
-    /// <summary>Body del PATCH /proveedores/{id} (B.5; datos bancarios TES-PR3). Todos opcionales.</summary>
+    /// <summary>Body del PATCH /proveedores/{id} (B.5). Todos opcionales; las cuentas bancarias van por /datos-maestros/proveedores/{id}/cuentas-bancarias.</summary>
     public sealed record ActualizarProveedorRequest(
         string? RazonSocial,
         string? NombreComercial,
@@ -536,13 +536,7 @@ public static class CatalogosEndpoints
         bool? LimpiarCondicionesPago,
         bool? LimpiarMonedaPreferida,
         bool? LimpiarEmail,
-        bool? LimpiarTelefono,
-        string? Banco = null,
-        string? Clabe = null,
-        string? Beneficiario = null,
-        bool? LimpiarBanco = null,
-        bool? LimpiarClabe = null,
-        bool? LimpiarBeneficiario = null);
+        bool? LimpiarTelefono);
 
     /// <summary>Body del POST /articulos (B.5).</summary>
     public sealed record CrearArticuloRequest(

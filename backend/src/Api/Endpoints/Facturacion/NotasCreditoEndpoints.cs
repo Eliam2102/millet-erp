@@ -6,6 +6,7 @@ using Millet.Api.Web;
 using Millet.Facturacion.Application.Comprobantes.Queries;
 using Millet.Facturacion.Application.NotasCredito.EmitirNotaCreditoBonificacion;
 using Millet.Facturacion.Application.NotasCredito.Queries;
+using Millet.Facturacion.Application.NotasCredito.SolicitarReembolso;
 using Millet.Facturacion.Domain.Comprobantes;
 using Millet.Facturacion.Domain.Ports;
 using Millet.Identidad.Domain;
@@ -41,6 +42,23 @@ public static class NotasCreditoEndpoints
         .ProducesValidationProblem()
         .ProducesProblem(StatusCodes.Status401Unauthorized)
         .ProducesProblem(StatusCodes.Status403Forbidden)
+        .ProducesProblem(StatusCodes.Status404NotFound)
+        .ProducesProblem(StatusCodes.Status422UnprocessableEntity);
+
+        // POST: pide a Tesorería el reembolso en dinero de una NC timbrada (T9.6 · CA6.17).
+        group.MapPost("/{id:guid}/solicitar-reembolso", async (
+            Guid id,
+            SolicitarReembolsoBody body,
+            IMediator mediator,
+            CancellationToken cancellationToken) =>
+            Results.Ok(await mediator.Send(
+                new SolicitarReembolsoNotaCreditoCommand(id, body.Importe, body.Motivo), cancellationToken)))
+        .WithMetadata(new RequireIdempotencyKeyAttribute())
+        .RequireAuthorization(PermissionPolicyProvider.Prefix + PermisosCanonicos.FacturacionNotasCreditoReembolsoSolicitar)
+        .WithName("SolicitarReembolsoNotaCredito")
+        .WithSummary("Solicita a Tesorería el reembolso en dinero de una NC timbrada")
+        .Produces<SolicitarReembolsoNotaCreditoResponse>(StatusCodes.Status200OK)
+        .ProducesValidationProblem()
         .ProducesProblem(StatusCodes.Status404NotFound)
         .ProducesProblem(StatusCodes.Status422UnprocessableEntity);
 
@@ -112,3 +130,5 @@ public static class NotasCreditoEndpoints
         return app;
     }
 }
+
+public sealed record SolicitarReembolsoBody(decimal Importe, string Motivo);

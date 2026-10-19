@@ -3,6 +3,10 @@ import {
   SubEstadoRecepcion,
   type OrdenCompraDetalleResponse,
 } from '@/features/compras/ordenes/api/types';
+import {
+  motivoTransmisionBloqueada,
+  type RevisionPreviaOc,
+} from '@/features/compras/ordenes/lib/revision-previa-oc';
 import { PermisosCanonicos } from '@/lib/auth/permission-codes';
 
 /**
@@ -309,21 +313,25 @@ export function accionEditarNumeroPedimentoImportacion(
  * disponible desde <c>Rechazada</c> (re-transmitir tras correcciones).
  *
  * <para>El backend valida pre-condiciones (al menos 1 línea, cabecera
- * completa, etc., §7.1). Si falla, el botón se queda visible pero el
- * caller debería mostrar el motivo en la respuesta del intento. Acá
- * NO bloqueamos por pre-condiciones — el caller pre-valida si quiere
- * UX óptima (deshabilitar con tooltip).</para>
+ * completa, etc., §7.1) y sigue siendo la fuente de verdad. Si el caller
+ * pasa la <c>revision</c> previa (<c>calcularRevisionPrevia</c>) y falta
+ * algo, el botón queda deshabilitado con el motivo visible; sin ella no se
+ * bloquea por pre-condiciones.</para>
  */
 export function accionTransmitirAAutorizacion(
   oc: Pick<OrdenCompraDetalleResponse, 'estado'>,
   permisos: readonly string[],
+  revision?: Pick<RevisionPreviaOc, 'pendientes' | 'total'>,
 ): AccionDisponible {
+  const motivo = revision && motivoTransmisionBloqueada(revision);
   return gatePermisos(
     permisos,
     [PermisosCanonicos.ComprasOrdenesCrear],
     oc.estado === EstadoOrdenCompra.Borrador ||
       oc.estado === EstadoOrdenCompra.Rechazada
-      ? HABILITADA
+      ? motivo
+        ? DISABLED(motivo)
+        : HABILITADA
       : OCULTO,
   );
 }

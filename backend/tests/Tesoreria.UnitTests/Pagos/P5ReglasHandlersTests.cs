@@ -34,7 +34,7 @@ public sealed class P5ReglasHandlersTests
     }
     private sealed class ProveedoresConClabe : IProveedorBancoReadPort
     {
-        public Task<ProveedorBancoDto?> ObtenerAsync(Guid id, CancellationToken ct) => Task.FromResult<ProveedorBancoDto?>(new(id, "PRU", "Proveedor", "Banco", "000000000000001234", "Proveedor"));
+        public Task<ProveedorBancoDto?> ObtenerAsync(Guid id, CancellationToken ct) => Task.FromResult<ProveedorBancoDto?>(new(id, "PRU", "Proveedor", [new(Guid.NewGuid(), "Banco", "000000000000001234", true, null, "MXN", "Proveedor", true, "Activa")]));
         public async Task<IReadOnlyDictionary<Guid, ProveedorBancoDto>> ObtenerVariosAsync(IReadOnlyCollection<Guid> ids, CancellationToken ct)
         {
             var result = new Dictionary<Guid, ProveedorBancoDto>();
