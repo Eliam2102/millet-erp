@@ -1,4 +1,6 @@
 using MediatR;
+using Millet.ComercioExterior.Application.PublicPorts;
+using Millet.Facturacion.Domain.Pedidos;
 using Microsoft.EntityFrameworkCore;
 using Millet.Administracion.Application.Series;
 using Millet.Facturacion.Application.Facturas.EmitirFacturaVenta;
@@ -47,7 +49,7 @@ public sealed class EmitirFacturaVentaHandlerTests
         Guid empresaId,
         bool periodoAbierto = true,
         bool catalogosValidos = true,
-        Millet.Integraciones.Fiscal.Domain.Ports.ICfdiTimbradoPort? fiscal = null) =>
+        Millet.Integraciones.Fiscal.Domain.Ports.ICfdiTimbradoPort? fiscal = null, IEmbarqueExportacionReadPort? embarques = null, string receptorRfc = "XAXX010101000") =>
         new(
             db,
             new FakeSender(new ReservarFolioResponse("FA-000001", 1, "")),
@@ -60,7 +62,90 @@ public sealed class EmitirFacturaVentaHandlerTests
             new FakeContabilidadAsientoPort(),
             new FakeEmpresaContext(empresaId),
             new FakeUserContext(Guid.NewGuid()),
-            new FakeClock(Ahora), ReceptorFiscalTestFactory.Crear(db, "XAXX010101000", "616", "76120"));
+            new FakeClock(Ahora), ReceptorFiscalTestFactory.Crear(db, receptorRfc, "616", "76120"), embarques: embarques);
+
+    private sealed class Embarques(EmbarqueExportacionLectura lectura) : IEmbarqueExportacionReadPort
+    {
+        public Task<EmbarqueExportacionLectura> ObtenerAsync(Guid pedidoFacturableId, CancellationToken ct) => Task.FromResult(lectura);
+    }
+    private static PedidoFacturable CrearPedido(FacturacionDbContext db, Guid empresaId, Guid sucursal, ComportamientoFiscal comportamiento = ComportamientoFiscal.ExportacionConCce)
+    {
+        var p = PedidoFacturable.ImportarDesdeAw(empresaId, "DEMO-PED", sucursal, Guid.NewGuid(), "DEMO cliente", 1,
+            comportamiento, "MXN", null, null, null, 1, "15");
+        p.AgregarLinea(null, "Producto", "01010101", "H87", 2, 100, 0, false); p.RecalcularTotal();
+        db.PedidosFacturables.Add(p); db.SaveChanges(); return p;
+    }
+    [Fact]
+    public async Task Pedido_no_ligado_se_factura_igual_y_sin_copia_ce()
+    {
+        var empresa = Guid.NewGuid(); using var db = NewDb(empresa); var command = Command(); var p = CrearPedido(db, empresa, command.SucursalId);
+        var resp = await Handler(db, empresa, embarques: new Embarques(new(false))).Handle(command with { PedidoFacturableId = p.Id }, CancellationToken.None);
+        Assert.Equal("Timbrado", resp.Estado); Assert.Null((await db.FacturasVenta.SingleAsync()).DatosEmbarqueCe);
+        Assert.Equal(EstadoPedidoFacturable.Facturado, p.Estado);
+    }
+    [Theory]
+    [InlineData("FAC_PEDIDO_NO_EMBARCADO")][InlineData("CE_PARTIDA_REQUIERE_REVISION")]
+    public async Task Pedido_ligado_incompleto_rechaza_antes_de_folio_y_pac(string codigo)
+    {
+        var empresa = Guid.NewGuid(); using var db = NewDb(empresa);
+        var ex = await Assert.ThrowsAsync<BusinessRuleException>(() => Handler(db, empresa, embarques: new Embarques(new(true, CodigoBloqueo: codigo, Motivo: "DEMO falta embarque")))
+            .Handle(Command() with { PedidoFacturableId = Guid.NewGuid() }, CancellationToken.None));
+        Assert.Equal(codigo, ex.Code); Assert.Empty(db.FacturasVenta);
+    }
+    [Fact]
+    public async Task RT_no_reinterpreta_exportacion_con_cce_aunque_comando_pida_administrativa()
+    {
+        var empresa = Guid.NewGuid(); using var db = NewDb(empresa); var command = Command(); var p = CrearPedido(db, empresa, command.SucursalId);
+        var lectura = new EmbarqueExportacionLectura(true, Guid.NewGuid(), command.SucursalId, true, FolioExpediente: "CE-EXP-DEMO",
+            NumeroPedimento: "DEMO-RT", ClavePedimento: "RT", FechaPedimento: new(2026, 5, 29), Incoterm: "DDP", Contenedores: []);
+        var ex = await Assert.ThrowsAsync<BusinessRuleException>(() => Handler(db, empresa, embarques: new Embarques(lectura))
+            .Handle(command with { PedidoFacturableId = p.Id, ComportamientoFiscal = ComportamientoFiscal.Administrativa }, CancellationToken.None));
+        Assert.Equal("FAC_RT_POR_CONFIRMAR", ex.Code); Assert.Empty(db.FacturasVenta);
+    }
+    [Fact]
+    public async Task RT_copia_embarque_ignora_cce_y_conserva_informacion_aduanera_de_linea()
+    {
+        var empresa = Guid.NewGuid(); using var db = NewDb(empresa); var command = Command(); var p = CrearPedido(db, empresa, command.SucursalId, command.ComportamientoFiscal);
+        var lectura = new EmbarqueExportacionLectura(true, Guid.NewGuid(), command.SucursalId, true, FolioExpediente: "CE-EXP-DEMO",
+            NumeroPedimento: "DEMO-RT", ClavePedimento: "RT", FechaPedimento: new(2026, 5, 29), Incoterm: "DDP", Contenedores: [new(Guid.NewGuid(), "DEMO-C", "DEMO-BL", new(2026, 5, 30))]);
+        var cce = new EmitirFacturaVentaCce("2", "FOB", 20, "DEMO-TAX", "USA", [], "A1");
+        await Handler(db, empresa, embarques: new Embarques(lectura)).Handle(command with { PedidoFacturableId = p.Id, Cce = cce }, CancellationToken.None);
+        var f = await db.FacturasVenta.Include(f => f.Lineas).SingleAsync();
+        Assert.Equal("RT", f.DatosEmbarqueCe!.ClavePedimento); Assert.Equal("DEMO-BL", f.DatosEmbarqueCe.Contenedores.Single().BlGuia);
+        Assert.Equal(command.ComportamientoFiscal, f.ComportamientoFiscal);
+        Assert.Null(f.ComplementoCce); Assert.All(f.Lineas, l => Assert.Null(l.Pedimento));
+        Assert.Equal("FAC_EMBARQUE_INMUTABLE", Assert.Throws<BusinessRuleException>(() => f.TomarEmbarqueCe(f.DatosEmbarqueCe)).Code);
+    }
+
+    [Fact]
+    public async Task CFDI_cancelado_permite_refacturar_con_la_copia_vigente_sin_perder_el_pedido()
+    {
+        var empresa = Guid.NewGuid(); using var db = NewDb(empresa); var command = Command(); var p = CrearPedido(db, empresa, command.SucursalId, command.ComportamientoFiscal);
+        var lectura = new EmbarqueExportacionLectura(true, Guid.NewGuid(), command.SucursalId, true, FolioExpediente: "CE-EXP-DEMO",
+            NumeroPedimento: "DEMO-RT", ClavePedimento: "RT", FechaPedimento: new(2026, 5, 29), Incoterm: "DDP", Contenedores: [new(Guid.NewGuid(), "DEMO-C", "DEMO-BL", new(2026, 5, 30))]);
+        command = command with { PedidoFacturableId = p.Id };
+        var handler = Handler(db, empresa, embarques: new Embarques(lectura));
+        await handler.Handle(command, CancellationToken.None);
+        var anterior = await db.FacturasVenta.SingleAsync(); anterior.MarcarCancelacionPendiente(); anterior.MarcarCancelado(); p.RevertirAFacturable(); await db.SaveChangesAsync();
+        await handler.Handle(command, CancellationToken.None);
+        var nueva = await db.FacturasVenta.SingleAsync(f => f.Id != anterior.Id);
+        Assert.Equal(EstadoPedidoFacturable.Facturado, p.Estado); Assert.Equal(nueva.Id, p.ComprobanteVigenteId);
+        Assert.Equal(anterior.DatosEmbarqueCe!.NumeroPedimento, nueva.DatosEmbarqueCe!.NumeroPedimento);
+    }
+
+    [Fact]
+    public async Task A1_toma_clave_e_incoterm_del_expediente_y_no_del_usuario()
+    {
+        var empresa = Guid.NewGuid(); using var db = NewDb(empresa); var command = Command(); var p = CrearPedido(db, empresa, command.SucursalId);
+        var lectura = new EmbarqueExportacionLectura(true, Guid.NewGuid(), command.SucursalId, true, FolioExpediente: "CE-EXP-DEMO",
+            NumeroPedimento: "DEMO-A1", ClavePedimento: "A1", FechaPedimento: new(2026, 5, 29), Incoterm: "DDP", Contenedores: [new(Guid.NewGuid(), "DEMO-C", "DEMO-BL", new(2026, 5, 30))]);
+        var cce = new EmitirFacturaVentaCce("2", "FOB", 20, "DEMO-TAX", "USA", [new("70071999", "06", 2, 100, 200, true)], "RT", ReceptorDomicilioEstado: "DEMO", ReceptorDomicilioCodigoPostal: "00000");
+        await Handler(db, empresa, embarques: new Embarques(lectura), receptorRfc: "XEXX010101000").Handle(command with {
+            PedidoFacturableId = p.Id, Cce = cce, ReceptorRfc = "XEXX010101000", ReceptorPais = "USA" }, CancellationToken.None);
+        var f = await db.FacturasVenta.Include(f => f.ComplementoCce).SingleAsync();
+        Assert.Equal("A1", f.ComplementoCce!.ClaveDePedimento); Assert.Equal("DDP", f.ComplementoCce.Incoterm);
+        Assert.Equal("DEMO-A1", f.DatosEmbarqueCe!.NumeroPedimento);
+    }
 
     [Fact]
     public async Task Handle_emite_factura_timbrada_con_uuid_fake()

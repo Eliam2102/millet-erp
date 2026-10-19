@@ -9,6 +9,8 @@ public sealed class DocumentoExpediente : BaseEntity, IAuditable, IPerteneceAEmp
     public Guid TipoDocumentoId { get; private set; }
     // Version heredada es el token de concurrencia; NumeroVersion es la revisión del documento.
     public int NumeroVersion { get; private set; }
+    public string? NumeroPedimento { get; private set; }
+    internal void RegistrarNumeroPedimento(string? numero) => NumeroPedimento = numero;
     public Guid? AdjuntoId { get; private set; }
     public Guid? ReemplazaA { get; private set; }
     public string? Motivo { get; private set; }

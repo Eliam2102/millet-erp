@@ -36,15 +36,19 @@ export function DocumentosPanel({ data }: { data: ExpedienteDetalle }) {
   const qc = useQueryClient();
   const keyFor = useBodyScopedIdempotencyKey();
   const [motivo, setMotivo] = useState('');
+  const [numeroPedimento, setNumeroPedimento] = useState('');
   const [error, setError] = useState<string | null>(null);
   async function registrar(tipoDocumentoId: string, adjuntoId: string | null, noAplica = false) {
     setError(null);
     try {
       await accion.mutateAsync({
         accion: 'documentos',
-        body: { tipoDocumentoId, adjuntoId, noAplica, motivo: motivo || null },
+        body: { tipoDocumentoId, adjuntoId, noAplica, motivo: motivo || null,
+          ...(!noAplica && numeroPedimento ? { numeroPedimento } : {}),
+        },
       });
       setMotivo('');
+      setNumeroPedimento('');
     } catch (err) {
       setError(
         esApiError(err)
@@ -59,6 +63,23 @@ export function DocumentosPanel({ data }: { data: ExpedienteDetalle }) {
   );
   return (
     <section className="space-y-5">
+      {subir && data.expediente.tipo === 2 && (
+        <div className="space-y-1.5">
+          <Label htmlFor="ce-doc-numero-pedimento">
+            Número del pedimento (al registrar su versión documental)
+          </Label>
+          <Input
+            id="ce-doc-numero-pedimento"
+            maxLength={100}
+            value={numeroPedimento}
+            onChange={(e) => setNumeroPedimento(e.target.value)}
+          />
+          <p className="text-xs text-ink-muted">
+            Capture el número de la versión vigente antes de registrar el documento del pedimento de
+            exportación.
+          </p>
+        </div>
+      )}
       <div className="flex items-center justify-between">
         <h2 className="text-md font-semibold">
           Requisitos documentales{' '}

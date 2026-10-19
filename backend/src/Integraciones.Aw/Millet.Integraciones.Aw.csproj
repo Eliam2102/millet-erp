@@ -23,6 +23,7 @@
     <!-- ADR-0048 D4 (flujo 2, sub-área Pedidos): los adapters implementan
          puertos que DEFINE Facturación (IAwSolicitudesReader/IAwWriteBackPort/
          IMasterProvisioningPort). Sin ciclo: Facturación no referencia Aw. -->
+    <ProjectReference Include="..\ComercioExterior\Millet.ComercioExterior.csproj" />
     <ProjectReference Include="..\Facturacion\Millet.Facturacion.csproj" />
   </ItemGroup>
 

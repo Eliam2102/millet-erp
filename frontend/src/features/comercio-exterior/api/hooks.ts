@@ -1,7 +1,12 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { apiRequest, esConflictoConcurrencia, useBodyScopedIdempotencyKey } from '@/lib/api';
 import { useConflictDialog } from '@/components/erp/collaboration/conflict-dialog-context';
-import type { CrearExpediente, ExpedienteDetalle, Filtros, OcImportacion, Pagina } from './types';
+import type {
+  ContenedoresDetalle,
+  PedidoEmbarcable,
+  RelacionIva,
+  CrearExpediente, ExpedienteDetalle, Filtros, OcImportacion, Pagina,
+} from './types';
 export const CE_BASE = '/api/v1/comercio-exterior/expedientes';
 export const ceKeys = {
   all: ['comercio-exterior'] as const,
@@ -81,5 +86,72 @@ export function useAccionExpediente(id: string) {
       if (esConflictoConcurrencia(error))
         conflict.openSimple({ onRefrescar: () => qc.invalidateQueries({ queryKey: ceKeys.all }) });
     },
+  });
+}
+
+export function useContenedores(id: string) {
+  return useQuery({
+    queryKey: [...ceKeys.all, 'contenedores', id],
+    queryFn: ({ signal }) =>
+      apiRequest<ContenedoresDetalle>(`${CE_BASE}/${id}/contenedores`, { signal }),
+  });
+}
+export function usePedidosEmbarcables(id: string, cliente: string) {
+  return useQuery({
+    queryKey: [...ceKeys.all, 'pedidos', id, cliente],
+    enabled: Boolean(cliente),
+    queryFn: async ({ signal }) =>
+      (
+        await apiRequest<PedidoEmbarcable[]>(
+          `${CE_BASE}/${id}/pedidos-embarcables?clienteId=${cliente}`,
+          { signal },
+        )
+      ).data,
+  });
+}
+export function useMutarContenedor(id: string) {
+  const qc = useQueryClient();
+  const keyFor = useBodyScopedIdempotencyKey();
+  const conflict = useConflictDialog();
+  return useMutation({
+    mutationFn: ({
+      ruta,
+      body,
+      method = 'POST',
+    }: {
+      ruta: string;
+      body?: unknown;
+      method?: string;
+    }) => {
+      const cache = qc.getQueryData<{ etag?: string }>([...ceKeys.all, 'contenedores', id]);
+      return apiRequest<ContenedoresDetalle>(`${CE_BASE}/${id}/${ruta}`, {
+        method,
+        body,
+        ifMatch: cache?.etag,
+        idempotencyKey: keyFor({ ruta, body, etag: cache?.etag }),
+      });
+    },
+    onSuccess: async (result) => {
+      qc.setQueryData([...ceKeys.all, 'contenedores', id], result);
+      await qc.invalidateQueries({ queryKey: ceKeys.all });
+      await qc.invalidateQueries({ queryKey: ['facturacion'] });
+    },
+    onError: (error) => {
+      if (esConflictoConcurrencia(error))
+        conflict.openSimple({ onRefrescar: () => qc.invalidateQueries({ queryKey: ceKeys.all }) });
+    },
+  });
+}
+export function useRelacionIva(anio: number, mes: number, sucursalId?: string) {
+  const params = new URLSearchParams({ anio: String(anio), mes: String(mes) });
+  if (sucursalId) params.set('sucursalId', sucursalId);
+  return useQuery({
+    queryKey: [...ceKeys.all, 'relacion-iva', anio, mes, sucursalId],
+    queryFn: async ({ signal }) =>
+      (
+        await apiRequest<RelacionIva>(`/api/v1/comercio-exterior/relacion-iva?${params}`, {
+          signal,
+        })
+      ).data,
   });
 }
