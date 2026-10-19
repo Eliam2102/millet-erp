@@ -104,7 +104,8 @@ public static class DatosMaestrosEndpoints
                 p.Rfc, p.TipoPersona, p.CondicionesPagoDias, p.MonedaPreferidaId,
                 p.Email, p.Telefono, p.Estatus,
                 p.ValidadoPorId, p.ValidadoEn, p.MotivoRechazo, p.ToleranciaFacturaContraOcMxn,
-                p.Origen, p.RegimenFiscalCodigo, p.ConceptoRetencion, p.ValidadoConMatrizVersion));
+                p.Origen, p.RegimenFiscalCodigo, p.ConceptoRetencion, p.ValidadoConMatrizVersion,
+                p.ToleranciaFacturaContraOcEsPorcentaje));
         })
         .RequireAuthorization(PermissionPolicyProvider.Prefix + PermisosCanonicos.DatosMaestrosProveedoresGestionar)
         .WithName("ObtenerProveedorDatosMaestros")
@@ -118,13 +119,13 @@ public static class DatosMaestrosEndpoints
             Guid id, [FromBody] ActualizarToleranciaProveedorRequest body,
             IMediator mediator, CancellationToken ct) =>
         {
-            await mediator.Send(new ActualizarToleranciaProveedorCommand(id, body.MontoMxn), ct);
+            await mediator.Send(new ActualizarToleranciaProveedorCommand(id, body.MontoMxn, body.EsPorcentaje), ct);
             return Results.NoContent();
         })
         .WithMetadata(new RequireIdempotencyKeyAttribute())
         .RequireAuthorization(PermissionPolicyProvider.Prefix + PermisosCanonicos.DatosMaestrosProveedoresToleranciaEditar)
         .WithName("ActualizarToleranciaProveedor")
-        .WithSummary("Configurar tolerancia factura contra OC en pesos; null usa la general")
+        .WithSummary("Configurar tolerancia factura contra OC en pesos o % de la OC; null usa la general")
         .Produces(StatusCodes.Status204NoContent)
         .ProducesValidationProblem()
         .ProducesProblem(StatusCodes.Status401Unauthorized)
@@ -970,14 +971,16 @@ public static class DatosMaestrosEndpoints
         OrigenProveedor? Origen = null,
         string? RegimenFiscalCodigo = null,
         string? ConceptoRetencion = null,
-        int? ValidadoConMatrizVersion = null);
+        int? ValidadoConMatrizVersion = null,
+        bool ToleranciaFacturaContraOcEsPorcentaje = false);
 
     public sealed record ActualizarClasificacionFiscalRequest(
         OrigenProveedor? Origen, string? RegimenFiscalCodigo, string? ConceptoRetencion);
 
     [System.Text.Json.Serialization.JsonUnmappedMemberHandling(System.Text.Json.Serialization.JsonUnmappedMemberHandling.Disallow)]
     public sealed record ActualizarToleranciaProveedorRequest(
-        [property: System.Text.Json.Serialization.JsonRequired] decimal? MontoMxn);
+        [property: System.Text.Json.Serialization.JsonRequired] decimal? MontoMxn,
+        bool EsPorcentaje = false);
 
     [System.Text.Json.Serialization.JsonUnmappedMemberHandling(System.Text.Json.Serialization.JsonUnmappedMemberHandling.Disallow)]
     public sealed record ActualizarToleranciaArticuloRequest(

@@ -5826,6 +5826,10 @@ namespace Millet.Compartido.Infrastructure.Migrations.Compartido
                         .HasColumnType("smallint")
                         .HasColumnName("tipo_persona");
 
+                    b.Property<bool>("ToleranciaFacturaContraOcEsPorcentaje")
+                        .HasColumnType("boolean")
+                        .HasColumnName("tolerancia_factura_contra_oc_es_porcentaje");
+
                     b.Property<decimal?>("ToleranciaFacturaContraOcMxn")
                         .HasPrecision(18, 4)
                         .HasColumnType("numeric(18,4)")

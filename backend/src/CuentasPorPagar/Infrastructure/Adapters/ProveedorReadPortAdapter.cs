@@ -25,7 +25,7 @@ namespace Millet.CuentasPorPagar.Infrastructure.Adapters;
 /// <list>
 ///   <item><c>EnRevision</c> = <see cref="Millet.DatosMaestros.Domain.Proveedor.Estatus"/> == <see cref="EstatusCatalogo.EnRevision"/>.</item>
 ///   <item><c>Activo</c> = <c>Estatus</c> == <see cref="EstatusCatalogo.Activo"/>.</item>
-///   <item><c>Tolerancia</c> = monto en pesos configurado en el proveedor, o null para usar la general.</item>
+///   <item><c>Tolerancia</c> = monto en pesos o % de la OC configurado en el proveedor, o null para usar la general.</item>
 /// </list>
 /// </summary>
 public sealed class ProveedorReadPortAdapter : IProveedorReadPort
@@ -53,7 +53,9 @@ public sealed class ProveedorReadPortAdapter : IProveedorReadPort
                 p.Rfc,
                 p.RazonSocial,
                 p.ToleranciaFacturaContraOcMxn.HasValue
-                    ? new ToleranciaProveedorDto(ToleranciaTipo.MontoAbsoluto, p.ToleranciaFacturaContraOcMxn.Value)
+                    ? new ToleranciaProveedorDto(
+                        p.ToleranciaFacturaContraOcEsPorcentaje ? ToleranciaTipo.Porcentaje : ToleranciaTipo.MontoAbsoluto,
+                        p.ToleranciaFacturaContraOcMxn.Value)
                     : null,
                 p.Estatus == EstatusCatalogo.EnRevision,
                 p.Estatus == EstatusCatalogo.Activo,
@@ -79,7 +81,9 @@ public sealed class ProveedorReadPortAdapter : IProveedorReadPort
                 p.Rfc,
                 p.RazonSocial,
                 p.ToleranciaFacturaContraOcMxn.HasValue
-                    ? new ToleranciaProveedorDto(ToleranciaTipo.MontoAbsoluto, p.ToleranciaFacturaContraOcMxn.Value)
+                    ? new ToleranciaProveedorDto(
+                        p.ToleranciaFacturaContraOcEsPorcentaje ? ToleranciaTipo.Porcentaje : ToleranciaTipo.MontoAbsoluto,
+                        p.ToleranciaFacturaContraOcMxn.Value)
                     : null,
                 p.Estatus == EstatusCatalogo.EnRevision,
                 p.Estatus == EstatusCatalogo.Activo,
