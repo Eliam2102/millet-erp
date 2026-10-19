@@ -75,11 +75,11 @@ public class UmbralAprobacionDepartamentoTests
     }
 
     [Fact]
-    public void Constructor_Sin_Modo_Deja_Ambos_Y_Sin_Minimo()
+    public void Constructor_Sin_Modo_Deja_SoloDisponibilidad_Y_Sin_Minimo()
     {
         var u = Nuevo(null, 10_000m);
 
-        Assert.Equal(ModoNivel2.Ambos, u.ModoNivel2);
+        Assert.Equal(ModoNivel2.SoloDisponibilidad, u.ModoNivel2);
         Assert.Null(u.MontoMinimoDisponibilidad);
     }
 

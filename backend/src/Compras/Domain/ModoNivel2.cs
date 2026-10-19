@@ -5,7 +5,8 @@ namespace Millet.Compras.Domain;
 /// <summary>
 /// Modo de nivel 2 de la requisición, por departamento
 /// (<c>UmbralAprobacionDepartamento.ModoNivel2</c>).
-/// <see cref="SoloMonto"/>: N2 si el monto de la RQ supera <c>UmbralMonto</c>.
+/// <see cref="SoloMonto"/>: N2 si el monto de la RQ supera <c>UmbralMonto</c>. El monto sale del
+/// precio estimado de cada línea, que es opcional: una línea sin precio suma 0.
 /// <see cref="SoloDisponibilidad"/>: N2 si alguna línea de inventario no se
 /// cubre con la existencia y el importe a comprar supera
 /// <c>MontoMinimoDisponibilidad</c> (si está definido).

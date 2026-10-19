@@ -2230,7 +2230,7 @@ namespace Millet.Compras.Infrastructure.Migrations
                     b.Property<int>("ModoNivel2")
                         .ValueGeneratedOnAdd()
                         .HasColumnType("integer")
-                        .HasDefaultValue(3)
+                        .HasDefaultValue(2)
                         .HasColumnName("modo_nivel2");
 
                     b.Property<string>("Moneda")

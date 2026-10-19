@@ -21,7 +21,7 @@ namespace Millet.Compras.Domain;
 /// (fail-safe).
 ///
 /// <see cref="ModoNivel2"/>: modo de nivel 2 de la requisición para este
-/// departamento (default <see cref="Domain.ModoNivel2.Ambos"/>).
+/// departamento (default <see cref="Domain.ModoNivel2.SoloDisponibilidad"/>: quien pide no conoce el precio; el monto se evalúa en la OC).
 /// <see cref="MontoMinimoDisponibilidad"/>: importe mínimo a comprar por
 /// disponibilidad para exigir N2 en modo SoloDisponibilidad/Ambos; <c>null</c>
 /// = sin mínimo.
@@ -40,7 +40,7 @@ public sealed class UmbralAprobacionDepartamento : Millet.SharedKernel.Domain.IA
     public decimal? UmbralMenorCuantia { get; private set; }
     public decimal UmbralMonto { get; private set; }
     public string Moneda { get; private set; } = "MXN";
-    public ModoNivel2 ModoNivel2 { get; private set; } = ModoNivel2.Ambos;
+    public ModoNivel2 ModoNivel2 { get; private set; } = ModoNivel2.SoloDisponibilidad;
     public decimal? MontoMinimoDisponibilidad { get; private set; }
 
     private UmbralAprobacionDepartamento() { }
@@ -53,7 +53,7 @@ public sealed class UmbralAprobacionDepartamento : Millet.SharedKernel.Domain.IA
         string moneda = "MXN",
         DateOnly? vigenteHasta = null,
         decimal? umbralMenorCuantia = null,
-        ModoNivel2 modoNivel2 = ModoNivel2.Ambos,
+        ModoNivel2 modoNivel2 = ModoNivel2.SoloDisponibilidad,
         decimal? montoMinimoDisponibilidad = null)
     {
         Validar(umbralMenorCuantia, umbralMonto, modoNivel2, montoMinimoDisponibilidad);
@@ -75,7 +75,7 @@ public sealed class UmbralAprobacionDepartamento : Millet.SharedKernel.Domain.IA
     /// versionan con una fila nueva.
     /// </summary>
     public void ActualizarMontos(decimal? umbralMenorCuantia, decimal umbralMonto, string moneda,
-        ModoNivel2 modoNivel2 = ModoNivel2.Ambos, decimal? montoMinimoDisponibilidad = null)
+        ModoNivel2 modoNivel2 = ModoNivel2.SoloDisponibilidad, decimal? montoMinimoDisponibilidad = null)
     {
         Validar(umbralMenorCuantia, umbralMonto, modoNivel2, montoMinimoDisponibilidad);
 
