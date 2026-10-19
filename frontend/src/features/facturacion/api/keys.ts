@@ -123,6 +123,8 @@ export const facturacionKeys = {
     [...facturacionKeys.reportes(), 'liquidacion-caja', filtros] as const,
   reporteEstadosAnticipos: (filtros: Record<string, unknown>) =>
     [...facturacionKeys.reportes(), 'estados-anticipos', filtros] as const,
+  reporteComparativaAnticipos: (filtros: Record<string, unknown>) =>
+    [...facturacionKeys.reportes(), 'comparativa-anticipos', filtros] as const,
 
   // Activos (FE-F9)
   activosAutorizaciones: (estado: string | null) =>

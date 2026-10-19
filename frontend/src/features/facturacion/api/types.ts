@@ -132,6 +132,20 @@ export type EstadoAnticipo =
   (typeof EstadoAnticipo)[keyof typeof EstadoAnticipo];
 
 /**
+ * Estado derivado en la comparativa de anticipos vs aplicaciones (F6.2):
+ * enum <c>EstadoComparativaAnticipo</c> del backend. No es el estado
+ * persistido del anticipo, sino el saldo a la fecha de corte.
+ */
+export const EstadoComparativaAnticipo = {
+  Pendiente: 1,
+  Parcial: 2,
+  Aplicado: 3,
+  Cancelado: 4,
+} as const satisfies Record<string, number>;
+export type EstadoComparativaAnticipo =
+  (typeof EstadoComparativaAnticipo)[keyof typeof EstadoComparativaAnticipo];
+
+/**
  * Item del lookup de canales de venta (FAC-ING-PR3). Eje organizacional
  * de la facturación: de dónde viene la venta; ortogonal al comportamiento
  * fiscal. Ya NO es un enum hardcodeado — es el catálogo administrable

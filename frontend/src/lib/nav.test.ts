@@ -200,6 +200,16 @@ describe('navSidebarItems', () => {
     expect(facturas?.permission).toBe(
       PermisosCanonicos.FacturacionFacturasLeer,
     );
+    // F6.2: la comparativa de anticipos va junto a Estados de facturas de anticipo.
+    const reportes = facturacion.secciones[2].cards;
+    const rutasReportes = reportes.map((c) => c.to);
+    expect(rutasReportes.indexOf('/facturacion/reportes/comparativa-anticipos')).toBe(
+      rutasReportes.indexOf('/facturacion/reportes/estados-anticipos') + 1,
+    );
+    expect(
+      reportes.find((c) => c.to === '/facturacion/reportes/comparativa-anticipos')
+        ?.permission,
+    ).toBe(PermisosCanonicos.FacturacionReportesLeer);
   });
 
   it('Compras tiene Operación (P1+P2) y Configuración (Aprobadores)', () => {
