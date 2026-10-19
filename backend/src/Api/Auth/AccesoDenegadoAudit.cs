@@ -27,7 +27,8 @@ public static class AccesoDenegadoAudit
         }
         catch (Exception ex)
         {
-            context.RequestServices.GetService<ILoggerFactory>()?.CreateLogger("AccesoDenegadoAudit")
+            // Sin RequestServices (contexto armado a mano) no hay logger; la auditoría nunca debe tumbar la respuesta 403.
+            context.RequestServices?.GetService<ILoggerFactory>()?.CreateLogger("AccesoDenegadoAudit")
                 .LogWarning(ex, "No se pudo auditar el acceso denegado a {Path}", context.Request.Path);
         }
     }

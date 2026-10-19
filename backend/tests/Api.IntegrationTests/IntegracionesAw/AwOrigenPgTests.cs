@@ -321,8 +321,10 @@ public class AwOrigenPgTests(WebApplicationFactory<Program> factory)
 
         // 61 y 62 comparten RFC: ambos se crean (no se fusionan) y el segundo queda con un conflicto RfcCompartido pendiente.
         Assert.Equal(("DEMO010101AB1", null), (cs["61"].Rfc, cs["62"].Rfc));
+        // Solo los clientes de este barrido: otras pruebas de ADM-06 dejan conflictos RfcCompartido en la base compartida.
+        var idsBarrido = cs.Values.Select(c => (Guid?)c.Id).ToList();
         var conflictos = await ConDb(db => db.CambiosMaestrosAw.AsNoTracking()
-            .Where(c => c.TipoEntidad == "Cliente" && c.Tipo == TipoCambioMaestroAw.RfcCompartido).ToListAsync());
+            .Where(c => c.TipoEntidad == "Cliente" && c.Tipo == TipoCambioMaestroAw.RfcCompartido && idsBarrido.Contains(c.EntidadId)).ToListAsync());
         var conflicto = Assert.Single(conflictos);
         Assert.Equal(("62", EstadoCambioMaestroAw.Pendiente, "DEMO010101AB1", cs["62"].Id), (conflicto.ReferenciaExterna, conflicto.Estado, conflicto.ValorDespues, conflicto.EntidadId));
 
