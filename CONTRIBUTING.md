@@ -86,7 +86,17 @@ backend crea el SuperAdmin y la empresa "Millet Dev" la primera vez.
 
 ## 5. Convenciones de Git
 
-- **Nunca trabajar directo en `main`.** Siempre rama nueva.
+- **Nunca trabajar directo en `main` ni en `develop`.** Siempre rama nueva
+  creada desde `develop` (`git switch -c feature/<nombre> origin/develop`).
+- Flujo de integración (desde 19-oct-2026):
+  1. Rama de trabajo → **PR a `develop`**. El CI (`Validate Application` y,
+     si se toca `infra/`, `Validate Infrastructure`) debe quedar en verde
+     antes de integrar.
+  2. Con `develop` en verde, se abre **PR `develop` → `main`** (lo abre
+     Eliam). El CI corre otra vez sobre el conjunto; sólo entonces se integra
+     a `main`.
+  - `main` = lo validado e integrado; `develop` = integración en curso.
+  - Si tu rama quedó atrás, actualízala desde `develop`, no desde `main`.
 - Prefijo de rama según tipo de cambio:
   - `feature/<nombre>` — funcionalidad nueva
   - `fix/<nombre>` — bug fix
@@ -94,8 +104,9 @@ backend crea el SuperAdmin y la empresa "Millet Dev" la primera vez.
   - `docs/<nombre>` — solo documentación
 - Commits en español, formato convencional: `tipo(scope): descripción`.
   - Ejemplos: `feat(facturacion): emitir CFDI 4.0`, `fix(auth): handle Entra duplicate claims`
-- PR a `main` con título descriptivo y body explicando el _por qué_ del cambio.
-  Squash merge es el estándar.
+- PR a `develop` con título descriptivo y body explicando el _por qué_ del
+  cambio. Squash merge es el estándar en ramas → `develop`; `develop` → `main`
+  se integra con merge commit para conservar la historia.
 - **Secretos jamás en commits.** Si necesitas un secreto, va a Azure Key Vault.
 
 ---
