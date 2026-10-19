@@ -7,7 +7,7 @@ import {
   useGuardarUmbral,
   useUmbralesAprobacion,
 } from '@/features/compras/api/useUmbralesAprobacion';
-import type { UmbralAprobacionResponse } from '@/features/compras/api/types';
+import { ModoNivel2, type UmbralAprobacionResponse } from '@/features/compras/api/types';
 
 const DEPTO_ID = '11111111-1111-4111-8111-111111111111';
 const KEY = '44444444-4444-4444-8444-444444444444';
@@ -58,6 +58,8 @@ describe('useGuardarUmbral', () => {
         umbralMenorCuantia: 5000,
         umbralMonto: 20000,
         moneda: 'MXN',
+        modoNivel2: ModoNivel2.Ambos,
+        montoMinimoDisponibilidad: null,
       },
       idempotencyKey: KEY,
     });
@@ -68,6 +70,8 @@ describe('useGuardarUmbral', () => {
       departamentoId: DEPTO_ID,
       umbralMenorCuantia: 5000,
       umbralMonto: 20000,
+      modoNivel2: ModoNivel2.Ambos,
+      montoMinimoDisponibilidad: null,
       moneda: 'MXN',
     });
     expect(result.current.data).toEqual(UMBRAL);
@@ -100,6 +104,8 @@ describe('useGuardarUmbral', () => {
         umbralMenorCuantia: 9000,
         umbralMonto: 8000,
         moneda: 'MXN',
+        modoNivel2: ModoNivel2.Ambos,
+        montoMinimoDisponibilidad: null,
       },
       idempotencyKey: KEY,
     });
