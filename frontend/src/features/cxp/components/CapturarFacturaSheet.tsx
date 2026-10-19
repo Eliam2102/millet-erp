@@ -18,7 +18,7 @@ import {
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { applyServerErrors, esApiError, useFormIdempotencyKey } from '@/lib/api';
+import { applyServerErrors, esApiError, useFormIdempotencyKey, codigoSoporte } from '@/lib/api';
 import { CapturarFacturaSchema, type CapturarFacturaValues } from '@/features/cxp/schemas/factura';
 import { useCapturarFacturaConOc } from '@/features/cxp/api/useFacturas';
 import { EstadoPasivo, MotivoCancelacion, type CfdiListItem } from '@/features/cxp/api/types';
@@ -290,7 +290,7 @@ export function CapturarFacturaSheet({
               return;
             }
             toast.error(error.problem.title, {
-              description: error.traceId ? `Código: ${error.traceId}` : undefined,
+              description: codigoSoporte(error),
             });
             return;
           }

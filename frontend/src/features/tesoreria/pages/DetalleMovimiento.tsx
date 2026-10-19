@@ -21,7 +21,7 @@ import { SolicitarDevolucionDialog } from '@/features/tesoreria/components/Solic
 import { formatoMonto } from '@/features/tesoreria/lib/formato';
 import { useHasPermission } from '@/lib/auth/useHasPermission';
 import { PermisosCanonicos } from '@/lib/auth/permission-codes';
-import { esApiError, useBodyScopedIdempotencyKey } from '@/lib/api';
+import { esApiError, useBodyScopedIdempotencyKey, codigoSoporte } from '@/lib/api';
 
 /**
  * <c>Detalle de movimiento bancario</c> (TES-FE-PR2, P3): cabecera,
@@ -73,7 +73,7 @@ export function DetalleMovimiento({ id }: { id: string }) {
             esApiError(error) ? error.problem.title : 'No se pudo revertir el pago',
             {
               description: esApiError(error)
-                ? (error.problem.detail ?? `Código: ${error.traceId}`)
+                ? (error.problem.detail ?? codigoSoporte(error))
                 : undefined,
             },
           );
@@ -155,9 +155,18 @@ export function DetalleMovimiento({ id }: { id: string }) {
         <div>
           <dt className="text-xs text-muted-foreground">Beneficiario</dt>
           <dd>
-            {m.beneficiarioTipo != null
-              ? BENEFICIARIO_TIPO_LABELS[m.beneficiarioTipo]
-              : '—'}
+            {m.beneficiarioNombre != null ? (
+              <>
+                {m.beneficiarioNombre}
+                {m.beneficiarioTipo != null && (
+                  <span className="text-xs text-muted-foreground"> · {BENEFICIARIO_TIPO_LABELS[m.beneficiarioTipo]}</span>
+                )}
+              </>
+            ) : m.beneficiarioTipo != null ? (
+              BENEFICIARIO_TIPO_LABELS[m.beneficiarioTipo]
+            ) : (
+              '—'
+            )}
           </dd>
         </div>
         {m.destinoBanco != null && (
@@ -304,6 +313,7 @@ export function DetalleMovimiento({ id }: { id: string }) {
           moneda: m.moneda,
           beneficiarioTipo: m.beneficiarioTipo ?? null,
           beneficiarioRef: m.beneficiarioRef ?? null,
+          beneficiarioNombre: m.beneficiarioNombre ?? null,
         }}
         abierto={solicitandoDevolucion}
         onCerrar={() => setSolicitandoDevolucion(false)}

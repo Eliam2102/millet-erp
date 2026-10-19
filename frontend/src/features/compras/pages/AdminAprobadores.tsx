@@ -50,7 +50,7 @@ import {
   type AprobadorVigenteResponse,
 } from '@/features/compras/api/types';
 import { DesignarAprobadorDialog } from '@/features/compras/components/DesignarAprobadorDialog';
-import { esApiError, useFormIdempotencyKey } from '@/lib/api';
+import { esApiError, useFormIdempotencyKey, codigoSoporte } from '@/lib/api';
 import {
   DEFAULT_ADMIN_APROBADORES_SEARCH,
   type AdminAprobadoresSearch,
@@ -635,9 +635,7 @@ function RevocarConfirm({
         onError: (error) => {
           if (esApiError(error)) {
             toast.error(error.problem.title, {
-              description: error.traceId
-                ? `Código: ${error.traceId}`
-                : undefined,
+              description: codigoSoporte(error),
             });
           } else {
             toast.error('Error inesperado al revocar.');

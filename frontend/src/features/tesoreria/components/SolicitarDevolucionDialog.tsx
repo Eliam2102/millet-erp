@@ -47,6 +47,8 @@ export interface SolicitarDevolucionMovimiento {
   moneda: string;
   beneficiarioTipo: BeneficiarioTipo | null;
   beneficiarioRef: string | null;
+  /** Razón social del cliente identificado, para no mostrar «Cliente seleccionado». */
+  beneficiarioNombre?: string | null;
 }
 
 export interface SolicitarDevolucionDialogProps {
@@ -186,6 +188,7 @@ function Formulario({
                 id={control.id}
                 value={field.value || null}
                 onChange={(c) => field.onChange(c?.id ?? '')}
+                etiquetaInicial={movimiento.beneficiarioNombre ?? undefined}
                 disabled={identificado}
               />
             )}

@@ -16,7 +16,7 @@ import {
 } from '@/components/ui/alert-dialog';
 import { ErrorState, TableSkeleton } from '@/components/erp';
 import { useEliminarRol, useRol } from '@/modules/identidad/api';
-import { esApiError } from '@/lib/api';
+import { esApiError, codigoSoporte } from '@/lib/api';
 import { useHasPermission } from '@/lib/auth/useHasPermission';
 import { PermisosCanonicos } from '@/lib/auth/permission-codes';
 import { RolDatosForm } from '@/modules/identidad/components/RolDatosForm';
@@ -89,9 +89,7 @@ export function RolDetalle() {
         onError: (error) => {
           if (esApiError(error)) {
             toast.error(error.problem.title, {
-              description: error.traceId
-                ? `Código: ${error.traceId}`
-                : undefined,
+              description: codigoSoporte(error),
             });
           } else {
             toast.error('Error al eliminar el rol.');

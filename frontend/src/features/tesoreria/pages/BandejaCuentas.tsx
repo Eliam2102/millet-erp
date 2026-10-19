@@ -24,7 +24,7 @@ import { CuentaBancariaSheet } from '@/features/tesoreria/components/CuentaBanca
 import { formatoMonto } from '@/features/tesoreria/lib/formato';
 import { useHasPermission } from '@/lib/auth/useHasPermission';
 import { PermisosCanonicos } from '@/lib/auth/permission-codes';
-import { esApiError } from '@/lib/api';
+import { esApiError, codigoSoporte } from '@/lib/api';
 
 /**
  * Bandeja del catálogo de cuentas bancarias propias — <c>/tesoreria/cuentas</c>
@@ -71,7 +71,7 @@ export function BandejaCuentas() {
               : 'No se pudo cambiar el estado de la cuenta',
             {
               description: esApiError(error)
-                ? (error.problem.detail ?? `Código: ${error.traceId}`)
+                ? (error.problem.detail ?? codigoSoporte(error))
                 : undefined,
             },
           );

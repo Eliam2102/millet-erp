@@ -23,7 +23,7 @@ public sealed record DevolucionClienteResponse(
     string? NotaCreditoFolio, string? NotaCreditoUuid, string? DestinoBanco, string? DestinoClabe,
     string? DestinoTitular, Guid? SolicitadaPor, DateTimeOffset SolicitadaEn, Guid? AutorizadaPor,
     DateTimeOffset? AutorizadaEn, string? MotivoRechazo, string? MotivoCancelacion, Guid? MovimientoPagoId,
-    DateTimeOffset? PagadaEn, Guid? SucursalId, int Version);
+    DateTimeOffset? PagadaEn, Guid? SucursalId, int Version, string Folio = "", Guid? EditadaPor = null);
 
 internal static class DevolucionLectura
 {
@@ -45,7 +45,30 @@ internal static class DevolucionLectura
         disponible, d.Moneda, d.Motivo, d.MovimientoOrigenId, d.NotaCreditoId, d.NotaCreditoFolio, d.NotaCreditoUuid,
         d.DestinoBanco, d.DestinoClabe is null ? null : verCuentaCompleta ? d.DestinoClabe : Clabe.Enmascarar(d.DestinoClabe),
         d.DestinoTitular, d.SolicitadaPor, d.SolicitadaEn, d.AutorizadaPor, d.AutorizadaEn, d.MotivoRechazo,
-        d.MotivoCancelacion, d.MovimientoPagoId, d.PagadaEn, d.SucursalId, d.Version);
+        d.MotivoCancelacion, d.MovimientoPagoId, d.PagadaEn, d.SucursalId, d.Version, d.Folio, d.EditadaPor);
+
+    /// <summary>
+    /// Reserva el siguiente folio «DEV-T-0001» de la empresa. Atómico en Postgres; el proveedor
+    /// en memoria (pruebas unitarias) lo deriva del conteo.
+    /// </summary>
+    public static async Task<string> SiguienteFolioAsync(TesoreriaDbContext db, Guid empresaId, CancellationToken ct)
+    {
+        int numero;
+        if (db.Database.IsRelational())
+        {
+            numero = (await db.Database.SqlQuery<int>($@"
+                INSERT INTO tesoreria.folio_secuencias_devolucion_cliente (empresa_id, siguiente)
+                VALUES ({empresaId}, 2)
+                ON CONFLICT (empresa_id) DO UPDATE
+                  SET siguiente = tesoreria.folio_secuencias_devolucion_cliente.siguiente + 1
+                RETURNING (siguiente - 1)::int AS ""Value""").ToListAsync(ct)).Single();
+        }
+        else
+        {
+            numero = await db.DevolucionesCliente.IgnoreQueryFilters().CountAsync(x => x.EmpresaId == empresaId, ct) + 1;
+        }
+        return $"DEV-T-{numero:0000}";
+    }
 }
 
 public sealed record DevolucionesQuery(

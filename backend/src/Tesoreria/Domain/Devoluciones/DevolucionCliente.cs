@@ -23,6 +23,8 @@ public sealed class DevolucionCliente : BaseEntity, IPerteneceAEmpresa, IAuditab
 {
     public Guid EmpresaId { get; set; }
 
+    /// <summary>Folio propio «DEV-T-0001» (secuencia por empresa).</summary>
+    public string Folio { get; private set; } = default!;
     public Guid? SucursalId { get; private set; }
     public OrigenDevolucionCliente Origen { get; private set; }
     public Guid? MovimientoOrigenId { get; private set; }
@@ -59,7 +61,7 @@ public sealed class DevolucionCliente : BaseEntity, IPerteneceAEmpresa, IAuditab
     private DevolucionCliente() { }
 
     public static DevolucionCliente SolicitarPorDepositoErroneo(
-        Guid empresaId, MovimientoBancario deposito, Guid clienteId, decimal importe, decimal disponible,
+        Guid empresaId, string folio, MovimientoBancario deposito, Guid clienteId, decimal importe, decimal disponible,
         string motivo, CuentaDestinoDevolucion destino, Guid solicitadaPor, DateTimeOffset ahora)
     {
         if (deposito.Sentido != SentidoMovimiento.Ingreso)
@@ -76,13 +78,14 @@ public sealed class DevolucionCliente : BaseEntity, IPerteneceAEmpresa, IAuditab
             throw new BusinessRuleException("DEV_IMPORTE_INVALIDO", "El importe debe ser mayor a cero.");
         if (importe > disponible)
             throw new BusinessRuleException("DEV_IMPORTE_EXCEDE_DEPOSITO",
-                $"La devolución ({importe:N2}) excede lo disponible del depósito ({disponible:N2}). El depósito es de {deposito.Monto:N2} y el resto ya está comprometido en otras devoluciones.");
+                MensajeExcedeDeposito(importe, disponible, deposito.Monto));
         var (banco, clabe, titular) = ValidarDestino(destino);
 
         return new DevolucionCliente
         {
             Id = Guid.CreateVersion7(),
             EmpresaId = empresaId,
+            Folio = folio,
             SucursalId = deposito.SucursalId,
             Origen = OrigenDevolucionCliente.DepositoErroneo,
             MovimientoOrigenId = deposito.Id,
@@ -101,7 +104,7 @@ public sealed class DevolucionCliente : BaseEntity, IPerteneceAEmpresa, IAuditab
     }
 
     public static DevolucionCliente SolicitarPorNotaCredito(
-        Guid empresaId, Guid notaCreditoId, string folio, string? uuid, Guid clienteId, decimal importe,
+        Guid empresaId, string folioDevolucion, Guid notaCreditoId, string folio, string? uuid, Guid clienteId, decimal importe,
         decimal totalNotaCredito, string moneda, Guid? sucursalId, string motivo, Guid? solicitadaPor, DateTimeOffset ahora)
     {
         if (notaCreditoId == Guid.Empty)
@@ -119,6 +122,7 @@ public sealed class DevolucionCliente : BaseEntity, IPerteneceAEmpresa, IAuditab
         {
             Id = Guid.CreateVersion7(),
             EmpresaId = empresaId,
+            Folio = folioDevolucion,
             SucursalId = sucursalId,
             Origen = OrigenDevolucionCliente.NotaCredito,
             NotaCreditoId = notaCreditoId,
@@ -151,7 +155,7 @@ public sealed class DevolucionCliente : BaseEntity, IPerteneceAEmpresa, IAuditab
         {
             if (Origen == OrigenDevolucionCliente.DepositoErroneo)
                 throw new BusinessRuleException("DEV_IMPORTE_EXCEDE_DEPOSITO",
-                    $"La devolución ({importe:N2}) excede lo disponible del depósito ({disponible:N2}). El depósito es de {ImporteMaximoOrigen:N2} y el resto ya está comprometido en otras devoluciones.");
+                    MensajeExcedeDeposito(importe, disponible, ImporteMaximoOrigen));
             throw new BusinessRuleException("DEV_IMPORTE_EXCEDE_NC", "La devolución excede el total de la nota de crédito.");
         }
         if (destino is null && Origen == OrigenDevolucionCliente.DepositoErroneo)
@@ -200,6 +204,9 @@ public sealed class DevolucionCliente : BaseEntity, IPerteneceAEmpresa, IAuditab
     public void Rechazar(string motivo, Guid usuarioId, DateTimeOffset ahora)
     {
         AsegurarSolicitada();
+        if (SolicitadaPor == usuarioId || EditadaPor == usuarioId)
+            throw new BusinessRuleException("DEV_MISMO_USUARIO",
+                "Quien solicita o edita la devolución no puede rechazarla. Si ya no procede, cancélala; si no, pide la resolución al Gerente o al Jefe de Tesorería.");
         if (string.IsNullOrWhiteSpace(motivo))
             throw new BusinessRuleException("DEV_MOTIVO_VACIO", "Indica el motivo de la devolución.");
         Estado = EstadoDevolucionCliente.Rechazada;
@@ -216,6 +223,15 @@ public sealed class DevolucionCliente : BaseEntity, IPerteneceAEmpresa, IAuditab
         PagadaPor = usuarioId;
         PagadaEn = ahora;
         Estado = EstadoDevolucionCliente.Pagada;
+    }
+
+    /// <summary>Menciona «otras devoluciones» solo si de verdad hay (C-04): el tope es el depósito menos lo comprometido por las demás.</summary>
+    private static string MensajeExcedeDeposito(decimal importe, decimal disponible, decimal montoDeposito)
+    {
+        var baseMsg = $"La devolución ({importe:N2}) excede lo disponible del depósito ({disponible:N2}). El depósito es de {montoDeposito:N2}";
+        return montoDeposito - disponible > 0
+            ? baseMsg + " y el resto ya está comprometido en otras devoluciones."
+            : baseMsg + "; no se puede devolver más que ese monto.";
     }
 
     private void AsegurarSolicitada()

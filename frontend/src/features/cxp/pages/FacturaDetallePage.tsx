@@ -14,7 +14,7 @@ import { ErrorState, DetalleSkeleton } from '@/components/erp';
 import { useFactura, useAutorizarFactura, useMarcarRetencionesRevisadas } from '@/features/cxp/api/useFacturas';
 import { MotivoBajaDialog } from '@/components/erp/adjuntos/MotivoBajaDialog';
 import { EstadoPasivo, MotivoCancelacionLabels } from '@/features/cxp/api/types';
-import { esApiError, useFormIdempotencyKey } from '@/lib/api';
+import { esApiError, useFormIdempotencyKey, codigoSoporte } from '@/lib/api';
 import { useHasPermission } from '@/lib/auth/useHasPermission';
 import { PermisosCanonicos } from '@/lib/auth/permission-codes';
 import { EstadoPasivoChip } from '@/features/cxp/components/EstadoPasivoChip';
@@ -92,7 +92,7 @@ export function FacturaDetallePage() {
         onError: (error) => {
           if (esApiError(error)) {
             toast.error(error.problem.title, {
-              description: error.traceId ? `Código: ${error.traceId}` : undefined,
+              description: codigoSoporte(error),
             });
             return;
           }

@@ -23,7 +23,7 @@ import {
 import type { PuestoListItem } from '@/features/catalogos/api';
 import { useHasPermission } from '@/lib/auth/useHasPermission';
 import { PermisosCanonicos } from '@/lib/auth/permission-codes';
-import { esApiError } from '@/lib/api';
+import { esApiError, codigoSoporte } from '@/lib/api';
 import { PuestoInlineForm } from '@/modules/administracion/components/PuestoInlineForm';
 
 /**
@@ -54,7 +54,7 @@ export function PuestosPage() {
   function onErrorEstatus(error: Error) {
     if (esApiError(error)) {
       toast.error(error.problem.title, {
-        description: error.traceId ? `Código: ${error.traceId}` : undefined,
+        description: codigoSoporte(error),
       });
     } else {
       toast.error('Error al actualizar el puesto.');

@@ -25,6 +25,7 @@ import {
   applyServerErrors,
   esApiError,
   useFormIdempotencyKey,
+  codigoSoporte,
 } from '@/lib/api';
 import { cn } from '@/lib/utils';
 
@@ -164,9 +165,7 @@ export function NuevaPropuestaAplicacion({
                 error.problem.detail ??
                 (errsLinea.length > 0
                   ? errsLinea.map((e) => e.mensaje).join(' · ')
-                  : error.traceId
-                    ? `Código: ${error.traceId}`
-                    : undefined),
+                  : codigoSoporte(error)),
             });
             return;
           }

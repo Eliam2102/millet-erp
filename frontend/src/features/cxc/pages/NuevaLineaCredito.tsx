@@ -21,6 +21,7 @@ import {
   applyServerErrors,
   esApiError,
   useFormIdempotencyKey,
+  codigoSoporte,
 } from '@/lib/api';
 
 /**
@@ -94,7 +95,7 @@ export function NuevaLineaCredito({
             toast.error(error.problem.title, {
               description:
                 error.problem.detail ??
-                (error.traceId ? `Código: ${error.traceId}` : undefined),
+                (codigoSoporte(error)),
             });
             return;
           }
