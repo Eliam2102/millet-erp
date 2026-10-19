@@ -1,3 +1,12 @@
+# ============================================================================
+# Validate Infrastructure
+#
+# - Compilar Bicep: corre SIEMPRE (no necesita Azure).
+# - Validate / what-if contra Azure: sólo si el repositorio tiene las vars
+#   AZURE_CLIENT_ID, AZURE_TENANT_ID y AZURE_SUBSCRIPTION_ID (OIDC, ADR-0029).
+#   Mientras no existan, el job lo avisa con un ::warning:: y no falla.
+# ============================================================================
+
 name: Validate Infrastructure
 
 on:
@@ -22,7 +31,27 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
+      - name: Build Bicep templates
+        run: |
+          az bicep build --file infra/main.bicep
+          echo "Bicep compilation successful"
+
+      - name: Check Azure configuration
+        id: azure
+        env:
+          CLIENT_ID: ${{ vars.AZURE_CLIENT_ID }}
+          TENANT_ID: ${{ vars.AZURE_TENANT_ID }}
+          SUBSCRIPTION_ID: ${{ vars.AZURE_SUBSCRIPTION_ID }}
+        run: |
+          if [ -n "$CLIENT_ID" ] && [ -n "$TENANT_ID" ] && [ -n "$SUBSCRIPTION_ID" ]; then
+            echo "configured=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "configured=false" >> "$GITHUB_OUTPUT"
+            echo "::warning::Validación contra Azure omitida: faltan las vars AZURE_CLIENT_ID / AZURE_TENANT_ID / AZURE_SUBSCRIPTION_ID (acceso OIDC, ADR-0029). Sólo se compiló Bicep."
+          fi
+
       - name: Azure Login via OIDC
+        if: steps.azure.outputs.configured == 'true'
         uses: azure/login@v2
         with:
           client-id: ${{ vars.AZURE_CLIENT_ID }}
@@ -30,6 +59,7 @@ jobs:
           subscription-id: ${{ vars.AZURE_SUBSCRIPTION_ID }}
 
       - name: Get PostgreSQL admin password from Key Vault
+        if: steps.azure.outputs.configured == 'true'
         id: get-pg-password
         run: |
           PG_PASSWORD=$(az keyvault secret show \
@@ -40,12 +70,8 @@ jobs:
           echo "::add-mask::$PG_PASSWORD"
           echo "pg_password=$PG_PASSWORD" >> "$GITHUB_OUTPUT"
 
-      - name: Build Bicep templates
-        run: |
-          az bicep build --file infra/main.bicep
-          echo "Bicep compilation successful"
-
       - name: Validate deployment
+        if: steps.azure.outputs.configured == 'true'
         run: |
           az deployment sub validate \
             --location mexicocentral \
@@ -55,6 +81,7 @@ jobs:
             --output table
 
       - name: Run what-if analysis
+        if: steps.azure.outputs.configured == 'true'
         id: whatif
         run: |
           set -o pipefail
@@ -94,6 +121,7 @@ jobs:
           } >> "$GITHUB_OUTPUT"
 
       - name: Comment what-if summary on PR
+        if: steps.azure.outputs.configured == 'true'
         uses: actions/github-script@v7
         with:
           script: |
@@ -129,6 +157,7 @@ jobs:
             }
 
       - name: Upload what-if details as artifact
+        if: steps.azure.outputs.configured == 'true'
         uses: actions/upload-artifact@v4
         with:
           name: whatif-details
