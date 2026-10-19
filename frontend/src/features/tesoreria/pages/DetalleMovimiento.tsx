@@ -155,9 +155,18 @@ export function DetalleMovimiento({ id }: { id: string }) {
         <div>
           <dt className="text-xs text-muted-foreground">Beneficiario</dt>
           <dd>
-            {m.beneficiarioTipo != null
-              ? BENEFICIARIO_TIPO_LABELS[m.beneficiarioTipo]
-              : '—'}
+            {m.beneficiarioNombre != null ? (
+              <>
+                {m.beneficiarioNombre}
+                {m.beneficiarioTipo != null && (
+                  <span className="text-xs text-muted-foreground"> · {BENEFICIARIO_TIPO_LABELS[m.beneficiarioTipo]}</span>
+                )}
+              </>
+            ) : m.beneficiarioTipo != null ? (
+              BENEFICIARIO_TIPO_LABELS[m.beneficiarioTipo]
+            ) : (
+              '—'
+            )}
           </dd>
         </div>
         {m.destinoBanco != null && (
@@ -304,6 +313,7 @@ export function DetalleMovimiento({ id }: { id: string }) {
           moneda: m.moneda,
           beneficiarioTipo: m.beneficiarioTipo ?? null,
           beneficiarioRef: m.beneficiarioRef ?? null,
+          beneficiarioNombre: m.beneficiarioNombre ?? null,
         }}
         abierto={solicitandoDevolucion}
         onCerrar={() => setSolicitandoDevolucion(false)}

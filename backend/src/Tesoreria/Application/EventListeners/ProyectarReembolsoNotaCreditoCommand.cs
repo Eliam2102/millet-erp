@@ -43,8 +43,9 @@ public sealed class ProyectarReembolsoNotaCreditoHandler : IRequestHandler<Proye
         {
             // Si el importe excede el total de la NC el dominio lanza DEV_IMPORTE_EXCEDE_NC: el worker
             // abandona el mensaje, se reintenta hasta maxDeliveryCount y termina en la DLQ para revisión.
+            var folioDevolucion = await Devoluciones.DevolucionLectura.SiguienteFolioAsync(_db, p.EmpresaId, cancellationToken);
             _db.DevolucionesCliente.Add(DevolucionCliente.SolicitarPorNotaCredito(
-                p.EmpresaId, p.NotaCreditoId, p.Folio, p.Uuid, p.ClienteId, p.Importe, p.TotalNotaCredito,
+                p.EmpresaId, folioDevolucion, p.NotaCreditoId, p.Folio, p.Uuid, p.ClienteId, p.Importe, p.TotalNotaCredito,
                 p.Moneda, p.SucursalId, p.Motivo, p.SolicitadoPor, ahora));
         }
 

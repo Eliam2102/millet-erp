@@ -19,10 +19,10 @@ public sealed class DevolucionClienteTests
         MovimientoBancario.RegistrarIngreso(EmpresaId, Cuenta(), monto, new DateOnly(2026, 10, 17), null, null, null, null, Solicitante, Ahora);
 
     private static DevolucionCliente SolicitudDeposito(decimal importe = 500m, decimal disponible = 1_000m) =>
-        DevolucionCliente.SolicitarPorDepositoErroneo(EmpresaId, Deposito(), ClienteId, importe, disponible, "Depósito equivocado", Destino, Solicitante, Ahora);
+        DevolucionCliente.SolicitarPorDepositoErroneo(EmpresaId, "DEV-T-0001", Deposito(), ClienteId, importe, disponible, "Depósito equivocado", Destino, Solicitante, Ahora);
 
     private static DevolucionCliente SolicitudNc() =>
-        DevolucionCliente.SolicitarPorNotaCredito(EmpresaId, Guid.NewGuid(), "NC-1", null, ClienteId, 100m, 100m, "mxn", null, "Bonificación", null, Ahora);
+        DevolucionCliente.SolicitarPorNotaCredito(EmpresaId, "DEV-T-0001", Guid.NewGuid(), "NC-1", null, ClienteId, 100m, 100m, "mxn", null, "Bonificación", null, Ahora);
 
     private static void Debe(Action act, string code) =>
         act.Should().Throw<BusinessRuleException>().Which.Code.Should().Be(code);
@@ -37,7 +37,7 @@ public sealed class DevolucionClienteTests
 
     [Fact]
     public void Nc_con_importe_mayor_al_total_lanza() =>
-        Debe(() => DevolucionCliente.SolicitarPorNotaCredito(EmpresaId, Guid.NewGuid(), "NC-1", null, ClienteId, 101m, 100m, "MXN", null, "x", null, Ahora),
+        Debe(() => DevolucionCliente.SolicitarPorNotaCredito(EmpresaId, "DEV-T-0001", Guid.NewGuid(), "NC-1", null, ClienteId, 101m, 100m, "MXN", null, "x", null, Ahora),
             "DEV_IMPORTE_EXCEDE_NC");
 
     [Fact]
@@ -72,7 +72,51 @@ public sealed class DevolucionClienteTests
     public void Un_egreso_no_es_deposito()
     {
         var egreso = MovimientoBancario.RegistrarPagoProveedor(EmpresaId, Cuenta(), Guid.NewGuid(), 100m, new DateOnly(2026, 10, 17), null, null, Solicitante, Ahora);
-        Debe(() => DevolucionCliente.SolicitarPorDepositoErroneo(EmpresaId, egreso, ClienteId, 50m, 100m, "x", Destino, Solicitante, Ahora),
+        Debe(() => DevolucionCliente.SolicitarPorDepositoErroneo(EmpresaId, "DEV-T-0001", egreso, ClienteId, 50m, 100m, "x", Destino, Solicitante, Ahora),
             "DEV_DEPOSITO_NO_INGRESO");
+    }
+
+    [Fact]
+    public void Conserva_el_folio_recibido() =>
+        SolicitudDeposito().Folio.Should().Be("DEV-T-0001");
+
+    [Fact]
+    public void Solicitante_no_rechaza_su_propia_devolucion() =>
+        Debe(() => SolicitudDeposito().Rechazar("no procede", Solicitante, Ahora), "DEV_MISMO_USUARIO");
+
+    [Fact]
+    public void Editor_no_rechaza_la_devolucion_que_edito()
+    {
+        var d = SolicitudDeposito();
+        var editor = Guid.NewGuid();
+        d.Editar(ClienteId, 400m, 1_000m, "Ajuste", Destino, editor, Ahora);
+        Debe(() => d.Rechazar("no procede", editor, Ahora), "DEV_MISMO_USUARIO");
+    }
+
+    [Fact]
+    public void Otra_persona_rechaza()
+    {
+        var d = SolicitudDeposito();
+        d.Rechazar("no procede", Guid.NewGuid(), Ahora);
+        d.Estado.Should().Be(EstadoDevolucionCliente.Rechazada);
+    }
+
+    [Fact]
+    public void Tope_con_otras_devoluciones_lo_menciona() =>
+        Debe(() => SolicitudDeposito(importe: 600m, disponible: 400m), "DEV_IMPORTE_EXCEDE_DEPOSITO");
+
+    [Fact]
+    public void Tope_con_otras_devoluciones_mensaje_incluye_comprometido()
+    {
+        var act = () => SolicitudDeposito(importe: 600m, disponible: 400m);
+        act.Should().Throw<BusinessRuleException>().Which.Message.Should().Contain("ya está comprometido en otras devoluciones");
+    }
+
+    [Fact]
+    public void Tope_sin_otras_devoluciones_no_habla_de_otras()
+    {
+        var act = () => SolicitudDeposito(importe: 1_200m, disponible: 1_000m);
+        act.Should().Throw<BusinessRuleException>().Which.Message
+            .Should().NotContain("otras devoluciones").And.Contain("1,000.00");
     }
 }

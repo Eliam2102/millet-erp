@@ -110,16 +110,16 @@ export function DetalleDevolucion({ id }: { id: string }) {
   const solicitada = d.estado === EstadoDevolucionCliente.Solicitada;
   const destinoCompleto = d.destinoBanco != null && d.destinoClabe != null && d.destinoTitular != null;
   const cliente = d.clienteRazonSocial ?? d.clienteClave ?? 'Cliente sin nombre';
-  const soyYo = usuarioId != null && d.solicitadaPor === usuarioId;
+  const soyYo = usuarioId != null && (d.solicitadaPor === usuarioId || d.editadaPor === usuarioId);
 
   return (
     <div className="space-y-4">
       <PageHeader
-        titulo="Devolución a cliente"
+        titulo={d.folio}
         estado={<EstadoDevolucionBadge estado={d.estado} />}
         descripcion={
           <>
-            {ORIGEN_DEVOLUCION_LABELS[d.origen]} · {cliente} · <MoneyDisplay amount={d.importe} currency={d.moneda} />
+            Devolución a cliente · {ORIGEN_DEVOLUCION_LABELS[d.origen]} · {cliente} · <MoneyDisplay amount={d.importe} currency={d.moneda} />
           </>
         }
         acciones={
@@ -175,7 +175,7 @@ export function DetalleDevolucion({ id }: { id: string }) {
             {(soyYo || !destinoCompleto) && (
               <span id="autorizar-bloqueo" className="text-xs text-ink-muted">
                 {soyYo
-                  ? 'Quien solicita no puede autorizar; pide la autorización al Gerente o al Jefe de Tesorería'
+                  ? 'Quien solicita o edita la devolución no puede autorizarla ni rechazarla; pide la resolución al Gerente o al Jefe de Tesorería'
                   : 'Captura banco, CLABE y titular antes de autorizar'}
               </span>
             )}

@@ -123,7 +123,7 @@ export function BandejaDevoluciones() {
       ) : query.isLoading ? (
         <TableSkeleton
           rows={6}
-          columns={[{ width: 'w-56' }, { width: 'w-32' }, { width: 'w-28' }, { width: 'w-40' }, { width: 'w-24' }, { width: 'w-24' }]}
+          columns={[{ width: 'w-28' }, { width: 'w-56' }, { width: 'w-32' }, { width: 'w-28' }, { width: 'w-40' }, { width: 'w-24' }, { width: 'w-24' }]}
         />
       ) : items.length === 0 ? (
         <EmptyState
@@ -141,6 +141,7 @@ export function BandejaDevoluciones() {
             <Table>
               <TableHeader>
                 <TableRow>
+                  <TableHead>Folio</TableHead>
                   <TableHead>Cliente</TableHead>
                   <TableHead>Origen</TableHead>
                   <TableHead className="text-right">Importe</TableHead>
@@ -152,15 +153,18 @@ export function BandejaDevoluciones() {
               <TableBody>
                 {items.map((d) => (
                   <TableRow key={d.id} className="hover:bg-surface-subtle">
-                    <TableCell className="max-w-64">
+                    <TableCell>
                       <Link
                         to="/tesoreria/devoluciones/$id"
                         params={{ id: d.id }}
-                        className="block truncate text-brand hover:underline"
-                        aria-label={`Abrir devolución de ${d.clienteRazonSocial ?? d.clienteId}`}
+                        className="font-mono text-xs text-brand hover:underline"
+                        aria-label={`Abrir devolución ${d.folio} de ${d.clienteRazonSocial ?? d.clienteId}`}
                       >
-                        {d.clienteRazonSocial ?? '—'}
+                        {d.folio}
                       </Link>
+                    </TableCell>
+                    <TableCell className="max-w-64">
+                      <span className="block truncate">{d.clienteRazonSocial ?? '—'}</span>
                       <span className="font-mono text-xs text-ink-muted">{d.clienteClave ?? ''}</span>
                     </TableCell>
                     <TableCell className="text-xs">{ORIGEN_DEVOLUCION_LABELS[d.origen]}</TableCell>

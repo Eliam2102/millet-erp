@@ -24,7 +24,7 @@ public sealed class TransicionesDevolucionHandlerTests
     {
         var cuenta = new CuentaBancaria(Empresa, "BBVA", "1234567890", null, "MXN");
         var m = MovimientoBancario.RegistrarIngreso(Empresa, cuenta, 1_000m, new DateOnly(2026, 10, 17), null, null, null, null, Solicitante, Ahora);
-        var d = DevolucionCliente.SolicitarPorDepositoErroneo(Empresa, m, Cliente, importe, 1_000m, "x", Destino, Solicitante, Ahora);
+        var d = DevolucionCliente.SolicitarPorDepositoErroneo(Empresa, "DEV-T-0001", m, Cliente, importe, 1_000m, "x", Destino, Solicitante, Ahora);
         db.CuentasBancarias.Add(cuenta); db.MovimientosBancarios.Add(m); db.DevolucionesCliente.Add(d);
         await db.SaveChangesAsync();
         return (m, d);
@@ -34,7 +34,7 @@ public sealed class TransicionesDevolucionHandlerTests
     public async Task Editar_sobre_el_tope_lanza()
     {
         await using var db = Db(); var (m, d) = await Escenario(db);
-        db.DevolucionesCliente.Add(DevolucionCliente.SolicitarPorDepositoErroneo(Empresa, m, Cliente, 500m, 600m, "otra", Destino, Guid.NewGuid(), Ahora));
+        db.DevolucionesCliente.Add(DevolucionCliente.SolicitarPorDepositoErroneo(Empresa, "DEV-T-0001", m, Cliente, 500m, 600m, "otra", Destino, Guid.NewGuid(), Ahora));
         await db.SaveChangesAsync();
         var h = new EditarDevolucionHandler(db, new EmpresaContext(), new User(Solicitante), new Permisos(false), new Clientes(), new Clock());
         var act = () => h.Handle(new(d.Id, Cliente, 600m, "x", null, null, null, d.Version), default);
