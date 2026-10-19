@@ -36,6 +36,7 @@ export interface Requisito {
   condicional: boolean;
 }
 export interface DocumentoVersion {
+  numeroPedimento?: string | null;
   id: string;
   tipoDocumentoId: string;
   numeroVersion: number;
@@ -141,4 +142,112 @@ export interface Filtros {
   q?: string;
   offset?: number;
   sucursalId?: string;
+}
+
+export interface Contenedor {
+  id: string;
+  numero: string | null;
+  sello: string | null;
+  booking: string | null;
+  blGuia: string | null;
+  ruta: string | null;
+  fechaCargaPrevista: string | null;
+  fechaEmbarqueReal: string | null;
+  pesoKg: number | null;
+  bultos: number | null;
+  estado: 1 | 2;
+  motivoCancelacion: string | null;
+}
+export type DatosContenedor = Omit<
+  Contenedor,
+  'id' | 'fechaEmbarqueReal' | 'estado' | 'motivoCancelacion'
+>;
+export interface PedimentoExportacion {
+  numero: string;
+  clave: string;
+  fecha: string;
+  documentoId?: string | null;
+}
+export interface PartidaEmbarcada {
+  id: string;
+  contenedorId: string;
+  pedidoFacturableId: string;
+  posicion: number;
+  clienteId: string;
+  cantidad: number;
+  unidad: string;
+  versionOrigenAsignada: number | null;
+  estado: 1 | 2 | 3;
+  confirmadoPorId: string;
+}
+export interface PedidoEmbarcable {
+  id: string;
+  numeroPedido: string;
+  clienteId: string;
+  clienteNombre: string;
+  sucursalId: string;
+  esExportacion: boolean;
+  estado: string;
+  versionOrigen: number | null;
+  lineas: {
+    posicion: number;
+    productoId: string | null;
+    descripcion: string;
+    cantidad: number;
+    unidad: string;
+  }[];
+  facturaVigente?: boolean;
+  facturaFolio: string | null;
+  facturaUuid: string | null;
+}
+export interface ContenedoresDetalle {
+  version: number;
+  pedimento: PedimentoExportacion | null;
+  contenedores: Contenedor[];
+  partidas: PartidaEmbarcada[];
+  pedidos: PedidoEmbarcable[];
+}
+export interface EmbarqueCe {
+  ligado: boolean;
+  expedienteId: string | null;
+  sucursalId: string | null;
+  listoParaFacturar: boolean;
+  codigoBloqueo: string | null;
+  motivo: string | null;
+  folioExpediente: string | null;
+  numeroPedimento: string | null;
+  clavePedimento: string | null;
+  fechaPedimento: string | null;
+  incoterm: string | null;
+  contenedores: { id: string; numero: string; blGuia: string; fechaEmbarqueReal: string }[] | null;
+}
+export interface DatosEmbarqueCe {
+  folioExpediente: string;
+  numeroPedimento: string;
+  clavePedimento: string;
+  fechaPedimento: string;
+  incoterm: string;
+  contenedores: { numero: string; blGuia: string; fechaEmbarqueReal: string }[];
+}
+export interface RelacionIva {
+  titulo: string;
+  generadoEn: string;
+  filtrosAplicados: Record<string, string | null>;
+  columnas: { clave: string; etiqueta: string; tipo: 'texto' | 'fecha' }[];
+  filas: {
+    periodo: string;
+    expediente: string;
+    tipo: string;
+    oc: string | null;
+    pedimento: string | null;
+    clave: string | null;
+    bl: string | null;
+    contenedor: string | null;
+    cliente: string | null;
+    pedido: string | null;
+    factura: string | null;
+    uuid: string | null;
+    fechaEmbarque: string | null;
+    entradaAlmacen: string | null;
+  }[];
 }

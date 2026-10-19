@@ -6,25 +6,13 @@ import { useForm, useWatch } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
-import {
-  Tabs,
-  TabsContent,
-  TabsList,
-  TabsTrigger,
-} from '@/components/ui/tabs';
-import {
-  applyServerErrors,
-  esApiError,
-  useFormIdempotencyKey,
-} from '@/lib/api';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { applyServerErrors, esApiError, useFormIdempotencyKey } from '@/lib/api';
 import {
   EmitirFacturaSchema,
   type EmitirFacturaValues,
 } from '@/features/facturacion/schemas/emitir-factura';
-import {
-  useEmisorDefaults,
-  useEmitirFactura,
-} from '@/features/facturacion/api/useFacturas';
+import { useEmisorDefaults, useEmitirFactura } from '@/features/facturacion/api/useFacturas';
 import {
   ComportamientoFiscal,
   type ClienteLookupItem,
@@ -34,6 +22,7 @@ import {
 import { cn } from '@/lib/utils';
 import { PermisosCanonicos } from '@/lib/auth/permission-codes';
 import { useHasPermission } from '@/lib/auth/useHasPermission';
+import { EmbarqueCeResumen } from '@/features/comercio-exterior/components/EmbarqueCeResumen';
 import type { EmitirFacturaPrefill } from './prefill';
 import { nullIfEmpty, valoresIniciales } from './valores';
 import { resultadoEmision } from './resultado-emision';
@@ -127,7 +116,13 @@ export function EmitirFacturaForm(props: EmitirFacturaFormProps) {
       </div>
     );
   }
-  return <FormInner key={props.prefill?.pedidoFacturableId ?? 'manual'} {...props} emisor={defaults.data} />;
+  return (
+    <FormInner
+      key={props.prefill?.pedidoFacturableId ?? 'manual'}
+      {...props}
+      emisor={defaults.data}
+    />
+  );
 }
 
 function FormInner({
@@ -167,9 +162,7 @@ function FormInner({
   // Cliente de la factura (FAC-UX-PR4): del pedido en el flujo prellenado
   // o del <ClienteSelector/> en el manual. Habilita el picker de anticipos
   // y el autollenado fiscal del receptor.
-  const [clienteId, setClienteId] = useState<string | null>(
-    prefill?.clienteId ?? null,
-  );
+  const [clienteId, setClienteId] = useState<string | null>(prefill?.clienteId ?? null);
 
   function onClienteChange(item: ClienteLookupItem | null) {
     setClienteId(item?.id ?? null);
@@ -200,32 +193,32 @@ function FormInner({
   // G12) bloquea la emisión para todos: se corrige en Datos Maestros.
   const receptorFiscal = useWatch({
     control: form.control,
-    name: [
-      'receptorRfc',
-      'receptorNombre',
-      'receptorRegimenFiscal',
-      'receptorCodigoPostal',
-    ],
+    name: ['receptorRfc', 'receptorNombre', 'receptorRegimenFiscal', 'receptorCodigoPostal'],
   });
-  const receptorBloqueado = receptorFiscal.some(
-    (v) => (v ?? '').trim() === '',
-  );
+  const receptorBloqueado = receptorFiscal.some((v) => (v ?? '').trim() === '');
   const comportamiento = useWatch({
     control: form.control,
     name: 'comportamientoFiscal',
   });
-  const esCce = comportamiento === ComportamientoFiscal.ExportacionConCce;
+  const ce = prefill?.embarqueCe;
+  const rtPorConfirmar =
+    ce?.ligado &&
+    ce.clavePedimento === 'RT' &&
+    comportamiento === ComportamientoFiscal.ExportacionConCce;
+  const motivoCe = rtPorConfirmar
+    ? 'La exportación RT sin complemento requiere confirmación de Fiscal (VAL-CE-08).'
+    : ce?.motivo;
+  const ceBloqueado = Boolean(ce?.ligado && (!ce.listoParaFacturar || rtPorConfirmar));
+  const esCce = ce?.ligado
+    ? ce.clavePedimento === 'A1'
+    : comportamiento === ComportamientoFiscal.ExportacionConCce;
   const esActivo = comportamiento === ComportamientoFiscal.VentaActivoFijo;
   // `valueAsNumber` da NaN al vaciar un input, y `NaN ?? 0` = NaN (?? solo
   // atrapa null/undefined) → el total mostraba "NaN". `finito` lo coerce a 0.
-  const finito = (v: number | null | undefined) =>
-    Number.isFinite(v) ? (v as number) : 0;
+  const finito = (v: number | null | undefined) => (Number.isFinite(v) ? (v as number) : 0);
   const totales = (lineas ?? []).reduce(
     (acc, l) => {
-      const base = Math.max(
-        0,
-        finito(l.cantidad) * finito(l.valorUnitario) - finito(l.descuento),
-      );
+      const base = Math.max(0, finito(l.cantidad) * finito(l.valorUnitario) - finito(l.descuento));
       const iva = base * finito(l.tasaIvaTraslado);
       const retIva = base * finito(l.tasaRetencionIva);
       const retIsr = base * finito(l.tasaRetencionIsr);
@@ -239,9 +232,7 @@ function FormInner({
   const total = totales.subtotal + totales.iva - totales.ret;
 
   const errores = form.formState.errors;
-  const erroresEncabezado = CAMPOS_ENCABEZADO.filter(
-    (campo) => errores[campo] != null,
-  ).length;
+  const erroresEncabezado = CAMPOS_ENCABEZADO.filter((campo) => errores[campo] != null).length;
   const erroresPosiciones =
     errores.lineas == null
       ? 0
@@ -251,19 +242,16 @@ function FormInner({
 
   function cancelar() {
     if (form.formState.isDirty) {
-      const confirmar = window.confirm(
-        'Tienes una emisión sin completar. ¿Descartar y cerrar?',
-      );
+      const confirmar = window.confirm('Tienes una emisión sin completar. ¿Descartar y cerrar?');
       if (!confirmar) return;
     }
     onCancel();
   }
 
   function onSubmit(values: EmitirFacturaValues) {
+    if (ceBloqueado) return;
     if (esActivo && autorizacionId.trim() === '') {
-      toast.error(
-        'La venta de activo fijo requiere el ID de autorización del Contador General.',
-      );
+      toast.error('La venta de activo fijo requiere el ID de autorización del Contador General.');
       return;
     }
     emitir.mutate(
@@ -282,8 +270,7 @@ function FormInner({
           metodoPago: values.metodoPago,
           formaPago: values.formaPago,
           moneda: values.moneda.toUpperCase(),
-          tipoCambio:
-            values.moneda.toUpperCase() === 'MXN' ? null : values.tipoCambio,
+          tipoCambio: values.moneda.toUpperCase() === 'MXN' ? null : values.tipoCambio,
           canalVenta: values.canalVenta,
           comportamientoFiscal: values.comportamientoFiscal,
           obraId: null,
@@ -299,20 +286,17 @@ function FormInner({
           cce: esCce
             ? {
                 tipoOperacion: values.cceTipoOperacion ?? '2',
-                incoterm: values.cceIncoterm ?? '',
+                incoterm: ce?.ligado ? (ce.incoterm ?? '') : (values.cceIncoterm ?? ''),
                 tcDof: values.cceTcDof ?? 0,
                 receptorNumRegIdTrib: values.cceReceptorNumRegIdTrib ?? '',
                 receptorPaisResidencia: values.cceReceptorPaisResidencia ?? '',
-                claveDePedimento: nullIfEmpty(
-                  values.cceClaveDePedimento,
-                )?.toUpperCase() ?? null,
+                claveDePedimento: ce?.ligado
+                  ? ce.clavePedimento
+                  : (nullIfEmpty(values.cceClaveDePedimento)?.toUpperCase() ?? null),
                 certificadoOrigen: values.cceCertificadoOrigen,
-                receptorDomicilioCalle: nullIfEmpty(
-                  values.cceReceptorDomicilioCalle,
-                ),
+                receptorDomicilioCalle: nullIfEmpty(values.cceReceptorDomicilioCalle),
                 receptorDomicilioEstado: values.cceReceptorDomicilioEstado ?? '',
-                receptorDomicilioCodigoPostal:
-                  values.cceReceptorDomicilioCodigoPostal ?? '',
+                receptorDomicilioCodigoPostal: values.cceReceptorDomicilioCodigoPostal ?? '',
                 lineas: values.lineas.map((l) => ({
                   fraccionArancelaria: l.fraccionArancelaria ?? '',
                   unidadAduana: l.unidadAduana ?? '',
@@ -345,15 +329,19 @@ function FormInner({
           const aviso = resultadoEmision(res);
           toast[aviso.tipo](aviso.titulo, {
             description: aviso.descripcion,
-            ...(aviso.reintentable ? {
-              duration: Infinity,
-              action: {
-                label: 'Reintentar timbrado',
-                onClick: () => void navigate({
-                  to: '/facturacion/facturas/$id', params: { id: res.id },
-                }),
-              },
-            } : {}),
+            ...(aviso.reintentable
+              ? {
+                  duration: Infinity,
+                  action: {
+                    label: 'Reintentar timbrado',
+                    onClick: () =>
+                      void navigate({
+                        to: '/facturacion/facturas/$id',
+                        params: { id: res.id },
+                      }),
+                  },
+                }
+              : {}),
           });
           onSuccess(res);
         },
@@ -361,10 +349,7 @@ function FormInner({
           if (mostrarErrorReceptorFiscal(error)) return;
           if (esApiError(error)) {
             if (
-              applyServerErrors(
-                form as unknown as Parameters<typeof applyServerErrors>[0],
-                error,
-              )
+              applyServerErrors(form as unknown as Parameters<typeof applyServerErrors>[0], error)
             ) {
               return;
             }
@@ -379,12 +364,12 @@ function FormInner({
 
   return (
     <form onSubmit={form.handleSubmit(onSubmit)} noValidate className="space-y-4">
+      {ce?.ligado && <EmbarqueCeResumen datos={ce} bloqueo={ceBloqueado ? motivoCe : null} />}
       <ErrorTimbradoAviso error={emitir.error} />
       {prefill?.pedidoFacturableId && (
         <div className="rounded-md border border-primary/30 bg-primary/5 px-3 py-2 text-sm">
-          Facturando un pedido — líneas, datos comerciales y fiscales vienen
-          precargados desde el pedido y los catálogos. Revisa y completa lo
-          que falte. Al timbrar, el pedido pasa a{' '}
+          Facturando un pedido — líneas, datos comerciales y fiscales vienen precargados desde el
+          pedido y los catálogos. Revisa y completa lo que falte. Al timbrar, el pedido pasa a{' '}
           <span className="font-medium">Facturado</span>.
         </div>
       )}
@@ -412,6 +397,7 @@ function FormInner({
             puedeCorregirEnCatalogo={puedeCorregirEnCatalogo}
             receptorBloqueado={receptorBloqueado}
             esCce={esCce}
+            embarqueCe={ce}
             esActivo={esActivo}
             autorizacionId={autorizacionId}
             onAutorizacionIdChange={setAutorizacionId}
@@ -465,21 +451,18 @@ function FormInner({
           </div>
         </dl>
         <div className="flex items-center gap-2">
-          <Button
-            type="button"
-            variant="ghost"
-            onClick={cancelar}
-            disabled={emitir.isPending}
-          >
+          <Button type="button" variant="ghost" onClick={cancelar} disabled={emitir.isPending}>
             Cancelar
           </Button>
           <Button
             type="submit"
-            disabled={emitir.isPending || receptorBloqueado}
+            disabled={emitir.isPending || receptorBloqueado || ceBloqueado}
             title={
-              receptorBloqueado
-                ? 'Receptor incompleto: complétalo en Datos Maestros → Clientes'
-                : undefined
+              ceBloqueado
+                ? (motivoCe ?? 'Complete el embarque en Comercio Exterior.')
+                : receptorBloqueado
+                  ? 'Receptor incompleto: complétalo en Datos Maestros → Clientes'
+                  : undefined
             }
           >
             {emitir.isPending ? 'Emitiendo…' : 'Emitir y timbrar'}

@@ -136,9 +136,9 @@ public sealed partial class Expediente : BaseEntity, IAuditable, IPerteneceAEmpr
         RevisionContenido++;
     }
 
-    public void RegistrarDocumento(Guid id, RequisitoDocumento requisito, Guid adjuntoId, string? motivo, Guid actor) => AgregarDocumento(id, requisito, adjuntoId, false, motivo, actor);
+    public void RegistrarDocumento(Guid id, RequisitoDocumento requisito, Guid adjuntoId, string? motivo, Guid actor, string? numeroPedimento = null) => AgregarDocumento(id, requisito, adjuntoId, false, motivo, actor, numeroPedimento);
     public void MarcarNoAplica(Guid id, RequisitoDocumento requisito, string motivo, Guid actor) => AgregarDocumento(id, requisito, null, true, motivo, actor);
-    private void AgregarDocumento(Guid id, RequisitoDocumento requisito, Guid? adjuntoId, bool noAplica, string? motivo, Guid actor)
+    private void AgregarDocumento(Guid id, RequisitoDocumento requisito, Guid? adjuntoId, bool noAplica, string? motivo, Guid actor, string? numeroPedimento = null)
     {
         ExigirAbierto();
         if (noAplica && !requisito.Condicional)
@@ -152,7 +152,14 @@ public sealed partial class Expediente : BaseEntity, IAuditable, IPerteneceAEmpr
         if (actor == Guid.Empty)
             throw new BusinessRuleException("CE_RESPONSABLE_REQUERIDO", "Se requiere responsable del documento.");
         var nuevo = new DocumentoExpediente(id, EmpresaId, Id, requisito.Id, (anterior?.NumeroVersion ?? 0) + 1, adjuntoId, anterior?.Id, razon, noAplica, actor);
+        if (numeroPedimento?.Length > 100) throw new BusinessRuleException("CE_PEDIMENTO_INVALIDO", "Número de pedimento: máximo 100 caracteres.");
+        nuevo.RegistrarNumeroPedimento(string.IsNullOrWhiteSpace(numeroPedimento) ? null : numeroPedimento.Trim());
         anterior?.Reemplazar();
+        if (requisito.Codigo == "EXP_PEDIMENTO" && DocumentoPedimentoExportacionId is not null)
+        {
+            DocumentoPedimentoExportacionId = nuevo.Id;
+            NumeroPedimentoExportacion = nuevo.NumeroPedimento;
+        }
         _documentos.Add(nuevo);
         RevisionPendiente = true;
         RevisadoPorId = null;
@@ -182,10 +189,14 @@ public sealed partial class Expediente : BaseEntity, IAuditable, IPerteneceAEmpr
         RevisionContenido++;
     }
 
-    public void Cancelar(string motivo)
+    public void Cancelar(string motivo, bool tieneFacturas = false)
     {
         ExigirAbierto();
+        if (tieneFacturas)
+            throw new ConflictException("CE_EXPEDIENTE_CON_FACTURAS", "El expediente tiene partidas de pedidos con factura vigente.");
         MotivoCancelacion = MotivoValido(motivo);
+        foreach (var partida in _partidas) partida.Liberar();
+        foreach (var vinculo in _vinculosPedidos) vinculo.Liberar();
         Estado = EstadoExpediente.Cancelado;
         RevisionContenido++;
     }

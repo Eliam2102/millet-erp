@@ -65,6 +65,8 @@ export interface ReporteShellProps<TFila> {
   accionFila?: (row: TFila) => ReactNode;
   /** Encabezado accesible de la columna de acción. Default: «Acciones». */
   etiquetaAccion?: string;
+  /** Filas visibles; las exportaciones conservan el reporte completo. */
+  filasVisibles?: readonly TFila[];
 }
 
 export function ReporteShell<TFila>({
@@ -77,6 +79,7 @@ export function ReporteShell<TFila>({
   nombreArchivo,
   accionFila,
   etiquetaAccion = 'Acciones',
+  filasVisibles,
 }: ReporteShellProps<TFila>) {
   const getCelda =
     obtenerCelda ??
@@ -246,7 +249,7 @@ export function ReporteShell<TFila>({
                     </td>
                   </tr>
                 ) : (
-                  reporte.filas.map((fila, i) => (
+                  (filasVisibles ?? reporte.filas).map((fila, i) => (
                     <tr key={i} className="border-t">
                       {reporte.columnas.map((c) => (
                         <td

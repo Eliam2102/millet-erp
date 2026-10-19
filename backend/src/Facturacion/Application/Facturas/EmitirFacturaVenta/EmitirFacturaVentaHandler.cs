@@ -1,4 +1,6 @@
 using MediatR;
+using Microsoft.Extensions.Logging;
+using Millet.ComercioExterior.Application.PublicPorts;
 using Microsoft.EntityFrameworkCore;
 using Millet.Administracion.Application.Series;
 using Millet.Administracion.Domain;
@@ -50,6 +52,8 @@ public sealed class EmitirFacturaVentaHandler
     private readonly ICurrentUserContext _user;
     private readonly IClock _clock;
     private readonly IProductosReadPort? _productos;
+    private readonly IEmbarqueExportacionReadPort? _embarques;
+    private readonly ILogger<EmitirFacturaVentaHandler>? _logger;
 
     public EmitirFacturaVentaHandler(
         FacturacionDbContext db,
@@ -66,7 +70,9 @@ public sealed class EmitirFacturaVentaHandler
         IClock clock, ValidadorReceptorFiscal receptorFiscal,
         // U1.6: tipo A+W de las líneas en el evento contable; opcional para no
         // romper composiciones existentes (sin puerto, TipoProducto = null).
-        IProductosReadPort? productos = null)
+        IProductosReadPort? productos = null,
+        IEmbarqueExportacionReadPort? embarques = null,
+        ILogger<EmitirFacturaVentaHandler>? logger = null)
     {
         _receptorFiscal = receptorFiscal;
         _db = db;
@@ -82,12 +88,64 @@ public sealed class EmitirFacturaVentaHandler
         _user = user;
         _clock = clock;
         _productos = productos;
+        _embarques = embarques;
+        _logger = logger;
     }
 
     public async Task<EmitirFacturaVentaResponse> Handle(
         EmitirFacturaVentaCommand command,
         CancellationToken cancellationToken)
     {
+        var embarque = command.PedidoFacturableId is Guid id && _embarques is not null
+            ? await _embarques.ObtenerAsync(id, cancellationToken) : null;
+        if (embarque?.Ligado == true)
+        {
+            EmitirFacturaVentaResponse? resultado = null;
+            await PedidoEmbarqueLock.ExecuteAsync(_db, [command.PedidoFacturableId!.Value], async ct =>
+            {
+                var actual = await _embarques!.ObtenerAsync(command.PedidoFacturableId.Value, ct);
+                resultado = await EmitirAsync(command, actual, ct);
+            }, cancellationToken);
+            return resultado!;
+        }
+        return await EmitirAsync(command, embarque, cancellationToken);
+    }
+
+    private async Task<EmitirFacturaVentaResponse> EmitirAsync(EmitirFacturaVentaCommand command,
+        EmbarqueExportacionLectura? embarque, CancellationToken cancellationToken)
+    {
+        DatosEmbarqueCe? copiaCe = null;
+        if (command.PedidoFacturableId is Guid pedidoCe && embarque is not null)
+        {
+            if (embarque.Ligado)
+            {
+                if (!embarque.ListoParaFacturar)
+                    throw new BusinessRuleException(embarque.CodigoBloqueo ?? "FAC_PEDIDO_NO_EMBARCADO", embarque.Motivo ?? "Complete el embarque en Comercio Exterior.");
+                if (embarque.SucursalId != command.SucursalId)
+                    throw new BusinessRuleException("CE_SUCURSAL_DISTINTA", "La factura debe emitirse en la sucursal del expediente.");
+                _logger?.LogInformation("Pedido {PedidoId}: campos de embarque y CCE tomados de CE {ExpedienteId}; clave e Incoterm enviados por el usuario ignorados", pedidoCe, embarque.ExpedienteId);
+                if (string.IsNullOrWhiteSpace(embarque.Incoterm))
+                    throw new BusinessRuleException("CE_INCOTERM_REQUERIDO", "Seleccione un Incoterm vigente en el expediente.");
+                copiaCe = new(embarque.FolioExpediente!, embarque.NumeroPedimento!, embarque.ClavePedimento!, embarque.FechaPedimento!.Value,
+                    embarque.Incoterm, Array.AsReadOnly(embarque.Contenedores!.Select(c => new ContenedorFacturaCe(c.Numero, c.BlGuia, c.FechaEmbarqueReal)).ToArray()));
+                if (embarque.ClavePedimento == "RT")
+                {
+                    command = command with { Cce = null };
+                    var comportamientoPedido = await _db.PedidosFacturables
+                        .Where(p => p.Id == pedidoCe).Select(p => p.ComportamientoFiscal).SingleAsync(cancellationToken);
+                    if (comportamientoPedido == ComportamientoFiscal.ExportacionConCce)
+                        throw new BusinessRuleException("FAC_RT_POR_CONFIRMAR", "La exportación RT sin complemento requiere confirmación de Fiscal (VAL-CE-08).");
+                    command = command with { ComportamientoFiscal = comportamientoPedido };
+                }
+                else
+                {
+                    if (command.Cce is null) throw new BusinessRuleException("FAC_CCE_REQUERIDO", "Complete las mercancías y el receptor del CCE para la exportación A1.");
+                    command = command with { ComportamientoFiscal = ComportamientoFiscal.ExportacionConCce,
+                        Cce = command.Cce with { ClaveDePedimento = "A1", Incoterm = embarque.Incoterm } };
+                }
+            }
+        }
+
         if (_empresa.Current is not Guid empresaId)
             throw new ForbiddenException(
                 "EMPRESA_NO_SELECCIONADA",
@@ -134,9 +192,16 @@ public sealed class EmitirFacturaVentaHandler
         var autorizacion = await CargarYValidarAutorizacionAsync(command, cancellationToken);
 
         // 3.ter B2: si se emite desde un pedido, debe estar Importado (re-facturable).
-        var pedido = await CargarYValidarPedidoAsync(command, cancellationToken);
+        var pedido = await CargarYValidarPedidoAsync(command, copiaCe is not null, cancellationToken);
 
-        if (pedido is not null && _productos is not null)
+        if (copiaCe is not null && pedido is not null)
+        {
+            var origen = pedido.Lineas.OrderBy(l => l.Posicion).ToArray();
+            if (origen.Length != command.Lineas.Count || origen.Where((l, i) => l.Cantidad != command.Lineas[i].Cantidad || l.ProductoId != command.Lineas[i].ProductoId).Any())
+                throw new BusinessRuleException("FAC_PEDIDO_NO_EMBARCADO", "La factura debe incluir todas las posiciones y cantidades del pedido ligado al expediente (D19).");
+        }
+
+        if (copiaCe is not null && pedido is not null && _productos is not null)
         {
             var lineasPedido = new List<LineaFiscalAValidar>();
             foreach (var linea in pedido.Lineas.Where(l => l.ProductoId.HasValue))
@@ -188,6 +253,8 @@ public sealed class EmitirFacturaVentaHandler
             obraId: command.ObraId,
             obraNombre: command.ObraNombre,
             facturaAgrupada: command.FacturaAgrupada);
+
+        if (copiaCe is not null) factura.TomarEmbarqueCe(copiaCe);
 
         foreach (var l in command.Lineas)
         {
@@ -373,13 +440,15 @@ public sealed class EmitirFacturaVentaHandler
     /// pedido de origen.
     /// </summary>
     private async Task<PedidoFacturable?> CargarYValidarPedidoAsync(
-        EmitirFacturaVentaCommand command, CancellationToken cancellationToken)
+        EmitirFacturaVentaCommand command, bool cargarLineas, CancellationToken cancellationToken)
     {
         if (command.PedidoFacturableId is not Guid pedidoId)
             return null;
 
-        var pedido = await _db.PedidosFacturables
-            .FirstOrDefaultAsync(p => p.Id == pedidoId, cancellationToken)
+        // PLATFORM-TODO(<U1.6LineasPedido>): la validación U1.6 de líneas del pedido no corre para pedidos no ligados; decidir con Uziel
+        IQueryable<PedidoFacturable> query = _db.PedidosFacturables;
+        if (cargarLineas) query = query.Include(p => p.Lineas);
+        var pedido = await query.FirstOrDefaultAsync(p => p.Id == pedidoId, cancellationToken)
             ?? throw new EntityNotFoundException("PEDIDO_NO_ENCONTRADO", $"No existe el pedido facturable {pedidoId}.");
 
         if (pedido.Estado != EstadoPedidoFacturable.Importado)

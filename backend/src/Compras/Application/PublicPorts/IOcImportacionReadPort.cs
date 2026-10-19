@@ -5,6 +5,8 @@ public sealed record OcImportacionLectura(Guid Id, string Folio, Guid ProveedorI
 /// <summary>Lectura pública de origen CE; no copia los datos de importación al expediente.</summary>
 public interface IOcImportacionReadPort
 {
+    Task<IReadOnlyList<OcImportacionLectura>> ObtenerVariasAsync(IReadOnlyCollection<Guid> ids, CancellationToken ct);
+    Task<IReadOnlyList<Guid>> ObtenerIdsPeriodoAsync(DateOnly desde, DateOnly hasta, IReadOnlyList<Guid>? sucursales, CancellationToken ct);
     Task<OcImportacionLectura?> ObtenerAsync(Guid id, CancellationToken ct);
     Task<IReadOnlyList<OcImportacionLectura>> ListarAsync(IReadOnlyList<Guid>? sucursales, string? q, CancellationToken ct);
 }
