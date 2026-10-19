@@ -20,6 +20,7 @@ public sealed class DevolucionClienteConfiguration : IEntityTypeConfiguration<De
         builder.HasKey(e => e.Id);
         builder.Property(e => e.Id).ValueGeneratedNever();
 
+        builder.Property(e => e.Folio).HasMaxLength(20).IsRequired();
         builder.Property(e => e.Origen).HasConversion<short>().IsRequired();
         builder.Property(e => e.Estado).HasConversion<short>().IsRequired();
         builder.Property(e => e.ImporteMaximoOrigen).HasPrecision(18, 2);
@@ -49,6 +50,19 @@ public sealed class DevolucionClienteConfiguration : IEntityTypeConfiguration<De
         builder.HasIndex(e => e.NotaCreditoId).IsUnique().HasFilter("nota_credito_id IS NOT NULL")
             .HasDatabaseName("ux_devolucion_cliente_nota_credito");
 
+        builder.HasIndex(e => new { e.EmpresaId, e.Folio }).IsUnique().HasDatabaseName("ux_devolucion_cliente_empresa_folio");
+
         builder.Ignore(e => e.Comprometida);
+    }
+}
+
+public sealed class FolioSecuenciaDevolucionClienteConfiguration : IEntityTypeConfiguration<FolioSecuenciaDevolucionCliente>
+{
+    public void Configure(EntityTypeBuilder<FolioSecuenciaDevolucionCliente> builder)
+    {
+        builder.ToTable("folio_secuencias_devolucion_cliente");
+        builder.HasKey(e => e.EmpresaId);
+        builder.Property(e => e.EmpresaId).ValueGeneratedNever();
+        builder.Property(e => e.Siguiente);
     }
 }

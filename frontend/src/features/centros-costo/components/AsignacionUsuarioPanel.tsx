@@ -1,7 +1,7 @@
 import { ShieldCheck } from 'lucide-react';
 import { toast } from 'sonner';
 import { Badge } from '@/components/ui/badge';
-import { esApiError } from '@/lib/api';
+import { esApiError, codigoSoporte } from '@/lib/api';
 import { ArbolAsignacion } from '@/features/centros-costo/components/ArbolAsignacion';
 import { ResumenAsignacionBar } from '@/features/centros-costo/components/ResumenAsignacionBar';
 import {
@@ -44,7 +44,7 @@ export function AsignacionUsuarioPanel({
       onError: (error) => {
         if (esApiError(error)) {
           toast.error(error.problem.title, {
-            description: error.traceId ? `Código: ${error.traceId}` : undefined,
+            description: codigoSoporte(error),
           });
           return;
         }

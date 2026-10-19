@@ -57,7 +57,13 @@ public sealed record DevolucionProveedorDetalle(
     // Folio de la NC fiscal que concilió la devolución, resuelto vía
     // ICxpDocumentosReadPort; null si el puerto no resuelve o la NC no
     // tiene folio del proveedor (FE cae al id truncado).
-    string? NotaCreditoFolio = null);
+    string? NotaCreditoFolio = null,
+    // Folios de origen (C-02b): recepción (dato local de Almacén), OC (vía
+    // IComprasOcReadPort) y sub-almacén (catálogo local). Null → FE cae al texto genérico.
+    string? RecepcionOrigenFolio = null,
+    string? OrdenCompraOrigenFolio = null,
+    string? SubAlmacenOrigenClave = null,
+    string? SubAlmacenOrigenNombre = null);
 
 public sealed record DevolucionProveedorLineaItem(
     Guid Id,
@@ -204,13 +210,16 @@ public sealed class ObtenerDevolucionProveedorPorIdHandler
     private readonly IProveedorReadPort _proveedores;
     private readonly IArticuloReadPort _articulos;
     private readonly ICxpDocumentosReadPort _documentosCxp;
+    private readonly IComprasOcReadPort _ordenesCompra;
 
     public ObtenerDevolucionProveedorPorIdHandler(
         AlmacenDbContext db,
         IProveedorReadPort proveedores,
         IArticuloReadPort articulos,
-        ICxpDocumentosReadPort documentosCxp)
+        ICxpDocumentosReadPort documentosCxp,
+        IComprasOcReadPort ordenesCompra)
     {
+        _ordenesCompra = ordenesCompra;
         _db = db;
         _proveedores = proveedores;
         _articulos = articulos;
@@ -241,6 +250,23 @@ public sealed class ObtenerDevolucionProveedorPorIdHandler
                 new[] { ncId }, cancellationToken);
             foliosNc.TryGetValue(ncId, out notaCreditoFolio);
         }
+
+        string? recepcionFolio = null;
+        if (d.RecepcionOrigenId is Guid recId)
+            recepcionFolio = await _db.Movimientos.AsNoTracking()
+                .Where(m => m.Id == recId).Select(m => m.Folio).FirstOrDefaultAsync(cancellationToken);
+
+        string? ocFolio = null;
+        if (d.OrdenCompraOrigenId is Guid ocId)
+        {
+            var folios = await _ordenesCompra.ObtenerFoliosAsync(new[] { ocId }, cancellationToken);
+            folios.TryGetValue(ocId, out ocFolio);
+        }
+
+        var subAlmacen = d.SubAlmacenOrigenId is Guid saId
+            ? await _db.SubAlmacenes.AsNoTracking().Where(x => x.Id == saId)
+                .Select(x => new { x.Clave, x.Nombre }).FirstOrDefaultAsync(cancellationToken)
+            : null;
 
         return new DevolucionProveedorDetalle(
             Id: d.Id,
@@ -278,6 +304,10 @@ public sealed class ObtenerDevolucionProveedorPorIdHandler
                     e.Id, e.TipoEvidencia, e.NombreArchivo, e.BlobRef, e.Comentario))
                 .ToList(),
             ProveedorNombre: proveedor?.RazonSocial,
-            NotaCreditoFolio: notaCreditoFolio);
+            NotaCreditoFolio: notaCreditoFolio,
+            RecepcionOrigenFolio: recepcionFolio,
+            OrdenCompraOrigenFolio: ocFolio,
+            SubAlmacenOrigenClave: subAlmacen?.Clave,
+            SubAlmacenOrigenNombre: subAlmacen?.Nombre);
     }
 }

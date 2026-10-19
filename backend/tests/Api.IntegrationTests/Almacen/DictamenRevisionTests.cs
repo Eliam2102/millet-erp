@@ -28,7 +28,7 @@ public class DictamenRevisionTests : IClassFixture<WebApplicationFactory<Program
     private static readonly DateOnly Fecha = new(2027, 4, 12);
     private readonly WebApplicationFactory<Program> _factory;
 
-    private static readonly Guid TipoFotoDano = Guid.Parse("00000011-0006-0000-0000-000000000003");
+    private static readonly Guid TipoFotoDano = Guid.Parse("00000011-0006-0000-0000-000000000006");
     private static readonly byte[] Png = Convert.FromBase64String(
         "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==");
 

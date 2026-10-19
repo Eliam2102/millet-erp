@@ -28,7 +28,7 @@ public sealed class PagarDevolucionHandlerTests
     {
         var cuenta = new CuentaBancaria(Empresa, "BBVA", "1234567890", null, "MXN");
         var m = MovimientoBancario.RegistrarIngreso(Empresa, cuenta, 1_000m, Fecha, null, null, null, null, Solicitante, Ahora);
-        var d = DevolucionCliente.SolicitarPorDepositoErroneo(Empresa, m, Cliente, importe, 1_000m, "depósito erróneo", Destino, Solicitante, Ahora);
+        var d = DevolucionCliente.SolicitarPorDepositoErroneo(Empresa, "DEV-T-0001", m, Cliente, importe, 1_000m, "depósito erróneo", Destino, Solicitante, Ahora);
         d.Autorizar(Guid.NewGuid(), Ahora);
         db.CuentasBancarias.Add(cuenta); db.MovimientosBancarios.Add(m); db.DevolucionesCliente.Add(d);
         await db.SaveChangesAsync();
@@ -38,7 +38,7 @@ public sealed class PagarDevolucionHandlerTests
     private static async Task<(CuentaBancaria, DevolucionCliente)> Nc(TesoreriaDbContext db, string monedaCuenta, bool autorizada = true)
     {
         var cuenta = new CuentaBancaria(Empresa, "BBVA", "1234567890", null, monedaCuenta);
-        var d = DevolucionCliente.SolicitarPorNotaCredito(Empresa, Guid.NewGuid(), "NC-1", null, Cliente, 300m, 500m, "MXN", null, "reembolso", null, Ahora);
+        var d = DevolucionCliente.SolicitarPorNotaCredito(Empresa, "DEV-T-0001", Guid.NewGuid(), "NC-1", null, Cliente, 300m, 500m, "MXN", null, "reembolso", null, Ahora);
         d.Editar(Cliente, 300m, 500m, "reembolso", Destino, Guid.NewGuid(), DateTimeOffset.UtcNow);
         if (autorizada) d.Autorizar(Guid.NewGuid(), Ahora);
         db.CuentasBancarias.Add(cuenta); db.DevolucionesCliente.Add(d);

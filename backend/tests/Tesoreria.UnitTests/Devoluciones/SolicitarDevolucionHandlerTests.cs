@@ -38,7 +38,7 @@ public sealed class SolicitarDevolucionHandlerTests
 
     private static DevolucionCliente Otra(MovimientoBancario m, decimal importe, bool rechazada = false)
     {
-        var d = DevolucionCliente.SolicitarPorDepositoErroneo(Empresa, m, Cliente, importe, m.Monto, "otra", Destino, Guid.NewGuid(), Ahora);
+        var d = DevolucionCliente.SolicitarPorDepositoErroneo(Empresa, "DEV-T-0001", m, Cliente, importe, m.Monto, "otra", Destino, Guid.NewGuid(), Ahora);
         if (rechazada) d.Rechazar("no", Guid.NewGuid(), Ahora);
         return d;
     }
@@ -52,6 +52,16 @@ public sealed class SolicitarDevolucionHandlerTests
         await excede.Should().ThrowAsync<BusinessRuleException>().Where(e => e.Code == "DEV_IMPORTE_EXCEDE_DEPOSITO");
         var ok = await Handler(db).Handle(Cmd(m.Id, 400m), default);
         ok.Estado.Should().Be(EstadoDevolucionCliente.Solicitada);
+    }
+
+    [Fact]
+    public async Task Asigna_folio_secuencial_por_empresa()
+    {
+        await using var db = Db(); var m = await Deposito(db);
+        var a = await Handler(db).Handle(Cmd(m.Id, 100m), default);
+        var b = await Handler(db).Handle(Cmd(m.Id, 100m), default);
+        a.Folio.Should().Be("DEV-T-0001");
+        b.Folio.Should().Be("DEV-T-0002");
     }
 
     [Fact]

@@ -73,7 +73,7 @@ public class DevolucionesProveedorQueriesTests
             },
         };
         var handler = new ObtenerDevolucionProveedorPorIdHandler(
-            db, proveedores, articulos, new FakeCxpDocumentosReadPort());
+            db, proveedores, articulos, new FakeCxpDocumentosReadPort(), new FakeOcReadPort());
 
         var detalle = await handler.Handle(
             new ObtenerDevolucionProveedorPorIdQuery(dev.Id), CancellationToken.None);
@@ -102,7 +102,7 @@ public class DevolucionesProveedorQueriesTests
 
         var handler = new ObtenerDevolucionProveedorPorIdHandler(
             db, new FakeProveedorReadPort(), new FakeArticuloReadPort(),
-            new FakeCxpDocumentosReadPort()); // puertos vacíos
+            new FakeCxpDocumentosReadPort(), new FakeOcReadPort()); // puertos vacíos
 
         var detalle = await handler.Handle(
             new ObtenerDevolucionProveedorPorIdQuery(dev.Id), CancellationToken.None);
@@ -134,7 +134,7 @@ public class DevolucionesProveedorQueriesTests
             FoliosNc = new() { [ncId] = "NC-B-77" },
         };
         var handler = new ObtenerDevolucionProveedorPorIdHandler(
-            db, new FakeProveedorReadPort(), new FakeArticuloReadPort(), cxp);
+            db, new FakeProveedorReadPort(), new FakeArticuloReadPort(), cxp, new FakeOcReadPort());
 
         var detalle = await handler.Handle(
             new ObtenerDevolucionProveedorPorIdQuery(dev.Id), CancellationToken.None);
@@ -143,7 +143,52 @@ public class DevolucionesProveedorQueriesTests
         detalle!.NotaCreditoFolio.Should().Be("NC-B-77");
     }
 
+    [Fact]
+    public async Task Detalle_resuelve_folio_de_OC_por_puerto_y_sub_almacen_local()
+    {
+        await using var db = await NuevaDbAsync();
+        var ocId = Guid.NewGuid();
+        var subId = Guid.NewGuid();
+        db.SubAlmacenes.Add(new Millet.Almacen.Domain.Catalogo.SubAlmacen(subId, Guid.NewGuid(), "SA01", "Sub uno", Millet.Almacen.Domain.Catalogo.TipoSubAlmacen.Insumos));
+        var dev = new DevolucionAProveedor(
+            Guid.NewGuid(), Guid.NewGuid(), Prov1, "Dañado", Guid.NewGuid(),
+            ordenCompraOrigenId: ocId, subAlmacenOrigenId: subId);
+        db.Set<DevolucionAProveedor>().Add(dev);
+        await db.SaveChangesAsync();
+
+        var oc = new FakeOcReadPort { Folios = new() { [ocId] = "OC-2026-000042" } };
+        var handler = new ObtenerDevolucionProveedorPorIdHandler(
+            db, new FakeProveedorReadPort(), new FakeArticuloReadPort(),
+            new FakeCxpDocumentosReadPort(), oc);
+
+        var detalle = await handler.Handle(
+            new ObtenerDevolucionProveedorPorIdQuery(dev.Id), CancellationToken.None);
+
+        detalle!.OrdenCompraOrigenFolio.Should().Be("OC-2026-000042");
+        detalle.SubAlmacenOrigenClave.Should().Be("SA01");
+        detalle.SubAlmacenOrigenNombre.Should().Be("Sub uno");
+        detalle.RecepcionOrigenFolio.Should().BeNull();
+        oc.Llamadas.Should().Be(1);
+    }
+
     // ─── Infra de test ───
+
+    private sealed class FakeOcReadPort : IComprasOcReadPort
+    {
+        public Dictionary<Guid, string> Folios { get; set; } = new();
+        public int Llamadas { get; private set; }
+
+        public Task<OcLectura?> ObtenerAsync(Guid ocId, CancellationToken cancellationToken) =>
+            Task.FromResult<OcLectura?>(null);
+
+        public Task<IReadOnlyDictionary<Guid, string>> ObtenerFoliosAsync(
+            IReadOnlyCollection<Guid> ocIds, CancellationToken cancellationToken)
+        {
+            Llamadas++;
+            return Task.FromResult<IReadOnlyDictionary<Guid, string>>(
+                Folios.Where(kv => ocIds.Contains(kv.Key)).ToDictionary(kv => kv.Key, kv => kv.Value));
+        }
+    }
 
     private static ProveedorLectura Lectura(Guid id, string clave, string razonSocial) =>
         new(id, clave, razonSocial, Rfc: null, EsActivo: true);

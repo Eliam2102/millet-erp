@@ -89,16 +89,18 @@ public sealed class ComparativoCotizacionesHandler(
             tipos.Add(new TipoCambioComparativoResponse(moneda, hoy, valor));
         }
 
-        // Precio MXN por partida y cotización; el menor se calcula solo entre vigentes con precio MXN.
+        // Precio MXN por partida y cotización; el menor se calcula solo entre elegibles (vigente, con PDF y proveedor activo) con precio MXN.
         var precios = cotizaciones.ToDictionary(c => c.Id, c =>
         {
             var tc = tipos.FirstOrDefault(t => t.Moneda == c.Moneda)?.ValorEnMxn;
             return c.Lineas.ToDictionary(l => l.LineaRequisicionId,
                 l => NormalizadorCotizacion.PrecioMxn(l.PrecioPorUnidadRequisicion, c.Moneda, tc));
         });
+        bool Elegible(Cotizacion c) => c.EsVigente(hoy) && archivos.ContainsKey(c.Id)
+            && proveedores.TryGetValue(c.ProveedorId, out var pv) && pv.Activo;
         var minimos = lineasRq.ToDictionary(l => l.Id, l => cotizaciones
-            .Where(c => c.EsVigente(hoy) && precios[c.Id].GetValueOrDefault(l.Id) is not null)
-            .Select(c => precios[c.Id][l.Id]!.Value).DefaultIfEmpty().Min());
+            .Where(c => Elegible(c) && precios[c.Id].GetValueOrDefault(l.Id) is not null)
+            .Select(c => (decimal?)precios[c.Id][l.Id]!.Value).Min());
 
         var respuesta = cotizaciones.Select(c =>
         {
@@ -108,7 +110,7 @@ public sealed class ComparativoCotizacionesHandler(
                 .OrderBy(l => porLinea[l.LineaRequisicionId].Posicion).Select(l =>
                 {
                     var mxn = precios[c.Id][l.LineaRequisicionId];
-                    var menor = c.EsVigente(hoy) && mxn is not null && mxn.Value == minimos[l.LineaRequisicionId];
+                    var menor = Elegible(c) && mxn is not null && mxn.Value == minimos[l.LineaRequisicionId];
                     return new LineaComparativoResponse(l.LineaRequisicionId, l.UnidadCotizada, l.FactorAUnidadRq,
                         l.PrecioUnitario, l.DiasEntrega, l.PrecioPorUnidadRequisicion, mxn,
                         mxn is decimal m ? Math.Round(m * porLinea[l.LineaRequisicionId].CantidadDeCompra, 2, MidpointRounding.ToEven) : null,

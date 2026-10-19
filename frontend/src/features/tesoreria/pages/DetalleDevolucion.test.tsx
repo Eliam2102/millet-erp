@@ -3,6 +3,7 @@ import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { http, HttpResponse } from 'msw';
 import { mswServer } from '@/test/mocks/server';
 import { createQueryWrapper } from '@/test/test-query-client';
+import { useAuthStore } from '@/lib/auth/auth-store';
 import { DetalleDevolucion } from './DetalleDevolucion';
 
 let permisos: string[] = [];
@@ -13,7 +14,7 @@ vi.mock('@tanstack/react-router', () => ({
 vi.mock('@/lib/auth/useHasPermission', () => ({ useHasPermission: (p: string) => permisos.includes(p) }));
 
 const base = {
-  id: 'dev-12345678', origen: 1, estado: 1, clienteId: 'cli-1', clienteClave: 'C1', clienteRazonSocial: 'Cliente SA',
+  id: 'dev-12345678', folio: 'DEV-T-0007', editadaPor: null, origen: 1, estado: 1, clienteId: 'cli-1', clienteClave: 'C1', clienteRazonSocial: 'Cliente SA',
   importe: 500, importeMaximoOrigen: 1000, disponibleOrigen: 1000, moneda: 'MXN', motivo: 'Duplicado',
   movimientoOrigenId: 'mov-1', notaCreditoId: null, notaCreditoFolio: null, notaCreditoUuid: null,
   destinoBanco: 'BBVA', destinoClabe: '**************9719', destinoTitular: 'Cliente SA',
@@ -29,6 +30,21 @@ function detalle(o: object = {}) {
 describe('<DetalleDevolucion> acciones', () => {
   beforeEach(() => {
     permisos = [];
+    useAuthStore.setState({ user: null });
+  });
+
+  it('usa el folio como título', async () => {
+    detalle();
+    expect(await screen.findByRole('heading', { name: /DEV-T-0007/ })).toBeInTheDocument();
+  });
+
+  it('quien editó la solicitud no puede autorizar ni rechazar y ve el motivo', async () => {
+    permisos = ['tesoreria.devoluciones.autorizar'];
+    useAuthStore.setState({ user: { id: 'u2' } as never });
+    detalle({ editadaPor: 'u2' });
+    expect(await screen.findByRole('button', { name: 'Autorizar' })).toBeDisabled();
+    expect(screen.getByRole('button', { name: 'Rechazar' })).toBeDisabled();
+    expect(screen.getByText(/Quien solicita o edita la devolución no puede autorizarla/)).toBeInTheDocument();
   });
 
   it('Autorizar solo con permiso y en estado Solicitada', async () => {

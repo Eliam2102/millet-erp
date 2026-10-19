@@ -14,7 +14,7 @@ import { Button } from '@/components/ui/button';
 import { useConfirmarDescarte } from '@/components/erp/forms/useConfirmarDescarte';
 import { Input } from '@/components/ui/input';
 import { SubAlmacenSelector } from '@/components/erp/selectors/SubAlmacenSelector';
-import { applyServerErrors, esApiError } from '@/lib/api';
+import { applyServerErrors, esApiError, codigoSoporte } from '@/lib/api';
 import {
   UbicacionFormSchema,
   type UbicacionFormValues,
@@ -159,7 +159,7 @@ export function UbicacionSheet({
         return;
       }
       toast.error(error.problem.title, {
-        description: error.traceId ? `Código: ${error.traceId}` : undefined,
+        description: codigoSoporte(error),
       });
       return;
     }

@@ -595,6 +595,19 @@ namespace Millet.Tesoreria.Infrastructure.Persistence.Migrations
                             UpdatedAt = new DateTimeOffset(new DateTime(2026, 7, 14, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
                             UpdatedBy = "seed",
                             Version = 1
+                        },
+                        new
+                        {
+                            Id = new Guid("0000000b-1001-0000-0000-00000000000e"),
+                            Activo = true,
+                            ClasificacionFlujo = (short)1,
+                            CreatedAt = new DateTimeOffset(new DateTime(2026, 7, 14, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            CreatedBy = "seed",
+                            EsEjemplo = true,
+                            Nombre = "Devolución a cliente",
+                            UpdatedAt = new DateTimeOffset(new DateTime(2026, 7, 14, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            UpdatedBy = "seed",
+                            Version = 1
                         });
                 });
 
@@ -912,6 +925,12 @@ namespace Millet.Tesoreria.Infrastructure.Persistence.Migrations
                         .HasColumnType("smallint")
                         .HasColumnName("estado");
 
+                    b.Property<string>("Folio")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)")
+                        .HasColumnName("folio");
+
                     b.Property<decimal>("Importe")
                         .HasPrecision(18, 2)
                         .HasColumnType("numeric(18,2)")
@@ -1028,6 +1047,10 @@ namespace Millet.Tesoreria.Infrastructure.Persistence.Migrations
                     b.HasIndex("EmpresaId", "Estado")
                         .HasDatabaseName("ix_devolucion_cliente_empresa_estado");
 
+                    b.HasIndex("EmpresaId", "Folio")
+                        .IsUnique()
+                        .HasDatabaseName("ux_devolucion_cliente_empresa_folio");
+
                     b.ToTable("devolucion_cliente", "tesoreria", t =>
                         {
                             t.HasCheckConstraint("ck_devolucion_cliente_estado", "estado IN (1, 2, 3, 4, 5)");
@@ -1036,6 +1059,22 @@ namespace Millet.Tesoreria.Infrastructure.Persistence.Migrations
 
                             t.HasCheckConstraint("ck_devolucion_cliente_origen", "(origen = 1 AND movimiento_origen_id IS NOT NULL) OR (origen = 2 AND nota_credito_id IS NOT NULL)");
                         });
+                });
+
+            modelBuilder.Entity("Millet.Tesoreria.Domain.Devoluciones.FolioSecuenciaDevolucionCliente", b =>
+                {
+                    b.Property<Guid>("EmpresaId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("empresa_id");
+
+                    b.Property<int>("Siguiente")
+                        .HasColumnType("integer")
+                        .HasColumnName("siguiente");
+
+                    b.HasKey("EmpresaId")
+                        .HasName("pk_folio_secuencias_devolucion_cliente");
+
+                    b.ToTable("folio_secuencias_devolucion_cliente", "tesoreria");
                 });
 
             modelBuilder.Entity("Millet.Tesoreria.Domain.Eventos.EventoProcesado", b =>

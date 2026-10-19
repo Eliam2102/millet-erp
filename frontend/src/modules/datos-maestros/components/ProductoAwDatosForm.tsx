@@ -4,7 +4,7 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { applyServerErrors, esApiError } from '@/lib/api';
+import { applyServerErrors, esApiError, codigoSoporte } from '@/lib/api';
 import { ClaveSatSelector } from '@/components/erp/selectors/ClaveSatSelector';
 import {
   ActualizarProductoAwSchema,
@@ -132,9 +132,7 @@ export function ProductoAwDatosForm({ producto }: ProductoAwDatosFormProps) {
               return;
             }
             toast.error(error.problem.title, {
-              description: error.traceId
-                ? `Código: ${error.traceId}`
-                : undefined,
+              description: codigoSoporte(error),
             });
             return;
           }

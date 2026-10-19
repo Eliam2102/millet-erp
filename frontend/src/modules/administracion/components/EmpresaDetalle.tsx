@@ -15,7 +15,7 @@ import {
 } from '@/components/ui/alert-dialog';
 import { ErrorState, TableSkeleton } from '@/components/erp';
 import { useEmpresa, useDesactivarEmpresa } from '@/modules/administracion/api';
-import { esApiError, useFormIdempotencyKey } from '@/lib/api';
+import { esApiError, useFormIdempotencyKey, codigoSoporte } from '@/lib/api';
 import { useHasPermission } from '@/lib/auth/useHasPermission';
 import { PermisosCanonicos } from '@/lib/auth/permission-codes';
 import { EmpresaDatosForm } from '@/modules/administracion/components/EmpresaDatosForm';
@@ -118,9 +118,7 @@ function EmpresaDetalleContenido({
               description:
                 error.code === 'SUCURSALES_ACTIVAS_PENDIENTES'
                   ? 'Desactiva primero las sucursales activas.'
-                  : error.traceId
-                    ? `Código: ${error.traceId}`
-                    : undefined,
+                  : codigoSoporte(error),
             });
           } else {
             toast.error('Error al desactivar la empresa.');

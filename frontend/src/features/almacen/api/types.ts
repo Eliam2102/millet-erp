@@ -720,6 +720,11 @@ export interface DevolucionProveedorDetalle {
   proveedorNombre: string | null;
   /** Folio de la NC fiscal que concilió (ADR-0042); null → id truncado. */
   notaCreditoFolio: string | null;
+  /** Folios de origen (C-02b); null → texto genérico. */
+  recepcionOrigenFolio?: string | null;
+  ordenCompraOrigenFolio?: string | null;
+  subAlmacenOrigenClave?: string | null;
+  subAlmacenOrigenNombre?: string | null;
 }
 
 export interface IniciarDevolucionAProveedorCommand {

@@ -29,6 +29,7 @@ public class DevolucionMovimientoTests
         egreso.CuentaBancariaId.Should().Be(dep.CuentaBancariaId);
         egreso.Moneda.Should().Be(dep.Moneda);
         egreso.FondosVerificados.Should().BeTrue();
+        egreso.ConceptoId.Should().Be(ConceptoMovimiento.DevolucionClienteId);
         dep.Monto.Should().Be(1_000m);
     }
 
