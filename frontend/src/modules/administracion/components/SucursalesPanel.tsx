@@ -22,7 +22,7 @@ import {
 import { useDesactivarSucursal } from '@/modules/administracion/api';
 import { useHasPermission } from '@/lib/auth/useHasPermission';
 import { PermisosCanonicos } from '@/lib/auth/permission-codes';
-import { esApiError } from '@/lib/api';
+import { esApiError, codigoSoporte } from '@/lib/api';
 import { SucursalInlineForm } from '@/modules/administracion/components/SucursalInlineForm';
 
 /**
@@ -89,9 +89,7 @@ export function SucursalesPanel({
         onError: (error) => {
           if (esApiError(error)) {
             toast.error(error.problem.title, {
-              description: error.traceId
-                ? `Código: ${error.traceId}`
-                : undefined,
+              description: codigoSoporte(error),
             });
           } else {
             toast.error('Error al desactivar la sucursal.');

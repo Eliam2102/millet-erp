@@ -22,7 +22,7 @@ import {
 } from '@/features/tesoreria/api/useTesoreria';
 import type { CuentaProveedorPago, PasivoPendienteResponse } from '@/features/tesoreria/api/types';
 import { formatoMonto } from '@/features/tesoreria/lib/formato';
-import { esApiError, useBodyScopedIdempotencyKey } from '@/lib/api';
+import { esApiError, useBodyScopedIdempotencyKey, codigoSoporte } from '@/lib/api';
 
 export interface RegistrarPagoSheetProps {
   /** Pasivos seleccionados en la bandeja (mismo proveedor y moneda — validado aquí y en backend). */
@@ -167,7 +167,7 @@ export function RegistrarPagoSheet({
             esApiError(error) ? error.problem.title : 'No se pudo registrar el pago',
             {
               description: esApiError(error)
-                ? (error.problem.detail ?? `Código: ${error.traceId}`)
+                ? (error.problem.detail ?? codigoSoporte(error))
                 : undefined,
             },
           );

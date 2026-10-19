@@ -11,6 +11,7 @@ import {
   applyServerErrors,
   esApiError,
   useFormIdempotencyKey,
+  codigoSoporte,
 } from '@/lib/api';
 import {
   accionEditarInfoLogistica,
@@ -205,9 +206,7 @@ function EditView({
               err,
             );
             toast.error(err.problem.title, {
-              description: err.traceId
-                ? `Código: ${err.traceId}`
-                : undefined,
+              description: codigoSoporte(err),
             });
             return;
           }

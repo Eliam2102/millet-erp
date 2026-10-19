@@ -34,7 +34,7 @@ import {
   EstadoConteoLabels,
   type LineaConteoParaCapturarDto,
 } from '@/features/almacen/api/types';
-import { esApiError } from '@/lib/api';
+import { esApiError, codigoSoporte } from '@/lib/api';
 import { cn } from '@/lib/utils';
 
 const FROM = '/_app/almacen/inventarios/$id/captura' as const;
@@ -96,7 +96,7 @@ export function CapturaConteoPage() {
     } catch (err) {
       if (esApiError(err)) {
         toast.error(err.problem.title, {
-          description: err.traceId ? `Código: ${err.traceId}` : undefined,
+          description: codigoSoporte(err),
         });
       } else {
         toast.error('Error inesperado al capturar.');

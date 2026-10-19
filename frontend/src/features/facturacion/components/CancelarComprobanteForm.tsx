@@ -5,7 +5,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { useSolicitarCancelacion } from '@/features/facturacion/api/useFacturas';
 import { MOTIVOS_CANCELACION } from '@/features/facturacion/api/types';
-import { esApiError, useFormIdempotencyKey } from '@/lib/api';
+import { esApiError, useFormIdempotencyKey, codigoSoporte } from '@/lib/api';
 
 /**
  * <c>&lt;CancelarComprobanteForm/&gt;</c> — form inline de cancelación SAT
@@ -55,7 +55,7 @@ export function CancelarComprobanteForm({
               // un genérico y no puede accionar/reportar.
               description: esApiError(error)
                 ? (error.problem.detail ??
-                  (error.traceId ? `Código: ${error.traceId}` : undefined))
+                  (codigoSoporte(error)))
                 : undefined,
             },
           ),

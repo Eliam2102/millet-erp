@@ -26,7 +26,7 @@ import {
 } from '@/features/facturacion/api/cartaPorteCatalogos';
 import { useHasPermission } from '@/lib/auth/useHasPermission';
 import { PermisosCanonicos } from '@/lib/auth/permission-codes';
-import { esApiError, useFormIdempotencyKey } from '@/lib/api';
+import { esApiError, useFormIdempotencyKey, codigoSoporte } from '@/lib/api';
 import { VehiculoInlineForm } from '@/features/facturacion/components/VehiculoInlineForm';
 import { OperadorInlineForm } from '@/features/facturacion/components/OperadorInlineForm';
 
@@ -57,7 +57,7 @@ export function CartaPorteCatalogosPage() {
 function toastActualizarError(error: Error, fallback: string) {
   if (esApiError(error)) {
     toast.error(error.problem.title, {
-      description: error.traceId ? `Código: ${error.traceId}` : undefined,
+      description: codigoSoporte(error),
     });
   } else {
     toast.error(fallback);

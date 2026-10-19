@@ -18,7 +18,7 @@ import {
   CollapsibleTrigger,
 } from '@/components/ui/collapsible';
 import { ErrorState, TableSkeleton } from '@/components/erp';
-import { esApiError, useBodyScopedIdempotencyKey } from '@/lib/api';
+import { esApiError, useBodyScopedIdempotencyKey, codigoSoporte } from '@/lib/api';
 import { useAuthStore } from '@/lib/auth/auth-store';
 import { useHasPermission } from '@/lib/auth/useHasPermission';
 import { PermisosCanonicos } from '@/lib/auth/permission-codes';
@@ -218,7 +218,7 @@ export function PermisosPersonalizadosPanel({
       // 403 (sin alcance/escalada/auto-edición), 409 (conflicto) y 422
       // (usuario inactivo, sin rol, super-admin) llegan como Problem Details.
       toast.error(error.problem.title, {
-        description: error.problem.detail ?? (error.traceId ? `Código: ${error.traceId}` : undefined),
+        description: error.problem.detail ?? (codigoSoporte(error)),
       });
       return;
     }

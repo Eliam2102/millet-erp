@@ -8,7 +8,7 @@ import { FileText, Loader2, Upload, X } from 'lucide-react';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import { useSubirPackingListBlob } from '@/features/almacen/api/useRecepciones';
-import { esApiError, useFormIdempotencyKey } from '@/lib/api';
+import { esApiError, useFormIdempotencyKey, codigoSoporte } from '@/lib/api';
 import { cn } from '@/lib/utils';
 
 const MAX_BYTES = 20 * 1024 * 1024; // 20 MB, alineado al backend
@@ -90,7 +90,7 @@ export function PackingListUpload({
     } catch (err) {
       if (esApiError(err)) {
         toast.error(err.problem.title, {
-          description: err.traceId ? `Código: ${err.traceId}` : undefined,
+          description: codigoSoporte(err),
         });
       } else {
         toast.error('Error inesperado al subir el archivo.');

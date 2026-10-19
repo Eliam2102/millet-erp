@@ -30,7 +30,7 @@ import {
 } from '@/features/almacen/schemas/devolucion';
 import { useAdjuntarEvidenciaProveedor } from '@/features/almacen/api/useDevolucionesProveedor';
 import type { DevolucionProveedorEvidenciaItem } from '@/features/almacen/api/types';
-import { esApiError } from '@/lib/api';
+import { esApiError, codigoSoporte } from '@/lib/api';
 import { Field } from '@/features/almacen/components/internal/Field';
 import { cn } from '@/lib/utils';
 
@@ -193,7 +193,7 @@ function AgregarEvidenciaBody({
         onError: (error) => {
           if (esApiError(error)) {
             toast.error(error.problem.title, {
-              description: error.traceId ? `Código: ${error.traceId}` : undefined,
+              description: codigoSoporte(error),
             });
             return;
           }

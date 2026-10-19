@@ -1,6 +1,6 @@
 import { Lock } from 'lucide-react';
 import { EmptyState, ErrorState } from '@/components/erp';
-import { esApiError } from '@/lib/api';
+import { codigoSoporte, esApiError } from '@/lib/api';
 
 /**
  * Estado de error compartido por las 3 tabs de <c>SucursalDetalle</c>
@@ -28,7 +28,7 @@ export function SucursalTabErrorState({
         description={
           'Solo puedes gestionar sucursales a las que estás asociado, ' +
           'o para las que tengas el permiso de gestión correspondiente.' +
-          (error.traceId ? ` Código: ${error.traceId}.` : '')
+          (codigoSoporte(error) ? ` ${codigoSoporte(error)}.` : '')
         }
       />
     );

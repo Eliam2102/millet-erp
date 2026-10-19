@@ -24,6 +24,7 @@ import {
   applyServerErrors,
   esApiError,
   useFormIdempotencyKey,
+  codigoSoporte,
 } from '@/lib/api';
 import {
   NuevoClienteContext,
@@ -221,9 +222,7 @@ function NuevoClienteForm({ onClose, onDirtyChange }: NuevoClienteFormProps) {
               return;
             }
             toast.error(error.problem.title, {
-              description: error.traceId
-                ? `Código: ${error.traceId}`
-                : undefined,
+              description: codigoSoporte(error),
             });
             return;
           }

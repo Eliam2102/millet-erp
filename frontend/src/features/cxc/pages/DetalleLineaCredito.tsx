@@ -36,7 +36,7 @@ import {
   type EditarLineaCreditoValues,
 } from '@/features/cxc/schemas/linea-credito';
 import type { LineasSearch } from '@/features/cxc/lib/lineas-search-schema';
-import { applyServerErrors, esApiError } from '@/lib/api';
+import { applyServerErrors, esApiError, codigoSoporte } from '@/lib/api';
 import { useHasPermission } from '@/lib/auth/useHasPermission';
 import { PermisosCanonicos } from '@/lib/auth/permission-codes';
 
@@ -105,7 +105,7 @@ function Contenido({ linea }: { linea: LineaCreditoResponse }) {
       toast.error(error.problem.title, {
         description:
           error.problem.detail ??
-          (error.traceId ? `Código: ${error.traceId}` : undefined),
+          (codigoSoporte(error)),
       });
       return;
     }

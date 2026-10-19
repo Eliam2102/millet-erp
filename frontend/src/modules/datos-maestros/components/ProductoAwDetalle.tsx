@@ -19,7 +19,7 @@ import {
   useProductoAw,
 } from '@/modules/datos-maestros/api';
 import { EstatusCatalogo } from '@/modules/datos-maestros/api/types';
-import { esApiError } from '@/lib/api';
+import { esApiError, codigoSoporte } from '@/lib/api';
 import { useHasPermission } from '@/lib/auth/useHasPermission';
 import { PermisosCanonicos } from '@/lib/auth/permission-codes';
 import {
@@ -94,9 +94,7 @@ export function ProductoAwDetalle() {
         onError: (error) => {
           if (esApiError(error)) {
             toast.error(error.problem.title, {
-              description: error.traceId
-                ? `Código: ${error.traceId}`
-                : undefined,
+              description: codigoSoporte(error),
             });
           } else {
             toast.error('Error al desactivar el producto A+W.');
