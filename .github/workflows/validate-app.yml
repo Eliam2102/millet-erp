@@ -2,7 +2,8 @@
 # Validate Application
 #
 # Valida el código de aplicación (backend .NET 10 + frontend React/Vite) en
-# cada PR contra `main`. Corre en TODOS los PRs (sin `paths:` filter a nivel
+# cada PR contra `develop` y contra `main` (flujo: rama → PR a develop →
+# PR develop → main). Corre en TODOS los PRs (sin `paths:` filter a nivel
 # workflow); un job inicial `changes` (dorny/paths-filter, ~10s) detecta qué
 # lado cambió y los jobs pesados se saltan con `if:` cuando su lado no fue
 # tocado. GitHub trata un job `skipped` por condición como SUCCESS para
@@ -51,6 +52,7 @@ on:
   pull_request:
     branches:
       - main
+      - develop
 
 permissions:
   contents: read
