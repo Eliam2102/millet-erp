@@ -50,7 +50,7 @@ describe('<UmbralesAprobacionSection> — umbral general', () => {
     expect(puts[0]).toMatchObject({
       departamentoId: UMBRAL_GENERAL_ID,
       umbralMonto: 50000,
-      modoNivel2: 'Ambos',
+      modoNivel2: 'SoloDisponibilidad',
       montoMinimoDisponibilidad: null,
     });
   });

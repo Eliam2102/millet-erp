@@ -126,9 +126,9 @@ describe('UmbralAprobacionSchema', () => {
     expect(valoresIniciales(undefined)).toEqual({
       umbralMenorCuantia: '',
       umbralMonto: '',
-      modoNivel2: 'Ambos',
+      modoNivel2: 'SoloDisponibilidad',
       montoMinimoDisponibilidad: '',
     });
-    expect(valoresIniciales(undefined).modoNivel2).toBe('Ambos');
+    expect(valoresIniciales(undefined).modoNivel2).toBe('SoloDisponibilidad');
   });
 });
