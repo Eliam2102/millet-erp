@@ -127,7 +127,7 @@ describe('<DictamenRevisionSheet>', () => {
       'Devolución abierta para autorización de Dirección',
       expect.objectContaining({ action: expect.objectContaining({ label: 'Ver devolución' }) }),
     );
-    const accion = vi.mocked(toast.success).mock.calls.at(-1)![1] as { action: { onClick: () => void } };
+    const accion = vi.mocked(toast.success).mock.calls.at(-1)![1] as unknown as { action: { onClick: () => void } };
     accion.action.onClick();
     expect(navigate).toHaveBeenCalledWith({ to: '/almacen/devoluciones/proveedor/$id', params: { id: 'dev-9' } });
   });

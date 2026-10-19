@@ -31,6 +31,9 @@ const PROVEEDOR: ProveedorDetalle = {
   toleranciaFacturaContraOcMxn: null,
   validadoEn: null,
   motivoRechazo: null,
+  origen: null,
+  regimenFiscalCodigo: null,
+  conceptoRetencion: null,
 };
 
 beforeEach(() => {
