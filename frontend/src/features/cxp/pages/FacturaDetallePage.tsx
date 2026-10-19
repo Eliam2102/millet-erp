@@ -10,7 +10,8 @@ import { ArrowLeft, CheckCircle2, Paperclip, Send, Unlock, XCircle } from 'lucid
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { ErrorState, DetalleSkeleton } from '@/components/erp';
+import { etiquetaAviso } from '@/features/cxp/lib/sla-revision';
+import { ErrorState, DetalleSkeleton, AvisoEnLinea } from '@/components/erp';
 import { useFactura, useAutorizarFactura, useMarcarRetencionesRevisadas } from '@/features/cxp/api/useFacturas';
 import { MotivoBajaDialog } from '@/components/erp/adjuntos/MotivoBajaDialog';
 import { EstadoPasivo, MotivoCancelacionLabels } from '@/features/cxp/api/types';
@@ -148,6 +149,19 @@ export function FacturaDetallePage() {
             acciones={<TrazabilidadComprasDialog tipo={TipoDocumentoTrazabilidad.FacturaProveedor} id={id} />}
             mono
           />
+
+          {query.data.estado === EstadoPasivo.EnRevision && query.data.revisionVigente && (
+            <AvisoEnLinea
+              tono={query.data.revisionVigente.vencida ? 'error' : 'advertencia'}
+              titulo={`En revisión: ${query.data.revisionVigente.motivoNombre ?? 'motivo no disponible'}`}
+            >
+              {query.data.revisionVigente.areaNombre ?? 'Área no disponible'} ·{' '}
+              {query.data.revisionVigente.diasHabiles}
+              {query.data.revisionVigente.slaDias != null ? ` de ${query.data.revisionVigente.slaDias}` : ''} días hábiles
+              {query.data.revisionVigente.vencida ? ' · plazo vencido' : ''}
+              {etiquetaAviso(query.data.revisionVigente.nivelAviso) ? ` · ${etiquetaAviso(query.data.revisionVigente.nivelAviso)!.texto}` : ''}
+            </AvisoEnLinea>
+          )}
 
           {/* Sub-topbar con acciones contextuales */}
           <div

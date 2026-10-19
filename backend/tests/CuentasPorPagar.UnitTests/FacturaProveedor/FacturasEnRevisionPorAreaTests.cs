@@ -2,6 +2,8 @@ using Microsoft.EntityFrameworkCore;
 using Millet.CuentasPorPagar.Application.FacturaProveedor.Queries;
 using Millet.CuentasPorPagar.Domain.FacturaProveedor;
 using Millet.CuentasPorPagar.Domain.Notificaciones;
+using Millet.CuentasPorPagar.Domain.Ports.Administracion;
+using Millet.CuentasPorPagar.Domain.Ports.DatosMaestros;
 using Millet.CuentasPorPagar.Infrastructure.Persistence;
 using Millet.CuentasPorPagar.UnitTests.P8;
 using Millet.SharedKernel.Application;
@@ -17,6 +19,7 @@ public sealed class FacturasEnRevisionPorAreaTests : IDisposable
     private static readonly Guid Dependencia = Guid.NewGuid();
 
     private readonly CuentasPorPagarDbContext _db;
+    private readonly Proveedores _proveedores = new();
     private readonly RelojFijo _reloj = new(DateTimeOffset.Parse("2026-10-21T18:00:00Z"));
 
     public FacturasEnRevisionPorAreaTests()
@@ -40,6 +43,19 @@ public sealed class FacturasEnRevisionPorAreaTests : IDisposable
         item.DiasEnRevision.Should().Be(3);
         item.SlaDias.Should().Be(5);
         item.NivelAviso.Should().BeNull();
+    }
+
+    [Fact]
+    public async Task Trae_nombres_de_motivo_area_y_proveedor_con_una_sola_llamada_al_puerto()
+    {
+        await SembrarAsync(Danos, Dependencia);
+        await SembrarAsync(Danos, Dependencia);
+
+        var r = await Handle();
+
+        r.Items.Should().HaveCount(2).And.OnlyContain(i =>
+            i.AreaNombre == "Almacén" && !string.IsNullOrEmpty(i.MotivoNombre) && i.ProveedorNombre == "Proveedor X");
+        _proveedores.Llamadas.Should().Be(1);
     }
 
     [Fact]
@@ -74,7 +90,7 @@ public sealed class FacturasEnRevisionPorAreaTests : IDisposable
     }
 
     private Task<Millet.CuentasPorPagar.Application.Common.PagedResponse<FacturaEnRevisionResponse>> Handle() =>
-        new FacturasEnRevisionPorAreaHandler(_db, _reloj, new Calendario())
+        new FacturasEnRevisionPorAreaHandler(_db, _reloj, new Calendario(), _proveedores, new Areas())
             .Handle(new FacturasEnRevisionPorAreaQuery(Dependencia) { SucursalesPermitidas = null }, default);
 
     private async Task<Domain.FacturaProveedor.FacturaProveedor> SembrarAsync(Guid motivoId, Guid dependenciaId)
@@ -99,6 +115,25 @@ public sealed class FacturasEnRevisionPorAreaTests : IDisposable
     private sealed class RelojFijo(DateTimeOffset ahora) : IClock
     {
         public DateTimeOffset UtcNow { get; } = ahora;
+    }
+
+    private sealed class Proveedores : IProveedorReadPort
+    {
+        public int Llamadas { get; private set; }
+        public Task<ProveedorDto?> ObtenerAsync(Guid proveedorId, CancellationToken cancellationToken) => throw new NotSupportedException();
+        public Task<ProveedorDto?> ObtenerPorRfcAsync(string rfc, CancellationToken cancellationToken) => throw new NotSupportedException();
+        public Task<IReadOnlyDictionary<Guid, string>> ObtenerNombresPorIdsAsync(IReadOnlyCollection<Guid> ids, CancellationToken ct)
+        {
+            Llamadas++;
+            return Task.FromResult<IReadOnlyDictionary<Guid, string>>(ids.ToDictionary(i => i, _ => "Proveedor X"));
+        }
+    }
+
+    private sealed class Areas : IDependenciaRevisoraReadPort
+    {
+        public Task<DependenciaRevisoraDto?> ObtenerAsync(Guid id, CancellationToken ct) =>
+            Task.FromResult<DependenciaRevisoraDto?>(new(id, "ALM", "Almacén", true));
+        public Task<IReadOnlyList<DependenciaRevisoraDto>> ListarAsync(CancellationToken ct) => throw new NotSupportedException();
     }
 
     private sealed class Calendario : ICalendarioHabil

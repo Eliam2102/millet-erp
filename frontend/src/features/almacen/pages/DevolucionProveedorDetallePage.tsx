@@ -151,7 +151,7 @@ export function DevolucionProveedorDetallePage() {
                     params={{ id: query.data.recepcionOrigenId }}
                     className="text-brand hover:underline"
                   >
-                    Ver recepción
+                    {query.data.recepcionOrigenFolio ?? 'Ver recepción'}
                   </Link>
                 ) : (
                   '—'
@@ -167,7 +167,7 @@ export function DevolucionProveedorDetallePage() {
                     params={{ id: query.data.ordenCompraOrigenId }}
                     className="text-brand hover:underline"
                   >
-                    Ver orden de compra
+                    {query.data.ordenCompraOrigenFolio ?? 'Ver orden de compra'}
                   </Link>
                 ) : (
                   '—'
@@ -193,9 +193,11 @@ export function DevolucionProveedorDetallePage() {
             <Campo
               label="Sub-almacén origen"
               valor={
-                subAlmacenOrigen
-                  ? `${subAlmacenOrigen.clave} · ${subAlmacenOrigen.nombre}`
-                  : '—'
+                query.data.subAlmacenOrigenClave
+                  ? `${query.data.subAlmacenOrigenClave} · ${query.data.subAlmacenOrigenNombre}`
+                  : subAlmacenOrigen
+                    ? `${subAlmacenOrigen.clave} · ${subAlmacenOrigen.nombre}`
+                    : '—'
               }
             />
             <Campo
