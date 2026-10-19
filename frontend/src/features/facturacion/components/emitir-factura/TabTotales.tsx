@@ -1,3 +1,4 @@
+import { ResumenImportes } from '@/components/erp/display/ResumenImportes';
 import { Plus, Trash2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -39,21 +40,8 @@ export function TabTotales({
     <div className="space-y-5">
       <section className="space-y-2">
         <h3 className="text-sm font-medium">Resumen de importes</h3>
-        <dl className="max-w-md space-y-1 rounded-md border px-4 py-3 text-sm tabular-nums">
-          <FilaTotal etiqueta="Subtotal" valor={totales.subtotal} />
-          <FilaTotal etiqueta="IVA trasladado" valor={totales.iva} />
-          <FilaTotal etiqueta="Retenciones" valor={-totales.ret} />
-          <div className="flex items-center justify-between border-t pt-1 font-semibold">
-            <dt>Total</dt>
-            <dd>
-              {total.toFixed(2)} {moneda?.toUpperCase()}
-            </dd>
-          </div>
-        </dl>
-        <p className="text-xs text-muted-foreground">
-          Los importes se calculan en vivo desde las posiciones; el backend
-          recalcula y valida al emitir.
-        </p>
+        <ResumenImportes moneda={moneda?.toUpperCase() ?? ''} subtotal={totales.subtotal} ivaTrasladado={totales.iva} otrasRetenciones={[{ etiqueta: 'Retenciones', monto: totales.ret }]} total={total} />
+        <p className="text-xs text-ink-muted">Los importes se calculan a partir de las partidas y se verifican al emitir.</p>
       </section>
 
       {/* ── Anticipos a amortizar (relación 07, opcional) ───────── */}
@@ -77,7 +65,7 @@ export function TabTotales({
         {anticipos.length === 0 ? (
           <p className="text-xs text-muted-foreground">
             Opcional. Si el cliente tiene anticipos abiertos, agrégalos para
-            amortizarlos (el backend emite la NC de amortización al timbrar).
+            amortizarlos. Al timbrar se emite la nota de crédito de amortización.
           </p>
         ) : (
           <div className="space-y-2">
@@ -146,15 +134,6 @@ export function TabTotales({
           </div>
         )}
       </section>
-    </div>
-  );
-}
-
-function FilaTotal({ etiqueta, valor }: { etiqueta: string; valor: number }) {
-  return (
-    <div className="flex items-center justify-between">
-      <dt className="text-muted-foreground">{etiqueta}</dt>
-      <dd className="font-medium">{valor.toFixed(2)}</dd>
     </div>
   );
 }
