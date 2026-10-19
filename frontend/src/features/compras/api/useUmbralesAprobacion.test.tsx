@@ -18,6 +18,8 @@ const UMBRAL: UmbralAprobacionResponse = {
   umbralMonto: 20000,
   moneda: 'MXN',
   vigenteDesde: '2026-10-15',
+  modoNivel2: 'Ambos',
+  montoMinimoDisponibilidad: null,
 };
 
 describe('useUmbralesAprobacion', () => {

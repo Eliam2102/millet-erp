@@ -197,12 +197,6 @@ namespace Millet.Compras.Infrastructure.Migrations
                         .HasColumnType("uuid")
                         .HasColumnName("empresa_id");
 
-                    b.Property<int>("ModoNivel2")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("integer")
-                        .HasDefaultValue(1)
-                        .HasColumnName("modo_nivel2");
-
                     b.Property<DateTimeOffset>("UpdatedAt")
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("updated_at");
@@ -2233,6 +2227,12 @@ namespace Millet.Compras.Infrastructure.Migrations
                         .HasColumnType("date")
                         .HasColumnName("vigente_desde");
 
+                    b.Property<int>("ModoNivel2")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer")
+                        .HasDefaultValue(3)
+                        .HasColumnName("modo_nivel2");
+
                     b.Property<string>("Moneda")
                         .IsRequired()
                         .ValueGeneratedOnAdd()
@@ -2240,6 +2240,11 @@ namespace Millet.Compras.Infrastructure.Migrations
                         .HasColumnType("character varying(3)")
                         .HasDefaultValue("MXN")
                         .HasColumnName("moneda");
+
+                    b.Property<decimal?>("MontoMinimoDisponibilidad")
+                        .HasPrecision(15, 2)
+                        .HasColumnType("numeric(15,2)")
+                        .HasColumnName("monto_minimo_disponibilidad");
 
                     b.Property<decimal?>("UmbralMenorCuantia")
                         .HasPrecision(15, 2)
@@ -2261,6 +2266,8 @@ namespace Millet.Compras.Infrastructure.Migrations
                     b.ToTable("umbrales_aprobacion_departamento", "compras", t =>
                         {
                             t.HasCheckConstraint("ck_umbrales_moneda_iso", "moneda ~ '^[A-Z]{3}$'");
+
+                            t.HasCheckConstraint("ck_umbrales_monto_minimo_no_negativo", "monto_minimo_disponibilidad IS NULL OR monto_minimo_disponibilidad >= 0");
 
                             t.HasCheckConstraint("ck_umbrales_monto_no_negativo", "umbral_monto >= 0");
                         });

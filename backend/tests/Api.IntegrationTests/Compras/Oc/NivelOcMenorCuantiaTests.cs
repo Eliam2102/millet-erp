@@ -194,7 +194,9 @@ public partial class OrdenesCompraEndpointsTests
         using var bypass = scope.ServiceProvider.GetRequiredService<ICurrentEmpresaContext>().Bypass();
         var db = scope.ServiceProvider.GetRequiredService<ComprasDbContext>();
         var filas = await db.UmbralesAprobacionDepartamento
-            .Where(u => u.EmpresaId == EmpresaInicialId && u.DepartamentoId == EvaluadorNivelOc.UmbralGeneralId)
+            .Where(u => u.EmpresaId == EmpresaInicialId && u.DepartamentoId == EvaluadorNivelOc.UmbralGeneralId
+                // Conserva la fila general del fixture de tools/validate-integration-isolated.sh.
+                && u.VigenteDesde != new DateOnly(2020, 1, 1))
             .ToListAsync();
         db.UmbralesAprobacionDepartamento.RemoveRange(filas);
         await db.SaveChangesAsync();

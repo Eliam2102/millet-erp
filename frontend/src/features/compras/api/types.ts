@@ -735,7 +735,6 @@ export interface ComprasConfiguracionResponse {
   empresaId: string;
   autoGenerarOcAlAutorizar: boolean;
   apartarExistenciaAlAutorizar: boolean;
-  modoNivel2: ModoNivel2;
 }
 
 /** Mirror de <c>UmbralAprobacionResponse</c>. <c>umbralMenorCuantia</c> null = sin N1. */
@@ -745,6 +744,8 @@ export interface UmbralAprobacionResponse {
   umbralMonto: number;
   moneda: string;
   vigenteDesde: string;
+  modoNivel2: ModoNivel2;
+  montoMinimoDisponibilidad: number | null;
 }
 
 /** Body de <c>PUT /api/v1/compras/umbrales-aprobacion</c> (mirror de <c>UpsertUmbralCommand</c>). */
@@ -753,6 +754,8 @@ export interface UpsertUmbralRequest {
   umbralMenorCuantia: number | null;
   umbralMonto: number;
   moneda: 'MXN';
+  modoNivel2: ModoNivel2;
+  montoMinimoDisponibilidad: number | null;
 }
 
 // F1-COM-02 · Cotizaciones

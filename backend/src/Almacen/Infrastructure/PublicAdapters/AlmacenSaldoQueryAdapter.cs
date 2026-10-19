@@ -168,4 +168,53 @@ public sealed class AlmacenSaldoQueryAdapter : IAlmacenSaldoQueryPort
             .Select(s => s.Id)
             .ToListAsync(cancellationToken)).ToHashSet();
     }
+
+    public async Task<IReadOnlyDictionary<Guid, DisponibilidadArticuloSucursal>> ConsultarDisponibilidadPorSucursalLoteAsync(
+        Guid sucursalId,
+        IReadOnlyCollection<Guid> articuloIds,
+        CancellationToken cancellationToken)
+    {
+        var resultado = new Dictionary<Guid, DisponibilidadArticuloSucursal>();
+        if (articuloIds.Count == 0)
+        {
+            return resultado;
+        }
+
+        var ids = articuloIds.Distinct().ToList();
+
+        var saldos = await (
+            from s in _db.SaldosInventario.AsNoTracking()
+            join sa in _db.SubAlmacenes.AsNoTracking() on s.SubAlmacenId equals sa.Id
+            join al in _db.Almacenes.AsNoTracking() on sa.AlmacenId equals al.Id
+            where ids.Contains(s.ArticuloId) && al.SucursalId == sucursalId
+            select new { s.ArticuloId, s.Cantidad, s.CantidadDisponible, sa.Tipo })
+            .GroupBy(s => s.ArticuloId)
+            .Select(g => new
+            {
+                ArticuloId = g.Key,
+                Cantidad = g.Sum(x => x.Cantidad),
+                // ALM-04: el material en revisión cuenta en físico, no en disponible.
+                Disponible = g.Sum(x => x.Tipo != TipoSubAlmacen.MaterialEnRevision ? x.CantidadDisponible : 0m),
+            })
+            .ToDictionaryAsync(x => x.ArticuloId, cancellationToken);
+
+        var apartados = await _db.ApartadosRequisicion
+            .Where(a => a.SucursalId == sucursalId && ids.Contains(a.ArticuloId))
+            .GroupBy(a => a.ArticuloId)
+            .Select(g => new { ArticuloId = g.Key, Pendiente = g.Sum(a => a.Pendiente) })
+            .ToDictionaryAsync(x => x.ArticuloId, x => x.Pendiente, cancellationToken);
+
+        foreach (var id in ids)
+        {
+            saldos.TryGetValue(id, out var t);
+            apartados.TryGetValue(id, out var apartado);
+            resultado[id] = new DisponibilidadArticuloSucursal(
+                sucursalId,
+                id,
+                t?.Cantidad ?? 0m,
+                Math.Max(0m, (t?.Disponible ?? 0m) - apartado));
+        }
+
+        return resultado;
+    }
 }
