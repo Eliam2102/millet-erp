@@ -5,6 +5,7 @@ using MediatR;
 using Microsoft.EntityFrameworkCore;
 using Millet.SharedKernel.Infrastructure.Persistence;
 using Millet.SharedKernel.Application;
+using Millet.SharedKernel.Application.Exceptions;
 using Millet.Compartido.Infrastructure.Persistence;
 
 namespace Millet.Administracion.Application.Auditoria;
@@ -34,7 +35,12 @@ public sealed record ConsultarBitacoraQuery(
     string? Q = null,
     int Offset = 0,
     int Limit = 50,
-    string? ZonaHoraria = null) : IRequest<ConsultarBitacoraResponse>;
+    string? ZonaHoraria = null) : IRequest<ConsultarBitacoraResponse>, ISucursalScopedQuery
+{
+    // ADM-03: la bitácora respeta el alcance por sucursal (ADR-0051); lo llena SucursalScopeQueryBehavior.
+    public string PermisoTodasSucursales => "admin.auditoria.leer-todas-sucursales";
+    public IReadOnlyList<Guid>? SucursalesPermitidas { get; set; }
+}
 
 public sealed class ConsultarBitacoraQueryValidator : AbstractValidator<ConsultarBitacoraQuery>
 {
@@ -167,6 +173,23 @@ public sealed class ConsultarBitacoraHandler
                 EF.Functions.ILike(a.ActorNombre, pattern) ||
                 EF.Functions.ILike(a.EntidadEtiqueta, pattern) ||
                 EF.Functions.ILike(a.Resumen, pattern));
+        }
+        if (request.SucursalesPermitidas is { } permitidas)
+        {
+            if (request.SucursalId is Guid pedida && !permitidas.Contains(pedida))
+                throw new ForbiddenException("SUCURSAL_NO_ASOCIADA", "No estás asociado a la sucursal solicitada.");
+            // Sin bypass solo se ven los eventos de sus sucursales; los eventos sin sucursal quedan para el corporativo.
+            // OR de un JsonContains por sucursal (EF no traduce Any() sobre JsonContains).
+            var porSucursal = permitidas
+                .Select(id => System.Text.Json.JsonSerializer.Serialize(new { sucursalId = id }))
+                .Select<string, System.Linq.Expressions.Expression<Func<SharedKernel.Domain.Audit.AuditLogEntry, bool>>>(
+                    f => a => a.Metadatos != null && EF.Functions.JsonContains(a.Metadatos, f))
+                .ToList();
+            var alguna = porSucursal.Count == 0 ? (a => false)
+                : porSucursal.Aggregate((x, y) => System.Linq.Expressions.Expression.Lambda<Func<SharedKernel.Domain.Audit.AuditLogEntry, bool>>(
+                    System.Linq.Expressions.Expression.OrElse(x.Body,
+                        new ParameterReplacer(y.Parameters[0], x.Parameters[0]).Visit(y.Body)!), x.Parameters));
+            query = query.Where(alguna);
         }
         if (request.SucursalId is Guid sucursal)
         {
@@ -492,4 +515,11 @@ public sealed class ConsultarBitacoraHandler
 
         return new ConsultarBitacoraResponse(items, total);
     }
+}
+
+file sealed class ParameterReplacer(System.Linq.Expressions.ParameterExpression from, System.Linq.Expressions.ParameterExpression to)
+    : System.Linq.Expressions.ExpressionVisitor
+{
+    protected override System.Linq.Expressions.Expression VisitParameter(System.Linq.Expressions.ParameterExpression node)
+        => node == from ? to : base.VisitParameter(node);
 }
