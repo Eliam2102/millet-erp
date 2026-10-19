@@ -2,6 +2,8 @@ using System.Globalization;
 using MediatR;
 using Microsoft.EntityFrameworkCore;
 using Millet.ComercioExterior.Domain;
+using Millet.ComercioExterior.Application.Ports;
+using Millet.ComercioExterior.Application.PublicPorts;
 using Millet.ComercioExterior.Infrastructure.Persistence;
 using Millet.Compras.Application.PublicPorts;
 using Millet.Identidad.Domain;
@@ -52,7 +54,7 @@ public sealed class CrearExpedienteHandler(ComercioExteriorDbContext db, Expedie
     }
 }
 
-public sealed class MutarExpedienteHandler(ComercioExteriorDbContext db, ExpedienteServicio servicio, ICatalogosCeReadPort catalogos, IIntegrationEventPublisher eventos, IClock clock) : IRequestHandler<MutarExpedienteCommand, ExpedienteDetalle>
+public sealed class MutarExpedienteHandler(ComercioExteriorDbContext db, ExpedienteServicio servicio, ICatalogosCeReadPort catalogos, IIntegrationEventPublisher eventos, IClock clock, IPedidosEmbarcablesReadPort pedidos) : IRequestHandler<MutarExpedienteCommand, ExpedienteDetalle>
 {
     public async Task<ExpedienteDetalle> Handle(MutarExpedienteCommand request, CancellationToken cancellationToken)
     {
@@ -66,6 +68,19 @@ public sealed class MutarExpedienteHandler(ComercioExteriorDbContext db, Expedie
             "editar" or "participantes" => PermisosCanonicos.ComercioExteriorExpedientesEditar,
             _ => throw new BusinessRuleException("CE_ACCION_INVALIDA", "Acción desconocida.")};
         await servicio.PermisoAsync(permiso, cancellationToken);
+        if (request.Accion == "cancelar")
+        {
+            var ids = await db.Partidas.AsNoTracking().Where(p => p.ExpedienteId == request.Id && p.Estado != EstadoPartida.Liberada)
+                .Select(p => p.PedidoFacturableId).Distinct().ToArrayAsync(cancellationToken);
+            ExpedienteDetalle? resultado = null;
+            await PedidoEmbarqueLock.ExecuteAsync(db, ids, async ct => resultado = await MutarAsync(request, ct), cancellationToken);
+            return resultado!;
+        }
+        return await MutarAsync(request, cancellationToken);
+    }
+
+    private async Task<ExpedienteDetalle> MutarAsync(MutarExpedienteCommand request, CancellationToken cancellationToken)
+    {
         var e = await servicio.CargarAsync(request.Id, true, cancellationToken);
         if (e.Version != request.Version)
             throw new ConcurrencyException("Expediente", request.Id);
@@ -111,7 +126,7 @@ public sealed class MutarExpedienteHandler(ComercioExteriorDbContext db, Expedie
                 else
                 {
                     await catalogos.ValidarAdjuntoAsync(e.Id, requisito.Id, doc.AdjuntoId ?? Guid.Empty, cancellationToken);
-                    e.RegistrarDocumento(Guid.CreateVersion7(), requisito, doc.AdjuntoId ?? Guid.Empty, doc.Motivo, servicio.Actor);
+                    e.RegistrarDocumento(Guid.CreateVersion7(), requisito, doc.AdjuntoId ?? Guid.Empty, doc.Motivo, servicio.Actor, doc.NumeroPedimento);
                 }
 
                 break;
@@ -119,7 +134,9 @@ public sealed class MutarExpedienteHandler(ComercioExteriorDbContext db, Expedie
                 e.RevisarDocumentos(await catalogos.RequisitosAsync(e.Tipo, cancellationToken), await catalogos.AdjuntosVigentesAsync(e.Id, cancellationToken), servicio.Actor);
                 break;
             case "cancelar":
-                e.Cancelar(request.Motivo ?? "");
+                var origen = await pedidos.ObtenerAsync(e.Partidas.Where(p => p.Estado != EstadoPartida.Liberada)
+                    .Select(p => p.PedidoFacturableId).Distinct().ToArray(), cancellationToken);
+                e.Cancelar(request.Motivo ?? "", origen.Any(p => p.FacturaVigente));
                 await eventos.PublishAsync(new ExpedienteCeCanceladoEvent(e.EmpresaId, clock.UtcNow, e.Id, e.MotivoCancelacion!), cancellationToken);
                 break;
         }

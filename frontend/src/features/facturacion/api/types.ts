@@ -776,6 +776,7 @@ export interface PedidoClienteFiscal {
  * `If-Match` al editar.
  */
 export interface PedidoFacturableDetalleResponse {
+  embarqueCe?: import('@/features/comercio-exterior/api/types').EmbarqueCe | null;
   id: string;
   numeroPedido: string | null;
   origen: string;
@@ -1073,6 +1074,7 @@ export interface RelacionCfdiDetalle {
 
 /** Detalle completo de un comprobante (GET /facturas/{id}). */
 export interface ComprobanteDetalleResponse {
+  datosEmbarqueCe?: import('@/features/comercio-exterior/api/types').DatosEmbarqueCe | null;
   id: string;
   tipo: string;
   folio: string;

@@ -3302,6 +3302,10 @@ namespace Millet.Facturacion.Infrastructure.Persistence.Migrations
                         .HasColumnType("smallint")
                         .HasColumnName("comportamiento_fiscal");
 
+                    b.Property<string>("DatosEmbarqueCe")
+                        .HasColumnType("jsonb")
+                        .HasColumnName("datos_embarque_ce");
+
                     b.Property<bool>("FacturaAgrupada")
                         .HasColumnType("boolean")
                         .HasColumnName("factura_agrupada");
