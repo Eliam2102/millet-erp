@@ -50,7 +50,6 @@ public sealed class ObtenerComprasSettingsHandler
 
         return new ComprasSettingsResponse(
             EmpresaId: row.EmpresaId,
-            AutoGenerarOcAlAutorizar: row.AutoGenerarOcAlAutorizar, ApartarExistenciaAlAutorizar: row.ApartarExistenciaAlAutorizar,
-            ModoNivel2: row.ModoNivel2);
+            AutoGenerarOcAlAutorizar: row.AutoGenerarOcAlAutorizar, ApartarExistenciaAlAutorizar: row.ApartarExistenciaAlAutorizar);
     }
 }

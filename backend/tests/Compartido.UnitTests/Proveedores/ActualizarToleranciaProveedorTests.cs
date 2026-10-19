@@ -64,6 +64,46 @@ public sealed class ActualizarToleranciaProveedorTests
     }
 
     [Fact]
+    public async Task Cxp_CambiaAPorcentaje_ConAuditoriaDelTipo()
+    {
+        var empresa = new FakeEmpresa();
+        using var db = new CompartidoDbContext(new DbContextOptionsBuilder<CompartidoDbContext>().UseInMemoryDatabase(Guid.NewGuid().ToString()).Options, empresa);
+        var proveedor = new Proveedor(Guid.NewGuid(), "DEMO", "Proveedor DEMO", "DEMO010101AA1", TipoPersonaProveedor.Moral);
+        proveedor.ActualizarToleranciaFacturaContraOc(5);
+        db.Proveedores.Add(proveedor);
+        await db.SaveChangesAsync();
+        var permisos = new FakePermisos();
+        permisos.Concedidos.Add("datos_maestros.proveedores.tolerancia-editar");
+        var audit = new Auditoria();
+        var handler = new ActualizarToleranciaProveedorHandler(db, permisos, new FakeUser(), empresa, new FakeClock(), audit);
+
+        // Mismo valor, distinto tipo: sí es un cambio.
+        await handler.Handle(new(proveedor.Id, 5, EsPorcentaje: true), default);
+        Assert.True(proveedor.ToleranciaFacturaContraOcEsPorcentaje);
+        Assert.Equal(1, audit.Cantidad);
+        using var cambios = JsonDocument.Parse(audit.Cambios!);
+        Assert.False(cambios.RootElement.GetProperty("toleranciaFacturaContraOcEsPorcentaje").GetProperty("antes").GetBoolean());
+        Assert.True(cambios.RootElement.GetProperty("toleranciaFacturaContraOcEsPorcentaje").GetProperty("despues").GetBoolean());
+
+        // Limpiar regresa a la general y quita el porcentaje.
+        await handler.Handle(new(proveedor.Id, null, EsPorcentaje: true), default);
+        Assert.Null(proveedor.ToleranciaFacturaContraOcMxn);
+        Assert.False(proveedor.ToleranciaFacturaContraOcEsPorcentaje);
+    }
+
+    [Fact]
+    public void Porcentaje_MayorA100_SeRechaza()
+    {
+        var validator = new ActualizarToleranciaProveedorValidator();
+        Assert.False(validator.Validate(new ActualizarToleranciaProveedorCommand(Guid.NewGuid(), 100.01m, true)).IsValid);
+        Assert.True(validator.Validate(new ActualizarToleranciaProveedorCommand(Guid.NewGuid(), 100m, true)).IsValid);
+        Assert.True(validator.Validate(new ActualizarToleranciaProveedorCommand(Guid.NewGuid(), 150m, false)).IsValid);
+        var proveedor = new Proveedor(Guid.NewGuid(), "DEMO", "Proveedor DEMO", "DEMO010101AA1", TipoPersonaProveedor.Moral);
+        var ex = Assert.Throws<BusinessRuleException>(() => proveedor.ActualizarToleranciaFacturaContraOc(101, esPorcentaje: true));
+        Assert.Equal("PROVEEDOR_TOLERANCIA_PORCENTAJE", ex.Code);
+    }
+
+    [Fact]
     public void Validator_NoPermiteNegativosNiPerdidaDePrecision()
     {
         var validator = new ActualizarToleranciaProveedorValidator();

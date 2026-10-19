@@ -4,6 +4,7 @@ import {
   DEFAULT_BANDEJA_OC_SEARCH,
 } from '@/features/compras/ordenes/lib/bandeja-oc-search-schema';
 import {
+  EstadoComercialProveedorOc,
   EstadoOrdenCompra,
   SubEstadoFacturacion,
   SubEstadoPago,
@@ -11,7 +12,7 @@ import {
 } from '@/features/compras/ordenes/api/types';
 
 describe('BandejaOcSearchSchema', () => {
-  it('input vacío: aplica defaults page=1, pageSize=50', () => {
+  it('input vacío: aplica defaults page=1, pageSize=25', () => {
     expect(BandejaOcSearchSchema.parse({})).toEqual(DEFAULT_BANDEJA_OC_SEARCH);
   });
 
@@ -66,6 +67,15 @@ describe('BandejaOcSearchSchema', () => {
         BandejaOcSearchSchema.parse({ subEstadoPago: v }).subEstadoPago,
       ).toBe(v);
     }
+  });
+
+  it('valida los estados comerciales del proveedor y descarta valores ajenos', () => {
+    for (const v of Object.values(EstadoComercialProveedorOc)) {
+      expect(
+        BandejaOcSearchSchema.parse({ estadoComercialProveedor: v }).estadoComercialProveedor,
+      ).toBe(v);
+    }
+    expect(BandejaOcSearchSchema.safeParse({ estadoComercialProveedor: 9 }).success).toBe(false);
   });
 
   it('campos string opcionales aceptan strings no vacíos', () => {

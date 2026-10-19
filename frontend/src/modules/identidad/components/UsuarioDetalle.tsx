@@ -21,7 +21,7 @@ import {
   useReactivarUsuario,
   useUsuario,
 } from '@/modules/identidad/api';
-import { esApiError } from '@/lib/api';
+import { esApiError, codigoSoporte } from '@/lib/api';
 import { useHasPermission } from '@/lib/auth/useHasPermission';
 import { PermisosCanonicos } from '@/lib/auth/permission-codes';
 import { useAuthStore } from '@/lib/auth/auth-store';
@@ -114,9 +114,7 @@ export function UsuarioDetalle() {
         onError: (error) => {
           if (esApiError(error)) {
             toast.error(error.problem.title, {
-              description: error.traceId
-                ? `Código: ${error.traceId}`
-                : undefined,
+              description: codigoSoporte(error),
             });
           } else {
             toast.error('Error al desactivar el usuario.');
@@ -137,9 +135,7 @@ export function UsuarioDetalle() {
         onError: (error) => {
           if (esApiError(error)) {
             toast.error(error.problem.title, {
-              description: error.traceId
-                ? `Código: ${error.traceId}`
-                : undefined,
+              description: codigoSoporte(error),
             });
           } else {
             toast.error('Error al reactivar el usuario.');

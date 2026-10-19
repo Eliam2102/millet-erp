@@ -9,7 +9,8 @@ import { etiquetaAwOrigen, puedeCambiarAwOrigen, type AwOrigenEstado } from '../
 
 const url = '*/api/v1/integraciones/aw/origen';
 const estado: AwOrigenEstado = { origen: 'Real', permitido: true, demoConfigurada: true,
-  origenClientesReal: 'Sql', origenProductosReal: 'Simulado', cambiadoPor: null, cambiadoEn: null, version: 1 };
+  origenClientesReal: 'Sql', origenProductosReal: 'Simulado', cambiadoPor: null, cambiadoEn: null, version: 1,
+  lecturaHabilitada: true, aplicacionHabilitada: true, origenProductosHabilitado: true };
 const permiso = 'integraciones.aw.administracion.configuracion';
 function abrir(e = estado, permisos: string[] = [permiso]) {
   useAuthStore.setState({ status: 'authenticated', accessToken: 't', permisos,

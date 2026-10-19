@@ -25,7 +25,7 @@ describe('<Ayuda> — smoke', () => {
   it('renderiza las 6 secciones principales', () => {
     render(<Ayuda />);
     expect(
-      screen.getByRole('heading', { name: /Ayuda — Compras Requisiciones/i }),
+      screen.getByRole('heading', { name: /Ayuda — Compras/i }),
     ).toBeInTheDocument();
     // Las 6 secciones h2.
     expect(

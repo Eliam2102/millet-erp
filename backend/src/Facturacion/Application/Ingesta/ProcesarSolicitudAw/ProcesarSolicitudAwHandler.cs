@@ -9,6 +9,7 @@ using Millet.Facturacion.Domain.Ports;
 using Millet.Facturacion.Infrastructure.Persistence;
 using Millet.Facturacion.Infrastructure.Workers;
 using Millet.SharedKernel.Application;
+using Millet.SharedKernel.Application.Exceptions;
 
 namespace Millet.Facturacion.Application.Ingesta.ProcesarSolicitudAw;
 
@@ -116,12 +117,11 @@ public sealed class ProcesarSolicitudAwHandler
         // Origen A+W: si el cliente no está en el master, se auto-provisiona
         // desde la vista de A+W (§3.bis.6). Falla de provisión = corregible
         // (dar de alta el cliente) → misma semántica pospuesta que catálogos.
-        var cliente = await _clientes.ResolverPorReferenciaAsync(datos.ClienteRef, ct)
-                      ?? await _masterProvisioning.EnsureClienteDesdeAwAsync(datos.ClienteRef, ct);
+        var (cliente, ligadoPendiente) = await ResolverClienteAsync(datos.ClienteRef, ct);
         if (cliente is null)
             return await PosponerORechazarAsync(empresaId, sol, control,
                 MotivoExcepcion.ClienteNoExiste,
-                $"cliente '{datos.ClienteRef}' no existe en el master y no se pudo auto-provisionar desde A+W",
+                ligadoPendiente ?? $"cliente '{datos.ClienteRef}' no existe en el master y no se pudo auto-provisionar desde A+W",
                 esperaConfiguracion: true, hash: Hash(datos.PayloadCrudo),
                 marcarControlExcepcion: true, pedidoId: null, estadoFacturacion: null, ahora, ct);
 
@@ -137,6 +137,25 @@ public sealed class ProcesarSolicitudAwHandler
         UpsertControl(control, empresaId, sol, Hash(datos.PayloadCrudo), EstadoIngesta.Importado, nuevo.Id, ahora);
 
         return (ResultadoSolicitudAw.Aplicada, nuevo.Id, null, "SinFacturar");
+    }
+
+    /// <summary>
+    /// Resuelve el cliente del pedido. Un conflicto de ligado por RFC (H8/M-69) no
+    /// tumba el tick: se devuelve el mensaje literal para que la excepción de ingesta
+    /// sea legible y el pedido quede pospuesto.
+    /// </summary>
+    private async Task<(ClienteFiscalLectura? Cliente, string? LigadoPendiente)> ResolverClienteAsync(
+        string clienteRef, CancellationToken ct)
+    {
+        try
+        {
+            return (await _clientes.ResolverPorReferenciaAsync(clienteRef, ct)
+                    ?? await _masterProvisioning.EnsureClienteDesdeAwAsync(clienteRef, ct), null);
+        }
+        catch (BusinessRuleException ex) when (ex.Code == "CLIENTE_LIGADO_PENDIENTE")
+        {
+            return (null, ex.Message);
+        }
     }
 
     private async Task<(ResultadoSolicitudAw, Guid?, string?, string?)> ProcesarModificacionAsync(
@@ -167,8 +186,7 @@ public sealed class ProcesarSolicitudAwHandler
                 lectura.EsperaConfiguracion, hash: control?.HashContenido ?? string.Empty,
                 marcarControlExcepcion: false, pedidoId: pedido.Id, estadoFacturacion: "SinFacturar", ahora, ct);
 
-        var cliente = await _clientes.ResolverPorReferenciaAsync(datos.ClienteRef, ct)
-                      ?? await _masterProvisioning.EnsureClienteDesdeAwAsync(datos.ClienteRef, ct);
+        var (cliente, _) = await ResolverClienteAsync(datos.ClienteRef, ct);
         var clienteId = cliente?.ClienteId ?? pedido.ClienteId;
 
         pedido.RefrescarCabecera(clienteId, datos.ClienteNombre, datos.CanalVenta, datos.ComportamientoFiscal,

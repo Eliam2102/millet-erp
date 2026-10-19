@@ -66,8 +66,8 @@ export function RegistrarMovimientoEspecialSheet({
         <SheetHeader>
           <SheetTitle>Movimiento especial del banco</SheetTitle>
           <SheetDescription>
-            Intereses moratorios, anualidad o comisión por divisa. El
-            backend rechaza tipos diferentes a estos 3.
+            Intereses moratorios, anualidad o comisión por divisa. No se
+            aceptan otros tipos.
           </SheetDescription>
         </SheetHeader>
         {open && <Form onClose={() => onOpenChange(false)} />}

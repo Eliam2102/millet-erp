@@ -3,9 +3,11 @@ import {
   ESTADO_APLICACION_LABELS,
   ESTADO_CONCILIACION_LABELS,
   ESTADO_DEPOSITO_LABELS,
+  ESTADO_DEVOLUCION_LABELS,
   EstadoAplicacionMovimiento,
   EstadoConciliacionMovimiento,
   EstadoDepositoConfirmacion,
+  EstadoDevolucionCliente,
   SENTIDO_MOVIMIENTO_LABELS,
   SentidoMovimiento,
 } from '@/features/tesoreria/api/types';
@@ -111,4 +113,17 @@ export function EstadoConciliacionBadge({
       {ESTADO_CONCILIACION_LABELS[estado]}
     </Badge>
   );
+}
+
+const ESTADO_DEVOLUCION_VARIANT = {
+  [EstadoDevolucionCliente.Solicitada]: 'warning',
+  [EstadoDevolucionCliente.Autorizada]: 'info',
+  [EstadoDevolucionCliente.Pagada]: 'success',
+  [EstadoDevolucionCliente.Rechazada]: 'danger',
+  [EstadoDevolucionCliente.Cancelada]: 'neutral',
+} as const;
+
+/** Estado de una devolución a cliente (T9.6). */
+export function EstadoDevolucionBadge({ estado }: { estado: EstadoDevolucionCliente }) {
+  return <Badge variant={ESTADO_DEVOLUCION_VARIANT[estado]}>{ESTADO_DEVOLUCION_LABELS[estado]}</Badge>;
 }

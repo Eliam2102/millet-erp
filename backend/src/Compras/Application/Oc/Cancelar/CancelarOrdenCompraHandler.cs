@@ -103,6 +103,10 @@ public sealed class CancelarOrdenCompraHandler : IRequestHandler<CancelarOrdenCo
             }
         }
 
+        await Cotizaciones.CotizacionesComparativo.LiberarPorOcAsync(_db, oc.Id, userId, _clock.UtcNow,
+            $"OC cancelada: {motivo.Clave}{(string.IsNullOrWhiteSpace(command.MotivoCancelacionTexto) ? string.Empty : " - " + command.MotivoCancelacionTexto)}",
+            cancellationToken);
+
         // ADR-0009: cambio de estado y evento se persisten juntos.
         await _publisher.Publish(resultado.EventoCancelada, cancellationToken);
         await _db.SaveChangesAsync(cancellationToken);

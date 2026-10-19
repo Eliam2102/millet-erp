@@ -1,5 +1,6 @@
 using MediatR;
 using Microsoft.EntityFrameworkCore;
+using Npgsql;
 using Millet.Compras.Domain;
 using Millet.Compras.Infrastructure;
 using Millet.SharedKernel.Application;
@@ -34,8 +35,8 @@ public sealed class UpsertUmbralHandler : IRequestHandler<UpsertUmbralCommand, U
                 "El usuario no tiene una empresa seleccionada en el JWT actual.");
         }
 
-        // ponytail: dos PUT simultáneos el mismo día para el mismo depto chocan en la PK
-        // (empresa, depto, vigente_desde) → 500; si molesta, traducir la violación a 409.
+        // Dos PUT simultáneos del mismo depto pueden chocar en la PK (empresa, depto, vigente_desde):
+        // la violación única se traduce a 409 en lugar de dejar escapar un 500.
         var hoy = DateOnly.FromDateTime(_clock.UtcNow.UtcDateTime);
 
         await using var tx = await _db.Database.BeginTransactionAsync(cancellationToken);
@@ -51,7 +52,8 @@ public sealed class UpsertUmbralHandler : IRequestHandler<UpsertUmbralCommand, U
         if (vigente is not null && vigente.VigenteDesde == hoy)
         {
             // Ya hay una fila de hoy: se corrige en sitio (no cerrar a hoy-1 < VigenteDesde).
-            vigente.ActualizarMontos(command.UmbralMenorCuantia, command.UmbralMonto, command.Moneda);
+            vigente.ActualizarMontos(command.UmbralMenorCuantia, command.UmbralMonto, command.Moneda,
+                command.ModoNivel2, command.MontoMinimoDisponibilidad);
             fila = vigente;
         }
         else
@@ -63,14 +65,27 @@ public sealed class UpsertUmbralHandler : IRequestHandler<UpsertUmbralCommand, U
                 vigenteDesde: hoy,
                 umbralMonto: command.UmbralMonto,
                 moneda: command.Moneda,
-                umbralMenorCuantia: command.UmbralMenorCuantia);
+                umbralMenorCuantia: command.UmbralMenorCuantia,
+                modoNivel2: command.ModoNivel2,
+                montoMinimoDisponibilidad: command.MontoMinimoDisponibilidad);
             _db.UmbralesAprobacionDepartamento.Add(fila);
         }
 
-        await _db.SaveChangesAsync(cancellationToken);
-        await tx.CommitAsync(cancellationToken);
+        try
+        {
+            await _db.SaveChangesAsync(cancellationToken);
+            await tx.CommitAsync(cancellationToken);
+        }
+        catch (DbUpdateException e) when (e.InnerException is PostgresException { SqlState: PostgresErrorCodes.UniqueViolation })
+        {
+            throw new ConflictException(
+                "UMBRAL_GUARDADO_CONCURRENTE",
+                "Otro usuario guardó el umbral de este departamento al mismo tiempo. Recarga la página e intenta de nuevo.",
+                e);
+        }
 
         return new UmbralAprobacionResponse(
-            fila.DepartamentoId, fila.UmbralMenorCuantia, fila.UmbralMonto, fila.Moneda, fila.VigenteDesde);
+            fila.DepartamentoId, fila.UmbralMenorCuantia, fila.UmbralMonto, fila.Moneda, fila.VigenteDesde,
+            fila.ModoNivel2, fila.MontoMinimoDisponibilidad);
     }
 }

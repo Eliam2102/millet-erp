@@ -44,6 +44,7 @@ import {
   applyServerErrors,
   esApiError,
   useFormIdempotencyKey,
+  codigoSoporte,
 } from '@/lib/api';
 import {
   IniciarDevolucionAProveedorSchema,
@@ -261,7 +262,7 @@ function FormBody({
               return;
             }
             toast.error(error.problem.title, {
-              description: error.traceId ? `Código: ${error.traceId}` : undefined,
+              description: codigoSoporte(error),
             });
             return;
           }
@@ -291,7 +292,12 @@ function FormBody({
               render={({ field }) => (
                 <ProveedorSelector
                   value={field.value || null}
-                  onChange={(id) => field.onChange(id ?? '')}
+                  onChange={(id) => {
+                    const nuevo = id ?? '';
+                    // La recepción elegida pertenecía al proveedor anterior.
+                    if (nuevo !== field.value) handleRecepcionChange(null);
+                    field.onChange(nuevo);
+                  }}
                 />
               )}
             />
@@ -343,6 +349,7 @@ function FormBody({
                   value={field.value ?? null}
                   onChange={handleRecepcionChange}
                   ordenCompraId={ordenCompraIdWatched ?? null}
+                  proveedorId={proveedorIdWatched || null}
                 />
               )}
             />
@@ -404,14 +411,14 @@ function FormBody({
                 })
               }
             >
-              <Plus className="mr-2 h-4 w-4" />
+              <Plus className="mr-2 size-3.5" />
               Agregar línea
             </Button>
           </div>
 
           {form.formState.errors.lineas &&
             !Array.isArray(form.formState.errors.lineas) && (
-              <p role="alert" className="text-xs text-rose-600">
+              <p role="alert" className="text-xs text-danger">
                 {form.formState.errors.lineas.message}
               </p>
             )}

@@ -44,6 +44,9 @@ public enum TipoMovimiento : short
 
     /// <summary>Reincorporación al inventario activo desde MAT-REV. Folio REI.</summary>
     ReincorporacionTrasRevision = 9,
+
+    /// <summary>Salida de MAT-REV por dictamen de liberación; su par es una ReincorporacionTrasRevision al rack disponible. Folio LIB.</summary>
+    SalidaPorLiberacionRevision = 10,
 }
 
 internal static class TipoMovimientoExtensions
@@ -64,6 +67,7 @@ internal static class TipoMovimientoExtensions
         TipoMovimiento.AjustePrecioFactura => "AJF",
         TipoMovimiento.BajaPorDano => "BAJ",
         TipoMovimiento.ReincorporacionTrasRevision => "REI",
+        TipoMovimiento.SalidaPorLiberacionRevision => "LIB",
         _ => "MOV",
     };
 

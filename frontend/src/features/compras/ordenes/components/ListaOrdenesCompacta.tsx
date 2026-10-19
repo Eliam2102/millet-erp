@@ -88,11 +88,8 @@ function ItemCompacto({ item, activo, search }: ItemCompactoProps) {
         </div>
         <div className="mt-1 flex items-center justify-between gap-2 text-xs text-muted-foreground">
           <span className="truncate">
-            {item.referenciaProveedor != null ? (
-              <>Ref. {item.referenciaProveedor}</>
-            ) : (
-              <span className="italic">sin referencia del proveedor</span>
-            )}
+            {item.proveedorNombre ?? item.proveedorId}
+            {item.referenciaProveedor != null && <> · Ref. {item.referenciaProveedor}</>}
           </span>
           <DateTimeDisplay value={item.fechaDocumento} />
         </div>

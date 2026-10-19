@@ -27,7 +27,7 @@ describe('<ErrorState>', () => {
     render(<ErrorState />);
     expect(screen.getByText('Algo salió mal')).toBeInTheDocument();
     expect(
-      screen.getByText(/si el problema persiste/i),
+      screen.getByText(/si persiste, avisa a soporte/i),
     ).toBeInTheDocument();
   });
 

@@ -2,6 +2,7 @@ using System.Security.Cryptography;
 using Microsoft.EntityFrameworkCore;
 using Millet.Administracion.Domain;
 using Millet.Catalogos.Domain;
+using Millet.Compartido.Application.Adjuntos;
 using Millet.Compartido.Infrastructure.Persistence;
 using Millet.DatosMaestros.Domain;
 using Millet.SharedKernel.Application.Blob;
@@ -93,7 +94,7 @@ public sealed partial class DemoSesionSeedHostedService
             }
         }
 
-        var tipos = await db.AdjuntoTiposDocumento.Where(t => t.TipoEntidad == "proveedor" && t.Activo && t.Obligatorio)
+        var tipos = await db.AdjuntoTiposDocumento.Where(t => t.TipoEntidad == "proveedor" && t.Activo && t.ObligatorioPersonaMoral)
             .OrderBy(t => t.Orden).ToListAsync(ct);
         if (tipos.Count != 5)
             throw new InvalidOperationException("DEMO: el expediente de persona moral debe tener cinco tipos obligatorios; revisar migraciones.");
@@ -105,8 +106,9 @@ public sealed partial class DemoSesionSeedHostedService
             if (await db.Proveedores.AnyAsync(p => p.Clave == clave, ct)) continue;
             var p = new Proveedor(Id(clave), clave, $"{clave} Suministros ficticios", "XAXX010101000", TipoPersonaProveedor.Moral,
                 estatus: EstatusCatalogo.EnRevision);
-            p.ActualizarDatos(banco: "DEMO Banco ficticio", clabe: "000000000000000000", beneficiario: p.RazonSocial);
+            p.ActualizarClasificacionFiscal(OrigenProveedor.Nacional, "601", null);
             db.Proveedores.Add(p);
+            db.CuentasBancariasProveedor.Add(CuentaBancariaProveedor.Heredada(p.Id, "DEMO Banco ficticio", "000000000000000000", p.RazonSocial, Fecha));
             var subidos = new List<string>();
             try
             {
@@ -122,7 +124,7 @@ public sealed partial class DemoSesionSeedHostedService
                         "application/pdf", bytes.Length, Convert.ToHexStringLower(SHA256.HashData(bytes)), blobRef,
                         tipo.VigenciaMeses is null ? null : new DateOnly(2027, 1, 12), ActorId, Fecha));
                 }
-                if (cantidad == 5) p.Validar(ActorId, Fecha);
+                if (cantidad == 5) p.Validar(ActorId, Fecha, await ExpedienteAdjuntos.VersionMatrizAsync(db, "proveedor", ct));
                 await db.SaveChangesAsync(ct);
             }
             catch

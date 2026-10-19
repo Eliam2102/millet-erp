@@ -161,4 +161,67 @@ describe('<SheetNuevoProveedor>', () => {
       ),
     );
   });
+
+  it('extranjero: oculta el RFC y manda origen y retención en el mismo POST, sin segunda llamada', async () => {
+    let body: Record<string, unknown> | null = null;
+    let llamadasClasificacion = 0;
+    mswServer.use(
+      http.post('*/api/v1/catalogos/proveedores', async ({ request }) => {
+        body = (await request.json()) as Record<string, unknown>;
+        return HttpResponse.json(
+          { id: 'p-ext', clave: 'EXT-01', estatus: 2, posibleDuplicadoDeId: null },
+          { status: 201 },
+        );
+      }),
+      http.put('*/api/v1/datos-maestros/proveedores/:id/clasificacion-fiscal', () => {
+        llamadasClasificacion += 1;
+        return new HttpResponse(null, { status: 204 });
+      }),
+    );
+
+    render(
+      <NuevoProveedorProvider>
+        <AbrirAlMontar />
+      </NuevoProveedorProvider>,
+      { wrapper: createQueryWrapper() },
+    );
+
+    await screen.findByPlaceholderText('P-001');
+    fireEvent.change(screen.getByPlaceholderText('P-001'), { target: { value: 'EXT-01' } });
+    fireEvent.change(screen.getByPlaceholderText('Acme S.A. de C.V.'), { target: { value: 'Glass Corp LLC' } });
+    expect(screen.getByPlaceholderText('ACM010101ABC')).toBeInTheDocument();
+    fireEvent.change(screen.getByLabelText('Origen'), { target: { value: '1' } });
+    await waitFor(() => expect(screen.queryByPlaceholderText('ACM010101ABC')).not.toBeInTheDocument());
+    expect(screen.getByText(/XEXX010101000/)).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: /crear proveedor/i }));
+
+    await waitFor(() => expect(body).not.toBeNull());
+    expect(body).toMatchObject({ clave: 'EXT-01', rfc: null, origen: 1, regimenFiscalCodigo: null });
+    await waitFor(() => expect(toast.success).toHaveBeenCalledWith('Proveedor EXT-01 creado'));
+    expect(llamadasClasificacion).toBe(0);
+  });
+
+  it('nacional: sin RFC no envía el alta y marca el campo', async () => {
+    let posts = 0;
+    mswServer.use(
+      http.post('*/api/v1/catalogos/proveedores', () => {
+        posts += 1;
+        return HttpResponse.json({ id: 'x', clave: 'x', estatus: 1, posibleDuplicadoDeId: null }, { status: 201 });
+      }),
+    );
+    render(
+      <NuevoProveedorProvider>
+        <AbrirAlMontar />
+      </NuevoProveedorProvider>,
+      { wrapper: createQueryWrapper() },
+    );
+    await screen.findByPlaceholderText('P-001');
+    fireEvent.change(screen.getByPlaceholderText('P-001'), { target: { value: 'NAC-01' } });
+    fireEvent.change(screen.getByPlaceholderText('Acme S.A. de C.V.'), { target: { value: 'Nacional SA' } });
+    fireEvent.change(screen.getByLabelText('Origen'), { target: { value: '0' } });
+    fireEvent.click(screen.getByRole('button', { name: /crear proveedor/i }));
+    expect(await screen.findByText('El RFC debe tener 12 o 13 caracteres')).toBeInTheDocument();
+    expect(posts).toBe(0);
+  });
 });

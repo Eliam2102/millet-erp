@@ -38,6 +38,17 @@ public sealed class ActualizarCabeceraOcHandler : IRequestHandler<ActualizarCabe
                 "ORDEN_COMPRA_NO_ENCONTRADA",
                 $"No se encontró orden de compra con id '{command.OrdenCompraId}' en la empresa actual.");
 
+        // D1: con cotización elegida, proveedor y moneda quedan fijos a los de la cotización.
+        var cambiaProveedor = command.ProveedorId is Guid pid && pid != oc.ProveedorId;
+        var cambiaMoneda = command.Moneda is string mon
+            && !string.Equals(mon.Trim(), oc.Moneda, StringComparison.OrdinalIgnoreCase);
+        if ((cambiaProveedor || cambiaMoneda)
+            && await _db.Cotizaciones.AnyAsync(c => c.OrdenCompraId == oc.Id, cancellationToken))
+        {
+            throw new BusinessRuleException("OC_COTIZACION_FIJA",
+                "La orden de compra viene de una cotización elegida; no se puede cambiar el proveedor ni la moneda.");
+        }
+
         // C10 — validar proveedor activo si cambia.
         if (command.ProveedorId is Guid nuevoProveedorId && nuevoProveedorId != oc.ProveedorId)
         {

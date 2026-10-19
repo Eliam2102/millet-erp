@@ -2,7 +2,8 @@ using Microsoft.EntityFrameworkCore;
 using Millet.CuentasPorPagar.Infrastructure.Persistence;
 using Millet.SharedKernel.Application;
 namespace Millet.CuentasPorPagar.Infrastructure;
-public sealed class CxpSucursalReadAdapter(CuentasPorPagarDbContext db, IComprasSucursalReadPort compras) : ICxpSucursalReadPort
+public sealed class CxpSucursalReadAdapter(CuentasPorPagarDbContext db, IComprasSucursalReadPort compras,
+    Millet.CuentasPorPagar.Domain.Ports.Administracion.IEmpleadoReadPort? empleados = null) : ICxpSucursalReadPort
 {
     public async Task<IReadOnlyList<DocumentoSucursales>> ListarAsync(string tipo, CancellationToken ct)
     {
@@ -65,6 +66,15 @@ public sealed class CxpSucursalReadAdapter(CuentasPorPagarDbContext db, ICompras
             return notas.Select(x => new DocumentoSucursales(x.Id,
                 x.FacturaOrigenId is Guid id && facturas.TryGetValue(id, out var sucursal) ? new[] { sucursal } :
                 x.AnticipoOrigenId is Guid anticipo ? anticipos.GetValueOrDefault(anticipo) ?? Array.Empty<Guid>() : Array.Empty<Guid>())).ToArray();
+        }
+        if (tipo == "solicitud_viaticos")
+        {
+            // La solicitud no guarda sucursal: es la del empleado (Empleado.SucursalId, ADR-0051).
+            var solicitudes = await db.SolicitudesViaticos.AsNoTracking().Select(x => new { x.Id, x.EmpleadoId }).ToListAsync(ct);
+            var porEmpleado = empleados is null ? new Dictionary<Guid, Millet.CuentasPorPagar.Domain.Ports.Administracion.EmpleadoDto>()
+                : await empleados.ObtenerPorIdsAsync(solicitudes.Select(x => x.EmpleadoId).Distinct().ToArray(), ct);
+            return solicitudes.Select(x => new DocumentoSucursales(x.Id,
+                porEmpleado.GetValueOrDefault(x.EmpleadoId)?.SucursalId is Guid s ? new[] { s } : Array.Empty<Guid>())).ToArray();
         }
         if (tipo == "comprobacion")
             return await db.ComprobacionesGastos.AsNoTracking().Select(x => new DocumentoSucursales(x.Id, new[] { x.SucursalId })).ToListAsync(ct);

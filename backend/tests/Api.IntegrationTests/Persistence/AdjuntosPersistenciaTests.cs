@@ -33,7 +33,10 @@ public class AdjuntosPersistenciaTests : IClassFixture<WebApplicationFactory<Pro
         var db = scope.ServiceProvider.GetRequiredService<CompartidoDbContext>();
 
         var tipos = await db.AdjuntoTiposDocumento.AsNoTracking()
-            .Where(t => t.TipoEntidad == "proveedor").OrderBy(t => t.Orden).ToListAsync();
+            .Where(t => t.TipoEntidad == "proveedor" && t.Obligatorio).OrderBy(t => t.Orden).ToListAsync();
+        // 86e3pdmee: el estado de cuenta respalda cuentas bancarias; no es obligatorio en el expediente.
+        Assert.False((await db.AdjuntoTiposDocumento.AsNoTracking()
+            .SingleAsync(t => t.TipoEntidad == "proveedor" && t.Codigo == "estado_cuenta_bancaria")).Obligatorio);
 
         Assert.Equal(
             "constancia_situacion_fiscal,contrato,acta_constitutiva,identificacion_representante_legal,comprobante_domicilio",

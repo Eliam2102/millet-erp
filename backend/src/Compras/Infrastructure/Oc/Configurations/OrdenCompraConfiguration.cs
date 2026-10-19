@@ -68,6 +68,7 @@ public sealed class OrdenCompraConfiguration : IEntityTypeConfiguration<OrdenCom
             t.HasCheckConstraint("ck_oc_sub_recepcion", "sub_estado_recepcion BETWEEN 0 AND 2");
             t.HasCheckConstraint("ck_oc_sub_facturacion", "sub_estado_facturacion BETWEEN 0 AND 2");
             t.HasCheckConstraint("ck_oc_sub_pago", "sub_estado_pago BETWEEN 0 AND 2");
+            t.HasCheckConstraint("ck_oc_estado_comercial_proveedor", "estado_comercial_proveedor BETWEEN 0 AND 3");
         });
 
         builder.Property(x => x.Obra).HasMaxLength(120);
@@ -130,6 +131,11 @@ public sealed class OrdenCompraConfiguration : IEntityTypeConfiguration<OrdenCom
             .HasConversion<short>()
             .HasDefaultValue(SubEstadoPago.SinPago)
             .IsRequired();
+        builder.Property(o => o.EstadoComercialProveedor)
+            .HasConversion<short>()
+            .HasDefaultValue(EstadoComercialProveedorOc.SinRespuesta)
+            .IsRequired();
+        builder.Property(o => o.FechaCompromisoProveedor);
 
         builder.Property(o => o.MotivoSinRequisicion).HasColumnType("text");
         builder.Property(o => o.MotivoCancelacionId);
@@ -242,6 +248,11 @@ public sealed class OrdenCompraConfiguration : IEntityTypeConfiguration<OrdenCom
         builder.HasMany(o => o.SolicitudesCancelacion).WithOne()
             .HasForeignKey(s => s.OrdenCompraId).OnDelete(DeleteBehavior.Cascade);
         builder.Navigation(o => o.SolicitudesCancelacion).UsePropertyAccessMode(PropertyAccessMode.Field);
+
+        // F1-COM-11: respuestas del proveedor (historial inmutable).
+        builder.HasMany(o => o.RespuestasProveedor).WithOne()
+            .HasForeignKey(r => r.OrdenCompraId).OnDelete(DeleteBehavior.Cascade);
+        builder.Navigation(o => o.RespuestasProveedor).UsePropertyAccessMode(PropertyAccessMode.Field);
 
         // UNIQUE de §10.1: anti-colisión de folios por (empresa, sucursal).
         // El año va embebido en el VO Folio (formato OC-MID2026-000001).

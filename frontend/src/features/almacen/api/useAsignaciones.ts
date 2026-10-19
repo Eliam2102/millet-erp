@@ -1,9 +1,10 @@
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { useMutation, useQueries, useQuery, useQueryClient } from '@tanstack/react-query';
 import { apiRequest } from '@/lib/api';
 import {
   almacenKeys,
   type ListarAsignacionesFiltros,
 } from '@/features/almacen/api/keys';
+import { EstatusCatalogo } from '@/features/almacen/api/types';
 import type {
   AsignacionListItem,
   AsignacionResponse,
@@ -30,20 +31,42 @@ function buildQuery(filtros: object): string {
   return params.toString();
 }
 
+async function fetchAsignaciones(filtros: ListarAsignacionesFiltros, signal?: AbortSignal) {
+  const query = buildQuery(filtros);
+  const path = query
+    ? `/api/v1/almacen/asignaciones?${query}`
+    : '/api/v1/almacen/asignaciones';
+  const { data } = await apiRequest<PagedResponse<AsignacionListItem>>(path, { signal });
+  return data;
+}
+
 export function useAsignacionesList(filtros: ListarAsignacionesFiltros = {}) {
   return useQuery({
     queryKey: almacenKeys.asignacionesList(filtros),
-    queryFn: async ({ signal }) => {
-      const query = buildQuery(filtros);
-      const path = query
-        ? `/api/v1/almacen/asignaciones?${query}`
-        : '/api/v1/almacen/asignaciones';
-      const { data } = await apiRequest<PagedResponse<AsignacionListItem>>(path, {
-        signal,
-      });
-      return data;
-    },
+    queryFn: ({ signal }) => fetchAsignaciones(filtros, signal),
   });
+}
+
+/**
+ * Racks (ubicaciones) activos asignados a cada artículo: <c>articuloId → Set&lt;ubicacionId&gt;</c>.
+ * Usa la misma queryKey que <c>UbicacionBinSelector</c> (modo asignación), así que
+ * comparte caché con los selectores por línea. <c>listo</c> = todas respondieron.
+ */
+export function useUbicacionesAsignadasPorArticulo(articuloIds: readonly string[]) {
+  const resultados = useQueries({
+    queries: articuloIds.map((articuloId) => {
+      const filtros = { articuloId, estatus: EstatusCatalogo.Activo, limit: 500 };
+      return {
+        queryKey: almacenKeys.asignacionesList(filtros),
+        queryFn: ({ signal }: { signal?: AbortSignal }) => fetchAsignaciones(filtros, signal),
+      };
+    }),
+  });
+  const porArticulo = new Map<string, Set<string>>();
+  articuloIds.forEach((id, i) => {
+    porArticulo.set(id, new Set((resultados[i]?.data?.items ?? []).map((a) => a.ubicacionId)));
+  });
+  return { porArticulo, listo: resultados.length > 0 && resultados.every((r) => r.isSuccess) };
 }
 
 export function useCrearAsignacion() {

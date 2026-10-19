@@ -73,7 +73,7 @@ public sealed class CompraAPagoDemoTests(WebApplicationFactory<Program> factory)
         Assert.NotEqual(idA, idB);
 
         // Umbral del depto: monto <= umbral => basta N1 (con 2 usuarios no hay quien firme N2; sin umbral exige N1+N2 de personas distintas).
-        await Ok(await b.PutAsJsonAsync("/api/v1/compras/umbrales-aprobacion", new { DepartamentoId = TestComprasFixtures.DeptoCompras, UmbralMenorCuantia = 1000m, UmbralMonto = 100000m, Moneda = "MXN" }), "B configura umbral depto");
+        await Ok(await b.PutAsJsonAsync("/api/v1/compras/umbrales-aprobacion", new { DepartamentoId = TestComprasFixtures.DeptoCompras, UmbralMenorCuantia = 1000m, UmbralMonto = 100000m, Moneda = "MXN", ModoNivel2 = "SoloMonto" }), "B configura umbral depto");
 
         // ---------- 1. A crea RQ ----------
         var rqResp = await a.PostAsJsonAsync("/api/v1/compras/requisiciones", TestComprasFixtures.BuildCrearRqValidBody(descripcion: "DEMO compra a pago"));
@@ -157,7 +157,7 @@ public sealed class CompraAPagoDemoTests(WebApplicationFactory<Program> factory)
         var cuentaId = (await J(cuentaResp)).GetProperty("id").GetGuid();
         await Ok(await b.PostAsJsonAsync("/api/v1/tesoreria/pagos", new
         {
-            CuentaBancariaId = cuentaId, FechaValor = hoy, ReferenciaBancaria = "DEMO-PAGO",
+            CuentaBancariaId = cuentaId, FechaValor = hoy, ReferenciaBancaria = "DEMO-PAGO", FondosVerificados = true,
             Aplicaciones = new[] { new { FacturaProveedorId = facturaId, Importe = subtotal + iva } },
         }), "B registra pago al proveedor");
         await BombearAsync(app); // PagoFacturaProveedorEvent -> CxP; pago-aplicado -> Compras

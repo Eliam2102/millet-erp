@@ -1,31 +1,9 @@
-import { cn } from '@/lib/utils';
-import {
-  EstadoPasivo,
-  EstadoPasivoLabels,
-} from '@/features/cxp/api/types';
+import { Badge } from '@/components/ui/badge';
+import type { EstadoPasivo } from '@/features/cxp/api/types';
+import { ESTADO_PASIVO } from '@/features/cxp/lib/estado-variante';
 
-/**
- * <c>&lt;EstadoPasivoChip/&gt;</c> — badge de color por estado del
- * pasivo. Mismo patrón visual que los otros chips del módulo.
- *
- * <para>Colores: Capturada azul (en captura), EnRevision ámbar (acción
- * de revisión requerida), Autorizada verde (terminal positivo), Pagada
- * teal (terminal definitivo), Cancelada gris/rosado (anomalía).</para>
- */
+/** Badge de estado del pasivo/factura; color en `lib/estado-variante`. */
 export function EstadoPasivoChip({ estado }: { estado: EstadoPasivo }) {
-  return (
-    <span
-      className={cn(
-        'inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium',
-        estado === EstadoPasivo.Capturada && 'bg-blue-100 text-blue-800',
-        estado === EstadoPasivo.EnRevision && 'bg-amber-100 text-amber-800',
-        estado === EstadoPasivo.Autorizada &&
-          'bg-emerald-100 text-emerald-800',
-        estado === EstadoPasivo.Pagada && 'bg-teal-100 text-teal-800',
-        estado === EstadoPasivo.Cancelada && 'bg-rose-100 text-rose-800',
-      )}
-    >
-      {EstadoPasivoLabels[estado]}
-    </span>
-  );
+  const { etiqueta, variante } = ESTADO_PASIVO[estado];
+  return <Badge variant={variante}>{etiqueta}</Badge>;
 }

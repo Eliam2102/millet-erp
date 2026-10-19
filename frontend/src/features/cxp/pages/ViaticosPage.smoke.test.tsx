@@ -62,7 +62,7 @@ describe('<ViaticosPage> — smoke', () => {
     ).toBeInTheDocument();
   });
 
-  it('solicitud excede política muestra botón Aut. jefe', async () => {
+  it('solicitud excede política muestra botón Autorizar como jefe', async () => {
     mswServer.use(
       http.get('*/api/v1/cuentas-por-pagar/viaticos', () =>
         HttpResponse.json({
@@ -93,7 +93,7 @@ describe('<ViaticosPage> — smoke', () => {
     render(<ViaticosPage />, { wrapper: createQueryWrapper() });
     await waitFor(() =>
       expect(
-        screen.getByRole('button', { name: /Aut\. jefe/i }),
+        screen.getByRole('button', { name: /Autorizar como jefe/i }),
       ).toBeInTheDocument(),
     );
     expect(screen.getByText(/Pasará a DF/i)).toBeInTheDocument();
@@ -135,7 +135,7 @@ describe('<ViaticosPage> — smoke', () => {
     );
     render(<ViaticosPage />, { wrapper: createQueryWrapper() });
     await waitFor(() =>
-      expect(screen.getByRole('button', { name: /Aut\. DF/i })).toBeInTheDocument(),
+      expect(screen.getByRole('button', { name: /Autorizar \(Dir\. Finanzas\)/i })).toBeInTheDocument(),
     );
     expect(screen.queryByRole('button', { name: /Rechazar/i })).toBeNull();
   });

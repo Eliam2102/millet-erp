@@ -1,4 +1,10 @@
-import { formatDate, formatDateLong, formatDateTime } from '@/lib/datetime';
+import {
+  fechaLocalISO,
+  formatDate,
+  formatDateLong,
+  formatDateTime,
+  hoyLocalISO,
+} from '@/lib/datetime';
 import { cn } from '@/lib/utils';
 
 /**
@@ -16,6 +22,10 @@ import { cn } from '@/lib/utils';
  *   y tarjetas formales.</item>
  * </list>
  *
+ * <para>Variantes DS: <c>'corta'</c> (<c>21 sep</c>, con año si no es el
+ * actual) para listas y <c>'media'</c> (<c>21 sep 2026</c>) para detalles.
+ * <c>vencida</c> resalta la fecha en rojo.</para>
+ *
  * <para>Acepta también valores ya en formato <c>YYYY-MM-DD</c>
  * (<c>DateOnly</c> del backend, sin hora ni TZ). En ese caso se
  * muestra como fecha local sin convertir TZ.</para>
@@ -30,25 +40,31 @@ export interface DateTimeDisplayProps {
    * placeholder.
    */
   value: string | null | undefined;
-  /** <c>'date'</c> | <c>'datetime'</c> | <c>'long'</c>. Default <c>'date'</c>. */
-  variant?: 'date' | 'datetime' | 'long';
+  /** Default <c>'date'</c>. */
+  variant?: Variante;
+  /** Resalta la fecha como vencida (<c>text-danger-fg font-medium</c>). */
+  vencida?: boolean;
   className?: string;
   /** Override del placeholder. */
   empty?: string;
 }
 
+type Variante = 'date' | 'datetime' | 'long' | 'corta' | 'media';
+
 const DATE_ONLY = /^\d{4}-\d{2}-\d{2}$/;
+const MEDIANOCHE_UTC = /^\d{4}-\d{2}-\d{2}T00:00:00(\.0+)?(Z|\+00:00)$/;
 
 export function DateTimeDisplay({
   value,
   variant = 'date',
+  vencida,
   className,
   empty = '—',
 }: DateTimeDisplayProps) {
   if (value == null || value === '') {
     return (
       <span
-        className={cn('text-muted-foreground', className)}
+        className={cn('text-ink-muted', className)}
         aria-label="Sin fecha"
       >
         {empty}
@@ -62,7 +78,9 @@ export function DateTimeDisplay({
   const formatted = formatear(value, variant, esDateOnly);
 
   return (
-    <time className={cn('tabular-nums', className)} dateTime={value}>
+    <time
+      className={cn('tabular-nums', vencida && 'text-danger-fg font-medium', className)}
+      dateTime={value}>
       {formatted}
     </time>
   );
@@ -70,9 +88,15 @@ export function DateTimeDisplay({
 
 function formatear(
   value: string,
-  variant: 'date' | 'datetime' | 'long',
+  variant: Variante,
   esDateOnly: boolean,
 ): string {
+  if (variant === 'corta' || variant === 'media') {
+    // Una fecha de calendario puede llegar como medianoche UTC: se toma
+    // tal cual para que en México (UTC-6) no caiga al día anterior.
+    const calendario = esDateOnly || MEDIANOCHE_UTC.test(value);
+    return formatAbreviada(calendario ? value.slice(0, 10) : fechaLocalISO(value), variant);
+  }
   // Para DateOnly (YYYY-MM-DD), formateamos manualmente sin pasar por
   // TZ conversion: el clásico bug "se mostró un día anterior" ocurre
   // si dejamos que parseISO+toZonedTime conviertan medianoche UTC a
@@ -107,4 +131,17 @@ const MESES_ES = [
 
 function formatLargo(year: number, month: number, day: number): string {
   return `${day} de ${MESES_ES[month - 1]} de ${year}`;
+}
+
+const MESES_CORTOS = [
+  'ene', 'feb', 'mar', 'abr', 'may', 'jun',
+  'jul', 'ago', 'sep', 'oct', 'nov', 'dic',
+];
+
+/** `iso` es `YYYY-MM-DD` (fecha de calendario ya en zona del ERP). */
+function formatAbreviada(iso: string, variant: 'corta' | 'media'): string {
+  const [yyyy, mm, dd] = iso.split('-');
+  const base = `${parseInt(dd, 10)} ${MESES_CORTOS[parseInt(mm, 10) - 1]}`;
+  if (variant === 'corta' && yyyy === hoyLocalISO().slice(0, 4)) return base;
+  return `${base} ${yyyy}`;
 }

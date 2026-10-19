@@ -4,7 +4,7 @@ import {
   EstadoExpediente,
 } from '@/components/erp/adjuntos/api/types';
 
-type Variante = 'success' | 'warning' | 'danger' | 'neutral';
+type Variante = 'success' | 'warning' | 'danger' | 'neutral' | 'info';
 
 const ADJUNTO: Record<EstadoAdjunto, { label: string; variant: Variante }> = {
   [EstadoAdjunto.Vigente]: { label: 'Vigente', variant: 'success' },
@@ -19,6 +19,7 @@ const EXPEDIENTE: Record<EstadoExpediente, { label: string; variant: Variante }>
   [EstadoExpediente.Vigente]: { label: 'Vigente', variant: 'success' },
   [EstadoExpediente.PorVencer]: { label: 'Por vencer', variant: 'warning' },
   [EstadoExpediente.Vencido]: { label: 'Vencido', variant: 'danger' },
+  [EstadoExpediente.Exceptuado]: { label: 'Exceptuado', variant: 'info' },
 };
 
 /** Badge de estado de un adjunto (el estado siempre lleva texto, DESIGN.md §8). */

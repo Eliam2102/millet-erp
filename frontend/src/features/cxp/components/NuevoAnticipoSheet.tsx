@@ -180,7 +180,7 @@ function Form({ onClose }: { onClose: () => void }) {
               variant="outline"
               onClick={() => setCargarCfdiOpen(true)}
             >
-              <Upload className="mr-1 h-4 w-4" aria-hidden="true" />
+              <Upload className="mr-1 size-3.5" aria-hidden="true" />
               Cargar XML
             </Button>
           )}

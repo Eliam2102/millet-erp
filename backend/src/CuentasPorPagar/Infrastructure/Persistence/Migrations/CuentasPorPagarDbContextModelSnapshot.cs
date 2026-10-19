@@ -1398,6 +1398,90 @@ namespace Millet.CuentasPorPagar.Infrastructure.Persistence.Migrations
                         });
                 });
 
+            modelBuilder.Entity("Millet.CuentasPorPagar.Domain.FacturaProveedor.AvisoSlaRevision", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at");
+
+                    b.Property<string>("CreatedBy")
+                        .HasColumnType("text")
+                        .HasColumnName("created_by");
+
+                    b.Property<DateTimeOffset?>("DeletedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("deleted_at");
+
+                    b.Property<Guid>("DependenciaRevisoraId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("dependencia_revisora_id");
+
+                    b.Property<int>("DiasHabiles")
+                        .HasColumnType("integer")
+                        .HasColumnName("dias_habiles");
+
+                    b.Property<DateTimeOffset>("EmitidoEn")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("emitido_en");
+
+                    b.Property<Guid>("EmpresaId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("empresa_id");
+
+                    b.Property<Guid>("FacturaProveedorId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("factura_proveedor_id");
+
+                    b.Property<DateOnly>("Fecha")
+                        .HasColumnType("date")
+                        .HasColumnName("fecha");
+
+                    b.Property<DateTimeOffset>("FechaEntradaRevision")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("fecha_entrada_revision");
+
+                    b.Property<Guid>("MotivoRevisionId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("motivo_revision_id");
+
+                    b.Property<int>("Nivel")
+                        .HasColumnType("integer")
+                        .HasColumnName("nivel");
+
+                    b.Property<int>("SlaDias")
+                        .HasColumnType("integer")
+                        .HasColumnName("sla_dias");
+
+                    b.Property<DateTimeOffset>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("updated_at");
+
+                    b.Property<string>("UpdatedBy")
+                        .HasColumnType("text")
+                        .HasColumnName("updated_by");
+
+                    b.Property<int>("Version")
+                        .IsConcurrencyToken()
+                        .HasColumnType("integer")
+                        .HasColumnName("version");
+
+                    b.HasKey("Id")
+                        .HasName("pk_avisos_sla_revision");
+
+                    b.HasIndex("FacturaProveedorId", "FechaEntradaRevision")
+                        .HasDatabaseName("ix_avisos_sla_revision_factura_entrada");
+
+                    b.HasIndex("FacturaProveedorId", "Nivel", "Fecha")
+                        .IsUnique()
+                        .HasDatabaseName("ux_avisos_sla_revision_factura_nivel_fecha");
+
+                    b.ToTable("avisos_sla_revision", "cuentas_por_pagar");
+                });
+
             modelBuilder.Entity("Millet.CuentasPorPagar.Domain.FacturaProveedor.BitacoraEstadoFactura", b =>
                 {
                     b.Property<Guid>("Id")
@@ -1629,6 +1713,19 @@ namespace Millet.CuentasPorPagar.Infrastructure.Persistence.Migrations
                     b.Property<string>("RetencionesDetalle")
                         .HasColumnType("jsonb")
                         .HasColumnName("retenciones_detalle");
+
+                    b.Property<DateTimeOffset?>("RetencionesRevisadasEn")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("retenciones_revisadas_en");
+
+                    b.Property<Guid?>("RetencionesRevisadasPor")
+                        .HasColumnType("uuid")
+                        .HasColumnName("retenciones_revisadas_por");
+
+                    b.Property<string>("RetencionesRevisionMotivo")
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)")
+                        .HasColumnName("retenciones_revision_motivo");
 
                     b.Property<string>("SerieProveedor")
                         .HasMaxLength(25)

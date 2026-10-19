@@ -13,7 +13,7 @@ import {
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
 import { EmptyState, ErrorState, TableSkeleton } from '@/components/erp';
-import { esApiError, useFormIdempotencyKey } from '@/lib/api';
+import { esApiError, useFormIdempotencyKey, codigoSoporte } from '@/lib/api';
 import { EstatusCatalogo } from '@/modules/catalogos/api/types';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
@@ -135,7 +135,7 @@ export function CatalogoEditableTable<
         onError: (err) => {
           if (esApiError(err)) {
             toast.error(err.problem.title, {
-              description: err.traceId ? `Código: ${err.traceId}` : undefined,
+              description: codigoSoporte(err),
             });
           } else {
             toast.error(`Error al desactivar el ${recursoSingular.toLowerCase()}.`);
@@ -230,7 +230,7 @@ export function CatalogoEditableTable<
                   </tr>
                   {editando && (
                     <tr>
-                      <td colSpan={totalCols} className="bg-amber-50/40 p-3">
+                      <td colSpan={totalCols} className="bg-warning-bg/40 p-3">
                         {renderInlineEditForm(item, () => setEditandoId(null))}
                       </td>
                     </tr>

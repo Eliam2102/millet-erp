@@ -25,6 +25,8 @@ public sealed class OcMapsterConfig : IRegister
             // El handler compone estos historiales y enriquece los motivos.
             .Ignore(dest => dest.Autorizaciones)
             .Ignore(dest => dest.SolicitudesCancelacion)
+            .Ignore(dest => dest.RespuestasProveedor)
+            .Ignore(dest => dest.EstadoComercialProveedor)
             .Map(dest => dest.Folio, src => src.Folio.Valor)
             // ADR-0042 addendum: etiqueta del proveedor resuelta por el handler
             // tras el map (batch IProveedorReadPort). Null explícito (record posicional).

@@ -29,7 +29,7 @@ export function DiasAtrasadosBadge({
   return (
     <span
       className={cn(
-        'inline-flex items-center gap-1 rounded-md px-1.5 py-0.5 text-xs font-medium ring-1 ring-inset',
+        'inline-flex items-center gap-1 rounded-full px-1.5 py-0.5 text-xs font-medium ring-1 ring-inset',
         color,
         className,
       )}
@@ -47,20 +47,20 @@ export function DiasAtrasadosBadge({
 function resolverEstado(dias: number) {
   if (dias <= 0) {
     return {
-      color: 'bg-emerald-50 text-emerald-700 ring-emerald-200',
+      color: 'bg-success-bg text-success-fg ring-success',
       Icon: Clock,
       label: 'Al día (no atrasada)',
     };
   }
   if (dias <= 7) {
     return {
-      color: 'bg-amber-50 text-amber-700 ring-amber-200',
+      color: 'bg-warning-bg text-warning-fg ring-warning',
       Icon: AlertTriangle,
       label: `Atrasada reciente: ${dias} día${dias === 1 ? '' : 's'}`,
     };
   }
   return {
-    color: 'bg-rose-50 text-rose-700 ring-rose-200',
+    color: 'bg-danger-bg text-danger-fg ring-danger',
     Icon: AlertCircle,
     label: `Atrasada crítica: ${dias} días`,
   };

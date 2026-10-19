@@ -171,6 +171,7 @@ public sealed class CuentasPorPagarDbContext : BaseDbContext
 
     /// <summary>Proyección local de OcRecepcionRegistradaEvent (F5-PR1).</summary>
     public DbSet<RecepcionOcLocal> RecepcionesOcLocal => Set<RecepcionOcLocal>();
+    public DbSet<AvisoSlaRevision> AvisosSlaRevision => Set<AvisoSlaRevision>();
 
     /// <summary>Anticipos a proveedores (§4.5, F6-PR2).</summary>
     public DbSet<AnticipoProveedor> AnticiposProveedor => Set<AnticipoProveedor>();
@@ -251,6 +252,7 @@ public sealed class CuentasPorPagarDbContext : BaseDbContext
         modelBuilder.Entity<NotaCreditoProveedor>().Property(n => n.MotivoExcepcionRelacion).HasMaxLength(400);
         modelBuilder.ApplyConfiguration(new EventoProcesadoConfiguration());
         modelBuilder.ApplyConfiguration(new RecepcionOcLocalConfiguration());
+        modelBuilder.ApplyConfiguration(new AvisoSlaRevisionConfiguration());
         modelBuilder.ApplyConfiguration(new AnticipoProveedorConfiguration());
         modelBuilder.Entity<ConfiguracionAnticipoProveedor>(b =>
         {

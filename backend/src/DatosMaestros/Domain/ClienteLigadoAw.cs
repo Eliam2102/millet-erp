@@ -1,11 +1,22 @@
+using System.Text.RegularExpressions;
 using Millet.SharedKernel.Domain;
 using Millet.SharedKernel.Application.Exceptions;
 namespace Millet.DatosMaestros.Domain;
 
-public static class RfcCliente
+public static partial class RfcCliente
 {
     public static string Normalizar(string? rfc) => (rfc ?? string.Empty).Trim().ToUpperInvariant();
     public static bool EsLigable(string? rfc) => Normalizar(rfc) is not ("" or "XAXX010101000" or "XEXX010101000");
+
+    /// <summary>Clave de ligado (M2.2): RFC o UST_ID sin espacios, guiones ni puntos, con forma de RFC y no genérico; null si no sirve para ligar.</summary>
+    public static string? ClaveLigado(string? valor)
+    {
+        var v = Normalizar(valor).Replace("-", "", StringComparison.Ordinal).Replace(" ", "", StringComparison.Ordinal).Replace(".", "", StringComparison.Ordinal);
+        return EsLigable(v) && FormaRfc().IsMatch(v) ? v : null;
+    }
+
+    [GeneratedRegex(@"^[A-ZÑ&]{3,4}[0-9]{6}[A-Z0-9]{3}$", RegexOptions.CultureInvariant)]
+    private static partial Regex FormaRfc();
 }
 
 public sealed class ClienteLigadoAw : BaseEntity, IAuditable

@@ -350,7 +350,9 @@ public class AwClientesSincronizadorTests : IClassFixture<WebApplicationFactory<
 
         await ConSync<int>(origen, opts, async (s, _, _) =>
         {
-            Assert.Equal(codigo, (await Assert.ThrowsAsync<AwClientesSyncException>(() => s.IniciarBarridoAsync("t", default))).Code);
+            var rechazo = await Assert.ThrowsAsync<AwClientesSyncException>(() => s.IniciarBarridoAsync("t", default));
+            Assert.Equal(codigo, rechazo.Code);
+            Assert.DoesNotContain("IntegracionesAw:", rechazo.Message);
             Assert.Equal(codigo, (await Assert.ThrowsAsync<AwClientesSyncException>(() => s.EjecutarAsync(Guid.NewGuid(), default))).Code);
             Assert.Equal(codigo, (await Assert.ThrowsAsync<AwClientesSyncException>(() => s.ReintentarReferenciaAsync("1", "t", default))).Code);
             return 0;
@@ -418,5 +420,81 @@ public class AwClientesSincronizadorTests : IClassFixture<WebApplicationFactory<
             b.UseSetting("IntegracionesAw:Clientes:ProgramacionHabilitada", valor));
         var hay = f.Services.GetServices<IHostedService>().OfType<AwClientesSyncWorker>().Any();
         Assert.Equal(esperado, hay);
+    }
+
+    [Fact]
+    public async Task Barrido_crea_sin_clasificar_sin_errores()
+    {
+        var filas = Filas(NuevaBase(), 3);
+        var e = await Ejec(await Barrido(new OrigenFake(filas), Opts()));
+
+        Assert.Equal((3, 3, 0), (e.Leidos, e.Creados, e.Errores));
+        var (cs, _) = await Leer(Ids(filas));
+        Assert.Equal(3, cs.Count);
+        Assert.All(cs, c => Assert.Null(c.ClasificacionId));
+    }
+
+    [Fact]
+    public async Task Reclasificar_no_cambia_hash_y_el_barrido_identico_es_SinCambios()
+    {
+        var b = NuevaBase();
+        var origen = new OrigenFake([Fila(b + 1)]);
+        await Barrido(origen, Opts());
+        var (_, regsAntes) = await Leer([b + 1]);
+        var hashAntes = Assert.Single(regsAntes).HashOrigen;
+
+        var clasificacion = Guid.Parse("00000012-0001-0000-0000-000000000001");
+        using (var scope = _factory.Services.CreateScope())
+        {
+            var db = scope.ServiceProvider.GetRequiredService<CompartidoDbContext>();
+            using var bypass = scope.ServiceProvider.GetRequiredService<ICurrentEmpresaContext>().Bypass();
+            var cliente = await db.Clientes.SingleAsync(c => c.ReferenciaExterna == (b + 1).ToString());
+            cliente.Clasificar(clasificacion);
+            await db.SaveChangesAsync();
+        }
+
+        var e = await Ejec(await Barrido(origen, Opts()));
+        Assert.Equal((1, 1), (e.Leidos, e.SinCambios));
+        var (cs, regsDespues) = await Leer([b + 1]);
+        Assert.Equal(clasificacion, Assert.Single(cs).ClasificacionId);
+        Assert.Equal(hashAntes, Assert.Single(regsDespues).HashOrigen);
+    }
+
+    [Fact]
+    public async Task Barrido_cuenta_conflicto_por_rfc_de_manual()
+    {
+        var b = NuevaBase();
+        var rfc = "CNF" + b.ToString("D9"); // único por prueba: la BD es compartida por la clase
+        var manualId = Guid.CreateVersion7();
+        var clave = "MAN-" + b;
+        var fila = Fila(b + 1) with { UstId = rfc, AplicarFiscalesDeOrigen = true };
+        try
+        {
+            using (var scope = _factory.Services.CreateScope())
+            {
+                var db = scope.ServiceProvider.GetRequiredService<CompartidoDbContext>();
+                using var bypass = scope.ServiceProvider.GetRequiredService<ICurrentEmpresaContext>().Bypass();
+                db.Clientes.Add(new Cliente(manualId, clave, "FICTICIO", rfc: rfc));
+                await db.SaveChangesAsync();
+            }
+
+            var e = await Ejec(await Barrido(new OrigenFake([fila]), Opts()));
+            Assert.Equal((1, 0, 1), (e.Leidos, e.Creados, e.Conflictos));
+
+            using var check = _factory.Services.CreateScope();
+            var cdb = check.ServiceProvider.GetRequiredService<CompartidoDbContext>();
+            using var bypassCheck = check.ServiceProvider.GetRequiredService<ICurrentEmpresaContext>().Bypass();
+            Assert.Equal(0, await cdb.Clientes.CountAsync(c => c.Origen == OrigenMaster.Aw && c.Rfc == rfc));
+        }
+        finally
+        {
+            using var scope = _factory.Services.CreateScope();
+            var cdb = scope.ServiceProvider.GetRequiredService<CompartidoDbContext>();
+            using var bypass = scope.ServiceProvider.GetRequiredService<ICurrentEmpresaContext>().Bypass();
+            var refs = new[] { (b + 1).ToString() };
+            await cdb.Set<ClienteSincronizacionAw>().Where(r => refs.Contains(r.ReferenciaExterna)).ExecuteDeleteAsync();
+            await cdb.Set<ClienteLigadoAw>().Where(r => refs.Contains(r.ReferenciaExterna)).ExecuteDeleteAsync();
+            await cdb.Clientes.Where(c => c.Id == manualId || (c.ReferenciaExterna != null && refs.Contains(c.ReferenciaExterna))).ExecuteDeleteAsync();
+        }
     }
 }

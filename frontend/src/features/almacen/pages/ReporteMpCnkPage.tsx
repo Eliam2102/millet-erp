@@ -57,7 +57,7 @@ export function ReporteMpCnkPage() {
           </Field>
           {subAlmacenId && (
             <Button variant="ghost" onClick={() => setSubAlmacenId(undefined)}>
-              Reset filtros
+              Limpiar filtros
             </Button>
           )}
         </div>

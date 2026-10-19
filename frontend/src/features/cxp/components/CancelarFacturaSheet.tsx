@@ -1,4 +1,6 @@
 import { useEffect } from 'react';
+import { formatMoney } from '@/lib/money';
+import { folioFactura } from '@/features/cxp/lib/formato';
 import { Controller, useForm, useWatch } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { toast } from 'sonner';
@@ -24,6 +26,7 @@ import {
   applyServerErrors,
   esApiError,
   useFormIdempotencyKey,
+  codigoSoporte,
 } from '@/lib/api';
 import {
   CancelarFacturaSchema,
@@ -114,9 +117,7 @@ export function CancelarFacturaSheet({
               return;
             }
             toast.error(error.problem.title, {
-              description: error.traceId
-                ? `Código: ${error.traceId}`
-                : undefined,
+              description: codigoSoporte(error),
             });
             return;
           }
@@ -130,12 +131,12 @@ export function CancelarFacturaSheet({
 
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
-      <SheetContent side="right" className="sm:max-w-md">
+      <SheetContent side="right" size="form">
         <SheetHeader>
           <SheetTitle>Cancelar factura</SheetTitle>
           <SheetDescription>
             {factura
-              ? `Folio ${factura.serieProveedor ?? ''}${factura.folioProveedor ?? '—'} — total ${factura.total.toFixed(2)} ${factura.moneda}. La cancelación es irreversible.`
+              ? `Folio ${folioFactura(factura)} — total ${formatMoney({ amount: factura.total, currency: factura.moneda })}. La cancelación es irreversible.`
               : 'Selecciona una factura.'}
           </SheetDescription>
         </SheetHeader>

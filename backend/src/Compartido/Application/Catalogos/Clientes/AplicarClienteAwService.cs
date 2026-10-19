@@ -3,6 +3,7 @@ using System.Security.Cryptography;
 using System.Text;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Options;
+using Millet.Catalogos.Domain;
 using Millet.Compartido.Infrastructure.Persistence;
 using Millet.DatosMaestros.Domain;
 using Millet.SharedKernel.Application.Exceptions;
@@ -108,7 +109,7 @@ public sealed class AplicarClienteAwService
         AplicarClienteAwSnapshot snap, CancellationToken ct)
     {
         _ = VersionMapeoEfectiva(snap);
-        await using var scope = await ClienteRfcScope.AbrirAsync(_db, snap.Rfc, ct);
+        await using var scope = await ClienteRfcScope.AbrirAsync(_db, Clave(snap), ct);
         var resultado = await AplicarCoreAsync(snap, ct);
         await scope.ConfirmarAsync(ct);
         return resultado;
@@ -133,6 +134,7 @@ public sealed class AplicarClienteAwService
                     // Otro escritor actualizó el mismo registro: soltar lo rastreado, releer y reevaluar (un solo reintento).
                     reintentoConcurrencia = true;
                     foreach (var e in ex.Entries) e.State = EntityState.Detached;
+                    DesacoplarCambios();
                     _db.Entry(cliente).State = EntityState.Detached;
                     intento--; // no consume el límite de la carrera de alta
                     continue;
@@ -144,8 +146,9 @@ public sealed class AplicarClienteAwService
             if (!snap.SoloCrear && snap.MonedaDefault is null)
                 return new(null, AplicarClienteAwAccion.NoCreado, ResultadoSincronizacionAw.Pendiente);
 
-            var rfc = RfcCliente.Normalizar(snap.Rfc);
-            if (RfcCliente.EsLigable(rfc) && await _db.Clientes.AnyAsync(c => c.Origen == OrigenMaster.Manual && c.Rfc != null && c.Rfc.Trim().ToUpper() == rfc, ct))
+            // Clave de ligado = RFC o UST_ID normalizado (M2.2). Solo contra clientes manuales: el ligado entre clientes de A+W está diferido hasta aclarar con Millet (ver aclaracion-rfc-repetido.md).
+            var rfc = Clave(snap);
+            if (rfc is not null && await _db.Clientes.AnyAsync(c => c.Origen == OrigenMaster.Manual && c.Rfc != null && c.Rfc.Trim().ToUpper() == rfc, ct))
             {
                 var conflicto = await _db.Set<ClienteLigadoAw>().SingleOrDefaultAsync(c => c.ReferenciaExterna == snap.ReferenciaExterna, ct);
                 if (conflicto is null) _db.Add(new ClienteLigadoAw(Guid.CreateVersion7(), snap.ReferenciaExterna, rfc, System.Text.Json.JsonSerializer.Serialize(snap)));
@@ -153,10 +156,22 @@ public sealed class AplicarClienteAwService
                 await _db.SaveChangesAsync(ct);
                 return new(null, AplicarClienteAwAccion.Conflicto, ResultadoSincronizacionAw.Conflicto);
             }
-            var nuevo = CrearCliente(snap);
+            // Sin coincidencia vigente: un conflicto pendiente de esta referencia quedó obsoleto (p. ej. el manual cambió su RFC).
+            var obsoleto = await _db.Set<ClienteLigadoAw>().SingleOrDefaultAsync(l => l.ReferenciaExterna == snap.ReferenciaExterna && l.RevisadoEn == null, ct);
+            if (obsoleto is not null) _db.Remove(obsoleto);
+            // Nunca dos clientes con el mismo campo RFC (también en modo demo, donde A+W sí copia el RFC). Si otro cliente ya tiene ese RFC se crea sin él (el ligado entre clientes de A+W está diferido); no cambia el hash ni el registro de origen.
+            var rfcCampo = RfcCliente.Normalizar(snap.Rfc);
+            var rfcOcupado = RfcCliente.EsLigable(rfcCampo) && await _db.Clientes.AnyAsync(c => c.Rfc != null && c.Rfc.Trim().ToUpper() == rfcCampo, ct);
+            // Misma clave fiscal en otro cliente de A+W: se crea igual (no se fusionan) y queda un conflicto visible (ADM-06).
+            var ocupantes = rfc is null ? [] : await ClientesPorRfc.BuscarAsync(_db, [rfc], null, ct);
+            var nuevo = CrearCliente(rfcOcupado ? snap with { Rfc = null } : snap);
             AplicarEstatus(nuevo, snap);
             var registro = new ClienteSincronizacionAw(Guid.CreateVersion7(), nuevo.Id, snap.ReferenciaExterna);
             var hash = CalcularHash(snap);
+            if (ocupantes.Count > 0)
+            {
+                _db.Add(ConflictoRfc(nuevo.Id, nuevo.Clave, snap, hash, rfc!, ocupantes, null));
+            }
             var resultado = ResultadoDe(snap);
             AplicarRegistro(registro, snap, hash, resultado);
             _db.Clientes.Add(nuevo);
@@ -170,6 +185,7 @@ public sealed class AplicarClienteAwService
             {
                 _db.Entry(nuevo).State = EntityState.Detached;
                 _db.Entry(registro).State = EntityState.Detached;
+                DesacoplarCambios();
                 // La clave AW-{ref} es determinista: en la carrera Postgres puede reportar IxClave;
                 // si ya existe un cliente con esa referencia es la misma carrera, no un duplicado real.
                 if (pg.ConstraintName == IxClave
@@ -184,6 +200,17 @@ public sealed class AplicarClienteAwService
         }
     }
 
+    internal static CambioMaestroAw ConflictoRfc(Guid clienteId, string claveErp, AplicarClienteAwSnapshot snap, string hash, string rfc,
+        IReadOnlyList<(string Clave, ClienteExistente Cliente)> ocupantes, string? hashAnterior)
+    {
+        var otros = string.Join(", ", ocupantes.Select(o => o.Cliente.Clave));
+        var causa = $"Dos clientes con la misma clave fiscal {rfc}: {claveErp} y {otros}. No se fusionan.";
+        return new CambioMaestroAw(Guid.CreateVersion7(), "Cliente", clienteId, snap.ReferenciaExterna,
+            "RFC repetido entre clientes de A+W", otros, rfc, MatrizCampoDuenoAw.DuenoAw, TipoCambioMaestroAw.RfcCompartido,
+            EstadoCambioMaestroAw.Pendiente, causa.Length <= 500 ? causa : causa[..500], hash, MatrizCampoDuenoAw.Version,
+            snap.EjecucionId, DateTime.UtcNow, hashAnterior);
+    }
+
     private async Task<AplicarClienteAwResultado> ActualizarAsync(
         Cliente cliente, AplicarClienteAwSnapshot snap, CancellationToken ct)
     {
@@ -191,7 +218,7 @@ public sealed class AplicarClienteAwService
         if (cliente.Origen != OrigenMaster.Aw)
         {
             var rfcManual = RfcCliente.Normalizar(cliente.Rfc);
-            if (RfcCliente.EsLigable(rfcManual) && rfcManual == RfcCliente.Normalizar(snap.Rfc))
+            if (RfcCliente.EsLigable(rfcManual) && rfcManual == Clave(snap))
             {
                 var conflicto = await _db.Set<ClienteLigadoAw>().SingleOrDefaultAsync(c => c.ReferenciaExterna == snap.ReferenciaExterna, ct);
                 if (conflicto is null) _db.Add(new ClienteLigadoAw(Guid.CreateVersion7(), snap.ReferenciaExterna, rfcManual, System.Text.Json.JsonSerializer.Serialize(snap)));
@@ -212,29 +239,60 @@ public sealed class AplicarClienteAwService
         if (registro is not null && snap.LeidoEnUtc < registro.LeidoEnUtc)
             return new(cliente, AplicarClienteAwAccion.SinCambios, registro.Resultado);
 
+        // Ancla de la transición: hash y momento de la última aplicación (iguales para dos escritores en carrera, distintos en cada vuelta de un flip-flop).
+        var hashAnterior = registro is { HashOrigen.Length: > 0 } ? $"{registro.HashOrigen}|{registro.AplicadoEnUtc.Ticks}" : null;
+        var estatusAntes = cliente.Estatus;
         AplicarEstatus(cliente, snap);
+        var cambios = new List<CambioMaestroAw>();
+        if (cliente.Estatus != estatusAntes)
+        {
+            var baja = cliente.Estatus == EstatusCatalogo.Inactivo;
+            cambios.Add(NuevoCambio(cliente.Id, snap, hash, hashAnterior, "Estatus", estatusAntes.ToString(), cliente.Estatus.ToString(),
+                baja ? TipoCambioMaestroAw.Baja : TipoCambioMaestroAw.Reactivacion,
+                baja ? $"A+W bloqueó al cliente (mapeo {VersionMapeoEfectiva(snap)})."
+                     : "A+W desbloqueó un bloqueo que vino de A+W; se reactiva sin crear otra identidad."));
+        }
         if (registro is not null && registro.HashOrigen == hash
             && registro.VersionMapeo == VersionMapeoEfectiva(snap)
             && registro.Resultado != ResultadoSincronizacionAw.Error
             && registro.Resultado == ResultadoDe(snap))
         {
             registro.RegistrarComprobacion(snap.LeidoEnUtc, snap.EjecucionId);
+            await BitacoraMaestroAw.AgregarAsync(_db, cambios, "Cliente", snap.ReferenciaExterna, hash, ct);
             try
             {
-                await _db.SaveChangesAsync(ct);
+                await BitacoraMaestroAw.GuardarAsync(_db, cambios, "Cliente", snap.ReferenciaExterna, hash, ct);
             }
             catch (DbUpdateConcurrencyException ex)
             {
                 // El latido es best-effort: otro escritor ya actualizó el registro y esta lectura no aplicó nada.
                 foreach (var e in ex.Entries) e.State = EntityState.Detached;
+                DesacoplarCambios();
             }
             return new(cliente, AplicarClienteAwAccion.SinCambios, registro.Resultado);
         }
 
-        var diferencias = DiferenciaAplicacionAw.Serializar(Diferencias(cliente, snap));
+        var difs = Diferencias(cliente, snap);
+        var diferencias = DiferenciaAplicacionAw.Serializar(difs);
+        // Lo que el ERP conserva y A+W informa distinto (campos de dueño ERP) queda también en la bitácora, sin conflicto pendiente.
+        foreach (var d in difs)
+            cambios.Add(new CambioMaestroAw(Guid.CreateVersion7(), "Cliente", cliente.Id, snap.ReferenciaExterna, d.Campo, d.Conservado, d.Recibido,
+                MatrizCampoDuenoAw.DuenoErp, TipoCambioMaestroAw.Diferencia, EstadoCambioMaestroAw.Informativo, d.Motivo, hash,
+                MatrizCampoDuenoAw.Version, snap.EjecucionId, DateTime.UtcNow, hashAnterior));
         var telefono = string.IsNullOrWhiteSpace(cliente.Telefono) ? Vacio(snap.Telefono) : null;
         var email = string.IsNullOrWhiteSpace(cliente.Email) ? Vacio(snap.Email) : null;
         var rfc = string.IsNullOrWhiteSpace(cliente.Rfc) ? Vacio(snap.Rfc) : null;
+        // Nunca dos clientes con el mismo RFC no genérico: no se completa un RFC que ya ocupa otro cliente.
+        if (rfc is not null && RfcCliente.EsLigable(rfc) && await _db.Clientes.AnyAsync(c => c.Id != cliente.Id && c.Rfc != null && c.Rfc.Trim().ToUpper() == RfcCliente.Normalizar(rfc), ct)) rfc = null;
+        // Clave fiscal de A+W ocupada por otro cliente (de A+W o manual): no se fusionan; un conflicto por referencia y clave.
+        var clave = Clave(snap);
+        if (clave is not null)
+        {
+            var ocupantes = await ClientesPorRfc.BuscarAsync(_db, [clave], cliente.Id, ct);
+            if (ocupantes.Count > 0 && !await _db.CambiosMaestrosAw.AnyAsync(c => c.TipoEntidad == "Cliente"
+                    && c.ReferenciaExterna == snap.ReferenciaExterna && c.Tipo == TipoCambioMaestroAw.RfcCompartido && c.ValorDespues == clave, ct))
+                cambios.Add(ConflictoRfc(cliente.Id, cliente.Clave, snap, hash, clave, ocupantes, null));
+        }
         var cpFiscal = string.IsNullOrWhiteSpace(cliente.CodigoPostalFiscal) ? Vacio(snap.CodigoPostalFiscal) : null;
         if (telefono is not null || email is not null || rfc is not null || cpFiscal is not null)
             cliente.ActualizarDatos(rfc: rfc, codigoPostalFiscal: cpFiscal, telefono: telefono, email: email);
@@ -245,9 +303,48 @@ public sealed class AplicarClienteAwService
             registro = new ClienteSincronizacionAw(Guid.CreateVersion7(), cliente.Id, snap.ReferenciaExterna);
             _db.Set<ClienteSincronizacionAw>().Add(registro);
         }
+        if (registro.HashOrigen.Length > 0) cambios.AddRange(CambiosDeOrigen(cliente.Id, registro, snap, hash, hashAnterior));
         AplicarRegistro(registro, snap, hash, resultado, diferencias);
-        await _db.SaveChangesAsync(ct);
+        await BitacoraMaestroAw.AgregarAsync(_db, cambios, "Cliente", snap.ReferenciaExterna, hash, ct);
+        await BitacoraMaestroAw.GuardarAsync(_db, cambios, "Cliente", snap.ReferenciaExterna, hash, ct);
         return new(cliente, AplicarClienteAwAccion.Actualizado, resultado);
+    }
+
+    private static CambioMaestroAw NuevoCambio(Guid clienteId, AplicarClienteAwSnapshot snap, string hash, string? hashAnterior, string campo,
+        string? antes, string? despues, TipoCambioMaestroAw tipo, string causa) =>
+        new(Guid.CreateVersion7(), "Cliente", clienteId, snap.ReferenciaExterna, campo, antes, despues,
+            MatrizCampoDuenoAw.DuenoAw, tipo, EstadoCambioMaestroAw.Informativo, causa, hash,
+            MatrizCampoDuenoAw.Version, snap.EjecucionId, DateTime.UtcNow, hashAnterior);
+
+    /// <summary>Un cambio por campo de A+W que difiere del registro de origen previo (comparación ordinal, vacío = nulo).</summary>
+    private static List<CambioMaestroAw> CambiosDeOrigen(Guid clienteId, ClienteSincronizacionAw antes, AplicarClienteAwSnapshot s, string hash, string? hashAnterior)
+    {
+        var lista = new List<CambioMaestroAw>();
+        void Cmp(string campo, string? a, string? d)
+        {
+            a = Vacio(a); d = Vacio(d);
+            if (!string.Equals(a, d, StringComparison.Ordinal))
+                lista.Add(NuevoCambio(clienteId, s, hash, hashAnterior, campo, a, d, TipoCambioMaestroAw.Aplicado, "Cambio recibido de A+W."));
+        }
+        static string? Domicilio(params string?[] partes) => string.Join(", ", partes.Where(p => !string.IsNullOrWhiteSpace(p)).Select(p => p!.Trim()));
+        Cmp("Nombre de origen", antes.NombreComercialOrigen, s.NombreComercialOrigen);
+        Cmp("Domicilio de origen",
+            Domicilio(antes.DomicilioOrigenCalle, antes.DomicilioOrigenCiudad, antes.DomicilioOrigenCp, antes.DomicilioOrigenProvincia, antes.DomicilioOrigenPais),
+            Domicilio(s.DomicilioCalle, s.DomicilioCiudad, s.DomicilioCp, s.DomicilioProvincia, s.DomicilioPais));
+        Cmp("Condición de pago", antes.CondicionCodigoOrigen, s.CondicionCodigoOrigen);
+        Cmp("Moneda de origen", antes.MonedaCodigoOrigen, s.MonedaCodigoOrigen);
+        Cmp("Límite de crédito de referencia", antes.CreditoReferenciaLimite?.ToString("0.00", CultureInfo.InvariantCulture),
+            s.CreditoReferenciaLimite?.ToString("0.00", CultureInfo.InvariantCulture));
+        Cmp("Bloqueo A+W", antes.BloqueoOrigenCrudo?.ToString(CultureInfo.InvariantCulture), s.BloqueoOrigenCrudo?.ToString(CultureInfo.InvariantCulture));
+        Cmp("Estado A+W", antes.EstadoOrigenCrudo?.ToString(CultureInfo.InvariantCulture), s.EstadoOrigenCrudo?.ToString(CultureInfo.InvariantCulture));
+        return lista;
+    }
+
+    /// <summary>Tras un choque de concurrencia las filas de bitácora pendientes se sueltan para no insertarlas dos veces.</summary>
+    private void DesacoplarCambios()
+    {
+        foreach (var e in _db.ChangeTracker.Entries<CambioMaestroAw>().Where(e => e.State == EntityState.Added).ToList())
+            e.State = EntityState.Detached;
     }
 
     private static Cliente CrearCliente(AplicarClienteAwSnapshot s)
@@ -334,6 +431,9 @@ public sealed class AplicarClienteAwService
         Dif("Correo", s.Email, c.Email, "Solo se completa si el local está vacío.");
         return d;
     }
+
+    /// <summary>Clave de ligado del snapshot: RFC, o UST_ID si el RFC no sirve (M2.2).</summary>
+    private static string? Clave(AplicarClienteAwSnapshot s) => RfcCliente.ClaveLigado(s.Rfc) ?? RfcCliente.ClaveLigado(s.CandidatoFiscalUstId);
 
     private static string? Vacio(string? v) => string.IsNullOrWhiteSpace(v) ? null : v.Trim();
 

@@ -60,8 +60,8 @@ export function NuevaPoliticaViaticosSheet({
         <SheetHeader>
           <SheetTitle>Nueva política de viáticos</SheetTitle>
           <SheetDescription>
-            Tope por puesto y destino (Nacional / Internacional). El
-            backend valida contra esta política al solicitar viáticos.
+            Tope por puesto y destino (Nacional / Internacional). Al
+            solicitar viáticos se valida contra esta política.
           </SheetDescription>
         </SheetHeader>
         {open && <Form onClose={() => onOpenChange(false)} />}

@@ -1,3 +1,4 @@
+import type { ComponentProps } from 'react';
 import { useUsuarios } from '@/features/catalogos/api';
 import { CatalogoEagerCombobox } from '@/components/erp/selectors/CatalogoEagerCombobox';
 
@@ -17,6 +18,8 @@ export interface UsuarioSelectorProps {
   placeholder?: string;
   disabled?: boolean;
   className?: string;
+  /** Props extra del trigger (id y aria-* que entrega `Field`). */
+  triggerProps?: ComponentProps<'button'>;
 }
 
 export function UsuarioSelector({
@@ -25,6 +28,7 @@ export function UsuarioSelector({
   placeholder = 'Selecciona usuario',
   disabled,
   className,
+  triggerProps,
 }: UsuarioSelectorProps) {
   const query = useUsuarios();
   // Filtramos client-side a activos: los selectores solo deben permitir
@@ -53,6 +57,7 @@ export function UsuarioSelector({
       ariaLabel="Seleccionar usuario"
       disabled={disabled}
       className={className}
+      triggerProps={triggerProps}
       popoverWidthClassName="w-[min(32rem,90vw)]"
     />
   );

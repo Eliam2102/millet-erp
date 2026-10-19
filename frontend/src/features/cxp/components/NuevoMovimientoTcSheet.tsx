@@ -95,12 +95,12 @@ function FormContainer({ onClose }: { onClose: () => void }) {
         className={cn(
           'rounded-md px-3 py-2 text-xs',
           flujo === 'A'
-            ? 'bg-blue-50 text-blue-900'
-            : 'bg-amber-50 text-amber-900',
+            ? 'bg-info-bg text-info-fg'
+            : 'bg-warning-note-bg text-warning-note-fg',
         )}
       >
         {flujo === 'A'
-          ? 'Backend generará la FacturaProveedor en estado Pagada al registrar.'
+          ? 'Se generará la FacturaProveedor en estado Pagada al registrar.'
           : 'Solo se registra el movimiento; ningún pasivo se crea (gasto sin CFDI).'}
       </div>
 

@@ -70,7 +70,9 @@ public sealed record LineaConteoParaCapturarDto(
     // Nota A6: la descripción del artículo no revela cantidad teórica.
     string? ArticuloClave = null,
     string? ArticuloDescripcion = null,
-    string? SubAlmacenClave = null);
+    string? SubAlmacenClave = null,
+    // Unidad de medida del maestro de artículos (decimales y etiqueta de captura).
+    string? UnidadMedida = null);
 
 /// <summary>
 /// DTO del endpoint de comparación. SÍ incluye cantidad_teorica +
@@ -99,19 +101,71 @@ public sealed record LineaConteoComparacionDto(
     // A7: cantidad vigente = último recuento si existe, si no la captura original.
     // Varianza y valor se calculan contra ella; CantidadRealCapturada se conserva.
     decimal? CantidadVigente = null,
-    bool RecuentoRealizado = false);
+    bool RecuentoRealizado = false,
+    string? UnidadMedida = null);
 
 public sealed record ListarConteosQuery(
     EstadoConteo? Estado,
     TipoConteo? Tipo,
     Guid? SubAlmacenId,
     int Offset,
-    int Limit) : IRequest<AlmacenPagedResponse<ConteoListItem>>, IDocumentoScopedQuery
+    int Limit,
+    string? Q = null) : IRequest<AlmacenPagedResponse<ConteoListItem>>, IDocumentoScopedQuery
 {
     public string TipoDocumento => "conteo";
     public string PermisoTodasSucursales => "almacen.inventarios.leer-todas-sucursales";
     public IReadOnlyList<Guid>? SucursalesPermitidas { get; set; }
     public IReadOnlyList<Guid>? DocumentosPermitidos { get; set; }
+}
+
+/// <summary>
+/// Filtros de la bandeja de conteos salvo el estado, compartidos por el listado
+/// y por los conteos por estado (UX-F3-05) para que ambos coincidan siempre.
+/// </summary>
+internal static class ConteosFiltro
+{
+    public static IQueryable<ConteoInventario> Aplicar(AlmacenDbContext db, ListarConteosQuery request)
+    {
+        var query = db.Set<ConteoInventario>().AsNoTracking();
+        if (request.DocumentosPermitidos is { } permitidos) query = query.Where(x => permitidos.Contains(x.Id));
+        if (request.Tipo is TipoConteo t) query = query.Where(c => c.Tipo == t);
+        if (request.SubAlmacenId is Guid sid) query = query.Where(c => c.SubAlmacenId == sid);
+
+        // El conteo no tiene folio propio: la búsqueda es por familia (después del filtro de alcance).
+        if (!string.IsNullOrWhiteSpace(request.Q))
+        {
+            // Npgsql no traduce ToLowerInvariant (la búsqueda devolvía 500); ToLower() sí, y el proveedor en memoria también.
+#pragma warning disable CA1304, CA1311, CA1862 // EF solo traduce ToLower() y Contains(string).
+            var q = request.Q.Trim().ToLower();
+            query = query.Where(c => c.FiltroFamilia != null && c.FiltroFamilia.ToLower().Contains(q));
+#pragma warning restore CA1304, CA1311, CA1862
+        }
+
+        return query;
+    }
+}
+
+public sealed record ConteosInventarioPorEstadoQuery(TipoConteo? Tipo, Guid? SubAlmacenId, string? Q = null)
+    : IRequest<IReadOnlyList<ConteoPorEstadoItem>>, IDocumentoScopedQuery
+{
+    public string TipoDocumento => "conteo";
+    public string PermisoTodasSucursales => "almacen.inventarios.leer-todas-sucursales";
+    public IReadOnlyList<Guid>? SucursalesPermitidas { get; set; }
+    public IReadOnlyList<Guid>? DocumentosPermitidos { get; set; }
+}
+
+public sealed class ConteosInventarioPorEstadoHandler(AlmacenDbContext db)
+    : IRequestHandler<ConteosInventarioPorEstadoQuery, IReadOnlyList<ConteoPorEstadoItem>>
+{
+    public async Task<IReadOnlyList<ConteoPorEstadoItem>> Handle(
+        ConteosInventarioPorEstadoQuery request, CancellationToken cancellationToken)
+    {
+        var lista = new ListarConteosQuery(null, request.Tipo, request.SubAlmacenId, 0, 0, request.Q)
+            { DocumentosPermitidos = request.DocumentosPermitidos };
+        return await ConteosFiltro.Aplicar(db, lista).GroupBy(c => c.Estado)
+            .Select(g => new ConteoPorEstadoItem((int)g.Key, g.Count()))
+            .ToListAsync(cancellationToken);
+    }
 }
 
 public sealed class ListarConteosHandler
@@ -123,11 +177,8 @@ public sealed class ListarConteosHandler
     public async Task<AlmacenPagedResponse<ConteoListItem>> Handle(
         ListarConteosQuery request, CancellationToken cancellationToken)
     {
-        IQueryable<ConteoInventario> query = _db.Set<ConteoInventario>().AsNoTracking();
-        if (request.DocumentosPermitidos is { } permitidos) query = query.Where(x => permitidos.Contains(x.Id));
+        var query = ConteosFiltro.Aplicar(_db, request);
         if (request.Estado is EstadoConteo e) query = query.Where(c => c.Estado == e);
-        if (request.Tipo is TipoConteo t) query = query.Where(c => c.Tipo == t);
-        if (request.SubAlmacenId is Guid sid) query = query.Where(c => c.SubAlmacenId == sid);
 
         var total = await query.CountAsync(cancellationToken);
         var items = await query
@@ -232,9 +283,57 @@ public sealed class ListarLineasParaCapturarHandler
         return await EnriquecerYOrdenarConteoLineas.PorArticuloAsync(
             lineas, _articulos,
             l => l.ArticuloId,
-            (l, art) => l with { ArticuloClave = art.Clave, ArticuloDescripcion = art.Descripcion },
+            (l, art) => l with { ArticuloClave = art.Clave, ArticuloDescripcion = art.Descripcion, UnidadMedida = art.UnidadMedida },
             l => (l.ArticuloClave, l.ArticuloId, l.UbicacionClave),
             cancellationToken);
+    }
+}
+
+// ─── Vista previa del número de líneas (antes de planificar) ─────────────────
+
+public sealed record VistaPreviaConteoDto(int CantidadLineas);
+
+public sealed record VistaPreviaConteoQuery(
+    Guid? SubAlmacenId,
+    string? Familia) : IRequest<VistaPreviaConteoDto>;
+
+/// <summary>
+/// Cuenta las líneas que tendría el conteo con los mismos criterios que el
+/// snapshot de <c>IniciarConteoHandler</c>: un saldo por (rack, artículo),
+/// filtrado por sub-almacén y por categoría (familia) del artículo.
+/// </summary>
+public sealed class VistaPreviaConteoHandler : IRequestHandler<VistaPreviaConteoQuery, VistaPreviaConteoDto>
+{
+    private readonly AlmacenDbContext _db;
+    private readonly IArticuloReadPort _articulos;
+
+    public VistaPreviaConteoHandler(AlmacenDbContext db, IArticuloReadPort articulos)
+    {
+        _db = db;
+        _articulos = articulos;
+    }
+
+    public async Task<VistaPreviaConteoDto> Handle(
+        VistaPreviaConteoQuery request, CancellationToken cancellationToken)
+    {
+        var saldos = _db.SaldosInventario.AsNoTracking().AsQueryable();
+        if (request.SubAlmacenId is Guid sid) saldos = saldos.Where(s => s.SubAlmacenId == sid);
+
+        if (string.IsNullOrWhiteSpace(request.Familia))
+            return new VistaPreviaConteoDto(await saldos.CountAsync(cancellationToken));
+
+        var porArticulo = await saldos
+            .GroupBy(s => s.ArticuloId)
+            .Select(g => new { ArticuloId = g.Key, Lineas = g.Count() })
+            .ToListAsync(cancellationToken);
+        var arts = await _articulos.ObtenerPorIdsAsync(
+            porArticulo.Select(x => x.ArticuloId).ToArray(), cancellationToken);
+        var familia = request.Familia.Trim();
+        var total = porArticulo
+            .Where(x => arts.TryGetValue(x.ArticuloId, out var a)
+                && string.Equals(a.Categoria?.Trim(), familia, StringComparison.OrdinalIgnoreCase))
+            .Sum(x => x.Lineas);
+        return new VistaPreviaConteoDto(total);
     }
 }
 
@@ -295,7 +394,7 @@ public sealed class ListarLineasComparacionHandler
         return await EnriquecerYOrdenarConteoLineas.PorArticuloAsync(
             lineas, _articulos,
             l => l.ArticuloId,
-            (l, art) => l with { ArticuloClave = art.Clave, ArticuloDescripcion = art.Descripcion },
+            (l, art) => l with { ArticuloClave = art.Clave, ArticuloDescripcion = art.Descripcion, UnidadMedida = art.UnidadMedida },
             l => (l.ArticuloClave, l.ArticuloId, l.UbicacionClave),
             cancellationToken);
     }

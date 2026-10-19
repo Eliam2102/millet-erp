@@ -26,6 +26,7 @@ import { ListaClientesCompacta } from '@/modules/datos-maestros/components/Lista
 import { useNuevoCliente } from '@/modules/datos-maestros/components/nuevo-cliente-context';
 import { SheetSincronizacionClientes } from '@/modules/datos-maestros/components/SheetSincronizacionClientes';
 import { F1AClientesPanel } from './F1AClientesPanel';
+import { useClientesFiltrosStore } from '@/modules/datos-maestros/stores/clientes-filtros-store';
 import { cn } from '@/lib/utils';
 
 /**
@@ -57,14 +58,22 @@ export function ClientesLayout({ idActivo, detalle }: ClientesLayoutProps) {
   );
   const [syncAbierto, setSyncAbierto] = useState(false);
 
-  const [sinClasificar, setSinClasificar] = useState(false);
-  const [rfcInput, setRfcInput] = useState('');
-  const [razonInput, setRazonInput] = useState('');
-  const [origen, setOrigen] = useState<string>('');
-  const [estatus, setEstatus] = useState<string>('');
-  const [resultadoSync, setResultadoSync] = useState<string>('');
-  const [soloFiscalesIncompletos, setSoloFiscalesIncompletos] =
-    useState(false);
+  const {
+    sinClasificar,
+    setSinClasificar,
+    rfcInput,
+    setRfcInput,
+    razonInput,
+    setRazonInput,
+    origen,
+    setOrigen,
+    estatus,
+    setEstatus,
+    resultadoSync,
+    setResultadoSync,
+    soloFiscalesIncompletos,
+    setSoloFiscalesIncompletos,
+  } = useClientesFiltrosStore();
 
   const rfcDebounced = useDebouncedValue(rfcInput, 300);
   const razonDebounced = useDebouncedValue(razonInput, 300);
@@ -133,7 +142,7 @@ export function ClientesLayout({ idActivo, detalle }: ClientesLayoutProps) {
           </div>
         </div>
 
-        <Button variant={sinClasificar ? "default" : "secondary"} size="sm" onClick={() => setSinClasificar(v => !v)}>Clientes sin clasificar</Button>
+        <Button variant={sinClasificar ? "default" : "secondary"} size="sm" aria-pressed={sinClasificar} onClick={() => setSinClasificar(!sinClasificar)}>Clientes sin clasificar</Button>
         <FiltrosBloque
           rfc={rfcInput}
           onRfc={setRfcInput}
@@ -149,6 +158,12 @@ export function ClientesLayout({ idActivo, detalle }: ClientesLayoutProps) {
           onSoloFiscalesIncompletos={setSoloFiscalesIncompletos}
         />
 
+        {clientesQuery.data && clientesQuery.data.total > items.length && (
+          <p role="status" className="text-xs text-ink-muted">
+            Mostrando {items.length} de {clientesQuery.data.total} clientes. Ajusta los filtros para acotar la lista.
+          </p>
+        )}
+
         <div className="flex-1 overflow-y-auto rounded-md border bg-card">
           <RenderLista
             query={clientesQuery}
@@ -163,7 +178,7 @@ export function ClientesLayout({ idActivo, detalle }: ClientesLayoutProps) {
       <section
         className={cn(
           'min-w-0 flex-1 md:overflow-y-auto',
-          idActivo == null ? 'hidden md:block' : 'block',
+          idActivo == null && !canGestionar ? 'hidden md:block' : 'block',
         )}
         aria-label="Detalle de cliente"
       >

@@ -61,9 +61,12 @@ const CODIGOS_BACKEND_ESPERADOS = new Set<string>([
   'compras.ordenes.cancelar',
   'compras.ordenes.cancelar-doble',
   'compras.ordenes.reportes-partidas-abiertas',
+  'compras.ordenes.registrar-respuesta-proveedor',
   // Compras — Configuración (PR-A 2026-05-13, setting AutoGenerarOcAlAutorizar).
   'compras.configuracion.leer',
   'compras.configuracion.editar',
+  'compras.cotizaciones.leer',
+  'compras.cotizaciones.gestionar',
   // Compartido — Catálogos. Tras F-Admin-PR4.5 el frontend mantiene el
   // par leer/administrar canónico aunque la UI vaya migrando a los
   // granulares de Datos Maestros.
@@ -80,6 +83,8 @@ const CODIGOS_BACKEND_ESPERADOS = new Set<string>([
   'datos_maestros.proveedores.gestionar',
   'datos_maestros.proveedores.bancarios-ver',
   'datos_maestros.proveedores.bancarios-editar',
+  'datos_maestros.proveedores.cuentas-administrar',
+  'datos_maestros.proveedores.expediente-configurar',
   'datos_maestros.proveedores.adjuntos-ver',
   'datos_maestros.proveedores.adjuntos-subir',
   'datos_maestros.proveedores.adjuntos-baja',
@@ -127,6 +132,7 @@ const CODIGOS_BACKEND_ESPERADOS = new Set<string>([
   'almacen.devoluciones-internas.capturar',
   'almacen.devoluciones-proveedor.iniciar',
   'almacen.devoluciones-proveedor.autorizar',
+  'almacen.cuarentena.dictaminar',
   'almacen.devoluciones-proveedor.registrar',
   'almacen.inventarios.leer',
   'almacen.inventarios.crear',
@@ -234,6 +240,10 @@ const CODIGOS_BACKEND_ESPERADOS = new Set<string>([
   'tesoreria.pasivos.solicitar-cancelacion',
   'tesoreria.pasivos.ver',
   'tesoreria.reportes.ver',
+  'tesoreria.devoluciones.ver',
+  'tesoreria.devoluciones.solicitar',
+  'tesoreria.devoluciones.autorizar',
+  'tesoreria.devoluciones.pagar',
   // Facturación — CFDI 4.0 emitido (FE-F0+). Mirror del backend
   // §"Facturación" (namespace GUID 00000009-*). 24 permisos.
   'facturacion.pedidos.importar',
@@ -248,6 +258,7 @@ const CODIGOS_BACKEND_ESPERADOS = new Set<string>([
   'facturacion.anticipos.leer',
   'facturacion.notas-credito.bonificacion-emitir',
   'facturacion.notas-credito.leer',
+  'facturacion.notas-credito.reembolso-solicitar',
   'facturacion.carta-porte.emitir',
   'facturacion.carta-porte.leer',
   'facturacion.repp.emitir',
@@ -331,11 +342,11 @@ describe('PermisosCanonicos — coincidencia con backend', () => {
     }
   });
 
-  it('el módulo Compras aporta exactamente 27 permisos (13 de RQ + 1 de aprobadores + 10 de OC + 2 de configuración + 1 de catálogos.leer)', () => {
+  it('el módulo Compras aporta exactamente 30 permisos (13 de RQ + 1 de aprobadores + 11 de OC + 2 de cotizaciones + 2 de configuración + 1 de catálogos.leer)', () => {
     const delModulo = codigos.filter(
       (c) => c.startsWith('compras.') || c === 'compartido.catalogos.leer',
     );
-    expect(delModulo).toHaveLength(27);
+    expect(delModulo).toHaveLength(30);
   });
 
   it('formato modulo.recurso.accion (entre 3 y 4 segmentos)', () => {

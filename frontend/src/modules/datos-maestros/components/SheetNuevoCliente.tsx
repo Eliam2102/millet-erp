@@ -24,6 +24,7 @@ import {
   applyServerErrors,
   esApiError,
   useFormIdempotencyKey,
+  codigoSoporte,
 } from '@/lib/api';
 import {
   NuevoClienteContext,
@@ -40,6 +41,7 @@ import { FormaPagoSelector } from '@/components/erp/selectors/FormaPagoSelector'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Link } from '@tanstack/react-router';
 import { RegimenFiscalSelector } from '@/components/erp/selectors/RegimenFiscalSelector';
+import { MonedaSelector } from '@/components/erp/selectors/MonedaSelector';
 
 /**
  * <c>&lt;NuevoClienteProvider/&gt;</c> + Sheet asociado (P4 del patrón
@@ -139,7 +141,7 @@ function NuevoClienteForm({ onClose, onDirtyChange }: NuevoClienteFormProps) {
   const form = useForm<CrearClienteValues>({
     resolver: zodResolver(CrearClienteSchema),
     defaultValues: {
-      clasificacionId: '', usoCfdiDefault: '', formaPagoDefault: '', metodoPagoDefault: 'PUE', paisResidencia: null,
+      clasificacionId: '', usoCfdiDefault: '', formaPagoDefault: '', metodoPagoDefault: 'PUE', monedaDefault: 'MXN', paisResidencia: null,
       clave: '',
       razonSocial: '',
       referenciaExterna: null,
@@ -148,6 +150,10 @@ function NuevoClienteForm({ onClose, onDirtyChange }: NuevoClienteFormProps) {
       codigoPostalFiscal: null,
       email: null,
       telefono: null,
+      numRegIdTrib: null,
+      domicilioExtranjeroCalle: null,
+      domicilioExtranjeroEstado: null,
+      domicilioExtranjeroCodigoPostal: null,
     },
   });
 
@@ -170,11 +176,14 @@ function NuevoClienteForm({ onClose, onDirtyChange }: NuevoClienteFormProps) {
           usoCfdiDefault: values.usoCfdiDefault,
           formaPagoDefault: values.formaPagoDefault,
           metodoPagoDefault: values.metodoPagoDefault,
-          // null → el backend aplica el default MXN.
-          monedaDefault: null,
+          monedaDefault: values.monedaDefault,
           esGenerico: values.rfc === 'XAXX010101000' || values.rfc === 'XEXX010101000',
           email: values.email,
           telefono: values.telefono,
+          numRegIdTrib: values.numRegIdTrib,
+          domicilioExtranjeroCalle: values.domicilioExtranjeroCalle,
+          domicilioExtranjeroEstado: values.domicilioExtranjeroEstado,
+          domicilioExtranjeroCodigoPostal: values.domicilioExtranjeroCodigoPostal,
         },
         idempotencyKey,
       },
@@ -213,9 +222,7 @@ function NuevoClienteForm({ onClose, onDirtyChange }: NuevoClienteFormProps) {
               return;
             }
             toast.error(error.problem.title, {
-              description: error.traceId
-                ? `Código: ${error.traceId}`
-                : undefined,
+              description: codigoSoporte(error),
             });
             return;
           }
@@ -241,6 +248,81 @@ function NuevoClienteForm({ onClose, onDirtyChange }: NuevoClienteFormProps) {
       <FormRow label="Forma de pago" error={form.formState.errors.formaPagoDefault?.message}><Controller name="formaPagoDefault" control={form.control} render={({ field }) => <FormaPagoSelector value={field.value} onChange={field.onChange} />} /></FormRow>
       <FormRow label="Método de pago"><Controller name="metodoPagoDefault" control={form.control} render={({ field }) => <Select value={field.value} onValueChange={field.onChange}><SelectTrigger aria-label="Método de pago"><SelectValue /></SelectTrigger><SelectContent><SelectItem value="PUE">Pago en una sola exhibición</SelectItem><SelectItem value="PPD">Pago en parcialidades o diferido</SelectItem></SelectContent></Select>} /></FormRow>
       <FormRow label="País de residencia" hint="Para RFC extranjero, clave SAT de tres letras distinta de MEX." error={form.formState.errors.paisResidencia?.message}><Controller name="paisResidencia" control={form.control} render={({ field }) => <UppercaseInput value={field.value ?? ''} onChange={e => field.onChange(e.target.value || null)} maxLength={3} aria-label="País de residencia" />} /></FormRow>
+      <FormRow
+        label="Moneda default"
+        required
+        hint="Del catálogo de monedas."
+        error={form.formState.errors.monedaDefault?.message}
+      >
+        <Controller
+          name="monedaDefault"
+          control={form.control}
+          render={({ field }) => (
+            <MonedaSelector
+              value={field.value}
+              onChange={(codigo) => field.onChange(codigo ?? '')}
+            />
+          )}
+        />
+      </FormRow>
+      <FormRow
+        label="Núm. reg. id. trib. (Tax ID)"
+        hint="Registro de identificación tributaria extranjero del receptor."
+        error={form.formState.errors.numRegIdTrib?.message}
+      >
+        <Controller
+          name="numRegIdTrib"
+          control={form.control}
+          render={({ field }) => (
+            <Input
+              maxLength={40}
+              aria-label="Núm. reg. id. trib. (Tax ID)"
+              value={field.value ?? ''}
+              onChange={(e) =>
+                field.onChange(e.target.value.length > 0 ? e.target.value : null)
+              }
+            />
+          )}
+        />
+      </FormRow>
+      <FormRow
+        label="Domicilio extranjero — calle"
+        hint="Opcional."
+        error={form.formState.errors.domicilioExtranjeroCalle?.message}
+      >
+        <Input
+          maxLength={200}
+          aria-label="Domicilio extranjero — calle"
+          {...form.register('domicilioExtranjeroCalle', {
+            setValueAs: (v) => (v === '' ? null : v),
+          })}
+        />
+      </FormRow>
+      <FormRow
+        label="Estado / provincia extranjera"
+        hint="Texto libre del país del receptor (ej. Texas)."
+        error={form.formState.errors.domicilioExtranjeroEstado?.message}
+      >
+        <Input
+          maxLength={100}
+          aria-label="Estado / provincia extranjera"
+          {...form.register('domicilioExtranjeroEstado', {
+            setValueAs: (v) => (v === '' ? null : v),
+          })}
+        />
+      </FormRow>
+      <FormRow
+        label="Código postal extranjero"
+        error={form.formState.errors.domicilioExtranjeroCodigoPostal?.message}
+      >
+        <Input
+          maxLength={12}
+          aria-label="Código postal extranjero"
+          {...form.register('domicilioExtranjeroCodigoPostal', {
+            setValueAs: (v) => (v === '' ? null : v),
+          })}
+        />
+      </FormRow>
       <FormRow
         label="Clave"
         required

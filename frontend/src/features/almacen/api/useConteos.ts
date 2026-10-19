@@ -11,6 +11,7 @@ import type {
   CrearConteoResponse,
   LineaConteoParaCapturarDto,
   PagedResponse,
+  VistaPreviaConteo,
 } from '@/features/almacen/api/types';
 
 /**
@@ -173,6 +174,24 @@ export function useEnviarConteoAConciliacion() {
       queryClient.invalidateQueries({
         queryKey: almacenKeys.conteoById(args.conteoId),
       });
+    },
+  });
+}
+
+/** Cuántas líneas tendría un conteo con ese sub-almacén y esa familia (antes de planificar). */
+export function useVistaPreviaConteo(
+  subAlmacenId: string | null,
+  familia: string | null,
+) {
+  return useQuery({
+    queryKey: almacenKeys.conteoVistaPrevia(subAlmacenId, familia),
+    queryFn: async ({ signal }) => {
+      const query = buildQuery({ subAlmacenId, familia });
+      const { data } = await apiRequest<VistaPreviaConteo>(
+        `/api/v1/almacen/conteos/vista-previa${query ? `?${query}` : ''}`,
+        { signal },
+      );
+      return data;
     },
   });
 }

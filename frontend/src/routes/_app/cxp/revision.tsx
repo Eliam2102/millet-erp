@@ -4,6 +4,7 @@ import {
   RevisionSearchSchema,
   type RevisionSearch,
 } from '@/features/cxp/lib/revision-search-schema';
+import { toast } from 'sonner';
 import { useAuthStore } from '@/lib/auth/auth-store';
 import { PermisosCanonicos } from '@/lib/auth/permission-codes';
 
@@ -19,6 +20,7 @@ export const Route = createFileRoute('/_app/cxp/revision')({
         PermisosCanonicos.CuentasPorPagarFacturasLiberarRevision,
       )
     ) {
+      toast.info('No tienes acceso a Revisión por área.', { id: 'sin-acceso-revision' });
       throw redirect({ to: '/cxp' });
     }
   },

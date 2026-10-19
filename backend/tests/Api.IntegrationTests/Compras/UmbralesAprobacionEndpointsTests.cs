@@ -10,6 +10,7 @@ using Millet.Compras.Infrastructure;
 using Millet.Identidad.Domain;
 using Millet.Identidad.Infrastructure;
 using Millet.SharedKernel.Application;
+using Millet.SharedKernel.Domain.Audit;
 
 namespace Millet.Api.IntegrationTests.Compras;
 
@@ -197,6 +198,135 @@ public class UmbralesAprobacionEndpointsTests : IClassFixture<WebApplicationFact
         get.EnsureSuccessStatusCode();
         var filas = (await ReadJsonAsync(get)).EnumerateArray().ToList();
         Assert.DoesNotContain(filas, e => e.GetProperty("departamentoId").GetGuid() == departamentoSinUmbral);
+    }
+
+    [Fact]
+    public async Task Put_Sin_Modo_Guarda_Ambos_Y_Minimo_Nulo()
+    {
+        var client = await CreateSuperAdminClientAsync();
+        var departamentoId = Guid.NewGuid();
+
+        var put = await client.PutAsJsonAsync(EndpointBase, new
+        {
+            DepartamentoId = departamentoId,
+            UmbralMenorCuantia = (decimal?)null,
+            UmbralMonto = 10000m,
+            Moneda = "MXN",
+        });
+        put.EnsureSuccessStatusCode();
+
+        var fila = await GetFilaAsync(client, departamentoId);
+        Assert.Equal("Ambos", fila.GetProperty("modoNivel2").GetString());
+        Assert.Equal(JsonValueKind.Null, fila.GetProperty("montoMinimoDisponibilidad").ValueKind);
+    }
+
+    [Fact]
+    public async Task Put_Con_Modo_Y_Minimo_Persiste_Y_Get_Los_Devuelve()
+    {
+        var client = await CreateSuperAdminClientAsync();
+        var departamentoId = Guid.NewGuid();
+
+        var put = await client.PutAsJsonAsync(EndpointBase, new
+        {
+            DepartamentoId = departamentoId,
+            UmbralMenorCuantia = (decimal?)null,
+            UmbralMonto = 10000m,
+            Moneda = "MXN",
+            ModoNivel2 = "SoloDisponibilidad",
+            MontoMinimoDisponibilidad = 3000m,
+        });
+        put.EnsureSuccessStatusCode();
+
+        var fila = await GetFilaAsync(client, departamentoId);
+        Assert.Equal("SoloDisponibilidad", fila.GetProperty("modoNivel2").GetString());
+        Assert.Equal(3000m, fila.GetProperty("montoMinimoDisponibilidad").GetDecimal());
+    }
+
+    [Fact]
+    public async Task Put_Con_Minimo_Negativo_Retorna_400()
+    {
+        var client = await CreateSuperAdminClientAsync();
+
+        var response = await client.PutAsJsonAsync(EndpointBase, new
+        {
+            DepartamentoId = Guid.NewGuid(),
+            UmbralMenorCuantia = (decimal?)null,
+            UmbralMonto = 10000m,
+            Moneda = "MXN",
+            MontoMinimoDisponibilidad = -1m,
+        });
+
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+    }
+
+    [Fact]
+    public async Task Put_Deja_Registro_En_Audit_Log()
+    {
+        var client = await CreateSuperAdminClientAsync();
+        var antes = await ContarAuditoriaAsync();
+
+        var put = await client.PutAsJsonAsync(EndpointBase, new
+        {
+            DepartamentoId = Guid.NewGuid(),
+            UmbralMenorCuantia = (decimal?)null,
+            UmbralMonto = 10000m,
+            Moneda = "MXN",
+        });
+        put.EnsureSuccessStatusCode();
+
+        Assert.True(await ContarAuditoriaAsync() > antes);
+    }
+
+    [Fact]
+    public async Task Put_Concurrente_Mismo_Depto_Nunca_Devuelve_500()
+    {
+        var client = await CreateSuperAdminClientAsync();
+        var departamentoId = Guid.NewGuid();
+
+        var respuestas = await Task.WhenAll(Enumerable.Range(1, 5).Select(async i =>
+        {
+            using var request = new HttpRequestMessage(HttpMethod.Put, EndpointBase)
+            {
+                Content = JsonContent.Create(new
+                {
+                    DepartamentoId = departamentoId,
+                    UmbralMenorCuantia = (decimal?)null,
+                    UmbralMonto = 10000m + i,
+                    Moneda = "MXN",
+                }),
+            };
+            request.Headers.Add("Idempotency-Key", Guid.NewGuid().ToString());
+            using var response = await client.SendAsync(request);
+            return (response.StatusCode, Body: await response.Content.ReadAsStringAsync());
+        }));
+
+        Assert.All(respuestas, r => Assert.True(
+            r.StatusCode is HttpStatusCode.OK or HttpStatusCode.Conflict, $"{r.StatusCode}: {r.Body}"));
+        Assert.Contains(respuestas, r => r.StatusCode == HttpStatusCode.OK);
+        Assert.All(respuestas.Where(r => r.StatusCode == HttpStatusCode.Conflict),
+            r => Assert.Contains("UMBRAL_GUARDADO_CONCURRENTE", r.Body));
+
+        using var scope = _factory.Services.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<ComprasDbContext>();
+        using var bypass = scope.ServiceProvider.GetRequiredService<ICurrentEmpresaContext>().Bypass();
+        var hoy = DateOnly.FromDateTime(DateTime.UtcNow);
+        Assert.Equal(1, await db.UmbralesAprobacionDepartamento
+            .CountAsync(u => u.DepartamentoId == departamentoId && u.VigenteDesde == hoy));
+    }
+
+    private async Task<int> ContarAuditoriaAsync()
+    {
+        using var scope = _factory.Services.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<ComprasDbContext>();
+        return await db.Set<AuditLogEntry>().CountAsync(a => a.Entidad == "UmbralAprobacionDepartamento");
+    }
+
+    private static async Task<JsonElement> GetFilaAsync(HttpClient client, Guid departamentoId)
+    {
+        var get = await client.GetAsync(EndpointBase);
+        get.EnsureSuccessStatusCode();
+        return (await ReadJsonAsync(get)).EnumerateArray()
+            .Single(e => e.GetProperty("departamentoId").GetGuid() == departamentoId);
     }
 
     private async Task<(HttpClient Client, Guid UsuarioId)> CreateUsuarioConPermisosAsync(params string[] permisoCodigos)

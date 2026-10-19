@@ -1,3 +1,4 @@
+import { DateTimeDisplay } from '@/components/erp/display/DateTimeDisplay';
 import { useMemo, useState } from 'react';
 import { Link, useNavigate, useSearch } from '@tanstack/react-router';
 import { Banknote, HandCoins } from 'lucide-react';
@@ -13,7 +14,7 @@ import {
 import type { PasivoPendienteResponse } from '@/features/tesoreria/api/types';
 import { MotivoDialog } from '@/features/tesoreria/components/MotivoDialog';
 import { RegistrarPagoSheet } from '@/features/tesoreria/components/RegistrarPagoSheet';
-import { formatoFecha, formatoMonto } from '@/features/tesoreria/lib/formato';
+import { formatoMonto } from '@/features/tesoreria/lib/formato';
 import type { PagosSearch } from '@/features/tesoreria/lib/pagos-search-schema';
 import { useHasPermission } from '@/lib/auth/useHasPermission';
 import { PermisosCanonicos } from '@/lib/auth/permission-codes';
@@ -265,13 +266,17 @@ export function BandejaPagos() {
                       )}
                     </td>
                     <td className="px-3 py-2 text-xs">
-                      {formatoFecha(p.fechaVencimiento)}
+                      <DateTimeDisplay value={p.fechaVencimiento} variant="corta" />
                     </td>
                     <td className="px-3 py-2 text-right font-mono tabular-nums">
                       {formatoMonto(p.saldoPendiente, p.moneda)}
                     </td>
                     <td className="px-3 py-2 font-mono text-xs text-muted-foreground">
-                      {p.clabe ?? '—'}
+                      {p.clabe ?? (p.tipoBeneficiario != null && p.tipoBeneficiario !== 'Proveedor' ? '—' : (
+                        <span className="rounded-sm bg-warning-bg px-1.5 py-0.5 font-sans text-warning-fg">
+                          Sin cuenta activa
+                        </span>
+                      ))}
                     </td>
                     <td className="px-3 py-2 text-right">
                       {puedeCancelar && (

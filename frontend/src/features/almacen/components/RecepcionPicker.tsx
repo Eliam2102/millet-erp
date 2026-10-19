@@ -14,7 +14,8 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from '@/components/ui/popover';
-import { useRecepciones } from '@/features/almacen/api/useRecepciones';
+import { useRecepcion, useRecepciones } from '@/features/almacen/api/useRecepciones';
+import { useDebouncedValue } from '@/lib/hooks/useDebouncedValue';
 import {
   EstadoMovimiento,
   type RecepcionListItem,
@@ -28,16 +29,18 @@ import { CatalogoQueryError } from '@/components/erp/selectors/CatalogoQueryErro
  * proveedor 8.B). Reemplaza los inputs de GUID crudo, mismo patrón que
  * <c>FacturaPicker</c> de CxP.
  *
- * <para>Con <c>ordenCompraId</c> pre-filtra server-side a la OC (caso
- * devolución: la recepción origen es de la OC seleccionada); sin él
- * lista las últimas 200 registradas y cmdk filtra client-side por
- * folio, folio de OC, fecha o monto.</para>
+ * <para>Con <c>ordenCompraId</c> y/o <c>proveedorId</c> pre-filtra
+ * server-side (caso devolución: la recepción origen es de la OC o del
+ * proveedor seleccionados). La búsqueda por folio también va al
+ * servidor (debounce 200 ms), así no depende de las últimas 200.</para>
  */
 export interface RecepcionPickerProps {
   value: string | null;
   onChange: (id: string | null) => void;
   /** Pre-filtro server-side por OC. Null → sin filtro. */
   ordenCompraId?: string | null;
+  /** Pre-filtro server-side por proveedor (vía sus OC). Null → sin filtro. */
+  proveedorId?: string | null;
   placeholder?: string;
   disabled?: boolean;
   className?: string;
@@ -47,20 +50,28 @@ export function RecepcionPicker({
   value,
   onChange,
   ordenCompraId = null,
+  proveedorId = null,
   placeholder = 'Selecciona recepción…',
   disabled,
   className,
 }: RecepcionPickerProps) {
   const [open, setOpen] = useState(false);
+  const [busqueda, setBusqueda] = useState('');
+  const q = useDebouncedValue(busqueda.trim(), 200);
 
   const query = useRecepciones({
     ordenCompraId: ordenCompraId ?? undefined,
+    proveedorId: proveedorId ?? undefined,
+    q: q || undefined,
     estado: EstadoMovimiento.Registrado,
     limit: 200,
   });
 
   const items = query.data?.items ?? [];
-  const seleccionada = value ? items.find((r) => r.id === value) : undefined;
+  const enLista = value ? items.find((r) => r.id === value) : undefined;
+  // La elegida puede quedar fuera de la lista filtrada: se resuelve por id.
+  const detalle = useRecepcion(value && !enLista ? value : undefined);
+  const seleccionada = enLista ?? (detalle.data && value ? detalle.data : undefined);
 
   function ocDe(r: RecepcionListItem) {
     return (
@@ -96,8 +107,12 @@ export function RecepcionPicker({
         </Button>
       </PopoverTrigger>
       <PopoverContent align="start" className="w-[min(40rem,90vw)] p-0">
-        <Command>
-          <CommandInput placeholder="Folio, OC, fecha o monto…" />
+        <Command shouldFilter={false}>
+          <CommandInput
+            placeholder="Buscar por folio…"
+            value={busqueda}
+            onValueChange={setBusqueda}
+          />
           <CommandList>
             {query.isLoading ? (
               <div
@@ -113,9 +128,13 @@ export function RecepcionPicker({
               <>
                 <CommandEmpty>
                   {items.length === 0
-                    ? ordenCompraId
-                      ? 'La OC no tiene recepciones registradas.'
-                      : 'No hay recepciones registradas.'
+                    ? q
+                      ? 'No hay recepciones con ese folio.'
+                      : ordenCompraId
+                        ? 'La OC no tiene recepciones registradas.'
+                        : proveedorId
+                          ? 'El proveedor no tiene recepciones registradas.'
+                          : 'No hay recepciones registradas.'
                     : 'No hay coincidencias.'}
                 </CommandEmpty>
                 <CommandGroup>
@@ -137,7 +156,7 @@ export function RecepcionPicker({
                             <span className="truncate font-mono text-xs">
                               {r.folio}
                             </span>
-                            <span className="rounded bg-muted px-1.5 py-0.5 text-[10px] font-medium text-muted-foreground">
+                            <span className="rounded bg-muted px-1.5 py-0.5 text-2xs font-medium text-muted-foreground">
                               MXN {r.montoTotalMxn.toFixed(2)}
                             </span>
                           </div>

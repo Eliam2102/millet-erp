@@ -34,6 +34,7 @@ public sealed class CapturarFacturaConOcHandler : IRequestHandler<CapturarFactur
     private readonly ICurrentEmpresaContext _currentEmpresa;
     private readonly IMediator _mediator;
     private readonly IClock _clock;
+    private readonly Revision.DetencionPorDanoService _danos;
 
     public CapturarFacturaConOcHandler(
         CuentasPorPagarDbContext db,
@@ -44,7 +45,8 @@ public sealed class CapturarFacturaConOcHandler : IRequestHandler<CapturarFactur
         ICurrentEmpresaContext currentEmpresa,
         IMediator mediator,
         IClock clock,
-        Domain.Ports.Administracion.IToleranciaGeneralReadPort toleranciaGeneral)
+        Domain.Ports.Administracion.IToleranciaGeneralReadPort toleranciaGeneral,
+        Revision.DetencionPorDanoService danos)
     {
         _db = db;
         _ocPort = ocPort;
@@ -55,6 +57,7 @@ public sealed class CapturarFacturaConOcHandler : IRequestHandler<CapturarFactur
         _mediator = mediator;
         _clock = clock;
         _toleranciaGeneral = toleranciaGeneral;
+        _danos = danos;
     }
 
     public async Task<CapturarFacturaConOcResponse> Handle(
@@ -220,7 +223,8 @@ public sealed class CapturarFacturaConOcHandler : IRequestHandler<CapturarFactur
             redondeoAplicado: redondeo,
             ahora: ahora);
 
-        factura.AsignarDatosP8(oc.Obra ?? command.Obra, command.ConceptoRetencion);
+        // 86e3pdmee: si no se captura el concepto, se usa la retención esperada del proveedor.
+        factura.AsignarDatosP8(oc.Obra ?? command.Obra, command.ConceptoRetencion ?? proveedor?.ConceptoRetencion);
 
         // 5) Líneas.
         foreach (var l in command.Lineas)
@@ -273,6 +277,10 @@ public sealed class CapturarFacturaConOcHandler : IRequestHandler<CapturarFactur
         }
         factura.AsignarMetodoPago(cfdi?.MetodoPago);
         factura.AsignarRetencionesDetalle(xml is null ? command.RetencionesDetalle : xml.RetencionesDetalle);
+
+        // P8.4a · CA8.7: si la OC ya tiene recepción con daño, la factura nace detenida con «Daños» para el área Almacén.
+        if (factura.Estado != EstadoPasivo.Cancelada)
+            await _danos.DetenerSiAplicaAsync(factura, await _danos.LineasOcConDanoDeOcAsync(command.OrdenCompraId, cancellationToken), ahora, cancellationToken);
 
         _db.FacturasProveedor.Add(factura);
 

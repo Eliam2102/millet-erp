@@ -157,4 +157,43 @@ describe('applyServerErrors', () => {
       { shouldFocus: true },
     );
   });
+
+  describe('codigos (errores de negocio)', () => {
+    const negocio = (code: string, detail?: string) =>
+      new ApiError({ type: 'about:blank', title: 'Regla', status: 422, code, detail }, 422);
+
+    it('código → campo con mensaje amigable y foco', () => {
+      const form = fakeForm();
+      const r = applyServerErrors(form, negocio('OC_X', 'detalle'), {
+        shouldFocus: true,
+        codigos: { OC_X: { campo: 'ordenCompraId', mensaje: 'Elige otra OC' } },
+      });
+      expect(r).toBe('campo');
+      expect(form.setError).toHaveBeenCalledWith(
+        'ordenCompraId',
+        { type: 'OC_X', message: 'Elige otra OC' },
+        { shouldFocus: true },
+      );
+    });
+
+    it('código → campo sin mensaje usa problem.detail, luego title', () => {
+      const form = fakeForm();
+      applyServerErrors(form, negocio('A', 'det'), { codigos: { A: { campo: 'f' } } });
+      applyServerErrors(form, negocio('A'), { codigos: { A: { campo: 'f' } } });
+      expect(form.setError.mock.calls[0][1].message).toBe('det');
+      expect(form.setError.mock.calls[1][1].message).toBe('Regla');
+    });
+
+    it("código → 'callout' no toca el form", () => {
+      const form = fakeForm();
+      const r = applyServerErrors(form, negocio('B'), { codigos: { B: 'callout' } });
+      expect(r).toBe('callout');
+      expect(form.setError).not.toHaveBeenCalled();
+    });
+
+    it('código no mapeado cae a errores[]/false', () => {
+      const form = fakeForm();
+      expect(applyServerErrors(form, negocio('Z'), { codigos: { B: 'callout' } })).toBe(false);
+    });
+  });
 });

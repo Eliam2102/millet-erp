@@ -78,6 +78,43 @@ public class ListarSaldosHandlerTests
 
     // ─── Infra de test ───
 
+    [Fact]
+    public async Task Totales_suman_cantidad_solo_con_una_unica_unidad()
+    {
+        await using var db = await NuevaDbConSaldosAsync();
+        var mismaUm = new FakeArticuloReadPort
+        {
+            PorIds = new Dictionary<Guid, ArticuloLectura>
+            {
+                [ArtA] = Art(ArtA, "A", "A"),
+                [ArtB] = Art(ArtB, "B", "B"),
+            },
+        };
+        var lista = await new ListarSaldosHandler(db, mismaUm).Handle(Query(), CancellationToken.None);
+
+        var t = await new ObtenerTotalesSaldosHandler(db, mismaUm).Handle(
+            new ObtenerTotalesSaldosQuery(null, null, false), CancellationToken.None);
+
+        t.ValorInventarioMxn.Should().Be(lista.Items.Sum(i => i.ValorInventarioMxn));
+        t.CantidadTotal.Should().Be(180m);
+        t.UnidadMedida.Should().Be("PZA");
+
+        var distintaUm = new FakeArticuloReadPort
+        {
+            PorIds = new Dictionary<Guid, ArticuloLectura>
+            {
+                [ArtA] = Art(ArtA, "A", "A"),
+                [ArtB] = Art(ArtB, "B", "B") with { UnidadMedida = "MTS" },
+            },
+        };
+        var t2 = await new ObtenerTotalesSaldosHandler(db, distintaUm).Handle(
+            new ObtenerTotalesSaldosQuery(null, null, false), CancellationToken.None);
+
+        t2.CantidadTotal.Should().BeNull();
+        t2.UnidadMedida.Should().BeNull();
+        t2.ValorInventarioMxn.Should().Be(t.ValorInventarioMxn);
+    }
+
     private static ListarSaldosQuery Query() =>
         new(SubAlmacenId: null, ArticuloId: null, SoloConStock: false, Offset: 0, Limit: 50);
 

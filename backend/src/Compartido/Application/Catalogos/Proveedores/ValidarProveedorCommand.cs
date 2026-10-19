@@ -2,6 +2,7 @@ using System.Text.Json;
 using MediatR;
 using Microsoft.EntityFrameworkCore;
 using Millet.Catalogos.Domain;
+using Millet.Compartido.Application.Adjuntos;
 using Millet.Compartido.Application.Ports;
 using Millet.Compartido.Infrastructure.Persistence;
 using Millet.DatosMaestros.Domain;
@@ -63,15 +64,30 @@ public sealed class ValidarProveedorHandler : IRequestHandler<ValidarProveedorCo
                 $"Solo se pueden validar proveedores en estado 'EnRevision'. Estado actual: '{proveedor.Estatus}'.");
         }
 
+        // 86e3pdmee · ADM-01: sin origen no se sabe qué matriz aplica (la UI usa la de nacionales mientras tanto).
+        if (proveedor.Origen is null)
+        {
+            throw new BusinessRuleException(
+                "PROVEEDOR_CLASIFICACION_PENDIENTE",
+                "Clasifica al proveedor (nacional o extranjero y régimen fiscal) antes de validarlo.");
+        }
+
         // F1-ADM-05 G1.1 / G1.2: Validar completitud del expediente documental vía el puerto de G1.2.
         var expediente = await _expedientePort.ObtenerAsync(proveedor.Id, cancellationToken);
         if (expediente is null || !expediente.Completo)
         {
+            // 86e3pdmee: el mensaje nombra los documentos, no sus códigos internos.
+            var codigos = (expediente?.Faltantes ?? []).Concat(expediente?.Vencidos ?? []).ToList();
+            var nombres = await _db.AdjuntoTiposDocumento.AsNoTracking()
+                .Where(t => t.TipoEntidad == "proveedor" && codigos.Contains(t.Codigo))
+                .ToDictionaryAsync(t => t.Codigo, t => t.Nombre, cancellationToken);
+            string Nombres(IEnumerable<string> cs) => string.Join(", ", cs.Select(c => nombres.GetValueOrDefault(c, c)));
+
             var detallesFaltantes = new List<string>();
             if (expediente?.Faltantes is { Count: > 0 })
-                detallesFaltantes.Add($"faltantes: [{string.Join(", ", expediente.Faltantes)}]");
+                detallesFaltantes.Add($"faltan: {Nombres(expediente.Faltantes)}");
             if (expediente?.Vencidos is { Count: > 0 })
-                detallesFaltantes.Add($"vencidos: [{string.Join(", ", expediente.Vencidos)}]");
+                detallesFaltantes.Add($"vencidos: {Nombres(expediente.Vencidos)}");
 
             var motivo = detallesFaltantes.Count > 0
                 ? string.Join("; ", detallesFaltantes)
@@ -85,7 +101,8 @@ public sealed class ValidarProveedorHandler : IRequestHandler<ValidarProveedorCo
         var ahora = _clock.UtcNow;
         var validadorId = _currentUser.UserId ?? Guid.Empty;
 
-        proveedor.Validar(validadorId, ahora);
+        var matrizVersion = await ExpedienteAdjuntos.VersionMatrizAsync(_db, "proveedor", cancellationToken);
+        proveedor.Validar(validadorId, ahora, matrizVersion);
         await _db.SaveChangesAsync(cancellationToken);
 
         await _audit.RegistrarAsync(
@@ -101,7 +118,7 @@ public sealed class ValidarProveedorHandler : IRequestHandler<ValidarProveedorCo
             resumen: $"Proveedor {proveedor.Clave} validado y activado por CxP con expediente documental completo.",
             usuarioId: validadorId,
             empresaId: _empresa.Current,
-            cambios: JsonSerializer.Serialize(new { estatusAnterior = "EnRevision", nuevoEstatus = "Activo" }),
+            cambios: JsonSerializer.Serialize(new { estatusAnterior = "EnRevision", nuevoEstatus = "Activo", matrizVersion }),
             metadatos: JsonSerializer.Serialize(new { proveedor.Clave, proveedor.Rfc, tipoPersona = proveedor.TipoPersona.ToString() }),
             cancellationToken: cancellationToken);
 

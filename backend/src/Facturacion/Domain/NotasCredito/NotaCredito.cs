@@ -28,6 +28,33 @@ public sealed class NotaCredito : Comprobante
     public string ClaveUnidadSat { get; private set; } = "E48";
     public string Descripcion { get; private set; } = "Aplicación de anticipo";
 
+    /// <summary>Momento en que se pidió a Tesorería el reembolso en dinero de esta NC (null = no solicitado).</summary>
+    public DateTimeOffset? ReembolsoSolicitadoEn { get; private set; }
+
+    /// <summary>Importe del reembolso solicitado a Tesorería (≤ <see cref="Comprobante.Total"/>).</summary>
+    public decimal? ImporteReembolsoSolicitado { get; private set; }
+
+    /// <summary>
+    /// T9.6 · CA6.17: Tesorería devuelve en dinero una NC ya timbrada. Una sola solicitud por NC;
+    /// no cambia el saldo por cobrar ([Decisión 13-K]).
+    /// </summary>
+    public void SolicitarReembolso(decimal importe, DateTimeOffset ahora)
+    {
+        if (Estado != EstadoTimbrado.Timbrado)
+            throw new BusinessRuleException("NC_REEMBOLSO_NO_TIMBRADA", "Solo una nota de crédito timbrada puede reembolsarse.");
+        if (Motivo is MotivoNotaCredito.Amortizacion or MotivoNotaCredito.Ranura)
+            throw new BusinessRuleException("NC_REEMBOLSO_MOTIVO_NO_PERMITIDO",
+                "Las notas de amortización de anticipo y de ranura se aplican a la factura; no se reembolsan en dinero.");
+        if (ReembolsoSolicitadoEn is not null)
+            throw new BusinessRuleException("NC_REEMBOLSO_YA_SOLICITADO", "El reembolso de esta nota de crédito ya se solicitó a Tesorería.");
+        if (importe <= 0 || importe > Total)
+            throw new BusinessRuleException("NC_REEMBOLSO_IMPORTE_INVALIDO",
+                $"El importe a reembolsar debe ser mayor a cero y no exceder el total de la nota ({Total:N2}).");
+
+        ReembolsoSolicitadoEn = ahora;
+        ImporteReembolsoSolicitado = importe;
+    }
+
     private NotaCredito() { }
 
     private NotaCredito(

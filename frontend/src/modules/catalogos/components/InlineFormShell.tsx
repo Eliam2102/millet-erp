@@ -34,7 +34,7 @@ export function InlineFormShell({
       onSubmit={onSubmit}
       noValidate
       className={cn(
-        'space-y-3 rounded-md border border-amber-400 bg-amber-50/40 p-3',
+        'space-y-3 rounded-md border border-warning bg-warning-bg/40 p-3',
         className,
       )}
       aria-label={ariaLabel}
@@ -86,7 +86,7 @@ export function FieldInline({
       <label className="mb-1 flex items-center gap-1 text-xs font-medium">
         {label}
         {required && (
-          <span aria-hidden="true" className="text-rose-600">
+          <span aria-hidden="true" className="text-danger">
             *
           </span>
         )}
@@ -96,7 +96,7 @@ export function FieldInline({
         <p className="mt-1 text-xs text-muted-foreground">{hint}</p>
       )}
       {error != null && (
-        <p role="alert" className="mt-1 text-xs text-rose-600">
+        <p role="alert" className="mt-1 text-xs text-danger">
           {error}
         </p>
       )}

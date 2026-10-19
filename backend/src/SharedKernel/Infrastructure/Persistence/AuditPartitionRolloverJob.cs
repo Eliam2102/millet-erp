@@ -27,15 +27,22 @@ public sealed class AuditPartitionRolloverJob(
         _loop = RunAsync(_stop.Token);
     }
 
+    // Idempotente: el host puede llamar StopAsync después de Dispose (p. ej. al cerrar
+    // WebApplicationFactory); antes eso lanzaba ObjectDisposedException en la limpieza.
     public async Task StopAsync(CancellationToken cancellationToken)
     {
-        if (_stop is null || _loop is null) return;
-        await _stop.CancelAsync();
-        try { await _loop.WaitAsync(cancellationToken); }
+        var stop = Interlocked.Exchange(ref _stop, null);
+        if (stop is null || _loop is null) return;
+        try
+        {
+            await stop.CancelAsync();
+            await _loop.WaitAsync(cancellationToken);
+        }
         catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested) { }
+        finally { stop.Dispose(); }
     }
 
-    public void Dispose() => _stop?.Dispose();
+    public void Dispose() => Interlocked.Exchange(ref _stop, null)?.Dispose();
 
     private async Task RunAsync(CancellationToken ct)
     {

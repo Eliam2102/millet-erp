@@ -5,6 +5,7 @@ using Millet.Api.Auth;
 using Millet.Api.Web;
 using Millet.Identidad.Domain;
 using Millet.Tesoreria.Application.Common;
+using Millet.Tesoreria.Application.Devoluciones;
 using Millet.Tesoreria.Application.Movimientos;
 using Millet.Tesoreria.Domain.Movimientos;
 
@@ -19,6 +20,7 @@ namespace Millet.Api.Endpoints.Tesoreria;
 public static class MovimientosEndpoints
 {
     public sealed record ReclasificarBody(Guid ConceptoId, string Motivo);
+    public sealed record SolicitarDevolucionBody(Guid ClienteId, decimal Importe, string Motivo, string Banco, string Clabe, string Titular);
     public static IEndpointRouteBuilder MapTesoreriaMovimientosEndpoints(this IEndpointRouteBuilder app)
     {
         var movimientos = app
@@ -92,6 +94,22 @@ public static class MovimientosEndpoints
             return Results.NoContent();
         }).WithMetadata(new RequireIdempotencyKeyAttribute())
         .RequireAuthorization(PermissionPolicyProvider.Prefix + PermisosCanonicos.TesoreriaMovimientosRegistrar);
+
+        // T9.6: devolución de un depósito erróneo. El grupo ya verifica la sucursal del movimiento {id}.
+        movimientos.MapPost("/{id:guid}/solicitar-devolucion", async (Guid id,
+            [FromBody] SolicitarDevolucionBody body, IMediator mediator, CancellationToken ct) =>
+        {
+            var r = await mediator.Send(new SolicitarDevolucionDepositoCommand(
+                id, body.ClienteId, body.Importe, body.Motivo, body.Banco, body.Clabe, body.Titular), ct);
+            return Results.Created($"/api/v1/tesoreria/devoluciones/{r.Id}", r);
+        })
+        .WithMetadata(new RequireIdempotencyKeyAttribute())
+        .RequireAuthorization(PermissionPolicyProvider.Prefix + PermisosCanonicos.TesoreriaDevolucionesSolicitar)
+        .WithName("SolicitarDevolucionDeposito")
+        .Produces<DevolucionClienteResponse>(StatusCodes.Status201Created)
+        .ProducesValidationProblem()
+        .ProducesProblem(StatusCodes.Status404NotFound)
+        .ProducesProblem(StatusCodes.Status422UnprocessableEntity);
         return app;
     }
 }

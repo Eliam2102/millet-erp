@@ -80,13 +80,16 @@ public sealed class ValidacionProveedoresHandlersTests
         var empresa = new FakeEmpresa();
         using var db = CrearDb(empresa);
         var p = new Proveedor(Guid.NewGuid(), "P01", "Prov 1", "PRO010101AAA", TipoPersonaProveedor.Moral, EstatusCatalogo.EnRevision);
+        p.ActualizarClasificacionFiscal(OrigenProveedor.Nacional, "601", null);
         db.Proveedores.Add(p);
+        await Siembra.TiposProveedorAsync(db);
         await db.SaveChangesAsync();
 
         var expediente = new FakeExpedientePort
         {
             Completo = false,
-            Faltantes = ["CSF", "CARATULA_BANCARIA"]
+            Faltantes = ["constancia_situacion_fiscal", "contrato"],
+            Vencidos = ["comprobante_domicilio"],
         };
         var user = new FakeUser();
         var audit = new FakeAudit();
@@ -98,6 +101,100 @@ public sealed class ValidacionProveedoresHandlersTests
             handler.Handle(new ValidarProveedorCommand(p.Id), CancellationToken.None));
 
         Assert.Equal("PROVEEDOR_EXPEDIENTE_INCOMPLETO", ex.Code);
+        // El mensaje nombra los documentos, no sus códigos internos.
+        Assert.Contains("Constancia de situación fiscal", ex.Message);
+        Assert.Contains("Contrato", ex.Message);
+        Assert.Contains("vencidos: Comprobante de domicilio", ex.Message);
+        Assert.DoesNotContain("constancia_situacion_fiscal", ex.Message);
+    }
+
+    [Fact]
+    public async Task ValidarProveedor_SinClasificar_RechazaConClasificacionPendiente()
+    {
+        var empresa = new FakeEmpresa();
+        using var db = CrearDb(empresa);
+        var p = new Proveedor(Guid.NewGuid(), "P01", "Prov 1", "PRO010101AAA", TipoPersonaProveedor.Moral, EstatusCatalogo.EnRevision);
+        db.Proveedores.Add(p);
+        await db.SaveChangesAsync();
+
+        var handler = new ValidarProveedorHandler(db, new FakeExpedientePort(), new FakeUser(), empresa, new FakeClock(), new FakeAudit());
+
+        var ex = await Assert.ThrowsAsync<BusinessRuleException>(() =>
+            handler.Handle(new ValidarProveedorCommand(p.Id), CancellationToken.None));
+        Assert.Equal("PROVEEDOR_CLASIFICACION_PENDIENTE", ex.Code);
+        Assert.Equal(EstatusCatalogo.EnRevision, p.Estatus);
+    }
+
+    [Fact]
+    public async Task ActualizarClasificacion_RegimenDeOtraNaturalezaSeRechaza()
+    {
+        var empresa = new FakeEmpresa();
+        using var db = CrearDb(empresa);
+        db.RegimenesFiscales.AddRange(
+            new RegimenFiscal(Guid.NewGuid(), "601", "General de Ley Personas Morales", false),
+            new RegimenFiscal(Guid.NewGuid(), "612", "Personas Físicas con Actividades Empresariales", true),
+            new RegimenFiscal(Guid.NewGuid(), "626", "RESICO", true, aplicaPersonaMoral: true));
+        var fisica = new Proveedor(Guid.NewGuid(), "PF", "Pedro Físico", "PEFP010101AAA", TipoPersonaProveedor.Fisica, EstatusCatalogo.EnRevision);
+        var moral = new Proveedor(Guid.NewGuid(), "PM", "Moral SA", "MOR010101AAA", TipoPersonaProveedor.Moral, EstatusCatalogo.EnRevision);
+        db.Proveedores.AddRange(fisica, moral);
+        await db.SaveChangesAsync();
+        var handler = new ActualizarClasificacionFiscalProveedorHandler(db, new FakeUser(), empresa, new FakeAudit());
+
+        var fisica601 = await Assert.ThrowsAsync<BusinessRuleException>(() =>
+            handler.Handle(new(fisica.Id, OrigenProveedor.Nacional, "601", null), default));
+        Assert.Equal("PROVEEDOR_REGIMEN_NO_APLICA", fisica601.Code);
+        var moral612 = await Assert.ThrowsAsync<BusinessRuleException>(() =>
+            handler.Handle(new(moral.Id, OrigenProveedor.Nacional, "612", null), default));
+        Assert.Equal("PROVEEDOR_REGIMEN_NO_APLICA", moral612.Code);
+
+        // Los válidos y el 626 (ambas naturalezas) pasan; el extranjero no lleva régimen.
+        await handler.Handle(new(fisica.Id, OrigenProveedor.Nacional, "612", null), default);
+        await handler.Handle(new(moral.Id, OrigenProveedor.Nacional, "601", null), default);
+        await handler.Handle(new(moral.Id, OrigenProveedor.Nacional, "626", null), default);
+        await handler.Handle(new(fisica.Id, OrigenProveedor.Extranjero, null, "SIN_RETENCION"), default);
+    }
+
+    [Fact]
+    public async Task CrearProveedor_ExtranjeroSinRfc_GuardaElGenericoYLaClasificacionEnLaMismaAlta()
+    {
+        using var db = CrearDb();
+        var handler = new Millet.DatosMaestros.Application.Catalogos.CrearProveedorHandler(db);
+        var cmd = new Millet.DatosMaestros.Application.Catalogos.CrearProveedorCommand(
+            "EXT-01", "John Smith", null, TipoPersonaProveedor.Fisica, null, null, null, null, null,
+            OrigenProveedor.Extranjero, null, "SIN_RETENCION");
+        Assert.True(new Millet.DatosMaestros.Application.Catalogos.CrearProveedorValidator().Validate(cmd).IsValid);
+
+        var res = await handler.Handle(cmd, default);
+
+        var p = await db.Proveedores.SingleAsync(x => x.Id == res.Id);
+        Assert.Equal("XEXX010101000", p.Rfc);
+        Assert.Equal(OrigenProveedor.Extranjero, p.Origen);
+        Assert.Equal("SIN_RETENCION", p.ConceptoRetencion);
+        // Un nacional sí exige RFC.
+        Assert.False(new Millet.DatosMaestros.Application.Catalogos.CrearProveedorValidator()
+            .Validate(cmd with { Origen = OrigenProveedor.Nacional }).IsValid);
+    }
+
+    [Fact]
+    public async Task ValidarProveedor_RegistraLaVersionDeLaMatrizEnElProveedorYLaBitacora()
+    {
+        var empresa = new FakeEmpresa();
+        using var db = CrearDb(empresa);
+        var p = new Proveedor(Guid.NewGuid(), "P01", "Prov 1", "PRO010101AAA", TipoPersonaProveedor.Moral, EstatusCatalogo.EnRevision);
+        p.ActualizarClasificacionFiscal(OrigenProveedor.Nacional, "601", null);
+        db.Proveedores.Add(p);
+        await Siembra.TiposProveedorAsync(db);
+        await db.SaveChangesAsync();
+        // En producción el interceptor de metadatos sube Version en cada cambio; aquí se simula (InMemory no lo tiene).
+        foreach (var t in db.AdjuntoTiposDocumento.Local) db.Entry(t).Property(nameof(t.Version)).CurrentValue = 2;
+        await db.SaveChangesAsync();
+        var esperada = await Millet.Compartido.Application.Adjuntos.ExpedienteAdjuntos.VersionMatrizAsync(db, "proveedor", default);
+        Assert.Equal(10, esperada);
+
+        await new ValidarProveedorHandler(db, new FakeExpedientePort(), new FakeUser(), empresa, new FakeClock(), new FakeAudit())
+            .Handle(new ValidarProveedorCommand(p.Id), default);
+
+        Assert.Equal(esperada, p.ValidadoConMatrizVersion);
     }
 
     [Fact]
@@ -106,6 +203,7 @@ public sealed class ValidacionProveedoresHandlersTests
         var empresa = new FakeEmpresa();
         using var db = CrearDb(empresa);
         var p = new Proveedor(Guid.NewGuid(), "P01", "Prov 1", "PRO010101AAA", TipoPersonaProveedor.Moral, EstatusCatalogo.EnRevision);
+        p.ActualizarClasificacionFiscal(OrigenProveedor.Nacional, "601", null);
         db.Proveedores.Add(p);
         await db.SaveChangesAsync();
 

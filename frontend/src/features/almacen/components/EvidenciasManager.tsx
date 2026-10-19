@@ -30,7 +30,10 @@ import {
 } from '@/features/almacen/schemas/devolucion';
 import { useAdjuntarEvidenciaProveedor } from '@/features/almacen/api/useDevolucionesProveedor';
 import type { DevolucionProveedorEvidenciaItem } from '@/features/almacen/api/types';
-import { esApiError } from '@/lib/api';
+import { esApiError, codigoSoporte } from '@/lib/api';
+import { mensajeErrorAdjunto, useEnlaceAdjunto } from '@/components/erp/adjuntos/api/hooks';
+import { useHasPermission } from '@/lib/auth/useHasPermission';
+import { PermisosCanonicos } from '@/lib/auth/permission-codes';
 import { Field } from '@/features/almacen/components/internal/Field';
 import { cn } from '@/lib/utils';
 
@@ -48,6 +51,38 @@ export interface EvidenciasManagerProps {
   evidencias: readonly DevolucionProveedorEvidenciaItem[];
   /** Si <c>false</c>, oculta el botón de agregar (estado avanzado). */
   canAdd: boolean;
+  /**
+   * Línea de revisión (MAT-REV) de la que viene la devolución. Las evidencias de un rechazo de
+   * cuarentena se guardan como `adjunto:{id}` (referencia al servicio genérico de adjuntos de esa
+   * línea), no como blob: con este id se descargan por su endpoint.
+   */
+  lineaRevisionId?: string | null;
+}
+
+const PREFIJO_ADJUNTO = 'adjunto:';
+
+function DescargarAdjunto({ lineaRevisionId, adjuntoId }: { lineaRevisionId: string; adjuntoId: string }) {
+  const puedeVer = useHasPermission(PermisosCanonicos.AlmacenEntradasLeer);
+  const enlace = useEnlaceAdjunto(`/api/v1/almacen/revision/lineas/${lineaRevisionId}`);
+  if (!puedeVer) return null;
+  return (
+    <>
+      <Button
+        type="button"
+        size="sm"
+        variant="outline"
+        disabled={enlace.isPending}
+        onClick={() => enlace.mutate({ adjuntoId })}
+      >
+        Descargar
+      </Button>
+      {enlace.isError && (
+        <p role="alert" className="mt-1 text-xs text-danger-fg">
+          {mensajeErrorAdjunto(enlace.error)}
+        </p>
+      )}
+    </>
+  );
 }
 
 /**
@@ -63,6 +98,7 @@ export function EvidenciasManager({
   devolucionId,
   evidencias,
   canAdd,
+  lineaRevisionId,
 }: EvidenciasManagerProps) {
   const [dialogOpen, setDialogOpen] = useState(false);
 
@@ -79,7 +115,7 @@ export function EvidenciasManager({
             variant="outline"
             onClick={() => setDialogOpen(true)}
           >
-            <Plus className="mr-2 h-4 w-4" />
+            <Plus className="mr-2 size-3.5" />
             Agregar evidencia
           </Button>
         )}
@@ -105,10 +141,18 @@ export function EvidenciasManager({
                   {e.tipoEvidencia}
                   {e.comentario ? ` · ${e.comentario}` : ''}
                 </p>
-                <p className="mt-0.5 truncate text-xs text-muted-foreground/80 font-mono">
-                  {e.blobRef}
-                </p>
+                {e.blobRef.startsWith(PREFIJO_ADJUNTO) ? null : (
+                  <p className="mt-0.5 truncate text-xs text-muted-foreground/80 font-mono">
+                    {e.blobRef}
+                  </p>
+                )}
               </div>
+              {e.blobRef.startsWith(PREFIJO_ADJUNTO) && lineaRevisionId && (
+                <DescargarAdjunto
+                  lineaRevisionId={lineaRevisionId}
+                  adjuntoId={e.blobRef.slice(PREFIJO_ADJUNTO.length)}
+                />
+              )}
             </li>
           ))}
         </ul>
@@ -193,7 +237,7 @@ function AgregarEvidenciaBody({
         onError: (error) => {
           if (esApiError(error)) {
             toast.error(error.problem.title, {
-              description: error.traceId ? `Código: ${error.traceId}` : undefined,
+              description: codigoSoporte(error),
             });
             return;
           }

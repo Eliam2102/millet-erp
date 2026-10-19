@@ -31,6 +31,12 @@ public sealed partial class CrearOrdenCompraDesdeRequisicionValidator
         RuleFor(c => c.TipoCambio).GreaterThan(0m).When(c => c.TipoCambio.HasValue)
             .WithErrorCode("TIPO_CAMBIO_INVALIDO");
 
+        RuleFor(c => c.MotivoEleccion)
+            .Must(m => m is not null && m.Trim().Length is >= 5 and <= 500)
+            .When(c => c.CotizacionId.HasValue)
+            .WithErrorCode("COT_MOTIVO_REQUERIDO")
+            .WithMessage("Escribe el motivo de la elección (5 a 500 caracteres).");
+
         RuleFor(c => c.Observaciones).MaximumLength(1000).When(c => c.Observaciones is not null)
             .WithErrorCode("OBSERVACIONES_DEMASIADO_LARGAS");
     }

@@ -21,7 +21,7 @@ import {
   useDesactivarAsignacionSucursalDepartamento,
   useReactivarAsignacionSucursalDepartamento,
 } from '@/modules/administracion/api';
-import { esApiError } from '@/lib/api';
+import { esApiError, codigoSoporte } from '@/lib/api';
 import { SucursalTabErrorState } from '@/modules/administracion/components/SucursalTabErrorState';
 import { FilaAsignacionSucursal } from '@/modules/administracion/components/FilaAsignacionSucursal';
 
@@ -40,7 +40,7 @@ export function SucursalDepartamentosTab({
   const [filtro, setFiltro] = useState('');
   const [modalAsignarOpen, setModalAsignarOpen] = useState(false);
 
-  const asignados = asignadosQuery.data?.items ?? [];
+  const asignados = useMemo(() => asignadosQuery.data?.items ?? [], [asignadosQuery.data?.items]);
 
   const asignadosFiltrados = useMemo(() => {
     const q = filtro.trim().toLowerCase();
@@ -367,7 +367,7 @@ function handleError(accion: string) {
   return (error: unknown) => {
     if (esApiError(error)) {
       toast.error(error.problem.title, {
-        description: error.traceId ? `Código: ${error.traceId}` : undefined,
+        description: codigoSoporte(error),
       });
     } else {
       toast.error(`Error al ${accion}.`);

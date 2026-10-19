@@ -59,8 +59,8 @@ public sealed class CuentaBancaria : BaseEntity, IPerteneceAEmpresa, IAuditable
     {
         EmpresaId = empresaId;
         Banco = ValidarBanco(banco);
-        NumeroCuenta = Cuentas.NumeroCuenta.Crear(numeroCuenta).Valor;
-        Clabe = clabe is null ? null : Cuentas.Clabe.Crear(clabe).Valor;
+        NumeroCuenta = Millet.SharedKernel.Domain.Bancos.NumeroCuenta.Crear(numeroCuenta).Valor;
+        Clabe = clabe is null ? null : Millet.SharedKernel.Domain.Bancos.Clabe.Crear(clabe).Valor;
         Moneda = ValidarMoneda(moneda);
         CuentaContableRef = cuentaContableRef;
         PerfilExtracto = perfilExtracto;
@@ -84,7 +84,7 @@ public sealed class CuentaBancaria : BaseEntity, IPerteneceAEmpresa, IAuditable
 
     /// <summary>Reemplaza la CLABE (valida el VO) o la limpia con null.</summary>
     public void CambiarClabe(string? clabe) =>
-        Clabe = clabe is null ? null : Cuentas.Clabe.Crear(clabe).Valor;
+        Clabe = clabe is null ? null : Millet.SharedKernel.Domain.Bancos.Clabe.Crear(clabe).Valor;
 
     public void ActualizarInventario(string? sucursal, string? finalidad, string? titular, string? firmantes)
     {

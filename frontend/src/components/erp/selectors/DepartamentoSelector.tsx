@@ -1,3 +1,4 @@
+import type { ComponentProps } from 'react';
 import { useDepartamentos } from '@/features/catalogos/api';
 import { useDepartamentosDeSucursal } from '@/modules/administracion/api';
 import { EstatusCatalogo } from '@/features/compras/api/types';
@@ -17,6 +18,8 @@ export interface DepartamentoSelectorProps {
   placeholder?: string;
   disabled?: boolean;
   className?: string;
+  /** Props extra del trigger (id y aria-* que entrega `Field`). */
+  triggerProps?: ComponentProps<'button'>;
 }
 
 export function DepartamentoSelector({
@@ -26,6 +29,7 @@ export function DepartamentoSelector({
   placeholder = 'Selecciona departamento',
   disabled,
   className,
+  triggerProps,
 }: DepartamentoSelectorProps) {
   const globalQuery = useDepartamentos();
   const sucursalQuery = useDepartamentosDeSucursal(sucursalId ?? null);
@@ -70,6 +74,7 @@ export function DepartamentoSelector({
       ariaLabel="Seleccionar departamento"
       disabled={disabled}
       className={className}
+      triggerProps={triggerProps}
     />
   );
 }

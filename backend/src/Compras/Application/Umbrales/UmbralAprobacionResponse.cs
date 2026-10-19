@@ -1,3 +1,5 @@
+using Millet.Compras.Domain;
+
 namespace Millet.Compras.Application.Umbrales;
 
 /// <summary>
@@ -9,4 +11,6 @@ public sealed record UmbralAprobacionResponse(
     decimal? UmbralMenorCuantia,
     decimal UmbralMonto,
     string Moneda,
-    DateOnly VigenteDesde);
+    DateOnly VigenteDesde,
+    ModoNivel2 ModoNivel2,
+    decimal? MontoMinimoDisponibilidad);

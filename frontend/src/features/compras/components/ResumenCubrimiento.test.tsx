@@ -90,7 +90,7 @@ describe('<ResumenCubrimiento>', () => {
     expect(screen.getByText('100%')).toBeInTheDocument();
     expect(screen.getByText(/2 de 2 líneas cerradas/i)).toBeInTheDocument();
     // Verde: tiene clase emerald.
-    expect(container.querySelector('[class*="emerald"]')).not.toBeNull();
+    expect(container.querySelector('[class*="success"]')).not.toBeNull();
   });
 
   it('EnSurtido con 0 cerradas: 0% (badge ámbar)', () => {
@@ -101,7 +101,7 @@ describe('<ResumenCubrimiento>', () => {
       />,
     );
     expect(screen.getByText('0%')).toBeInTheDocument();
-    expect(container.querySelector('[class*="amber"]')).not.toBeNull();
+    expect(container.querySelector('[class*="warning"]')).not.toBeNull();
   });
 
   it('aria-label refleja la información completa', () => {

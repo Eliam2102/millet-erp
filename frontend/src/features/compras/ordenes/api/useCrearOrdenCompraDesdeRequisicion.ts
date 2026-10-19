@@ -29,6 +29,10 @@ export interface CrearOrdenCompraDesdeRequisicionCommand {
   /** ISO 8601 UTC. */
   fechaEntregaEsperada?: string | null;
   observaciones?: string | null;
+  /** F1-COM-02: cotización elegida (toma precio, moneda y PDF). */
+  cotizacionId?: string | null;
+  /** F1-COM-02: motivo de la elección (5-500 caracteres); obligatorio con <c>cotizacionId</c>. */
+  motivoEleccion?: string | null;
 }
 
 /**
@@ -86,6 +90,8 @@ export function useCrearOrdenCompraDesdeRequisicion() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ordenesKeys.all });
+      // F1-COM-02: la cotización elegida queda marcada en el comparativo.
+      queryClient.invalidateQueries({ queryKey: ['compras', 'cotizaciones'] });
       // También invalidar RQs porque la origen pasa a estar
       // "comprometida" y debe reflejarse en su detalle/bandeja.
       queryClient.invalidateQueries({ queryKey: ['compras', 'requisiciones'] });

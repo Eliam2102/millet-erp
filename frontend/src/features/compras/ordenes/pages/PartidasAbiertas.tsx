@@ -1,6 +1,5 @@
 import { useMemo } from 'react';
 import { Link, useNavigate, useSearch } from '@tanstack/react-router';
-import { TrendingDown } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
   EmptyState,
@@ -8,6 +7,7 @@ import {
   TableSkeleton,
   EstadoBadge,
   DateTimeDisplay,
+  PaginacionTabla,
 } from '@/components/erp';
 import { useProveedores, useUsuarios, mapById } from '@/features/catalogos/api';
 import { esApiError } from '@/lib/api';
@@ -20,6 +20,7 @@ import { HoverSubEstados } from '@/features/compras/ordenes/components/HoverSubE
 import type { PartidasAbiertasSearch } from '@/features/compras/ordenes/lib/partidas-abiertas-search-schema';
 import { cn } from '@/lib/utils';
 import { nombreUsuarioOGuion } from '@/lib/nombre-usuario';
+import { PageHeader } from '@/components/erp/PageHeader';
 
 const FROM = '/_app/compras/ordenes/partidas-abiertas' as const;
 
@@ -80,28 +81,22 @@ export function PartidasAbiertas() {
 
   return (
     <div
-      className="grid gap-4 p-4 lg:grid-cols-[260px_1fr]"
+      className="grid gap-4 2xl:grid-cols-[260px_1fr]"
       data-component="partidas-abiertas"
     >
       {/* Sidebar de filtros sticky */}
       <FiltrosPartidasAbiertas
         search={search}
         onChange={setSearch}
-        className="lg:sticky lg:top-16 lg:self-start lg:max-h-[calc(100vh-5rem)] lg:overflow-y-auto"
+        className="2xl:sticky 2xl:top-16 2xl:self-start 2xl:max-h-[calc(100vh-5rem)] 2xl:overflow-y-auto"
       />
 
       {/* Contenido principal */}
       <div className="space-y-4 min-w-0">
-        <header>
-          <h1 className="flex items-center gap-2 text-2xl font-semibold tracking-tight">
-            <TrendingDown className="h-6 w-6" />
-            Partidas abiertas
-          </h1>
-          <p className="text-sm text-muted-foreground">
-            OCs no terminales con al menos una dimensión sub-estado abierta.
-            Orden FIFO por fecha de entrega esperada (atrasadas primero).
-          </p>
-        </header>
+        <PageHeader
+          titulo="Partidas abiertas"
+          descripcion="Órdenes con recepción, facturación o pago pendientes, las más atrasadas primero."
+        />
 
         <KpiCardsPartidasAbiertas
           kpis={kpisQuery.data}
@@ -161,8 +156,6 @@ function RenderTabla({
     );
   }
 
-  const totalPages = Math.max(1, Math.ceil(data.totalCount / data.pageSize));
-
   return (
     <>
       <div className="overflow-x-auto rounded-md border bg-card">
@@ -176,7 +169,7 @@ function RenderTabla({
               <th className="px-3 py-2 text-left font-medium">F. entrega</th>
               <th className="px-3 py-2 text-left font-medium">Atraso</th>
               <th className="px-3 py-2 text-left font-medium">Estado</th>
-              <th className="px-3 py-2 text-left font-medium">R/F/P</th>
+              <th className="px-3 py-2 text-left font-medium">Avance (recepción · facturación · pago)</th>
               <th className="px-3 py-2 text-right font-medium">Acción</th>
             </tr>
           </thead>
@@ -232,37 +225,14 @@ function RenderTabla({
         </table>
       </div>
 
-      {/* Paginación simple */}
-      <div className="flex items-center justify-between text-sm text-muted-foreground">
-        <span>
-          Página {data.page} de {totalPages} · {data.totalCount.toLocaleString()} OCs
-        </span>
-        <div className="flex items-center gap-2">
-          <Button
-            size="sm"
-            variant="outline"
-            disabled={data.page <= 1}
-            onClick={() =>
-              onChangeSearch({ ...search, page: Math.max(1, data.page - 1) })
-            }
-          >
-            Anterior
-          </Button>
-          <Button
-            size="sm"
-            variant="outline"
-            disabled={data.page >= totalPages}
-            onClick={() =>
-              onChangeSearch({
-                ...search,
-                page: Math.min(totalPages, data.page + 1),
-              })
-            }
-          >
-            Siguiente
-          </Button>
-        </div>
-      </div>
+      <PaginacionTabla
+        total={data.totalCount}
+        offset={(data.page - 1) * data.pageSize}
+        limit={data.pageSize}
+        onChange={(offset, limit) =>
+          onChangeSearch({ ...search, page: Math.floor(offset / limit) + 1, pageSize: limit })
+        }
+      />
     </>
   );
 }

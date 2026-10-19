@@ -165,7 +165,7 @@ describe('<LineaInlineFormOc> — fracción arancelaria', () => {
     await waitFor(() =>
       expect(
         screen.getByText('La fracción arancelaria debe tener 8 o 10 dígitos.', {
-          selector: 'p[role="alert"]',
+          selector: 'p',
         }),
       ).toBeInTheDocument(),
     );

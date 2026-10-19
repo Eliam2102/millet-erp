@@ -12,7 +12,7 @@ import type { BandejaOcSearch } from '@/features/compras/ordenes/lib/bandeja-oc-
  * <c>BandejaOcSearch</c> que el caller mergea con el default antes de
  * navegar (<c>navigate({ to, search: { ...DEFAULT_BANDEJA_OC_SEARCH, ...preset.search }})</c>).
  *
- * <para>Los presets resetean siempre <c>page=1</c> y <c>pageSize=50</c>
+ * <para>Los presets resetean siempre <c>page=1</c> y <c>pageSize=25</c>
  * (defaults) — son atajos de "vista nueva", no "página 5 con filtros".</para>
  *
  * <para><b>Diferido</b>: el preset "Mis duplicadas" del doc UF6-PR1

@@ -23,7 +23,7 @@ case "${1:-}" in
     pg -d "$DB" < pedidos.sql
     pg -d "$DB" -v sucursal_clave_aw="${OTR_SUCURSAL_CLAVE_AW:-MID}" \
       -v cliente_numero_aw="${OTR_CLIENTE_NUMERO_AW:-DEMO-CLI-EXP-1}" < otr.sql
-    echo "origen demo listo: BD $DB en el contenedor $C (60 clientes, 47 productos, 3 pedidos, 2 envíos OTR/3 versiones)" ;;
+    echo "origen demo listo: BD $DB en el contenedor $C (62 clientes, 47 productos, 3 pedidos, 2 envíos OTR/3 versiones)" ;;
   reseed) pg -d "$DB" < seed.sql ;;
   importar)
     AWDB="${AW_DB:-AW_DEMO}"

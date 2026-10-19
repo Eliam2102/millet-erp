@@ -1,3 +1,4 @@
+import { PageHeader } from '@/components/erp/PageHeader';
 import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -74,26 +75,26 @@ export function RetencionesPage() {
   }
   return (
     <div className="space-y-4 text-sm text-ink">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-3xl font-semibold">Retenciones por concepto</h1>
-          <p className="text-ink-muted">
-            Consulta y ajusta las propuestas fiscales para la captura de pasivos.
-          </p>
-        </div>
-        {puedeEditar && (
-          <Button
-            onClick={() => {
-              setForm({ ...vacia });
-              setError('');
-            }}
-          >
-            Nueva retención
-          </Button>
-        )}
-      </div>
+      <PageHeader
+        titulo="Retenciones por concepto"
+        descripcion="Consulta y ajusta las propuestas fiscales para la captura de pasivos."
+        acciones={
+          <>
+            {puedeEditar && (
+              <Button
+                onClick={() => {
+                  setForm({ ...vacia });
+                  setError('');
+                }}
+              >
+                Nueva retención
+              </Button>
+            )}
+          </>
+        }
+      />
       <p role="note" className="rounded-md bg-warning-note-bg px-3 py-2 text-warning-note-fg">
-        Supuesto SAT, valida Fiscal (D03). Las tasas dependen del concepto y del régimen del
+        Supuesto del SAT: debe validarlo Fiscal. Las tasas dependen del concepto y del régimen del
         proveedor.
       </p>
       {query.isLoading && <p>Cargando retenciones…</p>}

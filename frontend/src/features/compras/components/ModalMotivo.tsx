@@ -80,7 +80,7 @@ const VARIANTE_CONFIG: Record<
     extra?: string;
     aplicaA: MotivoRechazoAplicaA;
     accentClass: string;
-    botonClass: string;
+    botonVariant: 'secondary-danger' | 'secondary';
     botonTexto: string;
   }
 > = {
@@ -89,8 +89,8 @@ const VARIANTE_CONFIG: Record<
     descripcion:
       'Esta acción es definitiva. La RQ no podrá volver a Borrador ni re-enviarse a autorización.',
     aplicaA: MotivoRechazoAplicaA.Rechazo,
-    accentClass: 'text-rose-700',
-    botonClass: 'bg-destructive text-destructive-foreground hover:bg-destructive/90',
+    accentClass: 'text-danger-fg',
+    botonVariant: 'secondary-danger',
     botonTexto: 'Confirmar rechazo',
   },
   eliminar: {
@@ -98,8 +98,8 @@ const VARIANTE_CONFIG: Record<
     descripcion:
       'Esta requisición se moverá al estado Eliminada y ya no podrá ser editada ni re-enviada a autorización.',
     aplicaA: MotivoRechazoAplicaA.Eliminacion,
-    accentClass: 'text-rose-700',
-    botonClass: 'bg-destructive text-destructive-foreground hover:bg-destructive/90',
+    accentClass: 'text-danger-fg',
+    botonVariant: 'secondary-danger',
     botonTexto: 'Confirmar eliminación',
   },
   cancelar: {
@@ -107,8 +107,8 @@ const VARIANTE_CONFIG: Record<
     descripcion: 'Las reservas de stock se liberarán y cualquier OC borrador asociada se cancelará también.',
     extra: 'La RQ pasará al estado Cancelada y no podrá reactivarse.',
     aplicaA: MotivoRechazoAplicaA.Cancelacion,
-    accentClass: 'text-amber-700',
-    botonClass: 'bg-amber-600 text-white hover:bg-amber-700',
+    accentClass: 'text-warning-fg',
+    botonVariant: 'secondary-danger',
     botonTexto: 'Confirmar cancelación',
   },
   'cerrar-manual': {
@@ -118,8 +118,8 @@ const VARIANTE_CONFIG: Record<
     extra:
       'La RQ pasará a Cerrada sin surtir o Cerrada surtida parcialmente y no podrá reactivarse.',
     aplicaA: MotivoRechazoAplicaA.CierreManual,
-    accentClass: 'text-zinc-700',
-    botonClass: 'bg-zinc-700 text-white hover:bg-zinc-800',
+    accentClass: 'text-ink-muted',
+    botonVariant: 'secondary',
     botonTexto: 'Confirmar cierre',
   },
 };
@@ -191,7 +191,7 @@ export function ModalMotivo({
           {aviso && (
             <div
               role="alert"
-              className="rounded-md border border-amber-300 bg-amber-50 px-3 py-2 text-sm text-amber-800"
+              className="rounded-md border border-warning bg-warning-bg px-3 py-2 text-sm text-warning-fg"
             >
               ⚠ {aviso}
             </div>
@@ -201,7 +201,7 @@ export function ModalMotivo({
               htmlFor="motivo-selector"
               className="text-sm font-medium"
             >
-              Motivo <span className="text-rose-600">*</span>
+              Motivo <span className="text-danger-fg">*</span>
             </label>
             <MotivoRechazoSelector
               id="motivo-selector"
@@ -222,7 +222,7 @@ export function ModalMotivo({
             <label className="text-sm font-medium">
               Detalle{' '}
               {requiereTexto ? (
-                <span className="text-rose-600">(requerido) *</span>
+                <span className="text-danger-fg">(requerido) *</span>
               ) : (
                 <span className="text-muted-foreground">(opcional)</span>
               )}
@@ -249,7 +249,7 @@ export function ModalMotivo({
             type="button"
             onClick={handleConfirm}
             disabled={!puedeConfirmar}
-            className={config.botonClass}
+            variant={config.botonVariant}
             title={
               motivoId == null
                 ? 'Selecciona un motivo'

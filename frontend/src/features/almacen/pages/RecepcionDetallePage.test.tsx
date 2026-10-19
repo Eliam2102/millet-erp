@@ -100,6 +100,28 @@ describe('<RecepcionDetallePage> — nombres resueltos', () => {
     expect(screen.queryByText(ART_ID)).not.toBeInTheDocument();
   });
 
+  it('marca las líneas en revisión con su motivo y avisa que no están disponibles', async () => {
+    mswServer.use(
+      http.get('*/api/v1/almacen/recepciones/r-1', () =>
+        HttpResponse.json({
+          ...detalleConNombres,
+          lineas: [
+            detalleConNombres.lineas[0],
+            { ...detalleConNombres.lineas[0], id: 'l-2', posicion: 2, enRevision: true, motivoDano: 'Hojas rotas' },
+          ],
+        }),
+      ),
+    );
+
+    render(<RecepcionDetallePage />, { wrapper: createQueryWrapper() });
+
+    await waitFor(() => expect(screen.getByText('En revisión')).toBeInTheDocument());
+    expect(screen.getByText('Hojas rotas')).toBeInTheDocument();
+    expect(
+      screen.getByText(/1 línea en material en revisión: no están disponibles hasta el dictamen/),
+    ).toBeInTheDocument();
+  });
+
   it('cae a los ids crudos cuando el backend no resuelve nombres', async () => {
     mswServer.use(
       http.get('*/api/v1/almacen/recepciones/r-1', () =>

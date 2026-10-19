@@ -56,7 +56,7 @@ export function usePendientesAutorizacionOc(
 ) {
   const { nivel, page = 1, pageSize = 50 } = opts;
   return useQuery({
-    queryKey: ordenesKeys.pendientes(nivel ?? 'todos'),
+    queryKey: ordenesKeys.pendientes(nivel ?? 'todos', page, pageSize),
     queryFn: async ({ signal }) => {
       const params = new URLSearchParams();
       if (nivel) params.set('nivel', nivel);

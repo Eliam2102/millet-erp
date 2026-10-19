@@ -14,7 +14,7 @@ import { useAuthStore } from '@/lib/auth/auth-store';
 import { esApiError, useBodyScopedIdempotencyKey } from '@/lib/api';
 
 export function RegistrarIngresoSheet({ open, onOpenChange }: { open: boolean; onOpenChange: (value: boolean) => void }) {
-  return <Sheet open={open} onOpenChange={onOpenChange}><SheetContent>
+  return <Sheet open={open} onOpenChange={onOpenChange}><SheetContent size="legacy">
     <SheetHeader><SheetTitle>Registrar ingreso</SheetTitle><SheetDescription>Registra el depósito bancario en una sucursal que tengas asignada.</SheetDescription></SheetHeader>
     {open && <IngresoForm cerrar={() => onOpenChange(false)} />}
   </SheetContent></Sheet>;

@@ -39,7 +39,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { TextAreaField } from '@/components/erp';
-import { esApiError, useFormIdempotencyKey } from '@/lib/api';
+import { esApiError, useFormIdempotencyKey, codigoSoporte } from '@/lib/api';
 import {
   RechazarDevolucionSchema,
   RegistrarSalidaDevolucionSchema,
@@ -55,6 +55,7 @@ import {
   useSubAlmacenes,
 } from '@/features/almacen/api';
 import { Field } from '@/features/almacen/components/internal/Field';
+import { AvisoEnLinea } from '@/components/erp/feedback/AvisoEnLinea';
 import { UbicacionBinSelector } from '@/components/erp/selectors/UbicacionBinSelector';
 
 // ─── Solicitar autorización (confirm simple) ────────────────────────────────
@@ -264,13 +265,13 @@ export function RegistrarSalidaDevolucionSheet({
 }) {
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
-      <SheetContent side="right" className="sm:max-w-md">
+      <SheetContent side="right" size="form">
         <SheetHeader>
           <SheetTitle>Registrar salida de devolución</SheetTitle>
           <SheetDescription>
             Confirma que el material físicamente salió del almacén hacia
-            el proveedor. Esto genera el movimiento de salida y publica
-            el evento al outbox.
+            el proveedor. Esto genera el movimiento de salida y avisa
+            a Compras y Cuentas por Pagar.
           </SheetDescription>
         </SheetHeader>
 
@@ -303,6 +304,10 @@ function RegistrarSalidaBody({
 
   // C7.2b: bin real por línea, elegido al registrar (por saldo).
   const [binPorLinea, setBinPorLinea] = useState<Record<string, string>>({});
+  // Líneas sin rack tras intentar registrar (error en la línea, no toast) y
+  // error de negocio del servidor (aviso persistente con su detalle).
+  const [faltantes, setFaltantes] = useState<Set<string>>(new Set());
+  const [avisoServidor, setAvisoServidor] = useState<string | null>(null);
 
   const form = useForm<RegistrarSalidaDevolucionValues>({
     resolver: zodResolver(RegistrarSalidaDevolucionSchema),
@@ -312,11 +317,10 @@ function RegistrarSalidaBody({
   const lineas = detalle.data?.lineas ?? [];
 
   function onSubmit(values: RegistrarSalidaDevolucionValues) {
-    const faltante = lineas.find((l) => !binPorLinea[l.id]);
-    if (faltante) {
-      toast.error('Elige la ubicación de salida de cada línea.');
-      return;
-    }
+    setAvisoServidor(null);
+    const sinRack = lineas.filter((l) => !binPorLinea[l.id]);
+    setFaltantes(new Set(sinRack.map((l) => l.id)));
+    if (sinRack.length > 0) return;
     registrar.mutate(
       {
         command: {
@@ -335,7 +339,13 @@ function RegistrarSalidaBody({
           toast.success(`Salida ${resp.folioMovimientoSalida} registrada`);
           onSuccess();
         },
-        onError: (e) => manejarError(e),
+        onError: (e) => {
+          if (esApiError(e) && e.code) {
+            setAvisoServidor(e.problem.detail ?? e.problem.title);
+            return;
+          }
+          manejarError(e);
+        },
       },
     );
   }
@@ -406,8 +416,8 @@ function RegistrarSalidaBody({
             </p>
           ) : (
             lineas.map((l) => (
-              <div key={l.id} className="rounded-md border p-2">
-                <p className="mb-1 text-xs text-muted-foreground">
+              <div key={l.id} className="rounded-md border px-2 py-1.5">
+                <p className="mb-1 truncate text-xs text-muted-foreground">
                   {l.articuloClave ? (
                     <code className="font-mono">{l.articuloClave}</code>
                   ) : (
@@ -423,19 +433,36 @@ function RegistrarSalidaBody({
                   articuloId={l.articuloId}
                   subAlmacenId={subAlmacenId}
                   value={binPorLinea[l.id] ?? null}
-                  onChange={(id) =>
+                  onChange={(id) => {
+                    setFaltantes((prev) => {
+                      if (!prev.has(l.id)) return prev;
+                      const next = new Set(prev);
+                      next.delete(l.id);
+                      return next;
+                    });
                     setBinPorLinea((prev) => {
                       const next = { ...prev };
                       if (id) next[l.id] = id;
                       else delete next[l.id];
                       return next;
-                    })
-                  }
+                    });
+                  }}
                 />
+                {faltantes.has(l.id) && (
+                  <p role="alert" className="mt-1 text-xs text-danger-fg">
+                    Elige el rack de donde sale esta línea.
+                  </p>
+                )}
               </div>
             ))
           )}
         </div>
+
+        {avisoServidor && (
+          <AvisoEnLinea tono="error" titulo="No se pudo registrar la salida">
+            {avisoServidor}
+          </AvisoEnLinea>
+        )}
       </form>
 
       <SheetFooter>
@@ -464,7 +491,7 @@ function RegistrarSalidaBody({
 function manejarError(error: unknown) {
   if (esApiError(error)) {
     toast.error(error.problem.title, {
-      description: error.traceId ? `Código: ${error.traceId}` : undefined,
+      description: codigoSoporte(error),
     });
     return;
   }

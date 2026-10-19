@@ -11,6 +11,7 @@ import {
   SortableHeader,
   compareItemsBy,
   type SortState,
+  PaginacionTabla,
 } from '@/components/erp';
 import { useOrdenesCompra } from '@/features/compras/ordenes/api/useOrdenesCompra';
 import { useProveedores, useUsuarios, mapById } from '@/features/catalogos/api';
@@ -20,8 +21,9 @@ import { PermisosCanonicos } from '@/lib/auth/permission-codes';
 import { FiltrosBandejaOc } from '@/features/compras/ordenes/components/FiltrosBandejaOc';
 import { HoverSubEstados } from '@/features/compras/ordenes/components/HoverSubEstados';
 import { useNuevaOrdenCompra } from '@/features/compras/ordenes/components/nueva-orden-compra-context';
-import { type OrdenCompraResumen } from '@/features/compras/ordenes/api/types';
+import { ESTADO_COMERCIAL_PROVEEDOR_LABELS, EstadoComercialProveedorOc, EstadoOrdenCompra, type OrdenCompraResumen } from '@/features/compras/ordenes/api/types';
 import { type BandejaOcSearch } from '@/features/compras/ordenes/lib/bandeja-oc-search-schema';
+import { PageHeader } from '@/components/erp/PageHeader';
 
 // Path interno del routeTree (incluye el layout `_app`). Mismo patrón
 // que <c>BandejaRequisiciones</c>; el path público que usa <c>Link</c>
@@ -66,6 +68,7 @@ export function BandejaOrdenesCompra() {
     subEstadoRecepcion: search.subEstadoRecepcion,
     subEstadoFacturacion: search.subEstadoFacturacion,
     subEstadoPago: search.subEstadoPago,
+    estadoComercialProveedor: search.estadoComercialProveedor,
     proveedorId: search.proveedorId,
     compradorTitularId: search.compradorTitularId,
     fechaDesde: search.fechaDesde,
@@ -113,18 +116,18 @@ export function BandejaOrdenesCompra() {
   }
 
   return (
-    <div className="space-y-4 p-4" data-component="bandeja-ordenes-compra">
-      <div className="flex flex-wrap items-center justify-between gap-2">
-        <h1 className="text-2xl font-semibold tracking-tight">
-          Bandeja de OCs
-        </h1>
-        {canCrear && (
-          <Button onClick={() => nuevaOC.abrir()} data-action="nueva-oc">
-            <Plus className="mr-2 h-4 w-4" />
-            Nueva OC
-          </Button>
-        )}
-      </div>
+    <div className="space-y-4" data-component="bandeja-ordenes-compra">
+      <PageHeader
+        titulo="Órdenes de compra"
+        acciones={
+          canCrear && (
+            <Button onClick={() => nuevaOC.abrir()} data-action="nueva-oc">
+              <Plus className="mr-2 h-4 w-4" />
+              Nueva OC
+            </Button>
+          )
+        }
+      />
 
       <FiltrosBandejaOc search={search} onChange={setSearch} />
 
@@ -286,7 +289,15 @@ function RenderTabla({
                   {comprador}
                 </td>
                 <td className="px-3 py-2">
-                  <EstadoBadge tipo="orden-compra" estado={oc.estado} />
+                  <div className="flex flex-col items-start gap-1">
+                    <EstadoBadge tipo="orden-compra" estado={oc.estado} />
+                    {oc.estadoComercialProveedor != null &&
+                      (oc.estadoComercialProveedor !== EstadoComercialProveedorOc.SinRespuesta || oc.estado === EstadoOrdenCompra.Autorizada) && (
+                      <span className="text-xs text-ink-muted">
+                        {ESTADO_COMERCIAL_PROVEEDOR_LABELS[oc.estadoComercialProveedor]}
+                      </span>
+                    )}
+                  </div>
                 </td>
                 <td className="px-3 py-2">
                   <HoverSubEstados
@@ -312,12 +323,12 @@ function RenderTabla({
         </tbody>
       </table>
 
-      <Paginacion
+      <PaginacionTabla
         total={total}
-        page={search.page ?? 1}
-        pageSize={search.pageSize ?? 50}
-        onChange={(page, pageSize) =>
-          onChangeSearch({ ...search, page, pageSize })
+        offset={((search.page ?? 1) - 1) * (search.pageSize ?? 25)}
+        limit={search.pageSize ?? 25}
+        onChange={(offset, limit) =>
+          onChangeSearch({ ...search, page: Math.floor(offset / limit) + 1, pageSize: limit })
         }
       />
     </div>
@@ -329,65 +340,3 @@ function RenderTabla({
 // `components/HoverSubEstados.tsx` (UF6-PR1). UF7-PR1 lo consumirá
 // también en la pantalla de Partidas Abiertas.
 // ============================================================================
-
-// ============================================================================
-// Paginación page/pageSize (mirror del backend ListarOrdenesCompraResponse).
-// Diferente al de RQ que usa offset/limit; cada submódulo respeta el shape
-// real de su endpoint.
-// ============================================================================
-
-interface PaginacionProps {
-  total: number;
-  page: number;
-  pageSize: number;
-  onChange: (page: number, pageSize: number) => void;
-}
-
-function Paginacion({ total, page, pageSize, onChange }: PaginacionProps) {
-  const desde = total === 0 ? 0 : (page - 1) * pageSize + 1;
-  const hasta = Math.min(page * pageSize, total);
-  const tieneAnterior = page > 1;
-  const tieneSiguiente = page * pageSize < total;
-
-  return (
-    <div className="flex flex-wrap items-center justify-between gap-3 border-t bg-muted/30 px-3 py-2 text-xs text-muted-foreground">
-      <span>
-        Mostrando {desde}–{hasta} de {total}
-      </span>
-      <div className="flex items-center gap-2">
-        <label className="flex items-center gap-1.5">
-          Tamaño página:
-          <select
-            value={pageSize}
-            onChange={(e) => onChange(1, Number(e.target.value))}
-            className="rounded border bg-background px-1.5 py-0.5 text-xs"
-            aria-label="Tamaño de página"
-          >
-            <option value={10}>10</option>
-            <option value={50}>50</option>
-            <option value={100}>100</option>
-            <option value={200}>200</option>
-          </select>
-        </label>
-        <Button
-          type="button"
-          variant="outline"
-          size="sm"
-          disabled={!tieneAnterior}
-          onClick={() => onChange(Math.max(1, page - 1), pageSize)}
-        >
-          Anterior
-        </Button>
-        <Button
-          type="button"
-          variant="outline"
-          size="sm"
-          disabled={!tieneSiguiente}
-          onClick={() => onChange(page + 1, pageSize)}
-        >
-          Siguiente
-        </Button>
-      </div>
-    </div>
-  );
-}

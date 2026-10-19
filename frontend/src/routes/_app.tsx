@@ -60,7 +60,7 @@ function AppLayout() {
                     ruta autenticada pueda llamar <c>toast(...)</c> sin re-instanciarlo.
                     La pantalla de login NO está bajo _app, así que no recibe toasts —
                     es deliberado: el flujo de auth maneja sus mensajes inline. */}
-                              <Toaster richColors position="top-right" closeButton />
+                              <Toaster position="top-right" offset={{ top: 64 }} closeButton />
                             </AppShell>
                           </NuevaPropuestaProvider>
                         </RegistrarGestionProvider>

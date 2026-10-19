@@ -8,6 +8,7 @@ import {
   type Evidencia,
 } from '@/features/cxp/api/types';
 import { cn } from '@/lib/utils';
+import { DateTimeDisplay } from '@/components/erp/display/DateTimeDisplay';
 
 /**
  * <c>&lt;EvidenciasList/&gt;</c> — lista de evidencias adjuntas a una
@@ -69,7 +70,7 @@ function EvidenciaCard({ evidencia }: { evidencia: Evidencia }) {
             </span>
             <FirmaChip estado={evidencia.estadoFirmaFisica} />
             <time className="text-xs text-muted-foreground">
-              {new Date(evidencia.fechaCaptura).toLocaleString('es-MX')}
+              <DateTimeDisplay value={evidencia.fechaCaptura} variant="media" />
             </time>
           </div>
           <p className="text-sm">{evidencia.comentario}</p>
@@ -81,18 +82,16 @@ function EvidenciaCard({ evidencia }: { evidencia: Evidencia }) {
           </p>
           {evidencia.estadoFirmaFisica === EstadoFirmaFisica.Pendiente &&
             evidencia.fechaLimiteFirmaFisica && (
-              <p className="text-xs text-amber-700">
+              <p className="text-xs text-warning-fg">
                 Firma física pendiente, límite{' '}
                 <strong>{evidencia.fechaLimiteFirmaFisica}</strong>
               </p>
             )}
           {evidencia.estadoFirmaFisica === EstadoFirmaFisica.Recibida &&
             evidencia.fechaRecepcionFirmaFisica && (
-              <p className="text-xs text-emerald-700">
+              <p className="text-xs text-success-fg">
                 Firma física recibida el{' '}
-                {new Date(
-                  evidencia.fechaRecepcionFirmaFisica,
-                ).toLocaleDateString('es-MX')}
+                <DateTimeDisplay value={evidencia.fechaRecepcionFirmaFisica} variant="media" />
               </p>
             )}
         </div>
@@ -121,11 +120,11 @@ function FirmaChip({ estado }: { estado: EstadoFirmaFisica }) {
   return (
     <span
       className={cn(
-        'inline-flex items-center rounded-full px-1.5 py-0.5 text-[10px] font-medium',
-        estado === EstadoFirmaFisica.NoAplica && 'bg-slate-100 text-slate-700',
-        estado === EstadoFirmaFisica.Pendiente && 'bg-amber-100 text-amber-800',
+        'inline-flex items-center rounded-full px-1.5 py-0.5 text-2xs font-medium',
+        estado === EstadoFirmaFisica.NoAplica && 'bg-neutral-bg text-neutral-fg',
+        estado === EstadoFirmaFisica.Pendiente && 'bg-warning-bg text-warning-fg',
         estado === EstadoFirmaFisica.Recibida &&
-          'bg-emerald-100 text-emerald-800',
+          'bg-success-bg text-success-fg',
       )}
     >
       Firma: {EstadoFirmaFisicaLabels[estado]}

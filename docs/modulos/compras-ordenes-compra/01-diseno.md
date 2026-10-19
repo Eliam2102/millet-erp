@@ -95,7 +95,7 @@ defecto, nullable reference types).
   campo se reserva en el modelo de dominio como hueco no operado en
   v1; no aparece en pantallas ni en payloads.
 - **Cotizaciones formales** como entidad separada (cotización vive solo
-  como adjunto).
+  como adjunto). *Actualizado por F1-COM-02 (17-oct-2026): ver C13.*
 - **Portal para proveedores** (proveedores no acceden al sistema).
 - **Ejecución de pagos** (vive en Tesorería; este submódulo solo
   refleja el estado de pago como `SubEstadoPago`).
@@ -183,6 +183,7 @@ algunas secciones cambian. Cierran en sesión de validación del 01.
 | C10 | **Validez del proveedor al autorizar** | Se valida que el proveedor esté `Activo` **en cada transición de estado** (al enviar a autorización y al autorizar). Si el proveedor se bloquea entre captura y autorización, se rechaza con motivo. | Si se prefiere validar solo al crear, se reduce el checkpoint a una validación inicial. |
 | C11 | **Adjuntos: cotización obligatoria con excepción** | Antes de enviar a autorización, el sistema requiere al menos un adjunto con `TipoDocumento = cotizacion`. Excepción: bandera `cotizacion_excepcionada` en cabecera + adjunto tipo `correo_autorizacion`. La bandera no se puede activar sin adjuntar el correo. | Si el cliente prefiere validar fuera del agregado (con override manual), se mueve a regla de aplicación con auditoría. |
 | C12 | ~~Versión en bitácora post-autorización~~ | **N/A** — descartado al cerrar C4 como "cancelar + recrear". La trazabilidad entre OC origen y OC nueva se preserva vía campo `oc_origen_id` en la cabecera. | — |
+| C13 | **Cotizaciones comparables (F1-COM-02, 86e3jvu2a)** | Agregado `Cotizacion` (con `LineaCotizacion`) en `compras.cotizaciones` / `compras.cotizacion_lineas`, ligado a la requisición. El PDF se sube por el servicio genérico de adjuntos (`cotizacion_compra`, ADR-0058). El comparativo normaliza cada partida a la unidad de la RQ y a MXN con el tipo de cambio del día. `POST /ordenes/desde-requisicion` acepta `cotizacionId` + `motivoEleccion`: la OC toma precio y moneda de la cotización elegida y copia su PDF como adjunto `cotizacion` (decisión del owner D1, 17-oct-2026); las demás cotizaciones se conservan. Permisos `compras.cotizaciones.leer` y `compras.cotizaciones.gestionar`. | Si Millet decide que una cotización pueda cubrir solo algunas partidas o que exista comparativo para compra directa sin RQ, hay que extender el agregado y habilitar OC parcial desde RQ. |
 
 ---
 
@@ -742,6 +743,46 @@ Seed inicial:
 - `packing_list` "Packing list".
 - `otro` "Otro" (texto libre en `NombreArchivo`).
 
+### 4.13 Entidades `RespuestaProveedorOc` y `CompromisoEntregaOc` (F1-COM-11)
+
+Registran la respuesta del proveedor sobre una OC **Autorizada** (hasta que exista el envío, F1-COM-10, «OC enviada» equivale a «autorizada»). Una respuesta es una **Confirmación** (con una o varias fechas prometidas por línea, es decir, parcialidades) o un **Rechazo** (con motivo obligatorio y sin fechas).
+
+`RespuestaProveedorOc` (hija de `OrdenCompra`, tabla `compras.oc_respuestas_proveedor`): `Numero` (consecutivo por OC, la vigente es la de mayor número), `Tipo` (1 = Confirmación, 2 = Rechazo), `FechaRespuesta`, `Evidencia` (texto obligatorio, máximo 300 caracteres; los archivos de soporte se suben con el servicio genérico de adjuntos G1.2, entidad `oc_respuesta_proveedor`, ADR-0058), `ContactoProveedor` (opcional, máximo 120), `Motivo` (obligatorio en el rechazo, máximo 500), `TieneDiferencias`, `RegistradaPorId` (quien registra queda como responsable de seguimiento) y `RegistradaEn`.
+
+`CompromisoEntregaOc` (tabla `compras.oc_compromisos_entrega`): `RespuestaProveedorOcId`, `LineaOrdenCompraId`, `Cantidad` (mayor a cero) y `FechaPrometida` (no anterior a la fecha de respuesta).
+
+**Inmutabilidad.** El historial es append-only: una nueva fecha prometida es una respuesta nueva y la anterior queda como «Reemplazada». No existen operaciones para editar ni eliminar una respuesta o un compromiso; es una decisión de diseño, no una omisión.
+
+**Diferencias.** Una confirmación se marca `TieneDiferencias` cuando, para alguna línea con pendiente (`Cantidad - CantidadRecibida > 0`), la suma confirmada difiere del pendiente, o cuando alguna fecha prometida es posterior a `FechaEntregaEsperada` de la OC (si existe). No se compara contra `FechaEntregaLinea`. La OC nunca se modifica en silencio: solo se marca la diferencia para Compras.
+
+**Estado comercial.** `OrdenCompra` materializa `EstadoComercialProveedor` (`SinRespuesta` = 0, `Confirmada` = 1, `ConfirmadaConDiferencias` = 2, `Rechazada` = 3) y `FechaCompromisoProveedor` (la mayor fecha prometida de la respuesta vigente; nula tras un rechazo). Se recalculan al registrar cada respuesta. Una OC duplicada nace `SinRespuesta`.
+
+**Reglas de validación** (códigos `BusinessRuleException` del dominio, `OrdenCompra.RegistrarRespuestaProveedor`): `OC_RESPUESTA_ESTADO_INVALIDO` (la OC no está Autorizada), `OC_RESPUESTA_USUARIO_REQUERIDO`, `OC_RESPUESTA_TIPO_INVALIDO`, `OC_RESPUESTA_EVIDENCIA_REQUERIDA`, `OC_RESPUESTA_CONTACTO_LARGO`, `OC_RESPUESTA_MOTIVO_LARGO`, `OC_RESPUESTA_FECHA_FUTURA` (respecto de hoy en `America/Mexico_City`), `OC_RESPUESTA_FECHA_ANTERIOR_OC`, `OC_RESPUESTA_MOTIVO_REQUERIDO`, `OC_RESPUESTA_RECHAZO_SIN_COMPROMISOS`, `OC_RESPUESTA_SIN_PENDIENTE`, `OC_RESPUESTA_SIN_COMPROMISOS`, `OC_RESPUESTA_LINEA_INVALIDA`, `OC_RESPUESTA_CANTIDAD_INVALIDA` y `OC_RESPUESTA_FECHA_PROMETIDA_INVALIDA`.
+
+**API.** `POST /api/v1/compras/ordenes/{id}/respuestas-proveedor` (permiso `compras.ordenes.registrar-respuesta-proveedor`, `Idempotency-Key` obligatorio, alcance por sucursal con `OcSucursalScope`, ADR-0051). La evidencia en archivo usa las rutas genéricas bajo `/api/v1/compras/ordenes/respuestas-proveedor/{respuestaId}/adjuntos` (ver: `compras.ordenes.leer`; subir: `compras.ordenes.registrar-respuesta-proveedor`; el alcance se hereda de la OC dueña). **La baja de archivos de evidencia está denegada** (`RESPUESTA_EVIDENCIA_INMUTABLE`, 422) y la UI no la ofrece: la evidencia es historial inmutable. La bandeja `GET /api/v1/compras/ordenes` filtra en el servidor por `estadoComercialProveedor` (0–3). Tipo de documento `00000011-0006-0000-0000-000000000005`, código `evidencia_respuesta`.
+
+#### Decisiones y pendientes de F1-COM-02
+
+- **Liberación de la elección.** Al cancelar la OC (con o sin recepciones) o al quitarle su última línea, la `Cotizacion` elegida se libera en la misma transacción (`Cotizacion.LiberarEleccion`): vuelve a ser elegible y el comparativo se reabre. La elección anterior (OC, motivo, quién, cuándo, y el motivo de la liberación) se conserva en `compras.cotizacion_elecciones_anteriores`. «Comparativo cerrado» = existe una cotización elegida con OC vigente; elegir otra mientras exista una vigente falla con `COT_YA_HAY_ELEGIDA`. Consecuencia: el detalle de una OC cancelada ya no muestra el bloque «Cotización elegida» (la historia queda en la tabla de elecciones anteriores).
+- **Sin bypass de D1.** Si la RQ tiene al menos una cotización registrada, los flujos que crean OC desde ella sin `cotizacionId` (`POST /ordenes/desde-requisicion` y «agregar línea desde requisición» a una OC existente) responden 422 `COT_ELEGIR_DESDE_COMPARATIVO`; en la UI «Convertir a OC» lleva al comparativo. RQ sin cotizaciones: sin cambio (sin mínimo de cotizaciones). Duplicar una OC no se bloquea: copia precios de la OC origen, no estimados de la RQ.
+- **Proveedor y moneda fijos.** Con `CotizacionElegida`, `PATCH` de cabecera rechaza cambiar proveedor o moneda (422 `OC_COTIZACION_FIJA`).
+- **Decisión a confirmar por el owner:** editar el precio de una línea que vino de la cotización se **permite**, pero la UI muestra el aviso «Se aparta de la cotización elegida» (`AvisoEnLinea`, no bloquea). Si el owner prefiere bloquearlo o exigir motivo, se endurece en `ActualizarLineaOcHandler`.
+
+#### Decisiones y pendientes de F1-COM-11
+
+- «OC enviada» = autorizada hasta que exista el envío (F1-COM-10, Sprint 03); la regla puede endurecerse después sin cambiar el modelo.
+- Responsable de seguimiento = quien registra la respuesta (Q1). Si Millet pide otro responsable, se agrega `ResponsableSeguimientoId` con selector de usuarios en F1-COM-07.
+- Evidencia: referencia en texto obligatoria y archivo opcional por G1.2 (Q2, ADR-0058). Hacer obligatorio el archivo se puede endurecer sin migración de datos.
+- Diferencia por cantidad pendiente y por fecha esperada de la OC, no por fecha de línea (evita errores de ±1 día por zona horaria).
+- «Cambio propuesto» del plano 1.7.1 §7.8 se modela como confirmación con diferencias; no hay un tercer tipo.
+- La «incidencia» y los avisos de atraso del plano (§7.8 paso 4, §7.9 pasos 5-6) quedan para F1-COM-07; aquí solo se marca la diferencia. Diferencia registrada, no resuelta: el plano pide «responsable de seguimiento» y «abrir incidencia»; la ficha pide «responsable y evidencia» y «marcar la diferencia». Se tomó la ficha.
+- Se permite registrar una respuesta tras un rechazo (la vigente es siempre la de mayor número).
+- Sin evento de integración: ningún módulo consume hoy la promesa del proveedor (Almacén la usará con F1-COM-07 y F1-COM-13 por puerto de lectura). La tríada no cambia.
+- Editar y eliminar respuestas no existen por regla (historial inmutable).
+- El compromiso vigente es por **respuesta completa**, no por línea: la respuesta de mayor número reemplaza a todas las anteriores, aunque una respuesta nueva solo cubra algunas líneas. Si Millet necesita compromisos independientes por línea, es un cambio de modelo (vigencia por línea).
+- Una OC cancelada o cerrada **conserva su último estado comercial** del proveedor (no se recalcula ni se reinicia); la bandeja la muestra con ese estado y el filtro la incluye.
+- Parámetros a validar con Millet en el Tema 10 de la Lista única 1.7.1 (`02 · Compras.md`): equivalencia de «enviada», criterio de diferencia (fecha esperada y cantidad pendiente) y fecha de respuesta no futura ni anterior a la OC.
+
 ---
 
 ## 5. Ciclo de vida (state machine)
@@ -767,6 +808,8 @@ Seed inicial:
 | `SubEstadoPago` | `SinPago`, `Parcial`, `Pagada` | `PagoFacturaProveedorEvent` listener |
 
 Estos avanzan solo cuando `Estado = Autorizada`.
+
+El **estado comercial del proveedor** (`EstadoComercialProveedor`, F1-COM-11, §4.13) es independiente del `Estado` de la OC y de los tres sub-estados: lo recalcula únicamente el registro de una respuesta del proveedor. La respuesta no registra recepción ni modifica cantidades, facturación, pago ni el estado de la OC; recepción, factura y pago avanzan por separado.
 
 ### 5.3 Transiciones permitidas
 
@@ -1085,6 +1128,7 @@ con GUIDs deterministas (namespace `00000004-...` reservado para OC).
 | `compras.ordenes.cancelar` | Cancelar OCs en Borrador o sin recepciones. |
 | `compras.ordenes.cancelar.doble` | Cancelar OCs con recepciones (requiere también `.nivel1` + `.nivel2`). |
 | `compras.ordenes.reportes.partidas_abiertas` | Ver el reporte de partidas abiertas (vista crítica). |
+| `compras.ordenes.registrar-respuesta-proveedor` | Registrar la confirmación o el rechazo del proveedor sobre una OC autorizada y subir o dar de baja su evidencia (F1-COM-11). El alcance por sucursal sigue ADR-0051. |
 
 > **Asignación a roles:** se cubre en el seed inicial (Fase 0.b
 > equivalente del OC submódulo). Mapeo tentativo: Comprador →
@@ -1287,6 +1331,43 @@ compras.folio_secuencias_oc (
     siguiente           bigint        NOT NULL DEFAULT 1,
     PRIMARY KEY (empresa_id, sucursal_id, anio)
 );
+```
+
+**F1-COM-11: respuesta del proveedor** (migración `RespuestasProveedorOc`):
+
+```sql
+compras.ordenes_compra (
+    -- columnas nuevas
+    estado_comercial_proveedor  smallint      NOT NULL DEFAULT 0,   -- CHECK ck_oc_estado_comercial_proveedor: BETWEEN 0 AND 3
+    fecha_compromiso_proveedor  date
+)
+
+compras.oc_respuestas_proveedor (
+    id                  uuid          PK,
+    orden_compra_id     uuid          NOT NULL FK -> ordenes_compra ON DELETE CASCADE,
+    numero              integer       NOT NULL,
+    tipo                smallint      NOT NULL,                     -- CHECK ck_oc_respuestas_proveedor_tipo: IN (1, 2)
+    fecha_respuesta     date          NOT NULL,
+    evidencia           varchar(300)  NOT NULL,
+    contacto_proveedor  varchar(120),
+    motivo              varchar(500),
+    tiene_diferencias   boolean       NOT NULL,
+    registrada_por_id   uuid          NOT NULL,
+    registrada_en       timestamptz   NOT NULL
+    -- + columnas de auditoría y version
+)
+-- UNIQUE ux_oc_respuestas_proveedor_numero (orden_compra_id, numero)
+
+compras.oc_compromisos_entrega (
+    id                          uuid          PK,
+    respuesta_proveedor_oc_id   uuid          NOT NULL FK -> oc_respuestas_proveedor ON DELETE CASCADE,
+    orden_compra_id             uuid          NOT NULL,
+    linea_orden_compra_id       uuid          NOT NULL FK -> orden_compra_lineas ON DELETE RESTRICT,
+    cantidad                    numeric(15,4) NOT NULL,             -- CHECK ck_oc_compromisos_entrega_cantidad: cantidad > 0
+    fecha_prometida             date          NOT NULL
+    -- + columnas de auditoría y version
+)
+-- INDEX ix_oc_compromisos_entrega_respuesta_proveedor_oc_id, ix_oc_compromisos_entrega_linea_orden_compra_id
 ```
 
 ### 10.2 Modificaciones a tablas existentes
@@ -1568,7 +1649,7 @@ Para evitar duplicar al construir CxP/Recepción/Activos después de OC:
 | **Sub-estado** | Dimensión independiente de progreso de una OC autorizada (recepción, facturación, pago). |
 | **Partidas abiertas** | Vista consolidada de OCs activas con sus sub-estados; reporte crítico del mapa funcional §8.2. |
 | **Duplicar OC** | Acción que pre-llena una OC nueva (Borrador) desde una OC cancelada o rechazada. Sustituye la "reapertura" tras la decisión C4 cerrada como "cancelar + recrear". Setea `OcOrigenId` para trazabilidad. |
-| **Cotización** | Documento del proveedor que sustenta el precio de una OC; adjunto, no entidad. |
+| **Cotización** | Documento del proveedor que sustenta el precio de una OC; adjunto, no entidad. *Actualizado por F1-COM-02 (17-oct-2026): ver C13.* |
 | **Información logística** | Conjunto de campos estructurados que reemplaza el texto libre embebido del SAP legacy (transportista, guía, contenedor, ruta, semana, pedimento). |
 | **Sub-estado materializado** | Columna en `ordenes_compra` que persiste el sub-estado calculado, actualizada por listeners (C7). |
 
@@ -1584,3 +1665,5 @@ Para evitar duplicar al construir CxP/Recepción/Activos después de OC:
 | 0.4 | 2026-05-11 | Cierre del backend tras 3 rondas de decisiones con owner. **C4 cerrado como "cancelar + recrear"** (descartada reapertura): eliminada entidad `VersionOC`, estado `EnReautorizacion`, comandos `ReabrirParaEdicion` / `RegistrarVersionPostReautorizacion`, tabla `compras.orden_compra_versiones`, evento `OrdenCompraReabiertaEvent`, permiso `compras.ordenes.reabrir`. **Agregado** comando `DuplicarOrdenCompraCommand` + campo `OcOrigenId` (con índice) + evento `OrdenCompraDuplicadaEvent` + query `ObtenerOrdenCompraOrigenQuery`. **Confirmadas** C1 (MXN+T/C manual), C2 (folio `OC-MID2026-000001`), C3 (motor impuestos local), C6 (7 tipos adjunto), C7 (sub-estados materializados), C9 (RQ comprometida bloqueada), C10 (validez proveedor en cada transición), C11 (cotización en agregado). **Decididos**: librería PDF = QuestPDF, idempotency-key desde el inicio de cada PR. |
 | 0.5 | 2026-05-11 | Cierre del frontend tras 3 rondas de decisiones con owner. **FOC11** agrega 10º permiso canónico `compras.ordenes.crear.sin_rq` para crear OC sin requisición previa (caso especial §4.3 del mapa funcional). **Agregada query** `ObtenerHistoricoOrdenCompraQuery` para alimentar el tab "Historial" del frontend P3 (brecha §14.1 del 05). FOC16 cierra P2 sin acciones inline; el resto de FOC1–FOC15 confirma defaults recomendados. §14 brechas confirmadas con endpoints dedicados (`/historico`, `/duplicadas`, `/partidas-abiertas/kpis`). |
 | 0.6 | 2026-05-13 | **Setting `AutoGenerarOcAlAutorizar` por empresa** (ADR-0033). §3.bis.1 actualizada: el filtro del selector pasa de `estado='Autorizada'` a `estado='EnSurtido' AND comprometida_en_oc_id IS NULL` (unificado para los dos modos del setting). Los handlers `CrearOrdenCompraDesdeRequisicion` (1:1) y `AgregarLineaDesdeRequisicion` (N:1) heredan `cantidad_de_compra` (no `cantidad` original), porque la parte cubierta por almacén ya tiene movimiento de salida al autorizar. Modelo y semánticas de §1.2 (1:1 / N:1) sin cambios. |
+| 0.7 | 2026-10-17 | **F1-COM-02 (86e3jvu2a): cotizaciones comparables.** Nueva decisión C13: agregado `Cotizacion` por requisición, comparativo normalizado y creación de OC con la cotización elegida (precio, moneda y PDF copiado como adjunto `cotizacion`). Se anotan las referencias de §1.2 y del glosario que decían "adjunto, no entidad". |
+| 0.8 | 2026-10-17 | **F1-COM-11 (86e3jvu93): respuesta del proveedor sobre la OC.** Nueva §4.13 (`RespuestaProveedorOc`, `CompromisoEntregaOc`, estado comercial y fecha de compromiso en la OC), nota en §5.2, permiso `compras.ordenes.registrar-respuesta-proveedor` en §9, tablas y columnas en §10.1, evidencia en archivo con G1.2 y decisiones y pendientes (supuestos y preguntas Q1-Q4). Sin eventos nuevos ni cambios a la tríada. |

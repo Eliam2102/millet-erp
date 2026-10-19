@@ -9,6 +9,7 @@ import {
   applyServerErrors,
   esApiError,
   useBodyScopedIdempotencyKey,
+  codigoSoporte,
 } from '@/lib/api';
 import {
   DepartamentoSchema,
@@ -84,7 +85,7 @@ export function DepartamentoInlineForm({
         return;
       }
       toast.error(error.problem.title, {
-        description: error.traceId ? `Código: ${error.traceId}` : undefined,
+        description: codigoSoporte(error),
       });
       return;
     }

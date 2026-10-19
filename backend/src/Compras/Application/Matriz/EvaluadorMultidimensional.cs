@@ -1,6 +1,7 @@
 using Microsoft.EntityFrameworkCore;
 using Millet.Compras.Domain;
 using Millet.Compras.Application.Disponibilidad;
+using Millet.Compras.Application.Oc;
 using Millet.Compras.Domain.Matriz;
 using Millet.Compras.Infrastructure;
 using Millet.Administracion.Domain;
@@ -17,32 +18,27 @@ namespace Millet.Compras.Application.Matriz;
 
 /// <summary>
 /// Implementación productiva de <see cref="IRequiereNivelEvaluator"/>.
-/// Decide si la requisición necesita nivel 2 de autorización. Desde la
-/// minuta Millet del 12-oct la requisición <b>no</b> lleva monto: solo
-/// Compras cotiza y el monto contra el umbral N1-N2 se valida en la OC.
+/// Decide si la requisición necesita nivel 2 de autorización con el modo y el
+/// mínimo del umbral vigente del departamento de la RQ (respaldo: fila general
+/// <see cref="Oc.EvaluadorNivelOc.UmbralGeneralId"/>).
 ///
 /// <list type="number">
+///   <item><b>Naturaleza:</b> <c>Critico</c> o <c>Riesgo</c> → N1+N2 directo.</item>
+///   <item><b>Sin umbral vigente:</b> no se puede decidir, se exige N2 (fail-safe).</item>
 ///   <item>
-///     <b>Capa 1 — Naturaleza fuerza N2:</b>
-///     <c>Critico</c> o <c>Riesgo</c> en cualquier línea → N1+N2 directo.
+///     <b>Monto</b> (modo <c>SoloMonto</c> o <c>Ambos</c>): Σ cantidad × precio estimado
+///     &gt; umbral de monto → N1+N2, sin consultar stock.
 ///   </item>
 ///   <item>
-///     <b>Capa 2 — Disponibilidad en almacén:</b>
-///     alguna línea de artículo de inventario (no servicio) con existencia
-///     insuficiente en la sucursal (cubrimiento parcial o nulo) → N1+N2.
-///     Solo aplica si <see cref="ComprasSettings.ModoNivel2"/> es
-///     <c>SoloDisponibilidad</c> o <c>Ambos</c>.
-///     Sin fila de settings para la empresa, el modo es <c>SoloMonto</c>
-///     (en la RQ equivale a «sin criterio de disponibilidad»).
+///     <b>Disponibilidad</b> (modo <c>SoloDisponibilidad</c> o <c>Ambos</c>): si hay faltante
+///     de artículos de inventario (servicios excluidos), el importe a comprar
+///     (Σ DeCompra × precio estimado de los faltantes) se compara contra
+///     <c>MontoMinimoDisponibilidad</c>; sin mínimo o superado → N1+N2.
 ///   </item>
-///   <item>
-///     <b>Capa 3 — Solo N1:</b> default si las anteriores no disparan.
-///   </item>
+///   <item><b>Si nada dispara:</b> solo N1.</item>
 /// </list>
 ///
-/// <para>
-/// Evalúa las capas en orden y short-circuit en la primera que dispara N2.
-/// </para>
+/// <para>Todas las comparaciones son estrictas (<c>&gt;</c>): la igualdad se queda en N1.</para>
 /// </summary>
 public sealed class EvaluadorMultidimensional : IRequiereNivelEvaluator
 {
@@ -51,19 +47,22 @@ public sealed class EvaluadorMultidimensional : IRequiereNivelEvaluator
     private readonly IConsultarStockPort _stock;
     private readonly IConversionUnidadPort _conversion;
     private readonly IArticuloReadPort _articulos;
+    private readonly IClock _clock;
 
     public EvaluadorMultidimensional(
         ComprasDbContext db,
         NaturalezaResolverService naturaleza,
         IConsultarStockPort stock,
         IConversionUnidadPort conversion,
-        IArticuloReadPort articulos)
+        IArticuloReadPort articulos,
+        IClock clock)
     {
         _db = db;
         _naturaleza = naturaleza;
         _stock = stock;
         _conversion = conversion;
         _articulos = articulos;
+        _clock = clock;
     }
 
     public async Task<RequiereNivel> EvaluarAsync(
@@ -77,42 +76,58 @@ public sealed class EvaluadorMultidimensional : IRequiereNivelEvaluator
             return RequiereNivel.N1YN2;
         }
 
-        // Capa 2: existencia en almacén por línea de inventario (solo si el modo la incluye).
-        var modo = await ObtenerModoNivel2Async(requisicion.EmpresaId, cancellationToken);
-        if (modo is ModoNivel2.SoloDisponibilidad or ModoNivel2.Ambos
-            && await HayFaltanteDeExistenciaAsync(requisicion, cancellationToken))
+        // Umbral vigente del departamento; si no hay, el de la fila general.
+        var hoy = DateOnly.FromDateTime(_clock.UtcNow.UtcDateTime);
+        var filas = await _db.UmbralesAprobacionDepartamento.AsNoTracking()
+            .Where(u => u.EmpresaId == requisicion.EmpresaId
+                        && (u.DepartamentoId == requisicion.DepartamentoId
+                            || u.DepartamentoId == EvaluadorNivelOc.UmbralGeneralId)
+                        && u.VigenteDesde <= hoy
+                        && (u.VigenteHasta == null || u.VigenteHasta >= hoy))
+            .OrderByDescending(u => u.VigenteDesde)
+            .ToListAsync(cancellationToken);
+        var umbral = filas.FirstOrDefault(u => u.DepartamentoId == requisicion.DepartamentoId)
+                     ?? filas.FirstOrDefault(u => u.DepartamentoId == EvaluadorNivelOc.UmbralGeneralId);
+
+        // Sin umbral vigente no se puede decidir: se exige N2. Ficha C3.1 §7 y plano Compras paso 10.
+        if (umbral is null)
         {
             return RequiereNivel.N1YN2;
         }
 
-        // Capa 3: solo N1.
+        var incluyeMonto = umbral.ModoNivel2 is ModoNivel2.SoloMonto or ModoNivel2.Ambos;
+        var incluyeDisponibilidad = umbral.ModoNivel2 is ModoNivel2.SoloDisponibilidad or ModoNivel2.Ambos;
+
+        if (incluyeMonto
+            && requisicion.Lineas.Sum(l => l.Cantidad * l.PrecioEstimado.Amount) > umbral.UmbralMonto)
+        {
+            return RequiereNivel.N1YN2;
+        }
+
+        if (incluyeDisponibilidad
+            && await ImporteFaltanteAsync(requisicion, cancellationToken) is decimal importe
+            && (umbral.MontoMinimoDisponibilidad is null || importe > umbral.MontoMinimoDisponibilidad))
+        {
+            return RequiereNivel.N1YN2;
+        }
+
         return RequiereNivel.SoloN1;
     }
 
     /// <summary>
-    /// Modo de nivel 2 de la empresa de la requisición. Sin fila de settings
-    /// se asume <see cref="ModoNivel2.SoloMonto"/> (en la RQ: sin criterio de disponibilidad).
-    /// </summary>
-    private async Task<ModoNivel2> ObtenerModoNivel2Async(Guid empresaId, CancellationToken cancellationToken) =>
-        await _db.ComprasSettings
-            .AsNoTracking()
-            .Where(s => s.EmpresaId == empresaId)
-            .Select(s => (ModoNivel2?)s.ModoNivel2)
-            .FirstOrDefaultAsync(cancellationToken) ?? ModoNivel2.SoloMonto;
-
-    /// <summary>
     /// Reparto por línea (mismo cálculo que el preview y la bandeja, vía
-    /// <see cref="RepartoDisponibilidadService"/>). <c>true</c> si alguna línea
-    /// de inventario (no servicio) tiene faltante de existencia. Los servicios
+    /// <see cref="RepartoDisponibilidadService"/>). Devuelve el importe a comprar
+    /// (Σ DeCompra × precio estimado) de las líneas de inventario con faltante,
+    /// o <c>null</c> si no hay faltante. Los servicios
     /// no consultan stock ni cuentan como faltante. Solo lectura: no reserva stock.
     /// </summary>
-    private async Task<bool> HayFaltanteDeExistenciaAsync(
+    private async Task<decimal?> ImporteFaltanteAsync(
         Requisicion requisicion,
         CancellationToken cancellationToken)
     {
         if (requisicion.Lineas.Count == 0)
         {
-            return false;
+            return null;
         }
 
         var articulos = await _articulos.ObtenerPorIdsAsync(
@@ -122,6 +137,9 @@ public sealed class EvaluadorMultidimensional : IRequiereNivelEvaluator
             _stock, _conversion, articulos, requisicion.Clasificacion, requisicion.SucursalId,
             requisicion.Lineas, cancellationToken);
 
-        return repartos.Any(r => !r.EsServicio && r.DeCompra > 0m);
+        var faltantes = repartos.Where(r => !r.EsServicio && r.DeCompra > 0m).ToList();
+        return faltantes.Count == 0
+            ? null
+            : faltantes.Sum(r => r.DeCompra * r.Linea.PrecioEstimado.Amount);
     }
 }

@@ -69,5 +69,6 @@ public sealed class ConceptoMovimientoConfiguration : IEntityTypeConfiguration<C
         (Guid.Parse("0000000b-1001-0000-0000-00000000000b"), "Intereses y gastos financieros", ClasificacionFlujo.Financiamiento),
         (Guid.Parse("0000000b-1001-0000-0000-00000000000c"), "Disposición de crédito",        ClasificacionFlujo.Financiamiento),
         (Guid.Parse("0000000b-1001-0000-0000-00000000000d"), "Pago de crédito",               ClasificacionFlujo.Financiamiento),
+        (ConceptoMovimiento.DevolucionClienteId,"Devolución a cliente",         ClasificacionFlujo.Operacion),
     ];
 }

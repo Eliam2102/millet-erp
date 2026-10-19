@@ -145,6 +145,33 @@ export function useAutorizarFactura() {
   });
 }
 
+export function useMarcarRetencionesRevisadas() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (args: {
+      id: string;
+      versionEsperada: number;
+      motivo: string;
+      idempotencyKey: string;
+    }) => {
+      const { data } = await apiRequest<{ id: string; version: number }>(
+        `/api/v1/cuentas-por-pagar/facturas/${args.id}/retenciones/revisar`,
+        {
+          method: 'POST',
+          body: { motivo: args.motivo },
+          idempotencyKey: args.idempotencyKey,
+          headers: { 'X-Expected-Version': String(args.versionEsperada) },
+        },
+      );
+      return data;
+    },
+    onSuccess: (_, vars) => {
+      queryClient.invalidateQueries({ queryKey: cxpKeys.facturaById(vars.id) });
+      queryClient.invalidateQueries({ queryKey: cxpKeys.facturas() });
+    },
+  });
+}
+
 export function useCancelarFactura() {
   const queryClient = useQueryClient();
   return useMutation({

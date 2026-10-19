@@ -2,6 +2,7 @@ using System.Text.Json;
 using FluentValidation;
 using MediatR;
 using Microsoft.EntityFrameworkCore;
+using Npgsql;
 using Millet.Compartido.Infrastructure.Persistence;
 using Millet.DatosMaestros.Domain;
 using Millet.SharedKernel.Application;
@@ -42,7 +43,14 @@ public sealed class GuardarClasificacionClienteHandler(CompartidoDbContext db) :
             throw new ConflictException("CLASIFICACION_CAMBIO", "La clasificación cambió. Recarga antes de guardar.");
         c.Editar(nombre, request.Descripcion, request.Activa);
         if (request.Id is null) db.Add(c);
-        await db.SaveChangesAsync(cancellationToken); return c.Id;
+        // La comprobación de arriba no es atómica: dos altas simultáneas pueden pasarla.
+        // El índice único ix_clasificaciones_cliente_nombre es la autoridad y su colisión es 422, no 500.
+        try { await db.SaveChangesAsync(cancellationToken); }
+        catch (DbUpdateException e) when (e.InnerException is PostgresException { SqlState: PostgresErrorCodes.UniqueViolation, ConstraintName: "ix_clasificaciones_cliente_nombre" })
+        {
+            throw new BusinessRuleException("CLASIFICACION_DUPLICADA", "Ya existe una clasificación con ese nombre.");
+        }
+        return c.Id;
     }
 }
 
@@ -57,7 +65,9 @@ public sealed class ListarLigadosClienteHandler(CompartidoDbContext db) : IReque
         var candidatos = await db.Clientes.AsNoTracking().Where(c => c.Origen == OrigenMaster.Manual && c.Rfc != null && rfcs.Contains(c.Rfc.Trim().ToUpper())).ToListAsync(cancellationToken);
         return conflictos.Select(c => new ClienteLigadoDto(c.Id,c.ReferenciaExterna,c.Rfc,
             JsonSerializer.Deserialize<AplicarClienteAwSnapshot>(c.SnapshotJson)!.RazonSocial,c.Version,
-            candidatos.Where(m => RfcCliente.Normalizar(m.Rfc) == c.Rfc).Select(m => new ClienteExistente(m.Id,m.Clave,m.RazonSocial)).ToArray())).ToArray();
+            candidatos.Where(m => RfcCliente.Normalizar(m.Rfc) == c.Rfc).Select(m => new ClienteExistente(m.Id,m.Clave,m.RazonSocial)).ToArray()))
+            // Sin candidatos vigentes (p. ej. el manual cambió su RFC) no hay nada que revisar.
+            .Where(d => d.Candidatos.Count > 0).ToArray();
     }
 }
 public sealed record RevisarLigadoClienteCommand(Guid Id, Guid ClienteId, int Version) : IRequest;

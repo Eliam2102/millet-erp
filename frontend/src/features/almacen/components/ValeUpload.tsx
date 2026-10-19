@@ -8,7 +8,7 @@ import { FileText, Loader2, Upload, X } from 'lucide-react';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import { useSubirValeBlob } from '@/features/almacen/api/useSalidas';
-import { esApiError, useFormIdempotencyKey } from '@/lib/api';
+import { esApiError, useFormIdempotencyKey, codigoSoporte } from '@/lib/api';
 import { cn } from '@/lib/utils';
 
 const MAX_BYTES = 20 * 1024 * 1024;
@@ -78,7 +78,7 @@ export function ValeUpload({
     } catch (err) {
       if (esApiError(err)) {
         toast.error(err.problem.title, {
-          description: err.traceId ? `Código: ${err.traceId}` : undefined,
+          description: codigoSoporte(err),
         });
       } else {
         toast.error('Error inesperado al subir el archivo.');
@@ -149,7 +149,7 @@ export function ValeUpload({
             ? 'border-primary bg-primary/5'
             : 'border-muted-foreground/30',
           (disabled || subir.isPending) && 'opacity-60 pointer-events-none',
-          error && 'border-rose-400',
+          error && 'border-danger',
         )}
       >
         {subir.isPending ? (
@@ -186,7 +186,7 @@ export function ValeUpload({
         />
       </div>
       {error != null && (
-        <p role="alert" className="text-xs text-rose-600">
+        <p role="alert" className="text-xs text-danger">
           {error}
         </p>
       )}

@@ -6,7 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { RegimenFiscalSelector } from '@/components/erp/selectors/RegimenFiscalSelector';
-import { applyServerErrors, esApiError, useBodyScopedIdempotencyKey } from '@/lib/api';
+import { applyServerErrors, esApiError, useBodyScopedIdempotencyKey, codigoSoporte } from '@/lib/api';
 import {
   ActualizarEmpresaSchema,
   type ActualizarEmpresaValues,
@@ -110,7 +110,7 @@ export function EmpresaDatosForm({ empresa }: EmpresaDatosFormProps) {
               return;
             }
             toast.error(error.problem.title, {
-              description: error.traceId ? `Código: ${error.traceId}` : undefined,
+              description: codigoSoporte(error),
             });
             return;
           }

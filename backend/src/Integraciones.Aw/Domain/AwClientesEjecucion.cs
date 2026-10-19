@@ -42,6 +42,8 @@ public sealed class AwClientesEjecucion : BaseEntity, INotAudited
     public string Actor { get; private set; } = string.Empty;
     public Guid? ReintentoDeId { get; private set; }
     public string? ErrorGeneral { get; private set; }
+    /// <summary>Resumen JSON del barrido de productos de la corrida (ADM-06 R4); se escribe con ExecuteUpdateAsync.</summary>
+    public string? ResumenProductos { get; private set; }
 
     public IReadOnlyCollection<AwClientesEjecucionError> ErroresPorReferencia => _errores;
 

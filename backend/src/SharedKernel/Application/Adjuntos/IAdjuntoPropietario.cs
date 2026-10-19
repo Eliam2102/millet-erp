@@ -16,13 +16,15 @@ public enum AdjuntoOperacion
 /// <param name="PuedeSubir">False si la entidad no admite nuevos adjuntos (p. ej. proveedor inactivo).</param>
 /// <param name="EsPersonaMoral">Solo aplica a entidades con tipo de persona; nulo si no aplica.</param>
 /// <param name="Etiqueta">Texto legible para auditoría (p. ej. "P001 · Vidrios SA").</param>
+/// <param name="EsNacional">Solo aplica a entidades con origen (proveedor); nulo si no aplica.</param>
 public sealed record AdjuntoPropietarioInfo(
     Guid EntidadId,
     Guid? EmpresaId,
     Guid? SucursalId,
     bool PuedeSubir,
     bool? EsPersonaMoral,
-    string Etiqueta);
+    string Etiqueta,
+    bool? EsNacional = null);
 
 /// <summary>
 /// Propietario de adjuntos (F1-ADM-11 G1.2): cada módulo que adjunta archivos a

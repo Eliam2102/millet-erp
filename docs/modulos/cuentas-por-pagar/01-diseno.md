@@ -523,7 +523,7 @@ ADR-0022. Todos viven en `Millet.Api` y siguen el patrón de `OutboxPublisherWor
 | `CfdiDescargaMasivaSatWorker` | Nocturno (2 AM) + intra-día configurable | Consulta a FiscalAPI todos los CFDIs nuevos para los RFCs receptores de Millet; ingresa via `ICfdiIngestionPort` | Si la cs de FiscalAPI está vacía |
 | `CfdiEstadoSatRefreshWorker` | Cada 6h | Refresca el estado de CFDIs autorizados; si detecta cancelación en SAT, mueve factura a `Cancelada` | Si la cs de FiscalAPI está vacía |
 | `OutboxPublisherWorker<CuentasPorPagarDbContext>` | Cada 5s | Publica eventos pendientes del outbox a Service Bus | Si la cs de Service Bus está vacía |
-| `RevisionSlaNotificacionWorker` | Diario (8 AM) | Detecta facturas en revisión que cumplen el SLA por motivo (día 3, 5, 10 para SLA 5d; día 8, 12, 20 para disputas contractuales SLA 15d — A22); emite notificaciones vía `INotificacionService` | Si `INotificacionService` no está configurado |
+| `RevisionSlaNotificacionWorker` | Diario (8 AM) | Detecta facturas en revisión que cumplen el SLA por motivo (día 3, 5, 10 para SLA 5d; día 8, 12, 20 para disputas contractuales SLA 15d — A22); emite notificaciones vía `INotificacionService`. Los días son **hábiles** (`ICalendarioHabil`, día local de México; el día de entrada a revisión no cuenta) y cada aviso se registra en `cuentas_por_pagar.avisos_sla_revision`, único por (factura, nivel, día) | Si `INotificacionService` no está configurado |
 | `NotaCreditoEnEsperaMatchWorker` (A19) | Diario (4 AM) | Intenta hacer match de NCs en estado `EnEspera` contra facturas nuevas del proveedor por UUID de relación CFDI. Si pasan 30 días sin match → notifica al Auxiliar. | Sin condición externa |
 
 ---
@@ -738,6 +738,8 @@ Memoria `project_nav_shell_pattern` — entra al sidebar + modal de cards. Secci
 - `StubDependenciaRevisoraReadPort` — devuelve seed local hasta que Administración exponga el catálogo compartido (A21). `PLATFORM-TODO(<DependenciasRevisorasEnAdmin>)`.
 - ~~`StubPuestoReadPort`~~ — ✅ cerrado en ADM-PR2: `PuestoReadPortAdapter` + `EmpleadoReadPortAdapter` sobre `compartido.puestos`/`empleados` (doc 10 de Administración); el seed EJEC/GER/OPER migró a la tabla real con los mismos GUIDs (D6).
 
+- `NoOpNotificacionService` — el correo/Teams de los avisos de plazo de revisión no se envía; el aviso visible vive en la bandeja por área (`/cxp/revision`, columna «Aviso»). `PLATFORM-TODO(<NotificacionesGlobal>)`. Se wirea con el adaptador real del motor de notificaciones (ADR-0026).
+
 Cada `PLATFORM-TODO` busca-able con `rg "PLATFORM-TODO" backend/src/CuentasPorPagar`.
 
 ---
@@ -799,3 +801,36 @@ El esquema PostgreSQL de CXP **no requiere cambios** — los puntos de integraci
 - **2026-05-22 — v1.2** — Alineación de naming de eventos cross-módulo con la convención canónica de Compras-OC (`{Agregado}{Verbo}Event`); §8.1 y §8.2 reescritas; agregada nota sobre `FacturaProveedorRegistradaEvent` vs `FacturaProveedorAutorizadaEvent`. Referencia a [ADR-0036](../../decisiones/0036-estrategia-de-reporteria.md) para reportería.
 - **2026-05-22 — v1.1** — Cierre cross-módulo con Almacén: contratos de eventos canónicos (§8.1, §8.2), `IAlmacenRecepcionReadPort` con stub explícito (§6.1), §15.3 cerrada.
 - **2026-05-22 — v1 (Draft)** — Propuesta de diseño inicial sobre el levantamiento v0.2. Asunciones A1-A16.
+
+---
+
+## Plazo de revisión, avisos y motivo «Daños» (P8.4a · 86e3r08vy)
+
+### Plazo en días hábiles y avisos
+
+El plazo de una factura detenida (`FacturaProveedor.EnviarARevision`) se mide en **días hábiles** con `ICalendarioHabil` (festivos del parámetro `system.dias-festivos`). El conteo parte del día local de México de `FechaEntradaRevision`: ese día no cuenta y el día de evaluación cuenta solo si es hábil (`PlazoRevision`). Los umbrales de aviso salen de `SlaDias` del motivo: 3, 5 y 10 días hábiles para plazo de 5 (aviso al gerente del área, plazo vencido y escalamiento a Dirección de Finanzas); 8, 12 y 20 para Disputa contractual (plazo de 15); Indicación expresa no tiene plazo y no genera avisos.
+
+El `RevisionSlaNotificacionWorker` registra cada aviso en la tabla `cuentas_por_pagar.avisos_sla_revision` (entidad `AvisoSlaRevision`) con índice único por (factura, nivel, día local). Correr el worker dos veces el mismo día no duplica el aviso; mientras la factura siga en el mismo nivel se emite un recordatorio diario de ese nivel. Si dos instancias compiten, la violación del índice único se captura y el worker continúa. El worker nunca cambia el estado de la factura: ni el tiempo transcurrido ni el aviso liberan el pago (plano 1.7.1 §7.9). El envío por correo o Teams sigue en `NoOpNotificacionService` (ver §13).
+
+La bandeja por área (`/cxp/revision`, `FacturasEnRevisionPorAreaQuery`) muestra los días hábiles contra el plazo del motivo y el nivel del último aviso del episodio de revisión vigente (aviso, vencido, escalamiento): ese es el aviso visible para el área. Conserva el alcance por sucursal (ADR-0051).
+
+### Detención automática por «Daños» (CA8.7)
+
+Cuando Almacén registra una recepción con material dañado, ALM-04 manda esas unidades al sub-almacén de tipo material en revisión (MAT-REV) y las publica como líneas propias, con `SubAlmacenId`, en `almacen.oc_recepcion.registrada.v1`. Ese contrato no cambia. CxP detecta el daño así:
+
+- El espejo `LineaRecepcionPayload` declara `SubAlmacenId` (opcional y aditivo). Al proyectar la recepción, el valor queda dentro de `RecepcionOcLocal.LineasJson`, por lo que no hay migración. Las recepciones proyectadas antes de este cambio no lo traen y se tratan como sin daño.
+- `IAlmacenRevisionReadPort.FiltrarSubAlmacenesEnRevisionAsync` (adaptador `AlmacenRevisionReadPortAdapter`) delega en el Open Host Service `IAlmacenSaldoQueryPort.FiltrarSubAlmacenesEnRevisionAsync` de Almacén y devuelve cuáles sub-almacenes son de tipo material en revisión. CxP no lee tablas de Almacén.
+- `DetencionPorDanoService` decide y aplica la detención en dos momentos: al proyectar la recepción (`OcRecepcionRegistradaHandler`, para las facturas ya existentes de la OC) y al capturar una factura con OC (`CapturarFacturaConOcHandler`, si la OC ya tiene una recepción con daño, la factura nace detenida).
+
+Se detienen solo las facturas en `Capturada` o `Autorizada` que no estén ya en revisión (un motivo por factura; no se pisa otro) y que compartan una línea de OC con lo dañado, o que no tengan líneas ligadas a OC, o cuya línea dañada no traiga línea de OC. La factura pasa a `EnRevision` con el motivo `DANOS_MERCANCIA` (`00000007-1001-0000-0000-000000000002`) y el área Almacén, resuelta por la clave `ALMACEN` del catálogo de departamentos (`DependenciaRevisoraDefaultCodigo` del motivo); si el área no existe, se asigna a la dependencia placeholder de CxP con una advertencia en el log. Una factura `Autorizada` que se detiene publica `cuentas_por_pagar.pasivo.retirado-de-pago.v1` (mecanismo existente), por lo que sale de la propuesta de pagos, y no se re-publica como autorizada. La re-entrega del evento es idempotente (dedupe por `EventoProcesado`).
+
+La liberación sigue siendo manual con `LiberarRevision` (permiso `cuentas_por_pagar.facturas.liberar-revision`).
+
+### Decisiones y pendientes
+
+- **Q1 · Puerto en lugar de campo aditivo en el evento.** Se eligió el puerto de lectura para no tocar el contrato de la tríada. El campo aditivo `EnRevision` en la línea del evento queda como alternativa solo con visto bueno del owner.
+- **Q2 · Recordatorio diario por nivel.** La deduplicación es literal de la ficha: un aviso por factura, nivel y día. La alternativa (un aviso por nivel y episodio) solo cambia el índice único y la consulta de existencia.
+- **Q3 · Permisos del área Almacén.** El área Almacén usa `/cxp/revision` filtrada por su área; requiere `cuentas_por_pagar.facturas.leer` y, para liberar, `cuentas_por_pagar.facturas.liberar-revision`, asignados por configuración al rol correspondiente (sin permiso nuevo ni entrada de menú en Almacén).
+- **Diferencias con el plano 1.7.1.** El plano indica que calendario, inicio del cómputo y excepciones se ratifican antes de activar avisos (Tema 31); la ficha pide activarlos ya. El plano también pide que solo el área autorizada libere (Caso 8) y varios motivos abiertos por factura; el modelo actual tiene un solo motivo por factura. Ambos quedan fuera de alcance.
+- **Relación con G1.4.** Aquí «Daños» retiene la factura completa; G1.4 debe convertirlo en elegibilidad parcial por línea y liberación por dictamen del material en revisión. Mientras tanto, el retiro de pago evita que Tesorería pague.
+- **Catálogo de 14 motivos.** No cambia en esta tarea y queda sujeto a la validación de Laura Cerón; si Eliam agrega A4, A5… en la ficha, entran como pasos nuevos (seed por migración) y el worker y la bandeja los leen de `SlaDias`.

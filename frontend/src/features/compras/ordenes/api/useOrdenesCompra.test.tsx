@@ -32,6 +32,21 @@ function makeOrdenCompraResumen(
 }
 
 describe('useOrdenesCompra', () => {
+  it('envía el filtro de estado comercial del proveedor al servidor', async () => {
+    let urlCapturada = '';
+    mswServer.use(
+      http.get('*/api/v1/compras/ordenes', ({ request }) => {
+        urlCapturada = request.url;
+        return HttpResponse.json({ items: [], page: 1, pageSize: 50, totalCount: 0 });
+      }),
+    );
+    const { result } = renderHook(() => useOrdenesCompra({ estadoComercialProveedor: 3 }), {
+      wrapper: createQueryWrapper(),
+    });
+    await waitFor(() => expect(result.current.isSuccess).toBe(true));
+    expect(new URL(urlCapturada).searchParams.get('estadoComercialProveedor')).toBe('3');
+  });
+
   it('200 OK sin filtros: pega al endpoint base con paged response', async () => {
     let urlCapturada = '';
     mswServer.use(
@@ -101,6 +116,27 @@ describe('useOrdenesCompra', () => {
     expect(params.has('referenciaProveedor')).toBe(false);
     expect(params.has('compradorTitularId')).toBe(false);
     expect(params.has('fechaDesde')).toBe(false);
+  });
+
+  it('manda q cuando tiene texto y lo omite cuando está vacío', async () => {
+    const capturas: URLSearchParams[] = [];
+    mswServer.use(
+      http.get('*/api/v1/compras/ordenes', ({ request }) => {
+        capturas.push(new URL(request.url).searchParams);
+        return HttpResponse.json({ items: [], page: 1, pageSize: 20, totalCount: 0 });
+      }),
+    );
+
+    const { result } = renderHook(
+      () => [useOrdenesCompra({ q: '2026-04' }), useOrdenesCompra({ q: '' })] as const,
+      { wrapper: createQueryWrapper() },
+    );
+
+    await waitFor(() =>
+      expect(result.current[0].isSuccess && result.current[1].isSuccess).toBe(true),
+    );
+    expect(capturas.some((p) => p.get('q') === '2026-04')).toBe(true);
+    expect(capturas.some((p) => !p.has('q'))).toBe(true);
   });
 
   it('403 PERMISO_DENEGADO: lanza ApiError 403', async () => {

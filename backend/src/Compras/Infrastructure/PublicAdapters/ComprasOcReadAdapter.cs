@@ -54,6 +54,15 @@ public sealed class ComprasOcReadAdapter : IComprasOcReadPort, IComprasRecepcion
             SucursalDestinoId: oc.SucursalDestinoId);
     }
 
+    public async Task<IReadOnlyCollection<Guid>> ObtenerIdsPorProveedorAsync(
+        Guid proveedorId,
+        CancellationToken cancellationToken)
+        => await _db.OrdenesCompra
+            .AsNoTracking()
+            .Where(o => o.ProveedorId == proveedorId)
+            .Select(o => o.Id)
+            .ToListAsync(cancellationToken);
+
     public async Task<IReadOnlyDictionary<Guid, string>> ObtenerFoliosAsync(
         IReadOnlyCollection<Guid> ocIds,
         CancellationToken cancellationToken)

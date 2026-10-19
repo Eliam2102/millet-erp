@@ -20,6 +20,7 @@ import {
   SortableHeader,
   compareItemsBy,
   type SortState,
+  PaginacionTabla,
 } from '@/components/erp';
 import { usePendientesAutorizacion } from '@/features/compras/api/usePendientesAutorizacion';
 import {
@@ -51,6 +52,8 @@ import {
   DEFAULT_PENDIENTES_SEARCH,
   type PendientesSearch,
 } from '@/features/compras/lib/pendientes-search-schema';
+import { PageHeader } from '@/components/erp/PageHeader';
+import { ConfirmarAccionDialog } from '@/components/erp/feedback/ConfirmarAccionDialog';
 
 const FROM = '/_app/compras/pendientes/' as const;
 const SENTINEL_ALL = '__all__';
@@ -123,6 +126,7 @@ export function BandejaPendientes() {
   const [resumen, setResumen] = useState<readonly ResultadoAprobacionItem[]>(
     [],
   );
+  const [confirmando, setConfirmando] = useState(false);
 
   function puedeAutorizar(r: PendienteAutorizacionItemResponse): boolean {
     if (r.nivelPendiente === NivelAutorizacion.Nivel1) return puedeN1;
@@ -205,11 +209,7 @@ export function BandejaPendientes() {
 
   return (
     <div className="space-y-4">
-      <div className="flex flex-wrap items-center justify-between gap-2">
-        <h1 className="text-2xl font-semibold tracking-tight">
-          Pendientes de autorización
-        </h1>
-      </div>
+      <PageHeader titulo="Requisiciones por autorizar" />
 
       <ResumenAprobacionMasiva
         resultados={resumen}
@@ -286,7 +286,7 @@ export function BandejaPendientes() {
             variant="ghost"
             size="sm"
             onClick={() =>
-              setSearch({ offset: 0, limit: search.limit ?? 50 })
+              setSearch({ offset: 0, limit: search.limit ?? 25 })
             }
           >
             Limpiar filtros
@@ -301,7 +301,7 @@ export function BandejaPendientes() {
               type="button"
               size="sm"
               disabled={autorizarMasivo.isPending}
-              onClick={() => aprobar(seleccionadas)}
+              onClick={() => setConfirmando(true)}
             >
               Aprobar seleccionadas ({seleccionadas.length})
             </Button>
@@ -313,6 +313,29 @@ export function BandejaPendientes() {
           )}
         </div>
       )}
+
+      <ConfirmarAccionDialog
+        open={confirmando}
+        onOpenChange={setConfirmando}
+        titulo={`Aprobar ${seleccionadas.length} ${seleccionadas.length === 1 ? 'requisición' : 'requisiciones'}`}
+        resumen={
+          <p>
+            Vas a firmar {seleccionadas.length}{' '}
+            {seleccionadas.length === 1 ? 'requisición' : 'requisiciones'} (
+            {seleccionadas.filter((r) => r.nivelPendiente === NivelAutorizacion.Nivel1).length} de
+            Nivel 1 y{' '}
+            {seleccionadas.filter((r) => r.nivelPendiente === NivelAutorizacion.Nivel2).length} de
+            Nivel 2). Tu firma queda registrada con tu usuario y no se puede deshacer.
+          </p>
+        }
+        verbo={`Aprobar ${seleccionadas.length}`}
+        tono="primario"
+        pendiente={autorizarMasivo.isPending}
+        onConfirmar={() => {
+          setConfirmando(false);
+          void aprobar(seleccionadas);
+        }}
+      />
 
       {query.isLoading ? (
         <TableSkeleton
@@ -501,10 +524,10 @@ export function BandejaPendientes() {
             })}
           </ul>
 
-          <Paginacion
+          <PaginacionTabla
             total={query.data?.total ?? 0}
             offset={search.offset ?? 0}
-            limit={search.limit ?? 50}
+            limit={search.limit ?? 25}
             onChange={(offset, limit) =>
               setSearch({ ...search, offset, limit })
             }
@@ -530,61 +553,6 @@ function ResultadoFila({ resultado }: ResultadoFilaProps) {
     >
       {resultado.ok ? 'Aprobada' : (resultado.mensaje ?? 'Error al aprobar')}
     </span>
-  );
-}
-
-interface PaginacionProps {
-  total: number;
-  offset: number;
-  limit: number;
-  onChange: (offset: number, limit: number) => void;
-}
-
-function Paginacion({ total, offset, limit, onChange }: PaginacionProps) {
-  const desde = total === 0 ? 0 : offset + 1;
-  const hasta = Math.min(offset + limit, total);
-  const tieneAnterior = offset > 0;
-  const tieneSiguiente = offset + limit < total;
-
-  return (
-    <div className="flex flex-wrap items-center justify-between gap-3 border-t bg-muted/30 px-3 py-2 text-xs text-muted-foreground">
-      <span>
-        Mostrando {desde}–{hasta} de {total}
-      </span>
-      <div className="flex items-center gap-2">
-        <label className="flex items-center gap-1.5">
-          Tamaño página:
-          <select
-            value={limit}
-            onChange={(e) => onChange(0, Number(e.target.value))}
-            className="rounded border bg-background px-1.5 py-0.5 text-xs"
-            aria-label="Tamaño de página"
-          >
-            <option value={50}>50</option>
-            <option value={100}>100</option>
-            <option value={200}>200</option>
-          </select>
-        </label>
-        <Button
-          type="button"
-          variant="outline"
-          size="sm"
-          disabled={!tieneAnterior}
-          onClick={() => onChange(Math.max(0, offset - limit), limit)}
-        >
-          Anterior
-        </Button>
-        <Button
-          type="button"
-          variant="outline"
-          size="sm"
-          disabled={!tieneSiguiente}
-          onClick={() => onChange(offset + limit, limit)}
-        >
-          Siguiente
-        </Button>
-      </div>
-    </div>
   );
 }
 

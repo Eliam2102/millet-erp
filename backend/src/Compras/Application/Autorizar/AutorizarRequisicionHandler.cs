@@ -103,7 +103,20 @@ public sealed class AutorizarRequisicionHandler : IRequestHandler<AutorizarRequi
 
         activity?.SetTag("compras.estado.antes", requisicion.Estado.ToString());
 
-        var requiereNivel = await _evaluator.EvaluarAsync(requisicion, cancellationToken);
+        // La matriz consulta stock (puerto de Almacén): un fallo runtime del puerto
+        // se traduce igual que en la bifurcación (422 BIFURCACION_FALLO, sin filtrar ex.Message).
+        RequiereNivel requiereNivel;
+        try
+        {
+            requiereNivel = await _evaluator.EvaluarAsync(requisicion, cancellationToken);
+        }
+        catch (Exception ex) when (ex is not BusinessRuleException && ex is not OperationCanceledException)
+        {
+            throw new BusinessRuleException(
+                "BIFURCACION_FALLO",
+                "La bifurcación stock-aware falló. Reintente o consulte al administrador.",
+                ex);
+        }
 
         var resultado = requisicion.RegistrarAutorizacion(
             autorizacionId: Guid.CreateVersion7(),

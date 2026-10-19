@@ -13,6 +13,7 @@ using Millet.Api.IntegrationTests.Fixtures;
 using Millet.Compartido.Infrastructure.Persistence;
 using Millet.Compras.Domain;
 using Millet.Compras.Domain.Matriz;
+using OrdenCompraTbdSentinels = Millet.Compras.Domain.Oc.OrdenCompraTbdSentinels;
 using Millet.Compras.Infrastructure;
 using Millet.DatosMaestros.Domain;
 using Millet.Identidad.Domain;
@@ -156,6 +157,44 @@ public partial class OrdenesCompraEndpointsTests : IClassFixture<WebApplicationF
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
         var body = await ReadJsonAsync(response);
         Assert.Equal(JsonValueKind.Array, body.ValueKind);
+    }
+
+    [Fact]
+    public async Task Detalle_expone_CamposPorCapturar_con_sentinels_y_se_vacia_tras_PATCH()
+    {
+        var client = await CreateSuperAdminClientAsync();
+        var creada = await client.PostAsJsonAsync(EndpointBase, ValidBody() with
+        {
+            SinRequisicionPrevia = true, MotivoSinRequisicion = "UX-F0-01 campos por capturar",
+        });
+        creada.EnsureSuccessStatusCode();
+        var ocId = (await ReadJsonAsync(creada)).GetProperty("id").GetGuid();
+        using (var scope = _factory.Services.CreateScope())
+        {
+            var db = scope.ServiceProvider.GetRequiredService<ComprasDbContext>();
+            using var bypass = scope.ServiceProvider.GetRequiredService<ICurrentEmpresaContext>().Bypass();
+            var oc = await db.OrdenesCompra.SingleAsync(o => o.Id == ocId);
+            db.Entry(oc).Property(o => o.ProveedorId).CurrentValue = OrdenCompraTbdSentinels.Proveedor;
+            db.Entry(oc).Property(o => o.CondicionesPagoId).CurrentValue = OrdenCompraTbdSentinels.CondicionesPago;
+            db.Entry(oc).Property(o => o.UsoPrincipalId).CurrentValue = OrdenCompraTbdSentinels.UsoPrincipal;
+            await db.SaveChangesAsync();
+        }
+
+        var antes = await ReadJsonAsync(await client.GetAsync($"{EndpointBase}/{ocId}"));
+        Assert.Equal(
+            ["proveedor", "condicionesPago", "usoPrincipal"],
+            antes.GetProperty("camposPorCapturar").EnumerateArray().Select(e => e.GetString()!).ToArray());
+
+        var patch = await client.PatchAsJsonAsync($"{EndpointBase}/{ocId}", new
+        {
+            ProveedorId = ProveedorActivoId,
+            CondicionesPagoId = Guid.CreateVersion7(),
+            UsoPrincipalId = Guid.CreateVersion7(),
+        });
+        Assert.True(patch.IsSuccessStatusCode, $"PATCH: {(int)patch.StatusCode} {await patch.Content.ReadAsStringAsync()}");
+
+        var despues = await ReadJsonAsync(await client.GetAsync($"{EndpointBase}/{ocId}"));
+        Assert.Equal(0, despues.GetProperty("camposPorCapturar").GetArrayLength());
     }
 
     [Fact]
@@ -685,6 +724,68 @@ public partial class OrdenesCompraEndpointsTests : IClassFixture<WebApplicationF
         Assert.True(encontrada,
             "La OC recién creada no aparece en la bandeja paginada — " +
             "regresión del ORDER BY (ver bug fix compras/oc-fix-listar-orderby-folio).");
+    }
+
+    [Fact]
+    public async Task Listar_Con_Q_Encuentra_Por_Folio_Parcial()
+    {
+        var client = await CreateSuperAdminClientAsync();
+        var createResp = await client.PostAsJsonAsync(EndpointBase, ValidBody());
+        createResp.EnsureSuccessStatusCode();
+        var id = (await ReadJsonAsync(createResp)).GetProperty("id").GetGuid();
+        var folio = (await ReadJsonAsync(await client.GetAsync($"{EndpointBase}/{id}"))).GetProperty("folio").GetString()!;
+        // Fragmento en minúsculas y sin el prefijo: contiene, sin distinguir mayúsculas.
+        var fragmento = folio[3..].ToLowerInvariant();
+
+        var resp = await client.GetAsync($"{EndpointBase}?q={Uri.EscapeDataString(fragmento)}&page=1&pageSize=200");
+
+        Assert.Equal(HttpStatusCode.OK, resp.StatusCode);
+        Assert.Contains(id, await IdsDeAsync(resp));
+    }
+
+    [Fact]
+    public async Task Listar_Con_Q_Encuentra_Por_Referencia_Y_Escapa_Comodines()
+    {
+        var client = await CreateSuperAdminClientAsync();
+        var createResp = await client.PostAsJsonAsync(EndpointBase, ValidBody());
+        createResp.EnsureSuccessStatusCode();
+        var id = (await ReadJsonAsync(createResp)).GetProperty("id").GetGuid();
+        var token = Guid.NewGuid().ToString("N");
+        await SetReferenciaProveedorAsync($"REF-{token}", id);
+
+        var porReferencia = await client.GetAsync($"{EndpointBase}?q={token[..12]}&page=1&pageSize=200");
+        Assert.Equal(new[] { id }, (await IdsDeAsync(porReferencia)).ToArray());
+
+        // '%' del usuario es literal: no debe coincidir con todo.
+        var comodin = await client.GetAsync($"{EndpointBase}?q={Uri.EscapeDataString("%" + token[..12])}&page=1&pageSize=200");
+        Assert.Empty(await IdsDeAsync(comodin));
+    }
+
+    [Fact]
+    public async Task Listar_Con_Q_No_Devuelve_OC_De_Sucursal_No_Permitida()
+    {
+        var superAdmin = await CreateSuperAdminClientAsync();
+        var createResp = await superAdmin.PostAsJsonAsync(EndpointBase, ValidBody());
+        createResp.EnsureSuccessStatusCode();
+        var id = (await ReadJsonAsync(createResp)).GetProperty("id").GetGuid();
+        var referencia = $"SUC-{Guid.NewGuid():N}";
+        await SetReferenciaProveedorAsync(referencia, id);
+
+        // Usuario operativo (sin bypass) asociado solo a SucursalIdFija.
+        var operativo = await CreateClientConPermisosAsync(PermisosCanonicos.ComprasOrdenesLeer);
+        var visible = await operativo.GetAsync($"{EndpointBase}?q={referencia}&page=1&pageSize=200");
+        Assert.Contains(id, await IdsDeAsync(visible));
+
+        // Se mueve la OC a una sucursal que el usuario no tiene: el q no debe saltar el filtro.
+        using (var scope = _factory.Services.CreateScope())
+        {
+            var db = scope.ServiceProvider.GetRequiredService<ComprasDbContext>();
+            var otra = Guid.CreateVersion7();
+            await db.Database.ExecuteSqlInterpolatedAsync(
+                $"UPDATE compras.ordenes_compra SET sucursal_destino_id = {otra} WHERE id = {id}");
+        }
+        var oculta = await operativo.GetAsync($"{EndpointBase}?q={referencia}&page=1&pageSize=200");
+        Assert.DoesNotContain(id, await IdsDeAsync(oculta));
     }
 
     [Fact]

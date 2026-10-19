@@ -21,11 +21,17 @@ public sealed record ListarOrdenesCompraQuery(
     bool? SoloConPendienteRecepcion = null,
     SubEstadoFacturacion? SubEstadoFacturacion = null,
     SubEstadoPago? SubEstadoPago = null,
+    // F1-COM-11: filtro por estado comercial de la respuesta del proveedor.
+    EstadoComercialProveedorOc? EstadoComercialProveedor = null,
     Guid? ProveedorId = null,
     Guid? CompradorTitularId = null,
     DateOnly? FechaDocumentoDesde = null,
     DateOnly? FechaDocumentoHasta = null,
     string? ReferenciaProveedor = null,
+    // Búsqueda libre por folio o referencia de proveedor: contiene, sin
+    // distinguir mayúsculas. Se aplica sobre el conjunto ya acotado por
+    // sucursal. No busca por nombre de proveedor (usar ProveedorId).
+    string? Q = null,
     int Page = 1,
     int PageSize = 50) : IRequest<ListarOrdenesCompraResponse>, Millet.SharedKernel.Application.ISucursalScopedQuery
 {
@@ -70,4 +76,9 @@ public sealed record OrdenCompraResumen(
     bool? EsMenorCuantia = null,
     bool? EsRecurrente = null,
     bool? ProveedorConocido = null,
-    bool? RequiereNivel2 = null);
+    bool? RequiereNivel2 = null)
+{
+    // F1-COM-11: solo lo puebla ListarOrdenesCompra; null en las demás proyecciones.
+    public EstadoComercialProveedorOc? EstadoComercialProveedor { get; init; }
+    public DateOnly? FechaCompromisoProveedor { get; init; }
+}

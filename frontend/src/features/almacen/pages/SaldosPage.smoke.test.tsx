@@ -14,6 +14,14 @@ vi.mock('@tanstack/react-router', () => ({
 
 beforeEach(() => {
   mswServer.use(
+    http.get('*/api/v1/almacen/saldos/totales', () =>
+      HttpResponse.json({
+        valorInventarioMxn: 40000,
+        cantidadTotal: 150,
+        unidadMedida: 'PZA',
+        articulos: 2,
+      }),
+    ),
     http.get('*/api/v1/almacen/sub-almacenes', () =>
       HttpResponse.json({ items: [], offset: 0, limit: 500, total: 0 }),
     ),
@@ -103,8 +111,40 @@ describe('<SaldosPage> — smoke', () => {
     expect(screen.queryByText('a-1')).not.toBeInTheDocument();
     // (b) fallback al id en la fila sin clave/nombre.
     expect(screen.getByText('a-2')).toBeInTheDocument();
-    // Total valor 5000 + 10000 = 15000.
-    expect(screen.getByText(/\$15,000\.00/)).toBeInTheDocument();
+    // Totales del servidor (no la suma de la página): 40000 MXN, 150 PZA.
+    await waitFor(() =>
+      expect(screen.getByLabelText('Totales del conjunto filtrado')).toHaveTextContent(
+        /Cantidad total: 150 PZA.*\$40,000\.00/,
+      ),
+    );
+  });
+
+  it('con varias UM el total omite la cantidad y deja solo el valor', async () => {
+    mswServer.use(
+      http.get('*/api/v1/almacen/saldos', () =>
+        HttpResponse.json({
+          items: [
+            {
+              subAlmacenId: 'sa-1', articuloId: 'a-1', cantidad: 1, cantidadDisponible: 1,
+              costoPromedioMxn: 1, valorInventarioMxn: 1, articuloClave: 'X', articuloDescripcion: 'x',
+            },
+          ],
+          offset: 0, limit: 25, total: 1,
+        }),
+      ),
+      http.get('*/api/v1/almacen/saldos/totales', () =>
+        HttpResponse.json({
+          valorInventarioMxn: 900,
+          cantidadTotal: null,
+          unidadMedida: null,
+          articulos: 2,
+        }),
+      ),
+    );
+    render(<SaldosPage />, { wrapper: createQueryWrapper() });
+    const totales = await screen.findByLabelText('Totales del conjunto filtrado');
+    expect(totales).toHaveTextContent(/\$900\.00/);
+    expect(totales).not.toHaveTextContent(/Cantidad total/);
   });
 
   it('(c) el filtro de artículo es el ArticuloSelector, no el input de GUID', async () => {

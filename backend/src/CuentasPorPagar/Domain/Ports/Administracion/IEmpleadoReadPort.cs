@@ -24,6 +24,22 @@ public interface IEmpleadoReadPort
     /// a ningún empleado activo.
     /// </summary>
     Task<EmpleadoDto?> ObtenerPorUsuarioAsync(Guid usuarioId, CancellationToken cancellationToken);
+
+    /// <summary>
+    /// Resuelve id → empleado en batch para las bandejas. Implementación por defecto
+    /// vía <see cref="ObtenerAsync"/>; el adapter productivo la sobreescribe con una consulta.
+    /// </summary>
+    async Task<IReadOnlyDictionary<Guid, EmpleadoDto>> ObtenerPorIdsAsync(
+        IReadOnlyCollection<Guid> empleadoIds, CancellationToken cancellationToken)
+    {
+        var resultado = new Dictionary<Guid, EmpleadoDto>();
+        foreach (var id in empleadoIds)
+        {
+            var e = await ObtenerAsync(id, cancellationToken);
+            if (e is not null) resultado[id] = e;
+        }
+        return resultado;
+    }
 }
 
 public sealed record EmpleadoDto(
