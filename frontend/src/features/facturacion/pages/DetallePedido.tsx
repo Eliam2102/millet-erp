@@ -111,6 +111,7 @@ function Contenido({
         <EmitirFacturaForm
           prefill={{
             pedidoFacturableId: p.id,
+            embarqueCe: p.embarqueCe,
             sucursalId: p.sucursalId,
             clienteId: p.clienteId,
             receptorNombre: p.clienteNombre,

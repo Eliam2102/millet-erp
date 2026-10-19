@@ -7,6 +7,11 @@ public sealed class ComercioExteriorSucursalReadAdapter(ComercioExteriorDbContex
 {
     public async Task<DocumentoSucursales?> ObtenerAsync(string tipo, Guid id, CancellationToken ct)
     {
+        if (tipo == "envio_otr")
+        {
+            var envio = await db.OtrEnvios.AsNoTracking().Where(x => x.Id == id).Select(x => new { x.Id, x.SucursalId }).SingleOrDefaultAsync(ct);
+            return envio is null ? null : new DocumentoSucursales(envio.Id, [envio.SucursalId]);
+        }
         if (tipo != "expediente_ce") return null;
         var dato = await db.Expedientes.AsNoTracking().Where(x => x.Id == id).Select(x => new { x.Id, x.SucursalId }).SingleOrDefaultAsync(ct);
         return dato is null ? null : new DocumentoSucursales(dato.Id, [dato.SucursalId]);

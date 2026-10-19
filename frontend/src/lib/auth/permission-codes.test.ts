@@ -305,7 +305,10 @@ const CODIGOS_BACKEND_ESPERADOS = new Set<string>([
   'admin.empleados.gestionar',
   'admin.empleados.gestionar-todas-sucursales',
   // Comercio Exterior CE-01a.
+  'comercio_exterior.otr.gestionar',
   'comercio_exterior.expedientes.leer',
+  'comercio_exterior.expedientes.contenedores-gestionar',
+  'comercio_exterior.relacion-iva.leer',
   'comercio_exterior.expedientes.crear',
   'comercio_exterior.expedientes.editar',
   'comercio_exterior.expedientes.cancelar',

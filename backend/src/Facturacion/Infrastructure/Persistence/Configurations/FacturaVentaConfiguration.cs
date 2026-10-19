@@ -20,6 +20,9 @@ public sealed class FacturaVentaConfiguration : IEntityTypeConfiguration<Factura
         // CAJAS-PR2); ver ComprobanteConfiguration.
         builder.Property(e => e.ComportamientoFiscal).HasConversion<short>().IsRequired();
 
+        builder.Property(e => e.DatosEmbarqueCe).HasColumnType("jsonb")
+            .HasConversion(v => v == null ? null : System.Text.Json.JsonSerializer.Serialize(v, (System.Text.Json.JsonSerializerOptions?)null),
+                v => v == null ? null : System.Text.Json.JsonSerializer.Deserialize<DatosEmbarqueCe>(v, (System.Text.Json.JsonSerializerOptions?)null));
         builder.Property(e => e.PedidoFacturableId);
         builder.Property(e => e.ObraId);
         builder.Property(e => e.ObraNombre).HasMaxLength(200);
