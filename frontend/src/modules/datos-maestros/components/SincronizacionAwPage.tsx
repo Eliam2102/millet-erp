@@ -9,6 +9,7 @@ import { esApiError } from '@/lib/api';
 import { PermisosCanonicos } from '@/lib/auth/permission-codes';
 import { useHasPermission } from '@/lib/auth/useHasPermission';
 import { PageHeader } from '@/components/erp/PageHeader';
+import { lecturaAwApagada, MOTIVO_LECTURA_AW_APAGADA, useAwOrigen } from '@/modules/datos-maestros/api/aw-origen';
 import { mensajeErrorSincronizacion, useEjecucionesSync } from '@/modules/datos-maestros/api/clientes';
 import { EstadoCorridaBadge } from '@/modules/datos-maestros/components/EstadoCorridaBadge';
 import {
@@ -38,6 +39,7 @@ export function SincronizacionAwPage() {
   const navigate = useNavigate();
   const corridas = useEjecucionesSync({ limit: 20 }, puedeClientes);
   const iniciarCorrida = useIniciarCorridaAw();
+  const apagada = lecturaAwApagada(useAwOrigen(puedeClientes).data);
   const [estado, setEstado] = useState<'Pendiente' | 'Resuelto'>('Pendiente');
   const [pagina, setPagina] = useState(0);
   const [confirmar, setConfirmar] = useState<CambioMaestroAw | null>(null);
@@ -76,11 +78,15 @@ export function SincronizacionAwPage() {
       <section className="rounded-lg bg-surface-card p-4 shadow-card-flat" aria-label="Corridas">
         <div className="flex items-center justify-between gap-3">
           <h2 className="text-lg font-semibold">Corridas</h2>
-          <Button disabled={iniciarCorrida.isPending || !puedeProductos || !puedeClientes}
-            title={puedeProductos ? undefined : 'Necesitas permiso de productos A+W para correr clientes y productos juntos.'}
-            onClick={correr}>
-            Correr sincronización
-          </Button>
+          <div className="flex items-center gap-3">
+            {apagada && <p role="status" className="text-xs text-ink-muted">{MOTIVO_LECTURA_AW_APAGADA}</p>}
+            <Button disabled={iniciarCorrida.isPending || !puedeProductos || !puedeClientes || apagada}
+              title={!puedeClientes ? 'Necesitas permiso de sincronización de clientes para correr la sincronización.'
+                : puedeProductos ? undefined : 'Necesitas permiso de productos A+W para correr clientes y productos juntos.'}
+              onClick={correr}>
+              Correr sincronización
+            </Button>
+          </div>
         </div>
         {corridas.isError && <p role="alert" className="py-3 text-danger-fg">No se pudieron cargar las corridas.</p>}
         {!corridas.isError && !corridas.isLoading && (corridas.data?.items.length ?? 0) === 0 && (

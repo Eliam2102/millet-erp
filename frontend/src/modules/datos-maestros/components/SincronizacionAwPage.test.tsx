@@ -35,6 +35,21 @@ const conflictoProducto = {
 describe('<SincronizacionAwPage>', () => {
   beforeEach(() => setPermisos([PermisosCanonicos.DatosMaestrosClientesSincronizar, PermisosCanonicos.DatosMaestrosProductosAwGestionar]));
 
+  it('con la lectura de A+W apagada deshabilita «Correr sincronización» y muestra el motivo', async () => {
+    mswServer.use(
+      http.get('*/integraciones/aw/origen', () => HttpResponse.json({
+        origen: 'Real', permitido: false, demoConfigurada: false, origenClientesReal: 'Sql', origenProductosReal: 'Sql',
+        cambiadoPor: null, cambiadoEn: null, version: 1, lecturaHabilitada: false, aplicacionHabilitada: false, origenProductosHabilitado: true,
+      })),
+      http.get('*/clientes/sincronizacion/ejecuciones', () => HttpResponse.json({ items: [], offset: 0, limit: 20, total: 0 })),
+      http.get('*/clientes/conflictos-aw', () => HttpResponse.json([])),
+      http.get('*/productos-aw/conflictos-aw', () => HttpResponse.json([])),
+      http.get('*/sincronizacion-aw/matriz', () => HttpResponse.json({ version: '0-propuesta', campos: [] })),
+    );
+    render(<SincronizacionAwPage />, { wrapper: createQueryWrapper() });
+    expect(await screen.findByText('La lectura de A+W está apagada; avisa a TI')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Correr sincronización' })).toBeDisabled();
+  });
   it('conflicto EditadoEnErp de productos: «Aplicar A+W» confirma y envía AplicarAw', async () => {
     let body: unknown = null;
     mswServer.use(

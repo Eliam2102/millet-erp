@@ -200,9 +200,8 @@ export function ProductoAwOrigenSection({ producto }: { producto: ProductoAwDeta
       )}
 
       <dl className="grid grid-cols-1 gap-3 text-sm md:grid-cols-3">
-        <Dato t="Última lectura" v={fecha(s.leidoEnUtc)} />
+        <Dato t="Última lectura" v={fecha(s.leidoEnUtc)} title={`Contrato ${s.versionContrato ?? '—'} · mapeo ${s.versionMapeo ?? '—'}`} />
         <Dato t="Última aplicación" v={aplicado ? fecha(s.aplicadoEnUtc) : 'Nunca'} />
-        <Dato t="Contrato / mapeo" v={`${s.versionContrato ?? '—'} / ${s.versionMapeo ?? '—'}`} />
         <Dato t="Unidad de origen" v={s.unidadOrigenCruda} />
       </dl>
 
@@ -237,9 +236,9 @@ export function ProductoAwOrigenSection({ producto }: { producto: ProductoAwDeta
   );
 }
 
-function Dato({ t, v }: { t: string; v: string | null }) {
+function Dato({ t, v, title }: { t: string; v: string | null; title?: string }) {
   return (
-    <div>
+    <div title={title}>
       <dt className="text-xs text-muted-foreground">{t}</dt>
       <dd>{v ?? '—'}</dd>
     </div>

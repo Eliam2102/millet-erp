@@ -10,7 +10,7 @@ import { useHasPermission } from '@/lib/auth/useHasPermission';
 import { PageHeader } from '@/components/erp/PageHeader';
 import { mensajeErrorSincronizacion, useEjecucionSync, useReintentarCliente } from '@/modules/datos-maestros/api/clientes';
 import { ErroresEjecucionSync } from '@/modules/datos-maestros/components/ErroresEjecucionSync';
-import { etiquetaAwOrigen, useAwOrigen } from '@/modules/datos-maestros/api/aw-origen';
+import { lecturaAwApagada, MOTIVO_LECTURA_AW_APAGADA, etiquetaAwOrigen, useAwOrigen } from '@/modules/datos-maestros/api/aw-origen';
 import {
   fechaCorridaAw,
   leerResumenProductos,
@@ -98,8 +98,9 @@ export function CorridaAwDetalle({ id }: { id: string }) {
             <Button variant="secondary" disabled={descargando} onClick={() => { void descargar(); }}>
               Descargar reporte de diferencias
             </Button>
-            <Button variant="ghost" disabled={iniciar.isPending || !puedeProductos}
-              title={puedeProductos ? undefined : 'Necesitas permiso de productos A+W para correr clientes y productos juntos.'}
+            <Button variant="ghost" disabled={iniciar.isPending || !puedeProductos || lecturaAwApagada(origen.data)}
+              title={lecturaAwApagada(origen.data) ? MOTIVO_LECTURA_AW_APAGADA
+                : puedeProductos ? undefined : 'Necesitas permiso de productos A+W para correr clientes y productos juntos.'}
               onClick={volverACorrer}>
               Volver a correr
             </Button>

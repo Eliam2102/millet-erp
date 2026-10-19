@@ -350,7 +350,9 @@ public class AwClientesSincronizadorTests : IClassFixture<WebApplicationFactory<
 
         await ConSync<int>(origen, opts, async (s, _, _) =>
         {
-            Assert.Equal(codigo, (await Assert.ThrowsAsync<AwClientesSyncException>(() => s.IniciarBarridoAsync("t", default))).Code);
+            var rechazo = await Assert.ThrowsAsync<AwClientesSyncException>(() => s.IniciarBarridoAsync("t", default));
+            Assert.Equal(codigo, rechazo.Code);
+            Assert.DoesNotContain("IntegracionesAw:", rechazo.Message);
             Assert.Equal(codigo, (await Assert.ThrowsAsync<AwClientesSyncException>(() => s.EjecutarAsync(Guid.NewGuid(), default))).Code);
             Assert.Equal(codigo, (await Assert.ThrowsAsync<AwClientesSyncException>(() => s.ReintentarReferenciaAsync("1", "t", default))).Code);
             return 0;

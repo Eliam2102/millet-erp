@@ -170,7 +170,7 @@ public sealed class AplicarClienteAwService
             var hash = CalcularHash(snap);
             if (ocupantes.Count > 0)
             {
-                _db.Add(ConflictoRfc(nuevo.Id, snap, hash, rfc!, ocupantes, null));
+                _db.Add(ConflictoRfc(nuevo.Id, nuevo.Clave, snap, hash, rfc!, ocupantes, null));
             }
             var resultado = ResultadoDe(snap);
             AplicarRegistro(registro, snap, hash, resultado);
@@ -200,11 +200,11 @@ public sealed class AplicarClienteAwService
         }
     }
 
-    private static CambioMaestroAw ConflictoRfc(Guid clienteId, AplicarClienteAwSnapshot snap, string hash, string rfc,
+    internal static CambioMaestroAw ConflictoRfc(Guid clienteId, string claveErp, AplicarClienteAwSnapshot snap, string hash, string rfc,
         IReadOnlyList<(string Clave, ClienteExistente Cliente)> ocupantes, string? hashAnterior)
     {
         var otros = string.Join(", ", ocupantes.Select(o => o.Cliente.Clave));
-        var causa = $"Dos clientes de A+W con la misma clave fiscal {rfc}: {snap.ReferenciaExterna} y {otros}. No se fusionan.";
+        var causa = $"Dos clientes con la misma clave fiscal {rfc}: {claveErp} y {otros}. No se fusionan.";
         return new CambioMaestroAw(Guid.CreateVersion7(), "Cliente", clienteId, snap.ReferenciaExterna,
             "RFC repetido entre clientes de A+W", otros, rfc, MatrizCampoDuenoAw.DuenoAw, TipoCambioMaestroAw.RfcCompartido,
             EstadoCambioMaestroAw.Pendiente, causa.Length <= 500 ? causa : causa[..500], hash, MatrizCampoDuenoAw.Version,
@@ -291,7 +291,7 @@ public sealed class AplicarClienteAwService
             var ocupantes = await ClientesPorRfc.BuscarAsync(_db, [clave], cliente.Id, ct);
             if (ocupantes.Count > 0 && !await _db.CambiosMaestrosAw.AnyAsync(c => c.TipoEntidad == "Cliente"
                     && c.ReferenciaExterna == snap.ReferenciaExterna && c.Tipo == TipoCambioMaestroAw.RfcCompartido && c.ValorDespues == clave, ct))
-                cambios.Add(ConflictoRfc(cliente.Id, snap, hash, clave, ocupantes, null));
+                cambios.Add(ConflictoRfc(cliente.Id, cliente.Clave, snap, hash, clave, ocupantes, null));
         }
         var cpFiscal = string.IsNullOrWhiteSpace(cliente.CodigoPostalFiscal) ? Vacio(snap.CodigoPostalFiscal) : null;
         if (telefono is not null || email is not null || rfc is not null || cpFiscal is not null)

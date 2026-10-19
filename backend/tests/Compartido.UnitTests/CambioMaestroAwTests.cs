@@ -48,4 +48,13 @@ public sealed class CambioMaestroAwTests
         Assert.Equal(a.ValorAntes, b.ValorAntes);
         Assert.NotEqual(a.HuellaPrevia, b.HuellaPrevia);
     }
+
+    [Fact]
+    public void Conflicto_rfc_nombra_ambos_clientes_con_su_clave_erp()
+    {
+        var snap = new Millet.DatosMaestros.Application.Clientes.AplicarClienteAwSnapshot("62", "Cliente", DateTime.UtcNow, "1", "0-borrador");
+        var ocupante = new Millet.DatosMaestros.Application.Clientes.ClienteExistente(Guid.NewGuid(), "AW-61", "Otro");
+        var c = Millet.DatosMaestros.Application.Clientes.AplicarClienteAwService.ConflictoRfc(Guid.NewGuid(), "AW-62", snap, "h", "DEMO010101AB1", [("DEMO010101AB1", ocupante)], null);
+        Assert.Contains("AW-62 y AW-61", c.Causa);
+    }
 }

@@ -123,7 +123,7 @@ public sealed class AwProductosSincronizador
     {
         if (!_options.OrigenHabilitado)
             throw new AwProductosSyncException("origen_deshabilitado",
-                $"La lectura de productos A+W está deshabilitada ({AwProductosOptions.SectionName}:OrigenHabilitado).");
+                "La lectura de productos A+W está apagada en este ambiente. Avisa a TI.");
         return _sp.GetService<IAwProductosOrigen>()
             ?? throw new AwProductosSyncException("origen_sin_configurar", "Origen de productos sin adaptador configurado.");
     }

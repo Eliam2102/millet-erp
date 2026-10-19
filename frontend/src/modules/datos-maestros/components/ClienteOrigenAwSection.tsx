@@ -9,6 +9,7 @@ import {
 import type { ClienteDetalle } from '@/modules/datos-maestros/api/types';
 import { useHasPermission } from '@/lib/auth/useHasPermission';
 import { PermisosCanonicos } from '@/lib/auth/permission-codes';
+import { lecturaAwApagada, MOTIVO_LECTURA_AW_APAGADA, useAwOrigen } from '@/modules/datos-maestros/api/aw-origen';
 import { useCambiosAwCliente, SINCRONIZACION_AW_KEY } from '@/modules/datos-maestros/api/sincronizacion-aw';
 import { CambiosAwHistorial } from '@/modules/datos-maestros/components/CambiosAwHistorial';
 import { ResultadoSincronizacionBadge } from '@/modules/datos-maestros/components/master-badges';
@@ -33,6 +34,7 @@ export function ClienteOrigenAwSection({
   const queryClient = useQueryClient();
   const cambios = useCambiosAwCliente(cliente.id, canVerOrigen);
   const reintentar = useReintentarCliente();
+  const apagada = lecturaAwApagada(useAwOrigen(canSincronizar).data, { productos: false });
   const o = cliente.origenAw;
   if (o == null) return null;
 
@@ -81,16 +83,20 @@ export function ClienteOrigenAwSection({
           />
         </div>
         {canSincronizar && cliente.referenciaExterna != null && (
-          <Button
-            type="button"
-            variant="ghost"
-            size="sm"
-            disabled={reintentar.isPending}
-            onClick={handleReintentar}
-          >
-            <RefreshCw className="mr-1.5 h-4 w-4" />
-            {reintentar.isPending ? 'Leyendo…' : 'Reintentar lectura'}
-          </Button>
+          <div className="flex items-center gap-2">
+            {apagada && <p role="status" className="text-xs text-muted-foreground">{MOTIVO_LECTURA_AW_APAGADA}</p>}
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              disabled={reintentar.isPending || apagada}
+              title={apagada ? MOTIVO_LECTURA_AW_APAGADA : undefined}
+              onClick={handleReintentar}
+            >
+              <RefreshCw className="mr-1.5 h-4 w-4" />
+              {reintentar.isPending ? 'Leyendo…' : 'Reintentar lectura'}
+            </Button>
+          </div>
         )}
       </div>
 
@@ -107,12 +113,11 @@ export function ClienteOrigenAwSection({
           v={o.diasNominalesOrigen != null ? String(o.diasNominalesOrigen) : null}
         />
         <Dato t="Moneda de origen" v={o.monedaOrigen} />
-        <Dato t="Última lectura" v={fecha(o.ultimaLecturaUtc)} />
+        <Dato t="Última lectura" v={fecha(o.ultimaLecturaUtc)} title={`Contrato ${o.versionContrato} · mapeo ${o.versionMapeo}`} />
         <Dato
           t="Última aplicación"
           v={aplicado ? fecha(o.ultimaAplicacionUtc) : 'Nunca'}
         />
-        <Dato t="Contrato / mapeo" v={`${o.versionContrato} / ${o.versionMapeo}`} />
       </dl>
 
       {filas.length > 0 && (
@@ -178,9 +183,9 @@ function fecha(v: string | null) {
   return v == null ? null : new Date(v).toLocaleString('es-MX');
 }
 
-function Dato({ t, v }: { t: string; v: string | null }) {
+function Dato({ t, v, title }: { t: string; v: string | null; title?: string }) {
   return (
-    <div>
+    <div title={title}>
       <dt className="text-xs text-muted-foreground">{t}</dt>
       <dd>{v ?? '—'}</dd>
     </div>
