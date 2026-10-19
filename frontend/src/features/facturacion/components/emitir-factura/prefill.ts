@@ -7,6 +7,7 @@
  * `useEmisorDefaults()`.
  */
 export interface EmitirFacturaPrefill {
+  embarqueCe?: import('@/features/comercio-exterior/api/types').EmbarqueCe | null;
   pedidoFacturableId: string;
   sucursalId?: string;
   /** Cliente del pedido — habilita el picker de anticipos (FAC-UX-PR4). */

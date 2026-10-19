@@ -999,6 +999,10 @@ CXP **no administra** préstamos a empleados (códigos `Axxxx`). El módulo due�
 - **Mailbox** — buzón de correo dedicado (ej. `cfdi@millet.com.mx`) donde los proveedores envían sus CFDIs.
 - **Portal propio** — alcance reservado post-MVP: web pública del ERP donde el proveedor sube sus CFDIs interactivamente.
 - **OTR** — Orden de Transporte. Documento del flujo de exportación que da origen a la OC marco con la agencia aduanal.
+  **Aclaración CE-04:** este concepto de CxP es distinto de **A+W OTR**, el producto que
+  acomoda piezas/cajas en contenedores y define rutas (SRC-089 §1.0, 05-oct-2026).
+  A+W OTR no es una compra y no crea requisiciones, OC ni proveedores; ver
+  [contrato de exportación](../../integration/09-aw-otr-exportacion.md).
 - **Pedimento** — documento aduanero que identifica una operación de comercio exterior.
 - **Préstamo a empleado (códigos Axxxx)** — pasivo a empleados que vive fuera de CXP. CXP solo lo referencia.
 - **Subcategoría** — taxonomía de gasto del proveedor (Materia Prima, Insumos, Gastos administrativos, etc.). Catálogo §5.2.

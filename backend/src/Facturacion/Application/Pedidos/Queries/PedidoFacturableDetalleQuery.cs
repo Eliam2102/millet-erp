@@ -1,4 +1,5 @@
 using MediatR;
+using Millet.ComercioExterior.Application.PublicPorts;
 using Microsoft.EntityFrameworkCore;
 using Millet.Facturacion.Application.Cajas.Alcance;
 using Millet.Facturacion.Domain.Ports;
@@ -49,7 +50,7 @@ public sealed record PedidoFacturableDetalleResponse(
     decimal? Ranura,
     int Version,
     PedidoClienteFiscal? ClienteFiscal,
-    IReadOnlyList<PedidoFacturableLineaDetalle> Lineas);
+    IReadOnlyList<PedidoFacturableLineaDetalle> Lineas, EmbarqueExportacionLectura? EmbarqueCe = null);
 
 /// <summary>
 /// Datos fiscales vivos del cliente en el master (<c>compartido.clientes</c>).
@@ -90,19 +91,21 @@ public sealed class PedidoFacturableDetalleHandler
     private readonly IProductosReadPort _productos;
     private readonly ICanalesVentaReadPort _canalesVenta;
     private readonly IAlcanceCajaEvaluator _alcance;
+    private readonly IEmbarqueExportacionReadPort? _embarques;
 
     public PedidoFacturableDetalleHandler(
         FacturacionDbContext db,
         IClientesReadPort clientes,
         IProductosReadPort productos,
         ICanalesVentaReadPort canalesVenta,
-        IAlcanceCajaEvaluator alcance)
+        IAlcanceCajaEvaluator alcance, IEmbarqueExportacionReadPort? embarques = null)
     {
         _db = db;
         _clientes = clientes;
         _productos = productos;
         _canalesVenta = canalesVenta;
         _alcance = alcance;
+        _embarques = embarques;
     }
 
     public async Task<PedidoFacturableDetalleResponse> Handle(
@@ -169,6 +172,6 @@ public sealed class PedidoFacturableDetalleHandler
             pedido.SucursalId, pedido.ClienteId, pedido.ClienteNombre,
             pedido.CanalVentaId, canalVentaNombre, pedido.ComportamientoFiscal.ToString(),
             pedido.Moneda, pedido.ObraId, pedido.ObraNombre, pedido.Comentarios, pedido.ComprobanteVigenteId,
-            pedido.Total, pedido.Ranura, pedido.Version, clienteFiscal, lineas);
+            pedido.Total, pedido.Ranura, pedido.Version, clienteFiscal, lineas, _embarques is null ? null : await _embarques.ObtenerAsync(pedido.Id, cancellationToken));
     }
 }

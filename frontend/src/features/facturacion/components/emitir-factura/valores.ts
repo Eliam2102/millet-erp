@@ -133,8 +133,11 @@ export function valoresIniciales(
     metodoPago: prefill.metodoPago ?? base.metodoPago,
     formaPago: prefill.formaPago ?? base.formaPago,
     canalVenta: prefill.canalVenta ?? base.canalVenta,
-    comportamientoFiscal:
-      prefill.comportamientoFiscal ?? base.comportamientoFiscal,
+    comportamientoFiscal: prefill.comportamientoFiscal ?? base.comportamientoFiscal,
+    cceIncoterm: prefill.embarqueCe?.ligado ? prefill.embarqueCe.incoterm : base.cceIncoterm,
+    cceClaveDePedimento: prefill.embarqueCe?.ligado
+      ? prefill.embarqueCe.clavePedimento
+      : base.cceClaveDePedimento,
     moneda: prefill.moneda ?? base.moneda,
     obraNombre: prefill.obraNombre ?? null,
     lineas,
