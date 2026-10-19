@@ -99,6 +99,18 @@ export function esApiError(error: unknown): error is ApiError {
 }
 
 /**
+ * Texto «Código: <traceId>» para soporte, solo en errores 5xx. En 4xx el
+ * error es de negocio y el hash no le sirve al usuario (C-01).
+ */
+export function codigoSoporte(
+  error: { status?: number; traceId?: string } | null | undefined,
+): string | undefined {
+  return error?.traceId && (error.status ?? 0) >= 500
+    ? `Código: ${error.traceId}`
+    : undefined;
+}
+
+/**
  * <c>true</c> si es un 409 con <c>code = CONCURRENCY_CONFLICT</c>
  * (ADR-0012 Capa 1). La UI lo transforma en
  * <c>&lt;ConflictResolutionDialog/&gt;</c> (UF0-PR2).

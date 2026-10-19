@@ -71,7 +71,7 @@ import {
   type AprobarLineaIndividualmenteValues,
   type RechazarConteoValues,
 } from '@/features/almacen/schemas/aprobacion-conteo';
-import { esApiError, useFormIdempotencyKey } from '@/lib/api';
+import { esApiError, useFormIdempotencyKey, codigoSoporte } from '@/lib/api';
 import { VariacionBadge } from '@/features/almacen/components/VariacionBadge';
 import { Field } from '@/features/almacen/components/internal/Field';
 import { cn } from '@/lib/utils';
@@ -861,12 +861,12 @@ function manejarError(error: unknown) {
     const mensaje = error.code ? MENSAJES_APROBACION[error.code] : undefined;
     if (mensaje) {
       toast.error(mensaje, {
-        description: error.traceId ? `Código: ${error.traceId}` : undefined,
+        description: codigoSoporte(error),
       });
       return;
     }
     toast.error(error.problem.title, {
-      description: error.problem.detail ?? (error.traceId ? `Código: ${error.traceId}` : undefined),
+      description: error.problem.detail ?? (codigoSoporte(error)),
     });
     return;
   }

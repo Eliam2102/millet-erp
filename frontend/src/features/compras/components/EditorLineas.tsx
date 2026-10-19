@@ -35,7 +35,7 @@ import {
   accionEliminarLinea,
 } from '@/features/compras/lib/acciones-disponibles';
 import { useAuthStore } from '@/lib/auth/auth-store';
-import { esApiError } from '@/lib/api';
+import { esApiError, codigoSoporte } from '@/lib/api';
 import { esConflictoConcurrencia } from '@/lib/api/error';
 import { useConflictDialog } from '@/components/erp/collaboration/conflict-dialog-context';
 import { useQueryClient } from '@tanstack/react-query';
@@ -143,9 +143,7 @@ export function EditorLineas({ rq }: EditorLineasProps) {
           }
           if (esApiError(error)) {
             toast.error(error.problem.title, {
-              description: error.traceId
-                ? `Código: ${error.traceId}`
-                : undefined,
+              description: codigoSoporte(error),
             });
           } else {
             toast.error('Error inesperado al eliminar la línea.');

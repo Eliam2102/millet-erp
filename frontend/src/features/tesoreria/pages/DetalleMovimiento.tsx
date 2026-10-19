@@ -19,7 +19,7 @@ import { BENEFICIARIO_TIPO_LABELS } from '@/features/tesoreria/api/types';
 import { formatoFecha, formatoMonto } from '@/features/tesoreria/lib/formato';
 import { useHasPermission } from '@/lib/auth/useHasPermission';
 import { PermisosCanonicos } from '@/lib/auth/permission-codes';
-import { esApiError, useBodyScopedIdempotencyKey } from '@/lib/api';
+import { esApiError, useBodyScopedIdempotencyKey, codigoSoporte } from '@/lib/api';
 
 /**
  * <c>Detalle de movimiento bancario</c> (TES-FE-PR2, P3): cabecera,
@@ -69,7 +69,7 @@ export function DetalleMovimiento({ id }: { id: string }) {
             esApiError(error) ? error.problem.title : 'No se pudo revertir el pago',
             {
               description: esApiError(error)
-                ? (error.problem.detail ?? `Código: ${error.traceId}`)
+                ? (error.problem.detail ?? codigoSoporte(error))
                 : undefined,
             },
           );

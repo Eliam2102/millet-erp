@@ -23,7 +23,7 @@ import {
 } from '@/features/tesoreria/api/useTesoreria';
 import type { PagoACuentaAbiertoResponse } from '@/features/tesoreria/api/types';
 import { formatoFecha, formatoMonto } from '@/features/tesoreria/lib/formato';
-import { esApiError, useBodyScopedIdempotencyKey } from '@/lib/api';
+import { esApiError, useBodyScopedIdempotencyKey, codigoSoporte } from '@/lib/api';
 
 export interface LigarPagoACuentaDialogProps {
   pago: PagoACuentaAbiertoResponse | null;
@@ -119,7 +119,7 @@ export function LigarPagoACuentaDialog({
             esApiError(error) ? error.problem.title : 'No se pudo ligar el pago',
             {
               description: esApiError(error)
-                ? (error.problem.detail ?? `Código: ${error.traceId}`)
+                ? (error.problem.detail ?? codigoSoporte(error))
                 : undefined,
             },
           );

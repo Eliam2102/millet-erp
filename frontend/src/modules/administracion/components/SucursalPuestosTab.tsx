@@ -27,7 +27,7 @@ import {
 } from '@/modules/administracion/api';
 import { useRoles } from '@/modules/identidad/api/roles';
 import type { RolResponse } from '@/modules/identidad/api/types';
-import { esApiError } from '@/lib/api';
+import { esApiError, codigoSoporte } from '@/lib/api';
 import { SucursalTabErrorState } from '@/modules/administracion/components/SucursalTabErrorState';
 import { FilaAsignacionSucursal } from '@/modules/administracion/components/FilaAsignacionSucursal';
 
@@ -786,7 +786,7 @@ function handleError(accion: string) {
       toast.error(error.problem.title, {
         description:
           error.problem.detail ||
-          (error.traceId ? `Código: ${error.traceId}` : undefined),
+          (codigoSoporte(error)),
       });
     } else {
       toast.error(`Error al ${accion}.`);

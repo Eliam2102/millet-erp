@@ -9,7 +9,7 @@ import {
   CollapsibleTrigger,
 } from '@/components/ui/collapsible';
 import { ErrorState, TableSkeleton } from '@/components/erp';
-import { esApiError, useBodyScopedIdempotencyKey } from '@/lib/api';
+import { esApiError, useBodyScopedIdempotencyKey, codigoSoporte } from '@/lib/api';
 import { useAsignarPermisos, usePermisos } from '@/modules/identidad/api';
 import type { PermisoResponse } from '@/modules/identidad/api/types';
 import { cn } from '@/lib/utils';
@@ -130,9 +130,7 @@ export function MatrizPermisos({
         onError: (error) => {
           if (esApiError(error)) {
             toast.error(error.problem.title, {
-              description: error.traceId
-                ? `Código: ${error.traceId}`
-                : undefined,
+              description: codigoSoporte(error),
             });
             return;
           }

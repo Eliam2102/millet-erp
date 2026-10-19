@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
-import { apiRequest } from '@/lib/api';
+import { apiRequest, codigoSoporte } from '@/lib/api';
 import { ProveedorClasificacionFiscalSection } from './ProveedorClasificacionFiscalSection';
 import { ProveedorToleranciaSection } from './ProveedorToleranciaSection';
 import { Link, useParams } from '@tanstack/react-router';
@@ -157,9 +157,7 @@ export function ProveedorDetalle() {
         onError: (error) => {
           if (esApiError(error)) {
             toast.error(error.problem.title, {
-              description: error.traceId
-                ? `Código: ${error.traceId}`
-                : undefined,
+              description: codigoSoporte(error),
             });
           } else {
             toast.error('Error al desactivar el proveedor.');
@@ -181,7 +179,7 @@ export function ProveedorDetalle() {
         onError: (error) => {
           if (esApiError(error)) {
             toast.error(error.problem.title, {
-              description: error.problem.detail ?? error.traceId,
+              description: error.problem.detail ?? codigoSoporte(error),
             });
           } else {
             toast.error('Error al validar el proveedor.');
@@ -209,7 +207,7 @@ export function ProveedorDetalle() {
         onError: (error) => {
           if (esApiError(error)) {
             toast.error(error.problem.title, {
-              description: error.problem.detail ?? error.traceId,
+              description: error.problem.detail ?? codigoSoporte(error),
             });
           } else {
             toast.error('Error al rechazar el proveedor.');

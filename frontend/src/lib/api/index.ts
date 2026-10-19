@@ -14,6 +14,7 @@ export {
 export {
   ApiError,
   esApiError,
+  codigoSoporte,
   esConflictoConcurrencia,
   esIdempotencyEnCurso,
   esIdempotencyFalloPrevio,

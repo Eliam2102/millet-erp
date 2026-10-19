@@ -22,7 +22,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { ArticuloSelector, EntidadReordenSelector } from '@/components/erp';
-import { applyServerErrors, esApiError } from '@/lib/api';
+import { applyServerErrors, esApiError, codigoSoporte } from '@/lib/api';
 import {
   CrearReordenSchema,
   type CrearReordenValues,
@@ -175,7 +175,7 @@ export function ReordenSheet({ open, onOpenChange, editando }: ReordenSheetProps
         return;
       }
       toast.error(error.problem.title, {
-        description: error.traceId ? `Código: ${error.traceId}` : undefined,
+        description: codigoSoporte(error),
       });
       return;
     }

@@ -19,6 +19,7 @@ import {
 import {
   applyServerErrors,
   esApiError,
+  codigoSoporte,
 } from '@/lib/api';
 import { esConflictoConcurrencia } from '@/lib/api/error';
 import { useConflictDialog } from '@/components/erp/collaboration/conflict-dialog-context';
@@ -208,9 +209,7 @@ export function LineaInlineForm({
         return;
       }
       toast.error(error.problem.title, {
-        description: error.traceId
-          ? `Código: ${error.traceId}`
-          : undefined,
+        description: codigoSoporte(error),
       });
       return;
     }

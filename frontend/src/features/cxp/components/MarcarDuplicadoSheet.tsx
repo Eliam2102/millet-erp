@@ -17,6 +17,7 @@ import {
   applyServerErrors,
   esApiError,
   useFormIdempotencyKey,
+  codigoSoporte,
 } from '@/lib/api';
 import {
   MarcarCfdiDuplicadoSchema,
@@ -82,9 +83,7 @@ export function MarcarDuplicadoSheet({
               return;
             }
             toast.error(error.problem.title, {
-              description: error.traceId
-                ? `Código: ${error.traceId}`
-                : undefined,
+              description: codigoSoporte(error),
             });
             return;
           }
