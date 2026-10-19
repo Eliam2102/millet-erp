@@ -39,7 +39,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { TextAreaField } from '@/components/erp';
-import { esApiError, useFormIdempotencyKey } from '@/lib/api';
+import { esApiError, useFormIdempotencyKey, codigoSoporte } from '@/lib/api';
 import {
   RechazarDevolucionSchema,
   RegistrarSalidaDevolucionSchema,
@@ -491,7 +491,7 @@ function RegistrarSalidaBody({
 function manejarError(error: unknown) {
   if (esApiError(error)) {
     toast.error(error.problem.title, {
-      description: error.traceId ? `Código: ${error.traceId}` : undefined,
+      description: codigoSoporte(error),
     });
     return;
   }

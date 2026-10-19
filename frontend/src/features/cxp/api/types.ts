@@ -258,7 +258,20 @@ export interface FacturaLinea {
   conceptoContableId: string | null;
 }
 
+/** Revisión por área en curso (C-06). */
+export interface RevisionVigente {
+  motivoNombre: string | null;
+  areaNombre: string | null;
+  fechaEnvio: string;
+  /** Días hábiles transcurridos. */
+  diasHabiles: number;
+  slaDias: number | null;
+  nivelAviso: 1 | 2 | 3 | null;
+  vencida: boolean;
+}
+
 export interface FacturaDetalle {
+  revisionVigente?: RevisionVigente | null;
   obra?: string | null;
   conceptoRetencion?: string | null;
   alertaRetenciones?: string | null;
@@ -414,6 +427,10 @@ export interface FacturaEnRevisionItem {
   version: number;
   slaDias: number | null;
   nivelAviso: 1 | 2 | 3 | null;
+  proveedorNombre?: string | null;
+  motivoNombre?: string | null;
+  areaNombre?: string | null;
+  vencida?: boolean;
 }
 
 export interface EnviarFacturaARevisionCommand {

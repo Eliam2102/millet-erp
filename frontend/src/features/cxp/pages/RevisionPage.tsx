@@ -150,6 +150,7 @@ export function RevisionPage() {
           columns={[
             { width: 'w-32' },
             { width: 'w-40' },
+            { width: 'w-40' },
             { width: 'w-32' },
             { width: 'w-32' },
             { width: 'w-24' },
@@ -168,6 +169,7 @@ export function RevisionPage() {
               <TableHeader>
                 <TableRow>
                   <TableHead>Folio</TableHead>
+                  <TableHead>Proveedor</TableHead>
                   <TableHead>Motivo</TableHead>
                   <TableHead>En revisión desde</TableHead>
                   <TableHead className="text-right">Días hábiles</TableHead>
@@ -187,7 +189,8 @@ export function RevisionPage() {
                         {folioFactura(f)}
                       </Link>
                     </TableCell>
-                    <TableCell>{motivosMap.get(f.motivoRevisionId) ?? '—'}</TableCell>
+                    <TableCell>{f.proveedorNombre ?? '—'}</TableCell>
+                    <TableCell>{f.motivoNombre ?? motivosMap.get(f.motivoRevisionId) ?? '—'}</TableCell>
                     <TableCell className="whitespace-nowrap text-xs">
                       <DateTimeDisplay value={f.fechaEntradaRevision} variant="corta" />
                     </TableCell>

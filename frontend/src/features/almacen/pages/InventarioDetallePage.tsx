@@ -33,7 +33,7 @@ import {
 } from '@/features/almacen/api/types';
 import { useHasPermission, useHasAnyPermission } from '@/lib/auth/useHasPermission';
 import { PermisosCanonicos } from '@/lib/auth/permission-codes';
-import { esApiError } from '@/lib/api';
+import { esApiError, codigoSoporte } from '@/lib/api';
 import { EstadoAlmacenBadge } from '@/features/almacen/components/EstadoAlmacenBadge';
 
 const FROM = '/_app/almacen/inventarios/$id' as const;
@@ -413,7 +413,7 @@ function Campo({
 function manejarError(error: unknown) {
   if (esApiError(error)) {
     toast.error(error.problem.title, {
-      description: error.traceId ? `Código: ${error.traceId}` : undefined,
+      description: codigoSoporte(error),
     });
     return;
   }

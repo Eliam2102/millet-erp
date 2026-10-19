@@ -146,6 +146,10 @@ export const ORIGEN_DEVOLUCION_LABELS: Record<OrigenDevolucionCliente, string> =
 /** Espejo de `DevolucionClienteResponse` (T9.6). */
 export interface DevolucionClienteResponse {
   id: string;
+  /** Folio propio «DEV-T-0001» (secuencia por empresa). */
+  folio: string;
+  /** Último editor: quien edita la solicitud tampoco la autoriza ni la rechaza. */
+  editadaPor: string | null;
   origen: OrigenDevolucionCliente;
   estado: EstadoDevolucionCliente;
   clienteId: string;
@@ -242,6 +246,9 @@ export interface MovimientoBancarioResponse {
   estadoConciliacion: EstadoConciliacionMovimiento;
   beneficiarioTipo: BeneficiarioTipo | null;
   beneficiarioRef: string | null;
+  /** Razón social del beneficiario (cliente o proveedor), resuelta en el servidor. */
+  beneficiarioNombre?: string | null;
+  beneficiarioClave?: string | null;
   contramovimientoDe: string | null;
   motivoNoAplicado: string | null;
   motivoReversa?: string | null;

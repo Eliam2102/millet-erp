@@ -37,6 +37,7 @@ import {
   applyServerErrors,
   esApiError,
   useFormIdempotencyKey,
+  codigoSoporte,
 } from '@/lib/api';
 import { useAuthStore } from '@/lib/auth/auth-store';
 import { cn } from '@/lib/utils';
@@ -169,7 +170,7 @@ function FormDecidir({ onClose }: { onClose: () => void }) {
             toast.error(error.problem.title, {
               description:
                 error.problem.detail ??
-                (error.traceId ? `Código: ${error.traceId}` : undefined),
+                (codigoSoporte(error)),
             });
             return;
           }

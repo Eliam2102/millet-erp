@@ -415,6 +415,22 @@ public sealed class DevolucionesClienteTests(WebApplicationFactory<Program> fact
         editar.StatusCode.Should().Be(HttpStatusCode.OK, await editar.Content.ReadAsStringAsync());
         await Esperar(await Post(client, $"{Tes}/devoluciones/{id}/autorizar", new { }, await Version(client, id)),
             HttpStatusCode.UnprocessableEntity, "DEV_MISMO_USUARIO");
+        await Esperar(await Post(client, $"{Tes}/devoluciones/{id}/rechazar", new { motivo = "x" }, await Version(client, id)),
+            HttpStatusCode.UnprocessableEntity, "DEV_MISMO_USUARIO");
+    }
+
+    [Fact]
+    public async Task Solicitante_no_rechaza_su_propia_devolucion_y_el_folio_es_propio()
+    {
+        var (client, _) = await Login(factory);
+        var deposito = await Deposito();
+        var solicitud = await Post(client, $"{Tes}/movimientos/{deposito.Id}/solicitar-devolucion",
+            new { clienteId = await NuevoCliente(), importe = 100m, motivo = "Propia", banco = "BBVA", clabe = Clabe, titular = "Cliente SA" });
+        var json = await solicitud.Content.ReadFromJsonAsync<JsonElement>();
+        json.GetProperty("folio").GetString().Should().MatchRegex(@"^DEV-T-\d{4,}$");
+        var id = json.GetProperty("id").GetGuid();
+        await Esperar(await Post(client, $"{Tes}/devoluciones/{id}/rechazar", new { motivo = "x" }, await Version(client, id)),
+            HttpStatusCode.UnprocessableEntity, "DEV_MISMO_USUARIO");
     }
 
     [Fact]
@@ -465,6 +481,7 @@ public sealed class DevolucionesClienteTests(WebApplicationFactory<Program> fact
         (await Post(client, $"{Tes}/devoluciones/{primera}/cancelar", new { motivo = "Ya no aplica" }, await Version(client, primera)))
             .StatusCode.Should().Be(HttpStatusCode.OK);
         var segunda = await Solicitar();
+        await OtroSolicitante(segunda); // quien solicita no rechaza su propia devolución (DEV_MISMO_USUARIO)
         (await Post(client, $"{Tes}/devoluciones/{segunda}/rechazar", new { motivo = "No procede" }, await Version(client, segunda)))
             .StatusCode.Should().Be(HttpStatusCode.OK);
         await Solicitar();
@@ -610,7 +627,7 @@ public sealed class DevolucionesClienteTests(WebApplicationFactory<Program> fact
         using var scope = factory.Services.CreateScope();
         using var bypass = scope.ServiceProvider.GetRequiredService<ICurrentEmpresaContext>().Bypass();
         var db = scope.ServiceProvider.GetRequiredService<TesoreriaDbContext>();
-        var d = DevolucionCliente.SolicitarPorNotaCredito(Empresa, ncId, "NC-SUC", null, Guid.NewGuid(), 100m, 100m, "MXN",
+        var d = DevolucionCliente.SolicitarPorNotaCredito(Empresa, "DEV-T-SEED-" + ncId.ToString("N")[..4], ncId, "NC-SUC", null, Guid.NewGuid(), 100m, 100m, "MXN",
             sucursalId, "Alcance por sucursal", Guid.NewGuid(), DateTimeOffset.UtcNow);
         db.DevolucionesCliente.Add(d); await db.SaveChangesAsync();
         return d.Id;

@@ -30,7 +30,7 @@ import { formatDate } from '@/lib/datetime';
 import { origenDeposito } from '@/features/tesoreria/lib/depositos';
 import { useHasPermission } from '@/lib/auth/useHasPermission';
 import { PermisosCanonicos } from '@/lib/auth/permission-codes';
-import { esApiError } from '@/lib/api';
+import { esApiError, codigoSoporte } from '@/lib/api';
 
 const FILTRO_TODOS = 'todos';
 
@@ -91,7 +91,7 @@ export function BandejaDepositos() {
             esApiError(error) ? error.problem.title : 'No se pudo rechazar',
             {
               description: esApiError(error)
-                ? (error.problem.detail ?? `Código: ${error.traceId}`)
+                ? (error.problem.detail ?? codigoSoporte(error))
                 : undefined,
             },
           );

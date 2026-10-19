@@ -87,8 +87,9 @@ public sealed class SolicitarDevolucionDepositoHandler
             .SumAsync(x => (decimal?)x.Importe, cancellationToken) ?? 0m;
         var disponible = movimiento.Monto - comprometido;
 
+        var folio = await DevolucionLectura.SiguienteFolioAsync(_db, empresaId, cancellationToken);
         var devolucion = DevolucionCliente.SolicitarPorDepositoErroneo(
-            empresaId, movimiento, command.ClienteId, command.Importe, disponible, command.Motivo,
+            empresaId, folio, movimiento, command.ClienteId, command.Importe, disponible, command.Motivo,
             new CuentaDestinoDevolucion(command.Banco, command.Clabe, command.Titular), usuarioId, _clock.UtcNow);
 
         _db.DevolucionesCliente.Add(devolucion);

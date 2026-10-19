@@ -25,6 +25,7 @@ import {
 } from '@/components/erp';
 import {
   applyServerErrors,
+  codigoSoporte,
   esApiError,
 } from '@/lib/api';
 import { AvisoEnLinea } from '@/components/erp';
@@ -250,7 +251,7 @@ export function LineaInlineFormOc({
       }
       const partes = [
         err.problem.detail,
-        err.traceId ? `Código: ${err.traceId}` : null,
+        codigoSoporte(err),
       ].filter((p): p is string => Boolean(p));
       toast.error(err.problem.title, {
         description: partes.length > 0 ? partes.join(' · ') : undefined,

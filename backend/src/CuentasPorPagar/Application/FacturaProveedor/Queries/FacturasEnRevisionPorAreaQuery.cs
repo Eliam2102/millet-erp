@@ -3,6 +3,8 @@ using Microsoft.EntityFrameworkCore;
 using Millet.CuentasPorPagar.Application.Common;
 using Millet.CuentasPorPagar.Application.FacturaProveedor.Revision;
 using Millet.CuentasPorPagar.Domain.FacturaProveedor;
+using Millet.CuentasPorPagar.Domain.Ports.Administracion;
+using Millet.CuentasPorPagar.Domain.Ports.DatosMaestros;
 using Millet.CuentasPorPagar.Infrastructure.Persistence;
 using Millet.SharedKernel.Application;
 using Millet.SharedKernel.Application.Calendario;
@@ -47,7 +49,14 @@ public sealed record FacturaEnRevisionResponse(
     int? SlaDias = null,
     // 1 = aviso al gerente, 2 = plazo vencido, 3 = escalada a Dirección de Finanzas;
     // null = sin aviso en el episodio vigente.
-    int? NivelAviso = null);
+    int? NivelAviso = null,
+    // Etiquetas resueltas server-side (C-06): proveedor por IProveedorReadPort en lote,
+    // motivo por catálogo local y área por IDependenciaRevisoraReadPort.
+    string? ProveedorNombre = null,
+    string? MotivoNombre = null,
+    string? AreaNombre = null,
+    // Días hábiles >= umbral de plazo vencido del motivo (PlazoRevision.Umbrales).
+    bool Vencida = false);
 
 public sealed class FacturasEnRevisionPorAreaHandler
     : IRequestHandler<FacturasEnRevisionPorAreaQuery, PagedResponse<FacturaEnRevisionResponse>>
@@ -55,9 +64,15 @@ public sealed class FacturasEnRevisionPorAreaHandler
     private readonly CuentasPorPagarDbContext _db;
     private readonly IClock _clock;
     private readonly ICalendarioHabil _calendario;
+    private readonly IProveedorReadPort _proveedores;
+    private readonly IDependenciaRevisoraReadPort _dependencias;
 
-    public FacturasEnRevisionPorAreaHandler(CuentasPorPagarDbContext db, IClock clock, ICalendarioHabil calendario)
+    public FacturasEnRevisionPorAreaHandler(
+        CuentasPorPagarDbContext db, IClock clock, ICalendarioHabil calendario,
+        IProveedorReadPort proveedores, IDependenciaRevisoraReadPort dependencias)
     {
+        _proveedores = proveedores;
+        _dependencias = dependencias;
         _db = db;
         _clock = clock;
         _calendario = calendario;
@@ -103,9 +118,12 @@ public sealed class FacturasEnRevisionPorAreaHandler
 
         var ids = items.Select(i => i.Id).ToList();
         var motivosIds = items.Select(i => i.MotivoRevisionId).Distinct().ToList();
-        var slas = await _db.MotivosRevision.AsNoTracking()
+        var motivos = await _db.MotivosRevision.AsNoTracking()
             .Where(m => motivosIds.Contains(m.Id))
-            .ToDictionaryAsync(m => m.Id, m => m.SlaDias, cancellationToken);
+            .ToDictionaryAsync(m => m.Id, m => new { m.SlaDias, m.Nombre }, cancellationToken);
+        var proveedores = await _proveedores.ObtenerNombresPorIdsAsync(
+            items.Select(i => i.ProveedorId).Distinct().ToList(), cancellationToken);
+        var area = await _dependencias.ObtenerAsync(query.DependenciaRevisoraId, cancellationToken);
         var avisos = await _db.AvisosSlaRevision.AsNoTracking()
             .Where(a => ids.Contains(a.FacturaProveedorId))
             .Select(a => new { a.FacturaProveedorId, a.FechaEntradaRevision, a.Nivel })
@@ -115,10 +133,16 @@ public sealed class FacturasEnRevisionPorAreaHandler
         var resultado = new List<FacturaEnRevisionResponse>(items.Count);
         foreach (var item in items)
         {
+            var dias = await PlazoRevision.DiasHabilesAsync(_calendario, item.FechaEntradaRevision, ahora, cache, cancellationToken);
+            motivos.TryGetValue(item.MotivoRevisionId, out var motivo);
             resultado.Add(item with
             {
-                DiasEnRevision = await PlazoRevision.DiasHabilesAsync(_calendario, item.FechaEntradaRevision, ahora, cache, cancellationToken),
-                SlaDias = slas.GetValueOrDefault(item.MotivoRevisionId),
+                DiasEnRevision = dias,
+                SlaDias = motivo?.SlaDias,
+                MotivoNombre = motivo?.Nombre,
+                AreaNombre = area?.Nombre,
+                ProveedorNombre = proveedores.GetValueOrDefault(item.ProveedorId),
+                Vencida = motivo?.SlaDias is int sla && dias >= PlazoRevision.Umbrales(sla).Vencido,
                 // Solo cuentan los avisos del episodio vigente (misma FechaEntradaRevision).
                 NivelAviso = avisos
                     .Where(a => a.FacturaProveedorId == item.Id && a.FechaEntradaRevision == item.FechaEntradaRevision)

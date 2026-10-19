@@ -32,6 +32,7 @@ import {
   applyServerErrors,
   esApiError,
   useFormIdempotencyKey,
+  codigoSoporte,
 } from '@/lib/api';
 import {
   NuevoProveedorContext,
@@ -262,9 +263,7 @@ function NuevoProveedorForm({
               return;
             }
             toast.error(error.problem.title, {
-              description: error.traceId
-                ? `Código: ${error.traceId}`
-                : undefined,
+              description: codigoSoporte(error),
             });
             return;
           }

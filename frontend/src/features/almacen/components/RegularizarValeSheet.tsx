@@ -11,7 +11,7 @@ import {
 } from '@/components/ui/sheet';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { esApiError } from '@/lib/api';
+import { esApiError, codigoSoporte } from '@/lib/api';
 import {
   RegularizarValeSchema,
   type RegularizarValeValues,
@@ -119,7 +119,7 @@ function FormBody({
               return;
             }
             toast.error(error.problem.title, {
-              description: error.traceId ? `Código: ${error.traceId}` : undefined,
+              description: codigoSoporte(error),
             });
             return;
           }

@@ -17,7 +17,7 @@ import {
   usePeriodosCierre,
   useRevisionPreviaCierre,
 } from '@/features/almacen/api/useSaldosCierreReportes';
-import { esApiError, useFormIdempotencyKey } from '@/lib/api';
+import { esApiError, useFormIdempotencyKey, codigoSoporte } from '@/lib/api';
 import { Field } from '@/features/almacen/components/internal/Field';
 
 const MES_NOMBRES = [
@@ -102,7 +102,7 @@ export function CierreMesPage() {
               return;
             }
             toast.error(error.problem.title, {
-              description: error.traceId ? `Código: ${error.traceId}` : undefined,
+              description: codigoSoporte(error),
             });
             return;
           }
