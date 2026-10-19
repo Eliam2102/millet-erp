@@ -1,6 +1,6 @@
 #!/bin/bash
 # BD de prueba del origen de demo de A+W (tablas aw_origen.*) en el PostgreSQL de desarrollo.
-# Uso: aw-origen-demo.sh {up|reseed|importar|pedidos|env|psql}
+# Uso: aw-origen-demo.sh {up|reseed|importar|pedidos|otr|env|psql}
 #  up       crea la BD si no existe y aplica schema.sql + seed.sql + pedidos.sql (idempotente)
 #  reseed   re-aplica seed.sql (deshace los cambios hechos a mano a las tablas)
 #  importar reemplaza clientes y productos por los de una BD de A+W en SQL Server (por defecto AW_DEMO del
@@ -21,7 +21,9 @@ case "${1:-}" in
     pg -d "$DB" < schema.sql
     pg -d "$DB" < seed.sql
     pg -d "$DB" < pedidos.sql
-    echo "origen demo listo: BD $DB en el contenedor $C (62 clientes, 47 productos, 3 pedidos)" ;;
+    pg -d "$DB" -v sucursal_clave_aw="${OTR_SUCURSAL_CLAVE_AW:-MID}" \
+      -v cliente_numero_aw="${OTR_CLIENTE_NUMERO_AW:-DEMO-CLI-EXP-1}" < otr.sql
+    echo "origen demo listo: BD $DB en el contenedor $C (62 clientes, 47 productos, 3 pedidos, 2 envíos OTR/3 versiones)" ;;
   reseed) pg -d "$DB" < seed.sql ;;
   importar)
     AWDB="${AW_DB:-AW_DEMO}"
@@ -31,6 +33,9 @@ case "${1:-}" in
       "Host=localhost;Port=$PORT;Database=$DB;Username=$U;Password=$P" 2>&1 | grep -v ': warning '
     pg -d "$DB" < pedidos.sql ;;
   pedidos) pg -d "$DB" < pedidos.sql ;;
+  otr)
+    pg -d "$DB" -v sucursal_clave_aw="${OTR_SUCURSAL_CLAVE_AW:-MID}" \
+      -v cliente_numero_aw="${OTR_CLIENTE_NUMERO_AW:-DEMO-CLI-EXP-1}" < otr.sql ;;
   env)
     cat <<ENV
 export ConnectionStrings__AwOrigenPgDb='Host=localhost;Port=$PORT;Database=$DB;Username=$U;Password=$P'

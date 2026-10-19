@@ -27,6 +27,8 @@ import { Route as AppAlmacenUbicacionesRouteImport } from './routes/_app/almacen
 import { Route as AppCentrosCostoIndexRouteImport } from './routes/_app/centros-costo/index';
 import { Route as AppCentrosCostoAsignacionesRouteImport } from './routes/_app/centros-costo/asignaciones';
 import { Route as AppCentrosCostoConfiguracionRouteImport } from './routes/_app/centros-costo/configuracion';
+import { Route as AppComercioExteriorOtrRouteImport } from './routes/_app/comercio-exterior/otr';
+import { Route as AppComercioExteriorRelacionIvaRouteImport } from './routes/_app/comercio-exterior/relacion-iva';
 import { Route as AppComprasIndexRouteImport } from './routes/_app/compras/index';
 import { Route as AppComprasAyudaRouteImport } from './routes/_app/compras/ayuda';
 import { Route as AppComprasConfiguracionRouteImport } from './routes/_app/compras/configuracion';
@@ -280,6 +282,17 @@ const AppCentrosCostoConfiguracionRoute =
   AppCentrosCostoConfiguracionRouteImport.update({
     id: '/centros-costo/configuracion',
     path: '/centros-costo/configuracion',
+    getParentRoute: () => AppRoute,
+  } as any);
+const AppComercioExteriorOtrRoute = AppComercioExteriorOtrRouteImport.update({
+  id: '/comercio-exterior/otr',
+  path: '/comercio-exterior/otr',
+  getParentRoute: () => AppRoute,
+} as any);
+const AppComercioExteriorRelacionIvaRoute =
+  AppComercioExteriorRelacionIvaRouteImport.update({
+    id: '/comercio-exterior/relacion-iva',
+    path: '/comercio-exterior/relacion-iva',
     getParentRoute: () => AppRoute,
   } as any);
 const AppComprasIndexRoute = AppComprasIndexRouteImport.update({
@@ -1199,6 +1212,8 @@ export interface FileRoutesByFullPath {
   '/almacen/ubicaciones': typeof AppAlmacenUbicacionesRoute;
   '/centros-costo/asignaciones': typeof AppCentrosCostoAsignacionesRoute;
   '/centros-costo/configuracion': typeof AppCentrosCostoConfiguracionRoute;
+  '/comercio-exterior/otr': typeof AppComercioExteriorOtrRoute;
+  '/comercio-exterior/relacion-iva': typeof AppComercioExteriorRelacionIvaRoute;
   '/compras/ayuda': typeof AppComprasAyudaRoute;
   '/compras/configuracion': typeof AppComprasConfiguracionRoute;
   '/contabilidad/dimensiones': typeof AppContabilidadDimensionesRoute;
@@ -1380,6 +1395,8 @@ export interface FileRoutesByTo {
   '/almacen/ubicaciones': typeof AppAlmacenUbicacionesRoute;
   '/centros-costo/asignaciones': typeof AppCentrosCostoAsignacionesRoute;
   '/centros-costo/configuracion': typeof AppCentrosCostoConfiguracionRoute;
+  '/comercio-exterior/otr': typeof AppComercioExteriorOtrRoute;
+  '/comercio-exterior/relacion-iva': typeof AppComercioExteriorRelacionIvaRoute;
   '/compras/ayuda': typeof AppComprasAyudaRoute;
   '/compras/configuracion': typeof AppComprasConfiguracionRoute;
   '/contabilidad/dimensiones': typeof AppContabilidadDimensionesRoute;
@@ -1563,6 +1580,8 @@ export interface FileRoutesById {
   '/_app/almacen/ubicaciones': typeof AppAlmacenUbicacionesRoute;
   '/_app/centros-costo/asignaciones': typeof AppCentrosCostoAsignacionesRoute;
   '/_app/centros-costo/configuracion': typeof AppCentrosCostoConfiguracionRoute;
+  '/_app/comercio-exterior/otr': typeof AppComercioExteriorOtrRoute;
+  '/_app/comercio-exterior/relacion-iva': typeof AppComercioExteriorRelacionIvaRoute;
   '/_app/compras/ayuda': typeof AppComprasAyudaRoute;
   '/_app/compras/configuracion': typeof AppComprasConfiguracionRoute;
   '/_app/contabilidad/dimensiones': typeof AppContabilidadDimensionesRoute;
@@ -1746,6 +1765,8 @@ export interface FileRouteTypes {
     | '/almacen/ubicaciones'
     | '/centros-costo/asignaciones'
     | '/centros-costo/configuracion'
+    | '/comercio-exterior/otr'
+    | '/comercio-exterior/relacion-iva'
     | '/compras/ayuda'
     | '/compras/configuracion'
     | '/contabilidad/dimensiones'
@@ -1927,6 +1948,8 @@ export interface FileRouteTypes {
     | '/almacen/ubicaciones'
     | '/centros-costo/asignaciones'
     | '/centros-costo/configuracion'
+    | '/comercio-exterior/otr'
+    | '/comercio-exterior/relacion-iva'
     | '/compras/ayuda'
     | '/compras/configuracion'
     | '/contabilidad/dimensiones'
@@ -2109,6 +2132,8 @@ export interface FileRouteTypes {
     | '/_app/almacen/ubicaciones'
     | '/_app/centros-costo/asignaciones'
     | '/_app/centros-costo/configuracion'
+    | '/_app/comercio-exterior/otr'
+    | '/_app/comercio-exterior/relacion-iva'
     | '/_app/compras/ayuda'
     | '/_app/compras/configuracion'
     | '/_app/contabilidad/dimensiones'
@@ -2407,6 +2432,20 @@ declare module '@tanstack/react-router' {
       path: '/centros-costo/configuracion';
       fullPath: '/centros-costo/configuracion';
       preLoaderRoute: typeof AppCentrosCostoConfiguracionRouteImport;
+      parentRoute: typeof AppRoute;
+    };
+    '/_app/comercio-exterior/otr': {
+      id: '/_app/comercio-exterior/otr';
+      path: '/comercio-exterior/otr';
+      fullPath: '/comercio-exterior/otr';
+      preLoaderRoute: typeof AppComercioExteriorOtrRouteImport;
+      parentRoute: typeof AppRoute;
+    };
+    '/_app/comercio-exterior/relacion-iva': {
+      id: '/_app/comercio-exterior/relacion-iva';
+      path: '/comercio-exterior/relacion-iva';
+      fullPath: '/comercio-exterior/relacion-iva';
+      preLoaderRoute: typeof AppComercioExteriorRelacionIvaRouteImport;
       parentRoute: typeof AppRoute;
     };
     '/_app/compras/': {
@@ -3577,6 +3616,8 @@ interface AppRouteChildren {
   AppAlmacenUbicacionesRoute: typeof AppAlmacenUbicacionesRoute;
   AppCentrosCostoAsignacionesRoute: typeof AppCentrosCostoAsignacionesRoute;
   AppCentrosCostoConfiguracionRoute: typeof AppCentrosCostoConfiguracionRoute;
+  AppComercioExteriorOtrRoute: typeof AppComercioExteriorOtrRoute;
+  AppComercioExteriorRelacionIvaRoute: typeof AppComercioExteriorRelacionIvaRoute;
   AppComprasAyudaRoute: typeof AppComprasAyudaRoute;
   AppComprasConfiguracionRoute: typeof AppComprasConfiguracionRoute;
   AppContabilidadDimensionesRoute: typeof AppContabilidadDimensionesRoute;
@@ -3756,6 +3797,8 @@ const AppRouteChildren: AppRouteChildren = {
   AppAlmacenUbicacionesRoute: AppAlmacenUbicacionesRoute,
   AppCentrosCostoAsignacionesRoute: AppCentrosCostoAsignacionesRoute,
   AppCentrosCostoConfiguracionRoute: AppCentrosCostoConfiguracionRoute,
+  AppComercioExteriorOtrRoute: AppComercioExteriorOtrRoute,
+  AppComercioExteriorRelacionIvaRoute: AppComercioExteriorRelacionIvaRoute,
   AppComprasAyudaRoute: AppComprasAyudaRoute,
   AppComprasConfiguracionRoute: AppComprasConfiguracionRoute,
   AppContabilidadDimensionesRoute: AppContabilidadDimensionesRoute,

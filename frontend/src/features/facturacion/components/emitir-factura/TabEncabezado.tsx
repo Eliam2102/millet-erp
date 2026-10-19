@@ -51,6 +51,7 @@ export interface TabEncabezadoProps {
   /** Receptor incompleto en el master — la emisión se bloquea. */
   receptorBloqueado: boolean;
   esCce: boolean;
+  embarqueCe?: import("@/features/comercio-exterior/api/types").EmbarqueCe | null;
   esActivo: boolean;
   autorizacionId: string;
   onAutorizacionIdChange: (value: string) => void;
@@ -71,6 +72,7 @@ export function TabEncabezado({
   puedeCorregirEnCatalogo,
   receptorBloqueado,
   esCce,
+  embarqueCe,
   esActivo,
   autorizacionId,
   onAutorizacionIdChange,
@@ -279,6 +281,7 @@ export function TabEncabezado({
           <select
             className="h-9 w-full rounded-md border border-input bg-transparent px-3 text-sm shadow-sm"
             {...form.register('comportamientoFiscal', { valueAsNumber: true })}
+            disabled={Boolean(embarqueCe?.ligado)} title={embarqueCe?.ligado ? 'El comportamiento fiscal se toma de la clave del expediente.' : undefined}
           >
             {OPCIONES_COMPORTAMIENTO_FISCAL.map((o) => (
               <option key={o.value} value={o.value}>
@@ -301,7 +304,7 @@ export function TabEncabezado({
             <Input maxLength={2} {...form.register('cceTipoOperacion')} />
           </Campo>
           <Campo label="Incoterm" hint="Clave SAT c_INCOTERM (FOB, CIF…).">
-            <Controller
+            {embarqueCe?.ligado ? <p className="h-ctl-xl py-2 text-sm">{embarqueCe.incoterm}</p> : <Controller
               control={form.control}
               name="cceIncoterm"
               render={({ field }) => (
@@ -310,7 +313,7 @@ export function TabEncabezado({
                   onChange={field.onChange}
                 />
               )}
-            />
+            />}
           </Campo>
           <Campo label="Tipo de cambio DOF">
             <Input
@@ -342,7 +345,7 @@ export function TabEncabezado({
             label="Clave de pedimento"
             hint="Catálogo SAT c_ClavePedimento (ej. A1). Opcional."
           >
-            <Controller
+            {embarqueCe?.ligado ? <p className="h-ctl-xl py-2 text-sm">{embarqueCe.clavePedimento}</p> : <Controller
               control={form.control}
               name="cceClaveDePedimento"
               render={({ field }) => (
@@ -354,7 +357,7 @@ export function TabEncabezado({
                   onChange={(item) => field.onChange(item?.codigo ?? null)}
                 />
               )}
-            />
+            />}
           </Campo>
           <div className="flex items-end pb-1">
             <label className="flex items-center gap-1.5 text-xs">

@@ -5,14 +5,19 @@ using Millet.SharedKernel.Infrastructure.Persistence;
 using Millet.SharedKernel.Infrastructure.Outbox;
 
 namespace Millet.ComercioExterior.Infrastructure.Persistence;
-public sealed class ComercioExteriorDbContext(DbContextOptions<ComercioExteriorDbContext> options, ICurrentEmpresaContext empresa) : BaseDbContext(options, empresa)
+public sealed partial class ComercioExteriorDbContext(DbContextOptions<ComercioExteriorDbContext> options, ICurrentEmpresaContext empresa) : BaseDbContext(options, empresa)
 {
     public const string SchemaName = "comercio_exterior";
+    public DbSet<OtrEntradaControl> OtrEntradasControl => Set<OtrEntradaControl>();
+    public DbSet<OtrEnvio> OtrEnvios => Set<OtrEnvio>();
+    public DbSet<OtrSalida> OtrSalidas => Set<OtrSalida>();
     public DbSet<Expediente> Expedientes => Set<Expediente>();
     public DbSet<ParticipanteExpediente> Participantes => Set<ParticipanteExpediente>();
     public DbSet<DocumentoExpediente> Documentos => Set<DocumentoExpediente>();
     public DbSet<HitoExpediente> Hitos => Set<HitoExpediente>();
     public DbSet<AvisoHitoVencido> Avisos => Set<AvisoHitoVencido>();
+    public DbSet<ContenedorExpediente> Contenedores => Set<ContenedorExpediente>();
+    public DbSet<PartidaEmbarcada> Partidas => Set<PartidaEmbarcada>();
     public DbSet<IntegrationEventOutboxEntry> OutboxEntries => Set<IntegrationEventOutboxEntry>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
@@ -80,6 +85,36 @@ public sealed class ComercioExteriorDbContext(DbContextOptions<ComercioExteriorD
         d.HasIndex(x => new { x.ExpedienteId, x.TipoDocumentoId, x.NumeroVersion }).IsUnique();
         d.HasIndex(x => new { x.ExpedienteId, x.TipoDocumentoId }).IsUnique().HasFilter("estado = 'Vigente'");
         d.HasOne<DocumentoExpediente>().WithMany().HasForeignKey(x => x.ReemplazaA).OnDelete(DeleteBehavior.Restrict);
+        e.Property(x => x.NumeroPedimentoExportacion).HasMaxLength(100);
+        e.Property(x => x.ClavePedimento).HasMaxLength(2);
+        d.Property(x => x.NumeroPedimento).HasMaxLength(100);
+        e.HasMany(x => x.Contenedores).WithOne().HasForeignKey(x => x.ExpedienteId).OnDelete(DeleteBehavior.Restrict);
+        e.Navigation(x => x.Contenedores).UsePropertyAccessMode(PropertyAccessMode.Field);
+        e.HasMany(x => x.Partidas).WithOne().HasForeignKey(x => x.ExpedienteId).OnDelete(DeleteBehavior.Restrict);
+        e.Navigation(x => x.Partidas).UsePropertyAccessMode(PropertyAccessMode.Field);
+        e.HasMany(x => x.VinculosPedidos).WithOne().HasForeignKey(x => x.ExpedienteId).OnDelete(DeleteBehavior.Restrict);
+        e.Navigation(x => x.VinculosPedidos).UsePropertyAccessMode(PropertyAccessMode.Field);
+        var v = modelBuilder.Entity<VinculoPedidoExpediente>();
+        v.ToTable("vinculos_pedido_expediente"); v.HasKey(x => x.Id); v.Property(x => x.Id).ValueGeneratedNever();
+        v.Ignore(x => x.AggregateRootId);
+        v.HasIndex(x => new { x.EmpresaId, x.PedidoFacturableId }).IsUnique()
+            .HasDatabaseName("ux_ce_pedido_expediente_abierto").HasFilter("activo");
+        v.HasIndex(x => new { x.ExpedienteId, x.PedidoFacturableId }).IsUnique();
+        var c = modelBuilder.Entity<ContenedorExpediente>();
+        c.ToTable("contenedores"); c.HasKey(x => x.Id); c.Property(x => x.Id).ValueGeneratedNever();
+        c.Ignore(x => x.AggregateRootId); c.Property(x => x.Estado).HasConversion<string>();
+        c.Property(x => x.Numero).HasMaxLength(200); c.Property(x => x.Sello).HasMaxLength(200);
+        c.Property(x => x.Booking).HasMaxLength(200); c.Property(x => x.BlGuia).HasMaxLength(200);
+        c.Property(x => x.Ruta).HasMaxLength(200); c.Property(x => x.PesoKg).HasPrecision(18, 6);
+        c.Property(x => x.MotivoCancelacion).HasMaxLength(500);
+        c.HasIndex(x => x.ExpedienteId);
+        var pe = modelBuilder.Entity<PartidaEmbarcada>();
+        pe.ToTable("partidas_embarcadas"); pe.HasKey(x => x.Id); pe.Property(x => x.Id).ValueGeneratedNever();
+        pe.Ignore(x => x.AggregateRootId); pe.Property(x => x.Estado).HasConversion<string>();
+        pe.Property(x => x.Cantidad).HasPrecision(18, 6); pe.Property(x => x.Unidad).HasMaxLength(20);
+        pe.HasIndex(x => new { x.EmpresaId, x.PedidoFacturableId, x.Posicion });
+        pe.HasOne<ContenedorExpediente>().WithMany().HasForeignKey(x => x.ContenedorId).OnDelete(DeleteBehavior.Restrict);
+        ConfigurarOtr(modelBuilder);
         modelBuilder.ApplyConfiguration(new IntegrationEventOutboxEntryConfiguration());
         base.OnModelCreating(modelBuilder);
     }
