@@ -69,8 +69,15 @@ public sealed class PendientesFacturarProveedorHandler(
             x.Oc.Id, x.Oc.Folio, x.Oc.SucursalId, x.Oc.Moneda, x.Oc.Total, x.PorFacturar,
             porOc[x.Oc.Id].OrderByDescending(r => r.FechaMovimiento)
                 .Select(r => new RecepcionPendiente(r.RecepcionId, r.FolioRecepcion, r.FechaMovimiento,
-                    (JsonSerializer.Deserialize<List<LineaRecepcionPayload>>(r.LineasJson, JsonOptions) ?? []).Sum(l => l.Cantidad),
+                    CantidadRecibida(r.LineasJson),
                     r.FacturaPendiente)).ToList())).ToList();
         return new(proveedor.Id, proveedor.RazonSocial, resultado);
+    }
+
+    // Una fila con líneas mal formadas no debe tumbar todo el panel: se muestra con cantidad 0.
+    private static decimal CantidadRecibida(string lineasJson)
+    {
+        try { return (JsonSerializer.Deserialize<List<LineaRecepcionPayload>>(lineasJson, JsonOptions) ?? []).Sum(l => l.Cantidad); }
+        catch (JsonException) { return 0; }
     }
 }

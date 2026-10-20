@@ -40,7 +40,7 @@ export function PendientesProveedorPanel({
   return (
     <section
       aria-label="Recepciones y OC pendientes del proveedor"
-      className="space-y-2 rounded-md border border-border p-3"
+      className="col-span-12 min-w-0 space-y-2 rounded-md border border-border p-3"
     >
       <h3 className="text-sm font-medium">Recepciones y OC pendientes del proveedor</h3>
       {query.isLoading ? (
