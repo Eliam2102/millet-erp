@@ -3,10 +3,7 @@ import { render, screen } from '@testing-library/react';
 import { http, HttpResponse } from 'msw';
 import { mswServer } from '@/test/mocks/server';
 import { createQueryWrapper } from '@/test/test-query-client';
-import {
-  AlineacionColumnaCxc,
-  TipoColumnaReporteCxc,
-} from '@/features/cxc/api/types';
+import { AlineacionColumnaCxc, TipoColumnaReporteCxc } from '@/features/cxc/api/types';
 import { useAuthStore } from '@/lib/auth/auth-store';
 
 const searchMock = vi.hoisted(() => ({ current: {} as Record<string, unknown> }));
@@ -34,15 +31,10 @@ beforeEach(() => {
     user: { id: 'u-test', email: 't@e.com', nombre: 'Test User' },
     empresas: [],
     currentEmpresaId: 'e-test',
-    permisos: [
-      'cuentas_por_cobrar.cartera.leer',
-      'cuentas_por_cobrar.lineas-credito.leer',
-    ],
+    permisos: ['cuentas_por_cobrar.cartera.leer', 'cuentas_por_cobrar.lineas-credito.leer'],
     errorMessage: null,
   });
-  mswServer.use(
-    http.get(`${BASE}/clientes-lookup`, () => HttpResponse.json([])),
-  );
+  mswServer.use(http.get(`${BASE}/clientes-lookup`, () => HttpResponse.json([])));
 });
 
 afterEach(() => {
@@ -100,18 +92,14 @@ describe('<CarteraPage> — smoke', () => {
       ),
     );
     render(<CarteraPage />, { wrapper: createQueryWrapper() });
-    expect(
-      await screen.findByText(/No se pudo cargar el reporte/i),
-    ).toBeInTheDocument();
+    expect(await screen.findByText(/No se pudo cargar el reporte/i)).toBeInTheDocument();
   });
 });
 
 describe('<EstadoCuentaPage> — smoke', () => {
   it('sin cliente: CTA de selección', async () => {
     render(<EstadoCuentaPage />, { wrapper: createQueryWrapper() });
-    expect(
-      await screen.findByText(/Elige un cliente para generar su estado/i),
-    ).toBeInTheDocument();
+    expect(await screen.findByText(/Elige un cliente para generar su estado/i)).toBeInTheDocument();
   });
 
   it('con cliente: renderiza el reporte', async () => {
@@ -143,9 +131,7 @@ describe('<EstadoCuentaPage> — smoke', () => {
 describe('<AnticiposCxcPage> — smoke', () => {
   it('sin cliente: CTA de selección', async () => {
     render(<AnticiposCxcPage />, { wrapper: createQueryWrapper() });
-    expect(
-      await screen.findByText(/Elige un cliente para ver sus anticipos/i),
-    ).toBeInTheDocument();
+    expect(await screen.findByText(/Elige un cliente para ver sus anticipos/i)).toBeInTheDocument();
   });
 
   it('con cliente: tabla + totales por moneda (nunca cross-divisa)', async () => {
@@ -181,18 +167,14 @@ describe('<AnticiposCxcPage> — smoke', () => {
     render(<AnticiposCxcPage />, { wrapper: createQueryWrapper() });
     expect(await screen.findByText('3000123456')).toBeInTheDocument();
     // Totales separados por divisa.
-    expect(screen.getByText(/Total MXN:/i)).toBeInTheDocument();
-    expect(screen.getByText(/Total USD:/i)).toBeInTheDocument();
+    expect(screen.getByText(/Saldo MXN/i)).toBeInTheDocument();
+    expect(screen.getByText(/Saldo USD/i)).toBeInTheDocument();
   });
 
   it('con cliente sin anticipos: empty', async () => {
     searchMock.current = { clienteId: 'cli-1' };
-    mswServer.use(
-      http.get(`${BASE}/anticipos`, () => HttpResponse.json([])),
-    );
+    mswServer.use(http.get(`${BASE}/anticipos`, () => HttpResponse.json([])));
     render(<AnticiposCxcPage />, { wrapper: createQueryWrapper() });
-    expect(
-      await screen.findByText(/El cliente no tiene anticipos/i),
-    ).toBeInTheDocument();
+    expect(await screen.findByText(/El cliente no tiene anticipos/i)).toBeInTheDocument();
   });
 });

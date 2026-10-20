@@ -37,24 +37,17 @@ export function ListaLineasCompacta({
             state={{ bandejaSearch: search } as never}
             className={cn(
               'block px-3 py-2 transition-colors',
-              l.id === idActivo
-                ? 'bg-primary/10 hover:bg-primary/15'
-                : 'hover:bg-muted/40',
+              l.id === idActivo ? 'bg-brand/10 hover:bg-brand/15' : 'hover:bg-surface-muted/40',
             )}
             aria-current={l.id === idActivo ? 'page' : undefined}
           >
             <div className="flex items-start justify-between gap-2">
-              <span
-                className={cn(
-                  'truncate text-sm',
-                  l.id === idActivo && 'font-semibold',
-                )}
-              >
+              <span className={cn('truncate text-sm', l.id === idActivo && 'font-semibold')}>
                 {nombresCliente.get(l.clienteId) ?? l.clienteId.slice(0, 8)}
               </span>
               <ChipEstadoLinea estado={l.estado} />
             </div>
-            <div className="mt-1 flex items-center justify-between gap-2 text-xs text-muted-foreground">
+            <div className="mt-1 flex items-center justify-between gap-2 text-xs text-ink-muted">
               <span className="shrink-0 font-mono tabular-nums">
                 {formatoMonto(l.limite, l.moneda)}
               </span>

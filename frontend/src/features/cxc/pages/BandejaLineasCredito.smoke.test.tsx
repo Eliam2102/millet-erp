@@ -1,13 +1,10 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { render, screen, waitFor } from '@testing-library/react';
+import { render, screen, within, waitFor } from '@testing-library/react';
 import { http, HttpResponse } from 'msw';
 import { mswServer } from '@/test/mocks/server';
 import { createQueryWrapper } from '@/test/test-query-client';
 import { BandejaLineasCredito } from '@/features/cxc/pages/BandejaLineasCredito';
-import {
-  EstadoLineaCredito,
-  OrigenLineaCredito,
-} from '@/features/cxc/api/types';
+import { EstadoLineaCredito, OrigenLineaCredito } from '@/features/cxc/api/types';
 import { useAuthStore } from '@/lib/auth/auth-store';
 
 vi.mock('@tanstack/react-router', () => ({
@@ -65,17 +62,11 @@ afterEach(() => {
 describe('<BandejaLineasCredito> — smoke', () => {
   it('estado empty + botón Nueva línea visible con permiso gestionar', async () => {
     mswServer.use(
-      http.get(LINEAS, () =>
-        HttpResponse.json({ items: [], offset: 0, limit: 200, total: 0 }),
-      ),
+      http.get(LINEAS, () => HttpResponse.json({ items: [], offset: 0, limit: 200, total: 0 })),
     );
     render(<BandejaLineasCredito />, { wrapper: createQueryWrapper() });
-    await waitFor(() =>
-      expect(screen.getByText(/Sin líneas de crédito/i)).toBeInTheDocument(),
-    );
-    expect(
-      screen.getByRole('button', { name: /Nueva línea/i }),
-    ).toBeInTheDocument();
+    await waitFor(() => expect(screen.getByText(/Sin líneas de crédito/i)).toBeInTheDocument());
+    expect(screen.getByRole('button', { name: /Nueva línea/i })).toBeInTheDocument();
   });
 
   it('renderiza una línea con razón social resuelta del lookup', async () => {
@@ -113,10 +104,8 @@ describe('<BandejaLineasCredito> — smoke', () => {
       ),
     );
     render(<BandejaLineasCredito />, { wrapper: createQueryWrapper() });
-    await waitFor(() =>
-      expect(screen.getByText('ACME Vidrios SA')).toBeInTheDocument(),
-    );
-    expect(screen.getByText('Activa')).toBeInTheDocument();
+    await waitFor(() => expect(screen.getByText('ACME Vidrios SA')).toBeInTheDocument());
+    expect(within(screen.getByRole('table')).getByText('Activa')).toBeInTheDocument();
     expect(screen.getByText('SOLUNION')).toBeInTheDocument();
   });
 
@@ -131,9 +120,7 @@ describe('<BandejaLineasCredito> — smoke', () => {
     );
     render(<BandejaLineasCredito />, { wrapper: createQueryWrapper() });
     await waitFor(() =>
-      expect(
-        screen.getByText(/No se pudieron cargar las líneas/i),
-      ).toBeInTheDocument(),
+      expect(screen.getByText(/No se pudieron cargar las líneas/i)).toBeInTheDocument(),
     );
   });
 
@@ -142,16 +129,10 @@ describe('<BandejaLineasCredito> — smoke', () => {
       permisos: ['cuentas_por_cobrar.lineas-credito.leer'],
     });
     mswServer.use(
-      http.get(LINEAS, () =>
-        HttpResponse.json({ items: [], offset: 0, limit: 200, total: 0 }),
-      ),
+      http.get(LINEAS, () => HttpResponse.json({ items: [], offset: 0, limit: 200, total: 0 })),
     );
     render(<BandejaLineasCredito />, { wrapper: createQueryWrapper() });
-    await waitFor(() =>
-      expect(screen.getByText(/Sin líneas de crédito/i)).toBeInTheDocument(),
-    );
-    expect(
-      screen.queryByRole('button', { name: /Nueva línea/i }),
-    ).not.toBeInTheDocument();
+    await waitFor(() => expect(screen.getByText(/Sin líneas de crédito/i)).toBeInTheDocument());
+    expect(screen.queryByRole('button', { name: /Nueva línea/i })).not.toBeInTheDocument();
   });
 });
