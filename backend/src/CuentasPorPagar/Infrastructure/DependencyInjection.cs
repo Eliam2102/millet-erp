@@ -42,6 +42,7 @@ public static class DependencyInjection
         // con `CuentasPorPagar:Cfdi:BlobStorage:ConnectionString` configurada
         // (KV en QA/Prod) se usa Azure Blob real; sin ella, el stub filesystem
         // local (dev). Cierra PLATFORM-TODO(<CfdiBlobStorage>).
+        services.AddScoped<Millet.CuentasPorPagar.Application.PublicPorts.ICapitalizacionProveedorReadPort, PublicAdapters.CapitalizacionProveedorReadAdapter>();
         services.AddSingleton<IXmlCfdiParser, XmlCfdiParser>();
         services
             .AddOptions<LocalFilesystemCfdiBlobStorageOptions>()

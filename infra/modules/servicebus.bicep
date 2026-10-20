@@ -794,3 +794,43 @@ output almacenEventsComprasSubscriptionName string = almacenEventsComprasSubscri
 
 @secure()
 output primaryConnectionString string = rootAuthRule.listKeys().primaryConnectionString
+
+// AF-01: consumidor idempotente de recepción y conciliación.
+resource afAlmacen 'Microsoft.ServiceBus/namespaces/topics/subscriptions@2024-01-01' = {
+ parent: almacenEventsTopic
+ name: 'activos-fijos-almacen'
+ properties: {
+  deadLetteringOnMessageExpiration: true
+  maxDeliveryCount: 5
+  defaultMessageTimeToLive: 'P1D'
+  lockDuration: 'PT1M'
+ }
+}
+resource afAlmacenFilter 'Microsoft.ServiceBus/namespaces/topics/subscriptions/rules@2024-01-01' = {
+ parent: afAlmacen
+ name: 'EventTypeFilter'
+ properties: {
+  filterType: 'SqlFilter'
+  sqlFilter: { sqlExpression: 'user.EventType = \'almacen.oc_recepcion.registrada.v1\'' }
+ }
+}
+
+// AF-01: consumidor idempotente de recepción y conciliación.
+resource afCxp 'Microsoft.ServiceBus/namespaces/topics/subscriptions@2024-01-01' = {
+ parent: cxpEventsTopic
+ name: 'activos-fijos-cxp'
+ properties: {
+  deadLetteringOnMessageExpiration: true
+  maxDeliveryCount: 5
+  defaultMessageTimeToLive: 'P1D'
+  lockDuration: 'PT1M'
+ }
+}
+resource afCxpFilter 'Microsoft.ServiceBus/namespaces/topics/subscriptions/rules@2024-01-01' = {
+ parent: afCxp
+ name: 'EventTypeFilter'
+ properties: {
+  filterType: 'SqlFilter'
+  sqlFilter: { sqlExpression: 'user.EventType = \'cuentas_por_pagar.factura.registrada.v1\'' }
+ }
+}

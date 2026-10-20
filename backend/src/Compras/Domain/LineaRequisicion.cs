@@ -39,6 +39,16 @@ public sealed class LineaRequisicion : BaseEntity, IAuditable, IBelongsToAggrega
 
     public short Posicion { get; private set; }
 
+    public bool EsActivoFijo { get; private set; }
+    public Guid? ClaseActivoId { get; private set; }
+
+    internal void ClasificarActivo(bool esActivo, Guid? clase)
+    {
+        if (esActivo && (clase is null || clase == Guid.Empty || Cantidad != decimal.Truncate(Cantidad)))
+            throw new BusinessRuleException("COMPRA_ACTIVO_INVALIDO", "El activo requiere clase sugerida y cantidad entera.");
+        EsActivoFijo = esActivo; ClaseActivoId = esActivo ? clase : null;
+    }
+
     public Guid ArticuloId { get; private set; }
 
     public decimal Cantidad { get; private set; }
@@ -172,6 +182,8 @@ public sealed class LineaRequisicion : BaseEntity, IAuditable, IBelongsToAggrega
         RequisicionId = requisicionId;
         Posicion = posicion;
         ArticuloId = articuloId;
+        if (EsActivoFijo && cantidad != decimal.Truncate(cantidad))
+            throw new BusinessRuleException("COMPRA_ACTIVO_INVALIDO", "Los activos requieren unidades enteras.");
         Cantidad = cantidad;
         UnidadMedida = unidadMedida;
         PrecioEstimado = precioEstimado;
@@ -231,6 +243,8 @@ public sealed class LineaRequisicion : BaseEntity, IAuditable, IBelongsToAggrega
         }
 
         ArticuloId = articuloId;
+        if (EsActivoFijo && cantidad != decimal.Truncate(cantidad))
+            throw new BusinessRuleException("COMPRA_ACTIVO_INVALIDO", "Los activos requieren unidades enteras.");
         Cantidad = cantidad;
         UnidadMedida = unidadMedida;
         PrecioEstimado = precioEstimado;

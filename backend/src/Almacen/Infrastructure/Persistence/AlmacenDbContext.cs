@@ -120,9 +120,14 @@ public class AlmacenDbContext : BaseDbContext
 
     public DbSet<Domain.Apartados.ApartadoRequisicion> ApartadosRequisicion => Set<Domain.Apartados.ApartadoRequisicion>();
 
+    public DbSet<RecepcionActivo> RecepcionesActivos => Set<RecepcionActivo>();
+
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         modelBuilder.HasDefaultSchema("almacen");
+        var af = modelBuilder.Entity<RecepcionActivo>();
+        af.ToTable("recepciones_activos", "almacen"); af.HasKey(x => x.Id); af.Property(x => x.Id).ValueGeneratedNever();
+        af.Property(x => x.Cantidad).HasPrecision(18, 4); af.HasIndex(x => new { x.EmpresaId, x.OrdenCompraId, x.LineaOcId });
         base.OnModelCreating(modelBuilder);
 
         modelBuilder.ApplyConfiguration(new IntegrationEventOutboxEntryConfiguration());

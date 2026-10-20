@@ -4,9 +4,8 @@ namespace Millet.Facturacion.Domain.Ports;
 /// Puerto de lectura del catálogo de Activos Fijos (§7.8 levantamiento). Valida
 /// que un producto esté dado de alta como activo fijo, con su valor en libros y
 /// depreciación acumulada (para los asientos de baja). Dueño real: el módulo
-/// <c>Activos Fijos</c>; en dev es stub vacío
-/// (<c>PLATFORM-TODO(&lt;ActivosFijos&gt;)</c>) — sin ese módulo no se pueden
-/// vender activos.
+/// <c>Activos Fijos</c>; el adaptador productivo se registra desde ActivosFijos.
+/// Solo devuelve activos capitalizados de la empresa actual.
 /// </summary>
 public interface IActivosFijosReadPort
 {

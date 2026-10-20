@@ -33,6 +33,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\..\src\Api\Millet.Api.csproj" />
+    <ProjectReference Include="../../src/ActivosFijos/Millet.ActivosFijos.csproj" />
   </ItemGroup>
 
   <ItemGroup>

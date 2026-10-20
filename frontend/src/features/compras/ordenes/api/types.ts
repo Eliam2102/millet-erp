@@ -516,6 +516,8 @@ export interface LineaOrdenCompraResponse {
   textoAdicional: string | null;
   /** GAP-9 / CA2.10: servicio (artículo `Servicio`); no se recibe en Almacén. */
   esServicio?: boolean;
+  esActivoFijo?: boolean;
+  claseActivoId?: string | null;
   /**
    * Fracción arancelaria (8 o 10 dígitos). Solo aplica a OC de comercio
    * exterior; <c>null</c> si no se capturó.

@@ -114,14 +114,14 @@ describe('navSidebarItems', () => {
       'cxp',
       'tesoreria',
       'centros-costo',
-      'activos',
+      'activos-fijos',
       'contabilidad',
       'reportes',
       'comercio-exterior',
     ]);
   });
 
-  it('Facturación, CxC, Compras, Almacén, CxP, Tesorería, Centros de Costo y Contabilidad son los módulos NO disabled (Contabilidad llegó con F1-CON-01b)', () => {
+  it('los módulos implementados, incluido Activos Fijos P3, están habilitados', () => {
     const modulos = navSidebarItems.filter((i) => i.kind === 'modulo');
     const habilitados = modulos.filter((m) => !m.disabled);
     expect(habilitados.map((m) => m.moduloId)).toEqual([
@@ -132,6 +132,7 @@ describe('navSidebarItems', () => {
       'cxp',
       'tesoreria',
       'centros-costo',
+      'activos-fijos',
       'contabilidad',
       'comercio-exterior',
     ]);
