@@ -1,3 +1,4 @@
+import { PageHeader } from '@/components/erp';
 import { AppLauncherCard } from '@/components/layout/AppLauncherCard';
 import { IndicadoresCxc } from '@/features/cxc/components/IndicadoresCxc';
 import { useAuthStore } from '@/lib/auth/auth-store';
@@ -15,7 +16,7 @@ import {
 import { PermisosCanonicos } from '@/lib/auth/permission-codes';
 
 /**
- * Landing del módulo Cuentas por Cobrar — <c>/cxc</c>. Mismo patrón que
+ * Landing del módulo Cuentas por cobrar — <c>/cxc</c>. Mismo patrón que
  * Facturación / Compras / CxP: el sidebar abre el modal con cards y, si
  * el usuario llega por URL directa, esta landing renderiza el mismo
  * conjunto.
@@ -33,16 +34,22 @@ export function CxcLandingPage() {
   const hayCards = filtrado.secciones.some((s) => s.cards.length > 0);
 
   return (
-    <div className="mx-auto max-w-5xl space-y-6 px-4 py-8">
+    <div className="flex flex-col gap-5">
       <header className="space-y-1">
-        <h1 className="flex items-center gap-2 text-2xl font-semibold">
-          <Receipt className="h-6 w-6 text-primary" />
-          Cuentas por Cobrar
-        </h1>
-        <p className="text-sm text-muted-foreground">
-          Cartera de clientes: líneas de crédito, liberación de pedidos,
-          cobranza, aplicación de pagos, antigüedad de saldos y alertas.
-        </p>
+        <PageHeader
+          titulo={
+            <>
+              <Receipt className="h-6 w-6 text-brand" />
+              Cuentas por cobrar
+            </>
+          }
+          descripcion={
+            <>
+              Cartera de clientes: líneas de crédito, liberación de pedidos, cobranza, aplicación de
+              pagos, antigüedad de saldos y alertas.
+            </>
+          }
+        />
       </header>
 
       {/* Indicadores rápidos (05-frontend-diseno §2): vencido por
@@ -51,11 +58,11 @@ export function CxcLandingPage() {
 
       {!hayCards && (
         <div
-          className="rounded-md bg-muted/50 px-4 py-6 text-center text-sm text-muted-foreground"
+          className="rounded-md bg-surface-muted/50 px-4 py-6 text-center text-sm text-ink-muted"
           data-testid="cxc-sin-cards"
         >
-          Sin pantallas disponibles para tu rol en este módulo. Contacta a tu
-          administrador para que te asigne los permisos correspondientes.
+          Sin pantallas disponibles para tu rol en este módulo. Contacta a tu administrador para que
+          te asigne los permisos correspondientes.
         </div>
       )}
 
@@ -63,7 +70,7 @@ export function CxcLandingPage() {
         <div className="space-y-8">
           {filtrado.secciones.map((seccion) => (
             <section key={seccion.label} className="space-y-3">
-              <h2 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+              <h2 className="text-xs font-semibold uppercase tracking-wide text-ink-muted">
                 {seccion.label}
               </h2>
               <div className="grid grid-cols-1 gap-3 md:grid-cols-2 lg:grid-cols-3">
@@ -92,7 +99,7 @@ export function CxcLandingPage() {
  */
 const moduloCxcLanding: NavModulo = {
   moduloId: 'cxc',
-  label: 'Cuentas por Cobrar',
+  label: 'Cuentas por cobrar',
   icon: Receipt,
   secciones: [
     {
@@ -120,7 +127,7 @@ const moduloCxcLanding: NavModulo = {
         {
           label: 'Cobranza',
           description:
-            'Seguimientos de cobranza por cliente (canal, resultado, promesa de pago). Bitácora append-only.',
+            'Seguimientos de cobranza por cliente (canal, resultado, promesa de pago). Historial de gestiones.',
           to: '/cxc/cobranza',
           icon: PhoneCall,
           permissionsAny: [
@@ -130,8 +137,7 @@ const moduloCxcLanding: NavModulo = {
         },
         {
           label: 'Anticipos de clientes',
-          description:
-            'Saldos de anticipo por cliente (datos del read port de Facturación). Reemplazo del "mapa" A+W.',
+          description: 'Consulta los saldos de anticipo por cliente registrados en Facturación.',
           to: '/cxc/anticipos',
           icon: HandCoins,
           permission: PermisosCanonicos.CuentasPorCobrarCarteraLeer,
@@ -150,7 +156,7 @@ const moduloCxcLanding: NavModulo = {
         {
           label: 'Alertas de cartera',
           description:
-            'Alertas de vencimiento, sobregiro y promesas incumplidas evaluadas por el worker diario.',
+            'Alertas de vencimiento, sobregiro y promesas incumplidas evaluadas diariamente.',
           to: '/cxc/alertas',
           icon: Bell,
           permission: PermisosCanonicos.CuentasPorCobrarCarteraLeer,
@@ -162,8 +168,7 @@ const moduloCxcLanding: NavModulo = {
       cards: [
         {
           label: 'Antigüedad de saldos',
-          description:
-            'Cartera viva por buckets configurables, totales por moneda. Exportable PDF/Excel (ADR-0036).',
+          description: 'Cartera por rangos de vencimiento y moneda, con exportación a PDF y Excel.',
           to: '/cxc/cartera',
           icon: BarChart3,
           permission: PermisosCanonicos.CuentasPorCobrarCarteraLeer,

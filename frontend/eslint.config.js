@@ -38,6 +38,21 @@ export default defineConfig([
       'ds/no-texto-interno': 'error',
     },
   },
+  {
+    files: ['src/features/cxc/**/*.tsx'],
+    ignores: [
+      '**/*.test.tsx',
+      'src/components/erp/reportes/exporters/**',
+      'src/features/almacen/components/impresion/**',
+      'src/components/auth/DevUserSelector.tsx',
+    ],
+    rules: {
+      'ds/no-paleta-default': 'error',
+      'ds/no-hex': 'error',
+      'ds/no-dark': 'error',
+      'ds/no-texto-interno': 'error',
+    },
+  },
   // El routeTree.gen.ts es generado por @tanstack/router-plugin; no debe
   // ser linteado. <c>coverage/</c> es output del v8 reporter de Vitest
   // (HTML + assets minificados) — no es código nuestro.

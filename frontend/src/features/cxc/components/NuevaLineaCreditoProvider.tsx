@@ -66,23 +66,17 @@ export function NuevaLineaCreditoProvider({ children }: { children: ReactNode })
           setAbierto(true);
         }}
       >
-        <SheetContent side="right" className="w-full overflow-y-auto sm:max-w-3xl">
+        <SheetContent side="right" size="lg">
           <SheetHeader>
             <SheetTitle>Nueva línea de crédito</SheetTitle>
             <SheetDescription>
-              Define límite, moneda, origen (SOLUNION / interno) y plazo del
-              cliente. Solo puede existir una línea activa por cliente y
-              moneda.
+              Define límite, moneda, origen (SOLUNION / interno) y plazo del cliente. Solo puede
+              existir una línea activa por cliente y moneda.
             </SheetDescription>
           </SheetHeader>
 
-          <div className="px-2 pb-6">
-            {abierto && (
-              <NuevaLineaCredito
-                onClose={cerrarConConfirm}
-                onDirtyChange={setDirty}
-              />
-            )}
+          <div className="flex min-h-0 flex-1 flex-col">
+            {abierto && <NuevaLineaCredito onClose={cerrarConConfirm} onDirtyChange={setDirty} />}
           </div>
         </SheetContent>
       </Sheet>

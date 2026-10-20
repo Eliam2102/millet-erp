@@ -1,14 +1,37 @@
-import { useMemo } from 'react';
+import {
+  ListadoModulo,
+  TabsEstado,
+  BarraFiltros,
+  PaginacionTabla,
+  KpiCard,
+  MontoMovimiento,
+  PageHeader,
+  EmptyState,
+  ErrorState,
+  TableSkeleton,
+} from '@/components/erp';
+
+import { usePaginacionLocal } from '../lib/use-paginacion-local';
+
+import {
+  Table,
+  TableHeader,
+  TableBody,
+  TableRow,
+  TableHead,
+  TableCell,
+} from '@/components/ui/table';
+import { useMemo, useState } from 'react';
 import { useNavigate, useSearch } from '@tanstack/react-router';
 import { HandCoins } from 'lucide-react';
 import { Label } from '@/components/ui/label';
-import { EmptyState, ErrorState, TableSkeleton } from '@/components/erp';
+
 import { useAnticiposCliente } from '@/features/cxc/api/useCartera';
 import { ClienteSelectorCxc } from '@/features/cxc/components/ClienteSelectorCxc';
 import { formatoMonto } from '@/features/cxc/lib/glosario';
 import type { AnticiposCxcSearch } from '@/features/cxc/lib/cartera-search-schema';
 import { esApiError } from '@/lib/api';
-import { cn } from '@/lib/utils';
+import { EstadoCxcBadge } from '../components/EstadoCxcBadge';
 
 const FROM = '/_app/cxc/anticipos/' as const;
 
@@ -41,133 +64,150 @@ export function AnticiposCxcPage() {
     return Array.from(m.entries()).sort(([a], [b]) => a.localeCompare(b));
   }, [query.data]);
 
+  const [estado, setEstado] = useState<number | undefined>();
+  const estados = ['Abierto', 'Amortizado', 'Cancelado'];
+  const items = (query.data ?? []).filter(
+    (a) => estado === undefined || a.estado === estados[estado],
+  );
+  const pagina = usePaginacionLocal(items, JSON.stringify([clienteId, estado]));
+
   return (
-    <div className="space-y-4 px-4 py-6">
+    <div className="flex min-h-0 flex-col gap-5">
       <div>
-        <h1 className="text-2xl font-semibold tracking-tight">
-          Anticipos de clientes
-        </h1>
-        <p className="text-sm text-muted-foreground">
-          Saldos de anticipo por cliente (emisión y amortización viven en
-          Facturación; aquí se consulta el dinero del cliente en la casa).
-        </p>
-      </div>
-
-      <div className="w-full max-w-md space-y-1">
-        <Label className="text-xs text-muted-foreground">
-          Cliente (obligatorio)
-        </Label>
-        <ClienteSelectorCxc
-          value={clienteId}
-          onChange={(item) => actualizar({ clienteId: item?.id ?? undefined })}
-          placeholder="Elige el cliente…"
+        <PageHeader
+          titulo={<>Anticipos de clientes</>}
+          descripcion={
+            <>
+              Saldos de anticipo por cliente (emisión y amortización viven en Facturación; aquí se
+              consulta el dinero del cliente en la casa).
+            </>
+          }
         />
       </div>
 
-      {clienteId == null ? (
-        <EmptyState
-          icon={<HandCoins className="h-10 w-10" />}
-          title="Elige un cliente para ver sus anticipos."
-          description="Los saldos se consultan por cliente vía el read port de Facturación."
-        />
-      ) : query.isError ? (
-        <ErrorState
-          title="No se pudieron cargar los anticipos"
-          problem={esApiError(query.error) ? query.error.problem : undefined}
-          onRetry={() => query.refetch()}
-        />
-      ) : query.isLoading ? (
-        <TableSkeleton
-          rows={4}
-          columns={[
-            { width: 'w-24' },
-            { width: 'w-28' },
-            { width: 'w-28' },
-            { width: 'w-28' },
-            { width: 'w-28' },
-            { width: 'w-32' },
-          ]}
-        />
-      ) : (query.data?.length ?? 0) === 0 ? (
-        <EmptyState
-          icon={<HandCoins className="h-10 w-10" />}
-          title="El cliente no tiene anticipos."
-          description="Los anticipos se emiten desde Facturación."
-        />
-      ) : (
-        <>
-          <div className="overflow-x-auto rounded-md border">
-            <table className="w-full text-sm">
-              <thead className="bg-muted/50 text-left text-xs uppercase tracking-wide text-muted-foreground">
-                <tr>
-                  <th className="px-3 py-2 font-medium">Estado</th>
-                  <th className="px-3 py-2 text-right font-medium">Cobrado</th>
-                  <th className="px-3 py-2 text-right font-medium">
-                    Amortizado
-                  </th>
-                  <th className="px-3 py-2 text-right font-medium">Saldo</th>
-                  <th className="px-3 py-2 text-right font-medium">
-                    Disponible
-                  </th>
-                  <th className="px-3 py-2 font-medium">Pedido origen</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y">
-                {query.data!.map((a) => (
-                  <tr key={a.anticipoId} className="hover:bg-muted/30">
-                    <td className="px-3 py-2">
-                      <span
-                        className={cn(
-                          'inline-flex items-center rounded-full px-2 py-0.5 text-[11px] font-medium',
-                          a.estado === 'Abierto'
-                            ? 'bg-success-bg text-success-fg'
-                            : a.estado === 'Cancelado'
-                              ? 'bg-danger-bg text-danger-fg'
-                              : 'bg-muted text-muted-foreground',
-                        )}
-                      >
-                        {a.estado}
-                      </span>
-                    </td>
-                    <td className="px-3 py-2 text-right font-mono tabular-nums">
-                      {formatoMonto(a.montoCobrado, a.moneda)}
-                    </td>
-                    <td className="px-3 py-2 text-right font-mono tabular-nums">
-                      {formatoMonto(a.montoAmortizado, a.moneda)}
-                    </td>
-                    <td className="px-3 py-2 text-right font-mono tabular-nums">
-                      {formatoMonto(a.saldo, a.moneda)}
-                    </td>
-                    <td className="px-3 py-2 text-right font-mono font-medium tabular-nums">
-                      {formatoMonto(a.saldoDisponible, a.moneda)}
-                    </td>
-                    <td className="px-3 py-2 font-mono text-xs">
-                      {a.pedidoOrigenRef ?? '—'}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-
-          <div className="flex flex-wrap gap-4">
-            {totalesPorMoneda.map(([moneda, t]) => (
-              <div
-                key={moneda}
-                className="rounded-md border bg-card px-4 py-2 text-sm"
-              >
-                <span className="text-xs text-muted-foreground">
-                  Total {moneda}:{' '}
-                </span>
-                <span className="font-mono tabular-nums">
-                  saldo {formatoMonto(t.saldo, moneda)} · disponible{' '}
-                  {formatoMonto(t.disponible, moneda)}
-                </span>
+      <ListadoModulo
+        tabs={
+          <TabsEstado
+            opciones={estados.map((label, valor) => ({ label, valor }))}
+            valor={estado}
+            conteos={undefined}
+            onChange={setEstado}
+          />
+        }
+        filtros={
+          <BarraFiltros
+            filtros={
+              <div className="w-full max-w-md space-y-1">
+                <Label className="text-xs text-ink-muted">Cliente *</Label>
+                <ClienteSelectorCxc
+                  value={clienteId}
+                  onChange={(item) => actualizar({ clienteId: item?.id ?? undefined })}
+                  placeholder="Elige el cliente…"
+                />
               </div>
-            ))}
-          </div>
-        </>
-      )}
+            }
+          />
+        }
+        pie={
+          <PaginacionTabla
+            total={items.length}
+            offset={pagina.offset}
+            limit={10}
+            tamanos={[]}
+            onChange={pagina.cambiar}
+          />
+        }
+      >
+        {clienteId == null ? (
+          <EmptyState
+            icon={<HandCoins className="h-10 w-10" />}
+            title="Elige un cliente para ver sus anticipos."
+            description="Consulta los saldos de anticipos registrados en Facturación."
+          />
+        ) : query.isError ? (
+          <ErrorState
+            title="No se pudieron cargar los anticipos"
+            problem={esApiError(query.error) ? query.error.problem : undefined}
+            onRetry={() => query.refetch()}
+          />
+        ) : query.isLoading ? (
+          <TableSkeleton
+            rows={4}
+            columns={[
+              { width: 'w-24' },
+              { width: 'w-28' },
+              { width: 'w-28' },
+              { width: 'w-28' },
+              { width: 'w-28' },
+              { width: 'w-32' },
+            ]}
+          />
+        ) : items.length === 0 ? (
+          <EmptyState
+            icon={<HandCoins className="h-10 w-10" />}
+            title="El cliente no tiene anticipos."
+            description="Los anticipos se emiten desde Facturación."
+          />
+        ) : (
+          <>
+            <div className="overflow-x-auto rounded-md border">
+              <Table className="w-full text-sm">
+                <TableHeader className="bg-surface-muted/50 text-left text-xs uppercase tracking-wide text-ink-muted">
+                  <TableRow>
+                    <TableHead className="px-3 py-2 font-medium">Estado</TableHead>
+                    <TableHead className="px-3 py-2 text-right font-medium">Cobrado</TableHead>
+                    <TableHead className="px-3 py-2 text-right font-medium">Amortizado</TableHead>
+                    <TableHead className="px-3 py-2 text-right font-medium">Saldo</TableHead>
+                    <TableHead className="px-3 py-2 text-right font-medium">Disponible</TableHead>
+                    <TableHead className="px-3 py-2 font-medium">Pedido origen</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody className="divide-y">
+                  {pagina.visibles.map((a) => (
+                    <TableRow key={a.anticipoId} className="h-12 hover:bg-surface-subtle">
+                      <TableCell className="px-3 py-2">
+                        <EstadoCxcBadge entidad="anticipo" estado={a.estado} />
+                      </TableCell>
+                      <TableCell className="px-3 py-2 text-right font-mono tabular-nums">
+                        <MontoMovimiento monto={a.montoCobrado} moneda={a.moneda} tipo="entrada" />
+                      </TableCell>
+                      <TableCell className="px-3 py-2 text-right font-mono tabular-nums">
+                        <MontoMovimiento
+                          monto={a.montoAmortizado}
+                          moneda={a.moneda}
+                          tipo="salida"
+                        />
+                      </TableCell>
+                      <TableCell className="px-3 py-2 text-right font-mono tabular-nums">
+                        {formatoMonto(a.saldo, a.moneda)}
+                      </TableCell>
+                      <TableCell className="px-3 py-2 text-right font-mono font-medium tabular-nums">
+                        {formatoMonto(a.saldoDisponible, a.moneda)}
+                      </TableCell>
+                      <TableCell className="px-3 py-2 font-mono text-xs">
+                        {a.pedidoOrigenRef ?? '—'}
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </div>
+
+            <div className="flex flex-wrap gap-4">
+              {totalesPorMoneda.map(([moneda, t]) => (
+                <div key={moneda} className="grid gap-3 sm:grid-cols-2">
+                  <KpiCard etiqueta={`Saldo ${moneda}`} valor={formatoMonto(t.saldo, moneda)} />
+                  <KpiCard
+                    etiqueta={`Disponible ${moneda}`}
+                    valor={formatoMonto(t.disponible, moneda)}
+                    tono="info"
+                  />
+                </div>
+              ))}
+            </div>
+          </>
+        )}
+      </ListadoModulo>
     </div>
   );
 }

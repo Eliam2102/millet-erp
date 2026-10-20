@@ -33,9 +33,7 @@ export function RegistrarGestionProvider({ children }: { children: ReactNode }) 
       setAbierto(false);
       return;
     }
-    const confirmar = window.confirm(
-      'Tienes una gestión sin registrar. ¿Descartar y cerrar?',
-    );
+    const confirmar = window.confirm('Tienes una gestión sin registrar. ¿Descartar y cerrar?');
     if (confirmar) {
       isDirtyRef.current = false;
       setAbierto(false);
@@ -68,16 +66,16 @@ export function RegistrarGestionProvider({ children }: { children: ReactNode }) 
           setAbierto(true);
         }}
       >
-        <SheetContent side="right" className="w-full overflow-y-auto sm:max-w-2xl">
+        <SheetContent side="right" size="lg">
           <SheetHeader>
             <SheetTitle>Registrar gestión de cobranza</SheetTitle>
             <SheetDescription>
-              Deja el rastro del contacto con el cliente: canal, resultado
-              y nota. Una promesa de pago exige monto y fecha comprometidos.
+              Deja el rastro del contacto con el cliente: canal, resultado y nota. Una promesa de
+              pago exige monto y fecha comprometidos.
             </SheetDescription>
           </SheetHeader>
 
-          <div className="px-2 pb-6">
+          <div className="flex min-h-0 flex-1 flex-col">
             {abierto && (
               <RegistrarGestion
                 onClose={cerrarConConfirm}
