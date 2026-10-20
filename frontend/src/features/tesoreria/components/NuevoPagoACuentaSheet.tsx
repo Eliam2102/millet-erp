@@ -128,7 +128,7 @@ export function NuevoPagoACuentaSheet({ open, onOpenChange }: NuevoPagoACuentaSh
               <FormCampo span={6}>
                 <div className="space-y-1">
                   <label className="text-xs text-ink-muted">Cuenta de egreso *</label>
-                  <CuentaBancariaSelector value={cuentaId} onChange={setCuentaId} />
+                  <CuentaBancariaSelector value={cuentaId} onChange={setCuentaId} ocultarSaldo />
                 </div>
               </FormCampo>
               <FormCampo span={12}>
