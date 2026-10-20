@@ -8,7 +8,7 @@ namespace Millet.Almacen.Application.Recepciones;
 
 // ============================================================================
 // Líneas recibibles de una OC (86e3pc50v, P-20). La pantalla de recepción usa
-// estos valores en lugar de un porcentaje fijo: el máximo sale de
+// estos valores: el máximo (= pendiente, sin tolerancia en piezas) sale de
 // RecepcionOcGuard.Limite, el mismo cálculo que valida el registro.
 // ============================================================================
 
@@ -20,7 +20,6 @@ public sealed record LineaRecibibleDto(
     string UnidadMedida,
     decimal CantidadSolicitada,
     decimal CantidadRecibida,
-    decimal ToleranciaPorcentaje,
     decimal Pendiente,
     decimal MaximoRecibible);
 
@@ -28,15 +27,13 @@ public sealed class LineasRecibiblesHandler : IRequestHandler<LineasRecibiblesQu
 {
     private readonly AlmacenDbContext _db;
     private readonly IComprasOcReadPort _ordenesCompra;
-    private readonly IArticuloReadPort _articulos;
     private readonly IConversionUnidadPort _conversion;
 
     public LineasRecibiblesHandler(
-        AlmacenDbContext db, IComprasOcReadPort ordenesCompra, IArticuloReadPort articulos, IConversionUnidadPort conversion)
+        AlmacenDbContext db, IComprasOcReadPort ordenesCompra, IConversionUnidadPort conversion)
     {
         _db = db;
         _ordenesCompra = ordenesCompra;
-        _articulos = articulos;
         _conversion = conversion;
     }
 
@@ -46,13 +43,9 @@ public sealed class LineasRecibiblesHandler : IRequestHandler<LineasRecibiblesQu
             ?? throw new EntityNotFoundException("RECEPCION_OC_NO_ENCONTRADA", "La orden de compra no existe; selecciona una orden autorizada.");
 
         var propio = await RecibidoPorLineaOc.CalcularAsync(_db, _conversion, oc, cancellationToken);
-        var articuloIds = oc.Lineas.Select(l => l.ArticuloId).Distinct().ToArray();
-        var articulos = await _articulos.ObtenerPorIdsAsync(articuloIds, cancellationToken);
 
         return oc.Lineas.Select(l =>
         {
-            var articulo = articulos.GetValueOrDefault(l.ArticuloId);
-            var tolerancia = articulo?.ToleranciaCantidadPorcentaje ?? 0m;
             var recibida = Math.Max(l.CantidadRecibida, propio.GetValueOrDefault(l.LineaId));
             return new LineaRecibibleDto(
                 l.LineaId,
@@ -60,9 +53,8 @@ public sealed class LineasRecibiblesHandler : IRequestHandler<LineasRecibiblesQu
                 l.UnidadMedida,
                 l.CantidadSolicitada,
                 recibida,
-                tolerancia,
                 Math.Max(0m, l.CantidadSolicitada - recibida),
-                Math.Max(0m, RecepcionOcGuard.Limite(l.CantidadSolicitada, l.CantidadRecibida, propio.GetValueOrDefault(l.LineaId), tolerancia)));
+                Math.Max(0m, RecepcionOcGuard.Limite(l.CantidadSolicitada, l.CantidadRecibida, propio.GetValueOrDefault(l.LineaId))));
         }).ToList();
     }
 }

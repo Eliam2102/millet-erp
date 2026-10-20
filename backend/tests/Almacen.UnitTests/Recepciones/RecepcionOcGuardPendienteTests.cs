@@ -5,13 +5,14 @@ using Millet.Almacen.Domain.Movimientos;
 using Millet.Almacen.Domain.Ports;
 using Millet.Almacen.UnitTests.TestSupport;
 using Millet.SharedKernel.Application;
+using Millet.SharedKernel.Application.Exceptions;
 
 namespace Millet.Almacen.UnitTests.Recepciones;
 
 /// <summary>
 /// F5 (86e3pc50v): límite único de recepción y recibido propio por línea de OC.
 /// </summary>
-public class RecepcionOcGuardToleranciaTests
+public class RecepcionOcGuardPendienteTests
 {
     private static readonly Guid EmpresaId = Guid.NewGuid();
     private static readonly Guid UserId = Guid.NewGuid();
@@ -19,14 +20,45 @@ public class RecepcionOcGuardToleranciaTests
     private static readonly Guid ProveedorId = Guid.NewGuid();
 
     [Theory]
-    [InlineData(100, 0, 0, 0, 100)]
-    [InlineData(100, 0, 0, 5, 105)]
-    [InlineData(100, 80, 0, 5, 25)]
-    [InlineData(100, 0, 40, 0, 60)]
-    [InlineData(100, 0, 100, 5, 5)]
-    public void Limite_aplica_tolerancia_y_el_mayor_recibido(decimal solicitada, decimal recibidaCompras, decimal recibidaPropia, decimal tolerancia, decimal esperado)
+    [InlineData(100, 0, 0, 100)]
+    [InlineData(100, 80, 0, 20)]
+    [InlineData(100, 0, 40, 60)]
+    [InlineData(10, 6, 0, 4)]
+    [InlineData(10, 0, 3, 7)]
+    public void Limite_es_el_pendiente_exacto_con_el_mayor_recibido(decimal solicitada, decimal recibidaCompras, decimal recibidaPropia, decimal esperado)
     {
-        RecepcionOcGuard.Limite(solicitada, recibidaCompras, recibidaPropia, tolerancia).Should().Be(esperado);
+        RecepcionOcGuard.Limite(solicitada, recibidaCompras, recibidaPropia).Should().Be(esperado);
+    }
+
+    [Theory]
+    [InlineData(11, 0)]
+    [InlineData(10.5, 0)]
+    [InlineData(5, 6)]
+    public async Task Guard_rechaza_mas_que_el_pendiente_con_RECEPCION_EXCEDE_PENDIENTE(decimal cantidad, decimal recibidoCompras)
+    {
+        var act = () => ValidarAsync(cantidad, recibidoCompras);
+        var ex = await Assert.ThrowsAsync<BusinessRuleException>(act);
+        Assert.Equal("RECEPCION_EXCEDE_PENDIENTE", ex.Code);
+    }
+
+    [Theory]
+    [InlineData(10, 0)]
+    [InlineData(4, 6)]
+    [InlineData(3, 0)]
+    public async Task Guard_acepta_hasta_el_pendiente_y_parciales(decimal cantidad, decimal recibidoCompras)
+    {
+        var validada = await ValidarAsync(cantidad, recibidoCompras);
+        validada.RecibidoPorLinea.Should().ContainKey(LineaId);
+    }
+
+    private static readonly Guid LineaId = Guid.NewGuid();
+
+    private static Task<RecepcionOcValidada> ValidarAsync(decimal cantidad, decimal recibidoCompras)
+    {
+        var oc = new OcLectura(Guid.NewGuid(), "OC-TOL-1", ProveedorId, EmpresaId, "Autorizada",
+            [new OcLineaLectura(LineaId, ArticuloId, "PZA", 10m, recibidoCompras, 10m)]);
+        var entrada = new RegistrarRecepcionLineaInput(ArticuloId, LineaId, cantidad, null, null);
+        return RecepcionOcGuard.ValidarAsync(oc, [entrada], new Dictionary<Guid, decimal>(), CancellationToken.None);
     }
 
     [Fact]

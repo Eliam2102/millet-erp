@@ -340,7 +340,7 @@ export interface RecepcionDetalle {
 
 /**
  * Línea de una OC que todavía admite recepción, con el máximo que el
- * servidor calcula (pendiente más tolerancia). Respuesta de
+ * servidor calcula (igual al pendiente: sin tolerancia en piezas). Respuesta de
  * <c>GET /api/v1/almacen/recepciones/ordenes/{ordenCompraId}/lineas-recibibles</c>.
  */
 export interface LineaRecibible {
@@ -349,7 +349,6 @@ export interface LineaRecibible {
   unidadMedida: string;
   cantidadSolicitada: number;
   cantidadRecibida: number;
-  toleranciaPorcentaje: number;
   pendiente: number;
   maximoRecibible: number;
 }

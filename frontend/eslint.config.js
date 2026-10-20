@@ -39,6 +39,21 @@ export default defineConfig([
     },
   },
   {
+    files: ['src/features/centros-costo/**/*.tsx'],
+    ignores: [
+      '**/*.test.tsx',
+      'src/components/erp/reportes/exporters/**',
+      'src/features/almacen/components/impresion/**',
+      'src/components/auth/DevUserSelector.tsx',
+    ],
+    rules: {
+      'ds/no-paleta-default': 'error',
+      'ds/no-hex': 'error',
+      'ds/no-dark': 'error',
+      'ds/no-texto-interno': 'error',
+    },
+  },
+  {
     files: ['src/features/facturacion/**/*.tsx'],
     ignores: [
       '**/*.test.tsx',

@@ -1469,12 +1469,11 @@ public sealed class OrdenCompra : BaseEntity, IPerteneceAEmpresa, IAuditable, IF
     public RecalcularSubEstadosResultado RegistrarRecepcionLinea(
         Guid lineaId,
         decimal cantidadAcumulada,
-        DateTimeOffset ocurridoEn,
-        decimal toleranciaPorcentaje = 0m)
+        DateTimeOffset ocurridoEn)
     {
         ValidarEstadoParaRegistrarMovimiento();
         var linea = BuscarLineaOLanzar(lineaId);
-        linea.SetCantidadRecibida(cantidadAcumulada, toleranciaPorcentaje);
+        linea.SetCantidadRecibida(cantidadAcumulada);
         return RecalcularSubEstadosYAjustarEstado(ocurridoEn);
     }
 
@@ -1545,7 +1544,7 @@ public sealed class OrdenCompra : BaseEntity, IPerteneceAEmpresa, IAuditable, IF
         // y Pago siguen calculándose sobre todas las líneas.
         var lineasFisicas = _lineas.Where(l => !l.EsServicio).ToList();
         var cantidadFisicaTotal = lineasFisicas.Sum(l => l.Cantidad);
-        // el excedente por tolerancia de una línea no completa a otra
+        // defensivo: el excedente de una línea (histórico, de cuando había tolerancia) no completa a otra
         var recibidoTotal = lineasFisicas.Sum(l => Math.Min(l.CantidadRecibida, l.Cantidad));
 
         SubEstadoRecepcion = recibidoTotal switch

@@ -50,11 +50,14 @@ export function BuscadorCatalogo({ onExpandirRama }: BuscadorCatalogoProps) {
     { enabled: habilitada },
   );
 
-  async function seleccionar(nivel: 'dim1' | 'dim2' | 'dim3', item: {
-    id: string;
-    dim1Id?: string;
-    dim2Id?: string;
-  }) {
+  async function seleccionar(
+    nivel: 'dim1' | 'dim2' | 'dim3',
+    item: {
+      id: string;
+      dim1Id?: string;
+      dim2Id?: string;
+    },
+  ) {
     setAbierto(false);
     setQ('');
     if (nivel === 'dim1') {
@@ -93,7 +96,7 @@ export function BuscadorCatalogo({ onExpandirRama }: BuscadorCatalogoProps) {
     <div className="relative w-72">
       <div className="relative">
         <Search
-          className="absolute left-2 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground"
+          className="absolute left-2 top-1/2 h-4 w-4 -translate-y-1/2 text-ink-muted"
           aria-hidden="true"
         />
         <Input
@@ -111,34 +114,28 @@ export function BuscadorCatalogo({ onExpandirRama }: BuscadorCatalogoProps) {
 
       {abierto && habilitada && (
         <div
-          className="absolute z-50 mt-1 max-h-80 w-full overflow-auto rounded-md border bg-popover p-1 shadow-md"
+          className="absolute z-50 mt-1 max-h-80 w-full overflow-auto rounded-md border bg-surface-card p-1 shadow-card"
           data-testid="buscador-resultados"
         >
-          {cargando && (
-            <p className="px-2 py-1.5 text-xs text-muted-foreground">
-              Buscando…
-            </p>
-          )}
+          {cargando && <p className="px-2 py-1.5 text-xs text-ink-muted">Buscando…</p>}
           {!cargando && !hayResultados && (
-            <p className="px-2 py-1.5 text-xs text-muted-foreground">
-              Sin resultados para "{debounced}".
-            </p>
+            <p className="px-2 py-1.5 text-xs text-ink-muted">Sin resultados para "{debounced}".</p>
           )}
           {grupos.map(
             (grupo) =>
               grupo.items.length > 0 && (
                 <div key={grupo.nivel}>
-                  <p className="px-2 pt-1.5 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
+                  <p className="px-2 pt-1.5 text-2xs font-semibold uppercase tracking-wide text-ink-muted">
                     {etiquetaNivel(grupo.nivel, 'configuracion')}
                   </p>
                   {grupo.items.map((item) => (
                     <button
                       key={item.id}
                       type="button"
-                      className="flex w-full items-center gap-2 rounded px-2 py-1.5 text-left text-sm hover:bg-muted"
+                      className="flex w-full items-center gap-2 rounded px-2 py-1.5 text-left text-sm hover:bg-surface-muted"
                       onClick={() => void seleccionar(grupo.nivel, item)}
                     >
-                      <Badge variant="outline" className="shrink-0 font-mono text-[10px]">
+                      <Badge variant="outline" className="shrink-0 font-mono text-2xs">
                         {item.clave}
                       </Badge>
                       <span className="truncate">{item.nombre}</span>

@@ -134,8 +134,8 @@ export function NuevaRecepcionSheet({
           <SheetTitle>Nueva recepción</SheetTitle>
           <SheetDescription>
             Selecciona la OC autorizada y marca las líneas que llegaron.
-            El costo se toma de la OC; la cantidad valida tolerancia
-            server-side.
+            El costo se toma de la OC; la cantidad no puede
+            superar lo pendiente de la OC.
           </SheetDescription>
         </SheetHeader>
 
@@ -167,13 +167,13 @@ const CODIGOS_RECEPCION: Record<
     campo: 'ordenCompraId',
     mensaje: 'La OC no está en estado que acepte recepción.',
   },
-  RECEPCION_EXCEDE_TOLERANCIA: 'callout',
+  RECEPCION_EXCEDE_PENDIENTE: 'callout',
   ENTRADA_SIN_ASIGNACION: 'callout',
   RECEPCION_MULTI_SUBALMACEN: 'callout',
   RECEPCION_SUCURSAL_DISTINTA: 'callout',
 };
 const TITULOS_CALLOUT: Record<string, string> = {
-  RECEPCION_EXCEDE_TOLERANCIA: 'Una cantidad excede la tolerancia',
+  RECEPCION_EXCEDE_PENDIENTE: 'Una cantidad excede lo pendiente',
   ENTRADA_SIN_ASIGNACION: 'Un artículo no está asignado al rack elegido',
   RECEPCION_MULTI_SUBALMACEN: 'Las líneas van a sub-almacenes distintos',
   RECEPCION_SUCURSAL_DISTINTA: 'La orden de compra es de otra sucursal',
@@ -1087,7 +1087,7 @@ function FilaLineaOc({
             role={errorCantidad ? 'alert' : undefined}
           >
             {errorCantidad ??
-              `Máx. ${formatCantidad(fila.maximo, decResuelto)} (tolerancia ${fila.toleranciaPorcentaje}%)`}
+              `Pendiente ${formatCantidad(fila.pendiente, decResuelto)}`}
           </p>
           <AvisoUnidadNoResoluble visible={unidadNoResoluble} />
         </TableCell>

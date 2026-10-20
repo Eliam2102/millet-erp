@@ -10,9 +10,9 @@ import { ProveedorToleranciaSection } from './ProveedorToleranciaSection';
 const permiso = PermisosCanonicos.DatosMaestrosProveedoresToleranciaEditar;
 afterEach(() => { cleanup(); useAuthStore.setState({ permisos: [] }); });
 
-function mostrar(permisos: string[], montoMxn: number | null = 5, esPorcentaje = false) {
+function mostrar(permisos: string[], montoMxn: number | null = 5) {
   useAuthStore.setState({ status: 'authenticated', permisos, accessToken: 'test-token' });
-  return render(<ProveedorToleranciaSection proveedorId="p-demo" montoMxn={montoMxn} esPorcentaje={esPorcentaje} />, { wrapper: createQueryWrapper() });
+  return render(<ProveedorToleranciaSection proveedorId="p-demo" montoMxn={montoMxn} />, { wrapper: createQueryWrapper() });
 }
 
 describe('Tolerancia del proveedor', () => {
@@ -20,7 +20,6 @@ describe('Tolerancia del proveedor', () => {
     mostrar([PermisosCanonicos.DatosMaestrosProveedoresGestionar]);
     expect(screen.getByText('$5.00 MXN')).toBeInTheDocument();
     expect(screen.queryByRole('button')).not.toBeInTheDocument();
-    expect(screen.queryByRole('radio')).not.toBeInTheDocument();
   });
 
   it.each([['1.50', 1.5], ['0', 0], ['', null]] as const)('CxP guarda %s con idempotencia', async (texto, esperado) => {
@@ -35,29 +34,8 @@ describe('Tolerancia del proveedor', () => {
     const input = screen.getByRole('textbox');
     fireEvent.change(input, { target: { value: texto } });
     fireEvent.click(screen.getByRole('button', { name: 'Guardar tolerancia' }));
-    await waitFor(() => expect(enviados).toEqual([{ montoMxn: esperado, esPorcentaje: false }]));
+    await waitFor(() => expect(enviados).toEqual([{ montoMxn: esperado }]));
     await waitFor(() => expect(screen.queryByRole('textbox')).not.toBeInTheDocument());
-  });
-
-  it('CxP guarda la tolerancia en porcentaje y rechaza más de 100 %', async () => {
-    const enviados: unknown[] = [];
-    mswServer.use(http.put('*/api/v1/datos-maestros/proveedores/p-demo/tolerancia', async ({ request }) => {
-      enviados.push(await request.json());
-      return new HttpResponse(null, { status: 204 });
-    }));
-    mostrar([permiso], null);
-    fireEvent.click(screen.getByRole('button', { name: 'Editar tolerancia' }));
-    fireEvent.click(screen.getByLabelText('En porcentaje de la OC'));
-    fireEvent.change(screen.getByRole('textbox'), { target: { value: '100.5' } });
-    expect(screen.getByRole('button', { name: 'Guardar tolerancia' })).toBeDisabled();
-    fireEvent.change(screen.getByRole('textbox'), { target: { value: '2.5' } });
-    fireEvent.click(screen.getByRole('button', { name: 'Guardar tolerancia' }));
-    await waitFor(() => expect(enviados).toEqual([{ montoMxn: 2.5, esPorcentaje: true }]));
-  });
-
-  it('muestra la tolerancia en porcentaje guardada', () => {
-    mostrar([PermisosCanonicos.DatosMaestrosProveedoresGestionar], 2.5, true);
-    expect(screen.getByText('2.5 % del total de la OC')).toBeInTheDocument();
   });
 
   it('rechaza negativos y permite cancelar sin enviar', async () => {
