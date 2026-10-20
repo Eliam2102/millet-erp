@@ -151,7 +151,7 @@ public sealed class IngresarCfdiHandler : IRequestHandler<IngresarCfdiCommand, I
             // intacto.
             throw new BusinessRuleException(
                 "CFDI_DUPLICADO",
-                $"Ya existe un CFDI con UUID '{uuid.Valor}' (canal original: {existente.CanalOrigen}, fecha recepción: {existente.FechaRecepcion:O}).");
+                $"Este CFDI ya fue cargado antes (UUID {uuid.Valor}, recibido el {existente.FechaRecepcion:dd/MM/yyyy} por {existente.CanalOrigen}). No se vuelve a registrar.");
         }
 
         _db.CfdisRecibidos.Add(cfdi);

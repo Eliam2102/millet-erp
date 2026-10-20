@@ -103,6 +103,17 @@ public sealed class FacturaProveedor : BaseEntity, IPerteneceAEmpresa, IFiscalme
     /// <summary>OC asociada (opcional — null si es factura directa).</summary>
     public Guid? OrdenCompraId { get; private set; }
 
+    /// <summary>Recepción de Almacén elegida al capturar (proyección recepciones_oc_local.recepcion_id). Null si no se eligió.</summary>
+    public Guid? RecepcionId { get; private set; }
+
+    public void ElegirRecepcion(Guid? recepcionId)
+    {
+        AsegurarMutable("elegir la recepción");
+        if (recepcionId == Guid.Empty)
+            throw new BusinessRuleException("RECEPCION_ID_VACIO", "La recepción elegida no es válida.");
+        RecepcionId = recepcionId;
+    }
+
     /// <summary>Encargado de compras snapshot desde la OC al momento de captura.</summary>
     public Guid? EncargadoComprasSnapshot { get; private set; }
 
