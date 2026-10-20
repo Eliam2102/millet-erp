@@ -247,7 +247,7 @@ export function ProveedorDetalle() {
                 <Button
                   type="button"
                   size="sm"
-                  className="bg-success text-white hover:bg-success-fg disabled:opacity-50"
+                  className="bg-success text-primary-foreground hover:bg-success-fg disabled:opacity-50"
                   disabled={!expedienteCompleto || !clasificado || validar.isPending}
                   title={
                     !clasificado
@@ -410,7 +410,7 @@ export function ProveedorDetalle() {
             <AlertDialogAction
               onClick={handleConfirmarValidar}
               disabled={validar.isPending}
-              className="bg-success text-white hover:bg-success-fg"
+              className="bg-success text-primary-foreground hover:bg-success-fg"
             >
               {validar.isPending ? 'Validando…' : 'Validar y activar'}
             </AlertDialogAction>
