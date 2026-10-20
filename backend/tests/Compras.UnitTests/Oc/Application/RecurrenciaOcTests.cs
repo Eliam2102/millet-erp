@@ -26,6 +26,13 @@ public class RecurrenciaOcTests
     }
 
     [Fact]
+    public void EsRecurrente_proveedor_TBD_nunca_es_recurrente()
+    {
+        var tbd = Millet.Compras.Domain.Oc.OrdenCompraTbdSentinels.Proveedor;
+        Assert.False(RecurrenciaOc.EsRecurrente([new(tbd, Comprador, 10)], tbd, Comprador));
+    }
+
+    [Fact]
     public void Desde_resta_la_ventana_de_60_dias()
     {
         var ahora = new DateTimeOffset(2026, 10, 20, 23, 0, 0, TimeSpan.Zero);

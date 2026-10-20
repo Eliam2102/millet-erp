@@ -923,6 +923,23 @@ public partial class OrdenesCompraEndpointsTests : IClassFixture<WebApplicationF
         Assert.False(detalle.GetProperty("esRecurrente").GetBoolean());
     }
 
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task Pendientes_autorizacion_expone_esRecurrente_y_no_cuenta_canceladas(bool cancelarUna)
+    {
+        var client = await CreateSuperAdminClientAsync();
+        var ids = await CrearTresOcDeProveedorAisladoAsync(client);
+        // estado smallint: EnAutorizacionJefeCompras = 1, Cancelada = 5 (ck_oc_estado).
+        await EjecutarSqlOcAsync($"UPDATE compras.ordenes_compra SET estado = {(short)1} WHERE id = {ids[0]} OR id = {ids[1]}");
+        await EjecutarSqlOcAsync($"UPDATE compras.ordenes_compra SET estado = {(short)(cancelarUna ? 5 : 1)} WHERE id = {ids[2]}");
+
+        var body = await ReadJsonAsync(await client.GetAsync($"{EndpointBase}/pendientes-autorizacion?pageSize=200"));
+        var fila = body.GetProperty("items").EnumerateArray().Single(i => i.GetProperty("id").GetGuid() == ids[0]);
+
+        Assert.Equal(!cancelarUna, fila.GetProperty("esRecurrente").GetBoolean());
+    }
+
     private async Task<List<Guid>> CrearTresOcDeProveedorAisladoAsync(HttpClient client, Guid? proveedorId = null)
     {
         var proveedor = proveedorId ?? Guid.CreateVersion7();

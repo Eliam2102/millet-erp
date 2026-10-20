@@ -11,7 +11,7 @@ internal sealed record ConteoRecurrenciaOc(Guid ProveedorId, Guid CompradorTitul
 /// <summary>
 /// Regla única de "OC recurrente": mismo proveedor y mismo comprador titular con
 /// al menos el mínimo de OC no canceladas en la ventana de recurrencia. La propia
-/// OC cuenta (no se excluye). La usan la bandeja de pendientes y el detalle.
+/// OC cuenta (no se excluye). El proveedor TBD (sentinela) nunca es recurrente. La usan la bandeja de pendientes y el detalle.
 /// </summary>
 internal static class RecurrenciaOc
 {
@@ -30,7 +30,8 @@ internal static class RecurrenciaOc
             .ToListAsync(ct);
 
     public static bool EsRecurrente(IEnumerable<ConteoRecurrenciaOc> conteos, Guid proveedorId, Guid compradorId) =>
-        conteos.Any(c => c.ProveedorId == proveedorId
+        proveedorId != OrdenCompraTbdSentinels.Proveedor
+        && conteos.Any(c => c.ProveedorId == proveedorId
                          && c.CompradorTitularId == compradorId
                          && PendientesAutorizacionClasificacion.EsRecurrente(c.Conteo));
 }

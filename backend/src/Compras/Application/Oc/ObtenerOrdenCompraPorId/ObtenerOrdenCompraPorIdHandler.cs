@@ -121,8 +121,7 @@ public sealed class ObtenerOrdenCompraPorIdHandler
             cot.FolioProveedor, cot.MotivoEleccion!, cot.ElegidaEn!.Value,
             cot.Lineas.Select(l => new PrecioCotizadoLineaResponse(l.LineaRequisicionId, l.PrecioPorUnidadRequisicion)).ToList());
 
-        var esRecurrente = oc.ProveedorId != OrdenCompraTbdSentinels.Proveedor
-            && RecurrenciaOc.EsRecurrente(
+        var esRecurrente = RecurrenciaOc.EsRecurrente(
                 await RecurrenciaOc.ContarAsync(_db, new[] { oc.ProveedorId }, RecurrenciaOc.Desde(_clock.UtcNow), cancellationToken),
                 oc.ProveedorId, oc.CompradorTitularId);
 
