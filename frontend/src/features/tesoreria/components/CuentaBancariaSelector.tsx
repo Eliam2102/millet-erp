@@ -7,7 +7,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { useCuentasBancarias, useCuentasParaIngresos } from '@/features/tesoreria/api/useTesoreria';
-import { formatoMonto } from '@/features/tesoreria/lib/formato';
+import { cuentaEnmascarada, formatoMonto } from '@/features/tesoreria/lib/formato';
 import { mensajeErrorCatalogo } from '@/components/erp/selectors/catalogo-error';
 
 export interface CuentaBancariaSelectorProps {
@@ -72,7 +72,7 @@ export function CuentaBancariaSelector({
             <SelectItem key={c.id} value={c.id}>
               <span className="flex items-center gap-2">
                 <span>{c.banco}</span>
-                <span className="font-mono text-xs text-ink-muted">{c.numeroCuenta}</span>
+                <span className="font-mono text-xs text-ink-muted">{cuentaEnmascarada(c.numeroCuenta)}</span>
                 <span className="text-xs text-ink-muted">
                   {!ocultarSaldo && 'saldo' in c && typeof c.saldo === 'number'
                     ? `${formatoMonto(c.saldo, c.moneda)} en libros`
