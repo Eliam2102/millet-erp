@@ -799,7 +799,10 @@ public class SeriesEndpointsTests : IClassFixture<WebApplicationFactory<Program>
             .Select(s => s.TipoDocumento)
             .Distinct()
             .ToListAsync();
+        // F6.1: VentaDirecta nunca tiene serie global (no cae al fallback) — se
+        // excluye para que los escenarios de "sin serie" conserven SERIE_NO_CONFIGURADA.
         return Enum.GetValues<TipoDocumentoSerie>()
+            .Where(tipo => !Serie.RequiereSucursal(tipo))
             .Except(usados)
             .Select(tipo => (int)tipo)
             .First();
