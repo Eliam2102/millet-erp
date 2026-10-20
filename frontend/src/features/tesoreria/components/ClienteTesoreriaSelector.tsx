@@ -68,7 +68,7 @@ export function ClienteTesoreriaSelector({
           aria-expanded={open}
           aria-label="Seleccionar cliente"
           disabled={disabled}
-          className={cn('w-full justify-between font-normal', !value && 'text-muted-foreground')}
+          className={cn('w-full justify-between font-normal', !value && 'text-ink-muted')}
         >
           <span className="truncate">{etiqueta}</span>
           <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
@@ -84,12 +84,15 @@ export function ClienteTesoreriaSelector({
               placeholder="Razón social, clave o RFC…"
               value={texto}
               onChange={(e) => setTexto(e.target.value)}
-              className="flex h-11 w-full rounded-md bg-transparent py-3 text-sm outline-none placeholder:text-muted-foreground"
+              className="flex h-11 w-full rounded-md bg-transparent py-3 text-sm outline-none placeholder:text-ink-muted"
             />
           </div>
           <CommandList>
             {query.isFetching ? (
-              <div className="flex items-center justify-center gap-2 py-6 text-sm text-muted-foreground" aria-live="polite">
+              <div
+                className="flex items-center justify-center gap-2 py-6 text-sm text-ink-muted"
+                aria-live="polite"
+              >
                 <Loader2 className="h-4 w-4 animate-spin" />
                 Buscando…
               </div>
@@ -104,7 +107,12 @@ export function ClienteTesoreriaSelector({
                 </CommandEmpty>
                 <CommandGroup>
                   {items.map((c) => (
-                    <CommandItem key={c.id} value={c.id} onSelect={() => elegir(c)} className="flex items-start justify-between gap-3">
+                    <CommandItem
+                      key={c.id}
+                      value={c.id}
+                      onSelect={() => elegir(c)}
+                      className="flex items-start justify-between gap-3"
+                    >
                       <div className="min-w-0 flex-1">
                         <span className="font-mono text-xs">{c.clave}</span>
                         <p className="truncate text-sm">{c.razonSocial}</p>

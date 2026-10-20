@@ -39,7 +39,7 @@ export default defineConfig([
     },
   },
   {
-    files: ['src/features/cxc/**/*.tsx'],
+    files: ['src/features/cxc/**/*.tsx', 'src/features/tesoreria/**/*.tsx'],
     ignores: [
       '**/*.test.tsx',
       'src/components/erp/reportes/exporters/**',
