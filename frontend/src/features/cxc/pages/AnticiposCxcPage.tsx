@@ -92,7 +92,7 @@ export function AnticiposCxcPage() {
         <EmptyState
           icon={<HandCoins className="h-10 w-10" />}
           title="El cliente no tiene anticipos."
-          description="Los anticipos se emiten desde Facturación (serie FANT)."
+          description="Los anticipos se emiten desde Facturación."
         />
       ) : (
         <>
@@ -120,9 +120,9 @@ export function AnticiposCxcPage() {
                         className={cn(
                           'inline-flex items-center rounded-full px-2 py-0.5 text-[11px] font-medium',
                           a.estado === 'Abierto'
-                            ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300'
+                            ? 'bg-success-bg text-success-fg'
                             : a.estado === 'Cancelado'
-                              ? 'bg-red-100 text-red-800 dark:bg-red-950 dark:text-red-300'
+                              ? 'bg-danger-bg text-danger-fg'
                               : 'bg-muted text-muted-foreground',
                         )}
                       >

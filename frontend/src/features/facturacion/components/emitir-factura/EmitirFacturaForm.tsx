@@ -1,3 +1,4 @@
+import { VistaPreviaButton } from '../vista-previa/VistaPreviaButton';
 import { ResumenImportes } from '@/components/erp/display/ResumenImportes';
 import { ErrorTimbradoAviso } from '@/features/facturacion/components/ErrorTimbradoAviso';
 import { mostrarErrorReceptorFiscal } from '@/features/facturacion/lib/mostrar-error-receptor-fiscal';
@@ -442,6 +443,19 @@ function FormInner({
             <Button type="button" variant="ghost" onClick={cancelar} disabled={emitir.isPending}>
               Cancelar
             </Button>
+            <VistaPreviaButton
+              motivo={!clienteId || receptorBloqueado ? 'Selecciona un receptor con datos fiscales.' : !lineas?.length ? 'Agrega al menos una partida.' : undefined}
+              obtenerDatos={() => {
+                const v = form.getValues();
+                return {
+                  tipo: 'Factura', emisor: `${emisor.razonSocialEmisor} · ${v.rfcEmisor} · ${v.regimenFiscalEmisor}`,
+                  receptor: `${v.receptorNombre} · ${v.receptorRfc} · ${v.receptorRegimenFiscal} · CP ${v.receptorCodigoPostal}`,
+                  usoCfdi: v.receptorUsoCfdi, metodoPago: v.metodoPago, formaPago: v.formaPago, moneda: v.moneda,
+                  partidas: v.lineas.map(l => ({ descripcion: l.descripcion, cantidad: l.cantidad, importe: Math.max(0, finito(l.cantidad) * finito(l.valorUnitario) - finito(l.descuento)) })),
+                  importes: [{ etiqueta: 'Subtotal', monto: totales.subtotal }, { etiqueta: 'IVA trasladado', monto: totales.iva }, { etiqueta: 'Retenciones', monto: -totales.ret }, { etiqueta: 'Total', monto: total }],
+                };
+              }}
+            />
             <Button
               type="submit"
               disabled={emitir.isPending || receptorBloqueado || ceBloqueado}

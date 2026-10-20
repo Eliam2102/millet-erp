@@ -81,7 +81,7 @@ export function BandejaFacturasAnticipo() {
             Facturas de anticipo
           </h1>
           <p className="text-sm text-muted-foreground">
-            CFDIs de anticipo (serie FANT) y el saldo amortizable de cada uno.
+            CFDIs de anticipo y el saldo amortizable de cada uno.
           </p>
         </div>
         <Button variant="outline" asChild>
@@ -222,10 +222,10 @@ export function ChipEstadoAnticipo({ estado }: { estado: string | null }) {
   if (estado == null) return <span className="text-xs text-muted-foreground">—</span>;
   const tono =
     estado === 'Abierto'
-      ? 'bg-emerald-100 text-emerald-800'
+      ? 'bg-success-bg text-success-fg'
       : estado === 'Amortizado'
-        ? 'bg-sky-100 text-sky-800'
-        : 'bg-zinc-200 text-zinc-700';
+        ? 'bg-info-bg text-info-fg'
+        : 'bg-neutral-bg text-neutral-fg';
   return (
     <span
       className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ${tono}`}

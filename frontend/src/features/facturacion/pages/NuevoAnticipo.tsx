@@ -1,3 +1,5 @@
+import { ResumenImportes } from '@/components/erp/display/ResumenImportes';
+import { VistaPreviaButton } from '../components/vista-previa/VistaPreviaButton';
 import { ErrorTimbradoAviso } from '@/features/facturacion/components/ErrorTimbradoAviso';
 import { mostrarErrorReceptorFiscal } from '@/features/facturacion/lib/mostrar-error-receptor-fiscal';
 import { useEffect } from 'react';
@@ -130,6 +132,9 @@ function FormInner({
     },
   });
 
+  const [baseActual, tasaActual, monedaActual] = useWatch({ control: form.control, name: ['montoBase', 'tasaIvaTraslado', 'moneda'] });
+  const base = Number.isFinite(baseActual) ? baseActual : 0;
+  const iva = Math.round(base * (Number.isFinite(tasaActual) ? tasaActual ?? 0 : 0) * 100) / 100;
   const isDirty = form.formState.isDirty;
   useEffect(() => {
     onDirtyChange?.(isDirty);
@@ -328,10 +333,22 @@ function FormInner({
         </div>
       </Seccion>
 
-      <div className="flex items-center justify-end gap-2 border-t pt-4">
+      <ResumenImportes moneda={monedaActual} subtotal={base} ivaTrasladado={iva} total={base + iva} acciones={<>
         <Button type="button" variant="ghost" onClick={() => onClose()} disabled={emitir.isPending}>
           Cancelar
         </Button>
+        <VistaPreviaButton
+          motivo={!clienteId || receptorBloqueado ? 'Selecciona un receptor con datos fiscales.' : base <= 0 ? 'Captura el monto de la partida de anticipo.' : undefined}
+          obtenerDatos={() => {
+            const v = form.getValues();
+            return { tipo: 'Anticipo', emisor: `${emisor.razonSocialEmisor} · ${v.rfcEmisor} · ${v.regimenFiscalEmisor}`,
+              receptor: `${v.receptorNombre} · ${v.receptorRfc} · ${v.receptorRegimenFiscal} · CP ${v.receptorCodigoPostal}`,
+              usoCfdi: v.receptorUsoCfdi, metodoPago: v.metodoPago, formaPago: v.formaPago, moneda: v.moneda,
+              partidas: [{ descripcion: v.descripcion || 'Anticipo', cantidad: 1, importe: base }],
+              importes: [{ etiqueta: 'Subtotal', monto: base }, { etiqueta: 'IVA trasladado', monto: iva }, { etiqueta: 'Total', monto: base + iva }],
+            };
+          }}
+        />
         <Button
           type="submit"
           disabled={emitir.isPending || receptorBloqueado}
@@ -341,9 +358,9 @@ function FormInner({
               : undefined
           }
         >
-          {emitir.isPending ? 'Emitiendo…' : 'Emitir anticipo'}
+          {emitir.isPending ? 'Emitiendo…' : 'Emitir y timbrar'}
         </Button>
-      </div>
+      </>} />
     </form>
   );
 }

@@ -70,7 +70,7 @@ export function NuevoAnticipoProvider({ children }: { children: ReactNode }) {
             <SheetTitle>Nuevo anticipo</SheetTitle>
             <ContextoSucursal />
             <SheetDescription>
-              Emite una factura de anticipo (serie FANT). Es nominal: requiere
+              Emite una factura de anticipo. Es nominal: requiere
               el RFC y datos fiscales del cliente. Se amortiza en la factura
               final (relación 07).
             </SheetDescription>

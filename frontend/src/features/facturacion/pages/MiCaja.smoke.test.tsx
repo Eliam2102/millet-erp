@@ -82,6 +82,20 @@ afterEach(() => {
 });
 
 describe('<MiCaja> — smoke', () => {
+  it('19-oct #52 muestra totales por forma de 7510 en cobros más 500 de fondo', async () => {
+    mswServer.use(http.get(`${BASE}/sesion-actual`, () => HttpResponse.json({
+      sesion: { ...sesionAbierta, totalesPorForma: [
+        { formaPago: '01', montoSistema: 2500, montoDeclarado: null },
+        { formaPago: '04', montoSistema: 3000, montoDeclarado: null },
+        { formaPago: '03', montoSistema: 2510, montoDeclarado: null },
+      ] }, diaAnteriorPendiente: false,
+    })));
+    render(<MiCaja />, { wrapper: createQueryWrapper() });
+    expect(await screen.findByText('$2,500.00')).toBeInTheDocument();
+    expect(screen.getByText('$3,000.00')).toBeInTheDocument();
+    expect(screen.getByText('$2,510.00')).toBeInTheDocument();
+  });
+
   it('sin sesión: muestra el form de apertura', async () => {
     mswServer.use(
       http.get(`${BASE}/sesion-actual`, () =>

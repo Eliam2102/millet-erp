@@ -800,7 +800,7 @@ const moduloFacturacion: NavModulo = {
         {
           label: 'Anticipos',
           description:
-            'Control de Anticipos por cliente: emisión (serie FANT), vinculación a la factura final (relación 07) y saldos.',
+            'Control de Anticipos por cliente: emisión, vinculación a la factura final (relación 07) y saldos.',
           to: '/facturacion/anticipos',
           icon: HandCoins,
           permission: PermisosCanonicos.FacturacionAnticiposLeer,
@@ -808,7 +808,7 @@ const moduloFacturacion: NavModulo = {
         {
           label: 'Facturas de anticipo',
           description:
-            'Bandeja de CFDIs de anticipo (serie FANT): detalle con saldo y cadena, descargas XML/PDF, cancelación y reintento.',
+            'Bandeja de CFDIs de anticipo: detalle con saldo y cadena, descargas XML/PDF, cancelación y reintento.',
           to: '/facturacion/anticipos/facturas',
           icon: ReceiptText,
           permission: PermisosCanonicos.FacturacionAnticiposLeer,
