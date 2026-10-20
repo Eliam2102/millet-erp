@@ -1,3 +1,6 @@
+import { FormSeccion } from '@/components/erp/forms/FormSeccion';
+import { FormCampo } from '@/components/erp/forms/FormGrid';
+import { SheetBody } from '@/components/ui/sheet';
 import { useState } from 'react';
 import { Controller, useForm, useWatch } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -70,22 +73,30 @@ export interface DictamenRevisionSheetProps {
  * ALM-04 G1.3 — Dictamen del material en revisión (liberar, dar de baja o rechazar al proveedor). Libera y baja mueven
  * inventario y no se deshacen; el rechazo abre una devolución que autoriza Dirección. Todo pide confirmación.
  */
-export function DictamenRevisionSheet({ item, onOpenChange, onAgregarEvidencia }: DictamenRevisionSheetProps) {
+export function DictamenRevisionSheet({
+  item,
+  onOpenChange,
+  onAgregarEvidencia,
+}: DictamenRevisionSheetProps) {
   return (
     <Sheet open={item !== null} onOpenChange={onOpenChange}>
-      <SheetContent side="right" size="form">
+      <SheetContent side="right" size="lg">
         <SheetHeader>
           <SheetTitle>Dictaminar material en revisión</SheetTitle>
           <SheetDescription>
-            {item ? `Recepción ${item.recepcionFolio} · ${item.articuloClave ?? ''} · pendiente ${item.cantidadPendiente} ${item.unidadMedida}` : ''}
+            {item
+              ? `Recepción ${item.recepcionFolio} · ${item.articuloClave ?? ''} · pendiente ${item.cantidadPendiente} ${item.unidadMedida}`
+              : ''}
           </SheetDescription>
         </SheetHeader>
-        {item && <Cuerpo
+        {item && (
+          <Cuerpo
             key={item.lineaRevisionId}
             item={item}
             onClose={() => onOpenChange(false)}
             onAgregarEvidencia={onAgregarEvidencia}
-          />}
+          />
+        )}
       </SheetContent>
     </Sheet>
   );
@@ -139,7 +150,8 @@ function Cuerpo({
           cantidad: v.cantidad,
           motivo: v.motivo,
           fechaMovimiento: v.fechaMovimiento,
-          ubicacionDestinoId: v.resultado === ResultadoDictamen.Liberar ? v.ubicacionDestinoId : null,
+          ubicacionDestinoId:
+            v.resultado === ResultadoDictamen.Liberar ? v.ubicacionDestinoId : null,
         },
       },
       {
@@ -150,7 +162,10 @@ function Cuerpo({
               action: {
                 label: 'Ver devolución',
                 onClick: () =>
-                  void navigate({ to: '/almacen/devoluciones/proveedor/$id', params: { id: devolucionId } }),
+                  void navigate({
+                    to: '/almacen/devoluciones/proveedor/$id',
+                    params: { id: devolucionId },
+                  }),
               },
             });
           } else {
@@ -166,7 +181,10 @@ function Cuerpo({
               setSinEvidencia(error.problem.detail ?? error.problem.title);
               return;
             }
-            if (applyServerErrors(form as unknown as Parameters<typeof applyServerErrors>[0], error)) return;
+            if (
+              applyServerErrors(form as unknown as Parameters<typeof applyServerErrors>[0], error)
+            )
+              return;
             setErrorServidor(error.problem.detail ?? error.problem.title);
             return;
           }
@@ -178,117 +196,142 @@ function Cuerpo({
 
   return (
     <>
-      <form
-        id="dictamen-form"
-        noValidate
-        onSubmit={form.handleSubmit(() => setConfirmar(true))}
-        className="flex-1 space-y-4 overflow-y-auto px-6"
-      >
-        {errorServidor && <AvisoEnLinea tono="error">{errorServidor}</AvisoEnLinea>}
-        {sinEvidencia && (
-          <AvisoEnLinea
-            tono="advertencia"
-            accion={
-              onAgregarEvidencia && (
-                <Button type="button" variant="outline" size="sm" onClick={() => onAgregarEvidencia(item)}>
-                  Agregar evidencia
-                </Button>
-              )
-            }
-          >
-            {sinEvidencia}
-          </AvisoEnLinea>
-        )}
+      <SheetBody>
+        <form
+          id="dictamen-form"
+          noValidate
+          onSubmit={form.handleSubmit(() => setConfirmar(true))}
+          className="space-y-4"
+        >
+          {errorServidor && <AvisoEnLinea tono="error">{errorServidor}</AvisoEnLinea>}
+          {sinEvidencia && (
+            <AvisoEnLinea
+              tono="advertencia"
+              accion={
+                onAgregarEvidencia && (
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() => onAgregarEvidencia(item)}
+                  >
+                    Agregar evidencia
+                  </Button>
+                )
+              }
+            >
+              {sinEvidencia}
+            </AvisoEnLinea>
+          )}
 
-        <fieldset className="space-y-1">
-          <legend className="text-sm font-medium text-ink">Resultado del dictamen</legend>
-          <Controller
-            name="resultado"
-            control={form.control}
-            render={({ field }) => (
-              <div className="flex flex-col gap-2">
-                {([ResultadoDictamen.Liberar, ResultadoDictamen.Rechazar, ResultadoDictamen.Baja] as const).map((r) => (
-                  <label key={r} className="flex items-start gap-2 text-sm">
-                    <input
-                      type="radio"
-                      name="resultado-dictamen"
-                      className="mt-1"
-                      checked={field.value === r}
-                      onChange={() => field.onChange(r)}
+          <fieldset className="space-y-1">
+            <legend className="text-sm font-medium text-ink">Resultado del dictamen</legend>
+            <Controller
+              name="resultado"
+              control={form.control}
+              render={({ field }) => (
+                <div className="flex flex-col gap-2">
+                  {(
+                    [
+                      ResultadoDictamen.Liberar,
+                      ResultadoDictamen.Rechazar,
+                      ResultadoDictamen.Baja,
+                    ] as const
+                  ).map((r) => (
+                    <label key={r} className="flex items-start gap-2 text-sm">
+                      <input
+                        type="radio"
+                        name="resultado-dictamen"
+                        className="mt-1"
+                        checked={field.value === r}
+                        onChange={() => field.onChange(r)}
+                      />
+                      <span>
+                        {ResultadoDictamenLabels[r]}
+                        {DESCRIPCION_RESULTADO[r] && (
+                          <span className="block text-xs text-ink-muted">
+                            {DESCRIPCION_RESULTADO[r]}
+                          </span>
+                        )}
+                      </span>
+                    </label>
+                  ))}
+                </div>
+              )}
+            />
+          </fieldset>
+
+          <FormSeccion numero={1} titulo="Datos del dictamen">
+            <FormCampo span={6}>
+              <Field label="Cantidad" required error={errors.cantidad?.message}>
+                <Controller
+                  name="cantidad"
+                  control={form.control}
+                  render={({ field }) => (
+                    <Input
+                      type="number"
+                      inputMode="decimal"
+                      min="0"
+                      step="any"
+                      value={field.value ?? ''}
+                      onChange={(e) =>
+                        field.onChange(e.target.value === '' ? '' : Number(e.target.value))
+                      }
                     />
-                    <span>
-                      {ResultadoDictamenLabels[r]}
-                      {DESCRIPCION_RESULTADO[r] && (
-                        <span className="block text-xs text-ink-muted">{DESCRIPCION_RESULTADO[r]}</span>
-                      )}
-                    </span>
-                  </label>
-                ))}
-              </div>
-            )}
-          />
-        </fieldset>
-
-        <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
-          <Field label="Cantidad" required error={errors.cantidad?.message}>
-            <Controller
-              name="cantidad"
-              control={form.control}
-              render={({ field }) => (
-                <Input
-                  type="number"
-                  inputMode="decimal"
-                  min="0"
-                  step="any"
-                  value={field.value ?? ''}
-                  onChange={(e) => field.onChange(e.target.value === '' ? '' : Number(e.target.value))}
+                  )}
                 />
-              )}
-            />
-          </Field>
-          <Field label="Fecha de movimiento" required error={errors.fechaMovimiento?.message}>
-            <Controller
-              name="fechaMovimiento"
-              control={form.control}
-              render={({ field }) => <Input {...field} type="date" />}
-            />
-          </Field>
-        </div>
-
-        {resultado === ResultadoDictamen.Liberar && (
-          <Field label="Ubicación (rack) disponible" required error={errors.ubicacionDestinoId?.message}>
-            <Controller
-              name="ubicacionDestinoId"
-              control={form.control}
-              render={({ field }) => (
-                <UbicacionBinSelector
-                  modo="asignacion"
-                  articuloId={item.articuloId}
-                  subAlmacenId={null}
-                  requiereSubAlmacen={false}
-                  value={field.value}
-                  onChange={(id) => field.onChange(id)}
+              </Field>
+            </FormCampo>
+            <FormCampo span={6}>
+              <Field label="Fecha de movimiento" required error={errors.fechaMovimiento?.message}>
+                <Controller
+                  name="fechaMovimiento"
+                  control={form.control}
+                  render={({ field }) => <Input {...field} type="date" />}
                 />
-              )}
-            />
-          </Field>
-        )}
+              </Field>
+            </FormCampo>
+          </FormSeccion>
 
-        <Field label="Motivo" required error={errors.motivo?.message}>
-          <Controller
-            name="motivo"
-            control={form.control}
-            render={({ field }) => (
-              <TextAreaField
-                value={field.value ?? null}
-                onChange={(v) => field.onChange(v ?? '')}
-                maxLength={500}
-                minRows={2}
+          {resultado === ResultadoDictamen.Liberar && (
+            <Field
+              label="Ubicación (rack) disponible"
+              required
+              error={errors.ubicacionDestinoId?.message}
+            >
+              <Controller
+                name="ubicacionDestinoId"
+                control={form.control}
+                render={({ field }) => (
+                  <UbicacionBinSelector
+                    modo="asignacion"
+                    articuloId={item.articuloId}
+                    subAlmacenId={null}
+                    requiereSubAlmacen={false}
+                    value={field.value}
+                    onChange={(id) => field.onChange(id)}
+                  />
+                )}
               />
-            )}
-          />
-        </Field>
-      </form>
+            </Field>
+          )}
+
+          <Field label="Motivo" required error={errors.motivo?.message}>
+            <Controller
+              name="motivo"
+              control={form.control}
+              render={({ field }) => (
+                <TextAreaField
+                  value={field.value ?? null}
+                  onChange={(v) => field.onChange(v ?? '')}
+                  maxLength={500}
+                  minRows={2}
+                />
+              )}
+            />
+          </Field>
+        </form>
+      </SheetBody>
 
       <SheetFooter>
         <Button type="button" variant="ghost" onClick={onClose} disabled={dictaminar.isPending}>
@@ -305,7 +348,8 @@ function Cuerpo({
         titulo={`${verbo} material en revisión`}
         resumen={
           <p>
-            {verbo} {form.getValues('cantidad')} {item.unidadMedida} de {item.articuloClave ?? 'este artículo'}.{' '}
+            {verbo} {form.getValues('cantidad')} {item.unidadMedida} de{' '}
+            {item.articuloClave ?? 'este artículo'}.{' '}
             {resultado === ResultadoDictamen.Rechazar
               ? 'Se abre una devolución al proveedor para autorización de Dirección; esta acción no se puede deshacer.'
               : 'Esta acción mueve inventario y no se puede deshacer.'}

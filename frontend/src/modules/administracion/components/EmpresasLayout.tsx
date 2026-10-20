@@ -1,10 +1,7 @@
+import { PageHeader } from '@/components/erp/PageHeader';
 import { useMemo, type ReactNode } from 'react';
 import { Building2 } from 'lucide-react';
-import {
-  EmptyState,
-  ErrorState,
-  TableSkeleton,
-} from '@/components/erp';
+import { EmptyState, ErrorState, TableSkeleton } from '@/components/erp';
 import { useEmpresas } from '@/modules/administracion/api';
 import { esApiError } from '@/lib/api';
 import { ListaEmpresasCompacta } from '@/modules/administracion/components/ListaEmpresasCompacta';
@@ -38,10 +35,7 @@ export interface EmpresasLayoutProps {
 export function EmpresasLayout({ idActivo, detalle }: EmpresasLayoutProps) {
   const empresasQuery = useEmpresas({ limit: 200 });
 
-  const items = useMemo(
-    () => empresasQuery.data?.items ?? [],
-    [empresasQuery.data],
-  );
+  const items = useMemo(() => empresasQuery.data?.items ?? [], [empresasQuery.data]);
 
   return (
     <div className="flex flex-col gap-4 md:h-[calc(100vh-3.5rem-3rem)] md:flex-row">
@@ -53,13 +47,9 @@ export function EmpresasLayout({ idActivo, detalle }: EmpresasLayoutProps) {
         aria-label="Lista de empresas"
         data-print="hidden"
       >
-        <div className="flex flex-wrap items-center justify-between gap-2">
-          <h1 className="text-xl font-semibold tracking-tight">
-            Datos de la empresa
-          </h1>
-        </div>
+        <PageHeader titulo={<>Datos de la empresa</>} descripcion={<></>} acciones={<></>} />
 
-        <div className="flex-1 overflow-y-auto rounded-md border bg-card">
+        <div className="flex-1 overflow-y-auto rounded-md border bg-surface-card">
           <RenderLista query={empresasQuery} items={items} idActivo={idActivo} />
         </div>
       </aside>
@@ -79,11 +69,7 @@ export function EmpresasLayout({ idActivo, detalle }: EmpresasLayoutProps) {
 
 interface RenderListaProps {
   query: ReturnType<typeof useEmpresas>;
-  items: ReturnType<typeof useEmpresas>['data'] extends
-    | { items: infer I }
-    | undefined
-    ? I
-    : never;
+  items: ReturnType<typeof useEmpresas>['data'] extends { items: infer I } | undefined ? I : never;
   idActivo: string | null;
 }
 
@@ -91,10 +77,7 @@ function RenderLista({ query, items, idActivo }: RenderListaProps) {
   if (query.isLoading) {
     return (
       <div className="p-3">
-        <TableSkeleton
-          rows={6}
-          columns={[{ width: 'w-full' }, { width: 'w-full' }]}
-        />
+        <TableSkeleton rows={6} columns={[{ width: 'w-full' }, { width: 'w-full' }]} />
       </div>
     );
   }
@@ -119,8 +102,8 @@ function RenderLista({ query, items, idActivo }: RenderListaProps) {
 
 function PlaceholderSinSeleccion() {
   return (
-    <div className="flex h-full min-h-64 items-center justify-center rounded-md border border-dashed bg-muted/20 p-8 text-center">
-      <div className="space-y-1 text-muted-foreground">
+    <div className="flex h-full min-h-64 items-center justify-center rounded-md border border-dashed bg-surface-muted/20 p-8 text-center">
+      <div className="space-y-1 text-ink-muted">
         <Building2 className="mx-auto h-8 w-8 opacity-50" aria-hidden="true" />
         <p className="text-sm">Selecciona una empresa de la lista</p>
         <p className="text-xs">para ver su detalle.</p>

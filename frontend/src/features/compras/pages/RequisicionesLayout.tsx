@@ -1,12 +1,9 @@
+import { PageHeader } from '@/components/erp/PageHeader';
 import { useMemo, type ReactNode } from 'react';
 import { useNavigate, useSearch } from '@tanstack/react-router';
 import { Inbox, Plus } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import {
-  EmptyState,
-  ErrorState,
-  TableSkeleton,
-} from '@/components/erp';
+import { EmptyState, ErrorState, TableSkeleton } from '@/components/erp';
 import { useRequisiciones } from '@/features/compras/api';
 import { esApiError } from '@/lib/api';
 import { useHasPermission } from '@/lib/auth/useHasPermission';
@@ -52,10 +49,7 @@ export interface RequisicionesLayoutProps {
   detalle?: ReactNode;
 }
 
-export function RequisicionesLayout({
-  idActivo,
-  detalle,
-}: RequisicionesLayoutProps) {
+export function RequisicionesLayout({ idActivo, detalle }: RequisicionesLayoutProps) {
   // <c>useSearch({ strict: false })</c> permite que este componente
   // viva en dos rutas (<c>/requisiciones</c> y <c>/requisiciones/$id</c>)
   // sin acoplarse al <c>from</c> de una específica. El cast a
@@ -119,9 +113,7 @@ export function RequisicionesLayout({
         data-print="hidden"
       >
         <div className="flex flex-wrap items-center justify-between gap-2">
-          <h1 className="text-xl font-semibold tracking-tight">
-            Bandeja de requisiciones
-          </h1>
+          <PageHeader titulo="Bandeja de requisiciones" />
           {canCrear && (
             <Button size="sm" onClick={() => nuevaRequisicion.abrir()}>
               <Plus className="mr-1 h-4 w-4" />
@@ -132,7 +124,7 @@ export function RequisicionesLayout({
 
         <FiltrosBandeja search={search} onChange={setSearch} />
 
-        <div className="flex-1 overflow-y-auto rounded-md border bg-card">
+        <div className="flex-1 overflow-y-auto rounded-md border bg-surface-card">
           <RenderListaContent
             query={requisicionesQuery}
             items={itemsFiltrados}
@@ -180,10 +172,7 @@ function RenderListaContent({
   if (query.isLoading) {
     return (
       <div className="p-3">
-        <TableSkeleton
-          rows={8}
-          columns={[{ width: 'w-full' }, { width: 'w-full' }]}
-        />
+        <TableSkeleton rows={8} columns={[{ width: 'w-full' }, { width: 'w-full' }]} />
       </div>
     );
   }
@@ -201,9 +190,7 @@ function RenderListaContent({
         icon={<Inbox className="h-10 w-10" />}
         title="Aún no tienes requisiciones."
         description={
-          canCrear
-            ? 'Crea la primera para empezar.'
-            : 'Cuando se creen, aparecerán aquí.'
+          canCrear ? 'Crea la primera para empezar.' : 'Cuando se creen, aparecerán aquí.'
         }
         action={
           canCrear ? (
@@ -226,19 +213,13 @@ function RenderListaContent({
     );
   }
 
-  return (
-    <ListaRequisicionesCompacta
-      items={items}
-      idActivo={idActivo}
-      search={search}
-    />
-  );
+  return <ListaRequisicionesCompacta items={items} idActivo={idActivo} search={search} />;
 }
 
 function PlaceholderSinSeleccion() {
   return (
-    <div className="flex h-full min-h-64 items-center justify-center rounded-md border border-dashed bg-muted/20 p-8 text-center">
-      <div className="space-y-1 text-muted-foreground">
+    <div className="flex h-full min-h-64 items-center justify-center rounded-md border border-dashed bg-surface-muted/20 p-8 text-center">
+      <div className="space-y-1 text-ink-muted">
         <Inbox className="mx-auto h-8 w-8 opacity-50" aria-hidden="true" />
         <p className="text-sm">Selecciona una requisición de la lista</p>
         <p className="text-xs">para ver su detalle.</p>

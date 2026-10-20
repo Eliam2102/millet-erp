@@ -5,6 +5,7 @@ import { Badge } from '@/components/ui/badge';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import {
+  SheetBody,
   Sheet,
   SheetContent,
   SheetDescription,
@@ -103,10 +104,7 @@ export function SheetSincronizacionProductosAw({
 
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
-      <SheetContent
-        className="w-full gap-0 border-line bg-surface-page shadow-sheet sm:max-w-[560px]"
-        overlayClassName="bg-[var(--mt-scrim-sheet)]"
-      >
+      <SheetContent size="lg" overlayClassName="bg-[var(--mt-scrim-sheet)]">
         <SheetHeader className="shrink-0 gap-3 border-line-divider bg-surface-card px-6 py-5 pr-12">
           <div className="flex items-center gap-3">
             <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-info-bg text-info-fg">
@@ -123,101 +121,103 @@ export function SheetSincronizacionProductosAw({
             Lee los productos de A+W y actualiza el catálogo del ERP.
           </SheetDescription>
         </SheetHeader>
-        <div className="min-h-0 flex-1 space-y-5 overflow-y-auto px-6 py-5">
-          <section aria-labelledby="origen-productos-aw">
-            <h3 id="origen-productos-aw" className="mb-3 text-sm font-semibold text-ink-strong">
-              1. Origen de datos
-            </h3>
-            <ControlOrigenAw
-              area="productos"
-              enabled={open}
-              className="mt-0 rounded-lg bg-surface-card p-4 shadow-card-flat"
-            />
-          </section>
-          <div className="flex gap-3 rounded-lg bg-info-bg p-4 text-info-fg" role="note">
-            <ShieldCheck className="mt-0.5 h-4 w-4 shrink-0" strokeWidth={1.6} aria-hidden />
-            <div className="space-y-1">
-              <p className="text-sm font-medium">Tus datos fiscales se conservan</p>
-              <p className="text-xs leading-relaxed">
-                Los datos fiscales que ya completaste no se sobrescriben al sincronizar.
-              </p>
-            </div>
-          </div>
-          <section aria-labelledby="resultado-productos-aw" className="space-y-3">
-            <h3 id="resultado-productos-aw" className="text-sm font-semibold text-ink-strong">
-              2. Resultado de sincronización
-            </h3>
-            {sincronizar.isPending && (
-              <div
-                role="status"
-                className="flex items-center gap-3 rounded-lg bg-surface-card p-4 text-sm text-ink-secondary shadow-card-flat"
-              >
-                <Loader2 className="h-4 w-4 animate-spin text-brand" aria-hidden />
-                Leyendo y aplicando productos. Espera a que termine la sincronización.
-              </div>
-            )}
-            {resumen == null && !sincronizar.isPending && (
-              <div className="flex flex-col items-center rounded-lg bg-surface-card px-5 py-8 text-center shadow-card-flat">
-                <span className="mb-3 flex h-10 w-10 items-center justify-center rounded-lg bg-surface-muted text-ink-muted">
-                  <PackageSearch className="h-5 w-5" strokeWidth={1.6} aria-hidden />
-                </span>
-                <p className="text-sm font-medium text-ink">Listo para sincronizar</p>
-                <p className="mt-2 max-w-sm text-xs leading-relaxed text-ink-muted">
-                  Inicia la sincronización para ver los productos leídos, creados y actualizados,
-                  junto con los pendientes que requieran revisión.
+        <SheetBody>
+          <div className="space-y-5">
+            <section aria-labelledby="origen-productos-aw">
+              <h3 id="origen-productos-aw" className="mb-3 text-sm font-semibold text-ink-strong">
+                1. Origen de datos
+              </h3>
+              <ControlOrigenAw
+                area="productos"
+                enabled={open}
+                className="mt-0 rounded-lg bg-surface-card p-4 shadow-card-flat"
+              />
+            </section>
+            <div className="flex gap-3 rounded-lg bg-info-bg p-4 text-info-fg" role="note">
+              <ShieldCheck className="mt-0.5 h-4 w-4 shrink-0" strokeWidth={1.6} aria-hidden />
+              <div className="space-y-1">
+                <p className="text-sm font-medium">Tus datos fiscales se conservan</p>
+                <p className="text-xs leading-relaxed">
+                  Los datos fiscales que ya completaste no se sobrescriben al sincronizar.
                 </p>
               </div>
-            )}
-            {resumen != null && (
-              <>
-                <div className="space-y-4 rounded-lg bg-surface-card p-4 shadow-card-flat">
-                  <div className="flex flex-wrap items-center justify-between gap-2">
-                    <p className="text-sm font-medium text-ink">Último resultado</p>
-                    <Badge
-                      variant={
-                        resumen.errores + resumen.conflictos + resumen.pendientes > 0
-                          ? 'warning'
-                          : 'success'
-                      }
-                    >
-                      {resumen.errores + resumen.conflictos + resumen.pendientes > 0
-                        ? 'Requiere revisión'
-                        : 'Completa'}
-                    </Badge>
-                  </div>
-                  <dl className="grid grid-cols-2 gap-3 sm:grid-cols-3" aria-label="Resumen">
-                    {(
-                      [
-                        ['Leídos', resumen.leidos],
-                        ['Creados', resumen.creados],
-                        ['Actualizados', resumen.actualizados],
-                        ['Sin cambios', resumen.sinCambios],
-                        ['Pendientes', resumen.pendientes],
-                        ['Conflictos', resumen.conflictos],
-                        ['Errores', resumen.errores],
-                      ] as const
-                    ).map(([titulo, valor]) => (
-                      <div key={titulo} className="rounded-md bg-surface-subtle px-3 py-2.5">
-                        <dt className="text-xs text-ink-muted">{titulo}</dt>
-                        <dd className="mt-1 font-mono text-2xl font-semibold tabular-nums text-ink">
-                          {valor}
-                        </dd>
-                      </div>
-                    ))}
-                  </dl>
+            </div>
+            <section aria-labelledby="resultado-productos-aw" className="space-y-3">
+              <h3 id="resultado-productos-aw" className="text-sm font-semibold text-ink-strong">
+                2. Resultado de sincronización
+              </h3>
+              {sincronizar.isPending && (
+                <div
+                  role="status"
+                  className="flex items-center gap-3 rounded-lg bg-surface-card p-4 text-sm text-ink-secondary shadow-card-flat"
+                >
+                  <Loader2 className="h-4 w-4 animate-spin text-brand" aria-hidden />
+                  Leyendo y aplicando productos. Espera a que termine la sincronización.
                 </div>
-                {errores.length > 0 && (
-                  <ErroresEjecucionSync
-                    errores={errores}
-                    catalogo={CODIGOS_PRODUCTOS_AW}
-                    reintentando={reintentar.isPending ? reintentar.variables?.referencia : null}
-                    onReintentar={handleReintentar}
-                  />
-                )}
-              </>
-            )}
-          </section>
-        </div>
+              )}
+              {resumen == null && !sincronizar.isPending && (
+                <div className="flex flex-col items-center rounded-lg bg-surface-card px-5 py-8 text-center shadow-card-flat">
+                  <span className="mb-3 flex h-10 w-10 items-center justify-center rounded-lg bg-surface-muted text-ink-muted">
+                    <PackageSearch className="h-5 w-5" strokeWidth={1.6} aria-hidden />
+                  </span>
+                  <p className="text-sm font-medium text-ink">Listo para sincronizar</p>
+                  <p className="mt-2 max-w-sm text-xs leading-relaxed text-ink-muted">
+                    Inicia la sincronización para ver los productos leídos, creados y actualizados,
+                    junto con los pendientes que requieran revisión.
+                  </p>
+                </div>
+              )}
+              {resumen != null && (
+                <>
+                  <div className="space-y-4 rounded-lg bg-surface-card p-4 shadow-card-flat">
+                    <div className="flex flex-wrap items-center justify-between gap-2">
+                      <p className="text-sm font-medium text-ink">Último resultado</p>
+                      <Badge
+                        variant={
+                          resumen.errores + resumen.conflictos + resumen.pendientes > 0
+                            ? 'warning'
+                            : 'success'
+                        }
+                      >
+                        {resumen.errores + resumen.conflictos + resumen.pendientes > 0
+                          ? 'Requiere revisión'
+                          : 'Completa'}
+                      </Badge>
+                    </div>
+                    <dl className="grid grid-cols-2 gap-3 sm:grid-cols-3" aria-label="Resumen">
+                      {(
+                        [
+                          ['Leídos', resumen.leidos],
+                          ['Creados', resumen.creados],
+                          ['Actualizados', resumen.actualizados],
+                          ['Sin cambios', resumen.sinCambios],
+                          ['Pendientes', resumen.pendientes],
+                          ['Conflictos', resumen.conflictos],
+                          ['Errores', resumen.errores],
+                        ] as const
+                      ).map(([titulo, valor]) => (
+                        <div key={titulo} className="rounded-md bg-surface-subtle px-3 py-2.5">
+                          <dt className="text-xs text-ink-muted">{titulo}</dt>
+                          <dd className="mt-1 font-mono text-2xl font-semibold tabular-nums text-ink">
+                            {valor}
+                          </dd>
+                        </div>
+                      ))}
+                    </dl>
+                  </div>
+                  {errores.length > 0 && (
+                    <ErroresEjecucionSync
+                      errores={errores}
+                      catalogo={CODIGOS_PRODUCTOS_AW}
+                      reintentando={reintentar.isPending ? reintentar.variables?.referencia : null}
+                      onReintentar={handleReintentar}
+                    />
+                  )}
+                </>
+              )}
+            </section>
+          </div>
+        </SheetBody>
         <SheetFooter className="shrink-0 items-center justify-between border-line-divider bg-surface-card px-6 py-4 sm:justify-between">
           <Button size="lg" variant="ghost" onClick={() => onOpenChange(false)}>
             Cerrar

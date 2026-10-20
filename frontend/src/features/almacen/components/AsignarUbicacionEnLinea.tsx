@@ -77,12 +77,16 @@ export function AsignarUbicacionEnLinea({ articuloId, onAsignada }: AsignarUbica
   }
 
   return (
-    <div className="space-y-2 rounded-md border border-dashed border-primary/40 bg-primary/5 p-3">
+    <div className="space-y-2 rounded-md border border-dashed border-brand/40 bg-brand/5 p-3">
       <p id={labelId} className="text-xs font-medium">
         Asignar rack a este artículo
       </p>
       <div aria-labelledby={labelId} role="group">
-        <UbicacionSelector value={ubicacionId} onChange={setUbicacionId} disabled={crear.isPending} />
+        <UbicacionSelector
+          value={ubicacionId}
+          onChange={setUbicacionId}
+          disabled={crear.isPending}
+        />
       </div>
       {error && (
         <p role="alert" className="text-xs text-danger-fg">
@@ -90,7 +94,13 @@ export function AsignarUbicacionEnLinea({ articuloId, onAsignada }: AsignarUbica
         </p>
       )}
       <div className="flex justify-end gap-2">
-        <Button type="button" variant="ghost" size="sm" disabled={crear.isPending} onClick={() => setAbierto(false)}>
+        <Button
+          type="button"
+          variant="ghost"
+          size="sm"
+          disabled={crear.isPending}
+          onClick={() => setAbierto(false)}
+        >
           Cancelar
         </Button>
         <Button type="button" size="sm" disabled={crear.isPending} onClick={guardar}>

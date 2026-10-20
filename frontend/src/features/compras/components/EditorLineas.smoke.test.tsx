@@ -112,21 +112,21 @@ afterEach(() => {
 });
 
 describe('<EditorLineas> — smoke', () => {
-  it('Borrador con líneas: muestra tabla + botón Agregar línea', () => {
+  it('Borrador con partidas: muestra tabla + botón Agregar partida', () => {
     render(<EditorLineas rq={makeRq()} />, { wrapper: createQueryWrapper() });
     expect(
-      screen.getByRole('button', { name: /agregar línea/i }),
+      screen.getByRole('button', { name: /agregar partida/i }),
     ).toBeInTheDocument();
-    // Cantidad de la línea visible en la tabla.
+    // Cantidad de la partida visible en la tabla.
     expect(screen.getByText(/PZA/)).toBeInTheDocument();
   });
 
-  it('0 líneas + permiso agregar: muestra EmptyState con CTA', () => {
+  it('0 partidas + permiso agregar: muestra EmptyState con CTA', () => {
     render(<EditorLineas rq={makeRq({ lineas: [] })} />, {
       wrapper: createQueryWrapper(),
     });
     expect(
-      screen.getByRole('button', { name: /agregar línea/i }),
+      screen.getByRole('button', { name: /agregar partida/i }),
     ).toBeInTheDocument();
   });
 
@@ -138,11 +138,11 @@ describe('<EditorLineas> — smoke', () => {
       { wrapper: createQueryWrapper() },
     );
     expect(
-      screen.queryByRole('button', { name: /agregar línea/i }),
+      screen.queryByRole('button', { name: /agregar partida/i }),
     ).not.toBeInTheDocument();
   });
 
-  it('notas: si falla el guardado conserva el texto, muestra el error en línea y no cierra', async () => {
+  it('notas: si falla el guardado conserva el texto, muestra el error en partida y no cierra', async () => {
     mswServer.use(
       http.patch('*/api/v1/compras/requisiciones/rq-1/lineas/l-1/notas', () =>
         HttpResponse.json({ title: 'No se pudo guardar', status: 500 }, { status: 500 }),
@@ -150,10 +150,10 @@ describe('<EditorLineas> — smoke', () => {
     );
     render(<EditorLineas rq={makeRq()} />, { wrapper: createQueryWrapper() });
     fireEvent.click(screen.getByRole('button', { name: /añadir/i }));
-    const input = screen.getByLabelText('Notas de la línea 1');
+    const input = screen.getByLabelText('Notas de la partida 1');
     fireEvent.change(input, { target: { value: 'Entregar en rampa 2' } });
-    fireEvent.click(screen.getByRole('button', { name: 'Guardar notas de la línea 1' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Guardar notas de la partida 1' }));
     await waitFor(() => expect(screen.getByRole('alert')).toBeInTheDocument());
-    expect(screen.getByLabelText('Notas de la línea 1')).toHaveValue('Entregar en rampa 2');
+    expect(screen.getByLabelText('Notas de la partida 1')).toHaveValue('Entregar en rampa 2');
   });
 });

@@ -1,3 +1,5 @@
+import { BarraFiltros, TabsEstado } from '@/components/erp';
+import { PageHeader } from '@/components/erp/PageHeader';
 import { useMemo, useState, type ReactNode } from 'react';
 import { Package, Plus } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -11,10 +13,7 @@ import {
 } from '@/components/ui/select';
 import { EmptyState, ErrorState, TableSkeleton } from '@/components/erp';
 import { useArticulos } from '@/modules/datos-maestros/api';
-import {
-  EstatusCatalogo,
-  Naturaleza,
-} from '@/modules/datos-maestros/api/types';
+import { EstatusCatalogo, Naturaleza } from '@/modules/datos-maestros/api/types';
 import type { ListarArticulosFiltros } from '@/modules/datos-maestros/api/keys';
 import { esApiError } from '@/lib/api';
 import { useDebouncedValue } from '@/lib/hooks/useDebouncedValue';
@@ -37,9 +36,7 @@ export interface ArticulosLayoutProps {
 
 export function ArticulosLayout({ idActivo, detalle }: ArticulosLayoutProps) {
   const nuevoArticulo = useNuevoArticulo();
-  const canAdministrar = useHasPermission(
-    PermisosCanonicos.CompartidoCatalogosAdministrar,
-  );
+  const canAdministrar = useHasPermission(PermisosCanonicos.CompartidoCatalogosAdministrar);
 
   const [codigoInput, setCodigoInput] = useState('');
   const [descripcionInput, setDescripcionInput] = useState('');
@@ -56,20 +53,15 @@ export function ArticulosLayout({ idActivo, detalle }: ArticulosLayoutProps) {
       codigo: codigoDeb.trim() || undefined,
       descripcion: descripcionDeb.trim() || undefined,
       unidadMedidaDefault: unidadDeb.trim() || undefined,
-      naturaleza:
-        naturaleza !== '' ? (Number(naturaleza) as Naturaleza) : undefined,
-      estatus:
-        estatus !== '' ? (Number(estatus) as EstatusCatalogo) : undefined,
+      naturaleza: naturaleza !== '' ? (Number(naturaleza) as Naturaleza) : undefined,
+      estatus: estatus !== '' ? (Number(estatus) as EstatusCatalogo) : undefined,
       limit: 200,
     }),
     [codigoDeb, descripcionDeb, unidadDeb, naturaleza, estatus],
   );
 
   const articulosQuery = useArticulos(filtros);
-  const items = useMemo(
-    () => articulosQuery.data?.items ?? [],
-    [articulosQuery.data],
-  );
+  const items = useMemo(() => articulosQuery.data?.items ?? [], [articulosQuery.data]);
 
   return (
     <div className="flex flex-col gap-4 md:h-[calc(100vh-3.5rem-3rem)] md:flex-row">
@@ -81,30 +73,38 @@ export function ArticulosLayout({ idActivo, detalle }: ArticulosLayoutProps) {
         aria-label="Lista de artículos"
         data-print="hidden"
       >
-        <div className="flex flex-wrap items-center justify-between gap-2">
-          <h1 className="text-xl font-semibold tracking-tight">Artículos</h1>
-          {canAdministrar && (
-            <Button size="sm" onClick={() => nuevoArticulo.abrir()}>
-              <Plus className="mr-1 h-4 w-4" />
-              Nuevo
-            </Button>
-          )}
-        </div>
-
-        <FiltrosBloque
-          codigo={codigoInput}
-          onCodigo={setCodigoInput}
-          descripcion={descripcionInput}
-          onDescripcion={setDescripcionInput}
-          unidad={unidadInput}
-          onUnidad={setUnidadInput}
-          naturaleza={naturaleza}
-          onNaturaleza={setNaturaleza}
-          estatus={estatus}
-          onEstatus={setEstatus}
+        <PageHeader
+          titulo={<>Artículos</>}
+          acciones={
+            <>
+              {canAdministrar && (
+                <Button size="sm" onClick={() => nuevoArticulo.abrir()}>
+                  <Plus className="mr-1 h-4 w-4" />
+                  Nuevo
+                </Button>
+              )}
+            </>
+          }
         />
 
-        <div className="flex-1 overflow-y-auto rounded-md border bg-card">
+        <BarraFiltros
+          filtros={
+            <FiltrosBloque
+              codigo={codigoInput}
+              onCodigo={setCodigoInput}
+              descripcion={descripcionInput}
+              onDescripcion={setDescripcionInput}
+              unidad={unidadInput}
+              onUnidad={setUnidadInput}
+              naturaleza={naturaleza}
+              onNaturaleza={setNaturaleza}
+              estatus={estatus}
+              onEstatus={setEstatus}
+            />
+          }
+        />
+
+        <div className="flex-1 overflow-y-auto rounded-md border bg-surface-card">
           <RenderLista
             query={articulosQuery}
             items={items}
@@ -154,7 +154,7 @@ function FiltrosBloque({
   onEstatus,
 }: FiltrosBloqueProps) {
   return (
-    <div className="space-y-2 rounded-md border bg-muted/20 p-2">
+    <div className="space-y-2 rounded-md border bg-surface-muted/20 p-2">
       <Input
         placeholder="Código…"
         value={codigo}
@@ -192,26 +192,16 @@ function FiltrosBloque({
             <SelectItem value={String(Naturaleza.Riesgo)}>Riesgo</SelectItem>
           </SelectContent>
         </Select>
-        <Select
-          value={estatus === '' ? 'all' : estatus}
-          onValueChange={(v) => onEstatus(v === 'all' ? '' : v)}
-        >
-          <SelectTrigger className="h-8 text-xs" aria-label="Estatus">
-            <SelectValue placeholder="Estatus" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">Todos</SelectItem>
-            <SelectItem value={String(EstatusCatalogo.Activo)}>
-              Activo
-            </SelectItem>
-            <SelectItem value={String(EstatusCatalogo.Inactivo)}>
-              Inactivo
-            </SelectItem>
-            <SelectItem value={String(EstatusCatalogo.EnRevision)}>
-              En revisión
-            </SelectItem>
-          </SelectContent>
-        </Select>
+        <TabsEstado
+          opciones={[
+            { valor: EstatusCatalogo.EnRevision, label: 'En revisión' },
+            { valor: EstatusCatalogo.Activo, label: 'Activo' },
+            { valor: EstatusCatalogo.Inactivo, label: 'Inactivo' },
+          ]}
+          valor={estatus === '' ? undefined : Number(estatus)}
+          onChange={(v) => onEstatus(v === undefined ? '' : String(v))}
+          conteos={undefined}
+        />
       </div>
     </div>
   );
@@ -219,30 +209,17 @@ function FiltrosBloque({
 
 interface RenderListaProps {
   query: ReturnType<typeof useArticulos>;
-  items: ReturnType<typeof useArticulos>['data'] extends
-    | { items: infer I }
-    | undefined
-    ? I
-    : never;
+  items: ReturnType<typeof useArticulos>['data'] extends { items: infer I } | undefined ? I : never;
   idActivo: string | null;
   canCrear: boolean;
   onAbrirNuevo: () => void;
 }
 
-function RenderLista({
-  query,
-  items,
-  idActivo,
-  canCrear,
-  onAbrirNuevo,
-}: RenderListaProps) {
+function RenderLista({ query, items, idActivo, canCrear, onAbrirNuevo }: RenderListaProps) {
   if (query.isLoading) {
     return (
       <div className="p-3">
-        <TableSkeleton
-          rows={6}
-          columns={[{ width: 'w-full' }, { width: 'w-full' }]}
-        />
+        <TableSkeleton rows={6} columns={[{ width: 'w-full' }, { width: 'w-full' }]} />
       </div>
     );
   }
@@ -258,9 +235,7 @@ function RenderLista({
         icon={<Package className="h-10 w-10" />}
         title="Sin artículos."
         description={
-          canCrear
-            ? 'Crea el primero o ajusta los filtros.'
-            : 'Cuando se creen, aparecerán aquí.'
+          canCrear ? 'Crea el primero o ajusta los filtros.' : 'Cuando se creen, aparecerán aquí.'
         }
         action={
           canCrear ? (
@@ -279,8 +254,8 @@ function RenderLista({
 
 function PlaceholderSinSeleccion() {
   return (
-    <div className="flex h-full min-h-64 items-center justify-center rounded-md border border-dashed bg-muted/20 p-8 text-center">
-      <div className="space-y-1 text-muted-foreground">
+    <div className="flex h-full min-h-64 items-center justify-center rounded-md border border-dashed bg-surface-muted/20 p-8 text-center">
+      <div className="space-y-1 text-ink-muted">
         <Package className="mx-auto h-8 w-8 opacity-50" aria-hidden="true" />
         <p className="text-sm">Selecciona un artículo de la lista</p>
         <p className="text-xs">para ver su detalle.</p>

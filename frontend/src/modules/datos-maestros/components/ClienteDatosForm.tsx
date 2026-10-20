@@ -1,3 +1,5 @@
+import { FormCampo } from '@/components/erp/forms/FormGrid';
+import { FormSeccion } from '@/components/erp/forms/FormSeccion';
 import { useEffect, type ReactNode } from 'react';
 import { ClasificacionClienteSelector } from './ClasificacionClienteSelector';
 import { Controller, useForm } from 'react-hook-form';
@@ -21,10 +23,7 @@ import {
   type ActualizarClienteValues,
 } from '@/modules/datos-maestros/schemas/cliente';
 import { useActualizarCliente } from '@/modules/datos-maestros/api';
-import {
-  OrigenMaster,
-  type ClienteDetalle,
-} from '@/modules/datos-maestros/api/types';
+import { OrigenMaster, type ClienteDetalle } from '@/modules/datos-maestros/api/types';
 import { MonedaSelector } from '@/components/erp/selectors/MonedaSelector';
 import { RegimenFiscalSelector } from '@/components/erp/selectors/RegimenFiscalSelector';
 import { UsoCfdiSelector } from '@/components/erp/selectors/UsoCfdiSelector';
@@ -52,12 +51,8 @@ export interface ClienteDatosFormProps {
 const SIN_ASIGNAR = '__sin_asignar__';
 
 export function ClienteDatosForm({ cliente }: ClienteDatosFormProps) {
-  const canEditar = useHasPermission(
-    PermisosCanonicos.DatosMaestrosClientesGestionar,
-  );
-  const canFiscalEditar = useHasPermission(
-    PermisosCanonicos.DatosMaestrosClientesFiscalEditar,
-  );
+  const canEditar = useHasPermission(PermisosCanonicos.DatosMaestrosClientesGestionar);
+  const canFiscalEditar = useHasPermission(PermisosCanonicos.DatosMaestrosClientesFiscalEditar);
   const actualizar = useActualizarCliente();
   // En Origen=Aw los fiscales con valor previo solo los cambia `fiscal-editar`
   // (el backend responde 403 si no); completar un campo vacío sigue libre.
@@ -81,29 +76,19 @@ export function ClienteDatosForm({ cliente }: ClienteDatosFormProps) {
 
   function onSubmit(values: ActualizarClienteValues) {
     const rfcVacio = values.rfc == null || values.rfc.length === 0;
-    const regimenVacio =
-      values.regimenFiscal == null || values.regimenFiscal.length === 0;
-    const cpVacio =
-      values.codigoPostalFiscal == null ||
-      values.codigoPostalFiscal.length === 0;
-    const usoCfdiVacio =
-      values.usoCfdiDefault == null || values.usoCfdiDefault.length === 0;
-    const formaPagoVacia =
-      values.formaPagoDefault == null || values.formaPagoDefault.length === 0;
+    const regimenVacio = values.regimenFiscal == null || values.regimenFiscal.length === 0;
+    const cpVacio = values.codigoPostalFiscal == null || values.codigoPostalFiscal.length === 0;
+    const usoCfdiVacio = values.usoCfdiDefault == null || values.usoCfdiDefault.length === 0;
+    const formaPagoVacia = values.formaPagoDefault == null || values.formaPagoDefault.length === 0;
     const metodoPagoVacio = values.metodoPagoDefault == null;
     const emailVacio = values.email == null || values.email.length === 0;
-    const telefonoVacio =
-      values.telefono == null || values.telefono.length === 0;
-    const numRegVacio =
-      values.numRegIdTrib == null || values.numRegIdTrib.length === 0;
-    const paisVacio =
-      values.paisResidencia == null || values.paisResidencia.length === 0;
+    const telefonoVacio = values.telefono == null || values.telefono.length === 0;
+    const numRegVacio = values.numRegIdTrib == null || values.numRegIdTrib.length === 0;
+    const paisVacio = values.paisResidencia == null || values.paisResidencia.length === 0;
     const calleVacia =
-      values.domicilioExtranjeroCalle == null ||
-      values.domicilioExtranjeroCalle.length === 0;
+      values.domicilioExtranjeroCalle == null || values.domicilioExtranjeroCalle.length === 0;
     const estadoExtVacio =
-      values.domicilioExtranjeroEstado == null ||
-      values.domicilioExtranjeroEstado.length === 0;
+      values.domicilioExtranjeroEstado == null || values.domicilioExtranjeroEstado.length === 0;
     const cpExtVacio =
       values.domicilioExtranjeroCodigoPostal == null ||
       values.domicilioExtranjeroCodigoPostal.length === 0;
@@ -135,12 +120,8 @@ export function ClienteDatosForm({ cliente }: ClienteDatosFormProps) {
           // Receptor extranjero (CCE): vacío = limpiar.
           numRegIdTrib: numRegVacio ? null : values.numRegIdTrib,
           paisResidencia: paisVacio ? null : values.paisResidencia,
-          domicilioExtranjeroCalle: calleVacia
-            ? null
-            : values.domicilioExtranjeroCalle,
-          domicilioExtranjeroEstado: estadoExtVacio
-            ? null
-            : values.domicilioExtranjeroEstado,
+          domicilioExtranjeroCalle: calleVacia ? null : values.domicilioExtranjeroCalle,
+          domicilioExtranjeroEstado: estadoExtVacio ? null : values.domicilioExtranjeroEstado,
           domicilioExtranjeroCodigoPostal: cpExtVacio
             ? null
             : values.domicilioExtranjeroCodigoPostal,
@@ -165,10 +146,7 @@ export function ClienteDatosForm({ cliente }: ClienteDatosFormProps) {
             // El aviso del banner ya explica el RFC duplicado; no duplicar con toast.
             if (error.problem.clientesExistentes?.length) return;
             if (
-              applyServerErrors(
-                form as unknown as Parameters<typeof applyServerErrors>[0],
-                error,
-              )
+              applyServerErrors(form as unknown as Parameters<typeof applyServerErrors>[0], error)
             ) {
               return;
             }
@@ -189,387 +167,442 @@ export function ClienteDatosForm({ cliente }: ClienteDatosFormProps) {
     <form
       onSubmit={form.handleSubmit(onSubmit)}
       noValidate
-      className="grid grid-cols-1 gap-4 rounded-md border bg-card p-4 md:grid-cols-2 max-w-3xl"
+      className="  gap-4 rounded-md border bg-surface-card p-4  max-w-3xl"
     >
-      <Controller name="clasificacionId" control={form.control} render={({ field }) =>
-        <ClasificacionClienteSelector value={field.value} onChange={field.onChange} disabled={!canEditar} />} />
-      {form.formState.errors.clasificacionId && <p role="alert" className="text-xs text-danger-fg">{form.formState.errors.clasificacionId.message}</p>}
-      {actualizar.error && esApiError(actualizar.error) && actualizar.error.problem.clientesExistentes &&
-        <div role="alert" className="md:col-span-2 rounded-md bg-warning-note-bg p-3 text-warning-note-fg"><p>Ya existe un cliente con ese RFC. Usa el existente:</p>
-          {actualizar.error.problem.clientesExistentes.map(c => <Link key={c.id} to="/admin/datos-maestros/clientes/$id" params={{ id: c.id }} className="block text-brand">{c.clave} · {c.razonSocial}</Link>)}
-        </div>}
-      <FormRow label="Clave" hint="No editable.">
-        <Input
-          value={cliente.clave}
-          readOnly
-          aria-readonly
-          className="font-mono"
-        />
-      </FormRow>
-
-      <FormRow
-        label="Referencia externa"
-        hint="Correlación con A+W. No editable."
-      >
-        <Input
-          value={cliente.referenciaExterna ?? '—'}
-          readOnly
-          aria-readonly
-          className="font-mono"
-        />
-      </FormRow>
-
-      {(razonBloqueada || rfcBloqueado || regimenBloqueado || cpBloqueado) && (
-        <p className="text-xs text-muted-foreground md:col-span-2">
-          Cliente de origen A+W: los datos fiscales ya registrados solo los
-          modifica quien tenga el permiso de edición fiscal.
-        </p>
-      )}
-
-      <div className="md:col-span-2">
-        <FormRow
-          label="Razón social"
-          required
-          error={form.formState.errors.razonSocial?.message}
-        >
-          <Input
-            maxLength={254}
-            disabled={!canEditar || razonBloqueada}
-            {...form.register('razonSocial')}
-          />
-        </FormRow>
-      </div>
-
-      <FormRow
-        label="RFC"
-        hint="Requerido para timbrar."
-        error={form.formState.errors.rfc?.message}
-      >
-        <Controller
-          name="rfc"
-          control={form.control}
-          render={({ field }) => (
-            <UppercaseInput
-              maxLength={13}
-              disabled={!canEditar || rfcBloqueado}
-              className="font-mono"
-              value={field.value ?? ''}
-              onChange={(e) =>
-                field.onChange(
-                  e.target.value.length > 0 ? e.target.value : null,
-                )
-              }
-            />
-          )}
-        />
-      </FormRow>
-
-      <FormRow
-        label="Régimen fiscal"
-        hint="Catálogo SAT c_RegimenFiscal. Requerido para timbrar."
-        error={form.formState.errors.regimenFiscal?.message}
-      >
-        <Controller
-          name="regimenFiscal"
-          control={form.control}
-          render={({ field }) => (
-            <RegimenFiscalSelector
-              value={field.value}
-              onChange={field.onChange}
-              disabled={!canEditar || regimenBloqueado}
-            />
-          )}
-        />
-      </FormRow>
-
-      <FormRow
-        label="Código postal fiscal"
-        hint="Del domicilio fiscal. Requerido para timbrar."
-        error={form.formState.errors.codigoPostalFiscal?.message}
-      >
-        <Controller
-          name="codigoPostalFiscal"
-          control={form.control}
-          render={({ field }) => (
-            <Input
-              maxLength={5}
-              inputMode="numeric"
-              disabled={!canEditar || cpBloqueado}
-              className="font-mono"
-              value={field.value ?? ''}
-              onChange={(e) =>
-                field.onChange(
-                  e.target.value.length > 0 ? e.target.value : null,
-                )
-              }
-            />
-          )}
-        />
-      </FormRow>
-
-      <FormRow
-        label="Uso CFDI default"
-        hint="Opcional. Catálogo SAT c_UsoCFDI."
-        error={form.formState.errors.usoCfdiDefault?.message}
-      >
-        <Controller
-          name="usoCfdiDefault"
-          control={form.control}
-          render={({ field }) => (
-            <UsoCfdiSelector
-              value={field.value}
-              onChange={field.onChange}
-              disabled={!canEditar}
-            />
-          )}
-        />
-      </FormRow>
-
-      <FormRow
-        label="Forma de pago default"
-        hint="Opcional. Catálogo SAT c_FormaPago."
-        error={form.formState.errors.formaPagoDefault?.message}
-      >
-        <Controller
-          name="formaPagoDefault"
-          control={form.control}
-          render={({ field }) => (
-            <FormaPagoSelector
-              value={field.value}
-              onChange={field.onChange}
-              disabled={!canEditar}
-            />
-          )}
-        />
-      </FormRow>
-
-      <FormRow
-        label="Método de pago default"
-        hint="Opcional. PUE o PPD."
-        error={form.formState.errors.metodoPagoDefault?.message}
-      >
-        <Controller
-          name="metodoPagoDefault"
-          control={form.control}
-          render={({ field }) => (
-            <Select
-              value={field.value ?? SIN_ASIGNAR}
-              onValueChange={(v) =>
-                field.onChange(v === SIN_ASIGNAR ? null : v)
-              }
-              disabled={!canEditar}
-            >
-              <SelectTrigger>
-                <SelectValue placeholder="— sin asignar —" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value={SIN_ASIGNAR}>— sin asignar —</SelectItem>
-                <SelectItem value="PUE">PUE · Pago en una exhibición</SelectItem>
-                <SelectItem value="PPD">PPD · Pago en parcialidades</SelectItem>
-              </SelectContent>
-            </Select>
-          )}
-        />
-      </FormRow>
-
-      <FormRow
-        label="Moneda default"
-        required
-        hint="Del catálogo de monedas."
-        error={form.formState.errors.monedaDefault?.message}
-      >
-        <Controller
-          name="monedaDefault"
-          control={form.control}
-          render={({ field }) => (
-            <MonedaSelector
-              value={field.value}
-              onChange={(codigo) => field.onChange(codigo ?? '')}
-              disabled={!canEditar}
-            />
-          )}
-        />
-      </FormRow>
-
-      <FormRow
-        label="Cliente genérico"
-        hint="Mostrador / público en general."
-        error={form.formState.errors.esGenerico?.message}
-      >
-        <Controller
-          name="esGenerico"
-          control={form.control}
-          render={({ field }) => (
-            <label className="flex h-9 items-center gap-2 text-sm">
-              <Checkbox
-                checked={field.value}
-                onCheckedChange={(v) => field.onChange(v === true)}
+      <FormSeccion titulo="Datos del registro">
+        <FormCampo span={12}>
+          <Controller
+            name="clasificacionId"
+            control={form.control}
+            render={({ field }) => (
+              <ClasificacionClienteSelector
+                value={field.value}
+                onChange={field.onChange}
                 disabled={!canEditar}
-                aria-label="Cliente genérico"
               />
-              <span className="text-muted-foreground">
-                Es genérico (público en general)
-              </span>
-            </label>
-          )}
-        />
-      </FormRow>
-
-      <FormRow
-        label="Email"
-        hint="Opcional."
-        error={form.formState.errors.email?.message}
-      >
-        <Controller
-          name="email"
-          control={form.control}
-          render={({ field }) => (
-            <Input
-              type="email"
-              maxLength={254}
-              disabled={!canEditar}
-              value={field.value ?? ''}
-              onChange={(e) =>
-                field.onChange(
-                  e.target.value.length > 0 ? e.target.value : null,
-                )
-              }
-            />
-          )}
-        />
-      </FormRow>
-
-      <FormRow
-        label="Teléfono"
-        hint="Opcional."
-        error={form.formState.errors.telefono?.message}
-      >
-        <Controller
-          name="telefono"
-          control={form.control}
-          render={({ field }) => (
-            <Input
-              maxLength={50}
-              disabled={!canEditar}
-              value={field.value ?? ''}
-              onChange={(e) =>
-                field.onChange(
-                  e.target.value.length > 0 ? e.target.value : null,
-                )
-              }
-            />
-          )}
-        />
-      </FormRow>
-
-      <div className="md:col-span-2 border-t pt-3 text-sm font-medium text-muted-foreground">
-        Receptor extranjero (Comercio Exterior)
-        <p className="text-xs font-normal">
-          Solo para clientes de exportación. Prellenar el encabezado del CCE.
-          Fuente A+W cuando esté disponible; si no, captúralos aquí.
-        </p>
-      </div>
-
-      <FormRow
-        label="Núm. reg. id. trib. (Tax ID)"
-        hint="Registro de identificación tributaria extranjero del receptor."
-        error={form.formState.errors.numRegIdTrib?.message}
-      >
-        <Controller
-          name="numRegIdTrib"
-          control={form.control}
-          render={({ field }) => (
-            <Input
-              maxLength={40}
-              disabled={!canEditar}
-              value={field.value ?? ''}
-              onChange={(e) =>
-                field.onChange(e.target.value.length > 0 ? e.target.value : null)
-              }
-            />
-          )}
-        />
-      </FormRow>
-
-      <FormRow
-        label="País de residencia"
-        hint="Clave SAT c_Pais (ISO alfa-3, ej. USA)."
-        error={form.formState.errors.paisResidencia?.message}
-      >
-        <Controller
-          name="paisResidencia"
-          control={form.control}
-          render={({ field }) => (
-            <ClaveSatSelector
-              catalogo="pais"
-              value={field.value ?? null}
-              initialLabel={field.value ?? null}
-              onChange={(item) => field.onChange(item?.codigo ?? null)}
-              disabled={!canEditar}
-              placeholder="Buscar país…"
-            />
-          )}
-        />
-      </FormRow>
-
-      <div className="md:col-span-2">
-        <FormRow
-          label="Domicilio extranjero — calle"
-          hint="Opcional."
-          error={form.formState.errors.domicilioExtranjeroCalle?.message}
-        >
-          <Input
-            maxLength={200}
-            disabled={!canEditar}
-            {...form.register('domicilioExtranjeroCalle', {
-              setValueAs: (v) => (v === '' ? null : v),
-            })}
+            )}
           />
-        </FormRow>
-      </div>
+        </FormCampo>
+        <FormCampo span={12}>
+          {form.formState.errors.clasificacionId && (
+            <p role="alert" className="text-xs text-danger-fg">
+              {form.formState.errors.clasificacionId.message}
+            </p>
+          )}
+        </FormCampo>
+        <FormCampo span={12}>
+          {actualizar.error &&
+            esApiError(actualizar.error) &&
+            actualizar.error.problem.clientesExistentes && (
+              <div
+                role="alert"
+                className="md:col-span-2 rounded-md bg-warning-note-bg p-3 text-warning-note-fg"
+              >
+                <p>Ya existe un cliente con ese RFC. Usa el existente:</p>
+                {actualizar.error.problem.clientesExistentes.map((c) => (
+                  <Link
+                    key={c.id}
+                    to="/admin/datos-maestros/clientes/$id"
+                    params={{ id: c.id }}
+                    className="block text-brand"
+                  >
+                    {c.clave} · {c.razonSocial}
+                  </Link>
+                ))}
+              </div>
+            )}
+        </FormCampo>
+        <FormCampo span={6}>
+          <FormRow label="Clave" hint="No editable.">
+            <Input value={cliente.clave} readOnly aria-readonly className="font-mono" />
+          </FormRow>
+        </FormCampo>
 
-      <FormRow
-        label="Estado / provincia extranjera"
-        hint="Texto libre del país del receptor (ej. Texas)."
-        error={form.formState.errors.domicilioExtranjeroEstado?.message}
-      >
-        <Input
-          maxLength={100}
-          disabled={!canEditar}
-          {...form.register('domicilioExtranjeroEstado', {
-            setValueAs: (v) => (v === '' ? null : v),
-          })}
-        />
-      </FormRow>
+        <FormCampo span={6}>
+          <FormRow label="Referencia externa" hint="Correlación con A+W. No editable.">
+            <Input
+              value={cliente.referenciaExterna ?? '—'}
+              readOnly
+              aria-readonly
+              className="font-mono"
+            />
+          </FormRow>
+        </FormCampo>
 
-      <FormRow
-        label="Código postal extranjero"
-        error={form.formState.errors.domicilioExtranjeroCodigoPostal?.message}
-      >
-        <Input
-          maxLength={12}
-          disabled={!canEditar}
-          {...form.register('domicilioExtranjeroCodigoPostal', {
-            setValueAs: (v) => (v === '' ? null : v),
-          })}
-        />
-      </FormRow>
+        <FormCampo span={12}>
+          {(razonBloqueada || rfcBloqueado || regimenBloqueado || cpBloqueado) && (
+            <p className="text-xs text-ink-muted md:col-span-2">
+              Cliente de origen A+W: los datos fiscales ya registrados solo los modifica quien tenga
+              el permiso de edición fiscal.
+            </p>
+          )}
+        </FormCampo>
 
-      {canEditar && (
-        <div className="md:col-span-2 flex flex-wrap items-center justify-end gap-2 border-t pt-3">
-          <Button
-            type="button"
-            variant="ghost"
-            onClick={() => form.reset(buildDefaults(cliente))}
-            disabled={!dirty || actualizar.isPending}
+        <FormCampo span={12}>
+          <div className="md:col-span-2">
+            <FormRow
+              label="Razón social"
+              required
+              error={form.formState.errors.razonSocial?.message}
+            >
+              <Input
+                maxLength={254}
+                disabled={!canEditar || razonBloqueada}
+                {...form.register('razonSocial')}
+              />
+            </FormRow>
+          </div>
+        </FormCampo>
+
+        <FormCampo span={6}>
+          <FormRow
+            label="RFC"
+            hint="Requerido para timbrar."
+            error={form.formState.errors.rfc?.message}
           >
-            Descartar cambios
-          </Button>
-          <Button type="submit" disabled={!dirty || actualizar.isPending}>
-            {actualizar.isPending ? 'Guardando…' : 'Guardar cambios'}
-          </Button>
-        </div>
-      )}
+            <Controller
+              name="rfc"
+              control={form.control}
+              render={({ field }) => (
+                <UppercaseInput
+                  maxLength={13}
+                  disabled={!canEditar || rfcBloqueado}
+                  className="font-mono"
+                  value={field.value ?? ''}
+                  onChange={(e) =>
+                    field.onChange(e.target.value.length > 0 ? e.target.value : null)
+                  }
+                />
+              )}
+            />
+          </FormRow>
+        </FormCampo>
+
+        <FormCampo span={6}>
+          <FormRow
+            label="Régimen fiscal"
+            hint="Catálogo SAT c_RegimenFiscal. Requerido para timbrar."
+            error={form.formState.errors.regimenFiscal?.message}
+          >
+            <Controller
+              name="regimenFiscal"
+              control={form.control}
+              render={({ field }) => (
+                <RegimenFiscalSelector
+                  value={field.value}
+                  onChange={field.onChange}
+                  disabled={!canEditar || regimenBloqueado}
+                />
+              )}
+            />
+          </FormRow>
+        </FormCampo>
+
+        <FormCampo span={6}>
+          <FormRow
+            label="Código postal fiscal"
+            hint="Del domicilio fiscal. Requerido para timbrar."
+            error={form.formState.errors.codigoPostalFiscal?.message}
+          >
+            <Controller
+              name="codigoPostalFiscal"
+              control={form.control}
+              render={({ field }) => (
+                <Input
+                  maxLength={5}
+                  inputMode="numeric"
+                  disabled={!canEditar || cpBloqueado}
+                  className="font-mono"
+                  value={field.value ?? ''}
+                  onChange={(e) =>
+                    field.onChange(e.target.value.length > 0 ? e.target.value : null)
+                  }
+                />
+              )}
+            />
+          </FormRow>
+        </FormCampo>
+
+        <FormCampo span={6}>
+          <FormRow
+            label="Uso CFDI default"
+            hint="Opcional. Catálogo SAT c_UsoCFDI."
+            error={form.formState.errors.usoCfdiDefault?.message}
+          >
+            <Controller
+              name="usoCfdiDefault"
+              control={form.control}
+              render={({ field }) => (
+                <UsoCfdiSelector
+                  value={field.value}
+                  onChange={field.onChange}
+                  disabled={!canEditar}
+                />
+              )}
+            />
+          </FormRow>
+        </FormCampo>
+
+        <FormCampo span={6}>
+          <FormRow
+            label="Forma de pago default"
+            hint="Opcional. Catálogo SAT c_FormaPago."
+            error={form.formState.errors.formaPagoDefault?.message}
+          >
+            <Controller
+              name="formaPagoDefault"
+              control={form.control}
+              render={({ field }) => (
+                <FormaPagoSelector
+                  value={field.value}
+                  onChange={field.onChange}
+                  disabled={!canEditar}
+                />
+              )}
+            />
+          </FormRow>
+        </FormCampo>
+
+        <FormCampo span={6}>
+          <FormRow
+            label="Método de pago default"
+            hint="Opcional. PUE o PPD."
+            error={form.formState.errors.metodoPagoDefault?.message}
+          >
+            <Controller
+              name="metodoPagoDefault"
+              control={form.control}
+              render={({ field }) => (
+                <Select
+                  value={field.value ?? SIN_ASIGNAR}
+                  onValueChange={(v) => field.onChange(v === SIN_ASIGNAR ? null : v)}
+                  disabled={!canEditar}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="— sin asignar —" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value={SIN_ASIGNAR}>— sin asignar —</SelectItem>
+                    <SelectItem value="PUE">PUE · Pago en una exhibición</SelectItem>
+                    <SelectItem value="PPD">PPD · Pago en parcialidades</SelectItem>
+                  </SelectContent>
+                </Select>
+              )}
+            />
+          </FormRow>
+        </FormCampo>
+
+        <FormCampo span={6}>
+          <FormRow
+            label="Moneda default"
+            required
+            hint="Del catálogo de monedas."
+            error={form.formState.errors.monedaDefault?.message}
+          >
+            <Controller
+              name="monedaDefault"
+              control={form.control}
+              render={({ field }) => (
+                <MonedaSelector
+                  value={field.value}
+                  onChange={(codigo) => field.onChange(codigo ?? '')}
+                  disabled={!canEditar}
+                />
+              )}
+            />
+          </FormRow>
+        </FormCampo>
+
+        <FormCampo span={6}>
+          <FormRow
+            label="Cliente genérico"
+            hint="Mostrador / público en general."
+            error={form.formState.errors.esGenerico?.message}
+          >
+            <Controller
+              name="esGenerico"
+              control={form.control}
+              render={({ field }) => (
+                <label className="flex h-9 items-center gap-2 text-sm">
+                  <Checkbox
+                    checked={field.value}
+                    onCheckedChange={(v) => field.onChange(v === true)}
+                    disabled={!canEditar}
+                    aria-label="Cliente genérico"
+                  />
+                  <span className="text-ink-muted">Es genérico (público en general)</span>
+                </label>
+              )}
+            />
+          </FormRow>
+        </FormCampo>
+
+        <FormCampo span={6}>
+          <FormRow label="Email" hint="Opcional." error={form.formState.errors.email?.message}>
+            <Controller
+              name="email"
+              control={form.control}
+              render={({ field }) => (
+                <Input
+                  type="email"
+                  maxLength={254}
+                  disabled={!canEditar}
+                  value={field.value ?? ''}
+                  onChange={(e) =>
+                    field.onChange(e.target.value.length > 0 ? e.target.value : null)
+                  }
+                />
+              )}
+            />
+          </FormRow>
+        </FormCampo>
+
+        <FormCampo span={6}>
+          <FormRow
+            label="Teléfono"
+            hint="Opcional."
+            error={form.formState.errors.telefono?.message}
+          >
+            <Controller
+              name="telefono"
+              control={form.control}
+              render={({ field }) => (
+                <Input
+                  maxLength={50}
+                  disabled={!canEditar}
+                  value={field.value ?? ''}
+                  onChange={(e) =>
+                    field.onChange(e.target.value.length > 0 ? e.target.value : null)
+                  }
+                />
+              )}
+            />
+          </FormRow>
+        </FormCampo>
+
+        <FormCampo span={12}>
+          <div className="md:col-span-2 border-t pt-3 text-sm font-medium text-ink-muted">
+            Receptor extranjero (Comercio Exterior)
+            <p className="text-xs font-normal">
+              Solo para clientes de exportación. Prellenar el encabezado del CCE. Fuente A+W cuando
+              esté disponible; si no, captúralos aquí.
+            </p>
+          </div>
+        </FormCampo>
+
+        <FormCampo span={6}>
+          <FormRow
+            label="Núm. reg. id. trib. (Tax ID)"
+            hint="Registro de identificación tributaria extranjero del receptor."
+            error={form.formState.errors.numRegIdTrib?.message}
+          >
+            <Controller
+              name="numRegIdTrib"
+              control={form.control}
+              render={({ field }) => (
+                <Input
+                  maxLength={40}
+                  disabled={!canEditar}
+                  value={field.value ?? ''}
+                  onChange={(e) =>
+                    field.onChange(e.target.value.length > 0 ? e.target.value : null)
+                  }
+                />
+              )}
+            />
+          </FormRow>
+        </FormCampo>
+
+        <FormCampo span={6}>
+          <FormRow
+            label="País de residencia"
+            hint="Clave SAT c_Pais (ISO alfa-3, ej. USA)."
+            error={form.formState.errors.paisResidencia?.message}
+          >
+            <Controller
+              name="paisResidencia"
+              control={form.control}
+              render={({ field }) => (
+                <ClaveSatSelector
+                  catalogo="pais"
+                  value={field.value ?? null}
+                  initialLabel={field.value ?? null}
+                  onChange={(item) => field.onChange(item?.codigo ?? null)}
+                  disabled={!canEditar}
+                  placeholder="Buscar país…"
+                />
+              )}
+            />
+          </FormRow>
+        </FormCampo>
+
+        <FormCampo span={12}>
+          <div className="md:col-span-2">
+            <FormRow
+              label="Domicilio extranjero — calle"
+              hint="Opcional."
+              error={form.formState.errors.domicilioExtranjeroCalle?.message}
+            >
+              <Input
+                maxLength={200}
+                disabled={!canEditar}
+                {...form.register('domicilioExtranjeroCalle', {
+                  setValueAs: (v) => (v === '' ? null : v),
+                })}
+              />
+            </FormRow>
+          </div>
+        </FormCampo>
+
+        <FormCampo span={6}>
+          <FormRow
+            label="Estado / provincia extranjera"
+            hint="Texto libre del país del receptor (ej. Texas)."
+            error={form.formState.errors.domicilioExtranjeroEstado?.message}
+          >
+            <Input
+              maxLength={100}
+              disabled={!canEditar}
+              {...form.register('domicilioExtranjeroEstado', {
+                setValueAs: (v) => (v === '' ? null : v),
+              })}
+            />
+          </FormRow>
+        </FormCampo>
+
+        <FormCampo span={6}>
+          <FormRow
+            label="Código postal extranjero"
+            error={form.formState.errors.domicilioExtranjeroCodigoPostal?.message}
+          >
+            <Input
+              maxLength={12}
+              disabled={!canEditar}
+              {...form.register('domicilioExtranjeroCodigoPostal', {
+                setValueAs: (v) => (v === '' ? null : v),
+              })}
+            />
+          </FormRow>
+        </FormCampo>
+
+        <FormCampo span={12}>
+          {canEditar && (
+            <div className="md:col-span-2 flex flex-wrap items-center justify-end gap-2 border-t pt-3">
+              <Button
+                type="button"
+                variant="ghost"
+                onClick={() => form.reset(buildDefaults(cliente))}
+                disabled={!dirty || actualizar.isPending}
+              >
+                Descartar cambios
+              </Button>
+              <Button type="submit" disabled={!dirty || actualizar.isPending}>
+                {actualizar.isPending ? 'Guardando…' : 'Guardar cambios'}
+              </Button>
+            </div>
+          )}
+        </FormCampo>
+      </FormSeccion>
     </form>
   );
 }
@@ -588,17 +621,15 @@ function FormRow({ label, required, hint, error, children }: FormRowProps) {
       <label className="flex items-center gap-1 text-sm font-medium">
         {label}
         {required && (
-          <span aria-hidden="true" className="text-rose-600">
+          <span aria-hidden="true" className="text-danger-fg">
             *
           </span>
         )}
       </label>
       {children}
-      {hint != null && error == null && (
-        <p className="text-xs text-muted-foreground">{hint}</p>
-      )}
+      {hint != null && error == null && <p className="text-xs text-ink-muted">{hint}</p>}
       {error != null && (
-        <p role="alert" className="text-xs text-rose-600">
+        <p role="alert" className="text-xs text-danger-fg">
           {error}
         </p>
       )}
@@ -616,9 +647,7 @@ function buildDefaults(c: ClienteDetalle): ActualizarClienteValues {
     usoCfdiDefault: c.usoCfdiDefault ?? null,
     formaPagoDefault: c.formaPagoDefault ?? null,
     metodoPagoDefault:
-      c.metodoPagoDefault === 'PUE' || c.metodoPagoDefault === 'PPD'
-        ? c.metodoPagoDefault
-        : null,
+      c.metodoPagoDefault === 'PUE' || c.metodoPagoDefault === 'PPD' ? c.metodoPagoDefault : null,
     monedaDefault: c.monedaDefault,
     esGenerico: c.esGenerico,
     email: c.email ?? null,

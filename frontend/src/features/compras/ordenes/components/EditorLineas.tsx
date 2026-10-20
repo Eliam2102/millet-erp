@@ -1,3 +1,11 @@
+import {
+  Table,
+  TableHeader,
+  TableBody,
+  TableRow,
+  TableHead,
+  TableCell,
+} from '@/components/ui/table';
 import { useMemo, useState } from 'react';
 import { ConMotivo } from '@/features/compras/components/ConMotivo';
 import { Pencil, Plus, Trash2, Inbox } from 'lucide-react';
@@ -75,11 +83,8 @@ export function EditorLineas({ oc }: EditorLineasProps) {
   // (frontend/docs/patrones-compras.md §6). Solo uno de los dos modos
   // puede estar activo a la vez (cancelan el otro al abrir).
   const [agregarAbierto, setAgregarAbierto] = useState(false);
-  const [lineaEnEdicionId, setLineaEnEdicionId] = useState<string | null>(
-    null,
-  );
-  const [lineaAEliminar, setLineaAEliminar] =
-    useState<LineaOrdenCompraResponse | null>(null);
+  const [lineaEnEdicionId, setLineaEnEdicionId] = useState<string | null>(null);
+  const [lineaAEliminar, setLineaAEliminar] = useState<LineaOrdenCompraResponse | null>(null);
 
   const eliminar = useEliminarLinea();
   const conflictDialog = useConflictDialog();
@@ -93,10 +98,7 @@ export function EditorLineas({ oc }: EditorLineasProps) {
     limit: 1000,
     includeInactivas: true,
   });
-  const articulosMap = useMemo(
-    () => mapById(articulosQuery.data?.items),
-    [articulosQuery.data],
-  );
+  const articulosMap = useMemo(() => mapById(articulosQuery.data?.items), [articulosQuery.data]);
 
   const accAgregarManual = accionAgregarLineaManual(oc, permisos);
   const accEditar = accionEditarLineaEstructural(oc, permisos);
@@ -126,7 +128,7 @@ export function EditorLineas({ oc }: EditorLineasProps) {
         ordenCompraId: oc.id,
         lineaId: linea.id,
       });
-      toast.success(`Línea ${linea.posicion} eliminada.`);
+      toast.success(`Partida ${linea.posicion} eliminada.`);
       setLineaAEliminar(null);
     } catch (err) {
       // 409 → ConflictDialog en modo simple. Cierra el confirm para
@@ -141,46 +143,39 @@ export function EditorLineas({ oc }: EditorLineasProps) {
         setLineaAEliminar(null);
         return;
       }
-      toast.error('No se pudo eliminar la línea.', {
+      toast.error('No se pudo eliminar la partida.', {
         description: err instanceof Error ? err.message : 'Error desconocido.',
       });
     }
   }
 
-  const lineasOrdenadas = [...oc.lineas].sort(
-    (a, b) => a.posicion - b.posicion,
-  );
+  const lineasOrdenadas = [...oc.lineas].sort((a, b) => a.posicion - b.posicion);
   const lineaEnEdicion = lineasOrdenadas.find((l) => l.id === lineaEnEdicionId);
 
   // Empty state: ninguna línea + inline form para agregar la primera, si
   // la matriz lo permite.
   if (lineasOrdenadas.length === 0) {
     if (agregarAbierto) {
-      return (
-        <LineaInlineFormOc
-          oc={oc}
-          onCancel={() => setAgregarAbierto(false)}
-        />
-      );
+      return <LineaInlineFormOc oc={oc} onCancel={() => setAgregarAbierto(false)} />;
     }
     return (
       <EmptyState
         icon={<Inbox className="h-10 w-10" />}
         title={
           accAgregarManual.visible
-            ? 'Esta OC no tiene líneas todavía.'
-            : 'Sin líneas registradas.'
+            ? 'Esta OC no tiene partidas todavía.'
+            : 'Sin partidas registradas.'
         }
         description={
           accAgregarManual.visible && accAgregarManual.habilitada
-            ? 'Una OC debe tener al menos una línea para autorizarse.'
-            : 'Las líneas se agregan en estado Borrador o Rechazada.'
+            ? 'Una OC debe tener al menos una partida para autorizarse.'
+            : 'Las partidas se agregan en estado Borrador o Rechazada.'
         }
         action={
           accAgregarManual.visible && accAgregarManual.habilitada ? (
             <Button onClick={abrirAgregar}>
               <Plus className="mr-2 h-4 w-4" />
-              Agregar línea manual
+              Agregar partida manual
             </Button>
           ) : undefined
         }
@@ -193,50 +188,60 @@ export function EditorLineas({ oc }: EditorLineasProps) {
       {/* Toolbar — botón "Agregar" arriba si no está abierto el form */}
       <div className="flex flex-wrap items-center justify-between gap-2">
         <h3 className="text-sm font-semibold tracking-tight">
-          Líneas ({lineasOrdenadas.length})
+          Partidas ({lineasOrdenadas.length})
         </h3>
         {!agregarAbierto && accAgregarManual.visible && (
           <div className="flex items-center gap-2">
             <ConMotivo motivo={accAgregarManual.motivoDeshabilitada}>
               <Button
-              size="sm"
-              variant="outline"
-              onClick={abrirAgregar}
-              disabled={!accAgregarManual.habilitada}
-              data-action="agregar-linea-manual"
-            >
-              <Plus className="mr-1 h-3.5 w-3.5" />
-              Agregar línea manual
-            </Button>
+                size="sm"
+                variant="outline"
+                onClick={abrirAgregar}
+                disabled={!accAgregarManual.habilitada}
+                data-action="agregar-linea-manual"
+              >
+                <Plus className="mr-1 h-3.5 w-3.5" />
+                Agregar partida manual
+              </Button>
             </ConMotivo>
           </div>
         )}
       </div>
 
       {/* Tabla de líneas */}
-      <div className="overflow-x-auto rounded-md border bg-card">
-        <table className="w-full @4xl:min-w-[940px] text-sm">
-          <thead className="bg-muted/50 text-xs uppercase tracking-wide text-muted-foreground">
-            <tr>
-              <th className="px-3 py-2 text-right font-medium w-12">#</th>
-              <th className="px-3 py-2 text-left font-medium">Artículo</th>
+      <div className="overflow-x-auto rounded-md border bg-surface-card">
+        <Table className="w-full min-w-full text-sm">
+          <TableHeader className="bg-surface-muted/50 text-xs uppercase tracking-wide text-ink-muted">
+            <TableRow>
+              <TableHead className="px-3 py-2 text-right font-medium w-12">#</TableHead>
+              <TableHead className="px-3 py-2 text-left font-medium">Artículo</TableHead>
               {mostrarFraccion && (
-                <th className="px-3 py-2 text-left font-medium">Fracción arancelaria</th>
+                <TableHead className="px-3 py-2 text-left font-medium">
+                  Fracción arancelaria
+                </TableHead>
               )}
-              <th className="hidden px-3 py-2 text-left font-medium @4xl:table-cell">CC-Máquina</th>
-              <th className="px-3 py-2 text-right font-medium">Cantidad</th>
-              <th className="px-3 py-2 text-left font-medium">UM</th>
-              <th className="hidden px-3 py-2 text-right font-medium @4xl:table-cell">Recibido</th>
-              <th className="hidden px-3 py-2 text-right font-medium @4xl:table-cell">Por surtir</th>
-              <th className="px-3 py-2 text-right font-medium">Precio</th>
-              <th className="px-3 py-2 text-right font-medium">Subtotal</th>
-              <th className="hidden px-3 py-2 text-right font-medium @4xl:table-cell">IVA</th>
+              <TableHead className="hidden px-3 py-2 text-left font-medium @4xl:table-cell">
+                CC-Máquina
+              </TableHead>
+              <TableHead className="px-3 py-2 text-right font-medium">Cantidad</TableHead>
+              <TableHead className="px-3 py-2 text-left font-medium">UM</TableHead>
+              <TableHead className="hidden px-3 py-2 text-right font-medium @4xl:table-cell">
+                Recibido
+              </TableHead>
+              <TableHead className="hidden px-3 py-2 text-right font-medium @4xl:table-cell">
+                Por surtir
+              </TableHead>
+              <TableHead className="px-3 py-2 text-right font-medium">Precio</TableHead>
+              <TableHead className="px-3 py-2 text-right font-medium">Subtotal</TableHead>
+              <TableHead className="hidden px-3 py-2 text-right font-medium @4xl:table-cell">
+                IVA
+              </TableHead>
               {(accEditar.visible || accEliminar.visible) && (
-                <th className="px-3 py-2 text-right font-medium">Acciones</th>
+                <TableHead className="px-3 py-2 text-right font-medium">Acciones</TableHead>
               )}
-            </tr>
-          </thead>
-          <tbody>
+            </TableRow>
+          </TableHeader>
+          <TableBody className="[&_tr]:h-12">
             {lineasOrdenadas.map((linea, i) => {
               // La fila en edición se oculta: su form se monta fuera de la
               // tabla para no heredar su ancho (UX-F3-01).
@@ -251,42 +256,40 @@ export function EditorLineas({ oc }: EditorLineasProps) {
                   moneda={oc.moneda}
                   articuloClave={linea.articuloClave ?? articulo?.clave ?? null}
                   articuloNombre={linea.articuloNombre ?? articulo?.nombre ?? null}
-                  bgClass={i % 2 === 1 ? 'bg-muted/20' : undefined}
+                  bgClass={i % 2 === 1 ? 'bg-surface-muted/20' : undefined}
                   mostrarFraccion={mostrarFraccion}
                   canEditar={accEditar.habilitada}
                   canEliminar={accEliminar.habilitada}
-                  showAcciones={
-                    accEditar.visible || accEliminar.visible
-                  }
+                  showAcciones={accEditar.visible || accEliminar.visible}
                   onEditar={() => abrirEditar(linea)}
                   onEliminar={() => setLineaAEliminar(linea)}
                 />
               );
             })}
-          </tbody>
+          </TableBody>
           <tfoot>
-            <tr className="border-t bg-muted/30 font-medium">
-              <td colSpan={3} className="hidden @4xl:table-cell" />
-              <td colSpan={mostrarFraccion ? 6 : 5} className="px-3 py-2 text-right">
+            <TableRow className="border-t bg-surface-muted/30 font-medium">
+              <TableCell colSpan={3} className="hidden @4xl:table-cell" />
+              <TableCell colSpan={mostrarFraccion ? 6 : 5} className="px-3 py-2 text-right">
                 Totales
-              </td>
-              <td className="px-3 py-2 text-right tabular-nums">
+              </TableCell>
+              <TableCell className="px-3 py-2 text-right tabular-nums">
                 <MoneyDisplay
                   amount={lineasOrdenadas.reduce((acc, l) => acc + l.subtotalLinea, 0)}
                   currency={oc.moneda}
                   strong
                 />
-              </td>
-              <td className="hidden px-3 py-2 text-right tabular-nums @4xl:table-cell">
+              </TableCell>
+              <TableCell className="hidden px-3 py-2 text-right tabular-nums @4xl:table-cell">
                 <MoneyDisplay
                   amount={lineasOrdenadas.reduce((acc, l) => acc + l.ivaImporte, 0)}
                   currency={oc.moneda}
                 />
-              </td>
-              {(accEditar.visible || accEliminar.visible) && <td />}
-            </tr>
+              </TableCell>
+              {(accEditar.visible || accEliminar.visible) && <TableCell />}
+            </TableRow>
           </tfoot>
-        </table>
+        </Table>
       </div>
 
       {lineaEnEdicion && (
@@ -301,12 +304,7 @@ export function EditorLineas({ oc }: EditorLineasProps) {
       {/* Inline form expandible al final — agregar líneas sin modal. El
           form se mantiene abierto entre submits para agregar varias en
           sucesión (mismo UX que RQ). */}
-      {agregarAbierto && (
-        <LineaInlineFormOc
-          oc={oc}
-          onCancel={() => setAgregarAbierto(false)}
-        />
-      )}
+      {agregarAbierto && <LineaInlineFormOc oc={oc} onCancel={() => setAgregarAbierto(false)} />}
 
       <AlertDialog
         open={lineaAEliminar != null}
@@ -316,24 +314,19 @@ export function EditorLineas({ oc }: EditorLineasProps) {
       >
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>
-              ¿Eliminar línea {lineaAEliminar?.posicion}?
-            </AlertDialogTitle>
+            <AlertDialogTitle>¿Eliminar partida {lineaAEliminar?.posicion}?</AlertDialogTitle>
             <AlertDialogDescription>
-              Vas a eliminar la línea {lineaAEliminar?.posicion} (
-              {lineaAEliminar?.cantidad} {lineaAEliminar?.unidadMedida}).
-              Esta acción no se puede deshacer. Solo aplica en estado
-              Borrador o Rechazada.
+              Vas a eliminar la partida {lineaAEliminar?.posicion} ({lineaAEliminar?.cantidad}{' '}
+              {lineaAEliminar?.unidadMedida}). Esta acción no se puede deshacer. Solo aplica en
+              estado Borrador o Rechazada.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel disabled={eliminar.isPending}>
-              Cancelar
-            </AlertDialogCancel>
+            <AlertDialogCancel disabled={eliminar.isPending}>Cancelar</AlertDialogCancel>
             <AlertDialogAction
               onClick={confirmarEliminar}
               disabled={eliminar.isPending}
-              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              className="bg-danger-bg text-danger-fg hover:bg-danger-bg/90"
               data-action="confirmar-eliminar"
             >
               {eliminar.isPending ? 'Eliminando…' : 'Eliminar'}
@@ -381,48 +374,36 @@ function FilaLinea({
 }: FilaLineaProps) {
   const decimales = useDecimalesUnidad().porCodigo(linea.unidadMedida);
   return (
-    <tr className={cn(bgClass)} data-linea={linea.id}>
-      <td className="px-3 py-2 text-right tabular-nums text-muted-foreground">
+    <TableRow className={cn(bgClass)} data-linea={linea.id}>
+      <TableCell className="px-3 py-2 text-right tabular-nums text-ink-muted">
         {linea.posicion}
-      </td>
-      <td className="px-3 py-2">
+      </TableCell>
+      <TableCell className="px-3 py-2">
         <div className="flex flex-wrap items-center gap-1.5">
           {articuloClave ? (
-            <span className="font-mono text-xs font-medium">
-              {articuloClave}
-            </span>
+            <span className="font-mono text-xs font-medium">{articuloClave}</span>
           ) : (
-            <span
-              className="font-mono text-xs text-muted-foreground"
-              title={linea.articuloId}
-            >
+            <span className="font-mono text-xs text-ink-muted" title={linea.articuloId}>
               {linea.articuloId.slice(0, 8)}…
             </span>
           )}
           {linea.requisicionId != null && (
-            <LineaDesdeRqBadge
-              requisicionId={linea.requisicionId}
-              folio={linea.requisicionFolio}
-            />
+            <LineaDesdeRqBadge requisicionId={linea.requisicionId} folio={linea.requisicionFolio} />
           )}
         </div>
         {articuloNombre && (
-          <p className="mt-0.5 text-xs text-foreground/80 line-clamp-1">
-            {articuloNombre}
-          </p>
+          <p className="mt-0.5 text-xs text-ink/80 line-clamp-1">{articuloNombre}</p>
         )}
         {linea.descripcionExtendida && (
-          <p className="mt-1 text-xs text-muted-foreground line-clamp-1">
-            {linea.descripcionExtendida}
-          </p>
+          <p className="mt-1 text-xs text-ink-muted line-clamp-1">{linea.descripcionExtendida}</p>
         )}
-      </td>
+      </TableCell>
       {mostrarFraccion && (
-        <td className="px-3 py-2 font-mono text-xs" data-testid="oc-linea-fraccion">
-          {linea.fraccionArancelaria ?? <span className="text-muted-foreground">—</span>}
-        </td>
+        <TableCell className="px-3 py-2 font-mono text-xs" data-testid="oc-linea-fraccion">
+          {linea.fraccionArancelaria ?? <span className="text-ink-muted">—</span>}
+        </TableCell>
       )}
-      <td className="hidden px-3 py-2 @4xl:table-cell">
+      <TableCell className="hidden px-3 py-2 @4xl:table-cell">
         {/* CC-Máquina resuelto por el read-port (ADR-0050): "clave — nombre",
             "No catalogado" si el id no resuelve, "—" si la línea no lleva CC. */}
         {linea.centroCostoId ? (
@@ -431,21 +412,27 @@ function FilaLinea({
             nombre: linea.centroCostoNombre,
           })
         ) : (
-          <span className="text-muted-foreground">—</span>
+          <span className="text-ink-muted">—</span>
         )}
-      </td>
-      <td className="px-3 py-2 text-right tabular-nums">
+      </TableCell>
+      <TableCell className="px-3 py-2 text-right tabular-nums">
         {formatCantidad(linea.cantidad, decimales)}
-      </td>
-      <td className="px-3 py-2">{linea.unidadMedida}</td>
-      <td className="hidden px-3 py-2 text-right tabular-nums @4xl:table-cell" data-testid="oc-linea-recibido">
+      </TableCell>
+      <TableCell className="px-3 py-2">{linea.unidadMedida}</TableCell>
+      <TableCell
+        className="hidden px-3 py-2 text-right tabular-nums @4xl:table-cell"
+        data-testid="oc-linea-recibido"
+      >
         {formatCantidad(linea.cantidadRecibida, decimales)}
-      </td>
+      </TableCell>
       {/* Por surtir = lo que el proveedor aún no ha entregado (nunca negativo). */}
-      <td className="hidden px-3 py-2 text-right tabular-nums @4xl:table-cell" data-testid="oc-linea-por-surtir">
+      <TableCell
+        className="hidden px-3 py-2 text-right tabular-nums @4xl:table-cell"
+        data-testid="oc-linea-por-surtir"
+      >
         {formatCantidad(Math.max(linea.cantidad - linea.cantidadRecibida, 0), decimales)}
-      </td>
-      <td className="px-3 py-2 text-right tabular-nums">
+      </TableCell>
+      <TableCell className="px-3 py-2 text-right tabular-nums">
         {linea.precioUnitario <= 0 ? (
           <span className="inline-flex flex-col items-end gap-1" data-testid="oc-linea-sin-precio">
             <span className="font-medium text-danger-fg">
@@ -456,18 +443,18 @@ function FilaLinea({
         ) : (
           <MoneyDisplay amount={linea.precioUnitario} currency={moneda} />
         )}
-      </td>
-      <td className="px-3 py-2 text-right tabular-nums font-medium">
+      </TableCell>
+      <TableCell className="px-3 py-2 text-right tabular-nums font-medium">
         <MoneyDisplay amount={linea.subtotalLinea} currency={moneda} />
         <p className="text-xs font-normal text-ink-muted">
           {etiquetaDescuento(linea.descuentoTipo, linea.descuentoValor)}
         </p>
-      </td>
-      <td className="hidden px-3 py-2 text-right tabular-nums text-muted-foreground @4xl:table-cell">
+      </TableCell>
+      <TableCell className="hidden px-3 py-2 text-right tabular-nums text-ink-muted @4xl:table-cell">
         <MoneyDisplay amount={linea.ivaImporte} currency={moneda} />
-      </td>
+      </TableCell>
       {showAcciones && (
-        <td className="px-3 py-2 text-right">
+        <TableCell className="px-3 py-2 text-right">
           <div className="inline-flex gap-1">
             {canEditar && (
               <Button
@@ -475,7 +462,7 @@ function FilaLinea({
                 size="sm"
                 variant="ghost"
                 onClick={onEditar}
-                aria-label={`Editar línea ${linea.posicion}`}
+                aria-label={`Editar partida ${linea.posicion}`}
                 className="h-7 px-2"
                 data-action="editar-linea"
               >
@@ -488,7 +475,7 @@ function FilaLinea({
                 size="sm"
                 variant="ghost"
                 onClick={onEliminar}
-                aria-label={`Eliminar línea ${linea.posicion}`}
+                aria-label={`Eliminar partida ${linea.posicion}`}
                 className="h-7 px-2 text-danger-fg hover:bg-danger-bg hover:text-danger-fg"
                 data-action="eliminar-linea"
               >
@@ -496,8 +483,8 @@ function FilaLinea({
               </Button>
             )}
           </div>
-        </td>
+        </TableCell>
       )}
-    </tr>
+    </TableRow>
   );
 }

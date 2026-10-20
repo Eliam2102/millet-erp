@@ -1,3 +1,12 @@
+import { ResumenImportes } from '@/components/erp/display/ResumenImportes';
+import {
+  Table,
+  TableHeader,
+  TableBody,
+  TableRow,
+  TableCell,
+  TableHead,
+} from '@/components/ui/table';
 import { PageHeader } from '@/components/erp/PageHeader';
 import { useState, type ReactNode } from 'react';
 import { Link, useParams } from '@tanstack/react-router';
@@ -6,9 +15,7 @@ import { Button } from '@/components/ui/button';
 import { ErrorState, DetalleSkeleton } from '@/components/erp';
 import { useDevolucionProveedor } from '@/features/almacen/api/useDevolucionesProveedor';
 import { useSubAlmacenes } from '@/features/almacen/api/useAlmacenes';
-import {
-  EstadoDevolucionProveedor,
-} from '@/features/almacen/api/types';
+import { EstadoDevolucionProveedor } from '@/features/almacen/api/types';
 import { useHasPermission } from '@/lib/auth/useHasPermission';
 import { PermisosCanonicos } from '@/lib/auth/permission-codes';
 import { esApiError } from '@/lib/api';
@@ -51,15 +58,9 @@ export function DevolucionProveedorDetallePage() {
     (s) => s.id === query.data?.subAlmacenOrigenId,
   );
 
-  const puedeIniciar = useHasPermission(
-    PermisosCanonicos.AlmacenDevolucionesProveedorIniciar,
-  );
-  const puedeAutorizar = useHasPermission(
-    PermisosCanonicos.AlmacenDevolucionesProveedorAutorizar,
-  );
-  const puedeRegistrar = useHasPermission(
-    PermisosCanonicos.AlmacenDevolucionesProveedorRegistrar,
-  );
+  const puedeIniciar = useHasPermission(PermisosCanonicos.AlmacenDevolucionesProveedorIniciar);
+  const puedeAutorizar = useHasPermission(PermisosCanonicos.AlmacenDevolucionesProveedorAutorizar);
+  const puedeRegistrar = useHasPermission(PermisosCanonicos.AlmacenDevolucionesProveedorRegistrar);
 
   const [solicitarOpen, setSolicitarOpen] = useState(false);
   const [autorizarOpen, setAutorizarOpen] = useState(false);
@@ -67,7 +68,7 @@ export function DevolucionProveedorDetallePage() {
   const [registrarSalidaOpen, setRegistrarSalidaOpen] = useState(false);
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-5">
       <div className="flex items-center gap-2 md:hidden">
         <Button asChild variant="ghost" size="sm">
           <Link to="/almacen/devoluciones" search={{}}>
@@ -86,9 +87,10 @@ export function DevolucionProveedorDetallePage() {
       ) : query.isLoading ? (
         <DetalleSkeleton />
       ) : query.data == null ? null : (
-        <div className="space-y-6">
+        <div className="space-y-5">
           <PageHeader
-            titulo="Devolución a proveedor"
+            titulo={query.data.folioMovimientoSalida ?? 'Devolución a proveedor'}
+            mono={Boolean(query.data.folioMovimientoSalida)}
             estado={
               <>
                 <EstadoAlmacenBadge tipo="devolucion-proveedor" estado={query.data.estado} />
@@ -96,7 +98,7 @@ export function DevolucionProveedorDetallePage() {
             }
             descripcion={
               <>
-                Solicitada el{' '}
+                {query.data.proveedorNombre ?? '[PROVEEDOR]'} · Solicitada el{' '}
                 <DateTimeDisplay value={query.data.solicitadaAt} variant="datetime" />
                 {query.data.autorizadaAt && (
                   <>
@@ -131,15 +133,12 @@ export function DevolucionProveedorDetallePage() {
             }
           />
 
-          <section className="grid grid-cols-1 gap-x-6 gap-y-2 rounded-md border p-4 md:grid-cols-2">
+          <dl className="grid grid-cols-1 gap-4 rounded-lg bg-surface-card p-4 shadow-card-flat sm:grid-cols-4">
             {/* Razón social resuelta en backend (ADR-0042); si el puerto no
                 resolvió, cae al id truncado (nunca el GUID completo). */}
             <Campo
               label="Proveedor"
-              valor={
-                query.data.proveedorNombre ??
-                `${query.data.proveedorId.slice(0, 8)}…`
-              }
+              valor={query.data.proveedorNombre ?? `${query.data.proveedorId.slice(0, 8)}…`}
               mono={!query.data.proveedorNombre}
             />
             <Campo
@@ -210,28 +209,26 @@ export function DevolucionProveedorDetallePage() {
             </div>
             {query.data.motivoRechazo && (
               <div className="md:col-span-2">
-                <Campo
-                  label="Motivo de rechazo"
-                  valor={query.data.motivoRechazo}
-                />
+                <Campo label="Motivo de rechazo" valor={query.data.motivoRechazo} />
               </div>
             )}
             {query.data.notaCreditoFiscalId && (
               <Campo
                 label="NC fiscal vinculada"
                 valor={
-                  query.data.notaCreditoFolio ??
-                  `${query.data.notaCreditoFiscalId.slice(0, 8)}…`
+                  query.data.notaCreditoFolio ?? `${query.data.notaCreditoFiscalId.slice(0, 8)}…`
                 }
                 mono={!query.data.notaCreditoFolio}
               />
             )}
-          </section>
+          </dl>
 
           <EvidenciasManager
             devolucionId={query.data.id}
             evidencias={query.data.evidencias}
-            lineaRevisionId={query.data.lineas.find((l) => l.lineaRecepcionOrigenId)?.lineaRecepcionOrigenId}
+            lineaRevisionId={
+              query.data.lineas.find((l) => l.lineaRecepcionOrigenId)?.lineaRecepcionOrigenId
+            }
             canAdd={
               puedeIniciar &&
               (query.data.estado === EstadoDevolucionProveedor.Borrador ||
@@ -240,59 +237,56 @@ export function DevolucionProveedorDetallePage() {
           />
 
           <section className="space-y-2">
-            <h2 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">
-              Líneas ({query.data.lineas.length})
+            <h2 className="text-sm font-semibold uppercase tracking-wide text-ink-muted">
+              Partidas ({query.data.lineas.length})
             </h2>
             <div className="overflow-x-auto rounded-md border">
-              <table className="w-full text-sm">
-                <thead className="bg-muted/50">
-                  <tr>
-                    <th className="px-3 py-2 text-left">#</th>
-                    <th className="px-3 py-2 text-left">Artículo</th>
-                    <th className="px-3 py-2 text-right">Cantidad</th>
-                    <th className="px-3 py-2 text-left">UM</th>
-                    <th className="px-3 py-2 text-right">Costo unitario</th>
-                    <th className="px-3 py-2 text-right">Monto</th>
-                  </tr>
-                </thead>
-                <tbody>
+              <Table className="w-full text-sm">
+                <TableHeader className="bg-surface-muted/50">
+                  <TableRow>
+                    <TableHead className="px-3 py-2 text-left">#</TableHead>
+                    <TableHead className="px-3 py-2 text-left">Artículo</TableHead>
+                    <TableHead className="px-3 py-2 text-right">Cantidad</TableHead>
+                    <TableHead className="px-3 py-2 text-left">UM</TableHead>
+                    <TableHead className="px-3 py-2 text-right">Costo unitario</TableHead>
+                    <TableHead className="px-3 py-2 text-right">Monto</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
                   {query.data.lineas.map((l) => (
-                    <tr key={l.id} className="border-t">
-                      <td className="px-3 py-2">{l.posicion}</td>
-                      <td className="px-3 py-2">
+                    <TableRow key={l.id} className="border-t">
+                      <TableCell className="px-3 py-2">{l.posicion}</TableCell>
+                      <TableCell className="px-3 py-2">
                         {l.articuloClave ? (
                           <>
-                            <code className="font-mono text-xs">
-                              {l.articuloClave}
-                            </code>
-                            {l.articuloDescripcion && (
-                              <> · {l.articuloDescripcion}</>
-                            )}
+                            <code className="font-mono text-xs">{l.articuloClave}</code>
+                            {l.articuloDescripcion && <> · {l.articuloDescripcion}</>}
                           </>
                         ) : (
-                          <code
-                            className="font-mono text-xs"
-                            title={l.articuloId}
-                          >
+                          <code className="font-mono text-xs" title={l.articuloId}>
                             {l.articuloId.slice(0, 8)}…
                           </code>
                         )}
-                      </td>
-                      <td className="py-2 pl-3 pr-4 text-right tabular-nums">
+                      </TableCell>
+                      <TableCell className="py-2 pl-3 pr-4 text-right tabular-nums">
                         {formatCantidad(l.cantidad, decimalesUnidad.porCodigo(l.unidadMedida))}
-                      </td>
-                      <td className="px-3 py-2">{l.unidadMedida}</td>
-                      <td className="py-2 pl-3 pr-4 text-right tabular-nums">
+                      </TableCell>
+                      <TableCell className="px-3 py-2">{l.unidadMedida}</TableCell>
+                      <TableCell className="py-2 pl-3 pr-4 text-right tabular-nums">
                         <MoneyDisplay amount={l.costoUnitarioMxn} currency="MXN" strong />
-                      </td>
-                      <td className="py-2 pl-3 pr-4 text-right tabular-nums">
+                      </TableCell>
+                      <TableCell className="py-2 pl-3 pr-4 text-right tabular-nums">
                         <MoneyDisplay amount={l.montoTotalMxn} currency="MXN" strong />
-                      </td>
-                    </tr>
+                      </TableCell>
+                    </TableRow>
                   ))}
-                </tbody>
-              </table>
+                </TableBody>
+              </Table>
             </div>
+            <ResumenImportes
+              moneda="MXN"
+              total={query.data.lineas.reduce((total, linea) => total + linea.montoTotalMxn, 0)}
+            />
           </section>
         </div>
       )}
@@ -350,11 +344,7 @@ function Acciones({
         <Button
           onClick={onSolicitar}
           disabled={!tieneEvidencias}
-          title={
-            tieneEvidencias
-              ? undefined
-              : 'Agrega al menos una evidencia antes de solicitar'
-          }
+          title={tieneEvidencias ? undefined : 'Agrega al menos una evidencia antes de solicitar'}
         >
           <Send className="mr-2 size-3.5" />
           Solicitar autorización
@@ -388,7 +378,7 @@ function Acciones({
   }
   if (estado === EstadoDevolucionProveedor.Registrada) {
     return (
-      <p className="text-sm text-muted-foreground">
+      <p className="text-sm text-ink-muted">
         Esperando NC fiscal del proveedor (CxP la captura cuando llegue).
       </p>
     );
@@ -396,25 +386,11 @@ function Acciones({
   return null;
 }
 
-function Campo({
-  label,
-  valor,
-  mono,
-}: {
-  label: string;
-  valor: ReactNode;
-  mono?: boolean;
-}) {
+function Campo({ label, valor, mono }: { label: string; valor: ReactNode; mono?: boolean }) {
   return (
     <div>
-      <div className="text-xs uppercase tracking-wide text-muted-foreground">
-        {label}
-      </div>
-      <div className={mono ? 'font-mono text-xs break-all' : 'text-sm'}>
-        {valor}
-      </div>
+      <dt className="text-xs text-ink-muted">{label}</dt>
+      <dd className={mono ? 'font-mono text-xs break-all' : 'text-sm'}>{valor}</dd>
     </div>
   );
 }
-
-

@@ -12,8 +12,8 @@ import type {
 } from '@/features/compras/ordenes/api/types';
 
 /**
- * Bug 2 (OC) — la UM de la línea de OC se hereda del artículo en un campo
- * read-only. En líneas heredadas de una RQ el artículo está bloqueado, así
+ * Bug 2 (OC) — la UM de la partida de OC se hereda del artículo en un campo
+ * read-only. En partidas heredadas de una RQ el artículo está bloqueado, así
  * que la UM queda fija con la unidad guardada en la RQ.
  */
 
@@ -65,7 +65,7 @@ const um = () =>
   ) as HTMLInputElement;
 
 describe('<LineaInlineFormOc> — herencia de unidad de medida (Bug 2)', () => {
-  it('línea manual: al seleccionar artículo, la UM se puebla y es read-only', async () => {
+  it('partida manual: al seleccionar artículo, la UM se puebla y es read-only', async () => {
     mockCatalogo('LT');
     render(<LineaInlineFormOc oc={OC} onCancel={() => {}} />, {
       wrapper: createQueryWrapper(),
@@ -83,7 +83,7 @@ describe('<LineaInlineFormOc> — herencia de unidad de medida (Bug 2)', () => {
     await waitFor(() => expect(um().value).toBe('LT'));
   });
 
-  it('línea heredada de RQ: UM fija con la unidad de la RQ y artículo bloqueado', () => {
+  it('partida heredada de RQ: UM fija con la unidad de la RQ y artículo bloqueado', () => {
     mockCatalogo('KG'); // catálogo distinto a la UM guardada: no debe re-derivar
     const linea = {
       id: 'l-1',
@@ -103,7 +103,7 @@ describe('<LineaInlineFormOc> — herencia de unidad de medida (Bug 2)', () => {
       wrapper: createQueryWrapper(),
     });
 
-    // La UM viene de la línea de RQ ('LT'), read-only, no del catálogo ('KG').
+    // La UM viene de la partida de RQ ('LT'), read-only, no del catálogo ('KG').
     expect(um().value).toBe('LT');
     expect(um()).toHaveAttribute('readonly');
     // El selector de artículo está bloqueado (la RQ es la fuente de verdad).

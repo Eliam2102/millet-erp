@@ -1,3 +1,6 @@
+import { FormCampo } from '@/components/erp/forms/FormGrid';
+import { FormSeccion } from '@/components/erp/forms/FormSeccion';
+import { DialogBody } from '@/components/ui/dialog';
 import { useState } from 'react';
 import { useNavigate } from '@tanstack/react-router';
 import { toast } from 'sonner';
@@ -94,50 +97,66 @@ function Formulario({
 
   return (
     <>
-      <div className="space-y-4">
-        <Field label="Condiciones de pago" required>
-          {(c) => (
-            <CondicionesPagoSelector
-              triggerProps={c}
-              value={condicionesPagoId || null}
-              onChange={(v) => setCondicionesPagoId(v ?? '')}
-            />
-          )}
-        </Field>
-        <Field label="Uso principal" required>
-          {(c) => (
-            <UsoPrincipalSelector
-              triggerProps={c}
-              value={usoPrincipalId || null}
-              onChange={(v) => setUsoPrincipalId(v ?? '')}
-            />
-          )}
-        </Field>
-        {!esMxn && (
-          <Field label={`Tipo de cambio (${cotizacion.moneda} → MXN)`} required>
-            <Input
-              type="number"
-              step="any"
-              min={0}
-              inputMode="decimal"
-              className="tabular-nums"
-              value={tipoCambio}
-              onChange={(e) => setTipoCambio(e.target.value)}
-            />
-          </Field>
-        )}
-        <Field label="Fecha de entrega esperada" optional>
-          <Input type="date" value={fechaEntrega} onChange={(e) => setFechaEntrega(e.target.value)} />
-        </Field>
-        <Field label="Observaciones" optional>
-          <Textarea
-            rows={3}
-            maxLength={1000}
-            value={observaciones}
-            onChange={(e) => setObservaciones(e.target.value)}
-          />
-        </Field>
-      </div>
+      <DialogBody>
+        <FormSeccion titulo="Datos de la orden">
+          <FormCampo span={6}>
+            <Field label="Condiciones de pago" required>
+              {(c) => (
+                <CondicionesPagoSelector
+                  triggerProps={c}
+                  value={condicionesPagoId || null}
+                  onChange={(v) => setCondicionesPagoId(v ?? '')}
+                />
+              )}
+            </Field>
+          </FormCampo>
+          <FormCampo span={6}>
+            <Field label="Uso principal" required>
+              {(c) => (
+                <UsoPrincipalSelector
+                  triggerProps={c}
+                  value={usoPrincipalId || null}
+                  onChange={(v) => setUsoPrincipalId(v ?? '')}
+                />
+              )}
+            </Field>
+          </FormCampo>
+          <FormCampo span={6}>
+            {!esMxn && (
+              <Field label={`Tipo de cambio (${cotizacion.moneda} → MXN)`} required>
+                <Input
+                  type="number"
+                  step="any"
+                  min={0}
+                  inputMode="decimal"
+                  className="tabular-nums"
+                  value={tipoCambio}
+                  onChange={(e) => setTipoCambio(e.target.value)}
+                />
+              </Field>
+            )}
+          </FormCampo>
+          <FormCampo span={6}>
+            <Field label="Fecha de entrega esperada" optional>
+              <Input
+                type="date"
+                value={fechaEntrega}
+                onChange={(e) => setFechaEntrega(e.target.value)}
+              />
+            </Field>
+          </FormCampo>
+          <FormCampo span={6}>
+            <Field label="Observaciones" optional>
+              <Textarea
+                rows={3}
+                maxLength={1000}
+                value={observaciones}
+                onChange={(e) => setObservaciones(e.target.value)}
+              />
+            </Field>
+          </FormCampo>
+        </FormSeccion>
+      </DialogBody>
       <DialogFooter className="items-center gap-2 sm:justify-between">
         <p role="status" className="text-xs text-ink-muted">
           {faltante ? `Falta: ${faltante}` : ''}
@@ -146,7 +165,11 @@ function Formulario({
           <Button type="button" variant="ghost" onClick={onClose} disabled={crear.isPending}>
             Cancelar
           </Button>
-          <Button type="button" disabled={crear.isPending || faltante !== null} onClick={() => void enviar()}>
+          <Button
+            type="button"
+            disabled={crear.isPending || faltante !== null}
+            onClick={() => void enviar()}
+          >
             {crear.isPending ? 'Generando…' : 'Generar orden de compra'}
           </Button>
         </div>
@@ -156,11 +179,15 @@ function Formulario({
 }
 
 /** F1-COM-02 — completa los datos de la OC que se genera con la cotización elegida (D1). */
-export function GenerarOcCotizacionDialog({ abierto, onClose, ...resto }: GenerarOcCotizacionDialogProps) {
+export function GenerarOcCotizacionDialog({
+  abierto,
+  onClose,
+  ...resto
+}: GenerarOcCotizacionDialogProps) {
   const proveedor = resto.cotizacion.proveedorRazonSocial ?? resto.cotizacion.proveedorId;
   return (
     <Dialog open={abierto} onOpenChange={(o) => !o && onClose()}>
-      <DialogContent>
+      <DialogContent size="lg">
         <DialogHeader>
           <DialogTitle>Generar orden de compra</DialogTitle>
           <DialogDescription>
