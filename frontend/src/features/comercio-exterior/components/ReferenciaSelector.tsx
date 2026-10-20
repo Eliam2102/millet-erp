@@ -1,3 +1,4 @@
+import { FormCampo } from '@/components/erp/forms/FormGrid';
 import { useId, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { Input } from '@/components/ui/input';
@@ -32,15 +33,17 @@ export function ReferenciaSelector({
   });
   return (
     <div className="space-y-1.5">
-      <Label htmlFor={id}>
-        Buscar {tipo === 'clientes' ? 'cliente' : 'proveedor'} por nombre o clave
-      </Label>
-      <Input
-        id={id}
-        value={texto}
-        onChange={(e) => setTexto(e.target.value)}
-        placeholder="Escribe al menos 2 caracteres"
-      />
+      <FormCampo span={6} className="space-y-1.5">
+        <Label htmlFor={id}>
+          Buscar {tipo === 'clientes' ? 'cliente' : 'proveedor'} por nombre o clave
+        </Label>
+        <Input
+          id={id}
+          value={texto}
+          onChange={(e) => setTexto(e.target.value)}
+          placeholder="Escribe al menos 2 caracteres"
+        />
+      </FormCampo>
       <select
         aria-label={
           tipo === 'clientes'

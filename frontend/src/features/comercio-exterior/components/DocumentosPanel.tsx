@@ -1,3 +1,5 @@
+import { FormCampo } from '@/components/erp/forms/FormGrid';
+import { estadosDocumento } from '../lib/estados-ui';
 import { useState } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { Badge } from '@/components/ui/badge';
@@ -43,7 +45,11 @@ export function DocumentosPanel({ data }: { data: ExpedienteDetalle }) {
     try {
       await accion.mutateAsync({
         accion: 'documentos',
-        body: { tipoDocumentoId, adjuntoId, noAplica, motivo: motivo || null,
+        body: {
+          tipoDocumentoId,
+          adjuntoId,
+          noAplica,
+          motivo: motivo || null,
           ...(!noAplica && numeroPedimento ? { numeroPedimento } : {}),
         },
       });
@@ -65,15 +71,17 @@ export function DocumentosPanel({ data }: { data: ExpedienteDetalle }) {
     <section className="space-y-5">
       {subir && data.expediente.tipo === 2 && (
         <div className="space-y-1.5">
-          <Label htmlFor="ce-doc-numero-pedimento">
-            Número del pedimento (al registrar su versión documental)
-          </Label>
-          <Input
-            id="ce-doc-numero-pedimento"
-            maxLength={100}
-            value={numeroPedimento}
-            onChange={(e) => setNumeroPedimento(e.target.value)}
-          />
+          <FormCampo span={6} className="space-y-1.5">
+            <Label htmlFor="ce-doc-numero-pedimento">
+              Número del pedimento (al registrar su versión documental)
+            </Label>
+            <Input
+              id="ce-doc-numero-pedimento"
+              maxLength={100}
+              value={numeroPedimento}
+              onChange={(e) => setNumeroPedimento(e.target.value)}
+            />
+          </FormCampo>
           <p className="text-xs text-ink-muted">
             Capture el número de la versión vigente antes de registrar el documento del pedimento de
             exportación.
@@ -113,7 +121,7 @@ export function DocumentosPanel({ data }: { data: ExpedienteDetalle }) {
         </div>
       )}
       <p className="text-xs text-ink-muted">
-        La obligatoriedad final de los documentos está Por confirmar con Millet (PEN-CE-016).
+        Revisa los requisitos obligatorios indicados antes de confirmar la documentación.
       </p>
       {(accion.isError || error) && (
         <p role="alert" className="text-danger-fg">
@@ -125,15 +133,17 @@ export function DocumentosPanel({ data }: { data: ExpedienteDetalle }) {
       )}
       {subir && (
         <div className="space-y-1.5">
-          <Label htmlFor="ce-motivo-doc">
-            Motivo de sustitución o «No aplica» (5 a 500 caracteres)
-          </Label>
-          <Input
-            id="ce-motivo-doc"
-            value={motivo}
-            maxLength={500}
-            onChange={(e) => setMotivo(e.target.value)}
-          />
+          <FormCampo span={6} className="space-y-1.5">
+            <Label htmlFor="ce-motivo-doc">
+              Motivo de sustitución o «No aplica» (5 a 500 caracteres)
+            </Label>
+            <Input
+              id="ce-motivo-doc"
+              value={motivo}
+              maxLength={500}
+              onChange={(e) => setMotivo(e.target.value)}
+            />
+          </FormCampo>
           <p className="text-xs text-ink-muted">
             La versión anterior y su archivo se conservan. Captura el motivo antes de subir una
             corrección.
@@ -179,8 +189,18 @@ export function DocumentosPanel({ data }: { data: ExpedienteDetalle }) {
                     className="flex flex-wrap items-center gap-2 border-t border-line-row pt-2 text-xs"
                   >
                     <span>Versión {d.numeroVersion}</span>
-                    <Badge variant={d.estado === 2 ? 'neutral' : 'info'}>
-                      {d.estado === 2 ? 'Reemplazada' : d.noAplica ? 'No aplica' : 'Vigente'}
+                    <Badge
+                      variant={
+                        estadosDocumento[
+                          d.estado === 2 ? 'reemplazada' : d.noAplica ? 'noAplica' : 'vigente'
+                        ].tono
+                      }
+                    >
+                      {
+                        estadosDocumento[
+                          d.estado === 2 ? 'reemplazada' : d.noAplica ? 'noAplica' : 'vigente'
+                        ].texto
+                      }
                     </Badge>
                     <span>{d.responsableNombre}</span>
                     <DateTimeDisplay value={d.createdAt} />

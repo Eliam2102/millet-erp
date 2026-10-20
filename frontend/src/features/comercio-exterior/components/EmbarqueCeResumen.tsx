@@ -1,3 +1,11 @@
+import {
+  Table,
+  TableHeader,
+  TableRow,
+  TableHead,
+  TableBody,
+  TableCell,
+} from '@/components/ui/table';
 import type { DatosEmbarqueCe, EmbarqueCe } from '../api/types';
 export function EmbarqueCeResumen({
   datos,
@@ -26,14 +34,24 @@ export function EmbarqueCeResumen({
           <dd>{datos.incoterm ?? 'Pendiente'}</dd>
         </div>
       </dl>
-      <ul>
-        {datos.contenedores?.map((c, i) => (
-          <li key={`${c.numero}-${i}`}>
-            <span className="font-mono text-xs">{c.numero}</span> · BL o guía: {c.blGuia} ·
-            Embarque: {c.fechaEmbarqueReal}
-          </li>
-        ))}
-      </ul>
+      <Table>
+        <TableHeader>
+          <TableRow>
+            <TableHead>Contenedor</TableHead>
+            <TableHead>BL o guía</TableHead>
+            <TableHead>Embarque</TableHead>
+          </TableRow>
+        </TableHeader>
+        <TableBody>
+          {datos.contenedores?.map((c, i) => (
+            <TableRow key={`${c.numero}-${i}`}>
+              <TableCell className="font-mono text-xs">{c.numero}</TableCell>
+              <TableCell className="font-mono text-xs">{c.blGuia}</TableCell>
+              <TableCell>{c.fechaEmbarqueReal}</TableCell>
+            </TableRow>
+          ))}
+        </TableBody>
+      </Table>
       {datos.clavePedimento === 'RT' && <p>RT · Sin CCE.</p>}
       {bloqueo && (
         <p role="alert" className="rounded-md bg-warning-note-bg px-3 py-2.5 text-warning-note-fg">
@@ -41,8 +59,8 @@ export function EmbarqueCeResumen({
         </p>
       )}
       <p className="text-xs text-ink-muted">
-        Estos datos se conservan en la factura. Número de pedimento en XML: Por confirmar con Fiscal
-        (VAL-CE-08).
+        Estos datos se conservan en la factura. La inclusión del pedimento en el XML está pendiente
+        de validación fiscal.
       </p>
     </section>
   );
