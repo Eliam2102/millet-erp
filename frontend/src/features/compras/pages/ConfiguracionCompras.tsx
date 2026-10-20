@@ -1,3 +1,4 @@
+import { PageHeader } from '@/components/erp/PageHeader';
 import { useAuthStore } from '@/lib/auth/auth-store';
 import { PermisosCanonicos } from '@/lib/auth/permission-codes';
 import { UmbralesAprobacionSection } from '@/features/compras/components/UmbralesAprobacionSection';
@@ -16,15 +17,16 @@ export function ConfiguracionCompras() {
 
   return (
     <div className="space-y-5">
-      <div>
-        <h1 className="text-2xl font-semibold tracking-tight">Configuración de Compras</h1>
-        <p className="text-sm text-ink-muted">
-          Reglas de autorización de requisiciones por departamento para la empresa actual.
-        </p>
-      </div>
+      <PageHeader
+        titulo="Configuración de compras"
+        descripcion="Reglas de autorización de requisiciones por departamento para la empresa actual."
+      />
 
       {!puedeEditar && (
-        <div role="note" className="rounded-md bg-warning-note-bg px-3 py-2.5 text-sm text-warning-note-fg">
+        <div
+          role="note"
+          className="rounded-md bg-warning-note-bg px-3 py-2.5 text-sm text-warning-note-fg"
+        >
           Solo lectura: tu rol puede consultar esta configuración, pero no modificarla.
         </div>
       )}

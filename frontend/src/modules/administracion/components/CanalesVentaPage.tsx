@@ -1,5 +1,18 @@
+import { DialogBody } from '@/components/ui/dialog';
+import { ConfirmacionContent as AlertDialogContent } from '@/modules/administracion/components/ConfirmacionContent';
+import {
+  Table,
+  TableHeader,
+  TableRow,
+  TableHead,
+  TableBody,
+  TableCell,
+} from '@/components/ui/table';
+import { ListadoCatalogo } from '@/modules/administracion/components/ListadoCatalogo';
+import { OPCIONES_CATALOGO } from '@/modules/administracion/lib/estados-ui';
+import { PageHeader } from '@/components/erp/PageHeader';
 import { useState } from 'react';
-import { Pencil, Plus, Power, PowerOff, Share2 } from 'lucide-react';
+import { Pencil, Plus, Power, PowerOff } from 'lucide-react';
 import { toast } from 'sonner';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -7,21 +20,14 @@ import {
   AlertDialog,
   AlertDialogAction,
   AlertDialogCancel,
-  AlertDialogContent,
   AlertDialogDescription,
   AlertDialogFooter,
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
 import { ErrorState, TableSkeleton } from '@/components/erp';
-import {
-  EstatusCatalogo,
-  type CanalVentaResponse,
-} from '@/modules/administracion/api/types';
-import {
-  useActualizarCanalVenta,
-  useCanalesVentaAdmin,
-} from '@/modules/administracion/api';
+import { EstatusCatalogo, type CanalVentaResponse } from '@/modules/administracion/api/types';
+import { useActualizarCanalVenta, useCanalesVentaAdmin } from '@/modules/administracion/api';
 import { useHasPermission } from '@/lib/auth/useHasPermission';
 import { PermisosCanonicos } from '@/lib/auth/permission-codes';
 import { esApiError, useFormIdempotencyKey, codigoSoporte } from '@/lib/api';
@@ -43,12 +49,9 @@ import { CanalVentaInlineForm } from '@/modules/administracion/components/CanalV
 export function CanalesVentaPage() {
   const [agregando, setAgregando] = useState(false);
   const [editandoId, setEditandoId] = useState<number | null>(null);
-  const [confirmDesactivar, setConfirmDesactivar] =
-    useState<CanalVentaResponse | null>(null);
+  const [confirmDesactivar, setConfirmDesactivar] = useState<CanalVentaResponse | null>(null);
 
-  const canGestionar = useHasPermission(
-    PermisosCanonicos.AdminEmpresasSucursalesGestionar,
-  );
+  const canGestionar = useHasPermission(PermisosCanonicos.AdminEmpresasSucursalesGestionar);
 
   const query = useCanalesVentaAdmin();
   const canales = query.data ?? [];
@@ -56,11 +59,7 @@ export function CanalesVentaPage() {
   const idempotencyKey = useFormIdempotencyKey();
   const actualizar = useActualizarCanalVenta();
 
-  function cambiarEstatus(
-    canal: CanalVentaResponse,
-    estatus: EstatusCatalogo,
-    mensajeOk: string,
-  ) {
+  function cambiarEstatus(canal: CanalVentaResponse, estatus: EstatusCatalogo, mensajeOk: string) {
     actualizar.mutate(
       { id: canal.id, payload: { estatus }, idempotencyKey },
       {
@@ -83,33 +82,34 @@ export function CanalesVentaPage() {
   }
 
   return (
-    <div className="mx-auto max-w-4xl space-y-4 p-4">
-      <header className="flex flex-wrap items-center justify-between gap-2">
-        <div>
-          <h1 className="flex items-center gap-2 text-lg font-semibold">
-            <Share2 className="h-5 w-5" aria-hidden="true" />
-            Canales de venta
-          </h1>
-          <p className="text-sm text-muted-foreground">
-            Eje organizacional de la facturación (de dónde viene la venta).
-            La clave A+W es el GRUPPE con el que A+W refiere el canal en la
-            ingesta de pedidos. Total: {canales.length}.
-          </p>
-        </div>
-        {canGestionar && !agregando && (
-          <Button
-            size="sm"
-            variant="outline"
-            onClick={() => {
-              setAgregando(true);
-              setEditandoId(null);
-            }}
-          >
-            <Plus className="mr-1 h-4 w-4" />
-            Agregar canal
-          </Button>
-        )}
-      </header>
+    <div className="space-y-5">
+      <PageHeader
+        titulo={<>Canales de venta</>}
+        descripcion={
+          <>
+            Eje organizacional de la facturación (de dónde viene la venta). La clave A+W es el
+            GRUPPE con el que A+W refiere el canal en la ingesta de pedidos. Total: {canales.length}
+            .
+          </>
+        }
+        acciones={
+          <>
+            {canGestionar && !agregando && (
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() => {
+                  setAgregando(true);
+                  setEditandoId(null);
+                }}
+              >
+                <Plus className="mr-1 h-4 w-4" />
+                Agregar canal
+              </Button>
+            )}
+          </>
+        }
+      />
 
       {agregando && canGestionar && (
         <CanalVentaInlineForm
@@ -127,90 +127,122 @@ export function CanalesVentaPage() {
       ) : query.isLoading ? (
         <TableSkeleton rows={5} />
       ) : canales.length === 0 ? (
-        <div className="rounded-md border border-dashed bg-muted/20 px-4 py-6 text-center text-sm text-muted-foreground">
+        <div className="rounded-md border border-dashed bg-surface-muted/20 px-4 py-6 text-center text-sm text-ink-muted">
           No hay canales de venta registrados.
         </div>
       ) : (
-        <ul className="divide-y rounded-md border bg-card">
-          {canales.map((c) => {
-            const editando = editandoId === c.id;
-            const activo = c.estatus === EstatusCatalogo.Activo;
-            return (
-              <li key={c.id} className="px-3 py-2">
-                {editando && canGestionar ? (
-                  <CanalVentaInlineForm
-                    canal={c}
-                    onCancel={() => setEditandoId(null)}
-                    onSaved={() => setEditandoId(null)}
-                  />
-                ) : (
-                  <div className="flex flex-wrap items-center gap-3">
-                    <span className="w-8 text-right font-mono text-xs text-muted-foreground">
-                      {c.id}
-                    </span>
-                    <span className="flex-1 truncate text-sm">{c.nombre}</span>
-                    <span
-                      className="w-28 truncate font-mono text-xs"
-                      title="Clave A+W (GRUPPE de la ingesta de pedidos)"
-                    >
-                      {c.claveAw ?? '—'}
-                    </span>
-                    {activo ? (
-                      <Badge variant="secondary">Activo</Badge>
-                    ) : (
-                      <Badge variant="outline" className="text-muted-foreground">
-                        {c.estatus === EstatusCatalogo.EnRevision
-                          ? 'En revisión'
-                          : 'Inactivo'}
-                      </Badge>
-                    )}
-                    {canGestionar && (
-                      <div className="flex items-center gap-1">
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => {
-                            setEditandoId(c.id);
-                            setAgregando(false);
-                          }}
-                          aria-label={`Editar canal ${c.nombre}`}
-                        >
-                          <Pencil className="h-3.5 w-3.5" />
-                        </Button>
-                        {activo ? (
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => setConfirmDesactivar(c)}
-                            aria-label={`Desactivar canal ${c.nombre}`}
-                          >
-                            <PowerOff className="h-3.5 w-3.5" />
-                          </Button>
-                        ) : (
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            disabled={actualizar.isPending}
-                            onClick={() =>
-                              cambiarEstatus(
-                                c,
-                                EstatusCatalogo.Activo,
-                                `Canal "${c.nombre}" reactivado`,
-                              )
-                            }
-                            aria-label={`Reactivar canal ${c.nombre}`}
-                          >
-                            <Power className="h-3.5 w-3.5" />
-                          </Button>
-                        )}
-                      </div>
-                    )}
-                  </div>
-                )}
-              </li>
-            );
-          })}
-        </ul>
+        <ListadoCatalogo
+          items={canales}
+          texto={(c) => c.nombre + ' ' + (c.claveAw ?? '')}
+          estado={(c) => c.estatus}
+          opciones={OPCIONES_CATALOGO}
+        >
+          {(visibles) => (
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Código</TableHead>
+                  <TableHead>Canal</TableHead>
+                  <TableHead>Clave A+W</TableHead>
+                  <TableHead>Estado</TableHead>
+                  <TableHead>Acciones</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {visibles.map((c) => {
+                  const editando = editandoId === c.id;
+                  const activo = c.estatus === EstatusCatalogo.Activo;
+                  return (
+                    <TableRow key={c.id} className="px-3 py-2">
+                      {editando && canGestionar ? (
+                        <TableCell colSpan={5}>
+                          <CanalVentaInlineForm
+                            canal={c}
+                            onCancel={() => setEditandoId(null)}
+                            onSaved={() => setEditandoId(null)}
+                          />
+                        </TableCell>
+                      ) : (
+                        <>
+                          <TableCell className="w-32">
+                            <span className="w-8 text-right font-mono text-xs text-ink-muted">
+                              {c.id}
+                            </span>
+                          </TableCell>
+                          <TableCell className="min-w-48">
+                            <span className="flex-1 truncate text-sm">{c.nombre}</span>
+                          </TableCell>
+                          <TableCell className="w-32">
+                            <span
+                              className="w-28 truncate font-mono text-xs"
+                              title="Clave A+W (GRUPPE de la ingesta de pedidos)"
+                            >
+                              {c.claveAw ?? '—'}
+                            </span>
+                          </TableCell>
+                          <TableCell className="w-32">
+                            {activo ? (
+                              <Badge variant="success">Activo</Badge>
+                            ) : (
+                              <Badge variant="neutral">
+                                {c.estatus === EstatusCatalogo.EnRevision
+                                  ? 'En revisión'
+                                  : 'Inactivo'}
+                              </Badge>
+                            )}
+                          </TableCell>
+                          <TableCell className="w-28">
+                            {canGestionar && (
+                              <div className="flex items-center gap-1">
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  onClick={() => {
+                                    setEditandoId(c.id);
+                                    setAgregando(false);
+                                  }}
+                                  aria-label={`Editar canal ${c.nombre}`}
+                                >
+                                  <Pencil className="h-3.5 w-3.5" />
+                                </Button>
+                                {activo ? (
+                                  <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    onClick={() => setConfirmDesactivar(c)}
+                                    aria-label={`Desactivar canal ${c.nombre}`}
+                                  >
+                                    <PowerOff className="h-3.5 w-3.5" />
+                                  </Button>
+                                ) : (
+                                  <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    disabled={actualizar.isPending}
+                                    onClick={() =>
+                                      cambiarEstatus(
+                                        c,
+                                        EstatusCatalogo.Activo,
+                                        `Canal "${c.nombre}" reactivado`,
+                                      )
+                                    }
+                                    aria-label={`Reactivar canal ${c.nombre}`}
+                                  >
+                                    <Power className="h-3.5 w-3.5" />
+                                  </Button>
+                                )}
+                              </div>
+                            )}
+                          </TableCell>
+                        </>
+                      )}
+                    </TableRow>
+                  );
+                })}
+              </TableBody>
+            </Table>
+          )}
+        </ListadoCatalogo>
       )}
 
       <AlertDialog
@@ -220,21 +252,19 @@ export function CanalesVentaPage() {
         }}
       >
         <AlertDialogContent>
-          <AlertDialogHeader>
+          <AlertDialogHeader className="px-6 pt-5 pb-3">
             <AlertDialogTitle>Desactivar canal de venta</AlertDialogTitle>
+          </AlertDialogHeader>
+          <DialogBody>
             <AlertDialogDescription>
               ¿Confirmas desactivar el canal{' '}
-              <span className="font-semibold">{confirmDesactivar?.nombre}</span>
-              ? Saldrá de los selectores de pedidos/emisión y de la
-              resolución de la ingesta A+W, pero los documentos existentes
-              conservan su histórico. Se puede reactivar en cualquier
-              momento.
+              <span className="font-semibold">{confirmDesactivar?.nombre}</span>? Saldrá de los
+              selectores de pedidos/emisión y de la resolución de la ingesta A+W, pero los
+              documentos existentes conservan su histórico. Se puede reactivar en cualquier momento.
             </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel disabled={actualizar.isPending}>
-              Cancelar
-            </AlertDialogCancel>
+          </DialogBody>
+          <AlertDialogFooter className="border-t border-line-divider bg-surface-subtle px-6 py-4">
+            <AlertDialogCancel disabled={actualizar.isPending}>Cancelar</AlertDialogCancel>
             <AlertDialogAction
               onClick={() => {
                 if (confirmDesactivar == null) return;

@@ -27,8 +27,9 @@ namespace Millet.Identidad.Infrastructure;
 ///   <item>Asegura el rol "super-admin" con TODOS los permisos canónicos</item>
 ///   <item>Crea el Usuario + UsuarioPreferencia si no existe</item>
 ///   <item>Si <c>Auth:Bootstrap:EmpresaInicial:Rfc</c> está set, crea la
-///         empresa inicial (en CompartidoDbContext) y asigna al SuperAdmin
-///         a esa empresa con el rol super-admin</item>
+///         empresa inicial (en CompartidoDbContext) —o, si la migración ya
+///         dejó la provisional <c>TMP010101AAA</c>, le aplica esos datos— y
+///         asigna al SuperAdmin a esa empresa con el rol super-admin</item>
 /// </list>
 ///
 /// <para>
@@ -405,8 +406,8 @@ public sealed class BootstrapSuperAdminHostedService : IHostedService
 
     /// <summary>
     /// Si <c>Auth:Bootstrap:EmpresaInicial</c> está configurado, crea la
-    /// empresa en compartido y la asignación SuperAdmin↔empresa↔rol en
-    /// identidad. Idempotente.
+    /// empresa en compartido (o configura la provisional de la migración)
+    /// y la asignación SuperAdmin↔empresa↔rol en identidad. Idempotente.
     /// </summary>
     private async Task EnsureEmpresaAndAssignmentAsync(
         IdentidadDbContext identidad,
@@ -454,6 +455,10 @@ public sealed class BootstrapSuperAdminHostedService : IHostedService
                 "Empresa inicial creada: id={EmpresaId}, rfc={Rfc}, razonSocial={RazonSocial}",
                 empresa.Id, empresa.Rfc, empresa.RazonSocial);
         }
+        else if (empresa.EsProvisional)
+        {
+            await ConfigurarEmpresaProvisionalAsync(compartido, empresa, inicial, cancellationToken);
+        }
 
         // Asignación SuperAdmin ↔ Empresa ↔ Rol. Idempotente por unique idx.
         var assignment = await identidad.UsuarioEmpresaRoles
@@ -477,5 +482,48 @@ public sealed class BootstrapSuperAdminHostedService : IHostedService
                 "SuperAdmin asignado a empresa {Rfc} con rol super-admin (assignmentId={AssignmentId})",
                 empresa.Rfc, assignment.Id);
         }
+    }
+
+    /// <summary>
+    /// En una base limpia la migración F1-ADM-01 inserta la empresa raíz con
+    /// el RFC provisional <see cref="Empresa.RfcProvisional"/> (los catálogos
+    /// sembrados la necesitan antes del arranque). Aquí recibe los datos de
+    /// <c>Auth:Bootstrap:EmpresaInicial</c>. Una empresa con RFC real nunca
+    /// llega a este método; tras aplicarse, los re-arranques ya no la ven
+    /// provisional (idempotente).
+    /// </summary>
+    private async Task ConfigurarEmpresaProvisionalAsync(
+        CompartidoDbContext compartido,
+        Empresa empresa,
+        EmpresaInicialData inicial,
+        CancellationToken cancellationToken)
+    {
+        var rfc = inicial.Rfc.Trim();
+        if (rfc == Empresa.RfcProvisional)
+            return;
+
+        // RFC y clave son únicos: si otra empresa ya los usa, no se rompe el
+        // arranque; queda la provisional y se avisa para corregir la configuración.
+        var clave = rfc.ToUpperInvariant();
+        var enUso = await compartido.Empresas.AnyAsync(
+            e => e.Id != empresa.Id && (e.Rfc == rfc || e.Clave == clave),
+            cancellationToken);
+        if (enUso)
+        {
+            _logger.LogWarning(
+                "Empresa inicial {EmpresaId} sigue provisional ({RfcProvisional}): el RFC configurado {Rfc} ya pertenece a otra empresa.",
+                empresa.Id, Empresa.RfcProvisional, rfc);
+            return;
+        }
+
+        empresa.ConfigurarDatosFiscalesIniciales(
+            rfc,
+            inicial.RazonSocial,
+            inicial.RegimenFiscal,
+            string.IsNullOrWhiteSpace(inicial.NombreComercial) ? null : inicial.NombreComercial);
+        await compartido.SaveChangesAsync(cancellationToken);
+        _logger.LogInformation(
+            "Empresa inicial provisional {RfcProvisional} configurada: id={EmpresaId}, rfc={Rfc}, razonSocial={RazonSocial}",
+            Empresa.RfcProvisional, empresa.Id, empresa.Rfc, empresa.RazonSocial);
     }
 }

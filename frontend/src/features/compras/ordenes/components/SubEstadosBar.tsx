@@ -62,8 +62,7 @@ const PROGRESO_FILL: Record<BarraInfo['progreso'], string> = {
   // Vacío (Sin*): tracker visible pero sin fill.
   vacio: 'w-0 bg-line',
   // Parcial: 50% de fill ámbar + patrón diagonal.
-  parcial:
-    'w-1/2 bg-warning [background-image:repeating-linear-gradient(45deg,_rgba(0,0,0,0.12)_0_4px,_transparent_4px_8px)]',
+  parcial: 'w-1/2 bg-warning',
   // Completo (Completa / Pagada): 100% verde.
   completo: 'w-full bg-success',
 };
@@ -101,12 +100,7 @@ function porcentajeAprox(p: BarraInfo['progreso']): string {
   }
 }
 
-export function SubEstadosBar({
-  recepcion,
-  facturacion,
-  pago,
-  className,
-}: SubEstadosBarProps) {
+export function SubEstadosBar({ recepcion, facturacion, pago, className }: SubEstadosBarProps) {
   const barras: BarraInfo[] = [
     {
       dimension: 'Recepción',
@@ -141,17 +135,13 @@ export function SubEstadosBar({
       data-component="sub-estados-bar"
     >
       {barras.map((b) => (
-        <DomainTermTooltip
-          key={b.data}
-          term={b.glosarioTerm}
-          definicion={definicion}
-        >
+        <DomainTermTooltip key={b.data} term={b.glosarioTerm} definicion={definicion}>
           <div
             className="grid grid-cols-[6.5rem_1fr_8rem] items-center gap-2 text-xs"
             data-sub-estado={b.data}
             data-progreso={b.progreso}
           >
-            <span className="font-medium text-foreground">{b.dimension}</span>
+            <span className="font-medium text-ink">{b.dimension}</span>
             <div
               className={cn(
                 'relative h-2.5 overflow-hidden rounded-full bg-surface-muted ring-1 ring-inset',
@@ -161,24 +151,15 @@ export function SubEstadosBar({
               aria-label={`${b.dimension}: ${b.label}`}
               aria-valuemin={0}
               aria-valuemax={100}
-              aria-valuenow={
-                b.progreso === 'completo'
-                  ? 100
-                  : b.progreso === 'parcial'
-                    ? 50
-                    : 0
-              }
+              aria-valuenow={b.progreso === 'completo' ? 100 : b.progreso === 'parcial' ? 50 : 0}
             >
               <div
-                className={cn(
-                  'h-full rounded-full transition-[width]',
-                  PROGRESO_FILL[b.progreso],
-                )}
+                className={cn('h-full rounded-full transition-[width]', PROGRESO_FILL[b.progreso])}
               />
             </div>
             <span
               className={cn(
-                'tabular-nums text-muted-foreground',
+                'tabular-nums text-ink-muted',
                 b.progreso === 'completo' && 'text-success-fg',
                 b.progreso === 'parcial' && 'text-warning-fg',
               )}

@@ -39,7 +39,7 @@ export function CubrimientoEstimadoPanel({
         <PackageSearch className="h-4 w-4" />
         Disponibilidad estimada
       </header>
-      <p className="mt-0.5 text-xs text-muted-foreground">
+      <p className="mt-0.5 text-xs text-ink-muted">
         Estimación sujeta a disponibilidad hasta autorizar — no reserva stock.
       </p>
 
@@ -53,11 +53,8 @@ export function CubrimientoEstimadoPanel({
           {lineas.map((l) => {
             // Etiqueta enriquecida del DTO (ADR-0042) → fallback al resolver
             // (catálogo capado) → id. Mismo orden que <ListaLineas/>.
-            const etiquetaDto = [l.articuloClave, l.articuloNombre]
-              .filter(Boolean)
-              .join(' · ');
-            const articulo =
-              etiquetaDto || resolverArticulo?.(l.articuloId) || l.articuloId;
+            const etiquetaDto = [l.articuloClave, l.articuloNombre].filter(Boolean).join(' · ');
+            const articulo = etiquetaDto || resolverArticulo?.(l.articuloId) || l.articuloId;
             const total = Math.max(1, l.cantidad);
             const pctAlmacen = (l.estimadoDeAlmacen / total) * 100;
             const pctCompra = (l.estimadoDeCompra / total) * 100;
@@ -67,9 +64,7 @@ export function CubrimientoEstimadoPanel({
                 data-linea-estimada={l.lineaId}
                 className="flex flex-wrap items-center gap-x-2 gap-y-1 text-xs"
               >
-                <span className="min-w-0 flex-1 truncate text-foreground">
-                  {articulo}
-                </span>
+                <span className="min-w-0 flex-1 truncate text-ink">{articulo}</span>
                 {/* Barra estimada — punteada, distinta del CubrimientoBar real. */}
                 <span
                   role="img"
@@ -77,10 +72,7 @@ export function CubrimientoEstimadoPanel({
                   className="relative inline-flex h-2.5 w-28 overflow-hidden rounded border border-dashed border-info bg-surface-card"
                 >
                   {pctAlmacen > 0 && (
-                    <span
-                      className="h-full bg-success/70"
-                      style={{ width: `${pctAlmacen}%` }}
-                    />
+                    <span className="h-full bg-success/70" style={{ width: `${pctAlmacen}%` }} />
                   )}
                   {pctCompra > 0 && (
                     <span
@@ -93,7 +85,7 @@ export function CubrimientoEstimadoPanel({
                     />
                   )}
                 </span>
-                <span className="font-mono text-muted-foreground">
+                <span className="font-mono text-ink-muted">
                   {fmt(l.estimadoDeAlmacen)} disp · {fmt(l.estimadoDeCompra)} a comprar
                 </span>
               </li>

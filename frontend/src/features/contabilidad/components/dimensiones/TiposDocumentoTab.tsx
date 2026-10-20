@@ -108,7 +108,7 @@ export function TiposDocumentoTab({ puedeAdministrar }: { puedeAdministrar: bool
               className="w-80"
               value={nombre}
               onChange={(e) => setNombre(e.target.value)}
-              placeholder="[TIPO DE DOCUMENTO]"
+              placeholder="Factura de proveedor"
             />
           </div>
           <div className="flex flex-col gap-1.5">

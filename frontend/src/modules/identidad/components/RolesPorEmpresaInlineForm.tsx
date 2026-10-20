@@ -1,3 +1,5 @@
+import { FormSeccion } from '@/components/erp/forms/FormSeccion';
+import { FormCampo } from '@/components/erp/forms/FormGrid';
 import { Controller, useForm, useWatch } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { Check, X } from 'lucide-react';
@@ -10,21 +12,9 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import {
-  applyServerErrors,
-  esApiError,
-  useFormIdempotencyKey,
-  codigoSoporte,
-} from '@/lib/api';
-import {
-  AsignarRolSchema,
-  type AsignarRolValues,
-} from '@/modules/identidad/schemas/usuario';
-import {
-  useAsignarRol,
-  usePermisosEfectivosUsuario,
-  useRoles,
-} from '@/modules/identidad/api';
+import { applyServerErrors, esApiError, useFormIdempotencyKey, codigoSoporte } from '@/lib/api';
+import { AsignarRolSchema, type AsignarRolValues } from '@/modules/identidad/schemas/usuario';
+import { useAsignarRol, usePermisosEfectivosUsuario, useRoles } from '@/modules/identidad/api';
 import { useEmpresas } from '@/modules/administracion/api';
 import type { RolResponse } from '@/modules/identidad/api/types';
 import type { EmpresaResponse } from '@/modules/administracion/api/types';
@@ -75,8 +65,8 @@ export function RolesPorEmpresaInlineForm({
     return (
       <div
         className={cn(
-          'rounded-md border p-3 text-sm text-muted-foreground',
-          'border-dashed border-primary/40 bg-primary/5',
+          'rounded-md border p-3 text-sm text-ink-muted',
+          'border-dashed border-brand/40 bg-brand/5',
         )}
       >
         Cargando empresas y roles…
@@ -103,13 +93,7 @@ interface FormReadyProps {
   onSaved?: () => void;
 }
 
-function FormReady({
-  usuarioId,
-  empresas,
-  roles,
-  onCancel,
-  onSaved,
-}: FormReadyProps) {
+function FormReady({ usuarioId, empresas, roles, onCancel, onSaved }: FormReadyProps) {
   const idempotencyKey = useFormIdempotencyKey();
   const asignar = useAsignarRol();
 
@@ -148,16 +132,11 @@ function FormReady({
               error.code === 'USUARIO_YA_ASIGNADO_A_EMPRESA_ROL' ||
               error.code === 'USUARIO_EMPRESA_ROL_DUPLICADO'
             ) {
-              toast.error(
-                'El usuario ya tiene ese rol en esa empresa.',
-              );
+              toast.error('El usuario ya tiene ese rol en esa empresa.');
               return;
             }
             if (
-              applyServerErrors(
-                form as unknown as Parameters<typeof applyServerErrors>[0],
-                error,
-              )
+              applyServerErrors(form as unknown as Parameters<typeof applyServerErrors>[0], error)
             ) {
               return;
             }
@@ -181,8 +160,7 @@ function FormReady({
     empresaSeleccionada === '' ? null : usuarioId,
     empresaSeleccionada === '' ? null : empresaSeleccionada,
   );
-  const perdidos =
-    (efectivos.data?.concedidos ?? 0) + (efectivos.data?.denegados ?? 0);
+  const perdidos = (efectivos.data?.concedidos ?? 0) + (efectivos.data?.denegados ?? 0);
 
   return (
     <form
@@ -194,101 +172,90 @@ function FormReady({
           onCancel();
         }
       }}
-      className={cn(
-        'space-y-3 rounded-md border p-3',
-        'border-dashed border-primary/40 bg-primary/5',
-      )}
+      className={cn('space-y-3 rounded-md border p-3', 'border-dashed border-brand/40 bg-brand/5')}
       aria-label="Asignar rol en empresa"
     >
-      <div className="grid grid-cols-1 gap-2 md:grid-cols-12">
-        <Field
-          id="asignar-empresa"
-          label="Empresa"
-          required
-          error={form.formState.errors.empresaId?.message}
-          className="md:col-span-6"
-        >
-          <Controller
-            name="empresaId"
-            control={form.control}
-            render={({ field }) => (
-              <Select
-                value={field.value === '' ? EMPTY_SELECT : field.value}
-                onValueChange={(v) =>
-                  field.onChange(v === EMPTY_SELECT ? '' : v)
-                }
-                disabled={isPending}
-              >
-                <SelectTrigger id="asignar-empresa">
-                  <SelectValue placeholder="Selecciona empresa" />
-                </SelectTrigger>
-                <SelectContent>
-                  {empresas.map((e) => (
-                    <SelectItem key={e.id} value={e.id}>
-                      <span className="font-mono text-xs">{e.rfc}</span>
-                      <span className="ml-2 text-muted-foreground">
-                        {e.razonSocial}
-                      </span>
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            )}
-          />
-        </Field>
+      <FormSeccion titulo="Datos de la empresa" className="">
+        <FormCampo span={6}>
+          <Field
+            id="asignar-empresa"
+            label="Empresa"
+            required
+            error={form.formState.errors.empresaId?.message}
+            className="md:col-span-6"
+          >
+            <Controller
+              name="empresaId"
+              control={form.control}
+              render={({ field }) => (
+                <Select
+                  value={field.value === '' ? EMPTY_SELECT : field.value}
+                  onValueChange={(v) => field.onChange(v === EMPTY_SELECT ? '' : v)}
+                  disabled={isPending}
+                >
+                  <SelectTrigger id="asignar-empresa">
+                    <SelectValue placeholder="Selecciona empresa" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {empresas.map((e) => (
+                      <SelectItem key={e.id} value={e.id}>
+                        <span className="font-mono text-xs">{e.rfc}</span>
+                        <span className="ml-2 text-ink-muted">{e.razonSocial}</span>
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              )}
+            />
+          </Field>
+        </FormCampo>
 
-        <Field
-          id="asignar-rol"
-          label="Rol"
-          required
-          error={form.formState.errors.rolId?.message}
-          className="md:col-span-6"
-        >
-          <Controller
-            name="rolId"
-            control={form.control}
-            render={({ field }) => (
-              <Select
-                value={field.value === '' ? EMPTY_SELECT : field.value}
-                onValueChange={(v) =>
-                  field.onChange(v === EMPTY_SELECT ? '' : v)
-                }
-                disabled={isPending}
-              >
-                <SelectTrigger id="asignar-rol">
-                  <SelectValue placeholder="Selecciona rol" />
-                </SelectTrigger>
-                <SelectContent>
-                  {roles.map((r) => (
-                    <SelectItem key={r.id} value={r.id}>
-                      {r.nombre}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            )}
-          />
-        </Field>
-      </div>
+        <FormCampo span={6}>
+          <Field
+            id="asignar-rol"
+            label="Rol"
+            required
+            error={form.formState.errors.rolId?.message}
+            className="md:col-span-6"
+          >
+            <Controller
+              name="rolId"
+              control={form.control}
+              render={({ field }) => (
+                <Select
+                  value={field.value === '' ? EMPTY_SELECT : field.value}
+                  onValueChange={(v) => field.onChange(v === EMPTY_SELECT ? '' : v)}
+                  disabled={isPending}
+                >
+                  <SelectTrigger id="asignar-rol">
+                    <SelectValue placeholder="Selecciona rol" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {roles.map((r) => (
+                      <SelectItem key={r.id} value={r.id}>
+                        {r.nombre}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              )}
+            />
+          </Field>
+        </FormCampo>
+      </FormSeccion>
 
       {perdidos > 0 && (
         <p
           role="alert"
-          className="rounded-md border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-xs text-amber-900 dark:text-amber-200"
+          className="rounded-md border border-line/30 bg-warning/10 px-3 py-2 text-xs text-warning-fg "
         >
-          Al asignar un rol distinto en esta empresa se perderán {perdidos}{' '}
-          permiso(s) personalizado(s) de este usuario.
+          Al asignar un rol distinto en esta empresa se perderán {perdidos} permiso(s)
+          personalizado(s) de este usuario.
         </p>
       )}
 
       <div className="flex items-center justify-end gap-2">
-        <Button
-          type="button"
-          variant="ghost"
-          size="sm"
-          onClick={onCancel}
-          disabled={isPending}
-        >
+        <Button type="button" variant="ghost" size="sm" onClick={onCancel} disabled={isPending}>
           <X className="mr-1 h-4 w-4" />
           Cancelar
         </Button>
@@ -313,17 +280,17 @@ interface FieldProps {
 function Field({ id, label, required, error, className, children }: FieldProps) {
   return (
     <div className={cn('space-y-1', className)}>
-      <label htmlFor={id} className="flex items-center gap-1 text-xs font-medium text-muted-foreground">
+      <label htmlFor={id} className="flex items-center gap-1 text-xs font-medium text-ink-muted">
         {label}
         {required && (
-          <span aria-hidden="true" className="text-rose-600">
+          <span aria-hidden="true" className="text-danger-fg">
             *
           </span>
         )}
       </label>
       {children}
       {error != null && (
-        <p role="alert" className="text-xs text-rose-600">
+        <p role="alert" className="text-xs text-danger-fg">
           {error}
         </p>
       )}

@@ -94,8 +94,8 @@ export function OtrDetalle({ envio, abierto = true }: { envio: OtrEnvio; abierto
         {Object.entries({
           Cliente: envio.contenido.cliente,
           Entrega: envio.contenido.direccionEntrega,
-          Contenedor: envio.contenido.contenedor.numero ?? '[SIN NÚMERO]',
-          Ruta: envio.contenido.contenedor.ruta ?? '[SIN RUTA]',
+          Contenedor: envio.contenido.contenedor.numero ?? 'Sin número',
+          Ruta: envio.contenido.contenedor.ruta ?? 'Sin ruta',
         }).map(([campo, valor]) => (
           <div key={campo}>
             <dt className="text-xs text-ink-muted">{campo}</dt>

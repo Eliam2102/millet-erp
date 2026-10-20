@@ -92,10 +92,7 @@ export function opcionesHelper(
   saldos: SaldosPorArticulo,
 ): OpcionHelper[] {
   const articulos = articuloIdsUnicos(filas);
-  const porBin = new Map<
-    string,
-    { clave: string; nombre: string; articulos: Set<string> }
-  >();
+  const porBin = new Map<string, { clave: string; nombre: string; articulos: Set<string> }>();
 
   for (const articuloId of articulos) {
     for (const bin of saldos.get(articuloId) ?? []) {
@@ -124,8 +121,7 @@ export function opcionesHelper(
     }))
     .sort(
       (a, b) =>
-        b.articulosConExistencia - a.articulosConExistencia ||
-        a.clave.localeCompare(b.clave),
+        b.articulosConExistencia - a.articulosConExistencia || a.clave.localeCompare(b.clave),
     );
 }
 
@@ -144,10 +140,7 @@ export function indicesParaAutoAsignarConCobertura(
 ): number[] {
   if (!ubicacionHelperId) return [];
   return filas.reduce<number[]>((acc, fila, index) => {
-    if (
-      !fila.ubicacionId &&
-      tieneExistencia(saldos, fila.articuloId, ubicacionHelperId)
-    ) {
+    if (!fila.ubicacionId && tieneExistencia(saldos, fila.articuloId, ubicacionHelperId)) {
       acc.push(index);
     }
     return acc;
@@ -169,7 +162,6 @@ export function contarLineasSinCobertura(
   // para el vale (sin incluida → undefined) trata la línea como incluida.
   return filas.filter(
     (fila) =>
-      fila.incluida !== false &&
-      !tieneExistencia(saldos, fila.articuloId, ubicacionHelperId),
+      fila.incluida !== false && !tieneExistencia(saldos, fila.articuloId, ubicacionHelperId),
   ).length;
 }

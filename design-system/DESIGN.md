@@ -27,7 +27,7 @@
 - Usar emoji, ilustraciones ni logos (el producto no lleva logo en el rail).
 - Usar fuentes Inter, Roboto ni Arial.
 - Usar rojo/verde como único diferenciador: el estado siempre lleva texto.
-- Inventar datos: si no se conoce un valor, usa un placeholder entre corchetes: `[SUCURSAL]`, `[BANCO] ·· [0000]`, `[RESPONSABLE]`.
+- Inventar datos: en pantallas del ERP, muestra los datos faltantes en lenguaje de usuario según §6. Los ejemplos ficticios se limitan a maquetas y catálogo.
 - Crear un color "parecido" a uno existente. Si de verdad hace falta un color nuevo, se agrega primero a `tokens.json` y a esta guía.
 
 ---
@@ -147,7 +147,7 @@ Diseño de referencia de 1440×900; mínimo soportado: 1280px de ancho. La pági
 - Contenedor: `w-rail bg-rail flex flex-col items-center py-3 gap-1`.
 - Ítem (`<a>`): `w-rail-item pt-2 pb-1.5 rounded-md flex flex-col items-center gap-1`, con ícono de 20 y label `text-2xs leading-tight`.
 - **Estados:**
-  - Activo: `bg-rail-active text-white`.
+  - Activo: `bg-rail-active text-primary-foreground`.
   - Normal: `text-rail-fg`.
   - Sin acceso o fase posterior: `text-rail-disabled`.
 - Orden fijo: Inicio, Compras, Almacén, CxP, Tesorería, CxC, Facturación, C. Costo, Contab., Reportes. Admin va al fondo, separado por un `flex-grow`.
@@ -174,7 +174,7 @@ Diseño de referencia de 1440×900; mínimo soportado: 1280px de ancho. La pági
 - Contenido, de izquierda a derecha:
   1. **Breadcrumb**: `Módulo / Sección / Pantalla`. Los niveles previos van en `text-ink-muted` (los que son navegables, como `<a>`) y el actual en `text-ink font-medium`. Separador `/`. En el Detalle, el folio actual va en mono 12px.
   2. Un spacer flexible.
-  3. **Search** que abre ⌘K: w-340 (420 en Inicio) × h-34, `rounded-md border-line bg-surface-page text-ink-muted`. Lleva un ícono de 15, el texto "Buscar o ir a…" y `<kbd>⌘K</kbd>` (mono 11, `border-line-control bg-white rounded-xs px-[5px]`).
+  3. **Search** que abre ⌘K: w-340 (420 en Inicio) × h-34, `rounded-md border-line bg-surface-page text-ink-muted`. Lleva un ícono de 15, el texto "Buscar o ir a…" y `<kbd>⌘K</kbd>` (mono 11, `border-line-control bg-surface-card rounded-xs px-[5px]`).
   4. Otro spacer flexible.
   5. **Selector de sucursal**: botón secundario h-34 con ícono `MapPin`, el texto "Millet" en `text-ink-muted`, el nombre de la sucursal en `font-medium` y un chevron.
   6. **Nuevo**: botón primario h-34 con ícono `Plus`.
@@ -198,13 +198,13 @@ Diseño de referencia de 1440×900; mínimo soportado: 1280px de ancho. La pági
 
 | Variante | Clases | Uso |
 |---|---|---|
-| primary | `h-ctl-lg px-3.5 rounded-md bg-brand text-white text-sm font-medium hover:bg-brand-hover` | Una por zona: "Registrar factura", "Nuevo", "Generar layout" |
-| secondary | `h-ctl-lg px-3 rounded-md bg-white border border-line-control text-ink text-sm` | Exportar, Ver CFDI, Guardar borrador |
+| primary | `h-ctl-lg px-3.5 rounded-md bg-brand text-primary-foreground text-sm font-medium hover:bg-brand-hover` | Una por zona: "Registrar factura", "Nuevo", "Generar layout" |
+| secondary | `h-ctl-lg px-3 rounded-md bg-surface-card border border-line-control text-ink text-sm` | Exportar, Ver CFDI, Guardar borrador |
 | secondary-danger | secondary + `text-danger-fg` | Rechazar |
 | ghost | `h-ctl-lg px-3.5 rounded-md bg-transparent text-ink-secondary` | Cancelar, "Más filtros" |
 | icon | `size-[34px] rounded-md bg-transparent text-ink-secondary` + `aria-label` | Notificaciones, ⋯ |
 | sm | `h-ctl-sm px-2.5 rounded-sm border border-line text-xs text-ink-secondary` | Anterior/Siguiente, "Cambiar" |
-| disabled (primary) | `bg-brand-disabled text-white` + `title` que explique por qué | "Autorizar" cuando falta recepción |
+| disabled (primary) | `bg-brand-disabled text-primary-foreground` + `title` que explique por qué | "Autorizar" cuando falta recepción |
 
 - En formularios y sheets los botones miden h-36 (`h-ctl-xl`).
 - Los íconos dentro de un botón son de 14px, con `gap-1.5`.
@@ -213,7 +213,7 @@ Diseño de referencia de 1440×900; mínimo soportado: 1280px de ancho. La pági
 ### 4.2 Inputs y formularios
 
 - **Label:** `text-xs font-medium text-ink-strong`, arriba del campo, con `gap-1.5`. Para campos opcionales: `<span class="font-normal text-ink-muted">(opcional)</span>`.
-- **Input / select:** `h-ctl-xl px-3 rounded-md border border-line-control bg-white text-sm text-ink`.
+- **Input / select:** `h-ctl-xl px-3 rounded-md border border-line-control bg-surface-card text-sm text-ink`.
 - **Textarea:** igual que el input, con `py-2`, `resize-none` y 2 filas.
 - **Formulario en sheet:** se organiza en `<fieldset>` numerados ("1. Comprobante fiscal", "2. Vinculación", "3. Revisión previa"). Cada `legend` va en `text-sm font-semibold`. Los campos usan `FormGrid` y `FormCampo`: rejilla de 12 columnas con `gap-x-4 gap-y-3.5`. Cada campo declara `span` 3, 4, 6 o 12 (por omisión 6); en móvil siempre ocupa 12. Las secciones consecutivas (`FormSeccion`) usan la misma rejilla para que las columnas terminen en el mismo borde.
 - **Controles cortos:** checkbox, moneda y fechas se agrupan en una fila; nunca una fila completa para un checkbox. Su ayuda larga va debajo del label en `text-xs text-ink-muted`, no dentro del label.
@@ -221,7 +221,7 @@ Diseño de referencia de 1440×900; mínimo soportado: 1280px de ancho. La pági
 
 ### 4.3 Tarjeta y tarjeta KPI
 
-- **Tarjeta base:** `bg-white rounded-lg shadow-card` (o `shadow-card-flat` si va dentro de un layout denso).
+- **Tarjeta base:** `bg-surface-card rounded-lg shadow-card` (o `shadow-card-flat` si va dentro de un layout denso).
 - **KPI:**
   - Contenedor: `rounded-lg shadow-card px-4 py-3.5 flex flex-col gap-1.5`.
   - Label: `text-xs text-ink-muted`, precedido de un cuadrito de 8×8 `rounded-[2px]` del color del dato.
@@ -238,7 +238,7 @@ Diseño de referencia de 1440×900; mínimo soportado: 1280px de ancho. La pági
 
 ### 4.4 Tabla de listado
 
-Estructura (todo dentro de una tarjeta `bg-white rounded-t-lg shadow-card-flat flex flex-col overflow-hidden` que crece hasta el fondo):
+Estructura (todo dentro de una tarjeta `bg-surface-card rounded-t-lg shadow-card-flat flex flex-col overflow-hidden` que crece hasta el fondo):
 
 1. **Tabs de vista** (h-44, `border-b border-line-divider px-4 gap-5`):
    - Tab: `text-sm`. Activa: `text-ink font-medium shadow-tab-active`. Inactiva: `text-ink-muted`.
@@ -321,7 +321,7 @@ Estructura (todo dentro de una tarjeta `bg-white rounded-t-lg shadow-card-flat f
 
 ### 4.9 Lista maestra + detalle
 
-- **Lista maestra** (320px, `bg-white border-r border-line`):
+- **Lista maestra** (320px, `bg-surface-card border-r border-line`):
   - Arriba, un selector de vista ("Por conciliar · 18") y un filtro.
   - **Ítem:** padding `11px 14px`, con folio en mono y el importe a la derecha; debajo, la entidad y la fecha.
   - **Ítem seleccionado:** `bg-surface-selected shadow-list-selected`.
@@ -410,7 +410,7 @@ Ver 3.4. Solo es para consultar y aprobar; la captura pesada es de escritorio.
 
 - **Errores:** dicen la causa y la acción: «Adjunta la cotización en PDF para enviar la OC a autorización». Nunca «Intenta de nuevo» solo.
 - **Obligatorios:** los campos obligatorios llevan `*`.
-- **Texto interno prohibido en UI:** rutas `.md`, IDs de decisión (D03, 12-13), «backend», «PLATFORM-TODO», «POR CONFIRMAR» y «Supuesto SAT».
+- **Texto interno prohibido en UI:** rutas `.md`, IDs de decisión (D03, 12-13), «backend», «PLATFORM-TODO», marcadores entre corchetes, «ADR-», «endpoint», «DTO», «stub», «TODO», «Por confirmar» y «Supuesto SAT».
 - **Partidas:** los renglones de un documento se llaman «Partidas» (decisión de Eliam, 19-oct-2026), nunca «líneas» ni «posiciones» en la UI.
 - **Sucursal:** las altas que dependen de sucursal la piden de forma explícita y muestran la sucursal activa.
 - **PDF:** las tablas exportadas se generan como texto (`@react-pdf` `View`/`Text`), nunca como imagen rasterizada.
@@ -433,7 +433,11 @@ Ver 3.4. Solo es para consultar y aprobar; la captura pesada es de escritorio.
   - En el rail: "C. Costo", "Contab.".
 - **Descripciones de pantalla:** una oración que diga qué hay y qué se hace ("Captura, conciliación contra OC y recepción, y autorización para pago.").
 - **Mensajes de bloqueo:** di qué falta y qué lo destraba ("La partida 3 no tiene recepción en Almacén. La factura podrá autorizarse cuando se registre la recepción o se corrija la OC.").
-- **Placeholders** para datos desconocidos: `[MAYÚSCULAS ENTRE CORCHETES]`. Nunca uses lorem ipsum.
+- **Maquetas y ejemplos del catálogo:** los datos ficticios van entre corchetes en mayúsculas (`[PROVEEDOR]`). Nunca lorem ipsum.
+- **Pantallas del ERP:** cuando falta un dato se muestra en lenguaje de usuario y en `text-ink-muted`:
+  - «Sin proveedor», «Sin asignar», «Sin sucursal», «Sin responsable» o «Sin número», según el campo;
+  - «—» en columnas numéricas o de fecha.
+  - Nunca corchetes, «por confirmar», «no disponible» ni «N/A».
 
 ---
 

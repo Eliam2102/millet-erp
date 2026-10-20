@@ -20,7 +20,7 @@ export function ContextoSucursal() {
     <Badge variant={sucursalId == null ? 'warning' : 'neutral'}>
       {sucursalId == null
         ? 'Todas las sucursales'
-        : `Sucursal: ${nombre ?? 'Nombre no disponible'}`}
+        : `Sucursal: ${nombre ?? 'Sin sucursal'}`}
     </Badge>
   );
 }

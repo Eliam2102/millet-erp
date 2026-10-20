@@ -1,3 +1,5 @@
+import { FormGrid, FormCampo } from '@/components/erp/forms/FormGrid';
+import { PageHeader } from '@/components/erp/PageHeader';
 import { useMemo } from 'react';
 import { Plus } from 'lucide-react';
 import { useForm } from 'react-hook-form';
@@ -8,10 +10,7 @@ import {
   CatalogoEditableTable,
   type CatalogoColumn,
 } from '@/modules/catalogos/components/CatalogoEditableTable';
-import {
-  FieldInline,
-  InlineFormShell,
-} from '@/modules/catalogos/components/InlineFormShell';
+import { FieldInline, InlineFormShell } from '@/modules/catalogos/components/InlineFormShell';
 import {
   useActualizarCategoriaArticulo,
   useCategoriasArticuloList,
@@ -34,9 +33,7 @@ import { toast } from 'sonner';
  * <c>compartido.catalogos.administrar</c> (molde UsoPrincipal).
  */
 export function CategoriasArticuloPage() {
-  const canGestionar = useHasPermission(
-    PermisosCanonicos.CompartidoCatalogosAdministrar,
-  );
+  const canGestionar = useHasPermission(PermisosCanonicos.CompartidoCatalogosAdministrar);
   const nueva = useNuevaCategoriaArticulo();
   const query = useCategoriasArticuloList();
   const desactivar = useDesactivarCategoriaArticulo();
@@ -48,18 +45,20 @@ export function CategoriasArticuloPage() {
   ];
 
   return (
-    <div className="space-y-4 p-4">
-      <div className="flex flex-wrap items-center justify-between gap-2">
-        <h1 className="text-xl font-semibold tracking-tight">
-          Categorías de artículo
-        </h1>
-        {canGestionar && (
-          <Button size="sm" onClick={() => nueva.abrir()}>
-            <Plus className="mr-1 h-4 w-4" />
-            Nueva categoría
-          </Button>
-        )}
-      </div>
+    <div className="space-y-5">
+      <PageHeader
+        titulo={<>Categorías de artículo</>}
+        acciones={
+          <>
+            {canGestionar && (
+              <Button size="sm" onClick={() => nueva.abrir()}>
+                <Plus className="mr-1 h-4 w-4" />
+                Nueva categoría
+              </Button>
+            )}
+          </>
+        }
+      />
 
       <CatalogoEditableTable
         recurso="categorías de artículo"
@@ -77,9 +76,7 @@ export function CategoriasArticuloPage() {
           <CategoriaArticuloInlineEditForm item={item} onClose={onClose} />
         )}
         emptyMessage={
-          canGestionar
-            ? 'Crea la primera para empezar.'
-            : 'Cuando se creen, aparecerán aquí.'
+          canGestionar ? 'Crea la primera para empezar.' : 'Cuando se creen, aparecerán aquí.'
         }
         emptyAction={
           canGestionar ? (
@@ -129,12 +126,7 @@ function CategoriaArticuloInlineEditForm({
               });
               return;
             }
-            if (
-              applyServerErrors(
-                form as unknown as Parameters<typeof applyServerErrors>[0],
-                err,
-              )
-            )
+            if (applyServerErrors(form as unknown as Parameters<typeof applyServerErrors>[0], err))
               return;
             toast.error(err.problem.title);
             return;
@@ -152,15 +144,13 @@ function CategoriaArticuloInlineEditForm({
       onCancel={onClose}
       isPending={actualizar.isPending}
     >
-      <div className="grid grid-cols-1 gap-2">
-        <FieldInline
-          label="Nombre"
-          required
-          error={form.formState.errors.nombre?.message}
-        >
-          <Input maxLength={100} {...form.register('nombre')} />
-        </FieldInline>
-      </div>
+      <FormGrid>
+        <FormCampo span={6}>
+          <FieldInline label="Nombre" required error={form.formState.errors.nombre?.message}>
+            <Input maxLength={100} {...form.register('nombre')} />
+          </FieldInline>
+        </FormCampo>
+      </FormGrid>
     </InlineFormShell>
   );
 }

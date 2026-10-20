@@ -108,7 +108,7 @@ public sealed class P3PagoYRevaluacionTests
     }
     private sealed class Proveedor : IProveedorBancoReadPort
     {
-        public Task<ProveedorBancoDto?> ObtenerAsync(Guid id, CancellationToken ct) => Task.FromResult<ProveedorBancoDto?>(null);
+        public Task<ProveedorBancoDto?> ObtenerAsync(Guid id, CancellationToken ct) => Task.FromResult<ProveedorBancoDto?>(new(id, "FIX", "Proveedor FIX", [new(Guid.NewGuid(), "FIX Banco", "002010077777777771", true, null, "MXN", "Proveedor FIX", true, "Activa")], Rfc: "AAA010101AAA"));
         public Task<IReadOnlyDictionary<Guid, ProveedorBancoDto>> ObtenerVariosAsync(IReadOnlyCollection<Guid> ids, CancellationToken ct) =>
             Task.FromResult<IReadOnlyDictionary<Guid, ProveedorBancoDto>>(new Dictionary<Guid, ProveedorBancoDto>());
     }

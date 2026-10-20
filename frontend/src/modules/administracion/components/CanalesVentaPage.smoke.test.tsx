@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
-import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { fireEvent, render, screen, within, waitFor } from '@testing-library/react';
 import { http, HttpResponse } from 'msw';
 import { mswServer } from '@/test/mocks/server';
 import { createQueryWrapper } from '@/test/test-query-client';
@@ -43,9 +43,7 @@ function setPermisos(permisos: string[]) {
 }
 
 beforeEach(() => {
-  mswServer.use(
-    http.get('*/api/v1/admin/canales-venta', () => HttpResponse.json(CANALES)),
-  );
+  mswServer.use(http.get('*/api/v1/admin/canales-venta', () => HttpResponse.json(CANALES)));
 });
 
 afterEach(() => {
@@ -70,8 +68,8 @@ describe('<CanalesVentaPage> — smoke (FAC-ING-PR3)', () => {
     expect(screen.getByText('Planta Pintura')).toBeInTheDocument();
     // Columna clave A+W: GRUPPE de la ingesta de pedidos.
     expect(screen.getByText('CANCUN')).toBeInTheDocument();
-    expect(screen.getByText('Activo')).toBeInTheDocument();
-    expect(screen.getByText('Inactivo')).toBeInTheDocument();
+    expect(within(screen.getByRole('table')).getByText('Activo')).toBeInTheDocument();
+    expect(within(screen.getByRole('table')).getByText('Inactivo')).toBeInTheDocument();
   });
 
   it('con permiso: "Agregar canal" monta el inline form; el inactivo ofrece Reactivar', async () => {
@@ -80,9 +78,7 @@ describe('<CanalesVentaPage> — smoke (FAC-ING-PR3)', () => {
 
     await screen.findByText('Tienda Cancún');
     fireEvent.click(screen.getByRole('button', { name: /agregar canal/i }));
-    expect(
-      screen.getByRole('form', { name: /agregar canal/i }),
-    ).toBeInTheDocument();
+    expect(screen.getByRole('form', { name: /agregar canal/i })).toBeInTheDocument();
 
     expect(
       screen.getByRole('button', { name: /reactivar canal planta pintura/i }),
@@ -97,12 +93,8 @@ describe('<CanalesVentaPage> — smoke (FAC-ING-PR3)', () => {
     render(<CanalesVentaPage />, { wrapper: createQueryWrapper() });
 
     expect(await screen.findByText('Tienda Cancún')).toBeInTheDocument();
-    expect(
-      screen.queryByRole('button', { name: /agregar canal/i }),
-    ).not.toBeInTheDocument();
-    expect(
-      screen.queryByRole('button', { name: /editar canal/i }),
-    ).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /agregar canal/i })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /editar canal/i })).not.toBeInTheDocument();
   });
 
   it('estado error con retry cuando el backend falla', async () => {
@@ -120,9 +112,7 @@ describe('<CanalesVentaPage> — smoke (FAC-ING-PR3)', () => {
     );
     render(<CanalesVentaPage />, { wrapper: createQueryWrapper() });
     await waitFor(() =>
-      expect(
-        screen.getByText(/No se pudieron cargar los canales de venta/i),
-      ).toBeInTheDocument(),
+      expect(screen.getByText(/No se pudieron cargar los canales de venta/i)).toBeInTheDocument(),
     );
   });
 });

@@ -47,7 +47,7 @@ public sealed class EventosContablesG16Tests
         await db.SaveChangesAsync();
         var limite = new ElegibleFijo();
         var handler = new RegistrarPagoProveedorHandler(db, new FakeEmpresa(), new FakeUser(), new Abierto(),
-            new SinDatosDeProveedor(), limite, new Captura(), new FakeClock());
+            ProveedorActivo(), limite, new Captura(), new FakeClock());
         var excesivo = () => handler.Handle(new(cuenta.Id, Fecha, [new(pasivo.FacturaProveedorId, 1000m)]), default);
         await excesivo.Should().ThrowAsync<Millet.SharedKernel.Application.Exceptions.BusinessRuleException>()
             .Where(e => e.Code == "PAGO_EXCEDE_ELEGIBLE");
@@ -72,7 +72,7 @@ public sealed class EventosContablesG16Tests
         RegistrarPagoProveedorHandler Handler() => new(db, new FakeEmpresa(), new FakeUser(), new Abierto(),
             proveedores, new ElegibleSinLimite(), new Captura(), new FakeClock());
         Task Pagar(Guid? cuentaProveedor) => Handler().Handle(new(cuenta.Id, Fecha, [new(pasivo.FacturaProveedorId, 100m)],
-            CuentaProveedorId: cuentaProveedor, FondosVerificados: true), default);
+            CuentaProveedorId: cuentaProveedor), default);
 
         proveedores.Cuentas = [porValidar];
         await FluentActions.Awaiting(() => Pagar(null)).Should().ThrowAsync<Millet.SharedKernel.Application.Exceptions.BusinessRuleException>()
@@ -85,22 +85,87 @@ public sealed class EventosContablesG16Tests
         var movimiento = await db.MovimientosBancarios.SingleAsync();
         movimiento.DestinoCuentaId.Should().Be(activa.Id);
         movimiento.DestinoNumeroCuenta.Should().Be(activa.Numero);
-        movimiento.FondosVerificados.Should().BeTrue();
     }
 
     [Fact]
-    public void Registrar_pago_exige_confirmar_fondos()
+    public void Registrar_pago_no_exige_confirmar_fondos()
     {
         var validator = new RegistrarPagoProveedorValidator();
-        validator.Validate(new RegistrarPagoProveedorCommand(Guid.NewGuid(), Fecha, [new(Guid.NewGuid(), 1m)]))
-            .Errors.Should().Contain(e => e.PropertyName == "FondosVerificados");
+        var result = validator.Validate(new RegistrarPagoProveedorCommand(Guid.NewGuid(), Fecha, [new(Guid.NewGuid(), 1m)]));
+        result.Errors.Should().NotContain(e => e.PropertyName == "FondosVerificados");
+        result.IsValid.Should().BeTrue();
+    }
+
+    private static ConCuentas ProveedorActivo() => new()
+    {
+        Cuentas = [new CuentaProveedorDto(Guid.NewGuid(), "BBVA", "012180000000001234", true, null, "MXN", "Prov SA", true, "Activa")]
+    };
+
+    [Fact]
+    public async Task Pago_con_puerto_en_null_se_bloquea_sin_registrar_movimiento()
+    {
+        var (db, cuenta, pasivo) = Escenario(null);
+        await using var _ = db;
+        await db.SaveChangesAsync();
+        var captura = new Captura();
+        var handler = new RegistrarPagoProveedorHandler(db, new FakeEmpresa(), new FakeUser(), new Abierto(),
+            new SinDatosDeProveedor(), new ElegibleSinLimite(), captura, new FakeClock());
+        await FluentActions.Awaiting(() => handler.Handle(new(cuenta.Id, Fecha, [new(pasivo.FacturaProveedorId, 100m)]), default))
+            .Should().ThrowAsync<Millet.SharedKernel.Application.Exceptions.BusinessRuleException>()
+            .Where(e => e.Code == "PROVEEDOR_NO_ENCONTRADO");
+        (await db.MovimientosBancarios.AnyAsync()).Should().BeFalse();
+        captura.Eventos.Should().BeEmpty();
+    }
+
+    [Fact]
+    public async Task Pago_a_proveedor_sin_cuentas_se_bloquea()
+    {
+        var (db, cuenta, pasivo) = Escenario(null);
+        await using var _ = db;
+        await db.SaveChangesAsync();
+        var handler = new RegistrarPagoProveedorHandler(db, new FakeEmpresa(), new FakeUser(), new Abierto(),
+            new ConCuentas { Cuentas = [] }, new ElegibleSinLimite(), new Captura(), new FakeClock());
+        await FluentActions.Awaiting(() => handler.Handle(new(cuenta.Id, Fecha, [new(pasivo.FacturaProveedorId, 100m)]), default))
+            .Should().ThrowAsync<Millet.SharedKernel.Application.Exceptions.BusinessRuleException>()
+            .Where(e => e.Code == "PROVEEDOR_SIN_CUENTA_ACTIVA");
+    }
+
+    [Fact]
+    public async Task Pago_con_cuenta_de_proveedor_en_otra_moneda_se_bloquea()
+    {
+        var (db, cuenta, pasivo) = Escenario(null);
+        await using var _ = db;
+        await db.SaveChangesAsync();
+        var usd = new CuentaProveedorDto(Guid.NewGuid(), "BBVA", "012180000000001234", true, null, "USD", "Prov SA", true, "Activa");
+        var handler = new RegistrarPagoProveedorHandler(db, new FakeEmpresa(), new FakeUser(), new Abierto(),
+            new ConCuentas { Cuentas = [usd] }, new ElegibleSinLimite(), new Captura(), new FakeClock());
+        await FluentActions.Awaiting(() => handler.Handle(new(cuenta.Id, Fecha, [new(pasivo.FacturaProveedorId, 100m)],
+                CuentaProveedorId: usd.Id), default))
+            .Should().ThrowAsync<Millet.SharedKernel.Application.Exceptions.BusinessRuleException>()
+            .Where(e => e.Code == "PROVEEDOR_CUENTA_OTRA_MONEDA");
+        (await db.MovimientosBancarios.AnyAsync()).Should().BeFalse();
+    }
+
+    [Fact]
+    public async Task Pago_a_proveedor_inactivo_se_bloquea()
+    {
+        var (db, cuenta, pasivo) = Escenario(null);
+        await using var _ = db;
+        await db.SaveChangesAsync();
+        var handler = new RegistrarPagoProveedorHandler(db, new FakeEmpresa(), new FakeUser(), new Abierto(),
+            new ConCuentas { Activo = false, Cuentas = ProveedorActivo().Cuentas }, new ElegibleSinLimite(), new Captura(), new FakeClock());
+        await FluentActions.Awaiting(() => handler.Handle(new(cuenta.Id, Fecha, [new(pasivo.FacturaProveedorId, 100m)]), default))
+            .Should().ThrowAsync<Millet.SharedKernel.Application.Exceptions.BusinessRuleException>()
+            .Where(e => e.Code == "PROVEEDOR_NO_ACTIVO");
+        (await db.MovimientosBancarios.AnyAsync()).Should().BeFalse();
     }
 
     private sealed class ConCuentas : IProveedorBancoReadPort
     {
         public IReadOnlyList<CuentaProveedorDto> Cuentas { get; set; } = [];
+        public bool Activo { get; set; } = true;
         public Task<ProveedorBancoDto?> ObtenerAsync(Guid id, CancellationToken ct) =>
-            Task.FromResult<ProveedorBancoDto?>(new(id, "PROV", "Prov SA", Cuentas));
+            Task.FromResult<ProveedorBancoDto?>(new(id, "PROV", "Prov SA", Cuentas, Activo));
         public Task<IReadOnlyDictionary<Guid, ProveedorBancoDto>> ObtenerVariosAsync(IReadOnlyCollection<Guid> ids, CancellationToken ct) =>
             Task.FromResult<IReadOnlyDictionary<Guid, ProveedorBancoDto>>(new Dictionary<Guid, ProveedorBancoDto>());
     }
@@ -121,7 +186,7 @@ public sealed class EventosContablesG16Tests
         await db.SaveChangesAsync();
         var publisher = new Captura();
 
-        await new RegistrarPagoProveedorHandler(db, new FakeEmpresa(), new FakeUser(), new Abierto(), new SinDatosDeProveedor(), new ElegibleSinLimite(), publisher, new FakeClock())
+        await new RegistrarPagoProveedorHandler(db, new FakeEmpresa(), new FakeUser(), new Abierto(), ProveedorActivo(), new ElegibleSinLimite(), publisher, new FakeClock())
             .Handle(new RegistrarPagoProveedorCommand(cuenta.Id, Fecha,
                 [new AplicacionPagoItem(pasivo.FacturaProveedorId, 400m)]), default);
 
@@ -180,7 +245,7 @@ public sealed class EventosContablesG16Tests
         public Task<bool> EstaAbiertoAsync(int año, int mes, CancellationToken ct) => Task.FromResult(true);
     }
 
-    /// <summary>G1.1: sin datos del proveedor el pago no se bloquea; esta prueba solo revisa los campos contables del evento.</summary>
+    /// <summary>Puerto sin datos del proveedor: el pago se bloquea con PROVEEDOR_NO_ENCONTRADO.</summary>
     private sealed class SinDatosDeProveedor : IProveedorBancoReadPort
     {
         public Task<ProveedorBancoDto?> ObtenerAsync(Guid proveedorId, CancellationToken cancellationToken) =>

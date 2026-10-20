@@ -42,17 +42,17 @@ export function AsideListOcsHermanas({ oc }: AsideListOcsHermanasProps) {
 
   return (
     <aside
-      className="rounded-md border bg-muted/30 p-3 text-sm"
+      className="rounded-md border bg-surface-muted/30 p-3 text-sm"
       data-component="aside-list-ocs-hermanas"
     >
-      <h3 className="mb-2 flex items-center gap-1.5 text-xs font-medium uppercase tracking-wide text-muted-foreground">
+      <h3 className="mb-2 flex items-center gap-1.5 text-xs font-medium uppercase tracking-wide text-ink-muted">
         <GitFork className="h-3.5 w-3.5" />
         Cadena de duplicación
       </h3>
 
       {esDuplicada && oc.ocOrigenId && (
         <p className="mb-2">
-          <span className="text-muted-foreground">Esta OC se duplicó de:</span>{' '}
+          <span className="text-ink-muted">Esta OC se duplicó de:</span>{' '}
           <Link
             to="/compras/ordenes/$id"
             params={{ id: oc.ocOrigenId }}
@@ -67,7 +67,7 @@ export function AsideListOcsHermanas({ oc }: AsideListOcsHermanasProps) {
 
       {tieneHermanas && (
         <div>
-          <p className="mb-1 text-xs text-muted-foreground">
+          <p className="mb-1 text-xs text-ink-muted">
             {esDuplicada
               ? 'Otras OCs duplicadas del mismo origen:'
               : 'OCs duplicadas a partir de esta:'}
@@ -82,7 +82,7 @@ export function AsideListOcsHermanas({ oc }: AsideListOcsHermanasProps) {
                   data-link={`oc-hermana-${h.id}`}
                 >
                   <span>{h.folio}</span>
-                  <span className="text-[10px] uppercase tracking-wide text-muted-foreground">
+                  <span className="text-2xs uppercase tracking-wide text-ink-muted">
                     {labelEstado(h.estado)}
                   </span>
                   <ExternalLink className="h-3 w-3" />

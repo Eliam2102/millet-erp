@@ -1,3 +1,5 @@
+import { ListadoCatalogo } from '@/modules/administracion/components/ListadoCatalogo';
+import { OPCIONES_CUENTA } from '@/modules/identidad/lib/estados-ui';
 import { Link } from '@tanstack/react-router';
 import { ChevronRight } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
@@ -9,23 +11,29 @@ import { cn } from '@/lib/utils';
  * Estilo inbox: cada item muestra RFC + razón social + badge de
  * estado (Activa/Inactiva). El item activo (cuando estamos en
  * master-detail con un id en URL) se highlightea con
- * <c>bg-primary/10</c>, igual que el patrón exemplar de Compras.
+ * <c>bg-brand/10</c>, igual que el patrón exemplar de Compras.
  */
 export interface ListaEmpresasCompactaProps {
   items: readonly EmpresaResponse[];
   idActivo: string | null;
 }
 
-export function ListaEmpresasCompacta({
-  items,
-  idActivo,
-}: ListaEmpresasCompactaProps) {
+export function ListaEmpresasCompacta({ items, idActivo }: ListaEmpresasCompactaProps) {
   return (
-    <ul className="divide-y" role="list" aria-label="Lista de empresas">
-      {items.map((e) => (
-        <ItemCompacto key={e.id} item={e} activo={e.id === idActivo} />
-      ))}
-    </ul>
+    <ListadoCatalogo
+      items={items}
+      texto={(e) => e.rfc + ' ' + e.razonSocial}
+      estado={(e) => Number(e.activa)}
+      opciones={OPCIONES_CUENTA}
+    >
+      {(visibles) => (
+        <ul className="divide-y" role="list" aria-label="Lista de empresas">
+          {visibles.map((e) => (
+            <ItemCompacto key={e.id} item={e} activo={e.id === idActivo} />
+          ))}
+        </ul>
+      )}
+    </ListadoCatalogo>
   );
 }
 
@@ -42,9 +50,7 @@ function ItemCompacto({ item, activo }: ItemCompactoProps) {
         params={{ id: item.id }}
         className={cn(
           'block px-3 py-2 transition-colors',
-          activo
-            ? 'bg-primary/10 hover:bg-primary/15'
-            : 'hover:bg-muted/40',
+          activo ? 'bg-brand/10 hover:bg-brand/15' : 'hover:bg-surface-muted/40',
         )}
         aria-current={activo ? 'page' : undefined}
       >
@@ -52,25 +58,21 @@ function ItemCompacto({ item, activo }: ItemCompactoProps) {
           <span
             className={cn(
               'truncate font-mono text-sm',
-              activo ? 'font-semibold text-foreground' : 'text-foreground',
+              activo ? 'font-semibold text-ink' : 'text-ink',
             )}
           >
             {item.rfc}
           </span>
           <div className="flex shrink-0 items-center gap-1">
             {item.activa ? (
-              <Badge variant="secondary">Activa</Badge>
+              <Badge variant="neutral">Activa</Badge>
             ) : (
-              <Badge variant="outline" className="text-muted-foreground">
-                Inactiva
-              </Badge>
+              <Badge variant="neutral">Inactiva</Badge>
             )}
-            <ChevronRight className="h-4 w-4 text-muted-foreground shrink-0" />
+            <ChevronRight className="h-4 w-4 text-ink-muted shrink-0" />
           </div>
         </div>
-        <div className="mt-1 truncate text-xs text-muted-foreground">
-          {item.razonSocial}
-        </div>
+        <div className="mt-1 truncate text-xs text-ink-muted">{item.razonSocial}</div>
       </Link>
     </li>
   );

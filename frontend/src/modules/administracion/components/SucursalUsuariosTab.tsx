@@ -10,6 +10,7 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
+  DialogBody,
 } from '@/components/ui/dialog';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useUsuarios } from '@/modules/identidad/api';
@@ -29,10 +30,7 @@ export interface SucursalUsuariosTabProps {
   canGestionar: boolean;
 }
 
-export function SucursalUsuariosTab({
-  sucursalId,
-  canGestionar,
-}: SucursalUsuariosTabProps) {
+export function SucursalUsuariosTab({ sucursalId, canGestionar }: SucursalUsuariosTabProps) {
   const catalogoQuery = useUsuarios({ soloActivos: true });
   const asignadosQuery = useUsuariosDeSucursal(sucursalId);
 
@@ -45,9 +43,7 @@ export function SucursalUsuariosTab({
     const q = filtro.trim().toLowerCase();
     if (!q) return asignados;
     return asignados.filter(
-      (u) =>
-        u.usuarioEmail.toLowerCase().includes(q) ||
-        u.usuarioNombre.toLowerCase().includes(q),
+      (u) => u.usuarioEmail.toLowerCase().includes(q) || u.usuarioNombre.toLowerCase().includes(q),
     );
   }, [asignados, filtro]);
 
@@ -78,7 +74,7 @@ export function SucursalUsuariosTab({
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div className="flex items-center gap-2">
           <div className="relative w-full sm:w-72">
-            <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+            <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-ink-muted" />
             <Input
               placeholder="Buscar por nombre o correo..."
               value={filtro}
@@ -87,7 +83,7 @@ export function SucursalUsuariosTab({
               aria-label="Buscar usuarios asignados"
             />
           </div>
-          <span className="text-xs text-muted-foreground whitespace-nowrap">
+          <span className="text-xs text-ink-muted whitespace-nowrap">
             {asignados.length} {asignados.length === 1 ? 'asignado' : 'asignados'}
           </span>
         </div>
@@ -105,12 +101,12 @@ export function SucursalUsuariosTab({
 
       {/* Lista de asignados o empty state */}
       {asignados.length === 0 ? (
-        <div className="flex flex-col items-center justify-center rounded-lg border border-dashed bg-muted/20 px-6 py-10 text-center">
-          <Users className="mb-3 h-10 w-10 text-muted-foreground/60" />
+        <div className="flex flex-col items-center justify-center rounded-lg border border-dashed bg-surface-muted/20 px-6 py-10 text-center">
+          <Users className="mb-3 h-10 w-10 text-ink-muted/60" />
           <h3 className="text-sm font-semibold">No hay usuarios asignados</h3>
-          <p className="mt-1 text-xs text-muted-foreground max-w-sm">
-            Esta sucursal aún no tiene usuarios vinculados. Asocia usuarios del
-            sistema para permitirles operar dentro de esta sucursal.
+          <p className="mt-1 text-xs text-ink-muted max-w-sm">
+            Esta sucursal aún no tiene usuarios vinculados. Asocia usuarios del sistema para
+            permitirles operar dentro de esta sucursal.
           </p>
           {canGestionar && (
             <Button
@@ -124,11 +120,11 @@ export function SucursalUsuariosTab({
           )}
         </div>
       ) : asignadosFiltrados.length === 0 ? (
-        <div className="rounded-md border border-dashed bg-muted/10 px-4 py-8 text-center text-sm text-muted-foreground">
+        <div className="rounded-md border border-dashed bg-surface-muted/10 px-4 py-8 text-center text-sm text-ink-muted">
           No se encontraron usuarios asignados que coincidan con &ldquo;{filtro}&rdquo;.
         </div>
       ) : (
-        <ul className="divide-y rounded-md border bg-card">
+        <ul className="divide-y rounded-md border bg-surface-card">
           {asignadosFiltrados.map((item) => (
             <FilaUsuarioAsignado
               key={item.usuarioId}
@@ -158,11 +154,7 @@ interface FilaUsuarioAsignadoProps {
   canGestionar: boolean;
 }
 
-function FilaUsuarioAsignado({
-  sucursalId,
-  item,
-  canGestionar,
-}: FilaUsuarioAsignadoProps) {
+function FilaUsuarioAsignado({ sucursalId, item, canGestionar }: FilaUsuarioAsignadoProps) {
   const desactivar = useDesactivarAsignacionUsuarioSucursal();
   const reactivar = useReactivarAsignacionUsuarioSucursal();
 
@@ -196,9 +188,9 @@ function FilaUsuarioAsignado({
       descripcionConfirmacion={
         <>
           ¿Confirmas desactivar al usuario{' '}
-          <span className="font-semibold">{item.usuarioEmail}</span> en esta
-          sucursal? Ya no podrá operar dentro de esta sucursal pero conservará su
-          cuenta global y su acceso a otras sucursales.
+          <span className="font-semibold">{item.usuarioEmail}</span> en esta sucursal? Ya no podrá
+          operar dentro de esta sucursal pero conservará su cuenta global y su acceso a otras
+          sucursales.
         </>
       }
       desactivando={desactivar.isPending}
@@ -206,12 +198,8 @@ function FilaUsuarioAsignado({
       onConfirmarDesactivar={handleConfirmarDesactivar}
       onReactivar={handleReactivar}
     >
-      <span className="text-sm font-semibold text-foreground">
-        {item.usuarioNombre}
-      </span>
-      <span className="font-mono text-xs text-muted-foreground">
-        {item.usuarioEmail}
-      </span>
+      <span className="text-sm font-semibold text-ink">{item.usuarioNombre}</span>
+      <span className="font-mono text-xs text-ink-muted">{item.usuarioEmail}</span>
     </FilaAsignacionSucursal>
   );
 }
@@ -248,9 +236,7 @@ function AsignarUsuarioModal({
     const q = busquedaUsuario.trim().toLowerCase();
     if (!q) return usuariosDisponibles;
     return usuariosDisponibles.filter(
-      (u) =>
-        u.email.toLowerCase().includes(q) ||
-        u.nombre.toLowerCase().includes(q),
+      (u) => u.email.toLowerCase().includes(q) || u.nombre.toLowerCase().includes(q),
     );
   }, [usuariosDisponibles, busquedaUsuario]);
 
@@ -284,83 +270,86 @@ function AsignarUsuarioModal({
           );
           handleOpenChange(false);
         },
-        onError: handleError(usuarioSeleccionado ? `asignar ${usuarioSeleccionado.email}` : 'asignar usuario'),
+        onError: handleError(
+          usuarioSeleccionado ? `asignar ${usuarioSeleccionado.email}` : 'asignar usuario',
+        ),
       },
     );
   }
 
   return (
     <Dialog open={open} onOpenChange={handleOpenChange}>
-      <DialogContent className="sm:max-w-md">
+      <DialogContent size="md" className="">
         <DialogHeader>
           <DialogTitle>Asignar usuario a la sucursal</DialogTitle>
           <DialogDescription>
             Selecciona un usuario del sistema para concederle acceso operativo a esta sucursal.
           </DialogDescription>
         </DialogHeader>
-
-        <div className="space-y-4 py-2">
-          {catalogoQuery.isLoading ? (
-            <div className="space-y-3">
-              <Skeleton className="h-9 w-full" />
-              <Skeleton className="h-9 w-full" />
-            </div>
-          ) : usuariosDisponibles.length === 0 ? (
-            <div className="rounded-md border border-dashed bg-muted/20 p-4 text-center text-sm text-muted-foreground">
-              Todos los usuarios activos del sistema ya están asignados a esta sucursal.
-            </div>
-          ) : (
-            <>
-              {usuariosDisponibles.length > 8 && (
-                <div className="relative">
-                  <Search className="absolute left-2.5 top-2.5 h-3.5 w-3.5 text-muted-foreground" />
-                  <Input
-                    placeholder="Filtrar usuarios disponibles..."
-                    value={busquedaUsuario}
-                    onChange={(e) => setBusquedaUsuario(e.target.value)}
-                    className="h-8 pl-8 text-xs"
-                  />
-                </div>
-              )}
-
-              <div className="space-y-1.5">
-                <label
-                  htmlFor="select-usuario"
-                  className="text-xs font-semibold uppercase tracking-wider text-foreground"
-                >
-                  Usuario *
-                </label>
-                <select
-                  id="select-usuario"
-                  aria-label="Usuario a asignar"
-                  className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm shadow-xs focus:outline-hidden focus:ring-2 focus:ring-ring"
-                  value={usuarioId}
-                  onChange={(e) => setUsuarioId(e.target.value)}
-                  disabled={asignar.isPending}
-                >
-                  <option value="">
-                    -- Selecciona un usuario ({usuariosFiltrados.length} disponibles) --
-                  </option>
-                  {usuariosFiltrados.map((u) => (
-                    <option key={u.id} value={u.id}>
-                      {u.nombre} ({u.email})
-                    </option>
-                  ))}
-                </select>
+        <DialogBody>
+          <div className="space-y-4 py-2">
+            {catalogoQuery.isLoading ? (
+              <div className="space-y-3">
+                <Skeleton className="h-9 w-full" />
+                <Skeleton className="h-9 w-full" />
               </div>
+            ) : usuariosDisponibles.length === 0 ? (
+              <div className="rounded-md border border-dashed bg-surface-muted/20 p-4 text-center text-sm text-ink-muted">
+                Todos los usuarios activos del sistema ya están asignados a esta sucursal.
+              </div>
+            ) : (
+              <>
+                {usuariosDisponibles.length > 8 && (
+                  <div className="relative">
+                    <Search className="absolute left-2.5 top-2.5 h-3.5 w-3.5 text-ink-muted" />
+                    <Input
+                      placeholder="Filtrar usuarios disponibles..."
+                      value={busquedaUsuario}
+                      onChange={(e) => setBusquedaUsuario(e.target.value)}
+                      className="h-8 pl-8 text-xs"
+                    />
+                  </div>
+                )}
 
-              {usuarioSeleccionado && (
-                <div className="flex items-center gap-2 rounded-md bg-muted/50 p-2.5 text-xs text-muted-foreground">
-                  <UserCheck className="h-4 w-4 text-primary" />
-                  <span>
-                    Se asignará <strong className="text-foreground">{usuarioSeleccionado.nombre}</strong> con correo <strong className="text-foreground">{usuarioSeleccionado.email}</strong>.
-                  </span>
+                <div className="space-y-1.5">
+                  <label
+                    htmlFor="select-usuario"
+                    className="text-xs font-semibold uppercase tracking-wider text-ink"
+                  >
+                    Usuario *
+                  </label>
+                  <select
+                    id="select-usuario"
+                    aria-label="Usuario a asignar"
+                    className="w-full rounded-md border border-line-control bg-surface-page px-3 py-2 text-sm shadow-card-flat focus:outline-hidden focus:ring-2 focus:ring-brand"
+                    value={usuarioId}
+                    onChange={(e) => setUsuarioId(e.target.value)}
+                    disabled={asignar.isPending}
+                  >
+                    <option value="">
+                      -- Selecciona un usuario ({usuariosFiltrados.length} disponibles) --
+                    </option>
+                    {usuariosFiltrados.map((u) => (
+                      <option key={u.id} value={u.id}>
+                        {u.nombre} ({u.email})
+                      </option>
+                    ))}
+                  </select>
                 </div>
-              )}
-            </>
-          )}
-        </div>
 
+                {usuarioSeleccionado && (
+                  <div className="flex items-center gap-2 rounded-md bg-surface-muted/50 p-2.5 text-xs text-ink-muted">
+                    <UserCheck className="h-4 w-4 text-brand" />
+                    <span>
+                      Se asignará <strong className="text-ink">{usuarioSeleccionado.nombre}</strong>{' '}
+                      con correo <strong className="text-ink">{usuarioSeleccionado.email}</strong>.
+                    </span>
+                  </div>
+                )}
+              </>
+            )}
+          </div>
+        </DialogBody>
         <DialogFooter className="gap-2 sm:gap-0">
           <Button
             variant="outline"
@@ -385,9 +374,7 @@ function handleError(accion: string) {
   return (error: unknown) => {
     if (esApiError(error)) {
       toast.error(error.problem.title, {
-        description:
-          error.problem.detail ||
-          (codigoSoporte(error)),
+        description: error.problem.detail || codigoSoporte(error),
       });
     } else {
       toast.error(`Error al ${accion}.`);

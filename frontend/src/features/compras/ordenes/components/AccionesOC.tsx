@@ -154,19 +154,14 @@ export function AccionesOC({ oc, revision }: AccionesOCProps) {
     duplicarMut.isPending;
 
   return (
-    <div
-      className="flex flex-wrap items-center gap-2"
-      data-component="acciones-oc"
-    >
+    <div className="flex flex-wrap items-center gap-2" data-component="acciones-oc">
       {accTransmitir.visible && (
         <Button
           size="sm"
           variant="default"
           onClick={() => abrirConfirm('transmitir')}
           disabled={!accTransmitir.habilitada || isPending}
-          aria-describedby={
-            accTransmitir.motivoDeshabilitada ? 'motivo-transmitir' : undefined
-          }
+          aria-describedby={accTransmitir.motivoDeshabilitada ? 'motivo-transmitir' : undefined}
           data-action="transmitir"
         >
           <Send className="mr-1 h-3.5 w-3.5" />
@@ -181,85 +176,85 @@ export function AccionesOC({ oc, revision }: AccionesOCProps) {
       {accN1.visible && (
         <ConMotivo motivo={accN1.motivoDeshabilitada}>
           <Button
-          size="sm"
-          variant="default"
-          onClick={() => abrirConfirm('aprobar-n1')}
-          disabled={!accN1.habilitada || isPending}
-          data-action="aprobar-n1"
-        >
-          <CheckCircle2 className="mr-1 h-3.5 w-3.5" />
-          Aprobar Nivel 1
-        </Button>
+            size="sm"
+            variant="default"
+            onClick={() => abrirConfirm('aprobar-n1')}
+            disabled={!accN1.habilitada || isPending}
+            data-action="aprobar-n1"
+          >
+            <CheckCircle2 className="mr-1 h-3.5 w-3.5" />
+            Aprobar Nivel 1
+          </Button>
         </ConMotivo>
       )}
       {accN2.visible && (
         <ConMotivo motivo={accN2.motivoDeshabilitada}>
           <Button
-          size="sm"
-          variant="default"
-          onClick={() => abrirConfirm('aprobar-n2')}
-          disabled={!accN2.habilitada || isPending}
-          data-action="aprobar-n2"
-        >
-          <CheckCircle2 className="mr-1 h-3.5 w-3.5" />
-          Aprobar Nivel 2
-        </Button>
+            size="sm"
+            variant="default"
+            onClick={() => abrirConfirm('aprobar-n2')}
+            disabled={!accN2.habilitada || isPending}
+            data-action="aprobar-n2"
+          >
+            <CheckCircle2 className="mr-1 h-3.5 w-3.5" />
+            Aprobar Nivel 2
+          </Button>
         </ConMotivo>
       )}
       {accRechazar.visible && (
         <ConMotivo motivo={accRechazar.motivoDeshabilitada}>
           <Button
-          size="sm"
-          variant="secondary-danger"
-          onClick={abrirRechazar}
-          disabled={!accRechazar.habilitada || isPending}
-          data-action="rechazar"
-        >
-          <XCircle className="mr-1 h-3.5 w-3.5" />
-          Rechazar
-        </Button>
+            size="sm"
+            variant="secondary-danger"
+            onClick={abrirRechazar}
+            disabled={!accRechazar.habilitada || isPending}
+            data-action="rechazar"
+          >
+            <XCircle className="mr-1 h-3.5 w-3.5" />
+            Rechazar
+          </Button>
         </ConMotivo>
       )}
       {accCancelar1.visible && (
         <ConMotivo motivo={accCancelar1.motivoDeshabilitada}>
           <Button
-          size="sm"
-          variant="secondary-danger"
-          onClick={abrirCancelar1}
-          disabled={!accCancelar1.habilitada || isPending}
-          data-action="cancelar-1-firma"
-        >
-          <Ban className="mr-1 h-3.5 w-3.5" />
-          Cancelar OC
-        </Button>
+            size="sm"
+            variant="secondary-danger"
+            onClick={abrirCancelar1}
+            disabled={!accCancelar1.habilitada || isPending}
+            data-action="cancelar-1-firma"
+          >
+            <Ban className="mr-1 h-3.5 w-3.5" />
+            Cancelar OC
+          </Button>
         </ConMotivo>
       )}
       {accCancelarDoble.visible && (
         <ConMotivo motivo={accCancelarDoble.motivoDeshabilitada}>
           <Button
-          size="sm"
-          variant="secondary-danger"
-          onClick={abrirCancelarDoble}
-          disabled={!accCancelarDoble.habilitada || isPending}
-          data-action="cancelar-doble-firma"
-        >
-          <Ban className="mr-1 h-3.5 w-3.5" />
-          Solicitar cancelación
-        </Button>
+            size="sm"
+            variant="secondary-danger"
+            onClick={abrirCancelarDoble}
+            disabled={!accCancelarDoble.habilitada || isPending}
+            data-action="cancelar-doble-firma"
+          >
+            <Ban className="mr-1 h-3.5 w-3.5" />
+            Solicitar cancelación
+          </Button>
         </ConMotivo>
       )}
       {accDuplicar.visible && (
         <ConMotivo motivo={accDuplicar.motivoDeshabilitada}>
           <Button
-          size="sm"
-          variant="secondary"
-          onClick={abrirDuplicar}
-          disabled={!accDuplicar.habilitada || isPending}
-          data-action="duplicar-oc"
-        >
-          <Copy className="mr-1 h-3.5 w-3.5" />
-          Duplicar OC
-        </Button>
+            size="sm"
+            variant="secondary"
+            onClick={abrirDuplicar}
+            disabled={!accDuplicar.habilitada || isPending}
+            data-action="duplicar-oc"
+          >
+            <Copy className="mr-1 h-3.5 w-3.5" />
+            Duplicar OC
+          </Button>
         </ConMotivo>
       )}
 
@@ -528,10 +523,7 @@ function ConfirmDialog({
         onClose();
         return;
       }
-      const msg =
-        action === 'transmitir'
-          ? mensajeErrorTransmision(err)
-          : mensajeErrorAccion(err);
+      const msg = action === 'transmitir' ? mensajeErrorTransmision(err) : mensajeErrorAccion(err);
       toast.error(msg);
     }
   }
@@ -550,11 +542,7 @@ function ConfirmDialog({
         </AlertDialogHeader>
         <AlertDialogFooter>
           <AlertDialogCancel disabled={isPending}>Cancelar</AlertDialogCancel>
-          <AlertDialogAction
-            onClick={handleConfirm}
-            disabled={isPending}
-            data-action="confirmar"
-          >
+          <AlertDialogAction onClick={handleConfirm} disabled={isPending} data-action="confirmar">
             {isPending ? (
               <>
                 <Loader2 className="mr-1 h-3.5 w-3.5 animate-spin" />

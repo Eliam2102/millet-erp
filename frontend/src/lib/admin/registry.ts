@@ -1,4 +1,6 @@
 import type { LucideIcon } from 'lucide-react';
+import { BookOpen } from 'lucide-react';
+import { PermisosCanonicos } from '@/lib/auth/permission-codes';
 
 import { administracionAdminCards } from '@/modules/administracion/admin';
 import { catalogosAdminCards } from '@/modules/catalogos/admin';
@@ -93,6 +95,18 @@ export interface AdminSection {
  * <see cref="useAdminRegistry"/>.
  */
 export const adminRegistry: readonly AdminSection[] = [
+  {
+    id: 'admin-sistema-diseno',
+    modulo: 'admin',
+    titulo: 'Sistema de diseño',
+    descripcion: 'Componentes, fundamentos y plantillas interactivas del ERP.',
+    icon: BookOpen,
+    href: '/sistema-diseno',
+    permisoRequerido: PermisosCanonicos.AdminParametrosEditar,
+    orden: 100,
+    grupo: 'modulos',
+    displayMode: 'custom',
+  },
   ...identidadAdminCards,
   ...administracionAdminCards,
   ...datosMaestrosAdminCards,

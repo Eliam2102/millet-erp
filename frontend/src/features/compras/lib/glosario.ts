@@ -128,11 +128,11 @@ export const ESTADOS: Record<EstadoRequisicion, DefinicionTerm> = {
   },
   CerradaSinSurtir: {
     resumen:
-      'Cierre administrativo (jefe de almacén): la RQ se cerró sin entregar nada al solicitante porque ya no se necesita el material. Lo no entregado queda como stock libre. ADR-0043.',
+      'Cierre administrativo (jefe de almacén): la RQ se cerró sin entregar nada al solicitante porque ya no se necesita el material. Lo no entregado queda como stock libre.',
   },
   CerradaSurtidaParcial: {
     resumen:
-      'Cierre administrativo (jefe de almacén): se entregó solo una parte y el resto ya no se entregará; lo no entregado queda como stock libre. ADR-0043.',
+      'Cierre administrativo (jefe de almacén): se entregó solo una parte y el resto ya no se entregará; lo no entregado queda como stock libre.',
   },
 };
 

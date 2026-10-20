@@ -195,7 +195,7 @@ export function PolizaForm({ poliza, onGuardada, onCancelar, onDirtyChange, recl
             <Link2 className="mt-0.5 size-4 shrink-0" strokeWidth={1.6} aria-hidden="true" />
             <span>
               Reclasifica a{' '}
-              <span className="font-mono font-medium">{reclasifica.folio ?? '[FOLIO]'}</span>. Es
+              <span className="font-mono font-medium">{reclasifica.folio ?? <span className="text-ink-muted">Sin número</span>}</span>. Es
               una póliza manual: se guarda en borrador y la autoriza otro usuario; ambas pólizas
               quedan ligadas.
             </span>
@@ -305,7 +305,7 @@ export function PolizaForm({ poliza, onGuardada, onCancelar, onDirtyChange, recl
                     aria-invalid={err('concepto').length > 0 || undefined}
                     aria-describedby="pol-concepto-err"
                     onChange={(e) => setConcepto(e.target.value)}
-                    placeholder="[CONCEPTO DE LA PÓLIZA]"
+                    placeholder="Pago a proveedor de vidrio templado"
                   />
                 </Campo>
               </FormCampo>
