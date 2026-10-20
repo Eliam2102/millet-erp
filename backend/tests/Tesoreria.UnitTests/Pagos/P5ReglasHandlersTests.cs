@@ -211,7 +211,7 @@ public sealed class P5ReglasHandlersTests
     private sealed class Periodo : IPeriodoContablePort { public Task<bool> EstaAbiertoAsync(int año, int mes, CancellationToken ct) => Task.FromResult(true); }
     private sealed class Proveedores : IProveedorBancoReadPort
     {
-        public Task<ProveedorBancoDto?> ObtenerAsync(Guid id, CancellationToken ct) => Task.FromResult<ProveedorBancoDto?>(null);
+        public Task<ProveedorBancoDto?> ObtenerAsync(Guid id, CancellationToken ct) => Task.FromResult<ProveedorBancoDto?>(new(id, "PRU", "Proveedor", [new(Guid.NewGuid(), "Banco", "000000000000001234", true, null, "MXN", "Proveedor", true, "Activa")]));
         public Task<IReadOnlyDictionary<Guid, ProveedorBancoDto>> ObtenerVariosAsync(IReadOnlyCollection<Guid> ids, CancellationToken ct) => Task.FromResult<IReadOnlyDictionary<Guid, ProveedorBancoDto>>(new Dictionary<Guid, ProveedorBancoDto>());
     }
     private sealed class Publicador(TesoreriaDbContext db) : IIntegrationEventPublisher
