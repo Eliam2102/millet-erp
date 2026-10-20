@@ -81,6 +81,8 @@ public sealed class P5ReglasHandlersTests
     [InlineData(null, "PROVEEDOR_NO_ENCONTRADO")]
     [InlineData("PorValidar", "PROVEEDOR_SIN_CUENTA_ACTIVA")]
     [InlineData("EnRevision", "PROVEEDOR_EN_REVISION")]
+    [InlineData("Inactivo", "PROVEEDOR_NO_ACTIVO")]
+    [InlineData("UsdActiva", "PROVEEDOR_SIN_CUENTA_ACTIVA")]
     public async Task Pago_a_cuenta_rechaza_proveedor_no_apto(string? caso, string codigo)
     {
         await using var db = Db(); var cuenta = Cuenta(db); await db.SaveChangesAsync();
@@ -100,7 +102,7 @@ public sealed class P5ReglasHandlersTests
     }
 
     private static ProveedorBancoDto? DtoPara(string? caso) => caso is null ? null
-        : new(Guid.NewGuid(), "PRU", "Proveedor", [new(Guid.NewGuid(), "Banco", "000000000000001234", true, null, "MXN", "Proveedor", true, caso == "EnRevision" ? "Activa" : caso)], EnRevision: caso == "EnRevision");
+        : new(Guid.NewGuid(), "PRU", "Proveedor", [new(Guid.NewGuid(), "Banco", "000000000000001234", true, null, caso == "UsdActiva" ? "USD" : "MXN", "Proveedor", true, caso is "EnRevision" or "Inactivo" or "UsdActiva" ? "Activa" : caso)], Activo: caso != "Inactivo", EnRevision: caso == "EnRevision");
 
     private sealed class ProveedorFake(ProveedorBancoDto? dto) : IProveedorBancoReadPort
     {

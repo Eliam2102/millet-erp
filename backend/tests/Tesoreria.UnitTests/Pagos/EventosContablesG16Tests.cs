@@ -132,11 +132,43 @@ public sealed class EventosContablesG16Tests
             .Where(e => e.Code == "PROVEEDOR_SIN_CUENTA_ACTIVA");
     }
 
+    [Fact]
+    public async Task Pago_con_cuenta_de_proveedor_en_otra_moneda_se_bloquea()
+    {
+        var (db, cuenta, pasivo) = Escenario(null);
+        await using var _ = db;
+        await db.SaveChangesAsync();
+        var usd = new CuentaProveedorDto(Guid.NewGuid(), "BBVA", "012180000000001234", true, null, "USD", "Prov SA", true, "Activa");
+        var handler = new RegistrarPagoProveedorHandler(db, new FakeEmpresa(), new FakeUser(), new Abierto(),
+            new ConCuentas { Cuentas = [usd] }, new ElegibleSinLimite(), new Captura(), new FakeClock());
+        await FluentActions.Awaiting(() => handler.Handle(new(cuenta.Id, Fecha, [new(pasivo.FacturaProveedorId, 100m)],
+                CuentaProveedorId: usd.Id, FondosVerificados: true), default))
+            .Should().ThrowAsync<Millet.SharedKernel.Application.Exceptions.BusinessRuleException>()
+            .Where(e => e.Code == "PROVEEDOR_CUENTA_OTRA_MONEDA");
+        (await db.MovimientosBancarios.AnyAsync()).Should().BeFalse();
+    }
+
+    [Fact]
+    public async Task Pago_a_proveedor_inactivo_se_bloquea()
+    {
+        var (db, cuenta, pasivo) = Escenario(null);
+        await using var _ = db;
+        await db.SaveChangesAsync();
+        var handler = new RegistrarPagoProveedorHandler(db, new FakeEmpresa(), new FakeUser(), new Abierto(),
+            new ConCuentas { Activo = false, Cuentas = ProveedorActivo().Cuentas }, new ElegibleSinLimite(), new Captura(), new FakeClock());
+        await FluentActions.Awaiting(() => handler.Handle(new(cuenta.Id, Fecha, [new(pasivo.FacturaProveedorId, 100m)],
+                FondosVerificados: true), default))
+            .Should().ThrowAsync<Millet.SharedKernel.Application.Exceptions.BusinessRuleException>()
+            .Where(e => e.Code == "PROVEEDOR_NO_ACTIVO");
+        (await db.MovimientosBancarios.AnyAsync()).Should().BeFalse();
+    }
+
     private sealed class ConCuentas : IProveedorBancoReadPort
     {
         public IReadOnlyList<CuentaProveedorDto> Cuentas { get; set; } = [];
+        public bool Activo { get; set; } = true;
         public Task<ProveedorBancoDto?> ObtenerAsync(Guid id, CancellationToken ct) =>
-            Task.FromResult<ProveedorBancoDto?>(new(id, "PROV", "Prov SA", Cuentas));
+            Task.FromResult<ProveedorBancoDto?>(new(id, "PROV", "Prov SA", Cuentas, Activo));
         public Task<IReadOnlyDictionary<Guid, ProveedorBancoDto>> ObtenerVariosAsync(IReadOnlyCollection<Guid> ids, CancellationToken ct) =>
             Task.FromResult<IReadOnlyDictionary<Guid, ProveedorBancoDto>>(new Dictionary<Guid, ProveedorBancoDto>());
     }
