@@ -1,7 +1,13 @@
 import { useState } from 'react';
 import { Check, ChevronsUpDown, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { Command, CommandGroup, CommandInput, CommandItem, CommandList } from '@/components/ui/command';
+import {
+  Command,
+  CommandGroup,
+  CommandInput,
+  CommandItem,
+  CommandList,
+} from '@/components/ui/command';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { CatalogoQueryError } from '@/components/erp/selectors/CatalogoQueryError';
 import { useDebouncedValue } from '@/lib/hooks/useDebouncedValue';
@@ -33,7 +39,15 @@ interface Props {
  * con `shouldFilter=false`: el servidor filtra; el cliente solo pinta la página). El servidor revalida
  * padre, nivel y ciclos al guardar.
  */
-export function CuentaPadreSelector({ id, value, onChange, excluirId, padreActual, disabled, title }: Props) {
+export function CuentaPadreSelector({
+  id,
+  value,
+  onChange,
+  excluirId,
+  padreActual,
+  disabled,
+  title,
+}: Props) {
   const [open, setOpen] = useState(false);
   const [busqueda, setBusqueda] = useState('');
   const [elegida, setElegida] = useState<Opcion | null>(null);
@@ -47,7 +61,11 @@ export function CuentaPadreSelector({ id, value, onChange, excluirId, padreActua
     (elegida?.id === value && elegida) ||
     items.find((p) => p.id === value) ||
     (padreActual?.id === value ? padreActual : undefined);
-  const etiqueta = !value ? SIN_PADRE : resuelta ? `${resuelta.codigo} — ${resuelta.nombre}` : 'Cuenta seleccionada';
+  const etiqueta = !value
+    ? SIN_PADRE
+    : resuelta
+      ? `${resuelta.codigo} — ${resuelta.nombre}`
+      : 'Cuenta seleccionada';
 
   function elegir(opcion: Opcion | null) {
     onChange(opcion?.id ?? '');
@@ -83,13 +101,20 @@ export function CuentaPadreSelector({ id, value, onChange, excluirId, padreActua
           />
           <CommandList>
             <CommandGroup>
-              <CommandItem value="__raiz__" onSelect={() => elegir(null)} className="justify-between">
+              <CommandItem
+                value="__raiz__"
+                onSelect={() => elegir(null)}
+                className="justify-between"
+              >
                 <span className="text-ink-secondary">{SIN_PADRE}</span>
                 {!value && <Check className="size-4" aria-hidden="true" />}
               </CommandItem>
             </CommandGroup>
             {padres.isFetching ? (
-              <div className="flex items-center justify-center gap-2 py-6 text-sm text-ink-muted" aria-live="polite">
+              <div
+                className="flex items-center justify-center gap-2 py-6 text-sm text-ink-muted"
+                aria-live="polite"
+              >
                 <Loader2 className="size-4 animate-spin" aria-hidden="true" />
                 Buscando…
               </div>
@@ -102,7 +127,12 @@ export function CuentaPadreSelector({ id, value, onChange, excluirId, padreActua
             ) : (
               <CommandGroup heading="Cuentas activas">
                 {items.map((p) => (
-                  <CommandItem key={p.id} value={p.id} onSelect={() => elegir(p)} className="justify-between gap-3">
+                  <CommandItem
+                    key={p.id}
+                    value={p.id}
+                    onSelect={() => elegir(p)}
+                    className="justify-between gap-3"
+                  >
                     <span className="min-w-0 truncate">
                       <span className="font-mono text-xs">{p.codigo}</span>
                       <span className="ml-2 text-sm">{p.nombre}</span>

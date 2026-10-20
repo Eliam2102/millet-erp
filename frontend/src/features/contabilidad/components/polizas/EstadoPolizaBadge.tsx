@@ -1,6 +1,8 @@
 import { Badge } from '@/components/ui/badge';
 import type { EstadoPoliza, RelacionPoliza } from '../../api/polizas-types';
-import { ETIQUETA_RELACION, VARIANTE_ESTADO_POLIZA } from '../../lib/polizas';
+import { ETIQUETA_RELACION } from '../../lib/polizas';
+
+import { ESTADOS_POLIZA } from '../../lib/estados-ui';
 
 interface Props {
   estado: EstadoPoliza;
@@ -18,10 +20,17 @@ interface Props {
 export function EstadoPolizaBadge({ estado, esAnulacion, relacion, esRecurrente }: Props) {
   return (
     <span className="inline-flex flex-wrap gap-1">
-      <Badge variant={VARIANTE_ESTADO_POLIZA[estado]}>{estado}</Badge>
-      {esAnulacion && <Badge variant="warning">Anulación</Badge>}
-      {relacion && <Badge variant={relacion === 'Reversa' ? 'warning' : 'info'}>{ETIQUETA_RELACION[relacion]}</Badge>}
-      {esRecurrente && <Badge variant="info">Recurrente</Badge>}
+      <Badge variant={ESTADOS_POLIZA[estado].tono}>{ESTADOS_POLIZA[estado].texto}</Badge>
+      {(esAnulacion || relacion || esRecurrente) && (
+        <Badge
+          variant={esAnulacion || relacion === 'Reversa' ? 'warning' : 'info'}
+          className="gap-1"
+        >
+          {esAnulacion && <span>Anulación</span>}
+          {relacion && <span>{ETIQUETA_RELACION[relacion]}</span>}
+          {esRecurrente && <span>Recurrente</span>}
+        </Badge>
+      )}
     </span>
   );
 }

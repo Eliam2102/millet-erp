@@ -1,3 +1,4 @@
+import { PageHeader } from '@/components/erp/PageHeader';
 import { useState } from 'react';
 import { Link } from '@tanstack/react-router';
 import { ArrowLeft, Pencil } from 'lucide-react';
@@ -37,26 +38,38 @@ export function CuentaDetallePage({ id }: { id: string }) {
   const [confirmar, setConfirmar] = useState<'desactivar' | 'reactivar' | null>(null);
 
   const volver = (
-    <Link to="/contabilidad/catalogo" className="inline-flex items-center gap-1 text-sm text-ink-muted hover:underline">
-      <ArrowLeft className="size-4" aria-hidden="true" />Catálogo de cuentas
+    <Link
+      to="/contabilidad/catalogo"
+      className="inline-flex items-center gap-1 text-sm text-ink-muted hover:underline"
+    >
+      <ArrowLeft className="size-4" aria-hidden="true" />
+      Catálogo de cuentas
     </Link>
   );
 
   if (detalle.isLoading) {
     return (
-      <div className="space-y-3 px-6 py-5" data-testid="detalle-cargando" aria-label="Cargando cuenta">
-        <Skeleton className="h-8 w-1/2" /><Skeleton className="h-32 w-full" />
+      <div className="space-y-3" data-testid="detalle-cargando" aria-label="Cargando cuenta">
+        <Skeleton className="h-8 w-1/2" />
+        <Skeleton className="h-32 w-full" />
       </div>
     );
   }
   if (detalle.isError || !cuenta) {
     const noExiste = esApiError(detalle.error) && detalle.error.status === 404;
     return (
-      <div className="space-y-3 px-6 py-5">
+      <div className="space-y-3">
         {volver}
-        <div role="alert" className="flex items-center gap-2 rounded-lg border border-danger p-4 text-danger-fg">
+        <div
+          role="alert"
+          className="flex items-center gap-2 rounded-lg border border-danger p-4 text-danger-fg"
+        >
           {noExiste ? 'La cuenta no existe.' : 'No se pudo cargar la cuenta.'}
-          {!noExiste && <Button variant="ghost" size="sm" onClick={() => void detalle.refetch()}>Reintentar</Button>}
+          {!noExiste && (
+            <Button variant="ghost" size="sm" onClick={() => void detalle.refetch()}>
+              Reintentar
+            </Button>
+          )}
         </div>
       </div>
     );
@@ -64,38 +77,59 @@ export function CuentaDetallePage({ id }: { id: string }) {
 
   const padre = ancestros.data?.at(-1) ?? null;
   return (
-    <div className="space-y-5 px-6 py-5">
+    <div className="space-y-5">
       <div data-print="hidden">{volver}</div>
-      <header className="space-y-2">
-        <h1 className="flex flex-wrap items-center gap-2 text-3xl font-semibold">
-          <span className="font-mono">{cuenta.codigo}</span>
-          <span>{cuenta.nombre}</span>
-        </h1>
-        <InsigniasCuenta
-          tipo={cuenta.tipo}
-          naturaleza={cuenta.naturaleza}
-          activa={cuenta.activa}
-          pendienteValidacion={cuenta.pendienteValidacion}
-          control={cuenta.cuentaControl}
-          usada={cuenta.usada}
-          clase={cuenta.clase}
-        />
-        {puedeAdministrar && !editando && (
-          <div className="flex gap-2 pt-1" data-print="hidden">
-            <Button variant="outline" size="sm" onClick={() => setEditando(true)}>
-              <Pencil className="mr-1 size-4" aria-hidden="true" />Editar
-            </Button>
-            {cuenta.activa ? (
-              <Button variant="secondary-danger" size="sm" onClick={() => setConfirmar('desactivar')}>Desactivar</Button>
-            ) : (
-              <Button variant="outline" size="sm" onClick={() => setConfirmar('reactivar')}>Reactivar</Button>
+      <PageHeader
+        titulo={
+          <>
+            <span className="font-mono">{cuenta.codigo}</span>
+            <span>{cuenta.nombre}</span>
+          </>
+        }
+        estado={
+          <>
+            <InsigniasCuenta
+              tipo={cuenta.tipo}
+              naturaleza={cuenta.naturaleza}
+              activa={cuenta.activa}
+              pendienteValidacion={cuenta.pendienteValidacion}
+              control={cuenta.cuentaControl}
+              usada={cuenta.usada}
+              clase={cuenta.clase}
+            />
+          </>
+        }
+        acciones={
+          <>
+            {puedeAdministrar && !editando && (
+              <div className="flex gap-2 pt-1" data-print="hidden">
+                <Button variant="outline" size="sm" onClick={() => setEditando(true)}>
+                  <Pencil className="mr-1 size-4" aria-hidden="true" />
+                  Editar
+                </Button>
+                {cuenta.activa ? (
+                  <Button
+                    variant="secondary-danger"
+                    size="sm"
+                    onClick={() => setConfirmar('desactivar')}
+                  >
+                    Desactivar
+                  </Button>
+                ) : (
+                  <Button variant="outline" size="sm" onClick={() => setConfirmar('reactivar')}>
+                    Reactivar
+                  </Button>
+                )}
+              </div>
             )}
-          </div>
-        )}
-      </header>
+          </>
+        }
+      />
 
       {cuenta.usada && (
-        <AvisoNota data-testid="aviso-usada">Esta cuenta tiene movimientos. {MOTIVO_BLOQUEO}</AvisoNota>
+        <AvisoNota data-testid="aviso-usada">
+          Esta cuenta tiene movimientos. {MOTIVO_BLOQUEO}
+        </AvisoNota>
       )}
 
       {editando && puedeAdministrar && (
@@ -113,17 +147,34 @@ export function CuentaDetallePage({ id }: { id: string }) {
         <dl className="grid grid-cols-1 gap-4 rounded-lg bg-surface-card shadow-card-flat p-4 sm:grid-cols-3">
           <Dato k="Nivel">{cuenta.nivel}</Dato>
           <Dato k="Naturaleza">{cuenta.naturaleza ?? (esRubro ? '—' : PENDIENTE)}</Dato>
-          <Dato k="Tipo">{esRubro ? 'Rubro de reporte (no recibe movimientos)' : cuenta.tipo === null ? PENDIENTE : ETIQUETA_TIPO[cuenta.tipo]}</Dato>
+          <Dato k="Tipo">
+            {esRubro
+              ? 'Rubro de reporte (no recibe movimientos)'
+              : cuenta.tipo === null
+                ? PENDIENTE
+                : ETIQUETA_TIPO[cuenta.tipo]}
+          </Dato>
           <Dato k="Estatus">{cuenta.estatus}</Dato>
           <Dato k="No afectable por asiento manual">{cuenta.noAfectableManual ? 'Sí' : 'No'}</Dato>
-          <Dato k="Cuenta colectiva">{ETIQUETA_COLECTIVA[cuenta.cuentaControl] ?? cuenta.cuentaControl}</Dato>
+          <Dato k="Cuenta colectiva">
+            {ETIQUETA_COLECTIVA[cuenta.cuentaControl] ?? cuenta.cuentaControl}
+          </Dato>
           {!esRubro && cuenta.padreId === null && (
             <Dato k="Rubro de reporte">
               {rubro.data ? (
-                <Link to="/contabilidad/catalogo/$id" params={{ id: rubro.data.data.id }} className="hover:underline">
-                  <span className="font-mono text-xs">{rubro.data.data.codigo}</span> {rubro.data.data.nombre}
+                <Link
+                  to="/contabilidad/catalogo/$id"
+                  params={{ id: rubro.data.data.id }}
+                  className="hover:underline"
+                >
+                  <span className="font-mono text-xs">{rubro.data.data.codigo}</span>{' '}
+                  {rubro.data.data.nombre}
                 </Link>
-              ) : cuenta.rubroId ? '…' : 'Sin rubro'}
+              ) : cuenta.rubroId ? (
+                '…'
+              ) : (
+                'Sin rubro'
+              )}
             </Dato>
           )}
           <Dato k="Código agrupador">{cuenta.codigoAgrupador ?? '—'}</Dato>
@@ -137,7 +188,10 @@ export function CuentaDetallePage({ id }: { id: string }) {
       {esRubro && (
         <section aria-label="Cuentas del rubro" className="space-y-1">
           <h2 className="text-sm font-semibold">Cuentas de nivel 1 del rubro</h2>
-          <p className="text-xs text-ink-muted">El rubro suma el saldo de estas cuentas una sola vez (sin volver a sumar sus cuentas de debajo).</p>
+          <p className="text-xs text-ink-muted">
+            El rubro suma el saldo de estas cuentas una sola vez (sin volver a sumar sus cuentas de
+            debajo).
+          </p>
           {delRubro.isLoading ? (
             <Skeleton className="h-5 w-1/2" />
           ) : (delRubro.data?.items ?? []).length === 0 ? (
@@ -146,7 +200,11 @@ export function CuentaDetallePage({ id }: { id: string }) {
             <ul className="space-y-1 text-sm">
               {delRubro.data!.items.map((h) => (
                 <li key={h.id}>
-                  <Link to="/contabilidad/catalogo/$id" params={{ id: h.id }} className="hover:underline">
+                  <Link
+                    to="/contabilidad/catalogo/$id"
+                    params={{ id: h.id }}
+                    className="hover:underline"
+                  >
                     <span className="font-mono text-xs">{h.codigo}</span> {h.nombre}
                   </Link>
                 </li>
@@ -167,7 +225,11 @@ export function CuentaDetallePage({ id }: { id: string }) {
             {ancestros.data!.map((a, i) => (
               <li key={a.id} className="flex items-center gap-1">
                 {i > 0 && <span aria-hidden="true">›</span>}
-                <Link to="/contabilidad/catalogo/$id" params={{ id: a.id }} className="hover:underline">
+                <Link
+                  to="/contabilidad/catalogo/$id"
+                  params={{ id: a.id }}
+                  className="hover:underline"
+                >
                   <span className="font-mono text-xs">{a.codigo}</span> {a.nombre}
                 </Link>
               </li>
@@ -186,10 +248,18 @@ export function CuentaDetallePage({ id }: { id: string }) {
           <ul className="space-y-1 text-sm">
             {hijos.data!.items.map((h) => (
               <li key={h.id} className="flex items-center gap-2">
-                <Link to="/contabilidad/catalogo/$id" params={{ id: h.id }} className="hover:underline">
+                <Link
+                  to="/contabilidad/catalogo/$id"
+                  params={{ id: h.id }}
+                  className="hover:underline"
+                >
                   <span className="font-mono text-xs">{h.codigo}</span> {h.nombre}
                 </Link>
-                <InsigniasCuenta tipo={h.tipo} activa={h.activa} pendienteValidacion={h.pendienteValidacion} />
+                <InsigniasCuenta
+                  tipo={h.tipo}
+                  activa={h.activa}
+                  pendienteValidacion={h.pendienteValidacion}
+                />
               </li>
             ))}
           </ul>
@@ -203,13 +273,22 @@ export function CuentaDetallePage({ id }: { id: string }) {
         ) : (
           <ul className="text-sm">
             {cuenta.origenes!.map((o) => (
-              <li key={`${o.fuente}:${o.codigoOrigen}`}><span className="font-medium">{o.fuente}</span> · <span className="font-mono">{o.codigoOrigen}</span></li>
+              <li key={`${o.fuente}:${o.codigoOrigen}`}>
+                <span className="font-medium">{o.fuente}</span> ·{' '}
+                <span className="font-mono">{o.codigoOrigen}</span>
+              </li>
             ))}
           </ul>
         )}
       </section>
 
-      {confirmar && <ConfirmarEstatusCuenta cuenta={cuenta} accion={confirmar} onClose={() => setConfirmar(null)} />}
+      {confirmar && (
+        <ConfirmarEstatusCuenta
+          cuenta={cuenta}
+          accion={confirmar}
+          onClose={() => setConfirmar(null)}
+        />
+      )}
     </div>
   );
 }
