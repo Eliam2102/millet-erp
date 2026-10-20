@@ -1,8 +1,9 @@
-import { Link } from '@tanstack/react-router';
 import type { CajaListadoItem } from '@/features/facturacion/api/types';
+import { EstadoFacturacionBadge } from '@/features/facturacion/components/EstadoFacturacionBadge';
 import { resumenAlcance } from '@/features/facturacion/lib/cajas-format';
 import type { CajasSearch } from '@/features/facturacion/lib/cajas-search-schema';
 import { cn } from '@/lib/utils';
+import { Link } from '@tanstack/react-router';
 
 /**
  * <c>&lt;ListaCajasCompacta/&gt;</c> — list view de 320px para el
@@ -25,8 +26,10 @@ export function ListaCajasCompacta({ items, idActivo, search }: ListaCajasCompac
             params={{ id: c.id }}
             search={search}
             className={cn(
-              'block px-3 py-2 transition-colors',
-              c.id === idActivo ? 'bg-primary/10 hover:bg-primary/15' : 'hover:bg-muted/40',
+              'block px-3.5 py-[11px] transition-colors',
+              c.id === idActivo
+                ? 'bg-surface-selected hover:bg-surface-selected'
+                : 'hover:bg-surface-muted/40',
             )}
             aria-current={c.id === idActivo ? 'page' : undefined}
           >
@@ -36,9 +39,7 @@ export function ListaCajasCompacta({ items, idActivo, search }: ListaCajasCompac
               </span>
               <ChipEstatusCaja estatus={c.estatus} />
             </div>
-            <div className="mt-1 text-xs text-muted-foreground">
-              {resumenAlcance(c)}
-            </div>
+            <div className="mt-1 text-xs text-ink-muted">{resumenAlcance(c)}</div>
           </Link>
         </li>
       ))}
@@ -47,15 +48,5 @@ export function ListaCajasCompacta({ items, idActivo, search }: ListaCajasCompac
 }
 
 export function ChipEstatusCaja({ estatus }: { estatus: string }) {
-  const activa = estatus === 'Activo';
-  return (
-    <span
-      className={cn(
-        'inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium',
-        activa ? 'bg-emerald-100 text-emerald-800' : 'bg-zinc-200 text-zinc-700',
-      )}
-    >
-      {activa ? 'Activa' : 'Inactiva'}
-    </span>
-  );
+  return <EstadoFacturacionBadge entidad="caja" estado={estatus} />;
 }

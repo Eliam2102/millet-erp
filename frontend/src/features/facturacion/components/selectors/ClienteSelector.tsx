@@ -1,5 +1,5 @@
-import { useState } from 'react';
-import { Check, ChevronsUpDown, Loader2, Search } from 'lucide-react';
+import { CatalogoQueryError } from '@/components/erp/selectors/CatalogoQueryError';
+import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import {
   Command,
@@ -8,16 +8,13 @@ import {
   CommandItem,
   CommandList,
 } from '@/components/ui/command';
-import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-} from '@/components/ui/popover';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import type { ClienteLookupItem } from '@/features/facturacion/api/types';
 import { useClientesLookup } from '@/features/facturacion/api/useCatalogosFacturacion';
 import { useDebouncedValue } from '@/lib/hooks/useDebouncedValue';
-import type { ClienteLookupItem } from '@/features/facturacion/api/types';
 import { cn } from '@/lib/utils';
-import { CatalogoQueryError } from '@/components/erp/selectors/CatalogoQueryError';
+import { Check, ChevronsUpDown, Loader2, Search } from 'lucide-react';
+import { useState } from 'react';
 
 /**
  * <c>&lt;ClienteSelector/&gt;</c> — combobox lazy contra
@@ -82,7 +79,7 @@ export function ClienteSelector({
   const triggerLabel = resuelto
     ? `${resuelto.clave} · ${resuelto.razonSocial}`
     : value
-      ? initialLabel ?? 'Cliente seleccionado'
+      ? (initialLabel ?? 'Cliente seleccionado')
       : placeholder;
 
   function handleRfcChange(v: string) {
@@ -116,7 +113,7 @@ export function ClienteSelector({
           disabled={disabled}
           className={cn(
             'w-full justify-between font-normal',
-            !value && 'text-muted-foreground',
+            !value && 'text-ink-muted',
             className,
           )}
         >
@@ -126,7 +123,7 @@ export function ClienteSelector({
       </PopoverTrigger>
       <PopoverContent align="start" className="w-[min(40rem,90vw)] p-0">
         <Command shouldFilter={false}>
-          <div className="flex items-center border-b px-3">
+          <div className="flex items-center border-b px-3 border-line">
             <Search className="mr-2 h-4 w-4 shrink-0 opacity-50" />
             <input
               type="text"
@@ -135,10 +132,10 @@ export function ClienteSelector({
               value={inputRfc}
               onChange={(e) => handleRfcChange(e.target.value)}
               disabled={disabled || modoNombre}
-              className="flex h-11 w-full rounded-md bg-transparent py-3 text-sm outline-none placeholder:text-muted-foreground disabled:cursor-not-allowed disabled:opacity-50"
+              className="flex h-11 w-full rounded-md bg-transparent py-3 text-sm outline-none placeholder:text-ink-muted disabled:cursor-not-allowed disabled:opacity-50"
             />
           </div>
-          <div className="flex items-center border-b px-3">
+          <div className="flex items-center border-b px-3 border-line">
             <Search className="mr-2 h-4 w-4 shrink-0 opacity-50" />
             <input
               type="text"
@@ -147,13 +144,13 @@ export function ClienteSelector({
               value={inputNombre}
               onChange={(e) => handleNombreChange(e.target.value)}
               disabled={disabled || modoRfc}
-              className="flex h-11 w-full rounded-md bg-transparent py-3 text-sm outline-none placeholder:text-muted-foreground disabled:cursor-not-allowed disabled:opacity-50"
+              className="flex h-11 w-full rounded-md bg-transparent py-3 text-sm outline-none placeholder:text-ink-muted disabled:cursor-not-allowed disabled:opacity-50"
             />
           </div>
           <CommandList>
             {clientesQuery.isLoading || clientesQuery.isFetching ? (
               <div
-                className="flex items-center justify-center gap-2 py-6 text-sm text-muted-foreground"
+                className="flex items-center justify-center gap-2 py-6 text-sm text-ink-muted"
                 aria-live="polite"
               >
                 <Loader2 className="h-4 w-4 animate-spin" />
@@ -178,23 +175,15 @@ export function ClienteSelector({
                     >
                       <div className="min-w-0 flex-1">
                         <div className="flex items-center gap-2">
-                          <span className="truncate font-mono text-xs">
-                            {c.clave}
-                          </span>
-                          <span className="text-xs text-muted-foreground">
-                            {c.rfc ?? 'Sin RFC'}
-                          </span>
+                          <span className="truncate font-mono text-xs">{c.clave}</span>
+                          <span className="text-xs text-ink-muted">{c.rfc ?? 'Sin RFC'}</span>
                           {!c.datosFiscalesCompletos && (
-                            <span className="rounded-full bg-amber-100 px-1.5 py-0.5 text-[10px] font-medium text-amber-800">
-                              Fiscales incompletos
-                            </span>
+                            <Badge variant="warning">Fiscales incompletos</Badge>
                           )}
                         </div>
                         <p className="truncate text-sm">{c.razonSocial}</p>
                       </div>
-                      {c.id === value && (
-                        <Check className="h-4 w-4 shrink-0" aria-hidden="true" />
-                      )}
+                      {c.id === value && <Check className="h-4 w-4 shrink-0" aria-hidden="true" />}
                     </CommandItem>
                   ))}
                 </CommandGroup>

@@ -1,8 +1,8 @@
 import { ResumenImportes } from '@/components/erp/display/ResumenImportes';
-import { Link } from '@tanstack/react-router';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { useFormasPago } from '@/modules/catalogos/api/formas-pago';
+import { Link } from '@tanstack/react-router';
 import type { ComprobanteDetalleResponse } from '../api/types';
 import { estadoCobroFactura } from '../lib/estado-cobro-factura';
 import { RegistrarCobroCard } from './RegistrarCobroCard';

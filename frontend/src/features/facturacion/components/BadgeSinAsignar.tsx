@@ -1,5 +1,5 @@
+import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { cn } from '@/lib/utils';
 
 /**
  * <c>&lt;BadgeSinAsignar/&gt;</c> — badge + toggle del bucket "Sin asignar"
@@ -22,14 +22,9 @@ export function BadgeSinAsignar(props: {
       aria-pressed={props.activo}
     >
       Sin asignar
-      <span
-        className={cn(
-          'ml-2 inline-flex min-w-5 items-center justify-center rounded-full px-1.5 text-xs font-semibold',
-          props.activo ? 'bg-primary-foreground/20' : 'bg-amber-100 text-amber-800',
-        )}
-      >
+      <Badge variant="warning" className="ml-2">
         {props.count}
-      </span>
+      </Badge>
     </Button>
   );
 }

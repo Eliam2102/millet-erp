@@ -1,8 +1,5 @@
-import { FormGrid, FormCampo } from '@/components/erp/forms/FormGrid';
 import { ResumenImportes } from '@/components/erp/display/ResumenImportes';
-import { useState } from 'react';
-import { HandCoins, Plus, X } from 'lucide-react';
-import { toast } from 'sonner';
+import { FormCampo, FormGrid } from '@/components/erp/forms/FormGrid';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -13,18 +10,21 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { useRegistrarCobro, useSesionActual } from '@/features/facturacion/api/useCajaSesiones';
 import type { CobroFormaPagoInput } from '@/features/facturacion/api/types';
-import { useHasPermission } from '@/lib/auth/useHasPermission';
-import { PermisosCanonicos } from '@/lib/auth/permission-codes';
-import { esApiError, useFormIdempotencyKey } from '@/lib/api';
-import { useFormasPago } from '@/modules/catalogos/api/formas-pago';
+import { useRegistrarCobro, useSesionActual } from '@/features/facturacion/api/useCajaSesiones';
 import {
   esFormaTarjeta,
   faltaVoucherTarjeta,
   formasPagoCaja,
   formasPagoVigentes,
 } from '@/features/facturacion/lib/formas-pago-caja';
+import { esApiError, useFormIdempotencyKey } from '@/lib/api';
+import { PermisosCanonicos } from '@/lib/auth/permission-codes';
+import { useHasPermission } from '@/lib/auth/useHasPermission';
+import { useFormasPago } from '@/modules/catalogos/api/formas-pago';
+import { HandCoins, Plus, X } from 'lucide-react';
+import { useState } from 'react';
+import { toast } from 'sonner';
 
 /** Origen del cobro (espejo de OrigenCobroMostrador backend). */
 const ORIGEN_MOSTRADOR = 1;
@@ -141,7 +141,7 @@ export function RegistrarCobroCard(props: {
 
   return (
     <div
-      className="space-y-3 rounded-md border border-dashed border-primary/40 bg-primary/5 p-3"
+      className="space-y-3 rounded-md border border-dashed border-brand/40 bg-brand/5 p-3"
       data-print="hidden"
     >
       <div className="flex items-center justify-between">
@@ -251,7 +251,7 @@ export function RegistrarCobroCard(props: {
             </Button>
             <div className="flex items-center gap-2">
               {!cuadra && (
-                <span className="text-xs text-destructive">
+                <span className="text-xs text-danger-fg">
                   Suma {suma.toFixed(2)} ≠ total {props.total.toFixed(2)}
                 </span>
               )}

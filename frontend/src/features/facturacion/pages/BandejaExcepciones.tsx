@@ -1,17 +1,34 @@
-import { useState } from 'react';
-import { CheckCircle2 } from 'lucide-react';
-import { toast } from 'sonner';
-import { Button } from '@/components/ui/button';
-import { EmptyState, ErrorState, TableSkeleton } from '@/components/erp';
 import {
-  useExcepciones,
-  useResolverExcepcion,
-} from '@/features/facturacion/api/usePedidos';
-import { useHasPermission } from '@/lib/auth/useHasPermission';
-import { PermisosCanonicos } from '@/lib/auth/permission-codes';
-import { esApiError, useFormIdempotencyKey } from '@/lib/api';
-import { ETIQUETA_ORIGEN_PEDIDO } from '@/features/facturacion/lib/glosario';
+  BarraFiltros,
+  EmptyState,
+  ErrorState,
+  PaginacionTabla,
+  TableSkeleton,
+  TabsEstado,
+} from '@/components/erp';
+import { ListadoModulo } from '@/components/erp/data/ListadoModulo';
+import { PageHeader } from '@/components/erp/PageHeader';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '@/components/ui/table';
 import type { ExcepcionImportacionItem } from '@/features/facturacion/api/types';
+import { useExcepciones, useResolverExcepcion } from '@/features/facturacion/api/usePedidos';
+import { EstadoFacturacionBadge } from '@/features/facturacion/components/EstadoFacturacionBadge';
+import { ETIQUETA_ORIGEN_PEDIDO } from '@/features/facturacion/lib/glosario';
+import { esApiError, useFormIdempotencyKey } from '@/lib/api';
+import { PermisosCanonicos } from '@/lib/auth/permission-codes';
+import { useHasPermission } from '@/lib/auth/useHasPermission';
+import { CheckCircle2 } from 'lucide-react';
+import { useState } from 'react';
+import { toast } from 'sonner';
+import { usePaginacionLocal } from '../lib/use-paginacion-local';
 
 /**
  * <c>Bandeja de excepciones de ingesta</c> (FE-F3). Pedidos que fallaron
@@ -20,86 +37,120 @@ import type { ExcepcionImportacionItem } from '@/features/facturacion/api/types'
  */
 export function BandejaExcepciones() {
   const [soloPendientes, setSoloPendientes] = useState(true);
-  const puedeResolver = useHasPermission(
-    PermisosCanonicos.FacturacionPedidosExcepcionesResolver,
-  );
+  const puedeResolver = useHasPermission(PermisosCanonicos.FacturacionPedidosExcepcionesResolver);
   const query = useExcepciones(soloPendientes);
-  const items = query.data ?? [];
+  const [busqueda, setBusqueda] = useState('');
+  const [vista, setVista] = useState<number | undefined>(1);
+  const items = (query.data ?? []).filter(
+    (e) =>
+      (vista !== 2 || e.resuelto) &&
+      (e.pedidoRef + ' ' + e.motivo + ' ' + (e.detalle ?? ''))
+        .toLowerCase()
+        .includes(busqueda.toLowerCase()),
+  );
+  const paginacion = usePaginacionLocal(items, busqueda + vista);
 
   return (
-    <div className="space-y-4 px-4 py-6">
+    <div className="space-y-5">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
-          <h1 className="text-2xl font-semibold tracking-tight">
-            Excepciones de ingesta
-          </h1>
-          <p className="text-sm text-muted-foreground">
-            Pedidos que fallaron la importación (cliente sin alta, producto sin
-            clave SAT, almacén no asignado…). Corrige el dato y márcala resuelta.
-          </p>
-        </div>
-        <label className="flex items-center gap-2 text-sm">
-          <input
-            type="checkbox"
-            className="size-4 rounded border-input"
-            checked={soloPendientes}
-            onChange={(e) => setSoloPendientes(e.target.checked)}
+          <PageHeader
+            titulo={<>Excepciones de ingesta</>}
+            descripcion={
+              <>
+                Pedidos que fallaron la importación (cliente sin alta, producto sin clave SAT,
+                almacén no asignado…). Corrige el dato y márcala resuelta.
+              </>
+            }
           />
-          Solo pendientes
-        </label>
+        </div>
       </div>
 
-      {query.isError ? (
-        <ErrorState
-          title="No se pudieron cargar las excepciones"
-          problem={esApiError(query.error) ? query.error.problem : undefined}
-          onRetry={() => query.refetch()}
-        />
-      ) : query.isLoading ? (
-        <TableSkeleton
-          rows={5}
-          columns={[
-            { width: 'w-24' },
-            { width: 'w-32' },
-            { width: 'w-48' },
-            { width: 'w-28' },
-            { width: 'w-24' },
-          ]}
-        />
-      ) : items.length === 0 ? (
-        <EmptyState
-          title="Sin excepciones"
-          description={
-            soloPendientes
-              ? 'No hay excepciones pendientes. Todo lo importado entró correctamente.'
-              : 'No hay excepciones registradas.'
-          }
-        />
-      ) : (
-        <div className="overflow-x-auto rounded-md border">
-          <table className="w-full text-sm">
-            <thead className="bg-muted/50">
-              <tr>
-                <th className="px-3 py-2 text-left">Origen</th>
-                <th className="px-3 py-2 text-left">Pedido</th>
-                <th className="px-3 py-2 text-left">Motivo</th>
-                <th className="px-3 py-2 text-left">Detalle</th>
-                <th className="px-3 py-2 text-left">Estado</th>
-                <th className="px-3 py-2 text-right">Acción</th>
-              </tr>
-            </thead>
-            <tbody>
-              {items.map((e) => (
-                <FilaExcepcion
-                  key={e.id}
-                  excepcion={e}
-                  puedeResolver={puedeResolver}
-                />
-              ))}
-            </tbody>
-          </table>
-        </div>
-      )}
+      <ListadoModulo
+        tabs={
+          <TabsEstado
+            opciones={[
+              { valor: 1, label: 'Pendiente' },
+              { valor: 2, label: 'Resuelta' },
+            ]}
+            valor={vista}
+            conteos={undefined}
+            onChange={(v) => {
+              setVista(v);
+              setSoloPendientes(v === 1);
+            }}
+          />
+        }
+        filtros={
+          <BarraFiltros
+            busqueda={
+              <Input
+                aria-label="Buscar pedido o motivo"
+                placeholder="Pedido o motivo"
+                value={busqueda}
+                onChange={(e) => setBusqueda(e.target.value)}
+              />
+            }
+          />
+        }
+        pie={
+          <PaginacionTabla
+            total={items.length}
+            offset={paginacion.offset}
+            limit={10}
+            tamanos={[]}
+            onChange={paginacion.onChange}
+          />
+        }
+      >
+        {query.isError ? (
+          <ErrorState
+            title="No se pudieron cargar las excepciones"
+            problem={esApiError(query.error) ? query.error.problem : undefined}
+            onRetry={() => query.refetch()}
+          />
+        ) : query.isLoading ? (
+          <TableSkeleton
+            rows={5}
+            columns={[
+              { width: 'w-24' },
+              { width: 'w-32' },
+              { width: 'w-48' },
+              { width: 'w-28' },
+              { width: 'w-24' },
+            ]}
+          />
+        ) : items.length === 0 ? (
+          <EmptyState
+            title="Sin excepciones"
+            description={
+              soloPendientes
+                ? 'No hay excepciones pendientes. Todo lo importado entró correctamente.'
+                : 'No hay excepciones registradas.'
+            }
+          />
+        ) : (
+          <div className="overflow-x-auto rounded-md border border-line">
+            <Table className="w-full text-sm">
+              <TableHeader className="bg-surface-muted/50">
+                <TableRow>
+                  <TableHead className="px-3 py-2 text-left">Origen</TableHead>
+                  <TableHead className="px-3 py-2 text-left">Pedido</TableHead>
+                  <TableHead className="px-3 py-2 text-left">Motivo</TableHead>
+                  <TableHead className="px-3 py-2 text-left">Detalle</TableHead>
+                  <TableHead className="px-3 py-2 text-left">Estado</TableHead>
+                  <TableHead className="px-3 py-2 text-right tabular-nums">Acción</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {paginacion.visibles.map((e) => (
+                  <FilaExcepcion key={e.id} excepcion={e} puedeResolver={puedeResolver} />
+                ))}
+              </TableBody>
+            </Table>
+          </div>
+        )}
+      </ListadoModulo>
     </div>
   );
 }
@@ -120,35 +171,27 @@ function FilaExcepcion({
       {
         onSuccess: () => toast.success('Excepción marcada como resuelta.'),
         onError: (error) =>
-          toast.error(
-            esApiError(error) ? error.problem.title : 'No se pudo resolver.',
-          ),
+          toast.error(esApiError(error) ? error.problem.title : 'No se pudo resolver.'),
       },
     );
   }
 
   return (
-    <tr className="border-t hover:bg-muted/30">
-      <td className="px-3 py-2">
+    <TableRow className="border-t hover:bg-surface-muted/30 border-line">
+      <TableCell className="px-3 py-2">
         {ETIQUETA_ORIGEN_PEDIDO[excepcion.origen] ?? excepcion.origen}
-      </td>
-      <td className="px-3 py-2 font-mono text-xs">{excepcion.pedidoRef}</td>
-      <td className="px-3 py-2">{excepcion.motivo}</td>
-      <td className="px-3 py-2 text-xs text-muted-foreground">
-        {excepcion.detalle ?? '—'}
-      </td>
-      <td className="px-3 py-2">
+      </TableCell>
+      <TableCell className="px-3 py-2 font-mono text-xs">{excepcion.pedidoRef}</TableCell>
+      <TableCell className="px-3 py-2">{excepcion.motivo}</TableCell>
+      <TableCell className="px-3 py-2 text-xs text-ink-muted">{excepcion.detalle ?? '—'}</TableCell>
+      <TableCell className="px-3 py-2">
         {excepcion.resuelto ? (
-          <span className="rounded-full bg-emerald-100 px-2 py-0.5 text-xs font-medium text-emerald-800">
-            Resuelta
-          </span>
+          <EstadoFacturacionBadge entidad="excepcion" estado="Resuelta" />
         ) : (
-          <span className="rounded-full bg-amber-100 px-2 py-0.5 text-xs font-medium text-amber-800">
-            Pendiente
-          </span>
+          <EstadoFacturacionBadge entidad="excepcion" estado="Pendiente" />
         )}
-      </td>
-      <td className="px-3 py-2 text-right">
+      </TableCell>
+      <TableCell className="px-3 py-2 text-right tabular-nums">
         {puedeResolver && !excepcion.resuelto && (
           <Button
             variant="outline"
@@ -160,7 +203,7 @@ function FilaExcepcion({
             {resolver.isPending ? 'Resolviendo…' : 'Marcar resuelta'}
           </Button>
         )}
-      </td>
-    </tr>
+      </TableCell>
+    </TableRow>
   );
 }

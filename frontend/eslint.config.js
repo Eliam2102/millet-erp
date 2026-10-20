@@ -1,21 +1,41 @@
-import ds from './eslint-rules/index.js'
-import js from '@eslint/js'
-import globals from 'globals'
-import reactHooks from 'eslint-plugin-react-hooks'
-import reactRefresh from 'eslint-plugin-react-refresh'
-import tseslint from 'typescript-eslint'
-import { defineConfig, globalIgnores } from 'eslint/config'
+import ds from './eslint-rules/index.js';
+import js from '@eslint/js';
+import globals from 'globals';
+import reactHooks from 'eslint-plugin-react-hooks';
+import reactRefresh from 'eslint-plugin-react-refresh';
+import tseslint from 'typescript-eslint';
+import { defineConfig, globalIgnores } from 'eslint/config';
 
 export default defineConfig([
   {
     files: ['src/**/*.tsx'],
-    ignores: ['**/*.test.tsx', 'src/components/erp/reportes/exporters/**', 'src/features/almacen/components/impresion/**', 'src/components/auth/DevUserSelector.tsx'],
+    ignores: [
+      '**/*.test.tsx',
+      'src/components/erp/reportes/exporters/**',
+      'src/features/almacen/components/impresion/**',
+      'src/components/auth/DevUserSelector.tsx',
+    ],
     plugins: { ds },
     rules: {
       'ds/no-paleta-default': 'warn',
       'ds/no-hex': 'warn',
       'ds/no-dark': 'warn',
       'ds/no-texto-interno': 'warn',
+    },
+  },
+  {
+    files: ['src/features/facturacion/**/*.tsx'],
+    ignores: [
+      '**/*.test.tsx',
+      'src/components/erp/reportes/exporters/**',
+      'src/features/almacen/components/impresion/**',
+      'src/components/auth/DevUserSelector.tsx',
+    ],
+    rules: {
+      'ds/no-paleta-default': 'error',
+      'ds/no-hex': 'error',
+      'ds/no-dark': 'error',
+      'ds/no-texto-interno': 'error',
     },
   },
   // El routeTree.gen.ts es generado por @tanstack/router-plugin; no debe
@@ -74,17 +94,16 @@ export default defineConfig([
         'error',
         {
           selector: "CallExpression[callee.type='MemberExpression'][callee.property.name='uuid']",
-          message: 'Usa zId de @/lib/z-id: los GUID sembrados no requieren versión ni variante UUID.',
+          message:
+            'Usa zId de @/lib/z-id: los GUID sembrados no requieren versión ni variante UUID.',
         },
         {
-          selector:
-            "Literal[value=/Dimensi[oó]n [123]|Grupo dimensi[oó]n [23]/]",
+          selector: 'Literal[value=/Dimensi[oó]n [123]|Grupo dimensi[oó]n [23]/]',
           message:
             'Vocabulario Dim↔etiqueta fuera del helper único: usa etiquetaNivel()/etiquetaTipoNodo() de features/centros-costo/lib/etiquetas.ts (07 §0).',
         },
         {
-          selector:
-            "TemplateElement[value.raw=/Dimensi[oó]n [123]|Grupo dimensi[oó]n [23]/]",
+          selector: 'TemplateElement[value.raw=/Dimensi[oó]n [123]|Grupo dimensi[oó]n [23]/]',
           message:
             'Vocabulario Dim↔etiqueta fuera del helper único: usa etiquetaNivel()/etiquetaTipoNodo() de features/centros-costo/lib/etiquetas.ts (07 §0).',
         },
@@ -93,7 +112,7 @@ export default defineConfig([
         // (verificado al armar la regla: Literal y TemplateElement no lo
         // cachan).
         {
-          selector: "JSXText[value=/Dimensi[oó]n [123]|Grupo dimensi[oó]n [23]/]",
+          selector: 'JSXText[value=/Dimensi[oó]n [123]|Grupo dimensi[oó]n [23]/]',
           message:
             'Vocabulario Dim↔etiqueta fuera del helper único: usa etiquetaNivel()/etiquetaTipoNodo() de features/centros-costo/lib/etiquetas.ts (07 §0).',
         },
@@ -141,4 +160,4 @@ export default defineConfig([
       ],
     },
   },
-])
+]);

@@ -65,20 +65,18 @@ describe('<BandejaCajas> — smoke', () => {
     );
     render(<BandejaCajas />, { wrapper: createQueryWrapper() });
 
-    await waitFor(() =>
-      expect(screen.getByText('Caja Mostrador Conkal')).toBeInTheDocument(),
-    );
+    await waitFor(() => expect(screen.getByText('Caja Mostrador Conkal')).toBeInTheDocument());
     expect(screen.getByText(/1 suc\./)).toBeInTheDocument();
-    expect(screen.getByText('Activa')).toBeInTheDocument();
+    expect(
+      screen.getAllByText('Activa').find((e) => e.getAttribute('data-slot') === 'badge'),
+    ).toBeInTheDocument();
 
     screen.getByRole('button', { name: /Nueva caja/i }).click();
     expect(abrirSpy).toHaveBeenCalledTimes(1);
   });
 
   it('empty: comodines explicados', async () => {
-    mswServer.use(
-      http.get('*/api/v1/facturacion/cajas', () => HttpResponse.json([])),
-    );
+    mswServer.use(http.get('*/api/v1/facturacion/cajas', () => HttpResponse.json([])));
     render(<BandejaCajas />, { wrapper: createQueryWrapper() });
     await waitFor(() => expect(screen.getByText(/Sin cajas/i)).toBeInTheDocument());
   });
@@ -86,17 +84,12 @@ describe('<BandejaCajas> — smoke', () => {
   it('estado error con retry', async () => {
     mswServer.use(
       http.get('*/api/v1/facturacion/cajas', () =>
-        HttpResponse.json(
-          { title: 'Error interno', status: 500 },
-          { status: 500 },
-        ),
+        HttpResponse.json({ title: 'Error interno', status: 500 }, { status: 500 }),
       ),
     );
     render(<BandejaCajas />, { wrapper: createQueryWrapper() });
     await waitFor(() =>
-      expect(
-        screen.getByText(/No se pudieron cargar las cajas/i),
-      ).toBeInTheDocument(),
+      expect(screen.getByText(/No se pudieron cargar las cajas/i)).toBeInTheDocument(),
     );
   });
 });

@@ -1,5 +1,5 @@
-import { useState } from 'react';
-import { Check, ChevronsUpDown, Loader2, Search } from 'lucide-react';
+import { CatalogoQueryError } from '@/components/erp/selectors/CatalogoQueryError';
+import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import {
   Command,
@@ -8,16 +8,13 @@ import {
   CommandItem,
   CommandList,
 } from '@/components/ui/command';
-import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-} from '@/components/ui/popover';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import type { ProductoAwLookupItem } from '@/features/facturacion/api/types';
 import { useProductosAwLookup } from '@/features/facturacion/api/useCatalogosFacturacion';
 import { useDebouncedValue } from '@/lib/hooks/useDebouncedValue';
-import type { ProductoAwLookupItem } from '@/features/facturacion/api/types';
 import { cn } from '@/lib/utils';
-import { CatalogoQueryError } from '@/components/erp/selectors/CatalogoQueryError';
+import { Check, ChevronsUpDown, Loader2, Search } from 'lucide-react';
+import { useState } from 'react';
 
 /**
  * <c>&lt;ProductoAwSelector/&gt;</c> — combobox lazy contra
@@ -77,7 +74,7 @@ export function ProductoAwSelector({
   const triggerLabel = resuelto
     ? `${resuelto.referenciaExterna} · ${resuelto.descripcion}`
     : value
-      ? initialLabel ?? 'Producto seleccionado'
+      ? (initialLabel ?? 'Producto seleccionado')
       : placeholder;
 
   function handleRefChange(v: string) {
@@ -111,7 +108,7 @@ export function ProductoAwSelector({
           disabled={disabled}
           className={cn(
             'w-full justify-between font-normal',
-            !value && 'text-muted-foreground',
+            !value && 'text-ink-muted',
             className,
           )}
         >
@@ -121,7 +118,7 @@ export function ProductoAwSelector({
       </PopoverTrigger>
       <PopoverContent align="start" className="w-[min(40rem,90vw)] p-0">
         <Command shouldFilter={false}>
-          <div className="flex items-center border-b px-3">
+          <div className="flex items-center border-b px-3 border-line">
             <Search className="mr-2 h-4 w-4 shrink-0 opacity-50" />
             <input
               type="text"
@@ -130,10 +127,10 @@ export function ProductoAwSelector({
               value={inputRef}
               onChange={(e) => handleRefChange(e.target.value)}
               disabled={disabled || modoDesc}
-              className="flex h-11 w-full rounded-md bg-transparent py-3 text-sm outline-none placeholder:text-muted-foreground disabled:cursor-not-allowed disabled:opacity-50"
+              className="flex h-11 w-full rounded-md bg-transparent py-3 text-sm outline-none placeholder:text-ink-muted disabled:cursor-not-allowed disabled:opacity-50"
             />
           </div>
-          <div className="flex items-center border-b px-3">
+          <div className="flex items-center border-b px-3 border-line">
             <Search className="mr-2 h-4 w-4 shrink-0 opacity-50" />
             <input
               type="text"
@@ -142,13 +139,13 @@ export function ProductoAwSelector({
               value={inputDesc}
               onChange={(e) => handleDescChange(e.target.value)}
               disabled={disabled || modoRef}
-              className="flex h-11 w-full rounded-md bg-transparent py-3 text-sm outline-none placeholder:text-muted-foreground disabled:cursor-not-allowed disabled:opacity-50"
+              className="flex h-11 w-full rounded-md bg-transparent py-3 text-sm outline-none placeholder:text-ink-muted disabled:cursor-not-allowed disabled:opacity-50"
             />
           </div>
           <CommandList>
             {productosQuery.isLoading || productosQuery.isFetching ? (
               <div
-                className="flex items-center justify-center gap-2 py-6 text-sm text-muted-foreground"
+                className="flex items-center justify-center gap-2 py-6 text-sm text-ink-muted"
                 aria-live="polite"
               >
                 <Loader2 className="h-4 w-4 animate-spin" />
@@ -173,24 +170,17 @@ export function ProductoAwSelector({
                     >
                       <div className="min-w-0 flex-1">
                         <div className="flex items-center gap-2">
-                          <span className="truncate font-mono text-xs">
-                            {p.referenciaExterna}
-                          </span>
-                          <span className="text-xs text-muted-foreground">
-                            {p.claveProdServSat ?? 'Sin clave SAT'} ·{' '}
-                            {p.unidadMedida}
+                          <span className="truncate font-mono text-xs">{p.referenciaExterna}</span>
+                          <span className="text-xs text-ink-muted">
+                            {p.claveProdServSat ?? 'Sin clave SAT'} · {p.unidadMedida}
                           </span>
                           {!p.datosFiscalesCompletos && (
-                            <span className="rounded-full bg-amber-100 px-1.5 py-0.5 text-[10px] font-medium text-amber-800">
-                              Fiscales incompletos
-                            </span>
+                            <Badge variant="warning">Fiscales incompletos</Badge>
                           )}
                         </div>
                         <p className="truncate text-sm">{p.descripcion}</p>
                       </div>
-                      {p.id === value && (
-                        <Check className="h-4 w-4 shrink-0" aria-hidden="true" />
-                      )}
+                      {p.id === value && <Check className="h-4 w-4 shrink-0" aria-hidden="true" />}
                     </CommandItem>
                   ))}
                 </CommandGroup>

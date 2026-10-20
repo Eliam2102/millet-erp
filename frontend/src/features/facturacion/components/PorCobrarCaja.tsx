@@ -1,21 +1,29 @@
+import { ErrorState, TableSkeleton } from '@/components/erp';
 import { PaginacionTabla } from '@/components/erp/data/PaginacionTabla';
-import { useEffect, useState } from 'react';
-import { HandCoins, Search } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import {
   Sheet,
-  SheetContent,
   SheetBody,
+  SheetContent,
   SheetDescription,
   SheetHeader,
   SheetTitle,
 } from '@/components/ui/sheet';
-import { ErrorState, TableSkeleton } from '@/components/erp';
-import { esApiError } from '@/lib/api';
-import { useComprobantesCobrables } from '@/features/facturacion/api/useCajaSesiones';
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '@/components/ui/table';
 import type { ComprobanteCobrableItem } from '@/features/facturacion/api/types';
+import { useComprobantesCobrables } from '@/features/facturacion/api/useCajaSesiones';
 import { RegistrarCobroCard } from '@/features/facturacion/components/RegistrarCobroCard';
+import { esApiError } from '@/lib/api';
+import { HandCoins, Search } from 'lucide-react';
+import { useEffect, useState } from 'react';
 
 /** Tope del endpoint de cobrables (ListarComprobantesCobrablesQuery.Limite). */
 const LIMITE = 50;
@@ -75,12 +83,12 @@ export function PorCobrarCaja() {
           <h3 id="por-cobrar-titulo" className="font-medium">
             Por cobrar
           </h3>
-          <p className="text-xs text-muted-foreground">
+          <p className="text-xs text-ink-muted">
             Facturas, anticipos y complementos de pago timbrados que puedes cobrar en esta caja.
           </p>
         </div>
         <div className="relative w-64">
-          <Search className="pointer-events-none absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+          <Search className="pointer-events-none absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-ink-muted" />
           <Input
             value={texto}
             onChange={(e) => {
@@ -116,43 +124,41 @@ export function PorCobrarCaja() {
           onRetry={() => cobrables.refetch()}
         />
       ) : items.length === 0 ? (
-        <p className="rounded-md border bg-card px-3 py-4 text-center text-sm text-muted-foreground">
+        <p className="rounded-md border bg-surface-card px-3 py-4 text-center text-sm text-ink-muted border-line">
           {busqueda === ''
             ? 'No hay comprobantes por cobrar en tu caja.'
             : `Ningún comprobante por cobrar coincide con «${busqueda}».`}
         </p>
       ) : (
-        <div className="overflow-x-auto rounded-md border bg-card">
-          <table className="w-full text-sm">
-            <thead className="bg-muted/50">
-              <tr>
-                <th className="px-3 py-2 text-left">Comprobante</th>
-                <th className="px-3 py-2 text-left">Cliente</th>
-                <th className="px-3 py-2 text-right">Por cobrar</th>
-                <th className="px-3 py-2 text-right">
+        <div className="overflow-x-auto rounded-md border bg-surface-card border-line">
+          <Table className="w-full text-sm">
+            <TableHeader className="bg-surface-muted/50">
+              <TableRow>
+                <TableHead className="px-3 py-2 text-left">Comprobante</TableHead>
+                <TableHead className="px-3 py-2 text-left">Cliente</TableHead>
+                <TableHead className="px-3 py-2 text-right tabular-nums">Por cobrar</TableHead>
+                <TableHead className="px-3 py-2 text-right tabular-nums">
                   <span className="sr-only">Acción</span>
-                </th>
-              </tr>
-            </thead>
-            <tbody>
+                </TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
               {items.slice(inicio, inicio + 10).map((c) => (
-                <tr key={c.comprobanteId} className="border-t">
-                  <td className="px-3 py-2">
+                <TableRow key={c.comprobanteId} className="border-t border-line">
+                  <TableCell className="px-3 py-2">
                     <span className="font-mono text-xs">{c.folio}</span>
-                    <span className="ml-2 text-xs text-muted-foreground">
-                      {tipoComprobante(c.tipo)}
-                    </span>
-                  </td>
-                  <td className="px-3 py-2">{c.receptorNombre}</td>
-                  <td className="px-3 py-2 text-right font-mono tabular-nums">
+                    <span className="ml-2 text-xs text-ink-muted">{tipoComprobante(c.tipo)}</span>
+                  </TableCell>
+                  <TableCell className="px-3 py-2">{c.receptorNombre}</TableCell>
+                  <TableCell className="px-3 py-2 text-right font-mono tabular-nums">
                     {formatearMxn(c.total)}
                     {c.montoAcreditado > 0 && (
-                      <span className="block text-[11px] text-muted-foreground">
+                      <span className="block text-[11px] text-ink-muted">
                         Neto de NC: −{formatearMxn(c.montoAcreditado)}
                       </span>
                     )}
-                  </td>
-                  <td className="px-3 py-2 text-right">
+                  </TableCell>
+                  <TableCell className="px-3 py-2 text-right tabular-nums">
                     <Button
                       size="sm"
                       variant="outline"
@@ -162,11 +168,11 @@ export function PorCobrarCaja() {
                       <HandCoins className="mr-1 h-3.5 w-3.5" />
                       Cobrar
                     </Button>
-                  </td>
-                </tr>
+                  </TableCell>
+                </TableRow>
               ))}
-            </tbody>
-          </table>
+            </TableBody>
+          </Table>
           <PaginacionTabla
             total={items.length}
             offset={inicio}
@@ -175,7 +181,7 @@ export function PorCobrarCaja() {
             onChange={setOffset}
           />
           {items.length >= LIMITE && (
-            <p className="border-t px-3 py-2 text-xs text-muted-foreground">
+            <p className="border-t px-3 py-2 text-xs text-ink-muted border-line">
               Se muestran los {LIMITE} más recientes. Usa el buscador para encontrar otro folio.
             </p>
           )}
