@@ -162,14 +162,14 @@ public class ConfiguracionReordenTests : IClassFixture<WebApplicationFactory<Pro
     {
         public Task<ArticuloLectura?> ObtenerAsync(Guid articuloId, CancellationToken cancellationToken) =>
             Task.FromResult<ArticuloLectura?>(
-                new ArticuloLectura(articuloId, "TEST", "Artículo de prueba", "PZA", null, null, EsActivo: true));
+                new ArticuloLectura(articuloId, "TEST", "Artículo de prueba", "PZA", null, EsActivo: true));
 
         public Task<IReadOnlyDictionary<Guid, ArticuloLectura>> ObtenerPorIdsAsync(
             IReadOnlyCollection<Guid> articuloIds, CancellationToken cancellationToken) =>
             Task.FromResult<IReadOnlyDictionary<Guid, ArticuloLectura>>(
                 articuloIds.ToDictionary(
                     id => id,
-                    id => new ArticuloLectura(id, "TEST", "Artículo de prueba", "PZA", null, null, EsActivo: true)));
+                    id => new ArticuloLectura(id, "TEST", "Artículo de prueba", "PZA", null, EsActivo: true)));
     }
 
     private sealed class FakeSucursalReadPort : ISucursalReadPort

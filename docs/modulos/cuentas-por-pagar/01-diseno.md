@@ -181,12 +181,11 @@ Implicación: la `FacturaProveedor` del banco no tiene OC. Su autorización es p
 
 ### 3.bis.3 Tolerancia por proveedor
 
-Reemplaza el global de $0.99 MXP de v0.1. Atributos en el master de Proveedor:
+Reemplaza el global de $0.99 MXP de v0.1. Actualizado 19-oct-2026 (86e3tab1k): la única tolerancia es de dinero por proveedor; fuente: plano CxP 1.7.1 y junta del 8-oct. Atributos en el master de Proveedor:
 
 ```
 Proveedor:
-  tolerancia_tipo     enum { MONTO_ABSOLUTO, PORCENTAJE }
-  tolerancia_valor    decimal  // MXP si MONTO_ABSOLUTO, % si PORCENTAJE
+  tolerancia_valor    decimal  // MXN; sin modo porcentaje
 ```
 
 Si `tolerancia_valor` está null, se aplica el default global del módulo (parámetro de Administración: `cuentas_por_pagar.tolerancia_default_mxp = 0.99`).
@@ -232,7 +231,7 @@ CXP emite `FacturaRegistrada(oc_id, monto, factura_id)` que Compras consume para
 | `FolioInternoNotaCargo` | Folio de nota de cargo | Formato `NCG-{año}-{secuencial:6}`, único por año |
 | `MotivoRevision` | Catálogo del §5.3 del levantamiento | Enum + SLA asociado |
 | `MotivoCancelacion` | Catálogo de motivos de cancelación de factura | Enum: `RechazadaPorTolerancia`, `CfdiCanceladoEnSat`, `ErrorCaptura`, `OtroConTexto` |
-| `Tolerancia` | Tolerancia de conciliación | Tipo (MontoAbsoluto/Porcentaje) + valor |
+| `Tolerancia` | Tolerancia de conciliación | Monto en MXN (sin modo porcentaje) |
 | `Money` | Importe + moneda | Reutiliza VO compartido (ADR-0014) |
 | `PeriodoCorte` | Periodo del estado de cuenta TC | Fecha desde + fecha hasta, validación coherencia |
 

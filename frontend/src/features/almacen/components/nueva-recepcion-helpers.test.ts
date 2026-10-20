@@ -120,16 +120,15 @@ describe('construirFilas', () => {
     expect(filas[1]).toMatchObject({ articuloClave: null, articuloNombre: null });
   });
 
-  it('usa pendiente, tolerancia y máximo del servidor (recibibles)', () => {
+  it('usa pendiente y máximo del servidor (recibibles)', () => {
     const recibible: LineaRecibible = {
       lineaOcId: 'l-r',
       articuloId: '00000000-0000-0000-0000-000000000002',
       unidadMedida: 'PZA',
       cantidadSolicitada: 100,
       cantidadRecibida: 80,
-      toleranciaPorcentaje: 25,
       pendiente: 20,
-      maximoRecibible: 25,
+      maximoRecibible: 20,
     };
     const filas = construirFilas(
       [lineaOc({ id: 'l-r', cantidad: 100, cantidadRecibida: 80 })],
@@ -138,8 +137,7 @@ describe('construirFilas', () => {
     expect(filas[0]).toMatchObject({
       pendiente: 20,
       cantidadYaRecibida: 80,
-      toleranciaPorcentaje: 25,
-      maximo: 25,
+      maximo: 20,
       cantidad: 20,
     });
   });

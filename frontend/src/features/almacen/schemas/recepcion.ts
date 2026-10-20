@@ -34,9 +34,8 @@ export const FilaRecepcionSchema = z
     cantidadSolicitada: z.number(),
     cantidadYaRecibida: z.number(),
     pendiente: z.number(),
-    // Tolerancia real del artículo (%) y máximo recibible calculado por el
-    // servidor (LineaRecibible). La pantalla no calcula tolerancias propias.
-    toleranciaPorcentaje: z.number(),
+    // Máximo recibible del servidor (LineaRecibible): igual al pendiente;
+    // en piezas no hay tolerancia, Almacén recibe exacto.
     maximo: z.number(),
     incluida: z.boolean(),
     cantidad: z
@@ -84,11 +83,11 @@ export const FilaRecepcionSchema = z
         message: 'Elige la ubicación (rack) destino.',
       });
     }
-    if (!v.unidadCapturada?.trim() && v.cantidad > v.maximo) {
+    if (!v.unidadCapturada?.trim() && v.cantidad > v.pendiente) {
       ctx.addIssue({
         code: 'custom',
         path: ['cantidad'],
-        message: `Excede el máximo recibible (${Number(v.maximo.toFixed(4))}): pendiente ${v.pendiente} más ${v.toleranciaPorcentaje}% de tolerancia del artículo sobre lo solicitado.`,
+        message: `Excede lo pendiente de la orden de compra (${Number(v.pendiente.toFixed(4))}). Almacén recibe exacto.`,
       });
     }
   });

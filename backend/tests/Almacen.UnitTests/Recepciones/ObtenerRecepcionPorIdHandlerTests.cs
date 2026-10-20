@@ -115,7 +115,7 @@ public class ObtenerRecepcionPorIdHandlerTests
     // ─── Infra de test ───
 
     private static ArticuloLectura Art(Guid id, string clave, string descripcion) =>
-        new(id, clave, descripcion, "PZA", null, null, true);
+        new(id, clave, descripcion, "PZA", null, true);
 
     private static Guid RecepcionId(AlmacenDbContext db) =>
         db.Movimientos.AsNoTracking().Select(m => m.Id).Single();

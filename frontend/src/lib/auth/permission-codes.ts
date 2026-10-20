@@ -139,8 +139,6 @@ export const PermisosCanonicos = {
   DatosMaestrosProveedoresExpedienteConfigurar:
     'datos_maestros.proveedores.expediente-configurar',
   DatosMaestrosArticulosGestionar: 'datos_maestros.articulos.gestionar',
-  DatosMaestrosArticulosToleranciaEditar:
-    'datos_maestros.articulos.tolerancia-editar',
   // Masters auto-provisionables de la ingesta A+W (ADR-0048). A
   // diferencia de Proveedores/Artículos, el backend usa este granular
   // también para las mutaciones (no el grueso
@@ -303,8 +301,6 @@ export const PermisosCanonicos = {
     'cuentas_por_pagar.proveedores.poner-revision',
   CuentasPorPagarProveedoresLiberarRevision:
     'cuentas_por_pagar.proveedores.liberar-revision',
-  CuentasPorPagarProveedoresAjustarTolerancia:
-    'cuentas_por_pagar.proveedores.ajustar-tolerancia',
 
   CuentasPorPagarRetencionesAdministrar: 'cuentas_por_pagar.retenciones.administrar',
   CuentasPorPagarRetencionesLeer: 'cuentas_por_pagar.retenciones.leer',

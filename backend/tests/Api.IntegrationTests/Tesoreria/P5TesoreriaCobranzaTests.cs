@@ -139,7 +139,17 @@ public sealed class P5TesoreriaCobranzaTests(WebApplicationFactory<Program> fact
     [Fact]
     public async Task Pago_a_cuenta_sin_proveedor_400_y_con_parcial_abierto_422()
     {
-        var (client, user) = await Login(); var (deposito, ingreso) = await Deposito(Guid.NewGuid()); var proveedor = Guid.NewGuid();
+        // Proveedor apto (activo, con cuenta activa MXN) para que el 422 venga de la regla del pago abierto
+        // y no de las reglas de destino del proveedor (86e3t97xh).
+        await using var app = factory.WithWebHostBuilder(builder => builder.ConfigureServices(services =>
+        {
+            services.RemoveAll<Millet.Tesoreria.Domain.Ports.DatosMaestros.IProveedorBancoReadPort>();
+            services.AddSingleton<Millet.Tesoreria.Domain.Ports.DatosMaestros.IProveedorBancoReadPort, ProveedorApto>();
+            // Período abierto: el 422 que se prueba es el del pago abierto, no el candado de período.
+            services.RemoveAll<Millet.Tesoreria.Domain.Ports.IPeriodoContablePort>();
+            services.AddSingleton<Millet.Tesoreria.Domain.Ports.IPeriodoContablePort, PeriodoSaldoFixture>();
+        }));
+        var (client, user) = await Login(app); var (deposito, ingreso) = await Deposito(Guid.NewGuid()); var proveedor = Guid.NewGuid();
         var sin = await Post(client, $"{Tes}/pagos-cuenta", new { cuentaBancariaId = ingreso.CuentaBancariaId, monto = 100, fechaValor = Fecha, motivo = "Prueba P5" });
         sin.StatusCode.Should().Be(HttpStatusCode.BadRequest);
         using (var scope = factory.Services.CreateScope())
@@ -152,6 +162,16 @@ public sealed class P5TesoreriaCobranzaTests(WebApplicationFactory<Program> fact
         }
         var segundo = await Post(client, $"{Tes}/pagos-cuenta", new { cuentaBancariaId = ingreso.CuentaBancariaId, proveedorId = proveedor, monto = 100, fechaValor = Fecha, motivo = "Prueba P5" });
         segundo.StatusCode.Should().Be(HttpStatusCode.UnprocessableEntity);
+        (await segundo.Content.ReadFromJsonAsync<JsonElement>()).GetProperty("code").GetString().Should().Be("PAGO_CUENTA_ABIERTO_EXISTENTE");
+    }
+
+    private sealed class ProveedorApto : Millet.Tesoreria.Domain.Ports.DatosMaestros.IProveedorBancoReadPort
+    {
+        public Task<Millet.Tesoreria.Domain.Ports.DatosMaestros.ProveedorBancoDto?> ObtenerAsync(Guid id, CancellationToken ct) =>
+            Task.FromResult<Millet.Tesoreria.Domain.Ports.DatosMaestros.ProveedorBancoDto?>(new(id, "P5", "Proveedor P5",
+                [new(Guid.NewGuid(), "Banco P5", "002010077777777771", true, null, "MXN", "Proveedor P5", true, "Activa")]));
+        public Task<IReadOnlyDictionary<Guid, Millet.Tesoreria.Domain.Ports.DatosMaestros.ProveedorBancoDto>> ObtenerVariosAsync(IReadOnlyCollection<Guid> ids, CancellationToken ct) =>
+            Task.FromResult<IReadOnlyDictionary<Guid, Millet.Tesoreria.Domain.Ports.DatosMaestros.ProveedorBancoDto>>(new Dictionary<Guid, Millet.Tesoreria.Domain.Ports.DatosMaestros.ProveedorBancoDto>());
     }
 
     [Fact]

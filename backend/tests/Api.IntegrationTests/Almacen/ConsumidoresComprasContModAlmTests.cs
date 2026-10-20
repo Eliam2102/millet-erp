@@ -14,26 +14,48 @@ namespace Millet.Api.IntegrationTests.Almacen;
 /// <summary>
 /// P-15 (86e3pc50v): consumidor de <c>almacen.oc_recepcion.registrada.v1</c> en Compras.
 /// Cubre resolución de línea nula por artículo, fallo visible sin marcar el evento
-/// como procesado, acumulado (<c>CantidadRecibidaAcumulada</c>) con tolerancia y
+/// como procesado, acumulado (<c>CantidadRecibidaAcumulada</c>) sin tolerancia en piezas y
 /// dedupe por <c>EventoId</c>. Usa PostgreSQL real y OC sembradas con el fixture P1.
 /// </summary>
 public sealed class ConsumidoresComprasContModAlmTests(WebApplicationFactory<Program> factory)
     : IClassFixture<WebApplicationFactory<Program>>
 {
+    // 86e3tab1k: en piezas no hay tolerancia. El campo ToleranciaPorcentaje del evento es obsoleto y se ignora.
     [Fact]
-    public async Task Acumulado_105_con_tolerancia_5_sobre_100_completa_la_linea()
+    public async Task Acumulado_100_sobre_100_completa_la_linea_e_ignora_la_tolerancia_del_evento()
     {
         var articulo = Guid.NewGuid();
         var (ocId, lineas) = await SembrarOcAsync(articulo);
         var eventoId = Guid.NewGuid();
         try
         {
-            await EnviarAsync(eventoId, Payload(ocId, Linea(lineas[0], articulo, 105m, tolerancia: 5m, acumulado: 105m)));
+            await EnviarAsync(eventoId, Payload(ocId, Linea(lineas[0], articulo, 100m, tolerancia: 5m, acumulado: 100m)));
 
             var oc = await LeerOcAsync(ocId);
-            Assert.Equal(105m, oc.Lineas.Single(l => l.Id == lineas[0]).CantidadRecibida);
+            Assert.Equal(100m, oc.Lineas.Single(l => l.Id == lineas[0]).CantidadRecibida);
             Assert.Equal(SubEstadoRecepcion.Completa, oc.SubEstadoRecepcion);
             Assert.Equal(1, await ContarEventosAsync(eventoId));
+        }
+        finally
+        {
+            await LimpiarAsync(ocId, eventoId);
+        }
+    }
+
+    [Fact]
+    public async Task Acumulado_105_sobre_100_se_rechaza_aunque_el_evento_traiga_tolerancia()
+    {
+        var articulo = Guid.NewGuid();
+        var (ocId, lineas) = await SembrarOcAsync(articulo);
+        var eventoId = Guid.NewGuid();
+        try
+        {
+            await Assert.ThrowsAsync<BusinessRuleException>(() =>
+                EnviarAsync(eventoId, Payload(ocId, Linea(lineas[0], articulo, 105m, tolerancia: 5m, acumulado: 105m))));
+
+            var oc = await LeerOcAsync(ocId);
+            Assert.Equal(0m, oc.Lineas.Single(l => l.Id == lineas[0]).CantidadRecibida);
+            Assert.Equal(0, await ContarEventosAsync(eventoId));
         }
         finally
         {

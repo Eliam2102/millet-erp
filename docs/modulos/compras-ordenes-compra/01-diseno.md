@@ -1061,21 +1061,23 @@ El **estado comercial del proveedor** (`EstadoComercialProveedor`, F1-COM-11, §
 
 **Implementado en 86e3pc50v (contratos espejo de Almacén y reglas de línea).** Los eventos `almacen.oc_recepcion.registrada.v1` y `almacen.oc_devolucion.registrada.v1` que consume Compras (§8.6) ganaron campos aditivos opcionales, sin cambio de versión:
 
-- `almacen.oc_recepcion.registrada.v1`: `ToleranciaPorcentaje` (decimal?, por defecto 0) y `CantidadRecibidaAcumulada` (decimal?, acumulado post-evento ya calculado por Almacén; regla de oro de la triada, D7).
+- `almacen.oc_recepcion.registrada.v1`: `ToleranciaPorcentaje` (decimal?, obsoleto: se conserva por compatibilidad y siempre va nulo) y `CantidadRecibidaAcumulada` (decimal?, acumulado post-evento ya calculado por Almacén; regla de oro de la triada, D7).
 - `almacen.oc_devolucion.registrada.v1`: `CantidadDocumento` (decimal?, en unidad de la OC). Si falta, el consumidor usa `Cantidad` (eventos viejos).
 
 Reglas de `LineaOrdenCompra` (D6):
 
-- `SetCantidadRecibida(acumulado, tolerancia)` acepta hasta `Cantidad × (1 + tolerancia/100)` cuando el acumulado sube. Si el acumulado baja (devolución), no aplica techo. Si excede, responde `LINEA_OC_CANTIDAD_RECIBIDA_EXCEDE`.
-- `SetCantidadFacturada(acumulado)` acepta hasta `max(Cantidad, CantidadRecibida)`, de modo que se puede facturar lo recibido dentro de tolerancia (three-way match). Si excede, responde `LINEA_OC_CANTIDAD_FACTURADA_EXCEDE`.
-- El sub-estado de recepción suma `min(CantidadRecibida, Cantidad)` por línea, para que el exceso dentro de tolerancia no infle el avance.
+- `SetCantidadRecibida(acumulado)` acepta hasta `Cantidad` (sin tolerancia de cantidad) cuando el acumulado sube. Si el acumulado baja (devolución), no aplica techo. Si excede, responde `LINEA_OC_CANTIDAD_RECIBIDA_EXCEDE`.
+- `SetCantidadFacturada(acumulado)` acepta hasta `max(Cantidad, CantidadRecibida)`, de modo que se puede facturar lo recibido (three-way match). Si excede, responde `LINEA_OC_CANTIDAD_FACTURADA_EXCEDE`.
+- El sub-estado de recepción suma `min(CantidadRecibida, Cantidad)` por línea, para que cualquier exceso no infle el avance.
 
 Consumidores (D7, D8):
 
 - `OcRecepcionEnAlmacenCommand`: una línea sin `LineaOcId` se resuelve por (OC, artículo) si el artículo no servicio es único en la OC. Si no es único, o si el `LineaOcId` no existe en la OC, lanza `BusinessRuleException("RECEPCION_LINEA_OC_NO_RESOLUBLE")` antes de registrar `EventoProcesado`. El evento queda sin marcar y el worker reintenta o lo envía a dead-letter. El acumulado es `max(CantidadRecibida actual, CantidadRecibidaAcumulada)`; sin acumulado en el payload, usa `actual + Cantidad`. El delta hacia la RQ sigue siendo `Cantidad`. La idempotencia se resuelve por `EventoId`.
 - `OcDevolucionEnAlmacenCommand`: mismo criterio, con `DEVOLUCION_LINEA_OC_NO_RESOLUBLE`. Descuenta `CantidadDocumento ?? Cantidad` (unidad de la OC, M-170).
 
-Persistencia (migración `20261014125116_RelajarChecksRecibidaFacturadaOc`, esquema de Compras; P-15a): los CHECK de la tabla `orden_compra_lineas` se relajaron con cotas y conservan sus nombres. `ck_oc_lineas_recibida_max` pasa a `cantidad_recibida <= cantidad * 2` (la tolerancia máxima es 100 %, igual que `ck_articulos_tolerancia_rango`). `ck_oc_lineas_facturada_max` pasa a `cantidad_facturada <= GREATEST(cantidad, cantidad_recibida)`. El CHECK es una red de seguridad; el techo de tolerancia por línea lo aplica el dominio.
+Nota: la tolerancia de cantidad por línea de OC se retiró; la única tolerancia es de dinero por proveedor (CxP). Actualizado 19-oct-2026 (86e3tab1k): la única tolerancia es de dinero por proveedor; fuente: plano CxP 1.7.1 y junta del 8-oct.
+
+Persistencia (migración `20261014125116_RelajarChecksRecibidaFacturadaOc`, esquema de Compras; P-15a): los CHECK de la tabla `orden_compra_lineas` se relajaron con cotas y conservan sus nombres. `ck_oc_lineas_recibida_max` pasa a `cantidad_recibida <= cantidad * 2` (cota de seguridad; el techo real es `Cantidad`). `ck_oc_lineas_facturada_max` pasa a `cantidad_facturada <= GREATEST(cantidad, cantidad_recibida)`. El CHECK es una red de seguridad; el techo de recibido (`Cantidad`) lo aplica el dominio.
 
 ### 8.6 Eventos de integración consumidos
 
@@ -1087,7 +1089,7 @@ Persistencia (migración `20261014125116_RelajarChecksRecibidaFacturadaOc`, esqu
 | `FacturaProveedorRechazadaPorToleranciaEvent` | CxP | Marca la factura como rechazada en el log de la OC con motivo y diferencia detectada. Activa bandera "OC requiere corrección" para Compras. |
 | `FacturaProveedorCanceladaEvent` | CxP | Si la factura estaba contada en `CantidadFacturada`, la decrementa. |
 | `NotaCreditoProveedorRegistradaEvent` | CxP | Decrementa `CantidadFacturada`. |
-| `DiferenciaPrecioFacturaDetectadaEvent` | CxP | **Informativo** para OC en variante B: registra que el precio de la factura difiere del de la OC dentro de tolerancia. No cambia sub-estados de OC. (El ajuste de costo de inventario lo aplica Almacén; el ajuste de pasivo lo registra CxP.) |
+| `DiferenciaPrecioFacturaDetectadaEvent` | CxP | **Informativo** para OC en variante B: registra que el precio de la factura difiere del de la OC dentro de la tolerancia de dinero del proveedor. No cambia sub-estados de OC. (El ajuste de costo de inventario lo aplica Almacén; el ajuste de pasivo lo registra CxP.) |
 | `PagoFacturaProveedorEvent` | Tesorería | Actualiza `SubEstadoPago`. |
 
 ### 8.7 Catálogos consumidos

@@ -27,9 +27,10 @@
 2. **Estructura física completa**: Sucursal → Almacén → Sub-almacén →
    Ubicaciones N4 (racks/pasillos), en `/almacen/almacenes`, `/almacen/sub-almacenes`,
    `/almacen/ubicaciones`.
-3. **Tolerancia de cantidad por material** (catálogo de Datos Maestros) para
-   recepciones con sobre/sub-cantidad; la de **cantidad por línea** viene de la
-   OC y la de **monto** es del proveedor (CxP) — tres tolerancias ortogonales.
+3. **Sin tolerancia de cantidad:** Almacén recibe exacto lo pendiente o menos
+   (recepción parcial permitida), nunca más (error `RECEPCION_EXCEDE_PENDIENTE`).
+   La única tolerancia es de dinero por proveedor y la administra CxP.
+   Actualizado 19-oct-2026 (86e3tab1k): la única tolerancia es de dinero por proveedor; fuente: plano CxP 1.7.1 y junta del 8-oct.
 4. **Umbrales monetarios de aprobación de ajustes** (N1/N2/N3).
 5. Sub-almacén de tipo **Material en revisión** para devoluciones de dañado.
 6. Permiso `cuentas_por_pagar.cfdis.leer` otorgado al rol de almacén

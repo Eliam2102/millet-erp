@@ -171,44 +171,14 @@ public sealed class RegistrarPagoProveedorHandler
                 "Un pago cubre pasivos de un solo proveedor; registra un pago por proveedor.");
         var proveedorId = proveedores[0];
 
-        // F1-ADM-05 G1.1 / Plano G1 §3.1: el proveedor debe estar Activo para recibir pagos.
-        // Si está EnRevision o Inactivo, se bloquea la operación (G1.1-b).
+        // F1-ADM-05 G1.1 / 86e3pdmee: proveedor Activo, fuera de revisión y con cuenta activa en la moneda
+        // del egreso; si el puerto no devuelve datos del proveedor el pago se bloquea.
         CuentaDestinoPago? destino = null;
         if (!hayInternos)
         {
             var infoProveedor = await _proveedorBancoPort.ObtenerAsync(proveedorId, cancellationToken);
-            if (infoProveedor is not null)
-            {
-
-                if (infoProveedor.EnRevision)
-                {
-                    throw new BusinessRuleException(
-                        "PROVEEDOR_EN_REVISION",
-                        $"El proveedor '{infoProveedor.RazonSocial}' está en revisión y no admite pagos.");
-                }
-
-                if (!infoProveedor.Activo)
-                {
-                    throw new BusinessRuleException(
-                        "PROVEEDOR_NO_ACTIVO",
-                        $"El proveedor '{infoProveedor.RazonSocial}' no está activo y no admite pagos.");
-                }
-
-                // 86e3pdmee: solo se paga a una cuenta activa del proveedor en la moneda de la cuenta de egreso.
-                var elegida = command.CuentaProveedorId is Guid cuentaProveedorId
-                    ? infoProveedor.Cuentas.FirstOrDefault(c => c.Id == cuentaProveedorId)
-                    : infoProveedor.CuentaPara(cuenta.Moneda);
-                if (elegida is null)
-                    throw new BusinessRuleException("PROVEEDOR_SIN_CUENTA_ACTIVA",
-                        $"El proveedor '{infoProveedor.RazonSocial}' no tiene una cuenta activa en {cuenta.Moneda}. Regístrala y valídala en Datos maestros antes de pagar.");
-                if (!elegida.Activa)
-                    throw new BusinessRuleException("PROVEEDOR_CUENTA_NO_ACTIVA",
-                        $"La cuenta {elegida.Banco} {Clabe.Enmascarar(elegida.Numero)} no está activa; solo se paga a cuentas activas.");
-                if (elegida.Moneda != cuenta.Moneda)
-                    throw new BusinessRuleException("PROVEEDOR_CUENTA_OTRA_MONEDA",
-                        $"La cuenta del proveedor es {elegida.Moneda} y la cuenta de egreso es {cuenta.Moneda}.");
-                destino = new CuentaDestinoPago(elegida.Id, elegida.Banco, elegida.Numero, elegida.Titular);
-            }
+            var elegida = ReglasDestinoProveedor.Resolver(infoProveedor, cuenta.Moneda, command.CuentaProveedorId);
+            destino = new CuentaDestinoPago(elegida.Id, elegida.Banco, elegida.Numero, elegida.Titular);
         }
 
         // RN-3: la cuenta de egreso coincide en moneda con los pasivos

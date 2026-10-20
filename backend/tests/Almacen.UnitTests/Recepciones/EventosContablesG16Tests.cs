@@ -77,7 +77,7 @@ public class EventosContablesG16Tests
     {
         await using var db = await NuevaDbAsync();
         var events = new CapturaEventos();
-        var h = new RegistrarRecepcionConFacturaHandler(db, new FakeOc(), new FakeArticulos(), events,
+        var h = new RegistrarRecepcionConFacturaHandler(db, new FakeOc(), events,
             new FakeUser(), new FakeEmpresa(), new FakeDecimales(), new PeriodoContableStub(periodoAbierto), new P7Support.Conversion(),
             CfdiFake.Valido(), new ProveedorRfcFake());
 
@@ -100,7 +100,7 @@ public class EventosContablesG16Tests
     {
         await using var db = await NuevaDbAsync();
         var events = new CapturaEventos();
-        var h = new RegistrarRecepcionConPackingListHandler(db, new FakeOc(), new FakeArticulos(), events,
+        var h = new RegistrarRecepcionConPackingListHandler(db, new FakeOc(), events,
             new FakeUser(), new FakeEmpresa(), new FakeDecimales(), new PeriodoContableStub(periodoAbierto), new P7Support.Conversion());
 
         Func<Task> registrar = async () => await h.Handle(new RegistrarRecepcionConPackingListCommand(Guid.NewGuid(), new DateOnly(2026, 5, 23),
@@ -191,7 +191,7 @@ public class EventosContablesG16Tests
         var ocId = Guid.NewGuid();
         var events = new CapturaEventos();
         // Recepción real (misma BD) y saldo remanente para que el handler valore.
-        await new RegistrarRecepcionConFacturaHandler(db, new FakeOc(), new FakeArticulos(), events,
+        await new RegistrarRecepcionConFacturaHandler(db, new FakeOc(), events,
             new FakeUser(), new FakeEmpresa(), new FakeDecimales(), new PeriodoContableStub(true), new P7Support.Conversion(),
             CfdiFake.Valido(), new ProveedorRfcFake())
             .Handle(new RegistrarRecepcionConFacturaCommand(ocId, new DateOnly(2026, 5, 23), Guid.NewGuid(),
@@ -349,7 +349,7 @@ public class EventosContablesG16Tests
     private sealed class FakeArticulos : IArticuloReadPort
     {
         public Task<ArticuloLectura?> ObtenerAsync(Guid articuloId, CancellationToken ct) =>
-            Task.FromResult<ArticuloLectura?>(new ArticuloLectura(articuloId, "ART", "Artículo", "PZA", null, null, true));
+            Task.FromResult<ArticuloLectura?>(new ArticuloLectura(articuloId, "ART", "Artículo", "PZA", null, true));
         public Task<IReadOnlyDictionary<Guid, ArticuloLectura>> ObtenerPorIdsAsync(
             IReadOnlyCollection<Guid> ids, CancellationToken ct) =>
             Task.FromResult<IReadOnlyDictionary<Guid, ArticuloLectura>>(new Dictionary<Guid, ArticuloLectura>());

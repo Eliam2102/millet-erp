@@ -175,8 +175,6 @@ public static class PermisosCanonicos
     // F1-ADM-05 G1.1: validación y activación del proveedor por CxP.
     public const string DatosMaestrosProveedoresValidar                = "datos_maestros.proveedores.validar";
     public const string DatosMaestrosArticulosGestionar                = "datos_maestros.articulos.gestionar";
-    // 86e3pc50v: tolerancia de recepción por material; solo la configura quien tenga este permiso.
-    public const string DatosMaestrosArticulosToleranciaEditar         = "datos_maestros.articulos.tolerancia-editar";
     // ADR-0048: masters nuevos para la ingesta de pedidos A+W → Facturación.
     // Clientes (D6) y ProductoAw (D5, master de venta separado de articulos).
     public const string DatosMaestrosClientesGestionar                 = "datos_maestros.clientes.gestionar";
@@ -369,7 +367,6 @@ public static class PermisosCanonicos
 
     public const string CuentasPorPagarProveedoresPonerRevision        = "cuentas_por_pagar.proveedores.poner-revision";
     public const string CuentasPorPagarProveedoresLiberarRevision      = "cuentas_por_pagar.proveedores.liberar-revision";
-    public const string CuentasPorPagarProveedoresAjustarTolerancia    = "cuentas_por_pagar.proveedores.ajustar-tolerancia";
 
     public const string CuentasPorPagarRetencionesAdministrar = "cuentas_por_pagar.retenciones.administrar";
     public const string CuentasPorPagarRetencionesLeer = "cuentas_por_pagar.retenciones.leer";
@@ -707,7 +704,6 @@ public static class PermisosCanonicos
         (Guid.Parse("00000004-0009-0000-0000-000000000008"), DatosMaestrosProveedoresToleranciaEditar, "Editar tolerancia factura contra OC en pesos del proveedor"),
         (Guid.Parse("00000004-0009-0000-0000-000000000007"), DatosMaestrosProveedoresValidar,              "Validar o rechazar el expediente documental del proveedor para activación en el ERP"),
         (Guid.Parse("00000004-0010-0000-0000-000000000001"), DatosMaestrosArticulosGestionar,              "Crear, editar y desactivar artículos del catálogo cross-empresa"),
-        (Guid.Parse("00000004-0010-0000-0000-000000000002"), DatosMaestrosArticulosToleranciaEditar,       "Editar la tolerancia de recepción por material del artículo"),
         (Guid.Parse("00000004-0011-0000-0000-000000000001"), DatosMaestrosClientesGestionar,               "Crear, editar y desactivar clientes del master cross-empresa (ADR-0048)"),
         (Guid.Parse("00000004-0011-0000-0000-000000000002"), DatosMaestrosClientesSincronizar,             "Iniciar y consultar la sincronización de clientes desde A+W"),
         (Guid.Parse("00000004-0011-0000-0000-000000000003"), DatosMaestrosClientesOrigenVer,               "Consultar datos de origen A+W del cliente (candidatos fiscales, crédito de referencia, domicilio)"),
@@ -756,7 +752,6 @@ public static class PermisosCanonicos
         (Guid.Parse("00000007-0006-0000-0000-000000000005"), CuentasPorPagarTcDisputar,                   "Marcar y resolver disputas sobre movimientos de TC (F7-PR6)"),
         (Guid.Parse("00000007-0007-0000-0000-000000000001"), CuentasPorPagarProveedoresPonerRevision,     "Poner proveedor en revisión global"),
         (Guid.Parse("00000007-0007-0000-0000-000000000002"), CuentasPorPagarProveedoresLiberarRevision,   "Liberar proveedor de revisión global"),
-        (Guid.Parse("00000007-0007-0000-0000-000000000003"), CuentasPorPagarProveedoresAjustarTolerancia, "Ajustar tolerancia de conciliación por proveedor (restringido)"),
         (Guid.Parse("00000007-000a-0000-0000-000000000101"), CuentasPorPagarRetencionesAdministrar, "Administrar retenciones por concepto con motivo y auditoría"),
         (Guid.Parse("00000007-000a-0000-0000-000000000102"), CuentasPorPagarRetencionesLeer, "Consultar retenciones y propuestas del catálogo fiscal"),
         (Guid.Parse("00000007-000a-0000-0000-000000000103"), CuentasPorPagarReportesLeerTodasSucursales, "Consultar reportes de CxP de todas las sucursales"),

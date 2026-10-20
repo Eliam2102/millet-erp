@@ -35,10 +35,7 @@ public sealed class Proveedor : BaseEntity, IAuditable
     /// <summary>Diferencia máxima factura contra OC en MXN; null usa el parámetro general.</summary>
     public decimal? ToleranciaFacturaContraOcMxn { get; private set; }
 
-    /// <summary>G1.13: true interpreta <see cref="ToleranciaFacturaContraOcMxn"/> como % del total de la OC.</summary>
-    public bool ToleranciaFacturaContraOcEsPorcentaje { get; private set; }
-
-    public void ActualizarToleranciaFacturaContraOc(decimal? monto, bool esPorcentaje = false)
+    public void ActualizarToleranciaFacturaContraOc(decimal? monto)
     {
         if (monto < 0)
             throw new BusinessRuleException("PROVEEDOR_TOLERANCIA_NEGATIVA",
@@ -46,11 +43,7 @@ public sealed class Proveedor : BaseEntity, IAuditable
         if (monto > 99999999999999.9999m || (monto.HasValue && decimal.Round(monto.Value, 4) != monto.Value))
             throw new BusinessRuleException("PROVEEDOR_TOLERANCIA_PRECISION",
                 "La tolerancia admite hasta 14 enteros y 4 decimales, igual que la foto en la factura.");
-        if (esPorcentaje && monto > 100)
-            throw new BusinessRuleException("PROVEEDOR_TOLERANCIA_PORCENTAJE",
-                "La tolerancia en porcentaje no puede pasar de 100 %.");
         ToleranciaFacturaContraOcMxn = monto;
-        ToleranciaFacturaContraOcEsPorcentaje = monto.HasValue && esPorcentaje;
     }
 
     // ----- Validación CxP y Expediente (F1-ADM-05 G1.1) -----
