@@ -31,4 +31,17 @@ describe('Cuenta bancaria para ingresos de Tesorería operativa', () => {
     expect(mocks.saldos).toHaveBeenCalledWith(true, true);
     expect(mocks.ingresos).toHaveBeenCalledWith(false);
   });
+
+  it('muestra el saldo en libros por omisión y lo oculta con ocultarSaldo', () => {
+    const abrir = () =>
+      fireEvent.keyDown(screen.getByRole('combobox', { name: 'Cuenta bancaria' }), { key: 'ArrowDown' });
+    const { unmount } = render(<CuentaBancariaSelector value={null} onChange={vi.fn()} />);
+    abrir();
+    expect(screen.getByText(/en libros/)).toBeInTheDocument();
+    unmount();
+    render(<CuentaBancariaSelector value={null} onChange={vi.fn()} ocultarSaldo />);
+    abrir();
+    expect(screen.queryByText(/en libros/)).not.toBeInTheDocument();
+    expect(screen.getByRole('option', { name: /Banco ficticio.*1234.*MXN/ })).toBeInTheDocument();
+  });
 });

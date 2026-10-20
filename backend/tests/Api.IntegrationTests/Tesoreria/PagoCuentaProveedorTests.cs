@@ -88,7 +88,7 @@ public sealed class PagoCuentaProveedorTests(WebApplicationFactory<Program> fact
     private static Task<HttpResponseMessage> PagarAsync(HttpClient c, Guid egreso, Guid facturaId, Guid cuentaProveedorId) =>
         c.PostAsJsonAsync("/api/v1/tesoreria/pagos/", new
         {
-            cuentaBancariaId = egreso, fechaValor = DateOnly.FromDateTime(DateTime.Today), fondosVerificados = true,
+            cuentaBancariaId = egreso, fechaValor = DateOnly.FromDateTime(DateTime.Today),
             cuentaProveedorId, aplicaciones = new[] { new { facturaProveedorId = facturaId, importe = 100m } },
         });
 

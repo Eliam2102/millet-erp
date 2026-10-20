@@ -598,7 +598,6 @@ export function useRegistrarPago() {
         referenciaBancaria?: string;
         conceptoId?: string;
         cuentaProveedorId?: string;
-        fondosVerificados: boolean;
       };
       idempotencyKey: string;
     }) => {
