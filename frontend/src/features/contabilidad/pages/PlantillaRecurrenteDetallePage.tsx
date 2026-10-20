@@ -401,16 +401,16 @@ function Dato({ k, children }: { k: string; children: React.ReactNode }) {
 function actividad(p: PlantillaRecurrente): { texto: string; en: string }[] {
   const filas = [{ texto: `Preparó ${p.creadaPor}`, en: p.creadaEn }];
   if (p.activadaEn)
-    filas.push({ texto: `Activó ${p.activadaPor ?? '[USUARIO]'}`, en: p.activadaEn });
+    filas.push({ texto: `Activó ${p.activadaPor ?? 'Sin asignar'}`, en: p.activadaEn });
   return filas.sort((a, b) => b.en.localeCompare(a.en));
 }
 
 function centros(x: PartidaPlantilla): string {
   return (
     [
-      x.dim1?.clave ?? (x.dim1Id ? '[CENTRO]' : null),
-      x.dim2?.clave ?? (x.dim2Id ? '[CENTRO]' : null),
-      x.dim3?.clave ?? (x.dim3Id ? '[CENTRO]' : null),
+      x.dim1?.clave ?? (x.dim1Id ? 'Sin centro de costo' : null),
+      x.dim2?.clave ?? (x.dim2Id ? 'Sin centro de costo' : null),
+      x.dim3?.clave ?? (x.dim3Id ? 'Sin centro de costo' : null),
     ]
       .filter(Boolean)
       .join(' · ') || '—'
@@ -421,7 +421,7 @@ function TablaPartidas({ partidas }: { partidas: PartidaPlantilla[] }) {
   const etiquetas = useEtiquetasCuentas(partidas.map((x) => x.cuentaId));
   const sucursales = useSucursalesMovimiento();
   const nombreSucursal = (x: PartidaPlantilla) =>
-    x.sucursalNombre ?? sucursales.data?.find((s) => s.id === x.sucursalId)?.nombre ?? '[SUCURSAL]';
+    x.sucursalNombre ?? sucursales.data?.find((s) => s.id === x.sucursalId)?.nombre ?? 'Sin sucursal';
   const totalCargos = partidas.reduce((s, x) => s + x.cargo, 0);
   const totalAbonos = partidas.reduce((s, x) => s + x.abono, 0);
   return (
@@ -454,7 +454,7 @@ function TablaPartidas({ partidas }: { partidas: PartidaPlantilla[] }) {
                 <TableRow key={`${i}-${x.cuentaId}`} className="border-b border-line-row align-top">
                   <TableCell className="px-3 py-2 text-xs text-ink-muted">{i + 1}</TableCell>
                   <TableCell className="px-3 py-2">
-                    <span className="font-mono text-xs">{cuenta?.codigo ?? '[CUENTA]'}</span>
+                    <span className="font-mono text-xs">{cuenta?.codigo ?? <span className="text-ink-muted">Sin cuenta</span>}</span>
                     {cuenta?.nombre && (
                       <span className="block text-xs text-ink-muted">{cuenta.nombre}</span>
                     )}

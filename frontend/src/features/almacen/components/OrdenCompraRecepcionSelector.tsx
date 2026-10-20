@@ -98,11 +98,11 @@ export function OrdenCompraRecepcionSelector({
   // Fuera de la página actual: lookup puntual por id (cacheado). Nunca se muestra un GUID.
   const detalle = useOrdenCompra(value && !seleccionada ? value : null);
   const triggerLabel = seleccionada
-    ? `${seleccionada.folio} · ${seleccionada.proveedorNombre ?? '[PROVEEDOR]'}`
+    ? `${seleccionada.folio} · ${seleccionada.proveedorNombre ?? 'Sin proveedor'}`
     : value
       ? detalle.data
-        ? `${detalle.data.folio} · ${detalle.data.proveedorRazonSocial ?? '[PROVEEDOR]'}`
-        : '[OC]'
+        ? `${detalle.data.folio} · ${detalle.data.proveedorRazonSocial ?? 'Sin proveedor'}`
+        : 'Sin número'
       : placeholder;
 
   function handleSelect(item: OrdenCompraResumen) {
@@ -160,7 +160,7 @@ export function OrdenCompraRecepcionSelector({
                   {items.map((o) => {
                     // proveedorNombre viene resuelto del resumen (server-side,
                     // ADR-0042); etiqueta de reserva si el backend no resolvió.
-                    const proveedor = o.proveedorNombre ?? '[PROVEEDOR]';
+                    const proveedor = o.proveedorNombre ?? 'Sin proveedor';
                     return (
                       <CommandItem
                         key={o.id}
@@ -175,7 +175,7 @@ export function OrdenCompraRecepcionSelector({
                               {o.moneda}
                             </span>
                           </div>
-                          <p className="truncate text-sm">{proveedor}</p>
+                          <p className={`truncate text-sm${o.proveedorNombre == null ? ' text-ink-muted' : ''}`}>{proveedor}</p>
                           <div className="flex flex-wrap gap-3 text-xs text-ink-muted">
                             <span>
                               Emisión: <DateTimeDisplay value={o.fechaDocumento} variant="media" />

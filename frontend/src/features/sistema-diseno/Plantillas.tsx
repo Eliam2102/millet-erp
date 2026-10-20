@@ -175,7 +175,7 @@ export function Plantillas() {
                           {r.folio}
                         </a>
                       </TableCell>
-                      <TableCell>[CLIENTE FICTICIO]</TableCell>
+                      <TableCell>Vidrios y Aluminios del Sureste</TableCell>
                       <TableCell className="text-right">
                         <MoneyDisplay amount={1044} currency="MXN" />
                       </TableCell>
@@ -220,7 +220,7 @@ export function Plantillas() {
             titulo={activo}
             mono
             estado={<Badge variant="neutral">Capturada</Badge>}
-            descripcion="5.2 · Detalle de [CLIENTE FICTICIO]"
+            descripcion="5.2 · Detalle de Vidrios y Aluminios del Sureste"
             acciones={
               <Button disabled title="Registra la recepción ficticia para habilitar">
                 Autorizar
@@ -231,7 +231,7 @@ export function Plantillas() {
             {['Cliente', 'Sucursal', 'Moneda', 'Fecha'].map((v, i) => (
               <div key={v}>
                 <dt className="text-xs text-ink-muted">{v}</dt>
-                <dd>{['[CLIENTE]', '[SUCURSAL]', 'MXN', '21 sep 2026'][i]}</dd>
+                <dd>{['Vidrios y Aluminios del Sureste', 'Sucursal Circuito', 'MXN', '21 sep 2026'][i]}</dd>
               </div>
             ))}
           </dl>
@@ -250,7 +250,7 @@ export function Plantillas() {
             </TableHeader>
             <TableBody>
               <TableRow>
-                <TableCell>[ARTÍCULO FICTICIO]</TableCell>
+                <TableCell>Vidrio templado de 6 mm</TableCell>
                 <TableCell>1</TableCell>
                 <TableCell className="text-right">
                   <MoneyDisplay amount={1000} currency="MXN" />

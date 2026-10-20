@@ -20,8 +20,22 @@ export default defineConfig([
       'ds/no-paleta-default': 'warn',
       'ds/no-hex': 'warn',
       'ds/no-dark': 'warn',
-      'ds/no-texto-interno': 'warn',
     },
+  },
+  {
+    files: ['src/**/*.{ts,tsx}'],
+    ignores: [
+      '**/*.{test,spec}.{ts,tsx}',
+      'src/test/**',
+      '**/mocks/**',
+      '**/__mocks__/**',
+      'src/routeTree.gen.ts',
+      'src/components/erp/reportes/exporters/**',
+      'src/features/almacen/components/impresion/**',
+      'src/components/auth/DevUserSelector.tsx',
+    ],
+    plugins: { ds },
+    rules: { 'ds/no-texto-interno': 'error' },
   },
   {
     files: ['src/features/comercio-exterior/**/*.tsx', 'src/features/sistema-diseno/**/*.{ts,tsx}'],

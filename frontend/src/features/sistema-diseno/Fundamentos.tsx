@@ -91,7 +91,7 @@ export function Fundamentos() {
           {c} · Texto de ejemplo
         </p>
       ))}
-      <p className="font-mono">[FOLIO-001] · font-mono</p>
+      <p className="font-mono">OC-2026-0412 · font-mono</p>
       <h3 className="text-md font-semibold">Espaciado · §2.3</h3>
       <div className="flex flex-wrap items-start gap-3">
         {espacios.map((c) => (

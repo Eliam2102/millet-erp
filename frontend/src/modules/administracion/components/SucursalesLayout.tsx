@@ -84,7 +84,7 @@ export function SucursalesLayout({ idActivo, detalle }: SucursalesLayoutProps) {
         {canVerDatosEmpresa && currentEmpresaId && (
           <div className="flex justify-between items-center text-xs text-ink-muted px-1">
             <span>
-              {empresaSesion?.razonSocial ?? empresaQuery.data?.empresa.razonSocial ?? '[EMPRESA]'}
+              {empresaSesion?.razonSocial ?? empresaQuery.data?.empresa.razonSocial ?? <span className="text-ink-muted">Sin empresa</span>}
             </span>
             <Link
               to="/admin/empresas/$id"

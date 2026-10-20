@@ -268,7 +268,7 @@ function Tabla({ items, onComprobar }: TablaProps) {
                     className="max-w-56 truncate"
                     title={s.empleadoNombre ?? undefined}
                   >
-                    {s.empleadoNombre?.trim() || '[EMPLEADO POR CONFIRMAR]'}
+                    {s.empleadoNombre?.trim() || <span className="text-ink-muted">Sin asignar</span>}
                   </div>
                   {s.puesto ? <div className="text-2xs text-ink-muted">{s.puesto}</div> : null}
                 </TableCell>

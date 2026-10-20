@@ -15,8 +15,8 @@ export default function Ejemplo() {
           <SelectValue placeholder="Selecciona una sucursal" />
         </SelectTrigger>
         <SelectContent>
-          <SelectItem value="a">[SUCURSAL A]</SelectItem>
-          <SelectItem value="b">[SUCURSAL B]</SelectItem>
+          <SelectItem value="a">Sucursal Circuito</SelectItem>
+          <SelectItem value="b">Sucursal Centro</SelectItem>
         </SelectContent>
       </Select>
       <Select disabled>

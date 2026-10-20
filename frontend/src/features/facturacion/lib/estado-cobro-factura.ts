@@ -11,5 +11,5 @@ export function estadoCobroFactura(f: Pick<ComprobanteDetalleResponse,
     if (f.cobroMostrador != null) return 'Cobrada';
     return f.totalPorCobrar > 0 ? 'Por cobrar' : 'Sin monto por cobrar';
   }
-  return 'Por confirmar';
+  return 'Sin estado de cobro';
 }

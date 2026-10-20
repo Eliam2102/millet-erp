@@ -19,7 +19,7 @@ export default function Ejemplo() {
     });
     c.setQueryData(
       ['auth', 'sucursales', empresa],
-      [{ id: sucursal, nombre: '[SUCURSAL FICTICIA]' }],
+      [{ id: sucursal, nombre: 'Sucursal Circuito' }],
     );
     return c;
   }, [empresa, sucursal]);
@@ -27,7 +27,7 @@ export default function Ejemplo() {
     <QueryClientProvider client={client}>
       <ContextoSucursal />
       <p>
-        Vista aislada: si hay sucursal activa, su nombre se sustituye por [SUCURSAL FICTICIA]. Sin
+        Vista aislada: si hay sucursal activa, su nombre se sustituye por Sucursal Circuito. Sin
         selección muestra todas.
       </p>
     </QueryClientProvider>

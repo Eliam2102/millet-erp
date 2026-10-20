@@ -29,7 +29,7 @@ describe('Catálogo del sistema de diseño', () => {
       expect(titulos.has(nombre), nombre).toBe(true);
     }
     expect(document.querySelectorAll('article')).toHaveLength(catalogo.length);
-    expect(screen.getByText('Sucursal: [SUCURSAL FICTICIA]')).toBeInTheDocument();
+    expect(screen.getByText('Sucursal: Sucursal Circuito')).toBeInTheDocument();
     expect(screen.getAllByText(/import .* from/).length).toBe(catalogo.length);
     await Promise.resolve();
     expect(fetchSpy).not.toHaveBeenCalled();

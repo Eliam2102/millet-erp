@@ -266,7 +266,7 @@ export function PartidasEditor({
                         id={id('proyecto')}
                         maxLength={40}
                         value={p.proyecto}
-                        placeholder="[CLAVE DE PROYECTO]"
+                        placeholder="Ej. PRY-2026-01"
                         aria-invalid={errPartida(i, 'proyecto').length > 0 || undefined}
                         aria-describedby={`${id('proyecto')}-err`}
                         onChange={(e) => actualizar(i, { proyecto: e.target.value })}

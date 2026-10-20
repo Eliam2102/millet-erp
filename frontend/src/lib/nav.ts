@@ -485,7 +485,7 @@ const moduloCuentasPorPagar: NavModulo = {
         {
           label: 'Políticas de viáticos',
           description:
-            'Tabuladores por puesto y destino (Nacional / Internacional). El backend valida solicitudes contra estos topes.',
+            'Consulta los topes de viáticos por puesto y destino nacional o internacional.',
           to: '/cxp/admin/politicas-viaticos',
           icon: Sliders,
           permission: PermisosCanonicos.CuentasPorPagarCatalogosPoliticasAdministrar,
@@ -547,6 +547,7 @@ const moduloTesoreria: NavModulo = {
           ],
         },
         {
+          // eslint-disable-next-line ds/no-texto-interno -- Estado de negocio: depósitos pendientes de conciliación.
           label: 'Depósitos por confirmar',
           description:
             'Propuestas de aplicación de CxC y expectativas de Caja: confirmar el hecho bancario que dispara el REPP.',
@@ -613,7 +614,7 @@ const moduloTesoreria: NavModulo = {
         {
           label: 'Flujo de efectivo',
           description:
-            'Ingresos y egresos clasificados por concepto (Operación / Inversión / Financiamiento). ADR-0036.',
+            'Ingresos y egresos clasificados por concepto (Operación / Inversión / Financiamiento).',
           to: '/tesoreria/reportes/flujo-efectivo',
           icon: BarChart3,
           permission: PermisosCanonicos.TesoreriaReportesVer,
@@ -743,7 +744,7 @@ const moduloCuentasPorCobrar: NavModulo = {
         {
           label: 'Antigüedad de saldos',
           description:
-            'Cartera viva por buckets configurables, totales por moneda. Exportable PDF/Excel (ADR-0036).',
+            'Consulta la cartera por rangos de antigüedad y moneda, y expórtala a PDF o Excel.',
           to: '/cxc/cartera',
           icon: BarChart3,
           permission: PermisosCanonicos.CuentasPorCobrarCarteraLeer,

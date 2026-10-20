@@ -89,7 +89,7 @@ export function CobroFacturaPanel({ factura: f }: { factura: ComprobanteDetalleR
             <p>Sin monto por cobrar: las notas de crédito acreditan el total de la factura.</p>
           )
         ) : (
-          <p>Método de pago no disponible.</p>
+          <p>Sin método de pago.</p>
         )}
       </CardContent>
     </Card>

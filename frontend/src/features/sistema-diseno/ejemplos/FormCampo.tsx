@@ -15,7 +15,7 @@ export default function Ejemplo() {
           {([3, 4, 6, 12] as const).map((span) => (
             <FormCampo key={span} span={span}>
               <label>
-                Campo de {span} columnas *<Input required placeholder="[EJEMPLO]" />
+                Campo de {span} columnas *<Input required placeholder="Ej. TRF-0412" />
               </label>
             </FormCampo>
           ))}

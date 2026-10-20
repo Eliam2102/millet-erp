@@ -27,7 +27,7 @@
 - Usar emoji, ilustraciones ni logos (el producto no lleva logo en el rail).
 - Usar fuentes Inter, Roboto ni Arial.
 - Usar rojo/verde como único diferenciador: el estado siempre lleva texto.
-- Inventar datos: si no se conoce un valor, usa un placeholder entre corchetes: `[SUCURSAL]`, `[BANCO] ·· [0000]`, `[RESPONSABLE]`.
+- Inventar datos: en pantallas del ERP, muestra los datos faltantes en lenguaje de usuario según §6. Los ejemplos ficticios se limitan a maquetas y catálogo.
 - Crear un color "parecido" a uno existente. Si de verdad hace falta un color nuevo, se agrega primero a `tokens.json` y a esta guía.
 
 ---
@@ -410,7 +410,7 @@ Ver 3.4. Solo es para consultar y aprobar; la captura pesada es de escritorio.
 
 - **Errores:** dicen la causa y la acción: «Adjunta la cotización en PDF para enviar la OC a autorización». Nunca «Intenta de nuevo» solo.
 - **Obligatorios:** los campos obligatorios llevan `*`.
-- **Texto interno prohibido en UI:** rutas `.md`, IDs de decisión (D03, 12-13), «backend», «PLATFORM-TODO», «POR CONFIRMAR» y «Supuesto SAT».
+- **Texto interno prohibido en UI:** rutas `.md`, IDs de decisión (D03, 12-13), «backend», «PLATFORM-TODO», marcadores entre corchetes, «ADR-», «endpoint», «DTO», «stub», «TODO», «Por confirmar» y «Supuesto SAT».
 - **Partidas:** los renglones de un documento se llaman «Partidas» (decisión de Eliam, 19-oct-2026), nunca «líneas» ni «posiciones» en la UI.
 - **Sucursal:** las altas que dependen de sucursal la piden de forma explícita y muestran la sucursal activa.
 - **PDF:** las tablas exportadas se generan como texto (`@react-pdf` `View`/`Text`), nunca como imagen rasterizada.
@@ -433,7 +433,11 @@ Ver 3.4. Solo es para consultar y aprobar; la captura pesada es de escritorio.
   - En el rail: "C. Costo", "Contab.".
 - **Descripciones de pantalla:** una oración que diga qué hay y qué se hace ("Captura, conciliación contra OC y recepción, y autorización para pago.").
 - **Mensajes de bloqueo:** di qué falta y qué lo destraba ("La partida 3 no tiene recepción en Almacén. La factura podrá autorizarse cuando se registre la recepción o se corrija la OC.").
-- **Placeholders** para datos desconocidos: `[MAYÚSCULAS ENTRE CORCHETES]`. Nunca uses lorem ipsum.
+- **Maquetas y ejemplos del catálogo:** los datos ficticios van entre corchetes en mayúsculas (`[PROVEEDOR]`). Nunca lorem ipsum.
+- **Pantallas del ERP:** cuando falta un dato se muestra en lenguaje de usuario y en `text-ink-muted`:
+  - «Sin proveedor», «Sin asignar», «Sin sucursal», «Sin responsable» o «Sin número», según el campo;
+  - «—» en columnas numéricas o de fecha.
+  - Nunca corchetes, «por confirmar», «no disponible» ni «N/A».
 
 ---
 
