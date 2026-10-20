@@ -170,12 +170,12 @@ describe('CE-01a', () => {
     expect(screen.getByText('Sin expedientes')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Nuevo expediente' })).toBeInTheDocument();
   });
-  it('muestra atraso con punto de 7 px y frase', () => {
+  it('muestra atraso con punto de la escala DS y frase', () => {
     state.lista.data = { items: [{ ...data.expediente, hitosAtrasados: 1 }], total: 1 };
     render(<ExpedientesPage />, { wrapper: createQueryWrapper() });
     const indicador = screen.getByText('1 hito vencido');
     expect(indicador.querySelector('[aria-hidden="true"]')).toHaveClass(
-      'size-[7px]',
+      'size-2',
       'bg-danger-solid',
     );
   });
@@ -222,7 +222,7 @@ describe('CE-01a', () => {
     render(<ExpedienteForm onClose={vi.fn()} />, { wrapper: createQueryWrapper() });
     expect(screen.getByRole('button', { name: 'Crear expediente' })).toBeDisabled();
     fireEvent.click(screen.getByRole('button', { name: 'Seleccionar OC de importación' }));
-    fireEvent.change(screen.getByLabelText('Referencia de la operación'), {
+    fireEvent.change(screen.getByLabelText(/Referencia de la operación/), {
       target: { value: 'DEMO importación' },
     });
     fireEvent.click(screen.getByRole('button', { name: 'Crear expediente' }));
@@ -310,7 +310,9 @@ describe('CE-01b · Hitos', () => {
     expect(screen.getByRole('region', { name: 'Avisos de hitos vencidos' })).toHaveTextContent(
       'Compromiso:',
     );
-    expect(screen.getByRole('note')).toHaveTextContent('Pendiente · se habilita con CE-03');
+    expect(screen.getByRole('note')).toHaveTextContent(
+      'Pendiente de habilitar el seguimiento financiero',
+    );
     expect(screen.queryByRole('button', { name: 'Actualizar Planeado' })).not.toBeInTheDocument();
   });
   it('reprograma con motivo y conserva el compromiso anterior hasta guardar', async () => {
@@ -318,7 +320,7 @@ describe('CE-01b · Hitos', () => {
     state.accion.mockResolvedValue({ data });
     render(<HitosPanel data={conHitos()} />, { wrapper: createQueryWrapper() });
     fireEvent.click(screen.getByRole('button', { name: 'Actualizar Planeado' }));
-    fireEvent.change(screen.getByLabelText('Fecha compromiso'), {
+    fireEvent.change(screen.getByLabelText(/Fecha compromiso/), {
       target: { value: '2026-10-20' },
     });
     const motivo = screen.getByLabelText(/Motivo \(obligatorio/);
@@ -357,7 +359,7 @@ describe('CE-01b · Hitos', () => {
     render(<HitosPanel data={conHitos()} />, { wrapper: createQueryWrapper() });
     fireEvent.click(screen.getByRole('button', { name: 'Actualizar Planeado' }));
     fireEvent.change(screen.getByLabelText('Acción del hito'), { target: { value: 'real' } });
-    fireEvent.change(screen.getByLabelText('Fecha real'), { target: { value: '2026-10-16' } });
+    fireEvent.change(screen.getByLabelText(/Fecha real/), { target: { value: '2026-10-16' } });
     fireEvent.click(screen.getByRole('button', { name: 'Guardar hito' }));
     await waitFor(() =>
       expect(state.accion).toHaveBeenCalledWith(
@@ -400,7 +402,7 @@ describe('CE-01b · Hitos', () => {
     expect(screen.getByRole('button', { name: 'Registrar Cerrado' })).toBeDisabled();
     expect(screen.getByRole('button', { name: 'Registrar Cerrado' })).toHaveAttribute(
       'title',
-      'Pendiente · se habilita con CE-03',
+      'Pendiente de habilitar el seguimiento financiero',
     );
   });
   it('el filtro Con atraso se envía al servidor', () => {

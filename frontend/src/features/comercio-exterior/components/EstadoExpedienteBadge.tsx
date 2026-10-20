@@ -1,8 +1,6 @@
 import { Badge } from '@/components/ui/badge';
+import { estadosExpediente } from '../lib/estados-ui';
 export function EstadoExpedienteBadge({ estado }: { estado: 1 | 2 }) {
-  return (
-    <Badge variant={estado === 1 ? 'info' : 'neutral'}>
-      {estado === 1 ? 'Abierto' : 'Cancelado'}
-    </Badge>
-  );
+  const ui = estadosExpediente[estado];
+  return <Badge variant={ui.tono}>{ui.texto}</Badge>;
 }
