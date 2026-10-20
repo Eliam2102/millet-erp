@@ -1,9 +1,6 @@
 import { CatalogoEagerCombobox } from '@/components/erp/selectors/CatalogoEagerCombobox';
 import { useListaCatalogo } from '@/features/centros-costo/api/useCatalogoCrud';
-import {
-  EstatusCatalogo,
-  type GrupoDimDetalle,
-} from '@/features/centros-costo/api/types';
+import { EstatusCatalogo, type GrupoDimDetalle } from '@/features/centros-costo/api/types';
 
 /**
  * Selector de grupo de clasificación (CECO — fix de UX del modal). Los
@@ -25,6 +22,7 @@ interface GrupoDimComboboxProps {
   value: string | null | undefined;
   onChange: (id: string | null) => void;
   disabled?: boolean;
+  id?: string;
 }
 
 export function GrupoDimCombobox({
@@ -32,12 +30,14 @@ export function GrupoDimCombobox({
   value,
   onChange,
   disabled,
+  id,
 }: GrupoDimComboboxProps) {
   const query = useListaCatalogo<GrupoDimDetalle>(recurso, { limit: 200 });
   const items = query.data?.items ?? [];
 
   return (
     <CatalogoEagerCombobox
+      triggerProps={{ id }}
       items={items}
       loading={query.isLoading}
       // Muestra el error real de la query (p. ej. 403) en vez de
@@ -47,15 +47,13 @@ export function GrupoDimCombobox({
       onChange={onChange}
       itemToLabel={(g) => g.nombre}
       renderTrigger={(g) =>
-        g.estatus === EstatusCatalogo.Inactivo
-          ? `${g.nombre} (inactivo)`
-          : g.nombre
+        g.estatus === EstatusCatalogo.Inactivo ? `${g.nombre} (inactivo)` : g.nombre
       }
       renderItem={(g) => (
         <div className="min-w-0 flex-1">
           <span className="truncate text-sm">{g.nombre}</span>
           {g.estatus === EstatusCatalogo.Inactivo && (
-            <span className="ml-1 text-xs text-muted-foreground">(inactivo)</span>
+            <span className="ml-1 text-xs text-ink-muted">(inactivo)</span>
           )}
         </div>
       )}

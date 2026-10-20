@@ -167,17 +167,17 @@ describe('<ArbolAsignacion>', () => {
     };
     render(<ArbolAsignacion arbol={tresEstados} onMarcar={() => {}} />);
 
-    // Todas → píldora emerald "Todas · 12".
+    // Todas → badge success "Todas · 12".
     const todo = screen.getByText('Todas · 12');
-    expect(todo).toHaveClass('bg-emerald-100');
-    // Parcial → píldora amber "Parcial · 14 de 16".
+    expect(todo).toHaveClass('bg-success-bg');
+    // Parcial → badge info "Parcial · 14 de 16".
     const parcial = screen.getByText('Parcial · 14 de 16');
-    expect(parcial).toHaveClass('bg-amber-100');
-    // Ninguna → texto gris SIN píldora (ni emerald ni amber).
+    expect(parcial).toHaveClass('bg-info-bg');
+    // Ninguna conserva un badge neutral.
     const ninguna = screen.getByText('Ninguna · 0 de 16');
-    expect(ninguna).not.toHaveClass('bg-emerald-100');
-    expect(ninguna).not.toHaveClass('bg-amber-100');
-    expect(ninguna).toHaveClass('text-muted-foreground');
+    expect(ninguna).toHaveClass('bg-neutral-bg');
+    expect(ninguna).not.toHaveClass('bg-info-bg');
+    expect(ninguna).toHaveClass('text-neutral-fg');
   });
 
   it('axe-core: cero violations', async () => {

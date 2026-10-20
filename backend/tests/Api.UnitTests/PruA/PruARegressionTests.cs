@@ -86,7 +86,7 @@ public sealed class PruARegressionTests
         await a.Tes.SaveChangesAsync();
         var ingreso = new RegistrarMovimientoIngresoHandler(a.Tes, a, a, a.PeriodoTes, a);
         var pago = new RegistrarPagoProveedorHandler(a.Tes, a, a, a.PeriodoTes, a, a, a.Eventos, a);
-        var cuentaPago = new RegistrarPagoACuentaHandler(a.Tes, a, a, a.PeriodoTes, a);
+        var cuentaPago = new RegistrarPagoACuentaHandler(a.Tes, a, a, a.PeriodoTes, a, a);
         var septiembre = new DateOnly(2026, 9, 30); var octubre = new DateOnly(2026, 10, 10);
         await Cerrado(() => ingreso.Handle(new(cuenta.Id, 100, septiembre, SucursalId: a.Sucursal), default));
         await Cerrado(() => pago.Handle(new(cuenta.Id, septiembre, [new(facturaId, 500)]), default));
