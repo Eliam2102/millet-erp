@@ -49,6 +49,12 @@ import {
   formasPagoCaja,
   formasPagoVigentes,
 } from '@/features/facturacion/lib/formas-pago-caja';
+import {
+  MOTIVO_RETIRO_MINIMO,
+  TIPO_MOVIMIENTO_DEPOSITO as TIPO_DEPOSITO,
+  TIPO_MOVIMIENTO_RETIRO as TIPO_RETIRO,
+  errorDescripcionMovimiento,
+} from '@/features/facturacion/schemas/movimiento-caja';
 import { esApiError, useFormIdempotencyKey } from '@/lib/api';
 import { PermisosCanonicos } from '@/lib/auth/permission-codes';
 import { useHasPermission } from '@/lib/auth/useHasPermission';
@@ -59,10 +65,6 @@ import { AlertTriangle, Copy, FileText, Plus, Truck } from 'lucide-react';
 import { useState } from 'react';
 import { toast } from 'sonner';
 import { EstadoFacturacionBadge } from '../components/EstadoFacturacionBadge';
-
-/** Tipos de movimiento manual (espejo de TipoCajaMovimiento backend). */
-const TIPO_DEPOSITO = 2;
-const TIPO_RETIRO = 3;
 
 const ETIQUETA_FORMA: Record<string, string> = {
   '01': 'Efectivo',
@@ -616,6 +618,8 @@ function MovimientoInlineForm(props: { sesionId: string; onCerrar: () => void })
   const [importe, setImporte] = useState('');
   const [descripcion, setDescripcion] = useState('');
   const [referencia, setReferencia] = useState('');
+  const esRetiro = Number(tipo) === TIPO_RETIRO;
+  const largoMotivo = descripcion.trim().length;
 
   function onGuardar() {
     if (!vigente) {
@@ -627,8 +631,9 @@ function MovimientoInlineForm(props: { sesionId: string; onCerrar: () => void })
       toast.error('El importe debe ser mayor que cero.');
       return;
     }
-    if (descripcion.trim() === '') {
-      toast.error('La descripción es obligatoria.');
+    const errorDescripcion = errorDescripcionMovimiento(Number(tipo), descripcion);
+    if (errorDescripcion) {
+      toast.error(errorDescripcion);
       return;
     }
     registrar.mutate(
@@ -696,7 +701,7 @@ function MovimientoInlineForm(props: { sesionId: string; onCerrar: () => void })
         />
       </div>
       <div className="space-y-1 md:col-span-3">
-        <Label htmlFor="mov-desc">Descripción *</Label>
+        <Label htmlFor="mov-desc">{esRetiro ? 'Motivo del retiro *' : 'Descripción *'}</Label>
         <Input
           aria-describedby="mov-desc-ayuda"
           id="mov-desc"
@@ -706,6 +711,7 @@ function MovimientoInlineForm(props: { sesionId: string; onCerrar: () => void })
         />
         <p id="mov-desc-ayuda" className="text-xs text-ink-muted">
           Por qué se movió el dinero, quién autorizó y a quién se entregó
+          {esRetiro && ` · mínimo ${MOTIVO_RETIRO_MINIMO} caracteres (${largoMotivo}/${MOTIVO_RETIRO_MINIMO})`}
         </p>
       </div>
       <div className="space-y-1 md:col-span-3">
