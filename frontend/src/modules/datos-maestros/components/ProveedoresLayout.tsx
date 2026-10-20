@@ -210,11 +210,11 @@ function FiltrosBloque({
         aria-label="Filtrar por RFC"
       />
       <Input
-        placeholder="Razón social…"
+        placeholder="Nombre o razón social…"
         value={razon}
         onChange={(e) => onRazon(e.target.value)}
         className="h-8 text-xs"
-        aria-label="Filtrar por razón social"
+        aria-label="Filtrar por nombre o razón social"
       />
       <div className="flex gap-2">
         <Select
