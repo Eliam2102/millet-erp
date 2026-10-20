@@ -16,6 +16,8 @@ namespace Millet.Facturacion.UnitTests.Cajas;
 public sealed class CajasTests
 {
     private static readonly Guid Empresa = Guid.NewGuid();
+    private static readonly Guid Conkal = Guid.NewGuid();
+    private static readonly Guid Merida = Guid.NewGuid();
 
     private static FacturacionDbContext NewDb() =>
         new(new DbContextOptionsBuilder<FacturacionDbContext>()
@@ -100,11 +102,11 @@ public sealed class CajasTests
     public async Task CrearCaja_rechaza_nombre_duplicado()
     {
         await using var db = NewDb();
-        var handler = new CrearCajaHandler(db, new FakeEmpresaContext(Empresa));
+        var handler = new CrearCajaHandler(db, new FakeEmpresaContext(Empresa), new FakeSucursalesReadPort());
 
-        await handler.Handle(new CrearCajaCommand("Caja Mostrador", null), CancellationToken.None);
+        await handler.Handle(new CrearCajaCommand("Caja Mostrador", null, Conkal), CancellationToken.None);
 
-        var duplicado = () => handler.Handle(new CrearCajaCommand("Caja Mostrador", null), CancellationToken.None);
+        var duplicado = () => handler.Handle(new CrearCajaCommand("Caja Mostrador", null, Conkal), CancellationToken.None);
         await duplicado.Should().ThrowAsync<BusinessRuleException>()
             .Where(e => e.Code == "CAJA_NOMBRE_DUPLICADO");
     }
@@ -113,8 +115,8 @@ public sealed class CajasTests
     public async Task ActualizarCaja_choca_con_version_desactualizada()
     {
         await using var db = NewDb();
-        var creada = await new CrearCajaHandler(db, new FakeEmpresaContext(Empresa))
-            .Handle(new CrearCajaCommand("Caja 1", null), CancellationToken.None);
+        var creada = await new CrearCajaHandler(db, new FakeEmpresaContext(Empresa), new FakeSucursalesReadPort())
+            .Handle(new CrearCajaCommand("Caja 1", null, Conkal), CancellationToken.None);
 
         var handler = new ActualizarCajaHandler(db);
         var viejo = () => handler.Handle(
@@ -139,8 +141,8 @@ public sealed class CajasTests
     public async Task ReemplazarSucursales_valida_contra_el_catalogo()
     {
         await using var db = NewDb();
-        var creada = await new CrearCajaHandler(db, new FakeEmpresaContext(Empresa))
-            .Handle(new CrearCajaCommand("Caja 1", null), CancellationToken.None);
+        var creada = await new CrearCajaHandler(db, new FakeEmpresaContext(Empresa), new FakeSucursalesReadPort())
+            .Handle(new CrearCajaCommand("Caja 1", null, Conkal), CancellationToken.None);
 
         var inactiva = Guid.NewGuid();
         var activa = Guid.NewGuid();
@@ -163,8 +165,8 @@ public sealed class CajasTests
     public async Task ReemplazarCanales_valida_activos_en_el_catalogo()
     {
         await using var db = NewDb();
-        var creada = await new CrearCajaHandler(db, new FakeEmpresaContext(Empresa))
-            .Handle(new CrearCajaCommand("Caja 1", null), CancellationToken.None);
+        var creada = await new CrearCajaHandler(db, new FakeEmpresaContext(Empresa), new FakeSucursalesReadPort())
+            .Handle(new CrearCajaCommand("Caja 1", null, Conkal), CancellationToken.None);
 
         var handler = new ReemplazarCanalesCajaHandler(db, new FakeCanalesVentaReadPort(todoActivo: false));
         var invalido = () => handler.Handle(
@@ -209,8 +211,8 @@ public sealed class CajasTests
     {
         await using var db = NewDb();
         var empresaCtx = new FakeEmpresaContext(Empresa);
-        var creada = await new CrearCajaHandler(db, empresaCtx)
-            .Handle(new CrearCajaCommand("Caja Cancún", "mostrador"), CancellationToken.None);
+        var creada = await new CrearCajaHandler(db, empresaCtx, new FakeSucursalesReadPort())
+            .Handle(new CrearCajaCommand("Caja Cancún", "mostrador", Conkal), CancellationToken.None);
 
         await new ReemplazarCanalesCajaHandler(db, new FakeCanalesVentaReadPort())
             .Handle(new ReemplazarCanalesCajaCommand(creada.Id, creada.Version, [1, 4]), CancellationToken.None);
@@ -235,5 +237,85 @@ public sealed class CajasTests
         var inexistente = () => new CajaDetalleHandler(db, new FakeCanalesVentaReadPort())
             .Handle(new CajaDetalleQuery(Guid.NewGuid()), CancellationToken.None);
         await inexistente.Should().ThrowAsync<EntityNotFoundException>();
+    }
+
+    // ---- 86e3t97uy: cajas por sucursal ----
+
+    private static async Task<Guid> CrearEnAsync(FacturacionDbContext db, string nombre, Guid? sucursal)
+    {
+        var creada = await new CrearCajaHandler(db, new FakeEmpresaContext(Empresa), new FakeSucursalesReadPort())
+            .Handle(new CrearCajaCommand(nombre, null, sucursal ?? Conkal), CancellationToken.None);
+        if (sucursal is null)
+        {
+            // Caja heredada sin alcance (antes se creaba sin sucursal).
+            var caja = await db.Cajas.Include(c => c.Sucursales).SingleAsync(c => c.Id == creada.Id);
+            caja.ReemplazarSucursales([]);
+            await db.SaveChangesAsync();
+        }
+        return creada.Id;
+    }
+
+    [Fact]
+    public async Task CrearCaja_asigna_la_sucursal_elegida()
+    {
+        await using var db = NewDb();
+        var id = await CrearEnAsync(db, "Caja Conkal", Conkal);
+
+        var caja = await db.Cajas.AsNoTracking().Include(c => c.Sucursales).SingleAsync(c => c.Id == id);
+        caja.Sucursales.Select(s => s.SucursalId).Should().Equal(Conkal);
+    }
+
+    [Fact]
+    public void CrearCaja_validator_exige_sucursal()
+    {
+        new CrearCajaValidator().Validate(new CrearCajaCommand("Caja", null, Guid.Empty))
+            .Errors.Should().Contain(e => e.PropertyName == nameof(CrearCajaCommand.SucursalId));
+    }
+
+    [Fact]
+    public async Task CrearCaja_rechaza_sucursal_inactiva_o_ajena_al_usuario()
+    {
+        await using var db = NewDb();
+        var inactiva = () => new CrearCajaHandler(db, new FakeEmpresaContext(Empresa), new FakeSucursalesReadPort(noActivas: [Merida]))
+            .Handle(new CrearCajaCommand("Caja Mérida", null, Merida), CancellationToken.None);
+        await inactiva.Should().ThrowAsync<BusinessRuleException>().Where(e => e.Code == "CAJA_SUCURSAL_INACTIVA");
+
+        var ajena = () => new CrearCajaHandler(db, new FakeEmpresaContext(Empresa), new FakeSucursalesReadPort())
+            .Handle(new CrearCajaCommand("Caja Mérida", null, Merida) { SucursalesPermitidas = [Conkal] }, CancellationToken.None);
+        await ajena.Should().ThrowAsync<ForbiddenException>().Where(e => e.Code == "CAJA_SUCURSAL_FUERA_DE_ALCANCE");
+    }
+
+    [Fact]
+    public async Task ListarCajas_usuario_de_una_sucursal_solo_ve_las_cajas_de_su_sucursal()
+    {
+        await using var db = NewDb();
+        await CrearEnAsync(db, "Caja Conkal", Conkal);
+        await CrearEnAsync(db, "Caja Mérida", Merida);
+        await CrearEnAsync(db, "Caja sin sucursal", null);
+        var permisos = new FakeCurrentUserPermissions("facturacion.caja.operar");
+
+        var carla = await new ListarCajasHandler(db, permisos)
+            .Handle(new ListarCajasQuery { SucursalesPermitidas = [Conkal] }, CancellationToken.None);
+        carla.Select(c => c.Nombre).Should().Equal("Caja Conkal");
+
+        // Corporativo (leer-todas): el behavior deja SucursalesPermitidas en null.
+        var corporativo = await new ListarCajasHandler(db, permisos)
+            .Handle(new ListarCajasQuery(), CancellationToken.None);
+        corporativo.Should().HaveCount(3);
+    }
+
+    [Fact]
+    public async Task DetalleCaja_de_otra_sucursal_no_se_encuentra()
+    {
+        await using var db = NewDb();
+        var merida = await CrearEnAsync(db, "Caja Mérida", Merida);
+
+        var ajena = () => new CajaDetalleHandler(db, new FakeCanalesVentaReadPort())
+            .Handle(new CajaDetalleQuery(merida) { SucursalesPermitidas = [Conkal] }, CancellationToken.None);
+        await ajena.Should().ThrowAsync<EntityNotFoundException>();
+
+        var propia = await new CajaDetalleHandler(db, new FakeCanalesVentaReadPort())
+            .Handle(new CajaDetalleQuery(merida) { SucursalesPermitidas = [Merida] }, CancellationToken.None);
+        propia.Nombre.Should().Be("Caja Mérida");
     }
 }
