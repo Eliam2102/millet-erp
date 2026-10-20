@@ -15,7 +15,6 @@ import {
   ErrorState,
   TableSkeleton,
   EstadoBadge,
-  NivelPendienteBadge,
   DateTimeDisplay,
   SortableHeader,
   compareItemsBy,
@@ -41,10 +40,7 @@ import {
   type ResultadoAprobacionItem,
 } from '@/features/compras/lib/resultados-masivos';
 import { useDepartamentos, mapById } from '@/features/catalogos/api';
-import {
-  departamentoLabel,
-  requisitanteLabel,
-} from '@/features/compras/lib/nombres';
+import { departamentoLabel, requisitanteLabel } from '@/features/compras/lib/nombres';
 import { esApiError } from '@/lib/api';
 import { useHasPermission } from '@/lib/auth/useHasPermission';
 import { PermisosCanonicos } from '@/lib/auth/permission-codes';
@@ -100,32 +96,19 @@ export function BandejaPendientes() {
     return items.filter((r) => r.folio.toLowerCase().includes(needle));
   }, [query.data, search.q]);
 
-  const [sort, setSort] =
-    useState<SortState<'folio' | 'fechaSolicitud'> | null>(null);
+  const [sort, setSort] = useState<SortState<'folio' | 'fechaSolicitud'> | null>(null);
   const itemsOrdenados = useMemo(() => {
     if (sort == null) return itemsFiltrados;
-    return [...itemsFiltrados].sort((a, b) =>
-      compareItemsBy(a, b, sort.key, sort.dir),
-    );
+    return [...itemsFiltrados].sort((a, b) => compareItemsBy(a, b, sort.key, sort.dir));
   }, [itemsFiltrados, sort]);
 
-  const puedeN1 = useHasPermission(
-    PermisosCanonicos.ComprasRequisicionesAutorizarNivel1,
-  );
-  const puedeN2 = useHasPermission(
-    PermisosCanonicos.ComprasRequisicionesAutorizarNivel2,
-  );
+  const puedeN1 = useHasPermission(PermisosCanonicos.ComprasRequisicionesAutorizarNivel1);
+  const puedeN2 = useHasPermission(PermisosCanonicos.ComprasRequisicionesAutorizarNivel2);
   const autorizarMasivo = useAutorizarMasivo();
-  const [seleccion, setSeleccion] = useState<ReadonlySet<string>>(
-    () => new Set(),
-  );
-  const [resultados, setResultados] = useState<
-    Record<string, AutorizacionMasivaItemResultado>
-  >({});
+  const [seleccion, setSeleccion] = useState<ReadonlySet<string>>(() => new Set());
+  const [resultados, setResultados] = useState<Record<string, AutorizacionMasivaItemResultado>>({});
   const [errorAprobacion, setErrorAprobacion] = useState<string | null>(null);
-  const [resumen, setResumen] = useState<readonly ResultadoAprobacionItem[]>(
-    [],
-  );
+  const [resumen, setResumen] = useState<readonly ResultadoAprobacionItem[]>([]);
   const [confirmando, setConfirmando] = useState(false);
 
   function puedeAutorizar(r: PendienteAutorizacionItemResponse): boolean {
@@ -138,8 +121,7 @@ export function BandejaPendientes() {
   const seleccionadas = autorizables.filter((r) => seleccion.has(r.id));
   const todasSeleccionadas =
     autorizables.length > 0 && seleccionadas.length === autorizables.length;
-  const algunaSeleccionada =
-    seleccionadas.length > 0 && !todasSeleccionadas;
+  const algunaSeleccionada = seleccionadas.length > 0 && !todasSeleccionadas;
 
   function alternarSeleccion(id: string, on: boolean) {
     setResumen([]);
@@ -181,14 +163,10 @@ export function BandejaPendientes() {
           nivel,
           idempotencyKey: crypto.randomUUID(),
         });
-        const porId = Object.fromEntries(
-          respuesta.resultados.map((x) => [x.id, x]),
-        );
+        const porId = Object.fromEntries(respuesta.resultados.map((x) => [x.id, x]));
         setResultados((prev) => ({ ...prev, ...porId }));
         acumulado.push(...resultadosConFolio(respuesta.resultados, folioPorId));
-        const okIds = new Set(
-          respuesta.resultados.filter((x) => x.ok).map((x) => x.id),
-        );
+        const okIds = new Set(respuesta.resultados.filter((x) => x.ok).map((x) => x.id));
         setSeleccion((prev) => new Set([...prev].filter((id) => !okIds.has(id))));
       } catch {
         setErrorAprobacion(
@@ -211,10 +189,7 @@ export function BandejaPendientes() {
     <div className="space-y-4">
       <PageHeader titulo="Requisiciones por autorizar" />
 
-      <ResumenAprobacionMasiva
-        resultados={resumen}
-        onCerrar={() => setResumen([])}
-      />
+      <ResumenAprobacionMasiva resultados={resumen} onCerrar={() => setResumen([])} />
 
       <div
         className="flex flex-wrap items-center gap-2"
@@ -239,9 +214,7 @@ export function BandejaPendientes() {
               <SelectValue placeholder="Todos los departamentos" />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value={SENTINEL_ALL}>
-                Todos los departamentos
-              </SelectItem>
+              <SelectItem value={SENTINEL_ALL}>Todos los departamentos</SelectItem>
               {Array.from(deptosMap.values()).map((d) => (
                 <SelectItem key={d.id} value={d.id}>
                   {d.clave} · {d.nombre}
@@ -254,11 +227,7 @@ export function BandejaPendientes() {
         {/* Filtro por nivel pendiente (PR-A). No gateado: cualquier
             autorizador puede acotar a lo que le toca firmar. */}
         <Select
-          value={
-            search.nivelPendiente != null
-              ? String(search.nivelPendiente)
-              : SENTINEL_ALL
-          }
+          value={search.nivelPendiente != null ? String(search.nivelPendiente) : SENTINEL_ALL}
           onValueChange={(v) =>
             setSearch({
               ...search,
@@ -285,9 +254,7 @@ export function BandejaPendientes() {
             type="button"
             variant="ghost"
             size="sm"
-            onClick={() =>
-              setSearch({ offset: 0, limit: search.limit ?? 25 })
-            }
+            onClick={() => setSearch({ offset: 0, limit: search.limit ?? 25 })}
           >
             Limpiar filtros
           </Button>
@@ -416,10 +383,7 @@ export function BandejaPendientes() {
                 const requisitante = requisitanteLabel(r);
                 const deptoLabel = departamentoLabel(r);
                 return (
-                  <tr
-                    key={r.id}
-                    className={i % 2 === 1 ? 'bg-muted/20' : undefined}
-                  >
+                  <tr key={r.id} className={i % 2 === 1 ? 'bg-muted/20' : undefined}>
                     <td className="px-3 py-2">
                       <Checkbox
                         checked={seleccion.has(r.id)}
@@ -439,20 +403,18 @@ export function BandejaPendientes() {
                     </td>
                     <td className="px-3 py-2">
                       {r.nivelPendiente != null && (
-                        <NivelPendienteBadge nivel={r.nivelPendiente} />
+                        <span className="text-xs text-ink-muted">Falta N{r.nivelPendiente}</span>
                       )}
                     </td>
                     <td className="px-3 py-2">
-                      <DisponibilidadBadge disponibilidad={r.disponibilidad} />
+                      {!r.esRecurrente && <DisponibilidadBadge disponibilidad={r.disponibilidad} />}
                     </td>
                     <td className="px-3 py-2">
                       <RecurrenteBadge esRecurrente={r.esRecurrente} />
                     </td>
                     <td className="px-3 py-2 text-right">
                       <div className="flex flex-wrap items-center justify-end gap-2">
-                        {resultados[r.id] && (
-                          <ResultadoFila resultado={resultados[r.id]} />
-                        )}
+                        {resultados[r.id] && <ResultadoFila resultado={resultados[r.id]} />}
                         <Button asChild variant="ghost" size="sm">
                           <Link
                             to="/compras/pendientes/$id"
@@ -495,9 +457,11 @@ export function BandejaPendientes() {
                         <span className="font-mono text-xs">{r.folio}</span>
                         <EstadoBadge tipo="requisicion" estado={r.estado} />
                         {r.nivelPendiente != null && (
-                          <NivelPendienteBadge nivel={r.nivelPendiente} />
+                          <span className="text-xs text-ink-muted">Falta N{r.nivelPendiente}</span>
                         )}
-                        <DisponibilidadBadge disponibilidad={r.disponibilidad} />
+                        {!r.esRecurrente && (
+                          <DisponibilidadBadge disponibilidad={r.disponibilidad} />
+                        )}
                         <RecurrenteBadge esRecurrente={r.esRecurrente} />
                       </div>
                       <div className="text-xs text-muted-foreground">
@@ -528,9 +492,7 @@ export function BandejaPendientes() {
             total={query.data?.total ?? 0}
             offset={search.offset ?? 0}
             limit={search.limit ?? 25}
-            onChange={(offset, limit) =>
-              setSearch({ ...search, offset, limit })
-            }
+            onChange={(offset, limit) => setSearch({ ...search, offset, limit })}
           />
         </div>
       )}
@@ -547,9 +509,7 @@ function ResultadoFila({ resultado }: ResultadoFilaProps) {
   return (
     <span
       role="status"
-      className={
-        resultado.ok ? 'text-xs text-success-fg' : 'text-xs text-danger-fg'
-      }
+      className={resultado.ok ? 'text-xs text-success-fg' : 'text-xs text-danger-fg'}
     >
       {resultado.ok ? 'Aprobada' : (resultado.mensaje ?? 'Error al aprobar')}
     </span>

@@ -32,6 +32,7 @@ describe('ResumenImportes', () => {
       'Otra retención',
       'Total',
     ]);
+    for (const label of Array.from(resumen.querySelectorAll('dt')).slice(0, -1)) expect(label).toHaveClass('text-ink-strong');
     expect(screen.getByText('$0.00')).toBeInTheDocument();
     for (const importe of ['−$4.00', '−$3.00', '−$1.00'])
       expect(screen.getByText(importe)).toBeInTheDocument();
@@ -50,4 +51,12 @@ describe('ResumenImportes', () => {
     expect(screen.getAllByText('$0.00 USD')).toHaveLength(2);
     expect(screen.queryByLabelText('Estado de pago')).not.toBeInTheDocument();
   });
+});
+
+it('permite el resumen mínimo sin inventar un subtotal', () => {
+  render(<ResumenImportes moneda="MXN" total={116} acciones={<button>Pagar</button>} />);
+  expect(screen.queryByText('Subtotal')).not.toBeInTheDocument();
+  expect(screen.getByLabelText('Resumen de importes').querySelectorAll('dt')).toHaveLength(1);
+  expect(screen.getByText('$116.00')).toBeInTheDocument();
+  expect(screen.getByRole('button', { name: 'Pagar' })).toBeInTheDocument();
 });

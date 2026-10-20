@@ -119,7 +119,7 @@ export function ControlAnticipos() {
             Control de Anticipos
           </h1>
           <p className="text-sm text-muted-foreground">
-            Anticipos (serie FANT) con su saldo amortizable por cliente.
+            Anticipos con su saldo amortizable por cliente.
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-2">

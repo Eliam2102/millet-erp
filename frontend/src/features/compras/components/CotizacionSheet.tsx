@@ -283,8 +283,7 @@ function FormularioCotizacion({
 
         <div className="space-y-2">
           <Field
-            label="Cotización del proveedor (PDF)"
-            optional
+            label="Cotización del proveedor (PDF) *"
             hint={
               cotizacion?.archivoNombre
                 ? `Actual: ${cotizacion.archivoNombre}. Si subes uno nuevo, el anterior se conserva en el expediente.`

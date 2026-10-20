@@ -1,3 +1,4 @@
+import { PageHeader } from '@/components/erp/PageHeader';
 import { Link, useNavigate, useSearch } from '@tanstack/react-router';
 import { Plus } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -23,7 +24,7 @@ import {
 } from '@/features/facturacion/lib/glosario';
 import { EstadoPedidoFacturable, OrigenPedido } from '@/features/facturacion/api/types';
 import type { PedidosSearch } from '@/features/facturacion/lib/pedidos-search-schema';
-import { cn } from '@/lib/utils';
+import { Badge } from '@/components/ui/badge';
 
 const FROM = '/_app/facturacion/pedidos/' as const;
 const SENTINEL_ALL = '__all__';
@@ -43,9 +44,7 @@ export function BandejaPedidos() {
   const search = useSearch({ from: FROM });
   const navigate = useNavigate();
   const nuevoPedido = useNuevoPedido();
-  const puedeCapturar = useHasPermission(
-    PermisosCanonicos.FacturacionPedidosCapturar,
-  );
+  const puedeCapturar = useHasPermission(PermisosCanonicos.FacturacionPedidosCapturar);
 
   const query = useListarPedidos({
     estado: search.estado,
@@ -62,31 +61,29 @@ export function BandejaPedidos() {
   const items = (query.data?.items ?? []).filter((p) => {
     if (q.length === 0) return true;
     return (
-      (p.numeroPedido ?? '').toLowerCase().includes(q) ||
-      p.clienteNombre.toLowerCase().includes(q)
+      (p.numeroPedido ?? '').toLowerCase().includes(q) || p.clienteNombre.toLowerCase().includes(q)
     );
   });
 
   const hayFiltros = search.estado != null || search.origen != null;
 
   return (
-    <div className="space-y-4 px-4 py-6">
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <div>
-          <h1 className="text-2xl font-semibold tracking-tight">
-            Pedidos facturables
-          </h1>
-          <p className="text-sm text-muted-foreground">
-            Pedidos por facturar de A+W, Planta Pintura y captura manual.
-          </p>
-        </div>
-        {puedeCapturar && (
-          <Button onClick={() => nuevoPedido.abrir()}>
-            <Plus className="mr-2 h-4 w-4" />
-            Nuevo pedido
-          </Button>
-        )}
-      </div>
+    <div className="space-y-5">
+      <PageHeader
+        titulo="Pedidos facturables"
+        descripcion="Pedidos por facturar de A+W, Planta Pintura y captura manual."
+        acciones={
+          <>
+            {' '}
+            {puedeCapturar && (
+              <Button onClick={() => nuevoPedido.abrir()}>
+                <Plus className="mr-2 h-4 w-4" />
+                Nuevo pedido
+              </Button>
+            )}{' '}
+          </>
+        }
+      />
 
       <div className="flex flex-wrap items-end gap-3">
         <div className="space-y-1">
@@ -95,10 +92,7 @@ export function BandejaPedidos() {
             value={search.estado != null ? String(search.estado) : SENTINEL_ALL}
             onValueChange={(v) =>
               actualizarSearch({
-                estado:
-                  v === SENTINEL_ALL
-                    ? undefined
-                    : (Number(v) as EstadoPedidoFacturable),
+                estado: v === SENTINEL_ALL ? undefined : (Number(v) as EstadoPedidoFacturable),
               })
             }
           >
@@ -121,8 +115,7 @@ export function BandejaPedidos() {
             value={search.origen != null ? String(search.origen) : SENTINEL_ALL}
             onValueChange={(v) =>
               actualizarSearch({
-                origen:
-                  v === SENTINEL_ALL ? undefined : (Number(v) as OrigenPedido),
+                origen: v === SENTINEL_ALL ? undefined : (Number(v) as OrigenPedido),
               })
             }
           >
@@ -142,9 +135,7 @@ export function BandejaPedidos() {
         {hayFiltros && (
           <Button
             variant="ghost"
-            onClick={() =>
-              actualizarSearch({ estado: undefined, origen: undefined })
-            }
+            onClick={() => actualizarSearch({ estado: undefined, origen: undefined })}
           >
             Limpiar
           </Button>
@@ -204,9 +195,7 @@ export function BandejaPedidos() {
             <tbody>
               {items.map((p) => (
                 <tr key={p.id} className="border-t hover:bg-muted/30">
-                  <td className="px-3 py-2 font-mono text-xs">
-                    {p.numeroPedido ?? '—'}
-                  </td>
+                  <td className="px-3 py-2 font-mono text-xs">{p.numeroPedido ?? '—'}</td>
                   <td className="px-3 py-2">
                     <Chip>{ETIQUETA_ORIGEN_PEDIDO[p.origen] ?? p.origen}</Chip>
                   </td>
@@ -215,9 +204,7 @@ export function BandejaPedidos() {
                     {formatearMonto(p.total, p.moneda)}
                   </td>
                   <td className="px-3 py-2">
-                    <Chip estado={p.estado}>
-                      {ETIQUETA_ESTADO_PEDIDO[p.estado] ?? p.estado}
-                    </Chip>
+                    <Chip estado={p.estado}>{ETIQUETA_ESTADO_PEDIDO[p.estado] ?? p.estado}</Chip>
                   </td>
                   <td className="px-3 py-2 text-xs text-muted-foreground">
                     {formatearFecha(p.createdAt)}
@@ -241,33 +228,18 @@ export function BandejaPedidos() {
   );
 }
 
-function Chip({
-  children,
-  estado,
-}: {
-  children: React.ReactNode;
-  estado?: string;
-}) {
-  const tono =
+function Chip({ children, estado }: { children: React.ReactNode; estado?: string }) {
+  const variant =
     estado === 'Facturado'
-      ? 'bg-emerald-100 text-emerald-800'
+      ? 'success'
       : estado === 'Excepcion'
-        ? 'bg-rose-100 text-rose-800'
+        ? 'danger'
         : estado === 'Cancelado'
-          ? 'bg-zinc-200 text-zinc-700'
+          ? 'neutral'
           : estado === 'Bloqueado'
-            ? 'bg-amber-100 text-amber-800'
-            : 'bg-sky-100 text-sky-800';
-  return (
-    <span
-      className={cn(
-        'inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium',
-        tono,
-      )}
-    >
-      {children}
-    </span>
-  );
+            ? 'warning'
+            : 'info';
+  return <Badge variant={variant}>{children}</Badge>;
 }
 
 function formatearMonto(v: number, moneda: string): string {

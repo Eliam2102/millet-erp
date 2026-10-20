@@ -1,3 +1,5 @@
+import { CobrarEnCajaLink } from '@/features/facturacion/components/CobrarEnCajaLink';
+import { ResumenImportes } from '@/components/erp/display/ResumenImportes';
 import { useState } from 'react';
 import { Link, useParams, useSearch } from '@tanstack/react-router';
 import { Ban, Download, FileCode, Printer, X } from 'lucide-react';
@@ -103,6 +105,7 @@ function Contenido({ f }: { f: FacturaAnticipoDetalleResponse }) {
         data-print="hidden"
       >
         <div className="flex flex-wrap items-center gap-2">
+          <CobrarEnCajaLink comprobanteId={f.id} folio={f.folio} />
           <Button
             variant="outline"
             size="sm"
@@ -152,7 +155,7 @@ function Contenido({ f }: { f: FacturaAnticipoDetalleResponse }) {
 
       {cancelacion.data?.estadoSolicitud != null && (
         <div
-          className="rounded-md border border-amber-300 bg-amber-50/60 px-3 py-2 text-sm"
+          className="rounded-md border border-line bg-warning-note-bg px-3 py-2 text-sm"
           data-print="hidden"
         >
           <span className="font-medium">Solicitud de cancelación:</span>{' '}
@@ -204,19 +207,15 @@ function Contenido({ f }: { f: FacturaAnticipoDetalleResponse }) {
             <div className="rounded-md border p-3 text-sm">
               <div className="font-medium">{f.descripcion}</div>
               <div className="mt-1 text-xs text-muted-foreground">
-                Concepto único de anticipo (clave SAT 84111506 · E48)
+                Partida única de anticipo (clave SAT 84111506 · E48)
               </div>
             </div>
-            <section className="ml-auto w-full max-w-xs space-y-1 text-sm tabular-nums">
-              <Renglon label="Subtotal" valor={f.subtotal} />
-              <Renglon label="IVA trasladado" valor={f.impuestosTrasladados} />
-              <div className="flex justify-between border-t pt-1 font-semibold">
-                <span>Total</span>
-                <span className="font-mono">
-                  {f.total.toFixed(2)} {f.moneda}
-                </span>
-              </div>
-            </section>
+            <ResumenImportes
+              moneda={f.moneda}
+              subtotal={f.subtotal}
+              ivaTrasladado={f.impuestosTrasladados}
+              total={f.total}
+            />
           </section>
         </TabsContent>
 
@@ -408,15 +407,6 @@ function Dato({ label, children }: { label: string; children: React.ReactNode })
     <div className="space-y-0.5">
       <dt className="text-xs text-muted-foreground">{label}</dt>
       <dd className="text-sm">{children}</dd>
-    </div>
-  );
-}
-
-function Renglon({ label, valor }: { label: string; valor: number }) {
-  return (
-    <div className="flex justify-between">
-      <span className="text-muted-foreground">{label}</span>
-      <span className="font-mono">{valor.toFixed(2)}</span>
     </div>
   );
 }

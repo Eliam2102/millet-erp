@@ -169,3 +169,34 @@ describe('PorCobrarCaja (FIX-12)', () => {
     expect(within(panel).queryByText(/750\.00 XXX/)).not.toBeInTheDocument();
   });
 });
+
+it('muestra diez filas y pagina el resto', async () => {
+  mswServer.use(http.get('*/api/v1/facturacion/cobros/cobrables', () => HttpResponse.json(
+    Array.from({ length: 11 }, (_, i) => ({ ...cobrables[0], comprobanteId: `c-${i}`, folio: `FOLIO-${i}` })),
+  )));
+  render(<PorCobrarCaja />, { wrapper: createQueryWrapper() });
+  await screen.findByText('FOLIO-0');
+  expect(screen.getByText('FOLIO-9')).toBeInTheDocument();
+  expect(screen.queryByText('FOLIO-10')).not.toBeInTheDocument();
+  expect(screen.getAllByRole('button', { name: /^Cobrar FOLIO/ })).toHaveLength(10);
+  fireEvent.click(screen.getByRole('button', { name: 'Página siguiente' }));
+  expect(screen.getByText('FOLIO-10')).toBeInTheDocument();
+  expect(screen.queryByText('FOLIO-0')).not.toBeInTheDocument();
+});
+
+it('abre por identificador y folio y permite cerrar el cobro directo', async () => {
+  window.history.replaceState({}, '', '/facturacion/caja?cobrar=c-f1&folio=FIX12-UZ-F1');
+  mswServer.use(
+    http.get('*/api/v1/facturacion/cobros/cobrables', () => HttpResponse.json(cobrables)),
+    http.get('*/api/v1/facturacion/cajas/sesion-actual', () => HttpResponse.json({ sesion, diaAnteriorPendiente: false })),
+  );
+  try {
+    render(<PorCobrarCaja />, { wrapper: createQueryWrapper() });
+    const dialog = await screen.findByRole('dialog');
+    expect(within(dialog).getByText('Cobrar FIX12-UZ-F1')).toBeInTheDocument();
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Cerrar' }));
+    await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument());
+  } finally {
+    window.history.replaceState({}, '', '/');
+  }
+});

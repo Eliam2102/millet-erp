@@ -1,3 +1,4 @@
+import { RecurrenteBadge } from '@/features/compras/components/IndicadoresPendiente';
 import { Link } from '@tanstack/react-router';
 import { EstadoBadge, DateTimeDisplay } from '@/components/erp';
 import type { OrdenCompraResumen } from '@/features/compras/ordenes/api/types';
@@ -26,24 +27,11 @@ export interface ListaOrdenesCompactaProps {
   search: BandejaOcSearch;
 }
 
-export function ListaOrdenesCompacta({
-  items,
-  idActivo,
-  search,
-}: ListaOrdenesCompactaProps) {
+export function ListaOrdenesCompacta({ items, idActivo, search }: ListaOrdenesCompactaProps) {
   return (
-    <ul
-      className="divide-y"
-      role="list"
-      aria-label="Lista de órdenes de compra"
-    >
+    <ul className="divide-y" role="list" aria-label="Lista de órdenes de compra">
       {items.map((oc) => (
-        <ItemCompacto
-          key={oc.id}
-          item={oc}
-          activo={oc.id === idActivo}
-          search={search}
-        />
+        <ItemCompacto key={oc.id} item={oc} activo={oc.id === idActivo} search={search} />
       ))}
     </ul>
   );
@@ -69,9 +57,7 @@ function ItemCompacto({ item, activo, search }: ItemCompactoProps) {
         state={{ bandejaOcSearch: search } as never}
         className={cn(
           'block px-3 py-2 transition-colors',
-          activo
-            ? 'bg-primary/10 hover:bg-primary/15'
-            : 'hover:bg-muted/40',
+          activo ? 'bg-primary/10 hover:bg-primary/15' : 'hover:bg-muted/40',
         )}
         aria-current={activo ? 'page' : undefined}
       >
@@ -84,7 +70,10 @@ function ItemCompacto({ item, activo, search }: ItemCompactoProps) {
           >
             {item.folio}
           </span>
-          <EstadoBadge tipo="orden-compra" estado={item.estado} />
+          <span className="flex flex-wrap justify-end gap-1">
+            <EstadoBadge tipo="orden-compra" estado={item.estado} />
+            <RecurrenteBadge esRecurrente={item.esRecurrente === true} />
+          </span>
         </div>
         <div className="mt-1 flex items-center justify-between gap-2 text-xs text-muted-foreground">
           <span className="truncate">

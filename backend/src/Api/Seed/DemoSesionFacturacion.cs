@@ -24,8 +24,8 @@ public sealed partial class DemoSesionSeedHostedService
             var cliente = await maestros.Clientes.SingleAsync(c => c.Clave == clienteClave, ct);
             var pedido = PedidoFacturable.ImportarDesdeAw(EmpresaId, clave, mid.Id, cliente.Id, cliente.RazonSocial,
                 1, ComportamientoFiscal.MostradorInmediato, "MXN", null, null,
-                "DEMO: origen A+W simulado localmente; sin conexión ni escritura al origen.", 1, "15", ranura);
-            pedido.AgregarLinea(null, "DEMO Vidrio templado 6 mm", "30171700", "H87", 10, 100, 0, false, tasaIva: .16m);
+                "Pedido de prueba con origen A+W simulado localmente; sin conexión ni escritura al origen.", 1, "15", ranura);
+            pedido.AgregarLinea(null, "Vidrio templado 6 mm", "30171700", "H87", 10, 100, 0, false, tasaIva: .16m);
             pedido.RecalcularTotal();
             db.PedidosFacturables.Add(pedido);
         }

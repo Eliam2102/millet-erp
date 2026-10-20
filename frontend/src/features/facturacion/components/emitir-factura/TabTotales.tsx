@@ -44,11 +44,11 @@ export function TabTotales({
         <p className="text-xs text-ink-muted">Los importes se calculan a partir de las partidas y se verifican al emitir.</p>
       </section>
 
-      {/* ── Anticipos a amortizar (relación 07, opcional) ───────── */}
+      {/* ── Anticipos a aplicar (relación 07, opcional) ───────── */}
       <section className="space-y-2">
         <header className="flex items-center justify-between">
           <h3 className="text-sm font-medium">
-            Anticipos a amortizar ({anticipos.length})
+            Anticipos a aplicar ({anticipos.length})
           </h3>
           <Button
             type="button"
@@ -59,13 +59,12 @@ export function TabTotales({
             }
           >
             <Plus className="mr-1 h-3 w-3" />
-            Agregar anticipo
+            Anticipos a aplicar: agregar
           </Button>
         </header>
         {anticipos.length === 0 ? (
           <p className="text-xs text-muted-foreground">
-            Opcional. Si el cliente tiene anticipos abiertos, agrégalos para
-            amortizarlos. Al timbrar se emite la nota de crédito de amortización.
+            Anticipos a aplicar: selecciona los anticipos abiertos del cliente que deseas usar en esta factura (opcional). Al timbrar se emite la nota de crédito de amortización.
           </p>
         ) : (
           <div className="space-y-2">

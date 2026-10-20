@@ -1,3 +1,4 @@
+import { CobrarEnCajaLink } from '@/features/facturacion/components/CobrarEnCajaLink';
 import { EmbarqueCeResumen } from '@/features/comercio-exterior/components/EmbarqueCeResumen';
 import { ErrorTimbradoAviso } from '@/features/facturacion/components/ErrorTimbradoAviso';
 import { mostrarErrorReceptorFiscal } from '@/features/facturacion/lib/mostrar-error-receptor-fiscal';
@@ -126,6 +127,7 @@ function Contenido({
         data-print="hidden"
       >
         <div className="flex flex-wrap items-center gap-2">
+          <CobrarEnCajaLink comprobanteId={f.id} folio={f.folio} />
           <Button
             variant="outline"
             size="sm"
@@ -205,7 +207,7 @@ function Contenido({
 
       {cancelacion.data?.estadoSolicitud != null && (
         <div
-          className="rounded-md border border-amber-300 bg-amber-50/60 px-3 py-2 text-sm"
+          className="rounded-md border border-line bg-warning-note-bg px-3 py-2 text-sm"
           data-print="hidden"
         >
           <span className="font-medium">Solicitud de cancelación:</span>{' '}
@@ -249,7 +251,7 @@ function Contenido({
           </div>
         </Dato>
         <Dato label="Moneda">{f.moneda}</Dato>
-        <Dato label="Método de pago">{f.metodoPago ?? 'Por confirmar'}</Dato>
+        <Dato label="Método de pago">{f.metodoPago ?? 'No disponible'}</Dato>
         <Dato label="Fecha de timbrado">
           {f.fechaTimbrado ? new Date(f.fechaTimbrado).toLocaleString('es-MX', { timeZone: 'America/Mexico_City' }) : '—'}
         </Dato>
@@ -580,7 +582,7 @@ function PedimentoForm({ facturaId }: { facturaId: string }) {
 
   return (
     <div
-      className="grid grid-cols-1 gap-2 rounded-md border border-amber-300 bg-amber-50/60 p-3 sm:grid-cols-4"
+      className="grid grid-cols-1 gap-2 rounded-md border border-line bg-warning-note-bg p-3 sm:grid-cols-4"
       data-print="hidden"
     >
       <div className="sm:col-span-4 text-sm font-medium">

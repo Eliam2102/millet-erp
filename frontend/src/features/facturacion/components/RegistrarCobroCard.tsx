@@ -1,3 +1,5 @@
+import { FormGrid, FormCampo } from '@/components/erp/forms/FormGrid';
+import { ResumenImportes } from '@/components/erp/display/ResumenImportes';
 import { useState } from 'react';
 import { HandCoins, Plus, X } from 'lucide-react';
 import { toast } from 'sonner';
@@ -146,17 +148,6 @@ export function RegistrarCobroCard(props: {
         <h3 className="text-sm font-medium">
           Cobrar {props.folio} — total {props.total.toFixed(2)} {props.moneda}
         </h3>
-        <div className="w-56">
-          <Select value={origen} onValueChange={setOrigen}>
-            <SelectTrigger aria-label="Origen del cobro">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value={String(ORIGEN_MOSTRADOR)}>Mostrador</SelectItem>
-              <SelectItem value={String(ORIGEN_LIQUIDACION_RUTA)}>Liquidación de ruta</SelectItem>
-            </SelectContent>
-          </Select>
-        </div>
       </div>
 
       {catalogo.isError && (
@@ -165,8 +156,8 @@ export function RegistrarCobroCard(props: {
         </p>
       )}
       {formas.map((f, i) => (
-        <div key={i} className="flex flex-wrap items-end gap-2">
-          <div className="w-48 space-y-1">
+        <FormGrid key={i}>
+          <FormCampo span={6} className="space-y-1">
             <Label>Forma de pago</Label>
             <Select value={f.formaPago} onValueChange={(v) => actualizarForma(i, { formaPago: v })}>
               <SelectTrigger aria-label={`Forma de pago ${i + 1}`}>
@@ -180,8 +171,8 @@ export function RegistrarCobroCard(props: {
                 ))}
               </SelectContent>
             </Select>
-          </div>
-          <div className="w-36 space-y-1">
+          </FormCampo>
+          <FormCampo span={6} className="space-y-1">
             <Label>Importe</Label>
             <Input
               inputMode="decimal"
@@ -189,8 +180,24 @@ export function RegistrarCobroCard(props: {
               onChange={(e) => actualizarForma(i, { importe: e.target.value })}
               aria-label={`Importe ${i + 1}`}
             />
-          </div>
-          <div className="w-44 space-y-1">
+          </FormCampo>
+          {i === 0 && (
+            <FormCampo span={6} className="space-y-1">
+              <Label htmlFor="cobro-origen">Canal</Label>
+              <Select value={origen} onValueChange={setOrigen}>
+                <SelectTrigger id="cobro-origen" aria-label="Origen del cobro">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value={String(ORIGEN_MOSTRADOR)}>Mostrador</SelectItem>
+                  <SelectItem value={String(ORIGEN_LIQUIDACION_RUTA)}>
+                    Liquidación de ruta
+                  </SelectItem>
+                </SelectContent>
+              </Select>
+            </FormCampo>
+          )}
+          <FormCampo span={6} className="space-y-1">
             <Label htmlFor={`cobro-referencia-${i}`}>
               {esFormaTarjeta(f.formaPago) ? 'Voucher (autorización)' : 'Referencia'}
             </Label>
@@ -206,7 +213,7 @@ export function RegistrarCobroCard(props: {
               aria-invalid={esFormaTarjeta(f.formaPago) && (f.referencia ?? '').trim() === ''}
               aria-required={esFormaTarjeta(f.formaPago)}
             />
-          </div>
+          </FormCampo>
           {formas.length > 1 && (
             <Button
               size="icon"
@@ -217,55 +224,65 @@ export function RegistrarCobroCard(props: {
               <X className="h-4 w-4" />
             </Button>
           )}
-        </div>
+        </FormGrid>
       ))}
 
-      <div className="flex flex-wrap items-center justify-between gap-2">
-        <Button
-          size="sm"
-          variant="ghost"
-          onClick={() =>
-            setFormas((prev) => [
-              ...prev,
-              { formaPago: '03', importe: Math.max(props.total - suma, 0).toFixed(2) },
-            ])
-          }
-        >
-          <Plus className="mr-1 h-3.5 w-3.5" />
-          Otra forma de pago
-        </Button>
-        <div className="flex items-center gap-2">
-          {!cuadra && (
-            <span className="text-xs text-destructive">
-              Suma {suma.toFixed(2)} ≠ total {props.total.toFixed(2)}
-            </span>
-          )}
-          <Button
-            size="sm"
-            variant="ghost"
-            onClick={() => {
-              setAbierto(false);
-              props.onCerrar?.();
-            }}
-          >
-            Cancelar
-          </Button>
-          <Button
-            size="sm"
-            onClick={onCobrar}
-            disabled={registrar.isPending || !cuadra || !vigentes || sinVoucher}
-            title={
-              !vigentes
-                ? 'Selecciona formas de pago SAT activas.'
-                : sinVoucher
-                  ? 'Captura el voucher de cada pago con tarjeta.'
-                  : undefined
-            }
-          >
-            Cobrar
-          </Button>
-        </div>
-      </div>
+      <ResumenImportes
+        moneda={props.moneda}
+        total={props.total}
+        estadoPago={[
+          { etiqueta: 'Por cobrar', monto: props.total },
+          { etiqueta: 'Importe capturado', monto: suma },
+        ]}
+        acciones={
+          <>
+            <Button
+              size="sm"
+              variant="ghost"
+              onClick={() =>
+                setFormas((prev) => [
+                  ...prev,
+                  { formaPago: '03', importe: Math.max(props.total - suma, 0).toFixed(2) },
+                ])
+              }
+            >
+              <Plus className="mr-1 h-3.5 w-3.5" />
+              Otra forma de pago
+            </Button>
+            <div className="flex items-center gap-2">
+              {!cuadra && (
+                <span className="text-xs text-destructive">
+                  Suma {suma.toFixed(2)} ≠ total {props.total.toFixed(2)}
+                </span>
+              )}
+              <Button
+                size="sm"
+                variant="ghost"
+                onClick={() => {
+                  setAbierto(false);
+                  props.onCerrar?.();
+                }}
+              >
+                Cancelar
+              </Button>
+              <Button
+                size="sm"
+                onClick={onCobrar}
+                disabled={registrar.isPending || !cuadra || !vigentes || sinVoucher}
+                title={
+                  !vigentes
+                    ? 'Selecciona formas de pago SAT activas.'
+                    : sinVoucher
+                      ? 'Captura el voucher de cada pago con tarjeta.'
+                      : undefined
+                }
+              >
+                Cobrar
+              </Button>
+            </div>
+          </>
+        }
+      />
     </div>
   );
 }

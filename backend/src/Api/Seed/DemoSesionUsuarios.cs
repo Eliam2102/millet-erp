@@ -78,9 +78,10 @@ public sealed partial class DemoSesionSeedHostedService
             var rol = await db.Roles.SingleOrDefaultAsync(r => r.Codigo == codigo, ct);
             if (rol is null)
             {
-                rol = new Rol(Id(codigo), codigo, "DEMO " + nombre, descripcion: "Perfil ficticio de la sesión del 12-oct.");
+                rol = new Rol(Id(codigo), codigo, nombre, descripcion: "Perfil ficticio de la sesión del 12-oct.");
                 db.Roles.Add(rol);
             }
+            if (rol.Nombre == "DEMO " + nombre) rol.ActualizarMetadatos(nombre, rol.Descripcion);
             // Los permisos iniciales se crean junto al rol; los cambios del administrador se conservan.
             if (db.Entry(rol).State == EntityState.Added)
                 foreach (var permiso in PermisosCanonicos.Todos.Where(p => PermisoDelRol(nombre, p.Codigo)))
@@ -92,15 +93,18 @@ public sealed partial class DemoSesionSeedHostedService
         // Separarlas del actor técnico conserva las reglas P2 al sembrar las OCs.
         foreach (var (id, clave, nombre, rol) in new[]
         {
-            (CapturistaComprasDemoId, "capturista-compras", "DEMO Capturista Compras", "Capturista Compras"),
-            (JefeComprasDemoId, "jefe-compras", "DEMO Jefe de Compras", "Jefe Compras"),
-            (DireccionDemoId, "direccion", "DEMO Dirección", "Dirección"),
-            (CajeraDemoId, "cajera-mid", "DEMO Cajera Mostrador Conkal", "Facturación"),
+            (CapturistaComprasDemoId, "capturista-compras", "Ana Torres · Compradora", "Capturista Compras"),
+            (JefeComprasDemoId, "jefe-compras", "Laura Méndez · Jefa de Compras", "Jefe Compras"),
+            (DireccionDemoId, "direccion", "Carlos Medina · Director", "Dirección"),
+            (CajeraDemoId, "cajera-mid", "Lucía Pérez · Cajera de Mostrador Conkal", "Facturación"),
         })
         {
             if (!await db.Usuarios.AnyAsync(u => u.Id == id, ct))
                 db.Usuarios.Add(new Usuario(id, "demo-sesion-" + clave,
                     clave + "@example.invalid", nombre, esCuentaTecnica: true));
+            var tecnico = await db.Usuarios.FindAsync([id], ct);
+            if (tecnico is not null && tecnico.Nombre.StartsWith("DEMO ", StringComparison.Ordinal))
+                tecnico.ActualizarPerfil(null, nombre, null, false);
             var rolId = Id("DEMO-ROL-" + rol);
             if (!await db.UsuarioEmpresaRoles.AnyAsync(a => a.UsuarioId == id && a.EmpresaId == EmpresaId && a.RolId == rolId, ct))
                 db.UsuarioEmpresaRoles.Add(new UsuarioEmpresaRol(Id($"DEMO-ASIGNACION/{id}/{rolId}"), id, EmpresaId, rolId));

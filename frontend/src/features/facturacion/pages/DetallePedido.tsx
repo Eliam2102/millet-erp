@@ -93,6 +93,8 @@ function Contenido({
   const puedeEmitir = useHasPermission(PermisosCanonicos.FacturacionFacturasEmitir);
   const puedeEditar = useHasPermission(PermisosCanonicos.FacturacionPedidosCapturar);
   const facturable = p.estado === 'Importado';
+  const mostrarSat = p.lineas.some((l) => l.claveProdServSat?.trim() || l.claveUnidadSat?.trim());
+  const mostrarPedimento = p.lineas.some((l) => l.requierePedimento);
   // Solo los manuales en Importado son editables (PUT con If-Match).
   const editable = p.estado === 'Importado' && p.origen === 'Manual';
 
@@ -205,7 +207,7 @@ function Contenido({
         {p.obraNombre && <Dato label="Obra">{p.obraNombre}</Dato>}
         <Dato label="RFC del cliente">
           {p.clienteFiscal?.rfc ?? (
-            <span className="text-amber-700">
+            <span className="text-warning-fg">
               Sin RFC — completar en Datos Maestros → Clientes
             </span>
           )}
@@ -230,11 +232,11 @@ function Contenido({
               <tr>
                 <th className="px-3 py-2 text-left">#</th>
                 <th className="px-3 py-2 text-left">Producto / servicio</th>
-                <th className="px-3 py-2 text-left">Clave SAT</th>
+                {mostrarSat && <th className="px-3 py-2 text-left">Clave SAT</th>}
                 <th className="px-3 py-2 text-right">Cant.</th>
                 <th className="px-3 py-2 text-right">Precio</th>
                 <th className="px-3 py-2 text-right">Descuento</th>
-                <th className="px-3 py-2 text-center">Pedimento</th>
+                {mostrarPedimento && <th className="px-3 py-2 text-center">Pedimento</th>}
               </tr>
             </thead>
             <tbody>
@@ -242,9 +244,9 @@ function Contenido({
                 <tr key={l.posicion} className="border-t">
                   <td className="px-3 py-2 text-muted-foreground">{l.posicion}</td>
                   <td className="px-3 py-2">{l.productoDescripcion}</td>
-                  <td className="px-3 py-2 font-mono text-xs">
+                  {mostrarSat && <td className="px-3 py-2 font-mono text-xs">
                     {l.claveProdServSat ?? '—'} · {l.claveUnidadSat ?? '—'}
-                  </td>
+                  </td>}
                   <td className="px-3 py-2 text-right font-mono">
                     {l.cantidad.toFixed(2)}
                   </td>
@@ -254,15 +256,13 @@ function Contenido({
                   <td className="px-3 py-2 text-right font-mono">
                     {l.descuento.toFixed(2)}
                   </td>
-                  <td className="px-3 py-2 text-center">
-                    {l.requierePedimento ? 'Sí' : '—'}
-                  </td>
+                  {mostrarPedimento && <td className="px-3 py-2 text-center">{l.requierePedimento ? 'Sí' : '—'}</td>}
                 </tr>
               ))}
             </tbody>
             <tfoot>
               <tr className="border-t bg-muted/30 font-semibold">
-                <td className="px-3 py-2" colSpan={6}>
+                <td className="px-3 py-2" colSpan={4 + Number(mostrarSat) + Number(mostrarPedimento)}>
                   Subtotal sin impuestos
                 </td>
                 <td className="px-3 py-2 text-right font-mono">
@@ -270,8 +270,8 @@ function Contenido({
                 </td>
               </tr>
               {p.ranura != null && p.ranura > 0 && (
-                <tr className="border-t text-amber-700 dark:text-amber-400">
-                  <td className="px-3 py-2 text-xs" colSpan={6}>
+                <tr className="border-t text-warning-fg">
+                  <td className="px-3 py-2 text-xs" colSpan={4 + Number(mostrarSat) + Number(mostrarPedimento)}>
                     Ranura (descuento del pedido — la factura va por el total;
                     se documenta con nota de crédito y la caja cobra el neto)
                   </td>
@@ -326,7 +326,7 @@ function Contenido({
                     </td>
                     <td className="px-3 py-2 text-center">
                       {c.vigente ? (
-                        <span className="rounded-full bg-emerald-100 px-2 py-0.5 text-xs font-medium text-emerald-800">
+                        <span className="rounded-full bg-success-bg px-2 py-0.5 text-xs font-medium text-success-fg">
                           Vigente
                         </span>
                       ) : (
@@ -359,14 +359,14 @@ function Contenido({
 export function ChipEstadoPedido({ estado }: { estado: string }) {
   const tono =
     estado === 'Facturado'
-      ? 'bg-emerald-100 text-emerald-800'
+      ? 'bg-success-bg text-success-fg'
       : estado === 'Excepcion'
-        ? 'bg-rose-100 text-rose-800'
+        ? 'bg-danger-bg text-danger-fg'
         : estado === 'Cancelado'
-          ? 'bg-zinc-200 text-zinc-700'
+          ? 'bg-neutral-bg text-neutral-fg'
           : estado === 'Bloqueado'
-            ? 'bg-amber-100 text-amber-800'
-            : 'bg-sky-100 text-sky-800';
+            ? 'bg-warning-bg text-warning-fg'
+            : 'bg-info-bg text-info-fg';
   return (
     <span
       className={cn(

@@ -146,13 +146,9 @@ describe('<DetalleOrdenCompra> — smoke (UF1-PR2)', () => {
       wrapper: createQueryWrapper(),
     });
     await waitFor(() =>
-      expect(
-        container.querySelector('[data-component="sub-estados-bar"]'),
-      ).not.toBeNull(),
+      expect(container.querySelector('[data-component="sub-estados-bar"]')).not.toBeNull(),
     );
-    expect(
-      container.querySelector('[data-component="stepper-autorizacion-oc"]'),
-    ).not.toBeNull();
+    expect(container.querySelector('[data-component="stepper-autorizacion-oc"]')).not.toBeNull();
   });
 
   it('tab "Información" activo por default; renderiza CabeceraOrdenCompra', async () => {
@@ -165,14 +161,10 @@ describe('<DetalleOrdenCompra> — smoke (UF1-PR2)', () => {
       wrapper: createQueryWrapper(),
     });
     await waitFor(() =>
-      expect(
-        container.querySelector('[data-component="cabecera-orden-compra"]'),
-      ).not.toBeNull(),
+      expect(container.querySelector('[data-component="cabecera-orden-compra"]')).not.toBeNull(),
     );
     // El tab "Información" debe tener data-activo.
-    expect(
-      container.querySelector('[data-tab="informacion"][data-activo]'),
-    ).not.toBeNull();
+    expect(container.querySelector('[data-tab="informacion"][data-activo]')).not.toBeNull();
   });
 
   it('los 4 tabs no-Información son stubs con mensaje "próximamente"', async () => {
@@ -187,11 +179,9 @@ describe('<DetalleOrdenCompra> — smoke (UF1-PR2)', () => {
       expect(matches.length).toBeGreaterThanOrEqual(1);
     });
     // Los nombres de los tabs aparecen siempre (en el role=tablist).
-    expect(screen.getByRole('tab', { name: /Líneas/ })).toBeInTheDocument();
+    expect(screen.getByRole('tab', { name: /Partidas/ })).toBeInTheDocument();
     expect(screen.getByRole('tab', { name: /Adjuntos/ })).toBeInTheDocument();
-    expect(
-      screen.getByRole('tab', { name: /Autorización/ }),
-    ).toBeInTheDocument();
+    expect(screen.getByRole('tab', { name: /Autorización/ })).toBeInTheDocument();
     expect(screen.getByRole('tab', { name: /Historial/ })).toBeInTheDocument();
   });
 
@@ -207,14 +197,13 @@ describe('<DetalleOrdenCompra> — smoke (UF1-PR2)', () => {
     // Selector específico al badge — desde UF3-PR1 también existe un
     // sub-tab "Importación" con el mismo texto, por eso no usamos
     // `findByText` plano.
-    const badge = await screen.findByTestId('badge', { exact: false }).catch(
-      () => null,
-    );
+    const badge = await screen.findByTestId('badge', { exact: false }).catch(() => null);
     void badge;
     expect(
-      await screen.findByText((content, element) =>
-        element?.getAttribute('data-flag') === 'es-importacion' &&
-        content === 'Importación'),
+      await screen.findByText(
+        (content, element) =>
+          element?.getAttribute('data-flag') === 'es-importacion' && content === 'Importación',
+      ),
     ).toBeInTheDocument();
   });
 
@@ -231,9 +220,7 @@ describe('<DetalleOrdenCompra> — smoke (UF1-PR2)', () => {
       ),
     );
     render(<DetalleOrdenCompra />, { wrapper: createQueryWrapper() });
-    expect(
-      await screen.findByText(/Proveedor no entregó a tiempo/),
-    ).toBeInTheDocument();
+    expect(await screen.findByText(/Proveedor no entregó a tiempo/)).toBeInTheDocument();
   });
 
   it('404 ORDEN_COMPRA_NO_ENCONTRADA: renderiza Page404 con CTA volver a bandeja', async () => {
@@ -254,9 +241,7 @@ describe('<DetalleOrdenCompra> — smoke (UF1-PR2)', () => {
       ),
     );
     render(<DetalleOrdenCompra />, { wrapper: createQueryWrapper() });
-    expect(
-      await screen.findByText(/Orden de compra no encontrada/i),
-    ).toBeInTheDocument();
+    expect(await screen.findByText(/Orden de compra no encontrada/i)).toBeInTheDocument();
   });
 
   it('403: renderiza Page403 con CTA volver a bandeja', async () => {
@@ -272,8 +257,6 @@ describe('<DetalleOrdenCompra> — smoke (UF1-PR2)', () => {
       ),
     );
     render(<DetalleOrdenCompra />, { wrapper: createQueryWrapper() });
-    expect(
-      await screen.findByText(/no tienes permiso/i),
-    ).toBeInTheDocument();
+    expect(await screen.findByText(/no tienes permiso/i)).toBeInTheDocument();
   });
 });

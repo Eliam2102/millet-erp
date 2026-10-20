@@ -1,3 +1,5 @@
+import { ResumenImportes } from '@/components/erp/display/ResumenImportes';
+import { VistaPreviaButton } from '../components/vista-previa/VistaPreviaButton';
 import { ErrorTimbradoAviso } from '@/features/facturacion/components/ErrorTimbradoAviso';
 import { mostrarErrorReceptorFiscal } from '@/features/facturacion/lib/mostrar-error-receptor-fiscal';
 import { useEffect } from 'react';
@@ -7,7 +9,8 @@ import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { SucursalSelector } from '@/components/erp';
+import { MonedaSelector } from '@/components/erp/selectors/MonedaSelector';
+import { SucursalSelector, UsoCfdiSelector, FormaPagoSelector } from '@/components/erp';
 import { EmisorInfoBar } from '@/features/facturacion/components/EmisorInfoBar';
 import {
   ReceptorFiscalInfo,
@@ -129,6 +132,9 @@ function FormInner({
     },
   });
 
+  const [baseActual, tasaActual, monedaActual] = useWatch({ control: form.control, name: ['montoBase', 'tasaIvaTraslado', 'moneda'] });
+  const base = Number.isFinite(baseActual) ? baseActual : 0;
+  const iva = Math.round(base * (Number.isFinite(tasaActual) ? tasaActual ?? 0 : 0) * 100) / 100;
   const isDirty = form.formState.isDirty;
   useEffect(() => {
     onDirtyChange?.(isDirty);
@@ -263,7 +269,7 @@ function FormInner({
           />
         )}
         <Campo label="Uso CFDI" required error={form.formState.errors.receptorUsoCfdi?.message}>
-          <Input className="uppercase" maxLength={5} {...form.register('receptorUsoCfdi')} />
+          <Controller name="receptorUsoCfdi" control={form.control} render={({ field }) => <UsoCfdiSelector value={field.value || null} onChange={(value) => field.onChange(value ?? '')} />} />
         </Campo>
       </Seccion>
 
@@ -311,11 +317,11 @@ function FormInner({
             ))}
           </select>
         </Campo>
-        <Campo label="Forma de pago" required error={form.formState.errors.formaPago?.message} hint="Clave SAT c_FormaPago (01, 03, 04…).">
-          <Input maxLength={5} {...form.register('formaPago')} />
+        <Campo label="Forma de pago" required error={form.formState.errors.formaPago?.message}>
+          <Controller name="formaPago" control={form.control} render={({ field }) => <FormaPagoSelector value={field.value || null} onChange={(value) => field.onChange(value ?? '')} />} />
         </Campo>
         <Campo label="Moneda" required error={form.formState.errors.moneda?.message}>
-          <Input className="uppercase" maxLength={3} {...form.register('moneda')} />
+          <Controller name="moneda" control={form.control} render={({ field }) => <MonedaSelector value={field.value || null} onChange={(value) => field.onChange(value ?? '')} />} />
         </Campo>
         <Campo label="Tipo de cambio" error={form.formState.errors.tipoCambio?.message} hint="Solo si no es MXN.">
           <Input type="number" step="0.0001" min="0" {...form.register('tipoCambio', { setValueAs: numeroONull })} />
@@ -327,10 +333,22 @@ function FormInner({
         </div>
       </Seccion>
 
-      <div className="flex items-center justify-end gap-2 border-t pt-4">
+      <ResumenImportes moneda={monedaActual} subtotal={base} ivaTrasladado={iva} total={base + iva} acciones={<>
         <Button type="button" variant="ghost" onClick={() => onClose()} disabled={emitir.isPending}>
           Cancelar
         </Button>
+        <VistaPreviaButton
+          motivo={!clienteId || receptorBloqueado ? 'Selecciona un receptor con datos fiscales.' : base <= 0 ? 'Captura el monto de la partida de anticipo.' : undefined}
+          obtenerDatos={() => {
+            const v = form.getValues();
+            return { tipo: 'Anticipo', emisor: `${emisor.razonSocialEmisor} · ${v.rfcEmisor} · ${v.regimenFiscalEmisor}`,
+              receptor: `${v.receptorNombre} · ${v.receptorRfc} · ${v.receptorRegimenFiscal} · CP ${v.receptorCodigoPostal}`,
+              usoCfdi: v.receptorUsoCfdi, metodoPago: v.metodoPago, formaPago: v.formaPago, moneda: v.moneda,
+              partidas: [{ descripcion: v.descripcion || 'Anticipo', cantidad: 1, importe: base }],
+              importes: [{ etiqueta: 'Subtotal', monto: base }, { etiqueta: 'IVA trasladado', monto: iva }, { etiqueta: 'Total', monto: base + iva }],
+            };
+          }}
+        />
         <Button
           type="submit"
           disabled={emitir.isPending || receptorBloqueado}
@@ -340,9 +358,9 @@ function FormInner({
               : undefined
           }
         >
-          {emitir.isPending ? 'Emitiendo…' : 'Emitir anticipo'}
+          {emitir.isPending ? 'Emitiendo…' : 'Emitir y timbrar'}
         </Button>
-      </div>
+      </>} />
     </form>
   );
 }

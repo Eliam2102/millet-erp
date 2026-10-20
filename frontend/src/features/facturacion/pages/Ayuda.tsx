@@ -32,7 +32,7 @@ const DESC_ESTADO_TIMBRADO: Record<string, string> = {
 
 const TERMINOS: ReadonlyArray<{ termino: string; definicion: string }> = [
   {
-    termino: 'Anticipo (serie FANT)',
+    termino: 'Anticipo',
     definicion:
       'Factura de anticipo nominal. Se amortiza en la factura final con una NC (relación 07) emitida de forma atómica al timbrar.',
   },

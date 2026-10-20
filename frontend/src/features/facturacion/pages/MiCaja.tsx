@@ -1,9 +1,20 @@
+import { PageHeader } from '@/components/erp/PageHeader';
+import { MontoMovimiento } from '@/components/erp/display/MontoMovimiento';
+import {
+  Table,
+  TableHeader,
+  TableBody,
+  TableRow,
+  TableHead,
+  TableCell,
+} from '@/components/ui/table';
 import { useState } from 'react';
 import { Link, useNavigate } from '@tanstack/react-router';
-import { AlertTriangle, Copy, FileText, Plus, Truck, Wallet } from 'lucide-react';
+import { AlertTriangle, Copy, FileText, Plus, Truck } from 'lucide-react';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { ContextoSucursal } from '@/components/erp/display/ContextoSucursal';
 import { Label } from '@/components/ui/label';
 import {
   Select,
@@ -79,23 +90,18 @@ function toastError(error: unknown, fallback: string) {
  * 12-cajas.md §5): apertura de sesión (con autorización consumible si la
  * caja es ajena `[12-1]`), movimientos manuales, arqueo y cierre; cobros de
  * la sesión (emitir→cobrar `[12-E]`). Una sesión de día anterior bloquea la
- * operación hasta su cierre extemporáneo (§5.2).
+ * operación hasta su cierre extemporáneo.
  */
 export function MiCaja() {
   const query = useSesionActual();
   const puedeSupervisar = useHasPermission(PermisosCanonicos.FacturacionCajaSupervisar);
 
   return (
-    <div className="mx-auto max-w-4xl space-y-4 px-4 py-6">
-      <div>
-        <h1 className="flex items-center gap-2 text-2xl font-semibold tracking-tight">
-          <Wallet className="h-6 w-6 text-primary" />
-          Mi caja
-        </h1>
-        <p className="text-sm text-muted-foreground">
-          Sesión de efectivo: apertura, cobros, movimientos y arqueo (12-cajas.md §5).
-        </p>
-      </div>
+    <div className="space-y-5">
+      <PageHeader
+        titulo="Mi caja"
+        descripcion="Abre tu sesión, registra cobros y movimientos, y realiza el arqueo de caja."
+      />
 
       {query.isLoading ? (
         <TableSkeleton rows={4} columns={[{ width: 'w-full' }]} />
@@ -110,11 +116,11 @@ export function MiCaja() {
       ) : (
         <>
           {query.data.diaAnteriorPendiente && (
-            <div className="flex items-start gap-2 rounded-md border border-amber-400 bg-amber-50 p-3 text-sm text-amber-900">
+            <div className="flex items-start gap-2 rounded-md border border-line bg-warning-note-bg p-3 text-sm text-warning-note-fg">
               <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
               <p>
                 Esta sesión es de un <b>día anterior</b>: los cobros y movimientos están bloqueados;
-                realiza el arqueo y el cierre extemporáneo (§5.2).
+                realiza el arqueo y el cierre extemporáneo.
               </p>
             </div>
           )}
@@ -182,8 +188,7 @@ function AperturaSesionCard() {
       <div>
         <h2 className="font-medium">Abrir sesión</h2>
         <p className="text-xs text-muted-foreground">
-          Declara el fondo y la sucursal de operación; su zona horaria define el día del corte
-          ([Decisión 12-A]/[12-8]).
+          Declara el fondo y la sucursal de operación; su zona horaria define el día del corte.
         </p>
       </div>
 
@@ -235,12 +240,12 @@ function AperturaSesionCard() {
       </div>
 
       {(ajustes.data?.length ?? 0) > 0 && (
-        <div className="flex items-start gap-2 rounded-md border border-amber-400 bg-amber-50 p-3 text-sm text-amber-900">
+        <div className="flex items-start gap-2 rounded-md border border-line bg-warning-note-bg p-3 text-sm text-warning-note-fg">
           <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
           <p>
             Esta caja tiene <b>{ajustes.data!.length}</b> ajuste(s) pendiente(s) por{' '}
             <b>{formatearMxn(ajustes.data!.reduce((s, a) => s + a.importe, 0))}</b> que se aplicarán
-            automáticamente al abrir la sesión ([Decisión 12-C]).
+            automáticamente al abrir la sesión.
           </p>
         </div>
       )}
@@ -279,7 +284,7 @@ function SesionPanel(props: { sesion: CajaSesionDetalleResponse; bloqueada: bool
             <span
               className={cn(
                 'inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium',
-                enArqueo ? 'bg-amber-100 text-amber-800' : 'bg-emerald-100 text-emerald-800',
+                enArqueo ? 'bg-warning-bg text-warning-fg' : 'bg-success-bg text-success-fg',
               )}
             >
               {enArqueo ? 'En arqueo' : 'Abierta'}
@@ -461,8 +466,8 @@ function LiquidarRutaForm(props: { onCerrar: () => void }) {
         <div>
           <h3 className="font-medium">Liquidación de ruta</h3>
           <p className="text-xs text-muted-foreground">
-            Cobros del reparto en un solo registro (todo-o-nada, [Decisión 12-7]); cada comprobante
-            se cobra por su monto por cobrar (neto de notas de crédito, [Decisión 13-K]).
+            Cobros del reparto en un solo registro en conjunto; cada comprobante se cobra por su
+            monto por cobrar (neto de notas de crédito).
           </p>
         </div>
         <div className="w-56">
@@ -483,42 +488,45 @@ function LiquidarRutaForm(props: { onCerrar: () => void }) {
         </p>
       ) : (
         <div className="overflow-x-auto rounded-md border bg-card">
-          <table className="w-full text-sm">
-            <thead className="bg-muted/50">
-              <tr>
-                <th className="px-3 py-2 text-left" aria-label="Selección" />
-                <th className="px-3 py-2 text-left">Comprobante</th>
-                <th className="px-3 py-2 text-left">Cliente</th>
-                <th className="px-3 py-2 text-right">Por cobrar</th>
-                <th className="px-3 py-2 text-left">Forma de pago</th>
-              </tr>
-            </thead>
-            <tbody>
+          <Table className="w-full text-sm">
+            <TableHeader className="bg-muted/50">
+              <TableRow>
+                <TableHead className="px-3 py-2 text-left" aria-label="Selección" />
+                <TableHead className="px-3 py-2 text-left">Comprobante</TableHead>
+                <TableHead className="px-3 py-2 text-left">Cliente</TableHead>
+                <TableHead className="px-3 py-2 text-right">Por cobrar</TableHead>
+                <TableHead className="px-3 py-2 text-left">Forma de pago</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
               {items.map((c) => {
                 const marcado = seleccion[c.comprobanteId] != null;
                 return (
-                  <tr key={c.comprobanteId} className={cn('border-t', marcado && 'bg-primary/5')}>
-                    <td className="px-3 py-2">
+                  <TableRow
+                    key={c.comprobanteId}
+                    className={cn('border-t', marcado && 'bg-primary/5')}
+                  >
+                    <TableCell className="px-3 py-2">
                       <input
                         type="checkbox"
                         checked={marcado}
                         onChange={() => alternar(c.comprobanteId)}
                         aria-label={`Incluir ${c.folio}`}
                       />
-                    </td>
-                    <td className="px-3 py-2 font-mono text-xs">
+                    </TableCell>
+                    <TableCell className="px-3 py-2 font-mono text-xs">
                       {c.folio}
                       <span className="ml-1 text-muted-foreground">
                         ({c.tipo === 'Pago' ? 'REPP' : 'Factura'})
                       </span>
-                    </td>
-                    <td className="px-3 py-2">{c.receptorNombre}</td>
-                    <td className="px-3 py-2 text-right font-mono tabular-nums">
+                    </TableCell>
+                    <TableCell className="px-3 py-2">{c.receptorNombre}</TableCell>
+                    <TableCell className="px-3 py-2 text-right font-mono tabular-nums">
                       {formatearMxn(c.total)}
                       {/* RANURA-PR3: la ranura del pedido A+W se desglosa del
                           resto de NC — el cajero ve por qué cobra el neto. */}
                       {c.montoRanura > 0 && (
-                        <span className="block text-[11px] text-amber-700 dark:text-amber-400">
+                        <span className="block text-[11px] text-warning-fg">
                           Ranura: −{formatearMxn(c.montoRanura)}
                         </span>
                       )}
@@ -527,8 +535,8 @@ function LiquidarRutaForm(props: { onCerrar: () => void }) {
                           NC aplicadas: −{formatearMxn(c.montoAcreditado - (c.montoRanura ?? 0))}
                         </span>
                       )}
-                    </td>
-                    <td className="px-3 py-2">
+                    </TableCell>
+                    <TableCell className="px-3 py-2">
                       {marcado && (
                         <Select
                           value={seleccion[c.comprobanteId]}
@@ -563,12 +571,12 @@ function LiquidarRutaForm(props: { onCerrar: () => void }) {
                           aria-required
                         />
                       )}
-                    </td>
-                  </tr>
+                    </TableCell>
+                  </TableRow>
                 );
               })}
-            </tbody>
-          </table>
+            </TableBody>
+          </Table>
         </div>
       )}
 
@@ -650,8 +658,9 @@ function MovimientoInlineForm(props: { sesionId: string; onCerrar: () => void })
 
   return (
     <div className="grid gap-3 rounded-md border border-dashed border-primary/40 bg-primary/5 p-3 md:grid-cols-12">
+      <div className="md:col-span-12"><ContextoSucursal /></div>
       <div className="space-y-1 md:col-span-2">
-        <Label>Tipo</Label>
+        <Label>Tipo *</Label>
         <Select value={tipo} onValueChange={setTipo}>
           <SelectTrigger aria-label="Tipo de movimiento">
             <SelectValue />
@@ -663,7 +672,7 @@ function MovimientoInlineForm(props: { sesionId: string; onCerrar: () => void })
         </Select>
       </div>
       <div className="space-y-1 md:col-span-2">
-        <Label>Forma</Label>
+        <Label>Forma *</Label>
         <Select value={formaPago} onValueChange={setFormaPago}>
           <SelectTrigger aria-label="Forma de pago">
             <SelectValue />
@@ -678,7 +687,7 @@ function MovimientoInlineForm(props: { sesionId: string; onCerrar: () => void })
         </Select>
       </div>
       <div className="space-y-1 md:col-span-2">
-        <Label htmlFor="mov-importe">Importe</Label>
+        <Label htmlFor="mov-importe">Importe *</Label>
         <Input
           id="mov-importe"
           inputMode="decimal"
@@ -688,13 +697,15 @@ function MovimientoInlineForm(props: { sesionId: string; onCerrar: () => void })
         />
       </div>
       <div className="space-y-1 md:col-span-3">
-        <Label htmlFor="mov-desc">Descripción</Label>
+        <Label htmlFor="mov-desc">Descripción *</Label>
         <Input
+          aria-describedby="mov-desc-ayuda"
           id="mov-desc"
           value={descripcion}
           onChange={(e) => setDescripcion(e.target.value)}
           maxLength={254}
         />
+        <p id="mov-desc-ayuda" className="text-xs text-ink-muted">Por qué se movió el dinero, quién autorizó y a quién se entregó</p>
       </div>
       <div className="space-y-1 md:col-span-3">
         <Label htmlFor="mov-ref">Referencia</Label>
@@ -763,27 +774,27 @@ function ArqueoPanel(props: { sesion: CajaSesionDetalleResponse }) {
   }
 
   return (
-    <div className="space-y-3 rounded-md border border-amber-400 bg-amber-50/40 p-4">
+    <div className="space-y-3 rounded-md border border-line bg-warning-note-bg/40 p-4">
       <h3 className="font-medium">Arqueo</h3>
       <div className="overflow-x-auto rounded-md border bg-card">
-        <table className="w-full text-sm">
-          <thead className="bg-muted/50">
-            <tr>
-              <th className="px-3 py-2 text-left">Forma de pago</th>
-              <th className="px-3 py-2 text-right">Esperado</th>
-            </tr>
-          </thead>
-          <tbody>
+        <Table className="w-full text-sm">
+          <TableHeader className="bg-muted/50">
+            <TableRow>
+              <TableHead className="px-3 py-2 text-left">Forma de pago</TableHead>
+              <TableHead className="px-3 py-2 text-right">Esperado</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
             {props.sesion.cortes.map((c) => (
-              <tr key={c.formaPago} className="border-t">
-                <td className="px-3 py-2">{nombreForma(c.formaPago)}</td>
-                <td className="px-3 py-2 text-right font-mono tabular-nums">
+              <TableRow key={c.formaPago} className="border-t">
+                <TableCell className="px-3 py-2">{nombreForma(c.formaPago)}</TableCell>
+                <TableCell className="px-3 py-2 text-right font-mono tabular-nums">
                   {formatearMxn(c.montoSistema)}
-                </td>
-              </tr>
+                </TableCell>
+              </TableRow>
             ))}
-          </tbody>
-        </table>
+          </TableBody>
+        </Table>
       </div>
 
       <div className="grid gap-3 md:grid-cols-3">
@@ -854,33 +865,43 @@ function MovimientosTabla(props: { sesion: CajaSesionDetalleResponse }) {
     <div className="space-y-2">
       <h3 className="font-medium">Movimientos</h3>
       <div className="overflow-x-auto rounded-md border">
-        <table className="w-full text-sm">
-          <thead className="bg-muted/50">
-            <tr>
-              <th className="px-3 py-2 text-left">Tipo</th>
-              <th className="px-3 py-2 text-left">Forma</th>
-              <th className="px-3 py-2 text-right">Importe</th>
-              <th className="px-3 py-2 text-left">Descripción</th>
-            </tr>
-          </thead>
-          <tbody>
+        <Table className="w-full text-sm">
+          <TableHeader className="bg-muted/50">
+            <TableRow>
+              <TableHead className="px-3 py-2 text-left">Tipo</TableHead>
+              <TableHead className="px-3 py-2 text-left">Forma</TableHead>
+              <TableHead className="px-3 py-2 text-right">Importe</TableHead>
+              <TableHead className="px-3 py-2 text-left">Descripción</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
             {props.sesion.movimientos.map((m) => (
-              <tr key={m.id} className="border-t">
-                <td className="px-3 py-2">{m.tipo}</td>
-                <td className="px-3 py-2">{nombreForma(m.formaPago)}</td>
-                <td
+              <TableRow key={m.id} className="border-t">
+                <TableCell className="px-3 py-2">{m.tipo}</TableCell>
+                <TableCell className="px-3 py-2">{nombreForma(m.formaPago)}</TableCell>
+                <TableCell
                   className={cn(
                     'px-3 py-2 text-right font-mono tabular-nums',
                     m.importe < 0 && 'text-destructive',
                   )}
                 >
-                  {formatearMxn(m.importe)}
-                </td>
-                <td className="px-3 py-2 text-muted-foreground">{m.descripcion}</td>
-              </tr>
+                  <MontoMovimiento
+                    monto={m.importe}
+                    tipo={
+                      m.tipo === 'Retiro' ||
+                      m.tipo === 'ReversaCobro' ||
+                      (m.tipo === 'AjusteCorreccion' && m.importe < 0)
+                        ? 'salida'
+                        : 'entrada'
+                    }
+                    moneda={m.moneda}
+                  />
+                </TableCell>
+                <TableCell className="px-3 py-2 text-muted-foreground">{m.descripcion}</TableCell>
+              </TableRow>
             ))}
-          </tbody>
-        </table>
+          </TableBody>
+        </Table>
       </div>
     </div>
   );
@@ -929,29 +950,29 @@ function CobrosTabla(props: { sesionId: string }) {
     <div className="space-y-2">
       <h3 className="font-medium">Cobros de la sesión</h3>
       <div className="overflow-x-auto rounded-md border">
-        <table className="w-full text-sm">
-          <thead className="bg-muted/50">
-            <tr>
-              <th className="px-3 py-2 text-left">Comprobante</th>
-              <th className="px-3 py-2 text-left">Origen</th>
-              <th className="px-3 py-2 text-right">Total</th>
-              <th className="px-3 py-2 text-left">Estado</th>
-              {puedeSupervisar && <th className="px-3 py-2 text-right">Acción</th>}
-            </tr>
-          </thead>
-          <tbody>
+        <Table className="w-full text-sm">
+          <TableHeader className="bg-muted/50">
+            <TableRow>
+              <TableHead className="px-3 py-2 text-left">Comprobante</TableHead>
+              <TableHead className="px-3 py-2 text-left">Origen</TableHead>
+              <TableHead className="px-3 py-2 text-right">Total</TableHead>
+              <TableHead className="px-3 py-2 text-left">Estado</TableHead>
+              {puedeSupervisar && <TableHead className="px-3 py-2 text-right">Acción</TableHead>}
+            </TableRow>
+          </TableHeader>
+          <TableBody>
             {cobros.map((c) => (
-              <tr key={c.id} className="border-t">
-                <td className="px-3 py-2 font-mono text-xs">{c.comprobanteFolio}</td>
-                <td className="px-3 py-2">
+              <TableRow key={c.id} className="border-t">
+                <TableCell className="px-3 py-2 font-mono text-xs">{c.comprobanteFolio}</TableCell>
+                <TableCell className="px-3 py-2">
                   {c.origen === 'LiquidacionRuta' ? 'Liquidación de ruta' : 'Mostrador'}
-                </td>
-                <td className="px-3 py-2 text-right font-mono tabular-nums">
+                </TableCell>
+                <TableCell className="px-3 py-2 text-right font-mono tabular-nums">
                   {formatearMxn(c.total)}
-                </td>
-                <td className="px-3 py-2">{c.estado}</td>
+                </TableCell>
+                <TableCell className="px-3 py-2">{c.estado}</TableCell>
                 {puedeSupervisar && (
-                  <td className="px-3 py-2 text-right">
+                  <TableCell className="px-3 py-2 text-right">
                     {c.estado === 'Registrado' && (
                       <Button
                         size="sm"
@@ -967,12 +988,12 @@ function CobrosTabla(props: { sesionId: string }) {
                         Cancelar
                       </Button>
                     )}
-                  </td>
+                  </TableCell>
                 )}
-              </tr>
+              </TableRow>
             ))}
-          </tbody>
-        </table>
+          </TableBody>
+        </Table>
       </div>
       {porCancelar && (
         <CancelarCobroDialog
@@ -1020,8 +1041,8 @@ function AutorizarAperturaCard() {
       <div>
         <h2 className="font-medium">Autorizar apertura de caja ajena</h2>
         <p className="text-xs text-muted-foreground">
-          Autorización consumible de un solo uso y vigencia corta ([Decisión 12-1]); el alcance
-          sigue a la caja, la responsabilidad al cajero que abre (§5.3).
+          Autorización consumible de un solo uso y vigencia corta; el alcance sigue a la caja, la
+          responsabilidad al cajero que abre.
         </p>
       </div>
       <div className="grid gap-3 md:grid-cols-3">

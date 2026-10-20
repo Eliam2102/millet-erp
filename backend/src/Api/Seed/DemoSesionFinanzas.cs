@@ -44,9 +44,9 @@ public sealed partial class DemoSesionSeedHostedService
             foreach (var periodo in periodos)
             {
                 periodo.EmpresaId = EmpresaId;
-                if (periodo.Numero <= 10) periodo.Abrir(null, "DEMO apertura inicial", null, "DEMO sembrador", sp.GetRequiredService<IClock>().UtcNow);
+                if (periodo.Numero <= 10) periodo.Abrir(null, "Apertura del ejercicio", null, "DEMO sembrador", sp.GetRequiredService<IClock>().UtcNow);
                 if (periodo.Numero <= 9) periodo.Cerrar(periodos.Where(p => p.Numero < periodo.Numero),
-                    "DEMO cierre secuencial previo a octubre", null, "DEMO sembrador", sp.GetRequiredService<IClock>().UtcNow);
+                    "Cierre mensual previo a octubre", null, "DEMO sembrador", sp.GetRequiredService<IClock>().UtcNow);
             }
             db.Ejercicios.Add(ejercicio);
             db.Periodos.AddRange(periodos);

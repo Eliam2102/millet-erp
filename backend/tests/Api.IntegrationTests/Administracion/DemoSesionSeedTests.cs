@@ -113,7 +113,7 @@ public sealed partial class DemoSesionSeedTests
                 empresaEditada.ActualizarDatos(razonSocial: "ESCUELA KEMPER URGATE");
                 // Un operador puede desactivar las series de la demo. El siguiente
                 // arranque debe respetarlas, sin reactivarlas ni volver a insertarlas.
-                foreach (var serie in await maestrosEditados.Series.Where(s => s.Prefijo == "DEMO-F" || s.Prefijo == "DEMO-NC").ToListAsync())
+                foreach (var serie in await maestrosEditados.Series.Where(s => s.Prefijo == "FA" || s.Prefijo == "NC").ToListAsync())
                     serie.Desactivar();
                 await maestrosEditados.SaveChangesAsync();
                 var rolTesoreria = await identidad.Roles.SingleAsync(r => r.Codigo == "DEMO-ROL-Tesorería");
@@ -137,7 +137,7 @@ public sealed partial class DemoSesionSeedTests
                 Assert.Equal(DemoSesionSeedHostedService.Id("DEMO-ROL-Compras"), asignacion.RolId);
                 var alcance = await identidad.UsuarioSucursales.SingleAsync(a => a.UsuarioId == id && a.Estatus == EstatusCatalogo.Activo);
                 var compartido = scope.ServiceProvider.GetRequiredService<CompartidoDbContext>();
-                var seriesDemo = await compartido.Series.Where(s => s.Prefijo == "DEMO-F" || s.Prefijo == "DEMO-NC").ToListAsync();
+                var seriesDemo = await compartido.Series.Where(s => s.Prefijo == "FA" || s.Prefijo == "NC").ToListAsync();
                 Assert.Equal(2, seriesDemo.Count);
                 Assert.All(seriesDemo, serie => Assert.False(serie.Activa));
                 Assert.Equal("MID", (await compartido.Sucursales.SingleAsync(s => s.Id == alcance.SucursalId)).Clave);
@@ -232,10 +232,10 @@ public sealed partial class DemoSesionSeedTests
         Assert.Equal("42501", empresa.CodigoPostal);
         // Las 5 sedes de Millet: las 3 de prueba renombradas en su lugar y Circuito y Planta Pintura agregadas.
         var sedes = await maestros.Sucursales.Where(s => s.EmpresaId == empresa.Id).ToDictionaryAsync(s => s.Clave, s => s.Nombre);
-        Assert.Equal("Conkal", sedes["MID"]);
-        Assert.Equal("Cancún", sedes["MTY"]);
-        Assert.Equal("Chichí Suárez", sedes["QRO"]);
-        Assert.Equal("Circuito", sedes["CIR"]);
+        Assert.Equal("Planta Conkal", sedes["MID"]);
+        Assert.Equal("Sucursal Cancún", sedes["MTY"]);
+        Assert.Equal("Sucursal Chichí Suárez", sedes["QRO"]);
+        Assert.Equal("Sucursal Circuito", sedes["CIR"]);
         Assert.Equal("Planta Pintura", sedes["PIN"]);
         Assert.Equal("601", empresa.RegimenFiscal);
         var departamentosDemo = await maestros.SucursalDepartamentos.Where(a => a.Estatus == EstatusCatalogo.Activo).ToListAsync();
@@ -273,7 +273,7 @@ public sealed partial class DemoSesionSeedTests
         })
         {
             var rol = await identidad.Roles.SingleAsync(r => r.Codigo == "DEMO-ROL-" + nombre);
-            Assert.Equal("DEMO " + nombre, rol.Nombre);
+            Assert.Equal(nombre, rol.Nombre);
             var permisos = await (from rp in identidad.RolPermisos
                 join permiso in identidad.Permisos on rp.PermisoId equals permiso.Id
                 where rp.RolId == rol.Id
@@ -296,7 +296,7 @@ public sealed partial class DemoSesionSeedTests
             Assert.True(usuario.Activo);
             Assert.True(usuario.EsCuentaTecnica);
             Assert.False(usuario.TieneOidPendiente);
-            Assert.StartsWith("DEMO", usuario.Nombre);
+            Assert.Contains(" · ", usuario.Nombre);
             Assert.Equal(DemoSesionSeedHostedService.Id("DEMO-ROL-" + rol),
                 (await identidad.UsuarioEmpresaRoles.SingleAsync(a => a.UsuarioId == id && a.EmpresaId == empresa.Id)).RolId);
             Assert.Equal(rol == "Capturista Compras" ? 1 : DemoSesionSeedHostedService.ClavesSedesDemo.Length,
@@ -329,7 +329,7 @@ public sealed partial class DemoSesionSeedTests
         Assert.Equal(2, await tesoreria.CuentasBancarias.CountAsync(c => c.Banco.StartsWith("DEMO-")));
         Assert.Equal(3, await compras.OrdenesCompra.CountAsync()); // + OC de importación DEMO de CE-01a
         Assert.Equal(3, await compras.OutboxEntries.CountAsync());
-        Assert.Equal(2, await maestros.Series.CountAsync(s => s.Prefijo.StartsWith("DEMO-")));
+        Assert.Equal(3, await maestros.Series.CountAsync(s => s.Prefijo == "FA" || s.Prefijo == "NC" || s.Prefijo == "AN"));
         var pedidos = await facturacion.PedidosFacturables.Where(p => p.NumeroPedido!.StartsWith("DEMO-")).ToListAsync();
         Assert.Equal(8, pedidos.Count); // + DEMO de CE-02
         Assert.Equal(116m, pedidos.Single(p => p.NumeroPedido == "DEMO-PED-RANURA").Ranura);
@@ -352,14 +352,14 @@ public sealed partial class DemoSesionSeedTests
         Assert.Equal(7, movimientosCaja.Count);
         Assert.All(movimientosCaja, m => Assert.Equal(sesionCaja.DiaOperacion,
             DateOnly.FromDateTime(Millet.Facturacion.Application.Cajas.Sesiones.DiaOperacion.ALocal(m.CreatedAt, null).DateTime)));
-        Assert.Equal(4, await facturacion.FacturasVenta.CountAsync(f => f.Folio.StartsWith("DEMO-C") && f.Folio.Length <= 7));
+        Assert.Equal(4, await facturacion.FacturasVenta.CountAsync(f => f.Folio.StartsWith("FA-") && f.Folio.Length == 9));
         var rq = await compras.Requisiciones.Include(r => r.Lineas).SingleAsync(r => r.Descripcion == "DEMO-RQ-MID");
         Assert.Equal(10m, Assert.Single(rq.Lineas).CantidadDeCompra);
         Assert.Equal(oc.Id, rq.ComprometidaEnOcId);
         Assert.Equal(DemoSesionSeedHostedService.CapturistaComprasDemoId, rq.RequisitanteId);
         var usuarioPort = scope.ServiceProvider.GetRequiredService<Millet.Compras.Domain.Ports.Identidad.IUsuarioReadPort>();
         var nombres = await usuarioPort.ObtenerNombresAsync([rq.RequisitanteId], CancellationToken.None);
-        Assert.Equal("DEMO Capturista Compras", nombres[rq.RequisitanteId]);
+        Assert.Equal("Ana Torres · Compradora", nombres[rq.RequisitanteId]);
         var almacen = scope.ServiceProvider.GetRequiredService<AlmacenDbContext>();
         // Solo las OC de la sesión DEMO (la base es compartida con otras pruebas), con el mismo criterio del sembrado.
         var ocMidId = DemoSesionSeedHostedService.Id("DEMO-OC-MID");

@@ -336,6 +336,7 @@ Estructura (todo dentro de una tarjeta `bg-white rounded-t-lg shadow-card-flat f
 
 - Una sola columna alineada a la derecha del contenedor, con ancho máximo de 380px.
 - Orden fijo: Subtotal → Descuento → IVA trasladado → otros impuestos trasladados → Retenciones (IVA retenido, ISR y otras retenciones) → **Total**.
+- Las etiquetas del desglose usan `text-ink-strong`.
 - El total va al final, con separador superior y `text-base font-semibold`.
 - Las retenciones y el descuento se muestran con signo «−». Se muestran solo las filas definidas; un 0 explícito sí se muestra.
 - El estado de pago (anticipo aplicado, NC aplicadas, pagado, saldo pendiente, elegible para pago) va en un bloque aparte debajo, con su propio separador.

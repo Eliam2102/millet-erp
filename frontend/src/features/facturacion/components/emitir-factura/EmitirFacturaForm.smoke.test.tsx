@@ -470,13 +470,13 @@ describe('<EmitirFacturaForm> — smoke (FAC-UX-PR2/PR3)', () => {
     });
 
     expect(await screen.findByRole('tab', { name: /Encabezado/i })).toBeInTheDocument();
-    expect(screen.getByRole('tab', { name: /Posiciones/i })).toBeInTheDocument();
+    expect(screen.getByRole('tab', { name: /Partidas/i })).toBeInTheDocument();
     expect(screen.getByRole('tab', { name: /Totales/i })).toBeInTheDocument();
 
     // forceMount: aunque la pestaña activa es Encabezado, los inputs de
     // Posiciones y el resumen de Totales existen en el DOM (ocultos) —
     // react-hook-form los necesita montados para conservar valores/errores.
-    expect(screen.getByText(/Conceptos \(1\)/i)).toBeInTheDocument();
+    expect(screen.getByText(/Partidas \(1\)/i)).toBeInTheDocument();
     expect(screen.getByText(/Resumen de importes/i)).toBeInTheDocument();
 
     // Emisor fijo (datos de la empresa): se muestra informativo en la
@@ -568,7 +568,7 @@ describe('<EmitirFacturaForm> — smoke (FAC-UX-PR2/PR3)', () => {
     // fallar Posiciones (descripción/clave del concepto).
     fireEvent.click(await screen.findByRole('button', { name: /Emitir y timbrar/i }));
     await waitFor(() => {
-      const tabPosiciones = screen.getByRole('tab', { name: /Posiciones/i });
+      const tabPosiciones = screen.getByRole('tab', { name: /Partidas/i });
       expect(tabPosiciones.querySelector('[aria-label$="errores"]')).not.toBeNull();
     });
   });
@@ -611,7 +611,7 @@ describe('<EmitirFacturaForm> — smoke (FAC-UX-PR2/PR3)', () => {
       />,
       { wrapper: createQueryWrapper() },
     );
-    await screen.findByRole('tab', { name: /Posiciones/i });
+    await screen.findByRole('tab', { name: /Partidas/i });
 
     // Fila compacta de solo lectura: descripción + importe, sin el form
     // extenso (el input "Clave SAT *" no está montado).
@@ -655,7 +655,7 @@ describe('<EmitirFacturaForm> — smoke (FAC-UX-PR2/PR3)', () => {
       />,
       { wrapper: createQueryWrapper() },
     );
-    await screen.findByRole('tab', { name: /Posiciones/i });
+    await screen.findByRole('tab', { name: /Partidas/i });
 
     // La fila NO se expande sola: informa en rojo y sigue compacta.
     expect(screen.getByText(/Faltan datos fiscales del artículo/i)).toBeInTheDocument();
@@ -693,7 +693,7 @@ describe('<EmitirFacturaForm> — smoke (FAC-UX-PR2/PR3)', () => {
       />,
       { wrapper: createQueryWrapper() },
     );
-    await screen.findByRole('tab', { name: /Posiciones/i });
+    await screen.findByRole('tab', { name: /Partidas/i });
 
     // CTA visible en la fila compacta roja.
     expect(screen.getByText(/Corregir en catálogo/i)).toBeInTheDocument();

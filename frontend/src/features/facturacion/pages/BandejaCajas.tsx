@@ -1,3 +1,4 @@
+import { PageHeader } from '@/components/erp/PageHeader';
 import { useMemo, useState } from 'react';
 import { Link, useNavigate, useSearch } from '@tanstack/react-router';
 import { Plus, X } from 'lucide-react';
@@ -41,27 +42,17 @@ export function BandejaCajas() {
   }
 
   return (
-    <div className="space-y-4 px-4 py-6">
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <div>
-          <h1 className="text-2xl font-semibold tracking-tight">Cajas</h1>
-          <p className="text-sm text-muted-foreground">
-            Alcance de datos por sucursal × canal y cajeros con acceso (12-cajas.md).
-          </p>
-        </div>
-      </div>
+    <div className="space-y-5">
+      <PageHeader
+        titulo="Cajas"
+        descripcion="Configura las sucursales, los canales y los cajeros con acceso a cada caja."
+      />
 
       <div className="flex gap-1 border-b" role="tablist" aria-label="Secciones de cajas">
-        <BotonTab
-          activo={tab === 'cajas'}
-          onClick={() => actualizarSearch({ tab: undefined })}
-        >
+        <BotonTab activo={tab === 'cajas'} onClick={() => actualizarSearch({ tab: undefined })}>
           Cajas
         </BotonTab>
-        <BotonTab
-          activo={tab === 'alcances'}
-          onClick={() => actualizarSearch({ tab: 'alcances' })}
-        >
+        <BotonTab activo={tab === 'alcances'} onClick={() => actualizarSearch({ tab: 'alcances' })}>
           Alcances por usuario
         </BotonTab>
       </div>
@@ -117,9 +108,7 @@ function TabCajas(props: {
         <label className="flex items-center gap-2 text-sm">
           <Checkbox
             checked={props.search.soloActivas ?? false}
-            onCheckedChange={(v) =>
-              props.onSearch({ soloActivas: v === true ? true : undefined })
-            }
+            onCheckedChange={(v) => props.onSearch({ soloActivas: v === true ? true : undefined })}
           />
           Solo activas
         </label>
@@ -165,9 +154,7 @@ function TabCajas(props: {
                       <div className="text-xs text-muted-foreground">{c.descripcion}</div>
                     )}
                   </td>
-                  <td className="px-3 py-2 text-xs text-muted-foreground">
-                    {resumenAlcance(c)}
-                  </td>
+                  <td className="px-3 py-2 text-xs text-muted-foreground">{resumenAlcance(c)}</td>
                   <td className="px-3 py-2">
                     <ChipEstatusCaja estatus={c.estatus} />
                   </td>
@@ -197,10 +184,10 @@ function TabUsuarioAlcances() {
   return (
     <div className="space-y-4">
       <p className="text-sm text-muted-foreground">
-        Concesiones para perfiles administrativos <b>sin caja</b>: cada fila otorga una
-        combinación sucursal/canal (vacío = comodín). Con el permiso{' '}
-        <code className="text-xs">facturacion.caja.leer-todas</code> el alcance es total y
-        esta tabla no aplica.
+        Concesiones para perfiles administrativos <b>sin caja</b>: cada fila otorga una combinación
+        sucursal/canal (vacío = comodín). Con el permiso{' '}
+        <code className="text-xs">facturacion.caja.leer-todas</code> el alcance es total y esta
+        tabla no aplica.
       </p>
       <div className="w-80">
         <UsuarioSelector value={usuarioId} onChange={setUsuarioId} placeholder="Usuario…" />
@@ -258,7 +245,9 @@ function EditorUsuarioAlcances(props: { usuarioId: string }) {
 
   function agregar() {
     if (nuevaSucursal == null && nuevoCanal == null) {
-      toast.error('Una concesión sin sucursal ni canal equivale a alcance total; usa el permiso leer-todas.');
+      toast.error(
+        'Una concesión sin sucursal ni canal equivale a alcance total; usa el permiso leer-todas.',
+      );
       return;
     }
     const nueva: UsuarioAlcanceInput = { sucursalId: nuevaSucursal, canalVentaId: nuevoCanal };
@@ -318,7 +307,10 @@ function EditorUsuarioAlcances(props: { usuarioId: string }) {
       ) : (
         <ul className="divide-y rounded-md border">
           {alcances.map((a, i) => (
-            <li key={`${a.sucursalId ?? '*'}-${a.canalVentaId ?? '*'}`} className="flex items-center justify-between gap-2 px-3 py-2 text-sm">
+            <li
+              key={`${a.sucursalId ?? '*'}-${a.canalVentaId ?? '*'}`}
+              className="flex items-center justify-between gap-2 px-3 py-2 text-sm"
+            >
               <span>
                 {nombreSucursal(a.sucursalId)} · {nombreCanal(a.canalVentaId)}
               </span>
