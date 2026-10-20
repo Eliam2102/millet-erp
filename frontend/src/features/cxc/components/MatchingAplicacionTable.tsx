@@ -1,3 +1,11 @@
+import {
+  Table,
+  TableHeader,
+  TableBody,
+  TableRow,
+  TableHead,
+  TableCell,
+} from '@/components/ui/table';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Input } from '@/components/ui/input';
 import { EmptyState, ErrorState, TableSkeleton } from '@/components/erp';
@@ -73,48 +81,41 @@ export function MatchingAplicacionTable({
 
   return (
     <div className="overflow-x-auto rounded-md border">
-      <table className="w-full text-sm">
-        <thead className="bg-muted/50 text-left text-xs uppercase tracking-wide text-muted-foreground">
-          <tr>
-            <th className="w-10 px-3 py-2" aria-label="Seleccionar" />
-            <th className="px-3 py-2 font-medium">Folio</th>
-            <th className="px-3 py-2 font-medium">Vence</th>
-            <th className="px-3 py-2 text-right font-medium">Saldo</th>
-            <th className="px-3 py-2 text-right font-medium">
-              Importe a aplicar
-            </th>
-          </tr>
-        </thead>
-        <tbody className="divide-y">
+      <Table className="w-full text-sm">
+        <TableHeader className="bg-surface-muted/50 text-left text-xs uppercase tracking-wide text-ink-muted">
+          <TableRow>
+            <TableHead className="w-10 px-3 py-2" aria-label="Seleccionar" />
+            <TableHead className="px-3 py-2 font-medium">Folio</TableHead>
+            <TableHead className="px-3 py-2 font-medium">Vence</TableHead>
+            <TableHead className="px-3 py-2 text-right font-medium">Saldo</TableHead>
+            <TableHead className="px-3 py-2 text-right font-medium">Importe a aplicar</TableHead>
+          </TableRow>
+        </TableHeader>
+        <TableBody className="divide-y">
           {items.map((f) => {
             const marcada = seleccion.has(f.uuid);
             const importe = seleccion.get(f.uuid);
             return (
-              <tr
-                key={f.uuid}
-                className={cn('align-middle', marcada && 'bg-primary/5')}
-              >
-                <td className="px-3 py-2">
+              <TableRow key={f.uuid} className={cn('align-middle', marcada && 'bg-brand/5')}>
+                <TableCell className="px-3 py-2">
                   <Checkbox
                     checked={marcada}
                     disabled={disabled}
                     aria-label={`Aplicar a ${f.folio}`}
-                    onCheckedChange={(v) =>
-                      onCambiar(f.uuid, v === true ? f.saldo : null)
-                    }
+                    onCheckedChange={(v) => onCambiar(f.uuid, v === true ? f.saldo : null)}
                   />
-                </td>
-                <td className="px-3 py-2">
+                </TableCell>
+                <TableCell className="px-3 py-2">
                   <p className="font-mono">{f.folio}</p>
-                </td>
-                <td className="px-3 py-2 text-xs text-muted-foreground">
+                </TableCell>
+                <TableCell className="px-3 py-2 text-xs text-ink-muted">
                   {f.fechaVencimiento.slice(0, 10)}
-                  <p className="text-[10px]">{f.metodoPago}</p>
-                </td>
-                <td className="px-3 py-2 text-right font-mono tabular-nums">
+                  <p className="text-2xs">{f.metodoPago}</p>
+                </TableCell>
+                <TableCell className="px-3 py-2 text-right font-mono tabular-nums">
                   {formatoMonto(f.saldo, f.moneda)}
-                </td>
-                <td className="px-3 py-2 text-right">
+                </TableCell>
+                <TableCell className="px-3 py-2 text-right">
                   <Input
                     type="number"
                     step="0.01"
@@ -126,23 +127,20 @@ export function MatchingAplicacionTable({
                     className="ml-auto w-36 text-right font-mono"
                     onChange={(e) => {
                       const n = Number(e.target.value);
-                      onCambiar(
-                        f.uuid,
-                        e.target.value === '' || Number.isNaN(n) ? 0 : n,
-                      );
+                      onCambiar(f.uuid, e.target.value === '' || Number.isNaN(n) ? 0 : n);
                     }}
                   />
                   {marcada && importe != null && importe > f.saldo && (
-                    <p className="mt-0.5 text-right text-[11px] text-destructive">
+                    <p className="mt-0.5 text-right text-2xs text-danger-fg">
                       Excede el saldo de la factura.
                     </p>
                   )}
-                </td>
-              </tr>
+                </TableCell>
+              </TableRow>
             );
           })}
-        </tbody>
-      </table>
+        </TableBody>
+      </Table>
     </div>
   );
 }

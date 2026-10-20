@@ -40,9 +40,7 @@ export function OperadorPicker({
         <div className="min-w-0 flex-1">
           <div className="flex items-center gap-2">
             <span className="truncate font-mono text-xs">{o.rfc}</span>
-            <span className="text-xs text-muted-foreground">
-              Lic. {o.numLicencia}
-            </span>
+            <span className="text-xs text-ink-muted">Lic. {o.numLicencia}</span>
           </div>
           <p className="truncate text-sm">{o.nombre}</p>
         </div>

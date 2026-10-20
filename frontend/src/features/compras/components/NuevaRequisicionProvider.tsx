@@ -1,3 +1,4 @@
+import { ContextoSucursal } from '@/components/erp/display/ContextoSucursal';
 import { useCallback, useMemo, useState, type ReactNode } from 'react';
 import { useConfirmarDescarte } from '@/components/erp/forms/useConfirmarDescarte';
 import {
@@ -84,6 +85,7 @@ export function NuevaRequisicionProvider({
         >
           <SheetHeader>
             <SheetTitle>Nueva requisición</SheetTitle>
+            <ContextoSucursal />
             <SheetDescription>
               Llena la cabecera. Las líneas se agregan después de crear,
               dentro del detalle.

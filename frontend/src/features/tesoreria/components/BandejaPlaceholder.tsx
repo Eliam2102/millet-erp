@@ -1,3 +1,4 @@
+import { PageHeader } from '@/components/erp/PageHeader';
 import type { LucideIcon } from 'lucide-react';
 
 export interface BandejaPlaceholderProps {
@@ -27,23 +28,18 @@ export function BandejaPlaceholder({
   proximamente,
 }: BandejaPlaceholderProps) {
   return (
-    <div className="mx-auto max-w-3xl space-y-6 px-4 py-10">
-      <header className="space-y-1">
-        <h1 className="flex items-center gap-2 text-2xl font-semibold">
-          <Icono className="h-6 w-6 text-primary" />
-          {titulo}
-        </h1>
-        <p className="text-sm text-muted-foreground">{descripcion}</p>
-      </header>
+    <div className="space-y-5">
+      <PageHeader titulo={titulo} descripcion={<>{descripcion}</>} />
 
       <div
-        className="rounded-md border border-dashed bg-muted/40 px-6 py-10 text-center"
+        className="rounded-md border border-dashed bg-surface-muted/40 px-6 py-10 text-center"
         data-testid="tesoreria-bandeja-placeholder"
       >
-        <p className="text-sm text-muted-foreground">{mensajeArranque}</p>
+        <Icono className="mx-auto mb-3 size-6 text-ink-muted" aria-hidden="true" />
+        <p className="text-sm text-ink-muted">{mensajeArranque}</p>
         {proximamente && (
-          <p className="mt-3 text-xs font-medium uppercase tracking-wide text-muted-foreground/70">
-            {proximamente}
+          <p className="mt-3 text-xs font-medium uppercase tracking-wide text-ink-muted/70">
+            Esta función estará disponible en una próxima etapa.
           </p>
         )}
       </div>

@@ -1,3 +1,16 @@
+import { SheetFooter } from '@/components/ui/sheet';
+import { FormSeccion } from '@/components/erp/forms/FormSeccion';
+import {
+  Table,
+  TableHeader,
+  TableRow,
+  TableHead,
+  TableBody,
+  TableCell,
+} from '@/components/ui/table';
+import { TriangleAlert } from 'lucide-react';
+import { FormCampo } from '@/components/erp/forms/FormGrid';
+import { ResumenImportes } from '@/components/erp/display/ResumenImportes';
 import { DateTimeDisplay } from '@/components/erp/display/DateTimeDisplay';
 import { ConceptoSelector } from './ConceptoSelector';
 import { hoyLocalISO } from '@/lib/datetime';
@@ -6,6 +19,7 @@ import { toast } from 'sonner';
 import {
   Sheet,
   SheetContent,
+  SheetBody,
   SheetDescription,
   SheetHeader,
   SheetTitle,
@@ -16,10 +30,7 @@ import { Input } from '@/components/ui/input';
 import { CuentaBancariaSelector } from './CuentaBancariaSelector';
 import { Link } from '@tanstack/react-router';
 import { Checkbox } from '@/components/ui/checkbox';
-import {
-  useCuentasProveedorPago,
-  useRegistrarPago,
-} from '@/features/tesoreria/api/useTesoreria';
+import { useCuentasProveedorPago, useRegistrarPago } from '@/features/tesoreria/api/useTesoreria';
 import type { CuentaProveedorPago, PasivoPendienteResponse } from '@/features/tesoreria/api/types';
 import { formatoMonto } from '@/features/tesoreria/lib/formato';
 import { esApiError, useBodyScopedIdempotencyKey, codigoSoporte } from '@/lib/api';
@@ -50,9 +61,7 @@ export function RegistrarPagoSheet({
 
   const [conceptoId, setConceptoId] = useState<string | null>(null);
   const [cuentaId, setCuentaId] = useState<string | null>(null);
-  const [fechaValor, setFechaValor] = useState(() =>
-    hoyLocalISO(),
-  );
+  const [fechaValor, setFechaValor] = useState(() => hoyLocalISO());
   const [referencia, setReferencia] = useState('');
   const [cuentaProvOverride, setCuentaProvOverride] = useState<string | null>(null);
   const [fondosVerificados, setFondosVerificados] = useState(false);
@@ -77,8 +86,11 @@ export function RegistrarPagoSheet({
   const proveedor = pasivos[0]?.proveedorRazonSocial ?? pasivos[0]?.proveedorId;
 
   // Los pasivos internos (reposición de caja, viáticos) no se pagan a una cuenta de proveedor.
-  const esInterno = pasivos[0]?.tipoBeneficiario != null && pasivos[0].tipoBeneficiario !== 'Proveedor';
-  const cuentasQuery = useCuentasProveedorPago(open && !esInterno ? (pasivos[0]?.proveedorId ?? null) : null);
+  const esInterno =
+    pasivos[0]?.tipoBeneficiario != null && pasivos[0].tipoBeneficiario !== 'Proveedor';
+  const cuentasQuery = useCuentasProveedorPago(
+    open && !esInterno ? (pasivos[0]?.proveedorId ?? null) : null,
+  );
   const cuentas = cuentasQuery.data;
   const elegible = (c: CuentaProveedorPago) => c.estado === 'Activa' && c.moneda === moneda;
   const activas = (cuentas ?? []).filter(elegible);
@@ -87,15 +99,11 @@ export function RegistrarPagoSheet({
   const cuentaProvId =
     cuentaProvOverride != null && activas.some((c) => c.id === cuentaProvOverride)
       ? cuentaProvOverride
-      : (activas.find((c) => c.predeterminada) ?? activas[0])?.id ?? null;
+      : ((activas.find((c) => c.predeterminada) ?? activas[0])?.id ?? null);
   const sinCuentaActiva = !esInterno && cuentas != null && activas.length === 0;
 
   const total = useMemo(
-    () =>
-      pasivos.reduce(
-        (acc, p) => acc + (Number(importes[p.facturaProveedorId]) || 0),
-        0,
-      ),
+    () => pasivos.reduce((acc, p) => acc + (Number(importes[p.facturaProveedorId]) || 0), 0),
     [pasivos, importes],
   );
 
@@ -122,7 +130,13 @@ export function RegistrarPagoSheet({
                   : null;
 
   function confirmar() {
-    if (cuentaId == null || !importesValidos || (!esInterno && cuentaProvId == null) || !fondosVerificados) return;
+    if (
+      cuentaId == null ||
+      !importesValidos ||
+      (!esInterno && cuentaProvId == null) ||
+      !fondosVerificados
+    )
+      return;
     setErrorCuenta(null);
     const command = {
       cuentaProveedorId: esInterno ? undefined : (cuentaProvId ?? undefined),
@@ -148,7 +162,7 @@ export function RegistrarPagoSheet({
       {
         onSuccess: (r) => {
           toast.success('Pago registrado', {
-            description: `${formatoMonto(r.monto, r.moneda)} aplicado a ${r.aplicaciones.length} pasivo(s). CxP recibirá el evento.`,
+            description: `${formatoMonto(r.monto, r.moneda)} aplicado a ${r.aplicaciones.length} pasivo(s).`,
           });
           cambiarAbierto(false);
           onSuccess();
@@ -156,21 +170,20 @@ export function RegistrarPagoSheet({
         onError: (error) => {
           if (
             esApiError(error) &&
-            ['PROVEEDOR_SIN_CUENTA_ACTIVA', 'PROVEEDOR_CUENTA_NO_ACTIVA', 'PROVEEDOR_CUENTA_OTRA_MONEDA'].includes(
-              error.code ?? '',
-            )
+            [
+              'PROVEEDOR_SIN_CUENTA_ACTIVA',
+              'PROVEEDOR_CUENTA_NO_ACTIVA',
+              'PROVEEDOR_CUENTA_OTRA_MONEDA',
+            ].includes(error.code ?? '')
           ) {
             setErrorCuenta(error.problem.detail ?? error.problem.title);
             return;
           }
-          toast.error(
-            esApiError(error) ? error.problem.title : 'No se pudo registrar el pago',
-            {
-              description: esApiError(error)
-                ? (error.problem.detail ?? codigoSoporte(error))
-                : undefined,
-            },
-          );
+          toast.error(esApiError(error) ? error.problem.title : 'No se pudo registrar el pago', {
+            description: esApiError(error)
+              ? (error.problem.detail ?? codigoSoporte(error))
+              : undefined,
+          });
         },
       },
     );
@@ -195,51 +208,53 @@ export function RegistrarPagoSheet({
 
   return (
     <Sheet open={open} onOpenChange={cambiarAbierto}>
-      <SheetContent side="right" className="w-full overflow-y-auto sm:max-w-2xl">
+      <SheetContent side="right" size="lg">
         <SheetHeader>
           <SheetTitle>Registrar pago a proveedor</SheetTitle>
           <SheetDescription>
-            {pasivos.length} pasivo(s) de {proveedor}. La transferencia se
-            ejecuta en la banca; aquí se registra el hecho bancario.
+            {pasivos.length} pasivo(s) de {proveedor}. La transferencia se ejecuta en la banca; aquí
+            se registra el hecho bancario.
           </SheetDescription>
         </SheetHeader>
 
-        <div className="space-y-4 px-6 pb-6">
+        <SheetBody className="space-y-4">
           <div className="overflow-x-auto rounded-md border">
-            <table className="w-full text-sm">
-              <thead className="bg-muted/50 text-left text-xs uppercase tracking-wide text-muted-foreground">
-                <tr>
-                  <th className="px-3 py-2 font-medium">Factura</th>
-                  <th className="px-3 py-2 font-medium">Vence</th>
-                  <th className="px-3 py-2 text-right font-medium">Saldo</th>
-                  <th className="px-3 py-2 text-right font-medium">Importe a pagar</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y">
+            <Table className="w-full text-sm">
+              <TableHeader className="bg-surface-muted/50 text-left text-xs uppercase tracking-wide text-ink-muted">
+                <TableRow>
+                  <TableHead className="px-3 py-2 font-medium">Factura</TableHead>
+                  <TableHead className="px-3 py-2 font-medium">Vence</TableHead>
+                  <TableHead className="px-3 py-2 text-right font-medium">Saldo</TableHead>
+                  <TableHead className="px-3 py-2 text-right font-medium">
+                    Importe a pagar
+                  </TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody className="divide-y">
                 {pasivos.map((p) => {
                   const v = Number(importes[p.facturaProveedorId]);
                   const invalido = !Number.isFinite(v) || v <= 0 || v > p.saldoPendiente;
                   return (
-                    <tr key={p.facturaProveedorId}>
-                      <td className="px-3 py-2">
+                    <TableRow key={p.facturaProveedorId}>
+                      <TableCell className="px-3 py-2">
                         <p className="font-mono text-xs">
                           {p.folioProveedor ?? p.facturaProveedorId.slice(0, 8)}
                         </p>
-                      </td>
-                      <td className="px-3 py-2 text-xs">
+                      </TableCell>
+                      <TableCell className="px-3 py-2 text-xs">
                         <DateTimeDisplay value={p.fechaVencimiento} variant="corta" />
-                      </td>
-                      <td className="px-3 py-2 text-right font-mono tabular-nums">
+                      </TableCell>
+                      <TableCell className="px-3 py-2 text-right font-mono tabular-nums">
                         {formatoMonto(p.saldoPendiente, p.moneda)}
-                      </td>
-                      <td className="px-3 py-2 text-right">
+                      </TableCell>
+                      <TableCell className="px-3 py-2 text-right">
                         <Input
                           type="number"
                           inputMode="decimal"
                           min={0.01}
                           max={p.saldoPendiente}
                           step="0.01"
-                          className={`ml-auto w-36 text-right font-mono ${invalido ? 'border-destructive' : ''}`}
+                          className={`ml-auto w-36 text-right font-mono ${invalido ? 'border-danger' : ''}`}
                           aria-label={`Importe para ${p.folioProveedor ?? p.facturaProveedorId}`}
                           value={importes[p.facturaProveedorId] ?? ''}
                           onChange={(e) =>
@@ -249,35 +264,39 @@ export function RegistrarPagoSheet({
                             }))
                           }
                         />
-                      </td>
-                    </tr>
+                      </TableCell>
+                    </TableRow>
                   );
                 })}
-              </tbody>
-            </table>
+              </TableBody>
+            </Table>
           </div>
 
           <fieldset className="space-y-2">
-            <legend className="text-xs text-muted-foreground">Cuenta del proveedor</legend>
-            {cuentasQuery.isLoading && (
-              <p className="text-xs text-muted-foreground">Cargando cuentas…</p>
-            )}
+            <legend className="text-xs text-ink-muted">Cuenta del proveedor *</legend>
+            {cuentasQuery.isLoading && <p className="text-xs text-ink-muted">Cargando cuentas…</p>}
             {cuentasQuery.isError && (
-              <p role="alert" className="text-xs text-destructive">
+              <p role="alert" className="text-xs text-danger-fg">
                 No se pudieron cargar las cuentas del proveedor.
               </p>
             )}
             {sinCuentaActiva && (
-              <div role="alert" className="rounded-md bg-warning-bg px-3 py-2 text-xs text-warning-fg">
-                Este proveedor no tiene una cuenta activa en {moneda}. Regístrala y valídala en{' '}
-                <Link
-                  to="/admin/datos-maestros/proveedores/$id"
-                  params={{ id: pasivos[0]?.proveedorId ?? '' }}
-                  className="font-medium underline"
-                >
-                  Datos maestros
-                </Link>
-                .
+              <div
+                role="note"
+                className="flex items-start gap-2 rounded-md bg-warning-note-bg px-3 py-2.5 text-xs text-warning-note-fg"
+              >
+                <TriangleAlert className="size-4 shrink-0" />
+                <span>
+                  Este proveedor no tiene una cuenta activa en {moneda}. Regístrala y valídala en{' '}
+                  <Link
+                    to="/admin/datos-maestros/proveedores/$id"
+                    params={{ id: pasivos[0]?.proveedorId ?? '' }}
+                    className="font-medium underline"
+                  >
+                    Datos maestros
+                  </Link>
+                  .
+                </span>
               </div>
             )}
             {(cuentas ?? []).map((c) => {
@@ -310,13 +329,13 @@ export function RegistrarPagoSheet({
                     <span className="flex flex-wrap items-center gap-2">
                       <span>{c.banco}</span>
                       <span className="font-mono text-xs">{c.numero}</span>
-                      <span className="text-xs text-muted-foreground">{c.esClabe ? 'CLABE' : 'Cuenta'} · {c.moneda}</span>
+                      <span className="text-xs text-ink-muted">
+                        {c.esClabe ? 'CLABE' : 'Cuenta'} · {c.moneda}
+                      </span>
                       {c.predeterminada && <Badge variant="info">Predeterminada</Badge>}
                       {motivo && <Badge variant="warning">{motivo}</Badge>}
                     </span>
-                    {c.titular && (
-                      <span className="block text-xs text-muted-foreground">{c.titular}</span>
-                    )}
+                    {c.titular && <span className="block text-xs text-ink-muted">{c.titular}</span>}
                   </span>
                 </label>
               );
@@ -328,24 +347,22 @@ export function RegistrarPagoSheet({
             )}
           </fieldset>
 
-          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-            <div className="space-y-1 sm:col-span-2">
-              <label className="text-xs text-muted-foreground">
-                Cuenta de egreso {moneda ? `(${moneda})` : ''}
+          <FormSeccion numero={1} titulo="Datos del pago">
+            <FormCampo span={12} className="space-y-1">
+              <label className="text-xs text-ink-muted">
+                Cuenta de egreso * {moneda ? `(${moneda})` : ''}
               </label>
-              <CuentaBancariaSelector
-                value={cuentaId}
-                onChange={setCuentaId}
-                moneda={moneda}
-              />
-              <p className="text-xs text-muted-foreground">
+              <CuentaBancariaSelector value={cuentaId} onChange={setCuentaId} moneda={moneda} />
+              <p className="text-xs text-ink-muted">
                 Saldo en libros: movimientos registrados en el ERP, no el saldo del banco.
               </p>
+            </FormCampo>
+            <FormCampo span={12}>
               <ConceptoSelector value={conceptoId} onChange={setConceptoId} />
-            </div>
-            <div className="space-y-1">
-              <label className="text-xs text-muted-foreground" htmlFor="fecha-valor">
-                Fecha valor
+            </FormCampo>
+            <FormCampo span={6} className="space-y-1">
+              <label className="text-xs text-ink-muted" htmlFor="fecha-valor">
+                Fecha valor *
               </label>
               <Input
                 id="fecha-valor"
@@ -353,9 +370,9 @@ export function RegistrarPagoSheet({
                 value={fechaValor}
                 onChange={(e) => setFechaValor(e.target.value)}
               />
-            </div>
-            <div className="space-y-1">
-              <label className="text-xs text-muted-foreground" htmlFor="referencia">
+            </FormCampo>
+            <FormCampo span={6} className="space-y-1">
+              <label className="text-xs text-ink-muted" htmlFor="referencia">
                 Referencia bancaria
               </label>
               <Input
@@ -365,15 +382,8 @@ export function RegistrarPagoSheet({
                 maxLength={120}
                 placeholder="SPEI-000123"
               />
-            </div>
-          </div>
-
-          <div className="flex items-center justify-between rounded-md bg-muted/50 px-4 py-3">
-            <span className="text-sm text-muted-foreground">Total a pagar</span>
-            <span className="font-mono text-lg font-semibold tabular-nums">
-              {moneda ? formatoMonto(total, moneda) : total.toFixed(2)}
-            </span>
-          </div>
+            </FormCampo>
+          </FormSeccion>
 
           <div className="flex items-start gap-2">
             <Checkbox
@@ -381,36 +391,38 @@ export function RegistrarPagoSheet({
               checked={fondosVerificados}
               onCheckedChange={(v) => setFondosVerificados(v === true)}
             />
-            <label htmlFor="fondos-verificados" className="text-sm">
-              Verifiqué en la banca que la cuenta tiene fondos para este pago
-              <span className="block text-xs text-muted-foreground">
+            <div>
+              <label htmlFor="fondos-verificados" className="text-sm">
+                Verifiqué en la banca que la cuenta tiene fondos para este pago *
+              </label>
+              <p className="block text-xs text-ink-muted">
                 El ERP no está conectado al banco: el saldo en libros puede no estar al día.
-              </span>
-            </label>
+              </p>
+            </div>
           </div>
 
           {motivoDeshabilitado && !registrar.isPending && (
-            <p className="text-right text-xs text-muted-foreground">{motivoDeshabilitado}</p>
+            <p className="text-right text-xs text-ink-muted">{motivoDeshabilitado}</p>
           )}
 
-          <div className="flex justify-end gap-2">
-            <Button
-              variant="ghost"
-              onClick={() => cambiarAbierto(false)}
-              disabled={registrar.isPending}
-            >
-              Cancelar
-            </Button>
-            <Button
-              onClick={confirmar}
-              disabled={
-                registrar.isPending || pasivos.length === 0 || motivoDeshabilitado != null
-              }
-            >
-              {registrar.isPending ? 'Registrando…' : 'Registrar pago'}
-            </Button>
-          </div>
-        </div>
+          <ResumenImportes moneda={moneda ?? 'MXN'} total={total} />
+        </SheetBody>
+        <SheetFooter>
+          <Button
+            variant="ghost"
+            onClick={() => cambiarAbierto(false)}
+            disabled={registrar.isPending}
+          >
+            Cancelar
+          </Button>
+          <Button
+            onClick={confirmar}
+            disabled={registrar.isPending || pasivos.length === 0 || motivoDeshabilitado != null}
+            title={motivoDeshabilitado ?? undefined}
+          >
+            {registrar.isPending ? 'Registrando…' : 'Registrar pago'}
+          </Button>
+        </SheetFooter>
       </SheetContent>
     </Sheet>
   );

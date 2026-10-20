@@ -99,7 +99,7 @@ Pesos permitidos: 400, 500 y 600. No se usa 700.
 - **Espaciado:** base de 4px. Valores usados: 2, 4, 6, 8, 10, 12, 14, 16, 20, 24, 28, 32.
   - Gap entre tarjetas o secciones: 12–24.
   - Padding de tarjeta: 14–16 × 16–20.
-  - Padding del área de contenido: `20px 24px` en módulos y `28px 32px` en Inicio.
+  - Padding del área de contenido: `24px 24px 40px` en módulos y `28px 32px` en Inicio.
 - **Radios:**
   - `rounded-xs` 4: kbd.
   - `rounded-sm` 6: controles de 22–30px e ítems de menú.
@@ -135,7 +135,7 @@ Pesos permitidos: 400, 500 y 600. No se usa 700.
 ┌──────┬──────────────┬───────────────────────────────────────────────┐
 │ Rail │ Panel módulo │ Topbar 56px                                    │
 │ 76px │ 240px        ├───────────────────────────────────────────────┤
-│ dark │ (opcional)   │ Contenido (padding 20/24)                      │
+│ dark │ (opcional)   │ Contenido (padding 24/24/40)                      │
 │      │              │                                               │
 └──────┴──────────────┴───────────────────────────────────────────────┘
 ```
@@ -215,7 +215,8 @@ Diseño de referencia de 1440×900; mínimo soportado: 1280px de ancho. La pági
 - **Label:** `text-xs font-medium text-ink-strong`, arriba del campo, con `gap-1.5`. Para campos opcionales: `<span class="font-normal text-ink-muted">(opcional)</span>`.
 - **Input / select:** `h-ctl-xl px-3 rounded-md border border-line-control bg-white text-sm text-ink`.
 - **Textarea:** igual que el input, con `py-2`, `resize-none` y 2 filas.
-- **Formulario en sheet:** se organiza en `<fieldset>` numerados ("1. Comprobante fiscal", "2. Vinculación", "3. Revisión previa"). Cada `legend` va en `text-sm font-semibold`. Los campos van en un grid de 2 columnas con `gap-x-4 gap-y-3.5`, y los campos largos con `col-span-2`.
+- **Formulario en sheet:** se organiza en `<fieldset>` numerados ("1. Comprobante fiscal", "2. Vinculación", "3. Revisión previa"). Cada `legend` va en `text-sm font-semibold`. Los campos usan `FormGrid` y `FormCampo`: rejilla de 12 columnas con `gap-x-4 gap-y-3.5`. Cada campo declara `span` 3, 4, 6 o 12 (por omisión 6); en móvil siempre ocupa 12. Las secciones consecutivas (`FormSeccion`) usan la misma rejilla para que las columnas terminen en el mismo borde.
+- **Controles cortos:** checkbox, moneda y fechas se agrupan en una fila; nunca una fila completa para un checkbox. Su ayuda larga va debajo del label en `text-xs text-ink-muted`, no dentro del label.
 - **Revisión previa (checks):** lista en tarjeta `shadow-card-flat rounded-lg`. Cada fila mide h-44: círculo de 20px (ok: `success-bg/fg`; advertencia: `warning-bg/fg`), el texto y, a la derecha, el detalle en `text-xs text-ink-muted`.
 
 ### 4.3 Tarjeta y tarjeta KPI
@@ -288,6 +289,8 @@ Estructura (todo dentro de una tarjeta `bg-white rounded-t-lg shadow-card-flat f
 
 - **Badge de estado:** `inline-flex items-center h-ctl-xs px-2 rounded-full text-xs font-medium whitespace-nowrap`, con `bg-{estado}-bg text-{estado}-fg`. El texto es el nombre exacto del estado (tabla 2.1).
 - **Tag de módulo** (bandeja de Inicio): `h-ctl-xs px-2 rounded-sm text-2xs font-medium bg-surface-muted text-ink-strong`. No lleva color semántico.
+- Usa `Badge` con `success|warning|danger|info|neutral` y un mapa por entidad (estado → tono + texto). No se crean badges locales con colores propios.
+- Como máximo 2 badges por fila de lista. Los indicadores que existen en los datos (Recurrente, Sin stock) sí se muestran.
 - **Contador:** ver el panel de módulo (3.2).
 
 ### 4.7 Diálogo "Buscar o ir a" (⌘K)
@@ -306,9 +309,13 @@ Estructura (todo dentro de una tarjeta `bg-white rounded-t-lg shadow-card-flat f
   - "Accesos directos": 4 tarjetas de 64px en `grid-cols-4`, con ícono, atajo y label, más un link "Editar".
   - "Recientes": 2 folios.
 
-### 4.8 Sheet lateral (crear o registrar)
+### 4.8 Tamaños de diálogo y sheet
 
-- **Contenedor:** 560px a la derecha, a todo el alto, con `shadow-sheet` y scrim `--mt-scrim-sheet`.
+- **Tamaños:** `sm` 480px para avisos y confirmaciones; `form` 560px para sheet con formulario corto; `md` = máx(640px, 50vw); `lg` = máx(960px, 75vw). El ancho disponible se limita al viewport con margen de 1rem a cada lado.
+- Formularios con partidas, importes o 2+ columnas de datos usan `lg`.
+- Todo diálogo y sheet tiene cuerpo con `px-6 py-5` y scroll propio (`DialogBody` / `SheetBody`). El header y el footer quedan fijos. Los diálogos tienen alto máximo de 90vh.
+- **Compatibilidad F0:** `DialogContent` sin `size` conserva `max-w-lg`; los sheets conservan `form`, `wide` y `legacy`. Los consumidores existentes se migran en F1/F2.
+- **Sheet:** a la derecha, a todo el alto, con `shadow-sheet` y scrim `--mt-scrim-sheet`.
 - **Header** (h-64): título `text-xl font-semibold` y, debajo, una línea de contexto en `text-xs text-ink-muted`. Botón cerrar de 32px.
 - **Footer** (h-68, `border-t`): `Cancelar` (ghost) a la izquierda; a la derecha `Guardar borrador` (secondary) y la acción primaria.
 
@@ -325,9 +332,27 @@ Estructura (todo dentro de una tarjeta `bg-white rounded-t-lg shadow-card-flat f
 - **Pasos** (conciliación de tres vías en el Detalle): 3 columnas. Cada paso tiene un círculo de 24px (ok: `success-bg/fg` con check; pendiente: `warning-bg/fg` con "!"), un título en `font-medium` y el detalle en `text-xs text-ink-muted`.
 - **Actividad:** filas con un punto de 8px `#B5BCC9`, texto `text-ink-strong` y tiempo relativo a la derecha. Ordenadas de la más reciente a la más antigua.
 
+### 4.11 Resumen de importes (`ResumenImportes`)
+
+- Una sola columna alineada a la derecha del contenedor, con ancho máximo de 380px.
+- Orden fijo: Subtotal → Descuento → IVA trasladado → otros impuestos trasladados → Retenciones (IVA retenido, ISR y otras retenciones) → **Total**.
+- Las etiquetas del desglose usan `text-ink-strong`.
+- El total va al final, con separador superior y `text-base font-semibold`.
+- Las retenciones y el descuento se muestran con signo «−». Se muestran solo las filas definidas; un 0 explícito sí se muestra.
+- El estado de pago (anticipo aplicado, NC aplicadas, pagado, saldo pendiente, elegible para pago) va en un bloque aparte debajo, con su propio separador.
+- Los botones de acción van debajo del bloque, alineados a la derecha.
+- Usa `<dl>` y `formatMoney` con `tabular-nums`. Prohibido repartir importes en 3–4 columnas o en una fila horizontal.
+
+### 4.12 Movimiento de dinero (`MontoMovimiento`)
+
+- La entrada va en `text-success-fg` con «+» y la salida en `text-danger-fg` con «−».
+- Siempre con `tabular-nums`; el signo comunica el sentido además del color.
+
 ---
 
 ## 5. Plantillas de pantalla
+
+**Márgenes de página:** el `main` del AppShell da `pt-6 pb-10 px-6` (en móvil `px-4`). Las páginas no ponen padding propio. Entre secciones, `gap-5`. Inicio conserva sus márgenes.
 
 Usa siempre una de estas cinco. Las referencias son artboards del canvas.
 
@@ -335,7 +360,7 @@ Usa siempre una de estas cinco. Las referencias son artboards del canvas.
 
 ```
 Shell (rail + panel de módulo + topbar)
-└ main  p-[20px_24px_0] flex-col gap-4
+└ main pt-6 pb-10 px-6 flex-col gap-5
   ├ Header de página: H1 (22/600) + descripción 13 muted (1 línea: qué es y qué se hace aquí)
   │                   └ derecha: [Exportar] secondary + [Acción primaria]
   ├ KPIs: 4 tarjetas KPI (grid-cols-4 gap-3), cada una filtra el listado
@@ -349,11 +374,11 @@ Shell (rail + panel de módulo + topbar)
 
 ```
 Shell (rail + topbar con breadcrumb que termina en el folio)
-└ [Lista maestra 320] | main p-[24px_28px] flex-col gap-5
+└ [Lista maestra 320] | main pt-6 pb-10 px-6 flex-col gap-5
                          ├ Encabezado: Folio (mono 22/600) + Badge · entidad + RFC  | Acciones
                          ├ <dl> de datos clave: grid-cols-4 en tarjeta (dt 12 muted, dd 13/500)
                          ├ Sección de validación (pasos + callout)
-                         ├ Sección de líneas (tabla con totales: Subtotal · IVA · Total)
+                         ├ Sección de partidas (tabla y ResumenImportes debajo)
                          └ Actividad (crece hasta el fondo)
 ```
 
@@ -383,6 +408,14 @@ Ver 3.4. Solo es para consultar y aprobar; la captura pesada es de escritorio.
 
 ## 6. Contenido y formatos
 
+- **Errores:** dicen la causa y la acción: «Adjunta la cotización en PDF para enviar la OC a autorización». Nunca «Intenta de nuevo» solo.
+- **Obligatorios:** los campos obligatorios llevan `*`.
+- **Texto interno prohibido en UI:** rutas `.md`, IDs de decisión (D03, 12-13), «backend», «PLATFORM-TODO», «POR CONFIRMAR» y «Supuesto SAT».
+- **Partidas:** los renglones de un documento se llaman «Partidas» (decisión de Eliam, 19-oct-2026), nunca «líneas» ni «posiciones» en la UI.
+- **Sucursal:** las altas que dependen de sucursal la piden de forma explícita y muestran la sucursal activa.
+- **PDF:** las tablas exportadas se generan como texto (`@react-pdf` `View`/`Text`), nunca como imagen rasterizada.
+
+
 - **Idioma:** español (México). Sentence case en todo: "Registrar factura", no "Registrar Factura".
 - **Verbos en botones:** infinitivo y específico: Registrar factura, Generar layout, Aplicar pago, Autorizar, Rechazar. Evita "Aceptar", "OK" y "Enviar" genéricos.
 - **Moneda:**
@@ -399,7 +432,7 @@ Ver 3.4. Solo es para consultar y aprobar; la captura pesada es de escritorio.
   - Módulos: CxP, CxC, OC, CFDI, REPP, UUID, RFC, A+W.
   - En el rail: "C. Costo", "Contab.".
 - **Descripciones de pantalla:** una oración que diga qué hay y qué se hace ("Captura, conciliación contra OC y recepción, y autorización para pago.").
-- **Mensajes de bloqueo:** di qué falta y qué lo destraba ("La línea 3 no tiene recepción en Almacén. La factura podrá autorizarse cuando se registre la recepción o se corrija la OC.").
+- **Mensajes de bloqueo:** di qué falta y qué lo destraba ("La partida 3 no tiene recepción en Almacén. La factura podrá autorizarse cuando se registre la recepción o se corrija la OC.").
 - **Placeholders** para datos desconocidos: `[MAYÚSCULAS ENTRE CORCHETES]`. Nunca uses lorem ipsum.
 
 ---
@@ -452,6 +485,19 @@ Ver 3.4. Solo es para consultar y aprobar; la captura pesada es de escritorio.
 ---
 
 ## 9. Checklist antes de entregar una pantalla
+
+- [ ] ResumenImportes en una columna a la derecha (máx. 380px), orden fijo, descuentos/retenciones con «−» y total al final con separador.
+- [ ] Estado de pago separado y acciones debajo a la derecha.
+- [ ] Diálogo/sheet del tamaño adecuado; `lg` para partidas, importes o 2+ columnas, cuerpo con `px-6 py-5` y scroll propio; header/footer fijos.
+- [ ] FormGrid de 12 columnas y FormSeccion alinean secciones; spans explícitos y controles cortos agrupados, ayuda del checkbox debajo del label.
+- [ ] Márgenes del main `pt-6 pb-10 px-6`, sin padding de página adicional y `gap-5` entre secciones (Inicio conserva sus márgenes).
+- [ ] Badge semántico y mapa por entidad, máximo 2 por fila; indicadores reales visibles.
+- [ ] MontoMovimiento con signo «+»/«−», tono success/danger y `tabular-nums`.
+- [ ] Errores con causa y acción, obligatorios con `*`, sucursal solicitada y activa visible cuando aplica.
+- [ ] Sin texto interno; los renglones se llaman «Partidas».
+- [ ] Tablas PDF como texto con View/Text, sin rasterizar.
+- [ ] `npm run lint` sin advertencias `ds/*` en archivos tocados.
+
 
 - [ ] Está dentro del App Shell, con el ítem correcto activo en el rail y en el panel de módulo.
 - [ ] El breadcrumb refleja la ubicación.

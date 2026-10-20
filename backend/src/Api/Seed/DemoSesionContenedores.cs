@@ -19,7 +19,7 @@ public sealed partial class DemoSesionSeedHostedService
         {
             var clave = $"DEMO-CLI-EXP-{i}";
             if (!await maestros.Clientes.AnyAsync(c => c.Clave == clave, ct))
-                maestros.Clientes.Add(new Cliente(Id(clave), clave, $"DEMO · Cliente extranjero {i}", referenciaExterna: clave, rfc: "XEXX010101000", regimenFiscal: "616",
+                maestros.Clientes.Add(new Cliente(Id(clave), clave, $"Distribuidora de Cristales del Exterior {i}", referenciaExterna: clave, rfc: "XEXX010101000", regimenFiscal: "616",
                     codigoPostalFiscal: "42501", usoCfdiDefault: "S01", formaPagoDefault: "99", metodoPagoDefault: "PPD", monedaDefault: "USD",
                     esGenerico: true, numRegIdTrib: $"DEMO-TAX-{i}", paisResidencia: "USA", domicilioExtranjeroEstado: "DEMO", domicilioExtranjeroCodigoPostal: "00000"));
         }
@@ -31,9 +31,9 @@ public sealed partial class DemoSesionSeedHostedService
             if (p is null)
             {
                 var cid = Id($"DEMO-CLI-EXP-{cliente}");
-                p = PedidoFacturable.ImportarDesdeAw(EmpresaId, numero, sucursalId, cid, $"DEMO · Cliente extranjero {cliente}", 1,
-                    ComportamientoFiscal.ExportacionConCce, "USD", null, null, "DEMO · Parcialidades discretas del mismo pedido A+W; sin conexión al origen.", 1, "15");
-                p.AgregarLinea(null, "DEMO · Vidrio de exportación", "30171700", "H87", cantidad, 100, 0, false, tasaIva: 0);
+                p = PedidoFacturable.ImportarDesdeAw(EmpresaId, numero, sucursalId, cid, $"Distribuidora de Cristales del Exterior {cliente}", 1,
+                    ComportamientoFiscal.ExportacionConCce, "USD", null, null, "Parcialidades discretas del mismo pedido A+W; sin conexión al origen.", 1, "15");
+                p.AgregarLinea(null, "Vidrio de exportación", "30171700", "H87", cantidad, 100, 0, false, tasaIva: 0);
                 p.RecalcularTotal(); facturacion.PedidosFacturables.Add(p);
             }
             pedidos[numero] = p;
@@ -45,7 +45,7 @@ public sealed partial class DemoSesionSeedHostedService
             var e = await db.Expedientes.Include(e => e.Contenedores).Include(e => e.Partidas).Include(e => e.Participantes).SingleOrDefaultAsync(e => e.Id == id, ct);
             if (e is null)
             {
-                e = new Expediente(id, EmpresaId, "CE-EXP-2026-900003", TipoExpediente.Exportacion, sucursalId, "DEMO · Exportación temporal RT", null, incotermId, "USD", CapturistaComprasDemoId, ["DEMO · Cliente extranjero 1"]);
+                e = new Expediente(id, EmpresaId, "CE-EXP-2026-900003", TipoExpediente.Exportacion, sucursalId, "Exportación temporal RT", null, incotermId, "USD", CapturistaComprasDemoId, ["Distribuidora de Cristales del Exterior 1"]);
                 e.InicializarHitos(new(2026, 10, 12)); db.Expedientes.Add(e);
             }
             if (e.Contenedores.Count > 0 || e.Estado != EstadoExpediente.Abierto) continue;
@@ -53,7 +53,7 @@ public sealed partial class DemoSesionSeedHostedService
             {
                 var cliente = Id($"DEMO-CLI-EXP-{i}");
                 if (!e.Participantes.Any(p => p.ClienteId == cliente))
-                    e.AgregarParticipante(Id($"DEMO-CE/{clave}/CLIENTE-{i}"), $"DEMO · Cliente extranjero {i}", TipoParticipante.Cliente, null, PapelParticipante.Captura, null, cliente);
+                    e.AgregarParticipante(Id($"DEMO-CE/{clave}/CLIENTE-{i}"), $"Distribuidora de Cristales del Exterior {i}", TipoParticipante.Cliente, null, PapelParticipante.Captura, null, cliente);
             }
             e.RegistrarPedimentoExportacion($"DEMO-PEDIMENTO-{clave}", clave, new(2026, 10, 12), new(2026, 10, 16));
             for (var i = 1; i <= (clave == "A1" ? 2 : 1); i++)

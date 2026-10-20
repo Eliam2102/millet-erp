@@ -8,11 +8,7 @@ import {
   CommandItem,
   CommandList,
 } from '@/components/ui/command';
-import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-} from '@/components/ui/popover';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { useClientesLookupCxc } from '@/features/cxc/api/useLineasCredito';
 import { useDebouncedValue } from '@/lib/hooks/useDebouncedValue';
 import type { ClienteLookupCxcItem } from '@/features/cxc/api/types';
@@ -81,7 +77,7 @@ export function ClienteSelectorCxc({
   const triggerLabel = resuelto
     ? `${resuelto.clave} · ${resuelto.razonSocial}`
     : value
-      ? initialLabel ?? 'Cliente seleccionado'
+      ? (initialLabel ?? 'Cliente seleccionado')
       : placeholder;
 
   function handleRfcChange(v: string) {
@@ -115,7 +111,7 @@ export function ClienteSelectorCxc({
           disabled={disabled}
           className={cn(
             'w-full justify-between font-normal',
-            !value && 'text-muted-foreground',
+            !value && 'text-ink-muted',
             className,
           )}
         >
@@ -134,7 +130,7 @@ export function ClienteSelectorCxc({
               value={inputRfc}
               onChange={(e) => handleRfcChange(e.target.value)}
               disabled={disabled || modoNombre}
-              className="flex h-11 w-full rounded-md bg-transparent py-3 text-sm outline-none placeholder:text-muted-foreground disabled:cursor-not-allowed disabled:opacity-50"
+              className="flex h-11 w-full rounded-md bg-transparent py-3 text-sm focus-visible:outline-2 focus-visible:outline-brand placeholder:text-ink-muted disabled:cursor-not-allowed disabled:opacity-50"
             />
           </div>
           <div className="flex items-center border-b px-3">
@@ -146,13 +142,13 @@ export function ClienteSelectorCxc({
               value={inputNombre}
               onChange={(e) => handleNombreChange(e.target.value)}
               disabled={disabled || modoRfc}
-              className="flex h-11 w-full rounded-md bg-transparent py-3 text-sm outline-none placeholder:text-muted-foreground disabled:cursor-not-allowed disabled:opacity-50"
+              className="flex h-11 w-full rounded-md bg-transparent py-3 text-sm focus-visible:outline-2 focus-visible:outline-brand placeholder:text-ink-muted disabled:cursor-not-allowed disabled:opacity-50"
             />
           </div>
           <CommandList>
             {clientesQuery.isLoading || clientesQuery.isFetching ? (
               <div
-                className="flex items-center justify-center gap-2 py-6 text-sm text-muted-foreground"
+                className="flex items-center justify-center gap-2 py-6 text-sm text-ink-muted"
                 aria-live="polite"
               >
                 <Loader2 className="h-4 w-4 animate-spin" />
@@ -177,18 +173,12 @@ export function ClienteSelectorCxc({
                     >
                       <div className="min-w-0 flex-1">
                         <div className="flex items-center gap-2">
-                          <span className="truncate font-mono text-xs">
-                            {c.clave}
-                          </span>
-                          <span className="text-xs text-muted-foreground">
-                            {c.rfc ?? 'Sin RFC'}
-                          </span>
+                          <span className="truncate font-mono text-xs">{c.clave}</span>
+                          <span className="text-xs text-ink-muted">{c.rfc ?? 'Sin RFC'}</span>
                         </div>
                         <p className="truncate text-sm">{c.razonSocial}</p>
                       </div>
-                      {c.id === value && (
-                        <Check className="h-4 w-4 shrink-0" aria-hidden="true" />
-                      )}
+                      {c.id === value && <Check className="h-4 w-4 shrink-0" aria-hidden="true" />}
                     </CommandItem>
                   ))}
                 </CommandGroup>

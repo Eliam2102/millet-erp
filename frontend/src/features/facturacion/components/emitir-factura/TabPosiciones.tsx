@@ -1,15 +1,15 @@
-import { useEffect, useState } from 'react';
-import { useFieldArray, useWatch, type UseFormReturn } from 'react-hook-form';
-import { Link } from '@tanstack/react-router';
-import { AlertTriangle, Check, Pencil, Plus, SquarePen, Trash2 } from 'lucide-react';
+import { ClaveSatSelector } from '@/components/erp/selectors/ClaveSatSelector';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { OBJETOS_IMP } from '@/features/facturacion/api/types';
-import type { EmitirFacturaValues } from '@/features/facturacion/schemas/emitir-factura';
 import { ProductoAwSelector } from '@/features/facturacion/components/selectors/ProductoAwSelector';
-import { ClaveSatSelector } from '@/components/erp/selectors/ClaveSatSelector';
+import type { EmitirFacturaValues } from '@/features/facturacion/schemas/emitir-factura';
 import { cn } from '@/lib/utils';
+import { Link } from '@tanstack/react-router';
+import { AlertTriangle, Check, Pencil, Plus, SquarePen, Trash2 } from 'lucide-react';
+import { useEffect, useState } from 'react';
+import { useFieldArray, useWatch, type UseFormReturn } from 'react-hook-form';
 import { defaultLinea, numeroONull } from './valores';
 
 /** Redondeo a N decimales para las derivaciones aduaneras (Fase 1c). */
@@ -24,7 +24,7 @@ function redondear(n: number, decimales: number): number {
  * los datos de aduana por línea cuando el comportamiento es exportación
  * con CCE.
  *
- * <para>Detallado pt. 2/3: las líneas del pedido (`desdePedido`) llegan
+ * <para>Detallado pt. 2/3: las partidas del pedido (`desdePedido`) llegan
  * resueltas (pedido + master ProductoAw) y se muestran como filas
  * compactas de solo lectura; una línea con datos fiscales faltantes o
  * errores NO se expande sola — la fila se marca en rojo e informa. Los
@@ -39,7 +39,7 @@ export interface TabPosicionesProps {
   esCce: boolean;
   /** IVA default de la empresa (emisor-defaults, FAC-DET-PR3). */
   tasaIvaDefault?: number | null;
-  /** True cuando las líneas vienen prellenadas del pedido facturable. */
+  /** True cuando las partidas vienen prellenadas del pedido facturable. */
   desdePedido: boolean;
   /** Permiso editar-articulo: muestra el CTA al catálogo de productos. */
   puedeCorregirArticulo: boolean;
@@ -75,7 +75,7 @@ export function TabPosiciones({
   return (
     <section className="space-y-2">
       <header className="flex items-center justify-between">
-        <h3 className="text-sm font-medium">Conceptos ({fields.length})</h3>
+        <h3 className="text-sm font-medium">Partidas ({fields.length})</h3>
         <Button
           type="button"
           variant="ghost"
@@ -83,15 +83,15 @@ export function TabPosiciones({
           onClick={() => append(defaultLinea(tasaIvaDefault))}
         >
           <Plus className="mr-1 h-3 w-3" />
-          Agregar concepto
+          Agregar partida
         </Button>
       </header>
 
       {desdePedido && (
-        <p className="text-xs text-muted-foreground">
-          Líneas del pedido — cantidades y precios vienen del pedido y los
-          datos fiscales del master del artículo. Editar solo expone lo
-          comercial; lo fiscal se corrige en Datos Maestros → Productos A+W.
+        <p className="text-xs text-ink-muted">
+          Partidas del pedido — cantidades y precios vienen del pedido y los datos fiscales del
+          master del artículo. Editar solo expone lo comercial; lo fiscal se corrige en Datos
+          Maestros → Productos A+W.
         </p>
       )}
 
@@ -114,9 +114,7 @@ export function TabPosiciones({
       </div>
 
       {form.formState.errors.lineas?.message && (
-        <p className="text-xs text-destructive">
-          {form.formState.errors.lineas.message}
-        </p>
+        <p className="text-xs text-danger-fg">{form.formState.errors.lineas.message}</p>
       )}
     </section>
   );
@@ -137,10 +135,7 @@ interface ConceptoInlineProps {
 
 /** Clave o unidad SAT vacías = artículo incompleto en el catálogo. */
 function fiscalIncompleta(linea: EmitirFacturaValues['lineas'][number]): boolean {
-  return (
-    (linea.claveProdServSat ?? '').trim() === '' ||
-    (linea.claveUnidadSat ?? '').trim() === ''
-  );
+  return (linea.claveProdServSat ?? '').trim() === '' || (linea.claveUnidadSat ?? '').trim() === '';
 }
 
 function ConceptoInline({
@@ -177,13 +172,19 @@ function ConceptoInline({
   useEffect(() => {
     if (!esCce) return;
     const cantAduana =
-      pesoUnitario != null && pesoUnitario > 0
-        ? pesoUnitario * cantidad
-        : cantidad;
+      pesoUnitario != null && pesoUnitario > 0 ? pesoUnitario * cantidad : cantidad;
     const opts = { shouldDirty: true, shouldValidate: false } as const;
     form.setValue(`lineas.${index}.cantidadAduana` as const, redondear(cantAduana, 6), opts);
-    form.setValue(`lineas.${index}.valorUnitarioAduana` as const, redondear(valorUnitario, 6), opts);
-    form.setValue(`lineas.${index}.valorDolares` as const, redondear(valorUnitario * cantidad, 2), opts);
+    form.setValue(
+      `lineas.${index}.valorUnitarioAduana` as const,
+      redondear(valorUnitario, 6),
+      opts,
+    );
+    form.setValue(
+      `lineas.${index}.valorDolares` as const,
+      redondear(valorUnitario * cantidad, 2),
+      opts,
+    );
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [esCce, cantidad, valorUnitario, pesoUnitario, index]);
 
@@ -203,10 +204,8 @@ function ConceptoInline({
     <div
       className={cn(
         'space-y-2 rounded-md border p-3',
-        desdePedido
-          ? 'border-amber-400/60 bg-amber-50/40 dark:bg-amber-950/10'
-          : 'border-dashed border-primary/40 bg-primary/5',
-        errs && 'border-destructive/50',
+        desdePedido ? 'border-line bg-warning-note-bg' : 'border-dashed border-brand/40 bg-brand/5',
+        errs && 'border-danger/50',
       )}
     >
       <div className="grid grid-cols-1 gap-2 sm:grid-cols-12">
@@ -220,24 +219,56 @@ function ConceptoInline({
                 form.setValue(`lineas.${index}.productoId` as const, item?.id ?? null, opts);
                 if (item == null) return;
                 form.setValue(`lineas.${index}.descripcion` as const, item.descripcion, opts);
-                form.setValue(`lineas.${index}.claveProdServSat` as const, item.claveProdServSat ?? '', opts);
-                form.setValue(`lineas.${index}.claveUnidadSat` as const, item.claveUnidadSat ?? '', opts);
+                form.setValue(
+                  `lineas.${index}.claveProdServSat` as const,
+                  item.claveProdServSat ?? '',
+                  opts,
+                );
+                form.setValue(
+                  `lineas.${index}.claveUnidadSat` as const,
+                  item.claveUnidadSat ?? '',
+                  opts,
+                );
                 form.setValue(`lineas.${index}.objetoImp` as const, item.objetoImp ?? '02', opts);
                 // Precedencia FAC-DET-PR3: artículo > IVA default empresa > 0.16.
-                form.setValue(`lineas.${index}.tasaIvaTraslado` as const, item.tasaIvaTraslado ?? tasaIvaDefault ?? 0.16, opts);
-                form.setValue(`lineas.${index}.tasaRetencionIva` as const, item.tasaRetencionIva, opts);
-                form.setValue(`lineas.${index}.tasaRetencionIsr` as const, item.tasaRetencionIsr, opts);
+                form.setValue(
+                  `lineas.${index}.tasaIvaTraslado` as const,
+                  item.tasaIvaTraslado ?? tasaIvaDefault ?? 0.16,
+                  opts,
+                );
+                form.setValue(
+                  `lineas.${index}.tasaRetencionIva` as const,
+                  item.tasaRetencionIva,
+                  opts,
+                );
+                form.setValue(
+                  `lineas.${index}.tasaRetencionIsr` as const,
+                  item.tasaRetencionIsr,
+                  opts,
+                );
                 // Datos de aduana (CCE, Fase 1b): la línea hereda la fracción y
                 // la unidad aduanera del artículo. Siguen editables (fallback al
                 // picker de #689 si el artículo no las tiene). Cantidad/valores
                 // aduaneros se derivan aparte (Fase 1c).
                 if (esCce) {
                   const aduanaOpts = { shouldDirty: true, shouldValidate: true } as const;
-                  form.setValue(`lineas.${index}.fraccionArancelaria` as const, item.fraccionArancelaria, aduanaOpts);
-                  form.setValue(`lineas.${index}.unidadAduana` as const, item.unidadAduana, aduanaOpts);
+                  form.setValue(
+                    `lineas.${index}.fraccionArancelaria` as const,
+                    item.fraccionArancelaria,
+                    aduanaOpts,
+                  );
+                  form.setValue(
+                    `lineas.${index}.unidadAduana` as const,
+                    item.unidadAduana,
+                    aduanaOpts,
+                  );
                   // Peso del artículo → carrier para derivar la cantidad aduanera
                   // (la derivación reactiva la recalcula, Fase 1c).
-                  form.setValue(`lineas.${index}.pesoUnitarioKg` as const, item.pesoUnitarioKg, aduanaOpts);
+                  form.setValue(
+                    `lineas.${index}.pesoUnitarioKg` as const,
+                    item.pesoUnitarioKg,
+                    aduanaOpts,
+                  );
                 }
               }}
             />
@@ -245,17 +276,14 @@ function ConceptoInline({
         )}
         {fiscalFija && (
           <div className="sm:col-span-12">
-            <ArticuloFiscalResumen
-              linea={linea}
-              puedeCorregirArticulo={puedeCorregirArticulo}
-            />
+            <ArticuloFiscalResumen linea={linea} puedeCorregirArticulo={puedeCorregirArticulo} />
           </div>
         )}
         <div className={cn(fiscalFija ? 'sm:col-span-7' : 'sm:col-span-5')}>
           <Label className="text-xs">Descripción *</Label>
           <Input {...form.register(`lineas.${index}.descripcion` as const)} />
           {errs?.descripcion && (
-            <p className="text-xs text-destructive">{errs.descripcion.message}</p>
+            <p className="text-xs text-danger-fg">{errs.descripcion.message}</p>
           )}
         </div>
         {!fiscalFija && (
@@ -267,21 +295,14 @@ function ConceptoInline({
                 {...form.register(`lineas.${index}.claveProdServSat` as const)}
               />
               {errs?.claveProdServSat && (
-                <p className="text-xs text-destructive">
-                  {errs.claveProdServSat.message}
-                </p>
+                <p className="text-xs text-danger-fg">{errs.claveProdServSat.message}</p>
               )}
             </div>
             <div className="sm:col-span-2">
               <Label className="text-xs">Unidad SAT *</Label>
-              <Input
-                maxLength={10}
-                {...form.register(`lineas.${index}.claveUnidadSat` as const)}
-              />
+              <Input maxLength={10} {...form.register(`lineas.${index}.claveUnidadSat` as const)} />
               {errs?.claveUnidadSat && (
-                <p className="text-xs text-destructive">
-                  {errs.claveUnidadSat.message}
-                </p>
+                <p className="text-xs text-danger-fg">{errs.claveUnidadSat.message}</p>
               )}
             </div>
           </>
@@ -296,6 +317,7 @@ function ConceptoInline({
               valueAsNumber: true,
             })}
           />
+          {errs?.cantidad && <p className="text-xs text-danger-fg">{errs.cantidad.message}</p>}
         </div>
         <div className="sm:col-span-2">
           <Label className="text-xs">Valor unit. *</Label>
@@ -307,6 +329,9 @@ function ConceptoInline({
               valueAsNumber: true,
             })}
           />
+          {errs?.valorUnitario && (
+            <p className="text-xs text-danger-fg">{errs.valorUnitario.message}</p>
+          )}
         </div>
         <div className="sm:col-span-2">
           <Label className="text-xs">Descuento</Label>
@@ -318,13 +343,14 @@ function ConceptoInline({
               valueAsNumber: true,
             })}
           />
+          {errs?.descuento && <p className="text-xs text-danger-fg">{errs.descuento.message}</p>}
         </div>
         {!fiscalFija && (
           <>
             <div className="sm:col-span-2">
               <Label className="text-xs">Objeto imp.</Label>
               <select
-                className="h-9 w-full rounded-md border border-input bg-transparent px-2 text-sm shadow-sm"
+                className="h-9 w-full rounded-md border border-line-control bg-transparent px-2 text-sm shadow-sm"
                 {...form.register(`lineas.${index}.objetoImp` as const)}
               >
                 {OBJETOS_IMP.map((o) => (
@@ -377,19 +403,14 @@ function ConceptoInline({
           <label className="flex items-center gap-1.5 text-xs">
             <input
               type="checkbox"
-              className="size-4 rounded border-input"
+              className="size-4 rounded border-line-control"
               {...form.register(`lineas.${index}.requierePedimento` as const)}
             />
             Requiere pedimento
           </label>
         </div>
         <div className="flex items-end justify-end gap-1 sm:col-span-2">
-          <Button
-            type="button"
-            variant="ghost"
-            size="sm"
-            onClick={() => onColapsar(true)}
-          >
+          <Button type="button" variant="ghost" size="sm" onClick={() => onColapsar(true)}>
             <Check className="mr-1 h-3 w-3" />
             Listo
           </Button>
@@ -399,7 +420,7 @@ function ConceptoInline({
             size="sm"
             onClick={onRemove}
             disabled={!puedeQuitar}
-            className="text-destructive hover:bg-destructive/10"
+            className="text-danger-fg hover:bg-danger-bg/10"
           >
             <Trash2 className="mr-1 h-3 w-3" />
             Quitar
@@ -408,8 +429,8 @@ function ConceptoInline({
       </div>
 
       {esCce && (
-        <div className="grid grid-cols-1 gap-2 border-t border-primary/20 pt-2 sm:grid-cols-12">
-          <div className="sm:col-span-12 text-[11px] font-medium text-muted-foreground">
+        <div className="grid grid-cols-1 gap-2 border-t border-brand/20 pt-2 sm:grid-cols-12">
+          <div className="sm:col-span-12 text-[11px] font-medium text-ink-muted">
             Datos de aduana (CCE)
           </div>
           <div className="sm:col-span-3">
@@ -428,7 +449,7 @@ function ConceptoInline({
               }
             />
             {errs?.fraccionArancelaria && (
-              <p className="text-xs text-destructive">{errs.fraccionArancelaria.message}</p>
+              <p className="text-xs text-danger-fg">{errs.fraccionArancelaria.message}</p>
             )}
           </div>
           <div className="sm:col-span-2">
@@ -439,15 +460,14 @@ function ConceptoInline({
               initialLabel={linea.unidadAduana}
               placeholder="Buscar unidad…"
               onChange={(item) =>
-                form.setValue(
-                  `lineas.${index}.unidadAduana` as const,
-                  item?.codigo ?? null,
-                  { shouldDirty: true, shouldValidate: true },
-                )
+                form.setValue(`lineas.${index}.unidadAduana` as const, item?.codigo ?? null, {
+                  shouldDirty: true,
+                  shouldValidate: true,
+                })
               }
             />
             {errs?.unidadAduana && (
-              <p className="text-xs text-destructive">{errs.unidadAduana.message}</p>
+              <p className="text-xs text-danger-fg">{errs.unidadAduana.message}</p>
             )}
           </div>
           <div className="sm:col-span-2">
@@ -456,10 +476,12 @@ function ConceptoInline({
               type="number"
               step="0.0001"
               min="0"
-              {...form.register(`lineas.${index}.cantidadAduana` as const, { setValueAs: numeroONull })}
+              {...form.register(`lineas.${index}.cantidadAduana` as const, {
+                setValueAs: numeroONull,
+              })}
             />
             {errs?.cantidadAduana && (
-              <p className="text-xs text-destructive">{errs.cantidadAduana.message}</p>
+              <p className="text-xs text-danger-fg">{errs.cantidadAduana.message}</p>
             )}
           </div>
           <div className="sm:col-span-2">
@@ -468,10 +490,12 @@ function ConceptoInline({
               type="number"
               step="0.01"
               min="0"
-              {...form.register(`lineas.${index}.valorUnitarioAduana` as const, { setValueAs: numeroONull })}
+              {...form.register(`lineas.${index}.valorUnitarioAduana` as const, {
+                setValueAs: numeroONull,
+              })}
             />
             {errs?.valorUnitarioAduana && (
-              <p className="text-xs text-destructive">{errs.valorUnitarioAduana.message}</p>
+              <p className="text-xs text-danger-fg">{errs.valorUnitarioAduana.message}</p>
             )}
           </div>
           <div className="sm:col-span-2">
@@ -480,17 +504,19 @@ function ConceptoInline({
               type="number"
               step="0.01"
               min="0"
-              {...form.register(`lineas.${index}.valorDolares` as const, { setValueAs: numeroONull })}
+              {...form.register(`lineas.${index}.valorDolares` as const, {
+                setValueAs: numeroONull,
+              })}
             />
             {errs?.valorDolares && (
-              <p className="text-xs text-destructive">{errs.valorDolares.message}</p>
+              <p className="text-xs text-danger-fg">{errs.valorDolares.message}</p>
             )}
           </div>
           <div className="flex items-end sm:col-span-1">
             <label className="flex items-center gap-1 text-xs">
               <input
                 type="checkbox"
-                className="size-4 rounded border-input"
+                className="size-4 rounded border-line-control"
                 {...form.register(`lineas.${index}.aplicaIva0` as const)}
               />
               IVA 0%
@@ -514,10 +540,9 @@ function ArticuloFiscalResumen({
   linea: EmitirFacturaValues['lineas'][number];
   puedeCorregirArticulo: boolean;
 }) {
-  const pct = (v: number | null) =>
-    v == null ? '—' : `${Math.round(v * 1000) / 10}%`;
+  const pct = (v: number | null) => (v == null ? '—' : `${Math.round(v * 1000) / 10}%`);
   return (
-    <div className="flex items-start justify-between gap-3 rounded-md border bg-muted/30 px-3 py-2">
+    <div className="flex items-start justify-between gap-3 rounded-md border bg-surface-muted/30 px-3 py-2 border-line">
       <dl className="grid flex-1 grid-cols-3 gap-x-4 gap-y-1.5 sm:grid-cols-6">
         <DatoArticulo etiqueta="Clave SAT" valor={linea.claveProdServSat} mono requerido />
         <DatoArticulo etiqueta="Unidad SAT" valor={linea.claveUnidadSat} mono requerido />
@@ -530,7 +555,7 @@ function ArticuloFiscalResumen({
         <Link
           to="/admin/datos-maestros/productos-aw/$id"
           params={{ id: linea.productoId }}
-          className="inline-flex shrink-0 items-center gap-1 text-xs font-medium text-primary hover:underline"
+          className="inline-flex shrink-0 items-center gap-1 text-xs font-medium text-brand hover:underline"
           title="Corregir los datos fiscales en el catálogo de productos A+W"
         >
           <SquarePen className="size-3.5" aria-hidden />
@@ -555,16 +580,12 @@ function DatoArticulo({
   const vacio = (valor ?? '').trim() === '';
   return (
     <div className="min-w-0">
-      <dt className="text-[10px] uppercase tracking-wide text-muted-foreground">
-        {etiqueta}
-      </dt>
+      <dt className="text-[10px] uppercase tracking-wide text-ink-muted">{etiqueta}</dt>
       <dd
         className={cn(
           'truncate text-xs',
           mono && 'font-mono',
-          vacio && requerido
-            ? 'font-medium text-destructive'
-            : 'text-foreground/80',
+          vacio && requerido ? 'font-medium text-danger-fg' : 'text-ink/80',
         )}
       >
         {vacio ? (requerido ? 'Falta en el catálogo' : '—') : valor}
@@ -609,33 +630,28 @@ function ConceptoFilaCompacta({
     <div
       className={cn(
         'space-y-1 rounded-md border px-3 py-2',
-        conError && 'border-destructive/60 bg-destructive/5',
+        conError && 'border-danger/60 bg-danger-bg/5',
       )}
     >
       <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-sm">
-        <span
-          className="min-w-0 flex-1 basis-48 truncate"
-          title={linea.descripcion}
-        >
-          {linea.descripcion || <span className="text-muted-foreground">(sin descripción)</span>}
+        <span className="min-w-0 flex-1 basis-48 truncate" title={linea.descripcion}>
+          {linea.descripcion || <span className="text-ink-muted">(sin descripción)</span>}
         </span>
         <span
           className={cn(
             'font-mono text-xs',
-            faltaFiscal ? 'font-medium text-destructive' : 'text-muted-foreground',
+            faltaFiscal ? 'font-medium text-danger-fg' : 'text-ink-muted',
           )}
         >
           {linea.claveProdServSat || 'sin clave SAT'}
         </span>
-        <span className="text-xs tabular-nums text-muted-foreground">
+        <span className="text-xs tabular-nums text-ink-muted">
           {cantidad} × {valorUnitario.toFixed(2)}
         </span>
         {descuento > 0 && (
-          <span className="text-xs tabular-nums text-muted-foreground">
-            − {descuento.toFixed(2)}
-          </span>
+          <span className="text-xs tabular-nums text-ink-muted">− {descuento.toFixed(2)}</span>
         )}
-        <span className="text-xs text-muted-foreground">
+        <span className="text-xs text-ink-muted">
           IVA {Math.round((linea.tasaIvaTraslado ?? 0) * 100)}%
         </span>
         <span className="font-medium tabular-nums">{importe.toFixed(2)}</span>
@@ -650,7 +666,7 @@ function ConceptoFilaCompacta({
             size="sm"
             onClick={onRemove}
             disabled={!puedeQuitar}
-            className="text-destructive hover:bg-destructive/10"
+            className="text-danger-fg hover:bg-danger-bg/10"
           >
             <Trash2 className="h-3 w-3" />
             <span className="sr-only">Quitar</span>
@@ -658,12 +674,11 @@ function ConceptoFilaCompacta({
         </span>
       </div>
       {conError && (
-        <p className="flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-destructive">
+        <p className="flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-danger-fg">
           <AlertTriangle className="size-3.5 shrink-0" aria-hidden />
           {faltaFiscal ? (
             <>
-              Faltan datos fiscales del artículo (clave/unidad SAT) — no se
-              puede emitir.
+              Faltan datos fiscales del artículo (clave/unidad SAT) — no se puede emitir.
               {puedeCorregirArticulo && linea.productoId != null && (
                 <Link
                   to="/admin/datos-maestros/productos-aw/$id"
@@ -676,7 +691,13 @@ function ConceptoFilaCompacta({
               )}
             </>
           ) : (
-            <>La línea tiene errores — revísala con Editar.</>
+            <>
+              La partida tiene errores — revísala con Editar.{' '}
+              {Object.values(errs ?? {})
+                .map((error) => error?.message)
+                .filter((message): message is string => typeof message === 'string')
+                .join(' ')}
+            </>
           )}
         </p>
       )}

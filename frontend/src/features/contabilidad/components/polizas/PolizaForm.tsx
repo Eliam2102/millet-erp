@@ -1,3 +1,7 @@
+import { SheetBody, SheetFooter } from '@/components/ui/sheet';
+import { FormCampo, FormGrid } from '@/components/erp/forms/FormGrid';
+import { FormSeccion } from '@/components/erp/forms/FormSeccion';
+
 import { useEffect, useMemo, useState } from 'react';
 import { Link2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -11,7 +15,13 @@ import { useTiposDocumento } from '../../api/dimensiones';
 import { useCrearPoliza, useEditarPoliza } from '../../api/polizas';
 import type { Poliza, PolizaManualRequest } from '../../api/polizas-types';
 import { SELECT_CLASS } from '../../lib/estilos';
-import { centroDe, partidaVacia, partidasACuerpo, totalesPartidas, type PartidaForm } from '../../lib/partidas';
+import {
+  centroDe,
+  partidaVacia,
+  partidasACuerpo,
+  totalesPartidas,
+  type PartidaForm,
+} from '../../lib/partidas';
 import { erroresPorCampo, mensajePoliza } from '../../lib/polizas';
 import { CuadrePoliza } from './CuadrePoliza';
 import { Campo, PartidasEditor } from './PartidasEditor';
@@ -27,8 +37,16 @@ export interface ReclasificaA {
 
 function inicial(p?: Poliza, reclasifica?: ReclasificaA) {
   if (!p) {
-    const concepto = reclasifica ? `Reclasificación de ${reclasifica.folio ?? 'la póliza original'}` : '';
-    return { tipoId: null, fecha: hoyLocalISO(), ajuste: false, concepto, partidas: [partidaVacia(), partidaVacia()] };
+    const concepto = reclasifica
+      ? `Reclasificación de ${reclasifica.folio ?? 'la póliza original'}`
+      : '';
+    return {
+      tipoId: null,
+      fecha: hoyLocalISO(),
+      ajuste: false,
+      concepto,
+      partidas: [partidaVacia(), partidaVacia()],
+    };
   }
   return {
     tipoId: p.tipoOperacionId,
@@ -89,17 +107,28 @@ export function PolizaForm({ poliza, onGuardada, onCancelar, onDirtyChange, recl
   const [errores, setErrores] = useState<Record<string, string[]>>({});
   const [mensaje, setMensaje] = useState('');
 
-  const snapshot = JSON.stringify({ tipoId, fecha, ajuste, concepto, partidas: partidas.map((p) => ({ ...p, key: '' })) });
+  const snapshot = JSON.stringify({
+    tipoId,
+    fecha,
+    ajuste,
+    concepto,
+    partidas: partidas.map((p) => ({ ...p, key: '' })),
+  });
   const [inicialSnapshot] = useState(snapshot);
   const dirty = snapshot !== inicialSnapshot;
-  useEffect(() => { onDirtyChange?.(dirty); }, [dirty, onDirtyChange]);
+  useEffect(() => {
+    onDirtyChange?.(dirty);
+  }, [dirty, onDirtyChange]);
 
   const { totalCargos, totalAbonos } = totalesPartidas(partidas);
 
   // Un tipo inactivo (o de prueba fuera de la lista activa) se conserva visible al editar.
   const opcionesTipo = tipos.data ?? [];
   const tipoActualFuera = poliza && !opcionesTipo.some((t) => t.id === poliza.tipoOperacionId);
-  const tipoSugerido = reclasifica && !poliza ? (opcionesTipo.find((t) => t.clave === CLAVE_TIPO_RECLASIFICACION)?.id ?? '') : '';
+  const tipoSugerido =
+    reclasifica && !poliza
+      ? (opcionesTipo.find((t) => t.clave === CLAVE_TIPO_RECLASIFICACION)?.id ?? '')
+      : '';
   const tipoSel = tipoId ?? tipoSugerido;
 
   function cambiarAjuste(v: boolean) {
@@ -107,7 +136,13 @@ export function PolizaForm({ poliza, onGuardada, onCancelar, onDirtyChange, recl
     if (v) setFecha(`${anioDe(fecha)}-12-31`);
   }
 
-  const faltante = !tipoSel ? 'Elige el tipo de operación' : !fecha ? 'Indica la fecha' : !concepto.trim() ? 'Escribe el concepto' : '';
+  const faltante = !tipoSel
+    ? 'Elige el tipo de operación'
+    : !fecha
+      ? 'Indica la fecha'
+      : !concepto.trim()
+        ? 'Escribe el concepto'
+        : '';
   const pendiente = crear.isPending || editar.isPending;
 
   function cuerpo(): PolizaManualRequest {
@@ -137,94 +172,186 @@ export function PolizaForm({ poliza, onGuardada, onCancelar, onDirtyChange, recl
     };
     const body = cuerpo();
     const idempotencyKey = keyFor(body);
-    if (poliza) editar.mutate({ id: poliza.id, version: poliza.version, body, idempotencyKey }, opciones);
+    if (poliza)
+      editar.mutate({ id: poliza.id, version: poliza.version, body, idempotencyKey }, opciones);
     else crear.mutate({ body, idempotencyKey }, opciones);
   }
 
   const err = (campo: string) => errores[campo] ?? [];
 
   return (
-    <form onSubmit={guardar} className="flex flex-col gap-5" aria-label={poliza ? 'Editar póliza' : 'Nueva póliza'} noValidate>
-      {reclasifica && !poliza && (
-        <p role="note" className="flex items-start gap-2 rounded-md bg-info-bg px-3 py-2.5 text-sm text-info-fg">
-          <Link2 className="mt-0.5 size-4 shrink-0" strokeWidth={1.6} aria-hidden="true" />
-          <span>
-            Reclasifica a <span className="font-mono font-medium">{reclasifica.folio ?? '[FOLIO]'}</span>. Es una póliza manual: se guarda en
-            borrador y la autoriza otro usuario; ambas pólizas quedan ligadas.
-          </span>
-        </p>
-      )}
-      <fieldset className="flex flex-col gap-3.5">
-        <legend className="mb-2 text-sm font-semibold text-ink">1. Encabezado</legend>
-        <div className="grid grid-cols-1 gap-x-4 gap-y-3.5 sm:grid-cols-2">
-          <Campo id="pol-tipo" label="Tipo de operación" errores={err('tipoOperacionId')}>
-            <select
-              id="pol-tipo" className={SELECT_CLASS} value={tipoSel} disabled={!!poliza}
-              title={poliza ? 'El tipo de operación no se cambia: descarta el borrador y captura otro' : undefined}
-              aria-invalid={err('tipoOperacionId').length > 0 || undefined} aria-describedby="pol-tipo-err"
-              onChange={(e) => setTipoId(e.target.value)}
-            >
-              <option value="">{tipos.isLoading ? 'Cargando…' : 'Elegir tipo'}</option>
-              {tipoActualFuera && <option value={poliza.tipoOperacionId}>{poliza.tipoClave} — {poliza.tipoNombre ?? ''}</option>}
-              {opcionesTipo.map((t) => (
-                <option key={t.id} value={t.id}>{t.clave} — {t.nombre}{t.tipoSat ? ` (${t.tipoSat})` : ''}</option>
-              ))}
-            </select>
-          </Campo>
-          <Campo id="pol-fecha" label="Fecha" errores={err('fecha')}>
-            <Input
-              id="pol-fecha" type="date" value={fecha} disabled={ajuste}
-              title={ajuste ? 'El periodo 13 de ajustes usa el 31 de diciembre del ejercicio' : undefined}
-              aria-invalid={err('fecha').length > 0 || undefined} aria-describedby="pol-fecha-err"
-              onChange={(e) => setFecha(e.target.value)}
-            />
-          </Campo>
-          <div className="flex flex-col gap-1.5 sm:col-span-2">
-            <span className="flex items-center gap-2">
-              <Checkbox id="pol-ajuste" checked={ajuste} onCheckedChange={(v) => cambiarAjuste(v === true)} />
-              <Label htmlFor="pol-ajuste" className="font-normal">Periodo 13 (ajustes de auditoría)</Label>
+    <form
+      onSubmit={guardar}
+      className="flex min-h-0 flex-1 flex-col"
+      aria-label={poliza ? 'Editar póliza' : 'Nueva póliza'}
+      noValidate
+    >
+      <SheetBody className="space-y-5">
+        {reclasifica && !poliza && (
+          <p
+            role="note"
+            className="flex items-start gap-2 rounded-md bg-info-bg px-3 py-2.5 text-sm text-info-fg"
+          >
+            <Link2 className="mt-0.5 size-4 shrink-0" strokeWidth={1.6} aria-hidden="true" />
+            <span>
+              Reclasifica a{' '}
+              <span className="font-mono font-medium">{reclasifica.folio ?? '[FOLIO]'}</span>. Es
+              una póliza manual: se guarda en borrador y la autoriza otro usuario; ambas pólizas
+              quedan ligadas.
             </span>
-            {ajuste && (
-              <span className="flex flex-wrap items-center gap-2 text-xs text-ink-muted">
-                <Label htmlFor="pol-ejercicio" className="text-xs font-normal">Ejercicio</Label>
-                <Input
-                  id="pol-ejercicio" type="number" min={2000} max={2100} className="h-ctl-md w-24" value={anioDe(fecha)}
-                  onChange={(e) => setFecha(`${e.target.value}-12-31`)}
-                />
-                <span>La póliza se registra al 31 de diciembre en el periodo de ajustes.</span>
-              </span>
-            )}
-            {err('periodoNumero').map((m) => <span key={m} className="text-xs text-danger-fg">{m}</span>)}
-          </div>
-          <Campo id="pol-concepto" label="Concepto" errores={err('concepto')} className="sm:col-span-2">
-            <Textarea
-              id="pol-concepto" rows={2} maxLength={300} className="resize-none" value={concepto}
-              aria-invalid={err('concepto').length > 0 || undefined} aria-describedby="pol-concepto-err"
-              onChange={(e) => setConcepto(e.target.value)} placeholder="[CONCEPTO DE LA PÓLIZA]"
+          </p>
+        )}
+        <FormSeccion titulo="1. Encabezado">
+          <FormCampo span={12}>
+            <FormGrid>
+              <FormCampo span={6}>
+                <Campo id="pol-tipo" label="Tipo de operación *" errores={err('tipoOperacionId')}>
+                  <select
+                    id="pol-tipo"
+                    className={SELECT_CLASS}
+                    value={tipoSel}
+                    disabled={!!poliza}
+                    title={
+                      poliza
+                        ? 'El tipo de operación no se cambia: descarta el borrador y captura otro'
+                        : undefined
+                    }
+                    aria-invalid={err('tipoOperacionId').length > 0 || undefined}
+                    aria-describedby="pol-tipo-err"
+                    onChange={(e) => setTipoId(e.target.value)}
+                  >
+                    <option value="">{tipos.isLoading ? 'Cargando…' : 'Elegir tipo'}</option>
+                    {tipoActualFuera && (
+                      <option value={poliza.tipoOperacionId}>
+                        {poliza.tipoClave} — {poliza.tipoNombre ?? ''}
+                      </option>
+                    )}
+                    {opcionesTipo.map((t) => (
+                      <option key={t.id} value={t.id}>
+                        {t.clave} — {t.nombre}
+                        {t.tipoSat ? ` (${t.tipoSat})` : ''}
+                      </option>
+                    ))}
+                  </select>
+                </Campo>
+              </FormCampo>
+
+              <FormCampo span={6}>
+                <Campo id="pol-fecha" label="Fecha *" errores={err('fecha')}>
+                  <Input
+                    id="pol-fecha"
+                    type="date"
+                    value={fecha}
+                    disabled={ajuste}
+                    title={
+                      ajuste
+                        ? 'El periodo 13 de ajustes usa el 31 de diciembre del ejercicio'
+                        : undefined
+                    }
+                    aria-invalid={err('fecha').length > 0 || undefined}
+                    aria-describedby="pol-fecha-err"
+                    onChange={(e) => setFecha(e.target.value)}
+                  />
+                </Campo>
+              </FormCampo>
+
+              <FormCampo span={12}>
+                <div className="flex flex-col gap-1.5 ">
+                  <span className="flex items-center gap-2">
+                    <Checkbox
+                      id="pol-ajuste"
+                      checked={ajuste}
+                      onCheckedChange={(v) => cambiarAjuste(v === true)}
+                    />
+                    <Label htmlFor="pol-ajuste" className="font-normal">
+                      Periodo 13 (ajustes de auditoría)
+                    </Label>
+                  </span>
+                  {ajuste && (
+                    <span className="flex flex-wrap items-center gap-2 text-xs text-ink-muted">
+                      <Label htmlFor="pol-ejercicio" className="text-xs font-normal">
+                        Ejercicio
+                      </Label>
+                      <Input
+                        id="pol-ejercicio"
+                        type="number"
+                        min={2000}
+                        max={2100}
+                        className="h-ctl-md w-24"
+                        value={anioDe(fecha)}
+                        onChange={(e) => setFecha(`${e.target.value}-12-31`)}
+                      />
+                      <span>
+                        La póliza se registra al 31 de diciembre en el periodo de ajustes.
+                      </span>
+                    </span>
+                  )}
+                  {err('periodoNumero').map((m) => (
+                    <span key={m} className="text-xs text-danger-fg">
+                      {m}
+                    </span>
+                  ))}
+                </div>
+              </FormCampo>
+
+              <FormCampo span={12}>
+                <Campo id="pol-concepto" label="Concepto *" errores={err('concepto')} className="">
+                  <Textarea
+                    id="pol-concepto"
+                    rows={2}
+                    maxLength={300}
+                    className="resize-none"
+                    value={concepto}
+                    aria-invalid={err('concepto').length > 0 || undefined}
+                    aria-describedby="pol-concepto-err"
+                    onChange={(e) => setConcepto(e.target.value)}
+                    placeholder="[CONCEPTO DE LA PÓLIZA]"
+                  />
+                </Campo>
+              </FormCampo>
+            </FormGrid>
+          </FormCampo>
+        </FormSeccion>
+
+        <FormSeccion titulo="2. Partidas">
+          <FormCampo span={12}>
+            <PartidasEditor
+              idPrefix="pol"
+              etiqueta="Partidas de la póliza"
+              partidas={partidas}
+              setPartidas={setPartidas}
+              errores={errores}
+              onLimpiarErrores={() => setErrores({})}
             />
-          </Campo>
-        </div>
-      </fieldset>
+          </FormCampo>
+        </FormSeccion>
 
-      <fieldset className="flex flex-col gap-3">
-        <legend className="mb-2 text-sm font-semibold text-ink">2. Partidas</legend>
-        <PartidasEditor
-          idPrefix="pol" etiqueta="Partidas de la póliza" partidas={partidas} setPartidas={setPartidas} errores={errores}
-          onLimpiarErrores={() => setErrores({})}
+        <CuadrePoliza
+          totalCargos={totalCargos}
+          totalAbonos={totalAbonos}
+          nota="El borrador puede guardarse sin cuadrar; para autorizar, cargos y abonos deben ser iguales y distintos de cero."
         />
-      </fieldset>
 
-      <CuadrePoliza totalCargos={totalCargos} totalAbonos={totalAbonos} nota="El borrador puede guardarse sin cuadrar; para autorizar, cargos y abonos deben ser iguales y distintos de cero." />
-
-      {mensaje && <p role="alert" className="rounded-md bg-danger-bg px-3 py-2.5 text-sm text-danger-fg">{mensaje}</p>}
-
-      <div className="sticky bottom-0 -mx-4 flex flex-wrap items-center justify-end gap-2 border-t border-line-divider bg-surface-card px-4 py-3">
-        <Button type="button" variant="ghost" size="lg" className="mr-auto" onClick={onCancelar}>Cancelar</Button>
+        {mensaje && (
+          <p role="alert" className="rounded-md bg-danger-bg px-3 py-2.5 text-sm text-danger-fg">
+            {mensaje}
+          </p>
+        )}
+      </SheetBody>
+      <SheetFooter className="flex-row flex-wrap items-center">
+        <Button type="button" variant="ghost" size="lg" className="mr-auto" onClick={onCancelar}>
+          Cancelar
+        </Button>
         {faltante && <span className="text-xs text-ink-muted">{faltante}.</span>}
-        <Button type="submit" size="lg" disabled={!!faltante || pendiente} title={faltante || undefined}>
+        <Button
+          type="submit"
+          size="lg"
+          disabled={!!faltante || pendiente}
+          title={faltante || undefined}
+        >
           {pendiente ? 'Guardando…' : 'Guardar borrador'}
         </Button>
-      </div>
+      </SheetFooter>
     </form>
   );
 }

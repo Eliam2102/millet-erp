@@ -50,25 +50,38 @@ public sealed partial class DemoSesionSeedHostedService
                     rfc: c.Rfc, regimenFiscal: "601", codigoPostalFiscal: c.Cp,
                     usoCfdiDefault: "G03", formaPagoDefault: "03", metodoPagoDefault: "PUE"));
         if (!await db.Clientes.AnyAsync(c => c.Clave == "DEMO-CLI-INCOMPLETO", ct))
-            db.Clientes.Add(new Cliente(Id("DEMO-CLI-INCOMPLETO"), "DEMO-CLI-INCOMPLETO", "DEMO Cliente sin datos fiscales"));
+            db.Clientes.Add(new Cliente(Id("DEMO-CLI-INCOMPLETO"), "DEMO-CLI-INCOMPLETO", "Cristales del Mayab (datos fiscales pendientes)"));
         if (!await db.Articulos.AnyAsync(a => a.Clave == "DEMO-ART-PIEZA", ct))
-            db.Articulos.Add(new Articulo(Id("DEMO-ART-PIEZA"), "DEMO-ART-PIEZA", "DEMO Pieza de mantenimiento", "PZA",
+            db.Articulos.Add(new Articulo(Id("DEMO-ART-PIEZA"), "DEMO-ART-PIEZA", "Refacción para mantenimiento", "PZA",
                 precioReferenciaMonto: 100m, precioReferenciaMoneda: "MXN"));
-        // La NC automática de ranura reserva su propio folio. Ambas series son
+        var clienteIncompleto = await db.Clientes.SingleOrDefaultAsync(c => c.Clave == "DEMO-CLI-INCOMPLETO", ct);
+        if (clienteIncompleto?.RazonSocial == "DEMO Cliente sin datos fiscales")
+            clienteIncompleto.ActualizarDatos(razonSocial: "Cristales del Mayab (datos fiscales pendientes)");
+        var pieza = await db.Articulos.SingleOrDefaultAsync(a => a.Clave == "DEMO-ART-PIEZA", ct);
+        if (pieza?.Nombre == "DEMO Pieza de mantenimiento") pieza.ActualizarDatos(nombre: "Refacción para mantenimiento");
+        // La NC automática y el anticipo reservan su propio folio. Las series son
         // fiscales, continuas y globales para la única empresa del sandbox.
-        foreach (var (tipo, prefijo) in new[] { (TipoDocumentoSerie.Cfdi, "DEMO-F"), (TipoDocumentoSerie.NotaCredito, "DEMO-NC") })
+        foreach (var (tipo, prefijo) in new[] { (TipoDocumentoSerie.Cfdi, "FA"), (TipoDocumentoSerie.NotaCredito, "NC"), (TipoDocumentoSerie.FacturaAnticipo, "AN") })
         {
-            var serieId = Id(prefijo);
+            var serieId = Id(prefijo == "FA" ? "DEMO-F" : prefijo == "NC" ? "DEMO-NC" : "DEMO-AN");
             // Una serie DEMO desactivada, editada o eliminada conserva su ID.
             // Respetar ese registro antes de buscar una alternativa activa evita
             // recrearlo y chocar con la clave primaria durante un reinicio.
-            if (await db.Series.IgnoreQueryFilters().AnyAsync(s => s.Id == serieId, ct))
+            var existente = await db.Series.IgnoreQueryFilters().SingleOrDefaultAsync(s => s.Id == serieId, ct);
+            if (existente is not null)
+            {
+                if (existente.Prefijo is "DEMO-F" or "DEMO-NC") existente.ActualizarDatos(prefijo: prefijo);
                 continue;
+            }
             if (!await db.Series.AnyAsync(s => s.EmpresaId == EmpresaId && s.SucursalId == null && s.TipoDocumento == tipo && s.Activa, ct))
                 db.Series.Add(new Serie(serieId, EmpresaId, null, tipo, prefijo, null, ReinicioPeriodo.None));
         }
         await db.SaveChangesAsync(ct);
         await SembrarSedesMilletAsync(db, ct);
+        // Solo etiquetas históricas; conservar ID y ClaveAw para pedidos existentes.
+        foreach (var canal in await db.CanalesVenta.Where(c => c.Nombre.StartsWith("Tienda ")).ToListAsync(ct))
+            canal.ActualizarDatos(nombre: canal.Nombre.Replace("Tienda ", "Mostrador "));
+        await db.SaveChangesAsync(ct);
         // Completa sólo las asignaciones DEMO faltantes, sin reemplazar puestos operados.
         var sucursalesDemo = await db.Sucursales.Where(s => s.EmpresaId == EmpresaId && ClavesSedesDemo.Contains(s.Clave)).Select(s => s.Id).ToArrayAsync(ct);
         var asignacionesDemo = await db.SucursalDepartamentos.Where(a => a.EmpresaId == EmpresaId && sucursalesDemo.Contains(a.SucursalId) && a.Estatus == EstatusCatalogo.Activo).ToListAsync(ct);
@@ -85,7 +98,7 @@ public sealed partial class DemoSesionSeedHostedService
                 if (puesto is not null && (puesto.Estatus != EstatusCatalogo.Activo || await db.SucursalPuestos.AnyAsync(p => p.SucursalId == a.SucursalId && p.DepartamentoId == a.DepartamentoId && p.PuestoId == puesto.Id, ct))) continue;
                 if (puesto is null)
                 {
-                    puesto = new Puesto(Guid.CreateVersion7(), EmpresaId, clavePuesto, "DEMO · Personal de " + departamento.Nombre);
+                    puesto = new Puesto(Guid.CreateVersion7(), EmpresaId, clavePuesto, "Personal de " + departamento.Nombre);
                     db.Puestos.Add(puesto);
                 }
                 db.SucursalPuestos.Add(new SucursalPuesto(Guid.CreateVersion7(), EmpresaId, a.SucursalId, puesto.Id, a.DepartamentoId));
@@ -108,7 +121,7 @@ public sealed partial class DemoSesionSeedHostedService
                 estatus: EstatusCatalogo.EnRevision);
             p.ActualizarClasificacionFiscal(OrigenProveedor.Nacional, "601", null);
             db.Proveedores.Add(p);
-            db.CuentasBancariasProveedor.Add(CuentaBancariaProveedor.Heredada(p.Id, "DEMO Banco ficticio", "000000000000000000", p.RazonSocial, Fecha));
+            db.CuentasBancariasProveedor.Add(CuentaBancariaProveedor.Heredada(p.Id, "Banco de pruebas", "000000000000000000", p.RazonSocial, Fecha));
             var subidos = new List<string>();
             try
             {
@@ -145,10 +158,10 @@ public sealed partial class DemoSesionSeedHostedService
 
     private static readonly (string Clave, string NombrePrueba, string Nombre, TipoSucursal Tipo, string Ciudad, string Municipio, string Estado, string Cp)[] SedesMillet =
     [
-        ("MID", "Planta México Centro", "Conkal", TipoSucursal.Planta, "Conkal", "Conkal", "Yucatán", "97345"),
-        ("MTY", "Planta Monterrey", "Cancún", TipoSucursal.Taller, "Cancún", "Benito Juárez", "Quintana Roo", "77500"),
-        ("QRO", "Planta Querétaro", "Chichí Suárez", TipoSucursal.Taller, "Mérida", "Mérida", "Yucatán", "97306"),
-        ("CIR", "", "Circuito", TipoSucursal.Taller, "Mérida", "Mérida", "Yucatán", "97000"),
+        ("MID", "Planta México Centro", "Planta Conkal", TipoSucursal.Planta, "Conkal", "Conkal", "Yucatán", "97345"),
+        ("MTY", "Planta Monterrey", "Sucursal Cancún", TipoSucursal.Taller, "Cancún", "Benito Juárez", "Quintana Roo", "77500"),
+        ("QRO", "Planta Querétaro", "Sucursal Chichí Suárez", TipoSucursal.Taller, "Mérida", "Mérida", "Yucatán", "97306"),
+        ("CIR", "", "Sucursal Circuito", TipoSucursal.Taller, "Mérida", "Mérida", "Yucatán", "97000"),
         ("PIN", "", "Planta Pintura", TipoSucursal.Planta, "Mérida", "Mérida", "Yucatán", "97000"),
     ];
 
@@ -163,7 +176,7 @@ public sealed partial class DemoSesionSeedHostedService
                     "Domicilio DEMO", "S/N", "Colonia DEMO", sede.Ciudad, sede.Municipio, sede.Estado, sede.Cp, "México");
                 db.Sucursales.Add(sucursal);
             }
-            else if (sucursal.Nombre == sede.NombrePrueba)
+            else if (sucursal.Nombre == sede.NombrePrueba || sucursal.Nombre == sede.Nombre.Replace("Sucursal ", "").Replace("Planta Conkal", "Conkal"))
             {
                 sucursal.ActualizarDatos(nombre: sede.Nombre, tipo: sede.Tipo, ciudad: sede.Ciudad, municipio: sede.Municipio,
                     estado: sede.Estado, codigoPostal: sede.Cp);

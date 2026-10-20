@@ -1,13 +1,19 @@
-import { useMemo, useState, type ReactNode } from 'react';
-import { useParams } from '@tanstack/react-router';
-import { Pencil, X } from 'lucide-react';
-import { toast } from 'sonner';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
 import { DateTimeDisplay, EmptyState, ErrorState, TableSkeleton } from '@/components/erp';
+import { PageHeader } from '@/components/erp/PageHeader';
 import { SucursalSelector } from '@/components/erp/selectors/SucursalSelector';
 import { UsuarioSelector } from '@/components/erp/selectors/UsuarioSelector';
-import { CanalVentaSelector } from '@/features/facturacion/components/selectors/CanalVentaSelector';
+import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '@/components/ui/table';
+import { useSucursales, useUsuarios } from '@/features/catalogos/api/hooks';
 import {
   useActualizarCaja,
   useCaja,
@@ -16,10 +22,14 @@ import {
   useReemplazarUsuariosCaja,
 } from '@/features/facturacion/api/useCajas';
 import { useAjustesCaja } from '@/features/facturacion/api/useCajaSesiones';
-import { useSucursales, useUsuarios } from '@/features/catalogos/api/hooks';
 import { ChipEstatusCaja } from '@/features/facturacion/components/ListaCajasCompacta';
+import { CanalVentaSelector } from '@/features/facturacion/components/selectors/CanalVentaSelector';
 import { esApiError } from '@/lib/api';
 import { cn } from '@/lib/utils';
+import { useParams } from '@tanstack/react-router';
+import { Pencil, X } from 'lucide-react';
+import { useMemo, useState, type ReactNode } from 'react';
+import { toast } from 'sonner';
 
 /**
  * <c>Detalle de caja</c> (CAJAS-PR5, 12-cajas.md §4.1/§8): datos generales
@@ -53,7 +63,26 @@ export function DetalleCaja() {
   }
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-5">
+      <PageHeader
+        titulo={caja.nombre}
+        descripcion={caja.descripcion ?? 'Administra el alcance y los responsables de esta caja.'}
+        estado={<ChipEstatusCaja estatus={caja.estatus} />}
+      />
+      <dl className="grid grid-cols-4 gap-4 rounded-lg bg-surface-card p-4 shadow-card-flat">
+        <div>
+          <dt className="text-xs text-ink-muted">Sucursales</dt>
+          <dd>{caja.sucursales.length || 'Todas'}</dd>
+        </div>
+        <div>
+          <dt className="text-xs text-ink-muted">Canales</dt>
+          <dd>{caja.canales.length || 'Todos'}</dd>
+        </div>
+        <div>
+          <dt className="text-xs text-ink-muted">Cajeros</dt>
+          <dd>{caja.usuarios.length}</dd>
+        </div>
+      </dl>
       <TarjetaDatosGenerales
         key={`datos-${caja.id}-${caja.version}`}
         cajaId={caja.id}
@@ -90,16 +119,16 @@ function TarjetaAjustes(props: { cajaId: string }) {
   const items = ajustes.data ?? [];
 
   return (
-    <div className="rounded-md border bg-card p-4">
+    <div className="rounded-md border bg-surface-card p-4 border-line">
       <div className="mb-2 flex items-center justify-between gap-2">
         <div>
           <h3 className="font-medium">Ajustes de la caja</h3>
-          <p className="text-xs text-muted-foreground">
-            Cancelaciones sin sesión abierta; los pendientes se drenan en la próxima
-            apertura ([Decisión 12-C]).
+          <p className="text-xs text-ink-muted">
+            Las cancelaciones registradas mientras la caja está cerrada generan ajustes al saldo.
+            Los ajustes pendientes se aplican cuando vuelvas a abrir la caja.
           </p>
         </div>
-        <label className="flex shrink-0 items-center gap-2 text-xs text-muted-foreground">
+        <label className="flex shrink-0 items-center gap-2 text-xs text-ink-muted">
           <input
             type="checkbox"
             checked={incluirAplicados}
@@ -110,59 +139,55 @@ function TarjetaAjustes(props: { cajaId: string }) {
       </div>
 
       {items.length === 0 ? (
-        <p className="text-xs italic text-muted-foreground">
+        <p className="text-xs italic text-ink-muted">
           {incluirAplicados ? 'Sin ajustes registrados.' : 'Sin ajustes pendientes.'}
         </p>
       ) : (
-        <div className="overflow-x-auto rounded-md border">
-          <table className="w-full text-sm">
-            <thead className="bg-muted/50">
-              <tr>
-                <th className="px-3 py-2 text-left">Comprobante</th>
-                <th className="px-3 py-2 text-right">Importe</th>
-                <th className="px-3 py-2 text-left">Forma</th>
-                <th className="px-3 py-2 text-left">Motivo</th>
-                <th className="px-3 py-2 text-left">Creado</th>
-                <th className="px-3 py-2 text-left">Estado</th>
-              </tr>
-            </thead>
-            <tbody>
+        <div className="overflow-x-auto rounded-md border border-line">
+          <Table className="w-full text-sm">
+            <TableHeader className="bg-surface-muted/50">
+              <TableRow>
+                <TableHead className="px-3 py-2 text-left">Comprobante</TableHead>
+                <TableHead className="px-3 py-2 text-right tabular-nums">Importe</TableHead>
+                <TableHead className="px-3 py-2 text-left">Forma</TableHead>
+                <TableHead className="px-3 py-2 text-left">Motivo</TableHead>
+                <TableHead className="px-3 py-2 text-left">Creado</TableHead>
+                <TableHead className="px-3 py-2 text-left">Estado</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
               {items.map((a) => (
-                <tr key={a.id} className="border-t">
-                  <td className="px-3 py-2 font-mono text-xs">
+                <TableRow key={a.id} className="border-t border-line">
+                  <TableCell className="px-3 py-2 font-mono text-xs">
                     {a.comprobanteFolio ?? a.cobroMostradorId}
-                  </td>
-                  <td
+                  </TableCell>
+                  <TableCell
                     className={cn(
                       'px-3 py-2 text-right font-mono tabular-nums',
-                      a.importe < 0 && 'text-destructive',
+                      a.importe < 0 && 'text-danger-fg',
                     )}
                   >
                     {new Intl.NumberFormat('es-MX', {
                       style: 'currency',
                       currency: 'MXN',
                     }).format(a.importe)}
-                  </td>
-                  <td className="px-3 py-2">{a.formaPago}</td>
-                  <td className="px-3 py-2 text-muted-foreground">{a.motivo}</td>
-                  <td className="px-3 py-2">
+                  </TableCell>
+                  <TableCell className="px-3 py-2">{a.formaPago}</TableCell>
+                  <TableCell className="px-3 py-2 text-ink-muted">{a.motivo}</TableCell>
+                  <TableCell className="px-3 py-2">
                     <DateTimeDisplay value={a.creadoEn} />
-                  </td>
-                  <td className="px-3 py-2">
+                  </TableCell>
+                  <TableCell className="px-3 py-2">
                     {a.aplicadoEnSesionId == null ? (
-                      <span className="inline-flex rounded-full bg-amber-100 px-2 py-0.5 text-xs font-medium text-amber-800">
-                        Pendiente
-                      </span>
+                      <Badge variant="warning">Pendiente</Badge>
                     ) : (
-                      <span className="inline-flex rounded-full bg-emerald-100 px-2 py-0.5 text-xs font-medium text-emerald-800">
-                        Aplicado
-                      </span>
+                      <Badge variant="success">Aplicado</Badge>
                     )}
-                  </td>
-                </tr>
+                  </TableCell>
+                </TableRow>
               ))}
-            </tbody>
-          </table>
+            </TableBody>
+          </Table>
         </div>
       )}
     </div>
@@ -199,9 +224,7 @@ function TarjetaDatosGenerales(props: {
           toast.success('Caja actualizada.');
         },
         onError: (error) =>
-          toast.error(
-            esApiError(error) ? error.problem.title : 'No se pudo actualizar la caja.',
-          ),
+          toast.error(esApiError(error) ? error.problem.title : 'No se pudo actualizar la caja.'),
       },
     );
   }
@@ -209,8 +232,8 @@ function TarjetaDatosGenerales(props: {
   return (
     <div
       className={cn(
-        'rounded-md border bg-card p-4',
-        editando && 'border-amber-400 bg-amber-50/40',
+        'rounded-md border bg-surface-card p-4',
+        editando && 'border-line bg-warning-note-bg',
       )}
     >
       <div className="flex flex-wrap items-start justify-between gap-3">
@@ -256,9 +279,7 @@ function TarjetaDatosGenerales(props: {
               <h2 className="truncate text-xl font-semibold tracking-tight">{props.nombre}</h2>
               <ChipEstatusCaja estatus={props.estatus} />
             </div>
-            <p className="text-sm text-muted-foreground">
-              {props.descripcion ?? 'Sin descripción.'}
-            </p>
+            <p className="text-sm text-ink-muted">{props.descripcion ?? 'Sin descripción.'}</p>
           </div>
         )}
         {!editando && (
@@ -296,14 +317,14 @@ function TarjetaAlcance(props: {
   return (
     <div
       className={cn(
-        'rounded-md border bg-card p-4',
-        props.dirty && 'border-dashed border-primary/40 bg-primary/5',
+        'rounded-md border bg-surface-card p-4',
+        props.dirty && 'border-dashed border-brand/40 bg-brand/5',
       )}
     >
       <div className="mb-2 flex items-center justify-between gap-2">
         <div>
           <h3 className="font-medium">{props.titulo}</h3>
-          <p className="text-xs text-muted-foreground">{props.hint}</p>
+          <p className="text-xs text-ink-muted">{props.hint}</p>
         </div>
         {props.dirty && (
           <div className="flex shrink-0 gap-2">
@@ -323,12 +344,12 @@ function TarjetaAlcance(props: {
 
 function Chip(props: { etiqueta: string; onQuitar: () => void }) {
   return (
-    <span className="inline-flex items-center gap-1 rounded-full border bg-muted/40 px-2 py-0.5 text-xs">
+    <span className="inline-flex items-center gap-1 rounded-full border bg-surface-muted/40 px-2 py-0.5 text-xs border-line">
       <span className="max-w-48 truncate">{props.etiqueta}</span>
       <button
         type="button"
         onClick={props.onQuitar}
-        className="text-muted-foreground hover:text-destructive"
+        className="text-ink-muted hover:text-danger-fg"
         aria-label={`Quitar ${props.etiqueta}`}
       >
         <X className="h-3 w-3" />
@@ -340,9 +361,7 @@ function Chip(props: { etiqueta: string; onQuitar: () => void }) {
 function useSeleccion<T>(inicial: readonly T[]) {
   const [seleccion, setSeleccion] = useState<readonly T[]>(inicial);
   const dirty = useMemo(
-    () =>
-      seleccion.length !== inicial.length ||
-      seleccion.some((v) => !inicial.includes(v)),
+    () => seleccion.length !== inicial.length || seleccion.some((v) => !inicial.includes(v)),
     [seleccion, inicial],
   );
   return { seleccion, setSeleccion, dirty, reset: () => setSeleccion(inicial) };
@@ -350,11 +369,14 @@ function useSeleccion<T>(inicial: readonly T[]) {
 
 function toastResultado(nombre: string) {
   return {
-    onSuccess: () => toast.success(nombre.includes('alcance') ? 'Se actualizaron las sucursales de la caja.' : 'Se actualizaron los cajeros de la caja.'),
-    onError: (error: unknown) =>
-      toast.error(
-        esApiError(error) ? error.problem.title : `No se pudo actualizar ${nombre}.`,
+    onSuccess: () =>
+      toast.success(
+        nombre.includes('alcance')
+          ? 'Se actualizaron las sucursales de la caja.'
+          : 'Se actualizaron los cajeros de la caja.',
       ),
+    onError: (error: unknown) =>
+      toast.error(esApiError(error) ? error.problem.title : `No se pudo actualizar ${nombre}.`),
   };
 }
 
@@ -372,7 +394,7 @@ function TarjetaSucursales(props: { cajaId: string; inicial: string[] }) {
   return (
     <TarjetaAlcance
       titulo="Sucursales del alcance"
-      hint="Vacío = todas las sucursales (comodín, 12-cajas.md §4.1)."
+      hint="Si no seleccionas sucursales, la caja abarca todas."
       dirty={dirty}
       guardando={reemplazar.isPending}
       onGuardar={() =>
@@ -385,7 +407,7 @@ function TarjetaSucursales(props: { cajaId: string; inicial: string[] }) {
     >
       <div className="flex flex-wrap items-center gap-2">
         {seleccion.length === 0 && (
-          <span className="text-xs italic text-muted-foreground">Todas las sucursales</span>
+          <span className="text-xs italic text-ink-muted">Todas las sucursales</span>
         )}
         {seleccion.map((id) => (
           <Chip
@@ -434,7 +456,7 @@ function TarjetaCanales(props: {
     >
       <div className="flex flex-wrap items-center gap-2">
         {seleccion.length === 0 && (
-          <span className="text-xs italic text-muted-foreground">Todos los canales</span>
+          <span className="text-xs italic text-ink-muted">Todos los canales</span>
         )}
         {seleccion.map((id) => (
           <Chip
@@ -470,7 +492,7 @@ function TarjetaUsuarios(props: { cajaId: string; inicial: string[] }) {
   return (
     <TarjetaAlcance
       titulo="Cajeros relacionados"
-      hint="Pueden abrir sesión de esta caja sin autorización de supervisor (12-cajas.md §5.3)."
+      hint="Pueden abrir esta caja sin autorización del supervisor."
       dirty={dirty}
       guardando={reemplazar.isPending}
       onGuardar={() =>
@@ -483,7 +505,7 @@ function TarjetaUsuarios(props: { cajaId: string; inicial: string[] }) {
     >
       <div className="flex flex-wrap items-center gap-2">
         {seleccion.length === 0 && (
-          <span className="text-xs italic text-muted-foreground">
+          <span className="text-xs italic text-ink-muted">
             Sin cajeros relacionados (solo apertura con autorización).
           </span>
         )}

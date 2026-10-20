@@ -1,5 +1,5 @@
-import { AlertTriangle, Building2 } from 'lucide-react';
 import type { EmisorDefaultsResponse } from '@/features/facturacion/api/types';
+import { AlertTriangle, Building2 } from 'lucide-react';
 
 /**
  * <c>&lt;EmisorInfoBar/&gt;</c> — franja discreta con los datos fiscales
@@ -9,27 +9,19 @@ import type { EmisorDefaultsResponse } from '@/features/facturacion/api/types';
  * valor que viaja en el command sale de <c>useEmisorDefaults()</c>.
  */
 export function EmisorInfoBar({ emisor }: { emisor: EmisorDefaultsResponse }) {
-  const incompleto =
-    emisor.rfcEmisor.trim() === '' ||
-    emisor.regimenFiscalEmisor.trim() === '';
+  const incompleto = emisor.rfcEmisor.trim() === '' || emisor.regimenFiscalEmisor.trim() === '';
   return (
-    <div className="flex flex-wrap items-center gap-x-3 gap-y-1 rounded-md border bg-muted/40 px-3 py-1.5 text-xs text-muted-foreground">
+    <div className="flex flex-wrap items-center gap-x-3 gap-y-1 rounded-md border bg-surface-muted/40 px-3 py-1.5 text-xs text-ink-muted border-line">
       <span className="flex items-center gap-1.5">
         <Building2 className="size-3.5 shrink-0" aria-hidden />
-        <span className="text-[10px] font-medium uppercase tracking-wide">
-          Emisor
-        </span>
+        <span className="text-[10px] font-medium uppercase tracking-wide">Emisor</span>
       </span>
-      <span className="font-medium text-foreground/80">
-        {emisor.razonSocialEmisor}
-      </span>
+      <span className="font-medium text-ink/80">{emisor.razonSocialEmisor}</span>
       <span className="font-mono">{emisor.rfcEmisor}</span>
       <span>Régimen {emisor.regimenFiscalEmisor}</span>
-      {emisor.codigoPostalEmisor != null && (
-        <span>Exp. CP {emisor.codigoPostalEmisor}</span>
-      )}
+      {emisor.codigoPostalEmisor != null && <span>Exp. CP {emisor.codigoPostalEmisor}</span>}
       {incompleto && (
-        <span className="flex items-center gap-1 text-amber-600 dark:text-amber-500">
+        <span className="flex items-center gap-1 text-warning-fg ">
           <AlertTriangle className="size-3.5 shrink-0" aria-hidden />
           Datos del emisor incompletos — captúralos en Admin → Empresas.
         </span>

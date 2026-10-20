@@ -48,9 +48,7 @@ describe('<BandejaFacturasAnticipo> — smoke (ANT-PR2)', () => {
       ),
     );
     render(<BandejaFacturasAnticipo />, { wrapper: createQueryWrapper() });
-    await waitFor(() =>
-      expect(screen.getByText(/Sin facturas de anticipo/i)).toBeInTheDocument(),
-    );
+    await waitFor(() => expect(screen.getByText(/Sin facturas de anticipo/i)).toBeInTheDocument());
   });
 
   it('renderiza folio, saldo y estado del anticipo (13-H)', async () => {
@@ -78,13 +76,11 @@ describe('<BandejaFacturasAnticipo> — smoke (ANT-PR2)', () => {
       ),
     );
     render(<BandejaFacturasAnticipo />, { wrapper: createQueryWrapper() });
-    await waitFor(() =>
-      expect(screen.getByText('FANT-2026-000003')).toBeInTheDocument(),
-    );
+    await waitFor(() => expect(screen.getByText('FANT-2026-000003')).toBeInTheDocument());
     expect(screen.getByText('Cliente Maquila')).toBeInTheDocument();
     expect(screen.getByText('660.00')).toBeInTheDocument();
     expect(screen.getByText('Abierto')).toBeInTheDocument();
-    expect(screen.getByText('Timbrado')).toBeInTheDocument();
+    expect(screen.getByRole('cell', { name: 'Timbrado' })).toBeInTheDocument();
   });
 
   it('estado error', async () => {

@@ -69,11 +69,11 @@ export function CuentaBancariaSelector({
             <SelectItem key={c.id} value={c.id}>
               <span className="flex items-center gap-2">
                 <span>{c.banco}</span>
-                <span className="font-mono text-xs text-muted-foreground">
-                  {c.numeroCuenta}
-                </span>
-                <span className="text-xs text-muted-foreground">
-                  {'saldo' in c && typeof c.saldo === 'number' ? `${formatoMonto(c.saldo, c.moneda)} en libros` : c.moneda}
+                <span className="font-mono text-xs text-ink-muted">{c.numeroCuenta}</span>
+                <span className="text-xs text-ink-muted">
+                  {'saldo' in c && typeof c.saldo === 'number'
+                    ? `${formatoMonto(c.saldo, c.moneda)} en libros`
+                    : c.moneda}
                 </span>
               </span>
             </SelectItem>
@@ -81,7 +81,7 @@ export function CuentaBancariaSelector({
         </SelectContent>
       </Select>
       {query.isError && (
-        <p role="alert" className="text-xs text-destructive">
+        <p role="alert" className="text-xs text-danger-fg">
           {mensajeErrorCatalogo(query.error)}
         </p>
       )}

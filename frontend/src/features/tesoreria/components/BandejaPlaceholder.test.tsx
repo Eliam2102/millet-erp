@@ -22,13 +22,13 @@ describe('BandejaPlaceholder (TES-FE-PR1)', () => {
       />,
     );
 
-    expect(
-      screen.getByRole('heading', { name: /Pagos a proveedor/ }),
-    ).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: /Pagos a proveedor/ })).toBeInTheDocument();
     expect(screen.getByTestId('tesoreria-bandeja-placeholder')).toHaveTextContent(
       'Los pasivos aparecen cuando CxP los autoriza.',
     );
-    expect(screen.getByText('Bandeja completa en TES-FE-PR2')).toBeInTheDocument();
+    expect(
+      screen.getByText('Esta función estará disponible en una próxima etapa.'),
+    ).toBeInTheDocument();
   });
 });
 

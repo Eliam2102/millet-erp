@@ -19,7 +19,8 @@ vi.mock('../api/hooks', () => ({
     ],
   }),
 }));
-vi.mock('@/components/erp', () => ({
+vi.mock('@/components/erp', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('@/components/erp')>()),
   ErrorState: () => <p>Error</p>,
   DateTimeDisplay: ({ value }: { value: string }) => <span>{value}</span>,
 }));
@@ -142,11 +143,17 @@ describe('Contenedores de exportación', () => {
   });
   it('selector conserva unidad y muestra pendiente acumulado entre contenedores', async () => {
     render(<ContenedoresPanel data={data} />);
-    fireEvent.change(screen.getByLabelText('Cliente del expediente'), { target: { value: 'cli' } });
-    fireEvent.change(screen.getByLabelText('Pedido de exportación'), { target: { value: 'p1' } });
-    fireEvent.change(screen.getByLabelText('Posición del pedido'), { target: { value: '1' } });
+    fireEvent.change(screen.getByLabelText('Cliente del expediente', { exact: false }), {
+      target: { value: 'cli' },
+    });
+    fireEvent.change(screen.getByLabelText('Pedido de exportación', { exact: false }), {
+      target: { value: 'p1' },
+    });
+    fireEvent.change(screen.getByLabelText(/Partida del pedido/), { target: { value: '1' } });
     expect(screen.getByText(/Pendiente por asignar: 40 H87/)).toBeInTheDocument();
-    fireEvent.change(screen.getByLabelText('Cantidad (H87)'), { target: { value: '40' } });
+    fireEvent.change(screen.getByLabelText('Cantidad (H87)', { exact: false }), {
+      target: { value: '40' },
+    });
     fireEvent.click(screen.getByRole('button', { name: 'Asignar cantidad' }));
     await waitFor(() =>
       expect(state.mutar).toHaveBeenCalledWith({
@@ -192,7 +199,7 @@ describe('Contenedores de exportación', () => {
       />,
     );
     expect(screen.getByText('CE-EXP-DEMO')).toBeInTheDocument();
-    expect(screen.getByText(/BL o guía: DEMO-BL/)).toBeInTheDocument();
+    expect(screen.getByRole('cell', { name: 'DEMO-BL' })).toBeInTheDocument();
     expect(screen.getByText('RT · Sin CCE.')).toBeInTheDocument();
     expect(screen.queryByRole('textbox')).not.toBeInTheDocument();
   });

@@ -14,7 +14,8 @@ vi.mock('../api/otr', () => ({
 vi.mock('@tanstack/react-router', () => ({
   Link: ({ children }: { children: React.ReactNode }) => <span>{children}</span>,
 }));
-vi.mock('@/components/erp', () => ({
+vi.mock('@/components/erp', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('@/components/erp')>()),
   Breadcrumbs: () => null,
   ErrorState: () => <p>Error</p>,
   DateTimeDisplay: ({ value }: { value: string }) => <span>{value}</span>,
@@ -103,10 +104,13 @@ beforeEach(() => {
 it('la bandeja muestra envíos por vincular y abre el selector de expediente', () => {
   state.data = [{ ...envio, estado: 1, expedienteId: null, salidas: [] }];
   render(<OtrBandejaPage />);
-  expect(screen.getByRole('heading', { name: 'Envíos OTR por vincular' })).toBeInTheDocument();
-  expect(screen.getByText('Por vincular')).toBeInTheDocument();
+  expect(screen.getByRole('heading', { name: 'Bandeja OTR' })).toBeInTheDocument();
+  expect(screen.getByRole('tab', { name: 'Por vincular' })).toHaveAttribute(
+    'aria-selected',
+    'true',
+  );
   fireEvent.click(screen.getByRole('button', { name: 'Vincular envío' }));
-  fireEvent.change(screen.getByLabelText('Expediente abierto'), { target: { value: 'exp' } });
+  fireEvent.change(screen.getByLabelText(/Expediente abierto/), { target: { value: 'exp' } });
   fireEvent.click(screen.getByRole('button', { name: 'Vincular envío' }));
   expect(state.mutar).toHaveBeenCalledWith({
     envio: state.data[0],
@@ -116,7 +120,8 @@ it('la bandeja muestra envíos por vincular y abre el selector de expediente', (
 });
 it('la sección muestra versión, línea pendiente, conflicto y falta de acuse', () => {
   render(<OtrPanel expedienteId="exp" />);
-  expect(screen.getByText('Vinculado · versión 2')).toBeInTheDocument();
+  expect(screen.getByText('Vinculado')).toBeInTheDocument();
+  expect(screen.getByText('Versión 2')).toBeInTheDocument();
   expect(screen.getByText('CE_OTR_PEDIDO_INEXISTENTE')).toBeInTheDocument();
   expect(screen.getByText('CE_OTR_SIN_ACUSE')).toBeInTheDocument();
   fireEvent.click(screen.getByRole('button', { name: 'Reintentar salida' }));
@@ -129,7 +134,7 @@ it.each([
   render(<OtrDetalle envio={envio} />);
   const button = screen.getByRole('button', { name: nombre });
   expect(button).toBeDisabled();
-  fireEvent.change(screen.getByLabelText('Motivo de la decisión (5 a 500 caracteres)'), {
+  fireEvent.change(screen.getByLabelText(/Motivo de la decisión/), {
     target: { value: 'DEMO decisión revisada' },
   });
   fireEvent.click(button);
@@ -152,13 +157,13 @@ it('lectura oculta reintentar y gestión lo conserva con expediente cerrado', ()
 it('la bandeja vacía explica el estado real', () => {
   state.data = [];
   render(<OtrBandejaPage />);
-  expect(screen.getByText('No hay envíos OTR por vincular.')).toBeInTheDocument();
+  expect(screen.getByText('No hay envíos OTR en esta vista.')).toBeInTheDocument();
 });
 
 it('identifica el pedido y posición al resolver un conflicto de asignación manual', () => {
   const piezas = { ...envio, conflictos: [{ ...envio.conflictos[0], campo: 'Partida:l1' }] };
   render(<OtrDetalle envio={piezas} />);
-  expect(screen.getByText('Pedido DEMO-PED · posición 1 · versión OTR 2')).toBeInTheDocument();
+  expect(screen.getByText('Pedido DEMO-PED · partida 1 · versión OTR 2')).toBeInTheDocument();
 });
 
 it.each([1, 3] as const)('permite reintentar una salida de un envío con estado %s', (estado) => {
@@ -181,4 +186,28 @@ it('la bandeja incluye fallidas y sin acuse de expedientes vinculados', () => {
   expect(screen.getByText('Sin acuse')).toBeInTheDocument();
   expect(screen.getByText('Fallida')).toBeInTheDocument();
   expect(screen.queryByRole('button', { name: 'Vincular envío' })).not.toBeInTheDocument();
+});
+
+it('filtra estados cargados y pagina diez envíos sin ofrecer vincular los ya vinculados', () => {
+  state.data = Array.from({ length: 12 }, (_, i) => ({
+    ...envio,
+    id: `otr-${i}`,
+    idOrigen: `OTR-PRUEBA-${i + 1}`,
+    estado: 1,
+    salidas: [],
+  }));
+  state.data.push({ ...envio, id: 'vinculado', idOrigen: 'OTR-VINCULADO', salidas: [] });
+  render(<OtrBandejaPage />);
+  expect(screen.getAllByRole('row')).toHaveLength(11);
+  fireEvent.click(screen.getByRole('button', { name: 'Página siguiente' }));
+  expect(screen.getByRole('cell', { name: 'OTR-PRUEBA-11' })).toBeInTheDocument();
+  fireEvent.mouseDown(screen.getByRole('tab', { name: 'Vinculados' }), {
+    button: 0,
+    ctrlKey: false,
+  });
+  expect(screen.getByRole('cell', { name: 'OTR-VINCULADO' })).toBeInTheDocument();
+  expect(screen.queryByRole('button', { name: 'Vincular envío' })).not.toBeInTheDocument();
+  expect(screen.getByRole('button', { name: 'Página anterior' })).toBeDisabled();
+  fireEvent.mouseDown(screen.getByRole('tab', { name: 'Todos' }), { button: 0, ctrlKey: false });
+  expect(screen.getByText('1–10 de 13')).toBeInTheDocument();
 });

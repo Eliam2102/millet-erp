@@ -1,11 +1,8 @@
+import { RecurrenciaContext } from '@/features/compras/components/recurrencia-context';
 import { useMemo, type ReactNode } from 'react';
 import { useNavigate, useSearch } from '@tanstack/react-router';
 import { Inbox } from 'lucide-react';
-import {
-  EmptyState,
-  ErrorState,
-  TableSkeleton,
-} from '@/components/erp';
+import { EmptyState, ErrorState, TableSkeleton } from '@/components/erp';
 import {
   Select,
   SelectContent,
@@ -49,10 +46,7 @@ export interface PendientesLayoutProps {
 
 const SENTINEL_ALL = '__all__';
 
-export function PendientesLayout({
-  idActivo,
-  detalle,
-}: PendientesLayoutProps) {
+export function PendientesLayout({ idActivo, detalle }: PendientesLayoutProps) {
   const search = useSearch({ strict: false }) as PendientesSearch;
   const navigate = useNavigate();
   const verTodosDepartamentos = useHasPermission(
@@ -107,9 +101,7 @@ export function PendientesLayout({
     setSearch({ offset: 0, limit: search.limit });
   }
 
-  const hayFiltros =
-    search.departamentoId != null ||
-    (search.q != null && search.q.length > 0);
+  const hayFiltros = search.departamentoId != null || (search.q != null && search.q.length > 0);
 
   return (
     <div className="flex flex-col gap-4 md:h-[calc(100vh-3.5rem-3rem)] md:flex-row">
@@ -124,9 +116,7 @@ export function PendientesLayout({
         data-print="hidden"
       >
         <div className="flex flex-wrap items-center justify-between gap-2">
-          <h1 className="text-xl font-semibold tracking-tight">
-            Pendientes
-          </h1>
+          <h1 className="text-xl font-semibold tracking-tight">Pendientes</h1>
         </div>
 
         <div
@@ -135,10 +125,7 @@ export function PendientesLayout({
           aria-label="Filtros de bandeja de pendientes"
         >
           {verTodosDepartamentos && (
-            <Select
-              value={search.departamentoId ?? SENTINEL_ALL}
-              onValueChange={handleDeptoChange}
-            >
+            <Select value={search.departamentoId ?? SENTINEL_ALL} onValueChange={handleDeptoChange}>
               <SelectTrigger
                 aria-label="Filtrar por departamento"
                 className="h-9 w-full gap-1 font-medium"
@@ -146,9 +133,7 @@ export function PendientesLayout({
                 <SelectValue placeholder="Todos los departamentos" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value={SENTINEL_ALL}>
-                  Todos los departamentos
-                </SelectItem>
+                <SelectItem value={SENTINEL_ALL}>Todos los departamentos</SelectItem>
                 {Array.from(deptosMap.values()).map((d) => (
                   <SelectItem key={d.id} value={d.id}>
                     {d.clave} · {d.nombre}
@@ -159,12 +144,7 @@ export function PendientesLayout({
           )}
 
           {hayFiltros && (
-            <Button
-              type="button"
-              variant="ghost"
-              size="sm"
-              onClick={handleLimpiar}
-            >
+            <Button type="button" variant="ghost" size="sm" onClick={handleLimpiar}>
               Limpiar
             </Button>
           )}
@@ -187,7 +167,15 @@ export function PendientesLayout({
         )}
         aria-label="Detalle de requisición pendiente"
       >
-        {idActivo == null ? <PlaceholderSinSeleccion /> : detalle}
+        {idActivo == null ? (
+          <PlaceholderSinSeleccion />
+        ) : (
+          <RecurrenciaContext.Provider
+            value={query.data?.items.find((item) => item.id === idActivo)?.esRecurrente}
+          >
+            {detalle}
+          </RecurrenciaContext.Provider>
+        )}
       </section>
     </div>
   );
@@ -200,19 +188,11 @@ interface RenderListaContentProps {
   search: PendientesSearch;
 }
 
-function RenderListaContent({
-  query,
-  items,
-  idActivo,
-  search,
-}: RenderListaContentProps) {
+function RenderListaContent({ query, items, idActivo, search }: RenderListaContentProps) {
   if (query.isLoading) {
     return (
       <div className="p-3">
-        <TableSkeleton
-          rows={8}
-          columns={[{ width: 'w-full' }, { width: 'w-full' }]}
-        />
+        <TableSkeleton rows={8} columns={[{ width: 'w-full' }, { width: 'w-full' }]} />
       </div>
     );
   }
@@ -242,13 +222,7 @@ function RenderListaContent({
     );
   }
 
-  return (
-    <ListaPendientesCompacta
-      items={items}
-      idActivo={idActivo}
-      search={search}
-    />
-  );
+  return <ListaPendientesCompacta items={items} idActivo={idActivo} search={search} />;
 }
 
 function PlaceholderSinSeleccion() {

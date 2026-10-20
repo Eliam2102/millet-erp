@@ -62,9 +62,7 @@ const detalle = {
 describe('<DetalleFactura> — smoke', () => {
   it('renderiza folio, conceptos, cadena de relaciones y bitácora de envío', async () => {
     mswServer.use(
-      http.get('*/api/v1/facturacion/facturas/f-1', () =>
-        HttpResponse.json(detalle),
-      ),
+      http.get('*/api/v1/facturacion/facturas/f-1', () => HttpResponse.json(detalle)),
       http.get('*/api/v1/facturacion/facturas/f-1/envios', () =>
         HttpResponse.json([
           {
@@ -94,12 +92,10 @@ describe('<DetalleFactura> — smoke', () => {
     render(<DetalleFactura />, { wrapper: createQueryWrapper() });
     await waitFor(() => expect(screen.getByText('A-1')).toBeInTheDocument());
     expect(screen.getByText('Vidrio templado 6mm')).toBeInTheDocument();
-    expect(screen.getByText(/Conceptos \(1\)/i)).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: /Partidas \(1\)/i })).toBeInTheDocument();
     expect(screen.getByText(/Cadena de relaciones CFDI \(1\)/i)).toBeInTheDocument();
     expect(screen.getByText(/Aplicación de anticipo/i)).toBeInTheDocument();
-    expect(
-      await screen.findByText('cliente@demo.com'),
-    ).toBeInTheDocument();
+    expect(await screen.findByText('cliente@demo.com')).toBeInTheDocument();
     // Acciones de descarga presentes.
     expect(screen.getByRole('button', { name: /^XML$/i })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /Imprimir/i })).toBeInTheDocument();
@@ -133,7 +129,7 @@ describe('<DetalleFactura> — smoke', () => {
     expect(screen.getByText('NC-3')).toBeInTheDocument();
     expect(screen.getByText(/Aplicación de anticipo/i)).toBeInTheDocument();
     expect(screen.getByText('Por cobrar')).toBeInTheDocument();
-    expect(screen.getByText('66.00 MXN')).toBeInTheDocument();
+    expect(screen.getByText('$66.00')).toBeInTheDocument();
   });
 
   it('columna Reembolso: botón en NC de bonificación y «Solicitado» si ya se pidió', async () => {
@@ -150,7 +146,10 @@ describe('<DetalleFactura> — smoke', () => {
         HttpResponse.json({
           ...detalle,
           relaciones: [],
-          notasCreditoAplicadas: [nc, { ...nc, id: 'nc-10', folio: 'NC-10', reembolsoSolicitado: true }],
+          notasCreditoAplicadas: [
+            nc,
+            { ...nc, id: 'nc-10', folio: 'NC-10', reembolsoSolicitado: true },
+          ],
         }),
       ),
       http.get('*/api/v1/facturacion/facturas/f-1/envios', () => HttpResponse.json([])),
@@ -169,15 +168,11 @@ describe('<DetalleFactura> — smoke', () => {
           { status: 404, headers: { 'Content-Type': 'application/problem+json' } },
         ),
       ),
-      http.get('*/api/v1/facturacion/facturas/f-1/envios', () =>
-        HttpResponse.json([]),
-      ),
+      http.get('*/api/v1/facturacion/facturas/f-1/envios', () => HttpResponse.json([])),
     );
     render(<DetalleFactura />, { wrapper: createQueryWrapper() });
     await waitFor(() =>
-      expect(
-        screen.getByText(/No se pudo cargar la factura/i),
-      ).toBeInTheDocument(),
+      expect(screen.getByText(/No se pudo cargar la factura/i)).toBeInTheDocument(),
     );
   });
 });

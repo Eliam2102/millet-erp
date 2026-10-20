@@ -1,3 +1,5 @@
+import { SheetBody, SheetFooter } from '@/components/ui/sheet';
+import { FormGrid, FormCampo } from '@/components/erp';
 import { useEffect, useState } from 'react';
 import { Controller, useForm, useWatch } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -13,32 +15,19 @@ import {
   SheetTitle,
 } from '@/components/ui/sheet';
 import { ClienteSelectorCxc } from '@/features/cxc/components/ClienteSelectorCxc';
-import {
-  useCreditoDisponible,
-} from '@/features/cxc/api/useLineasCredito';
-import {
-  useAutorizacionesCredito,
-  useDecidirLiberacion,
-} from '@/features/cxc/api/useLiberaciones';
+import { useCreditoDisponible } from '@/features/cxc/api/useLineasCredito';
+import { useAutorizacionesCredito, useDecidirLiberacion } from '@/features/cxc/api/useLiberaciones';
 import {
   EstadoAutorizacionCredito,
   MONEDAS_LINEA_CREDITO,
   ResultadoLiberacion,
 } from '@/features/cxc/api/types';
-import {
-  ETIQUETA_RESULTADO_LIBERACION,
-  formatoMonto,
-} from '@/features/cxc/lib/glosario';
+import { ETIQUETA_RESULTADO_LIBERACION, formatoMonto } from '@/features/cxc/lib/glosario';
 import {
   DecidirLiberacionSchema,
   type DecidirLiberacionValues,
 } from '@/features/cxc/schemas/liberacion';
-import {
-  applyServerErrors,
-  esApiError,
-  useFormIdempotencyKey,
-  codigoSoporte,
-} from '@/lib/api';
+import { applyServerErrors, esApiError, useFormIdempotencyKey, codigoSoporte } from '@/lib/api';
 import { useAuthStore } from '@/lib/auth/auth-store';
 import { cn } from '@/lib/utils';
 
@@ -63,16 +52,15 @@ export function DecidirLiberacionSheet({
 }) {
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
-      <SheetContent side="right" className="w-full overflow-y-auto sm:max-w-2xl">
+      <SheetContent side="right" size="lg">
         <SheetHeader>
           <SheetTitle>Decidir liberación</SheetTitle>
           <SheetDescription>
-            Evalúa la liberación de un pedido contra la cascada serie →
-            crédito → override. La decisión queda registrada de forma
-            inmutable (correcciones = nueva decisión).
+            Evalúa la liberación de un pedido contra la cascada serie → crédito → override. La
+            decisión queda registrada de forma inmutable (correcciones = nueva decisión).
           </SheetDescription>
         </SheetHeader>
-        <div className="px-2 pb-6">
+        <div className="flex min-h-0 flex-1 flex-col">
           {open && <FormDecidir onClose={() => onOpenChange(false)} />}
         </div>
       </SheetContent>
@@ -106,8 +94,7 @@ function FormDecidir({ onClose }: { onClose: () => void }) {
   const credito = useCreditoDisponible(clienteId || null);
   const lineaMoneda = credito.data?.lineas.find((l) => l.moneda === moneda);
   const disponible = lineaMoneda?.disponible ?? null;
-  const alcanza =
-    disponible != null && montoPedido > 0 && disponible >= montoPedido;
+  const alcanza = disponible != null && montoPedido > 0 && disponible >= montoPedido;
 
   // Overrides vigentes del usuario actual (solo el beneficiario consume).
   const autorizaciones = useAutorizacionesCredito(
@@ -160,17 +147,12 @@ function FormDecidir({ onClose }: { onClose: () => void }) {
         onError: (error) => {
           if (esApiError(error)) {
             if (
-              applyServerErrors(
-                form as unknown as Parameters<typeof applyServerErrors>[0],
-                error,
-              )
+              applyServerErrors(form as unknown as Parameters<typeof applyServerErrors>[0], error)
             ) {
               return;
             }
             toast.error(error.problem.title, {
-              description:
-                error.problem.detail ??
-                (codigoSoporte(error)),
+              description: error.problem.detail ?? codigoSoporte(error),
             });
             return;
           }
@@ -181,167 +163,161 @@ function FormDecidir({ onClose }: { onClose: () => void }) {
   }
 
   return (
-    <form onSubmit={form.handleSubmit(onSubmit)} noValidate className="space-y-5">
-      <section className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-        <div className="space-y-1">
-          <Label htmlFor="pedidoRef" className="text-xs">
-            Folio del pedido (A+W) <span className="text-destructive">*</span>
-          </Label>
-          <Input
-            id="pedidoRef"
-            placeholder="p. ej. 3000123456"
-            maxLength={40}
-            {...form.register('pedidoRef')}
-          />
-          {form.formState.errors.pedidoRef && (
-            <p className="text-xs text-destructive">
-              {form.formState.errors.pedidoRef.message}
-            </p>
-          )}
-        </div>
-        <div className="space-y-1">
-          <Label htmlFor="montoPedido" className="text-xs">
-            Monto del pedido <span className="text-destructive">*</span>
-          </Label>
-          <Input
-            id="montoPedido"
-            type="number"
-            step="0.01"
-            min="0"
-            {...form.register('montoPedido', { valueAsNumber: true })}
-          />
-          {form.formState.errors.montoPedido && (
-            <p className="text-xs text-destructive">
-              {form.formState.errors.montoPedido.message}
-            </p>
-          )}
-        </div>
-        <div className="space-y-1">
-          <Label className="text-xs">
-            Cliente <span className="text-destructive">*</span>
-          </Label>
-          <Controller
-            name="clienteId"
-            control={form.control}
-            render={({ field }) => (
-              <ClienteSelectorCxc
-                value={field.value || null}
-                onChange={(item) => {
-                  field.onChange(item?.id ?? '');
-                  setClienteLabel(item?.razonSocial);
-                }}
-              />
+    <form
+      onSubmit={form.handleSubmit(onSubmit)}
+      noValidate
+      className="flex min-h-0 flex-1 flex-col"
+    >
+      <SheetBody className="space-y-5">
+        <FormGrid>
+          <FormCampo span={6} className="space-y-1">
+            <Label htmlFor="pedidoRef" className="text-xs">
+              Folio del pedido (A+W) <span className="text-danger-fg">*</span>
+            </Label>
+            <Input
+              id="pedidoRef"
+              placeholder="p. ej. 3000123456"
+              maxLength={40}
+              {...form.register('pedidoRef')}
+            />
+            {form.formState.errors.pedidoRef && (
+              <p className="text-xs text-danger-fg">{form.formState.errors.pedidoRef.message}</p>
             )}
-          />
-          {form.formState.errors.clienteId && (
-            <p className="text-xs text-destructive">
-              {form.formState.errors.clienteId.message}
-            </p>
-          )}
-        </div>
-        <div className="space-y-1">
-          <Label htmlFor="moneda" className="text-xs">
-            Moneda <span className="text-destructive">*</span>
-          </Label>
-          <select
-            id="moneda"
-            className="h-9 w-full rounded-md border border-input bg-transparent px-3 text-sm shadow-sm"
-            {...form.register('moneda')}
-          >
-            {MONEDAS_LINEA_CREDITO.map((m) => (
-              <option key={m} value={m}>
-                {m}
-              </option>
-            ))}
-          </select>
-        </div>
-      </section>
-
-      {/* ── Snapshot indicativo de crédito ─────────────────────────── */}
-      {clienteId && (
-        <section
-          className={cn(
-            'rounded-md border px-4 py-3 text-sm',
-            disponible == null
-              ? 'bg-muted/40'
-              : alcanza
-                ? 'border-emerald-300 bg-emerald-50/60 dark:border-emerald-900 dark:bg-emerald-950/30'
-                : 'border-amber-300 bg-amber-50/60 dark:border-amber-800 dark:bg-amber-950/30',
-          )}
-          aria-live="polite"
-        >
-          {credito.isLoading ? (
-            <p className="text-muted-foreground">Evaluando crédito…</p>
-          ) : lineaMoneda == null ? (
-            <p>
-              {clienteLabel ?? 'El cliente'} no tiene línea de crédito en{' '}
-              {moneda} — sin override, la decisión quedará retenida.
-            </p>
-          ) : (
-            <div className="space-y-1">
-              <p>
-                Crédito disponible:{' '}
-                <span className="font-mono font-semibold tabular-nums">
-                  {formatoMonto(lineaMoneda.disponible, lineaMoneda.moneda)}
-                </span>
-                {credito.data?.datoIncompleto && (
-                  <span className="ml-2 text-xs text-amber-700 dark:text-amber-300">
-                    (sin material liberado A+W — indicativo)
-                  </span>
-                )}
-              </p>
-              {montoPedido > 0 && (
-                <p className="text-xs text-muted-foreground">
-                  {alcanza
-                    ? 'El crédito alcanza para el monto del pedido.'
-                    : 'El crédito NO alcanza: se requiere override vigente o quedará retenido.'}{' '}
-                  Las reglas por serie (p. ej. 5000/7000 siempre liberan) las
-                  evalúa el sistema al registrar.
-                </p>
+          </FormCampo>
+          <FormCampo span={6} className="space-y-1">
+            <Label htmlFor="montoPedido" className="text-xs">
+              Monto del pedido <span className="text-danger-fg">*</span>
+            </Label>
+            <Input
+              id="montoPedido"
+              type="number"
+              step="0.01"
+              min="0"
+              {...form.register('montoPedido', { valueAsNumber: true })}
+            />
+            {form.formState.errors.montoPedido && (
+              <p className="text-xs text-danger-fg">{form.formState.errors.montoPedido.message}</p>
+            )}
+          </FormCampo>
+          <FormCampo span={6} className="space-y-1">
+            <Label className="text-xs">
+              Cliente <span className="text-danger-fg">*</span>
+            </Label>
+            <Controller
+              name="clienteId"
+              control={form.control}
+              render={({ field }) => (
+                <ClienteSelectorCxc
+                  value={field.value || null}
+                  onChange={(item) => {
+                    field.onChange(item?.id ?? '');
+                    setClienteLabel(item?.razonSocial);
+                  }}
+                />
               )}
-            </div>
-          )}
-        </section>
-      )}
-
-      {/* ── Override consumible (solo si el crédito no alcanza) ────── */}
-      {clienteId && montoPedido > 0 && !alcanza && (
-        <section className="space-y-1">
-          <Label htmlFor="overrideId" className="text-xs">
-            Autorización vigente (override)
-          </Label>
-          {vigentes.length === 0 ? (
-            <p className="rounded-md border border-dashed px-3 py-2 text-xs text-muted-foreground">
-              No tienes autorizaciones vigentes a tu nombre. Pide a tu
-              gerente que cree una desde la pestaña Autorizaciones.
-            </p>
-          ) : (
+            />
+            {form.formState.errors.clienteId && (
+              <p className="text-xs text-danger-fg">{form.formState.errors.clienteId.message}</p>
+            )}
+          </FormCampo>
+          <FormCampo span={6} className="space-y-1">
+            <Label htmlFor="moneda" className="text-xs">
+              Moneda <span className="text-danger-fg">*</span>
+            </Label>
             <select
-              id="overrideId"
-              className="h-9 w-full rounded-md border border-input bg-transparent px-3 text-sm shadow-sm"
-              {...form.register('overrideId', {
-                setValueAs: (v) => (v === '' ? null : v),
-              })}
+              id="moneda"
+              className="h-9 w-full rounded-md border border-line-control bg-transparent px-3 text-sm shadow-card-flat"
+              {...form.register('moneda')}
             >
-              <option value="">Sin override (retener)</option>
-              {vigentes.map((a) => (
-                <option key={a.id} value={a.id}>
-                  {a.clienteOPedidoRef} · {a.motivo} · vence{' '}
-                  {new Date(a.vigenteHasta).toLocaleString('es-MX')}
+              {MONEDAS_LINEA_CREDITO.map((m) => (
+                <option key={m} value={m}>
+                  {m}
                 </option>
               ))}
             </select>
-          )}
-        </section>
-      )}
+          </FormCampo>
+        </FormGrid>
 
-      <div className="flex items-center justify-end gap-2 border-t pt-4">
-        <Button
-          type="button"
-          variant="ghost"
-          onClick={onClose}
-          disabled={decidir.isPending}
-        >
+        {/* ── Snapshot indicativo de crédito ─────────────────────────── */}
+        {clienteId && (
+          <section
+            className={cn(
+              'rounded-md border px-4 py-3 text-sm',
+              disponible == null
+                ? 'bg-surface-muted/40'
+                : alcanza
+                  ? 'border-line bg-success-bg  '
+                  : 'border-line bg-warning-bg  ',
+            )}
+            aria-live="polite"
+          >
+            {credito.isLoading ? (
+              <p className="text-ink-muted">Evaluando crédito…</p>
+            ) : lineaMoneda == null ? (
+              <p>
+                {clienteLabel ?? 'El cliente'} no tiene línea de crédito en {moneda} — sin override,
+                la decisión quedará retenida.
+              </p>
+            ) : (
+              <div className="space-y-1">
+                <p>
+                  Crédito disponible:{' '}
+                  <span className="font-mono font-semibold tabular-nums">
+                    {formatoMonto(lineaMoneda.disponible, lineaMoneda.moneda)}
+                  </span>
+                  {credito.data?.datoIncompleto && (
+                    <span className="ml-2 text-xs text-warning-fg ">
+                      (sin material liberado A+W — indicativo)
+                    </span>
+                  )}
+                </p>
+                {montoPedido > 0 && (
+                  <p className="text-xs text-ink-muted">
+                    {alcanza
+                      ? 'El crédito alcanza para el monto del pedido.'
+                      : 'El crédito NO alcanza: se requiere override vigente o quedará retenido.'}{' '}
+                    Las reglas por serie (p. ej. 5000/7000 siempre liberan) las evalúa el sistema al
+                    registrar.
+                  </p>
+                )}
+              </div>
+            )}
+          </section>
+        )}
+
+        {/* ── Override consumible (solo si el crédito no alcanza) ────── */}
+        {clienteId && montoPedido > 0 && !alcanza && (
+          <section className="space-y-1">
+            <Label htmlFor="overrideId" className="text-xs">
+              Autorización vigente (override)
+            </Label>
+            {vigentes.length === 0 ? (
+              <p className="rounded-md border border-dashed px-3 py-2 text-xs text-ink-muted">
+                No tienes autorizaciones vigentes a tu nombre. Pide a tu gerente que cree una desde
+                la pestaña Autorizaciones.
+              </p>
+            ) : (
+              <select
+                id="overrideId"
+                className="h-9 w-full rounded-md border border-line-control bg-transparent px-3 text-sm shadow-card-flat"
+                {...form.register('overrideId', {
+                  setValueAs: (v) => (v === '' ? null : v),
+                })}
+              >
+                <option value="">Sin override (retener)</option>
+                {vigentes.map((a) => (
+                  <option key={a.id} value={a.id}>
+                    {a.clienteOPedidoRef} · {a.motivo} · vence{' '}
+                    {new Date(a.vigenteHasta).toLocaleString('es-MX')}
+                  </option>
+                ))}
+              </select>
+            )}
+          </section>
+        )}
+      </SheetBody>
+      <SheetFooter className="flex-row justify-end border-t border-line-divider">
+        <Button type="button" variant="ghost" onClick={onClose} disabled={decidir.isPending}>
           Cancelar
         </Button>
         <Button
@@ -351,7 +327,7 @@ function FormDecidir({ onClose }: { onClose: () => void }) {
         >
           {decidir.isPending ? 'Registrando…' : etiquetaBoton}
         </Button>
-      </div>
+      </SheetFooter>
     </form>
   );
 }
