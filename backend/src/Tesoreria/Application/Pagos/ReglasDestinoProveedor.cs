@@ -26,6 +26,10 @@ public static class ReglasDestinoProveedor
         var elegida = cuentaProveedorId is Guid id
             ? info.Cuentas.FirstOrDefault(c => c.Id == id)
             : info.CuentaPara(monedaEgreso);
+        if (elegida is null && cuentaProveedorId is null
+            && info.Cuentas.Count(c => c.Activa && c.Moneda == monedaEgreso) > 1)
+            throw new BusinessRuleException("PROVEEDOR_CUENTA_PREDETERMINADA_REQUERIDA",
+                $"El proveedor '{info.RazonSocial}' tiene varias cuentas activas en {monedaEgreso} y ninguna es la predeterminada. Marca una como predeterminada en Datos maestros antes de pagar.");
         if (elegida is null)
             throw new BusinessRuleException("PROVEEDOR_SIN_CUENTA_ACTIVA",
                 $"El proveedor '{info.RazonSocial}' no tiene una cuenta activa en {monedaEgreso}. Regístrala y valídala en Datos maestros antes de pagar.");
