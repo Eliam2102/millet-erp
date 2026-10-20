@@ -71,7 +71,7 @@ export function SidebarNav({
     const railClass = (active: boolean) =>
       cn(
         'flex w-rail-item flex-col items-center gap-1 rounded-md pt-2 pb-1.5 text-2xs leading-tight transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand',
-        active ? 'bg-rail-active text-white' : 'text-rail-fg hover:bg-rail-active hover:text-white',
+        active ? 'bg-rail-active text-primary-foreground' : 'text-rail-fg hover:bg-rail-active hover:text-primary-foreground',
       );
     const ordenados = [...items].sort(
       (a, b) =>
@@ -130,10 +130,10 @@ export function SidebarNav({
   return (
     <div className={cn('flex h-full w-60 flex-col bg-sidebar text-sidebar-foreground', className)}>
       <div className="flex h-14 shrink-0 items-center gap-2 border-b border-sidebar-border px-4">
-        <div className="flex h-7 w-7 items-center justify-center rounded bg-sidebar-accent text-xs font-bold text-white">
+        <div className="flex h-7 w-7 items-center justify-center rounded bg-sidebar-accent text-xs font-bold text-primary-foreground">
           M
         </div>
-        <span className="text-sm font-semibold tracking-wide text-white">Millet ERP</span>
+        <span className="text-sm font-semibold tracking-wide text-primary-foreground">Millet ERP</span>
       </div>
 
       <nav className="flex-1 overflow-y-auto py-3">
@@ -152,7 +152,7 @@ export function SidebarNav({
                       'flex items-center gap-3 rounded-md px-3 py-2 text-sm transition-colors',
                       active
                         ? 'bg-sidebar-active text-sidebar-active-foreground'
-                        : 'text-sidebar-foreground hover:bg-sidebar-active/50 hover:text-white',
+                        : 'text-sidebar-foreground hover:bg-sidebar-active/50 hover:text-primary-foreground',
                     )}
                   >
                     <Icon className="h-4 w-4 shrink-0" />
@@ -172,7 +172,7 @@ export function SidebarNav({
                     'flex w-full items-center gap-3 rounded-md px-3 py-2 text-sm transition-colors',
                     active
                       ? 'bg-sidebar-active text-sidebar-active-foreground'
-                      : 'text-sidebar-foreground hover:bg-sidebar-active/50 hover:text-white',
+                      : 'text-sidebar-foreground hover:bg-sidebar-active/50 hover:text-primary-foreground',
                   )}
                   aria-haspopup="dialog"
                 >

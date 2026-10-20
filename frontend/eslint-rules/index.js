@@ -1,6 +1,6 @@
 /** Reglas incrementales del design system; no sustituyen las restricciones de negocio. */
 const paleta =
-  /\b(bg|text|border|ring|outline|fill|stroke|divide|from|via|to|decoration|placeholder)-(slate|gray|zinc|neutral|stone|red|orange|amber|yellow|lime|green|emerald|teal|cyan|sky|blue|indigo|violet|purple|fuchsia|pink|rose)-\d{2,3}\b/;
+  /\b(bg|text|border|ring|outline|fill|stroke|divide|from|via|to|decoration|placeholder|shadow|accent|caret)-(?:(slate|gray|zinc|neutral|stone|red|orange|amber|yellow|lime|green|emerald|teal|cyan|sky|blue|indigo|violet|purple|fuchsia|pink|rose)-\d{2,3}|white|black)(?:\/\d+)?\b/;
 const hex = /(bg|text|border|ring|fill|stroke)-\[#[0-9a-fA-F]{3,8}\]/;
 const dark = /\bdark:/;
 const interno = /\.md\b|\bbackend\b|PLATFORM-TODO|POR CONFIRMAR|\(D\d{2}\)|\bADR-?\d|\bstub\b/i;

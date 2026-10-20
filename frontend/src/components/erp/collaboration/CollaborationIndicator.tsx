@@ -77,7 +77,7 @@ export function CollaborationIndicator({
           <Tooltip>
             <TooltipTrigger asChild>
               <Avatar className="size-7 ring-2 ring-background">
-                <AvatarFallback className="bg-slate-200 text-[10px] font-semibold">
+                <AvatarFallback className="bg-neutral-bg text-neutral-fg text-[10px] font-semibold">
                   +{restantes}
                 </AvatarFallback>
               </Avatar>
@@ -108,13 +108,13 @@ function AvatarPersona({ user }: AvatarPersonaProps) {
           <Avatar
             className={cn(
               'size-7 ring-2 ring-background',
-              editando && 'ring-amber-300',
+              editando && 'ring-warning',
             )}
           >
             <AvatarFallback
               className={cn(
                 'text-[10px] font-semibold',
-                editando ? 'bg-amber-100 text-amber-900' : 'bg-blue-100 text-blue-900',
+                editando ? 'bg-warning-bg text-warning-fg' : 'bg-info-bg text-info-fg',
               )}
             >
               {iniciales}
@@ -123,9 +123,9 @@ function AvatarPersona({ user }: AvatarPersonaProps) {
           {editando && (
             <span
               aria-hidden="true"
-              className="absolute -right-0.5 -top-0.5 flex size-3.5 items-center justify-center rounded-full bg-amber-500 ring-1 ring-background"
+              className="absolute -right-0.5 -top-0.5 flex size-3.5 items-center justify-center rounded-full bg-warning ring-1 ring-background"
             >
-              <Pencil className="size-2 text-white" />
+              <Pencil className="size-2 text-primary-foreground" />
             </span>
           )}
         </span>

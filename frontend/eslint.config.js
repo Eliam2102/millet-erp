@@ -17,9 +17,9 @@ export default defineConfig([
     ],
     plugins: { ds },
     rules: {
-      'ds/no-paleta-default': 'warn',
-      'ds/no-hex': 'warn',
-      'ds/no-dark': 'warn',
+      'ds/no-paleta-default': 'error',
+      'ds/no-hex': 'error',
+      'ds/no-dark': 'error',
     },
   },
   {

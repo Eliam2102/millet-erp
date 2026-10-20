@@ -104,3 +104,21 @@ test('las etiquetas accesibles también son texto de usuario', async () => {
   );
   assert(messages.some((m) => m.ruleId === 'ds/no-texto-interno'));
 });
+
+test('F5: blanco, negro y todos los prefijos son errores globales', async () => {
+  for (const prefix of ['bg', 'text', 'border', 'ring', 'outline', 'fill', 'stroke', 'divide', 'from', 'via', 'to', 'decoration', 'placeholder', 'shadow', 'accent', 'caret']) {
+    for (const color of ['white', 'black/60', 'red-600/50']) {
+      const messages = await lint(`export const Probe = () => <div className="hover:${prefix}-${color}" />;`, 'src/components/F5Probe.tsx');
+      assert(messages.some((m) => m.ruleId === 'ds/no-paleta-default' && m.severity === 2), `${prefix}-${color}`);
+    }
+  }
+  const template = await lint('export const classes = `shadow-black/20 accent-white caret-gray-500`;', 'src/components/F5Probe.tsx');
+  assert(template.some((m) => m.ruleId === 'ds/no-paleta-default' && m.severity === 2));
+});
+
+test('F5: tokens, transparent y current siguen permitidos; hex y dark son errores globales', async () => {
+  const allowed = await lint('export const Probe = () => <div className="bg-transparent text-current shadow-brand/20 accent-brand caret-ink bg-neutral-bg" />;', 'src/components/F5Probe.tsx');
+  assert(!allowed.some((m) => m.ruleId?.startsWith('ds/')));
+  const forbidden = await lint('export const Probe = () => <div className="dark:bg-brand text-[#abc]" />;', 'src/components/F5Probe.tsx');
+  for (const rule of ['ds/no-hex', 'ds/no-dark']) assert(forbidden.some((m) => m.ruleId === rule && m.severity === 2));
+});

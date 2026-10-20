@@ -7,7 +7,7 @@ exports[`<NaturalezaBadge> > snapshot por naturaleza: cubre las 4 > naturaleza-0
   data-state="closed"
 >
   <span
-    class="inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ring-1 ring-inset bg-slate-100 text-slate-700 ring-slate-200"
+    class="inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ring-1 ring-inset bg-surface-muted text-ink-strong ring-line"
     data-naturaleza="Estandar"
   >
     Estándar
@@ -22,7 +22,7 @@ exports[`<NaturalezaBadge> > snapshot por naturaleza: cubre las 4 > naturaleza-1
   data-state="closed"
 >
   <span
-    class="inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ring-1 ring-inset bg-sky-100 text-sky-900 ring-sky-200"
+    class="inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ring-1 ring-inset bg-info-bg text-info-fg ring-info"
     data-naturaleza="Servicio"
   >
     Servicio
@@ -37,7 +37,7 @@ exports[`<NaturalezaBadge> > snapshot por naturaleza: cubre las 4 > naturaleza-2
   data-state="closed"
 >
   <span
-    class="inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ring-1 ring-inset bg-rose-100 text-rose-900 ring-rose-200"
+    class="inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ring-1 ring-inset bg-danger-bg text-danger-fg ring-danger"
     data-naturaleza="Critico"
   >
     Crítico
@@ -52,7 +52,7 @@ exports[`<NaturalezaBadge> > snapshot por naturaleza: cubre las 4 > naturaleza-3
   data-state="closed"
 >
   <span
-    class="inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ring-1 ring-inset bg-orange-100 text-orange-900 ring-orange-200"
+    class="inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ring-1 ring-inset bg-warning-bg text-warning-fg ring-warning"
     data-naturaleza="Riesgo"
   >
     Riesgo
