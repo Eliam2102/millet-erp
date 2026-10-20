@@ -1,3 +1,5 @@
+import { Badge } from '@/components/ui/badge';
+import { ESTADOS_ASIGNACION } from '../lib/estados-ui';
 import { useState } from 'react';
 import { ChevronRight } from 'lucide-react';
 import { Checkbox } from '@/components/ui/checkbox';
@@ -57,13 +59,13 @@ export function ArbolAsignacion({ arbol, onMarcar, disabled }: ArbolAsignacionPr
   const nodos = arbol.dim1s.map(dim1ANodo);
 
   return (
-    <div className="overflow-x-auto rounded-md border">
-      <div className="min-w-[520px]">
+    <div className="overflow-x-auto rounded-lg bg-surface-card shadow-card-flat">
+      <div className="min-w-130">
         <div
           aria-hidden="true"
           className={cn(
             COLS,
-            'border-b bg-muted/50 px-3 py-2 text-xs font-medium uppercase tracking-wide text-muted-foreground',
+            'border-b border-line-divider bg-surface-subtle px-3 py-2 text-2xs font-semibold uppercase tracking-wide text-ink-muted',
           )}
         >
           <span>Alcance · Nombre</span>
@@ -72,13 +74,7 @@ export function ArbolAsignacion({ arbol, onMarcar, disabled }: ArbolAsignacionPr
 
         <ul role="tree" className="text-sm">
           {nodos.map((n) => (
-            <FilaNodo
-              key={n.key}
-              nodo={n}
-              nivel={0}
-              onMarcar={onMarcar}
-              disabled={disabled}
-            />
+            <FilaNodo key={n.key} nodo={n} nivel={0} onMarcar={onMarcar} disabled={disabled} />
           ))}
         </ul>
       </div>
@@ -108,26 +104,21 @@ function FilaNodo({
       <div
         className={cn(
           COLS,
-          'border-b px-3 py-1.5 hover:bg-muted/60',
-          esRaiz && 'bg-muted/40 font-medium',
+          'min-h-12 border-b border-line-row px-3 py-1.5 hover:bg-surface-muted/60',
+          esRaiz && 'bg-surface-muted/40 font-medium',
         )}
       >
-        <div
-          className="flex min-w-0 items-center gap-2"
-          style={{ paddingLeft: nivel * 20 }}
-        >
+        <div className="flex min-w-0 items-center gap-2" style={{ paddingLeft: nivel * 20 }}>
           <Checkbox
             checked={estadoAChecked(nodo.estado)}
             disabled={disabled || sinAsignables}
             aria-label={`Alcance de ${nodo.etiqueta}`}
-            onCheckedChange={(checked) =>
-              onMarcar({ ...nodo.marca, asignar: checked === true })
-            }
+            onCheckedChange={(checked) => onMarcar({ ...nodo.marca, asignar: checked === true })}
           />
           {expandible ? (
             <button
               type="button"
-              className="flex h-5 w-5 shrink-0 items-center justify-center rounded hover:bg-muted"
+              className="flex h-5 w-5 shrink-0 items-center justify-center rounded hover:bg-surface-muted"
               aria-label={`${open ? 'Colapsar' : 'Expandir'} ${nodo.etiqueta}`}
               onClick={() => setOpen((v) => !v)}
             >
@@ -171,42 +162,21 @@ function estadoAChecked(estado: TriEstado): boolean | 'indeterminate' {
   return false;
 }
 
-/**
- * Columna ASIGNADAS con color semántico del tri-estado (05 §7.3): píldora
- * emerald (Todas) / amber (Parcial); Ninguna en texto gris SIN píldora
- * (la mayoría de los renglones cae ahí — el color señala señal, no ocupa
- * espacio). Píldora INLINE con las clases de la paleta de `EstadoBadge`,
- * NO el componente (acoplado a RQ/OC) ni tocando `components/ui/*` —
- * mismo patrón que la píldora "Inactivo" del §7.1. El `estado` ya viene
- * calculado en el DTO; cero re-derivación en cliente.
- */
+/** El estado de asignación procede del DTO; el mapa sólo define texto y tono. */
 function BadgeAsignadas({
   nodo,
 }: {
   nodo: { estado: TriEstado; dim3Asignadas: number; dim3Vivas: number };
 }) {
   if (nodo.dim3Vivas === 0) {
-    return <span className="text-muted-foreground">Sin máquinas</span>;
+    return <span className="text-ink-muted">Sin máquinas</span>;
   }
-  if (nodo.estado === TriEstado.Todo) {
-    return (
-      <span className="rounded-full bg-emerald-100 px-2 py-0.5 font-medium text-emerald-900 ring-1 ring-inset ring-emerald-200">
-        Todas · {nodo.dim3Asignadas}
-      </span>
-    );
-  }
-  if (nodo.estado === TriEstado.Parcial) {
-    return (
-      <span className="rounded-full bg-amber-100 px-2 py-0.5 font-medium text-amber-900 ring-1 ring-inset ring-amber-200">
-        Parcial · {nodo.dim3Asignadas} de {nodo.dim3Vivas}
-      </span>
-    );
-  }
-  // Ninguna: texto gris, sin píldora.
+  const estado = ESTADOS_ASIGNACION[nodo.estado];
   return (
-    <span className="text-muted-foreground">
-      Ninguna · {nodo.dim3Asignadas} de {nodo.dim3Vivas}
-    </span>
+    <Badge variant={estado.tono}>
+      {estado.texto} · {nodo.dim3Asignadas}
+      {nodo.estado !== TriEstado.Todo && <> de {nodo.dim3Vivas}</>}
+    </Badge>
   );
 }
 
