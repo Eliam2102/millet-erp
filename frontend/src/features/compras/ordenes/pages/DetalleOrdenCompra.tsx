@@ -22,6 +22,7 @@ import {
   useUsosPrincipales,
   mapById,
 } from '@/features/catalogos/api';
+import { RecurrenteBadge } from '@/features/compras/components/IndicadoresPendiente';
 import { useOrdenCompra } from '@/features/compras/ordenes/api/useOrdenCompra';
 import { AccionesOC } from '@/features/compras/ordenes/components/AccionesOC';
 import { AdjuntosManagerOc } from '@/features/compras/ordenes/components/AdjuntosManagerOc';
@@ -201,6 +202,7 @@ export function DetalleOrdenCompra() {
             {oc.folio}
           </h1>
           <EstadoBadge tipo="orden-compra" estado={oc.estado} />
+          <RecurrenteBadge esRecurrente={oc.esRecurrente} />
           <CollaborationIndicator entidad="orden-compra" id={oc.id} />
         </div>
 
