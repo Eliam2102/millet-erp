@@ -69,7 +69,7 @@ export default defineConfig([
     },
   },
   {
-    files: ['src/features/almacen/**/*.tsx'],
+    files: ['src/features/almacen/**/*.tsx', 'src/features/compras/**/*.tsx'],
     ignores: [
       '**/*.test.tsx',
       'src/components/erp/reportes/exporters/**',

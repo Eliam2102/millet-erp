@@ -268,7 +268,7 @@ describe('<SelectorRequisicionesConsolidacion> (UF2-PR2)', () => {
     );
   });
 
-  it('muestra el faltante por comprar de la RQ y el saldo vs almacén por línea', async () => {
+  it('muestra el faltante por comprar de la RQ y el saldo vs almacén por partida', async () => {
     mswServer.use(
       http.get('*/api/v1/compras/ordenes/requisiciones-disponibles', () =>
         HttpResponse.json([

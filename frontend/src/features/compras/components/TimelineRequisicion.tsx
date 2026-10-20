@@ -63,29 +63,17 @@ export interface TimelineRequisicionProps {
   isLoading?: boolean;
 }
 
-export function TimelineRequisicion({
-  entradas,
-  isLoading,
-}: TimelineRequisicionProps) {
+export function TimelineRequisicion({ entradas, isLoading }: TimelineRequisicionProps) {
   if (isLoading) {
-    return (
-      <p className="text-sm text-muted-foreground">Cargando histórico…</p>
-    );
+    return <p className="text-sm text-ink-muted">Cargando histórico…</p>;
   }
 
   if (entradas.length === 0) {
-    return (
-      <p className="text-sm text-muted-foreground">
-        Sin transiciones registradas todavía.
-      </p>
-    );
+    return <p className="text-sm text-ink-muted">Sin transiciones registradas todavía.</p>;
   }
 
   return (
-    <ol
-      className="space-y-3"
-      aria-label="Línea de tiempo de la requisición"
-    >
+    <ol className="space-y-3" aria-label="Actividad de la requisición">
       {entradas.map((e, idx) => (
         <EntradaTimeline
           key={`${e.timestamp}-${e.tipo}-${e.entidadId ?? 'agg'}-${idx}`}
@@ -108,11 +96,11 @@ function EntradaTimeline({ entrada }: EntradaTimelineProps) {
   // Actor resuelto en backend (ADR-0042): sin actor → "Sistema"; no resuelto
   // (service principal / borrado) → indica Por confirmar.
   const actor =
-    entrada.actorId == null ? 'Sistema' : entrada.actorNombre?.trim() || '[RESPONSABLE POR CONFIRMAR]';
+    entrada.actorId == null ? 'Sistema' : entrada.actorNombre?.trim() || '[RESPONSABLE]';
   const cambiosLegible = formatearCambios(entrada.cambios);
 
   return (
-    <li className="flex gap-3 rounded-md border bg-card p-3">
+    <li className="flex gap-3 rounded-md border bg-surface-card p-3">
       <div
         className={cn(
           'flex h-9 w-9 shrink-0 items-center justify-center rounded-full',
@@ -124,11 +112,10 @@ function EntradaTimeline({ entrada }: EntradaTimelineProps) {
       </div>
       <div className="min-w-0 flex-1">
         <p className="text-sm">
-          <span className="font-medium">{label}</span>{' '}
-          <span className="text-muted-foreground">por</span>{' '}
+          <span className="font-medium">{label}</span> <span className="text-ink-muted">por</span>{' '}
           <span className="font-medium">{actor}</span>
         </p>
-        <p className="text-xs text-muted-foreground">
+        <p className="text-xs text-ink-muted">
           <DateTimeDisplay value={entrada.timestamp} variant="datetime" />
         </p>
         {cambiosLegible != null && (
@@ -136,18 +123,14 @@ function EntradaTimeline({ entrada }: EntradaTimelineProps) {
             type="button"
             onClick={() => setAbierto((v) => !v)}
             aria-expanded={abierto}
-            className="mt-1 inline-flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground"
+            className="mt-1 inline-flex items-center gap-1 text-xs text-ink-muted hover:text-ink"
           >
-            {abierto ? (
-              <ChevronDown className="h-3 w-3" />
-            ) : (
-              <ChevronRight className="h-3 w-3" />
-            )}
+            {abierto ? <ChevronDown className="h-3 w-3" /> : <ChevronRight className="h-3 w-3" />}
             {abierto ? 'Ocultar cambios' : 'Ver cambios'}
           </button>
         )}
         {abierto && cambiosLegible != null && (
-          <pre className="mt-2 max-w-full overflow-x-auto rounded bg-muted/40 p-2 text-[11px] leading-relaxed">
+          <pre className="mt-2 max-w-full overflow-x-auto rounded bg-surface-muted/40 p-2 text-2xs leading-relaxed">
             {cambiosLegible}
           </pre>
         )}

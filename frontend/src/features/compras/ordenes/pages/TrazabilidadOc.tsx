@@ -1,13 +1,6 @@
 import { useParams } from '@tanstack/react-router';
-import {
-  ArbolDocumentos,
-  TipoDocumentoTrazabilidad,
-} from '@/components/erp';
-import {
-  ErrorState,
-  TableSkeleton,
-  EmptyState,
-} from '@/components/erp';
+import { ArbolDocumentos, TipoDocumentoTrazabilidad } from '@/components/erp';
+import { ErrorState, TableSkeleton, EmptyState } from '@/components/erp';
 import { useArbolDocumentos } from '@/features/compras/ordenes/api/useArbolDocumentos';
 import { esApiError } from '@/lib/api';
 import { PageHeader } from '@/components/erp/PageHeader';

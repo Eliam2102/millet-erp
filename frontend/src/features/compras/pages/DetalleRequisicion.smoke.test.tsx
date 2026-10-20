@@ -260,7 +260,7 @@ describe('<DetalleRequisicion> — smoke', () => {
     expect(screen.getByText(/no reserva stock/i)).toBeInTheDocument();
   });
 
-  it('estado Autorizada con líneas: muestra ResumenCubrimiento', async () => {
+  it('estado Autorizada con partidas: muestra ResumenCubrimiento', async () => {
     mswServer.use(
       http.get('*/api/v1/compras/requisiciones/rq-1', () =>
         HttpResponse.json({

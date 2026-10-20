@@ -53,7 +53,7 @@ describe('<ResumenCubrimiento>', () => {
     expect(container.firstChild).toBeNull();
   });
 
-  it('estado Autorizada con 0 líneas: no se muestra', () => {
+  it('estado Autorizada con 0 partidas: no se muestra', () => {
     const { container } = render(
       <ResumenCubrimiento
         lineas={[]}
@@ -63,7 +63,7 @@ describe('<ResumenCubrimiento>', () => {
     expect(container.firstChild).toBeNull();
   });
 
-  it('Autorizada con 3/5 cerradas: muestra 60% (3 de 5 líneas cerradas)', () => {
+  it('Autorizada con 3/5 cerradas: muestra 60% (3 de 5 partidas cerradas)', () => {
     render(
       <ResumenCubrimiento
         lineas={[
@@ -77,7 +77,7 @@ describe('<ResumenCubrimiento>', () => {
       />,
     );
     expect(screen.getByText('60%')).toBeInTheDocument();
-    expect(screen.getByText(/3 de 5 líneas cerradas/i)).toBeInTheDocument();
+    expect(screen.getByText(/3 de 5 partidas cerradas/i)).toBeInTheDocument();
   });
 
   it('EnSurtido con todas cerradas: 100% (badge verde)', () => {
@@ -88,7 +88,7 @@ describe('<ResumenCubrimiento>', () => {
       />,
     );
     expect(screen.getByText('100%')).toBeInTheDocument();
-    expect(screen.getByText(/2 de 2 líneas cerradas/i)).toBeInTheDocument();
+    expect(screen.getByText(/2 de 2 partidas cerradas/i)).toBeInTheDocument();
     // Verde: tiene clase emerald.
     expect(container.querySelector('[class*="success"]')).not.toBeNull();
   });
@@ -114,17 +114,17 @@ describe('<ResumenCubrimiento>', () => {
     const status = screen.getByRole('status');
     expect(status).toHaveAttribute(
       'aria-label',
-      expect.stringMatching(/50%.*1 de 2 líneas/i),
+      expect.stringMatching(/50%.*1 de 2 partidas/i),
     );
   });
 
-  it('singular: 1 de 1 línea cerrada', () => {
+  it('singular: 1 de 1 partida cerrada', () => {
     render(
       <ResumenCubrimiento
         lineas={[linea(10, 0)]}
         estado={EstadoRequisicion.Autorizada}
       />,
     );
-    expect(screen.getByText(/1 de 1 línea cerrada/i)).toBeInTheDocument();
+    expect(screen.getByText(/1 de 1 partida cerrada/i)).toBeInTheDocument();
   });
 });

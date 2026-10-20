@@ -5,7 +5,7 @@ import { ConMotivo } from '@/features/compras/components/ConMotivo';
 describe('<ConMotivo>', () => {
   it('con motivo envuelve el botón en un span enfocable', () => {
     render(
-      <ConMotivo motivo="Falta una línea">
+      <ConMotivo motivo="Falta una partida">
         <button disabled>Transmitir</button>
       </ConMotivo>,
     );
