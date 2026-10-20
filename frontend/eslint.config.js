@@ -24,7 +24,7 @@ export default defineConfig([
     },
   },
   {
-    files: ['src/features/comercio-exterior/**/*.tsx'],
+    files: ['src/features/comercio-exterior/**/*.tsx', 'src/features/sistema-diseno/**/*.{ts,tsx}'],
     ignores: [
       '**/*.test.tsx',
       'src/components/erp/reportes/exporters/**',
