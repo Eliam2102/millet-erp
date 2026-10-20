@@ -1,3 +1,6 @@
+import { FormGrid, FormCampo } from '@/components/erp/forms/FormGrid';
+import { FormSeccion } from '@/components/erp/forms/FormSeccion';
+import { ResumenImportes } from '@/components/erp/display/ResumenImportes';
 import { NotasCreditoAdjuntas } from './NotasCreditoAdjuntas';
 import { desgloseRetenciones } from '@/features/cxp/lib/conciliacion-p3';
 import { hoyLocalISO } from '@/lib/datetime';
@@ -10,6 +13,7 @@ import { toast } from 'sonner';
 import {
   Sheet,
   SheetContent,
+  SheetBody,
   SheetDescription,
   SheetFooter,
   SheetHeader,
@@ -191,7 +195,7 @@ export function CapturarFacturaSheet({
         lineaOcId: null,
       })),
     );
-    toast.success(`${lineas.length} línea(s) importadas del CFDI`);
+    toast.success(`${lineas.length} partida(s) importadas del CFDI`);
   }
 
   // useWatch (no form.watch) para que el componente siga memoizable por el
@@ -208,6 +212,10 @@ export function CapturarFacturaSheet({
   const baseRetencion =
     useWatch({ control: form.control, name: 'subtotal' }) -
     useWatch({ control: form.control, name: 'descuentos' });
+  const importesResumen = useWatch({
+    control: form.control,
+    name: ['moneda', 'subtotal', 'descuentos', 'impuestosTrasladados', 'total'],
+  });
   const totalRetenido = useWatch({ control: form.control, name: 'retenciones' });
   const propuesta = proponerRetenciones(baseRetencion, conceptoRetencion, catalogo.data ?? []);
   const retencionesXml = desgloseRetenciones(cfdiParseadoQuery.data?.retencionesDetalle);
@@ -240,7 +248,9 @@ export function CapturarFacturaSheet({
           ...values,
           retencionesDetalle:
             cfdiParseadoQuery.data?.retencionesDetalle ??
-            (!cfdiBase && !alertaRetenciones(totalRetenido, propuesta, conceptoRetencion) ? propuesta : null),
+            (!cfdiBase && !alertaRetenciones(totalRetenido, propuesta, conceptoRetencion)
+              ? propuesta
+              : null),
           fechaDocumento: toIso(values.fechaDocumento),
           fechaContabilizacion: toIso(values.fechaContabilizacion),
           tipoCambio: values.tipoCambio ?? null,
@@ -304,394 +314,446 @@ export function CapturarFacturaSheet({
 
   return (
     <Sheet open={open} onOpenChange={handleOpenChange}>
-      <SheetContent side="right" className="w-full max-w-3xl sm:max-w-3xl">
+      <SheetContent side="right" size="lg">
         <SheetHeader>
           <SheetTitle>Capturar factura desde OC</SheetTitle>
           <SheetDescription>
-            Concilia un CFDI recibido con una OC autorizada. El backend valida tolerancia del
-            proveedor; si excede, la factura se cancela automáticamente.
+            Concilia un CFDI recibido con una OC autorizada. Si el CFDI excede la tolerancia del
+            proveedor, la factura se rechaza.
           </SheetDescription>
         </SheetHeader>
 
-        <form
-          id="capturar-factura-form"
-          onSubmit={form.handleSubmit(onSubmit)}
-          className="grid min-h-0 flex-1 grid-cols-1 gap-4 overflow-y-auto px-4 lg:grid-cols-[260px_1fr]"
-        >
-          {/* Columna izquierda: metadata del CFDI seleccionado */}
-          <aside className="space-y-2 rounded-md border bg-muted/30 p-3 text-xs">
-            <p className="font-semibold uppercase tracking-wide text-muted-foreground">CFDI base</p>
-            {!cfdiPreseleccionado && (
-              <CfdiPorProcesarPicker value={cfdiSel?.id ?? null} onSelect={vincularCfdi} />
-            )}
-            {cfdiBase ? (
-              <dl className="space-y-1">
-                <Metadato label="UUID" valor={cfdiBase.uuidCfdi} mono />
-                <Metadato
-                  label="Folio"
-                  valor={
-                    cfdiBase.serie
-                      ? `${cfdiBase.serie}-${cfdiBase.folio ?? ''}`
-                      : (cfdiBase.folio ?? '—')
-                  }
-                />
-                <Metadato label="Fecha CFDI" valor={cfdiBase.fechaCfdi.slice(0, 10)} />
-                <Metadato
-                  label="Total CFDI"
-                  valor={`${cfdiBase.total.toFixed(2)} ${cfdiBase.moneda}`}
-                />
-              </dl>
-            ) : (
-              <p className="text-muted-foreground italic">
-                Sin CFDI base. Vincula uno con el selector de arriba, captura manualmente, o inicia
-                desde la bandeja de CFDIs con la acción "Capturar factura".
-              </p>
-            )}
-            {cfdiBase && (
-              <div className="flex flex-wrap gap-2 border-t pt-2">
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  onClick={() =>
-                    descargarXmlCfdi(cfdiBase.id, cfdiBase.uuidCfdi).catch((error) =>
-                      toast.error(
-                        esApiError(error) ? error.problem.title : 'Error al descargar el XML.',
-                      ),
-                    )
-                  }
-                >
-                  <Download className="mr-1 h-3 w-3" /> XML
-                </Button>
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  onClick={() =>
-                    abrirPdfCfdi(cfdiBase.id).catch((error) =>
-                      toast.error(
-                        esApiError(error) ? error.problem.title : 'Error al abrir el PDF.',
-                      ),
-                    )
-                  }
-                >
-                  Ver PDF
-                </Button>
-              </div>
-            )}
-          </aside>
-
-          {/* Columna derecha: campos editables */}
-          <div className="space-y-4">
-            <section className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-              <Campo
-                label="Orden de compra"
-                error={form.formState.errors.ordenCompraId?.message}
-                required
-              >
-                <Controller
-                  control={form.control}
-                  name="ordenCompraId"
-                  render={({ field }) => (
-                    <OrdenCompraSelector
-                      value={field.value || null}
-                      onChange={(id) => {
-                        field.onChange(id ?? '');
-                        // Al limpiar la OC, limpiamos también lo derivado.
-                        if (!id) {
-                          form.setValue('proveedorId', '', {
-                            shouldValidate: true,
-                          });
-                          form.setValue('sucursalId', '', {
-                            shouldValidate: true,
-                          });
-                          setProveedorNombreSel(null);
-                          // Las líneas ya no tienen OC de la cual vincular.
-                          resetLineaOcIds(form.getValues, form.setValue);
-                        }
-                      }}
-                      onSelect={(oc) => {
-                        // La OC es dueña de proveedor y sucursal: los
-                        // derivamos del resumen. El usuario no los teclea.
-                        form.setValue('proveedorId', oc.proveedorId, {
-                          shouldValidate: true,
-                        });
-                        form.setValue('sucursalId', oc.sucursalId, {
-                          shouldValidate: true,
-                        });
-                        // Nombre del proveedor para la etiqueta read-only, ya
-                        // resuelto en el resumen (sin catálogo capado).
-                        setProveedorNombreSel(oc.proveedorNombre);
-                        // Cambió la OC: los lineaOcId previos quedan stale
-                        // (apuntan a líneas de la OC vieja) y la guarda backend
-                        // los rechazaría → resetear todos a null.
-                        resetLineaOcIds(form.getValues, form.setValue);
-                      }}
-                    />
-                  )}
-                />
-              </Campo>
-              <Campo
-                label="Proveedor (de la OC)"
-                error={form.formState.errors.proveedorId?.message}
-              >
-                <Input
-                  value={proveedorLabel}
-                  placeholder="Se deriva de la OC"
-                  readOnly
-                  disabled
-                  aria-label="Proveedor derivado de la orden de compra"
-                />
-              </Campo>
-              <Campo label="Sucursal (de la OC)" error={form.formState.errors.sucursalId?.message}>
-                <Input
-                  value={sucursalLabel}
-                  placeholder="Se deriva de la OC"
-                  readOnly
-                  disabled
-                  aria-label="Sucursal derivada de la orden de compra"
-                />
-              </Campo>
-              <Campo label="Moneda" error={form.formState.errors.moneda?.message} required>
-                <Input
-                  placeholder="MXN"
-                  maxLength={3}
-                  className="uppercase"
-                  {...form.register('moneda', {
-                    setValueAs: (v) => (typeof v === 'string' ? v.toUpperCase() : v),
-                  })}
-                />
-              </Campo>
-              <Campo label="Serie" error={form.formState.errors.serieProveedor?.message}>
-                <Input placeholder="A" {...form.register('serieProveedor')} />
-              </Campo>
-              <Campo label="Folio" error={form.formState.errors.folioProveedor?.message}>
-                <Input placeholder="12345" {...form.register('folioProveedor')} />
-              </Campo>
-              <Campo
-                label="Fecha documento"
-                error={form.formState.errors.fechaDocumento?.message}
-                required
-              >
-                <Input type="date" {...form.register('fechaDocumento')} />
-              </Campo>
-              <Campo
-                label="Fecha contabilización"
-                error={form.formState.errors.fechaContabilizacion?.message}
-                required
-              >
-                <Input type="date" {...form.register('fechaContabilizacion')} />
-              </Campo>
-              <Campo
-                label="Fecha vencimiento"
-                error={form.formState.errors.fechaVencimiento?.message}
-                required
-              >
-                <Input type="date" {...form.register('fechaVencimiento')} />
-              </Campo>
-              <Campo label="Tipo de cambio" error={form.formState.errors.tipoCambio?.message}>
-                <Input
-                  type="number"
-                  step="0.0001"
-                  min="0"
-                  placeholder="1.0000"
-                  {...form.register('tipoCambio', { valueAsNumber: true })}
-                />
-              </Campo>
-            </section>
-
-            <section className="grid grid-cols-2 gap-3 sm:grid-cols-5">
-              <Campo label="Subtotal" error={form.formState.errors.subtotal?.message} required>
-                <Input
-                  type="number"
-                  step="0.01"
-                  min="0"
-                  aria-label="Subtotal"
-                  {...form.register('subtotal', { valueAsNumber: true })}
-                />
-              </Campo>
-              <Campo label="Descuentos" error={form.formState.errors.descuentos?.message}>
-                <Input
-                  type="number"
-                  step="0.01"
-                  min="0"
-                  {...form.register('descuentos', { valueAsNumber: true })}
-                />
-              </Campo>
-              <Campo
-                label="IVA trasladado"
-                error={form.formState.errors.impuestosTrasladados?.message}
-              >
-                <Input
-                  type="number"
-                  step="0.01"
-                  min="0"
-                  {...form.register('impuestosTrasladados', {
-                    valueAsNumber: true,
-                  })}
-                />
-              </Campo>
-              <Campo label="Retenciones" error={form.formState.errors.retenciones?.message}>
-                <Input
-                  type="number"
-                  step="0.01"
-                  min="0"
-                  aria-label="Retenciones"
-                  {...form.register('retenciones', { valueAsNumber: true })}
-                />
-              </Campo>
-              <Campo label="Total" error={form.formState.errors.total?.message} required>
-                <Input
-                  type="number"
-                  step="0.01"
-                  min="0"
-                  {...form.register('total', { valueAsNumber: true })}
-                />
-              </Campo>
-            </section>
-
-            <section className="space-y-3">
-              <div>
-                <Label htmlFor="captura-obra">Obra</Label>
-                <Input id="captura-obra" maxLength={120} {...form.register('obra')} />
-                <p className="text-xs text-ink-muted">
-                  Registra la obra a la que corresponde el pasivo.
+        <SheetBody>
+          <form
+            id="capturar-factura-form"
+            onSubmit={form.handleSubmit(onSubmit)}
+            className="space-y-5"
+          >
+            {/* Columna izquierda: metadata del CFDI seleccionado */}
+            <FormSeccion numero={1} titulo="Comprobante fiscal">
+              <FormCampo span={12} className="space-y-3">
+                <p className="font-semibold uppercase tracking-wide text-muted-foreground">
+                  CFDI base
                 </p>
-              </div>
-              <Label htmlFor="captura-concepto">Concepto fiscal de retención</Label>
-              <Select
-                value={conceptoRetencion || 'sin-concepto'}
-                onValueChange={(v) =>
-                  form.setValue('conceptoRetencion', v === 'sin-concepto' ? null : v)
-                }
-              >
-                <SelectTrigger id="captura-concepto">
-                  <SelectValue placeholder="Selecciona concepto" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="sin-concepto">Usar la retención del proveedor</SelectItem>
-                  {[
-                    ...new Set([
-                      CONCEPTO_SIN_RETENCION,
-                      ...(catalogo.data?.filter((r) => r.activa).map((r) => r.concepto) ?? []),
-                    ]),
-                  ].map(
-                    (c) => (
+                {!cfdiPreseleccionado && (
+                  <CfdiPorProcesarPicker value={cfdiSel?.id ?? null} onSelect={vincularCfdi} />
+                )}
+                {cfdiBase ? (
+                  <dl className="space-y-1">
+                    <Metadato label="UUID" valor={cfdiBase.uuidCfdi} mono />
+                    <Metadato
+                      label="Folio"
+                      valor={
+                        cfdiBase.serie
+                          ? `${cfdiBase.serie}-${cfdiBase.folio ?? ''}`
+                          : (cfdiBase.folio ?? '—')
+                      }
+                    />
+                    <Metadato label="Fecha CFDI" valor={cfdiBase.fechaCfdi.slice(0, 10)} />
+                    <Metadato
+                      label="Total CFDI"
+                      valor={`${cfdiBase.total.toFixed(2)} ${cfdiBase.moneda}`}
+                    />
+                  </dl>
+                ) : (
+                  <p className="text-muted-foreground italic">
+                    Sin CFDI base. Vincula uno con el selector de arriba, captura manualmente, o
+                    inicia desde la bandeja de CFDIs con la acción "Capturar factura".
+                  </p>
+                )}
+                {cfdiBase && (
+                  <div className="flex flex-wrap gap-2 border-t pt-2">
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={() =>
+                        descargarXmlCfdi(cfdiBase.id, cfdiBase.uuidCfdi).catch((error) =>
+                          toast.error(
+                            esApiError(error) ? error.problem.title : 'Error al descargar el XML.',
+                          ),
+                        )
+                      }
+                    >
+                      <Download className="mr-1 h-3 w-3" /> XML
+                    </Button>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={() =>
+                        abrirPdfCfdi(cfdiBase.id).catch((error) =>
+                          toast.error(
+                            esApiError(error) ? error.problem.title : 'Error al abrir el PDF.',
+                          ),
+                        )
+                      }
+                    >
+                      Ver PDF
+                    </Button>
+                  </div>
+                )}
+              </FormCampo>
+            </FormSeccion>
+
+            {/* Columna derecha: campos editables */}
+            <div className="space-y-4">
+              <FormSeccion numero={2} titulo="Datos de la factura">
+                <Campo
+                  label="Orden de compra"
+                  error={form.formState.errors.ordenCompraId?.message}
+                  required
+                >
+                  <Controller
+                    control={form.control}
+                    name="ordenCompraId"
+                    render={({ field }) => (
+                      <OrdenCompraSelector
+                        value={field.value || null}
+                        onChange={(id) => {
+                          field.onChange(id ?? '');
+                          // Al limpiar la OC, limpiamos también lo derivado.
+                          if (!id) {
+                            form.setValue('proveedorId', '', {
+                              shouldValidate: true,
+                            });
+                            form.setValue('sucursalId', '', {
+                              shouldValidate: true,
+                            });
+                            setProveedorNombreSel(null);
+                            // Las líneas ya no tienen OC de la cual vincular.
+                            resetLineaOcIds(form.getValues, form.setValue);
+                          }
+                        }}
+                        onSelect={(oc) => {
+                          // La OC es dueña de proveedor y sucursal: los
+                          // derivamos del resumen. El usuario no los teclea.
+                          form.setValue('proveedorId', oc.proveedorId, {
+                            shouldValidate: true,
+                          });
+                          form.setValue('sucursalId', oc.sucursalId, {
+                            shouldValidate: true,
+                          });
+                          // Nombre del proveedor para la etiqueta read-only, ya
+                          // resuelto en el resumen (sin catálogo capado).
+                          setProveedorNombreSel(oc.proveedorNombre);
+                          // Cambió la OC: los lineaOcId previos quedan stale
+                          // (apuntan a líneas de la OC vieja) y la guarda backend
+                          // los rechazaría → resetear todos a null.
+                          resetLineaOcIds(form.getValues, form.setValue);
+                        }}
+                      />
+                    )}
+                  />
+                </Campo>
+                <Campo
+                  label="Proveedor (de la OC)"
+                  error={form.formState.errors.proveedorId?.message}
+                >
+                  <Input
+                    value={proveedorLabel}
+                    placeholder="Se deriva de la OC"
+                    readOnly
+                    disabled
+                    aria-label="Proveedor derivado de la orden de compra"
+                  />
+                </Campo>
+                <Campo
+                  label="Sucursal (de la OC)"
+                  error={form.formState.errors.sucursalId?.message}
+                >
+                  <Input
+                    value={sucursalLabel}
+                    placeholder="Se deriva de la OC"
+                    readOnly
+                    disabled
+                    aria-label="Sucursal derivada de la orden de compra"
+                  />
+                </Campo>
+                <Campo label="Moneda" error={form.formState.errors.moneda?.message} required>
+                  <Input
+                    placeholder="MXN"
+                    maxLength={3}
+                    className="uppercase"
+                    {...form.register('moneda', {
+                      setValueAs: (v) => (typeof v === 'string' ? v.toUpperCase() : v),
+                    })}
+                  />
+                </Campo>
+                <Campo label="Serie" error={form.formState.errors.serieProveedor?.message}>
+                  <Input placeholder="A" {...form.register('serieProveedor')} />
+                </Campo>
+                <Campo label="Folio" error={form.formState.errors.folioProveedor?.message}>
+                  <Input placeholder="12345" {...form.register('folioProveedor')} />
+                </Campo>
+                <Campo
+                  label="Fecha documento"
+                  error={form.formState.errors.fechaDocumento?.message}
+                  required
+                >
+                  <Input type="date" {...form.register('fechaDocumento')} />
+                </Campo>
+                <Campo
+                  label="Fecha contabilización"
+                  error={form.formState.errors.fechaContabilizacion?.message}
+                  required
+                >
+                  <Input type="date" {...form.register('fechaContabilizacion')} />
+                </Campo>
+                <Campo
+                  label="Fecha vencimiento"
+                  error={form.formState.errors.fechaVencimiento?.message}
+                  required
+                >
+                  <Input type="date" {...form.register('fechaVencimiento')} />
+                </Campo>
+                <Campo label="Tipo de cambio" error={form.formState.errors.tipoCambio?.message}>
+                  <Input
+                    type="number"
+                    step="0.0001"
+                    min="0"
+                    placeholder="1.0000"
+                    {...form.register('tipoCambio', { valueAsNumber: true })}
+                  />
+                </Campo>
+              </FormSeccion>
+
+              <FormSeccion numero={3} titulo="Importes del comprobante">
+                <FormCampo span={12}>
+                  <FormGrid className="sm:grid-cols-15">
+                    <Campo
+                      span={3}
+                      label="Subtotal"
+                      error={form.formState.errors.subtotal?.message}
+                      required
+                    >
+                      <Input
+                        type="number"
+                        step="0.01"
+                        min="0"
+                        aria-label="Subtotal"
+                        {...form.register('subtotal', { valueAsNumber: true })}
+                      />
+                    </Campo>
+                    <Campo
+                      span={3}
+                      label="Descuentos"
+                      error={form.formState.errors.descuentos?.message}
+                    >
+                      <Input
+                        type="number"
+                        step="0.01"
+                        min="0"
+                        {...form.register('descuentos', { valueAsNumber: true })}
+                      />
+                    </Campo>
+                    <Campo
+                      span={3}
+                      label="IVA trasladado"
+                      error={form.formState.errors.impuestosTrasladados?.message}
+                    >
+                      <Input
+                        type="number"
+                        step="0.01"
+                        min="0"
+                        {...form.register('impuestosTrasladados', {
+                          valueAsNumber: true,
+                        })}
+                      />
+                    </Campo>
+                    <Campo
+                      span={3}
+                      label="Retenciones"
+                      error={form.formState.errors.retenciones?.message}
+                    >
+                      <Input
+                        type="number"
+                        step="0.01"
+                        min="0"
+                        aria-label="Retenciones"
+                        {...form.register('retenciones', { valueAsNumber: true })}
+                      />
+                    </Campo>
+                    <Campo
+                      span={3}
+                      label="Total"
+                      error={form.formState.errors.total?.message}
+                      required
+                    >
+                      <Input
+                        type="number"
+                        step="0.01"
+                        min="0"
+                        {...form.register('total', { valueAsNumber: true })}
+                      />
+                    </Campo>
+                  </FormGrid>
+                </FormCampo>
+              </FormSeccion>
+
+              <section className="space-y-3">
+                <div>
+                  <Label htmlFor="captura-obra">Obra</Label>
+                  <Input id="captura-obra" maxLength={120} {...form.register('obra')} />
+                  <p className="text-xs text-ink-muted">
+                    Registra la obra a la que corresponde el pasivo.
+                  </p>
+                </div>
+                <Label htmlFor="captura-concepto">Concepto fiscal de retención</Label>
+                <Select
+                  value={conceptoRetencion || 'sin-concepto'}
+                  onValueChange={(v) =>
+                    form.setValue('conceptoRetencion', v === 'sin-concepto' ? null : v)
+                  }
+                >
+                  <SelectTrigger id="captura-concepto">
+                    <SelectValue placeholder="Selecciona concepto" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="sin-concepto">Usar la retención del proveedor</SelectItem>
+                    {[
+                      ...new Set([
+                        CONCEPTO_SIN_RETENCION,
+                        ...(catalogo.data?.filter((r) => r.activa).map((r) => r.concepto) ?? []),
+                      ]),
+                    ].map((c) => (
                       <SelectItem key={c} value={c}>
                         {etiquetaConcepto(c)}
                       </SelectItem>
-                    ),
-                  )}
-                </SelectContent>
-              </Select>
-              <p className="text-xs text-ink-muted">Si no eliges, se usa la retención configurada en el proveedor; Fiscal revisa si el XML no coincide.</p>
-              {catalogo.isError && (
-                <p role="alert" className="text-warning-note-fg">
-                  No se pudo consultar el catálogo fiscal. La captura puede continuar; revisa con
-                  Fiscal.
+                    ))}
+                  </SelectContent>
+                </Select>
+                <p className="text-xs text-ink-muted">
+                  Si no eliges, se usa la retención configurada en el proveedor; Fiscal revisa si el
+                  XML no coincide.
                 </p>
-              )}
-              {propuesta.length > 0 && (
-                <p className="tabular-nums">
-                  Retención propuesta: {totalRetenciones(propuesta).toFixed(2)}{' '}
-                  {form.getValues('moneda')}
-                </p>
-              )}
-              {!cfdiBase && propuesta.length > 0 && (
-                <Button
-                  type="button"
-                  variant="outline"
-                  onClick={() => {
-                    const retencion = totalRetenciones(propuesta);
-                    form.setValue('retenciones', retencion);
-                    form.setValue(
-                      'total',
-                      Math.round(
-                        (baseRetencion + form.getValues('impuestosTrasladados') - retencion) * 100,
-                      ) / 100,
-                    );
-                  }}
-                >
-                  Usar retención propuesta
-                </Button>
-              )}
-              {alertaRetenciones(totalRetenido, propuesta, conceptoRetencion) && (
-                <p
-                  role="note"
-                  className="rounded-md bg-warning-note-bg px-3 py-2 text-warning-note-fg"
-                >
-                  Las retenciones difieren del catálogo del concepto. Puedes capturar, pero Fiscal debe
-                  revisarlas antes de autorizar el pago.
-                </p>
-              )}
-            </section>
-            <section className="space-y-2">
-              <header className="flex items-center justify-between">
-                <h3 className="text-sm font-medium">Líneas ({fields.length})</h3>
-                <div className="flex items-center gap-1">
-                  {(cfdiParseadoQuery.data?.lineas.length ?? 0) > 0 && (
-                    <Button type="button" variant="outline" size="sm" onClick={importarLineasCfdi}>
-                      <Download className="mr-1 h-3 w-3" />
-                      Importar {cfdiParseadoQuery.data!.lineas.length} línea(s) del CFDI
-                    </Button>
-                  )}
+                {catalogo.isError && (
+                  <p role="alert" className="text-warning-note-fg">
+                    No se pudo consultar el catálogo fiscal. La captura puede continuar; revisa con
+                    Fiscal.
+                  </p>
+                )}
+                {propuesta.length > 0 && (
+                  <p className="tabular-nums">
+                    Retención propuesta: {totalRetenciones(propuesta).toFixed(2)}{' '}
+                    {form.getValues('moneda')}
+                  </p>
+                )}
+                {!cfdiBase && propuesta.length > 0 && (
                   <Button
                     type="button"
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => append(defaultLinea())}
+                    variant="outline"
+                    onClick={() => {
+                      const retencion = totalRetenciones(propuesta);
+                      form.setValue('retenciones', retencion);
+                      form.setValue(
+                        'total',
+                        Math.round(
+                          (baseRetencion + form.getValues('impuestosTrasladados') - retencion) *
+                            100,
+                        ) / 100,
+                      );
+                    }}
                   >
-                    <Plus className="mr-1 h-3 w-3" /> Agregar línea
+                    Usar retención propuesta
                   </Button>
+                )}
+                {alertaRetenciones(totalRetenido, propuesta, conceptoRetencion) && (
+                  <p
+                    role="note"
+                    className="rounded-md bg-warning-note-bg px-3 py-2 text-warning-note-fg"
+                  >
+                    Las retenciones difieren del catálogo del concepto. Puedes capturar, pero Fiscal
+                    debe revisarlas antes de autorizar el pago.
+                  </p>
+                )}
+              </section>
+              <section className="space-y-2">
+                <header className="flex items-center justify-between">
+                  <h3 className="text-sm font-medium">Partidas ({fields.length})</h3>
+                  <div className="flex items-center gap-1">
+                    {(cfdiParseadoQuery.data?.lineas.length ?? 0) > 0 && (
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        onClick={importarLineasCfdi}
+                      >
+                        <Download className="mr-1 h-3 w-3" />
+                        Importar {cfdiParseadoQuery.data!.lineas.length}{' '}
+                        {cfdiParseadoQuery.data!.lineas.length === 1 ? 'partida' : 'partidas'} del
+                        CFDI
+                      </Button>
+                    )}
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => append(defaultLinea())}
+                    >
+                      <Plus className="mr-1 h-3 w-3" /> Agregar partida
+                    </Button>
+                  </div>
+                </header>
+
+                {fields.length === 0 && (
+                  <p className="rounded-md border border-dashed px-3 py-4 text-center text-xs text-muted-foreground">
+                    Aún no agregas partidas. Mínimo una para capturar.
+                  </p>
+                )}
+
+                <div className="space-y-2">
+                  {fields.map((field, index) => (
+                    <LineaInline
+                      key={field.id}
+                      index={index}
+                      onRemove={() => remove(index)}
+                      form={form}
+                      ordenCompraId={ordenCompraIdSel || null}
+                    />
+                  ))}
                 </div>
-              </header>
 
-              {fields.length === 0 && (
-                <p className="rounded-md border border-dashed px-3 py-4 text-center text-xs text-muted-foreground">
-                  Aún no agregas líneas. Mínimo una para capturar.
-                </p>
-              )}
+                {form.formState.errors.lineas?.message && (
+                  <p className="text-xs text-destructive">{form.formState.errors.lineas.message}</p>
+                )}
+              </section>
 
-              <div className="space-y-2">
-                {fields.map((field, index) => (
-                  <LineaInline
-                    key={field.id}
-                    index={index}
-                    onRemove={() => remove(index)}
-                    form={form}
-                    ordenCompraId={ordenCompraIdSel || null}
-                  />
-                ))}
-              </div>
-
-              {form.formState.errors.lineas?.message && (
-                <p className="text-xs text-destructive">{form.formState.errors.lineas.message}</p>
-              )}
-            </section>
-
-            <div className="px-4 pb-4">
-              <NotasCreditoAdjuntas
-                value={notasCredito}
-                onChange={(notas) =>
-                  form.setValue('notasCredito', notas, { shouldDirty: true, shouldValidate: true })
-                }
-                lineas={lineasActuales}
-                facturaLigada={Boolean(cfdiBase)}
+              <ResumenImportes
+                moneda={importesResumen[0]}
+                subtotal={importesResumen[1]}
+                descuento={importesResumen[2]}
+                ivaTrasladado={importesResumen[3]}
+                otrasRetenciones={[{ etiqueta: 'Retenciones', monto: totalRetenido }]}
+                total={importesResumen[4]}
               />
-              {cfdiParseadoQuery.data && (
-                <p className="mt-2 text-xs text-ink-muted tabular-nums">
-                  ISR retenido: {retencionesXml.isr.toFixed(2)} · IVA retenido:{' '}
-                  {retencionesXml.iva.toFixed(2)}
-                </p>
-              )}
-              {form.formState.errors.notasCredito && (
-                <p role="alert" className="text-xs text-danger-fg">
-                  Asigna la base de cada NC a las líneas que compensa.
-                </p>
-              )}
+              <div className="space-y-3">
+                <NotasCreditoAdjuntas
+                  value={notasCredito}
+                  onChange={(notas) =>
+                    form.setValue('notasCredito', notas, {
+                      shouldDirty: true,
+                      shouldValidate: true,
+                    })
+                  }
+                  lineas={lineasActuales}
+                  facturaLigada={Boolean(cfdiBase)}
+                />
+                {cfdiParseadoQuery.data && (
+                  <p className="mt-2 text-xs text-ink-muted tabular-nums">
+                    ISR retenido: {retencionesXml.isr.toFixed(2)} · IVA retenido:{' '}
+                    {retencionesXml.iva.toFixed(2)}
+                  </p>
+                )}
+                {form.formState.errors.notasCredito && (
+                  <p role="alert" className="text-xs text-danger-fg">
+                    Asigna la base de cada NC a las partidas que compensa.
+                  </p>
+                )}
+              </div>
             </div>
-          </div>
-        </form>
+          </form>
+        </SheetBody>
 
         <SheetFooter className="px-4">
           <Button
@@ -743,21 +805,22 @@ function toIso(yyyymmdd: string): string {
 
 interface CampoProps {
   label: string;
+  span?: 3 | 4 | 6 | 12;
   required?: boolean;
   error?: string;
   children: React.ReactNode;
 }
 
-function Campo({ label, required, error, children }: CampoProps) {
+function Campo({ label, span = 6, required, error, children }: CampoProps) {
   return (
-    <div className="space-y-1">
-      <Label className="text-xs">
+    <FormCampo span={span} className="space-y-1">
+      <Label className="whitespace-nowrap text-xs">
         {label}
         {required && <span className="ml-1 text-destructive">*</span>}
       </Label>
       {children}
       {error && <p className="text-xs text-destructive">{error}</p>}
-    </div>
+    </FormCampo>
   );
 }
 
@@ -778,9 +841,9 @@ function LineaInline({ index, onRemove, form, ordenCompraId }: LineaInlineProps)
         lineaErrors && 'border-destructive/50',
       )}
     >
-      <div className="grid grid-cols-1 gap-2 sm:grid-cols-12">
-        <div className="sm:col-span-6">
-          <Label className="text-xs">Artículo (opcional)</Label>
+      <FormGrid>
+        <FormCampo span={6} className="space-y-1">
+          <Label className="whitespace-nowrap text-xs">Artículo (opcional)</Label>
           <Controller
             control={form.control}
             name={`lineas.${index}.articuloId` as const}
@@ -802,9 +865,9 @@ function LineaInline({ index, onRemove, form, ordenCompraId }: LineaInlineProps)
               />
             )}
           />
-        </div>
-        <div className="sm:col-span-6">
-          <Label className="text-xs">Descripción *</Label>
+        </FormCampo>
+        <FormCampo span={6} className="space-y-1">
+          <Label className="whitespace-nowrap text-xs">Descripción *</Label>
           <Input
             placeholder="Concepto del producto/servicio"
             {...form.register(`lineas.${index}.descripcion` as const)}
@@ -812,60 +875,64 @@ function LineaInline({ index, onRemove, form, ordenCompraId }: LineaInlineProps)
           {lineaErrors?.descripcion && (
             <p className="text-xs text-destructive">{lineaErrors.descripcion.message}</p>
           )}
-        </div>
-        <div className="sm:col-span-2">
-          <Label className="text-xs">Cantidad *</Label>
-          <Input
-            type="number"
-            step="0.0001"
-            min="0"
-            {...form.register(`lineas.${index}.cantidad` as const, {
-              valueAsNumber: true,
-            })}
-          />
-        </div>
-        <div className="sm:col-span-2">
-          <Label className="text-xs">Unidad SAT *</Label>
-          <Input
-            placeholder="PZA / KGM"
-            {...form.register(`lineas.${index}.claveUnidad` as const)}
-          />
-        </div>
-        <div className="sm:col-span-2">
-          <Label className="text-xs">P. Unitario *</Label>
-          <Input
-            type="number"
-            step="0.0001"
-            min="0"
-            {...form.register(`lineas.${index}.precioUnitario` as const, {
-              valueAsNumber: true,
-            })}
-          />
-        </div>
-        <div className="sm:col-span-3">
-          <Label className="text-xs">Importe</Label>
-          <Input
-            type="number"
-            step="0.01"
-            min="0"
-            {...form.register(`lineas.${index}.importe` as const, {
-              valueAsNumber: true,
-            })}
-          />
-        </div>
-        <div className="sm:col-span-3">
-          <Label className="text-xs">Descuento</Label>
-          <Input
-            type="number"
-            step="0.01"
-            min="0"
-            {...form.register(`lineas.${index}.descuento` as const, {
-              valueAsNumber: true,
-            })}
-          />
-        </div>
-        <div className="sm:col-span-4">
-          <Label className="text-xs">Línea de OC (obligatoria)</Label>
+        </FormCampo>
+        <FormCampo span={12}>
+          <FormGrid className="sm:grid-cols-15">
+            <FormCampo span={3} className="space-y-1">
+              <Label className="whitespace-nowrap text-xs">Cantidad *</Label>
+              <Input
+                type="number"
+                step="0.0001"
+                min="0"
+                {...form.register(`lineas.${index}.cantidad` as const, {
+                  valueAsNumber: true,
+                })}
+              />
+            </FormCampo>
+            <FormCampo span={3} className="space-y-1">
+              <Label className="whitespace-nowrap text-xs">Unidad SAT *</Label>
+              <Input
+                placeholder="PZA / KGM"
+                {...form.register(`lineas.${index}.claveUnidad` as const)}
+              />
+            </FormCampo>
+            <FormCampo span={3} className="space-y-1">
+              <Label className="whitespace-nowrap text-xs">P. unitario *</Label>
+              <Input
+                type="number"
+                step="0.0001"
+                min="0"
+                {...form.register(`lineas.${index}.precioUnitario` as const, {
+                  valueAsNumber: true,
+                })}
+              />
+            </FormCampo>
+            <FormCampo span={3} className="space-y-1">
+              <Label className="whitespace-nowrap text-xs">Importe</Label>
+              <Input
+                type="number"
+                step="0.01"
+                min="0"
+                {...form.register(`lineas.${index}.importe` as const, {
+                  valueAsNumber: true,
+                })}
+              />
+            </FormCampo>
+            <FormCampo span={3} className="space-y-1">
+              <Label className="whitespace-nowrap text-xs">Descuento</Label>
+              <Input
+                type="number"
+                step="0.01"
+                min="0"
+                {...form.register(`lineas.${index}.descuento` as const, {
+                  valueAsNumber: true,
+                })}
+              />
+            </FormCampo>
+          </FormGrid>
+        </FormCampo>
+        <FormCampo span={4} className="space-y-1">
+          <Label className="whitespace-nowrap text-xs">Partida de OC (obligatoria)</Label>
           <Controller
             control={form.control}
             name={`lineas.${index}.lineaOcId` as const}
@@ -888,8 +955,8 @@ function LineaInline({ index, onRemove, form, ordenCompraId }: LineaInlineProps)
               {form.formState.errors.lineas[index]?.lineaOcId?.message}
             </p>
           )}
-        </div>
-        <div className="flex items-end sm:col-span-2">
+        </FormCampo>
+        <FormCampo span={3} className="flex items-end">
           <Button
             type="button"
             variant="ghost"
@@ -899,8 +966,8 @@ function LineaInline({ index, onRemove, form, ordenCompraId }: LineaInlineProps)
           >
             <Trash2 className="mr-1 h-3 w-3" /> Quitar
           </Button>
-        </div>
-      </div>
+        </FormCampo>
+      </FormGrid>
     </div>
   );
 }

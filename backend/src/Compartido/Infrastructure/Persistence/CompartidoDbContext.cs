@@ -1276,7 +1276,6 @@ public sealed class CompartidoDbContext : BaseDbContext
             t.HasCheckConstraint("ck_articulos_estatus", "estatus BETWEEN 0 AND 2");
             t.HasCheckConstraint("ck_articulos_precio_no_negativo", "precio_referencia_monto IS NULL OR precio_referencia_monto >= 0");
             t.HasCheckConstraint("ck_articulos_precio_moneda_iso", "precio_referencia_moneda IS NULL OR precio_referencia_moneda ~ '^[A-Z]{3}$'");
-            t.HasCheckConstraint("ck_articulos_tolerancia_rango", "tolerancia_cantidad_porcentaje IS NULL OR (tolerancia_cantidad_porcentaje >= 0 AND tolerancia_cantidad_porcentaje <= 100)");
         });
         articulo.HasKey(x => x.Id);
         articulo.Property(x => x.Clave).HasMaxLength(20).IsRequired();
@@ -1288,7 +1287,6 @@ public sealed class CompartidoDbContext : BaseDbContext
         articulo.Property(x => x.Categoria).HasMaxLength(100);
         articulo.Property(x => x.PrecioReferenciaMonto).HasPrecision(15, 4);
         articulo.Property(x => x.PrecioReferenciaMoneda).HasMaxLength(3);
-        articulo.Property(x => x.ToleranciaCantidadPorcentaje).HasPrecision(5, 2);
         articulo.Property(x => x.Estatus).HasConversion<short>().IsRequired();
 
         articulo.HasIndex(x => x.Clave).IsUnique();

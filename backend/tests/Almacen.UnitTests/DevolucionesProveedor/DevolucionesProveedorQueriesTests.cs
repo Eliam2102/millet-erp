@@ -69,7 +69,7 @@ public class DevolucionesProveedorQueriesTests
         {
             Articulos = new()
             {
-                [Art1] = new ArticuloLectura(Art1, "IPP60001", "Aceite de corte", "PZA", null, null, true),
+                [Art1] = new ArticuloLectura(Art1, "IPP60001", "Aceite de corte", "PZA", null, true),
             },
         };
         var handler = new ObtenerDevolucionProveedorPorIdHandler(

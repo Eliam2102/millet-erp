@@ -1,37 +1,39 @@
-import { ErrorTimbradoAviso } from '@/features/facturacion/components/ErrorTimbradoAviso';
-import { mostrarErrorReceptorFiscal } from '@/features/facturacion/lib/mostrar-error-receptor-fiscal';
-import { useState } from 'react';
-import { Link, useNavigate } from '@tanstack/react-router';
-import { Info } from 'lucide-react';
 import { AvisoEnLinea } from '@/components/erp/feedback/AvisoEnLinea';
-import { errorEmisionVentaDirecta } from '@/features/facturacion/lib/errores-venta-directa';
-import { useForm, useWatch } from 'react-hook-form';
-import { zodResolver } from '@hookform/resolvers/zod';
-import { toast } from 'sonner';
+import { ResumenImportes } from '@/components/erp/display/ResumenImportes';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { applyServerErrors, esApiError, useFormIdempotencyKey } from '@/lib/api';
-import {
-  EmitirFacturaSchema,
-  type EmitirFacturaValues,
-} from '@/features/facturacion/schemas/emitir-factura';
-import { useEmisorDefaults, useEmitirFactura } from '@/features/facturacion/api/useFacturas';
+import { EmbarqueCeResumen } from '@/features/comercio-exterior/components/EmbarqueCeResumen';
 import {
   ComportamientoFiscal,
   type ClienteLookupItem,
   type EmisorDefaultsResponse,
   type EmitirFacturaVentaResponse,
 } from '@/features/facturacion/api/types';
-import { cn } from '@/lib/utils';
+import { useEmisorDefaults, useEmitirFactura } from '@/features/facturacion/api/useFacturas';
+import { ErrorTimbradoAviso } from '@/features/facturacion/components/ErrorTimbradoAviso';
+import { errorEmisionVentaDirecta } from '@/features/facturacion/lib/errores-venta-directa';
+import { mostrarErrorReceptorFiscal } from '@/features/facturacion/lib/mostrar-error-receptor-fiscal';
+import {
+  EmitirFacturaSchema,
+  type EmitirFacturaValues,
+} from '@/features/facturacion/schemas/emitir-factura';
+import { applyServerErrors, esApiError, useFormIdempotencyKey } from '@/lib/api';
 import { PermisosCanonicos } from '@/lib/auth/permission-codes';
 import { useHasPermission } from '@/lib/auth/useHasPermission';
-import { EmbarqueCeResumen } from '@/features/comercio-exterior/components/EmbarqueCeResumen';
+import { cn } from '@/lib/utils';
+import { zodResolver } from '@hookform/resolvers/zod';
+import { Link, useNavigate } from '@tanstack/react-router';
+import { Info } from 'lucide-react';
+import { useState } from 'react';
+import { useForm, useWatch } from 'react-hook-form';
+import { toast } from 'sonner';
+import { VistaPreviaButton } from '../vista-previa/VistaPreviaButton';
 import type { EmitirFacturaPrefill } from './prefill';
-import { nullIfEmpty, valoresIniciales } from './valores';
 import { resultadoEmision } from './resultado-emision';
 import { TabEncabezado } from './TabEncabezado';
 import { TabPosiciones } from './TabPosiciones';
 import { TabTotales, type AnticipoAmortizar } from './TabTotales';
+import { nullIfEmpty, valoresIniciales } from './valores';
 
 /**
  * <c>&lt;EmitirFacturaForm/&gt;</c> — form de emisión de CFDI 4.0 con
@@ -109,7 +111,7 @@ export function EmitirFacturaForm(props: EmitirFacturaFormProps) {
 
   if (defaults.isError) {
     return (
-      <div className="space-y-2 rounded-md border border-destructive/40 bg-destructive/5 px-4 py-3 text-sm">
+      <div className="space-y-2 rounded-md border border-danger/40 bg-danger-bg/5 px-4 py-3 text-sm">
         <p>No se pudieron cargar los datos del emisor.</p>
         <Button type="button" variant="outline" size="sm" onClick={() => defaults.refetch()}>
           Reintentar
@@ -120,8 +122,8 @@ export function EmitirFacturaForm(props: EmitirFacturaFormProps) {
   if (defaults.isLoading || defaults.data == null) {
     return (
       <div className="space-y-3">
-        <div className="h-9 w-72 animate-pulse rounded bg-muted" />
-        <div className="h-64 w-full animate-pulse rounded bg-muted" />
+        <div className="h-9 w-72 animate-pulse rounded bg-surface-muted" />
+        <div className="h-64 w-full animate-pulse rounded bg-surface-muted" />
       </div>
     );
   }
@@ -431,8 +433,8 @@ function FormInner({
         </p>
       )}
       {prefill?.pedidoFacturableId && (
-        <div className="rounded-md border border-primary/30 bg-primary/5 px-3 py-2 text-sm">
-          Facturando un pedido — líneas, datos comerciales y fiscales vienen precargados desde el
+        <div className="rounded-md border border-brand/30 bg-brand/5 px-3 py-2 text-sm">
+          Facturando un pedido — partidas, datos comerciales y fiscales vienen precargados desde el
           pedido y los catálogos. Revisa y completa lo que falte. Al timbrar, el pedido pasa a{' '}
           <span className="font-medium">Facturado</span>.
         </div>
@@ -445,7 +447,7 @@ function FormInner({
             <BadgeErrores cuenta={erroresEncabezado} />
           </TabsTrigger>
           <TabsTrigger value="posiciones">
-            Posiciones
+            Partidas
             <BadgeErrores cuenta={erroresPosiciones} />
           </TabsTrigger>
           <TabsTrigger value="totales">Totales</TabsTrigger>
@@ -498,48 +500,71 @@ function FormInner({
         </TabsContent>
       </Tabs>
 
-      <div className="flex flex-wrap items-center justify-between gap-3 border-t pt-4">
-        <dl className="flex gap-4 text-sm tabular-nums">
-          <div>
-            <dt className="text-xs text-muted-foreground">Subtotal</dt>
-            <dd className="font-medium">{totales.subtotal.toFixed(2)}</dd>
-          </div>
-          <div>
-            <dt className="text-xs text-muted-foreground">IVA</dt>
-            <dd className="font-medium">{totales.iva.toFixed(2)}</dd>
-          </div>
-          <div>
-            <dt className="text-xs text-muted-foreground">Retenciones</dt>
-            <dd className="font-medium">−{totales.ret.toFixed(2)}</dd>
-          </div>
-          <div>
-            <dt className="text-xs text-muted-foreground">Total</dt>
-            <dd className="font-semibold">
-              {total.toFixed(2)} {moneda?.toUpperCase()}
-            </dd>
-          </div>
-        </dl>
-        <div className="flex items-center gap-2">
-          <Button type="button" variant="ghost" onClick={cancelar} disabled={emitir.isPending}>
-            Cancelar
-          </Button>
-          <Button
-            type="submit"
-            disabled={emitir.isPending || receptorBloqueado || ceBloqueado || manualSinClase}
-            title={
-              manualSinClase
-                ? 'Clasifica el pedido (venta directa o emergencia) antes de facturarlo.'
-                : ceBloqueado
-                ? (motivoCe ?? 'Complete el embarque en Comercio Exterior.')
-                : receptorBloqueado
-                  ? 'Receptor incompleto: complétalo en Datos Maestros → Clientes'
-                  : undefined
-            }
-          >
-            {emitir.isPending ? 'Emitiendo…' : 'Emitir y timbrar'}
-          </Button>
-        </div>
-      </div>
+      <ResumenImportes
+        className="border-t border-line pt-4"
+        moneda={moneda?.toUpperCase() ?? ''}
+        subtotal={totales.subtotal}
+        ivaTrasladado={totales.iva}
+        otrasRetenciones={[{ etiqueta: 'Retenciones', monto: totales.ret }]}
+        total={total}
+        acciones={
+          <>
+            <Button type="button" variant="ghost" onClick={cancelar} disabled={emitir.isPending}>
+              Cancelar
+            </Button>
+            <VistaPreviaButton
+              motivo={
+                !clienteId || receptorBloqueado
+                  ? 'Selecciona un receptor con datos fiscales.'
+                  : !lineas?.length
+                    ? 'Agrega al menos una partida.'
+                    : undefined
+              }
+              obtenerDatos={() => {
+                const v = form.getValues();
+                return {
+                  tipo: 'Factura',
+                  emisor: `${emisor.razonSocialEmisor} · ${v.rfcEmisor} · ${v.regimenFiscalEmisor}`,
+                  receptor: `${v.receptorNombre} · ${v.receptorRfc} · ${v.receptorRegimenFiscal} · CP ${v.receptorCodigoPostal}`,
+                  usoCfdi: v.receptorUsoCfdi,
+                  metodoPago: v.metodoPago,
+                  formaPago: v.formaPago,
+                  moneda: v.moneda,
+                  partidas: v.lineas.map((l) => ({
+                    descripcion: l.descripcion,
+                    cantidad: l.cantidad,
+                    importe: Math.max(
+                      0,
+                      finito(l.cantidad) * finito(l.valorUnitario) - finito(l.descuento),
+                    ),
+                  })),
+                  importes: [
+                    { etiqueta: 'Subtotal', monto: totales.subtotal },
+                    { etiqueta: 'IVA trasladado', monto: totales.iva },
+                    { etiqueta: 'Retenciones', monto: -totales.ret },
+                    { etiqueta: 'Total', monto: total },
+                  ],
+                };
+              }}
+            />
+            <Button
+              type="submit"
+              disabled={emitir.isPending || receptorBloqueado || ceBloqueado || manualSinClase}
+              title={
+                manualSinClase
+                  ? 'Clasifica el pedido (venta directa o emergencia) antes de facturarlo.'
+                  : ceBloqueado
+                    ? (motivoCe ?? 'Complete el embarque en Comercio Exterior.')
+                    : receptorBloqueado
+                      ? 'Receptor incompleto: complétalo en Datos Maestros → Clientes'
+                      : undefined
+              }
+            >
+              {emitir.isPending ? 'Emitiendo…' : 'Emitir y timbrar'}
+            </Button>
+          </>
+        }
+      />
     </form>
   );
 }
@@ -550,7 +575,7 @@ function BadgeErrores({ cuenta }: { cuenta: number }) {
     <span
       className={cn(
         'inline-flex h-4 min-w-4 items-center justify-center rounded-full',
-        'bg-destructive px-1 text-[10px] font-semibold text-destructive-foreground',
+        'bg-danger-bg px-1 text-[10px] font-semibold text-danger-fg-foreground',
       )}
       aria-label={`${cuenta} errores`}
     >

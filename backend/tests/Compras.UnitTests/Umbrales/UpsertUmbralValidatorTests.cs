@@ -62,7 +62,7 @@ public class UpsertUmbralValidatorTests
     {
         var cmd = new UpsertUmbralCommand(Guid.CreateVersion7(), null, 10_000m);
 
-        Assert.Equal(ModoNivel2.Ambos, cmd.ModoNivel2);
+        Assert.Equal(ModoNivel2.SoloDisponibilidad, cmd.ModoNivel2);
         Assert.True(_validator.Validate(cmd).IsValid);
     }
 }

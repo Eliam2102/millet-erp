@@ -1,3 +1,4 @@
+import { PageHeader } from '@/components/erp/PageHeader';
 import { CatalogoConceptos } from '../components/CatalogoConceptos';
 import { useHasPermission } from '@/lib/auth/useHasPermission';
 import { PermisosCanonicos } from '@/lib/auth/permission-codes';
@@ -52,7 +53,7 @@ export function ReporteFlujoEfectivoPage() {
   const filtrosUi = (
     <div className="flex flex-wrap items-end gap-3">
       <div className="space-y-1">
-        <Label className="text-xs text-muted-foreground">Del</Label>
+        <Label className="text-xs text-ink-muted">Del</Label>
         <Input
           type="date"
           className="w-40"
@@ -61,7 +62,7 @@ export function ReporteFlujoEfectivoPage() {
         />
       </div>
       <div className="space-y-1">
-        <Label className="text-xs text-muted-foreground">Al</Label>
+        <Label className="text-xs text-ink-muted">Al</Label>
         <Input
           type="date"
           className="w-40"
@@ -70,7 +71,7 @@ export function ReporteFlujoEfectivoPage() {
         />
       </div>
       <div className="w-72 space-y-1">
-        <Label className="text-xs text-muted-foreground">Cuenta (opcional)</Label>
+        <Label className="text-xs text-ink-muted">Cuenta (opcional)</Label>
         <CuentaBancariaSelector
           value={search.cuentaBancariaId ?? null}
           onChange={(id) => actualizar({ cuentaBancariaId: id ?? undefined })}
@@ -80,16 +81,18 @@ export function ReporteFlujoEfectivoPage() {
   );
 
   return (
-    <div className="space-y-4 px-4 py-6">
-      <header data-print="hidden">
-        <h1 className="text-2xl font-semibold tracking-tight">
-          Flujo de efectivo
-        </h1>
-        <p className="text-sm text-muted-foreground">
-          Ingresos y egresos por concepto (Operación / Inversión /
-          Financiamiento). Catálogo de conceptos provisional.
-        </p>
-      </header>
+    <div className="space-y-5">
+      <div data-print="hidden">
+        <PageHeader
+          titulo={<>Flujo de efectivo</>}
+          descripcion={
+            <>
+              Ingresos y egresos por concepto (Operación / Inversión / Financiamiento). Catálogo de
+              conceptos provisional.
+            </>
+          }
+        />
+      </div>
 
       {administrar && <CatalogoConceptos />}
       <ReporteShell

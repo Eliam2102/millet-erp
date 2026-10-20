@@ -202,7 +202,7 @@ public class UbicacionEntradaGuardTests
     {
         public Task<ArticuloLectura?> ObtenerAsync(Guid articuloId, CancellationToken ct) =>
             Task.FromResult<ArticuloLectura?>(
-                new ArticuloLectura(articuloId, "ART", "Artículo", "PZA", null, null, true));
+                new ArticuloLectura(articuloId, "ART", "Artículo", "PZA", null, true));
         public Task<IReadOnlyDictionary<Guid, ArticuloLectura>> ObtenerPorIdsAsync(
             IReadOnlyCollection<Guid> ids, CancellationToken ct) =>
             Task.FromResult<IReadOnlyDictionary<Guid, ArticuloLectura>>(

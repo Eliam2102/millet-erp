@@ -18,7 +18,15 @@ interface Props {
  * info = colectiva o rubro. El tipo lo calcula el sistema (P19): «Acumula» o «Afectable». Una naturaleza nula muestra
  * «Pendiente» explícito: nunca se pinta un valor supuesto. Un rubro (P24) no lleva tipo ni naturaleza: es agrupación de reporte.
  */
-export function InsigniasCuenta({ tipo, activa, pendienteValidacion, naturaleza, control, usada, clase }: Props) {
+export function InsigniasCuenta({
+  tipo,
+  activa,
+  pendienteValidacion,
+  naturaleza,
+  control,
+  usada,
+  clase,
+}: Props) {
   const rubro = clase === 'Rubro';
   return (
     <span className="inline-flex flex-wrap items-center gap-1">
@@ -27,19 +35,27 @@ export function InsigniasCuenta({ tipo, activa, pendienteValidacion, naturaleza,
       ) : tipo === null ? (
         <Badge variant="warning">Tipo: Pendiente</Badge>
       ) : (
-        <Badge variant="neutral" title={tipo === 'Titulo' ? 'No recibe movimientos' : 'Recibe movimientos'}>
+        <Badge
+          variant="neutral"
+          title={tipo === 'Titulo' ? 'No recibe movimientos' : 'Recibe movimientos'}
+        >
           {tipo === 'Titulo' ? 'Acumula' : 'Afectable'}
         </Badge>
       )}
-      {!rubro && naturaleza === null && <Badge variant="warning">Naturaleza: Pendiente</Badge>}
-      {naturaleza && <Badge variant="outline">{naturaleza}</Badge>}
+      {!rubro && naturaleza === null && (
+        <span className="text-xs text-warning-fg">Naturaleza: Pendiente</span>
+      )}
+      {naturaleza && <span className="text-xs text-ink-muted">{naturaleza}</span>}
       {pendienteValidacion && <Badge variant="warning">Pendiente de validación</Badge>}
-      {!activa && <Badge variant="neutral">Inactiva</Badge>}
-      {control && control !== 'Ninguna' && <Badge variant="info">Colectiva: {control}</Badge>}
+      {!activa && <span className="text-xs text-ink-muted">Inactiva</span>}
+      {control && control !== 'Ninguna' && (
+        <span className="text-xs text-info-fg">Colectiva: {control}</span>
+      )}
       {usada && (
-        <Badge variant="neutral" title="Tiene movimientos">
-          <Lock className="mr-1 size-3" aria-hidden="true" />Usada
-        </Badge>
+        <span className="inline-flex items-center text-xs text-ink-muted" title="Tiene movimientos">
+          <Lock className="mr-1 size-3" aria-hidden="true" />
+          Usada
+        </span>
       )}
     </span>
   );

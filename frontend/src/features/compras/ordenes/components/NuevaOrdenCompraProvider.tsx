@@ -1,8 +1,10 @@
+import { ContextoSucursal } from '@/components/erp/display/ContextoSucursal';
 import { useCallback, useMemo, useState, type ReactNode } from 'react';
 import { useConfirmarDescarte } from '@/components/erp/forms/useConfirmarDescarte';
 import {
   Sheet,
   SheetContent,
+  SheetBody,
   SheetDescription,
   SheetHeader,
   SheetTitle,
@@ -27,14 +29,9 @@ import {
  * confirm es un freno extra para evitar perder cambios que aún no
  * llegaron al debounce de 500ms.</para>
  */
-export function NuevaOrdenCompraProvider({
-  children,
-}: {
-  children: ReactNode;
-}) {
+export function NuevaOrdenCompraProvider({ children }: { children: ReactNode }) {
   const [abierto, setAbierto] = useState(false);
-  const [desdeRequisicion, setDesdeRequisicion] =
-    useState<DesdeRequisicionContext | null>(null);
+  const [desdeRequisicion, setDesdeRequisicion] = useState<DesdeRequisicionContext | null>(null);
   const alCerrar = useCallback(() => {
     setAbierto(false);
     setDesdeRequisicion(null);
@@ -74,24 +71,22 @@ export function NuevaOrdenCompraProvider({
           setAbierto(true);
         }}
       >
-        <SheetContent
-          side="right"
-          className="w-full overflow-y-auto sm:max-w-3xl"
-        >
+        <SheetContent side="right" size="lg">
           <SheetHeader>
             <SheetTitle>
               {desdeRequisicion
                 ? `Convertir RQ ${desdeRequisicion.folio ?? ''} a OC`.trim()
                 : 'Nueva orden de compra'}
             </SheetTitle>
+            <ContextoSucursal />
             <SheetDescription>
               {desdeRequisicion
-                ? 'Modo 1:1. La sucursal viene de la RQ origen. Llena los campos restantes (proveedor, condiciones de pago, etc.).'
-                : 'Llena la cabecera. Las líneas se agregan después de crear, dentro del detalle (UF2-PR3 cableará el editor inline).'}
+                ? 'La sucursal viene de la RQ origen. Llena los campos restantes (proveedor, condiciones de pago, etc.).'
+                : 'Llena los datos de la orden y agrega las partidas desde su detalle.'}
             </SheetDescription>
           </SheetHeader>
 
-          <div className="px-6 pb-6">
+          <SheetBody>
             {abierto && (
               <SheetNuevaOC
                 onClose={cerrarConConfirm}
@@ -99,7 +94,7 @@ export function NuevaOrdenCompraProvider({
                 desdeRequisicion={desdeRequisicion}
               />
             )}
-          </div>
+          </SheetBody>
         </SheetContent>
       </Sheet>
       {dialogo}

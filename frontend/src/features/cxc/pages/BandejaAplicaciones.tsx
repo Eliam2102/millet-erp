@@ -1,31 +1,42 @@
+import {
+  ListadoModulo,
+  TabsEstado,
+  BarraFiltros,
+  PaginacionTabla,
+  PageHeader,
+  EmptyState,
+  ErrorState,
+  TableSkeleton,
+} from '@/components/erp';
+import { Input } from '@/components/ui/input';
+
+import { usePaginacionLocal } from '../lib/use-paginacion-local';
+
+import {
+  Table,
+  TableHeader,
+  TableBody,
+  TableRow,
+  TableHead,
+  TableCell,
+} from '@/components/ui/table';
 import { useMemo } from 'react';
 import { Link, useNavigate, useSearch } from '@tanstack/react-router';
 import { FileText, Plus } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
-import { EmptyState, ErrorState, TableSkeleton } from '@/components/erp';
+
 import { useClientesLookupCxc } from '@/features/cxc/api/useLineasCredito';
 import { usePropuestasAplicacion } from '@/features/cxc/api/useAplicaciones';
 import { ChipEstadoPropuesta } from '@/features/cxc/components/ChipEstadoPropuesta';
 import { useNuevaPropuesta } from '@/features/cxc/components/nueva-propuesta-context';
 import { EstadoPropuestaAplicacion } from '@/features/cxc/api/types';
-import {
-  ETIQUETA_ESTADO_PROPUESTA,
-  formatoMonto,
-} from '@/features/cxc/lib/glosario';
+import { ETIQUETA_ESTADO_PROPUESTA, formatoMonto } from '@/features/cxc/lib/glosario';
 import type { AplicacionesSearch } from '@/features/cxc/lib/aplicaciones-search-schema';
 import { useHasPermission } from '@/lib/auth/useHasPermission';
 import { PermisosCanonicos } from '@/lib/auth/permission-codes';
 import { esApiError } from '@/lib/api';
 
 const FROM = '/_app/cxc/aplicaciones/' as const;
-const SENTINEL_ALL = '__all__';
 
 const OPCIONES_ESTADO = [
   EstadoPropuestaAplicacion.Propuesta,
@@ -43,9 +54,7 @@ export function BandejaAplicaciones() {
   const search = useSearch({ from: FROM });
   const navigate = useNavigate();
   const nuevaPropuesta = useNuevaPropuesta();
-  const puedeProponer = useHasPermission(
-    PermisosCanonicos.CuentasPorCobrarAplicacionPagoProponer,
-  );
+  const puedeProponer = useHasPermission(PermisosCanonicos.CuentasPorCobrarAplicacionPagoProponer);
 
   const query = usePropuestasAplicacion({
     estado: search.estado,
@@ -54,16 +63,10 @@ export function BandejaAplicaciones() {
   });
 
   const clienteIds = useMemo(
-    () =>
-      Array.from(
-        new Set((query.data?.items ?? []).map((p) => p.clienteId)),
-      ).sort(),
+    () => Array.from(new Set((query.data?.items ?? []).map((p) => p.clienteId))).sort(),
     [query.data],
   );
-  const lookup = useClientesLookupCxc(
-    { ids: clienteIds },
-    { enabled: clienteIds.length > 0 },
-  );
+  const lookup = useClientesLookupCxc({ ids: clienteIds }, { enabled: clienteIds.length > 0 });
   const nombres = useMemo(() => {
     const m = new Map<string, string>();
     for (const c of lookup.data ?? []) m.set(c.id, c.razonSocial);
@@ -84,145 +87,146 @@ export function BandejaAplicaciones() {
     );
   });
 
+  const pagina = usePaginacionLocal(items, JSON.stringify(search));
+
   return (
-    <div className="space-y-4 px-4 py-6">
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <div>
-          <h1 className="text-2xl font-semibold tracking-tight">
-            Aplicación de pagos
-          </h1>
-          <p className="text-sm text-muted-foreground">
-            Propuestas de matching depósito ↔ facturas; Ingresos confirma o
-            rechaza.
-          </p>
-        </div>
-        {puedeProponer && (
-          <Button onClick={() => nuevaPropuesta.abrir()}>
-            <Plus className="mr-2 h-4 w-4" />
-            Nueva propuesta
-          </Button>
-        )}
-      </div>
+    <div className="flex min-h-0 flex-col gap-5">
+      <PageHeader
+        titulo={<>Aplicación de pagos</>}
+        descripcion={<>Propuestas de matching depósito ↔ facturas; Ingresos confirma o rechaza.</>}
+        acciones={
+          <>
+            {puedeProponer && (
+              <Button onClick={() => nuevaPropuesta.abrir()}>
+                <Plus className="mr-2 h-4 w-4" />
+                Nueva propuesta
+              </Button>
+            )}
+          </>
+        }
+      />
 
-      <div className="flex flex-wrap items-end gap-3">
-        <div className="space-y-1">
-          <label className="text-xs text-muted-foreground">Estado</label>
-          <Select
-            value={search.estado != null ? String(search.estado) : SENTINEL_ALL}
-            onValueChange={(v) =>
-              actualizarSearch({
-                estado:
-                  v === SENTINEL_ALL
-                    ? undefined
-                    : (Number(v) as EstadoPropuestaAplicacion),
-              })
+      <ListadoModulo
+        tabs={
+          <TabsEstado
+            opciones={OPCIONES_ESTADO.map((e) => ({
+              valor: e,
+              label: ETIQUETA_ESTADO_PROPUESTA[e],
+            }))}
+            valor={search.estado}
+            conteos={undefined}
+            onChange={(estado) =>
+              actualizarSearch({ estado: estado as EstadoPropuestaAplicacion | undefined })
             }
-          >
-            <SelectTrigger aria-label="Filtrar por estado" className="w-44">
-              <SelectValue placeholder="Todos" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value={SENTINEL_ALL}>Todos</SelectItem>
-              {OPCIONES_ESTADO.map((e) => (
-                <SelectItem key={e} value={String(e)}>
-                  {ETIQUETA_ESTADO_PROPUESTA[e]}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
-      </div>
-
-      {query.isError ? (
-        <ErrorState
-          title="No se pudieron cargar las propuestas"
-          problem={esApiError(query.error) ? query.error.problem : undefined}
-          onRetry={() => query.refetch()}
-        />
-      ) : query.isLoading ? (
-        <TableSkeleton
-          rows={6}
-          columns={[
-            { width: 'w-40' },
-            { width: 'w-48' },
-            { width: 'w-28' },
-            { width: 'w-24' },
-            { width: 'w-24' },
-            { width: 'w-16' },
-          ]}
-        />
-      ) : items.length === 0 ? (
-        <EmptyState
-          icon={<FileText className="h-10 w-10" />}
-          title={
-            q
-              ? `Ninguna propuesta coincide con "${search.q}".`
-              : 'Sin propuestas de aplicación con los filtros actuales.'
-          }
-          description={
-            puedeProponer
-              ? 'Crea la primera con "Nueva propuesta".'
-              : 'Aún no hay propuestas por revisar.'
-          }
-        />
-      ) : (
-        <div className="overflow-x-auto rounded-md border">
-          <table className="w-full text-sm">
-            <thead className="bg-muted/50 text-left text-xs uppercase tracking-wide text-muted-foreground">
-              <tr>
-                <th className="px-3 py-2 font-medium">Depósito</th>
-                <th className="px-3 py-2 font-medium">Cliente</th>
-                <th className="px-3 py-2 text-right font-medium">Monto</th>
-                <th className="px-3 py-2 text-right font-medium">Ajuste</th>
-                <th className="px-3 py-2 font-medium">Facturas</th>
-                <th className="px-3 py-2 font-medium">Estado</th>
-                <th className="px-3 py-2" />
-              </tr>
-            </thead>
-            <tbody className="divide-y">
-              {items.map((p) => (
-                <tr key={p.id} className="hover:bg-muted/30">
-                  <td className="px-3 py-2">
-                    <p className="font-mono text-xs">{p.depositoRef}</p>
-                    <p className="max-w-48 truncate text-[11px] text-muted-foreground">
-                      {p.remittanceRef}
-                    </p>
-                  </td>
-                  <td className="max-w-56 truncate px-3 py-2">
-                    {nombres.get(p.clienteId) ?? p.clienteId.slice(0, 8)}
-                  </td>
-                  <td className="px-3 py-2 text-right font-mono tabular-nums">
-                    {formatoMonto(p.montoDeposito, p.moneda)}
-                  </td>
-                  <td className="px-3 py-2 text-right font-mono tabular-nums">
-                    {p.ajusteNoFiscal !== 0
-                      ? formatoMonto(p.ajusteNoFiscal, p.moneda)
-                      : '—'}
-                  </td>
-                  <td className="px-3 py-2 tabular-nums">
-                    {p.facturas.length}
-                  </td>
-                  <td className="px-3 py-2">
-                    <ChipEstadoPropuesta estado={p.estado} />
-                  </td>
-                  <td className="px-3 py-2 text-right">
-                    <Button variant="outline" size="sm" asChild>
-                      <Link
-                        to="/cxc/aplicaciones/$id"
-                        params={{ id: p.id }}
-                        search={search}
-                        state={{ bandejaSearch: search } as never}
-                      >
-                        Ver
-                      </Link>
-                    </Button>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      )}
+          />
+        }
+        filtros={
+          <BarraFiltros
+            busqueda={
+              <Input
+                aria-label="Buscar en los registros recibidos"
+                placeholder="Buscar en los registros recibidos"
+                value={search.q ?? ''}
+                onChange={(e) => actualizarSearch({ q: e.target.value || undefined })}
+              />
+            }
+          />
+        }
+        pie={
+          <PaginacionTabla
+            total={items.length}
+            offset={pagina.offset}
+            limit={10}
+            tamanos={[]}
+            onChange={pagina.cambiar}
+          />
+        }
+      >
+        {query.isError ? (
+          <ErrorState
+            title="No se pudieron cargar las propuestas"
+            problem={esApiError(query.error) ? query.error.problem : undefined}
+            onRetry={() => query.refetch()}
+          />
+        ) : query.isLoading ? (
+          <TableSkeleton
+            rows={6}
+            columns={[
+              { width: 'w-40' },
+              { width: 'w-48' },
+              { width: 'w-28' },
+              { width: 'w-24' },
+              { width: 'w-24' },
+              { width: 'w-16' },
+            ]}
+          />
+        ) : items.length === 0 ? (
+          <EmptyState
+            icon={<FileText className="h-10 w-10" />}
+            title={
+              q
+                ? `Ninguna propuesta coincide con "${search.q}".`
+                : 'Sin propuestas de aplicación con los filtros actuales.'
+            }
+            description={
+              puedeProponer
+                ? 'Crea la primera con "Nueva propuesta".'
+                : 'Aún no hay propuestas por revisar.'
+            }
+          />
+        ) : (
+          <div className="overflow-x-auto rounded-md border">
+            <Table className="w-full text-sm">
+              <TableHeader className="bg-surface-muted/50 text-left text-xs uppercase tracking-wide text-ink-muted">
+                <TableRow>
+                  <TableHead className="px-3 py-2 font-medium">Depósito</TableHead>
+                  <TableHead className="px-3 py-2 font-medium">Cliente</TableHead>
+                  <TableHead className="px-3 py-2 text-right font-medium">Monto</TableHead>
+                  <TableHead className="px-3 py-2 text-right font-medium">Ajuste</TableHead>
+                  <TableHead className="px-3 py-2 font-medium">Facturas</TableHead>
+                  <TableHead className="px-3 py-2 font-medium">Estado</TableHead>
+                  <TableHead className="px-3 py-2" />
+                </TableRow>
+              </TableHeader>
+              <TableBody className="divide-y">
+                {pagina.visibles.map((p) => (
+                  <TableRow key={p.id} className="h-12 hover:bg-surface-subtle">
+                    <TableCell className="px-3 py-2">
+                      <p className="font-mono text-xs">{p.depositoRef}</p>
+                      <p className="max-w-48 truncate text-2xs text-ink-muted">{p.remittanceRef}</p>
+                    </TableCell>
+                    <TableCell className="max-w-56 truncate px-3 py-2">
+                      {nombres.get(p.clienteId) ?? p.clienteId.slice(0, 8)}
+                    </TableCell>
+                    <TableCell className="px-3 py-2 text-right font-mono tabular-nums">
+                      {formatoMonto(p.montoDeposito, p.moneda)}
+                    </TableCell>
+                    <TableCell className="px-3 py-2 text-right font-mono tabular-nums">
+                      {p.ajusteNoFiscal !== 0 ? formatoMonto(p.ajusteNoFiscal, p.moneda) : '—'}
+                    </TableCell>
+                    <TableCell className="px-3 py-2 tabular-nums">{p.facturas.length}</TableCell>
+                    <TableCell className="px-3 py-2">
+                      <ChipEstadoPropuesta estado={p.estado} />
+                    </TableCell>
+                    <TableCell className="px-3 py-2 text-right">
+                      <Button variant="outline" size="sm" asChild>
+                        <Link
+                          to="/cxc/aplicaciones/$id"
+                          params={{ id: p.id }}
+                          search={search}
+                          state={{ bandejaSearch: search } as never}
+                        >
+                          Ver
+                        </Link>
+                      </Button>
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </div>
+        )}
+      </ListadoModulo>
     </div>
   );
 }

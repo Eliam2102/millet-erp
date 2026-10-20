@@ -2005,20 +2005,6 @@ namespace Millet.Identidad.Infrastructure.Migrations
                         },
                         new
                         {
-                            Id = new Guid("00000004-0010-0000-0000-000000000002"),
-                            Accion = "tolerancia-editar",
-                            Codigo = "datos_maestros.articulos.tolerancia-editar",
-                            CreatedAt = new DateTimeOffset(new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
-                            CreatedBy = "seed",
-                            Descripcion = "Editar la tolerancia de recepción por material del artículo",
-                            Modulo = "datos_maestros",
-                            Recurso = "articulos",
-                            UpdatedAt = new DateTimeOffset(new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
-                            UpdatedBy = "seed",
-                            Version = 1
-                        },
-                        new
-                        {
                             Id = new Guid("00000004-0011-0000-0000-000000000001"),
                             Accion = "gestionar",
                             Codigo = "datos_maestros.clientes.gestionar",
@@ -2599,20 +2585,6 @@ namespace Millet.Identidad.Infrastructure.Migrations
                             CreatedAt = new DateTimeOffset(new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
                             CreatedBy = "seed",
                             Descripcion = "Liberar proveedor de revisión global",
-                            Modulo = "cuentas_por_pagar",
-                            Recurso = "proveedores",
-                            UpdatedAt = new DateTimeOffset(new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
-                            UpdatedBy = "seed",
-                            Version = 1
-                        },
-                        new
-                        {
-                            Id = new Guid("00000007-0007-0000-0000-000000000003"),
-                            Accion = "ajustar-tolerancia",
-                            Codigo = "cuentas_por_pagar.proveedores.ajustar-tolerancia",
-                            CreatedAt = new DateTimeOffset(new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
-                            CreatedBy = "seed",
-                            Descripcion = "Ajustar tolerancia de conciliación por proveedor (restringido)",
                             Modulo = "cuentas_por_pagar",
                             Recurso = "proveedores",
                             UpdatedAt = new DateTimeOffset(new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),

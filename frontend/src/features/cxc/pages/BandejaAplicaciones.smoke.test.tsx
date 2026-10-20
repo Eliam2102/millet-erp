@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { render, screen } from '@testing-library/react';
+import { render, screen, within } from '@testing-library/react';
 import { http, HttpResponse } from 'msw';
 import { mswServer } from '@/test/mocks/server';
 import { createQueryWrapper } from '@/test/test-query-client';
@@ -98,17 +98,11 @@ afterEach(() => {
 describe('<BandejaAplicaciones> — smoke', () => {
   it('empty + botón Nueva propuesta con permiso proponer', async () => {
     mswServer.use(
-      http.get(BASE, () =>
-        HttpResponse.json({ items: [], offset: 0, limit: 200, total: 0 }),
-      ),
+      http.get(BASE, () => HttpResponse.json({ items: [], offset: 0, limit: 200, total: 0 })),
     );
     render(<BandejaAplicaciones />, { wrapper: createQueryWrapper() });
-    expect(
-      await screen.findByText(/Sin propuestas de aplicación/i),
-    ).toBeInTheDocument();
-    expect(
-      screen.getByRole('button', { name: /Nueva propuesta/i }),
-    ).toBeInTheDocument();
+    expect(await screen.findByText(/Sin propuestas de aplicación/i)).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /Nueva propuesta/i })).toBeInTheDocument();
   });
 
   it('renderiza propuesta con estado, ajuste y cliente resuelto', async () => {
@@ -125,7 +119,7 @@ describe('<BandejaAplicaciones> — smoke', () => {
     render(<BandejaAplicaciones />, { wrapper: createQueryWrapper() });
     expect(await screen.findByText('SPEI #123')).toBeInTheDocument();
     expect(await screen.findByText('ACME SA')).toBeInTheDocument();
-    expect(screen.getByText('Propuesta')).toBeInTheDocument();
+    expect(within(screen.getByRole('table')).getByText('Propuesta')).toBeInTheDocument();
   });
 
   it('estado error', async () => {
@@ -138,17 +132,13 @@ describe('<BandejaAplicaciones> — smoke', () => {
       ),
     );
     render(<BandejaAplicaciones />, { wrapper: createQueryWrapper() });
-    expect(
-      await screen.findByText(/No se pudieron cargar las propuestas/i),
-    ).toBeInTheDocument();
+    expect(await screen.findByText(/No se pudieron cargar las propuestas/i)).toBeInTheDocument();
   });
 });
 
 describe('<DetalleAplicacion> — smoke', () => {
   it('pendiente: matching y resolución exclusiva de Tesorería', async () => {
-    mswServer.use(
-      http.get(`${BASE}/pap-1`, () => HttpResponse.json(propuesta)),
-    );
+    mswServer.use(http.get(`${BASE}/pap-1`, () => HttpResponse.json(propuesta)));
     render(<DetalleAplicacion />, { wrapper: createQueryWrapper() });
     expect(await screen.findByText('SPEI #123')).toBeInTheDocument();
     // Folio en vez del UUID fiscal (feedback 2026-07-14).
@@ -173,9 +163,7 @@ describe('<DetalleAplicacion> — smoke', () => {
     );
     render(<DetalleAplicacion />, { wrapper: createQueryWrapper() });
     expect(await screen.findByText('Cliente equivocado')).toBeInTheDocument();
-    expect(
-      screen.queryByRole('button', { name: /Confirmar/i }),
-    ).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /Confirmar/i })).not.toBeInTheDocument();
   });
 
   it('consulta de CxC sin acciones de resolución', async () => {
@@ -185,13 +173,9 @@ describe('<DetalleAplicacion> — smoke', () => {
         'cuentas_por_cobrar.lineas-credito.leer',
       ],
     });
-    mswServer.use(
-      http.get(`${BASE}/pap-1`, () => HttpResponse.json(propuesta)),
-    );
+    mswServer.use(http.get(`${BASE}/pap-1`, () => HttpResponse.json(propuesta)));
     render(<DetalleAplicacion />, { wrapper: createQueryWrapper() });
     expect(await screen.findByText('SPEI #123')).toBeInTheDocument();
-    expect(
-      screen.queryByRole('button', { name: /Confirmar/i }),
-    ).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /Confirmar/i })).not.toBeInTheDocument();
   });
 });

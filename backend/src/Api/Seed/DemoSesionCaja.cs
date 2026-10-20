@@ -26,7 +26,7 @@ namespace Millet.Api.Seed;
 /// </summary>
 public sealed partial class DemoSesionSeedHostedService
 {
-    public const string CajaDemoNombre = "DEMO Caja Mostrador Conkal";
+    public const string CajaDemoNombre = "Caja Mostrador Conkal";
     public static readonly Guid CajeraDemoId = Id("DEMO-USUARIO-CAJERA-MID");
 
     private const decimal FondoDemo = 2_000m;
@@ -37,10 +37,10 @@ public sealed partial class DemoSesionSeedHostedService
     private static readonly (string Cliente, string Articulo, decimal Cantidad, decimal Precio, TimeOnly Hora,
         (string Forma, decimal Importe, string? Referencia)[] Pagos)[] CobrosDemo =
     [
-        ("DEMO-CLI-KIJ", "DEMO Vidrio claro 6 mm", 2, 500m, new(10, 15), [("01", 1_160m, null)]),
-        ("DEMO-CLI-NORMAL", "DEMO Vidrio templado 10 mm", 1, 2_000m, new(11, 40), [("04", 2_320m, "DEMO-VOUCHER-0417")]),
-        ("DEMO-CLI-XIA", "DEMO Espejo 4 mm", 1, 500m, new(13, 5), [("03", 580m, "DEMO-FOLIO-INGRESOS-0031")]),
-        ("DEMO-CLI-RANURA", "DEMO Cancel de baño", 1, 1_000m, new(16, 30), [("01", 500m, null), ("28", 660m, "DEMO-VOUCHER-0422")]),
+        ("DEMO-CLI-KIJ", "Vidrio claro 6 mm", 2, 500m, new(10, 15), [("01", 1_160m, null)]),
+        ("DEMO-CLI-NORMAL", "Vidrio templado 10 mm", 1, 2_000m, new(11, 40), [("04", 2_320m, "DEMO-VOUCHER-0417")]),
+        ("DEMO-CLI-XIA", "Espejo 4 mm", 1, 500m, new(13, 5), [("03", 580m, "DEMO-FOLIO-INGRESOS-0031")]),
+        ("DEMO-CLI-RANURA", "Cancel de baño", 1, 1_000m, new(16, 30), [("01", 500m, null), ("28", 660m, "DEMO-VOUCHER-0422")]),
     ];
 
     private static async Task SembrarCajaAsync(IServiceProvider sp, CancellationToken ct)
@@ -59,13 +59,14 @@ public sealed partial class DemoSesionSeedHostedService
         var yaRelacionados = await db.Cajas.SelectMany(c => c.Usuarios).Select(u => u.UsuarioId).ToListAsync(ct);
 
         var caja = await db.Cajas.Include(c => c.Sucursales).Include(c => c.Usuarios)
-            .SingleOrDefaultAsync(c => c.EmpresaId == EmpresaId && c.Nombre == CajaDemoNombre, ct);
+            .SingleOrDefaultAsync(c => c.EmpresaId == EmpresaId && (c.Nombre == CajaDemoNombre || c.Nombre == "DEMO Caja Mostrador Conkal"), ct);
         if (caja is null)
         {
-            caja = Caja.Crear(EmpresaId, CajaDemoNombre, "DEMO: mostrador de la sucursal Conkal (MID), un cajero por sesión.");
+            caja = Caja.Crear(EmpresaId, CajaDemoNombre, "Mostrador de Conkal, un cajero por sesión.");
             caja.ReemplazarSucursales([mid.Id]);
             db.Cajas.Add(caja);
         }
+        if (caja.Nombre == "DEMO Caja Mostrador Conkal") caja.Actualizar(CajaDemoNombre, "Mostrador de Conkal, un cajero por sesión.");
         var nuevos = cajerosFacturacion.Append(CajeraDemoId).Where(u => !yaRelacionados.Contains(u)).ToList();
         if (nuevos.Count > 0)
             caja.ReemplazarUsuarios([.. caja.Usuarios.Select(u => u.UsuarioId), .. nuevos]);
@@ -85,7 +86,7 @@ public sealed partial class DemoSesionSeedHostedService
             (CajaMovimiento.Crear(EmpresaId, sesion.Id, TipoCajaMovimiento.FondoApertura, CajaSesion.FormaPagoEfectivo,
                 FondoDemo, CajeraDemoId, "Fondo de apertura"), A(new(9, 0))),
             (CajaMovimiento.Crear(EmpresaId, sesion.Id, TipoCajaMovimiento.Retiro, CajaSesion.FormaPagoEfectivo,
-                -RetiroDemo, CajeraDemoId, "DEMO retiro parcial entregado a caja general"), A(new(15, 0))),
+                -RetiroDemo, CajeraDemoId, "Retiro parcial entregado a caja general"), A(new(15, 0))),
         };
         var facturas = new List<FacturaVenta>();
         var cobros = new List<CobroMostrador>();
@@ -95,7 +96,7 @@ public sealed partial class DemoSesionSeedHostedService
             var cliente = ClientesSat.Single(x => x.Clave == c.Cliente);
             var receptor = new DatosFiscalesReceptor(cliente.Rfc, cliente.Nombre, "601", cliente.Cp, "G03", "MEX", false);
             var fecha = A(c.Hora);
-            var factura = FacturaVenta.CrearBorrador(EmpresaId, $"DEMO-C{i + 1}", i + 1, mid.Id, caja.Id, CajeraDemoId,
+            var factura = FacturaVenta.CrearBorrador(EmpresaId, $"FA-{i + 1:000000}", i + 1, mid.Id, caja.Id, CajeraDemoId,
                 receptor, emisor, "PUE", c.Pagos[0].Forma, "MXN", null, dia.Year, dia.Month, 1,
                 ComportamientoFiscal.MostradorInmediato, null, null, null, false);
             factura.AgregarLinea(null, "30171700", c.Articulo, "H87", c.Cantidad, c.Precio, 0, "02", .16m, null, null);
@@ -120,7 +121,7 @@ public sealed partial class DemoSesionSeedHostedService
         var esperado = movimientos.GroupBy(m => m.Movimiento.FormaPago)
             .ToDictionary(g => g.Key, g => g.Sum(m => m.Movimiento.Importe));
         sesion.IniciarArqueo(esperado);
-        sesion.Cerrar(esperado[CajaSesion.FormaPagoEfectivo], "DEMO: arqueo cuadrado, efectivo entregado a caja general.",
+        sesion.Cerrar(esperado[CajaSesion.FormaPagoEfectivo], "Cierre del día: arqueo cuadrado, efectivo entregado a caja general.",
             cierreExtemporaneo: false, A(new(18, 10)));
 
         await using var tx = await db.Database.BeginTransactionAsync(ct);

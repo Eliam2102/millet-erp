@@ -1,4 +1,4 @@
-import { useNavigate, useSearch } from '@tanstack/react-router';
+import { PageHeader } from '@/components/erp/PageHeader';
 import { Label } from '@/components/ui/label';
 import {
   Select,
@@ -7,15 +7,13 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { ReporteShell } from '@/components/erp';
-import { ClienteSelector } from '@/features/facturacion/components/selectors/ClienteSelector';
-import {
-  useEstadosAnticipos,
-  type ReporteFila,
-} from '@/features/facturacion/api/useReportes';
-import { esApiError } from '@/lib/api';
 import { EstadoAnticipo } from '@/features/facturacion/api/types';
+import { useEstadosAnticipos, type ReporteFila } from '@/features/facturacion/api/useReportes';
+import { ClienteSelector } from '@/features/facturacion/components/selectors/ClienteSelector';
 import type { EstadosAnticiposSearch } from '@/features/facturacion/lib/reportes-search-schema';
+import { esApiError } from '@/lib/api';
+import { useNavigate, useSearch } from '@tanstack/react-router';
+import { ReporteFacturacion } from '../components/ReporteFacturacion';
 
 const FROM = '/_app/facturacion/reportes/estados-anticipos' as const;
 const SENTINEL_ALL = '__all__';
@@ -23,7 +21,7 @@ const SENTINEL_ALL = '__all__';
 /**
  * <c>Reporte de Estados de facturas de anticipo</c> (FE-F9). Anticipos
  * emitidos, facturas vinculadas, NCs de amortización y saldo, vía
- * <c>&lt;ReporteShell&gt;</c> (ADR-0036).
+ * <c>&lt;ReporteFacturacion&gt;</c> (ADR-0036).
  */
 export function ReporteEstadosAnticipos() {
   const search = useSearch({ from: FROM });
@@ -44,13 +42,12 @@ export function ReporteEstadosAnticipos() {
   const filtrosUi = (
     <div className="flex flex-wrap items-end gap-3">
       <div className="space-y-1">
-        <Label className="text-xs text-muted-foreground">Estado</Label>
+        <Label className="text-xs text-ink-muted">Estado</Label>
         <Select
           value={search.estado != null ? String(search.estado) : SENTINEL_ALL}
           onValueChange={(v) =>
             actualizar({
-              estado:
-                v === SENTINEL_ALL ? undefined : (Number(v) as EstadoAnticipo),
+              estado: v === SENTINEL_ALL ? undefined : (Number(v) as EstadoAnticipo),
             })
           }
         >
@@ -60,17 +57,13 @@ export function ReporteEstadosAnticipos() {
           <SelectContent>
             <SelectItem value={SENTINEL_ALL}>Todos</SelectItem>
             <SelectItem value={String(EstadoAnticipo.Abierto)}>Abierto</SelectItem>
-            <SelectItem value={String(EstadoAnticipo.Amortizado)}>
-              Amortizado
-            </SelectItem>
-            <SelectItem value={String(EstadoAnticipo.Cancelado)}>
-              Cancelado
-            </SelectItem>
+            <SelectItem value={String(EstadoAnticipo.Amortizado)}>Amortizado</SelectItem>
+            <SelectItem value={String(EstadoAnticipo.Cancelado)}>Cancelado</SelectItem>
           </SelectContent>
         </Select>
       </div>
       <div className="space-y-1">
-        <Label className="text-xs text-muted-foreground">Cliente</Label>
+        <Label className="text-xs text-ink-muted">Cliente</Label>
         <ClienteSelector
           value={search.clienteId ?? null}
           onChange={(item) => actualizar({ clienteId: item?.id ?? undefined })}
@@ -81,17 +74,17 @@ export function ReporteEstadosAnticipos() {
   );
 
   return (
-    <div className="space-y-4 px-4 py-6">
-      <header>
-        <h1 className="text-2xl font-semibold tracking-tight">
-          Estados de facturas de anticipo
-        </h1>
-        <p className="text-sm text-muted-foreground">
-          Anticipos, facturas vinculadas, NCs de amortización y saldo por cliente.
-        </p>
-      </header>
+    <div className="space-y-5">
+      <div>
+        <PageHeader
+          titulo={<>Estados de facturas de anticipo</>}
+          descripcion={
+            <>Anticipos, facturas vinculadas, NCs de amortización y saldo por cliente.</>
+          }
+        />
+      </div>
 
-      <ReporteShell<ReporteFila>
+      <ReporteFacturacion<ReporteFila>
         reporte={query.data}
         isLoading={query.isLoading}
         error={esApiError(query.error) ? query.error : undefined}

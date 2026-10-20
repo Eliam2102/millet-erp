@@ -1,50 +1,39 @@
-import { Link, useNavigate, useSearch } from '@tanstack/react-router';
-import { Plus } from 'lucide-react';
+import {
+  BarraFiltros,
+  EmptyState,
+  ErrorState,
+  PaginacionTabla,
+  TableSkeleton,
+  TabsEstado,
+} from '@/components/erp';
+import { BusquedaFolio } from '@/components/erp/data/BusquedaFolio';
+import { ListadoModulo } from '@/components/erp/data/ListadoModulo';
+import { PageHeader } from '@/components/erp/PageHeader';
 import { Button } from '@/components/ui/button';
 import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
-import { EmptyState, ErrorState, TableSkeleton } from '@/components/erp';
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '@/components/ui/table';
+import { EstadoTimbrado } from '@/features/facturacion/api/types';
+import { useListarFacturas } from '@/features/facturacion/api/useFacturas';
 import { BadgeSinAsignar } from '@/features/facturacion/components/BadgeSinAsignar';
 import { ClasePedidoBadge } from '@/features/facturacion/components/ClasePedidoBadge';
 import { FiltroClasePedido } from '@/features/facturacion/components/FiltroClasePedido';
-import { useListarFacturas } from '@/features/facturacion/api/useFacturas';
-import { useHasPermission } from '@/lib/auth/useHasPermission';
-import { PermisosCanonicos } from '@/lib/auth/permission-codes';
-import { esApiError } from '@/lib/api';
-import { EstadoTimbrado } from '@/features/facturacion/api/types';
-import { ETIQUETA_ESTADO_TIMBRADO } from '@/features/facturacion/lib/glosario';
+import { EstadoFacturacionBadge } from '@/features/facturacion/components/EstadoFacturacionBadge';
 import type { FacturasSearch } from '@/features/facturacion/lib/facturas-search-schema';
-import { cn } from '@/lib/utils';
+import { esApiError } from '@/lib/api';
+import { PermisosCanonicos } from '@/lib/auth/permission-codes';
+import { useHasPermission } from '@/lib/auth/useHasPermission';
+import { Link, useNavigate, useSearch } from '@tanstack/react-router';
+import { Plus } from 'lucide-react';
+import { estadoUi } from '../lib/estados-ui';
+import { usePaginacionLocal } from '../lib/use-paginacion-local';
 
 const FROM = '/_app/facturacion/facturas/' as const;
-const SENTINEL_ALL = '__all__';
-
-const OPCIONES_ESTADO = [
-  EstadoTimbrado.Borrador,
-  EstadoTimbrado.PendientePedimento,
-  EstadoTimbrado.TimbradoEnProceso,
-  EstadoTimbrado.Timbrado,
-  EstadoTimbrado.TimbradoFallido,
-  EstadoTimbrado.CancelacionPendiente,
-  EstadoTimbrado.Cancelado,
-  EstadoTimbrado.Descartada,
-] as const;
-
-const NOMBRE_ESTADO: Record<number, string> = {
-  [EstadoTimbrado.Borrador]: 'Borrador',
-  [EstadoTimbrado.PendientePedimento]: 'PendientePedimento',
-  [EstadoTimbrado.TimbradoEnProceso]: 'TimbradoEnProceso',
-  [EstadoTimbrado.Timbrado]: 'Timbrado',
-  [EstadoTimbrado.TimbradoFallido]: 'TimbradoFallido',
-  [EstadoTimbrado.CancelacionPendiente]: 'CancelacionPendiente',
-  [EstadoTimbrado.Cancelado]: 'Cancelado',
-  [EstadoTimbrado.Descartada]: 'Descartada',
-};
 
 /**
  * <c>Bandeja de comprobantes emitidos</c> (FE-F1-PR2). Tabla filtrada
@@ -55,9 +44,7 @@ const NOMBRE_ESTADO: Record<number, string> = {
 export function BandejaFacturas() {
   const search = useSearch({ from: FROM });
   const navigate = useNavigate();
-  const puedeEmitir = useHasPermission(
-    PermisosCanonicos.FacturacionFacturasEmitir,
-  );
+  const puedeEmitir = useHasPermission(PermisosCanonicos.FacturacionFacturasEmitir);
 
   const query = useListarFacturas({
     estado: search.estado,
@@ -81,177 +68,168 @@ export function BandejaFacturas() {
     );
   });
 
+  const paginacion = usePaginacionLocal(items, JSON.stringify(search));
   return (
-    <div className="space-y-4 px-4 py-6">
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <div>
-          <h1 className="text-2xl font-semibold tracking-tight">Facturas</h1>
-          <p className="text-sm text-muted-foreground">
-            Comprobantes de venta emitidos y su estado de timbrado.
-          </p>
-        </div>
-        {puedeEmitir && (
-          <Button asChild>
-            <Link to="/facturacion/facturas/nueva">
-              <Plus className="mr-2 h-4 w-4" />
-              Nueva factura
-            </Link>
-          </Button>
-        )}
-      </div>
+    <div className="space-y-5">
+      <PageHeader
+        titulo="Facturas"
+        descripcion="Comprobantes de venta emitidos y su estado de timbrado."
+        acciones={
+          <>
+            {' '}
+            {puedeEmitir && (
+              <Button asChild>
+                <Link to="/facturacion/facturas/nueva">
+                  <Plus className="mr-2 h-4 w-4" />
+                  Nueva factura
+                </Link>
+              </Button>
+            )}{' '}
+          </>
+        }
+      />
 
-      <div className="flex flex-wrap items-end gap-3">
-        <div className="space-y-1">
-          <label className="text-xs text-muted-foreground">Estado</label>
-          <Select
-            value={search.estado != null ? String(search.estado) : SENTINEL_ALL}
-            onValueChange={(v) =>
-              actualizarSearch({
-                estado:
-                  v === SENTINEL_ALL
-                    ? undefined
-                    : (Number(v) as EstadoTimbrado),
-              })
+      <ListadoModulo
+        tabs={
+          <TabsEstado
+            opciones={Object.entries(EstadoTimbrado).map(([nombre, valor]) => ({
+              valor,
+              label: estadoUi('factura', nombre).texto,
+            }))}
+            valor={search.estado}
+            onChange={(estado) => actualizarSearch({ estado: estado as FacturasSearch['estado'] })}
+            conteos={undefined}
+          />
+        }
+        filtros={
+          <BarraFiltros
+            busqueda={
+              <BusquedaFolio
+                aria-label="Folio, UUID, receptor o RFC"
+                placeholder="Folio, UUID, receptor o RFC"
+                valor={search.q}
+                onCommit={(q) => actualizarSearch({ q })}
+              />
             }
-          >
-            <SelectTrigger aria-label="Filtrar por estado" className="w-56">
-              <SelectValue placeholder="Todos" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value={SENTINEL_ALL}>Todos</SelectItem>
-              {OPCIONES_ESTADO.map((e) => (
-                <SelectItem key={e} value={String(e)}>
-                  {ETIQUETA_ESTADO_TIMBRADO[NOMBRE_ESTADO[e]] ?? NOMBRE_ESTADO[e]}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
-        <FiltroClasePedido
-          value={search.clase}
-          onChange={(clase) => actualizarSearch({ clase })}
-        />
-        {(search.estado != null || search.clase != null) && (
-          <Button
-            variant="ghost"
-            onClick={() => actualizarSearch({ estado: undefined, clase: undefined })}
-          >
-            Limpiar
-          </Button>
+            filtros={
+              <>
+                <FiltroClasePedido
+                  value={search.clase}
+                  onChange={(clase) => actualizarSearch({ clase })}
+                />
+                {(search.estado != null || search.clase != null) && (
+                  <Button
+                    variant="ghost"
+                    onClick={() => actualizarSearch({ estado: undefined, clase: undefined })}
+                  >
+                    Limpiar
+                  </Button>
+                )}
+                <BadgeSinAsignar
+                  count={query.data?.sinAsignarCount ?? null}
+                  activo={search.alcance === 'sin-asignar'}
+                  onToggle={() =>
+                    actualizarSearch({
+                      alcance: search.alcance === 'sin-asignar' ? undefined : 'sin-asignar',
+                    })
+                  }
+                />
+              </>
+            }
+          />
+        }
+        pie={
+          <PaginacionTabla
+            total={items.length}
+            offset={paginacion.offset}
+            limit={10}
+            tamanos={[]}
+            onChange={paginacion.onChange}
+          />
+        }
+      >
+        {query.isError ? (
+          <ErrorState
+            title="No se pudieron cargar las facturas"
+            problem={esApiError(query.error) ? query.error.problem : undefined}
+            onRetry={() => query.refetch()}
+          />
+        ) : query.isLoading ? (
+          <TableSkeleton
+            rows={6}
+            columns={[
+              { width: 'w-28' },
+              { width: 'w-48' },
+              { width: 'w-40' },
+              { width: 'w-32' },
+              { width: 'w-28' },
+              { width: 'w-16' },
+            ]}
+          />
+        ) : items.length === 0 ? (
+          <EmptyState
+            title="Sin facturas"
+            description={
+              search.estado != null || search.clase != null || q.length > 0
+                ? 'No hay facturas que coincidan con los filtros.'
+                : 'Aún no hay facturas emitidas. Emite una con "Nueva factura".'
+            }
+          />
+        ) : (
+          <div className="overflow-x-auto rounded-md border border-line">
+            <Table className="w-full text-sm">
+              <TableHeader className="bg-surface-muted/50">
+                <TableRow>
+                  <TableHead className="px-3 py-2 text-left">Folio</TableHead>
+                  <TableHead className="px-3 py-2 text-left">Receptor</TableHead>
+                  <TableHead className="px-3 py-2 text-left">UUID</TableHead>
+                  <TableHead className="px-3 py-2 text-right tabular-nums">Total</TableHead>
+                  <TableHead className="px-3 py-2 text-left">Estado</TableHead>
+                  <TableHead className="px-3 py-2 text-right tabular-nums">Acción</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {paginacion.visibles.map((f) => (
+                  <TableRow key={f.id} className="border-t hover:bg-surface-muted/30 border-line">
+                    <TableCell className="px-3 py-2">
+                      <div className="font-mono text-xs">{f.folio}</div>
+                      <ClasePedidoBadge clasificacion={f} className="mt-1" />
+                    </TableCell>
+                    <TableCell className="px-3 py-2">
+                      <div>{f.receptorNombre}</div>
+                      <div className="font-mono text-xs text-ink-muted">{f.receptorRfc}</div>
+                    </TableCell>
+                    <TableCell className="px-3 py-2 font-mono text-xs">
+                      {f.uuid ? `${f.uuid.slice(0, 8)}…${f.uuid.slice(-4)}` : '—'}
+                    </TableCell>
+                    <TableCell className="px-3 py-2 text-right font-mono tabular-nums">
+                      {formatearMonto(f.total, f.moneda)}
+                    </TableCell>
+                    <TableCell className="px-3 py-2">
+                      <ChipTimbrado estado={f.estado} />
+                    </TableCell>
+                    <TableCell className="px-3 py-2 text-right tabular-nums">
+                      <Link
+                        to="/facturacion/facturas/$id"
+                        params={{ id: f.id }}
+                        className="text-sm font-medium text-brand hover:underline"
+                      >
+                        Ver
+                      </Link>
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </div>
         )}
-        <BadgeSinAsignar
-          count={query.data?.sinAsignarCount ?? null}
-          activo={search.alcance === 'sin-asignar'}
-          onToggle={() =>
-            actualizarSearch({
-              alcance: search.alcance === 'sin-asignar' ? undefined : 'sin-asignar',
-            })
-          }
-        />
-      </div>
-
-      {query.isError ? (
-        <ErrorState
-          title="No se pudieron cargar las facturas"
-          problem={esApiError(query.error) ? query.error.problem : undefined}
-          onRetry={() => query.refetch()}
-        />
-      ) : query.isLoading ? (
-        <TableSkeleton
-          rows={6}
-          columns={[
-            { width: 'w-28' },
-            { width: 'w-48' },
-            { width: 'w-40' },
-            { width: 'w-32' },
-            { width: 'w-28' },
-            { width: 'w-16' },
-          ]}
-        />
-      ) : items.length === 0 ? (
-        <EmptyState
-          title="Sin facturas"
-          description={
-            search.estado != null || search.clase != null || q.length > 0
-              ? 'No hay facturas que coincidan con los filtros.'
-              : 'Aún no hay facturas emitidas. Emite una con "Nueva factura".'
-          }
-        />
-      ) : (
-        <div className="overflow-x-auto rounded-md border">
-          <table className="w-full text-sm">
-            <thead className="bg-muted/50">
-              <tr>
-                <th className="px-3 py-2 text-left">Folio</th>
-                <th className="px-3 py-2 text-left">Receptor</th>
-                <th className="px-3 py-2 text-left">UUID</th>
-                <th className="px-3 py-2 text-right">Total</th>
-                <th className="px-3 py-2 text-left">Estado</th>
-                <th className="px-3 py-2 text-right">Acción</th>
-              </tr>
-            </thead>
-            <tbody>
-              {items.map((f) => (
-                <tr key={f.id} className="border-t hover:bg-muted/30">
-                  <td className="px-3 py-2">
-                    <div className="font-mono text-xs">{f.folio}</div>
-                    <ClasePedidoBadge clasificacion={f} className="mt-1" />
-                  </td>
-                  <td className="px-3 py-2">
-                    <div>{f.receptorNombre}</div>
-                    <div className="font-mono text-xs text-muted-foreground">
-                      {f.receptorRfc}
-                    </div>
-                  </td>
-                  <td className="px-3 py-2 font-mono text-xs">
-                    {f.uuid ? `${f.uuid.slice(0, 8)}…${f.uuid.slice(-4)}` : '—'}
-                  </td>
-                  <td className="px-3 py-2 text-right font-mono">
-                    {formatearMonto(f.total, f.moneda)}
-                  </td>
-                  <td className="px-3 py-2">
-                    <ChipTimbrado estado={f.estado} />
-                  </td>
-                  <td className="px-3 py-2 text-right">
-                    <Link
-                      to="/facturacion/facturas/$id"
-                      params={{ id: f.id }}
-                      className="text-sm font-medium text-primary hover:underline"
-                    >
-                      Ver
-                    </Link>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      )}
+      </ListadoModulo>
     </div>
   );
 }
 
 export function ChipTimbrado({ estado }: { estado: string }) {
-  const tono =
-    estado === 'Timbrado'
-      ? 'bg-emerald-100 text-emerald-800'
-      : estado === 'TimbradoFallido'
-        ? 'bg-rose-100 text-rose-800'
-        : estado === 'Cancelado' || estado === 'Descartada'
-          ? 'bg-zinc-200 text-zinc-700'
-          : estado === 'TimbradoEnProceso' || estado === 'CancelacionPendiente'
-            ? 'bg-amber-100 text-amber-800'
-            : 'bg-sky-100 text-sky-800';
-  return (
-    <span
-      className={cn(
-        'inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium',
-        tono,
-      )}
-    >
-      {ETIQUETA_ESTADO_TIMBRADO[estado] ?? estado}
-    </span>
-  );
+  return <EstadoFacturacionBadge entidad="factura" estado={estado} />;
 }
 
 function formatearMonto(v: number, moneda: string): string {

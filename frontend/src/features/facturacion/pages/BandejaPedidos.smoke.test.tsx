@@ -62,12 +62,8 @@ describe('<BandejaPedidos> — smoke', () => {
       ),
     );
     render(<BandejaPedidos />, { wrapper: createQueryWrapper() });
-    await waitFor(() =>
-      expect(screen.getByText(/Sin pedidos/i)).toBeInTheDocument(),
-    );
-    expect(
-      screen.getByRole('button', { name: /Nuevo pedido/i }),
-    ).toBeInTheDocument();
+    await waitFor(() => expect(screen.getByText(/Sin pedidos/i)).toBeInTheDocument());
+    expect(screen.getByRole('button', { name: /Nuevo pedido/i })).toBeInTheDocument();
   });
 
   it('renderiza un pedido con su estado y total', async () => {
@@ -91,11 +87,9 @@ describe('<BandejaPedidos> — smoke', () => {
       ),
     );
     render(<BandejaPedidos />, { wrapper: createQueryWrapper() });
-    await waitFor(() =>
-      expect(screen.getByText('Cliente Demo SA')).toBeInTheDocument(),
-    );
+    await waitFor(() => expect(screen.getByText('Cliente Demo SA')).toBeInTheDocument());
     expect(screen.getByText('MID-001')).toBeInTheDocument();
-    expect(screen.getByText('Importado')).toBeInTheDocument();
+    expect(screen.getByRole('cell', { name: 'Importado' })).toBeInTheDocument();
   });
 
   it('F6.1: badges de clase y filtro «Clase» sincronizado con ?clase=', async () => {
@@ -163,9 +157,7 @@ describe('<BandejaPedidos> — smoke', () => {
     );
     render(<BandejaPedidos />, { wrapper: createQueryWrapper() });
     await waitFor(() =>
-      expect(
-        screen.getByText(/No se pudieron cargar los pedidos/i),
-      ).toBeInTheDocument(),
+      expect(screen.getByText(/No se pudieron cargar los pedidos/i)).toBeInTheDocument(),
     );
   });
 });

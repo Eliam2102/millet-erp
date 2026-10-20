@@ -1,7 +1,7 @@
-import { useMemo } from 'react';
 import { CatalogoEagerCombobox } from '@/components/erp/selectors/CatalogoEagerCombobox';
-import { useFacturasCobrablesPpd } from '@/features/facturacion/api/useRepp';
 import type { FacturaCobrablePpdItem } from '@/features/facturacion/api/types';
+import { useFacturasCobrablesPpd } from '@/features/facturacion/api/useRepp';
+import { useMemo } from 'react';
 
 /**
  * <c>&lt;FacturaPpdPicker/&gt;</c> — combobox eager de las facturas PPD
@@ -51,15 +51,13 @@ export function FacturaPpdPicker({
       loading={query.isLoading}
       error={query.error}
       value={value}
-      onChange={(id) =>
-        onChange(id == null ? null : cobrables.find((f) => f.id === id) ?? null)
-      }
+      onChange={(id) => onChange(id == null ? null : (cobrables.find((f) => f.id === id) ?? null))}
       itemToLabel={(f) => `${f.folio} ${f.receptorNombre}`}
       renderItem={(f) => (
         <div className="min-w-0 flex-1">
           <div className="flex items-center gap-2">
             <span className="truncate font-mono text-xs">{f.folio}</span>
-            <span className="truncate text-xs text-muted-foreground">{f.receptorNombre}</span>
+            <span className="truncate text-xs text-ink-muted">{f.receptorNombre}</span>
           </div>
           <p className="text-sm tabular-nums">
             Saldo {f.saldo.toFixed(2)} {f.moneda} · parcialidad {f.numParcialidadSiguiente}

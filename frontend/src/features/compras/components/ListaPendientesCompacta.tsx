@@ -1,8 +1,11 @@
 import { Link } from '@tanstack/react-router';
-import { EstadoBadge, NivelPendienteBadge, DateTimeDisplay } from '@/components/erp';
+import { EstadoBadge, DateTimeDisplay } from '@/components/erp';
 import { requisitanteLabel } from '@/features/compras/lib/nombres';
 import type { PendienteAutorizacionItemResponse } from '@/features/compras/api/types';
-import { DisponibilidadBadge, RecurrenteBadge } from '@/features/compras/components/IndicadoresPendiente';
+import {
+  DisponibilidadBadge,
+  RecurrenteBadge,
+} from '@/features/compras/components/IndicadoresPendiente';
 import type { PendientesSearch } from '@/features/compras/lib/pendientes-search-schema';
 import { cn } from '@/lib/utils';
 
@@ -24,17 +27,9 @@ export interface ListaPendientesCompactaProps {
   search: PendientesSearch;
 }
 
-export function ListaPendientesCompacta({
-  items,
-  idActivo,
-  search,
-}: ListaPendientesCompactaProps) {
+export function ListaPendientesCompacta({ items, idActivo, search }: ListaPendientesCompactaProps) {
   return (
-    <ul
-      className="divide-y"
-      role="list"
-      aria-label="Lista de requisiciones pendientes"
-    >
+    <ul className="divide-y" role="list" aria-label="Lista de requisiciones pendientes">
       {items.map((r) => (
         <ItemCompacto
           key={r.id}
@@ -65,9 +60,7 @@ function ItemCompacto({ item, activo, requisitante, search }: ItemCompactoProps)
         state={{ pendientesSearch: search } as never}
         className={cn(
           'block px-3 py-2 transition-colors',
-          activo
-            ? 'bg-primary/10 hover:bg-primary/15'
-            : 'hover:bg-muted/40',
+          activo ? 'bg-primary/10 hover:bg-primary/15' : 'hover:bg-muted/40',
         )}
         aria-current={activo ? 'page' : undefined}
       >
@@ -82,11 +75,14 @@ function ItemCompacto({ item, activo, requisitante, search }: ItemCompactoProps)
           </span>
           <div className="flex shrink-0 flex-col items-end gap-1">
             <EstadoBadge tipo="requisicion" estado={item.estado} />
-            {item.nivelPendiente != null && (
-              <NivelPendienteBadge nivel={item.nivelPendiente} />
+            {item.esRecurrente === true ? (
+              <RecurrenteBadge esRecurrente />
+            ) : (
+              <DisponibilidadBadge disponibilidad={item.disponibilidad} />
             )}
-            <DisponibilidadBadge disponibilidad={item.disponibilidad} />
-            <RecurrenteBadge esRecurrente={item.esRecurrente} />
+            {item.nivelPendiente != null && (
+              <span className="text-xs text-ink-muted">Falta N{item.nivelPendiente}</span>
+            )}
           </div>
         </div>
         <div className="mt-1 flex items-center justify-between gap-2 text-xs text-muted-foreground">

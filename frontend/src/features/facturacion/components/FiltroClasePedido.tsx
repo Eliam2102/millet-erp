@@ -26,7 +26,7 @@ export function FiltroClasePedido({
     <div className="space-y-1">
       <label
         htmlFor="filtro-clase-pedido"
-        className="text-xs text-muted-foreground"
+        className="text-xs text-ink-muted"
       >
         Clase
       </label>

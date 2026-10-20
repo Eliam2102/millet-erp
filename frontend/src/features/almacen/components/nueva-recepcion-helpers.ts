@@ -9,9 +9,9 @@ import type { LineaRecibible } from '@/features/almacen/api/types';
  * almacenista solo lo ajusta si lo que llegó difiere de lo solicitado.
  *
  * <para><paramref name="recibibles"/> es la respuesta del servidor
- * (<c>useLineasRecibibles</c>): de ahí salen el pendiente, la tolerancia y el
- * máximo recibible. Si una línea no aparece en ese índice (defensivo), se
- * calcula local con tolerancia 0 %.</para>
+ * (<c>useLineasRecibibles</c>): de ahí salen el pendiente y el
+ * máximo recibible (igual al pendiente). Si una línea no aparece en ese índice
+ * (defensivo), se calcula local.</para>
  *
  * <para>Vive en archivo aparte para satisfacer
  * <c>react-refresh/only-export-components</c> en el sheet.</para>
@@ -38,7 +38,6 @@ export function construirFilas(
         cantidadSolicitada: l.cantidad,
         cantidadYaRecibida: r ? r.cantidadRecibida : l.cantidadRecibida,
         pendiente,
-        toleranciaPorcentaje: r ? r.toleranciaPorcentaje : 0,
         maximo: r ? r.maximoRecibible : pendiente,
         incluida: false,
         cantidad: pendiente,

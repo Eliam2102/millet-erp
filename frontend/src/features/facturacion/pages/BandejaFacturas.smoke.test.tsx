@@ -54,9 +54,7 @@ describe('<BandejaFacturas> — smoke', () => {
       ),
     );
     render(<BandejaFacturas />, { wrapper: createQueryWrapper() });
-    await waitFor(() =>
-      expect(screen.getByText(/Sin facturas/i)).toBeInTheDocument(),
-    );
+    await waitFor(() => expect(screen.getByText(/Sin facturas/i)).toBeInTheDocument());
     // FAC-UX-PR2: navega a /facturacion/facturas/nueva (ya no abre Sheet).
     const link = screen.getByRole('link', { name: /Nueva factura/i });
     expect(link).toHaveAttribute('href', '/facturacion/facturas/nueva');
@@ -84,11 +82,9 @@ describe('<BandejaFacturas> — smoke', () => {
       ),
     );
     render(<BandejaFacturas />, { wrapper: createQueryWrapper() });
-    await waitFor(() =>
-      expect(screen.getByText('Público en general')).toBeInTheDocument(),
-    );
+    await waitFor(() => expect(screen.getByText('Público en general')).toBeInTheDocument());
     expect(screen.getByText('A-1')).toBeInTheDocument();
-    expect(screen.getByText('Timbrado')).toBeInTheDocument();
+    expect(screen.getByRole('cell', { name: 'Timbrado' })).toBeInTheDocument();
   });
 
   it('F6.1: badges de clase y filtro «Clase» sincronizado con ?clase=', async () => {
@@ -158,9 +154,7 @@ describe('<BandejaFacturas> — smoke', () => {
     );
     render(<BandejaFacturas />, { wrapper: createQueryWrapper() });
     await waitFor(() =>
-      expect(
-        screen.getByText(/No se pudieron cargar las facturas/i),
-      ).toBeInTheDocument(),
+      expect(screen.getByText(/No se pudieron cargar las facturas/i)).toBeInTheDocument(),
     );
   });
 });

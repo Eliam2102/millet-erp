@@ -1,8 +1,3 @@
-import { ErrorTimbradoAviso } from './ErrorTimbradoAviso';
-import { mostrarErrorReceptorFiscal } from '@/features/facturacion/lib/mostrar-error-receptor-fiscal';
-import { useState } from 'react';
-import { toast } from 'sonner';
-import { Loader2, RotateCcw, Trash2 } from 'lucide-react';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -16,13 +11,18 @@ import {
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Label } from '@/components/ui/label';
-import { esApiError } from '@/lib/api';
-import { useHasPermission } from '@/lib/auth/useHasPermission';
-import { PermisosCanonicos } from '@/lib/auth/permission-codes';
 import {
   useDescartarComprobante,
   useReintentarTimbrado,
 } from '@/features/facturacion/api/useFacturas';
+import { mostrarErrorReceptorFiscal } from '@/features/facturacion/lib/mostrar-error-receptor-fiscal';
+import { esApiError } from '@/lib/api';
+import { PermisosCanonicos } from '@/lib/auth/permission-codes';
+import { useHasPermission } from '@/lib/auth/useHasPermission';
+import { Loader2, RotateCcw, Trash2 } from 'lucide-react';
+import { useState } from 'react';
+import { toast } from 'sonner';
+import { ErrorTimbradoAviso } from './ErrorTimbradoAviso';
 
 /**
  * Códigos de fallo AMBIGUOS: el PAC pudo haber timbrado sin que llegara la
@@ -54,9 +54,7 @@ export function TimbradoFallidoBanner({
   const puedeReintentar = useHasPermission(
     PermisosCanonicos.FacturacionComprobantesReintentarTimbrado,
   );
-  const puedeDescartar = useHasPermission(
-    PermisosCanonicos.FacturacionComprobantesDescartar,
-  );
+  const puedeDescartar = useHasPermission(PermisosCanonicos.FacturacionComprobantesDescartar);
   const reintentar = useReintentarTimbrado();
   const descartar = useDescartarComprobante();
   const [confirmado, setConfirmado] = useState(false);
@@ -64,8 +62,7 @@ export function TimbradoFallidoBanner({
 
   if (estado !== 'TimbradoFallido') return null;
 
-  const esAmbiguo =
-    errorCodigo != null && CODIGOS_AMBIGUOS.includes(errorCodigo.toUpperCase());
+  const esAmbiguo = errorCodigo != null && CODIGOS_AMBIGUOS.includes(errorCodigo.toUpperCase());
 
   function handleReintentar() {
     // Key FRESCA por clic: reintentar timbrado debe volver a pegarle al PAC.
@@ -114,7 +111,7 @@ export function TimbradoFallidoBanner({
           if (mostrarErrorReceptorFiscal(error)) return;
           toast.error(
             esApiError(error)
-              ? error.problem.detail ?? error.problem.title
+              ? (error.problem.detail ?? error.problem.title)
               : 'Error inesperado al descartar el comprobante.',
           );
         },
@@ -124,11 +121,11 @@ export function TimbradoFallidoBanner({
 
   return (
     <div
-      className="space-y-2 rounded-md border border-destructive/40 bg-destructive/5 px-3 py-2 text-sm"
+      className="space-y-2 rounded-md border border-danger/40 bg-danger-bg/5 px-3 py-2 text-sm"
       data-print="hidden"
     >
       <p>
-        <span className="font-medium text-destructive">Timbrado fallido</span>
+        <span className="font-medium text-danger-fg">Timbrado fallido</span>
         {errorCodigo ? (
           <>
             {' — '}
@@ -149,9 +146,8 @@ export function TimbradoFallidoBanner({
                 onCheckedChange={(v) => setConfirmado(v === true)}
               />
               <Label htmlFor="confirmarNoDuplicado" className="text-xs font-normal">
-                Verifiqué en el dashboard de FiscalAPI que NO existe un timbre
-                de este comprobante (el fallo fue ambiguo: reintentar sin
-                verificar puede duplicar el CFDI ante el SAT).
+                Verifiqué en el dashboard de FiscalAPI que NO existe un timbre de este comprobante
+                (el fallo fue ambiguo: reintentar sin verificar puede duplicar el CFDI ante el SAT).
               </Label>
             </div>
           )}
@@ -178,7 +174,7 @@ export function TimbradoFallidoBanner({
           type="button"
           variant="ghost"
           size="sm"
-          className="text-destructive"
+          className="text-danger-fg"
           onClick={() => setConfirmarDescarte(true)}
           disabled={descartar.isPending || reintentar.isPending}
         >
@@ -196,19 +192,17 @@ export function TimbradoFallidoBanner({
           <AlertDialogHeader>
             <AlertDialogTitle>¿Descartar este comprobante?</AlertDialogTitle>
             <AlertDialogDescription>
-              Es definitivo: el comprobante ya no podrá reintentarse y su
-              folio interno queda consumido (hueco consciente en el
-              consecutivo). Si venía de un pedido, el pedido vuelve a quedar
-              facturable. Úsalo cuando el documento ya no deba emitirse
-              (pedido cancelado en origen, captura errónea de raíz) — para
-              corregir datos y volver a timbrar usa &quot;Reintentar
-              timbrado&quot;.
+              Es definitivo: el comprobante ya no podrá reintentarse y su folio interno queda
+              consumido (hueco consciente en el consecutivo). Si venía de un pedido, el pedido
+              vuelve a quedar facturable. Úsalo cuando el documento ya no deba emitirse (pedido
+              cancelado en origen, captura errónea de raíz) — para corregir datos y volver a timbrar
+              usa &quot;Reintentar timbrado&quot;.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>Conservar</AlertDialogCancel>
             <AlertDialogAction
-              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              className="bg-danger-bg text-danger-fg-foreground hover:bg-danger-bg/90"
               onClick={handleDescartar}
             >
               Descartar definitivamente

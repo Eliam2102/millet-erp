@@ -1,27 +1,17 @@
+import { useContext } from 'react';
+import { RecurrenciaContext } from '@/features/compras/components/recurrencia-context';
+import { RecurrenteBadge } from '@/features/compras/components/IndicadoresPendiente';
 import { DocumentoAdjuntosSection } from '@/components/erp/adjuntos/DocumentoAdjuntosSection';
 import { useMemo, useState } from 'react';
-import {
-  Link,
-  useLocation,
-  useParams,
-  useMatches,
-} from '@tanstack/react-router';
+import { Link, useLocation, useParams, useMatches } from '@tanstack/react-router';
 import { History, Printer, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
-import {
-  CollaborationIndicator,
-  EditandoBanner,
-} from '@/components/erp';
+import { CollaborationIndicator, EditandoBanner } from '@/components/erp';
 import { TableSkeleton } from '@/components/erp/feedback/TableSkeleton';
 import { useRequisicion } from '@/features/compras/api';
 import { useHistoricoRequisicion } from '@/features/compras/api/useHistoricoRequisicion';
-import {
-  useSucursales,
-  useAlmacenes,
-  useArticulos,
-  mapById,
-} from '@/features/catalogos/api';
+import { useSucursales, useAlmacenes, useArticulos, mapById } from '@/features/catalogos/api';
 import { CabeceraRequisicion } from '@/features/compras/components/CabeceraRequisicion';
 import { ListaLineas } from '@/features/compras/components/ListaLineas';
 import { EditorLineas } from '@/features/compras/components/EditorLineas';
@@ -32,10 +22,7 @@ import { HistoricoModal } from '@/features/compras/components/HistoricoModal';
 import { DetalleErrorBoundary } from '@/features/compras/components/DetalleErrorBoundary';
 import { AccionesRequisicion } from '@/features/compras/components/AccionesRequisicion';
 import { ResumenCubrimiento } from '@/features/compras/components/ResumenCubrimiento';
-import {
-  EstadoBadge,
-  EnAlmacenBadge,
-} from '@/components/erp/display/EstadoBadge';
+import { EstadoBadge, EnAlmacenBadge } from '@/components/erp/display/EstadoBadge';
 import {
   accionAgregarLinea,
   accionEditarLinea,
@@ -73,6 +60,7 @@ import {
  * filtros — el browser back igual respeta el history nativo.</para>
  */
 export function DetalleRequisicion() {
+  const esRecurrente = useContext(RecurrenciaContext);
   // <c>strict: false</c> permite que el componente viva en dos rutas
   // (<c>/requisiciones/$id</c> y <c>/pendientes/$id</c>) sin acoplarse
   // al <c>from</c> de una específica.
@@ -80,10 +68,8 @@ export function DetalleRequisicion() {
   const location = useLocation();
   const matches = useMatches();
   const parent = inferirRutaPadre(matches, location.pathname);
-  const bandejaSearch =
-    extractBandejaSearch(location.state) ?? DEFAULT_BANDEJA_SEARCH;
-  const pendientesSearch =
-    extractPendientesSearch(location.state) ?? DEFAULT_PENDIENTES_SEARCH;
+  const bandejaSearch = extractBandejaSearch(location.state) ?? DEFAULT_BANDEJA_SEARCH;
+  const pendientesSearch = extractPendientesSearch(location.state) ?? DEFAULT_PENDIENTES_SEARCH;
   const [historicoAbierto, setHistoricoAbierto] = useState(false);
 
   const requisicionQuery = useRequisicion(id);
@@ -91,14 +77,8 @@ export function DetalleRequisicion() {
   const sucursalesQuery = useSucursales();
   const almacenesQuery = useAlmacenes();
 
-  const sucursalesMap = useMemo(
-    () => mapById(sucursalesQuery.data?.items),
-    [sucursalesQuery.data],
-  );
-  const almacenesMap = useMemo(
-    () => mapById(almacenesQuery.data?.items),
-    [almacenesQuery.data],
-  );
+  const sucursalesMap = useMemo(() => mapById(sucursalesQuery.data?.items), [sucursalesQuery.data]);
+  const almacenesMap = useMemo(() => mapById(almacenesQuery.data?.items), [almacenesQuery.data]);
 
   /**
    * Resuelve sucursal / almacén por id (catálogos chicos que el backend aún
@@ -107,14 +87,15 @@ export function DetalleRequisicion() {
    * una etiqueta Por confirmar.
    */
   const resolverNombre = useMemo(
-    () => (id: string | null | undefined): string => {
-      if (id == null) return '—';
-      const s = sucursalesMap.get(id);
-      if (s) return s.nombre;
-      const a = almacenesMap.get(id);
-      if (a) return a.nombre;
-      return '[NOMBRE POR CONFIRMAR]';
-    },
+    () =>
+      (id: string | null | undefined): string => {
+        if (id == null) return '—';
+        const s = sucursalesMap.get(id);
+        if (s) return s.nombre;
+        const a = almacenesMap.get(id);
+        if (a) return a.nombre;
+        return 'Nombre no disponible';
+      },
     [sucursalesMap, almacenesMap],
   );
 
@@ -138,12 +119,7 @@ export function DetalleRequisicion() {
         </header>
         <TableSkeleton
           rows={5}
-          columns={[
-            { width: 'w-32' },
-            { width: 'w-48' },
-            { width: 'w-24' },
-            { width: 'w-32' },
-          ]}
+          columns={[{ width: 'w-32' }, { width: 'w-48' }, { width: 'w-24' }, { width: 'w-32' }]}
         />
       </div>
     );
@@ -163,15 +139,13 @@ export function DetalleRequisicion() {
         data-print="hidden"
       >
         <div className="flex min-w-0 items-center gap-2">
-          <h1 className="truncate font-mono text-3xl font-semibold text-ink">
-            {rq.folio}
-          </h1>
-          <EstadoBadge
-            tipo="requisicion"
-            estado={rq.estado}
-            situacion={rq.situacionSurtido}
-          />
-          <EnAlmacenBadge enAlmacen={rq.enAlmacen} />
+          <h1 className="truncate font-mono text-3xl font-semibold text-ink">{rq.folio}</h1>
+          <EstadoBadge tipo="requisicion" estado={rq.estado} situacion={rq.situacionSurtido} />
+          {esRecurrente === true ? (
+            <RecurrenteBadge esRecurrente />
+          ) : (
+            <EnAlmacenBadge enAlmacen={rq.enAlmacen} />
+          )}
           <CollaborationIndicator entidad="requisicion" id={rq.id} />
         </div>
 
@@ -202,19 +176,11 @@ export function DetalleRequisicion() {
           </Button>
           <Button asChild variant="ghost" size="icon">
             {parent === 'pendientes' ? (
-              <Link
-                to="/compras/pendientes"
-                search={pendientesSearch}
-                aria-label="Cerrar"
-              >
+              <Link to="/compras/pendientes" search={pendientesSearch} aria-label="Cerrar">
                 <X className="h-4 w-4" />
               </Link>
             ) : (
-              <Link
-                to="/compras/requisiciones"
-                search={bandejaSearch}
-                aria-label="Cerrar"
-              >
+              <Link to="/compras/requisiciones" search={bandejaSearch} aria-label="Cerrar">
                 <X className="h-4 w-4" />
               </Link>
             )}
@@ -228,11 +194,15 @@ export function DetalleRequisicion() {
         </div>
 
         <CabeceraRequisicion rq={rq} resolverNombre={resolverNombre} />
-        <DocumentoAdjuntosSection base={`/api/v1/compras/requisiciones/${rq.id}`} tipo="requisicion" permiso="compras.requisiciones" />
+        <DocumentoAdjuntosSection
+          base={`/api/v1/compras/requisiciones/${rq.id}`}
+          tipo="requisicion"
+          permiso="compras.requisiciones"
+        />
 
         <section className="space-y-2">
           <div className="flex flex-wrap items-center justify-between gap-3">
-            <h2 className="text-lg font-semibold">Líneas</h2>
+            <h2 className="text-lg font-semibold">Partidas</h2>
             <ResumenCubrimiento lineas={rq.lineas} estado={rq.estado} />
           </div>
           <RenderLineas rq={rq} />
@@ -272,8 +242,7 @@ function RenderLineas({ rq }: { rq: import('@/features/compras/api/types').Requi
   // que aplique tanto si la tabla es EditorLineas como ListaLineas.
   const esEnAutorizacion = rq.estado === EstadoRequisicion.EnAutorizacion;
   const preview = usePreviewCubrimiento(rq.id, esEnAutorizacion);
-  const mostrarPreview =
-    esEnAutorizacion && (preview.isLoading || (preview.data?.aplica ?? false));
+  const mostrarPreview = esEnAutorizacion && (preview.isLoading || (preview.data?.aplica ?? false));
 
   // Catálogo de artículos para resolver articuloId → "clave — nombre"
   // en la versión read-only. EditorLineas carga su propio catálogo
@@ -282,13 +251,10 @@ function RenderLineas({ rq }: { rq: import('@/features/compras/api/types').Requi
     limit: 1000,
     includeInactivas: true,
   });
-  const articulosMap = useMemo(
-    () => mapById(articulosQuery.data?.items),
-    [articulosQuery.data],
-  );
+  const articulosMap = useMemo(() => mapById(articulosQuery.data?.items), [articulosQuery.data]);
   const resolverArticulo = (articuloId: string): string => {
     const a = articulosMap.get(articuloId);
-    return a ? `${a.clave} — ${a.nombre}` : '[ARTÍCULO POR CONFIRMAR]';
+    return a ? `${a.clave} — ${a.nombre}` : 'Artículo no disponible';
   };
 
   return (

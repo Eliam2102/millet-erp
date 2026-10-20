@@ -25,7 +25,6 @@ import { esApiError, codigoSoporte } from '@/lib/api';
 import { useHasPermission } from '@/lib/auth/useHasPermission';
 import { PermisosCanonicos } from '@/lib/auth/permission-codes';
 import { ArticuloDatosForm } from '@/modules/datos-maestros/components/ArticuloDatosForm';
-import { ArticuloToleranciaSection } from '@/modules/datos-maestros/components/ArticuloToleranciaSection';
 
 /**
  * Detalle de artículo (P3 del patrón cross-módulo). Análogo a
@@ -141,7 +140,6 @@ export function ArticuloDetalle() {
 
       <div className="px-4 pt-4 pb-6">
         <ArticuloDatosForm articulo={articulo} />
-        <ArticuloToleranciaSection key={articulo.id} articuloId={articulo.id} porcentaje={articulo.toleranciaCantidadPorcentaje ?? null} />
       </div>
 
       <AlertDialog

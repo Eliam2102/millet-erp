@@ -91,7 +91,6 @@ const CODIGOS_BACKEND_ESPERADOS = new Set<string>([
   'datos_maestros.proveedores.validar',
   'datos_maestros.proveedores.tolerancia-editar',
   'datos_maestros.articulos.gestionar',
-  'datos_maestros.articulos.tolerancia-editar',
   // Masters auto-provisionables de la ingesta A+W (ADR-0048).
   'datos_maestros.clientes.gestionar',
   'datos_maestros.clientes.sincronizar',
@@ -193,7 +192,6 @@ const CODIGOS_BACKEND_ESPERADOS = new Set<string>([
   'cuentas_por_pagar.tc.disputar',
   'cuentas_por_pagar.proveedores.poner-revision',
   'cuentas_por_pagar.proveedores.liberar-revision',
-  'cuentas_por_pagar.proveedores.ajustar-tolerancia',
   'cuentas_por_pagar.reportes.cartera',
   'cuentas_por_pagar.reportes.antiguedad',
   'cuentas_por_pagar.reportes.diot',

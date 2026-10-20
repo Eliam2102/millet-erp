@@ -14,7 +14,6 @@ const filaIncluida = {
   cantidadSolicitada: 10,
   cantidadYaRecibida: 0,
   pendiente: 10,
-  toleranciaPorcentaje: 0,
   maximo: 10,
   incluida: true,
   cantidad: 10,
@@ -63,45 +62,21 @@ describe('RegistrarRecepcionFacturaSchema — vínculo fiscal obligatorio', () =
     }
   });
 
-  it('rechaza cantidad sobre el máximo del servidor con tolerancia 0 %', () => {
-    const r = RegistrarRecepcionFacturaSchema.safeParse({
-      ...base,
-      cfdiRecibidoId: '019e0000-0000-7000-8000-0000000000cc',
-      filas: [
-        { ...filaIncluida, pendiente: 100, maximo: 100, cantidad: 101, toleranciaPorcentaje: 0 },
-      ],
-    });
-    expect(r.success).toBe(false);
-    if (!r.success) {
-      expect(r.error.issues[0].message).toBe(
-        'Excede el máximo recibible (100): pendiente 100 más 0% de tolerancia del artículo sobre lo solicitado.',
-      );
-    }
-  });
-
   it.each([
-    [110, true],
-    [110.5, false],
-  ])('con tolerancia 10 %% el máximo es 110: cantidad %s → ok=%s', (cantidad, ok) => {
+    [100, true],
+    [100.5, false],
+  ])('sin tolerancia: pendiente 100, cantidad %s → ok=%s', (cantidad, ok) => {
     const r = RegistrarRecepcionFacturaSchema.safeParse({
       ...base,
       cfdiRecibidoId: '019e0000-0000-7000-8000-0000000000cc',
-      filas: [
-        { ...filaIncluida, pendiente: 100, maximo: 110, cantidad, toleranciaPorcentaje: 10 },
-      ],
+      filas: [{ ...filaIncluida, pendiente: 100, maximo: 100, cantidad }],
     });
     expect(r.success).toBe(ok);
-  });
-
-  it('acepta cantidad igual al máximo del servidor con tolerancia 5 %', () => {
-    const r = RegistrarRecepcionFacturaSchema.safeParse({
-      ...base,
-      cfdiRecibidoId: '019e0000-0000-7000-8000-0000000000cc',
-      filas: [
-        { ...filaIncluida, pendiente: 100, maximo: 105, cantidad: 105, toleranciaPorcentaje: 5 },
-      ],
-    });
-    expect(r.success).toBe(true);
+    if (!r.success) {
+      expect(r.error.issues[0].message).toBe(
+        'Excede lo pendiente de la orden de compra (100). Almacén recibe exacto.',
+      );
+    }
   });
 
   it('rechaza folio fiscal malformado', () => {

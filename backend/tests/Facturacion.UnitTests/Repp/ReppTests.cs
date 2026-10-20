@@ -25,6 +25,31 @@ public sealed class ReppTests
     // ---- Dominio: diferencia cambiaria ----
 
     [Fact]
+    public async Task Demo19Oct_64_SaldoDe8700_TrasPagos5000Y3700()
+    {
+        var empresa = Guid.NewGuid();
+        using var db = NewDb(empresa);
+        var factura = FacturaPpd(empresa, valor: 8700m);
+        db.FacturasVenta.Add(factura);
+        await db.SaveChangesAsync();
+        var consulta = new FacturasCobrablesPpdHandler(db);
+        (await consulta.Handle(new(), default)).Single().Saldo.Should().Be(8700m);
+        var primero = await Handler(db, empresa).Handle(new EmitirReppCommand(
+            factura.SucursalId, Ahora, "MXN", null, "03", null, null, null,
+            [new ReppFacturaPago(factura.Id, 5000m)]), default);
+        primero.Facturas.Single().SaldoInsoluto.Should().Be(3700m);
+        var pendiente = (await consulta.Handle(new(), default)).Single();
+        pendiente.Saldo.Should().Be(3700m);
+        pendiente.PagadoRepp.Should().Be(5000m);
+        pendiente.NumParcialidadSiguiente.Should().Be(2);
+        var segundo = await Handler(db, empresa).Handle(new EmitirReppCommand(
+            factura.SucursalId, Ahora, "MXN", null, "03", null, null, null,
+            [new ReppFacturaPago(factura.Id, 3700m)]), default);
+        segundo.Facturas.Single().SaldoInsoluto.Should().Be(0m);
+        (await consulta.Handle(new(), default)).Should().BeEmpty();
+    }
+
+    [Fact]
     public void DiferenciaCambiaria_es_cero_en_moneda_nacional()
     {
         ReciboPago.CalcularDiferenciaCambiaria("MXN", 1000m, null, null).Should().Be(0m);

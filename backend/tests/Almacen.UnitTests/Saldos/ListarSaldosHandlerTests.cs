@@ -119,7 +119,7 @@ public class ListarSaldosHandlerTests
         new(SubAlmacenId: null, ArticuloId: null, SoloConStock: false, Offset: 0, Limit: 50);
 
     private static ArticuloLectura Art(Guid id, string clave, string descripcion) =>
-        new(id, clave, descripcion, "PZA", null, null, true);
+        new(id, clave, descripcion, "PZA", null, true);
 
     private static async Task<AlmacenDbContext> NuevaDbConSaldosAsync()
     {

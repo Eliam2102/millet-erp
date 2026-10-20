@@ -31,7 +31,7 @@ public sealed class UmbralAprobacionDepartamentoConfiguration : IEntityTypeConfi
         builder.Property(u => u.UmbralMenorCuantia).HasPrecision(15, 2);
         builder.Property(u => u.UmbralMonto).HasPrecision(15, 2).IsRequired();
         builder.Property(u => u.Moneda).HasMaxLength(3).HasDefaultValue("MXN").IsRequired();
-        builder.Property(u => u.ModoNivel2).IsRequired().HasDefaultValue(ModoNivel2.Ambos);
+        builder.Property(u => u.ModoNivel2).IsRequired().HasDefaultValue(ModoNivel2.SoloDisponibilidad);
         builder.Property(u => u.MontoMinimoDisponibilidad).HasPrecision(15, 2);
     }
 }

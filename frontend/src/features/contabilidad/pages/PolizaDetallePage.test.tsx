@@ -85,15 +85,15 @@ describe('<PolizaDetallePage>', () => {
     fireEvent.click(await screen.findByRole('button', { name: 'Anular' }));
     const dialogo = await screen.findByRole('dialog');
     const confirmar = within(dialogo).getByRole('button', { name: 'Anular póliza' });
-    fireEvent.change(within(dialogo).getByLabelText('Motivo'), { target: { value: 'corto' } });
+    fireEvent.change(within(dialogo).getByLabelText(/^Motivo(?:\s*\*)?$/), { target: { value: 'corto' } });
     expect(confirmar).toBeDisabled();
     expect(confirmar).toHaveAttribute('title', 'El motivo lleva al menos 10 caracteres');
-    fireEvent.change(within(dialogo).getByLabelText('Motivo'), { target: { value: 'FIX Captura duplicada' } });
+    fireEvent.change(within(dialogo).getByLabelText(/^Motivo(?:\s*\*)?$/), { target: { value: 'FIX Captura duplicada' } });
     expect(confirmar).toBeEnabled();
 
     fireEvent.click(confirmar);
     expect(await within(dialogo).findByText('El periodo de la póliza ya está cerrado.')).toBeInTheDocument();
-    const periodo = await within(dialogo).findByLabelText('Periodo de la anulación');
+    const periodo = await within(dialogo).findByLabelText(/^Periodo de la anulación(?:\s*\*)?$/);
     expect(confirmar).toBeDisabled();
     await within(dialogo).findByRole('option', { name: '2026 · 11 Noviembre' });
     fireEvent.change(periodo, { target: { value: '2026-11' } });

@@ -1,16 +1,17 @@
-import { useCallback, useMemo, useRef, useState, type ReactNode } from 'react';
 import {
   Sheet,
+  SheetBody,
   SheetContent,
   SheetDescription,
   SheetHeader,
   SheetTitle,
 } from '@/components/ui/sheet';
-import { NuevaCaja } from '@/features/facturacion/pages/NuevaCaja';
 import {
   NuevaCajaContext,
   type NuevaCajaApi,
 } from '@/features/facturacion/components/nueva-caja-context';
+import { NuevaCaja } from '@/features/facturacion/pages/NuevaCaja';
+import { useCallback, useMemo, useRef, useState, type ReactNode } from 'react';
 
 /**
  * <c>&lt;NuevaCajaProvider/&gt;</c> + Sheet de alta de caja (CAJAS-PR5).
@@ -62,18 +63,19 @@ export function NuevaCajaProvider({ children }: { children: ReactNode }) {
           setAbierto(true);
         }}
       >
-        <SheetContent side="right" className="w-full overflow-y-auto sm:max-w-xl">
+        <SheetContent side="right" size="lg">
           <SheetHeader>
             <SheetTitle>Nueva caja</SheetTitle>
             <SheetDescription>
-              La caja nace activa y sin alcance (todas las sucursales y canales);
-              asigna sucursales, canales y cajeros desde su detalle.
+              La caja nace activa y sin alcance (todas las sucursales y canales); asigna sucursales,
+              canales y cajeros desde su detalle.
             </SheetDescription>
           </SheetHeader>
-
-          <div className="px-2 pb-6">
-            {abierto && <NuevaCaja onClose={cerrarConConfirm} onDirtyChange={setDirty} />}
-          </div>
+          <SheetBody>
+            <div className="min-w-0">
+              {abierto && <NuevaCaja onClose={cerrarConConfirm} onDirtyChange={setDirty} />}
+            </div>
+          </SheetBody>
         </SheetContent>
       </Sheet>
     </NuevaCajaContext.Provider>

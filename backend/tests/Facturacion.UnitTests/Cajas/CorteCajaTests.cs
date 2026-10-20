@@ -96,6 +96,30 @@ public sealed class CorteCajaTests
             new FakeSucursalesReadPort(), new FakeClock(clock ?? Ahora));
 
     [Fact]
+    public async Task Demo19Oct_52_Cobros7510_MasFondo500_Corte8010()
+    {
+        using var db = NewDb();
+        var sesion = await SembrarSesionAsync(db);
+        var f1 = FacturaTimbrada(5000m, "FA-1");
+        var f2 = FacturaTimbrada(2510m, "FA-2");
+        db.FacturasVenta.AddRange(f1, f2);
+        await db.SaveChangesAsync();
+        await CobrarAsync(db, f1.Id, new("01", 2000m, null), new("04", 3000m, "VOUCHER"));
+        await CobrarAsync(db, f2.Id, new CobroFormaPagoInput("03", 2510m, "TRANSFERENCIA"));
+        db.ChangeTracker.Clear();
+        var corte = await Corte(db).Handle(new(sesion.Id), default);
+        corte.Reporte.Totales!["importe"].Should().Be(8010m);
+        corte.PorFormaPago.Single(f => f.FormaPago == "01").MontoSistema.Should().Be(2500m);
+        corte.PorFormaPago.Single(f => f.FormaPago == "04").MontoSistema.Should().Be(3000m);
+        corte.PorFormaPago.Single(f => f.FormaPago == "03").MontoSistema.Should().Be(2510m);
+        var viva = await new Millet.Facturacion.Application.Cajas.Sesiones.CajaSesionDetalleHandler(
+            db, new FakeCurrentUserPermissions("facturacion.caja.supervisar"))
+            .Handle(new(sesion.Id), default);
+        viva.TotalesPorForma.Sum(f => f.MontoSistema).Should().Be(8010m);
+        viva.TotalesPorForma.Sum(f => f.MontoSistema).Should().Be(7510m + viva.FondoApertura);
+    }
+
+    [Fact]
     public async Task Corte_cuadra_con_el_arqueo_y_trae_cajero_vouchers_y_nc_una_vez()
     {
         using var db = NewDb();

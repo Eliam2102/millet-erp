@@ -6,22 +6,22 @@ namespace Millet.Almacen.Application.Recepciones;
 
 internal sealed record RecepcionOcValidada(
     IReadOnlyDictionary<Guid, OcLineaLectura> Lineas,
-    IReadOnlyDictionary<Guid, decimal> ToleranciaPorLinea,
     IReadOnlyDictionary<Guid, decimal> RecibidoPorLinea);
 
 internal static class RecepcionOcGuard
 {
     /// <summary>
     /// Límite único de recepción por línea de OC (F5). Lo usan el registro y la pantalla.
+    /// En piezas no hay tolerancia (86e3tab1k): Almacén recibe exacto lo pendiente o menos.
     /// El recibido es max(recibido en Compras, recibido propio de Almacén) para no
     /// depender solo del dato asíncrono de Compras.
     /// </summary>
-    public static decimal Limite(decimal solicitada, decimal recibidaCompras, decimal recibidaPropia, decimal toleranciaPorcentaje)
-        => solicitada * (1m + toleranciaPorcentaje / 100m) - Math.Max(recibidaCompras, recibidaPropia);
+    public static decimal Limite(decimal solicitada, decimal recibidaCompras, decimal recibidaPropia)
+        => solicitada - Math.Max(recibidaCompras, recibidaPropia);
 
     public static async Task<RecepcionOcValidada> ValidarAsync(
         OcLectura? oc, IReadOnlyList<RegistrarRecepcionLineaInput> entradas,
-        IArticuloReadPort articulos, IReadOnlyDictionary<Guid, decimal> recibidoPropio, CancellationToken ct)
+        IReadOnlyDictionary<Guid, decimal> recibidoPropio, CancellationToken ct)
     {
         if (oc is null)
             throw new BusinessRuleException("RECEPCION_OC_NO_ENCONTRADA", "La orden de compra no existe; selecciona una orden autorizada.");
@@ -45,21 +45,17 @@ internal static class RecepcionOcGuard
             if (origen.PrecioUnitarioMxn <= 0)
                 throw new BusinessRuleException("RECEPCION_COSTO_OC_INVALIDO", "La línea de la orden de compra no tiene un costo válido en pesos; corrige la orden antes de recibir.");
         }
-        var tolerancias = new Dictionary<Guid, decimal>();
         var recibidos = new Dictionary<Guid, decimal>();
         foreach (var grupo in entradas.GroupBy(l => l.LineaOcId!.Value))
         {
             var origen = lineas[grupo.Key];
-            var articulo = await articulos.ObtenerAsync(origen.ArticuloId, ct);
-            var tol = articulo?.ToleranciaCantidadPorcentaje ?? 0m;
             var propio = recibidoPropio.GetValueOrDefault(grupo.Key);
-            var limite = Limite(origen.CantidadSolicitada, origen.CantidadRecibida, propio, tol);
+            var limite = Limite(origen.CantidadSolicitada, origen.CantidadRecibida, propio);
             if (grupo.Sum(l => l.Cantidad) > limite)
-                throw new BusinessRuleException("RECEPCION_EXCEDE_TOLERANCIA",
-                    $"La cantidad total recibida supera el saldo pendiente con tolerancia ({Math.Max(0m, limite).ToString("0.####", CultureInfo.InvariantCulture)}) de la línea de la orden de compra.");
-            tolerancias[grupo.Key] = tol;
+                throw new BusinessRuleException("RECEPCION_EXCEDE_PENDIENTE",
+                    $"La cantidad supera lo pendiente de la orden de compra ({Math.Max(0m, limite).ToString("0.####", CultureInfo.InvariantCulture)}). Almacén recibe exacto.");
             recibidos[grupo.Key] = Math.Max(origen.CantidadRecibida, propio);
         }
-        return new RecepcionOcValidada(lineas, tolerancias, recibidos);
+        return new RecepcionOcValidada(lineas, recibidos);
     }
 }

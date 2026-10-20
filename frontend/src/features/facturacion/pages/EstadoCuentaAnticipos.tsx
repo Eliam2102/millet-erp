@@ -1,9 +1,21 @@
+import { estadoUi } from '../lib/estados-ui';
+import { ErrorState } from '@/components/erp';
+import { PageHeader } from '@/components/erp/PageHeader';
+import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '@/components/ui/table';
+import { useEstadoCuentaAnticipos } from '@/features/facturacion/api/useAnticipos';
+import { EstadoFacturacionBadge } from '@/features/facturacion/components/EstadoFacturacionBadge';
+import { esApiError } from '@/lib/api';
 import { Link, useParams } from '@tanstack/react-router';
 import { ArrowLeft } from 'lucide-react';
-import { Button } from '@/components/ui/button';
-import { ErrorState } from '@/components/erp';
-import { useEstadoCuentaAnticipos } from '@/features/facturacion/api/useAnticipos';
-import { esApiError } from '@/lib/api';
 
 /**
  * <c>Control de Anticipos — Detallada por cliente</c> (FE-F4-PR2).
@@ -17,7 +29,7 @@ export function EstadoCuentaAnticipos() {
   const query = useEstadoCuentaAnticipos(clienteId);
 
   return (
-    <div className="space-y-4 px-4 py-6">
+    <div className="space-y-5">
       <div className="flex items-center justify-between gap-3" data-print="hidden">
         <Button variant="ghost" size="sm" asChild>
           <Link to="/facturacion/anticipos">
@@ -35,8 +47,8 @@ export function EstadoCuentaAnticipos() {
         />
       ) : query.isLoading || query.data == null ? (
         <div className="space-y-3">
-          <div className="h-8 w-64 animate-pulse rounded bg-muted" />
-          <div className="h-40 w-full animate-pulse rounded bg-muted" />
+          <div className="h-8 w-64 animate-pulse rounded bg-surface-muted" />
+          <div className="h-40 w-full animate-pulse rounded bg-surface-muted" />
         </div>
       ) : (
         <Contenido d={query.data} />
@@ -45,19 +57,16 @@ export function EstadoCuentaAnticipos() {
   );
 }
 
-function Contenido({
-  d,
-}: {
-  d: NonNullable<ReturnType<typeof useEstadoCuentaAnticipos>['data']>;
-}) {
+function Contenido({ d }: { d: NonNullable<ReturnType<typeof useEstadoCuentaAnticipos>['data']> }) {
   return (
-    <div className="space-y-6">
-      <header className="space-y-1">
-        <h1 className="text-2xl font-semibold">Estado de cuenta de anticipos</h1>
-        <p className="font-mono text-xs text-muted-foreground">
-          Cliente {d.clienteId}
-        </p>
-      </header>
+    <div className="space-y-5">
+      <div className="space-y-1">
+        <PageHeader
+          mono
+          titulo={<>Estado de cuenta de anticipos</>}
+          descripcion={<>Cliente {d.clienteId}</>}
+        />
+      </div>
 
       <section className="grid grid-cols-1 gap-3 sm:grid-cols-3">
         <Kpi label="Cobrado" valor={d.totalCobrado} />
@@ -66,32 +75,28 @@ function Contenido({
       </section>
 
       {d.anticipos.length === 0 ? (
-        <p className="rounded-md border border-dashed px-3 py-6 text-center text-sm text-muted-foreground">
+        <p className="rounded-md border border-dashed px-3 py-6 text-center text-sm text-ink-muted border-line">
           El cliente no tiene anticipos.
         </p>
       ) : (
-        <div className="space-y-4">
+        <div className="space-y-5">
           {d.anticipos.map((a) => (
-            <article key={a.anticipoId} className="rounded-md border">
-              <header className="flex flex-wrap items-center justify-between gap-2 border-b bg-muted/40 px-3 py-2">
+            <article key={a.anticipoId} className="rounded-md border border-line">
+              <header className="flex flex-wrap items-center justify-between gap-2 border-b bg-surface-muted/40 px-3 py-2 border-line">
                 <div className="flex items-center gap-3">
                   <Link
                     to="/facturacion/anticipos/facturas/$id"
                     params={{ id: a.facturaAnticipoId }}
-                    className="font-mono text-sm font-semibold text-primary hover:underline"
+                    className="font-mono text-sm font-semibold text-brand hover:underline"
                   >
                     {a.folio}
                   </Link>
-                  <span className="text-xs text-muted-foreground">
-                    {a.tipoAnticipo}
-                  </span>
-                  <span className="rounded-full bg-sky-100 px-2 py-0.5 text-xs font-medium text-sky-800">
-                    {a.estado}
-                  </span>
+                  <span className="text-xs text-ink-muted">{a.tipoAnticipo}</span>
+                  <EstadoFacturacionBadge entidad="anticipo" estado={a.estado} />
                   {a.estadoCfdi !== 'Timbrado' && (
-                    <span className="rounded-full bg-rose-100 px-2 py-0.5 text-xs font-medium text-rose-800">
-                      CFDI {a.estadoCfdi}
-                    </span>
+                    <Badge variant={estadoUi('factura', a.estadoCfdi).tono}>
+                      CFDI {estadoUi('factura', a.estadoCfdi).texto}
+                    </Badge>
                   )}
                 </div>
                 <div className="flex gap-4 text-xs tabular-nums">
@@ -101,48 +106,42 @@ function Contenido({
                 </div>
               </header>
               {a.vinculaciones.length === 0 ? (
-                <p className="px-3 py-3 text-xs text-muted-foreground">
-                  Sin vinculaciones todavía.
-                </p>
+                <p className="px-3 py-3 text-xs text-ink-muted">Sin vinculaciones todavía.</p>
               ) : (
-                <table className="w-full text-sm">
-                  <thead className="bg-muted/20">
-                    <tr>
-                      <th className="px-3 py-2 text-left">Factura</th>
-                      <th className="px-3 py-2 text-right">Importe</th>
-                      <th className="px-3 py-2 text-left">NC amortización</th>
-                      <th className="px-3 py-2 text-center">NC timbrada</th>
-                    </tr>
-                  </thead>
-                  <tbody>
+                <Table className="w-full text-sm">
+                  <TableHeader className="bg-surface-muted/20">
+                    <TableRow>
+                      <TableHead className="px-3 py-2 text-left">Factura</TableHead>
+                      <TableHead className="px-3 py-2 text-right tabular-nums">Importe</TableHead>
+                      <TableHead className="px-3 py-2 text-left">NC amortización</TableHead>
+                      <TableHead className="px-3 py-2 text-center">NC timbrada</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
                     {a.vinculaciones.map((v, i) => (
-                      <tr key={`${v.facturaVentaId}-${i}`} className="border-t">
-                        <td className="px-3 py-2">
+                      <TableRow key={`${v.facturaVentaId}-${i}`} className="border-t border-line">
+                        <TableCell className="px-3 py-2">
                           <Link
                             to="/facturacion/facturas/$id"
                             params={{ id: v.facturaVentaId }}
-                            className="font-mono text-xs text-primary hover:underline"
+                            className="font-mono text-xs text-brand hover:underline"
                           >
                             {v.facturaFolio ?? v.facturaVentaId.slice(0, 8)}
                           </Link>
-                        </td>
-                        <td className="px-3 py-2 text-right font-mono">
+                        </TableCell>
+                        <TableCell className="px-3 py-2 text-right font-mono tabular-nums">
                           {v.importe.toFixed(2)}
-                        </td>
-                        <td className="px-3 py-2 font-mono text-xs">
+                        </TableCell>
+                        <TableCell className="px-3 py-2 font-mono text-xs">
                           {v.ncFolio ?? '—'}
-                        </td>
-                        <td className="px-3 py-2 text-center">
-                          {v.ncAmortizacionId == null
-                            ? '—'
-                            : v.ncTimbrada
-                              ? 'Sí'
-                              : 'Pendiente'}
-                        </td>
-                      </tr>
+                        </TableCell>
+                        <TableCell className="px-3 py-2 text-center">
+                          {v.ncAmortizacionId == null ? '—' : v.ncTimbrada ? 'Sí' : 'Pendiente'}
+                        </TableCell>
+                      </TableRow>
                     ))}
-                  </tbody>
-                </table>
+                  </TableBody>
+                </Table>
               )}
             </article>
           ))}
@@ -152,23 +151,12 @@ function Contenido({
   );
 }
 
-function Kpi({
-  label,
-  valor,
-  destacado,
-}: {
-  label: string;
-  valor: number;
-  destacado?: boolean;
-}) {
+function Kpi({ label, valor, destacado }: { label: string; valor: number; destacado?: boolean }) {
   return (
-    <div className="rounded-md border px-4 py-3">
-      <div className="text-xs text-muted-foreground">{label}</div>
+    <div className="rounded-md border px-4 py-3 border-line">
+      <div className="text-xs text-ink-muted">{label}</div>
       <div
-        className={
-          'font-mono tabular-nums ' +
-          (destacado ? 'text-xl font-semibold' : 'text-lg')
-        }
+        className={'font-mono tabular-nums ' + (destacado ? 'text-xl font-semibold' : 'text-lg')}
       >
         {valor.toFixed(2)}
       </div>

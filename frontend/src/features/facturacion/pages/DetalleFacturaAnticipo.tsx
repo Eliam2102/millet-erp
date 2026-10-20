@@ -1,30 +1,35 @@
-import { useState } from 'react';
-import { Link, useParams, useSearch } from '@tanstack/react-router';
-import { Ban, Download, FileCode, Printer, X } from 'lucide-react';
-import { toast } from 'sonner';
+import { ErrorState } from '@/components/erp';
+import { ResumenImportes } from '@/components/erp/display/ResumenImportes';
+import { PageHeader } from '@/components/erp/PageHeader';
 import { Button } from '@/components/ui/button';
 import {
-  Tabs,
-  TabsContent,
-  TabsList,
-  TabsTrigger,
-} from '@/components/ui/tabs';
-import { ErrorState } from '@/components/erp';
-import { CancelarComprobanteForm } from '@/features/facturacion/components/CancelarComprobanteForm';
-import { TimbradoFallidoBanner } from '@/features/facturacion/components/TimbradoFallidoBanner';
-import { IntentosTimbradoPanel } from '@/features/facturacion/components/IntentosTimbradoPanel';
-import { TrazabilidadFacturacion } from '@/features/facturacion/components/TrazabilidadFacturacion';
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '@/components/ui/table';
+import type { FacturaAnticipoDetalleResponse } from '@/features/facturacion/api/types';
 import { useFacturaAnticipoDetalle } from '@/features/facturacion/api/useAnticipos';
 import { useCancelacionEstatus } from '@/features/facturacion/api/useFacturas';
+import { CancelarComprobanteForm } from '@/features/facturacion/components/CancelarComprobanteForm';
+import { CobrarEnCajaLink } from '@/features/facturacion/components/CobrarEnCajaLink';
+import { IntentosTimbradoPanel } from '@/features/facturacion/components/IntentosTimbradoPanel';
+import { TimbradoFallidoBanner } from '@/features/facturacion/components/TimbradoFallidoBanner';
+import { TrazabilidadFacturacion } from '@/features/facturacion/components/TrazabilidadFacturacion';
 import { descargarArchivo } from '@/features/facturacion/lib/descargas';
+import type { FacturasAnticipoSearch } from '@/features/facturacion/lib/facturas-anticipo-search-schema';
 import { ETIQUETA_TIPO_RELACION } from '@/features/facturacion/lib/glosario';
-import { useHasPermission } from '@/lib/auth/useHasPermission';
-import { PermisosCanonicos } from '@/lib/auth/permission-codes';
-import { esApiError } from '@/lib/api';
 import { ChipTimbrado } from '@/features/facturacion/pages/BandejaFacturas';
 import { ChipEstadoAnticipo } from '@/features/facturacion/pages/BandejaFacturasAnticipo';
-import type { FacturasAnticipoSearch } from '@/features/facturacion/lib/facturas-anticipo-search-schema';
-import type { FacturaAnticipoDetalleResponse } from '@/features/facturacion/api/types';
+import { esApiError } from '@/lib/api';
+import { PermisosCanonicos } from '@/lib/auth/permission-codes';
+import { useHasPermission } from '@/lib/auth/useHasPermission';
+import { Link, useParams, useSearch } from '@tanstack/react-router';
+import { Ban, Download, FileCode, Printer, X } from 'lucide-react';
+import { useState } from 'react';
+import { toast } from 'sonner';
 
 const BASE = '/api/v1/facturacion/anticipos/facturas';
 const NC_BASE = '/api/v1/facturacion/notas-credito';
@@ -40,7 +45,7 @@ export function DetalleFacturaAnticipo() {
   const query = useFacturaAnticipoDetalle(id);
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-5">
       {query.isError ? (
         <ErrorState
           title="No se pudo cargar la factura de anticipo"
@@ -49,8 +54,8 @@ export function DetalleFacturaAnticipo() {
         />
       ) : query.isLoading || query.data == null ? (
         <div className="space-y-3">
-          <div className="h-8 w-64 animate-pulse rounded bg-muted" />
-          <div className="h-40 w-full animate-pulse rounded bg-muted" />
+          <div className="h-8 w-64 animate-pulse rounded bg-surface-muted" />
+          <div className="h-40 w-full animate-pulse rounded bg-surface-muted" />
         </div>
       ) : (
         <Contenido f={query.data} />
@@ -61,9 +66,7 @@ export function DetalleFacturaAnticipo() {
 
 function Contenido({ f }: { f: FacturaAnticipoDetalleResponse }) {
   const search = useSearch({ strict: false }) as FacturasAnticipoSearch;
-  const puedeCancelar = useHasPermission(
-    PermisosCanonicos.FacturacionCancelacionesSolicitar,
-  );
+  const puedeCancelar = useHasPermission(PermisosCanonicos.FacturacionCancelacionesSolicitar);
   // 13-I: la bitácora de intentos usa el permiso del endpoint (facturas.leer).
   const puedeVerIntentos = useHasPermission(PermisosCanonicos.FacturacionFacturasLeer);
   const puedeVerNc = useHasPermission(PermisosCanonicos.FacturacionNotasCreditoLeer);
@@ -74,14 +77,9 @@ function Contenido({ f }: { f: FacturaAnticipoDetalleResponse }) {
 
   async function descargar(tipo: 'xml' | 'pdf') {
     try {
-      await descargarArchivo(
-        `${BASE}/${f.id}/${tipo}`,
-        `${f.folio}.${tipo}`,
-      );
+      await descargarArchivo(`${BASE}/${f.id}/${tipo}`, `${f.folio}.${tipo}`);
     } catch (error) {
-      toast.error(
-        esApiError(error) ? error.problem.title : 'No se pudo descargar el archivo.',
-      );
+      toast.error(esApiError(error) ? error.problem.title : 'No se pudo descargar el archivo.');
     }
   }
 
@@ -89,54 +87,68 @@ function Contenido({ f }: { f: FacturaAnticipoDetalleResponse }) {
     try {
       await descargarArchivo(`${NC_BASE}/${ncId}/${tipo}`, `${folio}.${tipo}`);
     } catch (error) {
-      toast.error(
-        esApiError(error) ? error.problem.title : 'No se pudo descargar el archivo.',
-      );
+      toast.error(esApiError(error) ? error.problem.title : 'No se pudo descargar el archivo.');
     }
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-5">
       {/* ── Sub-topbar de acciones (§6.5, no se imprime) ─────────── */}
-      <div
-        className="sticky top-0 z-10 flex flex-wrap items-center justify-between gap-2 border-b bg-background/95 pb-2 backdrop-blur"
-        data-print="hidden"
-      >
-        <div className="flex flex-wrap items-center gap-2">
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => descargar('xml')}
-            disabled={!timbrada}
-          >
-            <FileCode className="mr-1 h-4 w-4" />
-            XML
-          </Button>
-          <Button variant="outline" size="sm" onClick={() => descargar('pdf')}>
-            <Download className="mr-1 h-4 w-4" />
-            PDF
-          </Button>
-          <Button variant="outline" size="sm" onClick={() => window.print()}>
-            <Printer className="mr-1 h-4 w-4" />
-            Imprimir
-          </Button>
-          {puedeCancelar && vigente && (
-            <Button
-              variant="outline"
-              size="sm"
-              className="text-destructive"
-              onClick={() => setCancelando((v) => !v)}
-            >
-              <Ban className="mr-1 h-4 w-4" />
-              Cancelar
-            </Button>
-          )}
+      <div className="space-y-1">
+        <div className="flex flex-wrap items-center gap-3">
+          <PageHeader
+            mono
+            titulo={<>{f.folio}</>}
+            descripcion={
+              <>
+                {f.receptorNombre} · <span className="font-mono">{f.receptorRfc}</span>
+              </>
+            }
+            estado={<ChipTimbrado estado={f.estado} />}
+            acciones={
+              <div className="flex flex-wrap items-center gap-2" data-print="hidden">
+                <div className="flex flex-wrap items-center gap-2">
+                  <CobrarEnCajaLink comprobanteId={f.id} folio={f.folio} />
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => descargar('xml')}
+                    disabled={!timbrada}
+                  >
+                    <FileCode className="mr-1 h-4 w-4" />
+                    XML
+                  </Button>
+                  <Button variant="outline" size="sm" onClick={() => descargar('pdf')}>
+                    <Download className="mr-1 h-4 w-4" />
+                    PDF
+                  </Button>
+                  <Button variant="outline" size="sm" onClick={() => window.print()}>
+                    <Printer className="mr-1 h-4 w-4" />
+                    Imprimir
+                  </Button>
+                  {puedeCancelar && vigente && (
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="text-danger-fg"
+                      onClick={() => setCancelando((v) => !v)}
+                    >
+                      <Ban className="mr-1 h-4 w-4" />
+                      Cancelar
+                    </Button>
+                  )}
+                </div>
+                <Button variant="ghost" size="sm" asChild aria-label="Cerrar detalle">
+                  <Link to="/facturacion/anticipos/facturas" search={search}>
+                    <X className="h-4 w-4" />
+                  </Link>
+                </Button>
+              </div>
+            }
+          />
+          <span className="text-xs text-ink-muted">{f.tipoAnticipo}</span>
         </div>
-        <Button variant="ghost" size="sm" asChild aria-label="Cerrar detalle">
-          <Link to="/facturacion/anticipos/facturas" search={search}>
-            <X className="h-4 w-4" />
-          </Link>
-        </Button>
+        {f.uuid && <p className="font-mono text-xs text-ink-muted">UUID {f.uuid}</p>}
       </div>
 
       {cancelando && (
@@ -152,7 +164,7 @@ function Contenido({ f }: { f: FacturaAnticipoDetalleResponse }) {
 
       {cancelacion.data?.estadoSolicitud != null && (
         <div
-          className="rounded-md border border-amber-300 bg-amber-50/60 px-3 py-2 text-sm"
+          className="rounded-md border border-line bg-warning-note-bg px-3 py-2 text-sm"
           data-print="hidden"
         >
           <span className="font-medium">Solicitud de cancelación:</span>{' '}
@@ -160,68 +172,59 @@ function Contenido({ f }: { f: FacturaAnticipoDetalleResponse }) {
           {cancelacion.data.motivoSat ? ` · motivo ${cancelacion.data.motivoSat}` : ''}
           {cancelacion.data.estatusSat ? ` · SAT ${cancelacion.data.estatusSat}` : ''}
           {cancelacion.data.mensajeError ? (
-            <span className="text-destructive"> · {cancelacion.data.mensajeError}</span>
+            <span className="text-danger-fg"> · {cancelacion.data.mensajeError}</span>
           ) : null}
         </div>
       )}
 
-      <header className="space-y-1">
-        <div className="flex flex-wrap items-center gap-3">
-          <h1 className="font-mono text-2xl font-semibold">{f.folio}</h1>
-          <ChipTimbrado estado={f.estado} />
-          <span className="text-xs text-muted-foreground">{f.tipoAnticipo}</span>
-        </div>
-        {f.uuid && (
-          <p className="font-mono text-xs text-muted-foreground">UUID {f.uuid}</p>
-        )}
-      </header>
-
-      <Tabs defaultValue="encabezado">
-        <TabsList data-print="hidden">
-          <TabsTrigger value="encabezado">Encabezado</TabsTrigger>
-          <TabsTrigger value="concepto">Concepto</TabsTrigger>
-          <TabsTrigger value="saldo">Saldo y cadena</TabsTrigger>
-        </TabsList>
-
-        <TabsContent value="encabezado" forceMount className="print:!block">
-          <section className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+      <div className="space-y-5">
+        <section className="space-y-4">
+          <dl className="grid grid-cols-1 gap-4 rounded-lg bg-surface-card p-4 shadow-card-flat sm:grid-cols-4">
             <Dato label="Receptor">
               <div>{f.receptorNombre}</div>
-              <div className="font-mono text-xs text-muted-foreground">
-                {f.receptorRfc}
-              </div>
+              <div className="font-mono text-xs text-ink-muted">{f.receptorRfc}</div>
             </Dato>
             <Dato label="Moneda">{f.moneda}</Dato>
             <Dato label="Fecha de timbrado">
-              {f.fechaTimbrado ? new Date(f.fechaTimbrado).toLocaleString('es-MX', { timeZone: 'America/Mexico_City' }) : '—'}
+              {f.fechaTimbrado
+                ? new Date(f.fechaTimbrado).toLocaleString('es-MX', {
+                    timeZone: 'America/Mexico_City',
+                  })
+                : '—'}
             </Dato>
             <Dato label="Versión">{f.version}</Dato>
-          </section>
-        </TabsContent>
+          </dl>
+        </section>
 
-        <TabsContent value="concepto" forceMount className="print:!block">
+        <section className="space-y-4">
           <section className="space-y-3">
-            <div className="rounded-md border p-3 text-sm">
-              <div className="font-medium">{f.descripcion}</div>
-              <div className="mt-1 text-xs text-muted-foreground">
-                Concepto único de anticipo (clave SAT 84111506 · E48)
-              </div>
-            </div>
-            <section className="ml-auto w-full max-w-xs space-y-1 text-sm tabular-nums">
-              <Renglon label="Subtotal" valor={f.subtotal} />
-              <Renglon label="IVA trasladado" valor={f.impuestosTrasladados} />
-              <div className="flex justify-between border-t pt-1 font-semibold">
-                <span>Total</span>
-                <span className="font-mono">
-                  {f.total.toFixed(2)} {f.moneda}
-                </span>
-              </div>
-            </section>
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Partida</TableHead>
+                  <TableHead>Clave SAT</TableHead>
+                  <TableHead className="text-right">Importe</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                <TableRow>
+                  <TableCell>{f.descripcion}</TableCell>
+                  <TableCell className="font-mono">84111506 · E48</TableCell>
+                  <TableCell className="text-right tabular-nums">{f.subtotal.toFixed(2)}</TableCell>
+                </TableRow>
+              </TableBody>
+            </Table>
+            <ResumenImportes
+              moneda={f.moneda}
+              subtotal={f.subtotal}
+              ivaTrasladado={f.impuestosTrasladados}
+              total={f.total}
+            />
           </section>
-        </TabsContent>
+        </section>
 
-        <TabsContent value="saldo" forceMount className="print:!block">
-          <div className="space-y-6">
+        <section className="space-y-4">
+          <div className="space-y-5">
             {/* ── Saldo amortizable (13-A) ─────────────────────────── */}
             {f.anticipo != null && (
               <section className="space-y-3">
@@ -232,7 +235,7 @@ function Contenido({ f }: { f: FacturaAnticipoDetalleResponse }) {
                     <Link
                       to="/facturacion/anticipos/$clienteId"
                       params={{ clienteId: f.anticipo.clienteId }}
-                      className="text-sm font-medium text-primary hover:underline"
+                      className="text-sm font-medium text-brand hover:underline"
                     >
                       Estado de cuenta del cliente
                     </Link>
@@ -245,7 +248,7 @@ function Contenido({ f }: { f: FacturaAnticipoDetalleResponse }) {
                   <Kpi label="Disponible" valor={f.anticipo.saldoDisponible} moneda={f.moneda} />
                 </div>
                 {f.anticipo.pedidoOrigenRef && (
-                  <p className="text-xs text-muted-foreground">
+                  <p className="text-xs text-ink-muted">
                     Pedido de origen: {f.anticipo.pedidoOrigenRef}
                     {f.anticipo.obraNombre ? ` · Obra: ${f.anticipo.obraNombre}` : ''}
                   </p>
@@ -256,59 +259,67 @@ function Contenido({ f }: { f: FacturaAnticipoDetalleResponse }) {
                   Aplicaciones ({f.anticipo.vinculaciones.length})
                 </h3>
                 {f.anticipo.vinculaciones.length === 0 ? (
-                  <p className="rounded-md border border-dashed px-3 py-3 text-center text-xs text-muted-foreground">
+                  <p className="rounded-md border border-dashed px-3 py-3 text-center text-xs text-ink-muted border-line">
                     Este anticipo aún no se aplica a ninguna factura.
                   </p>
                 ) : (
-                  <div className="overflow-x-auto rounded-md border">
-                    <table className="w-full text-sm">
-                      <thead className="bg-muted/50">
-                        <tr>
-                          <th className="px-3 py-2 text-left">Factura final</th>
-                          <th className="px-3 py-2 text-right">Importe</th>
-                          <th className="px-3 py-2 text-left">NC de amortización</th>
-                          <th className="px-3 py-2 text-right" data-print="hidden">
+                  <div className="overflow-x-auto rounded-md border border-line">
+                    <Table className="w-full text-sm">
+                      <TableHeader className="bg-surface-muted/50">
+                        <TableRow>
+                          <TableHead className="px-3 py-2 text-left">Factura final</TableHead>
+                          <TableHead className="px-3 py-2 text-right tabular-nums">
+                            Importe
+                          </TableHead>
+                          <TableHead className="px-3 py-2 text-left">NC de amortización</TableHead>
+                          <TableHead
+                            className="px-3 py-2 text-right tabular-nums"
+                            data-print="hidden"
+                          >
                             NC archivos
-                          </th>
-                        </tr>
-                      </thead>
-                      <tbody>
+                          </TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
                         {f.anticipo.vinculaciones.map((v) => (
-                          <tr key={v.facturaVentaId} className="border-t">
-                            <td className="px-3 py-2">
+                          <TableRow key={v.facturaVentaId} className="border-t border-line">
+                            <TableCell className="px-3 py-2">
                               <Link
                                 to="/facturacion/facturas/$id"
                                 params={{ id: v.facturaVentaId }}
-                                className="font-mono text-xs font-medium text-primary hover:underline"
+                                className="font-mono text-xs font-medium text-brand hover:underline"
                               >
                                 {v.facturaFolio ?? v.facturaVentaId.slice(0, 8)}
                               </Link>
                               {v.facturaEstado && (
-                                <span className="ml-2 text-xs text-muted-foreground">
+                                <span className="ml-2 text-xs text-ink-muted">
                                   {v.facturaEstado}
                                 </span>
                               )}
-                            </td>
-                            <td className="px-3 py-2 text-right font-mono">
+                            </TableCell>
+                            <TableCell className="px-3 py-2 text-right font-mono tabular-nums">
                               {v.importe.toFixed(2)}
-                            </td>
-                            <td className="px-3 py-2">
+                            </TableCell>
+                            <TableCell className="px-3 py-2">
                               {v.ncFolio ? (
                                 <>
                                   <span className="font-mono text-xs">{v.ncFolio}</span>
                                   {v.ncEstado && (
-                                    <span className="ml-2 text-xs text-muted-foreground">
+                                    <span className="ml-2 text-xs text-ink-muted">
                                       {v.ncEstado}
                                     </span>
                                   )}
                                 </>
                               ) : (
-                                <span className="text-xs text-muted-foreground">
+                                <span className="text-xs text-ink-muted">
                                   Pendiente (compromiso M2)
                                 </span>
                               )}
-                            </td>
-                            <td className="px-3 py-2 text-right" data-print="hidden">
+                            </TableCell>
+                            <TableCell
+                              className="px-3 py-2 text-right tabular-nums"
+                              data-print="hidden"
+                            >
                               {puedeVerNc && v.ncAmortizacionId != null && v.ncFolio != null ? (
                                 <span className="inline-flex gap-1">
                                   <Button
@@ -331,13 +342,13 @@ function Contenido({ f }: { f: FacturaAnticipoDetalleResponse }) {
                                   </Button>
                                 </span>
                               ) : (
-                                <span className="text-xs text-muted-foreground">—</span>
+                                <span className="text-xs text-ink-muted">—</span>
                               )}
-                            </td>
-                          </tr>
+                            </TableCell>
+                          </TableRow>
                         ))}
-                      </tbody>
-                    </table>
+                      </TableBody>
+                    </Table>
                   </div>
                 )}
               </section>
@@ -349,33 +360,35 @@ function Contenido({ f }: { f: FacturaAnticipoDetalleResponse }) {
                 <h2 className="text-sm font-medium">
                   Cadena de relaciones CFDI ({f.relaciones.length})
                 </h2>
-                <div className="overflow-x-auto rounded-md border">
-                  <table className="w-full text-sm">
-                    <thead className="bg-muted/50">
-                      <tr>
-                        <th className="px-3 py-2 text-left">Relación</th>
-                        <th className="px-3 py-2 text-left">UUID relacionado</th>
-                        <th className="px-3 py-2 text-left">Folio</th>
-                        <th className="px-3 py-2 text-right">Total</th>
-                      </tr>
-                    </thead>
-                    <tbody>
+                <div className="overflow-x-auto rounded-md border border-line">
+                  <Table className="w-full text-sm">
+                    <TableHeader className="bg-surface-muted/50">
+                      <TableRow>
+                        <TableHead className="px-3 py-2 text-left">Relación</TableHead>
+                        <TableHead className="px-3 py-2 text-left">UUID relacionado</TableHead>
+                        <TableHead className="px-3 py-2 text-left">Folio</TableHead>
+                        <TableHead className="px-3 py-2 text-right tabular-nums">Total</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
                       {f.relaciones.map((r) => (
-                        <tr key={r.uuidRelacionado} className="border-t">
-                          <td className="px-3 py-2">
+                        <TableRow key={r.uuidRelacionado} className="border-t border-line">
+                          <TableCell className="px-3 py-2">
                             {ETIQUETA_TIPO_RELACION[r.tipoRelacion] ?? r.tipoRelacion}
-                          </td>
-                          <td className="px-3 py-2 font-mono text-xs">
+                          </TableCell>
+                          <TableCell className="px-3 py-2 font-mono text-xs">
                             {r.uuidRelacionado}
-                          </td>
-                          <td className="px-3 py-2 font-mono text-xs">{r.folio ?? '—'}</td>
-                          <td className="px-3 py-2 text-right font-mono">
+                          </TableCell>
+                          <TableCell className="px-3 py-2 font-mono text-xs">
+                            {r.folio ?? '—'}
+                          </TableCell>
+                          <TableCell className="px-3 py-2 text-right font-mono tabular-nums">
                             {r.total != null ? r.total.toFixed(2) : '—'}
-                          </td>
-                        </tr>
+                          </TableCell>
+                        </TableRow>
                       ))}
-                    </tbody>
-                  </table>
+                    </TableBody>
+                  </Table>
                 </div>
               </section>
             )}
@@ -386,16 +399,16 @@ function Contenido({ f }: { f: FacturaAnticipoDetalleResponse }) {
             {/* ── Historial de intentos de timbrado (13-I) ─────────── */}
             {puedeVerIntentos && <IntentosTimbradoPanel comprobanteId={f.id} />}
           </div>
-        </TabsContent>
-      </Tabs>
+        </section>
+      </div>
     </div>
   );
 }
 
 function Kpi({ label, valor, moneda }: { label: string; valor: number; moneda: string }) {
   return (
-    <div className="rounded-md border p-3">
-      <div className="text-xs text-muted-foreground">{label}</div>
+    <div className="rounded-md border p-3 border-line">
+      <div className="text-xs text-ink-muted">{label}</div>
       <div className="font-mono text-lg font-semibold tabular-nums">
         {valor.toFixed(2)} <span className="text-xs font-normal">{moneda}</span>
       </div>
@@ -406,17 +419,8 @@ function Kpi({ label, valor, moneda }: { label: string; valor: number; moneda: s
 function Dato({ label, children }: { label: string; children: React.ReactNode }) {
   return (
     <div className="space-y-0.5">
-      <dt className="text-xs text-muted-foreground">{label}</dt>
+      <dt className="text-xs text-ink-muted">{label}</dt>
       <dd className="text-sm">{children}</dd>
-    </div>
-  );
-}
-
-function Renglon({ label, valor }: { label: string; valor: number }) {
-  return (
-    <div className="flex justify-between">
-      <span className="text-muted-foreground">{label}</span>
-      <span className="font-mono">{valor.toFixed(2)}</span>
     </div>
   );
 }

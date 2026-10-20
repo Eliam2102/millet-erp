@@ -88,9 +88,7 @@ describe('<PendientesLayout> — smoke', () => {
     render(<PendientesLayout idActivo={null} />, {
       wrapper: createQueryWrapper(),
     });
-    expect(
-      await screen.findByText(/selecciona una requisición pendiente/i),
-    ).toBeInTheDocument();
+    expect(await screen.findByText(/selecciona una requisición pendiente/i)).toBeInTheDocument();
   });
 
   it('sin items: muestra EmptyState "no hay requisiciones pendientes"', async () => {
@@ -102,9 +100,7 @@ describe('<PendientesLayout> — smoke', () => {
     render(<PendientesLayout idActivo={null} />, {
       wrapper: createQueryWrapper(),
     });
-    expect(
-      await screen.findByText(/no hay requisiciones pendientes/i),
-    ).toBeInTheDocument();
+    expect(await screen.findByText(/no hay requisiciones pendientes/i)).toBeInTheDocument();
   });
 
   it('con datos: renderiza la lista compacta con folio + EstadoBadge', async () => {
@@ -136,9 +132,7 @@ describe('<PendientesLayout> — smoke', () => {
     render(<PendientesLayout idActivo={null} />, {
       wrapper: createQueryWrapper(),
     });
-    await waitFor(() =>
-      expect(screen.getByText('MID2026-000050')).toBeInTheDocument(),
-    );
+    await waitFor(() => expect(screen.getByText('MID2026-000050')).toBeInTheDocument());
   });
 
   it('con idActivo + detalle: monta el detalle en el panel derecho', async () => {
@@ -147,13 +141,9 @@ describe('<PendientesLayout> — smoke', () => {
         HttpResponse.json({ items: [], offset: 0, limit: 50, total: 0 }),
       ),
     );
-    render(
-      <PendientesLayout
-        idActivo="rq-1"
-        detalle={<div>DETALLE-PENDIENTE</div>}
-      />,
-      { wrapper: createQueryWrapper() },
-    );
+    render(<PendientesLayout idActivo="rq-1" detalle={<div>DETALLE-PENDIENTE</div>} />, {
+      wrapper: createQueryWrapper(),
+    });
     expect(screen.getByText('DETALLE-PENDIENTE')).toBeInTheDocument();
   });
 
@@ -177,9 +167,7 @@ describe('<PendientesLayout> — smoke', () => {
     render(<PendientesLayout idActivo={null} />, {
       wrapper: createQueryWrapper(),
     });
-    await waitFor(() =>
-      expect(screen.getByText('Error de servidor')).toBeInTheDocument(),
-    );
+    await waitFor(() => expect(screen.getByText('Error de servidor')).toBeInTheDocument());
   });
   it('con indicadores: renderiza badges de disponibilidad, recurrente y nivel del item', async () => {
     mswServer.use(
@@ -219,8 +207,9 @@ describe('<PendientesLayout> — smoke', () => {
       wrapper: createQueryWrapper(),
     });
     expect(await screen.findByText('MID2026-000077')).toBeInTheDocument();
-    expect(screen.getByText('Stock parcial')).toBeInTheDocument();
+    expect(screen.queryByText('Stock parcial')).not.toBeInTheDocument();
     expect(screen.getByText('Recurrente')).toBeInTheDocument();
+    expect(screen.getByText('Recurrente').closest('a')?.querySelectorAll('[data-slot=badge]')).toHaveLength(2);
     expect(screen.getByText('Falta N2')).toBeInTheDocument();
   });
 });

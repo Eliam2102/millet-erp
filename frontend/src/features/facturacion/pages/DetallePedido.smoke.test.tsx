@@ -325,3 +325,18 @@ describe('<DetallePedido> — smoke', () => {
     );
   });
 });
+
+it.each([false, true])('muestra Pedimento sólo si alguna partida lo requiere (%s)', async (requierePedimento) => {
+  setPermisos(['facturacion.facturas.leer']);
+  const data = pedido('Facturado');
+  data.lineas[0].requierePedimento = requierePedimento;
+  mswServer.use(
+    http.get('*/api/v1/facturacion/pedidos-facturables/p-1', () => HttpResponse.json(data)),
+    http.get('*/api/v1/facturacion/pedidos-facturables/p-1/comprobantes', () => HttpResponse.json([])),
+  );
+  render(<DetallePedido />, { wrapper: createQueryWrapper() });
+  await screen.findByText('Vidrio templado 6mm');
+  expect(screen.queryByRole('columnheader', { name: 'Pedimento' }) != null).toBe(requierePedimento);
+  expect(screen.getByRole('columnheader', { name: 'Clave SAT' })).toBeInTheDocument();
+  expect(screen.getByRole('columnheader', { name: 'Descuento' })).toBeInTheDocument();
+});
