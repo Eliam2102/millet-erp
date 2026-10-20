@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { EmitirReppSchema } from '@/features/facturacion/schemas/emitir-repp';
 
 const valido = {
+  clienteId: '33333333-3333-4333-8333-333333333333',
   sucursalId: '11111111-1111-4111-8111-111111111111',
   fechaPago: '2026-05-30',
   monedaPago: 'MXN',
@@ -18,6 +19,10 @@ const valido = {
 describe('EmitirReppSchema', () => {
   it('acepta un REPP válido', () => {
     expect(EmitirReppSchema.safeParse(valido).success).toBe(true);
+  });
+
+  it('exige el cliente (86e3tfd8k)', () => {
+    expect(EmitirReppSchema.safeParse({ ...valido, clienteId: '' }).success).toBe(false);
   });
 
   it('exige al menos una factura', () => {
