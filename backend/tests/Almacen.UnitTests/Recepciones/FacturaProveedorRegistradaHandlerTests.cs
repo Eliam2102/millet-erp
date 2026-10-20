@@ -81,6 +81,23 @@ public sealed class FacturaProveedorRegistradaHandlerTests
         (await db.Set<EventoProcesado>().AnyAsync(e => e.EventoId == eventId)).Should().BeFalse();
     }
 
+    [Fact]
+    public async Task RecepcionId_de_variante_A_no_liga_nada()
+    {
+        // Variante A ya trae su CFDI al registrarse: CxP guarda el RecepcionId en la
+        // factura, pero Almacén no la vuelve a ligar ni marca el evento.
+        await using var db = await NuevaDbAsync();
+        var ocId = Guid.NewGuid();
+        var varianteA = AgregarRecepcionB(db, ocId, 1, varianteA: true);
+        await db.SaveChangesAsync();
+
+        var eventId = Guid.NewGuid();
+        await Handle(db, eventId, Guid.NewGuid(), ocId, varianteA);
+
+        (await db.Movimientos.SingleAsync(m => m.Id == varianteA)).FacturaId.Should().BeNull();
+        (await db.Set<EventoProcesado>().AnyAsync(e => e.EventoId == eventId)).Should().BeFalse();
+    }
+
     private static Task Handle(
         AlmacenDbContext db, Guid eventId, Guid facturaId, Guid ocId, Guid? recepcionId) =>
         new FacturaProveedorRegistradaHandler(db, NullLogger<FacturaProveedorRegistradaHandler>.Instance)
@@ -93,7 +110,7 @@ public sealed class FacturaProveedorRegistradaHandlerTests
                 CancellationToken.None);
 
     private static Guid AgregarRecepcionB(
-        AlmacenDbContext db, Guid ocId, int folio, Guid? recepcionOrigenId = null)
+        AlmacenDbContext db, Guid ocId, int folio, Guid? recepcionOrigenId = null, bool varianteA = false)
     {
         var mov = new MovimientoInventario(
             id: Guid.NewGuid(),
@@ -105,9 +122,11 @@ public sealed class FacturaProveedorRegistradaHandlerTests
 
         // Métodos internal — reflexión, mismo patrón que CfdiRecibidoIngresadoHandlerTests.
         typeof(MovimientoInventario)
-            .GetMethod("VincularRecepcionVarianteB",
+            .GetMethod(varianteA ? "VincularRecepcionVarianteA" : "VincularRecepcionVarianteB",
                 System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic)!
-            .Invoke(mov, new object?[] { ocId, null, "blob/pl.pdf" });
+            .Invoke(mov, varianteA
+                ? new object?[] { ocId, null, null, "11111111-2222-3333-4444-555555555555" }
+                : new object?[] { ocId, null, "blob/pl.pdf" });
         if (recepcionOrigenId is Guid origen)
             typeof(MovimientoInventario)
                 .GetMethod("VincularRecepcionPrincipal",
