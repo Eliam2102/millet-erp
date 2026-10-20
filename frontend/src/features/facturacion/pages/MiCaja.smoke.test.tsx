@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { render, screen, waitFor } from '@testing-library/react';
+import { render, screen, waitFor, within } from '@testing-library/react';
 import { http, HttpResponse } from 'msw';
 import { mswServer } from '@/test/mocks/server';
 import { createQueryWrapper } from '@/test/test-query-client';
@@ -84,16 +84,39 @@ afterEach(() => {
 describe('<MiCaja> — smoke', () => {
   it('19-oct #52 muestra totales por forma de 7510 en cobros más 500 de fondo', async () => {
     mswServer.use(http.get(`${BASE}/sesion-actual`, () => HttpResponse.json({
-      sesion: { ...sesionAbierta, totalesPorForma: [
+      sesion: { ...sesionAbierta, movimientos: [
+        ...sesionAbierta.movimientos,
+        ...[['01', 2000], ['04', 3000], ['03', 2510]].map(([formaPago, importe], i) => ({
+          ...sesionAbierta.movimientos[0], id: `c-${i}`, tipo: 'CobroCliente',
+          formaPago, importe, cobroMostradorId: `cobro-${i}`,
+        })),
+      ], totalesPorForma: [
         { formaPago: '01', montoSistema: 2500, montoDeclarado: null },
         { formaPago: '04', montoSistema: 3000, montoDeclarado: null },
         { formaPago: '03', montoSistema: 2510, montoDeclarado: null },
       ] }, diaAnteriorPendiente: false,
     })));
     render(<MiCaja />, { wrapper: createQueryWrapper() });
-    expect(await screen.findByText('$2,500.00')).toBeInTheDocument();
+    const efectivo = (await screen.findByText('Efectivo en caja')).closest('.shadow-card')!;
+    expect(within(efectivo as HTMLElement).getByText('$2,500.00')).toBeInTheDocument();
+    const cobrado = screen.getByText('Cobrado en la sesión').closest('.shadow-card')!;
+    expect(within(cobrado as HTMLElement).getByText('$7,510.00')).toBeInTheDocument();
+    expect(screen.getByText('3 cobros')).toBeInTheDocument();
+    expect(screen.getByText('Fondo $500.00 · cobros $2,000.00')).toBeInTheDocument();
     expect(screen.getByText('$3,000.00')).toBeInTheDocument();
     expect(screen.getByText('$2,510.00')).toBeInTheDocument();
+  });
+
+  it('en arqueo muestra el efectivo esperado del corte', async () => {
+    mswServer.use(http.get(`${BASE}/sesion-actual`, () => HttpResponse.json({
+      sesion: { ...sesionAbierta, estado: 'EnArqueo', cortes: [
+        { formaPago: '01', montoSistema: 450, montoDeclarado: null },
+      ] }, diaAnteriorPendiente: false,
+    })));
+    render(<MiCaja />, { wrapper: createQueryWrapper() });
+    const tarjeta = (await screen.findByText('Efectivo esperado')).closest('.shadow-card')!;
+    expect(within(tarjeta as HTMLElement).getByText('$450.00')).toBeInTheDocument();
+    expect(screen.queryByText('Efectivo en caja')).not.toBeInTheDocument();
   });
 
   it('sin sesión: muestra el form de apertura', async () => {
