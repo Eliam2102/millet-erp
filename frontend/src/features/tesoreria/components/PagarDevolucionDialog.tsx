@@ -1,3 +1,6 @@
+import { FormSeccion } from '@/components/erp/forms/FormSeccion';
+import { FormCampo } from '@/components/erp/forms/FormGrid';
+import { DialogBody } from '@/components/ui/dialog';
 import { useState } from 'react';
 import { toast } from 'sonner';
 import {
@@ -16,7 +19,10 @@ import { MoneyDisplay } from '@/components/erp/display/MoneyDisplay';
 import { hoyLocalISO } from '@/lib/datetime';
 import { esApiError, useBodyScopedIdempotencyKey } from '@/lib/api';
 import { usePagarDevolucion } from '@/features/tesoreria/api/useTesoreria';
-import { OrigenDevolucionCliente, type DevolucionClienteResponse } from '@/features/tesoreria/api/types';
+import {
+  OrigenDevolucionCliente,
+  type DevolucionClienteResponse,
+} from '@/features/tesoreria/api/types';
 import { CuentaBancariaSelector } from './CuentaBancariaSelector';
 
 export interface PagarDevolucionDialogProps {
@@ -31,7 +37,11 @@ export interface PagarDevolucionDialogProps {
  * verificó fondos. Depósito erróneo: sale de la misma cuenta donde entró
  * (contramovimiento ligado); nota de crédito: se elige la cuenta de egreso.
  */
-export function PagarDevolucionDialog({ devolucion: d, abierto, onCerrar }: PagarDevolucionDialogProps) {
+export function PagarDevolucionDialog({
+  devolucion: d,
+  abierto,
+  onCerrar,
+}: PagarDevolucionDialogProps) {
   const pagar = usePagarDevolucion();
   const keyFor = useBodyScopedIdempotencyKey();
   const [fechaValor, setFechaValor] = useState(() => hoyLocalISO());
@@ -74,7 +84,8 @@ export function PagarDevolucionDialog({ devolucion: d, abierto, onCerrar }: Paga
       {
         onSuccess: () => {
           toast.success('Devolución pagada', {
-            description: 'Se registró el egreso ligado al origen; el movimiento original se conserva.',
+            description:
+              'Se registró el egreso ligado al origen; el movimiento original se conserva.',
           });
           cerrar();
         },
@@ -90,98 +101,104 @@ export function PagarDevolucionDialog({ devolucion: d, abierto, onCerrar }: Paga
 
   return (
     <Dialog open={abierto} onOpenChange={(v) => !v && !pagar.isPending && cerrar()}>
-      <DialogContent className="sm:max-w-lg">
+      <DialogContent size="lg">
         <DialogHeader>
           <DialogTitle>Registrar pago de la devolución</DialogTitle>
           <DialogDescription>
-            La transferencia se ejecuta en la banca; aquí se registra el hecho bancario. No se puede deshacer.
+            La transferencia se ejecuta en la banca; aquí se registra el hecho bancario. No se puede
+            deshacer.
           </DialogDescription>
         </DialogHeader>
-
-        <dl className="grid grid-cols-2 gap-3 rounded-md border border-line-row p-3 text-sm">
-          <div>
-            <dt className="text-xs text-ink-muted">Importe</dt>
-            <dd className="tabular-nums">
-              <MoneyDisplay amount={d.importe} currency={d.moneda} strong />
-            </dd>
-          </div>
-          <div>
-            <dt className="text-xs text-ink-muted">Cliente</dt>
-            <dd>{d.clienteRazonSocial ?? d.clienteId}</dd>
-          </div>
-          <div>
-            <dt className="text-xs text-ink-muted">Banco destino</dt>
-            <dd>{d.destinoBanco ?? '—'}</dd>
-          </div>
-          <div>
-            <dt className="text-xs text-ink-muted">Titular</dt>
-            <dd>{d.destinoTitular ?? '—'}</dd>
-          </div>
-          <div className="col-span-2">
-            <dt className="text-xs text-ink-muted">CLABE destino</dt>
-            <dd className="font-mono">{d.destinoClabe ?? '—'}</dd>
-          </div>
-        </dl>
-
-        {aviso && (
-          <AvisoEnLinea tono="error" titulo="No se pudo registrar el pago">
-            {aviso}
-          </AvisoEnLinea>
-        )}
-
-        <div className="space-y-3">
-          {esNc ? (
-            <div className="space-y-1">
-              <label className="text-xs text-ink-muted">Cuenta de egreso ({d.moneda})</label>
-              <CuentaBancariaSelector value={cuentaId} onChange={setCuentaId} moneda={d.moneda} />
+        <DialogBody className="space-y-4">
+          <dl className="grid grid-cols-2 gap-3 rounded-md border border-line-row p-3 text-sm">
+            <div>
+              <dt className="text-xs text-ink-muted">Importe</dt>
+              <dd className="tabular-nums">
+                <MoneyDisplay amount={d.importe} currency={d.moneda} strong />
+              </dd>
             </div>
-          ) : (
-            <p className="text-xs text-ink-muted">
-              Sale de la misma cuenta donde entró el depósito (contramovimiento ligado).
-            </p>
+            <div>
+              <dt className="text-xs text-ink-muted">Cliente</dt>
+              <dd>{d.clienteRazonSocial ?? d.clienteId}</dd>
+            </div>
+            <div>
+              <dt className="text-xs text-ink-muted">Banco destino</dt>
+              <dd>{d.destinoBanco ?? '—'}</dd>
+            </div>
+            <div>
+              <dt className="text-xs text-ink-muted">Titular</dt>
+              <dd>{d.destinoTitular ?? '—'}</dd>
+            </div>
+            <div className="col-span-2">
+              <dt className="text-xs text-ink-muted">CLABE destino</dt>
+              <dd className="font-mono">{d.destinoClabe ?? '—'}</dd>
+            </div>
+          </dl>
+          {aviso && (
+            <AvisoEnLinea tono="error" titulo="No se pudo registrar el pago">
+              {aviso}
+            </AvisoEnLinea>
           )}
-          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-            <div className="space-y-1">
-              <label className="text-xs text-ink-muted" htmlFor="pagar-devolucion-fecha">
-                Fecha valor
-              </label>
-              <Input
-                id="pagar-devolucion-fecha"
-                type="date"
-                value={fechaValor}
-                onChange={(e) => setFechaValor(e.target.value)}
+          <div className="space-y-3">
+            {esNc ? (
+              <div className="space-y-1">
+                <label className="text-xs text-ink-muted">Cuenta de egreso ({d.moneda})</label>
+                <CuentaBancariaSelector value={cuentaId} onChange={setCuentaId} moneda={d.moneda} />
+              </div>
+            ) : (
+              <p className="text-xs text-ink-muted">
+                Sale de la misma cuenta donde entró el depósito (contramovimiento ligado).
+              </p>
+            )}
+            <FormSeccion numero={1} titulo="Datos de la operación">
+              <FormCampo span={6}>
+                <div className="space-y-1">
+                  <label className="text-xs text-ink-muted" htmlFor="pagar-devolucion-fecha">
+                    Fecha valor *
+                  </label>
+                  <Input
+                    id="pagar-devolucion-fecha"
+                    type="date"
+                    value={fechaValor}
+                    onChange={(e) => setFechaValor(e.target.value)}
+                  />
+                </div>
+              </FormCampo>
+              <FormCampo span={6}>
+                <div className="space-y-1">
+                  <label className="text-xs text-ink-muted" htmlFor="pagar-devolucion-referencia">
+                    Referencia bancaria
+                  </label>
+                  <Input
+                    id="pagar-devolucion-referencia"
+                    value={referencia}
+                    onChange={(e) => setReferencia(e.target.value)}
+                    maxLength={120}
+                    placeholder="SPEI-000123"
+                  />
+                </div>
+              </FormCampo>
+            </FormSeccion>
+            <div className="flex items-start gap-2">
+              <Checkbox
+                id="pagar-devolucion-fondos"
+                checked={fondosVerificados}
+                onCheckedChange={(v) => setFondosVerificados(v === true)}
               />
-            </div>
-            <div className="space-y-1">
-              <label className="text-xs text-ink-muted" htmlFor="pagar-devolucion-referencia">
-                Referencia bancaria
-              </label>
-              <Input
-                id="pagar-devolucion-referencia"
-                value={referencia}
-                onChange={(e) => setReferencia(e.target.value)}
-                maxLength={120}
-                placeholder="SPEI-000123"
-              />
+              <div>
+                <label htmlFor="pagar-devolucion-fondos" className="text-sm">
+                  Verifiqué en la banca que la cuenta tiene fondos para esta devolución *
+                </label>
+                <p className="block text-xs text-ink-muted">
+                  El ERP no está conectado al banco: el saldo en libros puede no estar al día.
+                </p>
+              </div>
             </div>
           </div>
-          <div className="flex items-start gap-2">
-            <Checkbox
-              id="pagar-devolucion-fondos"
-              checked={fondosVerificados}
-              onCheckedChange={(v) => setFondosVerificados(v === true)}
-            />
-            <label htmlFor="pagar-devolucion-fondos" className="text-sm">
-              Verifiqué en la banca que la cuenta tiene fondos para esta devolución
-              <span className="block text-xs text-ink-muted">
-                El ERP no está conectado al banco: el saldo en libros puede no estar al día.
-              </span>
-            </label>
-          </div>
-        </div>
-
-        {bloqueo && !pagar.isPending && <p className="text-right text-xs text-ink-muted">{bloqueo}</p>}
-
+          {bloqueo && !pagar.isPending && (
+            <p className="text-right text-xs text-ink-muted">{bloqueo}</p>
+          )}
+        </DialogBody>
         <DialogFooter>
           <Button variant="ghost" onClick={cerrar} disabled={pagar.isPending}>
             Cancelar

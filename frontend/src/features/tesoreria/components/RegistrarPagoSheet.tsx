@@ -1,5 +1,15 @@
+import { SheetFooter } from '@/components/ui/sheet';
+import { FormSeccion } from '@/components/erp/forms/FormSeccion';
+import {
+  Table,
+  TableHeader,
+  TableRow,
+  TableHead,
+  TableBody,
+  TableCell,
+} from '@/components/ui/table';
 import { TriangleAlert } from 'lucide-react';
-import { FormGrid, FormCampo } from '@/components/erp/forms/FormGrid';
+import { FormCampo } from '@/components/erp/forms/FormGrid';
 import { ResumenImportes } from '@/components/erp/display/ResumenImportes';
 import { DateTimeDisplay } from '@/components/erp/display/DateTimeDisplay';
 import { ConceptoSelector } from './ConceptoSelector';
@@ -198,7 +208,7 @@ export function RegistrarPagoSheet({
 
   return (
     <Sheet open={open} onOpenChange={cambiarAbierto}>
-      <SheetContent side="right" size="md">
+      <SheetContent side="right" size="lg">
         <SheetHeader>
           <SheetTitle>Registrar pago a proveedor</SheetTitle>
           <SheetDescription>
@@ -209,40 +219,42 @@ export function RegistrarPagoSheet({
 
         <SheetBody className="space-y-4">
           <div className="overflow-x-auto rounded-md border">
-            <table className="w-full text-sm">
-              <thead className="bg-muted/50 text-left text-xs uppercase tracking-wide text-muted-foreground">
-                <tr>
-                  <th className="px-3 py-2 font-medium">Factura</th>
-                  <th className="px-3 py-2 font-medium">Vence</th>
-                  <th className="px-3 py-2 text-right font-medium">Saldo</th>
-                  <th className="px-3 py-2 text-right font-medium">Importe a pagar</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y">
+            <Table className="w-full text-sm">
+              <TableHeader className="bg-surface-muted/50 text-left text-xs uppercase tracking-wide text-ink-muted">
+                <TableRow>
+                  <TableHead className="px-3 py-2 font-medium">Factura</TableHead>
+                  <TableHead className="px-3 py-2 font-medium">Vence</TableHead>
+                  <TableHead className="px-3 py-2 text-right font-medium">Saldo</TableHead>
+                  <TableHead className="px-3 py-2 text-right font-medium">
+                    Importe a pagar
+                  </TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody className="divide-y">
                 {pasivos.map((p) => {
                   const v = Number(importes[p.facturaProveedorId]);
                   const invalido = !Number.isFinite(v) || v <= 0 || v > p.saldoPendiente;
                   return (
-                    <tr key={p.facturaProveedorId}>
-                      <td className="px-3 py-2">
+                    <TableRow key={p.facturaProveedorId}>
+                      <TableCell className="px-3 py-2">
                         <p className="font-mono text-xs">
                           {p.folioProveedor ?? p.facturaProveedorId.slice(0, 8)}
                         </p>
-                      </td>
-                      <td className="px-3 py-2 text-xs">
+                      </TableCell>
+                      <TableCell className="px-3 py-2 text-xs">
                         <DateTimeDisplay value={p.fechaVencimiento} variant="corta" />
-                      </td>
-                      <td className="px-3 py-2 text-right font-mono tabular-nums">
+                      </TableCell>
+                      <TableCell className="px-3 py-2 text-right font-mono tabular-nums">
                         {formatoMonto(p.saldoPendiente, p.moneda)}
-                      </td>
-                      <td className="px-3 py-2 text-right">
+                      </TableCell>
+                      <TableCell className="px-3 py-2 text-right">
                         <Input
                           type="number"
                           inputMode="decimal"
                           min={0.01}
                           max={p.saldoPendiente}
                           step="0.01"
-                          className={`ml-auto w-36 text-right font-mono ${invalido ? 'border-destructive' : ''}`}
+                          className={`ml-auto w-36 text-right font-mono ${invalido ? 'border-danger' : ''}`}
                           aria-label={`Importe para ${p.folioProveedor ?? p.facturaProveedorId}`}
                           value={importes[p.facturaProveedorId] ?? ''}
                           onChange={(e) =>
@@ -252,21 +264,19 @@ export function RegistrarPagoSheet({
                             }))
                           }
                         />
-                      </td>
-                    </tr>
+                      </TableCell>
+                    </TableRow>
                   );
                 })}
-              </tbody>
-            </table>
+              </TableBody>
+            </Table>
           </div>
 
           <fieldset className="space-y-2">
-            <legend className="text-xs text-muted-foreground">Cuenta del proveedor</legend>
-            {cuentasQuery.isLoading && (
-              <p className="text-xs text-muted-foreground">Cargando cuentas…</p>
-            )}
+            <legend className="text-xs text-ink-muted">Cuenta del proveedor *</legend>
+            {cuentasQuery.isLoading && <p className="text-xs text-ink-muted">Cargando cuentas…</p>}
             {cuentasQuery.isError && (
-              <p role="alert" className="text-xs text-destructive">
+              <p role="alert" className="text-xs text-danger-fg">
                 No se pudieron cargar las cuentas del proveedor.
               </p>
             )}
@@ -319,15 +329,13 @@ export function RegistrarPagoSheet({
                     <span className="flex flex-wrap items-center gap-2">
                       <span>{c.banco}</span>
                       <span className="font-mono text-xs">{c.numero}</span>
-                      <span className="text-xs text-muted-foreground">
+                      <span className="text-xs text-ink-muted">
                         {c.esClabe ? 'CLABE' : 'Cuenta'} · {c.moneda}
                       </span>
                       {c.predeterminada && <Badge variant="info">Predeterminada</Badge>}
                       {motivo && <Badge variant="warning">{motivo}</Badge>}
                     </span>
-                    {c.titular && (
-                      <span className="block text-xs text-muted-foreground">{c.titular}</span>
-                    )}
+                    {c.titular && <span className="block text-xs text-ink-muted">{c.titular}</span>}
                   </span>
                 </label>
               );
@@ -339,13 +347,13 @@ export function RegistrarPagoSheet({
             )}
           </fieldset>
 
-          <FormGrid>
+          <FormSeccion numero={1} titulo="Datos del pago">
             <FormCampo span={12} className="space-y-1">
-              <label className="text-xs text-muted-foreground">
-                Cuenta de egreso {moneda ? `(${moneda})` : ''}
+              <label className="text-xs text-ink-muted">
+                Cuenta de egreso * {moneda ? `(${moneda})` : ''}
               </label>
               <CuentaBancariaSelector value={cuentaId} onChange={setCuentaId} moneda={moneda} />
-              <p className="text-xs text-muted-foreground">
+              <p className="text-xs text-ink-muted">
                 Saldo en libros: movimientos registrados en el ERP, no el saldo del banco.
               </p>
             </FormCampo>
@@ -353,8 +361,8 @@ export function RegistrarPagoSheet({
               <ConceptoSelector value={conceptoId} onChange={setConceptoId} />
             </FormCampo>
             <FormCampo span={6} className="space-y-1">
-              <label className="text-xs text-muted-foreground" htmlFor="fecha-valor">
-                Fecha valor
+              <label className="text-xs text-ink-muted" htmlFor="fecha-valor">
+                Fecha valor *
               </label>
               <Input
                 id="fecha-valor"
@@ -364,7 +372,7 @@ export function RegistrarPagoSheet({
               />
             </FormCampo>
             <FormCampo span={6} className="space-y-1">
-              <label className="text-xs text-muted-foreground" htmlFor="referencia">
+              <label className="text-xs text-ink-muted" htmlFor="referencia">
                 Referencia bancaria
               </label>
               <Input
@@ -375,7 +383,7 @@ export function RegistrarPagoSheet({
                 placeholder="SPEI-000123"
               />
             </FormCampo>
-          </FormGrid>
+          </FormSeccion>
 
           <div className="flex items-start gap-2">
             <Checkbox
@@ -383,42 +391,38 @@ export function RegistrarPagoSheet({
               checked={fondosVerificados}
               onCheckedChange={(v) => setFondosVerificados(v === true)}
             />
-            <label htmlFor="fondos-verificados" className="text-sm">
-              Verifiqué en la banca que la cuenta tiene fondos para este pago
-              <span className="block text-xs text-muted-foreground">
+            <div>
+              <label htmlFor="fondos-verificados" className="text-sm">
+                Verifiqué en la banca que la cuenta tiene fondos para este pago *
+              </label>
+              <p className="block text-xs text-ink-muted">
                 El ERP no está conectado al banco: el saldo en libros puede no estar al día.
-              </span>
-            </label>
+              </p>
+            </div>
           </div>
 
           {motivoDeshabilitado && !registrar.isPending && (
-            <p className="text-right text-xs text-muted-foreground">{motivoDeshabilitado}</p>
+            <p className="text-right text-xs text-ink-muted">{motivoDeshabilitado}</p>
           )}
 
-          <ResumenImportes
-            moneda={moneda ?? 'MXN'}
-            total={total}
-            acciones={
-              <>
-                <Button
-                  variant="ghost"
-                  onClick={() => cambiarAbierto(false)}
-                  disabled={registrar.isPending}
-                >
-                  Cancelar
-                </Button>
-                <Button
-                  onClick={confirmar}
-                  disabled={
-                    registrar.isPending || pasivos.length === 0 || motivoDeshabilitado != null
-                  }
-                >
-                  {registrar.isPending ? 'Registrando…' : 'Registrar pago'}
-                </Button>
-              </>
-            }
-          />
+          <ResumenImportes moneda={moneda ?? 'MXN'} total={total} />
         </SheetBody>
+        <SheetFooter>
+          <Button
+            variant="ghost"
+            onClick={() => cambiarAbierto(false)}
+            disabled={registrar.isPending}
+          >
+            Cancelar
+          </Button>
+          <Button
+            onClick={confirmar}
+            disabled={registrar.isPending || pasivos.length === 0 || motivoDeshabilitado != null}
+            title={motivoDeshabilitado ?? undefined}
+          >
+            {registrar.isPending ? 'Registrando…' : 'Registrar pago'}
+          </Button>
+        </SheetFooter>
       </SheetContent>
     </Sheet>
   );

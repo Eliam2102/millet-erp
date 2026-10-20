@@ -32,7 +32,7 @@ describe('Controles de P5', () => {
   it('reclasifica con concepto, motivo y versión del movimiento', () => {
     render(<ReclasificarMovimiento movimiento={movimiento} />);
     expect(screen.getByRole('button', { name: 'Reclasificar' })).toBeDisabled();
-    fireEvent.change(screen.getByLabelText('Motivo de la reclasificación'), { target: { value: '  Corrección P5  ' } });
+    fireEvent.change(screen.getByLabelText('Motivo de la reclasificación *'), { target: { value: '  Corrección P5  ' } });
     fireEvent.click(screen.getByRole('button', { name: 'Reclasificar' }));
     expect(mocks.mutate).toHaveBeenCalledWith({ movimientoId: 'movimiento-1', conceptoId: 'concepto-1', motivo: 'Corrección P5', version: 3, idempotencyKey: 'p5-test' }, expect.any(Object));
   });
