@@ -13,7 +13,7 @@ using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 namespace Millet.Compartido.Infrastructure.Migrations.Compartido
 {
     [DbContext(typeof(CompartidoDbContext))]
-    [Migration("20261019221022_SerieTipoVentaDirecta")]
+    [Migration("20261020164106_SerieTipoVentaDirecta")]
     partial class SerieTipoVentaDirecta
     {
         /// <inheritdoc />
@@ -3966,11 +3966,6 @@ namespace Millet.Compartido.Infrastructure.Migrations.Compartido
                         .HasColumnType("numeric(15,4)")
                         .HasColumnName("precio_referencia_monto");
 
-                    b.Property<decimal?>("ToleranciaCantidadPorcentaje")
-                        .HasPrecision(5, 2)
-                        .HasColumnType("numeric(5,2)")
-                        .HasColumnName("tolerancia_cantidad_porcentaje");
-
                     b.Property<string>("UnidadMedidaDefault")
                         .IsRequired()
                         .HasMaxLength(20)
@@ -4022,8 +4017,6 @@ namespace Millet.Compartido.Infrastructure.Migrations.Compartido
                             t.HasCheckConstraint("ck_articulos_precio_moneda_iso", "precio_referencia_moneda IS NULL OR precio_referencia_moneda ~ '^[A-Z]{3}$'");
 
                             t.HasCheckConstraint("ck_articulos_precio_no_negativo", "precio_referencia_monto IS NULL OR precio_referencia_monto >= 0");
-
-                            t.HasCheckConstraint("ck_articulos_tolerancia_rango", "tolerancia_cantidad_porcentaje IS NULL OR (tolerancia_cantidad_porcentaje >= 0 AND tolerancia_cantidad_porcentaje <= 100)");
                         });
                 });
 
@@ -5830,10 +5823,6 @@ namespace Millet.Compartido.Infrastructure.Migrations.Compartido
                     b.Property<short>("TipoPersona")
                         .HasColumnType("smallint")
                         .HasColumnName("tipo_persona");
-
-                    b.Property<bool>("ToleranciaFacturaContraOcEsPorcentaje")
-                        .HasColumnType("boolean")
-                        .HasColumnName("tolerancia_factura_contra_oc_es_porcentaje");
 
                     b.Property<decimal?>("ToleranciaFacturaContraOcMxn")
                         .HasPrecision(18, 4)
