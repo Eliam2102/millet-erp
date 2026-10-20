@@ -72,7 +72,7 @@ public sealed class EventosContablesG16Tests
         RegistrarPagoProveedorHandler Handler() => new(db, new FakeEmpresa(), new FakeUser(), new Abierto(),
             proveedores, new ElegibleSinLimite(), new Captura(), new FakeClock());
         Task Pagar(Guid? cuentaProveedor) => Handler().Handle(new(cuenta.Id, Fecha, [new(pasivo.FacturaProveedorId, 100m)],
-            CuentaProveedorId: cuentaProveedor, FondosVerificados: true), default);
+            CuentaProveedorId: cuentaProveedor), default);
 
         proveedores.Cuentas = [porValidar];
         await FluentActions.Awaiting(() => Pagar(null)).Should().ThrowAsync<Millet.SharedKernel.Application.Exceptions.BusinessRuleException>()
@@ -85,15 +85,15 @@ public sealed class EventosContablesG16Tests
         var movimiento = await db.MovimientosBancarios.SingleAsync();
         movimiento.DestinoCuentaId.Should().Be(activa.Id);
         movimiento.DestinoNumeroCuenta.Should().Be(activa.Numero);
-        movimiento.FondosVerificados.Should().BeTrue();
     }
 
     [Fact]
-    public void Registrar_pago_exige_confirmar_fondos()
+    public void Registrar_pago_no_exige_confirmar_fondos()
     {
         var validator = new RegistrarPagoProveedorValidator();
-        validator.Validate(new RegistrarPagoProveedorCommand(Guid.NewGuid(), Fecha, [new(Guid.NewGuid(), 1m)]))
-            .Errors.Should().Contain(e => e.PropertyName == "FondosVerificados");
+        var result = validator.Validate(new RegistrarPagoProveedorCommand(Guid.NewGuid(), Fecha, [new(Guid.NewGuid(), 1m)]));
+        result.Errors.Should().NotContain(e => e.PropertyName == "FondosVerificados");
+        result.IsValid.Should().BeTrue();
     }
 
     private sealed class ConCuentas : IProveedorBancoReadPort

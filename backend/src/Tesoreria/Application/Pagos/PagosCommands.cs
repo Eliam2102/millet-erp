@@ -46,10 +46,8 @@ public sealed record RegistrarPagoProveedorCommand(
     IReadOnlyList<AplicacionPagoItem> Aplicaciones,
     string? ReferenciaBancaria = null,
     Guid? ConceptoId = null,
-    // 86e3pdmee: cuenta del proveedor elegida (null = la predeterminada activa de la moneda)
-    // y confirmación de fondos (no hay integración bancaria; owner 17-oct).
-    Guid? CuentaProveedorId = null,
-    bool FondosVerificados = false) : IRequest<PagoProveedorResponse>;
+    // 86e3pdmee: cuenta del proveedor elegida (null = la predeterminada activa de la moneda).
+    Guid? CuentaProveedorId = null) : IRequest<PagoProveedorResponse>;
 
 public sealed class RegistrarPagoProveedorValidator : AbstractValidator<RegistrarPagoProveedorCommand>
 {
@@ -58,8 +56,6 @@ public sealed class RegistrarPagoProveedorValidator : AbstractValidator<Registra
         RuleFor(c => c.CuentaBancariaId).NotEmpty();
         RuleFor(c => c.FechaValor).NotEmpty();
         RuleFor(c => c.ReferenciaBancaria).MaximumLength(120);
-        RuleFor(c => c.FondosVerificados).Equal(true)
-            .WithMessage("Confirma que verificaste en la banca que la cuenta tiene fondos para este pago.");
         RuleFor(c => c.Aplicaciones).NotEmpty()
             .WithMessage("El pago debe aplicar al menos a un pasivo.");
         RuleForEach(c => c.Aplicaciones).ChildRules(a =>
@@ -249,8 +245,7 @@ public sealed class RegistrarPagoProveedorHandler
             conceptoId: command.ConceptoId,
             creadoPor: usuarioId,
             ahora: ahora,
-            destino: destino,
-            fondosVerificados: command.FondosVerificados);
+            destino: destino);
         _db.MovimientosBancarios.Add(movimiento);
 
         var aplicaciones = new List<AplicacionPagoProveedor>(command.Aplicaciones.Count);
