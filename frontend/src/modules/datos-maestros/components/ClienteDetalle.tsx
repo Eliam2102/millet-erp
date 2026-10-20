@@ -1,3 +1,4 @@
+import { PageHeader } from '@/components/erp/PageHeader';
 import { useState } from 'react';
 import { Link, useParams } from '@tanstack/react-router';
 import { Power, PowerOff, X } from 'lucide-react';
@@ -45,24 +46,18 @@ export function ClienteDetalle() {
   const clienteQuery = useCliente(id);
   const [confirmDesactivar, setConfirmDesactivar] = useState(false);
 
-  const canGestionar = useHasPermission(
-    PermisosCanonicos.DatosMaestrosClientesGestionar,
-  );
+  const canGestionar = useHasPermission(PermisosCanonicos.DatosMaestrosClientesGestionar);
   const desactivar = useDesactivarCliente();
   const reactivar = useReactivarCliente();
 
   if (clienteQuery.isError) {
-    const problem = esApiError(clienteQuery.error)
-      ? clienteQuery.error.problem
-      : undefined;
-    return (
-      <ErrorState problem={problem} onRetry={() => clienteQuery.refetch()} />
-    );
+    const problem = esApiError(clienteQuery.error) ? clienteQuery.error.problem : undefined;
+    return <ErrorState problem={problem} onRetry={() => clienteQuery.refetch()} />;
   }
 
   if (clienteQuery.isLoading || clienteQuery.data == null) {
     return (
-      <div className="space-y-4 p-4">
+      <div className="space-y-5">
         <TableSkeleton
           rows={4}
           columns={[{ width: 'w-48' }, { width: 'w-64' }, { width: 'w-32' }]}
@@ -121,87 +116,82 @@ export function ClienteDetalle() {
   }
 
   return (
-    <div className="flex flex-col">
+    <div className="flex flex-col gap-5">
       {/* Header NO sticky: viaja con el scroll para no tapar la primera
           fila del form al anclar. Sin nav porque no hay tabs. */}
-      <header
-        className="flex flex-wrap items-center gap-3 border-b bg-background px-4 py-2"
-        data-print="hidden"
-      >
-        <div className="flex min-w-0 flex-wrap items-center gap-2">
-          <span className="truncate font-mono text-sm font-semibold">
-            {cliente.clave}
-          </span>
-          <EstatusCatalogoBadge estatus={cliente.estatus} />
-          <OrigenBadge origen={cliente.origen} />
-          <FiscalesIncompletosBadge
-            completos={cliente.datosFiscalesCompletos}
-          />
-          <span className="hidden truncate text-sm text-muted-foreground md:inline">
-            · {cliente.razonSocial}
-          </span>
-        </div>
-
-        <div className="ml-auto flex items-center gap-1">
-          {canGestionar && activo && (
-            <Button
-              type="button"
-              variant="ghost"
-              size="sm"
-              onClick={() => setConfirmDesactivar(true)}
-            >
-              <PowerOff className="mr-1.5 h-4 w-4" />
-              Desactivar
+      <PageHeader
+        mono
+        titulo={<>{cliente.clave}</>}
+        descripcion={<>{cliente.razonSocial}</>}
+        estado={
+          <>
+            <EstatusCatalogoBadge estatus={cliente.estatus} />
+            <OrigenBadge origen={cliente.origen} />
+            <FiscalesIncompletosBadge completos={cliente.datosFiscalesCompletos} />
+          </>
+        }
+        acciones={
+          <>
+            {canGestionar && activo && (
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                onClick={() => setConfirmDesactivar(true)}
+              >
+                <PowerOff className="mr-1.5 h-4 w-4" />
+                Desactivar
+              </Button>
+            )}
+            {canGestionar && !activo && (
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                disabled={reactivar.isPending}
+                onClick={handleReactivar}
+              >
+                <Power className="mr-1.5 h-4 w-4" />
+                Reactivar
+              </Button>
+            )}
+            <Button asChild variant="ghost" size="icon">
+              <Link to="/admin/datos-maestros/clientes" aria-label="Cerrar">
+                <X className="h-4 w-4" />
+              </Link>
             </Button>
-          )}
-          {canGestionar && !activo && (
-            <Button
-              type="button"
-              variant="ghost"
-              size="sm"
-              disabled={reactivar.isPending}
-              onClick={handleReactivar}
-            >
-              <Power className="mr-1.5 h-4 w-4" />
-              Reactivar
-            </Button>
-          )}
-          <Button asChild variant="ghost" size="icon">
-            <Link to="/admin/datos-maestros/clientes" aria-label="Cerrar">
-              <X className="h-4 w-4" />
-            </Link>
-          </Button>
+          </>
+        }
+      />
+      <dl className="grid grid-cols-2 gap-4 rounded-lg bg-surface-card p-4 shadow-card-flat">
+        <div>
+          <dt className="text-xs text-ink-muted">RFC</dt>
+          <dd className="font-mono text-sm">{cliente.rfc ?? '—'}</dd>
         </div>
-      </header>
+        <div>
+          <dt className="text-xs text-ink-muted">Moneda</dt>
+          <dd className="font-mono text-sm">{cliente.monedaDefault ?? '—'}</dd>
+        </div>
+      </dl>
 
-      <div className="px-4 pt-4 pb-6">
+      <div className="space-y-5">
         <ClienteDatosForm cliente={cliente} />
         <ClienteOrigenAwSection cliente={cliente} />
       </div>
 
-      <AlertDialog
-        open={confirmDesactivar}
-        onOpenChange={setConfirmDesactivar}
-      >
+      <AlertDialog open={confirmDesactivar} onOpenChange={setConfirmDesactivar}>
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>Desactivar cliente</AlertDialogTitle>
             <AlertDialogDescription>
               ¿Confirmas desactivar al cliente{' '}
-              <span className="font-mono font-semibold">{cliente.clave}</span>?
-              Los documentos históricos siguen funcionando con su id. Es un
-              soft delete: el registro se conserva para la correlación con
-              A+W.
+              <span className="font-mono font-semibold">{cliente.clave}</span>? Los documentos
+              históricos se conservan y el registro mantiene su relación con A+W.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel disabled={desactivar.isPending}>
-              Cancelar
-            </AlertDialogCancel>
-            <AlertDialogAction
-              onClick={handleConfirmarDesactivar}
-              disabled={desactivar.isPending}
-            >
+            <AlertDialogCancel disabled={desactivar.isPending}>Cancelar</AlertDialogCancel>
+            <AlertDialogAction onClick={handleConfirmarDesactivar} disabled={desactivar.isPending}>
               {desactivar.isPending ? 'Desactivando…' : 'Desactivar'}
             </AlertDialogAction>
           </AlertDialogFooter>

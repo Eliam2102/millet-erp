@@ -1,3 +1,5 @@
+import { estadoUi } from '../lib/estados-ui';
+import { PageHeader } from '@/components/erp/PageHeader';
 import { useState } from 'react';
 import { Link, useNavigate, useParams } from '@tanstack/react-router';
 import { ArrowRight, MapPin, PowerOff, X } from 'lucide-react';
@@ -16,10 +18,7 @@ import {
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
 import { ErrorState, TableSkeleton } from '@/components/erp';
-import {
-  useArticulo,
-  useDesactivarArticulo,
-} from '@/modules/datos-maestros/api';
+import { useArticulo, useDesactivarArticulo } from '@/modules/datos-maestros/api';
 import { EstatusCatalogo } from '@/modules/datos-maestros/api/types';
 import { esApiError, codigoSoporte } from '@/lib/api';
 import { useHasPermission } from '@/lib/auth/useHasPermission';
@@ -39,28 +38,20 @@ export function ArticuloDetalle() {
   const articuloQuery = useArticulo(id);
   const [confirmDesactivar, setConfirmDesactivar] = useState(false);
 
-  const canDesactivar = useHasPermission(
-    PermisosCanonicos.CompartidoCatalogosAdministrar,
-  );
+  const canDesactivar = useHasPermission(PermisosCanonicos.CompartidoCatalogosAdministrar);
   // Atajo a "Ubicación de artículos". Gateado por el permiso que exige la ruta
   // destino y su GET del conteo — sin él, ni el botón ni la query existen.
-  const canVerUbicaciones = useHasPermission(
-    PermisosCanonicos.AlmacenAsignacionesRead,
-  );
+  const canVerUbicaciones = useHasPermission(PermisosCanonicos.AlmacenAsignacionesRead);
   const desactivar = useDesactivarArticulo();
 
   if (articuloQuery.isError) {
-    const problem = esApiError(articuloQuery.error)
-      ? articuloQuery.error.problem
-      : undefined;
-    return (
-      <ErrorState problem={problem} onRetry={() => articuloQuery.refetch()} />
-    );
+    const problem = esApiError(articuloQuery.error) ? articuloQuery.error.problem : undefined;
+    return <ErrorState problem={problem} onRetry={() => articuloQuery.refetch()} />;
   }
 
   if (articuloQuery.isLoading || articuloQuery.data == null) {
     return (
-      <div className="space-y-4 p-4">
+      <div className="space-y-5">
         <TableSkeleton
           rows={4}
           columns={[{ width: 'w-48' }, { width: 'w-64' }, { width: 'w-32' }]}
@@ -98,74 +89,77 @@ export function ArticuloDetalle() {
   }
 
   return (
-    <div className="flex flex-col">
-      <header
-        className="flex flex-wrap items-center gap-3 border-b bg-background px-4 py-2"
-        data-print="hidden"
-      >
-        <div className="flex min-w-0 items-center gap-2">
-          <span className="truncate font-mono text-sm font-semibold">
-            {articulo.clave}
-          </span>
-          <EstatusBadge estatus={articulo.estatus} />
-          <span className="hidden truncate text-sm text-muted-foreground md:inline">
-            · {articulo.nombre}
-          </span>
-        </div>
-
-        <div className="ml-auto flex items-center gap-1">
-          {canVerUbicaciones && (
-            <VerUbicacionesBoton
-              articuloId={articulo.id}
-              etiqueta={`${articulo.clave} · ${articulo.nombre}`}
-            />
-          )}
-          {canDesactivar && activo && (
-            <Button
-              type="button"
-              variant="ghost"
-              size="sm"
-              onClick={() => setConfirmDesactivar(true)}
-            >
-              <PowerOff className="mr-1.5 h-4 w-4" />
-              Desactivar
+    <div className="flex flex-col gap-5">
+      <PageHeader
+        mono
+        titulo={<>{articulo.clave}</>}
+        descripcion={<>{articulo.nombre}</>}
+        estado={
+          <>
+            <EstatusBadge estatus={articulo.estatus} />
+          </>
+        }
+        acciones={
+          <>
+            {canVerUbicaciones && (
+              <VerUbicacionesBoton
+                articuloId={articulo.id}
+                etiqueta={`${articulo.clave} · ${articulo.nombre}`}
+              />
+            )}
+            {canDesactivar && activo && (
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                onClick={() => setConfirmDesactivar(true)}
+              >
+                <PowerOff className="mr-1.5 h-4 w-4" />
+                Desactivar
+              </Button>
+            )}
+            <Button asChild variant="ghost" size="icon">
+              <Link to="/admin/datos-maestros/articulos" aria-label="Cerrar">
+                <X className="h-4 w-4" />
+              </Link>
             </Button>
-          )}
-          <Button asChild variant="ghost" size="icon">
-            <Link to="/admin/datos-maestros/articulos" aria-label="Cerrar">
-              <X className="h-4 w-4" />
-            </Link>
-          </Button>
+          </>
+        }
+      />
+      <dl className="grid grid-cols-2 gap-4 rounded-lg bg-surface-card p-4 shadow-card-flat">
+        <div>
+          <dt className="text-xs text-ink-muted">Unidad de medida</dt>
+          <dd className="font-mono text-sm">{articulo.unidadMedidaDefault ?? '—'}</dd>
         </div>
-      </header>
+        <div>
+          <dt className="text-xs text-ink-muted">Categoría</dt>
+          <dd className="font-mono text-sm">{articulo.categoria ?? '—'}</dd>
+        </div>
+      </dl>
 
-      <div className="px-4 pt-4 pb-6">
+      <div className="space-y-5">
         <ArticuloDatosForm articulo={articulo} />
-        <ArticuloToleranciaSection key={articulo.id} articuloId={articulo.id} porcentaje={articulo.toleranciaCantidadPorcentaje ?? null} />
+        <ArticuloToleranciaSection
+          key={articulo.id}
+          articuloId={articulo.id}
+          porcentaje={articulo.toleranciaCantidadPorcentaje ?? null}
+        />
       </div>
 
-      <AlertDialog
-        open={confirmDesactivar}
-        onOpenChange={setConfirmDesactivar}
-      >
+      <AlertDialog open={confirmDesactivar} onOpenChange={setConfirmDesactivar}>
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>Desactivar artículo</AlertDialogTitle>
             <AlertDialogDescription>
               ¿Confirmas desactivar el artículo{' '}
-              <span className="font-mono font-semibold">{articulo.clave}</span>?
-              Las RQs históricas siguen funcionando con su id; las nuevas
-              RQs se bloquean por la validación cross-table.
+              <span className="font-mono font-semibold">{articulo.clave}</span>? Las requisiciones
+              históricas se conservan. El artículo deja de estar disponible para nuevas
+              requisiciones.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel disabled={desactivar.isPending}>
-              Cancelar
-            </AlertDialogCancel>
-            <AlertDialogAction
-              onClick={handleConfirmarDesactivar}
-              disabled={desactivar.isPending}
-            >
+            <AlertDialogCancel disabled={desactivar.isPending}>Cancelar</AlertDialogCancel>
+            <AlertDialogAction onClick={handleConfirmarDesactivar} disabled={desactivar.isPending}>
               {desactivar.isPending ? 'Desactivando…' : 'Desactivar'}
             </AlertDialogAction>
           </AlertDialogFooter>
@@ -183,13 +177,7 @@ export function ArticuloDetalle() {
  * la query no dispara para quien no puede ver ubicaciones. El conteo usa
  * <c>limit=1</c> y lee el <c>total</c> server-side (no trae la lista).
  */
-function VerUbicacionesBoton({
-  articuloId,
-  etiqueta,
-}: {
-  articuloId: string;
-  etiqueta: string;
-}) {
+function VerUbicacionesBoton({ articuloId, etiqueta }: { articuloId: string; etiqueta: string }) {
   const navigate = useNavigate();
   const conteo = useAsignacionesList({
     articuloId,
@@ -218,15 +206,13 @@ function VerUbicacionesBoton({
 }
 
 function EstatusBadge({ estatus }: { estatus: number }) {
-  if (estatus === EstatusCatalogo.Activo) {
-    return <Badge variant="secondary">Activo</Badge>;
-  }
-  if (estatus === EstatusCatalogo.EnRevision) {
-    return <Badge variant="outline">En revisión</Badge>;
-  }
-  return (
-    <Badge variant="outline" className="text-muted-foreground">
-      Inactivo
-    </Badge>
+  const ui = estadoUi(
+    'catalogo',
+    estatus === EstatusCatalogo.Activo
+      ? 'Activo'
+      : estatus === EstatusCatalogo.EnRevision
+        ? 'EnRevision'
+        : 'Inactivo',
   );
+  return <Badge variant={ui.tono}>{ui.texto}</Badge>;
 }

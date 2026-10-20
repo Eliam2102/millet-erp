@@ -1,8 +1,5 @@
 import type { ReactNode } from 'react';
-import {
-  DimensionUnidad,
-  DIMENSION_UNIDAD_LABEL,
-} from '@/modules/catalogos/api/types';
+import { DimensionUnidad, DIMENSION_UNIDAD_LABEL } from '@/modules/catalogos/api/types';
 
 /**
  * Helpers compartidos entre el Sheet "Nueva unidad" y el inline edit de la
@@ -27,17 +24,15 @@ export function FormRow({
       <label className="flex items-center gap-1 text-sm font-medium">
         {label}
         {required && (
-          <span aria-hidden="true" className="text-danger">
+          <span aria-hidden="true" className="text-danger-fg">
             *
           </span>
         )}
       </label>
       {children}
-      {hint != null && error == null && (
-        <p className="text-xs text-muted-foreground">{hint}</p>
-      )}
+      {hint != null && error == null && <p className="text-xs text-ink-muted">{hint}</p>}
       {error != null && (
-        <p role="alert" className="text-xs text-danger">
+        <p role="alert" className="text-xs text-danger-fg">
           {error}
         </p>
       )}
@@ -57,7 +52,7 @@ export function DimensionSelect({
   return (
     <select
       aria-label="Dimensión"
-      className="h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50"
+      className="h-9 w-full rounded-md border border-line-control bg-transparent px-3 py-1 text-sm shadow-card-flat outline-none focus-visible:ring-1 focus-visible:ring-brand disabled:cursor-not-allowed disabled:opacity-50"
       value={value}
       disabled={disabled}
       onChange={(e) => onChange(Number(e.target.value))}

@@ -1,3 +1,5 @@
+import { FormGrid, FormCampo } from '@/components/erp/forms/FormGrid';
+import { PageHeader } from '@/components/erp/PageHeader';
 import { useMemo } from 'react';
 import { Plus } from 'lucide-react';
 import { Controller, useForm } from 'react-hook-form';
@@ -8,10 +10,7 @@ import {
   CatalogoEditableTable,
   type CatalogoColumn,
 } from '@/modules/catalogos/components/CatalogoEditableTable';
-import {
-  FieldInline,
-  InlineFormShell,
-} from '@/modules/catalogos/components/InlineFormShell';
+import { FieldInline, InlineFormShell } from '@/modules/catalogos/components/InlineFormShell';
 import {
   useActualizarUnidadMedida,
   useDesactivarUnidadMedida,
@@ -41,9 +40,7 @@ import { toast } from 'sonner';
  * cuando la unidad esté en uso (Etapa 1b).
  */
 export function UnidadesMedidaPage() {
-  const canGestionar = useHasPermission(
-    PermisosCanonicos.CatalogosUnidadesMedidaGestionar,
-  );
+  const canGestionar = useHasPermission(PermisosCanonicos.CatalogosUnidadesMedidaGestionar);
   const nuevo = useNuevaUnidadMedida();
   const query = useUnidadesMedidaList();
   const desactivar = useDesactivarUnidadMedida();
@@ -84,18 +81,20 @@ export function UnidadesMedidaPage() {
   ];
 
   return (
-    <div className="space-y-4 p-4">
-      <div className="flex flex-wrap items-center justify-between gap-2">
-        <h1 className="text-xl font-semibold tracking-tight">
-          Unidades de medida
-        </h1>
-        {canGestionar && (
-          <Button size="sm" onClick={() => nuevo.abrir()}>
-            <Plus className="mr-1 h-4 w-4" />
-            Nueva unidad
-          </Button>
-        )}
-      </div>
+    <div className="space-y-5">
+      <PageHeader
+        titulo={<>Unidades de medida</>}
+        acciones={
+          <>
+            {canGestionar && (
+              <Button size="sm" onClick={() => nuevo.abrir()}>
+                <Plus className="mr-1 h-4 w-4" />
+                Nueva unidad
+              </Button>
+            )}
+          </>
+        }
+      />
 
       <CatalogoEditableTable
         recurso="unidades de medida"
@@ -113,9 +112,7 @@ export function UnidadesMedidaPage() {
           <UnidadMedidaInlineEditForm item={item} onClose={onClose} />
         )}
         emptyMessage={
-          canGestionar
-            ? 'Crea la primera para empezar.'
-            : 'Cuando se creen, aparecerán aquí.'
+          canGestionar ? 'Crea la primera para empezar.' : 'Cuando se creen, aparecerán aquí.'
         }
         emptyAction={
           canGestionar ? (
@@ -135,10 +132,7 @@ interface UnidadMedidaInlineEditFormProps {
   onClose: () => void;
 }
 
-function UnidadMedidaInlineEditForm({
-  item,
-  onClose,
-}: UnidadMedidaInlineEditFormProps) {
+function UnidadMedidaInlineEditForm({ item, onClose }: UnidadMedidaInlineEditFormProps) {
   const idempotencyKey = useFormIdempotencyKey();
   const actualizar = useActualizarUnidadMedida();
   const form = useForm<ActualizarUnidadMedidaValues>({
@@ -175,12 +169,7 @@ function UnidadMedidaInlineEditForm({
               );
               return;
             }
-            if (
-              applyServerErrors(
-                form as unknown as Parameters<typeof applyServerErrors>[0],
-                err,
-              )
-            )
+            if (applyServerErrors(form as unknown as Parameters<typeof applyServerErrors>[0], err))
               return;
             toast.error(err.problem.title);
             return;
@@ -198,80 +187,92 @@ function UnidadMedidaInlineEditForm({
       onCancel={onClose}
       isPending={actualizar.isPending}
     >
-      <div className="grid grid-cols-1 gap-2 md:grid-cols-12">
-        <FieldInline label="Código" className="md:col-span-2">
-          <Input value={item.codigo} readOnly className="font-mono" />
-        </FieldInline>
-        <FieldInline
-          label="Nombre"
-          required
-          error={form.formState.errors.nombre?.message}
-          className="md:col-span-4"
-        >
-          <Input maxLength={100} {...form.register('nombre')} />
-        </FieldInline>
-        <FieldInline
-          label="Dimensión"
-          required
-          hint="Bloqueada una vez en uso."
-          error={form.formState.errors.dimension?.message}
-          className="md:col-span-3"
-        >
-          <Controller
-            name="dimension"
-            control={form.control}
-            render={({ field }) => (
-              <DimensionSelect value={field.value} onChange={field.onChange} />
-            )}
-          />
-        </FieldInline>
-        <FieldInline
-          label="Factor a base"
-          required
-          error={form.formState.errors.factorABase?.message}
-          className="md:col-span-3"
-        >
-          <Input
-            type="number"
-            inputMode="decimal"
-            step="any"
-            min={0}
-            {...form.register('factorABase', { valueAsNumber: true })}
-          />
-        </FieldInline>
-        <FieldInline
-          label="Decimales"
-          required
-          error={form.formState.errors.decimales?.message}
-          className="md:col-span-2"
-        >
-          <Input
-            type="number"
-            inputMode="numeric"
-            step={1}
-            min={0}
-            max={6}
-            {...form.register('decimales', { valueAsNumber: true })}
-          />
-        </FieldInline>
-        <FieldInline label="Es base" className="md:col-span-3">
-          <Controller
-            name="esBase"
-            control={form.control}
-            render={({ field }) => (
-              <label className="inline-flex items-center gap-2 text-sm">
-                <input
-                  type="checkbox"
-                  className="h-4 w-4 rounded border-input"
-                  checked={field.value}
-                  onChange={(e) => field.onChange(e.target.checked)}
-                />
-                <span>{field.value ? 'Base' : 'Derivada'}</span>
-              </label>
-            )}
-          />
-        </FieldInline>
-      </div>
+      <FormGrid>
+        <FormCampo span={6}>
+          <FieldInline label="Código" className="md:col-span-2">
+            <Input value={item.codigo} readOnly className="font-mono" />
+          </FieldInline>
+        </FormCampo>
+        <FormCampo span={4}>
+          <FieldInline
+            label="Nombre"
+            required
+            error={form.formState.errors.nombre?.message}
+            className="md:col-span-4"
+          >
+            <Input maxLength={100} {...form.register('nombre')} />
+          </FieldInline>
+        </FormCampo>
+        <FormCampo span={3}>
+          <FieldInline
+            label="Dimensión"
+            required
+            hint="Bloqueada una vez en uso."
+            error={form.formState.errors.dimension?.message}
+            className="md:col-span-3"
+          >
+            <Controller
+              name="dimension"
+              control={form.control}
+              render={({ field }) => (
+                <DimensionSelect value={field.value} onChange={field.onChange} />
+              )}
+            />
+          </FieldInline>
+        </FormCampo>
+        <FormCampo span={3}>
+          <FieldInline
+            label="Factor a base"
+            required
+            error={form.formState.errors.factorABase?.message}
+            className="md:col-span-3"
+          >
+            <Input
+              type="number"
+              inputMode="decimal"
+              step="any"
+              min={0}
+              {...form.register('factorABase', { valueAsNumber: true })}
+            />
+          </FieldInline>
+        </FormCampo>
+        <FormCampo span={6}>
+          <FieldInline
+            label="Decimales"
+            required
+            error={form.formState.errors.decimales?.message}
+            className="md:col-span-2"
+          >
+            <Input
+              type="number"
+              inputMode="numeric"
+              step={1}
+              min={0}
+              max={6}
+              {...form.register('decimales', { valueAsNumber: true })}
+            />
+          </FieldInline>
+        </FormCampo>
+        <FormCampo span={3}>
+          <FieldInline label="Es base" className="md:col-span-3">
+            <Controller
+              name="esBase"
+              control={form.control}
+              render={({ field }) => (
+                <label className="inline-flex items-center gap-2 text-sm">
+                  <input
+                    type="checkbox"
+                    className="h-4 w-4 rounded border-line-control"
+                    checked={field.value}
+                    onChange={(e) => field.onChange(e.target.checked)}
+                  />
+                  <span>{field.value ? 'Base' : 'Derivada'}</span>
+                </label>
+              )}
+            />
+          </FieldInline>
+        </FormCampo>
+      </FormGrid>
     </InlineFormShell>
   );
 }

@@ -1,3 +1,5 @@
+import { FormGrid, FormCampo } from '@/components/erp/forms/FormGrid';
+import { PageHeader } from '@/components/erp/PageHeader';
 import { useMemo } from 'react';
 import { Plus } from 'lucide-react';
 import { Controller, useForm } from 'react-hook-form';
@@ -8,10 +10,7 @@ import {
   CatalogoEditableTable,
   type CatalogoColumn,
 } from '@/modules/catalogos/components/CatalogoEditableTable';
-import {
-  FieldInline,
-  InlineFormShell,
-} from '@/modules/catalogos/components/InlineFormShell';
+import { FieldInline, InlineFormShell } from '@/modules/catalogos/components/InlineFormShell';
 import {
   useActualizarTransportista,
   useDesactivarTransportista,
@@ -33,9 +32,7 @@ import { toast } from 'sonner';
  * Telefono son opcionales (limpiar* flags en el PATCH backend).
  */
 export function TransportistasPage() {
-  const canGestionar = useHasPermission(
-    PermisosCanonicos.CatalogosTransportistasGestionar,
-  );
+  const canGestionar = useHasPermission(PermisosCanonicos.CatalogosTransportistasGestionar);
   const nuevo = useNuevoTransportista();
   const query = useTransportistasList();
   const desactivar = useDesactivarTransportista();
@@ -53,31 +50,31 @@ export function TransportistasPage() {
     {
       key: 'email',
       label: 'Email',
-      render: (i) => (
-        <span className="text-muted-foreground">{i.email ?? '—'}</span>
-      ),
+      render: (i) => <span className="text-ink-muted">{i.email ?? '—'}</span>,
     },
     {
       key: 'telefono',
       label: 'Teléfono',
-      render: (i) => (
-        <span className="text-muted-foreground">{i.telefono ?? '—'}</span>
-      ),
+      render: (i) => <span className="text-ink-muted">{i.telefono ?? '—'}</span>,
       className: 'w-40',
     },
   ];
 
   return (
-    <div className="space-y-4 p-4">
-      <div className="flex flex-wrap items-center justify-between gap-2">
-        <h1 className="text-xl font-semibold tracking-tight">Transportistas</h1>
-        {canGestionar && (
-          <Button size="sm" onClick={() => nuevo.abrir()}>
-            <Plus className="mr-1 h-4 w-4" />
-            Nuevo transportista
-          </Button>
-        )}
-      </div>
+    <div className="space-y-5">
+      <PageHeader
+        titulo={<>Transportistas</>}
+        acciones={
+          <>
+            {canGestionar && (
+              <Button size="sm" onClick={() => nuevo.abrir()}>
+                <Plus className="mr-1 h-4 w-4" />
+                Nuevo transportista
+              </Button>
+            )}
+          </>
+        }
+      />
 
       <CatalogoEditableTable
         recurso="transportistas"
@@ -95,9 +92,7 @@ export function TransportistasPage() {
           <TransportistaInlineEditForm item={item} onClose={onClose} />
         )}
         emptyMessage={
-          canGestionar
-            ? 'Crea el primero para empezar.'
-            : 'Cuando se creen, aparecerán aquí.'
+          canGestionar ? 'Crea el primero para empezar.' : 'Cuando se creen, aparecerán aquí.'
         }
         emptyAction={
           canGestionar ? (
@@ -117,10 +112,7 @@ interface TransportistaInlineEditFormProps {
   onClose: () => void;
 }
 
-function TransportistaInlineEditForm({
-  item,
-  onClose,
-}: TransportistaInlineEditFormProps) {
+function TransportistaInlineEditForm({ item, onClose }: TransportistaInlineEditFormProps) {
   const idempotencyKey = useFormIdempotencyKey();
   const actualizar = useActualizarTransportista();
   const form = useForm<ActualizarTransportistaValues>({
@@ -154,12 +146,7 @@ function TransportistaInlineEditForm({
         },
         onError: (err) => {
           if (esApiError(err)) {
-            if (
-              applyServerErrors(
-                form as unknown as Parameters<typeof applyServerErrors>[0],
-                err,
-              )
-            )
+            if (applyServerErrors(form as unknown as Parameters<typeof applyServerErrors>[0], err))
               return;
             toast.error(err.problem.title);
             return;
@@ -177,62 +164,66 @@ function TransportistaInlineEditForm({
       onCancel={onClose}
       isPending={actualizar.isPending}
     >
-      <div className="grid grid-cols-1 gap-2 md:grid-cols-12">
-        <FieldInline label="Clave" className="md:col-span-2">
-          <Input value={item.clave} readOnly className="font-mono" />
-        </FieldInline>
-        <FieldInline
-          label="Nombre"
-          required
-          error={form.formState.errors.nombre?.message}
-          className="md:col-span-4"
-        >
-          <Input maxLength={254} {...form.register('nombre')} />
-        </FieldInline>
-        <FieldInline
-          label="Email"
-          error={form.formState.errors.email?.message}
-          className="md:col-span-3"
-        >
-          <Controller
-            name="email"
-            control={form.control}
-            render={({ field }) => (
-              <Input
-                type="email"
-                maxLength={254}
-                value={field.value ?? ''}
-                onChange={(e) =>
-                  field.onChange(
-                    e.target.value.length > 0 ? e.target.value : null,
-                  )
-                }
-              />
-            )}
-          />
-        </FieldInline>
-        <FieldInline
-          label="Teléfono"
-          error={form.formState.errors.telefono?.message}
-          className="md:col-span-3"
-        >
-          <Controller
-            name="telefono"
-            control={form.control}
-            render={({ field }) => (
-              <Input
-                maxLength={50}
-                value={field.value ?? ''}
-                onChange={(e) =>
-                  field.onChange(
-                    e.target.value.length > 0 ? e.target.value : null,
-                  )
-                }
-              />
-            )}
-          />
-        </FieldInline>
-      </div>
+      <FormGrid>
+        <FormCampo span={6}>
+          <FieldInline label="Clave" className="md:col-span-2">
+            <Input value={item.clave} readOnly className="font-mono" />
+          </FieldInline>
+        </FormCampo>
+        <FormCampo span={4}>
+          <FieldInline
+            label="Nombre"
+            required
+            error={form.formState.errors.nombre?.message}
+            className="md:col-span-4"
+          >
+            <Input maxLength={254} {...form.register('nombre')} />
+          </FieldInline>
+        </FormCampo>
+        <FormCampo span={3}>
+          <FieldInline
+            label="Email"
+            error={form.formState.errors.email?.message}
+            className="md:col-span-3"
+          >
+            <Controller
+              name="email"
+              control={form.control}
+              render={({ field }) => (
+                <Input
+                  type="email"
+                  maxLength={254}
+                  value={field.value ?? ''}
+                  onChange={(e) =>
+                    field.onChange(e.target.value.length > 0 ? e.target.value : null)
+                  }
+                />
+              )}
+            />
+          </FieldInline>
+        </FormCampo>
+        <FormCampo span={3}>
+          <FieldInline
+            label="Teléfono"
+            error={form.formState.errors.telefono?.message}
+            className="md:col-span-3"
+          >
+            <Controller
+              name="telefono"
+              control={form.control}
+              render={({ field }) => (
+                <Input
+                  maxLength={50}
+                  value={field.value ?? ''}
+                  onChange={(e) =>
+                    field.onChange(e.target.value.length > 0 ? e.target.value : null)
+                  }
+                />
+              )}
+            />
+          </FieldInline>
+        </FormCampo>
+      </FormGrid>
     </InlineFormShell>
   );
 }

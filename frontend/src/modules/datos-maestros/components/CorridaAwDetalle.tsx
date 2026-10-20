@@ -1,16 +1,33 @@
+import { KpiCard } from '@/components/erp/display/KpiCard';
 import { useState } from 'react';
 import { Link, useNavigate } from '@tanstack/react-router';
 import { toast } from 'sonner';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '@/components/ui/table';
 import { esApiError } from '@/lib/api';
 import { PermisosCanonicos } from '@/lib/auth/permission-codes';
 import { useHasPermission } from '@/lib/auth/useHasPermission';
 import { PageHeader } from '@/components/erp/PageHeader';
-import { mensajeErrorSincronizacion, useEjecucionSync, useReintentarCliente } from '@/modules/datos-maestros/api/clientes';
+import {
+  mensajeErrorSincronizacion,
+  useEjecucionSync,
+  useReintentarCliente,
+} from '@/modules/datos-maestros/api/clientes';
 import { ErroresEjecucionSync } from '@/modules/datos-maestros/components/ErroresEjecucionSync';
-import { lecturaAwApagada, MOTIVO_LECTURA_AW_APAGADA, etiquetaAwOrigen, useAwOrigen } from '@/modules/datos-maestros/api/aw-origen';
+import {
+  lecturaAwApagada,
+  MOTIVO_LECTURA_AW_APAGADA,
+  etiquetaAwOrigen,
+  useAwOrigen,
+} from '@/modules/datos-maestros/api/aw-origen';
 import {
   fechaCorridaAw,
   leerResumenProductos,
@@ -20,15 +37,6 @@ import {
   useIniciarCorridaAw,
 } from '@/modules/datos-maestros/api/sincronizacion-aw';
 import { EstadoCorridaBadge } from '@/modules/datos-maestros/components/EstadoCorridaBadge';
-
-function Kpi({ etiqueta, valor }: { etiqueta: string; valor: number | string | undefined }) {
-  return (
-    <div className="flex flex-col gap-1.5 rounded-lg bg-surface-card px-4 py-3.5 shadow-card">
-      <span className="text-xs text-ink-muted">{etiqueta}</span>
-      <span className="text-3xl font-semibold tabular-nums">{valor ?? 0}</span>
-    </div>
-  );
-}
 
 /** Detalle de una corrida de clientes y productos (ADM-06): contadores, conflictos, reporte de diferencias. */
 export function CorridaAwDetalle({ id }: { id: string }) {
@@ -49,29 +57,43 @@ export function CorridaAwDetalle({ id }: { id: string }) {
 
   function volverACorrer() {
     iniciar.mutate(undefined, {
-      onSuccess: (r) => { void navigate({ to: '/admin/datos-maestros/sincronizacion-aw/$id', params: { id: r.id } }); },
+      onSuccess: (r) => {
+        void navigate({ to: '/admin/datos-maestros/sincronizacion-aw/$id', params: { id: r.id } });
+      },
       onError: (err) => toast.error(mensajeErrorSincronizacion(err)),
     });
   }
 
   function reintentarReferencia(referencia: string) {
-    reintentar.mutate({ referencia }, {
-      onSuccess: (r) => (r.estado === 'Completa'
-        ? toast.success(`Referencia ${referencia} reprocesada.`)
-        : toast.warning(r.errores[0]?.mensaje ?? `La lectura de ${referencia} terminó con estado ${r.estado}.`)),
-      onError: (err) => toast.error(mensajeErrorSincronizacion(err)),
-    });
+    reintentar.mutate(
+      { referencia },
+      {
+        onSuccess: (r) =>
+          r.estado === 'Completa'
+            ? toast.success(`Referencia ${referencia} reprocesada.`)
+            : toast.warning(
+                r.errores[0]?.mensaje ??
+                  `La lectura de ${referencia} terminó con estado ${r.estado}.`,
+              ),
+        onError: (err) => toast.error(mensajeErrorSincronizacion(err)),
+      },
+    );
   }
 
   async function descargar() {
     setDescargando(true);
     try {
       const reporte = await obtenerReporteDiferenciasAw(id);
-      const { descargarReporteExcel } = await import('@/components/erp/reportes/exporters/reporte-excel-exporter');
+      const { descargarReporteExcel } =
+        await import('@/components/erp/reportes/exporters/reporte-excel-exporter');
       await descargarReporteExcel(reporte, `diferencias-aw-${id.slice(0, 8)}.xlsx`);
       if (reporte.truncado) toast.warning('El reporte se recortó a 10,000 filas.');
     } catch (err) {
-      toast.error(esApiError(err) ? (err.problem.detail ?? err.problem.title) : 'No se pudo generar el reporte.');
+      toast.error(
+        esApiError(err)
+          ? (err.problem.detail ?? err.problem.title)
+          : 'No se pudo generar el reporte.',
+      );
     } finally {
       setDescargando(false);
     }
@@ -81,11 +103,17 @@ export function CorridaAwDetalle({ id }: { id: string }) {
     <div className="space-y-5 text-sm text-ink">
       <nav aria-label="Migas" className="text-xs text-ink-muted">
         Administración / Datos maestros /{' '}
-        <Link to="/admin/datos-maestros/sincronizacion-aw" className="text-brand">Sincronización con A+W</Link>
+        <Link to="/admin/datos-maestros/sincronizacion-aw" className="text-brand">
+          Sincronización con A+W
+        </Link>
         {` / Corrida del ${fecha}`}
       </nav>
 
-      {ejecucion.isError && <p role="alert" className="text-danger-fg">No se pudo cargar la corrida.</p>}
+      {ejecucion.isError && (
+        <p role="alert" className="text-danger-fg">
+          No se pudo cargar la corrida.
+        </p>
+      )}
       {e && (
         <>
           <PageHeader
@@ -95,13 +123,27 @@ export function CorridaAwDetalle({ id }: { id: string }) {
           />
 
           <div data-print="hidden" className="flex flex-wrap gap-2">
-            <Button variant="secondary" disabled={descargando} onClick={() => { void descargar(); }}>
+            <Button
+              variant="secondary"
+              disabled={descargando}
+              onClick={() => {
+                void descargar();
+              }}
+            >
               Descargar reporte de diferencias
             </Button>
-            <Button variant="ghost" disabled={iniciar.isPending || !puedeProductos || lecturaAwApagada(origen.data)}
-              title={lecturaAwApagada(origen.data) ? MOTIVO_LECTURA_AW_APAGADA
-                : puedeProductos ? undefined : 'Necesitas permiso de productos A+W para correr clientes y productos juntos.'}
-              onClick={volverACorrer}>
+            <Button
+              variant="ghost"
+              disabled={iniciar.isPending || !puedeProductos || lecturaAwApagada(origen.data)}
+              title={
+                lecturaAwApagada(origen.data)
+                  ? MOTIVO_LECTURA_AW_APAGADA
+                  : puedeProductos
+                    ? undefined
+                    : 'Necesitas permiso de productos A+W para correr clientes y productos juntos.'
+              }
+              onClick={volverACorrer}
+            >
               Volver a correr
             </Button>
           </div>
@@ -109,10 +151,13 @@ export function CorridaAwDetalle({ id }: { id: string }) {
           <section aria-label="Clientes" className="space-y-2">
             <h2 className="text-lg font-semibold">Clientes</h2>
             <div className="grid grid-cols-4 gap-3">
-              <Kpi etiqueta="Leídos" valor={e.leidos} />
-              <Kpi etiqueta="Creados + Actualizados" valor={e.creados + e.actualizados} />
-              <Kpi etiqueta="Sin cambios" valor={e.sinCambios} />
-              <Kpi etiqueta="Errores" valor={e.erroresTruncados ? `${e.errores.length}+` : e.errores.length} />
+              <KpiCard etiqueta="Leídos" valor={e.leidos} />
+              <KpiCard etiqueta="Creados + Actualizados" valor={e.creados + e.actualizados} />
+              <KpiCard etiqueta="Sin cambios" valor={e.sinCambios} />
+              <KpiCard
+                etiqueta="Errores"
+                valor={e.erroresTruncados ? `${e.errores.length}+` : e.errores.length}
+              />
             </div>
             {e.errores.length > 0 && (
               <ErroresEjecucionSync
@@ -127,33 +172,50 @@ export function CorridaAwDetalle({ id }: { id: string }) {
           <section aria-label="Productos" className="space-y-2">
             <h2 className="text-lg font-semibold">Productos</h2>
             {resumen?.error ? (
-              <p role="alert" className="text-danger-fg">{resumen.mensaje ?? resumen.error}</p>
+              <p role="alert" className="text-danger-fg">
+                {resumen.mensaje ?? resumen.error}
+              </p>
             ) : resumen == null ? (
               <p className="text-ink-muted">Sin resumen de productos para esta corrida.</p>
             ) : (
               <div className="grid grid-cols-4 gap-3">
-                <Kpi etiqueta="Leídos" valor={resumen?.leidos} />
-                <Kpi etiqueta="Creados + Actualizados" valor={(resumen?.creados ?? 0) + (resumen?.actualizados ?? 0)} />
-                <Kpi etiqueta="Sin cambios" valor={resumen?.sinCambios} />
-                <Kpi etiqueta="Errores" valor={resumen?.errores} />
+                <KpiCard etiqueta="Leídos" valor={resumen?.leidos} />
+                <KpiCard
+                  etiqueta="Creados + Actualizados"
+                  valor={(resumen?.creados ?? 0) + (resumen?.actualizados ?? 0)}
+                />
+                <KpiCard etiqueta="Sin cambios" valor={resumen?.sinCambios} />
+                <KpiCard etiqueta="Errores" valor={resumen?.errores} />
               </div>
             )}
           </section>
 
-          <section aria-label="Conflictos de esta corrida" className="rounded-lg bg-surface-card p-4 shadow-card-flat">
+          <section
+            aria-label="Conflictos de esta corrida"
+            className="rounded-lg bg-surface-card p-4 shadow-card-flat"
+          >
             <h2 className="text-lg font-semibold">Conflictos de esta corrida</h2>
             {conflictos.length === 0 ? (
               <p className="py-3 text-ink-muted">Esta corrida no dejó conflictos.</p>
             ) : (
               <Table>
                 <TableHeader>
-                  <TableRow><TableHead>Registro</TableHead><TableHead>Tipo</TableHead><TableHead>Causa</TableHead><TableHead>Estado</TableHead></TableRow>
+                  <TableRow>
+                    <TableHead>Registro</TableHead>
+                    <TableHead>Tipo</TableHead>
+                    <TableHead>Causa</TableHead>
+                    <TableHead>Estado</TableHead>
+                  </TableRow>
                 </TableHeader>
                 <TableBody>
                   {conflictos.map((c) => (
                     <TableRow key={c.id}>
                       <TableCell className="font-mono">{c.referenciaExterna}</TableCell>
-                      <TableCell><Badge variant={TIPO_CAMBIO_AW[c.tipo].variante}>{TIPO_CAMBIO_AW[c.tipo].texto}</Badge></TableCell>
+                      <TableCell>
+                        <Badge variant={TIPO_CAMBIO_AW[c.tipo].variante}>
+                          {TIPO_CAMBIO_AW[c.tipo].texto}
+                        </Badge>
+                      </TableCell>
                       <TableCell>{c.causa}</TableCell>
                       <TableCell>{c.estado === 'Pendiente' ? 'Pendiente' : 'Resuelto'}</TableCell>
                     </TableRow>

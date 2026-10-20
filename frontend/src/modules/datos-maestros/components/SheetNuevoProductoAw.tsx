@@ -1,11 +1,6 @@
-import {
-  useCallback,
-  useEffect,
-  useMemo,
-  useRef,
-  useState,
-  type ReactNode,
-} from 'react';
+import { FormSeccion } from '@/components/erp/forms/FormSeccion';
+import { FormGrid, FormCampo } from '@/components/erp/forms/FormGrid';
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { useNavigate } from '@tanstack/react-router';
 import { Controller, useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -13,18 +8,15 @@ import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import {
+  SheetBody,
   Sheet,
   SheetContent,
   SheetDescription,
   SheetHeader,
   SheetTitle,
+  SheetFooter,
 } from '@/components/ui/sheet';
-import {
-  applyServerErrors,
-  esApiError,
-  useFormIdempotencyKey,
-  codigoSoporte,
-} from '@/lib/api';
+import { applyServerErrors, esApiError, useFormIdempotencyKey, codigoSoporte } from '@/lib/api';
 import {
   NuevoProductoAwContext,
   type NuevoProductoAwApi,
@@ -44,11 +36,7 @@ import { UnidadMedidaSelect } from '@/modules/catalogos/components/UnidadMedidaS
  * primer pedido A+W). Los atributos fiscales restantes (objeto de
  * impuesto, tasas) se completan en el detalle.
  */
-export function NuevoProductoAwProvider({
-  children,
-}: {
-  children: ReactNode;
-}) {
+export function NuevoProductoAwProvider({ children }: { children: ReactNode }) {
   const [abierto, setAbierto] = useState(false);
   const isDirtyRef = useRef(false);
 
@@ -96,27 +84,22 @@ export function NuevoProductoAwProvider({
           setAbierto(true);
         }}
       >
-        <SheetContent
-          side="right"
-          className="w-full overflow-y-auto sm:max-w-2xl"
-        >
+        <SheetContent size="lg" side="right">
           <SheetHeader>
             <SheetTitle>Nuevo producto A+W</SheetTitle>
             <SheetDescription>
-              Alta manual en el master de productos de venta. Las claves
-              SAT pueden completarse después en el detalle — sin ellas el
-              producto no puede timbrar (aparece en la bandeja «Fiscales
-              incompletos»).
+              Alta manual en el master de productos de venta. Las claves SAT pueden completarse
+              después en el detalle — sin ellas el producto no puede timbrar (aparece en la bandeja
+              «Fiscales incompletos»).
             </SheetDescription>
           </SheetHeader>
 
-          <div className="px-6 pb-6">
-            {abierto && (
-              <NuevoProductoAwForm
-                onClose={cerrarConConfirm}
-                onDirtyChange={setDirty}
-              />
-            )}
+          <div className="contents">
+            <div className="contents">
+              {abierto && (
+                <NuevoProductoAwForm onClose={cerrarConConfirm} onDirtyChange={setDirty} />
+              )}
+            </div>
           </div>
         </SheetContent>
       </Sheet>
@@ -129,10 +112,7 @@ interface NuevoProductoAwFormProps {
   onDirtyChange: (dirty: boolean) => void;
 }
 
-function NuevoProductoAwForm({
-  onClose,
-  onDirtyChange,
-}: NuevoProductoAwFormProps) {
+function NuevoProductoAwForm({ onClose, onDirtyChange }: NuevoProductoAwFormProps) {
   const navigate = useNavigate();
   const idempotencyKey = useFormIdempotencyKey();
   const crear = useCrearProductoAw();
@@ -207,10 +187,7 @@ function NuevoProductoAwForm({
               return;
             }
             if (
-              applyServerErrors(
-                form as unknown as Parameters<typeof applyServerErrors>[0],
-                error,
-              )
+              applyServerErrors(form as unknown as Parameters<typeof applyServerErrors>[0], error)
             ) {
               return;
             }
@@ -229,148 +206,155 @@ function NuevoProductoAwForm({
     <form
       onSubmit={form.handleSubmit(onSubmit)}
       noValidate
-      className="space-y-4 rounded-md border bg-card p-4"
+      className="flex min-h-0 flex-1 flex-col overflow-hidden"
     >
-      <FormRow
-        label="Referencia externa"
-        required
-        hint="Referencia del producto en A+W (correlación). Inmutable."
-        error={form.formState.errors.referenciaExterna?.message}
-      >
-        <Input
-          autoFocus
-          maxLength={50}
-          placeholder="VID-TEMP-6MM"
-          className="font-mono"
-          {...form.register('referenciaExterna')}
-        />
-      </FormRow>
-
-      <FormRow
-        label="Descripción"
-        required
-        error={form.formState.errors.descripcion?.message}
-      >
-        <Input
-          maxLength={254}
-          placeholder="Vidrio templado 6 mm"
-          {...form.register('descripcion')}
-        />
-      </FormRow>
-
-      <FormRow
-        label="Unidad de medida (texto)"
-        required
-        hint="Snapshot corto (PZA, M2, …). Se sincroniza si asignas unidad del catálogo."
-        error={form.formState.errors.unidadMedida?.message}
-      >
-        <Input
-          maxLength={20}
-          placeholder="M2"
-          className="font-mono"
-          {...form.register('unidadMedida')}
-        />
-      </FormRow>
-
-      <FormRow
-        label="Unidad del catálogo"
-        hint="Opcional. Del catálogo de unidades (ADR-0046)."
-        error={form.formState.errors.unidadMedidaId?.message}
-      >
-        <Controller
-          name="unidadMedidaId"
-          control={form.control}
-          render={({ field }) => (
-            <UnidadMedidaSelect
-              value={field.value ?? null}
-              onChange={field.onChange}
-              permitirVacio
-            />
-          )}
-        />
-      </FormRow>
-
-      <FormRow
-        label="Categoría"
-        hint="Opcional. Del catálogo de categorías."
-        error={form.formState.errors.categoriaId?.message}
-      >
-        <Controller
-          name="categoriaId"
-          control={form.control}
-          render={({ field }) => (
-            <CategoriaSelector
-              value={field.value ?? null}
-              onChange={field.onChange}
-            />
-          )}
-        />
-      </FormRow>
-
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-        <FormRow
-          label="Clave prod/serv SAT"
-          hint="Opcional aquí; requerida para timbrar."
-          error={form.formState.errors.claveProdServSat?.message}
-        >
-          <Controller
-            name="claveProdServSat"
-            control={form.control}
-            render={({ field }) => (
+      <SheetBody>
+        <FormSeccion titulo="Datos del registro">
+          <FormCampo span={6}>
+            <FormRow
+              label="Referencia externa"
+              required
+              hint="Referencia del producto en A+W (correlación). Inmutable."
+              error={form.formState.errors.referenciaExterna?.message}
+            >
               <Input
-                maxLength={8}
-                inputMode="numeric"
-                placeholder="43211701"
+                autoFocus
+                maxLength={50}
+                placeholder="VID-TEMP-6MM"
                 className="font-mono"
-                value={field.value ?? ''}
-                onChange={(e) =>
-                  field.onChange(
-                    e.target.value.length > 0 ? e.target.value : null,
-                  )
-                }
+                {...form.register('referenciaExterna')}
               />
-            )}
-          />
-        </FormRow>
+            </FormRow>
+          </FormCampo>
 
-        <FormRow
-          label="Clave unidad SAT"
-          hint="Opcional aquí; requerida para timbrar."
-          error={form.formState.errors.claveUnidadSat?.message}
-        >
-          <Controller
-            name="claveUnidadSat"
-            control={form.control}
-            render={({ field }) => (
+          <FormCampo span={6}>
+            <FormRow
+              label="Descripción"
+              required
+              error={form.formState.errors.descripcion?.message}
+            >
               <Input
-                maxLength={5}
-                placeholder="H87"
-                className="font-mono"
-                value={field.value ?? ''}
-                onChange={(e) =>
-                  field.onChange(
-                    e.target.value.length > 0 ? e.target.value : null,
-                  )
-                }
+                maxLength={254}
+                placeholder="Vidrio templado 6 mm"
+                {...form.register('descripcion')}
               />
-            )}
-          />
-        </FormRow>
-      </div>
+            </FormRow>
+          </FormCampo>
 
-      <div className="flex flex-wrap items-center justify-end gap-2 border-t pt-3">
-        <Button
-          type="button"
-          variant="ghost"
-          onClick={() => onClose()}
-          disabled={crear.isPending}
-        >
+          <FormCampo span={6}>
+            <FormRow
+              label="Unidad de medida (texto)"
+              required
+              hint="Snapshot corto (PZA, M2, …). Se sincroniza si asignas unidad del catálogo."
+              error={form.formState.errors.unidadMedida?.message}
+            >
+              <Input
+                maxLength={20}
+                placeholder="M2"
+                className="font-mono"
+                {...form.register('unidadMedida')}
+              />
+            </FormRow>
+          </FormCampo>
+
+          <FormCampo span={6}>
+            <FormRow
+              label="Unidad del catálogo"
+              hint="Opcional. Del catálogo de unidades (ADR-0046)."
+              error={form.formState.errors.unidadMedidaId?.message}
+            >
+              <Controller
+                name="unidadMedidaId"
+                control={form.control}
+                render={({ field }) => (
+                  <UnidadMedidaSelect
+                    value={field.value ?? null}
+                    onChange={field.onChange}
+                    permitirVacio
+                  />
+                )}
+              />
+            </FormRow>
+          </FormCampo>
+
+          <FormCampo span={6}>
+            <FormRow
+              label="Categoría"
+              hint="Opcional. Del catálogo de categorías."
+              error={form.formState.errors.categoriaId?.message}
+            >
+              <Controller
+                name="categoriaId"
+                control={form.control}
+                render={({ field }) => (
+                  <CategoriaSelector value={field.value ?? null} onChange={field.onChange} />
+                )}
+              />
+            </FormRow>
+          </FormCampo>
+
+          <FormCampo span={12}>
+            <FormGrid>
+              <FormCampo span={6}>
+                <FormRow
+                  label="Clave prod/serv SAT"
+                  hint="Opcional aquí; requerida para timbrar."
+                  error={form.formState.errors.claveProdServSat?.message}
+                >
+                  <Controller
+                    name="claveProdServSat"
+                    control={form.control}
+                    render={({ field }) => (
+                      <Input
+                        maxLength={8}
+                        inputMode="numeric"
+                        placeholder="43211701"
+                        className="font-mono"
+                        value={field.value ?? ''}
+                        onChange={(e) =>
+                          field.onChange(e.target.value.length > 0 ? e.target.value : null)
+                        }
+                      />
+                    )}
+                  />
+                </FormRow>
+              </FormCampo>
+
+              <FormCampo span={6}>
+                <FormRow
+                  label="Clave unidad SAT"
+                  hint="Opcional aquí; requerida para timbrar."
+                  error={form.formState.errors.claveUnidadSat?.message}
+                >
+                  <Controller
+                    name="claveUnidadSat"
+                    control={form.control}
+                    render={({ field }) => (
+                      <Input
+                        maxLength={5}
+                        placeholder="H87"
+                        className="font-mono"
+                        value={field.value ?? ''}
+                        onChange={(e) =>
+                          field.onChange(e.target.value.length > 0 ? e.target.value : null)
+                        }
+                      />
+                    )}
+                  />
+                </FormRow>
+              </FormCampo>
+            </FormGrid>
+          </FormCampo>
+        </FormSeccion>
+      </SheetBody>
+      <SheetFooter>
+        <Button type="button" variant="ghost" onClick={() => onClose()} disabled={crear.isPending}>
           Cancelar
         </Button>
         <Button type="submit" disabled={crear.isPending}>
           {crear.isPending ? 'Creando…' : 'Crear producto'}
         </Button>
-      </div>
+      </SheetFooter>
     </form>
   );
 }
@@ -389,17 +373,15 @@ function FormRow({ label, required, hint, error, children }: FormRowProps) {
       <label className="flex items-center gap-1 text-sm font-medium">
         {label}
         {required && (
-          <span aria-hidden="true" className="text-rose-600">
+          <span aria-hidden="true" className="text-danger-fg">
             *
           </span>
         )}
       </label>
       {children}
-      {hint != null && error == null && (
-        <p className="text-xs text-muted-foreground">{hint}</p>
-      )}
+      {hint != null && error == null && <p className="text-xs text-ink-muted">{hint}</p>}
       {error != null && (
-        <p role="alert" className="text-xs text-rose-600">
+        <p role="alert" className="text-xs text-danger-fg">
           {error}
         </p>
       )}
