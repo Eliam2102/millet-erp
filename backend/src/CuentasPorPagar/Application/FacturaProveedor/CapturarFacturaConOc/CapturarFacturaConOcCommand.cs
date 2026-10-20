@@ -47,7 +47,9 @@ public sealed record CapturarFacturaConOcCommand(
     // G1.6 (P2): desglose de retenciones del CFDI (ObtenerCfdiParseado). Null en captura manual.
     IReadOnlyList<RetencionCfdi>? RetencionesDetalle = null,
     IReadOnlyList<NotaCreditoAdjunta>? NotasCredito = null,
-    string? Obra = null, string? ConceptoRetencion = null) : IRequest<CapturarFacturaConOcResponse>;
+    string? Obra = null, string? ConceptoRetencion = null,
+    // 86e3tfedr: recepción de Almacén elegida al capturar (opcional).
+    Guid? RecepcionId = null) : IRequest<CapturarFacturaConOcResponse>;
 
 public sealed record NotaCreditoAdjunta(Guid CfdiRecibidoId, IReadOnlyList<CompensacionNcLinea> Lineas);
 public sealed record CompensacionNcLinea(Guid LineaOcId, decimal Base);
@@ -80,6 +82,7 @@ public sealed class CapturarFacturaConOcValidator : AbstractValidator<CapturarFa
     {
         RuleFor(c => c.Obra).MaximumLength(120);
         RuleFor(c => c.ConceptoRetencion).MaximumLength(80);
+        RuleFor(c => c.RecepcionId).NotEqual(Guid.Empty).When(c => c.RecepcionId.HasValue);
         RuleFor(c => c.OrdenCompraId).NotEmpty();
         RuleFor(c => c.ProveedorId).NotEmpty();
         RuleFor(c => c.SucursalId).NotEmpty();

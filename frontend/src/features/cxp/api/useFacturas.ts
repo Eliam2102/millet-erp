@@ -55,17 +55,23 @@ export function useFacturas(filtros: ListarFacturasFiltros = {}) {
   });
 }
 
-export function usePendientesFacturarProveedor(rfc: string | null) {
+export function usePendientesFacturarProveedor({
+  rfc,
+  proveedorId,
+}: {
+  rfc: string | null;
+  proveedorId: string | null;
+}) {
   return useQuery({
-    queryKey: cxpKeys.pendientesProveedor(rfc ?? ''),
+    queryKey: cxpKeys.pendientesProveedor(rfc ?? '', proveedorId ?? ''),
     queryFn: async ({ signal }) => {
       const { data } = await apiRequest<PendientesFacturarProveedor>(
-        `/api/v1/cuentas-por-pagar/facturas/pendientes-por-proveedor?rfc=${encodeURIComponent(rfc ?? '')}`,
+        `/api/v1/cuentas-por-pagar/facturas/pendientes-por-proveedor?${rfc ? `rfc=${encodeURIComponent(rfc)}` : `proveedorId=${encodeURIComponent(proveedorId ?? '')}`}`,
         { signal },
       );
       return data;
     },
-    enabled: !!rfc,
+    enabled: !!rfc || !!proveedorId,
   });
 }
 

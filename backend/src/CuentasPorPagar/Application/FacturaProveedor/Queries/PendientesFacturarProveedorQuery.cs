@@ -2,6 +2,7 @@ using System.Text.Json;
 using MediatR;
 using Microsoft.EntityFrameworkCore;
 using Millet.CuentasPorPagar.Application.EventListeners;
+using Millet.CuentasPorPagar.Domain.FacturaProveedor;
 using Millet.CuentasPorPagar.Domain.Ports.Compras;
 using Millet.CuentasPorPagar.Domain.Ports.DatosMaestros;
 using Millet.CuentasPorPagar.Infrastructure.Persistence;
@@ -10,9 +11,9 @@ namespace Millet.CuentasPorPagar.Application.FacturaProveedor.Queries;
 
 /// <summary>
 /// Alimenta el panel «recepciones y OC pendientes» del registro de factura: OC autorizadas
-/// del proveedor (por RFC) con saldo por facturar y sus recepciones proyectadas localmente.
+/// del proveedor (por RFC o id) con saldo por facturar y sus recepciones proyectadas localmente.
 /// </summary>
-public sealed record PendientesFacturarProveedorQuery(string Rfc)
+public sealed record PendientesFacturarProveedorQuery(string? Rfc, Guid? ProveedorId = null)
     : IRequest<PendientesFacturarProveedorResponse>, Millet.SharedKernel.Application.ISucursalScopedQuery
 {
     public string PermisoTodasSucursales => "cuentas_por_pagar.facturas.leer-todas-sucursales";
@@ -39,7 +40,9 @@ public sealed class PendientesFacturarProveedorHandler(
         PendientesFacturarProveedorQuery request, CancellationToken cancellationToken)
     {
         var rfc = (request.Rfc ?? string.Empty).Trim().ToUpperInvariant();
-        var proveedor = rfc.Length == 0 ? null : await proveedores.ObtenerPorRfcAsync(rfc, cancellationToken);
+        var proveedor = request.ProveedorId is Guid pid
+            ? await proveedores.ObtenerAsync(pid, cancellationToken)
+            : rfc.Length == 0 ? null : await proveedores.ObtenerPorRfcAsync(rfc, cancellationToken);
         if (proveedor is null) return new(null, null, []);
 
         var ocs = (await compras.ListarAutorizadasPorProveedorAsync(proveedor.Id, cancellationToken))
@@ -55,7 +58,12 @@ public sealed class PendientesFacturarProveedorHandler(
             .Where(r => ids.Contains(r.OrdenCompraId))
             .Select(r => new { r.OrdenCompraId, r.RecepcionId, r.FolioRecepcion, r.FechaMovimiento, r.FacturaPendiente, r.LineasJson })
             .ToListAsync(cancellationToken);
-        var porOc = filas.ToLookup(r => r.OrdenCompraId);
+        // Recepciones ya ligadas a una factura vigente: no se ofrecen de nuevo (la OC sigue saliendo si tiene saldo).
+        var recepcionIds = filas.Select(r => r.RecepcionId).ToList();
+        var ligadas = (await db.FacturasProveedor.AsNoTracking()
+            .Where(f => f.RecepcionId != null && recepcionIds.Contains(f.RecepcionId.Value) && f.Estado != EstadoPasivo.Cancelada)
+            .Select(f => f.RecepcionId!.Value).ToListAsync(cancellationToken)).ToHashSet();
+        var porOc = filas.Where(r => !ligadas.Contains(r.RecepcionId)).ToLookup(r => r.OrdenCompraId);
 
         var resultado = ocs.Select(x => new OcPendienteFacturar(
             x.Oc.Id, x.Oc.Folio, x.Oc.SucursalId, x.Oc.Moneda, x.Oc.Total, x.PorFacturar,

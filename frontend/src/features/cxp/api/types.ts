@@ -300,6 +300,8 @@ export interface FacturaDetalle {
   total: number;
   ordenCompraId: string | null;
   ordenCompraFolio?: string | null;
+  recepcionId?: string | null;
+  recepcionFolio?: string | null;
   estado: EstadoPasivo;
   diferenciaContraOc: number;
   anticipoAplicadoTotal: number;
@@ -332,6 +334,7 @@ export interface CapturarFacturaConOcLinea {
 }
 
 export interface CapturarFacturaConOcCommand {
+  recepcionId?: string | null;
   obra?: string | null;
   conceptoRetencion?: string | null;
   notasCredito?: NotaCreditoAdjunta[];

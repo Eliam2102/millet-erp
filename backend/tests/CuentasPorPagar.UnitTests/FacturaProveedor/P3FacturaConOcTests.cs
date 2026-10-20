@@ -125,6 +125,21 @@ public sealed class P3FacturaConOcTests
         r.Vencida.Should().BeFalse();
     }
 
+    [Fact]
+    public async Task Detalle_de_factura_trae_la_recepcion_ligada()
+    {
+        await using var a = new Ambiente();
+        var rec = a.Recepcion(5);
+        await a.Recepciones.Handle(rec, default);
+        var captura = await a.Handler.Handle(a.Command(4, 20) with { RecepcionId = rec.Payload.RecepcionId }, default);
+
+        var detalle = await new GetFacturaPorIdHandler(a.Db, a, new SucursalDetalleStub(), a.Elegibilidad, a, a, new CalendarioCero(), new AreaStub())
+            .Handle(new GetFacturaPorIdQuery(captura.Id), default);
+
+        detalle.RecepcionId.Should().Be(rec.Payload.RecepcionId);
+        detalle.RecepcionFolio.Should().Be("REC-P3-FICTICIA");
+    }
+
     private sealed class CalendarioCero : Millet.SharedKernel.Application.Calendario.ICalendarioHabil
     {
         public Task<int> ContarDiasAsync(DateOnly desde, DateOnly hasta, CancellationToken ct) => Task.FromResult(0);
