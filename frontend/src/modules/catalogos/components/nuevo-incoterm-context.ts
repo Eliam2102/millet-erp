@@ -9,16 +9,12 @@ export interface NuevoIncotermApi {
   setDirty: (dirty: boolean) => void;
 }
 
-export const NuevoIncotermContext = createContext<NuevoIncotermApi | null>(
-  null,
-);
+export const NuevoIncotermContext = createContext<NuevoIncotermApi | null>(null);
 
 export function useNuevoIncoterm(): NuevoIncotermApi {
   const ctx = useContext(NuevoIncotermContext);
   if (ctx == null) {
-    throw new Error(
-      'useNuevoIncoterm() debe usarse dentro de <NuevoIncotermProvider>.',
-    );
+    throw new Error('useNuevoIncoterm() debe usarse dentro de <NuevoIncotermProvider>.');
   }
   return ctx;
 }

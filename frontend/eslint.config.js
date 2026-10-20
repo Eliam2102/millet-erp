@@ -114,7 +114,12 @@ export default defineConfig([
     },
   },
   {
-    files: ['src/modules/administracion/**/*.tsx', 'src/modules/identidad/**/*.tsx'],
+    files: [
+      'src/modules/administracion/**/*.tsx',
+      'src/modules/identidad/**/*.tsx',
+      'src/modules/catalogos/**/*.tsx',
+      'src/modules/datos-maestros/**/*.tsx',
+    ],
     ignores: ['**/*.test.tsx'],
     rules: {
       'ds/no-paleta-default': 'error',

@@ -18,7 +18,9 @@ import type { ProductoAwDetalle } from '@/modules/datos-maestros/api/types';
 
 vi.mock('@tanstack/react-router', () => ({
   Link: ({ children, to, ...rest }: { children: React.ReactNode; to: string }) => (
-    <a href={to} {...rest}>{children}</a>
+    <a href={to} {...rest}>
+      {children}
+    </a>
   ),
 }));
 vi.mock('@/modules/datos-maestros/components/nuevo-producto-aw-context', () => ({
@@ -27,9 +29,14 @@ vi.mock('@/modules/datos-maestros/components/nuevo-producto-aw-context', () => (
 
 function setPermisos(permisos: string[]) {
   useAuthStore.setState({
-    status: 'authenticated', accessToken: 't', expiresAt: new Date(Date.now() + 3600_000),
-    user: { id: 'u', email: 'a@b.com', nombre: 'A' }, empresas: [], currentEmpresaId: 'e',
-    permisos, errorMessage: null,
+    status: 'authenticated',
+    accessToken: 't',
+    expiresAt: new Date(Date.now() + 3600_000),
+    user: { id: 'u', email: 'a@b.com', nombre: 'A' },
+    empresas: [],
+    currentEmpresaId: 'e',
+    permisos,
+    errorMessage: null,
   });
 }
 const GESTIONAR = PermisosCanonicos.DatosMaestrosProductosAwGestionar;
@@ -39,10 +46,22 @@ afterEach(() => {
 });
 
 const producto = (extra = {}) =>
-  ({ id: 'p-1', referenciaExterna: 'DEMO-P001', descripcion: 'X', estatus: 0, ...extra }) as unknown as ProductoAwDetalle;
+  ({
+    id: 'p-1',
+    referenciaExterna: 'DEMO-P001',
+    descripcion: 'X',
+    estatus: 0,
+    ...extra,
+  }) as unknown as ProductoAwDetalle;
 
 const resumen = (extra = {}) => ({
-  leidos: 5, creados: 1, actualizados: 1, sinCambios: 1, pendientes: 1, conflictos: 1, errores: 1,
+  leidos: 5,
+  creados: 1,
+  actualizados: 1,
+  sinCambios: 1,
+  pendientes: 1,
+  conflictos: 1,
+  errores: 1,
   erroresPorReferencia: [
     { referencia: 'P-9', codigo: 'UNIDAD_SIN_EQUIVALENCIA', mensaje: 'Producto no aplicado.' },
   ],
@@ -52,14 +71,22 @@ const resumen = (extra = {}) => ({
 describe('bandeja de productos A+W', () => {
   it('sin permiso no muestra el botón Sincronizar con A+W', async () => {
     setPermisos([]);
-    mswServer.use(http.get('*/productos-aw', () => HttpResponse.json({ items: [], offset: 0, limit: 200, total: 0 })));
+    mswServer.use(
+      http.get('*/productos-aw', () =>
+        HttpResponse.json({ items: [], offset: 0, limit: 200, total: 0 }),
+      ),
+    );
     render(<ProductosAwLayout idActivo={null} />, { wrapper: createQueryWrapper() });
     expect(screen.queryByRole('button', { name: /sincronizar con a\+w/i })).not.toBeInTheDocument();
   });
 
   it('con permiso lo muestra', async () => {
     setPermisos([GESTIONAR]);
-    mswServer.use(http.get('*/productos-aw', () => HttpResponse.json({ items: [], offset: 0, limit: 200, total: 0 })));
+    mswServer.use(
+      http.get('*/productos-aw', () =>
+        HttpResponse.json({ items: [], offset: 0, limit: 200, total: 0 }),
+      ),
+    );
     render(<ProductosAwLayout idActivo={null} />, { wrapper: createQueryWrapper() });
     expect(screen.getByRole('button', { name: /sincronizar con a\+w/i })).toBeInTheDocument();
   });
@@ -69,11 +96,21 @@ describe('<SheetSincronizacionProductosAw>', () => {
   it('muestra el resumen y el error con causa y acción sugerida', async () => {
     setPermisos([GESTIONAR]);
     mswServer.use(http.post('*/productos-aw/sincronizacion', () => HttpResponse.json(resumen())));
-    render(<SheetSincronizacionProductosAw open onOpenChange={() => {}} />, { wrapper: createQueryWrapper() });
+    render(<SheetSincronizacionProductosAw open onOpenChange={() => {}} />, {
+      wrapper: createQueryWrapper(),
+    });
     fireEvent.click(screen.getByRole('button', { name: /iniciar sincronización/i }));
     expect(await screen.findByText('Unidad sin equivalencia')).toBeInTheDocument();
     expect(screen.getByText(/Da de alta la unidad/)).toBeInTheDocument();
-    for (const t of ['Leídos', 'Creados', 'Actualizados', 'Sin cambios', 'Pendientes', 'Conflictos', 'Errores'])
+    for (const t of [
+      'Leídos',
+      'Creados',
+      'Actualizados',
+      'Sin cambios',
+      'Pendientes',
+      'Conflictos',
+      'Errores',
+    ])
       expect(screen.getByText(t)).toBeInTheDocument();
   });
 
@@ -81,12 +118,19 @@ describe('<SheetSincronizacionProductosAw>', () => {
     setPermisos([GESTIONAR]);
     mswServer.use(
       http.post('*/productos-aw/sincronizacion', () =>
-        HttpResponse.json({ title: 'x', status: 503 }, { status: 503, headers: { 'Content-Type': 'application/problem+json' } }),
+        HttpResponse.json(
+          { title: 'x', status: 503 },
+          { status: 503, headers: { 'Content-Type': 'application/problem+json' } },
+        ),
       ),
     );
-    render(<SheetSincronizacionProductosAw open onOpenChange={() => {}} />, { wrapper: createQueryWrapper() });
+    render(<SheetSincronizacionProductosAw open onOpenChange={() => {}} />, {
+      wrapper: createQueryWrapper(),
+    });
     fireEvent.click(screen.getByRole('button', { name: /iniciar sincronización/i }));
-    await waitFor(() => expect(screen.getByRole('button', { name: /iniciar sincronización/i })).toBeEnabled());
+    await waitFor(() =>
+      expect(screen.getByRole('button', { name: /iniciar sincronización/i })).toBeEnabled(),
+    );
     expect(screen.queryByText('Leídos')).not.toBeInTheDocument();
   });
 });
@@ -95,7 +139,15 @@ describe('detalle de producto A+W', () => {
   it('variantes: medida nula = "sin dato", nunca 0', () => {
     render(
       <ProductoAwVariantesTable
-        variantes={[{ claveVariante: 'V1', altoMm: null, anchoMm: 1200, espesorMm: null, composicion: '6mm+PVB+6mm' }]}
+        variantes={[
+          {
+            claveVariante: 'V1',
+            altoMm: null,
+            anchoMm: 1200,
+            espesorMm: null,
+            composicion: '6mm+PVB+6mm',
+          },
+        ]}
       />,
     );
     expect(screen.getAllByText('sin dato')).toHaveLength(2);
@@ -105,35 +157,69 @@ describe('detalle de producto A+W', () => {
   });
 
   it('medidas: ancho antes que alto, orden numérico por ancho y luego alto, UC y conteo', () => {
-    const v = (claveVariante: string, anchoMm: number | null, altoMm: number | null) =>
-      ({ claveVariante, anchoMm, altoMm, espesorMm: 6, composicion: null });
+    const v = (claveVariante: string, anchoMm: number | null, altoMm: number | null) => ({
+      claveVariante,
+      anchoMm,
+      altoMm,
+      espesorMm: 6,
+      composicion: null,
+    });
     render(
       <ProductoAwVariantesTable
         unidadMedida="m²"
-        variantes={[v('SD', null, null), v('B', 2440, 3660), v('A2', 1800, 2600), v('A1', 1800, 2000)]}
+        variantes={[
+          v('SD', null, null),
+          v('B', 2440, 3660),
+          v('A2', 1800, 2600),
+          v('A1', 1800, 2000),
+        ]}
       />,
     );
     expect(screen.getByText(/Medidas \(4\)/)).toBeInTheDocument();
     expect(screen.getByText(/UC: m²/)).toBeInTheDocument();
     const cabecera = screen.getAllByRole('columnheader').map((c) => c.textContent);
     expect(cabecera.indexOf('Ancho')).toBeLessThan(cabecera.indexOf('Alto'));
-    const claves = screen.getAllByRole('row').slice(1).map((r) => r.querySelector('td')?.textContent);
+    const claves = screen
+      .getAllByRole('row')
+      .slice(1)
+      .map((r) => r.querySelector('td')?.textContent);
     expect(claves).toEqual(['A1', 'A2', 'B', 'SD']);
   });
 
   it('lista: muestra UC y "N medidas" solo con más de una variante', () => {
     const item = (id: string, numVariantes: number) =>
-      ({ id, referenciaExterna: id, descripcion: 'DEMO', unidadMedida: 'm²', unidadMedidaId: null,
-        categoriaId: null, claveProdServSat: null, claveUnidadSat: null, objetoImp: null,
-        tasaIvaTraslado: null, origen: 'AW', datosFiscalesCompletos: true, estatus: 'Activo', numVariantes }) as never;
-    render(<ListaProductosAwCompacta items={[item('DEMO-21', 21), item('DEMO-1', 1)]} idActivo={null} />);
+      ({
+        id,
+        referenciaExterna: id,
+        descripcion: 'DEMO',
+        unidadMedida: 'm²',
+        unidadMedidaId: null,
+        categoriaId: null,
+        claveProdServSat: null,
+        claveUnidadSat: null,
+        objetoImp: null,
+        tasaIvaTraslado: null,
+        origen: 'AW',
+        datosFiscalesCompletos: true,
+        estatus: 'Activo',
+        numVariantes,
+      }) as never;
+    render(
+      <ListaProductosAwCompacta items={[item('DEMO-21', 21), item('DEMO-1', 1)]} idActivo={null} />,
+    );
     expect(screen.getByText('UC m² · 21 medidas')).toBeInTheDocument();
     expect(screen.getByText('UC m²')).toBeInTheDocument();
   });
 
   it('composición: sangría por nivel, orden de A+W y procesos atenuados', () => {
-    const c = (orden: number, nivel: number, padreOrden: number | null, componenteRef: string, tipo: string | null, descripcion: string | null = 'DEMO') =>
-      ({ orden, nivel, padreOrden, componenteRef, descripcion, tipo, espesorMm: null });
+    const c = (
+      orden: number,
+      nivel: number,
+      padreOrden: number | null,
+      componenteRef: string,
+      tipo: string | null,
+      descripcion: string | null = 'DEMO',
+    ) => ({ orden, nivel, padreOrden, componenteRef, descripcion, tipo, espesorMm: null });
     render(
       <ProductoAwComposicion
         componentes={[
@@ -145,12 +231,16 @@ describe('detalle de producto A+W', () => {
     );
     expect(screen.getByText('Composición (3)')).toBeInTheDocument();
     const filas = screen.getAllByRole('treeitem');
-    expect(filas.map((f) => f.querySelector('span')?.textContent)).toEqual(['DEMO-INS', 'DEMO-LAM', 'DEMO-600']);
+    expect(filas.map((f) => f.querySelector('span')?.textContent)).toEqual([
+      'DEMO-INS',
+      'DEMO-LAM',
+      'DEMO-600',
+    ]);
     expect(filas.map((f) => f.getAttribute('aria-level'))).toEqual(['1', '2', '3']);
     expect(filas[0]).toHaveStyle({ paddingLeft: '0rem' });
     expect(filas[2]).toHaveStyle({ paddingLeft: '2.5rem' });
-    expect(filas[2]).toHaveClass('text-muted-foreground');
-    expect(filas[0]).not.toHaveClass('text-muted-foreground');
+    expect(filas[2]).toHaveClass('text-ink-muted');
+    expect(filas[0]).not.toHaveClass('text-ink-muted');
     expect(filas[1]).toHaveTextContent('sin dato');
   });
 
@@ -163,7 +253,15 @@ describe('detalle de producto A+W', () => {
     setPermisos([GESTIONAR]);
     mswServer.use(http.get('*/productos-aw/p-1/sincronizacion', () => HttpResponse.json(estado())));
     const { unmount } = render(
-      <ProductoAwOrigenSection producto={producto({ codigoModelo: 'DEMO-VT6', grupo: 'DEMO grupo', tipo: 'VTE', wgr: '370', wgrDescripcion: 'DEMO TEMPLADO' })} />,
+      <ProductoAwOrigenSection
+        producto={producto({
+          codigoModelo: 'DEMO-VT6',
+          grupo: 'DEMO grupo',
+          tipo: 'VTE',
+          wgr: '370',
+          wgrDescripcion: 'DEMO TEMPLADO',
+        })}
+      />,
       { wrapper: createQueryWrapper() },
     );
     expect(await screen.findByText('Modelo: DEMO-VT6')).toBeInTheDocument();
@@ -171,7 +269,9 @@ describe('detalle de producto A+W', () => {
     expect(screen.getByText('Grupo: DEMO grupo')).toBeInTheDocument();
     expect(screen.getByText('Tipo: VTE')).toBeInTheDocument();
     unmount();
-    render(<ProductoAwOrigenSection producto={producto({ codigoModelo: null })} />, { wrapper: createQueryWrapper() });
+    render(<ProductoAwOrigenSection producto={producto({ codigoModelo: null })} />, {
+      wrapper: createQueryWrapper(),
+    });
     expect(await screen.findByText('Modelo: sin dato')).toBeInTheDocument();
     expect(screen.getByText('Mercancía: sin dato')).toBeInTheDocument();
     expect(screen.getByText('Grupo: sin dato')).toBeInTheDocument();
@@ -180,9 +280,22 @@ describe('detalle de producto A+W', () => {
 
   it('lista: chip "N piezas" solo con numComponentes > 0', () => {
     const item = (id: string, numComponentes?: number) =>
-      ({ id, referenciaExterna: id, descripcion: 'DEMO', unidadMedida: 'm²', origen: 'AW',
-        datosFiscalesCompletos: true, estatus: 'Activo', numComponentes }) as never;
-    render(<ListaProductosAwCompacta items={[item('DEMO-A', 9), item('DEMO-B', 0), item('DEMO-C')]} idActivo={null} />);
+      ({
+        id,
+        referenciaExterna: id,
+        descripcion: 'DEMO',
+        unidadMedida: 'm²',
+        origen: 'AW',
+        datosFiscalesCompletos: true,
+        estatus: 'Activo',
+        numComponentes,
+      }) as never;
+    render(
+      <ListaProductosAwCompacta
+        items={[item('DEMO-A', 9), item('DEMO-B', 0), item('DEMO-C')]}
+        idActivo={null}
+      />,
+    );
     expect(screen.getAllByText(/piezas$/)).toHaveLength(1);
     expect(screen.getByText('9 piezas')).toBeInTheDocument();
   });
@@ -203,11 +316,15 @@ describe('detalle de producto A+W', () => {
     for (const t of ['Vidrio plano', 'VTE', 'VLA', 'VC'])
       expect(await screen.findByRole('option', { name: t })).toBeInTheDocument();
     fireEvent.click(screen.getByRole('option', { name: 'VTE' }));
-    await waitFor(() => expect(new URL(urls[urls.length - 1]).searchParams.get('tipo')).toBe('VTE'));
+    await waitFor(() =>
+      expect(new URL(urls[urls.length - 1]).searchParams.get('tipo')).toBe('VTE'),
+    );
   });
 
   it('baja: aviso con fecha; sin baja no hay aviso', () => {
-    const { rerender } = render(<ProductoAwBajaAviso producto={producto({ fechaBaja: '2026-09-01T00:00:00Z' })} />);
+    const { rerender } = render(
+      <ProductoAwBajaAviso producto={producto({ fechaBaja: '2026-09-01T00:00:00Z' })} />,
+    );
     expect(screen.getByRole('status')).toHaveTextContent(
       'Inactivo: no se usa en documentos nuevos; el historial se conserva.',
     );
@@ -216,12 +333,28 @@ describe('detalle de producto A+W', () => {
   });
 
   const estado = (version = 3) => ({
-    productoId: 'p-1', referencia: 'DEMO-P001', version,
+    productoId: 'p-1',
+    referencia: 'DEMO-P001',
+    version,
     sincronizacion: {
-      resultado: 'Aplicado', error: null,
-      diferencias: JSON.stringify([{ Campo: 'Clave unidad SAT', Recibido: 'H87', Conservado: 'MTK', Motivo: 'No se sobrescribe.' }]),
-      hashOrigen: 'h', leidoEnUtc: '2026-09-01T10:00:00Z', aplicadoEnUtc: '2026-09-01T10:00:00Z',
-      versionContrato: 'v1', versionMapeo: 'm1', descripcionOrigen: null, unidadOrigenCruda: 'M2', bajaOrigenCruda: '0',
+      resultado: 'Aplicado',
+      error: null,
+      diferencias: JSON.stringify([
+        {
+          Campo: 'Clave unidad SAT',
+          Recibido: 'H87',
+          Conservado: 'MTK',
+          Motivo: 'No se sobrescribe.',
+        },
+      ]),
+      hashOrigen: 'h',
+      leidoEnUtc: '2026-09-01T10:00:00Z',
+      aplicadoEnUtc: '2026-09-01T10:00:00Z',
+      versionContrato: 'v1',
+      versionMapeo: 'm1',
+      descripcionOrigen: null,
+      unidadOrigenCruda: 'M2',
+      bajaOrigenCruda: '0',
     },
   });
 
@@ -244,7 +377,9 @@ describe('detalle de producto A+W', () => {
     fireEvent.click(screen.getByRole('button', { name: /reintentar lectura/i }));
     await waitFor(() => expect(ifMatch).toBe('"3"'));
     // Tras el 409 el botón vuelve a estar disponible y la sección sigue mostrando lo vigente.
-    await waitFor(() => expect(screen.getByRole('button', { name: /reintentar lectura/i })).toBeEnabled());
+    await waitFor(() =>
+      expect(screen.getByRole('button', { name: /reintentar lectura/i })).toBeEnabled(),
+    );
   });
 
   it('sin permiso no muestra la sección de origen', () => {

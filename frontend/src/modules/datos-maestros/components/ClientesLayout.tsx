@@ -1,3 +1,5 @@
+import { BarraFiltros, TabsEstado } from '@/components/erp';
+import { PageHeader } from '@/components/erp/PageHeader';
 import { useMemo, useState, type ReactNode } from 'react';
 import { Plus, RefreshCw, TriangleAlert, Users } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -12,10 +14,7 @@ import {
 } from '@/components/ui/select';
 import { EmptyState, ErrorState, TableSkeleton } from '@/components/erp';
 import { useClientes } from '@/modules/datos-maestros/api';
-import {
-  EstatusCatalogo,
-  OrigenMaster,
-} from '@/modules/datos-maestros/api/types';
+import { EstatusCatalogo, OrigenMaster } from '@/modules/datos-maestros/api/types';
 import type { ListarClientesFiltros } from '@/modules/datos-maestros/api/keys';
 import type { ResultadoSincronizacion } from '@/modules/datos-maestros/api/types';
 import { esApiError } from '@/lib/api';
@@ -49,13 +48,9 @@ export interface ClientesLayoutProps {
 
 export function ClientesLayout({ idActivo, detalle }: ClientesLayoutProps) {
   const nuevoCliente = useNuevoCliente();
-  const canGestionar = useHasPermission(
-    PermisosCanonicos.DatosMaestrosClientesGestionar,
-  );
+  const canGestionar = useHasPermission(PermisosCanonicos.DatosMaestrosClientesGestionar);
 
-  const canSincronizar = useHasPermission(
-    PermisosCanonicos.DatosMaestrosClientesSincronizar,
-  );
+  const canSincronizar = useHasPermission(PermisosCanonicos.DatosMaestrosClientesSincronizar);
   const [syncAbierto, setSyncAbierto] = useState(false);
 
   const {
@@ -83,14 +78,11 @@ export function ClientesLayout({ idActivo, detalle }: ClientesLayoutProps) {
       rfc: rfcDebounced.trim() || undefined,
       razonSocial: razonDebounced.trim() || undefined,
       origen: origen !== '' ? (Number(origen) as OrigenMaster) : undefined,
-      estatus:
-        estatus !== '' ? (Number(estatus) as EstatusCatalogo) : undefined,
+      estatus: estatus !== '' ? (Number(estatus) as EstatusCatalogo) : undefined,
       sinClasificar: sinClasificar || undefined,
       fiscalesIncompletos: soloFiscalesIncompletos ? true : undefined,
       resultadoSincronizacion:
-        resultadoSync !== ''
-          ? (resultadoSync as ResultadoSincronizacion)
-          : undefined,
+        resultadoSync !== '' ? (resultadoSync as ResultadoSincronizacion) : undefined,
       limit: 200,
     }),
     [
@@ -105,10 +97,7 @@ export function ClientesLayout({ idActivo, detalle }: ClientesLayoutProps) {
   );
 
   const clientesQuery = useClientes(filtros);
-  const items = useMemo(
-    () => clientesQuery.data?.items ?? [],
-    [clientesQuery.data],
-  );
+  const items = useMemo(() => clientesQuery.data?.items ?? [], [clientesQuery.data]);
 
   return (
     <div className="flex flex-col gap-4 md:h-[calc(100vh-3.5rem-3rem)] md:flex-row">
@@ -120,51 +109,63 @@ export function ClientesLayout({ idActivo, detalle }: ClientesLayoutProps) {
         aria-label="Lista de clientes"
         data-print="hidden"
       >
-        <div className="flex flex-wrap items-center justify-between gap-2">
-          <h1 className="text-xl font-semibold tracking-tight">Clientes</h1>
-          <div className="flex items-center gap-1">
-            {canSincronizar && (
-              <Button
-                size="sm"
-                variant="outline"
-                onClick={() => setSyncAbierto(true)}
-              >
-                <RefreshCw className="mr-1 h-4 w-4" />
-                Sincronizar
-              </Button>
-            )}
-            {canGestionar && (
-              <Button size="sm" onClick={() => nuevoCliente.abrir()}>
-                <Plus className="mr-1 h-4 w-4" />
-                Nuevo
-              </Button>
-            )}
-          </div>
-        </div>
+        <PageHeader
+          titulo={<>Clientes</>}
+          acciones={
+            <>
+              <div className="flex items-center gap-1">
+                {canSincronizar && (
+                  <Button size="sm" variant="outline" onClick={() => setSyncAbierto(true)}>
+                    <RefreshCw className="mr-1 h-4 w-4" />
+                    Sincronizar
+                  </Button>
+                )}
+                {canGestionar && (
+                  <Button size="sm" onClick={() => nuevoCliente.abrir()}>
+                    <Plus className="mr-1 h-4 w-4" />
+                    Nuevo
+                  </Button>
+                )}
+              </div>
+            </>
+          }
+        />
 
-        <Button variant={sinClasificar ? "default" : "secondary"} size="sm" aria-pressed={sinClasificar} onClick={() => setSinClasificar(!sinClasificar)}>Clientes sin clasificar</Button>
-        <FiltrosBloque
-          rfc={rfcInput}
-          onRfc={setRfcInput}
-          razon={razonInput}
-          onRazon={setRazonInput}
-          origen={origen}
-          onOrigen={setOrigen}
-          estatus={estatus}
-          onEstatus={setEstatus}
-          resultadoSync={resultadoSync}
-          onResultadoSync={setResultadoSync}
-          soloFiscalesIncompletos={soloFiscalesIncompletos}
-          onSoloFiscalesIncompletos={setSoloFiscalesIncompletos}
+        <Button
+          variant={sinClasificar ? 'default' : 'secondary'}
+          size="sm"
+          aria-pressed={sinClasificar}
+          onClick={() => setSinClasificar(!sinClasificar)}
+        >
+          Clientes sin clasificar
+        </Button>
+        <BarraFiltros
+          filtros={
+            <FiltrosBloque
+              rfc={rfcInput}
+              onRfc={setRfcInput}
+              razon={razonInput}
+              onRazon={setRazonInput}
+              origen={origen}
+              onOrigen={setOrigen}
+              estatus={estatus}
+              onEstatus={setEstatus}
+              resultadoSync={resultadoSync}
+              onResultadoSync={setResultadoSync}
+              soloFiscalesIncompletos={soloFiscalesIncompletos}
+              onSoloFiscalesIncompletos={setSoloFiscalesIncompletos}
+            />
+          }
         />
 
         {clientesQuery.data && clientesQuery.data.total > items.length && (
           <p role="status" className="text-xs text-ink-muted">
-            Mostrando {items.length} de {clientesQuery.data.total} clientes. Ajusta los filtros para acotar la lista.
+            Mostrando {items.length} de {clientesQuery.data.total} clientes. Ajusta los filtros para
+            acotar la lista.
           </p>
         )}
 
-        <div className="flex-1 overflow-y-auto rounded-md border bg-card">
+        <div className="flex-1 overflow-y-auto rounded-md border bg-surface-card">
           <RenderLista
             query={clientesQuery}
             items={items}
@@ -182,14 +183,21 @@ export function ClientesLayout({ idActivo, detalle }: ClientesLayoutProps) {
         )}
         aria-label="Detalle de cliente"
       >
-        {idActivo == null ? canGestionar ? <F1AClientesPanel /> : <p className="p-6 text-sm text-ink-muted">Selecciona un registro para consultar su detalle.</p> : detalle}
+        {idActivo == null ? (
+          canGestionar ? (
+            <F1AClientesPanel />
+          ) : (
+            <p className="p-6 text-sm text-ink-muted">
+              Selecciona un registro para consultar su detalle.
+            </p>
+          )
+        ) : (
+          detalle
+        )}
       </section>
 
       {canSincronizar && (
-        <SheetSincronizacionClientes
-          open={syncAbierto}
-          onOpenChange={setSyncAbierto}
-        />
+        <SheetSincronizacionClientes open={syncAbierto} onOpenChange={setSyncAbierto} />
       )}
     </div>
   );
@@ -225,16 +233,16 @@ function FiltrosBloque({
   onSoloFiscalesIncompletos,
 }: FiltrosBloqueProps) {
   return (
-    <div className="space-y-2 rounded-md border bg-muted/20 p-2">
+    <div className="space-y-2 rounded-md border bg-surface-muted/20 p-2">
       <UppercaseInput
-        placeholder="RFC…"
+        placeholder="RFC exacto"
         value={rfc}
         onChange={(e) => onRfc(e.target.value)}
         className="h-8 text-xs"
         aria-label="Filtrar por RFC"
       />
       <Input
-        placeholder="Razón social…"
+        placeholder="Razón social exacta"
         value={razon}
         onChange={(e) => onRazon(e.target.value)}
         className="h-8 text-xs"
@@ -254,26 +262,16 @@ function FiltrosBloque({
             <SelectItem value={String(OrigenMaster.Manual)}>Manual</SelectItem>
           </SelectContent>
         </Select>
-        <Select
-          value={estatus === '' ? 'all' : estatus}
-          onValueChange={(v) => onEstatus(v === 'all' ? '' : v)}
-        >
-          <SelectTrigger className="h-8 text-xs" aria-label="Estatus">
-            <SelectValue placeholder="Estatus" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">Todos</SelectItem>
-            <SelectItem value={String(EstatusCatalogo.Activo)}>
-              Activo
-            </SelectItem>
-            <SelectItem value={String(EstatusCatalogo.Inactivo)}>
-              Inactivo
-            </SelectItem>
-            <SelectItem value={String(EstatusCatalogo.EnRevision)}>
-              En revisión
-            </SelectItem>
-          </SelectContent>
-        </Select>
+        <TabsEstado
+          opciones={[
+            { valor: EstatusCatalogo.EnRevision, label: 'En revisión' },
+            { valor: EstatusCatalogo.Activo, label: 'Activo' },
+            { valor: EstatusCatalogo.Inactivo, label: 'Inactivo' },
+          ]}
+          valor={estatus === '' ? undefined : Number(estatus)}
+          onChange={(v) => onEstatus(v === undefined ? '' : String(v))}
+          conteos={undefined}
+        />
       </div>
       {/* Bandeja de revisión de la sincronización A+W (F1-ADM-06): el
           backend filtra por un solo resultado a la vez. */}
@@ -281,10 +279,7 @@ function FiltrosBloque({
         value={resultadoSync === '' ? 'all' : resultadoSync}
         onValueChange={(v) => onResultadoSync(v === 'all' ? '' : v)}
       >
-        <SelectTrigger
-          className="h-8 text-xs"
-          aria-label="Resultado de sincronización"
-        >
+        <SelectTrigger className="h-8 text-xs" aria-label="Resultado de sincronización">
           <SelectValue placeholder="Resultado de sincronización" />
         </SelectTrigger>
         <SelectContent>
@@ -306,7 +301,7 @@ function FiltrosBloque({
         className={cn(
           'h-8 w-full justify-start text-xs font-normal',
           soloFiscalesIncompletos &&
-            'border-amber-300 bg-amber-500/10 text-amber-700 hover:bg-amber-500/15 hover:text-amber-700 dark:text-amber-300 dark:hover:text-amber-300',
+            'border-warning bg-warning-bg text-warning-fg hover:bg-warning-bg hover:text-warning-fg  :text-warning-fg',
         )}
       >
         <TriangleAlert className="mr-1.5 h-3.5 w-3.5" />
@@ -318,30 +313,17 @@ function FiltrosBloque({
 
 interface RenderListaProps {
   query: ReturnType<typeof useClientes>;
-  items: ReturnType<typeof useClientes>['data'] extends
-    | { items: infer I }
-    | undefined
-    ? I
-    : never;
+  items: ReturnType<typeof useClientes>['data'] extends { items: infer I } | undefined ? I : never;
   idActivo: string | null;
   canCrear: boolean;
   onAbrirNuevo: () => void;
 }
 
-function RenderLista({
-  query,
-  items,
-  idActivo,
-  canCrear,
-  onAbrirNuevo,
-}: RenderListaProps) {
+function RenderLista({ query, items, idActivo, canCrear, onAbrirNuevo }: RenderListaProps) {
   if (query.isLoading) {
     return (
       <div className="p-3">
-        <TableSkeleton
-          rows={6}
-          columns={[{ width: 'w-full' }, { width: 'w-full' }]}
-        />
+        <TableSkeleton rows={6} columns={[{ width: 'w-full' }, { width: 'w-full' }]} />
       </div>
     );
   }
