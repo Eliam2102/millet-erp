@@ -28,14 +28,14 @@ OC (cancelar + recrear) o el proveedor refactura.
 |---|---|---|
 | Capturar factura | Auxiliar de CxP | `cuentas_por_pagar.facturas.capturar` |
 | Corregir la OC (cancelar + recrear) | Comprador / autorizadores | `compras.ordenes.cancelar` (o `.cancelar-doble` si hubo recepciones), `.crear` |
-| Ajustar tolerancia del proveedor (excepcional) | Responsable de CxP | `cuentas_por_pagar.proveedores.ajustar-tolerancia` |
+| Ajustar tolerancia del proveedor (monto MXN, excepcional) | Responsable de CxP | `datos_maestros.proveedores.tolerancia-editar` |
 
 ## Precondiciones
 
 1. OC autorizada y CFDI del proveedor en el repositorio (`/cxp/cfdis`).
-2. Tolerancia del proveedor conocida: monto absoluto o porcentaje configurado en
+2. Tolerancia del proveedor conocida: monto en MXN configurado en
    el master de proveedores; si no tiene, aplica el **default global de
-   $0.99 MXN**.
+   $0.99 MXN**. No existe modo porcentaje. Actualizado 19-oct-2026 (86e3tab1k): la única tolerancia es de dinero por proveedor; fuente: plano CxP 1.7.1 y junta del 8-oct.
 
 ## La decisión de un vistazo
 
@@ -95,7 +95,6 @@ La rama del **Sí** es el guion [P2](p2-materiales-directos.md); la rama del
 | Situación | Comportamiento |
 |---|---|
 | Diferencia **dentro** de tolerancia (ej. $0.50 ≤ $0.99) | La captura pasa y la diferencia se asienta como `Redondeo` — ver [P2](p2-materiales-directos.md). Si hay diferencia de precio unitario vs la OC, CxP emite además `DiferenciaPrecioFacturaDetectadaEvent` y Almacén re-valoriza el remanente en stock (GAP-3 resuelto, #617) |
-| Proveedor con tolerancia porcentual | Misma mecánica; el texto de cancelación indica `Porcentaje` y el valor |
 | Intentar "forzar" la captura | No existe: no hay override en pantalla ni en API; la única vía es corregir OC o refacturar |
 | Cancelar OC con recepciones parciales | Exige **doble firma** (`compras.ordenes.cancelar-doble`) |
 | Intentar cancelar manualmente una factura ya autorizada | `FACTURA_AUTORIZADA_NO_CANCELABLE` (422) — solo se cancela en `Capturada`/`EnRevision` |

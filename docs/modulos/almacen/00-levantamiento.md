@@ -207,8 +207,8 @@ Borrador → Validada → Registrada (firme) → [Conciliada con factura, solo v
 ### 5.6 Reglas de validación
 
 - **OC obligatoria.** Toda recepción debe referenciar una OC en estado válido (no draft, no cancelada). Materiales no codificados o llegadas sin OC se rechazan; quedan en bandeja "pendiente OC" sin afectar inventario hasta que Compras genere la OC retroactiva.
-- **Recepción parcial permitida** por línea de OC. La OC se cierra automáticamente cuando todas las líneas alcanzan su cantidad solicitada (con tolerancia configurable por línea — ver §10.7 sobre el modelo de tolerancias consolidado).
-- **Sobrecantidad y faltante:** se permite recepción con variación si está dentro de la tolerancia configurada en el material o la OC; fuera de tolerancia requiere autorización del Supervisor de Insumos (insumos) o del Jefe Almacén (materiales directos). La autorización queda registrada con justificación.
+- **Recepción parcial permitida** por línea de OC. La OC se cierra automáticamente cuando todas las líneas alcanzan su cantidad solicitada (sin tolerancia de cantidad — ver §10.7).
+- **Sobrecantidad y faltante:** se permite recibir exacto lo pendiente o menos (recepción parcial); nunca más que lo pendiente de la línea (422 `RECEPCION_EXCEDE_PENDIENTE`). No hay tolerancia de cantidad ni autorización para exceder.
 - **Precio de la entrada (fuente de verdad):**
   - **Variante A:** precio de la **OC** se usa para valuar el inventario. La factura (capturada por CxP) ya pasó por la tolerancia de proveedor en CxP; si CxP la rechaza por tolerancia, **el inventario YA está valorado al precio de OC y no se ajusta** (la diferencia se resuelve aguas arriba con la corrección de OC desde Compras).
   - **Variante B:** precio de la **OC** se usa para valuar el inventario al recibir. Si al llegar la factura por CxP el precio difiere dentro de tolerancia → CxP aplica `redondeo` y el inventario **no se ajusta**. Si la diferencia es relevante → emite evento `DiferenciaPrecioFacturaDetectada(recepcion_id, precio_oc, precio_factura)` que Almacén suscribe para ajustar costo del inventario remanente o registrar en cuenta de variación de precios (decisión con Contabilidad).
@@ -572,17 +572,13 @@ Para movimientos en moneda extranjera, el TC se toma del catálogo de Tesorería
 
 El servicio de TC es compartido (provisto por Tesorería). El módulo Almacén lo consume pero no lo mantiene.
 
-### 10.7 Tolerancias — modelo consolidado
+### 10.7 Tolerancias — modelo vigente
 
-Para evitar dispersión, el módulo distingue **tres tolerancias** con propósitos diferenciados:
+Existe **una sola tolerancia, de dinero**: la tolerancia de monto por proveedor en MXN (0.99 MXN por omisión, configurable por proveedor en `DatosMaestros`; solo CxP la edita). La usa CxP al conciliar factura contra OC.
 
-| Tolerancia | Aplica a | Dimensión | Configurada en | Quién la usa |
-|---|---|---|---|---|
-| **Tolerancia de cantidad por línea de OC** | Cierre automático de OC al completar recepción | Cantidad | Compras (al crear OC) | Almacén (en recepción) |
-| **Tolerancia de cantidad por material** | Recepción con sobre/sub-cantidad | Cantidad | Catálogo de Materiales (`DatosMaestros`) | Almacén (en recepción) |
-| **Tolerancia de monto por proveedor** | Conciliación factura vs OC en monto | Monto absoluto o % | Catálogo de Proveedores (`DatosMaestros`) | CxP (en captura de factura) |
+En piezas **no hay tolerancia**: Almacén recibe exacto lo pendiente o menos (parcial permitido), nunca más (`RECEPCION_EXCEDE_PENDIENTE`). Se retiraron la tolerancia de cantidad por línea de OC, la tolerancia de cantidad por material y el modo porcentaje de la tolerancia del proveedor.
 
-Estas tres tolerancias son ortogonales (no se duplican). El proveedor X puede tener tolerancia de monto 1% para CxP, mientras que el material Y (de ese mismo proveedor) puede tener tolerancia de cantidad 5%.
+Actualizado 19-oct-2026 (86e3tab1k): la única tolerancia es de dinero por proveedor; fuente: plano CxP 1.7.1 y junta del 8-oct.
 
 ### 10.8 Cierre de mes
 
@@ -664,7 +660,7 @@ El Jefe Almacén ejecuta el cierre del módulo Almacén el primer día hábil de
 | 8 | Inventario físico rediseñado: captura sin sesgo, recuento por umbral, aprobación por monto. | Decisión del proyecto. |
 | 9 | Costo promedio ponderado como método de valoración. | Estándar de industria; pendiente confirmar con Finanzas. |
 | 10 | Movimientos inmutables; correcciones por contramovimiento. | ADR-0008, ADR-0012. |
-| 11 | Tolerancias ortogonales: cantidad por OC + cantidad por material + monto por proveedor. | Alineación cross-módulo con CxP. |
+| 11 | Una sola tolerancia: monto en MXN por proveedor (CxP); en piezas no hay tolerancia. | Regla de Millet (86e3tab1k). |
 | 12 | Precio de inventario = OC (variantes A y B). Si factura difiere, evento de diferencia ajusta o registra variación. | Alineación cross-módulo con CxP. |
 | 13 | Almacén **no crea** el `FacturaProveedor` en CxP — solo referencia el CFDI. | Alineación cross-módulo con CxP. |
 
@@ -746,7 +742,7 @@ Cada submódulo incluye: backend + frontend + pruebas de integración + document
 |---|---|---|---|---|
 | **Resistencia operativa al cambio del Portal Millet al nuevo ERP.** Carlos y su equipo han usado el portal por años. | Media | Alto | Migración gradual con sombreo (operar ambos en paralelo durante una semana); capacitación dedicada; iteración rápida sobre feedback. | Owner del proyecto |
 | **Captura de 40 facturas/día como cuello de botella** si la operación que tarda 8 minutos hoy no mejora. | Alta | Alto | Optimización agresiva del UX de captura (variante A); pre-carga desde el `CfdiRecibido` de CxP cuando esté disponible. | Owner UX |
-| **Doble flujo de recepción con lógica de tolerancia compleja.** Tolerancia por línea de OC + por material + por proveedor (CxP). | Media | Medio | Documentar §10.7 con ejemplos concretos; pruebas integradas cross-módulo en cada variante. | Owner técnico |
+| **Doble flujo de recepción con conciliación de monto.** Única tolerancia: monto por proveedor (CxP); piezas sin tolerancia. | Media | Medio | Documentar §10.7 con ejemplos concretos; pruebas integradas cross-módulo en cada variante. | Owner técnico |
 | **Devolución a proveedor (sub-flujo 8.B) requiere coordinación bidireccional con CxP** que es nueva en el alcance. | Media | Alto | Especificar contratos de eventos antes de implementar; pruebas de integración con CxP en PR 7. | Owner técnico + CxP |
 | **Sincronización de `OcRecepcionRegistradaEvent` con OC en Compras** si llega antes que `OrdenCompraAutorizadaEvent` por race condition. | Media | Medio | Outbox + idempotencia en consumidores; al recibir `OcRecepcionRegistradaEvent` sin OC conocida, queda pendiente y se procesa al recibir `OrdenCompraAutorizadaEvent`. | Owner técnico |
 | **Inventarios anuales con bloqueo de salidas** chocan con operación de dos turnos. | Media | Medio | Programar conteo anual en ventana de baja operación (fin de año, semana santa); comunicación temprana. | Owner Almacén |

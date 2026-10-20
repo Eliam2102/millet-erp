@@ -54,7 +54,7 @@ public sealed class ProveedorReadPortAdapter : IProveedorReadPort
                 p.RazonSocial,
                 p.ToleranciaFacturaContraOcMxn.HasValue
                     ? new ToleranciaProveedorDto(
-                        p.ToleranciaFacturaContraOcEsPorcentaje ? ToleranciaTipo.Porcentaje : ToleranciaTipo.MontoAbsoluto,
+                        ToleranciaTipo.MontoAbsoluto,
                         p.ToleranciaFacturaContraOcMxn.Value)
                     : null,
                 p.Estatus == EstatusCatalogo.EnRevision,
@@ -82,7 +82,7 @@ public sealed class ProveedorReadPortAdapter : IProveedorReadPort
                 p.RazonSocial,
                 p.ToleranciaFacturaContraOcMxn.HasValue
                     ? new ToleranciaProveedorDto(
-                        p.ToleranciaFacturaContraOcEsPorcentaje ? ToleranciaTipo.Porcentaje : ToleranciaTipo.MontoAbsoluto,
+                        ToleranciaTipo.MontoAbsoluto,
                         p.ToleranciaFacturaContraOcMxn.Value)
                     : null,
                 p.Estatus == EstatusCatalogo.EnRevision,

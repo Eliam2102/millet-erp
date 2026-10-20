@@ -43,11 +43,11 @@ public class RecepcionConDanoTests
     }
 
     private static RegistrarRecepcionConFacturaHandler HandlerA(AlmacenDbContext db, CapturaEventos events) =>
-        new(db, new FakeOc(), new FakeArticulos(), events, new FakeUser(), new FakeEmpresa(), new FakeDecimales(),
+        new(db, new FakeOc(), events, new FakeUser(), new FakeEmpresa(), new FakeDecimales(),
             new PeriodoContableStub(true), new P7Support.Conversion(), CfdiFake.Valido(), new ProveedorRfcFake());
 
     private static RegistrarRecepcionConPackingListHandler HandlerB(AlmacenDbContext db, CapturaEventos events) =>
-        new(db, new FakeOc(), new FakeArticulos(), events, new FakeUser(), new FakeEmpresa(), new FakeDecimales(),
+        new(db, new FakeOc(), events, new FakeUser(), new FakeEmpresa(), new FakeDecimales(),
             new PeriodoContableStub(true), new P7Support.Conversion());
 
     private static RegistrarRecepcionConFacturaCommand CmdA(decimal danada) => new(Guid.NewGuid(), new DateOnly(2026, 10, 17),
@@ -169,7 +169,7 @@ public class RecepcionConDanoTests
     private sealed class FakeArticulos : IArticuloReadPort
     {
         public Task<ArticuloLectura?> ObtenerAsync(Guid articuloId, CancellationToken ct) =>
-            Task.FromResult<ArticuloLectura?>(new ArticuloLectura(articuloId, "ART", "Artículo", "PZA", null, null, true));
+            Task.FromResult<ArticuloLectura?>(new ArticuloLectura(articuloId, "ART", "Artículo", "PZA", null, true));
         public Task<IReadOnlyDictionary<Guid, ArticuloLectura>> ObtenerPorIdsAsync(
             IReadOnlyCollection<Guid> ids, CancellationToken ct) =>
             Task.FromResult<IReadOnlyDictionary<Guid, ArticuloLectura>>(new Dictionary<Guid, ArticuloLectura>());

@@ -22,17 +22,8 @@ public sealed partial class P6SucursalEndpointsTests
     private static async Task<JsonElement> ProblemaAsync(HttpResponseMessage response)
         => await response.Content.ReadFromJsonAsync<JsonElement>();
 
-    private async Task FijarToleranciaAsync(Guid articuloId, decimal porcentaje)
-    {
-        using var scope = factory.Services.CreateScope();
-        using var bypass = scope.ServiceProvider.GetRequiredService<ICurrentEmpresaContext>().Bypass();
-        var cat = scope.ServiceProvider.GetRequiredService<CompartidoDbContext>();
-        (await cat.Articulos.SingleAsync(a => a.Id == articuloId)).ActualizarToleranciaRecepcion(porcentaje);
-        await cat.SaveChangesAsync();
-    }
-
     [Fact]
-    public async Task P6c_tolerancia_cero_rechaza_exceso_y_acepta_saldo_exacto()
+    public async Task P6c_sin_tolerancia_rechaza_exceso_y_acepta_saldo_exacto()
     {
         await using var datos = await PrepararP7ScopeAsync();
         var d = datos.Propios;
@@ -40,36 +31,11 @@ public sealed partial class P6SucursalEndpointsTests
         using var excede = await RecibirAsync(datos.Operativo, d, 11);
         Assert.Equal(HttpStatusCode.UnprocessableEntity, excede.StatusCode);
         var problema = await ProblemaAsync(excede);
-        Assert.Equal("RECEPCION_EXCEDE_TOLERANCIA", problema.GetProperty("code").GetString());
+        Assert.Equal("RECEPCION_EXCEDE_PENDIENTE", problema.GetProperty("code").GetString());
         Assert.Contains("(10)", problema.GetProperty("detail").GetString());
 
         using var exacto = await RecibirAsync(datos.Operativo, d, 10);
         Assert.Equal(HttpStatusCode.Created, exacto.StatusCode);
-    }
-
-    [Fact]
-    public async Task P6c_tolerancia_diez_por_ciento_permite_recibir_hasta_el_limite()
-    {
-        await using var datos = await PrepararP7ScopeAsync();
-        var d = datos.Propios;
-        await FijarToleranciaAsync(d["articulo_p7"], 10);
-
-        using var response = await RecibirAsync(datos.Operativo, d, 11);
-        Assert.Equal(HttpStatusCode.Created, response.StatusCode);
-    }
-
-    [Fact]
-    public async Task P6c_tolerancia_diez_por_ciento_rechaza_exceso_sobre_el_limite()
-    {
-        await using var datos = await PrepararP7ScopeAsync();
-        var d = datos.Propios;
-        await FijarToleranciaAsync(d["articulo_p7"], 10);
-
-        using var response = await RecibirAsync(datos.Operativo, d, 12);
-        Assert.Equal(HttpStatusCode.UnprocessableEntity, response.StatusCode);
-        var problema = await ProblemaAsync(response);
-        Assert.Equal("RECEPCION_EXCEDE_TOLERANCIA", problema.GetProperty("code").GetString());
-        Assert.Contains("(11)", problema.GetProperty("detail").GetString());
     }
 
     [Fact]
@@ -83,7 +49,7 @@ public sealed partial class P6SucursalEndpointsTests
         {
             Assert.Equal(1, respuestas.Count(r => r.StatusCode == HttpStatusCode.Created));
             var rechazada = respuestas.Single(r => r.StatusCode == HttpStatusCode.UnprocessableEntity);
-            Assert.Equal("RECEPCION_EXCEDE_TOLERANCIA", (await ProblemaAsync(rechazada)).GetProperty("code").GetString());
+            Assert.Equal("RECEPCION_EXCEDE_PENDIENTE", (await ProblemaAsync(rechazada)).GetProperty("code").GetString());
         }
         finally
         {

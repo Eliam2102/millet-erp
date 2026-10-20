@@ -17,10 +17,10 @@ public sealed class ADM08CentroCostoHeredadoTests
         var port = new P1Fixture.OcPort(oc with { Lineas = [oc.Lineas[0] with { CentroCostoId = ccDepartamento }] });
         RegistrarRecepcionLineaInput[] lineas = [new(f.ArticuloId, f.LineaId, 2, null, null, f.BinId)];
         var conversion = new P7Support.Conversion();
-        if (packing) await new RegistrarRecepcionConPackingListHandler(f.Db, port, new P1Fixture.Articulos(), f.Events,
+        if (packing) await new RegistrarRecepcionConPackingListHandler(f.Db, port, f.Events,
             f.Context, f.Context, f.Guard, new PeriodoContableStub(true), conversion)
             .Handle(new(f.DocumentoId, P1Fixture.Fecha, "DEMO-ADM08.pdf", null, lineas), default);
-        else await new RegistrarRecepcionConFacturaHandler(f.Db, port, new P1Fixture.Articulos(), f.Events,
+        else await new RegistrarRecepcionConFacturaHandler(f.Db, port, f.Events,
             f.Context, f.Context, f.Guard, new PeriodoContableStub(true), conversion, CfdiFake.Valido(), new ProveedorRfcFake())
             .Handle(new(f.DocumentoId, P1Fixture.Fecha, Guid.NewGuid(), null, null, lineas), default);
         var linea = (await f.Db.Movimientos.Include(x => x.Lineas).SingleAsync()).Lineas.Single();

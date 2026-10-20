@@ -116,29 +116,6 @@ export function useActualizarArticulo() {
   });
 }
 
-export interface ActualizarToleranciaArticuloArgs {
-  id: string;
-  porcentaje: number | null;
-  idempotencyKey: string;
-}
-
-export function useActualizarToleranciaArticulo() {
-  const queryClient = useQueryClient();
-  return useMutation<void, Error, ActualizarToleranciaArticuloArgs>({
-    mutationFn: async ({ id, porcentaje, idempotencyKey }) => {
-      await apiRequest<void>(
-        `/api/v1/datos-maestros/articulos/${id}/tolerancia-recepcion`,
-        { method: 'PUT', body: { porcentaje }, idempotencyKey },
-      );
-    },
-    onSuccess: (_data, vars) => {
-      queryClient.invalidateQueries({
-        queryKey: datosMaestrosKeys.articulo(vars.id),
-      });
-    },
-  });
-}
-
 export interface DesactivarArticuloArgs {
   id: string;
   idempotencyKey: string;
