@@ -116,7 +116,7 @@ Hereda los ADRs transversales. La tabla resume los aplicados.
 | A2 | **Folio de movimiento** | `M-{tipo_prefijo}{año}-{secuencial:6}`. Ej: `M-ENT2026-000001`, `M-SAL2026-000001`, `M-AJP2026-000001`, `M-DEV2026-000001`. Secuencia atómica PostgreSQL por (tipo, año). | Si el área quiere preservar nomenclatura SAP, se ajusta. |
 | A3 | **Costo promedio ponderado** como método de valoración | Estándar industria. Confirmar con Finanzas que SAP actual usa el mismo método antes de migrar saldos. | Si SAP usa FIFO o último costo, se cambia el algoritmo (impacta la tabla `costos_inventario`). |
 | A4 | **Saldo de inventario calculado vs materializado** | **Materializado** en tabla `saldos_inventario` actualizada por cada movimiento (consistencia eventual no — actualización en la misma transacción del movimiento). Razón: bandejas de stock requieren acceso O(1); calcular por agregación es prohibitivo con 5K movimientos/mes. | Si el equipo prefiere derivar siempre, se elimina la tabla y se materializa en vista. |
-| A5 | **Tolerancia de recepción por material** | `tolerancia_cantidad_porcentaje` en `compartido.articulos` (0 a 100, dos decimales; NULL = 0 %). **Implementado en 86e3pc50v** (§16.1): rechazo duro con 422 `RECEPCION_EXCEDE_TOLERANCIA`. La autorización de supervisor para recibir fuera de tolerancia no se implementó (decisión del owner, D1). | Si el área prefiere tolerancia por OC, se mueve a `LineaOrdenCompra`. |
+| A5 | **Límite de recepción por línea de OC (sin tolerancia de cantidad)** | Almacén recibe exacto lo pendiente o menos (parcial permitido), nunca más: 422 `RECEPCION_EXCEDE_PENDIENTE`. Se retiró la tolerancia por material (`tolerancia_cantidad_porcentaje`) y no hay autorización de supervisor para exceder. Actualizado 19-oct-2026 (86e3tab1k): la única tolerancia es de dinero por proveedor; fuente: plano CxP 1.7.1 y junta del 8-oct. | — |
 | A6 | **Umbral de "captura sin sesgo"** | Cantidad teórica oculta al contador en la pantalla de captura. Solo visible para el aprobador al cerrar. Implementación: campo `cantidad_teorica` en `lineas_conteo` no se envía al endpoint de captura del contador. | Estándar; no negociable según §7.6. |
 | A7 | **Umbral de recuento obligatorio en inventario físico** | Variación > 5% en cantidad **o** > $1,000 MXN en valor → recuento obligatorio (§7.4 del levantamiento). Configurable como parámetro global del módulo. | Confirmar con Finanzas. |
 | A8 | **Política de autorización de ajustes** (§10.4 levantamiento) | Por monto: pequeño (< $1,000 MXN) Almacenista, mediano (1K–10K) Supervisor, grande (> 10K) Jefe Almacén + notificación Finanzas. Umbrales configurables. | Confirmar con Finanzas antes del go-live. |
@@ -168,7 +168,7 @@ Hereda los ADRs transversales. La tabla resume los aplicados.
 - `SaldoInventario.cantidad >= 0` siempre. Una salida que dejaría saldo negativo se rechaza al validar.
 - `MovimientoInventario.estado = Registrado` actualiza `SaldoInventario` en la misma transacción.
 - `Recepcion.oc_id` debe estar `Autorizada` y no `Cancelada` ni `Cerrada`.
-- `Recepcion.cantidad_recibida <= oc_linea.cantidad_solicitada * (1 + tolerancia_material)` o requiere autorización adicional (A5).
+- `Recepcion.cantidad_recibida <= pendiente de la línea de OC` (solicitada menos lo ya recibido); si excede, 422 `RECEPCION_EXCEDE_PENDIENTE` (A5).
 - `Salida.rq_id` (variante A) debe estar `Aprobada`. Si es Vale (variante B), `rq_id` es null + `pendiente_regularizacion = true` con `fecha_limite_regularizacion = fecha_salida + 48h`.
 - `DevolucionInterna.salida_origen_id` debe existir y `cantidad_devuelta <= salida_origen.cantidad - devoluciones_previas`.
 - `DevolucionAProveedor` requiere autorización de Dirección (vía evidencia, mismo patrón que `NotaCargo` en CxP).
@@ -516,7 +516,7 @@ EF Core (ADR-0005). La migración inicial incluye seeds de:
 |---|---|---|
 | `IComprasOcReadPort` | Adapter en `Compras.Infrastructure` | Verificar OC autorizada al recibir; obtener detalle de líneas |
 | `IComprasRequisicionReadPort` | Adapter en `Compras.Infrastructure` | Verificar RQ aprobada al surtir; obtener detalle de líneas |
-| `IArticuloReadPort` | Adapter en `DatosMaestros.Infrastructure` | Master de artículos: UM, conversión, sub-almacén default, tolerancia (A5) |
+| `IArticuloReadPort` | Adapter en `DatosMaestros.Infrastructure` | Master de artículos: UM, conversión, sub-almacén default (sin tolerancia de cantidad, A5) |
 | `IProveedorReadPort` | Adapter en `DatosMaestros.Infrastructure` | Para devolución a proveedor (8.B): obtener datos del proveedor. Incluye `ObtenerPorIdsAsync` batch (ADR-0042) para enriquecer bandeja/detalle de devoluciones con la razón social |
 | `ICxpDocumentosReadPort` | Adapter en `CuentasPorPagar.Infrastructure.PublicAdapters` | **Primer puerto de lectura Almacén → CxP** (solo presentación, ADR-0042): resuelve `facturaId → folio del proveedor`, `cfdiRecibidoId → UUID fiscal del SAT` y `notaCreditoId → folio` para el detalle de recepción y de devolución 8.B. NO habilita lógica de negocio cruzada — la conciliación de la triada sigue viajando exclusivamente por eventos |
 | `ISucursalReadPort` | Adapter en `Administracion.Infrastructure` | Catálogo de sucursales |
@@ -737,7 +737,7 @@ almacen.lectura_total                    // auditor externo (A17)
 Roles operativos (asignación inicial a confirmar con Carlos):
 
 - **Almacenista** — captura entradas/salidas/devoluciones internas; aprueba ajustes pequeños; lee saldos.
-- **SupervisorInsumos** — todo lo del Almacenista + aprueba ajustes medianos + autoriza recepciones fuera de tolerancia (insumos).
+- **SupervisorInsumos** — todo lo del Almacenista + aprueba ajustes medianos + (sin autorización de recepciones fuera de límite: no existe tolerancia de cantidad).
 - **AlmacenistaMaterialesDirectos** — todo lo del Almacenista, ámbito sub-almacenes de MP no-vidrio.
 - **JefeAlmacen** — todo + aprueba ajustes grandes + ejecuta cierre de mes + autoriza devoluciones a proveedor (con DG).
 - **AuditorExterno** — solo lectura (A17).
@@ -896,7 +896,7 @@ Cada `PLATFORM-TODO` busca-able con `rg "PLATFORM-TODO" backend/src/Almacen`.
 ### 15.1 Antes del 02-plan
 
 1. Confirmar A1-A18 con el owner (Carlos + Eduardo).
-2. Confirmar política de tolerancias con Finanzas (A5, A11).
+2. Política de tolerancias resuelta: solo dinero por proveedor (86e3tab1k).
 3. Confirmar umbrales monetarios de autorización de ajustes (A8).
 4. Validar lista exhaustiva de sucursales/almacenes/sub-almacenes en SAP (§3 del levantamiento).
 5. Conseguir un export de catálogo de artículos desde SAP para validar campos requeridos.
@@ -915,7 +915,7 @@ Cada `PLATFORM-TODO` busca-able con `rg "PLATFORM-TODO" backend/src/Almacen`.
 
 - **Compras-OC:** confirmar que el listener para `OcRecepcionRegistradaEvent` y `OcDevolucionRegistradaEvent` está cableado.
 - **CxP:** confirmar consumo de `FacturaProveedorRegistradaEvent` con flag `factura_pendiente` (variante B) y `DiferenciaPrecioFacturaDetectadaEvent`.
-- **DatosMaestros:** ampliar entidad `Articulo` con `tolerancia_cantidad_porcentaje` (A5, implementado en 86e3pc50v, ver §16.1) y `sub_almacen_default_id`.
+- **DatosMaestros:** ampliar entidad `Articulo` con `sub_almacen_default_id`. La columna `tolerancia_cantidad_porcentaje` (86e3pc50v) se retiró en 86e3tab1k; ver §16.1.
 - **Contabilidad (futuro):** definir mapeo de conceptos contables para los 7 eventos de Almacén.
 - **Finanzas (futuro):** integración con calendario fiscal vía `PeriodoContableCerradoEvent`.
 
@@ -925,22 +925,22 @@ Cada `PLATFORM-TODO` busca-able con `rg "PLATFORM-TODO" backend/src/Almacen`.
 
 Esta sección describe lo que quedó implementado en la tarea 86e3pc50v (rama `fix/almacen-recepcion-tolerancia-86e3pc50v`). Donde el diseño original de §A5, §10 o §15 difiera, prevalece lo descrito aquí. Los nombres de columna, permisos, rutas y códigos se verificaron contra el código.
 
-### 16.1 Tolerancia de recepción por material (A5)
+### 16.1 Límite de recepción por línea (A5) — sin tolerancia de cantidad
 
-- **Columna:** `compartido.articulos.tolerancia_cantidad_porcentaje`, `numeric(5,2)` NULL (NULL equivale a 0 %), con el CHECK `ck_articulos_tolerancia_rango` (0 a 100). Migración `20261014093932_ArticuloToleranciaRecepcion`, esquema `compartido`.
-- **Edición:** sección propia en el detalle del artículo, con el endpoint `PUT /api/v1/datos-maestros/articulos/{id}/tolerancia-recepcion`. No forma parte del alta ni de la carga masiva: un artículo nuevo nace con 0 %.
-- **Permiso:** `datos_maestros.articulos.tolerancia-editar` (GUID `00000004-0010-0000-0000-000000000002`), registrado por la migración `20261014094250_PermisosContModAlm` de Identidad. El rol de sistema `admin-datos-maestros` no lo recibe (`BootstrapSuperAdminHostedService`); lo asigna el administrador al Jefe de Almacén.
-- **Lectura:** `ArticuloReadAdapter` (Compartido) devuelve la tolerancia y la categoría reales al puerto `IArticuloReadPort` de Almacén.
-- **Límite único:** `RecepcionOcGuard.Limite(solicitada, recibidaCompras, recibidaPropia, tolerancia)` calcula `solicitada × (1 + tolerancia/100) − max(recibidaCompras, recibidaPropia)`. El registro de la recepción y la pantalla usan esta misma función. La pantalla la consume desde `GET /api/v1/almacen/recepciones/ordenes/{ordenCompraId}/lineas-recibibles` (`LineasRecibiblesQuery`), que calcula el máximo recibible en servidor.
+Actualizado 19-oct-2026 (86e3tab1k): la única tolerancia es de dinero por proveedor; fuente: plano CxP 1.7.1 y junta del 8-oct.
+
+Esta sección sustituye a la versión de 86e3pc50v. Se **retiraron**: la columna `compartido.articulos.tolerancia_cantidad_porcentaje` y su CHECK, el endpoint `PUT /api/v1/datos-maestros/articulos/{id}/tolerancia-recepcion`, el permiso `datos_maestros.articulos.tolerancia-editar` y el código `RECEPCION_EXCEDE_TOLERANCIA`.
+
+- **Límite único:** `RecepcionOcGuard.Limite(solicitada, recibidaCompras, recibidaPropia)` calcula `solicitada − max(recibidaCompras, recibidaPropia)`. El registro de la recepción y la pantalla usan esta misma función. La pantalla la consume desde `GET /api/v1/almacen/recepciones/ordenes/{ordenCompraId}/lineas-recibibles` (`LineasRecibiblesQuery`), que calcula el máximo recibible en servidor.
 - **Recibido propio** (`RecibidoPorLineaOc`): entradas `EntradaCompra` registradas por `linea_oc_id`, menos las devoluciones 8.B en estado `Registrada` o `ConciliadaConNcFiscal`. Una devolución `Rechazada` no cuenta. El resultado se expresa en la unidad de la OC.
 - **Concurrencia:** las recepciones con factura o con packing list abren `DevolucionOrigenLock.AbrirAsync(db, ordenCompraId)`, que ejecuta `pg_advisory_xact_lock` por OC. Serializa las recepciones de una misma OC. El lock es por OC, no por línea (ver §16.7).
-- **Rechazo duro:** recibir por encima del límite responde 422 `RECEPCION_EXCEDE_TOLERANCIA`. No existe autorización de supervisor.
+- **Rechazo duro:** recibir más de lo pendiente responde 422 `RECEPCION_EXCEDE_PENDIENTE`. La recepción parcial (menos de lo pendiente) está permitida. No existe autorización de supervisor.
 
 ### 16.2 Triada con Compras y CxP (F2)
 
 - **Línea de OC obligatoria en la recepción:** las recepciones nuevas exigen `LineaOcId` por línea; si falta responde 422 `RECEPCION_LINEA_OC_REQUERIDA`, y si el artículo no coincide con la línea responde `RECEPCION_LINEA_OC_ARTICULO_INCONGRUENTE`. Las recepciones históricas sin `LineaOcId` no se backfillean (M-036).
 - **Resolución en Compras:** el consumidor de Compras resuelve las líneas sin `LineaOcId` por artículo único o falla visible sin marcar el evento como procesado (código `RECEPCION_LINEA_OC_NO_RESOLUBLE` en Compras; `DEVOLUCION_LINEA_OC_NO_RESOLUBLE` en la devolución). Ver `docs/modulos/compras-ordenes-compra/01-diseno.md` §8.5.
-- **Campos aditivos de los eventos de Almacén:** `OcRecepcionRegistradaIntegrationEvent` agrega `ToleranciaPorcentaje` y `CantidadRecibidaAcumulada`. `OcDevolucionRegistradaIntegrationEvent` agrega `CantidadDocumento` (unidad de la OC). Son opcionales y no implican cambio de versión.
+- **Campos aditivos de los eventos de Almacén:** `OcRecepcionRegistradaIntegrationEvent` agrega `ToleranciaPorcentaje` (obsoleto: se conserva por compatibilidad y siempre va nulo) y `CantidadRecibidaAcumulada`. `OcDevolucionRegistradaIntegrationEvent` agrega `CantidadDocumento` (unidad de la OC). Son opcionales y no implican cambio de versión.
 - **Devolución 8.B:** la cantidad que se publica a Compras está en la unidad de la OC (`CantidadDocumento`), no en la unidad base del inventario.
 
 ### 16.3 CFDI de la recepción con factura (F3 y F4)
@@ -980,8 +980,8 @@ Las recepciones, las salidas y las devoluciones internas 8.A no tienen endpoints
 
 ### 16.7 Brechas documentadas (fuera de alcance de 86e3pc50v)
 
-1. **Autorización de supervisor** para recibir fuera de tolerancia (A5): rechazo duro por decisión del owner.
-2. **Tolerancia por línea de OC** (§10.7): la tolerancia es por material. Las tres tolerancias siguen siendo ortogonales.
+1. **Autorización de supervisor** para recibir fuera de límite (A5): no existe; rechazo duro.
+2. **Tolerancia de cantidad** (por línea de OC o por material): retirada en 86e3tab1k; solo existe la tolerancia de dinero por proveedor (§10.7 del levantamiento).
 3. **Backfill de `linea_oc_id` histórico** y herramienta de reproceso de eventos ya marcados como procesados (M-036). Ticket aparte.
 4. **Validación de existencia y reutilización** de `PackingListBlobRef` y `ValeBlobRef` (M-109 y M-142). Ticket aparte. Las pruebas de integración vigentes registran referencias ficticias.
 5. **Responsable del conteo:** se valida que el sub-almacén exista (P-30), pero no que el responsable exista (M-201, parcial). Requiere un puerto de empleados en el alta del conteo.

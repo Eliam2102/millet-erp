@@ -233,8 +233,7 @@ public static class CatalogosEndpoints
                 a.Id, a.Clave, a.ClaveLegacy, a.Nombre, a.DescripcionLarga,
                 a.UnidadMedidaDefault, a.UnidadMedidaId, a.Naturaleza, a.Categoria,
                 a.CategoriaId,
-                a.PrecioReferenciaMonto, a.PrecioReferenciaMoneda, a.Estatus,
-                a.ToleranciaCantidadPorcentaje));
+                a.PrecioReferenciaMonto, a.PrecioReferenciaMoneda, a.Estatus));
         })
         .RequireAuthorization(PermissionPolicyProvider.Prefix + PermisosCanonicos.CompartidoCatalogosLeer)
         .WithName("ObtenerArticuloPorId")

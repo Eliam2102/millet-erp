@@ -16,8 +16,8 @@ namespace Millet.Compras.Application.Almacen;
 /// OC destino (por <c>LineaOcId</c> o, si es null, por artículo único en la
 /// OC), calcula el acumulado (<c>CantidadRecibidaAcumulada</c> calculado por
 /// Almacén; en eventos anteriores a ese campo, el delta sumado al acumulado
-/// actual) e invoca <c>OrdenCompra.RegistrarRecepcionLinea</c> con la
-/// tolerancia del artículo.
+/// actual) e invoca <c>OrdenCompra.RegistrarRecepcionLinea</c> (techo = cantidad
+/// de la línea; en piezas no hay tolerancia, 86e3tab1k).
 ///
 /// <para>
 /// <b>Idempotencia</b>: dedupe contra <c>compras.eventos_procesados</c>
@@ -135,7 +135,7 @@ public sealed class OcRecepcionEnAlmacenHandler
                 ? Math.Max(lineaOc.CantidadRecibida, acc)
                 : lineaOc.CantidadRecibida + linea.Cantidad;
             var resultado = oc.RegistrarRecepcionLinea(
-                lineaOcId, acumulado, p.OcurridoEn, linea.ToleranciaPorcentaje ?? 0m);
+                lineaOcId, acumulado, p.OcurridoEn);
 
             if (resultado.Cerrada is { } cerrada)
             {

@@ -96,8 +96,6 @@ export interface ProveedorDetalle {
   telefono: string | null;
   estatus: EstatusCatalogo;
   toleranciaFacturaContraOcMxn: number | null;
-  /** G1.13: true = el valor es % del total de la OC. */
-  toleranciaFacturaContraOcEsPorcentaje?: boolean;
   validadoEn: string | null;
   motivoRechazo: string | null;
   /** 0 = Nacional, 1 = Extranjero, null = por revisar. */
@@ -277,8 +275,6 @@ export interface ArticuloDetalle {
   precioReferenciaMonto: number | null;
   precioReferenciaMoneda: string | null;
   estatus: EstatusCatalogo;
-  /** Tolerancia de recepción por material (%); null = 0 %. */
-  toleranciaCantidadPorcentaje?: number | null;
 }
 
 export interface CrearArticuloPayload {

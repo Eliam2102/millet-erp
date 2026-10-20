@@ -428,10 +428,10 @@ public sealed class LineaOrdenCompra : BaseEntity, IAuditable, IBelongsToAggrega
     /// Asigna (no incrementa) el acumulado de recepción para esta línea
     /// (F5-PR1). La idempotencia es del caller: el payload de los
     /// listeners trae el set acumulado, no el delta. Valida rango
-    /// [0, Cantidad × (1 + tolerancia)] cuando el acumulado sube; al bajar
+    /// [0, Cantidad] (86e3tab1k: sin tolerancia en piezas) cuando el acumulado sube; al bajar
     /// (devolución) no aplica techo.
     /// </summary>
-    internal void SetCantidadRecibida(decimal cantidadAcumulada, decimal toleranciaPorcentaje = 0m)
+    internal void SetCantidadRecibida(decimal cantidadAcumulada)
     {
         if (cantidadAcumulada < 0m)
         {
@@ -439,12 +439,11 @@ public sealed class LineaOrdenCompra : BaseEntity, IAuditable, IBelongsToAggrega
                 "LINEA_OC_CANTIDAD_RECIBIDA_NEGATIVA",
                 "La cantidad recibida acumulada no puede ser negativa.");
         }
-        var techo = Cantidad * (1m + toleranciaPorcentaje / 100m);
-        if (cantidadAcumulada > techo && cantidadAcumulada > CantidadRecibida)
+        if (cantidadAcumulada > Cantidad && cantidadAcumulada > CantidadRecibida)
         {
             throw new BusinessRuleException(
                 "LINEA_OC_CANTIDAD_RECIBIDA_EXCEDE",
-                $"La cantidad recibida acumulada ({cantidadAcumulada}) excede la cantidad de la línea con tolerancia ({techo}).");
+                $"La cantidad recibida acumulada ({cantidadAcumulada}) excede la cantidad de la línea ({Cantidad}).");
         }
         CantidadRecibida = cantidadAcumulada;
     }
@@ -461,7 +460,7 @@ public sealed class LineaOrdenCompra : BaseEntity, IAuditable, IBelongsToAggrega
                 "LINEA_OC_CANTIDAD_FACTURADA_NEGATIVA",
                 "La cantidad facturada acumulada no puede ser negativa.");
         }
-        // three-way match: se factura hasta lo recibido dentro de tolerancia
+        // three-way match: se factura hasta lo pedido o lo recibido (un recibido histórico puede exceder lo pedido)
         var techo = Math.Max(Cantidad, CantidadRecibida);
         if (cantidadAcumulada > techo)
         {

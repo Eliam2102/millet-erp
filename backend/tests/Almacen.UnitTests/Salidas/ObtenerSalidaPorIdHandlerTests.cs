@@ -128,7 +128,7 @@ public class ObtenerSalidaPorIdHandlerTests
     }
 
     private static ArticuloLectura Art(Guid id, string clave, string descripcion) =>
-        new(id, clave, descripcion, "PZA", null, null, true);
+        new(id, clave, descripcion, "PZA", null, true);
 
     private static Guid SalidaId(AlmacenDbContext db) =>
         db.Movimientos.AsNoTracking().Select(m => m.Id).Single();

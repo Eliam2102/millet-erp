@@ -434,7 +434,6 @@ public sealed class CapturarFacturaConOcHandler : IRequestHandler<CapturarFactur
         return proveedor.Tolerancia.Tipo switch
         {
             ToleranciaTipo.MontoAbsoluto => Tolerancia.MontoAbsoluto(proveedor.Tolerancia.Valor),
-            ToleranciaTipo.Porcentaje => Tolerancia.Porcentaje(proveedor.Tolerancia.Valor),
             _ => throw new BusinessRuleException("TOLERANCIA_TIPO_INVALIDO", "El tipo de tolerancia no es válido."),
         };
     }
