@@ -110,8 +110,7 @@ public sealed class EventosContablesG16Tests
         var captura = new Captura();
         var handler = new RegistrarPagoProveedorHandler(db, new FakeEmpresa(), new FakeUser(), new Abierto(),
             new SinDatosDeProveedor(), new ElegibleSinLimite(), captura, new FakeClock());
-        await FluentActions.Awaiting(() => handler.Handle(new(cuenta.Id, Fecha, [new(pasivo.FacturaProveedorId, 100m)],
-                FondosVerificados: true), default))
+        await FluentActions.Awaiting(() => handler.Handle(new(cuenta.Id, Fecha, [new(pasivo.FacturaProveedorId, 100m)]), default))
             .Should().ThrowAsync<Millet.SharedKernel.Application.Exceptions.BusinessRuleException>()
             .Where(e => e.Code == "PROVEEDOR_NO_ENCONTRADO");
         (await db.MovimientosBancarios.AnyAsync()).Should().BeFalse();
@@ -126,8 +125,7 @@ public sealed class EventosContablesG16Tests
         await db.SaveChangesAsync();
         var handler = new RegistrarPagoProveedorHandler(db, new FakeEmpresa(), new FakeUser(), new Abierto(),
             new ConCuentas { Cuentas = [] }, new ElegibleSinLimite(), new Captura(), new FakeClock());
-        await FluentActions.Awaiting(() => handler.Handle(new(cuenta.Id, Fecha, [new(pasivo.FacturaProveedorId, 100m)],
-                FondosVerificados: true), default))
+        await FluentActions.Awaiting(() => handler.Handle(new(cuenta.Id, Fecha, [new(pasivo.FacturaProveedorId, 100m)]), default))
             .Should().ThrowAsync<Millet.SharedKernel.Application.Exceptions.BusinessRuleException>()
             .Where(e => e.Code == "PROVEEDOR_SIN_CUENTA_ACTIVA");
     }
@@ -142,7 +140,7 @@ public sealed class EventosContablesG16Tests
         var handler = new RegistrarPagoProveedorHandler(db, new FakeEmpresa(), new FakeUser(), new Abierto(),
             new ConCuentas { Cuentas = [usd] }, new ElegibleSinLimite(), new Captura(), new FakeClock());
         await FluentActions.Awaiting(() => handler.Handle(new(cuenta.Id, Fecha, [new(pasivo.FacturaProveedorId, 100m)],
-                CuentaProveedorId: usd.Id, FondosVerificados: true), default))
+                CuentaProveedorId: usd.Id), default))
             .Should().ThrowAsync<Millet.SharedKernel.Application.Exceptions.BusinessRuleException>()
             .Where(e => e.Code == "PROVEEDOR_CUENTA_OTRA_MONEDA");
         (await db.MovimientosBancarios.AnyAsync()).Should().BeFalse();
@@ -156,8 +154,7 @@ public sealed class EventosContablesG16Tests
         await db.SaveChangesAsync();
         var handler = new RegistrarPagoProveedorHandler(db, new FakeEmpresa(), new FakeUser(), new Abierto(),
             new ConCuentas { Activo = false, Cuentas = ProveedorActivo().Cuentas }, new ElegibleSinLimite(), new Captura(), new FakeClock());
-        await FluentActions.Awaiting(() => handler.Handle(new(cuenta.Id, Fecha, [new(pasivo.FacturaProveedorId, 100m)],
-                FondosVerificados: true), default))
+        await FluentActions.Awaiting(() => handler.Handle(new(cuenta.Id, Fecha, [new(pasivo.FacturaProveedorId, 100m)]), default))
             .Should().ThrowAsync<Millet.SharedKernel.Application.Exceptions.BusinessRuleException>()
             .Where(e => e.Code == "PROVEEDOR_NO_ACTIVO");
         (await db.MovimientosBancarios.AnyAsync()).Should().BeFalse();
