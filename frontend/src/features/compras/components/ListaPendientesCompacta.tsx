@@ -75,11 +75,8 @@ function ItemCompacto({ item, activo, requisitante, search }: ItemCompactoProps)
           </span>
           <div className="flex shrink-0 flex-col items-end gap-1">
             <EstadoBadge tipo="requisicion" estado={item.estado} />
-            {item.esRecurrente === true ? (
-              <RecurrenteBadge esRecurrente />
-            ) : (
-              <DisponibilidadBadge disponibilidad={item.disponibilidad} />
-            )}
+            {!item.esRecurrente && <DisponibilidadBadge disponibilidad={item.disponibilidad} />}
+            <RecurrenteBadge esRecurrente={item.esRecurrente} />
             {item.nivelPendiente != null && (
               <span className="text-xs text-ink-muted">Falta N{item.nivelPendiente}</span>
             )}

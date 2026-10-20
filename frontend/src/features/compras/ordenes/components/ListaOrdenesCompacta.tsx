@@ -72,7 +72,7 @@ function ItemCompacto({ item, activo, search }: ItemCompactoProps) {
           </span>
           <span className="flex flex-wrap justify-end gap-1">
             <EstadoBadge tipo="orden-compra" estado={item.estado} />
-            <RecurrenteBadge esRecurrente={item.esRecurrente === true} />
+            <RecurrenteBadge esRecurrente={item.esRecurrente} />
           </span>
         </div>
         <div className="mt-1 flex items-center justify-between gap-2 text-xs text-muted-foreground">
