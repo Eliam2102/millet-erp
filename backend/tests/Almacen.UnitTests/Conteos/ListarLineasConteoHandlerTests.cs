@@ -106,7 +106,7 @@ public class ListarLineasConteoHandlerTests
     // ─── Infra de test ───
 
     private static ArticuloLectura Lectura(Guid id, string clave, string descripcion) =>
-        new(id, clave, descripcion, "PZA", null, null, EsActivo: true);
+        new(id, clave, descripcion, "PZA", null, EsActivo: true);
 
     /// <summary>
     /// Conteo con 3 líneas en la zona HG1: ArticuloA en los racks HG1-06 y

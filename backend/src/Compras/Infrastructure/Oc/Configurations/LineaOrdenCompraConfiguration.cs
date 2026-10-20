@@ -39,7 +39,7 @@ public sealed class LineaOrdenCompraConfiguration : IEntityTypeConfiguration<Lin
             t.HasCheckConstraint("ck_oc_lineas_precio_nn", "precio_unitario >= 0");
             t.HasCheckConstraint("ck_oc_lineas_recibida_nn", "cantidad_recibida >= 0");
             t.HasCheckConstraint("ck_oc_lineas_facturada_nn", "cantidad_facturada >= 0");
-            // La tolerancia por material llega a 100 %; el techo exacto lo valida el dominio. La base conserva una cota de seguridad.
+            // El techo exacto (= cantidad, sin tolerancia en piezas) lo valida el dominio; la base conserva una cota de seguridad (× 2) por datos históricos.
             t.HasCheckConstraint("ck_oc_lineas_recibida_max", "cantidad_recibida <= cantidad * 2");
             t.HasCheckConstraint("ck_oc_lineas_facturada_max", "cantidad_facturada <= GREATEST(cantidad, cantidad_recibida)");
             t.HasCheckConstraint("ck_oc_lineas_rq_coherente",

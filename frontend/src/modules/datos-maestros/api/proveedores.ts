@@ -362,11 +362,11 @@ function buildListarProveedoresPath(
 
 export function useActualizarToleranciaProveedor() {
   const queryClient = useQueryClient();
-  return useMutation<void, Error, { id: string; montoMxn: number | null; esPorcentaje: boolean; idempotencyKey: string }>({
-    mutationFn: async ({ id, montoMxn, esPorcentaje, idempotencyKey }) => {
+  return useMutation<void, Error, { id: string; montoMxn: number | null; idempotencyKey: string }>({
+    mutationFn: async ({ id, montoMxn, idempotencyKey }) => {
       await apiRequest<void>(`/api/v1/datos-maestros/proveedores/${id}/tolerancia`, {
         method: 'PUT',
-        body: { montoMxn, esPorcentaje },
+        body: { montoMxn },
         idempotencyKey,
       });
     },
