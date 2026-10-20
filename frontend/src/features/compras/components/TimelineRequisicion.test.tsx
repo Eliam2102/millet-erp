@@ -53,13 +53,13 @@ describe('<TimelineRequisicion>', () => {
     expect(screen.getByText('Sistema')).toBeInTheDocument();
   });
 
-  it('actor no resuelto (actorNombre null con actorId presente) indica Por confirmar', () => {
+  it('actor no resuelto (actorNombre null con actorId presente) indica el dato faltante', () => {
     render(
       <TimelineRequisicion
         entradas={[entry({ actorId: 'u-sin-nombre', actorNombre: null })]}
       />,
     );
-    expect(screen.getByText('[RESPONSABLE]')).toBeInTheDocument();
+    expect(screen.getByText('Sin asignar')).toBeInTheDocument();
   });
 
   it('cambios JSON no vacío muestra botón "Ver cambios"; click lo expande', () => {

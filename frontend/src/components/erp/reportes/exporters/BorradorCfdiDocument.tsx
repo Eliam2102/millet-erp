@@ -22,7 +22,7 @@ export function BorradorCfdiDocument({ datos }: { datos: BorradorCfdi }) {
     <Page size="A4" style={styles.page}>
       <Text fixed style={styles.watermark}>BORRADOR · sin validez fiscal</Text>
       <Text style={styles.title}>{datos.tipo} · Vista previa</Text>
-      <Text style={styles.meta}>Emisor: {datos.emisor || '[EMISOR]'}</Text>
+      <Text style={styles.meta}>Emisor: {datos.emisor || 'Sin emisor'}</Text>
       <Text style={styles.meta}>Receptor: {datos.receptor}</Text>
       <Text style={styles.meta}>Uso CFDI: {datos.usoCfdi} · Método: {datos.metodoPago} · Forma de pago: {datos.formaPago}</Text>
       <View style={[styles.row, styles.heading]}><Text style={styles.description}>Partidas</Text><Text style={styles.amount}>Cantidad</Text><Text style={styles.amount}>Importe</Text></View>

@@ -94,9 +94,9 @@ function EntradaTimeline({ entrada }: EntradaTimelineProps) {
   const Icon = config.icon;
   const label = HISTORICO_TIPO_LABEL[entrada.tipo] ?? `Tipo ${entrada.tipo}`;
   // Actor resuelto en backend (ADR-0042): sin actor → "Sistema"; no resuelto
-  // (service principal / borrado) → indica Por confirmar.
+  // (service principal / borrado) → indica el dato faltante.
   const actor =
-    entrada.actorId == null ? 'Sistema' : entrada.actorNombre?.trim() || '[RESPONSABLE]';
+    entrada.actorId == null ? 'Sistema' : entrada.actorNombre?.trim() || 'Sin asignar';
   const cambiosLegible = formatearCambios(entrada.cambios);
 
   return (
@@ -113,7 +113,7 @@ function EntradaTimeline({ entrada }: EntradaTimelineProps) {
       <div className="min-w-0 flex-1">
         <p className="text-sm">
           <span className="font-medium">{label}</span> <span className="text-ink-muted">por</span>{' '}
-          <span className="font-medium">{actor}</span>
+          <span className={cn('font-medium', actor === 'Sin asignar' && 'text-ink-muted')}>{actor}</span>
         </p>
         <p className="text-xs text-ink-muted">
           <DateTimeDisplay value={entrada.timestamp} variant="datetime" />

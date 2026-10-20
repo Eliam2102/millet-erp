@@ -361,7 +361,7 @@ function TablaFacturas({ items }: TablaFacturasProps) {
                   />
                 </TableCell>
                 <TableCell className="font-mono text-xs text-ink-muted">
-                  {f.ordenCompraId ? (f.ordenCompraFolio?.trim() || '[FOLIO POR CONFIRMAR]') : '—'}
+                  {f.ordenCompraId ? (f.ordenCompraFolio?.trim() || 'Sin número') : '—'}
                 </TableCell>
                 <TableCell className="text-right tabular-nums">
                   <MoneyDisplay amount={f.total} currency={f.moneda} strong />

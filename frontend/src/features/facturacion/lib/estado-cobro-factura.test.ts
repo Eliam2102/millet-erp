@@ -9,7 +9,7 @@ describe('estado del cobro de factura', () => {
     ['PPD', 40, 76, 'Parcial (PPD)'],
     ['PPD', 116, 0, 'Cobrada'],
     ['PPD', 0, 0, 'Sin monto por cobrar'],
-    ['desconocido', 0, 116, 'Por confirmar'],
+    ['desconocido', 0, 116, 'Sin estado de cobro'],
   ])('%s, pagado %s, saldo %s → %s', (metodoPago, pagadoPorRep, totalPorCobrar, esperado) => {
     expect(estadoCobroFactura({ metodoPago, pagadoPorRep, totalPorCobrar, cobroMostrador: null })).toBe(esperado);
   });

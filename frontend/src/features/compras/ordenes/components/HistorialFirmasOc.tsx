@@ -36,7 +36,7 @@ export function HistorialFirmasOc({
                 <>
                   <p className="text-ink-secondary">
                     Motivo:{' '}
-                    {firma.motivoRechazoNombre ?? firma.motivoRechazoTexto ?? 'No disponible'}
+                    {firma.motivoRechazoNombre ?? firma.motivoRechazoTexto ?? 'Sin motivo'}
                   </p>
                   {firma.motivoRechazoNombre && firma.motivoRechazoTexto && (
                     <p className="text-ink-secondary">{firma.motivoRechazoTexto}</p>

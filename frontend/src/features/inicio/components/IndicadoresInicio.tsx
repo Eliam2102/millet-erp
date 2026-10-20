@@ -14,7 +14,7 @@ export function IndicadoresInicio({ items }: { items: PiezaResuelta[] }) {
       const contenido = <>
         <span className="text-xs text-ink-muted">{pieza.titulo}</span>
         {estado === 'cargando' ? <Skeleton className="h-7 w-16" /> : estado === 'error' ?
-          <p className="text-xs text-danger-fg">No se pudo cargar. Por confirmar.</p> : <>
+          <p className="text-xs text-danger-fg">No se pudieron cargar los datos.</p> : <>
             <span className="text-3xl font-semibold tabular-nums">{data?.valorTexto ?? (pieza.moneda ? formatoMontoInicio(data?.valor ?? 0) : data?.valor)}</span>
             <span className="text-xs text-ink-muted">{data?.contexto}</span>
             <Badge variant={data?.urgentes ? 'warning' : 'neutral'} className="self-start text-2xs">{data?.urgentes ? `${data.urgentes} requieren atención` : 'Al día'}</Badge>

@@ -62,7 +62,7 @@ export function ControlOrigenAw({
     <div
       className={cn('mt-4 space-y-2 rounded-md bg-surface-subtle p-3 text-sm text-ink', className)}
     >
-      <p role="status">{estado ? etiquetaAwOrigen(estado, area) : 'Origen aún no disponible'}</p>
+      <p role="status">{estado ? etiquetaAwOrigen(estado, area) : 'Sin origen'}</p>
       {consulta.isError && (
         <p className="text-xs text-danger-fg">
           No se pudo consultar el origen de A+W. Reintenta al abrir esta pantalla.

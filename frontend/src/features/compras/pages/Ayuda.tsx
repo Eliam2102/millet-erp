@@ -93,7 +93,7 @@ function SeccionGlosarioEstados() {
       <p className="text-sm text-ink-muted">
         Una requisición pasa por estos 10 estados durante su ciclo de vida. Los primeros son del
         flujo normal; los terminales por intervención son rechazo, cancelación, eliminación y cierre
-        manual del jefe de almacén (sin surtir o surtida parcialmente, ADR-0043).
+        manual del jefe de almacén (sin surtir o surtida parcialmente).
       </p>
       <div className="space-y-2">
         {estadosOrdenados.map(({ key, value }) => (

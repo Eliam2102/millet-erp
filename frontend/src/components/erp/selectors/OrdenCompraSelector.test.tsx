@@ -54,7 +54,7 @@ describe('<OrdenCompraSelector>', () => {
     expect(await screen.findByText('OC-MID2026-000002 · Vidrios del Sur')).toBeInTheDocument();
   });
 
-  it('sin resolver, muestra [OC POR CONFIRMAR] y nunca el GUID', async () => {
+  it('sin resolver, muestra Sin número y nunca el GUID', async () => {
     mswServer.use(
       http.get('*/api/v1/compras/ordenes', () =>
         HttpResponse.json({ items: [], page: 1, pageSize: 20, totalCount: 0 }),
@@ -62,7 +62,7 @@ describe('<OrdenCompraSelector>', () => {
       http.get('*/api/v1/compras/ordenes/oc-x', () => new HttpResponse(null, { status: 404 })),
     );
     render(<OrdenCompraSelector value="oc-x" onChange={() => {}} />, { wrapper: createQueryWrapper() });
-    expect(await screen.findByText('[OC POR CONFIRMAR]')).toBeInTheDocument();
+    expect(await screen.findByText('Sin número')).toBeInTheDocument();
     expect(screen.queryByText(/oc-x/)).toBeNull();
   });
 

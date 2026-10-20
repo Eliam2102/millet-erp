@@ -14,7 +14,7 @@ export default function Ejemplo() {
               Adjuntos
             </TabsTrigger>
           </TabsList>
-          <TabsContent value="datos">[DATOS FICTICIOS]</TabsContent>
+          <TabsContent value="datos">Orden de compra OC-2026-0412</TabsContent>
           <TabsContent value="actividad">Sin actividad ficticia</TabsContent>
         </Tabs>
       ))}

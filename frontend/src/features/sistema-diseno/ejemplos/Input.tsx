@@ -5,7 +5,7 @@ export default function Ejemplo() {
     <div className="space-y-3">
       <label>
         Referencia ficticia
-        <Input placeholder="[REFERENCIA]" />
+        <Input placeholder="Ej. TRF-0412" />
       </label>
       <label>
         Referencia obligatoria *
@@ -16,7 +16,7 @@ export default function Ejemplo() {
       </p>
       <label>
         Referencia bloqueada
-        <Input disabled title="El ejemplo ya está autorizado" defaultValue="[AUTORIZADA]" />
+        <Input disabled title="El ejemplo ya está autorizado" defaultValue="Autorizada" />
       </label>
     </div>
   );

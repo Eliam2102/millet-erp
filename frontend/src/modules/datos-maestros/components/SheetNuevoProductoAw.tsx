@@ -260,7 +260,7 @@ function NuevoProductoAwForm({ onClose, onDirtyChange }: NuevoProductoAwFormProp
           <FormCampo span={6}>
             <FormRow
               label="Unidad del catálogo"
-              hint="Opcional. Del catálogo de unidades (ADR-0046)."
+              hint="Opcional. Del catálogo de unidades."
               error={form.formState.errors.unidadMedidaId?.message}
             >
               <Controller
