@@ -9,17 +9,10 @@ import {
   CommandItem,
   CommandList,
 } from '@/components/ui/command';
-import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-} from '@/components/ui/popover';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { useRecepcion, useRecepciones } from '@/features/almacen/api/useRecepciones';
 import { useDebouncedValue } from '@/lib/hooks/useDebouncedValue';
-import {
-  EstadoMovimiento,
-  type RecepcionListItem,
-} from '@/features/almacen/api/types';
+import { EstadoMovimiento, type RecepcionListItem } from '@/features/almacen/api/types';
 import { cn } from '@/lib/utils';
 import { CatalogoQueryError } from '@/components/erp/selectors/CatalogoQueryError';
 
@@ -74,10 +67,7 @@ export function RecepcionPicker({
   const seleccionada = enLista ?? (detalle.data && value ? detalle.data : undefined);
 
   function ocDe(r: RecepcionListItem) {
-    return (
-      r.ordenCompraFolio ??
-      (r.ordenCompraId ? `${r.ordenCompraId.slice(0, 8)}…` : null)
-    );
+    return r.ordenCompraFolio ?? (r.ordenCompraId ? `${r.ordenCompraId.slice(0, 8)}…` : null);
   }
 
   const triggerLabel = seleccionada
@@ -98,7 +88,7 @@ export function RecepcionPicker({
           disabled={disabled}
           className={cn(
             'w-full justify-between font-normal',
-            !seleccionada && 'text-muted-foreground',
+            !seleccionada && 'text-ink-muted',
             className,
           )}
         >
@@ -116,7 +106,7 @@ export function RecepcionPicker({
           <CommandList>
             {query.isLoading ? (
               <div
-                className="flex items-center justify-center gap-2 py-6 text-sm text-muted-foreground"
+                className="flex items-center justify-center gap-2 py-6 text-sm text-ink-muted"
                 aria-live="polite"
               >
                 <Loader2 className="h-4 w-4 animate-spin" />
@@ -153,23 +143,18 @@ export function RecepcionPicker({
                       >
                         <div className="min-w-0 flex-1">
                           <div className="flex items-center gap-2">
-                            <span className="truncate font-mono text-xs">
-                              {r.folio}
-                            </span>
-                            <span className="rounded bg-muted px-1.5 py-0.5 text-2xs font-medium text-muted-foreground">
+                            <span className="truncate font-mono text-xs">{r.folio}</span>
+                            <span className="rounded bg-surface-muted px-1.5 py-0.5 text-2xs font-medium text-ink-muted">
                               MXN {r.montoTotalMxn.toFixed(2)}
                             </span>
                           </div>
-                          <p className="truncate text-xs text-muted-foreground">
+                          <p className="truncate text-xs text-ink-muted">
                             {oc ? `OC ${oc} · ` : ''}
                             {r.fechaMovimiento}
                           </p>
                         </div>
                         {r.id === value && (
-                          <Check
-                            className="h-4 w-4 shrink-0"
-                            aria-hidden="true"
-                          />
+                          <Check className="h-4 w-4 shrink-0" aria-hidden="true" />
                         )}
                       </CommandItem>
                     );

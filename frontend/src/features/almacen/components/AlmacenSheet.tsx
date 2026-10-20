@@ -1,3 +1,6 @@
+import { FormSeccion } from '@/components/erp/forms/FormSeccion';
+import { FormCampo } from '@/components/erp/forms/FormGrid';
+import { SheetBody } from '@/components/ui/sheet';
 import { useEffect } from 'react';
 import { Controller, useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -21,20 +24,9 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { SucursalSelector } from '@/components/erp';
-import {
-  applyServerErrors,
-  esApiError,
-  useFormIdempotencyKey,
-  codigoSoporte,
-} from '@/lib/api';
-import {
-  CrearAlmacenSchema,
-  type CrearAlmacenValues,
-} from '@/features/almacen/schemas/almacen';
-import {
-  useCrearAlmacen,
-  useEditarAlmacen,
-} from '@/features/almacen/api/useAlmacenes';
+import { applyServerErrors, esApiError, useFormIdempotencyKey, codigoSoporte } from '@/lib/api';
+import { CrearAlmacenSchema, type CrearAlmacenValues } from '@/features/almacen/schemas/almacen';
+import { useCrearAlmacen, useEditarAlmacen } from '@/features/almacen/api/useAlmacenes';
 import {
   EstatusCatalogo,
   EstatusCatalogoLabels,
@@ -68,11 +60,7 @@ const ESTATUS_OPTIONS: readonly EstatusCatalogo[] = [
   EstatusCatalogo.Borrador,
 ];
 
-export function AlmacenSheet({
-  open,
-  onOpenChange,
-  editando,
-}: AlmacenSheetProps) {
+export function AlmacenSheet({ open, onOpenChange, editando }: AlmacenSheetProps) {
   const idempotencyKey = useFormIdempotencyKey();
   const crear = useCrearAlmacen();
   const editar = useEditarAlmacen();
@@ -88,9 +76,7 @@ export function AlmacenSheet({
   });
 
   // Cerrar (Esc, clic fuera, X, Cancelar) con cambios pide confirmación; guardar cierra con force.
-  const { setDirty, solicitarCierre, dialogo } = useConfirmarDescarte(() =>
-    onOpenChange(false),
-  );
+  const { setDirty, solicitarCierre, dialogo } = useConfirmarDescarte(() => onOpenChange(false));
   const isDirty = form.formState.isDirty;
   useEffect(() => {
     setDirty(isDirty);
@@ -159,12 +145,7 @@ export function AlmacenSheet({
         });
         return;
       }
-      if (
-        applyServerErrors(
-          form as unknown as Parameters<typeof applyServerErrors>[0],
-          error,
-        )
-      ) {
+      if (applyServerErrors(form as unknown as Parameters<typeof applyServerErrors>[0], error)) {
         return;
       }
       toast.error(error.problem.title, {
@@ -178,15 +159,10 @@ export function AlmacenSheet({
   const isPending = crear.isPending || editar.isPending;
 
   return (
-    <Sheet
-      open={open}
-      onOpenChange={(next) => (next ? onOpenChange(next) : solicitarCierre())}
-    >
-      <SheetContent side="right" size="form">
+    <Sheet open={open} onOpenChange={(next) => (next ? onOpenChange(next) : solicitarCierre())}>
+      <SheetContent side="right" size="lg">
         <SheetHeader>
-          <SheetTitle>
-            {editando ? 'Editar almacén' : 'Nuevo almacén'}
-          </SheetTitle>
+          <SheetTitle>{editando ? 'Editar almacén' : 'Nuevo almacén'}</SheetTitle>
           <SheetDescription>
             {editando
               ? 'Modifica la clave, nombre, sucursal o estatus del almacén.'
@@ -194,98 +170,102 @@ export function AlmacenSheet({
           </SheetDescription>
         </SheetHeader>
 
-        <form
-          id="almacen-form"
-          onSubmit={form.handleSubmit(onSubmit)}
-          noValidate
-          className="grid flex-1 grid-cols-2 content-start gap-x-4 gap-y-3.5 overflow-y-auto px-6"
-        >
-          <Field
-            className="col-span-2"
-            label="Clave"
-            required
-            error={form.formState.errors.clave?.message}
+        <SheetBody>
+          <form
+            id="almacen-form"
+            onSubmit={form.handleSubmit(onSubmit)}
+            noValidate
+            className="space-y-4"
           >
-            <Controller
-              name="clave"
-              control={form.control}
-              render={({ field }) => (
-                <Input
-                  {...field}
-                  value={field.value ?? ''}
-                  maxLength={20}
-                  placeholder="Ej. ALM-MTY"
-                  autoFocus={!editando}
-                />
-              )}
-            />
-          </Field>
-
-          <Field
-            className="col-span-2"
-            label="Nombre"
-            required
-            error={form.formState.errors.nombre?.message}
-          >
-            <Controller
-              name="nombre"
-              control={form.control}
-              render={({ field }) => (
-                <Input
-                  {...field}
-                  value={field.value ?? ''}
-                  maxLength={254}
-                  placeholder="Nombre descriptivo"
-                />
-              )}
-            />
-          </Field>
-
-          <Field
-            label="Sucursal"
-            required
-            error={form.formState.errors.sucursalId?.message}
-          >
-            <Controller
-              name="sucursalId"
-              control={form.control}
-              render={({ field }) => (
-                <SucursalSelector
-                  value={field.value || null}
-                  onChange={(id) => field.onChange(id ?? '')}
-                />
-              )}
-            />
-          </Field>
-
-          <Field
-            label="Estatus"
-            required
-            error={form.formState.errors.estatus?.message}
-          >
-            <Controller
-              name="estatus"
-              control={form.control}
-              render={({ field }) => (
-                <Select
-                  value={String(field.value)}
-                  onValueChange={(v) => field.onChange(Number(v))}
+            <FormSeccion numero={1} titulo="Datos del almacén">
+              <FormCampo span={12}>
+                <Field
+                  className="col-span-2"
+                  label="Clave"
+                  required
+                  error={form.formState.errors.clave?.message}
                 >
-                  <SelectTrigger>
-                    <SelectValue placeholder="Seleccionar estatus" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {ESTATUS_OPTIONS.map((e) => (
-                      <SelectItem key={e} value={String(e)}>
-                        {EstatusCatalogoLabels[e]}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              )}
-            />
-          </Field>
-        </form>
+                  <Controller
+                    name="clave"
+                    control={form.control}
+                    render={({ field }) => (
+                      <Input
+                        {...field}
+                        value={field.value ?? ''}
+                        maxLength={20}
+                        placeholder="Ej. ALM-MTY"
+                        autoFocus={!editando}
+                      />
+                    )}
+                  />
+                </Field>
+              </FormCampo>
+
+              <FormCampo span={12}>
+                <Field
+                  className="col-span-2"
+                  label="Nombre"
+                  required
+                  error={form.formState.errors.nombre?.message}
+                >
+                  <Controller
+                    name="nombre"
+                    control={form.control}
+                    render={({ field }) => (
+                      <Input
+                        {...field}
+                        value={field.value ?? ''}
+                        maxLength={254}
+                        placeholder="Nombre descriptivo"
+                      />
+                    )}
+                  />
+                </Field>
+              </FormCampo>
+
+              <FormCampo span={6}>
+                <Field label="Sucursal" required error={form.formState.errors.sucursalId?.message}>
+                  <Controller
+                    name="sucursalId"
+                    control={form.control}
+                    render={({ field }) => (
+                      <SucursalSelector
+                        value={field.value || null}
+                        onChange={(id) => field.onChange(id ?? '')}
+                      />
+                    )}
+                  />
+                </Field>
+              </FormCampo>
+
+              <FormCampo span={6}>
+                <Field label="Estatus" required error={form.formState.errors.estatus?.message}>
+                  <Controller
+                    name="estatus"
+                    control={form.control}
+                    render={({ field }) => (
+                      <Select
+                        value={String(field.value)}
+                        onValueChange={(v) => field.onChange(Number(v))}
+                      >
+                        <SelectTrigger>
+                          <SelectValue placeholder="Seleccionar estatus" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {ESTATUS_OPTIONS.map((e) => (
+                            <SelectItem key={e} value={String(e)}>
+                              {EstatusCatalogoLabels[e]}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    )}
+                  />
+                </Field>
+              </FormCampo>
+            </FormSeccion>
+          </form>
+        </SheetBody>
 
         <SheetFooter>
           <Button
@@ -297,11 +277,7 @@ export function AlmacenSheet({
             Cancelar
           </Button>
           <Button type="submit" form="almacen-form" disabled={isPending}>
-            {isPending
-              ? 'Guardando…'
-              : editando
-                ? 'Guardar cambios'
-                : 'Crear almacén'}
+            {isPending ? 'Guardando…' : editando ? 'Guardar cambios' : 'Crear almacén'}
           </Button>
         </SheetFooter>
       </SheetContent>
@@ -309,4 +285,3 @@ export function AlmacenSheet({
     </Sheet>
   );
 }
-

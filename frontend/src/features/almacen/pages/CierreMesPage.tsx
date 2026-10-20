@@ -143,7 +143,8 @@ export function CierreMesPage() {
               <SelectContent>
                 {opciones.map((p) => (
                   <SelectItem key={claveDe(p.anio, p.mes)} value={claveDe(p.anio, p.mes)}>
-                    {claveDe(p.anio, p.mes)} — {MES_NOMBRES[p.mes]} ({p.cerrado ? 'Cerrado' : 'Abierto'})
+                    {claveDe(p.anio, p.mes)} — {MES_NOMBRES[p.mes]} (
+                    {p.cerrado ? 'Cerrado' : 'Abierto'})
                   </SelectItem>
                 ))}
               </SelectContent>

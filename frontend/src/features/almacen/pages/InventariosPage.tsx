@@ -1,3 +1,5 @@
+import { KpiCard } from '@/components/erp/display/KpiCard';
+import { ListadoModulo } from '@/components/erp/data/ListadoModulo';
 import { PageHeader } from '@/components/erp/PageHeader';
 import { useMemo, useState } from 'react';
 import { Link, useNavigate, useSearch } from '@tanstack/react-router';
@@ -55,12 +57,7 @@ import { DateTimeDisplay } from '@/components/erp/display/DateTimeDisplay';
 const FROM = '/_app/almacen/inventarios/' as const;
 const SENTINEL_ALL = '__all__';
 
-type SortKey =
-  | 'tipo'
-  | 'estado'
-  | 'fechaPlanificada'
-  | 'subAlmacen'
-  | 'capturadas';
+type SortKey = 'tipo' | 'estado' | 'fechaPlanificada' | 'subAlmacen' | 'capturadas';
 
 /**
  * <c>P7 — Bandeja de conteos</c> (doc 07 §FE-F5-PR1). Lista los
@@ -72,9 +69,7 @@ export function InventariosPage() {
   const search = useSearch({ from: FROM });
   const navigate = useNavigate();
 
-  const puedeCrear = useHasPermission(
-    PermisosCanonicos.AlmacenInventariosCrear,
-  );
+  const puedeCrear = useHasPermission(PermisosCanonicos.AlmacenInventariosCrear);
 
   const [sheetAbierto, setSheetAbierto] = useState(false);
 
@@ -107,7 +102,7 @@ export function InventariosPage() {
   }
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-5">
       <PageHeader
         titulo="Inventario físico"
         descripcion="Conteos rotativos y anuales. Captura sin sesgo (A6) — el contador NO ve la cantidad teórica."
@@ -123,60 +118,87 @@ export function InventariosPage() {
         }
       />
 
-      <TabsEstado
-        opciones={TABS_ESTADO}
-        valor={search.estado}
-        onChange={(estado) => actualizarSearch({ estado: estado as EstadoConteo | undefined })}
-        conteos={conteos.data}
-      />
-
-      <FiltrosToolbar
-        search={search}
-        subAlmacenes={subAlmacenesQuery.data?.items ?? []}
-        total={query.data?.total}
-        onChange={actualizarSearch}
-      />
-
-      {query.isError ? (
-        <ErrorState
-          title="No se pudieron cargar los conteos"
-          problem={esApiError(query.error) ? query.error.problem : undefined}
-          onRetry={() => query.refetch()}
-        />
-      ) : query.isLoading ? (
-        <TableSkeleton
-          rows={6}
-          columns={[
-            { width: 'w-24' },
-            { width: 'w-32' },
-            { width: 'w-32' },
-            { width: 'w-40' },
-            { width: 'w-32' },
-            { width: 'w-32' },
-          ]}
-        />
-      ) : (query.data?.items ?? []).length === 0 ? (
-        <EmptyState
-          title="Sin conteos"
-          description={
-            search.q || search.estado != null || search.tipo != null || search.subAlmacenId
-              ? 'No hay conteos que coincidan con los filtros aplicados.'
-              : puedeCrear
-              ? 'No hay conteos. Usa "Nuevo conteo" para planificar uno.'
-              : 'No hay conteos registrados.'
-          }
-        />
-      ) : (
-        <div className="overflow-hidden rounded-lg border border-line-row bg-surface-card">
-          <TablaConteos items={query.data!.items} subAlmacenesMap={subAlmacenesMap} />
+      <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+        {TABS_ESTADO.filter((tab) =>
+          [
+            EstadoConteo.Planificado,
+            EstadoConteo.EnCurso,
+            EstadoConteo.EnConciliacion,
+            EstadoConteo.Aprobado,
+          ].some((estado) => estado === tab.valor),
+        ).map((tab) => (
+          <Button
+            key={tab.valor}
+            variant="ghost"
+            className="h-auto items-stretch p-0 text-left [&>div]:w-full"
+            aria-pressed={search.estado === tab.valor}
+            onClick={() => actualizarSearch({ estado: tab.valor as typeof search.estado })}
+          >
+            <KpiCard etiqueta={tab.label} valor={conteos.data?.[tab.valor] ?? '—'} />
+          </Button>
+        ))}
+      </div>
+      <ListadoModulo
+        tabs={
+          <TabsEstado
+            opciones={TABS_ESTADO}
+            valor={search.estado}
+            onChange={(estado) => actualizarSearch({ estado: estado as EstadoConteo | undefined })}
+            conteos={conteos.data}
+          />
+        }
+        filtros={
+          <FiltrosToolbar
+            search={search}
+            subAlmacenes={subAlmacenesQuery.data?.items ?? []}
+            total={query.data?.total}
+            onChange={actualizarSearch}
+          />
+        }
+        pie={
           <PaginacionTabla
-            total={query.data!.total}
-            offset={query.data!.offset}
-            limit={query.data!.limit}
+            total={query.data?.total ?? 0}
+            offset={query.data?.offset ?? 0}
+            limit={query.data?.limit ?? paginaAOffsetLimit(search).limit}
             onChange={(offset, limit) => actualizarSearch(offsetLimitAPagina(offset, limit))}
           />
-        </div>
-      )}
+        }
+      >
+        {query.isError ? (
+          <ErrorState
+            title="No se pudieron cargar los conteos"
+            problem={esApiError(query.error) ? query.error.problem : undefined}
+            onRetry={() => query.refetch()}
+          />
+        ) : query.isLoading ? (
+          <TableSkeleton
+            rows={6}
+            columns={[
+              { width: 'w-24' },
+              { width: 'w-32' },
+              { width: 'w-32' },
+              { width: 'w-40' },
+              { width: 'w-32' },
+              { width: 'w-32' },
+            ]}
+          />
+        ) : (query.data?.items ?? []).length === 0 ? (
+          <EmptyState
+            title="Sin conteos"
+            description={
+              search.q || search.estado != null || search.tipo != null || search.subAlmacenId
+                ? 'No hay conteos que coincidan con los filtros aplicados.'
+                : puedeCrear
+                  ? 'No hay conteos. Usa "Nuevo conteo" para planificar uno.'
+                  : 'No hay conteos registrados.'
+            }
+          />
+        ) : (
+          <div className="overflow-hidden rounded-lg border border-line-row bg-surface-card">
+            <TablaConteos items={query.data!.items} subAlmacenesMap={subAlmacenesMap} />
+          </div>
+        )}
+      </ListadoModulo>
 
       <NuevoConteoSheet open={sheetAbierto} onOpenChange={setSheetAbierto} />
     </div>
@@ -199,12 +221,7 @@ interface FiltrosToolbarProps {
   onChange: (parcial: Partial<ConteosSearch>) => void;
 }
 
-function FiltrosToolbar({
-  search,
-  subAlmacenes,
-  total,
-  onChange,
-}: FiltrosToolbarProps) {
+function FiltrosToolbar({ search, subAlmacenes, total, onChange }: FiltrosToolbarProps) {
   const algun = search.q || search.tipo != null || search.subAlmacenId;
 
   return (
@@ -243,9 +260,7 @@ function FiltrosToolbar({
           </Select>
           <Select
             value={search.subAlmacenId ?? SENTINEL_ALL}
-            onValueChange={(v) =>
-              onChange({ subAlmacenId: v === SENTINEL_ALL ? undefined : v })
-            }
+            onValueChange={(v) => onChange({ subAlmacenId: v === SENTINEL_ALL ? undefined : v })}
           >
             <SelectTrigger aria-label="Filtrar por sub-almacén" className="h-ctl-md w-48 text-xs">
               <SelectValue placeholder="Todos los sub-almacenes" />
@@ -294,9 +309,7 @@ function TablaConteos({
 
   const ordenados = useMemo(() => {
     if (sort == null) return enriquecidos;
-    return [...enriquecidos].sort((a, b) =>
-      compareItemsBy(a, b, sort.key, sort.dir),
-    );
+    return [...enriquecidos].sort((a, b) => compareItemsBy(a, b, sort.key, sort.dir));
   }, [enriquecidos, sort]);
 
   return (
@@ -305,12 +318,7 @@ function TablaConteos({
         <TableHeader>
           <TableRow>
             <TableHead>
-              <SortableHeader
-                columnKey="tipo"
-                label="Tipo"
-                current={sort}
-                onSortChange={setSort}
-              />
+              <SortableHeader columnKey="tipo" label="Tipo" current={sort} onSortChange={setSort} />
             </TableHead>
             <TableHead>
               <SortableHeader
@@ -366,9 +374,7 @@ function TablaConteos({
                 <DateTimeDisplay value={c.fechaPlanificada} variant="corta" />
               </TableCell>
               <TableCell className="font-mono text-xs">{c.subAlmacen}</TableCell>
-              <TableCell className="text-xs text-ink-muted">
-                {c.filtroFamilia ?? '—'}
-              </TableCell>
+              <TableCell className="text-xs text-ink-muted">{c.filtroFamilia ?? '—'}</TableCell>
               <TableCell className="text-right font-mono tabular-nums">
                 {c.cantidadCapturadas} / {c.cantidadLineas}
               </TableCell>

@@ -25,9 +25,7 @@ export function construirFilas(
     .filter((l) => !l.esServicio) // CA2.10: los servicios no se reciben en Almacén
     .map((l) => {
       const r = porLinea.get(l.id);
-      const pendiente = r
-        ? r.pendiente
-        : Math.max(0, l.cantidad - l.cantidadRecibida);
+      const pendiente = r ? r.pendiente : Math.max(0, l.cantidad - l.cantidadRecibida);
       return {
         lineaOcId: l.id,
         articuloId: l.articuloId,
@@ -106,7 +104,6 @@ export function contarLineasEnOtraUbicacion(
   ubicacionHelperId: string | null | undefined,
 ): number {
   if (!ubicacionHelperId) return 0;
-  return filas.filter(
-    (f) => f.incluida && !!f.ubicacionId && f.ubicacionId !== ubicacionHelperId,
-  ).length;
+  return filas.filter((f) => f.incluida && !!f.ubicacionId && f.ubicacionId !== ubicacionHelperId)
+    .length;
 }

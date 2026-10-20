@@ -1,12 +1,6 @@
 import { PageHeader } from '@/components/erp/PageHeader';
 import { useState } from 'react';
-import {
-  Link,
-  Outlet,
-  useMatchRoute,
-  useNavigate,
-  useParams,
-} from '@tanstack/react-router';
+import { Link, Outlet, useMatchRoute, useNavigate, useParams } from '@tanstack/react-router';
 import { ArrowLeft, ClipboardCheck, GitCompareArrows, Play, Send } from 'lucide-react';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
@@ -26,11 +20,7 @@ import {
   useEnviarConteoAConciliacion,
   useIniciarConteo,
 } from '@/features/almacen/api/useConteos';
-import {
-  EstadoConteo,
-  TipoConteo,
-  TipoConteoLabels,
-} from '@/features/almacen/api/types';
+import { EstadoConteo, TipoConteo, TipoConteoLabels } from '@/features/almacen/api/types';
 import { useHasPermission, useHasAnyPermission } from '@/lib/auth/useHasPermission';
 import { PermisosCanonicos } from '@/lib/auth/permission-codes';
 import { esApiError, codigoSoporte } from '@/lib/api';
@@ -58,12 +48,8 @@ export function InventarioDetallePage() {
   const query = useConteo(id);
   const matchRoute = useMatchRoute();
 
-  const puedeCrear = useHasPermission(
-    PermisosCanonicos.AlmacenInventariosCrear,
-  );
-  const puedeCapturar = useHasPermission(
-    PermisosCanonicos.AlmacenInventariosCapturar,
-  );
+  const puedeCrear = useHasPermission(PermisosCanonicos.AlmacenInventariosCrear);
+  const puedeCapturar = useHasPermission(PermisosCanonicos.AlmacenInventariosCapturar);
   const puedeAprobar = useHasAnyPermission([
     PermisosCanonicos.AlmacenInventariosAprobarNivel1,
     PermisosCanonicos.AlmacenInventariosAprobarNivel2,
@@ -113,7 +99,7 @@ export function InventarioDetallePage() {
   }
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-5">
       <div className="flex items-center gap-2">
         <Button asChild variant="ghost" size="sm">
           <Link to="/almacen/inventarios" search={{}}>
@@ -132,13 +118,9 @@ export function InventarioDetallePage() {
       ) : query.isLoading ? (
         <DetalleSkeleton />
       ) : query.data == null ? null : (
-        <div className="space-y-6">
+        <div className="space-y-5">
           <PageHeader
-            titulo={
-              <>
-                Conteo {TipoConteoLabels[query.data.tipo]}
-              </>
-            }
+            titulo={<>Conteo {TipoConteoLabels[query.data.tipo]}</>}
             estado={
               <>
                 <EstadoAlmacenBadge tipo="conteo" estado={query.data.estado} />
@@ -148,19 +130,12 @@ export function InventarioDetallePage() {
               <>
                 Planificado: {query.data.fechaPlanificada}
                 {query.data.fechaInicio && (
-                  <>
-                    {' '}
-                    · Iniciado:{' '}
-                    {new Date(query.data.fechaInicio).toLocaleString('es-MX')}
-                  </>
+                  <> · Iniciado: {new Date(query.data.fechaInicio).toLocaleString('es-MX')}</>
                 )}
                 {query.data.snapshotCapturadoAt && (
                   <>
                     {' '}
-                    · Snapshot:{' '}
-                    {new Date(
-                      query.data.snapshotCapturadoAt,
-                    ).toLocaleString('es-MX')}
+                    · Snapshot: {new Date(query.data.snapshotCapturadoAt).toLocaleString('es-MX')}
                   </>
                 )}
               </>
@@ -194,7 +169,7 @@ export function InventarioDetallePage() {
             }
           />
 
-          <section className="grid grid-cols-1 gap-x-6 gap-y-2 rounded-md border p-4 md:grid-cols-2">
+          <dl className="grid grid-cols-1 gap-4 rounded-lg bg-surface-card p-4 shadow-card-flat sm:grid-cols-4">
             <Campo
               label="Sub-almacén"
               valor={
@@ -204,10 +179,7 @@ export function InventarioDetallePage() {
               }
               mono={query.data.subAlmacenId != null}
             />
-            <Campo
-              label="Filtro familia"
-              valor={query.data.filtroFamilia ?? '(sin filtro)'}
-            />
+            <Campo label="Filtro familia" valor={query.data.filtroFamilia ?? '(sin filtro)'} />
             <Campo
               label="Responsable (contador)"
               valor={query.data.responsableNombre ?? query.data.responsableId}
@@ -220,17 +192,15 @@ export function InventarioDetallePage() {
                 mono={query.data.aprobadorNombre == null}
               />
             )}
-          </section>
+          </dl>
 
           <section className="rounded-md border p-4">
-            <h2 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">
+            <h2 className="text-sm font-semibold uppercase tracking-wide text-ink-muted">
               Progreso
             </h2>
             <p className="mt-2 text-2xl font-mono">
               {query.data.cantidadCapturadas} / {query.data.cantidadLineas}
-              <span className="ml-2 text-sm text-muted-foreground">
-                líneas capturadas
-              </span>
+              <span className="ml-2 text-sm text-ink-muted">partidas capturadas</span>
             </p>
           </section>
         </div>
@@ -241,25 +211,18 @@ export function InventarioDetallePage() {
           <AlertDialogHeader>
             <AlertDialogTitle>¿Iniciar conteo?</AlertDialogTitle>
             <AlertDialogDescription>
-              Se tomará el snapshot del inventario teórico actual y el conteo
-              pasará a <b>En curso</b>. A partir de este momento el contador
-              puede capturar.
+              Se tomará el snapshot del inventario teórico actual y el conteo pasará a{' '}
+              <b>En curso</b>. A partir de este momento el contador puede capturar.
               {query.data?.tipo === TipoConteo.Anual && (
                 <span className="mt-2 block text-warning-fg">
-                  <b>Conteo anual</b>: las salidas se bloquean durante la
-                  captura.
+                  <b>Conteo anual</b>: las salidas se bloquean durante la captura.
                 </span>
               )}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel disabled={iniciar.isPending}>
-              Cancelar
-            </AlertDialogCancel>
-            <AlertDialogAction
-              disabled={iniciar.isPending}
-              onClick={ejecutarIniciar}
-            >
+            <AlertDialogCancel disabled={iniciar.isPending}>Cancelar</AlertDialogCancel>
+            <AlertDialogAction disabled={iniciar.isPending} onClick={ejecutarIniciar}>
               {iniciar.isPending ? 'Iniciando…' : 'Iniciar'}
             </AlertDialogAction>
           </AlertDialogFooter>
@@ -271,19 +234,13 @@ export function InventarioDetallePage() {
           <AlertDialogHeader>
             <AlertDialogTitle>¿Enviar a conciliación?</AlertDialogTitle>
             <AlertDialogDescription>
-              El conteo pasará a <b>En conciliación</b>. El aprobador
-              comparará teórico vs real y decidirá los ajustes. Asegúrate
-              de haber capturado todas las líneas.
+              El conteo pasará a <b>En conciliación</b>. El aprobador comparará teórico vs real y
+              decidirá los ajustes. Asegúrate de haber capturado todas las partidas.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel disabled={enviarAConciliacion.isPending}>
-              Cancelar
-            </AlertDialogCancel>
-            <AlertDialogAction
-              disabled={enviarAConciliacion.isPending}
-              onClick={ejecutarEnviar}
-            >
+            <AlertDialogCancel disabled={enviarAConciliacion.isPending}>Cancelar</AlertDialogCancel>
+            <AlertDialogAction disabled={enviarAConciliacion.isPending} onClick={ejecutarEnviar}>
               {enviarAConciliacion.isPending ? 'Enviando…' : 'Enviar'}
             </AlertDialogAction>
           </AlertDialogFooter>
@@ -344,11 +301,7 @@ function Acciones({
             onClick={onEnviar}
             disabled={!completo}
             variant="outline"
-            title={
-              completo
-                ? undefined
-                : `Captura faltante: ${capturadas} / ${total}`
-            }
+            title={completo ? undefined : `Captura faltante: ${capturadas} / ${total}`}
           >
             <Send className="mr-2 size-3.5" />
             Enviar a conciliación
@@ -369,9 +322,8 @@ function Acciones({
       );
     }
     return (
-      <p className="text-sm text-muted-foreground">
-        El aprobador está comparando teórico vs real en una pantalla
-        dedicada.
+      <p className="text-sm text-ink-muted">
+        El aprobador está comparando teórico vs real en una pantalla dedicada.
       </p>
     );
   }
@@ -388,27 +340,14 @@ function Acciones({
   return null;
 }
 
-function Campo({
-  label,
-  valor,
-  mono,
-}: {
-  label: string;
-  valor: string;
-  mono?: boolean;
-}) {
+function Campo({ label, valor, mono }: { label: string; valor: string; mono?: boolean }) {
   return (
     <div>
-      <div className="text-xs uppercase tracking-wide text-muted-foreground">
-        {label}
-      </div>
-      <div className={mono ? 'font-mono text-xs break-all' : 'text-sm'}>
-        {valor}
-      </div>
+      <dt className="text-xs text-ink-muted">{label}</dt>
+      <dd className={mono ? 'font-mono text-xs break-all' : 'text-sm'}>{valor}</dd>
     </div>
   );
 }
-
 
 function manejarError(error: unknown) {
   if (esApiError(error)) {
