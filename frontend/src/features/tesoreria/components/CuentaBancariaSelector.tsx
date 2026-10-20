@@ -21,6 +21,8 @@ export interface CuentaBancariaSelectorProps {
   moneda?: string | null;
   disabled?: boolean;
   paraIngresos?: boolean;
+  /** Oculta el saldo en libros y muestra solo la moneda (p. ej. pago a proveedor). */
+  ocultarSaldo?: boolean;
 }
 
 /**
@@ -34,6 +36,7 @@ export function CuentaBancariaSelector({
   moneda = null,
   disabled = false,
   paraIngresos = false,
+  ocultarSaldo = false,
 }: CuentaBancariaSelectorProps) {
   const saldos = useCuentasBancarias(true, !paraIngresos);
   const ingresos = useCuentasParaIngresos(paraIngresos);
@@ -71,7 +74,7 @@ export function CuentaBancariaSelector({
                 <span>{c.banco}</span>
                 <span className="font-mono text-xs text-ink-muted">{c.numeroCuenta}</span>
                 <span className="text-xs text-ink-muted">
-                  {'saldo' in c && typeof c.saldo === 'number'
+                  {!ocultarSaldo && 'saldo' in c && typeof c.saldo === 'number'
                     ? `${formatoMonto(c.saldo, c.moneda)} en libros`
                     : c.moneda}
                 </span>
