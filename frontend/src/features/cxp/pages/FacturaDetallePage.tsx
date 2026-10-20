@@ -317,6 +317,7 @@ export function FacturaDetallePage() {
                 )}
               </dd>
             </div>
+            <Campo label="Recepción" valor={query.data.recepcionFolio?.trim() || '—'} mono />
             <Campo label="UUID CFDI" valor={query.data.uuidCfdi ?? '—'} mono />
             <Campo label="Moneda" valor={query.data.moneda} />
             <Campo
