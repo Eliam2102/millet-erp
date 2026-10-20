@@ -1,3 +1,4 @@
+import { useConfirmarDescarte } from '@/components/erp/forms/useConfirmarDescarte';
 import { PaginacionTabla } from '@/components/erp';
 import { FormSeccion } from '@/components/erp/forms/FormSeccion';
 import { FormCampo, FormGrid } from '@/components/erp/forms/FormGrid';
@@ -141,7 +142,9 @@ export function ContenedoresPanel({ data }: { data: ExpedienteDetalle }) {
                     {c.numero ?? 'Por asignar'}
                   </TableCell>
                   <TableCell className="px-3">{c.blGuia ?? 'Pendiente'}</TableCell>
-                  <TableCell className="px-3">{c.booking ?? <span className="text-ink-muted">Sin booking</span>}</TableCell>
+                  <TableCell className="px-3">
+                    {c.booking ?? <span className="text-ink-muted">Sin booking</span>}
+                  </TableCell>
                   <TableCell className="px-3">
                     {c.fechaEmbarqueReal ? (
                       <DateTimeDisplay value={c.fechaEmbarqueReal} />
@@ -223,7 +226,9 @@ export function ContenedoresPanel({ data }: { data: ExpedienteDetalle }) {
                     <TableRow key={p.id}>
                       <TableCell>
                         <span className="font-mono text-xs">
-                          {pedido(p.pedidoFacturableId)?.numeroPedido ?? <span className="text-ink-muted">Sin número</span>}
+                          {pedido(p.pedidoFacturableId)?.numeroPedido ?? (
+                            <span className="text-ink-muted">Sin número</span>
+                          )}
                         </span>
                         <p className="text-xs text-ink-muted">
                           {pedido(p.pedidoFacturableId)?.clienteNombre}
@@ -522,9 +527,9 @@ function ContenedorForm({
 }) {
   const [datos, setDatos] = useState<DatosContenedor>(inicial === 'nuevo' ? vacio : inicial);
   const mutar = useMutarContenedor(id);
-  const [dirty, setDirty] = useState(false);
+  const { setDirty, solicitarCierre, dialogo } = useConfirmarDescarte(onClose);
   function cerrar() {
-    if (!dirty || window.confirm('Hay cambios sin guardar. ¿Descartarlos?')) onClose();
+    solicitarCierre();
   }
   async function submit(e: FormEvent) {
     e.preventDefault();
@@ -541,112 +546,115 @@ function ContenedorForm({
         method: inicial === 'nuevo' ? 'POST' : 'PATCH',
         body,
       });
-      onClose();
+      solicitarCierre(true);
     } catch {
       /* Error visible. */
     }
   }
   return (
-    <Sheet
-      open
-      onOpenChange={(open) => {
-        if (!open) cerrar();
-      }}
-    >
-      <SheetContent size="lg">
-        <SheetHeader>
-          <SheetTitle>
-            {inicial === 'nuevo' ? 'Agregar contenedor' : 'Editar contenedor'}
-          </SheetTitle>
-          <SheetDescription>
-            Referencias de transporte del expediente de exportación.
-          </SheetDescription>
-        </SheetHeader>
-        <form
-          onSubmit={submit}
-          className="flex min-h-0 flex-1 flex-col"
-          onChange={() => setDirty(true)}
-        >
-          <SheetBody className="space-y-5">
-            <FormSeccion titulo="1. Transporte">
-              {(
-                [
-                  ['numero', 'Número de contenedor'],
-                  ['sello', 'Sello'],
-                  ['booking', 'Booking'],
-                  ['blGuia', 'BL o guía'],
-                  ['ruta', 'Ruta'],
-                ] as const
-              ).map(([k, label]) => (
-                <Campo key={k} label={label} id={`ce-c-${k}`}>
+    <>
+      <Sheet
+        open
+        onOpenChange={(open) => {
+          if (!open) cerrar();
+        }}
+      >
+        <SheetContent size="lg">
+          <SheetHeader>
+            <SheetTitle>
+              {inicial === 'nuevo' ? 'Agregar contenedor' : 'Editar contenedor'}
+            </SheetTitle>
+            <SheetDescription>
+              Referencias de transporte del expediente de exportación.
+            </SheetDescription>
+          </SheetHeader>
+          <form
+            onSubmit={submit}
+            className="flex min-h-0 flex-1 flex-col"
+            onChange={() => setDirty(true)}
+          >
+            <SheetBody className="space-y-5">
+              <FormSeccion titulo="1. Transporte">
+                {(
+                  [
+                    ['numero', 'Número de contenedor'],
+                    ['sello', 'Sello'],
+                    ['booking', 'Booking'],
+                    ['blGuia', 'BL o guía'],
+                    ['ruta', 'Ruta'],
+                  ] as const
+                ).map(([k, label]) => (
+                  <Campo key={k} label={label} id={`ce-c-${k}`}>
+                    <Input
+                      id={`ce-c-${k}`}
+                      maxLength={200}
+                      value={datos[k] ?? ''}
+                      onChange={(e) => setDatos({ ...datos, [k]: e.target.value || null })}
+                    />
+                  </Campo>
+                ))}
+              </FormSeccion>
+              <FormSeccion titulo="2. Carga">
+                <Campo label="Fecha de carga prevista" id="ce-c-fecha">
                   <Input
-                    id={`ce-c-${k}`}
-                    maxLength={200}
-                    value={datos[k] ?? ''}
-                    onChange={(e) => setDatos({ ...datos, [k]: e.target.value || null })}
+                    id="ce-c-fecha"
+                    type="date"
+                    value={datos.fechaCargaPrevista ?? ''}
+                    onChange={(e) =>
+                      setDatos({ ...datos, fechaCargaPrevista: e.target.value || null })
+                    }
                   />
                 </Campo>
-              ))}
-            </FormSeccion>
-            <FormSeccion titulo="2. Carga">
-              <Campo label="Fecha de carga prevista" id="ce-c-fecha">
-                <Input
-                  id="ce-c-fecha"
-                  type="date"
-                  value={datos.fechaCargaPrevista ?? ''}
-                  onChange={(e) =>
-                    setDatos({ ...datos, fechaCargaPrevista: e.target.value || null })
-                  }
-                />
-              </Campo>
-              <Campo label="Peso (kg)" id="ce-c-peso">
-                <Input
-                  id="ce-c-peso"
-                  type="number"
-                  min="0"
-                  step="0.000001"
-                  value={datos.pesoKg ?? ''}
-                  onChange={(e) =>
-                    setDatos({ ...datos, pesoKg: e.target.value ? Number(e.target.value) : null })
-                  }
-                />
-              </Campo>
-              <Campo label="Bultos" id="ce-c-bultos">
-                <Input
-                  id="ce-c-bultos"
-                  type="number"
-                  min="0"
-                  step="1"
-                  value={datos.bultos ?? ''}
-                  onChange={(e) =>
-                    setDatos({ ...datos, bultos: e.target.value ? Number(e.target.value) : null })
-                  }
-                />
-              </Campo>
-            </FormSeccion>
-            {mutar.isError && (
-              <p role="alert" className="text-danger-fg">
-                {esApiError(mutar.error)
-                  ? (mutar.error.problem.detail ?? mutar.error.problem.title)
-                  : 'No se pudo guardar.'}
-              </p>
-            )}
-          </SheetBody>
-          <SheetFooter>
-            <Button type="button" variant="ghost" onClick={cerrar}>
-              Cancelar
-            </Button>
-            <Button
-              type="submit"
-              disabled={mutar.isPending}
-              title={mutar.isPending ? 'Guardando contenedor.' : undefined}
-            >
-              Guardar contenedor
-            </Button>
-          </SheetFooter>
-        </form>
-      </SheetContent>
-    </Sheet>
+                <Campo label="Peso (kg)" id="ce-c-peso">
+                  <Input
+                    id="ce-c-peso"
+                    type="number"
+                    min="0"
+                    step="0.000001"
+                    value={datos.pesoKg ?? ''}
+                    onChange={(e) =>
+                      setDatos({ ...datos, pesoKg: e.target.value ? Number(e.target.value) : null })
+                    }
+                  />
+                </Campo>
+                <Campo label="Bultos" id="ce-c-bultos">
+                  <Input
+                    id="ce-c-bultos"
+                    type="number"
+                    min="0"
+                    step="1"
+                    value={datos.bultos ?? ''}
+                    onChange={(e) =>
+                      setDatos({ ...datos, bultos: e.target.value ? Number(e.target.value) : null })
+                    }
+                  />
+                </Campo>
+              </FormSeccion>
+              {mutar.isError && (
+                <p role="alert" className="text-danger-fg">
+                  {esApiError(mutar.error)
+                    ? (mutar.error.problem.detail ?? mutar.error.problem.title)
+                    : 'No se pudo guardar.'}
+                </p>
+              )}
+            </SheetBody>
+            <SheetFooter>
+              <Button type="button" variant="ghost" onClick={cerrar}>
+                Cancelar
+              </Button>
+              <Button
+                type="submit"
+                disabled={mutar.isPending}
+                title={mutar.isPending ? 'Guardando contenedor.' : undefined}
+              >
+                Guardar contenedor
+              </Button>
+            </SheetFooter>
+          </form>
+        </SheetContent>
+      </Sheet>
+      {dialogo}
+    </>
   );
 }
 function AsignarPartida({

@@ -7,6 +7,7 @@ import tseslint from 'typescript-eslint';
 import { defineConfig, globalIgnores } from 'eslint/config';
 
 export default defineConfig([
+  { files: ['src/**/*.{ts,tsx}'], rules: { 'no-alert': 'error' } },
   {
     files: ['src/**/*.tsx'],
     ignores: [

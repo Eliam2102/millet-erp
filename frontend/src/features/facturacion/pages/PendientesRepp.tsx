@@ -1,3 +1,4 @@
+import { useConfirmarDescarte } from '@/components/erp/forms/useConfirmarDescarte';
 import { BarraFiltros, PaginacionTabla, TabsEstado } from '@/components/erp';
 import { ListadoModulo } from '@/components/erp/data/ListadoModulo';
 import { KpiCard } from '@/components/erp/display/KpiCard';
@@ -27,7 +28,7 @@ import {
 import { PermisosCanonicos } from '@/lib/auth/permission-codes';
 import { useHasPermission } from '@/lib/auth/useHasPermission';
 import { Link } from '@tanstack/react-router';
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useForm, useWatch } from 'react-hook-form';
 import { toast } from 'sonner';
 import type {
@@ -56,20 +57,11 @@ export function PendientesRepp() {
   const [offset, setOffset] = useState(0);
   const [seleccion, setSeleccion] = useState<string[]>([]);
   const [abierto, setAbierto] = useState<string | null>(null);
-  const dirty = useRef(false);
-  const onDirtyChange = useCallback((value: boolean) => {
-    dirty.current = value;
-  }, []);
-  function cerrar(force = false) {
-    if (
-      force ||
-      !dirty.current ||
-      window.confirm('Hay cambios sin guardar. ¿Descartar los cambios y cerrar?')
-    ) {
-      dirty.current = false;
-      setAbierto(null);
-    }
-  }
+  const {
+    setDirty: onDirtyChange,
+    solicitarCierre: cerrar,
+    dialogo,
+  } = useConfirmarDescarte(() => setAbierto(null));
   const [resultados, setResultados] = useState<EmisionPendiente[]>([]);
   const puedeEscribir = useHasPermission(PermisosCanonicos.FacturacionReppEmitir);
   const query = useReppPendientes(estado, indicador, offset);
@@ -267,7 +259,8 @@ export function PendientesRepp() {
                       </p>
                     </TableCell>
                     <TableCell className="font-mono text-xs">
-                      {p.facturas.map((f) => f.folio ?? 'Sin número').join(', ') || 'Por relacionar'}
+                      {p.facturas.map((f) => f.folio ?? 'Sin número').join(', ') ||
+                        'Por relacionar'}
                     </TableCell>
                     <TableCell>{p.fechaValor}</TableCell>
                     <TableCell className="text-right tabular-nums">
@@ -335,6 +328,7 @@ export function PendientesRepp() {
           </SheetBody>
         </SheetContent>
       </Sheet>
+      {dialogo}
     </main>
   );
 }
@@ -432,7 +426,9 @@ function RevisionPago({
             </div>
             <div>
               <dt className="text-xs text-ink-muted">Referencia bancaria</dt>
-              <dd className="font-mono text-xs">{pago.referencia ?? <span className="text-ink-muted">Sin referencia</span>}</dd>
+              <dd className="font-mono text-xs">
+                {pago.referencia ?? <span className="text-ink-muted">Sin referencia</span>}
+              </dd>
             </div>
             <div>
               <dt className="text-xs text-ink-muted">Tipo de cambio del pago</dt>
@@ -459,7 +455,9 @@ function RevisionPago({
           <legend className="font-semibold">2. Relación de facturas</legend>
           {facturas.map((f, index) => (
             <div key={f.facturaVentaId} className="space-y-2 rounded-lg bg-surface-subtle p-3">
-              <p className="font-mono text-xs">{f.folio ?? <span className="text-ink-muted">Sin número</span>}</p>
+              <p className="font-mono text-xs">
+                {f.folio ?? <span className="text-ink-muted">Sin número</span>}
+              </p>
               <Label htmlFor={`importe-${index}`}>Importe aplicado</Label>
               <div className="flex gap-2">
                 <Input

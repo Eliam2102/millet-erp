@@ -1,6 +1,7 @@
+import { useConfirmarDescarte } from '@/components/erp/forms/useConfirmarDescarte';
 import { FormSeccion } from '@/components/erp/forms/FormSeccion';
 import { FormCampo } from '@/components/erp/forms/FormGrid';
-import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
+import { useCallback, useEffect, useMemo, useState, type ReactNode } from 'react';
 import { useNavigate } from '@tanstack/react-router';
 import { Controller, useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -40,31 +41,17 @@ import { useCrearRol } from '@/modules/identidad/api';
  */
 export function NuevoRolProvider({ children }: { children: ReactNode }) {
   const [abierto, setAbierto] = useState(false);
-  const isDirtyRef = useRef(false);
-
-  const setDirty = useCallback((dirty: boolean) => {
-    isDirtyRef.current = dirty;
-  }, []);
-
-  const cerrarConConfirm = useCallback((opts?: { force?: boolean }) => {
-    if (opts?.force === true || !isDirtyRef.current) {
-      isDirtyRef.current = false;
-      setAbierto(false);
-      return;
-    }
-    const confirmar = window.confirm(
-      'Tienes cambios sin guardar en el nuevo rol. ¿Descartarlos y cerrar?',
-    );
-    if (confirmar) {
-      isDirtyRef.current = false;
-      setAbierto(false);
-    }
-  }, []);
+  const alCerrar = useCallback(() => setAbierto(false), []);
+  const { setDirty, solicitarCierre, dialogo } = useConfirmarDescarte(alCerrar);
+  const cerrarConConfirm = useCallback(
+    (opts?: { force?: boolean }) => solicitarCierre(opts?.force),
+    [solicitarCierre],
+  );
 
   const api = useMemo<NuevoRolApi>(
     () => ({
       abrir: () => {
-        isDirtyRef.current = false;
+        setDirty(false);
         setAbierto(true);
       },
       cerrar: cerrarConConfirm,
@@ -97,6 +84,7 @@ export function NuevoRolProvider({ children }: { children: ReactNode }) {
           {abierto && <NuevoRolForm onClose={cerrarConConfirm} onDirtyChange={setDirty} />}
         </SheetContent>
       </Sheet>
+      {dialogo}
     </NuevoRolContext.Provider>
   );
 }

@@ -106,9 +106,7 @@ describe('<NuevaRequisicionProvider> — smoke', () => {
         <Abridor />
       </Wrapper>,
     );
-    expect(
-      screen.queryByText(/llena la cabecera/i),
-    ).not.toBeInTheDocument();
+    expect(screen.queryByText(/llena la cabecera/i)).not.toBeInTheDocument();
   });
 
   it('abrir() expone el form dentro del Sheet', async () => {
@@ -118,9 +116,7 @@ describe('<NuevaRequisicionProvider> — smoke', () => {
       </Wrapper>,
     );
     fireEvent.click(screen.getByText('abrir-sheet'));
-    expect(
-      await screen.findByText(/llena la cabecera/i),
-    ).toBeInTheDocument();
+    expect(await screen.findByText(/llena la cabecera/i)).toBeInTheDocument();
   });
 
   it('cerrar() sin dirty: cierra sin prompt', async () => {
@@ -137,19 +133,16 @@ describe('<NuevaRequisicionProvider> — smoke', () => {
         </div>
       );
     }
-    const confirmSpy = vi.spyOn(window, 'confirm');
     render(
       <Wrapper>
         <CerrarTrigger />
       </Wrapper>,
     );
     fireEvent.click(screen.getByText('abrir'));
-    expect(
-      await screen.findByText(/llena la cabecera/i),
-    ).toBeInTheDocument();
+    expect(await screen.findByText(/llena la cabecera/i)).toBeInTheDocument();
     fireEvent.click(screen.getByText('cerrar'));
-    expect(confirmSpy).not.toHaveBeenCalled();
-    confirmSpy.mockRestore();
+    expect(screen.queryByRole('alertdialog')).not.toBeInTheDocument();
+    expect(screen.queryByText(/llena la cabecera/i)).not.toBeInTheDocument();
   });
 
   it('cerrar() con dirty=true: muestra el diálogo; «Seguir editando» no cierra', async () => {
@@ -175,9 +168,7 @@ describe('<NuevaRequisicionProvider> — smoke', () => {
       </Wrapper>,
     );
     fireEvent.click(screen.getByText('abrir'));
-    expect(
-      await screen.findByText(/llena la cabecera/i),
-    ).toBeInTheDocument();
+    expect(await screen.findByText(/llena la cabecera/i)).toBeInTheDocument();
     fireEvent.click(screen.getByText('ensuciar'));
     fireEvent.click(screen.getByText('cerrar'));
     expect(await screen.findByText('¿Descartar los cambios?')).toBeInTheDocument();
@@ -203,19 +194,16 @@ describe('<NuevaRequisicionProvider> — smoke', () => {
         </div>
       );
     }
-    const confirmSpy = vi.spyOn(window, 'confirm');
     render(
       <Wrapper>
         <CerrarTrigger />
       </Wrapper>,
     );
     fireEvent.click(screen.getByText('abrir'));
-    expect(
-      await screen.findByText(/llena la cabecera/i),
-    ).toBeInTheDocument();
+    expect(await screen.findByText(/llena la cabecera/i)).toBeInTheDocument();
     fireEvent.click(screen.getByText('ensuciar'));
     fireEvent.click(screen.getByText('cerrar-force'));
-    expect(confirmSpy).not.toHaveBeenCalled();
-    confirmSpy.mockRestore();
+    expect(screen.queryByRole('alertdialog')).not.toBeInTheDocument();
+    expect(screen.queryByText(/llena la cabecera/i)).not.toBeInTheDocument();
   });
 });

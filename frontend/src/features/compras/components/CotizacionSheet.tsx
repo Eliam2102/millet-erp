@@ -1,3 +1,4 @@
+import { useConfirmarDescarte } from '@/components/erp/forms/useConfirmarDescarte';
 import { SheetBody } from '@/components/ui/sheet';
 import { FormCampo } from '@/components/erp/forms/FormGrid';
 import { FormGrid } from '@/components/erp/forms/FormGrid';
@@ -421,30 +422,32 @@ export function CotizacionSheet({
   partidas,
   cotizacion,
 }: CotizacionSheetProps) {
-  const [sucio, setSucio] = useState(false);
-  // Confirm al cerrar con cambios (patrón NuevaRequisicionProvider).
-  const solicitarCierre = () => {
-    if (sucio && !window.confirm('Tienes cambios sin guardar. ¿Cerrar y descartarlos?')) return;
-    onClose();
-  };
+  const {
+    setDirty: setSucio,
+    solicitarCierre,
+    dialogo,
+  } = useConfirmarDescarte(() => onClose({ force: true }));
   return (
-    <Sheet open={abierto} onOpenChange={(o) => !o && solicitarCierre()}>
-      <SheetContent side="right" size="lg">
-        <SheetHeader>
-          <SheetTitle>{cotizacion ? 'Editar cotización' : 'Registrar cotización'}</SheetTitle>
-          <SheetDescription>{folio} · solo Compras</SheetDescription>
-        </SheetHeader>
-        {abierto && (
-          <FormularioCotizacion
-            onClose={onClose}
-            onCancelar={solicitarCierre}
-            onDirtyChange={setSucio}
-            requisicionId={requisicionId}
-            partidas={partidas}
-            cotizacion={cotizacion}
-          />
-        )}
-      </SheetContent>
-    </Sheet>
+    <>
+      <Sheet open={abierto} onOpenChange={(o) => !o && solicitarCierre()}>
+        <SheetContent side="right" size="lg">
+          <SheetHeader>
+            <SheetTitle>{cotizacion ? 'Editar cotización' : 'Registrar cotización'}</SheetTitle>
+            <SheetDescription>{folio} · solo Compras</SheetDescription>
+          </SheetHeader>
+          {abierto && (
+            <FormularioCotizacion
+              onClose={() => solicitarCierre(true)}
+              onCancelar={solicitarCierre}
+              onDirtyChange={setSucio}
+              requisicionId={requisicionId}
+              partidas={partidas}
+              cotizacion={cotizacion}
+            />
+          )}
+        </SheetContent>
+      </Sheet>
+      {dialogo}
+    </>
   );
 }

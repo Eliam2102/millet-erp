@@ -1,3 +1,4 @@
+import { useConfirmarDescarte } from '@/components/erp/forms/useConfirmarDescarte';
 import { ResumenImportes } from '@/components/erp/display/ResumenImportes';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -21,7 +22,7 @@ import { useHasPermission } from '@/lib/auth/useHasPermission';
 import { cn } from '@/lib/utils';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useNavigate } from '@tanstack/react-router';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useForm, useWatch } from 'react-hook-form';
 import { toast } from 'sonner';
 import { VistaPreviaButton } from '../vista-previa/VistaPreviaButton';
@@ -242,13 +243,8 @@ function FormInner({
         ? errores.lineas.filter(Boolean).length
         : 1;
 
-  function cancelar() {
-    if (form.formState.isDirty) {
-      const confirmar = window.confirm('Tienes una emisión sin completar. ¿Descartar y cerrar?');
-      if (!confirmar) return;
-    }
-    onCancel();
-  }
+  const { setDirty, solicitarCierre: cancelar, dialogo } = useConfirmarDescarte(onCancel);
+  useEffect(() => setDirty(form.formState.isDirty), [form.formState.isDirty, setDirty]);
 
   function onSubmit(values: EmitirFacturaValues) {
     if (ceBloqueado) return;
@@ -365,136 +361,144 @@ function FormInner({
   }
 
   return (
-    <form onSubmit={form.handleSubmit(onSubmit)} noValidate className="space-y-4">
-      {ce?.ligado && <EmbarqueCeResumen datos={ce} bloqueo={ceBloqueado ? motivoCe : null} />}
-      <ErrorTimbradoAviso error={emitir.error} />
-      {prefill?.pedidoFacturableId && (
-        <div className="rounded-md border border-brand/30 bg-brand/5 px-3 py-2 text-sm">
-          Facturando un pedido — partidas, datos comerciales y fiscales vienen precargados desde el
-          pedido y los catálogos. Revisa y completa lo que falte. Al timbrar, el pedido pasa a{' '}
-          <span className="font-medium">Facturado</span>.
-        </div>
-      )}
+    <>
+      <form onSubmit={form.handleSubmit(onSubmit)} noValidate className="space-y-4">
+        {ce?.ligado && <EmbarqueCeResumen datos={ce} bloqueo={ceBloqueado ? motivoCe : null} />}
+        <ErrorTimbradoAviso error={emitir.error} />
+        {prefill?.pedidoFacturableId && (
+          <div className="rounded-md border border-brand/30 bg-brand/5 px-3 py-2 text-sm">
+            Facturando un pedido — partidas, datos comerciales y fiscales vienen precargados desde
+            el pedido y los catálogos. Revisa y completa lo que falte. Al timbrar, el pedido pasa a{' '}
+            <span className="font-medium">Facturado</span>.
+          </div>
+        )}
 
-      <Tabs defaultValue="encabezado">
-        <TabsList>
-          <TabsTrigger value="encabezado">
-            Encabezado
-            <BadgeErrores cuenta={erroresEncabezado} />
-          </TabsTrigger>
-          <TabsTrigger value="posiciones">
-            Partidas
-            <BadgeErrores cuenta={erroresPosiciones} />
-          </TabsTrigger>
-          <TabsTrigger value="totales">Totales</TabsTrigger>
-        </TabsList>
+        <Tabs defaultValue="encabezado">
+          <TabsList>
+            <TabsTrigger value="encabezado">
+              Encabezado
+              <BadgeErrores cuenta={erroresEncabezado} />
+            </TabsTrigger>
+            <TabsTrigger value="posiciones">
+              Partidas
+              <BadgeErrores cuenta={erroresPosiciones} />
+            </TabsTrigger>
+            <TabsTrigger value="totales">Totales</TabsTrigger>
+          </TabsList>
 
-        {/* forceMount: el form es uno solo — los inputs de pestañas
+          {/* forceMount: el form es uno solo — los inputs de pestañas
             inactivas siguen montados (Radix los oculta con `hidden`)
             para que RHF conserve valores y muestre errores de zod. */}
-        <TabsContent value="encabezado" forceMount>
-          <TabEncabezado
-            form={form}
-            emisor={emisor}
-            puedeCorregirEnCatalogo={puedeCorregirEnCatalogo}
-            receptorBloqueado={receptorBloqueado}
-            esCce={esCce}
-            embarqueCe={ce}
-            esActivo={esActivo}
-            autorizacionId={autorizacionId}
-            onAutorizacionIdChange={setAutorizacionId}
-            clienteId={clienteId}
-            onClienteChange={onClienteChange}
-            clienteLabel={prefill?.receptorNombre}
-            clienteFijo={Boolean(prefill?.pedidoFacturableId && prefill?.clienteId)}
-            canalVentaNombre={prefill?.canalVentaNombre}
-          />
-        </TabsContent>
-        <TabsContent value="posiciones" forceMount>
-          <TabPosiciones
-            form={form}
-            esCce={esCce}
-            tasaIvaDefault={emisor.tasaIvaDefault}
-            desdePedido={Boolean(prefill?.lineas?.length)}
-            puedeCorregirArticulo={puedeCorregirArticulo}
-          />
-        </TabsContent>
-        <TabsContent value="totales" forceMount>
-          <TabTotales
-            totales={totales}
-            total={total}
-            moneda={moneda}
-            clienteId={clienteId}
-            anticipos={anticipos}
-            onAnticiposChange={setAnticipos}
-          />
-        </TabsContent>
-      </Tabs>
-
-      <ResumenImportes
-        className="border-t border-line pt-4"
-        moneda={moneda?.toUpperCase() ?? ''}
-        subtotal={totales.subtotal}
-        ivaTrasladado={totales.iva}
-        otrasRetenciones={[{ etiqueta: 'Retenciones', monto: totales.ret }]}
-        total={total}
-        acciones={
-          <>
-            <Button type="button" variant="ghost" onClick={cancelar} disabled={emitir.isPending}>
-              Cancelar
-            </Button>
-            <VistaPreviaButton
-              motivo={
-                !clienteId || receptorBloqueado
-                  ? 'Selecciona un receptor con datos fiscales.'
-                  : !lineas?.length
-                    ? 'Agrega al menos una partida.'
-                    : undefined
-              }
-              obtenerDatos={() => {
-                const v = form.getValues();
-                return {
-                  tipo: 'Factura',
-                  emisor: `${emisor.razonSocialEmisor} · ${v.rfcEmisor} · ${v.regimenFiscalEmisor}`,
-                  receptor: `${v.receptorNombre} · ${v.receptorRfc} · ${v.receptorRegimenFiscal} · CP ${v.receptorCodigoPostal}`,
-                  usoCfdi: v.receptorUsoCfdi,
-                  metodoPago: v.metodoPago,
-                  formaPago: v.formaPago,
-                  moneda: v.moneda,
-                  partidas: v.lineas.map((l) => ({
-                    descripcion: l.descripcion,
-                    cantidad: l.cantidad,
-                    importe: Math.max(
-                      0,
-                      finito(l.cantidad) * finito(l.valorUnitario) - finito(l.descuento),
-                    ),
-                  })),
-                  importes: [
-                    { etiqueta: 'Subtotal', monto: totales.subtotal },
-                    { etiqueta: 'IVA trasladado', monto: totales.iva },
-                    { etiqueta: 'Retenciones', monto: -totales.ret },
-                    { etiqueta: 'Total', monto: total },
-                  ],
-                };
-              }}
+          <TabsContent value="encabezado" forceMount>
+            <TabEncabezado
+              form={form}
+              emisor={emisor}
+              puedeCorregirEnCatalogo={puedeCorregirEnCatalogo}
+              receptorBloqueado={receptorBloqueado}
+              esCce={esCce}
+              embarqueCe={ce}
+              esActivo={esActivo}
+              autorizacionId={autorizacionId}
+              onAutorizacionIdChange={setAutorizacionId}
+              clienteId={clienteId}
+              onClienteChange={onClienteChange}
+              clienteLabel={prefill?.receptorNombre}
+              clienteFijo={Boolean(prefill?.pedidoFacturableId && prefill?.clienteId)}
+              canalVentaNombre={prefill?.canalVentaNombre}
             />
-            <Button
-              type="submit"
-              disabled={emitir.isPending || receptorBloqueado || ceBloqueado}
-              title={
-                ceBloqueado
-                  ? (motivoCe ?? 'Complete el embarque en Comercio Exterior.')
-                  : receptorBloqueado
-                    ? 'Receptor incompleto: complétalo en Datos Maestros → Clientes'
-                    : undefined
-              }
-            >
-              {emitir.isPending ? 'Emitiendo…' : 'Emitir y timbrar'}
-            </Button>
-          </>
-        }
-      />
-    </form>
+          </TabsContent>
+          <TabsContent value="posiciones" forceMount>
+            <TabPosiciones
+              form={form}
+              esCce={esCce}
+              tasaIvaDefault={emisor.tasaIvaDefault}
+              desdePedido={Boolean(prefill?.lineas?.length)}
+              puedeCorregirArticulo={puedeCorregirArticulo}
+            />
+          </TabsContent>
+          <TabsContent value="totales" forceMount>
+            <TabTotales
+              totales={totales}
+              total={total}
+              moneda={moneda}
+              clienteId={clienteId}
+              anticipos={anticipos}
+              onAnticiposChange={setAnticipos}
+            />
+          </TabsContent>
+        </Tabs>
+
+        <ResumenImportes
+          className="border-t border-line pt-4"
+          moneda={moneda?.toUpperCase() ?? ''}
+          subtotal={totales.subtotal}
+          ivaTrasladado={totales.iva}
+          otrasRetenciones={[{ etiqueta: 'Retenciones', monto: totales.ret }]}
+          total={total}
+          acciones={
+            <>
+              <Button
+                type="button"
+                variant="ghost"
+                onClick={() => cancelar()}
+                disabled={emitir.isPending}
+              >
+                Cancelar
+              </Button>
+              <VistaPreviaButton
+                motivo={
+                  !clienteId || receptorBloqueado
+                    ? 'Selecciona un receptor con datos fiscales.'
+                    : !lineas?.length
+                      ? 'Agrega al menos una partida.'
+                      : undefined
+                }
+                obtenerDatos={() => {
+                  const v = form.getValues();
+                  return {
+                    tipo: 'Factura',
+                    emisor: `${emisor.razonSocialEmisor} · ${v.rfcEmisor} · ${v.regimenFiscalEmisor}`,
+                    receptor: `${v.receptorNombre} · ${v.receptorRfc} · ${v.receptorRegimenFiscal} · CP ${v.receptorCodigoPostal}`,
+                    usoCfdi: v.receptorUsoCfdi,
+                    metodoPago: v.metodoPago,
+                    formaPago: v.formaPago,
+                    moneda: v.moneda,
+                    partidas: v.lineas.map((l) => ({
+                      descripcion: l.descripcion,
+                      cantidad: l.cantidad,
+                      importe: Math.max(
+                        0,
+                        finito(l.cantidad) * finito(l.valorUnitario) - finito(l.descuento),
+                      ),
+                    })),
+                    importes: [
+                      { etiqueta: 'Subtotal', monto: totales.subtotal },
+                      { etiqueta: 'IVA trasladado', monto: totales.iva },
+                      { etiqueta: 'Retenciones', monto: -totales.ret },
+                      { etiqueta: 'Total', monto: total },
+                    ],
+                  };
+                }}
+              />
+              <Button
+                type="submit"
+                disabled={emitir.isPending || receptorBloqueado || ceBloqueado}
+                title={
+                  ceBloqueado
+                    ? (motivoCe ?? 'Complete el embarque en Comercio Exterior.')
+                    : receptorBloqueado
+                      ? 'Receptor incompleto: complétalo en Datos Maestros → Clientes'
+                      : undefined
+                }
+              >
+                {emitir.isPending ? 'Emitiendo…' : 'Emitir y timbrar'}
+              </Button>
+            </>
+          }
+        />
+      </form>
+      {dialogo}
+    </>
   );
 }
 

@@ -1,3 +1,4 @@
+import { useConfirmarDescarte } from '@/components/erp/forms/useConfirmarDescarte';
 import { ContextoSucursal } from '@/components/erp/display/ContextoSucursal';
 import {
   Sheet,
@@ -12,7 +13,7 @@ import {
   type NuevoAnticipoApi,
 } from '@/features/facturacion/components/nuevo-anticipo-context';
 import { NuevoAnticipo } from '@/features/facturacion/pages/NuevoAnticipo';
-import { useCallback, useMemo, useRef, useState, type ReactNode } from 'react';
+import { useCallback, useMemo, useState, type ReactNode } from 'react';
 
 /**
  * <c>&lt;NuevoAnticipoProvider/&gt;</c> + Sheet de emisión de anticipo
@@ -20,29 +21,17 @@ import { useCallback, useMemo, useRef, useState, type ReactNode } from 'react';
  */
 export function NuevoAnticipoProvider({ children }: { children: ReactNode }) {
   const [abierto, setAbierto] = useState(false);
-  const isDirtyRef = useRef(false);
-
-  const setDirty = useCallback((dirty: boolean) => {
-    isDirtyRef.current = dirty;
-  }, []);
-
-  const cerrarConConfirm = useCallback((opts?: { force?: boolean }) => {
-    if (opts?.force === true || !isDirtyRef.current) {
-      isDirtyRef.current = false;
-      setAbierto(false);
-      return;
-    }
-    const confirmar = window.confirm('Tienes un anticipo sin emitir. ¿Descartar y cerrar?');
-    if (confirmar) {
-      isDirtyRef.current = false;
-      setAbierto(false);
-    }
-  }, []);
+  const alCerrar = useCallback(() => setAbierto(false), []);
+  const { setDirty, solicitarCierre, dialogo } = useConfirmarDescarte(alCerrar);
+  const cerrarConConfirm = useCallback(
+    (opts?: { force?: boolean }) => solicitarCierre(opts?.force),
+    [solicitarCierre],
+  );
 
   const api = useMemo<NuevoAnticipoApi>(
     () => ({
       abrir: () => {
-        isDirtyRef.current = false;
+        setDirty(false);
         setAbierto(true);
       },
       cerrar: cerrarConConfirm,
@@ -80,6 +69,7 @@ export function NuevoAnticipoProvider({ children }: { children: ReactNode }) {
           </SheetBody>
         </SheetContent>
       </Sheet>
+      {dialogo}
     </NuevoAnticipoContext.Provider>
   );
 }

@@ -41,7 +41,10 @@ export function ConfirmarAccionDialog({
 }: ConfirmarAccionDialogProps) {
   return (
     <AlertDialog open={open} onOpenChange={(v) => !pendiente && onOpenChange(v)}>
-      <AlertDialogContent data-component="confirmar-accion-dialog">
+      <AlertDialogContent
+        className="max-w-[min(480px,calc(100vw-2rem))] rounded-2xl shadow-dialog sm:rounded-2xl"
+        data-component="confirmar-accion-dialog"
+      >
         <AlertDialogHeader>
           <AlertDialogTitle>{titulo}</AlertDialogTitle>
           <AlertDialogDescription asChild>

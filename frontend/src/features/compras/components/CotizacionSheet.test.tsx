@@ -51,7 +51,13 @@ describe('CotizacionSheet', () => {
   it('envía el payload sin unidadRequisicion y sube el PDF con el tipo de documento', async () => {
     const onClose = vi.fn();
     render(
-      <CotizacionSheet abierto onClose={onClose} requisicionId="rq-1" folio="MID2026-010009" partidas={[partida]} />,
+      <CotizacionSheet
+        abierto
+        onClose={onClose}
+        requisicionId="rq-1"
+        folio="MID2026-010009"
+        partidas={[partida]}
+      />,
       { wrapper: createQueryWrapper() },
     );
 
@@ -61,7 +67,9 @@ describe('CotizacionSheet', () => {
     fireEvent.change(await screen.findByLabelText(/Equivale a/), { target: { value: '0.4' } });
     fireEvent.change(screen.getByLabelText(/^Precio/), { target: { value: '10' } });
     const pdf = new File(['%PDF-1.4'], 'cot.pdf', { type: 'application/pdf' });
-    fireEvent.change(screen.getByLabelText(/Cotización del proveedor \(PDF\)/), { target: { files: [pdf] } });
+    fireEvent.change(screen.getByLabelText(/Cotización del proveedor \(PDF\)/), {
+      target: { files: [pdf] },
+    });
 
     fireEvent.click(await screen.findByRole('button', { name: 'Registrar cotización' }));
 
@@ -78,9 +86,18 @@ describe('CotizacionSheet', () => {
   });
 
   it('deshabilita el botón principal y explica qué falta', () => {
-    render(<CotizacionSheet abierto onClose={vi.fn()} requisicionId="rq-1" folio="MID2026-010009" partidas={[partida]} />, {
-      wrapper: createQueryWrapper(),
-    });
+    render(
+      <CotizacionSheet
+        abierto
+        onClose={vi.fn()}
+        requisicionId="rq-1"
+        folio="MID2026-010009"
+        partidas={[partida]}
+      />,
+      {
+        wrapper: createQueryWrapper(),
+      },
+    );
     expect(screen.getByRole('button', { name: 'Registrar cotización' })).toBeDisabled();
     expect(screen.getByText(/Sin PDF la cotización queda registrada/)).toBeInTheDocument();
   });
@@ -89,13 +106,34 @@ describe('CotizacionSheet', () => {
     mocks.editar.mockResolvedValue({ id: 'cot-1', version: 2 });
     const onClose = vi.fn();
     const cotizacion = {
-      id: 'cot-1', proveedorId: '00000005-0001-0000-0000-000000000001', folioProveedor: 'COT-9', moneda: 'USD',
-      fechaCotizacion: '2026-10-15', vigenteHasta: '2026-10-31', condicionesCredito: '30 días',
-      archivoAdjuntoId: 'a-1', archivoNombre: 'cot.pdf',
-      lineas: [{ lineaRequisicionId: partida.lineaRequisicionId, unidadCotizada: 'HOJA', factorAUnidadRq: 1, precioUnitario: 25, diasEntrega: 3 }],
+      id: 'cot-1',
+      proveedorId: '00000005-0001-0000-0000-000000000001',
+      folioProveedor: 'COT-9',
+      moneda: 'USD',
+      fechaCotizacion: '2026-10-15',
+      vigenteHasta: '2026-10-31',
+      condicionesCredito: '30 días',
+      archivoAdjuntoId: 'a-1',
+      archivoNombre: 'cot.pdf',
+      lineas: [
+        {
+          lineaRequisicionId: partida.lineaRequisicionId,
+          unidadCotizada: 'HOJA',
+          factorAUnidadRq: 1,
+          precioUnitario: 25,
+          diasEntrega: 3,
+        },
+      ],
     } as unknown as CotizacionComparativo;
     render(
-      <CotizacionSheet abierto onClose={onClose} requisicionId="rq-1" folio="MID2026-010009" partidas={[partida]} cotizacion={cotizacion} />,
+      <CotizacionSheet
+        abierto
+        onClose={onClose}
+        requisicionId="rq-1"
+        folio="MID2026-010009"
+        partidas={[partida]}
+        cotizacion={cotizacion}
+      />,
       { wrapper: createQueryWrapper() },
     );
     expect(screen.getByText('Editar cotización')).toBeInTheDocument();
@@ -107,4 +145,27 @@ describe('CotizacionSheet', () => {
     expect(mocks.mutateAsync).not.toHaveBeenCalled();
     await waitFor(() => expect(onClose).toHaveBeenCalledWith({ force: true }));
   });
+});
+
+it('al cancelar conserva la captura si sigue editando y cierra al descartar', () => {
+  const onClose = vi.fn();
+  render(
+    <CotizacionSheet
+      abierto
+      onClose={onClose}
+      requisicionId="rq-1"
+      folio="RQ-1"
+      partidas={[partida]}
+    />,
+    { wrapper: createQueryWrapper() },
+  );
+  fireEvent.change(screen.getByLabelText(/Unidad cotizada/), { target: { value: 'M2' } });
+  fireEvent.click(screen.getByRole('button', { name: 'Cancelar' }));
+  expect(screen.getByRole('alertdialog')).toBeInTheDocument();
+  fireEvent.click(screen.getByRole('button', { name: 'Seguir editando' }));
+  expect(onClose).not.toHaveBeenCalled();
+  expect(screen.getByLabelText(/Unidad cotizada/)).toHaveValue('M2');
+  fireEvent.keyDown(document, { key: 'Escape' });
+  fireEvent.click(screen.getByRole('button', { name: 'Descartar' }));
+  expect(onClose).toHaveBeenCalledTimes(1);
 });

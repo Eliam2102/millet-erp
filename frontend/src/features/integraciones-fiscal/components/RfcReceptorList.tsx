@@ -1,3 +1,4 @@
+import { ConfirmarAccionDialog } from '@/components/erp/feedback/ConfirmarAccionDialog';
 import { useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -53,8 +54,8 @@ export function RfcReceptorList({ empresaId }: RfcReceptorListProps) {
 
       {list.data && list.data.length === 0 && (
         <p className="text-sm text-muted-foreground">
-          Sin RFCs receptores configurados. Agrega al menos uno para que el worker
-          de descarga consulte el SAT.
+          Sin RFCs receptores configurados. Agrega al menos uno para que el worker de descarga
+          consulte el SAT.
         </p>
       )}
 
@@ -89,6 +90,7 @@ function RfcRow({ rfc, canEdit }: RfcRowProps) {
   const actualizar = useActualizarRfcReceptor();
   const eliminar = useEliminarRfcReceptor();
   const idempotencyKey = useFormIdempotencyKey();
+  const [eliminarDialogOpen, setEliminarDialogOpen] = useState(false);
   const [fielDialogOpen, setFielDialogOpen] = useState(false);
 
   function toggle(field: 'descargaHabilitada' | 'refreshHabilitada', value: boolean) {
@@ -97,10 +99,8 @@ function RfcRow({ rfc, canEdit }: RfcRowProps) {
         id: rfc.id,
         empresaId: rfc.empresaId,
         payload: {
-          descargaHabilitada:
-            field === 'descargaHabilitada' ? value : rfc.descargaHabilitada,
-          refreshHabilitada:
-            field === 'refreshHabilitada' ? value : rfc.refreshHabilitada,
+          descargaHabilitada: field === 'descargaHabilitada' ? value : rfc.descargaHabilitada,
+          refreshHabilitada: field === 'refreshHabilitada' ? value : rfc.refreshHabilitada,
         },
         idempotencyKey,
       },
@@ -111,11 +111,13 @@ function RfcRow({ rfc, canEdit }: RfcRowProps) {
   }
 
   function handleDelete() {
-    if (!confirm(`¿Eliminar RFC ${rfc.rfc}?`)) return;
     eliminar.mutate(
       { id: rfc.id, empresaId: rfc.empresaId, idempotencyKey },
       {
-        onSuccess: () => toast.success(`RFC ${rfc.rfc} eliminado.`),
+        onSuccess: () => {
+          setEliminarDialogOpen(false);
+          toast.success(`RFC ${rfc.rfc} eliminado.`);
+        },
         onError: () => toast.error('Error al eliminar RFC.'),
       },
     );
@@ -139,7 +141,9 @@ function RfcRow({ rfc, canEdit }: RfcRowProps) {
 
       <div className="ml-auto flex items-center gap-3">
         <div className="flex items-center gap-2">
-          <Label htmlFor={`desc-${rfc.id}`} className="text-xs">Descarga</Label>
+          <Label htmlFor={`desc-${rfc.id}`} className="text-xs">
+            Descarga
+          </Label>
           <Checkbox
             id={`desc-${rfc.id}`}
             checked={rfc.descargaHabilitada}
@@ -149,7 +153,9 @@ function RfcRow({ rfc, canEdit }: RfcRowProps) {
         </div>
 
         <div className="flex items-center gap-2">
-          <Label htmlFor={`ref-${rfc.id}`} className="text-xs">Refresh</Label>
+          <Label htmlFor={`ref-${rfc.id}`} className="text-xs">
+            Refresh
+          </Label>
           <Checkbox
             id={`ref-${rfc.id}`}
             checked={rfc.refreshHabilitada}
@@ -180,7 +186,7 @@ function RfcRow({ rfc, canEdit }: RfcRowProps) {
               type="button"
               variant="ghost"
               size="icon"
-              onClick={handleDelete}
+              onClick={() => setEliminarDialogOpen(true)}
               disabled={eliminar.isPending}
               aria-label={`Eliminar RFC ${rfc.rfc}`}
             >
@@ -199,6 +205,16 @@ function RfcRow({ rfc, canEdit }: RfcRowProps) {
           rfc={rfc.rfc}
         />
       )}
+      <ConfirmarAccionDialog
+        open={eliminarDialogOpen}
+        onOpenChange={setEliminarDialogOpen}
+        titulo={`¿Eliminar RFC ${rfc.rfc}?`}
+        resumen={`Se eliminará el RFC receptor ${rfc.rfc} de esta empresa.`}
+        verbo="Eliminar RFC"
+        tono="peligro"
+        onConfirmar={handleDelete}
+        pendiente={eliminar.isPending}
+      />
     </li>
   );
 }
@@ -228,10 +244,7 @@ function AgregarRfcRow({ empresaId }: { empresaId: string }) {
         onError: (error) => {
           if (esApiError(error)) {
             if (
-              applyServerErrors(
-                form as unknown as Parameters<typeof applyServerErrors>[0],
-                error,
-              )
+              applyServerErrors(form as unknown as Parameters<typeof applyServerErrors>[0], error)
             ) {
               return;
             }
@@ -266,16 +279,9 @@ function AgregarRfcRow({ empresaId }: { empresaId: string }) {
     >
       <div className="flex-1 space-y-1">
         <Label htmlFor="new-rfc">RFC</Label>
-        <Input
-          id="new-rfc"
-          placeholder="MIL010101AAA"
-          autoFocus
-          {...form.register('rfc')}
-        />
+        <Input id="new-rfc" placeholder="MIL010101AAA" autoFocus {...form.register('rfc')} />
         {form.formState.errors.rfc && (
-          <p className="text-xs text-destructive">
-            {form.formState.errors.rfc.message}
-          </p>
+          <p className="text-xs text-destructive">{form.formState.errors.rfc.message}</p>
         )}
       </div>
       <Button type="submit" disabled={agregar.isPending} size="sm">

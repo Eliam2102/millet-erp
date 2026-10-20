@@ -30,10 +30,7 @@ export interface ConfirmarDescarteApi {
  * @param alCerrar cierra realmente el contenedor (Sheet) y limpia su estado.
  * @param detalle texto opcional bajo la pregunta (p. ej. aviso de borrador local).
  */
-export function useConfirmarDescarte(
-  alCerrar: () => void,
-  detalle?: string,
-): ConfirmarDescarteApi {
+export function useConfirmarDescarte(alCerrar: () => void, detalle?: string): ConfirmarDescarteApi {
   const dirtyRef = useRef(false);
   const [pregunta, setPregunta] = useState(false);
 
@@ -57,7 +54,10 @@ export function useConfirmarDescarte(
 
   const dialogo = (
     <AlertDialog open={pregunta} onOpenChange={setPregunta}>
-      <AlertDialogContent data-component="confirmar-descarte">
+      <AlertDialogContent
+        className="max-w-[min(480px,calc(100vw-2rem))] rounded-2xl shadow-dialog sm:rounded-2xl"
+        data-component="confirmar-descarte"
+      >
         <AlertDialogHeader>
           <AlertDialogTitle>¿Descartar los cambios?</AlertDialogTitle>
           <AlertDialogDescription>
