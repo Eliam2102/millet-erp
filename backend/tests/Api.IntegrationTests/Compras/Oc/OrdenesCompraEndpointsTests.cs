@@ -849,6 +849,32 @@ public partial class OrdenesCompraEndpointsTests : IClassFixture<WebApplicationF
         Assert.Contains(idCompleta, idsSinFiltro);
     }
 
+    [Fact]
+    public async Task Detalle_expone_esRecurrente_solo_con_tres_OC_del_mismo_proveedor_y_comprador()
+    {
+        var client = await CreateSuperAdminClientAsync();
+        // Proveedor aislado: el seed compartido acumula OC del proveedor activo y falsearía el conteo.
+        var proveedorAislado = Guid.CreateVersion7();
+        var ids = new List<Guid>();
+        for (var i = 0; i < 3; i++)
+        {
+            ids.Add(await CrearOcAsync(client));
+            using var scope = _factory.Services.CreateScope();
+            var db = scope.ServiceProvider.GetRequiredService<ComprasDbContext>();
+            var id = ids[i];
+            await db.Database.ExecuteSqlInterpolatedAsync(
+                $"UPDATE compras.ordenes_compra SET proveedor_id = {proveedorAislado} WHERE id = {id}");
+            if (i == 1)
+            {
+                var conDos = await ReadJsonAsync(await client.GetAsync($"{EndpointBase}/{ids[0]}"));
+                Assert.False(conDos.GetProperty("esRecurrente").GetBoolean());
+            }
+        }
+
+        var conTres = await ReadJsonAsync(await client.GetAsync($"{EndpointBase}/{ids[0]}"));
+        Assert.True(conTres.GetProperty("esRecurrente").GetBoolean());
+    }
+
     private static async Task<Guid> CrearOcAsync(HttpClient client)
     {
         var resp = await client.PostAsJsonAsync(EndpointBase, ValidBody());
