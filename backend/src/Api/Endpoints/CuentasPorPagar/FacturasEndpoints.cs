@@ -78,6 +78,21 @@ public static class FacturasEndpoints
         .WithSummary("Conteo por estado, con los filtros de la bandeja salvo el estado")
         .Produces<IReadOnlyList<Millet.SharedKernel.Application.ConteoPorEstadoItem>>(StatusCodes.Status200OK);
 
+        group.MapGet("/pendientes-por-proveedor", async (
+            [FromQuery] string? rfc,
+            IMediator mediator,
+            CancellationToken cancellationToken) =>
+            string.IsNullOrWhiteSpace(rfc)
+                ? Results.Problem(statusCode: StatusCodes.Status400BadRequest, title: "El RFC es obligatorio.")
+                : Results.Ok(await mediator.Send(new PendientesFacturarProveedorQuery(rfc), cancellationToken)))
+        .RequireAuthorization(PermissionPolicyProvider.Prefix + PermisosCanonicos.CuentasPorPagarFacturasLeer)
+        .WithName("PendientesFacturarPorProveedor")
+        .WithSummary("OC con saldo por facturar y sus recepciones, por RFC del proveedor")
+        .Produces<PendientesFacturarProveedorResponse>(StatusCodes.Status200OK)
+        .ProducesProblem(StatusCodes.Status400BadRequest)
+        .ProducesProblem(StatusCodes.Status401Unauthorized)
+        .ProducesProblem(StatusCodes.Status403Forbidden);
+
         group.MapGet("/{id:guid}", async (
             Guid id,
             IMediator mediator,
