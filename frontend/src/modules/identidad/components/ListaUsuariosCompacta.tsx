@@ -1,3 +1,6 @@
+import { ESTADOS_CUENTA } from '../lib/estados-ui';
+import { ListadoCatalogo } from '@/modules/administracion/components/ListadoCatalogo';
+import { OPCIONES_CUENTA } from '@/modules/identidad/lib/estados-ui';
 import { Link } from '@tanstack/react-router';
 import { ChevronRight } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
@@ -9,7 +12,7 @@ import { cn } from '@/lib/utils';
  * inbox: cada item muestra Nombre (truncate, font-semibold) + email
  * pequeño debajo + badge "Inactivo" cuando aplica. Item activo
  * (master-detail con id en URL) se highlightea con
- * <c>bg-primary/10</c>, igual que <c>ListaEmpresasCompacta</c> /
+ * <c>bg-brand/10</c>, igual que <c>ListaEmpresasCompacta</c> /
  * <c>ListaRolesCompacta</c>.
  */
 export interface ListaUsuariosCompactaProps {
@@ -17,16 +20,22 @@ export interface ListaUsuariosCompactaProps {
   idActivo: string | null;
 }
 
-export function ListaUsuariosCompacta({
-  items,
-  idActivo,
-}: ListaUsuariosCompactaProps) {
+export function ListaUsuariosCompacta({ items, idActivo }: ListaUsuariosCompactaProps) {
   return (
-    <ul className="divide-y" role="list" aria-label="Lista de usuarios">
-      {items.map((u) => (
-        <ItemCompacto key={u.id} item={u} activo={u.id === idActivo} />
-      ))}
-    </ul>
+    <ListadoCatalogo
+      items={items}
+      texto={(u) => u.nombre + ' ' + u.email}
+      estado={(u) => Number(u.activo)}
+      opciones={OPCIONES_CUENTA}
+    >
+      {(visibles) => (
+        <ul className="divide-y" role="list" aria-label="Lista de usuarios">
+          {visibles.map((u) => (
+            <ItemCompacto key={u.id} item={u} activo={u.id === idActivo} />
+          ))}
+        </ul>
+      )}
+    </ListadoCatalogo>
   );
 }
 
@@ -43,37 +52,21 @@ function ItemCompacto({ item, activo }: ItemCompactoProps) {
         params={{ id: item.id }}
         className={cn(
           'block px-3 py-2 transition-colors',
-          activo
-            ? 'bg-primary/10 hover:bg-primary/15'
-            : 'hover:bg-muted/40',
+          activo ? 'bg-brand/10 hover:bg-brand/15' : 'hover:bg-surface-muted/40',
         )}
         aria-current={activo ? 'page' : undefined}
       >
         <div className="flex items-start justify-between gap-2">
-          <span
-            className={cn(
-              'truncate text-sm font-semibold',
-              activo ? 'text-foreground' : 'text-foreground',
-            )}
-          >
+          <span className={cn('truncate text-sm font-semibold', activo ? 'text-ink' : 'text-ink')}>
             {item.nombre}
           </span>
           <div className="flex shrink-0 items-center gap-1">
-            {!item.activo && (
-              <Badge
-                variant="outline"
-                className="text-[10px] text-muted-foreground"
-              >
-                Inactivo
-              </Badge>
-            )}
-            <ChevronRight className="h-4 w-4 text-muted-foreground shrink-0" />
+            {!item.activo && <Badge variant={ESTADOS_CUENTA.inactivo.tono}>Inactivo</Badge>}
+            <ChevronRight className="h-4 w-4 text-ink-muted shrink-0" />
           </div>
         </div>
-        <div className="mt-1 truncate text-xs text-muted-foreground">
-          {item.email}
-        </div>
-        <Badge variant={item.empleadoId ? 'secondary' : 'outline'} className="mt-1 text-[10px]">
+        <div className="mt-1 truncate text-xs text-ink-muted">{item.email}</div>
+        <Badge variant={item.empleadoId ? 'success' : 'neutral'}>
           {item.empleadoId ? 'Empleado vinculado' : 'Sin empleado vinculado'}
         </Badge>
       </Link>
