@@ -158,9 +158,18 @@ public sealed class CapturarFacturaConOcHandler : IRequestHandler<CapturarFactur
         if (xml is not null && (xml.TipoCambio ?? 1) != (command.TipoCambio ?? 1))
             throw new BusinessRuleException("CFDI_TIPO_CAMBIO_DISTINTO", "El tipo de cambio capturado debe coincidir con el XML ligado.");
         var uuidNormalizado = command.UuidCfdi?.Trim().ToUpperInvariant();
-        if (!string.IsNullOrWhiteSpace(command.UuidCfdi) && await _db.FacturasProveedor.AnyAsync(
-            f => f.UuidCfdi == uuidNormalizado && f.Estado != EstadoPasivo.Cancelada, cancellationToken))
-            throw new BusinessRuleException("FACTURA_DUPLICADA", "El CFDI ya tiene una factura vigente.");
+        if (!string.IsNullOrWhiteSpace(command.UuidCfdi))
+        {
+            var duplicada = await _db.FacturasProveedor.AsNoTracking().FirstOrDefaultAsync(
+                f => f.UuidCfdi == uuidNormalizado && f.Estado != EstadoPasivo.Cancelada, cancellationToken);
+            if (duplicada is not null)
+            {
+                var documento = $"{duplicada.SerieProveedor}{duplicada.FolioProveedor}";
+                throw new BusinessRuleException(
+                    "FACTURA_DUPLICADA",
+                    $"Este CFDI ya está registrado: UUID {uuidNormalizado}, factura {(string.IsNullOrWhiteSpace(documento) ? "sin folio" : documento)} (estado {duplicada.Estado}). No se puede registrar dos veces.");
+            }
+        }
 
         var notas = new List<(CfdiRecibido Cfdi, DatosCfdiParseados Xml)>();
         foreach (var adjunta in command.NotasCredito ?? [])

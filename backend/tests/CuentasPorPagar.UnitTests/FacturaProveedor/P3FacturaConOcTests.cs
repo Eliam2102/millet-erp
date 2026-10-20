@@ -89,6 +89,20 @@ public sealed class P3FacturaConOcTests
     }
 
     [Fact]
+    public async Task Capturar_dos_veces_el_mismo_UUID_rechaza_con_FACTURA_DUPLICADA_y_menciona_el_UUID()
+    {
+        await using var a = new Ambiente();
+        var uuid = "7A1B2C3D-0000-4000-8000-00000000AAAA";
+        await a.Handler.Handle(a.Command(4, 20) with { UuidCfdi = uuid.ToLowerInvariant() }, default);
+
+        var segunda = () => a.Handler.Handle(a.Command(4, 20) with { UuidCfdi = uuid }, default);
+
+        var error = (await segunda.Should().ThrowAsync<BusinessRuleException>()).Which;
+        error.Code.Should().Be("FACTURA_DUPLICADA");
+        error.Message.Should().Contain(uuid).And.Contain("P3-FICTICIA").And.Contain("Capturada");
+    }
+
+    [Fact]
     public async Task Detalle_de_factura_en_revision_trae_motivo_area_y_plazo()
     {
         await using var a = new Ambiente();
