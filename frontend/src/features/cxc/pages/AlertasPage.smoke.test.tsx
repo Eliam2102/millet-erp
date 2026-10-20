@@ -98,22 +98,15 @@ describe('<AlertasPage> — smoke', () => {
 
   it('vacío: cartera al día', async () => {
     mswServer.use(
-      http.get(ALERTAS, () =>
-        HttpResponse.json({ items: [], offset: 0, limit: 200, total: 0 }),
-      ),
+      http.get(ALERTAS, () => HttpResponse.json({ items: [], offset: 0, limit: 200, total: 0 })),
     );
     render(<AlertasPage />, { wrapper: createQueryWrapper() });
-    expect(
-      await screen.findByText(/Sin alertas pendientes — cartera al día/i),
-    ).toBeInTheDocument();
+    expect(await screen.findByText(/Sin alertas pendientes — cartera al día/i)).toBeInTheDocument();
   });
 
   it('sin permiso registrar: sin botón Atender', async () => {
     useAuthStore.setState({
-      permisos: [
-        'cuentas_por_cobrar.cartera.leer',
-        'cuentas_por_cobrar.lineas-credito.leer',
-      ],
+      permisos: ['cuentas_por_cobrar.cartera.leer', 'cuentas_por_cobrar.lineas-credito.leer'],
     });
     mswServer.use(
       http.get(ALERTAS, () =>
@@ -127,9 +120,7 @@ describe('<AlertasPage> — smoke', () => {
     );
     render(<AlertasPage />, { wrapper: createQueryWrapper() });
     expect(await screen.findByText(/Saldo 520,000/i)).toBeInTheDocument();
-    expect(
-      screen.queryByRole('button', { name: /Atender/i }),
-    ).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /Atender/i })).not.toBeInTheDocument();
   });
 
   it('estado error con retry', async () => {
@@ -142,18 +133,14 @@ describe('<AlertasPage> — smoke', () => {
       ),
     );
     render(<AlertasPage />, { wrapper: createQueryWrapper() });
-    expect(
-      await screen.findByText(/No se pudieron cargar las alertas/i),
-    ).toBeInTheDocument();
+    expect(await screen.findByText(/No se pudieron cargar las alertas/i)).toBeInTheDocument();
   });
 });
 
 describe('<CxcLandingPage> — indicadores + accesibilidad', () => {
   function mockIndicadores() {
     mswServer.use(
-      http.get(ALERTAS, () =>
-        HttpResponse.json({ items: [], offset: 0, limit: 1, total: 3 }),
-      ),
+      http.get(ALERTAS, () => HttpResponse.json({ items: [], offset: 0, limit: 1, total: 3 })),
       http.get(ANTIGUEDAD, ({ request }) => {
         const url = new URL(request.url);
         const moneda = url.searchParams.get('moneda');
@@ -183,7 +170,9 @@ describe('<CxcLandingPage> — indicadores + accesibilidad', () => {
       permisos: ['cuentas_por_cobrar.lineas-credito.leer'],
     });
     render(<CxcLandingPage />, { wrapper: createQueryWrapper() });
-    expect(await screen.findByText('Cuentas por Cobrar')).toBeInTheDocument();
+    expect(
+      await screen.findByRole('heading', { name: 'Cuentas por cobrar', level: 1 }),
+    ).toBeInTheDocument();
     expect(screen.queryByTestId('indicadores-cxc')).not.toBeInTheDocument();
   });
 

@@ -1,11 +1,10 @@
+import { PageHeader, EmptyState, ErrorState, TableSkeleton } from '@/components/erp';
+
 import { useMemo, type ReactNode } from 'react';
 import { useSearch } from '@tanstack/react-router';
 import { CreditCard } from 'lucide-react';
-import { EmptyState, ErrorState, TableSkeleton } from '@/components/erp';
-import {
-  useClientesLookupCxc,
-  useLineasCredito,
-} from '@/features/cxc/api/useLineasCredito';
+
+import { useClientesLookupCxc, useLineasCredito } from '@/features/cxc/api/useLineasCredito';
 import { ListaLineasCompacta } from '@/features/cxc/components/ListaLineasCompacta';
 import type { LineasSearch } from '@/features/cxc/lib/lineas-search-schema';
 import { esApiError } from '@/lib/api';
@@ -33,16 +32,10 @@ export function LineasCreditoLayout({ idActivo, detalle }: LineasCreditoLayoutPr
   });
 
   const clienteIds = useMemo(
-    () =>
-      Array.from(
-        new Set((query.data?.items ?? []).map((l) => l.clienteId)),
-      ).sort(),
+    () => Array.from(new Set((query.data?.items ?? []).map((l) => l.clienteId))).sort(),
     [query.data],
   );
-  const lookup = useClientesLookupCxc(
-    { ids: clienteIds },
-    { enabled: clienteIds.length > 0 },
-  );
+  const lookup = useClientesLookupCxc({ ids: clienteIds }, { enabled: clienteIds.length > 0 });
   const nombres = useMemo(() => {
     const m = new Map<string, string>();
     for (const c of lookup.data ?? []) m.set(c.id, c.razonSocial);
@@ -53,13 +46,11 @@ export function LineasCreditoLayout({ idActivo, detalle }: LineasCreditoLayoutPr
     const todos = query.data?.items ?? [];
     const q = (search.q ?? '').trim().toLowerCase();
     if (!q) return todos;
-    return todos.filter((l) =>
-      (nombres.get(l.clienteId) ?? l.clienteId).toLowerCase().includes(q),
-    );
+    return todos.filter((l) => (nombres.get(l.clienteId) ?? l.clienteId).toLowerCase().includes(q));
   }, [query.data, search.q, nombres]);
 
   return (
-    <div className="flex flex-col gap-4 px-4 py-6 md:h-[calc(100vh-3.5rem)] md:flex-row">
+    <div className="flex flex-col gap-5 min-h-0 md:flex-row">
       {/* ── Master (lista) ────────────────────────────── */}
       <aside
         className={cn(
@@ -69,16 +60,11 @@ export function LineasCreditoLayout({ idActivo, detalle }: LineasCreditoLayoutPr
         aria-label="Lista de líneas de crédito"
         data-print="hidden"
       >
-        <h1 className="text-xl font-semibold tracking-tight">
-          Líneas de crédito
-        </h1>
-        <div className="flex-1 overflow-y-auto rounded-md border bg-card">
+        <PageHeader titulo={<>Líneas de crédito</>} />
+        <div className="flex-1 overflow-y-auto rounded-md border bg-surface-card">
           {query.isLoading ? (
             <div className="p-3">
-              <TableSkeleton
-                rows={8}
-                columns={[{ width: 'w-full' }, { width: 'w-full' }]}
-              />
+              <TableSkeleton rows={8} columns={[{ width: 'w-full' }, { width: 'w-full' }]} />
             </div>
           ) : query.isError ? (
             <ErrorState
@@ -122,8 +108,8 @@ export function LineasCreditoLayout({ idActivo, detalle }: LineasCreditoLayoutPr
 
 function PlaceholderSinSeleccion() {
   return (
-    <div className="flex h-full min-h-64 items-center justify-center rounded-md border border-dashed bg-muted/20 p-8 text-center">
-      <div className="space-y-1 text-muted-foreground">
+    <div className="flex h-full min-h-64 items-center justify-center rounded-md border border-dashed bg-surface-muted/20 p-8 text-center">
+      <div className="space-y-1 text-ink-muted">
         <CreditCard className="mx-auto h-8 w-8 opacity-50" aria-hidden="true" />
         <p className="text-sm">Selecciona una línea de la lista</p>
         <p className="text-xs">para ver su detalle y crédito disponible.</p>

@@ -72,7 +72,7 @@ export const ETIQUETA_TIPO_ALERTA: Record<TipoAlertaCartera, string> = {
 
 /** Formato de moneda sin conversión: cada monto con su divisa (§5). */
 export function formatoMonto(monto: number, moneda: string): string {
-  return `${monto.toLocaleString('es-MX', {
+  return `$${monto.toLocaleString('es-MX', {
     minimumFractionDigits: 2,
     maximumFractionDigits: 2,
   })} ${moneda}`;

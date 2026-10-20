@@ -1,9 +1,11 @@
+import { FormGrid, FormCampo } from '@/components/erp';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { toast } from 'sonner';
 import {
   Dialog,
   DialogContent,
+  DialogBody,
   DialogDescription,
   DialogFooter,
   DialogHeader,
@@ -19,11 +21,7 @@ import {
   NuevaAutorizacionSchema,
   type NuevaAutorizacionValues,
 } from '@/features/cxc/schemas/liberacion';
-import {
-  applyServerErrors,
-  esApiError,
-  useFormIdempotencyKey,
-} from '@/lib/api';
+import { applyServerErrors, esApiError, useFormIdempotencyKey } from '@/lib/api';
 import { useAuthStore } from '@/lib/auth/auth-store';
 
 /**
@@ -42,13 +40,12 @@ export function NuevaAutorizacionDialog({
 }) {
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-lg">
+      <DialogContent size="md">
         <DialogHeader>
           <DialogTitle>Nueva autorización de crédito</DialogTitle>
           <DialogDescription>
-            Autoriza a un usuario a liberar un pedido o cliente pese al
-            crédito. Vigencia máxima 24 horas, un solo uso; puedes
-            cancelarla mientras siga vigente.
+            Autoriza a un usuario a liberar un pedido o cliente pese al crédito. Vigencia máxima 24
+            horas, un solo uso; puedes cancelarla mientras siga vigente.
           </DialogDescription>
         </DialogHeader>
         {open && <FormAutorizacion onClose={() => onOpenChange(false)} />}
@@ -63,14 +60,16 @@ function FormAutorizacion({ onClose }: { onClose: () => void }) {
   const usuarioActualId = useAuthStore((s) => s.user?.id ?? null);
   const usuarios = useQuery({
     queryKey: ['cxc', 'beneficiarios-credito'],
-    queryFn: async ({ signal }) => (await apiRequest<{ id: string; nombre: string; email: string }[]>(
-      '/api/v1/cuentas-por-cobrar/autorizaciones/beneficiarios', { signal },
-    )).data,
+    queryFn: async ({ signal }) =>
+      (
+        await apiRequest<{ id: string; nombre: string; email: string }[]>(
+          '/api/v1/cuentas-por-cobrar/autorizaciones/beneficiarios',
+          { signal },
+        )
+      ).data,
   });
 
-  const candidatos = (usuarios.data ?? []).filter(
-    (u) => u.id !== usuarioActualId,
-  );
+  const candidatos = (usuarios.data ?? []).filter((u) => u.id !== usuarioActualId);
 
   const form = useForm<NuevaAutorizacionValues>({
     resolver: zodResolver(NuevaAutorizacionSchema),
@@ -95,10 +94,7 @@ function FormAutorizacion({ onClose }: { onClose: () => void }) {
         onError: (error) => {
           if (esApiError(error)) {
             if (
-              applyServerErrors(
-                form as unknown as Parameters<typeof applyServerErrors>[0],
-                error,
-              )
+              applyServerErrors(form as unknown as Parameters<typeof applyServerErrors>[0], error)
             ) {
               return;
             }
@@ -114,98 +110,98 @@ function FormAutorizacion({ onClose }: { onClose: () => void }) {
   }
 
   return (
-    <form onSubmit={form.handleSubmit(onSubmit)} noValidate className="space-y-3">
-      <div className="space-y-1">
-        <Label htmlFor="beneficiario" className="text-xs">
-          Beneficiario <span className="text-destructive">*</span>
-        </Label>
-        <select
-          id="beneficiario"
-          className="h-9 w-full rounded-md border border-input bg-transparent px-3 text-sm shadow-sm"
-          {...form.register('beneficiarioUsuarioId')}
-        >
-          <option value="">
-            {usuarios.isLoading ? 'Cargando usuarios…' : 'Selecciona un usuario'}
-          </option>
-          {candidatos.map((u) => (
-            <option key={u.id} value={u.id}>
-              {u.nombre} ({u.email})
-            </option>
-          ))}
-        </select>
-        {usuarios.isError && (
-          <p className="text-xs text-destructive">
-            No se pudo cargar la lista de beneficiarios con permiso de Crédito y Cobranza.
-          </p>
-        )}
-        {form.formState.errors.beneficiarioUsuarioId && (
-          <p className="text-xs text-destructive">
-            {form.formState.errors.beneficiarioUsuarioId.message}
-          </p>
-        )}
-      </div>
+    <form
+      onSubmit={form.handleSubmit(onSubmit)}
+      noValidate
+      className="flex min-h-0 flex-1 flex-col"
+    >
+      <DialogBody>
+        <FormGrid>
+          <FormCampo span={12} className="space-y-1">
+            <Label htmlFor="beneficiario" className="text-xs">
+              Beneficiario <span className="text-danger-fg">*</span>
+            </Label>
+            <select
+              id="beneficiario"
+              className="h-9 w-full rounded-md border border-line-control bg-transparent px-3 text-sm shadow-card-flat"
+              {...form.register('beneficiarioUsuarioId')}
+            >
+              <option value="">
+                {usuarios.isLoading ? 'Cargando usuarios…' : 'Selecciona un usuario'}
+              </option>
+              {candidatos.map((u) => (
+                <option key={u.id} value={u.id}>
+                  {u.nombre} ({u.email})
+                </option>
+              ))}
+            </select>
+            {usuarios.isError && (
+              <p className="text-xs text-danger-fg">
+                No se pudo cargar la lista de beneficiarios con permiso de Crédito y Cobranza.
+              </p>
+            )}
+            {form.formState.errors.beneficiarioUsuarioId && (
+              <p className="text-xs text-danger-fg">
+                {form.formState.errors.beneficiarioUsuarioId.message}
+              </p>
+            )}
+          </FormCampo>
 
-      <div className="space-y-1">
-        <Label htmlFor="clienteOPedidoRef" className="text-xs">
-          Cliente o folio de pedido <span className="text-destructive">*</span>
-        </Label>
-        <Input
-          id="clienteOPedidoRef"
-          placeholder="p. ej. 3000123456 o ACME SA"
-          maxLength={80}
-          {...form.register('clienteOPedidoRef')}
-        />
-        {form.formState.errors.clienteOPedidoRef && (
-          <p className="text-xs text-destructive">
-            {form.formState.errors.clienteOPedidoRef.message}
-          </p>
-        )}
-      </div>
+          <FormCampo span={12} className="space-y-1">
+            <Label htmlFor="clienteOPedidoRef" className="text-xs">
+              Cliente o folio de pedido <span className="text-danger-fg">*</span>
+            </Label>
+            <Input
+              id="clienteOPedidoRef"
+              placeholder="p. ej. 3000123456 o ACME SA"
+              maxLength={80}
+              {...form.register('clienteOPedidoRef')}
+            />
+            {form.formState.errors.clienteOPedidoRef && (
+              <p className="text-xs text-danger-fg">
+                {form.formState.errors.clienteOPedidoRef.message}
+              </p>
+            )}
+          </FormCampo>
 
-      <div className="space-y-1">
-        <Label htmlFor="motivoAut" className="text-xs">
-          Motivo <span className="text-destructive">*</span>
-        </Label>
-        <Input
-          id="motivoAut"
-          placeholder="p. ej. Cliente con pago en tránsito confirmado"
-          maxLength={254}
-          {...form.register('motivo')}
-        />
-        {form.formState.errors.motivo && (
-          <p className="text-xs text-destructive">
-            {form.formState.errors.motivo.message}
-          </p>
-        )}
-      </div>
+          <FormCampo span={12} className="space-y-1">
+            <Label htmlFor="motivoAut" className="text-xs">
+              Motivo <span className="text-danger-fg">*</span>
+            </Label>
+            <Input
+              id="motivoAut"
+              placeholder="p. ej. Cliente con pago en tránsito confirmado"
+              maxLength={254}
+              {...form.register('motivo')}
+            />
+            {form.formState.errors.motivo && (
+              <p className="text-xs text-danger-fg">{form.formState.errors.motivo.message}</p>
+            )}
+          </FormCampo>
 
-      <div className="space-y-1">
-        <Label htmlFor="vigenciaHoras" className="text-xs">
-          Vigencia (horas, máx. 24) <span className="text-destructive">*</span>
-        </Label>
-        <Input
-          id="vigenciaHoras"
-          type="number"
-          step="1"
-          min="1"
-          max="24"
-          className="w-32"
-          {...form.register('vigenciaHoras', { valueAsNumber: true })}
-        />
-        {form.formState.errors.vigenciaHoras && (
-          <p className="text-xs text-destructive">
-            {form.formState.errors.vigenciaHoras.message}
-          </p>
-        )}
-      </div>
-
+          <FormCampo span={12} className="space-y-1">
+            <Label htmlFor="vigenciaHoras" className="text-xs">
+              Vigencia (horas, máx. 24) <span className="text-danger-fg">*</span>
+            </Label>
+            <Input
+              id="vigenciaHoras"
+              type="number"
+              step="1"
+              min="1"
+              max="24"
+              className="w-32"
+              {...form.register('vigenciaHoras', { valueAsNumber: true })}
+            />
+            {form.formState.errors.vigenciaHoras && (
+              <p className="text-xs text-danger-fg">
+                {form.formState.errors.vigenciaHoras.message}
+              </p>
+            )}
+          </FormCampo>
+        </FormGrid>
+      </DialogBody>
       <DialogFooter>
-        <Button
-          type="button"
-          variant="ghost"
-          onClick={onClose}
-          disabled={crear.isPending}
-        >
+        <Button type="button" variant="ghost" onClick={onClose} disabled={crear.isPending}>
           Cancelar
         </Button>
         <Button type="submit" disabled={crear.isPending}>

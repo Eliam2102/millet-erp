@@ -1,3 +1,5 @@
+import { ReporteCxc } from '../components/ReporteCxc';
+import { PageHeader } from '@/components/erp';
 import { useNavigate, useSearch } from '@tanstack/react-router';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -8,7 +10,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { ReporteShell } from '@/components/erp';
+
 import { useAntiguedadSaldos } from '@/features/cxc/api/useCartera';
 import { ClienteSelectorCxc } from '@/features/cxc/components/ClienteSelectorCxc';
 import { adaptarReporteCxc } from '@/features/cxc/lib/reporte-cxc-adapter';
@@ -43,33 +45,28 @@ export function CarteraPage() {
   const filtrosUi = (
     <div className="flex flex-wrap items-end gap-3">
       <div className="space-y-1">
-        <Label className="text-xs text-muted-foreground">Fecha de corte</Label>
+        <Label className="text-xs text-ink-muted">Fecha de corte</Label>
         <Input
           type="date"
           value={search.fechaCorte ?? ''}
-          onChange={(e) =>
-            actualizar({ fechaCorte: e.target.value || undefined })
-          }
+          onChange={(e) => actualizar({ fechaCorte: e.target.value || undefined })}
         />
       </div>
       <div className="w-72 space-y-1">
-        <Label className="text-xs text-muted-foreground">Cliente</Label>
+        <Label className="text-xs text-ink-muted">Cliente</Label>
         <ClienteSelectorCxc
           value={search.clienteId ?? null}
-          onChange={(item) =>
-            actualizar({ clienteId: item?.id ?? undefined })
-          }
+          onChange={(item) => actualizar({ clienteId: item?.id ?? undefined })}
           placeholder="Todos los clientes"
         />
       </div>
       <div className="space-y-1">
-        <Label className="text-xs text-muted-foreground">Moneda</Label>
+        <Label className="text-xs text-ink-muted">Moneda</Label>
         <Select
           value={search.moneda ?? SENTINEL_ALL}
           onValueChange={(v) =>
             actualizar({
-              moneda:
-                v === SENTINEL_ALL ? undefined : (v as CarteraSearch['moneda']),
+              moneda: v === SENTINEL_ALL ? undefined : (v as CarteraSearch['moneda']),
             })
           }
         >
@@ -90,18 +87,20 @@ export function CarteraPage() {
   );
 
   return (
-    <div className="space-y-4 px-4 py-6">
+    <div className="flex min-h-0 flex-col gap-5">
       <header data-print="hidden">
-        <h1 className="text-2xl font-semibold tracking-tight">
-          Antigüedad de saldos
-        </h1>
-        <p className="text-sm text-muted-foreground">
-          Cartera viva por cliente y moneda: por vencer + buckets de días
-          vencidos (saldo vencido = suma de buckets).
-        </p>
+        <PageHeader
+          titulo={<>Antigüedad de saldos</>}
+          descripcion={
+            <>
+              Cartera viva por cliente y moneda: por vencer + buckets de días vencidos (saldo
+              vencido = suma de buckets).
+            </>
+          }
+        />
       </header>
 
-      <ReporteShell
+      <ReporteCxc
         reporte={adaptarReporteCxc(query.data)}
         isLoading={query.isLoading}
         error={esApiError(query.error) ? query.error : undefined}

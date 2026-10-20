@@ -1,7 +1,9 @@
+import { PageHeader, EmptyState, ErrorState, TableSkeleton } from '@/components/erp';
+
 import { useMemo, type ReactNode } from 'react';
 import { Link, useSearch } from '@tanstack/react-router';
 import { FileText } from 'lucide-react';
-import { EmptyState, ErrorState, TableSkeleton } from '@/components/erp';
+
 import { useClientesLookupCxc } from '@/features/cxc/api/useLineasCredito';
 import { usePropuestasAplicacion } from '@/features/cxc/api/useAplicaciones';
 import { ChipEstadoPropuesta } from '@/features/cxc/components/ChipEstadoPropuesta';
@@ -30,16 +32,10 @@ export function AplicacionesLayout({ idActivo, detalle }: AplicacionesLayoutProp
   });
 
   const clienteIds = useMemo(
-    () =>
-      Array.from(
-        new Set((query.data?.items ?? []).map((p) => p.clienteId)),
-      ).sort(),
+    () => Array.from(new Set((query.data?.items ?? []).map((p) => p.clienteId))).sort(),
     [query.data],
   );
-  const lookup = useClientesLookupCxc(
-    { ids: clienteIds },
-    { enabled: clienteIds.length > 0 },
-  );
+  const lookup = useClientesLookupCxc({ ids: clienteIds }, { enabled: clienteIds.length > 0 });
   const nombres = useMemo(() => {
     const m = new Map<string, string>();
     for (const c of lookup.data ?? []) m.set(c.id, c.razonSocial);
@@ -58,7 +54,7 @@ export function AplicacionesLayout({ idActivo, detalle }: AplicacionesLayoutProp
   }, [query.data, search.q, nombres]);
 
   return (
-    <div className="flex flex-col gap-4 px-4 py-6 md:h-[calc(100vh-3.5rem)] md:flex-row">
+    <div className="flex flex-col gap-5 min-h-0 md:flex-row">
       <aside
         className={cn(
           'flex flex-col gap-3 md:w-80 md:shrink-0 md:overflow-hidden',
@@ -67,16 +63,11 @@ export function AplicacionesLayout({ idActivo, detalle }: AplicacionesLayoutProp
         aria-label="Lista de propuestas"
         data-print="hidden"
       >
-        <h1 className="text-xl font-semibold tracking-tight">
-          Aplicación de pagos
-        </h1>
-        <div className="flex-1 overflow-y-auto rounded-md border bg-card">
+        <PageHeader titulo={<>Aplicación de pagos</>} />
+        <div className="flex-1 overflow-y-auto rounded-md border bg-surface-card">
           {query.isLoading ? (
             <div className="p-3">
-              <TableSkeleton
-                rows={8}
-                columns={[{ width: 'w-full' }, { width: 'w-full' }]}
-              />
+              <TableSkeleton rows={8} columns={[{ width: 'w-full' }, { width: 'w-full' }]} />
             </div>
           ) : query.isError ? (
             <ErrorState
@@ -101,8 +92,8 @@ export function AplicacionesLayout({ idActivo, detalle }: AplicacionesLayoutProp
                     className={cn(
                       'block px-3 py-2 transition-colors',
                       p.id === idActivo
-                        ? 'bg-primary/10 hover:bg-primary/15'
-                        : 'hover:bg-muted/40',
+                        ? 'bg-brand/10 hover:bg-brand/15'
+                        : 'hover:bg-surface-muted/40',
                     )}
                     aria-current={p.id === idActivo ? 'page' : undefined}
                   >
@@ -117,7 +108,7 @@ export function AplicacionesLayout({ idActivo, detalle }: AplicacionesLayoutProp
                       </span>
                       <ChipEstadoPropuesta estado={p.estado} />
                     </div>
-                    <div className="mt-1 flex items-center justify-between gap-2 text-xs text-muted-foreground">
+                    <div className="mt-1 flex items-center justify-between gap-2 text-xs text-ink-muted">
                       <span className="truncate">
                         {nombres.get(p.clienteId) ?? p.clienteId.slice(0, 8)}
                       </span>
@@ -148,8 +139,8 @@ export function AplicacionesLayout({ idActivo, detalle }: AplicacionesLayoutProp
 
 function PlaceholderSinSeleccion() {
   return (
-    <div className="flex h-full min-h-64 items-center justify-center rounded-md border border-dashed bg-muted/20 p-8 text-center">
-      <div className="space-y-1 text-muted-foreground">
+    <div className="flex h-full min-h-64 items-center justify-center rounded-md border border-dashed bg-surface-muted/20 p-8 text-center">
+      <div className="space-y-1 text-ink-muted">
         <FileText className="mx-auto h-8 w-8 opacity-50" aria-hidden="true" />
         <p className="text-sm">Selecciona una propuesta de la lista</p>
         <p className="text-xs">para revisar el matching y resolverla.</p>

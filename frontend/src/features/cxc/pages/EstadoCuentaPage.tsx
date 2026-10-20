@@ -1,7 +1,10 @@
+import { PageHeader, EmptyState } from '@/components/erp';
+import { ReporteCxc } from '../components/ReporteCxc';
+
 import { useNavigate, useSearch } from '@tanstack/react-router';
 import { FileText } from 'lucide-react';
 import { Label } from '@/components/ui/label';
-import { EmptyState, ReporteShell } from '@/components/erp';
+
 import { useEstadoCuentaCliente } from '@/features/cxc/api/useCartera';
 import { ClienteSelectorCxc } from '@/features/cxc/components/ClienteSelectorCxc';
 import { adaptarReporteCxc } from '@/features/cxc/lib/reporte-cxc-adapter';
@@ -29,9 +32,7 @@ export function EstadoCuentaPage() {
 
   const filtrosUi = (
     <div className="w-full max-w-md space-y-1">
-      <Label className="text-xs text-muted-foreground">
-        Cliente (obligatorio)
-      </Label>
+      <Label className="text-xs text-ink-muted">Cliente *</Label>
       <ClienteSelectorCxc
         value={clienteId}
         onChange={(item) => actualizar({ clienteId: item?.id ?? undefined })}
@@ -41,20 +42,19 @@ export function EstadoCuentaPage() {
   );
 
   return (
-    <div className="space-y-4 px-4 py-6">
+    <div className="flex min-h-0 flex-col gap-5">
       <header data-print="hidden">
-        <h1 className="text-2xl font-semibold tracking-tight">
-          Estado de cuenta
-        </h1>
-        <p className="text-sm text-muted-foreground">
-          Movimientos del cliente: facturas, pagos, notas de crédito y
-          saldo corriente.
-        </p>
+        <PageHeader
+          titulo={<>Estado de cuenta</>}
+          descripcion={
+            <>Movimientos del cliente: facturas, pagos, notas de crédito y saldo corriente.</>
+          }
+        />
       </header>
 
       {clienteId == null ? (
         <>
-          <div data-print="hidden" className="rounded-md border bg-muted/30 p-3">
+          <div data-print="hidden" className="rounded-md border bg-surface-muted/30 p-3">
             {filtrosUi}
           </div>
           <EmptyState
@@ -64,7 +64,7 @@ export function EstadoCuentaPage() {
           />
         </>
       ) : (
-        <ReporteShell
+        <ReporteCxc
           reporte={adaptarReporteCxc(query.data)}
           isLoading={query.isLoading}
           error={esApiError(query.error) ? query.error : undefined}
