@@ -10,7 +10,7 @@ namespace Millet.DatosMaestros.Application.Proveedores;
 /// <summary>
 /// Lista paginada enriquecida de proveedores (F-Admin-PR4.5). Filtros
 /// avanzados respecto al endpoint legacy de F7-PR1: rfc (substring),
-/// razonSocial (substring), tipoPersona, estatus. La query original en
+/// razonSocial (substring sobre razón social o nombre comercial), tipoPersona, estatus. La query original en
 /// CatalogosEndpoints solo soporta <c>clave</c>+<c>estatus</c>.
 /// </summary>
 public sealed record ListarProveedoresQuery(
@@ -68,7 +68,10 @@ public sealed class ListarProveedoresHandler
             var aguja = query.RazonSocial;
             q = q.Where(p =>
                 PostgresFunctions.Translate(p.RazonSocial.ToLower(), PostgresFunctions.AcentosOrigen, PostgresFunctions.AcentosDestino)
-                    .Contains(PostgresFunctions.Translate(aguja.ToLower(), PostgresFunctions.AcentosOrigen, PostgresFunctions.AcentosDestino)));
+                    .Contains(PostgresFunctions.Translate(aguja.ToLower(), PostgresFunctions.AcentosOrigen, PostgresFunctions.AcentosDestino))
+                || (p.NombreComercial != null &&
+                    PostgresFunctions.Translate(p.NombreComercial.ToLower(), PostgresFunctions.AcentosOrigen, PostgresFunctions.AcentosDestino)
+                        .Contains(PostgresFunctions.Translate(aguja.ToLower(), PostgresFunctions.AcentosOrigen, PostgresFunctions.AcentosDestino))));
         }
 #pragma warning restore CA1304, CA1311, CA1862
         if (query.TipoPersona is TipoPersonaProveedor tp)
