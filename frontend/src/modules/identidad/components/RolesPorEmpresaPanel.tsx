@@ -1,3 +1,5 @@
+import { DialogBody } from '@/components/ui/dialog';
+import { ConfirmacionContent as AlertDialogContent } from '@/modules/administracion/components/ConfirmacionContent';
 import { useState } from 'react';
 import { Plus, ShieldAlert, Trash2 } from 'lucide-react';
 import { toast } from 'sonner';
@@ -6,17 +8,13 @@ import {
   AlertDialog,
   AlertDialogAction,
   AlertDialogCancel,
-  AlertDialogContent,
   AlertDialogDescription,
   AlertDialogFooter,
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
 import { esApiError, codigoSoporte } from '@/lib/api';
-import {
-  usePermisosEfectivosUsuario,
-  useRevocarAsignacion,
-} from '@/modules/identidad/api';
+import { usePermisosEfectivosUsuario, useRevocarAsignacion } from '@/modules/identidad/api';
 import type { AsignacionDetalleResponse } from '@/modules/identidad/api/types';
 import { useHasPermission } from '@/lib/auth/useHasPermission';
 import { PermisosCanonicos } from '@/lib/auth/permission-codes';
@@ -43,21 +41,14 @@ export interface RolesPorEmpresaPanelProps {
   asignaciones: readonly AsignacionDetalleResponse[];
 }
 
-export function RolesPorEmpresaPanel({
-  usuarioId,
-  asignaciones,
-}: RolesPorEmpresaPanelProps) {
+export function RolesPorEmpresaPanel({ usuarioId, asignaciones }: RolesPorEmpresaPanelProps) {
   const [agregando, setAgregando] = useState(false);
-  const [paraRevocar, setParaRevocar] =
-    useState<AsignacionDetalleResponse | null>(null);
+  const [paraRevocar, setParaRevocar] = useState<AsignacionDetalleResponse | null>(null);
 
-  const canGestionar = useHasPermission(
-    PermisosCanonicos.IdentidadAsignacionesAdministrar,
-  );
+  const canGestionar = useHasPermission(PermisosCanonicos.IdentidadAsignacionesAdministrar);
 
   const currentUserId = useAuthStore((s) => s.user?.id);
-  const esUsuarioActual =
-    currentUserId != null && currentUserId === usuarioId;
+  const esUsuarioActual = currentUserId != null && currentUserId === usuarioId;
 
   const revocar = useRevocarAsignacion();
   // Revocar el rol borra las excepciones de permisos de esa empresa (ADR-0053).
@@ -66,8 +57,7 @@ export function RolesPorEmpresaPanel({
     paraRevocar?.empresaId ?? null,
   );
   const perdidos =
-    (efectivosRevocar.data?.concedidos ?? 0) +
-    (efectivosRevocar.data?.denegados ?? 0);
+    (efectivosRevocar.data?.concedidos ?? 0) + (efectivosRevocar.data?.denegados ?? 0);
 
   function handleConfirmarRevocar() {
     if (revocar.isPending) return;
@@ -87,9 +77,7 @@ export function RolesPorEmpresaPanel({
       },
       {
         onSuccess: () => {
-          toast.success(
-            `Rol "${target.rolCodigo}" revocado en ${target.empresaRfc}`,
-          );
+          toast.success(`Rol "${target.rolCodigo}" revocado en ${target.empresaRfc}`);
           setParaRevocar(null);
         },
         onError: (error) => {
@@ -111,9 +99,8 @@ export function RolesPorEmpresaPanel({
       <header className="flex flex-wrap items-center justify-between gap-2">
         <div>
           <h3 className="text-base font-semibold">Roles por empresa</h3>
-          <p className="text-xs text-muted-foreground">
-            Asignaciones activas del usuario en cada razón social.
-            Total: {asignaciones.length}.
+          <p className="text-xs text-ink-muted">
+            Asignaciones activas del usuario en cada razón social. Total: {asignaciones.length}.
           </p>
         </div>
         {canGestionar && !agregando && (
@@ -135,10 +122,12 @@ export function RolesPorEmpresaPanel({
       </header>
 
       {esUsuarioActual && (
-        <div className="flex items-center gap-2 rounded-md border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-xs text-amber-900 dark:text-amber-200">
-          <ShieldAlert className="h-4 w-4 shrink-0 text-amber-600 dark:text-amber-400" />
+        <div className="flex items-center gap-2 rounded-md border border-line/30 bg-warning/10 px-3 py-2 text-xs text-warning-fg ">
+          <ShieldAlert className="h-4 w-4 shrink-0 text-warning-fg " />
           <span>
-            Estás visualizando tu propia cuenta. Por políticas de segregación de funciones (SoD) y prevención de auto-bloqueos, tus roles solo pueden ser modificados por otro administrador.
+            Estás visualizando tu propia cuenta. Por políticas de segregación de funciones (SoD) y
+            prevención de auto-bloqueos, tus roles solo pueden ser modificados por otro
+            administrador.
           </span>
         </div>
       )}
@@ -152,23 +141,21 @@ export function RolesPorEmpresaPanel({
       )}
 
       {asignaciones.length === 0 ? (
-        <div className="rounded-md border border-dashed bg-muted/20 px-4 py-6 text-center text-sm text-muted-foreground">
+        <div className="rounded-md border border-dashed bg-surface-muted/20 px-4 py-6 text-center text-sm text-ink-muted">
           No hay asignaciones registradas.
         </div>
       ) : (
-        <ul className="divide-y rounded-md border bg-card">
+        <ul className="divide-y rounded-md border bg-surface-card">
           {asignaciones.map((a) => (
             <li key={a.id} className="px-3 py-2">
               <div className="flex flex-wrap items-center gap-3">
                 <div className="min-w-0 flex-1 space-y-0.5">
                   <div className="flex flex-wrap items-center gap-2 text-sm">
-                    <span className="font-mono font-semibold">
-                      {a.empresaRfc}
-                    </span>
-                    <span className="text-muted-foreground">·</span>
+                    <span className="font-mono font-semibold">{a.empresaRfc}</span>
+                    <span className="text-ink-muted">·</span>
                     <span className="font-mono">{a.rolCodigo}</span>
                   </div>
-                  <div className="truncate text-xs text-muted-foreground">
+                  <div className="truncate text-xs text-ink-muted">
                     Asignado <DateTimeDisplay value={a.fechaAsignacion} />
                   </div>
                 </div>
@@ -178,9 +165,7 @@ export function RolesPorEmpresaPanel({
                     size="sm"
                     disabled={esUsuarioActual}
                     title={
-                      esUsuarioActual
-                        ? 'No puedes revocar tus propios roles asignados'
-                        : undefined
+                      esUsuarioActual ? 'No puedes revocar tus propios roles asignados' : undefined
                     }
                     onClick={() => setParaRevocar(a)}
                     aria-label={`Revocar rol ${a.rolCodigo} en ${a.empresaRfc}`}
@@ -202,31 +187,25 @@ export function RolesPorEmpresaPanel({
         }}
       >
         <AlertDialogContent>
-          <AlertDialogHeader>
+          <AlertDialogHeader className="px-6 pt-5 pb-3">
             <AlertDialogTitle>Revocar asignación</AlertDialogTitle>
+          </AlertDialogHeader>
+          <DialogBody>
             <AlertDialogDescription>
               ¿Confirmas revocar el rol{' '}
-              <span className="font-mono font-semibold">
-                {paraRevocar?.rolCodigo}
-              </span>{' '}
-              del usuario en{' '}
-              <span className="font-mono font-semibold">
-                {paraRevocar?.empresaRfc}
-              </span>
-              ? El usuario perderá el acceso al recargar su sesión. La
-              acción se puede revertir asignando el rol nuevamente.
+              <span className="font-mono font-semibold">{paraRevocar?.rolCodigo}</span> del usuario
+              en <span className="font-mono font-semibold">{paraRevocar?.empresaRfc}</span>? El
+              usuario perderá el acceso al recargar su sesión. La acción se puede revertir asignando
+              el rol nuevamente.
               {perdidos > 0 && (
-                <span className="mt-2 block font-medium text-amber-700">
-                  Se perderán {perdidos} permiso(s) personalizado(s) del usuario
-                  en esta empresa.
+                <span className="mt-2 block font-medium text-warning-fg">
+                  Se perderán {perdidos} permiso(s) personalizado(s) del usuario en esta empresa.
                 </span>
               )}
             </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel disabled={revocar.isPending}>
-              Cancelar
-            </AlertDialogCancel>
+          </DialogBody>
+          <AlertDialogFooter className="border-t border-line-divider bg-surface-subtle px-6 py-4">
+            <AlertDialogCancel disabled={revocar.isPending}>Cancelar</AlertDialogCancel>
             <AlertDialogAction
               onClick={handleConfirmarRevocar}
               disabled={revocar.isPending || esUsuarioActual}
