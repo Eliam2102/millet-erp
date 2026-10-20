@@ -1572,3 +1572,29 @@ export interface ActualizarPoliticaViaticosCommand {
   diasMax: number;
   moneda: string;
 }
+
+// Panel «recepciones y OC pendientes» del proveedor (espejo de PendientesFacturarProveedorQuery).
+export interface RecepcionPendiente {
+  recepcionId: string;
+  folio: string;
+  /** YYYY-MM-DD */
+  fecha: string;
+  cantidadRecibida: number;
+  facturaPendiente: boolean;
+}
+
+export interface OcPendienteFacturar {
+  ocId: string;
+  folio: string;
+  sucursalId: string;
+  moneda: string;
+  total: number;
+  cantidadPorFacturar: number;
+  recepciones: RecepcionPendiente[];
+}
+
+export interface PendientesFacturarProveedor {
+  proveedorId: string | null;
+  proveedorNombre: string | null;
+  ocs: OcPendienteFacturar[];
+}

@@ -2,6 +2,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { apiRequest } from '@/lib/api';
 import { cxpKeys, type ListarFacturasFiltros } from '@/features/cxp/api/keys';
 import type {
+  PendientesFacturarProveedor,
   AutorizarFacturaResponse,
   CancelarFacturaCommand,
   CancelarFacturaResponse,
@@ -51,6 +52,20 @@ export function useFacturas(filtros: ListarFacturasFiltros = {}) {
       );
       return data;
     },
+  });
+}
+
+export function usePendientesFacturarProveedor(rfc: string | null) {
+  return useQuery({
+    queryKey: cxpKeys.pendientesProveedor(rfc ?? ''),
+    queryFn: async ({ signal }) => {
+      const { data } = await apiRequest<PendientesFacturarProveedor>(
+        `/api/v1/cuentas-por-pagar/facturas/pendientes-por-proveedor?rfc=${encodeURIComponent(rfc ?? '')}`,
+        { signal },
+      );
+      return data;
+    },
+    enabled: !!rfc,
   });
 }
 

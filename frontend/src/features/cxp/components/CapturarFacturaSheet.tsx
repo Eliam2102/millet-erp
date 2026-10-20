@@ -26,6 +26,7 @@ import { applyServerErrors, esApiError, useFormIdempotencyKey, codigoSoporte } f
 import { CapturarFacturaSchema, type CapturarFacturaValues } from '@/features/cxp/schemas/factura';
 import { useCapturarFacturaConOc } from '@/features/cxp/api/useFacturas';
 import { EstadoPasivo, MotivoCancelacion, type CfdiListItem } from '@/features/cxp/api/types';
+import { PendientesProveedorPanel } from '@/features/cxp/components/PendientesProveedorPanel';
 import { CfdiPorProcesarPicker } from '@/features/cxp/components/CfdiPorProcesarPicker';
 import { useCfdiParseado } from '@/features/cxp/api/useCfdis';
 import { abrirPdfCfdi, descargarXmlCfdi } from '@/features/cxp/lib/cfdi-archivos';
@@ -196,6 +197,17 @@ export function CapturarFacturaSheet({
       })),
     );
     toast.success(`${lineas.length} partida(s) importadas del CFDI`);
+  }
+
+  // La OC es dueña de proveedor y sucursal: se derivan, el usuario no los teclea.
+  // Compartido por el selector de OC y el panel de pendientes del proveedor.
+  function derivarDeOc(proveedorId: string, sucursalId: string, proveedorNombre: string | null) {
+    form.setValue('proveedorId', proveedorId, { shouldValidate: true });
+    form.setValue('sucursalId', sucursalId, { shouldValidate: true });
+    setProveedorNombreSel(proveedorNombre);
+    // Cambió la OC: los lineaOcId previos quedan stale y la guarda backend los
+    // rechazaría → resetear todos a null.
+    resetLineaOcIds(form.getValues, form.setValue);
   }
 
   // useWatch (no form.watch) para que el componente siga memoizable por el
@@ -425,27 +437,21 @@ export function CapturarFacturaSheet({
                             resetLineaOcIds(form.getValues, form.setValue);
                           }
                         }}
-                        onSelect={(oc) => {
-                          // La OC es dueña de proveedor y sucursal: los
-                          // derivamos del resumen. El usuario no los teclea.
-                          form.setValue('proveedorId', oc.proveedorId, {
-                            shouldValidate: true,
-                          });
-                          form.setValue('sucursalId', oc.sucursalId, {
-                            shouldValidate: true,
-                          });
-                          // Nombre del proveedor para la etiqueta read-only, ya
-                          // resuelto en el resumen (sin catálogo capado).
-                          setProveedorNombreSel(oc.proveedorNombre);
-                          // Cambió la OC: los lineaOcId previos quedan stale
-                          // (apuntan a líneas de la OC vieja) y la guarda backend
-                          // los rechazaría → resetear todos a null.
-                          resetLineaOcIds(form.getValues, form.setValue);
-                        }}
+                        onSelect={(oc) =>
+                          derivarDeOc(oc.proveedorId, oc.sucursalId, oc.proveedorNombre)
+                        }
                       />
                     )}
                   />
                 </Campo>
+                <PendientesProveedorPanel
+                  rfc={cfdiBase?.rfcEmisor ?? null}
+                  ordenCompraId={ordenCompraIdSel || null}
+                  onElegir={(oc, proveedor) => {
+                    form.setValue('ordenCompraId', oc.ocId, { shouldValidate: true });
+                    derivarDeOc(proveedor.id, oc.sucursalId, proveedor.nombre);
+                  }}
+                />
                 <Campo
                   label="Proveedor (de la OC)"
                   error={form.formState.errors.proveedorId?.message}

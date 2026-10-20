@@ -41,6 +41,8 @@ export const cxpKeys = {
   facturasList: (filtros: ListarFacturasFiltros) =>
     [...cxpKeys.facturas(), 'list', filtros] as const,
   facturaById: (id: string) => [...cxpKeys.facturas(), 'byId', id] as const,
+  pendientesProveedor: (rfc: string) =>
+    [...cxpKeys.facturas(), 'pendientes-proveedor', rfc] as const,
 
   // Revisión por área (FE-F3-PR1)
   enRevision: () => [...cxpKeys.facturas(), 'enRevision'] as const,
