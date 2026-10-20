@@ -1,3 +1,4 @@
+import { ReporteAlmacen } from '../components/ReporteAlmacen';
 import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import {
@@ -7,7 +8,6 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { ReporteShell } from '@/components/erp';
 import { useReporteExistenciaMpCnk } from '@/features/almacen/api/useSaldosCierreReportes';
 import { useSubAlmacenes } from '@/features/almacen/api/useAlmacenes';
 import type { ExistenciaMpCnkFila } from '@/features/almacen/api/types';
@@ -19,7 +19,7 @@ const SENTINEL_ALL = '__all__';
 /**
  * <c>P15 — Reporte SAP-REPORTE-EXISTENCIA-MP-CNK</c> (doc 07 §FE-F6-PR1).
  * Inventario diario de materiales directos no-vidrio. Renderizado con
- * <c>&lt;ReporteShell/&gt;</c>.
+ * <c>&lt;ReporteAlmacen/&gt;</c>.
  */
 export function ReporteMpCnkPage() {
   const [subAlmacenId, setSubAlmacenId] = useState<string | undefined>();
@@ -28,7 +28,7 @@ export function ReporteMpCnkPage() {
   const query = useReporteExistenciaMpCnk({ subAlmacenId });
 
   return (
-    <ReporteShell<ExistenciaMpCnkFila>
+    <ReporteAlmacen<ExistenciaMpCnkFila>
       reporte={query.data}
       isLoading={query.isLoading}
       error={esApiError(query.error) ? query.error : undefined}
@@ -38,9 +38,7 @@ export function ReporteMpCnkPage() {
           <Field label="Sub-almacén (opcional)">
             <Select
               value={subAlmacenId ?? SENTINEL_ALL}
-              onValueChange={(v) =>
-                setSubAlmacenId(v === SENTINEL_ALL ? undefined : v)
-              }
+              onValueChange={(v) => setSubAlmacenId(v === SENTINEL_ALL ? undefined : v)}
             >
               <SelectTrigger className="w-56">
                 <SelectValue placeholder="Todos" />

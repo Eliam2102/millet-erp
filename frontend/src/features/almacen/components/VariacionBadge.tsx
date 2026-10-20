@@ -1,4 +1,5 @@
-import { cn } from '@/lib/utils';
+import { Badge } from '@/components/ui/badge';
+import { VARIACION_UI } from '../lib/estados-ui';
 import { MoneyDisplay } from '@/components/erp/display/MoneyDisplay';
 
 export interface VariacionBadgeProps {
@@ -30,9 +31,7 @@ export function VariacionBadge({
 }: VariacionBadgeProps) {
   if (variacionAbsoluta == null) {
     return (
-      <span className="inline-flex items-center rounded-full bg-neutral-bg px-2 py-0.5 text-xs text-neutral-fg">
-        Sin capturar
-      </span>
+      <Badge variant={VARIACION_UI.sinCapturar.variant}>{VARIACION_UI.sinCapturar.texto}</Badge>
     );
   }
 
@@ -41,41 +40,28 @@ export function VariacionBadge({
 
   if (variacionAbsoluta === 0) {
     return (
-      <span className="inline-flex items-center rounded-full bg-success-bg px-2 py-0.5 text-xs font-medium text-success-fg">
-        Sin variación
-      </span>
+      <Badge variant={VARIACION_UI.sinVariacion.variant}>{VARIACION_UI.sinVariacion.texto}</Badge>
     );
   }
 
   const esGrande = absPorcentaje >= 5 || absMonto >= 1000;
-  const esMuyGrande = absMonto >= 10_000;
 
   return (
     <div className="flex flex-col items-start gap-1">
-      <span
-        className={cn(
-          'inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium',
-          esMuyGrande && "bg-danger-bg font-semibold text-danger-fg",
-          esGrande && !esMuyGrande && "bg-danger-bg text-danger-fg",
-          !esGrande && 'bg-warning-bg text-warning-fg',
-        )}
-      >
+      <Badge variant={esGrande ? VARIACION_UI.mayor.variant : VARIACION_UI.menor.variant}>
         {variacionAbsoluta > 0 ? '+' : ''}
         {variacionAbsoluta.toLocaleString('es-MX', {
           minimumFractionDigits: 2,
           maximumFractionDigits: 4,
         })}{' '}
-        ({(variacionPorcentaje ?? 0).toFixed(2)}%)
-      </span>
-      <span className="text-xs text-muted-foreground">
+        ({(variacionPorcentaje ?? 0).toFixed(2)} %)
+      </Badge>
+      <span className="text-xs text-ink-muted">
         <MoneyDisplay amount={variacionValorMxn ?? 0} currency="MXN" strong />
       </span>
       {requiereRecuento && (
-        <span className="inline-flex items-center rounded-full bg-danger-bg px-1.5 py-0.5 text-2xs font-semibold uppercase text-danger-fg">
-          Recuento
-        </span>
+        <Badge variant={VARIACION_UI.recuento.variant}>{VARIACION_UI.recuento.texto}</Badge>
       )}
     </div>
   );
 }
-

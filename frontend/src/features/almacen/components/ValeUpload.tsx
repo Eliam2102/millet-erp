@@ -1,9 +1,4 @@
-import {
-  type ChangeEvent,
-  type DragEvent,
-  useRef,
-  useState,
-} from 'react';
+import { type ChangeEvent, type DragEvent, useRef, useState } from 'react';
 import { FileText, Loader2, Upload, X } from 'lucide-react';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
@@ -44,12 +39,7 @@ export interface ValeUploadProps {
  * PackingListUpload pero contra el endpoint
  * <c>/api/v1/almacen/salidas/vale/blob</c> (PR #258).
  */
-export function ValeUpload({
-  value,
-  onChange,
-  disabled,
-  error,
-}: ValeUploadProps) {
+export function ValeUpload({ value, onChange, disabled, error }: ValeUploadProps) {
   const inputRef = useRef<HTMLInputElement>(null);
   const [isDraggingOver, setIsDraggingOver] = useState(false);
   const idempotencyKey = useFormIdempotencyKey();
@@ -112,12 +102,12 @@ export function ValeUpload({
 
   if (value) {
     return (
-      <div className="flex items-center justify-between gap-3 rounded-md border bg-muted/30 px-3 py-2">
+      <div className="flex items-center justify-between gap-3 rounded-md border bg-surface-muted/30 px-3 py-2">
         <div className="flex min-w-0 items-center gap-2">
-          <FileText className="h-5 w-5 shrink-0 text-primary" />
+          <FileText className="h-5 w-5 shrink-0 text-brand" />
           <div className="min-w-0">
             <p className="truncate text-sm font-medium">{value.nombreArchivo}</p>
-            <p className="text-xs text-muted-foreground">
+            <p className="text-xs text-ink-muted">
               {formatearBytes(value.tamanoBytes)} · {value.contentType}
             </p>
           </div>
@@ -145,33 +135,31 @@ export function ValeUpload({
         onDragLeave={handleDragLeave}
         className={cn(
           'rounded-md border-2 border-dashed px-4 py-6 text-center transition-colors',
-          isDraggingOver
-            ? 'border-primary bg-primary/5'
-            : 'border-muted-foreground/30',
+          isDraggingOver ? 'border-brand bg-brand/5' : 'border-muted-foreground/30',
           (disabled || subir.isPending) && 'opacity-60 pointer-events-none',
           error && 'border-danger',
         )}
       >
         {subir.isPending ? (
-          <div className="flex flex-col items-center gap-2 text-muted-foreground">
+          <div className="flex flex-col items-center gap-2 text-ink-muted">
             <Loader2 className="h-6 w-6 animate-spin" />
             <p className="text-sm">Subiendo vale…</p>
           </div>
         ) : (
           <>
-            <Upload className="mx-auto h-6 w-6 text-muted-foreground" />
-            <p className="mt-2 text-sm text-muted-foreground">
+            <Upload className="mx-auto h-6 w-6 text-ink-muted" />
+            <p className="mt-2 text-sm text-ink-muted">
               Arrastra el vale firmado aquí, o
               <button
                 type="button"
-                className="ml-1 font-medium text-primary hover:underline"
+                className="ml-1 font-medium text-brand hover:underline"
                 onClick={() => inputRef.current?.click()}
                 disabled={disabled}
               >
                 selecciona un archivo
               </button>
             </p>
-            <p className="mt-1 text-xs text-muted-foreground">
+            <p className="mt-1 text-xs text-ink-muted">
               PDF, imágenes (JPEG/PNG/WebP) o Office · máximo 20 MB
             </p>
           </>

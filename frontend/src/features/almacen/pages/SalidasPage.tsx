@@ -1,3 +1,5 @@
+import { KpiCard } from '@/components/erp/display/KpiCard';
+import { ListadoModulo } from '@/components/erp/data/ListadoModulo';
 import { PageHeader } from '@/components/erp/PageHeader';
 import { useMemo, useState } from 'react';
 import { Link, useNavigate, useSearch } from '@tanstack/react-router';
@@ -60,13 +62,7 @@ import { DateTimeDisplay } from '@/components/erp/display/DateTimeDisplay';
 const FROM = '/_app/almacen/salidas/' as const;
 const SENTINEL_ALL = '__all__';
 
-type SortKey =
-  | 'folio'
-  | 'fechaMovimiento'
-  | 'subAlmacen'
-  | 'rqId'
-  | 'montoTotalMxn'
-  | 'estado';
+type SortKey = 'folio' | 'fechaMovimiento' | 'subAlmacen' | 'rqId' | 'montoTotalMxn' | 'estado';
 
 /**
  * <c>P3 — Bandeja de salidas</c> (doc 07 §FE-F3-PR1). Tabla con
@@ -79,12 +75,8 @@ type SortKey =
 export function SalidasPage() {
   const search = useSearch({ from: FROM });
   const navigate = useNavigate();
-  const puedeRegistrar = useHasPermission(
-    PermisosCanonicos.AlmacenSalidasRegistrar,
-  );
-  const puedeRegistrarVale = useHasPermission(
-    PermisosCanonicos.AlmacenSalidasPorVale,
-  );
+  const puedeRegistrar = useHasPermission(PermisosCanonicos.AlmacenSalidasRegistrar);
+  const puedeRegistrarVale = useHasPermission(PermisosCanonicos.AlmacenSalidasPorVale);
   const [sheetAbierto, setSheetAbierto] = useState(false);
 
   const subAlmacenesQuery = useSubAlmacenes({ limit: 500 });
@@ -130,7 +122,7 @@ export function SalidasPage() {
   const items = query.data?.items ?? [];
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-5">
       <PageHeader
         titulo="Salidas"
         descripcion="Surtido de requisiciones aprobadas y vales urgentes. El comprobante PDF se descarga del detalle."
@@ -146,68 +138,94 @@ export function SalidasPage() {
         }
       />
 
-      <TabsEstado
-        opciones={TABS_ESTADO}
-        valor={search.estado}
-        onChange={(estado) => actualizarSearch({ estado: estado as EstadoMovimiento | undefined })}
-        conteos={conteos.data}
-      />
-
-      <FiltrosToolbar
-        search={search}
-        subAlmacenes={subAlmacenesQuery.data?.items ?? []}
-        total={query.data?.total}
-        onChange={actualizarSearch}
-      />
-
-      {query.isError ? (
-        <ErrorState
-          title="No se pudieron cargar las salidas"
-          problem={esApiError(query.error) ? query.error.problem : undefined}
-          onRetry={() => query.refetch()}
-        />
-      ) : query.isLoading ? (
-        <TableSkeleton
-          rows={8}
-          columns={[
-            { width: 'w-32' },
-            { width: 'w-24' },
-            { width: 'w-40' },
-            { width: 'w-32' },
-            { width: 'w-24' },
-            { width: 'w-32' },
-            { width: 'w-24' },
-          ]}
-        />
-      ) : items.length === 0 ? (
-        <EmptyState
-          title="Sin salidas"
-          description={
-            search.q ||
-            search.estado != null ||
-            search.subAlmacenId ||
-            search.rqId ||
-            search.desde ||
-            search.hasta ||
-            search.soloVales ||
-            search.noRegularizados ||
-            search.soloVencidos ||
-            search.soloPorVencer
-              ? 'No hay salidas que coincidan con los filtros aplicados.'
-              : 'Aún no se han registrado salidas. Usa "Nueva salida" para capturar la primera.'
-          }
-        />
-      ) : (
-        <div className="overflow-hidden rounded-lg border border-line-row bg-surface-card">
-          <TablaSalidas items={items} subAlmacenesMap={subAlmacenesMap} />
+      <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+        {TABS_ESTADO.filter((tab) =>
+          [EstadoMovimiento.Borrador, EstadoMovimiento.Validado].some(
+            (estado) => estado === tab.valor,
+          ),
+        ).map((tab) => (
+          <Button
+            key={tab.valor}
+            variant="ghost"
+            className="h-auto items-stretch p-0 text-left [&>div]:w-full"
+            aria-pressed={search.estado === tab.valor}
+            onClick={() => actualizarSearch({ estado: tab.valor as typeof search.estado })}
+          >
+            <KpiCard etiqueta={tab.label} valor={conteos.data?.[tab.valor] ?? '—'} />
+          </Button>
+        ))}
+      </div>
+      <ListadoModulo
+        tabs={
+          <TabsEstado
+            opciones={TABS_ESTADO}
+            valor={search.estado}
+            onChange={(estado) =>
+              actualizarSearch({ estado: estado as EstadoMovimiento | undefined })
+            }
+            conteos={conteos.data}
+          />
+        }
+        filtros={
+          <FiltrosToolbar
+            search={search}
+            subAlmacenes={subAlmacenesQuery.data?.items ?? []}
+            total={query.data?.total}
+            onChange={actualizarSearch}
+          />
+        }
+        pie={
           <PaginacionTabla
             total={query.data?.total ?? 0}
             offset={query.data?.offset ?? 0}
             limit={query.data?.limit ?? paginaAOffsetLimit(search).limit}
             onChange={(offset, limit) => actualizarSearch(offsetLimitAPagina(offset, limit))}
           />
-        </div>
-      )}
+        }
+      >
+        {query.isError ? (
+          <ErrorState
+            title="No se pudieron cargar las salidas"
+            problem={esApiError(query.error) ? query.error.problem : undefined}
+            onRetry={() => query.refetch()}
+          />
+        ) : query.isLoading ? (
+          <TableSkeleton
+            rows={8}
+            columns={[
+              { width: 'w-32' },
+              { width: 'w-24' },
+              { width: 'w-40' },
+              { width: 'w-32' },
+              { width: 'w-24' },
+              { width: 'w-32' },
+              { width: 'w-24' },
+            ]}
+          />
+        ) : items.length === 0 ? (
+          <EmptyState
+            title="Sin salidas"
+            description={
+              search.q ||
+              search.estado != null ||
+              search.subAlmacenId ||
+              search.rqId ||
+              search.desde ||
+              search.hasta ||
+              search.soloVales ||
+              search.noRegularizados ||
+              search.soloVencidos ||
+              search.soloPorVencer
+                ? 'No hay salidas que coincidan con los filtros aplicados.'
+                : 'Aún no se han registrado salidas. Usa "Nueva salida" para capturar la primera.'
+            }
+          />
+        ) : (
+          <div className="overflow-hidden rounded-lg border border-line-row bg-surface-card">
+            <TablaSalidas items={items} subAlmacenesMap={subAlmacenesMap} />
+          </div>
+        )}
+      </ListadoModulo>
 
       <NuevaSalidaSheet
         open={sheetAbierto}
@@ -233,12 +251,7 @@ interface FiltrosToolbarProps {
   onChange: (parcial: Partial<SalidasSearch>) => void;
 }
 
-function FiltrosToolbar({
-  search,
-  subAlmacenes,
-  total,
-  onChange,
-}: FiltrosToolbarProps) {
+function FiltrosToolbar({ search, subAlmacenes, total, onChange }: FiltrosToolbarProps) {
   const algunFiltro =
     search.q ||
     search.subAlmacenId ||
@@ -246,9 +259,16 @@ function FiltrosToolbar({
     search.desde ||
     search.hasta ||
     search.soloVales ||
-    search.noRegularizados || search.soloVencidos || search.soloPorVencer;
-  const masActivos =
-    [search.desde, search.hasta, search.soloVales, search.noRegularizados, search.soloVencidos].filter(Boolean).length;
+    search.noRegularizados ||
+    search.soloVencidos ||
+    search.soloPorVencer;
+  const masActivos = [
+    search.desde,
+    search.hasta,
+    search.soloVales,
+    search.noRegularizados,
+    search.soloVencidos,
+  ].filter(Boolean).length;
 
   return (
     <BarraFiltros
@@ -264,9 +284,7 @@ function FiltrosToolbar({
       filtros={
         <Select
           value={search.subAlmacenId ?? SENTINEL_ALL}
-          onValueChange={(v) =>
-            onChange({ subAlmacenId: v === SENTINEL_ALL ? undefined : v })
-          }
+          onValueChange={(v) => onChange({ subAlmacenId: v === SENTINEL_ALL ? undefined : v })}
         >
           <SelectTrigger aria-label="Filtrar por sub-almacén" className="h-ctl-md w-48 text-xs">
             <SelectValue placeholder="Todos los sub-almacenes" />
@@ -301,9 +319,7 @@ function FiltrosToolbar({
             <Checkbox
               id="solo-vales"
               checked={search.soloVales ?? false}
-              onCheckedChange={(checked) =>
-                onChange({ soloVales: checked === true || undefined })
-              }
+              onCheckedChange={(checked) => onChange({ soloVales: checked === true || undefined })}
             />
             <label htmlFor="solo-vales" className="text-sm">
               Solo vales urgentes
@@ -343,10 +359,7 @@ function FiltrosToolbar({
       chips={
         <>
           {search.rqId && (
-            <FiltroActivoChip
-              label="Requisición"
-              onQuitar={() => onChange({ rqId: undefined })}
-            />
+            <FiltroActivoChip label="Requisición" onQuitar={() => onChange({ rqId: undefined })} />
           )}
           {search.soloPorVencer && (
             <FiltroActivoChip
@@ -390,17 +403,14 @@ function TablaSalidas({ items, subAlmacenesMap }: TablaSalidasProps) {
     () =>
       items.map((r) => ({
         ...r,
-        subAlmacen:
-          subAlmacenesMap.get(r.subAlmacenId)?.clave ?? r.subAlmacenId,
+        subAlmacen: subAlmacenesMap.get(r.subAlmacenId)?.clave ?? r.subAlmacenId,
       })),
     [items, subAlmacenesMap],
   );
 
   const ordenados = useMemo(() => {
     if (sort == null) return enriquecidos;
-    return [...enriquecidos].sort((a, b) =>
-      compareItemsBy(a, b, sort.key, sort.dir),
-    );
+    return [...enriquecidos].sort((a, b) => compareItemsBy(a, b, sort.key, sort.dir));
   }, [enriquecidos, sort]);
 
   return (

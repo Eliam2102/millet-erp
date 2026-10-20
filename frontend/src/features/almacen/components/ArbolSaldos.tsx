@@ -4,10 +4,7 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import { useHijosJerarquia } from '@/features/almacen/api/useSaldosCierreReportes';
-import type {
-  NivelNodoJerarquia,
-  NodoJerarquiaSaldo,
-} from '@/features/almacen/api/types';
+import type { NivelNodoJerarquia, NodoJerarquiaSaldo } from '@/features/almacen/api/types';
 import { MoneyDisplay } from '@/components/erp/display/MoneyDisplay';
 import { formatCantidad } from '@/lib/format-cantidad';
 
@@ -31,12 +28,7 @@ interface ArbolSaldosProps {
   incluirVacios?: boolean;
 }
 
-export function ArbolSaldos({
-  nodoTipo,
-  nodoId,
-  articuloId,
-  incluirVacios,
-}: ArbolSaldosProps) {
+export function ArbolSaldos({ nodoTipo, nodoId, articuloId, incluirVacios }: ArbolSaldosProps) {
   return (
     <ul role="tree" className="space-y-0.5 text-sm">
       <ListaHijos
@@ -59,13 +51,7 @@ interface ListaHijosProps {
 }
 
 /** Los hijos de un nodo: una llamada lazy; skeleton/error/empty por nivel. */
-function ListaHijos({
-  nodoTipo,
-  nodoId,
-  articuloId,
-  incluirVacios,
-  nivel,
-}: ListaHijosProps) {
+function ListaHijos({ nodoTipo, nodoId, articuloId, incluirVacios, nivel }: ListaHijosProps) {
   const query = useHijosJerarquia({
     nodoTipo,
     nodoId,
@@ -81,8 +67,8 @@ function ListaHijos({
           style={{ paddingLeft: nivel * 20 }}
           data-testid="nodo-skeleton"
         >
-          <div className="h-6 w-2/3 animate-pulse rounded bg-muted" />
-          <div className="h-6 w-1/2 animate-pulse rounded bg-muted" />
+          <div className="h-6 w-2/3 animate-pulse rounded bg-surface-muted" />
+          <div className="h-6 w-1/2 animate-pulse rounded bg-surface-muted" />
         </div>
       </li>
     );
@@ -92,7 +78,7 @@ function ListaHijos({
     return (
       <li role="none">
         <div
-          className="flex items-center gap-2 py-1 text-destructive"
+          className="flex items-center gap-2 py-1 text-danger-fg"
           style={{ paddingLeft: nivel * 20 }}
         >
           <span>No se pudo cargar este nivel.</span>
@@ -108,10 +94,7 @@ function ListaHijos({
   if (hijos.length === 0) {
     return (
       <li role="none">
-        <p
-          className="py-1 text-muted-foreground"
-          style={{ paddingLeft: nivel * 20 }}
-        >
+        <p className="py-1 text-ink-muted" style={{ paddingLeft: nivel * 20 }}>
           Sin existencias en este nivel.
         </p>
       </li>
@@ -145,26 +128,20 @@ interface FilaNodoProps {
   autoExpandir: boolean;
 }
 
-function FilaNodo({
-  nodo,
-  nivel,
-  articuloId,
-  incluirVacios,
-  autoExpandir,
-}: FilaNodoProps) {
+function FilaNodo({ nodo, nivel, articuloId, incluirVacios, autoExpandir }: FilaNodoProps) {
   const [open, setOpen] = useState(autoExpandir);
   const expandible = !nodo.esHoja;
 
   return (
     <li role="treeitem" aria-expanded={expandible ? open : undefined}>
       <div
-        className="flex items-center gap-2 rounded px-2 py-1 hover:bg-muted/50"
+        className="flex items-center gap-2 rounded px-2 py-1 hover:bg-surface-muted/50"
         style={{ paddingLeft: nivel * 20 + 8 }}
       >
         {expandible ? (
           <button
             type="button"
-            className="flex h-5 w-5 shrink-0 items-center justify-center rounded hover:bg-muted"
+            className="flex h-5 w-5 shrink-0 items-center justify-center rounded hover:bg-surface-muted"
             aria-label={`${open ? 'Colapsar' : 'Expandir'} ${nodo.clave}`}
             onClick={() => setOpen((v) => !v)}
           >
@@ -178,11 +155,7 @@ function FilaNodo({
         )}
 
         <span className="font-mono text-xs">{nodo.clave}</span>
-        {nodo.nombre && (
-          <span className="truncate text-xs text-muted-foreground">
-            {nodo.nombre}
-          </span>
-        )}
+        {nodo.nombre && <span className="truncate text-xs text-ink-muted">{nodo.nombre}</span>}
         {nodo.esDefault && (
           <Badge variant="outline" className="shrink-0 text-2xs">
             ÚNICA
@@ -192,7 +165,7 @@ function FilaNodo({
         <span className="ml-auto shrink-0 text-right font-mono">
           {formatCantidad(nodo.cantidad, 2)}
         </span>
-        <span className="w-32 shrink-0 text-right text-xs text-muted-foreground">
+        <span className="w-32 shrink-0 text-right text-xs text-ink-muted">
           <MoneyDisplay amount={nodo.valorInventarioMxn} currency="MXN" strong />
         </span>
       </div>
@@ -213,4 +186,3 @@ function FilaNodo({
     </li>
   );
 }
-
