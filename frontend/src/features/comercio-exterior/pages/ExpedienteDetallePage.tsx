@@ -29,6 +29,7 @@ import { CE_BASE, useAccionExpediente, useExpediente, useExpedientes } from '../
 import { EstadoExpedienteBadge } from '../components/EstadoExpedienteBadge';
 import { OtrPanel } from '../components/OtrPanel';
 import { ContenedoresPanel } from '../components/ContenedoresPanel';
+import { IncidenciasPanel } from '../components/IncidenciasPanel';
 import { HitosPanel } from '../components/HitosPanel';
 import { DocumentosPanel } from '../components/DocumentosPanel';
 import {
@@ -112,6 +113,9 @@ export function ExpedienteDetallePage({ id }: { id: string }) {
             <>
               {' '}
               <EstadoExpedienteBadge estado={data.expediente.estado} />
+              <Badge variant="warning">
+                {(data.incidencias ?? []).filter((i) => i.estado < 3).length} incidencias pendientes
+              </Badge>
               {data.expediente.revisionPendiente && (
                 <Badge variant="warning">Revisión pendiente</Badge>
               )}
@@ -126,7 +130,16 @@ export function ExpedienteDetallePage({ id }: { id: string }) {
                 </Button>
               )}
               {cerrar && abierto && (
-                <Button variant="outline" disabled title={textoFinanciero(data.estadoFinanciero)}>
+                <Button
+                  variant="outline"
+                  disabled
+                  title={
+                    (data.incidencias ?? [])
+                      .filter((i) => i.estado < 3)
+                      .map((i) => i.motivo)
+                      .join('; ') || textoFinanciero(data.estadoFinanciero)
+                  }
+                >
                   Cerrar expediente
                 </Button>
               )}
@@ -218,6 +231,7 @@ export function ExpedienteDetallePage({ id }: { id: string }) {
             <TabsTrigger value="resumen">Resumen</TabsTrigger>
             <TabsTrigger value="participantes">Participantes</TabsTrigger>
             <TabsTrigger value="documentos">Documentos</TabsTrigger>
+            <TabsTrigger value="incidencias">Incidencias</TabsTrigger>
             <TabsTrigger value="hitos">Hitos</TabsTrigger>
             {data.expediente.tipo === 2 && (
               <>
@@ -243,14 +257,28 @@ export function ExpedienteDetallePage({ id }: { id: string }) {
                 </TableHeader>
                 <TableBody>
                   <TableRow>
-                    <TableCell className="font-mono text-xs">{data.ocFolio ?? 'Sin número'}</TableCell>
-                    <TableCell>{data.informacionImportacion?.paisOrigen ?? <span className="text-ink-muted">Sin país de origen</span>}</TableCell>
                     <TableCell className="font-mono text-xs">
-                      {data.informacionImportacion?.numeroContenedor ?? <span className="text-ink-muted">Sin número</span>}
+                      {data.ocFolio ?? 'Sin número'}
                     </TableCell>
-                    <TableCell>{data.informacionImportacion?.codigoRuta ?? <span className="text-ink-muted">Sin ruta</span>}</TableCell>
+                    <TableCell>
+                      {data.informacionImportacion?.paisOrigen ?? (
+                        <span className="text-ink-muted">Sin país de origen</span>
+                      )}
+                    </TableCell>
                     <TableCell className="font-mono text-xs">
-                      {data.informacionImportacion?.numeroPedimento ?? <span className="text-ink-muted">Sin número</span>}
+                      {data.informacionImportacion?.numeroContenedor ?? (
+                        <span className="text-ink-muted">Sin número</span>
+                      )}
+                    </TableCell>
+                    <TableCell>
+                      {data.informacionImportacion?.codigoRuta ?? (
+                        <span className="text-ink-muted">Sin ruta</span>
+                      )}
+                    </TableCell>
+                    <TableCell className="font-mono text-xs">
+                      {data.informacionImportacion?.numeroPedimento ?? (
+                        <span className="text-ink-muted">Sin número</span>
+                      )}
                     </TableCell>
                   </TableRow>
                 </TableBody>
@@ -271,6 +299,9 @@ export function ExpedienteDetallePage({ id }: { id: string }) {
           </TabsContent>
           <TabsContent value="documentos">
             <DocumentosPanel data={data} />
+          </TabsContent>
+          <TabsContent value="incidencias">
+            <IncidenciasPanel data={data} />
           </TabsContent>
           <TabsContent value="hitos">
             <HitosPanel data={data} />

@@ -23,7 +23,10 @@ public static class ExpedientesEndpoints
         app.MapGet("/api/v1/comercio-exterior/relacion-iva", async ([FromQuery] int anio, [FromQuery] int mes, [FromQuery] Guid? sucursalId, IMediator mediator, CancellationToken ct) =>
             Results.Ok(await mediator.Send(new RelacionIvaQuery(anio, mes, sucursalId), ct)))
             .RequireAuthorization(Policy(PermisosCanonicos.ComercioExteriorRelacionIvaLeer));
+        app.MapGet("/api/v1/comercio-exterior/incidencias", async ([AsParameters] IncidenciasQuery query, IMediator mediator, CancellationToken ct) => Results.Ok(await mediator.Send(query, ct)))
+            .RequireAuthorization(Policy(PermisosCanonicos.ComercioExteriorExpedientesLeer));
         var padre = g.MapGroup("/{id:guid}").WithDocumentoSucursalScope("expediente_ce", "comercio_exterior.documentos");
+        padre.MapIncidenciasCe();
         padre.MapContenedoresCe();
         padre.MapGet("/", async (Guid id, IMediator mediator, HttpResponse response, CancellationToken ct) => Respuesta(await mediator.Send(new ObtenerExpedienteCeQuery(id), ct), response)).RequireAuthorization(Policy(PermisosCanonicos.ComercioExteriorExpedientesLeer));
         padre.MapPatch("/", async (Guid id, EditarExpedienteDatos body, HttpRequest request, HttpResponse response, IMediator mediator, CancellationToken ct) => await Mutar(id, "editar", request, response, mediator, ct, datos: body)).RequireAuthorization(Policy(PermisosCanonicos.ComercioExteriorExpedientesEditar)).WithMetadata(new RequireIdempotencyKeyAttribute());

@@ -4665,6 +4665,20 @@ namespace Millet.Identidad.Infrastructure.Migrations
                         },
                         new
                         {
+                            Id = new Guid("0000000e-0005-0000-0000-000000000001"),
+                            Accion = "gestionar",
+                            Codigo = "comercio_exterior.incidencias.gestionar",
+                            CreatedAt = new DateTimeOffset(new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            CreatedBy = "seed",
+                            Descripcion = "Gestionar incidencias del expediente",
+                            Modulo = "comercio_exterior",
+                            Recurso = "incidencias",
+                            UpdatedAt = new DateTimeOffset(new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            UpdatedBy = "seed",
+                            Version = 1
+                        },
+                        new
+                        {
                             Id = new Guid("0000000e-0001-0000-0000-000000000005"),
                             Accion = "cerrar",
                             Codigo = "comercio_exterior.expedientes.cerrar",

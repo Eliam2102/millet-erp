@@ -160,6 +160,7 @@ public sealed partial class Expediente : BaseEntity, IAuditable, IPerteneceAEmpr
             DocumentoPedimentoExportacionId = nuevo.Id;
             NumeroPedimentoExportacion = nuevo.NumeroPedimento;
         }
+        if (requisito.Codigo == "IMP_PEDIMENTO") NumeroPedimentoVigenteImportacion = nuevo.NumeroPedimento;
         _documentos.Add(nuevo);
         RevisionPendiente = true;
         RevisadoPorId = null;
@@ -179,6 +180,7 @@ public sealed partial class Expediente : BaseEntity, IAuditable, IPerteneceAEmpr
     public void RevisarDocumentos(IReadOnlyList<RequisitoDocumento> requisitos, IReadOnlyCollection<Guid> adjuntosVigentes, Guid actor)
     {
         ExigirAbierto();
+        ExigirSinIncidencias();
         var faltantes = Faltantes(requisitos, adjuntosVigentes);
         if (faltantes.Count > 0)
             throw new DocumentosFaltantesException(faltantes);
