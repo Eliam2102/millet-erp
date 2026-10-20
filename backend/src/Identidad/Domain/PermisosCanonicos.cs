@@ -428,6 +428,10 @@ public static class PermisosCanonicos
     public const string FacturacionPedidosImportar             = "facturacion.pedidos.importar";
     public const string FacturacionPedidosCapturar             = "facturacion.pedidos.capturar";
     public const string FacturacionPedidosExcepcionesResolver  = "facturacion.pedidos.excepciones-resolver";
+    // F6.1 (R2): captura de pedidos manuales de emergencia (A+W fuera de
+    // servicio). Se exige en el handler además de `pedidos.capturar` cuando la
+    // clase del pedido es Emergencia.
+    public const string FacturacionPedidosCapturarEmergencia   = "facturacion.pedidos.capturar-emergencia";
     public const string FacturacionFacturasEmitir              = "facturacion.facturas.emitir";
     public const string FacturacionFacturasLeer                = "facturacion.facturas.leer";
     // Detallado facturación pt. 2: el receptor viene fijo del master de
@@ -824,6 +828,7 @@ public static class PermisosCanonicos
         (Guid.Parse("00000009-0001-0000-0000-000000000001"), FacturacionPedidosImportar,             "Importar/procesar pedidos facturables desde A+W y Planta Pintura"),
         (Guid.Parse("00000009-0001-0000-0000-000000000002"), FacturacionPedidosCapturar,             "Capturar y editar pedidos facturables manuales (origen Manual)"),
         (Guid.Parse("00000009-0001-0000-0000-000000000003"), FacturacionPedidosExcepcionesResolver,  "Resolver excepciones de la bandeja de importación de pedidos"),
+        (Guid.Parse("00000009-0001-0000-0000-000000000004"), FacturacionPedidosCapturarEmergencia,   "Capturar pedidos manuales de emergencia (A+W fuera de servicio), facturados con la serie de Venta directa"),
         (Guid.Parse("00000009-0002-0000-0000-000000000001"), FacturacionFacturasEmitir,              "Emitir (sellar + timbrar) facturas de venta CFDI"),
         (Guid.Parse("00000009-0002-0000-0000-000000000002"), FacturacionFacturasLeer,                "Consultar facturas y la cadena de relaciones CFDI"),
         (Guid.Parse("00000009-0002-0000-0000-000000000003"), FacturacionFacturasEditarReceptor,      "Corregir los datos fiscales del receptor desde la emisión: muestra el acceso directo al catálogo de clientes (los datos son de solo lectura en la factura)"),
