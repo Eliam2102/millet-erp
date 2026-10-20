@@ -10,8 +10,9 @@ import { useMemo } from 'react';
  * cliente + saldo desde <c>GET /repp/facturas-cobrables</c> ([Decisión 13-K]:
  * saldo neto de NC y REPP previos vigentes).
  *
- * <para><c>receptorRfc</c> restringe al cliente de la primera factura elegida
- * (regla <c>REPP_MULTIPLES_CLIENTES</c>). <c>onChange</c> entrega el item
+ * <para><c>receptorRfc</c> es el RFC del cliente elegido en la cabecera
+ * (regla <c>REPP_MULTIPLES_CLIENTES</c>); sin él el picker queda
+ * deshabilitado y no consulta (tarea 86e3tfd8k). <c>onChange</c> entrega el item
  * completo para que el caller proponga el importe pagado (default: el
  * saldo).</para>
  */
@@ -36,6 +37,7 @@ export function FacturaPpdPicker({
   className,
 }: FacturaPpdPickerProps) {
   const query = useFacturasCobrablesPpd(receptorRfc);
+  const sinCliente = (receptorRfc ?? '').trim() === '';
 
   const cobrables = useMemo<FacturaConId[]>(
     () =>
@@ -65,15 +67,13 @@ export function FacturaPpdPicker({
         </div>
       )}
       renderTrigger={(f) => `${f.folio} · saldo ${f.saldo.toFixed(2)} ${f.moneda}`}
-      placeholder="Selecciona una factura PPD con saldo…"
-      searchPlaceholder="Buscar por folio o cliente…"
-      emptyListText={
-        receptorRfc
-          ? 'El cliente no tiene facturas PPD con saldo por cobrar.'
-          : 'No hay facturas PPD con saldo por cobrar.'
+      placeholder={
+        sinCliente ? 'Elige primero el cliente…' : 'Selecciona una factura PPD con saldo…'
       }
+      searchPlaceholder="Buscar por folio o cliente…"
+      emptyListText="El cliente no tiene facturas PPD con saldo por cobrar."
       ariaLabel="Seleccionar factura PPD a cubrir"
-      disabled={disabled}
+      disabled={disabled || sinCliente}
       className={className}
     />
   );
