@@ -12,7 +12,7 @@ import {
   type OrdenCompraDetalleResponse,
 } from '@/features/compras/ordenes/api/types';
 
-/** Aviso «Se aparta de la cotización elegida» al editar el precio de una línea que vino de la cotización (D1, F1-COM-02). */
+/** Aviso «Se aparta de la cotización elegida» al editar el precio de una partida que vino de la cotización (D1, F1-COM-02). */
 
 const ART_ID = '22222222-2222-2222-2222-222222222222';
 const DEP_ID = '44444444-4444-4444-4444-444444444444';

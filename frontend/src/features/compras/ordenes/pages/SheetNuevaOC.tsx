@@ -1,3 +1,4 @@
+import { DialogBody } from '@/components/ui/dialog';
 import { FormGrid, FormCampo } from '@/components/erp/forms/FormGrid';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate } from '@tanstack/react-router';
@@ -389,14 +390,16 @@ export function SheetNuevaOC({
     <>
       {/* Recuperar borrador (modal pre-form) */}
       <Dialog open={showRecoverModal} onOpenChange={setShowRecoverModal}>
-        <DialogContent>
+        <DialogContent size="sm">
           <DialogHeader>
             <DialogTitle>Recuperar borrador</DialogTitle>
+          </DialogHeader>
+          <DialogBody>
             <DialogDescription>
               Tienes un borrador de OC sin guardar de una sesión anterior. ¿Quieres continuar con
               esos datos o empezar de nuevo?
             </DialogDescription>
-          </DialogHeader>
+          </DialogBody>
           <DialogFooter>
             <Button variant="outline" onClick={handleDescartarDraft}>
               Descartar y empezar de nuevo
@@ -413,17 +416,17 @@ export function SheetNuevaOC({
         noValidate
       >
         {/* Toggle "Sin RQ previa" + botón consolidación */}
-        <div className="flex flex-wrap gap-2 rounded-md border bg-muted/20 p-3 text-xs">
+        <div className="flex flex-wrap gap-2 rounded-md border bg-surface-muted/20 p-3 text-xs">
           {canCrearSinRq && (
             <label className="flex items-center gap-2">
               <input
                 type="checkbox"
                 {...form.register('sinRequisicionPrevia')}
-                className="h-4 w-4 rounded border-input"
+                className="h-4 w-4 rounded border-line-control"
                 data-action="toggle-sin-rq"
               />
               <span className="font-medium">Esta OC va sin requisición previa</span>
-              <span className="text-muted-foreground">(requiere motivo y evidencia)</span>
+              <span className="text-ink-muted">(requiere motivo y evidencia)</span>
             </label>
           )}
           {/*
@@ -700,7 +703,7 @@ export function SheetNuevaOC({
                     {...c}
                     type="checkbox"
                     {...form.register('esImportacion')}
-                    className="mt-0.5 h-4 w-4 rounded border-input"
+                    className="mt-0.5 h-4 w-4 rounded border-line-control"
                     data-field="es-importacion"
                   />
                   <p className="text-xs text-ink-muted">

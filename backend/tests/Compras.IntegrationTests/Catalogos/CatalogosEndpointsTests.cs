@@ -161,6 +161,14 @@ public class CatalogosEndpointsTests : IClassFixture<StubsWebApplicationFactory>
     }
 
     [Fact]
+    public async Task ListarProveedores_Q_Rfc_Fragmento()
+    {
+        var client = await CreateSuperAdminClientAsync();
+        // PROV-EST tiene RFC "SES010101AAA".
+        await AssertNombreProveedorEncuentraAsync(client, "ses0101", ProveedorActivoId, "q");
+    }
+
+    [Fact]
     public async Task ListarProveedores_Q_Blanco_NoFiltra()
     {
         var client = await CreateSuperAdminClientAsync();

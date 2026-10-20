@@ -1,3 +1,5 @@
+import { IndicadorAlmacenBadge } from '../components/IndicadorAlmacenBadge';
+import { PageHeader } from '@/components/erp/PageHeader';
 import { useMemo, useRef, useState } from 'react';
 import { Link, useParams } from '@tanstack/react-router';
 import { ArrowLeft, ArrowRight, Check, EyeOff } from 'lucide-react';
@@ -71,9 +73,7 @@ export function CapturaConteoPage() {
   const inputsRef = useRef<Record<string, HTMLInputElement | null>>({});
 
   // Solo se permite capturar si el conteo está EnCurso.
-  const noCapturable =
-    conteoQuery.data != null &&
-    conteoQuery.data.estado !== EstadoConteo.EnCurso;
+  const noCapturable = conteoQuery.data != null && conteoQuery.data.estado !== EstadoConteo.EnCurso;
 
   const indiceActivo = useMemo(() => {
     if (overrideIndice != null) return overrideIndice;
@@ -91,7 +91,7 @@ export function CapturaConteoPage() {
         lineaId: linea.id,
         cantidadReal: valor,
       });
-      toast.success('Línea capturada', { duration: 1500 });
+      toast.success('Partida capturada', { duration: 1500 });
       avanzarFoco();
     } catch (err) {
       if (esApiError(err)) {
@@ -131,25 +131,24 @@ export function CapturaConteoPage() {
   const progreso = useMemo(() => {
     const items = lineasQuery.data ?? [];
     const total = items.length;
-    const capturadas = items.filter(
-      (l) => l.cantidadRealCapturada != null,
-    ).length;
+    const capturadas = items.filter((l) => l.cantidadRealCapturada != null).length;
     return { capturadas, total };
   }, [lineasQuery.data]);
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-5">
+      <PageHeader
+        titulo="Captura de conteo"
+        descripcion="Registra las cantidades físicas de cada partida del inventario."
+      />
       <div className="flex items-center justify-between gap-2">
         <Button asChild variant="ghost" size="sm">
-          <Link
-            to="/almacen/inventarios/$id"
-            params={{ id: id ?? '' }}
-          >
+          <Link to="/almacen/inventarios/$id" params={{ id: id ?? '' }}>
             <ArrowLeft className="mr-2 size-3.5" />
             Volver al detalle
           </Link>
         </Button>
-        <div className="text-sm text-muted-foreground">
+        <div className="text-sm text-ink-muted">
           Progreso:{' '}
           <span className="font-mono font-semibold">
             {progreso.capturadas} / {progreso.total}
@@ -161,14 +160,11 @@ export function CapturaConteoPage() {
       <div className="flex items-start gap-3 rounded-md border border-warning bg-warning-bg px-4 py-3 text-sm">
         <EyeOff className="mt-0.5 h-5 w-5 shrink-0 text-warning-fg" />
         <div>
-          <p className="font-medium text-warning-fg">
-            Captura sin sesgo (política A6)
-          </p>
+          <p className="font-medium text-warning-fg">Captura sin sesgo</p>
           <p className="text-warning-fg">
-            Estás capturando la cantidad real <b>sin ver la cantidad
-            teórica</b>. El aprobador comparará teórico vs real en una
-            pantalla separada. Reporta lo que ves físicamente — no lo que
-            crees que debería haber.
+            Estás capturando la cantidad real <b>sin ver la cantidad teórica</b>. El aprobador
+            comparará teórico vs real en una pantalla separada. Reporta lo que ves físicamente — no
+            lo que crees que debería haber.
           </p>
         </div>
       </div>
@@ -176,17 +172,13 @@ export function CapturaConteoPage() {
       {conteoQuery.isError ? (
         <ErrorState
           title="No se pudo cargar el conteo"
-          problem={
-            esApiError(conteoQuery.error) ? conteoQuery.error.problem : undefined
-          }
+          problem={esApiError(conteoQuery.error) ? conteoQuery.error.problem : undefined}
           onRetry={() => conteoQuery.refetch()}
         />
       ) : lineasQuery.isError ? (
         <ErrorState
-          title="No se pudieron cargar las líneas"
-          problem={
-            esApiError(lineasQuery.error) ? lineasQuery.error.problem : undefined
-          }
+          title="No se pudieron cargar las partidas"
+          problem={esApiError(lineasQuery.error) ? lineasQuery.error.problem : undefined}
           onRetry={() => lineasQuery.refetch()}
         />
       ) : lineasQuery.isLoading || conteoQuery.isLoading ? (
@@ -201,14 +193,13 @@ export function CapturaConteoPage() {
           ]}
         />
       ) : noCapturable ? (
-        <div className="rounded-md border bg-muted/30 px-4 py-6 text-center text-sm text-muted-foreground">
-          El conteo está en estado{' '}
-          <b>{EstadoConteoLabels[conteoQuery.data!.estado]}</b> — la captura
-          solo se permite mientras esté <b>En curso</b>.
+        <div className="rounded-md border bg-surface-muted/30 px-4 py-6 text-center text-sm text-ink-muted">
+          El conteo está en estado <b>{EstadoConteoLabels[conteoQuery.data!.estado]}</b> — la
+          captura solo se permite mientras esté <b>En curso</b>.
         </div>
       ) : (lineasQuery.data ?? []).length === 0 ? (
-        <div className="rounded-md border bg-muted/30 px-4 py-6 text-center text-sm text-muted-foreground">
-          Sin líneas para capturar en este conteo.
+        <div className="rounded-md border bg-surface-muted/30 px-4 py-6 text-center text-sm text-ink-muted">
+          Sin partidas para capturar en este conteo.
         </div>
       ) : (
         <TablaCaptura
@@ -217,9 +208,7 @@ export function CapturaConteoPage() {
           onSetIndiceActivo={setOverrideIndice}
           inputsRef={inputsRef}
           onGuardar={guardarLinea}
-          guardandoLineaId={
-            capturar.isPending ? capturar.variables?.lineaId ?? null : null
-          }
+          guardandoLineaId={capturar.isPending ? (capturar.variables?.lineaId ?? null) : null}
         />
       )}
     </div>
@@ -294,9 +283,7 @@ function FilaCaptura({
   guardando: boolean;
 }) {
   const [valor, setValor] = useState<string>(
-    linea.cantidadRealCapturada != null
-      ? String(linea.cantidadRealCapturada)
-      : '',
+    linea.cantidadRealCapturada != null ? String(linea.cantidadRealCapturada) : '',
   );
 
   const decimales = useDecimalesUnidad().porCodigo(linea.unidadMedida);
@@ -329,10 +316,7 @@ function FilaCaptura({
 
   return (
     <TableRow
-      className={cn(
-        activo && 'bg-primary/5',
-        capturada && !activo && 'text-muted-foreground',
-      )}
+      className={cn(activo && 'bg-brand/5', capturada && !activo && 'text-ink-muted')}
       onClick={onActivar}
     >
       <TableCell className="font-mono text-xs">
@@ -349,10 +333,7 @@ function FilaCaptura({
         />
       </TableCell>
       <TableCell>
-        <EtiquetaSubAlmacen
-          subAlmacenId={linea.subAlmacenId}
-          clave={linea.subAlmacenClave}
-        />
+        <EtiquetaSubAlmacen subAlmacenId={linea.subAlmacenId} clave={linea.subAlmacenClave} />
       </TableCell>
       <TableCell className="font-mono text-xs">{linea.ubicacionClave}</TableCell>
       <TableCell className="text-right">
@@ -369,7 +350,7 @@ function FilaCaptura({
             onKeyDown={onKeyDown}
             className="w-32 text-right font-mono"
             disabled={guardando}
-            aria-label={`Cantidad real línea ${index + 1}`}
+            aria-label={`Cantidad real partida ${index + 1}`}
           />
           <Button
             type="button"
@@ -377,7 +358,7 @@ function FilaCaptura({
             variant={capturada ? 'outline' : 'default'}
             onClick={intentarGuardar}
             disabled={guardando || valor === ''}
-            aria-label={`Guardar línea ${index + 1}`}
+            aria-label={`Guardar partida ${index + 1}`}
           >
             {guardando ? (
               <ArrowRight className="h-4 w-4 animate-pulse" />
@@ -392,16 +373,11 @@ function FilaCaptura({
       </TableCell>
       <TableCell>
         {capturada ? (
-          <span className="inline-flex items-center gap-1 text-xs text-success-fg">
-            <Check className="h-3 w-3" />
-            Capturada
-          </span>
+          <IndicadorAlmacenBadge estado="capturada" />
         ) : linea.requiereRecuento ? (
-          <span className="inline-flex items-center rounded-full bg-warning-bg px-2 py-0.5 text-xs font-medium text-warning-fg">
-            Recuento
-          </span>
+          <IndicadorAlmacenBadge estado="recuento" />
         ) : (
-          <span className="text-xs text-muted-foreground">Pendiente</span>
+          <span className="text-xs text-ink-muted">Pendiente</span>
         )}
       </TableCell>
     </TableRow>

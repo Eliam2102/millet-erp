@@ -152,7 +152,7 @@ public class MaterialEnRevisionQueriesTests
         public Task<IReadOnlyDictionary<Guid, ArticuloLectura>> ObtenerPorIdsAsync(
             IReadOnlyCollection<Guid> ids, CancellationToken ct) =>
             Task.FromResult<IReadOnlyDictionary<Guid, ArticuloLectura>>(ids.ToDictionary(
-                id => id, id => new ArticuloLectura(id, "ART-1", "Vidrio", "PZA", null, null, true)));
+                id => id, id => new ArticuloLectura(id, "ART-1", "Vidrio", "PZA", null, true)));
     }
 
     private sealed class FakeOc : IComprasOcReadPort

@@ -11,8 +11,19 @@ vi.mock('@tanstack/react-router', async (importOriginal) => {
   const original = await importOriginal<typeof import('@tanstack/react-router')>();
   return {
     ...original,
-    Link: ({ children, params, className }: { children: React.ReactNode; params: { id: string }; className?: string }) =>
-      <a href={`/admin/empleados/${params.id}`} className={className}>{children}</a>,
+    Link: ({
+      children,
+      params,
+      className,
+    }: {
+      children: React.ReactNode;
+      params: { id: string };
+      className?: string;
+    }) => (
+      <a href={`/admin/empleados/${params.id}`} className={className}>
+        {children}
+      </a>
+    ),
   };
 });
 
@@ -118,9 +129,7 @@ function setPermisos(permisos: string[]) {
 
 beforeEach(() => {
   mswServer.use(
-    http.get('*/api/v1/catalogos/empleados', () =>
-      HttpResponse.json(EMPLEADOS),
-    ),
+    http.get('*/api/v1/catalogos/empleados', () => HttpResponse.json(EMPLEADOS)),
     http.get('*/api/v1/catalogos/puestos', () => HttpResponse.json(PUESTOS)),
     http.get('*/api/v1/catalogos/sucursales', () =>
       HttpResponse.json({ items: [], offset: 0, limit: 200, total: 0 }),
@@ -147,7 +156,6 @@ afterEach(() => {
   });
 });
 
-
 describe('<EmpleadosPage> — smoke (ADM-FE-PR1)', () => {
   it('renderiza la lista con email, clave de puesto resuelta y badges', async () => {
     setPermisos([PermisosCanonicos.AdminEmpleadosGestionar]);
@@ -168,15 +176,11 @@ describe('<EmpleadosPage> — smoke (ADM-FE-PR1)', () => {
 
     await screen.findByText('Juana Pérez');
     fireEvent.click(screen.getByRole('button', { name: /agregar empleado/i }));
-    expect(
-      screen.getByRole('form', { name: /agregar empleado/i }),
-    ).toBeInTheDocument();
+    expect(screen.getByRole('form', { name: /agregar empleado/i })).toBeInTheDocument();
     expect(screen.getByText(/Paso 1 de 4:/i)).toBeInTheDocument();
     expect(screen.getByText('Persona y sucursal')).toBeInTheDocument();
 
-    expect(
-      screen.getByRole('button', { name: /reactivar empleado EMP-002/i }),
-    ).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /reactivar empleado EMP-002/i })).toBeInTheDocument();
     expect(
       screen.getByRole('button', { name: /desactivar empleado EMP-001/i }),
     ).toBeInTheDocument();
@@ -187,12 +191,8 @@ describe('<EmpleadosPage> — smoke (ADM-FE-PR1)', () => {
     render(<EmpleadosPage />, { wrapper: createQueryWrapper() });
 
     expect(await screen.findByText('Juana Pérez')).toBeInTheDocument();
-    expect(
-      screen.queryByRole('button', { name: /agregar empleado/i }),
-    ).not.toBeInTheDocument();
-    expect(
-      screen.queryByRole('button', { name: /editar empleado/i }),
-    ).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /agregar empleado/i })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /editar empleado/i })).not.toBeInTheDocument();
   });
 
   it('estado error con retry cuando el backend falla', async () => {
@@ -210,9 +210,7 @@ describe('<EmpleadosPage> — smoke (ADM-FE-PR1)', () => {
     );
     render(<EmpleadosPage />, { wrapper: createQueryWrapper() });
     await waitFor(() =>
-      expect(
-        screen.getByText(/No se pudieron cargar los empleados/i),
-      ).toBeInTheDocument(),
+      expect(screen.getByText(/No se pudieron cargar los empleados/i)).toBeInTheDocument(),
     );
   });
 
@@ -231,7 +229,10 @@ describe('<EmpleadosPage> — smoke (ADM-FE-PR1)', () => {
     expect(screen.queryByText('Juana Pérez')).not.toBeInTheDocument();
 
     // Filtra por Sin acceso
-    fireEvent.click(screen.getByRole('button', { name: /sin acceso \(2\)/i }));
+    fireEvent.mouseDown(screen.getByRole('tab', { name: /^sin acceso$/i }), {
+      button: 0,
+      ctrlKey: false,
+    });
     expect(screen.getByText('Juana Pérez')).toBeInTheDocument();
     expect(screen.queryByText('Ana Pendiente Login')).not.toBeInTheDocument();
   });
@@ -239,26 +240,23 @@ describe('<EmpleadosPage> — smoke (ADM-FE-PR1)', () => {
   it('permite reenviar acceso al colaborador pendiente de primer login', async () => {
     let reenvioLlamado = false;
     mswServer.use(
-      http.post(
-        '*/api/v1/admin/colaboradores/:id/acceso/reenviar',
-        async ({ params }) => {
-          if (params.id === 'aaaaaaaa-0000-0000-0000-000000000004') {
-            reenvioLlamado = true;
-            return HttpResponse.json({
-              empleadoId: params.id,
-              usuarioId: 'u-4',
-              email: 'ana@millet.mx',
-              estadoAcceso: 1,
-              motivoErrorProvision: null,
-              accesoEnviadoEn: new Date().toISOString(),
-              primerAccesoEn: null,
-              emailContacto: 'ana.personal@gmail.com',
-              usuarioActivo: true,
-            });
-          }
-          return new HttpResponse(null, { status: 404 });
-        },
-      ),
+      http.post('*/api/v1/admin/colaboradores/:id/acceso/reenviar', async ({ params }) => {
+        if (params.id === 'aaaaaaaa-0000-0000-0000-000000000004') {
+          reenvioLlamado = true;
+          return HttpResponse.json({
+            empleadoId: params.id,
+            usuarioId: 'u-4',
+            email: 'ana@millet.mx',
+            estadoAcceso: 1,
+            motivoErrorProvision: null,
+            accesoEnviadoEn: new Date().toISOString(),
+            primerAccesoEn: null,
+            emailContacto: 'ana.personal@gmail.com',
+            usuarioActivo: true,
+          });
+        }
+        return new HttpResponse(null, { status: 404 });
+      }),
     );
 
     setPermisos([
@@ -288,9 +286,7 @@ describe('<EmpleadosPage> — smoke (ADM-FE-PR1)', () => {
     expect(btnPorReasignar).toBeInTheDocument();
     fireEvent.click(btnPorReasignar);
 
-    expect(
-      screen.getByText('Colaboradores pendientes de reasignación'),
-    ).toBeInTheDocument();
+    expect(screen.getByText('Colaboradores pendientes de reasignación')).toBeInTheDocument();
     expect(
       screen.getByText(/Los colaboradores continúan operando con normalidad con su histórico/i),
     ).toBeInTheDocument();
@@ -319,4 +315,3 @@ describe('<EmpleadosPage> — smoke (ADM-FE-PR1)', () => {
     expect(await screen.findByRole('button', { name: /dar acceso/i })).toBeInTheDocument();
   });
 });
-

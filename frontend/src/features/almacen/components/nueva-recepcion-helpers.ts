@@ -9,9 +9,9 @@ import type { LineaRecibible } from '@/features/almacen/api/types';
  * almacenista solo lo ajusta si lo que llegó difiere de lo solicitado.
  *
  * <para><paramref name="recibibles"/> es la respuesta del servidor
- * (<c>useLineasRecibibles</c>): de ahí salen el pendiente, la tolerancia y el
- * máximo recibible. Si una línea no aparece en ese índice (defensivo), se
- * calcula local con tolerancia 0 %.</para>
+ * (<c>useLineasRecibibles</c>): de ahí salen el pendiente y el
+ * máximo recibible (igual al pendiente). Si una línea no aparece en ese índice
+ * (defensivo), se calcula local.</para>
  *
  * <para>Vive en archivo aparte para satisfacer
  * <c>react-refresh/only-export-components</c> en el sheet.</para>
@@ -25,9 +25,7 @@ export function construirFilas(
     .filter((l) => !l.esServicio) // CA2.10: los servicios no se reciben en Almacén
     .map((l) => {
       const r = porLinea.get(l.id);
-      const pendiente = r
-        ? r.pendiente
-        : Math.max(0, l.cantidad - l.cantidadRecibida);
+      const pendiente = r ? r.pendiente : Math.max(0, l.cantidad - l.cantidadRecibida);
       return {
         lineaOcId: l.id,
         articuloId: l.articuloId,
@@ -38,7 +36,6 @@ export function construirFilas(
         cantidadSolicitada: l.cantidad,
         cantidadYaRecibida: r ? r.cantidadRecibida : l.cantidadRecibida,
         pendiente,
-        toleranciaPorcentaje: r ? r.toleranciaPorcentaje : 0,
         maximo: r ? r.maximoRecibible : pendiente,
         incluida: false,
         cantidad: pendiente,
@@ -107,7 +104,6 @@ export function contarLineasEnOtraUbicacion(
   ubicacionHelperId: string | null | undefined,
 ): number {
   if (!ubicacionHelperId) return 0;
-  return filas.filter(
-    (f) => f.incluida && !!f.ubicacionId && f.ubicacionId !== ubicacionHelperId,
-  ).length;
+  return filas.filter((f) => f.incluida && !!f.ubicacionId && f.ubicacionId !== ubicacionHelperId)
+    .length;
 }

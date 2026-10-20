@@ -849,6 +849,117 @@ public partial class OrdenesCompraEndpointsTests : IClassFixture<WebApplicationF
         Assert.Contains(idCompleta, idsSinFiltro);
     }
 
+    [Fact]
+    public async Task Detalle_expone_esRecurrente_solo_con_tres_OC_del_mismo_proveedor_y_comprador()
+    {
+        var client = await CreateSuperAdminClientAsync();
+        // Proveedor aislado: el seed compartido acumula OC del proveedor activo y falsearía el conteo.
+        var proveedorAislado = Guid.CreateVersion7();
+        var ids = new List<Guid>();
+        for (var i = 0; i < 3; i++)
+        {
+            ids.Add(await CrearOcAsync(client));
+            using var scope = _factory.Services.CreateScope();
+            var db = scope.ServiceProvider.GetRequiredService<ComprasDbContext>();
+            var id = ids[i];
+            await db.Database.ExecuteSqlInterpolatedAsync(
+                $"UPDATE compras.ordenes_compra SET proveedor_id = {proveedorAislado} WHERE id = {id}");
+            if (i == 1)
+            {
+                var conDos = await ReadJsonAsync(await client.GetAsync($"{EndpointBase}/{ids[0]}"));
+                Assert.False(conDos.GetProperty("esRecurrente").GetBoolean());
+            }
+        }
+
+        var conTres = await ReadJsonAsync(await client.GetAsync($"{EndpointBase}/{ids[0]}"));
+        Assert.True(conTres.GetProperty("esRecurrente").GetBoolean());
+    }
+
+    [Fact]
+    public async Task Detalle_no_cuenta_OC_canceladas_para_esRecurrente()
+    {
+        var client = await CreateSuperAdminClientAsync();
+        var ids = await CrearTresOcDeProveedorAisladoAsync(client);
+        // estado smallint: EstadoOrdenCompra.Cancelada = 5 (ck_oc_estado).
+        await EjecutarSqlOcAsync($"UPDATE compras.ordenes_compra SET estado = {(short)5} WHERE id = {ids[2]}");
+
+        var detalle = await ReadJsonAsync(await client.GetAsync($"{EndpointBase}/{ids[0]}"));
+        Assert.False(detalle.GetProperty("esRecurrente").GetBoolean());
+    }
+
+    [Theory]
+    [InlineData(61, false)]
+    [InlineData(59, true)]
+    public async Task Detalle_respeta_la_ventana_de_recurrencia_para_esRecurrente(int diasAtras, bool esperado)
+    {
+        var client = await CreateSuperAdminClientAsync();
+        var ids = await CrearTresOcDeProveedorAisladoAsync(client);
+        var fecha = DateOnly.FromDateTime(DateTime.UtcNow).AddDays(-diasAtras);
+        await EjecutarSqlOcAsync($"UPDATE compras.ordenes_compra SET fecha_documento = {fecha} WHERE id = {ids[2]}");
+
+        var detalle = await ReadJsonAsync(await client.GetAsync($"{EndpointBase}/{ids[0]}"));
+        Assert.Equal(esperado, detalle.GetProperty("esRecurrente").GetBoolean());
+    }
+
+    [Fact]
+    public async Task Detalle_con_otro_comprador_no_suma_para_esRecurrente()
+    {
+        var client = await CreateSuperAdminClientAsync();
+        var ids = await CrearTresOcDeProveedorAisladoAsync(client);
+        var otro = Guid.CreateVersion7();
+        await EjecutarSqlOcAsync($"UPDATE compras.ordenes_compra SET comprador_titular_id = {otro} WHERE id = {ids[2]}");
+
+        var detalle = await ReadJsonAsync(await client.GetAsync($"{EndpointBase}/{ids[0]}"));
+        Assert.False(detalle.GetProperty("esRecurrente").GetBoolean());
+    }
+
+    [Fact]
+    public async Task Detalle_con_proveedor_TBD_devuelve_esRecurrente_false()
+    {
+        var client = await CreateSuperAdminClientAsync();
+        var ids = await CrearTresOcDeProveedorAisladoAsync(client, OrdenCompraTbdSentinels.Proveedor);
+
+        var detalle = await ReadJsonAsync(await client.GetAsync($"{EndpointBase}/{ids[0]}"));
+        Assert.False(detalle.GetProperty("esRecurrente").GetBoolean());
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task Pendientes_autorizacion_expone_esRecurrente_y_no_cuenta_canceladas(bool cancelarUna)
+    {
+        var client = await CreateSuperAdminClientAsync();
+        var ids = await CrearTresOcDeProveedorAisladoAsync(client);
+        // estado smallint: EnAutorizacionJefeCompras = 1, Cancelada = 5 (ck_oc_estado).
+        await EjecutarSqlOcAsync($"UPDATE compras.ordenes_compra SET estado = {(short)1} WHERE id = {ids[0]} OR id = {ids[1]}");
+        await EjecutarSqlOcAsync($"UPDATE compras.ordenes_compra SET estado = {(short)(cancelarUna ? 5 : 1)} WHERE id = {ids[2]}");
+
+        var body = await ReadJsonAsync(await client.GetAsync($"{EndpointBase}/pendientes-autorizacion?pageSize=200"));
+        var fila = body.GetProperty("items").EnumerateArray().Single(i => i.GetProperty("id").GetGuid() == ids[0]);
+
+        Assert.Equal(!cancelarUna, fila.GetProperty("esRecurrente").GetBoolean());
+    }
+
+    private async Task<List<Guid>> CrearTresOcDeProveedorAisladoAsync(HttpClient client, Guid? proveedorId = null)
+    {
+        var proveedor = proveedorId ?? Guid.CreateVersion7();
+        var ids = new List<Guid>();
+        for (var i = 0; i < 3; i++)
+        {
+            var id = await CrearOcAsync(client);
+            ids.Add(id);
+            await EjecutarSqlOcAsync($"UPDATE compras.ordenes_compra SET proveedor_id = {proveedor} WHERE id = {id}");
+        }
+        return ids;
+    }
+
+    private async Task EjecutarSqlOcAsync(FormattableString sql)
+    {
+        using var scope = _factory.Services.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<ComprasDbContext>();
+        await db.Database.ExecuteSqlInterpolatedAsync(sql);
+    }
+
     private static async Task<Guid> CrearOcAsync(HttpClient client)
     {
         var resp = await client.PostAsJsonAsync(EndpointBase, ValidBody());

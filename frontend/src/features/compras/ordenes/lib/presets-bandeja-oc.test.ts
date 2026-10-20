@@ -27,7 +27,7 @@ describe('BANDEJA_OC_PRESETS', () => {
       expect(p.id).toMatch(/^[a-z][a-z0-9-]+$/);
       expect(p.label.length).toBeGreaterThan(0);
       expect(p.search.page).toBe(1);
-      expect(p.search.pageSize).toBe(25);
+      expect(p.search.pageSize).toBe(10);
     }
   });
 

@@ -1,8 +1,9 @@
+import { BarraFiltros, TabsEstado } from '@/components/erp';
+import { PageHeader } from '@/components/erp/PageHeader';
 import { useMemo, useState, type ReactNode } from 'react';
 import { Plus, Truck } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { UppercaseInput } from '@/components/erp/forms/UppercaseInput';
 import {
   Select,
   SelectContent,
@@ -12,10 +13,7 @@ import {
 } from '@/components/ui/select';
 import { EmptyState, ErrorState, TableSkeleton } from '@/components/erp';
 import { useProveedores } from '@/modules/datos-maestros/api';
-import {
-  EstatusCatalogo,
-  TipoPersonaProveedor,
-} from '@/modules/datos-maestros/api/types';
+import { EstatusCatalogo, TipoPersonaProveedor } from '@/modules/datos-maestros/api/types';
 import type { ListarProveedoresFiltros } from '@/modules/datos-maestros/api/keys';
 import { esApiError } from '@/lib/api';
 import { useDebouncedValue } from '@/lib/hooks/useDebouncedValue';
@@ -44,45 +42,30 @@ export interface ProveedoresLayoutProps {
   detalle?: ReactNode;
 }
 
-export function ProveedoresLayout({
-  idActivo,
-  detalle,
-}: ProveedoresLayoutProps) {
+export function ProveedoresLayout({ idActivo, detalle }: ProveedoresLayoutProps) {
   const nuevoProveedor = useNuevoProveedor();
-  const canAdministrar = useHasPermission(
-    PermisosCanonicos.CompartidoCatalogosAdministrar,
-  );
+  const canAdministrar = useHasPermission(PermisosCanonicos.CompartidoCatalogosAdministrar);
 
   // Inputs locales del bloque de filtros — se debouncean antes de
   // alimentar el hook para evitar un fetch por keystroke.
-  const [rfcInput, setRfcInput] = useState('');
-  const [razonInput, setRazonInput] = useState('');
+  const [busquedaInput, setBusquedaInput] = useState('');
   const [tipoPersona, setTipoPersona] = useState<string>('');
   const [estatus, setEstatus] = useState<string>('');
 
-  const rfcDebounced = useDebouncedValue(rfcInput, 300);
-  const razonDebounced = useDebouncedValue(razonInput, 300);
+  const busquedaDebounced = useDebouncedValue(busquedaInput, 300);
 
   const filtros = useMemo<ListarProveedoresFiltros>(
     () => ({
-      rfc: rfcDebounced.trim() || undefined,
-      razonSocial: razonDebounced.trim() || undefined,
-      tipoPersona:
-        tipoPersona !== ''
-          ? (Number(tipoPersona) as TipoPersonaProveedor)
-          : undefined,
-      estatus:
-        estatus !== '' ? (Number(estatus) as EstatusCatalogo) : undefined,
+      q: busquedaDebounced.trim() || undefined,
+      tipoPersona: tipoPersona !== '' ? (Number(tipoPersona) as TipoPersonaProveedor) : undefined,
+      estatus: estatus !== '' ? (Number(estatus) as EstatusCatalogo) : undefined,
       limit: 200,
     }),
-    [rfcDebounced, razonDebounced, tipoPersona, estatus],
+    [busquedaDebounced, tipoPersona, estatus],
   );
 
   const proveedoresQuery = useProveedores(filtros);
-  const items = useMemo(
-    () => proveedoresQuery.data?.items ?? [],
-    [proveedoresQuery.data],
-  );
+  const items = useMemo(() => proveedoresQuery.data?.items ?? [], [proveedoresQuery.data]);
 
   return (
     <div className="flex flex-col gap-4 md:h-[calc(100vh-3.5rem-3rem)] md:flex-row">
@@ -94,28 +77,34 @@ export function ProveedoresLayout({
         aria-label="Lista de proveedores"
         data-print="hidden"
       >
-        <div className="flex flex-wrap items-center justify-between gap-2">
-          <h1 className="text-xl font-semibold tracking-tight">Proveedores</h1>
-          {canAdministrar && (
-            <Button size="sm" onClick={() => nuevoProveedor.abrir()}>
-              <Plus className="mr-1 h-4 w-4" />
-              Nuevo
-            </Button>
-          )}
-        </div>
-
-        <FiltrosBloque
-          rfc={rfcInput}
-          onRfc={setRfcInput}
-          razon={razonInput}
-          onRazon={setRazonInput}
-          tipoPersona={tipoPersona}
-          onTipoPersona={setTipoPersona}
-          estatus={estatus}
-          onEstatus={setEstatus}
+        <PageHeader
+          titulo={<>Proveedores</>}
+          acciones={
+            <>
+              {canAdministrar && (
+                <Button size="sm" onClick={() => nuevoProveedor.abrir()}>
+                  <Plus className="mr-1 h-4 w-4" />
+                  Nuevo
+                </Button>
+              )}
+            </>
+          }
         />
 
-        <div className="flex-1 overflow-y-auto rounded-md border bg-card">
+        <BarraFiltros
+          filtros={
+            <FiltrosBloque
+              busqueda={busquedaInput}
+              onBusqueda={setBusquedaInput}
+              tipoPersona={tipoPersona}
+              onTipoPersona={setTipoPersona}
+              estatus={estatus}
+              onEstatus={setEstatus}
+            />
+          }
+        />
+
+        <div className="flex-1 overflow-y-auto rounded-md border bg-surface-card">
           <RenderLista
             query={proveedoresQuery}
             items={items}
@@ -140,10 +129,8 @@ export function ProveedoresLayout({
 }
 
 interface FiltrosBloqueProps {
-  rfc: string;
-  onRfc: (v: string) => void;
-  razon: string;
-  onRazon: (v: string) => void;
+  busqueda: string;
+  onBusqueda: (v: string) => void;
   tipoPersona: string;
   onTipoPersona: (v: string) => void;
   estatus: string;
@@ -151,70 +138,23 @@ interface FiltrosBloqueProps {
 }
 
 function FiltrosBloque({
-  rfc,
-  onRfc,
-  razon,
-  onRazon,
+  busqueda,
+  onBusqueda,
   tipoPersona,
   onTipoPersona,
   estatus,
   onEstatus,
 }: FiltrosBloqueProps) {
   return (
-    <div className="space-y-2 rounded-md border bg-muted/20 p-2">
+    <div className="space-y-2 rounded-md border bg-surface-muted/20 p-2">
       {/* Filtro rápido / bandeja: Todos / Por validar / Activos */}
-      <div className="flex rounded-md bg-muted p-0.5 text-xs">
-        <button
-          type="button"
-          onClick={() => onEstatus('')}
-          className={cn(
-            'flex-1 rounded-sm px-2 py-1 font-medium transition-all text-center',
-            estatus === ''
-              ? 'bg-background text-foreground shadow-sm'
-              : 'text-muted-foreground hover:text-foreground',
-          )}
-        >
-          Todos
-        </button>
-        <button
-          type="button"
-          onClick={() => onEstatus(String(EstatusCatalogo.EnRevision))}
-          className={cn(
-            'flex-1 rounded-sm px-2 py-1 font-medium transition-all text-center',
-            estatus === String(EstatusCatalogo.EnRevision)
-              ? 'bg-amber-500/20 text-amber-800 dark:text-amber-200 font-semibold shadow-sm'
-              : 'text-muted-foreground hover:text-foreground',
-          )}
-        >
-          Por validar
-        </button>
-        <button
-          type="button"
-          onClick={() => onEstatus(String(EstatusCatalogo.Activo))}
-          className={cn(
-            'flex-1 rounded-sm px-2 py-1 font-medium transition-all text-center',
-            estatus === String(EstatusCatalogo.Activo)
-              ? 'bg-background text-foreground shadow-sm'
-              : 'text-muted-foreground hover:text-foreground',
-          )}
-        >
-          Activos
-        </button>
-      </div>
 
-      <UppercaseInput
-        placeholder="RFC…"
-        value={rfc}
-        onChange={(e) => onRfc(e.target.value)}
-        className="h-8 text-xs"
-        aria-label="Filtrar por RFC"
-      />
       <Input
-        placeholder="Nombre o razón social…"
-        value={razon}
-        onChange={(e) => onRazon(e.target.value)}
+        placeholder="Clave, RFC, nombre o razón social…"
+        value={busqueda}
+        onChange={(e) => onBusqueda(e.target.value)}
         className="h-8 text-xs"
-        aria-label="Filtrar por nombre o razón social"
+        aria-label="Buscar proveedor"
       />
       <div className="flex gap-2">
         <Select
@@ -226,34 +166,20 @@ function FiltrosBloque({
           </SelectTrigger>
           <SelectContent>
             <SelectItem value="all">Todos</SelectItem>
-            <SelectItem value={String(TipoPersonaProveedor.Moral)}>
-              Moral
-            </SelectItem>
-            <SelectItem value={String(TipoPersonaProveedor.Fisica)}>
-              Física
-            </SelectItem>
+            <SelectItem value={String(TipoPersonaProveedor.Moral)}>Moral</SelectItem>
+            <SelectItem value={String(TipoPersonaProveedor.Fisica)}>Física</SelectItem>
           </SelectContent>
         </Select>
-        <Select
-          value={estatus === '' ? 'all' : estatus}
-          onValueChange={(v) => onEstatus(v === 'all' ? '' : v)}
-        >
-          <SelectTrigger className="h-8 text-xs" aria-label="Estatus">
-            <SelectValue placeholder="Estatus" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">Todos</SelectItem>
-            <SelectItem value={String(EstatusCatalogo.Activo)}>
-              Activo
-            </SelectItem>
-            <SelectItem value={String(EstatusCatalogo.Inactivo)}>
-              Inactivo
-            </SelectItem>
-            <SelectItem value={String(EstatusCatalogo.EnRevision)}>
-              En revisión
-            </SelectItem>
-          </SelectContent>
-        </Select>
+        <TabsEstado
+          opciones={[
+            { valor: EstatusCatalogo.EnRevision, label: 'En revisión' },
+            { valor: EstatusCatalogo.Activo, label: 'Activo' },
+            { valor: EstatusCatalogo.Inactivo, label: 'Inactivo' },
+          ]}
+          valor={estatus === '' ? undefined : Number(estatus)}
+          onChange={(v) => onEstatus(v === undefined ? '' : String(v))}
+          conteos={undefined}
+        />
       </div>
     </div>
   );
@@ -261,9 +187,7 @@ function FiltrosBloque({
 
 interface RenderListaProps {
   query: ReturnType<typeof useProveedores>;
-  items: ReturnType<typeof useProveedores>['data'] extends
-    | { items: infer I }
-    | undefined
+  items: ReturnType<typeof useProveedores>['data'] extends { items: infer I } | undefined
     ? I
     : never;
   idActivo: string | null;
@@ -271,20 +195,11 @@ interface RenderListaProps {
   onAbrirNuevo: () => void;
 }
 
-function RenderLista({
-  query,
-  items,
-  idActivo,
-  canCrear,
-  onAbrirNuevo,
-}: RenderListaProps) {
+function RenderLista({ query, items, idActivo, canCrear, onAbrirNuevo }: RenderListaProps) {
   if (query.isLoading) {
     return (
       <div className="p-3">
-        <TableSkeleton
-          rows={6}
-          columns={[{ width: 'w-full' }, { width: 'w-full' }]}
-        />
+        <TableSkeleton rows={6} columns={[{ width: 'w-full' }, { width: 'w-full' }]} />
       </div>
     );
   }
@@ -300,9 +215,7 @@ function RenderLista({
         icon={<Truck className="h-10 w-10" />}
         title="Sin proveedores."
         description={
-          canCrear
-            ? 'Crea el primero o ajusta los filtros.'
-            : 'Cuando se creen, aparecerán aquí.'
+          canCrear ? 'Crea el primero o ajusta los filtros.' : 'Cuando se creen, aparecerán aquí.'
         }
         action={
           canCrear ? (
@@ -321,8 +234,8 @@ function RenderLista({
 
 function PlaceholderSinSeleccion() {
   return (
-    <div className="flex h-full min-h-64 items-center justify-center rounded-md border border-dashed bg-muted/20 p-8 text-center">
-      <div className="space-y-1 text-muted-foreground">
+    <div className="flex h-full min-h-64 items-center justify-center rounded-md border border-dashed bg-surface-muted/20 p-8 text-center">
+      <div className="space-y-1 text-ink-muted">
         <Truck className="mx-auto h-8 w-8 opacity-50" aria-hidden="true" />
         <p className="text-sm">Selecciona un proveedor de la lista</p>
         <p className="text-xs">para ver su detalle.</p>

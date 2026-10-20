@@ -223,10 +223,10 @@ export function DetalleMovimiento({ id }: { id: string }) {
             </dd>
           </div>
         )}
-        {m.destinoBanco != null && m.fondosVerificados != null && (
+        {m.destinoBanco != null && m.fondosVerificados === true && (
           <div>
             <dt className="text-xs text-ink-muted">Fondos verificados</dt>
-            <dd>{m.fondosVerificados ? 'Sí' : 'No'}</dd>
+            <dd>Sí</dd>
           </div>
         )}
         <div>

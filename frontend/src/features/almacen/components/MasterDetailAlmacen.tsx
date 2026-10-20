@@ -72,7 +72,7 @@ export function ListaConteosCompacta({ idActivo }: { idActivo: string }) {
         badge: <EstadoAlmacenBadge tipo="conteo" estado={c.estado} />,
         secundario: (
           <span>
-            {c.cantidadCapturadas}/{c.cantidadLineas} líneas capturadas
+            {c.cantidadCapturadas}/{c.cantidadLineas} partidas capturadas
           </span>
         ),
       })}

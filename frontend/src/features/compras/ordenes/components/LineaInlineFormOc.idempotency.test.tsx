@@ -14,12 +14,12 @@ import type {
 /**
  * Regresión — Idempotency-Key por submit (ADR-0020), contraparte de OC.
  *
- * El inline form de líneas de OC también es multi-submit y reusaba una sola
+ * El inline form de partidas de OC también es multi-submit y reusaba una sola
  * key por montaje (useFormIdempotencyKey). El fix genera la key al tope de
  * onSubmit, donde la consumen AMBAS ramas (editar y agregar). Se ejercita la
  * rama EDITAR porque deja el form pre-válido sin conducir los dos selectores
  * async que exige el alta manual (artículo + departamento) — es exactamente
- * la misma línea del fix. Dos submits → dos keys distintas (con el bug viejo
+ * la misma partida del fix. Dos submits → dos keys distintas (con el bug viejo
  * eran iguales).
  */
 
@@ -31,7 +31,7 @@ const OC = {
   id: 'oc-1',
 } as unknown as OrdenCompraDetalleResponse;
 
-// Línea manual (sin requisicionId) → editar manda los campos reales y el
+// Partida manual (sin requisicionId) → editar manda los campos reales y el
 // form arranca pre-válido desde buildValuesFromLinea.
 const LINEA = {
   id: 'l-1',
@@ -45,7 +45,7 @@ const LINEA = {
   descripcionExtendida: null,
   fechaEntregaLinea: null,
   textoAdicional: null,
-  // Fase E PR3.1: el Centro de costo es requerido en la línea manual, así que el
+  // Fase E PR3.1: el Centro de costo es requerido en la partida manual, así que el
   // form no dejaría hacer submit sin él (este test va de Idempotency-Key).
   centroCostoId: '0c000000-0000-0000-0000-000000000001',
   centroCostoClave: 'MCLC101',

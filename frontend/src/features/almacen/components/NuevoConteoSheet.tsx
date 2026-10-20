@@ -1,3 +1,5 @@
+import { FormGrid, FormCampo } from '@/components/erp/forms/FormGrid';
+import { SheetBody } from '@/components/ui/sheet';
 import { hoyLocalISO } from '@/lib/datetime';
 import { useState } from 'react';
 import { Controller, useForm, useWatch } from 'react-hook-form';
@@ -25,25 +27,10 @@ import { UsuarioSelector } from '@/components/erp';
 import { CategoriaSelector } from '@/components/erp/selectors/CategoriaSelector';
 import { AvisoEnLinea } from '@/components/erp/feedback/AvisoEnLinea';
 import { useCategoriasArticuloList } from '@/modules/catalogos/api';
-import {
-  applyServerErrors,
-  esApiError,
-  useFormIdempotencyKey,
-  codigoSoporte,
-} from '@/lib/api';
-import {
-  CrearConteoSchema,
-  type CrearConteoValues,
-} from '@/features/almacen/schemas/conteo';
-import {
-  useCrearConteo,
-  useSubAlmacenes,
-  useVistaPreviaConteo,
-} from '@/features/almacen/api';
-import {
-  TipoConteo,
-  TipoConteoLabels,
-} from '@/features/almacen/api/types';
+import { applyServerErrors, esApiError, useFormIdempotencyKey, codigoSoporte } from '@/lib/api';
+import { CrearConteoSchema, type CrearConteoValues } from '@/features/almacen/schemas/conteo';
+import { useCrearConteo, useSubAlmacenes, useVistaPreviaConteo } from '@/features/almacen/api';
+import { TipoConteo, TipoConteoLabels } from '@/features/almacen/api/types';
 import { Field } from '@/features/almacen/components/internal/Field';
 
 export interface NuevoConteoSheetProps {
@@ -59,40 +46,27 @@ export interface NuevoConteoSheetProps {
  * <para>El snapshot se toma al pasar a EnCurso (acción separada
  * "Iniciar"), no al crear.</para>
  */
-export function NuevoConteoSheet({
-  open,
-  onOpenChange,
-}: NuevoConteoSheetProps) {
+export function NuevoConteoSheet({ open, onOpenChange }: NuevoConteoSheetProps) {
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
       <SheetContent side="right" size="form">
         <SheetHeader>
           <SheetTitle>Nuevo conteo</SheetTitle>
           <SheetDescription>
-            Planifica un conteo rotativo o anual. El snapshot del
-            inventario teórico se toma al pasar a "En curso" (acción
-            separada).
+            Planifica un conteo rotativo o anual. El snapshot del inventario teórico se toma al
+            pasar a "En curso" (acción separada).
           </SheetDescription>
         </SheetHeader>
 
         {open && (
-          <FormBody
-            onSuccess={() => onOpenChange(false)}
-            onCancel={() => onOpenChange(false)}
-          />
+          <FormBody onSuccess={() => onOpenChange(false)} onCancel={() => onOpenChange(false)} />
         )}
       </SheetContent>
     </Sheet>
   );
 }
 
-function FormBody({
-  onSuccess,
-  onCancel,
-}: {
-  onSuccess: () => void;
-  onCancel: () => void;
-}) {
+function FormBody({ onSuccess, onCancel }: { onSuccess: () => void; onCancel: () => void }) {
   const navigate = useNavigate();
   const idempotencyKey = useFormIdempotencyKey();
   const crear = useCrearConteo();
@@ -147,10 +121,7 @@ function FormBody({
         onError: (error) => {
           if (esApiError(error)) {
             if (
-              applyServerErrors(
-                form as unknown as Parameters<typeof applyServerErrors>[0],
-                error,
-              )
+              applyServerErrors(form as unknown as Parameters<typeof applyServerErrors>[0], error)
             ) {
               return;
             }
@@ -167,150 +138,153 @@ function FormBody({
 
   return (
     <>
-      <form
-        id="nuevo-conteo-form"
-        onSubmit={form.handleSubmit(onSubmit)}
-        noValidate
-        className="flex-1 space-y-3 overflow-y-auto px-6"
-      >
-        <Field
-          label="Tipo de conteo"
-          required
-          error={form.formState.errors.tipo?.message}
+      <SheetBody>
+        <form
+          id="nuevo-conteo-form"
+          onSubmit={form.handleSubmit(onSubmit)}
+          noValidate
+          className="space-y-4"
         >
-          <Controller
-            name="tipo"
-            control={form.control}
-            render={({ field }) => (
-              <Select
-                value={String(field.value)}
-                onValueChange={(v) => field.onChange(Number(v))}
+          <FormGrid>
+            <FormCampo span={12}>
+              <Field label="Tipo de conteo" required error={form.formState.errors.tipo?.message}>
+                <Controller
+                  name="tipo"
+                  control={form.control}
+                  render={({ field }) => (
+                    <Select
+                      value={String(field.value)}
+                      onValueChange={(v) => field.onChange(Number(v))}
+                    >
+                      <SelectTrigger>
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value={String(TipoConteo.Rotativo)}>
+                          {TipoConteoLabels[TipoConteo.Rotativo]}
+                        </SelectItem>
+                        <SelectItem value={String(TipoConteo.Anual)}>
+                          {TipoConteoLabels[TipoConteo.Anual]} (bloquea salidas)
+                        </SelectItem>
+                      </SelectContent>
+                    </Select>
+                  )}
+                />
+              </Field>
+            </FormCampo>
+          </FormGrid>
+
+          <FormGrid>
+            <FormCampo span={12}>
+              <Field
+                label="Fecha planificada"
+                required
+                error={form.formState.errors.fechaPlanificada?.message}
               >
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value={String(TipoConteo.Rotativo)}>
-                    {TipoConteoLabels[TipoConteo.Rotativo]}
-                  </SelectItem>
-                  <SelectItem value={String(TipoConteo.Anual)}>
-                    {TipoConteoLabels[TipoConteo.Anual]} (bloquea salidas)
-                  </SelectItem>
-                </SelectContent>
-              </Select>
-            )}
-          />
-        </Field>
+                <Controller
+                  name="fechaPlanificada"
+                  control={form.control}
+                  render={({ field }) => <Input {...field} type="date" value={field.value ?? ''} />}
+                />
+              </Field>
+            </FormCampo>
+          </FormGrid>
 
-        <Field
-          label="Fecha planificada"
-          required
-          error={form.formState.errors.fechaPlanificada?.message}
-        >
-          <Controller
-            name="fechaPlanificada"
-            control={form.control}
-            render={({ field }) => (
-              <Input
-                {...field}
-                type="date"
-                value={field.value ?? ''}
-              />
-            )}
-          />
-        </Field>
-
-        <Field
-          label="Responsable (contador)"
-          required
-          error={form.formState.errors.responsableId?.message}
-        >
-          <Controller
-            name="responsableId"
-            control={form.control}
-            render={({ field }) => (
-              <UsuarioSelector
-                value={field.value || null}
-                onChange={(id) => field.onChange(id ?? '')}
-              />
-            )}
-          />
-        </Field>
-
-        <Field
-          label="Sub-almacén (opcional)"
-          error={form.formState.errors.subAlmacenId?.message}
-        >
-          <Controller
-            name="subAlmacenId"
-            control={form.control}
-            render={({ field }) => (
-              <Select
-                value={field.value ?? ''}
-                onValueChange={(v) => field.onChange(v || null)}
-                disabled={subAlmacenesQuery.isLoading}
+          <FormGrid>
+            <FormCampo span={12}>
+              <Field
+                label="Responsable (contador)"
+                required
+                error={form.formState.errors.responsableId?.message}
               >
-                <SelectTrigger>
-                  <SelectValue placeholder="Todos" />
-                </SelectTrigger>
-                <SelectContent>
-                  {(subAlmacenesQuery.data?.items ?? []).map((s) => (
-                    <SelectItem key={s.id} value={s.id}>
-                      {s.clave} · {s.nombre}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            )}
-          />
-        </Field>
+                <Controller
+                  name="responsableId"
+                  control={form.control}
+                  render={({ field }) => (
+                    <UsuarioSelector
+                      value={field.value || null}
+                      onChange={(id) => field.onChange(id ?? '')}
+                    />
+                  )}
+                />
+              </Field>
+            </FormCampo>
+          </FormGrid>
 
-        <Field
-          label="Familia (categoría del artículo, opcional)"
-          error={form.formState.errors.filtroFamilia?.message}
-        >
-          <CategoriaSelector
-            value={categoriaId}
-            placeholder="Todas las familias"
-            onChange={(id) => {
-              setCategoriaId(id);
-              const nombre = categoriasQuery.data?.find((c) => c.id === id)?.nombre;
-              form.setValue('filtroFamilia', nombre ?? null, { shouldDirty: true });
-            }}
-          />
-        </Field>
+          <FormGrid>
+            <FormCampo span={12}>
+              <Field
+                label="Sub-almacén (opcional)"
+                error={form.formState.errors.subAlmacenId?.message}
+              >
+                <Controller
+                  name="subAlmacenId"
+                  control={form.control}
+                  render={({ field }) => (
+                    <Select
+                      value={field.value ?? ''}
+                      onValueChange={(v) => field.onChange(v || null)}
+                      disabled={subAlmacenesQuery.isLoading}
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder="Todos" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {(subAlmacenesQuery.data?.items ?? []).map((s) => (
+                          <SelectItem key={s.id} value={s.id}>
+                            {s.clave} · {s.nombre}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  )}
+                />
+              </Field>
+            </FormCampo>
+          </FormGrid>
 
-        {vistaPrevia.data &&
-          (sinLineas ? (
-            <AvisoEnLinea tono="error" titulo="El conteo no tendría líneas">
-              No hay saldos con ese sub-almacén y esa familia. Cambia el
-              filtro para poder planificarlo.
-            </AvisoEnLinea>
-          ) : (
-            <p className="text-sm text-muted-foreground" aria-live="polite">
-              Este conteo tendrá{' '}
-              <span className="font-medium tabular-nums text-foreground">
-                {vistaPrevia.data.cantidadLineas}
-              </span>{' '}
-              {vistaPrevia.data.cantidadLineas === 1 ? 'línea' : 'líneas'}.
-            </p>
-          ))}
-      </form>
+          <FormGrid>
+            <FormCampo span={12}>
+              <Field
+                label="Familia (categoría del artículo, opcional)"
+                error={form.formState.errors.filtroFamilia?.message}
+              >
+                <CategoriaSelector
+                  value={categoriaId}
+                  placeholder="Todas las familias"
+                  onChange={(id) => {
+                    setCategoriaId(id);
+                    const nombre = categoriasQuery.data?.find((c) => c.id === id)?.nombre;
+                    form.setValue('filtroFamilia', nombre ?? null, { shouldDirty: true });
+                  }}
+                />
+              </Field>
+            </FormCampo>
+          </FormGrid>
+
+          {vistaPrevia.data &&
+            (sinLineas ? (
+              <AvisoEnLinea tono="error" titulo="El conteo no tendría partidas">
+                No hay saldos con ese sub-almacén y esa familia. Cambia el filtro para poder
+                planificarlo.
+              </AvisoEnLinea>
+            ) : (
+              <p className="text-sm text-ink-muted" aria-live="polite">
+                Este conteo tendrá{' '}
+                <span className="font-medium tabular-nums text-ink">
+                  {vistaPrevia.data.cantidadLineas}
+                </span>{' '}
+                {vistaPrevia.data.cantidadLineas === 1 ? 'partida' : 'partidas'}.
+              </p>
+            ))}
+        </form>
+      </SheetBody>
 
       <SheetFooter>
-        <Button
-          type="button"
-          variant="ghost"
-          onClick={onCancel}
-          disabled={crear.isPending}
-        >
+        <Button type="button" variant="ghost" onClick={onCancel} disabled={crear.isPending}>
           Cancelar
         </Button>
-        <Button
-          type="submit"
-          form="nuevo-conteo-form"
-          disabled={crear.isPending || sinLineas}
-        >
+        <Button type="submit" form="nuevo-conteo-form" disabled={crear.isPending || sinLineas}>
           {crear.isPending ? 'Planificando…' : 'Planificar conteo'}
         </Button>
       </SheetFooter>

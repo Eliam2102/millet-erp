@@ -1,3 +1,5 @@
+import { FormCampo } from '@/components/erp/forms/FormGrid';
+import { FormGrid } from '@/components/erp/forms/FormGrid';
 import { useState } from 'react';
 import { Link } from '@tanstack/react-router';
 import { useForm, Controller } from 'react-hook-form';
@@ -5,11 +7,7 @@ import { useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
 import { Badge as BadgeUi } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import {
-  AvisoEnLinea,
-  DateTimeDisplay,
-  Field,
-} from '@/components/erp';
+import { AvisoEnLinea, DateTimeDisplay, Field } from '@/components/erp';
 import { useConflictDialog } from '@/components/erp/collaboration/conflict-dialog-context';
 import { CondicionesPagoSelector } from '@/components/erp/selectors/CondicionesPagoSelector';
 import { ProveedorSelector } from '@/components/erp/selectors/ProveedorSelector';
@@ -47,10 +45,7 @@ export interface CabeceraOrdenCompraProps {
   resolverNombre: (id: string | null | undefined) => string;
 }
 
-export function CabeceraOrdenCompra({
-  oc,
-  resolverNombre,
-}: CabeceraOrdenCompraProps) {
+export function CabeceraOrdenCompra({ oc, resolverNombre }: CabeceraOrdenCompraProps) {
   const permisos = useAuthStore((s) => s.permisos);
   const puedeEditar = accionEditarCabecera(oc, permisos).habilitada;
   const [editando, setEditando] = useState(false);
@@ -63,7 +58,7 @@ export function CabeceraOrdenCompra({
 
   return (
     <section
-      className="space-y-4 rounded-md border bg-card p-4"
+      className="space-y-4 rounded-md border bg-surface-card p-4"
       data-component="cabecera-orden-compra"
     >
       {puedeEditar && !editando && (
@@ -77,14 +72,11 @@ export function CabeceraOrdenCompra({
       {pendientes.length > 0 && (
         <AvisoEnLinea tono="advertencia">
           {`Falta ${listarFaltantes(pendientes)}. Captúralos para poder enviar la OC a autorización.`}
-          {!puedeEditar &&
-            ' Pide a un comprador con permiso de crear OC que los capture.'}
+          {!puedeEditar && ' Pide a un comprador con permiso de crear OC que los capture.'}
         </AvisoEnLinea>
       )}
 
-      {editando && (
-        <FormularioCabecera oc={oc} onClose={() => setEditando(false)} />
-      )}
+      {editando && <FormularioCabecera oc={oc} onClose={() => setEditando(false)} />}
 
       <dl className="grid grid-cols-1 gap-x-6 gap-y-2 text-sm @lg:grid-cols-2 @3xl:grid-cols-3">
         <Item label="Emitida">
@@ -93,22 +85,16 @@ export function CabeceraOrdenCompra({
         <Item label="Proveedor">
           {valor(
             'proveedor',
-            oc.proveedorRazonSocial ??
-              oc.proveedorClave ??
-              resolverNombre(oc.proveedorId),
+            oc.proveedorRazonSocial ?? oc.proveedorClave ?? resolverNombre(oc.proveedorId),
           )}
         </Item>
         <Item label="Comprador titular">
-          {nombreUsuarioOGuion(
-            oc.compradorNombre ?? resolverNombre(oc.compradorTitularId),
-          )}
+          {nombreUsuarioOGuion(oc.compradorNombre ?? resolverNombre(oc.compradorTitularId))}
         </Item>
         <Item label="Encargado de compras">
           {nombreUsuarioOGuion(resolverNombre(oc.encargadoComprasId))}
         </Item>
-        <Item label="Sucursal destino">
-          {resolverNombre(oc.sucursalDestinoId)}
-        </Item>
+        <Item label="Sucursal destino">{resolverNombre(oc.sucursalDestinoId)}</Item>
         <Item label="Condiciones de pago">
           {valor('condicionesPago', resolverNombre(oc.condicionesPagoId))}
         </Item>
@@ -118,7 +104,9 @@ export function CabeceraOrdenCompra({
         {oc.cotizacionElegida && (
           <Item label="Cotización elegida">
             <span className="font-mono">{oc.cotizacionElegida.folioProveedor ?? 'Sin folio'}</span>
-            <span className="block text-xs text-ink-muted">Motivo: {oc.cotizacionElegida.motivoEleccion}</span>
+            <span className="block text-xs text-ink-muted">
+              Motivo: {oc.cotizacionElegida.motivoEleccion}
+            </span>
             {puedeVerComparativo && (
               <Link
                 to="/compras/requisiciones/$id/cotizaciones"
@@ -167,8 +155,8 @@ export function CabeceraOrdenCompra({
 
       {oc.obra && <p className="mt-2 text-sm text-ink">Obra: {oc.obra}</p>}
       {oc.observaciones && (
-        <div className="rounded-md border bg-muted/30 p-3 text-sm">
-          <p className="mb-1 text-xs font-medium uppercase tracking-wide text-muted-foreground">
+        <div className="rounded-md border bg-surface-muted/30 p-3 text-sm">
+          <p className="mb-1 text-xs font-medium uppercase tracking-wide text-ink-muted">
             Observaciones
           </p>
           <p className="whitespace-pre-wrap">{oc.observaciones}</p>
@@ -180,9 +168,7 @@ export function CabeceraOrdenCompra({
           <p className="mb-1 text-xs font-medium uppercase tracking-wide text-warning-fg">
             Motivo sin requisición previa
           </p>
-          <p className="whitespace-pre-wrap text-warning-fg">
-            {oc.motivoSinRequisicion}
-          </p>
+          <p className="whitespace-pre-wrap text-warning-fg">{oc.motivoSinRequisicion}</p>
         </div>
       )}
 
@@ -202,9 +188,7 @@ export function CabeceraOrdenCompra({
           <p className="mb-1 text-xs font-medium uppercase tracking-wide text-danger-fg">
             Motivo de cancelación
           </p>
-          <p className="whitespace-pre-wrap text-danger-fg">
-            {oc.motivoCancelacion}
-          </p>
+          <p className="whitespace-pre-wrap text-danger-fg">{oc.motivoCancelacion}</p>
         </div>
       )}
     </section>
@@ -218,9 +202,7 @@ const ETIQUETA_CAMPO = {
 } as const;
 
 function listarFaltantes(campos: readonly string[]): string {
-  const nombres = campos.map(
-    (c) => ETIQUETA_CAMPO[c as keyof typeof ETIQUETA_CAMPO] ?? c,
-  );
+  const nombres = campos.map((c) => ETIQUETA_CAMPO[c as keyof typeof ETIQUETA_CAMPO] ?? c);
   return nombres.length > 1
     ? `${nombres.slice(0, -1).join(', ')} y ${nombres[nombres.length - 1]}`
     : nombres[0];
@@ -285,23 +267,17 @@ function FormularioCabecera({
           }
           if (
             esApiError(err) &&
-            applyServerErrors(
-              form as unknown as Parameters<typeof applyServerErrors>[0],
-              err,
-              {
-                codigos: {
-                  PROVEEDOR_NO_ENCONTRADO: { campo: 'proveedorId' },
-                  PROVEEDOR_NO_UTILIZABLE: { campo: 'proveedorId' },
-                },
+            applyServerErrors(form as unknown as Parameters<typeof applyServerErrors>[0], err, {
+              codigos: {
+                PROVEEDOR_NO_ENCONTRADO: { campo: 'proveedorId' },
+                PROVEEDOR_NO_UTILIZABLE: { campo: 'proveedorId' },
               },
-            ) === true
+            }) === true
           ) {
             return;
           }
           toast.error(
-            esApiError(err)
-              ? err.problem.title
-              : 'Error inesperado al guardar la cabecera.',
+            esApiError(err) ? err.problem.title : 'Error inesperado al guardar la cabecera.',
           );
         },
       },
@@ -313,66 +289,67 @@ function FormularioCabecera({
       onSubmit={form.handleSubmit(onSubmit)}
       noValidate
       aria-label="Editar cabecera"
-      className="space-y-3 rounded-md border bg-muted/30 p-3"
+      className="space-y-3 rounded-md border bg-surface-muted/30 p-3"
     >
-      <div className="grid grid-cols-1 gap-3 @lg:grid-cols-3">
-        <Controller
-          control={form.control}
-          name="proveedorId"
-          render={({ field, fieldState }) => (
-            <Field label="Proveedor" error={fieldState.error?.message}>
-              {(c) => (
-                <div role="group" aria-label="Proveedor" id={c.id}>
-                  <ProveedorSelector
-                    value={field.value || null}
-                    onChange={(v) => field.onChange(v ?? '')}
-                    initialLabel={oc.proveedorRazonSocial ?? undefined}
-                  />
-                </div>
-              )}
-            </Field>
-          )}
-        />
-        <Controller
-          control={form.control}
-          name="condicionesPagoId"
-          render={({ field, fieldState }) => (
-            <Field label="Condiciones de pago" error={fieldState.error?.message}>
-              {(c) => (
-                <div role="group" aria-label="Condiciones de pago" id={c.id}>
-                  <CondicionesPagoSelector
-                    value={field.value || null}
-                    onChange={(v) => field.onChange(v ?? '')}
-                  />
-                </div>
-              )}
-            </Field>
-          )}
-        />
-        <Controller
-          control={form.control}
-          name="usoPrincipalId"
-          render={({ field, fieldState }) => (
-            <Field label="Uso principal" error={fieldState.error?.message}>
-              {(c) => (
-                <div role="group" aria-label="Uso principal" id={c.id}>
-                  <UsoPrincipalSelector
-                    value={field.value || null}
-                    onChange={(v) => field.onChange(v ?? '')}
-                  />
-                </div>
-              )}
-            </Field>
-          )}
-        />
-      </div>
+      <FormGrid className="">
+        <FormCampo span={4}>
+          <Controller
+            control={form.control}
+            name="proveedorId"
+            render={({ field, fieldState }) => (
+              <Field label="Proveedor" error={fieldState.error?.message}>
+                {(c) => (
+                  <div role="group" aria-label="Proveedor" id={c.id}>
+                    <ProveedorSelector
+                      value={field.value || null}
+                      onChange={(v) => field.onChange(v ?? '')}
+                      initialLabel={oc.proveedorRazonSocial ?? undefined}
+                    />
+                  </div>
+                )}
+              </Field>
+            )}
+          />
+        </FormCampo>
+        <FormCampo span={4}>
+          <Controller
+            control={form.control}
+            name="condicionesPagoId"
+            render={({ field, fieldState }) => (
+              <Field label="Condiciones de pago" error={fieldState.error?.message}>
+                {(c) => (
+                  <div role="group" aria-label="Condiciones de pago" id={c.id}>
+                    <CondicionesPagoSelector
+                      value={field.value || null}
+                      onChange={(v) => field.onChange(v ?? '')}
+                    />
+                  </div>
+                )}
+              </Field>
+            )}
+          />
+        </FormCampo>
+        <FormCampo span={4}>
+          <Controller
+            control={form.control}
+            name="usoPrincipalId"
+            render={({ field, fieldState }) => (
+              <Field label="Uso principal" error={fieldState.error?.message}>
+                {(c) => (
+                  <div role="group" aria-label="Uso principal" id={c.id}>
+                    <UsoPrincipalSelector
+                      value={field.value || null}
+                      onChange={(v) => field.onChange(v ?? '')}
+                    />
+                  </div>
+                )}
+              </Field>
+            )}
+          />
+        </FormCampo>
+      </FormGrid>
       <div className="flex justify-end gap-2">
-        <Button
-          type="button"
-          variant="ghost"
-          onClick={onClose}
-          disabled={mutation.isPending}
-        >
+        <Button type="button" variant="ghost" onClick={onClose} disabled={mutation.isPending}>
           Cancelar
         </Button>
         <Button type="submit" disabled={mutation.isPending}>
@@ -394,10 +371,8 @@ function Item({
 }) {
   return (
     <div className="grid min-w-0 grid-cols-[max-content_1fr] gap-x-2">
-      <dt className="text-muted-foreground">{label}</dt>
-      <dd className={mono ? 'min-w-0 break-words font-mono' : 'min-w-0 break-words'}>
-        {children}
-      </dd>
+      <dt className="text-ink-muted">{label}</dt>
+      <dd className={mono ? 'min-w-0 break-words font-mono' : 'min-w-0 break-words'}>{children}</dd>
     </div>
   );
 }

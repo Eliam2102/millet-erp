@@ -1,3 +1,14 @@
+import { EstadoRequisicion, estadoToString } from '@/features/compras/api/types';
+import { ListadoModulo } from '@/components/erp/data/ListadoModulo';
+import { TabsEstado } from '@/components/erp/data/TabsEstado';
+import {
+  Table,
+  TableHeader,
+  TableBody,
+  TableRow,
+  TableHead,
+  TableCell,
+} from '@/components/ui/table';
 import { useMemo, useState } from 'react';
 import { Link, useNavigate, useSearch } from '@tanstack/react-router';
 import { Inbox, Plus } from 'lucide-react';
@@ -15,10 +26,7 @@ import {
 } from '@/components/erp';
 import { useRequisiciones } from '@/features/compras/api';
 import { OrigenBadge } from '@/features/compras/components/OrigenBadge';
-import {
-  departamentoLabel,
-  requisitanteLabel,
-} from '@/features/compras/lib/nombres';
+import { departamentoLabel, requisitanteLabel } from '@/features/compras/lib/nombres';
 import { esApiError } from '@/lib/api';
 import { useHasPermission } from '@/lib/auth/useHasPermission';
 import { PermisosCanonicos } from '@/lib/auth/permission-codes';
@@ -48,7 +56,7 @@ const BANDEJA_FROM = '/_app/compras/requisiciones/' as const;
  * <para>Los nombres de requisitante y departamento vienen resueltos del
  * backend (ADR-0042: <c>requisitanteNombre</c>, <c>departamentoNombre</c>,
  * <c>departamentoClave</c>); el front ya no lee los catálogos completos.
- * Etiqueta Por confirmar si el backend no resolvió el nombre.</para>
+ * Etiqueta de dato faltante si el backend no resolvió el nombre.</para>
  */
 export function BandejaRequisiciones() {
   const search = useSearch({ from: BANDEJA_FROM });
@@ -88,7 +96,7 @@ export function BandejaRequisiciones() {
   }
 
   return (
-    <div className="space-y-4">
+    <div className="flex min-h-0 flex-1 flex-col gap-5">
       <PageHeader
         titulo="Requisiciones"
         acciones={
@@ -101,48 +109,58 @@ export function BandejaRequisiciones() {
         }
       />
 
-      <FiltrosBandeja search={search} onChange={setSearch} />
-
-      <RenderTabla
-        query={requisicionesQuery}
-        itemsFiltrados={itemsFiltrados}
-        canCrear={canCrear}
-        search={search}
-        onChangeSearch={setSearch}
-      />
+      <ListadoModulo
+        pie={
+          <PaginacionTabla
+            total={requisicionesQuery.data?.total ?? 0}
+            offset={search.offset ?? 0}
+            limit={search.limit ?? 10}
+            onChange={(offset, limit) => setSearch({ ...search, offset, limit })}
+          />
+        }
+        tabs={
+          <TabsEstado
+            opciones={Object.values(EstadoRequisicion)
+              .filter((v): v is EstadoRequisicion => typeof v === 'number')
+              .map((valor) => ({ valor, label: estadoToString(valor) }))}
+            valor={search.estado}
+            conteos={undefined}
+            onChange={(estado) =>
+              setSearch({ ...search, estado: estado as BandejaSearch['estado'], offset: 0 })
+            }
+          />
+        }
+        filtros={<FiltrosBandeja search={search} onChange={setSearch} />}
+      >
+        <RenderTabla
+          query={requisicionesQuery}
+          itemsFiltrados={itemsFiltrados}
+          canCrear={canCrear}
+          search={search}
+        />
+      </ListadoModulo>
     </div>
   );
 }
 
 interface RenderTablaProps {
   query: ReturnType<typeof useRequisiciones>;
-  itemsFiltrados: ReturnType<typeof useRequisiciones>['data'] extends
-    | { items: infer I }
-    | undefined
+  itemsFiltrados: ReturnType<typeof useRequisiciones>['data'] extends { items: infer I } | undefined
     ? I
     : never;
   canCrear: boolean;
   search: BandejaSearch;
-  onChangeSearch: (next: BandejaSearch) => void;
 }
 
 type SortKey = 'folio' | 'fechaSolicitud' | 'estado';
 
-function RenderTabla({
-  query,
-  itemsFiltrados,
-  canCrear,
-  search,
-  onChangeSearch,
-}: RenderTablaProps) {
+function RenderTabla({ query, itemsFiltrados, canCrear, search }: RenderTablaProps) {
   const [sort, setSort] = useState<SortState<SortKey> | null>(null);
   const nuevaRequisicion = useNuevaRequisicion();
 
   const itemsOrdenados = useMemo(() => {
     if (sort == null) return itemsFiltrados;
-    return [...itemsFiltrados].sort((a, b) =>
-      compareItemsBy(a, b, sort.key, sort.dir),
-    );
+    return [...itemsFiltrados].sort((a, b) => compareItemsBy(a, b, sort.key, sort.dir));
   }, [itemsFiltrados, sort]);
 
   if (query.isLoading) {
@@ -174,9 +192,7 @@ function RenderTabla({
         icon={<Inbox className="h-10 w-10" />}
         title="Aún no tienes requisiciones."
         description={
-          canCrear
-            ? 'Crea la primera para empezar.'
-            : 'Cuando se creen, aparecerán aquí.'
+          canCrear ? 'Crea la primera para empezar.' : 'Cuando se creen, aparecerán aquí.'
         }
         action={
           canCrear ? (
@@ -200,55 +216,61 @@ function RenderTabla({
   }
 
   return (
-    <div className="overflow-x-auto rounded-md border bg-card">
-      <table className="w-full min-w-[720px] text-sm">
-        <thead className="bg-muted/50 text-xs uppercase tracking-wide text-muted-foreground">
-          <tr>
-            <th className="px-3 py-2 text-left">
+    <div className="flex min-h-0 flex-1 flex-col">
+      <Table className="w-full min-w-full text-sm">
+        <TableHeader className="bg-surface-muted/50 text-xs uppercase tracking-wide text-ink-muted">
+          <TableRow>
+            <TableHead className="px-3 py-2 text-left">
               <SortableHeader
                 columnKey="folio"
                 label="Folio"
                 current={sort}
                 onSortChange={setSort}
               />
-            </th>
-            <th className="px-3 py-2 text-left">
+            </TableHead>
+            <TableHead className="px-3 py-2 text-left">
               <SortableHeader
                 columnKey="fechaSolicitud"
                 label="Fecha"
                 current={sort}
                 onSortChange={setSort}
               />
-            </th>
-            <th className="px-3 py-2 text-left font-medium">Requisitante</th>
-            <th className="px-3 py-2 text-left font-medium">Departamento</th>
-            <th className="px-3 py-2 text-left">
+            </TableHead>
+            <TableHead className="px-3 py-2 text-left font-medium">Requisitante</TableHead>
+            <TableHead className="px-3 py-2 text-left font-medium">Departamento</TableHead>
+            <TableHead className="px-3 py-2 text-left">
               <SortableHeader
                 columnKey="estado"
                 label="Estado"
                 current={sort}
                 onSortChange={setSort}
               />
-            </th>
-            <th className="px-3 py-2 text-right font-medium">Ver</th>
-          </tr>
-        </thead>
-        <tbody>
+            </TableHead>
+            <TableHead className="px-3 py-2 text-right font-medium">Ver</TableHead>
+          </TableRow>
+        </TableHeader>
+        <TableBody className="[&_tr]:h-12">
           {itemsOrdenados.map((r, i) => {
             const requisitante = requisitanteLabel(r);
             const deptoLabel = departamentoLabel(r);
             return (
-              <tr
-                key={r.id}
-                className={i % 2 === 1 ? 'bg-muted/20' : undefined}
-              >
-                <td className="px-3 py-2 font-mono">{r.folio}</td>
-                <td className="px-3 py-2">
+              <TableRow key={r.id} className={i % 2 === 1 ? 'bg-surface-muted/20' : undefined}>
+                <TableCell className="px-3 py-2 font-mono">
+                  <Link
+                    className="font-mono text-xs font-medium text-brand"
+                    to="/compras/requisiciones/$id"
+                    params={{ id: r.id }}
+                    state={{ bandejaSearch: search } as never}
+                  >
+                    {r.folio}
+                  </Link>
+                </TableCell>
+                <TableCell className="px-3 py-2">
                   <DateTimeDisplay value={r.fechaSolicitud} />
-                </td>
-                <td className="px-3 py-2">{requisitante}</td>
-                <td className="px-3 py-2">{deptoLabel}</td>
-                <td className="px-3 py-2">
+                </TableCell>
+                <TableCell className={`px-3 py-2${requisitante === 'Sin asignar' ? ' text-ink-muted' : ''}`}>{requisitante}</TableCell>
+                <TableCell className={`px-3 py-2${deptoLabel === 'Sin departamento' ? ' text-ink-muted' : ''}`}>{deptoLabel}</TableCell>
+                <TableCell className="px-3 py-2">
                   <div className="flex flex-wrap items-center gap-1.5">
                     <EstadoBadge
                       tipo="requisicion"
@@ -257,8 +279,8 @@ function RenderTabla({
                     />
                     <OrigenBadge origen={r.origen} />
                   </div>
-                </td>
-                <td className="px-3 py-2 text-right">
+                </TableCell>
+                <TableCell className="px-3 py-2 text-right">
                   <Button asChild variant="ghost" size="sm">
                     <Link
                       to="/compras/requisiciones/$id"
@@ -273,21 +295,12 @@ function RenderTabla({
                       Ver
                     </Link>
                   </Button>
-                </td>
-              </tr>
+                </TableCell>
+              </TableRow>
             );
           })}
-        </tbody>
-      </table>
-
-      <PaginacionTabla
-        total={total}
-        offset={search.offset ?? 0}
-        limit={search.limit ?? 25}
-        onChange={(offset, limit) =>
-          onChangeSearch({ ...search, offset, limit })
-        }
-      />
+        </TableBody>
+      </Table>
     </div>
   );
 }

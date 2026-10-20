@@ -137,7 +137,7 @@ export function ClaveSatSelector({
               <div className="space-y-2 p-3">
                 <p
                   role="alert"
-                  className="flex items-start gap-2 text-xs text-amber-700"
+                  className="flex items-start gap-2 text-xs text-warning-fg"
                 >
                   <TriangleAlert className="mt-0.5 h-4 w-4 shrink-0" />
                   Catálogo SAT no disponible (el servicio del PAC no

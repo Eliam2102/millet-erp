@@ -7,7 +7,6 @@ using Millet.Api.Endpoints.Adjuntos;
 using Millet.Api.Endpoints.CentrosCosto;
 using Millet.Api.Web;
 using Millet.Catalogos.Domain;
-using Millet.Compartido.Application.Catalogos.Articulos;
 using Millet.Compartido.Application.Catalogos.Proveedores;
 using Millet.Compartido.Infrastructure.Persistence;
 using Millet.DatosMaestros.Application.Articulos;
@@ -66,6 +65,7 @@ public static class DatosMaestrosEndpoints
         proveedores.MapGet("/", async (
             [FromQuery] string? rfc,
             [FromQuery] string? razonSocial,
+            [FromQuery] string? q,
             [FromQuery] TipoPersonaProveedor? tipoPersona,
             [FromQuery] EstatusCatalogo? estatus,
             [FromQuery] int? offset,
@@ -80,7 +80,8 @@ public static class DatosMaestrosEndpoints
                     TipoPersona: tipoPersona,
                     Estatus: estatus,
                     Offset: offset ?? 0,
-                    Limit: limit ?? 50),
+                    Limit: limit ?? 50,
+                    Q: q),
                 ct);
             return Results.Ok(response);
         })
@@ -104,8 +105,7 @@ public static class DatosMaestrosEndpoints
                 p.Rfc, p.TipoPersona, p.CondicionesPagoDias, p.MonedaPreferidaId,
                 p.Email, p.Telefono, p.Estatus,
                 p.ValidadoPorId, p.ValidadoEn, p.MotivoRechazo, p.ToleranciaFacturaContraOcMxn,
-                p.Origen, p.RegimenFiscalCodigo, p.ConceptoRetencion, p.ValidadoConMatrizVersion,
-                p.ToleranciaFacturaContraOcEsPorcentaje));
+                p.Origen, p.RegimenFiscalCodigo, p.ConceptoRetencion, p.ValidadoConMatrizVersion));
         })
         .RequireAuthorization(PermissionPolicyProvider.Prefix + PermisosCanonicos.DatosMaestrosProveedoresGestionar)
         .WithName("ObtenerProveedorDatosMaestros")
@@ -119,13 +119,13 @@ public static class DatosMaestrosEndpoints
             Guid id, [FromBody] ActualizarToleranciaProveedorRequest body,
             IMediator mediator, CancellationToken ct) =>
         {
-            await mediator.Send(new ActualizarToleranciaProveedorCommand(id, body.MontoMxn, body.EsPorcentaje), ct);
+            await mediator.Send(new ActualizarToleranciaProveedorCommand(id, body.MontoMxn), ct);
             return Results.NoContent();
         })
         .WithMetadata(new RequireIdempotencyKeyAttribute())
         .RequireAuthorization(PermissionPolicyProvider.Prefix + PermisosCanonicos.DatosMaestrosProveedoresToleranciaEditar)
         .WithName("ActualizarToleranciaProveedor")
-        .WithSummary("Configurar tolerancia factura contra OC en pesos o % de la OC; null usa la general")
+        .WithSummary("Configurar tolerancia factura contra OC en pesos; null usa la general")
         .Produces(StatusCodes.Status204NoContent)
         .ProducesValidationProblem()
         .ProducesProblem(StatusCodes.Status401Unauthorized)
@@ -383,8 +383,7 @@ public static class DatosMaestrosEndpoints
                 a.Id, a.Clave, a.ClaveLegacy, a.Nombre, a.DescripcionLarga,
                 a.UnidadMedidaDefault, a.UnidadMedidaId, a.Naturaleza, a.Categoria,
                 a.CategoriaId,
-                a.PrecioReferenciaMonto, a.PrecioReferenciaMoneda, a.Estatus,
-                a.ToleranciaCantidadPorcentaje));
+                a.PrecioReferenciaMonto, a.PrecioReferenciaMoneda, a.Estatus));
         })
         .RequireAuthorization(PermissionPolicyProvider.Prefix + PermisosCanonicos.DatosMaestrosArticulosGestionar)
         .WithName("ObtenerArticuloDatosMaestros")
@@ -393,24 +392,6 @@ public static class DatosMaestrosEndpoints
         .ProducesProblem(StatusCodes.Status401Unauthorized)
         .ProducesProblem(StatusCodes.Status403Forbidden)
         .ProducesProblem(StatusCodes.Status404NotFound);
-
-        articulos.MapPut("/{id:guid}/tolerancia-recepcion", async (
-            Guid id, [FromBody] ActualizarToleranciaArticuloRequest body,
-            IMediator mediator, CancellationToken ct) =>
-        {
-            await mediator.Send(new ActualizarToleranciaArticuloCommand(id, body.Porcentaje), ct);
-            return Results.NoContent();
-        })
-        .WithMetadata(new RequireIdempotencyKeyAttribute())
-        .RequireAuthorization(PermissionPolicyProvider.Prefix + PermisosCanonicos.DatosMaestrosArticulosToleranciaEditar)
-        .WithName("ActualizarToleranciaArticulo")
-        .WithSummary("Configurar tolerancia de recepción por material (%); null = 0 %")
-        .Produces(StatusCodes.Status204NoContent)
-        .ProducesValidationProblem()
-        .ProducesProblem(StatusCodes.Status401Unauthorized)
-        .ProducesProblem(StatusCodes.Status403Forbidden)
-        .ProducesProblem(StatusCodes.Status404NotFound)
-        .ProducesProblem(StatusCodes.Status422UnprocessableEntity);
 
         // ===== CLIENTES (ADR-0048 D6) =====
         var clientes = app.MapGroup("/api/v1/datos-maestros/clientes")
@@ -971,20 +952,14 @@ public static class DatosMaestrosEndpoints
         OrigenProveedor? Origen = null,
         string? RegimenFiscalCodigo = null,
         string? ConceptoRetencion = null,
-        int? ValidadoConMatrizVersion = null,
-        bool ToleranciaFacturaContraOcEsPorcentaje = false);
+        int? ValidadoConMatrizVersion = null);
 
     public sealed record ActualizarClasificacionFiscalRequest(
         OrigenProveedor? Origen, string? RegimenFiscalCodigo, string? ConceptoRetencion);
 
     [System.Text.Json.Serialization.JsonUnmappedMemberHandling(System.Text.Json.Serialization.JsonUnmappedMemberHandling.Disallow)]
     public sealed record ActualizarToleranciaProveedorRequest(
-        [property: System.Text.Json.Serialization.JsonRequired] decimal? MontoMxn,
-        bool EsPorcentaje = false);
-
-    [System.Text.Json.Serialization.JsonUnmappedMemberHandling(System.Text.Json.Serialization.JsonUnmappedMemberHandling.Disallow)]
-    public sealed record ActualizarToleranciaArticuloRequest(
-        [property: System.Text.Json.Serialization.JsonRequired] decimal? Porcentaje);
+        [property: System.Text.Json.Serialization.JsonRequired] decimal? MontoMxn);
 
     public sealed record RechazarProveedorRequest(string Motivo);
 

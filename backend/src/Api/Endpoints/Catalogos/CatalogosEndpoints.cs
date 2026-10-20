@@ -90,13 +90,14 @@ public static class CatalogosEndpoints
                             .Contains(PostgresFunctions.Translate(aguja.ToLower(), PostgresFunctions.AcentosOrigen, PostgresFunctions.AcentosDestino))));
             }
 
-            // `q` = caja única (clave OR razón social OR nombre comercial), AND con
+            // `q` = caja única (clave OR RFC OR razón social OR nombre comercial), AND con
             // lo demás. Clave con lower(); textos libres con folding (ADR-0045).
             if (!string.IsNullOrWhiteSpace(q))
             {
                 string busqueda = q;
                 query = query.Where(p =>
                     p.Clave.ToLower().Contains(busqueda.ToLower())
+                    || p.Rfc.ToLower().Contains(busqueda.ToLower())
                     || PostgresFunctions.Translate(p.RazonSocial.ToLower(), PostgresFunctions.AcentosOrigen, PostgresFunctions.AcentosDestino)
                         .Contains(PostgresFunctions.Translate(busqueda.ToLower(), PostgresFunctions.AcentosOrigen, PostgresFunctions.AcentosDestino))
                     || (p.NombreComercial != null &&
@@ -137,7 +138,7 @@ public static class CatalogosEndpoints
             "razón social o nombre comercial, insensible a acentos y mayúsculas " +
             "vía `translate`, ADR-0045). `clave` y `nombre` son excluyentes; si " +
             "llegan ambos, `clave` tiene precedencia. `q` es una caja única de " +
-            "búsqueda (substring sobre clave, razón social o nombre comercial, " +
+            "búsqueda (substring sobre clave, RFC, razón social o nombre comercial, " +
             "con folding de acentos/mayúsculas) y se combina por AND con los demás " +
             "filtros; no participa en la exclusividad clave/nombre. `rfc` es un filtro AND " +
             "independiente con match exacto case-insensitive (auto-resolve de " +
@@ -251,8 +252,7 @@ public static class CatalogosEndpoints
                 a.Id, a.Clave, a.ClaveLegacy, a.Nombre, a.DescripcionLarga,
                 a.UnidadMedidaDefault, a.UnidadMedidaId, a.Naturaleza, a.Categoria,
                 a.CategoriaId,
-                a.PrecioReferenciaMonto, a.PrecioReferenciaMoneda, a.Estatus,
-                a.ToleranciaCantidadPorcentaje));
+                a.PrecioReferenciaMonto, a.PrecioReferenciaMoneda, a.Estatus));
         })
         .RequireAuthorization(PermissionPolicyProvider.Prefix + PermisosCanonicos.CompartidoCatalogosLeer)
         .WithName("ObtenerArticuloPorId")

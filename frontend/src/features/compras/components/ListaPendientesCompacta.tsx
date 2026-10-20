@@ -60,7 +60,7 @@ function ItemCompacto({ item, activo, requisitante, search }: ItemCompactoProps)
         state={{ pendientesSearch: search } as never}
         className={cn(
           'block px-3 py-2 transition-colors',
-          activo ? 'bg-primary/10 hover:bg-primary/15' : 'hover:bg-muted/40',
+          activo ? 'bg-brand/10 hover:bg-brand/15' : 'hover:bg-surface-muted/40',
         )}
         aria-current={activo ? 'page' : undefined}
       >
@@ -68,25 +68,22 @@ function ItemCompacto({ item, activo, requisitante, search }: ItemCompactoProps)
           <span
             className={cn(
               'truncate font-mono text-sm',
-              activo ? 'font-semibold text-foreground' : 'text-foreground',
+              activo ? 'font-semibold text-ink' : 'text-ink',
             )}
           >
             {item.folio}
           </span>
           <div className="flex shrink-0 flex-col items-end gap-1">
             <EstadoBadge tipo="requisicion" estado={item.estado} />
-            {item.esRecurrente === true ? (
-              <RecurrenteBadge esRecurrente />
-            ) : (
-              <DisponibilidadBadge disponibilidad={item.disponibilidad} />
-            )}
+            {!item.esRecurrente && <DisponibilidadBadge disponibilidad={item.disponibilidad} />}
+            <RecurrenteBadge esRecurrente={item.esRecurrente} />
             {item.nivelPendiente != null && (
               <span className="text-xs text-ink-muted">Falta N{item.nivelPendiente}</span>
             )}
           </div>
         </div>
-        <div className="mt-1 flex items-center justify-between gap-2 text-xs text-muted-foreground">
-          <span className="truncate">{requisitante}</span>
+        <div className="mt-1 flex items-center justify-between gap-2 text-xs text-ink-muted">
+          <span className={cn('truncate', requisitante === 'Sin asignar' && 'text-ink-muted')}>{requisitante}</span>
           <DateTimeDisplay value={item.fechaSolicitud} />
         </div>
       </Link>

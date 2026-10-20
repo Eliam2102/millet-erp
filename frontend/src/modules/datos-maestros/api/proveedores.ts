@@ -345,6 +345,7 @@ function buildListarProveedoresPath(
   filtros: ListarProveedoresFiltros,
 ): string {
   const params = new URLSearchParams();
+  if (filtros.q != null && filtros.q.length > 0) params.set('q', filtros.q);
   if (filtros.rfc != null && filtros.rfc.length > 0)
     params.set('rfc', filtros.rfc);
   if (filtros.razonSocial != null && filtros.razonSocial.length > 0)
@@ -362,11 +363,11 @@ function buildListarProveedoresPath(
 
 export function useActualizarToleranciaProveedor() {
   const queryClient = useQueryClient();
-  return useMutation<void, Error, { id: string; montoMxn: number | null; esPorcentaje: boolean; idempotencyKey: string }>({
-    mutationFn: async ({ id, montoMxn, esPorcentaje, idempotencyKey }) => {
+  return useMutation<void, Error, { id: string; montoMxn: number | null; idempotencyKey: string }>({
+    mutationFn: async ({ id, montoMxn, idempotencyKey }) => {
       await apiRequest<void>(`/api/v1/datos-maestros/proveedores/${id}/tolerancia`, {
         method: 'PUT',
-        body: { montoMxn, esPorcentaje },
+        body: { montoMxn },
         idempotencyKey,
       });
     },

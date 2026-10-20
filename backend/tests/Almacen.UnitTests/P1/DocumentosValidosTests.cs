@@ -33,7 +33,7 @@ public sealed class DocumentosValidosTests
         await using var f = new P1Fixture();
         await Rechaza(f, () => Recibir(f, packing, f.Oc, [Linea(f) with { LineaOcId = null }]), "RECEPCION_LINEA_OC_REQUERIDA");
         await Rechaza(f, () => Recibir(f, packing, f.Oc, [Linea(f) with { ArticuloId = Guid.NewGuid() }]), "RECEPCION_LINEA_OC_ARTICULO_INCONGRUENTE");
-        await Rechaza(f, () => Recibir(f, packing, f.Oc, [Linea(f) with { Cantidad = 6 }, Linea(f) with { Cantidad = 6 }]), "RECEPCION_EXCEDE_TOLERANCIA");
+        await Rechaza(f, () => Recibir(f, packing, f.Oc, [Linea(f) with { Cantidad = 6 }, Linea(f) with { Cantidad = 6 }]), "RECEPCION_EXCEDE_PENDIENTE");
         var oc = (await f.Oc.ObtenerAsync(f.DocumentoId, default))!;
         await Rechaza(f, () => Recibir(f, packing, new P1Fixture.OcPort(oc with { Lineas = [oc.Lineas[0] with { PrecioUnitarioMxn = 0 }] }), [Linea(f)]), "RECEPCION_COSTO_OC_INVALIDO");
     }
@@ -42,7 +42,7 @@ public sealed class DocumentosValidosTests
     public async Task Recepcion_valida_conserva_costo_y_linea(bool packing)
     {
         await using var f = new P1Fixture();
-        await Recibir(f, packing, f.Oc, [Linea(f) with { Cantidad = 6 }, Linea(f) with { Cantidad = 5 }]);
+        await Recibir(f, packing, f.Oc, [Linea(f) with { Cantidad = 6 }, Linea(f) with { Cantidad = 4 }]);
         var m = await f.Db.Movimientos.Include(m => m.Lineas).SingleAsync();
         m.Lineas.Should().OnlyContain(l => l.LineaOcId == f.LineaId && l.CostoUnitarioMxn == 25);
         f.Events.Items.Should().ContainSingle();
@@ -103,8 +103,8 @@ public sealed class DocumentosValidosTests
     private static RegistrarSalidaLineaInput Salida(P1Fixture f) => new(f.ArticuloId, f.LineaId, 1, null, null, null, null, f.BinId);
     private static async Task Recibir(P1Fixture f, bool packing, IComprasOcReadPort port, RegistrarRecepcionLineaInput[] lineas)
     {
-        if (packing) await new RegistrarRecepcionConPackingListHandler(f.Db, port, new P1Fixture.Articulos(), f.Events, f.Context, f.Context, f.Guard, new PeriodoContableStub(true), new P7Support.Conversion()).Handle(new(f.DocumentoId, P1Fixture.Fecha, "packing.pdf", null, lineas), default);
-        else await new RegistrarRecepcionConFacturaHandler(f.Db, port, new P1Fixture.Articulos(), f.Events, f.Context, f.Context, f.Guard, new PeriodoContableStub(true), new P7Support.Conversion(), CfdiFake.Valido(), new ProveedorRfcFake()).Handle(new(f.DocumentoId, P1Fixture.Fecha, Guid.NewGuid(), null, null, lineas), default);
+        if (packing) await new RegistrarRecepcionConPackingListHandler(f.Db, port, f.Events, f.Context, f.Context, f.Guard, new PeriodoContableStub(true), new P7Support.Conversion()).Handle(new(f.DocumentoId, P1Fixture.Fecha, "packing.pdf", null, lineas), default);
+        else await new RegistrarRecepcionConFacturaHandler(f.Db, port, f.Events, f.Context, f.Context, f.Guard, new PeriodoContableStub(true), new P7Support.Conversion(), CfdiFake.Valido(), new ProveedorRfcFake()).Handle(new(f.DocumentoId, P1Fixture.Fecha, Guid.NewGuid(), null, null, lineas), default);
     }
     private static async Task Salir(P1Fixture f, IComprasRequisicionReadPort port, RegistrarSalidaLineaInput[] lineas) => await new RegistrarSalidaConRequisicionHandler(f.Db, port, f.Events, f.Context, f.Context, f.Guard, new PeriodoContableStub(true), new P7Support.Conversion(), P7Support.Apartados(f.Db)).Handle(new(f.DocumentoId, P1Fixture.Fecha, null, null, lineas), default);
     private static async Task Rechaza(P1Fixture f, Func<Task> action, string codigo)

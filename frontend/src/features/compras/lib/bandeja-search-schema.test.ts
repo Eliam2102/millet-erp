@@ -9,7 +9,7 @@ describe('BandejaSearchSchema', () => {
   it('aplica defaults a offset y limit cuando vienen vacíos', () => {
     const result = BandejaSearchSchema.parse({});
     expect(result.offset).toBe(0);
-    expect(result.limit).toBe(25);
+    expect(result.limit).toBe(10);
     expect(result.estado).toBeUndefined();
   });
 

@@ -6,6 +6,7 @@ Antes de crear o modificar una pantalla o componente, lee completo
 esta carpeta). La guía visual no cambia permisos, reglas de negocio ni estados
 reales del backend.
 
+- Antes de crear un componente, revisa `/sistema-diseno`.
 - Reutiliza `src/components/ui/` y los componentes ERP existentes antes de crear uno nuevo.
 - Usa los tokens de `../design-system/tokens.json`, expuestos en `src/index.css`.
   No agregues hex sueltos ni colores de la paleta default de Tailwind en UI nueva

@@ -25,7 +25,9 @@ public sealed record FacturaProveedorRegistradaPayload(
     Guid FacturaProveedorId,
     Guid OrdenCompraId,
     decimal TotalFactura,
-    IReadOnlyList<LineaFacturadaPayload> Lineas);
+    IReadOnlyList<LineaFacturadaPayload> Lineas,
+    // 86e3tfedr: recepción elegida en CxP; null en mensajes antiguos.
+    Guid? RecepcionId = null);
 
 public sealed record LineaFacturadaPayload(
     Guid LineaFacturaId,

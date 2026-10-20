@@ -1,3 +1,4 @@
+import { PageHeader } from '@/components/erp/PageHeader';
 import { useContext } from 'react';
 import { RecurrenciaContext } from '@/features/compras/components/recurrencia-context';
 import { RecurrenteBadge } from '@/features/compras/components/IndicadoresPendiente';
@@ -84,7 +85,7 @@ export function DetalleRequisicion() {
    * Resuelve sucursal / almacén por id (catálogos chicos que el backend aún
    * no enriquece en el DTO). Requisitante, departamento (ADR-0042) y proveedor
    * sugerido (addendum) ya vienen resueltos en el DTO. Si no matchea, devuelve
-   * una etiqueta Por confirmar.
+   * una etiqueta de dato faltante.
    */
   const resolverNombre = useMemo(
     () =>
@@ -94,7 +95,7 @@ export function DetalleRequisicion() {
         if (s) return s.nombre;
         const a = almacenesMap.get(id);
         if (a) return a.nombre;
-        return 'Nombre no disponible';
+        return 'Sin asignar';
       },
     [sucursalesMap, almacenesMap],
   );
@@ -111,7 +112,7 @@ export function DetalleRequisicion() {
 
   if (requisicionQuery.isLoading || requisicionQuery.data == null) {
     return (
-      <div className="flex flex-col gap-4" aria-busy="true">
+      <div className="flex flex-col gap-5" aria-busy="true">
         <header className="flex items-center gap-3 border-b px-4 py-2">
           <Skeleton className="h-7 w-32" />
           <Skeleton className="h-5 w-24 rounded-full" />
@@ -129,23 +130,24 @@ export function DetalleRequisicion() {
   const historicoCount = historicoQuery.data?.length ?? 0;
 
   return (
-    <div className="flex flex-col gap-4">
+    <div className="flex flex-col gap-5">
       {/* Sub-topbar — sticky arriba del panel detalle. Contiene el
           contexto de la RQ (folio + estado + collab) a la izquierda,
           las acciones de workflow al centro, y los utilities (Imprimir,
           Histórico, Cerrar) a la derecha. */}
       <header
-        className="sticky top-14 z-10 md:top-0 flex flex-wrap items-center gap-3 border-b bg-background/95 px-4 py-2 backdrop-blur"
+        className="sticky top-14 z-10 md:top-0 flex flex-wrap items-center gap-3 border-b bg-surface-card py-2"
         data-print="hidden"
       >
         <div className="flex min-w-0 items-center gap-2">
-          <h1 className="truncate font-mono text-3xl font-semibold text-ink">{rq.folio}</h1>
+          <PageHeader
+            mono
+            titulo={rq.folio}
+            descripcion={rq.departamentoNombre ?? 'Sin departamento'}
+          />
           <EstadoBadge tipo="requisicion" estado={rq.estado} situacion={rq.situacionSurtido} />
-          {esRecurrente === true ? (
-            <RecurrenteBadge esRecurrente />
-          ) : (
-            <EnAlmacenBadge enAlmacen={rq.enAlmacen} />
-          )}
+          {!esRecurrente && <EnAlmacenBadge enAlmacen={rq.enAlmacen} />}
+          <RecurrenteBadge esRecurrente={esRecurrente} />
           <CollaborationIndicator entidad="requisicion" id={rq.id} />
         </div>
 
@@ -188,7 +190,7 @@ export function DetalleRequisicion() {
         </div>
       </header>
 
-      <div className="space-y-6 px-4 pb-6">
+      <div className="space-y-5">
         <div data-print="hidden">
           <EditandoBanner entidad="requisicion" id={rq.id} />
         </div>
@@ -254,7 +256,7 @@ function RenderLineas({ rq }: { rq: import('@/features/compras/api/types').Requi
   const articulosMap = useMemo(() => mapById(articulosQuery.data?.items), [articulosQuery.data]);
   const resolverArticulo = (articuloId: string): string => {
     const a = articulosMap.get(articuloId);
-    return a ? `${a.clave} — ${a.nombre}` : 'Artículo no disponible';
+    return a ? `${a.clave} — ${a.nombre}` : 'Sin artículo';
   };
 
   return (

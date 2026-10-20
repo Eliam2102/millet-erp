@@ -35,8 +35,7 @@ export interface TabPdfProps {
 
 export function TabPdf({ oc }: TabPdfProps) {
   const isAutorizada =
-    oc.estado === EstadoOrdenCompra.Autorizada ||
-    oc.estado === EstadoOrdenCompra.Cerrada;
+    oc.estado === EstadoOrdenCompra.Autorizada || oc.estado === EstadoOrdenCompra.Cerrada;
 
   const query = usePdfOrdenCompra(oc.id, { enabled: isAutorizada });
 
@@ -62,7 +61,7 @@ export function TabPdf({ oc }: TabPdfProps) {
   if (query.isLoading) {
     return (
       <div
-        className="flex h-96 items-center justify-center rounded-md border bg-muted/30 text-sm text-muted-foreground"
+        className="flex h-96 items-center justify-center rounded-md border bg-surface-muted/30 text-sm text-ink-muted"
         data-component="tab-pdf-loading"
       >
         Cargando PDF…
@@ -105,22 +104,16 @@ export function TabPdf({ oc }: TabPdfProps) {
   return (
     <div className="space-y-3" data-component="tab-pdf">
       <div className="flex items-center justify-between">
-        <h3 className="text-sm font-semibold tracking-tight">
-          PDF de la orden {oc.folio}
-        </h3>
+        <h3 className="text-sm font-semibold tracking-tight">PDF de la orden {oc.folio}</h3>
         <Button asChild size="sm" variant="outline">
-          <a
-            href={blobUrl}
-            download={`OC-${oc.folio}.pdf`}
-            data-action="descargar-pdf"
-          >
+          <a href={blobUrl} download={`OC-${oc.folio}.pdf`} data-action="descargar-pdf">
             <Download className="mr-1 h-3.5 w-3.5" />
             Descargar PDF
           </a>
         </Button>
       </div>
       <div
-        className="overflow-hidden rounded-md border bg-muted"
+        className="overflow-hidden rounded-md border bg-surface-muted"
         style={{ height: 'min(80vh, 900px)' }}
       >
         <embed

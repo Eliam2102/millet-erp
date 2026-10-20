@@ -1,3 +1,7 @@
+import { BarraFiltros } from '@/components/erp';
+import { TabsEstado as TabsCatalogo } from '@/components/erp';
+import { ESTATUS_CATALOGO } from '../lib/estado-variante';
+import { ListadoModulo } from '@/components/erp/data/ListadoModulo';
 import { PageHeader } from '@/components/erp/PageHeader';
 import { useMemo, useState } from 'react';
 import { useNavigate, useSearch } from '@tanstack/react-router';
@@ -61,18 +65,13 @@ type SortKey = 'clave' | 'nombre' | 'sucursal' | 'estatus';
 export function AlmacenesPage() {
   const search = useSearch({ from: FROM });
   const navigate = useNavigate();
-  const puedeAdministrar = useHasPermission(
-    PermisosCanonicos.AlmacenAlmacenesAdministrar,
-  );
+  const puedeAdministrar = useHasPermission(PermisosCanonicos.AlmacenAlmacenesAdministrar);
 
   const [sheetAbierto, setSheetAbierto] = useState(false);
   const [editando, setEditando] = useState<AlmacenListItem | null>(null);
 
   const sucursalesQuery = useSucursales();
-  const sucursalesMap = useMemo(
-    () => mapById(sucursalesQuery.data?.items),
-    [sucursalesQuery.data],
-  );
+  const sucursalesMap = useMemo(() => mapById(sucursalesQuery.data?.items), [sucursalesQuery.data]);
 
   const query = useAlmacenes({
     q: search.q,
@@ -100,7 +99,7 @@ export function AlmacenesPage() {
   }
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-5">
       <PageHeader
         titulo="Almacenes"
         descripcion="Catálogo principal del módulo. Cada almacén agrupa uno o más sub-almacenes por tipo (insumos, materiales directos, etc.)."
@@ -116,60 +115,77 @@ export function AlmacenesPage() {
         }
       />
 
-      <FiltrosToolbar
-        search={search}
-        sucursales={sucursalesQuery.data?.items ?? []}
-        onChange={actualizarSearch}
-      />
-
-      {query.isError ? (
-        <ErrorState
-          title="No se pudieron cargar los almacenes"
-          problem={esApiError(query.error) ? query.error.problem : undefined}
-          onRetry={() => query.refetch()}
-        />
-      ) : query.isLoading ? (
-        <TableSkeleton
-          rows={6}
-          columns={[
-            { width: 'w-32' },
-            { width: 'w-64' },
-            { width: 'w-48' },
-            { width: 'w-24' },
-            { width: 'w-16' },
-          ]}
-        />
-      ) : (query.data?.items ?? []).length === 0 ? (
-        <EmptyState
-          title="Sin almacenes"
-          description={
-            puedeAdministrar
-              ? 'No hay almacenes que coincidan con los filtros. Usa "Nuevo almacén" para crear el primero.'
-              : 'No hay almacenes registrados.'
-          }
-        />
-      ) : (
-        <div className="overflow-hidden rounded-lg border border-line-row bg-surface-card">
-          <TablaAlmacenes
-            items={query.data!.items}
-            sucursalesMap={sucursalesMap}
-            puedeAdministrar={puedeAdministrar}
-            onEditar={abrirEditar}
+      <ListadoModulo
+        tabs={
+          <TabsCatalogo
+            opciones={Object.entries(ESTATUS_CATALOGO).map(([valor, e]) => ({
+              valor: Number(valor),
+              label: e.etiqueta,
+            }))}
+            valor={search.estatus}
+            conteos={undefined}
+            onChange={(estatus) => actualizarSearch({ estatus: estatus as typeof search.estatus })}
           />
+        }
+        filtros={
+          <BarraFiltros
+            filtros={
+              <FiltrosToolbar
+                search={search}
+                sucursales={sucursalesQuery.data?.items ?? []}
+                onChange={actualizarSearch}
+              />
+            }
+          />
+        }
+        pie={
           <PaginacionTabla
             total={query.data?.total ?? 0}
             offset={query.data?.offset ?? 0}
             limit={query.data?.limit ?? paginaAOffsetLimit(search).limit}
             onChange={(offset, limit) => actualizarSearch(offsetLimitAPagina(offset, limit))}
           />
-        </div>
-      )}
+        }
+      >
+        {query.isError ? (
+          <ErrorState
+            title="No se pudieron cargar los almacenes"
+            problem={esApiError(query.error) ? query.error.problem : undefined}
+            onRetry={() => query.refetch()}
+          />
+        ) : query.isLoading ? (
+          <TableSkeleton
+            rows={6}
+            columns={[
+              { width: 'w-32' },
+              { width: 'w-64' },
+              { width: 'w-48' },
+              { width: 'w-24' },
+              { width: 'w-16' },
+            ]}
+          />
+        ) : (query.data?.items ?? []).length === 0 ? (
+          <EmptyState
+            title="Sin almacenes"
+            description={
+              puedeAdministrar
+                ? 'No hay almacenes que coincidan con los filtros. Usa "Nuevo almacén" para crear el primero.'
+                : 'No hay almacenes registrados.'
+            }
+          />
+        ) : (
+          <div className="overflow-hidden rounded-lg border border-line-row bg-surface-card">
+            <TablaAlmacenes
+              items={query.data!.items}
+              sucursalesMap={sucursalesMap}
+              puedeAdministrar={puedeAdministrar}
+              onEditar={abrirEditar}
+            />
+          </div>
+        )}
+      </ListadoModulo>
 
-      <AlmacenSheet
-        open={sheetAbierto}
-        onOpenChange={setSheetAbierto}
-        editando={editando}
-      />
+      <AlmacenSheet open={sheetAbierto} onOpenChange={setSheetAbierto} editando={editando} />
     </div>
   );
 }
@@ -197,10 +213,7 @@ function FiltrosToolbar({ search, sucursales, onChange }: FiltrosToolbarProps) {
             value={search.estatus != null ? String(search.estatus) : SENTINEL_ALL}
             onValueChange={(v) =>
               onChange({
-                estatus:
-                  v === SENTINEL_ALL
-                    ? undefined
-                    : (Number(v) as EstatusCatalogo),
+                estatus: v === SENTINEL_ALL ? undefined : (Number(v) as EstatusCatalogo),
               })
             }
           >
@@ -226,9 +239,7 @@ function FiltrosToolbar({ search, sucursales, onChange }: FiltrosToolbarProps) {
         {(c) => (
           <Select
             value={search.sucursalId ?? SENTINEL_ALL}
-            onValueChange={(v) =>
-              onChange({ sucursalId: v === SENTINEL_ALL ? undefined : v })
-            }
+            onValueChange={(v) => onChange({ sucursalId: v === SENTINEL_ALL ? undefined : v })}
           >
             <SelectTrigger {...c} className="w-56">
               <SelectValue placeholder="Todas" />
@@ -247,9 +258,7 @@ function FiltrosToolbar({ search, sucursales, onChange }: FiltrosToolbarProps) {
       {(search.q || search.estatus != null || search.sucursalId) && (
         <Button
           variant="ghost"
-          onClick={() =>
-            onChange({ q: undefined, estatus: undefined, sucursalId: undefined })
-          }
+          onClick={() => onChange({ q: undefined, estatus: undefined, sucursalId: undefined })}
         >
           Limpiar filtros
         </Button>
@@ -265,29 +274,21 @@ interface TablaAlmacenesProps {
   onEditar: (a: AlmacenListItem) => void;
 }
 
-function TablaAlmacenes({
-  items,
-  sucursalesMap,
-  puedeAdministrar,
-  onEditar,
-}: TablaAlmacenesProps) {
+function TablaAlmacenes({ items, sucursalesMap, puedeAdministrar, onEditar }: TablaAlmacenesProps) {
   const [sort, setSort] = useState<SortState<SortKey> | null>(null);
 
   const enriquecidos = useMemo(
     () =>
       items.map((a) => ({
         ...a,
-        sucursal:
-          sucursalesMap.get(a.sucursalId)?.nombre ?? a.sucursalId,
+        sucursal: sucursalesMap.get(a.sucursalId)?.nombre ?? a.sucursalId,
       })),
     [items, sucursalesMap],
   );
 
   const ordenados = useMemo(() => {
     if (sort == null) return enriquecidos;
-    return [...enriquecidos].sort((a, b) =>
-      compareItemsBy(a, b, sort.key, sort.dir),
-    );
+    return [...enriquecidos].sort((a, b) => compareItemsBy(a, b, sort.key, sort.dir));
   }, [enriquecidos, sort]);
 
   return (
@@ -327,9 +328,7 @@ function TablaAlmacenes({
                 onSortChange={setSort}
               />
             </TableHead>
-            {puedeAdministrar && (
-              <TableHead className="text-right">Acciones</TableHead>
-            )}
+            {puedeAdministrar && <TableHead className="text-right">Acciones</TableHead>}
           </TableRow>
         </TableHeader>
         <TableBody>
@@ -361,4 +360,3 @@ function TablaAlmacenes({
     </TableContainer>
   );
 }
-

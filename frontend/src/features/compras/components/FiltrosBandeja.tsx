@@ -8,10 +8,7 @@ import {
 } from '@/components/ui/select';
 import { BarraFiltros } from '@/components/erp/data/BarraFiltros';
 import { useDepartamentos, mapById } from '@/features/catalogos/api';
-import {
-  EstadoRequisicion,
-  estadoToString,
-} from '@/features/compras/api/types';
+import { EstadoRequisicion, estadoToString } from '@/features/compras/api/types';
 import { useHasPermission } from '@/lib/auth/useHasPermission';
 import { PermisosCanonicos } from '@/lib/auth/permission-codes';
 import type { BandejaSearch } from '@/features/compras/lib/bandeja-search-schema';
@@ -49,17 +46,13 @@ export function FiltrosBandeja({ search, onChange }: FiltrosBandejaProps) {
     [departamentosQuery.data],
   );
 
-  const estadoSelectValue =
-    search.estado != null ? String(search.estado) : SENTINEL_ALL;
+  const estadoSelectValue = search.estado != null ? String(search.estado) : SENTINEL_ALL;
   const deptoSelectValue = search.departamentoId ?? SENTINEL_ALL;
 
   function handleEstadoChange(value: string) {
     onChange({
       ...search,
-      estado:
-        value === SENTINEL_ALL
-          ? undefined
-          : (Number(value) as EstadoRequisicion),
+      estado: value === SENTINEL_ALL ? undefined : (Number(value) as EstadoRequisicion),
       offset: 0,
     });
   }
@@ -125,9 +118,7 @@ export function FiltrosBandeja({ search, onChange }: FiltrosBandejaProps) {
                 <SelectValue placeholder="Todos los departamentos" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value={SENTINEL_ALL}>
-                  Todos los departamentos
-                </SelectItem>
+                <SelectItem value={SENTINEL_ALL}>Todos los departamentos</SelectItem>
                 {Array.from(deptosMap.values()).map((d) => (
                   <SelectItem key={d.id} value={d.id}>
                     {d.clave} · {d.nombre}

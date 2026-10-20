@@ -10,8 +10,7 @@ export interface NuevaCategoriaArticuloApi {
   setDirty: (dirty: boolean) => void;
 }
 
-export const NuevaCategoriaArticuloContext =
-  createContext<NuevaCategoriaArticuloApi | null>(null);
+export const NuevaCategoriaArticuloContext = createContext<NuevaCategoriaArticuloApi | null>(null);
 
 export function useNuevaCategoriaArticulo(): NuevaCategoriaArticuloApi {
   const ctx = useContext(NuevaCategoriaArticuloContext);

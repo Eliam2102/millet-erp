@@ -1,3 +1,4 @@
+import { KpiCard } from '@/components/erp/display/KpiCard';
 import { etiquetaNivel } from '@/features/centros-costo/lib/etiquetas';
 import type { ResumenAsignacion } from '@/features/centros-costo/api/types';
 
@@ -12,24 +13,22 @@ export function ResumenAsignacionBar({ resumen }: { resumen: ResumenAsignacion }
   const d3 = etiquetaNivel('dim3', 'asignacion');
 
   return (
-    <div
-      className="flex flex-wrap items-center gap-x-4 gap-y-1 rounded-md border bg-muted/30 px-3 py-2 text-sm"
-      data-testid="resumen-asignacion"
-    >
-      <span>
-        <span className="font-medium">{d1}:</span> {resumen.dim1Completas}/
-        {resumen.dim1Vivas} completas
-      </span>
-      <span className="text-muted-foreground">·</span>
-      <span>
-        <span className="font-medium">{d2}:</span> {resumen.dim2Completas}/
-        {resumen.dim2Vivas} completas
-      </span>
-      <span className="text-muted-foreground">·</span>
-      <span>
-        <span className="font-medium">{d3}:</span> {resumen.dim3Asignadas}/
-        {resumen.dim3Vivas} asignadas
-      </span>
+    <div className="grid gap-3 sm:grid-cols-3" data-testid="resumen-asignacion">
+      <KpiCard
+        etiqueta={d1}
+        valor={`${resumen.dim1Completas}/${resumen.dim1Vivas}`}
+        subdato="completas"
+      />
+      <KpiCard
+        etiqueta={d2}
+        valor={`${resumen.dim2Completas}/${resumen.dim2Vivas}`}
+        subdato="completas"
+      />
+      <KpiCard
+        etiqueta={d3}
+        valor={`${resumen.dim3Asignadas}/${resumen.dim3Vivas}`}
+        subdato="asignadas"
+      />
     </div>
   );
 }

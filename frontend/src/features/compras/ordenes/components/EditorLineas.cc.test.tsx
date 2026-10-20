@@ -13,10 +13,10 @@ import type {
 } from '@/features/compras/ordenes/api/types';
 
 /**
- * Fase E PR3 — columna CC-Máquina en la tabla de líneas de OC. El detalle
+ * Fase E PR3 — columna CC-Máquina en la tabla de partidas de OC. El detalle
  * renderiza el CC ya resuelto por el read-port (ADR-0050): "clave — nombre"
  * si resuelve, "No catalogado" si el id no tiene fila (dato roto), "—" si la
- * línea no lleva CC.
+ * partida no lleva CC.
  */
 
 function makeLinea(
@@ -94,13 +94,13 @@ afterEach(() => {
 });
 
 describe('<EditorLineas> (OC) — columna CC-Máquina (Fase E PR3)', () => {
-  it('una orden directa en borrador permite agregar, editar y eliminar líneas', () => {
+  it('una orden directa en borrador permite agregar, editar y eliminar partidas', () => {
     useAuthStore.setState({ permisos: [PermisosCanonicos.ComprasOrdenesCrear] });
     const { rerender } = render(<EditorLineas oc={makeOc([])} />, { wrapper: createQueryWrapper() });
-    expect(screen.getByRole('button', { name: /Agregar línea manual/ })).toBeEnabled();
+    expect(screen.getByRole('button', { name: /Agregar partida manual/ })).toBeEnabled();
     rerender(<EditorLineas oc={makeOc([makeLinea()])} />);
-    expect(screen.getByRole('button', { name: 'Editar línea 1' })).toBeEnabled();
-    expect(screen.getByRole('button', { name: 'Eliminar línea 1' })).toBeEnabled();
+    expect(screen.getByRole('button', { name: 'Editar partida 1' })).toBeEnabled();
+    expect(screen.getByRole('button', { name: 'Eliminar partida 1' })).toBeEnabled();
   });
   it.each([
     [DescuentoTipo.Monto, 0, 100, 'Sin descuento'],
@@ -155,7 +155,7 @@ describe('<EditorLineas> (OC) — columna CC-Máquina (Fase E PR3)', () => {
     expect(screen.getByText('No catalogado')).toBeInTheDocument();
   });
 
-  it('línea sin CC → "—"', () => {
+  it('partida sin CC → "—"', () => {
     render(<EditorLineas oc={makeOc([makeLinea()])} />, {
       wrapper: createQueryWrapper(),
     });

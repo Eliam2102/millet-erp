@@ -73,7 +73,7 @@ export interface ListarArticulosFiltros {
 /** Filtros del listado paginado de proveedores. */
 export interface ListarProveedoresFiltros {
   /**
-   * Búsqueda parcial en una sola caja: el backend la aplica a clave, razón
+   * Búsqueda parcial en una sola caja: el backend la aplica a clave, RFC, razón
    * social y nombre comercial (insensible a acentos y mayúsculas).
    */
   q?: string;

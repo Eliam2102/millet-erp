@@ -1,3 +1,14 @@
+import { ListadoModulo } from '@/components/erp/data/ListadoModulo';
+import { BarraFiltros, PaginacionTabla } from '@/components/erp';
+import { Badge } from '@/components/ui/badge';
+import {
+  Table,
+  TableHeader,
+  TableBody,
+  TableRow,
+  TableHead,
+  TableCell,
+} from '@/components/ui/table';
 import { useMemo, useState } from 'react';
 import { useNavigate, useSearch } from '@tanstack/react-router';
 import { Plus, Trash2 } from 'lucide-react';
@@ -38,11 +49,7 @@ import {
   useAprobadoresVigentes,
   useRevocarAprobador,
 } from '@/features/compras/api/useAprobadores';
-import {
-  useDepartamentos,
-  useUsuarios,
-  mapById,
-} from '@/features/catalogos/api';
+import { useDepartamentos, useUsuarios, mapById } from '@/features/catalogos/api';
 import {
   ROL_APROBADOR_LABEL,
   RolAprobador,
@@ -81,14 +88,10 @@ export function AdminAprobadores() {
     () => mapById(departamentosQuery.data?.items),
     [departamentosQuery.data],
   );
-  const usuariosMap = useMemo(
-    () => mapById(usuariosQuery.data?.items),
-    [usuariosQuery.data],
-  );
+  const usuariosMap = useMemo(() => mapById(usuariosQuery.data?.items), [usuariosQuery.data]);
 
   const [modalDesignarAbierto, setModalDesignarAbierto] = useState(false);
-  const [aRevocar, setARevocar] =
-    useState<AprobadorVigenteResponse | null>(null);
+  const [aRevocar, setARevocar] = useState<AprobadorVigenteResponse | null>(null);
 
   function actualizarSearch(parcial: Partial<AdminAprobadoresSearch>) {
     navigate({
@@ -114,35 +117,34 @@ export function AdminAprobadores() {
         onValueChange={(v) => actualizarSearch({ tab: v as typeof search.tab })}
         className="space-y-4"
       >
-        <TabsList aria-label="Vigentes o histórico">
-          <TabsTrigger value="vigentes">Vigentes</TabsTrigger>
-          <TabsTrigger value="historico">Histórico</TabsTrigger>
-        </TabsList>
-
-        {/* Filtros (compartidos por ambas tabs) */}
-        <FiltrosToolbar search={search} onChange={actualizarSearch} />
-
-        <TabsContent value="vigentes" className="mt-0">
-          <PanelVigentes
-            search={search}
-            deptosMap={deptosMap}
-            usuariosMap={usuariosMap}
-            onRevocar={(a) => setARevocar(a)}
-          />
-        </TabsContent>
-        <TabsContent value="historico" className="mt-0">
-          <PanelHistorico
-            search={search}
-            deptosMap={deptosMap}
-            usuariosMap={usuariosMap}
-          />
-        </TabsContent>
+        <ListadoModulo
+          tabs={
+            <TabsList aria-label="Vigentes o histórico">
+              <TabsTrigger value="vigentes">Vigentes</TabsTrigger>
+              <TabsTrigger value="historico">Histórico</TabsTrigger>
+            </TabsList>
+          }
+          filtros={
+            <BarraFiltros
+              filtros={<FiltrosToolbar search={search} onChange={actualizarSearch} />}
+            />
+          }
+        >
+          <TabsContent value="vigentes" className="mt-0">
+            <PanelVigentes
+              search={search}
+              deptosMap={deptosMap}
+              usuariosMap={usuariosMap}
+              onRevocar={(a) => setARevocar(a)}
+            />
+          </TabsContent>
+          <TabsContent value="historico" className="mt-0">
+            <PanelHistorico search={search} deptosMap={deptosMap} usuariosMap={usuariosMap} />
+          </TabsContent>
+        </ListadoModulo>
       </Tabs>
 
-      <DesignarAprobadorDialog
-        open={modalDesignarAbierto}
-        onOpenChange={setModalDesignarAbierto}
-      />
+      <DesignarAprobadorDialog open={modalDesignarAbierto} onOpenChange={setModalDesignarAbierto} />
 
       <RevocarConfirm
         aprobador={aRevocar}
@@ -156,7 +158,6 @@ export function AdminAprobadores() {
 
 // ─── Tabs ────────────────────────────────────────────────────────
 
-
 // ─── Filtros ──────────────────────────────────────────────────────
 
 interface FiltrosToolbarProps {
@@ -168,16 +169,14 @@ function FiltrosToolbar({ search, onChange }: FiltrosToolbarProps) {
   return (
     <div className="flex flex-wrap items-end gap-3">
       <div className="space-y-1">
-        <label className="text-xs text-muted-foreground">Departamento</label>
+        <label className="text-xs text-ink-muted">Departamento</label>
         <DepartamentoSelector
           value={search.departamentoId ?? null}
-          onChange={(id) =>
-            onChange({ departamentoId: id ?? undefined })
-          }
+          onChange={(id) => onChange({ departamentoId: id ?? undefined })}
         />
       </div>
       <div className="space-y-1">
-        <label className="text-xs text-muted-foreground">Rol</label>
+        <label className="text-xs text-ink-muted">Rol</label>
         <Select
           value={search.rol != null ? String(search.rol) : SENTINEL_ALL}
           onValueChange={(v) =>
@@ -192,11 +191,7 @@ function FiltrosToolbar({ search, onChange }: FiltrosToolbarProps) {
           <SelectContent>
             <SelectItem value={SENTINEL_ALL}>Todos los roles</SelectItem>
             {(
-              [
-                RolAprobador.JefeDpto,
-                RolAprobador.JefeAlmacen,
-                RolAprobador.AutorizadorN2,
-              ] as const
+              [RolAprobador.JefeDpto, RolAprobador.JefeAlmacen, RolAprobador.AutorizadorN2] as const
             ).map((r) => (
               <SelectItem key={r} value={String(r)}>
                 {ROL_APROBADOR_LABEL[r]}
@@ -206,7 +201,7 @@ function FiltrosToolbar({ search, onChange }: FiltrosToolbarProps) {
         </Select>
       </div>
       <div className="space-y-1">
-        <label className="text-xs text-muted-foreground">Usuario</label>
+        <label className="text-xs text-ink-muted">Usuario</label>
         <UsuarioSelector
           value={search.usuarioId ?? null}
           onChange={(id) => onChange({ usuarioId: id ?? undefined })}
@@ -239,12 +234,7 @@ interface PanelVigentesProps {
   onRevocar: (a: AprobadorVigenteResponse) => void;
 }
 
-function PanelVigentes({
-  search,
-  deptosMap,
-  usuariosMap,
-  onRevocar,
-}: PanelVigentesProps) {
+function PanelVigentes({ search, deptosMap, usuariosMap, onRevocar }: PanelVigentesProps) {
   const query = useAprobadoresVigentes({
     departamentoId: search.departamentoId,
     rol: search.rol,
@@ -306,13 +296,9 @@ interface PanelVigentesTablaProps {
 
 type VigenteSortKey = 'depto' | 'rol' | 'usuario' | 'vigenteDesde';
 
-function PanelVigentesTabla({
-  items,
-  deptosMap,
-  usuariosMap,
-  onRevocar,
-}: PanelVigentesTablaProps) {
+function PanelVigentesTabla({ items, deptosMap, usuariosMap, onRevocar }: PanelVigentesTablaProps) {
   const [sort, setSort] = useState<SortState<VigenteSortKey> | null>(null);
+  const [pagina, setPagina] = useState(0);
 
   // Enriquecemos con labels resueltos para sortear por NOMBRE de
   // depto/usuario en lugar del id (UUID — orden lexicográfico
@@ -329,61 +315,55 @@ function PanelVigentesTabla({
 
   const itemsOrdenados = useMemo(() => {
     if (sort == null) return itemsEnriquecidos;
-    return [...itemsEnriquecidos].sort((a, b) =>
-      compareItemsBy(a, b, sort.key, sort.dir),
-    );
+    return [...itemsEnriquecidos].sort((a, b) => compareItemsBy(a, b, sort.key, sort.dir));
   }, [itemsEnriquecidos, sort]);
 
+  const offset = Math.min(pagina, Math.max(0, Math.ceil(itemsOrdenados.length / 10) - 1)) * 10;
   return (
-    <div className="overflow-x-auto rounded-md border">
-      <table className="w-full text-sm">
-        <thead className="bg-muted/50">
-          <tr>
-            <th className="px-3 py-2 text-left">
+    <div className="flex min-h-0 flex-col">
+      <Table className="w-full text-sm">
+        <TableHeader className="bg-surface-muted/50">
+          <TableRow>
+            <TableHead className="px-3 py-2 text-left">
               <SortableHeader
                 columnKey="depto"
                 label="Departamento"
                 current={sort}
                 onSortChange={setSort}
               />
-            </th>
-            <th className="px-3 py-2 text-left">
-              <SortableHeader
-                columnKey="rol"
-                label="Rol"
-                current={sort}
-                onSortChange={setSort}
-              />
-            </th>
-            <th className="px-3 py-2 text-left">
+            </TableHead>
+            <TableHead className="px-3 py-2 text-left">
+              <SortableHeader columnKey="rol" label="Rol" current={sort} onSortChange={setSort} />
+            </TableHead>
+            <TableHead className="px-3 py-2 text-left">
               <SortableHeader
                 columnKey="usuario"
                 label="Usuario"
                 current={sort}
                 onSortChange={setSort}
               />
-            </th>
-            <th className="px-3 py-2 text-left">
+            </TableHead>
+            <TableHead className="px-3 py-2 text-left">
               <SortableHeader
                 columnKey="vigenteDesde"
                 label="Vigente desde"
                 current={sort}
                 onSortChange={setSort}
               />
-            </th>
-            <th className="px-3 py-2 text-right font-medium">Acciones</th>
-          </tr>
-        </thead>
-        <tbody>
-          {itemsOrdenados.map((a) => (
-            <tr key={a.id} className="border-t">
-              <td className="px-3 py-2">{a.depto}</td>
-              <td className="px-3 py-2">{ROL_APROBADOR_LABEL[a.rol]}</td>
-              <td className="px-3 py-2">{a.usuario}</td>
-              <td className="px-3 py-2">
+            </TableHead>
+            <TableHead className="px-3 py-2 text-right font-medium">Acciones</TableHead>
+          </TableRow>
+        </TableHeader>
+        <TableBody className="[&_tr]:h-12">
+          {itemsOrdenados.slice(offset, offset + 10).map((a) => (
+            <TableRow key={a.id} className="border-t">
+              <TableCell className="px-3 py-2">{a.depto}</TableCell>
+              <TableCell className="px-3 py-2">{ROL_APROBADOR_LABEL[a.rol]}</TableCell>
+              <TableCell className="px-3 py-2">{a.usuario}</TableCell>
+              <TableCell className="px-3 py-2">
                 <DateTimeDisplay value={a.vigenteDesde} />
-              </td>
-              <td className="px-3 py-2 text-right">
+              </TableCell>
+              <TableCell className="px-3 py-2 text-right">
                 <Button
                   type="button"
                   size="sm"
@@ -404,11 +384,18 @@ function PanelVigentesTabla({
                 >
                   <Trash2 className="h-4 w-4" />
                 </Button>
-              </td>
-            </tr>
+              </TableCell>
+            </TableRow>
           ))}
-        </tbody>
-      </table>
+        </TableBody>
+      </Table>
+      <PaginacionTabla
+        total={itemsOrdenados.length}
+        offset={offset}
+        limit={10}
+        tamanos={[]}
+        onChange={(next) => setPagina(next / 10)}
+      />
     </div>
   );
 }
@@ -421,15 +408,9 @@ interface PanelHistoricoProps {
   usuariosMap: Map<string, { id: string; nombre: string }>;
 }
 
-function PanelHistorico({
-  search,
-  deptosMap,
-  usuariosMap,
-}: PanelHistoricoProps) {
+function PanelHistorico({ search, deptosMap, usuariosMap }: PanelHistoricoProps) {
   const tieneAlgunFiltro =
-    search.departamentoId != null ||
-    search.rol != null ||
-    search.usuarioId != null;
+    search.departamentoId != null || search.rol != null || search.usuarioId != null;
 
   const query = useAprobadoresHistorico({
     departamentoId: search.departamentoId,
@@ -482,13 +463,7 @@ function PanelHistorico({
     );
   }
 
-  return (
-    <PanelHistoricoTabla
-      items={items}
-      deptosMap={deptosMap}
-      usuariosMap={usuariosMap}
-    />
-  );
+  return <PanelHistoricoTabla items={items} deptosMap={deptosMap} usuariosMap={usuariosMap} />;
 }
 
 interface PanelHistoricoTablaProps {
@@ -497,19 +472,11 @@ interface PanelHistoricoTablaProps {
   usuariosMap: Map<string, { id: string; nombre: string }>;
 }
 
-type HistoricoSortKey =
-  | 'depto'
-  | 'rol'
-  | 'usuario'
-  | 'vigenteDesde'
-  | 'vigenteHasta';
+type HistoricoSortKey = 'depto' | 'rol' | 'usuario' | 'vigenteDesde' | 'vigenteHasta';
 
-function PanelHistoricoTabla({
-  items,
-  deptosMap,
-  usuariosMap,
-}: PanelHistoricoTablaProps) {
+function PanelHistoricoTabla({ items, deptosMap, usuariosMap }: PanelHistoricoTablaProps) {
   const [sort, setSort] = useState<SortState<HistoricoSortKey> | null>(null);
+  const [pagina, setPagina] = useState(0);
 
   const itemsEnriquecidos = useMemo(
     () =>
@@ -523,86 +490,82 @@ function PanelHistoricoTabla({
 
   const itemsOrdenados = useMemo(() => {
     if (sort == null) return itemsEnriquecidos;
-    return [...itemsEnriquecidos].sort((a, b) =>
-      compareItemsBy(a, b, sort.key, sort.dir),
-    );
+    return [...itemsEnriquecidos].sort((a, b) => compareItemsBy(a, b, sort.key, sort.dir));
   }, [itemsEnriquecidos, sort]);
 
+  const offset = Math.min(pagina, Math.max(0, Math.ceil(itemsOrdenados.length / 10) - 1)) * 10;
   return (
-    <div className="overflow-x-auto rounded-md border">
-      <table className="w-full text-sm">
-        <thead className="bg-muted/50">
-          <tr>
-            <th className="px-3 py-2 text-left">
+    <div className="flex min-h-0 flex-col">
+      <Table className="w-full text-sm">
+        <TableHeader className="bg-surface-muted/50">
+          <TableRow>
+            <TableHead className="px-3 py-2 text-left">
               <SortableHeader
                 columnKey="depto"
                 label="Departamento"
                 current={sort}
                 onSortChange={setSort}
               />
-            </th>
-            <th className="px-3 py-2 text-left">
-              <SortableHeader
-                columnKey="rol"
-                label="Rol"
-                current={sort}
-                onSortChange={setSort}
-              />
-            </th>
-            <th className="px-3 py-2 text-left">
+            </TableHead>
+            <TableHead className="px-3 py-2 text-left">
+              <SortableHeader columnKey="rol" label="Rol" current={sort} onSortChange={setSort} />
+            </TableHead>
+            <TableHead className="px-3 py-2 text-left">
               <SortableHeader
                 columnKey="usuario"
                 label="Usuario"
                 current={sort}
                 onSortChange={setSort}
               />
-            </th>
-            <th className="px-3 py-2 text-left">
+            </TableHead>
+            <TableHead className="px-3 py-2 text-left">
               <SortableHeader
                 columnKey="vigenteDesde"
                 label="Vigente desde"
                 current={sort}
                 onSortChange={setSort}
               />
-            </th>
-            <th className="px-3 py-2 text-left">
+            </TableHead>
+            <TableHead className="px-3 py-2 text-left">
               <SortableHeader
                 columnKey="vigenteHasta"
                 label="Cerró"
                 current={sort}
                 onSortChange={setSort}
               />
-            </th>
-          </tr>
-        </thead>
-        <tbody>
-          {itemsOrdenados.map((a) => {
+            </TableHead>
+          </TableRow>
+        </TableHeader>
+        <TableBody className="[&_tr]:h-12">
+          {itemsOrdenados.slice(offset, offset + 10).map((a) => {
             const vigente = a.vigenteHasta == null;
             return (
-              <tr
-                key={a.id}
-                className={cn('border-t', vigente && 'bg-success-bg/50')}
-              >
-                <td className="px-3 py-2">{a.depto}</td>
-                <td className="px-3 py-2">{ROL_APROBADOR_LABEL[a.rol]}</td>
-                <td className="px-3 py-2">{a.usuario}</td>
-                <td className="px-3 py-2">
+              <TableRow key={a.id} className={cn('border-t', vigente && 'bg-success-bg/50')}>
+                <TableCell className="px-3 py-2">{a.depto}</TableCell>
+                <TableCell className="px-3 py-2">{ROL_APROBADOR_LABEL[a.rol]}</TableCell>
+                <TableCell className="px-3 py-2">{a.usuario}</TableCell>
+                <TableCell className="px-3 py-2">
                   <DateTimeDisplay value={a.vigenteDesde} />
-                </td>
-                <td className="px-3 py-2">
+                </TableCell>
+                <TableCell className="px-3 py-2">
                   {vigente ? (
-                    <span className="rounded bg-success-bg px-1.5 py-0.5 text-xs text-success-fg">
-                      Vigente
-                    </span>
+                    <Badge variant="success">Vigente</Badge>
                   ) : (
                     <DateTimeDisplay value={a.vigenteHasta} />
                   )}
-                </td>
-              </tr>
+                </TableCell>
+              </TableRow>
             );
           })}
-        </tbody>
-      </table>
+        </TableBody>
+      </Table>
+      <PaginacionTabla
+        total={itemsOrdenados.length}
+        offset={offset}
+        limit={10}
+        tamanos={[]}
+        onChange={(next) => setPagina(next / 10)}
+      />
     </div>
   );
 }
@@ -650,9 +613,7 @@ function RevocarConfirm({
       ? (deptosMap.get(aprobador.departamentoId)?.nombre ?? aprobador.departamentoId)
       : '';
   const user =
-    aprobador != null
-      ? nombreUsuarioOGuion(usuariosMap.get(aprobador.usuarioId)?.nombre)
-      : '';
+    aprobador != null ? nombreUsuarioOGuion(usuariosMap.get(aprobador.usuarioId)?.nombre) : '';
 
   return (
     <AlertDialog
@@ -666,15 +627,12 @@ function RevocarConfirm({
           <AlertDialogTitle>¿Revocar aprobador?</AlertDialogTitle>
           <AlertDialogDescription>
             Cierra la vigencia actual de <b>{user}</b> como{' '}
-            <b>{aprobador != null ? ROL_APROBADOR_LABEL[aprobador.rol] : ''}</b>{' '}
-            en <b>{dept}</b>. El histórico queda intacto; el row solo deja de
-            estar vigente.
+            <b>{aprobador != null ? ROL_APROBADOR_LABEL[aprobador.rol] : ''}</b> en <b>{dept}</b>.
+            El histórico queda intacto; la designación solo deja de estar vigente.
           </AlertDialogDescription>
         </AlertDialogHeader>
         <AlertDialogFooter>
-          <AlertDialogCancel disabled={revocar.isPending}>
-            Cancelar
-          </AlertDialogCancel>
+          <AlertDialogCancel disabled={revocar.isPending}>Cancelar</AlertDialogCancel>
           <AlertDialogAction disabled={revocar.isPending} onClick={ejecutar}>
             {revocar.isPending ? 'Revocando…' : 'Revocar'}
           </AlertDialogAction>

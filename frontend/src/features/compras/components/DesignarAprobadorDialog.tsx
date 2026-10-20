@@ -1,3 +1,5 @@
+import { FormGrid, FormCampo } from '@/components/erp/forms/FormGrid';
+import { DialogBody } from '@/components/ui/dialog';
 import { useEffect } from 'react';
 import { Controller, useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -18,26 +20,14 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import {
-  DepartamentoSelector,
-  TextAreaField,
-  UsuarioSelector,
-} from '@/components/erp';
-import {
-  applyServerErrors,
-  esApiError,
-  useFormIdempotencyKey,
-  codigoSoporte,
-} from '@/lib/api';
+import { DepartamentoSelector, TextAreaField, UsuarioSelector } from '@/components/erp';
+import { applyServerErrors, esApiError, useFormIdempotencyKey, codigoSoporte } from '@/lib/api';
 import {
   DesignarAprobadorSchema,
   type DesignarAprobadorValues,
 } from '@/features/compras/schemas/designar-aprobador';
 import { useDesignarAprobador } from '@/features/compras/api/useAprobadores';
-import {
-  ROL_APROBADOR_LABEL,
-  RolAprobador,
-} from '@/features/compras/api/types';
+import { ROL_APROBADOR_LABEL, RolAprobador } from '@/features/compras/api/types';
 
 /**
  * <c>&lt;DesignarAprobadorDialog/&gt;</c> — modal para designar un
@@ -118,10 +108,7 @@ export function DesignarAprobadorDialog({
               return;
             }
             if (
-              applyServerErrors(
-                form as unknown as Parameters<typeof applyServerErrors>[0],
-                error,
-              )
+              applyServerErrors(form as unknown as Parameters<typeof applyServerErrors>[0], error)
             ) {
               return;
             }
@@ -140,13 +127,12 @@ export function DesignarAprobadorDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-md">
+      <DialogContent size="md" className="">
         <DialogHeader>
           <DialogTitle>Designar aprobador</DialogTitle>
           <DialogDescription>
-            Asigna un usuario a un rol de aprobación dentro de un
-            departamento. La vigencia abre desde ahora; si ya hay otro
-            usuario en el mismo (depto, rol), su vigencia se cierra
+            Asigna un usuario a un rol de aprobación dentro de un departamento. La vigencia abre
+            desde ahora; si ya hay otro usuario en el mismo (depto, rol), su vigencia se cierra
             automáticamente.
           </DialogDescription>
         </DialogHeader>
@@ -155,93 +141,94 @@ export function DesignarAprobadorDialog({
           id="designar-aprobador-form"
           onSubmit={form.handleSubmit(onSubmit)}
           noValidate
-          className="space-y-3"
+          className="flex min-h-0 flex-1 flex-col "
         >
-          <Field
-            label="Departamento"
-            required
-            error={form.formState.errors.departamentoId?.message}
-          >
-            <Controller
-              name="departamentoId"
-              control={form.control}
-              render={({ field }) => (
-                <DepartamentoSelector
-                  value={field.value || null}
-                  onChange={(id) => field.onChange(id ?? '')}
-                />
-              )}
-            />
-          </Field>
-
-          <Field
-            label="Rol"
-            required
-            error={form.formState.errors.rol?.message}
-          >
-            <Controller
-              name="rol"
-              control={form.control}
-              render={({ field }) => (
-                <Select
-                  value={String(field.value)}
-                  onValueChange={(v) => field.onChange(Number(v))}
+          <DialogBody>
+            <FormGrid>
+              <FormCampo span={12}>
+                <Field
+                  label="Departamento"
+                  required
+                  error={form.formState.errors.departamentoId?.message}
                 >
-                  <SelectTrigger>
-                    <SelectValue placeholder="Seleccionar rol" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {(
-                      [
-                        RolAprobador.JefeDpto,
-                        RolAprobador.JefeAlmacen,
-                        RolAprobador.AutorizadorN2,
-                      ] as const
-                    ).map((r) => (
-                      <SelectItem key={r} value={String(r)}>
-                        {ROL_APROBADOR_LABEL[r]}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              )}
-            />
-          </Field>
+                  <Controller
+                    name="departamentoId"
+                    control={form.control}
+                    render={({ field }) => (
+                      <DepartamentoSelector
+                        value={field.value || null}
+                        onChange={(id) => field.onChange(id ?? '')}
+                      />
+                    )}
+                  />
+                </Field>
+              </FormCampo>
 
-          <Field
-            label="Usuario"
-            required
-            error={form.formState.errors.usuarioId?.message}
-          >
-            <Controller
-              name="usuarioId"
-              control={form.control}
-              render={({ field }) => (
-                <UsuarioSelector
-                  value={field.value || null}
-                  onChange={(id) => field.onChange(id ?? '')}
-                />
-              )}
-            />
-          </Field>
+              <FormCampo span={12}>
+                <Field label="Rol" required error={form.formState.errors.rol?.message}>
+                  <Controller
+                    name="rol"
+                    control={form.control}
+                    render={({ field }) => (
+                      <Select
+                        value={String(field.value)}
+                        onValueChange={(v) => field.onChange(Number(v))}
+                      >
+                        <SelectTrigger>
+                          <SelectValue placeholder="Seleccionar rol" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {(
+                            [
+                              RolAprobador.JefeDpto,
+                              RolAprobador.JefeAlmacen,
+                              RolAprobador.AutorizadorN2,
+                            ] as const
+                          ).map((r) => (
+                            <SelectItem key={r} value={String(r)}>
+                              {ROL_APROBADOR_LABEL[r]}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    )}
+                  />
+                </Field>
+              </FormCampo>
 
-          <Field
-            label="Motivo (opcional)"
-            error={form.formState.errors.motivo?.message}
-          >
-            <Controller
-              name="motivo"
-              control={form.control}
-              render={({ field }) => (
-                <TextAreaField
-                  value={field.value ?? null}
-                  onChange={(v) => field.onChange(v)}
-                  maxLength={500}
-                  minRows={2}
-                />
-              )}
-            />
-          </Field>
+              <FormCampo span={12}>
+                <Field label="Usuario" required error={form.formState.errors.usuarioId?.message}>
+                  <Controller
+                    name="usuarioId"
+                    control={form.control}
+                    render={({ field }) => (
+                      <UsuarioSelector
+                        value={field.value || null}
+                        onChange={(id) => field.onChange(id ?? '')}
+                      />
+                    )}
+                  />
+                </Field>
+              </FormCampo>
+
+              <FormCampo span={12}>
+                <Field label="Motivo (opcional)" error={form.formState.errors.motivo?.message}>
+                  <Controller
+                    name="motivo"
+                    control={form.control}
+                    render={({ field }) => (
+                      <TextAreaField
+                        value={field.value ?? null}
+                        onChange={(v) => field.onChange(v)}
+                        maxLength={500}
+                        minRows={2}
+                      />
+                    )}
+                  />
+                </Field>
+              </FormCampo>
+            </FormGrid>
+          </DialogBody>
         </form>
 
         <DialogFooter className="gap-2">
@@ -253,11 +240,7 @@ export function DesignarAprobadorDialog({
           >
             Cancelar
           </Button>
-          <Button
-            type="submit"
-            form="designar-aprobador-form"
-            disabled={isPending}
-          >
+          <Button type="submit" form="designar-aprobador-form" disabled={isPending}>
             {isPending ? 'Guardando…' : 'Designar'}
           </Button>
         </DialogFooter>

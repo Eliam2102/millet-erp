@@ -1,3 +1,5 @@
+import { IndicadorAlmacenBadge } from '../components/IndicadorAlmacenBadge';
+import { ResumenImportes } from '@/components/erp/display/ResumenImportes';
 import { PageHeader } from '@/components/erp/PageHeader';
 import { formatCcMaquinaLabel } from '@/features/centros-costo/lib/cc-maquina-label';
 import { TrazabilidadComprasDialog } from '@/components/erp/trazabilidad/TrazabilidadComprasDialog';
@@ -5,7 +7,6 @@ import { TipoDocumentoTrazabilidad } from '@/components/erp/trazabilidad/types';
 import { Link, useParams } from '@tanstack/react-router';
 import { ArrowLeft } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
 import { AvisoEnLinea } from '@/components/erp/feedback/AvisoEnLinea';
 import { ErrorState, DetalleSkeleton } from '@/components/erp';
 import {
@@ -18,8 +19,7 @@ import {
   TableRow,
 } from '@/components/ui/table';
 import { useRecepcion } from '@/features/almacen/api/useRecepciones';
-import {
-} from '@/features/almacen/api/types';
+import {} from '@/features/almacen/api/types';
 import { esApiError } from '@/lib/api';
 import { EstadoAlmacenBadge } from '@/features/almacen/components/EstadoAlmacenBadge';
 import { MoneyDisplay } from '@/components/erp/display/MoneyDisplay';
@@ -48,7 +48,7 @@ export function RecepcionDetallePage() {
   const lineasEnRevision = query.data?.lineas.filter((l) => l.enRevision).length ?? 0;
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-5">
       <div className="flex items-center gap-2 md:hidden">
         <Button asChild variant="ghost" size="sm">
           <Link to="/almacen/recepciones" search={{}}>
@@ -67,7 +67,7 @@ export function RecepcionDetallePage() {
       ) : query.isLoading ? (
         <DetalleSkeleton />
       ) : query.data == null ? null : (
-        <div className="space-y-6">
+        <div className="space-y-5">
           <PageHeader
             titulo={query.data.folio}
             estado={
@@ -88,11 +88,13 @@ export function RecepcionDetallePage() {
                 )}
               </>
             }
-            acciones={<TrazabilidadComprasDialog tipo={TipoDocumentoTrazabilidad.Recepcion} id={id} />}
+            acciones={
+              <TrazabilidadComprasDialog tipo={TipoDocumentoTrazabilidad.Recepcion} id={id} />
+            }
             mono
           />
 
-          <section className="grid grid-cols-1 gap-x-6 gap-y-2 rounded-md border p-4 md:grid-cols-2">
+          <dl className="grid grid-cols-1 gap-4 rounded-lg bg-surface-card p-4 shadow-card-flat sm:grid-cols-4">
             <Campo
               label="Sub-almacén"
               valor={
@@ -106,16 +108,16 @@ export function RecepcionDetallePage() {
             />
             {query.data.ordenCompraId ? (
               <div>
-                <div className="text-xs uppercase tracking-wide text-muted-foreground">
-                  Orden de compra
-                </div>
-                <Link
-                  to="/compras/ordenes/$id"
-                  params={{ id: query.data.ordenCompraId }}
-                  className="font-mono text-sm text-brand hover:underline"
-                >
-                  {query.data.ordenCompraFolio ?? query.data.ordenCompraId}
-                </Link>
+                <dt className="text-xs text-ink-muted">Orden de compra</dt>
+                <dd>
+                  <Link
+                    to="/compras/ordenes/$id"
+                    params={{ id: query.data.ordenCompraId }}
+                    className="font-mono text-sm text-brand hover:underline"
+                  >
+                    {query.data.ordenCompraFolio ?? query.data.ordenCompraId}
+                  </Link>
+                </dd>
               </div>
             ) : (
               <Campo label="Orden de compra" valor="—" />
@@ -127,9 +129,7 @@ export function RecepcionDetallePage() {
               label="CFDI recibido (folio fiscal)"
               valor={
                 query.data.cfdiUuidFiscal ??
-                (query.data.cfdiRecibidoId
-                  ? `${query.data.cfdiRecibidoId.slice(0, 8)}…`
-                  : '—')
+                (query.data.cfdiRecibidoId ? `${query.data.cfdiRecibidoId.slice(0, 8)}…` : '—')
               }
               mono
             />
@@ -137,9 +137,7 @@ export function RecepcionDetallePage() {
               label="Factura proveedor"
               valor={
                 query.data.facturaFolio ??
-                (query.data.facturaId
-                  ? `${query.data.facturaId.slice(0, 8)}…`
-                  : '—')
+                (query.data.facturaId ? `${query.data.facturaId.slice(0, 8)}…` : '—')
               }
               mono={!query.data.facturaFolio}
             />
@@ -148,15 +146,16 @@ export function RecepcionDetallePage() {
                 <Campo label="Observaciones" valor={query.data.observaciones} />
               </div>
             )}
-          </section>
+          </dl>
 
           <section className="space-y-2">
-            <h2 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">
-              Líneas ({query.data.lineas.length})
+            <h2 className="text-sm font-semibold uppercase tracking-wide text-ink-muted">
+              Partidas ({query.data.lineas.length})
             </h2>
             {lineasEnRevision > 0 && (
               <AvisoEnLinea tono="advertencia">
-                {lineasEnRevision} {lineasEnRevision === 1 ? 'línea' : 'líneas'} en material en revisión: no están disponibles hasta el dictamen del Gerente de almacén/calidad.
+                {lineasEnRevision} {lineasEnRevision === 1 ? 'partida' : 'partidas'} en material en
+                revisión: no están disponibles hasta el dictamen del Gerente de almacén/calidad.
               </AvisoEnLinea>
             )}
             <TableContainer className="rounded-md border">
@@ -187,7 +186,7 @@ export function RecepcionDetallePage() {
                           <div>{l.articuloDescripcion}</div>
                           {l.enRevision && (
                             <div className="mt-1 space-y-0.5">
-                              <Badge variant="warning">En revisión</Badge>
+                              <IndicadorAlmacenBadge estado="revision" />
                               {l.motivoDano && (
                                 <p className="text-xs text-ink-muted">{l.motivoDano}</p>
                               )}
@@ -195,9 +194,7 @@ export function RecepcionDetallePage() {
                           )}
                         </TableCell>
                       ) : (
-                        <TableCell className="font-mono text-xs">
-                          {l.articuloId}
-                        </TableCell>
+                        <TableCell className="font-mono text-xs">{l.articuloId}</TableCell>
                       )}
                       <TableCell className="text-right tabular-nums">
                         {formatCantidad(l.cantidad, decimalesUnidad.porCodigo(l.unidadMedida))}
@@ -210,12 +207,13 @@ export function RecepcionDetallePage() {
                           </span>
                         )}
                       </TableCell>
-                      <TableCell className="font-mono text-xs">
-                        {l.ubicacionClave ?? '—'}
-                      </TableCell>
+                      <TableCell className="font-mono text-xs">{l.ubicacionClave ?? '—'}</TableCell>
                       <TableCell className="text-sm text-ink">
                         {l.centroCostoId
-                          ? formatCcMaquinaLabel({ clave: l.centroCostoClave, nombre: l.centroCostoNombre })
+                          ? formatCcMaquinaLabel({
+                              clave: l.centroCostoClave,
+                              nombre: l.centroCostoNombre,
+                            })
                           : '—'}
                       </TableCell>
                       <TableCell className="text-right tabular-nums">
@@ -227,22 +225,12 @@ export function RecepcionDetallePage() {
                     </TableRow>
                   ))}
                 </TableBody>
-                <tfoot>
-                  <TableRow className="border-t border-line-divider bg-surface-subtle">
-                    <TableCell colSpan={7} className="text-right font-semibold">
-                      Total
-                    </TableCell>
-                    <TableCell className="text-right tabular-nums">
-                      <MoneyDisplay
-                        amount={query.data.lineas.reduce((t, l) => t + l.montoTotalMxn, 0)}
-                        currency="MXN"
-                        strong
-                      />
-                    </TableCell>
-                  </TableRow>
-                </tfoot>
               </Table>
             </TableContainer>
+            <ResumenImportes
+              moneda="MXN"
+              total={query.data.lineas.reduce((t, l) => t + l.montoTotalMxn, 0)}
+            />
           </section>
         </div>
       )}
@@ -250,25 +238,11 @@ export function RecepcionDetallePage() {
   );
 }
 
-function Campo({
-  label,
-  valor,
-  mono,
-}: {
-  label: string;
-  valor: string;
-  mono?: boolean;
-}) {
+function Campo({ label, valor, mono }: { label: string; valor: string; mono?: boolean }) {
   return (
     <div>
-      <div className="text-xs uppercase tracking-wide text-muted-foreground">
-        {label}
-      </div>
-      <div className={mono ? 'font-mono text-xs break-all' : 'text-sm'}>
-        {valor}
-      </div>
+      <dt className="text-xs text-ink-muted">{label}</dt>
+      <dd className={mono ? 'font-mono text-xs break-all' : 'text-sm'}>{valor}</dd>
     </div>
   );
 }
-
-

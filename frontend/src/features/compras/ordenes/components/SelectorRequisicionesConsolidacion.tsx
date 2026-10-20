@@ -1,3 +1,13 @@
+import { FormGrid, FormCampo } from '@/components/erp/forms/FormGrid';
+import { DialogBody } from '@/components/ui/dialog';
+import {
+  Table,
+  TableHeader,
+  TableBody,
+  TableRow,
+  TableHead,
+  TableCell,
+} from '@/components/ui/table';
 import { Fragment, useMemo, useState } from 'react';
 import { Inbox, Search } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -10,17 +20,8 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
-import {
-  EmptyState,
-  ErrorState,
-  TableSkeleton,
-  DateTimeDisplay,
-} from '@/components/erp';
-import {
-  useDepartamentos,
-  useUsuarios,
-  mapById,
-} from '@/features/catalogos/api';
+import { EmptyState, ErrorState, TableSkeleton, DateTimeDisplay } from '@/components/erp';
+import { useDepartamentos, useUsuarios, mapById } from '@/features/catalogos/api';
 import { useRequisicionesDisponibles } from '@/features/compras/ordenes/api/useRequisicionesDisponibles';
 import type { RequisicionDisponible } from '@/features/compras/ordenes/api/useRequisicionesDisponibles';
 import { esApiError } from '@/lib/api';
@@ -96,10 +97,7 @@ export function SelectorRequisicionesConsolidacion({
     () => mapById(departamentosQuery.data?.items),
     [departamentosQuery.data],
   );
-  const usuariosMap = useMemo(
-    () => mapById(usuariosQuery.data?.items),
-    [usuariosQuery.data],
-  );
+  const usuariosMap = useMemo(() => mapById(usuariosQuery.data?.items), [usuariosQuery.data]);
 
   const itemsFiltrados = useMemo(() => {
     const items = query.data ?? [];
@@ -119,9 +117,7 @@ export function SelectorRequisicionesConsolidacion({
 
   function toggleAll() {
     setSeleccionados((prev) => {
-      const todosVisiblesYaMarcados = itemsFiltrados.every((r) =>
-        prev.has(r.id),
-      );
+      const todosVisiblesYaMarcados = itemsFiltrados.every((r) => prev.has(r.id));
       if (todosVisiblesYaMarcados) {
         const next = new Set(prev);
         for (const r of itemsFiltrados) next.delete(r.id);
@@ -141,58 +137,63 @@ export function SelectorRequisicionesConsolidacion({
   }
 
   const todosVisiblesYaMarcados =
-    itemsFiltrados.length > 0 &&
-    itemsFiltrados.every((r) => seleccionados.has(r.id));
+    itemsFiltrados.length > 0 && itemsFiltrados.every((r) => seleccionados.has(r.id));
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent
-        className="max-h-[90vh] max-w-3xl overflow-hidden p-0"
+        size="lg"
+        className="overflow-hidden p-0"
         data-component="selector-rqs-consolidacion"
       >
         <DialogHeader className="border-b px-6 py-4">
           <DialogTitle>Seleccionar RQs para consolidar</DialogTitle>
           <DialogDescription>
-            Solo aparecen RQs <strong>autorizadas y no comprometidas</strong>{' '}
-            de la sucursal de destino seleccionada. Restricción §10.5: una OC
-            no puede consolidar RQs de sucursales distintas.
+            Solo aparecen RQs <strong>autorizadas y no comprometidas</strong> de la sucursal de
+            destino seleccionada. Una OC no puede consolidar RQs de sucursales distintas.
           </DialogDescription>
         </DialogHeader>
+        <DialogBody>
+          <FormGrid>
+            {/* Filtros */}
+            <FormCampo span={12}>
+              <div className="flex items-center gap-2 border-b px-6 py-3">
+                <div className="relative flex-1">
+                  <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-ink-muted" />
+                  <Input
+                    type="search"
+                    placeholder="Buscar por folio…"
+                    className="pl-9"
+                    value={busqueda}
+                    onChange={(e) => setBusqueda(e.target.value)}
+                    aria-label="Buscar RQs por folio"
+                  />
+                </div>
+                <span className="text-xs text-ink-muted">
+                  {seleccionados.size} de {query.data?.length ?? 0} seleccionadas
+                </span>
+              </div>
+            </FormCampo>
 
-        {/* Filtros */}
-        <div className="flex items-center gap-2 border-b px-6 py-3">
-          <div className="relative flex-1">
-            <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-            <Input
-              type="search"
-              placeholder="Buscar por folio…"
-              className="pl-9"
-              value={busqueda}
-              onChange={(e) => setBusqueda(e.target.value)}
-              aria-label="Buscar RQs por folio"
-            />
-          </div>
-          <span className="text-xs text-muted-foreground">
-            {seleccionados.size} de {query.data?.length ?? 0} seleccionadas
-          </span>
-        </div>
-
-        {/* Tabla / estados */}
-        <div className="max-h-96 overflow-auto" data-region="lista">
-          <RenderLista
-            query={query}
-            items={itemsFiltrados}
-            seleccionados={seleccionados}
-            sucursalId={sucursalId}
-            todosVisiblesYaMarcados={todosVisiblesYaMarcados}
-            onToggleRq={toggleRq}
-            onToggleAll={toggleAll}
-            deptosMap={deptosMap}
-            usuariosMap={usuariosMap}
-            busqueda={busqueda}
-          />
-        </div>
-
+            {/* Tabla / estados */}
+            <FormCampo span={12}>
+              <div className="max-h-96 overflow-auto" data-region="lista">
+                <RenderLista
+                  query={query}
+                  items={itemsFiltrados}
+                  seleccionados={seleccionados}
+                  sucursalId={sucursalId}
+                  todosVisiblesYaMarcados={todosVisiblesYaMarcados}
+                  onToggleRq={toggleRq}
+                  onToggleAll={toggleAll}
+                  deptosMap={deptosMap}
+                  usuariosMap={usuariosMap}
+                  busqueda={busqueda}
+                />
+              </div>
+            </FormCampo>
+          </FormGrid>
+        </DialogBody>
         <DialogFooter className="border-t px-6 py-3">
           <Button variant="outline" onClick={() => onOpenChange(false)}>
             Cancelar
@@ -202,8 +203,7 @@ export function SelectorRequisicionesConsolidacion({
             disabled={seleccionados.size === 0}
             data-action="confirmar-seleccion"
           >
-            Agregar {seleccionados.size}{' '}
-            {seleccionados.size === 1 ? 'RQ' : 'RQs'}
+            Agregar {seleccionados.size} {seleccionados.size === 1 ? 'RQ' : 'RQs'}
           </Button>
         </DialogFooter>
       </DialogContent>
@@ -294,28 +294,28 @@ function RenderLista({
   }
 
   return (
-    <table className="w-full text-sm">
-      <thead className="sticky top-0 bg-muted/80 backdrop-blur text-xs uppercase tracking-wide text-muted-foreground">
-        <tr>
-          <th className="px-3 py-2 text-left">
+    <Table className="w-full text-sm">
+      <TableHeader className="sticky top-0 bg-surface-muted/80 backdrop-blur text-xs uppercase tracking-wide text-ink-muted">
+        <TableRow>
+          <TableHead className="px-3 py-2 text-left">
             <input
               type="checkbox"
               checked={todosVisiblesYaMarcados}
               onChange={onToggleAll}
               aria-label="Seleccionar todos los RQs visibles"
-              className="h-4 w-4 rounded border-input"
+              className="h-4 w-4 rounded border-line-control"
               data-action="toggle-all"
             />
-          </th>
-          <th className="px-3 py-2 text-left font-medium">Folio</th>
-          <th className="px-3 py-2 text-left font-medium">Fecha</th>
-          <th className="px-3 py-2 text-left font-medium">Departamento</th>
-          <th className="px-3 py-2 text-left font-medium">Requisitante</th>
-          <th className="px-3 py-2 text-right font-medium">Por comprar</th>
-          <th className="px-3 py-2 text-right font-medium">Líneas</th>
-        </tr>
-      </thead>
-      <tbody>
+          </TableHead>
+          <TableHead className="px-3 py-2 text-left font-medium">Folio</TableHead>
+          <TableHead className="px-3 py-2 text-left font-medium">Fecha</TableHead>
+          <TableHead className="px-3 py-2 text-left font-medium">Departamento</TableHead>
+          <TableHead className="px-3 py-2 text-left font-medium">Requisitante</TableHead>
+          <TableHead className="px-3 py-2 text-right font-medium">Por comprar</TableHead>
+          <TableHead className="px-3 py-2 text-right font-medium">Partidas</TableHead>
+        </TableRow>
+      </TableHeader>
+      <TableBody className="[&_tr]:h-12">
         {items.map((rq, i) => {
           const checked = seleccionados.has(rq.id);
           const depto = deptosMap.get(rq.departamentoId);
@@ -323,82 +323,76 @@ function RenderLista({
           const lineasConSaldo = rq.lineasConSaldo ?? [];
           return (
             <Fragment key={rq.id}>
-              <tr
+              <TableRow
                 className={cn(
-                  i % 2 === 1 ? 'bg-muted/20' : undefined,
-                  checked && 'bg-primary/5',
+                  i % 2 === 1 ? 'bg-surface-muted/20' : undefined,
+                  checked && 'bg-brand/5',
                 )}
                 data-rq={rq.id}
                 data-checked={checked || undefined}
               >
-                <td className="px-3 py-2">
+                <TableCell className="px-3 py-2">
                   <input
                     type="checkbox"
                     checked={checked}
                     onChange={() => onToggleRq(rq.id)}
                     aria-label={`Seleccionar ${rq.folio}`}
-                    className="h-4 w-4 rounded border-input"
+                    className="h-4 w-4 rounded border-line-control"
                     data-action="toggle-rq"
                   />
-                </td>
-                <td className="px-3 py-2 font-mono">{rq.folio}</td>
-                <td className="px-3 py-2">
+                </TableCell>
+                <TableCell className="px-3 py-2 font-mono">{rq.folio}</TableCell>
+                <TableCell className="px-3 py-2">
                   <DateTimeDisplay value={rq.fechaSolicitud} />
-                </td>
-                <td className="px-3 py-2 truncate">
+                </TableCell>
+                <TableCell className="px-3 py-2 truncate">
                   {depto?.nombre ?? rq.departamentoId}
-                </td>
-                <td className="px-3 py-2 truncate">
+                </TableCell>
+                <TableCell className="px-3 py-2 truncate">
                   {nombreUsuarioOGuion(requisitante?.nombre)}
-                </td>
-                <td className="px-3 py-2 text-right tabular-nums font-medium">
+                </TableCell>
+                <TableCell className="px-3 py-2 text-right tabular-nums font-medium">
                   {rq.faltantePorComprar ?? '—'}
-                </td>
-                <td className="px-3 py-2 text-right tabular-nums">
+                </TableCell>
+                <TableCell className="px-3 py-2 text-right tabular-nums">
                   {rq.totalLineas}
-                </td>
-              </tr>
+                </TableCell>
+              </TableRow>
               {lineasConSaldo.length > 0 && (
-                <tr className={cn(i % 2 === 1 ? 'bg-muted/20' : undefined)}>
-                  <td colSpan={7} className="px-3 pb-3 pt-0">
+                <TableRow className={cn(i % 2 === 1 ? 'bg-surface-muted/20' : undefined)}>
+                  <TableCell colSpan={7} className="px-3 pb-3 pt-0">
                     <ul
-                      className="space-y-0.5 text-xs text-muted-foreground"
-                      aria-label={`Líneas de ${rq.folio} con saldo por comprar`}
+                      className="space-y-0.5 text-xs text-ink-muted"
+                      aria-label={`Partidas de ${rq.folio} con saldo por comprar`}
                       data-linea-saldo-de={rq.id}
                     >
                       {lineasConSaldo.map((l) => {
                         const etiqueta =
-                          [l.articuloClave, l.articuloNombre]
-                            .filter(Boolean)
-                            .join(' · ') || l.articuloId;
+                          [l.articuloClave, l.articuloNombre].filter(Boolean).join(' · ') ||
+                          l.articuloId;
                         return (
                           <li key={l.lineaId} className="flex flex-wrap gap-x-3">
-                            <span className="min-w-0 flex-1 truncate text-foreground">
-                              {etiqueta}
-                            </span>
+                            <span className="min-w-0 flex-1 truncate text-ink">{etiqueta}</span>
                             <span>
                               Por comprar{' '}
-                              <span className="font-mono font-medium text-foreground">
+                              <span className="font-mono font-medium text-ink">
                                 {l.cantidadSaldo}
                               </span>
                             </span>
                             <span>
-                              Almacén surte{' '}
-                              <span className="font-mono">
-                                {l.cantidadDeAlmacen}
-                              </span>
+                              Almacén surte <span className="font-mono">{l.cantidadDeAlmacen}</span>
                             </span>
                           </li>
                         );
                       })}
                     </ul>
-                  </td>
-                </tr>
+                  </TableCell>
+                </TableRow>
               )}
             </Fragment>
           );
         })}
-      </tbody>
-    </table>
+      </TableBody>
+    </Table>
   );
 }

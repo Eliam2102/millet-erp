@@ -111,6 +111,7 @@ export const pendientes: readonly PendienteConfig[] = [
   {
     id: 'depositos',
     modulo: 'Tesorería',
+    // eslint-disable-next-line ds/no-texto-interno -- Estado de negocio: depósitos pendientes de conciliación.
     titulo: 'Depósitos por confirmar',
     descripcion: 'Depósitos pendientes de confirmación.',
     to: '/tesoreria/depositos',
@@ -237,6 +238,7 @@ export const piezasInicio: readonly PiezaInicio[] = [
   { id: 'pedidos', tipo: 'indicador', titulo: 'Pedidos por facturar', to: '/facturacion/pedidos', prioridad: 75, fuentes: [fuente('facturacion/inicio/pedidos', P.FacturacionFacturasLeer)] },
   { id: 'timbrado', tipo: 'indicador', titulo: 'Timbrado con problema', to: '/facturacion/comprobantes', prioridad: 100, fuentes: [fuente('facturacion/inicio/timbrado', P.FacturacionFacturasLeer)] },
   // El recurso no tiene un permiso de lectura separado; coincide con la bandeja de depósitos.
+  // eslint-disable-next-line ds/no-texto-interno -- Estado de negocio: depósitos pendientes de conciliación.
   { id: 'depositos', tipo: 'indicador', titulo: 'Depósitos por confirmar', to: '/tesoreria/depositos', prioridad: 80, fuentes: [fuente('tesoreria/inicio/depositos', P.TesoreriaDepositosConfirmar)] },
   { id: 'periodo', tipo: 'indicador', titulo: 'Periodo contable', to: '/contabilidad/periodos', prioridad: 60, fuentes: [fuente('contabilidad/inicio/periodo', P.ContabilidadPeriodoLeer)] },
   { id: 'compra', tipo: 'visual', titulo: 'Circuito de compra', to: '/compras/ordenes', prioridad: 80, fuentes: [fuente('compras/inicio/circuito', P.ComprasOrdenesLeer)] },

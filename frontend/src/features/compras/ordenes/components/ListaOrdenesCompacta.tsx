@@ -57,7 +57,7 @@ function ItemCompacto({ item, activo, search }: ItemCompactoProps) {
         state={{ bandejaOcSearch: search } as never}
         className={cn(
           'block px-3 py-2 transition-colors',
-          activo ? 'bg-primary/10 hover:bg-primary/15' : 'hover:bg-muted/40',
+          activo ? 'bg-brand/10 hover:bg-brand/15' : 'hover:bg-surface-muted/40',
         )}
         aria-current={activo ? 'page' : undefined}
       >
@@ -65,17 +65,17 @@ function ItemCompacto({ item, activo, search }: ItemCompactoProps) {
           <span
             className={cn(
               'truncate font-mono text-sm',
-              activo ? 'font-semibold text-foreground' : 'text-foreground',
+              activo ? 'font-semibold text-ink' : 'text-ink',
             )}
           >
             {item.folio}
           </span>
           <span className="flex flex-wrap justify-end gap-1">
             <EstadoBadge tipo="orden-compra" estado={item.estado} />
-            <RecurrenteBadge esRecurrente={item.esRecurrente === true} />
+            <RecurrenteBadge esRecurrente={item.esRecurrente} />
           </span>
         </div>
-        <div className="mt-1 flex items-center justify-between gap-2 text-xs text-muted-foreground">
+        <div className="mt-1 flex items-center justify-between gap-2 text-xs text-ink-muted">
           <span className="truncate">
             {item.proveedorNombre ?? item.proveedorId}
             {item.referenciaProveedor != null && <> · Ref. {item.referenciaProveedor}</>}

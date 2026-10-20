@@ -1,5 +1,17 @@
 import { useMemo } from 'react';
-import { Plus, Pencil, Trash2, Send, CheckCircle2, XCircle, Ban, Copy, Paperclip, FileText, AlertTriangle } from 'lucide-react';
+import {
+  Plus,
+  Pencil,
+  Trash2,
+  Send,
+  CheckCircle2,
+  XCircle,
+  Ban,
+  Copy,
+  Paperclip,
+  FileText,
+  AlertTriangle,
+} from 'lucide-react';
 import { ErrorState, TableSkeleton, EmptyState } from '@/components/erp';
 import { useHistoricoOrdenCompra } from '@/features/compras/ordenes/api/useHistoricoOrdenCompra';
 import { useUsuarios, mapById } from '@/features/catalogos/api';
@@ -41,10 +53,7 @@ export function TimelineOrdenCompra({
 }: TimelineOrdenCompraProps) {
   const query = useHistoricoOrdenCompra(ocId);
   const usuariosQuery = useUsuarios();
-  const usuariosMap = useMemo(
-    () => mapById(usuariosQuery.data?.items),
-    [usuariosQuery.data],
-  );
+  const usuariosMap = useMemo(() => mapById(usuariosQuery.data?.items), [usuariosQuery.data]);
 
   if (query.isLoading) {
     return <TableSkeleton rows={5} />;
@@ -73,13 +82,12 @@ export function TimelineOrdenCompra({
 
   return (
     <ol
-      className="relative space-y-3 border-l border-muted pl-4"
+      className="relative space-y-3 border-l border-line pl-4"
       data-component="timeline-orden-compra"
       aria-label="Historial cronológico de la OC"
     >
       {eventos.map((evento) => {
-        const usuario =
-          evento.usuarioId && usuariosMap.get(evento.usuarioId)?.nombre;
+        const usuario = evento.usuarioId && usuariosMap.get(evento.usuarioId)?.nombre;
         const { Icon, color } = resolverEventoVisual(evento.operacion, evento.entidad);
         return (
           <li
@@ -101,25 +109,18 @@ export function TimelineOrdenCompra({
             </span>
 
             {/* Contenido */}
-            <div className="rounded-md border bg-card p-3">
+            <div className="rounded-md border bg-surface-card p-3">
               <div className="flex flex-wrap items-baseline justify-between gap-2 text-sm">
                 <span className="font-medium">
                   {labelOperacion(evento.operacion)}{' '}
-                  <span className="text-muted-foreground">
-                    en {evento.entidad}
-                  </span>
+                  <span className="text-ink-muted">en {evento.entidad}</span>
                 </span>
-                <time
-                  className="text-xs text-muted-foreground tabular-nums"
-                  dateTime={evento.timestamp}
-                >
+                <time className="text-xs text-ink-muted tabular-nums" dateTime={evento.timestamp}>
                   {new Date(evento.timestamp).toLocaleString()}
                 </time>
               </div>
               {evento.resumen && (
-                <p className="mt-1 text-xs text-muted-foreground line-clamp-3">
-                  {evento.resumen}
-                </p>
+                <p className="mt-1 text-xs text-ink-muted line-clamp-3">{evento.resumen}</p>
               )}
               {usuario && (
                 <p className="mt-1 text-xs">
@@ -170,10 +171,8 @@ function resolverEventoVisual(operacion: string, entidad: string) {
     return { Icon: Pencil, color: 'bg-warning' };
   }
   if (entidad === 'OrdenCompra') {
-    if (operacion === 'crear')
-      return { Icon: Plus, color: 'bg-success' };
-    if (operacion === 'borrar')
-      return { Icon: Ban, color: 'bg-danger' };
+    if (operacion === 'crear') return { Icon: Plus, color: 'bg-success' };
+    if (operacion === 'borrar') return { Icon: Ban, color: 'bg-danger' };
     // Update genérico — sin más contexto del backend; el resumen ayuda.
     return { Icon: Pencil, color: 'bg-warning' };
   }

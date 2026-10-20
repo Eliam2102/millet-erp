@@ -1,3 +1,4 @@
+import { PageHeader } from '@/components/erp/PageHeader';
 import { RecurrenciaContext } from '@/features/compras/components/recurrencia-context';
 import { useMemo, type ReactNode } from 'react';
 import { useNavigate, useSearch } from '@tanstack/react-router';
@@ -116,7 +117,7 @@ export function PendientesLayout({ idActivo, detalle }: PendientesLayoutProps) {
         data-print="hidden"
       >
         <div className="flex flex-wrap items-center justify-between gap-2">
-          <h1 className="text-xl font-semibold tracking-tight">Pendientes</h1>
+          <PageHeader titulo="Pendientes" />
         </div>
 
         <div
@@ -150,7 +151,7 @@ export function PendientesLayout({ idActivo, detalle }: PendientesLayoutProps) {
           )}
         </div>
 
-        <div className="flex-1 overflow-y-auto rounded-md border bg-card">
+        <div className="flex-1 overflow-y-auto rounded-md border bg-surface-card">
           <RenderListaContent
             query={query}
             items={itemsFiltrados}
@@ -227,8 +228,8 @@ function RenderListaContent({ query, items, idActivo, search }: RenderListaConte
 
 function PlaceholderSinSeleccion() {
   return (
-    <div className="flex h-full min-h-64 items-center justify-center rounded-md border border-dashed bg-muted/20 p-8 text-center">
-      <div className="space-y-1 text-muted-foreground">
+    <div className="flex h-full min-h-64 items-center justify-center rounded-md border border-dashed bg-surface-muted/20 p-8 text-center">
+      <div className="space-y-1 text-ink-muted">
         <Inbox className="mx-auto h-8 w-8 opacity-50" aria-hidden="true" />
         <p className="text-sm">Selecciona una requisición pendiente</p>
         <p className="text-xs">para autorizar, rechazar o revisar.</p>

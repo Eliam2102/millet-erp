@@ -181,12 +181,11 @@ Implicación: la `FacturaProveedor` del banco no tiene OC. Su autorización es p
 
 ### 3.bis.3 Tolerancia por proveedor
 
-Reemplaza el global de $0.99 MXP de v0.1. Atributos en el master de Proveedor:
+Reemplaza el global de $0.99 MXP de v0.1. Actualizado 19-oct-2026 (86e3tab1k): la única tolerancia es de dinero por proveedor; fuente: plano CxP 1.7.1 y junta del 8-oct. Atributos en el master de Proveedor:
 
 ```
 Proveedor:
-  tolerancia_tipo     enum { MONTO_ABSOLUTO, PORCENTAJE }
-  tolerancia_valor    decimal  // MXP si MONTO_ABSOLUTO, % si PORCENTAJE
+  tolerancia_valor    decimal  // MXN; sin modo porcentaje
 ```
 
 Si `tolerancia_valor` está null, se aplica el default global del módulo (parámetro de Administración: `cuentas_por_pagar.tolerancia_default_mxp = 0.99`).
@@ -232,7 +231,7 @@ CXP emite `FacturaRegistrada(oc_id, monto, factura_id)` que Compras consume para
 | `FolioInternoNotaCargo` | Folio de nota de cargo | Formato `NCG-{año}-{secuencial:6}`, único por año |
 | `MotivoRevision` | Catálogo del §5.3 del levantamiento | Enum + SLA asociado |
 | `MotivoCancelacion` | Catálogo de motivos de cancelación de factura | Enum: `RechazadaPorTolerancia`, `CfdiCanceladoEnSat`, `ErrorCaptura`, `OtroConTexto` |
-| `Tolerancia` | Tolerancia de conciliación | Tipo (MontoAbsoluto/Porcentaje) + valor |
+| `Tolerancia` | Tolerancia de conciliación | Monto en MXN (sin modo porcentaje) |
 | `Money` | Importe + moneda | Reutiliza VO compartido (ADR-0014) |
 | `PeriodoCorte` | Periodo del estado de cuenta TC | Fecha desde + fecha hasta, validación coherencia |
 
@@ -481,7 +480,7 @@ Patrón Outbox + Service Bus (ADR-0009). Todos llevan `correlation_id`, `timesta
 | Evento | Trigger | Consumidor primario | Payload mínimo |
 |---|---|---|---|
 | `CfdiRecibidoIngresadoEvent` | Worker ingresa CFDI | Informativo (auditoría, reporting) | `uuid_cfdi`, `rfc_emisor`, `tipo`, `total`, `canal_origen` |
-| `FacturaProveedorRegistradaEvent` | Captura de factura con OC en estado `Capturada` | **Compras** (actualiza `CantidadFacturada` y `SubEstadoFacturacion` de OC); **Almacén** (variante B: concilia recepción pendiente) | `factura_id`, `oc_id`, `recepcion_id?`, `total`, `lineas[]`, `lineas_acumuladas_oc[]` (PR #288 — `{ linea_oc_id, cantidad_acumulada }` calculado en CxP sumando facturas previas vigentes + delta de la factura corriente; Compras lo aplica directo en `RegistrarFacturacionLinea`) |
+| `FacturaProveedorRegistradaEvent` | Captura de factura con OC en estado `Capturada` | **Compras** (actualiza `CantidadFacturada` y `SubEstadoFacturacion` de OC); **Almacén** (variante B: concilia recepción pendiente) | `factura_id`, `oc_id`, `recepcion_id?` (86e3tfedr: recepción elegida al capturar; Almacén liga sólo esa recepción —principal y revisión—; si viene null, liga todas las variante B pendientes de la OC), `total`, `lineas[]`, `lineas_acumuladas_oc[]` (PR #288 — `{ linea_oc_id, cantidad_acumulada }` calculado en CxP sumando facturas previas vigentes + delta de la factura corriente; Compras lo aplica directo en `RegistrarFacturacionLinea`) |
 | `FacturaProveedorRechazadaPorToleranciaEvent` | Conciliación con OC falla por exceder tolerancia | **Compras** (regresa OC a revisión / corrección) | `oc_id`, `factura_id`, `total_factura`, `total_oc`, `diferencia`, `tolerancia_aplicada` |
 | `FacturaProveedorAutorizadaEvent` | Pasa a `Autorizada` | Compras (informativo), Contabilidad | `factura_id`, `oc_id?`, `fecha_autorizacion` |
 | `FacturaProveedorCanceladaEvent` | Pasa a `Cancelada` | **Compras** (decrementa `CantidadFacturada`), Contabilidad | `factura_id`, `motivo_cancelacion`, `oc_id?` |

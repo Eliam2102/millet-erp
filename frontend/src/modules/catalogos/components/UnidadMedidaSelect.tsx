@@ -33,9 +33,7 @@ export function UnidadMedidaSelect({
   permitirVacio,
 }: UnidadMedidaSelectProps) {
   const query = useUnidadesMedidaList();
-  const activas = (query.data ?? []).filter(
-    (u) => u.estatus === EstatusCatalogo.Activo,
-  );
+  const activas = (query.data ?? []).filter((u) => u.estatus === EstatusCatalogo.Activo);
 
   return (
     <Select
@@ -47,9 +45,7 @@ export function UnidadMedidaSelect({
         <SelectValue placeholder="Selecciona una unidad…" />
       </SelectTrigger>
       <SelectContent>
-        {permitirVacio && (
-          <SelectItem value={SIN_ASIGNAR}>— sin asignar —</SelectItem>
-        )}
+        {permitirVacio && <SelectItem value={SIN_ASIGNAR}>— sin asignar —</SelectItem>}
         {activas.map((u) => (
           <SelectItem key={u.id} value={u.id}>
             {u.codigo} · {u.nombre}
