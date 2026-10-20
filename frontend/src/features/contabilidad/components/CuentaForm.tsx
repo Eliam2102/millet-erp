@@ -1,3 +1,5 @@
+import { FormCampo, FormGrid } from '@/components/erp/forms/FormGrid';
+
 import { useEffect, useRef, useState } from 'react';
 import { Controller, useForm, useWatch } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -20,18 +22,40 @@ import { AvisoNota } from './AvisoNota';
 import { CuentaPadreSelector } from './CuentaPadreSelector';
 
 /** Label (shared) + control + error inline, receta DESIGN 4.2. */
-function Field({ label, htmlFor, required, opcional, error, full, children }: {
-  label: string; htmlFor: string; required?: boolean; opcional?: boolean; error?: string; full?: boolean; children: React.ReactNode;
+function Field({
+  label,
+  htmlFor,
+  required,
+  opcional,
+  error,
+  full,
+  children,
+}: {
+  label: string;
+  htmlFor: string;
+  required?: boolean;
+  opcional?: boolean;
+  error?: string;
+  full?: boolean;
+  children: React.ReactNode;
 }) {
   return (
     <div className={cn('flex flex-col gap-1.5', full && 'md:col-span-2')}>
       <Label htmlFor={htmlFor}>
         {label}
-        {required && <span aria-hidden="true" className="text-danger-fg">*</span>}
+        {required && (
+          <span aria-hidden="true" className="text-danger-fg">
+            *
+          </span>
+        )}
         {opcional && <span className="font-normal text-ink-muted">(opcional)</span>}
       </Label>
       {children}
-      {error != null && <p role="alert" className="text-xs text-danger-fg">{error}</p>}
+      {error != null && (
+        <p role="alert" className="text-xs text-danger-fg">
+          {error}
+        </p>
+      )}
     </div>
   );
 }
@@ -161,87 +185,189 @@ export function CuentaForm({ cuenta, padreActual, onGuardada, onCancelar, onDirt
           <AlertDescription>{mensaje}</AlertDescription>
         </Alert>
       )}
-      <p className="text-sm text-ink-muted">El catálogo vigente cambiará cuando otra persona con autorización del DAF apruebe la solicitud.</p>
+      <p className="text-sm text-ink-muted">
+        El catálogo vigente cambiará cuando otra persona con autorización del DAF apruebe la
+        solicitud.
+      </p>
       {bloqueado && <AvisoNota>{MOTIVO_BLOQUEO}</AvisoNota>}
 
-      <div className="grid grid-cols-1 gap-x-4 gap-y-3.5 md:grid-cols-2">
-        <Field label="Cuenta padre" htmlFor="cta-padre" full error={errors.padreId?.message}>
-          <Controller
-            control={form.control}
-            name="padreId"
-            render={({ field }) => (
-              <CuentaPadreSelector
-                id="cta-padre"
-                value={field.value}
-                onChange={field.onChange}
-                excluirId={cuenta?.id}
-                padreActual={padreActual}
-                disabled={bloqueado}
-                title={bloqueado ? MOTIVO_BLOQUEO : undefined}
-              />
-            )}
-          />
-        </Field>
-
-        <Field label="Código" htmlFor="cta-codigo" required error={errors.codigo?.message}>
-          <Input id="cta-codigo" maxLength={30} readOnly={editando} className="font-mono" {...form.register('codigo')} />
-          {ayudaCodigo && <p className="text-xs text-ink-muted" aria-live="polite">{ayudaCodigo}</p>}
-        </Field>
-        <Field label="Nombre" htmlFor="cta-nombre" required error={errors.nombre?.message}>
-          <Input id="cta-nombre" maxLength={254} {...form.register('nombre')} />
-        </Field>
-
-        <Field label="Naturaleza" htmlFor="cta-naturaleza" error={errors.naturaleza?.message}>
-          <select id="cta-naturaleza" className={SELECT} disabled={bloqueado} title={bloqueado ? MOTIVO_BLOQUEO : undefined} {...form.register('naturaleza')}>
-            <option value="">Pendiente de validación</option>
-            <option value="Deudora">Deudora</option>
-            <option value="Acreedora">Acreedora</option>
-          </select>
-        </Field>
-        <Field label="Tipo" htmlFor="cta-tipo">
-          <Input id="cta-tipo" readOnly aria-describedby="cta-tipo-ayuda" value={esRubro ? 'Rubro de reporte' : ETIQUETA_TIPO[tipoMostrado]} />
-          <p id="cta-tipo-ayuda" className="text-xs text-ink-muted">{ayudaTipo}</p>
-        </Field>
-
-        {!esRubro && (
-          <Field label="Cuenta colectiva" htmlFor="cta-control" error={errors.cuentaControl?.message}>
-            <select id="cta-control" className={SELECT} aria-describedby="cta-control-ayuda" {...form.register('cuentaControl')}>
-              {COLECTIVAS.map((c) => <option key={c} value={c}>{ETIQUETA_COLECTIVA[c]}</option>)}
-            </select>
-            <p id="cta-control-ayuda" className="text-xs text-ink-muted">
-              Una cuenta colectiva no admite captura manual: la afecta solo su módulo, que lleva el detalle por persona.
-            </p>
-          </Field>
-        )}
-        <div className="flex items-center gap-2 md:col-span-2">
-          <Controller control={form.control} name="noAfectableManual" render={({ field }) => (
-            <Checkbox id="cta-no-manual" checked={field.value} onCheckedChange={(v) => field.onChange(v === true)} />
-          )} />
-          <Label htmlFor="cta-no-manual">No afectable por asiento manual</Label>
-        </div>
-        {conRubro && (
-          <Field label="Rubro de reporte" opcional htmlFor="cta-rubro" error={errors.rubroId?.message}>
-            {/* Controlado: las opciones llegan después del valor inicial al editar. */}
+      <FormGrid>
+        <FormCampo span={6}>
+          <Field label="Cuenta padre" htmlFor="cta-padre" full error={errors.padreId?.message}>
             <Controller
               control={form.control}
-              name="rubroId"
+              name="padreId"
               render={({ field }) => (
-                <select id="cta-rubro" className={SELECT} value={field.value} onChange={field.onChange} onBlur={field.onBlur}>
-                  <option value="">Sin rubro</option>
-                  {(rubros.data?.items ?? []).map((r) => <option key={r.id} value={r.id}>{r.codigo} — {r.nombre}</option>)}
-                </select>
+                <CuentaPadreSelector
+                  id="cta-padre"
+                  value={field.value}
+                  onChange={field.onChange}
+                  excluirId={cuenta?.id}
+                  padreActual={padreActual}
+                  disabled={bloqueado}
+                  title={bloqueado ? MOTIVO_BLOQUEO : undefined}
+                />
               )}
             />
-            <p className="text-xs text-ink-muted">Agrupa la cuenta en el reporte; el rubro suma el saldo de sus cuentas de nivel 1 una sola vez.</p>
           </Field>
-        )}
-        <Field label="Código agrupador" opcional htmlFor="cta-agrupador" error={errors.codigoAgrupador?.message}>
-          <Input id="cta-agrupador" maxLength={30} {...form.register('codigoAgrupador')} />
-        </Field>
-        <Field label="Grupo de reporte" opcional htmlFor="cta-grupo" error={errors.grupoReporte?.message}>
-          <Input id="cta-grupo" maxLength={60} {...form.register('grupoReporte')} />
-        </Field>
-      </div>
+        </FormCampo>
+
+        <FormCampo span={6}>
+          <Field label="Código" htmlFor="cta-codigo" required error={errors.codigo?.message}>
+            <Input
+              id="cta-codigo"
+              maxLength={30}
+              readOnly={editando}
+              className="font-mono"
+              {...form.register('codigo')}
+            />
+            {ayudaCodigo && (
+              <p className="text-xs text-ink-muted" aria-live="polite">
+                {ayudaCodigo}
+              </p>
+            )}
+          </Field>
+        </FormCampo>
+
+        <FormCampo span={6}>
+          <Field label="Nombre" htmlFor="cta-nombre" required error={errors.nombre?.message}>
+            <Input id="cta-nombre" maxLength={254} {...form.register('nombre')} />
+          </Field>
+        </FormCampo>
+
+        <FormCampo span={6}>
+          <Field label="Naturaleza" htmlFor="cta-naturaleza" error={errors.naturaleza?.message}>
+            <select
+              id="cta-naturaleza"
+              className={SELECT}
+              disabled={bloqueado}
+              title={bloqueado ? MOTIVO_BLOQUEO : undefined}
+              {...form.register('naturaleza')}
+            >
+              <option value="">Pendiente de validación</option>
+              <option value="Deudora">Deudora</option>
+              <option value="Acreedora">Acreedora</option>
+            </select>
+          </Field>
+        </FormCampo>
+
+        <FormCampo span={6}>
+          <Field label="Tipo" htmlFor="cta-tipo">
+            <Input
+              id="cta-tipo"
+              readOnly
+              aria-describedby="cta-tipo-ayuda"
+              value={esRubro ? 'Rubro de reporte' : ETIQUETA_TIPO[tipoMostrado]}
+            />
+            <p id="cta-tipo-ayuda" className="text-xs text-ink-muted">
+              {ayudaTipo}
+            </p>
+          </Field>
+        </FormCampo>
+
+        <FormCampo span={12}>
+          {!esRubro && (
+            <Field
+              label="Cuenta colectiva"
+              htmlFor="cta-control"
+              error={errors.cuentaControl?.message}
+            >
+              <select
+                id="cta-control"
+                className={SELECT}
+                aria-describedby="cta-control-ayuda"
+                {...form.register('cuentaControl')}
+              >
+                {COLECTIVAS.map((c) => (
+                  <option key={c} value={c}>
+                    {ETIQUETA_COLECTIVA[c]}
+                  </option>
+                ))}
+              </select>
+              <p id="cta-control-ayuda" className="text-xs text-ink-muted">
+                Una cuenta colectiva no admite captura manual: la afecta solo su módulo, que lleva
+                el detalle por persona.
+              </p>
+            </Field>
+          )}
+        </FormCampo>
+
+        <FormCampo span={12}>
+          <div className="flex items-center gap-2 ">
+            <Controller
+              control={form.control}
+              name="noAfectableManual"
+              render={({ field }) => (
+                <Checkbox
+                  id="cta-no-manual"
+                  checked={field.value}
+                  onCheckedChange={(v) => field.onChange(v === true)}
+                />
+              )}
+            />
+            <Label htmlFor="cta-no-manual">No afectable por asiento manual</Label>
+          </div>
+        </FormCampo>
+
+        <FormCampo span={12}>
+          {conRubro && (
+            <Field
+              label="Rubro de reporte"
+              opcional
+              htmlFor="cta-rubro"
+              error={errors.rubroId?.message}
+            >
+              {/* Controlado: las opciones llegan después del valor inicial al editar. */}
+              <Controller
+                control={form.control}
+                name="rubroId"
+                render={({ field }) => (
+                  <select
+                    id="cta-rubro"
+                    className={SELECT}
+                    value={field.value}
+                    onChange={field.onChange}
+                    onBlur={field.onBlur}
+                  >
+                    <option value="">Sin rubro</option>
+                    {(rubros.data?.items ?? []).map((r) => (
+                      <option key={r.id} value={r.id}>
+                        {r.codigo} — {r.nombre}
+                      </option>
+                    ))}
+                  </select>
+                )}
+              />
+              <p className="text-xs text-ink-muted">
+                Agrupa la cuenta en el reporte; el rubro suma el saldo de sus cuentas de nivel 1 una
+                sola vez.
+              </p>
+            </Field>
+          )}
+        </FormCampo>
+
+        <FormCampo span={6}>
+          <Field
+            label="Código agrupador"
+            opcional
+            htmlFor="cta-agrupador"
+            error={errors.codigoAgrupador?.message}
+          >
+            <Input id="cta-agrupador" maxLength={30} {...form.register('codigoAgrupador')} />
+          </Field>
+        </FormCampo>
+
+        <FormCampo span={6}>
+          <Field
+            label="Grupo de reporte"
+            opcional
+            htmlFor="cta-grupo"
+            error={errors.grupoReporte?.message}
+          >
+            <Input id="cta-grupo" maxLength={60} {...form.register('grupoReporte')} />
+          </Field>
+        </FormCampo>
+      </FormGrid>
 
       <div className="flex justify-end gap-2">
         <Button type="button" variant="ghost" size="lg" onClick={onCancelar} disabled={guardando}>
