@@ -1,3 +1,16 @@
+import { usePaginacionLocal } from '../lib/use-paginacion-local';
+import { PaginacionTabla, BarraFiltros } from '@/components/erp';
+import { TabsEstado as TabsCatalogo } from '@/components/erp';
+import { ESTATUS_CATALOGO } from '../lib/estado-variante';
+import { ListadoModulo } from '@/components/erp/data/ListadoModulo';
+import {
+  Table,
+  TableHeader,
+  TableBody,
+  TableRow,
+  TableCell,
+  TableHead,
+} from '@/components/ui/table';
 import { PageHeader } from '@/components/erp/PageHeader';
 import { useMemo, useState } from 'react';
 import { useNavigate, useSearch } from '@tanstack/react-router';
@@ -33,10 +46,7 @@ import {
 import { mapById } from '@/features/catalogos/api';
 import { rutaUbicacion } from '@/features/almacen/lib/ubicacion-label';
 import { useUbicaciones } from '@/features/almacen/api/useUbicaciones';
-import {
-  useAsignacionesList,
-  useDesasignar,
-} from '@/features/almacen/api/useAsignaciones';
+import { useAsignacionesList, useDesasignar } from '@/features/almacen/api/useAsignaciones';
 import {
   EstatusCatalogo,
   EstatusCatalogoLabels,
@@ -64,14 +74,10 @@ type SortKey = 'articulo' | 'ubicacion' | 'estatus';
 export function AsignacionesPage() {
   const search = useSearch({ from: FROM });
   const navigate = useNavigate();
-  const puedeAdministrar = useHasPermission(
-    PermisosCanonicos.AlmacenAsignacionesAdministrar,
-  );
+  const puedeAdministrar = useHasPermission(PermisosCanonicos.AlmacenAsignacionesAdministrar);
 
   const [sheetAbierto, setSheetAbierto] = useState(false);
-  const [confirmQuitar, setConfirmQuitar] = useState<AsignacionListItem | null>(
-    null,
-  );
+  const [confirmQuitar, setConfirmQuitar] = useState<AsignacionListItem | null>(null);
 
   // Nombre de la ubicación resuelto en el FE (el DTO trae solo ubicacionId).
   // Catálogo chico (eager); el padre distingue las "ÚNICA".
@@ -114,11 +120,7 @@ export function AsignacionesPage() {
             );
             return;
           }
-          toast.error(
-            esApiError(error)
-              ? error.problem.title
-              : 'No se pudo quitar la asignación.',
-          );
+          toast.error(esApiError(error) ? error.problem.title : 'No se pudo quitar la asignación.');
         },
       },
     );
@@ -133,12 +135,12 @@ export function AsignacionesPage() {
       : null;
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-5">
       {volverAlArticulo && (
         <Button
           variant="ghost"
           size="sm"
-          className="-ml-2 h-auto py-1 text-muted-foreground"
+          className="-ml-2 h-auto py-1 text-ink-muted"
           onClick={() =>
             navigate({
               to: '/admin/datos-maestros/articulos/$id',
@@ -168,41 +170,49 @@ export function AsignacionesPage() {
         }
       />
 
-      <FiltrosToolbar search={search} onChange={actualizarSearch} />
-
-      {query.isError ? (
-        <ErrorState
-          title="No se pudieron cargar las asignaciones"
-          problem={esApiError(query.error) ? query.error.problem : undefined}
-          onRetry={() => query.refetch()}
-        />
-      ) : query.isLoading ? (
-        <TableSkeleton
-          rows={6}
-          columns={[
-            { width: 'w-64' },
-            { width: 'w-56' },
-            { width: 'w-20' },
-            { width: 'w-16' },
-          ]}
-        />
-      ) : (query.data?.items ?? []).length === 0 ? (
-        <EmptyState
-          title="Sin asignaciones"
-          description={
-            puedeAdministrar
-              ? 'Ningún artículo asignado a una ubicación todavía. Usa "Asignar artículo" para empezar.'
-              : 'Ningún artículo asignado a una ubicación todavía.'
-          }
-        />
-      ) : (
-        <TablaAsignaciones
-          items={query.data!.items}
-          resolverUbicacion={resolverUbicacion}
-          puedeAdministrar={puedeAdministrar}
-          onQuitar={setConfirmQuitar}
-        />
-      )}
+      <ListadoModulo
+        tabs={
+          <TabsCatalogo
+            opciones={Object.entries(ESTATUS_CATALOGO).map(([valor, e]) => ({
+              valor: Number(valor),
+              label: e.etiqueta,
+            }))}
+            valor={search.estatus}
+            conteos={undefined}
+            onChange={(estatus) => actualizarSearch({ estatus: estatus as typeof search.estatus })}
+          />
+        }
+        filtros={<FiltrosToolbar search={search} onChange={actualizarSearch} />}
+      >
+        {query.isError ? (
+          <ErrorState
+            title="No se pudieron cargar las asignaciones"
+            problem={esApiError(query.error) ? query.error.problem : undefined}
+            onRetry={() => query.refetch()}
+          />
+        ) : query.isLoading ? (
+          <TableSkeleton
+            rows={6}
+            columns={[{ width: 'w-64' }, { width: 'w-56' }, { width: 'w-20' }, { width: 'w-16' }]}
+          />
+        ) : (query.data?.items ?? []).length === 0 ? (
+          <EmptyState
+            title="Sin asignaciones"
+            description={
+              puedeAdministrar
+                ? 'Ningún artículo asignado a una ubicación todavía. Usa "Asignar artículo" para empezar.'
+                : 'Ningún artículo asignado a una ubicación todavía.'
+            }
+          />
+        ) : (
+          <TablaAsignaciones
+            items={query.data!.items}
+            resolverUbicacion={resolverUbicacion}
+            puedeAdministrar={puedeAdministrar}
+            onQuitar={setConfirmQuitar}
+          />
+        )}
+      </ListadoModulo>
 
       <AsignacionSheet open={sheetAbierto} onOpenChange={setSheetAbierto} />
 
@@ -216,14 +226,12 @@ export function AsignacionesPage() {
           <AlertDialogHeader>
             <AlertDialogTitle>Quitar de la ubicación</AlertDialogTitle>
             <AlertDialogDescription>
-              ¿Confirmas quitar este artículo de la ubicación? Solo se puede si no
-              tiene existencia ahí. La acción es reversible (volver a asignarlo).
+              ¿Confirmas quitar este artículo de la ubicación? Solo se puede si no tiene existencia
+              ahí. La acción es reversible (volver a asignarlo).
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel disabled={desasignar.isPending}>
-              Cancelar
-            </AlertDialogCancel>
+            <AlertDialogCancel disabled={desasignar.isPending}>Cancelar</AlertDialogCancel>
             <AlertDialogAction
               onClick={() => {
                 if (confirmQuitar != null) confirmarQuitar(confirmQuitar);
@@ -247,52 +255,53 @@ interface FiltrosToolbarProps {
 function FiltrosToolbar({ search, onChange }: FiltrosToolbarProps) {
   const hayFiltros = search.articuloId != null || search.estatus != null;
   return (
-    <div className="flex flex-wrap items-end gap-3">
-      <div className="space-y-1">
-        <label className="text-xs text-muted-foreground">Artículo</label>
-        <div className="w-64">
-          <ArticuloSelector
-            value={search.articuloId ?? null}
-            onChange={(id) => onChange({ articuloId: id ?? undefined })}
-          />
+    <BarraFiltros
+      filtros={
+        <div className="flex flex-wrap items-end gap-3">
+          <div className="space-y-1">
+            <label className="text-xs text-ink-muted">Artículo</label>
+            <div className="w-64">
+              <ArticuloSelector
+                value={search.articuloId ?? null}
+                onChange={(id) => onChange({ articuloId: id ?? undefined })}
+              />
+            </div>
+          </div>
+          <div className="space-y-1">
+            <label className="text-xs text-ink-muted">Estatus</label>
+            <Select
+              value={search.estatus != null ? String(search.estatus) : SENTINEL_ALL}
+              onValueChange={(v) =>
+                onChange({
+                  estatus: v === SENTINEL_ALL ? undefined : (Number(v) as EstatusCatalogo),
+                })
+              }
+            >
+              <SelectTrigger className="w-44">
+                <SelectValue placeholder="Todos" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value={SENTINEL_ALL}>Todos</SelectItem>
+                <SelectItem value={String(EstatusCatalogo.Activo)}>
+                  {EstatusCatalogoLabels[EstatusCatalogo.Activo]}
+                </SelectItem>
+                <SelectItem value={String(EstatusCatalogo.Inactivo)}>
+                  {EstatusCatalogoLabels[EstatusCatalogo.Inactivo]}
+                </SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+          {hayFiltros && (
+            <Button
+              variant="ghost"
+              onClick={() => onChange({ articuloId: undefined, estatus: undefined })}
+            >
+              Limpiar filtros
+            </Button>
+          )}
         </div>
-      </div>
-      <div className="space-y-1">
-        <label className="text-xs text-muted-foreground">Estatus</label>
-        <Select
-          value={search.estatus != null ? String(search.estatus) : SENTINEL_ALL}
-          onValueChange={(v) =>
-            onChange({
-              estatus:
-                v === SENTINEL_ALL ? undefined : (Number(v) as EstatusCatalogo),
-            })
-          }
-        >
-          <SelectTrigger className="w-44">
-            <SelectValue placeholder="Todos" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value={SENTINEL_ALL}>Todos</SelectItem>
-            <SelectItem value={String(EstatusCatalogo.Activo)}>
-              {EstatusCatalogoLabels[EstatusCatalogo.Activo]}
-            </SelectItem>
-            <SelectItem value={String(EstatusCatalogo.Inactivo)}>
-              {EstatusCatalogoLabels[EstatusCatalogo.Inactivo]}
-            </SelectItem>
-          </SelectContent>
-        </Select>
-      </div>
-      {hayFiltros && (
-        <Button
-          variant="ghost"
-          onClick={() =>
-            onChange({ articuloId: undefined, estatus: undefined })
-          }
-        >
-          Limpiar filtros
-        </Button>
-      )}
-    </div>
+      }
+    />
   );
 }
 
@@ -316,9 +325,8 @@ function TablaAsignaciones({
       items.map((item) => ({
         item,
         articulo:
-          [item.articuloClave, item.articuloDescripcion]
-            .filter(Boolean)
-            .join(' · ') || item.articuloId,
+          [item.articuloClave, item.articuloDescripcion].filter(Boolean).join(' · ') ||
+          item.articuloId,
         ubicacion: resolverUbicacion(item),
         estatus: item.estatus,
       })),
@@ -327,74 +335,81 @@ function TablaAsignaciones({
 
   const ordenados = useMemo(() => {
     if (sort == null) return enriquecidos;
-    return [...enriquecidos].sort((a, b) =>
-      compareItemsBy(a, b, sort.key, sort.dir),
-    );
+    return [...enriquecidos].sort((a, b) => compareItemsBy(a, b, sort.key, sort.dir));
   }, [enriquecidos, sort]);
 
+  const paginacion = usePaginacionLocal(ordenados, JSON.stringify(ordenados.map((r) => r.item.id)));
   return (
-    <div className="overflow-x-auto rounded-md border">
-      <table className="w-full text-sm">
-        <thead className="bg-muted/50">
-          <tr>
-            <th className="px-3 py-2 text-left">
-              <SortableHeader
-                columnKey="articulo"
-                label="Artículo"
-                current={sort}
-                onSortChange={setSort}
-              />
-            </th>
-            <th className="px-3 py-2 text-left">
-              <SortableHeader
-                columnKey="ubicacion"
-                label="Ubicación"
-                current={sort}
-                onSortChange={setSort}
-              />
-            </th>
-            <th className="px-3 py-2 text-left">
-              <SortableHeader
-                columnKey="estatus"
-                label="Estatus"
-                current={sort}
-                onSortChange={setSort}
-              />
-            </th>
-            {puedeAdministrar && (
-              <th className="px-3 py-2 text-right font-medium">Acciones</th>
-            )}
-          </tr>
-        </thead>
-        <tbody>
-          {ordenados.map(({ item, articulo, ubicacion }) => (
-            <tr key={item.id} className="border-t">
-              <td className="px-3 py-2">{articulo}</td>
-              <td className="px-3 py-2 font-mono text-xs">{ubicacion}</td>
-              <td className="px-3 py-2">
-                <EstadoAlmacenBadge tipo="catalogo" estado={item.estatus} />
-              </td>
+    <>
+      <div className="overflow-x-auto rounded-md border">
+        <Table className="w-full text-sm">
+          <TableHeader className="bg-surface-muted/50">
+            <TableRow>
+              <TableHead className="px-3 py-2 text-left">
+                <SortableHeader
+                  columnKey="articulo"
+                  label="Artículo"
+                  current={sort}
+                  onSortChange={setSort}
+                />
+              </TableHead>
+              <TableHead className="px-3 py-2 text-left">
+                <SortableHeader
+                  columnKey="ubicacion"
+                  label="Ubicación"
+                  current={sort}
+                  onSortChange={setSort}
+                />
+              </TableHead>
+              <TableHead className="px-3 py-2 text-left">
+                <SortableHeader
+                  columnKey="estatus"
+                  label="Estatus"
+                  current={sort}
+                  onSortChange={setSort}
+                />
+              </TableHead>
               {puedeAdministrar && (
-                <td className="px-3 py-2 text-right">
-                  {item.estatus === EstatusCatalogo.Activo && (
-                    <Button
-                      type="button"
-                      size="sm"
-                      variant="ghost"
-                      onClick={() => onQuitar(item)}
-                      aria-label={`Quitar ${articulo} de la ubicación`}
-                      title="Quitar el artículo de esta ubicación"
-                    >
-                      <Ban className="h-4 w-4" />
-                    </Button>
-                  )}
-                </td>
+                <TableHead className="px-3 py-2 text-right font-medium">Acciones</TableHead>
               )}
-            </tr>
-          ))}
-        </tbody>
-      </table>
-    </div>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {paginacion.visibles.map(({ item, articulo, ubicacion }) => (
+              <TableRow key={item.id} className="border-t">
+                <TableCell className="px-3 py-2">{articulo}</TableCell>
+                <TableCell className="px-3 py-2 font-mono text-xs">{ubicacion}</TableCell>
+                <TableCell className="px-3 py-2">
+                  <EstadoAlmacenBadge tipo="catalogo" estado={item.estatus} />
+                </TableCell>
+                {puedeAdministrar && (
+                  <TableCell className="px-3 py-2 text-right">
+                    {item.estatus === EstatusCatalogo.Activo && (
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant="ghost"
+                        onClick={() => onQuitar(item)}
+                        aria-label={`Quitar ${articulo} de la ubicación`}
+                        title="Quitar el artículo de esta ubicación"
+                      >
+                        <Ban className="h-4 w-4" />
+                      </Button>
+                    )}
+                  </TableCell>
+                )}
+              </TableRow>
+            ))}
+          </TableBody>
+        </Table>
+      </div>
+      <PaginacionTabla
+        total={ordenados.length}
+        offset={paginacion.offset}
+        limit={10}
+        tamanos={[]}
+        onChange={paginacion.onChange}
+      />
+    </>
   );
 }
-

@@ -2,10 +2,7 @@ import { useMemo } from 'react';
 import { Badge } from '@/components/ui/badge';
 import { CatalogoSatReadOnlyTable } from '@/modules/catalogos/components/CatalogoSatReadOnlyTable';
 import { useUsosCfdi } from '@/modules/catalogos/api';
-import {
-  AplicaTipoPersona,
-  type UsoCfdiItem,
-} from '@/modules/catalogos/api/types';
+import { AplicaTipoPersona, type UsoCfdiItem } from '@/modules/catalogos/api/types';
 
 /**
  * Página P1 read-only del catálogo SAT Usos CFDI (UF-Admin-PR5.3).
@@ -41,9 +38,7 @@ export function UsosCfdiPage() {
           key: 'aplicaTipoPersona',
           label: 'Aplica a',
           render: (i) => (
-            <span className="text-muted-foreground">
-              {APLICA_LABEL[i.aplicaTipoPersona]}
-            </span>
+            <span className="text-ink-muted">{APLICA_LABEL[i.aplicaTipoPersona]}</span>
           ),
           className: 'w-40',
         },
@@ -52,9 +47,9 @@ export function UsosCfdiPage() {
           label: 'Estatus',
           render: (i) =>
             i.activa ? (
-              <Badge variant="secondary">Activo</Badge>
+              <Badge variant="success">Activo</Badge>
             ) : (
-              <Badge variant="outline" className="text-muted-foreground">
+              <Badge variant="neutral" className="text-ink-muted">
                 Inactivo
               </Badge>
             ),

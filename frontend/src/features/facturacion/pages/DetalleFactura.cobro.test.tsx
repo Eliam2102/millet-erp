@@ -60,7 +60,7 @@ describe('FAC-05 · detalle de cobro', () => {
     const panel = screen.getByRole('region', { name: 'Cobro de la factura' });
     expect(within(panel).getByText(new Date(cobro.fechaCobro).toLocaleString('es-MX'))).toBeInTheDocument();
     expect(screen.getByText('Caja ficticia FAC-05')).toBeInTheDocument();
-    expect(screen.getByText('$116.00 MXN')).toBeInTheDocument();
+    expect(within(panel).getByText('Cobrado').nextElementSibling).toHaveTextContent('$116.00');
     expect(screen.getByText('Forma SAT 04 · AUT-FICTICIA')).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: 'Registrar cobro' })).not.toBeInTheDocument();
   });
@@ -73,11 +73,12 @@ describe('FAC-05 · detalle de cobro', () => {
     mswServer.use(http.get('*/api/v1/facturacion/facturas/f-fac05', () => HttpResponse.json({ ...factura, metodoPago: 'PPD', pagadoPorRep, totalPorCobrar })));
     render(<DetalleFactura />, { wrapper: createQueryWrapper() });
     expect(await screen.findByText('Se cobra con complemento de pago (REP)')).toBeInTheDocument();
-    expect(screen.getByText(estado)).toBeInTheDocument();
-    expect(screen.getByText('Pagado por REP')).toBeInTheDocument();
-    expect(screen.getByText('Saldo')).toBeInTheDocument();
-    expect(screen.getByText(`$${pagadoPorRep.toFixed(2)} MXN`)).toBeInTheDocument();
-    expect(screen.getByText(`$${totalPorCobrar.toFixed(2)} MXN`)).toBeInTheDocument();
+    const panel = screen.getByRole('region', { name: 'Cobro de la factura' });
+    expect(within(panel).getByText(estado, { selector: '[data-slot=badge]' })).toBeInTheDocument();
+    expect(within(panel).getByText('Cobrado por REP')).toBeInTheDocument();
+    expect(within(panel).getByLabelText('Estado de pago')).toHaveTextContent('Por cobrar');
+    expect(within(panel).getByText('Cobrado por REP').nextElementSibling).toHaveTextContent(`$${pagadoPorRep.toFixed(2)}`);
+    expect(within(within(panel).getByLabelText('Estado de pago')).getByText('Por cobrar').nextElementSibling).toHaveTextContent(`$${totalPorCobrar.toFixed(2)}`);
     expect(screen.getByRole('link', { name: 'Ver bandeja de REP' })).toHaveAttribute('href', '/facturacion/repp');
     expect(screen.queryByRole('button', { name: 'Registrar cobro' })).not.toBeInTheDocument();
   });

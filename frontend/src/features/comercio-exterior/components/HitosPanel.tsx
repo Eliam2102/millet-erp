@@ -1,3 +1,6 @@
+import { FormSeccion } from '@/components/erp/forms/FormSeccion';
+import { FormCampo } from '@/components/erp/forms/FormGrid';
+import { estadosHito, textoFinanciero } from '../lib/estados-ui';
 import { useState, type FormEvent } from 'react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -20,25 +23,33 @@ export function HitosPanel({ data }: { data: ExpedienteDetalle }) {
     <section className="space-y-4">
       <h2 className="text-md font-semibold">Hitos de la operación</h2>
       <p role="note" className="rounded-md bg-warning-note-bg px-3 py-2.5 text-warning-note-fg">
-        Financiero: {data.estadoFinanciero}. El hito Cerrado se habilitará al completar esa
-        dimensión.
+        Financiero: {textoFinanciero(data.estadoFinanciero)}. El hito Cerrado se habilitará al
+        completar esa dimensión.
       </p>
-      <ol className="divide-y divide-line-row rounded-lg bg-surface-card px-4 shadow-card-flat">
+      <ol className="grid grid-cols-1 gap-4 lg:grid-cols-3">
         {data.hitos.map((h) => (
-          <li key={h.id} className="space-y-2 py-3">
+          <li key={h.id} className="space-y-3 rounded-lg bg-surface-card p-4 shadow-card-flat">
             <div className="flex flex-wrap items-center justify-between gap-3">
-              <h3 className="font-medium">
+              <h3 className="flex items-center gap-2 font-medium">
+                <span
+                  aria-hidden="true"
+                  className={`flex size-6 shrink-0 items-center justify-center rounded-full ${h.fechaReal ? 'bg-success-bg text-success-fg' : h.atrasado ? 'bg-danger-bg text-danger-fg' : h.omitido ? 'bg-neutral-bg text-neutral-fg' : 'bg-warning-bg text-warning-fg'}`}
+                >
+                  {h.fechaReal ? '✓' : h.omitido ? '—' : '!'}
+                </span>
                 {h.orden}. {h.nombre}
               </h3>
               <Badge
                 variant={
-                  h.omitido
-                    ? 'neutral'
-                    : h.fechaReal
-                      ? 'success'
-                      : h.atrasado
-                        ? 'danger'
-                        : 'warning'
+                  estadosHito[
+                    h.omitido
+                      ? 'omitido'
+                      : h.fechaReal
+                        ? 'registrado'
+                        : h.atrasado
+                          ? 'atrasado'
+                          : 'pendiente'
+                  ].tono
                 }
               >
                 {h.omitido
@@ -50,7 +61,7 @@ export function HitosPanel({ data }: { data: ExpedienteDetalle }) {
                       : 'Pendiente'}
               </Badge>
             </div>
-            <dl className="grid grid-cols-2 gap-3 xl:grid-cols-4">
+            <dl className="grid grid-cols-2 gap-3">
               <div>
                 <dt className="text-xs text-ink-muted">Compromiso</dt>
                 <dd className={h.atrasado ? 'font-medium text-danger-fg' : ''}>
@@ -85,7 +96,12 @@ export function HitosPanel({ data }: { data: ExpedienteDetalle }) {
               !h.fechaReal &&
               !h.omitido &&
               (h.clave === 'cerrado' ? (
-                <Button variant="outline" size="sm" disabled title={data.estadoFinanciero}>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  disabled
+                  title={textoFinanciero(data.estadoFinanciero)}
+                >
                   Registrar Cerrado
                 </Button>
               ) : (
@@ -172,111 +188,131 @@ function HitoForm({
       onSubmit={submit}
       className="space-y-3 rounded-lg border border-dashed border-line-control p-4"
     >
-      <Label htmlFor={`ce-h-operacion-${hito.id}`}>Acción del hito</Label>
-      <select
-        id={`ce-h-operacion-${hito.id}`}
-        className="h-ctl-xl w-full rounded-md border border-line-control bg-surface-card px-3"
-        value={operacion}
-        onChange={(e) => {
-          setOperacion(e.target.value);
-          setFecha('');
-        }}
-      >
-        <option value="compromiso">Fecha compromiso</option>
-        <option value="real">Registrar fecha real</option>
-        {![
-          'solicitado',
-          'documentacion-completa',
-          'despacho-aduanal',
-          'entregado',
-          'cerrado',
-        ].includes(hito.clave) && <option value="omitir">Omitir con motivo</option>}
-      </select>
-      {operacion !== 'omitir' && (
-        <>
-          <Label htmlFor={`ce-h-fecha-${hito.id}`}>
-            {operacion === 'real' ? 'Fecha real' : 'Fecha compromiso'}
+      <FormSeccion titulo="Actualizar hito">
+        <FormCampo span={6} className="space-y-1.5">
+          <Label htmlFor={`ce-h-operacion-${hito.id}`}>Acción del hito</Label>
+          <select
+            id={`ce-h-operacion-${hito.id}`}
+            className="h-ctl-xl w-full rounded-md border border-line-control bg-surface-card px-3"
+            value={operacion}
+            onChange={(e) => {
+              setOperacion(e.target.value);
+              setFecha('');
+            }}
+          >
+            <option value="compromiso">Fecha compromiso</option>
+            <option value="real">Registrar fecha real</option>
+            {![
+              'solicitado',
+              'documentacion-completa',
+              'despacho-aduanal',
+              'entregado',
+              'cerrado',
+            ].includes(hito.clave) && <option value="omitir">Omitir con motivo</option>}
+          </select>
+        </FormCampo>
+        {operacion !== 'omitir' && (
+          <>
+            <FormCampo span={6} className="space-y-1.5">
+              <Label htmlFor={`ce-h-fecha-${hito.id}`}>
+                {operacion === 'real' ? 'Fecha real' : 'Fecha compromiso'}
+                <span aria-hidden="true">*</span>
+              </Label>
+              <Input
+                id={`ce-h-fecha-${hito.id}`}
+                type="date"
+                required
+                value={fecha}
+                onChange={(e) => setFecha(e.target.value)}
+              />
+            </FormCampo>
+          </>
+        )}
+        <FormCampo span={12}>
+          <p id={`ce-h-responsable-${hito.id}`} className="text-xs font-medium text-ink-strong">
+            Responsable del hito
+          </p>
+        </FormCampo>
+        <FormCampo span={12}>
+          <div role="group" aria-labelledby={`ce-h-responsable-${hito.id}`}>
+            {puedeLeerUsuarios ? (
+              <UsuarioSelector value={responsable} onChange={setResponsable} />
+            ) : (
+              <p>{hito.responsableNombre}</p>
+            )}
+          </div>
+        </FormCampo>
+        {operacion === 'real' && puedeVerAdjuntos && (
+          <>
+            <FormCampo span={6} className="space-y-1.5">
+              <Label htmlFor={`ce-h-evidencia-${hito.id}`}>Evidencia (opcional)</Label>
+              <select
+                id={`ce-h-evidencia-${hito.id}`}
+                className="h-ctl-xl w-full rounded-md border border-line-control bg-surface-card px-3"
+                value={evidencia}
+                onChange={(e) => setEvidencia(e.target.value)}
+              >
+                <option value="">Sin evidencia</option>
+                {adjuntos.data
+                  ?.filter((a) => !a.bajaEn && a.estado !== EstadoAdjunto.Vencido)
+                  .map((a) => (
+                    <option key={a.id} value={a.id}>
+                      {a.nombreArchivo}
+                    </option>
+                  ))}
+              </select>
+            </FormCampo>
+            {adjuntos.isError && (
+              <p role="alert" className="text-danger-fg">
+                No se pudieron cargar los adjuntos.
+              </p>
+            )}
+          </>
+        )}
+        <FormCampo span={6} className="space-y-1.5">
+          <Label htmlFor={`ce-h-motivo-${hito.id}`}>
+            Motivo {requiereMotivo ? '(obligatorio, 5 a 500 caracteres)' : '(opcional)'}{' '}
+            {requiereMotivo && <span aria-hidden="true">*</span>}
           </Label>
           <Input
-            id={`ce-h-fecha-${hito.id}`}
-            type="date"
-            required
-            value={fecha}
-            onChange={(e) => setFecha(e.target.value)}
+            id={`ce-h-motivo-${hito.id}`}
+            required={requiereMotivo}
+            minLength={5}
+            maxLength={500}
+            value={motivo}
+            onChange={(e) => setMotivo(e.target.value)}
           />
-        </>
-      )}
-      <p id={`ce-h-responsable-${hito.id}`} className="text-xs font-medium text-ink-strong">
-        Responsable del hito
-      </p>
-      <div role="group" aria-labelledby={`ce-h-responsable-${hito.id}`}>
-        {puedeLeerUsuarios ? (
-          <UsuarioSelector value={responsable} onChange={setResponsable} />
-        ) : (
-          <p>{hito.responsableNombre}</p>
-        )}
-      </div>
-      {operacion === 'real' && puedeVerAdjuntos && (
-        <>
-          <Label htmlFor={`ce-h-evidencia-${hito.id}`}>Evidencia (opcional)</Label>
-          <select
-            id={`ce-h-evidencia-${hito.id}`}
-            className="h-ctl-xl w-full rounded-md border border-line-control bg-surface-card px-3"
-            value={evidencia}
-            onChange={(e) => setEvidencia(e.target.value)}
-          >
-            <option value="">Sin evidencia</option>
-            {adjuntos.data
-              ?.filter((a) => !a.bajaEn && a.estado !== EstadoAdjunto.Vencido)
-              .map((a) => (
-                <option key={a.id} value={a.id}>
-                  {a.nombreArchivo}
-                </option>
-              ))}
-          </select>
-          {adjuntos.isError && (
+        </FormCampo>
+        <FormCampo span={12}>
+          {accion.isError && (
             <p role="alert" className="text-danger-fg">
-              No se pudieron cargar los adjuntos.
+              {esApiError(accion.error)
+                ? (accion.error.problem.detail ?? accion.error.problem.title)
+                : 'No se pudo actualizar el hito.'}
             </p>
           )}
-        </>
-      )}
-      <Label htmlFor={`ce-h-motivo-${hito.id}`}>
-        Motivo {requiereMotivo ? '(obligatorio, 5 a 500 caracteres)' : '(opcional)'}
-      </Label>
-      <Input
-        id={`ce-h-motivo-${hito.id}`}
-        required={requiereMotivo}
-        minLength={5}
-        maxLength={500}
-        value={motivo}
-        onChange={(e) => setMotivo(e.target.value)}
-      />
-      {accion.isError && (
-        <p role="alert" className="text-danger-fg">
-          {esApiError(accion.error)
-            ? (accion.error.problem.detail ?? accion.error.problem.title)
-            : 'No se pudo actualizar el hito.'}
-        </p>
-      )}
-      <div className="flex gap-2">
-        <Button
-          type="submit"
-          disabled={accion.isPending || !responsable}
-          title={
-            accion.isPending
-              ? 'Guardando hito.'
-              : !responsable
-                ? 'Seleccione un responsable.'
-                : undefined
-          }
-        >
-          Guardar hito
-        </Button>
-        <Button type="button" variant="ghost" onClick={onClose}>
-          Descartar
-        </Button>
-      </div>
+        </FormCampo>
+        <FormCampo span={12}>
+          <div className="flex gap-2">
+            <Button
+              type="submit"
+              disabled={accion.isPending || !responsable}
+              title={
+                accion.isPending
+                  ? 'Guardando hito.'
+                  : !responsable
+                    ? 'Seleccione un responsable.'
+                    : undefined
+              }
+            >
+              Guardar hito
+            </Button>
+            <Button type="button" variant="ghost" onClick={onClose}>
+              Descartar
+            </Button>
+          </div>
+        </FormCampo>
+      </FormSeccion>
     </form>
   );
 }

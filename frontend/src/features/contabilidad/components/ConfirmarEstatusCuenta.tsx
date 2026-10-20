@@ -1,10 +1,16 @@
-import { useState } from 'react';
+import { Button } from '@/components/ui/button';
+import { DialogBody } from '@/components/ui/dialog';
+import { useRef, useState } from 'react';
 import { toast } from 'sonner';
 import { useQueryClient } from '@tanstack/react-query';
 import {
-  AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
-  AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
-} from '@/components/ui/alert-dialog';
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
 import { esConflictoConcurrencia, esPrecondicionRequerida } from '@/lib/api';
 import { useConflictDialog } from '@/components/erp/collaboration/conflict-dialog-context';
 import { useCambiarEstatusCuenta } from '../api/hooks';
@@ -23,55 +29,90 @@ export function ConfirmarEstatusCuenta({ cuenta, accion, onClose }: Props) {
   const queryClient = useQueryClient();
   const cambiar = useCambiarEstatusCuenta();
   const [mensaje, setMensaje] = useState<string | null>(null);
+  const cancelarRef = useRef<HTMLButtonElement>(null);
   const baja = accion === 'desactivar';
 
   function confirmar() {
     setMensaje(null);
-    cambiar.mutate({ id: cuenta.id, accion }, {
-      onSuccess: () => {
-        toast.success('Solicitud pendiente de autorización del DAF');
-        onClose();
+    cambiar.mutate(
+      { id: cuenta.id, accion },
+      {
+        onSuccess: () => {
+          toast.success('Solicitud pendiente de autorización del DAF');
+          onClose();
+        },
+        onError: (error) => {
+          // Conflicto de versión: se cierra esta confirmación y se abre el diálogo de recarga.
+          if (esConflictoConcurrencia(error) || esPrecondicionRequerida(error)) onClose();
+          manejarErrorCuenta(error, { conflictDialog, queryClient, setMensaje });
+        },
       },
-      onError: (error) => {
-        // Conflicto de versión: se cierra esta confirmación y se abre el diálogo de recarga.
-        if (esConflictoConcurrencia(error) || esPrecondicionRequerida(error)) onClose();
-        manejarErrorCuenta(error, { conflictDialog, queryClient, setMensaje });
-      },
-    });
+    );
   }
 
   return (
-    <AlertDialog open onOpenChange={(o) => !o && onClose()}>
-      <AlertDialogContent>
-        <AlertDialogHeader>
-          <AlertDialogTitle>{baja ? 'Desactivar' : 'Reactivar'} cuenta</AlertDialogTitle>
-          <AlertDialogDescription asChild>
+    <Dialog open onOpenChange={(o) => !o && onClose()}>
+      <DialogContent
+        size="sm"
+        role="alertdialog"
+        onInteractOutside={(e) => e.preventDefault()}
+        onOpenAutoFocus={(e) => {
+          e.preventDefault();
+          cancelarRef.current?.focus();
+        }}
+      >
+        <DialogHeader>
+          <DialogTitle>{baja ? 'Desactivar' : 'Reactivar'} cuenta</DialogTitle>
+        </DialogHeader>
+        <DialogBody>
+          <DialogDescription asChild>
             <div className="space-y-2">
               <p>El cambio se aplicará después de la autorización del DAF.</p>
-              <p className="font-medium">{cuenta.codigo} — {cuenta.nombre}</p>
+              <p className="font-medium">
+                {cuenta.codigo} — {cuenta.nombre}
+              </p>
               {baja ? (
                 <ul className="list-disc space-y-1 pl-5">
                   <li>La cuenta dejará de aceptar movimientos nuevos.</li>
-                  <li>Nada se borra: histórico, orígenes y uso se conservan, y el código no se reutiliza.</li>
-                  <li>No desactiva a sus hijas: si tiene hijas activas, el sistema rechazará la baja.</li>
+                  <li>
+                    Nada se borra: histórico, orígenes y uso se conservan, y el código no se
+                    reutiliza.
+                  </li>
+                  <li>
+                    No desactiva a sus hijas: si tiene hijas activas, el sistema rechazará la baja.
+                  </li>
                 </ul>
               ) : (
                 <ul className="list-disc space-y-1 pl-5">
-                  <li>La cuenta volverá a poder recibir movimientos (si es afectable y está validada).</li>
+                  <li>
+                    La cuenta volverá a poder recibir movimientos (si es afectable y está validada).
+                  </li>
                   <li>Requiere que su cuenta padre esté activa; no reactiva a sus hijas.</li>
                 </ul>
               )}
-              {mensaje && <p role="alert" className="text-danger-fg">{mensaje}</p>}
+              {mensaje && (
+                <p role="alert" className="text-danger-fg">
+                  {mensaje}
+                </p>
+              )}
             </div>
-          </AlertDialogDescription>
-        </AlertDialogHeader>
-        <AlertDialogFooter>
-          <AlertDialogCancel disabled={cambiar.isPending}>Cancelar</AlertDialogCancel>
-          <AlertDialogAction onClick={(e) => { e.preventDefault(); confirmar(); }} disabled={cambiar.isPending}>
+          </DialogDescription>
+        </DialogBody>
+        <DialogFooter>
+          <Button variant="ghost" ref={cancelarRef} onClick={onClose} disabled={cambiar.isPending}>
+            Cancelar
+          </Button>
+          <Button
+            onClick={(e) => {
+              e.preventDefault();
+              confirmar();
+            }}
+            disabled={cambiar.isPending}
+          >
             {cambiar.isPending ? 'Preparando…' : 'Solicitar autorización'}
-          </AlertDialogAction>
-        </AlertDialogFooter>
-      </AlertDialogContent>
-    </AlertDialog>
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   );
 }

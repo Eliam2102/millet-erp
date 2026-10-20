@@ -1,4 +1,5 @@
 using Microsoft.EntityFrameworkCore;
+using Millet.Administracion.Domain;
 using Millet.Compartido.Infrastructure.Persistence;
 using Millet.Facturacion.Application.Cajas.Sesiones;
 using Millet.Facturacion.Domain.Cajas;
@@ -18,7 +19,7 @@ namespace Millet.Api.Seed;
 /// queda Cerrada; así no bloquea abrir la sesión de hoy (§5.2).
 ///
 /// <para>
-/// Las facturas son ficticias: folio <c>DEMO-C*</c> (corto: cabe en la columna del corte en PDF), sin XML ni PDF y con
+/// Las facturas son ficticias: folio reservado de la serie de facturas (<c>FA-000001</c>…), avanzando su consecutivo como una factura real para que la primera emisión real no repita folio, sin XML ni PDF y con
 /// un UUID simulado (no pasan por el PAC). No publica eventos de integración,
 /// así que CxC no las ve en cartera y Tesorería no proyecta el depósito
 /// esperado de esta sesión; para mostrar ese recorrido se cobra en vivo.
@@ -26,7 +27,7 @@ namespace Millet.Api.Seed;
 /// </summary>
 public sealed partial class DemoSesionSeedHostedService
 {
-    public const string CajaDemoNombre = "DEMO Caja Mostrador Conkal";
+    public const string CajaDemoNombre = "Caja Mostrador Conkal";
     public static readonly Guid CajeraDemoId = Id("DEMO-USUARIO-CAJERA-MID");
 
     private const decimal FondoDemo = 2_000m;
@@ -37,10 +38,10 @@ public sealed partial class DemoSesionSeedHostedService
     private static readonly (string Cliente, string Articulo, decimal Cantidad, decimal Precio, TimeOnly Hora,
         (string Forma, decimal Importe, string? Referencia)[] Pagos)[] CobrosDemo =
     [
-        ("DEMO-CLI-KIJ", "DEMO Vidrio claro 6 mm", 2, 500m, new(10, 15), [("01", 1_160m, null)]),
-        ("DEMO-CLI-NORMAL", "DEMO Vidrio templado 10 mm", 1, 2_000m, new(11, 40), [("04", 2_320m, "DEMO-VOUCHER-0417")]),
-        ("DEMO-CLI-XIA", "DEMO Espejo 4 mm", 1, 500m, new(13, 5), [("03", 580m, "DEMO-FOLIO-INGRESOS-0031")]),
-        ("DEMO-CLI-RANURA", "DEMO Cancel de baño", 1, 1_000m, new(16, 30), [("01", 500m, null), ("28", 660m, "DEMO-VOUCHER-0422")]),
+        ("DEMO-CLI-KIJ", "Vidrio claro 6 mm", 2, 500m, new(10, 15), [("01", 1_160m, null)]),
+        ("DEMO-CLI-NORMAL", "Vidrio templado 10 mm", 1, 2_000m, new(11, 40), [("04", 2_320m, "DEMO-VOUCHER-0417")]),
+        ("DEMO-CLI-XIA", "Espejo 4 mm", 1, 500m, new(13, 5), [("03", 580m, "DEMO-FOLIO-INGRESOS-0031")]),
+        ("DEMO-CLI-RANURA", "Cancel de baño", 1, 1_000m, new(16, 30), [("01", 500m, null), ("28", 660m, "DEMO-VOUCHER-0422")]),
     ];
 
     private static async Task SembrarCajaAsync(IServiceProvider sp, CancellationToken ct)
@@ -59,13 +60,14 @@ public sealed partial class DemoSesionSeedHostedService
         var yaRelacionados = await db.Cajas.SelectMany(c => c.Usuarios).Select(u => u.UsuarioId).ToListAsync(ct);
 
         var caja = await db.Cajas.Include(c => c.Sucursales).Include(c => c.Usuarios)
-            .SingleOrDefaultAsync(c => c.EmpresaId == EmpresaId && c.Nombre == CajaDemoNombre, ct);
+            .SingleOrDefaultAsync(c => c.EmpresaId == EmpresaId && (c.Nombre == CajaDemoNombre || c.Nombre == "DEMO Caja Mostrador Conkal"), ct);
         if (caja is null)
         {
-            caja = Caja.Crear(EmpresaId, CajaDemoNombre, "DEMO: mostrador de la sucursal Conkal (MID), un cajero por sesión.");
+            caja = Caja.Crear(EmpresaId, CajaDemoNombre, "Mostrador de Conkal, un cajero por sesión.");
             caja.ReemplazarSucursales([mid.Id]);
             db.Cajas.Add(caja);
         }
+        if (caja.Nombre == "DEMO Caja Mostrador Conkal") caja.Actualizar(CajaDemoNombre, "Mostrador de Conkal, un cajero por sesión.");
         var nuevos = cajerosFacturacion.Append(CajeraDemoId).Where(u => !yaRelacionados.Contains(u)).ToList();
         if (nuevos.Count > 0)
             caja.ReemplazarUsuarios([.. caja.Usuarios.Select(u => u.UsuarioId), .. nuevos]);
@@ -85,8 +87,19 @@ public sealed partial class DemoSesionSeedHostedService
             (CajaMovimiento.Crear(EmpresaId, sesion.Id, TipoCajaMovimiento.FondoApertura, CajaSesion.FormaPagoEfectivo,
                 FondoDemo, CajeraDemoId, "Fondo de apertura"), A(new(9, 0))),
             (CajaMovimiento.Crear(EmpresaId, sesion.Id, TipoCajaMovimiento.Retiro, CajaSesion.FormaPagoEfectivo,
-                -RetiroDemo, CajeraDemoId, "DEMO retiro parcial entregado a caja general"), A(new(15, 0))),
+                -RetiroDemo, CajeraDemoId, "Retiro parcial entregado a caja general"), A(new(15, 0))),
         };
+        // Los folios salen del consecutivo de la serie de facturas (igual que ReservarFolioCommand):
+        // si se escribieran fijos, la primera factura real repetiría FA-000001 (ix_comprobante_sucursal_folio).
+        var serieId = Id("DEMO-F");
+        var serie = await maestros.Series.IgnoreQueryFilters().SingleAsync(s => s.Id == serieId, ct);
+        var secuencia = await maestros.SecuenciasFolio.IgnoreQueryFilters()
+            .SingleOrDefaultAsync(s => s.SerieId == serieId && s.PeriodoClave == string.Empty, ct);
+        if (secuencia is null)
+        {
+            secuencia = new SecuenciaFolio(Guid.CreateVersion7(), serieId, string.Empty, serie.FolioInicial - 1);
+            maestros.SecuenciasFolio.Add(secuencia);
+        }
         var facturas = new List<FacturaVenta>();
         var cobros = new List<CobroMostrador>();
         for (var i = 0; i < CobrosDemo.Length; i++)
@@ -95,7 +108,8 @@ public sealed partial class DemoSesionSeedHostedService
             var cliente = ClientesSat.Single(x => x.Clave == c.Cliente);
             var receptor = new DatosFiscalesReceptor(cliente.Rfc, cliente.Nombre, "601", cliente.Cp, "G03", "MEX", false);
             var fecha = A(c.Hora);
-            var factura = FacturaVenta.CrearBorrador(EmpresaId, $"DEMO-C{i + 1}", i + 1, mid.Id, caja.Id, CajeraDemoId,
+            var numero = secuencia.ReservarSiguiente();
+            var factura = FacturaVenta.CrearBorrador(EmpresaId, $"{serie.Prefijo}{serie.Sufijo}-{numero:D6}", numero, mid.Id, caja.Id, CajeraDemoId,
                 receptor, emisor, "PUE", c.Pagos[0].Forma, "MXN", null, dia.Year, dia.Month, 1,
                 ComportamientoFiscal.MostradorInmediato, null, null, null, false);
             factura.AgregarLinea(null, "30171700", c.Articulo, "H87", c.Cantidad, c.Precio, 0, "02", .16m, null, null);
@@ -120,7 +134,7 @@ public sealed partial class DemoSesionSeedHostedService
         var esperado = movimientos.GroupBy(m => m.Movimiento.FormaPago)
             .ToDictionary(g => g.Key, g => g.Sum(m => m.Movimiento.Importe));
         sesion.IniciarArqueo(esperado);
-        sesion.Cerrar(esperado[CajaSesion.FormaPagoEfectivo], "DEMO: arqueo cuadrado, efectivo entregado a caja general.",
+        sesion.Cerrar(esperado[CajaSesion.FormaPagoEfectivo], "Cierre del día: arqueo cuadrado, efectivo entregado a caja general.",
             cierreExtemporaneo: false, A(new(18, 10)));
 
         await using var tx = await db.Database.BeginTransactionAsync(ct);
@@ -129,6 +143,7 @@ public sealed partial class DemoSesionSeedHostedService
         db.CobrosMostrador.AddRange(cobros);
         db.CajaMovimientos.AddRange(movimientos.Select(m => m.Movimiento));
         await db.SaveChangesAsync(ct);
+        await maestros.SaveChangesAsync(ct);
         // El corte ordena y fecha los movimientos por CreatedAt, que el interceptor
         // fija al momento de guardar: se lleva cada uno a su hora del día DEMO.
         foreach (var (movimiento, fecha) in movimientos)

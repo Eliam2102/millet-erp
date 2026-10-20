@@ -7,7 +7,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { useCuentasBancarias, useCuentasParaIngresos } from '@/features/tesoreria/api/useTesoreria';
-import { formatoMonto } from '@/features/tesoreria/lib/formato';
+import { cuentaEnmascarada, formatoMonto } from '@/features/tesoreria/lib/formato';
 import { mensajeErrorCatalogo } from '@/components/erp/selectors/catalogo-error';
 
 export interface CuentaBancariaSelectorProps {
@@ -21,6 +21,8 @@ export interface CuentaBancariaSelectorProps {
   moneda?: string | null;
   disabled?: boolean;
   paraIngresos?: boolean;
+  /** Oculta el saldo en libros y muestra solo la moneda (p. ej. pago a proveedor). */
+  ocultarSaldo?: boolean;
 }
 
 /**
@@ -34,6 +36,7 @@ export function CuentaBancariaSelector({
   moneda = null,
   disabled = false,
   paraIngresos = false,
+  ocultarSaldo = false,
 }: CuentaBancariaSelectorProps) {
   const saldos = useCuentasBancarias(true, !paraIngresos);
   const ingresos = useCuentasParaIngresos(paraIngresos);
@@ -69,11 +72,11 @@ export function CuentaBancariaSelector({
             <SelectItem key={c.id} value={c.id}>
               <span className="flex items-center gap-2">
                 <span>{c.banco}</span>
-                <span className="font-mono text-xs text-muted-foreground">
-                  {c.numeroCuenta}
-                </span>
-                <span className="text-xs text-muted-foreground">
-                  {'saldo' in c && typeof c.saldo === 'number' ? `${formatoMonto(c.saldo, c.moneda)} en libros` : c.moneda}
+                <span className="font-mono text-xs text-ink-muted">{cuentaEnmascarada(c.numeroCuenta)}</span>
+                <span className="text-xs text-ink-muted">
+                  {!ocultarSaldo && 'saldo' in c && typeof c.saldo === 'number'
+                    ? `${formatoMonto(c.saldo, c.moneda)} en libros`
+                    : c.moneda}
                 </span>
               </span>
             </SelectItem>
@@ -81,7 +84,7 @@ export function CuentaBancariaSelector({
         </SelectContent>
       </Select>
       {query.isError && (
-        <p role="alert" className="text-xs text-destructive">
+        <p role="alert" className="text-xs text-danger-fg">
           {mensajeErrorCatalogo(query.error)}
         </p>
       )}

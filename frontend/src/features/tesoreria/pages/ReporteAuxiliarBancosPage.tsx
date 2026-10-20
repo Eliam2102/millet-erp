@@ -1,3 +1,4 @@
+import { PageHeader } from '@/components/erp/PageHeader';
 import { hoyLocalISO } from '@/lib/datetime';
 import { useNavigate, useSearch } from '@tanstack/react-router';
 import { Landmark } from 'lucide-react';
@@ -49,14 +50,14 @@ export function ReporteAuxiliarBancosPage() {
   const filtrosUi = (
     <div className="flex flex-wrap items-end gap-3">
       <div className="w-72 space-y-1">
-        <Label className="text-xs text-muted-foreground">Cuenta</Label>
+        <Label className="text-xs text-ink-muted">Cuenta</Label>
         <CuentaBancariaSelector
           value={cuentaId}
           onChange={(id) => actualizar({ cuentaBancariaId: id ?? undefined })}
         />
       </div>
       <div className="space-y-1">
-        <Label className="text-xs text-muted-foreground">Del</Label>
+        <Label className="text-xs text-ink-muted">Del</Label>
         <Input
           type="date"
           className="w-40"
@@ -65,7 +66,7 @@ export function ReporteAuxiliarBancosPage() {
         />
       </div>
       <div className="space-y-1">
-        <Label className="text-xs text-muted-foreground">Al</Label>
+        <Label className="text-xs text-ink-muted">Al</Label>
         <Input
           type="date"
           className="w-40"
@@ -77,16 +78,18 @@ export function ReporteAuxiliarBancosPage() {
   );
 
   return (
-    <div className="space-y-4 px-4 py-6">
-      <header data-print="hidden">
-        <h1 className="text-2xl font-semibold tracking-tight">
-          Auxiliar de bancos
-        </h1>
-        <p className="text-sm text-muted-foreground">
-          Libro cronológico por cuenta con saldo acumulado (el saldo inicial
-          bancario real llega con la conciliación).
-        </p>
-      </header>
+    <div className="space-y-5">
+      <div data-print="hidden">
+        <PageHeader
+          titulo={<>Auxiliar de bancos</>}
+          descripcion={
+            <>
+              Libro cronológico por cuenta con saldo acumulado (el saldo inicial bancario real llega
+              con la conciliación).
+            </>
+          }
+        />
+      </div>
 
       {cuentaId == null ? (
         <div className="space-y-4">

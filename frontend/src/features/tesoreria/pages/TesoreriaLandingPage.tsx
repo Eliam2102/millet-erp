@@ -1,3 +1,4 @@
+import { PageHeader } from '@/components/erp/PageHeader';
 import { AppLauncherCard } from '@/components/layout/AppLauncherCard';
 import { useAuthStore } from '@/lib/auth/auth-store';
 import { filtrarModuloPorPermisos, type NavModulo } from '@/lib/nav';
@@ -29,25 +30,24 @@ export function TesoreriaLandingPage() {
   const hayCards = filtrado.secciones.some((s) => s.cards.length > 0);
 
   return (
-    <div className="mx-auto max-w-5xl space-y-6 px-4 py-8">
-      <header className="space-y-1">
-        <h1 className="flex items-center gap-2 text-2xl font-semibold">
-          <Landmark className="h-6 w-6 text-primary" />
-          Tesorería
-        </h1>
-        <p className="text-sm text-muted-foreground">
-          El hecho bancario en ambos sentidos: pagos a proveedor, pagos a
-          cuenta, confirmación de depósitos, conciliación y REPP.
-        </p>
-      </header>
+    <div className="space-y-5">
+      <PageHeader
+        titulo="Tesorería"
+        descripcion={
+          <>
+            El hecho bancario en ambos sentidos: pagos a proveedor, pagos a cuenta, confirmación de
+            depósitos, conciliación y REPP.
+          </>
+        }
+      />
 
       {!hayCards && (
         <div
-          className="rounded-md bg-muted/50 px-4 py-6 text-center text-sm text-muted-foreground"
+          className="rounded-md bg-surface-muted/50 px-4 py-6 text-center text-sm text-ink-muted"
           data-testid="tesoreria-sin-cards"
         >
-          Sin pantallas disponibles para tu rol en este módulo. Contacta a tu
-          administrador para que te asigne los permisos correspondientes.
+          Sin pantallas disponibles para tu rol en este módulo. Contacta a tu administrador para que
+          te asigne los permisos correspondientes.
         </div>
       )}
 
@@ -55,7 +55,7 @@ export function TesoreriaLandingPage() {
         <div className="space-y-8">
           {filtrado.secciones.map((seccion) => (
             <section key={seccion.label} className="space-y-3">
-              <h2 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+              <h2 className="text-xs font-semibold uppercase tracking-wide text-ink-muted">
                 {seccion.label}
               </h2>
               <div className="grid grid-cols-1 gap-3 md:grid-cols-2 lg:grid-cols-3">
@@ -123,7 +123,7 @@ const moduloTesoreriaLanding: NavModulo = {
           ],
         },
         {
-          label: 'Depósitos por confirmar',
+          label: 'Depósitos pendientes',
           description:
             'Propuestas de aplicación de CxC y expectativas de Caja: confirmar el hecho bancario que dispara el REPP.',
           to: '/tesoreria/depositos',
@@ -176,7 +176,7 @@ const moduloTesoreriaLanding: NavModulo = {
         {
           label: 'Flujo de efectivo',
           description:
-            'Ingresos y egresos clasificados por concepto (Operación / Inversión / Financiamiento). ADR-0036.',
+            'Ingresos y egresos clasificados por concepto (Operación / Inversión / Financiamiento).',
           to: '/tesoreria/reportes/flujo-efectivo',
           icon: BarChart3,
           permission: PermisosCanonicos.TesoreriaReportesVer,

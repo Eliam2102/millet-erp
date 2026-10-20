@@ -1,11 +1,8 @@
+import { PageHeader } from '@/components/erp/PageHeader';
 import { useMemo, type ReactNode } from 'react';
 import { Coins, Plus } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import {
-  EmptyState,
-  ErrorState,
-  TableSkeleton,
-} from '@/components/erp';
+import { EmptyState, ErrorState, TableSkeleton } from '@/components/erp';
 import { useMonedas } from '@/modules/catalogos/api';
 import { esApiError } from '@/lib/api';
 import { useHasPermission } from '@/lib/auth/useHasPermission';
@@ -41,17 +38,21 @@ export function MonedasLayout({ idActivo, detalle }: MonedasLayoutProps) {
         aria-label="Lista de monedas"
         data-print="hidden"
       >
-        <div className="flex flex-wrap items-center justify-between gap-2">
-          <h1 className="text-xl font-semibold tracking-tight">Monedas</h1>
-          {canCrear && (
-            <Button size="sm" onClick={() => nuevaMoneda.abrir()}>
-              <Plus className="mr-1 h-4 w-4" />
-              Nueva
-            </Button>
-          )}
-        </div>
+        <PageHeader
+          titulo={<>Monedas</>}
+          acciones={
+            <>
+              {canCrear && (
+                <Button size="sm" onClick={() => nuevaMoneda.abrir()}>
+                  <Plus className="mr-1 h-4 w-4" />
+                  Nueva
+                </Button>
+              )}
+            </>
+          }
+        />
 
-        <div className="flex-1 overflow-y-auto rounded-md border bg-card">
+        <div className="flex-1 overflow-y-auto rounded-md border bg-surface-card">
           <RenderLista
             query={monedasQuery}
             items={items}
@@ -87,20 +88,11 @@ interface RenderListaProps {
   onAbrirNueva: () => void;
 }
 
-function RenderLista({
-  query,
-  items,
-  idActivo,
-  canCrear,
-  onAbrirNueva,
-}: RenderListaProps) {
+function RenderLista({ query, items, idActivo, canCrear, onAbrirNueva }: RenderListaProps) {
   if (query.isLoading) {
     return (
       <div className="p-3">
-        <TableSkeleton
-          rows={6}
-          columns={[{ width: 'w-full' }, { width: 'w-full' }]}
-        />
+        <TableSkeleton rows={6} columns={[{ width: 'w-full' }, { width: 'w-full' }]} />
       </div>
     );
   }
@@ -116,9 +108,7 @@ function RenderLista({
         icon={<Coins className="h-10 w-10" />}
         title="Aún no hay monedas."
         description={
-          canCrear
-            ? 'Crea la primera para empezar.'
-            : 'Cuando se creen, aparecerán aquí.'
+          canCrear ? 'Crea la primera para empezar.' : 'Cuando se creen, aparecerán aquí.'
         }
         action={
           canCrear ? (
@@ -137,8 +127,8 @@ function RenderLista({
 
 function PlaceholderSinSeleccion() {
   return (
-    <div className="flex h-full min-h-64 items-center justify-center rounded-md border border-dashed bg-muted/20 p-8 text-center">
-      <div className="space-y-1 text-muted-foreground">
+    <div className="flex h-full min-h-64 items-center justify-center rounded-md border border-dashed bg-surface-muted/20 p-8 text-center">
+      <div className="space-y-1 text-ink-muted">
         <Coins className="mx-auto h-8 w-8 opacity-50" aria-hidden="true" />
         <p className="text-sm">Selecciona una moneda de la lista</p>
         <p className="text-xs">para ver su detalle.</p>

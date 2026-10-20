@@ -1,5 +1,15 @@
-import { Link, useNavigate, useSearch } from '@tanstack/react-router';
-import { Plus } from 'lucide-react';
+import {
+  BarraFiltros,
+  EmptyState,
+  ErrorState,
+  PaginacionTabla,
+  TableSkeleton,
+  TabsEstado,
+} from '@/components/erp';
+import { BusquedaFolio } from '@/components/erp/data/BusquedaFolio';
+import { ListadoModulo } from '@/components/erp/data/ListadoModulo';
+import { PageHeader } from '@/components/erp/PageHeader';
+import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import {
   Select,
@@ -8,22 +18,31 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { EmptyState, ErrorState, TableSkeleton } from '@/components/erp';
-import { BadgeSinAsignar } from '@/features/facturacion/components/BadgeSinAsignar';
-import { useListarPedidos } from '@/features/facturacion/api/usePedidos';
-import { useNuevoPedido } from '@/features/facturacion/components/nuevo-pedido-context';
-import { useHasPermission } from '@/lib/auth/useHasPermission';
-import { PermisosCanonicos } from '@/lib/auth/permission-codes';
-import { esApiError } from '@/lib/api';
 import {
-  ETIQUETA_ESTADO_PEDIDO,
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '@/components/ui/table';
+import { EstadoPedidoFacturable, OrigenPedido } from '@/features/facturacion/api/types';
+import { useListarPedidos } from '@/features/facturacion/api/usePedidos';
+import { BadgeSinAsignar } from '@/features/facturacion/components/BadgeSinAsignar';
+import { EstadoFacturacionBadge } from '@/features/facturacion/components/EstadoFacturacionBadge';
+import { useNuevoPedido } from '@/features/facturacion/components/nuevo-pedido-context';
+import {
   ETIQUETA_ORIGEN_PEDIDO,
-  OPCIONES_ESTADO_PEDIDO,
   OPCIONES_ORIGEN_PEDIDO,
 } from '@/features/facturacion/lib/glosario';
-import { EstadoPedidoFacturable, OrigenPedido } from '@/features/facturacion/api/types';
 import type { PedidosSearch } from '@/features/facturacion/lib/pedidos-search-schema';
-import { cn } from '@/lib/utils';
+import { esApiError } from '@/lib/api';
+import { PermisosCanonicos } from '@/lib/auth/permission-codes';
+import { useHasPermission } from '@/lib/auth/useHasPermission';
+import { Link, useNavigate, useSearch } from '@tanstack/react-router';
+import { Plus } from 'lucide-react';
+import { estadoUi } from '../lib/estados-ui';
+import { usePaginacionLocal } from '../lib/use-paginacion-local';
 
 const FROM = '/_app/facturacion/pedidos/' as const;
 const SENTINEL_ALL = '__all__';
@@ -43,9 +62,7 @@ export function BandejaPedidos() {
   const search = useSearch({ from: FROM });
   const navigate = useNavigate();
   const nuevoPedido = useNuevoPedido();
-  const puedeCapturar = useHasPermission(
-    PermisosCanonicos.FacturacionPedidosCapturar,
-  );
+  const puedeCapturar = useHasPermission(PermisosCanonicos.FacturacionPedidosCapturar);
 
   const query = useListarPedidos({
     estado: search.estado,
@@ -62,212 +79,193 @@ export function BandejaPedidos() {
   const items = (query.data?.items ?? []).filter((p) => {
     if (q.length === 0) return true;
     return (
-      (p.numeroPedido ?? '').toLowerCase().includes(q) ||
-      p.clienteNombre.toLowerCase().includes(q)
+      (p.numeroPedido ?? '').toLowerCase().includes(q) || p.clienteNombre.toLowerCase().includes(q)
     );
   });
 
   const hayFiltros = search.estado != null || search.origen != null;
 
+  const paginacion = usePaginacionLocal(items, JSON.stringify(search));
   return (
-    <div className="space-y-4 px-4 py-6">
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <div>
-          <h1 className="text-2xl font-semibold tracking-tight">
-            Pedidos facturables
-          </h1>
-          <p className="text-sm text-muted-foreground">
-            Pedidos por facturar de A+W, Planta Pintura y captura manual.
-          </p>
-        </div>
-        {puedeCapturar && (
-          <Button onClick={() => nuevoPedido.abrir()}>
-            <Plus className="mr-2 h-4 w-4" />
-            Nuevo pedido
-          </Button>
-        )}
-      </div>
+    <div className="space-y-5">
+      <PageHeader
+        titulo="Pedidos facturables"
+        descripcion="Pedidos por facturar de A+W, Planta Pintura y captura manual."
+        acciones={
+          <>
+            {' '}
+            {puedeCapturar && (
+              <Button onClick={() => nuevoPedido.abrir()}>
+                <Plus className="mr-2 h-4 w-4" />
+                Nuevo pedido
+              </Button>
+            )}{' '}
+          </>
+        }
+      />
 
-      <div className="flex flex-wrap items-end gap-3">
-        <div className="space-y-1">
-          <label className="text-xs text-muted-foreground">Estado</label>
-          <Select
-            value={search.estado != null ? String(search.estado) : SENTINEL_ALL}
-            onValueChange={(v) =>
-              actualizarSearch({
-                estado:
-                  v === SENTINEL_ALL
-                    ? undefined
-                    : (Number(v) as EstadoPedidoFacturable),
-              })
+      <ListadoModulo
+        tabs={
+          <TabsEstado
+            opciones={Object.entries(EstadoPedidoFacturable).map(([nombre, valor]) => ({
+              valor,
+              label: estadoUi('pedido', nombre).texto,
+            }))}
+            valor={search.estado}
+            onChange={(estado) => actualizarSearch({ estado: estado as PedidosSearch['estado'] })}
+            conteos={undefined}
+          />
+        }
+        filtros={
+          <BarraFiltros
+            busqueda={
+              <BusquedaFolio
+                aria-label="Folio de pedido o cliente"
+                placeholder="Folio de pedido o cliente"
+                valor={search.q}
+                onCommit={(q) => actualizarSearch({ q })}
+              />
             }
-          >
-            <SelectTrigger aria-label="Filtrar por estado" className="w-48">
-              <SelectValue placeholder="Todos" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value={SENTINEL_ALL}>Todos</SelectItem>
-              {OPCIONES_ESTADO_PEDIDO.map((o) => (
-                <SelectItem key={o.value} value={String(o.value)}>
-                  {o.label}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
-        <div className="space-y-1">
-          <label className="text-xs text-muted-foreground">Origen</label>
-          <Select
-            value={search.origen != null ? String(search.origen) : SENTINEL_ALL}
-            onValueChange={(v) =>
-              actualizarSearch({
-                origen:
-                  v === SENTINEL_ALL ? undefined : (Number(v) as OrigenPedido),
-              })
+            filtros={
+              <>
+                <div className="space-y-1">
+                  <label className="text-xs text-ink-muted">Origen</label>
+                  <Select
+                    value={search.origen != null ? String(search.origen) : SENTINEL_ALL}
+                    onValueChange={(v) =>
+                      actualizarSearch({
+                        origen: v === SENTINEL_ALL ? undefined : (Number(v) as OrigenPedido),
+                      })
+                    }
+                  >
+                    <SelectTrigger aria-label="Filtrar por origen" className="w-44">
+                      <SelectValue placeholder="Todos" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value={SENTINEL_ALL}>Todos</SelectItem>
+                      {OPCIONES_ORIGEN_PEDIDO.map((o) => (
+                        <SelectItem key={o.value} value={String(o.value)}>
+                          {o.label}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                {hayFiltros && (
+                  <Button
+                    variant="ghost"
+                    onClick={() => actualizarSearch({ estado: undefined, origen: undefined })}
+                  >
+                    Limpiar
+                  </Button>
+                )}
+                <BadgeSinAsignar
+                  count={query.data?.sinAsignarCount ?? null}
+                  activo={search.alcance === 'sin-asignar'}
+                  onToggle={() =>
+                    actualizarSearch({
+                      alcance: search.alcance === 'sin-asignar' ? undefined : 'sin-asignar',
+                    })
+                  }
+                />
+              </>
             }
-          >
-            <SelectTrigger aria-label="Filtrar por origen" className="w-44">
-              <SelectValue placeholder="Todos" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value={SENTINEL_ALL}>Todos</SelectItem>
-              {OPCIONES_ORIGEN_PEDIDO.map((o) => (
-                <SelectItem key={o.value} value={String(o.value)}>
-                  {o.label}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
-        {hayFiltros && (
-          <Button
-            variant="ghost"
-            onClick={() =>
-              actualizarSearch({ estado: undefined, origen: undefined })
+          />
+        }
+        pie={
+          <PaginacionTabla
+            total={items.length}
+            offset={paginacion.offset}
+            limit={10}
+            tamanos={[]}
+            onChange={paginacion.onChange}
+          />
+        }
+      >
+        {query.isError ? (
+          <ErrorState
+            title="No se pudieron cargar los pedidos"
+            problem={esApiError(query.error) ? query.error.problem : undefined}
+            onRetry={() => query.refetch()}
+          />
+        ) : query.isLoading ? (
+          <TableSkeleton
+            rows={6}
+            columns={[
+              { width: 'w-28' },
+              { width: 'w-24' },
+              { width: 'w-48' },
+              { width: 'w-32' },
+              { width: 'w-28' },
+              { width: 'w-28' },
+            ]}
+          />
+        ) : items.length === 0 ? (
+          <EmptyState
+            title="Sin pedidos"
+            description={
+              hayFiltros || q.length > 0
+                ? 'No hay pedidos que coincidan con los filtros.'
+                : 'Aún no hay pedidos. Crea uno con "Nuevo pedido".'
             }
-          >
-            Limpiar
-          </Button>
+          />
+        ) : (
+          <div className="overflow-x-auto rounded-md border border-line">
+            <Table className="w-full text-sm">
+              <TableHeader className="bg-surface-muted/50">
+                <TableRow>
+                  <TableHead className="px-3 py-2 text-left">Folio / Pedido</TableHead>
+                  <TableHead className="px-3 py-2 text-left">Origen</TableHead>
+                  <TableHead className="px-3 py-2 text-left">Cliente</TableHead>
+                  <TableHead className="px-3 py-2 text-right tabular-nums">
+                    Subtotal sin impuestos
+                  </TableHead>
+                  <TableHead className="px-3 py-2 text-left">Estado</TableHead>
+                  <TableHead className="px-3 py-2 text-left">Creado</TableHead>
+                  <TableHead className="px-3 py-2 text-right tabular-nums">Acción</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {paginacion.visibles.map((p) => (
+                  <TableRow key={p.id} className="border-t hover:bg-surface-muted/30 border-line">
+                    <TableCell className="px-3 py-2 font-mono text-xs">
+                      {p.numeroPedido ?? '—'}
+                    </TableCell>
+                    <TableCell className="px-3 py-2">
+                      <Chip>{ETIQUETA_ORIGEN_PEDIDO[p.origen] ?? p.origen}</Chip>
+                    </TableCell>
+                    <TableCell className="px-3 py-2">{p.clienteNombre}</TableCell>
+                    <TableCell className="px-3 py-2 text-right font-mono tabular-nums">
+                      {formatearMonto(p.total, p.moneda)}
+                    </TableCell>
+                    <TableCell className="px-3 py-2">
+                      <EstadoFacturacionBadge entidad="pedido" estado={p.estado} />
+                    </TableCell>
+                    <TableCell className="px-3 py-2 text-xs text-ink-muted">
+                      {formatearFecha(p.createdAt)}
+                    </TableCell>
+                    <TableCell className="px-3 py-2 text-right tabular-nums">
+                      <Link
+                        to="/facturacion/pedidos/$id"
+                        params={{ id: p.id }}
+                        className="text-sm font-medium text-brand hover:underline"
+                      >
+                        Ver
+                      </Link>
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </div>
         )}
-        <BadgeSinAsignar
-          count={query.data?.sinAsignarCount ?? null}
-          activo={search.alcance === 'sin-asignar'}
-          onToggle={() =>
-            actualizarSearch({
-              alcance: search.alcance === 'sin-asignar' ? undefined : 'sin-asignar',
-            })
-          }
-        />
-      </div>
-
-      {query.isError ? (
-        <ErrorState
-          title="No se pudieron cargar los pedidos"
-          problem={esApiError(query.error) ? query.error.problem : undefined}
-          onRetry={() => query.refetch()}
-        />
-      ) : query.isLoading ? (
-        <TableSkeleton
-          rows={6}
-          columns={[
-            { width: 'w-28' },
-            { width: 'w-24' },
-            { width: 'w-48' },
-            { width: 'w-32' },
-            { width: 'w-28' },
-            { width: 'w-28' },
-          ]}
-        />
-      ) : items.length === 0 ? (
-        <EmptyState
-          title="Sin pedidos"
-          description={
-            hayFiltros || q.length > 0
-              ? 'No hay pedidos que coincidan con los filtros.'
-              : 'Aún no hay pedidos. Crea uno con "Nuevo pedido".'
-          }
-        />
-      ) : (
-        <div className="overflow-x-auto rounded-md border">
-          <table className="w-full text-sm">
-            <thead className="bg-muted/50">
-              <tr>
-                <th className="px-3 py-2 text-left">Folio / Pedido</th>
-                <th className="px-3 py-2 text-left">Origen</th>
-                <th className="px-3 py-2 text-left">Cliente</th>
-                <th className="px-3 py-2 text-right">Subtotal sin impuestos</th>
-                <th className="px-3 py-2 text-left">Estado</th>
-                <th className="px-3 py-2 text-left">Creado</th>
-                <th className="px-3 py-2 text-right">Acción</th>
-              </tr>
-            </thead>
-            <tbody>
-              {items.map((p) => (
-                <tr key={p.id} className="border-t hover:bg-muted/30">
-                  <td className="px-3 py-2 font-mono text-xs">
-                    {p.numeroPedido ?? '—'}
-                  </td>
-                  <td className="px-3 py-2">
-                    <Chip>{ETIQUETA_ORIGEN_PEDIDO[p.origen] ?? p.origen}</Chip>
-                  </td>
-                  <td className="px-3 py-2">{p.clienteNombre}</td>
-                  <td className="px-3 py-2 text-right font-mono">
-                    {formatearMonto(p.total, p.moneda)}
-                  </td>
-                  <td className="px-3 py-2">
-                    <Chip estado={p.estado}>
-                      {ETIQUETA_ESTADO_PEDIDO[p.estado] ?? p.estado}
-                    </Chip>
-                  </td>
-                  <td className="px-3 py-2 text-xs text-muted-foreground">
-                    {formatearFecha(p.createdAt)}
-                  </td>
-                  <td className="px-3 py-2 text-right">
-                    <Link
-                      to="/facturacion/pedidos/$id"
-                      params={{ id: p.id }}
-                      className="text-sm font-medium text-primary hover:underline"
-                    >
-                      Ver
-                    </Link>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      )}
+      </ListadoModulo>
     </div>
   );
 }
 
-function Chip({
-  children,
-  estado,
-}: {
-  children: React.ReactNode;
-  estado?: string;
-}) {
-  const tono =
-    estado === 'Facturado'
-      ? 'bg-emerald-100 text-emerald-800'
-      : estado === 'Excepcion'
-        ? 'bg-rose-100 text-rose-800'
-        : estado === 'Cancelado'
-          ? 'bg-zinc-200 text-zinc-700'
-          : estado === 'Bloqueado'
-            ? 'bg-amber-100 text-amber-800'
-            : 'bg-sky-100 text-sky-800';
-  return (
-    <span
-      className={cn(
-        'inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium',
-        tono,
-      )}
-    >
-      {children}
-    </span>
-  );
+function Chip({ children }: { children: React.ReactNode }) {
+  return <Badge variant="neutral">{children}</Badge>;
 }
 
 function formatearMonto(v: number, moneda: string): string {

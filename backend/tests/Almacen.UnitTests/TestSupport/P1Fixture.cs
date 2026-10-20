@@ -74,10 +74,10 @@ internal sealed class P1Fixture : IAsyncDisposable
     public sealed class ArticulosConUnidad(string unidad = "PZA") : IArticuloReadPort
     {
         public Task<ArticuloLectura?> ObtenerAsync(Guid articuloId, CancellationToken ct) =>
-            Task.FromResult<ArticuloLectura?>(new ArticuloLectura(articuloId, "ART", "Artículo", unidad, null, null, true));
+            Task.FromResult<ArticuloLectura?>(new ArticuloLectura(articuloId, "ART", "Artículo", unidad, null, true));
         public Task<IReadOnlyDictionary<Guid, ArticuloLectura>> ObtenerPorIdsAsync(IReadOnlyCollection<Guid> ids, CancellationToken ct) =>
             Task.FromResult<IReadOnlyDictionary<Guid, ArticuloLectura>>(
-                ids.ToDictionary(i => i, i => new ArticuloLectura(i, "ART", "Artículo", unidad, null, null, true)));
+                ids.ToDictionary(i => i, i => new ArticuloLectura(i, "ART", "Artículo", unidad, null, true)));
     }
     public sealed class Decimales : IDecimalesUnidadGuard
     {
@@ -104,7 +104,7 @@ internal sealed class P1Fixture : IAsyncDisposable
     }
     public sealed class Articulos : IArticuloReadPort
     {
-        public Task<ArticuloLectura?> ObtenerAsync(Guid id, CancellationToken ct) => Task.FromResult<ArticuloLectura?>(new(id, "P1", "Artículo P1", "PZA", 10m, null, true));
+        public Task<ArticuloLectura?> ObtenerAsync(Guid id, CancellationToken ct) => Task.FromResult<ArticuloLectura?>(new(id, "P1", "Artículo P1", "PZA", null, true));
         public Task<IReadOnlyDictionary<Guid, ArticuloLectura>> ObtenerPorIdsAsync(IReadOnlyCollection<Guid> ids, CancellationToken ct) => Task.FromResult<IReadOnlyDictionary<Guid, ArticuloLectura>>(new Dictionary<Guid, ArticuloLectura>());
     }
 }

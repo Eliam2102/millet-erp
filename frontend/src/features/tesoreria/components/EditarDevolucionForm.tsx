@@ -1,3 +1,5 @@
+import { FormSeccion } from '@/components/erp/forms/FormSeccion';
+import { FormCampo } from '@/components/erp/forms/FormGrid';
 import { useState } from 'react';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
@@ -87,59 +89,86 @@ export function EditarDevolucionForm({
           {aviso}
         </AvisoEnLinea>
       )}
-      <Field label="Cliente" required>
-        {(control) => (
-          <ClienteTesoreriaSelector
-            id={control.id}
-            value={clienteId}
-            etiquetaInicial={d.clienteRazonSocial ?? undefined}
-            disabled={esNc}
-            onChange={(c) => setClienteId(c?.id ?? '')}
-          />
-        )}
-      </Field>
-      <Field
-        label={`Importe (${d.moneda})`}
-        required
-        hint={`Disponible: ${formatoMonto(d.disponibleOrigen, d.moneda)}`}
-      >
-        <Input
-          type="number"
-          step="0.01"
-          min="0"
-          className="tabular-nums"
-          value={importe}
-          onChange={(e) => setImporte(e.target.value)}
-        />
-      </Field>
-      <Field label="Motivo" required>
-        <Textarea rows={2} maxLength={400} value={motivo} onChange={(e) => setMotivo(e.target.value)} />
-      </Field>
-      <Field label="Banco destino" required={!esNc} optional={esNc}>
-        <Input maxLength={80} value={banco} onChange={(e) => setBanco(e.target.value)} />
-      </Field>
-      <Field
-        label="CLABE destino"
-        required={!esNc}
-        optional={esNc}
-        hint={clabeEnmascarada ? 'Por seguridad, vuelve a capturar la CLABE completa.' : undefined}
-      >
-        <Input
-          inputMode="numeric"
-          maxLength={18}
-          className="font-mono"
-          value={clabe}
-          onChange={(e) => setClabe(e.target.value)}
-        />
-      </Field>
-      <Field label="Titular de la cuenta" required={!esNc} optional={esNc}>
-        <Input maxLength={200} value={titular} onChange={(e) => setTitular(e.target.value)} />
-      </Field>
+      <FormSeccion numero={1} titulo="Datos de la operación">
+        <FormCampo span={6}>
+          <Field label="Cliente" required>
+            {(control) => (
+              <ClienteTesoreriaSelector
+                id={control.id}
+                value={clienteId}
+                etiquetaInicial={d.clienteRazonSocial ?? undefined}
+                disabled={esNc}
+                onChange={(c) => setClienteId(c?.id ?? '')}
+              />
+            )}
+          </Field>
+        </FormCampo>
+        <FormCampo span={6}>
+          <Field
+            label={`Importe (${d.moneda})`}
+            required
+            hint={`Disponible: ${formatoMonto(d.disponibleOrigen, d.moneda)}`}
+          >
+            <Input
+              type="number"
+              step="0.01"
+              min="0"
+              className="tabular-nums"
+              value={importe}
+              onChange={(e) => setImporte(e.target.value)}
+            />
+          </Field>
+        </FormCampo>
+        <FormCampo span={12}>
+          <Field label="Motivo" required>
+            <Textarea
+              rows={2}
+              maxLength={400}
+              value={motivo}
+              onChange={(e) => setMotivo(e.target.value)}
+            />
+          </Field>
+        </FormCampo>
+        <FormCampo span={6}>
+          <Field label="Banco destino" required={!esNc} optional={esNc}>
+            <Input maxLength={80} value={banco} onChange={(e) => setBanco(e.target.value)} />
+          </Field>
+        </FormCampo>
+        <FormCampo span={6}>
+          <Field
+            label="CLABE destino"
+            required={!esNc}
+            optional={esNc}
+            hint={
+              clabeEnmascarada ? 'Por seguridad, vuelve a capturar la CLABE completa.' : undefined
+            }
+          >
+            <Input
+              inputMode="numeric"
+              maxLength={18}
+              className="font-mono"
+              value={clabe}
+              onChange={(e) => setClabe(e.target.value)}
+            />
+          </Field>
+        </FormCampo>
+        <FormCampo span={6}>
+          <Field label="Titular de la cuenta" required={!esNc} optional={esNc}>
+            <Input maxLength={200} value={titular} onChange={(e) => setTitular(e.target.value)} />
+          </Field>
+        </FormCampo>
+      </FormSeccion>
       <div className="flex justify-end gap-2">
         <Button type="button" variant="ghost" onClick={onCerrar} disabled={editar.isPending}>
           Cancelar
         </Button>
-        <Button type="submit" disabled={!valido || editar.isPending}>
+        <Button
+          type="submit"
+          disabled={!valido || editar.isPending}
+          title={
+            !valido ? 'Completa los campos obligatorios y revisa la cuenta destino.' : undefined
+          }
+        >
           {editar.isPending ? 'Guardando…' : 'Guardar'}
         </Button>
       </div>

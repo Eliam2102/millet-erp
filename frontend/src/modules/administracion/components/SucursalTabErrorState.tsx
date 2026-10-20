@@ -16,10 +16,7 @@ export interface SucursalTabErrorStateProps {
   onRetry?: () => void;
 }
 
-export function SucursalTabErrorState({
-  error,
-  onRetry,
-}: SucursalTabErrorStateProps) {
+export function SucursalTabErrorState({ error, onRetry }: SucursalTabErrorStateProps) {
   if (esApiError(error) && error.status === 403) {
     return (
       <EmptyState

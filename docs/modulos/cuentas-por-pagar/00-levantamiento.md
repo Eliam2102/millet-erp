@@ -352,7 +352,7 @@ Atributos relevantes (los que CXP requiere del master):
 - Es nacional o extranjero (afecta retenciones y obligaciones fiscales)
 - Email para envío de complementos de pago
 - Email del que recibimos sus CFDIs (mailbox de origen reconocido)
-- **Tolerancia de conciliación factura vs. OC** — monto absoluto o porcentaje, configurable por proveedor (cambio importante respecto a v0.1)
+- **Tolerancia de conciliación factura vs. OC** — solo monto en MXN, configurable por proveedor (cambio importante respecto a v0.1); el modo porcentaje se retiró. Actualizado 19-oct-2026 (86e3tab1k): la única tolerancia es de dinero por proveedor; fuente: plano CxP 1.7.1 y junta del 8-oct.
 - **Adjuntos obligatorios para el alta:** Constancia de Situación Fiscal, contrato vigente, acta constitutiva (si aplica), identificación del representante legal, comprobante de domicilio. Sin estos no se activa el proveedor.
 
 **Migración desde SAP:** depuración previa obligatoria. **No se migran proveedores sin movimientos en los últimos 2 años.** Para los que sí se migran, hay que completar los campos que SAP no tenga, antes del go-live.

@@ -1,7 +1,9 @@
+import { FormGrid, FormCampo } from '@/components/erp';
 import { useState } from 'react';
 import {
   Dialog,
   DialogContent,
+  DialogBody,
   DialogDescription,
   DialogFooter,
   DialogHeader,
@@ -44,32 +46,33 @@ export function BloquearLineaDialog({
 
   return (
     <Dialog open={open} onOpenChange={handleOpenChange}>
-      <DialogContent className="sm:max-w-md">
+      <DialogContent size="sm">
         <DialogHeader>
           <DialogTitle>Bloquear línea de crédito</DialogTitle>
           <DialogDescription>
-            {etiquetaLinea}: al bloquearla, la liberación de pedidos por
-            crédito quedará retenida para esta línea hasta desbloquearla.
-            El motivo es obligatorio y quedará visible en el detalle.
+            {etiquetaLinea}: al bloquearla, la liberación de pedidos por crédito quedará retenida
+            para esta línea hasta desbloquearla. El motivo es obligatorio y quedará visible en el
+            detalle.
           </DialogDescription>
         </DialogHeader>
-
-        <div className="space-y-1">
-          <Label htmlFor="motivo-bloqueo" className="text-xs">
-            Motivo del bloqueo (requerido)
-          </Label>
-          <TextAreaField
-            value={motivo}
-            onChange={(v) => setMotivo(v ?? '')}
-            maxLength={400}
-            textareaProps={{
-              id: 'motivo-bloqueo',
-              placeholder:
-                'p. ej. Cartera vencida +90 días; baja de cobertura SOLUNION…',
-            }}
-          />
-        </div>
-
+        <DialogBody>
+          <FormGrid>
+            <FormCampo span={12} className="space-y-1">
+              <Label htmlFor="motivo-bloqueo" className="text-xs">
+                Motivo del bloqueo *
+              </Label>
+              <TextAreaField
+                value={motivo}
+                onChange={(v) => setMotivo(v ?? '')}
+                maxLength={400}
+                textareaProps={{
+                  id: 'motivo-bloqueo',
+                  placeholder: 'p. ej. Cartera vencida +90 días; baja de cobertura SOLUNION…',
+                }}
+              />
+            </FormCampo>
+          </FormGrid>
+        </DialogBody>
         <DialogFooter>
           <Button
             type="button"

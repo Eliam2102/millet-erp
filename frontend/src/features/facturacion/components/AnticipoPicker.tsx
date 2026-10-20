@@ -1,7 +1,7 @@
-import { useMemo } from 'react';
 import { CatalogoEagerCombobox } from '@/components/erp/selectors/CatalogoEagerCombobox';
-import { useEstadoCuentaAnticipos } from '@/features/facturacion/api/useAnticipos';
 import type { AnticipoEstadoCuenta } from '@/features/facturacion/api/types';
+import { useEstadoCuentaAnticipos } from '@/features/facturacion/api/useAnticipos';
+import { useMemo } from 'react';
 
 /**
  * <c>&lt;AnticipoPicker/&gt;</c> — combobox eager de los anticipos
@@ -38,16 +38,14 @@ export function AnticipoPicker({
         // 13-J: un anticipo cuyo CFDI no está timbrado no es amortizable —
         // la relación 07 exige el UUID (el backend lo rechaza con
         // ANTICIPO_CFDI_NO_TIMBRADO; aquí ni se ofrece).
-        .filter(
-          (a) => a.estado === 'Abierto' && a.saldo > 0 && a.estadoCfdi === 'Timbrado',
-        )
+        .filter((a) => a.estado === 'Abierto' && a.saldo > 0 && a.estadoCfdi === 'Timbrado')
         .map((a) => ({ ...a, id: a.anticipoId })),
     [query.data],
   );
 
   if (clienteId == null) {
     return (
-      <p className="text-xs text-muted-foreground">
+      <p className="text-xs text-ink-muted">
         Selecciona primero el cliente para listar sus anticipos abiertos.
       </p>
     );
@@ -59,15 +57,13 @@ export function AnticipoPicker({
       loading={query.isLoading}
       error={query.error}
       value={value}
-      onChange={(id) =>
-        onChange(id == null ? null : abiertos.find((a) => a.id === id) ?? null)
-      }
+      onChange={(id) => onChange(id == null ? null : (abiertos.find((a) => a.id === id) ?? null))}
       itemToLabel={(a) => `${a.folio} ${a.tipoAnticipo}`}
       renderItem={(a) => (
         <div className="min-w-0 flex-1">
           <div className="flex items-center gap-2">
             <span className="truncate font-mono text-xs">{a.folio}</span>
-            <span className="text-xs text-muted-foreground">{a.tipoAnticipo}</span>
+            <span className="text-xs text-ink-muted">{a.tipoAnticipo}</span>
           </div>
           <p className="text-sm tabular-nums">
             Saldo {a.saldo.toFixed(2)}

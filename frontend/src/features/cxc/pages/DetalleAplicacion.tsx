@@ -1,11 +1,24 @@
+import { ResumenImportes, MontoMovimiento, PageHeader, ErrorState } from '@/components/erp';
+
+import {
+  Table,
+  TableHeader,
+  TableBody,
+  TableRow,
+  TableHead,
+  TableCell,
+} from '@/components/ui/table';
 import { Link, useParams, useSearch } from '@tanstack/react-router';
 import { X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { ErrorState } from '@/components/erp';
+
 import { usePropuestaAplicacion } from '@/features/cxc/api/useAplicaciones';
 import { useClientesLookupCxc } from '@/features/cxc/api/useLineasCredito';
 import { ChipEstadoPropuesta } from '@/features/cxc/components/ChipEstadoPropuesta';
-import { EstadoPropuestaAplicacion, type PropuestaAplicacionResponse } from '@/features/cxc/api/types';
+import {
+  EstadoPropuestaAplicacion,
+  type PropuestaAplicacionResponse,
+} from '@/features/cxc/api/types';
 import { formatoMonto } from '@/features/cxc/lib/glosario';
 import type { AplicacionesSearch } from '@/features/cxc/lib/aplicaciones-search-schema';
 import { esApiError } from '@/lib/api';
@@ -15,7 +28,7 @@ export function DetalleAplicacion() {
   const query = usePropuestaAplicacion(id);
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-5">
       {query.isError ? (
         <ErrorState
           title="No se pudo cargar la propuesta"
@@ -24,8 +37,8 @@ export function DetalleAplicacion() {
         />
       ) : query.isLoading || query.data == null ? (
         <div className="space-y-3">
-          <div className="h-8 w-64 animate-pulse rounded bg-muted" />
-          <div className="h-40 w-full animate-pulse rounded bg-muted" />
+          <div className="h-8 w-64 animate-pulse rounded bg-surface-muted" />
+          <div className="h-40 w-full animate-pulse rounded bg-surface-muted" />
         </div>
       ) : (
         <Contenido p={query.data} />
@@ -41,25 +54,24 @@ function Contenido({ p }: { p: PropuestaAplicacionResponse }) {
   const sumaAplicada = p.facturas.reduce((a, f) => a + f.importeAplicado, 0);
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-5">
       {/* ── Sub-topbar §6.5 ─────────────────────────────────────── */}
-      <div
-        className="sticky top-0 z-10 flex flex-wrap items-center justify-between gap-2 border-b bg-background/95 pb-2 backdrop-blur"
-        data-print="hidden"
-      >
-        <div className="flex min-w-0 flex-wrap items-center gap-2">
-          <h1 className="truncate font-mono text-lg font-semibold">
-            {p.depositoRef}
-          </h1>
-          <ChipEstadoPropuesta estado={p.estado} />
-        </div>
-        <div className="flex items-center gap-1.5">
-          <Button variant="ghost" size="icon" asChild aria-label="Cerrar detalle">
-            <Link to="/cxc/aplicaciones" search={search}>
-              <X className="h-4 w-4" />
-            </Link>
-          </Button>
-        </div>
+      <div data-print="hidden">
+        <PageHeader
+          mono
+          titulo={p.depositoRef}
+          estado={<ChipEstadoPropuesta estado={p.estado} />}
+          descripcion={cliente?.razonSocial ?? p.clienteId.slice(0, 8)}
+          acciones={
+            <div className="flex items-center gap-1.5">
+              <Button variant="ghost" size="icon" asChild aria-label="Cerrar detalle">
+                <Link to="/cxc/aplicaciones" search={search}>
+                  <X className="h-4 w-4" />
+                </Link>
+              </Button>
+            </div>
+          }
+        />
       </div>
 
       {p.estado === EstadoPropuestaAplicacion.Rechazada && p.motivoRechazo && (
@@ -69,95 +81,90 @@ function Contenido({ p }: { p: PropuestaAplicacionResponse }) {
         </div>
       )}
 
-      <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+      <div className="space-y-5">
         {/* ── Depósito ─────────────────────────────────────────── */}
-        <section className="rounded-md border bg-card p-4" aria-label="Depósito">
+        <section className="rounded-md border bg-surface-card p-4" aria-label="Depósito">
           <h3 className="text-sm font-medium">Depósito</h3>
-          <dl className="mt-3 grid grid-cols-2 gap-x-4 gap-y-3 text-sm">
+          <dl className="mt-3 grid grid-cols-2 gap-x-4 gap-y-3 lg:grid-cols-4 text-sm">
             <div>
-              <dt className="text-xs text-muted-foreground">Cliente</dt>
-              <dd className="truncate">
-                {cliente?.razonSocial ?? p.clienteId.slice(0, 8)}
-              </dd>
+              <dt className="text-xs text-ink-muted">Cliente</dt>
+              <dd className="truncate">{cliente?.razonSocial ?? p.clienteId.slice(0, 8)}</dd>
             </div>
             <div>
-              <dt className="text-xs text-muted-foreground">Monto</dt>
+              <dt className="text-xs text-ink-muted">Monto</dt>
               <dd className="font-mono tabular-nums">
-                {formatoMonto(p.montoDeposito, p.moneda)}
+                <MontoMovimiento monto={p.montoDeposito} moneda={p.moneda} tipo="entrada" />
               </dd>
             </div>
             <div>
-              <dt className="text-xs text-muted-foreground">Remittance</dt>
+              <dt className="text-xs text-ink-muted">Remittance</dt>
               <dd className="truncate text-xs">{p.remittanceRef}</dd>
             </div>
             <div>
-              <dt className="text-xs text-muted-foreground">
-                Ajuste no fiscal
-              </dt>
+              <dt className="text-xs text-ink-muted">Ajuste no fiscal</dt>
               <dd className="font-mono tabular-nums">
-                {p.ajusteNoFiscal !== 0
-                  ? formatoMonto(p.ajusteNoFiscal, p.moneda)
-                  : '—'}
+                {p.ajusteNoFiscal !== 0 ? formatoMonto(p.ajusteNoFiscal, p.moneda) : '—'}
               </dd>
             </div>
           </dl>
-          {p.estado !== EstadoPropuestaAplicacion.Rechazada && (p.saldoAFavorPorIdentificar ?? 0) > 0 && (
-            <p className="mt-3 rounded-md bg-info-bg p-3 text-sm text-info-fg">
-              Saldo a favor por identificar: {formatoMonto(p.saldoAFavorPorIdentificar ?? 0, p.moneda)}.
-              {p.estado === EstadoPropuestaAplicacion.Propuesta ? ' Pendiente de confirmación bancaria.' : ''}
-            </p>
-          )}
+          {p.estado !== EstadoPropuestaAplicacion.Rechazada &&
+            (p.saldoAFavorPorIdentificar ?? 0) > 0 && (
+              <p className="mt-3 rounded-md bg-info-bg p-3 text-sm text-info-fg">
+                Saldo a favor por identificar:{' '}
+                {formatoMonto(p.saldoAFavorPorIdentificar ?? 0, p.moneda)}.
+                {p.estado === EstadoPropuestaAplicacion.Propuesta
+                  ? ' Pendiente de confirmación bancaria.'
+                  : ''}
+              </p>
+            )}
           {p.ajusteNoFiscal !== 0 && (
             <p className="mt-3 text-xs text-warning-fg">
-              Diferencia dentro de tolerancia registrada como ajuste no
-              fiscal (no genera CFDI).
+              Diferencia dentro de tolerancia registrada como ajuste no fiscal (no genera CFDI).
             </p>
           )}
         </section>
 
         {/* ── Matching propuesto ───────────────────────────────── */}
-        <section
-          className="rounded-md border bg-card p-4"
-          aria-label="Facturas propuestas"
-        >
+        <section className="rounded-md border bg-surface-card p-4" aria-label="Facturas propuestas">
           <h3 className="text-sm font-medium">Facturas propuestas</h3>
-          <table className="mt-3 w-full text-sm">
-            <thead className="text-left text-xs uppercase tracking-wide text-muted-foreground">
-              <tr>
-                <th className="py-1 font-medium">Factura</th>
-                <th className="py-1 text-right font-medium">Importe</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y">
+          <Table className="mt-3 w-full text-sm">
+            <TableHeader className="text-left text-xs uppercase tracking-wide text-ink-muted">
+              <TableRow>
+                <TableHead className="py-1 font-medium">Factura</TableHead>
+                <TableHead className="py-1 text-right font-medium">Importe</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody className="divide-y">
               {p.facturas.map((f) => (
-                <tr key={f.facturaUuid}>
-                  <td className="max-w-56 truncate py-1.5 font-mono text-xs">
+                <TableRow key={f.facturaUuid}>
+                  <TableCell className="max-w-56 truncate py-1.5 font-mono text-xs">
                     {f.folio ?? f.facturaUuid}
                     {f.numParcialidad != null && (
-                      <span className="ml-1 text-muted-foreground">
-                        (parc. {f.numParcialidad})
-                      </span>
+                      <span className="ml-1 text-ink-muted">(parc. {f.numParcialidad})</span>
                     )}
-                  </td>
-                  <td className="py-1.5 text-right font-mono tabular-nums">
+                  </TableCell>
+                  <TableCell className="py-1.5 text-right font-mono tabular-nums">
                     {formatoMonto(f.importeAplicado, p.moneda)}
-                  </td>
-                </tr>
+                  </TableCell>
+                </TableRow>
               ))}
-            </tbody>
-            <tfoot>
-              <tr className="border-t">
-                <td className="py-1.5 text-xs font-medium">Σ aplicado</td>
-                <td className="py-1.5 text-right font-mono font-medium tabular-nums">
-                  {formatoMonto(sumaAplicada, p.moneda)}
-                </td>
-              </tr>
-            </tfoot>
-          </table>
+            </TableBody>
+          </Table>
+          <ResumenImportes
+            moneda={p.moneda}
+            total={sumaAplicada}
+            estadoPago={[
+              { etiqueta: 'Depósito', monto: p.montoDeposito },
+              { etiqueta: 'Ajuste no fiscal', monto: p.ajusteNoFiscal },
+            ]}
+          />
         </section>
       </div>
 
-      <p className="text-sm text-ink-muted">Tesorería confirma o rechaza contra el movimiento bancario. La cartera se actualiza al timbrar el REP.</p>
+      <p className="text-sm text-ink-muted">
+        Tesorería confirma o rechaza contra el movimiento bancario. La cartera se actualiza al
+        timbrar el REP.
+      </p>
     </div>
   );
 }

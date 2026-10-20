@@ -53,13 +53,13 @@ describe('<TimelineRequisicion>', () => {
     expect(screen.getByText('Sistema')).toBeInTheDocument();
   });
 
-  it('actor no resuelto (actorNombre null con actorId presente) indica Por confirmar', () => {
+  it('actor no resuelto (actorNombre null con actorId presente) indica el dato faltante', () => {
     render(
       <TimelineRequisicion
         entradas={[entry({ actorId: 'u-sin-nombre', actorNombre: null })]}
       />,
     );
-    expect(screen.getByText('[RESPONSABLE POR CONFIRMAR]')).toBeInTheDocument();
+    expect(screen.getByText('Sin asignar')).toBeInTheDocument();
   });
 
   it('cambios JSON no vacío muestra botón "Ver cambios"; click lo expande', () => {
@@ -116,7 +116,7 @@ describe('<TimelineRequisicion>', () => {
     const list = container.querySelector('ol');
     expect(list).toHaveAttribute(
       'aria-label',
-      expect.stringMatching(/línea de tiempo/i),
+      expect.stringMatching(/actividad/i),
     );
     expect(list?.querySelectorAll('li').length).toBe(1);
   });

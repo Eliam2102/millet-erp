@@ -26,16 +26,49 @@ const CATALOGO = {
     {
       modulo: 'identidad',
       items: [
-        { id: 'p-leer', codigo: 'identidad.roles.leer', modulo: 'identidad', recurso: 'roles', accion: 'leer', descripcion: 'Lee roles.' },
-        { id: 'p-crear', codigo: 'identidad.roles.crear', modulo: 'identidad', recurso: 'roles', accion: 'crear', descripcion: 'Crea roles.' },
-        { id: 'p-editar', codigo: 'identidad.roles.editar', modulo: 'identidad', recurso: 'roles', accion: 'editar', descripcion: 'Edita roles.' },
-        { id: 'p-ajeno', codigo: 'compras.ordenes.leer', modulo: 'identidad', recurso: 'ordenes', accion: 'leer', descripcion: 'Lee OC.' },
+        {
+          id: 'p-leer',
+          codigo: 'identidad.roles.leer',
+          modulo: 'identidad',
+          recurso: 'roles',
+          accion: 'leer',
+          descripcion: 'Lee roles.',
+        },
+        {
+          id: 'p-crear',
+          codigo: 'identidad.roles.crear',
+          modulo: 'identidad',
+          recurso: 'roles',
+          accion: 'crear',
+          descripcion: 'Crea roles.',
+        },
+        {
+          id: 'p-editar',
+          codigo: 'identidad.roles.editar',
+          modulo: 'identidad',
+          recurso: 'roles',
+          accion: 'editar',
+          descripcion: 'Edita roles.',
+        },
+        {
+          id: 'p-ajeno',
+          codigo: 'compras.ordenes.leer',
+          modulo: 'identidad',
+          recurso: 'ordenes',
+          accion: 'leer',
+          descripcion: 'Lee OC.',
+        },
       ],
     },
   ],
 };
 
-function efectivos(permisos: unknown[], concedidos = 0, denegados = 0, extra: Record<string, unknown> = {}) {
+function efectivos(
+  permisos: unknown[],
+  concedidos = 0,
+  denegados = 0,
+  extra: Record<string, unknown> = {},
+) {
   return {
     usuarioId: USUARIO,
     empresaId: EMPRESA,
@@ -54,7 +87,15 @@ function mockBase(respuestaEfectivos: Record<string, unknown>) {
     http.get('*/api/v1/identidad/permisos', () => HttpResponse.json(CATALOGO)),
     http.get('*/api/v1/identidad/roles/r-1', () =>
       HttpResponse.json({
-        rol: { id: 'r-1', codigo: 'operador', nombre: 'Operador', descripcion: null, esDelSistema: false, activo: true, version: 1 },
+        rol: {
+          id: 'r-1',
+          codigo: 'operador',
+          nombre: 'Operador',
+          descripcion: null,
+          esDelSistema: false,
+          activo: true,
+          version: 1,
+        },
         permisoIds: ['p-leer', 'p-crear'],
         gruposEntraId: [],
       }),
@@ -64,7 +105,9 @@ function mockBase(respuestaEfectivos: Record<string, unknown>) {
 }
 
 async function abrirModulo() {
-  const trigger = await screen.findByRole('button', { name: /permisos personalizados de identidad/i });
+  const trigger = await screen.findByRole('button', {
+    name: /permisos personalizados de identidad/i,
+  });
   fireEvent.click(trigger);
 }
 
@@ -100,14 +143,31 @@ afterEach(() => {
   });
 });
 
-
 const SW = (codigo: string) => `Permiso ${codigo}`;
 const GRUPO = 'Todos los permisos de identidad';
 
-const LEER = { permisoId: 'p-leer', codigo: 'identidad.roles.leer', origen: 'Rol', efectivo: true, motivo: null };
-const CREAR_ROL = { permisoId: 'p-crear', codigo: 'identidad.roles.crear', origen: 'Rol', efectivo: true, motivo: null };
+const LEER = {
+  permisoId: 'p-leer',
+  codigo: 'identidad.roles.leer',
+  origen: 'Rol',
+  efectivo: true,
+  motivo: null,
+};
+const CREAR_ROL = {
+  permisoId: 'p-crear',
+  codigo: 'identidad.roles.crear',
+  origen: 'Rol',
+  efectivo: true,
+  motivo: null,
+};
 const CREAR_DENEGADO = { ...CREAR_ROL, origen: 'Denegado', efectivo: false };
-const AJENO_CONCEDIDO = { permisoId: 'p-ajeno', codigo: 'compras.ordenes.leer', origen: 'Concedido', efectivo: true, motivo: null };
+const AJENO_CONCEDIDO = {
+  permisoId: 'p-ajeno',
+  codigo: 'compras.ordenes.leer',
+  origen: 'Concedido',
+  efectivo: true,
+  motivo: null,
+};
 
 function renderPanel() {
   render(<PermisosPersonalizadosPanel usuarioId={USUARIO} empresaId={EMPRESA} />, {
@@ -121,7 +181,12 @@ function guardadoCapturado() {
     http.put(URL_OVERRIDE, async ({ request }) => {
       captura.body = await request.json();
       captura.key = request.headers.get('Idempotency-Key');
-      return HttpResponse.json({ usuarioId: USUARIO, empresaId: EMPRESA, concedidos: 0, denegados: 0 });
+      return HttpResponse.json({
+        usuarioId: USUARIO,
+        empresaId: EMPRESA,
+        concedidos: 0,
+        denegados: 0,
+      });
     }),
   );
   return captura;
@@ -145,11 +210,25 @@ describe('<PermisosPersonalizadosPanel> — smoke', () => {
     renderPanel();
     await abrirModulo();
 
-    expect(await screen.findByRole('switch', { name: SW('identidad.roles.leer') })).toHaveAttribute('aria-checked', 'true');
-    expect(screen.getByRole('switch', { name: SW('identidad.roles.crear') })).toHaveAttribute('aria-checked', 'false');
-    expect(screen.getByRole('switch', { name: SW('compras.ordenes.leer') })).toHaveAttribute('aria-checked', 'true');
-    expect(screen.getByRole('switch', { name: SW('identidad.roles.editar') })).toHaveAttribute('aria-checked', 'false');
-    expect(screen.getByText(/1 concedido\(s\) \/ 1 denegado\(s\) respecto al rol/i)).toBeInTheDocument();
+    expect(await screen.findByRole('switch', { name: SW('identidad.roles.leer') })).toHaveAttribute(
+      'aria-checked',
+      'true',
+    );
+    expect(screen.getByRole('switch', { name: SW('identidad.roles.crear') })).toHaveAttribute(
+      'aria-checked',
+      'false',
+    );
+    expect(screen.getByRole('switch', { name: SW('compras.ordenes.leer') })).toHaveAttribute(
+      'aria-checked',
+      'true',
+    );
+    expect(screen.getByRole('switch', { name: SW('identidad.roles.editar') })).toHaveAttribute(
+      'aria-checked',
+      'false',
+    );
+    expect(
+      screen.getByText(/1 concedido\(s\) \/ 1 denegado\(s\) respecto al rol/i),
+    ).toBeInTheDocument();
     expect(screen.getByText(/personalizado: quitado/i)).toBeInTheDocument();
     expect(screen.getByText(/personalizado: añadido/i)).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /guardar cambios/i })).toBeDisabled();
@@ -163,12 +242,16 @@ describe('<PermisosPersonalizadosPanel> — smoke', () => {
     const sw = await screen.findByRole('switch', { name: SW('identidad.roles.leer') });
     fireEvent.click(sw);
     expect(sw).toHaveAttribute('aria-checked', 'false');
-    expect(screen.getByText(/0 concedido\(s\) \/ 1 denegado\(s\) respecto al rol/i)).toBeInTheDocument();
+    expect(
+      screen.getByText(/0 concedido\(s\) \/ 1 denegado\(s\) respecto al rol/i),
+    ).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /guardar cambios/i })).toBeEnabled();
 
     fireEvent.click(sw);
     expect(sw).toHaveAttribute('aria-checked', 'true');
-    expect(screen.getByText(/0 concedido\(s\) \/ 0 denegado\(s\) respecto al rol/i)).toBeInTheDocument();
+    expect(
+      screen.getByText(/0 concedido\(s\) \/ 0 denegado\(s\) respecto al rol/i),
+    ).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /guardar cambios/i })).toBeDisabled();
   });
 
@@ -180,7 +263,9 @@ describe('<PermisosPersonalizadosPanel> — smoke', () => {
 
     fireEvent.click(await screen.findByRole('switch', { name: SW('identidad.roles.leer') }));
     fireEvent.click(screen.getByRole('switch', { name: SW('identidad.roles.editar') }));
-    expect(screen.getByText(/1 concedido\(s\) \/ 1 denegado\(s\) respecto al rol/i)).toBeInTheDocument();
+    expect(
+      screen.getByText(/1 concedido\(s\) \/ 1 denegado\(s\) respecto al rol/i),
+    ).toBeInTheDocument();
     expect(screen.getByText(/hay cambios sin guardar/i)).toBeInTheDocument();
 
     fireEvent.click(screen.getByRole('button', { name: /guardar cambios/i }));
@@ -203,11 +288,17 @@ describe('<PermisosPersonalizadosPanel> — smoke', () => {
 
     const sw = await screen.findByRole('switch', { name: SW('identidad.roles.crear') });
     expect(sw).toHaveAttribute('aria-checked', 'false');
-    fireEvent.click(screen.getByRole('button', { name: 'Volver al valor del rol de identidad.roles.crear' }));
+    fireEvent.click(
+      screen.getByRole('button', { name: 'Volver al valor del rol de identidad.roles.crear' }),
+    );
 
     expect(sw).toHaveAttribute('aria-checked', 'true');
-    expect(screen.queryByRole('button', { name: /volver al valor del rol de identidad\.roles\.crear/i })).not.toBeInTheDocument();
-    expect(screen.getByText(/0 concedido\(s\) \/ 0 denegado\(s\) respecto al rol/i)).toBeInTheDocument();
+    expect(
+      screen.queryByRole('button', { name: /volver al valor del rol de identidad\.roles\.crear/i }),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.getByText(/0 concedido\(s\) \/ 0 denegado\(s\) respecto al rol/i),
+    ).toBeInTheDocument();
     expect(screen.getByText(/hay cambios sin guardar/i)).toBeInTheDocument();
   });
 
@@ -231,7 +322,9 @@ describe('<PermisosPersonalizadosPanel> — smoke', () => {
 
     fireEvent.click(grupo);
     // editar se concede (el actor lo posee); ajeno se omite (el actor no lo posee).
-    expect(screen.getByText(/1 concedido\(s\) \/ 0 denegado\(s\) respecto al rol/i)).toBeInTheDocument();
+    expect(
+      screen.getByText(/1 concedido\(s\) \/ 0 denegado\(s\) respecto al rol/i),
+    ).toBeInTheDocument();
     expect(screen.getByText(/se omitieron 1 permiso\(s\)/i)).toBeInTheDocument();
     expect(grupo).toHaveAttribute('aria-checked', 'mixed');
   });
@@ -246,16 +339,23 @@ describe('<PermisosPersonalizadosPanel> — smoke', () => {
     // Encender: quita la denegación de crear y concede editar; sin omitidos.
     fireEvent.click(grupo);
     expect(grupo).toHaveAttribute('aria-checked', 'true');
-    expect(screen.getByText(/2 concedido\(s\) \/ 0 denegado\(s\) respecto al rol/i)).toBeInTheDocument();
+    expect(
+      screen.getByText(/2 concedido\(s\) \/ 0 denegado\(s\) respecto al rol/i),
+    ).toBeInTheDocument();
     expect(screen.queryByText(/se omitieron/i)).not.toBeInTheDocument();
 
     // Apagar: deniega leer y crear (rol) y descarta lo concedido.
     fireEvent.click(grupo);
     expect(grupo).toHaveAttribute('aria-checked', 'false');
-    expect(screen.getByText(/0 concedido\(s\) \/ 2 denegado\(s\) respecto al rol/i)).toBeInTheDocument();
+    expect(
+      screen.getByText(/0 concedido\(s\) \/ 2 denegado\(s\) respecto al rol/i),
+    ).toBeInTheDocument();
 
     await abrirModulo();
-    expect(await screen.findByRole('switch', { name: SW('compras.ordenes.leer') })).toHaveAttribute('aria-checked', 'false');
+    expect(await screen.findByRole('switch', { name: SW('compras.ordenes.leer') })).toHaveAttribute(
+      'aria-checked',
+      'false',
+    );
   });
 
   it('Restablecer grupo elimina del borrador todas las excepciones del grupo', async () => {
@@ -266,7 +366,9 @@ describe('<PermisosPersonalizadosPanel> — smoke', () => {
     await waitFor(() => expect(reset).toBeEnabled());
     fireEvent.click(reset);
 
-    expect(screen.getByText(/0 concedido\(s\) \/ 0 denegado\(s\) respecto al rol/i)).toBeInTheDocument();
+    expect(
+      screen.getByText(/0 concedido\(s\) \/ 0 denegado\(s\) respecto al rol/i),
+    ).toBeInTheDocument();
     expect(screen.getByText(/hay cambios sin guardar/i)).toBeInTheDocument();
     expect(reset).toBeDisabled();
   });
@@ -316,8 +418,13 @@ describe('<PermisosPersonalizadosPanel> — smoke', () => {
 
     await waitFor(() => expect(intentos).toBe(1));
     // El borrador se conserva y el botón vuelve a habilitarse para reintentar.
-    await waitFor(() => expect(screen.getByRole('button', { name: /guardar cambios/i })).toBeEnabled());
-    expect(screen.getByRole('switch', { name: SW('identidad.roles.leer') })).toHaveAttribute('aria-checked', 'false');
+    await waitFor(() =>
+      expect(screen.getByRole('button', { name: /guardar cambios/i })).toBeEnabled(),
+    );
+    expect(screen.getByRole('switch', { name: SW('identidad.roles.leer') })).toHaveAttribute(
+      'aria-checked',
+      'false',
+    );
   });
 
   it('deshabilita la edición al mirar la propia cuenta', async () => {
@@ -336,7 +443,9 @@ describe('<PermisosPersonalizadosPanel> — smoke', () => {
     await abrirModulo();
 
     expect(
-      await screen.findByText('Los permisos del rol super-admin se gestionan por bootstrap; no admiten excepciones.'),
+      await screen.findByText(
+        'Los permisos del rol super-admin están protegidos y no admiten excepciones.',
+      ),
     ).toBeInTheDocument();
     expect(screen.getByRole('switch', { name: SW('identidad.roles.leer') })).toBeDisabled();
     expect(screen.getByRole('switch', { name: GRUPO })).toBeDisabled();
@@ -350,7 +459,9 @@ describe('<PermisosPersonalizadosPanel> — smoke', () => {
     const sw = await screen.findByRole('switch', { name: SW('identidad.roles.leer') });
     expect(sw).toBeEnabled();
     expect(screen.getByRole('switch', { name: GRUPO })).toBeEnabled();
-    expect(screen.queryByText(/se gestionan por bootstrap/i)).not.toBeInTheDocument();
+    expect(
+      screen.queryByText(/están protegidos y no admiten excepciones/i),
+    ).not.toBeInTheDocument();
     fireEvent.click(sw);
     expect(sw).toHaveAttribute('aria-checked', 'false');
   });

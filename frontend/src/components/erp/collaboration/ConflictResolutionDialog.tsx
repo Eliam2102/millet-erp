@@ -186,7 +186,7 @@ export function ConflictResolutionDialog({
       <DialogContent className="sm:max-w-2xl">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
-            <TriangleAlert className="h-5 w-5 text-amber-500" />
+            <TriangleAlert className="h-5 w-5 text-warning-fg" />
             {modoPreserve
               ? 'Otro usuario modificó esta requisición mientras la editabas'
               : 'Esta requisición fue actualizada por otro usuario'}

@@ -1,26 +1,23 @@
-import { useEffect } from 'react';
-import { useForm } from 'react-hook-form';
-import { zodResolver } from '@hookform/resolvers/zod';
-import { Check, Plus, X } from 'lucide-react';
-import { toast } from 'sonner';
+import { FormCampo } from '@/components/erp/forms/FormGrid';
+import { FormSeccion } from '@/components/erp/forms/FormSeccion';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import {
-  applyServerErrors,
-  esApiError,
-  useFormIdempotencyKey,
-  codigoSoporte,
-} from '@/lib/api';
-import {
-  VehiculoSchema,
-  type VehiculoValues,
-} from '@/features/facturacion/schemas/carta-porte-catalogos';
 import {
   useActualizarVehiculo,
   useCrearVehiculo,
 } from '@/features/facturacion/api/cartaPorteCatalogos';
 import type { VehiculoListItem } from '@/features/facturacion/api/types';
+import {
+  VehiculoSchema,
+  type VehiculoValues,
+} from '@/features/facturacion/schemas/carta-porte-catalogos';
+import { applyServerErrors, codigoSoporte, esApiError, useFormIdempotencyKey } from '@/lib/api';
 import { cn } from '@/lib/utils';
+import { zodResolver } from '@hookform/resolvers/zod';
+import { Check, Plus, X } from 'lucide-react';
+import { useEffect } from 'react';
+import { useForm } from 'react-hook-form';
+import { toast } from 'sonner';
 
 /**
  * Form inline (sin modal) para AGREGAR o EDITAR un vehículo del catálogo
@@ -58,11 +55,7 @@ const numeroONull = (v: unknown): number | null => {
 const oNull = (v: string | undefined): string | null =>
   v == null || v.trim() === '' ? null : v.trim();
 
-export function VehiculoInlineForm({
-  vehiculo,
-  onCancel,
-  onSaved,
-}: VehiculoInlineFormProps) {
+export function VehiculoInlineForm({ vehiculo, onCancel, onSaved }: VehiculoInlineFormProps) {
   const esEditar = vehiculo != null;
   const idempotencyKey = useFormIdempotencyKey();
   const crear = useCrearVehiculo();
@@ -93,12 +86,7 @@ export function VehiculoInlineForm({
 
   function onError(error: Error) {
     if (esApiError(error)) {
-      if (
-        applyServerErrors(
-          form as unknown as Parameters<typeof applyServerErrors>[0],
-          error,
-        )
-      ) {
+      if (applyServerErrors(form as unknown as Parameters<typeof applyServerErrors>[0], error)) {
         return;
       }
       toast.error(error.problem.title, {
@@ -161,117 +149,123 @@ export function VehiculoInlineForm({
       }}
       className={cn(
         'space-y-3 rounded-md border p-3',
-        esEditar
-          ? 'border-amber-400 bg-amber-50/40'
-          : 'border-dashed border-primary/40 bg-primary/5',
+        esEditar ? 'border-line bg-warning-bg/40' : 'border-dashed border-brand/40 bg-brand/5',
       )}
-      aria-label={
-        esEditar ? `Editar vehículo ${vehiculo?.placa}` : 'Agregar vehículo'
-      }
+      aria-label={esEditar ? `Editar vehículo ${vehiculo?.placa}` : 'Agregar vehículo'}
     >
-      <div className="grid grid-cols-1 gap-2 md:grid-cols-12">
-        <Field
-          label="Placa"
-          required
-          error={form.formState.errors.placa?.message}
-          className="md:col-span-3"
-        >
-          <Input
-            className="font-mono uppercase"
-            maxLength={20}
-            placeholder="ABC-123"
-            disabled={esEditar}
-            title={esEditar ? 'La placa es inmutable (identidad del vehículo).' : undefined}
-            {...form.register('placa')}
-          />
-        </Field>
-        <Field
-          label="Config. vehicular"
-          required
-          error={form.formState.errors.configVehicular?.message}
-          hint="c_ConfigAutotransporte, ej. C2R2"
-          className="md:col-span-3"
-        >
-          <Input
-            className="uppercase"
-            maxLength={10}
-            placeholder="C2R2"
-            {...form.register('configVehicular')}
-          />
-        </Field>
-        <Field
-          label="Año modelo"
-          required
-          error={form.formState.errors.anioModelo?.message}
-          className="md:col-span-3"
-        >
-          <Input
-            type="number"
-            min={1990}
-            max={2100}
-            step={1}
-            {...form.register('anioModelo', { valueAsNumber: true })}
-          />
-        </Field>
-        <Field
-          label="Peso bruto vehicular (ton)"
-          error={form.formState.errors.pesoBrutoVehicular?.message}
-          hint="Obligatorio para timbrar Carta Porte 3.1"
-          className="md:col-span-3"
-        >
-          <Input
-            type="number"
-            step="0.001"
-            min="0"
-            placeholder="17.5"
-            {...form.register('pesoBrutoVehicular', { setValueAs: numeroONull })}
-          />
-        </Field>
+      <FormSeccion titulo="Datos del vehículo">
+        <FormCampo span={3}>
+          <Field
+            label="Placa"
+            required
+            error={form.formState.errors.placa?.message}
+            className="md:col-span-3"
+          >
+            <Input
+              className="font-mono uppercase"
+              maxLength={20}
+              placeholder="ABC-123"
+              disabled={esEditar}
+              title={esEditar ? 'La placa es inmutable (identidad del vehículo).' : undefined}
+              {...form.register('placa')}
+            />
+          </Field>
+        </FormCampo>
+        <FormCampo span={3}>
+          <Field
+            label="Config. vehicular"
+            required
+            error={form.formState.errors.configVehicular?.message}
+            hint="c_ConfigAutotransporte, ej. C2R2"
+            className="md:col-span-3"
+          >
+            <Input
+              className="uppercase"
+              maxLength={10}
+              placeholder="C2R2"
+              {...form.register('configVehicular')}
+            />
+          </Field>
+        </FormCampo>
+        <FormCampo span={3}>
+          <Field
+            label="Año modelo"
+            required
+            error={form.formState.errors.anioModelo?.message}
+            className="md:col-span-3"
+          >
+            <Input
+              type="number"
+              min={1990}
+              max={2100}
+              step={1}
+              {...form.register('anioModelo', { valueAsNumber: true })}
+            />
+          </Field>
+        </FormCampo>
+        <FormCampo span={3}>
+          <Field
+            label="Peso bruto vehicular (ton)"
+            error={form.formState.errors.pesoBrutoVehicular?.message}
+            hint="Obligatorio para timbrar Carta Porte 3.1"
+            className="md:col-span-3"
+          >
+            <Input
+              type="number"
+              step="0.001"
+              min="0"
+              placeholder="17.5"
+              {...form.register('pesoBrutoVehicular', { setValueAs: numeroONull })}
+            />
+          </Field>
+        </FormCampo>
 
-        <Field
-          label="Permiso SCT"
-          error={form.formState.errors.tipoPermisoSct?.message}
-          hint="c_TipoPermiso, ej. TPAF01"
-          className="md:col-span-3"
-        >
-          <Input
-            className="uppercase"
-            maxLength={10}
-            placeholder="TPAF01"
-            {...form.register('tipoPermisoSct')}
-          />
-        </Field>
-        <Field
-          label="Núm. permiso SCT"
-          error={form.formState.errors.numPermisoSct?.message}
-          className="md:col-span-3"
-        >
-          <Input maxLength={50} {...form.register('numPermisoSct')} />
-        </Field>
-        <Field
-          label="Aseguradora"
-          error={form.formState.errors.aseguradora?.message}
-          className="md:col-span-3"
-        >
-          <Input maxLength={100} {...form.register('aseguradora')} />
-        </Field>
-        <Field
-          label="Póliza de seguro"
-          error={form.formState.errors.polizaSeguro?.message}
-          className="md:col-span-3"
-        >
-          <Input maxLength={50} {...form.register('polizaSeguro')} />
-        </Field>
-      </div>
+        <FormCampo span={3}>
+          <Field
+            label="Permiso SCT"
+            error={form.formState.errors.tipoPermisoSct?.message}
+            hint="c_TipoPermiso, ej. TPAF01"
+            className="md:col-span-3"
+          >
+            <Input
+              className="uppercase"
+              maxLength={10}
+              placeholder="TPAF01"
+              {...form.register('tipoPermisoSct')}
+            />
+          </Field>
+        </FormCampo>
+        <FormCampo span={3}>
+          <Field
+            label="Núm. permiso SCT"
+            error={form.formState.errors.numPermisoSct?.message}
+            className="md:col-span-3"
+          >
+            <Input maxLength={50} {...form.register('numPermisoSct')} />
+          </Field>
+        </FormCampo>
+        <FormCampo span={3}>
+          <Field
+            label="Aseguradora"
+            error={form.formState.errors.aseguradora?.message}
+            className="md:col-span-3"
+          >
+            <Input maxLength={100} {...form.register('aseguradora')} />
+          </Field>
+        </FormCampo>
+        <FormCampo span={3}>
+          <Field
+            label="Póliza de seguro"
+            error={form.formState.errors.polizaSeguro?.message}
+            className="md:col-span-3"
+          >
+            <Input maxLength={50} {...form.register('polizaSeguro')} />
+          </Field>
+        </FormCampo>
+      </FormSeccion>
 
       <div className="flex items-center justify-end gap-2">
-        <Button
-          type="button"
-          variant="ghost"
-          size="sm"
-          onClick={onCancel}
-          disabled={isPending}
-        >
+        <Button type="button" variant="ghost" size="sm" onClick={onCancel} disabled={isPending}>
           <X className="mr-1 h-4 w-4" />
           Cancelar
         </Button>
@@ -305,20 +299,18 @@ interface FieldProps {
 function Field({ label, required, error, hint, className, children }: FieldProps) {
   return (
     <div className={cn('space-y-1', className)}>
-      <label className="flex items-center gap-1 text-xs font-medium text-muted-foreground">
+      <label className="flex items-center gap-1 text-xs font-medium text-ink-muted">
         {label}
         {required && (
-          <span aria-hidden="true" className="text-rose-600">
+          <span aria-hidden="true" className="text-danger-fg">
             *
           </span>
         )}
       </label>
       {children}
-      {hint != null && (
-        <p className="text-[11px] leading-tight text-muted-foreground">{hint}</p>
-      )}
+      {hint != null && <p className="text-[11px] leading-tight text-ink-muted">{hint}</p>}
       {error != null && (
-        <p role="alert" className="text-xs text-rose-600">
+        <p role="alert" className="text-xs text-danger-fg">
           {error}
         </p>
       )}

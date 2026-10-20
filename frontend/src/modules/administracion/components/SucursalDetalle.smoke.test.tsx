@@ -96,18 +96,10 @@ beforeEach(() => {
   ]);
 
   mswServer.use(
-    http.get('*/api/v1/catalogos/sucursales', () =>
-      HttpResponse.json(SUCURSALES_CATALOGO),
-    ),
-    http.get('*/api/v1/catalogos/departamentos', () =>
-      HttpResponse.json(DEPARTAMENTOS_CATALOGO),
-    ),
-    http.get('*/api/v1/catalogos/puestos', () =>
-      HttpResponse.json(PUESTOS_CATALOGO),
-    ),
-    http.get('*/api/v1/identidad/usuarios/admin', () =>
-      HttpResponse.json(USUARIOS_CATALOGO),
-    ),
+    http.get('*/api/v1/catalogos/sucursales', () => HttpResponse.json(SUCURSALES_CATALOGO)),
+    http.get('*/api/v1/catalogos/departamentos', () => HttpResponse.json(DEPARTAMENTOS_CATALOGO)),
+    http.get('*/api/v1/catalogos/puestos', () => HttpResponse.json(PUESTOS_CATALOGO)),
+    http.get('*/api/v1/identidad/usuarios/admin', () => HttpResponse.json(USUARIOS_CATALOGO)),
     http.get('*/api/v1/admin/empresas/sucursales/s-1/puestos', () =>
       HttpResponse.json({ items: [], total: 0 }),
     ),
@@ -140,23 +132,23 @@ describe('<SucursalDetalle> — smoke', () => {
 
     render(<SucursalDetalle />, { wrapper: createQueryWrapper() });
 
-    await waitFor(() => expect(screen.getByText('S01')).toBeInTheDocument());
+    await waitFor(() =>
+      expect(screen.getByRole('heading', { name: 'S01', level: 1 })).toBeInTheDocument(),
+    );
 
     const tabs = screen.getAllByRole('tab');
     expect(tabs).toHaveLength(2);
-    expect(
-      screen.getByRole('tab', { name: /^departamentos y puestos$/i }),
-    ).toBeInTheDocument();
-    expect(
-      screen.getByRole('tab', { name: /^empleados$/i }),
-    ).toBeInTheDocument();
+    expect(screen.getByRole('tab', { name: /^departamentos y puestos$/i })).toBeInTheDocument();
+    expect(screen.getByRole('tab', { name: /^empleados$/i })).toBeInTheDocument();
 
     // Tab activa por default: Departamentos y Puestos. Al no haber asignados todavía,
     // muestra el empty state sin listar el catálogo completo.
     await waitFor(() =>
       expect(screen.getByText(/no hay departamentos asignados/i)).toBeInTheDocument(),
     );
-    expect(screen.getByRole('button', { name: /asignar primer departamento/i })).toBeInTheDocument();
+    expect(
+      screen.getByRole('button', { name: /asignar primer departamento/i }),
+    ).toBeInTheDocument();
   });
 
   it('muestra el estado de bloqueo cuando el backend responde 403 en una tab', async () => {
@@ -177,18 +169,16 @@ describe('<SucursalDetalle> — smoke', () => {
 
     render(<SucursalDetalle />, { wrapper: createQueryWrapper() });
 
-    await waitFor(() => expect(screen.getByText('S01')).toBeInTheDocument());
+    await waitFor(() =>
+      expect(screen.getByRole('heading', { name: 'S01', level: 1 })).toBeInTheDocument(),
+    );
 
     await waitFor(() =>
-      expect(
-        screen.getByText(/no tienes acceso a esta sucursal/i),
-      ).toBeInTheDocument(),
+      expect(screen.getByText(/no tienes acceso a esta sucursal/i)).toBeInTheDocument(),
     );
     // No debe caer al ErrorState genérico ("Reintentar" solo aparece
     // ahí, el estado 403 no ofrece retry).
-    expect(
-      screen.queryByRole('button', { name: /reintentar/i }),
-    ).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /reintentar/i })).not.toBeInTheDocument();
   });
 
   it('permite asociar un departamento existente a la sucursal', async () => {
@@ -214,28 +204,27 @@ describe('<SucursalDetalle> — smoke', () => {
             : { items: [], total: 0 },
         ),
       ),
-      http.post(
-        '*/api/v1/admin/empresas/sucursales/s-1/departamentos/d-1',
-        () => {
-          asignado = true;
-          return HttpResponse.json(
-            {
-              sucursalId: 's-1',
-              departamentoId: 'd-1',
-              departamentoClave: 'D01',
-              departamentoNombre: 'Compras',
-              estatus: 0,
-              version: 1,
-            },
-            { status: 201 },
-          );
-        },
-      ),
+      http.post('*/api/v1/admin/empresas/sucursales/s-1/departamentos/d-1', () => {
+        asignado = true;
+        return HttpResponse.json(
+          {
+            sucursalId: 's-1',
+            departamentoId: 'd-1',
+            departamentoClave: 'D01',
+            departamentoNombre: 'Compras',
+            estatus: 0,
+            version: 1,
+          },
+          { status: 201 },
+        );
+      }),
     );
 
     render(<SucursalDetalle />, { wrapper: createQueryWrapper() });
 
-    await waitFor(() => expect(screen.getByText(/no hay departamentos asignados/i)).toBeInTheDocument());
+    await waitFor(() =>
+      expect(screen.getByText(/no hay departamentos asignados/i)).toBeInTheDocument(),
+    );
 
     // Abrir modal de asignación
     const botonAbrir = screen.getByRole('button', { name: /asignar primer departamento/i });
@@ -308,14 +297,14 @@ describe('<SucursalDetalle> — smoke', () => {
 
     render(<SucursalDetalle />, { wrapper: createQueryWrapper() });
 
-    await waitFor(() => expect(screen.getByText('S01')).toBeInTheDocument());
+    await waitFor(() =>
+      expect(screen.getByRole('heading', { name: 'S01', level: 1 })).toBeInTheDocument(),
+    );
 
     const empleadosTab = screen.getByRole('tab', { name: /^empleados$/i });
     fireEvent.click(empleadosTab);
 
-    await waitFor(() =>
-      expect(screen.getByText('Carlos López')).toBeInTheDocument(),
-    );
+    await waitFor(() => expect(screen.getByText('Carlos López')).toBeInTheDocument());
     expect(screen.getByText('EMP001')).toBeInTheDocument();
     expect(screen.getByText(/gerente general/i)).toBeInTheDocument();
     expect(screen.getByText('Acceso ERP')).toBeInTheDocument();
@@ -324,21 +313,30 @@ describe('<SucursalDetalle> — smoke', () => {
   });
 
   it('vincula desde la sucursal a un empleado sin sucursal de la empresa activa', async () => {
-    setAuth([
-      PermisosCanonicos.CompartidoCatalogosLeer,
-      PermisosCanonicos.AdminEmpleadosGestionar,
-    ]);
+    setAuth([PermisosCanonicos.CompartidoCatalogosLeer, PermisosCanonicos.AdminEmpleadosGestionar]);
     let sucursalAsignada: string | null = null;
     mswServer.use(
-      http.get('*/api/v1/catalogos/empleados', () => HttpResponse.json({
-        items: [{
-          id: 'emp-libre', empresaId: 'e-1', clave: 'EMP003', nombre: 'Lucía Pérez',
-          email: 'lucia@millet.com', puestoId: null, departamentoId: null,
-          sucursalId: sucursalAsignada, usuarioId: null, estatus: 0,
-        }], total: 1,
-      })),
+      http.get('*/api/v1/catalogos/empleados', () =>
+        HttpResponse.json({
+          items: [
+            {
+              id: 'emp-libre',
+              empresaId: 'e-1',
+              clave: 'EMP003',
+              nombre: 'Lucía Pérez',
+              email: 'lucia@millet.com',
+              puestoId: null,
+              departamentoId: null,
+              sucursalId: sucursalAsignada,
+              usuarioId: null,
+              estatus: 0,
+            },
+          ],
+          total: 1,
+        }),
+      ),
       http.patch('*/api/v1/admin/empleados/emp-libre', async ({ request }) => {
-        const payload = await request.json() as { sucursalId: string };
+        const payload = (await request.json()) as { sucursalId: string };
         sucursalAsignada = payload.sucursalId;
         return HttpResponse.json({ id: 'emp-libre', sucursalId: sucursalAsignada });
       }),
@@ -346,8 +344,12 @@ describe('<SucursalDetalle> — smoke', () => {
 
     render(<SucursalDetalle />, { wrapper: createQueryWrapper() });
     fireEvent.click(screen.getByRole('tab', { name: /^empleados$/i }));
-    await waitFor(() => expect(screen.getByRole('combobox', { name: 'Empleado sin sucursal' })).toBeInTheDocument());
-    fireEvent.change(screen.getByRole('combobox', { name: 'Empleado sin sucursal' }), { target: { value: 'emp-libre' } });
+    await waitFor(() =>
+      expect(screen.getByRole('combobox', { name: 'Empleado sin sucursal' })).toBeInTheDocument(),
+    );
+    fireEvent.change(screen.getByRole('combobox', { name: 'Empleado sin sucursal' }), {
+      target: { value: 'emp-libre' },
+    });
     fireEvent.click(screen.getByRole('button', { name: /vincular a esta sucursal/i }));
     await waitFor(() => expect(sucursalAsignada).toBe('s-1'));
     await waitFor(() => expect(screen.getByText('Lucía Pérez')).toBeInTheDocument());

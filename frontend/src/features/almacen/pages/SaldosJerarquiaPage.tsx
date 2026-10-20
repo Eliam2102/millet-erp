@@ -41,9 +41,7 @@ export function SaldosJerarquiaPage() {
   // Sub-almacenes del almacén elegido (client-side; catálogo chico).
   const subAlmacenes = useMemo(() => {
     const items = subAlmacenesQuery.data?.items ?? [];
-    return search.almacenId
-      ? items.filter((s) => s.almacenId === search.almacenId)
-      : items;
+    return search.almacenId ? items.filter((s) => s.almacenId === search.almacenId) : items;
   }, [subAlmacenesQuery.data, search.almacenId]);
 
   function actualizarSearch(parcial: Partial<SaldosJerarquiaSearch>) {
@@ -65,7 +63,7 @@ export function SaldosJerarquiaPage() {
   const arbolListo = modo === 'ubicacion' || !!search.articuloId;
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-5">
       <PageHeader
         titulo="Consulta jerárquica"
         descripcion="Saldos por sucursal → almacén → sub-almacén → rack, con rollup por nivel. El árbol carga cada nivel al expandirlo."
@@ -115,9 +113,7 @@ export function SaldosJerarquiaPage() {
                   <SelectValue placeholder="Todos" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value={SENTINEL_ALL}>
-                    Todos (desde la raíz)
-                  </SelectItem>
+                  <SelectItem value={SENTINEL_ALL}>Todos (desde la raíz)</SelectItem>
                   {almacenes.map((a) => (
                     <SelectItem key={a.id} value={a.id}>
                       {a.clave} · {a.nombre}
@@ -135,10 +131,7 @@ export function SaldosJerarquiaPage() {
                   })
                 }
               >
-                <SelectTrigger
-                  aria-label="Saltar a un sub-almacén"
-                  className="w-56"
-                >
+                <SelectTrigger aria-label="Saltar a un sub-almacén" className="w-56">
                   <SelectValue placeholder="Todos" />
                 </SelectTrigger>
                 <SelectContent>
@@ -184,9 +177,9 @@ export function SaldosJerarquiaPage() {
       </div>
 
       {arbolListo ? (
-        <div className="rounded-md border bg-card p-2">
+        <div className="rounded-md border bg-surface-card p-2">
           {/* Encabezado slim alineado con las columnas del árbol. */}
-          <div className="flex items-center gap-2 border-b px-2 pb-1 text-xs text-muted-foreground">
+          <div className="flex items-center gap-2 border-b px-2 pb-1 text-xs text-ink-muted">
             <span>Nodo</span>
             <span className="ml-auto">Cantidad</span>
             <span className="w-32 text-right">Valor</span>

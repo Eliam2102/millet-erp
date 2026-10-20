@@ -1,12 +1,7 @@
+import { FormCampo } from '@/components/erp/forms/FormGrid';
+import { FormSeccion } from '@/components/erp/forms/FormSeccion';
 import { erroresDeClasificacion } from '@/modules/datos-maestros/lib/clasificacion-fiscal';
-import {
-  useCallback,
-  useEffect,
-  useMemo,
-  useRef,
-  useState,
-  type ReactNode,
-} from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { useNavigate } from '@tanstack/react-router';
 import { Controller, useForm, useWatch } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -22,18 +17,15 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import {
+  SheetBody,
   Sheet,
   SheetContent,
   SheetDescription,
   SheetHeader,
   SheetTitle,
+  SheetFooter,
 } from '@/components/ui/sheet';
-import {
-  applyServerErrors,
-  esApiError,
-  useFormIdempotencyKey,
-  codigoSoporte,
-} from '@/lib/api';
+import { applyServerErrors, esApiError, useFormIdempotencyKey, codigoSoporte } from '@/lib/api';
 import {
   NuevoProveedorContext,
   type NuevoProveedorApi,
@@ -119,26 +111,21 @@ export function NuevoProveedorProvider({ children }: { children: ReactNode }) {
           setAbierto(true);
         }}
       >
-        <SheetContent
-          side="right"
-          className="w-full overflow-y-auto sm:max-w-2xl"
-        >
+        <SheetContent size="lg" side="right">
           <SheetHeader>
             <SheetTitle>Nuevo proveedor</SheetTitle>
             <SheetDescription>
-              Alta del proveedor en el catálogo cross-empresa. Datos
-              adicionales (condiciones de pago, moneda, etc.) se
-              ajustan después en el detalle.
+              Alta del proveedor en el catálogo cross-empresa. Datos adicionales (condiciones de
+              pago, moneda, etc.) se ajustan después en el detalle.
             </SheetDescription>
           </SheetHeader>
 
-          <div className="px-6 pb-6">
-            {abierto && (
-              <NuevoProveedorForm
-                onClose={cerrarConConfirm}
-                onDirtyChange={setDirty}
-              />
-            )}
+          <div className="contents">
+            <div className="contents">
+              {abierto && (
+                <NuevoProveedorForm onClose={cerrarConConfirm} onDirtyChange={setDirty} />
+              )}
+            </div>
           </div>
         </SheetContent>
       </Sheet>
@@ -151,10 +138,7 @@ interface NuevoProveedorFormProps {
   onDirtyChange: (dirty: boolean) => void;
 }
 
-function NuevoProveedorForm({
-  onClose,
-  onDirtyChange,
-}: NuevoProveedorFormProps) {
+function NuevoProveedorForm({ onClose, onDirtyChange }: NuevoProveedorFormProps) {
   const navigate = useNavigate();
   const idempotencyKey = useFormIdempotencyKey();
   const crear = useCrearProveedor();
@@ -210,13 +194,10 @@ function NuevoProveedorForm({
         onSuccess: (resp) => {
           toast.success(`Proveedor ${resp.clave} creado`);
           if (resp.estatus === EstatusCatalogo.EnRevision) {
-            toast.warning(
-              `${resp.clave} quedó en revisión: posible duplicado`,
-              {
-                description:
-                  'RFC genérico con la misma razón social que otro proveedor existente. Revísalo antes de operar con él.',
-              },
-            );
+            toast.warning(`${resp.clave} quedó en revisión: posible duplicado`, {
+              description:
+                'RFC genérico con la misma razón social que otro proveedor existente. Revísalo antes de operar con él.',
+            });
           }
           form.reset(values);
           onClose({ force: true });
@@ -248,17 +229,12 @@ function NuevoProveedorForm({
             if (error.code === 'PROVEEDOR_RFC_DUPLICADO') {
               form.setError('rfc', {
                 type: error.code,
-                message:
-                  error.problem.detail ??
-                  'Ya existe un proveedor con ese RFC.',
+                message: error.problem.detail ?? 'Ya existe un proveedor con ese RFC.',
               });
               return;
             }
             if (
-              applyServerErrors(
-                form as unknown as Parameters<typeof applyServerErrors>[0],
-                error,
-              )
+              applyServerErrors(form as unknown as Parameters<typeof applyServerErrors>[0], error)
             ) {
               return;
             }
@@ -277,170 +253,170 @@ function NuevoProveedorForm({
     <form
       onSubmit={form.handleSubmit(onSubmit)}
       noValidate
-      className="space-y-4 rounded-md border bg-card p-4"
+      className="flex min-h-0 flex-1 flex-col overflow-hidden"
     >
-      <FormRow
-        label="Clave"
-        required
-        hint="Identificador corto. Inmutable después de creado."
-        error={form.formState.errors.clave?.message}
-      >
-        <Input
-          autoFocus
-          maxLength={20}
-          placeholder="P-001"
-          className="font-mono"
-          {...form.register('clave')}
-        />
-      </FormRow>
-
-      <FormRow
-        label="Razón social"
-        required
-        error={form.formState.errors.razonSocial?.message}
-      >
-        <Input
-          maxLength={254}
-          placeholder="Acme S.A. de C.V."
-          {...form.register('razonSocial')}
-        />
-      </FormRow>
-
-      {extranjero ? (
-        <p className="rounded-md bg-surface-subtle p-3 text-xs text-ink-muted">
-          Un proveedor extranjero no tiene RFC: se guarda el RFC genérico XEXX010101000.
-        </p>
-      ) : (
-        <FormRow
-          label="RFC"
-          required
-          hint="12 caracteres (persona moral) o 13 (persona física)."
-          error={form.formState.errors.rfc?.message}
-        >
-          <UppercaseInput
-            maxLength={13}
-            placeholder="ACM010101ABC"
-            className="font-mono"
-            {...form.register('rfc')}
-          />
-        </FormRow>
-      )}
-
-      <FormRow
-        label="Tipo persona"
-        required
-        error={form.formState.errors.tipoPersona?.message}
-      >
-        <Controller
-          name="tipoPersona"
-          control={form.control}
-          render={({ field }) => (
-            <Select
-              value={String(field.value)}
-              onValueChange={(v) => {
-                field.onChange(Number(v));
-                // El régimen depende del tipo de persona: se vuelve a elegir.
-                setFiscal((f) => ({ ...f, regimenFiscalCodigo: null }));
-              }}
+      <SheetBody>
+        <FormSeccion titulo="Datos del registro">
+          <FormCampo span={6}>
+            <FormRow
+              label="Clave"
+              required
+              hint="Identificador corto. Inmutable después de creado."
+              error={form.formState.errors.clave?.message}
             >
-              <SelectTrigger>
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value={String(TipoPersonaProveedor.Moral)}>
-                  Moral
-                </SelectItem>
-                <SelectItem value={String(TipoPersonaProveedor.Fisica)}>
-                  Física
-                </SelectItem>
-              </SelectContent>
-            </Select>
-          )}
-        />
-      </FormRow>
+              <Input
+                autoFocus
+                maxLength={20}
+                placeholder="P-001"
+                className="font-mono"
+                {...form.register('clave')}
+              />
+            </FormRow>
+          </FormCampo>
 
-      <FormRow
-        label="Email"
-        hint="Opcional."
-        error={form.formState.errors.email?.message}
-      >
-        <Controller
-          name="email"
-          control={form.control}
-          render={({ field }) => (
-            <Input
-              type="email"
-              maxLength={254}
-              placeholder="contacto@proveedor.com"
-              value={field.value ?? ''}
-              onChange={(e) =>
-                field.onChange(
-                  e.target.value.length > 0 ? e.target.value : null,
-                )
-              }
-            />
-          )}
-        />
-      </FormRow>
+          <FormCampo span={6}>
+            <FormRow
+              label="Razón social"
+              required
+              error={form.formState.errors.razonSocial?.message}
+            >
+              <Input
+                maxLength={254}
+                placeholder="Acme S.A. de C.V."
+                {...form.register('razonSocial')}
+              />
+            </FormRow>
+          </FormCampo>
 
-      <FormRow
-        label="Teléfono"
-        hint="Opcional."
-        error={form.formState.errors.telefono?.message}
-      >
-        <Controller
-          name="telefono"
-          control={form.control}
-          render={({ field }) => (
-            <Input
-              maxLength={50}
-              placeholder="+52 55 1234 5678"
-              value={field.value ?? ''}
-              onChange={(e) =>
-                field.onChange(
-                  e.target.value.length > 0 ? e.target.value : null,
-                )
-              }
-            />
-          )}
-        />
-      </FormRow>
+          <FormCampo span={12}>
+            {extranjero ? (
+              <p className="rounded-md bg-surface-subtle p-3 text-xs text-ink-muted">
+                Un proveedor extranjero no tiene RFC: se guarda el RFC genérico XEXX010101000.
+              </p>
+            ) : (
+              <FormRow
+                label="RFC"
+                required
+                hint="12 caracteres (persona moral) o 13 (persona física)."
+                error={form.formState.errors.rfc?.message}
+              >
+                <UppercaseInput
+                  maxLength={13}
+                  placeholder="ACM010101ABC"
+                  className="font-mono"
+                  {...form.register('rfc')}
+                />
+              </FormRow>
+            )}
+          </FormCampo>
 
-      <fieldset className="space-y-3 border-t pt-3">
-        <legend className="text-sm font-semibold">Clasificación fiscal (opcional)</legend>
-        <ClasificacionFiscalCampos
-          idBase="nuevo-proveedor"
-          valores={fiscal}
-          onChange={(v) => {
-            setFiscal(v);
-            // El zod del form necesita el origen para decidir si el RFC es obligatorio.
-            form.setValue('origen', v.origen);
-            if (v.origen === OrigenProveedor.Extranjero) {
-              form.setValue('rfc', '');
-              form.clearErrors('rfc');
-            }
-            setErroresFiscal({});
-            onDirtyChange(true);
-          }}
-          errores={erroresFiscal}
-          disabled={crear.isPending}
-          tipoPersona={tipoPersona}
-        />
-      </fieldset>
+          <FormCampo span={6}>
+            <FormRow
+              label="Tipo persona"
+              required
+              error={form.formState.errors.tipoPersona?.message}
+            >
+              <Controller
+                name="tipoPersona"
+                control={form.control}
+                render={({ field }) => (
+                  <Select
+                    value={String(field.value)}
+                    onValueChange={(v) => {
+                      field.onChange(Number(v));
+                      // El régimen depende del tipo de persona: se vuelve a elegir.
+                      setFiscal((f) => ({ ...f, regimenFiscalCodigo: null }));
+                    }}
+                  >
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value={String(TipoPersonaProveedor.Moral)}>Moral</SelectItem>
+                      <SelectItem value={String(TipoPersonaProveedor.Fisica)}>Física</SelectItem>
+                    </SelectContent>
+                  </Select>
+                )}
+              />
+            </FormRow>
+          </FormCampo>
 
-      <div className="flex flex-wrap items-center justify-end gap-2 border-t pt-3">
-        <Button
-          type="button"
-          variant="ghost"
-          onClick={() => onClose()}
-          disabled={crear.isPending}
-        >
+          <FormCampo span={6}>
+            <FormRow label="Email" hint="Opcional." error={form.formState.errors.email?.message}>
+              <Controller
+                name="email"
+                control={form.control}
+                render={({ field }) => (
+                  <Input
+                    type="email"
+                    maxLength={254}
+                    placeholder="contacto@proveedor.com"
+                    value={field.value ?? ''}
+                    onChange={(e) =>
+                      field.onChange(e.target.value.length > 0 ? e.target.value : null)
+                    }
+                  />
+                )}
+              />
+            </FormRow>
+          </FormCampo>
+
+          <FormCampo span={6}>
+            <FormRow
+              label="Teléfono"
+              hint="Opcional."
+              error={form.formState.errors.telefono?.message}
+            >
+              <Controller
+                name="telefono"
+                control={form.control}
+                render={({ field }) => (
+                  <Input
+                    maxLength={50}
+                    placeholder="+52 55 1234 5678"
+                    value={field.value ?? ''}
+                    onChange={(e) =>
+                      field.onChange(e.target.value.length > 0 ? e.target.value : null)
+                    }
+                  />
+                )}
+              />
+            </FormRow>
+          </FormCampo>
+
+          <FormCampo span={12}>
+            <fieldset className="space-y-3 border-t pt-3">
+              <legend className="text-sm font-semibold">Clasificación fiscal (opcional)</legend>
+              <ClasificacionFiscalCampos
+                idBase="nuevo-proveedor"
+                valores={fiscal}
+                onChange={(v) => {
+                  setFiscal(v);
+                  // El zod del form necesita el origen para decidir si el RFC es obligatorio.
+                  form.setValue('origen', v.origen);
+                  if (v.origen === OrigenProveedor.Extranjero) {
+                    form.setValue('rfc', '');
+                    form.clearErrors('rfc');
+                  }
+                  setErroresFiscal({});
+                  onDirtyChange(true);
+                }}
+                errores={erroresFiscal}
+                disabled={crear.isPending}
+                tipoPersona={tipoPersona}
+              />
+            </fieldset>
+          </FormCampo>
+        </FormSeccion>
+      </SheetBody>
+      <SheetFooter>
+        <Button type="button" variant="ghost" onClick={() => onClose()} disabled={crear.isPending}>
           Cancelar
         </Button>
         <Button type="submit" disabled={crear.isPending}>
           {crear.isPending ? 'Creando…' : 'Crear proveedor'}
         </Button>
-      </div>
+      </SheetFooter>
     </form>
   );
 }
@@ -465,9 +441,7 @@ function FormRow({ label, required, hint, error, children }: FormRowProps) {
         )}
       </label>
       {children}
-      {hint != null && error == null && (
-        <p className="text-xs text-ink-muted">{hint}</p>
-      )}
+      {hint != null && error == null && <p className="text-xs text-ink-muted">{hint}</p>}
       {error != null && (
         <p role="alert" className="text-xs text-danger-fg">
           {error}

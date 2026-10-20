@@ -29,7 +29,7 @@ export function PreferenciasPanel({ usuarioId }: PreferenciasPanelProps) {
       <EmptyState
         icon={<Settings2 className="h-10 w-10" />}
         title="Preferencias del usuario"
-        description="Las preferencias del usuario llegan en el siguiente PR."
+        description="La configuración de preferencias aún no está disponible."
       />
     </div>
   );

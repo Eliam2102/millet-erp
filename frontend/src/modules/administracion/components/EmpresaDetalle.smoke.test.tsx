@@ -57,10 +57,7 @@ beforeEach(() => {
     user: { id: 'u-1', email: 'a@b.com', nombre: 'Admin' },
     empresas: [],
     currentEmpresaId: 'e-1',
-    permisos: [
-      PermisosCanonicos.AdminEmpresasLeer,
-      PermisosCanonicos.AdminEmpresasEditar,
-    ],
+    permisos: [PermisosCanonicos.AdminEmpresasLeer, PermisosCanonicos.AdminEmpresasEditar],
     errorMessage: null,
   });
 });
@@ -81,22 +78,18 @@ afterEach(() => {
 describe('<EmpresaDetalle> — smoke', () => {
   it('renderiza el header con RFC y el form de datos generales, sin tabs', async () => {
     mswServer.use(
-      http.get('*/api/v1/admin/empresas/e-1', () =>
-        HttpResponse.json(EMPRESA_DETALLE),
-      ),
+      http.get('*/api/v1/admin/empresas/e-1', () => HttpResponse.json(EMPRESA_DETALLE)),
     );
 
     render(<EmpresaDetalle />, { wrapper: createQueryWrapper() });
 
     await waitFor(() =>
-      expect(screen.getByText('BLO902640MHI')).toBeInTheDocument(),
+      expect(screen.getByRole('heading', { name: 'BLO902640MHI', level: 1 })).toBeInTheDocument(),
     );
 
     // Ya no hay tabs — la pantalla es solo "Datos".
     expect(screen.queryAllByRole('tab')).toHaveLength(0);
-    expect(
-      screen.getByDisplayValue('Bloques de Occidente S.A. de C.V.'),
-    ).toBeInTheDocument();
+    expect(screen.getByDisplayValue('Bloques de Occidente S.A. de C.V.')).toBeInTheDocument();
     expect(screen.getByDisplayValue('601')).toBeInTheDocument();
   });
 });

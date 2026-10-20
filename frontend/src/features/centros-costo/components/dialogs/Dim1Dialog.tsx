@@ -18,9 +18,7 @@ import { manejarErrorDialogoCatalogo } from './catalogo-dialog-helpers';
 import { Field } from '../internal/Field';
 
 /** Crear o editar una Dimensión 1 (nivel raíz — sin padre). */
-export type Dim1DialogModo =
-  | { tipo: 'crear' }
-  | { tipo: 'editar'; id: string };
+export type Dim1DialogModo = { tipo: 'crear' } | { tipo: 'editar'; id: string };
 
 interface Dim1DialogProps {
   open: boolean;
@@ -33,10 +31,7 @@ export function Dim1Dialog({ open, onOpenChange, modo }: Dim1DialogProps) {
   const queryClient = useQueryClient();
   const etiqueta = etiquetaNivel('dim1', 'configuracion');
 
-  const detalle = useDetalleCatalogo<Dim1Detalle>(
-    'dim1',
-    modo.tipo === 'editar' ? modo.id : null,
-  );
+  const detalle = useDetalleCatalogo<Dim1Detalle>('dim1', modo.tipo === 'editar' ? modo.id : null);
   const crear = useCrearCatalogo<Dim1Values>('dim1');
   const editar = useEditarCatalogo<Dim1Values>('dim1');
 
@@ -56,10 +51,13 @@ export function Dim1Dialog({ open, onOpenChange, modo }: Dim1DialogProps) {
       return;
     }
     if (modo.tipo === 'editar' && detalle.data) {
-      form.reset({
-        clave: detalle.data.data.clave,
-        nombre: detalle.data.data.nombre,
-      }, { keepDirtyValues: cargadoEnEstaApertura.current });
+      form.reset(
+        {
+          clave: detalle.data.data.clave,
+          nombre: detalle.data.data.nombre,
+        },
+        { keepDirtyValues: cargadoEnEstaApertura.current },
+      );
       cargadoEnEstaApertura.current = true;
     }
     if (modo.tipo === 'crear') {
@@ -71,14 +69,12 @@ export function Dim1Dialog({ open, onOpenChange, modo }: Dim1DialogProps) {
   function onSubmit(values: Dim1Values) {
     const opciones = {
       onSuccess: () => {
-        toast.success(
-          modo.tipo === 'crear' ? `${etiqueta} creada` : `${etiqueta} actualizada`,
-        );
+        toast.success(modo.tipo === 'crear' ? `${etiqueta} creada` : `${etiqueta} actualizada`);
         onOpenChange(false);
       },
       onError: (error: unknown) =>
         manejarErrorDialogoCatalogo(error, {
-          form: form as unknown as import("@/lib/api/apply-server-errors").FormConSetError,
+          form: form as unknown as import('@/lib/api/apply-server-errors').FormConSetError,
           campoUnicidad: 'clave',
           conflictDialog,
           queryClient,
@@ -98,10 +94,21 @@ export function Dim1Dialog({ open, onOpenChange, modo }: Dim1DialogProps) {
       onSubmit={form.handleSubmit(onSubmit)}
       submitting={crear.isPending || editar.isPending}
     >
-      <Field label="Clave" htmlFor="dim1-clave" required error={form.formState.errors.clave?.message}>
+      <Field
+        label="Clave"
+        htmlFor="dim1-clave"
+        required
+        error={form.formState.errors.clave?.message}
+      >
         <Input {...form.register('clave')} id="dim1-clave" maxLength={10} autoFocus />
       </Field>
-      <Field label="Nombre" htmlFor="dim1-nombre" full required error={form.formState.errors.nombre?.message}>
+      <Field
+        label="Nombre"
+        htmlFor="dim1-nombre"
+        full
+        required
+        error={form.formState.errors.nombre?.message}
+      >
         <Input {...form.register('nombre')} id="dim1-nombre" maxLength={254} />
       </Field>
     </CatalogoDialogShell>

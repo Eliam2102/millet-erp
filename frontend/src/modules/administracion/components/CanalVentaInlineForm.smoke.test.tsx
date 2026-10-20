@@ -27,7 +27,7 @@ describe('<CanalVentaInlineForm> — smoke (FAC-ING-PR3)', () => {
     ).toBeInTheDocument();
     const form = container.querySelector('form');
     expect(form?.className).toMatch(/border-dashed/);
-    expect(form?.className).not.toMatch(/border-amber/);
+    expect(form?.className).not.toMatch(/border-warning/);
   });
 
   it('modo editar: muestra "Guardar cambios" + border amber + claveAw prellenada', () => {
@@ -42,7 +42,7 @@ describe('<CanalVentaInlineForm> — smoke (FAC-ING-PR3)', () => {
       screen.getByRole('form', { name: /editar canal tienda cancún/i }),
     ).toBeInTheDocument();
     const form = container.querySelector('form');
-    expect(form?.className).toMatch(/border-amber/);
+    expect(form?.className).toMatch(/border-warning/);
     expect(screen.getByDisplayValue('CANCUN')).toBeInTheDocument();
   });
 

@@ -8,9 +8,9 @@ import { useAuthStore } from '@/lib/auth/auth-store';
 import type { OrdenCompraDetalleResponse } from '@/features/compras/ordenes/api/types';
 
 /**
- * Fase E PR3 — Centro de costo (Dim3) en la línea de OC. El campo es CONDICIONAL
- * (ADR-0050): línea MANUAL → picker ABIERTO por proxy (el comprador elige);
- * línea HEREDADA de RQ → display BLOQUEADO read-only (1:1 de la RQ, no editable).
+ * Fase E PR3 — Centro de costo (Dim3) en la partida de OC. El campo es CONDICIONAL
+ * (ADR-0050): partida MANUAL → picker ABIERTO por proxy (el comprador elige);
+ * partida HEREDADA de RQ → display BLOQUEADO read-only (1:1 de la RQ, no editable).
  */
 
 const OC = {

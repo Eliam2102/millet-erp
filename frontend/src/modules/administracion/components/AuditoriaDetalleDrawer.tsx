@@ -1,3 +1,11 @@
+import {
+  Table,
+  TableHeader,
+  TableRow,
+  TableHead,
+  TableBody,
+  TableCell,
+} from '@/components/ui/table';
 import { useMemo } from 'react';
 import { History } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
@@ -9,6 +17,7 @@ import {
   SheetFooter,
   SheetHeader,
   SheetTitle,
+  SheetBody,
 } from '@/components/ui/sheet';
 import { cn } from '@/lib/utils';
 import type { AuditLogEntryResponse } from '@/modules/administracion/api';
@@ -49,10 +58,9 @@ export function AuditoriaDetalleDrawer({
   lookups,
 }: AuditoriaDetalleDrawerProps) {
   const open = entry != null;
-  const esBorrado = entry != null && (
-    entry.operacion.toLowerCase() === 'eliminar' ||
-    entry.operacion.toLowerCase() === 'borrar'
-  );
+  const esBorrado =
+    entry != null &&
+    (entry.operacion.toLowerCase() === 'eliminar' || entry.operacion.toLowerCase() === 'borrar');
   const parsed = useMemo(
     () => parsearCambios(entry?.cambios, esBorrado),
     [entry?.cambios, esBorrado],
@@ -62,7 +70,11 @@ export function AuditoriaDetalleDrawer({
 
   const actorNombre = useMemo(() => {
     if (!entry) return 'Sistema';
-    if (entry.actorNombre && !entry.actorNombre.startsWith('Usuario ') && !isUuid(entry.actorNombre)) {
+    if (
+      entry.actorNombre &&
+      !entry.actorNombre.startsWith('Usuario ') &&
+      !isUuid(entry.actorNombre)
+    ) {
       return entry.actorNombre;
     }
     if (entry.usuarioNombre && !isUuid(entry.usuarioNombre)) {
@@ -118,20 +130,26 @@ export function AuditoriaDetalleDrawer({
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
       <SheetContent
+        size="lg"
         side="right"
-        className="w-full sm:max-w-2xl flex flex-col"
+        className="  flex flex-col"
         aria-describedby="auditoria-drawer-desc"
       >
         <SheetHeader>
           <SheetTitle className="text-lg font-semibold">
             {entry != null
-              ? humanizarTextoConLookups(entry.resumen || `${entry.operacion} · ${entry.entidad}`, lookups)
+              ? humanizarTextoConLookups(
+                  entry.resumen || `${entry.operacion} · ${entry.entidad}`,
+                  lookups,
+                )
               : 'Detalle'}
           </SheetTitle>
           <SheetDescription id="auditoria-drawer-desc" asChild>
             <div className="flex flex-wrap items-center justify-between gap-2 pt-1">
-              <span className="text-xs text-muted-foreground tabular-nums">
-                {entry != null ? formatTimestampDetalle(entry.timestamp) : 'Selecciona una entrada del log.'}
+              <span className="text-xs text-ink-muted tabular-nums">
+                {entry != null
+                  ? formatTimestampDetalle(entry.timestamp)
+                  : 'Selecciona una entrada del log.'}
               </span>
               {entry?.aggregateRootId && onFiltrarRegistro && (
                 <Button
@@ -148,110 +166,101 @@ export function AuditoriaDetalleDrawer({
             </div>
           </SheetDescription>
         </SheetHeader>
+        <SheetBody>
+          {entry != null && (
+            <div className="flex-1 overflow-y-auto px-6 py-4 space-y-6">
+              {/* Metadatos del Actor */}
+              <section className="space-y-2">
+                <h3 className="text-xs font-semibold uppercase tracking-wider text-ink-muted">
+                  Quién realizó la acción
+                </h3>
+                <div className="rounded-md border bg-surface-card p-3">
+                  <dl className="grid grid-cols-[max-content_1fr] gap-x-4 gap-y-2 text-sm">
+                    <dt className="text-ink-muted">Actor</dt>
+                    <dd className="flex items-center gap-2">
+                      <span className="font-medium text-ink">{actorNombre}</span>
+                      <Badge variant={actorTipo === 'usuario' ? 'success' : 'neutral'}>
+                        {entry.actorTipo || 'usuario'}
+                      </Badge>
+                    </dd>
 
-        {entry != null && (
-          <div className="flex-1 overflow-y-auto px-6 py-4 space-y-6">
-            {/* Metadatos del Actor */}
-            <section className="space-y-2">
-              <h3 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-                Quién realizó la acción
-              </h3>
-              <div className="rounded-md border bg-card p-3">
-                <dl className="grid grid-cols-[max-content_1fr] gap-x-4 gap-y-2 text-sm">
-                  <dt className="text-muted-foreground">Actor</dt>
-                  <dd className="flex items-center gap-2">
-                    <span className="font-medium text-foreground">
-                      {actorNombre}
-                    </span>
-                    <Badge
-                      variant={actorTipo === 'usuario' ? 'secondary' : 'outline'}
-                      className="text-[10px] px-1.5 py-0 capitalize"
-                    >
-                      {entry.actorTipo || 'usuario'}
-                    </Badge>
-                  </dd>
+                    <dt className="text-ink-muted">Correo</dt>
+                    <dd className="text-ink">
+                      {entry.actorEmail ||
+                        (entry.usuarioId ? lookups?.usuariosEmail?.[entry.usuarioId] : null) ||
+                        'No aplica'}
+                    </dd>
 
-                  <dt className="text-muted-foreground">Correo</dt>
-                  <dd className="text-foreground">
-                    {entry.actorEmail || (entry.usuarioId ? lookups?.usuariosEmail?.[entry.usuarioId] : null) || 'No aplica'}
-                  </dd>
+                    <dt className="text-ink-muted">Origen</dt>
+                    <dd className="text-ink">{entry.origen || 'No aplica'}</dd>
+                  </dl>
+                </div>
+              </section>
 
-                  <dt className="text-muted-foreground">Origen</dt>
-                  <dd className="text-foreground">
-                    {entry.origen || 'No aplica'}
-                  </dd>
-                </dl>
-              </div>
-            </section>
+              {/* Metadatos del Registro */}
+              <section className="space-y-2">
+                <h3 className="text-xs font-semibold uppercase tracking-wider text-ink-muted">
+                  Registro afectado
+                </h3>
+                <div className="rounded-md border bg-surface-card p-3">
+                  <dl className="grid grid-cols-[max-content_1fr] gap-x-4 gap-y-2 text-sm">
+                    <dt className="text-ink-muted">Registro</dt>
+                    <dd className="font-medium text-ink">{registroLabel}</dd>
 
-            {/* Metadatos del Registro */}
-            <section className="space-y-2">
-              <h3 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-                Registro afectado
-              </h3>
-              <div className="rounded-md border bg-card p-3">
-                <dl className="grid grid-cols-[max-content_1fr] gap-x-4 gap-y-2 text-sm">
-                  <dt className="text-muted-foreground">Registro</dt>
-                  <dd className="font-medium text-foreground">
-                    {registroLabel}
-                  </dd>
+                    <dt className="text-ink-muted">Módulo</dt>
+                    <dd className="text-ink">{entry.modulo}</dd>
 
-                  <dt className="text-muted-foreground">Módulo</dt>
-                  <dd className="text-foreground">{entry.modulo}</dd>
+                    <dt className="text-ink-muted">Entidad</dt>
+                    <dd className="text-ink">{entry.entidad}</dd>
 
-                  <dt className="text-muted-foreground">Entidad</dt>
-                  <dd className="text-foreground">{entry.entidad}</dd>
+                    <dt className="text-ink-muted">Acción</dt>
+                    <dd>
+                      <Badge variant="neutral">{entry.operacion}</Badge>
+                    </dd>
 
-                  <dt className="text-muted-foreground">Acción</dt>
-                  <dd>
-                    <Badge variant="outline" className="text-xs capitalize">
-                      {entry.operacion}
-                    </Badge>
-                  </dd>
+                    <dt className="text-ink-muted">Sucursal</dt>
+                    <dd className="text-ink font-medium">{sucursalNombre}</dd>
+                  </dl>
+                </div>
+              </section>
 
-                  <dt className="text-muted-foreground">Sucursal</dt>
-                  <dd className="text-foreground font-medium">
-                    {sucursalNombre}
-                  </dd>
-                </dl>
-              </div>
-            </section>
-
-            {/* Cambios */}
-            <section className="space-y-2">
-              <h3 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-                Detalle de cambios
-              </h3>
-              {parsed.kind === 'diff' && <CamposDiffTable diff={parsed.diff} esBorrado={parsed.esBorrado} lookups={lookups} />}
-              {parsed.kind === 'objeto' && (
-                <CamposValorTable value={parsed.value} titulo={parsed.titulo} lookups={lookups} />
-              )}
-              {parsed.kind === 'empty' && (
-                <p
-                  data-testid="auditoria-cambios-vacio"
-                  className="text-sm text-muted-foreground rounded-md border border-dashed p-4 text-center"
-                >
-                  Sin cambios de atributos registrados.
-                </p>
-              )}
-              {parsed.kind === 'raw' && (
-                <p
-                  data-testid="auditoria-cambios-raw"
-                  className="text-sm text-muted-foreground rounded-md border border-dashed p-4 text-center"
-                >
-                  No fue posible interpretar el detalle de este cambio.
-                </p>
-              )}
-            </section>
-          </div>
-        )}
-
+              {/* Cambios */}
+              <section className="space-y-2">
+                <h3 className="text-xs font-semibold uppercase tracking-wider text-ink-muted">
+                  Detalle de cambios
+                </h3>
+                {parsed.kind === 'diff' && (
+                  <CamposDiffTable
+                    diff={parsed.diff}
+                    esBorrado={parsed.esBorrado}
+                    lookups={lookups}
+                  />
+                )}
+                {parsed.kind === 'objeto' && (
+                  <CamposValorTable value={parsed.value} titulo={parsed.titulo} lookups={lookups} />
+                )}
+                {parsed.kind === 'empty' && (
+                  <p
+                    data-testid="auditoria-cambios-vacio"
+                    className="text-sm text-ink-muted rounded-md border border-dashed p-4 text-center"
+                  >
+                    Sin cambios de atributos registrados.
+                  </p>
+                )}
+                {parsed.kind === 'raw' && (
+                  <p
+                    data-testid="auditoria-cambios-raw"
+                    className="text-sm text-ink-muted rounded-md border border-dashed p-4 text-center"
+                  >
+                    No fue posible interpretar el detalle de este cambio.
+                  </p>
+                )}
+              </section>
+            </div>
+          )}
+        </SheetBody>
         <SheetFooter className="border-t pt-3">
-          <Button
-            type="button"
-            variant="outline"
-            onClick={() => onOpenChange(false)}
-          >
+          <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
             Cerrar
           </Button>
         </SheetFooter>
@@ -272,10 +281,7 @@ type CambiosParsed =
  * - snapshot: { ... }, con opcional snapshotTexto: { ... }
  * - snapshot_pre_borrado: { ... }, con opcional snapshotTexto: { ... }
  */
-function parsearCambios(
-  json: string | undefined,
-  operacionEsBorrado: boolean,
-): CambiosParsed {
+function parsearCambios(json: string | undefined, operacionEsBorrado: boolean): CambiosParsed {
   if (json == null || json.trim().length === 0 || json.trim() === '{}') {
     return { kind: 'empty' };
   }
@@ -336,43 +342,44 @@ function CamposDiffTable({
   esBorrado?: boolean;
   lookups?: AuditoriaLookups;
 }) {
-  const campos = useMemo(() => construirCamposDiff(diff, esBorrado, lookups), [diff, esBorrado, lookups]);
+  const campos = useMemo(
+    () => construirCamposDiff(diff, esBorrado, lookups),
+    [diff, esBorrado, lookups],
+  );
 
   if (campos.length === 0) {
-    return (
-      <p className="text-sm text-muted-foreground">Sin cambios registrados.</p>
-    );
+    return <p className="text-sm text-ink-muted">Sin cambios registrados.</p>;
   }
 
   return (
     <div className="overflow-hidden rounded-md border">
-      <table data-testid="auditoria-cambios-diff" className="w-full text-sm">
-        <thead className="bg-muted/50">
-          <tr>
-            <th className="px-3 py-2 text-left font-medium">Campo</th>
-            <th className="px-3 py-2 text-left font-medium">Antes</th>
-            <th className="px-3 py-2 text-left font-medium">Después</th>
-          </tr>
-        </thead>
-        <tbody>
+      <Table data-testid="auditoria-cambios-diff" className="w-full text-sm">
+        <TableHeader className="bg-surface-muted/50">
+          <TableRow>
+            <TableHead className="px-3 py-2 text-left font-medium">Campo</TableHead>
+            <TableHead className="px-3 py-2 text-left font-medium">Antes</TableHead>
+            <TableHead className="px-3 py-2 text-left font-medium">Después</TableHead>
+          </TableRow>
+        </TableHeader>
+        <TableBody>
           {campos.map((c, i) => (
-            <tr
+            <TableRow
               key={c.campo}
               className={cn(
                 'border-t',
-                i % 2 === 1 && 'bg-muted/20',
-                c.cambio && 'bg-amber-50/50 dark:bg-amber-950/20',
+                i % 2 === 1 && 'bg-surface-muted/20',
+                c.cambio && 'bg-warning-bg/50 ',
               )}
             >
-              <td className="px-3 py-2 font-medium">{c.label}</td>
-              <td className="px-3 py-2 text-muted-foreground">{c.antes}</td>
-              <td className={cn('px-3 py-2', c.cambio && 'font-medium')}>
+              <TableCell className="px-3 py-2 font-medium">{c.label}</TableCell>
+              <TableCell className="px-3 py-2 text-ink-muted">{c.antes}</TableCell>
+              <TableCell className={cn('px-3 py-2', c.cambio && 'font-medium')}>
                 {c.despues}
-              </td>
-            </tr>
+              </TableCell>
+            </TableRow>
           ))}
-        </tbody>
-      </table>
+        </TableBody>
+      </Table>
     </div>
   );
 }
@@ -389,33 +396,32 @@ function CamposValorTable({
   const campos = useMemo(() => construirCamposSimple(value, lookups), [value, lookups]);
 
   if (campos.length === 0) {
-    return (
-      <p className="text-sm text-muted-foreground">Sin datos registrados.</p>
-    );
+    return <p className="text-sm text-ink-muted">Sin datos registrados.</p>;
   }
 
   return (
     <div>
-      <p className="mb-1 text-xs font-medium text-muted-foreground">
-        {titulo}
-      </p>
+      <p className="mb-1 text-xs font-medium text-ink-muted">{titulo}</p>
       <div className="overflow-hidden rounded-md border">
-        <table data-testid="auditoria-cambios-objeto" className="w-full text-sm">
-          <thead className="bg-muted/50">
-            <tr>
-              <th className="px-3 py-2 text-left font-medium">Campo</th>
-              <th className="px-3 py-2 text-left font-medium">Valor</th>
-            </tr>
-          </thead>
-          <tbody>
+        <Table data-testid="auditoria-cambios-objeto" className="w-full text-sm">
+          <TableHeader className="bg-surface-muted/50">
+            <TableRow>
+              <TableHead className="px-3 py-2 text-left font-medium">Campo</TableHead>
+              <TableHead className="px-3 py-2 text-left font-medium">Valor</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
             {campos.map((c, i) => (
-              <tr key={c.campo} className={cn('border-t', i % 2 === 1 && 'bg-muted/20')}>
-                <td className="px-3 py-2 font-medium">{c.label}</td>
-                <td className="px-3 py-2 text-muted-foreground">{c.valor}</td>
-              </tr>
+              <TableRow
+                key={c.campo}
+                className={cn('border-t', i % 2 === 1 && 'bg-surface-muted/20')}
+              >
+                <TableCell className="px-3 py-2 font-medium">{c.label}</TableCell>
+                <TableCell className="px-3 py-2 text-ink-muted">{c.valor}</TableCell>
+              </TableRow>
             ))}
-          </tbody>
-        </table>
+          </TableBody>
+        </Table>
       </div>
     </div>
   );
@@ -432,21 +438,22 @@ function construirCamposDiff(
       const par = diff[campo];
       const esObj = esObjetoPlano(par);
 
-      const antesRaw = esObj && 'antesTexto' in par && par.antesTexto != null
-        ? par.antesTexto
-        : esObj && 'antes' in par
-        ? par.antes
-        : undefined;
+      const antesRaw =
+        esObj && 'antesTexto' in par && par.antesTexto != null
+          ? par.antesTexto
+          : esObj && 'antes' in par
+            ? par.antes
+            : undefined;
 
       const despuesRaw = esBorrado
         ? 'Eliminado'
         : esObj && 'despuesTexto' in par && par.despuesTexto != null
-        ? par.despuesTexto
-        : esObj && 'despues' in par
-        ? par.despues
-        : esObj
-        ? undefined
-        : par;
+          ? par.despuesTexto
+          : esObj && 'despues' in par
+            ? par.despues
+            : esObj
+              ? undefined
+              : par;
 
       const antesStr = formatearValorCampo(antesRaw, campo, lookups);
       const despuesStr = esBorrado ? 'Eliminado' : formatearValorCampo(despuesRaw, campo, lookups);

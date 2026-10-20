@@ -13,17 +13,18 @@
 | `cuentas_por_pagar.notas-cargo.leer` / `.crear` / `.aplicar` | Auxiliar de CxP |
 | `cuentas_por_pagar.notas-cargo.autorizar` | **Dirección** (compartido con la autorización de devoluciones 8.B) |
 | `cuentas_por_pagar.proveedores.poner-revision` / `.liberar-revision` | Responsable de CxP / Encargado de área |
-| `cuentas_por_pagar.proveedores.ajustar-tolerancia` | Responsable de CxP (restringido) |
 | `cuentas_por_pagar.comprobaciones.*`, `.viaticos.*`, `.tc.*` | Según flujo (aduanales: Comercio Exterior + Dirección de Finanzas) |
 | `cuentas_por_pagar.reportes.cartera` / `.antiguedad` / `.diot` / `.tc` | Perfiles de consulta |
 | `cuentas_por_pagar.catalogos.aprobadores.administrar`, `.politicas-viaticos.administrar` | RH / Responsable de CxP |
 
 ## Configuración previa obligatoria
 
-1. **Tolerancia de conciliación por proveedor** — monto absoluto o porcentaje en
-   el master de proveedores; sin configurar, aplica el **default global de
-   $0.99 MXN**. Es la tercera tolerancia ortogonal de la triada (las otras dos:
-   cantidad por línea en la OC y cantidad por material en Almacén).
+1. **Tolerancia de conciliación por proveedor** — solo monto en MXN en el master
+   de proveedores (permiso `datos_maestros.proveedores.tolerancia-editar`); sin
+   configurar, aplica el **default global de $0.99 MXN**. Es la única tolerancia
+   de la triada: en piezas no hay tolerancia. El modo porcentaje y el permiso
+   `cuentas_por_pagar.proveedores.ajustar-tolerancia` se retiraron.
+   Actualizado 19-oct-2026 (86e3tab1k): la única tolerancia es de dinero por proveedor; fuente: plano CxP 1.7.1 y junta del 8-oct.
 2. **Master de proveedores completo** (Datos Maestros): datos fiscales,
    **datos bancarios** (los usa Tesorería al pagar), subcategoría, encargado
    default, días de pago, email para REPP. El alta es conjunta Compras+CxP.

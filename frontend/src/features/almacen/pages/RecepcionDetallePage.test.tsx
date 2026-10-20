@@ -81,16 +81,12 @@ afterEach(() => {
 describe('<RecepcionDetallePage> — nombres resueltos', () => {
   it('muestra nombres (sub-almacén, folio OC, artículo) y NO los ids crudos', async () => {
     mswServer.use(
-      http.get('*/api/v1/almacen/recepciones/r-1', () =>
-        HttpResponse.json(detalleConNombres),
-      ),
+      http.get('*/api/v1/almacen/recepciones/r-1', () => HttpResponse.json(detalleConNombres)),
     );
 
     render(<RecepcionDetallePage />, { wrapper: createQueryWrapper() });
 
-    await waitFor(() =>
-      expect(screen.getByText('ALM-CEN · Almacén Central')).toBeInTheDocument(),
-    );
+    await waitFor(() => expect(screen.getByText('ALM-CEN · Almacén Central')).toBeInTheDocument());
     expect(screen.getByText('OC-MID2026-000050')).toBeInTheDocument();
     expect(screen.getByText('Tornillo M6')).toBeInTheDocument();
 
@@ -107,7 +103,13 @@ describe('<RecepcionDetallePage> — nombres resueltos', () => {
           ...detalleConNombres,
           lineas: [
             detalleConNombres.lineas[0],
-            { ...detalleConNombres.lineas[0], id: 'l-2', posicion: 2, enRevision: true, motivoDano: 'Hojas rotas' },
+            {
+              ...detalleConNombres.lineas[0],
+              id: 'l-2',
+              posicion: 2,
+              enRevision: true,
+              motivoDano: 'Hojas rotas',
+            },
           ],
         }),
       ),
@@ -118,7 +120,7 @@ describe('<RecepcionDetallePage> — nombres resueltos', () => {
     await waitFor(() => expect(screen.getByText('En revisión')).toBeInTheDocument());
     expect(screen.getByText('Hojas rotas')).toBeInTheDocument();
     expect(
-      screen.getByText(/1 línea en material en revisión: no están disponibles hasta el dictamen/),
+      screen.getByText(/1 partida en material en revisión: no están disponibles hasta el dictamen/),
     ).toBeInTheDocument();
   });
 
@@ -167,9 +169,7 @@ describe('<RecepcionDetallePage> — nombres resueltos', () => {
 
     // CFDI resuelto: se pinta el folio fiscal del SAT, no el GUID interno.
     await waitFor(() =>
-      expect(
-        screen.getByText('5FB0F1C2-3E2A-4F0F-9E2E-2C5C2B5C1A2B'),
-      ).toBeInTheDocument(),
+      expect(screen.getByText('5FB0F1C2-3E2A-4F0F-9E2E-2C5C2B5C1A2B')).toBeInTheDocument(),
     );
     expect(screen.queryByText(CFDI_ID)).not.toBeInTheDocument();
     // Factura sin resolver: id truncado, nunca el GUID completo.

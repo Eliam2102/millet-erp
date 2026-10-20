@@ -1,3 +1,14 @@
+import { FormSeccion } from '@/components/erp/forms/FormSeccion';
+import { FormCampo, FormGrid } from '@/components/erp/forms/FormGrid';
+import { estadosOtr, estadosPartidaOtr, estadosSalidaOtr } from '../lib/estados-ui';
+import {
+  Table,
+  TableHeader,
+  TableBody,
+  TableRow,
+  TableHead,
+  TableCell,
+} from '@/components/ui/table';
 import { useState } from 'react';
 import { TriangleAlert } from 'lucide-react';
 import { Link } from '@tanstack/react-router';
@@ -8,6 +19,8 @@ import { Label } from '@/components/ui/label';
 import {
   Sheet,
   SheetContent,
+  SheetBody,
+  SheetFooter,
   SheetDescription,
   SheetHeader,
   SheetTitle,
@@ -47,8 +60,8 @@ export function OtrPanel({
         className="flex items-start gap-2 rounded-md bg-warning-note-bg px-3 py-2.5 text-warning-note-fg"
       >
         <TriangleAlert aria-hidden="true" className="size-4 shrink-0" />
-        Propiedad de datos: propuesta VILO (PEN-CE-025), por validar con Millet y Jorge. Conexión
-        real pendiente del contrato I13.4.
+        La conexión con A+W OTR está pendiente de habilitación. Consulta los envíos recibidos y sus
+        incidencias.
       </p>
       {q.data.length === 0 && (
         <p className="text-ink-muted">
@@ -73,18 +86,16 @@ export function OtrDetalle({ envio, abierto = true }: { envio: OtrEnvio; abierto
     <article className="space-y-4 rounded-lg bg-surface-card p-4 shadow-card-flat">
       <header className="flex flex-wrap items-center gap-3">
         <h3 className="font-mono font-semibold">{envio.idOrigen}</h3>
-        <Badge variant={envio.estado === 3 ? 'danger' : 'info'}>
-          {{ 1: 'Por vincular', 2: 'Vinculado', 3: 'Cancelado' }[envio.estado]} · versión{' '}
-          {envio.versionAplicada}
-        </Badge>
+        <Badge variant={estadosOtr[envio.estado].tono}>{estadosOtr[envio.estado].texto}</Badge>
+        <span className="text-xs text-ink-muted">Versión {envio.versionAplicada}</span>
       </header>
       {envio.motivoVinculacion && <p className="text-warning-fg">{envio.motivoVinculacion}</p>}
       <dl className="grid grid-cols-2 gap-3 lg:grid-cols-4">
         {Object.entries({
           Cliente: envio.contenido.cliente,
           Entrega: envio.contenido.direccionEntrega,
-          Contenedor: envio.contenido.contenedor.numero ?? '[SIN NÚMERO]',
-          Ruta: envio.contenido.contenedor.ruta ?? '[SIN RUTA]',
+          Contenedor: envio.contenido.contenedor.numero ?? 'Sin número',
+          Ruta: envio.contenido.contenedor.ruta ?? 'Sin ruta',
         }).map(([campo, valor]) => (
           <div key={campo}>
             <dt className="text-xs text-ink-muted">{campo}</dt>
@@ -93,39 +104,39 @@ export function OtrDetalle({ envio, abierto = true }: { envio: OtrEnvio; abierto
         ))}
       </dl>
       <div className="overflow-x-auto">
-        <table className="grid min-w-[720px] text-sm">
-          <caption className="pb-2 text-left font-medium">Líneas recibidas</caption>
-          <thead className="h-9 bg-surface-subtle text-left text-2xs uppercase text-ink-muted">
-            <tr className="grid h-9 grid-cols-[160px_80px_100px_80px_minmax(0,1.6fr)] items-center">
-              {['Pedido A+W', 'Posición', 'Cantidad', 'Versión', 'Estado y motivo'].map((x) => (
-                <th className="px-3" key={x}>
+        <Table className="grid min-w-0 text-sm">
+          <caption className="pb-2 text-left font-medium">Partidas recibidas</caption>
+          <TableHeader className="h-9 bg-surface-subtle text-left text-2xs uppercase text-ink-muted">
+            <TableRow className="grid h-9 grid-cols-[160px_80px_100px_80px_minmax(0,1.6fr)] items-center">
+              {['Pedido A+W', 'Partida', 'Cantidad', 'Versión', 'Estado y motivo'].map((x) => (
+                <TableHead className="px-3" key={x}>
                   {x}
-                </th>
+                </TableHead>
               ))}
-            </tr>
-          </thead>
-          <tbody>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
             {envio.lineas.map((l) => (
-              <tr
+              <TableRow
                 className="grid min-h-12 grid-cols-[160px_80px_100px_80px_minmax(0,1.6fr)] items-center border-b border-line-row"
                 key={l.id}
               >
-                <td className="px-3 font-mono">{l.numeroPedido}</td>
-                <td className="px-3 tabular-nums">{l.posicion}</td>
-                <td className="px-3 text-right tabular-nums">
+                <TableCell className="px-3 font-mono">{l.numeroPedido}</TableCell>
+                <TableCell className="px-3 tabular-nums">{l.posicion}</TableCell>
+                <TableCell className="px-3 text-right tabular-nums">
                   {l.cantidad} {l.unidad}
-                </td>
-                <td className="px-3 tabular-nums">{l.versionOrigen}</td>
-                <td className="px-3">
-                  <Badge variant={l.estado === 2 ? 'info' : 'warning'}>
-                    {{ 1: 'Pendiente', 2: 'Propuesta', 3: 'Requiere revisión' }[l.estado]}
+                </TableCell>
+                <TableCell className="px-3 tabular-nums">{l.versionOrigen}</TableCell>
+                <TableCell className="px-3">
+                  <Badge variant={estadosPartidaOtr[l.estado].tono}>
+                    {estadosPartidaOtr[l.estado].texto}
                   </Badge>
                   <p className="text-xs text-ink-muted">{l.motivo}</p>
-                </td>
-              </tr>
+                </TableCell>
+              </TableRow>
             ))}
-          </tbody>
-        </table>
+          </TableBody>
+        </Table>
       </div>
       <section className="space-y-3" aria-label="Conflictos OTR">
         <h4 className="font-medium">Conflictos</h4>
@@ -145,26 +156,8 @@ export function OtrDetalle({ envio, abierto = true }: { envio: OtrEnvio; abierto
             <span>
               {s.tipo} · versión ERP {s.versionErp} · intento {s.intento}
             </span>
-            <Badge
-              variant={
-                s.sinAcuse
-                  ? 'warning'
-                  : s.estado === 5
-                    ? 'neutral'
-                    : s.estado === 3
-                      ? 'success'
-                      : s.estado === 4
-                        ? 'danger'
-                        : s.estado === 2
-                          ? 'info'
-                          : 'warning'
-              }
-            >
-              {s.sinAcuse
-                ? 'Sin acuse'
-                : { 1: 'Pendiente', 2: 'Entregada', 3: 'Acusada', 4: 'Fallida', 5: 'Reemplazada' }[
-                    s.estado
-                  ]}
+            <Badge variant={s.sinAcuse ? 'warning' : estadosSalidaOtr[s.estado].tono}>
+              {s.sinAcuse ? 'Sin acuse' : estadosSalidaOtr[s.estado].texto}
             </Badge>
             <span className="text-xs text-ink-muted">Intentos: {s.intentos}</span>
             {s.acuseAt && (
@@ -219,8 +212,8 @@ function Conflicto({
   return (
     <div className="space-y-2 rounded-md border border-line p-3">
       <p className="font-medium">
-        {linea ? `Pedido ${linea.numeroPedido} · posición ${linea.posicion}` : c.campo} · versión
-        OTR {c.versionOrigen}
+        {linea ? `Pedido ${linea.numeroPedido} · partida ${linea.posicion}` : c.campo} · versión OTR{' '}
+        {c.versionOrigen}
       </p>
       <p>
         OTR: <span className="font-mono">{c.valorOtr}</span> · ERP:{' '}
@@ -244,13 +237,17 @@ function Conflicto({
         </p>
       ) : gestionar && c.versionOrigen === envio.versionAplicada ? (
         <>
-          <Label htmlFor={`motivo-${c.id}`}>Motivo de la decisión (5 a 500 caracteres)</Label>
-          <Input
-            id={`motivo-${c.id}`}
-            value={motivo}
-            maxLength={500}
-            onChange={(e) => setMotivo(e.target.value)}
-          />
+          <FormCampo span={6} className="space-y-1.5">
+            <Label htmlFor={`motivo-${c.id}`}>
+              Motivo de la decisión (5 a 500 caracteres) <span aria-hidden="true">*</span>
+            </Label>
+            <Input
+              id={`motivo-${c.id}`}
+              value={motivo}
+              maxLength={500}
+              onChange={(e) => setMotivo(e.target.value)}
+            />
+          </FormCampo>
           <div className="flex gap-2">
             {[true, false].map((usar) => (
               <Button
@@ -308,7 +305,7 @@ export function VincularOtrSheet({ envio, onClose }: { envio: OtrEnvio; onClose:
         if (!open) onClose();
       }}
     >
-      <SheetContent className="overflow-auto sm:max-w-xl">
+      <SheetContent size="form">
         <SheetHeader>
           <SheetTitle>Vincular {envio.idOrigen}</SheetTitle>
           <SheetDescription>
@@ -316,24 +313,31 @@ export function VincularOtrSheet({ envio, onClose }: { envio: OtrEnvio; onClose:
             envío.
           </SheetDescription>
         </SheetHeader>
-        <div className="space-y-4 p-6">
+        <SheetBody className="space-y-5">
           <p>
             {envio.contenido.cliente} · {envio.contenido.direccionEntrega}
           </p>
-          <Label htmlFor="otr-expediente">Expediente abierto</Label>
-          <select
-            className="h-ctl-xl w-full rounded-md border border-line-control bg-surface-card px-3"
-            id="otr-expediente"
-            value={expediente}
-            onChange={(e) => setExpediente(e.target.value)}
-          >
-            <option value="">Seleccione un expediente</option>
-            {candidatos.data?.map((e) => (
-              <option key={e.id} value={e.id}>
-                {e.folio}
-              </option>
-            ))}
-          </select>
+          <FormGrid>
+            {' '}
+            <FormCampo span={12} className="space-y-1.5">
+              <Label htmlFor="otr-expediente">
+                Expediente abierto <span aria-hidden="true">*</span>
+              </Label>
+              <select
+                className="h-ctl-xl w-full rounded-md border border-line-control bg-surface-card px-3"
+                id="otr-expediente"
+                value={expediente}
+                onChange={(e) => setExpediente(e.target.value)}
+              >
+                <option value="">Seleccione un expediente</option>
+                {candidatos.data?.map((e) => (
+                  <option key={e.id} value={e.id}>
+                    {e.folio}
+                  </option>
+                ))}
+              </select>
+            </FormCampo>
+          </FormGrid>
           {candidatos.isError && (
             <p role="alert">
               No se pudieron consultar los expedientes.{' '}
@@ -347,6 +351,60 @@ export function VincularOtrSheet({ envio, onClose }: { envio: OtrEnvio; onClose:
               </Button>
             </p>
           )}
+
+          {crear && (
+            <FormSeccion titulo="Abrir expediente nuevo" className="border-t border-line pt-4">
+              <FormCampo span={12} className="space-y-3">
+                <p className="text-xs text-ink-muted">
+                  Responsable del expediente <span aria-hidden="true">*</span>
+                </p>
+                {consultarUsuarios ? (
+                  <UsuarioSelector
+                    value={responsable}
+                    onChange={(id) => setResponsable(id ?? '')}
+                  />
+                ) : (
+                  <p>
+                    Usuario de la sesión. Cambiar responsable requiere permiso de consulta de
+                    usuarios.
+                  </p>
+                )}
+                <p className="text-xs text-ink-muted">
+                  Moneda <span aria-hidden="true">*</span>
+                </p>
+                <MonedaSelector value={moneda} onChange={(id) => setMoneda(id ?? '')} />
+                <p className="text-xs text-ink-muted">
+                  Se propone DDP; se validan responsable, sucursal y moneda en el ERP.
+                </p>
+                <Button
+                  variant="outline"
+                  disabled={!responsable || !moneda || accion.isPending}
+                  title={
+                    !responsable || !moneda
+                      ? 'Seleccione responsable y moneda.'
+                      : accion.isPending
+                        ? 'Abriendo expediente.'
+                        : undefined
+                  }
+                  onClick={() =>
+                    ejecutar('abrir-expediente', { responsableUsuarioId: responsable, moneda })
+                  }
+                >
+                  Abrir expediente desde envío
+                </Button>
+              </FormCampo>
+            </FormSeccion>
+          )}
+          {accion.isError && (
+            <p role="alert" className="text-danger-fg">
+              {esApiError(accion.error) ? accion.error.message : 'No se pudo vincular el envío.'}
+            </p>
+          )}
+        </SheetBody>
+        <SheetFooter>
+          <Button variant="ghost" onClick={onClose}>
+            Cancelar
+          </Button>
           <Button
             disabled={!expediente || accion.isPending}
             title={
@@ -360,50 +418,7 @@ export function VincularOtrSheet({ envio, onClose }: { envio: OtrEnvio; onClose:
           >
             Vincular envío
           </Button>
-          {crear && (
-            <section className="space-y-3 border-t border-line pt-4">
-              <h3 className="font-medium">Abrir expediente nuevo</h3>
-              <p className="text-xs text-ink-muted">Responsable del expediente</p>
-              {consultarUsuarios ? (
-                <UsuarioSelector value={responsable} onChange={(id) => setResponsable(id ?? '')} />
-              ) : (
-                <p>
-                  Usuario de la sesión. Cambiar responsable requiere permiso de consulta de
-                  usuarios.
-                </p>
-              )}
-              <p className="text-xs text-ink-muted">Moneda</p>
-              <MonedaSelector value={moneda} onChange={(id) => setMoneda(id ?? '')} />
-              <p className="text-xs text-ink-muted">
-                Se propone DDP; se validan responsable, sucursal y moneda en el ERP.
-              </p>
-              <Button
-                variant="outline"
-                disabled={!responsable || !moneda || accion.isPending}
-                title={
-                  !responsable || !moneda
-                    ? 'Seleccione responsable y moneda.'
-                    : accion.isPending
-                      ? 'Abriendo expediente.'
-                      : undefined
-                }
-                onClick={() =>
-                  ejecutar('abrir-expediente', { responsableUsuarioId: responsable, moneda })
-                }
-              >
-                Abrir expediente desde envío
-              </Button>
-            </section>
-          )}
-          {accion.isError && (
-            <p role="alert" className="text-danger-fg">
-              {esApiError(accion.error) ? accion.error.message : 'No se pudo vincular el envío.'}
-            </p>
-          )}
-          <Button variant="ghost" onClick={onClose}>
-            Cancelar
-          </Button>
-        </div>
+        </SheetFooter>
       </SheetContent>
     </Sheet>
   );

@@ -24,7 +24,7 @@ public sealed class RecepcionOcGuardEstadoTests
             Lineas: [new OcLineaLectura(Guid.NewGuid(), Guid.NewGuid(), "PZA", 100m, 0m, 10m)]);
 
         var act = () => RecepcionOcGuard.ValidarAsync(
-            oc, [], articulos: null!, recibidoPropio: new Dictionary<Guid, decimal>(), CancellationToken.None);
+            oc, [], recibidoPropio: new Dictionary<Guid, decimal>(), CancellationToken.None);
 
         var ex = await Assert.ThrowsAsync<BusinessRuleException>(act);
         Assert.Equal("RECEPCION_OC_NO_AUTORIZADA", ex.Code);

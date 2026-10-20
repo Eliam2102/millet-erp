@@ -485,7 +485,7 @@ const moduloCuentasPorPagar: NavModulo = {
         {
           label: 'Políticas de viáticos',
           description:
-            'Tabuladores por puesto y destino (Nacional / Internacional). El backend valida solicitudes contra estos topes.',
+            'Consulta los topes de viáticos por puesto y destino nacional o internacional.',
           to: '/cxp/admin/politicas-viaticos',
           icon: Sliders,
           permission: PermisosCanonicos.CuentasPorPagarCatalogosPoliticasAdministrar,
@@ -547,6 +547,7 @@ const moduloTesoreria: NavModulo = {
           ],
         },
         {
+          // eslint-disable-next-line ds/no-texto-interno -- Estado de negocio: depósitos pendientes de conciliación.
           label: 'Depósitos por confirmar',
           description:
             'Propuestas de aplicación de CxC y expectativas de Caja: confirmar el hecho bancario que dispara el REPP.',
@@ -613,7 +614,7 @@ const moduloTesoreria: NavModulo = {
         {
           label: 'Flujo de efectivo',
           description:
-            'Ingresos y egresos clasificados por concepto (Operación / Inversión / Financiamiento). ADR-0036.',
+            'Ingresos y egresos clasificados por concepto (Operación / Inversión / Financiamiento).',
           to: '/tesoreria/reportes/flujo-efectivo',
           icon: BarChart3,
           permission: PermisosCanonicos.TesoreriaReportesVer,
@@ -743,7 +744,7 @@ const moduloCuentasPorCobrar: NavModulo = {
         {
           label: 'Antigüedad de saldos',
           description:
-            'Cartera viva por buckets configurables, totales por moneda. Exportable PDF/Excel (ADR-0036).',
+            'Consulta la cartera por rangos de antigüedad y moneda, y expórtala a PDF o Excel.',
           to: '/cxc/cartera',
           icon: BarChart3,
           permission: PermisosCanonicos.CuentasPorCobrarCarteraLeer,
@@ -767,7 +768,7 @@ const moduloFacturacion: NavModulo = {
   icon: FileCheck2,
   secciones: [
     {
-      label: 'Operación',
+      label: 'Venta',
       cards: [
         {
           label: 'Pedidos facturables',
@@ -782,14 +783,6 @@ const moduloFacturacion: NavModulo = {
           ],
         },
         {
-          label: 'Excepciones de ingesta',
-          description:
-            'Pedidos que fallaron la importación (cliente no existe, producto sin clave SAT, almacén no asignado). Resolución inline.',
-          to: '/facturacion/pedidos/excepciones',
-          icon: AlertTriangle,
-          permission: PermisosCanonicos.FacturacionPedidosExcepcionesResolver,
-        },
-        {
           label: 'Facturas',
           description:
             'Bandeja de comprobantes emitidos. Cadena de relaciones CFDI, historial del pedido, descargas XML/PDF y cancelación.',
@@ -800,7 +793,7 @@ const moduloFacturacion: NavModulo = {
         {
           label: 'Anticipos',
           description:
-            'Control de Anticipos por cliente: emisión (serie FANT), vinculación a la factura final (relación 07) y saldos.',
+            'Control de Anticipos por cliente: emisión, vinculación a la factura final (relación 07) y saldos.',
           to: '/facturacion/anticipos',
           icon: HandCoins,
           permission: PermisosCanonicos.FacturacionAnticiposLeer,
@@ -808,11 +801,33 @@ const moduloFacturacion: NavModulo = {
         {
           label: 'Facturas de anticipo',
           description:
-            'Bandeja de CFDIs de anticipo (serie FANT): detalle con saldo y cadena, descargas XML/PDF, cancelación y reintento.',
+            'Bandeja de CFDIs de anticipo: detalle con saldo y cadena, descargas XML/PDF, cancelación y reintento.',
           to: '/facturacion/anticipos/facturas',
           icon: ReceiptText,
           permission: PermisosCanonicos.FacturacionAnticiposLeer,
         },
+      ],
+    },
+    {
+      label: 'Caja',
+      cards: [
+        {
+          label: 'Mi caja',
+          description:
+            'Sesión de efectivo del cajero: apertura con fondo, cobros de mostrador, movimientos y arqueo de cierre.',
+          to: '/facturacion/caja',
+          icon: Wallet,
+          permissionsAny: [
+            PermisosCanonicos.FacturacionCajaOperar,
+            PermisosCanonicos.FacturacionCajaSupervisar,
+            PermisosCanonicos.FacturacionCajaLiquidar,
+          ],
+        },
+      ],
+    },
+    {
+      label: 'Complementos de pago',
+      cards: [
         {
           label: 'Pendientes de REP',
           description: 'Revisión de pagos bancarios y emisión manual de complementos de pago.',
@@ -831,6 +846,11 @@ const moduloFacturacion: NavModulo = {
             PermisosCanonicos.FacturacionFacturasLeer,
           ],
         },
+      ],
+    },
+    {
+      label: 'Otros documentos',
+      cards: [
         {
           label: 'Carta Porte',
           description:
@@ -847,17 +867,18 @@ const moduloFacturacion: NavModulo = {
           icon: Building2,
           permission: PermisosCanonicos.FacturacionActivosAutorizar,
         },
+      ],
+    },
+    {
+      label: 'Revisión',
+      cards: [
         {
-          label: 'Mi caja',
+          label: 'Excepciones de ingesta',
           description:
-            'Sesión de efectivo del cajero: apertura con fondo, cobros de mostrador, movimientos y arqueo de cierre.',
-          to: '/facturacion/caja',
-          icon: Wallet,
-          permissionsAny: [
-            PermisosCanonicos.FacturacionCajaOperar,
-            PermisosCanonicos.FacturacionCajaSupervisar,
-            PermisosCanonicos.FacturacionCajaLiquidar,
-          ],
+            'Pedidos que fallaron la importación (cliente no existe, producto sin clave SAT, almacén no asignado). Resolución inline.',
+          to: '/facturacion/pedidos/excepciones',
+          icon: AlertTriangle,
+          permission: PermisosCanonicos.FacturacionPedidosExcepcionesResolver,
         },
       ],
     },
@@ -991,12 +1012,37 @@ const moduloContabilidad: NavModulo = {
 };
 
 const comercioExterior: NavModulo = {
-  moduloId: 'comercio-exterior', label: 'Comercio Exterior', icon: Plane,
-  secciones: [{ label: 'Operación', cards: [
-    { label: 'Expedientes', description: 'Importaciones, exportaciones y documentos con versión.', to: '/comercio-exterior/expedientes', icon: FileText, permission: PermisosCanonicos.ComercioExteriorExpedientesLeer },
-    { label: 'Bandeja OTR', description: 'Vincular envíos y revisar salidas fallidas o sin acuse.', to: '/comercio-exterior/otr', icon: FileText, permission: PermisosCanonicos.ComercioExteriorExpedientesLeer },
-    { label: 'Relación para IVA', description: 'Embarques e importaciones por periodo para revisión fiscal.', to: '/comercio-exterior/relacion-iva', icon: FileText, permission: PermisosCanonicos.ComercioExteriorRelacionIvaLeer },
-  ] }],
+  moduloId: 'comercio-exterior',
+  label: 'Comercio Exterior',
+  icon: Plane,
+  secciones: [
+    {
+      label: 'Operación',
+      cards: [
+        {
+          label: 'Expedientes',
+          description: 'Importaciones, exportaciones y documentos con versión.',
+          to: '/comercio-exterior/expedientes',
+          icon: FileText,
+          permission: PermisosCanonicos.ComercioExteriorExpedientesLeer,
+        },
+        {
+          label: 'Bandeja OTR',
+          description: 'Vincular envíos y revisar salidas fallidas o sin acuse.',
+          to: '/comercio-exterior/otr',
+          icon: FileText,
+          permission: PermisosCanonicos.ComercioExteriorExpedientesLeer,
+        },
+        {
+          label: 'Relación para IVA',
+          description: 'Embarques e importaciones por periodo para revisión fiscal.',
+          to: '/comercio-exterior/relacion-iva',
+          icon: FileText,
+          permission: PermisosCanonicos.ComercioExteriorRelacionIvaLeer,
+        },
+      ],
+    },
+  ],
 };
 
 const modulos: readonly NavModulo[] = [
@@ -1091,6 +1137,7 @@ export function contextoNavegacion(pathname: string, permisos: readonly string[]
  * leen datos protegidos. Mismo permiso que exige su endpoint en el backend.
  */
 const rutasFueraDelMenu: readonly Pick<NavCard, 'to' | 'permission' | 'permissionsAny'>[] = [
+  { to: '/sistema-diseno', permission: PermisosCanonicos.AdminParametrosEditar },
   { to: '/admin/mi-empresa', permission: PermisosCanonicos.AdminEmpresasLeer },
   { to: '/compras/trazabilidad', permission: PermisosCanonicos.ComprasOrdenesLeer },
   { to: '/compras/articulos', permission: PermisosCanonicos.ComprasOrdenesLeer },

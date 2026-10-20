@@ -1,3 +1,5 @@
+import { FormSeccion } from '@/components/erp/forms/FormSeccion';
+import { FormCampo } from '@/components/erp/forms/FormGrid';
 import { useEffect } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -11,18 +13,9 @@ import {
   useBodyScopedIdempotencyKey,
   codigoSoporte,
 } from '@/lib/api';
-import {
-  SucursalSchema,
-  type SucursalValues,
-} from '@/modules/administracion/schemas/sucursal';
-import {
-  useActualizarSucursal,
-  useCrearSucursal,
-} from '@/modules/administracion/api';
-import {
-  type SucursalResponse,
-  TipoSucursal,
-} from '@/modules/administracion/api/types';
+import { SucursalSchema, type SucursalValues } from '@/modules/administracion/schemas/sucursal';
+import { useActualizarSucursal, useCrearSucursal } from '@/modules/administracion/api';
+import { type SucursalResponse, TipoSucursal } from '@/modules/administracion/api/types';
 import { cn } from '@/lib/utils';
 
 /**
@@ -99,12 +92,7 @@ export function SucursalInlineForm({
         });
         return;
       }
-      if (
-        applyServerErrors(
-          form as unknown as Parameters<typeof applyServerErrors>[0],
-          error,
-        )
-      ) {
+      if (applyServerErrors(form as unknown as Parameters<typeof applyServerErrors>[0], error)) {
         return;
       }
       toast.error(error.problem.title, {
@@ -178,81 +166,75 @@ export function SucursalInlineForm({
       }}
       className={cn(
         'space-y-3 rounded-md border p-3',
-        esEditar
-          ? 'border-amber-400 bg-amber-50/40'
-          : 'border-dashed border-primary/40 bg-primary/5',
+        esEditar ? 'border-line bg-warning-bg/40' : 'border-dashed border-brand/40 bg-brand/5',
       )}
-      aria-label={
-        esEditar ? `Editar sucursal ${sucursal?.clave}` : 'Agregar sucursal'
-      }
+      aria-label={esEditar ? `Editar sucursal ${sucursal?.clave}` : 'Agregar sucursal'}
     >
-      <div className="grid grid-cols-1 gap-2 md:grid-cols-12">
-        <Field
-          label="Clave"
-          required
-          error={form.formState.errors.clave?.message}
-          className="md:col-span-2"
-        >
-          <Input
-            maxLength={20}
-            placeholder="MID"
-            readOnly={esEditar}
-            aria-readonly={esEditar}
-            {...form.register('clave')}
-          />
-        </Field>
-
-        <Field
-          label="Nombre"
-          required
-          error={form.formState.errors.nombre?.message}
-          className="md:col-span-4"
-        >
-          <Input
-            maxLength={254}
-            placeholder="Sucursal Mérida"
-            {...form.register('nombre')}
-          />
-        </Field>
-
-        <Field
-          label="Tipo"
-          required
-          error={form.formState.errors.tipo?.message}
-          className="md:col-span-3"
-        >
-          <select
-            aria-label="Tipo de sucursal"
-            className="flex h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-sm shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50"
-            {...form.register('tipo', { valueAsNumber: true })}
+      <FormSeccion titulo="Datos de la sucursal" className="">
+        <FormCampo span={6}>
+          <Field
+            label="Clave"
+            required
+            error={form.formState.errors.clave?.message}
+            className="md:col-span-2"
           >
-            <option value={TipoSucursal.Taller}>Taller (Corte local)</option>
-            <option value={TipoSucursal.Planta}>Planta (Maquila central)</option>
-          </select>
-        </Field>
+            <Input
+              maxLength={20}
+              placeholder="MID"
+              readOnly={esEditar}
+              aria-readonly={esEditar}
+              {...form.register('clave')}
+            />
+          </Field>
+        </FormCampo>
 
-        <Field
-          label="Clave A+W"
-          error={form.formState.errors.claveAw?.message}
-          className="md:col-span-3"
-        >
-          <Input
-            maxLength={40}
-            placeholder="CONKAL"
-            title="Clave con la que A+W refiere esta sucursal en sus pedidos. Vacía = no recibe pedidos de A+W."
-            {...form.register('claveAw')}
-          />
-        </Field>
-      </div>
+        <FormCampo span={6}>
+          <Field
+            label="Nombre"
+            required
+            error={form.formState.errors.nombre?.message}
+            className="md:col-span-4"
+          >
+            <Input maxLength={254} placeholder="Sucursal Mérida" {...form.register('nombre')} />
+          </Field>
+        </FormCampo>
+
+        <FormCampo span={6}>
+          <Field
+            label="Tipo"
+            required
+            error={form.formState.errors.tipo?.message}
+            className="md:col-span-3"
+          >
+            <select
+              aria-label="Tipo de sucursal"
+              className="flex h-9 w-full rounded-md border border-line-control bg-surface-page px-3 py-1 text-sm shadow-card-flat transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-brand disabled:cursor-not-allowed disabled:opacity-50"
+              {...form.register('tipo', { valueAsNumber: true })}
+            >
+              <option value={TipoSucursal.Taller}>Taller (Corte local)</option>
+              <option value={TipoSucursal.Planta}>Planta (Maquila central)</option>
+            </select>
+          </Field>
+        </FormCampo>
+
+        <FormCampo span={6}>
+          <Field
+            label="Clave A+W"
+            error={form.formState.errors.claveAw?.message}
+            className="md:col-span-3"
+          >
+            <Input
+              maxLength={40}
+              placeholder="CONKAL"
+              title="Clave con la que A+W refiere esta sucursal en sus pedidos. Vacía = no recibe pedidos de A+W."
+              {...form.register('claveAw')}
+            />
+          </Field>
+        </FormCampo>
+      </FormSeccion>
 
       <div className="flex items-center justify-end gap-2">
-        <Button
-          type="button"
-          variant="ghost"
-          size="sm"
-          onClick={onCancel}
-          disabled={isPending}
-        >
+        <Button type="button" variant="ghost" size="sm" onClick={onCancel} disabled={isPending}>
           <X className="mr-1 h-4 w-4" />
           Cancelar
         </Button>
@@ -285,17 +267,17 @@ interface FieldProps {
 function Field({ label, required, error, className, children }: FieldProps) {
   return (
     <div className={cn('space-y-1', className)}>
-      <label className="flex items-center gap-1 text-xs font-medium text-muted-foreground">
+      <label className="flex items-center gap-1 text-xs font-medium text-ink-muted">
         {label}
         {required && (
-          <span aria-hidden="true" className="text-rose-600">
+          <span aria-hidden="true" className="text-danger-fg">
             *
           </span>
         )}
       </label>
       {children}
       {error != null && (
-        <p role="alert" className="text-xs text-rose-600">
+        <p role="alert" className="text-xs text-danger-fg">
           {error}
         </p>
       )}

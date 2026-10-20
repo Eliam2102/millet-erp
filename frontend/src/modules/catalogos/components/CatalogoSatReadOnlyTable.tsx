@@ -1,3 +1,17 @@
+import { useState } from 'react';
+import { BarraFiltros, PaginacionTabla } from '@/components/erp';
+import { ListadoModulo } from '@/components/erp/data/ListadoModulo';
+import { Input } from '@/components/ui/input';
+import { usePaginacionLocal } from '../lib/use-paginacion-local';
+import {
+  Table,
+  TableHeader,
+  TableRow,
+  TableHead,
+  TableBody,
+  TableCell,
+} from '@/components/ui/table';
+import { PageHeader } from '@/components/erp/PageHeader';
 import { type ReactNode } from 'react';
 import { Info } from 'lucide-react';
 import { ErrorState, TableSkeleton } from '@/components/erp';
@@ -33,7 +47,8 @@ export interface CatalogoSatReadOnlyTableProps<T> {
   emptyMessage?: string;
 }
 
-const DEFAULT_BANNER = 'Catálogo SAT mantenido vía migración. No editable desde la UI.';
+const DEFAULT_BANNER =
+  'Catálogo SAT de consulta. Las actualizaciones se administran de forma centralizada.';
 
 export function CatalogoSatReadOnlyTable<T>({
   titulo,
@@ -47,9 +62,18 @@ export function CatalogoSatReadOnlyTable<T>({
   getRowKey,
   emptyMessage = 'Aún no hay registros.',
 }: CatalogoSatReadOnlyTableProps<T>) {
+  const [busqueda, setBusqueda] = useState('');
+  const filtrados = items.filter((item) =>
+    columns.some((c) =>
+      String((item as Record<string, unknown>)[c.key] ?? '')
+        .toLocaleLowerCase('es-MX')
+        .includes(busqueda.toLocaleLowerCase('es-MX')),
+    ),
+  );
+  const pagina = usePaginacionLocal(filtrados, busqueda);
   return (
-    <div className="space-y-4 p-4">
-      <h1 className="text-xl font-semibold tracking-tight">{titulo}</h1>
+    <div className="space-y-5">
+      <PageHeader titulo={<>{titulo}</>} />
 
       <div
         role="note"
@@ -59,42 +83,71 @@ export function CatalogoSatReadOnlyTable<T>({
         <p>{banner}</p>
       </div>
 
-      {isLoading ? (
-        <TableSkeleton rows={6} columns={columns.map(() => ({ width: 'w-full' as const }))} />
-      ) : isError ? (
-        <ErrorState problem={esApiError(error) ? error.problem : undefined} onRetry={onRetry} />
-      ) : items.length === 0 ? (
-        <p className="rounded-md border border-dashed bg-muted/20 p-6 text-center text-sm text-ink-muted">
-          {emptyMessage}
-        </p>
-      ) : (
-        <div className="overflow-x-auto rounded-lg bg-surface-card shadow-card-flat">
-          <table className="w-full text-sm">
-            <thead className="border-b bg-surface-subtle text-xs uppercase text-ink-muted">
-              <tr>
-                {columns.map((c) => (
-                  <th key={c.key} scope="col" className={cn('px-3 py-2 text-left', c.className)}>
-                    {c.label}
-                  </th>
-                ))}
-              </tr>
-            </thead>
-            <tbody className="divide-y">
-              {items.map((item) => (
-                <tr key={getRowKey(item)}>
+      <ListadoModulo
+        filtros={
+          <BarraFiltros
+            busqueda={
+              <Input
+                aria-label="Buscar en el catálogo"
+                placeholder={columns.map((c) => c.label).join(', ')}
+                value={busqueda}
+                onChange={(e) => setBusqueda(e.target.value)}
+              />
+            }
+            total={`${filtrados.length} registros`}
+          />
+        }
+        pie={
+          <PaginacionTabla
+            total={filtrados.length}
+            offset={pagina.offset}
+            limit={10}
+            tamanos={[]}
+            onChange={pagina.onChange}
+          />
+        }
+      >
+        {isLoading ? (
+          <TableSkeleton rows={6} columns={columns.map(() => ({ width: 'w-full' as const }))} />
+        ) : isError ? (
+          <ErrorState problem={esApiError(error) ? error.problem : undefined} onRetry={onRetry} />
+        ) : items.length === 0 ? (
+          <p className="rounded-md border border-dashed bg-surface-muted/20 p-6 text-center text-sm text-ink-muted">
+            {emptyMessage}
+          </p>
+        ) : (
+          <div className="overflow-x-auto rounded-lg bg-surface-card shadow-card-flat">
+            <Table className="w-full text-sm">
+              <TableHeader className="border-b bg-surface-subtle text-xs uppercase text-ink-muted">
+                <TableRow>
                   {columns.map((c) => (
-                    <td key={c.key} className={cn('px-3 py-2', c.className)}>
-                      {c.render
-                        ? c.render(item)
-                        : String((item as Record<string, unknown>)[c.key] ?? '')}
-                    </td>
+                    <TableHead
+                      key={c.key}
+                      scope="col"
+                      className={cn('px-3 py-2 text-left', c.className)}
+                    >
+                      {c.label}
+                    </TableHead>
                   ))}
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      )}
+                </TableRow>
+              </TableHeader>
+              <TableBody className="divide-y">
+                {pagina.visibles.map((item) => (
+                  <TableRow key={getRowKey(item)}>
+                    {columns.map((c) => (
+                      <TableCell key={c.key} className={cn('px-3 py-2', c.className)}>
+                        {c.render
+                          ? c.render(item)
+                          : String((item as Record<string, unknown>)[c.key] ?? '')}
+                      </TableCell>
+                    ))}
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </div>
+        )}
+      </ListadoModulo>
     </div>
   );
 }

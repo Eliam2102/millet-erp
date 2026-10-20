@@ -1,7 +1,7 @@
 /**
  * Helpers de presentación para los nombres resueltos en backend (ADR-0042).
  * El backend entrega `requisitanteNombre` y `departamentoNombre`/`Clave` en
- * los DTOs de lista y detalle; aquí se formatean con una etiqueta por confirmar para que
+ * los DTOs de lista y detalle; aquí se formatean con una etiqueta de dato faltante para que
  * el front nunca dependa de leer los catálogos completos.
  */
 
@@ -16,15 +16,15 @@ interface ConRequisitante {
   requisitanteId: string;
 }
 
-/** Etiqueta del departamento: `CLAVE · Nombre` si hay datos; si falta, indica Por confirmar. */
+/** Etiqueta del departamento: `CLAVE · Nombre` si hay datos; si falta, indica el dato faltante. */
 export function departamentoLabel(r: ConDepartamento): string {
   if (r.departamentoClave && r.departamentoNombre) {
     return `${r.departamentoClave} · ${r.departamentoNombre}`;
   }
-  return r.departamentoNombre?.trim() || r.departamentoClave?.trim() || '[DEPARTAMENTO POR CONFIRMAR]';
+  return r.departamentoNombre?.trim() || r.departamentoClave?.trim() || 'Sin departamento';
 }
 
-/** Nombre del requisitante resuelto en backend, o Por confirmar si no se resolvió. */
+/** Nombre del requisitante resuelto en backend, o Sin asignar si no se resolvió. */
 export function requisitanteLabel(r: ConRequisitante): string {
-  return r.requisitanteNombre?.trim() || '[REQUISITANTE POR CONFIRMAR]';
+  return r.requisitanteNombre?.trim() || 'Sin asignar';
 }

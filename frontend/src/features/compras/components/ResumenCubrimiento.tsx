@@ -28,11 +28,7 @@ export interface ResumenCubrimientoProps {
 // 2=Autorizada, 3=EnSurtido, 4=Cerrada (ver EstadoRequisicion).
 const ESTADOS_CON_CUBRIMIENTO = new Set<number>([2, 3, 4]);
 
-export function ResumenCubrimiento({
-  lineas,
-  estado,
-  className,
-}: ResumenCubrimientoProps) {
+export function ResumenCubrimiento({ lineas, estado, className }: ResumenCubrimientoProps) {
   if (!ESTADOS_CON_CUBRIMIENTO.has(estado)) return null;
   if (lineas.length === 0) return null;
 
@@ -53,12 +49,12 @@ export function ResumenCubrimiento({
         className,
       )}
       role="status"
-      aria-label={`Cubrimiento global: ${pct}% — ${cerradas} de ${total} líneas cerradas`}
+      aria-label={`Cubrimiento global: ${pct}% — ${cerradas} de ${total} partidas cerradas`}
     >
       <span className="font-semibold">Cubrimiento global:</span>
       <span className="font-mono">{pct}%</span>
-      <span className="text-muted-foreground">
-        ({cerradas} de {total} {total === 1 ? 'línea cerrada' : 'líneas cerradas'})
+      <span className="text-ink-muted">
+        ({cerradas} de {total} {total === 1 ? 'partida cerrada' : 'partidas cerradas'})
       </span>
     </div>
   );

@@ -15,3 +15,16 @@ describe('aviso de anticipo sin serie', () => {
     expect(screen.getByRole('note')).not.toHaveTextContent(/EmpresaId|SucursalId|79232ade|SERIE_NO_CONFIGURADA/);
   });
 });
+
+it('muestra el detail, los errores por campo y la acción de un problem detail', () => {
+  const error = new ApiError({ type: 'about:blank', title: 'Validación', status: 422,
+    detail: 'El pago no coincide con las facturas.',
+    errors: { FormaPagoReal: ['Selecciona una forma de pago vigente.'] },
+    errores: [{ campo: 'facturas.0.impPagado', codigo: 'saldo', mensaje: 'El importe supera el saldo.' }],
+  }, 422);
+  render(<ErrorTimbradoAviso error={error} />);
+  expect(screen.getByRole('note')).toHaveTextContent('El pago no coincide con las facturas.');
+  expect(screen.getByRole('note')).toHaveTextContent('Selecciona una forma de pago vigente.');
+  expect(screen.getByRole('note')).toHaveTextContent('El importe supera el saldo.');
+  expect(screen.getByRole('note')).toHaveTextContent('Revisa los datos indicados antes de volver a emitir');
+});

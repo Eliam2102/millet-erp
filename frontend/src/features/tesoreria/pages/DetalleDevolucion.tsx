@@ -1,3 +1,4 @@
+import { ResumenImportes } from '@/components/erp/display/ResumenImportes';
 import { useState } from 'react';
 import { useAuthStore } from '@/lib/auth/auth-store';
 import { Link, useNavigate } from '@tanstack/react-router';
@@ -90,7 +91,11 @@ export function DetalleDevolucion({ id }: { id: string }) {
     );
   }
 
-  function ejecutarConMotivo(tipo: 'rechazar' | 'cancelar', dev: DevolucionClienteResponse, motivo: string) {
+  function ejecutarConMotivo(
+    tipo: 'rechazar' | 'cancelar',
+    dev: DevolucionClienteResponse,
+    motivo: string,
+  ) {
     setAviso(null);
     const body = { id: dev.id, motivo, versionEsperada: dev.version };
     const mutacion = tipo === 'rechazar' ? rechazar : cancelar;
@@ -108,18 +113,20 @@ export function DetalleDevolucion({ id }: { id: string }) {
   }
 
   const solicitada = d.estado === EstadoDevolucionCliente.Solicitada;
-  const destinoCompleto = d.destinoBanco != null && d.destinoClabe != null && d.destinoTitular != null;
+  const destinoCompleto =
+    d.destinoBanco != null && d.destinoClabe != null && d.destinoTitular != null;
   const cliente = d.clienteRazonSocial ?? d.clienteClave ?? 'Cliente sin nombre';
   const soyYo = usuarioId != null && (d.solicitadaPor === usuarioId || d.editadaPor === usuarioId);
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-5">
       <PageHeader
+        mono
         titulo={d.folio}
         estado={<EstadoDevolucionBadge estado={d.estado} />}
         descripcion={
           <>
-            Devolución a cliente · {ORIGEN_DEVOLUCION_LABELS[d.origen]} · {cliente} · <MoneyDisplay amount={d.importe} currency={d.moneda} />
+            Devolución a cliente · {ORIGEN_DEVOLUCION_LABELS[d.origen]} · {cliente}
           </>
         }
         acciones={
@@ -142,17 +149,20 @@ export function DetalleDevolucion({ id }: { id: string }) {
       )}
 
       <div data-print="hidden" className="flex flex-wrap items-center gap-2">
-        {solicitada && puedeSolicitar && !editando && (soyYo || puedeAutorizar || d.solicitadaPor == null) && (
-          <>
-            <Button variant="outline" size="sm" onClick={() => setEditando(true)}>
-              <Pencil className="mr-1 h-3 w-3" aria-hidden="true" />
-              Editar
-            </Button>
-            <Button variant="outline" size="sm" onClick={() => setCancelando(true)}>
-              Cancelar solicitud
-            </Button>
-          </>
-        )}
+        {solicitada &&
+          puedeSolicitar &&
+          !editando &&
+          (soyYo || puedeAutorizar || d.solicitadaPor == null) && (
+            <>
+              <Button variant="outline" size="sm" onClick={() => setEditando(true)}>
+                <Pencil className="mr-1 h-3 w-3" aria-hidden="true" />
+                Editar
+              </Button>
+              <Button variant="outline" size="sm" onClick={() => setCancelando(true)}>
+                Cancelar solicitud
+              </Button>
+            </>
+          )}
         {solicitada && puedeAutorizar && !editando && (
           <>
             <Button
@@ -214,19 +224,26 @@ export function DetalleDevolucion({ id }: { id: string }) {
         <Dato etiqueta="Motivo">{d.motivo}</Dato>
       </Seccion>
 
-      <Seccion titulo="Importe">
-        <Dato etiqueta="A devolver">
-          <MoneyDisplay amount={d.importe} currency={d.moneda} strong />
-        </Dato>
-        <Dato etiqueta="Máximo del origen">
-          <MoneyDisplay amount={d.importeMaximoOrigen} currency={d.moneda} />
-        </Dato>
-        {solicitada && (
-          <Dato etiqueta="Disponible (sin contar esta)">
-            <MoneyDisplay amount={d.disponibleOrigen} currency={d.moneda} />
-          </Dato>
-        )}
-      </Seccion>
+      <section className="space-y-4 rounded-lg bg-surface-card p-4 shadow-card-flat">
+        <h2 className="text-md font-semibold">Importe a devolver</h2>
+        <ResumenImportes moneda={d.moneda} total={d.importe} />
+        <dl className="ml-auto w-full max-w-[380px] space-y-2 border-t border-line pt-3 text-sm">
+          <div className="flex justify-between gap-4">
+            <dt>Máximo del origen</dt>
+            <dd className="text-right tabular-nums">
+              <MoneyDisplay amount={d.importeMaximoOrigen} currency={d.moneda} />
+            </dd>
+          </div>
+          {solicitada && (
+            <div className="flex justify-between gap-4">
+              <dt>Disponible (sin contar esta)</dt>
+              <dd className="text-right tabular-nums">
+                <MoneyDisplay amount={d.disponibleOrigen} currency={d.moneda} />
+              </dd>
+            </div>
+          )}
+        </dl>
+      </section>
 
       <Seccion titulo="Cliente">
         <Dato etiqueta="Razón social">{d.clienteRazonSocial ?? '—'}</Dato>
@@ -254,7 +271,9 @@ export function DetalleDevolucion({ id }: { id: string }) {
           <DateTimeDisplay value={d.pagadaEn} variant="datetime" />
         </Dato>
         {d.motivoRechazo != null && <Dato etiqueta="Motivo del rechazo">{d.motivoRechazo}</Dato>}
-        {d.motivoCancelacion != null && <Dato etiqueta="Motivo de la cancelación">{d.motivoCancelacion}</Dato>}
+        {d.motivoCancelacion != null && (
+          <Dato etiqueta="Motivo de la cancelación">{d.motivoCancelacion}</Dato>
+        )}
         {d.movimientoPagoId != null && (
           <Dato etiqueta="Pago">
             <Link
@@ -268,19 +287,15 @@ export function DetalleDevolucion({ id }: { id: string }) {
         )}
       </Seccion>
 
-      <PagarDevolucionDialog
-        devolucion={d}
-        abierto={pagando}
-        onCerrar={() => setPagando(false)}
-      />
+      <PagarDevolucionDialog devolucion={d} abierto={pagando} onCerrar={() => setPagando(false)} />
       <ConfirmarAccionDialog
         open={confirmandoAutorizar}
         onOpenChange={setConfirmandoAutorizar}
         titulo="Autorizar devolución"
         resumen={
           <>
-            Autorizar la devolución de <MoneyDisplay amount={d.importe} currency={d.moneda} strong /> {d.moneda} a{' '}
-            {cliente}.
+            Autorizar la devolución de{' '}
+            <MoneyDisplay amount={d.importe} currency={d.moneda} strong /> {d.moneda} a {cliente}.
           </>
         }
         verbo="Autorizar devolución"

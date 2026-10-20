@@ -42,14 +42,14 @@ export function EmpresaSelector() {
   return (
     <div className="flex flex-col">
       <label className="flex items-center gap-2">
-        <span className="text-sm text-slate-500 dark:text-slate-400">
+        <span className="text-sm text-ink-muted">
           Empresa:
         </span>
         <select
           value={currentEmpresa?.id ?? ''}
           onChange={handleChange}
           disabled={isBusy}
-          className="rounded-md border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 px-2 py-1 text-sm disabled:opacity-50"
+          className="rounded-md border border-line-control bg-surface-card px-2 py-1 text-sm disabled:opacity-50"
         >
           {empresas.map((e) => (
             <option key={e.id} value={e.id}>
@@ -62,7 +62,7 @@ export function EmpresaSelector() {
         )}
       </label>
       {error && (
-        <span className="text-xs text-red-600 dark:text-red-400 mt-1">
+        <span className="text-xs text-danger-fg mt-1">
           {error}
         </span>
       )}

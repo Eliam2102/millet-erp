@@ -1,3 +1,7 @@
+import { FormSeccion } from '@/components/erp/forms/FormSeccion';
+import { FormGrid, FormCampo } from '@/components/erp/forms/FormGrid';
+import { SheetFooter } from '@/components/ui/sheet';
+import { SheetBody } from '@/components/ui/sheet';
 import { ConceptoSelector } from './ConceptoSelector';
 import { hoyLocalISO } from '@/lib/datetime';
 import { useState } from 'react';
@@ -28,10 +32,7 @@ export interface NuevoPagoACuentaSheetProps {
  * opcional (si se conoce, entra al gate RN-2: máximo uno abierto por
  * proveedor; el backend responde 422 <c>PAGO_CUENTA_ABIERTO_EXISTENTE</c>).
  */
-export function NuevoPagoACuentaSheet({
-  open,
-  onOpenChange,
-}: NuevoPagoACuentaSheetProps) {
+export function NuevoPagoACuentaSheet({ open, onOpenChange }: NuevoPagoACuentaSheetProps) {
   const registrar = useRegistrarPagoACuenta();
   const keyFor = useBodyScopedIdempotencyKey();
 
@@ -39,15 +40,14 @@ export function NuevoPagoACuentaSheet({
   const [conceptoId, setConceptoId] = useState<string | null>(null);
   const [cuentaId, setCuentaId] = useState<string | null>(null);
   const [monto, setMonto] = useState('');
-  const [fechaValor, setFechaValor] = useState(() =>
-    hoyLocalISO(),
-  );
+  const [fechaValor, setFechaValor] = useState(() => hoyLocalISO());
   const [referencia, setReferencia] = useState('');
   const [motivo, setMotivo] = useState('');
 
   const montoNum = Number(monto);
   const valido =
-    cuentaId != null && proveedorId != null &&
+    cuentaId != null &&
+    proveedorId != null &&
     Number.isFinite(montoNum) &&
     montoNum > 0 &&
     motivo.trim().length > 0;
@@ -87,16 +87,13 @@ export function NuevoPagoACuentaSheet({
       {
         onSuccess: () => {
           toast.success('Pago a cuenta registrado', {
-            description:
-              'Quedó abierto (NoAplicado); lígalo al pasivo cuando CxP provisione.',
+            description: 'Quedó abierto, sin aplicar; lígalo al pasivo cuando CxP provisione.',
           });
           cambiarAbierto(false);
         },
         onError: (error) => {
           toast.error(
-            esApiError(error)
-              ? error.problem.title
-              : 'No se pudo registrar el pago a cuenta',
+            esApiError(error) ? error.problem.title : 'No se pudo registrar el pago a cuenta',
             {
               description: esApiError(error)
                 ? (error.problem.detail ?? codigoSoporte(error))
@@ -110,86 +107,99 @@ export function NuevoPagoACuentaSheet({
 
   return (
     <Sheet open={open} onOpenChange={cambiarAbierto}>
-      <SheetContent side="right" className="w-full overflow-y-auto sm:max-w-xl">
+      <SheetContent side="right" size="lg">
         <SheetHeader>
           <SheetTitle>Nuevo pago a cuenta</SheetTitle>
           <SheetDescription>
-            Egreso ejecutado en banca sin documento ligado. El limbo se
-            registra, no se oculta — máximo uno abierto por proveedor (RN-2).
+            Egreso ejecutado en banca sin documento ligado. El limbo se registra, no se oculta —
+            máximo uno abierto por proveedor.
           </SheetDescription>
         </SheetHeader>
 
-        <div className="mt-4 space-y-4">
-          <div className="space-y-1">
-            <label className="text-xs text-muted-foreground">
-              Proveedor (obligatorio)
-            </label>
-            <ProveedorSelector value={proveedorId} onChange={setProveedorId} />
-          </div>
-
-          <div className="space-y-1">
-            <label className="text-xs text-muted-foreground">Cuenta de egreso</label>
-            <CuentaBancariaSelector value={cuentaId} onChange={setCuentaId} />
-          </div>
-
-          <ConceptoSelector value={conceptoId} onChange={setConceptoId} />
-          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-            <div className="space-y-1">
-              <label className="text-xs text-muted-foreground" htmlFor="pac-monto">
-                Monto
-              </label>
-              <Input
-                id="pac-monto"
-                type="number"
-                inputMode="decimal"
-                min={0.01}
-                step="0.01"
-                value={monto}
-                onChange={(e) => setMonto(e.target.value)}
-                className="text-right font-mono"
-              />
-            </div>
-            <div className="space-y-1">
-              <label className="text-xs text-muted-foreground" htmlFor="pac-fecha">
-                Fecha valor
-              </label>
-              <Input
-                id="pac-fecha"
-                type="date"
-                value={fechaValor}
-                onChange={(e) => setFechaValor(e.target.value)}
-              />
-            </div>
-          </div>
-
-          <div className="space-y-1">
-            <label className="text-xs text-muted-foreground" htmlFor="pac-ref">
-              Referencia bancaria
-            </label>
-            <Input
-              id="pac-ref"
-              value={referencia}
-              onChange={(e) => setReferencia(e.target.value)}
-              maxLength={120}
-              placeholder="SPEI-000123"
-            />
-          </div>
-
-          <div className="space-y-1">
-            <label className="text-xs text-muted-foreground" htmlFor="pac-motivo">
-              Motivo (obligatorio)
-            </label>
-            <Textarea
-              id="pac-motivo"
-              value={motivo}
-              onChange={(e) => setMotivo(e.target.value)}
-              maxLength={400}
-              rows={3}
-              placeholder="Pago urgente de refacción — factura en trámite…"
-            />
-          </div>
-
-          <div className="flex justify-end gap-2">
+        <>
+          <SheetBody className="space-y-4">
+            <FormSeccion numero={1} titulo="Datos de la operación">
+              <FormCampo span={6}>
+                <div className="space-y-1">
+                  <label className="text-xs text-ink-muted">Proveedor *</label>
+                  <ProveedorSelector value={proveedorId} onChange={setProveedorId} />
+                </div>
+              </FormCampo>
+              <FormCampo span={6}>
+                <div className="space-y-1">
+                  <label className="text-xs text-ink-muted">Cuenta de egreso *</label>
+                  <CuentaBancariaSelector value={cuentaId} onChange={setCuentaId} ocultarSaldo />
+                </div>
+              </FormCampo>
+              <FormCampo span={12}>
+                <ConceptoSelector value={conceptoId} onChange={setConceptoId} />
+              </FormCampo>
+            </FormSeccion>
+            <FormGrid>
+              <FormCampo span={6}>
+                <div className="space-y-1">
+                  <label className="text-xs text-ink-muted" htmlFor="pac-monto">
+                    Monto *
+                  </label>
+                  <Input
+                    id="pac-monto"
+                    type="number"
+                    inputMode="decimal"
+                    min={0.01}
+                    step="0.01"
+                    value={monto}
+                    onChange={(e) => setMonto(e.target.value)}
+                    className="text-right font-mono"
+                  />
+                </div>
+              </FormCampo>
+              <FormCampo span={6}>
+                <div className="space-y-1">
+                  <label className="text-xs text-ink-muted" htmlFor="pac-fecha">
+                    Fecha valor *
+                  </label>
+                  <Input
+                    id="pac-fecha"
+                    type="date"
+                    value={fechaValor}
+                    onChange={(e) => setFechaValor(e.target.value)}
+                  />
+                </div>
+              </FormCampo>
+            </FormGrid>
+            <FormGrid>
+              <FormCampo span={6}>
+                <div className="space-y-1">
+                  <label className="text-xs text-ink-muted" htmlFor="pac-ref">
+                    Referencia bancaria
+                  </label>
+                  <Input
+                    id="pac-ref"
+                    value={referencia}
+                    onChange={(e) => setReferencia(e.target.value)}
+                    maxLength={120}
+                    placeholder="SPEI-000123"
+                  />
+                </div>
+              </FormCampo>
+              <FormCampo span={12}>
+                <div className="space-y-1">
+                  <label className="text-xs text-ink-muted" htmlFor="pac-motivo">
+                    Motivo *
+                  </label>
+                  <Textarea
+                    id="pac-motivo"
+                    value={motivo}
+                    onChange={(e) => setMotivo(e.target.value)}
+                    maxLength={400}
+                    rows={3}
+                    placeholder="Pago urgente de refacción — factura en trámite…"
+                  />
+                </div>
+              </FormCampo>
+            </FormGrid>
+          </SheetBody>
+          <SheetFooter>
             <Button
               variant="ghost"
               onClick={() => cambiarAbierto(false)}
@@ -197,11 +207,19 @@ export function NuevoPagoACuentaSheet({
             >
               Cancelar
             </Button>
-            <Button onClick={confirmar} disabled={registrar.isPending || !valido}>
+            <Button
+              onClick={confirmar}
+              disabled={registrar.isPending || !valido}
+              title={
+                !valido
+                  ? 'Selecciona proveedor y cuenta, e indica un monto positivo y el motivo.'
+                  : undefined
+              }
+            >
               {registrar.isPending ? 'Registrando…' : 'Registrar pago a cuenta'}
             </Button>
-          </div>
-        </div>
+          </SheetFooter>
+        </>
       </SheetContent>
     </Sheet>
   );

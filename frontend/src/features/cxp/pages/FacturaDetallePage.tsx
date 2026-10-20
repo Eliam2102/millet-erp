@@ -1,3 +1,4 @@
+import { ResumenImportes } from '@/components/erp/display/ResumenImportes';
 import { PageHeader } from '@/components/erp/PageHeader';
 import { TrazabilidadComprasDialog } from '@/components/erp/trazabilidad/TrazabilidadComprasDialog';
 import { TipoDocumentoTrazabilidad } from '@/components/erp/trazabilidad/types';
@@ -12,7 +13,11 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { etiquetaAviso } from '@/features/cxp/lib/sla-revision';
 import { ErrorState, DetalleSkeleton, AvisoEnLinea } from '@/components/erp';
-import { useFactura, useAutorizarFactura, useMarcarRetencionesRevisadas } from '@/features/cxp/api/useFacturas';
+import {
+  useFactura,
+  useAutorizarFactura,
+  useMarcarRetencionesRevisadas,
+} from '@/features/cxp/api/useFacturas';
 import { MotivoBajaDialog } from '@/components/erp/adjuntos/MotivoBajaDialog';
 import { EstadoPasivo, MotivoCancelacionLabels } from '@/features/cxp/api/types';
 import { esApiError, useFormIdempotencyKey, codigoSoporte } from '@/lib/api';
@@ -29,7 +34,6 @@ import { EditarDatosP8 } from '@/features/cxp/components/EditarDatosP8';
 import { formatCantidad } from '@/lib/format-cantidad';
 import { MoneyDisplay } from '@/components/erp/display/MoneyDisplay';
 import { folioFactura } from '@/features/cxp/lib/formato';
-import { Importe } from '@/features/cxp/components/DetalleCampos';
 import { DateTimeDisplay } from '@/components/erp/display/DateTimeDisplay';
 import { ConfirmarAccionDialog } from '@/components/erp/feedback/ConfirmarAccionDialog';
 
@@ -73,11 +77,14 @@ export function FacturaDetallePage() {
   const [liberarRevisionAbierto, setLiberarRevisionAbierto] = useState(false);
   const [adjuntarEvidenciaAbierto, setAdjuntarEvidenciaAbierto] = useState(false);
   const revisarRetenciones = useMarcarRetencionesRevisadas();
-  const puedeRevisarRetenciones = useHasPermission(PermisosCanonicos.CuentasPorPagarRetencionesAdministrar);
+  const puedeRevisarRetenciones = useHasPermission(
+    PermisosCanonicos.CuentasPorPagarRetencionesAdministrar,
+  );
   const [autorizarAbierto, setAutorizarAbierto] = useState(false);
   const [revisarAbierto, setRevisarAbierto] = useState(false);
   const [errorRevision, setErrorRevision] = useState<string | null>(null);
-  const retencionesPendientes = !!query.data?.alertaRetenciones && !query.data?.retencionesRevisadasEn;
+  const retencionesPendientes =
+    !!query.data?.alertaRetenciones && !query.data?.retencionesRevisadasEn;
 
   function handleAutorizar() {
     if (!query.data) return;
@@ -125,11 +132,7 @@ export function FacturaDetallePage() {
       ) : query.data == null ? null : (
         <div className="space-y-6">
           <PageHeader
-            titulo={
-              <>
-                {folioFactura(query.data)}
-              </>
-            }
+            titulo={<>{folioFactura(query.data)}</>}
             estado={
               <>
                 <EstadoPasivoChip estado={query.data.estado} />
@@ -141,25 +144,37 @@ export function FacturaDetallePage() {
             }
             descripcion={
               <>
-                Fecha documento: <DateTimeDisplay value={query.data.fechaDocumento} variant="media" /> ·
-                Contabilización: <DateTimeDisplay value={query.data.fechaContabilizacion} variant="media" />{' '}
-                · Vence: <DateTimeDisplay value={query.data.fechaVencimiento} variant="media" />
+                Fecha documento:{' '}
+                <DateTimeDisplay value={query.data.fechaDocumento} variant="media" /> ·
+                Contabilización:{' '}
+                <DateTimeDisplay value={query.data.fechaContabilizacion} variant="media" /> · Vence:{' '}
+                <DateTimeDisplay value={query.data.fechaVencimiento} variant="media" />
               </>
             }
-            acciones={<TrazabilidadComprasDialog tipo={TipoDocumentoTrazabilidad.FacturaProveedor} id={id} />}
+            acciones={
+              <TrazabilidadComprasDialog
+                tipo={TipoDocumentoTrazabilidad.FacturaProveedor}
+                id={id}
+              />
+            }
             mono
           />
 
           {query.data.estado === EstadoPasivo.EnRevision && query.data.revisionVigente && (
             <AvisoEnLinea
               tono={query.data.revisionVigente.vencida ? 'error' : 'advertencia'}
-              titulo={`En revisión: ${query.data.revisionVigente.motivoNombre ?? 'motivo no disponible'}`}
+              titulo={`En revisión: ${query.data.revisionVigente.motivoNombre ?? 'Sin motivo'}`}
             >
-              {query.data.revisionVigente.areaNombre ?? 'Área no disponible'} ·{' '}
+              {query.data.revisionVigente.areaNombre ?? <span className="text-ink-muted">Sin área</span>} ·{' '}
               {query.data.revisionVigente.diasHabiles}
-              {query.data.revisionVigente.slaDias != null ? ` de ${query.data.revisionVigente.slaDias}` : ''} días hábiles
+              {query.data.revisionVigente.slaDias != null
+                ? ` de ${query.data.revisionVigente.slaDias}`
+                : ''}{' '}
+              días hábiles
               {query.data.revisionVigente.vencida ? ' · plazo vencido' : ''}
-              {etiquetaAviso(query.data.revisionVigente.nivelAviso) ? ` · ${etiquetaAviso(query.data.revisionVigente.nivelAviso)!.texto}` : ''}
+              {etiquetaAviso(query.data.revisionVigente.nivelAviso)
+                ? ` · ${etiquetaAviso(query.data.revisionVigente.nivelAviso)!.texto}`
+                : ''}
             </AvisoEnLinea>
           )}
 
@@ -168,18 +183,35 @@ export function FacturaDetallePage() {
             className="flex flex-wrap gap-2 rounded-md border bg-muted/30 px-3 py-2"
             data-print="hidden"
           >
-            {query.data.estado !== EstadoPasivo.Cancelada && query.data.estado !== EstadoPasivo.Pagada && query.data.saldoPendiente > 0 && <>
-              {puedeAplicarAnticipo && <Button variant="secondary" size="sm" onClick={() => setAplicacion('anticipo')}>Aplicar anticipo</Button>}
-              {puedeAplicarNc && <Button variant="secondary" size="sm" onClick={() => setAplicacion('nc')}>Aplicar NC</Button>}
-            </>}
-            {(query.data.estado === EstadoPasivo.Capturada || query.data.estado === EstadoPasivo.EnRevision) &&
+            {query.data.estado !== EstadoPasivo.Cancelada &&
+              query.data.estado !== EstadoPasivo.Pagada &&
+              query.data.saldoPendiente > 0 && (
+                <>
+                  {puedeAplicarAnticipo && (
+                    <Button variant="secondary" size="sm" onClick={() => setAplicacion('anticipo')}>
+                      Aplicar anticipo
+                    </Button>
+                  )}
+                  {puedeAplicarNc && (
+                    <Button variant="secondary" size="sm" onClick={() => setAplicacion('nc')}>
+                      Aplicar NC
+                    </Button>
+                  )}
+                </>
+              )}
+            {(query.data.estado === EstadoPasivo.Capturada ||
+              query.data.estado === EstadoPasivo.EnRevision) &&
               puedeAutorizar && (
                 <>
                   <Button
                     variant="default"
                     size="sm"
                     onClick={() => setAutorizarAbierto(true)}
-                    disabled={autorizar.isPending || retencionesPendientes || query.data.estado === EstadoPasivo.EnRevision}
+                    disabled={
+                      autorizar.isPending ||
+                      retencionesPendientes ||
+                      query.data.estado === EstadoPasivo.EnRevision
+                    }
                     aria-describedby={
                       retencionesPendientes
                         ? 'alerta-retenciones'
@@ -199,13 +231,17 @@ export function FacturaDetallePage() {
                     Autorizar
                   </Button>
                   {query.data.estado === EstadoPasivo.EnRevision && (
-                    <span id="motivo-autorizar-revision" className="self-center text-xs text-ink-muted">
+                    <span
+                      id="motivo-autorizar-revision"
+                      className="self-center text-xs text-ink-muted"
+                    >
                       {MOTIVO_AUTORIZAR_EN_REVISION}
                     </span>
                   )}
                 </>
               )}
-            {(query.data.estado === EstadoPasivo.Capturada || query.data.estado === EstadoPasivo.Autorizada) &&
+            {(query.data.estado === EstadoPasivo.Capturada ||
+              query.data.estado === EstadoPasivo.Autorizada) &&
               !query.data.enRevision &&
               puedeEnviarRevision && (
                 <Button variant="outline" size="sm" onClick={() => setEnviarRevisionAbierto(true)}>
@@ -257,24 +293,31 @@ export function FacturaDetallePage() {
           <dl className="grid grid-cols-1 gap-x-6 gap-y-2 rounded-md border p-4 @xl:grid-cols-2 @3xl:grid-cols-4 @5xl:grid-cols-6">
             <Campo
               label="Proveedor"
-              valor={query.data.proveedorNombre?.trim() || '[PROVEEDOR POR CONFIRMAR]'}
+              valor={query.data.proveedorNombre?.trim() || 'Sin proveedor'}
               mono={query.data.proveedorNombre == null}
             />
             <Campo
               label="Sucursal"
-              valor={query.data.sucursalNombre?.trim() || '[SUCURSAL POR CONFIRMAR]'}
+              valor={query.data.sucursalNombre?.trim() || 'Sin sucursal'}
               mono={query.data.sucursalNombre == null}
             />
             <div>
               <dt className="text-xs text-ink-muted">Orden de compra</dt>
               <dd className="font-mono text-xs">
                 {query.data.ordenCompraId ? (
-                  <Link to="/compras/ordenes/$id" params={{ id: query.data.ordenCompraId }} className="text-brand underline">
-                    {query.data.ordenCompraFolio?.trim() || '[FOLIO POR CONFIRMAR]'}
+                  <Link
+                    to="/compras/ordenes/$id"
+                    params={{ id: query.data.ordenCompraId }}
+                    className="text-brand underline"
+                  >
+                    {query.data.ordenCompraFolio?.trim() || <span className="text-ink-muted">Sin folio</span>}
                   </Link>
-                ) : '—'}
+                ) : (
+                  '—'
+                )}
               </dd>
             </div>
+            <Campo label="Recepción" valor={query.data.recepcionFolio?.trim() || '—'} mono />
             <Campo label="UUID CFDI" valor={query.data.uuidCfdi ?? '—'} mono />
             <Campo label="Moneda" valor={query.data.moneda} />
             <Campo
@@ -296,7 +339,8 @@ export function FacturaDetallePage() {
                 {query.data.alertaRetenciones}
                 {query.data.retencionesRevisadasEn ? (
                   <span className="mt-1 block text-xs">
-                    Revisadas por Fiscal el <DateTimeDisplay value={query.data.retencionesRevisadasEn} variant="media" />:{' '}
+                    Revisadas por Fiscal el{' '}
+                    <DateTimeDisplay value={query.data.retencionesRevisadasEn} variant="media" />:{' '}
                     {query.data.retencionesRevisionMotivo}
                   </span>
                 ) : (
@@ -305,11 +349,20 @@ export function FacturaDetallePage() {
                   </span>
                 )}
               </span>
-              {retencionesPendientes && puedeRevisarRetenciones && query.data.estado === EstadoPasivo.Capturada && (
-                <Button variant="secondary" size="sm" onClick={() => { setErrorRevision(null); setRevisarAbierto(true); }}>
-                  Marcar como revisadas
-                </Button>
-              )}
+              {retencionesPendientes &&
+                puedeRevisarRetenciones &&
+                query.data.estado === EstadoPasivo.Capturada && (
+                  <Button
+                    variant="secondary"
+                    size="sm"
+                    onClick={() => {
+                      setErrorRevision(null);
+                      setRevisarAbierto(true);
+                    }}
+                  >
+                    Marcar como revisadas
+                  </Button>
+                )}
             </div>
           )}
           {revisarAbierto && (
@@ -333,7 +386,11 @@ export function FacturaDetallePage() {
                   setRevisarAbierto(false);
                   toast.success('Retenciones marcadas como revisadas');
                 } catch (e) {
-                  setErrorRevision(esApiError(e) ? (e.problem.detail ?? e.message) : 'No se pudo guardar la revisión.');
+                  setErrorRevision(
+                    esApiError(e)
+                      ? (e.problem.detail ?? e.message)
+                      : 'No se pudo guardar la revisión.',
+                  );
                 }
               }}
             />
@@ -341,50 +398,41 @@ export function FacturaDetallePage() {
           {query.data.obra && (
             <p className="text-sm">
               <span className="text-ink-muted">Obra: </span>
-              {query.data.obra}
+              {query.data.obra.startsWith('[OBRA') ? 'Sin obra' : query.data.obra}
             </p>
           )}
           <section className="rounded-md border p-4">
             <h2 className="mb-2 text-sm font-semibold uppercase tracking-wide text-muted-foreground">
               Totales
             </h2>
-            <div className="space-y-4">
-            <div className="space-y-1">
-              <h3 className="text-xs font-medium uppercase tracking-wide text-ink-muted">Fiscal</h3>
-              <dl className="grid grid-cols-2 gap-x-6 gap-y-2 text-sm sm:grid-cols-4">
-                <Importe label="Subtotal" v={query.data.subtotal} m={query.data.moneda} />
-                <Importe label="Descuentos" v={query.data.descuentos} m={query.data.moneda} />
-                <Importe label="IVA trasladado" v={query.data.impuestosTrasladados} m={query.data.moneda} />
-                <Importe label="Retenciones totales" v={query.data.retenciones} m={query.data.moneda} />
-                <Importe label="ISR retenido" v={desgloseRetenciones(query.data.retencionesDetalle).isr} m={query.data.moneda} />
-                <Importe label="IVA retenido" v={desgloseRetenciones(query.data.retencionesDetalle).iva} m={query.data.moneda} />
-                <Importe label="Total" v={query.data.total} m={query.data.moneda} strong />
-              </dl>
-            </div>
-            <div className="space-y-1">
-              <h3 className="text-xs font-medium uppercase tracking-wide text-ink-muted">Aplicaciones</h3>
-              <dl className="grid grid-cols-2 gap-x-6 gap-y-2 text-sm sm:grid-cols-4">
-                <Importe label="Anticipo aplicado" v={query.data.anticipoAplicadoTotal} m={query.data.moneda} />
-                <Importe label="NC aplicadas" v={query.data.ncAplicadasTotal} m={query.data.moneda} />
-                <Importe label="Cargos aplicados" v={query.data.cargosAplicadosTotal ?? 0} m={query.data.moneda} />
-                <Importe label="Pagado" v={query.data.importePagado} m={query.data.moneda} />
-              </dl>
-            </div>
-            <div className="space-y-1">
-              <h3 className="text-xs font-medium uppercase tracking-wide text-ink-muted">Resultado</h3>
-              <dl className="grid grid-cols-2 gap-x-6 gap-y-2 text-sm sm:grid-cols-4">
-                <Importe label="Elegible para pago" v={query.data.elegible} m={query.data.moneda} strong />
-                <Importe label="Retenido por falta de recepción" v={query.data.retenido} m={query.data.moneda} />
-                <Importe label="Saldo pendiente" v={query.data.saldoPendiente} m={query.data.moneda} strong grande />
-              </dl>
-            </div>
-            </div>
+            <ResumenImportes
+              moneda={query.data.moneda}
+              subtotal={query.data.subtotal}
+              descuento={query.data.descuentos}
+              ivaTrasladado={query.data.impuestosTrasladados}
+              ivaRetenido={desgloseRetenciones(query.data.retencionesDetalle).iva}
+              isrRetenido={desgloseRetenciones(query.data.retencionesDetalle).isr}
+              total={query.data.total}
+              estadoPago={[
+                { etiqueta: 'Anticipo aplicado', monto: query.data.anticipoAplicadoTotal },
+                { etiqueta: 'NC aplicadas', monto: query.data.ncAplicadasTotal },
+                { etiqueta: 'Cargos aplicados', monto: query.data.cargosAplicadosTotal ?? 0 },
+                { etiqueta: 'Retenido por falta de recepción', monto: query.data.retenido },
+                { etiqueta: 'Pagado', monto: query.data.importePagado },
+                { etiqueta: 'Saldo pendiente', monto: query.data.saldoPendiente, destacado: true },
+                { etiqueta: 'Elegible para pago', monto: query.data.elegible, destacado: true },
+              ]}
+            />
           </section>
 
-          <DocumentoAdjuntosSection base={`/api/v1/cuentas-por-pagar/facturas/${query.data.id}`} tipo="factura_proveedor" permiso="cuentas_por_pagar.facturas" />
+          <DocumentoAdjuntosSection
+            base={`/api/v1/cuentas-por-pagar/facturas/${query.data.id}`}
+            tipo="factura_proveedor"
+            permiso="cuentas_por_pagar.facturas"
+          />
           <section className="space-y-2">
             <h2 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">
-              Líneas ({query.data.lineas.length})
+              Partidas ({query.data.lineas.length})
             </h2>
             <div className="overflow-x-auto rounded-md border">
               <table className="w-full text-sm">
@@ -404,7 +452,9 @@ export function FacturaDetallePage() {
                     <tr key={l.id} className="border-t">
                       <td className="px-3 py-2">{l.posicion}</td>
                       <td className="px-3 py-2">{l.descripcion}</td>
-                      <td className="py-2 pl-3 pr-4 text-right tabular-nums">{formatCantidad(l.cantidad, 4)}</td>
+                      <td className="py-2 pl-3 pr-4 text-right tabular-nums">
+                        {formatCantidad(l.cantidad, 4)}
+                      </td>
                       <td className="px-3 py-2">{l.claveUnidad}</td>
                       <td className="py-2 pl-3 pr-4 text-right tabular-nums">
                         {formatCantidad(l.precioUnitario, 4)}
@@ -435,11 +485,14 @@ export function FacturaDetallePage() {
             titulo="Autorizar factura para pago"
             resumen={
               <>
-                Autorizas la factura {query.data.serieProveedor ? `${query.data.serieProveedor}-` : ''}
+                Autorizas la factura{' '}
+                {query.data.serieProveedor ? `${query.data.serieProveedor}-` : ''}
                 {query.data.folioProveedor ?? 'sin folio'}
-                {query.data.proveedorNombre?.trim() ? ` de ${query.data.proveedorNombre.trim()}` : ''} por{' '}
-                <MoneyDisplay amount={query.data.total} currency={query.data.moneda} strong />. Pasa a
-                Tesorería como pasivo listo para pago.
+                {query.data.proveedorNombre?.trim()
+                  ? ` de ${query.data.proveedorNombre.trim()}`
+                  : ''}{' '}
+                por <MoneyDisplay amount={query.data.total} currency={query.data.moneda} strong />.
+                Pasa a Tesorería como pasivo listo para pago.
               </>
             }
             verbo="Autorizar para pago"
@@ -447,7 +500,11 @@ export function FacturaDetallePage() {
             pendiente={autorizar.isPending}
             onConfirmar={handleAutorizar}
           />
-          <AplicarDocumentoFacturaSheet factura={query.data} tipo={aplicacion} onClose={() => setAplicacion(null)} />
+          <AplicarDocumentoFacturaSheet
+            factura={query.data}
+            tipo={aplicacion}
+            onClose={() => setAplicacion(null)}
+          />
           <CancelarFacturaSheet
             open={cancelarAbierto}
             onOpenChange={setCancelarAbierto}
@@ -506,4 +563,3 @@ function ToleranciaIndicator({ diferencia, cancelada }: ToleranciaIndicatorProps
     </Badge>
   );
 }
-

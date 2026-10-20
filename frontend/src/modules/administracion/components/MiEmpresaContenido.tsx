@@ -1,3 +1,14 @@
+import { PaginacionTabla } from '@/components/erp';
+import { ESTADOS_CSD } from '../lib/estados-ui';
+import {
+  Table,
+  TableHeader,
+  TableRow,
+  TableHead,
+  TableBody,
+  TableCell,
+} from '@/components/ui/table';
+import { PageHeader } from '@/components/erp/PageHeader';
 import { useState } from 'react';
 import { Link } from '@tanstack/react-router';
 import { Badge } from '@/components/ui/badge';
@@ -10,18 +21,12 @@ import { ProveedorPac } from '@/features/integraciones-fiscal/api/types';
 import type { EmpresaDetalleResponse } from '../api/types';
 import { EmpresaDatosForm } from './EmpresaDatosForm';
 
-const estadosCsd = {
-  Vigente: { texto: 'Vigente', variante: 'success' },
-  ProximoAVencer: { texto: 'Próximo a vencer', variante: 'warning' },
-  Vencido: { texto: 'Vencido', variante: 'danger' },
-} as const;
-
 function fecha(valor: string | null | undefined) {
   return valor
     ? new Intl.DateTimeFormat('es-MX', { dateStyle: 'medium', timeStyle: 'short' }).format(
         new Date(valor),
       )
-    : 'Por confirmar';
+    : 'Sin fecha registrada';
 }
 
 export function MiEmpresaContenido({ detalle }: { detalle: EmpresaDetalleResponse }) {
@@ -33,10 +38,10 @@ export function MiEmpresaContenido({ detalle }: { detalle: EmpresaDetalleRespons
   const canSucursales = useHasPermission(P.AdminEmpresasSucursalesGestionar);
   const pac = useConfiguracionPac(canFiscal ? empresa.id : null, ProveedorPac.FiscalApi);
   const config = pac.data;
-  const csd = config?.csdEstado ? estadosCsd[config.csdEstado] : null;
+  const csd = config?.csdEstado ? ESTADOS_CSD[config.csdEstado] : null;
 
   return (
-    <div className="flex flex-col gap-5 p-4 text-sm text-ink md:px-7 md:py-6">
+    <div className="flex flex-col gap-5 text-sm text-ink">
       <header className="space-y-2">
         <nav aria-label="Ubicación" className="text-xs text-ink-muted">
           <Link to="/admin">Administración</Link> /{' '}
@@ -44,12 +49,17 @@ export function MiEmpresaContenido({ detalle }: { detalle: EmpresaDetalleRespons
             Mi empresa
           </span>
         </nav>
-        <div className="flex items-center gap-3">
-          <h1 className="text-3xl font-semibold">Mi empresa</h1>
-          <Badge variant={empresa.activa ? 'success' : 'neutral'}>
-            {empresa.activa ? 'Activa' : 'Inactiva'}
-          </Badge>
-        </div>
+        <PageHeader
+          titulo={<>Mi empresa</>}
+          descripcion={<></>}
+          acciones={
+            <>
+              <Badge variant={empresa.activa ? 'success' : 'neutral'}>
+                {empresa.activa ? 'Activa' : 'Inactiva'}
+              </Badge>
+            </>
+          }
+        />
         <p>
           {empresa.razonSocial} · <span className="font-mono">{empresa.rfc}</span>
         </p>
@@ -80,7 +90,7 @@ export function MiEmpresaContenido({ detalle }: { detalle: EmpresaDetalleRespons
         </h2>
         {!canFiscal ? (
           <p className="text-ink-muted">
-            Por confirmar: se requiere permiso para consultar Integraciones fiscales.
+            Se requiere permiso para consultar Integraciones fiscales.
           </p>
         ) : pac.isError ? (
           <ErrorState onRetry={() => pac.refetch()} />
@@ -113,7 +123,7 @@ export function MiEmpresaContenido({ detalle }: { detalle: EmpresaDetalleRespons
                       ? 'Exitosa'
                       : config.ultimaTestConexionExitosa === false
                         ? 'Fallida'
-                        : 'Resultado por confirmar'}
+                        : 'Sin resultado registrado'}
                   </p>
                 )}
               </dd>
@@ -124,7 +134,7 @@ export function MiEmpresaContenido({ detalle }: { detalle: EmpresaDetalleRespons
                 <Badge variant={config?.csdConfigurado ? (csd?.variante ?? 'warning') : 'warning'}>
                   {!config?.csdConfigurado
                     ? 'Sin configurar'
-                    : (csd?.texto ?? 'Vigencia por confirmar')}
+                    : (csd?.texto ?? 'Sin vigencia registrada')}
                 </Badge>
               </dd>
             </div>
@@ -162,23 +172,25 @@ export function MiEmpresaContenido({ detalle }: { detalle: EmpresaDetalleRespons
         {sucursales.length === 0 ? (
           <p className="text-ink-muted">No hay sucursales registradas.</p>
         ) : (
-          <table className="w-full text-left text-sm">
-            <thead className="bg-surface-subtle text-xs text-ink-muted">
-              <tr>
-                <th className="px-3 py-2 font-semibold">Sucursal</th>
-                <th className="px-3 py-2 font-semibold">Clave A+W</th>
-                <th className="px-3 py-2 font-semibold">Configuración</th>
-              </tr>
-            </thead>
-            <tbody>
+          <Table className="w-full text-left text-sm">
+            <TableHeader className="bg-surface-subtle text-xs text-ink-muted">
+              <TableRow>
+                <TableHead className="px-3 py-2 font-semibold">Sucursal</TableHead>
+                <TableHead className="px-3 py-2 font-semibold">Clave A+W</TableHead>
+                <TableHead className="px-3 py-2 font-semibold">Configuración</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
               {sucursales.slice(paginaActual * 10, (paginaActual + 1) * 10).map((sucursal) => (
-                <tr className="border-b border-line-row" key={sucursal.id}>
-                  <td className="px-3 py-3">
+                <TableRow className="border-b border-line-row" key={sucursal.id}>
+                  <TableCell className="px-3 py-3">
                     {sucursal.nombre}{' '}
                     <span className="font-mono text-xs text-ink-muted">{sucursal.clave}</span>
-                  </td>
-                  <td className="px-3 py-3 font-mono">{sucursal.claveAw ?? 'Sin asignar'}</td>
-                  <td className="px-3 py-3">
+                  </TableCell>
+                  <TableCell className="px-3 py-3 font-mono">
+                    {sucursal.claveAw ?? 'Sin asignar'}
+                  </TableCell>
+                  <TableCell className="px-3 py-3">
                     {canSucursales ? (
                       <Link
                         to="/admin/sucursales/$id"
@@ -190,44 +202,19 @@ export function MiEmpresaContenido({ detalle }: { detalle: EmpresaDetalleRespons
                     ) : (
                       'Sin permiso de configuración'
                     )}
-                  </td>
-                </tr>
+                  </TableCell>
+                </TableRow>
               ))}
-            </tbody>
-          </table>
+            </TableBody>
+          </Table>
         )}
-        {sucursales.length > 10 && (
-          <div className="flex items-center justify-between gap-2 border-t border-line-divider pt-3 text-xs text-ink-muted">
-            <span>
-              {paginaActual * 10 + 1}–{Math.min((paginaActual + 1) * 10, sucursales.length)} de{' '}
-              {sucursales.length}
-            </span>
-            <div className="flex gap-2">
-              <Button
-                variant="secondary"
-                size="sm"
-                disabled={paginaActual === 0}
-                title={paginaActual === 0 ? 'Estás en la primera página.' : undefined}
-                onClick={() => setPagina(paginaActual - 1)}
-              >
-                Anterior
-              </Button>
-              <Button
-                variant="secondary"
-                size="sm"
-                disabled={(paginaActual + 1) * 10 >= sucursales.length}
-                title={
-                  (paginaActual + 1) * 10 >= sucursales.length
-                    ? 'Estás en la última página.'
-                    : undefined
-                }
-                onClick={() => setPagina(paginaActual + 1)}
-              >
-                Siguiente
-              </Button>
-            </div>
-          </div>
-        )}
+        <PaginacionTabla
+          total={sucursales.length}
+          offset={paginaActual * 10}
+          limit={10}
+          tamanos={[]}
+          onChange={(offset) => setPagina(offset / 10)}
+        />
       </section>
     </div>
   );
