@@ -1,5 +1,6 @@
 import { fireEvent, render, screen } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
+import { createQueryWrapper } from '@/test/test-query-client';
 import { NuevoRepp } from './NuevoRepp';
 const emitir = vi.hoisted(() => vi.fn());
 vi.mock('@/features/facturacion/api/useRepp', () => ({ useEmitirRepp: () => ({ mutate: emitir, isPending: false }) }));
@@ -13,7 +14,7 @@ vi.mock('@/features/facturacion/components/FacturaPpdPicker', () => ({
 }));
 describe('19-oct #64', () => {
   it('muestra saldo anterior y restante para 8700 menos 5000 y después 3700', () => {
-    render(<NuevoRepp onClose={() => {}} />);
+    render(<NuevoRepp onClose={() => {}} />, { wrapper: createQueryWrapper() });
     expect(screen.getByRole('button', { name: 'Vista previa' })).toBeDisabled();
     fireEvent.click(screen.getByRole('button', { name: 'Primera parcialidad' }));
     const monto = screen.getAllByRole('spinbutton').at(-1)!;

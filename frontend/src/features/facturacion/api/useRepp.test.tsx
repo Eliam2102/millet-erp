@@ -110,6 +110,25 @@ describe('useFacturasCobrablesPpd', () => {
     expect(result.current.data?.[0].saldo).toBe(500);
     expect(result.current.data?.[0].numParcialidadSiguiente).toBe(2);
   });
+
+  it.each([null, undefined, '', '   '])(
+    'no consulta sin RFC del cliente (%j) — 86e3tfd8k',
+    async (rfc) => {
+      let llamadas = 0;
+      mswServer.use(
+        http.get(`${BASE}/facturas-cobrables`, () => {
+          llamadas += 1;
+          return HttpResponse.json([]);
+        }),
+      );
+      const { result } = renderHook(() => useFacturasCobrablesPpd(rfc), {
+        wrapper: createQueryWrapper(),
+      });
+      await new Promise((r) => setTimeout(r, 50));
+      expect(llamadas).toBe(0);
+      expect(result.current.fetchStatus).toBe('idle');
+    },
+  );
 });
 
 describe('useEmitirRepp', () => {
