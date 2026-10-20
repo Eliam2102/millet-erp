@@ -1,11 +1,6 @@
-import {
-  useCallback,
-  useEffect,
-  useMemo,
-  useRef,
-  useState,
-  type ReactNode,
-} from 'react';
+import { FormSeccion } from '@/components/erp/forms/FormSeccion';
+import { FormCampo } from '@/components/erp/forms/FormGrid';
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { useNavigate } from '@tanstack/react-router';
 import { Controller, useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -19,21 +14,15 @@ import {
   SheetDescription,
   SheetHeader,
   SheetTitle,
+  SheetBody,
+  SheetFooter,
 } from '@/components/ui/sheet';
-import {
-  applyServerErrors,
-  esApiError,
-  useFormIdempotencyKey,
-  codigoSoporte,
-} from '@/lib/api';
+import { applyServerErrors, esApiError, useFormIdempotencyKey, codigoSoporte } from '@/lib/api';
 import {
   NuevoRolContext,
   type NuevoRolApi,
 } from '@/modules/identidad/components/nuevo-rol-context';
-import {
-  CrearRolSchema,
-  type CrearRolValues,
-} from '@/modules/identidad/schemas/rol';
+import { CrearRolSchema, type CrearRolValues } from '@/modules/identidad/schemas/rol';
 import { useCrearRol } from '@/modules/identidad/api';
 
 /**
@@ -97,26 +86,15 @@ export function NuevoRolProvider({ children }: { children: ReactNode }) {
           setAbierto(true);
         }}
       >
-        <SheetContent
-          side="right"
-          className="w-full overflow-y-auto sm:max-w-2xl"
-        >
+        <SheetContent size="form" side="right">
           <SheetHeader>
             <SheetTitle>Nuevo rol</SheetTitle>
             <SheetDescription>
-              Alta de rol. Los permisos y grupos de Entra ID se asignan
-              después en el detalle.
+              Alta de rol. Los permisos y grupos de Entra ID se asignan después en el detalle.
             </SheetDescription>
           </SheetHeader>
 
-          <div className="px-6 pb-6">
-            {abierto && (
-              <NuevoRolForm
-                onClose={cerrarConConfirm}
-                onDirtyChange={setDirty}
-              />
-            )}
-          </div>
+          {abierto && <NuevoRolForm onClose={cerrarConConfirm} onDirtyChange={setDirty} />}
         </SheetContent>
       </Sheet>
     </NuevoRolContext.Provider>
@@ -179,10 +157,7 @@ function NuevoRolForm({ onClose, onDirtyChange }: NuevoRolFormProps) {
               return;
             }
             if (
-              applyServerErrors(
-                form as unknown as Parameters<typeof applyServerErrors>[0],
-                error,
-              )
+              applyServerErrors(form as unknown as Parameters<typeof applyServerErrors>[0], error)
             ) {
               return;
             }
@@ -201,72 +176,70 @@ function NuevoRolForm({ onClose, onDirtyChange }: NuevoRolFormProps) {
     <form
       onSubmit={form.handleSubmit(onSubmit)}
       noValidate
-      className="space-y-4 rounded-md border bg-card p-4"
+      className="flex min-h-0 flex-1 flex-col"
     >
-      <FormRow
-        label="Código"
-        required
-        hint="Lowercase, letras/dígitos/guiones (ej. admin-compras, auditor)."
-        error={form.formState.errors.codigo?.message}
-      >
-        <Input
-          autoFocus
-          maxLength={64}
-          placeholder="admin-compras"
-          className="font-mono"
-          {...form.register('codigo')}
-        />
-      </FormRow>
+      <SheetBody>
+        <FormSeccion titulo="Datos del rol">
+          <FormCampo span={12}>
+            <FormRow
+              label="Código"
+              required
+              hint="Lowercase, letras/dígitos/guiones (ej. admin-compras, auditor)."
+              error={form.formState.errors.codigo?.message}
+            >
+              <Input
+                autoFocus
+                maxLength={64}
+                placeholder="admin-compras"
+                className="font-mono"
+                {...form.register('codigo')}
+              />
+            </FormRow>
+          </FormCampo>
 
-      <FormRow
-        label="Nombre"
-        required
-        error={form.formState.errors.nombre?.message}
-      >
-        <Input
-          maxLength={100}
-          placeholder="Administrador de Compras"
-          {...form.register('nombre')}
-        />
-      </FormRow>
+          <FormCampo span={12}>
+            <FormRow label="Nombre" required error={form.formState.errors.nombre?.message}>
+              <Input
+                maxLength={100}
+                placeholder="Administrador de Compras"
+                {...form.register('nombre')}
+              />
+            </FormRow>
+          </FormCampo>
 
-      <FormRow
-        label="Descripción"
-        hint="Opcional. Máximo 500 caracteres."
-        error={form.formState.errors.descripcion?.message}
-      >
-        <Controller
-          name="descripcion"
-          control={form.control}
-          render={({ field }) => (
-            <Textarea
-              maxLength={500}
-              rows={3}
-              placeholder="Para qué se usa este rol…"
-              value={field.value ?? ''}
-              onChange={(e) =>
-                field.onChange(
-                  e.target.value.length > 0 ? e.target.value : null,
-                )
-              }
-            />
-          )}
-        />
-      </FormRow>
-
-      <div className="flex flex-wrap items-center justify-end gap-2 border-t pt-3">
-        <Button
-          type="button"
-          variant="ghost"
-          onClick={() => onClose()}
-          disabled={crear.isPending}
-        >
+          <FormCampo span={12}>
+            <FormRow
+              label="Descripción"
+              hint="Opcional. Máximo 500 caracteres."
+              error={form.formState.errors.descripcion?.message}
+            >
+              <Controller
+                name="descripcion"
+                control={form.control}
+                render={({ field }) => (
+                  <Textarea
+                    maxLength={500}
+                    rows={3}
+                    placeholder="Para qué se usa este rol…"
+                    value={field.value ?? ''}
+                    onChange={(e) =>
+                      field.onChange(e.target.value.length > 0 ? e.target.value : null)
+                    }
+                  />
+                )}
+              />
+            </FormRow>
+          </FormCampo>
+        </FormSeccion>
+      </SheetBody>
+      <SheetFooter>
+        <Button type="button" variant="ghost" onClick={() => onClose()} disabled={crear.isPending}>
           Cancelar
         </Button>
         <Button type="submit" disabled={crear.isPending}>
           {crear.isPending ? 'Creando…' : 'Crear rol'}
         </Button>
-      </div>
+      </SheetFooter>
     </form>
   );
 }
@@ -285,17 +258,15 @@ function FormRow({ label, required, hint, error, children }: FormRowProps) {
       <label className="flex items-center gap-1 text-sm font-medium">
         {label}
         {required && (
-          <span aria-hidden="true" className="text-rose-600">
+          <span aria-hidden="true" className="text-danger-fg">
             *
           </span>
         )}
       </label>
       {children}
-      {hint != null && error == null && (
-        <p className="text-xs text-muted-foreground">{hint}</p>
-      )}
+      {hint != null && error == null && <p className="text-xs text-ink-muted">{hint}</p>}
       {error != null && (
-        <p role="alert" className="text-xs text-rose-600">
+        <p role="alert" className="text-xs text-danger-fg">
           {error}
         </p>
       )}

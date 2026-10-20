@@ -1,11 +1,11 @@
+import { FormSeccion } from '@/components/erp/forms/FormSeccion';
+import { IndicadorAlmacenBadge } from './IndicadorAlmacenBadge';
+import { OrdenCompraRecepcionSelector } from './OrdenCompraRecepcionSelector';
+import { FormGrid, FormCampo } from '@/components/erp/forms/FormGrid';
+import { SheetBody } from '@/components/ui/sheet';
 import { hoyLocalISO } from '@/lib/datetime';
 import { useEffect, useMemo, useRef, useState } from 'react';
-import {
-  Controller,
-  useForm,
-  useWatch,
-  type Resolver,
-} from 'react-hook-form';
+import { Controller, useForm, useWatch, type Resolver } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useNavigate } from '@tanstack/react-router';
 import { useQueryClient } from '@tanstack/react-query';
@@ -39,17 +39,11 @@ import {
   DECIMALES_FALLBACK,
   evaluarDecimalesFila,
   MENSAJE_DECIMALES_UNIDAD,
-  OrdenCompraSelector,
   stepParaDecimales,
   TextAreaField,
   useDecimalesUnidad,
 } from '@/components/erp';
-import {
-  applyServerErrors,
-  esApiError,
-  useFormIdempotencyKey,
-  codigoSoporte,
-} from '@/lib/api';
+import { applyServerErrors, esApiError, useFormIdempotencyKey, codigoSoporte } from '@/lib/api';
 import {
   RegistrarRecepcionFacturaSchema,
   RegistrarRecepcionPackingListSchema,
@@ -61,10 +55,7 @@ import {
   useRegistrarRecepcionFactura,
   useRegistrarRecepcionPackingList,
 } from '@/features/almacen/api';
-import {
-  useCfdisParaRecepcion,
-  useLineasRecibibles,
-} from '@/features/almacen/api/useRecepciones';
+import { useCfdisParaRecepcion, useLineasRecibibles } from '@/features/almacen/api/useRecepciones';
 import { PackingListUpload } from '@/features/almacen/components/PackingListUpload';
 import { UbicacionBinSelector } from '@/components/erp/selectors/UbicacionBinSelector';
 import { AsignarUbicacionEnLinea } from '@/features/almacen/components/AsignarUbicacionEnLinea';
@@ -113,29 +104,20 @@ interface PackingListAdjunto {
   contentType: string;
 }
 
-export function NuevaRecepcionSheet({
-  open,
-  onOpenChange,
-}: NuevaRecepcionSheetProps) {
+export function NuevaRecepcionSheet({ open, onOpenChange }: NuevaRecepcionSheetProps) {
   // Los gestos de cerrar (Esc, clic fuera, X y Cancelar) piden confirmación si
   // hay cambios (useConfirmarDescarte). El registro exitoso cierra con force.
-  const { setDirty, solicitarCierre, dialogo } = useConfirmarDescarte(() =>
-    onOpenChange(false),
-  );
+  const { setDirty, solicitarCierre, dialogo } = useConfirmarDescarte(() => onOpenChange(false));
   const cerrarTrasRegistro = () => solicitarCierre(true);
 
   return (
-    <Sheet
-      open={open}
-      onOpenChange={(next) => (next ? onOpenChange(next) : solicitarCierre())}
-    >
-      <SheetContent side="right" size="wide">
+    <Sheet open={open} onOpenChange={(next) => (next ? onOpenChange(next) : solicitarCierre())}>
+      <SheetContent side="right" size="lg">
         <SheetHeader>
           <SheetTitle>Nueva recepción</SheetTitle>
           <SheetDescription>
-            Selecciona la OC autorizada y marca las líneas que llegaron.
-            El costo se toma de la OC; la cantidad valida tolerancia
-            server-side.
+            Selecciona la OC autorizada y marca las partidas que llegaron. El costo se toma de la
+            OC; la cantidad no puede superar lo pendiente de la OC.
           </SheetDescription>
         </SheetHeader>
 
@@ -153,12 +135,8 @@ export function NuevaRecepcionSheet({
 }
 
 // Códigos de negocio del registro → campo del form o aviso persistente sobre las líneas.
-const MENSAJE_SIN_CFDI =
-  'Vincula el CFDI del proveedor o captura su folio fiscal (UUID).';
-const CODIGOS_RECEPCION: Record<
-  string,
-  { campo: string; mensaje?: string } | 'callout'
-> = {
+const MENSAJE_SIN_CFDI = 'Vincula el CFDI del proveedor o captura su folio fiscal (UUID).';
+const CODIGOS_RECEPCION: Record<string, { campo: string; mensaje?: string } | 'callout'> = {
   RECEPCION_CFDI_NO_ENCONTRADO: { campo: 'cfdiRecibidoId' },
   RECEPCION_CFDI_NO_VINCULABLE: { campo: 'cfdiRecibidoId' },
   RECEPCION_CFDI_PROVEEDOR_DISTINTO: { campo: 'cfdiRecibidoId' },
@@ -167,15 +145,15 @@ const CODIGOS_RECEPCION: Record<
     campo: 'ordenCompraId',
     mensaje: 'La OC no está en estado que acepte recepción.',
   },
-  RECEPCION_EXCEDE_TOLERANCIA: 'callout',
+  RECEPCION_EXCEDE_PENDIENTE: 'callout',
   ENTRADA_SIN_ASIGNACION: 'callout',
   RECEPCION_MULTI_SUBALMACEN: 'callout',
   RECEPCION_SUCURSAL_DISTINTA: 'callout',
 };
 const TITULOS_CALLOUT: Record<string, string> = {
-  RECEPCION_EXCEDE_TOLERANCIA: 'Una cantidad excede la tolerancia',
+  RECEPCION_EXCEDE_PENDIENTE: 'Una cantidad excede lo pendiente',
   ENTRADA_SIN_ASIGNACION: 'Un artículo no está asignado al rack elegido',
-  RECEPCION_MULTI_SUBALMACEN: 'Las líneas van a sub-almacenes distintos',
+  RECEPCION_MULTI_SUBALMACEN: 'Las partidas van a sub-almacenes distintos',
   RECEPCION_SUCURSAL_DISTINTA: 'La orden de compra es de otra sucursal',
 };
 
@@ -191,8 +169,7 @@ function NuevaRecepcionFormBody({
   const navigate = useNavigate();
   const idempotencyKey = useFormIdempotencyKey();
   const [variante, setVariante] = useState<Variante>('A');
-  const [packingListAdjunto, setPackingListAdjunto] =
-    useState<PackingListAdjunto | null>(null);
+  const [packingListAdjunto, setPackingListAdjunto] = useState<PackingListAdjunto | null>(null);
   // Variante A — vínculo fiscal: sheet apilado de carga de XML + modo
   // "folio fiscal a mano" (cuando el CFDI aún no está en el ERP).
   const [cargarCfdiOpen, setCargarCfdiOpen] = useState(false);
@@ -205,9 +182,7 @@ function NuevaRecepcionFormBody({
 
   const resolver: Resolver<RecepcionFormValues> = useMemo(() => {
     const schema =
-      variante === 'A'
-        ? RegistrarRecepcionFacturaSchema
-        : RegistrarRecepcionPackingListSchema;
+      variante === 'A' ? RegistrarRecepcionFacturaSchema : RegistrarRecepcionPackingListSchema;
     return zodResolver(schema) as Resolver<RecepcionFormValues>;
   }, [variante]);
 
@@ -295,12 +270,8 @@ function NuevaRecepcionFormBody({
     return union;
   }, [asignadas.listo, asignadas.porArticulo]);
   const queryClient = useQueryClient();
-  const puedeLeerCfdis = useHasPermission(
-    PermisosCanonicos.CuentasPorPagarCfdisLeer,
-  );
-  const puedeCargarCfdi = useHasPermission(
-    PermisosCanonicos.CuentasPorPagarCfdisCargarManual,
-  );
+  const puedeLeerCfdis = useHasPermission(PermisosCanonicos.CuentasPorPagarCfdisLeer);
+  const puedeCargarCfdi = useHasPermission(PermisosCanonicos.CuentasPorPagarCfdisCargarManual);
   const cfdisRecepcion = useCfdisParaRecepcion(
     ordenCompraId || null,
     puedeLeerCfdis && !!ordenCompraId,
@@ -339,10 +310,10 @@ function NuevaRecepcionFormBody({
           cantidad: f.cantidad,
         }) === 'invalidos'
       ) {
-        form.setError(
-          `filas.${i}.cantidad` as Parameters<typeof form.setError>[0],
-          { type: 'decimales', message: MENSAJE_DECIMALES_UNIDAD },
-        );
+        form.setError(`filas.${i}.cantidad` as Parameters<typeof form.setError>[0], {
+          type: 'decimales',
+          message: MENSAJE_DECIMALES_UNIDAD,
+        });
         decimalesMal = true;
       }
     });
@@ -456,290 +427,277 @@ function NuevaRecepcionFormBody({
 
   return (
     <>
-      <form
-        id="nueva-recepcion-form"
-        onSubmit={form.handleSubmit(onSubmit)}
-        noValidate
-        className="flex-1 space-y-4 overflow-y-auto px-6"
-      >
-        <fieldset className="space-y-2">
-          <legend className="text-sm font-medium">Tipo de recepción</legend>
-          <div className="flex gap-2">
-            <VarianteOption
-              value="A"
-              active={variante === 'A'}
-              onSelect={solicitarVariante}
-              titulo="Con factura/CFDI"
-              descripcion="Insumos y refacciones — el proveedor llega con factura."
-            />
-            <VarianteOption
-              value="B"
-              active={variante === 'B'}
-              onSelect={solicitarVariante}
-              titulo="Con packing list"
-              descripcion="Materiales directos no-vidrio — factura llega después por CxP."
-            />
-          </div>
-        </fieldset>
+      <SheetBody>
+        <form
+          id="nueva-recepcion-form"
+          onSubmit={form.handleSubmit(onSubmit)}
+          noValidate
+          className="space-y-4"
+        >
+          <fieldset className="space-y-2">
+            <legend className="text-sm font-medium">Tipo de recepción</legend>
+            <div className="flex gap-2">
+              <VarianteOption
+                value="A"
+                active={variante === 'A'}
+                onSelect={solicitarVariante}
+                titulo="Con factura/CFDI"
+                descripcion="Insumos y refacciones — el proveedor llega con factura."
+              />
+              <VarianteOption
+                value="B"
+                active={variante === 'B'}
+                onSelect={solicitarVariante}
+                titulo="Con packing list"
+                descripcion="Materiales directos no-vidrio — factura llega después por CxP."
+              />
+            </div>
+          </fieldset>
 
-        <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
-          <Field
-            label="Orden de compra"
-            required
-            error={form.formState.errors.ordenCompraId?.message}
-          >
-            <Controller
-              name="ordenCompraId"
-              control={form.control}
-              render={({ field }) => (
-                <OrdenCompraSelector
-                  value={field.value || null}
-                  onChange={(id) => field.onChange(id ?? '')}
-                  soloConPendienteRecepcion
+          <FormSeccion numero={1} titulo="Datos de recepción">
+            <FormCampo span={6}>
+              <Field
+                label="Orden de compra"
+                required
+                error={form.formState.errors.ordenCompraId?.message}
+              >
+                <Controller
+                  name="ordenCompraId"
+                  control={form.control}
+                  render={({ field }) => (
+                    <OrdenCompraRecepcionSelector
+                      value={field.value || null}
+                      onChange={(id) => field.onChange(id ?? '')}
+                      soloConPendienteRecepcion
+                    />
+                  )}
                 />
-              )}
-            />
-          </Field>
+              </Field>
+            </FormCampo>
 
-          {/* PR4: helper de cabecera nivel 4. Opcional — al elegirlo, auto-aplica
+            {/* PR4: helper de cabecera nivel 4. Opcional — al elegirlo, auto-aplica
               el bin a las líneas que aún no tienen ubicación. Las que ya tienen
               otra NO se tocan (el aviso de divergencia sale sobre las líneas).
               Se persiste para reportería; null = el almacenista no lo usó. */}
-          <Field
-            label="Ubicación por defecto (opcional)"
-            error={form.formState.errors.ubicacionHelperId?.message}
-          >
-            <Controller
-              name="ubicacionHelperId"
-              control={form.control}
-              render={({ field }) => (
-                <UbicacionSelector
-                  soloIds={racksDeLaOc}
-                  value={field.value || null}
-                  onChange={(id) => aplicarUbicacionHelper(id)}
-                  placeholder="Sin ubicación por defecto"
-                />
-              )}
-            />
-          </Field>
-
-          <Field
-            label="Fecha de movimiento"
-            required
-            error={form.formState.errors.fechaMovimiento?.message}
-          >
-            <Controller
-              name="fechaMovimiento"
-              control={form.control}
-              render={({ field }) => (
-                <Input
-                  {...field}
-                  type="date"
-                  value={field.value ?? ''}
-                />
-              )}
-            />
-          </Field>
-
-          {variante === 'A' && (
-            <div className="space-y-1.5 md:col-span-2">
-              <label className="flex items-center gap-1 text-sm font-medium">
-                CFDI del proveedor
-                <span aria-hidden="true" className="text-danger-fg">
-                  *
-                </span>
-              </label>
-
-              {!ordenCompraId ? (
-                <p className="rounded-md border border-dashed border-line-dashed bg-surface-subtle p-3 text-xs text-ink-muted">
-                  Selecciona la orden de compra para vincular el CFDI del
-                  proveedor.
-                </p>
-              ) : (
-                <>
-                  {puedeLeerCfdis && !capturaUuidManual && (
-                    <div className="flex gap-2">
-                      <Controller
-                        name="cfdiRecibidoId"
-                        control={form.control}
-                        render={({ field }) => (
-                          <CfdiPorProcesarPicker
-                            value={field.value ?? null}
-                            onSelect={(cfdi) => {
-                              field.onChange(cfdi?.id ?? null);
-                              if (cfdi) {
-                                form.setValue('cfdiUuidFiscal', null);
-                                form.clearErrors('cfdiRecibidoId');
-                              }
-                            }}
-                            rfcEmisor={rfcProveedor}
-                            ordenCompraRecepcionId={ordenCompraId}
-                            placeholder={
-                              rfcProveedor
-                                ? `CFDIs por procesar de ${rfcProveedor}…`
-                                : 'Vincular CFDI recibido…'
-                            }
-                            className="flex-1"
-                          />
-                        )}
-                      />
-                      {puedeCargarCfdi && (
-                        <Button
-                          type="button"
-                          variant="outline"
-                          onClick={() => setCargarCfdiOpen(true)}
-                        >
-                          Cargar XML
-                        </Button>
-                      )}
-                    </div>
+            <FormCampo span={6}>
+              <Field
+                label="Ubicación por defecto (opcional)"
+                hint="Asigna el rack elegido a las partidas sin ubicación. Puedes cambiar el rack de cada partida."
+                error={form.formState.errors.ubicacionHelperId?.message}
+              >
+                <Controller
+                  name="ubicacionHelperId"
+                  control={form.control}
+                  render={({ field }) => (
+                    <UbicacionSelector
+                      soloIds={racksDeLaOc}
+                      value={field.value || null}
+                      onChange={(id) => aplicarUbicacionHelper(id)}
+                      placeholder="Sin ubicación por defecto"
+                    />
                   )}
-                  {puedeLeerCfdis && !capturaUuidManual && cfdisRecepcion.data?.aviso && (
-                    <p className="text-xs text-ink-muted" role="status">
-                      {cfdisRecepcion.data.aviso}
+                />
+              </Field>
+            </FormCampo>
+
+            <FormCampo span={6}>
+              <Field
+                label="Fecha de movimiento"
+                required
+                error={form.formState.errors.fechaMovimiento?.message}
+              >
+                <Controller
+                  name="fechaMovimiento"
+                  control={form.control}
+                  render={({ field }) => <Input {...field} type="date" value={field.value ?? ''} />}
+                />
+              </Field>
+            </FormCampo>
+
+            <FormCampo span={12}>
+              {variante === 'A' && (
+                <div className="space-y-1.5 md:col-span-2">
+                  <label className="flex items-center gap-1 text-sm font-medium">
+                    CFDI del proveedor
+                    <span aria-hidden="true" className="text-danger-fg">
+                      *
+                    </span>
+                  </label>
+
+                  {!ordenCompraId ? (
+                    <p className="rounded-md border border-dashed border-line-dashed bg-surface-subtle p-3 text-xs text-ink-muted">
+                      Selecciona la orden de compra para vincular el CFDI del proveedor.
                     </p>
-                  )}
-
-                  {capturaUuidManual || !puedeLeerCfdis ? (
-                    <div className="space-y-1.5 rounded-md border border-dashed border-line-dashed p-3">
-                      <label
-                        htmlFor="cfdi-uuid-fiscal"
-                        className="text-sm font-medium"
-                      >
-                        Folio fiscal (UUID del impreso)
-                      </label>
-                      <Controller
-                        name="cfdiUuidFiscal"
-                        control={form.control}
-                        render={({ field }) => (
-                          <Input
-                            {...field}
-                            id="cfdi-uuid-fiscal"
-                            value={field.value ?? ''}
-                            onChange={(e) =>
-                              field.onChange(
-                                e.target.value === '' ? null : e.target.value,
-                              )
-                            }
-                            placeholder="AD662D33-6934-459C-A128-BDF0393E0062"
-                            spellCheck={false}
-                            className="font-mono uppercase"
+                  ) : (
+                    <>
+                      {puedeLeerCfdis && !capturaUuidManual && (
+                        <div className="flex gap-2">
+                          <Controller
+                            name="cfdiRecibidoId"
+                            control={form.control}
+                            render={({ field }) => (
+                              <CfdiPorProcesarPicker
+                                value={field.value ?? null}
+                                onSelect={(cfdi) => {
+                                  field.onChange(cfdi?.id ?? null);
+                                  if (cfdi) {
+                                    form.setValue('cfdiUuidFiscal', null);
+                                    form.clearErrors('cfdiRecibidoId');
+                                  }
+                                }}
+                                rfcEmisor={rfcProveedor}
+                                ordenCompraRecepcionId={ordenCompraId}
+                                placeholder={
+                                  rfcProveedor
+                                    ? `CFDIs por procesar de ${rfcProveedor}…`
+                                    : 'Vincular CFDI recibido…'
+                                }
+                                className="flex-1"
+                              />
+                            )}
                           />
-                        )}
-                      />
-                      {form.formState.errors.cfdiUuidFiscal?.message && (
-                        <p role="alert" className="text-xs text-danger-fg">
-                          {form.formState.errors.cfdiUuidFiscal.message}
+                          {puedeCargarCfdi && (
+                            <Button
+                              type="button"
+                              variant="outline"
+                              onClick={() => setCargarCfdiOpen(true)}
+                            >
+                              Cargar XML
+                            </Button>
+                          )}
+                        </div>
+                      )}
+                      {puedeLeerCfdis && !capturaUuidManual && cfdisRecepcion.data?.aviso && (
+                        <p className="text-xs text-ink-muted" role="status">
+                          {cfdisRecepcion.data.aviso}
                         </p>
                       )}
-                      <p className="text-xs text-ink-muted">
-                        Viene impreso en la representación del CFDI (y en su
-                        QR). CxP enlazará el CFDI cuando el XML llegue por su
-                        canal.
-                      </p>
-                      {puedeLeerCfdis && (
+
+                      {capturaUuidManual || !puedeLeerCfdis ? (
+                        <div className="space-y-1.5 rounded-md border border-dashed border-line-dashed p-3">
+                          <label htmlFor="cfdi-uuid-fiscal" className="text-sm font-medium">
+                            Folio fiscal (UUID del impreso)
+                          </label>
+                          <Controller
+                            name="cfdiUuidFiscal"
+                            control={form.control}
+                            render={({ field }) => (
+                              <Input
+                                {...field}
+                                id="cfdi-uuid-fiscal"
+                                value={field.value ?? ''}
+                                onChange={(e) =>
+                                  field.onChange(e.target.value === '' ? null : e.target.value)
+                                }
+                                placeholder="AD662D33-6934-459C-A128-BDF0393E0062"
+                                spellCheck={false}
+                                className="font-mono uppercase"
+                              />
+                            )}
+                          />
+                          {form.formState.errors.cfdiUuidFiscal?.message && (
+                            <p role="alert" className="text-xs text-danger-fg">
+                              {form.formState.errors.cfdiUuidFiscal.message}
+                            </p>
+                          )}
+                          <p className="text-xs text-ink-muted">
+                            Viene impreso en la representación del CFDI (y en su QR). CxP enlazará
+                            el CFDI cuando el XML llegue por su canal.
+                          </p>
+                          {puedeLeerCfdis && (
+                            <button
+                              type="button"
+                              className="text-xs text-brand underline-offset-2 hover:underline"
+                              onClick={() => {
+                                setCapturaUuidManual(false);
+                                form.setValue('cfdiUuidFiscal', null);
+                              }}
+                            >
+                              Mejor vincular un CFDI del sistema
+                            </button>
+                          )}
+                        </div>
+                      ) : (
                         <button
                           type="button"
                           className="text-xs text-brand underline-offset-2 hover:underline"
                           onClick={() => {
-                            setCapturaUuidManual(false);
-                            form.setValue('cfdiUuidFiscal', null);
+                            setCapturaUuidManual(true);
+                            form.setValue('cfdiRecibidoId', null);
                           }}
                         >
-                          Mejor vincular un CFDI del sistema
+                          ¿El CFDI no está en el sistema? Captura el folio fiscal del impreso
                         </button>
                       )}
-                    </div>
-                  ) : (
-                    <button
-                      type="button"
-                      className="text-xs text-brand underline-offset-2 hover:underline"
-                      onClick={() => {
-                        setCapturaUuidManual(true);
-                        form.setValue('cfdiRecibidoId', null);
-                      }}
-                    >
-                      ¿El CFDI no está en el sistema? Captura el folio fiscal
-                      del impreso
-                    </button>
-                  )}
 
-                  {form.formState.errors.cfdiRecibidoId?.message && (
-                    <p role="alert" className="text-xs text-danger-fg">
-                      {form.formState.errors.cfdiRecibidoId.message}
-                    </p>
+                      {form.formState.errors.cfdiRecibidoId?.message && (
+                        <p role="alert" className="text-xs text-danger-fg">
+                          {form.formState.errors.cfdiRecibidoId.message}
+                        </p>
+                      )}
+                    </>
                   )}
-                </>
+                </div>
               )}
-            </div>
-          )}
-        </div>
+            </FormCampo>
+          </FormSeccion>
 
-        {variante === 'B' && (
+          {variante === 'B' && (
+            <Field
+              label="Packing list"
+              required
+              error={form.formState.errors.packingListBlobRef?.message}
+            >
+              <PackingListUpload
+                value={packingListAdjunto}
+                onChange={(v) => {
+                  setPackingListAdjunto(v);
+                  // El schema valida packingListBlobRef en el resolver, así
+                  // que el blobRef debe entrar al form al subir el archivo —
+                  // no solo en onSubmit (ahí el resolver ya rechazó).
+                  form.setValue(
+                    'packingListBlobRef' as keyof RecepcionFormValues,
+                    (v?.blobRef ?? '') as never,
+                  );
+                  if (v) form.clearErrors('packingListBlobRef');
+                }}
+              />
+            </Field>
+          )}
+
           <Field
-            label="Packing list"
-            required
-            error={form.formState.errors.packingListBlobRef?.message}
+            label="Observaciones (opcional)"
+            error={form.formState.errors.observaciones?.message}
           >
-            <PackingListUpload
-              value={packingListAdjunto}
-              onChange={(v) => {
-                setPackingListAdjunto(v);
-                // El schema valida packingListBlobRef en el resolver, así
-                // que el blobRef debe entrar al form al subir el archivo —
-                // no solo en onSubmit (ahí el resolver ya rechazó).
-                form.setValue(
-                  'packingListBlobRef' as keyof RecepcionFormValues,
-                  (v?.blobRef ?? '') as never,
-                );
-                if (v) form.clearErrors('packingListBlobRef');
-              }}
+            <Controller
+              name="observaciones"
+              control={form.control}
+              render={({ field }) => (
+                <TextAreaField
+                  value={field.value ?? null}
+                  onChange={(v) => field.onChange(v)}
+                  maxLength={500}
+                  minRows={2}
+                />
+              )}
             />
           </Field>
-        )}
 
-        <Field
-          label="Observaciones (opcional)"
-          error={form.formState.errors.observaciones?.message}
-        >
-          <Controller
-            name="observaciones"
-            control={form.control}
-            render={({ field }) => (
-              <TextAreaField
-                value={field.value ?? null}
-                onChange={(v) => field.onChange(v)}
-                maxLength={500}
-                minRows={2}
-              />
-            )}
-          />
-        </Field>
+          {avisoServidor && (
+            <AvisoEnLinea tono="error" titulo={avisoServidor.titulo}>
+              {avisoServidor.detalle} Revisa las cantidades y los racks de las partidas marcadas.
+            </AvisoEnLinea>
+          )}
 
-        {avisoServidor && (
-          <AvisoEnLinea tono="error" titulo={avisoServidor.titulo}>
-            {avisoServidor.detalle} Revisa las cantidades y los racks de las
-            líneas marcadas.
-          </AvisoEnLinea>
-        )}
-
-        <LineasDesdeOc form={form} asignadas={asignadas.porArticulo} />
-      </form>
+          <LineasDesdeOc form={form} asignadas={asignadas.porArticulo} />
+        </form>
+      </SheetBody>
 
       <SheetFooter>
-        <Button
-          type="button"
-          variant="ghost"
-          onClick={onCancel}
-          disabled={isPending}
-        >
+        <Button type="button" variant="ghost" onClick={onCancel} disabled={isPending}>
           Cancelar
         </Button>
-        <Button
-          type="submit"
-          form="nueva-recepcion-form"
-          disabled={isPending}
-        >
+        <Button type="submit" form="nueva-recepcion-form" disabled={isPending}>
           {isPending ? 'Registrando…' : 'Registrar recepción'}
         </Button>
       </SheetFooter>
@@ -748,7 +706,7 @@ function NuevaRecepcionFormBody({
         open={varianteSolicitada != null}
         onOpenChange={(o) => !o && setVarianteSolicitada(null)}
         titulo="¿Cambiar el tipo de recepción?"
-        resumen="Se perderán la OC, las líneas y el CFDI o packing list capturados."
+        resumen="Se perderán la OC, las partidas y el CFDI o packing list capturados."
         verbo="Cambiar tipo"
         tono="peligro"
         onConfirmar={() => varianteSolicitada && cambiarVariante(varianteSolicitada)}
@@ -801,10 +759,7 @@ function LineasDesdeOc({
     if (ocQuery.data == null || recibiblesQuery.data == null) return;
     if (ultimaOcCargada.current === ocId) return;
     ultimaOcCargada.current = ocId;
-    form.setValue(
-      'filas',
-      construirFilas(ocQuery.data.lineas, recibiblesQuery.data),
-    );
+    form.setValue('filas', construirFilas(ocQuery.data.lineas, recibiblesQuery.data));
   }, [ocId, ocQuery.data, recibiblesQuery.data, form]);
 
   const filas = useWatch({ control: form.control, name: 'filas' }) ?? [];
@@ -816,8 +771,7 @@ function LineasDesdeOc({
   if (!ocId) {
     return (
       <section className="rounded-md border border-dashed border-line-dashed bg-surface-subtle p-4 text-sm text-ink-muted">
-        Selecciona una orden de compra para cargar las líneas pendientes
-        de recepción.
+        Selecciona una orden de compra para cargar las partidas pendientes de recepción.
       </section>
     );
   }
@@ -825,7 +779,7 @@ function LineasDesdeOc({
   if (ocQuery.isLoading || recibiblesQuery.isLoading) {
     return (
       <section className="rounded-md border border-dashed border-line-dashed bg-surface-subtle p-4 text-sm text-ink-muted">
-        Cargando líneas de la OC…
+        Cargando partidas de la OC…
       </section>
     );
   }
@@ -841,30 +795,23 @@ function LineasDesdeOc({
   if (filas.length === 0) {
     // CA2.10: una OC solo de servicios no tiene nada que recibir en Almacén.
     const soloServicios =
-      (ocQuery.data?.lineas.length ?? 0) > 0 &&
-      ocQuery.data?.lineas.every((l) => l.esServicio);
+      (ocQuery.data?.lineas.length ?? 0) > 0 && ocQuery.data?.lineas.every((l) => l.esServicio);
     return (
       <section className="rounded-md border border-dashed border-line-dashed bg-surface-subtle p-4 text-sm text-ink-muted">
         {soloServicios
           ? 'Esta OC solo tiene servicios — los servicios no se reciben en Almacén ni generan existencia.'
-          : 'Esta OC no tiene líneas pendientes de recepción — todas ya fueron recibidas en su totalidad.'}
+          : 'Esta OC no tiene partidas pendientes de recepción — todas ya fueron recibidas en su totalidad.'}
       </section>
     );
   }
 
   // PR4: divergencias vs el helper de cabecera (solo líneas incluidas que ya
   // traían otra ubicación — las vacías las auto-asignó el helper).
-  const lineasEnOtraUbicacion = contarLineasEnOtraUbicacion(
-    filas,
-    ubicacionHelperId,
-  );
+  const lineasEnOtraUbicacion = contarLineasEnOtraUbicacion(filas, ubicacionHelperId);
   // Líneas sin rack a las que el helper no pudo asignar (artículo sin ese rack).
   const sinRackDelHelper = ubicacionHelperId
     ? filas.filter(
-        (f) =>
-          f.incluida &&
-          !f.ubicacionId &&
-          !asignadas.get(f.articuloId)?.has(ubicacionHelperId),
+        (f) => f.incluida && !f.ubicacionId && !asignadas.get(f.articuloId)?.has(ubicacionHelperId),
       ).length
     : 0;
   // Un movimiento = un sub-almacén (RECEPCION_MULTI_SUBALMACEN), avisado por línea.
@@ -874,22 +821,15 @@ function LineasDesdeOc({
       { id: u.subAlmacenId, clave: u.subAlmacenClave },
     ]),
   );
-  const { subBaseClave, conflictos } = detectarConflictoSubAlmacen(
-    filas,
-    subPorUbicacion,
-  );
+  const { subBaseClave, conflictos } = detectarConflictoSubAlmacen(filas, subPorUbicacion);
 
   const errorArrayLevel = form.formState.errors.filas;
   const errorMessage =
-    errorArrayLevel && !Array.isArray(errorArrayLevel)
-      ? errorArrayLevel.message
-      : undefined;
+    errorArrayLevel && !Array.isArray(errorArrayLevel) ? errorArrayLevel.message : undefined;
 
   return (
     <section className="space-y-2">
-      <h3 className="text-sm font-semibold">
-        Líneas de la OC ({filas.length} pendientes)
-      </h3>
+      <h3 className="text-sm font-semibold">Partidas de la OC ({filas.length} pendientes)</h3>
 
       {errorMessage && (
         <p role="alert" className="text-xs text-danger-fg">
@@ -899,16 +839,16 @@ function LineasDesdeOc({
 
       {conflictos.size > 0 && (
         <AvisoEnLinea tono="error" titulo="Racks de sub-almacenes distintos">
-          Una recepción va a un solo sub-almacén ({subBaseClave}). Corrige el
-          rack de las líneas marcadas.
+          Una recepción va a un solo sub-almacén ({subBaseClave}). Corrige el rack de las partidas
+          marcadas.
         </AvisoEnLinea>
       )}
 
       {sinRackDelHelper > 0 && (
         <AvisoEnLinea tono="advertencia">
           {sinRackDelHelper === 1
-            ? '1 línea no tiene asignado el rack por defecto: elige su rack.'
-            : `${sinRackDelHelper} líneas no tienen asignado el rack por defecto: elige su rack.`}
+            ? '1 partida no tiene asignado el rack por defecto: elige su rack.'
+            : `${sinRackDelHelper} partidas no tienen asignado el rack por defecto: elige su rack.`}
         </AvisoEnLinea>
       )}
 
@@ -917,8 +857,8 @@ function LineasDesdeOc({
       {lineasEnOtraUbicacion > 0 && (
         <AvisoEnLinea tono="advertencia">
           {lineasEnOtraUbicacion === 1
-            ? '1 línea va a otra ubicación distinta de la predeterminada.'
-            : `${lineasEnOtraUbicacion} líneas van a otra ubicación distinta de la predeterminada.`}
+            ? '1 partida va a otra ubicación distinta de la predeterminada.'
+            : `${lineasEnOtraUbicacion} partidas van a otra ubicación distinta de la predeterminada.`}
         </AvisoEnLinea>
       )}
 
@@ -945,9 +885,7 @@ function LineasDesdeOc({
                 index={index}
                 fila={fila}
                 control={form.control}
-                coincideConHelper={
-                  !!ubicacionHelperId && fila.ubicacionId === ubicacionHelperId
-                }
+                coincideConHelper={!!ubicacionHelperId && fila.ubicacionId === ubicacionHelperId}
                 conflictoSub={
                   conflictos.has(index) && subBaseClave
                     ? `Este rack es de otro sub-almacén; la recepción va a ${subBaseClave}.`
@@ -1022,7 +960,7 @@ function FilaLineaOc({
                 className="mt-1 size-4 cursor-pointer accent-brand"
                 checked={field.value}
                 onChange={(e) => field.onChange(e.target.checked)}
-                aria-label={`Incluir línea ${fila.posicion} en la recepción`}
+                aria-label={`Incluir partida ${fila.posicion} en la recepción`}
               />
             )}
           />
@@ -1066,12 +1004,8 @@ function FilaLineaOc({
                 disabled={!incluida}
                 className="min-w-24 text-right tabular-nums"
                 value={field.value ?? ''}
-                onChange={(e) =>
-                  field.onChange(
-                    e.target.value === '' ? 0 : Number(e.target.value),
-                  )
-                }
-                aria-label={`Cantidad a recibir, línea ${fila.posicion}`}
+                onChange={(e) => field.onChange(e.target.value === '' ? 0 : Number(e.target.value))}
+                aria-label={`Cantidad a recibir, partida ${fila.posicion}`}
                 aria-required={incluida || undefined}
                 aria-invalid={errorCantidad ? true : undefined}
                 aria-describedby={`${idCantidad}-ayuda`}
@@ -1080,14 +1014,10 @@ function FilaLineaOc({
           />
           <p
             id={`${idCantidad}-ayuda`}
-            className={cn(
-              'mt-1 text-2xs',
-              errorCantidad ? 'text-danger-fg' : 'text-ink-muted',
-            )}
+            className={cn('mt-1 text-2xs', errorCantidad ? 'text-danger-fg' : 'text-ink-muted')}
             role={errorCantidad ? 'alert' : undefined}
           >
-            {errorCantidad ??
-              `Máx. ${formatCantidad(fila.maximo, decResuelto)} (tolerancia ${fila.toleranciaPorcentaje}%)`}
+            {errorCantidad ?? `Pendiente ${formatCantidad(fila.pendiente, decResuelto)}`}
           </p>
           <AvisoUnidadNoResoluble visible={unidadNoResoluble} />
         </TableCell>
@@ -1114,11 +1044,7 @@ function FilaLineaOc({
               />
             )}
           />
-          {coincideConHelper && (
-            <span className="mt-1 inline-block rounded-sm bg-success-bg px-1.5 py-0.5 text-2xs font-medium text-success-fg">
-              coincide con el rack por defecto
-            </span>
-          )}
+          {coincideConHelper && <IndicadorAlmacenBadge estado="rackPredeterminado" />}
           {errorRack && (
             <p id={idRack} role="alert" className="mt-1 text-2xs text-danger-fg">
               {errorRack}
@@ -1157,78 +1083,76 @@ function FilaLineaOc({
                 </dd>
               </div>
             </dl>
-            <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
-              <Field
-                label="Unidad capturada"
-                optional
-                hint="Usa el código del catálogo (por ejemplo CAJA). El sistema convierte y valida el saldo al registrar."
-              >
-                <Controller
-                  name={`filas.${index}.unidadCapturada` as const}
-                  control={control}
-                  render={({ field }) => (
-                    <Input
-                      {...field}
-                      value={field.value ?? ''}
-                      maxLength={20}
-                      placeholder={fila.unidadMedida}
-                    />
-                  )}
-                />
-              </Field>
-              <Field
-                label="Comentario"
-                optional
-                error={errors?.comentario?.message}
-              >
-                <Controller
-                  name={`filas.${index}.comentario` as const}
-                  control={control}
-                  render={({ field }) => (
-                    <Input {...field} value={field.value ?? ''} maxLength={500} />
-                  )}
-                />
-              </Field>
-              <Field
-                label="Cantidad dañada"
-                optional
-                hint="Se envía a material en revisión; no queda disponible."
-                error={errors?.cantidadDanada?.message}
-              >
-                <Controller
-                  name={`filas.${index}.cantidadDanada` as const}
-                  control={control}
-                  render={({ field }) => (
-                    <Input
-                      type="number"
-                      inputMode="decimal"
-                      min="0"
-                      step={stepParaDecimales(decimalesFila)}
-                      className="tabular-nums"
-                      value={field.value ?? ''}
-                      onChange={(e) =>
-                        field.onChange(
-                          e.target.value === '' ? 0 : Number(e.target.value),
-                        )
-                      }
-                    />
-                  )}
-                />
-              </Field>
-              <Field
-                label="Motivo del daño"
-                optional
-                error={errors?.motivoDano?.message}
-              >
-                <Controller
-                  name={`filas.${index}.motivoDano` as const}
-                  control={control}
-                  render={({ field }) => (
-                    <Input {...field} value={field.value ?? ''} maxLength={500} />
-                  )}
-                />
-              </Field>
-            </div>
+            <FormGrid>
+              <FormCampo span={6}>
+                <Field
+                  label="Unidad capturada"
+                  optional
+                  hint="Usa el código del catálogo (por ejemplo CAJA). El sistema convierte y valida el saldo al registrar."
+                >
+                  <Controller
+                    name={`filas.${index}.unidadCapturada` as const}
+                    control={control}
+                    render={({ field }) => (
+                      <Input
+                        {...field}
+                        value={field.value ?? ''}
+                        maxLength={20}
+                        placeholder={fila.unidadMedida}
+                      />
+                    )}
+                  />
+                </Field>
+              </FormCampo>
+              <FormCampo span={6}>
+                <Field label="Comentario" optional error={errors?.comentario?.message}>
+                  <Controller
+                    name={`filas.${index}.comentario` as const}
+                    control={control}
+                    render={({ field }) => (
+                      <Input {...field} value={field.value ?? ''} maxLength={500} />
+                    )}
+                  />
+                </Field>
+              </FormCampo>
+              <FormCampo span={6}>
+                <Field
+                  label="Cantidad dañada"
+                  optional
+                  hint="Se envía a material en revisión; no queda disponible."
+                  error={errors?.cantidadDanada?.message}
+                >
+                  <Controller
+                    name={`filas.${index}.cantidadDanada` as const}
+                    control={control}
+                    render={({ field }) => (
+                      <Input
+                        type="number"
+                        inputMode="decimal"
+                        min="0"
+                        step={stepParaDecimales(decimalesFila)}
+                        className="tabular-nums"
+                        value={field.value ?? ''}
+                        onChange={(e) =>
+                          field.onChange(e.target.value === '' ? 0 : Number(e.target.value))
+                        }
+                      />
+                    )}
+                  />
+                </Field>
+              </FormCampo>
+              <FormCampo span={6}>
+                <Field label="Motivo del daño" optional error={errors?.motivoDano?.message}>
+                  <Controller
+                    name={`filas.${index}.motivoDano` as const}
+                    control={control}
+                    render={({ field }) => (
+                      <Input {...field} value={field.value ?? ''} maxLength={500} />
+                    )}
+                  />
+                </Field>
+              </FormCampo>
+            </FormGrid>
           </TableCell>
         </TableRow>
       )}
@@ -1256,9 +1180,7 @@ function VarianteOption({
       aria-pressed={active}
       className={cn(
         'flex-1 rounded-md border p-3 text-left transition-colors',
-        active
-          ? 'border-brand bg-brand-soft'
-          : 'border-line-control hover:border-brand',
+        active ? 'border-brand bg-brand-soft' : 'border-line-control hover:border-brand',
       )}
     >
       <div className="text-sm font-medium">
@@ -1268,7 +1190,6 @@ function VarianteOption({
     </button>
   );
 }
-
 
 type RecepcionFormValues = {
   ordenCompraId: string;
@@ -1282,10 +1203,7 @@ type RecepcionFormValues = {
   filas: FilaRecepcionValues[];
 };
 
-function defaultValuesParaVariante(
-  variante: Variante,
-  hoyIso: string,
-): RecepcionFormValues {
+function defaultValuesParaVariante(variante: Variante, hoyIso: string): RecepcionFormValues {
   const base: RecepcionFormValues = {
     ordenCompraId: '',
     fechaMovimiento: hoyIso,
@@ -1298,4 +1216,3 @@ function defaultValuesParaVariante(
   }
   return { ...base, packingListBlobRef: '' };
 }
-

@@ -1,12 +1,10 @@
+import { FormSeccion } from '@/components/erp/forms/FormSeccion';
+import { IndicadorAlmacenBadge } from './IndicadorAlmacenBadge';
+import { FormGrid, FormCampo } from '@/components/erp/forms/FormGrid';
+import { SheetBody } from '@/components/ui/sheet';
 import { hoyLocalISO } from '@/lib/datetime';
 import { useEffect, useMemo, useRef, useState } from 'react';
-import {
-  Controller,
-  useFieldArray,
-  useForm,
-  useWatch,
-  type Resolver,
-} from 'react-hook-form';
+import { Controller, useFieldArray, useForm, useWatch, type Resolver } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useQueries } from '@tanstack/react-query';
 import { Link, useNavigate } from '@tanstack/react-router';
@@ -44,12 +42,7 @@ import {
   UsuarioSelector,
 } from '@/components/erp';
 import type { ArticuloListItem } from '@/features/catalogos/api/types';
-import {
-  applyServerErrors,
-  esApiError,
-  useFormIdempotencyKey,
-  codigoSoporte,
-} from '@/lib/api';
+import { applyServerErrors, esApiError, useFormIdempotencyKey, codigoSoporte } from '@/lib/api';
 import {
   RegistrarSalidaConRqSchema,
   RegistrarSalidaPorValeSchema,
@@ -57,10 +50,7 @@ import {
   type RegistrarSalidaConRqValues,
   type RegistrarSalidaPorValeValues,
 } from '@/features/almacen/schemas/salida';
-import {
-  useRegistrarSalidaConRq,
-  useRegistrarSalidaPorVale,
-} from '@/features/almacen/api';
+import { useRegistrarSalidaConRq, useRegistrarSalidaPorVale } from '@/features/almacen/api';
 import { ValeUpload } from '@/features/almacen/components/ValeUpload';
 import { formatCcMaquinaLabel } from '@/features/centros-costo/lib/cc-maquina-label';
 import { Dim3Picker } from '@/features/centros-costo/components/Dim3Picker';
@@ -83,10 +73,7 @@ import { cn } from '@/lib/utils';
 import { AvisoEnLinea } from '@/components/erp/feedback/AvisoEnLinea';
 import { ConfirmarAccionDialog } from '@/components/erp/feedback/ConfirmarAccionDialog';
 import { useConfirmarDescarte } from '@/components/erp/forms/useConfirmarDescarte';
-import {
-  AVISOS_SALIDA,
-  CODIGOS_SALIDA,
-} from '@/features/almacen/components/nueva-salida-helpers';
+import { AVISOS_SALIDA, CODIGOS_SALIDA } from '@/features/almacen/components/nueva-salida-helpers';
 import { Field } from '@/features/almacen/components/internal/Field';
 
 /**
@@ -128,22 +115,16 @@ export function NuevaSalidaSheet({
   puedeRegistrarVale,
 }: NuevaSalidaSheetProps) {
   // Cerrar (Esc, clic fuera, X y Cancelar) pide confirmación si hay cambios.
-  const { setDirty, solicitarCierre, dialogo } = useConfirmarDescarte(() =>
-    onOpenChange(false),
-  );
+  const { setDirty, solicitarCierre, dialogo } = useConfirmarDescarte(() => onOpenChange(false));
 
   return (
-    <Sheet
-      open={open}
-      onOpenChange={(next) => (next ? onOpenChange(next) : solicitarCierre())}
-    >
-      <SheetContent side="right" className="sm:max-w-3xl">
+    <Sheet open={open} onOpenChange={(next) => (next ? onOpenChange(next) : solicitarCierre())}>
+      <SheetContent side="right" size="lg">
         <SheetHeader>
           <SheetTitle>Nueva salida</SheetTitle>
           <SheetDescription>
-            Surte una requisición aprobada o registra un vale urgente.
-            El costo se toma del CPP (costo promedio ponderado) del
-            inventario.
+            Surte una requisición aprobada o registra un vale urgente. El costo se toma del CPP
+            (costo promedio ponderado) del inventario.
           </SheetDescription>
         </SheetHeader>
 
@@ -189,10 +170,7 @@ function NuevaSalidaFormBody({
   const hoyIso = useMemo(() => hoyLocalISO(), []);
 
   const resolver: Resolver<SalidaFormValues> = useMemo(() => {
-    const schema =
-      variante === 'A'
-        ? RegistrarSalidaConRqSchema
-        : RegistrarSalidaPorValeSchema;
+    const schema = variante === 'A' ? RegistrarSalidaConRqSchema : RegistrarSalidaPorValeSchema;
     return zodResolver(schema) as Resolver<SalidaFormValues>;
   }, [variante]);
 
@@ -250,10 +228,10 @@ function NuevaSalidaFormBody({
             cantidad: f.cantidad,
           }) === 'invalidos'
         ) {
-          form.setError(
-            `filas.${i}.cantidad` as Parameters<typeof form.setError>[0],
-            { type: 'decimales', message: MENSAJE_DECIMALES_UNIDAD },
-          );
+          form.setError(`filas.${i}.cantidad` as Parameters<typeof form.setError>[0], {
+            type: 'decimales',
+            message: MENSAJE_DECIMALES_UNIDAD,
+          });
           decimalesMal = true;
         }
       });
@@ -316,10 +294,10 @@ function NuevaSalidaFormBody({
           Number.isFinite(l.cantidad) &&
           !cabeEnDecimales(l.cantidad, dec)
         ) {
-          form.setError(
-            `lineas.${i}.cantidad` as Parameters<typeof form.setError>[0],
-            { type: 'decimales', message: MENSAJE_DECIMALES_UNIDAD },
-          );
+          form.setError(`lineas.${i}.cantidad` as Parameters<typeof form.setError>[0], {
+            type: 'decimales',
+            message: MENSAJE_DECIMALES_UNIDAD,
+          });
           decimalesMal = true;
         }
       });
@@ -408,171 +386,159 @@ function NuevaSalidaFormBody({
 
   return (
     <>
-      <form
-        id="nueva-salida-form"
-        onSubmit={form.handleSubmit(onSubmit)}
-        noValidate
-        className="flex-1 space-y-4 overflow-y-auto px-6"
-      >
-        <fieldset className="space-y-2">
-          <legend className="text-sm font-medium">Tipo de salida</legend>
-          <div className="flex gap-2">
-            {puedeRegistrarConRq && (
-              <VarianteOption
-                value="A"
-                active={variante === 'A'}
-                onSelect={solicitarVariante}
-                titulo="Con RQ"
-                descripcion="Salida normal contra requisición aprobada."
-              />
-            )}
-            {puedeRegistrarVale && (
-              <VarianteOption
-                value="B"
-                active={variante === 'B'}
-                onSelect={solicitarVariante}
-                titulo="Vale urgente"
-                descripcion="Sin RQ; adjunta vale firmado. Regulariza en 48 h."
-              />
-            )}
-          </div>
-        </fieldset>
+      <SheetBody>
+        <form
+          id="nueva-salida-form"
+          onSubmit={form.handleSubmit(onSubmit)}
+          noValidate
+          className="space-y-4"
+        >
+          <fieldset className="space-y-2">
+            <legend className="text-sm font-medium">Tipo de salida</legend>
+            <div className="flex gap-2">
+              {puedeRegistrarConRq && (
+                <VarianteOption
+                  value="A"
+                  active={variante === 'A'}
+                  onSelect={solicitarVariante}
+                  titulo="Con RQ"
+                  descripcion="Salida normal contra requisición aprobada."
+                />
+              )}
+              {puedeRegistrarVale && (
+                <VarianteOption
+                  value="B"
+                  active={variante === 'B'}
+                  onSelect={solicitarVariante}
+                  titulo="Vale urgente"
+                  descripcion="Sin RQ; adjunta vale firmado. Regulariza en 48 h."
+                />
+              )}
+            </div>
+          </fieldset>
 
-        <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
-          {variante === 'A' && (
-            <Field
-              label="Requisición"
-              required
-              error={form.formState.errors.requisicionId?.message}
-            >
-              <Controller
-                name="requisicionId"
-                control={form.control}
-                render={({ field }) => (
-                  <RequisicionSelector
-                    value={field.value || null}
-                    onChange={(id) => field.onChange(id ?? '')}
+          <FormSeccion numero={1} titulo="Datos de salida">
+            <FormCampo span={6}>
+              {variante === 'A' && (
+                <Field
+                  label="Requisición"
+                  required
+                  error={form.formState.errors.requisicionId?.message}
+                >
+                  <Controller
+                    name="requisicionId"
+                    control={form.control}
+                    render={({ field }) => (
+                      <RequisicionSelector
+                        value={field.value || null}
+                        onChange={(id) => field.onChange(id ?? '')}
+                      />
+                    )}
                   />
-                )}
+                </Field>
+              )}
+            </FormCampo>
+
+            <FormCampo span={6}>
+              <Field
+                label="Fecha de movimiento"
+                required
+                error={form.formState.errors.fechaMovimiento?.message}
+              >
+                <Controller
+                  name="fechaMovimiento"
+                  control={form.control}
+                  render={({ field }) => <Input {...field} type="date" value={field.value ?? ''} />}
+                />
+              </Field>
+            </FormCampo>
+
+            <FormCampo span={6}>
+              <Field
+                label="Persona destinataria (opcional)"
+                error={form.formState.errors.personaDestinatariaId?.message}
+              >
+                <Controller
+                  name="personaDestinatariaId"
+                  control={form.control}
+                  render={({ field }) => (
+                    <UsuarioSelector
+                      value={field.value || null}
+                      onChange={(id) => field.onChange(id ?? null)}
+                    />
+                  )}
+                />
+              </Field>
+            </FormCampo>
+          </FormSeccion>
+
+          {variante === 'B' && (
+            <Field label="Vale firmado" required error={form.formState.errors.valeBlobRef?.message}>
+              <ValeUpload
+                value={valeAdjunto}
+                onChange={(v) => {
+                  setValeAdjunto(v);
+                  // El schema valida valeBlobRef en el resolver, así que el
+                  // blobRef debe entrar al form al subir el archivo — no solo
+                  // en onSubmit (ahí el resolver ya rechazó). Mismo defecto
+                  // que el packing list de recepción Variante B.
+                  form.setValue(
+                    'valeBlobRef' as keyof SalidaFormValues,
+                    (v?.blobRef ?? '') as never,
+                  );
+                  if (v) form.clearErrors('valeBlobRef');
+                }}
               />
             </Field>
           )}
 
           <Field
-            label="Fecha de movimiento"
-            required
-            error={form.formState.errors.fechaMovimiento?.message}
+            label="Observaciones (opcional)"
+            error={form.formState.errors.observaciones?.message}
           >
             <Controller
-              name="fechaMovimiento"
+              name="observaciones"
               control={form.control}
               render={({ field }) => (
-                <Input
-                  {...field}
-                  type="date"
-                  value={field.value ?? ''}
+                <TextAreaField
+                  value={field.value ?? null}
+                  onChange={(v) => field.onChange(v)}
+                  maxLength={500}
+                  minRows={2}
                 />
               )}
             />
           </Field>
 
-          <Field
-            label="Persona destinataria (opcional)"
-            error={form.formState.errors.personaDestinatariaId?.message}
-          >
-            <Controller
-              name="personaDestinatariaId"
-              control={form.control}
-              render={({ field }) => (
-                <UsuarioSelector
-                  value={field.value || null}
-                  onChange={(id) => field.onChange(id ?? null)}
-                />
-              )}
-            />
-          </Field>
+          {avisoServidor && (
+            <AvisoEnLinea
+              tono="error"
+              titulo={avisoServidor.titulo}
+              accion={
+                avisoServidor.sucursal ? (
+                  <Link to="/almacen/almacenes" className="font-medium underline">
+                    Ir a Almacenes
+                  </Link>
+                ) : undefined
+              }
+            >
+              {avisoServidor.detalle}
+            </AvisoEnLinea>
+          )}
 
-        </div>
-
-        {variante === 'B' && (
-          <Field
-            label="Vale firmado"
-            required
-            error={form.formState.errors.valeBlobRef?.message}
-          >
-            <ValeUpload
-              value={valeAdjunto}
-              onChange={(v) => {
-                setValeAdjunto(v);
-                // El schema valida valeBlobRef en el resolver, así que el
-                // blobRef debe entrar al form al subir el archivo — no solo
-                // en onSubmit (ahí el resolver ya rechazó). Mismo defecto
-                // que el packing list de recepción Variante B.
-                form.setValue(
-                  'valeBlobRef' as keyof SalidaFormValues,
-                  (v?.blobRef ?? '') as never,
-                );
-                if (v) form.clearErrors('valeBlobRef');
-              }}
-            />
-          </Field>
-        )}
-
-        <Field
-          label="Observaciones (opcional)"
-          error={form.formState.errors.observaciones?.message}
-        >
-          <Controller
-            name="observaciones"
-            control={form.control}
-            render={({ field }) => (
-              <TextAreaField
-                value={field.value ?? null}
-                onChange={(v) => field.onChange(v)}
-                maxLength={500}
-                minRows={2}
-              />
-            )}
-          />
-        </Field>
-
-        {avisoServidor && (
-          <AvisoEnLinea
-            tono="error"
-            titulo={avisoServidor.titulo}
-            accion={
-              avisoServidor.sucursal ? (
-                <Link to="/almacen/almacenes" className="font-medium underline">
-                  Ir a Almacenes
-                </Link>
-              ) : undefined
-            }
-          >
-            {avisoServidor.detalle}
-          </AvisoEnLinea>
-        )}
-
-        {variante === 'A' ? (
-          <FilasDesdeRq form={form} />
-        ) : (
-          <LineasCapturaLibre form={form} lineasFA={lineasFA} />
-        )}
-      </form>
+          {variante === 'A' ? (
+            <FilasDesdeRq form={form} />
+          ) : (
+            <LineasCapturaLibre form={form} lineasFA={lineasFA} />
+          )}
+        </form>
+      </SheetBody>
 
       <SheetFooter>
-        <Button
-          type="button"
-          variant="ghost"
-          onClick={onCancel}
-          disabled={isPending}
-        >
+        <Button type="button" variant="ghost" onClick={onCancel} disabled={isPending}>
           Cancelar
         </Button>
-        <Button
-          type="submit"
-          form="nueva-salida-form"
-          disabled={isPending}
-        >
+        <Button type="submit" form="nueva-salida-form" disabled={isPending}>
           {isPending ? 'Registrando…' : 'Registrar salida'}
         </Button>
       </SheetFooter>
@@ -581,7 +547,7 @@ function NuevaSalidaFormBody({
         open={varianteSolicitada != null}
         onOpenChange={(o) => !o && setVarianteSolicitada(null)}
         titulo="¿Cambiar el tipo de salida?"
-        resumen="Se perderán la requisición, las líneas y el vale capturados."
+        resumen="Se perderán la requisición, las partidas y el vale capturados."
         verbo="Cambiar tipo"
         tono="peligro"
         onConfirmar={() => varianteSolicitada && cambiarVariante(varianteSolicitada)}
@@ -592,11 +558,7 @@ function NuevaSalidaFormBody({
 
 // ─── Variante A: filas desde RQ ─────────────────────────────────────────────
 
-function FilasDesdeRq({
-  form,
-}: {
-  form: ReturnType<typeof useForm<SalidaFormValues>>;
-}) {
+function FilasDesdeRq({ form }: { form: ReturnType<typeof useForm<SalidaFormValues>> }) {
   const requisicionId = useWatch({
     control: form.control,
     name: 'requisicionId',
@@ -634,9 +596,7 @@ function FilasDesdeRq({
   const saldosQueries = useQueries({
     // Salida-por-línea C2: sin sub de cabecera → se listan los bins con
     // existencia de cada artículo en TODOS los subs (sub null).
-    queries: articulos.map((articuloId) =>
-      saldosPorUbicacionQueryOptions(articuloId, null),
-    ),
+    queries: articulos.map((articuloId) => saldosPorUbicacionQueryOptions(articuloId, null)),
   });
 
   const saldosPorArticulo: SaldosPorArticulo = new Map(
@@ -653,14 +613,8 @@ function FilasDesdeRq({
 
   const cargandoSaldos = saldosQueries.some((q) => q.isLoading);
   const opciones = opcionesHelper(filas, saldosPorArticulo);
-  const sinCobertura = contarLineasSinCobertura(
-    filas,
-    ubicacionHelperId,
-    saldosPorArticulo,
-  );
-  const claveHelper = opciones.find(
-    (o) => o.ubicacionId === ubicacionHelperId,
-  )?.clave;
+  const sinCobertura = contarLineasSinCobertura(filas, ubicacionHelperId, saldosPorArticulo);
+  const claveHelper = opciones.find((o) => o.ubicacionId === ubicacionHelperId)?.clave;
 
   /**
    * Aplica el bin del helper a las filas que aún no tienen ubicación Y cuyo
@@ -670,11 +624,7 @@ function FilasDesdeRq({
   function aplicarHelper(valor: string | null) {
     form.setValue('ubicacionHelperId', valor, { shouldDirty: true });
     if (!valor) return;
-    for (const index of indicesParaAutoAsignarConCobertura(
-      filas,
-      valor,
-      saldosPorArticulo,
-    )) {
+    for (const index of indicesParaAutoAsignarConCobertura(filas, valor, saldosPorArticulo)) {
       form.setValue(`filas.${index}.ubicacionId`, valor, {
         shouldDirty: true,
         shouldValidate: true,
@@ -684,17 +634,16 @@ function FilasDesdeRq({
 
   if (!rqId) {
     return (
-      <section className="rounded-md border border-dashed bg-muted/30 p-4 text-sm text-muted-foreground">
-        Selecciona una requisición para cargar las líneas pendientes de
-        entregar.
+      <section className="rounded-md border border-dashed bg-surface-muted/30 p-4 text-sm text-ink-muted">
+        Selecciona una requisición para cargar las partidas pendientes de entregar.
       </section>
     );
   }
 
   if (rqQuery.isLoading) {
     return (
-      <section className="rounded-md border border-dashed bg-muted/30 p-4 text-sm text-muted-foreground">
-        Cargando líneas de la RQ…
+      <section className="rounded-md border border-dashed bg-surface-muted/30 p-4 text-sm text-ink-muted">
+        Cargando partidas de la RQ…
       </section>
     );
   }
@@ -712,17 +661,15 @@ function FilasDesdeRq({
 
   if (filas.length === 0) {
     return (
-      <section className="rounded-md border border-dashed bg-muted/30 p-4 text-sm text-muted-foreground">
-        Esta RQ no tiene líneas.
+      <section className="rounded-md border border-dashed bg-surface-muted/30 p-4 text-sm text-ink-muted">
+        Esta RQ no tiene partidas.
       </section>
     );
   }
 
   const errorArrayLevel = form.formState.errors.filas;
   const errorMessage =
-    errorArrayLevel && !Array.isArray(errorArrayLevel)
-      ? errorArrayLevel.message
-      : undefined;
+    errorArrayLevel && !Array.isArray(errorArrayLevel) ? errorArrayLevel.message : undefined;
 
   // ADR-0043 #3: ya no filtramos líneas sin pendiente — se muestran todas
   // (la RQ vive en EnSurtido durante entregas en parcialidades). El conteo
@@ -734,15 +681,14 @@ function FilasDesdeRq({
     <section className="space-y-2">
       <div className="flex items-center justify-between">
         <h3 className="text-sm font-semibold">
-          Líneas de la RQ ({pendientes} con pendiente de {filas.length})
+          Partidas de la RQ ({pendientes} con pendiente de {filas.length})
         </h3>
       </div>
 
       {pendientes === 0 && (
-        <p className="rounded-md border border-dashed bg-muted/30 p-3 text-xs text-muted-foreground">
-          Todas las líneas de esta RQ ya fueron entregadas por completo al
-          solicitante. Quedan visibles como registro; no hay nada pendiente
-          de entregar.
+        <p className="rounded-md border border-dashed bg-surface-muted/30 p-3 text-xs text-ink-muted">
+          Todas las partidas de esta RQ ya fueron entregadas por completo al solicitante. Quedan
+          visibles como registro; no hay nada pendiente de entregar.
         </p>
       )}
 
@@ -758,9 +704,9 @@ function FilasDesdeRq({
           al aplicarlo sólo toca las filas que puede surtir. Un auto-apply a
           ciegas mandaría líneas a bins vacíos y el trigger abortaría la
           transacción con SALDO_INEXISTENTE. */}
-      <div className="rounded-md border border-dashed bg-muted/20 p-3">
+      <div className="rounded-md border border-dashed bg-surface-muted/20 p-3">
         <label
-          className="mb-1 block text-xs font-medium text-muted-foreground"
+          className="mb-1 block text-xs font-medium text-ink-muted"
           htmlFor="salida-ubicacion-helper"
         >
           Ubicación por defecto (opcional)
@@ -789,16 +735,15 @@ function FilasDesdeRq({
             ))}
           </SelectContent>
         </Select>
-        <p className="mt-1 text-xs text-muted-foreground">
-          Se aplica sólo a las líneas sin ubicación cuyo artículo tenga
-          existencia ahí. Nunca reemplaza un rack ya capturado.
+        <p className="mt-1 text-xs text-ink-muted">
+          Se aplica sólo a las partidas sin ubicación cuyo artículo tenga existencia ahí. Nunca
+          reemplaza un rack ya capturado.
         </p>
         {sinCobertura > 0 && (
           <p role="alert" className="mt-2 text-xs text-warning-fg">
             {sinCobertura}{' '}
-            {sinCobertura === 1 ? 'línea sin existencia' : 'líneas sin existencia'}{' '}
-            en {claveHelper ?? 'la ubicación elegida'} — elígeles rack
-            individualmente.
+            {sinCobertura === 1 ? 'partida sin existencia' : 'partidas sin existencia'} en{' '}
+            {claveHelper ?? 'la ubicación elegida'} — elígeles rack individualmente.
           </p>
         )}
       </div>
@@ -861,9 +806,7 @@ function FilaLineaRq({
     <div
       className={cn(
         'rounded-md border p-3',
-        incluida
-          ? 'border-primary/60 bg-primary/5'
-          : 'border-muted bg-muted/20',
+        incluida ? 'border-brand/60 bg-brand/5' : 'border-muted bg-surface-muted/20',
       )}
     >
       <div className="flex items-start gap-3">
@@ -876,16 +819,16 @@ function FilaLineaRq({
               className="mt-1 h-4 w-4 cursor-pointer rounded border-muted-foreground"
               checked={field.value}
               onChange={(e) => field.onChange(e.target.checked)}
-              aria-label={`Incluir línea ${fila.posicion} en la salida`}
+              aria-label={`Incluir partida ${fila.posicion} en la salida`}
             />
           )}
         />
 
         <div className="flex-1 space-y-2">
           <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1 text-sm">
-            <span className="font-semibold">Línea #{fila.posicion}</span>
+            <span className="font-semibold">Partida #{fila.posicion}</span>
             <BadgeEntrega fila={fila} />
-            <span className="text-xs text-muted-foreground">
+            <span className="text-xs text-ink-muted">
               Artículo:{' '}
               {fila.articuloClave ? (
                 <>
@@ -898,142 +841,138 @@ function FilaLineaRq({
                 </code>
               )}
             </span>
-            <span className="text-xs text-muted-foreground">
-              UM: {fila.unidadMedida}
-            </span>
+            <span className="text-xs text-ink-muted">UM: {fila.unidadMedida}</span>
           </div>
 
           <dl className="grid grid-cols-4 gap-2 text-xs">
-            <Stat label="Solicitada">
-              {formatCantidad(fila.cantidadSolicitada)}
-            </Stat>
-            <Stat label="Planeado almacén">
-              {formatCantidad(fila.cantidadPlaneadaAlmacen)}
-            </Stat>
-            <Stat label="Ya entregado">
-              {formatCantidad(fila.cantidadYaEntregada)}
-            </Stat>
+            <Stat label="Solicitada">{formatCantidad(fila.cantidadSolicitada)}</Stat>
+            <Stat label="Planeado almacén">{formatCantidad(fila.cantidadPlaneadaAlmacen)}</Stat>
+            <Stat label="Ya entregado">{formatCantidad(fila.cantidadYaEntregada)}</Stat>
             <Stat label="Pendiente entregar" highlight>
               {formatCantidad(fila.pendienteEntregar)}
             </Stat>
           </dl>
 
           {incluida && (
-            <div className="grid grid-cols-1 gap-2 md:grid-cols-2">
-              <Field label="Unidad capturada (opcional)">
-                <Controller name={`filas.${index}.unidadCapturada` as const} control={control}
-                  render={({ field }) => <Input {...field} value={field.value ?? ''} maxLength={20} placeholder={fila.unidadMedida} />} />
-                <p className="text-xs text-ink-muted">Usa el código del catálogo (por ejemplo CAJA). El sistema convierte y valida el saldo al registrar.</p>
-              </Field>
-              <Field
-                label="Cantidad a entregar"
-                required
-                error={errors?.cantidad?.message}
-              >
-                <Controller
-                  name={`filas.${index}.cantidad` as const}
-                  control={control}
-                  render={({ field }) => (
-                    <Input
-                      type="number"
-                      inputMode="decimal"
-                      step={stepParaDecimales(decimalesFila)}
-                      min="0"
-                      max={fila.unidadCapturada?.trim() ? undefined : fila.pendienteEntregar}
-                      value={field.value ?? ''}
-                      onChange={(e) =>
-                        field.onChange(
-                          e.target.value === '' ? 0 : Number(e.target.value),
-                        )
-                      }
-                      aria-describedby={`fila-${index}-max`}
-                    />
-                  )}
-                />
-                <p
-                  id={`fila-${index}-max`}
-                  className="mt-1 text-2xs text-muted-foreground"
-                >
-                  Máximo: {formatCantidad(fila.pendienteEntregar)}
-                </p>
-                <AvisoUnidadNoResoluble visible={unidadNoResoluble} />
-              </Field>
-
-              <Field label="Centro de costo">
-                {/* Fase E PR5 Camino 1: el CC-Máquina se HEREDA de la línea de
-                    RQ y queda BLOQUEADO (read-only). Mismo molde que la UM/CC
-                    heredada de OC (LineaInlineFormOc). El backend lo re-deriva
-                    autoritativo (ignora lo que mande el FE). "—" si la RQ no
-                    traía CC. */}
-                <Input
-                  type="text"
-                  readOnly
-                  tabIndex={-1}
-                  aria-label="Centro de costo (heredado de la requisición, no editable)"
-                  className="bg-muted/50"
-                  value={
-                    fila.centroCostoId
-                      ? formatCcMaquinaLabel({
-                          clave: fila.centroCostoClave,
-                          nombre: fila.centroCostoNombre,
-                        })
-                      : '—'
-                  }
-                />
-              </Field>
-
-              <Field
-                label={
-                  <span className="inline-flex items-center gap-1.5">
-                    Ubicación (rack) de salida
-                    {!!ubicacionHelperId &&
-                      fila.ubicacionId === ubicacionHelperId && (
-                        <span className="rounded bg-success-bg px-1.5 py-0.5 text-2xs font-medium text-success-fg">
-                          coincide
-                        </span>
-                      )}
-                  </span>
-                }
-                error={errors?.ubicacionId?.message}
-              >
-                <Controller
-                  name={`filas.${index}.ubicacionId` as const}
-                  control={control}
-                  render={({ field }) => (
-                    <UbicacionBinSelector
-                      modo="saldo"
-                      articuloId={fila.articuloId}
-                      // Salida-por-línea C2: sin sub de cabecera; el bin se elige
-                      // entre TODOS los subs con existencia (el sub se deriva).
-                      subAlmacenId={null}
-                      requiereSubAlmacen={false}
-                      value={field.value ?? null}
-                      onChange={(id) => field.onChange(id)}
-                      disabled={!incluida}
-                    />
-                  )}
-                />
-              </Field>
-
-              <div className="md:col-span-2">
-                <Field
-                  label="Comentario (opcional)"
-                  error={errors?.comentario?.message}
-                >
+            <FormGrid>
+              <FormCampo span={6}>
+                <Field label="Unidad capturada (opcional)">
                   <Controller
-                    name={`filas.${index}.comentario` as const}
+                    name={`filas.${index}.unidadCapturada` as const}
                     control={control}
                     render={({ field }) => (
                       <Input
                         {...field}
                         value={field.value ?? ''}
-                        maxLength={500}
+                        maxLength={20}
+                        placeholder={fila.unidadMedida}
+                      />
+                    )}
+                  />
+                  <p className="text-xs text-ink-muted">
+                    Usa el código del catálogo (por ejemplo CAJA). El sistema convierte y valida el
+                    saldo al registrar.
+                  </p>
+                </Field>
+              </FormCampo>
+              <FormCampo span={6}>
+                <Field label="Cantidad a entregar" required error={errors?.cantidad?.message}>
+                  <Controller
+                    name={`filas.${index}.cantidad` as const}
+                    control={control}
+                    render={({ field }) => (
+                      <Input
+                        type="number"
+                        inputMode="decimal"
+                        step={stepParaDecimales(decimalesFila)}
+                        min="0"
+                        max={fila.unidadCapturada?.trim() ? undefined : fila.pendienteEntregar}
+                        value={field.value ?? ''}
+                        onChange={(e) =>
+                          field.onChange(e.target.value === '' ? 0 : Number(e.target.value))
+                        }
+                        aria-describedby={`fila-${index}-max`}
+                      />
+                    )}
+                  />
+                  <p id={`fila-${index}-max`} className="mt-1 text-2xs text-ink-muted">
+                    Máximo: {formatCantidad(fila.pendienteEntregar)}
+                  </p>
+                  <AvisoUnidadNoResoluble visible={unidadNoResoluble} />
+                </Field>
+              </FormCampo>
+
+              <FormCampo span={6}>
+                <Field label="Centro de costo">
+                  {/* Fase E PR5 Camino 1: el CC-Máquina se HEREDA de la línea de
+                    RQ y queda BLOQUEADO (read-only). Mismo molde que la UM/CC
+                    heredada de OC (LineaInlineFormOc). El backend lo re-deriva
+                    autoritativo (ignora lo que mande el FE). "—" si la RQ no
+                    traía CC. */}
+                  <Input
+                    type="text"
+                    readOnly
+                    tabIndex={-1}
+                    aria-label="Centro de costo (heredado de la requisición, no editable)"
+                    className="bg-surface-muted/50"
+                    value={
+                      fila.centroCostoId
+                        ? formatCcMaquinaLabel({
+                            clave: fila.centroCostoClave,
+                            nombre: fila.centroCostoNombre,
+                          })
+                        : '—'
+                    }
+                  />
+                </Field>
+              </FormCampo>
+
+              <FormCampo span={6}>
+                <Field
+                  label={
+                    <span className="inline-flex items-center gap-1.5">
+                      Ubicación (rack) de salida
+                      {!!ubicacionHelperId && fila.ubicacionId === ubicacionHelperId && (
+                        <IndicadorAlmacenBadge estado="completa">coincide</IndicadorAlmacenBadge>
+                      )}
+                    </span>
+                  }
+                  error={errors?.ubicacionId?.message}
+                >
+                  <Controller
+                    name={`filas.${index}.ubicacionId` as const}
+                    control={control}
+                    render={({ field }) => (
+                      <UbicacionBinSelector
+                        modo="saldo"
+                        articuloId={fila.articuloId}
+                        // Salida-por-línea C2: sin sub de cabecera; el bin se elige
+                        // entre TODOS los subs con existencia (el sub se deriva).
+                        subAlmacenId={null}
+                        requiereSubAlmacen={false}
+                        value={field.value ?? null}
+                        onChange={(id) => field.onChange(id)}
+                        disabled={!incluida}
                       />
                     )}
                   />
                 </Field>
-              </div>
-            </div>
+              </FormCampo>
+
+              <FormCampo span={12}>
+                <div className="md:col-span-2">
+                  <Field label="Comentario (opcional)" error={errors?.comentario?.message}>
+                    <Controller
+                      name={`filas.${index}.comentario` as const}
+                      control={control}
+                      render={({ field }) => (
+                        <Input {...field} value={field.value ?? ''} maxLength={500} />
+                      )}
+                    />
+                  </Field>
+                </div>
+              </FormCampo>
+            </FormGrid>
           )}
         </div>
       </div>
@@ -1061,9 +1000,7 @@ function LineasCapturaLibre({
   // deduplicados por queryKey con el selector de cada línea.
   const articulos = articuloIdsUnicos(lineas);
   const saldosQueries = useQueries({
-    queries: articulos.map((articuloId) =>
-      saldosPorUbicacionQueryOptions(articuloId, null),
-    ),
+    queries: articulos.map((articuloId) => saldosPorUbicacionQueryOptions(articuloId, null)),
   });
 
   const saldosPorArticulo: SaldosPorArticulo = new Map(
@@ -1080,14 +1017,8 @@ function LineasCapturaLibre({
 
   const cargandoSaldos = saldosQueries.some((q) => q.isLoading);
   const opciones = opcionesHelper(lineas, saldosPorArticulo);
-  const sinCobertura = contarLineasSinCobertura(
-    lineas,
-    ubicacionHelperId,
-    saldosPorArticulo,
-  );
-  const claveHelper = opciones.find(
-    (o) => o.ubicacionId === ubicacionHelperId,
-  )?.clave;
+  const sinCobertura = contarLineasSinCobertura(lineas, ubicacionHelperId, saldosPorArticulo);
+  const claveHelper = opciones.find((o) => o.ubicacionId === ubicacionHelperId)?.clave;
 
   /**
    * Aplica el bin del helper a las líneas que aún no tienen ubicación Y cuyo
@@ -1096,11 +1027,7 @@ function LineasCapturaLibre({
   function aplicarHelper(valor: string | null) {
     form.setValue('ubicacionHelperId', valor, { shouldDirty: true });
     if (!valor) return;
-    for (const index of indicesParaAutoAsignarConCobertura(
-      lineas,
-      valor,
-      saldosPorArticulo,
-    )) {
+    for (const index of indicesParaAutoAsignarConCobertura(lineas, valor, saldosPorArticulo)) {
       form.setValue(`lineas.${index}.ubicacionId`, valor, {
         shouldDirty: true,
         shouldValidate: true,
@@ -1111,9 +1038,7 @@ function LineasCapturaLibre({
   return (
     <section className="space-y-2">
       <div className="flex items-center justify-between">
-        <h3 className="text-sm font-semibold">
-          Líneas ({lineasFA.fields.length})
-        </h3>
+        <h3 className="text-sm font-semibold">Partidas ({lineasFA.fields.length})</h3>
         <Button
           type="button"
           size="sm"
@@ -1133,23 +1058,22 @@ function LineasCapturaLibre({
           }
         >
           <Plus className="mr-2 size-3.5" />
-          Agregar línea
+          Agregar partida
         </Button>
       </div>
 
-      {form.formState.errors.lineas &&
-        !Array.isArray(form.formState.errors.lineas) && (
-          <p role="alert" className="text-xs text-danger">
-            {form.formState.errors.lineas.message}
-          </p>
-        )}
+      {form.formState.errors.lineas && !Array.isArray(form.formState.errors.lineas) && (
+        <p role="alert" className="text-xs text-danger">
+          {form.formState.errors.lineas.message}
+        </p>
+      )}
 
       {/* Helper "Ubicación por defecto": mismo andamiaje que la variante A —
           sólo bins CON existencia; al aplicarlo toca las líneas sin ubicación
           cuyo artículo tenga existencia ahí. Nunca pisa un bin ya capturado. */}
-      <div className="rounded-md border border-dashed bg-muted/20 p-3">
+      <div className="rounded-md border border-dashed bg-surface-muted/20 p-3">
         <label
-          className="mb-1 block text-xs font-medium text-muted-foreground"
+          className="mb-1 block text-xs font-medium text-ink-muted"
           htmlFor="vale-ubicacion-helper"
         >
           Ubicación por defecto (opcional)
@@ -1178,16 +1102,15 @@ function LineasCapturaLibre({
             ))}
           </SelectContent>
         </Select>
-        <p className="mt-1 text-xs text-muted-foreground">
-          Se aplica sólo a las líneas sin ubicación cuyo artículo tenga
-          existencia ahí. Nunca reemplaza un rack ya capturado.
+        <p className="mt-1 text-xs text-ink-muted">
+          Se aplica sólo a las partidas sin ubicación cuyo artículo tenga existencia ahí. Nunca
+          reemplaza un rack ya capturado.
         </p>
         {sinCobertura > 0 && (
           <p role="alert" className="mt-2 text-xs text-warning-fg">
             {sinCobertura}{' '}
-            {sinCobertura === 1 ? 'línea sin existencia' : 'líneas sin existencia'}{' '}
-            en {claveHelper ?? 'la ubicación elegida'} — elígeles rack
-            individualmente.
+            {sinCobertura === 1 ? 'partida sin existencia' : 'partidas sin existencia'} en{' '}
+            {claveHelper ?? 'la ubicación elegida'} — elígeles rack individualmente.
           </p>
         )}
       </div>
@@ -1200,17 +1123,13 @@ function LineasCapturaLibre({
             control={form.control}
             errors={
               Array.isArray(form.formState.errors.lineas)
-                ? (form.formState.errors.lineas[index] as
-                    | LineaLibreErrors
-                    | undefined)
+                ? (form.formState.errors.lineas[index] as LineaLibreErrors | undefined)
                 : undefined
             }
             onRemove={() => lineasFA.remove(index)}
             onArticuloSelect={(articulo) =>
               form.setValue(
-                `lineas.${index}.unidadMedidaId` as Parameters<
-                  typeof form.setValue
-                >[0],
+                `lineas.${index}.unidadMedidaId` as Parameters<typeof form.setValue>[0],
                 articulo.unidadMedidaId,
               )
             }
@@ -1255,143 +1174,141 @@ function LineaLibreForm({
   });
   const decimalesLinea = lookupLinea.porId(umId) ?? DECIMALES_FALLBACK;
   return (
-    <div className="rounded-md border border-dashed border-primary/40 bg-primary/5 p-3 space-y-2">
+    <div className="rounded-md border border-dashed border-brand/40 bg-brand/5 p-3 space-y-2">
       <div className="flex items-start justify-between gap-2">
-        <span className="text-xs font-semibold text-muted-foreground">
-          Línea #{index + 1}
-        </span>
+        <span className="text-xs font-semibold text-ink-muted">Partida #{index + 1}</span>
         <Button
           type="button"
           size="sm"
           variant="ghost"
           onClick={onRemove}
-          aria-label={`Quitar línea ${index + 1}`}
+          aria-label={`Quitar partida ${index + 1}`}
         >
           <Trash2 className="h-4 w-4" />
         </Button>
       </div>
 
-      <div className="grid grid-cols-1 gap-2 md:grid-cols-2">
-        <Field label="Artículo" required error={errors?.articuloId?.message}>
-          <Controller
-            name={`lineas.${index}.articuloId` as const}
-            control={control}
-            render={({ field }) => (
-              <ArticuloSelector
-                value={field.value || null}
-                onChange={(id) => field.onChange(id ?? '')}
-                onSelect={onArticuloSelect}
-              />
-            )}
-          />
-        </Field>
-
-        <Field label="Unidad capturada (opcional)">
-          <Controller name={`lineas.${index}.unidadCapturada` as const} control={control}
-            render={({ field }) => <Input {...field} value={field.value ?? ''} maxLength={20} placeholder="Código del catálogo, por ejemplo CAJA" />} />
-        </Field>
-        <Field label="Cantidad" required error={errors?.cantidad?.message}>
-          <Controller
-            name={`lineas.${index}.cantidad` as const}
-            control={control}
-            render={({ field }) => (
-              <Input
-                type="number"
-                inputMode="decimal"
-                step={stepParaDecimales(decimalesLinea)}
-                min="0"
-                value={field.value ?? ''}
-                onChange={(e) =>
-                  field.onChange(
-                    e.target.value === '' ? '' : Number(e.target.value),
-                  )
-                }
-              />
-            )}
-          />
-        </Field>
-
-        <Field
-          label="CC-Máquina"
-          error={errors?.centroCostoId?.message}
-        >
-          {/* Fase E PR5 Camino 2 (vale): el almacenista elige el CC-Máquina con
-              el picker ABIERTO por proxy — todas las Dim3 activas del sistema,
-              sin filtro de alcance. El endpoint gateado por almacen.salidas.por-vale
-              abre el selector (el backend, no el FE). Molde de la línea manual de OC. */}
-          <Controller
-            name={`lineas.${index}.centroCostoId` as const}
-            control={control}
-            render={({ field }) => (
-              <Dim3Picker
-                value={field.value || null}
-                onChange={(id) => field.onChange(id ?? null)}
-                endpoint="/api/v1/almacen/salidas/dim3/buscar"
-              />
-            )}
-          />
-        </Field>
-
-        <Field
-          label="Proyecto (opcional)"
-          error={errors?.proyectoId?.message}
-        >
-          <Controller
-            name={`lineas.${index}.proyectoId` as const}
-            control={control}
-            render={({ field }) => (
-              <Input
-                {...field}
-                value={field.value ?? ''}
-                placeholder="GUID"
-                spellCheck={false}
-              />
-            )}
-          />
-        </Field>
-
-        <Field
-          label="Ubicación (rack) de salida"
-          required
-          error={errors?.ubicacionId?.message}
-        >
-          <Controller
-            name={`lineas.${index}.ubicacionId` as const}
-            control={control}
-            render={({ field }) => (
-              <UbicacionBinSelector
-                modo="saldo"
-                articuloId={articuloId}
-                // Salida-por-línea (vale): sin sub de cabecera; bin entre TODOS
-                // los subs con existencia (el sub se deriva).
-                subAlmacenId={null}
-                requiereSubAlmacen={false}
-                value={field.value ?? null}
-                onChange={(id) => field.onChange(id ?? '')}
-              />
-            )}
-          />
-        </Field>
-
-        <div className="md:col-span-2">
-          <Field
-            label="Comentario (opcional)"
-            error={errors?.comentario?.message}
-          >
+      <FormGrid>
+        <FormCampo span={6}>
+          <Field label="Artículo" required error={errors?.articuloId?.message}>
             <Controller
-              name={`lineas.${index}.comentario` as const}
+              name={`lineas.${index}.articuloId` as const}
+              control={control}
+              render={({ field }) => (
+                <ArticuloSelector
+                  value={field.value || null}
+                  onChange={(id) => field.onChange(id ?? '')}
+                  onSelect={onArticuloSelect}
+                />
+              )}
+            />
+          </Field>
+        </FormCampo>
+
+        <FormCampo span={6}>
+          <Field label="Unidad capturada (opcional)">
+            <Controller
+              name={`lineas.${index}.unidadCapturada` as const}
               control={control}
               render={({ field }) => (
                 <Input
                   {...field}
                   value={field.value ?? ''}
-                  maxLength={500}
+                  maxLength={20}
+                  placeholder="Código del catálogo, por ejemplo CAJA"
                 />
               )}
             />
           </Field>
-        </div>
-      </div>
+        </FormCampo>
+        <FormCampo span={6}>
+          <Field label="Cantidad" required error={errors?.cantidad?.message}>
+            <Controller
+              name={`lineas.${index}.cantidad` as const}
+              control={control}
+              render={({ field }) => (
+                <Input
+                  type="number"
+                  inputMode="decimal"
+                  step={stepParaDecimales(decimalesLinea)}
+                  min="0"
+                  value={field.value ?? ''}
+                  onChange={(e) =>
+                    field.onChange(e.target.value === '' ? '' : Number(e.target.value))
+                  }
+                />
+              )}
+            />
+          </Field>
+        </FormCampo>
+
+        <FormCampo span={6}>
+          <Field label="CC-Máquina" error={errors?.centroCostoId?.message}>
+            {/* Fase E PR5 Camino 2 (vale): el almacenista elige el CC-Máquina con
+              el picker ABIERTO por proxy — todas las Dim3 activas del sistema,
+              sin filtro de alcance. El endpoint gateado por almacen.salidas.por-vale
+              abre el selector (el backend, no el FE). Molde de la línea manual de OC. */}
+            <Controller
+              name={`lineas.${index}.centroCostoId` as const}
+              control={control}
+              render={({ field }) => (
+                <Dim3Picker
+                  value={field.value || null}
+                  onChange={(id) => field.onChange(id ?? null)}
+                  endpoint="/api/v1/almacen/salidas/dim3/buscar"
+                />
+              )}
+            />
+          </Field>
+        </FormCampo>
+
+        <FormCampo span={6}>
+          <Field label="Proyecto (opcional)" error={errors?.proyectoId?.message}>
+            <Controller
+              name={`lineas.${index}.proyectoId` as const}
+              control={control}
+              render={({ field }) => (
+                <Input {...field} value={field.value ?? ''} placeholder="GUID" spellCheck={false} />
+              )}
+            />
+          </Field>
+        </FormCampo>
+
+        <FormCampo span={6}>
+          <Field label="Ubicación (rack) de salida" required error={errors?.ubicacionId?.message}>
+            <Controller
+              name={`lineas.${index}.ubicacionId` as const}
+              control={control}
+              render={({ field }) => (
+                <UbicacionBinSelector
+                  modo="saldo"
+                  articuloId={articuloId}
+                  // Salida-por-línea (vale): sin sub de cabecera; bin entre TODOS
+                  // los subs con existencia (el sub se deriva).
+                  subAlmacenId={null}
+                  requiereSubAlmacen={false}
+                  value={field.value ?? null}
+                  onChange={(id) => field.onChange(id ?? '')}
+                />
+              )}
+            />
+          </Field>
+        </FormCampo>
+
+        <FormCampo span={12}>
+          <div className="md:col-span-2">
+            <Field label="Comentario (opcional)" error={errors?.comentario?.message}>
+              <Controller
+                name={`lineas.${index}.comentario` as const}
+                control={control}
+                render={({ field }) => (
+                  <Input {...field} value={field.value ?? ''} maxLength={500} />
+                )}
+              />
+            </Field>
+          </div>
+        </FormCampo>
+      </FormGrid>
     </div>
   );
 }
@@ -1399,27 +1316,17 @@ function LineaLibreForm({
 // ─── Helpers ───────────────────────────────────────────────────────────────
 
 function BadgeEntrega({ fila }: { fila: FilaSalidaValues }) {
-  const estado = clasificarEntrega(
-    fila.cantidadYaEntregada,
-    fila.cantidadSolicitada,
-  );
+  const estado = clasificarEntrega(fila.cantidadYaEntregada, fila.cantidadSolicitada);
   if (estado === 'sin-entregar') return null;
   const esParcial = estado === 'parcial';
   return (
-    <span
-      className={cn(
-        'rounded px-1.5 py-0.5 text-2xs font-medium',
-        esParcial
-          ? 'bg-warning-bg text-warning-fg'
-          : 'bg-success-bg text-success-fg',
-      )}
-    >
+    <IndicadorAlmacenBadge estado={esParcial ? 'parcial' : 'completa'}>
       {esParcial
         ? `Parcial · ${formatCantidad(fila.cantidadYaEntregada)}/${formatCantidad(
             fila.cantidadSolicitada,
           )}`
         : 'Entregada'}
-    </span>
+    </IndicadorAlmacenBadge>
   );
 }
 
@@ -1434,12 +1341,8 @@ function Stat({
 }) {
   return (
     <div>
-      <dt className="text-muted-foreground">{label}</dt>
-      <dd
-        className={cn('font-mono', highlight && 'font-semibold text-primary')}
-      >
-        {children}
-      </dd>
+      <dt className="text-ink-muted">{label}</dt>
+      <dd className={cn('font-mono', highlight && 'font-semibold text-brand')}>{children}</dd>
     </div>
   );
 }
@@ -1471,19 +1374,16 @@ function VarianteOption({
       aria-pressed={active}
       className={cn(
         'flex-1 rounded-md border p-3 text-left transition-colors',
-        active
-          ? 'border-primary bg-primary/5'
-          : 'border-muted hover:border-muted-foreground/50',
+        active ? 'border-brand bg-brand/5' : 'border-muted hover:border-muted-foreground/50',
       )}
     >
       <div className="text-sm font-medium">
         Variante {value} — {titulo}
       </div>
-      <div className="mt-0.5 text-xs text-muted-foreground">{descripcion}</div>
+      <div className="mt-0.5 text-xs text-ink-muted">{descripcion}</div>
     </button>
   );
 }
-
 
 // ─── Form values type + helpers ────────────────────────────────────────────
 
@@ -1513,10 +1413,7 @@ type SalidaFormValues = {
   }[];
 };
 
-function defaultValuesParaVariante(
-  variante: Variante,
-  hoyIso: string,
-): SalidaFormValues {
+function defaultValuesParaVariante(variante: Variante, hoyIso: string): SalidaFormValues {
   const base: SalidaFormValues = {
     fechaMovimiento: hoyIso,
     personaDestinatariaId: null,
@@ -1544,4 +1441,3 @@ function defaultValuesParaVariante(
     ],
   };
 }
-

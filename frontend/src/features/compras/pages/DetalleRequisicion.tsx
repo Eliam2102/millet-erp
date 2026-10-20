@@ -141,11 +141,8 @@ export function DetalleRequisicion() {
         <div className="flex min-w-0 items-center gap-2">
           <h1 className="truncate font-mono text-3xl font-semibold text-ink">{rq.folio}</h1>
           <EstadoBadge tipo="requisicion" estado={rq.estado} situacion={rq.situacionSurtido} />
-          {esRecurrente === true ? (
-            <RecurrenteBadge esRecurrente />
-          ) : (
-            <EnAlmacenBadge enAlmacen={rq.enAlmacen} />
-          )}
+          {!esRecurrente && <EnAlmacenBadge enAlmacen={rq.enAlmacen} />}
+          <RecurrenteBadge esRecurrente={esRecurrente} />
           <CollaborationIndicator entidad="requisicion" id={rq.id} />
         </div>
 

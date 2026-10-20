@@ -14,16 +14,14 @@ import { interpretarToleranciaMxn } from './tolerancia-proveedor';
 interface Props {
   proveedorId: string;
   montoMxn: number | null;
-  esPorcentaje?: boolean;
 }
 
-export function ProveedorToleranciaSection({ proveedorId, montoMxn, esPorcentaje = false }: Props) {
+export function ProveedorToleranciaSection({ proveedorId, montoMxn }: Props) {
   const puedeEditar = useHasPermission(PermisosCanonicos.DatosMaestrosProveedoresToleranciaEditar);
   const [editando, setEditando] = useState(false);
   const [valor, setValor] = useState('');
-  const [porcentaje, setPorcentaje] = useState(esPorcentaje);
   const actualizar = useActualizarToleranciaProveedor();
-  const resultado = interpretarToleranciaMxn(valor, porcentaje);
+  const resultado = interpretarToleranciaMxn(valor);
   const campoId = `tolerancia-${proveedorId}`;
 
   function guardar(event: React.FormEvent) {
@@ -33,7 +31,6 @@ export function ProveedorToleranciaSection({ proveedorId, montoMxn, esPorcentaje
       {
         id: proveedorId,
         montoMxn: resultado.monto,
-        esPorcentaje: porcentaje,
         idempotencyKey: crypto.randomUUID(),
       },
       {
@@ -58,7 +55,7 @@ export function ProveedorToleranciaSection({ proveedorId, montoMxn, esPorcentaje
     >
       <div className="mb-3 flex items-center justify-between gap-3">
         <h3 id={`${campoId}-titulo`} className="text-sm font-semibold text-ink">
-          Tolerancia factura contra OC
+          Tolerancia factura contra OC (MXN)
         </h3>
         {puedeEditar && !editando && (
           <Button
@@ -66,7 +63,6 @@ export function ProveedorToleranciaSection({ proveedorId, montoMxn, esPorcentaje
             size="sm"
             onClick={() => {
               setValor(montoMxn == null ? '' : String(montoMxn));
-              setPorcentaje(esPorcentaje);
               setEditando(true);
             }}
           >
@@ -75,38 +71,15 @@ export function ProveedorToleranciaSection({ proveedorId, montoMxn, esPorcentaje
         )}
       </div>
       <p id={`${campoId}-ayuda`} className="mb-3 text-xs text-ink-muted">
-        Diferencia máxima entre la factura y la orden de compra, en pesos o en porcentaje del total
-        de la OC. Si se rebasa, la factura se rechaza sin opción de forzarla.
+        Diferencia máxima en pesos entre la factura y la orden de compra. Si se rebasa, la factura
+        se rechaza sin opción de forzarla.
       </p>
       {editando && puedeEditar ? (
         <form onSubmit={guardar} className="space-y-3">
           <FormSeccion titulo="Datos del registro">
             <FormCampo span={12}>
-              <fieldset className="flex gap-4" disabled={actualizar.isPending}>
-                <legend className="sr-only">Tipo de tolerancia</legend>
-                {(
-                  [
-                    [false, 'En pesos (MXN)'],
-                    [true, 'En porcentaje de la OC'],
-                  ] as const
-                ).map(([opcion, etiqueta]) => (
-                  <div key={etiqueta} className="flex items-center gap-2">
-                    <input
-                      id={`${campoId}-${opcion ? 'pct' : 'mxn'}`}
-                      type="radio"
-                      name={`${campoId}-tipo`}
-                      checked={porcentaje === opcion}
-                      onChange={() => setPorcentaje(opcion)}
-                      className="accent-brand"
-                    />
-                    <Label htmlFor={`${campoId}-${opcion ? 'pct' : 'mxn'}`}>{etiqueta}</Label>
-                  </div>
-                ))}
-              </fieldset>
-            </FormCampo>
-            <FormCampo span={12}>
               <Label htmlFor={campoId}>
-                Tolerancia factura contra OC ({porcentaje ? '%' : 'MXN'}){' '}
+                Tolerancia factura contra OC (MXN){' '}
                 <span className="font-normal text-ink-muted">(opcional)</span>
               </Label>
             </FormCampo>
@@ -131,9 +104,8 @@ export function ProveedorToleranciaSection({ proveedorId, montoMxn, esPorcentaje
             <FormCampo span={12}>
               {!resultado.valido && (
                 <p id={`${campoId}-error`} role="alert" className="text-xs text-danger-fg">
-                  {porcentaje
-                    ? 'Ingresa un porcentaje entre 0 y 100, con hasta 4 decimales. Usa punto decimal.'
-                    : 'Ingresa un monto mayor o igual a cero, con hasta 14 enteros y 4 decimales. Usa punto decimal y omite separadores de miles.'}
+                  Ingresa un monto mayor o igual a cero, con hasta 14 enteros y 4 decimales. Usa
+                  punto decimal y omite separadores de miles.
                 </p>
               )}
             </FormCampo>
@@ -170,9 +142,7 @@ export function ProveedorToleranciaSection({ proveedorId, montoMxn, esPorcentaje
         <p className="text-right text-sm font-medium tabular-nums text-ink">
           {montoMxn == null
             ? 'Usa la tolerancia general de Administración'
-            : esPorcentaje
-              ? `${montoMxn.toLocaleString('es-MX', { maximumFractionDigits: 4 })} % del total de la OC`
-              : `${montoMxn.toLocaleString('es-MX', { style: 'currency', currency: 'MXN', maximumFractionDigits: 4 })} MXN`}
+            : `${montoMxn.toLocaleString('es-MX', { style: 'currency', currency: 'MXN', maximumFractionDigits: 4 })} MXN`}
         </p>
       )}
     </section>

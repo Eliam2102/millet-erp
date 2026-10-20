@@ -383,7 +383,6 @@ export function ProveedorDetalle() {
           key={proveedor.id}
           proveedorId={proveedor.id}
           montoMxn={proveedor.toleranciaFacturaContraOcMxn}
-          esPorcentaje={proveedor.toleranciaFacturaContraOcEsPorcentaje ?? false}
         />
         <ProveedorCuentasBancariasSection
           proveedorId={proveedor.id}

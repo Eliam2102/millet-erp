@@ -22,7 +22,7 @@ describe('Cuenta bancaria para ingresos de Tesorería operativa', () => {
     expect(mocks.saldos).toHaveBeenCalledWith(true, false);
     expect(mocks.ingresos).toHaveBeenCalledWith(true);
     fireEvent.keyDown(screen.getByRole('combobox', { name: 'Cuenta bancaria' }), { key: 'ArrowDown' });
-    expect(screen.getByRole('option', { name: /Banco ficticio.*1234.*MXN/ })).toBeInTheDocument();
+    expect(screen.getByRole('option', { name: /Banco ficticio.*Cta\. \*\*\*\*1234.*MXN/ })).toBeInTheDocument();
     expect(screen.queryByText(/987,654/)).not.toBeInTheDocument();
   });
 
@@ -30,5 +30,30 @@ describe('Cuenta bancaria para ingresos de Tesorería operativa', () => {
     render(<CuentaBancariaSelector value={null} onChange={vi.fn()} />);
     expect(mocks.saldos).toHaveBeenCalledWith(true, true);
     expect(mocks.ingresos).toHaveBeenCalledWith(false);
+  });
+
+  it('muestra el saldo en libros por omisión y lo oculta con ocultarSaldo', () => {
+    const abrir = () =>
+      fireEvent.keyDown(screen.getByRole('combobox', { name: 'Cuenta bancaria' }), { key: 'ArrowDown' });
+    const { unmount } = render(<CuentaBancariaSelector value={null} onChange={vi.fn()} />);
+    abrir();
+    expect(screen.getByText(/en libros/)).toBeInTheDocument();
+    unmount();
+    render(<CuentaBancariaSelector value={null} onChange={vi.fn()} ocultarSaldo />);
+    abrir();
+    expect(screen.queryByText(/en libros/)).not.toBeInTheDocument();
+    expect(screen.getByRole('option', { name: /Banco ficticio.*Cta\. \*\*\*\*1234.*MXN/ })).toBeInTheDocument();
+  });
+
+  it('muestra la cuenta enmascarada y nunca el número completo', () => {
+    mocks.ingresos.mockReturnValue({
+      data: [{ ...cuenta, numeroCuenta: '012345678901234' }],
+      isLoading: false,
+      isError: false,
+    });
+    render(<CuentaBancariaSelector paraIngresos value={null} onChange={vi.fn()} />);
+    fireEvent.keyDown(screen.getByRole('combobox', { name: 'Cuenta bancaria' }), { key: 'ArrowDown' });
+    expect(screen.getByRole('option', { name: /Cta\. \*\*\*\*1234/ })).toBeInTheDocument();
+    expect(screen.queryByText(/012345678901234/)).not.toBeInTheDocument();
   });
 });

@@ -1,3 +1,4 @@
+import { PageHeader } from '@/components/erp/PageHeader';
 import { useMemo, useState, type ReactNode } from 'react';
 import { Link } from '@tanstack/react-router';
 import { Building2, Plus, Search } from 'lucide-react';
@@ -52,37 +53,43 @@ export function SucursalesLayout({ idActivo, detalle }: SucursalesLayoutProps) {
         aria-label="Lista de sucursales"
         data-print="hidden"
       >
-        <div className="flex flex-wrap items-center justify-between gap-2">
-          <div className="flex items-center gap-2">
-            <h1 className="text-xl font-semibold tracking-tight">Sucursales</h1>
-            {sucursales.length > 0 && (
-              <span className="rounded-full bg-muted px-2 py-0.5 text-xs text-muted-foreground">
-                {sucursales.length}
-              </span>
-            )}
-          </div>
-          {canGestionar && !agregando && (
-            <Button
-              size="sm"
-              variant="outline"
-              onClick={() => setAgregando(true)}
-              className="gap-1 text-xs"
-            >
-              <Plus className="h-3.5 w-3.5" />
-              Agregar sucursal
-            </Button>
-          )}
-        </div>
+        <PageHeader
+          titulo={<>Sucursales</>}
+          descripcion={
+            <>
+              {sucursales.length > 0 && (
+                <span className="rounded-full bg-surface-muted px-2 py-0.5 text-xs text-ink-muted">
+                  {sucursales.length}
+                </span>
+              )}
+            </>
+          }
+          acciones={
+            <>
+              {canGestionar && !agregando && (
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => setAgregando(true)}
+                  className="gap-1 text-xs"
+                >
+                  <Plus className="h-3.5 w-3.5" />
+                  Agregar sucursal
+                </Button>
+              )}
+            </>
+          }
+        />
 
         {canVerDatosEmpresa && currentEmpresaId && (
-          <div className="flex justify-between items-center text-xs text-muted-foreground px-1">
+          <div className="flex justify-between items-center text-xs text-ink-muted px-1">
             <span>
               {empresaSesion?.razonSocial ?? empresaQuery.data?.empresa.razonSocial ?? '[EMPRESA]'}
             </span>
             <Link
               to="/admin/empresas/$id"
               params={{ id: currentEmpresaId }}
-              className="hover:text-foreground underline"
+              className="hover:text-ink underline"
             >
               Datos de la empresa
             </Link>
@@ -90,7 +97,7 @@ export function SucursalesLayout({ idActivo, detalle }: SucursalesLayoutProps) {
         )}
 
         {agregando && currentEmpresaId && (
-          <div className="rounded-md border border-dashed border-primary p-2 bg-card">
+          <div className="rounded-md border border-dashed border-brand p-2 bg-surface-card">
             <SucursalInlineForm
               empresaId={currentEmpresaId}
               onCancel={() => setAgregando(false)}
@@ -104,7 +111,7 @@ export function SucursalesLayout({ idActivo, detalle }: SucursalesLayoutProps) {
 
         {sucursales.length > 3 && (
           <div className="relative">
-            <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+            <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-ink-muted" />
             <Input
               type="search"
               placeholder="Buscar por clave o nombre…"
@@ -115,7 +122,7 @@ export function SucursalesLayout({ idActivo, detalle }: SucursalesLayoutProps) {
           </div>
         )}
 
-        <div className="flex-1 overflow-y-auto rounded-md border bg-card">
+        <div className="flex-1 overflow-y-auto rounded-md border bg-surface-card">
           <RenderLista
             query={empresaQuery}
             items={sucursalesFiltradas}
@@ -127,7 +134,7 @@ export function SucursalesLayout({ idActivo, detalle }: SucursalesLayoutProps) {
 
       <section
         className={cn(
-          'min-w-0 flex-1 md:overflow-y-auto rounded-md border bg-card',
+          'min-w-0 flex-1 md:overflow-y-auto rounded-md border bg-surface-card',
           idActivo == null ? 'hidden md:block' : 'block',
         )}
         aria-label="Detalle de sucursal"
@@ -162,7 +169,7 @@ function RenderLista({ query, items, idActivo, tieneFiltro }: RenderListaProps) 
   if (items.length === 0) {
     return (
       <EmptyState
-        icon={<Building2 className="h-10 w-10 text-muted-foreground" />}
+        icon={<Building2 className="h-10 w-10 text-ink-muted" />}
         title={tieneFiltro ? 'Sin coincidencias' : 'Aún no hay sucursales.'}
         description={
           tieneFiltro
@@ -179,9 +186,9 @@ function RenderLista({ query, items, idActivo, tieneFiltro }: RenderListaProps) 
 function PlaceholderSinSeleccion() {
   return (
     <div className="flex h-full min-h-64 items-center justify-center p-8 text-center">
-      <div className="space-y-2 text-muted-foreground">
+      <div className="space-y-2 text-ink-muted">
         <Building2 className="mx-auto h-10 w-10 opacity-40" aria-hidden="true" />
-        <p className="text-base font-medium text-foreground">Selecciona una sucursal de la lista</p>
+        <p className="text-base font-medium text-ink">Selecciona una sucursal de la lista</p>
         <p className="text-xs max-w-sm">
           Consulta y gestiona sus datos generales, departamentos, puestos y colaboradores asignados.
         </p>

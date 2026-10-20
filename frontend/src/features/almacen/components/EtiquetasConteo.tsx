@@ -17,7 +17,7 @@ export function EtiquetaArticulo({
 }) {
   if (!clave) {
     return (
-      <span className="font-mono text-xs text-muted-foreground" title={articuloId}>
+      <span className="font-mono text-xs text-ink-muted" title={articuloId}>
         {articuloId.slice(0, 8)}…
       </span>
     );
@@ -26,7 +26,7 @@ export function EtiquetaArticulo({
     <span title={descripcion ?? undefined}>
       <span className="font-mono text-xs">{clave}</span>
       {descripcion && (
-        <span className="ml-1 text-xs text-muted-foreground">
+        <span className="ml-1 text-xs text-ink-muted">
           {descripcion.length > 40 ? `${descripcion.slice(0, 40)}…` : descripcion}
         </span>
       )}
@@ -43,7 +43,7 @@ export function EtiquetaSubAlmacen({
 }) {
   if (!clave) {
     return (
-      <span className="font-mono text-xs text-muted-foreground" title={subAlmacenId}>
+      <span className="font-mono text-xs text-ink-muted" title={subAlmacenId}>
         {subAlmacenId.slice(0, 8)}…
       </span>
     );

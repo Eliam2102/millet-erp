@@ -35,7 +35,7 @@ public class RegistrarRecepcionMultiSubAlmacenTests
     }
 
     private static RegistrarRecepcionConFacturaHandler NuevoHandler(AlmacenDbContext db, bool contabilidadAbierta = true, FakeEvents? events = null) =>
-        new(db, new FakeOc(), new FakeArticulos(), events ?? new FakeEvents(),
+        new(db, new FakeOc(), events ?? new FakeEvents(),
             new FakeUser(), new FakeEmpresa(EmpresaId), new FakeDecimales(), new PeriodoContableStub(contabilidadAbierta), new P7Support.Conversion(),
             CfdiFake.Valido(), new ProveedorRfcFake());
 
@@ -165,7 +165,7 @@ public class RegistrarRecepcionMultiSubAlmacenTests
     {
         public Task<ArticuloLectura?> ObtenerAsync(Guid articuloId, CancellationToken ct) =>
             Task.FromResult<ArticuloLectura?>(
-                new ArticuloLectura(articuloId, "ART", "Artículo", "PZA", null, null, true));
+                new ArticuloLectura(articuloId, "ART", "Artículo", "PZA", null, true));
         public Task<IReadOnlyDictionary<Guid, ArticuloLectura>> ObtenerPorIdsAsync(
             IReadOnlyCollection<Guid> ids, CancellationToken ct) =>
             Task.FromResult<IReadOnlyDictionary<Guid, ArticuloLectura>>(

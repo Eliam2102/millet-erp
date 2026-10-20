@@ -9,7 +9,8 @@ import {
   Clasificacion,
   EstadoRequisicion,
   Prioridad,
-  type RequisicionListItemResponse,
+  DisponibilidadPendiente,
+  type PendienteAutorizacionItemResponse,
   OrigenRequisicion,
 } from '@/features/compras/api/types';
 import type { PendientesSearch } from '@/features/compras/lib/pendientes-search-schema';
@@ -39,8 +40,8 @@ vi.mock('@tanstack/react-router', () => ({
 }));
 
 function makeItem(
-  overrides: Partial<RequisicionListItemResponse> = {},
-): RequisicionListItemResponse {
+  overrides: Partial<PendienteAutorizacionItemResponse> = {},
+): PendienteAutorizacionItemResponse {
   return {
     id: 'rq-x',
     folio: 'MID2026-000010',
@@ -60,6 +61,8 @@ function makeItem(
     situacionSurtido: null,
     nivelPendiente: null,
     origen: OrigenRequisicion.Manual,
+    disponibilidad: DisponibilidadPendiente.SinDato,
+    esRecurrente: false,
     ...overrides,
   };
 }

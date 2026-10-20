@@ -38,10 +38,7 @@ export function Dim3Dialog({ open, onOpenChange, modo }: Dim3DialogProps) {
   const etiqueta = etiquetaNivel('dim3', 'configuracion');
   const etiquetaGrupo = etiquetaNivel('grupoDim3', 'configuracion');
 
-  const detalle = useDetalleCatalogo<Dim3Detalle>(
-    'dim3',
-    modo.tipo === 'editar' ? modo.id : null,
-  );
+  const detalle = useDetalleCatalogo<Dim3Detalle>('dim3', modo.tipo === 'editar' ? modo.id : null);
   const crear = useCrearCatalogo<Dim3Values & { dim2Id: string }>('dim3');
   const editar = useEditarCatalogo<Dim3Values>('dim3');
 
@@ -61,11 +58,14 @@ export function Dim3Dialog({ open, onOpenChange, modo }: Dim3DialogProps) {
       return;
     }
     if (modo.tipo === 'editar' && detalle.data) {
-      form.reset({
-        clave: detalle.data.data.clave,
-        nombre: detalle.data.data.nombre,
-        grupoDim3Id: detalle.data.data.grupoDim3Id,
-      }, { keepDirtyValues: cargadoEnEstaApertura.current });
+      form.reset(
+        {
+          clave: detalle.data.data.clave,
+          nombre: detalle.data.data.nombre,
+          grupoDim3Id: detalle.data.data.grupoDim3Id,
+        },
+        { keepDirtyValues: cargadoEnEstaApertura.current },
+      );
       cargadoEnEstaApertura.current = true;
     }
     if (modo.tipo === 'crear') {
@@ -77,14 +77,12 @@ export function Dim3Dialog({ open, onOpenChange, modo }: Dim3DialogProps) {
   function onSubmit(values: Dim3Values) {
     const opciones = {
       onSuccess: () => {
-        toast.success(
-          modo.tipo === 'crear' ? `${etiqueta} creada` : `${etiqueta} actualizada`,
-        );
+        toast.success(modo.tipo === 'crear' ? `${etiqueta} creada` : `${etiqueta} actualizada`);
         onOpenChange(false);
       },
       onError: (error: unknown) =>
         manejarErrorDialogoCatalogo(error, {
-          form: form as unknown as import("@/lib/api/apply-server-errors").FormConSetError,
+          form: form as unknown as import('@/lib/api/apply-server-errors').FormConSetError,
           campoUnicidad: 'clave',
           conflictDialog,
           queryClient,
@@ -109,29 +107,37 @@ export function Dim3Dialog({ open, onOpenChange, modo }: Dim3DialogProps) {
       titulo={titulo}
       descripcion={
         modo.tipo === 'crear'
-          ? `En ${modo.padre.clave} — ${modo.padre.nombre}. El padre queda fijo: reubicar es baja + alta (diseño §5).`
-          : 'El padre no se puede cambiar: reubicar es baja + alta (diseño §5).'
+          ? `En ${modo.padre.clave} — ${modo.padre.nombre}. El padre queda fijo: reubicar es baja + alta.`
+          : 'El padre no se puede cambiar: reubicar es baja + alta.'
       }
       formId="dim3-dialog-form"
       onSubmit={form.handleSubmit(onSubmit)}
       submitting={crear.isPending || editar.isPending}
     >
-      <Field label="Clave" htmlFor="dim3-clave" required error={form.formState.errors.clave?.message}>
+      <Field
+        label="Clave"
+        htmlFor="dim3-clave"
+        required
+        error={form.formState.errors.clave?.message}
+      >
         <Input {...form.register('clave')} id="dim3-clave" maxLength={20} autoFocus />
       </Field>
-      <Field label="Nombre" htmlFor="dim3-nombre" full required error={form.formState.errors.nombre?.message}>
+      <Field
+        label="Nombre"
+        htmlFor="dim3-nombre"
+        full
+        required
+        error={form.formState.errors.nombre?.message}
+      >
         <Input {...form.register('nombre')} id="dim3-nombre" maxLength={254} />
       </Field>
-      <Field
-        label={etiquetaGrupo}
-        required
-        error={form.formState.errors.grupoDim3Id?.message}
-      >
+      <Field label={etiquetaGrupo} required error={form.formState.errors.grupoDim3Id?.message}>
         <Controller
           name="grupoDim3Id"
           control={form.control}
           render={({ field }) => (
             <GrupoDimCombobox
+              id="dim3-grupo"
               recurso="grupos-dim3"
               value={field.value || null}
               onChange={(id) => field.onChange(id ?? '')}

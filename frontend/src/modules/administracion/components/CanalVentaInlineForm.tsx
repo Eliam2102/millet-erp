@@ -1,3 +1,5 @@
+import { FormSeccion } from '@/components/erp/forms/FormSeccion';
+import { FormCampo } from '@/components/erp/forms/FormGrid';
 import { useEffect } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -5,20 +7,12 @@ import { Check, Plus, X } from 'lucide-react';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import {
-  applyServerErrors,
-  esApiError,
-  useFormIdempotencyKey,
-  codigoSoporte,
-} from '@/lib/api';
+import { applyServerErrors, esApiError, useFormIdempotencyKey, codigoSoporte } from '@/lib/api';
 import {
   CanalVentaSchema,
   type CanalVentaValues,
 } from '@/modules/administracion/schemas/canal-venta';
-import {
-  useActualizarCanalVenta,
-  useCrearCanalVenta,
-} from '@/modules/administracion/api';
+import { useActualizarCanalVenta, useCrearCanalVenta } from '@/modules/administracion/api';
 import type { CanalVentaResponse } from '@/modules/administracion/api/types';
 import { cn } from '@/lib/utils';
 
@@ -47,11 +41,7 @@ const VALORES_INICIALES: CanalVentaValues = {
   claveAw: '',
 };
 
-export function CanalVentaInlineForm({
-  canal,
-  onCancel,
-  onSaved,
-}: CanalVentaInlineFormProps) {
+export function CanalVentaInlineForm({ canal, onCancel, onSaved }: CanalVentaInlineFormProps) {
   const esEditar = canal != null;
   const idempotencyKey = useFormIdempotencyKey();
   const crear = useCrearCanalVenta();
@@ -87,12 +77,7 @@ export function CanalVentaInlineForm({
         });
         return;
       }
-      if (
-        applyServerErrors(
-          form as unknown as Parameters<typeof applyServerErrors>[0],
-          error,
-        )
-      ) {
+      if (applyServerErrors(form as unknown as Parameters<typeof applyServerErrors>[0], error)) {
         return;
       }
       toast.error(error.problem.title, {
@@ -161,50 +146,40 @@ export function CanalVentaInlineForm({
       }}
       className={cn(
         'space-y-3 rounded-md border p-3',
-        esEditar
-          ? 'border-warning bg-warning-bg/40'
-          : 'border-dashed border-primary/40 bg-primary/5',
+        esEditar ? 'border-warning bg-warning-bg/40' : 'border-dashed border-brand/40 bg-brand/5',
       )}
-      aria-label={
-        esEditar ? `Editar canal ${canal?.nombre}` : 'Agregar canal'
-      }
+      aria-label={esEditar ? `Editar canal ${canal?.nombre}` : 'Agregar canal'}
     >
-      <div className="grid grid-cols-1 gap-2 md:grid-cols-12">
-        <Field
-          label="Nombre"
-          required
-          error={form.formState.errors.nombre?.message}
-          className="md:col-span-8"
-        >
-          <Input
-            maxLength={254}
-            placeholder="Mostrador Cancún"
-            {...form.register('nombre')}
-          />
-        </Field>
+      <FormSeccion titulo="Datos del canal de venta" className="">
+        <FormCampo span={6}>
+          <Field
+            label="Nombre"
+            required
+            error={form.formState.errors.nombre?.message}
+            className="md:col-span-8"
+          >
+            <Input maxLength={254} placeholder="Mostrador Cancún" {...form.register('nombre')} />
+          </Field>
+        </FormCampo>
 
-        <Field
-          label="Clave A+W"
-          error={form.formState.errors.claveAw?.message}
-          className="md:col-span-4"
-        >
-          <Input
-            maxLength={40}
-            placeholder="CANCUN"
-            title="GRUPPE con el que A+W refiere este canal en la ingesta de pedidos. Vacía = no recibe pedidos de A+W."
-            {...form.register('claveAw')}
-          />
-        </Field>
-      </div>
+        <FormCampo span={6}>
+          <Field
+            label="Clave A+W"
+            error={form.formState.errors.claveAw?.message}
+            className="md:col-span-4"
+          >
+            <Input
+              maxLength={40}
+              placeholder="CANCUN"
+              title="GRUPPE con el que A+W refiere este canal en la ingesta de pedidos. Vacía = no recibe pedidos de A+W."
+              {...form.register('claveAw')}
+            />
+          </Field>
+        </FormCampo>
+      </FormSeccion>
 
       <div className="flex items-center justify-end gap-2">
-        <Button
-          type="button"
-          variant="ghost"
-          size="sm"
-          onClick={onCancel}
-          disabled={isPending}
-        >
+        <Button type="button" variant="ghost" size="sm" onClick={onCancel} disabled={isPending}>
           <X className="mr-1 h-4 w-4" />
           Cancelar
         </Button>
@@ -237,7 +212,7 @@ interface FieldProps {
 function Field({ label, required, error, className, children }: FieldProps) {
   return (
     <div className={cn('space-y-1', className)}>
-      <label className="flex items-center gap-1 text-xs font-medium text-muted-foreground">
+      <label className="flex items-center gap-1 text-xs font-medium text-ink-muted">
         {label}
         {required && (
           <span aria-hidden="true" className="text-danger-fg">

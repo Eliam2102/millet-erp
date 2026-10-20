@@ -29,7 +29,6 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { CuentaBancariaSelector } from './CuentaBancariaSelector';
 import { Link } from '@tanstack/react-router';
-import { Checkbox } from '@/components/ui/checkbox';
 import { useCuentasProveedorPago, useRegistrarPago } from '@/features/tesoreria/api/useTesoreria';
 import type { CuentaProveedorPago, PasivoPendienteResponse } from '@/features/tesoreria/api/types';
 import { formatoMonto } from '@/features/tesoreria/lib/formato';
@@ -64,7 +63,6 @@ export function RegistrarPagoSheet({
   const [fechaValor, setFechaValor] = useState(() => hoyLocalISO());
   const [referencia, setReferencia] = useState('');
   const [cuentaProvOverride, setCuentaProvOverride] = useState<string | null>(null);
-  const [fondosVerificados, setFondosVerificados] = useState(false);
   // Rechazo 422 de cuenta del proveedor: visible y persistente (no solo toast).
   const [errorCuenta, setErrorCuenta] = useState<string | null>(null);
   // Importes: default = saldo del pasivo; el usuario puede sobrescribir.
@@ -125,22 +123,18 @@ export function RegistrarPagoSheet({
               ? 'Selecciona la cuenta de egreso'
               : !importesValidos
                 ? 'Revisa los importes a pagar'
-                : !fondosVerificados
-                  ? 'Confirma que verificaste fondos en la banca'
-                  : null;
+                : null;
 
   function confirmar() {
     if (
       cuentaId == null ||
       !importesValidos ||
-      (!esInterno && cuentaProvId == null) ||
-      !fondosVerificados
+      (!esInterno && cuentaProvId == null)
     )
       return;
     setErrorCuenta(null);
     const command = {
       cuentaProveedorId: esInterno ? undefined : (cuentaProvId ?? undefined),
-      fondosVerificados,
       cuentaBancariaId: cuentaId,
       conceptoId: conceptoId ?? undefined,
       fechaValor,
@@ -199,7 +193,6 @@ export function RegistrarPagoSheet({
       setCuentaId(null);
       setReferencia('');
       setCuentaProvOverride(null);
-      setFondosVerificados(false);
       setErrorCuenta(null);
       setFechaValor(hoyLocalISO());
     }
@@ -352,10 +345,7 @@ export function RegistrarPagoSheet({
               <label className="text-xs text-ink-muted">
                 Cuenta de egreso * {moneda ? `(${moneda})` : ''}
               </label>
-              <CuentaBancariaSelector value={cuentaId} onChange={setCuentaId} moneda={moneda} />
-              <p className="text-xs text-ink-muted">
-                Saldo en libros: movimientos registrados en el ERP, no el saldo del banco.
-              </p>
+              <CuentaBancariaSelector value={cuentaId} onChange={setCuentaId} moneda={moneda} ocultarSaldo />
             </FormCampo>
             <FormCampo span={12}>
               <ConceptoSelector value={conceptoId} onChange={setConceptoId} />
@@ -384,22 +374,6 @@ export function RegistrarPagoSheet({
               />
             </FormCampo>
           </FormSeccion>
-
-          <div className="flex items-start gap-2">
-            <Checkbox
-              id="fondos-verificados"
-              checked={fondosVerificados}
-              onCheckedChange={(v) => setFondosVerificados(v === true)}
-            />
-            <div>
-              <label htmlFor="fondos-verificados" className="text-sm">
-                Verifiqué en la banca que la cuenta tiene fondos para este pago *
-              </label>
-              <p className="block text-xs text-ink-muted">
-                El ERP no está conectado al banco: el saldo en libros puede no estar al día.
-              </p>
-            </div>
-          </div>
 
           {motivoDeshabilitado && !registrar.isPending && (
             <p className="text-right text-xs text-ink-muted">{motivoDeshabilitado}</p>

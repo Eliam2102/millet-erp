@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { render, screen, waitFor } from '@testing-library/react';
+import { render, screen, waitFor, within } from '@testing-library/react';
 import axe, { type AxeResults } from 'axe-core';
 import { http, HttpResponse } from 'msw';
 import { mswServer } from '@/test/mocks/server';
@@ -59,9 +59,7 @@ describe('<SalidasPage> — smoke', () => {
       ),
     );
     render(<SalidasPage />, { wrapper: createQueryWrapper() });
-    await waitFor(() =>
-      expect(screen.getByText(/Sin salidas/i)).toBeInTheDocument(),
-    );
+    await waitFor(() => expect(screen.getByText(/Sin salidas/i)).toBeInTheDocument());
   });
 
   it('estado con datos renderiza folio + badge Vale para vales', async () => {
@@ -119,9 +117,7 @@ describe('<SalidasPage> — smoke', () => {
       ),
     );
     render(<SalidasPage />, { wrapper: createQueryWrapper() });
-    await waitFor(() =>
-      expect(screen.getByText('SC2026-000001')).toBeInTheDocument(),
-    );
+    await waitFor(() => expect(screen.getByText('SC2026-000001')).toBeInTheDocument());
     expect(screen.getByText('SV2026-000001')).toBeInTheDocument();
     // ValeBadge muestra "Vale (Xh)" / "Vale Xd!" / "Vale ✓" según
     // estado de regularización + antigüedad. Match parcial (con la
@@ -132,7 +128,9 @@ describe('<SalidasPage> — smoke', () => {
     // sin regularizar → "—" (fila s-2). Ningún id crudo en pantalla.
     expect(screen.getByText('RQ-MID2026-000010')).toBeInTheDocument();
     expect(screen.getByText(/Vale · RQ-MID2026-000099/)).toBeInTheDocument();
-    expect(screen.getByText('—')).toBeInTheDocument();
+    expect(
+      within(screen.getByText('SV2026-000001').closest('tr')!).getByText('—'),
+    ).toBeInTheDocument();
     expect(screen.queryByText(/rq-1|rq-reg-1/)).not.toBeInTheDocument();
   });
 
@@ -145,9 +143,7 @@ describe('<SalidasPage> — smoke', () => {
     const { container } = render(<SalidasPage />, {
       wrapper: createQueryWrapper(),
     });
-    await waitFor(() =>
-      expect(screen.getByText(/Sin salidas/i)).toBeInTheDocument(),
-    );
+    await waitFor(() => expect(screen.getByText(/Sin salidas/i)).toBeInTheDocument());
     const results: AxeResults = await axe.run(container, {
       runOnly: {
         type: 'tag',

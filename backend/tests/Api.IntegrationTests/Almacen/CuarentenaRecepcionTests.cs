@@ -153,7 +153,7 @@ public class CuarentenaRecepcionTests : IClassFixture<WebApplicationFactory<Prog
     }
 
     internal static RegistrarRecepcionConFacturaHandler HandlerRecepcion(AlmacenDbContext db, IIntegrationEventPublisher eventos, Ctx ctx) =>
-        new(db, new OcFake(ctx), new ArticuloFake(), eventos, new UserFake(ctx.UserId), new EmpresaFake(ctx.EmpresaId),
+        new(db, new OcFake(ctx), eventos, new UserFake(ctx.UserId), new EmpresaFake(ctx.EmpresaId),
             new DecimalesNulo(), ctx.Periodos, new ConversionIdentidad(), new CxpFake(), new ProveedorFake());
 
     internal static RegistrarSalidaPorValeHandler HandlerVale(AlmacenDbContext db, IIntegrationEventPublisher eventos, Ctx ctx) =>
@@ -189,7 +189,7 @@ public class CuarentenaRecepcionTests : IClassFixture<WebApplicationFactory<Prog
     private sealed class ArticuloFake : IArticuloReadPort
     {
         public Task<ArticuloLectura?> ObtenerAsync(Guid articuloId, CancellationToken ct) =>
-            Task.FromResult<ArticuloLectura?>(new ArticuloLectura(articuloId, "ART", "Artículo", "PZA", null, null, true));
+            Task.FromResult<ArticuloLectura?>(new ArticuloLectura(articuloId, "ART", "Artículo", "PZA", null, true));
         public Task<IReadOnlyDictionary<Guid, ArticuloLectura>> ObtenerPorIdsAsync(IReadOnlyCollection<Guid> ids, CancellationToken ct) =>
             Task.FromResult<IReadOnlyDictionary<Guid, ArticuloLectura>>(new Dictionary<Guid, ArticuloLectura>());
     }
@@ -198,10 +198,10 @@ public class CuarentenaRecepcionTests : IClassFixture<WebApplicationFactory<Prog
     internal sealed class ArticulosUnidad(string unidad = "PZA") : IArticuloReadPort
     {
         public Task<ArticuloLectura?> ObtenerAsync(Guid articuloId, CancellationToken ct) =>
-            Task.FromResult<ArticuloLectura?>(new ArticuloLectura(articuloId, "ART", "Artículo", unidad, null, null, true));
+            Task.FromResult<ArticuloLectura?>(new ArticuloLectura(articuloId, "ART", "Artículo", unidad, null, true));
         public Task<IReadOnlyDictionary<Guid, ArticuloLectura>> ObtenerPorIdsAsync(IReadOnlyCollection<Guid> ids, CancellationToken ct) =>
             Task.FromResult<IReadOnlyDictionary<Guid, ArticuloLectura>>(
-                ids.ToDictionary(i => i, i => new ArticuloLectura(i, "ART", "Artículo", unidad, null, null, true)));
+                ids.ToDictionary(i => i, i => new ArticuloLectura(i, "ART", "Artículo", unidad, null, true)));
     }
 
     private sealed class CxpFake : ICxpDocumentosReadPort

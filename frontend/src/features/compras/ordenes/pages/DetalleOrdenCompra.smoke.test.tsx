@@ -136,6 +136,28 @@ describe('<DetalleOrdenCompra> — smoke (UF1-PR2)', () => {
     expect(matches.length).toBeGreaterThanOrEqual(1);
   });
 
+  it('esRecurrente=true pinta el badge "Recurrente" en el sub-topbar', async () => {
+    mswServer.use(
+      http.get('*/api/v1/compras/ordenes/oc-1', () =>
+        HttpResponse.json(makeDetalle({ esRecurrente: true }), { headers: { ETag: '"1"' } }),
+      ),
+    );
+    render(<DetalleOrdenCompra />, { wrapper: createQueryWrapper() });
+    expect(await screen.findByText('Recurrente')).toBeInTheDocument();
+    expect(screen.queryByText('No recurrente')).not.toBeInTheDocument();
+  });
+
+  it('esRecurrente=false pinta el badge "No recurrente" en el sub-topbar', async () => {
+    mswServer.use(
+      http.get('*/api/v1/compras/ordenes/oc-1', () =>
+        HttpResponse.json(makeDetalle({ esRecurrente: false }), { headers: { ETag: '"1"' } }),
+      ),
+    );
+    render(<DetalleOrdenCompra />, { wrapper: createQueryWrapper() });
+    expect(await screen.findByText('No recurrente')).toBeInTheDocument();
+    expect(screen.queryByText('Recurrente')).not.toBeInTheDocument();
+  });
+
   it('renderiza SubEstadosBar (3 dimensiones) y StepperAutorizacionOc', async () => {
     mswServer.use(
       http.get('*/api/v1/compras/ordenes/oc-1', () =>

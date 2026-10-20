@@ -119,6 +119,12 @@ public sealed record OrdenCompraResponse(
 
     /// <summary>F1-COM-02: cotización elegida que originó la OC (null si se creó sin comparativo).</summary>
     public CotizacionElegidaOcResponse? CotizacionElegida { get; init; }
+
+    /// <summary>
+    /// Indicador de recurrencia: el proveedor y el comprador titular de esta OC suman al menos el
+    /// mínimo de OC no canceladas en la ventana de recurrencia (60 días); la propia OC cuenta.
+    /// </summary>
+    public bool EsRecurrente { get; init; }
 }
 
 public sealed record AutorizacionOcResponse(Guid Id, int Ciclo, NivelAutorizacion Nivel,
