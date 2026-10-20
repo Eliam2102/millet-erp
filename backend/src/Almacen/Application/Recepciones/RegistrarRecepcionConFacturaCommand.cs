@@ -24,7 +24,7 @@ namespace Millet.Almacen.Application.Recepciones;
 /// y CxP lo consuman.
 ///
 /// <para>
-/// Tolerancia por material (A5): límite = solicitada × (1 + tolerancia del artículo) − máx(recibido en Compras, recibido propio de Almacén), con lock por OC.
+/// Pendiente exacto (86e3tab1k, sin tolerancia en piezas): límite = solicitada − máx(recibido en Compras, recibido propio de Almacén), con lock por OC.
 /// </para>
 /// </summary>
 public sealed record RegistrarRecepcionConFacturaCommand(
@@ -108,7 +108,6 @@ public sealed class RegistrarRecepcionConFacturaHandler
 {
     private readonly AlmacenDbContext _db;
     private readonly IComprasOcReadPort _ocPort;
-    private readonly IArticuloReadPort _articuloPort;
     private readonly IIntegrationEventPublisher _events;
     private readonly ICurrentUserContext _currentUser;
     private readonly ICurrentEmpresaContext _currentEmpresa;
@@ -121,7 +120,6 @@ public sealed class RegistrarRecepcionConFacturaHandler
     public RegistrarRecepcionConFacturaHandler(
         AlmacenDbContext db,
         IComprasOcReadPort ocPort,
-        IArticuloReadPort articuloPort,
         IIntegrationEventPublisher events,
         ICurrentUserContext currentUser,
         ICurrentEmpresaContext currentEmpresa,
@@ -131,7 +129,6 @@ public sealed class RegistrarRecepcionConFacturaHandler
     {
         _db = db;
         _ocPort = ocPort;
-        _articuloPort = articuloPort;
         _events = events;
         _currentUser = currentUser;
         _currentEmpresa = currentEmpresa;
@@ -152,7 +149,7 @@ public sealed class RegistrarRecepcionConFacturaHandler
         var oc = await _ocPort.ObtenerAsync(request.OrdenCompraId, cancellationToken);
         var recibidoPropio = await RecibidoPorLineaOc.CalcularAsync(_db, _conversion, oc, cancellationToken);
         // Primero valida identidad/estado; después aplica el techo a cantidades equivalentes.
-        await RecepcionOcGuard.ValidarAsync(oc, request.Lineas.Select(l => string.IsNullOrWhiteSpace(l.UnidadCapturada) ? l : l with { Cantidad = 0m }).ToList(), _articuloPort, recibidoPropio, cancellationToken);
+        await RecepcionOcGuard.ValidarAsync(oc, request.Lineas.Select(l => string.IsNullOrWhiteSpace(l.UnidadCapturada) ? l : l with { Cantidad = 0m }).ToList(), recibidoPropio, cancellationToken);
         // El cierre se rechaza antes de consultar equivalencias o ubicaciones (P1/P7).
         var empresaId = _currentEmpresa.Current ?? throw new BusinessRuleException(
             "RECEPCION_SIN_EMPRESA", "El contexto de empresa es requerido.");
@@ -166,7 +163,7 @@ public sealed class RegistrarRecepcionConFacturaHandler
             conversiones.Add(await _conversion.ConvertirAsync(input.ArticuloId, input.Cantidad,
                 input.UnidadCapturada, oc!.Lineas.Single(l => l.LineaId == input.LineaOcId).UnidadMedida!, cancellationToken));
         var equivalentes = request.Lineas.Select((l, i) => l with { Cantidad = conversiones[i].CantidadDocumento }).ToList();
-        var validada = await RecepcionOcGuard.ValidarAsync(oc, equivalentes, _articuloPort, recibidoPropio, cancellationToken);
+        var validada = await RecepcionOcGuard.ValidarAsync(oc, equivalentes, recibidoPropio, cancellationToken);
         var lineasOc = validada.Lineas;
 
         // 3. Construir el movimiento (Borrador → AgregarLineas → Registrar).
@@ -261,7 +258,6 @@ public sealed class RegistrarRecepcionConFacturaHandler
                     MontoTotalMxn: Math.Round(cantidadBuenaDoc * costo, 2),
                     UbicacionId: input.UbicacionId!.Value,
                     SubAlmacenId: subLinea,
-                    ToleranciaPorcentaje: validada.ToleranciaPorLinea[lineaOcId],
                     CantidadRecibidaAcumulada: acumulado));
             }
 
@@ -303,7 +299,6 @@ public sealed class RegistrarRecepcionConFacturaHandler
                     MontoTotalMxn: Math.Round(convDanada.CantidadDocumento * costo, 2),
                     UbicacionId: rackRevision.Value.UbicacionRevisionId,
                     SubAlmacenId: rackRevision.Value.SubAlmacenRevisionId,
-                    ToleranciaPorcentaje: validada.ToleranciaPorLinea[lineaOcId],
                     CantidadRecibidaAcumulada: acumulado));
             }
         }

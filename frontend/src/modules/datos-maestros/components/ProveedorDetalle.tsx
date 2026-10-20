@@ -358,8 +358,7 @@ export function ProveedorDetalle() {
           conceptoRetencion={proveedor.conceptoRetencion ?? null}
           tipoPersona={proveedor.tipoPersona}
         />
-        <ProveedorToleranciaSection key={proveedor.id} proveedorId={proveedor.id} montoMxn={proveedor.toleranciaFacturaContraOcMxn}
-          esPorcentaje={proveedor.toleranciaFacturaContraOcEsPorcentaje ?? false} />
+        <ProveedorToleranciaSection key={proveedor.id} proveedorId={proveedor.id} montoMxn={proveedor.toleranciaFacturaContraOcMxn} />
         <ProveedorCuentasBancariasSection
           proveedorId={proveedor.id}
           razonSocial={proveedor.razonSocial}

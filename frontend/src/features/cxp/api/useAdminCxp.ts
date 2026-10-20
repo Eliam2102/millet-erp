@@ -23,11 +23,6 @@ import type {
  *         monto + cerrar.</item>
  *   <item><b>Políticas de viáticos</b>: list + crear + actualizar.</item>
  * </list>
- *
- * <para>PLATFORM-TODO(&lt;CxpTolerancias&gt;): backend no tiene endpoint
- * de tolerancias por proveedor en el módulo CxP; la permission canónica
- * <c>cuentas_por_pagar.proveedores.ajustar-tolerancia</c> existe pero
- * el endpoint vive en Datos Maestros (cuando se construya).</para>
  */
 
 function buildQuery(filtros: object): string {

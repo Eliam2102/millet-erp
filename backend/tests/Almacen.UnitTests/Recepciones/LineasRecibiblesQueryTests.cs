@@ -8,7 +8,7 @@ using Millet.SharedKernel.Application;
 namespace Millet.Almacen.UnitTests.Recepciones;
 
 /// <summary>
-/// P-20 (86e3pc50v): la pantalla recibe pendiente, tolerancia y máximo recibible
+/// P-20 (86e3pc50v): la pantalla recibe pendiente y máximo (= pendiente, sin tolerancia) recibible
 /// calculados en servidor con el mismo límite que el registro.
 /// </summary>
 public class LineasRecibiblesQueryTests
@@ -24,16 +24,15 @@ public class LineasRecibiblesQueryTests
     private static readonly Guid LineaC = Guid.NewGuid();
 
     [Fact]
-    public async Task Calcula_maximo_con_la_tolerancia_de_cada_articulo()
+    public async Task Maximo_recibible_es_el_pendiente_sin_tolerancia()
     {
         var db = NuevaDb();
-        var handler = NuevoHandler(db, NuevaOc(), 0m, 5m, 12.5m);
+        var handler = NuevoHandler(db, NuevaOc());
 
         var lineas = await handler.Handle(new LineasRecibiblesQuery(OcId), CancellationToken.None);
 
-        lineas.Select(l => l.MaximoRecibible).Should().Equal(100m, 105m, 112.5m);
+        lineas.Select(l => l.MaximoRecibible).Should().Equal(100m, 100m, 100m);
         lineas.Select(l => l.Pendiente).Should().Equal(100m, 100m, 100m);
-        lineas.Select(l => l.ToleranciaPorcentaje).Should().Equal(0m, 5m, 12.5m);
     }
 
     [Fact]
@@ -41,13 +40,13 @@ public class LineasRecibiblesQueryTests
     {
         var db = NuevaDb();
         await RegistrarEntradaAsync(db, LineaA, 40m);
-        var handler = NuevoHandler(db, NuevaOc(), 0m, 5m, 12.5m);
+        var handler = NuevoHandler(db, NuevaOc());
 
         var lineas = await handler.Handle(new LineasRecibiblesQuery(OcId), CancellationToken.None);
 
         lineas[0].Pendiente.Should().Be(60m);
         lineas[0].MaximoRecibible.Should().Be(60m);
-        lineas[1].MaximoRecibible.Should().Be(105m);
+        lineas[1].MaximoRecibible.Should().Be(100m);
     }
 
     private static readonly Guid OcId = Guid.NewGuid();
@@ -65,14 +64,8 @@ public class LineasRecibiblesQueryTests
             new OcLineaLectura(LineaC, ArticuloC, "PZA", 100m, 0m, 10m),
         ]);
 
-    private static LineasRecibiblesHandler NuevoHandler(
-        InMemoryAlmacenDbContext db, OcLectura oc, decimal tolA, decimal tolB, decimal tolC)
-        => new(db, new FakeCompras(oc), new FakeArticulos(new Dictionary<Guid, decimal>
-        {
-            [ArticuloA] = tolA,
-            [ArticuloB] = tolB,
-            [ArticuloC] = tolC,
-        }), new P7Support.Conversion());
+    private static LineasRecibiblesHandler NuevoHandler(InMemoryAlmacenDbContext db, OcLectura oc)
+        => new(db, new FakeCompras(oc), new P7Support.Conversion());
 
     private static InMemoryAlmacenDbContext NuevaDb()
     {
@@ -101,19 +94,6 @@ public class LineasRecibiblesQueryTests
         public Task<IReadOnlyDictionary<Guid, string>> ObtenerFoliosAsync(
             IReadOnlyCollection<Guid> ocIds, CancellationToken cancellationToken)
             => Task.FromResult<IReadOnlyDictionary<Guid, string>>(new Dictionary<Guid, string>());
-    }
-
-    private sealed class FakeArticulos(IReadOnlyDictionary<Guid, decimal> tolerancias) : IArticuloReadPort
-    {
-        public Task<ArticuloLectura?> ObtenerAsync(Guid articuloId, CancellationToken cancellationToken)
-            => Task.FromResult<ArticuloLectura?>(null);
-
-        public Task<IReadOnlyDictionary<Guid, ArticuloLectura>> ObtenerPorIdsAsync(
-            IReadOnlyCollection<Guid> articuloIds, CancellationToken cancellationToken)
-            => Task.FromResult<IReadOnlyDictionary<Guid, ArticuloLectura>>(
-                articuloIds.Where(tolerancias.ContainsKey).ToDictionary(
-                    id => id,
-                    id => new ArticuloLectura(id, "CLAVE", "Descripción", "PZA", tolerancias[id], null, true)));
     }
 
     private sealed class FakeEmpresa : ICurrentEmpresaContext

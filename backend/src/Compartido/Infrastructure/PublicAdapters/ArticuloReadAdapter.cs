@@ -22,8 +22,6 @@ namespace Millet.Compartido.Infrastructure.PublicAdapters;
 /// <list>
 ///   <item><c>UnidadMedida</c> ← <see cref="Articulo.UnidadMedidaDefault"/></item>
 ///   <item><c>EsActivo</c> = <see cref="Articulo.Estatus"/> == <see cref="EstatusCatalogo.Activo"/></item>
-///   <item><c>ToleranciaCantidadPorcentaje</c> ← <see cref="Articulo.ToleranciaCantidadPorcentaje"/>
-///     (A5; <c>null</c> = 0 %).</item>
 ///   <item><c>Categoria</c> ← <see cref="Articulo.Categoria"/>.</item>
 ///   <item><c>SubAlmacenDefaultId</c> = <c>null</c>: tampoco modelado en
 ///     <see cref="Articulo"/> todavía. El handler deja al usuario
@@ -57,7 +55,6 @@ public sealed class ArticuloReadAdapter : IArticuloReadPort
                 a.Clave,
                 a.Nombre,
                 a.UnidadMedidaDefault,
-                a.ToleranciaCantidadPorcentaje,
                 null,
                 a.Estatus == EstatusCatalogo.Activo,
                 a.PrecioReferenciaMonto,
@@ -89,7 +86,6 @@ public sealed class ArticuloReadAdapter : IArticuloReadPort
                 a.Clave,
                 a.Nombre,
                 a.UnidadMedidaDefault,
-                a.ToleranciaCantidadPorcentaje,
                 null,
                 a.Estatus == EstatusCatalogo.Activo,
                 a.PrecioReferenciaMonto,
