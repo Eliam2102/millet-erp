@@ -1,5 +1,13 @@
-import { cn } from '@/lib/utils';
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '@/components/ui/table';
 import { useIntentosTimbrado } from '@/features/facturacion/api/useFacturas';
+import { cn } from '@/lib/utils';
 
 /**
  * <c>&lt;IntentosTimbradoPanel/&gt;</c> — historial de intentos de timbrado
@@ -15,44 +23,48 @@ export function IntentosTimbradoPanel({ comprobanteId }: { comprobanteId: string
   return (
     <section className="space-y-2" data-print="hidden">
       <h2 className="text-sm font-medium">Historial de intentos de timbrado</h2>
-      <div className="overflow-x-auto rounded-md border">
-        <table className="w-full text-sm">
-          <thead className="bg-muted/50">
-            <tr>
-              <th className="px-3 py-2 text-right">#</th>
-              <th className="px-3 py-2 text-left">Resultado</th>
-              <th className="px-3 py-2 text-left">Código</th>
-              <th className="px-3 py-2 text-left">Mensaje</th>
-              <th className="px-3 py-2 text-left">Fecha</th>
-            </tr>
-          </thead>
-          <tbody>
+      <div className="overflow-x-auto rounded-md border border-line">
+        <Table className="w-full text-sm">
+          <TableHeader className="bg-surface-muted/50">
+            <TableRow>
+              <TableHead className="px-3 py-2 text-right tabular-nums">#</TableHead>
+              <TableHead className="px-3 py-2 text-left">Resultado</TableHead>
+              <TableHead className="px-3 py-2 text-left">Código</TableHead>
+              <TableHead className="px-3 py-2 text-left">Mensaje</TableHead>
+              <TableHead className="px-3 py-2 text-left">Fecha</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
             {(intentos.data ?? []).map((i) => (
-              <tr key={i.id} className="border-t">
-                <td className="px-3 py-2 text-right font-mono">{i.intentoNumero}</td>
-                <td
+              <TableRow key={i.id} className="border-t border-line">
+                <TableCell className="px-3 py-2 text-right font-mono tabular-nums">
+                  {i.intentoNumero}
+                </TableCell>
+                <TableCell
                   className={cn(
                     'px-3 py-2',
                     i.resultado === 'Timbrado'
-                      ? 'text-emerald-700'
+                      ? 'text-success-fg'
                       : i.resultado === 'Fallido'
-                        ? 'text-destructive'
-                        : 'text-amber-700',
+                        ? 'text-danger-fg'
+                        : 'text-warning-fg',
                   )}
                 >
                   {i.resultado === 'EnProceso' ? 'En proceso' : i.resultado}
-                </td>
-                <td className="px-3 py-2 font-mono text-xs">{i.errorCodigo ?? '—'}</td>
-                <td className="px-3 py-2 text-xs text-muted-foreground">
+                </TableCell>
+                <TableCell className="px-3 py-2 font-mono text-xs">
+                  {i.errorCodigo ?? '—'}
+                </TableCell>
+                <TableCell className="px-3 py-2 text-xs text-ink-muted">
                   {i.errorMensaje ?? '—'}
-                </td>
-                <td className="px-3 py-2 text-xs text-muted-foreground">
+                </TableCell>
+                <TableCell className="px-3 py-2 text-xs text-ink-muted">
                   {new Date(i.registradoAt).toLocaleString('es-MX')}
-                </td>
-              </tr>
+                </TableCell>
+              </TableRow>
             ))}
-          </tbody>
-        </table>
+          </TableBody>
+        </Table>
       </div>
     </section>
   );

@@ -1,23 +1,20 @@
-import { hoyLocalISO } from '@/lib/datetime';
-import { Controller, useForm } from 'react-hook-form';
-import { Link, useNavigate, useSearch } from '@tanstack/react-router';
+import { SucursalSelector } from '@/components/erp';
+import { PageHeader } from '@/components/erp/PageHeader';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { SucursalSelector, ReporteShell } from '@/components/erp';
-import {
-  useLiquidacionCaja,
-  type ReporteFila,
-} from '@/features/facturacion/api/useReportes';
-import { esApiError } from '@/lib/api';
+import { useLiquidacionCaja, type ReporteFila } from '@/features/facturacion/api/useReportes';
 import type { LiquidacionCajaSearch } from '@/features/facturacion/lib/reportes-search-schema';
+import { esApiError } from '@/lib/api';
+import { hoyLocalISO } from '@/lib/datetime';
+import { Link, useNavigate, useSearch } from '@tanstack/react-router';
+import { Controller, useForm } from 'react-hook-form';
+import { ReporteFacturacion } from '../components/ReporteFacturacion';
 
 const FROM = '/_app/facturacion/reportes/liquidacion-caja' as const;
 
 function primerDiaDeMes(): string {
   const ahora = new Date();
-  return new Date(ahora.getFullYear(), ahora.getMonth(), 1)
-    .toISOString()
-    .slice(0, 10);
+  return new Date(ahora.getFullYear(), ahora.getMonth(), 1).toISOString().slice(0, 10);
 }
 function hoy(): string {
   return hoyLocalISO();
@@ -25,7 +22,7 @@ function hoy(): string {
 
 /**
  * <c>Reporte de Liquidación de caja</c> (FE-F9). Facturado por forma de
- * pago en un rango de fechas, vía <c>&lt;ReporteShell&gt;</c> (ADR-0036).
+ * pago en un rango de fechas, vía <c>&lt;ReporteFacturacion&gt;</c> (ADR-0036).
  */
 export function ReporteLiquidacionCaja() {
   const search = useSearch({ from: FROM });
@@ -55,7 +52,7 @@ export function ReporteLiquidacionCaja() {
   const filtrosUi = (
     <div className="flex flex-wrap items-end gap-3">
       <div className="space-y-1">
-        <Label className="text-xs text-muted-foreground">Sucursal</Label>
+        <Label className="text-xs text-ink-muted">Sucursal</Label>
         <div className="w-64">
           <Controller
             name="sucursalId"
@@ -73,36 +70,31 @@ export function ReporteLiquidacionCaja() {
         </div>
       </div>
       <div className="space-y-1">
-        <Label className="text-xs text-muted-foreground">Desde</Label>
-        <Input
-          type="date"
-          value={desde}
-          onChange={(e) => actualizar({ desde: e.target.value })}
-        />
+        <Label className="text-xs text-ink-muted">Desde</Label>
+        <Input type="date" value={desde} onChange={(e) => actualizar({ desde: e.target.value })} />
       </div>
       <div className="space-y-1">
-        <Label className="text-xs text-muted-foreground">Hasta</Label>
-        <Input
-          type="date"
-          value={hasta}
-          onChange={(e) => actualizar({ hasta: e.target.value })}
-        />
+        <Label className="text-xs text-ink-muted">Hasta</Label>
+        <Input type="date" value={hasta} onChange={(e) => actualizar({ hasta: e.target.value })} />
       </div>
     </div>
   );
 
   return (
-    <div className="space-y-4 px-4 py-6">
-      <header>
-        <h1 className="text-2xl font-semibold tracking-tight">
-          Liquidación de caja
-        </h1>
-        <p className="text-sm text-muted-foreground">
-          Sesiones cerradas por caja y cajero en el rango seleccionado; abre el corte de cada una.
-        </p>
-      </header>
+    <div className="space-y-5">
+      <div>
+        <PageHeader
+          titulo={<>Liquidación de caja</>}
+          descripcion={
+            <>
+              Sesiones cerradas por caja y cajero en el rango seleccionado; abre el corte de cada
+              una.
+            </>
+          }
+        />
+      </div>
 
-      <ReporteShell<ReporteFila>
+      <ReporteFacturacion<ReporteFila>
         reporte={query.data}
         isLoading={query.isLoading}
         error={esApiError(query.error) ? query.error : undefined}
@@ -115,7 +107,7 @@ export function ReporteLiquidacionCaja() {
             <Link
               to="/facturacion/caja/corte/$sesionId"
               params={{ sesionId: fila.sesionId }}
-              className="text-sm font-medium text-primary hover:underline"
+              className="text-sm font-medium text-brand hover:underline"
             >
               Ver corte
             </Link>

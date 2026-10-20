@@ -1,17 +1,18 @@
 import { ContextoSucursal } from '@/components/erp/display/ContextoSucursal';
-import { useCallback, useMemo, useRef, useState, type ReactNode } from 'react';
 import {
   Sheet,
+  SheetBody,
   SheetContent,
   SheetDescription,
   SheetHeader,
   SheetTitle,
 } from '@/components/ui/sheet';
-import { NuevoRepp } from '@/features/facturacion/pages/NuevoRepp';
 import {
   NuevoReppContext,
   type NuevoReppApi,
 } from '@/features/facturacion/components/nuevo-repp-context';
+import { NuevoRepp } from '@/features/facturacion/pages/NuevoRepp';
+import { useCallback, useMemo, useRef, useState, type ReactNode } from 'react';
 
 /**
  * <c>&lt;NuevoReppProvider/&gt;</c> + Sheet de emisión de REPP (FE-F6).
@@ -65,21 +66,20 @@ export function NuevoReppProvider({ children }: { children: ReactNode }) {
           setAbierto(true);
         }}
       >
-        <SheetContent side="right" className="w-full overflow-y-auto sm:max-w-3xl">
+        <SheetContent side="right" size="lg">
           <SheetHeader>
             <SheetTitle>Nuevo complemento de pago (REPP)</SheetTitle>
             <ContextoSucursal />
             <SheetDescription>
-              Pago 2.0 multi-factura. Captura el pago y las facturas que cubre;
-              todas deben ser del mismo receptor.
+              Pago 2.0 multi-factura. Captura el pago y las facturas que cubre; todas deben ser del
+              mismo receptor.
             </SheetDescription>
           </SheetHeader>
-
-          <div className="px-2 pb-6">
-            {abierto && (
-              <NuevoRepp onClose={cerrarConConfirm} onDirtyChange={setDirty} />
-            )}
-          </div>
+          <SheetBody className="flex flex-col overflow-hidden py-0">
+            <div className="contents">
+              {abierto && <NuevoRepp onClose={cerrarConConfirm} onDirtyChange={setDirty} />}
+            </div>
+          </SheetBody>
         </SheetContent>
       </Sheet>
     </NuevoReppContext.Provider>

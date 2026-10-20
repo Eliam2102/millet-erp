@@ -767,7 +767,7 @@ const moduloFacturacion: NavModulo = {
   icon: FileCheck2,
   secciones: [
     {
-      label: 'Operación',
+      label: 'Venta',
       cards: [
         {
           label: 'Pedidos facturables',
@@ -780,14 +780,6 @@ const moduloFacturacion: NavModulo = {
             PermisosCanonicos.FacturacionPedidosCapturar,
             PermisosCanonicos.FacturacionPedidosImportar,
           ],
-        },
-        {
-          label: 'Excepciones de ingesta',
-          description:
-            'Pedidos que fallaron la importación (cliente no existe, producto sin clave SAT, almacén no asignado). Resolución inline.',
-          to: '/facturacion/pedidos/excepciones',
-          icon: AlertTriangle,
-          permission: PermisosCanonicos.FacturacionPedidosExcepcionesResolver,
         },
         {
           label: 'Facturas',
@@ -813,6 +805,28 @@ const moduloFacturacion: NavModulo = {
           icon: ReceiptText,
           permission: PermisosCanonicos.FacturacionAnticiposLeer,
         },
+      ],
+    },
+    {
+      label: 'Caja',
+      cards: [
+        {
+          label: 'Mi caja',
+          description:
+            'Sesión de efectivo del cajero: apertura con fondo, cobros de mostrador, movimientos y arqueo de cierre.',
+          to: '/facturacion/caja',
+          icon: Wallet,
+          permissionsAny: [
+            PermisosCanonicos.FacturacionCajaOperar,
+            PermisosCanonicos.FacturacionCajaSupervisar,
+            PermisosCanonicos.FacturacionCajaLiquidar,
+          ],
+        },
+      ],
+    },
+    {
+      label: 'Complementos de pago',
+      cards: [
         {
           label: 'Pendientes de REP',
           description: 'Revisión de pagos bancarios y emisión manual de complementos de pago.',
@@ -831,6 +845,11 @@ const moduloFacturacion: NavModulo = {
             PermisosCanonicos.FacturacionFacturasLeer,
           ],
         },
+      ],
+    },
+    {
+      label: 'Otros documentos',
+      cards: [
         {
           label: 'Carta Porte',
           description:
@@ -847,17 +866,18 @@ const moduloFacturacion: NavModulo = {
           icon: Building2,
           permission: PermisosCanonicos.FacturacionActivosAutorizar,
         },
+      ],
+    },
+    {
+      label: 'Revisión',
+      cards: [
         {
-          label: 'Mi caja',
+          label: 'Excepciones de ingesta',
           description:
-            'Sesión de efectivo del cajero: apertura con fondo, cobros de mostrador, movimientos y arqueo de cierre.',
-          to: '/facturacion/caja',
-          icon: Wallet,
-          permissionsAny: [
-            PermisosCanonicos.FacturacionCajaOperar,
-            PermisosCanonicos.FacturacionCajaSupervisar,
-            PermisosCanonicos.FacturacionCajaLiquidar,
-          ],
+            'Pedidos que fallaron la importación (cliente no existe, producto sin clave SAT, almacén no asignado). Resolución inline.',
+          to: '/facturacion/pedidos/excepciones',
+          icon: AlertTriangle,
+          permission: PermisosCanonicos.FacturacionPedidosExcepcionesResolver,
         },
       ],
     },
@@ -991,12 +1011,37 @@ const moduloContabilidad: NavModulo = {
 };
 
 const comercioExterior: NavModulo = {
-  moduloId: 'comercio-exterior', label: 'Comercio Exterior', icon: Plane,
-  secciones: [{ label: 'Operación', cards: [
-    { label: 'Expedientes', description: 'Importaciones, exportaciones y documentos con versión.', to: '/comercio-exterior/expedientes', icon: FileText, permission: PermisosCanonicos.ComercioExteriorExpedientesLeer },
-    { label: 'Bandeja OTR', description: 'Vincular envíos y revisar salidas fallidas o sin acuse.', to: '/comercio-exterior/otr', icon: FileText, permission: PermisosCanonicos.ComercioExteriorExpedientesLeer },
-    { label: 'Relación para IVA', description: 'Embarques e importaciones por periodo para revisión fiscal.', to: '/comercio-exterior/relacion-iva', icon: FileText, permission: PermisosCanonicos.ComercioExteriorRelacionIvaLeer },
-  ] }],
+  moduloId: 'comercio-exterior',
+  label: 'Comercio Exterior',
+  icon: Plane,
+  secciones: [
+    {
+      label: 'Operación',
+      cards: [
+        {
+          label: 'Expedientes',
+          description: 'Importaciones, exportaciones y documentos con versión.',
+          to: '/comercio-exterior/expedientes',
+          icon: FileText,
+          permission: PermisosCanonicos.ComercioExteriorExpedientesLeer,
+        },
+        {
+          label: 'Bandeja OTR',
+          description: 'Vincular envíos y revisar salidas fallidas o sin acuse.',
+          to: '/comercio-exterior/otr',
+          icon: FileText,
+          permission: PermisosCanonicos.ComercioExteriorExpedientesLeer,
+        },
+        {
+          label: 'Relación para IVA',
+          description: 'Embarques e importaciones por periodo para revisión fiscal.',
+          to: '/comercio-exterior/relacion-iva',
+          icon: FileText,
+          permission: PermisosCanonicos.ComercioExteriorRelacionIvaLeer,
+        },
+      ],
+    },
+  ],
 };
 
 const modulos: readonly NavModulo[] = [

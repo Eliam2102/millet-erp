@@ -1,10 +1,11 @@
-import { Link } from '@tanstack/react-router';
-import { ArrowLeft } from 'lucide-react';
+import { PageHeader } from '@/components/erp/PageHeader';
 import { Button } from '@/components/ui/button';
 import {
   ETIQUETA_ESTADO_PEDIDO,
   ETIQUETA_ESTADO_TIMBRADO,
 } from '@/features/facturacion/lib/glosario';
+import { Link } from '@tanstack/react-router';
+import { ArrowLeft } from 'lucide-react';
 
 /**
  * <c>Ayuda — Facturación</c> (FE-F10). Referencia de estados y términos del
@@ -73,7 +74,7 @@ const ATAJOS_CAJA: ReadonlyArray<{ accion: string; teclas: string }> = [
 
 export function Ayuda() {
   return (
-    <div className="mx-auto max-w-4xl space-y-6 px-4 py-8">
+    <div className="space-y-5">
       <div data-print="hidden">
         <Button variant="ghost" size="sm" asChild>
           <Link to="/facturacion">
@@ -83,24 +84,22 @@ export function Ayuda() {
         </Button>
       </div>
 
-      <header className="space-y-2">
-        <h1 className="text-2xl font-semibold tracking-tight">
-          Ayuda — Facturación
-        </h1>
-        <p className="text-sm text-muted-foreground">
-          Estados, términos del módulo y operación de caja por teclado.
-        </p>
-      </header>
+      <div className="space-y-2">
+        <PageHeader
+          titulo={<>Ayuda — Facturación</>}
+          descripcion={<>Estados, términos del módulo y operación de caja por teclado.</>}
+        />
+      </div>
 
       <section className="space-y-2" aria-labelledby="ayuda-estados-pedido">
         <h2 id="ayuda-estados-pedido" className="text-lg font-medium">
           Estados de un pedido
         </h2>
-        <dl className="divide-y rounded-md border">
+        <dl className="divide-y rounded-md border border-line">
           {Object.entries(ETIQUETA_ESTADO_PEDIDO).map(([clave, etiqueta]) => (
             <div key={clave} className="grid grid-cols-1 gap-1 px-3 py-2 sm:grid-cols-3">
               <dt className="font-medium">{etiqueta}</dt>
-              <dd className="text-sm text-muted-foreground sm:col-span-2">
+              <dd className="text-sm text-ink-muted sm:col-span-2">
                 {DESC_ESTADO_PEDIDO[clave] ?? ''}
               </dd>
             </div>
@@ -112,11 +111,11 @@ export function Ayuda() {
         <h2 id="ayuda-estados-timbrado" className="text-lg font-medium">
           Estados de timbrado del comprobante
         </h2>
-        <dl className="divide-y rounded-md border">
+        <dl className="divide-y rounded-md border border-line">
           {Object.entries(ETIQUETA_ESTADO_TIMBRADO).map(([clave, etiqueta]) => (
             <div key={clave} className="grid grid-cols-1 gap-1 px-3 py-2 sm:grid-cols-3">
               <dt className="font-medium">{etiqueta}</dt>
-              <dd className="text-sm text-muted-foreground sm:col-span-2">
+              <dd className="text-sm text-ink-muted sm:col-span-2">
                 {DESC_ESTADO_TIMBRADO[clave] ?? ''}
               </dd>
             </div>
@@ -128,13 +127,11 @@ export function Ayuda() {
         <h2 id="ayuda-terminos" className="text-lg font-medium">
           Términos del módulo
         </h2>
-        <dl className="divide-y rounded-md border">
+        <dl className="divide-y rounded-md border border-line">
           {TERMINOS.map((t) => (
             <div key={t.termino} className="grid grid-cols-1 gap-1 px-3 py-2 sm:grid-cols-3">
               <dt className="font-medium">{t.termino}</dt>
-              <dd className="text-sm text-muted-foreground sm:col-span-2">
-                {t.definicion}
-              </dd>
+              <dd className="text-sm text-ink-muted sm:col-span-2">{t.definicion}</dd>
             </div>
           ))}
         </dl>
@@ -144,15 +141,14 @@ export function Ayuda() {
         <h2 id="ayuda-caja" className="text-lg font-medium">
           Operación de caja por teclado
         </h2>
-        <p className="text-sm text-muted-foreground">
-          La pantalla de cobro y emisión se opera completa sin mouse, para no
-          frenar la caja.
+        <p className="text-sm text-ink-muted">
+          La pantalla de cobro y emisión se opera completa sin mouse, para no frenar la caja.
         </p>
-        <ul className="divide-y rounded-md border">
+        <ul className="divide-y rounded-md border border-line">
           {ATAJOS_CAJA.map((a) => (
             <li key={a.accion} className="flex items-center justify-between gap-4 px-3 py-2">
               <span className="text-sm">{a.accion}</span>
-              <kbd className="rounded bg-muted px-2 py-0.5 font-mono text-xs">
+              <kbd className="rounded bg-surface-muted px-2 py-0.5 font-mono text-xs">
                 {a.teclas}
               </kbd>
             </li>

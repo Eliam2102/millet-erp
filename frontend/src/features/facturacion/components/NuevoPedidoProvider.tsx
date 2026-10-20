@@ -1,17 +1,18 @@
-import { useCallback, useMemo, useRef, useState, type ReactNode } from 'react';
 import {
   Sheet,
+  SheetBody,
   SheetContent,
   SheetDescription,
   SheetHeader,
   SheetTitle,
 } from '@/components/ui/sheet';
-import { NuevoPedidoManual } from '@/features/facturacion/pages/NuevoPedidoManual';
+import type { PedidoFacturableDetalleResponse } from '@/features/facturacion/api/types';
 import {
   NuevoPedidoContext,
   type NuevoPedidoApi,
 } from '@/features/facturacion/components/nuevo-pedido-context';
-import type { PedidoFacturableDetalleResponse } from '@/features/facturacion/api/types';
+import { NuevoPedidoManual } from '@/features/facturacion/pages/NuevoPedidoManual';
+import { useCallback, useMemo, useRef, useState, type ReactNode } from 'react';
 
 /**
  * <c>&lt;NuevoPedidoProvider/&gt;</c> + el Sheet asociado. Vive a nivel
@@ -26,9 +27,7 @@ import type { PedidoFacturableDetalleResponse } from '@/features/facturacion/api
  */
 export function NuevoPedidoProvider({ children }: { children: ReactNode }) {
   const [abierto, setAbierto] = useState(false);
-  const [pedido, setPedido] = useState<
-    PedidoFacturableDetalleResponse | undefined
-  >(undefined);
+  const [pedido, setPedido] = useState<PedidoFacturableDetalleResponse | undefined>(undefined);
   const isDirtyRef = useRef(false);
 
   const setDirty = useCallback((dirty: boolean) => {
@@ -78,30 +77,26 @@ export function NuevoPedidoProvider({ children }: { children: ReactNode }) {
           setAbierto(true);
         }}
       >
-        <SheetContent
-          side="right"
-          className="w-full overflow-y-auto sm:max-w-3xl"
-        >
+        <SheetContent side="right" size="lg">
           <SheetHeader>
-            <SheetTitle>
-              {esEdicion ? 'Editar pedido' : 'Nuevo pedido manual'}
-            </SheetTitle>
+            <SheetTitle>{esEdicion ? 'Editar pedido' : 'Nuevo pedido manual'}</SheetTitle>
             <SheetDescription>
               {esEdicion
-                ? 'Modifica la cabecera y las líneas. La sucursal y el número de pedido son inmutables.'
-                : 'Captura la cabecera y las líneas del pedido. Tras guardarlo queda listo para facturar desde la bandeja.'}
+                ? 'Modifica la cabecera y las partidas. La sucursal y el número de pedido son inmutables.'
+                : 'Captura la cabecera y las partidas del pedido. Tras guardarlo queda listo para facturar desde la bandeja.'}
             </SheetDescription>
           </SheetHeader>
-
-          <div className="px-2 pb-6">
-            {abierto && (
-              <NuevoPedidoManual
-                onClose={cerrarConConfirm}
-                onDirtyChange={setDirty}
-                pedido={pedido}
-              />
-            )}
-          </div>
+          <SheetBody className="flex flex-col overflow-hidden py-0">
+            <div className="contents">
+              {abierto && (
+                <NuevoPedidoManual
+                  onClose={cerrarConConfirm}
+                  onDirtyChange={setDirty}
+                  pedido={pedido}
+                />
+              )}
+            </div>
+          </SheetBody>
         </SheetContent>
       </Sheet>
     </NuevoPedidoContext.Provider>

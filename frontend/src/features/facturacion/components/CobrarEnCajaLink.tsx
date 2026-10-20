@@ -1,8 +1,8 @@
-import { useNavigate } from '@tanstack/react-router';
 import { Button } from '@/components/ui/button';
-import { useHasPermission } from '@/lib/auth/useHasPermission';
 import { PermisosCanonicos } from '@/lib/auth/permission-codes';
-import { useSesionActual, useComprobantesCobrables } from '../api/useCajaSesiones';
+import { useHasPermission } from '@/lib/auth/useHasPermission';
+import { useNavigate } from '@tanstack/react-router';
+import { useComprobantesCobrables, useSesionActual } from '../api/useCajaSesiones';
 
 export function CobrarEnCajaLink({
   comprobanteId,

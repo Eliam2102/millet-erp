@@ -1,9 +1,9 @@
 import { CatalogoEagerCombobox } from '@/components/erp/selectors/CatalogoEagerCombobox';
-import { useAutorizacionesActivo } from '@/features/facturacion/api/useActivos';
 import {
   EstadoAutorizacionActivo,
   type AutorizacionActivoItem,
 } from '@/features/facturacion/api/types';
+import { useAutorizacionesActivo } from '@/features/facturacion/api/useActivos';
 
 /**
  * <c>&lt;AutorizacionPicker/&gt;</c> — combobox eager de las
@@ -40,12 +40,10 @@ export function AutorizacionPicker({
         <div className="min-w-0 flex-1">
           <div className="flex items-center gap-2">
             <span className="truncate font-mono text-xs">{a.activoRef}</span>
-            <span className="text-xs text-muted-foreground">
-              Autorizó {a.autorizadoPor}
-            </span>
+            <span className="text-xs text-ink-muted">Autorizó {a.autorizadoPor}</span>
           </div>
           <p className="truncate text-sm">{a.descripcion}</p>
-          <p className="text-xs tabular-nums text-muted-foreground">
+          <p className="text-xs tabular-nums text-ink-muted">
             Precio venta {a.precioVenta.toFixed(2)}
           </p>
         </div>
