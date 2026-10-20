@@ -1,3 +1,4 @@
+import ds from './eslint-rules/index.js'
 import js from '@eslint/js'
 import globals from 'globals'
 import reactHooks from 'eslint-plugin-react-hooks'
@@ -6,6 +7,17 @@ import tseslint from 'typescript-eslint'
 import { defineConfig, globalIgnores } from 'eslint/config'
 
 export default defineConfig([
+  {
+    files: ['src/**/*.tsx'],
+    ignores: ['**/*.test.tsx', 'src/components/erp/reportes/exporters/**', 'src/features/almacen/components/impresion/**', 'src/components/auth/DevUserSelector.tsx'],
+    plugins: { ds },
+    rules: {
+      'ds/no-paleta-default': 'warn',
+      'ds/no-hex': 'warn',
+      'ds/no-dark': 'warn',
+      'ds/no-texto-interno': 'warn',
+    },
+  },
   // El routeTree.gen.ts es generado por @tanstack/router-plugin; no debe
   // ser linteado. <c>coverage/</c> es output del v8 reporter de Vitest
   // (HTML + assets minificados) — no es código nuestro.

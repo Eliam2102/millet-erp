@@ -132,7 +132,7 @@ describe('<EmitirFacturaForm> — smoke (FAC-UX-PR2/PR3)', () => {
       { wrapper: createQueryWrapper() },
     );
     await screen.findByDisplayValue('Torre Cancún – Fase 1');
-    expect(screen.getAllByText('100920.00 MXN').length).toBeGreaterThan(0);
+    expect(screen.getAllByText('$100,920.00').length).toBeGreaterThan(0);
 
     rerender(
       <EmitirFacturaForm
@@ -142,10 +142,10 @@ describe('<EmitirFacturaForm> — smoke (FAC-UX-PR2/PR3)', () => {
       />,
     );
     expect(await screen.findByDisplayValue('Obra PED-1001')).toBeInTheDocument();
-    expect(screen.getAllByText('4640.00 MXN').length).toBeGreaterThan(0);
+    expect(screen.getAllByText('$4,640.00').length).toBeGreaterThan(0);
     expect(screen.queryByDisplayValue('Torre Cancún – Fase 1')).not.toBeInTheDocument();
     expect(screen.queryByText('Vidrio p-2')).not.toBeInTheDocument();
-    expect(screen.queryByText('100920.00 MXN')).not.toBeInTheDocument();
+    expect(screen.queryByText('$100,920.00')).not.toBeInTheDocument();
   });
 
   it('bloquea el pedido ligado a CE y muestra los datos del expediente en lectura', async () => {
@@ -617,7 +617,8 @@ describe('<EmitirFacturaForm> — smoke (FAC-UX-PR2/PR3)', () => {
     // extenso (el input "Clave SAT *" no está montado).
     expect(screen.getByText('Vidrio templado 6mm')).toBeInTheDocument();
     // El importe aparece en la fila compacta y en el pie de totales.
-    expect(screen.getAllByText('300.00').length).toBeGreaterThanOrEqual(2);
+    expect(screen.getByText('300.00')).toBeInTheDocument();
+    expect(screen.getAllByText('$300.00')).toHaveLength(2);
     expect(screen.queryByText('Clave SAT *')).not.toBeInTheDocument();
 
     fireEvent.click(screen.getByRole('button', { name: /Editar/i }));

@@ -1,3 +1,4 @@
+import { ResumenImportes } from '@/components/erp/display/ResumenImportes';
 import { ErrorTimbradoAviso } from '@/features/facturacion/components/ErrorTimbradoAviso';
 import { mostrarErrorReceptorFiscal } from '@/features/facturacion/lib/mostrar-error-receptor-fiscal';
 import { useState } from 'react';
@@ -429,28 +430,14 @@ function FormInner({
         </TabsContent>
       </Tabs>
 
-      <div className="flex flex-wrap items-center justify-between gap-3 border-t pt-4">
-        <dl className="flex gap-4 text-sm tabular-nums">
-          <div>
-            <dt className="text-xs text-muted-foreground">Subtotal</dt>
-            <dd className="font-medium">{totales.subtotal.toFixed(2)}</dd>
-          </div>
-          <div>
-            <dt className="text-xs text-muted-foreground">IVA</dt>
-            <dd className="font-medium">{totales.iva.toFixed(2)}</dd>
-          </div>
-          <div>
-            <dt className="text-xs text-muted-foreground">Retenciones</dt>
-            <dd className="font-medium">−{totales.ret.toFixed(2)}</dd>
-          </div>
-          <div>
-            <dt className="text-xs text-muted-foreground">Total</dt>
-            <dd className="font-semibold">
-              {total.toFixed(2)} {moneda?.toUpperCase()}
-            </dd>
-          </div>
-        </dl>
-        <div className="flex items-center gap-2">
+      <ResumenImportes
+        className="border-t border-line pt-4"
+        moneda={moneda?.toUpperCase() ?? ''}
+        subtotal={totales.subtotal}
+        ivaTrasladado={totales.iva}
+        otrasRetenciones={[{ etiqueta: 'Retenciones', monto: totales.ret }]}
+        total={total}
+        acciones={<>
           <Button type="button" variant="ghost" onClick={cancelar} disabled={emitir.isPending}>
             Cancelar
           </Button>
@@ -467,8 +454,8 @@ function FormInner({
           >
             {emitir.isPending ? 'Emitiendo…' : 'Emitir y timbrar'}
           </Button>
-        </div>
-      </div>
+        </>}
+      />
     </form>
   );
 }
