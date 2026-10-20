@@ -168,10 +168,10 @@ describe('<BandejaOrdenesCompra> — smoke (UF1-PR3)', () => {
     );
     // Estado badge OC y dot R con progreso parcial visible.
     expect(
-      screen.getByText('En autorización Jefe de Compras'),
+      screen.getByText('En autorización Jefe de Compras', { selector: '[data-estado]' }),
     ).toBeInTheDocument();
     // <HoverSubEstados> (UF6-PR1): un solo tooltip combinado en el wrapper
-    // multi-línea + chips internos con `data-progreso`. Buscamos el chip R
+    // multi-partida + chips internos con `data-progreso`. Buscamos el chip R
     // por su atributo `data-sub-estado="recepcion"`.
     const wrapper = screen.getByRole('img', {
       name: /Recepción: Recepción parcial[\s\S]*Facturación[\s\S]*Pago/i,

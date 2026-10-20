@@ -19,7 +19,13 @@ import {
 } from '@/components/ui/alert-dialog';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
 import {
   DropdownMenu,
@@ -39,7 +45,10 @@ import {
 import { ConMotivo } from '@/features/compras/components/ConMotivo';
 import { GenerarOcCotizacionDialog } from '@/features/compras/components/GenerarOcCotizacionDialog';
 import { CotizacionSheet } from '@/features/compras/components/CotizacionSheet';
-import { useComparativoCotizaciones, useEliminarCotizacion } from '@/features/compras/api/useCotizaciones';
+import {
+  useComparativoCotizaciones,
+  useEliminarCotizacion,
+} from '@/features/compras/api/useCotizaciones';
 import {
   EstadoRequisicion,
   type CotizacionComparativo,
@@ -108,7 +117,13 @@ export function ComparativoCotizaciones() {
     return (
       <TableSkeleton
         rows={4}
-        columns={[{ width: 'w-8' }, { width: 'w-48' }, { width: 'w-28' }, { width: 'w-28' }, { width: 'w-24' }]}
+        columns={[
+          { width: 'w-8' },
+          { width: 'w-48' },
+          { width: 'w-28' },
+          { width: 'w-28' },
+          { width: 'w-24' },
+        ]}
       />
     );
   }
@@ -146,12 +161,17 @@ export function ComparativoCotizaciones() {
   async function confirmarEliminar() {
     if (!eliminando) return;
     try {
-      await eliminar.mutateAsync({ cotizacionId: eliminando.id, idempotencyKey: crypto.randomUUID() });
+      await eliminar.mutateAsync({
+        cotizacionId: eliminando.id,
+        idempotencyKey: crypto.randomUUID(),
+      });
       toast.success('Cotización eliminada');
       setEliminando(null);
     } catch (err) {
       if (esApiError(err) && err.problem.status === 409) {
-        toast.error('La cotización cambió', { description: 'Recarga el comparativo e inténtalo de nuevo.' });
+        toast.error('La cotización cambió', {
+          description: 'Recarga el comparativo e inténtalo de nuevo.',
+        });
       } else if (esApiError(err)) {
         toast.error(err.problem.title, { description: err.problem.detail });
       } else {
@@ -211,13 +231,19 @@ export function ComparativoCotizaciones() {
           <p className="text-sm text-ink">Comparar en MXN por {partida.unidad}</p>
           {data.tiposCambio.map((tc) =>
             tc.valorEnMxn === null ? (
-              <p key={tc.moneda} role="status" className="rounded-md bg-warning-bg px-3 py-2 text-sm text-warning-fg">
-                Sin tipo de cambio de {tc.moneda} para <DateTimeDisplay value={tc.fecha} variant="media" />: registra el tipo de cambio del día en Catálogos ›
-                Monedas para normalizar.
+              <p
+                key={tc.moneda}
+                role="status"
+                className="rounded-md bg-warning-bg px-3 py-2 text-sm text-warning-fg"
+              >
+                Sin tipo de cambio de {tc.moneda} para{' '}
+                <DateTimeDisplay value={tc.fecha} variant="media" />: registra el tipo de cambio del
+                día en Catálogos › Monedas para normalizar.
               </p>
             ) : (
               <p key={tc.moneda} className="text-sm text-ink tabular-nums">
-                TC {tc.moneda} ${tc.valorEnMxn.toFixed(4)} del <DateTimeDisplay value={tc.fecha} variant="media" />
+                TC {tc.moneda} ${tc.valorEnMxn.toFixed(4)} del{' '}
+                <DateTimeDisplay value={tc.fecha} variant="media" />
               </p>
             ),
           )}
@@ -227,7 +253,10 @@ export function ComparativoCotizaciones() {
       {data.cotizaciones.length === 0 ? (
         <EmptyState
           title="Aún no hay cotizaciones registradas"
-          description={motivoSinRegistro ?? 'Registra la cotización de cada proveedor para comparar sus precios.'}
+          description={
+            motivoSinRegistro ??
+            'Registra la cotización de cada proveedor para comparar sus precios.'
+          }
         />
       ) : (
         <div className="overflow-hidden rounded-lg border border-line-row bg-surface-card">
@@ -252,92 +281,107 @@ export function ComparativoCotizaciones() {
                   )}
                 </TableRow>
               </TableHeader>
-              <TableBody>
-                {filas.map(({ cot, linea }: { cot: CotizacionComparativo; linea: LineaComparativo }) => {
-                  const proveedor = cot.proveedorRazonSocial ?? cot.proveedorId;
-                  const bloqueada = !cot.vigente || !puedeElegir;
-                  return (
-                    <TableRow key={cot.id} className="hover:bg-surface-subtle">
-                      <TableCell>
-                        <input
-                          type="radio"
-                          name="cotizacion-elegida"
-                          className="h-4 w-4 accent-brand"
-                          aria-label={`Elegir cotización de ${proveedor}`}
-                          disabled={bloqueada}
-                          checked={cot.elegida || seleccionadaId === cot.id}
-                          onChange={() => setSeleccionadaId(cot.id)}
-                        />
-                      </TableCell>
-                      <TableCell className="min-w-56">
-                        <div className="font-medium">{proveedor}</div>
-                        <div className="text-xs text-ink-muted">
-                          {cot.folioProveedor && <span className="font-mono">{cot.folioProveedor} · </span>}
-                          recibida <DateTimeDisplay value={cot.fechaCotizacion} variant="corta" />
-                        </div>
-                        {cot.elegida && <Badge variant="success">Elegida</Badge>}
-                      </TableCell>
-                      <TableCell className="tabular-nums">
-                        <MoneyDisplay amount={linea.precioUnitario} currency={cot.moneda} /> / {linea.unidadCotizada}
-                      </TableCell>
-                      <TableCell className="text-right tabular-nums">
-                        {linea.precioMxnPorUnidadRq === null ? (
-                          <span className="text-ink-muted">Sin TC</span>
-                        ) : (
-                          <span className="inline-flex items-center justify-end gap-2">
-                            <MoneyDisplay amount={linea.precioMxnPorUnidadRq} currency="MXN" strong />
-                            {linea.esMenorPrecio && <Badge variant="success">Más bajo</Badge>}
-                          </span>
-                        )}
-                      </TableCell>
-                      <TableCell className="text-xs tabular-nums">
-                        {linea.factorAUnidadRq !== 1
-                          ? `1 ${linea.unidadCotizada} = ${linea.factorAUnidadRq} ${partida?.unidad}`
-                          : '—'}
-                      </TableCell>
-                      <TableCell>
-                        {cot.vigente ? (
-                          <>
-                            al <DateTimeDisplay value={cot.vigenteHasta} variant="corta" />
-                          </>
-                        ) : (
-                          <Badge variant="danger">
-                            Vencida <DateTimeDisplay value={cot.vigenteHasta} variant="corta" />
-                          </Badge>
-                        )}
-                      </TableCell>
-                      <TableCell className="text-xs">
-                        <div>{cot.condicionesCredito ?? '—'}</div>
-                        <div className="tabular-nums text-ink-muted">
-                          {linea.diasEntrega !== null ? `Entrega ${linea.diasEntrega} días` : 'Entrega —'}
-                        </div>
-                      </TableCell>
-                      <TableCell>
-                        <ArchivoCotizacion cot={cot} />
-                      </TableCell>
-                      {puedeEditar && (
+              <TableBody className="[&_tr]:h-12">
+                {filas.map(
+                  ({ cot, linea }: { cot: CotizacionComparativo; linea: LineaComparativo }) => {
+                    const proveedor = cot.proveedorRazonSocial ?? cot.proveedorId;
+                    const bloqueada = !cot.vigente || !puedeElegir;
+                    return (
+                      <TableRow key={cot.id} className="hover:bg-surface-subtle">
                         <TableCell>
-                          <DropdownMenu>
-                            <DropdownMenuTrigger asChild>
-                              <Button
-                                type="button"
-                                variant="ghost"
-                                size="icon"
-                                aria-label={`Acciones de la cotización de ${proveedor}`}
-                              >
-                                <MoreHorizontal className="h-4 w-4" aria-hidden="true" />
-                              </Button>
-                            </DropdownMenuTrigger>
-                            <DropdownMenuContent align="end">
-                              <DropdownMenuItem onSelect={() => setEditando(cot)}>Editar</DropdownMenuItem>
-                              <DropdownMenuItem onSelect={() => setEliminando(cot)}>Eliminar</DropdownMenuItem>
-                            </DropdownMenuContent>
-                          </DropdownMenu>
+                          <input
+                            type="radio"
+                            name="cotizacion-elegida"
+                            className="h-4 w-4 accent-brand"
+                            aria-label={`Elegir cotización de ${proveedor}`}
+                            disabled={bloqueada}
+                            checked={cot.elegida || seleccionadaId === cot.id}
+                            onChange={() => setSeleccionadaId(cot.id)}
+                          />
                         </TableCell>
-                      )}
-                    </TableRow>
-                  );
-                })}
+                        <TableCell className="min-w-56">
+                          <div className="font-medium">{proveedor}</div>
+                          <div className="text-xs text-ink-muted">
+                            {cot.folioProveedor && (
+                              <span className="font-mono">{cot.folioProveedor} · </span>
+                            )}
+                            recibida <DateTimeDisplay value={cot.fechaCotizacion} variant="corta" />
+                          </div>
+                          {cot.elegida && <Badge variant="success">Elegida</Badge>}
+                        </TableCell>
+                        <TableCell className="tabular-nums">
+                          <MoneyDisplay amount={linea.precioUnitario} currency={cot.moneda} /> /{' '}
+                          {linea.unidadCotizada}
+                        </TableCell>
+                        <TableCell className="text-right tabular-nums">
+                          {linea.precioMxnPorUnidadRq === null ? (
+                            <span className="text-ink-muted">Sin TC</span>
+                          ) : (
+                            <span className="inline-flex items-center justify-end gap-2">
+                              <MoneyDisplay
+                                amount={linea.precioMxnPorUnidadRq}
+                                currency="MXN"
+                                strong
+                              />
+                              {linea.esMenorPrecio && <Badge variant="success">Más bajo</Badge>}
+                            </span>
+                          )}
+                        </TableCell>
+                        <TableCell className="text-xs tabular-nums">
+                          {linea.factorAUnidadRq !== 1
+                            ? `1 ${linea.unidadCotizada} = ${linea.factorAUnidadRq} ${partida?.unidad}`
+                            : '—'}
+                        </TableCell>
+                        <TableCell>
+                          {cot.vigente ? (
+                            <>
+                              al <DateTimeDisplay value={cot.vigenteHasta} variant="corta" />
+                            </>
+                          ) : (
+                            <Badge variant="danger">
+                              Vencida <DateTimeDisplay value={cot.vigenteHasta} variant="corta" />
+                            </Badge>
+                          )}
+                        </TableCell>
+                        <TableCell className="text-xs">
+                          <div>{cot.condicionesCredito ?? '—'}</div>
+                          <div className="tabular-nums text-ink-muted">
+                            {linea.diasEntrega !== null
+                              ? `Entrega ${linea.diasEntrega} días`
+                              : 'Entrega —'}
+                          </div>
+                        </TableCell>
+                        <TableCell>
+                          <ArchivoCotizacion cot={cot} />
+                        </TableCell>
+                        {puedeEditar && (
+                          <TableCell>
+                            <DropdownMenu>
+                              <DropdownMenuTrigger asChild>
+                                <Button
+                                  type="button"
+                                  variant="ghost"
+                                  size="icon"
+                                  aria-label={`Acciones de la cotización de ${proveedor}`}
+                                >
+                                  <MoreHorizontal className="h-4 w-4" aria-hidden="true" />
+                                </Button>
+                              </DropdownMenuTrigger>
+                              <DropdownMenuContent align="end">
+                                <DropdownMenuItem onSelect={() => setEditando(cot)}>
+                                  Editar
+                                </DropdownMenuItem>
+                                <DropdownMenuItem onSelect={() => setEliminando(cot)}>
+                                  Eliminar
+                                </DropdownMenuItem>
+                              </DropdownMenuContent>
+                            </DropdownMenu>
+                          </TableCell>
+                        )}
+                      </TableRow>
+                    );
+                  },
+                )}
               </TableBody>
             </Table>
           </TableContainer>
@@ -357,27 +401,36 @@ export function ComparativoCotizaciones() {
               value={motivo}
               onChange={(e) => setMotivo(e.target.value)}
             />
-            <p className="text-xs text-ink-muted">Queda con todas las cotizaciones; aparece en la OC.</p>
+            <p className="text-xs text-ink-muted">
+              Queda con todas las cotizaciones; aparece en la OC.
+            </p>
           </div>
           <p role="note" className="rounded-md bg-info-bg px-3 py-2 text-sm text-info-fg">
             Qué pasa al generar la OC: el precio de cada partida se toma de la cotización elegida
-            {seleccionada && partida
-              ? <>
-                  {' ('}
-                  <MoneyDisplay
-                    amount={
-                      seleccionada.lineas.find((l) => l.lineaRequisicionId === partida.lineaRequisicionId)
-                        ?.precioPorUnidadRq
-                    }
-                    currency={seleccionada.moneda}
-                  />
-                  {` por ${partida.unidad})`}
-                </>
-              : ''}{' '}
+            {seleccionada && partida ? (
+              <>
+                {' ('}
+                <MoneyDisplay
+                  amount={
+                    seleccionada.lineas.find(
+                      (l) => l.lineaRequisicionId === partida.lineaRequisicionId,
+                    )?.precioPorUnidadRq
+                  }
+                  currency={seleccionada.moneda}
+                />
+                {` por ${partida.unidad})`}
+              </>
+            ) : (
+              ''
+            )}{' '}
             y su PDF se adjunta a la OC. Las otras cotizaciones quedan guardadas en la requisición.
           </p>
           <div className="flex items-center gap-3">
-            <Button type="button" disabled={faltaParaGenerar !== null} onClick={() => setGenerando(true)}>
+            <Button
+              type="button"
+              disabled={faltaParaGenerar !== null}
+              onClick={() => setGenerando(true)}
+            >
               Generar OC con la elegida
             </Button>
             {faltaParaGenerar && <span className="text-xs text-ink-muted">{faltaParaGenerar}</span>}
@@ -401,8 +454,9 @@ export function ComparativoCotizaciones() {
       )}
 
       <p className="text-xs text-ink-muted">
-        Normalización: unidad cotizada → {partida?.unidad ?? 'unidad de la requisición'} con el factor capturado por
-        Compras; otras monedas × TC del día. Las cotizaciones vencidas se conservan pero no se pueden elegir.
+        Normalización: unidad cotizada → {partida?.unidad ?? 'unidad de la requisición'} con el
+        factor capturado por Compras; otras monedas × TC del día. Las cotizaciones vencidas se
+        conservan pero no se pueden elegir.
       </p>
       <CotizacionSheet
         abierto={registrando}
@@ -428,11 +482,15 @@ export function ComparativoCotizaciones() {
           motivoEleccion={motivo}
         />
       )}
-      <AlertDialog open={eliminando !== null} onOpenChange={(o) => !o && !eliminar.isPending && setEliminando(null)}>
+      <AlertDialog
+        open={eliminando !== null}
+        onOpenChange={(o) => !o && !eliminar.isPending && setEliminando(null)}
+      >
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>
-              ¿Eliminar la cotización de {eliminando?.proveedorRazonSocial ?? eliminando?.proveedorId}?
+              ¿Eliminar la cotización de{' '}
+              {eliminando?.proveedorRazonSocial ?? eliminando?.proveedorId}?
             </AlertDialogTitle>
             <AlertDialogDescription>
               Solo se puede eliminar antes de elegir una cotización.

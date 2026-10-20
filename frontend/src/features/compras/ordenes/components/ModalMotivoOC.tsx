@@ -1,3 +1,5 @@
+import { FormGrid, FormCampo } from '@/components/erp/forms/FormGrid';
+import { DialogBody } from '@/components/ui/dialog';
 import { useState } from 'react';
 import { useForm, Controller } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -68,8 +70,7 @@ export function ModalMotivoOC({
   onSubmit,
   isPending,
 }: ModalMotivoOCProps) {
-  const [motivoSeleccionado, setMotivoSeleccionado] =
-    useState<MotivoRechazoResponse | null>(null);
+  const [motivoSeleccionado, setMotivoSeleccionado] = useState<MotivoRechazoResponse | null>(null);
 
   const form = useForm<ModalMotivoValues>({
     resolver: zodResolver(ModalMotivoSchema),
@@ -82,10 +83,7 @@ export function ModalMotivoOC({
   const permiteTextoLibre = motivoSeleccionado?.permiteTextoLibre ?? false;
 
   async function handleSubmit(values: ModalMotivoValues) {
-    if (
-      permiteTextoLibre &&
-      (!values.motivoTexto || values.motivoTexto.trim().length < 3)
-    ) {
+    if (permiteTextoLibre && (!values.motivoTexto || values.motivoTexto.trim().length < 3)) {
       form.setError('motivoTexto', {
         type: 'manual',
         message: 'El motivo requiere un texto descriptivo (≥3 caracteres).',
@@ -106,62 +104,58 @@ export function ModalMotivoOC({
         if (!isPending) onOpenChange(o);
       }}
     >
-      <DialogContent
-        className="max-w-lg"
-        data-component="modal-motivo-oc"
-      >
+      <DialogContent size="sm" className="" data-component="modal-motivo-oc">
         <DialogHeader>
           <DialogTitle>{titulo}</DialogTitle>
           <DialogDescription>{descripcion}</DialogDescription>
         </DialogHeader>
 
-        <form
-          onSubmit={form.handleSubmit(handleSubmit)}
-          noValidate
-          className="space-y-3"
-        >
-          <FieldGroup
-            label="Motivo"
-            required
-            error={form.formState.errors.motivoId?.message}
-          >
-            <Controller
-              name="motivoId"
-              control={form.control}
-              render={({ field }) => (
-                <MotivoRechazoSelector
-                  aplicaA={aplicaA}
-                  value={field.value || null}
-                  onChange={(id) => field.onChange(id ?? '')}
-                  onMotivoChange={setMotivoSeleccionado}
-                  disabled={isPending}
-                />
-              )}
-            />
-          </FieldGroup>
-
-          {permiteTextoLibre && (
-            <FieldGroup
-              label="Detalle del motivo"
-              required
-              error={form.formState.errors.motivoTexto?.message}
-            >
-              <Controller
-                name="motivoTexto"
-                control={form.control}
-                render={({ field }) => (
-                  <TextAreaField
-                    value={field.value || null}
-                    onChange={(v) => field.onChange(v || null)}
-                    maxLength={500}
-                    minRows={2}
-                    disabled={isPending}
+        <form onSubmit={form.handleSubmit(handleSubmit)} noValidate className="flex min-h-0 flex-1 flex-col ">
+          <DialogBody>
+            <FormGrid>
+              <FormCampo span={12}>
+                <FieldGroup label="Motivo" required error={form.formState.errors.motivoId?.message}>
+                  <Controller
+                    name="motivoId"
+                    control={form.control}
+                    render={({ field }) => (
+                      <MotivoRechazoSelector
+                        aplicaA={aplicaA}
+                        value={field.value || null}
+                        onChange={(id) => field.onChange(id ?? '')}
+                        onMotivoChange={setMotivoSeleccionado}
+                        disabled={isPending}
+                      />
+                    )}
                   />
-                )}
-              />
-            </FieldGroup>
-          )}
+                </FieldGroup>
+              </FormCampo>
 
+              <FormCampo span={12}>
+                {permiteTextoLibre && (
+                  <FieldGroup
+                    label="Detalle del motivo"
+                    required
+                    error={form.formState.errors.motivoTexto?.message}
+                  >
+                    <Controller
+                      name="motivoTexto"
+                      control={form.control}
+                      render={({ field }) => (
+                        <TextAreaField
+                          value={field.value || null}
+                          onChange={(v) => field.onChange(v || null)}
+                          maxLength={500}
+                          minRows={2}
+                          disabled={isPending}
+                        />
+                      )}
+                    />
+                  </FieldGroup>
+                )}
+              </FormCampo>
+            </FormGrid>
+          </DialogBody>
           <DialogFooter>
             <Button
               type="button"
@@ -199,7 +193,7 @@ function FieldGroup({
 }) {
   return (
     <div className="space-y-1">
-      <label className="flex items-center gap-1 text-xs font-medium text-foreground">
+      <label className="flex items-center gap-1 text-xs font-medium text-ink">
         {label}
         {required && (
           <span aria-hidden="true" className="text-danger-fg">

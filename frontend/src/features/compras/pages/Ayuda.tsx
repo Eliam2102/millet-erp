@@ -1,3 +1,11 @@
+import {
+  Table,
+  TableHeader,
+  TableBody,
+  TableRow,
+  TableHead,
+  TableCell,
+} from '@/components/ui/table';
 import { Link } from '@tanstack/react-router';
 import { ArrowLeft } from 'lucide-react';
 import { EstadoBadge, NaturalezaBadge } from '@/components/erp';
@@ -11,10 +19,7 @@ import {
   type Naturaleza as NaturalezaKey,
   type TerminoTransversal,
 } from '@/features/compras/lib/glosario';
-import {
-  EstadoRequisicion,
-  Naturaleza,
-} from '@/features/compras/api/types';
+import { EstadoRequisicion, Naturaleza } from '@/features/compras/api/types';
 import { EstadoOrdenCompra } from '@/features/compras/ordenes/api/types';
 import { DEFAULT_BANDEJA_SEARCH } from '@/features/compras/lib/bandeja-search-schema';
 import { PageHeader } from '@/components/erp/PageHeader';
@@ -85,11 +90,10 @@ function SeccionGlosarioEstados() {
       <h2 id="estados" className="text-lg font-semibold">
         Estados de una requisición
       </h2>
-      <p className="text-sm text-muted-foreground">
-        Una requisición pasa por estos 10 estados durante su ciclo de vida.
-        Los primeros son del flujo normal; los terminales por intervención
-        son rechazo, cancelación, eliminación y cierre manual del jefe de
-        almacén (sin surtir o surtida parcialmente, ADR-0043).
+      <p className="text-sm text-ink-muted">
+        Una requisición pasa por estos 10 estados durante su ciclo de vida. Los primeros son del
+        flujo normal; los terminales por intervención son rechazo, cancelación, eliminación y cierre
+        manual del jefe de almacén (sin surtir o surtida parcialmente, ADR-0043).
       </p>
       <div className="space-y-2">
         {estadosOrdenados.map(({ key, value }) => (
@@ -114,13 +118,13 @@ function SeccionCicloDeVida() {
       <h2 id="ciclo-de-vida" className="text-lg font-semibold">
         Ciclo de vida (diagrama)
       </h2>
-      <p className="text-sm text-muted-foreground">
-        Transiciones permitidas entre estados. Las flechas con ✕
-        representan estados terminales (no admiten más cambios).
+      <p className="text-sm text-ink-muted">
+        Transiciones permitidas entre estados. Las flechas con ✕ representan estados terminales (no
+        admiten más cambios).
       </p>
-      <div className="overflow-x-auto rounded-md border bg-muted/30 p-4">
+      <div className="overflow-x-auto rounded-md border bg-surface-muted/30 p-4">
         <pre className="text-xs leading-relaxed font-mono">
-{`  Borrador ──[transmitir]──> EnAutorización ──[aprobar matriz]──> Autorizada ──> EnSurtido ──> Cerrada ✕
+          {`  Borrador ──[transmitir]──> EnAutorización ──[aprobar matriz]──> Autorizada ──> EnSurtido ──> Cerrada ✕
      │                            │                              │      │
      │                            │              [cerrar manual]─┤      ├──[cancelar]──> Cancelada ✕
      │                            │                              ▼      │
@@ -156,10 +160,9 @@ function SeccionGlosarioNaturalezas() {
       <h2 id="naturalezas" className="text-lg font-semibold">
         Naturalezas del artículo
       </h2>
-      <p className="text-sm text-muted-foreground">
-        Cada artículo del catálogo tiene una naturaleza. La naturaleza
-        afecta cuántas firmas necesita la RQ y si requiere autorización
-        de Nivel 2 sin importar el monto.
+      <p className="text-sm text-ink-muted">
+        Cada artículo del catálogo tiene una naturaleza. La naturaleza afecta cuántas firmas
+        necesita la RQ y si requiere autorización de Nivel 2 sin importar el monto.
       </p>
       <div className="space-y-2">
         {naturalezasOrdenadas.map(({ key, value }) => (
@@ -184,32 +187,31 @@ function SeccionMatrizSimplificada() {
       <h2 id="matriz" className="text-lg font-semibold">
         Matriz de autorización (simplificada)
       </h2>
-      <p className="text-sm text-muted-foreground">
-        Reglas de cuándo se requiere cada nivel de firma. Es una versión
-        condensada del doc 01 §3.bis — el detalle completo vive en el
-        diseño técnico.
+      <p className="text-sm text-ink-muted">
+        Reglas de cuándo se requiere cada nivel de firma. Es una versión condensada del doc 01
+        §3.bis — el detalle completo vive en el diseño técnico.
       </p>
       <div className="overflow-x-auto rounded-md border">
-        <table className="w-full text-sm">
-          <thead className="bg-muted/50">
-            <tr>
-              <th className="px-3 py-2 text-left font-medium">Caso</th>
-              <th className="px-3 py-2 text-left font-medium">N1</th>
-              <th className="px-3 py-2 text-left font-medium">N2</th>
-              <th className="px-3 py-2 text-left font-medium">Almacén</th>
-            </tr>
-          </thead>
-          <tbody className="text-sm">
+        <Table className="w-full text-sm">
+          <TableHeader className="bg-surface-muted/50">
+            <TableRow>
+              <TableHead className="px-3 py-2 text-left font-medium">Caso</TableHead>
+              <TableHead className="px-3 py-2 text-left font-medium">N1</TableHead>
+              <TableHead className="px-3 py-2 text-left font-medium">N2</TableHead>
+              <TableHead className="px-3 py-2 text-left font-medium">Almacén</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody className="text-sm">
             {MATRIZ_FILAS.map((f) => (
-              <tr key={f.caso} className="border-t">
-                <td className="px-3 py-2">{f.caso}</td>
-                <td className="px-3 py-2">{f.n1}</td>
-                <td className="px-3 py-2">{f.n2}</td>
-                <td className="px-3 py-2">{f.almacen}</td>
-              </tr>
+              <TableRow key={f.caso} className="border-t">
+                <TableCell className="px-3 py-2">{f.caso}</TableCell>
+                <TableCell className="px-3 py-2">{f.n1}</TableCell>
+                <TableCell className="px-3 py-2">{f.n2}</TableCell>
+                <TableCell className="px-3 py-2">{f.almacen}</TableCell>
+              </TableRow>
             ))}
-          </tbody>
-        </table>
+          </TableBody>
+        </Table>
       </div>
     </section>
   );
@@ -249,12 +251,7 @@ const MATRIZ_FILAS = [
 ];
 
 function SeccionConceptosTransversales() {
-  const transversales: TerminoTransversal[] = [
-    'Cubrimiento',
-    'Matriz',
-    'Bifurcacion',
-    'Reserva',
-  ];
+  const transversales: TerminoTransversal[] = ['Cubrimiento', 'Matriz', 'Bifurcacion', 'Reserva'];
   return (
     <section className="space-y-3">
       <h2 id="conceptos" className="text-lg font-semibold">
@@ -262,14 +259,9 @@ function SeccionConceptosTransversales() {
       </h2>
       <div className="space-y-2">
         {transversales.map((t) => (
-          <article
-            key={t}
-            className="rounded-md border p-3"
-          >
+          <article key={t} className="rounded-md border p-3">
             <h3 className="text-sm font-semibold">{t}</h3>
-            <p className="mt-1 text-sm text-muted-foreground">
-              {TRANSVERSALES[t].resumen}
-            </p>
+            <p className="mt-1 text-sm text-ink-muted">{TRANSVERSALES[t].resumen}</p>
           </article>
         ))}
       </div>
@@ -311,7 +303,7 @@ function SeccionOrdenesCompra() {
 
       <article className="rounded-md border p-3">
         <h3 className="text-sm font-semibold">Avance (recepción · facturación · pago)</h3>
-        <p className="mt-1 text-sm text-muted-foreground">
+        <p className="mt-1 text-sm text-ink-muted">
           {TRANSVERSALES.SubEstado.resumen} Una orden se cierra sola cuando las tres llegan a
           completas.
         </p>
@@ -319,23 +311,23 @@ function SeccionOrdenesCompra() {
 
       <article className="rounded-md border p-3">
         <h3 className="text-sm font-semibold">Qué se necesita para transmitir una orden</h3>
-        <ul className="mt-1 list-disc space-y-1 pl-5 text-sm text-muted-foreground">
+        <ul className="mt-1 list-disc space-y-1 pl-5 text-sm text-ink-muted">
           <li>Proveedor, condiciones de pago y uso principal capturados.</li>
-          <li>Al menos una línea, y todas con precio.</li>
+          <li>Al menos una partida, y todas con precio.</li>
           <li>Los adjuntos que pide el tipo de orden (por ejemplo, la cotización).</li>
           <li>Si no tiene requisición previa: el motivo y el correo de autorización.</li>
         </ul>
-        <p className="mt-1 text-sm text-muted-foreground">
+        <p className="mt-1 text-sm text-ink-muted">
           Antes de transmitir, el sistema te muestra qué falta y te lleva al lugar para corregirlo.
         </p>
       </article>
 
       <article className="rounded-md border p-3">
         <h3 className="text-sm font-semibold">Doble firma</h3>
-        <p className="mt-1 text-sm text-muted-foreground">
+        <p className="mt-1 text-sm text-ink-muted">
           Toda orden necesita la firma del Jefe de Compras (Nivel 1) y la de Dirección (Nivel 2).
-          Para cancelar una orden que ya tiene
-          recepciones, una persona solicita la cancelación y otra distinta la confirma.
+          Para cancelar una orden que ya tiene recepciones, una persona solicita la cancelación y
+          otra distinta la confirma.
         </p>
       </article>
     </section>
@@ -352,7 +344,7 @@ function SeccionFaq() {
         {FAQ.map((qa) => (
           <article key={qa.q} className="rounded-md border p-3">
             <h3 className="text-sm font-semibold">{qa.q}</h3>
-            <p className="mt-1 text-sm text-muted-foreground">{qa.a}</p>
+            <p className="mt-1 text-sm text-ink-muted">{qa.a}</p>
           </article>
         ))}
       </div>
@@ -362,8 +354,8 @@ function SeccionFaq() {
 
 const FAQ: { q: string; a: string }[] = [
   {
-    q: '¿Por qué no puedo agregar líneas a una requisición Autorizada?',
-    a: 'Las líneas se congelan al transmitir. Si necesitas agregar algo, debes cancelar la RQ (con motivo) y crear una nueva. Solo se pueden editar las notas de cada línea post-autorización.',
+    q: '¿Por qué no puedo agregar partidas a una requisición Autorizada?',
+    a: 'Las partidas se congelan al transmitir. Si necesitas agregar algo, debes cancelar la RQ (con motivo) y crear una nueva. Solo se pueden editar las notas de cada partida post-autorización.',
   },
   {
     q: '¿Qué diferencia hay entre Eliminar y Cancelar?',

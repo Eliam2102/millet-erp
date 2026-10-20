@@ -69,12 +69,7 @@ export function FiltrosPartidasAbiertas({
           <Filter className="h-4 w-4" />
           Filtros
         </h2>
-        <Button
-          size="sm"
-          variant="ghost"
-          onClick={reset}
-          data-action="reset-filtros"
-        >
+        <Button size="sm" variant="ghost" onClick={reset} data-action="reset-filtros">
           <RotateCcw className="mr-1 h-3.5 w-3.5" />
           Limpiar
         </Button>
@@ -88,9 +83,7 @@ export function FiltrosPartidasAbiertas({
             onValueChange={(v) =>
               update(
                 'estado',
-                v === SENTINEL_ALL
-                  ? undefined
-                  : (Number(v) as PartidasAbiertasSearch['estado']),
+                v === SENTINEL_ALL ? undefined : (Number(v) as PartidasAbiertasSearch['estado']),
               )
             }
           >
@@ -114,9 +107,7 @@ export function FiltrosPartidasAbiertas({
         <Field label="Recepción">
           <Select
             value={
-              search.subEstadoRecepcion != null
-                ? String(search.subEstadoRecepcion)
-                : SENTINEL_ALL
+              search.subEstadoRecepcion != null ? String(search.subEstadoRecepcion) : SENTINEL_ALL
             }
             onValueChange={(v) =>
               update(
@@ -147,9 +138,7 @@ export function FiltrosPartidasAbiertas({
             onValueChange={(v) =>
               update(
                 'subEstadoFacturacion',
-                v === SENTINEL_ALL
-                  ? undefined
-                  : (Number(v) as SubEstadoFacturacion),
+                v === SENTINEL_ALL ? undefined : (Number(v) as SubEstadoFacturacion),
               )
             }
           >
@@ -167,16 +156,9 @@ export function FiltrosPartidasAbiertas({
 
         <Field label="Pago">
           <Select
-            value={
-              search.subEstadoPago != null
-                ? String(search.subEstadoPago)
-                : SENTINEL_ALL
-            }
+            value={search.subEstadoPago != null ? String(search.subEstadoPago) : SENTINEL_ALL}
             onValueChange={(v) =>
-              update(
-                'subEstadoPago',
-                v === SENTINEL_ALL ? undefined : (Number(v) as SubEstadoPago),
-              )
+              update('subEstadoPago', v === SENTINEL_ALL ? undefined : (Number(v) as SubEstadoPago))
             }
           >
             <SelectTrigger>
@@ -238,9 +220,7 @@ export function FiltrosPartidasAbiertas({
           <Input
             type="text"
             value={search.numeroContenedor ?? ''}
-            onChange={(e) =>
-              update('numeroContenedor', e.target.value || undefined)
-            }
+            onChange={(e) => update('numeroContenedor', e.target.value || undefined)}
             placeholder="ABCU1234567"
             maxLength={20}
           />
@@ -259,9 +239,7 @@ export function FiltrosPartidasAbiertas({
           <Input
             type="text"
             value={search.semanaEmbarque ?? ''}
-            onChange={(e) =>
-              update('semanaEmbarque', e.target.value || undefined)
-            }
+            onChange={(e) => update('semanaEmbarque', e.target.value || undefined)}
             placeholder="2026-W12"
             maxLength={20}
           />
@@ -271,18 +249,10 @@ export function FiltrosPartidasAbiertas({
   );
 }
 
-function Field({
-  label,
-  children,
-}: {
-  label: string;
-  children: React.ReactNode;
-}) {
+function Field({ label, children }: { label: string; children: React.ReactNode }) {
   return (
     <div className="space-y-1">
-      <label className="text-xs font-medium text-muted-foreground">
-        {label}
-      </label>
+      <label className="text-xs font-medium text-ink-muted">{label}</label>
       {children}
     </div>
   );

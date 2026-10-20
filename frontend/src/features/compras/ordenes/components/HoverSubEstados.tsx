@@ -39,12 +39,7 @@ const DOT_BG: Record<Progreso, string> = {
   completo: 'bg-success-bg text-success-fg ring-success',
 };
 
-export function HoverSubEstados({
-  recepcion,
-  facturacion,
-  pago,
-  className,
-}: HoverSubEstadosProps) {
+export function HoverSubEstados({ recepcion, facturacion, pago, className }: HoverSubEstadosProps) {
   const tooltip = [
     `Recepción: ${subEstadoRecepcionToString(recepcion)}`,
     `Facturación: ${subEstadoFacturacionToString(facturacion)}`,
@@ -59,14 +54,24 @@ export function HoverSubEstados({
       aria-label={tooltip}
       data-component="hover-sub-estados"
     >
-      <Chip letra="R" progreso={progresoRecepcion(recepcion)} kind="recepcion" title={`Recepción: ${subEstadoRecepcionToString(recepcion)}`} />
+      <Chip
+        letra="R"
+        progreso={progresoRecepcion(recepcion)}
+        kind="recepcion"
+        title={`Recepción: ${subEstadoRecepcionToString(recepcion)}`}
+      />
       <Chip
         letra="F"
         progreso={progresoFacturacion(facturacion)}
         kind="facturacion"
         title={`Facturación: ${subEstadoFacturacionToString(facturacion)}`}
       />
-      <Chip letra="P" progreso={progresoPago(pago)} kind="pago" title={`Pago: ${subEstadoPagoToString(pago)}`} />
+      <Chip
+        letra="P"
+        progreso={progresoPago(pago)}
+        kind="pago"
+        title={`Pago: ${subEstadoPagoToString(pago)}`}
+      />
     </div>
   );
 }
@@ -88,7 +93,7 @@ function Chip({
       data-sub-estado={kind}
       data-progreso={progreso}
       className={cn(
-        'inline-flex h-5 w-5 items-center justify-center rounded-full text-[0.65rem] font-semibold ring-1 ring-inset',
+        'inline-flex h-5 w-5 items-center justify-center rounded-full text-2xs font-semibold ring-1 ring-inset',
         DOT_BG[progreso],
       )}
     >

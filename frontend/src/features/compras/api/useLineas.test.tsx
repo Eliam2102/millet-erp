@@ -164,7 +164,7 @@ describe('useActualizarNotasLinea (optimistic)', () => {
     );
 
     const queryClient = createOptimisticTestClient();
-    // Pre-popular el cache con la requisición que tiene la línea con notas viejas.
+    // Pre-popular el cache con la requisición que tiene la partida con notas viejas.
     queryClient.setQueryData(comprasKeys.requisicion(RQ_ID), {
       data: {
         id: RQ_ID,
@@ -194,7 +194,7 @@ describe('useActualizarNotasLinea (optimistic)', () => {
       expect(cached.data.lineas.find((l) => l.id === LINEA_ID)?.notas).toBe(
         'Nuevas',
       );
-      // Otras líneas intactas.
+      // Otras partidas intactas.
       expect(cached.data.lineas.find((l) => l.id === 'otra')?.notas).toBe(
         'No tocar',
       );

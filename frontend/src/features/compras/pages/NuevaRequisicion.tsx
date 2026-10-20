@@ -1,3 +1,6 @@
+import { FormCampo } from '@/components/erp/forms/FormGrid';
+import { FormGrid } from '@/components/erp/forms/FormGrid';
+import { DialogBody } from '@/components/ui/dialog';
 import { useEffect, useMemo, useState } from 'react';
 import { Link, useNavigate } from '@tanstack/react-router';
 import { Controller, useForm, useWatch } from 'react-hook-form';
@@ -43,12 +46,7 @@ import {
   type CrearRequisicionValues,
 } from '@/features/compras/schemas/crear-requisicion';
 import { useCrearRequisicion } from '@/features/compras/api/useCrearRequisicion';
-import {
-  applyServerErrors,
-  esApiError,
-  useFormIdempotencyKey,
-  codigoSoporte,
-} from '@/lib/api';
+import { applyServerErrors, esApiError, useFormIdempotencyKey, codigoSoporte } from '@/lib/api';
 import { useUnsavedChangesGuard } from '@/lib/hooks/useUnsavedChangesGuard';
 import { useAuthStore } from '@/lib/auth/auth-store';
 import { useHasPermission } from '@/lib/auth/useHasPermission';
@@ -109,10 +107,7 @@ export interface NuevaRequisicionProps {
  *   folio, navigate a <c>/compras/requisiciones/$id</c>.</item>
  * </list>
  */
-export function NuevaRequisicion({
-  onClose,
-  onDirtyChange,
-}: NuevaRequisicionProps = {}) {
+export function NuevaRequisicion({ onClose, onDirtyChange }: NuevaRequisicionProps = {}) {
   const navigate = useNavigate();
   const embedded = onClose != null;
   const userId = useAuthStore((s) => s.user?.id);
@@ -129,9 +124,7 @@ export function NuevaRequisicion({
   );
 
   const recovery = useDraftRecovery<CrearRequisicionValues>(draftKey);
-  const [showRecoverModal, setShowRecoverModal] = useState(
-    recovery.draft != null,
-  );
+  const [showRecoverModal, setShowRecoverModal] = useState(recovery.draft != null);
 
   const form = useForm<CrearRequisicionValues>({
     resolver: zodResolver(CrearRequisicionSchema),
@@ -167,10 +160,7 @@ export function NuevaRequisicion({
   // (CrearRequisicionCommand.SucursalCodigo, validador
   // ^[A-Z]{2,4}$ — ej. "MID", "MX", "CAN").
   const sucursalesQuery = useSucursales();
-  const sucursalesMap = useMemo(
-    () => mapById(sucursalesQuery.data?.items),
-    [sucursalesQuery.data],
-  );
+  const sucursalesMap = useMemo(() => mapById(sucursalesQuery.data?.items), [sucursalesQuery.data]);
 
   const crear = useCrearRequisicion();
 
@@ -207,7 +197,7 @@ export function NuevaRequisicion({
           // Reset isDirty para que useUnsavedChangesGuard no bloquee la nav.
           form.reset(values);
           toast.success(`Requisición ${response.folio} creada`, {
-            description: 'Estado: Borrador. Agrega líneas y transmite cuando esté lista.',
+            description: 'Estado: Borrador. Agrega partidas y transmite cuando esté lista.',
           });
           // Si está embedded (Sheet), cerrar el overlay antes de navegar
           // — evita que el detalle se monte mientras el Sheet aún está
@@ -226,8 +216,7 @@ export function NuevaRequisicion({
             if (error.code === 'SELECCIONAR_REQUISITANTE_DENEGADO') {
               form.setError('requisitanteId', {
                 type: error.code,
-                message:
-                  'No tienes permiso para crear a nombre de otro requisitante.',
+                message: 'No tienes permiso para crear a nombre de otro requisitante.',
               });
               return;
             }
@@ -237,10 +226,7 @@ export function NuevaRequisicion({
             // que ya coincide con los nombres del form), así que el
             // cast es seguro.
             if (
-              applyServerErrors(
-                form as unknown as Parameters<typeof applyServerErrors>[0],
-                error,
-              )
+              applyServerErrors(form as unknown as Parameters<typeof applyServerErrors>[0], error)
             ) {
               return;
             }
@@ -277,10 +263,7 @@ export function NuevaRequisicion({
           titulo="Nueva requisición"
           acciones={
             <Button asChild variant="ghost">
-              <Link
-                to="/compras/requisiciones"
-                search={DEFAULT_BANDEJA_SEARCH}
-              >
+              <Link to="/compras/requisiciones" search={DEFAULT_BANDEJA_SEARCH}>
                 <ArrowLeft className="mr-2 h-4 w-4" />
                 Volver a bandeja
               </Link>
@@ -292,252 +275,277 @@ export function NuevaRequisicion({
       <form
         onSubmit={form.handleSubmit(onSubmit)}
         noValidate
-        className="grid grid-cols-1 gap-4 rounded-md border bg-card p-4 md:grid-cols-2 max-w-4xl"
+        className="rounded-md border bg-surface-card p-4"
       >
-        {/* Sucursal */}
-        <Field
-          label="Sucursal"
-          error={form.formState.errors.sucursalId?.message}
-          required
-        >
-          {(c) => (
-          <Controller
-            name="sucursalId"
-            control={form.control}
-            render={({ field }) => (
-              <SucursalSelector
-                triggerProps={c}
-                value={field.value || null}
-                onChange={(id) => field.onChange(id ?? '')}
-              />
-            )}
-          />
-          )}
-        </Field>
-
-        {/* Departamento */}
-        <Field
-          label="Departamento"
-          error={form.formState.errors.departamentoId?.message}
-          required
-        >
-          {(c) => (
-          <Controller
-            name="departamentoId"
-            control={form.control}
-            render={({ field }) => (
-              <DepartamentoSelectorPorSucursal
-                triggerProps={c}
-                sucursalId={sucursalId && sucursalId.length > 0 ? sucursalId : null}
-                value={field.value || null}
-                onChange={(id) => field.onChange(id ?? '')}
-              />
-            )}
-          />
-          )}
-        </Field>
-
-
-        {/* Requisitante (gateado por permiso) */}
-        {canSelectRequisitante && canReadUsuarios && (
-          <Field
-            label="Requisitante (delegación)"
-            error={form.formState.errors.requisitanteId?.message}
-          >
-            {(c) => (
-          <Controller
-              name="requisitanteId"
-              control={form.control}
-              render={({ field }) => (
-                <UsuarioSelector
-                  triggerProps={c}
-                  value={field.value || null}
-                  onChange={(id) => field.onChange(id ?? null)}
-                  placeholder="Yo (default)"
+        <FormGrid>
+          {/* Sucursal */}
+          <FormCampo span={6}>
+            <Field label="Sucursal" error={form.formState.errors.sucursalId?.message} required>
+              {(c) => (
+                <Controller
+                  name="sucursalId"
+                  control={form.control}
+                  render={({ field }) => (
+                    <SucursalSelector
+                      triggerProps={c}
+                      value={field.value || null}
+                      onChange={(id) => field.onChange(id ?? '')}
+                    />
+                  )}
                 />
               )}
-            />
-          )}
-          </Field>
-        )}
+            </Field>
+          </FormCampo>
 
-        {/* Clasificación */}
-        <Field
-          label={conAyuda("Clasificación", "Determina quién autoriza la requisición.")}
-          error={form.formState.errors.clasificacion?.message}
-          required
-        >
-          {(c) => (
-          <Controller
-            name="clasificacion"
-            control={form.control}
-            render={({ field }) => (
-              <Select
-                value={String(field.value)}
-                onValueChange={(v) => field.onChange(Number(v) as Clasificacion)}
-              >
-                <SelectTrigger {...c}>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {(
-                    [
-                      Clasificacion.Servicio,
-                      Clasificacion.OrdenCompra,
-                      Clasificacion.MateriaPrima,
-                      Clasificacion.Pinturas,
-                    ] as const
-                  ).map((c) => (
-                    <SelectItem key={c} value={String(c)}>
-                      {clasificacionToString(c)}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            )}
-          />
-          )}
-        </Field>
-
-        {/* Prioridad */}
-        <Field
-          label={conAyuda("Prioridad", "Orden de atención sugerido. NO afecta la matriz de aprobación; sirve para que el comprador priorice surtido.")}
-          error={form.formState.errors.prioridad?.message}
-          required
-        >
-          {(c) => (
-          <Controller
-            name="prioridad"
-            control={form.control}
-            render={({ field }) => (
-              <Select
-                value={String(field.value)}
-                onValueChange={(v) => field.onChange(Number(v) as Prioridad)}
-              >
-                <SelectTrigger {...c}>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {(
-                    [Prioridad.Baja, Prioridad.Normal, Prioridad.Alta] as const
-                  ).map((p) => (
-                    <SelectItem key={p} value={String(p)}>
-                      {prioridadToString(p)}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            )}
-          />
-          )}
-        </Field>
-
-        {/* Fecha entrega deseada */}
-        <Field
-          label="Fecha entrega deseada"
-          error={form.formState.errors.fechaEntregaDeseada?.message}
-        >
-          {(c) => (
-          <Controller
-            name="fechaEntregaDeseada"
-            control={form.control}
-            render={({ field }) => (
-              <DatePickerField
-                id={c.id}
-                value={field.value ?? null}
-                onChange={(d) => field.onChange(d)}
-                minDate={new Date()}
-              />
-            )}
-          />
-          )}
-        </Field>
-
-        {/* Proveedor sugerido */}
-        <Field
-          label="Proveedor sugerido"
-          error={form.formState.errors.proveedorSugeridoId?.message}
-        >
-          {(c) => (
-          <Controller
-            name="proveedorSugeridoId"
-            control={form.control}
-            render={({ field }) => (
-              <ProveedorSelector
-                triggerProps={c}
-                value={field.value ?? null}
-                onChange={(id) => field.onChange(id ?? null)}
-              />
-            )}
-          />
-          )}
-        </Field>
-
-        <Field label="Obra (opcional)" error={form.formState.errors.obra?.message}>
-          {(c) => (
-          <Controller name="obra" control={form.control} render={({ field }) => (
-            <Input {...c} {...field} value={field.value ?? ''} maxLength={120} placeholder="Nombre o referencia de la obra" />
-          )} />
-        )}
-        </Field>
-        {/* Descripción (full-width) */}
-        <div className="md:col-span-2">
-          <Field
-            label="Descripción"
-            error={form.formState.errors.descripcion?.message}
-          >
-            {(c) => (
-          <Controller
-              name="descripcion"
-              control={form.control}
-              render={({ field }) => (
-                <TextAreaField
-                  textareaProps={c}
-                  value={field.value ?? null}
-                  onChange={(v) => field.onChange(v)}
-                  maxLength={500}
-                  minRows={3}
-                />
-              )}
-            />
-          )}
-          </Field>
-        </div>
-
-        {/* Submit + cancel */}
-        <div className="md:col-span-2 flex flex-wrap items-center justify-end gap-2 border-t pt-3">
-          <Input
-            // Hidden — fechaSolicitud se inicializa una vez en
-            // buildEmptyValues() al montar el form y queda estable durante
-            // la vida del componente. En el submit usamos values.fechaSolicitud
-            // (NO recalculamos con new Date()) para que el body del request
-            // sea estable y reintentos con la misma idempotency key no
-            // disparen IDEMPOTENCY_KEY_REUSED_WITH_DIFFERENT_BODY.
-            type="hidden"
-            {...form.register('fechaSolicitud')}
-          />
-          {embedded ? (
-            <Button
-              type="button"
-              variant="ghost"
-              // Wrapper para descartar el MouseEvent de React — onClose
-              // acepta opts opcionales, no un event handler.
-              onClick={() => onClose?.()}
-              disabled={crear.isPending}
+          {/* Departamento */}
+          <FormCampo span={6}>
+            <Field
+              label="Departamento"
+              error={form.formState.errors.departamentoId?.message}
+              required
             >
-              Cancelar
-            </Button>
-          ) : (
-            <Button asChild variant="ghost">
-              <Link to="/compras/requisiciones" search={DEFAULT_BANDEJA_SEARCH}>
-                Cancelar
-              </Link>
-            </Button>
-          )}
-          <Button type="submit" disabled={crear.isPending}>
-            {crear.isPending ? 'Creando…' : 'Crear requisición'}
-          </Button>
-        </div>
+              {(c) => (
+                <Controller
+                  name="departamentoId"
+                  control={form.control}
+                  render={({ field }) => (
+                    <DepartamentoSelectorPorSucursal
+                      triggerProps={c}
+                      sucursalId={sucursalId && sucursalId.length > 0 ? sucursalId : null}
+                      value={field.value || null}
+                      onChange={(id) => field.onChange(id ?? '')}
+                    />
+                  )}
+                />
+              )}
+            </Field>
+          </FormCampo>
+
+          {/* Requisitante (gateado por permiso) */}
+          <FormCampo span={6}>
+            {canSelectRequisitante && canReadUsuarios && (
+              <Field
+                label="Requisitante (delegación)"
+                error={form.formState.errors.requisitanteId?.message}
+              >
+                {(c) => (
+                  <Controller
+                    name="requisitanteId"
+                    control={form.control}
+                    render={({ field }) => (
+                      <UsuarioSelector
+                        triggerProps={c}
+                        value={field.value || null}
+                        onChange={(id) => field.onChange(id ?? null)}
+                        placeholder="Yo (default)"
+                      />
+                    )}
+                  />
+                )}
+              </Field>
+            )}
+          </FormCampo>
+
+          {/* Clasificación */}
+          <FormCampo span={6}>
+            <Field
+              label={conAyuda('Clasificación', 'Determina quién autoriza la requisición.')}
+              error={form.formState.errors.clasificacion?.message}
+              required
+            >
+              {(c) => (
+                <Controller
+                  name="clasificacion"
+                  control={form.control}
+                  render={({ field }) => (
+                    <Select
+                      value={String(field.value)}
+                      onValueChange={(v) => field.onChange(Number(v) as Clasificacion)}
+                    >
+                      <SelectTrigger {...c}>
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {(
+                          [
+                            Clasificacion.Servicio,
+                            Clasificacion.OrdenCompra,
+                            Clasificacion.MateriaPrima,
+                            Clasificacion.Pinturas,
+                          ] as const
+                        ).map((c) => (
+                          <SelectItem key={c} value={String(c)}>
+                            {clasificacionToString(c)}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  )}
+                />
+              )}
+            </Field>
+          </FormCampo>
+
+          {/* Prioridad */}
+          <FormCampo span={6}>
+            <Field
+              label={conAyuda(
+                'Prioridad',
+                'Orden de atención sugerido. NO afecta la matriz de aprobación; sirve para que el comprador priorice surtido.',
+              )}
+              error={form.formState.errors.prioridad?.message}
+              required
+            >
+              {(c) => (
+                <Controller
+                  name="prioridad"
+                  control={form.control}
+                  render={({ field }) => (
+                    <Select
+                      value={String(field.value)}
+                      onValueChange={(v) => field.onChange(Number(v) as Prioridad)}
+                    >
+                      <SelectTrigger {...c}>
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {([Prioridad.Baja, Prioridad.Normal, Prioridad.Alta] as const).map((p) => (
+                          <SelectItem key={p} value={String(p)}>
+                            {prioridadToString(p)}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  )}
+                />
+              )}
+            </Field>
+          </FormCampo>
+
+          {/* Fecha entrega deseada */}
+          <FormCampo span={6}>
+            <Field
+              label="Fecha entrega deseada"
+              error={form.formState.errors.fechaEntregaDeseada?.message}
+            >
+              {(c) => (
+                <Controller
+                  name="fechaEntregaDeseada"
+                  control={form.control}
+                  render={({ field }) => (
+                    <DatePickerField
+                      id={c.id}
+                      value={field.value ?? null}
+                      onChange={(d) => field.onChange(d)}
+                      minDate={new Date()}
+                    />
+                  )}
+                />
+              )}
+            </Field>
+          </FormCampo>
+
+          {/* Proveedor sugerido */}
+          <FormCampo span={6}>
+            <Field
+              label="Proveedor sugerido"
+              error={form.formState.errors.proveedorSugeridoId?.message}
+            >
+              {(c) => (
+                <Controller
+                  name="proveedorSugeridoId"
+                  control={form.control}
+                  render={({ field }) => (
+                    <ProveedorSelector
+                      triggerProps={c}
+                      value={field.value ?? null}
+                      onChange={(id) => field.onChange(id ?? null)}
+                    />
+                  )}
+                />
+              )}
+            </Field>
+          </FormCampo>
+
+          <FormCampo span={6}>
+            <Field label="Obra (opcional)" error={form.formState.errors.obra?.message}>
+              {(c) => (
+                <Controller
+                  name="obra"
+                  control={form.control}
+                  render={({ field }) => (
+                    <Input
+                      {...c}
+                      {...field}
+                      value={field.value ?? ''}
+                      maxLength={120}
+                      placeholder="Nombre o referencia de la obra"
+                    />
+                  )}
+                />
+              )}
+            </Field>
+          </FormCampo>
+          {/* Descripción (full-width) */}
+          <FormCampo span={12}>
+            <div className="md:col-span-2">
+              <Field label="Descripción" error={form.formState.errors.descripcion?.message}>
+                {(c) => (
+                  <Controller
+                    name="descripcion"
+                    control={form.control}
+                    render={({ field }) => (
+                      <TextAreaField
+                        textareaProps={c}
+                        value={field.value ?? null}
+                        onChange={(v) => field.onChange(v)}
+                        maxLength={500}
+                        minRows={3}
+                      />
+                    )}
+                  />
+                )}
+              </Field>
+            </div>
+          </FormCampo>
+
+          {/* Submit + cancel */}
+          <FormCampo span={12}>
+            <div className="md:col-span-2 flex flex-wrap items-center justify-end gap-2 border-t pt-3">
+              <Input
+                // Hidden — fechaSolicitud se inicializa una vez en
+                // buildEmptyValues() al montar el form y queda estable durante
+                // la vida del componente. En el submit usamos values.fechaSolicitud
+                // (NO recalculamos con new Date()) para que el body del request
+                // sea estable y reintentos con la misma idempotency key no
+                // disparen IDEMPOTENCY_KEY_REUSED_WITH_DIFFERENT_BODY.
+                type="hidden"
+                {...form.register('fechaSolicitud')}
+              />
+              {embedded ? (
+                <Button
+                  type="button"
+                  variant="ghost"
+                  // Wrapper para descartar el MouseEvent de React — onClose
+                  // acepta opts opcionales, no un event handler.
+                  onClick={() => onClose?.()}
+                  disabled={crear.isPending}
+                >
+                  Cancelar
+                </Button>
+              ) : (
+                <Button asChild variant="ghost">
+                  <Link to="/compras/requisiciones" search={DEFAULT_BANDEJA_SEARCH}>
+                    Cancelar
+                  </Link>
+                </Button>
+              )}
+              <Button type="submit" disabled={crear.isPending}>
+                {crear.isPending ? 'Creando…' : 'Crear requisición'}
+              </Button>
+            </div>
+          </FormCampo>
+        </FormGrid>
       </form>
 
       <RecuperarBorradorModal
@@ -560,7 +568,7 @@ function conAyuda(label: string, tooltip: string) {
       {label}
       <DomainTermTooltip term={label} definicion={tooltip}>
         <HelpCircle
-          className="ml-1 inline h-3.5 w-3.5 cursor-help text-muted-foreground"
+          className="ml-1 inline h-3.5 w-3.5 cursor-help text-ink-muted"
           aria-label="Ayuda"
         />
       </DomainTermTooltip>
@@ -593,16 +601,16 @@ function RecuperarBorradorModal({
         if (!next) onCerrar();
       }}
     >
-      <DialogContent className="sm:max-w-md">
+      <DialogContent size="sm" className="">
         <DialogHeader>
           <DialogTitle>Tienes un borrador guardado</DialogTitle>
-          <DialogDescription>
-            {savedAt != null && (
-              <>Última modificación: {formatDateLong(savedAt)}.</>
-            )}{' '}
-            ¿Quieres recuperarlo o empezar de cero?
-          </DialogDescription>
         </DialogHeader>
+        <DialogBody>
+          <DialogDescription>
+            {savedAt != null && <>Última modificación: {formatDateLong(savedAt)}.</>} ¿Quieres
+            recuperarlo o empezar de cero?
+          </DialogDescription>
+        </DialogBody>
         <DialogFooter className="flex-col gap-2 sm:flex-row sm:justify-end">
           <Button variant="secondary-danger" onClick={onDescartar}>
             Descartar

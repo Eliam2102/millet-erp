@@ -60,7 +60,7 @@ function ItemCompacto({ item, activo, requisitante, search }: ItemCompactoProps)
         state={{ pendientesSearch: search } as never}
         className={cn(
           'block px-3 py-2 transition-colors',
-          activo ? 'bg-primary/10 hover:bg-primary/15' : 'hover:bg-muted/40',
+          activo ? 'bg-brand/10 hover:bg-brand/15' : 'hover:bg-surface-muted/40',
         )}
         aria-current={activo ? 'page' : undefined}
       >
@@ -68,7 +68,7 @@ function ItemCompacto({ item, activo, requisitante, search }: ItemCompactoProps)
           <span
             className={cn(
               'truncate font-mono text-sm',
-              activo ? 'font-semibold text-foreground' : 'text-foreground',
+              activo ? 'font-semibold text-ink' : 'text-ink',
             )}
           >
             {item.folio}
@@ -85,7 +85,7 @@ function ItemCompacto({ item, activo, requisitante, search }: ItemCompactoProps)
             )}
           </div>
         </div>
-        <div className="mt-1 flex items-center justify-between gap-2 text-xs text-muted-foreground">
+        <div className="mt-1 flex items-center justify-between gap-2 text-xs text-ink-muted">
           <span className="truncate">{requisitante}</span>
           <DateTimeDisplay value={item.fechaSolicitud} />
         </div>
