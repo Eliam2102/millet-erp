@@ -756,3 +756,124 @@ describe('<EmitirFacturaForm> — smoke (FAC-UX-PR2/PR3)', () => {
     await waitFor(() => expect(solicitudes).toEqual([expect.objectContaining({ clienteId })]));
   });
 });
+
+describe('<EmitirFacturaForm> — venta directa (F6.1)', () => {
+  const pedidoVd = (
+    extra: Partial<EmitirFacturaPrefill> = {},
+  ): EmitirFacturaPrefill => ({
+    pedidoFacturableId: 'p-vd',
+    origen: 'Manual',
+    claseManual: 'VentaDirecta',
+    subtipoVentaDirecta: 'Activo',
+    clienteId: '22222222-2222-4222-8222-222222222222',
+    receptorNombre: 'Cliente Activo',
+    receptorRfc: 'AAA010101AAA',
+    receptorRegimenFiscal: '601',
+    receptorCodigoPostal: '97000',
+    // El pedido llega con otro comportamiento: la emisión lo fija en activo.
+    comportamientoFiscal: 1,
+    lineas: [
+      {
+        productoId: null,
+        claveProdServSat: '01010101',
+        descripcion: 'Montacargas usado',
+        claveUnidadSat: 'H87',
+        cantidad: 1,
+        valorUnitario: 1000,
+        descuento: 0,
+        requierePedimento: false,
+        tasaIvaTraslado: 0.16,
+      },
+    ],
+    ...extra,
+  });
+
+  beforeEach(() => {
+    mswServer.use(
+      http.get('*/api/v1/facturacion/activos/autorizaciones', () => HttpResponse.json([])),
+    );
+  });
+
+  it('pedido VD · Activo: comportamiento fijo, autorización obligatoria y leyenda de serie', async () => {
+    render(
+      <EmitirFacturaForm prefill={pedidoVd()} onSuccess={() => {}} onCancel={() => {}} />,
+      { wrapper: createQueryWrapper() },
+    );
+    const comportamiento = await screen.findByRole('textbox', {
+      name: /Comportamiento fiscal/i,
+    });
+    expect(comportamiento).toHaveValue('Venta de activo fijo');
+    expect(comportamiento).toHaveAttribute('readonly');
+    expect(screen.getAllByText(/autorización del Contador General/i).length).toBeGreaterThan(0);
+    expect(screen.getByText(/\(obligatoria\)/i)).toBeInTheDocument();
+    expect(screen.getByTestId('leyenda-serie-venta-directa')).toHaveTextContent(
+      'Se timbrará con la serie de Venta directa de la sucursal',
+    );
+  });
+
+  it('sin autorización no envía la emisión del activo', async () => {
+    const solicitudes: unknown[] = [];
+    mswServer.use(
+      http.post('*/api/v1/facturacion/facturas/', async ({ request }) => {
+        solicitudes.push(await request.json());
+        return HttpResponse.json({}, { status: 201 });
+      }),
+    );
+    render(
+      <EmitirFacturaForm prefill={pedidoVd()} onSuccess={() => {}} onCancel={() => {}} />,
+      { wrapper: createQueryWrapper() },
+    );
+    fireEvent.click(await screen.findByRole('button', { name: 'Emitir y timbrar' }));
+    await waitFor(() => expect(toast.error).toHaveBeenCalled());
+    expect(solicitudes).toHaveLength(0);
+  });
+
+  it('422 SERIE_VENTA_DIRECTA_NO_CONFIGURADA: callout con enlace a Series', async () => {
+    setPermisos([PermisosCanonicos.FacturacionFacturasEmitir, PermisosCanonicos.AdminSeriesGestionar]);
+    mswServer.use(
+      http.post('*/api/v1/facturacion/facturas/', () =>
+        HttpResponse.json(
+          {
+            type: 'about:blank',
+            title: 'Regla de negocio',
+            status: 422,
+            code: 'SERIE_VENTA_DIRECTA_NO_CONFIGURADA',
+          },
+          { status: 422, headers: { 'Content-Type': 'application/problem+json' } },
+        ),
+      ),
+    );
+    render(
+      <EmitirFacturaForm
+        prefill={pedidoVd({ subtipoVentaDirecta: 'Almacenable' })}
+        onSuccess={() => {}}
+        onCancel={() => {}}
+      />,
+      { wrapper: createQueryWrapper() },
+    );
+    fireEvent.click(await screen.findByRole('button', { name: 'Emitir y timbrar' }));
+    expect(await screen.findByText('Falta la serie de Venta directa')).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: /Administración → Series/i })).toHaveAttribute(
+      'href',
+      '/admin/series',
+    );
+  });
+
+  it('pedido manual sin clase: bloquea la emisión y ofrece editar el pedido', async () => {
+    const onEditarPedido = vi.fn();
+    render(
+      <EmitirFacturaForm
+        prefill={pedidoVd({ claseManual: null, subtipoVentaDirecta: null })}
+        onSuccess={() => {}}
+        onCancel={() => {}}
+        onEditarPedido={onEditarPedido}
+      />,
+      { wrapper: createQueryWrapper() },
+    );
+    expect(await screen.findByText('Pedido manual sin clase')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Emitir y timbrar' })).toBeDisabled();
+    expect(screen.queryByTestId('leyenda-serie-venta-directa')).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'Editar pedido' }));
+    expect(onEditarPedido).toHaveBeenCalledTimes(1);
+  });
+});

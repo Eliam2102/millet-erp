@@ -49,6 +49,12 @@ function pedido(estado: string) {
     canalVentaId: 1,
     canalVenta: 'Tienda Cancún',
     comportamientoFiscal: 'MostradorInmediato',
+    // F6.1: pedido manual clasificado como venta directa.
+    claseManual: 'VentaDirecta' as string | null,
+    subtipoVentaDirecta: 'Almacenable' as string | null,
+    esEmergencia: false,
+    motivoEmergencia: null as string | null,
+    referenciaPedidoAw: null as string | null,
     moneda: 'MXN',
     obraId: null,
     obraNombre: null,
@@ -196,6 +202,10 @@ describe('<DetallePedido> — smoke', () => {
     expect(arg.sucursalId).toBe('33333333-3333-4333-8333-333333333333');
     expect(arg.datosFiscalesIncompletos).toBe(false);
     expect(arg.lineas[0].tasaIvaTraslado).toBe(0.16);
+    // F6.1: la clase viaja al form de emisión (serie de Venta directa).
+    expect(arg.claseManual).toBe('VentaDirecta');
+    expect(arg.subtipoVentaDirecta).toBe('Almacenable');
+    expect(arg.origen).toBe('Manual');
     // El detalle de lectura queda oculto mientras se emite.
     expect(
       screen.queryByText(/Historial de comprobantes/i),
@@ -236,6 +246,64 @@ describe('<DetallePedido> — smoke', () => {
     expect(
       screen.queryByRole('button', { name: /Facturar/i }),
     ).not.toBeInTheDocument();
+  });
+
+  it('F6.1: emergencia muestra badge, motivo y referencia A+W', async () => {
+    setPermisos(['facturacion.facturas.leer']);
+    mswServer.use(
+      http.get('*/api/v1/facturacion/pedidos-facturables/p-1', () =>
+        HttpResponse.json({
+          ...pedido('Importado'),
+          claseManual: 'Emergencia',
+          subtipoVentaDirecta: null,
+          esEmergencia: true,
+          motivoEmergencia: 'A+W sin servicio por mantenimiento',
+          referenciaPedidoAw: 'AW-7788',
+        }),
+      ),
+      http.get('*/api/v1/facturacion/pedidos-facturables/p-1/comprobantes', () =>
+        HttpResponse.json([]),
+      ),
+    );
+    render(<DetallePedido />, { wrapper: createQueryWrapper() });
+    expect(await screen.findByText('Emergencia')).toBeInTheDocument();
+    expect(screen.getByText('A+W sin servicio por mantenimiento')).toBeInTheDocument();
+    expect(screen.getByText('AW-7788')).toBeInTheDocument();
+  });
+
+  it('F6.1: venta directa muestra «Venta directa · Subtipo»', async () => {
+    setPermisos(['facturacion.facturas.leer']);
+    mswServer.use(
+      http.get('*/api/v1/facturacion/pedidos-facturables/p-1', () =>
+        HttpResponse.json(pedido('Importado')),
+      ),
+      http.get('*/api/v1/facturacion/pedidos-facturables/p-1/comprobantes', () =>
+        HttpResponse.json([]),
+      ),
+    );
+    render(<DetallePedido />, { wrapper: createQueryWrapper() });
+    expect(await screen.findByText('Venta directa · Almacenable')).toBeInTheDocument();
+    expect(screen.queryByText(/Captura de emergencia/i)).not.toBeInTheDocument();
+  });
+
+  it('F6.1: pedido manual sin clase deshabilita «Facturar» y avisa', async () => {
+    setPermisos(['facturacion.facturas.leer', 'facturacion.facturas.emitir']);
+    mswServer.use(
+      http.get('*/api/v1/facturacion/pedidos-facturables/p-1', () =>
+        HttpResponse.json({
+          ...pedido('Importado'),
+          claseManual: null,
+          subtipoVentaDirecta: null,
+        }),
+      ),
+      http.get('*/api/v1/facturacion/pedidos-facturables/p-1/comprobantes', () =>
+        HttpResponse.json([]),
+      ),
+    );
+    render(<DetallePedido />, { wrapper: createQueryWrapper() });
+    const btn = await screen.findByRole('button', { name: /Facturar/i });
+    expect(btn).toBeDisabled();
+    expect(screen.getByText('Pedido manual sin clase')).toBeInTheDocument();
   });
 
   it('estado error cuando el pedido no existe', async () => {

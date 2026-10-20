@@ -1,6 +1,7 @@
 import { Link } from '@tanstack/react-router';
 import { DateTimeDisplay } from '@/components/erp';
 import { ChipEstadoPedido } from '@/features/facturacion/pages/DetallePedido';
+import { ClasePedidoBadge } from '@/features/facturacion/components/ClasePedidoBadge';
 import { ETIQUETA_ORIGEN_PEDIDO } from '@/features/facturacion/lib/glosario';
 import type { PedidoBandejaItem } from '@/features/facturacion/api/types';
 import type { PedidosSearch } from '@/features/facturacion/lib/pedidos-search-schema';
@@ -66,6 +67,7 @@ export function ListaPedidosCompacta({
                 {p.total.toFixed(2)} {p.moneda}
               </span>
             </div>
+            <ClasePedidoBadge clasificacion={p} className="mt-1" />
             <div className="mt-0.5 text-right text-[11px] text-muted-foreground">
               <span className="mr-2">Subtotal sin impuestos</span>
               <DateTimeDisplay value={p.createdAt} />

@@ -10,6 +10,8 @@ import {
 } from '@/components/ui/select';
 import { EmptyState, ErrorState, TableSkeleton } from '@/components/erp';
 import { BadgeSinAsignar } from '@/features/facturacion/components/BadgeSinAsignar';
+import { ClasePedidoBadge } from '@/features/facturacion/components/ClasePedidoBadge';
+import { FiltroClasePedido } from '@/features/facturacion/components/FiltroClasePedido';
 import { useListarPedidos } from '@/features/facturacion/api/usePedidos';
 import { useNuevoPedido } from '@/features/facturacion/components/nuevo-pedido-context';
 import { useHasPermission } from '@/lib/auth/useHasPermission';
@@ -50,6 +52,7 @@ export function BandejaPedidos() {
   const query = useListarPedidos({
     estado: search.estado,
     origen: search.origen,
+    clase: search.clase,
     limit: 200,
     alcance: search.alcance,
   });
@@ -67,7 +70,8 @@ export function BandejaPedidos() {
     );
   });
 
-  const hayFiltros = search.estado != null || search.origen != null;
+  const hayFiltros =
+    search.estado != null || search.origen != null || search.clase != null;
 
   return (
     <div className="space-y-4 px-4 py-6">
@@ -139,11 +143,19 @@ export function BandejaPedidos() {
             </SelectContent>
           </Select>
         </div>
+        <FiltroClasePedido
+          value={search.clase}
+          onChange={(clase) => actualizarSearch({ clase })}
+        />
         {hayFiltros && (
           <Button
             variant="ghost"
             onClick={() =>
-              actualizarSearch({ estado: undefined, origen: undefined })
+              actualizarSearch({
+                estado: undefined,
+                origen: undefined,
+                clase: undefined,
+              })
             }
           >
             Limpiar
@@ -193,7 +205,7 @@ export function BandejaPedidos() {
             <thead className="bg-muted/50">
               <tr>
                 <th className="px-3 py-2 text-left">Folio / Pedido</th>
-                <th className="px-3 py-2 text-left">Origen</th>
+                <th className="px-3 py-2 text-left">Origen / clase</th>
                 <th className="px-3 py-2 text-left">Cliente</th>
                 <th className="px-3 py-2 text-right">Subtotal sin impuestos</th>
                 <th className="px-3 py-2 text-left">Estado</th>
@@ -208,7 +220,10 @@ export function BandejaPedidos() {
                     {p.numeroPedido ?? '—'}
                   </td>
                   <td className="px-3 py-2">
-                    <Chip>{ETIQUETA_ORIGEN_PEDIDO[p.origen] ?? p.origen}</Chip>
+                    <div className="flex flex-wrap items-center gap-1">
+                      <Chip>{ETIQUETA_ORIGEN_PEDIDO[p.origen] ?? p.origen}</Chip>
+                      <ClasePedidoBadge clasificacion={p} />
+                    </div>
                   </td>
                   <td className="px-3 py-2">{p.clienteNombre}</td>
                   <td className="px-3 py-2 text-right font-mono">

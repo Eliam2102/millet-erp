@@ -6,12 +6,17 @@ import { createQueryWrapper } from '@/test/test-query-client';
 import { BandejaFacturas } from '@/features/facturacion/pages/BandejaFacturas';
 import { useAuthStore } from '@/lib/auth/auth-store';
 
+// F6.1: search params mutables para probar el filtro «Clase».
+const routerMocks = vi.hoisted(() => ({
+  search: {} as Record<string, unknown>,
+}));
+
 vi.mock('@tanstack/react-router', () => ({
   Link: ({ children, to }: { children: React.ReactNode; to: string }) => (
     <a href={to}>{children}</a>
   ),
   useNavigate: () => () => {},
-  useSearch: () => ({}),
+  useSearch: () => routerMocks.search,
 }));
 
 beforeEach(() => {
@@ -28,6 +33,7 @@ beforeEach(() => {
 });
 
 afterEach(() => {
+  routerMocks.search = {};
   useAuthStore.setState({
     status: 'idle',
     accessToken: null,
@@ -83,6 +89,62 @@ describe('<BandejaFacturas> — smoke', () => {
     );
     expect(screen.getByText('A-1')).toBeInTheDocument();
     expect(screen.getByText('Timbrado')).toBeInTheDocument();
+  });
+
+  it('F6.1: badges de clase y filtro «Clase» sincronizado con ?clase=', async () => {
+    routerMocks.search = { clase: 'Emergencia' };
+    let urlRecibida = '';
+    mswServer.use(
+      http.get('*/api/v1/facturacion/facturas', ({ request }) => {
+        urlRecibida = request.url;
+        return HttpResponse.json({
+          items: [
+            {
+              id: 'f-2',
+              folio: 'VD-1',
+              estado: 'Timbrado',
+              uuid: null,
+              receptorNombre: 'Cliente Emergencia',
+              receptorRfc: 'AAA010101AAA',
+              total: 116,
+              moneda: 'MXN',
+              fechaTimbrado: null,
+              claseManual: 'Emergencia',
+              subtipoVentaDirecta: null,
+              esEmergencia: true,
+            },
+            {
+              id: 'f-3',
+              folio: 'VD-2',
+              estado: 'Timbrado',
+              uuid: null,
+              receptorNombre: 'Cliente Activo',
+              receptorRfc: 'BBB010101BBB',
+              total: 50,
+              moneda: 'MXN',
+              fechaTimbrado: null,
+              claseManual: 'VentaDirecta',
+              subtipoVentaDirecta: 'Activo',
+              esEmergencia: false,
+            },
+          ],
+          sinAsignarCount: null,
+        });
+      }),
+    );
+    render(<BandejaFacturas />, { wrapper: createQueryWrapper() });
+    await waitFor(() =>
+      expect(screen.getByText('Cliente Emergencia')).toBeInTheDocument(),
+    );
+    expect(new URL(urlRecibida).searchParams.get('clase')).toBe('Emergencia');
+    const badges = screen.getAllByTestId('clase-pedido-badge');
+    expect(badges.map((b) => b.textContent)).toEqual([
+      'Emergencia',
+      'Venta directa · Activo',
+    ]);
+    expect(screen.getByRole('combobox', { name: /Filtrar por clase/i })).toHaveTextContent(
+      'Emergencia',
+    );
   });
 
   it('estado error', async () => {

@@ -44,19 +44,14 @@ import { useNuevaSerie } from '@/modules/administracion/components/nueva-serie-c
 import {
   REINICIO_PERIODO_LABEL,
   TIPO_DOCUMENTO_LABEL,
+  TIPOS_DOCUMENTO_SERIE,
 } from '@/modules/administracion/components/series-labels';
 import { cn } from '@/lib/utils';
 
 const PAGE_LIMIT = 50;
 const TODOS = '__todos__';
 
-const TIPO_DOC_VALUES: readonly TipoDocumentoSerie[] = [
-  TipoDocumentoSerie.OrdenCompra,
-  TipoDocumentoSerie.Cfdi,
-  TipoDocumentoSerie.NotaCredito,
-  TipoDocumentoSerie.Poliza,
-  TipoDocumentoSerie.FacturaAnticipo,
-];
+const TIPO_DOC_VALUES = TIPOS_DOCUMENTO_SERIE;
 
 /**
  * <c>&lt;SeriesPage/&gt;</c> — bandeja P1 (full-width tabular) de

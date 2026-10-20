@@ -24,11 +24,17 @@ import {
   useEditarPedido,
 } from '@/features/facturacion/api/usePedidos';
 import {
+  ClasePedidoManual,
   ComportamientoFiscal,
+  SubtipoVentaDirecta,
   type PedidoFacturableDetalleResponse,
 } from '@/features/facturacion/api/types';
 import { OPCIONES_COMPORTAMIENTO_FISCAL } from '@/features/facturacion/lib/glosario';
 import { CanalVentaSelector } from '@/features/facturacion/components/selectors/CanalVentaSelector';
+import { ClasePedidoFieldset } from '@/features/facturacion/components/ClasePedidoFieldset';
+import { aplicarErroresPedidoManual } from '@/features/facturacion/lib/errores-venta-directa';
+import { useHasPermission } from '@/lib/auth/useHasPermission';
+import { PermisosCanonicos } from '@/lib/auth/permission-codes';
 import { cn } from '@/lib/utils';
 
 /**
@@ -81,6 +87,11 @@ const VALORES_INICIALES: PedidoManualValues = {
   obraNombre: null,
   comentarios: null,
   lineas: [defaultLinea()],
+  // F6.1: sin clase por omisión — el usuario la elige de forma explícita.
+  claseManual: null,
+  subtipoVentaDirecta: null,
+  motivoEmergencia: null,
+  referenciaPedidoAw: null,
 };
 
 /** '' → null para los campos opcionales antes de mandar al backend. */
@@ -109,6 +120,15 @@ function valoresDesdePedido(
     obraId: p.obraId,
     obraNombre: p.obraNombre,
     comentarios: p.comentarios,
+    // F6.1: un pedido manual legacy llega sin clase (null) → se exige al guardar.
+    claseManual:
+      p.claseManual != null ? ClasePedidoManual[p.claseManual] : null,
+    subtipoVentaDirecta:
+      p.subtipoVentaDirecta != null
+        ? SubtipoVentaDirecta[p.subtipoVentaDirecta]
+        : null,
+    motivoEmergencia: p.motivoEmergencia ?? null,
+    referenciaPedidoAw: p.referenciaPedidoAw ?? null,
     lineas: p.lineas.map((l) => ({
       productoId: l.productoId,
       productoDescripcion: l.productoDescripcion,
@@ -131,6 +151,9 @@ export function NuevoPedidoManual({
   const idempotencyKey = useFormIdempotencyKey();
   const crear = useCrearPedidoManual();
   const editar = useEditarPedido();
+  const puedeEmergencia = useHasPermission(
+    PermisosCanonicos.FacturacionPedidosCapturarEmergencia,
+  );
 
   const form = useForm<PedidoManualValues>({
     // En edición se omiten sucursal/numeroPedido (inmutables) del schema.
@@ -153,6 +176,9 @@ export function NuevoPedidoManual({
   // Total estimado en vivo (cantidad·precio − descuento por línea).
   // useWatch (no form.watch) — API memoization-safe para el React Compiler.
   const lineasWatch = useWatch({ control: form.control, name: 'lineas' });
+  // F6.1: subtipo Activo ⇒ comportamiento fijo en «Venta de activo fijo».
+  const subtipoWatch = useWatch({ control: form.control, name: 'subtipoVentaDirecta' });
+  const esActivo = subtipoWatch === SubtipoVentaDirecta.Activo;
   const monedaWatch = useWatch({ control: form.control, name: 'moneda' });
   const totalEstimado = (lineasWatch ?? []).reduce(
     (acc, l) =>
@@ -164,6 +190,14 @@ export function NuevoPedidoManual({
 
   function onError(error: Error) {
     if (esApiError(error)) {
+      if (
+        aplicarErroresPedidoManual(
+          form as unknown as Parameters<typeof aplicarErroresPedidoManual>[0],
+          error,
+        )
+      ) {
+        return;
+      }
       if (
         applyServerErrors(
           form as unknown as Parameters<typeof applyServerErrors>[0],
@@ -196,6 +230,15 @@ export function NuevoPedidoManual({
       requierePedimento: l.requierePedimento,
     }));
 
+    // F6.1: clasificación — solo se mandan los campos de la clase elegida.
+    const esEmergencia = values.claseManual === ClasePedidoManual.Emergencia;
+    const clasificacion = {
+      claseManual: values.claseManual,
+      subtipoVentaDirecta: esEmergencia ? null : values.subtipoVentaDirecta,
+      motivoEmergencia: esEmergencia ? nullIfEmpty(values.motivoEmergencia) : null,
+      referenciaPedidoAw: esEmergencia ? nullIfEmpty(values.referenciaPedidoAw) : null,
+    };
+
     if (esEdicion && pedido != null) {
       editar.mutate(
         {
@@ -211,6 +254,7 @@ export function NuevoPedidoManual({
             obraNombre: nullIfEmpty(values.obraNombre),
             comentarios: nullIfEmpty(values.comentarios),
             lineas,
+            ...clasificacion,
           },
         },
         {
@@ -238,6 +282,7 @@ export function NuevoPedidoManual({
           obraNombre: nullIfEmpty(values.obraNombre),
           comentarios: nullIfEmpty(values.comentarios),
           lineas,
+          ...clasificacion,
         },
         idempotencyKey,
       },
@@ -260,6 +305,15 @@ export function NuevoPedidoManual({
           Editando un pedido. La sucursal y el número de pedido son inmutables.
         </p>
       )}
+      {/* ── Clase de pedido (F6.1) ─────────────────────────────────── */}
+      <ClasePedidoFieldset
+        form={form}
+        puedeEmergencia={puedeEmergencia}
+        mostrarEmergenciaSinPermiso={
+          pedido?.claseManual === 'Emergencia' || pedido?.esEmergencia === true
+        }
+      />
+
       {/* ── Cabecera ─────────────────────────────────────────────── */}
       <section className="grid grid-cols-1 gap-3 sm:grid-cols-2">
         {!esEdicion && (
@@ -350,17 +404,39 @@ export function NuevoPedidoManual({
           label="Comportamiento fiscal"
           required
           error={form.formState.errors.comportamientoFiscal?.message}
+          hint={
+            esActivo
+              ? 'Requiere autorización del Contador General antes de timbrar.'
+              : undefined
+          }
         >
-          <select
-            className="h-9 w-full rounded-md border border-input bg-transparent px-3 text-sm shadow-sm"
-            {...form.register('comportamientoFiscal', { valueAsNumber: true })}
-          >
-            {OPCIONES_COMPORTAMIENTO_FISCAL.map((o) => (
-              <option key={o.value} value={o.value}>
-                {o.label}
-              </option>
-            ))}
-          </select>
+          {esActivo ? (
+            // Activo ⇒ comportamiento fijo. Se muestra de solo lectura (sin
+            // registrar el select) para no perder el valor en el form.
+            <Input
+              readOnly
+              aria-readonly="true"
+              aria-label="Comportamiento fiscal"
+              value="Venta de activo fijo"
+              title="Fijo por el subtipo Activo de la venta directa"
+              className="bg-surface-subtle text-ink-secondary"
+            />
+          ) : (
+            <select
+              aria-label="Comportamiento fiscal"
+              className="h-9 w-full rounded-md border border-input bg-transparent px-3 text-sm shadow-sm"
+              {...form.register('comportamientoFiscal', { valueAsNumber: true })}
+            >
+              {OPCIONES_COMPORTAMIENTO_FISCAL.filter(
+                // «Venta de activo fijo» solo aplica al subtipo Activo.
+                (o) => o.value !== ComportamientoFiscal.VentaActivoFijo,
+              ).map((o) => (
+                <option key={o.value} value={o.value}>
+                  {o.label}
+                </option>
+              ))}
+            </select>
+          )}
         </Campo>
 
         <Campo

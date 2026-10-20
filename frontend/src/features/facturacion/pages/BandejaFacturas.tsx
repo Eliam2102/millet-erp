@@ -10,6 +10,8 @@ import {
 } from '@/components/ui/select';
 import { EmptyState, ErrorState, TableSkeleton } from '@/components/erp';
 import { BadgeSinAsignar } from '@/features/facturacion/components/BadgeSinAsignar';
+import { ClasePedidoBadge } from '@/features/facturacion/components/ClasePedidoBadge';
+import { FiltroClasePedido } from '@/features/facturacion/components/FiltroClasePedido';
 import { useListarFacturas } from '@/features/facturacion/api/useFacturas';
 import { useHasPermission } from '@/lib/auth/useHasPermission';
 import { PermisosCanonicos } from '@/lib/auth/permission-codes';
@@ -59,6 +61,7 @@ export function BandejaFacturas() {
 
   const query = useListarFacturas({
     estado: search.estado,
+    clase: search.clase,
     limit: 200,
     alcance: search.alcance,
   });
@@ -124,8 +127,15 @@ export function BandejaFacturas() {
             </SelectContent>
           </Select>
         </div>
-        {search.estado != null && (
-          <Button variant="ghost" onClick={() => actualizarSearch({ estado: undefined })}>
+        <FiltroClasePedido
+          value={search.clase}
+          onChange={(clase) => actualizarSearch({ clase })}
+        />
+        {(search.estado != null || search.clase != null) && (
+          <Button
+            variant="ghost"
+            onClick={() => actualizarSearch({ estado: undefined, clase: undefined })}
+          >
             Limpiar
           </Button>
         )}
@@ -162,7 +172,7 @@ export function BandejaFacturas() {
         <EmptyState
           title="Sin facturas"
           description={
-            search.estado != null || q.length > 0
+            search.estado != null || search.clase != null || q.length > 0
               ? 'No hay facturas que coincidan con los filtros.'
               : 'Aún no hay facturas emitidas. Emite una con "Nueva factura".'
           }
@@ -183,7 +193,10 @@ export function BandejaFacturas() {
             <tbody>
               {items.map((f) => (
                 <tr key={f.id} className="border-t hover:bg-muted/30">
-                  <td className="px-3 py-2 font-mono text-xs">{f.folio}</td>
+                  <td className="px-3 py-2">
+                    <div className="font-mono text-xs">{f.folio}</div>
+                    <ClasePedidoBadge clasificacion={f} className="mt-1" />
+                  </td>
                   <td className="px-3 py-2">
                     <div>{f.receptorNombre}</div>
                     <div className="font-mono text-xs text-muted-foreground">

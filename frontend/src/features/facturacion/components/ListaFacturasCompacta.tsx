@@ -1,6 +1,7 @@
 import { Link } from '@tanstack/react-router';
 import { DateTimeDisplay } from '@/components/erp';
 import { ChipTimbrado } from '@/features/facturacion/pages/BandejaFacturas';
+import { ClasePedidoBadge } from '@/features/facturacion/components/ClasePedidoBadge';
 import type { FacturaBandejaItem } from '@/features/facturacion/api/types';
 import type { FacturasSearch } from '@/features/facturacion/lib/facturas-search-schema';
 import { cn } from '@/lib/utils';
@@ -57,6 +58,7 @@ export function ListaFacturasCompacta({
                 {f.total.toFixed(2)} {f.moneda}
               </span>
             </div>
+            <ClasePedidoBadge clasificacion={f} className="mt-1" />
             {f.fechaTimbrado && (
               <div className="mt-0.5 text-right text-[11px] text-muted-foreground">
                 <DateTimeDisplay value={f.fechaTimbrado} />
