@@ -36,10 +36,13 @@ public sealed partial class DemoSesionSeedHostedService
                 codigoPostal: "42501", tasaIvaDefault: .16m);
             db.Empresas.Add(empresa);
         }
-        else if (empresa.RazonSocial.StartsWith("Empresa inicial pendiente", StringComparison.Ordinal))
+        else if (empresa.RazonSocial.StartsWith("Empresa inicial pendiente", StringComparison.Ordinal)
+                 || empresa.CodigoPostal is null)
         {
             // La empresa que crea la migración inicial queda con datos DEMO una sola vez; después se respeta
             // lo que un administrador edite (PRU-A: reiniciar la API ya no regresa la razón social).
+            // Sin código postal = DEMO aún no la tocó: el bootstrap pudo aplicarle antes
+            // Auth:Bootstrap:EmpresaInicial, pero nunca captura el código postal.
             empresa.ActualizarDatos(razonSocial: "MILLET INDUSTRIA DE VIDRIO (DEMO)", regimenFiscal: "601", codigoPostal: "42501", tasaIvaDefault: .16m);
         }
 
