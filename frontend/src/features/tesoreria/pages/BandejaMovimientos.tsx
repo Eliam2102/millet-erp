@@ -33,6 +33,7 @@ import {
   EstadoConciliacionBadge,
 } from '@/features/tesoreria/components/Badges';
 import { SENTIDO_MOVIMIENTO_LABELS, SentidoMovimiento } from '@/features/tesoreria/api/types';
+import { cuentaEnmascarada } from '@/features/tesoreria/lib/formato';
 import type { MovimientosSearch } from '@/features/tesoreria/lib/movimientos-search-schema';
 import { esApiError } from '@/lib/api';
 
@@ -65,7 +66,7 @@ export function BandejaMovimientos() {
   const nombresCuenta = useMemo(() => {
     const m = new Map<string, string>();
     for (const c of cuentas.data ?? []) {
-      m.set(c.id, `${c.banco} ${c.numeroCuenta}`);
+      m.set(c.id, `${c.banco} · ${cuentaEnmascarada(c.numeroCuenta)}`);
     }
     return m;
   }, [cuentas.data]);
@@ -132,7 +133,7 @@ export function BandejaMovimientos() {
                         <SelectItem value={SENTINEL_ALL}>Todas</SelectItem>
                         {(cuentas.data ?? []).map((c) => (
                           <SelectItem key={c.id} value={c.id}>
-                            {c.banco} <span className="font-mono">{c.numeroCuenta}</span>
+                            {c.banco} <span className="font-mono">{cuentaEnmascarada(c.numeroCuenta)}</span>
                           </SelectItem>
                         ))}
                       </SelectContent>

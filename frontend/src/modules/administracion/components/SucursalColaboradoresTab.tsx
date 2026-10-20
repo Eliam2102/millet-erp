@@ -48,10 +48,14 @@ export function SucursalColaboradoresTab({
     return items.filter((e) => e.sucursalId === sucursalId);
   }, [empleadosQuery.data, sucursalId]);
 
-  const colaboradoresSinSucursal = useMemo(() =>
-    (empleadosQuery.data ?? []).filter((e) =>
-      e.empresaId === currentEmpresaId && !e.sucursalId && e.estatus === EstatusCatalogo.Activo,
-    ), [empleadosQuery.data, currentEmpresaId]);
+  const colaboradoresSinSucursal = useMemo(
+    () =>
+      (empleadosQuery.data ?? []).filter(
+        (e) =>
+          e.empresaId === currentEmpresaId && !e.sucursalId && e.estatus === EstatusCatalogo.Activo,
+      ),
+    [empleadosQuery.data, currentEmpresaId],
+  );
 
   function vincularColaborador() {
     if (!empleadoId) return;
@@ -105,7 +109,7 @@ export function SucursalColaboradoresTab({
   return (
     <div className="space-y-4">
       <div className="flex flex-wrap items-center justify-between gap-2">
-        <div className="flex items-center gap-2 text-xs text-muted-foreground">
+        <div className="flex items-center gap-2 text-xs text-ink-muted">
           <Users className="h-4 w-4" aria-hidden="true" />
           <span>Total en sucursal: {empleadosSucursal.length}</span>
           <span aria-hidden="true">·</span>
@@ -123,7 +127,7 @@ export function SucursalColaboradoresTab({
       </div>
 
       <div className="relative">
-        <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+        <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-ink-muted" />
         <Input
           type="search"
           placeholder="Buscar por clave, nombre, puesto o correo..."
@@ -139,7 +143,7 @@ export function SucursalColaboradoresTab({
           <div className="flex flex-wrap items-center gap-2">
             <select
               aria-label="Empleado sin sucursal"
-              className="h-9 min-w-52 rounded-md border bg-background px-2 text-sm"
+              className="h-9 min-w-52 rounded-md border bg-surface-page px-2 text-sm"
               value={empleadoId}
               onChange={(e) => setEmpleadoId(e.target.value)}
             >
@@ -150,10 +154,20 @@ export function SucursalColaboradoresTab({
                 </option>
               ))}
             </select>
-            <Button type="button" size="sm" disabled={!empleadoId || actualizarEmpleado.isPending} onClick={vincularColaborador}>
+            <Button
+              type="button"
+              size="sm"
+              disabled={!empleadoId || actualizarEmpleado.isPending}
+              onClick={vincularColaborador}
+            >
               Vincular a esta sucursal
             </Button>
-            <Button type="button" variant="outline" size="sm" onClick={() => setMostrarAlta((actual) => !actual)}>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={() => setMostrarAlta((actual) => !actual)}
+            >
               <Plus className="mr-1 h-3.5 w-3.5" />
               Nuevo empleado
             </Button>
@@ -170,24 +184,25 @@ export function SucursalColaboradoresTab({
       )}
 
       {empleadosSucursal.length === 0 ? (
-        <div className="rounded-md border border-dashed bg-muted/20 px-4 py-8 text-center text-sm text-muted-foreground">
-          <Users className="mx-auto mb-2 h-8 w-8 text-muted-foreground/50" />
-          <p className="font-medium text-foreground">
-            No hay empleados asignados a esta sucursal
-          </p>
+        <div className="rounded-md border border-dashed bg-surface-muted/20 px-4 py-8 text-center text-sm text-ink-muted">
+          <Users className="mx-auto mb-2 h-8 w-8 text-ink-muted/50" />
+          <p className="font-medium text-ink">No hay empleados asignados a esta sucursal</p>
           <p className="mt-1 text-xs">
-            Los empleados se asignan desde el catálogo de Empleados indicando esta sucursal en su perfil operativo.
+            Los empleados se asignan desde el catálogo de Empleados indicando esta sucursal en su
+            perfil operativo.
           </p>
         </div>
       ) : empleadosFiltrados.length === 0 ? (
-        <div className="rounded-md border border-dashed bg-muted/20 px-4 py-6 text-center text-sm text-muted-foreground">
+        <div className="rounded-md border border-dashed bg-surface-muted/20 px-4 py-6 text-center text-sm text-ink-muted">
           No se encontraron empleados que coincidan con &ldquo;{filtro}&rdquo;.
         </div>
       ) : (
-        <ul className="divide-y rounded-md border bg-card">
+        <ul className="divide-y rounded-md border bg-surface-card">
           {empleadosFiltrados.map((emp) => {
             const puesto = emp.puestoNombre ?? (emp.puestoId ? puestosMap.get(emp.puestoId) : null);
-            const depto = emp.departamentoNombre ?? (emp.departamentoId ? deptosMap.get(emp.departamentoId) : null);
+            const depto =
+              emp.departamentoNombre ??
+              (emp.departamentoId ? deptosMap.get(emp.departamentoId) : null);
             const activo = emp.estatus === EstatusCatalogo.Activo;
             const tieneUsuario = emp.usuarioId != null;
 
@@ -196,38 +211,32 @@ export function SucursalColaboradoresTab({
                 <div className="flex flex-wrap items-start justify-between gap-2">
                   <div className="flex min-w-0 flex-1 flex-col gap-1">
                     <div className="flex items-center gap-2">
-                      <span className="font-mono text-xs font-semibold text-muted-foreground">
+                      <span className="font-mono text-xs font-semibold text-ink-muted">
                         {emp.clave}
                       </span>
-                      <span className="truncate text-sm font-semibold text-foreground">
-                        {emp.nombre}
-                      </span>
+                      <span className="truncate text-sm font-semibold text-ink">{emp.nombre}</span>
                       {activo ? (
-                        <Badge variant="secondary" className="text-[10px]">
-                          Activo
-                        </Badge>
+                        <Badge variant="success">Activo</Badge>
                       ) : (
-                        <Badge variant="outline" className="text-[10px] text-muted-foreground">
-                          Inactivo
-                        </Badge>
+                        <Badge variant="neutral">Inactivo</Badge>
                       )}
                     </div>
 
-                    <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-muted-foreground">
+                    <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-ink-muted">
                       {puesto ? (
                         <span>
-                          Puesto: <span className="font-medium text-foreground">{puesto}</span>
+                          Puesto: <span className="font-medium text-ink">{puesto}</span>
                         </span>
                       ) : (
-                        <span className="italic text-muted-foreground/60">Sin puesto</span>
+                        <span className="italic text-ink-muted/60">Sin puesto</span>
                       )}
                       <span aria-hidden="true">·</span>
                       {depto ? (
                         <span>
-                          Depto: <span className="font-medium text-foreground">{depto}</span>
+                          Depto: <span className="font-medium text-ink">{depto}</span>
                         </span>
                       ) : (
-                        <span className="italic text-muted-foreground/60">Sin departamento</span>
+                        <span className="italic text-ink-muted/60">Sin departamento</span>
                       )}
                       {emp.email && (
                         <>
@@ -240,21 +249,13 @@ export function SucursalColaboradoresTab({
 
                   <div className="flex items-center gap-1.5 self-center">
                     {tieneUsuario ? (
-                      <Badge
-                        variant="outline"
-                        className="border-emerald-300 bg-emerald-50 text-[11px] font-medium text-emerald-800 dark:border-emerald-700 dark:bg-emerald-950 dark:text-emerald-300"
-                        title="Cuenta con usuario asignado en el sistema"
-                      >
-                        <UserCheck className="mr-1 h-3 w-3 text-emerald-600 dark:text-emerald-400" />
+                      <Badge variant="success" title="Cuenta con usuario asignado en el sistema">
+                        <UserCheck className="mr-1 h-3 w-3 text-success-fg " />
                         Acceso ERP
                       </Badge>
                     ) : (
-                      <Badge
-                        variant="outline"
-                        className="text-[11px] text-muted-foreground"
-                        title="No tiene cuenta de usuario vinculada"
-                      >
-                        <UserX className="mr-1 h-3 w-3 text-muted-foreground/60" />
+                      <Badge variant="neutral" title="No tiene cuenta de usuario vinculada">
+                        <UserX className="mr-1 h-3 w-3 text-ink-muted/60" />
                         Sin acceso ERP
                       </Badge>
                     )}

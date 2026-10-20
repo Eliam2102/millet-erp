@@ -1,5 +1,4 @@
 import { PageHeader } from '@/components/erp/PageHeader';
-import { RecurrenteBadge } from '@/features/compras/components/IndicadoresPendiente';
 import { CancelacionOcPanel } from '../components/CancelacionOcPanel';
 import { RespuestaProveedorPanel } from '../components/RespuestaProveedorPanel';
 import { useMemo, useState, type ReactNode } from 'react';
@@ -24,6 +23,7 @@ import {
   useUsosPrincipales,
   mapById,
 } from '@/features/catalogos/api';
+import { RecurrenteBadge } from '@/features/compras/components/IndicadoresPendiente';
 import { useOrdenCompra } from '@/features/compras/ordenes/api/useOrdenCompra';
 import { AccionesOC } from '@/features/compras/ordenes/components/AccionesOC';
 import { AdjuntosManagerOc } from '@/features/compras/ordenes/components/AdjuntosManagerOc';
@@ -181,10 +181,10 @@ export function DetalleOrdenCompra() {
           <PageHeader
             mono
             titulo={oc.folio}
-            descripcion={oc.proveedorRazonSocial ?? oc.proveedorClave ?? '[PROVEEDOR]'}
+            descripcion={oc.proveedorRazonSocial ?? oc.proveedorClave ?? undefined}
           />
           <EstadoBadge tipo="orden-compra" estado={oc.estado} />
-          <RecurrenteBadge esRecurrente={'esRecurrente' in oc && oc.esRecurrente === true} />
+          <RecurrenteBadge esRecurrente={oc.esRecurrente} />
           <CollaborationIndicator entidad="orden-compra" id={oc.id} />
         </div>
 

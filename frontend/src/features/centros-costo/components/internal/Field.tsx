@@ -1,5 +1,5 @@
 import type { ReactNode } from 'react';
-import { cn } from '@/lib/utils';
+import { FormCampo } from '@/components/erp/forms/FormGrid';
 
 /**
  * <c>&lt;Field/&gt;</c> — label + required + error inline, compartido por
@@ -19,24 +19,24 @@ export interface FieldProps {
 
 export function Field({ label, htmlFor, required, error, full, children }: FieldProps) {
   return (
-    <div className={cn('space-y-1.5', full && 'md:col-span-2')}>
+    <FormCampo span={full ? 12 : 6} className="space-y-1.5">
       <label
         htmlFor={htmlFor}
-        className="flex items-center gap-1 text-sm font-medium"
+        className="flex items-center gap-1 text-xs font-medium text-ink-strong"
       >
         {label}
         {required && (
-          <span aria-hidden="true" className="text-rose-600">
+          <span aria-hidden="true" className="text-danger-fg">
             *
           </span>
         )}
       </label>
       {children}
       {error != null && (
-        <p role="alert" className="text-xs text-rose-600">
+        <p role="alert" className="text-xs text-danger-fg">
           {error}
         </p>
       )}
-    </div>
+    </FormCampo>
   );
 }

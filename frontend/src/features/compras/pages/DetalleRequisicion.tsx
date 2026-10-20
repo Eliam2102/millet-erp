@@ -146,11 +146,8 @@ export function DetalleRequisicion() {
             descripcion={rq.departamentoNombre ?? '[DEPARTAMENTO]'}
           />
           <EstadoBadge tipo="requisicion" estado={rq.estado} situacion={rq.situacionSurtido} />
-          {esRecurrente === true ? (
-            <RecurrenteBadge esRecurrente />
-          ) : (
-            <EnAlmacenBadge enAlmacen={rq.enAlmacen} />
-          )}
+          {!esRecurrente && <EnAlmacenBadge enAlmacen={rq.enAlmacen} />}
+          <RecurrenteBadge esRecurrente={esRecurrente} />
           <CollaborationIndicator entidad="requisicion" id={rq.id} />
         </div>
 

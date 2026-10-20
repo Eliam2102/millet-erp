@@ -1,10 +1,8 @@
+import { FormSeccion } from '@/components/erp/forms/FormSeccion';
+import { FormGrid, FormCampo } from '@/components/erp/forms/FormGrid';
+import { SheetBody } from '@/components/ui/sheet';
 import { useEffect, useMemo } from 'react';
-import {
-  Controller,
-  useFieldArray,
-  useForm,
-  useWatch,
-} from 'react-hook-form';
+import { Controller, useFieldArray, useForm, useWatch } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useNavigate } from '@tanstack/react-router';
 import { Plus, Trash2 } from 'lucide-react';
@@ -40,12 +38,7 @@ import {
 } from '@/components/erp';
 import { SubAlmacenSelector } from '@/components/erp/selectors/SubAlmacenSelector';
 import { FacturaPicker } from '@/features/cxp/components/FacturaPicker';
-import {
-  applyServerErrors,
-  esApiError,
-  useFormIdempotencyKey,
-  codigoSoporte,
-} from '@/lib/api';
+import { applyServerErrors, esApiError, useFormIdempotencyKey, codigoSoporte } from '@/lib/api';
 import {
   IniciarDevolucionAProveedorSchema,
   type IniciarDevolucionAProveedorValues,
@@ -80,33 +73,24 @@ export function NuevaDevolucionProveedorSheet({
 }: NuevaDevolucionProveedorSheetProps) {
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
-      <SheetContent side="right" className="sm:max-w-3xl">
+      <SheetContent side="right" size="lg">
         <SheetHeader>
           <SheetTitle>Nueva devolución a proveedor</SheetTitle>
           <SheetDescription>
-            Crea el registro en estado Borrador. Después adjunta
-            evidencias y solicita autorización a Dirección.
+            Crea el registro en estado Borrador. Después adjunta evidencias y solicita autorización
+            a Dirección.
           </SheetDescription>
         </SheetHeader>
 
         {open && (
-          <FormBody
-            onSuccess={() => onOpenChange(false)}
-            onCancel={() => onOpenChange(false)}
-          />
+          <FormBody onSuccess={() => onOpenChange(false)} onCancel={() => onOpenChange(false)} />
         )}
       </SheetContent>
     </Sheet>
   );
 }
 
-function FormBody({
-  onSuccess,
-  onCancel,
-}: {
-  onSuccess: () => void;
-  onCancel: () => void;
-}) {
+function FormBody({ onSuccess, onCancel }: { onSuccess: () => void; onCancel: () => void }) {
   const navigate = useNavigate();
   const idempotencyKey = useFormIdempotencyKey();
   const iniciar = useIniciarDevolucionProveedor();
@@ -192,11 +176,7 @@ function FormBody({
     form.setValue(`lineas.${index}.articuloId`, linea.articuloId, opts);
     form.setValue(`lineas.${index}.cantidad`, linea.cantidad, opts);
     form.setValue(`lineas.${index}.unidadMedida`, linea.unidadMedida, opts);
-    form.setValue(
-      `lineas.${index}.costoUnitarioMxn`,
-      linea.costoUnitarioMxn,
-      opts,
-    );
+    form.setValue(`lineas.${index}.costoUnitarioMxn`, linea.costoUnitarioMxn, opts);
   }
 
   const lookup = useDecimalesUnidad();
@@ -212,10 +192,10 @@ function FormBody({
           cantidad: l.cantidad,
         }) === 'invalidos'
       ) {
-        form.setError(
-          `lineas.${i}.cantidad` as Parameters<typeof form.setError>[0],
-          { type: 'decimales', message: MENSAJE_DECIMALES_UNIDAD },
-        );
+        form.setError(`lineas.${i}.cantidad` as Parameters<typeof form.setError>[0], {
+          type: 'decimales',
+          message: MENSAJE_DECIMALES_UNIDAD,
+        });
         decimalesMal = true;
       }
     });
@@ -242,8 +222,7 @@ function FormBody({
       {
         onSuccess: (resp) => {
           toast.success('Devolución a proveedor creada', {
-            description:
-              'Está en Borrador. Adjunta evidencias y solicita autorización.',
+            description: 'Está en Borrador. Adjunta evidencias y solicita autorización.',
           });
           onSuccess();
           navigate({
@@ -254,10 +233,7 @@ function FormBody({
         onError: (error) => {
           if (esApiError(error)) {
             if (
-              applyServerErrors(
-                form as unknown as Parameters<typeof applyServerErrors>[0],
-                error,
-              )
+              applyServerErrors(form as unknown as Parameters<typeof applyServerErrors>[0], error)
             ) {
               return;
             }
@@ -274,193 +250,177 @@ function FormBody({
 
   return (
     <>
-      <form
-        id="nueva-devolucion-proveedor-form"
-        onSubmit={form.handleSubmit(onSubmit)}
-        noValidate
-        className="flex-1 space-y-4 overflow-y-auto px-6"
-      >
-        <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
-          <Field
-            label="Proveedor"
-            required
-            error={form.formState.errors.proveedorId?.message}
-          >
-            <Controller
-              name="proveedorId"
-              control={form.control}
-              render={({ field }) => (
-                <ProveedorSelector
-                  value={field.value || null}
-                  onChange={(id) => {
-                    const nuevo = id ?? '';
-                    // La recepción elegida pertenecía al proveedor anterior.
-                    if (nuevo !== field.value) handleRecepcionChange(null);
-                    field.onChange(nuevo);
-                  }}
-                />
-              )}
-            />
-          </Field>
-
-          <Field
-            label="Sub-almacén origen (opcional)"
-            error={form.formState.errors.subAlmacenOrigenId?.message}
-          >
-            <Controller
-              name="subAlmacenOrigenId"
-              control={form.control}
-              render={({ field }) => (
-                <SubAlmacenSelector
-                  value={field.value ?? null}
-                  onChange={(id) => field.onChange(id ?? null)}
-                />
-              )}
-            />
-          </Field>
-
-          <Field
-            label="OC origen (opcional)"
-            error={form.formState.errors.ordenCompraOrigenId?.message}
-          >
-            <Controller
-              name="ordenCompraOrigenId"
-              control={form.control}
-              render={({ field }) => (
-                <OrdenCompraSelector
-                  value={field.value || null}
-                  onChange={(id) => field.onChange(id ?? null)}
-                  proveedorId={proveedorIdWatched ?? undefined}
-                />
-              )}
-            />
-          </Field>
-
-          <Field
-            label="Recepción origen"
-            required
-            error={form.formState.errors.recepcionOrigenId?.message}
-          >
-            <Controller
-              name="recepcionOrigenId"
-              control={form.control}
-              render={({ field }) => (
-                <RecepcionPicker
-                  value={field.value ?? null}
-                  onChange={handleRecepcionChange}
-                  ordenCompraId={ordenCompraIdWatched ?? null}
-                  proveedorId={proveedorIdWatched || null}
-                />
-              )}
-            />
-          </Field>
-
-          <Field
-            label="Factura proveedor origen (opcional)"
-            error={form.formState.errors.facturaProveedorOrigenId?.message}
-          >
-            <Controller
-              name="facturaProveedorOrigenId"
-              control={form.control}
-              render={({ field }) => (
-                <FacturaPicker
-                  value={field.value ?? null}
-                  onChange={(id) => field.onChange(id ?? null)}
-                  proveedorId={proveedorIdWatched || null}
-                />
-              )}
-            />
-          </Field>
-        </div>
-
-        <Field
-          label="Motivo"
-          required
-          error={form.formState.errors.motivo?.message}
+      <SheetBody>
+        <form
+          id="nueva-devolucion-proveedor-form"
+          onSubmit={form.handleSubmit(onSubmit)}
+          noValidate
+          className="space-y-4"
         >
-          <Controller
-            name="motivo"
-            control={form.control}
-            render={({ field }) => (
-              <TextAreaField
-                value={field.value ?? null}
-                onChange={(v) => field.onChange(v ?? '')}
-                maxLength={500}
-                minRows={2}
-              />
-            )}
-          />
-        </Field>
+          <FormSeccion numero={1} titulo="Datos de devolución">
+            <FormCampo span={6}>
+              <Field label="Proveedor" required error={form.formState.errors.proveedorId?.message}>
+                <Controller
+                  name="proveedorId"
+                  control={form.control}
+                  render={({ field }) => (
+                    <ProveedorSelector
+                      value={field.value || null}
+                      onChange={(id) => {
+                        const nuevo = id ?? '';
+                        // La recepción elegida pertenecía al proveedor anterior.
+                        if (nuevo !== field.value) handleRecepcionChange(null);
+                        field.onChange(nuevo);
+                      }}
+                    />
+                  )}
+                />
+              </Field>
+            </FormCampo>
 
-        <section className="space-y-2">
-          <div className="flex items-center justify-between">
-            <h3 className="text-sm font-semibold">
-              Líneas ({lineasFA.fields.length})
-            </h3>
-            <Button
-              type="button"
-              size="sm"
-              variant="outline"
-              onClick={() =>
-                lineasFA.append({
-                  articuloId: '',
-                  cantidad: 1,
-                  unidadMedida: 'PZA',
-                  costoUnitarioMxn: 0,
-                  lineaRecepcionOrigenId: '',
-                })
-              }
-            >
-              <Plus className="mr-2 size-3.5" />
-              Agregar línea
-            </Button>
-          </div>
+            <FormCampo span={6}>
+              <Field
+                label="Sub-almacén origen (opcional)"
+                error={form.formState.errors.subAlmacenOrigenId?.message}
+              >
+                <Controller
+                  name="subAlmacenOrigenId"
+                  control={form.control}
+                  render={({ field }) => (
+                    <SubAlmacenSelector
+                      value={field.value ?? null}
+                      onChange={(id) => field.onChange(id ?? null)}
+                    />
+                  )}
+                />
+              </Field>
+            </FormCampo>
 
-          {form.formState.errors.lineas &&
-            !Array.isArray(form.formState.errors.lineas) && (
+            <FormCampo span={6}>
+              <Field
+                label="OC origen (opcional)"
+                error={form.formState.errors.ordenCompraOrigenId?.message}
+              >
+                <Controller
+                  name="ordenCompraOrigenId"
+                  control={form.control}
+                  render={({ field }) => (
+                    <OrdenCompraSelector
+                      value={field.value || null}
+                      onChange={(id) => field.onChange(id ?? null)}
+                      proveedorId={proveedorIdWatched ?? undefined}
+                    />
+                  )}
+                />
+              </Field>
+            </FormCampo>
+
+            <FormCampo span={6}>
+              <Field
+                label="Recepción origen"
+                required
+                error={form.formState.errors.recepcionOrigenId?.message}
+              >
+                <Controller
+                  name="recepcionOrigenId"
+                  control={form.control}
+                  render={({ field }) => (
+                    <RecepcionPicker
+                      value={field.value ?? null}
+                      onChange={handleRecepcionChange}
+                      ordenCompraId={ordenCompraIdWatched ?? null}
+                      proveedorId={proveedorIdWatched || null}
+                    />
+                  )}
+                />
+              </Field>
+            </FormCampo>
+
+            <FormCampo span={6}>
+              <Field
+                label="Factura proveedor origen (opcional)"
+                error={form.formState.errors.facturaProveedorOrigenId?.message}
+              >
+                <Controller
+                  name="facturaProveedorOrigenId"
+                  control={form.control}
+                  render={({ field }) => (
+                    <FacturaPicker
+                      value={field.value ?? null}
+                      onChange={(id) => field.onChange(id ?? null)}
+                      proveedorId={proveedorIdWatched || null}
+                    />
+                  )}
+                />
+              </Field>
+            </FormCampo>
+          </FormSeccion>
+
+          <Field label="Motivo" required error={form.formState.errors.motivo?.message}>
+            <Controller
+              name="motivo"
+              control={form.control}
+              render={({ field }) => (
+                <TextAreaField
+                  value={field.value ?? null}
+                  onChange={(v) => field.onChange(v ?? '')}
+                  maxLength={500}
+                  minRows={2}
+                />
+              )}
+            />
+          </Field>
+
+          <section className="space-y-2">
+            <div className="flex items-center justify-between">
+              <h3 className="text-sm font-semibold">Partidas ({lineasFA.fields.length})</h3>
+              <Button
+                type="button"
+                size="sm"
+                variant="outline"
+                onClick={() =>
+                  lineasFA.append({
+                    articuloId: '',
+                    cantidad: 1,
+                    unidadMedida: 'PZA',
+                    costoUnitarioMxn: 0,
+                    lineaRecepcionOrigenId: '',
+                  })
+                }
+              >
+                <Plus className="mr-2 size-3.5" />
+                Agregar partida
+              </Button>
+            </div>
+
+            {form.formState.errors.lineas && !Array.isArray(form.formState.errors.lineas) && (
               <p role="alert" className="text-xs text-danger">
                 {form.formState.errors.lineas.message}
               </p>
             )}
 
-          <div className="space-y-2">
-            {lineasFA.fields.map((field, index) => (
-              <LineaForm
-                key={field.id}
-                index={index}
-                control={form.control}
-                errors={
-                  form.formState.errors.lineas?.[index] as
-                    | LineaErrors
-                    | undefined
-                }
-                lineasRecepcion={
-                  recepcionIdWatched ? recepcionQuery.data?.lineas : undefined
-                }
-                onSelectLineaRecepcion={(lineaId) =>
-                  handleSelectLineaRecepcion(index, lineaId)
-                }
-                onRemove={() => lineasFA.remove(index)}
-              />
-            ))}
-          </div>
-        </section>
-      </form>
+            <div className="space-y-2">
+              {lineasFA.fields.map((field, index) => (
+                <LineaForm
+                  key={field.id}
+                  index={index}
+                  control={form.control}
+                  errors={form.formState.errors.lineas?.[index] as LineaErrors | undefined}
+                  lineasRecepcion={recepcionIdWatched ? recepcionQuery.data?.lineas : undefined}
+                  onSelectLineaRecepcion={(lineaId) => handleSelectLineaRecepcion(index, lineaId)}
+                  onRemove={() => lineasFA.remove(index)}
+                />
+              ))}
+            </div>
+          </section>
+        </form>
+      </SheetBody>
 
       <SheetFooter>
-        <Button
-          type="button"
-          variant="ghost"
-          onClick={onCancel}
-          disabled={iniciar.isPending}
-        >
+        <Button type="button" variant="ghost" onClick={onCancel} disabled={iniciar.isPending}>
           Cancelar
         </Button>
-        <Button
-          type="submit"
-          form="nueva-devolucion-proveedor-form"
-          disabled={iniciar.isPending}
-        >
+        <Button type="submit" form="nueva-devolucion-proveedor-form" disabled={iniciar.isPending}>
           {iniciar.isPending ? 'Creando…' : 'Crear devolución'}
         </Button>
       </SheetFooter>
@@ -494,9 +454,7 @@ function LineaForm({
   onRemove,
 }: {
   index: number;
-  control: ReturnType<
-    typeof useForm<IniciarDevolucionAProveedorValues>
-  >['control'];
+  control: ReturnType<typeof useForm<IniciarDevolucionAProveedorValues>>['control'];
   errors: LineaErrors | undefined;
   /** Líneas de la recepción origen elegida; undefined = sin recepción. */
   lineasRecepcion: RecepcionLineaItem[] | undefined;
@@ -512,141 +470,141 @@ function LineaForm({
   const decimalesLinea = decResuelto ?? DECIMALES_FALLBACK;
   const unidadNoResoluble = decResuelto == null;
   return (
-    <div className="rounded-md border border-dashed border-primary/40 bg-primary/5 p-3 space-y-2">
+    <div className="rounded-md border border-dashed border-brand/40 bg-brand/5 p-3 space-y-2">
       <div className="flex items-start justify-between gap-2">
-        <span className="text-xs font-semibold text-muted-foreground">
-          Línea #{index + 1}
-        </span>
+        <span className="text-xs font-semibold text-ink-muted">Partida #{index + 1}</span>
         <Button
           type="button"
           size="sm"
           variant="ghost"
           onClick={onRemove}
-          aria-label={`Quitar línea ${index + 1}`}
+          aria-label={`Quitar partida ${index + 1}`}
         >
           <Trash2 className="h-4 w-4" />
         </Button>
       </div>
 
-      <div className="grid grid-cols-1 gap-2 md:grid-cols-2">
-        <div className="md:col-span-2">
-          <Field
-            label="Línea de recepción origen"
-            required
-            error={errors?.lineaRecepcionOrigenId?.message}
-          >
+      <FormGrid>
+        <FormCampo span={12}>
+          <div className="md:col-span-2">
+            <Field
+              label="Partida de recepción origen"
+              required
+              error={errors?.lineaRecepcionOrigenId?.message}
+            >
+              <Controller
+                name={`lineas.${index}.lineaRecepcionOrigenId` as const}
+                control={control}
+                render={({ field }) => (
+                  <Select
+                    value={field.value ?? SIN_LINEA}
+                    onValueChange={(v) => onSelectLineaRecepcion(v === SIN_LINEA ? null : v)}
+                    disabled={lineasRecepcion == null}
+                  >
+                    <SelectTrigger>
+                      <SelectValue
+                        placeholder={
+                          lineasRecepcion == null
+                            ? 'Selecciona primero la recepción origen'
+                            : 'Selecciona la partida recibida'
+                        }
+                      />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value={SIN_LINEA}>Selecciona la partida origen</SelectItem>
+                      {(lineasRecepcion ?? []).map((l) => (
+                        <SelectItem key={l.id} value={l.id}>
+                          {etiquetaLinea(l)}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                )}
+              />
+            </Field>
+          </div>
+        </FormCampo>
+
+        <FormCampo span={6}>
+          <Field label="Artículo" required error={errors?.articuloId?.message}>
             <Controller
-              name={`lineas.${index}.lineaRecepcionOrigenId` as const}
+              name={`lineas.${index}.articuloId` as const}
               control={control}
               render={({ field }) => (
-                <Select
-                  value={field.value ?? SIN_LINEA}
-                  onValueChange={(v) =>
-                    onSelectLineaRecepcion(v === SIN_LINEA ? null : v)
-                  }
-                  disabled={lineasRecepcion == null}
-                >
-                  <SelectTrigger>
-                    <SelectValue
-                      placeholder={
-                        lineasRecepcion == null
-                          ? 'Selecciona primero la recepción origen'
-                          : 'Selecciona la línea recibida'
-                      }
-                    />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value={SIN_LINEA}>Selecciona la línea origen</SelectItem>
-                    {(lineasRecepcion ?? []).map((l) => (
-                      <SelectItem key={l.id} value={l.id}>
-                        {etiquetaLinea(l)}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                <ArticuloSelector
+                  disabled
+                  value={field.value || null}
+                  onChange={(id) => field.onChange(id ?? '')}
+                />
               )}
             />
           </Field>
-        </div>
+        </FormCampo>
 
-        <Field label="Artículo" required error={errors?.articuloId?.message}>
-          <Controller
-            name={`lineas.${index}.articuloId` as const}
-            control={control}
-            render={({ field }) => (
-              <ArticuloSelector
-                disabled
-                value={field.value || null}
-                onChange={(id) => field.onChange(id ?? '')}
-              />
-            )}
-          />
-        </Field>
+        <FormCampo span={6}>
+          <Field label="Cantidad" required error={errors?.cantidad?.message}>
+            <Controller
+              name={`lineas.${index}.cantidad` as const}
+              control={control}
+              render={({ field }) => (
+                <Input
+                  type="number"
+                  inputMode="decimal"
+                  step={stepParaDecimales(decimalesLinea)}
+                  min="0"
+                  value={field.value ?? ''}
+                  onChange={(e) =>
+                    field.onChange(e.target.value === '' ? '' : Number(e.target.value))
+                  }
+                />
+              )}
+            />
+            <AvisoUnidadNoResoluble visible={unidadNoResoluble} />
+          </Field>
+        </FormCampo>
 
-        <Field label="Cantidad" required error={errors?.cantidad?.message}>
-          <Controller
-            name={`lineas.${index}.cantidad` as const}
-            control={control}
-            render={({ field }) => (
-              <Input
-                type="number"
-                inputMode="decimal"
-                step={stepParaDecimales(decimalesLinea)}
-                min="0"
-                value={field.value ?? ''}
-                onChange={(e) =>
-                  field.onChange(
-                    e.target.value === '' ? '' : Number(e.target.value),
-                  )
-                }
-              />
-            )}
-          />
-          <AvisoUnidadNoResoluble visible={unidadNoResoluble} />
-        </Field>
+        <FormCampo span={6}>
+          <Field label="UM" required error={errors?.unidadMedida?.message}>
+            <Controller
+              name={`lineas.${index}.unidadMedida` as const}
+              control={control}
+              render={({ field }) => (
+                <Input
+                  {...field}
+                  value={field.value ?? ''}
+                  maxLength={20}
+                  readOnly
+                  placeholder="Se toma de la recepción"
+                />
+              )}
+            />
+          </Field>
+        </FormCampo>
 
-        <Field
-          label="UM"
-          required
-          error={errors?.unidadMedida?.message}
-        >
-          <Controller
-            name={`lineas.${index}.unidadMedida` as const}
-            control={control}
-            render={({ field }) => (
-              <Input
-                {...field}
-                value={field.value ?? ''}
-                maxLength={20}
-                readOnly
-                placeholder="Se toma de la recepción"
-              />
-            )}
-          />
-        </Field>
-
-        <Field
-          label="Costo de la recepción (MXN)"
-          required
-          error={errors?.costoUnitarioMxn?.message}
-        >
-          <Controller
-            name={`lineas.${index}.costoUnitarioMxn` as const}
-            control={control}
-            render={({ field }) => (
-              <Input
-                type="number"
-                inputMode="decimal"
-                step="0.01"
-                min="0"
-                value={field.value ?? ''}
-                readOnly
-                aria-label="Costo de la recepción original"
-              />
-            )}
-          />
-        </Field>
-      </div>
+        <FormCampo span={6}>
+          <Field
+            label="Costo de la recepción (MXN)"
+            required
+            error={errors?.costoUnitarioMxn?.message}
+          >
+            <Controller
+              name={`lineas.${index}.costoUnitarioMxn` as const}
+              control={control}
+              render={({ field }) => (
+                <Input
+                  type="number"
+                  inputMode="decimal"
+                  step="0.01"
+                  min="0"
+                  value={field.value ?? ''}
+                  readOnly
+                  aria-label="Costo de la recepción original"
+                />
+              )}
+            />
+          </Field>
+        </FormCampo>
+      </FormGrid>
     </div>
   );
 }

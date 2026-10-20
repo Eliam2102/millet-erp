@@ -1,3 +1,6 @@
+import { FormSeccion } from '@/components/erp/forms/FormSeccion';
+import { FormCampo } from '@/components/erp/forms/FormGrid';
+import { SheetBody } from '@/components/ui/sheet';
 import { useEffect } from 'react';
 import { Controller, useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -14,10 +17,7 @@ import { Button } from '@/components/ui/button';
 import { useConfirmarDescarte } from '@/components/erp/forms/useConfirmarDescarte';
 import { ArticuloSelector, UbicacionSelector } from '@/components/erp';
 import { applyServerErrors, esApiError } from '@/lib/api';
-import {
-  AsignarSchema,
-  type AsignarValues,
-} from '@/features/almacen/schemas/asignacion';
+import { AsignarSchema, type AsignarValues } from '@/features/almacen/schemas/asignacion';
 import { useCrearAsignacion } from '@/features/almacen/api/useAsignaciones';
 import { Field } from '@/features/almacen/components/internal/Field';
 
@@ -45,9 +45,7 @@ export function AsignacionSheet({ open, onOpenChange }: AsignacionSheetProps) {
   });
 
   // Cerrar (Esc, clic fuera, X, Cancelar) con cambios pide confirmación; guardar cierra con force.
-  const { setDirty, solicitarCierre, dialogo } = useConfirmarDescarte(() =>
-    onOpenChange(false),
-  );
+  const { setDirty, solicitarCierre, dialogo } = useConfirmarDescarte(() => onOpenChange(false));
   const isDirty = form.formState.isDirty;
   useEffect(() => {
     setDirty(isDirty);
@@ -88,12 +86,7 @@ export function AsignacionSheet({ open, onOpenChange }: AsignacionSheetProps) {
         });
         return;
       }
-      if (
-        applyServerErrors(
-          form as unknown as Parameters<typeof applyServerErrors>[0],
-          error,
-        )
-      ) {
+      if (applyServerErrors(form as unknown as Parameters<typeof applyServerErrors>[0], error)) {
         return;
       }
       toast.error(error.problem.title, {
@@ -107,61 +100,65 @@ export function AsignacionSheet({ open, onOpenChange }: AsignacionSheetProps) {
   const isPending = crear.isPending;
 
   return (
-    <Sheet
-      open={open}
-      onOpenChange={(next) => (next ? onOpenChange(next) : solicitarCierre())}
-    >
-      <SheetContent side="right" size="form">
+    <Sheet open={open} onOpenChange={(next) => (next ? onOpenChange(next) : solicitarCierre())}>
+      <SheetContent side="right" size="lg">
         <SheetHeader>
           <SheetTitle>Asignar artículo a una ubicación</SheetTitle>
           <SheetDescription>
-            Elige el artículo y la ubicación donde vivirá. Se creará su existencia
-            en 0 ahí.
+            Elige el artículo y la ubicación donde vivirá. Se creará su existencia en 0 ahí.
           </SheetDescription>
         </SheetHeader>
 
-        <form
-          id="asignacion-form"
-          onSubmit={form.handleSubmit(onSubmit)}
-          noValidate
-          className="grid flex-1 grid-cols-2 content-start gap-x-4 gap-y-3.5 overflow-y-auto px-6"
-        >
-          <Field
-            className="col-span-2"
-            label="Artículo"
-            required
-            error={form.formState.errors.articuloId?.message}
+        <SheetBody>
+          <form
+            id="asignacion-form"
+            onSubmit={form.handleSubmit(onSubmit)}
+            noValidate
+            className="space-y-4"
           >
-            <Controller
-              name="articuloId"
-              control={form.control}
-              render={({ field }) => (
-                <ArticuloSelector
-                  value={field.value || null}
-                  onChange={(id) => field.onChange(id ?? '')}
-                />
-              )}
-            />
-          </Field>
+            <FormSeccion numero={1} titulo="Datos de la asignación">
+              <FormCampo span={12}>
+                <Field
+                  className="col-span-2"
+                  label="Artículo"
+                  required
+                  error={form.formState.errors.articuloId?.message}
+                >
+                  <Controller
+                    name="articuloId"
+                    control={form.control}
+                    render={({ field }) => (
+                      <ArticuloSelector
+                        value={field.value || null}
+                        onChange={(id) => field.onChange(id ?? '')}
+                      />
+                    )}
+                  />
+                </Field>
+              </FormCampo>
 
-          <Field
-            className="col-span-2"
-            label="Ubicación"
-            required
-            error={form.formState.errors.ubicacionId?.message}
-          >
-            <Controller
-              name="ubicacionId"
-              control={form.control}
-              render={({ field }) => (
-                <UbicacionSelector
-                  value={field.value || null}
-                  onChange={(id) => field.onChange(id ?? '')}
-                />
-              )}
-            />
-          </Field>
-        </form>
+              <FormCampo span={12}>
+                <Field
+                  className="col-span-2"
+                  label="Ubicación"
+                  required
+                  error={form.formState.errors.ubicacionId?.message}
+                >
+                  <Controller
+                    name="ubicacionId"
+                    control={form.control}
+                    render={({ field }) => (
+                      <UbicacionSelector
+                        value={field.value || null}
+                        onChange={(id) => field.onChange(id ?? '')}
+                      />
+                    )}
+                  />
+                </Field>
+              </FormCampo>
+            </FormSeccion>
+          </form>
+        </SheetBody>
 
         <SheetFooter>
           <Button
@@ -181,4 +178,3 @@ export function AsignacionSheet({ open, onOpenChange }: AsignacionSheetProps) {
     </Sheet>
   );
 }
-

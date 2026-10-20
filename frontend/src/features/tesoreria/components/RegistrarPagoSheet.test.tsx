@@ -57,7 +57,7 @@ function abrir() {
   );
 }
 
-describe('<RegistrarPagoSheet> cuenta del proveedor y fondos', () => {
+describe('<RegistrarPagoSheet> cuenta del proveedor', () => {
   it('preselecciona la predeterminada activa y deshabilita las no activas', async () => {
     cuentasMock([
       cuenta({ id: 'a', numero: '••••1111' }),
@@ -73,7 +73,7 @@ describe('<RegistrarPagoSheet> cuenta del proveedor y fondos', () => {
     expect(radios[3]).toBeDisabled();
   });
 
-  it('deshabilita Registrar sin casilla de fondos y envía cuenta y fondos', async () => {
+  it('habilita Registrar sin confirmar fondos y envía la cuenta sin fondosVerificados', async () => {
     cuentasMock([cuenta({ id: 'b', predeterminada: true })]);
     let body: Record<string, unknown> | null = null;
     mswServer.use(
@@ -86,13 +86,12 @@ describe('<RegistrarPagoSheet> cuenta del proveedor y fondos', () => {
     await screen.findAllByRole('radio');
     fireEvent.click(screen.getByText('elegir egreso'));
     const boton = screen.getByRole('button', { name: 'Registrar pago' });
-    expect(boton).toBeDisabled();
-    expect(screen.getByText('Confirma que verificaste fondos en la banca')).toBeInTheDocument();
-    fireEvent.click(screen.getByRole('checkbox', { name: /Verifiqué en la banca/ }));
+    expect(screen.queryByRole('checkbox', { name: /Verifiqué en la banca/ })).not.toBeInTheDocument();
     expect(boton).toBeEnabled();
     fireEvent.click(boton);
     await waitFor(() => expect(body).not.toBeNull());
-    expect(body).toMatchObject({ cuentaProveedorId: 'b', fondosVerificados: true });
+    expect(body).toMatchObject({ cuentaProveedorId: 'b' });
+    expect(body).not.toHaveProperty('fondosVerificados');
   });
 
   it('sin cuenta activa muestra el callout y deshabilita', async () => {
@@ -102,7 +101,7 @@ describe('<RegistrarPagoSheet> cuenta del proveedor y fondos', () => {
     expect(screen.getByRole('button', { name: 'Registrar pago' })).toBeDisabled();
   });
 
-  it('pasivo interno: no pide cuenta de proveedor, pide fondos y hace POST sin cuentaProveedorId', async () => {
+  it('pasivo interno: no pide cuenta de proveedor, hace POST sin cuentaProveedorId', async () => {
     let body: Record<string, unknown> | null = null;
     mswServer.use(
       http.post('*/api/v1/tesoreria/pagos', async ({ request }) => {
@@ -121,13 +120,11 @@ describe('<RegistrarPagoSheet> cuenta del proveedor y fondos', () => {
     );
     fireEvent.click(screen.getByText('elegir egreso'));
     const boton = screen.getByRole('button', { name: 'Registrar pago' });
-    expect(boton).toBeDisabled();
-    expect(screen.getByText('Confirma que verificaste fondos en la banca')).toBeInTheDocument();
-    fireEvent.click(screen.getByRole('checkbox', { name: /Verifiqué en la banca/ }));
+    expect(screen.queryByRole('checkbox', { name: /Verifiqué en la banca/ })).not.toBeInTheDocument();
     expect(boton).toBeEnabled();
     fireEvent.click(boton);
     await waitFor(() => expect(body).not.toBeNull());
-    expect(body).toMatchObject({ fondosVerificados: true });
+    expect(body).not.toHaveProperty('fondosVerificados');
     expect(body).not.toHaveProperty('cuentaProveedorId');
   });
 });

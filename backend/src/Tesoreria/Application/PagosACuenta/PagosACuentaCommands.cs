@@ -7,6 +7,7 @@ using Millet.Tesoreria.Application.Integration;
 using Millet.Tesoreria.Application.Pagos;
 using Millet.Tesoreria.Domain.Movimientos;
 using Millet.Tesoreria.Domain.Ports;
+using Millet.Tesoreria.Domain.Ports.DatosMaestros;
 using Millet.Tesoreria.Infrastructure.Persistence;
 
 namespace Millet.Tesoreria.Application.PagosACuenta;
@@ -67,16 +68,19 @@ public sealed class RegistrarPagoACuentaHandler
     private readonly ICurrentUserContext _currentUser;
     private readonly IPeriodoContablePort _periodoContable;
     private readonly IClock _clock;
+    private readonly IProveedorBancoReadPort _proveedores;
 
     public RegistrarPagoACuentaHandler(
         TesoreriaDbContext db,
         ICurrentEmpresaContext currentEmpresa,
         ICurrentUserContext currentUser,
         IPeriodoContablePort periodoContable,
-        IClock clock)
+        IClock clock,
+        IProveedorBancoReadPort proveedores)
     {
         _db = db; _currentEmpresa = currentEmpresa; _currentUser = currentUser;
         _periodoContable = periodoContable; _clock = clock;
+        _proveedores = proveedores;
     }
 
     public async Task<PagoACuentaResponse> Handle(
@@ -108,6 +112,9 @@ public sealed class RegistrarPagoACuentaHandler
         // para devolver un 422 legible.
         if (command.ProveedorId is Guid proveedorId)
         {
+            // Mismas reglas de destino que el pago directo (proveedor activo, sin revisión, con cuenta activa en la moneda).
+            // No se persiste el destino en un pago a cuenta; solo se valida.
+            ReglasDestinoProveedor.Resolver(await _proveedores.ObtenerAsync(proveedorId, cancellationToken), cuenta.Moneda, null);
             var yaHayAbierto = await _db.MovimientosBancarios.AnyAsync(m =>
                     m.BeneficiarioRef == proveedorId
                     && m.BeneficiarioTipo == BeneficiarioTipo.Proveedor

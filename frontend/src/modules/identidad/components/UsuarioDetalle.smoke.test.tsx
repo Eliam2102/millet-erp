@@ -101,36 +101,28 @@ afterEach(() => {
 describe('<UsuarioDetalle> — smoke', () => {
   it('renderiza las 3 tabs y el botón Desactivar para un usuario activo', async () => {
     mswServer.use(
-      http.get('*/api/v1/identidad/usuarios/u-1', () =>
-        HttpResponse.json(USUARIO_DETALLE),
-      ),
+      http.get('*/api/v1/identidad/usuarios/u-1', () => HttpResponse.json(USUARIO_DETALLE)),
     );
 
     render(<UsuarioDetalle />, { wrapper: createQueryWrapper() });
 
     // Cabecera: el email aparece cuando data llegó.
     await waitFor(() =>
-      expect(screen.getByText('admin@millet.com.mx')).toBeInTheDocument(),
+      expect(
+        screen.getByRole('heading', { name: 'admin@millet.com.mx', level: 1 }),
+      ).toBeInTheDocument(),
     );
 
     // Las tres tabs deben estar en el DOM como <button role="tab">.
     const tabs = screen.getAllByRole('tab');
     expect(tabs).toHaveLength(3);
 
-    expect(
-      screen.getByRole('tab', { name: /^datos$/i }),
-    ).toBeInTheDocument();
-    expect(
-      screen.getByRole('tab', { name: /roles por empresa\s*\(2\)/i }),
-    ).toBeInTheDocument();
-    expect(
-      screen.getByRole('tab', { name: /^preferencias$/i }),
-    ).toBeInTheDocument();
+    expect(screen.getByRole('tab', { name: /^datos$/i })).toBeInTheDocument();
+    expect(screen.getByRole('tab', { name: /roles por empresa\s*\(2\)/i })).toBeInTheDocument();
+    expect(screen.getByRole('tab', { name: /^preferencias$/i })).toBeInTheDocument();
 
     // Botón Desactivar visible (usuario activo + permiso).
-    expect(
-      screen.getByRole('button', { name: /^desactivar$/i }),
-    ).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /^desactivar$/i })).toBeInTheDocument();
   });
 
   it('deshabilita el botón Desactivar cuando es la propia cuenta activa en sesión', async () => {
@@ -143,23 +135,20 @@ describe('<UsuarioDetalle> — smoke', () => {
     });
 
     mswServer.use(
-      http.get('*/api/v1/identidad/usuarios/u-1', () =>
-        HttpResponse.json(USUARIO_DETALLE),
-      ),
+      http.get('*/api/v1/identidad/usuarios/u-1', () => HttpResponse.json(USUARIO_DETALLE)),
     );
 
     render(<UsuarioDetalle />, { wrapper: createQueryWrapper() });
 
     await waitFor(() =>
-      expect(screen.getByText('admin@millet.com.mx')).toBeInTheDocument(),
+      expect(
+        screen.getByRole('heading', { name: 'admin@millet.com.mx', level: 1 }),
+      ).toBeInTheDocument(),
     );
 
     const btnDesactivar = screen.getByRole('button', { name: /^desactivar$/i });
     expect(btnDesactivar).toBeDisabled();
-    expect(btnDesactivar).toHaveAttribute(
-      'title',
-      'No puedes desactivar tu propia cuenta activa',
-    );
+    expect(btnDesactivar).toHaveAttribute('title', 'No puedes desactivar tu propia cuenta activa');
   });
 
   it('deshabilita la asignación y revocación de roles cuando es la propia cuenta activa en sesión (SoD)', async () => {
@@ -172,24 +161,20 @@ describe('<UsuarioDetalle> — smoke', () => {
     });
 
     mswServer.use(
-      http.get('*/api/v1/identidad/usuarios/u-1', () =>
-        HttpResponse.json(USUARIO_DETALLE),
-      ),
+      http.get('*/api/v1/identidad/usuarios/u-1', () => HttpResponse.json(USUARIO_DETALLE)),
     );
 
     render(<UsuarioDetalle />, { wrapper: createQueryWrapper() });
 
     await waitFor(() =>
-      expect(screen.getByText('admin@millet.com.mx')).toBeInTheDocument(),
+      expect(
+        screen.getByRole('heading', { name: 'admin@millet.com.mx', level: 1 }),
+      ).toBeInTheDocument(),
     );
 
-    fireEvent.click(
-      screen.getByRole('tab', { name: /roles por empresa\s*\(2\)/i }),
-    );
+    fireEvent.click(screen.getByRole('tab', { name: /roles por empresa\s*\(2\)/i }));
 
-    expect(
-      screen.getByText(/segregación de funciones \(SoD\)/i),
-    ).toBeInTheDocument();
+    expect(screen.getByText(/segregación de funciones \(SoD\)/i)).toBeInTheDocument();
 
     const btnAsignar = screen.getByRole('button', { name: /asignar rol/i });
     expect(btnAsignar).toBeDisabled();
@@ -214,15 +199,13 @@ describe('<UsuarioDetalle> — smoke', () => {
     render(<UsuarioDetalle />, { wrapper: createQueryWrapper() });
 
     await waitFor(() =>
-      expect(screen.getByText('admin@millet.com.mx')).toBeInTheDocument(),
+      expect(
+        screen.getByRole('heading', { name: 'admin@millet.com.mx', level: 1 }),
+      ).toBeInTheDocument(),
     );
 
-    expect(
-      screen.queryByRole('button', { name: /^desactivar$/i }),
-    ).not.toBeInTheDocument();
-    expect(
-      screen.getByRole('button', { name: /reactivar/i }),
-    ).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /^desactivar$/i })).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /reactivar/i })).toBeInTheDocument();
     expect(screen.getByText('Inactivo')).toBeInTheDocument();
   });
 
@@ -230,21 +213,19 @@ describe('<UsuarioDetalle> — smoke', () => {
     // La beforeEach NO incluye centros_costo.asignaciones.administrar → el
     // gate del tab lo oculta. Las 3 tabs originales quedan intactas.
     mswServer.use(
-      http.get('*/api/v1/identidad/usuarios/u-1', () =>
-        HttpResponse.json(USUARIO_DETALLE),
-      ),
+      http.get('*/api/v1/identidad/usuarios/u-1', () => HttpResponse.json(USUARIO_DETALLE)),
     );
 
     render(<UsuarioDetalle />, { wrapper: createQueryWrapper() });
 
     await waitFor(() =>
-      expect(screen.getByText('admin@millet.com.mx')).toBeInTheDocument(),
+      expect(
+        screen.getByRole('heading', { name: 'admin@millet.com.mx', level: 1 }),
+      ).toBeInTheDocument(),
     );
 
     expect(screen.getAllByRole('tab')).toHaveLength(3);
-    expect(
-      screen.queryByRole('tab', { name: /centros de costo/i }),
-    ).not.toBeInTheDocument();
+    expect(screen.queryByRole('tab', { name: /centros de costo/i })).not.toBeInTheDocument();
   });
 });
 
@@ -264,9 +245,7 @@ describe('<UsuarioDetalle> — tab Centros de Costo (con permiso)', () => {
       errorMessage: null,
     });
     mswServer.use(
-      http.get('*/api/v1/identidad/usuarios/u-1', () =>
-        HttpResponse.json(USUARIO_DETALLE),
-      ),
+      http.get('*/api/v1/identidad/usuarios/u-1', () => HttpResponse.json(USUARIO_DETALLE)),
     );
   });
 
@@ -287,7 +266,9 @@ describe('<UsuarioDetalle> — tab Centros de Costo (con permiso)', () => {
     render(<UsuarioDetalle />, { wrapper: createQueryWrapper() });
 
     await waitFor(() =>
-      expect(screen.getByText('admin@millet.com.mx')).toBeInTheDocument(),
+      expect(
+        screen.getByRole('heading', { name: 'admin@millet.com.mx', level: 1 }),
+      ).toBeInTheDocument(),
     );
 
     const tabs = screen.getAllByRole('tab');
@@ -302,40 +283,46 @@ describe('<UsuarioDetalle> — tab Centros de Costo (con permiso)', () => {
   it('click en "Centros de Costo" monta el panel con el usuarioId del detalle', async () => {
     let arbolPedido: string | null = null;
     mswServer.use(
-      http.get(
-        '*/api/v1/centros-costo/asignaciones/:usuarioId/arbol',
-        ({ params }) => {
-          arbolPedido = params.usuarioId as string;
-          return HttpResponse.json({
-            usuarioId: 'u-1',
-            esAlcanceTotal: false,
-            resumen: {
-              dim1Vivas: 1, dim1Completas: 0, dim2Vivas: 1, dim2Completas: 0,
-              dim3Vivas: 3, dim3Asignadas: 0,
+      http.get('*/api/v1/centros-costo/asignaciones/:usuarioId/arbol', ({ params }) => {
+        arbolPedido = params.usuarioId as string;
+        return HttpResponse.json({
+          usuarioId: 'u-1',
+          esAlcanceTotal: false,
+          resumen: {
+            dim1Vivas: 1,
+            dim1Completas: 0,
+            dim2Vivas: 1,
+            dim2Completas: 0,
+            dim3Vivas: 3,
+            dim3Asignadas: 0,
+          },
+          dim1s: [
+            {
+              id: 'd1',
+              clave: '101',
+              nombre: 'CONKAL',
+              estado: 0,
+              dim3Vivas: 3,
+              dim3Asignadas: 0,
+              grupos: [],
             },
-            dim1s: [
-              {
-                id: 'd1', clave: '101', nombre: 'CONKAL', estado: 0,
-                dim3Vivas: 3, dim3Asignadas: 0, grupos: [],
-              },
-            ],
-          });
-        },
-      ),
+          ],
+        });
+      }),
     );
 
     render(<UsuarioDetalle />, { wrapper: createQueryWrapper() });
 
     await waitFor(() =>
-      expect(screen.getByText('admin@millet.com.mx')).toBeInTheDocument(),
+      expect(
+        screen.getByRole('heading', { name: 'admin@millet.com.mx', level: 1 }),
+      ).toBeInTheDocument(),
     );
 
     fireEvent.click(screen.getByRole('tab', { name: /centros de costo/i }));
 
     // El panel carga el árbol del usuario del detalle (u-1 del useParams mock).
-    await waitFor(() =>
-      expect(screen.getByText('101 · CONKAL')).toBeInTheDocument(),
-    );
+    await waitFor(() => expect(screen.getByText('101 · CONKAL')).toBeInTheDocument());
     expect(arbolPedido).toBe('u-1');
   });
 });

@@ -13,18 +13,15 @@ const departamentoExistente = {
 
 describe('<DepartamentoInlineForm> — smoke', () => {
   it('modo agregar: muestra "Agregar departamento" + border dashed', () => {
-    const { container } = render(
-      <DepartamentoInlineForm empresaId="e-1" onCancel={() => {}} />,
-      { wrapper: createQueryWrapper() },
-    );
-    expect(
-      screen.getByRole('button', { name: /agregar departamento/i }),
-    ).toBeInTheDocument();
+    const { container } = render(<DepartamentoInlineForm empresaId="e-1" onCancel={() => {}} />, {
+      wrapper: createQueryWrapper(),
+    });
+    expect(screen.getByRole('button', { name: /agregar departamento/i })).toBeInTheDocument();
     const form = container.querySelector('form');
     expect(form?.className).toMatch(/border-dashed/);
   });
 
-  it('modo editar: clave read-only + border amber + label "Guardar cambios"', () => {
+  it('modo editar: clave read-only + fondo semántico de edición + label "Guardar cambios"', () => {
     const { container } = render(
       <DepartamentoInlineForm
         empresaId="e-1"
@@ -33,21 +30,18 @@ describe('<DepartamentoInlineForm> — smoke', () => {
       />,
       { wrapper: createQueryWrapper() },
     );
-    expect(
-      screen.getByRole('button', { name: /guardar cambios/i }),
-    ).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /guardar cambios/i })).toBeInTheDocument();
     const form = container.querySelector('form');
-    expect(form?.className).toMatch(/border-amber/);
+    expect(form?.className).toMatch(/bg-warning-bg/);
     const claveInput = screen.getByPlaceholderText('COMP') as HTMLInputElement;
     expect(claveInput.readOnly).toBe(true);
   });
 
   it('Esc llama onCancel', () => {
     const onCancel = vi.fn();
-    render(
-      <DepartamentoInlineForm empresaId="e-1" onCancel={onCancel} />,
-      { wrapper: createQueryWrapper() },
-    );
+    render(<DepartamentoInlineForm empresaId="e-1" onCancel={onCancel} />, {
+      wrapper: createQueryWrapper(),
+    });
     fireEvent.keyDown(screen.getByRole('form'), { key: 'Escape' });
     expect(onCancel).toHaveBeenCalledTimes(1);
   });

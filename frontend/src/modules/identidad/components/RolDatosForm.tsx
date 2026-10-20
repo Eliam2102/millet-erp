@@ -1,3 +1,5 @@
+import { FormSeccion } from '@/components/erp/forms/FormSeccion';
+import { FormCampo } from '@/components/erp/forms/FormGrid';
 import { useEffect } from 'react';
 import { Controller, useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -5,16 +7,8 @@ import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
-import {
-  applyServerErrors,
-  esApiError,
-  useFormIdempotencyKey,
-  codigoSoporte,
-} from '@/lib/api';
-import {
-  ActualizarRolSchema,
-  type ActualizarRolValues,
-} from '@/modules/identidad/schemas/rol';
+import { applyServerErrors, esApiError, useFormIdempotencyKey, codigoSoporte } from '@/lib/api';
+import { ActualizarRolSchema, type ActualizarRolValues } from '@/modules/identidad/schemas/rol';
 import { useActualizarRol } from '@/modules/identidad/api';
 import type { RolResponse } from '@/modules/identidad/api/types';
 import { useHasPermission } from '@/lib/auth/useHasPermission';
@@ -51,8 +45,7 @@ export function RolDatosForm({ rol }: RolDatosFormProps) {
   }, [rol.id, rol.version]);
 
   function onSubmit(values: ActualizarRolValues) {
-    const descripcionVacia =
-      values.descripcion == null || values.descripcion.length === 0;
+    const descripcionVacia = values.descripcion == null || values.descripcion.length === 0;
 
     actualizar.mutate(
       {
@@ -72,10 +65,7 @@ export function RolDatosForm({ rol }: RolDatosFormProps) {
         onError: (error) => {
           if (esApiError(error)) {
             if (
-              applyServerErrors(
-                form as unknown as Parameters<typeof applyServerErrors>[0],
-                error,
-              )
+              applyServerErrors(form as unknown as Parameters<typeof applyServerErrors>[0], error)
             ) {
               return;
             }
@@ -96,78 +86,74 @@ export function RolDatosForm({ rol }: RolDatosFormProps) {
     <form
       onSubmit={form.handleSubmit(onSubmit)}
       noValidate
-      className="grid grid-cols-1 gap-4 rounded-md border bg-card p-4 max-w-3xl"
+      className="rounded-md border bg-surface-card p-4"
     >
-      {rol.esDelSistema && (
-        <div
-          role="status"
-          className="rounded-md border border-amber-300 bg-amber-50/50 px-3 py-2 text-xs text-amber-900"
-        >
-          Este rol es del sistema (seed inicial). No se puede editar ni
-          eliminar.
-        </div>
-      )}
-
-      <FormRow label="Código" hint="No editable después de creado el rol.">
-        <Input
-          value={rol.codigo}
-          readOnly
-          aria-readonly
-          className="font-mono"
-        />
-      </FormRow>
-
-      <FormRow
-        label="Nombre"
-        required
-        error={form.formState.errors.nombre?.message}
-      >
-        <Input
-          maxLength={100}
-          disabled={!editable}
-          {...form.register('nombre')}
-        />
-      </FormRow>
-
-      <FormRow
-        label="Descripción"
-        hint="Opcional. Máximo 500 caracteres."
-        error={form.formState.errors.descripcion?.message}
-      >
-        <Controller
-          name="descripcion"
-          control={form.control}
-          render={({ field }) => (
-            <Textarea
-              maxLength={500}
-              rows={3}
-              disabled={!editable}
-              value={field.value ?? ''}
-              onChange={(e) =>
-                field.onChange(
-                  e.target.value.length > 0 ? e.target.value : null,
-                )
-              }
-            />
+      <FormSeccion titulo="Datos del rol">
+        <FormCampo span={12}>
+          {rol.esDelSistema && (
+            <div
+              role="status"
+              className="rounded-md border border-line bg-warning-bg/50 px-3 py-2 text-xs text-warning-fg"
+            >
+              Este rol es del sistema (seed inicial). No se puede editar ni eliminar.
+            </div>
           )}
-        />
-      </FormRow>
+        </FormCampo>
 
-      {editable && (
-        <div className="flex flex-wrap items-center justify-end gap-2 border-t pt-3">
-          <Button
-            type="button"
-            variant="ghost"
-            onClick={() => form.reset(buildDefaults(rol))}
-            disabled={!dirty || actualizar.isPending}
+        <FormCampo span={12}>
+          <FormRow label="Código" hint="No editable después de creado el rol.">
+            <Input value={rol.codigo} readOnly aria-readonly className="font-mono" />
+          </FormRow>
+        </FormCampo>
+
+        <FormCampo span={12}>
+          <FormRow label="Nombre" required error={form.formState.errors.nombre?.message}>
+            <Input maxLength={100} disabled={!editable} {...form.register('nombre')} />
+          </FormRow>
+        </FormCampo>
+
+        <FormCampo span={12}>
+          <FormRow
+            label="Descripción"
+            hint="Opcional. Máximo 500 caracteres."
+            error={form.formState.errors.descripcion?.message}
           >
-            Descartar cambios
-          </Button>
-          <Button type="submit" disabled={!dirty || actualizar.isPending}>
-            {actualizar.isPending ? 'Guardando…' : 'Guardar cambios'}
-          </Button>
-        </div>
-      )}
+            <Controller
+              name="descripcion"
+              control={form.control}
+              render={({ field }) => (
+                <Textarea
+                  maxLength={500}
+                  rows={3}
+                  disabled={!editable}
+                  value={field.value ?? ''}
+                  onChange={(e) =>
+                    field.onChange(e.target.value.length > 0 ? e.target.value : null)
+                  }
+                />
+              )}
+            />
+          </FormRow>
+        </FormCampo>
+
+        <FormCampo span={12}>
+          {editable && (
+            <div className="flex flex-wrap items-center justify-end gap-2 border-t pt-3">
+              <Button
+                type="button"
+                variant="ghost"
+                onClick={() => form.reset(buildDefaults(rol))}
+                disabled={!dirty || actualizar.isPending}
+              >
+                Descartar cambios
+              </Button>
+              <Button type="submit" disabled={!dirty || actualizar.isPending}>
+                {actualizar.isPending ? 'Guardando…' : 'Guardar cambios'}
+              </Button>
+            </div>
+          )}
+        </FormCampo>
+      </FormSeccion>
     </form>
   );
 }
@@ -186,17 +172,15 @@ function FormRow({ label, required, hint, error, children }: FormRowProps) {
       <label className="flex items-center gap-1 text-sm font-medium">
         {label}
         {required && (
-          <span aria-hidden="true" className="text-rose-600">
+          <span aria-hidden="true" className="text-danger-fg">
             *
           </span>
         )}
       </label>
       {children}
-      {hint != null && error == null && (
-        <p className="text-xs text-muted-foreground">{hint}</p>
-      )}
+      {hint != null && error == null && <p className="text-xs text-ink-muted">{hint}</p>}
       {error != null && (
-        <p role="alert" className="text-xs text-rose-600">
+        <p role="alert" className="text-xs text-danger-fg">
           {error}
         </p>
       )}

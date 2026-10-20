@@ -1,3 +1,5 @@
+import { DialogBody } from '@/components/ui/dialog';
+import { ConfirmacionContent as AlertDialogContent } from '@/modules/administracion/components/ConfirmacionContent';
 import { useState, type ReactNode } from 'react';
 import { PowerOff, RotateCcw, Unlink } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
@@ -6,7 +8,6 @@ import {
   AlertDialog,
   AlertDialogAction,
   AlertDialogCancel,
-  AlertDialogContent,
   AlertDialogDescription,
   AlertDialogFooter,
   AlertDialogHeader,
@@ -64,16 +65,8 @@ export function FilaAsignacionSucursal({
     <li className="flex items-center justify-between gap-3 px-4 py-3">
       <div className="flex flex-wrap items-center gap-3">
         {children}
-        {activa && (
-          <Badge variant="secondary" className="bg-emerald-500/10 text-emerald-700 dark:text-emerald-400">
-            Activ{sufijo}
-          </Badge>
-        )}
-        {inactiva && (
-          <Badge variant="outline" className="text-muted-foreground">
-            Inactiv{sufijo}
-          </Badge>
-        )}
+        {activa && <Badge variant="success">Activ{sufijo}</Badge>}
+        {inactiva && <Badge variant="neutral">Inactiv{sufijo}</Badge>}
       </div>
 
       <div className="flex items-center gap-2">
@@ -84,7 +77,7 @@ export function FilaAsignacionSucursal({
             disabled={pending}
             onClick={() => setConfirmDesactivar(true)}
             aria-label={`${textoBotonDesactivar} ${etiquetaAccesible}`}
-            className="text-muted-foreground hover:text-destructive"
+            className="text-ink-muted hover:text-danger-fg"
           >
             {textoBotonDesactivar === 'Desvincular' ? (
               <Unlink className="h-4 w-4 mr-1" />
@@ -114,11 +107,15 @@ export function FilaAsignacionSucursal({
         }}
       >
         <AlertDialogContent>
-          <AlertDialogHeader>
+          <AlertDialogHeader className="px-6 pt-5 pb-3">
             <AlertDialogTitle>{tituloConfirmacion}</AlertDialogTitle>
-            <AlertDialogDescription asChild><div className="text-sm text-muted-foreground">{descripcionConfirmacion}</div></AlertDialogDescription>
           </AlertDialogHeader>
-          <AlertDialogFooter>
+          <DialogBody>
+            <AlertDialogDescription asChild>
+              <div className="text-sm text-ink-muted">{descripcionConfirmacion}</div>
+            </AlertDialogDescription>
+          </DialogBody>
+          <AlertDialogFooter className="border-t border-line-divider bg-surface-subtle px-6 py-4">
             <AlertDialogCancel disabled={desactivando}>Cancelar</AlertDialogCancel>
             <AlertDialogAction
               onClick={() => onConfirmarDesactivar(() => setConfirmDesactivar(false))}

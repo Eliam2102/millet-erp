@@ -1,3 +1,4 @@
+import { PageHeader } from '@/components/erp/PageHeader';
 import { useMemo, type ReactNode } from 'react';
 import { KeyRound, Plus } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -37,10 +38,7 @@ export function RolesLayout({ idActivo, detalle }: RolesLayoutProps) {
   const canCrear = useHasPermission(PermisosCanonicos.IdentidadRolesCrear);
   const rolesQuery = useRoles({ limit: 200 });
 
-  const items = useMemo(
-    () => rolesQuery.data?.items ?? [],
-    [rolesQuery.data],
-  );
+  const items = useMemo(() => rolesQuery.data?.items ?? [], [rolesQuery.data]);
 
   return (
     <div className="flex flex-col gap-4 md:h-[calc(100vh-3.5rem-3rem)] md:flex-row">
@@ -52,17 +50,22 @@ export function RolesLayout({ idActivo, detalle }: RolesLayoutProps) {
         aria-label="Lista de roles"
         data-print="hidden"
       >
-        <div className="flex flex-wrap items-center justify-between gap-2">
-          <h1 className="text-xl font-semibold tracking-tight">Roles</h1>
-          {canCrear && (
-            <Button size="sm" onClick={() => nuevoRol.abrir()}>
-              <Plus className="mr-1 h-4 w-4" />
-              Nuevo
-            </Button>
-          )}
-        </div>
+        <PageHeader
+          titulo={<>Roles</>}
+          descripcion={<></>}
+          acciones={
+            <>
+              {canCrear && (
+                <Button size="sm" onClick={() => nuevoRol.abrir()}>
+                  <Plus className="mr-1 h-4 w-4" />
+                  Nuevo
+                </Button>
+              )}
+            </>
+          }
+        />
 
-        <div className="flex-1 overflow-y-auto rounded-md border bg-card">
+        <div className="flex-1 overflow-y-auto rounded-md border bg-surface-card">
           <RenderLista
             query={rolesQuery}
             items={items}
@@ -88,30 +91,17 @@ export function RolesLayout({ idActivo, detalle }: RolesLayoutProps) {
 
 interface RenderListaProps {
   query: ReturnType<typeof useRoles>;
-  items: ReturnType<typeof useRoles>['data'] extends
-    | { items: infer I }
-    | undefined
-    ? I
-    : never;
+  items: ReturnType<typeof useRoles>['data'] extends { items: infer I } | undefined ? I : never;
   idActivo: string | null;
   canCrear: boolean;
   onAbrirNuevo: () => void;
 }
 
-function RenderLista({
-  query,
-  items,
-  idActivo,
-  canCrear,
-  onAbrirNuevo,
-}: RenderListaProps) {
+function RenderLista({ query, items, idActivo, canCrear, onAbrirNuevo }: RenderListaProps) {
   if (query.isLoading) {
     return (
       <div className="p-3">
-        <TableSkeleton
-          rows={6}
-          columns={[{ width: 'w-full' }, { width: 'w-full' }]}
-        />
+        <TableSkeleton rows={6} columns={[{ width: 'w-full' }, { width: 'w-full' }]} />
       </div>
     );
   }
@@ -127,9 +117,7 @@ function RenderLista({
         icon={<KeyRound className="h-10 w-10" />}
         title="Aún no hay roles."
         description={
-          canCrear
-            ? 'Crea el primero para empezar.'
-            : 'Cuando se creen, aparecerán aquí.'
+          canCrear ? 'Crea el primero para empezar.' : 'Cuando se creen, aparecerán aquí.'
         }
         action={
           canCrear ? (
@@ -148,8 +136,8 @@ function RenderLista({
 
 function PlaceholderSinSeleccion() {
   return (
-    <div className="flex h-full min-h-64 items-center justify-center rounded-md border border-dashed bg-muted/20 p-8 text-center">
-      <div className="space-y-1 text-muted-foreground">
+    <div className="flex h-full min-h-64 items-center justify-center rounded-md border border-dashed bg-surface-muted/20 p-8 text-center">
+      <div className="space-y-1 text-ink-muted">
         <KeyRound className="mx-auto h-8 w-8 opacity-50" aria-hidden="true" />
         <p className="text-sm">Selecciona un rol de la lista</p>
         <p className="text-xs">para ver sus datos, permisos y grupos.</p>

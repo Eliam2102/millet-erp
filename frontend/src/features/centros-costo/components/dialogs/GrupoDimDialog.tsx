@@ -12,10 +12,7 @@ import {
   useEditarCatalogo,
 } from '@/features/centros-costo/api/useCatalogoCrud';
 import type { GrupoDimDetalle } from '@/features/centros-costo/api/types';
-import {
-  GrupoDimSchema,
-  type GrupoDimValues,
-} from '@/features/centros-costo/schemas/catalogo';
+import { GrupoDimSchema, type GrupoDimValues } from '@/features/centros-costo/schemas/catalogo';
 import { CatalogoDialogShell } from './CatalogoDialogShell';
 import { manejarErrorDialogoCatalogo } from './catalogo-dialog-helpers';
 import { Field } from '../internal/Field';
@@ -25,9 +22,7 @@ import { Field } from '../internal/Field';
  * comparten forma (solo nombre, sin padre: los grupos son globales y
  * clasifican, no anidan). Un solo dialog parametrizado por recurso.
  */
-export type GrupoDimDialogModo =
-  | { tipo: 'crear' }
-  | { tipo: 'editar'; id: string };
+export type GrupoDimDialogModo = { tipo: 'crear' } | { tipo: 'editar'; id: string };
 
 interface GrupoDimDialogProps {
   open: boolean;
@@ -36,12 +31,7 @@ interface GrupoDimDialogProps {
   modo: GrupoDimDialogModo;
 }
 
-export function GrupoDimDialog({
-  open,
-  onOpenChange,
-  recurso,
-  modo,
-}: GrupoDimDialogProps) {
+export function GrupoDimDialog({ open, onOpenChange, recurso, modo }: GrupoDimDialogProps) {
   const conflictDialog = useConflictDialog();
   const queryClient = useQueryClient();
   const etiqueta = etiquetaNivel(
@@ -72,7 +62,10 @@ export function GrupoDimDialog({
       return;
     }
     if (modo.tipo === 'editar' && detalle.data) {
-      form.reset({ nombre: detalle.data.data.nombre }, { keepDirtyValues: cargadoEnEstaApertura.current });
+      form.reset(
+        { nombre: detalle.data.data.nombre },
+        { keepDirtyValues: cargadoEnEstaApertura.current },
+      );
       cargadoEnEstaApertura.current = true;
     }
     if (modo.tipo === 'crear') {
@@ -84,14 +77,12 @@ export function GrupoDimDialog({
   function onSubmit(values: GrupoDimValues) {
     const opciones = {
       onSuccess: () => {
-        toast.success(
-          modo.tipo === 'crear' ? `${etiqueta} creado` : `${etiqueta} actualizado`,
-        );
+        toast.success(modo.tipo === 'crear' ? `${etiqueta} creado` : `${etiqueta} actualizado`);
         onOpenChange(false);
       },
       onError: (error: unknown) =>
         manejarErrorDialogoCatalogo(error, {
-          form: form as unknown as import("@/lib/api/apply-server-errors").FormConSetError,
+          form: form as unknown as import('@/lib/api/apply-server-errors').FormConSetError,
           campoUnicidad: 'nombre',
           conflictDialog,
           queryClient,
@@ -103,6 +94,7 @@ export function GrupoDimDialog({
 
   return (
     <CatalogoDialogShell
+      size="sm"
       open={open}
       onOpenChange={onOpenChange}
       titulo={modo.tipo === 'crear' ? `Nuevo ${etiqueta}` : `Editar ${etiqueta}`}
@@ -111,7 +103,13 @@ export function GrupoDimDialog({
       onSubmit={form.handleSubmit(onSubmit)}
       submitting={crear.isPending || editar.isPending}
     >
-      <Field label="Nombre" htmlFor="grupo-nombre" full required error={form.formState.errors.nombre?.message}>
+      <Field
+        label="Nombre"
+        htmlFor="grupo-nombre"
+        full
+        required
+        error={form.formState.errors.nombre?.message}
+      >
         <Input {...form.register('nombre')} id="grupo-nombre" maxLength={100} autoFocus />
       </Field>
     </CatalogoDialogShell>
