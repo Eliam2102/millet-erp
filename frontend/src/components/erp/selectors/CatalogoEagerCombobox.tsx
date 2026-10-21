@@ -1,5 +1,6 @@
 import type { ComponentProps } from 'react';
 import { useMemo, useState, type ReactNode } from 'react';
+import { defaultFilter } from 'cmdk';
 import { Check, ChevronsUpDown, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
@@ -81,6 +82,13 @@ export interface CatalogoEagerComboboxProps<TItem extends { id: string }> {
   popoverWidthClassName?: string;
 }
 
+/** Quita acentos para que "jose" encuentre "José" (mismo criterio que ADR-0045). */
+const sinAcentos = (t: string) => t.normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+
+/** Filtro de cmdk (difuso, sin mayúsculas) que además ignora acentos. */
+const filtroSinAcentos: typeof defaultFilter = (value, search, keywords) =>
+  defaultFilter(sinAcentos(value), sinAcentos(search), keywords?.map(sinAcentos));
+
 export function CatalogoEagerCombobox<TItem extends { id: string }>({
   items,
   loading = false,
@@ -142,7 +150,7 @@ export function CatalogoEagerCombobox<TItem extends { id: string }>({
         align="start"
         className={cn('p-0', popoverWidthClassName)}
       >
-        <Command>
+        <Command filter={filtroSinAcentos}>
           <CommandInput placeholder={searchPlaceholder} />
           <CommandList>
             {loading ? (
