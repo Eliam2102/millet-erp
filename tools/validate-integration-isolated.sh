@@ -69,6 +69,11 @@ if [[ "$shared_db" == true ]]; then
     echo "--shared-db: el contenedor $pg_container no está corriendo (docker compose -f docker-compose.test.yml up -d)." >&2
     exit 2
   fi
+  # Bases de corridas que murieron sin limpiar (p. ej. kill -9): su proceso ya no existe.
+  for stale in $(docker exec "$pg_container" psql -U "$pg_user" -d postgres -At -c "SELECT datname FROM pg_database WHERE datname ~ '^millet_gate_[0-9]+$'"); do
+    kill -0 "${stale#millet_gate_}" 2>/dev/null && continue
+    docker exec "$pg_container" psql -U "$pg_user" -d postgres -c "DROP DATABASE IF EXISTS \"$stale\" WITH (FORCE)" >/dev/null 2>&1 || true
+  done
   docker exec "$pg_container" psql -U "$pg_user" -d postgres -v ON_ERROR_STOP=1 -c "CREATE DATABASE \"$pg_db\"" >/dev/null
 else
 docker run --rm -d \
