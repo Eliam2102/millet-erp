@@ -171,10 +171,10 @@ export function DetalleOrdenCompra() {
     : undefined;
 
   return (
-    <div className="flex flex-col gap-5">
+    <div className="flex flex-col gap-5 px-4 pb-10 md:px-6">
       {/* ── Sub-topbar sticky ───────────────────────────── */}
       <header
-        className="sticky top-14 z-10 md:top-0 flex flex-wrap items-center gap-3 border-b bg-surface-card py-2"
+        className="sticky top-14 z-10 md:top-0 -mx-4 flex flex-wrap items-center gap-3 border-b bg-surface-card px-4 py-3 md:-mx-6 md:px-6"
         data-print="hidden"
       >
         <div className="flex min-w-0 items-center gap-2">

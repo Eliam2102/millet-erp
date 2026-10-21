@@ -77,7 +77,13 @@ describe('<ProveedorSelector>', () => {
     // limpiarse el input tras seleccionar, la recarga (primer page) vuelve
     // vacía → el trigger debe seguir mostrando la etiqueta desde el objeto
     // seleccionado guardado, no caer al UUID.
+    let lookups = 0;
     mswServer.use(
+      // Lo elegido en esta sesión no necesita lookup por id.
+      http.get('*/api/v1/catalogos/proveedores/:id', () => {
+        lookups += 1;
+        return HttpResponse.json({});
+      }),
       http.get('*/api/v1/catalogos/proveedores', ({ request }) => {
         const clave = new URL(request.url).searchParams.get('q');
         const item = {
@@ -107,7 +113,7 @@ describe('<ProveedorSelector>', () => {
     render(<Controlled />, { wrapper: createQueryWrapper() });
 
     fireEvent.click(screen.getByRole('combobox'));
-    fireEvent.change(screen.getByPlaceholderText('Buscar por clave o nombre…'), {
+    fireEvent.change(screen.getByPlaceholderText('Buscar por clave, RFC o nombre…'), {
       target: { value: 'PROV' },
     });
     fireEvent.click(await screen.findByText('Distribuidora Lejana SA'));
@@ -115,6 +121,9 @@ describe('<ProveedorSelector>', () => {
     expect(
       await screen.findByText('PROV-777 · Distribuidora Lejana SA'),
     ).toBeInTheDocument();
+    // Deja pasar el debounce de la caja limpia y la recarga vacía.
+    await new Promise((r) => setTimeout(r, 400));
+    expect(lookups).toBe(0);
   });
 
   it('resuelve un value frío (sin selected ni initialLabel) vía lookup por id — no muestra el GUID', async () => {
@@ -160,6 +169,7 @@ describe('<ProveedorSelector>', () => {
   it.each([
     ['fragmento de nombre', 'ceros'],
     ['clave', 'PROV-555'],
+    ['RFC', 'AND9001'],
   ])('busca por %s: una sola caja consulta con ?q y renderiza', async (_n, texto) => {
     let qRecibido: string | null = null;
     mswServer.use(
