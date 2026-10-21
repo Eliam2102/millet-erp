@@ -9,7 +9,7 @@ public sealed class ModeloTests
     public void Modelo_aisla_empresa_controla_version_y_rechaza_traslados_simultaneos()
     {
         using var db=new ActivosFijosDbContext(new DbContextOptionsBuilder<ActivosFijosDbContext>().UseNpgsql("Host=invalid;Database=af_test").UseSnakeCaseNamingConvention().Options,new Empresa());
-        foreach(var type in new[]{typeof(Activo),typeof(ClaseActivo),typeof(TrasladoActivo),typeof(MovimientoValorActivo)})
+        foreach(var type in new[]{typeof(Activo),typeof(ClaseActivo),typeof(TrasladoActivo),typeof(MovimientoValorActivo),typeof(CorridaDepreciacion),typeof(OperacionLibro),typeof(ConfiguracionLibro),typeof(CargaLibro)})
         { var entity=db.Model.FindEntityType(type)!;Assert.NotEmpty(entity.GetDeclaredQueryFilters());Assert.True(entity.FindProperty("Version")!.IsConcurrencyToken);Assert.Equal("activos_fijos",entity.GetSchema()); }
         Assert.Contains(db.Model.FindEntityType(typeof(TrasladoActivo))!.GetIndexes(),x=>x.IsUnique && x.GetFilter()=="aceptado_en IS NULL");
         Assert.Contains(db.Model.FindEntityType(typeof(Activo))!.GetIndexes(),x=>x.IsUnique && x.Properties.Any(p=>p.Name=="UnidadRecepcion"));

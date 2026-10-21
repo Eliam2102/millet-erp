@@ -835,6 +835,26 @@ resource afCxpFilter 'Microsoft.ServiceBus/namespaces/topics/subscriptions/rules
  }
 }
 
+// AF-04: baja/reintegro por timbrado y cancelación de factura.
+resource afVentas 'Microsoft.ServiceBus/namespaces/topics/subscriptions@2024-01-01' = {
+ parent: facturacionEventsTopic
+ name: 'activos-fijos-ventas'
+ properties: {
+  deadLetteringOnMessageExpiration: true
+  maxDeliveryCount: 5
+  defaultMessageTimeToLive: 'P1D'
+  lockDuration: 'PT1M'
+ }
+}
+resource afVentasFilter 'Microsoft.ServiceBus/namespaces/topics/subscriptions/rules@2024-01-01' = {
+ parent: afVentas
+ name: 'EventTypeFilter'
+ properties: {
+  filterType: 'SqlFilter'
+  sqlFilter: { sqlExpression: 'user.EventType IN (\'facturacion.factura-venta.timbrada.v1\', \'facturacion.comprobante.cancelado.v1\')' }
+ }
+}
+
 // CE-06: aplica el costo puesto sin cambiar cantidades; idempotencia en Almacén.
 resource comercioExteriorAlmacenSubscription 'Microsoft.ServiceBus/namespaces/topics/subscriptions@2024-01-01' = {
   parent: comercioExteriorEventsTopic
