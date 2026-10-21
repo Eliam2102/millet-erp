@@ -28,7 +28,7 @@ public static class MatrizCampoDuenoAw
         new("Cliente", "RFC y CP fiscal", DuenoErp, "A+W solo completa si el ERP está vacío; nunca sobrescribe."),
         new("Cliente", "Teléfono y correo", DuenoErp, "A+W solo completa si el ERP está vacío."),
         new("Cliente", "Régimen, uso de CFDI, clasificación y moneda del cliente", DuenoErp, "Se conserva el ERP; A+W solo informa."),
-        new("Cliente", "RFC repetido entre clientes de A+W", DuenoAw, "No se fusionan; queda un conflicto visible con su causa."),
+        new("Cliente", "RFC repetido entre clientes de A+W", DuenoAw, "No se fusionan; queda informativo con su causa (no va a revisión) y se cuenta en el reporte de la corrida. Si la clave la tiene un cliente manual, queda conflicto pendiente."),
         new("ProductoAw", "Descripción", DuenoAw, "Se aplica A+W. Si el ERP la editó, queda conflicto pendiente hasta «Aplicar A+W»."),
         new("ProductoAw", "Unidad", DuenoAw, "Se aplica A+W si tiene equivalencia; si no, queda pendiente. Si el ERP la editó, queda conflicto pendiente hasta «Aplicar A+W»."),
         new("ProductoAw", "Medidas (variantes)", DuenoAw, "Cada medida es una variante; nunca se colapsan."),
