@@ -30,6 +30,11 @@ namespace Millet.ActivosFijos.Infrastructure.Persistence.Migrations
                         .HasColumnType("uuid")
                         .HasColumnName("id");
 
+                    b.Property<decimal>("AcumuladaCarga")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("numeric(18,2)")
+                        .HasColumnName("acumulada_carga");
+
                     b.Property<bool>("Arrendado")
                         .HasColumnType("boolean")
                         .HasColumnName("arrendado");
@@ -41,6 +46,10 @@ namespace Millet.ActivosFijos.Infrastructure.Persistence.Migrations
                     b.Property<Guid>("ClaseId")
                         .HasColumnType("uuid")
                         .HasColumnName("clase_id");
+
+                    b.Property<DateOnly?>("CorteCarga")
+                        .HasColumnType("date")
+                        .HasColumnName("corte_carga");
 
                     b.Property<DateTimeOffset>("CreatedAt")
                         .HasColumnType("timestamp with time zone")
@@ -89,6 +98,10 @@ namespace Millet.ActivosFijos.Infrastructure.Persistence.Migrations
                     b.Property<DateOnly>("FechaAdquisicion")
                         .HasColumnType("date")
                         .HasColumnName("fecha_adquisicion");
+
+                    b.Property<DateOnly?>("FechaBaja")
+                        .HasColumnType("date")
+                        .HasColumnName("fecha_baja");
 
                     b.Property<string>("Importacion")
                         .IsRequired()
@@ -214,6 +227,70 @@ namespace Millet.ActivosFijos.Infrastructure.Persistence.Migrations
                         .HasDatabaseName("ix_activos_empresa_id_recepcion_id_linea_oc_id_unidad_recepcion");
 
                     b.ToTable("activos", "activos_fijos");
+                });
+
+            modelBuilder.Entity("Millet.ActivosFijos.Domain.CargaLibro", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<DateOnly>("Corte")
+                        .HasColumnType("date")
+                        .HasColumnName("corte");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at");
+
+                    b.Property<string>("CreatedBy")
+                        .HasColumnType("text")
+                        .HasColumnName("created_by");
+
+                    b.Property<string>("CuadreJson")
+                        .IsRequired()
+                        .HasColumnType("text")
+                        .HasColumnName("cuadre_json");
+
+                    b.Property<DateTimeOffset?>("DeletedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("deleted_at");
+
+                    b.Property<Guid>("EmpresaId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("empresa_id");
+
+                    b.Property<string>("Huella")
+                        .IsRequired()
+                        .HasColumnType("text")
+                        .HasColumnName("huella");
+
+                    b.Property<DateTimeOffset>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("updated_at");
+
+                    b.Property<string>("UpdatedBy")
+                        .HasColumnType("text")
+                        .HasColumnName("updated_by");
+
+                    b.Property<int>("Version")
+                        .IsConcurrencyToken()
+                        .HasColumnType("integer")
+                        .HasColumnName("version");
+
+                    b.Property<string>("VersionArchivo")
+                        .IsRequired()
+                        .HasColumnType("text")
+                        .HasColumnName("version_archivo");
+
+                    b.HasKey("Id")
+                        .HasName("pk_cargas_libro");
+
+                    b.HasIndex("EmpresaId", "Huella", "VersionArchivo")
+                        .IsUnique()
+                        .HasDatabaseName("ix_cargas_libro_empresa_id_huella_version_archivo");
+
+                    b.ToTable("cargas_libro", "activos_fijos");
                 });
 
             modelBuilder.Entity("Millet.ActivosFijos.Domain.ClaseActivo", b =>
@@ -383,6 +460,254 @@ namespace Millet.ActivosFijos.Infrastructure.Persistence.Migrations
                         });
                 });
 
+            modelBuilder.Entity("Millet.ActivosFijos.Domain.ConfiguracionLibro", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at");
+
+                    b.Property<string>("CreatedBy")
+                        .HasColumnType("text")
+                        .HasColumnName("created_by");
+
+                    b.Property<Guid?>("CuentaPerdidaId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("cuenta_perdida_id");
+
+                    b.Property<Guid?>("CuentaRevalorizacionId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("cuenta_revalorizacion_id");
+
+                    b.Property<Guid?>("CuentaUtilidadId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("cuenta_utilidad_id");
+
+                    b.Property<Guid?>("CuentaVentaPuenteId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("cuenta_venta_puente_id");
+
+                    b.Property<DateTimeOffset?>("DeletedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("deleted_at");
+
+                    b.Property<Guid>("EmpresaId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("empresa_id");
+
+                    b.Property<bool>("RevalorizacionHabilitada")
+                        .HasColumnType("boolean")
+                        .HasColumnName("revalorizacion_habilitada");
+
+                    b.Property<DateTimeOffset>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("updated_at");
+
+                    b.Property<string>("UpdatedBy")
+                        .HasColumnType("text")
+                        .HasColumnName("updated_by");
+
+                    b.Property<int>("Version")
+                        .IsConcurrencyToken()
+                        .HasColumnType("integer")
+                        .HasColumnName("version");
+
+                    b.HasKey("Id")
+                        .HasName("pk_configuracion_libro");
+
+                    b.HasIndex("EmpresaId")
+                        .IsUnique()
+                        .HasDatabaseName("ix_configuracion_libro_empresa_id");
+
+                    b.ToTable("configuracion_libro", "activos_fijos");
+                });
+
+            modelBuilder.Entity("Millet.ActivosFijos.Domain.CorridaDepreciacion", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<bool>("Anulada")
+                        .HasColumnType("boolean")
+                        .HasColumnName("anulada");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at");
+
+                    b.Property<string>("CreatedBy")
+                        .HasColumnType("text")
+                        .HasColumnName("created_by");
+
+                    b.Property<DateTimeOffset?>("DeletedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("deleted_at");
+
+                    b.Property<Guid>("EmpresaId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("empresa_id");
+
+                    b.Property<string>("MotivoAnulacion")
+                        .HasColumnType("text")
+                        .HasColumnName("motivo_anulacion");
+
+                    b.Property<DateOnly>("Periodo")
+                        .HasColumnType("date")
+                        .HasColumnName("periodo");
+
+                    b.Property<Guid?>("PolizaId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("poliza_id");
+
+                    b.Property<int>("Revision")
+                        .HasColumnType("integer")
+                        .HasColumnName("revision");
+
+                    b.Property<DateTimeOffset>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("updated_at");
+
+                    b.Property<string>("UpdatedBy")
+                        .HasColumnType("text")
+                        .HasColumnName("updated_by");
+
+                    b.Property<int>("Version")
+                        .IsConcurrencyToken()
+                        .HasColumnType("integer")
+                        .HasColumnName("version");
+
+                    b.HasKey("Id")
+                        .HasName("pk_corridas");
+
+                    b.HasIndex("EmpresaId", "Periodo")
+                        .IsUnique()
+                        .HasDatabaseName("ix_corridas_empresa_id_periodo")
+                        .HasFilter("NOT anulada");
+
+                    b.HasIndex("EmpresaId", "Periodo", "Revision")
+                        .IsUnique()
+                        .HasDatabaseName("ix_corridas_empresa_id_periodo_revision");
+
+                    b.ToTable("corridas", "activos_fijos");
+                });
+
+            modelBuilder.Entity("Millet.ActivosFijos.Domain.DetalleDepreciacion", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<Guid>("ActivoId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("activo_id");
+
+                    b.Property<decimal>("AcumuladaAntes")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("numeric(18,2)")
+                        .HasColumnName("acumulada_antes");
+
+                    b.Property<decimal>("Base")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("numeric(18,2)")
+                        .HasColumnName("base");
+
+                    b.Property<string>("CentroCosto")
+                        .IsRequired()
+                        .HasColumnType("text")
+                        .HasColumnName("centro_costo");
+
+                    b.Property<Guid>("CentroCostoId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("centro_costo_id");
+
+                    b.Property<string>("Clase")
+                        .IsRequired()
+                        .HasColumnType("text")
+                        .HasColumnName("clase");
+
+                    b.Property<Guid>("ClaseId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("clase_id");
+
+                    b.Property<Guid>("CorridaId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("corrida_id");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at");
+
+                    b.Property<string>("CreatedBy")
+                        .HasColumnType("text")
+                        .HasColumnName("created_by");
+
+                    b.Property<DateTimeOffset?>("DeletedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("deleted_at");
+
+                    b.Property<Guid>("EmpresaId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("empresa_id");
+
+                    b.Property<string>("Equipo")
+                        .HasColumnType("text")
+                        .HasColumnName("equipo");
+
+                    b.Property<Guid?>("EquipoId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("equipo_id");
+
+                    b.Property<decimal>("Importe")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("numeric(18,2)")
+                        .HasColumnName("importe");
+
+                    b.Property<string>("Numero")
+                        .IsRequired()
+                        .HasColumnType("text")
+                        .HasColumnName("numero");
+
+                    b.Property<string>("Sucursal")
+                        .IsRequired()
+                        .HasColumnType("text")
+                        .HasColumnName("sucursal");
+
+                    b.Property<Guid>("SucursalId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("sucursal_id");
+
+                    b.Property<decimal>("Tasa")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("numeric(18,2)")
+                        .HasColumnName("tasa");
+
+                    b.Property<DateTimeOffset>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("updated_at");
+
+                    b.Property<string>("UpdatedBy")
+                        .HasColumnType("text")
+                        .HasColumnName("updated_by");
+
+                    b.Property<int>("Version")
+                        .IsConcurrencyToken()
+                        .HasColumnType("integer")
+                        .HasColumnName("version");
+
+                    b.HasKey("Id")
+                        .HasName("pk_depreciaciones");
+
+                    b.HasIndex("CorridaId", "ActivoId")
+                        .IsUnique()
+                        .HasDatabaseName("ix_depreciaciones_corrida_id_activo_id");
+
+                    b.ToTable("depreciaciones", "activos_fijos");
+                });
+
             modelBuilder.Entity("Millet.ActivosFijos.Domain.FacturaActivo", b =>
                 {
                     b.Property<Guid>("Id")
@@ -533,6 +858,101 @@ namespace Millet.ActivosFijos.Infrastructure.Persistence.Migrations
                         .HasDatabaseName("ix_movimientos_valor_activo_id_documento_id");
 
                     b.ToTable("movimientos_valor", "activos_fijos");
+                });
+
+            modelBuilder.Entity("Millet.ActivosFijos.Domain.OperacionLibro", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<Guid>("ActivoId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("activo_id");
+
+                    b.Property<bool>("Anulada")
+                        .HasColumnType("boolean")
+                        .HasColumnName("anulada");
+
+                    b.Property<Guid?>("AutorizadoPor")
+                        .HasColumnType("uuid")
+                        .HasColumnName("autorizado_por");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at");
+
+                    b.Property<string>("CreatedBy")
+                        .HasColumnType("text")
+                        .HasColumnName("created_by");
+
+                    b.Property<DateTimeOffset?>("DeletedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("deleted_at");
+
+                    b.Property<Guid>("EmpresaId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("empresa_id");
+
+                    b.Property<string>("Evidencia")
+                        .HasColumnType("text")
+                        .HasColumnName("evidencia");
+
+                    b.Property<Guid?>("FacturaId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("factura_id");
+
+                    b.Property<DateOnly>("Fecha")
+                        .HasColumnType("date")
+                        .HasColumnName("fecha");
+
+                    b.Property<decimal>("Importe")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("numeric(18,2)")
+                        .HasColumnName("importe");
+
+                    b.Property<string>("Motivo")
+                        .IsRequired()
+                        .HasColumnType("text")
+                        .HasColumnName("motivo");
+
+                    b.Property<Guid?>("PolizaId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("poliza_id");
+
+                    b.Property<Guid>("RegistradoPor")
+                        .HasColumnType("uuid")
+                        .HasColumnName("registrado_por");
+
+                    b.Property<string>("Tipo")
+                        .IsRequired()
+                        .HasColumnType("text")
+                        .HasColumnName("tipo");
+
+                    b.Property<DateTimeOffset>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("updated_at");
+
+                    b.Property<string>("UpdatedBy")
+                        .HasColumnType("text")
+                        .HasColumnName("updated_by");
+
+                    b.Property<int>("Version")
+                        .IsConcurrencyToken()
+                        .HasColumnType("integer")
+                        .HasColumnName("version");
+
+                    b.HasKey("Id")
+                        .HasName("pk_operaciones_libro");
+
+                    b.HasIndex("ActivoId")
+                        .HasDatabaseName("ix_operaciones_libro_activo_id");
+
+                    b.HasIndex("EmpresaId", "FacturaId")
+                        .IsUnique()
+                        .HasDatabaseName("ix_operaciones_libro_empresa_id_factura_id");
+
+                    b.ToTable("operaciones_libro", "activos_fijos");
                 });
 
             modelBuilder.Entity("Millet.ActivosFijos.Domain.SecuenciaActivo", b =>
@@ -745,6 +1165,16 @@ namespace Millet.ActivosFijos.Infrastructure.Persistence.Migrations
                         .HasConstraintName("fk_activos_clases_clase_id");
                 });
 
+            modelBuilder.Entity("Millet.ActivosFijos.Domain.DetalleDepreciacion", b =>
+                {
+                    b.HasOne("Millet.ActivosFijos.Domain.CorridaDepreciacion", null)
+                        .WithMany("Detalles")
+                        .HasForeignKey("CorridaId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired()
+                        .HasConstraintName("fk_depreciaciones_corridas_corrida_id");
+                });
+
             modelBuilder.Entity("Millet.ActivosFijos.Domain.MovimientoValorActivo", b =>
                 {
                     b.HasOne("Millet.ActivosFijos.Domain.Activo", null)
@@ -753,6 +1183,16 @@ namespace Millet.ActivosFijos.Infrastructure.Persistence.Migrations
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired()
                         .HasConstraintName("fk_movimientos_valor_activos_activo_id");
+                });
+
+            modelBuilder.Entity("Millet.ActivosFijos.Domain.OperacionLibro", b =>
+                {
+                    b.HasOne("Millet.ActivosFijos.Domain.Activo", null)
+                        .WithMany()
+                        .HasForeignKey("ActivoId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired()
+                        .HasConstraintName("fk_operaciones_libro_activos_activo_id");
                 });
 
             modelBuilder.Entity("Millet.ActivosFijos.Domain.TrasladoActivo", b =>
@@ -848,6 +1288,11 @@ namespace Millet.ActivosFijos.Infrastructure.Persistence.Migrations
                     b.Navigation("Historial");
 
                     b.Navigation("Traslados");
+                });
+
+            modelBuilder.Entity("Millet.ActivosFijos.Domain.CorridaDepreciacion", b =>
+                {
+                    b.Navigation("Detalles");
                 });
 #pragma warning restore 612, 618
         }

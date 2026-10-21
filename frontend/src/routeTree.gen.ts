@@ -47,7 +47,12 @@ import { Route as AppAlmacenAsignacionesRouteImport } from './routes/_app/almace
 import { Route as AppAlmacenAlmacenesRouteImport } from './routes/_app/almacen/almacenes';
 import { Route as AppAdminMiEmpresaRouteImport } from './routes/_app/admin/mi-empresa';
 import { Route as AppActivosFijosPorCapitalizarRouteImport } from './routes/_app/activos-fijos/por-capitalizar';
+import { Route as AppActivosFijosLibroRouteImport } from './routes/_app/activos-fijos/libro';
+import { Route as AppActivosFijosDepreciacionRouteImport } from './routes/_app/activos-fijos/depreciacion';
+import { Route as AppActivosFijosConfiguracionLibroRouteImport } from './routes/_app/activos-fijos/configuracion-libro';
+import { Route as AppActivosFijosConciliacionRouteImport } from './routes/_app/activos-fijos/conciliacion';
 import { Route as AppActivosFijosClasesRouteImport } from './routes/_app/activos-fijos/clases';
+import { Route as AppActivosFijosCargaInicialRouteImport } from './routes/_app/activos-fijos/carga-inicial';
 import { Route as AppTesoreriaReppIndexRouteImport } from './routes/_app/tesoreria/repp/index';
 import { Route as AppTesoreriaPagosIndexRouteImport } from './routes/_app/tesoreria/pagos/index';
 import { Route as AppTesoreriaPagosCuentaIndexRouteImport } from './routes/_app/tesoreria/pagos-cuenta/index';
@@ -394,11 +399,40 @@ const AppActivosFijosPorCapitalizarRoute =
     path: '/activos-fijos/por-capitalizar',
     getParentRoute: () => AppRoute,
   } as any);
+const AppActivosFijosLibroRoute = AppActivosFijosLibroRouteImport.update({
+  id: '/activos-fijos/libro',
+  path: '/activos-fijos/libro',
+  getParentRoute: () => AppRoute,
+} as any);
+const AppActivosFijosDepreciacionRoute =
+  AppActivosFijosDepreciacionRouteImport.update({
+    id: '/activos-fijos/depreciacion',
+    path: '/activos-fijos/depreciacion',
+    getParentRoute: () => AppRoute,
+  } as any);
+const AppActivosFijosConfiguracionLibroRoute =
+  AppActivosFijosConfiguracionLibroRouteImport.update({
+    id: '/activos-fijos/configuracion-libro',
+    path: '/activos-fijos/configuracion-libro',
+    getParentRoute: () => AppRoute,
+  } as any);
+const AppActivosFijosConciliacionRoute =
+  AppActivosFijosConciliacionRouteImport.update({
+    id: '/activos-fijos/conciliacion',
+    path: '/activos-fijos/conciliacion',
+    getParentRoute: () => AppRoute,
+  } as any);
 const AppActivosFijosClasesRoute = AppActivosFijosClasesRouteImport.update({
   id: '/activos-fijos/clases',
   path: '/activos-fijos/clases',
   getParentRoute: () => AppRoute,
 } as any);
+const AppActivosFijosCargaInicialRoute =
+  AppActivosFijosCargaInicialRouteImport.update({
+    id: '/activos-fijos/carga-inicial',
+    path: '/activos-fijos/carga-inicial',
+    getParentRoute: () => AppRoute,
+  } as any);
 const AppTesoreriaReppIndexRoute = AppTesoreriaReppIndexRouteImport.update({
   id: '/tesoreria/repp/',
   path: '/tesoreria/repp/',
@@ -1233,7 +1267,12 @@ const AppAdminCatalogosMonedasIdRoute =
 export interface FileRoutesByFullPath {
   '/': typeof AppIndexRoute;
   '/login': typeof LoginRoute;
+  '/activos-fijos/carga-inicial': typeof AppActivosFijosCargaInicialRoute;
   '/activos-fijos/clases': typeof AppActivosFijosClasesRoute;
+  '/activos-fijos/conciliacion': typeof AppActivosFijosConciliacionRoute;
+  '/activos-fijos/configuracion-libro': typeof AppActivosFijosConfiguracionLibroRoute;
+  '/activos-fijos/depreciacion': typeof AppActivosFijosDepreciacionRoute;
+  '/activos-fijos/libro': typeof AppActivosFijosLibroRoute;
   '/activos-fijos/por-capitalizar': typeof AppActivosFijosPorCapitalizarRoute;
   '/admin/mi-empresa': typeof AppAdminMiEmpresaRoute;
   '/almacen/almacenes': typeof AppAlmacenAlmacenesRoute;
@@ -1421,7 +1460,12 @@ export interface FileRoutesByFullPath {
 export interface FileRoutesByTo {
   '/login': typeof LoginRoute;
   '/': typeof AppIndexRoute;
+  '/activos-fijos/carga-inicial': typeof AppActivosFijosCargaInicialRoute;
   '/activos-fijos/clases': typeof AppActivosFijosClasesRoute;
+  '/activos-fijos/conciliacion': typeof AppActivosFijosConciliacionRoute;
+  '/activos-fijos/configuracion-libro': typeof AppActivosFijosConfiguracionLibroRoute;
+  '/activos-fijos/depreciacion': typeof AppActivosFijosDepreciacionRoute;
+  '/activos-fijos/libro': typeof AppActivosFijosLibroRoute;
   '/activos-fijos/por-capitalizar': typeof AppActivosFijosPorCapitalizarRoute;
   '/admin/mi-empresa': typeof AppAdminMiEmpresaRoute;
   '/almacen/almacenes': typeof AppAlmacenAlmacenesRoute;
@@ -1611,7 +1655,12 @@ export interface FileRoutesById {
   '/_app': typeof AppRouteWithChildren;
   '/login': typeof LoginRoute;
   '/_app/': typeof AppIndexRoute;
+  '/_app/activos-fijos/carga-inicial': typeof AppActivosFijosCargaInicialRoute;
   '/_app/activos-fijos/clases': typeof AppActivosFijosClasesRoute;
+  '/_app/activos-fijos/conciliacion': typeof AppActivosFijosConciliacionRoute;
+  '/_app/activos-fijos/configuracion-libro': typeof AppActivosFijosConfiguracionLibroRoute;
+  '/_app/activos-fijos/depreciacion': typeof AppActivosFijosDepreciacionRoute;
+  '/_app/activos-fijos/libro': typeof AppActivosFijosLibroRoute;
   '/_app/activos-fijos/por-capitalizar': typeof AppActivosFijosPorCapitalizarRoute;
   '/_app/admin/mi-empresa': typeof AppAdminMiEmpresaRoute;
   '/_app/almacen/almacenes': typeof AppAlmacenAlmacenesRoute;
@@ -1801,7 +1850,12 @@ export interface FileRouteTypes {
   fullPaths:
     | '/'
     | '/login'
+    | '/activos-fijos/carga-inicial'
     | '/activos-fijos/clases'
+    | '/activos-fijos/conciliacion'
+    | '/activos-fijos/configuracion-libro'
+    | '/activos-fijos/depreciacion'
+    | '/activos-fijos/libro'
     | '/activos-fijos/por-capitalizar'
     | '/admin/mi-empresa'
     | '/almacen/almacenes'
@@ -1989,7 +2043,12 @@ export interface FileRouteTypes {
   to:
     | '/login'
     | '/'
+    | '/activos-fijos/carga-inicial'
     | '/activos-fijos/clases'
+    | '/activos-fijos/conciliacion'
+    | '/activos-fijos/configuracion-libro'
+    | '/activos-fijos/depreciacion'
+    | '/activos-fijos/libro'
     | '/activos-fijos/por-capitalizar'
     | '/admin/mi-empresa'
     | '/almacen/almacenes'
@@ -2178,7 +2237,12 @@ export interface FileRouteTypes {
     | '/_app'
     | '/login'
     | '/_app/'
+    | '/_app/activos-fijos/carga-inicial'
     | '/_app/activos-fijos/clases'
+    | '/_app/activos-fijos/conciliacion'
+    | '/_app/activos-fijos/configuracion-libro'
+    | '/_app/activos-fijos/depreciacion'
+    | '/_app/activos-fijos/libro'
     | '/_app/activos-fijos/por-capitalizar'
     | '/_app/admin/mi-empresa'
     | '/_app/almacen/almacenes'
@@ -2637,11 +2701,46 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppActivosFijosPorCapitalizarRouteImport;
       parentRoute: typeof AppRoute;
     };
+    '/_app/activos-fijos/libro': {
+      id: '/_app/activos-fijos/libro';
+      path: '/activos-fijos/libro';
+      fullPath: '/activos-fijos/libro';
+      preLoaderRoute: typeof AppActivosFijosLibroRouteImport;
+      parentRoute: typeof AppRoute;
+    };
+    '/_app/activos-fijos/depreciacion': {
+      id: '/_app/activos-fijos/depreciacion';
+      path: '/activos-fijos/depreciacion';
+      fullPath: '/activos-fijos/depreciacion';
+      preLoaderRoute: typeof AppActivosFijosDepreciacionRouteImport;
+      parentRoute: typeof AppRoute;
+    };
+    '/_app/activos-fijos/configuracion-libro': {
+      id: '/_app/activos-fijos/configuracion-libro';
+      path: '/activos-fijos/configuracion-libro';
+      fullPath: '/activos-fijos/configuracion-libro';
+      preLoaderRoute: typeof AppActivosFijosConfiguracionLibroRouteImport;
+      parentRoute: typeof AppRoute;
+    };
+    '/_app/activos-fijos/conciliacion': {
+      id: '/_app/activos-fijos/conciliacion';
+      path: '/activos-fijos/conciliacion';
+      fullPath: '/activos-fijos/conciliacion';
+      preLoaderRoute: typeof AppActivosFijosConciliacionRouteImport;
+      parentRoute: typeof AppRoute;
+    };
     '/_app/activos-fijos/clases': {
       id: '/_app/activos-fijos/clases';
       path: '/activos-fijos/clases';
       fullPath: '/activos-fijos/clases';
       preLoaderRoute: typeof AppActivosFijosClasesRouteImport;
+      parentRoute: typeof AppRoute;
+    };
+    '/_app/activos-fijos/carga-inicial': {
+      id: '/_app/activos-fijos/carga-inicial';
+      path: '/activos-fijos/carga-inicial';
+      fullPath: '/activos-fijos/carga-inicial';
+      preLoaderRoute: typeof AppActivosFijosCargaInicialRouteImport;
       parentRoute: typeof AppRoute;
     };
     '/_app/tesoreria/repp/': {
@@ -3702,7 +3801,12 @@ const AppAlmacenInventariosIdRouteWithChildren =
 
 interface AppRouteChildren {
   AppIndexRoute: typeof AppIndexRoute;
+  AppActivosFijosCargaInicialRoute: typeof AppActivosFijosCargaInicialRoute;
   AppActivosFijosClasesRoute: typeof AppActivosFijosClasesRoute;
+  AppActivosFijosConciliacionRoute: typeof AppActivosFijosConciliacionRoute;
+  AppActivosFijosConfiguracionLibroRoute: typeof AppActivosFijosConfiguracionLibroRoute;
+  AppActivosFijosDepreciacionRoute: typeof AppActivosFijosDepreciacionRoute;
+  AppActivosFijosLibroRoute: typeof AppActivosFijosLibroRoute;
   AppActivosFijosPorCapitalizarRoute: typeof AppActivosFijosPorCapitalizarRoute;
   AppAdminMiEmpresaRoute: typeof AppAdminMiEmpresaRoute;
   AppAlmacenAlmacenesRoute: typeof AppAlmacenAlmacenesRoute;
@@ -3888,7 +3992,13 @@ interface AppRouteChildren {
 
 const AppRouteChildren: AppRouteChildren = {
   AppIndexRoute: AppIndexRoute,
+  AppActivosFijosCargaInicialRoute: AppActivosFijosCargaInicialRoute,
   AppActivosFijosClasesRoute: AppActivosFijosClasesRoute,
+  AppActivosFijosConciliacionRoute: AppActivosFijosConciliacionRoute,
+  AppActivosFijosConfiguracionLibroRoute:
+    AppActivosFijosConfiguracionLibroRoute,
+  AppActivosFijosDepreciacionRoute: AppActivosFijosDepreciacionRoute,
+  AppActivosFijosLibroRoute: AppActivosFijosLibroRoute,
   AppActivosFijosPorCapitalizarRoute: AppActivosFijosPorCapitalizarRoute,
   AppAdminMiEmpresaRoute: AppAdminMiEmpresaRoute,
   AppAlmacenAlmacenesRoute: AppAlmacenAlmacenesRoute,

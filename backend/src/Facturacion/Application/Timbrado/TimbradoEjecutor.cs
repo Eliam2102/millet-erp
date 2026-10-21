@@ -40,6 +40,14 @@ public static class TimbradoEjecutor
         DateTimeOffset ahora,
         CancellationToken cancellationToken)
     {
+        if (comprobante is Millet.Facturacion.Domain.Facturas.FacturaVenta venta
+            && venta.ComportamientoFiscal == Millet.Facturacion.Domain.Facturas.ComportamientoFiscal.VentaActivoFijo)
+        {
+            var autorizacion = db.AutorizacionesVentaActivo.Local.FirstOrDefault(x => x.Id == venta.AutorizacionId)
+                ?? await db.AutorizacionesVentaActivo.SingleOrDefaultAsync(x => x.Id == venta.AutorizacionId, cancellationToken)
+                ?? throw new Millet.SharedKernel.Application.Exceptions.BusinessRuleException("AF_AUTORIZACION_REQUERIDA", "Se requiere autorización de venta.");
+            autorizacion.ValidarParaTimbrar(decimal.Round((venta.Subtotal - venta.Descuento) * (venta.TipoCambio ?? 1), 2), ahora, venta.Id);
+        }
         comprobante.MarcarTimbradoEnProceso();
         var timbre = await fiscal.TimbrarAsync(emision, cancellationToken);
 
