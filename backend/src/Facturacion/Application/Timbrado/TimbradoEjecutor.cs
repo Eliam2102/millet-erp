@@ -38,7 +38,8 @@ public static class TimbradoEjecutor
         ICfdiTimbradoPort fiscal,
         ICfdiRepositorioPort cfdiRepo,
         DateTimeOffset ahora,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken,
+        Func<CancellationToken, Task>? persistirEnProcesoAntesDelPac = null)
     {
         if (comprobante is Millet.Facturacion.Domain.Facturas.FacturaVenta venta
             && venta.ComportamientoFiscal == Millet.Facturacion.Domain.Facturas.ComportamientoFiscal.VentaActivoFijo)
@@ -49,6 +50,11 @@ public static class TimbradoEjecutor
             autorizacion.ValidarParaTimbrar(decimal.Round((venta.Subtotal - venta.Descuento) * (venta.TipoCambio ?? 1), 2), ahora, venta.Id);
         }
         comprobante.MarcarTimbradoEnProceso();
+        // 86e3t97tx: el reintento guarda aquí el estado «en proceso» ANTES del
+        // PAC; si otro reintento ya lo tomó, el guardado falla y el PAC no se
+        // llama (sin doble UUID). Las emisiones no lo usan (callback nulo).
+        if (persistirEnProcesoAntesDelPac is not null)
+            await persistirEnProcesoAntesDelPac(cancellationToken);
         var timbre = await fiscal.TimbrarAsync(emision, cancellationToken);
 
         switch (timbre.Estado)

@@ -10,7 +10,8 @@ namespace Millet.DatosMaestros.Application.Proveedores;
 /// <summary>
 /// Lista paginada enriquecida de proveedores (F-Admin-PR4.5). Filtros
 /// avanzados respecto al endpoint legacy de F7-PR1: rfc (substring),
-/// razonSocial (substring), tipoPersona, estatus. La query original en
+/// razonSocial (substring sobre razón social o nombre comercial), q (caja única:
+/// clave, RFC, razón social o nombre comercial), tipoPersona, estatus. La query original en
 /// CatalogosEndpoints solo soporta <c>clave</c>+<c>estatus</c>.
 /// </summary>
 public sealed record ListarProveedoresQuery(
@@ -19,7 +20,8 @@ public sealed record ListarProveedoresQuery(
     TipoPersonaProveedor? TipoPersona = null,
     EstatusCatalogo? Estatus = null,
     int Offset = 0,
-    int Limit = 50) : IRequest<ListarProveedoresResponse>;
+    int Limit = 50,
+    string? Q = null) : IRequest<ListarProveedoresResponse>;
 
 public sealed record ProveedorItem(
     Guid Id,
@@ -68,7 +70,24 @@ public sealed class ListarProveedoresHandler
             var aguja = query.RazonSocial;
             q = q.Where(p =>
                 PostgresFunctions.Translate(p.RazonSocial.ToLower(), PostgresFunctions.AcentosOrigen, PostgresFunctions.AcentosDestino)
-                    .Contains(PostgresFunctions.Translate(aguja.ToLower(), PostgresFunctions.AcentosOrigen, PostgresFunctions.AcentosDestino)));
+                    .Contains(PostgresFunctions.Translate(aguja.ToLower(), PostgresFunctions.AcentosOrigen, PostgresFunctions.AcentosDestino))
+                || (p.NombreComercial != null &&
+                    PostgresFunctions.Translate(p.NombreComercial.ToLower(), PostgresFunctions.AcentosOrigen, PostgresFunctions.AcentosDestino)
+                        .Contains(PostgresFunctions.Translate(aguja.ToLower(), PostgresFunctions.AcentosOrigen, PostgresFunctions.AcentosDestino))));
+        }
+        // Q = caja única: códigos (clave, RFC) con lower(); textos libres con
+        // folding (ADR-0045). AND con los demás filtros.
+        if (!string.IsNullOrWhiteSpace(query.Q))
+        {
+            var busqueda = query.Q.Trim();
+            q = q.Where(p =>
+                p.Clave.ToLower().Contains(busqueda.ToLower())
+                || p.Rfc.ToLower().Contains(busqueda.ToLower())
+                || PostgresFunctions.Translate(p.RazonSocial.ToLower(), PostgresFunctions.AcentosOrigen, PostgresFunctions.AcentosDestino)
+                    .Contains(PostgresFunctions.Translate(busqueda.ToLower(), PostgresFunctions.AcentosOrigen, PostgresFunctions.AcentosDestino))
+                || (p.NombreComercial != null &&
+                    PostgresFunctions.Translate(p.NombreComercial.ToLower(), PostgresFunctions.AcentosOrigen, PostgresFunctions.AcentosDestino)
+                        .Contains(PostgresFunctions.Translate(busqueda.ToLower(), PostgresFunctions.AcentosOrigen, PostgresFunctions.AcentosDestino))));
         }
 #pragma warning restore CA1304, CA1311, CA1862
         if (query.TipoPersona is TipoPersonaProveedor tp)

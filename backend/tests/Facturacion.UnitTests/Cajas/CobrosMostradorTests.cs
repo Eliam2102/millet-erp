@@ -138,7 +138,7 @@ public sealed class CobrosMostradorTests
         await SembrarSesionAsync(db);
         var clienteId = Guid.NewGuid();
         var pedido = PedidoFacturable.CrearManual(Empresa, "P-1", SucursalId, clienteId, "Cliente", 1,
-            ComportamientoFiscal.MostradorInmediato, "MXN", null, null, null, Cajero);
+            ComportamientoFiscal.MostradorInmediato, "MXN", null, null, null, Cajero, Millet.Facturacion.Domain.Pedidos.ClasePedidoManual.VentaDirecta, Millet.Facturacion.Domain.Pedidos.SubtipoVentaDirecta.Servicio, null, null);
         if (pedidoExiste)
             db.PedidosFacturables.Add(pedido);
         var factura = FacturaTimbrada(1000m, pedidoFacturableId: conPedido ? pedido.Id : null);

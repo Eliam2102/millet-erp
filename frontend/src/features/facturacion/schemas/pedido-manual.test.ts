@@ -1,9 +1,14 @@
 import { describe, expect, it } from 'vitest';
 import {
+  EditarPedidoSchema,
   PedidoManualSchema,
   PedidoLineaSchema,
 } from '@/features/facturacion/schemas/pedido-manual';
-import { ComportamientoFiscal } from '@/features/facturacion/api/types';
+import {
+  ClasePedidoManual,
+  ComportamientoFiscal,
+  SubtipoVentaDirecta,
+} from '@/features/facturacion/api/types';
 
 const lineaValida = {
   productoId: null,
@@ -29,6 +34,10 @@ const pedidoValido = {
   obraNombre: null,
   comentarios: null,
   lineas: [lineaValida],
+  claseManual: ClasePedidoManual.VentaDirecta as number | null,
+  subtipoVentaDirecta: SubtipoVentaDirecta.Almacenable as number | null,
+  motivoEmergencia: null as string | null,
+  referenciaPedidoAw: null as string | null,
 };
 
 describe('PedidoLineaSchema', () => {
@@ -96,5 +105,114 @@ describe('PedidoManualSchema', () => {
   it('acepta cualquier id positivo de canal (la BD valida existencia)', () => {
     const r = PedidoManualSchema.safeParse({ ...pedidoValido, canalVenta: 999 });
     expect(r.success).toBe(true);
+  });
+});
+
+/** Rutas (path[0]) de los issues de un parse fallido. */
+function rutas(r: ReturnType<typeof PedidoManualSchema.safeParse>): string[] {
+  return r.success ? [] : r.error.issues.map((i) => String(i.path[0]));
+}
+
+describe('PedidoManualSchema · clase de pedido (F6.1)', () => {
+  it('exige la clase del pedido manual', () => {
+    const r = PedidoManualSchema.safeParse({ ...pedidoValido, claseManual: null });
+    expect(rutas(r)).toEqual(['claseManual']);
+  });
+
+  it('venta directa exige subtipo', () => {
+    const r = PedidoManualSchema.safeParse({
+      ...pedidoValido,
+      subtipoVentaDirecta: null,
+    });
+    expect(rutas(r)).toContain('subtipoVentaDirecta');
+  });
+
+  it('venta directa · Activo exige comportamiento «Venta de activo fijo»', () => {
+    const mal = PedidoManualSchema.safeParse({
+      ...pedidoValido,
+      subtipoVentaDirecta: SubtipoVentaDirecta.Activo,
+    });
+    expect(rutas(mal)).toEqual(['comportamientoFiscal']);
+    const bien = PedidoManualSchema.safeParse({
+      ...pedidoValido,
+      subtipoVentaDirecta: SubtipoVentaDirecta.Activo,
+      comportamientoFiscal: ComportamientoFiscal.VentaActivoFijo,
+    });
+    expect(bien.success).toBe(true);
+  });
+
+  it('«Venta de activo fijo» solo aplica al subtipo Activo', () => {
+    const r = PedidoManualSchema.safeParse({
+      ...pedidoValido,
+      subtipoVentaDirecta: SubtipoVentaDirecta.Servicio,
+      comportamientoFiscal: ComportamientoFiscal.VentaActivoFijo,
+    });
+    expect(rutas(r)).toEqual(['comportamientoFiscal']);
+  });
+
+  it('emergencia exige motivo y acepta referencia A+W opcional', () => {
+    const base = {
+      ...pedidoValido,
+      claseManual: ClasePedidoManual.Emergencia,
+      subtipoVentaDirecta: null,
+    };
+    expect(rutas(PedidoManualSchema.safeParse({ ...base, motivoEmergencia: '  ' }))).toEqual([
+      'motivoEmergencia',
+    ]);
+    expect(
+      PedidoManualSchema.safeParse({ ...base, motivoEmergencia: 'A+W caído' }).success,
+    ).toBe(true);
+    expect(
+      PedidoManualSchema.safeParse({
+        ...base,
+        motivoEmergencia: 'A+W caído',
+        referenciaPedidoAw: 'AW-123',
+      }).success,
+    ).toBe(true);
+  });
+
+  it('emergencia no lleva subtipo ni puede ser venta de activo fijo', () => {
+    const r = PedidoManualSchema.safeParse({
+      ...pedidoValido,
+      claseManual: ClasePedidoManual.Emergencia,
+      motivoEmergencia: 'A+W caído',
+      subtipoVentaDirecta: SubtipoVentaDirecta.Almacenable,
+    });
+    expect(rutas(r)).toContain('subtipoVentaDirecta');
+    const activo = PedidoManualSchema.safeParse({
+      ...pedidoValido,
+      claseManual: ClasePedidoManual.Emergencia,
+      motivoEmergencia: 'A+W caído',
+      subtipoVentaDirecta: null,
+      comportamientoFiscal: ComportamientoFiscal.VentaActivoFijo,
+    });
+    expect(rutas(activo)).toEqual(['comportamientoFiscal']);
+  });
+
+  it('respeta los límites de motivo (500) y referencia (50)', () => {
+    const base = {
+      ...pedidoValido,
+      claseManual: ClasePedidoManual.Emergencia,
+      subtipoVentaDirecta: null,
+    };
+    expect(
+      PedidoManualSchema.safeParse({ ...base, motivoEmergencia: 'x'.repeat(501) }).success,
+    ).toBe(false);
+    expect(
+      PedidoManualSchema.safeParse({
+        ...base,
+        motivoEmergencia: 'ok',
+        referenciaPedidoAw: 'x'.repeat(51),
+      }).success,
+    ).toBe(false);
+  });
+
+  it('la edición aplica las mismas reglas de clase', () => {
+    const edicion: Record<string, unknown> = { ...pedidoValido };
+    delete edicion.sucursalId;
+    delete edicion.numeroPedido;
+    expect(EditarPedidoSchema.safeParse(edicion).success).toBe(true);
+    const r = EditarPedidoSchema.safeParse({ ...edicion, claseManual: null });
+    expect(r.success).toBe(false);
   });
 });

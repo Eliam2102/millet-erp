@@ -914,6 +914,14 @@ const moduloFacturacion: NavModulo = {
           icon: BarChart3,
           permission: PermisosCanonicos.FacturacionReportesLeer,
         },
+        {
+          label: 'Comparativa de anticipos',
+          description:
+            'Anticipos contra sus aplicaciones: factura final, CFDI de egreso 07 y saldo a una fecha de corte.',
+          to: '/facturacion/reportes/comparativa-anticipos',
+          icon: Scale,
+          permission: PermisosCanonicos.FacturacionReportesLeer,
+        },
       ],
     },
   ],
@@ -1023,6 +1031,13 @@ const comercioExterior: NavModulo = {
           label: 'Expedientes',
           description: 'Importaciones, exportaciones y documentos con versión.',
           to: '/comercio-exterior/expedientes',
+          icon: FileText,
+          permission: PermisosCanonicos.ComercioExteriorExpedientesLeer,
+        },
+        {
+          label: 'Incidencias',
+          description: 'Incidencias pendientes, seguimiento y antigüedad.',
+          to: '/comercio-exterior/incidencias',
           icon: FileText,
           permission: PermisosCanonicos.ComercioExteriorExpedientesLeer,
         },

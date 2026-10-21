@@ -38,6 +38,7 @@ export function HitosPanel({ data }: { data: ExpedienteDetalle }) {
                   {h.fechaReal ? '✓' : h.omitido ? '—' : '!'}
                 </span>
                 {h.orden}. {h.nombre}
+                {h.conIncidencia && <Badge variant="danger">Con incidencia</Badge>}
               </h3>
               <Badge
                 variant={

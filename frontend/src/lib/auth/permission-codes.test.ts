@@ -263,6 +263,7 @@ const CODIGOS_BACKEND_ESPERADOS = new Set<string>([
   'facturacion.pedidos.importar',
   'facturacion.pedidos.capturar',
   'facturacion.pedidos.excepciones-resolver',
+  'facturacion.pedidos.capturar-emergencia',
   'facturacion.facturas.emitir',
   'facturacion.facturas.leer',
   'facturacion.facturas.editar-receptor',
@@ -327,6 +328,7 @@ const CODIGOS_BACKEND_ESPERADOS = new Set<string>([
   'comercio_exterior.expedientes.leer',
   'comercio_exterior.expedientes.contenedores-gestionar',
   'comercio_exterior.relacion-iva.leer',
+  'comercio_exterior.incidencias.gestionar',
   'comercio_exterior.expedientes.crear',
   'comercio_exterior.expedientes.editar',
   'comercio_exterior.expedientes.cancelar',
@@ -338,7 +340,9 @@ const CODIGOS_BACKEND_ESPERADOS = new Set<string>([
   'comercio_exterior.expedientes.adjuntos-baja',
   'comercio_exterior.documentos.leer-todas-sucursales',
   'comercio_exterior.documentos.gestionar-todas-sucursales',
-
+  'comercio_exterior.gastos.registrar',
+  'comercio_exterior.gastos.distribuir',
+  'comercio_exterior.anticipos.gestionar',
 ]);
 
 describe('PermisosCanonicos — coincidencia con backend', () => {

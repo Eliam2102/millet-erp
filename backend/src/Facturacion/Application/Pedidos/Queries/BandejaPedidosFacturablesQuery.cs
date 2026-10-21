@@ -10,13 +10,16 @@ namespace Millet.Facturacion.Application.Pedidos.Queries;
 /// Bandeja de pedidos facturables (§7.2 diseño), con filtros y paginación.
 /// CAJAS-PR2: filtrada por la Capa A de Cajas; <paramref name="SoloSinAsignar"/>
 /// restringe al bucket "Sin asignar" (requiere <c>facturacion.caja.leer-todas</c>).
+/// F6.1: <paramref name="Clase"/> filtra los pedidos manuales por clase
+/// (venta directa / emergencia).
 /// </summary>
 public sealed record BandejaPedidosFacturablesQuery(
     EstadoPedidoFacturable? Estado,
     OrigenPedido? Origen,
     int Offset,
     int Limit,
-    bool SoloSinAsignar = false) : IRequest<BandejaPedidosFacturablesResponse>;
+    bool SoloSinAsignar = false,
+    ClasePedidoManual? Clase = null) : IRequest<BandejaPedidosFacturablesResponse>;
 
 public sealed record BandejaPedidosFacturablesResponse(
     IReadOnlyList<PedidoBandejaItem> Items,
@@ -30,7 +33,11 @@ public sealed record PedidoBandejaItem(
     string ClienteNombre,
     decimal Total,
     string Moneda,
-    DateTimeOffset CreatedAt);
+    DateTimeOffset CreatedAt,
+    // F6.1: clasificación del pedido manual (null fuera de Manual o legacy).
+    string? ClaseManual = null,
+    string? SubtipoVentaDirecta = null,
+    bool EsEmergencia = false);
 
 public sealed class BandejaPedidosFacturablesHandler
     : IRequestHandler<BandejaPedidosFacturablesQuery, BandejaPedidosFacturablesResponse>
@@ -54,6 +61,8 @@ public sealed class BandejaPedidosFacturablesHandler
         var q = _db.PedidosFacturables.AsNoTracking();
         if (query.Estado is { } estado) q = q.Where(p => p.Estado == estado);
         if (query.Origen is { } origen) q = q.Where(p => p.Origen == origen);
+        if (query.Clase is { } clase)
+            q = q.Where(p => p.Origen == OrigenPedido.Manual && p.ClaseManual == clase);
 
         (q, var sinAsignarCount) = await AlcanceBandejaHelper.AplicarAsync(
             _alcance, q, query.SoloSinAsignar, cancellationToken);
@@ -62,13 +71,19 @@ public sealed class BandejaPedidosFacturablesHandler
             .OrderByDescending(p => p.CreatedAt)
             .Skip(offset)
             .Take(limit)
-            .Select(p => new { p.Id, p.NumeroPedido, p.Origen, p.Estado, p.ClienteNombre, p.Total, p.Moneda, p.CreatedAt })
+            .Select(p => new
+            {
+                p.Id, p.NumeroPedido, p.Origen, p.Estado, p.ClienteNombre, p.Total, p.Moneda, p.CreatedAt,
+                p.ClaseManual, p.SubtipoVentaDirecta,
+            })
             .ToListAsync(cancellationToken);
 
         var items = rows
             .Select(r => new PedidoBandejaItem(
                 r.Id, r.NumeroPedido, r.Origen.ToString(), r.Estado.ToString(),
-                r.ClienteNombre, r.Total, r.Moneda, r.CreatedAt))
+                r.ClienteNombre, r.Total, r.Moneda, r.CreatedAt,
+                r.ClaseManual?.ToString(), r.SubtipoVentaDirecta?.ToString(),
+                r.Origen == OrigenPedido.Manual && r.ClaseManual == ClasePedidoManual.Emergencia))
             .ToList();
 
         return new BandejaPedidosFacturablesResponse(items, sinAsignarCount);
