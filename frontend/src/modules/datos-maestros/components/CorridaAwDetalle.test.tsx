@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { http, HttpResponse } from 'msw';
 import { mswServer } from '@/test/mocks/server';
 import { createQueryWrapper } from '@/test/test-query-client';
@@ -34,14 +34,14 @@ function ejecucion(resumenProductos: string | null) {
   };
 }
 
-function arrancar(resumenProductos: string | null) {
+function arrancar(resumenProductos: string | null, conflictos: unknown[] = []) {
   mswServer.use(
     http.get('*/clientes/sincronizacion/ejecuciones/*', () => HttpResponse.json(ejecucion(resumenProductos))),
     http.get('*/integraciones/aw/origen', () => HttpResponse.json({
       origen: 'Real', permitido: false, demoConfigurada: false, origenClientesReal: 'Real', origenProductosReal: 'Real',
       cambiadoPor: null, cambiadoEn: null, version: 1,
     })),
-    http.get('*/conflictos-aw', () => HttpResponse.json([])),
+    http.get('*/conflictos-aw', () => HttpResponse.json(conflictos)),
     http.get(`*/sincronizacion-aw/corridas/${ID}/diferencias`, () => HttpResponse.json(reporte)),
   );
   render(<CorridaAwDetalle id={ID} />, { wrapper: createQueryWrapper() });
@@ -73,6 +73,18 @@ describe('<CorridaAwDetalle>', () => {
     expect(enviado.titulo).toBe(reporte.titulo);
     expect(enviado.filas).toEqual(reporte.filas);
     expect(nombre).toBe('diferencias-aw-0190aaaa.xlsx');
+  });
+
+  it('el RFC repetido entre clientes de A+W se muestra como Informativo, no como Resuelto', async () => {
+    arrancar(null, [{
+      id: 'c1', tipoEntidad: 'Cliente', entidadId: null, referenciaExterna: '62', campo: 'RFC repetido entre clientes de A+W',
+      valorAntes: 'AW-61', valorDespues: 'DEMO010101AB1', dueno: 'AW', tipo: 'RfcCompartido', estado: 'Informativo',
+      causa: 'Dos clientes de A+W con la misma clave fiscal.', versionEvento: 'h', versionMatriz: '0-propuesta',
+      ejecucionId: ID, ocurridoEnUtc: '2026-10-17T10:00:00Z', resolucion: null, version: 1,
+    }]);
+    const tabla = await screen.findByRole('region', { name: 'Conflictos de esta corrida' });
+    expect((await within(tabla).findAllByText('Informativo')).length).toBeGreaterThan(0);
+    expect(within(tabla).queryByText('Resuelto')).not.toBeInTheDocument();
   });
 
   it('un resumen de productos con error se anuncia con role alert', async () => {

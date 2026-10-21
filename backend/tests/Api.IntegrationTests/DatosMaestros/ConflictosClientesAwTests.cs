@@ -49,11 +49,11 @@ public sealed class ConflictosClientesAwTests(WebApplicationFactory<Program> fac
     [Theory]
     [InlineData(false)]
     [InlineData(true)]
-    public async Task Mismo_rfc_en_dos_clientes_aw_crea_ambos_y_un_conflicto_pendiente_sin_duplicarse(bool modoReal)
+    public async Task Mismo_rfc_en_dos_clientes_aw_crea_ambos_y_un_registro_informativo_sin_duplicarse(bool modoReal)
     {
         var (r1, r2) = await DosClientesAsync(modoReal);
         var c = Assert.Single(await Conflictos(r2));
-        Assert.Equal(EstadoCambioMaestroAw.Pendiente, c.Estado);
+        Assert.Equal(EstadoCambioMaestroAw.Informativo, c.Estado); // entre clientes de A+W no va a revisión (doc 05 §10.8)
         Assert.Contains(r2, c.Causa);
         Assert.Contains("AW-" + r1, c.Causa);
 
@@ -70,7 +70,7 @@ public sealed class ConflictosClientesAwTests(WebApplicationFactory<Program> fac
     [Theory]
     [InlineData(false)]
     [InlineData(true)]
-    public async Task Al_actualizar_un_cliente_aw_con_un_rfc_ocupado_por_otro_aw_registra_conflicto_y_no_fusiona(bool modoReal)
+    public async Task Al_actualizar_un_cliente_aw_con_un_rfc_ocupado_por_otro_aw_registra_informativo_y_no_fusiona(bool modoReal)
     {
         var rfc = NuevoRfc(); var r1 = NuevaRef(); var r2 = NuevaRef();
         string Ust() => $"{rfc[..3]}-{rfc[3..9]}-{rfc[9..]}";
@@ -83,7 +83,7 @@ public sealed class ConflictosClientesAwTests(WebApplicationFactory<Program> fac
         Assert.Equal(b.Cliente!.Id, actualizado.Cliente!.Id); Assert.NotEqual(a.Cliente!.Id, actualizado.Cliente.Id);
         Assert.Null(actualizado.Cliente.Rfc); // no se completa un RFC que ya ocupa otro cliente
         var c = Assert.Single(await Conflictos(r2));
-        Assert.Equal(EstadoCambioMaestroAw.Pendiente, c.Estado); Assert.Contains("AW-" + r1, c.Causa);
+        Assert.Equal(EstadoCambioMaestroAw.Informativo, c.Estado); Assert.Contains("AW-" + r1, c.Causa);
 
         await Aplicar((modoReal ? Snap(r2, null, Ust()) : Snap(r2, rfc)) with { LeidoEnUtc = DateTime.UtcNow.AddSeconds(3), NombreComercialOrigen = "OTRO NOMBRE" });
         Assert.Single(await Conflictos(r2));
@@ -91,6 +91,14 @@ public sealed class ConflictosClientesAwTests(WebApplicationFactory<Program> fac
 
     [Fact]
     public async Task Al_actualizar_un_cliente_aw_con_un_rfc_de_un_cliente_manual_registra_conflicto_y_no_completa_el_rfc()
+    {
+        var (r, rfc) = await ManualYAwAsync();
+        var c = Assert.Single(await Conflictos(r));
+        Assert.Equal(EstadoCambioMaestroAw.Pendiente, c.Estado); Assert.Equal(rfc, c.ValorDespues);
+    }
+
+    /// <summary>Cliente manual con un RFC y un cliente de A+W que después trae ese mismo RFC: conflicto pendiente de revisión.</summary>
+    private async Task<(string Referencia, string Rfc)> ManualYAwAsync()
     {
         var http = await UsuariosAwHttp.SuperAdminAsync(factory);
         var rfc = NuevoRfc(); var r = NuevaRef();
@@ -108,15 +116,14 @@ public sealed class ConflictosClientesAwTests(WebApplicationFactory<Program> fac
         Assert.Equal(AplicarClienteAwAccion.Actualizado, res.Accion);
         Assert.Equal(creado.Cliente!.Id, res.Cliente!.Id); Assert.NotEqual(manualId, res.Cliente.Id);
         Assert.Null(res.Cliente.Rfc);
-        var c = Assert.Single(await Conflictos(r));
-        Assert.Equal(EstadoCambioMaestroAw.Pendiente, c.Estado); Assert.Equal(rfc, c.ValorDespues);
+        return (r, rfc);
     }
 
     [Fact]
     public async Task Resolver_mantener_separados_es_204_version_vieja_409_y_aplicar_aw_422()
     {
         var http = await UsuariosAwHttp.SuperAdminAsync(factory);
-        var (_, r2) = await DosClientesAsync(false);
+        var (r2, _) = await ManualYAwAsync();
         var version = (await Conflictos(r2)).Single().Version;
         var id = (await Conflictos(r2)).Single().Id;
 
@@ -125,12 +132,16 @@ public sealed class ConflictosClientesAwTests(WebApplicationFactory<Program> fac
         Assert.Equal(EstadoCambioMaestroAw.Resuelto, resuelto.Estado); Assert.Equal("MantenerSeparados", resuelto.Resolucion);
         Assert.Equal(HttpStatusCode.Conflict, (await http.PostAsJsonAsync($"{Base}/{id}/resolver", new { resolucion = "MantenerSeparados", version })).StatusCode);
 
-        var (_, r4) = await DosClientesAsync(false);
+        var (r4, _) = await ManualYAwAsync();
         var otro = (await Conflictos(r4)).Single();
         Assert.Equal(HttpStatusCode.UnprocessableEntity, (await http.PostAsJsonAsync($"{Base}/{otro.Id}/resolver", new { resolucion = "AplicarAw", version = otro.Version })).StatusCode);
 
+        var (_, r6) = await DosClientesAsync(false);
+        var informativo = (await Conflictos(r6)).Single();
         var lista = await http.GetFromJsonAsync<JsonElement>($"{Base}?estado=Pendiente");
         Assert.Contains(lista.EnumerateArray(), e => e.GetProperty("id").GetGuid() == otro.Id);
+        Assert.DoesNotContain(lista.EnumerateArray(), e => e.GetProperty("id").GetGuid() == informativo.Id); // fuera de la bandeja
+        Assert.Equal(HttpStatusCode.UnprocessableEntity, (await http.PostAsJsonAsync($"{Base}/{informativo.Id}/resolver", new { resolucion = "MantenerSeparados", version = informativo.Version })).StatusCode);
     }
 
     [Fact]

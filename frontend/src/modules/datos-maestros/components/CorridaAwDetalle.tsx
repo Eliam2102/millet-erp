@@ -217,7 +217,7 @@ export function CorridaAwDetalle({ id }: { id: string }) {
                         </Badge>
                       </TableCell>
                       <TableCell>{c.causa}</TableCell>
-                      <TableCell>{c.estado === 'Pendiente' ? 'Pendiente' : 'Resuelto'}</TableCell>
+                      <TableCell>{c.estado}</TableCell>
                     </TableRow>
                   ))}
                 </TableBody>

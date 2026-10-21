@@ -162,7 +162,7 @@ public sealed class AplicarClienteAwService
             // Nunca dos clientes con el mismo campo RFC (también en modo demo, donde A+W sí copia el RFC). Si otro cliente ya tiene ese RFC se crea sin él (el ligado entre clientes de A+W está diferido); no cambia el hash ni el registro de origen.
             var rfcCampo = RfcCliente.Normalizar(snap.Rfc);
             var rfcOcupado = RfcCliente.EsLigable(rfcCampo) && await _db.Clientes.AnyAsync(c => c.Rfc != null && c.Rfc.Trim().ToUpper() == rfcCampo, ct);
-            // Misma clave fiscal en otro cliente de A+W: se crea igual (no se fusionan) y queda un conflicto visible (ADM-06).
+            // Misma clave fiscal en otro cliente de A+W: se crea igual (no se fusionan) y queda registrado en la bitácora y el reporte de la corrida (ADM-06, doc 05 §10.8).
             var ocupantes = rfc is null ? [] : await ClientesPorRfc.BuscarAsync(_db, [rfc], null, ct);
             var nuevo = CrearCliente(rfcOcupado ? snap with { Rfc = null } : snap);
             AplicarEstatus(nuevo, snap);
@@ -170,7 +170,7 @@ public sealed class AplicarClienteAwService
             var hash = CalcularHash(snap);
             if (ocupantes.Count > 0)
             {
-                _db.Add(ConflictoRfc(nuevo.Id, nuevo.Clave, snap, hash, rfc!, ocupantes, null));
+                _db.Add(ConflictoRfc(nuevo.Id, nuevo.Clave, snap, hash, rfc!, ocupantes, await AlgunoManualAsync(ocupantes, ct), null));
             }
             var resultado = ResultadoDe(snap);
             AplicarRegistro(registro, snap, hash, resultado);
@@ -200,14 +200,20 @@ public sealed class AplicarClienteAwService
         }
     }
 
+    /// <summary>
+    /// RFC repetido: solo va a revisión (Pendiente) si lo ocupa un cliente manual del ERP. Entre clientes de A+W es informativo:
+    /// casi todos son históricos (~1,600 en la copia real) y se informan en el reporte de la corrida (doc 05 §10.8).
+    /// </summary>
     internal static CambioMaestroAw ConflictoRfc(Guid clienteId, string claveErp, AplicarClienteAwSnapshot snap, string hash, string rfc,
-        IReadOnlyList<(string Clave, ClienteExistente Cliente)> ocupantes, string? hashAnterior)
+        IReadOnlyList<(string Clave, ClienteExistente Cliente)> ocupantes, bool conManual, string? hashAnterior)
     {
         var otros = string.Join(", ", ocupantes.Select(o => o.Cliente.Clave));
-        var causa = $"Dos clientes con la misma clave fiscal {rfc}: {claveErp} y {otros}. No se fusionan.";
+        var causa = conManual
+            ? $"Dos clientes con la misma clave fiscal {rfc}: {claveErp} y {otros}. No se fusionan."
+            : $"Dos clientes de A+W con la misma clave fiscal {rfc}: {claveErp} y {otros}. No se fusionan; informativo, no va a revisión.";
         return new CambioMaestroAw(Guid.CreateVersion7(), "Cliente", clienteId, snap.ReferenciaExterna,
             "RFC repetido entre clientes de A+W", otros, rfc, MatrizCampoDuenoAw.DuenoAw, TipoCambioMaestroAw.RfcCompartido,
-            EstadoCambioMaestroAw.Pendiente, causa.Length <= 500 ? causa : causa[..500], hash, MatrizCampoDuenoAw.Version,
+            conManual ? EstadoCambioMaestroAw.Pendiente : EstadoCambioMaestroAw.Informativo, causa.Length <= 500 ? causa : causa[..500], hash, MatrizCampoDuenoAw.Version,
             snap.EjecucionId, DateTime.UtcNow, hashAnterior);
     }
 
@@ -291,7 +297,7 @@ public sealed class AplicarClienteAwService
             var ocupantes = await ClientesPorRfc.BuscarAsync(_db, [clave], cliente.Id, ct);
             if (ocupantes.Count > 0 && !await _db.CambiosMaestrosAw.AnyAsync(c => c.TipoEntidad == "Cliente"
                     && c.ReferenciaExterna == snap.ReferenciaExterna && c.Tipo == TipoCambioMaestroAw.RfcCompartido && c.ValorDespues == clave, ct))
-                cambios.Add(ConflictoRfc(cliente.Id, cliente.Clave, snap, hash, clave, ocupantes, null));
+                cambios.Add(ConflictoRfc(cliente.Id, cliente.Clave, snap, hash, clave, ocupantes, await AlgunoManualAsync(ocupantes, ct), null));
         }
         var cpFiscal = string.IsNullOrWhiteSpace(cliente.CodigoPostalFiscal) ? Vacio(snap.CodigoPostalFiscal) : null;
         if (telefono is not null || email is not null || rfc is not null || cpFiscal is not null)
@@ -430,6 +436,12 @@ public sealed class AplicarClienteAwService
         Dif("Teléfono", s.Telefono, c.Telefono, "Solo se completa si el local está vacío.");
         Dif("Correo", s.Email, c.Email, "Solo se completa si el local está vacío.");
         return d;
+    }
+
+    private async Task<bool> AlgunoManualAsync(IReadOnlyList<(string Clave, ClienteExistente Cliente)> ocupantes, CancellationToken ct)
+    {
+        var ids = ocupantes.Select(o => o.Cliente.Id).ToList();
+        return await _db.Clientes.AnyAsync(c => ids.Contains(c.Id) && c.Origen == OrigenMaster.Manual, ct);
     }
 
     /// <summary>Clave de ligado del snapshot: RFC, o UST_ID si el RFC no sirve (M2.2).</summary>

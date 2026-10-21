@@ -123,11 +123,11 @@ La matriz campo → dueño vive en código, en `MatrizCampoDuenoAw` (`backend/sr
 | RFC y CP fiscal | ERP | A+W solo completa si el ERP está vacío; nunca sobrescribe. |
 | Teléfono y correo | ERP | A+W solo completa si el ERP está vacío. |
 | Régimen, uso de CFDI, clasificación y moneda del cliente | ERP | Se conserva el ERP; A+W solo informa. |
-| RFC repetido entre clientes de A+W | A+W | No se fusionan; queda un conflicto visible con su causa. |
+| RFC repetido entre clientes de A+W | A+W | No se fusionan; queda registrado como informativo (no va a revisión) y se cuenta en el reporte de la corrida. |
 
 Cada cambio queda en la bitácora `compartido.cambios_maestros_aw` (una fila por campo): valor antes y después, dueño, tipo (`Aplicado`, `EditadoEnErp`, `RfcCompartido`, `Baja`, `Reactivacion`), estado (`Informativo`, `Pendiente`, `Resuelto`), la versión del evento (el `HashOrigen` de lo leído), la versión de la matriz y la ejecución que lo produjo. Hay un índice único por referencia, campo, tipo y versión de evento: un reenvío o una segunda corrida con los mismos datos no duplica filas. El detalle del cliente muestra su historial.
 
-**RFC repetido entre clientes de A+W.** Si dos clientes de A+W traen la misma clave fiscal, ambos se crean y **no se fusionan**; el segundo deja un conflicto pendiente con su causa. Se resuelve con «Mantener separados», que solo marca el conflicto como revisado y no liga identidades. «Ligar a uno» queda pendiente de la respuesta a la pregunta P6 (tratamiento de referencias y saldos) con Millet.
+**RFC repetido entre clientes de A+W.** Si dos clientes de A+W traen la misma clave fiscal, ambos se crean y **no se fusionan**; el segundo deja una fila `RfcCompartido` **informativa** con su causa, que no entra a la bandeja de conflictos y aparece en el reporte de diferencias de la corrida (total `rfcRepetidosEntreAw`). Decisión del owner del 21-oct-2026 (86e3qcgyn): en la copia real son ~1,634 referencias, casi todas históricas. Solo queda **pendiente** de revisión cuando la clave la ocupa un cliente manual del ERP; ese conflicto se resuelve con «Mantener separados», que solo lo marca como revisado y no liga identidades. «Ligar a uno» queda pendiente de la respuesta a la pregunta P6 (tratamiento de referencias y saldos) con Millet.
 
 **Corrida y reporte de diferencias.** `POST /api/v1/datos-maestros/sincronizacion-aw/corridas` (requiere `datos_maestros.clientes.sincronizar` y `datos_maestros.productos-aw.gestionar`) encola el barrido de clientes y ejecuta el de productos con el mismo id de ejecución; `GET .../corridas/{id}/diferencias` devuelve el reporte en el JSON de ADR-0036 que la pantalla exporta a Excel. La corrida contra la copia local `AW_FULL` es opt-in y solo de lectura:
 
