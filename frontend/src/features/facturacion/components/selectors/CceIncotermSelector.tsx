@@ -1,5 +1,5 @@
-import { useIncoterms } from '@/features/catalogos/api';
 import { CatalogoEagerCombobox } from '@/components/erp/selectors/CatalogoEagerCombobox';
+import { useIncoterms } from '@/features/catalogos/api';
 
 /**
  * <c>&lt;CceIncotermSelector/&gt;</c> — selector de INCOTERM para el

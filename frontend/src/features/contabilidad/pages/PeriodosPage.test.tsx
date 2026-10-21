@@ -99,15 +99,21 @@ describe('<PeriodosPage>', () => {
     expect(boton).toHaveFocus();
   });
 
-  it('solo lectura: muestra los 13 periodos con su estado y sin acciones', async () => {
+  it('solo lectura: pagina los 13 periodos de diez en diez, con su estado y sin acciones', async () => {
     servidor();
     conPermisos();
     render(<PeriodosPage />, { wrapper: createQueryWrapper() });
-    expect(await screen.findByText('13 · Ajustes de auditoría')).toBeInTheDocument();
-    expect(screen.getAllByRole('row')).toHaveLength(14);
+    expect(await screen.findByText('1 · Enero')).toBeInTheDocument();
+    expect(screen.getAllByRole('row')).toHaveLength(11);
+    expect(screen.queryByText('13 · Ajustes de auditoría')).not.toBeInTheDocument();
     expect((await fila('1 · Enero')).getByText('Cerrado')).toBeInTheDocument();
     expect((await fila('2 · Febrero')).getByText('Abierto')).toBeInTheDocument();
     expect((await fila('3 · Marzo')).getByText('No abierto')).toBeInTheDocument();
+    expect((await fila('3 · Marzo')).getByText('Sin responsable')).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'Página siguiente' }));
+    expect(await screen.findByText('13 · Ajustes de auditoría')).toBeInTheDocument();
+    expect(screen.getAllByRole('row')).toHaveLength(4);
+    expect(screen.getByRole('button', { name: 'Página siguiente' })).toBeDisabled();
     for (const nombre of ['Abrir', 'Cerrar', 'Reabrir']) expect(screen.queryByRole('button', { name: nombre })).not.toBeInTheDocument();
     expect(screen.queryByRole('button', { name: /Nuevo ejercicio/ })).not.toBeInTheDocument();
   });
@@ -128,6 +134,7 @@ describe('<PeriodosPage>', () => {
     expect(screen.queryByRole('button', { name: 'Cerrar' })).not.toBeInTheDocument();
     expect(screen.getByRole('button', { name: /Nuevo ejercicio/ })).toBeInTheDocument();
     expect((await fila('3 · Marzo')).getByRole('button', { name: 'Abrir' })).toBeEnabled();
+    fireEvent.click(screen.getByRole('button', { name: 'Página siguiente' }));
     // El 13 no se abre mientras diciembre no esté cerrado; el botón explica por qué.
     expect((await fila('13 · Ajustes de auditoría')).getByRole('button', { name: 'Abrir' })).toHaveAttribute('title', expect.stringContaining('después de cerrar diciembre'));
   });
@@ -141,9 +148,9 @@ describe('<PeriodosPage>', () => {
     const dialogo = await screen.findByRole('dialog');
     const confirmar = within(dialogo).getByRole('button', { name: 'Cerrar periodo' });
     expect(confirmar).toBeDisabled();
-    fireEvent.change(within(dialogo).getByLabelText('Motivo'), { target: { value: 'corto' } });
+    fireEvent.change(within(dialogo).getByLabelText(/^Motivo(?:\s*\*)?$/), { target: { value: 'corto' } });
     expect(confirmar).toBeDisabled();
-    fireEvent.change(within(dialogo).getByLabelText('Motivo'), { target: { value: 'Cierre mensual de febrero' } });
+    fireEvent.change(within(dialogo).getByLabelText(/^Motivo(?:\s*\*)?$/), { target: { value: 'Cierre mensual de febrero' } });
     expect(confirmar).toBeEnabled();
     fireEvent.click(confirmar);
     await waitFor(() => expect(peticiones).toEqual([
@@ -203,7 +210,7 @@ describe('<PeriodosPage>', () => {
     render(<PeriodosPage />, { wrapper: createQueryWrapper() });
     fireEvent.click((await fila('1 · Enero')).getByRole('button', { name: 'Reabrir' }));
     const dialogo = await screen.findByRole('dialog');
-    const campo = within(dialogo).getByLabelText('Motivo');
+    const campo = within(dialogo).getByLabelText(/^Motivo(?:\s*\*)?$/);
     fireEvent.change(campo, { target: { value: 'Corrección autorizada de enero' } });
     fireEvent.click(within(dialogo).getByRole('button', { name: 'Reabrir periodo' }));
     expect(await within(dialogo).findByRole('alert')).toHaveTextContent('No tienes permiso para reabrir este periodo');
@@ -219,7 +226,7 @@ describe('<PeriodosPage>', () => {
     render(<PeriodosPage />, { wrapper: createQueryWrapper() });
     fireEvent.click((await fila('2 · Febrero')).getByRole('button', { name: 'Cerrar' }));
     let dialogo = await screen.findByRole('dialog');
-    fireEvent.change(within(dialogo).getByLabelText('Motivo'), { target: { value: 'Cierre mensual de febrero' } });
+    fireEvent.change(within(dialogo).getByLabelText(/^Motivo(?:\s*\*)?$/), { target: { value: 'Cierre mensual de febrero' } });
     fireEvent.click(within(dialogo).getByRole('button', { name: 'Cerrar periodo' }));
     expect(await within(dialogo).findByRole('alert')).toHaveTextContent('Otro usuario modificó este periodo; recargue');
     expect(within(dialogo).getByRole('button', { name: 'Recargar' })).toBeInTheDocument();

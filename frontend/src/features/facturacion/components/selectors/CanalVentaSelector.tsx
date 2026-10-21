@@ -1,5 +1,5 @@
-import { useEffect } from 'react';
 import { useCanalesVenta } from '@/features/facturacion/api/useCatalogosFacturacion';
+import { useEffect } from 'react';
 
 /**
  * <c>&lt;CanalVentaSelector/&gt;</c> — select nativo alimentado por el
@@ -34,14 +34,12 @@ export function CanalVentaSelector({
   const query = useCanalesVenta();
   const canales = query.data;
 
-  const valorEnCatalogo =
-    value != null && (canales?.some((c) => c.id === value) ?? false);
+  const valorEnCatalogo = value != null && (canales?.some((c) => c.id === value) ?? false);
 
   useEffect(() => {
     if (canales == null || canales.length === 0) return;
     const debeNormalizar =
-      value == null ||
-      (!canales.some((c) => c.id === value) && etiquetaValorActual == null);
+      value == null || (!canales.some((c) => c.id === value) && etiquetaValorActual == null);
     if (debeNormalizar) onChange(canales[0].id);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [canales]);
@@ -52,14 +50,14 @@ export function CanalVentaSelector({
         <select
           disabled
           aria-label="Canal de venta"
-          className="h-9 w-full rounded-md border border-destructive/50 bg-transparent px-3 text-sm shadow-sm"
+          className="h-9 w-full rounded-md border border-danger/50 bg-transparent px-3 text-sm shadow-sm"
         >
           <option>Error al cargar canales</option>
         </select>
         <button
           type="button"
           onClick={() => query.refetch()}
-          className="text-xs font-medium text-primary hover:underline"
+          className="text-xs font-medium text-brand hover:underline"
         >
           Reintentar
         </button>
@@ -70,16 +68,14 @@ export function CanalVentaSelector({
   return (
     <select
       aria-label="Canal de venta"
-      className="h-9 w-full rounded-md border border-input bg-transparent px-3 text-sm shadow-sm"
+      className="h-9 w-full rounded-md border border-line-control bg-transparent px-3 text-sm shadow-sm"
       disabled={disabled || query.isLoading}
       value={value ?? ''}
       onChange={(e) => onChange(Number(e.target.value))}
     >
       {query.isLoading && <option value="">Cargando canales…</option>}
       {!query.isLoading && value != null && !valorEnCatalogo && (
-        <option value={value}>
-          {etiquetaValorActual ?? `Canal ${value}`} (inactivo)
-        </option>
+        <option value={value}>{etiquetaValorActual ?? `Canal ${value}`} (inactivo)</option>
       )}
       {(canales ?? []).map((c) => (
         <option key={c.id} value={c.id}>

@@ -52,7 +52,13 @@ import { PermisosCanonicos } from '@/lib/auth/permission-codes';
  */
 const TIPO_ENTIDAD = 'proveedor';
 // Mismos formatos que la política de proveedor del backend (PRUEBA, pendiente Eliam).
-const MIME_PROVEEDOR = ['application/pdf', 'application/xml', 'text/xml', 'image/jpeg', 'image/png'];
+const MIME_PROVEEDOR = [
+  'application/pdf',
+  'application/xml',
+  'text/xml',
+  'image/jpeg',
+  'image/png',
+];
 const MAX_BYTES = 10 * 1024 * 1024;
 
 export function ProveedorExpedienteSection({
@@ -89,7 +95,10 @@ export function ProveedorExpedienteSection({
   if (expediente.isLoading || expediente.data == null) {
     return (
       <div className="mt-4 max-w-3xl">
-        <TableSkeleton rows={5} columns={[{ width: 'w-48' }, { width: 'w-24' }, { width: 'w-32' }]} />
+        <TableSkeleton
+          rows={5}
+          columns={[{ width: 'w-48' }, { width: 'w-24' }, { width: 'w-32' }]}
+        />
       </div>
     );
   }
@@ -142,7 +151,9 @@ export function ProveedorExpedienteSection({
           <TriangleAlert className="mt-0.5 size-4 shrink-0" aria-hidden="true" />
           <div>
             {exp.faltantes.length > 0 && <p>Falta adjuntar: {nombres(exp.faltantes)}.</p>}
-            {exp.vencidos.length > 0 && <p>Vencidos, hay que reemplazarlos: {nombres(exp.vencidos)}.</p>}
+            {exp.vencidos.length > 0 && (
+              <p>Vencidos, hay que reemplazarlos: {nombres(exp.vencidos)}.</p>
+            )}
           </div>
         </div>
       )}
@@ -209,7 +220,8 @@ function FilaExpediente({
     canExceptuar &&
     doc.obligatorio &&
     (doc.estado === EstadoExpediente.Faltante || doc.estado === EstadoExpediente.Vencido);
-  const puedeRevocar = canExceptuar && doc.estado === EstadoExpediente.Exceptuado && !!doc.excepcion;
+  const puedeRevocar =
+    canExceptuar && doc.estado === EstadoExpediente.Exceptuado && !!doc.excepcion;
   const [errorDescarga, setErrorDescarga] = useState<string | null>(null);
   const actual = doc.actual;
   const vencido = doc.estado === EstadoExpediente.Vencido;
@@ -232,7 +244,12 @@ function FilaExpediente({
             {doc.nombre}
             {!doc.obligatorio && <span className="font-normal text-ink-muted"> (opcional)</span>}
           </p>
-          <p className={cn('truncate text-xs', vencido ? 'font-medium text-danger-fg' : 'text-ink-muted')}>
+          <p
+            className={cn(
+              'truncate text-xs',
+              vencido ? 'font-medium text-danger-fg' : 'text-ink-muted',
+            )}
+          >
             {actual
               ? `${actual.nombreArchivo}${
                   actual.vigenteHasta
@@ -451,7 +468,8 @@ function FormularioSubida({
             className="h-ctl-xl rounded-md border border-line-control bg-surface-card px-3 text-sm text-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand"
           />
           <p id={`${vigenciaId}-ayuda`} className="text-xs text-ink-muted">
-            Si la dejas vacía se calcula con {doc.vigenciaMeses} {doc.vigenciaMeses === 1 ? 'mes' : 'meses'} desde hoy.
+            Si la dejas vacía se calcula con {doc.vigenciaMeses}{' '}
+            {doc.vigenciaMeses === 1 ? 'mes' : 'meses'} desde hoy.
           </p>
         </div>
       )}

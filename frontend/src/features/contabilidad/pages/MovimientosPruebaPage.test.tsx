@@ -42,13 +42,13 @@ function servidor(over: Parameters<typeof mswServer.use> = []) {
 async function capturar() {
   render(<MovimientosPruebaPage />, { wrapper: createQueryWrapper() });
   await screen.findByRole('option', { name: 'MER — FIX Mérida' });
-  fireEvent.change(screen.getByLabelText('Sucursal'), { target: { value: 's1' } });
+  fireEvent.change(screen.getByLabelText(/^Sucursal(?:\s*\*)?$/), { target: { value: 's1' } });
   await screen.findByRole('option', { name: 'FIX-FP — FIX Factura' });
   fireEvent.change(screen.getByLabelText('Tipo de documento'), { target: { value: 't1' } });
-  fireEvent.click(screen.getByLabelText('Cuenta'));
+  fireEvent.click(screen.getByLabelText(/^Cuenta(?:\s*\*)?$/));
   fireEvent.click(await screen.findByText('FIX Mantenimiento'));
   // El popover de la cuenta termina de cerrarse (y devuelve el foco) antes de seguir capturando.
-  await waitFor(() => expect(screen.getByLabelText('Cuenta')).toHaveTextContent('FIX-501.01'));
+  await waitFor(() => expect(screen.getByLabelText(/^Cuenta(?:\s*\*)?$/)).toHaveTextContent('FIX-501.01'));
   await waitFor(() => expect(screen.queryByPlaceholderText('Buscar cuenta por código o nombre…')).not.toBeInTheDocument());
 }
 

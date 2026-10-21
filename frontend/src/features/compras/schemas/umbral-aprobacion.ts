@@ -80,7 +80,7 @@ export function valoresIniciales(
         ? ''
         : String(umbral.umbralMenorCuantia),
     umbralMonto: umbral ? String(umbral.umbralMonto) : '',
-    modoNivel2: umbral?.modoNivel2 ?? 'Ambos',
+    modoNivel2: umbral?.modoNivel2 ?? 'SoloDisponibilidad',
     montoMinimoDisponibilidad:
       umbral?.montoMinimoDisponibilidad == null ? '' : String(umbral.montoMinimoDisponibilidad),
   };

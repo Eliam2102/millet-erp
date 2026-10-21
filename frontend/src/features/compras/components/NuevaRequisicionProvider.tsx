@@ -1,3 +1,5 @@
+import { SheetBody } from '@/components/ui/sheet';
+import { ContextoSucursal } from '@/components/erp/display/ContextoSucursal';
 import { useCallback, useMemo, useState, type ReactNode } from 'react';
 import { useConfirmarDescarte } from '@/components/erp/forms/useConfirmarDescarte';
 import {
@@ -33,11 +35,7 @@ import {
  * modos — el confirm es un freno extra para evitar perder cambios
  * que aún no llegaron al debounce de 500ms del persistir.</para>
  */
-export function NuevaRequisicionProvider({
-  children,
-}: {
-  children: ReactNode;
-}) {
+export function NuevaRequisicionProvider({ children }: { children: ReactNode }) {
   const [abierto, setAbierto] = useState(false);
   const alCerrar = useCallback(() => setAbierto(false), []);
   const { setDirty, solicitarCierre, dialogo } = useConfirmarDescarte(
@@ -78,26 +76,19 @@ export function NuevaRequisicionProvider({
           setAbierto(true);
         }}
       >
-        <SheetContent
-          side="right"
-          className="w-full overflow-y-auto sm:max-w-3xl"
-        >
+        <SheetContent size="lg" side="right" className="">
           <SheetHeader>
             <SheetTitle>Nueva requisición</SheetTitle>
+            <ContextoSucursal />
             <SheetDescription>
-              Llena la cabecera. Las líneas se agregan después de crear,
-              dentro del detalle.
+              Llena la cabecera. Las partidas se agregan después de crear, dentro del detalle.
             </SheetDescription>
           </SheetHeader>
-
-          <div className="px-6 pb-6">
-            {abierto && (
-              <NuevaRequisicion
-                onClose={cerrarConConfirm}
-                onDirtyChange={setDirty}
-              />
-            )}
-          </div>
+          <SheetBody>
+            <div>
+              {abierto && <NuevaRequisicion onClose={cerrarConConfirm} onDirtyChange={setDirty} />}
+            </div>
+          </SheetBody>
         </SheetContent>
       </Sheet>
       {dialogo}

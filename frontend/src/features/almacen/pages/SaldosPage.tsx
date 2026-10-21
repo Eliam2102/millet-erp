@@ -1,3 +1,4 @@
+import { ListadoModulo } from '@/components/erp/data/ListadoModulo';
 import { PageHeader } from '@/components/erp/PageHeader';
 import { useMemo, useState } from 'react';
 import { useNavigate, useSearch } from '@tanstack/react-router';
@@ -101,80 +102,86 @@ export function SaldosPage() {
   }, [items, search.articuloId]);
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-5">
       <PageHeader
         titulo="Saldos"
         descripcion="Existencias materializadas por sub-almacén y artículo, con costo promedio ponderado y valor de inventario."
       />
 
-      <FiltrosToolbar
-        search={search}
-        subAlmacenes={subAlmacenesQuery.data?.items ?? []}
-        articuloInitialLabel={articuloFiltradoLabel}
-        onChange={actualizarSearch}
-      />
-
-      {query.isError ? (
-        <ErrorState
-          title="No se pudieron cargar los saldos"
-          problem={esApiError(query.error) ? query.error.problem : undefined}
-          onRetry={() => query.refetch()}
-        />
-      ) : query.isLoading ? (
-        <TableSkeleton
-          rows={10}
-          columns={[
-            { width: 'w-40' },
-            { width: 'w-64' },
-            { width: 'w-24' },
-            { width: 'w-24' },
-            { width: 'w-24' },
-            { width: 'w-32' },
-            { width: 'w-32' },
-          ]}
-        />
-      ) : items.length === 0 ? (
-        <EmptyState
-          title="Sin saldos"
-          description={
-            search.subAlmacenId || search.articuloId || search.soloConStock
-              ? 'No hay saldos que coincidan con los filtros.'
-              : 'Aún no se han registrado movimientos que generen saldos.'
-          }
-        />
-      ) : (
-        <>
-          <div className="overflow-hidden rounded-lg border border-line-row bg-surface-card">
-            <TablaSaldos items={items} subAlmacenesMap={subAlmacenesMap} />
-            <PaginacionTabla
-              total={query.data?.total ?? 0}
-              offset={query.data?.offset ?? 0}
-              limit={query.data?.limit ?? paginaAOffsetLimit(search).limit}
-              onChange={(offset, limit) => actualizarSearch(offsetLimitAPagina(offset, limit))}
-            />
-          </div>
-          {totales && (
-            <div
-              className="flex justify-end gap-6 rounded-md border border-line-row bg-surface-subtle px-4 py-2 text-sm"
-              aria-label="Totales del conjunto filtrado"
-            >
-              {totales.cantidadTotal != null && (
-                <div>
-                  <span className="text-ink-muted">Cantidad total: </span>
-                  <span className="font-semibold tabular-nums">
-                    {formatCantidad(totales.cantidadTotal)}
-                    {totales.unidadMedida ? ` ${totales.unidadMedida}` : ''}
-                  </span>
-                </div>
-              )}
-              <div>
-                <span className="text-ink-muted">Valor inventario: </span>
-                <MoneyDisplay amount={totales.valorInventarioMxn} currency="MXN" strong />
-              </div>
+      <ListadoModulo
+        filtros={
+          <FiltrosToolbar
+            search={search}
+            subAlmacenes={subAlmacenesQuery.data?.items ?? []}
+            articuloInitialLabel={articuloFiltradoLabel}
+            onChange={actualizarSearch}
+          />
+        }
+        pie={
+          <PaginacionTabla
+            total={query.data?.total ?? 0}
+            offset={query.data?.offset ?? 0}
+            limit={query.data?.limit ?? paginaAOffsetLimit(search).limit}
+            onChange={(offset, limit) => actualizarSearch(offsetLimitAPagina(offset, limit))}
+          />
+        }
+      >
+        {query.isError ? (
+          <ErrorState
+            title="No se pudieron cargar los saldos"
+            problem={esApiError(query.error) ? query.error.problem : undefined}
+            onRetry={() => query.refetch()}
+          />
+        ) : query.isLoading ? (
+          <TableSkeleton
+            rows={10}
+            columns={[
+              { width: 'w-40' },
+              { width: 'w-64' },
+              { width: 'w-24' },
+              { width: 'w-24' },
+              { width: 'w-24' },
+              { width: 'w-32' },
+              { width: 'w-32' },
+            ]}
+          />
+        ) : items.length === 0 ? (
+          <EmptyState
+            title="Sin saldos"
+            description={
+              search.subAlmacenId || search.articuloId || search.soloConStock
+                ? 'No hay saldos que coincidan con los filtros.'
+                : 'Aún no se han registrado movimientos que generen saldos.'
+            }
+          />
+        ) : (
+          <>
+            <div className="overflow-hidden rounded-lg border border-line-row bg-surface-card">
+              <TablaSaldos items={items} subAlmacenesMap={subAlmacenesMap} />
             </div>
-          )}
-        </>
-      )}
+            {totales && (
+              <div
+                className="flex justify-end gap-6 rounded-md border border-line-row bg-surface-subtle px-4 py-2 text-sm"
+                aria-label="Totales del conjunto filtrado"
+              >
+                {totales.cantidadTotal != null && (
+                  <div>
+                    <span className="text-ink-muted">Cantidad total: </span>
+                    <span className="font-semibold tabular-nums">
+                      {formatCantidad(totales.cantidadTotal)}
+                      {totales.unidadMedida ? ` ${totales.unidadMedida}` : ''}
+                    </span>
+                  </div>
+                )}
+                <div>
+                  <span className="text-ink-muted">Valor inventario: </span>
+                  <MoneyDisplay amount={totales.valorInventarioMxn} currency="MXN" strong />
+                </div>
+              </div>
+            )}
+          </>
+        )}
+      </ListadoModulo>
     </div>
   );
 }
@@ -193,8 +200,7 @@ function FiltrosToolbar({
   articuloInitialLabel,
   onChange,
 }: FiltrosToolbarProps) {
-  const algun =
-    search.subAlmacenId || search.articuloId || search.soloConStock;
+  const algun = search.subAlmacenId || search.articuloId || search.soloConStock;
 
   return (
     <BarraFiltros
@@ -203,9 +209,7 @@ function FiltrosToolbar({
         <>
           <Select
             value={search.subAlmacenId ?? SENTINEL_ALL}
-            onValueChange={(v) =>
-              onChange({ subAlmacenId: v === SENTINEL_ALL ? undefined : v })
-            }
+            onValueChange={(v) => onChange({ subAlmacenId: v === SENTINEL_ALL ? undefined : v })}
           >
             <SelectTrigger aria-label="Filtrar por sub-almacén" className="h-ctl-md w-48 text-xs">
               <SelectValue placeholder="Todos los sub-almacenes" />
@@ -233,9 +237,7 @@ function FiltrosToolbar({
           <Checkbox
             id="solo-con-stock"
             checked={search.soloConStock ?? false}
-            onCheckedChange={(checked) =>
-              onChange({ soloConStock: checked === true || undefined })
-            }
+            onCheckedChange={(checked) => onChange({ soloConStock: checked === true || undefined })}
           />
           <label htmlFor="solo-con-stock" className="text-sm">
             Solo con stock
@@ -270,17 +272,14 @@ function TablaSaldos({
     () =>
       items.map((s) => ({
         ...s,
-        subAlmacen:
-          subAlmacenesMap.get(s.subAlmacenId)?.clave ?? s.subAlmacenId,
+        subAlmacen: subAlmacenesMap.get(s.subAlmacenId)?.clave ?? s.subAlmacenId,
       })),
     [items, subAlmacenesMap],
   );
 
   const ordenados = useMemo(() => {
     if (sort == null) return enriquecidos;
-    return [...enriquecidos].sort((a, b) =>
-      compareItemsBy(a, b, sort.key, sort.dir),
-    );
+    return [...enriquecidos].sort((a, b) => compareItemsBy(a, b, sort.key, sort.dir));
   }, [enriquecidos, sort]);
 
   return (
@@ -345,9 +344,7 @@ function TablaSaldos({
               <TableCell className="max-w-0 truncate text-xs">
                 {s.articuloClave ? (
                   <>
-                    <span className="font-mono text-ink-muted">
-                      {s.articuloClave}
-                    </span>
+                    <span className="font-mono text-ink-muted">{s.articuloClave}</span>
                     {s.articuloDescripcion ? ` · ${s.articuloDescripcion}` : ''}
                   </>
                 ) : (
@@ -373,4 +370,3 @@ function TablaSaldos({
     </TableContainer>
   );
 }
-

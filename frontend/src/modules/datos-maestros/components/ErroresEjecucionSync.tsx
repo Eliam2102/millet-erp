@@ -6,7 +6,10 @@ import type { EjecucionSyncErrorItem } from '@/modules/datos-maestros/api/types'
  * Catálogo de los códigos por fila que emite el sincronizador de clientes A+W
  * (doc integration/05 §10.3). Un código desconocido se muestra tal cual.
  */
-export type CatalogoErroresSync = Record<string, { titulo: string; accion: string; conflicto?: boolean }>;
+export type CatalogoErroresSync = Record<
+  string,
+  { titulo: string; accion: string; conflicto?: boolean }
+>;
 
 const CODIGOS: CatalogoErroresSync = {
   moneda_sin_equivalencia: {
@@ -15,20 +18,24 @@ const CODIGOS: CatalogoErroresSync = {
   },
   conflicto_correlacion: {
     titulo: 'Coincidencia de RFC con otro cliente',
-    accion: 'Ya existe en el ERP un cliente con el mismo RFC o la misma referencia. Revisa el ligado en Datos maestros → Clientes (Ligados pendientes de revisión); no se crea otro cliente.',
+    accion:
+      'Ya existe en el ERP un cliente con el mismo RFC o la misma referencia. Revisa el ligado en Datos maestros → Clientes (Ligados pendientes de revisión); no se crea otro cliente.',
     conflicto: true,
   },
   fila_invalida: {
     titulo: 'Fila inválida en A+W',
-    accion: 'Falta un dato obligatorio en el origen (p. ej. el nombre). Corrígelo en A+W y reintenta.',
+    accion:
+      'Falta un dato obligatorio en el origen (p. ej. el nombre). Corrígelo en A+W y reintenta.',
   },
   no_encontrada_en_origen: {
     titulo: 'No existe en A+W',
-    accion: 'La referencia ya no está en el origen. Verifica que sea correcta; no se da de baja al cliente.',
+    accion:
+      'La referencia ya no está en el origen. Verifica que sea correcta; no se da de baja al cliente.',
   },
   aplicacion_fallida: {
     titulo: 'No se pudo aplicar',
-    accion: 'Falló al guardar este cliente; los demás siguieron. Reintenta y, si persiste, avisa a soporte.',
+    accion:
+      'Falló al guardar este cliente; los demás siguieron. Reintenta y, si persiste, avisa a soporte.',
   },
 };
 
@@ -50,7 +57,7 @@ export function ErroresEjecucionSync({
 }) {
   return (
     <section aria-label="Errores y conflictos por referencia" className="space-y-2">
-      <h4 className="text-xs text-muted-foreground">
+      <h4 className="text-xs text-ink-muted">
         Errores y conflictos por referencia ({errores.length}
         {truncados ? '+' : ''})
       </h4>
@@ -64,20 +71,20 @@ export function ErroresEjecucionSync({
                 aria-hidden
                 className={
                   c?.conflicto
-                    ? 'mt-0.5 h-4 w-4 shrink-0 text-amber-600'
-                    : 'mt-0.5 h-4 w-4 shrink-0 text-destructive'
+                    ? 'mt-0.5 h-4 w-4 shrink-0 text-warning-fg'
+                    : 'mt-0.5 h-4 w-4 shrink-0 text-danger-fg'
                 }
               />
               <div className="min-w-0 flex-1 space-y-1">
                 <p className="font-medium">
                   {c?.titulo ?? 'Error'}{' '}
-                  <span className="font-mono text-xs font-normal text-muted-foreground">
+                  <span className="font-mono text-xs font-normal text-ink-muted">
                     · ref. {er.referencia}
                   </span>
                 </p>
-                <p className="break-words text-muted-foreground">{er.mensaje}</p>
+                <p className="break-words text-ink-muted">{er.mensaje}</p>
                 {c != null && <p className="text-xs">{c.accion}</p>}
-                <p className="font-mono text-[11px] text-muted-foreground">{er.codigo}</p>
+                <p className="font-mono text-2xs text-ink-muted">{er.codigo}</p>
               </div>
               <Button
                 type="button"
@@ -98,7 +105,7 @@ export function ErroresEjecucionSync({
         })}
       </ul>
       {truncados && (
-        <p className="text-xs text-muted-foreground">
+        <p className="text-xs text-ink-muted">
           Se muestran solo los primeros errores de la ejecución.
         </p>
       )}

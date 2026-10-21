@@ -23,5 +23,5 @@ public sealed record UpsertUmbralCommand(
     decimal? UmbralMenorCuantia,
     decimal UmbralMonto,
     string Moneda = "MXN",
-    ModoNivel2 ModoNivel2 = ModoNivel2.Ambos,
+    ModoNivel2 ModoNivel2 = ModoNivel2.SoloDisponibilidad,
     decimal? MontoMinimoDisponibilidad = null) : IRequest<UmbralAprobacionResponse>;

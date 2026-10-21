@@ -66,7 +66,7 @@ export function AppShell({ children }: { children: ReactNode }) {
             onExpandPanel={contexto && !showPanel ? () => setCollapsedModule(null) : undefined}
           />
           <main
-            className={`relative min-h-[calc(100vh-3.5rem)] ${pathname === '/' ? '' : 'px-4 py-5 md:px-6'}`}
+            className={`relative min-h-[calc(100vh-3.5rem)] ${pathname === '/' ? '' : 'px-4 pt-6 pb-10 md:px-6'}`}
           >
             {children}
             {isSwitchingEmpresa && (

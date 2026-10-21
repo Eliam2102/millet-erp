@@ -1,34 +1,41 @@
-import { ErrorTimbradoAviso } from '@/features/facturacion/components/ErrorTimbradoAviso';
-import { hoyLocalISO } from '@/lib/datetime';
-import { useState } from 'react';
-import { Controller, useForm } from 'react-hook-form';
-import { zodResolver } from '@hookform/resolvers/zod';
-import { Link, useNavigate, useParams, useSearch } from '@tanstack/react-router';
-import { Route as RouteIcon, X } from 'lucide-react';
-import { toast } from 'sonner';
+import { ErrorState, SucursalSelector } from '@/components/erp';
+import { PageHeader } from '@/components/erp/PageHeader';
+import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { ErrorState, SucursalSelector } from '@/components/erp';
 import {
-  useCartaPorte,
-  useSiguienteTramo,
-} from '@/features/facturacion/api/useCartaPorte';
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '@/components/ui/table';
+import type { CartaPorteDetalleResponse } from '@/features/facturacion/api/types';
+import { useCartaPorte, useSiguienteTramo } from '@/features/facturacion/api/useCartaPorte';
+import { ErrorTimbradoAviso } from '@/features/facturacion/components/ErrorTimbradoAviso';
+import { IntentosTimbradoPanel } from '@/features/facturacion/components/IntentosTimbradoPanel';
+import { OperadorPicker } from '@/features/facturacion/components/OperadorPicker';
+import { TimbradoFallidoBanner } from '@/features/facturacion/components/TimbradoFallidoBanner';
+import { TrazabilidadFacturacion } from '@/features/facturacion/components/TrazabilidadFacturacion';
+import { VehiculoPicker } from '@/features/facturacion/components/VehiculoPicker';
+import type { CartaPorteSearch } from '@/features/facturacion/lib/carta-porte-search-schema';
 import {
   SiguienteTramoSchema,
   type SiguienteTramoValues,
 } from '@/features/facturacion/schemas/carta-porte';
-import { useHasPermission } from '@/lib/auth/useHasPermission';
-import { PermisosCanonicos } from '@/lib/auth/permission-codes';
 import { applyServerErrors, esApiError, useFormIdempotencyKey } from '@/lib/api';
-import type { CartaPorteDetalleResponse } from '@/features/facturacion/api/types';
-import { ChipTimbrado } from '@/features/facturacion/pages/BandejaFacturas';
-import { TimbradoFallidoBanner } from '@/features/facturacion/components/TimbradoFallidoBanner';
-import { IntentosTimbradoPanel } from '@/features/facturacion/components/IntentosTimbradoPanel';
-import { TrazabilidadFacturacion } from '@/features/facturacion/components/TrazabilidadFacturacion';
-import { VehiculoPicker } from '@/features/facturacion/components/VehiculoPicker';
-import { OperadorPicker } from '@/features/facturacion/components/OperadorPicker';
-import type { CartaPorteSearch } from '@/features/facturacion/lib/carta-porte-search-schema';
+import { PermisosCanonicos } from '@/lib/auth/permission-codes';
+import { useHasPermission } from '@/lib/auth/useHasPermission';
+import { hoyLocalISO } from '@/lib/datetime';
+import { zodResolver } from '@hookform/resolvers/zod';
+import { Link, useNavigate, useParams, useSearch } from '@tanstack/react-router';
+import { Route as RouteIcon, X } from 'lucide-react';
+import { useState } from 'react';
+import { Controller, useForm } from 'react-hook-form';
+import { toast } from 'sonner';
+import { EstadoFacturacionBadge } from '../components/EstadoFacturacionBadge';
 
 /**
  * <c>Detalle de una Carta Porte</c> (FE-F8). Tramo + vehículo + operador +
@@ -41,11 +48,11 @@ export function DetalleCartaPorte() {
   const query = useCartaPorte(id);
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-5">
       {/* Sub-topbar del detalle (§6.5): cerrar vuelve a la bandeja
           preservando los filtros activos. */}
       <div
-        className="sticky top-0 z-10 flex items-center justify-end gap-2 border-b bg-background/95 pb-2 backdrop-blur"
+        className="sticky top-0 z-10 flex items-center justify-end gap-2 border-b bg-surface-page/95 pb-2 backdrop-blur border-line"
         data-print="hidden"
       >
         <Button variant="ghost" size="sm" asChild aria-label="Cerrar detalle">
@@ -63,8 +70,8 @@ export function DetalleCartaPorte() {
         />
       ) : query.isLoading || query.data == null ? (
         <div className="space-y-3">
-          <div className="h-8 w-64 animate-pulse rounded bg-muted" />
-          <div className="h-40 w-full animate-pulse rounded bg-muted" />
+          <div className="h-8 w-64 animate-pulse rounded bg-surface-muted" />
+          <div className="h-40 w-full animate-pulse rounded bg-surface-muted" />
         </div>
       ) : (
         <Contenido c={query.data} />
@@ -73,18 +80,14 @@ export function DetalleCartaPorte() {
   );
 }
 
-function Contenido({
-  c,
-}: {
-  c: NonNullable<ReturnType<typeof useCartaPorte>['data']>;
-}) {
+function Contenido({ c }: { c: NonNullable<ReturnType<typeof useCartaPorte>['data']> }) {
   const puedeEmitir = useHasPermission(PermisosCanonicos.FacturacionCartaPorteEmitir);
   const [siguienteAbierto, setSiguienteAbierto] = useState(false);
   // Solo desde un tramo timbrado tiene sentido crear el siguiente.
   const puedeContinuar = puedeEmitir && c.estado === 'Timbrado';
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-5">
       <TimbradoFallidoBanner
         comprobanteId={c.id}
         estado={c.estado}
@@ -92,32 +95,30 @@ function Contenido({
         errorMensaje={c.timbradoErrorMensaje}
       />
 
-      <IntentosTimbradoPanel comprobanteId={c.id} />
-
-      <header className="flex flex-wrap items-start justify-between gap-3">
+      <div className="flex flex-wrap items-start justify-between gap-3">
         <div className="space-y-1">
-        <div className="flex flex-wrap items-center gap-3">
-          <h1 className="font-mono text-2xl font-semibold">{c.folio}</h1>
-          <ChipTimbrado estado={c.estado} />
-          <span className="rounded-full bg-muted px-2 py-0.5 text-xs">
-            Tipo {c.tipo}
-          </span>
-        </div>
-        {c.uuid && (
-          <p className="font-mono text-xs text-muted-foreground">UUID {c.uuid}</p>
-        )}
-        {c.cartaPortePreviaId && (
-          <p className="text-xs">
-            Continuación de{' '}
-            <Link
-              to="/facturacion/carta-porte/$id"
-              params={{ id: c.cartaPortePreviaId }}
-              className="text-primary hover:underline"
-            >
-              tramo previo
-            </Link>
-          </p>
-        )}
+          <div className="flex flex-wrap items-center gap-3">
+            <PageHeader
+              mono
+              titulo={<>{c.folio}</>}
+              descripcion={<>Consulta el traslado y sus mercancías.</>}
+              estado={<EstadoFacturacionBadge entidad="cartaPorte" estado={c.estado} />}
+            />
+            <Badge variant="neutral">Tipo {c.tipo}</Badge>
+          </div>
+          {c.uuid && <p className="font-mono text-xs text-ink-muted">UUID {c.uuid}</p>}
+          {c.cartaPortePreviaId && (
+            <p className="text-xs">
+              Continuación de{' '}
+              <Link
+                to="/facturacion/carta-porte/$id"
+                params={{ id: c.cartaPortePreviaId }}
+                className="text-brand hover:underline"
+              >
+                tramo previo
+              </Link>
+            </p>
+          )}
         </div>
         {puedeContinuar && (
           <Button
@@ -129,87 +130,85 @@ function Contenido({
             Crear siguiente tramo
           </Button>
         )}
-      </header>
+      </div>
 
       {siguienteAbierto && (
         <SiguienteTramoForm previa={c} onDone={() => setSiguienteAbierto(false)} />
       )}
 
-      <section className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+      <dl className="grid grid-cols-1 gap-4 rounded-lg bg-surface-card p-4 shadow-card-flat sm:grid-cols-4">
         <Dato label="Origen">{c.origen}</Dato>
         <Dato label="Destino">{c.destino}</Dato>
         <Dato label="Distancia">{c.distanciaKm.toFixed(1)} km</Dato>
-        <Dato label="Salida">
-          {new Date(c.fechaSalida).toLocaleString('es-MX')}
-        </Dato>
+        <Dato label="Salida">{new Date(c.fechaSalida).toLocaleString('es-MX')}</Dato>
         <Dato label="Llegada estimada">
           {new Date(c.fechaLlegadaEstimada).toLocaleString('es-MX')}
         </Dato>
         {c.total > 0 && <Dato label="Total">{c.total.toFixed(2)}</Dato>}
-      </section>
+      </dl>
 
-      <section className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-        <div className="rounded-md border px-3 py-2">
-          <h2 className="text-xs font-medium text-muted-foreground">Vehículo</h2>
+      <dl className="grid grid-cols-1 gap-4 rounded-lg bg-surface-card p-4 shadow-card-flat sm:grid-cols-4">
+        <div className="rounded-md border px-3 py-2 border-line">
+          <h2 className="text-xs font-medium text-ink-muted">Vehículo</h2>
           {c.vehiculo ? (
             <p className="text-sm">
-              {c.vehiculo.placa} · {c.vehiculo.configVehicular} ·{' '}
-              {c.vehiculo.anioModelo}
+              {c.vehiculo.placa} · {c.vehiculo.configVehicular} · {c.vehiculo.anioModelo}
             </p>
           ) : (
-            <p className="text-sm text-muted-foreground">—</p>
+            <p className="text-sm text-ink-muted">—</p>
           )}
         </div>
-        <div className="rounded-md border px-3 py-2">
-          <h2 className="text-xs font-medium text-muted-foreground">Operador</h2>
+        <div className="rounded-md border px-3 py-2 border-line">
+          <h2 className="text-xs font-medium text-ink-muted">Operador</h2>
           {c.operador ? (
             <p className="text-sm">
               {c.operador.nombre} · {c.operador.rfc} · Lic. {c.operador.numLicencia}
             </p>
           ) : (
-            <p className="text-sm text-muted-foreground">—</p>
+            <p className="text-sm text-ink-muted">—</p>
           )}
         </div>
-      </section>
+      </dl>
 
       <section className="space-y-2">
         <h2 className="text-sm font-medium">Mercancías ({c.mercancias.length})</h2>
-        <div className="overflow-x-auto rounded-md border">
-          <table className="w-full text-sm">
-            <thead className="bg-muted/50">
-              <tr>
-                <th className="px-3 py-2 text-left">Descripción</th>
-                <th className="px-3 py-2 text-left">Bienes transp.</th>
-                <th className="px-3 py-2 text-left">Unidad</th>
-                <th className="px-3 py-2 text-right">Cantidad</th>
-                <th className="px-3 py-2 text-right">Peso (kg)</th>
-                <th className="px-3 py-2 text-center">Peligroso</th>
-              </tr>
-            </thead>
-            <tbody>
+        <div className="overflow-x-auto rounded-md border border-line">
+          <Table className="w-full text-sm">
+            <TableHeader className="bg-surface-muted/50">
+              <TableRow>
+                <TableHead className="px-3 py-2 text-left">Descripción</TableHead>
+                <TableHead className="px-3 py-2 text-left">Bienes transp.</TableHead>
+                <TableHead className="px-3 py-2 text-left">Unidad</TableHead>
+                <TableHead className="px-3 py-2 text-right tabular-nums">Cantidad</TableHead>
+                <TableHead className="px-3 py-2 text-right tabular-nums">Peso (kg)</TableHead>
+                <TableHead className="px-3 py-2 text-center">Peligroso</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
               {c.mercancias.map((m, i) => (
-                <tr key={`${m.bienesTransp}-${i}`} className="border-t">
-                  <td className="px-3 py-2">{m.descripcion}</td>
-                  <td className="px-3 py-2 font-mono text-xs">{m.bienesTransp}</td>
-                  <td className="px-3 py-2 font-mono text-xs">{m.claveUnidad}</td>
-                  <td className="px-3 py-2 text-right font-mono">
+                <TableRow key={`${m.bienesTransp}-${i}`} className="border-t border-line">
+                  <TableCell className="px-3 py-2">{m.descripcion}</TableCell>
+                  <TableCell className="px-3 py-2 font-mono text-xs">{m.bienesTransp}</TableCell>
+                  <TableCell className="px-3 py-2 font-mono text-xs">{m.claveUnidad}</TableCell>
+                  <TableCell className="px-3 py-2 text-right font-mono tabular-nums">
                     {m.cantidad.toFixed(2)}
-                  </td>
-                  <td className="px-3 py-2 text-right font-mono">
+                  </TableCell>
+                  <TableCell className="px-3 py-2 text-right font-mono tabular-nums">
                     {m.pesoEnKg.toFixed(2)}
-                  </td>
-                  <td className="px-3 py-2 text-center">
+                  </TableCell>
+                  <TableCell className="px-3 py-2 text-center">
                     {m.materialPeligroso ? 'Sí' : '—'}
-                  </td>
-                </tr>
+                  </TableCell>
+                </TableRow>
               ))}
-            </tbody>
-          </table>
+            </TableBody>
+          </Table>
         </div>
       </section>
 
       {/* ── Trazabilidad documento-céntrica (ANT-PR3, doc 13) ────── */}
       <TrazabilidadFacturacion raiz="comprobante" id={c.id} />
+      <IntentosTimbradoPanel comprobanteId={c.id} />
     </div>
   );
 }
@@ -281,10 +280,7 @@ function SiguienteTramoForm({
         onError: (error) => {
           if (esApiError(error)) {
             if (
-              applyServerErrors(
-                form as unknown as Parameters<typeof applyServerErrors>[0],
-                error,
-              )
+              applyServerErrors(form as unknown as Parameters<typeof applyServerErrors>[0], error)
             ) {
               return;
             }
@@ -302,7 +298,7 @@ function SiguienteTramoForm({
       onSubmit={form.handleSubmit(onSubmit)}
       noValidate
       data-print="hidden"
-      className="space-y-3 rounded-md border border-dashed border-primary/40 bg-primary/5 p-3"
+      className="space-y-3 rounded-md border border-dashed border-brand/40 bg-brand/5 p-3"
     >
       <ErrorTimbradoAviso error={crear.error} />
       <h3 className="text-sm font-medium">
@@ -311,7 +307,7 @@ function SiguienteTramoForm({
       <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
         <CampoCp label="Tipo CFDI">
           <select
-            className="h-9 w-full rounded-md border border-input bg-transparent px-3 text-sm shadow-sm"
+            className="h-9 w-full rounded-md border border-line-control bg-transparent px-3 text-sm shadow-sm"
             {...form.register('tipoCfdi')}
           >
             <option value="T">T — Traslado</option>
@@ -323,7 +319,10 @@ function SiguienteTramoForm({
             name="sucursalId"
             control={form.control}
             render={({ field }) => (
-              <SucursalSelector value={field.value || null} onChange={(id) => field.onChange(id ?? '')} />
+              <SucursalSelector
+                value={field.value || null}
+                onChange={(id) => field.onChange(id ?? '')}
+              />
             )}
           />
         </CampoCp>
@@ -331,7 +330,12 @@ function SiguienteTramoForm({
           <Input {...form.register('origen')} />
         </CampoCp>
         <CampoCp label="CP origen" error={form.formState.errors.origenCodigoPostal?.message}>
-          <Input className="font-mono" maxLength={5} inputMode="numeric" {...form.register('origenCodigoPostal')} />
+          <Input
+            className="font-mono"
+            maxLength={5}
+            inputMode="numeric"
+            {...form.register('origenCodigoPostal')}
+          />
         </CampoCp>
         <CampoCp
           label="Estado origen (clave SAT)"
@@ -343,7 +347,12 @@ function SiguienteTramoForm({
           <Input {...form.register('destino')} />
         </CampoCp>
         <CampoCp label="CP destino" error={form.formState.errors.destinoCodigoPostal?.message}>
-          <Input className="font-mono" maxLength={5} inputMode="numeric" {...form.register('destinoCodigoPostal')} />
+          <Input
+            className="font-mono"
+            maxLength={5}
+            inputMode="numeric"
+            {...form.register('destinoCodigoPostal')}
+          />
         </CampoCp>
         <CampoCp
           label="Estado destino (clave SAT)"
@@ -352,7 +361,12 @@ function SiguienteTramoForm({
           <Input className="uppercase" maxLength={3} {...form.register('destinoEstado')} />
         </CampoCp>
         <CampoCp label="Distancia (km)" error={form.formState.errors.distanciaKm?.message}>
-          <Input type="number" step="0.1" min="0" {...form.register('distanciaKm', { valueAsNumber: true })} />
+          <Input
+            type="number"
+            step="0.1"
+            min="0"
+            {...form.register('distanciaKm', { valueAsNumber: true })}
+          />
         </CampoCp>
         <CampoCp label="Vehículo" error={form.formState.errors.vehiculoId?.message}>
           <Controller
@@ -395,7 +409,12 @@ function SiguienteTramoForm({
           <Input type="date" {...form.register('fechaLlegadaEstimada')} />
         </CampoCp>
         <CampoCp label="Monto servicio">
-          <Input type="number" step="0.01" min="0" {...form.register('montoServicio', { valueAsNumber: true })} />
+          <Input
+            type="number"
+            step="0.01"
+            min="0"
+            {...form.register('montoServicio', { valueAsNumber: true })}
+          />
         </CampoCp>
       </div>
       <div className="flex justify-end gap-2">
@@ -423,7 +442,7 @@ function CampoCp({
     <div className="space-y-1">
       <Label className="text-xs">{label}</Label>
       {children}
-      {error != null && <p className="text-xs text-destructive">{error}</p>}
+      {error != null && <p className="text-xs text-danger-fg">{error}</p>}
     </div>
   );
 }
@@ -431,7 +450,7 @@ function CampoCp({
 function Dato({ label, children }: { label: string; children: React.ReactNode }) {
   return (
     <div className="space-y-0.5">
-      <dt className="text-xs text-muted-foreground">{label}</dt>
+      <dt className="text-xs text-ink-muted">{label}</dt>
       <dd className="text-sm">{children}</dd>
     </div>
   );

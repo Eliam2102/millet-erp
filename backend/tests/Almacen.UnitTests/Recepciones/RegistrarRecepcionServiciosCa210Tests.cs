@@ -213,7 +213,7 @@ public class RegistrarRecepcionServiciosCa210Tests
     {
         var fakeOc = new FakeOcConFisico(ocId, artFisico, lineaFisicaId);
         return new RegistrarRecepcionConFacturaHandler(
-            db, fakeOc, new FakeArticulos(), new FakeEvents(),
+            db, fakeOc, new FakeEvents(),
             new FakeUser(), new FakeEmpresa(EmpresaId), new FakeDecimales(), new PeriodoContableStub(abierto: true), new P7Support.Conversion(),
             CfdiFake.Valido(), new ProveedorRfcFake());
     }
@@ -223,7 +223,7 @@ public class RegistrarRecepcionServiciosCa210Tests
     {
         var fakeOc = new FakeOcConFisico(ocId, artFisico, lineaFisicaId);
         return new RegistrarRecepcionConPackingListHandler(
-            db, fakeOc, new FakeArticulos(), new FakeEvents(),
+            db, fakeOc, new FakeEvents(),
             new FakeUser(), new FakeEmpresa(EmpresaId), new FakeDecimales(), new PeriodoContableStub(abierto: true), new P7Support.Conversion());
     }
 
@@ -274,12 +274,12 @@ public class RegistrarRecepcionServiciosCa210Tests
     {
         public Task<ArticuloLectura?> ObtenerAsync(Guid articuloId, CancellationToken ct) =>
             Task.FromResult<ArticuloLectura?>(
-                new ArticuloLectura(articuloId, "ART", "Artículo", "PZA", null, null, true));
+                new ArticuloLectura(articuloId, "ART", "Artículo", "PZA", null, true));
 
         public Task<IReadOnlyDictionary<Guid, ArticuloLectura>> ObtenerPorIdsAsync(
             IReadOnlyCollection<Guid> ids, CancellationToken ct) =>
             Task.FromResult<IReadOnlyDictionary<Guid, ArticuloLectura>>(
-                ids.ToDictionary(id => id, id => new ArticuloLectura(id, "ART", "Artículo", "PZA", null, null, true)));
+                ids.ToDictionary(id => id, id => new ArticuloLectura(id, "ART", "Artículo", "PZA", null, true)));
     }
 
     private sealed class FakeEvents : IIntegrationEventPublisher

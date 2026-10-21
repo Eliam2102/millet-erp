@@ -26,9 +26,9 @@ export function UploadCorreoAutorizacion() {
         Adjunto del correo de autorización
       </div>
       <p>
-        Como esta OC va sin requisición previa, captura el motivo aquí abajo y
-        adjunta la evidencia (correo del solicitante, cotización aprobada) en
-        la pestaña Adjuntos del detalle de la OC después de crearla.
+        Como esta OC va sin requisición previa, captura el motivo aquí abajo y adjunta la evidencia
+        (correo del solicitante, cotización aprobada) en la pestaña Adjuntos del detalle de la OC
+        después de crearla.
       </p>
     </div>
   );

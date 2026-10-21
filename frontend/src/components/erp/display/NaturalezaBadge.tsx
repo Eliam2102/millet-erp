@@ -30,13 +30,13 @@ export interface NaturalezaBadgeProps {
 
 const COLORES: Record<Naturaleza, string> = {
   // Estandar: neutral.
-  [Naturaleza.Estandar]: 'bg-slate-100 text-slate-700 ring-slate-200',
+  [Naturaleza.Estandar]: 'bg-surface-muted text-ink-strong ring-line',
   // Servicio: azul claro (no genera entrada a almacén).
-  [Naturaleza.Servicio]: 'bg-sky-100 text-sky-900 ring-sky-200',
+  [Naturaleza.Servicio]: 'bg-info-bg text-info-fg ring-info',
   // Crítico: rojo (requiere N2 sin importar monto).
-  [Naturaleza.Critico]: 'bg-rose-100 text-rose-900 ring-rose-200',
+  [Naturaleza.Critico]: 'bg-danger-bg text-danger-fg ring-danger',
   // Riesgo: naranja (cumplimiento / control interno).
-  [Naturaleza.Riesgo]: 'bg-orange-100 text-orange-900 ring-orange-200',
+  [Naturaleza.Riesgo]: 'bg-warning-bg text-warning-fg ring-warning',
 };
 
 export function NaturalezaBadge({

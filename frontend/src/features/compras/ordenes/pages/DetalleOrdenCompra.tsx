@@ -1,3 +1,4 @@
+import { PageHeader } from '@/components/erp/PageHeader';
 import { CancelacionOcPanel } from '../components/CancelacionOcPanel';
 import { RespuestaProveedorPanel } from '../components/RespuestaProveedorPanel';
 import { useMemo, useState, type ReactNode } from 'react';
@@ -22,6 +23,7 @@ import {
   useUsosPrincipales,
   mapById,
 } from '@/features/catalogos/api';
+import { RecurrenteBadge } from '@/features/compras/components/IndicadoresPendiente';
 import { useOrdenCompra } from '@/features/compras/ordenes/api/useOrdenCompra';
 import { AccionesOC } from '@/features/compras/ordenes/components/AccionesOC';
 import { AdjuntosManagerOc } from '@/features/compras/ordenes/components/AdjuntosManagerOc';
@@ -80,8 +82,7 @@ export function DetalleOrdenCompra() {
   // ruta específica (consistente con <c>&lt;DetalleRequisicion/&gt;</c>).
   const { id } = useParams({ strict: false }) as { id: string };
   const location = useLocation();
-  const bandejaSearch =
-    extractBandejaOcSearch(location.state) ?? DEFAULT_BANDEJA_OC_SEARCH;
+  const bandejaSearch = extractBandejaOcSearch(location.state) ?? DEFAULT_BANDEJA_OC_SEARCH;
 
   const ocQuery = useOrdenCompra(id);
   const [tabActivo, setTabActivo] = useState<TabId>('informacion');
@@ -98,18 +99,9 @@ export function DetalleOrdenCompra() {
   const condicionesPagoQuery = useCondicionesPago({ includeInactivas: true });
   const usosPrincipalesQuery = useUsosPrincipales({ includeInactivas: true });
 
-  const sucursalesMap = useMemo(
-    () => mapById(sucursalesQuery.data?.items),
-    [sucursalesQuery.data],
-  );
-  const almacenesMap = useMemo(
-    () => mapById(almacenesQuery.data?.items),
-    [almacenesQuery.data],
-  );
-  const usuariosMap = useMemo(
-    () => mapById(usuariosQuery.data?.items),
-    [usuariosQuery.data],
-  );
+  const sucursalesMap = useMemo(() => mapById(sucursalesQuery.data?.items), [sucursalesQuery.data]);
+  const almacenesMap = useMemo(() => mapById(almacenesQuery.data?.items), [almacenesQuery.data]);
+  const usuariosMap = useMemo(() => mapById(usuariosQuery.data?.items), [usuariosQuery.data]);
   const condicionesPagoMap = useMemo(
     () => mapById(condicionesPagoQuery.data),
     [condicionesPagoQuery.data],
@@ -143,13 +135,7 @@ export function DetalleOrdenCompra() {
         if (up) return up.nombre;
         return '—';
       },
-    [
-      usuariosMap,
-      sucursalesMap,
-      almacenesMap,
-      condicionesPagoMap,
-      usosPrincipalesMap,
-    ],
+    [usuariosMap, sucursalesMap, almacenesMap, condicionesPagoMap, usosPrincipalesMap],
   );
 
   if (ocQuery.isError) {
@@ -164,7 +150,7 @@ export function DetalleOrdenCompra() {
 
   if (ocQuery.isLoading || ocQuery.data == null) {
     return (
-      <div className="flex flex-col gap-4" aria-busy="true">
+      <div className="flex flex-col gap-5" aria-busy="true">
         <header className="flex items-center gap-3 border-b px-4 py-2">
           <Skeleton className="h-7 w-32" />
           <Skeleton className="h-5 w-24 rounded-full" />
@@ -172,12 +158,7 @@ export function DetalleOrdenCompra() {
         </header>
         <TableSkeleton
           rows={5}
-          columns={[
-            { width: 'w-32' },
-            { width: 'w-48' },
-            { width: 'w-24' },
-            { width: 'w-32' },
-          ]}
+          columns={[{ width: 'w-32' }, { width: 'w-48' }, { width: 'w-24' }, { width: 'w-32' }]}
         />
       </div>
     );
@@ -190,17 +171,20 @@ export function DetalleOrdenCompra() {
     : undefined;
 
   return (
-    <div className="flex flex-col gap-4">
+    <div className="flex flex-col gap-5">
       {/* ── Sub-topbar sticky ───────────────────────────── */}
       <header
-        className="sticky top-14 z-10 md:top-0 flex flex-wrap items-center gap-3 border-b bg-background/95 px-4 py-2 backdrop-blur"
+        className="sticky top-14 z-10 md:top-0 flex flex-wrap items-center gap-3 border-b bg-surface-card py-2"
         data-print="hidden"
       >
         <div className="flex min-w-0 items-center gap-2">
-          <h1 className="truncate font-mono text-3xl font-semibold text-ink">
-            {oc.folio}
-          </h1>
+          <PageHeader
+            mono
+            titulo={oc.folio}
+            descripcion={oc.proveedorRazonSocial ?? oc.proveedorClave ?? undefined}
+          />
           <EstadoBadge tipo="orden-compra" estado={oc.estado} />
+          <RecurrenteBadge esRecurrente={oc.esRecurrente} />
           <CollaborationIndicator entidad="orden-compra" id={oc.id} />
         </div>
 
@@ -235,11 +219,7 @@ export function DetalleOrdenCompra() {
             Imprimir
           </Button>
           <Button asChild variant="ghost" size="icon">
-            <Link
-              to="/compras/ordenes"
-              search={bandejaSearch}
-              aria-label="Cerrar"
-            >
+            <Link to="/compras/ordenes" search={bandejaSearch} aria-label="Cerrar">
               <X className="h-4 w-4" />
             </Link>
           </Button>
@@ -247,7 +227,7 @@ export function DetalleOrdenCompra() {
       </header>
 
       {/* ── Cuerpo ──────────────────────────────────────── */}
-      <div className="space-y-6 px-4 pb-6">
+      <div className="space-y-5">
         <div data-print="hidden">
           <EditandoBanner entidad="orden-compra" id={oc.id} />
         </div>
@@ -269,28 +249,24 @@ export function DetalleOrdenCompra() {
           <AsideListOcsHermanas oc={oc} />
         </div>
 
-        {revision && (
-          <RevisionPreviaOc revision={revision} onIr={setTabActivo} />
-        )}
+        {revision && <RevisionPreviaOc revision={revision} onIr={setTabActivo} />}
 
         <TabsOc
           activo={tabActivo}
           onActivoChange={setTabActivo}
-          informacion={
-            <TabInformacion oc={oc} resolverNombre={resolverNombre} />
-          }
+          informacion={<TabInformacion oc={oc} resolverNombre={resolverNombre} />}
           lineas={<EditorLineas oc={oc} />}
           adjuntos={<AdjuntosManagerOc oc={oc} />}
           pdf={<TabPdf oc={oc} />}
           autorizacion={
             <>
-            <HistorialFirmasOc oc={oc} resolverNombre={resolverNombre} />
-            <TimelineOrdenCompra
-              ocId={oc.id}
-              filtroEntidad="AutorizacionOC"
-              emptyTitle="Sin eventos de autorización"
-              emptyDescription="Cuando esta OC sea aprobada o rechazada en N1 o N2, los eventos individuales aparecerán aquí (con fecha, autorizador y notas por nivel)."
-            />
+              <HistorialFirmasOc oc={oc} resolverNombre={resolverNombre} />
+              <TimelineOrdenCompra
+                ocId={oc.id}
+                filtroEntidad="AutorizacionOC"
+                emptyTitle="Sin eventos de autorización"
+                emptyDescription="Cuando esta OC sea aprobada o rechazada en N1 o N2, los eventos individuales aparecerán aquí (con fecha, autorizador y notas por nivel)."
+              />
             </>
           }
           historial={<TimelineOrdenCompra ocId={oc.id} />}
@@ -307,18 +283,11 @@ export function DetalleOrdenCompra() {
 // necesitan tabs, promovemos a `components/erp/Tabs.tsx`.
 // ============================================================================
 
-const TAB_IDS = [
-  'informacion',
-  'lineas',
-  'adjuntos',
-  'pdf',
-  'autorizacion',
-  'historial',
-] as const;
+const TAB_IDS = ['informacion', 'lineas', 'adjuntos', 'pdf', 'autorizacion', 'historial'] as const;
 type TabId = (typeof TAB_IDS)[number];
 const TAB_LABEL: Record<TabId, string> = {
   informacion: 'Información',
-  lineas: 'Líneas',
+  lineas: 'Partidas',
   adjuntos: 'Adjuntos',
   pdf: 'PDF',
   autorizacion: 'Autorización',
@@ -364,7 +333,7 @@ function TabsOc({
     );
   const contenido: Record<TabId, ReactNode> = {
     informacion: informacion,
-    lineas: stub(lineas, 'lineas', 'Líneas'),
+    lineas: stub(lineas, 'lineas', 'Partidas'),
     adjuntos: stub(adjuntos, 'adjuntos', 'Adjuntos'),
     pdf: stub(pdf, 'pdf', 'PDF'),
     autorizacion: stub(autorizacion, 'autorizacion', 'Autorización'),
@@ -375,11 +344,7 @@ function TabsOc({
   const FORCE_MOUNT: TabId[] = ['informacion', 'lineas'];
 
   return (
-    <Tabs
-      value={activo}
-      onValueChange={(v) => onActivoChange(v as TabId)}
-      data-component="tabs-oc"
-    >
+    <Tabs value={activo} onValueChange={(v) => onActivoChange(v as TabId)} data-component="tabs-oc">
       <TabsList aria-label="Secciones del detalle de OC">
         {TAB_IDS.map((id) => (
           <TabsTrigger
@@ -409,19 +374,9 @@ function TabsOc({
   );
 }
 
-function StubProximamente({
-  titulo,
-  descripcion,
-}: {
-  titulo: string;
-  descripcion: string;
-}) {
+function StubProximamente({ titulo, descripcion }: { titulo: string; descripcion: string }) {
   return (
-    <EmptyState
-      icon={<Inbox className="h-10 w-10" />}
-      title={titulo}
-      description={descripcion}
-    />
+    <EmptyState icon={<Inbox className="h-10 w-10" />} title={titulo} description={descripcion} />
   );
 }
 
@@ -438,11 +393,7 @@ interface DetalleErrorBoundaryOcProps {
   bandejaSearch: BandejaOcSearch;
 }
 
-function DetalleErrorBoundaryOc({
-  error,
-  onRetry,
-  bandejaSearch,
-}: DetalleErrorBoundaryOcProps) {
+function DetalleErrorBoundaryOc({ error, onRetry, bandejaSearch }: DetalleErrorBoundaryOcProps) {
   if (esApiError(error)) {
     if (error.status === 403) {
       return <Page403 error={error} bandejaSearch={bandejaSearch} />;
@@ -460,20 +411,12 @@ function DetalleErrorBoundaryOc({
   );
 }
 
-function Page403({
-  error,
-  bandejaSearch,
-}: {
-  error: ApiError;
-  bandejaSearch: BandejaOcSearch;
-}) {
+function Page403({ error, bandejaSearch }: { error: ApiError; bandejaSearch: BandejaOcSearch }) {
   // Loguear traceId — si el 403 llega es por bug de gating de UI
   // (el sidebar no debería haber mostrado el item sin
   // <c>compras.ordenes.leer</c>).
   if (error.traceId != null) {
-    console.warn(
-      `[OC] 403 en GET /api/v1/compras/ordenes/{id} — traceId=${error.traceId}`,
-    );
+    console.warn(`[OC] 403 en GET /api/v1/compras/ordenes/{id} — traceId=${error.traceId}`);
   }
   const description =
     error.problem?.title && error.problem.title !== 'Forbidden'
@@ -521,9 +464,7 @@ interface BandejaOcSearchState {
   bandejaOcSearch: BandejaOcSearch;
 }
 
-function extractBandejaOcSearch(
-  state: unknown,
-): BandejaOcSearch | undefined {
+function extractBandejaOcSearch(state: unknown): BandejaOcSearch | undefined {
   if (state != null && typeof state === 'object' && 'bandejaOcSearch' in state) {
     return (state as BandejaOcSearchState).bandejaOcSearch;
   }

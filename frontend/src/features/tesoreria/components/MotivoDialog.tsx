@@ -1,3 +1,5 @@
+import { FormGrid, FormCampo } from '@/components/erp/forms/FormGrid';
+import { DialogBody } from '@/components/ui/dialog';
 import { useState } from 'react';
 import {
   Dialog,
@@ -44,24 +46,30 @@ export function MotivoDialog({
 
   return (
     <Dialog open={open} onOpenChange={cerrar}>
-      <DialogContent className="sm:max-w-md">
+      <DialogContent size="sm">
         <DialogHeader>
           <DialogTitle>{titulo}</DialogTitle>
           <DialogDescription>{descripcion}</DialogDescription>
         </DialogHeader>
-        <div className="space-y-1">
-          <label className="text-xs text-muted-foreground" htmlFor="motivo">
-            Motivo (obligatorio)
-          </label>
-          <Textarea
-            id="motivo"
-            value={motivo}
-            onChange={(e) => setMotivo(e.target.value)}
-            maxLength={400}
-            rows={3}
-            placeholder="Describe el motivo…"
-          />
-        </div>
+        <DialogBody className="space-y-4">
+          <FormGrid>
+            <FormCampo span={12}>
+              <div className="space-y-1">
+                <label className="text-xs text-ink-muted" htmlFor="motivo">
+                  Motivo (obligatorio)
+                </label>
+                <Textarea
+                  id="motivo"
+                  value={motivo}
+                  onChange={(e) => setMotivo(e.target.value)}
+                  maxLength={400}
+                  rows={3}
+                  placeholder="Describe el motivo…"
+                />
+              </div>
+            </FormCampo>
+          </FormGrid>
+        </DialogBody>
         <DialogFooter>
           <Button variant="ghost" onClick={() => cerrar(false)} disabled={pending}>
             Cancelar
@@ -69,6 +77,7 @@ export function MotivoDialog({
           <Button
             onClick={() => onConfirm(motivo.trim())}
             disabled={pending || motivo.trim().length === 0}
+            title={!motivo.trim() ? 'Captura el motivo para continuar.' : undefined}
           >
             {pending ? 'Procesando…' : confirmLabel}
           </Button>

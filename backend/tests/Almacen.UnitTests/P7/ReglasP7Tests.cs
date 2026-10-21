@@ -23,9 +23,9 @@ public sealed class ReglasP7Tests
         var conversion = new ConversionNoDisponible();
         RegistrarRecepcionLineaInput[] lineas = [new(f.ArticuloId, f.LineaId, 1, null, null, f.BinId)];
         Func<Task> recibir = packing
-            ? () => new RegistrarRecepcionConPackingListHandler(f.Db, f.Oc, new P1Fixture.Articulos(), f.Events, f.Context, f.Context, f.Guard, new PeriodoContableStub(false), conversion)
+            ? () => new RegistrarRecepcionConPackingListHandler(f.Db, f.Oc, f.Events, f.Context, f.Context, f.Guard, new PeriodoContableStub(false), conversion)
                 .Handle(new(f.DocumentoId, P1Fixture.Fecha, "DEMO-P7.pdf", null, lineas), default)
-            : () => new RegistrarRecepcionConFacturaHandler(f.Db, f.Oc, new P1Fixture.Articulos(), f.Events, f.Context, f.Context, f.Guard, new PeriodoContableStub(false), conversion, CfdiFake.Valido(), new ProveedorRfcFake())
+            : () => new RegistrarRecepcionConFacturaHandler(f.Db, f.Oc, f.Events, f.Context, f.Context, f.Guard, new PeriodoContableStub(false), conversion, CfdiFake.Valido(), new ProveedorRfcFake())
                 .Handle(new(f.DocumentoId, P1Fixture.Fecha, Guid.NewGuid(), null, null, lineas), default);
         var ex = await Assert.ThrowsAsync<BusinessRuleException>(recibir);
         ex.Code.Should().Be("PERIODO_CONTABLE_NO_ADMITE");
@@ -61,8 +61,8 @@ public sealed class ReglasP7Tests
         var port = new P1Fixture.OcPort(oc with { Lineas = [oc.Lineas[0] with { CantidadSolicitada = 30 }] });
         RegistrarRecepcionLineaInput[] lineas = [new(f.ArticuloId, f.LineaId, 2, null, null, f.BinId, "CAJA")];
         var conv = new P7Support.Conversion();
-        if (packing) await new RegistrarRecepcionConPackingListHandler(f.Db, port, new P1Fixture.Articulos(), f.Events, f.Context, f.Context, f.Guard, new PeriodoContableStub(true), conv).Handle(new(f.DocumentoId, P1Fixture.Fecha, "packing.pdf", null, lineas), default);
-        else await new RegistrarRecepcionConFacturaHandler(f.Db, port, new P1Fixture.Articulos(), f.Events, f.Context, f.Context, f.Guard, new PeriodoContableStub(true), conv, CfdiFake.Valido(), new ProveedorRfcFake()).Handle(new(f.DocumentoId, P1Fixture.Fecha, Guid.NewGuid(), null, null, lineas), default);
+        if (packing) await new RegistrarRecepcionConPackingListHandler(f.Db, port, f.Events, f.Context, f.Context, f.Guard, new PeriodoContableStub(true), conv).Handle(new(f.DocumentoId, P1Fixture.Fecha, "packing.pdf", null, lineas), default);
+        else await new RegistrarRecepcionConFacturaHandler(f.Db, port, f.Events, f.Context, f.Context, f.Guard, new PeriodoContableStub(true), conv, CfdiFake.Valido(), new ProveedorRfcFake()).Handle(new(f.DocumentoId, P1Fixture.Fecha, Guid.NewGuid(), null, null, lineas), default);
         var linea = (await f.Db.Movimientos.Include(m => m.Lineas).SingleAsync()).Lineas.Single();
         linea.Cantidad.Should().Be(24);
         linea.UnidadMedida.Should().Be("PZA");

@@ -40,7 +40,7 @@ export function ReportesPage() {
           />
         )}
         {!puedeAlfak && !puedeMpCnk && (
-          <div className="col-span-full rounded-md border bg-muted/30 px-4 py-6 text-center text-sm text-muted-foreground">
+          <div className="col-span-full rounded-md border bg-surface-muted/30 px-4 py-6 text-center text-sm text-ink-muted">
             Sin reportes disponibles para tu rol.
           </div>
         )}
@@ -64,14 +64,14 @@ function ReporteCard({
     <Link
       to={to}
       className={cn(
-        'group rounded-md border bg-card p-4 transition-colors hover:border-primary hover:bg-primary/5',
+        'group rounded-md border bg-surface-card p-4 transition-colors hover:border-brand hover:bg-brand/5',
       )}
     >
       <div className="flex items-start gap-3">
-        <Icon className="mt-0.5 h-5 w-5 shrink-0 text-primary" />
+        <Icon className="mt-0.5 h-5 w-5 shrink-0 text-brand" />
         <div className="min-w-0">
           <h3 className="text-sm font-semibold font-mono">{titulo}</h3>
-          <p className="mt-1 text-xs text-muted-foreground">{descripcion}</p>
+          <p className="mt-1 text-xs text-ink-muted">{descripcion}</p>
         </div>
       </div>
     </Link>

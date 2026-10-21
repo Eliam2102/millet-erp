@@ -201,7 +201,7 @@ public class UmbralesAprobacionEndpointsTests : IClassFixture<WebApplicationFact
     }
 
     [Fact]
-    public async Task Put_Sin_Modo_Guarda_Ambos_Y_Minimo_Nulo()
+    public async Task Put_Sin_Modo_Guarda_SoloDisponibilidad_Y_Minimo_Nulo()
     {
         var client = await CreateSuperAdminClientAsync();
         var departamentoId = Guid.NewGuid();
@@ -216,7 +216,7 @@ public class UmbralesAprobacionEndpointsTests : IClassFixture<WebApplicationFact
         put.EnsureSuccessStatusCode();
 
         var fila = await GetFilaAsync(client, departamentoId);
-        Assert.Equal("Ambos", fila.GetProperty("modoNivel2").GetString());
+        Assert.Equal("SoloDisponibilidad", fila.GetProperty("modoNivel2").GetString());
         Assert.Equal(JsonValueKind.Null, fila.GetProperty("montoMinimoDisponibilidad").ValueKind);
     }
 

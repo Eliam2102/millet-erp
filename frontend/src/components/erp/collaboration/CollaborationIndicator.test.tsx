@@ -35,7 +35,7 @@ describe('<CollaborationIndicator>', () => {
     expect(screen.getByText('PG')).toBeInTheDocument();
   });
 
-  it('1 editando: avatar tiene icono pencil + ring ámbar', () => {
+  it('1 editando: avatar tiene icono pencil + ring warning', () => {
     setPresencia({
       viendo: [],
       editando: [{ userId: 'u-1', nombre: 'Pedro García' }],
@@ -43,8 +43,9 @@ describe('<CollaborationIndicator>', () => {
     const { container } = render(
       <CollaborationIndicator entidad="requisicion" id="rq-1" />,
     );
-    // El badge animado de "editando" tiene clase amber.
-    expect(container.querySelector('[class*="amber"]')).not.toBeNull();
+    // Conserva el anillo y el icono de edición con el token semántico.
+    expect(container.querySelector('.ring-warning')).not.toBeNull();
+    expect(container.querySelector('.bg-warning .lucide-pencil')).not.toBeNull();
   });
 
   it('4 usuarios: muestra solo 3 avatares + badge "+1"', () => {

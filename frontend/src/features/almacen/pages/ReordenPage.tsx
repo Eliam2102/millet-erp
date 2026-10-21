@@ -1,3 +1,7 @@
+import { BarraFiltros } from '@/components/erp';
+import { TabsEstado as TabsCatalogo } from '@/components/erp';
+import { ESTATUS_CATALOGO } from '../lib/estado-variante';
+import { ListadoModulo } from '@/components/erp/data/ListadoModulo';
 import { PageHeader } from '@/components/erp/PageHeader';
 import { useMemo, useState } from 'react';
 import { useNavigate, useSearch } from '@tanstack/react-router';
@@ -41,10 +45,7 @@ import {
   type SortState,
 } from '@/components/erp';
 import { mapById, useAlmacenes, useSucursales } from '@/features/catalogos/api';
-import {
-  useReordenList,
-  useDesactivarReorden,
-} from '@/features/almacen/api/useReorden';
+import { useReordenList, useDesactivarReorden } from '@/features/almacen/api/useReorden';
 import {
   useActualizarAlmacenSettings,
   useAlmacenSettings,
@@ -83,16 +84,13 @@ type SortKey = 'articulo' | 'nivel' | 'entidad' | 'estatus';
 export function ReordenPage() {
   const search = useSearch({ from: FROM });
   const navigate = useNavigate();
-  const puedeAdministrar = useHasPermission(
-    PermisosCanonicos.AlmacenReordenAdministrar,
-  );
+  const puedeAdministrar = useHasPermission(PermisosCanonicos.AlmacenReordenAdministrar);
 
   const [sheetAbierto, setSheetAbierto] = useState(false);
-  const [editando, setEditando] = useState<ConfiguracionReordenListItem | null>(
+  const [editando, setEditando] = useState<ConfiguracionReordenListItem | null>(null);
+  const [confirmDesactivar, setConfirmDesactivar] = useState<ConfiguracionReordenListItem | null>(
     null,
   );
-  const [confirmDesactivar, setConfirmDesactivar] =
-    useState<ConfiguracionReordenListItem | null>(null);
   // Confirmación del interruptor del motor: guarda el valor destino
   // (true=prender, false=apagar) mientras el diálogo está abierto.
   const [confirmMotor, setConfirmMotor] = useState<boolean | null>(null);
@@ -104,14 +102,8 @@ export function ReordenPage() {
   // el backend solo manda el id crudo. Ambos catálogos son chicos (eager).
   const sucursalesQuery = useSucursales();
   const almacenesQuery = useAlmacenes();
-  const sucursalesMap = useMemo(
-    () => mapById(sucursalesQuery.data?.items),
-    [sucursalesQuery.data],
-  );
-  const almacenesMap = useMemo(
-    () => mapById(almacenesQuery.data?.items),
-    [almacenesQuery.data],
-  );
+  const sucursalesMap = useMemo(() => mapById(sucursalesQuery.data?.items), [sucursalesQuery.data]);
+  const almacenesMap = useMemo(() => mapById(almacenesQuery.data?.items), [almacenesQuery.data]);
 
   const query = useReordenList({
     articuloId: search.articuloId,
@@ -128,8 +120,7 @@ export function ReordenPage() {
   }
 
   function resolverEntidad(item: ConfiguracionReordenListItem): string {
-    const mapa =
-      item.nivel === NivelReorden.Sucursal ? sucursalesMap : almacenesMap;
+    const mapa = item.nivel === NivelReorden.Sucursal ? sucursalesMap : almacenesMap;
     return mapa.get(item.entidadId)?.nombre ?? item.entidadId;
   }
 
@@ -147,9 +138,7 @@ export function ReordenPage() {
         },
         onError: (error) => {
           toast.error(
-            esApiError(error)
-              ? error.problem.title
-              : 'No se pudo cambiar el reabasto automático.',
+            esApiError(error) ? error.problem.title : 'No se pudo cambiar el reabasto automático.',
           );
         },
       },
@@ -166,9 +155,7 @@ export function ReordenPage() {
         },
         onError: (error) => {
           toast.error(
-            esApiError(error)
-              ? error.problem.title
-              : 'No se pudo desactivar el reabasto.',
+            esApiError(error) ? error.problem.title : 'No se pudo desactivar el reabasto.',
           );
         },
       },
@@ -176,7 +163,7 @@ export function ReordenPage() {
   }
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-5">
       <PageHeader
         titulo="Reabasto"
         descripcion="Puntos de reabasto por artículo en una sucursal o almacén. El motor propone requisiciones cuando la existencia cae por debajo del objetivo."
@@ -213,19 +200,15 @@ export function ReordenPage() {
             <Power
               className={cn(
                 'h-5 w-5 shrink-0',
-                settingsQuery.data.reabastoAutomaticoActivo
-                  ? 'text-success-fg'
-                  : 'text-warning-fg',
+                settingsQuery.data.reabastoAutomaticoActivo ? 'text-success-fg' : 'text-warning-fg',
               )}
             />
             <div>
               <p className="text-sm font-semibold">
                 Reabasto automático:{' '}
-                {settingsQuery.data.reabastoAutomaticoActivo
-                  ? 'Encendido'
-                  : 'Apagado'}
+                {settingsQuery.data.reabastoAutomaticoActivo ? 'Encendido' : 'Apagado'}
               </p>
-              <p className="text-xs text-muted-foreground">
+              <p className="text-xs text-ink-muted">
                 {settingsQuery.data.reabastoAutomaticoActivo
                   ? 'El motor genera borradores de requisición con estas configuraciones en cada ciclo.'
                   : 'El motor no genera borradores. Las configuraciones de esta bandeja se conservan.'}
@@ -235,80 +218,85 @@ export function ReordenPage() {
           {puedeAdministrar && (
             <Button
               type="button"
-              variant={
-                settingsQuery.data.reabastoAutomaticoActivo
-                  ? 'outline'
-                  : 'default'
-              }
-              onClick={() =>
-                setConfirmMotor(!settingsQuery.data!.reabastoAutomaticoActivo)
-              }
+              variant={settingsQuery.data.reabastoAutomaticoActivo ? 'outline' : 'default'}
+              onClick={() => setConfirmMotor(!settingsQuery.data!.reabastoAutomaticoActivo)}
             >
-              {settingsQuery.data.reabastoAutomaticoActivo
-                ? 'Apagar'
-                : 'Encender'}
+              {settingsQuery.data.reabastoAutomaticoActivo ? 'Apagar' : 'Encender'}
             </Button>
           )}
         </div>
       )}
 
-      <FiltrosToolbar search={search} onChange={actualizarSearch} />
-
-      {query.isError ? (
-        <ErrorState
-          title="No se pudo cargar el reabasto"
-          problem={esApiError(query.error) ? query.error.problem : undefined}
-          onRetry={() => query.refetch()}
-        />
-      ) : query.isLoading ? (
-        <TableSkeleton
-          rows={6}
-          columns={[
-            { width: 'w-64' },
-            { width: 'w-24' },
-            { width: 'w-40' },
-            { width: 'w-16' },
-            { width: 'w-16' },
-            { width: 'w-20' },
-            { width: 'w-16' },
-            { width: 'w-20' },
-          ]}
-        />
-      ) : (query.data?.items ?? []).length === 0 ? (
-        <EmptyState
-          title="Sin configuraciones de reabasto"
-          description={
-            puedeAdministrar
-              ? 'No hay reabastos que coincidan con los filtros. Usa "Nuevo reabasto" para crear el primero.'
-              : 'No hay reabastos configurados.'
-          }
-        />
-      ) : (
-        <div className="overflow-hidden rounded-lg border border-line-row bg-surface-card">
-          <TablaReorden
-            items={query.data!.items}
-            resolverEntidad={resolverEntidad}
-            puedeAdministrar={puedeAdministrar}
-            onEditar={(item) => {
-              setEditando(item);
-              setSheetAbierto(true);
-            }}
-            onDesactivar={setConfirmDesactivar}
+      <ListadoModulo
+        tabs={
+          <TabsCatalogo
+            opciones={Object.entries(ESTATUS_CATALOGO).map(([valor, e]) => ({
+              valor: Number(valor),
+              label: e.etiqueta,
+            }))}
+            valor={search.estatus}
+            conteos={undefined}
+            onChange={(estatus) => actualizarSearch({ estatus: estatus as typeof search.estatus })}
           />
+        }
+        filtros={
+          <BarraFiltros filtros={<FiltrosToolbar search={search} onChange={actualizarSearch} />} />
+        }
+        pie={
           <PaginacionTabla
             total={query.data?.total ?? 0}
             offset={query.data?.offset ?? 0}
             limit={query.data?.limit ?? paginaAOffsetLimit(search).limit}
             onChange={(offset, limit) => actualizarSearch(offsetLimitAPagina(offset, limit))}
           />
-        </div>
-      )}
+        }
+      >
+        {query.isError ? (
+          <ErrorState
+            title="No se pudo cargar el reabasto"
+            problem={esApiError(query.error) ? query.error.problem : undefined}
+            onRetry={() => query.refetch()}
+          />
+        ) : query.isLoading ? (
+          <TableSkeleton
+            rows={6}
+            columns={[
+              { width: 'w-64' },
+              { width: 'w-24' },
+              { width: 'w-40' },
+              { width: 'w-16' },
+              { width: 'w-16' },
+              { width: 'w-20' },
+              { width: 'w-16' },
+              { width: 'w-20' },
+            ]}
+          />
+        ) : (query.data?.items ?? []).length === 0 ? (
+          <EmptyState
+            title="Sin configuraciones de reabasto"
+            description={
+              puedeAdministrar
+                ? 'No hay reabastos que coincidan con los filtros. Usa "Nuevo reabasto" para crear el primero.'
+                : 'No hay reabastos configurados.'
+            }
+          />
+        ) : (
+          <div className="overflow-hidden rounded-lg border border-line-row bg-surface-card">
+            <TablaReorden
+              items={query.data!.items}
+              resolverEntidad={resolverEntidad}
+              puedeAdministrar={puedeAdministrar}
+              onEditar={(item) => {
+                setEditando(item);
+                setSheetAbierto(true);
+              }}
+              onDesactivar={setConfirmDesactivar}
+            />
+          </div>
+        )}
+      </ListadoModulo>
 
-      <ReordenSheet
-        open={sheetAbierto}
-        onOpenChange={setSheetAbierto}
-        editando={editando}
-      />
+      <ReordenSheet open={sheetAbierto} onOpenChange={setSheetAbierto} editando={editando} />
 
       <AlertDialog
         open={confirmDesactivar != null}
@@ -320,15 +308,12 @@ export function ReordenPage() {
           <AlertDialogHeader>
             <AlertDialogTitle>Desactivar reabasto</AlertDialogTitle>
             <AlertDialogDescription>
-              ¿Confirmas desactivar este reabasto? El motor dejará de proponer
-              requisiciones para esta llave. La acción es reversible (volver a
-              crearlo lo reactiva).
+              ¿Confirmas desactivar este reabasto? El motor dejará de proponer requisiciones para
+              esta llave. La acción es reversible (volver a crearlo lo reactiva).
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel disabled={desactivar.isPending}>
-              Cancelar
-            </AlertDialogCancel>
+            <AlertDialogCancel disabled={desactivar.isPending}>Cancelar</AlertDialogCancel>
             <AlertDialogAction
               onClick={() => {
                 if (confirmDesactivar != null) {
@@ -368,9 +353,7 @@ export function ReordenPage() {
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel disabled={actualizarSettings.isPending}>
-              Cancelar
-            </AlertDialogCancel>
+            <AlertDialogCancel disabled={actualizarSettings.isPending}>Cancelar</AlertDialogCancel>
             <AlertDialogAction
               onClick={() => {
                 if (confirmMotor != null) {
@@ -379,11 +362,7 @@ export function ReordenPage() {
               }}
               disabled={actualizarSettings.isPending}
             >
-              {actualizarSettings.isPending
-                ? 'Aplicando…'
-                : confirmMotor
-                  ? 'Encender'
-                  : 'Apagar'}
+              {actualizarSettings.isPending ? 'Aplicando…' : confirmMotor ? 'Encender' : 'Apagar'}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
@@ -398,8 +377,7 @@ interface FiltrosToolbarProps {
 }
 
 function FiltrosToolbar({ search, onChange }: FiltrosToolbarProps) {
-  const hayFiltros =
-    search.articuloId != null || search.nivel != null || search.estatus != null;
+  const hayFiltros = search.articuloId != null || search.nivel != null || search.estatus != null;
   return (
     <div className="flex flex-wrap items-end gap-3">
       <Field label="Artículo" className="gap-1">
@@ -411,56 +389,52 @@ function FiltrosToolbar({ search, onChange }: FiltrosToolbarProps) {
       </Field>
       <Field label="Nivel" className="gap-1">
         {(c) => (
-        <Select
-          value={search.nivel != null ? String(search.nivel) : SENTINEL_ALL}
-          onValueChange={(v) =>
-            onChange({
-              nivel:
-                v === SENTINEL_ALL ? undefined : (Number(v) as NivelReorden),
-            })
-          }
-        >
-          <SelectTrigger {...c} className="w-44">
-            <SelectValue placeholder="Todos" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value={SENTINEL_ALL}>Todos</SelectItem>
-            <SelectItem value={String(NivelReorden.Sucursal)}>
-              {NivelReordenLabels[NivelReorden.Sucursal]}
-            </SelectItem>
-            <SelectItem value={String(NivelReorden.Almacen)}>
-              {NivelReordenLabels[NivelReorden.Almacen]}
-            </SelectItem>
-          </SelectContent>
-        </Select>
+          <Select
+            value={search.nivel != null ? String(search.nivel) : SENTINEL_ALL}
+            onValueChange={(v) =>
+              onChange({
+                nivel: v === SENTINEL_ALL ? undefined : (Number(v) as NivelReorden),
+              })
+            }
+          >
+            <SelectTrigger {...c} className="w-44">
+              <SelectValue placeholder="Todos" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value={SENTINEL_ALL}>Todos</SelectItem>
+              <SelectItem value={String(NivelReorden.Sucursal)}>
+                {NivelReordenLabels[NivelReorden.Sucursal]}
+              </SelectItem>
+              <SelectItem value={String(NivelReorden.Almacen)}>
+                {NivelReordenLabels[NivelReorden.Almacen]}
+              </SelectItem>
+            </SelectContent>
+          </Select>
         )}
       </Field>
       <Field label="Estatus" className="gap-1">
         {(c) => (
-        <Select
-          value={search.estatus != null ? String(search.estatus) : SENTINEL_ALL}
-          onValueChange={(v) =>
-            onChange({
-              estatus:
-                v === SENTINEL_ALL
-                  ? undefined
-                  : (Number(v) as EstatusCatalogo),
-            })
-          }
-        >
-          <SelectTrigger {...c} className="w-44">
-            <SelectValue placeholder="Todos" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value={SENTINEL_ALL}>Todos</SelectItem>
-            <SelectItem value={String(EstatusCatalogo.Activo)}>
-              {EstatusCatalogoLabels[EstatusCatalogo.Activo]}
-            </SelectItem>
-            <SelectItem value={String(EstatusCatalogo.Inactivo)}>
-              {EstatusCatalogoLabels[EstatusCatalogo.Inactivo]}
-            </SelectItem>
-          </SelectContent>
-        </Select>
+          <Select
+            value={search.estatus != null ? String(search.estatus) : SENTINEL_ALL}
+            onValueChange={(v) =>
+              onChange({
+                estatus: v === SENTINEL_ALL ? undefined : (Number(v) as EstatusCatalogo),
+              })
+            }
+          >
+            <SelectTrigger {...c} className="w-44">
+              <SelectValue placeholder="Todos" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value={SENTINEL_ALL}>Todos</SelectItem>
+              <SelectItem value={String(EstatusCatalogo.Activo)}>
+                {EstatusCatalogoLabels[EstatusCatalogo.Activo]}
+              </SelectItem>
+              <SelectItem value={String(EstatusCatalogo.Inactivo)}>
+                {EstatusCatalogoLabels[EstatusCatalogo.Inactivo]}
+              </SelectItem>
+            </SelectContent>
+          </Select>
         )}
       </Field>
       {hayFiltros && (
@@ -503,9 +477,8 @@ function TablaReorden({
       items.map((item) => ({
         item,
         articulo:
-          [item.articuloClave, item.articuloDescripcion]
-            .filter(Boolean)
-            .join(' · ') || item.articuloId,
+          [item.articuloClave, item.articuloDescripcion].filter(Boolean).join(' · ') ||
+          item.articuloId,
         nivel: NivelReordenLabels[item.nivel],
         entidad: resolverEntidad(item),
         estatus: item.estatus,
@@ -515,9 +488,7 @@ function TablaReorden({
 
   const ordenados = useMemo(() => {
     if (sort == null) return enriquecidos;
-    return [...enriquecidos].sort((a, b) =>
-      compareItemsBy(a, b, sort.key, sort.dir),
-    );
+    return [...enriquecidos].sort((a, b) => compareItemsBy(a, b, sort.key, sort.dir));
   }, [enriquecidos, sort]);
 
   return (
@@ -561,15 +532,15 @@ function TablaReorden({
                 onSortChange={setSort}
               />
             </TableHead>
-            {puedeAdministrar && (
-              <TableHead className="text-right">Acciones</TableHead>
-            )}
+            {puedeAdministrar && <TableHead className="text-right">Acciones</TableHead>}
           </TableRow>
         </TableHeader>
         <TableBody>
           {ordenados.map(({ item, articulo, entidad }) => (
             <TableRow key={item.id}>
-              <TableCell className="max-w-0 truncate" title={articulo}>{articulo}</TableCell>
+              <TableCell className="max-w-0 truncate" title={articulo}>
+                {articulo}
+              </TableCell>
               <TableCell>
                 <EstadoAlmacenBadge tipo="nivel-reorden" estado={item.nivel} />
               </TableCell>
@@ -648,5 +619,3 @@ function ValorCelda({
     </TableCell>
   );
 }
-
-

@@ -62,11 +62,11 @@ describe('<CentrosCostoLandingPage> — cards gateadas por permiso (DoD FE-PR1)'
     render(<CentrosCostoLandingPage />);
 
     expect(
-      screen.getByRole('heading', { level: 1, name: /Centros de Costo/ }),
+      screen.getByRole('heading', { level: 1, name: /Centros de costo/ }),
     ).toBeInTheDocument();
     expect(screen.getByText(/Catálogo jerárquico de 3 niveles/)).toBeInTheDocument();
     expect(
-      screen.queryByText('Asignación de Centros de Costo'),
+      screen.queryByText('Asignación de centros de costo'),
     ).not.toBeInTheDocument();
   });
 
@@ -75,7 +75,7 @@ describe('<CentrosCostoLandingPage> — cards gateadas por permiso (DoD FE-PR1)'
     render(<CentrosCostoLandingPage />);
 
     expect(
-      screen.getByText('Asignación de Centros de Costo'),
+      screen.getByText('Asignación de centros de costo'),
     ).toBeInTheDocument();
     expect(
       screen.queryByText(/Catálogo jerárquico de 3 niveles/),
@@ -98,7 +98,7 @@ describe('<CentrosCostoLandingPage> — cards gateadas por permiso (DoD FE-PR1)'
       screen.queryByText(/Catálogo jerárquico de 3 niveles/),
     ).not.toBeInTheDocument();
     expect(
-      screen.queryByText('Asignación de Centros de Costo'),
+      screen.queryByText('Asignación de centros de costo'),
     ).not.toBeInTheDocument();
   });
 });

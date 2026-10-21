@@ -1,5 +1,6 @@
-import { useNavigate } from '@tanstack/react-router';
+import { PageHeader } from '@/components/erp/PageHeader';
 import { EmitirFacturaForm } from '@/features/facturacion/components/emitir-factura/EmitirFacturaForm';
+import { useNavigate } from '@tanstack/react-router';
 
 /**
  * Página de factura manual — <c>/facturacion/facturas/nueva</c>
@@ -12,19 +13,21 @@ export function EmitirFacturaPage() {
   const navigate = useNavigate();
 
   return (
-    <div className="mx-auto max-w-5xl space-y-4 px-4 py-6">
-      <header>
-        <h1 className="text-2xl font-semibold tracking-tight">Emitir factura</h1>
-        <p className="text-sm text-muted-foreground">
-          Captura directa del CFDI 4.0: emisor, receptor, pago y conceptos.
-          Al emitir se sella y timbra.
-        </p>
-      </header>
+    <div className="space-y-5">
+      <div>
+        <PageHeader
+          titulo={<>Emitir factura</>}
+          descripcion={
+            <>
+              Captura directa del CFDI 4.0: emisor, receptor, pago y conceptos. Al emitir se sella y
+              timbra.
+            </>
+          }
+        />
+      </div>
 
       <EmitirFacturaForm
-        onSuccess={(res) =>
-          navigate({ to: '/facturacion/facturas/$id', params: { id: res.id } })
-        }
+        onSuccess={(res) => navigate({ to: '/facturacion/facturas/$id', params: { id: res.id } })}
         onCancel={() => navigate({ to: '/facturacion/facturas' })}
       />
     </div>

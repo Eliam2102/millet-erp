@@ -1,3 +1,12 @@
+import { ListadoModulo } from '@/components/erp/data/ListadoModulo';
+import {
+  Table,
+  TableHeader,
+  TableBody,
+  TableRow,
+  TableHead,
+  TableCell,
+} from '@/components/ui/table';
 import { useMemo, useState } from 'react';
 import { Link, useNavigate, useSearch } from '@tanstack/react-router';
 import { Inbox, Clock } from 'lucide-react';
@@ -208,135 +217,149 @@ export function BandejaPendientesOc() {
       />
 
       <TabsContent value={nivelActivo} className="mt-0 space-y-4">
-      {query.isLoading ? (
-        <TableSkeleton rows={8} />
-      ) : query.error != null ? (
-        <ErrorState
-          title="No se pudieron cargar las OCs pendientes"
-          problem={esApiError(query.error) ? query.error.problem : undefined}
-          onRetry={() => {
-            void query.refetch();
-          }}
-        />
-      ) : (
-      <>
-      <ResumenAprobacionMasiva resultados={resumen} onCerrar={() => setResumen([])} />
+        <ListadoModulo
+          pie={
+            <PaginacionTabla
+              total={query.data?.totalCount ?? 0}
+              offset={(page - 1) * pageSize}
+              limit={pageSize}
+              onChange={(offset, limit) => setPagina(Math.floor(offset / limit) + 1, limit)}
+            />
+          }
+        >
+          {query.isLoading ? (
+            <TableSkeleton rows={8} />
+          ) : query.error != null ? (
+            <ErrorState
+              title="No se pudieron cargar las OCs pendientes"
+              problem={esApiError(query.error) ? query.error.problem : undefined}
+              onRetry={() => {
+                void query.refetch();
+              }}
+            />
+          ) : (
+            <>
+              <ResumenAprobacionMasiva resultados={resumen} onCerrar={() => setResumen([])} />
 
-      <ConfirmarAccionDialog
-        open={porConfirmar.length > 0}
-        onOpenChange={(v) => {
-          if (!v) setPorConfirmar([]);
-        }}
-        titulo={`Aprobar ${porConfirmar.length} OC`}
-        resumen={
-          <p>
-            Vas a firmar {nivelActivo === 'Nivel1' ? 'el Nivel 1' : 'el Nivel 2'} de{' '}
-            {porConfirmar.length} {porConfirmar.length === 1 ? 'orden' : 'órdenes'} por un total
-            de{' '}
-            {[...totalesPorMoneda].map(([moneda, total], i) => (
-              <span key={moneda}>
-                {i > 0 && ' + '}
-                <MoneyDisplay amount={total} currency={moneda} />
-              </span>
-            ))}
-            . Tu firma queda registrada con tu usuario y no se puede deshacer.
-          </p>
-        }
-        verbo={`Aprobar ${porConfirmar.length} OC`}
-        tono="primario"
-        pendiente={autorizarMasivo.isPending}
-        onConfirmar={() => {
-          const lote = porConfirmar;
-          setPorConfirmar([]);
-          void aprobar(lote);
-        }}
-      />
+              <ConfirmarAccionDialog
+                open={porConfirmar.length > 0}
+                onOpenChange={(v) => {
+                  if (!v) setPorConfirmar([]);
+                }}
+                titulo={`Aprobar ${porConfirmar.length} OC`}
+                resumen={
+                  <p>
+                    Vas a firmar {nivelActivo === 'Nivel1' ? 'el Nivel 1' : 'el Nivel 2'} de{' '}
+                    {porConfirmar.length} {porConfirmar.length === 1 ? 'orden' : 'órdenes'} por un
+                    total de{' '}
+                    {[...totalesPorMoneda].map(([moneda, total], i) => (
+                      <span key={moneda}>
+                        {i > 0 && ' + '}
+                        <MoneyDisplay amount={total} currency={moneda} />
+                      </span>
+                    ))}
+                    . Tu firma queda registrada con tu usuario y no se puede deshacer.
+                  </p>
+                }
+                verbo={`Aprobar ${porConfirmar.length} OC`}
+                tono="primario"
+                pendiente={autorizarMasivo.isPending}
+                onConfirmar={() => {
+                  const lote = porConfirmar;
+                  setPorConfirmar([]);
+                  void aprobar(lote);
+                }}
+              />
 
-      {(seleccionadas.length > 0 || errorAprobacion) && (
-        <div className="flex flex-wrap items-center gap-2">
-          {seleccionadas.length > 0 && (
-            <Button
-              type="button"
-              size="sm"
-              disabled={autorizarMasivo.isPending}
-              onClick={() => setPorConfirmar(seleccionadas)}
-            >
-              Aprobar seleccionadas ({seleccionadas.length})
-            </Button>
-          )}
-          {errorAprobacion && (
-            <p role="alert" className="text-sm text-danger-fg">
-              {errorAprobacion}
-            </p>
-          )}
-        </div>
-      )}
+              {(seleccionadas.length > 0 || errorAprobacion) && (
+                <div className="flex flex-wrap items-center gap-2">
+                  {seleccionadas.length > 0 && (
+                    <Button
+                      type="button"
+                      size="sm"
+                      disabled={autorizarMasivo.isPending}
+                      onClick={() => setPorConfirmar(seleccionadas)}
+                    >
+                      Aprobar seleccionadas ({seleccionadas.length})
+                    </Button>
+                  )}
+                  {errorAprobacion && (
+                    <p role="alert" className="text-sm text-danger-fg">
+                      {errorAprobacion}
+                    </p>
+                  )}
+                </div>
+              )}
 
-      {items.length === 0 ? (
-        <EmptyState
-          icon={<Inbox className="h-10 w-10" />}
-          title={`Sin OCs pendientes en ${nivelActivo === 'Nivel1' ? 'Nivel 1' : 'Nivel 2'}.`}
-          description="Cuando lleguen, las verás aquí ordenadas por antigüedad."
-        />
-      ) : (
-        <div className="overflow-x-auto rounded-md border bg-card">
-          <table className="w-full min-w-[1100px] text-sm">
-            <thead className="bg-muted/50 text-xs uppercase tracking-wide text-muted-foreground">
-              <tr>
-                <th className="w-10 px-3 py-2 text-left">
-                  <Checkbox
-                    checked={
-                      todasSeleccionadas ? true : algunaSeleccionada ? 'indeterminate' : false
-                    }
-                    onCheckedChange={(v) => alternarTodas(v === true)}
-                    disabled={autorizables.length === 0}
-                    aria-label="Seleccionar todas las OC autorizables"
-                  />
-                </th>
-                <th className="px-3 py-2 text-left font-medium">Folio</th>
-                <th className="px-3 py-2 text-left font-medium">Proveedor</th>
-                <th className="px-3 py-2 text-right font-medium">Cantidad</th>
-                <th className="px-3 py-2 text-right font-medium">Monto total</th>
-                <th className="px-3 py-2 text-left font-medium">Comprador</th>
-                <th className="px-3 py-2 text-left font-medium">Fecha doc.</th>
-                <th className="px-3 py-2 text-left font-medium">Días esperando</th>
-                <th className="px-3 py-2 text-left font-medium">Indicadores</th>
-                <th className="px-3 py-2 text-left font-medium">Estado</th>
-                <th className="px-3 py-2 text-right font-medium">Acción</th>
-              </tr>
-            </thead>
-            <tbody>
-              {items.map((oc, i) => (
-                <FilaOc
-                  key={oc.id}
-                  oc={oc}
-                  bgClass={i % 2 === 1 ? 'bg-muted/20' : undefined}
-                  proveedor={resolverProveedor(oc)}
-                  comprador={resolverUsuario(oc.compradorTitularId)}
-                  ahoraMs={ahoraMs}
-                  seleccionada={seleccion.has(oc.id)}
-                  puedeAutorizar={puedeAutorizar}
-                  bloqueado={autorizarMasivo.isPending}
-                  resultado={resultados[oc.id]}
-                  onSeleccion={(on) => alternarSeleccion(oc.id, on)}
-                  onAprobarRapido={() => setPorConfirmar([oc])}
+              {items.length === 0 ? (
+                <EmptyState
+                  icon={<Inbox className="h-10 w-10" />}
+                  title={`Sin OCs pendientes en ${nivelActivo === 'Nivel1' ? 'Nivel 1' : 'Nivel 2'}.`}
+                  description="Cuando lleguen, las verás aquí ordenadas por antigüedad."
                 />
-              ))}
-            </tbody>
-          </table>
-        </div>
-      )}
-
-      {((query.data?.totalCount ?? 0) > 0 || page > 1) && (
-        <PaginacionTabla
-          total={query.data?.totalCount ?? 0}
-          offset={(page - 1) * pageSize}
-          limit={pageSize}
-          onChange={(offset, limit) => setPagina(Math.floor(offset / limit) + 1, limit)}
-        />
-      )}
-      </>
-      )}
+              ) : (
+                <div className="overflow-x-auto rounded-md border bg-surface-card">
+                  <Table className="w-full min-w-full text-sm">
+                    <TableHeader className="bg-surface-muted/50 text-xs uppercase tracking-wide text-ink-muted">
+                      <TableRow>
+                        <TableHead className="w-10 px-3 py-2 text-left">
+                          <Checkbox
+                            checked={
+                              todasSeleccionadas
+                                ? true
+                                : algunaSeleccionada
+                                  ? 'indeterminate'
+                                  : false
+                            }
+                            onCheckedChange={(v) => alternarTodas(v === true)}
+                            disabled={autorizables.length === 0}
+                            aria-label="Seleccionar todas las OC autorizables"
+                          />
+                        </TableHead>
+                        <TableHead className="px-3 py-2 text-left font-medium">Folio</TableHead>
+                        <TableHead className="px-3 py-2 text-left font-medium">Proveedor</TableHead>
+                        <TableHead className="px-3 py-2 text-right font-medium">Cantidad</TableHead>
+                        <TableHead className="px-3 py-2 text-right font-medium">
+                          Monto total
+                        </TableHead>
+                        <TableHead className="px-3 py-2 text-left font-medium">Comprador</TableHead>
+                        <TableHead className="px-3 py-2 text-left font-medium">
+                          Fecha doc.
+                        </TableHead>
+                        <TableHead className="px-3 py-2 text-left font-medium">
+                          Días esperando
+                        </TableHead>
+                        <TableHead className="px-3 py-2 text-left font-medium">
+                          Indicadores
+                        </TableHead>
+                        <TableHead className="px-3 py-2 text-left font-medium">Estado</TableHead>
+                        <TableHead className="px-3 py-2 text-right font-medium">Acción</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody className="[&_tr]:h-12">
+                      {items.map((oc, i) => (
+                        <FilaOc
+                          key={oc.id}
+                          oc={oc}
+                          bgClass={i % 2 === 1 ? 'bg-surface-muted/20' : undefined}
+                          proveedor={resolverProveedor(oc)}
+                          comprador={resolverUsuario(oc.compradorTitularId)}
+                          ahoraMs={ahoraMs}
+                          seleccionada={seleccion.has(oc.id)}
+                          puedeAutorizar={puedeAutorizar}
+                          bloqueado={autorizarMasivo.isPending}
+                          resultado={resultados[oc.id]}
+                          onSeleccion={(on) => alternarSeleccion(oc.id, on)}
+                          onAprobarRapido={() => setPorConfirmar([oc])}
+                        />
+                      ))}
+                    </TableBody>
+                  </Table>
+                </div>
+              )}
+            </>
+          )}
+        </ListadoModulo>
       </TabsContent>
     </Tabs>
   );
@@ -379,31 +402,31 @@ function FilaOc({
   const aprobableRapido = puedeAutorizar && (oc.esMenorCuantia || oc.proveedorConocido);
 
   return (
-    <tr className={cn(bgClass)} data-oc={oc.id}>
-      <td className="px-3 py-2">
+    <TableRow className={cn(bgClass)} data-oc={oc.id}>
+      <TableCell className="px-3 py-2">
         <Checkbox
           checked={seleccionada}
           onCheckedChange={(v) => onSeleccion(v === true)}
           disabled={!puedeAutorizar}
           aria-label={`Seleccionar ${oc.folio}`}
         />
-      </td>
-      <td className="px-3 py-2 font-mono text-xs">{oc.folio}</td>
-      <td className="px-3 py-2">{proveedor}</td>
-      <td className="px-3 py-2 text-right tabular-nums">
+      </TableCell>
+      <TableCell className="px-3 py-2 font-mono text-xs">{oc.folio}</TableCell>
+      <TableCell className="px-3 py-2">{proveedor}</TableCell>
+      <TableCell className="px-3 py-2 text-right tabular-nums">
         {oc.cantidadTotal.toLocaleString('es-MX')}
-        <span className="block text-xs text-muted-foreground">
-          {oc.numeroLineas} {oc.numeroLineas === 1 ? 'línea' : 'líneas'}
+        <span className="block text-xs text-ink-muted">
+          {oc.numeroLineas} {oc.numeroLineas === 1 ? 'partida' : 'partidas'}
         </span>
-      </td>
-      <td className="px-3 py-2 text-right">
+      </TableCell>
+      <TableCell className="px-3 py-2 text-right">
         <MoneyDisplay amount={oc.totalAPagar} currency={oc.moneda} />
-      </td>
-      <td className="px-3 py-2 text-muted-foreground">{comprador}</td>
-      <td className="px-3 py-2">
+      </TableCell>
+      <TableCell className="px-3 py-2 text-ink-muted">{comprador}</TableCell>
+      <TableCell className="px-3 py-2">
         <DateTimeDisplay value={oc.fechaDocumento} />
-      </td>
-      <td
+      </TableCell>
+      <TableCell
         className={cn(
           'px-3 py-2 tabular-nums',
           diasEsperando >= 7 && 'text-warning-fg font-medium',
@@ -414,14 +437,14 @@ function FilaOc({
           <Clock className="h-3 w-3" aria-hidden="true" />
           {diasEsperando} {diasEsperando === 1 ? 'día' : 'días'}
         </span>
-      </td>
-      <td className="px-3 py-2">
+      </TableCell>
+      <TableCell className="px-3 py-2">
         <IndicadoresOc oc={oc} />
-      </td>
-      <td className="px-3 py-2">
+      </TableCell>
+      <TableCell className="px-3 py-2">
         <EstadoBadge tipo="orden-compra" estado={oc.estado} />
-      </td>
-      <td className="px-3 py-2 text-right">
+      </TableCell>
+      <TableCell className="px-3 py-2 text-right">
         <div className="flex flex-wrap items-center justify-end gap-2">
           {resultado && <ResultadoFila resultado={resultado} />}
           {aprobableRapido && (
@@ -444,8 +467,8 @@ function FilaOc({
             </Link>
           </Button>
         </div>
-      </td>
-    </tr>
+      </TableCell>
+    </TableRow>
   );
 }
 

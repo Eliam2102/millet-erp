@@ -106,9 +106,9 @@ describe('<PolizaDetallePage> · K10.4', () => {
     fireEvent.click(await screen.findByRole('button', { name: 'Reclasificar' }));
     const hoja = await screen.findByRole('dialog');
     expect(within(hoja).getByRole('note')).toHaveTextContent('Reclasifica a TT-000123');
-    expect(within(hoja).getByLabelText('Concepto', { selector: '#pol-concepto' })).toHaveValue('Reclasificación de TT-000123');
+    expect(within(hoja).getByLabelText(/^Concepto(?:\s*\*)?$/, { selector: '#pol-concepto' })).toHaveValue('Reclasificación de TT-000123');
     await within(hoja).findByRole('option', { name: 'AS — FIX Asiento contable (Diario)' });
-    expect(within(hoja).getByLabelText('Tipo de operación')).toHaveValue('t-as');
+    expect(within(hoja).getByLabelText(/^Tipo de operación(?:\s*\*)?$/)).toHaveValue('t-as');
 
     fireEvent.click(within(hoja).getByRole('button', { name: 'Guardar borrador' }));
     await waitFor(() => expect(onNavegar).toHaveBeenCalledWith('p12'));
@@ -123,7 +123,7 @@ describe('<PolizaDetallePage> · K10.4', () => {
     render(<PolizaDetallePage id="p1" search={{}} onNavegar={vi.fn()} />, { wrapper: createQueryWrapper() });
     fireEvent.click(await screen.findByRole('button', { name: 'Anular' }));
     const dialogo = await screen.findByRole('dialog');
-    fireEvent.change(within(dialogo).getByLabelText('Motivo'), { target: { value: 'FIX Provisión duplicada' } });
+    fireEvent.change(within(dialogo).getByLabelText(/^Motivo(?:\s*\*)?$/), { target: { value: 'FIX Provisión duplicada' } });
     fireEvent.click(within(dialogo).getByRole('button', { name: 'Anular póliza' }));
     expect(await within(dialogo).findByRole('alert')).toHaveTextContent('anula primero la reversa');
   });

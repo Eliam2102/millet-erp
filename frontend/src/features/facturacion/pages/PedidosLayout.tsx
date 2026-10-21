@@ -1,12 +1,13 @@
-import { useMemo, type ReactNode } from 'react';
-import { useSearch } from '@tanstack/react-router';
-import { Inbox } from 'lucide-react';
 import { EmptyState, ErrorState, TableSkeleton } from '@/components/erp';
+import { PageHeader } from '@/components/erp/PageHeader';
 import { useListarPedidos } from '@/features/facturacion/api/usePedidos';
-import { esApiError } from '@/lib/api';
 import { ListaPedidosCompacta } from '@/features/facturacion/components/ListaPedidosCompacta';
 import type { PedidosSearch } from '@/features/facturacion/lib/pedidos-search-schema';
+import { esApiError } from '@/lib/api';
 import { cn } from '@/lib/utils';
+import { useSearch } from '@tanstack/react-router';
+import { Inbox } from 'lucide-react';
+import { useMemo, type ReactNode } from 'react';
 
 /**
  * <c>Master-detail de pedidos facturables</c> (FAC-UX-PR5) — réplica del
@@ -41,7 +42,7 @@ export function PedidosLayout({ idActivo, detalle }: PedidosLayoutProps) {
   }, [query.data, search.q]);
 
   return (
-    <div className="flex flex-col gap-4 px-4 py-6 md:h-[calc(100vh-3.5rem)] md:flex-row">
+    <div className="flex flex-col gap-4   md:h-[calc(100vh-3.5rem)] md:flex-row">
       {/* ── Master (lista) ────────────────────────────── */}
       <aside
         className={cn(
@@ -51,8 +52,11 @@ export function PedidosLayout({ idActivo, detalle }: PedidosLayoutProps) {
         aria-label="Lista de pedidos facturables"
         data-print="hidden"
       >
-        <h1 className="text-xl font-semibold tracking-tight">Pedidos</h1>
-        <div className="flex-1 overflow-y-auto rounded-md border bg-card">
+        <PageHeader
+          titulo={<>Pedidos</>}
+          descripcion={<>Consulta los registros y selecciona uno para ver su detalle.</>}
+        />
+        <div className="flex-1 overflow-y-auto rounded-md border bg-surface-card border-line">
           {query.isLoading ? (
             <div className="p-3">
               <TableSkeleton rows={8} columns={[{ width: 'w-full' }, { width: 'w-full' }]} />
@@ -94,8 +98,8 @@ export function PedidosLayout({ idActivo, detalle }: PedidosLayoutProps) {
 
 function PlaceholderSinSeleccion() {
   return (
-    <div className="flex h-full min-h-64 items-center justify-center rounded-md border border-dashed bg-muted/20 p-8 text-center">
-      <div className="space-y-1 text-muted-foreground">
+    <div className="flex h-full min-h-64 items-center justify-center rounded-md border border-dashed bg-surface-muted/20 p-8 text-center border-line">
+      <div className="space-y-1 text-ink-muted">
         <Inbox className="mx-auto h-8 w-8 opacity-50" aria-hidden="true" />
         <p className="text-sm">Selecciona un pedido de la lista</p>
         <p className="text-xs">para ver su detalle.</p>

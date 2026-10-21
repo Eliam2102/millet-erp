@@ -26,9 +26,10 @@
      un **`correo_autorizacion`**;
    - OC **sin RQ** exige motivo capturado **y** adjunto `correo_autorizacion`;
    - OC de **importación** exige `ficha_tecnica`.
-3. **Tolerancia de cantidad por línea** — se fija al crear la OC; Almacén la usa
-   para el cierre automático de la recepción. (Es distinta de la tolerancia de
-   monto por proveedor de CxP y de la de cantidad por material de Almacén.)
+3. **Sin tolerancia de cantidad por línea** — el recibido nunca supera la
+   cantidad de la línea; la OC cierra su recepción al alcanzar esa cantidad.
+   La única tolerancia es de dinero por proveedor (CxP).
+   Actualizado 19-oct-2026 (86e3tab1k): la única tolerancia es de dinero por proveedor; fuente: plano CxP 1.7.1 y junta del 8-oct.
 4. Catálogos consumidos activos: proveedores, artículos, condiciones de pago,
    incoterms, transportistas (seeds; sin CRUD en este módulo).
 5. Secuencia de folios por sucursal/año: `OC-{prefijo}{año}-{secuencial:6}`.

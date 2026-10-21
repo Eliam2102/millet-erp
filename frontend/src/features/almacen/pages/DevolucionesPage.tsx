@@ -1,3 +1,5 @@
+import { KpiCard } from '@/components/erp/display/KpiCard';
+import { ListadoModulo } from '@/components/erp/data/ListadoModulo';
 import { PageHeader } from '@/components/erp/PageHeader';
 import { useMemo, useState } from 'react';
 import { Link, useNavigate, useSearch } from '@tanstack/react-router';
@@ -45,10 +47,7 @@ import { PermisosCanonicos } from '@/lib/auth/permission-codes';
 import { esApiError } from '@/lib/api';
 import { NuevaDevolucionProveedorSheet } from '@/features/almacen/components/NuevaDevolucionProveedorSheet';
 import { AplicarDevolucionInternaSheet } from '@/features/almacen/components/AplicarDevolucionInternaSheet';
-import {
-  MatRevSheet,
-  type MatRevModo,
-} from '@/features/almacen/components/MatRevSheet';
+import { MatRevSheet, type MatRevModo } from '@/features/almacen/components/MatRevSheet';
 import type { DevolucionesSearch } from '@/features/almacen/lib/devoluciones-search-schema';
 import { EstadoAlmacenBadge } from '@/features/almacen/components/EstadoAlmacenBadge';
 import { BusquedaFolio } from '@/components/erp/data/BusquedaFolio';
@@ -58,11 +57,7 @@ import { DateTimeDisplay } from '@/components/erp/display/DateTimeDisplay';
 
 const FROM = '/_app/almacen/devoluciones/' as const;
 
-type SortKey =
-  | 'proveedorId'
-  | 'estado'
-  | 'montoTotalMxn'
-  | 'solicitadaAt';
+type SortKey = 'proveedorId' | 'estado' | 'montoTotalMxn' | 'solicitadaAt';
 
 /**
  * <c>P5 — Bandeja de devoluciones</c> (doc 07 §FE-F4-PR1).
@@ -115,14 +110,14 @@ export function DevolucionesPage() {
   }
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-5">
       <PageHeader
         titulo="Devoluciones a proveedor"
         descripcion={
           <>
             Devoluciones al proveedor con estado de Borrador → En autorización → Autorizada →
-            Registrada → Conciliada NC fiscal. Las devoluciones internas y las de material en revisión
-            están en el menú "Otras acciones".
+            Registrada → Conciliada NC fiscal. Las devoluciones internas y las de material en
+            revisión están en el menú "Otras acciones".
           </>
         }
         acciones={
@@ -160,57 +155,84 @@ export function DevolucionesPage() {
         }
       />
 
-      <TabsEstado
-        opciones={TABS_ESTADO}
-        valor={search.estado}
-        onChange={(estado) =>
-          actualizarSearch({ estado: estado as EstadoDevolucionProveedor | undefined })
+      <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+        {TABS_ESTADO.filter((tab) =>
+          [
+            EstadoDevolucionProveedor.Borrador,
+            EstadoDevolucionProveedor.EnAutorizacion,
+            EstadoDevolucionProveedor.Autorizada,
+            EstadoDevolucionProveedor.Rechazada,
+          ].some((estado) => estado === tab.valor),
+        ).map((tab) => (
+          <Button
+            key={tab.valor}
+            variant="ghost"
+            className="h-auto items-stretch p-0 text-left [&>div]:w-full"
+            aria-pressed={search.estado === tab.valor}
+            onClick={() => actualizarSearch({ estado: tab.valor as typeof search.estado })}
+          >
+            <KpiCard etiqueta={tab.label} valor={conteos.data?.[tab.valor] ?? '—'} />
+          </Button>
+        ))}
+      </div>
+      <ListadoModulo
+        tabs={
+          <TabsEstado
+            opciones={TABS_ESTADO}
+            valor={search.estado}
+            onChange={(estado) =>
+              actualizarSearch({ estado: estado as EstadoDevolucionProveedor | undefined })
+            }
+            conteos={conteos.data}
+          />
         }
-        conteos={conteos.data}
-      />
-
-      <FiltrosToolbar search={search} total={query.data?.total} onChange={actualizarSearch} />
-
-      {query.isError ? (
-        <ErrorState
-          title="No se pudieron cargar las devoluciones"
-          problem={esApiError(query.error) ? query.error.problem : undefined}
-          onRetry={() => query.refetch()}
-        />
-      ) : query.isLoading ? (
-        <TableSkeleton
-          rows={6}
-          columns={[
-            { width: 'w-40' },
-            { width: 'w-32' },
-            { width: 'w-32' },
-            { width: 'w-40' },
-            { width: 'w-40' },
-          ]}
-        />
-      ) : (query.data?.items ?? []).length === 0 ? (
-        <EmptyState
-          title="Sin devoluciones a proveedor"
-          description={
-            search.q ||
-            search.estado != null ||
-            search.proveedorId ||
-            search.soloPendientesNcFiscal
-              ? 'No hay devoluciones que coincidan con los filtros.'
-              : 'Aún no se ha iniciado ninguna devolución a proveedor.'
-          }
-        />
-      ) : (
-        <div className="overflow-hidden rounded-lg border border-line-row bg-surface-card">
-          <TablaDevoluciones items={query.data!.items} />
+        filtros={
+          <FiltrosToolbar search={search} total={query.data?.total} onChange={actualizarSearch} />
+        }
+        pie={
           <PaginacionTabla
-            total={query.data!.total}
-            offset={query.data!.offset}
-            limit={query.data!.limit}
+            total={query.data?.total ?? 0}
+            offset={query.data?.offset ?? 0}
+            limit={query.data?.limit ?? paginaAOffsetLimit(search).limit}
             onChange={(offset, limit) => actualizarSearch(offsetLimitAPagina(offset, limit))}
           />
-        </div>
-      )}
+        }
+      >
+        {query.isError ? (
+          <ErrorState
+            title="No se pudieron cargar las devoluciones"
+            problem={esApiError(query.error) ? query.error.problem : undefined}
+            onRetry={() => query.refetch()}
+          />
+        ) : query.isLoading ? (
+          <TableSkeleton
+            rows={6}
+            columns={[
+              { width: 'w-40' },
+              { width: 'w-32' },
+              { width: 'w-32' },
+              { width: 'w-40' },
+              { width: 'w-40' },
+            ]}
+          />
+        ) : (query.data?.items ?? []).length === 0 ? (
+          <EmptyState
+            title="Sin devoluciones a proveedor"
+            description={
+              search.q ||
+              search.estado != null ||
+              search.proveedorId ||
+              search.soloPendientesNcFiscal
+                ? 'No hay devoluciones que coincidan con los filtros.'
+                : 'Aún no se ha iniciado ninguna devolución a proveedor.'
+            }
+          />
+        ) : (
+          <div className="overflow-hidden rounded-lg border border-line-row bg-surface-card">
+            <TablaDevoluciones items={query.data!.items} />
+          </div>
+        )}
+      </ListadoModulo>
 
       <NuevaDevolucionProveedorSheet
         open={sheetProveedorAbierto}
@@ -300,19 +322,13 @@ function FiltrosToolbar({ search, total, onChange }: FiltrosToolbarProps) {
   );
 }
 
-function TablaDevoluciones({
-  items,
-}: {
-  items: readonly DevolucionProveedorListItem[];
-}) {
+function TablaDevoluciones({ items }: { items: readonly DevolucionProveedorListItem[] }) {
   const navigate = useNavigate();
   const [sort, setSort] = useState<SortState<SortKey> | null>(null);
 
   const ordenados = useMemo(() => {
     if (sort == null) return items;
-    return [...items].sort((a, b) =>
-      compareItemsBy(a, b, sort.key, sort.dir),
-    );
+    return [...items].sort((a, b) => compareItemsBy(a, b, sort.key, sort.dir));
   }, [items, sort]);
 
   return (
@@ -394,9 +410,7 @@ function TablaDevoluciones({
                   <DateTimeDisplay value={d.solicitadaAt} variant="corta" />
                 </TableCell>
                 <TableCell className="font-mono text-xs">
-                  {d.folioMovimientoSalida ?? (
-                    <span className="italic text-ink-muted">—</span>
-                  )}
+                  {d.folioMovimientoSalida ?? <span className="italic text-ink-muted">—</span>}
                 </TableCell>
               </TableRow>
             );

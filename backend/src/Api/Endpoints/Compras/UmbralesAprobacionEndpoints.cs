@@ -59,7 +59,7 @@ public static class UmbralesAprobacionEndpoints
             "Si la vigencia anterior es de un día previo, la cierra con hoy-1 e inserta " +
             "una nueva con vigenteDesde = hoy. Si ya existe una fila de hoy, la actualiza. " +
             "umbralMenorCuantia (N1) debe ser menor que umbralMonto (N2) cuando se envía. " +
-            "modoNivel2 (SoloMonto, SoloDisponibilidad o Ambos; default Ambos) y montoMinimoDisponibilidad " +
+            "modoNivel2 (SoloMonto, SoloDisponibilidad o Ambos; default SoloDisponibilidad) y montoMinimoDisponibilidad " +
             "(opcional, >= 0) definen cuándo una requisición del departamento exige N2. " +
             "Responde 409 UMBRAL_GUARDADO_CONCURRENTE si otro usuario guarda el mismo departamento al mismo tiempo.")
         .Produces<UmbralAprobacionResponse>(StatusCodes.Status200OK)

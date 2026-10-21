@@ -41,7 +41,7 @@ export const BandejaSearchSchema = z.object({
   q: z.string().min(1).optional(),
   /** Offset-based paging (doc 05 §7). */
   offset: z.coerce.number().int().min(0).optional().default(0),
-  limit: z.coerce.number().int().min(1).max(200).optional().default(25),
+  limit: z.coerce.number().int().min(1).max(200).optional().default(10),
 });
 
 export type BandejaSearch = z.infer<typeof BandejaSearchSchema>;
@@ -52,5 +52,5 @@ export type BandejaSearch = z.infer<typeof BandejaSearchSchema>;
  */
 export const DEFAULT_BANDEJA_SEARCH: BandejaSearch = {
   offset: 0,
-  limit: 25,
+  limit: 10,
 };

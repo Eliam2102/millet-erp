@@ -1,3 +1,4 @@
+import { PageHeader } from '@/components/erp/PageHeader';
 import { useMemo, type ReactNode } from 'react';
 import { Plus, Users } from 'lucide-react';
 import { Link } from '@tanstack/react-router';
@@ -40,10 +41,7 @@ export function UsuariosLayout({ idActivo, detalle }: UsuariosLayoutProps) {
   const canGestionarEmpleados = useHasPermission(PermisosCanonicos.AdminEmpleadosGestionar);
   const usuariosQuery = useUsuarios({ limit: 200 });
 
-  const items = useMemo(
-    () => usuariosQuery.data?.items ?? [],
-    [usuariosQuery.data],
-  );
+  const items = useMemo(() => usuariosQuery.data?.items ?? [], [usuariosQuery.data]);
 
   return (
     <div className="flex flex-col gap-4 md:h-[calc(100vh-3.5rem-3rem)] md:flex-row">
@@ -55,22 +53,35 @@ export function UsuariosLayout({ idActivo, detalle }: UsuariosLayoutProps) {
         aria-label="Cuentas de acceso"
         data-print="hidden"
       >
-        <div className="flex flex-wrap items-center justify-between gap-2">
-          <h1 className="text-xl font-semibold tracking-tight">Cuentas de acceso</h1>
-          {canCrear && (
-            <Button size="sm" onClick={() => nuevoUsuario.abrir()}>
-              <Plus className="mr-1 h-4 w-4" />
-              Cuenta independiente
-            </Button>
-          )}
-        </div>
+        <PageHeader
+          titulo={<>Cuentas de acceso</>}
+          descripcion={<></>}
+          acciones={
+            <>
+              {canCrear && (
+                <Button size="sm" onClick={() => nuevoUsuario.abrir()}>
+                  <Plus className="mr-1 h-4 w-4" />
+                  Cuenta independiente
+                </Button>
+              )}
+            </>
+          }
+        />
 
-        <p className="text-xs text-muted-foreground">
-          El acceso de colaboradores se crea desde Empleados. Aquí se consultan y gestionan las cuentas del ERP.
-          {canGestionarEmpleados && <>{' '}<Link className="underline" to="/admin/empleados">Ir a Empleados</Link></>}
+        <p className="text-xs text-ink-muted">
+          El acceso de colaboradores se crea desde Empleados. Aquí se consultan y gestionan las
+          cuentas del ERP.
+          {canGestionarEmpleados && (
+            <>
+              {' '}
+              <Link className="underline" to="/admin/empleados">
+                Ir a Empleados
+              </Link>
+            </>
+          )}
         </p>
 
-        <div className="flex-1 overflow-y-auto rounded-md border bg-card">
+        <div className="flex-1 overflow-y-auto rounded-md border bg-surface-card">
           <RenderLista
             query={usuariosQuery}
             items={items}
@@ -96,30 +107,17 @@ export function UsuariosLayout({ idActivo, detalle }: UsuariosLayoutProps) {
 
 interface RenderListaProps {
   query: ReturnType<typeof useUsuarios>;
-  items: ReturnType<typeof useUsuarios>['data'] extends
-    | { items: infer I }
-    | undefined
-    ? I
-    : never;
+  items: ReturnType<typeof useUsuarios>['data'] extends { items: infer I } | undefined ? I : never;
   idActivo: string | null;
   canCrear: boolean;
   onAbrirNuevo: () => void;
 }
 
-function RenderLista({
-  query,
-  items,
-  idActivo,
-  canCrear,
-  onAbrirNuevo,
-}: RenderListaProps) {
+function RenderLista({ query, items, idActivo, canCrear, onAbrirNuevo }: RenderListaProps) {
   if (query.isLoading) {
     return (
       <div className="p-3">
-        <TableSkeleton
-          rows={6}
-          columns={[{ width: 'w-full' }, { width: 'w-full' }]}
-        />
+        <TableSkeleton rows={6} columns={[{ width: 'w-full' }, { width: 'w-full' }]} />
       </div>
     );
   }
@@ -156,8 +154,8 @@ function RenderLista({
 
 function PlaceholderSinSeleccion() {
   return (
-    <div className="flex h-full min-h-64 items-center justify-center rounded-md border border-dashed bg-muted/20 p-8 text-center">
-      <div className="space-y-1 text-muted-foreground">
+    <div className="flex h-full min-h-64 items-center justify-center rounded-md border border-dashed bg-surface-muted/20 p-8 text-center">
+      <div className="space-y-1 text-ink-muted">
         <Users className="mx-auto h-8 w-8 opacity-50" aria-hidden="true" />
         <p className="text-sm">Selecciona una cuenta de la lista</p>
         <p className="text-xs">para ver sus datos y asignaciones.</p>

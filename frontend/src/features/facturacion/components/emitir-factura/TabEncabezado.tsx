@@ -1,29 +1,25 @@
-import { Controller, useWatch, type UseFormReturn } from 'react-hook-form';
+import { FormaPagoSelector, SucursalSelector, UsoCfdiSelector } from '@/components/erp';
+import { ClaveSatSelector } from '@/components/erp/selectors/ClaveSatSelector';
+import { MonedaSelector } from '@/components/erp/selectors/MonedaSelector';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import {
-  SucursalSelector,
-  UsoCfdiSelector,
-  FormaPagoSelector,
-} from '@/components/erp';
-import { MonedaSelector } from '@/components/erp/selectors/MonedaSelector';
 import {
   METODOS_PAGO,
   type ClienteLookupItem,
   type EmisorDefaultsResponse,
 } from '@/features/facturacion/api/types';
-import { OPCIONES_COMPORTAMIENTO_FISCAL } from '@/features/facturacion/lib/glosario';
-import type { EmitirFacturaValues } from '@/features/facturacion/schemas/emitir-factura';
 import { AutorizacionPicker } from '@/features/facturacion/components/AutorizacionPicker';
 import { EmisorInfoBar } from '@/features/facturacion/components/EmisorInfoBar';
 import {
   ReceptorFiscalInfo,
   ReceptorIncompletoBanner,
 } from '@/features/facturacion/components/ReceptorFiscalInfo';
-import { ClienteSelector } from '@/features/facturacion/components/selectors/ClienteSelector';
 import { CanalVentaSelector } from '@/features/facturacion/components/selectors/CanalVentaSelector';
 import { CceIncotermSelector } from '@/features/facturacion/components/selectors/CceIncotermSelector';
-import { ClaveSatSelector } from '@/components/erp/selectors/ClaveSatSelector';
+import { ClienteSelector } from '@/features/facturacion/components/selectors/ClienteSelector';
+import { OPCIONES_COMPORTAMIENTO_FISCAL } from '@/features/facturacion/lib/glosario';
+import type { EmitirFacturaValues } from '@/features/facturacion/schemas/emitir-factura';
+import { Controller, useWatch, type UseFormReturn } from 'react-hook-form';
 import { Campo, Seccion } from './campos';
 import { numeroONull } from './valores';
 
@@ -51,7 +47,7 @@ export interface TabEncabezadoProps {
   /** Receptor incompleto en el master — la emisión se bloquea. */
   receptorBloqueado: boolean;
   esCce: boolean;
-  embarqueCe?: import("@/features/comercio-exterior/api/types").EmbarqueCe | null;
+  embarqueCe?: import('@/features/comercio-exterior/api/types').EmbarqueCe | null;
   esActivo: boolean;
   autorizacionId: string;
   onAutorizacionIdChange: (value: string) => void;
@@ -86,17 +82,12 @@ export function TabEncabezado({
   const metodoPago = useWatch({ control: form.control, name: 'metodoPago' });
   const [receptorRfc, receptorNombre, receptorRegimen, receptorCp] = useWatch({
     control: form.control,
-    name: [
-      'receptorRfc',
-      'receptorNombre',
-      'receptorRegimenFiscal',
-      'receptorCodigoPostal',
-    ],
+    name: ['receptorRfc', 'receptorNombre', 'receptorRegimenFiscal', 'receptorCodigoPostal'],
   });
   return (
     <div className="space-y-5">
       {esActivo && (
-        <div className="space-y-2 rounded-md border border-amber-300 bg-amber-50/60 px-3 py-2">
+        <div className="space-y-2 rounded-md border border-line bg-warning-note-bg px-3 py-2">
           <p className="text-sm">
             Venta de activo fijo: requiere autorización del Contador General.
           </p>
@@ -186,7 +177,7 @@ export function TabEncabezado({
         </Campo>
         <Campo label="Método de pago" required>
           <select
-            className="h-9 w-full rounded-md border border-input bg-transparent px-3 text-sm shadow-sm"
+            className="h-9 w-full rounded-md border border-line-control bg-transparent px-3 text-sm shadow-sm"
             {...form.register('metodoPago', {
               // Matriz SAT (CFDI40105): PPD fija la forma en 99 "Por
               // definir"; al volver a PUE se exige una forma real.
@@ -230,11 +221,7 @@ export function TabEncabezado({
             )}
           />
         </Campo>
-        <Campo
-          label="Moneda"
-          required
-          error={form.formState.errors.moneda?.message}
-        >
+        <Campo label="Moneda" required error={form.formState.errors.moneda?.message}>
           <Controller
             name="moneda"
             control={form.control}
@@ -260,11 +247,7 @@ export function TabEncabezado({
             />
           </Campo>
         )}
-        <Campo
-          label="Canal de venta"
-          required
-          error={form.formState.errors.canalVenta?.message}
-        >
+        <Campo label="Canal de venta" required error={form.formState.errors.canalVenta?.message}>
           <Controller
             name="canalVenta"
             control={form.control}
@@ -277,11 +260,20 @@ export function TabEncabezado({
             )}
           />
         </Campo>
-        <Campo label="Comportamiento fiscal" required>
+        <Campo
+          label="Comportamiento fiscal"
+          required
+          hint="Exportación (CCE) habilita los datos de comercio exterior y aduana; si hay expediente ligado, se toma su clave. Venta de activo fijo pide autorización del Contador General. Con anticipo permite aplicar anticipos en Totales, opción disponible también para los demás comportamientos. Mostrador inmediato, Traslado con Carta Porte y Administrativa no abren campos adicionales en este formulario."
+        >
           <select
-            className="h-9 w-full rounded-md border border-input bg-transparent px-3 text-sm shadow-sm"
+            className="h-9 w-full rounded-md border border-line-control bg-transparent px-3 text-sm shadow-sm"
             {...form.register('comportamientoFiscal', { valueAsNumber: true })}
-            disabled={Boolean(embarqueCe?.ligado)} title={embarqueCe?.ligado ? 'El comportamiento fiscal se toma de la clave del expediente.' : undefined}
+            disabled={Boolean(embarqueCe?.ligado)}
+            title={
+              embarqueCe?.ligado
+                ? 'El comportamiento fiscal se toma de la clave del expediente.'
+                : undefined
+            }
           >
             {OPCIONES_COMPORTAMIENTO_FISCAL.map((o) => (
               <option key={o.value} value={o.value}>
@@ -304,16 +296,17 @@ export function TabEncabezado({
             <Input maxLength={2} {...form.register('cceTipoOperacion')} />
           </Campo>
           <Campo label="Incoterm" hint="Clave SAT c_INCOTERM (FOB, CIF…).">
-            {embarqueCe?.ligado ? <p className="h-ctl-xl py-2 text-sm">{embarqueCe.incoterm}</p> : <Controller
-              control={form.control}
-              name="cceIncoterm"
-              render={({ field }) => (
-                <CceIncotermSelector
-                  value={field.value}
-                  onChange={field.onChange}
-                />
-              )}
-            />}
+            {embarqueCe?.ligado ? (
+              <p className="h-ctl-xl py-2 text-sm">{embarqueCe.incoterm}</p>
+            ) : (
+              <Controller
+                control={form.control}
+                name="cceIncoterm"
+                render={({ field }) => (
+                  <CceIncotermSelector value={field.value} onChange={field.onChange} />
+                )}
+              />
+            )}
           </Campo>
           <Campo label="Tipo de cambio DOF">
             <Input
@@ -345,25 +338,29 @@ export function TabEncabezado({
             label="Clave de pedimento"
             hint="Catálogo SAT c_ClavePedimento (ej. A1). Opcional."
           >
-            {embarqueCe?.ligado ? <p className="h-ctl-xl py-2 text-sm">{embarqueCe.clavePedimento}</p> : <Controller
-              control={form.control}
-              name="cceClaveDePedimento"
-              render={({ field }) => (
-                <ClaveSatSelector
-                  catalogo="clave-pedimento"
-                  value={field.value}
-                  initialLabel={field.value}
-                  placeholder="Buscar pedimento…"
-                  onChange={(item) => field.onChange(item?.codigo ?? null)}
-                />
-              )}
-            />}
+            {embarqueCe?.ligado ? (
+              <p className="h-ctl-xl py-2 text-sm">{embarqueCe.clavePedimento}</p>
+            ) : (
+              <Controller
+                control={form.control}
+                name="cceClaveDePedimento"
+                render={({ field }) => (
+                  <ClaveSatSelector
+                    catalogo="clave-pedimento"
+                    value={field.value}
+                    initialLabel={field.value}
+                    placeholder="Buscar pedimento…"
+                    onChange={(item) => field.onChange(item?.codigo ?? null)}
+                  />
+                )}
+              />
+            )}
           </Campo>
           <div className="flex items-end pb-1">
             <label className="flex items-center gap-1.5 text-xs">
               <input
                 type="checkbox"
-                className="size-4 rounded border-input"
+                className="size-4 rounded border-line-control"
                 {...form.register('cceCertificadoOrigen')}
               />
               Certificado de origen
@@ -371,7 +368,7 @@ export function TabEncabezado({
           </div>
           {/* Domicilio del receptor extranjero (CCE 2.0, F12-PR3): estado y
               CP los exige el SAT para timbrar. */}
-          <p className="text-xs font-medium text-muted-foreground sm:col-span-2">
+          <p className="text-xs font-medium text-ink-muted sm:col-span-2">
             Domicilio del receptor extranjero
           </p>
           <Campo
@@ -401,4 +398,3 @@ export function TabEncabezado({
     </div>
   );
 }
-

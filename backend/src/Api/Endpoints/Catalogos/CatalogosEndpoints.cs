@@ -57,6 +57,7 @@ public static class CatalogosEndpoints
             [FromQuery] EstatusCatalogo? estatus,
             [FromQuery] string? clave,
             [FromQuery] string? nombre,
+            [FromQuery] string? q,
             [FromQuery] string? rfc,
             [FromQuery] int? offset,
             [FromQuery] int? limit,
@@ -66,8 +67,8 @@ public static class CatalogosEndpoints
             var off = offset is < 0 ? 0 : offset ?? 0;
             var lim = limit is null or <= 0 ? 50 : Math.Min(limit.Value, LimitMax);
 
-            IQueryable<Proveedor> q = db.Proveedores.AsNoTracking();
-            if (estatus is EstatusCatalogo e) q = q.Where(p => p.Estatus == e);
+            IQueryable<Proveedor> query = db.Proveedores.AsNoTracking();
+            if (estatus is EstatusCatalogo e) query = query.Where(p => p.Estatus == e);
             // `clave` y `nombre` son excluyentes, `clave` con precedencia (mismo
             // patrón que el endpoint de artículo). clave = código → lower() en
             // ambos lados. nombre = texto libre → folding case + acentos (ADR-0045)
@@ -76,17 +77,32 @@ public static class CatalogosEndpoints
 #pragma warning disable CA1304, CA1311, CA1862
             if (!string.IsNullOrWhiteSpace(clave))
             {
-                q = q.Where(p => p.Clave.ToLower().Contains(clave.ToLower()));
+                query = query.Where(p => p.Clave.ToLower().Contains(clave.ToLower()));
             }
             else if (!string.IsNullOrWhiteSpace(nombre))
             {
                 string aguja = nombre;
-                q = q.Where(p =>
+                query = query.Where(p =>
                     PostgresFunctions.Translate(p.RazonSocial.ToLower(), PostgresFunctions.AcentosOrigen, PostgresFunctions.AcentosDestino)
                         .Contains(PostgresFunctions.Translate(aguja.ToLower(), PostgresFunctions.AcentosOrigen, PostgresFunctions.AcentosDestino))
                     || (p.NombreComercial != null &&
                         PostgresFunctions.Translate(p.NombreComercial.ToLower(), PostgresFunctions.AcentosOrigen, PostgresFunctions.AcentosDestino)
                             .Contains(PostgresFunctions.Translate(aguja.ToLower(), PostgresFunctions.AcentosOrigen, PostgresFunctions.AcentosDestino))));
+            }
+
+            // `q` = caja única (clave OR RFC OR razón social OR nombre comercial), AND con
+            // lo demás. Clave con lower(); textos libres con folding (ADR-0045).
+            if (!string.IsNullOrWhiteSpace(q))
+            {
+                string busqueda = q;
+                query = query.Where(p =>
+                    p.Clave.ToLower().Contains(busqueda.ToLower())
+                    || p.Rfc.ToLower().Contains(busqueda.ToLower())
+                    || PostgresFunctions.Translate(p.RazonSocial.ToLower(), PostgresFunctions.AcentosOrigen, PostgresFunctions.AcentosDestino)
+                        .Contains(PostgresFunctions.Translate(busqueda.ToLower(), PostgresFunctions.AcentosOrigen, PostgresFunctions.AcentosDestino))
+                    || (p.NombreComercial != null &&
+                        PostgresFunctions.Translate(p.NombreComercial.ToLower(), PostgresFunctions.AcentosOrigen, PostgresFunctions.AcentosDestino)
+                            .Contains(PostgresFunctions.Translate(busqueda.ToLower(), PostgresFunctions.AcentosOrigen, PostgresFunctions.AcentosDestino))));
             }
 
             // `rfc` es un filtro AND independiente (no participa en la
@@ -97,12 +113,12 @@ public static class CatalogosEndpoints
             if (!string.IsNullOrWhiteSpace(rfc))
             {
                 var rfcNormalizado = rfc.Trim();
-                q = q.Where(p => p.Rfc.ToLower() == rfcNormalizado.ToLower());
+                query = query.Where(p => p.Rfc.ToLower() == rfcNormalizado.ToLower());
             }
 #pragma warning restore CA1304, CA1311, CA1862
 
-            var total = await q.CountAsync(ct);
-            var items = await q
+            var total = await query.CountAsync(ct);
+            var items = await query
                 .OrderBy(p => p.Clave)
                 .Skip(off).Take(lim)
                 .Select(p => new ProveedorListItem(
@@ -121,7 +137,10 @@ public static class CatalogosEndpoints
             "`clave` (substring case-insensitive) y `nombre` (substring sobre " +
             "razón social o nombre comercial, insensible a acentos y mayúsculas " +
             "vía `translate`, ADR-0045). `clave` y `nombre` son excluyentes; si " +
-            "llegan ambos, `clave` tiene precedencia. `rfc` es un filtro AND " +
+            "llegan ambos, `clave` tiene precedencia. `q` es una caja única de " +
+            "búsqueda (substring sobre clave, RFC, razón social o nombre comercial, " +
+            "con folding de acentos/mayúsculas) y se combina por AND con los demás " +
+            "filtros; no participa en la exclusividad clave/nombre. `rfc` es un filtro AND " +
             "independiente con match exacto case-insensitive (auto-resolve de " +
             "proveedor desde CFDI). Paginación offset-based con " +
             $"tope `limit={LimitMax}`. Permiso: `compartido.catalogos.leer`.")
@@ -233,8 +252,7 @@ public static class CatalogosEndpoints
                 a.Id, a.Clave, a.ClaveLegacy, a.Nombre, a.DescripcionLarga,
                 a.UnidadMedidaDefault, a.UnidadMedidaId, a.Naturaleza, a.Categoria,
                 a.CategoriaId,
-                a.PrecioReferenciaMonto, a.PrecioReferenciaMoneda, a.Estatus,
-                a.ToleranciaCantidadPorcentaje));
+                a.PrecioReferenciaMonto, a.PrecioReferenciaMoneda, a.Estatus));
         })
         .RequireAuthorization(PermissionPolicyProvider.Prefix + PermisosCanonicos.CompartidoCatalogosLeer)
         .WithName("ObtenerArticuloPorId")

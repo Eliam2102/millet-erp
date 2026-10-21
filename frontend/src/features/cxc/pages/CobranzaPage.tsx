@@ -1,15 +1,22 @@
+import {
+  ListadoModulo,
+  TabsEstado,
+  BarraFiltros,
+  PaginacionTabla,
+  PageHeader,
+  EmptyState,
+  ErrorState,
+  TableSkeleton,
+} from '@/components/erp';
+import { Input } from '@/components/ui/input';
+
+import { usePaginacionLocal } from '../lib/use-paginacion-local';
+
 import { useMemo } from 'react';
 import { useNavigate, useSearch } from '@tanstack/react-router';
 import { PhoneCall, Plus } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
-import { EmptyState, ErrorState, TableSkeleton } from '@/components/erp';
+
 import { useUsuarios } from '@/features/catalogos/api';
 import { useSeguimientosCobranza } from '@/features/cxc/api/useCobranza';
 import { ClienteSelectorCxc } from '@/features/cxc/components/ClienteSelectorCxc';
@@ -23,7 +30,6 @@ import { PermisosCanonicos } from '@/lib/auth/permission-codes';
 import { esApiError } from '@/lib/api';
 
 const FROM = '/_app/cxc/cobranza/' as const;
-const SENTINEL_ALL = '__all__';
 
 /**
  * <c>Cobranza</c> (CXC-FE-PR4, P2 con filtro de cliente OBLIGATORIO —
@@ -36,9 +42,7 @@ export function CobranzaPage() {
   const search = useSearch({ from: FROM });
   const navigate = useNavigate();
   const registrarGestion = useRegistrarGestion();
-  const puedeRegistrar = useHasPermission(
-    PermisosCanonicos.CuentasPorCobrarCobranzaRegistrar,
-  );
+  const puedeRegistrar = useHasPermission(PermisosCanonicos.CuentasPorCobrarCobranzaRegistrar);
 
   const clienteId = search.clienteId ?? null;
 
@@ -64,114 +68,115 @@ export function CobranzaPage() {
     (s) => q.length === 0 || s.nota.toLowerCase().includes(q),
   );
 
+  const pagina = usePaginacionLocal(items, JSON.stringify(search));
+
   return (
-    <div className="space-y-4 px-4 py-6">
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <div>
-          <h1 className="text-2xl font-semibold tracking-tight">Cobranza</h1>
-          <p className="text-sm text-muted-foreground">
-            Bitácora auditable de gestiones por cliente — llamadas, correos
-            y WhatsApp, con promesas de pago.
-          </p>
-        </div>
-        {puedeRegistrar && (
-          <Button
-            onClick={() =>
-              registrarGestion.abrir(
-                clienteId ? { clienteId } : undefined,
-              )
-            }
-          >
-            <Plus className="mr-2 h-4 w-4" />
-            Registrar gestión
-          </Button>
-        )}
-      </div>
+    <div className="flex min-h-0 flex-col gap-5">
+      <PageHeader
+        titulo={<>Cobranza</>}
+        descripcion={
+          <>
+            Bitácora auditable de gestiones por cliente — llamadas, correos y WhatsApp, con promesas
+            de pago.
+          </>
+        }
+        acciones={
+          <>
+            {puedeRegistrar && (
+              <Button onClick={() => registrarGestion.abrir(clienteId ? { clienteId } : undefined)}>
+                <Plus className="mr-2 h-4 w-4" />
+                Registrar gestión
+              </Button>
+            )}
+          </>
+        }
+      />
 
-      <div className="flex flex-wrap items-end gap-3">
-        <div className="w-full max-w-md space-y-1">
-          <label className="text-xs text-muted-foreground">
-            Cliente (obligatorio)
-          </label>
-          <ClienteSelectorCxc
-            value={clienteId}
-            onChange={(item) =>
-              actualizarSearch({ clienteId: item?.id ?? undefined })
+      <ListadoModulo
+        tabs={
+          <TabsEstado
+            opciones={Object.values(ResultadoCobranza).map((r) => ({
+              valor: r,
+              label: ETIQUETA_RESULTADO_COBRANZA[r],
+            }))}
+            valor={search.resultado}
+            conteos={undefined}
+            onChange={(resultado) =>
+              actualizarSearch({ resultado: resultado as ResultadoCobranza | undefined })
             }
-            placeholder="Elige el cliente para ver su bitácora…"
           />
-        </div>
-        <div className="space-y-1">
-          <label className="text-xs text-muted-foreground">Resultado</label>
-          <Select
-            value={
-              search.resultado != null ? String(search.resultado) : SENTINEL_ALL
+        }
+        filtros={
+          <BarraFiltros
+            busqueda={
+              <Input
+                aria-label="Buscar en los registros recibidos"
+                placeholder="Buscar en los registros recibidos"
+                value={search.q ?? ''}
+                onChange={(e) => actualizarSearch({ q: e.target.value || undefined })}
+              />
             }
-            onValueChange={(v) =>
-              actualizarSearch({
-                resultado:
-                  v === SENTINEL_ALL
-                    ? undefined
-                    : (Number(v) as ResultadoCobranza),
-              })
+            filtros={
+              <div className="flex flex-wrap items-end gap-3">
+                <div className="w-full max-w-md space-y-1">
+                  <label className="text-xs text-ink-muted">Cliente *</label>
+                  <ClienteSelectorCxc
+                    value={clienteId}
+                    onChange={(item) => actualizarSearch({ clienteId: item?.id ?? undefined })}
+                    placeholder="Elige el cliente para ver su bitácora…"
+                  />
+                </div>
+              </div>
             }
-          >
-            <SelectTrigger aria-label="Filtrar por resultado" className="w-48">
-              <SelectValue placeholder="Todos" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value={SENTINEL_ALL}>Todos</SelectItem>
-              {Object.values(ResultadoCobranza).map((r) => (
-                <SelectItem key={r} value={String(r)}>
-                  {ETIQUETA_RESULTADO_COBRANZA[r]}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
-      </div>
-
-      {clienteId == null ? (
-        <EmptyState
-          icon={<PhoneCall className="h-10 w-10" />}
-          title="Elige un cliente para ver su bitácora de cobranza."
-          description="La bitácora siempre se consulta por cliente; usa el selector de arriba."
-        />
-      ) : query.isError ? (
-        <ErrorState
-          title="No se pudo cargar la bitácora"
-          problem={esApiError(query.error) ? query.error.problem : undefined}
-          onRetry={() => query.refetch()}
-        />
-      ) : query.isLoading ? (
-        <TableSkeleton
-          rows={5}
-          columns={[{ width: 'w-full' }, { width: 'w-2/3' }]}
-        />
-      ) : items.length === 0 ? (
-        <EmptyState
-          icon={<PhoneCall className="h-10 w-10" />}
-          title={
-            q
-              ? `Ninguna gestión coincide con "${search.q}".`
-              : 'Sin gestiones para este cliente.'
-          }
-          description={
-            puedeRegistrar
-              ? 'Registra la primera con "Registrar gestión".'
-              : 'Aún no hay contactos registrados.'
-          }
-        />
-      ) : (
-        <div className="max-w-3xl pt-2">
-          <TimelineCobranza items={items} nombreUsuario={nombreUsuario} />
-          {query.data != null && query.data.total > items.length && q === '' && (
-            <p className="mt-4 text-xs text-muted-foreground">
-              Mostrando {items.length} de {query.data.total} gestiones.
-            </p>
-          )}
-        </div>
-      )}
+          />
+        }
+        pie={
+          <PaginacionTabla
+            total={items.length}
+            offset={pagina.offset}
+            limit={10}
+            tamanos={[]}
+            onChange={pagina.cambiar}
+          />
+        }
+      >
+        {clienteId == null ? (
+          <EmptyState
+            icon={<PhoneCall className="h-10 w-10" />}
+            title="Elige un cliente para ver su bitácora de cobranza."
+            description="La bitácora siempre se consulta por cliente; usa el selector de arriba."
+          />
+        ) : query.isError ? (
+          <ErrorState
+            title="No se pudo cargar la bitácora"
+            problem={esApiError(query.error) ? query.error.problem : undefined}
+            onRetry={() => query.refetch()}
+          />
+        ) : query.isLoading ? (
+          <TableSkeleton rows={5} columns={[{ width: 'w-full' }, { width: 'w-2/3' }]} />
+        ) : items.length === 0 ? (
+          <EmptyState
+            icon={<PhoneCall className="h-10 w-10" />}
+            title={
+              q ? `Ninguna gestión coincide con "${search.q}".` : 'Sin gestiones para este cliente.'
+            }
+            description={
+              puedeRegistrar
+                ? 'Registra la primera con "Registrar gestión".'
+                : 'Aún no hay contactos registrados.'
+            }
+          />
+        ) : (
+          <div className="min-w-0">
+            <TimelineCobranza items={pagina.visibles} nombreUsuario={nombreUsuario} />
+            {query.data != null && query.data.total > items.length && q === '' && (
+              <p className="mt-4 text-xs text-ink-muted">
+                Mostrando {items.length} de {query.data.total} gestiones.
+              </p>
+            )}
+          </div>
+        )}
+      </ListadoModulo>
     </div>
   );
 }

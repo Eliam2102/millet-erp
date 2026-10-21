@@ -36,5 +36,4 @@ public sealed record ArticuloDetalle(
     Guid? CategoriaId,
     decimal? PrecioReferenciaMonto,
     string? PrecioReferenciaMoneda,
-    EstatusCatalogo Estatus,
-    decimal? ToleranciaCantidadPorcentaje = null);
+    EstatusCatalogo Estatus);

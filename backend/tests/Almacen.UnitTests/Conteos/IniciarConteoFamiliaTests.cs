@@ -93,7 +93,7 @@ public class IniciarConteoFamiliaTests
     }
 
     private static ArticuloLectura Lectura(Guid id, string clave, string categoria) =>
-        new(id, clave, "Artículo de prueba", "PZA", null, null, true, Categoria: categoria);
+        new(id, clave, "Artículo de prueba", "PZA", null, true, Categoria: categoria);
 
     private static async Task<AlmacenDbContext> NuevaDbAsync()
     {

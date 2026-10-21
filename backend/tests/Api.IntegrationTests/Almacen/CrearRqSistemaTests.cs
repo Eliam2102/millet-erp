@@ -117,7 +117,7 @@ public class CrearRqSistemaTests : IClassFixture<WebApplicationFactory<Program>>
     private sealed class FakeArticulo : IArticuloReadPort
     {
         private static ArticuloLectura Art(Guid id) =>
-            new(id, "ACC1", "Artículo", "PZA", null, null, EsActivo: true,
+            new(id, "ACC1", "Artículo", "PZA", null, EsActivo: true,
                 PrecioReferenciaMonto: 15m, PrecioReferenciaMoneda: "MXN");
 
         public Task<ArticuloLectura?> ObtenerAsync(Guid articuloId, CancellationToken ct) =>

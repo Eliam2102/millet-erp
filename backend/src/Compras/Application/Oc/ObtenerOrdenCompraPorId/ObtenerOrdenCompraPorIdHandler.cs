@@ -6,6 +6,7 @@ using Millet.Compras.Application.Oc.RespuestaProveedor;
 using Millet.Compras.Domain.Oc;
 using Millet.Compras.Domain.Ports.DatosMaestros;
 using Millet.Compras.Infrastructure;
+using Millet.SharedKernel.Application;
 using Millet.SharedKernel.Application.Exceptions;
 
 namespace Millet.Compras.Application.Oc.ObtenerOrdenCompraPorId;
@@ -39,19 +40,22 @@ public sealed class ObtenerOrdenCompraPorIdHandler
     private readonly IArticuloReadPort _articulos;
     private readonly IProveedorReadPort _proveedores;
     private readonly IDim3ReadPort _centrosCosto;
+    private readonly IClock _clock;
 
     public ObtenerOrdenCompraPorIdHandler(
         ComprasDbContext db,
         IMapper mapper,
         IArticuloReadPort articulos,
         IProveedorReadPort proveedores,
-        IDim3ReadPort centrosCosto)
+        IDim3ReadPort centrosCosto,
+        IClock clock)
     {
         _db = db;
         _mapper = mapper;
         _articulos = articulos;
         _proveedores = proveedores;
         _centrosCosto = centrosCosto;
+        _clock = clock;
     }
 
     public async Task<OrdenCompraResponse> Handle(
@@ -117,8 +121,13 @@ public sealed class ObtenerOrdenCompraPorIdHandler
             cot.FolioProveedor, cot.MotivoEleccion!, cot.ElegidaEn!.Value,
             cot.Lineas.Select(l => new PrecioCotizadoLineaResponse(l.LineaRequisicionId, l.PrecioPorUnidadRequisicion)).ToList());
 
+        var esRecurrente = RecurrenciaOc.EsRecurrente(
+                await RecurrenciaOc.ContarAsync(_db, new[] { oc.ProveedorId }, RecurrenciaOc.Desde(_clock.UtcNow), cancellationToken),
+                oc.ProveedorId, oc.CompradorTitularId);
+
         return response with
         {
+            EsRecurrente = esRecurrente,
             CotizacionElegida = cotizacion,
             ProveedorRazonSocial = prov?.RazonSocial,
             ProveedorClave = prov?.Clave,

@@ -1,7 +1,11 @@
-import { useState } from 'react';
-import { Link, useNavigate } from '@tanstack/react-router';
-import { AlertTriangle, Copy, FileText, Plus, Truck, Wallet } from 'lucide-react';
-import { toast } from 'sonner';
+import { DateTimeDisplay, ErrorState, TableSkeleton } from '@/components/erp';
+import { KpiCard } from '@/components/erp/display/KpiCard';
+import { resumirSesionCaja } from '@/features/facturacion/lib/resumen-caja';
+import { ContextoSucursal } from '@/components/erp/display/ContextoSucursal';
+import { MontoMovimiento } from '@/components/erp/display/MontoMovimiento';
+import { PageHeader } from '@/components/erp/PageHeader';
+import { SucursalSelector } from '@/components/erp/selectors/SucursalSelector';
+import { UsuarioSelector } from '@/components/erp/selectors/UsuarioSelector';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -12,9 +16,18 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { DateTimeDisplay, ErrorState, TableSkeleton } from '@/components/erp';
-import { SucursalSelector } from '@/components/erp/selectors/SucursalSelector';
-import { UsuarioSelector } from '@/components/erp/selectors/UsuarioSelector';
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '@/components/ui/table';
+import type {
+  CajaSesionDetalleResponse,
+  CobroMostradorItem,
+} from '@/features/facturacion/api/types';
 import { useListarCajas } from '@/features/facturacion/api/useCajas';
 import {
   useAbrirSesion,
@@ -30,23 +43,24 @@ import {
   useRegistrarMovimiento,
   useSesionActual,
 } from '@/features/facturacion/api/useCajaSesiones';
-import type {
-  CajaSesionDetalleResponse,
-  CobroMostradorItem,
-} from '@/features/facturacion/api/types';
 import { CancelarCobroDialog } from '@/features/facturacion/components/CancelarCobroDialog';
 import { PorCobrarCaja } from '@/features/facturacion/components/PorCobrarCaja';
-import { useHasPermission } from '@/lib/auth/useHasPermission';
-import { PermisosCanonicos } from '@/lib/auth/permission-codes';
-import { esApiError, useFormIdempotencyKey } from '@/lib/api';
-import { cn } from '@/lib/utils';
-import { useFormasPago } from '@/modules/catalogos/api/formas-pago';
 import {
   esFormaTarjeta,
   faltaVoucherTarjeta,
   formasPagoCaja,
   formasPagoVigentes,
 } from '@/features/facturacion/lib/formas-pago-caja';
+import { esApiError, useFormIdempotencyKey } from '@/lib/api';
+import { PermisosCanonicos } from '@/lib/auth/permission-codes';
+import { useHasPermission } from '@/lib/auth/useHasPermission';
+import { cn } from '@/lib/utils';
+import { useFormasPago } from '@/modules/catalogos/api/formas-pago';
+import { Link, useNavigate } from '@tanstack/react-router';
+import { AlertTriangle, Copy, FileText, Plus, Truck } from 'lucide-react';
+import { useState } from 'react';
+import { toast } from 'sonner';
+import { EstadoFacturacionBadge } from '../components/EstadoFacturacionBadge';
 
 /** Tipos de movimiento manual (espejo de TipoCajaMovimiento backend). */
 const TIPO_DEPOSITO = 2;
@@ -65,7 +79,9 @@ function nombreForma(clave: string): string {
 }
 
 function formatearMxn(v: number): string {
-  return new Intl.NumberFormat('es-MX', { style: 'currency', currency: 'MXN' }).format(v);
+  return new Intl.NumberFormat('es-MX', { style: 'currency', currency: 'MXN' })
+    .format(v)
+    .replace('-', '−');
 }
 
 function toastError(error: unknown, fallback: string) {
@@ -79,23 +95,18 @@ function toastError(error: unknown, fallback: string) {
  * 12-cajas.md §5): apertura de sesión (con autorización consumible si la
  * caja es ajena `[12-1]`), movimientos manuales, arqueo y cierre; cobros de
  * la sesión (emitir→cobrar `[12-E]`). Una sesión de día anterior bloquea la
- * operación hasta su cierre extemporáneo (§5.2).
+ * operación hasta su cierre extemporáneo.
  */
 export function MiCaja() {
   const query = useSesionActual();
   const puedeSupervisar = useHasPermission(PermisosCanonicos.FacturacionCajaSupervisar);
 
   return (
-    <div className="mx-auto max-w-4xl space-y-4 px-4 py-6">
-      <div>
-        <h1 className="flex items-center gap-2 text-2xl font-semibold tracking-tight">
-          <Wallet className="h-6 w-6 text-primary" />
-          Mi caja
-        </h1>
-        <p className="text-sm text-muted-foreground">
-          Sesión de efectivo: apertura, cobros, movimientos y arqueo (12-cajas.md §5).
-        </p>
-      </div>
+    <div className="space-y-5">
+      <PageHeader
+        titulo="Mi caja"
+        descripcion="Abre tu sesión, registra cobros y movimientos, y realiza el arqueo de caja."
+      />
 
       {query.isLoading ? (
         <TableSkeleton rows={4} columns={[{ width: 'w-full' }]} />
@@ -110,11 +121,11 @@ export function MiCaja() {
       ) : (
         <>
           {query.data.diaAnteriorPendiente && (
-            <div className="flex items-start gap-2 rounded-md border border-amber-400 bg-amber-50 p-3 text-sm text-amber-900">
+            <div className="flex items-start gap-2 rounded-md border border-line bg-warning-note-bg p-3 text-sm text-warning-note-fg">
               <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
               <p>
                 Esta sesión es de un <b>día anterior</b>: los cobros y movimientos están bloqueados;
-                realiza el arqueo y el cierre extemporáneo (§5.2).
+                realiza el arqueo y el cierre extemporáneo.
               </p>
             </div>
           )}
@@ -178,12 +189,11 @@ function AperturaSesionCard() {
   }
 
   return (
-    <div className="space-y-4 rounded-md border bg-card p-4">
+    <div className="space-y-5 rounded-md border bg-surface-card  border-line">
       <div>
         <h2 className="font-medium">Abrir sesión</h2>
-        <p className="text-xs text-muted-foreground">
-          Declara el fondo y la sucursal de operación; su zona horaria define el día del corte
-          ([Decisión 12-A]/[12-8]).
+        <p className="text-xs text-ink-muted">
+          Declara el fondo y la sucursal de operación; su zona horaria define el día del corte.
         </p>
       </div>
 
@@ -191,7 +201,7 @@ function AperturaSesionCard() {
         <div className="space-y-1">
           <Label>Caja</Label>
           {cajas.isLoading ? (
-            <p className="text-xs text-muted-foreground">Cargando cajas…</p>
+            <p className="text-xs text-ink-muted">Cargando cajas…</p>
           ) : (
             <Select value={cajaId ?? undefined} onValueChange={setCajaId}>
               <SelectTrigger aria-label="Caja">
@@ -235,12 +245,12 @@ function AperturaSesionCard() {
       </div>
 
       {(ajustes.data?.length ?? 0) > 0 && (
-        <div className="flex items-start gap-2 rounded-md border border-amber-400 bg-amber-50 p-3 text-sm text-amber-900">
+        <div className="flex items-start gap-2 rounded-md border border-line bg-warning-note-bg p-3 text-sm text-warning-note-fg">
           <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
           <p>
             Esta caja tiene <b>{ajustes.data!.length}</b> ajuste(s) pendiente(s) por{' '}
             <b>{formatearMxn(ajustes.data!.reduce((s, a) => s + a.importe, 0))}</b> que se aplicarán
-            automáticamente al abrir la sesión ([Decisión 12-C]).
+            automáticamente al abrir la sesión.
           </p>
         </div>
       )}
@@ -261,29 +271,34 @@ function AperturaSesionCard() {
 function SesionPanel(props: { sesion: CajaSesionDetalleResponse; bloqueada: boolean }) {
   const { sesion } = props;
   const enArqueo = sesion.estado === 'EnArqueo';
+  const resumen = resumirSesionCaja(sesion);
+  const desglose = [
+    `Fondo ${formatearMxn(resumen.fondo)}`,
+    resumen.cobrosEfectivo !== 0 && `cobros ${formatearMxn(resumen.cobrosEfectivo)}`,
+    resumen.retiros !== 0 && `retiros ${formatearMxn(resumen.retiros)}`,
+    resumen.depositos !== 0 && `depósitos ${formatearMxn(resumen.depositos)}`,
+    resumen.ajustes !== 0 &&
+      `ajustes ${resumen.ajustes > 0 ? '+' : ''}${formatearMxn(resumen.ajustes)}`,
+  ]
+    .filter(Boolean)
+    .join(' · ');
+
   const puedeOperar = useHasPermission(PermisosCanonicos.FacturacionCajaOperar);
 
   return (
-    <div className="space-y-4">
-      <div className="rounded-md border bg-card p-4">
+    <div className="space-y-5">
+      <div className="rounded-md border bg-surface-card p-4 border-line">
         <div className="flex flex-wrap items-center justify-between gap-2">
           <div>
             <h2 className="text-lg font-semibold">{sesion.cajaNombre}</h2>
-            <p className="text-xs text-muted-foreground">
+            <p className="text-xs text-ink-muted">
               Día de operación {sesion.diaOperacion} · abierta{' '}
               <DateTimeDisplay value={sesion.fechaApertura} /> · fondo{' '}
               {formatearMxn(sesion.fondoApertura)}
             </p>
           </div>
           <div className="flex items-center gap-2">
-            <span
-              className={cn(
-                'inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium',
-                enArqueo ? 'bg-amber-100 text-amber-800' : 'bg-emerald-100 text-emerald-800',
-              )}
-            >
-              {enArqueo ? 'En arqueo' : 'Abierta'}
-            </span>
+            <EstadoFacturacionBadge entidad="sesion" estado={sesion.estado} />
             {/* FIX-12: corte de caja de la sesión (vista previa mientras está abierta). */}
             <Button asChild size="sm" variant="outline">
               <Link to="/facturacion/caja/corte/$sesionId" params={{ sesionId: sesion.id }}>
@@ -294,12 +309,26 @@ function SesionPanel(props: { sesion: CajaSesionDetalleResponse; bloqueada: bool
           </div>
         </div>
 
-        <div className="mt-3 grid grid-cols-2 gap-2 md:grid-cols-4">
-          {sesion.totalesPorForma.map((t) => (
-            <div key={t.formaPago} className="rounded-md border bg-muted/20 p-2">
-              <div className="text-xs text-muted-foreground">{nombreForma(t.formaPago)}</div>
-              <div className="font-mono text-sm tabular-nums">{formatearMxn(t.montoSistema)}</div>
-            </div>
+        <div className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
+          <KpiCard
+            etiqueta={enArqueo ? 'Efectivo esperado' : 'Efectivo en caja'}
+            valor={formatearMxn(resumen.efectivo)}
+            subdato={<span className="tabular-nums">{desglose}</span>}
+            tono="success"
+          />
+          <KpiCard
+            etiqueta="Cobrado en la sesión"
+            valor={formatearMxn(resumen.cobradoSesion)}
+            subdato={`${resumen.numeroCobros} ${resumen.numeroCobros === 1 ? 'cobro' : 'cobros'}`}
+            tono="info"
+          />
+          {resumen.otrasFormas.map(({ formaPago, monto }) => (
+            <KpiCard
+              key={formaPago}
+              etiqueta={nombreForma(formaPago)}
+              valor={formatearMxn(monto)}
+              tono="neutral"
+            />
           ))}
         </div>
       </div>
@@ -456,13 +485,13 @@ function LiquidarRutaForm(props: { onCerrar: () => void }) {
   }
 
   return (
-    <div className="space-y-3 rounded-md border border-dashed border-primary/40 bg-primary/5 p-3">
+    <div className="space-y-3 rounded-md border border-dashed border-brand/40 bg-brand/5 p-3">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <div>
           <h3 className="font-medium">Liquidación de ruta</h3>
-          <p className="text-xs text-muted-foreground">
-            Cobros del reparto en un solo registro (todo-o-nada, [Decisión 12-7]); cada comprobante
-            se cobra por su monto por cobrar (neto de notas de crédito, [Decisión 13-K]).
+          <p className="text-xs text-ink-muted">
+            Cobros del reparto en un solo registro en conjunto; cada comprobante se cobra por su
+            monto por cobrar (neto de notas de crédito).
           </p>
         </div>
         <div className="w-56">
@@ -476,59 +505,62 @@ function LiquidarRutaForm(props: { onCerrar: () => void }) {
       </div>
 
       {cobrables.isLoading ? (
-        <p className="text-xs text-muted-foreground">Cargando comprobantes cobrables…</p>
+        <p className="text-xs text-ink-muted">Cargando comprobantes cobrables…</p>
       ) : items.length === 0 ? (
-        <p className="text-xs text-muted-foreground">
+        <p className="text-xs text-ink-muted">
           No hay comprobantes timbrados sin cobro dentro de tu alcance.
         </p>
       ) : (
-        <div className="overflow-x-auto rounded-md border bg-card">
-          <table className="w-full text-sm">
-            <thead className="bg-muted/50">
-              <tr>
-                <th className="px-3 py-2 text-left" aria-label="Selección" />
-                <th className="px-3 py-2 text-left">Comprobante</th>
-                <th className="px-3 py-2 text-left">Cliente</th>
-                <th className="px-3 py-2 text-right">Por cobrar</th>
-                <th className="px-3 py-2 text-left">Forma de pago</th>
-              </tr>
-            </thead>
-            <tbody>
+        <div className="overflow-x-auto rounded-md border bg-surface-card border-line">
+          <Table className="w-full text-sm">
+            <TableHeader className="bg-surface-muted/50">
+              <TableRow>
+                <TableHead className="px-3 py-2 text-left" aria-label="Selección" />
+                <TableHead className="px-3 py-2 text-left">Comprobante</TableHead>
+                <TableHead className="px-3 py-2 text-left">Cliente</TableHead>
+                <TableHead className="px-3 py-2 text-right tabular-nums">Por cobrar</TableHead>
+                <TableHead className="px-3 py-2 text-left">Forma de pago</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
               {items.map((c) => {
                 const marcado = seleccion[c.comprobanteId] != null;
                 return (
-                  <tr key={c.comprobanteId} className={cn('border-t', marcado && 'bg-primary/5')}>
-                    <td className="px-3 py-2">
+                  <TableRow
+                    key={c.comprobanteId}
+                    className={cn('border-t', marcado && 'bg-brand/5')}
+                  >
+                    <TableCell className="px-3 py-2">
                       <input
                         type="checkbox"
                         checked={marcado}
                         onChange={() => alternar(c.comprobanteId)}
                         aria-label={`Incluir ${c.folio}`}
                       />
-                    </td>
-                    <td className="px-3 py-2 font-mono text-xs">
+                    </TableCell>
+                    <TableCell className="px-3 py-2 font-mono text-xs">
                       {c.folio}
-                      <span className="ml-1 text-muted-foreground">
+                      <span className="ml-1 text-ink-muted">
                         ({c.tipo === 'Pago' ? 'REPP' : 'Factura'})
                       </span>
-                    </td>
-                    <td className="px-3 py-2">{c.receptorNombre}</td>
-                    <td className="px-3 py-2 text-right font-mono tabular-nums">
+                    </TableCell>
+                    <TableCell className="px-3 py-2">{c.receptorNombre}</TableCell>
+                    <TableCell className="px-3 py-2 text-right font-mono tabular-nums">
                       {formatearMxn(c.total)}
                       {/* RANURA-PR3: la ranura del pedido A+W se desglosa del
                           resto de NC — el cajero ve por qué cobra el neto. */}
                       {c.montoRanura > 0 && (
-                        <span className="block text-[11px] text-amber-700 dark:text-amber-400">
+                        <span className="block text-[11px] text-warning-fg">
                           Ranura: −{formatearMxn(c.montoRanura)}
                         </span>
                       )}
                       {c.montoAcreditado - (c.montoRanura ?? 0) > 0 && (
-                        <span className="block text-[11px] text-muted-foreground">
+                        <span className="block text-[11px] text-ink-muted">
                           NC aplicadas: −{formatearMxn(c.montoAcreditado - (c.montoRanura ?? 0))}
                         </span>
                       )}
-                    </td>
-                    <td className="px-3 py-2">
+                    </TableCell>
+                    <TableCell className="px-3 py-2">
                       {marcado && (
                         <Select
                           value={seleccion[c.comprobanteId]}
@@ -563,18 +595,18 @@ function LiquidarRutaForm(props: { onCerrar: () => void }) {
                           aria-required
                         />
                       )}
-                    </td>
-                  </tr>
+                    </TableCell>
+                  </TableRow>
                 );
               })}
-            </tbody>
-          </table>
+            </TableBody>
+          </Table>
         </div>
       )}
 
       <div className="flex items-center justify-end gap-3">
         {seleccionados.length > 0 && (
-          <p className="text-sm text-muted-foreground">
+          <p className="text-sm text-ink-muted">
             {seleccionados.length} cobro(s) · <b>{formatearMxn(total)}</b>
           </p>
         )}
@@ -649,9 +681,12 @@ function MovimientoInlineForm(props: { sesionId: string; onCerrar: () => void })
   }
 
   return (
-    <div className="grid gap-3 rounded-md border border-dashed border-primary/40 bg-primary/5 p-3 md:grid-cols-12">
+    <div className="grid gap-3 rounded-md border border-dashed border-brand/40 bg-brand/5 p-3 md:grid-cols-12">
+      <div className="md:col-span-12">
+        <ContextoSucursal />
+      </div>
       <div className="space-y-1 md:col-span-2">
-        <Label>Tipo</Label>
+        <Label>Tipo *</Label>
         <Select value={tipo} onValueChange={setTipo}>
           <SelectTrigger aria-label="Tipo de movimiento">
             <SelectValue />
@@ -663,7 +698,7 @@ function MovimientoInlineForm(props: { sesionId: string; onCerrar: () => void })
         </Select>
       </div>
       <div className="space-y-1 md:col-span-2">
-        <Label>Forma</Label>
+        <Label>Forma *</Label>
         <Select value={formaPago} onValueChange={setFormaPago}>
           <SelectTrigger aria-label="Forma de pago">
             <SelectValue />
@@ -678,7 +713,7 @@ function MovimientoInlineForm(props: { sesionId: string; onCerrar: () => void })
         </Select>
       </div>
       <div className="space-y-1 md:col-span-2">
-        <Label htmlFor="mov-importe">Importe</Label>
+        <Label htmlFor="mov-importe">Importe *</Label>
         <Input
           id="mov-importe"
           inputMode="decimal"
@@ -688,13 +723,17 @@ function MovimientoInlineForm(props: { sesionId: string; onCerrar: () => void })
         />
       </div>
       <div className="space-y-1 md:col-span-3">
-        <Label htmlFor="mov-desc">Descripción</Label>
+        <Label htmlFor="mov-desc">Descripción *</Label>
         <Input
+          aria-describedby="mov-desc-ayuda"
           id="mov-desc"
           value={descripcion}
           onChange={(e) => setDescripcion(e.target.value)}
           maxLength={254}
         />
+        <p id="mov-desc-ayuda" className="text-xs text-ink-muted">
+          Por qué se movió el dinero, quién autorizó y a quién se entregó
+        </p>
       </div>
       <div className="space-y-1 md:col-span-3">
         <Label htmlFor="mov-ref">Referencia</Label>
@@ -763,27 +802,27 @@ function ArqueoPanel(props: { sesion: CajaSesionDetalleResponse }) {
   }
 
   return (
-    <div className="space-y-3 rounded-md border border-amber-400 bg-amber-50/40 p-4">
+    <div className="space-y-3 rounded-md border border-line bg-warning-note-bg/40 p-4">
       <h3 className="font-medium">Arqueo</h3>
-      <div className="overflow-x-auto rounded-md border bg-card">
-        <table className="w-full text-sm">
-          <thead className="bg-muted/50">
-            <tr>
-              <th className="px-3 py-2 text-left">Forma de pago</th>
-              <th className="px-3 py-2 text-right">Esperado</th>
-            </tr>
-          </thead>
-          <tbody>
+      <div className="overflow-x-auto rounded-md border bg-surface-card border-line">
+        <Table className="w-full text-sm">
+          <TableHeader className="bg-surface-muted/50">
+            <TableRow>
+              <TableHead className="px-3 py-2 text-left">Forma de pago</TableHead>
+              <TableHead className="px-3 py-2 text-right tabular-nums">Esperado</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
             {props.sesion.cortes.map((c) => (
-              <tr key={c.formaPago} className="border-t">
-                <td className="px-3 py-2">{nombreForma(c.formaPago)}</td>
-                <td className="px-3 py-2 text-right font-mono tabular-nums">
+              <TableRow key={c.formaPago} className="border-t border-line">
+                <TableCell className="px-3 py-2">{nombreForma(c.formaPago)}</TableCell>
+                <TableCell className="px-3 py-2 text-right font-mono tabular-nums">
                   {formatearMxn(c.montoSistema)}
-                </td>
-              </tr>
+                </TableCell>
+              </TableRow>
             ))}
-          </tbody>
-        </table>
+          </TableBody>
+        </Table>
       </div>
 
       <div className="grid gap-3 md:grid-cols-3">
@@ -797,7 +836,7 @@ function ArqueoPanel(props: { sesion: CajaSesionDetalleResponse }) {
             placeholder={String(esperadoEfectivo)}
           />
           {declarado !== '' && !Number.isNaN(Number(declarado)) && (
-            <p className="text-xs text-muted-foreground">
+            <p className="text-xs text-ink-muted">
               Diferencia: {formatearMxn(Number(declarado) - esperadoEfectivo)}
             </p>
           )}
@@ -837,7 +876,7 @@ function ArqueoPanel(props: { sesion: CajaSesionDetalleResponse }) {
             Cerrar sesión
           </Button>
         ) : (
-          <p className="text-xs text-muted-foreground">
+          <p className="text-xs text-ink-muted">
             El cierre requiere el permiso <code>facturacion.caja.liquidar</code>.
           </p>
         )}
@@ -853,34 +892,44 @@ function MovimientosTabla(props: { sesion: CajaSesionDetalleResponse }) {
   return (
     <div className="space-y-2">
       <h3 className="font-medium">Movimientos</h3>
-      <div className="overflow-x-auto rounded-md border">
-        <table className="w-full text-sm">
-          <thead className="bg-muted/50">
-            <tr>
-              <th className="px-3 py-2 text-left">Tipo</th>
-              <th className="px-3 py-2 text-left">Forma</th>
-              <th className="px-3 py-2 text-right">Importe</th>
-              <th className="px-3 py-2 text-left">Descripción</th>
-            </tr>
-          </thead>
-          <tbody>
+      <div className="overflow-x-auto rounded-md border border-line">
+        <Table className="w-full text-sm">
+          <TableHeader className="bg-surface-muted/50">
+            <TableRow>
+              <TableHead className="px-3 py-2 text-left">Tipo</TableHead>
+              <TableHead className="px-3 py-2 text-left">Forma</TableHead>
+              <TableHead className="px-3 py-2 text-right tabular-nums">Importe</TableHead>
+              <TableHead className="px-3 py-2 text-left">Descripción</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
             {props.sesion.movimientos.map((m) => (
-              <tr key={m.id} className="border-t">
-                <td className="px-3 py-2">{m.tipo}</td>
-                <td className="px-3 py-2">{nombreForma(m.formaPago)}</td>
-                <td
+              <TableRow key={m.id} className="border-t border-line">
+                <TableCell className="px-3 py-2">{m.tipo}</TableCell>
+                <TableCell className="px-3 py-2">{nombreForma(m.formaPago)}</TableCell>
+                <TableCell
                   className={cn(
                     'px-3 py-2 text-right font-mono tabular-nums',
-                    m.importe < 0 && 'text-destructive',
+                    m.importe < 0 && 'text-danger-fg',
                   )}
                 >
-                  {formatearMxn(m.importe)}
-                </td>
-                <td className="px-3 py-2 text-muted-foreground">{m.descripcion}</td>
-              </tr>
+                  <MontoMovimiento
+                    monto={m.importe}
+                    tipo={
+                      m.tipo === 'Retiro' ||
+                      m.tipo === 'ReversaCobro' ||
+                      (m.tipo === 'AjusteCorreccion' && m.importe < 0)
+                        ? 'salida'
+                        : 'entrada'
+                    }
+                    moneda={m.moneda}
+                  />
+                </TableCell>
+                <TableCell className="px-3 py-2 text-ink-muted">{m.descripcion}</TableCell>
+              </TableRow>
             ))}
-          </tbody>
-        </table>
+          </TableBody>
+        </Table>
       </div>
     </div>
   );
@@ -928,35 +977,37 @@ function CobrosTabla(props: { sesionId: string }) {
   return (
     <div className="space-y-2">
       <h3 className="font-medium">Cobros de la sesión</h3>
-      <div className="overflow-x-auto rounded-md border">
-        <table className="w-full text-sm">
-          <thead className="bg-muted/50">
-            <tr>
-              <th className="px-3 py-2 text-left">Comprobante</th>
-              <th className="px-3 py-2 text-left">Origen</th>
-              <th className="px-3 py-2 text-right">Total</th>
-              <th className="px-3 py-2 text-left">Estado</th>
-              {puedeSupervisar && <th className="px-3 py-2 text-right">Acción</th>}
-            </tr>
-          </thead>
-          <tbody>
+      <div className="overflow-x-auto rounded-md border border-line">
+        <Table className="w-full text-sm">
+          <TableHeader className="bg-surface-muted/50">
+            <TableRow>
+              <TableHead className="px-3 py-2 text-left">Comprobante</TableHead>
+              <TableHead className="px-3 py-2 text-left">Origen</TableHead>
+              <TableHead className="px-3 py-2 text-right tabular-nums">Total</TableHead>
+              <TableHead className="px-3 py-2 text-left">Estado</TableHead>
+              {puedeSupervisar && (
+                <TableHead className="px-3 py-2 text-right tabular-nums">Acción</TableHead>
+              )}
+            </TableRow>
+          </TableHeader>
+          <TableBody>
             {cobros.map((c) => (
-              <tr key={c.id} className="border-t">
-                <td className="px-3 py-2 font-mono text-xs">{c.comprobanteFolio}</td>
-                <td className="px-3 py-2">
+              <TableRow key={c.id} className="border-t border-line">
+                <TableCell className="px-3 py-2 font-mono text-xs">{c.comprobanteFolio}</TableCell>
+                <TableCell className="px-3 py-2">
                   {c.origen === 'LiquidacionRuta' ? 'Liquidación de ruta' : 'Mostrador'}
-                </td>
-                <td className="px-3 py-2 text-right font-mono tabular-nums">
+                </TableCell>
+                <TableCell className="px-3 py-2 text-right font-mono tabular-nums">
                   {formatearMxn(c.total)}
-                </td>
-                <td className="px-3 py-2">{c.estado}</td>
+                </TableCell>
+                <TableCell className="px-3 py-2">{c.estado}</TableCell>
                 {puedeSupervisar && (
-                  <td className="px-3 py-2 text-right">
+                  <TableCell className="px-3 py-2 text-right tabular-nums">
                     {c.estado === 'Registrado' && (
                       <Button
                         size="sm"
                         variant="ghost"
-                        className="text-destructive"
+                        className="text-danger-fg"
                         disabled={cancelar.isPending}
                         aria-label={`Cancelar el cobro de ${c.comprobanteFolio}`}
                         onClick={() => {
@@ -967,12 +1018,12 @@ function CobrosTabla(props: { sesionId: string }) {
                         Cancelar
                       </Button>
                     )}
-                  </td>
+                  </TableCell>
                 )}
-              </tr>
+              </TableRow>
             ))}
-          </tbody>
-        </table>
+          </TableBody>
+        </Table>
       </div>
       {porCancelar && (
         <CancelarCobroDialog
@@ -1016,12 +1067,12 @@ function AutorizarAperturaCard() {
   }
 
   return (
-    <div className="space-y-3 rounded-md border bg-card p-4">
+    <div className="space-y-3 rounded-md border bg-surface-card p-4 border-line">
       <div>
         <h2 className="font-medium">Autorizar apertura de caja ajena</h2>
-        <p className="text-xs text-muted-foreground">
-          Autorización consumible de un solo uso y vigencia corta ([Decisión 12-1]); el alcance
-          sigue a la caja, la responsabilidad al cajero que abre (§5.3).
+        <p className="text-xs text-ink-muted">
+          Autorización consumible de un solo uso y vigencia corta; el alcance sigue a la caja, la
+          responsabilidad al cajero que abre.
         </p>
       </div>
       <div className="grid gap-3 md:grid-cols-3">
@@ -1057,7 +1108,7 @@ function AutorizarAperturaCard() {
       </div>
       <div className="flex items-center justify-between gap-2">
         {resultado ? (
-          <p className="flex items-center gap-2 text-xs text-muted-foreground">
+          <p className="flex items-center gap-2 text-xs text-ink-muted">
             Autorización <code className="font-mono">{resultado.id}</code> vigente hasta{' '}
             <DateTimeDisplay value={resultado.vigenteHasta} />
             <Button

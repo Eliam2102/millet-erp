@@ -1,5 +1,12 @@
+import { SheetBody } from '@/components/ui/sheet';
 import { useRef } from 'react';
-import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from '@/components/ui/sheet';
+import {
+  Sheet,
+  SheetContent,
+  SheetDescription,
+  SheetHeader,
+  SheetTitle,
+} from '@/components/ui/sheet';
 import { CuentaForm } from './CuentaForm';
 
 interface Props {
@@ -12,31 +19,39 @@ export function NuevaCuentaSheet({ open, onOpenChange }: Props) {
   const dirty = useRef(false);
 
   function cerrar(force = false) {
-    if (!force && dirty.current && !window.confirm('Tienes una cuenta sin guardar. ¿Descartar y cerrar?')) return;
+    if (
+      !force &&
+      dirty.current &&
+      !window.confirm('Tienes una cuenta sin guardar. ¿Descartar y cerrar?')
+    )
+      return;
     dirty.current = false;
     onOpenChange(false);
   }
 
   return (
     <Sheet open={open} onOpenChange={(o) => (o ? onOpenChange(true) : cerrar())}>
-      <SheetContent side="right" className="w-full overflow-y-auto sm:max-w-sheet" data-print="hidden">
+      <SheetContent size="lg" side="right" data-print="hidden">
         <SheetHeader>
           <SheetTitle>Nueva cuenta</SheetTitle>
           <SheetDescription>
-            Naturaleza y tipo pueden quedar «Pendiente de validación»: la cuenta no recibirá movimientos hasta que se confirmen.
+            Naturaleza y tipo pueden quedar «Pendiente de validación»: la cuenta no recibirá
+            movimientos hasta que se confirmen.
           </SheetDescription>
         </SheetHeader>
-        <div className="px-4 pb-6">
-          {open && (
-            <CuentaForm
-              onGuardada={() => cerrar(true)}
-              onCancelar={() => cerrar()}
-              onDirtyChange={(d) => {
-                dirty.current = d;
-              }}
-            />
-          )}
-        </div>
+        <SheetBody className="space-y-4">
+          <div className="min-w-0">
+            {open && (
+              <CuentaForm
+                onGuardada={() => cerrar(true)}
+                onCancelar={() => cerrar()}
+                onDirtyChange={(d) => {
+                  dirty.current = d;
+                }}
+              />
+            )}
+          </div>
+        </SheetBody>
       </SheetContent>
     </Sheet>
   );

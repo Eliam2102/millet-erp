@@ -1,3 +1,4 @@
+import { DialogBody } from '@/components/ui/dialog';
 import {
   Dialog,
   DialogContent,
@@ -36,27 +37,24 @@ export function HistoricoModal({
 }: HistoricoModalProps) {
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="flex max-h-[80vh] max-w-2xl flex-col gap-4">
+      <DialogContent size="lg" className="flex   flex-col gap-4">
         <DialogHeader>
           <DialogTitle>
             Histórico — <span className="font-mono">{folio}</span>
           </DialogTitle>
           <DialogDescription>
-            Todas las transiciones del agregado: creación, edición de
-            líneas, autorizaciones, cubrimiento, recepciones y cierre.
-            Click en "Ver cambios" para inspeccionar el diff de cada
-            evento.
+            Todas las transiciones del agregado: creación, edición de partidas, autorizaciones,
+            cubrimiento, recepciones y cierre. Click en "Ver cambios" para inspeccionar el diff de
+            cada evento.
           </DialogDescription>
         </DialogHeader>
-
-        {/* Scroll local del timeline; el modal mantiene header + footer
+        <DialogBody>
+          {/* Scroll local del timeline; el modal mantiene header + footer
             visibles. */}
-        <div className="-mx-6 max-h-[60vh] overflow-y-auto px-6">
-          <TimelineRequisicion
-            entradas={entradas}
-            isLoading={isLoading}
-          />
-        </div>
+          <div className="-mx-6 max-h-[60vh] overflow-y-auto px-6">
+            <TimelineRequisicion entradas={entradas} isLoading={isLoading} />
+          </div>
+        </DialogBody>
       </DialogContent>
     </Dialog>
   );

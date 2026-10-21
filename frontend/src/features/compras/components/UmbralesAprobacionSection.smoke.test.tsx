@@ -42,7 +42,13 @@ describe('<UmbralesAprobacionSection> — umbral general', () => {
     render(<UmbralesAprobacionSection puedeEditar />, { wrapper: createQueryWrapper() });
 
     const input = await screen.findByRole('textbox', { name: 'Umbral N2 de General (empresa)' });
-    expect(screen.getByText(/N1 = menor cuantía \(aprobación rápida\)/)).toBeInTheDocument();
+    expect(screen.getByText(/N1 es el límite de menor cuantía/)).toBeInTheDocument();
+    const guardar = screen.getByRole('button', { name: 'Guardar umbral de General (empresa)' });
+    expect(guardar).toBeDisabled();
+    fireEvent.change(input, { target: { value: '100' } });
+    expect(guardar).toBeEnabled();
+    fireEvent.change(input, { target: { value: '' } });
+    expect(guardar).toBeDisabled();
     fireEvent.change(input, { target: { value: '50000' } });
     fireEvent.click(screen.getByRole('button', { name: 'Guardar umbral de General (empresa)' }));
 
@@ -50,7 +56,7 @@ describe('<UmbralesAprobacionSection> — umbral general', () => {
     expect(puts[0]).toMatchObject({
       departamentoId: UMBRAL_GENERAL_ID,
       umbralMonto: 50000,
-      modoNivel2: 'Ambos',
+      modoNivel2: 'SoloDisponibilidad',
       montoMinimoDisponibilidad: null,
     });
   });

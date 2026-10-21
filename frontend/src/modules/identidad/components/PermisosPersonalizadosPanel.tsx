@@ -1,3 +1,7 @@
+import { DialogBody } from '@/components/ui/dialog';
+import { ConfirmacionContent as AlertDialogContent } from '@/modules/administracion/components/ConfirmacionContent';
+import { Badge } from '@/components/ui/badge';
+import { ESTADOS_PERMISO } from '../lib/estados-ui';
 import { useMemo, useState } from 'react';
 import { ChevronRight, RotateCcw, ShieldAlert } from 'lucide-react';
 import { toast } from 'sonner';
@@ -6,17 +10,12 @@ import {
   AlertDialog,
   AlertDialogAction,
   AlertDialogCancel,
-  AlertDialogContent,
   AlertDialogDescription,
   AlertDialogFooter,
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
-import {
-  Collapsible,
-  CollapsibleContent,
-  CollapsibleTrigger,
-} from '@/components/ui/collapsible';
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { ErrorState, TableSkeleton } from '@/components/erp';
 import { esApiError, useBodyScopedIdempotencyKey, codigoSoporte } from '@/lib/api';
 import { useAuthStore } from '@/lib/auth/auth-store';
@@ -95,16 +94,16 @@ function Interruptor({
       onClick={onClick}
       className={cn(
         'relative inline-flex h-5 w-9 shrink-0 items-center rounded-full border transition-colors',
-        'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50',
-        checked === true && 'border-primary bg-primary',
-        checked === false && 'border-input bg-muted',
-        checked === 'mixed' && 'border-primary/60 bg-primary/40',
+        'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand disabled:cursor-not-allowed disabled:opacity-50',
+        checked === true && 'border-brand bg-brand',
+        checked === false && 'border-line-control bg-surface-muted',
+        checked === 'mixed' && 'border-brand/60 bg-brand/40',
       )}
     >
       <span
         aria-hidden="true"
         className={cn(
-          'inline-block h-4 w-4 rounded-full bg-background shadow transition-transform',
+          'inline-block h-4 w-4 rounded-full bg-surface-page shadow transition-transform',
           checked === true && 'translate-x-4',
           checked === false && 'translate-x-0.5',
           checked === 'mixed' && 'translate-x-2',
@@ -118,9 +117,7 @@ export function PermisosPersonalizadosPanel({
   usuarioId,
   empresaId,
 }: PermisosPersonalizadosPanelProps) {
-  const puedeGestionar = useHasPermission(
-    PermisosCanonicos.IdentidadUsuariosGestionarPermisos,
-  );
+  const puedeGestionar = useHasPermission(PermisosCanonicos.IdentidadUsuariosGestionarPermisos);
   const permisosDelActor = useAuthStore((s) => s.permisos);
   const actorId = useAuthStore((s) => s.user?.id);
 
@@ -159,9 +156,7 @@ export function PermisosPersonalizadosPanel({
 
   // "Derive state during render": se resincroniza el borrador cuando
   // cambia lo que devuelve el servidor (mismo patrón que MatrizPermisos).
-  const [borrador, setBorrador] = useState<Map<string, Estado>>(
-    () => new Map(servidor.estados),
-  );
+  const [borrador, setBorrador] = useState<Map<string, Estado>>(() => new Map(servidor.estados));
   const [prevKey, setPrevKey] = useState(servidorKey);
   if (prevKey !== servidorKey) {
     setPrevKey(servidorKey);
@@ -169,15 +164,11 @@ export function PermisosPersonalizadosPanel({
   }
   const [confirmarReset, setConfirmarReset] = useState(false);
 
-  const baseDelRol = useMemo(
-    () => new Set(rol.data?.permisoIds ?? []),
-    [rol.data],
-  );
+  const baseDelRol = useMemo(() => new Set(rol.data?.permisoIds ?? []), [rol.data]);
 
   if (!puedeGestionar) return null;
 
-  const estadoDe = (permisoId: string): Estado =>
-    borrador.get(permisoId) ?? 'heredado';
+  const estadoDe = (permisoId: string): Estado => borrador.get(permisoId) ?? 'heredado';
 
   let concedidos = 0;
   let denegados = 0;
@@ -218,7 +209,7 @@ export function PermisosPersonalizadosPanel({
       // 403 (sin alcance/escalada/auto-edición), 409 (conflicto) y 422
       // (usuario inactivo, sin rol, super-admin) llegan como Problem Details.
       toast.error(error.problem.title, {
-        description: error.problem.detail ?? (codigoSoporte(error)),
+        description: error.problem.detail ?? codigoSoporte(error),
       });
       return;
     }
@@ -261,14 +252,20 @@ export function PermisosPersonalizadosPanel({
   }
 
   const cargando = efectivos.isLoading || catalogo.isLoading || (rolId != null && rol.isLoading);
-  const fallo = efectivos.isError ? efectivos : catalogo.isError ? catalogo : rol.isError ? rol : null;
+  const fallo = efectivos.isError
+    ? efectivos
+    : catalogo.isError
+      ? catalogo
+      : rol.isError
+        ? rol
+        : null;
   const grupos = catalogo.data?.grupos ?? [];
 
   return (
     <section className="space-y-3" aria-label="Permisos personalizados">
       <header className="space-y-1">
         <h3 className="text-base font-semibold">Permisos personalizados</h3>
-        <p className="text-xs text-muted-foreground">
+        <p className="text-xs text-ink-muted">
           Excepciones sobre el rol
           {efectivos.data?.rolCodigo != null && (
             <>
@@ -276,23 +273,22 @@ export function PermisosPersonalizadosPanel({
               <span className="font-mono">{efectivos.data.rolCodigo}</span>
             </>
           )}{' '}
-          en esta empresa: efectivos = (rol + concedidos) − denegados. Si se
-          cambia o revoca el rol del usuario en esta empresa, estas excepciones
-          se borran.
+          en esta empresa: efectivos = (rol + concedidos) − denegados. Si se cambia o revoca el rol
+          del usuario en esta empresa, estas excepciones se borran.
         </p>
       </header>
 
       {deshabilitado && (
         <div
           role="status"
-          className="flex items-center gap-2 rounded-md border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-xs text-amber-900 dark:text-amber-200"
+          className="flex items-center gap-2 rounded-md border border-line/30 bg-warning/10 px-3 py-2 text-xs text-warning-fg "
         >
           <ShieldAlert className="h-4 w-4 shrink-0" aria-hidden="true" />
           <span>
             {esMismoUsuario
               ? 'No puedes editar tus propios permisos personalizados; solicita el cambio a otro administrador.'
               : rolProtegido
-                ? 'Los permisos del rol super-admin se gestionan por bootstrap; no admiten excepciones.'
+                ? 'Los permisos del rol super-admin están protegidos y no admiten excepciones.'
                 : 'El usuario no tiene un rol en esta empresa; asigna uno antes de personalizar permisos.'}
           </span>
         </div>
@@ -323,11 +319,9 @@ export function PermisosPersonalizadosPanel({
           </div>
 
           <div className="flex flex-wrap items-center justify-end gap-2 border-t pt-3">
-            <p className="mr-auto text-xs text-muted-foreground" aria-live="polite">
+            <p className="mr-auto text-xs text-ink-muted" aria-live="polite">
               {concedidos} concedido(s) / {denegados} denegado(s) respecto al rol.
-              {dirty && (
-                <span className="ml-1 text-amber-700">Hay cambios sin guardar.</span>
-              )}
+              {dirty && <span className="ml-1 text-warning-fg">Hay cambios sin guardar.</span>}
             </p>
             <Button
               type="button"
@@ -366,15 +360,16 @@ export function PermisosPersonalizadosPanel({
         }}
       >
         <AlertDialogContent>
-          <AlertDialogHeader>
+          <AlertDialogHeader className="px-6 pt-5 pb-3">
             <AlertDialogTitle>Restablecer al rol</AlertDialogTitle>
-            <AlertDialogDescription>
-              Se borrarán las {servidor.estados.size} excepción(es) de este
-              usuario en la empresa y volverá a tener exactamente los permisos
-              de su rol. ¿Continuar?
-            </AlertDialogDescription>
           </AlertDialogHeader>
-          <AlertDialogFooter>
+          <DialogBody>
+            <AlertDialogDescription>
+              Se borrarán las {servidor.estados.size} excepción(es) de este usuario en la empresa y
+              volverá a tener exactamente los permisos de su rol. ¿Continuar?
+            </AlertDialogDescription>
+          </DialogBody>
+          <AlertDialogFooter className="border-t border-line-divider bg-surface-subtle px-6 py-4">
             <AlertDialogCancel disabled={restablecer.isPending}>Cancelar</AlertDialogCancel>
             <AlertDialogAction onClick={handleRestablecer} disabled={restablecer.isPending}>
               {restablecer.isPending ? 'Restableciendo…' : 'Restablecer'}
@@ -452,14 +447,14 @@ function ModuloCollapsible({
   }
 
   return (
-    <Collapsible open={open} onOpenChange={setOpen} className="rounded-md border bg-card">
+    <Collapsible open={open} onOpenChange={setOpen} className="rounded-md border bg-surface-card">
       <div className="flex items-center gap-2 px-3 py-2">
         <CollapsibleTrigger
           className="flex flex-1 items-center justify-between gap-2 text-left text-sm font-medium hover:underline"
           aria-label={`Permisos personalizados de ${modulo}`}
         >
           <span className="capitalize">{modulo}</span>
-          <span className="flex items-center gap-2 text-xs text-muted-foreground">
+          <span className="flex items-center gap-2 text-xs text-ink-muted">
             {conExcepcion > 0 ? `${conExcepcion} excepción(es)` : `${items.length} permisos`}
             <ChevronRight
               className={cn('h-4 w-4 transition-transform', open && 'rotate-90')}
@@ -494,7 +489,7 @@ function ModuloCollapsible({
       {omitidos > 0 && (
         <p
           role="status"
-          className="mx-3 mb-2 rounded-md border border-amber-500/30 bg-amber-500/10 px-3 py-1.5 text-xs text-amber-900 dark:text-amber-200"
+          className="mx-3 mb-2 rounded-md border border-line/30 bg-warning/10 px-3 py-1.5 text-xs text-warning-fg "
         >
           Se omitieron {omitidos} permiso(s) que no puedes conceder porque tú no los posees.
         </p>
@@ -511,25 +506,28 @@ function ModuloCollapsible({
               <li
                 key={p.id}
                 className={cn(
-                  'flex flex-wrap items-center gap-2 border-l-2 px-3 py-2',
-                  estado === 'concedido' && 'border-l-emerald-500 bg-emerald-500/5',
-                  estado === 'denegado' && 'border-l-rose-500 bg-rose-500/5',
-                  estado === 'heredado' && 'border-l-transparent',
+                  'flex flex-wrap items-center gap-2  px-3 py-2',
+                  estado === 'concedido' && 'border-line bg-success/5',
+                  estado === 'denegado' && 'border-line bg-danger/5',
+                  estado === 'heredado' && '',
                 )}
               >
                 <div className="min-w-0 flex-1 space-y-0.5">
                   <div className="font-mono text-xs">{p.codigo}</div>
-                  <div className="text-xs text-muted-foreground">
-                    {p.descripcion} ·{' '}
-                    {delRol ? 'El rol lo incluye' : 'El rol no lo incluye'}
+                  <div className="text-xs text-ink-muted">
+                    {p.descripcion} · {delRol ? 'El rol lo incluye' : 'El rol no lo incluye'}
                     {estado === 'concedido' && (
-                      <span className="ml-1 font-medium text-emerald-700">· Personalizado: añadido</span>
+                      <Badge variant={ESTADOS_PERMISO.concedido.tono}>
+                        {ESTADOS_PERMISO.concedido.texto}
+                      </Badge>
                     )}
                     {estado === 'denegado' && (
-                      <span className="ml-1 font-medium text-rose-700">· Personalizado: quitado</span>
+                      <Badge variant={ESTADOS_PERMISO.denegado.tono}>
+                        {ESTADOS_PERMISO.denegado.texto}
+                      </Badge>
                     )}
                     {sinPosesion && (
-                      <span className="ml-1 text-amber-700">
+                      <span className="ml-1 text-warning-fg">
                         · No puedes encenderlo: solo puedes conceder permisos que tú posees
                       </span>
                     )}

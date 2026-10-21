@@ -1,3 +1,4 @@
+import { PageHeader } from '@/components/erp/PageHeader';
 import { Link } from '@tanstack/react-router';
 import { FlaskConical, Layers } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -14,30 +15,52 @@ export function DimensionesPage() {
   const puedeProbar = useHasPermission(PermisosCanonicos.ContabilidadMovimientosValidar);
 
   return (
-    <div className="flex flex-col gap-4 px-6 py-5">
-      <header className="flex flex-wrap items-center gap-2">
-        <div>
-          <h1 className="flex items-center gap-2 text-3xl font-semibold">
-            <Layers className="size-5 text-brand" strokeWidth={1.6} aria-hidden="true" />
+    <div className="flex flex-col gap-5">
+      <PageHeader
+        titulo={
+          <>
+            <Layers
+              className="mr-2 inline-block size-5 text-brand"
+              strokeWidth={1.6}
+              aria-hidden="true"
+            />
             Dimensiones contables
-          </h1>
-          <p className="text-sm text-ink-muted">Qué dimensiones pide cada cuenta según el tipo de documento, desde cuándo, y en qué sucursal se usa cada ubicación.</p>
-        </div>
-        {puedeProbar && (
-          <Button asChild variant="outline" className="ml-auto" data-print="hidden">
-            <Link to="/contabilidad/movimientos-prueba"><FlaskConical className="mr-1 size-4" aria-hidden="true" />Probar movimientos</Link>
-          </Button>
-        )}
-      </header>
-      <Tabs defaultValue="reglas" className="flex flex-col gap-4">
+          </>
+        }
+        descripcion={
+          <>
+            Qué dimensiones pide cada cuenta según el tipo de documento, desde cuándo, y en qué
+            sucursal se usa cada ubicación.
+          </>
+        }
+        acciones={
+          <>
+            {puedeProbar && (
+              <Button asChild variant="outline" className="ml-auto" data-print="hidden">
+                <Link to="/contabilidad/movimientos-prueba">
+                  <FlaskConical className="mr-1 size-4" aria-hidden="true" />
+                  Probar movimientos
+                </Link>
+              </Button>
+            )}
+          </>
+        }
+      />
+      <Tabs defaultValue="reglas" className="flex flex-col gap-5">
         <TabsList className="self-start">
           <TabsTrigger value="reglas">Reglas</TabsTrigger>
           <TabsTrigger value="centros">Ubicaciones y sucursales</TabsTrigger>
           <TabsTrigger value="tipos">Tipos de documento y operación</TabsTrigger>
         </TabsList>
-        <TabsContent value="reglas"><ReglasTab puedeAdministrar={puedeAdministrar} /></TabsContent>
-        <TabsContent value="centros"><UbicacionesTab puedeAdministrar={puedeAdministrar} /></TabsContent>
-        <TabsContent value="tipos"><TiposDocumentoTab puedeAdministrar={puedeAdministrar} /></TabsContent>
+        <TabsContent value="reglas">
+          <ReglasTab puedeAdministrar={puedeAdministrar} />
+        </TabsContent>
+        <TabsContent value="centros">
+          <UbicacionesTab puedeAdministrar={puedeAdministrar} />
+        </TabsContent>
+        <TabsContent value="tipos">
+          <TiposDocumentoTab puedeAdministrar={puedeAdministrar} />
+        </TabsContent>
       </Tabs>
     </div>
   );

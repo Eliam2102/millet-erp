@@ -30,7 +30,7 @@ public sealed partial class DemoSesionSeedHostedService
         {
             var condicion = await maestros.CondicionesPago.OrderBy(x => x.Clave).FirstAsync(ct);
             var uso = await maestros.UsosPrincipales.OrderBy(x => x.Clave).FirstAsync(ct);
-            oc = new OrdenCompra(ocId, EmpresaId, Millet.Compras.Domain.Oc.Folio.Parse("OC-DEMO2026-000201"), 2026, proveedor.Id, sucursal.Id, condicion.Id, uso.Id, CapturistaComprasDemoId, CapturistaComprasDemoId, new DateOnly(2026, 10, 15), moneda: "USD", tipoCambio: 18.5m, sinRequisicionPrevia: true, esImportacion: true, observaciones: "DEMO · Origen de expediente CE-01a", motivoSinRequisicion: "DEMO · Operación ficticia de importación");
+            oc = new OrdenCompra(ocId, EmpresaId, Millet.Compras.Domain.Oc.Folio.Parse("OC-DEMO2026-000201"), 2026, proveedor.Id, sucursal.Id, condicion.Id, uso.Id, CapturistaComprasDemoId, CapturistaComprasDemoId, new DateOnly(2026, 10, 15), moneda: "USD", tipoCambio: 18.5m, sinRequisicionPrevia: true, esImportacion: true, observaciones: "Compra de importación", motivoSinRequisicion: "Operación de importación");
             oc.ActualizarInformacionImportacion(new InformacionImportacion(exw.Id, "US", "DEMO-CONT-CE", "DEMO-RUTA", "2026-W42"));
             compras.OrdenesCompra.Add(oc);
         }
@@ -43,8 +43,8 @@ public sealed partial class DemoSesionSeedHostedService
                 oc.AgregarLineaManual(Id("DEMO-CE-OC-IMPORTACION/LINEA"), articulo.Id, 10, "PZA", 100, departamento.Id);
             oc.RecalcularImpuestos();
             oc.EnviarAAutorizacion(Fecha);
-            oc.Autorizar(Id("DEMO-CE-OC-IMPORTACION/N1"), NivelAutorizacion.Nivel1, JefeComprasDemoId, Fecha, "DEMO autorización ficticia N1");
-            oc.Autorizar(Id("DEMO-CE-OC-IMPORTACION/N2"), NivelAutorizacion.Nivel2, DireccionDemoId, Fecha, "DEMO autorización ficticia N2");
+            oc.Autorizar(Id("DEMO-CE-OC-IMPORTACION/N1"), NivelAutorizacion.Nivel1, JefeComprasDemoId, Fecha, "Autorización de Compras");
+            oc.Autorizar(Id("DEMO-CE-OC-IMPORTACION/N2"), NivelAutorizacion.Nivel2, DireccionDemoId, Fecha, "Autorización de Dirección");
             await compras.SaveChangesAsync(ct);
         }
 
@@ -67,11 +67,11 @@ public sealed partial class DemoSesionSeedHostedService
                 await ce.SaveChangesAsync(ct);
                 continue;
             }
-            var e = new Expediente(Id(clave), EmpresaId, tipo == TipoExpediente.Importacion ? "CE-IMP-2026-900001" : "CE-EXP-2026-900002", tipo, sucursal.Id, clave + " · datos ficticios", tipo == TipoExpediente.Importacion ? ocId : null, tipo == TipoExpediente.Importacion ? exw.Id : ddp.Id, "USD", CapturistaComprasDemoId, tipo == TipoExpediente.Exportacion ? ["DEMO · Cliente de exportación"] : []);
+            var e = new Expediente(Id(clave), EmpresaId, tipo == TipoExpediente.Importacion ? "CE-IMP-2026-900001" : "CE-EXP-2026-900002", tipo, sucursal.Id, clave + " · datos ficticios", tipo == TipoExpediente.Importacion ? ocId : null, tipo == TipoExpediente.Importacion ? exw.Id : ddp.Id, "USD", CapturistaComprasDemoId, tipo == TipoExpediente.Exportacion ? ["Distribuidora de Cristales del Caribe"] : []);
             e.InicializarHitos(tipo == TipoExpediente.Importacion ? oc.FechaDocumento : FechaContable.HoyLocal(Fecha));
             if (tipo == TipoExpediente.Importacion)
                 e.CambiarCompromiso("planeado", new DateOnly(2026, 10, 14), CapturistaComprasDemoId, null);
-            e.AgregarParticipante(Id(clave + "/AGENTE"), "DEMO · Agente aduanal", TipoParticipante.AgenteAduanal, "Contacto ficticio DEMO", PapelParticipante.Revisa, null, null);
+            e.AgregarParticipante(Id(clave + "/AGENTE"), "Agencia Aduanal del Sureste", TipoParticipante.AgenteAduanal, "Contacto de operaciones", PapelParticipante.Revisa, null, null);
             var codigos = tipo == TipoExpediente.Importacion ? new[]
             {
                 "IMP_FACTURA",
@@ -103,7 +103,7 @@ public sealed partial class DemoSesionSeedHostedService
             if (tipo == TipoExpediente.Exportacion)
             {
                 var isf = tipos.Single(x => x.Codigo == "EXP_ISF");
-                e.MarcarNoAplica(Id(clave + "/NO-APLICA/ISF"), new(isf.Id, isf.Codigo, isf.Nombre, isf.Obligatorio, true), "DEMO · Ruta ficticia fuera de Estados Unidos", CapturistaComprasDemoId);
+                e.MarcarNoAplica(Id(clave + "/NO-APLICA/ISF"), new(isf.Id, isf.Codigo, isf.Nombre, isf.Obligatorio, true), "Ruta fuera de Estados Unidos", CapturistaComprasDemoId);
             }
 
             ce.Expedientes.Add(e);

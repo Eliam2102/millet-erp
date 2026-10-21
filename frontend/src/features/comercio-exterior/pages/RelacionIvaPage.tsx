@@ -1,10 +1,13 @@
+import { FormCampo } from '@/components/erp/forms/FormGrid';
+import { BarraFiltros, PaginacionTabla } from '@/components/erp';
+import { PageHeader } from '@/components/erp/PageHeader';
 import { useState } from 'react';
 import { SucursalSelector } from '@/components/erp/selectors/SucursalSelector';
 import { useAuthStore } from '@/lib/auth/auth-store';
 import { useHasPermission } from '@/lib/auth/useHasPermission';
 import { PermisosCanonicos as P } from '@/lib/auth/permission-codes';
 import { Breadcrumbs } from '@/components/erp';
-import { ReporteShell } from '@/components/erp/reportes/ReporteShell';
+import { RelacionIvaReporte } from '../components/RelacionIvaReporte';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { esApiError } from '@/lib/api';
@@ -25,20 +28,26 @@ export function RelacionIvaPage() {
   const q = useRelacionIva(anio, mes, sucursalId);
   const [pagina, setPagina] = useState(0);
   return (
-    <main className="flex h-full min-h-0 flex-col gap-4 px-6 pt-5 text-sm">
+    <main className="flex h-full min-h-0 flex-col gap-5 text-sm">
       <Breadcrumbs items={[{ label: 'Comercio Exterior' }, { label: 'Relación para IVA' }]} />
-      <header>
-        <h1 className="text-3xl font-semibold">Relación para IVA</h1>
-        <p className="text-ink-muted">
-          Revise por mes los embarques de exportación y las órdenes de importación, y exporte su
-          relación a Excel.
-        </p>
-      </header>
+      <PageHeader
+        titulo="Relación para IVA"
+        descripcion="Revise por mes los embarques de exportación y las órdenes de importación, y exporte su relación a Excel."
+      />
       <p className="text-xs text-ink-muted">
         Exportaciones por fecha real de embarque; importaciones por fecha de la OC. Entrada de
-        almacén: Por confirmar, pendiente del puerto de Almacén.
+        almacén: pendiente de disponibilidad de la información de recepción.
       </p>
-      <ReporteShell
+      <RelacionIvaReporte
+        pie={
+          <PaginacionTabla
+            total={q.data?.filas.length ?? 0}
+            offset={pagina * 10}
+            limit={10}
+            tamanos={[]}
+            onChange={(offset) => setPagina(offset / 10)}
+          />
+        }
         reporte={q.data}
         filasVisibles={q.data?.filas.slice(pagina * 10, pagina * 10 + 10)}
         isLoading={q.isLoading}
@@ -48,69 +57,54 @@ export function RelacionIvaPage() {
         }}
         nombreArchivo={`relacion-iva-${periodo}`}
         filtrosUi={
-          <div className="flex items-end gap-3">
-            <div className="space-y-1.5">
-              <Label>Sucursal</Label>
-              <SucursalSelector
-                value={sucursalId}
-                onChange={(id) => {
-                  setSeleccion(id ?? actual);
-                  setPagina(0);
-                }}
-              />
-            </div>
-            {todas && (
-              <button
-                className="h-ctl-xl rounded-md border border-line-control px-3"
-                onClick={() => {
-                  setSeleccion('todas');
-                  setPagina(0);
-                }}
-              >
-                Todas
-              </button>
-            )}
-            <div className="space-y-1.5">
-              <Label htmlFor="ce-iva-periodo">Periodo</Label>
-              <Input
-                id="ce-iva-periodo"
-                type="month"
-                min="2000-01"
-                max="9998-12"
-                required
-                value={periodo}
-                onChange={(e) => {
-                  if (e.target.value) {
-                    setPeriodo(e.target.value);
-                    setPagina(0);
-                  }
-                }}
-              />
-            </div>
-          </div>
+          <BarraFiltros
+            filtros={
+              <>
+                <FormCampo span={6} className="space-y-1.5">
+                  <Label>Sucursal</Label>
+                  <SucursalSelector
+                    value={sucursalId}
+                    onChange={(id) => {
+                      setSeleccion(id ?? actual);
+                      setPagina(0);
+                    }}
+                  />
+                </FormCampo>
+                {todas && (
+                  <button
+                    className="h-ctl-xl rounded-md border border-line-control px-3"
+                    onClick={() => {
+                      setSeleccion('todas');
+                      setPagina(0);
+                    }}
+                  >
+                    Todas
+                  </button>
+                )}
+                <FormCampo span={6} className="space-y-1.5">
+                  <Label htmlFor="ce-iva-periodo">
+                    Periodo <span aria-hidden="true">*</span>
+                  </Label>
+                  <Input
+                    id="ce-iva-periodo"
+                    type="month"
+                    min="2000-01"
+                    max="9998-12"
+                    required
+                    value={periodo}
+                    onChange={(e) => {
+                      if (e.target.value) {
+                        setPeriodo(e.target.value);
+                        setPagina(0);
+                      }
+                    }}
+                  />
+                </FormCampo>
+              </>
+            }
+          />
         }
       />
-      <div className="flex h-11 items-center justify-between border-t border-line-divider text-xs text-ink-muted">
-        <span>{q.data?.filas.length ?? 0} filas en el periodo</span>
-        <div className="flex gap-2">
-          <button
-            className="h-ctl-sm rounded-sm border border-line px-2.5"
-            disabled={!pagina}
-            title={!pagina ? 'Primera página.' : undefined}
-            onClick={() => setPagina(pagina - 1)}
-          >
-            Anterior
-          </button>
-          <button
-            className="h-ctl-sm rounded-sm border border-line px-2.5"
-            disabled={(pagina + 1) * 10 >= (q.data?.filas.length ?? 0)}
-            title={(pagina + 1) * 10 >= (q.data?.filas.length ?? 0) ? 'Última página.' : undefined}
-            onClick={() => setPagina(pagina + 1)}
-          >
-            Siguiente
-          </button>
-        </div>
-      </div>
     </main>
   );
 }

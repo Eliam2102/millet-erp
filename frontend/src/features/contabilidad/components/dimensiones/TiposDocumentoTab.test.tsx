@@ -37,13 +37,13 @@ describe('<TiposDocumentoTab>', () => {
     );
     render(<TiposDocumentoTab puedeAdministrar />, { wrapper: createQueryWrapper() });
     fireEvent.click(screen.getByLabelText('De prueba')); // queda como tipo real
-    fireEvent.change(screen.getByLabelText('Clave'), { target: { value: 'TTX' } });
-    fireEvent.change(screen.getByLabelText('Nombre'), { target: { value: 'FIX Traspasos' } });
+    fireEvent.change(screen.getByLabelText(/^Clave(?:\s*\*)?$/), { target: { value: 'TTX' } });
+    fireEvent.change(screen.getByLabelText(/^Nombre(?:\s*\*)?$/), { target: { value: 'FIX Traspasos' } });
     const agregar = screen.getByRole('button', { name: 'Agregar tipo' });
     expect(agregar).toBeDisabled();
     expect(screen.getByText(/son dos letras \(TT, PC, RF…\)/)).toBeInTheDocument();
 
-    fireEvent.change(screen.getByLabelText('Clave'), { target: { value: 'tt' } });
+    fireEvent.change(screen.getByLabelText(/^Clave(?:\s*\*)?$/), { target: { value: 'tt' } });
     fireEvent.change(screen.getByLabelText('Tipo SAT'), { target: { value: 'Ingreso' } });
     fireEvent.click(agregar);
     await waitFor(() => expect(posts).toHaveLength(1));

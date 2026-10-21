@@ -1,3 +1,6 @@
+import { SheetBody } from '@/components/ui/sheet';
+import { FormCampo } from '@/components/erp/forms/FormGrid';
+import { FormGrid } from '@/components/erp/forms/FormGrid';
 import { useEffect, useId, useState } from 'react';
 import { Controller, useForm, useWatch } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -7,7 +10,13 @@ import { DatePickerField, Field, ProveedorSelector } from '@/components/erp';
 import { mensajeErrorAdjunto } from '@/components/erp/adjuntos/api';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 import {
   Sheet,
   SheetContent,
@@ -22,7 +31,10 @@ import {
   type CotizacionComparativo,
   type PartidaComparativo,
 } from '@/features/compras/api/types';
-import { useEditarCotizacion, useRegistrarCotizacion } from '@/features/compras/api/useCotizaciones';
+import {
+  useEditarCotizacion,
+  useRegistrarCotizacion,
+} from '@/features/compras/api/useCotizaciones';
 import { ConMotivo } from '@/features/compras/components/ConMotivo';
 import {
   aRegistrarCotizacionRequest,
@@ -82,7 +94,9 @@ function FormularioCotizacion({
       vigenteHasta: cotizacion?.vigenteHasta ?? '',
       condicionesCredito: cotizacion?.condicionesCredito ?? '',
       lineas: porComprar.map((p) => {
-        const previa = cotizacion?.lineas.find((l) => l.lineaRequisicionId === p.lineaRequisicionId);
+        const previa = cotizacion?.lineas.find(
+          (l) => l.lineaRequisicionId === p.lineaRequisicionId,
+        );
         return {
           lineaRequisicionId: p.lineaRequisicionId,
           unidadRequisicion: p.unidad,
@@ -105,7 +119,9 @@ function FormularioCotizacion({
     ? 'proveedor'
     : !valores.vigenteHasta
       ? 'vigencia'
-      : (valores.lineas ?? []).findIndex((l) => !l?.precioUnitario || Number.isNaN(l.precioUnitario)) >= 0
+      : (valores.lineas ?? []).findIndex(
+            (l) => !l?.precioUnitario || Number.isNaN(l.precioUnitario),
+          ) >= 0
         ? 'precio de cada partida'
         : null;
 
@@ -124,9 +140,14 @@ function FormularioCotizacion({
             extraFields: { tipoDocumentoId: TIPO_ADJUNTO_COTIZACION_ID },
             idempotencyKey: crypto.randomUUID(),
           });
-          await queryClient.invalidateQueries({ queryKey: comprasKeys.cotizaciones(requisicionId) });
+          await queryClient.invalidateQueries({
+            queryKey: comprasKeys.cotizaciones(requisicionId),
+          });
         } catch (err) {
-          toast.warning(cotizacion ? 'Cotización guardada sin el PDF nuevo' : 'Cotización registrada sin PDF', { description: mensajeErrorAdjunto(err) });
+          toast.warning(
+            cotizacion ? 'Cotización guardada sin el PDF nuevo' : 'Cotización registrada sin PDF',
+            { description: mensajeErrorAdjunto(err) },
+          );
           onClose({ force: true });
           return;
         }
@@ -135,7 +156,10 @@ function FormularioCotizacion({
       onClose({ force: true });
     } catch (err) {
       if (esApiError(err)) {
-        const marcado = applyServerErrors(form as unknown as Parameters<typeof applyServerErrors>[0], err);
+        const marcado = applyServerErrors(
+          form as unknown as Parameters<typeof applyServerErrors>[0],
+          err,
+        );
         if (marcado === true || marcado === 'campo') return;
         const { title, detail } = err.problem;
         toast.error(
@@ -156,126 +180,182 @@ function FormularioCotizacion({
   const guardando = registrar.isPending || editar.isPending || subida.isUploading;
 
   return (
-    <form onSubmit={form.handleSubmit(onSubmit)} className="flex min-h-0 flex-1 flex-col" noValidate>
-      <div className="flex-1 space-y-4 overflow-y-auto p-6">
-        <div className="grid gap-3 sm:grid-cols-2">
-          <Controller
-            control={form.control}
-            name="proveedorId"
-            render={({ field, fieldState }) => (
-              <Field label="Proveedor" required error={fieldState.error?.message} className="sm:col-span-2">
-                {(c) => (
-                  <ProveedorSelector triggerProps={c} value={field.value || null} onChange={(v) => field.onChange(v ?? '')} />
-                )}
-              </Field>
-            )}
-          />
-          <Field label="Folio del proveedor" optional error={errors.folioProveedor?.message}>
-            <Input {...form.register('folioProveedor')} className="font-mono" />
-          </Field>
-          <Controller
-            control={form.control}
-            name="moneda"
-            render={({ field, fieldState }) => (
-              <Field label="Moneda" required error={fieldState.error?.message}>
-                <Select value={field.value} onValueChange={field.onChange}>
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {MONEDAS.map((m) => (
-                      <SelectItem key={m} value={m}>
-                        {m}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </Field>
-            )}
-          />
-          <Controller
-            control={form.control}
-            name="fechaCotizacion"
-            render={({ field, fieldState }) => (
-              <Field label="Fecha de la cotización" required error={fieldState.error?.message}>
-                <DatePickerField value={field.value || null} onChange={(v) => field.onChange(v ?? '')} maxDate={new Date()} />
-              </Field>
-            )}
-          />
-          <Controller
-            control={form.control}
-            name="vigenteHasta"
-            render={({ field, fieldState }) => (
-              <Field label="Vigente hasta" required error={fieldState.error?.message}>
-                <DatePickerField value={field.value || null} onChange={(v) => field.onChange(v ?? '')} />
-              </Field>
-            )}
-          />
-          <Field label="Crédito" optional error={errors.condicionesCredito?.message} className="sm:col-span-2">
-            <Input {...form.register('condicionesCredito')} placeholder="Ej. 30 días" />
-          </Field>
-        </div>
+    <form
+      onSubmit={form.handleSubmit(onSubmit)}
+      className="flex min-h-0 flex-1 flex-col"
+      noValidate
+    >
+      <SheetBody className="space-y-4">
+        <FormGrid className="">
+          <FormCampo span={12}>
+            <Controller
+              control={form.control}
+              name="proveedorId"
+              render={({ field, fieldState }) => (
+                <Field
+                  label="Proveedor"
+                  required
+                  error={fieldState.error?.message}
+                  className="sm:col-span-2"
+                >
+                  {(c) => (
+                    <ProveedorSelector
+                      triggerProps={c}
+                      value={field.value || null}
+                      onChange={(v) => field.onChange(v ?? '')}
+                    />
+                  )}
+                </Field>
+              )}
+            />
+          </FormCampo>
+          <FormCampo span={6}>
+            <Field label="Folio del proveedor" optional error={errors.folioProveedor?.message}>
+              <Input {...form.register('folioProveedor')} className="font-mono" />
+            </Field>
+          </FormCampo>
+          <FormCampo span={6}>
+            <Controller
+              control={form.control}
+              name="moneda"
+              render={({ field, fieldState }) => (
+                <Field label="Moneda" required error={fieldState.error?.message}>
+                  <Select value={field.value} onValueChange={field.onChange}>
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {MONEDAS.map((m) => (
+                        <SelectItem key={m} value={m}>
+                          {m}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </Field>
+              )}
+            />
+          </FormCampo>
+          <FormCampo span={6}>
+            <Controller
+              control={form.control}
+              name="fechaCotizacion"
+              render={({ field, fieldState }) => (
+                <Field label="Fecha de la cotización" required error={fieldState.error?.message}>
+                  <DatePickerField
+                    value={field.value || null}
+                    onChange={(v) => field.onChange(v ?? '')}
+                    maxDate={new Date()}
+                  />
+                </Field>
+              )}
+            />
+          </FormCampo>
+          <FormCampo span={6}>
+            <Controller
+              control={form.control}
+              name="vigenteHasta"
+              render={({ field, fieldState }) => (
+                <Field label="Vigente hasta" required error={fieldState.error?.message}>
+                  <DatePickerField
+                    value={field.value || null}
+                    onChange={(v) => field.onChange(v ?? '')}
+                  />
+                </Field>
+              )}
+            />
+          </FormCampo>
+          <FormCampo span={12}>
+            <Field
+              label="Crédito"
+              optional
+              error={errors.condicionesCredito?.message}
+              className="sm:col-span-2"
+            >
+              <Input {...form.register('condicionesCredito')} placeholder="Ej. 30 días" />
+            </Field>
+          </FormCampo>
+        </FormGrid>
 
         <section aria-labelledby="partidas-cotizadas" className="space-y-2">
           <h3 id="partidas-cotizadas" className="text-sm font-semibold text-ink">
             Partidas de la requisición
           </h3>
-          {errors.lineas?.message && <p className="text-xs text-danger-fg">{errors.lineas.message}</p>}
+          {errors.lineas?.message && (
+            <p className="text-xs text-danger-fg">{errors.lineas.message}</p>
+          )}
           {porComprar.map((p, i) => {
             const linea = valores.lineas?.[i];
             const distinta =
               (linea?.unidadCotizada ?? '').trim().toUpperCase() !== p.unidad.trim().toUpperCase();
             const e = errors.lineas?.[i];
             return (
-              <div key={p.lineaRequisicionId} className="space-y-2 rounded-md border border-line-row p-3">
+              <div
+                key={p.lineaRequisicionId}
+                className="space-y-2 rounded-md border border-line-row p-3"
+              >
                 <p className="text-sm font-medium text-ink">{etiquetaPartida(p)}</p>
-                <div className="grid gap-2 sm:grid-cols-4">
-                  <Field label="Unidad cotizada" required error={e?.unidadCotizada?.message}>
-                    <Input
-                      {...form.register(`lineas.${i}.unidadCotizada`, {
-                        onChange: (ev) => {
-                          if (ev.target.value.trim().toUpperCase() === p.unidad.trim().toUpperCase()) {
-                            form.setValue(`lineas.${i}.factorAUnidadRq`, 1);
-                          }
-                        },
-                      })}
-                      className="uppercase"
-                    />
-                  </Field>
-                  {distinta ? (
-                    <Field label={`Equivale a … ${p.unidad}`} required error={e?.factorAUnidadRq?.message}>
+                <FormGrid className="">
+                  <FormCampo span={3}>
+                    <Field label="Unidad cotizada" required error={e?.unidadCotizada?.message}>
+                      <Input
+                        {...form.register(`lineas.${i}.unidadCotizada`, {
+                          onChange: (ev) => {
+                            if (
+                              ev.target.value.trim().toUpperCase() === p.unidad.trim().toUpperCase()
+                            ) {
+                              form.setValue(`lineas.${i}.factorAUnidadRq`, 1);
+                            }
+                          },
+                        })}
+                        className="uppercase"
+                      />
+                    </Field>
+                  </FormCampo>
+                  <FormCampo span={3}>
+                    {distinta ? (
+                      <Field
+                        label={`Equivale a … ${p.unidad}`}
+                        required
+                        error={e?.factorAUnidadRq?.message}
+                      >
+                        <Input
+                          type="number"
+                          step="any"
+                          inputMode="decimal"
+                          className="tabular-nums"
+                          {...form.register(`lineas.${i}.factorAUnidadRq`, { valueAsNumber: true })}
+                        />
+                      </Field>
+                    ) : (
+                      <p className="self-end pb-2 text-xs text-ink-muted">Factor 1</p>
+                    )}
+                  </FormCampo>
+                  <FormCampo span={3}>
+                    <Field label="Precio" required error={e?.precioUnitario?.message}>
                       <Input
                         type="number"
                         step="any"
                         inputMode="decimal"
                         className="tabular-nums"
-                        {...form.register(`lineas.${i}.factorAUnidadRq`, { valueAsNumber: true })}
+                        {...form.register(`lineas.${i}.precioUnitario`, { valueAsNumber: true })}
                       />
                     </Field>
-                  ) : (
-                    <p className="self-end pb-2 text-xs text-ink-muted">Factor 1</p>
-                  )}
-                  <Field label="Precio" required error={e?.precioUnitario?.message}>
-                    <Input
-                      type="number"
-                      step="any"
-                      inputMode="decimal"
-                      className="tabular-nums"
-                      {...form.register(`lineas.${i}.precioUnitario`, { valueAsNumber: true })}
-                    />
-                  </Field>
-                  <Field label="Entrega (días)" optional error={e?.diasEntrega?.message}>
-                    <Input
-                      type="number"
-                      min={0}
-                      max={365}
-                      className="tabular-nums"
-                      {...form.register(`lineas.${i}.diasEntrega`, {
-                        setValueAs: (v) => (v === '' || v == null ? null : Number(v)),
-                      })}
-                    />
-                  </Field>
-                </div>
+                  </FormCampo>
+                  <FormCampo span={3}>
+                    <Field label="Entrega (días)" optional error={e?.diasEntrega?.message}>
+                      <Input
+                        type="number"
+                        min={0}
+                        max={365}
+                        className="tabular-nums"
+                        {...form.register(`lineas.${i}.diasEntrega`, {
+                          setValueAs: (v) => (v === '' || v == null ? null : Number(v)),
+                        })}
+                      />
+                    </Field>
+                  </FormCampo>
+                </FormGrid>
               </div>
             );
           })}
@@ -283,8 +363,7 @@ function FormularioCotizacion({
 
         <div className="space-y-2">
           <Field
-            label="Cotización del proveedor (PDF)"
-            optional
+            label="Cotización del proveedor (PDF) *"
             hint={
               cotizacion?.archivoNombre
                 ? `Actual: ${cotizacion.archivoNombre}. Si subes uno nuevo, el anterior se conserva en el expediente.`
@@ -306,7 +385,9 @@ function FormularioCotizacion({
                   onChange={(ev) => setArchivo(ev.target.files?.[0] ?? null)}
                 />
               </label>
-              <span className="min-w-0 truncate text-sm text-ink-muted">{archivo?.name ?? 'Ningún archivo seleccionado'}</span>
+              <span className="min-w-0 truncate text-sm text-ink-muted">
+                {archivo?.name ?? 'Ningún archivo seleccionado'}
+              </span>
             </div>
           </Field>
           {!archivo && !cotizacion?.archivoAdjuntoId && (
@@ -315,7 +396,7 @@ function FormularioCotizacion({
             </p>
           )}
         </div>
-      </div>
+      </SheetBody>
 
       <SheetFooter className="border-t border-line-row p-4 sm:justify-between">
         <Button type="button" variant="ghost" onClick={onCancelar} disabled={guardando}>
@@ -332,7 +413,14 @@ function FormularioCotizacion({
 }
 
 /** F1-COM-02 — Sheet «Registrar cotización» (cabecera, partidas y PDF). El PDF se sube con el id ya creado. */
-export function CotizacionSheet({ abierto, onClose, folio, requisicionId, partidas, cotizacion }: CotizacionSheetProps) {
+export function CotizacionSheet({
+  abierto,
+  onClose,
+  folio,
+  requisicionId,
+  partidas,
+  cotizacion,
+}: CotizacionSheetProps) {
   const [sucio, setSucio] = useState(false);
   // Confirm al cerrar con cambios (patrón NuevaRequisicionProvider).
   const solicitarCierre = () => {
@@ -341,7 +429,7 @@ export function CotizacionSheet({ abierto, onClose, folio, requisicionId, partid
   };
   return (
     <Sheet open={abierto} onOpenChange={(o) => !o && solicitarCierre()}>
-      <SheetContent side="right" size="form">
+      <SheetContent side="right" size="lg">
         <SheetHeader>
           <SheetTitle>{cotizacion ? 'Editar cotización' : 'Registrar cotización'}</SheetTitle>
           <SheetDescription>{folio} · solo Compras</SheetDescription>

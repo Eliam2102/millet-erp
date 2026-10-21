@@ -10,15 +10,12 @@ export interface NuevoUsoPrincipalApi {
   setDirty: (dirty: boolean) => void;
 }
 
-export const NuevoUsoPrincipalContext =
-  createContext<NuevoUsoPrincipalApi | null>(null);
+export const NuevoUsoPrincipalContext = createContext<NuevoUsoPrincipalApi | null>(null);
 
 export function useNuevoUsoPrincipal(): NuevoUsoPrincipalApi {
   const ctx = useContext(NuevoUsoPrincipalContext);
   if (ctx == null) {
-    throw new Error(
-      'useNuevoUsoPrincipal() debe usarse dentro de <NuevoUsoPrincipalProvider>.',
-    );
+    throw new Error('useNuevoUsoPrincipal() debe usarse dentro de <NuevoUsoPrincipalProvider>.');
   }
   return ctx;
 }

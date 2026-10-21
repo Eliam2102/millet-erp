@@ -1,28 +1,21 @@
-import {
-  useCallback,
-  useEffect,
-  useMemo,
-  useRef,
-  useState,
-  type ReactNode,
-} from 'react';
+import { FormCampo } from '@/components/erp/forms/FormGrid';
+import { FormSeccion } from '@/components/erp/forms/FormSeccion';
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import {
+  SheetBody,
   Sheet,
   SheetContent,
   SheetDescription,
   SheetHeader,
   SheetTitle,
+  SheetFooter,
 } from '@/components/ui/sheet';
-import {
-  applyServerErrors,
-  esApiError,
-  useFormIdempotencyKey,
-} from '@/lib/api';
+import { applyServerErrors, esApiError, useFormIdempotencyKey } from '@/lib/api';
 import { useCrearCategoriaArticulo } from '@/modules/catalogos/api';
 import {
   CrearCategoriaArticuloSchema,
@@ -33,11 +26,7 @@ import {
   type NuevaCategoriaArticuloApi,
 } from '@/modules/catalogos/components/nueva-categoria-articulo-context';
 
-export function NuevaCategoriaArticuloProvider({
-  children,
-}: {
-  children: ReactNode;
-}) {
+export function NuevaCategoriaArticuloProvider({ children }: { children: ReactNode }) {
   const [abierto, setAbierto] = useState(false);
   const isDirtyRef = useRef(false);
   const setDirty = useCallback((d: boolean) => {
@@ -68,28 +57,19 @@ export function NuevaCategoriaArticuloProvider({
   return (
     <NuevaCategoriaArticuloContext.Provider value={api}>
       {children}
-      <Sheet
-        open={abierto}
-        onOpenChange={(open) => (open ? setAbierto(true) : cerrar())}
-      >
-        <SheetContent
-          side="right"
-          className="w-full overflow-y-auto sm:max-w-2xl"
-        >
+      <Sheet open={abierto} onOpenChange={(open) => (open ? setAbierto(true) : cerrar())}>
+        <SheetContent size="lg" side="right">
           <SheetHeader>
             <SheetTitle>Nueva categoría de artículo</SheetTitle>
             <SheetDescription>
-              Alta en el catálogo cross-empresa de categorías de artículo. El
-              nombre es único (sin distinguir mayúsculas ni espacios extra).
+              Alta en el catálogo cross-empresa de categorías de artículo. El nombre es único (sin
+              distinguir mayúsculas ni espacios extra).
             </SheetDescription>
           </SheetHeader>
-          <div className="px-6 pb-6">
-            {abierto && (
-              <NuevaCategoriaArticuloForm
-                onClose={cerrar}
-                onDirtyChange={setDirty}
-              />
-            )}
+          <div className="contents">
+            <div className="contents">
+              {abierto && <NuevaCategoriaArticuloForm onClose={cerrar} onDirtyChange={setDirty} />}
+            </div>
           </div>
         </SheetContent>
       </Sheet>
@@ -133,12 +113,7 @@ function NuevaCategoriaArticuloForm({
               });
               return;
             }
-            if (
-              applyServerErrors(
-                form as unknown as Parameters<typeof applyServerErrors>[0],
-                err,
-              )
-            )
+            if (applyServerErrors(form as unknown as Parameters<typeof applyServerErrors>[0], err))
               return;
             toast.error(err.problem.title);
             return;
@@ -153,40 +128,41 @@ function NuevaCategoriaArticuloForm({
     <form
       onSubmit={form.handleSubmit(onSubmit)}
       noValidate
-      className="space-y-4 rounded-md border bg-card p-4"
+      className="flex min-h-0 flex-1 flex-col overflow-hidden"
     >
-      <div className="space-y-1.5">
-        <label className="flex items-center gap-1 text-sm font-medium">
-          Nombre
-          <span aria-hidden="true" className="text-danger">
-            *
-          </span>
-        </label>
-        <Input
-          autoFocus
-          maxLength={100}
-          placeholder="MAT DE LIMPIEZA"
-          {...form.register('nombre')}
-        />
-        {form.formState.errors.nombre?.message != null && (
-          <p role="alert" className="text-xs text-danger">
-            {form.formState.errors.nombre.message}
-          </p>
-        )}
-      </div>
-      <div className="flex flex-wrap items-center justify-end gap-2 border-t pt-3">
-        <Button
-          type="button"
-          variant="ghost"
-          onClick={() => onClose()}
-          disabled={crear.isPending}
-        >
+      <SheetBody>
+        <FormSeccion titulo="Datos del registro">
+          <FormCampo span={12}>
+            <div className="space-y-1.5">
+              <label className="flex items-center gap-1 text-sm font-medium">
+                Nombre
+                <span aria-hidden="true" className="text-danger-fg">
+                  *
+                </span>
+              </label>
+              <Input
+                autoFocus
+                maxLength={100}
+                placeholder="MAT DE LIMPIEZA"
+                {...form.register('nombre')}
+              />
+              {form.formState.errors.nombre?.message != null && (
+                <p role="alert" className="text-xs text-danger-fg">
+                  {form.formState.errors.nombre.message}
+                </p>
+              )}
+            </div>
+          </FormCampo>
+        </FormSeccion>
+      </SheetBody>
+      <SheetFooter>
+        <Button type="button" variant="ghost" onClick={() => onClose()} disabled={crear.isPending}>
           Cancelar
         </Button>
         <Button type="submit" disabled={crear.isPending}>
           {crear.isPending ? 'Creando…' : 'Crear categoría'}
         </Button>
-      </div>
+      </SheetFooter>
     </form>
   );
 }

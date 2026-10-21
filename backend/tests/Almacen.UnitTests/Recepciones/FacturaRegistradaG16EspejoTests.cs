@@ -38,4 +38,26 @@ public sealed class FacturaRegistradaG16EspejoTests
         p.TotalFactura.Should().Be(1150m);
         p.Lineas.Should().ContainSingle().Which.Importe.Should().Be(1000m);
     }
+
+    [Fact]
+    public void Espejo_lee_recepcion_id_opcional()
+    {
+        const string baseJson = """
+{
+  "EmpresaId": "11111111-1111-1111-1111-111111111111",
+  "OcurridoEn": "2026-01-01T00:00:00+00:00",
+  "FacturaProveedorId": "22222222-2222-2222-2222-222222222222",
+  "OrdenCompraId": "33333333-3333-3333-3333-333333333333",
+  "TotalFactura": 1150,
+  "Lineas": []__EXTRA__
+}
+""";
+
+        JsonSerializer.Deserialize<FacturaProveedorRegistradaPayload>(
+            baseJson.Replace("__EXTRA__", ""), Opts)!.RecepcionId.Should().BeNull();
+
+        JsonSerializer.Deserialize<FacturaProveedorRegistradaPayload>(
+            baseJson.Replace("__EXTRA__", ", \"RecepcionId\": \"99999999-9999-9999-9999-999999999999\""), Opts)!
+            .RecepcionId.Should().Be(Guid.Parse("99999999-9999-9999-9999-999999999999"));
+    }
 }

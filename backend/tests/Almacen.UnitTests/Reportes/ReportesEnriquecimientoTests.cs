@@ -17,7 +17,7 @@ namespace Millet.Almacen.UnitTests.Reportes;
 public class ReportesEnriquecimientoTests
 {
     private static ArticuloLectura Art(Guid id, string clave, string desc)
-        => new(id, clave, desc, "PZA", null, null, true);
+        => new(id, clave, desc, "PZA", null, true);
 
     [Fact]
     public void MpCnk_AplicarArticulos_Enriquece_Y_FallbackNull()

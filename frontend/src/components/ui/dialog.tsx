@@ -29,14 +29,17 @@ DialogOverlay.displayName = DialogPrimitive.Overlay.displayName
 
 const DialogContent = React.forwardRef<
   React.ElementRef<typeof DialogPrimitive.Content>,
-  React.ComponentPropsWithoutRef<typeof DialogPrimitive.Content> & { overlayClassName?: string; closeLabel?: string }
->(({ className, children, overlayClassName, closeLabel = "Cerrar", ...props }, ref) => (
+  React.ComponentPropsWithoutRef<typeof DialogPrimitive.Content> & { size?: 'sm' | 'md' | 'lg'; overlayClassName?: string; closeLabel?: string }
+>(({ className, children, size, overlayClassName, closeLabel = "Cerrar", ...props }, ref) => (
   <DialogPortal>
     <DialogOverlay className={overlayClassName} />
     <DialogPrimitive.Content
       ref={ref}
       className={cn(
         "fixed left-[50%] top-[50%] z-50 grid w-full max-w-lg translate-x-[-50%] translate-y-[-50%] gap-4 border bg-background p-6 shadow-lg duration-200 data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95 data-[state=closed]:slide-out-to-left-1/2 data-[state=closed]:slide-out-to-top-[48%] data-[state=open]:slide-in-from-left-1/2 data-[state=open]:slide-in-from-top-[48%] sm:rounded-lg",
+        size && cn('flex flex-col max-h-[90vh] w-[calc(100vw-2rem)]', {
+          sm: 'max-w-[480px]', md: 'max-w-[max(640px,50vw)]', lg: 'max-w-[max(960px,75vw)]',
+        }[size]),
         className
       )}
       {...props}
@@ -51,13 +54,18 @@ const DialogContent = React.forwardRef<
 ))
 DialogContent.displayName = DialogPrimitive.Content.displayName
 
+/** Cuerpo con scroll propio; colócalo entre el header y el footer fijos. */
+function DialogBody({ className, ...props }: React.HTMLAttributes<HTMLDivElement>) {
+  return <div className={cn('-mx-6 min-h-0 flex-1 overflow-y-auto px-6 py-5', className)} {...props} />
+}
+
 const DialogHeader = ({
   className,
   ...props
 }: React.HTMLAttributes<HTMLDivElement>) => (
   <div
     className={cn(
-      "flex flex-col space-y-1.5 text-center sm:text-left",
+      "flex shrink-0 flex-col space-y-1.5 text-center sm:text-left",
       className
     )}
     {...props}
@@ -71,7 +79,7 @@ const DialogFooter = ({
 }: React.HTMLAttributes<HTMLDivElement>) => (
   <div
     className={cn(
-      "flex flex-col-reverse sm:flex-row sm:justify-end sm:space-x-2",
+      "flex shrink-0 flex-col-reverse sm:flex-row sm:justify-end sm:space-x-2",
       className
     )}
     {...props}
@@ -113,6 +121,7 @@ export {
   DialogClose,
   DialogTrigger,
   DialogContent,
+  DialogBody,
   DialogHeader,
   DialogFooter,
   DialogTitle,

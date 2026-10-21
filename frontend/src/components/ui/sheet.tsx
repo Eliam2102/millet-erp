@@ -16,7 +16,7 @@ import { cn } from '@/lib/utils';
  *     &lt;SheetHeader&gt;
  *       &lt;SheetTitle&gt;Título&lt;/SheetTitle&gt;
  *     &lt;/SheetHeader&gt;
- *     ...contenido...
+ *     &lt;SheetBody&gt;...contenido...&lt;/SheetBody&gt;
  *   &lt;/SheetContent&gt;
  * &lt;/Sheet&gt;
  * </code>
@@ -58,6 +58,8 @@ const sideClasses = {
 
 const sizeClasses = {
   form: 'sm:max-w-[560px]',
+  md: 'w-[calc(100vw-2rem)] max-w-[max(640px,50vw)]',
+  lg: 'w-[calc(100vw-2rem)] max-w-[max(960px,75vw)]',
   wide: 'sm:max-w-5xl',
   legacy: 'sm:max-w-3xl',
 } as const;
@@ -69,7 +71,7 @@ interface SheetContentProps
   overlayClassName?: string;
   /**
    * Ancho en pantallas sm+. <c>form</c> = 560 px (DS 4.8, default);
-   * <c>wide</c> = <c>max-w-5xl</c> para captura con líneas; <c>legacy</c> =
+   * <c>wide</c> = <c>max-w-5xl</c> para captura con partidas; <c>legacy</c> =
    * <c>max-w-3xl</c>, ancho histórico fijado explícitamente en los callers
    * que aún no se han clasificado. El caller puede overridear con className.
    */
@@ -108,6 +110,11 @@ const SheetContent = React.forwardRef<
 ));
 SheetContent.displayName = DialogPrimitive.Content.displayName;
 
+/** El contenido entre header y footer va siempre en SheetBody, con scroll propio. */
+function SheetBody({ className, ...props }: React.HTMLAttributes<HTMLDivElement>) {
+  return <div className={cn('min-h-0 flex-1 overflow-y-auto px-6 py-5', className)} {...props} />;
+}
+
 function SheetHeader({
   className,
   ...props
@@ -115,7 +122,7 @@ function SheetHeader({
   return (
     <div
       className={cn(
-        'flex flex-col gap-1.5 border-b px-6 py-4 text-left',
+        'flex shrink-0 flex-col gap-1.5 border-b px-6 py-4 text-left',
         className,
       )}
       {...props}
@@ -130,7 +137,7 @@ function SheetFooter({
   return (
     <div
       className={cn(
-        'flex items-center justify-between gap-2 border-t border-line-divider px-6 py-4 [&>:only-child]:ml-auto',
+        'flex shrink-0 items-center justify-between gap-2 border-t border-line-divider px-6 py-4 [&>:only-child]:ml-auto',
         className,
       )}
       {...props}
@@ -166,6 +173,7 @@ export {
   Sheet,
   SheetClose,
   SheetContent,
+  SheetBody,
   SheetDescription,
   SheetFooter,
   SheetHeader,

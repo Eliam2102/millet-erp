@@ -27,7 +27,7 @@ const LINEAS: PreviewCubrimientoLinea[] = [
 ];
 
 describe('<CubrimientoEstimadoPanel>', () => {
-  it('muestra header, el label "no reserva stock" y el estimado por línea', () => {
+  it('muestra header, el label "no reserva stock" y el estimado por partida', () => {
     const { container } = render(<CubrimientoEstimadoPanel lineas={LINEAS} />);
     expect(screen.getByText('Disponibilidad estimada')).toBeInTheDocument();
     // El label deja claro que es estimación y que NO reserva.
@@ -49,7 +49,7 @@ describe('<CubrimientoEstimadoPanel>', () => {
     expect(screen.getByText('ART a-1')).toBeInTheDocument();
   });
 
-  it('loading: muestra skeleton, no la lista de líneas', () => {
+  it('loading: muestra skeleton, no la lista de partidas', () => {
     const { container } = render(
       <CubrimientoEstimadoPanel lineas={[]} isLoading />,
     );
@@ -59,7 +59,7 @@ describe('<CubrimientoEstimadoPanel>', () => {
   });
 
   it('usa la etiqueta enriquecida del DTO (clave · nombre) por encima del resolver', () => {
-    // El fix: la línea trae clave/nombre server-side (ADR-0042) → el panel ya
+    // El fix: la partida trae clave/nombre server-side (ADR-0042) → el panel ya
     // NO depende del catálogo capado. El DTO gana sobre el resolver.
     const lineas: PreviewCubrimientoLinea[] = [
       {

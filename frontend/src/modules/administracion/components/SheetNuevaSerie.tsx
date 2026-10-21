@@ -1,11 +1,6 @@
-import {
-  useCallback,
-  useEffect,
-  useMemo,
-  useRef,
-  useState,
-  type ReactNode,
-} from 'react';
+import { FormSeccion } from '@/components/erp/forms/FormSeccion';
+import { FormCampo } from '@/components/erp/forms/FormGrid';
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { Controller, useForm, useWatch } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { toast } from 'sonner';
@@ -24,30 +19,17 @@ import {
   SheetDescription,
   SheetHeader,
   SheetTitle,
+  SheetBody,
+  SheetFooter,
 } from '@/components/ui/sheet';
-import {
-  applyServerErrors,
-  esApiError,
-  useFormIdempotencyKey,
-  codigoSoporte,
-} from '@/lib/api';
+import { applyServerErrors, esApiError, useFormIdempotencyKey, codigoSoporte } from '@/lib/api';
 import {
   NuevaSerieContext,
   type NuevaSerieApi,
 } from '@/modules/administracion/components/nueva-serie-context';
-import {
-  CrearSerieSchema,
-  type CrearSerieValues,
-} from '@/modules/administracion/schemas/serie';
-import {
-  useCrearSerie,
-  useEmpresa,
-  useEmpresas,
-} from '@/modules/administracion/api';
-import {
-  ReinicioPeriodo,
-  TipoDocumentoSerie,
-} from '@/modules/administracion/api/types';
+import { CrearSerieSchema, type CrearSerieValues } from '@/modules/administracion/schemas/serie';
+import { useCrearSerie, useEmpresa, useEmpresas } from '@/modules/administracion/api';
+import { ReinicioPeriodo, TipoDocumentoSerie } from '@/modules/administracion/api/types';
 import {
   REINICIO_PERIODO_DESCRIPCION,
   REINICIO_PERIODO_LABEL,
@@ -132,27 +114,16 @@ export function NuevaSerieProvider({ children }: { children: ReactNode }) {
           setAbierto(true);
         }}
       >
-        <SheetContent
-          side="right"
-          className="w-full overflow-y-auto sm:max-w-2xl"
-        >
+        <SheetContent size="lg" side="right">
           <SheetHeader>
             <SheetTitle>Nueva serie</SheetTitle>
             <SheetDescription>
-              Configura una serie de folios para una empresa y tipo de
-              documento. La sucursal es opcional (cross-sucursal si se deja
-              vacío).
+              Configura una serie de folios para una empresa y tipo de documento. La sucursal es
+              opcional (cross-sucursal si se deja vacío).
             </SheetDescription>
           </SheetHeader>
 
-          <div className="px-6 pb-6">
-            {abierto && (
-              <NuevaSerieForm
-                onClose={cerrarConConfirm}
-                onDirtyChange={setDirty}
-              />
-            )}
-          </div>
+          {abierto && <NuevaSerieForm onClose={cerrarConConfirm} onDirtyChange={setDirty} />}
         </SheetContent>
       </Sheet>
     </NuevaSerieContext.Provider>
@@ -187,7 +158,11 @@ function NuevaSerieForm({ onClose, onDirtyChange }: NuevaSerieFormProps) {
   // lint react-hooks/incompatible-library.
   const empresaId = useWatch({ control: form.control, name: 'empresaId' });
   const tipoDocumento = useWatch({ control: form.control, name: 'tipoDocumento' });
-  const esFiscal = [TipoDocumentoSerie.Cfdi, TipoDocumentoSerie.NotaCredito, TipoDocumentoSerie.FacturaAnticipo].includes(tipoDocumento as 2 | 3 | 5);
+  const esFiscal = [
+    TipoDocumentoSerie.Cfdi,
+    TipoDocumentoSerie.NotaCredito,
+    TipoDocumentoSerie.FacturaAnticipo,
+  ].includes(tipoDocumento as 2 | 3 | 5);
   useEffect(() => {
     if (esFiscal) form.setValue('reinicioPeriodo', ReinicioPeriodo.None, { shouldDirty: true });
   }, [esFiscal, form]);
@@ -202,9 +177,7 @@ function NuevaSerieForm({ onClose, onDirtyChange }: NuevaSerieFormProps) {
   // Cargar sucursales solo cuando hay empresa seleccionada (el endpoint
   // de detalle de empresa retorna las sucursales, evitando un nuevo
   // hook server-side dedicado).
-  const empresaDetalle = useEmpresa(
-    empresaId.length > 0 ? empresaId : null,
-  );
+  const empresaDetalle = useEmpresa(empresaId.length > 0 ? empresaId : null);
   const sucursales = empresaDetalle.data?.sucursales ?? [];
 
   const isDirty = form.formState.isDirty;
@@ -218,9 +191,7 @@ function NuevaSerieForm({ onClose, onDirtyChange }: NuevaSerieFormProps) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [empresaId]);
   const previewFolio =
-    prefijo.length > 0
-      ? previewFolioAproximado(prefijo, sufijo, reinicio, folioInicial)
-      : '—';
+    prefijo.length > 0 ? previewFolioAproximado(prefijo, sufijo, reinicio, folioInicial) : '—';
 
   function onSubmit(values: CrearSerieValues) {
     crear.mutate(
@@ -258,10 +229,7 @@ function NuevaSerieForm({ onClose, onDirtyChange }: NuevaSerieFormProps) {
               return;
             }
             if (
-              applyServerErrors(
-                form as unknown as Parameters<typeof applyServerErrors>[0],
-                error,
-              )
+              applyServerErrors(form as unknown as Parameters<typeof applyServerErrors>[0], error)
             ) {
               return;
             }
@@ -280,221 +248,208 @@ function NuevaSerieForm({ onClose, onDirtyChange }: NuevaSerieFormProps) {
     <form
       onSubmit={form.handleSubmit(onSubmit)}
       noValidate
-      className="space-y-4 rounded-md border bg-card p-4"
+      className="flex min-h-0 flex-1 flex-col"
     >
-      <div className="space-y-1.5">
-        <label htmlFor="folio-inicial" className="text-xs font-medium text-ink-strong">Folio inicial</label>
-        <Input id="folio-inicial" type="number" min={1} {...form.register('folioInicial', { valueAsNumber: true })} />
-        <p className="text-xs text-ink-muted">Captura el siguiente folio autorizado. Después de reservar, solo avanza.</p>
-        {form.formState.errors.folioInicial && <p role="alert" className="text-xs text-danger-fg">{form.formState.errors.folioInicial.message}</p>}
-      </div>
-      <FormRow
-        label="Empresa"
-        required
-        error={form.formState.errors.empresaId?.message}
-      >
-        <Controller
-          name="empresaId"
-          control={form.control}
-          render={({ field }) => (
-            <Select
-              value={field.value.length > 0 ? field.value : undefined}
-              onValueChange={(v) => field.onChange(v)}
-            >
-              <SelectTrigger>
-                <SelectValue
-                  placeholder={
-                    empresasQuery.isLoading
-                      ? 'Cargando empresas…'
-                      : 'Selecciona la empresa'
-                  }
-                />
-              </SelectTrigger>
-              <SelectContent>
-                {empresas.map((e) => (
-                  <SelectItem key={e.id} value={e.id}>
-                    <span className="font-mono text-xs">{e.rfc}</span> —{' '}
-                    {e.razonSocial}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+      <SheetBody>
+        <div className="space-y-1.5">
+          <label htmlFor="folio-inicial" className="text-xs font-medium text-ink-strong">
+            Folio inicial
+          </label>
+          <Input
+            id="folio-inicial"
+            type="number"
+            min={1}
+            {...form.register('folioInicial', { valueAsNumber: true })}
+          />
+          <p className="text-xs text-ink-muted">
+            Captura el siguiente folio autorizado. Después de reservar, solo avanza.
+          </p>
+          {form.formState.errors.folioInicial && (
+            <p role="alert" className="text-xs text-danger-fg">
+              {form.formState.errors.folioInicial.message}
+            </p>
           )}
-        />
-      </FormRow>
+        </div>
+        <FormRow label="Empresa" required error={form.formState.errors.empresaId?.message}>
+          <Controller
+            name="empresaId"
+            control={form.control}
+            render={({ field }) => (
+              <Select
+                value={field.value.length > 0 ? field.value : undefined}
+                onValueChange={(v) => field.onChange(v)}
+              >
+                <SelectTrigger>
+                  <SelectValue
+                    placeholder={
+                      empresasQuery.isLoading ? 'Cargando empresas…' : 'Selecciona la empresa'
+                    }
+                  />
+                </SelectTrigger>
+                <SelectContent>
+                  {empresas.map((e) => (
+                    <SelectItem key={e.id} value={e.id}>
+                      <span className="font-mono text-xs">{e.rfc}</span> — {e.razonSocial}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            )}
+          />
+        </FormRow>
 
-      <FormRow
-        label="Sucursal"
-        hint={
-          empresaId.length === 0
-            ? 'Selecciona primero una empresa.'
-            : 'Opcional. Sin sucursal aplica a todas (cross-sucursal).'
-        }
-        error={form.formState.errors.sucursalId?.message}
-      >
-        <Controller
-          name="sucursalId"
-          control={form.control}
-          render={({ field }) => (
-            <Select
-              value={field.value ?? SUCURSAL_NINGUNA}
-              onValueChange={(v) =>
-                field.onChange(v === SUCURSAL_NINGUNA ? null : v)
-              }
-              disabled={empresaId.length === 0 || empresaDetalle.isLoading}
-            >
-              <SelectTrigger>
-                <SelectValue placeholder="Todas las sucursales" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value={SUCURSAL_NINGUNA}>
-                  Todas las sucursales
-                </SelectItem>
-                {sucursales.map((s) => (
-                  <SelectItem key={s.id} value={s.id}>
-                    <span className="font-mono text-xs">{s.clave}</span> —{' '}
-                    {s.nombre}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          )}
-        />
-      </FormRow>
-
-      <FormRow
-        label="Tipo de documento"
-        required
-        error={form.formState.errors.tipoDocumento?.message}
-      >
-        <Controller
-          name="tipoDocumento"
-          control={form.control}
-          render={({ field }) => (
-            <Select
-              value={String(field.value)}
-              onValueChange={(v) =>
-                field.onChange(Number(v) as TipoDocumentoSerie)
-              }
-            >
-              <SelectTrigger>
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                {TIPO_DOC_VALUES.map((v) => (
-                  <SelectItem key={v} value={String(v)}>
-                    {TIPO_DOCUMENTO_LABEL[v]}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          )}
-        />
-      </FormRow>
-
-      <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
         <FormRow
-          label="Prefijo"
+          label="Sucursal"
+          hint={
+            empresaId.length === 0
+              ? 'Selecciona primero una empresa.'
+              : 'Opcional. Sin sucursal aplica a todas (cross-sucursal).'
+          }
+          error={form.formState.errors.sucursalId?.message}
+        >
+          <Controller
+            name="sucursalId"
+            control={form.control}
+            render={({ field }) => (
+              <Select
+                value={field.value ?? SUCURSAL_NINGUNA}
+                onValueChange={(v) => field.onChange(v === SUCURSAL_NINGUNA ? null : v)}
+                disabled={empresaId.length === 0 || empresaDetalle.isLoading}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Todas las sucursales" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value={SUCURSAL_NINGUNA}>Todas las sucursales</SelectItem>
+                  {sucursales.map((s) => (
+                    <SelectItem key={s.id} value={s.id}>
+                      <span className="font-mono text-xs">{s.clave}</span> — {s.nombre}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            )}
+          />
+        </FormRow>
+
+        <FormRow
+          label="Tipo de documento"
           required
-          hint="1-10 caracteres, ej. OC, FAC, NC."
-          error={form.formState.errors.prefijo?.message}
+          error={form.formState.errors.tipoDocumento?.message}
         >
-          <Input
-            maxLength={10}
-            placeholder="OC"
-            {...form.register('prefijo')}
+          <Controller
+            name="tipoDocumento"
+            control={form.control}
+            render={({ field }) => (
+              <Select
+                value={String(field.value)}
+                onValueChange={(v) => field.onChange(Number(v) as TipoDocumentoSerie)}
+              >
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {TIPO_DOC_VALUES.map((v) => (
+                    <SelectItem key={v} value={String(v)}>
+                      {TIPO_DOCUMENTO_LABEL[v]}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            )}
           />
         </FormRow>
+
+        <FormSeccion titulo="Datos de la serie" className="">
+          <FormCampo span={6}>
+            <FormRow
+              label="Prefijo"
+              required
+              hint="1-10 caracteres, ej. OC, FAC, NC."
+              error={form.formState.errors.prefijo?.message}
+            >
+              <Input maxLength={10} placeholder="OC" {...form.register('prefijo')} />
+            </FormRow>
+          </FormCampo>
+
+          <FormCampo span={6}>
+            <FormRow
+              label="Sufijo"
+              hint="Opcional, hasta 10 caracteres."
+              error={form.formState.errors.sufijo?.message}
+            >
+              <Input
+                maxLength={10}
+                placeholder=""
+                {...form.register('sufijo', {
+                  setValueAs: (v: unknown) =>
+                    typeof v === 'string' && v.trim().length === 0
+                      ? null
+                      : typeof v === 'string'
+                        ? v.trim()
+                        : v,
+                })}
+              />
+            </FormRow>
+          </FormCampo>
+        </FormSeccion>
 
         <FormRow
-          label="Sufijo"
-          hint="Opcional, hasta 10 caracteres."
-          error={form.formState.errors.sufijo?.message}
+          label="Reinicio de periodo"
+          required
+          error={form.formState.errors.reinicioPeriodo?.message}
         >
-          <Input
-            maxLength={10}
-            placeholder=""
-            {...form.register('sufijo', {
-              setValueAs: (v: unknown) =>
-                typeof v === 'string' && v.trim().length === 0
-                  ? null
-                  : typeof v === 'string'
-                    ? v.trim()
-                    : v,
-            })}
+          <Controller
+            name="reinicioPeriodo"
+            control={form.control}
+            render={({ field }) => (
+              <div role="radiogroup" aria-label="Reinicio de periodo" className="space-y-2">
+                {(esFiscal ? [ReinicioPeriodo.None] : REINICIO_OPTIONS).map((value) => {
+                  const checked = field.value === value;
+                  return (
+                    <label
+                      key={value}
+                      className={cn(
+                        'flex cursor-pointer items-start gap-3 rounded-md border p-3 text-sm',
+                        checked
+                          ? 'border-brand bg-brand/5'
+                          : 'border-line-control bg-surface-page hover:bg-surface-muted/40',
+                      )}
+                    >
+                      <input
+                        type="radio"
+                        className="mt-0.5"
+                        checked={checked}
+                        onChange={() => field.onChange(value)}
+                      />
+                      <div className="flex-1">
+                        <p className="font-medium">{REINICIO_PERIODO_LABEL[value]}</p>
+                        <p className="text-xs text-ink-muted">
+                          {REINICIO_PERIODO_DESCRIPCION[value]}
+                        </p>
+                      </div>
+                    </label>
+                  );
+                })}
+              </div>
+            )}
           />
         </FormRow>
-      </div>
 
-      <FormRow
-        label="Reinicio de periodo"
-        required
-        error={form.formState.errors.reinicioPeriodo?.message}
-      >
-        <Controller
-          name="reinicioPeriodo"
-          control={form.control}
-          render={({ field }) => (
-            <div
-              role="radiogroup"
-              aria-label="Reinicio de periodo"
-              className="space-y-2"
-            >
-              {(esFiscal ? [ReinicioPeriodo.None] : REINICIO_OPTIONS).map((value) => {
-                const checked = field.value === value;
-                return (
-                  <label
-                    key={value}
-                    className={cn(
-                      'flex cursor-pointer items-start gap-3 rounded-md border p-3 text-sm',
-                      checked
-                        ? 'border-primary bg-primary/5'
-                        : 'border-input bg-background hover:bg-muted/40',
-                    )}
-                  >
-                    <input
-                      type="radio"
-                      className="mt-0.5"
-                      checked={checked}
-                      onChange={() => field.onChange(value)}
-                    />
-                    <div className="flex-1">
-                      <p className="font-medium">
-                        {REINICIO_PERIODO_LABEL[value]}
-                      </p>
-                      <p className="text-xs text-muted-foreground">
-                        {REINICIO_PERIODO_DESCRIPCION[value]}
-                      </p>
-                    </div>
-                  </label>
-                );
-              })}
-            </div>
-          )}
-        />
-      </FormRow>
-
-      <div className="rounded-md border bg-muted/30 p-3 text-xs">
-        <span className="text-muted-foreground">Vista previa aproximada:</span>{' '}
-        <span className="font-mono">{previewFolio}</span>
-        <p className="mt-1 text-muted-foreground">
-          El backend confirmará el folio exacto al crear la serie.
-        </p>
-      </div>
-
-      <div className="flex flex-wrap items-center justify-end gap-2 border-t pt-3">
-        <Button
-          type="button"
-          variant="ghost"
-          onClick={() => onClose()}
-          disabled={crear.isPending}
-        >
+        <div className="rounded-md border bg-surface-muted/30 p-3 text-xs">
+          <span className="text-ink-muted">Vista previa aproximada:</span>{' '}
+          <span className="font-mono">{previewFolio}</span>
+          <p className="mt-1 text-ink-muted">El folio exacto se mostrará al crear la serie.</p>
+        </div>
+      </SheetBody>
+      <SheetFooter>
+        <Button type="button" variant="ghost" onClick={() => onClose()} disabled={crear.isPending}>
           Cancelar
         </Button>
         <Button type="submit" disabled={crear.isPending}>
           {crear.isPending ? 'Creando…' : 'Crear serie'}
         </Button>
-      </div>
+      </SheetFooter>
     </form>
   );
 }
@@ -519,9 +474,7 @@ function FormRow({ label, required, hint, error, children }: FormRowProps) {
         )}
       </label>
       {children}
-      {hint != null && error == null && (
-        <p className="text-xs text-muted-foreground">{hint}</p>
-      )}
+      {hint != null && error == null && <p className="text-xs text-ink-muted">{hint}</p>}
       {error != null && (
         <p role="alert" className="text-xs text-danger-fg">
           {error}

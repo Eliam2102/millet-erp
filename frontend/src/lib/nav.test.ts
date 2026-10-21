@@ -138,16 +138,11 @@ describe('navSidebarItems', () => {
   });
 
   it('CxC tiene Operación (líneas/liberaciones/cobranza/aplicaciones) y Reportes, gateadas por cuentas_por_cobrar.*', () => {
-    const cxc = navSidebarItems.find(
-      (i) => i.kind === 'modulo' && i.moduloId === 'cxc',
-    );
+    const cxc = navSidebarItems.find((i) => i.kind === 'modulo' && i.moduloId === 'cxc');
     expect(cxc).toBeDefined();
     if (cxc?.kind !== 'modulo') throw new Error('cxc no es módulo');
     expect(cxc.disabled).toBeFalsy();
-    expect(cxc.secciones.map((s) => s.label)).toEqual([
-      'Operación',
-      'Reportes',
-    ]);
+    expect(cxc.secciones.map((s) => s.label)).toEqual(['Operación', 'Reportes']);
     const operacion = cxc.secciones[0].cards.map((c) => c.to);
     expect(operacion).toEqual([
       '/cxc/lineas-credito',
@@ -157,15 +152,9 @@ describe('navSidebarItems', () => {
       '/cxc/aplicaciones',
       '/cxc/alertas',
     ]);
-    const lineas = cxc.secciones[0].cards.find(
-      (c) => c.to === '/cxc/lineas-credito',
-    );
-    expect(lineas?.permission).toBe(
-      PermisosCanonicos.CuentasPorCobrarLineasCreditoLeer,
-    );
-    const liberaciones = cxc.secciones[0].cards.find(
-      (c) => c.to === '/cxc/liberaciones',
-    );
+    const lineas = cxc.secciones[0].cards.find((c) => c.to === '/cxc/lineas-credito');
+    expect(lineas?.permission).toBe(PermisosCanonicos.CuentasPorCobrarLineasCreditoLeer);
+    const liberaciones = cxc.secciones[0].cards.find((c) => c.to === '/cxc/liberaciones');
     expect(liberaciones?.permissionsAny).toEqual([
       PermisosCanonicos.CuentasPorCobrarLiberacionDecidir,
       PermisosCanonicos.CuentasPorCobrarLiberacionOverride,
@@ -174,55 +163,55 @@ describe('navSidebarItems', () => {
     expect(reportes).toEqual(['/cxc/cartera', '/cxc/estado-cuenta']);
   });
 
-  it('Facturación tiene Operación (pedidos/facturas/anticipos/carta-porte), Configuración (cajas) y Reportes', () => {
+  it('Facturación prioriza Venta y agrupa caja, complementos, revisión, configuración y reportes', () => {
     const facturacion = navSidebarItems.find(
       (i) => i.kind === 'modulo' && i.moduloId === 'facturacion',
     );
     expect(facturacion).toBeDefined();
-    if (facturacion?.kind !== 'modulo')
-      throw new Error('facturacion no es módulo');
+    if (facturacion?.kind !== 'modulo') throw new Error('facturacion no es módulo');
     expect(facturacion.disabled).toBeFalsy();
-    // Configuración (Cajas) llegó en CAJAS-PR5 (#514); este assert quedó
-    // desactualizado y pasó desapercibido (el CI no corre tests frontend).
     expect(facturacion.secciones.map((s) => s.label)).toEqual([
-      'Operación',
+      'Venta',
+      'Caja',
+      'Complementos de pago',
+      'Otros documentos',
+      'Revisión',
       'Configuración',
       'Reportes',
     ]);
-    const operacion = facturacion.secciones[0].cards.map((c) => c.to);
-    expect(operacion).toContain('/facturacion/pedidos');
-    expect(operacion).toContain('/facturacion/facturas');
-    expect(operacion).toContain('/facturacion/anticipos');
-    expect(operacion).toContain('/facturacion/carta-porte');
-    const facturas = facturacion.secciones[0].cards.find(
-      (c) => c.to === '/facturacion/facturas',
-    );
-    expect(facturas?.permission).toBe(
-      PermisosCanonicos.FacturacionFacturasLeer,
-    );
-    // F6.2: la comparativa de anticipos va junto a Estados de facturas de anticipo.
-    const reportes = facturacion.secciones[2].cards;
-    const rutasReportes = reportes.map((c) => c.to);
-    expect(rutasReportes.indexOf('/facturacion/reportes/comparativa-anticipos')).toBe(
-      rutasReportes.indexOf('/facturacion/reportes/estados-anticipos') + 1,
-    );
-    expect(
-      reportes.find((c) => c.to === '/facturacion/reportes/comparativa-anticipos')
-        ?.permission,
-    ).toBe(PermisosCanonicos.FacturacionReportesLeer);
+    expect(facturacion.secciones.map((s) => s.cards.map((c) => c.to))).toEqual([
+      [
+        '/facturacion/pedidos',
+        '/facturacion/facturas',
+        '/facturacion/anticipos',
+        '/facturacion/anticipos/facturas',
+      ],
+      ['/facturacion/caja'],
+      ['/facturacion/repp/pendientes', '/facturacion/repp'],
+      ['/facturacion/carta-porte', '/facturacion/activos'],
+      ['/facturacion/pedidos/excepciones'],
+      ['/facturacion/cajas'],
+      [
+        '/facturacion/reportes/liquidacion-caja',
+        '/facturacion/reportes/estados-anticipos',
+        // F6.2: la comparativa de anticipos va junto a Estados de facturas de anticipo.
+        '/facturacion/reportes/comparativa-anticipos',
+      ],
+    ]);
+    const facturas = facturacion.secciones[0].cards.find((c) => c.to === '/facturacion/facturas');
+    expect(facturas?.permission).toBe(PermisosCanonicos.FacturacionFacturasLeer);
+    const comparativa = facturacion.secciones
+      .flatMap((s) => s.cards)
+      .find((c) => c.to === '/facturacion/reportes/comparativa-anticipos');
+    expect(comparativa?.permission).toBe(PermisosCanonicos.FacturacionReportesLeer);
   });
 
   it('Compras tiene Operación (P1+P2) y Configuración (Aprobadores)', () => {
-    const compras = navSidebarItems.find(
-      (i) => i.kind === 'modulo' && i.moduloId === 'compras',
-    );
+    const compras = navSidebarItems.find((i) => i.kind === 'modulo' && i.moduloId === 'compras');
     expect(compras).toBeDefined();
     if (compras?.kind !== 'modulo') throw new Error('compras no es módulo');
     expect(compras.secciones).toHaveLength(2);
-    expect(compras.secciones.map((s) => s.label)).toEqual([
-      'Operación',
-      'Configuración',
-    ]);
+    expect(compras.secciones.map((s) => s.label)).toEqual(['Operación', 'Configuración']);
     const operacionLabels = compras.secciones[0].cards.map((c) => c.label);
     expect(operacionLabels).toContain('Mis requisiciones');
     expect(operacionLabels).toContain('Pendientes de autorización');
@@ -232,9 +221,7 @@ describe('navSidebarItems', () => {
   });
 
   it('Almacén / Configuración: Sub-almacenes pegada a Almacenes y antes de Ubicaciones', () => {
-    const almacen = navSidebarItems.find(
-      (i) => i.kind === 'modulo' && i.moduloId === 'almacen',
-    );
+    const almacen = navSidebarItems.find((i) => i.kind === 'modulo' && i.moduloId === 'almacen');
     if (almacen?.kind !== 'modulo') throw new Error('almacen no es módulo');
     const config = almacen.secciones.find((s) => s.label === 'Configuración');
     expect(config).toBeDefined();
@@ -255,35 +242,23 @@ describe('navSidebarItems', () => {
       'Ubicación de artículos',
       'Ubicaciones',
     ]);
-    const subAlmacenes = config!.cards.find(
-      (c) => c.to === '/almacen/sub-almacenes',
-    );
+    const subAlmacenes = config!.cards.find((c) => c.to === '/almacen/sub-almacenes');
     // Mismo gate que su ruta (beforeLoad de sub-almacenes.tsx).
-    expect(subAlmacenes?.permission).toBe(
-      PermisosCanonicos.AlmacenAlmacenesRead,
-    );
+    expect(subAlmacenes?.permission).toBe(PermisosCanonicos.AlmacenAlmacenesRead);
   });
 
   it('Órdenes de compra está gateada por compras.ordenes.leer (UF0-PR1)', () => {
-    const compras = navSidebarItems.find(
-      (i) => i.kind === 'modulo' && i.moduloId === 'compras',
-    );
+    const compras = navSidebarItems.find((i) => i.kind === 'modulo' && i.moduloId === 'compras');
     if (compras?.kind !== 'modulo') throw new Error('compras no es módulo');
-    const ordenes = compras.secciones[0].cards.find(
-      (c) => c.to === '/compras/ordenes',
-    );
+    const ordenes = compras.secciones[0].cards.find((c) => c.to === '/compras/ordenes');
     expect(ordenes).toBeDefined();
     expect(ordenes?.permission).toBe(PermisosCanonicos.ComprasOrdenesLeer);
   });
 
   it('Pendientes está gateada por permissionsAny (autorizar-N1 OR autorizar-N2)', () => {
-    const compras = navSidebarItems.find(
-      (i) => i.kind === 'modulo' && i.moduloId === 'compras',
-    );
+    const compras = navSidebarItems.find((i) => i.kind === 'modulo' && i.moduloId === 'compras');
     if (compras?.kind !== 'modulo') throw new Error('compras no es módulo');
-    const pendientes = compras.secciones[0].cards.find(
-      (c) => c.to === '/compras/pendientes',
-    );
+    const pendientes = compras.secciones[0].cards.find((c) => c.to === '/compras/pendientes');
     expect(pendientes?.permissionsAny).toEqual([
       PermisosCanonicos.ComprasRequisicionesAutorizarNivel1,
       PermisosCanonicos.ComprasRequisicionesAutorizarNivel2,
@@ -310,12 +285,16 @@ describe('visibilidad por permisos (sidebar y URLs)', () => {
     // Card más específica: partidas abiertas pide su propio permiso.
     expect(rutaPermitida('/compras/ordenes/partidas-abiertas', [P.ComprasOrdenesLeer])).toBe(false);
     expect(
-      rutaPermitida('/compras/ordenes/partidas-abiertas', [P.ComprasOrdenesReportesPartidasAbiertas]),
+      rutaPermitida('/compras/ordenes/partidas-abiertas', [
+        P.ComprasOrdenesReportesPartidasAbiertas,
+      ]),
     ).toBe(true);
   });
 
   it('URL: permissionsAny acepta cualquiera', () => {
-    expect(rutaPermitida('/compras/pendientes', [P.ComprasRequisicionesAutorizarNivel2])).toBe(true);
+    expect(rutaPermitida('/compras/pendientes', [P.ComprasRequisicionesAutorizarNivel2])).toBe(
+      true,
+    );
   });
 
   it('URL: rutas fuera del menú usan el permiso de su endpoint', () => {

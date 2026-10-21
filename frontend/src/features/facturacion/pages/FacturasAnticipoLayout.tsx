@@ -1,12 +1,13 @@
-import { useMemo, type ReactNode } from 'react';
-import { useSearch } from '@tanstack/react-router';
-import { Inbox } from 'lucide-react';
 import { EmptyState, ErrorState, TableSkeleton } from '@/components/erp';
+import { PageHeader } from '@/components/erp/PageHeader';
 import { useBandejaFacturasAnticipo } from '@/features/facturacion/api/useAnticipos';
-import { esApiError } from '@/lib/api';
 import { ListaFacturasAnticipoCompacta } from '@/features/facturacion/components/ListaFacturasAnticipoCompacta';
 import type { FacturasAnticipoSearch } from '@/features/facturacion/lib/facturas-anticipo-search-schema';
+import { esApiError } from '@/lib/api';
 import { cn } from '@/lib/utils';
+import { useSearch } from '@tanstack/react-router';
+import { Inbox } from 'lucide-react';
+import { useMemo, type ReactNode } from 'react';
 
 /**
  * Master-detail de facturas de anticipo (ANT-PR2, doc 13 §6 — patrón P3,
@@ -40,7 +41,7 @@ export function FacturasAnticipoLayout({ idActivo, detalle }: FacturasAnticipoLa
   }, [query.data, search.q]);
 
   return (
-    <div className="flex flex-col gap-4 px-4 py-6 md:h-[calc(100vh-3.5rem)] md:flex-row">
+    <div className="flex flex-col gap-4   md:h-[calc(100vh-3.5rem)] md:flex-row">
       <aside
         className={cn(
           'flex flex-col gap-3 md:w-80 md:shrink-0 md:overflow-hidden',
@@ -49,8 +50,11 @@ export function FacturasAnticipoLayout({ idActivo, detalle }: FacturasAnticipoLa
         aria-label="Lista de facturas de anticipo"
         data-print="hidden"
       >
-        <h1 className="text-xl font-semibold tracking-tight">Facturas de anticipo</h1>
-        <div className="flex-1 overflow-y-auto rounded-md border bg-card">
+        <PageHeader
+          titulo={<>Facturas de anticipo</>}
+          descripcion={<>Consulta los registros y selecciona uno para ver su detalle.</>}
+        />
+        <div className="flex-1 overflow-y-auto rounded-md border bg-surface-card border-line">
           {query.isLoading ? (
             <div className="p-3">
               <TableSkeleton rows={8} columns={[{ width: 'w-full' }, { width: 'w-full' }]} />
@@ -91,8 +95,8 @@ export function FacturasAnticipoLayout({ idActivo, detalle }: FacturasAnticipoLa
 
 function PlaceholderSinSeleccion() {
   return (
-    <div className="flex h-full min-h-64 items-center justify-center rounded-md border border-dashed bg-muted/20 p-8 text-center">
-      <div className="space-y-1 text-muted-foreground">
+    <div className="flex h-full min-h-64 items-center justify-center rounded-md border border-dashed bg-surface-muted/20 p-8 text-center border-line">
+      <div className="space-y-1 text-ink-muted">
         <Inbox className="mx-auto h-8 w-8 opacity-50" aria-hidden="true" />
         <p className="text-sm">Selecciona una factura de anticipo de la lista</p>
         <p className="text-xs">para ver su detalle.</p>

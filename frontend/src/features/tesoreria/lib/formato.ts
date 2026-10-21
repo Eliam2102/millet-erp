@@ -13,3 +13,8 @@ export function formatoFecha(fecha: string): string {
   if (!y || !m || !d) return fecha;
   return `${d}/${m}/${y}`;
 }
+
+/** Cuenta propia para listas: `Cta. ****1234` (nunca el número completo, que se confunde con un monto). */
+export function cuentaEnmascarada(numeroCuenta: string): string {
+  return `Cta. ****${numeroCuenta.slice(-4)}`;
+}

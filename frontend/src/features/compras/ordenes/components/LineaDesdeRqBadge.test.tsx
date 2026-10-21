@@ -4,7 +4,7 @@ import { LineaDesdeRqBadge } from './LineaDesdeRqBadge';
 
 /**
  * Fix A: con el folio resuelto por el backend, el badge muestra el folio
- * humano de la RQ y NO el GUID truncado. Sin folio (línea manual o RQ no
+ * humano de la RQ y NO el GUID truncado. Sin folio (partida manual o RQ no
  * resuelta), cae al short-id del GUID — fallback histórico.
  */
 describe('<LineaDesdeRqBadge>', () => {

@@ -1,3 +1,15 @@
+import {
+  Table,
+  TableHeader,
+  TableRow,
+  TableHead,
+  TableBody,
+  TableCell,
+} from '@/components/ui/table';
+import { FormSeccion } from '@/components/erp/forms/FormSeccion';
+import { FormCampo, FormGrid } from '@/components/erp/forms/FormGrid';
+import { textoFinanciero } from '../lib/estados-ui';
+import { PageHeader } from '@/components/erp/PageHeader';
 import { useState, type FormEvent } from 'react';
 import { Link } from '@tanstack/react-router';
 import { useQuery } from '@tanstack/react-query';
@@ -62,7 +74,7 @@ export function ExpedienteDetallePage({ id }: { id: string }) {
     );
   const abierto = data.expediente.estado === 1;
   return (
-    <div className="flex h-full min-h-0 text-sm">
+    <div className="flex h-full min-h-0 gap-5 text-sm">
       <aside
         className="hidden w-80 shrink-0 overflow-auto border-r border-line bg-surface-card lg:block"
         data-print="hidden"
@@ -84,7 +96,7 @@ export function ExpedienteDetallePage({ id }: { id: string }) {
           </Link>
         ))}
       </aside>
-      <main className="flex min-w-0 flex-1 flex-col gap-5 overflow-auto px-7 py-6">
+      <main className="flex min-w-0 flex-1 flex-col gap-5 overflow-auto">
         <Breadcrumbs
           items={[
             { label: 'Comercio Exterior' },
@@ -92,33 +104,40 @@ export function ExpedienteDetallePage({ id }: { id: string }) {
             { label: data.expediente.folio },
           ]}
         />
-        <header className="flex flex-wrap items-start justify-between gap-4">
-          <div>
-            <h1 className="font-mono text-3xl font-semibold">{data.expediente.folio}</h1>
-            <p className="mt-1 text-ink-secondary">{data.expediente.referencia}</p>
-          </div>
-          <div className="flex items-center gap-2">
-            <EstadoExpedienteBadge estado={data.expediente.estado} />
-            {data.expediente.revisionPendiente && (
-              <Badge variant="warning">Revisión pendiente</Badge>
-            )}
-            {editar && abierto && (
-              <Button variant="outline" onClick={() => setEdicion(!edicion)}>
-                Editar datos
-              </Button>
-            )}
-            {cerrar && abierto && (
-              <Button variant="outline" disabled title={data.estadoFinanciero}>
-                Cerrar expediente
-              </Button>
-            )}
-            {cancelar && abierto && (
-              <Button variant="ghost" onClick={() => setCancelando(!cancelando)}>
-                Cancelar expediente
-              </Button>
-            )}
-          </div>
-        </header>
+        <PageHeader
+          mono
+          titulo={data.expediente.folio}
+          descripcion={data.expediente.referencia}
+          estado={
+            <>
+              {' '}
+              <EstadoExpedienteBadge estado={data.expediente.estado} />
+              {data.expediente.revisionPendiente && (
+                <Badge variant="warning">Revisión pendiente</Badge>
+              )}
+            </>
+          }
+          acciones={
+            <>
+              {' '}
+              {editar && abierto && (
+                <Button variant="outline" onClick={() => setEdicion(!edicion)}>
+                  Editar datos
+                </Button>
+              )}
+              {cerrar && abierto && (
+                <Button variant="outline" disabled title={textoFinanciero(data.estadoFinanciero)}>
+                  Cerrar expediente
+                </Button>
+              )}
+              {cancelar && abierto && (
+                <Button variant="ghost" onClick={() => setCancelando(!cancelando)}>
+                  Cancelar expediente
+                </Button>
+              )}
+            </>
+          }
+        />
         {cancelando && (
           <form
             className="space-y-3 rounded-lg bg-surface-card p-4 shadow-card-flat"
@@ -130,25 +149,35 @@ export function ExpedienteDetallePage({ id }: { id: string }) {
                 .catch(() => {});
             }}
           >
-            <Label htmlFor="ce-cancelar">Motivo de cancelación (5 a 500 caracteres)</Label>
-            <Input
-              id="ce-cancelar"
-              required
-              minLength={5}
-              maxLength={500}
-              value={motivo}
-              onChange={(e) => setMotivo(e.target.value)}
-            />
-            <p className="text-xs text-ink-muted">
-              Se conserva el expediente; la OC y los pedidos continúan su proceso.
-            </p>
-            <Button
-              type="submit"
-              disabled={accion.isPending}
-              title={accion.isPending ? 'Guardando cancelación.' : undefined}
-            >
-              Confirmar cancelación
-            </Button>
+            <FormSeccion titulo="Datos de captura">
+              <FormCampo span={6} className="space-y-1.5">
+                <Label htmlFor="ce-cancelar">
+                  Motivo de cancelación (5 a 500 caracteres) <span aria-hidden="true">*</span>
+                </Label>
+                <Input
+                  id="ce-cancelar"
+                  required
+                  minLength={5}
+                  maxLength={500}
+                  value={motivo}
+                  onChange={(e) => setMotivo(e.target.value)}
+                />
+              </FormCampo>
+              <FormCampo span={12}>
+                <p className="text-xs text-ink-muted">
+                  Se conserva el expediente; la OC y los pedidos continúan su proceso.
+                </p>
+              </FormCampo>
+              <FormCampo span={12}>
+                <Button
+                  type="submit"
+                  disabled={accion.isPending}
+                  title={accion.isPending ? 'Guardando cancelación.' : undefined}
+                >
+                  Confirmar cancelación
+                </Button>
+              </FormCampo>
+            </FormSeccion>
           </form>
         )}
         {accion.isError && (
@@ -175,7 +204,7 @@ export function ExpedienteDetallePage({ id }: { id: string }) {
             ['Responsable', data.expediente.responsableNombre],
             ['Documentación', data.estadoDocumental],
             ['Físico', data.estadoFisico],
-            ['Financiero', data.estadoFinanciero],
+            ['Financiero', textoFinanciero(data.estadoFinanciero)],
             ['TC', data.tc === null ? 'Sin TC capturado' : String(data.tc)],
           ].map(([label, value]) => (
             <div key={label}>
@@ -201,20 +230,31 @@ export function ExpedienteDetallePage({ id }: { id: string }) {
           <TabsContent value="resumen" className="space-y-4">
             <h2 className="text-md font-semibold">Datos de la operación</h2>
             {data.motivoCancelacion && <p>Cancelación: {data.motivoCancelacion}</p>}
-            {data.informacionImportacion && (
-              <dl className="grid grid-cols-2 gap-4 rounded-lg bg-surface-card p-4 shadow-card-flat">
-                {Object.entries({
-                  País: data.informacionImportacion.paisOrigen,
-                  Contenedor: data.informacionImportacion.numeroContenedor,
-                  Ruta: data.informacionImportacion.codigoRuta,
-                  Pedimento: data.informacionImportacion.numeroPedimento,
-                }).map(([k, v]) => (
-                  <div key={k}>
-                    <dt className="text-xs text-ink-muted">{k} (OC)</dt>
-                    <dd>{v ?? 'Por confirmar'}</dd>
-                  </div>
-                ))}
-              </dl>
+            {(data.ocId || data.informacionImportacion) && (
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Orden de compra</TableHead>
+                    <TableHead>País de origen</TableHead>
+                    <TableHead>Contenedor</TableHead>
+                    <TableHead>Ruta</TableHead>
+                    <TableHead>Pedimento</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  <TableRow>
+                    <TableCell className="font-mono text-xs">{data.ocFolio ?? 'Sin número'}</TableCell>
+                    <TableCell>{data.informacionImportacion?.paisOrigen ?? <span className="text-ink-muted">Sin país de origen</span>}</TableCell>
+                    <TableCell className="font-mono text-xs">
+                      {data.informacionImportacion?.numeroContenedor ?? <span className="text-ink-muted">Sin número</span>}
+                    </TableCell>
+                    <TableCell>{data.informacionImportacion?.codigoRuta ?? <span className="text-ink-muted">Sin ruta</span>}</TableCell>
+                    <TableCell className="font-mono text-xs">
+                      {data.informacionImportacion?.numeroPedimento ?? <span className="text-ink-muted">Sin número</span>}
+                    </TableCell>
+                  </TableRow>
+                </TableBody>
+              </Table>
             )}
             {data.fechaTc && (
               <p>
@@ -222,7 +262,8 @@ export function ExpedienteDetallePage({ id }: { id: string }) {
               </p>
             )}
             <p className="text-xs text-ink-muted">
-              Fuente oficial del tipo de cambio y obligatoriedad final de requisitos: Por confirmar.
+              Consulta la fuente capturada del tipo de cambio y los requisitos documentales de la
+              operación.
             </p>
           </TabsContent>
           <TabsContent value="participantes">
@@ -274,78 +315,102 @@ function EditarDatos({ data, onClose }: { data: ExpedienteDetalle; onClose: () =
           .catch(() => {});
       }}
     >
-      <Label htmlFor="ce-ed-ref">Referencia</Label>
-      <Input
-        id="ce-ed-ref"
-        required
-        maxLength={200}
-        value={datos.referencia}
-        onChange={(e) => setDatos({ ...datos, referencia: e.target.value })}
-      />
-      <Label>Incoterm</Label>
-      <IncotermSelector
-        value={datos.incotermId}
-        onChange={(id) => setDatos({ ...datos, incotermId: id ?? '' })}
-      />
-      <Label>Moneda</Label>
-      <MonedaSelector
-        value={datos.moneda}
-        onChange={(m) => setDatos({ ...datos, moneda: m ?? '' })}
-      />
-      <Label htmlFor="ce-ed-tc">TC (opcional)</Label>
-      <Input
-        id="ce-ed-tc"
-        type="number"
-        min="0.000001"
-        step="0.000001"
-        value={datos.tc ?? ''}
-        onChange={(e) =>
-          setDatos({
-            ...datos,
-            tc: e.target.value ? Number(e.target.value) : null,
-            ...(e.target.value ? {} : { fechaTc: null, fuenteTc: null }),
-          })
-        }
-      />
-      {datos.tc !== null && (
-        <>
-          <Label htmlFor="ce-ed-fecha">Fecha del TC</Label>
+      <FormSeccion titulo="Datos de captura">
+        <FormCampo span={6} className="space-y-1.5">
+          <Label htmlFor="ce-ed-ref">
+            Referencia <span aria-hidden="true">*</span>
+          </Label>
           <Input
-            id="ce-ed-fecha"
-            type="date"
-            required
-            value={datos.fechaTc ?? ''}
-            onChange={(e) => setDatos({ ...datos, fechaTc: e.target.value })}
-          />
-          <Label htmlFor="ce-ed-fuente">Fuente del TC</Label>
-          <Input
-            id="ce-ed-fuente"
+            id="ce-ed-ref"
             required
             maxLength={200}
-            value={datos.fuenteTc ?? ''}
-            onChange={(e) => setDatos({ ...datos, fuenteTc: e.target.value })}
+            value={datos.referencia}
+            onChange={(e) => setDatos({ ...datos, referencia: e.target.value })}
           />
-        </>
-      )}
-      {accion.isError && (
-        <p role="alert" className="text-danger-fg">
-          {esApiError(accion.error)
-            ? (accion.error.problem.detail ?? accion.error.problem.title)
-            : 'No se pudo guardar.'}
-        </p>
-      )}
-      <div className="flex gap-2">
-        <Button
-          type="submit"
-          disabled={accion.isPending}
-          title={accion.isPending ? 'Guardando datos.' : undefined}
-        >
-          Guardar datos
-        </Button>
-        <Button type="button" variant="ghost" onClick={onClose}>
-          Descartar
-        </Button>
-      </div>
+        </FormCampo>
+        <FormCampo span={6} className="space-y-1.5">
+          <Label>Incoterm</Label>
+          <IncotermSelector
+            value={datos.incotermId}
+            onChange={(id) => setDatos({ ...datos, incotermId: id ?? '' })}
+          />
+        </FormCampo>
+        <FormCampo span={6} className="space-y-1.5">
+          <Label>Moneda</Label>
+          <MonedaSelector
+            value={datos.moneda}
+            onChange={(m) => setDatos({ ...datos, moneda: m ?? '' })}
+          />
+        </FormCampo>
+        <FormCampo span={6} className="space-y-1.5">
+          <Label htmlFor="ce-ed-tc">TC (opcional)</Label>
+          <Input
+            id="ce-ed-tc"
+            type="number"
+            min="0.000001"
+            step="0.000001"
+            value={datos.tc ?? ''}
+            onChange={(e) =>
+              setDatos({
+                ...datos,
+                tc: e.target.value ? Number(e.target.value) : null,
+                ...(e.target.value ? {} : { fechaTc: null, fuenteTc: null }),
+              })
+            }
+          />
+        </FormCampo>
+        {datos.tc !== null && (
+          <>
+            <FormCampo span={6} className="space-y-1.5">
+              <Label htmlFor="ce-ed-fecha">
+                Fecha del TC <span aria-hidden="true">*</span>
+              </Label>
+              <Input
+                id="ce-ed-fecha"
+                type="date"
+                required
+                value={datos.fechaTc ?? ''}
+                onChange={(e) => setDatos({ ...datos, fechaTc: e.target.value })}
+              />
+            </FormCampo>
+            <FormCampo span={6} className="space-y-1.5">
+              <Label htmlFor="ce-ed-fuente">
+                Fuente del TC <span aria-hidden="true">*</span>
+              </Label>
+              <Input
+                id="ce-ed-fuente"
+                required
+                maxLength={200}
+                value={datos.fuenteTc ?? ''}
+                onChange={(e) => setDatos({ ...datos, fuenteTc: e.target.value })}
+              />
+            </FormCampo>
+          </>
+        )}
+        <FormCampo span={12}>
+          {accion.isError && (
+            <p role="alert" className="text-danger-fg">
+              {esApiError(accion.error)
+                ? (accion.error.problem.detail ?? accion.error.problem.title)
+                : 'No se pudo guardar.'}
+            </p>
+          )}
+        </FormCampo>
+        <FormCampo span={12}>
+          <div className="flex gap-2">
+            <Button
+              type="submit"
+              disabled={accion.isPending}
+              title={accion.isPending ? 'Guardando datos.' : undefined}
+            >
+              Guardar datos
+            </Button>
+            <Button type="button" variant="ghost" onClick={onClose}>
+              Descartar
+            </Button>
+          </div>
+        </FormCampo>
+      </FormSeccion>
     </form>
   );
 }
@@ -409,84 +474,102 @@ function Participantes({ data, puedeEditar }: { data: ExpedienteDetalle; puedeEd
           onSubmit={submit}
           className="space-y-3 rounded-lg border border-dashed border-line-control p-4"
         >
-          <h3 className="font-medium">{p.id ? 'Editar participante' : 'Agregar participante'}</h3>
-          <div className="grid grid-cols-2 gap-4">
-            {(['nombre', 'contacto', 'descripcion'] as const).map((k) => (
-              <div key={k} className="space-y-1.5">
-                <Label htmlFor={`ce-p-${k}`}>
-                  {k === 'nombre'
-                    ? 'Nombre'
-                    : k === 'contacto'
-                      ? 'Contacto (opcional)'
-                      : 'Descripción (opcional)'}
-                </Label>
-                <Input
-                  id={`ce-p-${k}`}
-                  required={k === 'nombre'}
-                  maxLength={k === 'nombre' ? 200 : 300}
-                  value={p[k]}
-                  onChange={(e) => setP({ ...p, [k]: e.target.value })}
-                />
-              </div>
-            ))}
-            <div className="space-y-1.5">
-              <Label htmlFor="ce-p-tipo">Tipo de participante</Label>
-              <Select
-                value={String(p.tipo)}
-                onValueChange={(value) => setP({ ...p, tipo: Number(value) as TipoParticipante })}
+          <FormSeccion titulo="Datos de captura">
+            <FormCampo span={12}>
+              <h3 className="font-medium">
+                {p.id ? 'Editar participante' : 'Agregar participante'}
+              </h3>
+            </FormCampo>
+            <FormCampo span={12}>
+              <FormGrid>
+                {(['nombre', 'contacto', 'descripcion'] as const).map((k) => (
+                  <FormCampo key={k} span={6} className="space-y-1.5">
+                    <Label htmlFor={`ce-p-${k}`}>
+                      {k === 'nombre'
+                        ? 'Nombre *'
+                        : k === 'contacto'
+                          ? 'Contacto (opcional)'
+                          : 'Descripción (opcional)'}
+                    </Label>
+                    <Input
+                      id={`ce-p-${k}`}
+                      required={k === 'nombre'}
+                      maxLength={k === 'nombre' ? 200 : 300}
+                      value={p[k]}
+                      onChange={(e) => setP({ ...p, [k]: e.target.value })}
+                    />
+                  </FormCampo>
+                ))}
+                <FormCampo span={6} className="space-y-1.5">
+                  <Label htmlFor="ce-p-tipo">Tipo de participante</Label>
+                  <Select
+                    value={String(p.tipo)}
+                    onValueChange={(value) =>
+                      setP({ ...p, tipo: Number(value) as TipoParticipante })
+                    }
+                  >
+                    <SelectTrigger id="ce-p-tipo">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {Object.entries(tiposParticipante).map(([value, label]) => (
+                        <SelectItem key={value} value={value}>
+                          {label}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </FormCampo>
+                <FormCampo span={6} className="space-y-1.5">
+                  <Label htmlFor="ce-p-papel">Papel en la etapa</Label>
+                  <select
+                    id="ce-p-papel"
+                    className="h-ctl-xl w-full rounded-md border border-line-control bg-surface-card px-3"
+                    value={p.papel}
+                    onChange={(e) => setP({ ...p, papel: Number(e.target.value) as 1 | 2 | 3 })}
+                  >
+                    <option value={1}>Captura</option>
+                    <option value={2}>Revisa</option>
+                    <option value={3}>Autoriza</option>
+                  </select>
+                </FormCampo>
+              </FormGrid>
+            </FormCampo>
+            <FormCampo span={6} className="space-y-1.5">
+              <Label>Proveedor (opcional)</Label>
+              <ReferenciaSelector
+                tipo="proveedores"
+                value={p.proveedorId}
+                onChange={(id) => setP({ ...p, proveedorId: id, clienteId: null })}
+              />
+            </FormCampo>
+            <FormCampo span={6} className="space-y-1.5">
+              <Label>Cliente (opcional)</Label>
+              <ReferenciaSelector
+                tipo="clientes"
+                value={p.clienteId}
+                onChange={(id) => setP({ ...p, clienteId: id, proveedorId: null })}
+              />
+            </FormCampo>
+            <FormCampo span={12}>
+              {accion.isError && (
+                <p role="alert" className="text-danger-fg">
+                  {esApiError(accion.error)
+                    ? (accion.error.problem.detail ?? accion.error.problem.title)
+                    : 'No se pudo guardar el participante.'}
+                </p>
+              )}
+            </FormCampo>
+            <FormCampo span={12}>
+              <Button
+                type="submit"
+                disabled={accion.isPending}
+                title={accion.isPending ? 'Guardando participante.' : undefined}
               >
-                <SelectTrigger id="ce-p-tipo">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {Object.entries(tiposParticipante).map(([value, label]) => (
-                    <SelectItem key={value} value={value}>
-                      {label}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="space-y-1.5">
-              <Label htmlFor="ce-p-papel">Papel en la etapa</Label>
-              <select
-                id="ce-p-papel"
-                className="h-ctl-xl w-full rounded-md border border-line-control bg-surface-card px-3"
-                value={p.papel}
-                onChange={(e) => setP({ ...p, papel: Number(e.target.value) as 1 | 2 | 3 })}
-              >
-                <option value={1}>Captura</option>
-                <option value={2}>Revisa</option>
-                <option value={3}>Autoriza</option>
-              </select>
-            </div>
-          </div>
-          <Label>Proveedor (opcional)</Label>
-          <ReferenciaSelector
-            tipo="proveedores"
-            value={p.proveedorId}
-            onChange={(id) => setP({ ...p, proveedorId: id, clienteId: null })}
-          />
-          <Label>Cliente (opcional)</Label>
-          <ReferenciaSelector
-            tipo="clientes"
-            value={p.clienteId}
-            onChange={(id) => setP({ ...p, clienteId: id, proveedorId: null })}
-          />
-          {accion.isError && (
-            <p role="alert" className="text-danger-fg">
-              {esApiError(accion.error)
-                ? (accion.error.problem.detail ?? accion.error.problem.title)
-                : 'No se pudo guardar el participante.'}
-            </p>
-          )}
-          <Button
-            type="submit"
-            disabled={accion.isPending}
-            title={accion.isPending ? 'Guardando participante.' : undefined}
-          >
-            Guardar participante
-          </Button>
+                Guardar participante
+              </Button>
+            </FormCampo>
+          </FormSeccion>
         </form>
       )}
     </section>

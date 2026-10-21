@@ -71,17 +71,17 @@ afterEach(() => {
 });
 
 describe('<LineaInlineForm> — smoke', () => {
-  it('modo agregar: muestra "Agregar línea" + border dashed primary', () => {
+  it('modo agregar: muestra "Agregar partida" + border dashed primary', () => {
     const { container } = render(
       <LineaInlineForm requisicionId="rq-1" onCancel={() => {}} />,
       { wrapper: createQueryWrapper() },
     );
     expect(
-      screen.getByRole('button', { name: /agregar línea/i }),
+      screen.getByRole('button', { name: /agregar partida/i }),
     ).toBeInTheDocument();
     // El aria-label del form lo identifica como modo agregar.
     expect(
-      screen.getByRole('form', { name: /agregar línea/i }),
+      screen.getByRole('form', { name: /agregar partida/i }),
     ).toBeInTheDocument();
     // Border dashed (modo agregar).
     const form = container.querySelector('form');
@@ -102,7 +102,7 @@ describe('<LineaInlineForm> — smoke', () => {
       screen.getByRole('button', { name: /guardar cambios/i }),
     ).toBeInTheDocument();
     expect(
-      screen.getByRole('form', { name: /editar línea 3/i }),
+      screen.getByRole('form', { name: /editar partida 3/i }),
     ).toBeInTheDocument();
     // Border amber (modo editar) — UX warning de "modificando registro
     // existente".
@@ -117,7 +117,7 @@ describe('<LineaInlineForm> — smoke', () => {
       <LineaInlineForm requisicionId="rq-1" onCancel={onCancel} />,
       { wrapper: createQueryWrapper() },
     );
-    const form = screen.getByRole('form', { name: /agregar línea/i });
+    const form = screen.getByRole('form', { name: /agregar partida/i });
     fireEvent.keyDown(form, { key: 'Escape' });
     expect(onCancel).toHaveBeenCalledTimes(1);
   });

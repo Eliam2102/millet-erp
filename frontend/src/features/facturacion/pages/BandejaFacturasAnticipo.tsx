@@ -1,43 +1,35 @@
-import { Link, useNavigate, useSearch } from '@tanstack/react-router';
 import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
+  BarraFiltros,
+  EmptyState,
+  ErrorState,
+  PaginacionTabla,
+  TableSkeleton,
+  TabsEstado,
+} from '@/components/erp';
+import { BusquedaFolio } from '@/components/erp/data/BusquedaFolio';
+import { ListadoModulo } from '@/components/erp/data/ListadoModulo';
+import { PageHeader } from '@/components/erp/PageHeader';
 import { Button } from '@/components/ui/button';
-import { EmptyState, ErrorState, TableSkeleton } from '@/components/erp';
-import { BadgeSinAsignar } from '@/features/facturacion/components/BadgeSinAsignar';
-import { useBandejaFacturasAnticipo } from '@/features/facturacion/api/useAnticipos';
-import { esApiError } from '@/lib/api';
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '@/components/ui/table';
 import { EstadoTimbrado } from '@/features/facturacion/api/types';
-import { ETIQUETA_ESTADO_TIMBRADO } from '@/features/facturacion/lib/glosario';
-import { ChipTimbrado } from '@/features/facturacion/pages/BandejaFacturas';
+import { useBandejaFacturasAnticipo } from '@/features/facturacion/api/useAnticipos';
+import { BadgeSinAsignar } from '@/features/facturacion/components/BadgeSinAsignar';
+import { EstadoFacturacionBadge } from '@/features/facturacion/components/EstadoFacturacionBadge';
 import type { FacturasAnticipoSearch } from '@/features/facturacion/lib/facturas-anticipo-search-schema';
+import { ChipTimbrado } from '@/features/facturacion/pages/BandejaFacturas';
+import { esApiError } from '@/lib/api';
+import { Link, useNavigate, useSearch } from '@tanstack/react-router';
+import { estadoUi } from '../lib/estados-ui';
+import { usePaginacionLocal } from '../lib/use-paginacion-local';
 
 const FROM = '/_app/facturacion/anticipos/facturas/' as const;
-const SENTINEL_ALL = '__all__';
-
-const OPCIONES_ESTADO = [
-  EstadoTimbrado.Borrador,
-  EstadoTimbrado.TimbradoEnProceso,
-  EstadoTimbrado.Timbrado,
-  EstadoTimbrado.TimbradoFallido,
-  EstadoTimbrado.CancelacionPendiente,
-  EstadoTimbrado.Cancelado,
-  EstadoTimbrado.Descartada,
-] as const;
-
-const NOMBRE_ESTADO: Record<number, string> = {
-  [EstadoTimbrado.Borrador]: 'Borrador',
-  [EstadoTimbrado.TimbradoEnProceso]: 'TimbradoEnProceso',
-  [EstadoTimbrado.Timbrado]: 'Timbrado',
-  [EstadoTimbrado.TimbradoFallido]: 'TimbradoFallido',
-  [EstadoTimbrado.CancelacionPendiente]: 'CancelacionPendiente',
-  [EstadoTimbrado.Cancelado]: 'Cancelado',
-  [EstadoTimbrado.Descartada]: 'Descartada',
-};
 
 /**
  * <c>Bandeja de facturas de anticipo</c> (ANT-PR2, doc 13 §6 — patrón P1,
@@ -73,164 +65,162 @@ export function BandejaFacturasAnticipo() {
     );
   });
 
+  const paginacion = usePaginacionLocal(items, JSON.stringify(search));
   return (
-    <div className="space-y-4 px-4 py-6">
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <div>
-          <h1 className="text-2xl font-semibold tracking-tight">
-            Facturas de anticipo
-          </h1>
-          <p className="text-sm text-muted-foreground">
-            CFDIs de anticipo (serie FANT) y el saldo amortizable de cada uno.
-          </p>
-        </div>
-        <Button variant="outline" asChild>
-          <Link to="/facturacion/anticipos">Control de Anticipos</Link>
-        </Button>
-      </div>
+    <div className="space-y-5">
+      <PageHeader
+        titulo={<>Facturas de anticipo</>}
+        descripcion={<>CFDIs de anticipo y el saldo amortizable de cada uno.</>}
+        acciones={
+          <>
+            <Button variant="outline" asChild>
+              <Link to="/facturacion/anticipos">Control de Anticipos</Link>
+            </Button>
+          </>
+        }
+      />
 
-      <div className="flex flex-wrap items-end gap-3">
-        <div className="space-y-1">
-          <label className="text-xs text-muted-foreground">Estado</label>
-          <Select
-            value={search.estado != null ? String(search.estado) : SENTINEL_ALL}
-            onValueChange={(v) =>
-              actualizarSearch({
-                estado:
-                  v === SENTINEL_ALL
-                    ? undefined
-                    : (Number(v) as FacturasAnticipoSearch['estado']),
-              })
+      <ListadoModulo
+        tabs={
+          <TabsEstado
+            opciones={Object.entries(EstadoTimbrado)
+              .filter(([, valor]) => valor !== EstadoTimbrado.PendientePedimento)
+              .map(([nombre, valor]) => ({
+                valor,
+                label: estadoUi('factura', nombre).texto,
+              }))}
+            valor={search.estado}
+            onChange={(estado) =>
+              actualizarSearch({ estado: estado as FacturasAnticipoSearch['estado'] })
             }
-          >
-            <SelectTrigger aria-label="Filtrar por estado" className="w-56">
-              <SelectValue placeholder="Todos" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value={SENTINEL_ALL}>Todos</SelectItem>
-              {OPCIONES_ESTADO.map((e) => (
-                <SelectItem key={e} value={String(e)}>
-                  {ETIQUETA_ESTADO_TIMBRADO[NOMBRE_ESTADO[e]] ?? NOMBRE_ESTADO[e]}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
-        {search.estado != null && (
-          <Button variant="ghost" onClick={() => actualizarSearch({ estado: undefined })}>
-            Limpiar
-          </Button>
+            conteos={undefined}
+          />
+        }
+        filtros={
+          <BarraFiltros
+            busqueda={
+              <BusquedaFolio
+                aria-label="Folio, UUID, receptor o RFC"
+                placeholder="Folio, UUID, receptor o RFC"
+                valor={search.q}
+                onCommit={(q) => actualizarSearch({ q })}
+              />
+            }
+            filtros={
+              <>
+                {search.estado != null && (
+                  <Button variant="ghost" onClick={() => actualizarSearch({ estado: undefined })}>
+                    Limpiar
+                  </Button>
+                )}
+                <BadgeSinAsignar
+                  count={query.data?.sinAsignarCount ?? null}
+                  activo={search.alcance === 'sin-asignar'}
+                  onToggle={() =>
+                    actualizarSearch({
+                      alcance: search.alcance === 'sin-asignar' ? undefined : 'sin-asignar',
+                    })
+                  }
+                />
+              </>
+            }
+          />
+        }
+        pie={
+          <PaginacionTabla
+            total={items.length}
+            offset={paginacion.offset}
+            limit={10}
+            tamanos={[]}
+            onChange={paginacion.onChange}
+          />
+        }
+      >
+        {query.isError ? (
+          <ErrorState
+            title="No se pudieron cargar las facturas de anticipo"
+            problem={esApiError(query.error) ? query.error.problem : undefined}
+            onRetry={() => query.refetch()}
+          />
+        ) : query.isLoading ? (
+          <TableSkeleton
+            rows={6}
+            columns={[
+              { width: 'w-28' },
+              { width: 'w-48' },
+              { width: 'w-24' },
+              { width: 'w-28' },
+              { width: 'w-28' },
+              { width: 'w-28' },
+              { width: 'w-16' },
+            ]}
+          />
+        ) : items.length === 0 ? (
+          <EmptyState
+            title="Sin facturas de anticipo"
+            description={
+              search.estado != null || q.length > 0
+                ? 'No hay facturas de anticipo que coincidan con los filtros.'
+                : 'Emite una desde Quick Create → Anticipo.'
+            }
+          />
+        ) : (
+          <div className="overflow-x-auto rounded-md border border-line">
+            <Table className="w-full text-sm">
+              <TableHeader className="bg-surface-muted/50">
+                <TableRow>
+                  <TableHead className="px-3 py-2 text-left">Folio</TableHead>
+                  <TableHead className="px-3 py-2 text-left">Receptor</TableHead>
+                  <TableHead className="px-3 py-2 text-left">Tipo</TableHead>
+                  <TableHead className="px-3 py-2 text-right tabular-nums">Total</TableHead>
+                  <TableHead className="px-3 py-2 text-right tabular-nums">Saldo</TableHead>
+                  <TableHead className="px-3 py-2 text-left">CFDI</TableHead>
+                  <TableHead className="px-3 py-2 text-left">Anticipo</TableHead>
+                  <TableHead className="px-3 py-2 text-right tabular-nums">Acción</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {paginacion.visibles.map((f) => (
+                  <TableRow key={f.id} className="border-t hover:bg-surface-muted/30 border-line">
+                    <TableCell className="px-3 py-2 font-mono text-xs">{f.folio}</TableCell>
+                    <TableCell className="px-3 py-2">
+                      <div>{f.receptorNombre}</div>
+                      <div className="font-mono text-xs text-ink-muted">{f.receptorRfc}</div>
+                    </TableCell>
+                    <TableCell className="px-3 py-2 text-xs">{f.tipoAnticipo}</TableCell>
+                    <TableCell className="px-3 py-2 text-right font-mono tabular-nums">
+                      {f.total.toFixed(2)} {f.moneda}
+                    </TableCell>
+                    <TableCell className="px-3 py-2 text-right font-mono tabular-nums">
+                      {f.saldo != null ? f.saldo.toFixed(2) : '—'}
+                    </TableCell>
+                    <TableCell className="px-3 py-2">
+                      <ChipTimbrado estado={f.estado} />
+                    </TableCell>
+                    <TableCell className="px-3 py-2">
+                      <ChipEstadoAnticipo estado={f.estadoAnticipo} />
+                    </TableCell>
+                    <TableCell className="px-3 py-2 text-right tabular-nums">
+                      <Link
+                        to="/facturacion/anticipos/facturas/$id"
+                        params={{ id: f.id }}
+                        className="text-sm font-medium text-brand hover:underline"
+                      >
+                        Ver
+                      </Link>
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </div>
         )}
-        <BadgeSinAsignar
-          count={query.data?.sinAsignarCount ?? null}
-          activo={search.alcance === 'sin-asignar'}
-          onToggle={() =>
-            actualizarSearch({
-              alcance: search.alcance === 'sin-asignar' ? undefined : 'sin-asignar',
-            })
-          }
-        />
-      </div>
-
-      {query.isError ? (
-        <ErrorState
-          title="No se pudieron cargar las facturas de anticipo"
-          problem={esApiError(query.error) ? query.error.problem : undefined}
-          onRetry={() => query.refetch()}
-        />
-      ) : query.isLoading ? (
-        <TableSkeleton
-          rows={6}
-          columns={[
-            { width: 'w-28' },
-            { width: 'w-48' },
-            { width: 'w-24' },
-            { width: 'w-28' },
-            { width: 'w-28' },
-            { width: 'w-28' },
-            { width: 'w-16' },
-          ]}
-        />
-      ) : items.length === 0 ? (
-        <EmptyState
-          title="Sin facturas de anticipo"
-          description={
-            search.estado != null || q.length > 0
-              ? 'No hay facturas de anticipo que coincidan con los filtros.'
-              : 'Emite una desde Quick Create → Anticipo.'
-          }
-        />
-      ) : (
-        <div className="overflow-x-auto rounded-md border">
-          <table className="w-full text-sm">
-            <thead className="bg-muted/50">
-              <tr>
-                <th className="px-3 py-2 text-left">Folio</th>
-                <th className="px-3 py-2 text-left">Receptor</th>
-                <th className="px-3 py-2 text-left">Tipo</th>
-                <th className="px-3 py-2 text-right">Total</th>
-                <th className="px-3 py-2 text-right">Saldo</th>
-                <th className="px-3 py-2 text-left">CFDI</th>
-                <th className="px-3 py-2 text-left">Anticipo</th>
-                <th className="px-3 py-2 text-right">Acción</th>
-              </tr>
-            </thead>
-            <tbody>
-              {items.map((f) => (
-                <tr key={f.id} className="border-t hover:bg-muted/30">
-                  <td className="px-3 py-2 font-mono text-xs">{f.folio}</td>
-                  <td className="px-3 py-2">
-                    <div>{f.receptorNombre}</div>
-                    <div className="font-mono text-xs text-muted-foreground">
-                      {f.receptorRfc}
-                    </div>
-                  </td>
-                  <td className="px-3 py-2 text-xs">{f.tipoAnticipo}</td>
-                  <td className="px-3 py-2 text-right font-mono">
-                    {f.total.toFixed(2)} {f.moneda}
-                  </td>
-                  <td className="px-3 py-2 text-right font-mono">
-                    {f.saldo != null ? f.saldo.toFixed(2) : '—'}
-                  </td>
-                  <td className="px-3 py-2">
-                    <ChipTimbrado estado={f.estado} />
-                  </td>
-                  <td className="px-3 py-2">
-                    <ChipEstadoAnticipo estado={f.estadoAnticipo} />
-                  </td>
-                  <td className="px-3 py-2 text-right">
-                    <Link
-                      to="/facturacion/anticipos/facturas/$id"
-                      params={{ id: f.id }}
-                      className="text-sm font-medium text-primary hover:underline"
-                    >
-                      Ver
-                    </Link>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      )}
+      </ListadoModulo>
     </div>
   );
 }
 
 /** Chip del estado del saldo (Abierto / Amortizado / Cancelado, §6.6). */
 export function ChipEstadoAnticipo({ estado }: { estado: string | null }) {
-  if (estado == null) return <span className="text-xs text-muted-foreground">—</span>;
-  const tono =
-    estado === 'Abierto'
-      ? 'bg-emerald-100 text-emerald-800'
-      : estado === 'Amortizado'
-        ? 'bg-sky-100 text-sky-800'
-        : 'bg-zinc-200 text-zinc-700';
-  return (
-    <span
-      className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ${tono}`}
-    >
-      {estado}
-    </span>
-  );
+  return <EstadoFacturacionBadge entidad="anticipo" estado={estado} />;
 }

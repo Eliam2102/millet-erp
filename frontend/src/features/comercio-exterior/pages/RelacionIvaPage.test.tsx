@@ -17,7 +17,10 @@ beforeEach(() => {
   vi.clearAllMocks();
 });
 afterEach(() => useAuthStore.setState({ currentSucursalId: null, permisos: [] }));
-vi.mock('@/components/erp', () => ({ Breadcrumbs: () => null }));
+vi.mock('@/components/erp', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('@/components/erp')>()),
+  Breadcrumbs: () => null,
+}));
 vi.mock('../api/hooks', () => ({
   useRelacionIva: (anio: number, mes: number, sucursal?: string) => {
     state.consulta(anio, mes, sucursal);
@@ -46,7 +49,7 @@ describe('Relación para IVA', () => {
     expect(screen.queryByRole('button', { name: 'Todas' })).not.toBeInTheDocument();
     expect(screen.getAllByRole('row')).toHaveLength(11);
     expect(screen.queryByText('DEMO-PED-11')).not.toBeInTheDocument();
-    fireEvent.click(screen.getByRole('button', { name: 'Siguiente' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Página siguiente' }));
     expect(screen.getByText('DEMO-PED-11')).toBeInTheDocument();
     fireEvent.click(screen.getByRole('button', { name: 'Excel' }));
     await waitFor(() =>
@@ -56,7 +59,11 @@ describe('Relación para IVA', () => {
       ),
     );
     expect(state.excel.mock.calls[0][0].filas).toHaveLength(12);
-    fireEvent.change(screen.getByLabelText('Periodo'), { target: { value: '2026-09' } });
+    fireEvent.click(screen.getByRole('button', { name: 'PDF' }));
+    await waitFor(() => expect(state.pdf).toHaveBeenCalled());
+    expect(state.pdf.mock.calls[0][0].filas).toHaveLength(12);
+    expect(screen.getAllByRole('heading', { level: 1 })).toHaveLength(1);
+    fireEvent.change(screen.getByLabelText(/Periodo/), { target: { value: '2026-09' } });
     expect(state.consulta).toHaveBeenLastCalledWith(2026, 9, 'mid');
     expect(screen.getByText('DEMO-PED-1')).toBeInTheDocument();
   });

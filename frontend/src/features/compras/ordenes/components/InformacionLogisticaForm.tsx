@@ -1,21 +1,13 @@
+import { FormCampo } from '@/components/erp/forms/FormGrid';
+import { FormGrid } from '@/components/erp/forms/FormGrid';
 import { useState } from 'react';
 import { Pencil, Save, X } from 'lucide-react';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import {
-  TextAreaField,
-  TransportistaSelector,
-} from '@/components/erp';
-import {
-  applyServerErrors,
-  esApiError,
-  useFormIdempotencyKey,
-  codigoSoporte,
-} from '@/lib/api';
-import {
-  accionEditarInfoLogistica,
-} from '@/features/compras/ordenes/lib/acciones-disponibles';
+import { TextAreaField, TransportistaSelector } from '@/components/erp';
+import { applyServerErrors, esApiError, useFormIdempotencyKey, codigoSoporte } from '@/lib/api';
+import { accionEditarInfoLogistica } from '@/features/compras/ordenes/lib/acciones-disponibles';
 import type { OrdenCompraDetalleResponse } from '@/features/compras/ordenes/api/types';
 import {
   useActualizarInformacionLogistica,
@@ -62,9 +54,7 @@ export function InformacionLogisticaForm({ oc }: InformacionLogisticaFormProps) 
   const [editing, setEditing] = useState(false);
 
   const transportistaResolved = oc.infoLogisticaTransportistaId
-    ? transportistasQuery.data?.find(
-        (t) => t.id === oc.infoLogisticaTransportistaId,
-      )
+    ? transportistasQuery.data?.find((t) => t.id === oc.infoLogisticaTransportistaId)
     : undefined;
 
   if (!editing) {
@@ -78,13 +68,7 @@ export function InformacionLogisticaForm({ oc }: InformacionLogisticaFormProps) 
     );
   }
 
-  return (
-    <EditView
-      oc={oc}
-      onCancel={() => setEditing(false)}
-      onSaved={() => setEditing(false)}
-    />
-  );
+  return <EditView oc={oc} onCancel={() => setEditing(false)} onSaved={() => setEditing(false)} />;
 }
 
 // ─── Read mode ────────────────────────────────────────────────────
@@ -96,25 +80,21 @@ function ReadView({
   onEditar,
 }: {
   oc: OrdenCompraDetalleResponse;
-  transportistaResolved:
-    | { clave: string; nombre: string }
-    | undefined;
+  transportistaResolved: { clave: string; nombre: string } | undefined;
   canEdit: boolean;
   onEditar: () => void;
 }) {
   const transportistaLabel = transportistaResolved
     ? `${transportistaResolved.clave} · ${transportistaResolved.nombre}`
-    : oc.infoLogisticaTransportistaTexto ?? null;
+    : (oc.infoLogisticaTransportistaTexto ?? null);
 
   return (
     <div
-      className="rounded-md border bg-card p-4 space-y-3"
+      className="rounded-md border bg-surface-card p-4 space-y-3"
       data-component="info-logistica-read"
     >
       <div className="flex items-center justify-between">
-        <h3 className="text-sm font-semibold tracking-tight">
-          Información logística
-        </h3>
+        <h3 className="text-sm font-semibold tracking-tight">Información logística</h3>
         {canEdit && (
           <Button
             size="sm"
@@ -130,16 +110,16 @@ function ReadView({
 
       <dl className="grid gap-3 text-sm md:grid-cols-2">
         <Field label="Dirección de entrega">
-          {oc.infoLogisticaDireccion ?? <span className="text-muted-foreground">—</span>}
+          {oc.infoLogisticaDireccion ?? <span className="text-ink-muted">—</span>}
         </Field>
         <Field label="Transportista">
-          {transportistaLabel ?? <span className="text-muted-foreground">—</span>}
+          {transportistaLabel ?? <span className="text-ink-muted">—</span>}
         </Field>
         <Field label="Número de guía">
-          {oc.infoLogisticaNumeroGuia ?? <span className="text-muted-foreground">—</span>}
+          {oc.infoLogisticaNumeroGuia ?? <span className="text-ink-muted">—</span>}
         </Field>
         <Field label="Instrucciones de envío" className="md:col-span-2">
-          {oc.infoLogisticaInstrucciones ?? <span className="text-muted-foreground">—</span>}
+          {oc.infoLogisticaInstrucciones ?? <span className="text-ink-muted">—</span>}
         </Field>
       </dl>
     </div>
@@ -201,10 +181,7 @@ function EditView({
             return;
           }
           if (esApiError(err)) {
-            applyServerErrors(
-              form as unknown as Parameters<typeof applyServerErrors>[0],
-              err,
-            );
+            applyServerErrors(form as unknown as Parameters<typeof applyServerErrors>[0], err);
             toast.error(err.problem.title, {
               description: codigoSoporte(err),
             });
@@ -226,17 +203,12 @@ function EditView({
           onCancel();
         }
       }}
-      className={cn(
-        'space-y-3 rounded-md border p-3',
-        'border-warning bg-warning-bg/40',
-      )}
+      className={cn('space-y-3 rounded-md border p-3', 'border-warning bg-warning-bg/40')}
       aria-label="Editar información logística"
       data-component="info-logistica-edit"
     >
       <div className="flex items-center justify-between">
-        <h3 className="text-sm font-semibold tracking-tight">
-          Información logística
-        </h3>
+        <h3 className="text-sm font-semibold tracking-tight">Información logística</h3>
         <div className="flex items-center gap-2">
           <Button
             type="button"
@@ -278,52 +250,56 @@ function EditView({
         />
       </FieldGroup>
 
-      <div className="grid gap-3 md:grid-cols-2">
-        <FieldGroup label="Transportista (catálogo)">
-          <Controller
-            name="transportistaId"
-            control={form.control}
-            render={({ field }) => (
-              <TransportistaSelector
-                value={field.value || null}
-                onChange={(v) => field.onChange(v ?? '')}
-              />
-            )}
-          />
-        </FieldGroup>
-        <FieldGroup label="Transportista (texto libre, fallback)">
-          <Input
-            type="text"
-            maxLength={120}
-            placeholder="Si no está en el catálogo"
-            {...form.register('transportistaTexto')}
-          />
-        </FieldGroup>
-      </div>
+      <FormGrid className="">
+        <FormCampo span={6}>
+          <FieldGroup label="Transportista (catálogo)">
+            <Controller
+              name="transportistaId"
+              control={form.control}
+              render={({ field }) => (
+                <TransportistaSelector
+                  value={field.value || null}
+                  onChange={(v) => field.onChange(v ?? '')}
+                />
+              )}
+            />
+          </FieldGroup>
+        </FormCampo>
+        <FormCampo span={6}>
+          <FieldGroup label="Transportista (texto libre, fallback)">
+            <Input
+              type="text"
+              maxLength={120}
+              placeholder="Si no está en el catálogo"
+              {...form.register('transportistaTexto')}
+            />
+          </FieldGroup>
+        </FormCampo>
+      </FormGrid>
 
-      <div className="grid gap-3 md:grid-cols-2">
-        <FieldGroup label="Número de guía">
-          <Input
-            type="text"
-            maxLength={60}
-            {...form.register('numeroGuia')}
-          />
-        </FieldGroup>
-        <FieldGroup label="Instrucciones de envío">
-          <Controller
-            name="instruccionesEnvio"
-            control={form.control}
-            render={({ field }) => (
-              <TextAreaField
-                value={field.value || null}
-                onChange={(v) => field.onChange(v ?? '')}
-                maxLength={500}
-                minRows={2}
-              />
-            )}
-          />
-        </FieldGroup>
-      </div>
+      <FormGrid className="">
+        <FormCampo span={6}>
+          <FieldGroup label="Número de guía">
+            <Input type="text" maxLength={60} {...form.register('numeroGuia')} />
+          </FieldGroup>
+        </FormCampo>
+        <FormCampo span={6}>
+          <FieldGroup label="Instrucciones de envío">
+            <Controller
+              name="instruccionesEnvio"
+              control={form.control}
+              render={({ field }) => (
+                <TextAreaField
+                  value={field.value || null}
+                  onChange={(v) => field.onChange(v ?? '')}
+                  maxLength={500}
+                  minRows={2}
+                />
+              )}
+            />
+          </FieldGroup>
+        </FormCampo>
+      </FormGrid>
     </form>
   );
 }
@@ -346,24 +322,16 @@ function Field({
 }) {
   return (
     <div className={cn('space-y-0.5', className)}>
-      <dt className="text-xs font-medium text-muted-foreground">{label}</dt>
+      <dt className="text-xs font-medium text-ink-muted">{label}</dt>
       <dd>{children}</dd>
     </div>
   );
 }
 
-function FieldGroup({
-  label,
-  children,
-}: {
-  label: string;
-  children: React.ReactNode;
-}) {
+function FieldGroup({ label, children }: { label: string; children: React.ReactNode }) {
   return (
     <div className="space-y-1">
-      <label className="text-xs font-medium text-muted-foreground">
-        {label}
-      </label>
+      <label className="text-xs font-medium text-ink-muted">{label}</label>
       {children}
     </div>
   );

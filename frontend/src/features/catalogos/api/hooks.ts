@@ -72,6 +72,11 @@ export interface ListarArticulosFiltros {
 
 /** Filtros del listado paginado de proveedores. */
 export interface ListarProveedoresFiltros {
+  /**
+   * Búsqueda parcial en una sola caja: el backend la aplica a clave, RFC, razón
+   * social y nombre comercial (insensible a acentos y mayúsculas).
+   */
+  q?: string;
   clave?: string;
   /**
    * Substring contra razón social o nombre comercial; el backend hace match
@@ -365,6 +370,8 @@ function buildProveedoresPath(filtros: ListarProveedoresFiltros): string {
   const nombreTrim = filtros.nombre?.trim();
   if (claveTrim) params.set('clave', claveTrim);
   else if (nombreTrim) params.set('nombre', nombreTrim);
+  const qTrim = filtros.q?.trim();
+  if (qTrim) params.set('q', qTrim);
   // rfc es AND independiente (match exacto server-side).
   const rfcTrim = filtros.rfc?.trim();
   if (rfcTrim) params.set('rfc', rfcTrim);

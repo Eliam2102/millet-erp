@@ -7,7 +7,7 @@ describe('nombres de requisiciones', () => {
     expect(departamentoLabel({ departamentoId: 'id-interno', departamentoClave: 'COM', departamentoNombre: 'Compras' })).toBe('COM · Compras');
   });
   it.each([null, '', ' '])('no muestra IDs si falta el nombre (%s)', (nombre) => {
-    expect(requisitanteLabel({ requisitanteId: 'id-interno', requisitanteNombre: nombre })).toBe('[REQUISITANTE POR CONFIRMAR]');
-    expect(departamentoLabel({ departamentoId: 'id-interno', departamentoClave: null, departamentoNombre: nombre })).toBe('[DEPARTAMENTO POR CONFIRMAR]');
+    expect(requisitanteLabel({ requisitanteId: 'id-interno', requisitanteNombre: nombre })).toBe('Sin asignar');
+    expect(departamentoLabel({ departamentoId: 'id-interno', departamentoClave: null, departamentoNombre: nombre })).toBe('Sin departamento');
   });
 });

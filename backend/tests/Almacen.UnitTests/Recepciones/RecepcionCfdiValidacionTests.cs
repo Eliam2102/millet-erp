@@ -37,7 +37,7 @@ public class RecepcionCfdiValidacionTests
     }
 
     private static RegistrarRecepcionConFacturaHandler NuevoHandler(AlmacenDbContext db, ICxpDocumentosReadPort cxp, IProveedorReadPort proveedores) =>
-        new(db, new FakeOc(), new FakeArticulos(), new FakeEvents(),
+        new(db, new FakeOc(), new FakeEvents(),
             new FakeUser(), new FakeEmpresa(EmpresaId), new FakeDecimales(), new PeriodoContableStub(true), new P7Support.Conversion(),
             cxp, proveedores);
 
@@ -187,7 +187,7 @@ public class RecepcionCfdiValidacionTests
     {
         public Task<ArticuloLectura?> ObtenerAsync(Guid articuloId, CancellationToken ct) =>
             Task.FromResult<ArticuloLectura?>(
-                new ArticuloLectura(articuloId, "ART", "Artículo", "PZA", null, null, true));
+                new ArticuloLectura(articuloId, "ART", "Artículo", "PZA", null, true));
         public Task<IReadOnlyDictionary<Guid, ArticuloLectura>> ObtenerPorIdsAsync(
             IReadOnlyCollection<Guid> ids, CancellationToken ct) =>
             Task.FromResult<IReadOnlyDictionary<Guid, ArticuloLectura>>(

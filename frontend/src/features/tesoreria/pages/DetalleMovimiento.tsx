@@ -1,3 +1,15 @@
+import { PageHeader } from '@/components/erp/PageHeader';
+import {
+  Table,
+  TableHeader,
+  TableBody,
+  TableRow,
+  TableHead,
+  TableCell,
+} from '@/components/ui/table';
+import { ResumenImportes } from '@/components/erp/display/ResumenImportes';
+import { MontoMovimiento } from '@/components/erp/display/MontoMovimiento';
+import { EstadoTesoreriaBadge } from '../components/Badges';
 import { DateTimeDisplay } from '@/components/erp/display/DateTimeDisplay';
 import { TrazabilidadComprasDialog } from '@/components/erp/trazabilidad/TrazabilidadComprasDialog';
 import { TipoDocumentoTrazabilidad } from '@/components/erp/trazabilidad/types';
@@ -8,7 +20,11 @@ import { ArrowRightLeft, RotateCcw, Undo2, X } from 'lucide-react';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import { EmptyState, ErrorState, TableSkeleton } from '@/components/erp';
-import { useMovimiento, useRevertirPago, useDesligarPagoACuenta } from '@/features/tesoreria/api/useTesoreria';
+import {
+  useMovimiento,
+  useRevertirPago,
+  useDesligarPagoACuenta,
+} from '@/features/tesoreria/api/useTesoreria';
 import type { AplicacionMovimientoDto } from '@/features/tesoreria/api/types';
 import {
   EstadoAplicacionBadge,
@@ -40,7 +56,9 @@ export function DetalleMovimiento({ id }: { id: string }) {
   const keyFor = useBodyScopedIdempotencyKey();
   const puedeRevertir = useHasPermission(PermisosCanonicos.TesoreriaPagosRevertir);
 
-  const puedeSolicitarDevolucion = useHasPermission(PermisosCanonicos.TesoreriaDevolucionesSolicitar);
+  const puedeSolicitarDevolucion = useHasPermission(
+    PermisosCanonicos.TesoreriaDevolucionesSolicitar,
+  );
   const [revirtiendo, setRevirtiendo] = useState<AplicacionMovimientoDto | null>(null);
   const [solicitandoDevolucion, setSolicitandoDevolucion] = useState(false);
 
@@ -48,10 +66,19 @@ export function DetalleMovimiento({ id }: { id: string }) {
     if (revirtiendo == null) return;
     const command = { pagoId: revirtiendo.pagoId, motivo };
     if (esPagoACuenta) {
-      desligar.mutate({ ...command, movimientoId: id, idempotencyKey: keyFor(command) }, {
-        onSuccess: () => { toast.success('Aplicación desligada; el movimiento bancario se conserva'); setRevirtiendo(null); },
-        onError: e => toast.error(esApiError(e) ? e.problem.detail ?? e.problem.title : 'No se pudo desligar'),
-      });
+      desligar.mutate(
+        { ...command, movimientoId: id, idempotencyKey: keyFor(command) },
+        {
+          onSuccess: () => {
+            toast.success('Aplicación desligada; el movimiento bancario se conserva');
+            setRevirtiendo(null);
+          },
+          onError: (e) =>
+            toast.error(
+              esApiError(e) ? (e.problem.detail ?? e.problem.title) : 'No se pudo desligar',
+            ),
+        },
+      );
       return;
     }
     revertir.mutate(
@@ -63,20 +90,16 @@ export function DetalleMovimiento({ id }: { id: string }) {
       {
         onSuccess: () => {
           toast.success('Pago revertido', {
-            description:
-              'Se generó el contramovimiento y CxP regresará el pasivo a Autorizada.',
+            description: 'Se generó el contramovimiento y CxP regresará el pasivo a Autorizada.',
           });
           setRevirtiendo(null);
         },
         onError: (error) => {
-          toast.error(
-            esApiError(error) ? error.problem.title : 'No se pudo revertir el pago',
-            {
-              description: esApiError(error)
-                ? (error.problem.detail ?? codigoSoporte(error))
-                : undefined,
-            },
-          );
+          toast.error(esApiError(error) ? error.problem.title : 'No se pudo revertir el pago', {
+            description: esApiError(error)
+              ? (error.problem.detail ?? codigoSoporte(error))
+              : undefined,
+          });
         },
       },
     );
@@ -84,7 +107,7 @@ export function DetalleMovimiento({ id }: { id: string }) {
 
   if (query.isError) {
     return (
-      <div className="px-4 py-6">
+      <div className="space-y-5">
         <ErrorState
           title="No se pudo cargar el movimiento"
           problem={esApiError(query.error) ? query.error.problem : undefined}
@@ -96,7 +119,7 @@ export function DetalleMovimiento({ id }: { id: string }) {
 
   if (query.isLoading || query.data == null) {
     return (
-      <div className="px-4 py-6">
+      <div className="space-y-5">
         <TableSkeleton rows={6} columns={[{ width: 'w-full' }]} />
       </div>
     );
@@ -105,61 +128,83 @@ export function DetalleMovimiento({ id }: { id: string }) {
   const { movimiento: m, aplicaciones, contramovimientos } = query.data;
 
   return (
-    <div className="mx-auto max-w-4xl space-y-6 px-4 py-6">
-      <div
-        className="flex flex-wrap items-center justify-between gap-3"
-        data-print="hidden"
-      >
-        <h1 className="flex items-center gap-2 text-xl font-semibold">
-          <ArrowRightLeft className="h-5 w-5 text-primary" />
-          Movimiento bancario
-          <SentidoBadge sentido={m.sentido} />
-        </h1>
-        <div className="flex items-center gap-2">
-          {puedeSolicitarDevolucion && m.sentido === SentidoMovimiento.Ingreso && m.contramovimientoDe == null && (
-            <Button variant="outline" size="sm" onClick={() => setSolicitandoDevolucion(true)}>
-              <Undo2 className="mr-1 h-3 w-3" aria-hidden="true" />
-              Solicitar devolución
-            </Button>
-          )}
-          <Button
-            variant="ghost"
-            size="icon"
-            aria-label="Cerrar"
-            onClick={() => navigate({ to: '/tesoreria/movimientos' })}
-          >
-            <X className="h-4 w-4" />
-          </Button>
-        </div>
+    <div className="space-y-5">
+      <div data-print="hidden">
+        <PageHeader
+          mono
+          titulo={m.referenciaBancaria ?? m.id}
+          descripcion={
+            <>
+              Movimiento bancario · {m.beneficiarioNombre ?? m.conceptoNombre ?? 'Sin beneficiario'}
+            </>
+          }
+          estado={<SentidoBadge sentido={m.sentido} />}
+          acciones={
+            <>
+              {' '}
+              <div className="flex items-center gap-2">
+                {puedeSolicitarDevolucion &&
+                  m.sentido === SentidoMovimiento.Ingreso &&
+                  m.contramovimientoDe == null && (
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setSolicitandoDevolucion(true)}
+                    >
+                      <Undo2 className="mr-1 h-3 w-3" aria-hidden="true" />
+                      Solicitar devolución
+                    </Button>
+                  )}
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  aria-label="Cerrar"
+                  onClick={() => navigate({ to: '/tesoreria/movimientos' })}
+                >
+                  <X className="h-4 w-4" />
+                </Button>
+              </div>
+            </>
+          }
+        />
       </div>
 
       <dl className="grid grid-cols-2 gap-x-6 gap-y-3 rounded-md border p-4 text-sm md:grid-cols-3">
         <div>
-          <dt className="text-xs text-muted-foreground">Monto</dt>
+          <dt className="text-xs text-ink-muted">Monto</dt>
           <dd className="font-mono text-base font-semibold tabular-nums">
-            {formatoMonto(m.monto, m.moneda)}
+            <MontoMovimiento
+              monto={m.monto}
+              moneda={m.moneda}
+              tipo={m.sentido === SentidoMovimiento.Ingreso ? 'entrada' : 'salida'}
+            />
           </dd>
         </div>
         <div>
-          <dt className="text-xs text-muted-foreground">Fecha valor</dt>
-          <dd><DateTimeDisplay value={m.fechaValor} variant="media" /></dd>
+          <dt className="text-xs text-ink-muted">Fecha valor</dt>
+          <dd>
+            <DateTimeDisplay value={m.fechaValor} variant="media" />
+          </dd>
         </div>
         <div>
-          <dt className="text-xs text-muted-foreground">Referencia</dt>
+          <dt className="text-xs text-ink-muted">Referencia</dt>
           <dd className="font-mono">{m.referenciaBancaria ?? '—'}</dd>
         </div>
         <div>
-          <dt className="text-xs text-muted-foreground">Concepto</dt>
+          <dt className="text-xs text-ink-muted">Concepto</dt>
           <dd>{m.conceptoNombre ?? (m.motivoNoAplicado ? 'Pago a cuenta' : '—')}</dd>
         </div>
         <div>
-          <dt className="text-xs text-muted-foreground">Beneficiario</dt>
+          <dt className="text-xs text-ink-muted">Beneficiario</dt>
           <dd>
             {m.beneficiarioNombre != null ? (
               <>
                 {m.beneficiarioNombre}
                 {m.beneficiarioTipo != null && (
-                  <span className="text-xs text-muted-foreground"> · {BENEFICIARIO_TIPO_LABELS[m.beneficiarioTipo]}</span>
+                  <span className="text-xs text-ink-muted">
+                    {' '}
+                    · {BENEFICIARIO_TIPO_LABELS[m.beneficiarioTipo]}
+                  </span>
                 )}
               </>
             ) : m.beneficiarioTipo != null ? (
@@ -171,22 +216,21 @@ export function DetalleMovimiento({ id }: { id: string }) {
         </div>
         {m.destinoBanco != null && (
           <div>
-            <dt className="text-xs text-muted-foreground">Cuenta destino</dt>
+            <dt className="text-xs text-ink-muted">Cuenta destino</dt>
             <dd>
-              {m.destinoBanco}{' '}
-              <span className="font-mono text-xs">{m.destinoNumeroCuenta}</span>
+              {m.destinoBanco} <span className="font-mono text-xs">{m.destinoNumeroCuenta}</span>
               {m.destinoTitular ? ` · ${m.destinoTitular}` : ''}
             </dd>
           </div>
         )}
-        {m.destinoBanco != null && m.fondosVerificados != null && (
+        {m.destinoBanco != null && m.fondosVerificados === true && (
           <div>
-            <dt className="text-xs text-muted-foreground">Fondos verificados</dt>
-            <dd>{m.fondosVerificados ? 'Sí' : 'No'}</dd>
+            <dt className="text-xs text-ink-muted">Fondos verificados</dt>
+            <dd>Sí</dd>
           </div>
         )}
         <div>
-          <dt className="text-xs text-muted-foreground">Estados</dt>
+          <dt className="text-xs text-ink-muted">Estados</dt>
           <dd className="flex flex-wrap gap-1">
             <EstadoAplicacionBadge estado={m.estadoAplicacion} />
             <EstadoConciliacionBadge estado={m.estadoConciliacion} />
@@ -194,18 +238,18 @@ export function DetalleMovimiento({ id }: { id: string }) {
         </div>
         {m.motivoNoAplicado != null && (
           <div className="col-span-2 md:col-span-3">
-            <dt className="text-xs text-muted-foreground">Motivo (pago a cuenta)</dt>
+            <dt className="text-xs text-ink-muted">Motivo (pago a cuenta)</dt>
             <dd>{m.motivoNoAplicado}</dd>
           </div>
         )}
         {m.contramovimientoDe != null && (
           <div className="col-span-2 md:col-span-3">
-            <dt className="text-xs text-muted-foreground">Reversa de</dt>
+            <dt className="text-xs text-ink-muted">Reversa de</dt>
             <dd>
               <Link
                 to="/tesoreria/movimientos/$id"
                 params={{ id: m.contramovimientoDe }}
-                className="text-sm text-primary hover:underline"
+                className="text-sm text-brand hover:underline"
               >
                 Ver movimiento original
               </Link>
@@ -214,8 +258,14 @@ export function DetalleMovimiento({ id }: { id: string }) {
         )}
       </dl>
 
+      <ResumenImportes moneda={m.moneda} total={m.monto} />
+
       {m.motivoReversa && <p className="text-sm text-ink-secondary">Motivo: {m.motivoReversa}</p>}
-      {m.motivoReclasificacion && <p className="text-sm text-ink-secondary">Última reclasificación: {m.motivoReclasificacion}</p>}
+      {m.motivoReclasificacion && (
+        <p className="text-sm text-ink-secondary">
+          Última reclasificación: {m.motivoReclasificacion}
+        </p>
+      )}
       {puedeReclasificar && <ReclasificarMovimiento key={m.id} movimiento={m} />}
       <section className="space-y-2">
         <h2 className="text-sm font-semibold">Aplicaciones a pasivos</h2>
@@ -227,55 +277,55 @@ export function DetalleMovimiento({ id }: { id: string }) {
           />
         ) : (
           <div className="overflow-x-auto rounded-md border">
-            <table className="w-full text-sm">
-              <thead className="bg-muted/50 text-left text-xs uppercase tracking-wide text-muted-foreground">
-                <tr>
-                  <th className="px-3 py-2 font-medium">Factura</th>
-                  <th className="px-3 py-2 text-right font-medium">Importe</th>
-                  <th className="px-3 py-2 font-medium">Estado</th>
-                  <th className="px-3 py-2" />
-                </tr>
-              </thead>
-              <tbody className="divide-y">
+            <Table className="w-full text-sm">
+              <TableHeader className="bg-surface-muted/50 text-left text-xs uppercase tracking-wide text-ink-muted">
+                <TableRow>
+                  <TableHead className="px-3 py-2 font-medium">Factura</TableHead>
+                  <TableHead className="px-3 py-2 text-right font-medium">Importe</TableHead>
+                  <TableHead className="px-3 py-2 font-medium">Estado</TableHead>
+                  <TableHead className="px-3 py-2" />
+                </TableRow>
+              </TableHeader>
+              <TableBody className="divide-y">
                 {aplicaciones.map((a) => (
-                  <tr key={a.pagoId} className="hover:bg-muted/30">
-                    <td className="px-3 py-2 text-xs">
+                  <TableRow key={a.pagoId} className="hover:bg-surface-muted/30">
+                    <TableCell className="px-3 py-2 text-xs">
                       <Link
                         to="/cxp/facturas/$id"
                         params={{ id: a.facturaProveedorId }}
-                        className="text-primary hover:underline"
+                        className="text-brand hover:underline"
                       >
                         Ver factura
                       </Link>
-                    </td>
-                    <td className="px-3 py-2 text-right font-mono tabular-nums">
+                    </TableCell>
+                    <TableCell className="px-3 py-2 text-right font-mono tabular-nums">
                       {formatoMonto(a.importeAplicado, m.moneda)}
-                    </td>
-                    <td className="px-3 py-2 text-xs">
-                      {a.revertida ? (
-                        <span className="text-danger-fg">Revertida</span>
-                      ) : (
-                        <span className="text-success-fg">Vigente</span>
+                    </TableCell>
+                    <TableCell className="px-3 py-2 text-xs">
+                      <EstadoTesoreriaBadge
+                        entidad="aplicacionPago"
+                        estado={a.revertida ? 'revertida' : 'vigente'}
+                      />
+                      {a.motivoReversa && (
+                        <p className="text-xs text-ink-muted">{a.motivoReversa}</p>
                       )}
-                      {a.motivoReversa && <p className="text-xs text-ink-muted">{a.motivoReversa}</p>}
-                    </td>
-                    <td className="px-3 py-2 text-right">
-                      <TrazabilidadComprasDialog tipo={TipoDocumentoTrazabilidad.PagoProveedor} id={a.pagoId} />
+                    </TableCell>
+                    <TableCell className="px-3 py-2 text-right">
+                      <TrazabilidadComprasDialog
+                        tipo={TipoDocumentoTrazabilidad.PagoProveedor}
+                        id={a.pagoId}
+                      />
                       {(esPagoACuenta ? puedeDesligar : puedeRevertir) && !a.revertida && (
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => setRevirtiendo(a)}
-                        >
+                        <Button variant="outline" size="sm" onClick={() => setRevirtiendo(a)}>
                           <RotateCcw className="mr-1 h-3 w-3" />
                           {esPagoACuenta ? 'Desligar' : 'Revertir'}
                         </Button>
                       )}
-                    </td>
-                  </tr>
+                    </TableCell>
+                  </TableRow>
                 ))}
-              </tbody>
-            </table>
+              </TableBody>
+            </Table>
           </div>
         )}
       </section>
@@ -288,15 +338,19 @@ export function DetalleMovimiento({ id }: { id: string }) {
               <li key={c.id} className="flex items-center gap-2">
                 <SentidoBadge sentido={c.sentido} />
                 <span className="font-mono tabular-nums">
-                  {formatoMonto(c.monto, c.moneda)}
+                  <MontoMovimiento
+                    monto={c.monto}
+                    moneda={c.moneda}
+                    tipo={c.sentido === SentidoMovimiento.Ingreso ? 'entrada' : 'salida'}
+                  />
                 </span>
-                <span className="text-xs text-muted-foreground">
+                <span className="text-xs text-ink-muted">
                   <DateTimeDisplay value={c.fechaValor} variant="media" />
                 </span>
                 <Link
                   to="/tesoreria/movimientos/$id"
                   params={{ id: c.id }}
-                  className="text-xs text-primary hover:underline"
+                  className="text-xs text-brand hover:underline"
                 >
                   Ver movimiento
                 </Link>
@@ -324,9 +378,13 @@ export function DetalleMovimiento({ id }: { id: string }) {
         onOpenChange={(o) => {
           if (!o) setRevirtiendo(null);
         }}
-        titulo={esPagoACuenta ? "Desligar pago a cuenta" : "Revertir pago"}
-        descripcion={esPagoACuenta ? "Se revierte la aplicación y se recalcula el saldo disponible del pago, sin crear un movimiento bancario. Indica el motivo." : "Se genera un contramovimiento ligado con motivo y se restaura el saldo del pasivo."}
-        confirmLabel={esPagoACuenta ? "Desligar" : "Revertir"}
+        titulo={esPagoACuenta ? 'Desligar pago a cuenta' : 'Revertir pago'}
+        descripcion={
+          esPagoACuenta
+            ? 'Se revierte la aplicación y se recalcula el saldo disponible del pago, sin crear un movimiento bancario. Indica el motivo.'
+            : 'Se genera un contramovimiento ligado con motivo y se restaura el saldo del pasivo.'
+        }
+        confirmLabel={esPagoACuenta ? 'Desligar' : 'Revertir'}
         onConfirm={confirmarReversa}
         pending={revertir.isPending || desligar.isPending}
       />

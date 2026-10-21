@@ -35,7 +35,7 @@ export function MobileSidebar({
       <DialogPrimitive.Portal>
         <DialogPrimitive.Overlay
           className={cn(
-            'fixed inset-0 z-50 bg-black/60',
+            'fixed inset-0 z-50 bg-(--mt-scrim-sheet)',
             'data-[state=open]:animate-in data-[state=closed]:animate-out',
             'data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0',
           )}
@@ -63,7 +63,7 @@ export function MobileSidebar({
           />
 
           <DialogPrimitive.Close
-            className="absolute right-2 top-2 rounded p-1 text-sidebar-foreground hover:bg-sidebar-active/50 hover:text-white focus:outline-none focus:ring-2 focus:ring-ring"
+            className="absolute right-2 top-2 rounded p-1 text-sidebar-foreground hover:bg-sidebar-active/50 hover:text-primary-foreground focus:outline-none focus:ring-2 focus:ring-ring"
             aria-label="Cerrar navegación"
           >
             <X className="h-4 w-4" />
