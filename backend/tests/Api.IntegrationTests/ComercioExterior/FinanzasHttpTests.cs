@@ -31,6 +31,8 @@ public sealed class FinanzasHttpTests
         using var sinPermiso = await e.ClienteAsync(true, soloLeer: true);
         using var ajeno = await e.ClienteAsync(true, asociar: false);
         Assert.Equal(HttpStatusCode.Forbidden, (await ajeno.GetAsync($"{Base}/{id}/finanzas")).StatusCode);
+        Assert.Equal(HttpStatusCode.Forbidden, (await sinPermiso.GetAsync($"{Base}/{id}/gastos/ordenes-servicio")).StatusCode);
+        Assert.Equal(HttpStatusCode.Forbidden, (await ajeno.GetAsync($"{Base}/{id}/gastos/ordenes-servicio")).StatusCode);
         foreach (var ruta in new[] { "gastos/conceptos/inicializar", "gastos/distribuir", "anticipos" })
         {
             var body = ruta == "anticipos" ? (object)new { agenteId = Guid.NewGuid(), pedimento = "TEST", impuestos = new { iva = 100, igi = 0, prv = 0 }, fecha = "2026-10-01" } : new { };
@@ -50,7 +52,7 @@ public sealed class FinanzasHttpTests
         var repetida = await Send(client, $"{Base}/{id}/gastos/conceptos/inicializar", new { }, etag, key); repetida.EnsureSuccessStatusCode();
         Assert.Equal(await primera.Content.ReadAsStringAsync(), await repetida.Content.ReadAsStringAsync());
         Assert.Equal(HttpStatusCode.Conflict, (await Send(client, $"{Base}/{id}/gastos/conceptos/inicializar", new { }, etag)).StatusCode);
-        var financiero = await Json(primera); Assert.Equal(12, financiero.GetProperty("conceptos").GetArrayLength());
+        var financiero = await Json(primera); Assert.Equal(13, financiero.GetProperty("conceptos").GetArrayLength());
         using var scope = e.Scope(); using var bypass = scope.ServiceProvider.GetRequiredService<ICurrentEmpresaContext>().Bypass();
         var maestros = scope.ServiceProvider.GetRequiredService<Millet.Compartido.Infrastructure.Persistence.CompartidoDbContext>();
         var proveedor = await maestros.Proveedores.SingleAsync(p => p.Clave == "DEMO-PROV-ACT");

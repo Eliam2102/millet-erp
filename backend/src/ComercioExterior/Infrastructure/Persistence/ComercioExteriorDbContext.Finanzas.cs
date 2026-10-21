@@ -34,6 +34,9 @@ public sealed partial class ComercioExteriorDbContext
         c.Property(x => x.Codigo).HasMaxLength(30); c.Property(x => x.Nombre).HasMaxLength(200); c.Ignore(x => x.EsIvaImportacion);
         c.HasIndex(x => new { x.EmpresaId, x.Codigo }).IsUnique();
         var g = b.Entity<GastoExpediente>(); g.ToTable("gastos_expediente"); g.HasKey(x => x.Id); g.Property(x => x.Id).ValueGeneratedNever();
+        g.HasIndex(x => new { x.EmpresaId, x.OrdenServicioId, x.ExpedienteId });
+        g.Property(x => x.OrdenServicioFolio).HasMaxLength(40);
+        g.Property(x => x.OrdenServicioMoneda).HasMaxLength(3);
         g.Ignore(x => x.AggregateRootId); g.Ignore(x => x.Diferencia);
         g.HasOne<ConceptoGasto>().WithMany().HasForeignKey(x => x.ConceptoId).OnDelete(DeleteBehavior.Restrict);
         Json(g.Property(x => x.ImportesDirectos));
@@ -45,6 +48,6 @@ public sealed partial class ComercioExteriorDbContext
         a.HasIndex(x => new { x.EmpresaId, x.AgenteId }); Json(a.Property(x => x.Resoluciones));
         foreach (var tipo in new[] { typeof(GastoExpediente), typeof(PartidaCosto), typeof(AnticipoAgente) })
             foreach (var property in b.Entity(tipo).Metadata.GetProperties().Where(x => x.ClrType == typeof(decimal) || x.ClrType == typeof(decimal?)))
-                b.Entity(tipo).Property(property.Name).HasPrecision(20, property.Name is "TipoCambio" or "PesoKg" ? 6 : 2);
+                b.Entity(tipo).Property(property.Name).HasPrecision(20, property.Name is "TipoCambio" or "OrdenServicioTipoCambio" or "PesoKg" ? 6 : 2);
     }
 }
