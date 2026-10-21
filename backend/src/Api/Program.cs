@@ -247,6 +247,7 @@ if (!string.IsNullOrWhiteSpace(outboxConnString))
     // AF: listener de recepciones (Almacén) y facturas (CxP) que crean y valúan
     // activos por capitalizar. Solo con Service Bus real, como los demás listeners.
     builder.Services.AddHostedService<Millet.ActivosFijos.Infrastructure.Workers.ComprasActivoWorker>();
+    builder.Services.AddHostedService<Millet.ActivosFijos.Infrastructure.Workers.VentaActivoWorker>();
 
     // F6-PR3 CxP: listener Service Bus para eventos de Almacén
     // (recepciones + devoluciones). Cierra el ciclo bidireccional.

@@ -1069,6 +1069,41 @@ const activosFijos: NavModulo = {
       label: 'Operación',
       cards: [
         {
+          label: 'Depreciación',
+          description: 'Depreciación del libro de activos.',
+          to: '/activos-fijos/depreciacion',
+          icon: BookOpen,
+          permission: PermisosCanonicos.ActivosFijosDepreciacionCorrer,
+        },
+        {
+          label: 'Carga inicial',
+          description: 'Carga inicial del libro de activos.',
+          to: '/activos-fijos/carga-inicial',
+          icon: BookOpen,
+          permission: PermisosCanonicos.ActivosFijosCargaEjecutar,
+        },
+        {
+          label: 'Conciliación',
+          description: 'Conciliación del libro de activos.',
+          to: '/activos-fijos/conciliacion',
+          icon: BookOpen,
+          permission: PermisosCanonicos.ActivosFijosConciliacionVer,
+        },
+        {
+          label: 'Libro de activos',
+          description: 'Libro de activos del libro de activos.',
+          to: '/activos-fijos/libro',
+          icon: BookOpen,
+          permission: PermisosCanonicos.ActivosFijosActivosVer,
+        },
+        {
+          label: 'Configuración del libro',
+          description: 'Configuración del libro del libro de activos.',
+          to: '/activos-fijos/configuracion-libro',
+          icon: BookOpen,
+          permission: PermisosCanonicos.ActivosFijosClasesAdministrar,
+        },
+        {
           label: 'Activos',
           description: 'Maestro y custodia de activos.',
           to: '/activos-fijos/activos',

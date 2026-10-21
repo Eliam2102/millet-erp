@@ -41,6 +41,14 @@ public static class TimbradoEjecutor
         CancellationToken cancellationToken,
         Func<CancellationToken, Task>? persistirEnProcesoAntesDelPac = null)
     {
+        if (comprobante is Millet.Facturacion.Domain.Facturas.FacturaVenta venta
+            && venta.ComportamientoFiscal == Millet.Facturacion.Domain.Facturas.ComportamientoFiscal.VentaActivoFijo)
+        {
+            var autorizacion = db.AutorizacionesVentaActivo.Local.FirstOrDefault(x => x.Id == venta.AutorizacionId)
+                ?? await db.AutorizacionesVentaActivo.SingleOrDefaultAsync(x => x.Id == venta.AutorizacionId, cancellationToken)
+                ?? throw new Millet.SharedKernel.Application.Exceptions.BusinessRuleException("AF_AUTORIZACION_REQUERIDA", "Se requiere autorización de venta.");
+            autorizacion.ValidarParaTimbrar(decimal.Round((venta.Subtotal - venta.Descuento) * (venta.TipoCambio ?? 1), 2), ahora, venta.Id);
+        }
         comprobante.MarcarTimbradoEnProceso();
         // 86e3t97tx: el reintento guarda aquí el estado «en proceso» ANTES del
         // PAC; si otro reintento ya lo tomó, el guardado falla y el PAC no se
