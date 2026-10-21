@@ -4889,6 +4889,76 @@ namespace Millet.Identidad.Infrastructure.Migrations
                         },
                         new
                         {
+                            Id = new Guid("0000000f-0006-0000-0000-000000000001"),
+                            Accion = "gestionar",
+                            Codigo = "activos_fijos.documentos.gestionar",
+                            CreatedAt = new DateTimeOffset(new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            CreatedBy = "seed",
+                            Descripcion = "Activos fijos: documentos.gestionar",
+                            Modulo = "activos_fijos",
+                            Recurso = "documentos",
+                            UpdatedAt = new DateTimeOffset(new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            UpdatedBy = "seed",
+                            Version = 1
+                        },
+                        new
+                        {
+                            Id = new Guid("0000000f-0006-0000-0000-000000000002"),
+                            Accion = "gestionar",
+                            Codigo = "activos_fijos.mantenimientos.gestionar",
+                            CreatedAt = new DateTimeOffset(new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            CreatedBy = "seed",
+                            Descripcion = "Activos fijos: mantenimientos.gestionar",
+                            Modulo = "activos_fijos",
+                            Recurso = "mantenimientos",
+                            UpdatedAt = new DateTimeOffset(new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            UpdatedBy = "seed",
+                            Version = 1
+                        },
+                        new
+                        {
+                            Id = new Guid("0000000f-0006-0000-0000-000000000003"),
+                            Accion = "imprimir",
+                            Codigo = "activos_fijos.etiquetas.imprimir",
+                            CreatedAt = new DateTimeOffset(new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            CreatedBy = "seed",
+                            Descripcion = "Activos fijos: etiquetas.imprimir",
+                            Modulo = "activos_fijos",
+                            Recurso = "etiquetas",
+                            UpdatedAt = new DateTimeOffset(new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            UpdatedBy = "seed",
+                            Version = 1
+                        },
+                        new
+                        {
+                            Id = new Guid("0000000f-0006-0000-0000-000000000004"),
+                            Accion = "gestionar",
+                            Codigo = "activos_fijos.conteos.gestionar",
+                            CreatedAt = new DateTimeOffset(new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            CreatedBy = "seed",
+                            Descripcion = "Activos fijos: conteos.gestionar",
+                            Modulo = "activos_fijos",
+                            Recurso = "conteos",
+                            UpdatedAt = new DateTimeOffset(new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            UpdatedBy = "seed",
+                            Version = 1
+                        },
+                        new
+                        {
+                            Id = new Guid("0000000f-0006-0000-0000-000000000005"),
+                            Accion = "autorizar",
+                            Codigo = "activos_fijos.conteos.autorizar",
+                            CreatedAt = new DateTimeOffset(new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            CreatedBy = "seed",
+                            Descripcion = "Activos fijos: conteos.autorizar",
+                            Modulo = "activos_fijos",
+                            Recurso = "conteos",
+                            UpdatedAt = new DateTimeOffset(new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            UpdatedBy = "seed",
+                            Version = 1
+                        },
+                        new
+                        {
                             Id = new Guid("0000000f-0001-0000-0000-000000000001"),
                             Accion = "administrar",
                             Codigo = "activos_fijos.clases.administrar",
