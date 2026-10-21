@@ -185,7 +185,7 @@ financiero es inaceptable. Esto es lo que provoca el caso clásico de
 - Si en el futuro algún worker se vuelve pesado (ej. archival procesando GB), se extrae a Container Apps Jobs o Azure Functions con Timer Trigger; el código `IHostedService` permite la extracción mecánica
 
 **Entrega local sin Service Bus (C1.8, solo Development/demo)**
-- Con `ServiceBus:EntregaLocal:Habilitada=true` y sin conexión a Service Bus, el `OutboxPublisherWorker` usa `LocalDispatchIntegrationEventBusSender`: entrega cada fila, en el mismo proceso, a los listeners (`ILocalIntegrationEventConsumer`) suscritos al topic, con `eventId = Id` de la fila y `eventType = EventType` (mismo contrato que `MessageId`/`Subject`)
+- Con `ServiceBus:EntregaLocal:Habilitada=true` y sin conexión a Service Bus, el `OutboxPublisherWorker` usa `LocalDispatchIntegrationEventBusSender`: entrega cada fila, en el mismo proceso, a los listeners (`ILocalIntegrationEventConsumer`; 14 workers / 15 consumidores, uno por topic) suscritos al topic, con `eventId = Id` de la fila y `eventType = EventType` (mismo contrato que `MessageId`/`Subject`)
 - Si un listener falla, la excepción llega al worker: la fila se reintenta (hasta `MaxAttempts`) y la idempotencia del consumidor evita duplicar efectos. Apagada por omisión; fuera de Development la API no arranca si está activa; con conexión a Service Bus se ignora. Detalle en `tools/servicebus-emulator/README.md`
 
 **Cambios en otras ADRs**

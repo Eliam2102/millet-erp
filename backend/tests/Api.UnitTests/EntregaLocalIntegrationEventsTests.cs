@@ -15,7 +15,7 @@ public sealed class EntregaLocalIntegrationEventsTests
 {
     private static readonly string[] TopicsEsperados =
     [
-        "almacen-events", "compras-events", "cuentas-por-cobrar-events",
+        "almacen-events", "comercio-exterior-events", "compras-events", "cuentas-por-cobrar-events",
         "cuentas-por-pagar-events", "facturacion-events", "tesoreria-events",
     ];
 
@@ -34,7 +34,7 @@ public sealed class EntregaLocalIntegrationEventsTests
     }
 
     [Fact]
-    public void En_Development_con_la_opcion_activa_registra_el_sender_local_y_los_12_consumidores()
+    public void En_Development_con_la_opcion_activa_registra_el_sender_local_y_los_15_consumidores()
     {
         var services = new ServiceCollection().AddLogging();
 
@@ -44,11 +44,18 @@ public sealed class EntregaLocalIntegrationEventsTests
         using var sp = services.BuildServiceProvider();
         Assert.IsType<LocalDispatchIntegrationEventBusSender>(sp.GetRequiredService<IIntegrationEventBusSender>());
         var consumidores = sp.GetServices<ILocalIntegrationEventConsumer>().ToList();
-        Assert.Equal(12, consumidores.Count);
-        Assert.Equal(12, consumidores.Select(c => c.GetType()).Distinct().Count());
+        // 14 workers con Service Bus; ComprasActivoWorker aporta uno por topic.
+        Assert.Equal(15, consumidores.Count);
+        Assert.Equal(15, consumidores.Select(c => c.GetType()).Distinct().Count());
         Assert.Equal(
             TopicsEsperados,
             consumidores.Select(c => c.TopicName).Distinct().Order().ToArray());
+        Assert.Contains(consumidores, c => c is Millet.Almacen.Infrastructure.Workers.ComercioExteriorEventListenerWorker
+            && c.TopicName == "comercio-exterior-events");
+        Assert.Contains(consumidores, c => c is Millet.ActivosFijos.Infrastructure.Workers.ComprasActivoAlmacenLocalConsumer
+            && c.TopicName == "almacen-events");
+        Assert.Contains(consumidores, c => c is Millet.ActivosFijos.Infrastructure.Workers.ComprasActivoCxpLocalConsumer
+            && c.TopicName == "cuentas-por-pagar-events");
         // No se registran como HostedService de Service Bus (sin ServiceBusClient).
         Assert.DoesNotContain(services, d => d.ServiceType == typeof(IHostedService)
             && d.ImplementationType?.Name.EndsWith("EventListenerWorker", StringComparison.Ordinal) == true);

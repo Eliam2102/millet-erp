@@ -24,7 +24,8 @@ namespace Millet.Api.Infrastructure;
 /// del motor de pólizas, PLATFORM-TODO(&lt;MotorContable&gt;)): implementar
 /// <see cref="ILocalIntegrationEventConsumer"/> en el worker y registrarlo
 /// aquí además de como <c>AddHostedService</c> en el bloque con conexión
-/// de <c>Program.cs</c>.
+/// de <c>Program.cs</c>. Si el worker escucha varios topics (p. ej.
+/// <c>ComprasActivoWorker</c>), registrar un consumidor local por topic.
 /// </para>
 /// </summary>
 public static class EntregaLocalIntegrationEventsExtensions
@@ -57,6 +58,9 @@ public static class EntregaLocalIntegrationEventsExtensions
 
         // Los listeners se registran como consumidores locales (no como
         // HostedService): sin ServiceBusClient, solo se usa su ProcessAsync.
+        // 14 workers con Service Bus → 15 consumidores locales (ComprasActivoWorker
+        // aporta dos, uno por topic). AwDropWorker queda fuera a propósito: es el
+        // adaptador hacia A+W, no consume eventos internos.
         Consumidor<Millet.Almacen.Infrastructure.Workers.CxpEventListenerWorker>(services, (c, f, l) => new(c, f, l));
         Consumidor<Millet.CuentasPorPagar.Infrastructure.Workers.AlmacenEventListenerWorker>(services, (c, f, l) => new(c, f, l));
         Consumidor<Millet.CuentasPorPagar.Infrastructure.Workers.TesoreriaEventListenerWorker>(services, (c, f, l) => new(c, f, l));
@@ -69,6 +73,12 @@ public static class EntregaLocalIntegrationEventsExtensions
         Consumidor<Millet.Tesoreria.Infrastructure.Workers.CuentasPorCobrarEventListenerWorker>(services, (c, f, l) => new(c, f, l));
         Consumidor<Millet.Tesoreria.Infrastructure.Workers.FacturacionEventListenerWorker>(services, (c, f, l) => new(c, f, l));
         Consumidor<Millet.Facturacion.Infrastructure.Workers.TesoreriaEventListenerWorker>(services, (c, f, l) => new(c, f, l));
+        Consumidor<Millet.Almacen.Infrastructure.Workers.ComercioExteriorEventListenerWorker>(services, (c, f, l) => new(c, f, l));
+        // ComprasActivoWorker escucha dos topics: un consumidor local por topic.
+        services.AddSingleton<ILocalIntegrationEventConsumer>(sp => new Millet.ActivosFijos.Infrastructure.Workers.ComprasActivoAlmacenLocalConsumer(
+            sp.GetRequiredService<IServiceScopeFactory>(), sp.GetRequiredService<ILogger<Millet.ActivosFijos.Infrastructure.Workers.ComprasActivoWorker>>()));
+        services.AddSingleton<ILocalIntegrationEventConsumer>(sp => new Millet.ActivosFijos.Infrastructure.Workers.ComprasActivoCxpLocalConsumer(
+            sp.GetRequiredService<IServiceScopeFactory>(), sp.GetRequiredService<ILogger<Millet.ActivosFijos.Infrastructure.Workers.ComprasActivoWorker>>()));
 
         services.AddSingleton<IIntegrationEventBusSender, LocalDispatchIntegrationEventBusSender>();
         services.AddHostedService(sp => new AvisoEntregaLocal(
