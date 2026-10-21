@@ -1,4 +1,4 @@
-import { ErrorState } from '@/components/erp';
+import { AvisoEnLinea, ErrorState } from '@/components/erp';
 import { ResumenImportes } from '@/components/erp/display/ResumenImportes';
 import { PageHeader } from '@/components/erp/PageHeader';
 import { Badge } from '@/components/ui/badge';
@@ -14,6 +14,7 @@ import {
 import { facturacionKeys } from '@/features/facturacion/api/keys';
 import { ComportamientoFiscal } from '@/features/facturacion/api/types';
 import { usePedido, usePedidoComprobantes } from '@/features/facturacion/api/usePedidos';
+import { ClasePedidoBadge } from '@/features/facturacion/components/ClasePedidoBadge';
 import { EmitirFacturaForm } from '@/features/facturacion/components/emitir-factura/EmitirFacturaForm';
 import { EstadoFacturacionBadge } from '@/features/facturacion/components/EstadoFacturacionBadge';
 import { useNuevoPedido } from '@/features/facturacion/components/nuevo-pedido-context';
@@ -104,6 +105,9 @@ function Contenido({
   const mostrarPedimento = p.lineas.some((l) => l.requierePedimento);
   // Solo los manuales en Importado son editables (PUT con If-Match).
   const editable = p.estado === 'Importado' && p.origen === 'Manual';
+  // F6.1: pedido manual legacy sin clase → no se puede facturar hasta clasificarlo.
+  const manualSinClase = p.origen === 'Manual' && p.claseManual == null;
+  const esEmergencia = p.esEmergencia === true || p.claseManual === 'Emergencia';
 
   if (modoEmision) {
     return (
@@ -115,12 +119,17 @@ function Contenido({
             descripcion={<>Consulta el pedido y sus partidas por facturar.</>}
             estado={<ChipEstadoPedido estado={p.estado} />}
           />
+          <ClasePedidoBadge clasificacion={p} />
           <span className="text-sm text-ink-muted">Emitiendo factura · {p.clienteNombre}</span>
         </div>
         <EmitirFacturaForm
           prefill={{
             pedidoFacturableId: p.id,
             embarqueCe: p.embarqueCe,
+            // F6.1: clase del pedido manual (serie de Venta directa, activo).
+            origen: p.origen,
+            claseManual: p.claseManual ?? null,
+            subtipoVentaDirecta: p.subtipoVentaDirecta ?? null,
             sucursalId: p.sucursalId,
             clienteId: p.clienteId,
             receptorNombre: p.clienteNombre,
@@ -159,6 +168,14 @@ function Contenido({
             })),
           }}
           onCancel={() => setModoEmision(false)}
+          onEditarPedido={
+            puedeEditar && editable
+              ? () => {
+                  setModoEmision(false);
+                  nuevoPedido.abrir(p);
+                }
+              : undefined
+          }
           onSuccess={() => {
             void queryClient.invalidateQueries({
               queryKey: facturacionKeys.pedidos(),
@@ -187,6 +204,7 @@ function Contenido({
               estado={<ChipEstadoPedido estado={p.estado} />}
             />
             <Badge variant="neutral">{ETIQUETA_ORIGEN_PEDIDO[p.origen] ?? p.origen}</Badge>
+            <ClasePedidoBadge clasificacion={p} />
           </div>
         </div>
         <div className="flex items-center gap-2" data-print="hidden">
@@ -197,13 +215,51 @@ function Contenido({
             </Button>
           )}
           {puedeEmitir && facturable && (
-            <Button onClick={() => setModoEmision(true)}>
+            <Button
+              onClick={() => setModoEmision(true)}
+              disabled={manualSinClase}
+              title={
+                manualSinClase
+                  ? 'Clasifica el pedido (venta directa o emergencia) antes de facturarlo.'
+                  : undefined
+              }
+            >
               <Receipt className="mr-2 h-4 w-4" />
               Facturar
             </Button>
           )}
         </div>
       </div>
+
+      {manualSinClase && facturable && (
+        <AvisoEnLinea tono="advertencia" titulo="Pedido manual sin clase">
+          Indica si es venta directa o emergencia para poder facturarlo.
+          {puedeEditar && editable
+            ? ' Usa «Editar» para clasificarlo.'
+            : ' Pide a quien captura pedidos que lo clasifique.'}
+        </AvisoEnLinea>
+      )}
+
+      {esEmergencia && (
+        <section
+          aria-label="Datos de la emergencia"
+          className="space-y-2 rounded-lg bg-surface-card px-4 py-3 shadow-card-flat"
+        >
+          <h2 className="text-sm font-semibold text-ink">Captura de emergencia</h2>
+          <dl className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+            <div className="space-y-0.5 sm:col-span-2">
+              <dt className="text-xs text-ink-muted">Motivo</dt>
+              <dd className="text-sm text-ink">{p.motivoEmergencia ?? '—'}</dd>
+            </div>
+            <div className="space-y-0.5">
+              <dt className="text-xs text-ink-muted">Pedido A+W para conciliar</dt>
+              <dd className="font-mono text-sm text-ink">
+                {p.referenciaPedidoAw ?? 'Sin referencia'}
+              </dd>
+            </div>
+          </dl>
+        </section>
+      )}
 
       <dl className="grid grid-cols-1 gap-4 rounded-lg bg-surface-card p-4 shadow-card-flat sm:grid-cols-4">
         {/* FAC-ING-PR3: el backend ya devuelve el nombre del catálogo. */}

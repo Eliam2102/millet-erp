@@ -155,6 +155,30 @@ public sealed class ReintentarTimbradoHandler
             Version: comprobante.Version);
     }
 
+    /// <summary>
+    /// 86e3t97tx: guarda <c>TimbradoEnProceso</c> antes de llamar al PAC. El
+    /// token <c>Version</c> (ADR-0012) hace que solo un reintento concurrente
+    /// gane; el perdedor recibe <c>REINTENTO_EN_CURSO</c> sin tocar el PAC. Si
+    /// algo falla después del PAC, el comprobante queda en proceso (no en un
+    /// fallido "limpio") y el <c>TimbradoPendienteWorker</c> lo pasa a
+    /// <c>PAC_TIMEOUT</c>, que exige confirmación para reintentar.
+    /// </summary>
+    private async Task PersistirEnProcesoAsync(CancellationToken ct)
+    {
+        try
+        {
+            await _db.SaveChangesAsync(ct);
+        }
+        catch (DbUpdateConcurrencyException ex)
+        {
+            throw new ConflictException(
+                "REINTENTO_EN_CURSO",
+                "Otro reintento de timbrado de este comprobante ya está en curso. " +
+                "Espera unos segundos y recarga para ver el resultado; no lo vuelvas a intentar.",
+                ex);
+        }
+    }
+
     // ───────────────────────── Despacho por tipo ─────────────────────────
     // Cada método carga las navegaciones del subtipo (la instancia ya está
     // trackeada — el identity map de EF puebla la misma entidad), re-timbra
@@ -173,7 +197,7 @@ public sealed class ReintentarTimbradoHandler
 
         await TimbradoEjecutor.TimbrarYAplicarAsync(_db, 
             factura, CfdiEmisionBuilder.DesdeFacturaVenta(factura, ahora),
-            _fiscal, _cfdiRepo, ahora, ct);
+            _fiscal, _cfdiRepo, ahora, ct, PersistirEnProcesoAsync);
 
         // Efectos de EmitirFacturaVentaHandler pasos 9 y B2/B3 (evento +
         // asiento + pedido + write-back A+W) que el intento fallido omitió.
@@ -235,7 +259,7 @@ public sealed class ReintentarTimbradoHandler
 
         await TimbradoEjecutor.TimbrarYAplicarAsync(_db, 
             factura, CfdiEmisionBuilder.DesdeFacturaAnticipo(factura, ahora),
-            _fiscal, _cfdiRepo, ahora, ct);
+            _fiscal, _cfdiRepo, ahora, ct, PersistirEnProcesoAsync);
 
         if (factura.Estado == EstadoTimbrado.Timbrado)
         {
@@ -264,7 +288,7 @@ public sealed class ReintentarTimbradoHandler
 
         await TimbradoEjecutor.TimbrarYAplicarAsync(_db, 
             nc, CfdiEmisionBuilder.DesdeNotaCredito(nc, ahora),
-            _fiscal, _cfdiRepo, ahora, ct);
+            _fiscal, _cfdiRepo, ahora, ct, PersistirEnProcesoAsync);
 
         if (nc.Estado == EstadoTimbrado.Timbrado)
         {
@@ -287,7 +311,7 @@ public sealed class ReintentarTimbradoHandler
 
         await TimbradoEjecutor.TimbrarYAplicarAsync(_db, 
             repp, CfdiEmisionBuilder.DesdeReciboPago(repp, ahora),
-            _fiscal, _cfdiRepo, ahora, ct);
+            _fiscal, _cfdiRepo, ahora, ct, PersistirEnProcesoAsync);
 
         var pendiente = await _db.ReppPendientes.SingleOrDefaultAsync(p => p.IntentoReciboPagoId == repp.Id, ct);
         if (repp.Estado == EstadoTimbrado.Timbrado)
@@ -319,7 +343,7 @@ public sealed class ReintentarTimbradoHandler
 
         await TimbradoEjecutor.TimbrarYAplicarAsync(_db, 
             cp, CfdiEmisionBuilder.DesdeCartaPorte(cp, vehiculo, operador, ahora),
-            _fiscal, _cfdiRepo, ahora, ct);
+            _fiscal, _cfdiRepo, ahora, ct, PersistirEnProcesoAsync);
 
         // EmitirCartaPorteHandler no publica eventos de integración.
         return "CartaPorte";

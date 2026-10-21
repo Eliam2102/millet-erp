@@ -4,6 +4,7 @@
     <ProjectReference Include="../SharedKernel/Millet.SharedKernel.csproj" />
     <ProjectReference Include="../Compartido/Millet.Compartido.csproj" />
     <ProjectReference Include="../Compras/Millet.Compras.csproj" />
+    <ProjectReference Include="../CuentasPorPagar/Millet.CuentasPorPagar.csproj" />
   </ItemGroup>
   <ItemGroup>
     <PackageReference Include="Microsoft.EntityFrameworkCore" />

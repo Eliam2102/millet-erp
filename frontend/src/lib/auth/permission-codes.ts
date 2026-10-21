@@ -385,6 +385,8 @@ export const PermisosCanonicos = {
   FacturacionPedidosCapturar: 'facturacion.pedidos.capturar',
   FacturacionPedidosExcepcionesResolver:
     'facturacion.pedidos.excepciones-resolver',
+  // F6.1: captura de pedidos manuales de emergencia (A+W fuera de servicio).
+  FacturacionPedidosCapturarEmergencia: 'facturacion.pedidos.capturar-emergencia',
   FacturacionFacturasEmitir: 'facturacion.facturas.emitir',
   FacturacionFacturasLeer: 'facturacion.facturas.leer',
   // CTA "Corregir en catálogo" del receptor en la emisión (detallado
@@ -451,6 +453,9 @@ export const PermisosCanonicos = {
   ContabilidadRecurrentesLeer: 'contabilidad.recurrentes.leer',
   ContabilidadRecurrentesAdministrar: 'contabilidad.recurrentes.administrar',
   ContabilidadRecurrentesAutorizar: 'contabilidad.recurrentes.autorizar',
+  ComercioExteriorGastosRegistrar: 'comercio_exterior.gastos.registrar',
+  ComercioExteriorGastosDistribuir: 'comercio_exterior.gastos.distribuir',
+  ComercioExteriorAnticiposGestionar: 'comercio_exterior.anticipos.gestionar',
   ComercioExteriorOtrGestionar: 'comercio_exterior.otr.gestionar',
   ComercioExteriorContenedoresGestionar: 'comercio_exterior.expedientes.contenedores-gestionar',
   ComercioExteriorRelacionIvaLeer: 'comercio_exterior.relacion-iva.leer',
@@ -458,6 +463,7 @@ export const PermisosCanonicos = {
   ComercioExteriorExpedientesCrear: 'comercio_exterior.expedientes.crear',
   ComercioExteriorExpedientesEditar: 'comercio_exterior.expedientes.editar',
   ComercioExteriorExpedientesCancelar: 'comercio_exterior.expedientes.cancelar',
+  ComercioExteriorIncidenciasGestionar: 'comercio_exterior.incidencias.gestionar',
   ComercioExteriorExpedientesCerrar: 'comercio_exterior.expedientes.cerrar',
   ComercioExteriorExpedientesHitosRegistrar: 'comercio_exterior.expedientes.hitos-registrar',
   ComercioExteriorExpedientesDocumentosRevisar: 'comercio_exterior.expedientes.documentos-revisar',

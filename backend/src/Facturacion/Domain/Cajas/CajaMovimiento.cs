@@ -12,7 +12,7 @@ public enum TipoCajaMovimiento : short
     /// <summary>Depósito manual de efectivo a la caja.</summary>
     Deposito = 2,
 
-    /// <summary>Retiro parcial durante el día (v1: basta <c>caja.operar</c>, queda auditado — P4).</summary>
+    /// <summary>Retiro parcial durante el día (v1: basta <c>caja.operar</c>, queda auditado — P4); motivo de al menos 15 caracteres.</summary>
     Retiro = 3,
 
     /// <summary>Ajuste drenado de <c>caja_ajuste_pendiente</c> en la apertura (`[Decisión 12-C]`).</summary>
@@ -74,6 +74,9 @@ public sealed class CajaMovimiento : BaseEntity, IPerteneceAEmpresa, IAuditable
         UsuarioId = usuarioId;
     }
 
+    /// <summary>Largo mínimo del motivo de un retiro, sin espacios en los extremos (Millet 19-oct).</summary>
+    public const int MotivoRetiroMinimo = 15;
+
     public static CajaMovimiento Crear(
         Guid empresaId,
         Guid cajaSesionId,
@@ -96,6 +99,10 @@ public sealed class CajaMovimiento : BaseEntity, IPerteneceAEmpresa, IAuditable
             throw new BusinessRuleException("MOVIMIENTO_USUARIO_INVALIDO", "El usuario es obligatorio.");
         if (string.IsNullOrWhiteSpace(descripcion))
             throw new BusinessRuleException("MOVIMIENTO_DESCRIPCION_INVALIDA", "La descripción es obligatoria.");
+        if (tipo == TipoCajaMovimiento.Retiro && descripcion.Trim().Length < MotivoRetiroMinimo)
+            throw new BusinessRuleException(
+                "MOVIMIENTO_MOTIVO_RETIRO_CORTO",
+                $"El motivo del retiro debe tener al menos {MotivoRetiroMinimo} caracteres.");
         if (!string.Equals(moneda, "MXN", StringComparison.Ordinal))
             throw new BusinessRuleException("MOVIMIENTO_MONEDA_INVALIDA", "La caja opera solo MXN en v1 (P6).");
 

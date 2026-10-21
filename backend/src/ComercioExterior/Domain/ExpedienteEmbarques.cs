@@ -25,7 +25,7 @@ public sealed partial class Expediente
         ?? throw new EntityNotFoundException("CE_CONTENEDOR_NO_ENCONTRADO", "No existe el contenedor en este expediente.");
     public void GuardarContenedor(Guid id, DatosContenedor datos)
     {
-        ExigirExportacion();
+        ExigirAbierto();
         var actual = _contenedores.SingleOrDefault(x => x.Id == id);
         if (actual is null) _contenedores.Add(new(id, EmpresaId, Id, datos));
         else actual.Editar(datos);

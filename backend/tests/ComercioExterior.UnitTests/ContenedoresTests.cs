@@ -41,12 +41,14 @@ public sealed class ContenedoresTests
         Assert.Equal(Hoy.AddDays(-1), e.Contenedor(c).FechaEmbarqueReal);
     }
     [Fact]
-    public void K1_varios_pedidos_clientes_y_contenedores_sin_tope_y_rechazo_importacion()
+    public void K1_varios_pedidos_clientes_y_contenedores_sin_tope_e_importacion_con_gastos()
     {
         var e = Nuevo(); var c1 = Contenedor(e); var c2 = Contenedor(e);
         for (var i = 0; i < 9; i++) { var p = Pedido(e); e.AsignarPartida(c1, p, 1, 60, Actor); e.AsignarPartida(c2, p, 1, 40, Actor); }
         Assert.Equal(18, e.Partidas.Count); Assert.Equal(9, e.Partidas.Select(p => p.ClienteId).Distinct().Count());
-        Codigo("CE_SOLO_EXPORTACION", () => Contenedor(Nuevo(TipoExpediente.Importacion)));
+        var importacion = Nuevo(TipoExpediente.Importacion);
+        Contenedor(importacion);
+        Assert.Single(importacion.Contenedores);
     }
     [Fact]
     public void K2_cada_parcialidad_es_un_pedido_completo_y_solo_cuenta_lo_embarcado()

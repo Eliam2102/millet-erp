@@ -1,5 +1,6 @@
 using MediatR;
 using Millet.Facturacion.Domain.Facturas;
+using Millet.Facturacion.Domain.Pedidos;
 
 namespace Millet.Facturacion.Application.Pedidos.CrearPedidoFacturableManual;
 
@@ -8,6 +9,13 @@ namespace Millet.Facturacion.Application.Pedidos.CrearPedidoFacturableManual;
 /// (§7.10 levantamiento, estilo Requisiciones). La validación contra los masters
 /// de Cliente/Producto se hará cuando DatosMaestros sea real (F3); en F1-PR2 el
 /// operador aporta el snapshot de cliente/producto.
+///
+/// <para>
+/// F6.1 (R2): todo pedido manual se clasifica — <see cref="ClasePedidoManual.VentaDirecta"/>
+/// (con <see cref="SubtipoVentaDirecta"/>) o <see cref="ClasePedidoManual.Emergencia"/>
+/// (con motivo; requiere <c>facturacion.pedidos.capturar-emergencia</c>). Ambos
+/// se facturan con la serie VentaDirecta de la sucursal y no se informan a A+W.
+/// </para>
 /// </summary>
 public sealed record CrearPedidoFacturableManualCommand(
     string? NumeroPedido,
@@ -20,7 +28,11 @@ public sealed record CrearPedidoFacturableManualCommand(
     long? ObraId,
     string? ObraNombre,
     string? Comentarios,
-    IReadOnlyList<PedidoFacturableLineaInput> Lineas) : IRequest<PedidoFacturableResponse>;
+    IReadOnlyList<PedidoFacturableLineaInput> Lineas,
+    ClasePedidoManual? ClaseManual = null,
+    SubtipoVentaDirecta? SubtipoVentaDirecta = null,
+    string? MotivoEmergencia = null,
+    string? ReferenciaPedidoAw = null) : IRequest<PedidoFacturableResponse>, IClasificacionPedidoManual;
 
 /// <summary>Línea de captura (compartida por Crear y Editar).</summary>
 public sealed record PedidoFacturableLineaInput(

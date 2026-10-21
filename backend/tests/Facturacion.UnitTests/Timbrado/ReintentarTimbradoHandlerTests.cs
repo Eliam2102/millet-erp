@@ -20,9 +20,9 @@ public sealed class ReintentarTimbradoHandlerTests
 {
     private static readonly DateTimeOffset Ahora = new(2026, 7, 11, 12, 0, 0, TimeSpan.Zero);
 
-    private static FacturacionDbContext NewDb(Guid empresaId) =>
+    private static FacturacionDbContext NewDb(Guid empresaId, string? nombreBase = null) =>
         new(new DbContextOptionsBuilder<FacturacionDbContext>()
-                .UseInMemoryDatabase(Guid.NewGuid().ToString())
+                .UseInMemoryDatabase(nombreBase ?? Guid.NewGuid().ToString())
                 .Options,
             new FakeEmpresaContext(empresaId));
 
@@ -359,4 +359,127 @@ public sealed class ReintentarTimbradoHandlerTests
         db.BitacorasIntentoTimbrado.Should().BeEmpty();
     }
 
+    // ─────────── 86e3t97tx: reintento sin doble UUID (concurrencia) ───────────
+
+    /// <summary>PAC que cuenta llamadas y ejecuta un callback al ser invocado.</summary>
+    private sealed class PacEspia(Func<Task>? alLlamar = null) : ICfdiTimbradoPort
+    {
+        private readonly FakeFiscalApiClient _inner = new();
+        public int Llamadas { get; private set; }
+        public async Task<TimbradoResultado> TimbrarAsync(CfdiEmision emision, CancellationToken ct)
+        {
+            Llamadas++;
+            if (alLlamar is not null) await alLlamar();
+            return await _inner.TimbrarAsync(emision, ct);
+        }
+        public Task<CancelacionResultado> CancelarAsync(CancelacionSolicitud s, CancellationToken ct) =>
+            throw new NotImplementedException();
+        public Task<EstatusCfdiResultado> ConsultarEstatusAsync(EstatusCfdiSolicitud s, CancellationToken ct) =>
+            throw new NotImplementedException();
+    }
+
+    /// <summary>Paso posterior al PAC que revienta (simula caída antes del SaveChanges final).</summary>
+    private sealed class ContabilidadQueFalla : Millet.Facturacion.Domain.Ports.IContabilidadAsientoPort
+    {
+        public Task RegistrarAsientoAsync(Millet.Facturacion.Domain.Ports.AsientoContableSolicitud s, CancellationToken ct) =>
+            throw new InvalidOperationException("caída simulada después del PAC");
+    }
+
+    /// <summary>Periodo abierto que ejecuta un callback (punto entre la carga y el guardado del handler).</summary>
+    private sealed class PeriodoConGancho(Func<Task> gancho) : Millet.Facturacion.Domain.Ports.IPeriodoContablePort
+    {
+        private bool _ejecutado;
+        public async Task<bool> EstaAbiertoAsync(int anio, int mes, CancellationToken ct)
+        {
+            if (!_ejecutado) { _ejecutado = true; await gancho(); }
+            return true;
+        }
+    }
+
+    private static ReintentarTimbradoHandler HandlerCon(
+        FacturacionDbContext db, ICfdiTimbradoPort fiscal,
+        Millet.Facturacion.Domain.Ports.IContabilidadAsientoPort? contabilidad = null,
+        Millet.Facturacion.Domain.Ports.IPeriodoContablePort? periodo = null) =>
+        new(db, new FakeSender(new ReservarFolioResponse("NC-000001", 1, "")),
+            periodo ?? new FakePeriodoContablePort(true), fiscal,
+            new FakeCfdiRepositorioPort(), new FakeIntegrationEventPublisher(),
+            contabilidad ?? new FakeContabilidadAsientoPort(), new FakeClock(Ahora), ReceptorFiscalTestFactory.Crear(db));
+
+    [Fact]
+    public async Task Reintento_persiste_TimbradoEnProceso_antes_de_llamar_al_PAC()
+    {
+        var empresaId = Guid.NewGuid();
+        var nombreBase = Guid.NewGuid().ToString();
+        using var db = NewDb(empresaId, nombreBase);
+        var fv = CrearFacturaFallida(db, empresaId, "CFDI40179");
+        EstadoTimbrado? estadoPersistidoAlLlamarPac = null;
+        var pac = new PacEspia(async () =>
+        {
+            using var otra = NewDb(empresaId, nombreBase);
+            estadoPersistidoAlLlamarPac = (await otra.Comprobantes.AsNoTracking().SingleAsync(c => c.Id == fv.Id)).Estado;
+        });
+
+        var r = await HandlerCon(db, pac).Handle(new ReintentarTimbradoCommand(fv.Id), CancellationToken.None);
+
+        r.Estado.Should().Be("Timbrado");
+        pac.Llamadas.Should().Be(1);
+        // Otro reintento concurrente ya ve el comprobante "en proceso" y no puede llamar al PAC.
+        estadoPersistidoAlLlamarPac.Should().Be(EstadoTimbrado.TimbradoEnProceso);
+    }
+
+    [Fact]
+    public async Task Falla_despues_del_PAC_deja_en_proceso_y_bloquea_reintento_inmediato_sin_PAC()
+    {
+        var empresaId = Guid.NewGuid();
+        var nombreBase = Guid.NewGuid().ToString();
+        Guid id;
+        using (var db = NewDb(empresaId, nombreBase))
+        {
+            var fv = CrearFacturaFallida(db, empresaId, "CFDI40179");
+            id = fv.Id;
+            var act = () => HandlerCon(db, new PacEspia(), contabilidad: new ContabilidadQueFalla())
+                .Handle(new ReintentarTimbradoCommand(id), CancellationToken.None);
+            await act.Should().ThrowAsync<InvalidOperationException>();
+        }
+
+        // Lo persistido NO es un TimbradoFallido con código limpio (el PAC pudo haber timbrado).
+        using (var lectura = NewDb(empresaId, nombreBase))
+        {
+            var persistido = await lectura.Comprobantes.AsNoTracking().SingleAsync(c => c.Id == id);
+            persistido.Estado.Should().Be(EstadoTimbrado.TimbradoEnProceso);
+        }
+
+        // Un reintento inmediato es rechazado sin tocar el PAC.
+        using var db2 = NewDb(empresaId, nombreBase);
+        var pac2 = new PacEspia();
+        var reintento = () => HandlerCon(db2, pac2).Handle(new ReintentarTimbradoCommand(id), CancellationToken.None);
+        (await reintento.Should().ThrowAsync<BusinessRuleException>())
+            .Which.Code.Should().Be("COMPROBANTE_NO_REINTENTABLE");
+        pac2.Llamadas.Should().Be(0);
+    }
+
+    [Fact]
+    public async Task Reintento_con_version_cambiada_por_otro_responde_REINTENTO_EN_CURSO_sin_PAC()
+    {
+        var empresaId = Guid.NewGuid();
+        var nombreBase = Guid.NewGuid().ToString();
+        using var db = NewDb(empresaId, nombreBase);
+        var fv = CrearFacturaFallida(db, empresaId, "CFDI40179");
+        // Otro reintento gana la carrera entre la carga y el guardado de éste.
+        var periodo = new PeriodoConGancho(async () =>
+        {
+            using var otra = NewDb(empresaId, nombreBase);
+            var c = await otra.Comprobantes.SingleAsync(x => x.Id == fv.Id);
+            otra.Entry(c).Property(x => x.Version).CurrentValue = c.Version + 1;
+            await otra.SaveChangesAsync();
+        });
+        var pac = new PacEspia();
+
+        var act = () => HandlerCon(db, pac, periodo: periodo)
+            .Handle(new ReintentarTimbradoCommand(fv.Id), CancellationToken.None);
+
+        (await act.Should().ThrowAsync<ConflictException>())
+            .Which.Code.Should().Be("REINTENTO_EN_CURSO");
+        pac.Llamadas.Should().Be(0);
+    }
 }

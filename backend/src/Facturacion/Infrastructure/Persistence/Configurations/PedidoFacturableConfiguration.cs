@@ -12,7 +12,15 @@ public sealed class PedidoFacturableConfiguration : IEntityTypeConfiguration<Ped
 {
     public void Configure(EntityTypeBuilder<PedidoFacturable> builder)
     {
-        builder.ToTable("pedido_facturable");
+        builder.ToTable("pedido_facturable", t =>
+        {
+            // F6.1 (R2): la clase sólo existe en pedidos manuales (origen = 3);
+            // venta directa exige subtipo; emergencia exige motivo y no lleva subtipo.
+            t.HasCheckConstraint("ck_pedido_clase_solo_manual", "clase_manual IS NULL OR origen = 3");
+            t.HasCheckConstraint("ck_pedido_vd_subtipo", "clase_manual <> 1 OR subtipo_venta_directa IS NOT NULL");
+            t.HasCheckConstraint("ck_pedido_emergencia",
+                "clase_manual <> 2 OR (motivo_emergencia IS NOT NULL AND subtipo_venta_directa IS NULL)");
+        });
 
         builder.HasKey(e => e.Id);
         builder.Property(e => e.Id).ValueGeneratedNever();
@@ -46,6 +54,12 @@ public sealed class PedidoFacturableConfiguration : IEntityTypeConfiguration<Ped
         builder.Property(e => e.Comentarios).HasMaxLength(1000);
         builder.Property(e => e.VersionOrigen);
         builder.Property(e => e.EstadoOrigen).HasMaxLength(20);
+
+        // F6.1: clasificación del pedido manual (null en A+W/Planta Pintura y legacy).
+        builder.Property(e => e.ClaseManual).HasConversion<short>();
+        builder.Property(e => e.SubtipoVentaDirecta).HasConversion<short>();
+        builder.Property(e => e.MotivoEmergencia).HasMaxLength(500);
+        builder.Property(e => e.ReferenciaPedidoAw).HasMaxLength(50);
 
         builder.HasMany(e => e.Lineas)
             .WithOne()

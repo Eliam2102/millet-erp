@@ -242,6 +242,7 @@ if (!string.IsNullOrWhiteSpace(outboxConnString))
     // ejercitar directo desde tests (CxpEventListenerWorker.ProcessAsync es
     // internal a Almacen.IntegrationTests).
     builder.Services.AddHostedService<Millet.Almacen.Infrastructure.Workers.CxpEventListenerWorker>();
+    builder.Services.AddHostedService<Millet.Almacen.Infrastructure.Workers.ComercioExteriorEventListenerWorker>();
 
     // AF: listener de recepciones (Almacén) y facturas (CxP) que crean y valúan
     // activos por capitalizar. Solo con Service Bus real, como los demás listeners.
@@ -910,6 +911,7 @@ builder.Services.AddScoped<Millet.Facturacion.Domain.Ports.IUsuariosReadPort, Mi
 builder.Services.AddCentrosCostoModule();
 builder.Services.AddComprasReadPorts();
 builder.Services.AddComercioExteriorModule();
+builder.Services.AddScoped<Millet.CuentasPorPagar.Application.PublicPorts.IFacturaGastoReadPort, Millet.CuentasPorPagar.Infrastructure.PublicAdapters.FacturaGastoReadAdapter>();
 builder.Services.AddOptions<Millet.ComercioExterior.Infrastructure.Workers.AvisosHitosWorkerOptions>()
     .Bind(builder.Configuration.GetSection(Millet.ComercioExterior.Infrastructure.Workers.AvisosHitosWorkerOptions.SectionName))
     .Validate(o => o.Interval > TimeSpan.Zero, "ComercioExterior:AvisosHitos:Interval debe ser mayor que cero.")
