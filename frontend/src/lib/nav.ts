@@ -1035,6 +1035,13 @@ const comercioExterior: NavModulo = {
           permission: PermisosCanonicos.ComercioExteriorExpedientesLeer,
         },
         {
+          label: 'Incidencias',
+          description: 'Incidencias pendientes, seguimiento y antigüedad.',
+          to: '/comercio-exterior/incidencias',
+          icon: FileText,
+          permission: PermisosCanonicos.ComercioExteriorExpedientesLeer,
+        },
+        {
           label: 'Bandeja OTR',
           description: 'Vincular envíos y revisar salidas fallidas o sin acuse.',
           to: '/comercio-exterior/otr',
@@ -1053,6 +1060,40 @@ const comercioExterior: NavModulo = {
   ],
 };
 
+const activosFijos: NavModulo = {
+  moduloId: 'activos-fijos',
+  label: 'Activos fijos',
+  icon: Building2,
+  secciones: [
+    {
+      label: 'Operación',
+      cards: [
+        {
+          label: 'Activos',
+          description: 'Maestro y custodia de activos.',
+          to: '/activos-fijos/activos',
+          icon: Building2,
+          permission: PermisosCanonicos.ActivosFijosActivosVer,
+        },
+        {
+          label: 'Por capitalizar',
+          description: 'Completar datos y registrar la póliza de alta.',
+          to: '/activos-fijos/por-capitalizar',
+          icon: BookOpen,
+          permission: PermisosCanonicos.ActivosFijosCapitalizar,
+        },
+        {
+          label: 'Clases',
+          description: 'Tasas y cuentas contables.',
+          to: '/activos-fijos/clases',
+          icon: Layers,
+          permission: PermisosCanonicos.ActivosFijosClasesAdministrar,
+        },
+      ],
+    },
+  ],
+};
+
 const modulos: readonly NavModulo[] = [
   moduloFacturacion,
   moduloCuentasPorCobrar,
@@ -1061,7 +1102,7 @@ const modulos: readonly NavModulo[] = [
   moduloCuentasPorPagar,
   moduloTesoreria,
   moduloCentrosCosto,
-  placeholderModulo('activos', 'Activos Fijos', Building2),
+  activosFijos,
   moduloContabilidad,
   placeholderModulo('reportes', 'Reportes', LineChart),
   comercioExterior,

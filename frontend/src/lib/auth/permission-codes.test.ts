@@ -12,6 +12,14 @@ import { PermisosCanonicos } from '@/lib/auth/permission-codes';
  * vuelve redundante y se borra.</para>
  */
 const CODIGOS_BACKEND_ESPERADOS = new Set<string>([
+  'activos_fijos.clases.administrar',
+  'activos_fijos.activos.ver',
+  'activos_fijos.activos.gestionar',
+  'activos_fijos.capitalizar',
+  'activos_fijos.traslados.gestionar',
+  'activos_fijos.activos.leer-todas-sucursales',
+  'activos_fijos.activos.gestionar-todas-sucursales',
+
   // Infra
   'infra.health.leer',
   'infra.audit_log.leer',
@@ -312,6 +320,7 @@ const CODIGOS_BACKEND_ESPERADOS = new Set<string>([
   'comercio_exterior.expedientes.leer',
   'comercio_exterior.expedientes.contenedores-gestionar',
   'comercio_exterior.relacion-iva.leer',
+  'comercio_exterior.incidencias.gestionar',
   'comercio_exterior.expedientes.crear',
   'comercio_exterior.expedientes.editar',
   'comercio_exterior.expedientes.cancelar',
@@ -323,7 +332,9 @@ const CODIGOS_BACKEND_ESPERADOS = new Set<string>([
   'comercio_exterior.expedientes.adjuntos-baja',
   'comercio_exterior.documentos.leer-todas-sucursales',
   'comercio_exterior.documentos.gestionar-todas-sucursales',
-
+  'comercio_exterior.gastos.registrar',
+  'comercio_exterior.gastos.distribuir',
+  'comercio_exterior.anticipos.gestionar',
 ]);
 
 describe('PermisosCanonicos — coincidencia con backend', () => {
@@ -348,10 +359,10 @@ describe('PermisosCanonicos — coincidencia con backend', () => {
     expect(delModulo).toHaveLength(30);
   });
 
-  it('formato modulo.recurso.accion (entre 3 y 4 segmentos)', () => {
+  it('formato canónico, con capitalizar de P3 como excepción explícita', () => {
     for (const code of codigos) {
       const segmentos = code.split('.');
-      expect(segmentos.length).toBeGreaterThanOrEqual(3);
+      expect(segmentos.length).toBeGreaterThanOrEqual(code === 'activos_fijos.capitalizar' ? 2 : 3);
       expect(segmentos.length).toBeLessThanOrEqual(4);
       // Sin mayúsculas (todo lowercase + guiones internos).
       expect(code).toBe(code.toLowerCase());

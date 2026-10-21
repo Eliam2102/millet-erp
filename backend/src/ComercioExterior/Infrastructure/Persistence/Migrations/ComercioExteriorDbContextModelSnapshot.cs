@@ -26,6 +26,126 @@ namespace Millet.ComercioExterior.Infrastructure.Persistence.Migrations
 
             modelBuilder.HasSequence("folio_seq", "comercio_exterior");
 
+            modelBuilder.Entity("Millet.ComercioExterior.Domain.AnticipoAgente", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<Guid>("AgenteId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("agente_id");
+
+                    b.Property<decimal>("CompensacionRecibida")
+                        .HasPrecision(20, 2)
+                        .HasColumnType("numeric(20,2)")
+                        .HasColumnName("compensacion_recibida");
+
+                    b.Property<Guid?>("ComprobantePagoId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("comprobante_pago_id");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at");
+
+                    b.Property<string>("CreatedBy")
+                        .HasColumnType("text")
+                        .HasColumnName("created_by");
+
+                    b.Property<DateTimeOffset?>("DeletedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("deleted_at");
+
+                    b.Property<Guid>("EmpresaId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("empresa_id");
+
+                    b.Property<Guid>("ExpedienteId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("expediente_id");
+
+                    b.Property<DateOnly>("Fecha")
+                        .HasColumnType("date")
+                        .HasColumnName("fecha");
+
+                    b.Property<DateOnly?>("FechaComprobacion")
+                        .HasColumnType("date")
+                        .HasColumnName("fecha_comprobacion");
+
+                    b.Property<decimal>("Igi")
+                        .HasPrecision(20, 2)
+                        .HasColumnType("numeric(20,2)")
+                        .HasColumnName("igi");
+
+                    b.Property<decimal?>("IgiAplicado")
+                        .HasPrecision(20, 2)
+                        .HasColumnType("numeric(20,2)")
+                        .HasColumnName("igi_aplicado");
+
+                    b.Property<decimal>("Iva")
+                        .HasPrecision(20, 2)
+                        .HasColumnType("numeric(20,2)")
+                        .HasColumnName("iva");
+
+                    b.Property<decimal?>("IvaAplicado")
+                        .HasPrecision(20, 2)
+                        .HasColumnType("numeric(20,2)")
+                        .HasColumnName("iva_aplicado");
+
+                    b.Property<string>("Pedimento")
+                        .IsRequired()
+                        .HasColumnType("text")
+                        .HasColumnName("pedimento");
+
+                    b.Property<Guid?>("PedimentoPagadoId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("pedimento_pagado_id");
+
+                    b.Property<decimal>("Prv")
+                        .HasPrecision(20, 2)
+                        .HasColumnType("numeric(20,2)")
+                        .HasColumnName("prv");
+
+                    b.Property<decimal?>("PrvAplicado")
+                        .HasPrecision(20, 2)
+                        .HasColumnType("numeric(20,2)")
+                        .HasColumnName("prv_aplicado");
+
+                    b.Property<string>("ReferenciaPago")
+                        .HasColumnType("text")
+                        .HasColumnName("referencia_pago");
+
+                    b.Property<string>("Resoluciones")
+                        .IsRequired()
+                        .HasColumnType("jsonb")
+                        .HasColumnName("resoluciones");
+
+                    b.Property<DateTimeOffset>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("updated_at");
+
+                    b.Property<string>("UpdatedBy")
+                        .HasColumnType("text")
+                        .HasColumnName("updated_by");
+
+                    b.Property<int>("Version")
+                        .IsConcurrencyToken()
+                        .HasColumnType("integer")
+                        .HasColumnName("version");
+
+                    b.HasKey("Id")
+                        .HasName("pk_anticipos_agente");
+
+                    b.HasIndex("ExpedienteId")
+                        .HasDatabaseName("ix_anticipos_agente_expediente_id");
+
+                    b.HasIndex("EmpresaId", "AgenteId")
+                        .HasDatabaseName("ix_anticipos_agente_empresa_id_agente_id");
+
+                    b.ToTable("anticipos_agente", "comercio_exterior");
+                });
+
             modelBuilder.Entity("Millet.ComercioExterior.Domain.AvisoHitoVencido", b =>
                 {
                     b.Property<Guid>("Id")
@@ -88,6 +208,135 @@ namespace Millet.ComercioExterior.Infrastructure.Persistence.Migrations
                         .HasDatabaseName("ix_avisos_hito_vencido_hito_id_fecha_compromiso");
 
                     b.ToTable("avisos_hito_vencido", "comercio_exterior");
+                });
+
+            modelBuilder.Entity("Millet.ComercioExterior.Domain.AvisoIncidencia", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at");
+
+                    b.Property<string>("CreatedBy")
+                        .HasColumnType("text")
+                        .HasColumnName("created_by");
+
+                    b.Property<DateTimeOffset?>("DeletedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("deleted_at");
+
+                    b.Property<Guid>("DestinatarioUsuarioId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("destinatario_usuario_id");
+
+                    b.Property<Guid>("EmpresaId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("empresa_id");
+
+                    b.Property<Guid>("ExpedienteId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("expediente_id");
+
+                    b.Property<DateTimeOffset>("Fecha")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("fecha");
+
+                    b.Property<Guid>("IncidenciaId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("incidencia_id");
+
+                    b.Property<DateTimeOffset>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("updated_at");
+
+                    b.Property<string>("UpdatedBy")
+                        .HasColumnType("text")
+                        .HasColumnName("updated_by");
+
+                    b.Property<int>("Version")
+                        .IsConcurrencyToken()
+                        .HasColumnType("integer")
+                        .HasColumnName("version");
+
+                    b.HasKey("Id")
+                        .HasName("pk_avisos_incidencia");
+
+                    b.HasIndex("ExpedienteId")
+                        .HasDatabaseName("ix_avisos_incidencia_expediente_id");
+
+                    b.HasIndex("IncidenciaId")
+                        .IsUnique()
+                        .HasDatabaseName("ix_avisos_incidencia_incidencia_id");
+
+                    b.ToTable("avisos_incidencia", "comercio_exterior");
+                });
+
+            modelBuilder.Entity("Millet.ComercioExterior.Domain.ConceptoGasto", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<int>("BaseExportacion")
+                        .HasColumnType("integer")
+                        .HasColumnName("base_exportacion");
+
+                    b.Property<int>("BaseImportacion")
+                        .HasColumnType("integer")
+                        .HasColumnName("base_importacion");
+
+                    b.Property<string>("Codigo")
+                        .IsRequired()
+                        .HasMaxLength(30)
+                        .HasColumnType("character varying(30)")
+                        .HasColumnName("codigo");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at");
+
+                    b.Property<string>("CreatedBy")
+                        .HasColumnType("text")
+                        .HasColumnName("created_by");
+
+                    b.Property<DateTimeOffset?>("DeletedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("deleted_at");
+
+                    b.Property<Guid>("EmpresaId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("empresa_id");
+
+                    b.Property<string>("Nombre")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)")
+                        .HasColumnName("nombre");
+
+                    b.Property<DateTimeOffset>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("updated_at");
+
+                    b.Property<string>("UpdatedBy")
+                        .HasColumnType("text")
+                        .HasColumnName("updated_by");
+
+                    b.Property<int>("Version")
+                        .IsConcurrencyToken()
+                        .HasColumnType("integer")
+                        .HasColumnName("version");
+
+                    b.HasKey("Id")
+                        .HasName("pk_conceptos_gasto");
+
+                    b.HasIndex("EmpresaId", "Codigo")
+                        .IsUnique()
+                        .HasDatabaseName("ix_conceptos_gasto_empresa_id_codigo");
+
+                    b.ToTable("conceptos_gasto", "comercio_exterior");
                 });
 
             modelBuilder.Entity("Millet.ComercioExterior.Domain.ContenedorExpediente", b =>
@@ -190,6 +439,81 @@ namespace Millet.ComercioExterior.Infrastructure.Persistence.Migrations
                     b.ToTable("contenedores", "comercio_exterior");
                 });
 
+            modelBuilder.Entity("Millet.ComercioExterior.Domain.DistribucionGasto", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at");
+
+                    b.Property<string>("CreatedBy")
+                        .HasColumnType("text")
+                        .HasColumnName("created_by");
+
+                    b.Property<DateTimeOffset?>("DeletedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("deleted_at");
+
+                    b.Property<Guid>("EmpresaId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("empresa_id");
+
+                    b.Property<Guid>("ExpedienteId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("expediente_id");
+
+                    b.Property<DateTimeOffset>("Fecha")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("fecha");
+
+                    b.Property<int>("NumeroVersion")
+                        .HasColumnType("integer")
+                        .HasColumnName("numero_version");
+
+                    b.Property<string>("Partidas")
+                        .IsRequired()
+                        .HasColumnType("jsonb")
+                        .HasColumnName("partidas");
+
+                    b.Property<string>("Renglones")
+                        .IsRequired()
+                        .HasColumnType("jsonb")
+                        .HasColumnName("renglones");
+
+                    b.Property<int>("RevisionFinanciera")
+                        .HasColumnType("integer")
+                        .HasColumnName("revision_financiera");
+
+                    b.Property<DateTimeOffset>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("updated_at");
+
+                    b.Property<string>("UpdatedBy")
+                        .HasColumnType("text")
+                        .HasColumnName("updated_by");
+
+                    b.Property<Guid>("UsuarioId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("usuario_id");
+
+                    b.Property<int>("Version")
+                        .IsConcurrencyToken()
+                        .HasColumnType("integer")
+                        .HasColumnName("version");
+
+                    b.HasKey("Id")
+                        .HasName("pk_distribuciones_gasto");
+
+                    b.HasIndex("ExpedienteId", "NumeroVersion")
+                        .IsUnique()
+                        .HasDatabaseName("ix_distribuciones_gasto_expediente_id_numero_version");
+
+                    b.ToTable("distribuciones_gasto", "comercio_exterior");
+                });
+
             modelBuilder.Entity("Millet.ComercioExterior.Domain.DocumentoExpediente", b =>
                 {
                     b.Property<Guid>("Id")
@@ -286,6 +610,77 @@ namespace Millet.ComercioExterior.Infrastructure.Persistence.Migrations
                     b.ToTable("documentos", "comercio_exterior");
                 });
 
+            modelBuilder.Entity("Millet.ComercioExterior.Domain.EstadoIncidenciaHistorial", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<Guid>("ActorId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("actor_id");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at");
+
+                    b.Property<string>("CreatedBy")
+                        .HasColumnType("text")
+                        .HasColumnName("created_by");
+
+                    b.Property<DateTimeOffset?>("DeletedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("deleted_at");
+
+                    b.Property<Guid>("EmpresaId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("empresa_id");
+
+                    b.Property<string>("Estado")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)")
+                        .HasColumnName("estado");
+
+                    b.Property<Guid>("ExpedienteId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("expediente_id");
+
+                    b.Property<DateTimeOffset>("Fecha")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("fecha");
+
+                    b.Property<Guid>("IncidenciaId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("incidencia_id");
+
+                    b.Property<string>("Motivo")
+                        .HasMaxLength(2000)
+                        .HasColumnType("character varying(2000)")
+                        .HasColumnName("motivo");
+
+                    b.Property<DateTimeOffset>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("updated_at");
+
+                    b.Property<string>("UpdatedBy")
+                        .HasColumnType("text")
+                        .HasColumnName("updated_by");
+
+                    b.Property<int>("Version")
+                        .IsConcurrencyToken()
+                        .HasColumnType("integer")
+                        .HasColumnName("version");
+
+                    b.HasKey("Id")
+                        .HasName("pk_incidencias_historial");
+
+                    b.HasIndex("IncidenciaId")
+                        .HasDatabaseName("ix_incidencias_historial_incidencia_id");
+
+                    b.ToTable("incidencias_historial", "comercio_exterior");
+                });
+
             modelBuilder.Entity("Millet.ComercioExterior.Domain.Expediente", b =>
                 {
                     b.Property<Guid>("Id")
@@ -330,6 +725,10 @@ namespace Millet.ComercioExterior.Infrastructure.Persistence.Migrations
                         .HasColumnType("date")
                         .HasColumnName("fecha_tc");
 
+                    b.Property<bool>("FinancieroCerrado")
+                        .HasColumnType("boolean")
+                        .HasColumnName("financiero_cerrado");
+
                     b.Property<string>("Folio")
                         .IsRequired()
                         .HasMaxLength(24)
@@ -361,6 +760,11 @@ namespace Millet.ComercioExterior.Infrastructure.Persistence.Migrations
                         .HasColumnType("character varying(100)")
                         .HasColumnName("numero_pedimento_exportacion");
 
+                    b.Property<string>("NumeroPedimentoVigenteImportacion")
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)")
+                        .HasColumnName("numero_pedimento_vigente_importacion");
+
                     b.Property<Guid?>("OcId")
                         .HasColumnType("uuid")
                         .HasColumnName("oc_id");
@@ -382,6 +786,10 @@ namespace Millet.ComercioExterior.Infrastructure.Persistence.Migrations
                     b.Property<int>("RevisionContenido")
                         .HasColumnType("integer")
                         .HasColumnName("revision_contenido");
+
+                    b.Property<int>("RevisionFinanciera")
+                        .HasColumnType("integer")
+                        .HasColumnName("revision_financiera");
 
                     b.Property<bool>("RevisionPendiente")
                         .HasColumnType("boolean")
@@ -430,6 +838,130 @@ namespace Millet.ComercioExterior.Infrastructure.Persistence.Migrations
                         .HasDatabaseName("ix_expedientes_empresa_id_sucursal_id_estado");
 
                     b.ToTable("expedientes", "comercio_exterior");
+                });
+
+            modelBuilder.Entity("Millet.ComercioExterior.Domain.GastoExpediente", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<string>("Concepto")
+                        .IsRequired()
+                        .HasColumnType("text")
+                        .HasColumnName("concepto");
+
+                    b.Property<Guid>("ConceptoId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("concepto_id");
+
+                    b.Property<Guid?>("ContenedorId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("contenedor_id");
+
+                    b.Property<decimal?>("Cotizado")
+                        .HasPrecision(20, 2)
+                        .HasColumnType("numeric(20,2)")
+                        .HasColumnName("cotizado");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at");
+
+                    b.Property<string>("CreatedBy")
+                        .HasColumnType("text")
+                        .HasColumnName("created_by");
+
+                    b.Property<DateTimeOffset?>("DeletedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("deleted_at");
+
+                    b.Property<Guid>("EmpresaId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("empresa_id");
+
+                    b.Property<bool>("ExcluidoDelCosto")
+                        .HasColumnType("boolean")
+                        .HasColumnName("excluido_del_costo");
+
+                    b.Property<Guid>("ExpedienteId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("expediente_id");
+
+                    b.Property<string>("Factura")
+                        .IsRequired()
+                        .HasColumnType("text")
+                        .HasColumnName("factura");
+
+                    b.Property<Guid?>("FacturaProveedorId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("factura_proveedor_id");
+
+                    b.Property<DateOnly>("FechaFactura")
+                        .HasColumnType("date")
+                        .HasColumnName("fecha_factura");
+
+                    b.Property<string>("FuenteTipoCambio")
+                        .IsRequired()
+                        .HasColumnType("text")
+                        .HasColumnName("fuente_tipo_cambio");
+
+                    b.Property<decimal>("Importe")
+                        .HasPrecision(20, 2)
+                        .HasColumnType("numeric(20,2)")
+                        .HasColumnName("importe");
+
+                    b.Property<decimal>("ImporteMxn")
+                        .HasPrecision(20, 2)
+                        .HasColumnType("numeric(20,2)")
+                        .HasColumnName("importe_mxn");
+
+                    b.Property<string>("ImportesDirectos")
+                        .IsRequired()
+                        .HasColumnType("jsonb")
+                        .HasColumnName("importes_directos");
+
+                    b.Property<string>("Moneda")
+                        .IsRequired()
+                        .HasColumnType("text")
+                        .HasColumnName("moneda");
+
+                    b.Property<string>("Pedimento")
+                        .HasColumnType("text")
+                        .HasColumnName("pedimento");
+
+                    b.Property<Guid>("ProveedorId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("proveedor_id");
+
+                    b.Property<decimal>("TipoCambio")
+                        .HasPrecision(20, 6)
+                        .HasColumnType("numeric(20,6)")
+                        .HasColumnName("tipo_cambio");
+
+                    b.Property<DateTimeOffset>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("updated_at");
+
+                    b.Property<string>("UpdatedBy")
+                        .HasColumnType("text")
+                        .HasColumnName("updated_by");
+
+                    b.Property<int>("Version")
+                        .IsConcurrencyToken()
+                        .HasColumnType("integer")
+                        .HasColumnName("version");
+
+                    b.HasKey("Id")
+                        .HasName("pk_gastos_expediente");
+
+                    b.HasIndex("ConceptoId")
+                        .HasDatabaseName("ix_gastos_expediente_concepto_id");
+
+                    b.HasIndex("ExpedienteId")
+                        .HasDatabaseName("ix_gastos_expediente_expediente_id");
+
+                    b.ToTable("gastos_expediente", "comercio_exterior");
                 });
 
             modelBuilder.Entity("Millet.ComercioExterior.Domain.HitoExpediente", b =>
@@ -527,6 +1059,140 @@ namespace Millet.ComercioExterior.Infrastructure.Persistence.Migrations
                         .HasDatabaseName("ix_hitos_expediente_id_orden");
 
                     b.ToTable("hitos", "comercio_exterior");
+                });
+
+            modelBuilder.Entity("Millet.ComercioExterior.Domain.IncidenciaExpediente", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<string>("AccionCorrectiva")
+                        .HasMaxLength(2000)
+                        .HasColumnType("character varying(2000)")
+                        .HasColumnName("accion_correctiva");
+
+                    b.Property<Guid?>("ContenedorId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("contenedor_id");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at");
+
+                    b.Property<string>("CreatedBy")
+                        .HasColumnType("text")
+                        .HasColumnName("created_by");
+
+                    b.Property<DateTimeOffset?>("DeletedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("deleted_at");
+
+                    b.Property<string>("Descripcion")
+                        .HasMaxLength(2000)
+                        .HasColumnType("character varying(2000)")
+                        .HasColumnName("descripcion");
+
+                    b.PrimitiveCollection<Guid[]>("DocumentosIds")
+                        .IsRequired()
+                        .HasColumnType("uuid[]")
+                        .HasColumnName("documentos_ids");
+
+                    b.Property<string>("EfectoPosterior")
+                        .HasMaxLength(2000)
+                        .HasColumnType("character varying(2000)")
+                        .HasColumnName("efecto_posterior");
+
+                    b.Property<Guid>("EmpresaId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("empresa_id");
+
+                    b.Property<string>("Estado")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)")
+                        .HasColumnName("estado");
+
+                    b.PrimitiveCollection<Guid[]>("EvidenciasIds")
+                        .IsRequired()
+                        .HasColumnType("uuid[]")
+                        .HasColumnName("evidencias_ids");
+
+                    b.Property<Guid>("ExpedienteId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("expediente_id");
+
+                    b.Property<DateOnly>("Fecha")
+                        .HasColumnType("date")
+                        .HasColumnName("fecha");
+
+                    b.Property<string>("HitoClave")
+                        .HasMaxLength(40)
+                        .HasColumnType("character varying(40)")
+                        .HasColumnName("hito_clave");
+
+                    b.Property<string>("Motivo")
+                        .IsRequired()
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)")
+                        .HasColumnName("motivo");
+
+                    b.Property<string>("MotivoCancelacion")
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)")
+                        .HasColumnName("motivo_cancelacion");
+
+                    b.Property<Guid?>("ParticipanteId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("participante_id");
+
+                    b.Property<Guid?>("PartidaId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("partida_id");
+
+                    b.Property<string>("PedimentoAnterior")
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)")
+                        .HasColumnName("pedimento_anterior");
+
+                    b.Property<string>("PedimentoNuevo")
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)")
+                        .HasColumnName("pedimento_nuevo");
+
+                    b.Property<Guid>("ResponsableUsuarioId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("responsable_usuario_id");
+
+                    b.Property<string>("Tipo")
+                        .IsRequired()
+                        .HasMaxLength(40)
+                        .HasColumnType("character varying(40)")
+                        .HasColumnName("tipo");
+
+                    b.Property<DateTimeOffset>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("updated_at");
+
+                    b.Property<string>("UpdatedBy")
+                        .HasColumnType("text")
+                        .HasColumnName("updated_by");
+
+                    b.Property<int>("Version")
+                        .IsConcurrencyToken()
+                        .HasColumnType("integer")
+                        .HasColumnName("version");
+
+                    b.HasKey("Id")
+                        .HasName("pk_incidencias");
+
+                    b.HasIndex("ExpedienteId")
+                        .HasDatabaseName("ix_incidencias_expediente_id");
+
+                    b.HasIndex("EmpresaId", "Estado", "Fecha")
+                        .HasDatabaseName("ix_incidencias_empresa_id_estado_fecha");
+
+                    b.ToTable("incidencias", "comercio_exterior");
                 });
 
             modelBuilder.Entity("Millet.ComercioExterior.Domain.OtrConflicto", b =>
@@ -1092,6 +1758,78 @@ namespace Millet.ComercioExterior.Infrastructure.Persistence.Migrations
                     b.ToTable("participantes", "comercio_exterior");
                 });
 
+            modelBuilder.Entity("Millet.ComercioExterior.Domain.PartidaCosto", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<Guid?>("ContenedorId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("contenedor_id");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at");
+
+                    b.Property<string>("CreatedBy")
+                        .HasColumnType("text")
+                        .HasColumnName("created_by");
+
+                    b.Property<DateTimeOffset?>("DeletedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("deleted_at");
+
+                    b.Property<string>("Descripcion")
+                        .IsRequired()
+                        .HasColumnType("text")
+                        .HasColumnName("descripcion");
+
+                    b.Property<Guid>("EmpresaId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("empresa_id");
+
+                    b.Property<Guid>("ExpedienteId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("expediente_id");
+
+                    b.Property<string>("Pedimento")
+                        .IsRequired()
+                        .HasColumnType("text")
+                        .HasColumnName("pedimento");
+
+                    b.Property<decimal>("PesoKg")
+                        .HasPrecision(20, 6)
+                        .HasColumnType("numeric(20,6)")
+                        .HasColumnName("peso_kg");
+
+                    b.Property<DateTimeOffset>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("updated_at");
+
+                    b.Property<string>("UpdatedBy")
+                        .HasColumnType("text")
+                        .HasColumnName("updated_by");
+
+                    b.Property<decimal>("ValorAduanaMxn")
+                        .HasPrecision(20, 2)
+                        .HasColumnType("numeric(20,2)")
+                        .HasColumnName("valor_aduana_mxn");
+
+                    b.Property<int>("Version")
+                        .IsConcurrencyToken()
+                        .HasColumnType("integer")
+                        .HasColumnName("version");
+
+                    b.HasKey("Id")
+                        .HasName("pk_partidas_costo");
+
+                    b.HasIndex("ExpedienteId")
+                        .HasDatabaseName("ix_partidas_costo_expediente_id");
+
+                    b.ToTable("partidas_costo", "comercio_exterior");
+                });
+
             modelBuilder.Entity("Millet.ComercioExterior.Domain.PartidaEmbarcada", b =>
                 {
                     b.Property<Guid>("Id")
@@ -1441,6 +2179,16 @@ namespace Millet.ComercioExterior.Infrastructure.Persistence.Migrations
                     b.ToTable("integration_events_outbox", "comercio_exterior");
                 });
 
+            modelBuilder.Entity("Millet.ComercioExterior.Domain.AnticipoAgente", b =>
+                {
+                    b.HasOne("Millet.ComercioExterior.Domain.Expediente", null)
+                        .WithMany("Anticipos")
+                        .HasForeignKey("ExpedienteId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired()
+                        .HasConstraintName("fk_anticipos_agente_expedientes_expediente_id");
+                });
+
             modelBuilder.Entity("Millet.ComercioExterior.Domain.AvisoHitoVencido", b =>
                 {
                     b.HasOne("Millet.ComercioExterior.Domain.Expediente", null)
@@ -1458,6 +2206,23 @@ namespace Millet.ComercioExterior.Infrastructure.Persistence.Migrations
                         .HasConstraintName("fk_avisos_hito_vencido_hitos_hito_id");
                 });
 
+            modelBuilder.Entity("Millet.ComercioExterior.Domain.AvisoIncidencia", b =>
+                {
+                    b.HasOne("Millet.ComercioExterior.Domain.Expediente", null)
+                        .WithMany("AvisosIncidencias")
+                        .HasForeignKey("ExpedienteId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired()
+                        .HasConstraintName("fk_avisos_incidencia_expedientes_expediente_id");
+
+                    b.HasOne("Millet.ComercioExterior.Domain.IncidenciaExpediente", null)
+                        .WithMany()
+                        .HasForeignKey("IncidenciaId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired()
+                        .HasConstraintName("fk_avisos_incidencia_incidencias_incidencia_id");
+                });
+
             modelBuilder.Entity("Millet.ComercioExterior.Domain.ContenedorExpediente", b =>
                 {
                     b.HasOne("Millet.ComercioExterior.Domain.Expediente", null)
@@ -1466,6 +2231,16 @@ namespace Millet.ComercioExterior.Infrastructure.Persistence.Migrations
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired()
                         .HasConstraintName("fk_contenedores_expedientes_expediente_id");
+                });
+
+            modelBuilder.Entity("Millet.ComercioExterior.Domain.DistribucionGasto", b =>
+                {
+                    b.HasOne("Millet.ComercioExterior.Domain.Expediente", null)
+                        .WithMany("Distribuciones")
+                        .HasForeignKey("ExpedienteId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired()
+                        .HasConstraintName("fk_distribuciones_gasto_expedientes_expediente_id");
                 });
 
             modelBuilder.Entity("Millet.ComercioExterior.Domain.DocumentoExpediente", b =>
@@ -1484,6 +2259,33 @@ namespace Millet.ComercioExterior.Infrastructure.Persistence.Migrations
                         .HasConstraintName("fk_documentos_documentos_reemplaza_a");
                 });
 
+            modelBuilder.Entity("Millet.ComercioExterior.Domain.EstadoIncidenciaHistorial", b =>
+                {
+                    b.HasOne("Millet.ComercioExterior.Domain.IncidenciaExpediente", null)
+                        .WithMany("Historial")
+                        .HasForeignKey("IncidenciaId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired()
+                        .HasConstraintName("fk_incidencias_historial_incidencias_incidencia_id");
+                });
+
+            modelBuilder.Entity("Millet.ComercioExterior.Domain.GastoExpediente", b =>
+                {
+                    b.HasOne("Millet.ComercioExterior.Domain.ConceptoGasto", null)
+                        .WithMany()
+                        .HasForeignKey("ConceptoId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired()
+                        .HasConstraintName("fk_gastos_expediente_conceptos_gasto_concepto_id");
+
+                    b.HasOne("Millet.ComercioExterior.Domain.Expediente", null)
+                        .WithMany("Gastos")
+                        .HasForeignKey("ExpedienteId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired()
+                        .HasConstraintName("fk_gastos_expediente_expedientes_expediente_id");
+                });
+
             modelBuilder.Entity("Millet.ComercioExterior.Domain.HitoExpediente", b =>
                 {
                     b.HasOne("Millet.ComercioExterior.Domain.Expediente", null)
@@ -1492,6 +2294,16 @@ namespace Millet.ComercioExterior.Infrastructure.Persistence.Migrations
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired()
                         .HasConstraintName("fk_hitos_expedientes_expediente_id");
+                });
+
+            modelBuilder.Entity("Millet.ComercioExterior.Domain.IncidenciaExpediente", b =>
+                {
+                    b.HasOne("Millet.ComercioExterior.Domain.Expediente", null)
+                        .WithMany("Incidencias")
+                        .HasForeignKey("ExpedienteId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired()
+                        .HasConstraintName("fk_incidencias_expedientes_expediente_id");
                 });
 
             modelBuilder.Entity("Millet.ComercioExterior.Domain.OtrConflicto", b =>
@@ -1561,6 +2373,16 @@ namespace Millet.ComercioExterior.Infrastructure.Persistence.Migrations
                         .HasConstraintName("fk_participantes_expedientes_expediente_id");
                 });
 
+            modelBuilder.Entity("Millet.ComercioExterior.Domain.PartidaCosto", b =>
+                {
+                    b.HasOne("Millet.ComercioExterior.Domain.Expediente", null)
+                        .WithMany("PartidasCosto")
+                        .HasForeignKey("ExpedienteId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired()
+                        .HasConstraintName("fk_partidas_costo_expedientes_expediente_id");
+                });
+
             modelBuilder.Entity("Millet.ComercioExterior.Domain.PartidaEmbarcada", b =>
                 {
                     b.HasOne("Millet.ComercioExterior.Domain.ContenedorExpediente", null)
@@ -1590,19 +2412,36 @@ namespace Millet.ComercioExterior.Infrastructure.Persistence.Migrations
 
             modelBuilder.Entity("Millet.ComercioExterior.Domain.Expediente", b =>
                 {
+                    b.Navigation("Anticipos");
+
                     b.Navigation("Avisos");
+
+                    b.Navigation("AvisosIncidencias");
 
                     b.Navigation("Contenedores");
 
+                    b.Navigation("Distribuciones");
+
                     b.Navigation("Documentos");
 
+                    b.Navigation("Gastos");
+
                     b.Navigation("Hitos");
+
+                    b.Navigation("Incidencias");
 
                     b.Navigation("Participantes");
 
                     b.Navigation("Partidas");
 
+                    b.Navigation("PartidasCosto");
+
                     b.Navigation("VinculosPedidos");
+                });
+
+            modelBuilder.Entity("Millet.ComercioExterior.Domain.IncidenciaExpediente", b =>
+                {
+                    b.Navigation("Historial");
                 });
 
             modelBuilder.Entity("Millet.ComercioExterior.Domain.OtrEnvio", b =>

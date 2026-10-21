@@ -564,7 +564,18 @@ public static class PermisosCanonicos
     public const string ContabilidadRecurrentesAdministrar              = "contabilidad.recurrentes.administrar";
     public const string ContabilidadRecurrentesAutorizar                = "contabilidad.recurrentes.autorizar";
 
+    public const string ActivosFijosClasesAdministrar = "activos_fijos.clases.administrar";
+    public const string ActivosFijosActivosVer = "activos_fijos.activos.ver";
+    public const string ActivosFijosActivosGestionar = "activos_fijos.activos.gestionar";
+    public const string ActivosFijosCapitalizar = "activos_fijos.capitalizar";
+    public const string ActivosFijosTrasladosGestionar = "activos_fijos.traslados.gestionar";
+    public const string ActivosFijosLeerTodasSucursales = "activos_fijos.activos.leer-todas-sucursales";
+    public const string ActivosFijosGestionarTodasSucursales = "activos_fijos.activos.gestionar-todas-sucursales";
+
     // Comercio Exterior (CE-01a), namespace 0000000e.
+    public const string ComercioExteriorGastosRegistrar = "comercio_exterior.gastos.registrar";
+    public const string ComercioExteriorGastosDistribuir = "comercio_exterior.gastos.distribuir";
+    public const string ComercioExteriorAnticiposGestionar = "comercio_exterior.anticipos.gestionar";
     public const string ComercioExteriorOtrGestionar = "comercio_exterior.otr.gestionar";
     public const string ComercioExteriorContenedoresGestionar = "comercio_exterior.expedientes.contenedores-gestionar";
     public const string ComercioExteriorRelacionIvaLeer = "comercio_exterior.relacion-iva.leer";
@@ -572,6 +583,7 @@ public static class PermisosCanonicos
     public const string ComercioExteriorExpedientesCrear = "comercio_exterior.expedientes.crear";
     public const string ComercioExteriorExpedientesEditar = "comercio_exterior.expedientes.editar";
     public const string ComercioExteriorExpedientesCancelar = "comercio_exterior.expedientes.cancelar";
+    public const string ComercioExteriorIncidenciasGestionar = "comercio_exterior.incidencias.gestionar";
     public const string ComercioExteriorExpedientesCerrar = "comercio_exterior.expedientes.cerrar";
     public const string ComercioExteriorExpedientesHitosRegistrar = "comercio_exterior.expedientes.hitos-registrar";
     public const string ComercioExteriorExpedientesDocumentosRevisar = "comercio_exterior.expedientes.documentos-revisar";
@@ -913,6 +925,9 @@ public static class PermisosCanonicos
         (Guid.Parse("0000000d-0006-0000-0000-000000000003"), ContabilidadRecurrentesAutorizar,       "Activar plantillas recurrentes preparadas por otro usuario"),
 
         // CE-01a. Namespace 0000000e, agregado al final para integrar otros PR.
+        (Guid.Parse("0000000e-0006-0000-0000-000000000001"), ComercioExteriorGastosRegistrar, "Registrar gastos"),
+        (Guid.Parse("0000000e-0006-0000-0000-000000000002"), ComercioExteriorGastosDistribuir, "Distribuir gastos"),
+        (Guid.Parse("0000000e-0006-0000-0000-000000000003"), ComercioExteriorAnticiposGestionar, "Gestionar anticipos al agente"),
         (Guid.Parse("0000000e-0004-0000-0000-000000000001"), ComercioExteriorOtrGestionar, "Gestionar envíos OTR, conflictos y reintentos"),
         (Guid.Parse("0000000e-0001-0000-0000-00000000000b"), ComercioExteriorContenedoresGestionar, "Gestionar contenedores y partidas"),
         (Guid.Parse("0000000e-0003-0000-0000-000000000001"), ComercioExteriorRelacionIvaLeer, "Consultar relación mensual para IVA"),
@@ -920,6 +935,7 @@ public static class PermisosCanonicos
         (Guid.Parse("0000000e-0001-0000-0000-000000000002"), ComercioExteriorExpedientesCrear, "Abrir expedientes"),
         (Guid.Parse("0000000e-0001-0000-0000-000000000003"), ComercioExteriorExpedientesEditar, "Editar expedientes y participantes"),
         (Guid.Parse("0000000e-0001-0000-0000-000000000004"), ComercioExteriorExpedientesCancelar, "Cancelar con motivo"),
+        (Guid.Parse("0000000e-0005-0000-0000-000000000001"), ComercioExteriorIncidenciasGestionar, "Gestionar incidencias del expediente"),
         (Guid.Parse("0000000e-0001-0000-0000-000000000005"), ComercioExteriorExpedientesCerrar, "Reservado para CE-01b"),
         (Guid.Parse("0000000e-0001-0000-0000-000000000006"), ComercioExteriorExpedientesHitosRegistrar, "Reservado para CE-01b"),
         (Guid.Parse("0000000e-0001-0000-0000-000000000007"), ComercioExteriorExpedientesDocumentosRevisar, "Revisar requisitos documentales"),
@@ -928,5 +944,12 @@ public static class PermisosCanonicos
         (Guid.Parse("0000000e-0001-0000-0000-00000000000a"), ComercioExteriorExpedientesAdjuntosBaja, "Baja lógica con motivo"),
         (Guid.Parse("0000000e-0002-0000-0000-000000000001"), ComercioExteriorDocumentosLeerTodasSucursales, "Consultar todas las sucursales"),
         (Guid.Parse("0000000e-0002-0000-0000-000000000002"), ComercioExteriorDocumentosGestionarTodasSucursales, "Operar todas las sucursales"),
+        (Guid.Parse("0000000f-0001-0000-0000-000000000001"), ActivosFijosClasesAdministrar, "Activos fijos: clases.administrar"),
+        (Guid.Parse("0000000f-0001-0000-0000-000000000002"), ActivosFijosActivosVer, "Activos fijos: activos.ver"),
+        (Guid.Parse("0000000f-0001-0000-0000-000000000003"), ActivosFijosActivosGestionar, "Activos fijos: activos.gestionar"),
+        (Guid.Parse("0000000f-0001-0000-0000-000000000004"), ActivosFijosCapitalizar, "Activos fijos: capitalizar"),
+        (Guid.Parse("0000000f-0001-0000-0000-000000000005"), ActivosFijosTrasladosGestionar, "Activos fijos: traslados.gestionar"),
+        (Guid.Parse("0000000f-0001-0000-0000-000000000006"), ActivosFijosLeerTodasSucursales, "Activos fijos: activos.leer-todas-sucursales"),
+        (Guid.Parse("0000000f-0001-0000-0000-000000000007"), ActivosFijosGestionarTodasSucursales, "Activos fijos: activos.gestionar-todas-sucursales"),
     };
 }

@@ -1,3 +1,4 @@
+import { LineaActivoFields } from '@/features/activos-fijos/components/LineaActivoFields';
 import { FormCampo } from '@/components/erp/forms/FormGrid';
 import { FormGrid } from '@/components/erp/forms/FormGrid';
 /* eslint-disable react-hooks/incompatible-library -- react-hook-form watch alimenta validación dinámica; React Compiler omite su memoización de forma segura. */
@@ -717,6 +718,17 @@ export function LineaInlineFormOc({ oc, linea, onCancel, onSaved }: LineaInlineF
             </div>
           </FormCampo>
         </FormGrid>
+      )}
+      {!esEditar && (
+        <LineaActivoFields
+          error={form.formState.errors.claseActivoId?.message}
+          activo={form.watch('esActivoFijo') ?? false}
+          clase={form.watch('claseActivoId')}
+          onChange={(activo, clase) => {
+            form.setValue('esActivoFijo', activo, { shouldDirty: true });
+            form.setValue('claseActivoId', clase, { shouldDirty: true });
+          }}
+        />
       )}
     </form>
   );

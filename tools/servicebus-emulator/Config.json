@@ -147,6 +147,29 @@
                     }
                   }
                 ]
+              },
+              {
+                "Name": "activos-fijos-almacen",
+                "Properties": {
+                  "DeadLetteringOnMessageExpiration": false,
+                  "DefaultMessageTimeToLive": "PT1H",
+                  "LockDuration": "PT1M",
+                  "MaxDeliveryCount": 10,
+                  "ForwardDeadLetteredMessagesTo": "",
+                  "ForwardTo": "",
+                  "RequiresSession": false
+                },
+                "Rules": [
+                  {
+                    "Name": "EventTypeFilter",
+                    "Properties": {
+                      "FilterType": "Sql",
+                      "SqlFilter": {
+                        "SqlExpression": "user.EventType = 'almacen.oc_recepcion.registrada.v1'"
+                      }
+                    }
+                  }
+                ]
               }
             ]
           },
@@ -222,6 +245,29 @@
                       "FilterType": "Sql",
                       "SqlFilter": {
                         "SqlExpression": "user.EventType IN ('cuentas_por_pagar.pasivo.autorizado-para-pago.v1', 'cuentas_por_pagar.pasivo.retirado-de-pago.v1', 'cuentas_por_pagar.deposito-viaticos.esperado.v1')"
+                      }
+                    }
+                  }
+                ]
+              },
+              {
+                "Name": "activos-fijos-cxp",
+                "Properties": {
+                  "DeadLetteringOnMessageExpiration": false,
+                  "DefaultMessageTimeToLive": "PT1H",
+                  "LockDuration": "PT1M",
+                  "MaxDeliveryCount": 10,
+                  "ForwardDeadLetteredMessagesTo": "",
+                  "ForwardTo": "",
+                  "RequiresSession": false
+                },
+                "Rules": [
+                  {
+                    "Name": "EventTypeFilter",
+                    "Properties": {
+                      "FilterType": "Sql",
+                      "SqlFilter": {
+                        "SqlExpression": "user.EventType = 'cuentas_por_pagar.factura.registrada.v1'"
                       }
                     }
                   }
