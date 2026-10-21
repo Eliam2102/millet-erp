@@ -100,11 +100,15 @@ public sealed class FakeSender(ReservarFolioResponse reservaResponse) : ISender
 {
     public int VecesReservoFolio { get; private set; }
 
+    /// <summary>F6.1: tipos de serie solicitados, en orden (VentaDirecta vs Cfdi).</summary>
+    public List<Millet.Administracion.Domain.TipoDocumentoSerie> TiposReservados { get; } = [];
+
     public Task<TResponse> Send<TResponse>(IRequest<TResponse> request, CancellationToken cancellationToken = default)
     {
-        if (request is ReservarFolioCommand)
+        if (request is ReservarFolioCommand reserva)
         {
             VecesReservoFolio++;
+            TiposReservados.Add(reserva.TipoDocumento);
             return Task.FromResult((TResponse)(object)reservaResponse);
         }
 

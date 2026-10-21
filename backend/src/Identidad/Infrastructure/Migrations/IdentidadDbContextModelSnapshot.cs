@@ -3461,6 +3461,20 @@ namespace Millet.Identidad.Infrastructure.Migrations
                         },
                         new
                         {
+                            Id = new Guid("00000009-0001-0000-0000-000000000004"),
+                            Accion = "capturar-emergencia",
+                            Codigo = "facturacion.pedidos.capturar-emergencia",
+                            CreatedAt = new DateTimeOffset(new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            CreatedBy = "seed",
+                            Descripcion = "Capturar pedidos manuales de emergencia (A+W fuera de servicio), facturados con la serie de Venta directa",
+                            Modulo = "facturacion",
+                            Recurso = "pedidos",
+                            UpdatedAt = new DateTimeOffset(new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            UpdatedBy = "seed",
+                            Version = 1
+                        },
+                        new
+                        {
                             Id = new Guid("00000009-0002-0000-0000-000000000001"),
                             Accion = "emitir",
                             Codigo = "facturacion.facturas.emitir",

@@ -1,3 +1,4 @@
+import { AvisoEnLinea } from '@/components/erp/feedback/AvisoEnLinea';
 import { ResumenImportes } from '@/components/erp/display/ResumenImportes';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -10,6 +11,7 @@ import {
 } from '@/features/facturacion/api/types';
 import { useEmisorDefaults, useEmitirFactura } from '@/features/facturacion/api/useFacturas';
 import { ErrorTimbradoAviso } from '@/features/facturacion/components/ErrorTimbradoAviso';
+import { errorEmisionVentaDirecta } from '@/features/facturacion/lib/errores-venta-directa';
 import { mostrarErrorReceptorFiscal } from '@/features/facturacion/lib/mostrar-error-receptor-fiscal';
 import {
   EmitirFacturaSchema,
@@ -20,7 +22,8 @@ import { PermisosCanonicos } from '@/lib/auth/permission-codes';
 import { useHasPermission } from '@/lib/auth/useHasPermission';
 import { cn } from '@/lib/utils';
 import { zodResolver } from '@hookform/resolvers/zod';
-import { useNavigate } from '@tanstack/react-router';
+import { Link, useNavigate } from '@tanstack/react-router';
+import { Info } from 'lucide-react';
 import { useState } from 'react';
 import { useForm, useWatch } from 'react-hook-form';
 import { toast } from 'sonner';
@@ -64,6 +67,12 @@ export interface EmitirFacturaFormProps {
   onSuccess: (res: EmitirFacturaVentaResponse) => void;
   /** Se invoca ya confirmado el descarte (el confirm-si-dirty vive aquí). */
   onCancel: () => void;
+  /**
+   * F6.1: abre la edición del pedido de origen (destrabe de
+   * PEDIDO_MANUAL_SIN_CLASIFICAR / FAC_PEDIDO_ACTIVO_COMPORTAMIENTO).
+   * Ausente si el usuario no puede editarlo.
+   */
+  onEditarPedido?: () => void;
 }
 
 /** Campos del schema que viven en la pestaña Encabezado (badge de errores). */
@@ -131,6 +140,7 @@ function FormInner({
   prefill,
   onSuccess,
   onCancel,
+  onEditarPedido,
   emisor,
 }: EmitirFacturaFormProps & { emisor: EmisorDefaultsResponse }) {
   const idempotencyKey = useFormIdempotencyKey();
@@ -147,6 +157,13 @@ function FormInner({
   const puedeCorregirArticulo = useHasPermission(
     PermisosCanonicos.FacturacionFacturasEditarArticulo,
   );
+  const puedeGestionarSeries = useHasPermission(PermisosCanonicos.AdminSeriesGestionar);
+
+  // F6.1: pedido manual clasificado (venta directa o emergencia) → serie
+  // de Venta directa; subtipo Activo → comportamiento fijo + autorización.
+  const esVentaDirecta = prefill?.claseManual != null;
+  const esPedidoActivo = prefill?.subtipoVentaDirecta === 'Activo';
+  const manualSinClase = prefill?.origen === 'Manual' && prefill?.claseManual == null;
 
   const form = useForm<EmitirFacturaValues>({
     resolver: zodResolver(EmitirFacturaSchema),
@@ -214,7 +231,8 @@ function FormInner({
   const esCce = ce?.ligado
     ? ce.clavePedimento === 'A1'
     : comportamiento === ComportamientoFiscal.ExportacionConCce;
-  const esActivo = comportamiento === ComportamientoFiscal.VentaActivoFijo;
+  const esActivo = esPedidoActivo || comportamiento === ComportamientoFiscal.VentaActivoFijo;
+  const errorVentaDirecta = errorEmisionVentaDirecta(emitir.error);
   // `valueAsNumber` da NaN al vaciar un input, y `NaN ?? 0` = NaN (?? solo
   // atrapa null/undefined) → el total mostraba "NaN". `finito` lo coerce a 0.
   const finito = (v: number | null | undefined) => (Number.isFinite(v) ? (v as number) : 0);
@@ -251,7 +269,7 @@ function FormInner({
   }
 
   function onSubmit(values: EmitirFacturaValues) {
-    if (ceBloqueado) return;
+    if (ceBloqueado || manualSinClase) return;
     if (esActivo && autorizacionId.trim() === '') {
       toast.error('La venta de activo fijo requiere el ID de autorización del Contador General.');
       return;
@@ -348,6 +366,8 @@ function FormInner({
           onSuccess(res);
         },
         onError: (error) => {
+          // F6.1: serie de Venta directa / clase del pedido → callout con destrabe.
+          if (errorEmisionVentaDirecta(error) != null) return;
           if (mostrarErrorReceptorFiscal(error)) return;
           if (esApiError(error)) {
             if (
@@ -367,7 +387,51 @@ function FormInner({
   return (
     <form onSubmit={form.handleSubmit(onSubmit)} noValidate className="space-y-4">
       {ce?.ligado && <EmbarqueCeResumen datos={ce} bloqueo={ceBloqueado ? motivoCe : null} />}
-      <ErrorTimbradoAviso error={emitir.error} />
+      {errorVentaDirecta != null ? (
+        <AvisoEnLinea
+          tono="error"
+          titulo={errorVentaDirecta.titulo}
+          accion={
+            errorVentaDirecta.destino === 'series' && puedeGestionarSeries ? (
+              <Link to="/admin/series" className="text-sm font-medium text-brand underline">
+                Abrir Administración → Series
+              </Link>
+            ) : errorVentaDirecta.destino === 'editar-pedido' && onEditarPedido ? (
+              <Button type="button" variant="secondary" size="sm" onClick={onEditarPedido}>
+                Editar pedido
+              </Button>
+            ) : undefined
+          }
+        >
+          {errorVentaDirecta.mensaje}
+        </AvisoEnLinea>
+      ) : (
+        <ErrorTimbradoAviso error={emitir.error} />
+      )}
+      {manualSinClase && (
+        <AvisoEnLinea
+          tono="advertencia"
+          titulo="Pedido manual sin clase"
+          accion={
+            onEditarPedido ? (
+              <Button type="button" variant="secondary" size="sm" onClick={onEditarPedido}>
+                Editar pedido
+              </Button>
+            ) : undefined
+          }
+        >
+          Indica si el pedido es venta directa o emergencia antes de facturarlo.
+        </AvisoEnLinea>
+      )}
+      {esVentaDirecta && (
+        <p
+          data-testid="leyenda-serie-venta-directa"
+          className="flex items-start gap-1.5 rounded-md bg-info-bg px-3 py-2 text-sm text-info-fg"
+        >
+          <Info aria-hidden="true" className="mt-0.5 size-4 shrink-0" strokeWidth={1.6} />
+          Se timbrará con la serie de Venta directa de la sucursal.
+        </p>
+      )}
       {prefill?.pedidoFacturableId && (
         <div className="rounded-md border border-brand/30 bg-brand/5 px-3 py-2 text-sm">
           Facturando un pedido — partidas, datos comerciales y fiscales vienen precargados desde el
@@ -401,6 +465,11 @@ function FormInner({
             esCce={esCce}
             embarqueCe={ce}
             esActivo={esActivo}
+            comportamientoFijo={
+              esPedidoActivo
+                ? 'Fijo: el pedido es una venta directa de un activo.'
+                : undefined
+            }
             autorizacionId={autorizacionId}
             onAutorizacionIdChange={setAutorizacionId}
             clienteId={clienteId}
@@ -480,13 +549,15 @@ function FormInner({
             />
             <Button
               type="submit"
-              disabled={emitir.isPending || receptorBloqueado || ceBloqueado}
+              disabled={emitir.isPending || receptorBloqueado || ceBloqueado || manualSinClase}
               title={
-                ceBloqueado
-                  ? (motivoCe ?? 'Complete el embarque en Comercio Exterior.')
-                  : receptorBloqueado
-                    ? 'Receptor incompleto: complétalo en Datos Maestros → Clientes'
-                    : undefined
+                manualSinClase
+                  ? 'Clasifica el pedido (venta directa o emergencia) antes de facturarlo.'
+                  : ceBloqueado
+                    ? (motivoCe ?? 'Complete el embarque en Comercio Exterior.')
+                    : receptorBloqueado
+                      ? 'Receptor incompleto: complétalo en Datos Maestros → Clientes'
+                      : undefined
               }
             >
               {emitir.isPending ? 'Emitiendo…' : 'Emitir y timbrar'}

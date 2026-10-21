@@ -23,6 +23,8 @@ export const FacturasSearchSchema = z.object({
   q: z.string().optional(),
   // Bucket "Sin asignar" de la Capa A (solo caja.leer-todas, CAJAS-PR6).
   alcance: z.literal('sin-asignar').optional(),
+  /** F6.1: clase del pedido manual de origen (server-side). */
+  clase: z.enum(['VentaDirecta', 'Emergencia']).optional(),
   offset: z.number().int().min(0).optional(),
   limit: z.number().int().min(1).max(200).optional(),
 });

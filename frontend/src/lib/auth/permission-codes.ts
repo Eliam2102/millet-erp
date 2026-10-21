@@ -377,6 +377,8 @@ export const PermisosCanonicos = {
   FacturacionPedidosCapturar: 'facturacion.pedidos.capturar',
   FacturacionPedidosExcepcionesResolver:
     'facturacion.pedidos.excepciones-resolver',
+  // F6.1: captura de pedidos manuales de emergencia (A+W fuera de servicio).
+  FacturacionPedidosCapturarEmergencia: 'facturacion.pedidos.capturar-emergencia',
   FacturacionFacturasEmitir: 'facturacion.facturas.emitir',
   FacturacionFacturasLeer: 'facturacion.facturas.leer',
   // CTA "Corregir en catálogo" del receptor en la emisión (detallado

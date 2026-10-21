@@ -173,9 +173,9 @@ public sealed class AlcanceCajaTests
         db.Cajas.Add(CajaCon([SucursalA], [1], [Usuario]));
         db.PedidosFacturables.AddRange(
             PedidoFacturable.CrearManual(Empresa, "PED-1", SucursalA, Guid.NewGuid(), "Cliente", 1,
-                ComportamientoFiscal.MostradorInmediato, "MXN", null, null, null, null),
+                ComportamientoFiscal.MostradorInmediato, "MXN", null, null, null, null, Millet.Facturacion.Domain.Pedidos.ClasePedidoManual.VentaDirecta, Millet.Facturacion.Domain.Pedidos.SubtipoVentaDirecta.Servicio, null, null),
             PedidoFacturable.CrearManual(Empresa, "PED-2", SucursalB, Guid.NewGuid(), "Cliente", 1,
-                ComportamientoFiscal.MostradorInmediato, "MXN", null, null, null, null));
+                ComportamientoFiscal.MostradorInmediato, "MXN", null, null, null, null, Millet.Facturacion.Domain.Pedidos.ClasePedidoManual.VentaDirecta, Millet.Facturacion.Domain.Pedidos.SubtipoVentaDirecta.Servicio, null, null));
         await db.SaveChangesAsync();
 
         var alcance = await Evaluador(db).ResolverAsync(CancellationToken.None);
@@ -293,9 +293,9 @@ public sealed class AlcanceCajaTests
         db.Cajas.Add(CajaCon([SucursalA], [1], [Usuario]));
         db.PedidosFacturables.AddRange(
             PedidoFacturable.CrearManual(Empresa, "PED-1", SucursalA, Guid.NewGuid(), "Cliente", 1,
-                ComportamientoFiscal.MostradorInmediato, "MXN", null, null, null, null),
+                ComportamientoFiscal.MostradorInmediato, "MXN", null, null, null, null, Millet.Facturacion.Domain.Pedidos.ClasePedidoManual.VentaDirecta, Millet.Facturacion.Domain.Pedidos.SubtipoVentaDirecta.Servicio, null, null),
             PedidoFacturable.CrearManual(Empresa, "PED-2", SucursalB, Guid.NewGuid(), "Cliente", 5,
-                ComportamientoFiscal.MostradorInmediato, "MXN", null, null, null, null));
+                ComportamientoFiscal.MostradorInmediato, "MXN", null, null, null, null, Millet.Facturacion.Domain.Pedidos.ClasePedidoManual.VentaDirecta, Millet.Facturacion.Domain.Pedidos.SubtipoVentaDirecta.Servicio, null, null));
         await db.SaveChangesAsync();
 
         var propio = await new BandejaPedidosFacturablesHandler(db, Evaluador(db))

@@ -61,6 +61,7 @@ export function useListarFacturas(filtros: ListarFacturasFiltros) {
       if (filtros.offset != null) params.set('offset', String(filtros.offset));
       if (filtros.limit != null) params.set('limit', String(filtros.limit));
       if (filtros.alcance != null) params.set('alcance', filtros.alcance);
+      if (filtros.clase != null) params.set('clase', filtros.clase);
       const qs = params.toString();
       const { data } = await apiRequest<BandejaScoped<FacturaBandejaItem>>(
         qs ? `${BASE}?${qs}` : `${BASE}/`,

@@ -20,6 +20,8 @@ export interface ListarPedidosFiltros {
   limit?: number;
   /** Bucket "Sin asignar" de la Capa A (solo caja.leer-todas, CAJAS-PR6). */
   alcance?: 'sin-asignar';
+  /** F6.1: clase del pedido manual de origen (server-side). */
+  clase?: 'VentaDirecta' | 'Emergencia';
 }
 
 export interface ListarFacturasFiltros {
@@ -32,6 +34,8 @@ export interface ListarFacturasFiltros {
   limit?: number;
   /** Bucket "Sin asignar" de la Capa A (solo caja.leer-todas, CAJAS-PR6). */
   alcance?: 'sin-asignar';
+  /** F6.1: clase del pedido manual de origen (server-side). */
+  clase?: 'VentaDirecta' | 'Emergencia';
 }
 
 export const facturacionKeys = {
