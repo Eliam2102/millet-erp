@@ -151,7 +151,7 @@ export function EditorLineas({ rq }: EditorLineasProps) {
 
   if (rq.lineas.length === 0) {
     if (agregarAbierto) {
-      return <LineaInlineForm requisicionId={rq.id} onCancel={() => setAgregarAbierto(false)} />;
+      return <LineaInlineForm requisicionId={rq.id} clasificacion={rq.clasificacion} onCancel={() => setAgregarAbierto(false)} />;
     }
     return (
       <EmptyState
@@ -245,6 +245,7 @@ export function EditorLineas({ rq }: EditorLineasProps) {
         {lineaEnEdicion && (
           <LineaInlineForm
             requisicionId={rq.id}
+            clasificacion={rq.clasificacion}
             linea={lineaEnEdicion}
             onCancel={cerrarEdicion}
             onSaved={cerrarEdicion}
@@ -255,7 +256,7 @@ export function EditorLineas({ rq }: EditorLineasProps) {
             (design/frontend-polish). El form se mantiene abierto entre
             submits para agregar varias en sucesión. */}
         {agregarAbierto && (
-          <LineaInlineForm requisicionId={rq.id} onCancel={() => setAgregarAbierto(false)} />
+          <LineaInlineForm requisicionId={rq.id} clasificacion={rq.clasificacion} onCancel={() => setAgregarAbierto(false)} />
         )}
       </div>
 
