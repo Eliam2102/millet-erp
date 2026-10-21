@@ -9,11 +9,7 @@ import {
   CommandItem,
   CommandList,
 } from '@/components/ui/command';
-import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-} from '@/components/ui/popover';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { CatalogoQueryError } from '@/components/erp/selectors/CatalogoQueryError';
 import { apiRequest } from '@/lib/api';
 import { useDebouncedValue } from '@/lib/hooks/useDebouncedValue';
@@ -105,10 +101,9 @@ export function Dim3Picker({
       if (termino) params.set('q', termino);
       params.set('limit', '20');
       if (incluirInactivas) params.set('incluirInactivas', 'true');
-      const { data } = await apiRequest<Dim3BusquedaItem[]>(
-        `${endpoint}?${params.toString()}`,
-        { signal },
-      );
+      const { data } = await apiRequest<Dim3BusquedaItem[]>(`${endpoint}?${params.toString()}`, {
+        signal,
+      });
       return data;
     },
   });
@@ -150,8 +145,8 @@ export function Dim3Picker({
           disabled={disabled}
           className={cn(
             'w-full justify-between font-normal',
-            !value && 'text-muted-foreground',
-            invalid && 'border-destructive ring-1 ring-destructive',
+            !value && 'text-ink-muted',
+            invalid && 'border-danger ring-1 ring-danger',
             className,
           )}
         >
@@ -170,13 +165,13 @@ export function Dim3Picker({
               value={input}
               onChange={(e) => setInput(e.target.value)}
               disabled={disabled}
-              className="flex h-11 w-full rounded-md bg-transparent py-3 text-sm outline-none placeholder:text-muted-foreground disabled:cursor-not-allowed disabled:opacity-50"
+              className="flex h-11 w-full rounded-md bg-transparent py-3 text-sm outline-none placeholder:text-ink-muted disabled:cursor-not-allowed disabled:opacity-50"
             />
           </div>
           <CommandList>
             {busqueda.isLoading || busqueda.isFetching ? (
               <div
-                className="flex items-center justify-center gap-2 py-6 text-sm text-muted-foreground"
+                className="flex items-center justify-center gap-2 py-6 text-sm text-ink-muted"
                 aria-live="polite"
               >
                 <Loader2 className="h-4 w-4 animate-spin" />
@@ -213,15 +208,12 @@ export function Dim3Picker({
                             NO jerarquía del documento (CC-G4). Regla A: siempre, aunque
                             Dim2 = nombre (máquina administrativa); el tono lo lee como
                             contexto, no como duplicación. */}
-                        <p className="truncate text-xs text-muted-foreground">
+                        <p className="truncate text-xs text-ink-muted">
                           {m.dim1Nombre} · {m.dim2Nombre}
                         </p>
                       </div>
                       {m.id === value && (
-                        <Check
-                          className="mt-0.5 h-4 w-4 shrink-0"
-                          aria-hidden="true"
-                        />
+                        <Check className="mt-0.5 h-4 w-4 shrink-0" aria-hidden="true" />
                       )}
                     </CommandItem>
                   ))}

@@ -85,7 +85,7 @@ export function EditarDatosP8({ factura }: { factura: FacturaDetalle }) {
           <SelectValue />
         </SelectTrigger>
         <SelectContent>
-          <SelectItem value="sin-concepto">Sin concepto: por confirmar</SelectItem>
+          <SelectItem value="sin-concepto">Sin concepto</SelectItem>
           {[
             ...new Set([
               CONCEPTO_SIN_RETENCION,

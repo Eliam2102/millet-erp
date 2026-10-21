@@ -55,17 +55,11 @@ export function DetalleErrorBoundary({
   );
 }
 
-function Page403({
-  error,
-  bandejaSearch,
-}: {
-  error: ApiError;
-  bandejaSearch: BandejaSearch;
-}) {
+function Page403({ error, bandejaSearch }: { error: ApiError; bandejaSearch: BandejaSearch }) {
   // Loguear para diagnóstico — un 403 que llega aquí suele ser bug de UI
   // (botón visible para usuario sin permiso). Ver doc 05 §13.6.
   console.warn(
-    '[Compras P3] 403 recibido del backend:',
+    '[Compras P3] 403 recibido del sistema:',
     error.traceId ?? '(sin traceId)',
     error.problem,
   );

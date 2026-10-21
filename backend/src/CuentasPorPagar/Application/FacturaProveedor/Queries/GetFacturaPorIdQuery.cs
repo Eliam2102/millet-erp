@@ -56,7 +56,9 @@ public sealed record FacturaDetalleResponse(
     string? OrdenCompraFolio = null,
     DateTimeOffset? RetencionesRevisadasEn = null,
     string? RetencionesRevisionMotivo = null,
-    RevisionVigenteResponse? RevisionVigente = null);
+    RevisionVigenteResponse? RevisionVigente = null,
+    Guid? RecepcionId = null,
+    string? RecepcionFolio = null);
 
 /// <summary>Revisión por área en curso (C-06): motivo, área, fecha de envío y plazo en días hábiles.</summary>
 public sealed record RevisionVigenteResponse(
@@ -141,6 +143,11 @@ public sealed class GetFacturaPorIdHandler : IRequestHandler<GetFacturaPorIdQuer
                 motivo?.SlaDias is int sla && dias >= PlazoRevision.Umbrales(sla).Vencido);
         }
 
+        var folioRecepcion = f.RecepcionId is Guid rid
+            ? await _db.RecepcionesOcLocal.AsNoTracking().Where(r => r.RecepcionId == rid)
+                .Select(r => r.FolioRecepcion).FirstOrDefaultAsync(cancellationToken)
+            : null;
+
         var elegibilidad = await _elegibilidad.CalcularAsync(f, cancellationToken);
         return new FacturaDetalleResponse(
             Id: f.Id,
@@ -163,6 +170,8 @@ public sealed class GetFacturaPorIdHandler : IRequestHandler<GetFacturaPorIdQuer
             Total: f.Total,
             OrdenCompraId: f.OrdenCompraId,
             OrdenCompraFolio: orden?.Folio,
+            RecepcionId: f.RecepcionId,
+            RecepcionFolio: folioRecepcion,
             Estado: f.Estado,
             DiferenciaContraOc: f.DiferenciaContraOc,
             AnticipoAplicadoTotal: f.AnticipoAplicadoTotal,

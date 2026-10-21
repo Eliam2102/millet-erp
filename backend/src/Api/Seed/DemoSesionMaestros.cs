@@ -36,10 +36,13 @@ public sealed partial class DemoSesionSeedHostedService
                 codigoPostal: "42501", tasaIvaDefault: .16m);
             db.Empresas.Add(empresa);
         }
-        else if (empresa.RazonSocial.StartsWith("Empresa inicial pendiente", StringComparison.Ordinal))
+        else if (empresa.RazonSocial.StartsWith("Empresa inicial pendiente", StringComparison.Ordinal)
+                 || empresa.CodigoPostal is null)
         {
             // La empresa que crea la migración inicial queda con datos DEMO una sola vez; después se respeta
             // lo que un administrador edite (PRU-A: reiniciar la API ya no regresa la razón social).
+            // Sin código postal = DEMO aún no la tocó: el bootstrap pudo aplicarle antes
+            // Auth:Bootstrap:EmpresaInicial, pero nunca captura el código postal.
             empresa.ActualizarDatos(razonSocial: "MILLET INDUSTRIA DE VIDRIO (DEMO)", regimenFiscal: "601", codigoPostal: "42501", tasaIvaDefault: .16m);
         }
 
@@ -112,7 +115,7 @@ public sealed partial class DemoSesionSeedHostedService
         if (tipos.Count != 5)
             throw new InvalidOperationException("DEMO: el expediente de persona moral debe tener cinco tipos obligatorios; revisar migraciones.");
         var blob = sp.GetRequiredService<IBlobStoragePort>();
-        foreach (var (clave, cantidad) in new[] { ("DEMO-PROV-ACT", 5), ("DEMO-PROV-REV", 3) })
+        foreach (var (clave, cantidad, clabe) in new[] { ("DEMO-PROV-ACT", 5, "012180001234567899"), ("DEMO-PROV-REV", 3, "012180009876543215") })
         {
             // Proveedor + expediente se confirman juntos. Si la demo lo validó o
             // añadió documentos, un reinicio respeta ese avance.
@@ -121,7 +124,8 @@ public sealed partial class DemoSesionSeedHostedService
                 estatus: EstatusCatalogo.EnRevision);
             p.ActualizarClasificacionFiscal(OrigenProveedor.Nacional, "601", null);
             db.Proveedores.Add(p);
-            db.CuentasBancariasProveedor.Add(CuentaBancariaProveedor.Heredada(p.Id, "Banco de pruebas", "000000000000000000", p.RazonSocial, Fecha));
+            // CLABE válida (dígito de control): la heredada entra Activa y se puede pagar, así que no debe ser basura.
+            db.CuentasBancariasProveedor.Add(CuentaBancariaProveedor.Heredada(p.Id, "BBVA México", Millet.SharedKernel.Domain.Bancos.Clabe.Crear(clabe).Valor, p.RazonSocial, Fecha));
             var subidos = new List<string>();
             try
             {

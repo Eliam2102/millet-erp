@@ -1,3 +1,6 @@
+import { FormGrid, FormCampo } from '@/components/erp/forms/FormGrid';
+import { DialogBody } from '@/components/ui/dialog';
+import { SheetBody } from '@/components/ui/sheet';
 import { hoyLocalISO } from '@/lib/datetime';
 import { useState } from 'react';
 import { Controller, useForm, useWatch } from 'react-hook-form';
@@ -89,19 +92,13 @@ export function SolicitarAutorizacionConfirm({
         <AlertDialogHeader>
           <AlertDialogTitle>¿Solicitar autorización?</AlertDialogTitle>
           <AlertDialogDescription>
-            La devolución pasará a estado <b>En autorización</b>. Dirección
-            la revisará junto con las evidencias adjuntas. Asegúrate de
-            haber agregado al menos una evidencia.
+            La devolución pasará a estado <b>En autorización</b>. Dirección la revisará junto con
+            las evidencias adjuntas. Asegúrate de haber agregado al menos una evidencia.
           </AlertDialogDescription>
         </AlertDialogHeader>
         <AlertDialogFooter>
-          <AlertDialogCancel disabled={solicitar.isPending}>
-            Cancelar
-          </AlertDialogCancel>
-          <AlertDialogAction
-            disabled={solicitar.isPending}
-            onClick={ejecutar}
-          >
+          <AlertDialogCancel disabled={solicitar.isPending}>Cancelar</AlertDialogCancel>
+          <AlertDialogAction disabled={solicitar.isPending} onClick={ejecutar}>
             {solicitar.isPending ? 'Enviando…' : 'Solicitar'}
           </AlertDialogAction>
         </AlertDialogFooter>
@@ -141,19 +138,13 @@ export function AutorizarDevolucionConfirm({
         <AlertDialogHeader>
           <AlertDialogTitle>¿Autorizar devolución?</AlertDialogTitle>
           <AlertDialogDescription>
-            Confirmas la autorización de Dirección. La devolución pasará a
-            estado <b>Autorizada</b> y el Almacenista podrá registrar la
-            salida física.
+            Confirmas la autorización de Dirección. La devolución pasará a estado <b>Autorizada</b>{' '}
+            y el Almacenista podrá registrar la salida física.
           </AlertDialogDescription>
         </AlertDialogHeader>
         <AlertDialogFooter>
-          <AlertDialogCancel disabled={autorizar.isPending}>
-            Cancelar
-          </AlertDialogCancel>
-          <AlertDialogAction
-            disabled={autorizar.isPending}
-            onClick={ejecutar}
-          >
+          <AlertDialogCancel disabled={autorizar.isPending}>Cancelar</AlertDialogCancel>
+          <AlertDialogAction disabled={autorizar.isPending} onClick={ejecutar}>
             {autorizar.isPending ? 'Autorizando…' : 'Autorizar'}
           </AlertDialogAction>
         </AlertDialogFooter>
@@ -196,39 +187,45 @@ export function RechazarDevolucionDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-md">
+      <DialogContent size="sm">
         <DialogHeader>
           <DialogTitle>Rechazar devolución</DialogTitle>
           <DialogDescription>
-            Captura el motivo del rechazo. La devolución queda cerrada y el
-            material no se devolverá al proveedor.
+            Captura el motivo del rechazo. La devolución queda cerrada y el material no se devolverá
+            al proveedor.
           </DialogDescription>
         </DialogHeader>
-        <form
-          id="rechazar-devolucion-form"
-          onSubmit={form.handleSubmit(onSubmit)}
-          noValidate
-          className="space-y-3"
-        >
-          <Field
-            label="Motivo del rechazo"
-            required
-            error={form.formState.errors.motivoRechazo?.message}
+        <DialogBody>
+          <form
+            id="rechazar-devolucion-form"
+            onSubmit={form.handleSubmit(onSubmit)}
+            noValidate
+            className="space-y-4"
           >
-            <Controller
-              name="motivoRechazo"
-              control={form.control}
-              render={({ field }) => (
-                <TextAreaField
-                  value={field.value ?? null}
-                  onChange={(v) => field.onChange(v ?? '')}
-                  maxLength={500}
-                  minRows={3}
-                />
-              )}
-            />
-          </Field>
-        </form>
+            <FormGrid>
+              <FormCampo span={12}>
+                <Field
+                  label="Motivo del rechazo"
+                  required
+                  error={form.formState.errors.motivoRechazo?.message}
+                >
+                  <Controller
+                    name="motivoRechazo"
+                    control={form.control}
+                    render={({ field }) => (
+                      <TextAreaField
+                        value={field.value ?? null}
+                        onChange={(v) => field.onChange(v ?? '')}
+                        maxLength={500}
+                        minRows={3}
+                      />
+                    )}
+                  />
+                </Field>
+              </FormCampo>
+            </FormGrid>
+          </form>
+        </DialogBody>
         <DialogFooter>
           <Button
             type="button"
@@ -269,9 +266,8 @@ export function RegistrarSalidaDevolucionSheet({
         <SheetHeader>
           <SheetTitle>Registrar salida de devolución</SheetTitle>
           <SheetDescription>
-            Confirma que el material físicamente salió del almacén hacia
-            el proveedor. Esto genera el movimiento de salida y avisa
-            a Compras y Cuentas por Pagar.
+            Confirma que el material físicamente salió del almacén hacia el proveedor. Esto genera
+            el movimiento de salida y avisa a Compras y Cuentas por Pagar.
           </SheetDescription>
         </SheetHeader>
 
@@ -352,126 +348,123 @@ function RegistrarSalidaBody({
 
   return (
     <>
-      <form
-        id="registrar-salida-devolucion-form"
-        onSubmit={form.handleSubmit(onSubmit)}
-        noValidate
-        className="flex-1 space-y-4 overflow-y-auto px-6"
-      >
-        <Field
-          label="Sub-almacén origen"
-          required
-          error={form.formState.errors.subAlmacenId?.message}
+      <SheetBody>
+        <form
+          id="registrar-salida-devolucion-form"
+          onSubmit={form.handleSubmit(onSubmit)}
+          noValidate
+          className="space-y-4"
         >
-          <Controller
-            name="subAlmacenId"
-            control={form.control}
-            render={({ field }) => (
-              <Select
-                value={field.value || ''}
-                onValueChange={(v) => field.onChange(v)}
-                disabled={subAlmacenesQuery.isLoading}
+          <FormGrid>
+            <FormCampo span={12}>
+              <Field
+                label="Sub-almacén origen"
+                required
+                error={form.formState.errors.subAlmacenId?.message}
               >
-                <SelectTrigger>
-                  <SelectValue placeholder="Selecciona sub-almacén" />
-                </SelectTrigger>
-                <SelectContent>
-                  {(subAlmacenesQuery.data?.items ?? []).map((s) => (
-                    <SelectItem key={s.id} value={s.id}>
-                      {s.clave} · {s.nombre}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            )}
-          />
-        </Field>
-
-        <Field
-          label="Fecha de movimiento"
-          required
-          error={form.formState.errors.fechaMovimiento?.message}
-        >
-          <Controller
-            name="fechaMovimiento"
-            control={form.control}
-            render={({ field }) => (
-              <Input
-                {...field}
-                type="date"
-                value={field.value ?? ''}
-              />
-            )}
-          />
-        </Field>
-
-        {/* C7.2b: bin de salida por línea (elegido por saldo). */}
-        <div className="space-y-2">
-          <h3 className="text-sm font-semibold">Ubicación de salida por línea</h3>
-          {detalle.isLoading ? (
-            <p className="text-sm text-muted-foreground">Cargando líneas…</p>
-          ) : lineas.length === 0 ? (
-            <p className="text-sm text-muted-foreground">
-              La devolución no tiene líneas.
-            </p>
-          ) : (
-            lineas.map((l) => (
-              <div key={l.id} className="rounded-md border px-2 py-1.5">
-                <p className="mb-1 truncate text-xs text-muted-foreground">
-                  {l.articuloClave ? (
-                    <code className="font-mono">{l.articuloClave}</code>
-                  ) : (
-                    <code className="font-mono" title={l.articuloId}>
-                      {l.articuloId.slice(0, 8)}…
-                    </code>
+                <Controller
+                  name="subAlmacenId"
+                  control={form.control}
+                  render={({ field }) => (
+                    <Select
+                      value={field.value || ''}
+                      onValueChange={(v) => field.onChange(v)}
+                      disabled={subAlmacenesQuery.isLoading}
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder="Selecciona sub-almacén" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {(subAlmacenesQuery.data?.items ?? []).map((s) => (
+                          <SelectItem key={s.id} value={s.id}>
+                            {s.clave} · {s.nombre}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
                   )}
-                  {' · '}
-                  {l.cantidad} {l.unidadMedida}
-                </p>
-                <UbicacionBinSelector
-                  modo="saldo"
-                  articuloId={l.articuloId}
-                  subAlmacenId={subAlmacenId}
-                  value={binPorLinea[l.id] ?? null}
-                  onChange={(id) => {
-                    setFaltantes((prev) => {
-                      if (!prev.has(l.id)) return prev;
-                      const next = new Set(prev);
-                      next.delete(l.id);
-                      return next;
-                    });
-                    setBinPorLinea((prev) => {
-                      const next = { ...prev };
-                      if (id) next[l.id] = id;
-                      else delete next[l.id];
-                      return next;
-                    });
-                  }}
                 />
-                {faltantes.has(l.id) && (
-                  <p role="alert" className="mt-1 text-xs text-danger-fg">
-                    Elige el rack de donde sale esta línea.
-                  </p>
-                )}
-              </div>
-            ))
-          )}
-        </div>
+              </Field>
+            </FormCampo>
+          </FormGrid>
 
-        {avisoServidor && (
-          <AvisoEnLinea tono="error" titulo="No se pudo registrar la salida">
-            {avisoServidor}
-          </AvisoEnLinea>
-        )}
-      </form>
+          <FormGrid>
+            <FormCampo span={12}>
+              <Field
+                label="Fecha de movimiento"
+                required
+                error={form.formState.errors.fechaMovimiento?.message}
+              >
+                <Controller
+                  name="fechaMovimiento"
+                  control={form.control}
+                  render={({ field }) => <Input {...field} type="date" value={field.value ?? ''} />}
+                />
+              </Field>
+            </FormCampo>
+          </FormGrid>
+
+          {/* C7.2b: bin de salida por línea (elegido por saldo). */}
+          <div className="space-y-2">
+            <h3 className="text-sm font-semibold">Ubicación de salida por partida</h3>
+            {detalle.isLoading ? (
+              <p className="text-sm text-ink-muted">Cargando partidas…</p>
+            ) : lineas.length === 0 ? (
+              <p className="text-sm text-ink-muted">La devolución no tiene partidas.</p>
+            ) : (
+              lineas.map((l) => (
+                <div key={l.id} className="rounded-md border px-2 py-1.5">
+                  <p className="mb-1 truncate text-xs text-ink-muted">
+                    {l.articuloClave ? (
+                      <code className="font-mono">{l.articuloClave}</code>
+                    ) : (
+                      <code className="font-mono" title={l.articuloId}>
+                        {l.articuloId.slice(0, 8)}…
+                      </code>
+                    )}
+                    {' · '}
+                    {l.cantidad} {l.unidadMedida}
+                  </p>
+                  <UbicacionBinSelector
+                    modo="saldo"
+                    articuloId={l.articuloId}
+                    subAlmacenId={subAlmacenId}
+                    value={binPorLinea[l.id] ?? null}
+                    onChange={(id) => {
+                      setFaltantes((prev) => {
+                        if (!prev.has(l.id)) return prev;
+                        const next = new Set(prev);
+                        next.delete(l.id);
+                        return next;
+                      });
+                      setBinPorLinea((prev) => {
+                        const next = { ...prev };
+                        if (id) next[l.id] = id;
+                        else delete next[l.id];
+                        return next;
+                      });
+                    }}
+                  />
+                  {faltantes.has(l.id) && (
+                    <p role="alert" className="mt-1 text-xs text-danger-fg">
+                      Elige el rack de donde sale esta partida.
+                    </p>
+                  )}
+                </div>
+              ))
+            )}
+          </div>
+
+          {avisoServidor && (
+            <AvisoEnLinea tono="error" titulo="No se pudo registrar la salida">
+              {avisoServidor}
+            </AvisoEnLinea>
+          )}
+        </form>
+      </SheetBody>
 
       <SheetFooter>
-        <Button
-          type="button"
-          variant="ghost"
-          onClick={onCancel}
-          disabled={registrar.isPending}
-        >
+        <Button type="button" variant="ghost" onClick={onCancel} disabled={registrar.isPending}>
           Cancelar
         </Button>
         <Button

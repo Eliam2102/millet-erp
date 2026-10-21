@@ -1,3 +1,6 @@
+import { FormCampo } from '@/components/erp/forms/FormGrid';
+import { FormSeccion } from '@/components/erp/forms/FormSeccion';
+import { SheetBody } from '@/components/ui/sheet';
 import { useState } from 'react';
 import { Plus, Trash2 } from 'lucide-react';
 import {
@@ -40,22 +43,25 @@ export function RegistrarRespuestaProveedorSheet({
 }: RegistrarRespuestaProveedorSheetProps) {
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
-      <SheetContent side="right" className="w-full overflow-y-auto sm:max-w-xl">
+      <SheetContent size="lg" side="right" className="">
         <SheetHeader>
           <SheetTitle>Registrar respuesta del proveedor</SheetTitle>
           <SheetDescription>
-            Orden <span className="font-mono">{oc.folio}</span> · {oc.proveedorRazonSocial ?? oc.proveedorClave ?? 'Proveedor'}
+            Orden <span className="font-mono">{oc.folio}</span> ·{' '}
+            {oc.proveedorRazonSocial ?? oc.proveedorClave ?? 'Proveedor'}
           </SheetDescription>
         </SheetHeader>
-        {open && (
-          <RespuestaForm
-            oc={oc}
-            isPending={isPending}
-            errorServidor={errorServidor}
-            onSubmit={onSubmit}
-            onClose={() => onOpenChange(false)}
-          />
-        )}
+        <SheetBody>
+          {open && (
+            <RespuestaForm
+              oc={oc}
+              isPending={isPending}
+              errorServidor={errorServidor}
+              onSubmit={onSubmit}
+              onClose={() => onOpenChange(false)}
+            />
+          )}
+        </SheetBody>
       </SheetContent>
     </Sheet>
   );
@@ -148,104 +154,165 @@ function RespuestaForm({
   }
 
   return (
-    <form onSubmit={enviar} className="space-y-6 px-4 pb-4" noValidate>
-      <fieldset className="space-y-3">
-        <legend className="text-sm font-semibold text-ink">1. Respuesta</legend>
-        <div className="space-y-2" role="radiogroup" aria-label="Respuesta del proveedor">
-          <div className="flex items-center gap-2">
-            <input
-              id="resp-tipo-confirma"
-              type="radio"
-              name="tipo-respuesta"
-              checked={confirma}
-              onChange={() => setTipo(TipoRespuestaProveedorOc.Confirmacion)}
-              className="accent-brand"
-            />
-            <Label htmlFor="resp-tipo-confirma">El proveedor confirma</Label>
+    <form onSubmit={enviar} className="space-y-5" noValidate>
+      <FormSeccion titulo="1. Respuesta">
+        <FormCampo span={12}>
+          <div className="space-y-2" role="radiogroup" aria-label="Respuesta del proveedor">
+            <div className="flex items-center gap-2">
+              <input
+                id="resp-tipo-confirma"
+                type="radio"
+                name="tipo-respuesta"
+                checked={confirma}
+                onChange={() => setTipo(TipoRespuestaProveedorOc.Confirmacion)}
+                className="accent-brand"
+              />
+              <Label htmlFor="resp-tipo-confirma">El proveedor confirma</Label>
+            </div>
+            <div className="flex items-center gap-2">
+              <input
+                id="resp-tipo-rechaza"
+                type="radio"
+                name="tipo-respuesta"
+                checked={!confirma}
+                onChange={() => setTipo(TipoRespuestaProveedorOc.Rechazo)}
+                className="accent-brand"
+              />
+              <Label htmlFor="resp-tipo-rechaza">El proveedor rechaza</Label>
+            </div>
           </div>
-          <div className="flex items-center gap-2">
-            <input
-              id="resp-tipo-rechaza"
-              type="radio"
-              name="tipo-respuesta"
-              checked={!confirma}
-              onChange={() => setTipo(TipoRespuestaProveedorOc.Rechazo)}
-              className="accent-brand"
+        </FormCampo>
+        <FormCampo span={6}>
+          <Field label="Fecha de respuesta" required>
+            <Input
+              type="date"
+              value={fechaRespuesta}
+              max={hoy}
+              onChange={(e) => setFechaRespuesta(e.target.value)}
             />
-            <Label htmlFor="resp-tipo-rechaza">El proveedor rechaza</Label>
-          </div>
-        </div>
-        <Field label="Fecha de respuesta" required>
-          <Input type="date" value={fechaRespuesta} max={hoy}
-            onChange={(e) => setFechaRespuesta(e.target.value)} />
-        </Field>
-        <Field label="Contacto del proveedor" optional>
-          <Input value={contacto} maxLength={120}
-            onChange={(e) => setContacto(e.target.value)} />
-        </Field>
-        <Field label="Evidencia" required>
-          <Input value={evidencia} maxLength={300}
-            placeholder="Correo, folio o documento del proveedor"
-            onChange={(e) => setEvidencia(e.target.value)} />
-        </Field>
-        <Field label={confirma ? 'Comentario' : 'Motivo del rechazo'} optional={confirma} required={!confirma}>
-          <Textarea value={texto} maxLength={500} rows={3}
-            onChange={(e) => setTexto(e.target.value)} />
-        </Field>
-      </fieldset>
+          </Field>
+        </FormCampo>
+        <FormCampo span={6}>
+          <Field label="Contacto del proveedor" optional>
+            <Input value={contacto} maxLength={120} onChange={(e) => setContacto(e.target.value)} />
+          </Field>
+        </FormCampo>
+        <FormCampo span={6}>
+          <Field label="Evidencia" required>
+            <Input
+              value={evidencia}
+              maxLength={300}
+              placeholder="Correo, folio o documento del proveedor"
+              onChange={(e) => setEvidencia(e.target.value)}
+            />
+          </Field>
+        </FormCampo>
+        <FormCampo span={6}>
+          <Field
+            label={confirma ? 'Comentario' : 'Motivo del rechazo'}
+            optional={confirma}
+            required={!confirma}
+          >
+            <Textarea
+              value={texto}
+              maxLength={500}
+              rows={3}
+              onChange={(e) => setTexto(e.target.value)}
+            />
+          </Field>
+        </FormCampo>
+      </FormSeccion>
 
       {confirma && (
-        <fieldset className="space-y-4">
-          <legend className="text-sm font-semibold text-ink">2. Fechas prometidas</legend>
-          {pendientes.map(({ linea, pendiente }) => {
-            const lineaFilas = filas[linea.id] ?? [];
-            const suma = lineaFilas.reduce((acc, r) => acc + (Number(r.cantidad) || 0), 0);
-            return (
-              <div key={linea.id} className="space-y-2 rounded-md border border-line-divider p-3">
-                <p className="text-sm text-ink">
-                  Línea {linea.posicion} · {linea.articuloNombre ?? linea.articuloClave} · pendiente{' '}
-                  <span className="tabular-nums">{pendiente}</span> {linea.unidadMedida}
-                </p>
-                {lineaFilas.map((r, i) => (
-                  <div key={r.key} className="flex items-end gap-2">
-                    <div className="space-y-1">
-                      <Label htmlFor={`resp-cant-${r.key}`}>Cantidad</Label>
-                      <Input id={`resp-cant-${r.key}`} type="number" aria-label={`Cantidad (línea ${linea.posicion}, parcialidad ${i + 1})`} step="any" min="0" className="tabular-nums"
-                        value={r.cantidad}
-                        onChange={(e) => cambiarFila(linea.id, r.key, { cantidad: e.target.value })} />
-                    </div>
-                    <div className="space-y-1">
-                      <Label htmlFor={`resp-fecha-${r.key}`}>Fecha prometida</Label>
-                      <Input id={`resp-fecha-${r.key}`} type="date" aria-label={`Fecha prometida (línea ${linea.posicion}, parcialidad ${i + 1})`} value={r.fecha}
-                        onChange={(e) => cambiarFila(linea.id, r.key, { fecha: e.target.value })} />
-                    </div>
-                    <Button type="button" variant="ghost" size="icon" aria-label="Quitar parcialidad"
-                      disabled={lineaFilas.length === 1}
-                      title={lineaFilas.length === 1 ? 'La línea necesita al menos una fecha prometida.' : undefined}
-                      onClick={() => quitarFila(linea.id, r.key)}>
-                      <Trash2 className="size-4" aria-hidden="true" />
-                    </Button>
-                  </div>
-                ))}
-                <Button type="button" variant="secondary" size="sm" onClick={() => agregarFila(linea.id)}>
-                  <Plus className="size-4" aria-hidden="true" /> Agregar parcialidad
-                </Button>
-                {suma !== pendiente && (
-                  <p role="note" className="text-xs text-warning-note-fg">
-                    Confirmado {suma} de {pendiente} {linea.unidadMedida}: la orden no cambia; quedará marcada con diferencias para Compras.
+        <FormSeccion titulo="2. Fechas prometidas">
+          <FormCampo span={12}>
+            {pendientes.map(({ linea, pendiente }) => {
+              const lineaFilas = filas[linea.id] ?? [];
+              const suma = lineaFilas.reduce((acc, r) => acc + (Number(r.cantidad) || 0), 0);
+              return (
+                <div key={linea.id} className="space-y-2 rounded-md border border-line-divider p-3">
+                  <p className="text-sm text-ink">
+                    Partida {linea.posicion} · {linea.articuloNombre ?? linea.articuloClave} ·
+                    pendiente <span className="tabular-nums">{pendiente}</span> {linea.unidadMedida}
                   </p>
-                )}
-              </div>
-            );
-          })}
-        </fieldset>
+                  {lineaFilas.map((r, i) => (
+                    <div key={r.key} className="flex items-end gap-2">
+                      <div className="space-y-1">
+                        <Label htmlFor={`resp-cant-${r.key}`}>Cantidad</Label>
+                        <Input
+                          id={`resp-cant-${r.key}`}
+                          type="number"
+                          aria-label={`Cantidad (partida ${linea.posicion}, parcialidad ${i + 1})`}
+                          step="any"
+                          min="0"
+                          className="tabular-nums"
+                          value={r.cantidad}
+                          onChange={(e) =>
+                            cambiarFila(linea.id, r.key, { cantidad: e.target.value })
+                          }
+                        />
+                      </div>
+                      <div className="space-y-1">
+                        <Label htmlFor={`resp-fecha-${r.key}`}>Fecha prometida</Label>
+                        <Input
+                          id={`resp-fecha-${r.key}`}
+                          type="date"
+                          aria-label={`Fecha prometida (partida ${linea.posicion}, parcialidad ${i + 1})`}
+                          value={r.fecha}
+                          onChange={(e) => cambiarFila(linea.id, r.key, { fecha: e.target.value })}
+                        />
+                      </div>
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="icon"
+                        aria-label="Quitar parcialidad"
+                        disabled={lineaFilas.length === 1}
+                        title={
+                          lineaFilas.length === 1
+                            ? 'La partida necesita al menos una fecha prometida.'
+                            : undefined
+                        }
+                        onClick={() => quitarFila(linea.id, r.key)}
+                      >
+                        <Trash2 className="size-4" aria-hidden="true" />
+                      </Button>
+                    </div>
+                  ))}
+                  <Button
+                    type="button"
+                    variant="secondary"
+                    size="sm"
+                    onClick={() => agregarFila(linea.id)}
+                  >
+                    <Plus className="size-4" aria-hidden="true" /> Agregar parcialidad
+                  </Button>
+                  {suma !== pendiente && (
+                    <p role="note" className="text-xs text-warning-note-fg">
+                      Confirmado {suma} de {pendiente} {linea.unidadMedida}: la orden no cambia;
+                      quedará marcada con diferencias para Compras.
+                    </p>
+                  )}
+                </div>
+              );
+            })}
+          </FormCampo>
+        </FormSeccion>
       )}
 
-      {(error ?? errorServidor) && <p role="alert" className="text-sm text-danger-fg">{error ?? errorServidor}</p>}
+      {(error ?? errorServidor) && (
+        <p role="alert" className="text-sm text-danger-fg">
+          {error ?? errorServidor}
+        </p>
+      )}
 
-      <div className="sticky bottom-0 -mx-4 -mb-4 flex justify-between gap-2 border-t border-line-row bg-surface-card p-4">
-        <Button type="button" variant="ghost" onClick={onClose}>Cancelar</Button>
-        <Button type="submit" disabled={isPending}>Registrar respuesta</Button>
+      <div className="sticky bottom-0 flex justify-between gap-2 border-t border-line-row bg-surface-card p-4">
+        <Button type="button" variant="ghost" onClick={onClose}>
+          Cancelar
+        </Button>
+        <Button type="submit" disabled={isPending}>
+          Registrar respuesta
+        </Button>
       </div>
     </form>
   );

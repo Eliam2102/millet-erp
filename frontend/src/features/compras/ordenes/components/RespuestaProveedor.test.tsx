@@ -62,7 +62,7 @@ describe('Respuesta del proveedor (F1-COM-11)', () => {
     permiso.value = true;
   });
 
-  it('confirmación envía un compromiso por línea pendiente con la cantidad pendiente', async () => {
+  it('confirmación envía un compromiso por partida pendiente con la cantidad pendiente', async () => {
     const submit = abrirSheet();
     fireEvent.change(screen.getByLabelText(/^Evidencia/), { target: { value: 'Correo P-881' } });
     fireEvent.click(screen.getByRole('button', { name: 'Registrar respuesta' }));
@@ -76,16 +76,16 @@ describe('Respuesta del proveedor (F1-COM-11)', () => {
 
   it('avisa que la orden no cambia cuando se confirma menos del pendiente', () => {
     abrirSheet();
-    fireEvent.change(screen.getByLabelText(/^Cantidad \(línea 1, parcialidad 1\)/), { target: { value: '8' } });
+    fireEvent.change(screen.getByLabelText(/^Cantidad \(partida 1, parcialidad 1\)/), { target: { value: '8' } });
     expect(screen.getByRole('note')).toHaveTextContent('la orden no cambia; quedará marcada con diferencias');
   });
 
-  it('agregar parcialidad envía dos compromisos de la misma línea', async () => {
+  it('agregar parcialidad envía dos compromisos de la misma partida', async () => {
     const submit = abrirSheet();
     fireEvent.change(screen.getByLabelText(/^Evidencia/), { target: { value: 'Correo' } });
-    fireEvent.change(screen.getByLabelText(/^Cantidad \(línea 1, parcialidad 1\)/), { target: { value: '6' } });
+    fireEvent.change(screen.getByLabelText(/^Cantidad \(partida 1, parcialidad 1\)/), { target: { value: '6' } });
     fireEvent.click(screen.getByRole('button', { name: /Agregar parcialidad/ }));
-    fireEvent.change(screen.getByLabelText(/^Cantidad \(línea 1, parcialidad 2\)/), { target: { value: '4' } });
+    fireEvent.change(screen.getByLabelText(/^Cantidad \(partida 1, parcialidad 2\)/), { target: { value: '4' } });
     fireEvent.click(screen.getByRole('button', { name: 'Registrar respuesta' }));
     await waitFor(() => expect(submit).toHaveBeenCalledTimes(1));
     const { compromisos } = submit.mock.calls[0][0];

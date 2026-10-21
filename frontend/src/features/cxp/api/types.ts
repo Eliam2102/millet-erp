@@ -300,6 +300,8 @@ export interface FacturaDetalle {
   total: number;
   ordenCompraId: string | null;
   ordenCompraFolio?: string | null;
+  recepcionId?: string | null;
+  recepcionFolio?: string | null;
   estado: EstadoPasivo;
   diferenciaContraOc: number;
   anticipoAplicadoTotal: number;
@@ -332,6 +334,7 @@ export interface CapturarFacturaConOcLinea {
 }
 
 export interface CapturarFacturaConOcCommand {
+  recepcionId?: string | null;
   obra?: string | null;
   conceptoRetencion?: string | null;
   notasCredito?: NotaCreditoAdjunta[];
@@ -1571,4 +1574,30 @@ export interface ActualizarPoliticaViaticosCommand {
   montoMaxDia: number;
   diasMax: number;
   moneda: string;
+}
+
+// Panel «recepciones y OC pendientes» del proveedor (espejo de PendientesFacturarProveedorQuery).
+export interface RecepcionPendiente {
+  recepcionId: string;
+  folio: string;
+  /** YYYY-MM-DD */
+  fecha: string;
+  cantidadRecibida: number;
+  facturaPendiente: boolean;
+}
+
+export interface OcPendienteFacturar {
+  ocId: string;
+  folio: string;
+  sucursalId: string;
+  moneda: string;
+  total: number;
+  cantidadPorFacturar: number;
+  recepciones: RecepcionPendiente[];
+}
+
+export interface PendientesFacturarProveedor {
+  proveedorId: string | null;
+  proveedorNombre: string | null;
+  ocs: OcPendienteFacturar[];
 }

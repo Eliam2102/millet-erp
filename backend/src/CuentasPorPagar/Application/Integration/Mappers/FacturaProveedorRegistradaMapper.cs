@@ -38,7 +38,8 @@ public sealed class FacturaProveedorRegistradaMapper
             Moneda: notification.Moneda,
             TipoCambio: notification.TipoCambio,
             SucursalId: notification.SucursalId,
-            CentroCostoId: notification.CentroCostoId);
+            CentroCostoId: notification.CentroCostoId,
+            RecepcionId: notification.RecepcionId);
         return _publisher.PublishAsync(integration, cancellationToken);
     }
 }

@@ -1,4 +1,4 @@
-import { RecurrenteBadge } from '@/features/compras/components/IndicadoresPendiente';
+import { PageHeader } from '@/components/erp/PageHeader';
 import { CancelacionOcPanel } from '../components/CancelacionOcPanel';
 import { RespuestaProveedorPanel } from '../components/RespuestaProveedorPanel';
 import { useMemo, useState, type ReactNode } from 'react';
@@ -23,6 +23,7 @@ import {
   useUsosPrincipales,
   mapById,
 } from '@/features/catalogos/api';
+import { RecurrenteBadge } from '@/features/compras/components/IndicadoresPendiente';
 import { useOrdenCompra } from '@/features/compras/ordenes/api/useOrdenCompra';
 import { AccionesOC } from '@/features/compras/ordenes/components/AccionesOC';
 import { AdjuntosManagerOc } from '@/features/compras/ordenes/components/AdjuntosManagerOc';
@@ -149,7 +150,7 @@ export function DetalleOrdenCompra() {
 
   if (ocQuery.isLoading || ocQuery.data == null) {
     return (
-      <div className="flex flex-col gap-4" aria-busy="true">
+      <div className="flex flex-col gap-5" aria-busy="true">
         <header className="flex items-center gap-3 border-b px-4 py-2">
           <Skeleton className="h-7 w-32" />
           <Skeleton className="h-5 w-24 rounded-full" />
@@ -170,16 +171,20 @@ export function DetalleOrdenCompra() {
     : undefined;
 
   return (
-    <div className="flex flex-col gap-4">
+    <div className="flex flex-col gap-5">
       {/* ── Sub-topbar sticky ───────────────────────────── */}
       <header
-        className="sticky top-14 z-10 md:top-0 flex flex-wrap items-center gap-3 border-b bg-background/95 px-4 py-2 backdrop-blur"
+        className="sticky top-14 z-10 md:top-0 flex flex-wrap items-center gap-3 border-b bg-surface-card py-2"
         data-print="hidden"
       >
         <div className="flex min-w-0 items-center gap-2">
-          <h1 className="truncate font-mono text-3xl font-semibold text-ink">{oc.folio}</h1>
+          <PageHeader
+            mono
+            titulo={oc.folio}
+            descripcion={oc.proveedorRazonSocial ?? oc.proveedorClave ?? undefined}
+          />
           <EstadoBadge tipo="orden-compra" estado={oc.estado} />
-          <RecurrenteBadge esRecurrente={'esRecurrente' in oc && oc.esRecurrente === true} />
+          <RecurrenteBadge esRecurrente={oc.esRecurrente} />
           <CollaborationIndicator entidad="orden-compra" id={oc.id} />
         </div>
 
@@ -222,7 +227,7 @@ export function DetalleOrdenCompra() {
       </header>
 
       {/* ── Cuerpo ──────────────────────────────────────── */}
-      <div className="space-y-6 px-4 pb-6">
+      <div className="space-y-5">
         <div data-print="hidden">
           <EditandoBanner entidad="orden-compra" id={oc.id} />
         </div>

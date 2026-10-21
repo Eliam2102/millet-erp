@@ -81,7 +81,7 @@ public sealed class P4EndpointsTests(WebApplicationFactory<Program> factory) : I
             var retiro=await Post(client,$"/facturas/{facturaId}/enviar-revision",new {motivoRevisionId=Guid.Parse("00000007-1001-0000-0000-00000000000e"),dependenciaRevisoraId=p.Dependencia},version);
             Assert.Equal(HttpStatusCode.OK,retiro.StatusCode);
             // Incluso con la proyección desactualizada, el puerto directo de P3 niega el pago.
-            var body=new {cuentaBancariaId=cuentaId,fechaValor="2026-10-09",fondosVerificados=true,aplicaciones=new[]{new {facturaProveedorId=facturaId,importe=100m}}};
+            var body=new {cuentaBancariaId=cuentaId,fechaValor="2026-10-09",aplicaciones=new[]{new {facturaProveedorId=facturaId,importe=100m}}};
             var bloqueado=await client.PostAsJsonAsync("/api/v1/tesoreria/pagos/",body);Assert.Equal(HttpStatusCode.UnprocessableEntity,bloqueado.StatusCode);Assert.Equal("PASIVO_NO_PAGABLE_CXP",await Code(bloqueado));
             using(var scope=app.Services.CreateScope()) {
                 var cxp=scope.ServiceProvider.GetRequiredService<CuentasPorPagarDbContext>();var retiros=await cxp.OutboxEntries.Where(e=>e.EventType==PasivoRetiradoDePagoPayload.EventType).ToListAsync();Assert.Contains(retiros,e=>e.Payload.Contains(facturaId.ToString(),StringComparison.Ordinal));

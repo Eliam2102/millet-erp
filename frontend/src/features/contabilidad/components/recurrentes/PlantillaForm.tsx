@@ -41,7 +41,7 @@ import { Campo, PartidasEditor } from '../polizas/PartidasEditor';
 /** El DTO de la plantilla hoy solo trae ids: si no viene la referencia, el selector muestra un marcador. */
 function refCentro(ref: CentroRef | null | undefined, id: string | null): CentroRef | null {
   if (ref) return ref;
-  return id ? { id, clave: '[CENTRO]', nombre: '', activo: true } : null;
+  return id ? { id, clave: 'Sin centro de costo', nombre: '', activo: true } : null;
 }
 
 function refAuxiliar(
@@ -65,9 +65,9 @@ function partidaDe(x: PartidaPlantilla, i: number): PartidaForm {
     dim2: centroDe(refCentro(x.dim2, x.dim2Id), 'Dim2'),
     dim3: centroDe(refCentro(x.dim3, x.dim3Id), 'Dim3'),
     proyecto: x.proyecto ?? '',
-    cliente: refAuxiliar(x.cliente, x.clienteId, '[CLIENTE]'),
-    proveedor: refAuxiliar(x.proveedor, x.proveedorId, '[PROVEEDOR]'),
-    banco: refAuxiliar(x.cuentaBancaria, x.cuentaBancariaId, '[CUENTA BANCARIA]'),
+    cliente: refAuxiliar(x.cliente, x.clienteId, 'Sin cliente'),
+    proveedor: refAuxiliar(x.proveedor, x.proveedorId, 'Sin proveedor'),
+    banco: refAuxiliar(x.cuentaBancaria, x.cuentaBancariaId, 'Sin cuenta bancaria'),
     cargo: x.cargo ? String(x.cargo) : '',
     abono: x.abono ? String(x.abono) : '',
   };
@@ -251,7 +251,7 @@ export function PlantillaForm({ plantilla, onGuardada, onCancelar, onDirtyChange
                     id="rec-nombre"
                     maxLength={NOMBRE_MAXIMO}
                     value={nombre}
-                    placeholder="[NOMBRE DE LA PLANTILLA]"
+                    placeholder="Pago mensual a proveedor de vidrio"
                     aria-invalid={err('nombre').length > 0 || undefined}
                     aria-describedby="rec-nombre-err"
                     onChange={(e) => setNombre(e.target.value)}
@@ -299,7 +299,7 @@ export function PlantillaForm({ plantilla, onGuardada, onCancelar, onDirtyChange
                     aria-invalid={err('concepto').length > 0 || undefined}
                     aria-describedby="rec-concepto-err"
                     onChange={(e) => setConcepto(e.target.value)}
-                    placeholder="[CONCEPTO DE LA PÓLIZA]"
+                    placeholder="Pago a proveedor de vidrio templado"
                   />
                 </Campo>
               </FormCampo>

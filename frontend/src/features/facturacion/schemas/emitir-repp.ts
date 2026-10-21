@@ -3,7 +3,8 @@ import { zId } from '@/lib/z-id';
 
 /**
  * Schema del form "Nuevo REPP" (complemento de pago, FE-F6). Multi-factura;
- * todas deben ser del mismo receptor (lo valida el backend). Las facturas se
+ * todas deben ser del mismo receptor: el cliente elegido en la cabecera
+ * (lo revalida el backend). Las facturas se
  * eligen con <c>FacturaPpdPicker</c> (saldo por cobrar, [Decisión 13-K]).
  */
 export const ReppFacturaSchema = z.object({
@@ -12,6 +13,9 @@ export const ReppFacturaSchema = z.object({
 });
 
 export const EmitirReppSchema = z.object({
+  // Sólo del form (no viaja en EmitirReppCommand): el cliente se elige
+  // primero y su RFC acota las facturas PPD del picker (tarea 86e3tfd8k).
+  clienteId: z.string().min(1, 'Elige el cliente'),
   sucursalId: zId('Selecciona una sucursal'),
   fechaPago: z.string().min(1, 'Fecha de pago requerida'),
   monedaPago: z.string().length(3, 'Código ISO de 3 letras'),

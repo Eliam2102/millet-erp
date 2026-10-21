@@ -1,63 +1,34 @@
 import { Badge } from '@/components/ui/badge';
-import {
-  EstatusCatalogo,
-  OrigenMaster,
-  type ResultadoSincronizacion,
-} from '@/modules/datos-maestros/api/types';
-import { cn } from '@/lib/utils';
-
-/**
- * Badges compartidos de los masters auto-provisionables (Clientes y
- * Productos A+W, ADR-0048): estatus del catálogo, origen del registro
- * (A+W vs Manual) y el chip ámbar "Fiscales incompletos" que marca los
- * registros que aún no pueden timbrar.
- */
-
+import { EstatusCatalogo, OrigenMaster, type ResultadoSincronizacion } from '../api/types';
+import { estadoUi } from '../lib/estados-ui';
 export function EstatusCatalogoBadge({ estatus }: { estatus: number }) {
-  if (estatus === EstatusCatalogo.Activo) {
-    return <Badge variant="secondary">Activo</Badge>;
-  }
-  if (estatus === EstatusCatalogo.EnRevision) {
-    return <Badge variant="outline">En revisión</Badge>;
-  }
-  return (
-    <Badge variant="outline" className="text-muted-foreground">
-      Inactivo
-    </Badge>
+  const ui = estadoUi(
+    'catalogo',
+    estatus === EstatusCatalogo.Activo
+      ? 'Activo'
+      : estatus === EstatusCatalogo.EnRevision
+        ? 'EnRevision'
+        : 'Inactivo',
   );
+  return <Badge variant={ui.tono}>{ui.texto}</Badge>;
 }
-
 export function OrigenBadge({
   origen,
   className,
+  comoTexto = false,
 }: {
   origen: OrigenMaster;
   className?: string;
+  comoTexto?: boolean;
 }) {
-  if (origen === OrigenMaster.Aw) {
-    return (
-      <Badge
-        variant="outline"
-        className={cn(
-          'border-sky-300 text-sky-700 dark:text-sky-300',
-          className,
-        )}
-      >
-        A+W
-      </Badge>
-    );
-  }
+  const ui = estadoUi('origen', origen === OrigenMaster.Aw ? 'Aw' : 'Manual');
+  if (comoTexto) return <span className={className}>{ui.texto}</span>;
   return (
-    <Badge variant="outline" className={className}>
-      Manual
+    <Badge variant={ui.tono} className={className}>
+      {ui.texto}
     </Badge>
   );
 }
-
-/**
- * Chip ámbar visible solo cuando <c>datosFiscalesCompletos === false</c>.
- * Es el indicador de la bandeja de trabajo pre-timbrado.
- */
 export function FiscalesIncompletosBadge({
   completos,
   className,
@@ -65,58 +36,34 @@ export function FiscalesIncompletosBadge({
   completos: boolean;
   className?: string;
 }) {
-  if (completos) return null;
-  return (
-    <Badge
-      variant="outline"
-      className={cn(
-        'border-amber-300 bg-amber-500/10 text-amber-700 dark:text-amber-300',
-        className,
-      )}
-    >
-      Fiscales incompletos
+  const ui = estadoUi('fiscal', 'Incompleto');
+  return completos ? null : (
+    <Badge variant={ui.tono} className={className}>
+      {ui.texto}
     </Badge>
   );
 }
-
-/**
- * Resultado de la última lectura A+W. "Sincronizado" solo para
- * Aplicado/SinCambios y, si se informa, con una aplicación real
- * (<c>aplicado</c>); Pendiente/Conflicto/Error NUNCA se muestran como
- * sincronizados.
- */
 export function ResultadoSincronizacionBadge({
   resultado,
   aplicado = true,
   className,
+  comoTexto = false,
 }: {
   resultado: ResultadoSincronizacion;
   aplicado?: boolean;
+  comoTexto?: boolean;
   className?: string;
 }) {
-  if (resultado === 'Aplicado' || resultado === 'SinCambios') {
-    if (!aplicado) {
-      return (
-        <Badge variant="outline" className={className}>
-          Sin aplicar
-        </Badge>
-      );
-    }
-    return (
-      <Badge variant="secondary" className={className}>
-        Sincronizado
-      </Badge>
-    );
-  }
-  const [texto, tono] =
-    resultado === 'Pendiente'
-      ? ['Pendiente de validación', 'border-amber-300 bg-amber-500/10 text-amber-700 dark:text-amber-300']
-      : resultado === 'Conflicto'
-        ? ['Conflicto', 'border-orange-300 bg-orange-500/10 text-orange-700 dark:text-orange-300']
-        : ['Error de sincronización', 'border-destructive/40 bg-destructive/10 text-destructive'];
+  const ui = estadoUi(
+    'sincronizacion',
+    !aplicado && (resultado === 'Aplicado' || resultado === 'SinCambios')
+      ? 'SinAplicar'
+      : resultado,
+  );
+  if (comoTexto) return <span className={className}>{ui.texto}</span>;
   return (
-    <Badge variant="outline" className={cn(tono, className)}>
-      {texto}
+    <Badge variant={ui.tono} className={className}>
+      {ui.texto}
     </Badge>
   );
 }

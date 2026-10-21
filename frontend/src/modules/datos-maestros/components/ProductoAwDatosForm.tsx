@@ -1,3 +1,5 @@
+import { FormCampo } from '@/components/erp/forms/FormGrid';
+import { FormSeccion } from '@/components/erp/forms/FormSeccion';
 import { useEffect, type ReactNode } from 'react';
 import { Controller, useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -40,9 +42,7 @@ const OBJETO_IMP_FALLBACK = [
 ];
 
 export function ProductoAwDatosForm({ producto }: ProductoAwDatosFormProps) {
-  const canEditar = useHasPermission(
-    PermisosCanonicos.DatosMaestrosProductosAwGestionar,
-  );
+  const canEditar = useHasPermission(PermisosCanonicos.DatosMaestrosProductosAwGestionar);
   const actualizar = useActualizarProductoAw();
 
   const form = useForm<ActualizarProductoAwValues>({
@@ -59,16 +59,13 @@ export function ProductoAwDatosForm({ producto }: ProductoAwDatosFormProps) {
   function onSubmit(values: ActualizarProductoAwValues) {
     const claveProdServVacia =
       values.claveProdServSat == null || values.claveProdServSat.length === 0;
-    const claveUnidadVacia =
-      values.claveUnidadSat == null || values.claveUnidadSat.length === 0;
+    const claveUnidadVacia = values.claveUnidadSat == null || values.claveUnidadSat.length === 0;
     const ivaVacio = values.tasaIvaTraslado == null;
     const retIvaVacia = values.tasaRetencionIva == null;
     const retIsrVacia = values.tasaRetencionIsr == null;
     const fraccionVacia =
-      values.fraccionArancelaria == null ||
-      values.fraccionArancelaria.length === 0;
-    const unidadAduanaVacia =
-      values.unidadAduana == null || values.unidadAduana.length === 0;
+      values.fraccionArancelaria == null || values.fraccionArancelaria.length === 0;
+    const unidadAduanaVacia = values.unidadAduana == null || values.unidadAduana.length === 0;
     const pesoVacio = values.pesoUnitarioKg == null;
 
     actualizar.mutate(
@@ -80,9 +77,7 @@ export function ProductoAwDatosForm({ producto }: ProductoAwDatosFormProps) {
           unidadMedidaId: values.unidadMedidaId,
           categoriaId: values.categoriaId,
           // Claves SAT y objetoImp: null = sin cambio (no hay limpiarX).
-          claveProdServSat: claveProdServVacia
-            ? null
-            : values.claveProdServSat,
+          claveProdServSat: claveProdServVacia ? null : values.claveProdServSat,
           claveUnidadSat: claveUnidadVacia ? null : values.claveUnidadSat,
           objetoImp: values.objetoImp ?? null,
           tasaIvaTraslado: ivaVacio ? null : values.tasaIvaTraslado,
@@ -90,15 +85,12 @@ export function ProductoAwDatosForm({ producto }: ProductoAwDatosFormProps) {
           tasaRetencionIsr: retIsrVacia ? null : values.tasaRetencionIsr,
           // Solo limpiar si el producto YA tenía categoría y el usuario la
           // deseleccionó (mismo criterio que ArticuloDatosForm).
-          limpiarCategoria:
-            producto.categoriaId != null && values.categoriaId == null,
+          limpiarCategoria: producto.categoriaId != null && values.categoriaId == null,
           limpiarTasaIvaTraslado: ivaVacio,
           limpiarTasaRetencionIva: retIvaVacia,
           limpiarTasaRetencionIsr: retIsrVacia,
           // Datos de aduana (CCE): vacío = limpiar (mismo criterio que tasas).
-          fraccionArancelaria: fraccionVacia
-            ? null
-            : values.fraccionArancelaria,
+          fraccionArancelaria: fraccionVacia ? null : values.fraccionArancelaria,
           unidadAduana: unidadAduanaVacia ? null : values.unidadAduana,
           pesoUnitarioKg: pesoVacio ? null : values.pesoUnitarioKg,
           limpiarFraccionArancelaria: fraccionVacia,
@@ -124,10 +116,7 @@ export function ProductoAwDatosForm({ producto }: ProductoAwDatosFormProps) {
               return;
             }
             if (
-              applyServerErrors(
-                form as unknown as Parameters<typeof applyServerErrors>[0],
-                error,
-              )
+              applyServerErrors(form as unknown as Parameters<typeof applyServerErrors>[0], error)
             ) {
               return;
             }
@@ -148,310 +137,329 @@ export function ProductoAwDatosForm({ producto }: ProductoAwDatosFormProps) {
     <form
       onSubmit={form.handleSubmit(onSubmit)}
       noValidate
-      className="grid grid-cols-1 gap-4 rounded-md border bg-card p-4 md:grid-cols-2 max-w-3xl"
+      className="  gap-4 rounded-md border bg-surface-card p-4  max-w-3xl"
     >
-      <FormRow
-        label="Referencia externa"
-        hint="Correlación con A+W. No editable."
-      >
-        <Input
-          value={producto.referenciaExterna}
-          readOnly
-          aria-readonly
-          className="font-mono"
-        />
-      </FormRow>
-
-      <FormRow
-        label="Unidad de medida"
-        hint={
-          (producto.unidadMedidaId == null
-            ? `De A+W: «${producto.unidadMedida}». Asigna una unidad del catálogo.`
-            : 'Del catálogo de unidades.')
-          + (producto.origen === OrigenMaster.Aw
-            ? ' Dato de A+W: si lo cambias aquí, la siguiente corrida lo marcará en conflicto.'
-            : '')
-        }
-        error={form.formState.errors.unidadMedidaId?.message}
-      >
-        <Controller
-          name="unidadMedidaId"
-          control={form.control}
-          render={({ field }) => (
-            <UnidadMedidaSelect
-              value={field.value ?? null}
-              onChange={field.onChange}
-              disabled={!canEditar}
-              permitirVacio
-            />
-          )}
-        />
-      </FormRow>
-
-      <div className="md:col-span-2">
-        <FormRow
-          label="Descripción"
-          required
-          error={form.formState.errors.descripcion?.message}
-          hint={producto.origen === OrigenMaster.Aw
-            ? 'Dato de A+W: si lo cambias aquí, la siguiente corrida lo marcará en conflicto.'
-            : undefined}
-        >
-          <Input
-            maxLength={254}
-            disabled={!canEditar}
-            {...form.register('descripcion')}
-          />
-        </FormRow>
-      </div>
-
-      <FormRow
-        label="Categoría"
-        hint="Opcional. Del catálogo de categorías."
-        error={form.formState.errors.categoriaId?.message}
-      >
-        <Controller
-          name="categoriaId"
-          control={form.control}
-          render={({ field }) => (
-            <CategoriaSelector
-              value={field.value ?? null}
-              onChange={field.onChange}
-              disabled={!canEditar}
-            />
-          )}
-        />
-      </FormRow>
-
-      <FormRow
-        label="Objeto de impuesto"
-        hint="Clave SAT c_ObjetoImp (catálogo en vivo). Vacío = sin cambio."
-        error={form.formState.errors.objetoImp?.message}
-      >
-        <Controller
-          name="objetoImp"
-          control={form.control}
-          render={({ field }) => (
-            <ClaveSatSelector
-              catalogo="objeto-imp"
-              value={field.value ?? null}
-              onChange={(item) => field.onChange(item?.codigo ?? null)}
-              disabled={!canEditar}
-              placeholder="— sin asignar —"
-              fallbackItems={OBJETO_IMP_FALLBACK}
-            />
-          )}
-        />
-      </FormRow>
-
-      <FormRow
-        label="Clave prod/serv SAT"
-        hint="c_ClaveProdServ (catálogo SAT en vivo). Requerida para timbrar. Vacío = sin cambio."
-        error={form.formState.errors.claveProdServSat?.message}
-      >
-        <Controller
-          name="claveProdServSat"
-          control={form.control}
-          render={({ field }) => (
-            <ClaveSatSelector
-              catalogo="clave-prod-serv"
-              value={field.value ?? null}
-              onChange={(item) => field.onChange(item?.codigo ?? null)}
-              disabled={!canEditar}
-              placeholder="Buscar por código o descripción…"
-            />
-          )}
-        />
-      </FormRow>
-
-      <FormRow
-        label="Clave unidad SAT"
-        hint="c_ClaveUnidad (catálogo SAT en vivo, ej. H87, MTK). Requerida para timbrar. Vacío = sin cambio."
-        error={form.formState.errors.claveUnidadSat?.message}
-      >
-        <Controller
-          name="claveUnidadSat"
-          control={form.control}
-          render={({ field }) => (
-            <ClaveSatSelector
-              catalogo="clave-unidad"
-              value={field.value ?? null}
-              onChange={(item) => field.onChange(item?.codigo ?? null)}
-              disabled={!canEditar}
-              placeholder="Buscar por código o descripción…"
-            />
-          )}
-        />
-      </FormRow>
-
-      <FormRow
-        label="Tasa IVA traslado"
-        hint="Fracción 0–1 (ej. 0.16). Vacío = sin tasa."
-        error={form.formState.errors.tasaIvaTraslado?.message}
-      >
-        <Controller
-          name="tasaIvaTraslado"
-          control={form.control}
-          render={({ field }) => (
+      <FormSeccion titulo="Datos del registro">
+        <FormCampo span={6}>
+          <FormRow label="Referencia externa" hint="Correlación con A+W. No editable.">
             <Input
-              type="number"
-              step="0.01"
-              min={0}
-              max={1}
-              disabled={!canEditar}
-              value={field.value ?? ''}
-              onChange={(e) =>
-                field.onChange(
-                  e.target.value === '' ? null : Number(e.target.value),
-                )
-              }
+              value={producto.referenciaExterna}
+              readOnly
+              aria-readonly
+              className="font-mono"
             />
-          )}
-        />
-      </FormRow>
+          </FormRow>
+        </FormCampo>
 
-      <FormRow
-        label="Tasa retención IVA"
-        hint="Fracción 0–1. Vacío = sin retención."
-        error={form.formState.errors.tasaRetencionIva?.message}
-      >
-        <Controller
-          name="tasaRetencionIva"
-          control={form.control}
-          render={({ field }) => (
-            <Input
-              type="number"
-              step="0.01"
-              min={0}
-              max={1}
-              disabled={!canEditar}
-              value={field.value ?? ''}
-              onChange={(e) =>
-                field.onChange(
-                  e.target.value === '' ? null : Number(e.target.value),
-                )
-              }
-            />
-          )}
-        />
-      </FormRow>
-
-      <FormRow
-        label="Tasa retención ISR"
-        hint="Fracción 0–1. Vacío = sin retención."
-        error={form.formState.errors.tasaRetencionIsr?.message}
-      >
-        <Controller
-          name="tasaRetencionIsr"
-          control={form.control}
-          render={({ field }) => (
-            <Input
-              type="number"
-              step="0.01"
-              min={0}
-              max={1}
-              disabled={!canEditar}
-              value={field.value ?? ''}
-              onChange={(e) =>
-                field.onChange(
-                  e.target.value === '' ? null : Number(e.target.value),
-                )
-              }
-            />
-          )}
-        />
-      </FormRow>
-
-      <div className="md:col-span-2 border-t pt-3 text-sm font-medium text-muted-foreground">
-        Datos de aduana (Comercio Exterior)
-        <p className="text-xs font-normal">
-          Prellenan la línea de una factura de exportación (CCE). Fuente A+W
-          cuando esté disponible; si no, captúralos aquí.
-        </p>
-      </div>
-
-      <FormRow
-        label="Fracción arancelaria"
-        hint="c_FraccionArancelaria (8–10 dígitos). Vacío = limpiar."
-        error={form.formState.errors.fraccionArancelaria?.message}
-      >
-        <Controller
-          name="fraccionArancelaria"
-          control={form.control}
-          render={({ field }) => (
-            <ClaveSatSelector
-              catalogo="fraccion-arancelaria"
-              value={field.value ?? null}
-              initialLabel={field.value ?? null}
-              onChange={(item) => field.onChange(item?.codigo ?? null)}
-              disabled={!canEditar}
-              placeholder="Buscar fracción…"
-            />
-          )}
-        />
-      </FormRow>
-
-      <FormRow
-        label="Unidad aduanera"
-        hint="c_UnidadAduana (ej. 06 = kg). Corresponde a la UMT de la fracción. Vacío = limpiar."
-        error={form.formState.errors.unidadAduana?.message}
-      >
-        <Controller
-          name="unidadAduana"
-          control={form.control}
-          render={({ field }) => (
-            <ClaveSatSelector
-              catalogo="unidad-aduana"
-              value={field.value ?? null}
-              initialLabel={field.value ?? null}
-              onChange={(item) => field.onChange(item?.codigo ?? null)}
-              disabled={!canEditar}
-              placeholder="Buscar unidad aduanera…"
-            />
-          )}
-        />
-      </FormRow>
-
-      <FormRow
-        label="Peso unitario (kg)"
-        hint="Base para la cantidad aduanera. Vacío = limpiar."
-        error={form.formState.errors.pesoUnitarioKg?.message}
-      >
-        <Controller
-          name="pesoUnitarioKg"
-          control={form.control}
-          render={({ field }) => (
-            <Input
-              type="number"
-              step="0.000001"
-              min={0}
-              disabled={!canEditar}
-              value={field.value ?? ''}
-              onChange={(e) =>
-                field.onChange(
-                  e.target.value === '' ? null : Number(e.target.value),
-                )
-              }
-            />
-          )}
-        />
-      </FormRow>
-
-      {canEditar && (
-        <div className="md:col-span-2 flex flex-wrap items-center justify-end gap-2 border-t pt-3">
-          <Button
-            type="button"
-            variant="ghost"
-            onClick={() => form.reset(buildDefaults(producto))}
-            disabled={!dirty || actualizar.isPending}
+        <FormCampo span={6}>
+          <FormRow
+            label="Unidad de medida"
+            hint={
+              (producto.unidadMedidaId == null
+                ? `De A+W: «${producto.unidadMedida}». Asigna una unidad del catálogo.`
+                : 'Del catálogo de unidades.') +
+              (producto.origen === OrigenMaster.Aw
+                ? ' Dato de A+W: si lo cambias aquí, la siguiente corrida lo marcará en conflicto.'
+                : '')
+            }
+            error={form.formState.errors.unidadMedidaId?.message}
           >
-            Descartar cambios
-          </Button>
-          <Button type="submit" disabled={!dirty || actualizar.isPending}>
-            {actualizar.isPending ? 'Guardando…' : 'Guardar cambios'}
-          </Button>
-        </div>
-      )}
+            <Controller
+              name="unidadMedidaId"
+              control={form.control}
+              render={({ field }) => (
+                <UnidadMedidaSelect
+                  value={field.value ?? null}
+                  onChange={field.onChange}
+                  disabled={!canEditar}
+                  permitirVacio
+                />
+              )}
+            />
+          </FormRow>
+        </FormCampo>
+
+        <FormCampo span={12}>
+          <div className="md:col-span-2">
+            <FormRow
+              label="Descripción"
+              required
+              error={form.formState.errors.descripcion?.message}
+              hint={
+                producto.origen === OrigenMaster.Aw
+                  ? 'Dato de A+W: si lo cambias aquí, la siguiente corrida lo marcará en conflicto.'
+                  : undefined
+              }
+            >
+              <Input maxLength={254} disabled={!canEditar} {...form.register('descripcion')} />
+            </FormRow>
+          </div>
+        </FormCampo>
+
+        <FormCampo span={6}>
+          <FormRow
+            label="Categoría"
+            hint="Opcional. Del catálogo de categorías."
+            error={form.formState.errors.categoriaId?.message}
+          >
+            <Controller
+              name="categoriaId"
+              control={form.control}
+              render={({ field }) => (
+                <CategoriaSelector
+                  value={field.value ?? null}
+                  onChange={field.onChange}
+                  disabled={!canEditar}
+                />
+              )}
+            />
+          </FormRow>
+        </FormCampo>
+
+        <FormCampo span={6}>
+          <FormRow
+            label="Objeto de impuesto"
+            hint="Clave SAT c_ObjetoImp (catálogo en vivo). Vacío = sin cambio."
+            error={form.formState.errors.objetoImp?.message}
+          >
+            <Controller
+              name="objetoImp"
+              control={form.control}
+              render={({ field }) => (
+                <ClaveSatSelector
+                  catalogo="objeto-imp"
+                  value={field.value ?? null}
+                  onChange={(item) => field.onChange(item?.codigo ?? null)}
+                  disabled={!canEditar}
+                  placeholder="— sin asignar —"
+                  fallbackItems={OBJETO_IMP_FALLBACK}
+                />
+              )}
+            />
+          </FormRow>
+        </FormCampo>
+
+        <FormCampo span={6}>
+          <FormRow
+            label="Clave prod/serv SAT"
+            hint="c_ClaveProdServ (catálogo SAT en vivo). Requerida para timbrar. Vacío = sin cambio."
+            error={form.formState.errors.claveProdServSat?.message}
+          >
+            <Controller
+              name="claveProdServSat"
+              control={form.control}
+              render={({ field }) => (
+                <ClaveSatSelector
+                  catalogo="clave-prod-serv"
+                  value={field.value ?? null}
+                  onChange={(item) => field.onChange(item?.codigo ?? null)}
+                  disabled={!canEditar}
+                  placeholder="Buscar por código o descripción…"
+                />
+              )}
+            />
+          </FormRow>
+        </FormCampo>
+
+        <FormCampo span={6}>
+          <FormRow
+            label="Clave unidad SAT"
+            hint="c_ClaveUnidad (catálogo SAT en vivo, ej. H87, MTK). Requerida para timbrar. Vacío = sin cambio."
+            error={form.formState.errors.claveUnidadSat?.message}
+          >
+            <Controller
+              name="claveUnidadSat"
+              control={form.control}
+              render={({ field }) => (
+                <ClaveSatSelector
+                  catalogo="clave-unidad"
+                  value={field.value ?? null}
+                  onChange={(item) => field.onChange(item?.codigo ?? null)}
+                  disabled={!canEditar}
+                  placeholder="Buscar por código o descripción…"
+                />
+              )}
+            />
+          </FormRow>
+        </FormCampo>
+
+        <FormCampo span={6}>
+          <FormRow
+            label="Tasa IVA traslado"
+            hint="Fracción 0–1 (ej. 0.16). Vacío = sin tasa."
+            error={form.formState.errors.tasaIvaTraslado?.message}
+          >
+            <Controller
+              name="tasaIvaTraslado"
+              control={form.control}
+              render={({ field }) => (
+                <Input
+                  type="number"
+                  step="0.01"
+                  min={0}
+                  max={1}
+                  disabled={!canEditar}
+                  value={field.value ?? ''}
+                  onChange={(e) =>
+                    field.onChange(e.target.value === '' ? null : Number(e.target.value))
+                  }
+                />
+              )}
+            />
+          </FormRow>
+        </FormCampo>
+
+        <FormCampo span={6}>
+          <FormRow
+            label="Tasa retención IVA"
+            hint="Fracción 0–1. Vacío = sin retención."
+            error={form.formState.errors.tasaRetencionIva?.message}
+          >
+            <Controller
+              name="tasaRetencionIva"
+              control={form.control}
+              render={({ field }) => (
+                <Input
+                  type="number"
+                  step="0.01"
+                  min={0}
+                  max={1}
+                  disabled={!canEditar}
+                  value={field.value ?? ''}
+                  onChange={(e) =>
+                    field.onChange(e.target.value === '' ? null : Number(e.target.value))
+                  }
+                />
+              )}
+            />
+          </FormRow>
+        </FormCampo>
+
+        <FormCampo span={6}>
+          <FormRow
+            label="Tasa retención ISR"
+            hint="Fracción 0–1. Vacío = sin retención."
+            error={form.formState.errors.tasaRetencionIsr?.message}
+          >
+            <Controller
+              name="tasaRetencionIsr"
+              control={form.control}
+              render={({ field }) => (
+                <Input
+                  type="number"
+                  step="0.01"
+                  min={0}
+                  max={1}
+                  disabled={!canEditar}
+                  value={field.value ?? ''}
+                  onChange={(e) =>
+                    field.onChange(e.target.value === '' ? null : Number(e.target.value))
+                  }
+                />
+              )}
+            />
+          </FormRow>
+        </FormCampo>
+
+        <FormCampo span={12}>
+          <div className="md:col-span-2 border-t pt-3 text-sm font-medium text-ink-muted">
+            Datos de aduana (Comercio Exterior)
+            <p className="text-xs font-normal">
+              Prellenan la línea de una factura de exportación (CCE). Fuente A+W cuando esté
+              disponible; si no, captúralos aquí.
+            </p>
+          </div>
+        </FormCampo>
+
+        <FormCampo span={6}>
+          <FormRow
+            label="Fracción arancelaria"
+            hint="c_FraccionArancelaria (8–10 dígitos). Vacío = limpiar."
+            error={form.formState.errors.fraccionArancelaria?.message}
+          >
+            <Controller
+              name="fraccionArancelaria"
+              control={form.control}
+              render={({ field }) => (
+                <ClaveSatSelector
+                  catalogo="fraccion-arancelaria"
+                  value={field.value ?? null}
+                  initialLabel={field.value ?? null}
+                  onChange={(item) => field.onChange(item?.codigo ?? null)}
+                  disabled={!canEditar}
+                  placeholder="Buscar fracción…"
+                />
+              )}
+            />
+          </FormRow>
+        </FormCampo>
+
+        <FormCampo span={6}>
+          <FormRow
+            label="Unidad aduanera"
+            hint="c_UnidadAduana (ej. 06 = kg). Corresponde a la UMT de la fracción. Vacío = limpiar."
+            error={form.formState.errors.unidadAduana?.message}
+          >
+            <Controller
+              name="unidadAduana"
+              control={form.control}
+              render={({ field }) => (
+                <ClaveSatSelector
+                  catalogo="unidad-aduana"
+                  value={field.value ?? null}
+                  initialLabel={field.value ?? null}
+                  onChange={(item) => field.onChange(item?.codigo ?? null)}
+                  disabled={!canEditar}
+                  placeholder="Buscar unidad aduanera…"
+                />
+              )}
+            />
+          </FormRow>
+        </FormCampo>
+
+        <FormCampo span={6}>
+          <FormRow
+            label="Peso unitario (kg)"
+            hint="Base para la cantidad aduanera. Vacío = limpiar."
+            error={form.formState.errors.pesoUnitarioKg?.message}
+          >
+            <Controller
+              name="pesoUnitarioKg"
+              control={form.control}
+              render={({ field }) => (
+                <Input
+                  type="number"
+                  step="0.000001"
+                  min={0}
+                  disabled={!canEditar}
+                  value={field.value ?? ''}
+                  onChange={(e) =>
+                    field.onChange(e.target.value === '' ? null : Number(e.target.value))
+                  }
+                />
+              )}
+            />
+          </FormRow>
+        </FormCampo>
+
+        <FormCampo span={12}>
+          {canEditar && (
+            <div className="md:col-span-2 flex flex-wrap items-center justify-end gap-2 border-t pt-3">
+              <Button
+                type="button"
+                variant="ghost"
+                onClick={() => form.reset(buildDefaults(producto))}
+                disabled={!dirty || actualizar.isPending}
+              >
+                Descartar cambios
+              </Button>
+              <Button type="submit" disabled={!dirty || actualizar.isPending}>
+                {actualizar.isPending ? 'Guardando…' : 'Guardar cambios'}
+              </Button>
+            </div>
+          )}
+        </FormCampo>
+      </FormSeccion>
     </form>
   );
 }
@@ -479,9 +487,7 @@ function FormRow({ label, required, hint, error, children }: FormRowProps) {
         </span>
         {children}
       </label>
-      {hint != null && error == null && (
-        <p className="text-xs text-muted-foreground">{hint}</p>
-      )}
+      {hint != null && error == null && <p className="text-xs text-ink-muted">{hint}</p>}
       {error != null && (
         <p role="alert" className="text-xs text-danger-fg">
           {error}

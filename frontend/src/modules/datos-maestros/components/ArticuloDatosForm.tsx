@@ -1,3 +1,5 @@
+import { FormCampo } from '@/components/erp/forms/FormGrid';
+import { FormSeccion } from '@/components/erp/forms/FormSeccion';
 import { useEffect, type ReactNode } from 'react';
 import { Controller, useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -18,10 +20,7 @@ import {
   type ActualizarArticuloValues,
 } from '@/modules/datos-maestros/schemas/articulo';
 import { useActualizarArticulo } from '@/modules/datos-maestros/api';
-import {
-  Naturaleza,
-  type ArticuloDetalle,
-} from '@/modules/datos-maestros/api/types';
+import { Naturaleza, type ArticuloDetalle } from '@/modules/datos-maestros/api/types';
 import { UnidadMedidaSelect } from '@/modules/catalogos/components/UnidadMedidaSelect';
 import { MonedaSelector } from '@/components/erp/selectors/MonedaSelector';
 import { CategoriaSelector } from '@/components/erp/selectors/CategoriaSelector';
@@ -42,9 +41,7 @@ export interface ArticuloDatosFormProps {
 }
 
 export function ArticuloDatosForm({ articulo }: ArticuloDatosFormProps) {
-  const canEditar = useHasPermission(
-    PermisosCanonicos.CompartidoCatalogosAdministrar,
-  );
+  const canEditar = useHasPermission(PermisosCanonicos.CompartidoCatalogosAdministrar);
   const actualizar = useActualizarArticulo();
 
   const form = useForm<ActualizarArticuloValues>({
@@ -61,8 +58,7 @@ export function ArticuloDatosForm({ articulo }: ArticuloDatosFormProps) {
     const descripcionVacia =
       values.descripcionLarga == null || values.descripcionLarga.length === 0;
     const monedaVacia =
-      values.precioReferenciaMoneda == null ||
-      values.precioReferenciaMoneda.length === 0;
+      values.precioReferenciaMoneda == null || values.precioReferenciaMoneda.length === 0;
     const montoVacio = values.precioReferenciaMonto == null;
     // El backend tiene un solo flag para limpiar el par (monto, moneda).
     const limpiarPrecio = montoVacio && monedaVacia;
@@ -76,18 +72,13 @@ export function ArticuloDatosForm({ articulo }: ArticuloDatosFormProps) {
           naturaleza: values.naturaleza,
           descripcionLarga: descripcionVacia ? null : values.descripcionLarga,
           categoriaId: values.categoriaId,
-          precioReferenciaMonto: limpiarPrecio
-            ? null
-            : values.precioReferenciaMonto,
-          precioReferenciaMoneda: limpiarPrecio
-            ? null
-            : values.precioReferenciaMoneda,
+          precioReferenciaMonto: limpiarPrecio ? null : values.precioReferenciaMonto,
+          precioReferenciaMoneda: limpiarPrecio ? null : values.precioReferenciaMoneda,
           limpiarDescripcionLarga: descripcionVacia,
           // Solo limpiar si el artículo YA tenía categoría asignada y el usuario
           // la deseleccionó. Un artículo NO reconciliado (categoriaId null de
           // origen) NO se toca al guardar → conserva su string legacy.
-          limpiarCategoria:
-            articulo.categoriaId != null && values.categoriaId == null,
+          limpiarCategoria: articulo.categoriaId != null && values.categoriaId == null,
           limpiarPrecioReferencia: limpiarPrecio,
         },
         // Key fresca por submit: este form es multi-submit (queda montado tras
@@ -103,10 +94,7 @@ export function ArticuloDatosForm({ articulo }: ArticuloDatosFormProps) {
         onError: (error) => {
           if (esApiError(error)) {
             if (
-              applyServerErrors(
-                form as unknown as Parameters<typeof applyServerErrors>[0],
-                error,
-              )
+              applyServerErrors(form as unknown as Parameters<typeof applyServerErrors>[0], error)
             ) {
               return;
             }
@@ -127,197 +115,192 @@ export function ArticuloDatosForm({ articulo }: ArticuloDatosFormProps) {
     <form
       onSubmit={form.handleSubmit(onSubmit)}
       noValidate
-      className="grid grid-cols-1 gap-4 rounded-md border bg-card p-4 md:grid-cols-2 max-w-3xl"
+      className="  gap-4 rounded-md border bg-surface-card p-4  max-w-3xl"
     >
-      <FormRow label="Clave" hint="No editable.">
-        <Input
-          value={articulo.clave}
-          readOnly
-          aria-readonly
-          className="font-mono"
-        />
-      </FormRow>
+      <FormSeccion titulo="Datos del registro">
+        <FormCampo span={6}>
+          <FormRow label="Clave" hint="No editable.">
+            <Input value={articulo.clave} readOnly aria-readonly className="font-mono" />
+          </FormRow>
+        </FormCampo>
 
-      <FormRow
-        label="Unidad de medida"
-        hint={
-          articulo.unidadMedidaId == null
-            ? `Legacy: «${articulo.unidadMedidaDefault}». Asigna una unidad del catálogo.`
-            : 'Del catálogo de unidades.'
-        }
-        error={form.formState.errors.unidadMedidaId?.message}
-      >
-        <Controller
-          name="unidadMedidaId"
-          control={form.control}
-          render={({ field }) => (
-            <UnidadMedidaSelect
-              value={field.value ?? null}
-              onChange={field.onChange}
-              disabled={!canEditar}
-              permitirVacio
-            />
-          )}
-        />
-      </FormRow>
-
-      <div className="md:col-span-2">
-        <FormRow
-          label="Nombre"
-          required
-          error={form.formState.errors.nombre?.message}
-        >
-          <Input
-            maxLength={254}
-            disabled={!canEditar}
-            {...form.register('nombre')}
-          />
-        </FormRow>
-      </div>
-
-      <FormRow
-        label="Naturaleza"
-        required
-        error={form.formState.errors.naturaleza?.message}
-        hint="Alimenta la matriz de aprobación de Compras."
-      >
-        <Controller
-          name="naturaleza"
-          control={form.control}
-          render={({ field }) => (
-            <Select
-              value={String(field.value)}
-              onValueChange={(v) => field.onChange(Number(v))}
-              disabled={!canEditar}
-            >
-              <SelectTrigger>
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value={String(Naturaleza.Estandar)}>
-                  Estándar
-                </SelectItem>
-                <SelectItem value={String(Naturaleza.Servicio)}>
-                  Servicio
-                </SelectItem>
-                <SelectItem value={String(Naturaleza.Critico)}>
-                  Crítico
-                </SelectItem>
-                <SelectItem value={String(Naturaleza.Riesgo)}>
-                  Riesgo
-                </SelectItem>
-              </SelectContent>
-            </Select>
-          )}
-        />
-      </FormRow>
-
-      <FormRow
-        label="Categoría"
-        hint={
-          articulo.categoriaId == null && articulo.categoria != null
-            ? `Legacy: «${articulo.categoria}». Asigna una categoría del catálogo.`
-            : 'Del catálogo de categorías.'
-        }
-        error={form.formState.errors.categoriaId?.message}
-      >
-        <Controller
-          name="categoriaId"
-          control={form.control}
-          render={({ field }) => (
-            <CategoriaSelector
-              value={field.value ?? null}
-              onChange={field.onChange}
-              initialLabel={articulo.categoria}
-              disabled={!canEditar}
-            />
-          )}
-        />
-      </FormRow>
-
-      <div className="md:col-span-2">
-        <FormRow
-          label="Descripción larga"
-          hint="Opcional."
-          error={form.formState.errors.descripcionLarga?.message}
-        >
-          <Controller
-            name="descripcionLarga"
-            control={form.control}
-            render={({ field }) => (
-              <Textarea
-                rows={3}
-                disabled={!canEditar}
-                value={field.value ?? ''}
-                onChange={(e) =>
-                  field.onChange(
-                    e.target.value.length > 0 ? e.target.value : null,
-                  )
-                }
-              />
-            )}
-          />
-        </FormRow>
-      </div>
-
-      <FormRow
-        label="Precio referencia"
-        hint="Opcional. Vacío = no aplica."
-        error={form.formState.errors.precioReferenciaMonto?.message}
-      >
-        <Controller
-          name="precioReferenciaMonto"
-          control={form.control}
-          render={({ field }) => (
-            <Input
-              type="number"
-              step="0.01"
-              min={0}
-              disabled={!canEditar}
-              value={field.value ?? ''}
-              onChange={(e) =>
-                field.onChange(
-                  e.target.value === '' ? null : Number(e.target.value),
-                )
-              }
-            />
-          )}
-        />
-      </FormRow>
-
-      <FormRow
-        label="Moneda referencia"
-        hint="Opcional. Del catálogo de monedas."
-        error={form.formState.errors.precioReferenciaMoneda?.message}
-      >
-        <Controller
-          name="precioReferenciaMoneda"
-          control={form.control}
-          render={({ field }) => (
-            <MonedaSelector
-              value={field.value}
-              onChange={field.onChange}
-              disabled={!canEditar}
-            />
-          )}
-        />
-      </FormRow>
-
-      {canEditar && (
-        <div className="md:col-span-2 flex flex-wrap items-center justify-end gap-2 border-t pt-3">
-          <Button
-            type="button"
-            variant="ghost"
-            onClick={() => form.reset(buildDefaults(articulo))}
-            disabled={!dirty || actualizar.isPending}
+        <FormCampo span={6}>
+          <FormRow
+            label="Unidad de medida"
+            hint={
+              articulo.unidadMedidaId == null
+                ? `Legacy: «${articulo.unidadMedidaDefault}». Asigna una unidad del catálogo.`
+                : 'Del catálogo de unidades.'
+            }
+            error={form.formState.errors.unidadMedidaId?.message}
           >
-            Descartar cambios
-          </Button>
-          <Button type="submit" disabled={!dirty || actualizar.isPending}>
-            {actualizar.isPending ? 'Guardando…' : 'Guardar cambios'}
-          </Button>
-        </div>
-      )}
+            <Controller
+              name="unidadMedidaId"
+              control={form.control}
+              render={({ field }) => (
+                <UnidadMedidaSelect
+                  value={field.value ?? null}
+                  onChange={field.onChange}
+                  disabled={!canEditar}
+                  permitirVacio
+                />
+              )}
+            />
+          </FormRow>
+        </FormCampo>
+
+        <FormCampo span={12}>
+          <div className="md:col-span-2">
+            <FormRow label="Nombre" required error={form.formState.errors.nombre?.message}>
+              <Input maxLength={254} disabled={!canEditar} {...form.register('nombre')} />
+            </FormRow>
+          </div>
+        </FormCampo>
+
+        <FormCampo span={6}>
+          <FormRow
+            label="Naturaleza"
+            required
+            error={form.formState.errors.naturaleza?.message}
+            hint="Alimenta la matriz de aprobación de Compras."
+          >
+            <Controller
+              name="naturaleza"
+              control={form.control}
+              render={({ field }) => (
+                <Select
+                  value={String(field.value)}
+                  onValueChange={(v) => field.onChange(Number(v))}
+                  disabled={!canEditar}
+                >
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value={String(Naturaleza.Estandar)}>Estándar</SelectItem>
+                    <SelectItem value={String(Naturaleza.Servicio)}>Servicio</SelectItem>
+                    <SelectItem value={String(Naturaleza.Critico)}>Crítico</SelectItem>
+                    <SelectItem value={String(Naturaleza.Riesgo)}>Riesgo</SelectItem>
+                  </SelectContent>
+                </Select>
+              )}
+            />
+          </FormRow>
+        </FormCampo>
+
+        <FormCampo span={6}>
+          <FormRow
+            label="Categoría"
+            hint={
+              articulo.categoriaId == null && articulo.categoria != null
+                ? `Legacy: «${articulo.categoria}». Asigna una categoría del catálogo.`
+                : 'Del catálogo de categorías.'
+            }
+            error={form.formState.errors.categoriaId?.message}
+          >
+            <Controller
+              name="categoriaId"
+              control={form.control}
+              render={({ field }) => (
+                <CategoriaSelector
+                  value={field.value ?? null}
+                  onChange={field.onChange}
+                  initialLabel={articulo.categoria}
+                  disabled={!canEditar}
+                />
+              )}
+            />
+          </FormRow>
+        </FormCampo>
+
+        <FormCampo span={12}>
+          <div className="md:col-span-2">
+            <FormRow
+              label="Descripción larga"
+              hint="Opcional."
+              error={form.formState.errors.descripcionLarga?.message}
+            >
+              <Controller
+                name="descripcionLarga"
+                control={form.control}
+                render={({ field }) => (
+                  <Textarea
+                    rows={3}
+                    disabled={!canEditar}
+                    value={field.value ?? ''}
+                    onChange={(e) =>
+                      field.onChange(e.target.value.length > 0 ? e.target.value : null)
+                    }
+                  />
+                )}
+              />
+            </FormRow>
+          </div>
+        </FormCampo>
+
+        <FormCampo span={6}>
+          <FormRow
+            label="Precio referencia"
+            hint="Opcional. Vacío = no aplica."
+            error={form.formState.errors.precioReferenciaMonto?.message}
+          >
+            <Controller
+              name="precioReferenciaMonto"
+              control={form.control}
+              render={({ field }) => (
+                <Input
+                  type="number"
+                  step="0.01"
+                  min={0}
+                  disabled={!canEditar}
+                  value={field.value ?? ''}
+                  onChange={(e) =>
+                    field.onChange(e.target.value === '' ? null : Number(e.target.value))
+                  }
+                />
+              )}
+            />
+          </FormRow>
+        </FormCampo>
+
+        <FormCampo span={6}>
+          <FormRow
+            label="Moneda referencia"
+            hint="Opcional. Del catálogo de monedas."
+            error={form.formState.errors.precioReferenciaMoneda?.message}
+          >
+            <Controller
+              name="precioReferenciaMoneda"
+              control={form.control}
+              render={({ field }) => (
+                <MonedaSelector
+                  value={field.value}
+                  onChange={field.onChange}
+                  disabled={!canEditar}
+                />
+              )}
+            />
+          </FormRow>
+        </FormCampo>
+
+        <FormCampo span={12}>
+          {canEditar && (
+            <div className="md:col-span-2 flex flex-wrap items-center justify-end gap-2 border-t pt-3">
+              <Button
+                type="button"
+                variant="ghost"
+                onClick={() => form.reset(buildDefaults(articulo))}
+                disabled={!dirty || actualizar.isPending}
+              >
+                Descartar cambios
+              </Button>
+              <Button type="submit" disabled={!dirty || actualizar.isPending}>
+                {actualizar.isPending ? 'Guardando…' : 'Guardar cambios'}
+              </Button>
+            </div>
+          )}
+        </FormCampo>
+      </FormSeccion>
     </form>
   );
 }
@@ -336,17 +319,15 @@ function FormRow({ label, required, hint, error, children }: FormRowProps) {
       <label className="flex items-center gap-1 text-sm font-medium">
         {label}
         {required && (
-          <span aria-hidden="true" className="text-rose-600">
+          <span aria-hidden="true" className="text-danger-fg">
             *
           </span>
         )}
       </label>
       {children}
-      {hint != null && error == null && (
-        <p className="text-xs text-muted-foreground">{hint}</p>
-      )}
+      {hint != null && error == null && <p className="text-xs text-ink-muted">{hint}</p>}
       {error != null && (
-        <p role="alert" className="text-xs text-rose-600">
+        <p role="alert" className="text-xs text-danger-fg">
           {error}
         </p>
       )}

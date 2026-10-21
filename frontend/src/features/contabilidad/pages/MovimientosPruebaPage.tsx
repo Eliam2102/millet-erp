@@ -319,7 +319,7 @@ export function MovimientosPruebaPage() {
                 id="mov-proyecto"
                 maxLength={40}
                 value={proyecto}
-                placeholder="[CLAVE DE PROYECTO]"
+                placeholder="Ej. PRY-2026-01"
                 aria-invalid={errorDe('proyecto').length > 0 || undefined}
                 aria-describedby="mov-proyecto-err"
                 onChange={(e) => limpiarResultado(setProyecto)(e.target.value)}
@@ -361,7 +361,7 @@ export function MovimientosPruebaPage() {
                 maxLength={100}
                 value={referencia}
                 onChange={(e) => setReferencia(e.target.value)}
-                placeholder="[REFERENCIA]"
+                placeholder="Ej. TRF-0412"
               />
             </Campo>
           </FormCampo>
@@ -559,7 +559,7 @@ function MovimientosRegistrados() {
                         {m.tipoDocumentoClave}
                       </TableCell>
                       <TableCell className="px-3 py-2">
-                        {m.sucursalNombre ?? '[SUCURSAL]'}
+                        {m.sucursalNombre ?? <span className="text-ink-muted">Sin sucursal</span>}
                       </TableCell>
                       <TableCell className="px-3 py-2 font-mono text-xs">
                         {centros(m)}
@@ -586,7 +586,7 @@ function MovimientosRegistrados() {
                         </details>
                       </TableCell>
                       <TableCell className="px-3 py-2 text-xs text-ink-muted">
-                        {m.confirmadoPor ?? '[USUARIO]'}
+                        {m.confirmadoPor ?? <span className="text-ink-muted">Sin asignar</span>}
                         <span className="block">{formatDateTime(m.confirmadoEn)}</span>
                       </TableCell>
                     </TableRow>

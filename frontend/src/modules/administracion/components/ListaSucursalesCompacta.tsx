@@ -1,3 +1,5 @@
+import { ListadoCatalogo } from '@/modules/administracion/components/ListadoCatalogo';
+import { OPCIONES_CATALOGO } from '@/modules/administracion/lib/estados-ui';
 import { Link } from '@tanstack/react-router';
 import { ChevronRight } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
@@ -13,16 +15,22 @@ export interface ListaSucursalesCompactaProps {
   idActivo: string | null;
 }
 
-export function ListaSucursalesCompacta({
-  items,
-  idActivo,
-}: ListaSucursalesCompactaProps) {
+export function ListaSucursalesCompacta({ items, idActivo }: ListaSucursalesCompactaProps) {
   return (
-    <ul className="divide-y" role="list" aria-label="Lista de sucursales">
-      {items.map((s) => (
-        <ItemCompacto key={s.id} item={s} activo={s.id === idActivo} />
-      ))}
-    </ul>
+    <ListadoCatalogo
+      items={items}
+      texto={(s) => s.clave + ' ' + s.nombre}
+      estado={(s) => s.estatus}
+      opciones={OPCIONES_CATALOGO}
+    >
+      {(visibles) => (
+        <ul className="divide-y" role="list" aria-label="Lista de sucursales">
+          {visibles.map((s) => (
+            <ItemCompacto key={s.id} item={s} activo={s.id === idActivo} />
+          ))}
+        </ul>
+      )}
+    </ListadoCatalogo>
   );
 }
 
@@ -41,9 +49,7 @@ function ItemCompacto({ item, activo }: ItemCompactoProps) {
         params={{ id: item.id }}
         className={cn(
           'block px-3 py-2.5 transition-colors',
-          activo
-            ? 'bg-primary/10 hover:bg-primary/15'
-            : 'hover:bg-muted/40',
+          activo ? 'bg-brand/10 hover:bg-brand/15' : 'hover:bg-surface-muted/40',
         )}
         aria-current={activo ? 'page' : undefined}
       >
@@ -53,38 +59,23 @@ function ItemCompacto({ item, activo }: ItemCompactoProps) {
               <span
                 className={cn(
                   'truncate font-mono text-sm',
-                  activo ? 'font-semibold text-foreground' : 'text-foreground',
+                  activo ? 'font-semibold text-ink' : 'text-ink',
                 )}
               >
                 {item.clave}
               </span>
-              <Badge
-                variant="outline"
-                className="px-1 py-0 text-[10px]"
-              >
+              <Badge variant="neutral">
                 {item.tipo === TipoSucursal.Planta ? 'Planta' : 'Taller'}
               </Badge>
               {esInactiva ? (
-                <Badge
-                  variant="outline"
-                  className="border-amber-400 bg-amber-50 px-1 py-0 text-[10px] text-amber-900 dark:bg-amber-950/40 dark:text-amber-200"
-                >
-                  Inactiva
-                </Badge>
+                <Badge variant="warning">Inactiva</Badge>
               ) : (
-                <Badge
-                  variant="secondary"
-                  className="px-1 py-0 text-[10px] text-muted-foreground"
-                >
-                  Activa
-                </Badge>
+                <Badge variant="neutral">Activa</Badge>
               )}
             </div>
-            <p className="truncate text-xs text-muted-foreground">
-              {item.nombre}
-            </p>
+            <p className="truncate text-xs text-ink-muted">{item.nombre}</p>
           </div>
-          <div className="flex shrink-0 items-center pt-1 text-muted-foreground">
+          <div className="flex shrink-0 items-center pt-1 text-ink-muted">
             <ChevronRight className="h-4 w-4" aria-hidden="true" />
           </div>
         </div>

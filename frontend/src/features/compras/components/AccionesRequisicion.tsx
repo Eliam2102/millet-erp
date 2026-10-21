@@ -1,7 +1,16 @@
 import { useState } from 'react';
 import { ConMotivo } from '@/features/compras/components/ConMotivo';
 import { Link } from '@tanstack/react-router';
-import { Ban, FileSpreadsheet, Lock, ShoppingCart, Send, ShieldCheck, Trash2, X } from 'lucide-react';
+import {
+  Ban,
+  FileSpreadsheet,
+  Lock,
+  ShoppingCart,
+  Send,
+  ShieldCheck,
+  Trash2,
+  X,
+} from 'lucide-react';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -130,11 +139,7 @@ export function AccionesRequisicion({ rq }: AccionesRequisicionProps) {
   const accEliminar = accionEliminarRequisicion(rq, permisos);
   const accCancelar = accionCancelar(rq, permisos);
   const accCerrarManual = accionCerrarManual(rq, permisos);
-  const accConvertirAOc = accionConvertirAOc(
-    rq,
-    permisos,
-    autoGenerarOcAlAutorizar,
-  );
+  const accConvertirAOc = accionConvertirAOc(rq, permisos, autoGenerarOcAlAutorizar);
   const accVerCotizaciones = accionVerCotizaciones(rq, permisos);
   // D1 (F1-COM-02): con cotizaciones registradas la OC se genera desde el comparativo, no con precios estimados.
   // El backend lo exige (COT_ELEGIR_DESDE_COMPARATIVO); aquí solo se redirige la acción.
@@ -283,17 +288,12 @@ export function AccionesRequisicion({ rq }: AccionesRequisicionProps) {
       {
         onSuccess: () => {
           toast.success('Requisición cancelada', {
-            description:
-              'Reservas liberadas y OCs borrador asociadas canceladas.',
+            description: 'Reservas liberadas y OCs borrador asociadas canceladas.',
           });
           setModalCancelarAbierto(false);
         },
         onError: (error) => {
-          if (
-            esApiError(error) &&
-            error.code === 'CANCELAR_FALLO' &&
-            error.status === 422
-          ) {
+          if (esApiError(error) && error.code === 'CANCELAR_FALLO' && error.status === 422) {
             setModalCancelarAbierto(false);
             toast.error('La cancelación no terminó', {
               description: error.traceId
@@ -329,17 +329,12 @@ export function AccionesRequisicion({ rq }: AccionesRequisicionProps) {
       {
         onSuccess: () => {
           toast.success('Requisición cerrada', {
-            description:
-              'El material no entregado quedó disponible como stock.',
+            description: 'El material no entregado quedó disponible como stock.',
           });
           setModalCerrarManualAbierto(false);
         },
         onError: (error) => {
-          if (
-            esApiError(error) &&
-            error.code === 'CIERRE_MANUAL_FALLO' &&
-            error.status === 422
-          ) {
+          if (esApiError(error) && error.code === 'CIERRE_MANUAL_FALLO' && error.status === 422) {
             setModalCerrarManualAbierto(false);
             toast.error('El cierre no terminó', {
               description: error.traceId
@@ -377,28 +372,26 @@ export function AccionesRequisicion({ rq }: AccionesRequisicionProps) {
         {accTransmitir.visible && (
           <ConMotivo motivo={accTransmitir.motivoDeshabilitada}>
             <Button
-            type="button"
-            disabled={!accTransmitir.habilitada || isPending}
-            onClick={() => setConfirmacion({ tipo: 'transmitir' })}
-          >
-            <Send className="mr-2 h-4 w-4" />
-            Transmitir
-          </Button>
+              type="button"
+              disabled={!accTransmitir.habilitada || isPending}
+              onClick={() => setConfirmacion({ tipo: 'transmitir' })}
+            >
+              <Send className="mr-2 h-4 w-4" />
+              Transmitir
+            </Button>
           </ConMotivo>
         )}
         {accN1.visible && (
           <ConMotivo motivo={accN1.motivoDeshabilitada}>
             <Button
-            type="button"
-            variant="default"
-            disabled={!accN1.habilitada || isPending}
-            onClick={() =>
-              setConfirmacion({ tipo: 'aprobar', nivel: NivelAutorizacion.Nivel1 })
-            }
-          >
-            <ShieldCheck className="mr-2 h-4 w-4" />
-            Aprobar Nivel 1
-          </Button>
+              type="button"
+              variant="default"
+              disabled={!accN1.habilitada || isPending}
+              onClick={() => setConfirmacion({ tipo: 'aprobar', nivel: NivelAutorizacion.Nivel1 })}
+            >
+              <ShieldCheck className="mr-2 h-4 w-4" />
+              Aprobar Nivel 1
+            </Button>
           </ConMotivo>
         )}
         {n1Autorizada && (
@@ -417,16 +410,14 @@ export function AccionesRequisicion({ rq }: AccionesRequisicionProps) {
         {accN2.visible && (
           <ConMotivo motivo={accN2.motivoDeshabilitada}>
             <Button
-            type="button"
-            variant="default"
-            disabled={!accN2.habilitada || isPending}
-            onClick={() =>
-              setConfirmacion({ tipo: 'aprobar', nivel: NivelAutorizacion.Nivel2 })
-            }
-          >
-            <ShieldCheck className="mr-2 h-4 w-4" />
-            Aprobar Nivel 2
-          </Button>
+              type="button"
+              variant="default"
+              disabled={!accN2.habilitada || isPending}
+              onClick={() => setConfirmacion({ tipo: 'aprobar', nivel: NivelAutorizacion.Nivel2 })}
+            >
+              <ShieldCheck className="mr-2 h-4 w-4" />
+              Aprobar Nivel 2
+            </Button>
           </ConMotivo>
         )}
         {accRechazar.visible && (
@@ -500,22 +491,22 @@ export function AccionesRequisicion({ rq }: AccionesRequisicionProps) {
         {accConvertirAOc.visible && !tieneCotizaciones && (
           <ConMotivo motivo={accConvertirAOc.motivoDeshabilitada}>
             <Button
-            type="button"
-            disabled={!accConvertirAOc.habilitada || isPending}
-            onClick={() =>
-              nuevaOc.abrir({
-                desdeRequisicion: {
-                  requisicionId: rq.id,
-                  sucursalId: rq.sucursalId,
-                  folio: rq.folio,
-                },
-              })
-            }
-            data-action="convertir-a-oc"
-          >
-            <ShoppingCart className="mr-2 h-4 w-4" />
-            Convertir a OC
-          </Button>
+              type="button"
+              disabled={!accConvertirAOc.habilitada || isPending}
+              onClick={() =>
+                nuevaOc.abrir({
+                  desdeRequisicion: {
+                    requisicionId: rq.id,
+                    sucursalId: rq.sucursalId,
+                    folio: rq.folio,
+                  },
+                })
+              }
+              data-action="convertir-a-oc"
+            >
+              <ShoppingCart className="mr-2 h-4 w-4" />
+              Convertir a OC
+            </Button>
           </ConMotivo>
         )}
       </div>
@@ -538,7 +529,7 @@ export function AccionesRequisicion({ rq }: AccionesRequisicionProps) {
             </AlertDialogTitle>
             <AlertDialogDescription>
               {confirmacion?.tipo === 'transmitir' &&
-                'La RQ pasará a EnAutorización y los autorizadores podrán firmarla. No podrás editar líneas estructuralmente después.'}
+                'La RQ pasará a EnAutorización y los autorizadores podrán firmarla. No podrás editar partidas estructuralmente después.'}
               {confirmacion?.tipo === 'aprobar' &&
                 'Tu firma queda registrada con tu usuario y la fecha actual. No puedes deshacerla; solo se puede rechazar la RQ por un autorizador.'}
             </AlertDialogDescription>
@@ -549,8 +540,7 @@ export function AccionesRequisicion({ rq }: AccionesRequisicionProps) {
               disabled={isPending}
               onClick={() => {
                 if (confirmacion?.tipo === 'transmitir') ejecutarTransmitir();
-                else if (confirmacion?.tipo === 'aprobar')
-                  ejecutarAprobar(confirmacion.nivel);
+                else if (confirmacion?.tipo === 'aprobar') ejecutarAprobar(confirmacion.nivel);
               }}
             >
               {isPending ? 'Procesando…' : 'Confirmar'}

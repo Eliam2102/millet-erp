@@ -1,5 +1,6 @@
 import { useState } from 'react';
-import { Users } from 'lucide-react';
+import { PageHeader } from '@/components/erp/PageHeader';
+import { BarraFiltros } from '@/components/erp/data/BarraFiltros';
 import { UsuarioSelector } from '@/components/erp/selectors/UsuarioSelector';
 import { AsignacionUsuarioPanel } from '@/features/centros-costo/components/AsignacionUsuarioPanel';
 
@@ -14,19 +15,21 @@ export function AsignacionCentrosCostoPage() {
   const [usuarioId, setUsuarioId] = useState<string | null>(null);
 
   return (
-    <div className="mx-auto max-w-4xl space-y-6 px-4 py-8">
-      <header className="space-y-3">
-        <h1 className="flex items-center gap-2 text-2xl font-semibold">
-          <Users className="h-6 w-6 text-primary" aria-hidden="true" />
-          Asignación de Centros de Costo
-        </h1>
-        <div className="max-w-md">
-          <UsuarioSelector value={usuarioId} onChange={setUsuarioId} />
-        </div>
-      </header>
+    <div className="space-y-5">
+      <PageHeader
+        titulo="Asignación de centros de costo"
+        descripcion="Consulta y edita el alcance de centros de costo de cada usuario."
+      />
+      <BarraFiltros
+        filtros={
+          <div className="w-full sm:w-96">
+            <UsuarioSelector value={usuarioId} onChange={setUsuarioId} />
+          </div>
+        }
+      />
 
       {usuarioId === null ? (
-        <div className="rounded-md bg-muted/50 px-4 py-6 text-center text-sm text-muted-foreground">
+        <div className="rounded-md bg-surface-muted/50 px-4 py-6 text-center text-sm text-ink-muted">
           Selecciona un usuario para ver y editar su alcance.
         </div>
       ) : (

@@ -78,6 +78,22 @@ public static class FacturasEndpoints
         .WithSummary("Conteo por estado, con los filtros de la bandeja salvo el estado")
         .Produces<IReadOnlyList<Millet.SharedKernel.Application.ConteoPorEstadoItem>>(StatusCodes.Status200OK);
 
+        group.MapGet("/pendientes-por-proveedor", async (
+            [FromQuery] string? rfc,
+            [FromQuery] Guid? proveedorId,
+            IMediator mediator,
+            CancellationToken cancellationToken) =>
+            proveedorId is null && string.IsNullOrWhiteSpace(rfc)
+                ? Results.Problem(statusCode: StatusCodes.Status400BadRequest, title: "Indica el RFC o el proveedor.")
+                : Results.Ok(await mediator.Send(new PendientesFacturarProveedorQuery(rfc, proveedorId), cancellationToken)))
+        .RequireAuthorization(PermissionPolicyProvider.Prefix + PermisosCanonicos.CuentasPorPagarFacturasLeer)
+        .WithName("PendientesFacturarPorProveedor")
+        .WithSummary("OC con saldo por facturar y sus recepciones libres, por RFC o id del proveedor")
+        .Produces<PendientesFacturarProveedorResponse>(StatusCodes.Status200OK)
+        .ProducesProblem(StatusCodes.Status400BadRequest)
+        .ProducesProblem(StatusCodes.Status401Unauthorized)
+        .ProducesProblem(StatusCodes.Status403Forbidden);
+
         group.MapGet("/{id:guid}", async (
             Guid id,
             IMediator mediator,

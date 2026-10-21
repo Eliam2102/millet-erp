@@ -1,0 +1,337 @@
+[
+  {
+    "nombre": "PageHeader",
+    "uso": "Presenta título, contexto y acciones de una pantalla.",
+    "noUsar": "No usar para cada subtítulo de una tarjeta.",
+    "regla": "§5.1 · §5.2",
+    "props": [
+      ["titulo", "ReactNode", "Título principal"],
+      ["descripcion", "ReactNode", "Una oración"],
+      ["acciones", "ReactNode", "Acciones a la derecha"],
+      ["mono", "boolean", "Folio en Plex Mono"]
+    ]
+  },
+  {
+    "nombre": "ListadoModulo",
+    "uso": "Agrupa tabs, filtros, tabla con scroll y pie fijo.",
+    "noUsar": "No usar para formularios de captura.",
+    "regla": "§4.4 · §5.1",
+    "props": [
+      ["tabs / filtros / pie", "ReactNode", "Zonas del listado"],
+      ["children", "ReactNode", "Tabla o estado de carga"]
+    ]
+  },
+  {
+    "nombre": "TabsEstado",
+    "uso": "Filtra una bandeja por estado con conteos.",
+    "noUsar": "No usar para paneles independientes; usa Tabs.",
+    "regla": "§4.4.1 · §7.2",
+    "props": [
+      ["opciones", "TabEstadoOpcion[]", "Estados en orden"],
+      ["valor", "number o undefined", "Estado o todos"],
+      ["onChange", "(estado) => void", "Actualizar filtro"],
+      ["conteos", "Record<number, number> o undefined", "Conteos o carga"]
+    ]
+  },
+  {
+    "nombre": "BarraFiltros",
+    "uso": "Reúne búsqueda, filtros y total de la bandeja.",
+    "noUsar": "No usar como formulario de alta.",
+    "regla": "§4.4.2",
+    "props": [
+      ["busqueda / filtros / chips", "ReactNode", "Controles"],
+      ["masFiltros", "ReactNode", "Filtros secundarios"],
+      ["onLimpiar", "() => void", "Restablecer filtros"]
+    ]
+  },
+  {
+    "nombre": "PaginacionTabla",
+    "uso": "Navega páginas y muestra el intervalo visible.",
+    "noUsar": "No usar para paginar datos que aún no se han contado.",
+    "regla": "§4.4.5",
+    "props": [
+      ["total / offset / limit", "number", "Total, inicio y tamaño"],
+      ["onChange", "(offset, limit) => void", "Cambiar página"],
+      ["tamanos", "number[]", "Vacío fija 10 filas"]
+    ]
+  },
+  {
+    "nombre": "KpiCard",
+    "uso": "Muestra un indicador accionable y enlaza a su listado.",
+    "noUsar": "No usar para totales decorativos sin acción.",
+    "regla": "§4.3 · §7.1",
+    "props": [
+      ["etiqueta", " string", "Nombre"],
+      ["valor / subdato", "ReactNode", "Cifra y motivo"],
+      ["tono", "success, warning, danger, info, neutral", "Semántica"],
+      ["href / prioridad", "string / critico o atencion", "Destino y urgencia"]
+    ]
+  },
+  {
+    "nombre": "ResumenImportes",
+    "uso": "Ordena desglose, total y estado de pago en una columna.",
+    "noUsar": "No usar para calcular impuestos; recibe importes ya calculados.",
+    "regla": "§4.11",
+    "props": [
+      ["moneda", "string", "Código de moneda"],
+      ["subtotal / descuento / ivaTrasladado", "number opcional", "Desglose"],
+      ["total", "number", "Total calculado"],
+      ["estadoPago", "Importe[]", "Bloque separado"]
+    ]
+  },
+  {
+    "nombre": "MontoMovimiento",
+    "uso": "Distingue entradas y salidas por signo y color.",
+    "noUsar": "No usar para un saldo sin sentido de movimiento.",
+    "regla": "§4.12",
+    "props": [
+      ["monto", "number", "Importe absoluto"],
+      ["moneda", "string", "Moneda"],
+      ["tipo", "entrada o salida", "Signo y tono"]
+    ]
+  },
+  {
+    "nombre": "FormGrid",
+    "uso": "Alinea campos y secciones en una rejilla común de 12 columnas.",
+    "noUsar": "No usar anchos manuales distintos entre secciones.",
+    "regla": "§4.2",
+    "props": [
+      ["children", "ReactNode", "Campos"],
+      ["className", "string", "Clases adicionales"]
+    ]
+  },
+  {
+    "nombre": "FormCampo",
+    "uso": "Alinea campos y secciones en una rejilla común de 12 columnas.",
+    "noUsar": "No usar anchos manuales distintos entre secciones.",
+    "regla": "§4.2",
+    "props": [
+      ["children", "ReactNode", "Campos"],
+      ["span", "3, 4, 6 o 12", "Ancho"],
+      ["className", "string", "Clases adicionales"]
+    ]
+  },
+  {
+    "nombre": "FormSeccion",
+    "uso": "Alinea campos y secciones en una rejilla común de 12 columnas.",
+    "noUsar": "No usar anchos manuales distintos entre secciones.",
+    "regla": "§4.2",
+    "props": [
+      ["children", "ReactNode", "Campos"],
+      ["titulo / numero", "string / number", "Leyenda y orden"]
+    ]
+  },
+  {
+    "nombre": "ContextoSucursal",
+    "uso": "Muestra el contexto de sucursal activo sin cambiarlo.",
+    "noUsar": "No usar como selector de la sucursal del formulario.",
+    "regla": "§3.3 · §6",
+    "props": [
+      ["Sin props", "—", "Lee sesión y consulta sucursales"],
+      ["QueryClientProvider", "Contexto", "Este ejemplo usa caché aislada sin red"]
+    ]
+  },
+  {
+    "nombre": "EstadoBadge",
+    "uso": "Traduce estados de Compras con su mapa y glosario.",
+    "noUsar": "No usar para estados de otras entidades; usar Badge y su mapa propio.",
+    "regla": "§4.6 · §7.2",
+    "props": [
+      ["tipo", "requisicion u orden-compra", "Selecciona mapa"],
+      ["estado", "Enum de la entidad", "Estado real"],
+      ["situacion", "SituacionSurtido opcional", "Sólo requisiciones"]
+    ]
+  },
+  {
+    "nombre": "EmptyState",
+    "uso": "Explica que la carga terminó sin registros.",
+    "noUsar": "No usar mientras carga o cuando la consulta falló.",
+    "regla": "§6 · §8",
+    "props": [
+      ["title", "string", "Título"],
+      ["description", "string", "Siguiente acción"],
+      ["action", "ReactNode", "Acción opcional"]
+    ]
+  },
+  {
+    "nombre": "ErrorState",
+    "uso": "Explica un fallo de carga y ofrece recuperación.",
+    "noUsar": "No usar para errores de un solo campo.",
+    "regla": "§6 · §8",
+    "props": [
+      ["problem", "ProblemDetails", "Causa"],
+      ["title", "string", "Título"],
+      ["onRetry", "() => void", "Recuperación"]
+    ]
+  },
+  {
+    "nombre": "TableSkeleton",
+    "uso": "Reserva la estructura de una tabla durante la carga.",
+    "noUsar": "No usar para representar una lista vacía.",
+    "regla": "§4.4 · §8",
+    "props": [
+      ["rows", "number", "Filas"],
+      ["columns", "TableSkeletonColumn[]", "Ancho y nombre accesible"]
+    ]
+  },
+  {
+    "nombre": "AvisoEnLinea",
+    "uso": "Comunica bloqueos persistentes y cómo resolverlos.",
+    "noUsar": "No usar para confirmaciones transitorias de éxito.",
+    "regla": "§4.10 · §6",
+    "props": [
+      ["tono", "advertencia o error", "Nota o alerta"],
+      ["titulo", "string opcional", "Encabezado"],
+      ["children / accion", "ReactNode", "Causa y acción"]
+    ]
+  },
+  {
+    "nombre": "ConfirmarAccionDialog",
+    "uso": "Pide confirmación para una acción relevante o irreversible.",
+    "noUsar": "No usar en cada acción rutinaria.",
+    "regla": "§4.8 · §6",
+    "props": [
+      ["open / onOpenChange", "boolean / función", "Apertura"],
+      ["tono", "primario o peligro", "Intención"],
+      ["onConfirmar", "() => void", "Caller cierra al terminar"],
+      ["pendiente", "boolean", "Bloquea durante operación"]
+    ]
+  },
+  {
+    "nombre": "MotivoDialog",
+    "uso": "Recoge un motivo obligatorio antes de confirmar.",
+    "noUsar": "No usar para capturar formularios de varias secciones.",
+    "regla": "§4.8 · §6",
+    "props": [
+      ["min / max", "number", "Límites"],
+      ["error", "string o null", "Mensaje"],
+      ["onConfirmar", "(motivo) => Promise<void>", "Acción"],
+      ["onCerrar", "() => void", "Cerrar"]
+    ]
+  },
+  {
+    "nombre": "MoneyDisplay",
+    "uso": "Formatea dinero con cifras tabulares y ausencia explícita.",
+    "noUsar": "No usar como campo de captura.",
+    "regla": "§0.6 · §6",
+    "props": [
+      ["money", "Money o null", "Objeto importe-moneda"],
+      ["amount / currency", "number / string", "Alternativa al objeto"],
+      ["strong / empty", "boolean / string", "Énfasis y ausencia"]
+    ]
+  },
+  {
+    "nombre": "DateTimeDisplay",
+    "uso": "Muestra fechas de calendario o instantes en el formato adecuado.",
+    "noUsar": "No usar para editar fechas ni convertir DateOnly a UTC.",
+    "regla": "§4.4 · §6",
+    "props": [
+      ["value", "string o null", "ISO o DateOnly"],
+      ["variant", "date, datetime, long, corta, media", "Formato"],
+      ["vencida", "boolean", "Énfasis urgente"]
+    ]
+  },
+  {
+    "nombre": "Button",
+    "uso": "Ejecuta una acción con jerarquía visual.",
+    "noUsar": "No usar más de una acción primaria por zona.",
+    "regla": "§4.1",
+    "props": [
+      ["variant", "Variante semántica", "Jerarquía"],
+      ["size", "default, sm, lg, icon", "Altura"],
+      ["disabled / title", "boolean / string", "Bloqueo y motivo"],
+      ["asChild", "boolean", "Usar enlace real"]
+    ]
+  },
+  {
+    "nombre": "Input",
+    "uso": "Captura un valor simple con label y validación.",
+    "noUsar": "No usar para selección de un catálogo cerrado.",
+    "regla": "§4.2 · §8",
+    "props": [
+      ["type / value", "string", "Tipo y valor"],
+      ["onChange", "ChangeEventHandler", "Cambio"],
+      ["aria-invalid / aria-describedby", "boolean / string", "Error accesible"],
+      ["disabled", "boolean", "Bloqueo con motivo"]
+    ]
+  },
+  {
+    "nombre": "Select",
+    "uso": "Selecciona una opción de una lista cerrada.",
+    "noUsar": "No usar para texto libre ni catálogos remotos sin búsqueda.",
+    "regla": "§4.2 · §8",
+    "props": [
+      ["value / onValueChange", "string / función", "Selección"],
+      ["disabled", "boolean", "Bloqueo"],
+      ["id / aria-invalid", "string / boolean", "Se reenvían al trigger"]
+    ]
+  },
+  {
+    "nombre": "Dialog",
+    "uso": "Presenta una tarea superpuesta con cuerpo desplazable.",
+    "noUsar": "No usar para navegación permanente; lg es obligatorio con partidas o 2+ columnas.",
+    "regla": "§4.8 · §5.4",
+    "props": [
+      ["open / onOpenChange", "boolean / función", "Apertura"],
+      ["Content.size", "sm, md, lg", "Ancho"],
+      ["Body.children", "ReactNode", "Contenido con scroll"],
+      ["Title / Description", "ReactNode", "Nombre y contexto accesibles"]
+    ]
+  },
+  {
+    "nombre": "Sheet",
+    "uso": "Presenta una tarea superpuesta con cuerpo desplazable.",
+    "noUsar": "No usar para navegación permanente; lg es obligatorio con partidas o 2+ columnas.",
+    "regla": "§4.8 · §5.4",
+    "props": [
+      ["open / onOpenChange", "boolean / función", "Apertura"],
+      ["Content.size", "form, md, lg, wide, legacy", "Ancho"],
+      ["Body.children", "ReactNode", "Contenido con scroll"],
+      ["Title / Description", "ReactNode", "Nombre y contexto accesibles"]
+    ]
+  },
+  {
+    "nombre": "Table",
+    "uso": "Presenta registros comparables con encabezados y celdas.",
+    "noUsar": "No usar tablas para distribuir formularios.",
+    "regla": "§4.4",
+    "props": [
+      ["children", "ReactNode", "Header, Body, Row, Head, Cell"],
+      ["className", "string", "Anchos y alineación"],
+      ["TableContainer.maxHeightClassName", "string", "Límite del scroll"]
+    ]
+  },
+  {
+    "nombre": "Tabs",
+    "uso": "Alterna paneles del mismo contexto con teclado.",
+    "noUsar": "No usar como sustituto del menú de rutas.",
+    "regla": "§4.4.1 · §8",
+    "props": [
+      ["value / onValueChange", "string / función", "Panel"],
+      ["TabsList.variant", "linea o pill", "Presentación"],
+      ["TabsTrigger.count", "number", "Conteo"],
+      ["TabsContent.forceMount", "boolean", "Conservar formulario montado"]
+    ]
+  },
+  {
+    "nombre": "Badge",
+    "uso": "Comunica un estado con texto y color semántico.",
+    "noUsar": "No usar como botón ni cambiar el color de un mismo estado.",
+    "regla": "§4.6 · §7.2",
+    "props": [
+      ["variant", "success, warning, danger, info, neutral y aliases", "Semántica"],
+      ["children", "ReactNode", "Texto visible"]
+    ]
+  },
+  {
+    "nombre": "Tooltip",
+    "uso": "Añade ayuda breve al hover o foco.",
+    "noUsar": "No usar para esconder instrucciones indispensables.",
+    "regla": "§8 · §4.1",
+    "props": [
+      ["Provider.delayDuration", "number", "Demora"],
+      ["Trigger.asChild", "boolean", "Conserva botón"],
+      ["Content.side / sideOffset", "string / number", "Posición"]
+    ]
+  }
+]

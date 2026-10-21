@@ -1,3 +1,7 @@
+import { DialogBody } from '@/components/ui/dialog';
+import { ConfirmacionContent as AlertDialogContent } from '@/modules/administracion/components/ConfirmacionContent';
+import { PageHeader } from '@/components/erp/PageHeader';
+import { ESTADOS_CUENTA } from '../lib/estados-ui';
 import { useState } from 'react';
 import { Link, useNavigate, useParams } from '@tanstack/react-router';
 import { Trash2, X } from 'lucide-react';
@@ -8,7 +12,6 @@ import {
   AlertDialog,
   AlertDialogAction,
   AlertDialogCancel,
-  AlertDialogContent,
   AlertDialogDescription,
   AlertDialogFooter,
   AlertDialogHeader,
@@ -47,25 +50,19 @@ export function RolDetalle() {
   const [tab, setTab] = useState<Tab>('datos');
   const [confirmEliminar, setConfirmEliminar] = useState(false);
 
-  const canEliminar = useHasPermission(
-    PermisosCanonicos.IdentidadRolesEliminar,
-  );
-  const canAsignarPermisos = useHasPermission(
-    PermisosCanonicos.IdentidadRolesAsignarPermisos,
-  );
+  const canEliminar = useHasPermission(PermisosCanonicos.IdentidadRolesEliminar);
+  const canAsignarPermisos = useHasPermission(PermisosCanonicos.IdentidadRolesAsignarPermisos);
 
   const eliminar = useEliminarRol();
 
   if (rolQuery.isError) {
-    const problem = esApiError(rolQuery.error)
-      ? rolQuery.error.problem
-      : undefined;
+    const problem = esApiError(rolQuery.error) ? rolQuery.error.problem : undefined;
     return <ErrorState problem={problem} onRetry={() => rolQuery.refetch()} />;
   }
 
   if (rolQuery.isLoading || rolQuery.data == null) {
     return (
-      <div className="space-y-4 p-4">
+      <div className="space-y-5">
         <TableSkeleton
           rows={4}
           columns={[{ width: 'w-48' }, { width: 'w-64' }, { width: 'w-32' }]}
@@ -108,73 +105,77 @@ export function RolDetalle() {
       : undefined;
 
   return (
-    <div className="flex flex-col">
+    <div className="flex flex-col gap-5">
       {/* Header NO sticky: viaja con el scroll. Sólo el <nav> queda
           pinneado para que los tabs estén siempre visibles sin que el
           bloque sticky tape la primera fila del form al anclar. */}
-      <header
-        className="flex flex-wrap items-center gap-3 border-b bg-background px-4 py-2"
-        data-print="hidden"
-      >
-        <div className="flex min-w-0 items-center gap-2">
-          <span className="truncate font-mono text-sm font-semibold">
-            {rol.codigo}
-          </span>
-          {rol.esDelSistema && <Badge variant="outline">Sistema</Badge>}
-          {!rol.activo && (
-            <Badge variant="outline" className="text-muted-foreground">
-              Inactivo
-            </Badge>
-          )}
-          <span className="hidden truncate text-sm text-muted-foreground md:inline">
-            · {rol.nombre}
-          </span>
-        </div>
-
-        <div className="ml-auto flex items-center gap-1">
-          {puedeEliminar && (
-            <Button
-              type="button"
-              variant="ghost"
-              size="sm"
-              onClick={() => setConfirmEliminar(true)}
-            >
-              <Trash2 className="mr-1.5 h-4 w-4" />
-              Eliminar
+      <PageHeader
+        mono
+        titulo={rol.codigo}
+        descripcion={rol.nombre}
+        estado={
+          <>
+            {rol.esDelSistema && <Badge variant={ESTADOS_CUENTA.sistema.tono}>Sistema</Badge>}{' '}
+            {!rol.activo && <Badge variant={ESTADOS_CUENTA.inactivo.tono}>Inactivo</Badge>}
+          </>
+        }
+        acciones={
+          <div className="ml-auto flex items-center gap-1">
+            {puedeEliminar && (
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                onClick={() => setConfirmEliminar(true)}
+              >
+                <Trash2 className="mr-1.5 h-4 w-4" />
+                Eliminar
+              </Button>
+            )}
+            <Button asChild variant="ghost" size="icon">
+              <Link to="/admin/roles" aria-label="Cerrar">
+                <X className="h-4 w-4" />
+              </Link>
             </Button>
-          )}
-          <Button asChild variant="ghost" size="icon">
-            <Link to="/admin/roles" aria-label="Cerrar">
-              <X className="h-4 w-4" />
-            </Link>
-          </Button>
+          </div>
+        }
+      />
+      <dl className="grid gap-4 rounded-lg bg-surface-card p-4 shadow-card-flat sm:grid-cols-4">
+        <div>
+          <dt className="text-xs text-ink-muted">Código</dt>
+          <dd className="text-sm font-medium font-mono">{rol.codigo}</dd>
         </div>
-      </header>
+        <div>
+          <dt className="text-xs text-ink-muted">Nombre</dt>
+          <dd className="text-sm font-medium ">{rol.nombre}</dd>
+        </div>
+        <div>
+          <dt className="text-xs text-ink-muted">Permisos</dt>
+          <dd className="text-sm font-medium ">{permisoIds.length}</dd>
+        </div>
+      </dl>
 
       <nav
-        className="sticky top-14 z-10 flex items-center gap-1 border-b bg-background/95 px-4 backdrop-blur"
+        className="sticky top-14 z-10 flex items-center gap-1 border-b bg-surface-page/95 px-4 "
         role="tablist"
         aria-label="Secciones del rol"
         data-print="hidden"
       >
-          <TabButton
-            activa={tab === 'datos'}
-            onClick={() => setTab('datos')}
-            ariaControls="tab-panel-datos"
-          >
-            Datos
-          </TabButton>
-          <TabButton
-            activa={tab === 'permisos'}
-            onClick={() => setTab('permisos')}
-            ariaControls="tab-panel-permisos"
-          >
-            Permisos{' '}
-            <span className="ml-1 text-xs text-muted-foreground">
-              ({permisoIds.length})
-            </span>
-          </TabButton>
-        </nav>
+        <TabButton
+          activa={tab === 'datos'}
+          onClick={() => setTab('datos')}
+          ariaControls="tab-panel-datos"
+        >
+          Datos
+        </TabButton>
+        <TabButton
+          activa={tab === 'permisos'}
+          onClick={() => setTab('permisos')}
+          ariaControls="tab-panel-permisos"
+        >
+          Permisos <span className="ml-1 text-xs text-ink-muted">({permisoIds.length})</span>
+        </TabButton>
+      </nav>
 
       <div className="px-4 pt-4 pb-6">
         {tab === 'datos' && (
@@ -194,29 +195,22 @@ export function RolDetalle() {
         )}
       </div>
 
-      <AlertDialog
-        open={confirmEliminar}
-        onOpenChange={setConfirmEliminar}
-      >
+      <AlertDialog open={confirmEliminar} onOpenChange={setConfirmEliminar}>
         <AlertDialogContent>
-          <AlertDialogHeader>
+          <AlertDialogHeader className="px-6 pt-5 pb-3">
             <AlertDialogTitle>Eliminar rol</AlertDialogTitle>
+          </AlertDialogHeader>
+          <DialogBody>
             <AlertDialogDescription>
               ¿Confirmas eliminar el rol{' '}
-              <span className="font-mono font-semibold">{rol.codigo}</span>?
-              La acción es un <em>soft-delete</em>: el rol queda inactivo y
-              los usuarios pierden el acceso, pero el registro se conserva
-              para auditoría.
+              <span className="font-mono font-semibold">{rol.codigo}</span>? La acción es un{' '}
+              <em>soft-delete</em>: el rol queda inactivo y los usuarios pierden el acceso, pero el
+              registro se conserva para auditoría.
             </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel disabled={eliminar.isPending}>
-              Cancelar
-            </AlertDialogCancel>
-            <AlertDialogAction
-              onClick={handleConfirmarEliminar}
-              disabled={eliminar.isPending}
-            >
+          </DialogBody>
+          <AlertDialogFooter className="border-t border-line-divider bg-surface-subtle px-6 py-4">
+            <AlertDialogCancel disabled={eliminar.isPending}>Cancelar</AlertDialogCancel>
+            <AlertDialogAction onClick={handleConfirmarEliminar} disabled={eliminar.isPending}>
               {eliminar.isPending ? 'Eliminando…' : 'Eliminar'}
             </AlertDialogAction>
           </AlertDialogFooter>
@@ -243,9 +237,7 @@ function TabButton({ activa, onClick, ariaControls, children }: TabButtonProps) 
       onClick={onClick}
       className={cn(
         'border-b-2 px-3 py-2 text-sm font-medium transition-colors',
-        activa
-          ? 'border-primary text-foreground'
-          : 'border-transparent text-muted-foreground hover:text-foreground',
+        activa ? 'border-brand text-ink' : 'border-transparent text-ink-muted hover:text-ink',
       )}
     >
       {children}

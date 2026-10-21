@@ -10,15 +10,12 @@ export interface NuevaUnidadMedidaApi {
   setDirty: (dirty: boolean) => void;
 }
 
-export const NuevaUnidadMedidaContext =
-  createContext<NuevaUnidadMedidaApi | null>(null);
+export const NuevaUnidadMedidaContext = createContext<NuevaUnidadMedidaApi | null>(null);
 
 export function useNuevaUnidadMedida(): NuevaUnidadMedidaApi {
   const ctx = useContext(NuevaUnidadMedidaContext);
   if (ctx == null) {
-    throw new Error(
-      'useNuevaUnidadMedida() debe usarse dentro de <NuevaUnidadMedidaProvider>.',
-    );
+    throw new Error('useNuevaUnidadMedida() debe usarse dentro de <NuevaUnidadMedidaProvider>.');
   }
   return ctx;
 }

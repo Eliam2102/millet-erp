@@ -181,7 +181,7 @@ function Contenido({
               descripcion={
                 <>
                   <span>{p.clienteNombre}</span> ·{' '}
-                  <span className="font-mono">{p.clienteFiscal?.rfc ?? 'RFC no disponible'}</span>
+                  <span className="font-mono">{p.clienteFiscal?.rfc ?? <span className="text-ink-muted">Sin RFC</span>}</span>
                 </>
               }
               estado={<ChipEstadoPedido estado={p.estado} />}

@@ -52,23 +52,24 @@ export function useRepp(id: string | null | undefined) {
  * <c>useFacturasCobrablesPpd(receptorRfc?)</c> — facturas PPD timbradas con
  * saldo por cobrar &gt; 0, candidatas de un REPP (alimenta el
  * <c>FacturaPpdPicker</c>; cierra PLATFORM-TODO(&lt;FacturaPicker&gt;)).
- * <c>receptorRfc</c> restringe al cliente ya elegido (regla
- * <c>REPP_MULTIPLES_CLIENTES</c>); el filtrado fino es client-side en el
+ * <c>receptorRfc</c> es el RFC del cliente elegido en la cabecera (regla
+ * <c>REPP_MULTIPLES_CLIENTES</c>). Sin RFC no consulta (tarea 86e3tfd8k:
+ * primero se elige el cliente); el filtrado fino es client-side en el
  * combobox.
  */
 export function useFacturasCobrablesPpd(receptorRfc?: string | null) {
+  const rfc = (receptorRfc ?? '').trim().toUpperCase();
   return useQuery<FacturaCobrablePpdItem[]>({
-    queryKey: facturacionKeys.reppFacturasCobrables(receptorRfc ?? null),
+    queryKey: facturacionKeys.reppFacturasCobrables(rfc === '' ? null : rfc),
     queryFn: async ({ signal }) => {
-      const params = new URLSearchParams();
-      if (receptorRfc != null && receptorRfc !== '') params.set('receptorRfc', receptorRfc);
-      const qs = params.toString();
+      const params = new URLSearchParams({ receptorRfc: rfc });
       const { data } = await apiRequest<FacturaCobrablePpdItem[]>(
-        qs ? `${BASE}/facturas-cobrables?${qs}` : `${BASE}/facturas-cobrables`,
+        `${BASE}/facturas-cobrables?${params.toString()}`,
         { signal },
       );
       return data;
     },
+    enabled: rfc !== '',
   });
 }
 

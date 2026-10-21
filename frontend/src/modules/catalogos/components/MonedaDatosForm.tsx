@@ -1,15 +1,12 @@
+import { FormCampo } from '@/components/erp/forms/FormGrid';
+import { FormSeccion } from '@/components/erp/forms/FormSeccion';
 import { useEffect } from 'react';
 import { Controller, useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import {
-  applyServerErrors,
-  esApiError,
-  useFormIdempotencyKey,
-  codigoSoporte,
-} from '@/lib/api';
+import { applyServerErrors, esApiError, useFormIdempotencyKey, codigoSoporte } from '@/lib/api';
 import {
   ActualizarMonedaSchema,
   type ActualizarMonedaValues,
@@ -61,10 +58,7 @@ export function MonedaDatosForm({ moneda }: MonedaDatosFormProps) {
         onError: (error) => {
           if (esApiError(error)) {
             if (
-              applyServerErrors(
-                form as unknown as Parameters<typeof applyServerErrors>[0],
-                error,
-              )
+              applyServerErrors(form as unknown as Parameters<typeof applyServerErrors>[0], error)
             ) {
               return;
             }
@@ -85,83 +79,85 @@ export function MonedaDatosForm({ moneda }: MonedaDatosFormProps) {
     <form
       onSubmit={form.handleSubmit(onSubmit)}
       noValidate
-      className="grid grid-cols-1 gap-4 rounded-md border bg-card p-4 md:grid-cols-2 max-w-3xl"
+      className="  gap-4 rounded-md border bg-surface-card p-4  max-w-3xl"
     >
-      <FormRow label="Código" hint="No editable después de creada la moneda.">
-        <Input
-          value={moneda.codigo}
-          readOnly
-          aria-readonly
-          className="font-mono"
-        />
-      </FormRow>
+      <FormSeccion titulo="Datos del registro">
+        <FormCampo span={6}>
+          <FormRow label="Código" hint="No editable después de creada la moneda.">
+            <Input value={moneda.codigo} readOnly aria-readonly className="font-mono" />
+          </FormRow>
+        </FormCampo>
 
-      <FormRow
-        label="Decimales"
-        required
-        hint="Número de decimales a desplegar (0–6)."
-        error={form.formState.errors.decimales?.message}
-      >
-        <Input
-          type="number"
-          min={0}
-          max={6}
-          step={1}
-          disabled={!canEditar}
-          {...form.register('decimales', { valueAsNumber: true })}
-        />
-      </FormRow>
-
-      <div className="md:col-span-2">
-        <FormRow
-          label="Nombre"
-          required
-          error={form.formState.errors.nombre?.message}
-        >
-          <Input
-            maxLength={100}
-            disabled={!canEditar}
-            {...form.register('nombre')}
-          />
-        </FormRow>
-      </div>
-
-      <div className="md:col-span-2">
-        <FormRow label="Activa" hint="Las monedas inactivas siguen siendo visibles en históricos pero no se ofrecen en selectores.">
-          <Controller
-            name="activa"
-            control={form.control}
-            render={({ field }) => (
-              <label className="inline-flex items-center gap-2 text-sm">
-                <input
-                  type="checkbox"
-                  className="h-4 w-4 rounded border-input"
-                  checked={field.value}
-                  onChange={(e) => field.onChange(e.target.checked)}
-                  disabled={!canEditar}
-                />
-                <span>{field.value ? 'Activa' : 'Inactiva'}</span>
-              </label>
-            )}
-          />
-        </FormRow>
-      </div>
-
-      {canEditar && (
-        <div className="md:col-span-2 flex flex-wrap items-center justify-end gap-2 border-t pt-3">
-          <Button
-            type="button"
-            variant="ghost"
-            onClick={() => form.reset(buildDefaults(moneda))}
-            disabled={!dirty || actualizar.isPending}
+        <FormCampo span={6}>
+          <FormRow
+            label="Decimales"
+            required
+            hint="Número de decimales a desplegar (0–6)."
+            error={form.formState.errors.decimales?.message}
           >
-            Descartar cambios
-          </Button>
-          <Button type="submit" disabled={!dirty || actualizar.isPending}>
-            {actualizar.isPending ? 'Guardando…' : 'Guardar cambios'}
-          </Button>
-        </div>
-      )}
+            <Input
+              type="number"
+              min={0}
+              max={6}
+              step={1}
+              disabled={!canEditar}
+              {...form.register('decimales', { valueAsNumber: true })}
+            />
+          </FormRow>
+        </FormCampo>
+
+        <FormCampo span={12}>
+          <div className="md:col-span-2">
+            <FormRow label="Nombre" required error={form.formState.errors.nombre?.message}>
+              <Input maxLength={100} disabled={!canEditar} {...form.register('nombre')} />
+            </FormRow>
+          </div>
+        </FormCampo>
+
+        <FormCampo span={12}>
+          <div className="md:col-span-2">
+            <FormRow
+              label="Activa"
+              hint="Las monedas inactivas siguen siendo visibles en históricos pero no se ofrecen en selectores."
+            >
+              <Controller
+                name="activa"
+                control={form.control}
+                render={({ field }) => (
+                  <label className="inline-flex items-center gap-2 text-sm">
+                    <input
+                      type="checkbox"
+                      className="h-4 w-4 rounded border-line-control"
+                      checked={field.value}
+                      onChange={(e) => field.onChange(e.target.checked)}
+                      disabled={!canEditar}
+                    />
+                    <span>{field.value ? 'Activa' : 'Inactiva'}</span>
+                  </label>
+                )}
+              />
+            </FormRow>
+          </div>
+        </FormCampo>
+
+        <FormCampo span={12}>
+          {canEditar && (
+            <div className="md:col-span-2 flex flex-wrap items-center justify-end gap-2 border-t pt-3">
+              <Button
+                type="button"
+                variant="ghost"
+                onClick={() => form.reset(buildDefaults(moneda))}
+                disabled={!dirty || actualizar.isPending}
+              >
+                Descartar cambios
+              </Button>
+              <Button type="submit" disabled={!dirty || actualizar.isPending}>
+                {actualizar.isPending ? 'Guardando…' : 'Guardar cambios'}
+              </Button>
+            </div>
+          )}
+        </FormCampo>
+      </FormSeccion>
     </form>
   );
 }
@@ -180,17 +176,15 @@ function FormRow({ label, required, hint, error, children }: FormRowProps) {
       <label className="flex items-center gap-1 text-sm font-medium">
         {label}
         {required && (
-          <span aria-hidden="true" className="text-danger">
+          <span aria-hidden="true" className="text-danger-fg">
             *
           </span>
         )}
       </label>
       {children}
-      {hint != null && error == null && (
-        <p className="text-xs text-muted-foreground">{hint}</p>
-      )}
+      {hint != null && error == null && <p className="text-xs text-ink-muted">{hint}</p>}
       {error != null && (
-        <p role="alert" className="text-xs text-danger">
+        <p role="alert" className="text-xs text-danger-fg">
           {error}
         </p>
       )}

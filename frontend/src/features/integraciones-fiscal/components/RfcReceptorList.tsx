@@ -131,7 +131,7 @@ function RfcRow({ rfc, canEdit }: RfcRowProps) {
           FIEL hasta {rfc.fielValidTo ? new Date(rfc.fielValidTo).toLocaleDateString() : '—'}
         </Badge>
       ) : (
-        <Badge variant="outline" className="gap-1 border-amber-400 text-amber-700">
+        <Badge variant="outline" className="gap-1 border-warning text-warning-fg">
           <ShieldAlert className="h-3 w-3" />
           Sin FIEL
         </Badge>

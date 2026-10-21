@@ -9,7 +9,7 @@ export function VisualesInicio({ items }: { items: PiezaResuelta[] }) {
   return <aside aria-label="Resumen visual" className="grid min-h-0 min-w-0 gap-3" style={{ gridTemplateRows: filas }}>
     {ordenadas.map(({ pieza, data, estado }) => <Card key={pieza.id} className="flex min-h-0 min-w-0 flex-col bg-surface-card p-3 shadow-card-flat">
       <h2 className="text-lg font-semibold">{pieza.titulo}</h2>
-      {estado !== 'listo' ? <p role="status" className="mt-2 text-xs text-ink-muted">{estado === 'error' ? 'No se pudo cargar. Por confirmar.' : 'Cargando…'}</p> : <>
+      {estado !== 'listo' ? <p role="status" className="mt-2 text-xs text-ink-muted">{estado === 'error' ? 'No se pudieron cargar los datos.' : 'Cargando…'}</p> : <>
         <p className="mt-1 text-xs text-ink-muted">{data?.contexto}</p>
         {!!data?.etapas?.length && <div className="mt-3 flex min-w-0 gap-1.5">{data.etapas.map(e => <div key={e.etiqueta} className="min-w-0 flex-1 rounded-md bg-surface-subtle p-2 text-center">
           <b className="block text-2xl font-semibold tabular-nums">{e.total}</b><span className="text-2xs text-ink-muted">{e.etiqueta}</span>

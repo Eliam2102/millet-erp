@@ -68,6 +68,7 @@ export const CapturarFacturaSchema = z.object({
     .string()
     .min(1, 'Selecciona una OC para derivar la sucursal.')
     .regex(UUID_RE, 'Sucursal inválida.'),
+  recepcionId: z.string().regex(UUID_RE, 'Recepción inválida.').nullable(),
   cfdiRecibidoId: z.string().regex(UUID_RE, 'UUID de CFDI inválido.').nullable(),
   uuidCfdi: z.string().trim().max(36).nullable(),
   folioProveedor: z.string().trim().max(50).nullable(),

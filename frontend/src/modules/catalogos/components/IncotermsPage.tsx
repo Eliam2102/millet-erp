@@ -1,3 +1,5 @@
+import { FormGrid, FormCampo } from '@/components/erp/forms/FormGrid';
+import { PageHeader } from '@/components/erp/PageHeader';
 import { useMemo } from 'react';
 import { Plus } from 'lucide-react';
 import { useForm } from 'react-hook-form';
@@ -8,10 +10,7 @@ import {
   CatalogoEditableTable,
   type CatalogoColumn,
 } from '@/modules/catalogos/components/CatalogoEditableTable';
-import {
-  FieldInline,
-  InlineFormShell,
-} from '@/modules/catalogos/components/InlineFormShell';
+import { FieldInline, InlineFormShell } from '@/modules/catalogos/components/InlineFormShell';
 import {
   useActualizarIncoterm,
   useDesactivarIncoterm,
@@ -33,9 +32,7 @@ import { toast } from 'sonner';
  * inmutable; el inline form solo permite renombrar.
  */
 export function IncotermsPage() {
-  const canGestionar = useHasPermission(
-    PermisosCanonicos.CatalogosIncotermsGestionar,
-  );
+  const canGestionar = useHasPermission(PermisosCanonicos.CatalogosIncotermsGestionar);
   const nuevo = useNuevoIncoterm();
   const query = useIncotermsList();
   const desactivar = useDesactivarIncoterm();
@@ -53,16 +50,20 @@ export function IncotermsPage() {
   ];
 
   return (
-    <div className="space-y-4 p-4">
-      <div className="flex flex-wrap items-center justify-between gap-2">
-        <h1 className="text-xl font-semibold tracking-tight">Incoterms</h1>
-        {canGestionar && (
-          <Button size="sm" onClick={() => nuevo.abrir()}>
-            <Plus className="mr-1 h-4 w-4" />
-            Nuevo Incoterm
-          </Button>
-        )}
-      </div>
+    <div className="space-y-5">
+      <PageHeader
+        titulo={<>Incoterms</>}
+        acciones={
+          <>
+            {canGestionar && (
+              <Button size="sm" onClick={() => nuevo.abrir()}>
+                <Plus className="mr-1 h-4 w-4" />
+                Nuevo Incoterm
+              </Button>
+            )}
+          </>
+        }
+      />
 
       <CatalogoEditableTable
         recurso="Incoterms"
@@ -80,9 +81,7 @@ export function IncotermsPage() {
           <IncotermInlineEditForm item={item} onClose={onClose} />
         )}
         emptyMessage={
-          canGestionar
-            ? 'Crea el primero para empezar.'
-            : 'Cuando se creen, aparecerán aquí.'
+          canGestionar ? 'Crea el primero para empezar.' : 'Cuando se creen, aparecerán aquí.'
         }
         emptyAction={
           canGestionar ? (
@@ -124,12 +123,7 @@ function IncotermInlineEditForm({ item, onClose }: IncotermInlineEditFormProps) 
         },
         onError: (err) => {
           if (esApiError(err)) {
-            if (
-              applyServerErrors(
-                form as unknown as Parameters<typeof applyServerErrors>[0],
-                err,
-              )
-            )
+            if (applyServerErrors(form as unknown as Parameters<typeof applyServerErrors>[0], err))
               return;
             toast.error(err.problem.title);
             return;
@@ -147,19 +141,23 @@ function IncotermInlineEditForm({ item, onClose }: IncotermInlineEditFormProps) 
       onCancel={onClose}
       isPending={actualizar.isPending}
     >
-      <div className="grid grid-cols-1 gap-2 md:grid-cols-12">
-        <FieldInline label="Código" className="md:col-span-3">
-          <Input value={item.codigo} readOnly className="font-mono" />
-        </FieldInline>
-        <FieldInline
-          label="Nombre"
-          required
-          error={form.formState.errors.nombre?.message}
-          className="md:col-span-9"
-        >
-          <Input maxLength={100} {...form.register('nombre')} />
-        </FieldInline>
-      </div>
+      <FormGrid>
+        <FormCampo span={3}>
+          <FieldInline label="Código" className="md:col-span-3">
+            <Input value={item.codigo} readOnly className="font-mono" />
+          </FieldInline>
+        </FormCampo>
+        <FormCampo span={6}>
+          <FieldInline
+            label="Nombre"
+            required
+            error={form.formState.errors.nombre?.message}
+            className="md:col-span-9"
+          >
+            <Input maxLength={100} {...form.register('nombre')} />
+          </FieldInline>
+        </FormCampo>
+      </FormGrid>
     </InlineFormShell>
   );
 }

@@ -8,7 +8,7 @@ import { useAuthStore } from '@/lib/auth/auth-store';
 import { Naturaleza, EstatusCatalogo } from '@/features/compras/api/types';
 
 /**
- * Bug 2 — la UM de la línea de requisición se hereda del artículo
+ * Bug 2 — la UM de la partida de requisición se hereda del artículo
  * (UnidadMedidaDefault) al seleccionarlo, en un campo read-only. Verifica
  * además que read-only (no disabled) deja viajar el valor en el submit.
  */
@@ -115,7 +115,7 @@ describe('<LineaInlineForm> — herencia de unidad de medida (Bug 2)', () => {
     await waitFor(() => expect(um.value).toBe('PZA'));
   });
 
-  it('la UM heredada viaja en el body del POST al guardar la línea', async () => {
+  it('la UM heredada viaja en el body del POST al guardar la partida', async () => {
     mockCatalogo('LT');
     let bodyEnviado: Record<string, unknown> | null = null;
     mswServer.use(
@@ -135,7 +135,7 @@ describe('<LineaInlineForm> — herencia de unidad de medida (Bug 2)', () => {
     await seleccionarArticulo();
 
     // cantidad ya viene en 1 (default); el precio estimado no se captura en la RQ.
-    fireEvent.click(screen.getByRole('button', { name: /agregar línea/i }));
+    fireEvent.click(screen.getByRole('button', { name: /agregar partida/i }));
 
     await waitFor(() => expect(bodyEnviado).not.toBeNull());
     expect(bodyEnviado).toMatchObject({

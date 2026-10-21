@@ -31,9 +31,9 @@ function makeLinea(overrides: Partial<LineaResponse> = {}): LineaResponse {
 }
 
 describe('<ListaLineas>', () => {
-  it('muestra empty state cuando no hay líneas', () => {
+  it('muestra empty state cuando no hay partidas', () => {
     render(<ListaLineas lineas={[]} />);
-    expect(screen.getByText(/sin líneas registradas/i)).toBeInTheDocument();
+    expect(screen.getByText(/sin partidas registradas/i)).toBeInTheDocument();
   });
 
   it('renderiza tabla con cantidad, UM y cubrimiento', () => {
@@ -69,7 +69,7 @@ describe('<ListaLineas>', () => {
     expect(screen.getByText('Tornillo art-99')).toBeInTheDocument();
   });
 
-  it('muestra notas de la línea cuando están presentes', () => {
+  it('muestra notas de la partida cuando están presentes', () => {
     render(
       <ListaLineas
         lineas={[makeLinea({ notas: 'Urgente; entregar mañana' })]}
@@ -93,7 +93,7 @@ describe('<ListaLineas>', () => {
           }),
           // id presente pero el read-port no lo resolvió (histórico roto).
           makeLinea({ id: 'l-2', posicion: 2, centroCostoId: 'm-x' }),
-          // sin CC en la línea.
+          // sin CC en la partida.
           makeLinea({ id: 'l-3', posicion: 3, centroCostoId: null }),
         ]}
       />,

@@ -1,3 +1,4 @@
+import { ESTADOS_CATALOGO } from '../lib/estados-ui';
 import { useState } from 'react';
 import { ChevronRight, MoreHorizontal } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
@@ -15,10 +16,7 @@ import {
   type NodoCeCo,
   type NodoTipoJerarquia,
 } from '@/features/centros-costo/api/types';
-import {
-  etiquetaNivel,
-  etiquetaTipoNodo,
-} from '@/features/centros-costo/lib/etiquetas';
+import { etiquetaNivel, etiquetaTipoNodo } from '@/features/centros-costo/lib/etiquetas';
 
 /**
  * Árbol de CONFIGURACIÓN del catálogo (05 §4.1, §7) — 3 niveles con grupos
@@ -60,15 +58,15 @@ export function ArbolCentrosCosto({
   onAccion,
 }: ArbolCentrosCostoProps) {
   return (
-    <div className="overflow-x-auto rounded-md border">
-      <div className="min-w-[640px]">
+    <div className="overflow-x-auto rounded-lg bg-surface-card shadow-card-flat">
+      <div className="min-w-160">
         {/* Encabezado de columnas (uppercase/gris) — decorativo: los
             treeitem cargan su propio texto accesible. */}
         <div
           aria-hidden="true"
           className={cn(
             COLS,
-            'border-b bg-muted/50 px-3 py-2 text-xs font-medium uppercase tracking-wide text-muted-foreground',
+            'border-b border-line-divider bg-surface-subtle px-3 py-2 text-2xs font-semibold uppercase tracking-wide text-ink-muted',
           )}
         >
           <span>Clave · Nombre</span>
@@ -120,8 +118,8 @@ function ListaHijos({
     return (
       <li role="none" aria-hidden="true">
         <div className="space-y-1 py-1.5" style={sangria} data-testid="nodo-skeleton">
-          <div className="h-5 w-2/3 animate-pulse rounded bg-muted" />
-          <div className="h-5 w-1/2 animate-pulse rounded bg-muted" />
+          <div className="h-5 w-2/3 animate-pulse rounded bg-surface-muted" />
+          <div className="h-5 w-1/2 animate-pulse rounded bg-surface-muted" />
         </div>
       </li>
     );
@@ -130,10 +128,7 @@ function ListaHijos({
   if (query.isError) {
     return (
       <li role="none">
-        <div
-          className="flex items-center gap-2 py-1.5 text-destructive"
-          style={sangria}
-        >
+        <div className="flex items-center gap-2 py-1.5 text-danger-fg" style={sangria}>
           <span>No se pudo cargar este nivel.</span>
           <Button variant="ghost" size="sm" onClick={() => query.refetch()}>
             Reintentar
@@ -148,12 +143,12 @@ function ListaHijos({
     return (
       <li role="none">
         <p
-          className="py-2 text-muted-foreground"
+          className="py-2 text-ink-muted"
           style={sangria}
           data-testid={nivel === 0 ? 'arbol-vacio' : undefined}
         >
           {nivel === 0
-            ? 'El catálogo está vacío. La carga inicial del árbol corre del lado del backend (siembra); si ves esto en un ambiente sembrado, reporta al administrador.'
+            ? 'El catálogo está vacío. Contacta al administrador para cargar los centros de costo.'
             : 'Sin elementos en este nivel.'}
         </p>
       </li>
@@ -229,10 +224,10 @@ function FilaNodo({
       <div
         className={cn(
           COLS,
-          'border-b px-3 py-1.5 hover:bg-muted/60',
+          'min-h-12 border-b border-line-row px-3 py-1.5 hover:bg-surface-muted/60',
           // Raíz (dim1) con fondo y peso; el resto zebra por hermanos.
-          esRaiz ? 'bg-muted/40 font-medium' : impar && 'bg-muted/20',
-          inactivo && 'text-muted-foreground',
+          esRaiz ? 'bg-surface-muted/40 font-medium' : impar && 'bg-surface-muted/20',
+          inactivo && 'text-ink-muted',
         )}
       >
         {/* Celda 1 — Clave · Nombre (con chevron y sangría interna). */}
@@ -240,7 +235,7 @@ function FilaNodo({
           {expandible ? (
             <button
               type="button"
-              className="flex h-5 w-5 shrink-0 items-center justify-center rounded hover:bg-muted"
+              className="flex h-5 w-5 shrink-0 items-center justify-center rounded hover:bg-surface-muted"
               aria-label={`${open ? 'Colapsar' : 'Expandir'} ${nodo.clave}`}
               onClick={() => setOpen((v) => !v)}
             >
@@ -255,30 +250,25 @@ function FilaNodo({
           <span className="shrink-0 font-mono text-xs" title={etiqueta}>
             {nodo.clave}
           </span>
-          <span className="truncate text-muted-foreground">{nodo.nombre}</span>
-          {nodo.estatus === EstatusCatalogo.EnRevision && (
-            <Badge variant="secondary" className="shrink-0 text-[10px]">
-              En revisión
+          <span className="truncate text-ink-muted">{nodo.nombre}</span>
+          {nodo.estatus !== EstatusCatalogo.Activo && (
+            <Badge variant={ESTADOS_CATALOGO[nodo.estatus].tono} className="shrink-0">
+              {ESTADOS_CATALOGO[nodo.estatus].texto}
             </Badge>
-          )}
-          {inactivo && (
-            <span className="shrink-0 rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-medium text-slate-700 ring-1 ring-inset ring-slate-200">
-              Inactivo
-            </span>
           )}
         </div>
 
         {/* Celda 2 — Grupo (chip). */}
         <div className="min-w-0">
           {nodo.grupo && (
-            <Badge variant="outline" className="max-w-full truncate text-[10px]">
+            <Badge variant="neutral" className="max-w-full truncate text-2xs">
               {nodo.grupo}
             </Badge>
           )}
         </div>
 
         {/* Celda 3 — Contenido (conteos de vivos). */}
-        <div className="truncate text-xs text-muted-foreground">
+        <div className="truncate text-xs text-ink-muted">
           {!nodo.esHoja && resumenConteos(nodo)}
         </div>
 
@@ -311,7 +301,7 @@ function FilaNodo({
                   </DropdownMenuItem>
                 ) : (
                   <DropdownMenuItem
-                    className="text-destructive focus:text-destructive"
+                    className="text-danger-fg focus:text-danger-fg"
                     onSelect={() => onAccion('desactivar', nodo)}
                   >
                     Desactivar

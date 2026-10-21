@@ -26,10 +26,11 @@ import { applyServerErrors, esApiError, useFormIdempotencyKey, codigoSoporte } f
 import { CapturarFacturaSchema, type CapturarFacturaValues } from '@/features/cxp/schemas/factura';
 import { useCapturarFacturaConOc } from '@/features/cxp/api/useFacturas';
 import { EstadoPasivo, MotivoCancelacion, type CfdiListItem } from '@/features/cxp/api/types';
+import { PendientesProveedorPanel } from '@/features/cxp/components/PendientesProveedorPanel';
 import { CfdiPorProcesarPicker } from '@/features/cxp/components/CfdiPorProcesarPicker';
 import { useCfdiParseado } from '@/features/cxp/api/useCfdis';
 import { abrirPdfCfdi, descargarXmlCfdi } from '@/features/cxp/lib/cfdi-archivos';
-import { ArticuloSelector, LineaOcSelector, OrdenCompraSelector } from '@/components/erp';
+import { ArticuloSelector, LineaOcSelector, OrdenCompraSelector, ProveedorSelector } from '@/components/erp';
 import { mapById, useSucursales } from '@/features/catalogos/api';
 import { resetLineaOcIds } from '@/features/cxp/lib/reset-linea-oc';
 import { cn } from '@/lib/utils';
@@ -83,6 +84,8 @@ export interface CapturarFacturaSheetProps {
   cfdiPreseleccionado?: {
     id: string;
     uuidCfdi: string;
+    // RFC del emisor: resuelve al proveedor del panel de OC/recepciones pendientes (86e3tfedr).
+    rfcEmisor?: string;
     folio: string | null;
     serie: string | null;
     fechaCfdi: string;
@@ -148,8 +151,14 @@ export function CapturarFacturaSheet({
   const [cfdiSel, setCfdiSel] = useState<CfdiListItem | null>(null);
   const cfdiBase = cfdiPreseleccionado ?? cfdiSel;
 
+  // Proveedor del panel de pendientes cuando no hay CFDI vinculado.
+  const [proveedorPanelId, setProveedorPanelId] = useState<string | null>(null);
+
   function handleOpenChange(nextOpen: boolean) {
-    if (!nextOpen) setCfdiSel(null);
+    if (!nextOpen) {
+      setCfdiSel(null);
+      setProveedorPanelId(null);
+    }
     onOpenChange(nextOpen);
   }
 
@@ -198,12 +207,26 @@ export function CapturarFacturaSheet({
     toast.success(`${lineas.length} partida(s) importadas del CFDI`);
   }
 
+  // La OC es dueña de proveedor y sucursal: se derivan, el usuario no los teclea.
+  // Compartido por el selector de OC y el panel de pendientes del proveedor.
+  function derivarDeOc(proveedorId: string, sucursalId: string, proveedorNombre: string | null) {
+    form.setValue('proveedorId', proveedorId, { shouldValidate: true });
+    form.setValue('sucursalId', sucursalId, { shouldValidate: true });
+    setProveedorNombreSel(proveedorNombre);
+    // La recepción elegida pertenece a la OC anterior.
+    form.setValue('recepcionId', null);
+    // Cambió la OC: los lineaOcId previos quedan stale y la guarda backend los
+    // rechazaría → resetear todos a null.
+    resetLineaOcIds(form.getValues, form.setValue);
+  }
+
   // useWatch (no form.watch) para que el componente siga memoizable por el
   // React Compiler — form.watch dispara react-hooks/incompatible-library.
   const ordenCompraIdSel = useWatch({
     control: form.control,
     name: 'ordenCompraId',
   });
+  const recepcionIdSel = useWatch({ control: form.control, name: 'recepcionId' });
   const notasCredito = useWatch({ control: form.control, name: 'notasCredito' }) ?? [];
   const lineasActuales = useWatch({ control: form.control, name: 'lineas' });
   const puedeLeerRetenciones = useHasPermission(PermisosCanonicos.CuentasPorPagarRetencionesLeer);
@@ -421,31 +444,43 @@ export function CapturarFacturaSheet({
                               shouldValidate: true,
                             });
                             setProveedorNombreSel(null);
+                            form.setValue('recepcionId', null);
                             // Las líneas ya no tienen OC de la cual vincular.
                             resetLineaOcIds(form.getValues, form.setValue);
                           }
                         }}
-                        onSelect={(oc) => {
-                          // La OC es dueña de proveedor y sucursal: los
-                          // derivamos del resumen. El usuario no los teclea.
-                          form.setValue('proveedorId', oc.proveedorId, {
-                            shouldValidate: true,
-                          });
-                          form.setValue('sucursalId', oc.sucursalId, {
-                            shouldValidate: true,
-                          });
-                          // Nombre del proveedor para la etiqueta read-only, ya
-                          // resuelto en el resumen (sin catálogo capado).
-                          setProveedorNombreSel(oc.proveedorNombre);
-                          // Cambió la OC: los lineaOcId previos quedan stale
-                          // (apuntan a líneas de la OC vieja) y la guarda backend
-                          // los rechazaría → resetear todos a null.
-                          resetLineaOcIds(form.getValues, form.setValue);
-                        }}
+                        onSelect={(oc) =>
+                          derivarDeOc(oc.proveedorId, oc.sucursalId, oc.proveedorNombre)
+                        }
                       />
                     )}
                   />
                 </Campo>
+                {!cfdiBase && (
+                  <Campo label="Proveedor (para ver sus OC y recepciones pendientes)">
+                    <ProveedorSelector
+                      value={proveedorPanelId}
+                      onChange={setProveedorPanelId}
+                      placeholder="Busca al proveedor"
+                    />
+                  </Campo>
+                )}
+                <PendientesProveedorPanel
+                  rfc={cfdiBase?.rfcEmisor ?? null}
+                  proveedorId={cfdiBase ? null : proveedorPanelId}
+                  ordenCompraId={ordenCompraIdSel || null}
+                  recepcionId={recepcionIdSel}
+                  onElegir={(oc, proveedor) => {
+                    form.setValue('ordenCompraId', oc.ocId, { shouldValidate: true });
+                    derivarDeOc(proveedor.id, oc.sucursalId, proveedor.nombre);
+                  }}
+                  onElegirRecepcion={(oc, r, proveedor) => {
+                    form.setValue('ordenCompraId', oc.ocId, { shouldValidate: true });
+                    derivarDeOc(proveedor.id, oc.sucursalId, proveedor.nombre);
+                    // derivarDeOc limpia recepcionId: se asigna al final.
+                    form.setValue('recepcionId', r.recepcionId);
+                  }}
+                />
                 <Campo
                   label="Proveedor (de la OC)"
                   error={form.formState.errors.proveedorId?.message}
@@ -781,6 +816,7 @@ function buildDefaults(
     ordenCompraId: '',
     proveedorId: '',
     sucursalId: '',
+    recepcionId: null,
     cfdiRecibidoId: cfdi?.id ?? null,
     uuidCfdi: cfdi?.uuidCfdi ?? null,
     folioProveedor: cfdi?.folio ?? null,

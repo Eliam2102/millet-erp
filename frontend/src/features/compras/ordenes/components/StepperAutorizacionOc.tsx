@@ -56,12 +56,7 @@ const PASOS_BASE: ReadonlyArray<{ id: PasoInfo['id']; label: string }> = [
  * celda.
  */
 function derivarPasos(estado: EstadoOrdenCompra): PasoInfo[] {
-  const map = (
-    bord: EstadoPaso,
-    n1: EstadoPaso,
-    n2: EstadoPaso,
-    aut: EstadoPaso,
-  ): PasoInfo[] =>
+  const map = (bord: EstadoPaso, n1: EstadoPaso, n2: EstadoPaso, aut: EstadoPaso): PasoInfo[] =>
     PASOS_BASE.map((p, i) => ({
       ...p,
       estado: [bord, n1, n2, aut][i]!,
@@ -106,18 +101,12 @@ const CONECTOR_BG: Record<EstadoPaso, string> = {
   rechazado: 'bg-danger',
 };
 
-export function StepperAutorizacionOc({
-  estado,
-  className,
-}: StepperAutorizacionOcProps) {
+export function StepperAutorizacionOc({ estado, className }: StepperAutorizacionOcProps) {
   const pasos = derivarPasos(estado);
 
   return (
     <ol
-      className={cn(
-        'flex w-full items-center gap-1 text-xs',
-        className,
-      )}
+      className={cn('flex w-full items-center gap-1 text-xs', className)}
       aria-label="Flujo de autorización de la orden de compra"
       data-component="stepper-autorizacion-oc"
     >
@@ -143,17 +132,13 @@ export function StepperAutorizacionOc({
                 aria-hidden="true"
                 className="flex h-4 w-4 shrink-0 items-center justify-center rounded-full bg-current/10"
               >
-                {paso.estado === 'completo' && (
-                  <Check className="h-3 w-3" />
-                )}
+                {paso.estado === 'completo' && <Check className="h-3 w-3" />}
                 {paso.estado === 'rechazado' && <X className="h-3 w-3" />}
                 {paso.estado === 'actual' && (
                   <span className="block h-1.5 w-1.5 rounded-full bg-current" />
                 )}
                 {paso.estado === 'pendiente' && (
-                  <span className="text-[0.65rem] font-semibold leading-none">
-                    {i + 1}
-                  </span>
+                  <span className="text-2xs font-semibold leading-none">{i + 1}</span>
                 )}
               </span>
               <span className="truncate font-medium">{paso.label}</span>
@@ -161,10 +146,7 @@ export function StepperAutorizacionOc({
             {conector != null && (
               <span
                 aria-hidden="true"
-                className={cn(
-                  'mx-1 h-0.5 w-3 shrink-0 rounded',
-                  CONECTOR_BG[conector],
-                )}
+                className={cn('mx-1 h-0.5 w-3 shrink-0 rounded', CONECTOR_BG[conector])}
               />
             )}
           </li>

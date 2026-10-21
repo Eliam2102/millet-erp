@@ -10,8 +10,7 @@ export interface NuevaCondicionesPagoApi {
   setDirty: (dirty: boolean) => void;
 }
 
-export const NuevaCondicionesPagoContext =
-  createContext<NuevaCondicionesPagoApi | null>(null);
+export const NuevaCondicionesPagoContext = createContext<NuevaCondicionesPagoApi | null>(null);
 
 export function useNuevaCondicionesPago(): NuevaCondicionesPagoApi {
   const ctx = useContext(NuevaCondicionesPagoContext);

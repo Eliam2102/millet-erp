@@ -25,6 +25,7 @@ export default {
         "4xl": ["24px", "30px"],
       },
       colors: {
+        overlay: "var(--mt-overlay)",
         // shadcn
         border: "hsl(var(--border))",
         input: "hsl(var(--input))",

@@ -239,7 +239,7 @@ export function ExpedienteForm({ onClose }: { onClose: () => void }) {
                     </FormCampo>
                   </>
                 ) : (
-                  <p className="text-sm">Responsable: {user?.nombre ?? '[RESPONSABLE]'}</p>
+                  <p className="text-sm">Responsable: {user?.nombre ?? 'Sin asignar'}</p>
                 )}
               </FormCampo>
               <FormCampo span={6} className="space-y-1.5">

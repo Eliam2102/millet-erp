@@ -31,10 +31,10 @@ export function EditandoBanner({ entidad, id }: EditandoBannerProps) {
   return (
     <div
       role="alert"
-      className="flex items-start gap-2 rounded-md border border-amber-300 bg-amber-50 px-3 py-2 text-sm text-amber-900"
+      className="flex items-start gap-2 rounded-md border border-warning bg-warning-bg px-3 py-2 text-sm text-warning-fg"
     >
       <TriangleAlert
-        className="mt-0.5 size-4 shrink-0 text-amber-600"
+        className="mt-0.5 size-4 shrink-0 text-warning-fg"
         aria-hidden="true"
       />
       <p>
@@ -42,7 +42,7 @@ export function EditandoBanner({ entidad, id }: EditandoBannerProps) {
         {editando.length === 1
           ? 'está editando esta requisición.'
           : 'están editando esta requisición.'}{' '}
-        <span className="text-amber-800">
+        <span className="text-warning-fg">
           Revisa con {editando.length === 1 ? 'él/ella' : 'ellos'} antes de
           guardar para evitar conflictos.
         </span>

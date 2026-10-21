@@ -37,22 +37,20 @@ principales coinciden con los tokens adjuntos.
 | Panel de módulo | Panel blanco 240px, filtro y secciones | Panel de 240px implementado con filtro, secciones, selección y contraer/expandir; utiliza el registro filtrado por permisos |
 | Topbar | Breadcrumb, búsqueda global, sucursal, Nuevo, notificaciones, avatar | Breadcrumb, altura 56px, Nuevo y avatar adaptados. Buscador de accesos ⌘K/Ctrl+K implementado con permisos; búsqueda contextual conservada dentro del diálogo. Acciones y registros globales pendientes |
 | Inicio | 4 indicadores, Requiere tu acción, Recientes y Módulos | La ruta Inicio muestra contexto y datos de sesión; aún no es la bandeja del diseño |
-| Listados | KPIs, tabs, filtros, tabla densa y paginación integrados | La primera etapa sólo migró controles; faltan contenedores y consumidores de tablas |
-| Detalle y captura | Lista maestra 320px, detalle por secciones y sheet 560px | Pendiente de migración visual de estos patrones y sus consumidores |
+| Listados | KPIs, tabs, filtros, tabla densa y paginación integrados | ListadoModulo, TabsEstado, BarraFiltros, PaginacionTabla y KpiCard disponibles; consumidores migrados en Facturación, CxC, Tesorería, Contabilidad y Comercio exterior. Otros módulos en curso |
+| Detalle y captura | Lista maestra 320px, detalle por secciones y sheet 560px | FormGrid/FormCampo/FormSeccion, ResumenImportes y tamaños de Dialog/Sheet con Body implementados; consumidores en los cinco módulos migrados. Plantilla 5.2 ficticia disponible en el catálogo; no acredita equivalencia visual completa |
 | Móvil | Header, búsqueda, listas y barra inferior | El shell conserva el drawer con botón de menú |
 
-Esta comparación proviene de lectura de `AppShell`, `SidebarNav`, `Topbar` y la
-ruta Inicio; la comprobación del shell usó una vista aislada con datos vacíos y sesión de prueba, sin conexión al API. No acredita una sesión real. La primera
+La comparación inicial del shell proviene de lectura de `AppShell`, `SidebarNav`,
+`Topbar` y la ruta Inicio; las filas de listados y detalle se actualizaron en F4
+contra los componentes y consumidores actuales. La comprobación del shell usó una vista aislada con datos vacíos y sesión de prueba, sin conexión al API. No acredita una sesión real. La primera
 etapa de controles sigue siendo la base reutilizable del PR 27.
 
-## Orden para continuar
+## Orden para continuar tras las migraciones
 
-1. Migrar el shell: rail, panel de módulo, topbar y contenido, conservando rutas,
-   permisos y acceso a acciones existentes. Comparar con Inicio y Compras.
-2. Adaptar una pantalla real de Órdenes de compra como referencia de listado;
-   después propagar el patrón a los otros módulos.
-3. Migrar detalle, sheets y búsqueda de registros/acciones; después completar Inicio y móvil con los
-   datos y capacidades reales disponibles.
+1. Completar los módulos en curso y revisar sus consumidores contra las recetas compartidas.
+2. Comparar visualmente cada pantalla migrada con su nodo de Figma y registrar diferencias.
+3. Completar Inicio, móvil y búsqueda de registros/acciones con datos reales disponibles.
 
 La maquetación contiene ejemplos, conteos, prioridades y acciones. No copiar sus
 datos ni considerar que el diseño implementa esos servicios. No habilitar rutas
@@ -85,3 +83,11 @@ adminRegistry; permisos refrescados y sin rutas duplicadas. En pantallas que
 ya soportan búsqueda se conserva el campo contextual separado. No incorpora
 folios, registros, sugerencias con conteos, favoritos ni creación de documentos
 del prototipo; estos servicios no forman parte de este buscador de accesos.
+
+## Catálogo por componente · F4
+
+`/sistema-diseno` incluye fundamentos, 30 fichas ejecutables, props, imports y
+plantillas 5.1/5.2 con datos ficticios. Requiere `admin.parametros.editar`.
+El estado de código de esta actualización se verificó en la base 861056d7 y
+los cambios locales F4; no se volvió a inspeccionar el canvas remoto. La revisión
+visual integral contra Figma y la aceptación del cliente quedan **Por confirmar**.
