@@ -11,7 +11,7 @@ public sealed record DatosActivo(string Descripcion, Guid ClaseId, string? Marca
     DateOnly FechaAdquisicion, DateOnly? InicioUso, decimal ValorMonedaOriginal, string Moneda, decimal TipoCambio,
     CustodiaActivo Custodia, TipoImportacionActivo Importacion, string? Pedimento, bool Arrendado, string? DocumentoSoporte);
 
-public sealed class Activo : BaseEntity, IPerteneceAEmpresa, IAuditable
+public sealed partial class Activo : BaseEntity, IPerteneceAEmpresa, IAuditable
 {
     public Guid EmpresaId { get; set; }
     public string Numero { get; private set; } = "";

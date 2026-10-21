@@ -367,7 +367,7 @@ public sealed class EmitirFacturaVentaHandlerTests
         var empresa = Guid.NewGuid(); using var db = NewDb(empresa);
         var pedido = PedidoManual(db, empresa, ClasePedidoManual.VentaDirecta, SubtipoVentaDirecta.Activo, ComportamientoFiscal.VentaActivoFijo);
         var autorizacion = Millet.Facturacion.Domain.Activos.AutorizacionVentaActivo.Crear(
-            empresa, "DEMO-ACT", "Camioneta", 250000m, 180000m, false, 85000m, Guid.NewGuid(), Ahora);
+            empresa, "DEMO-ACT", "Camioneta", 250000m, 180000m, false, 200m, Guid.NewGuid(), Ahora); // AF-04: precio autorizado = neto de la factura (2 × $100)
         db.AutorizacionesVentaActivo.Add(autorizacion); db.SaveChanges();
         var sender = new FakeSender(new ReservarFolioResponse("VD-000001", 1, ""));
 

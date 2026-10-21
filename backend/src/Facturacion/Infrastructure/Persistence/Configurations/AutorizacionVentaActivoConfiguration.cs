@@ -18,7 +18,7 @@ public sealed class AutorizacionVentaActivoConfiguration : IEntityTypeConfigurat
         builder.Property(e => e.Id).ValueGeneratedNever();
 
         builder.Property(e => e.EmpresaId).IsRequired();
-        builder.Property(e => e.ActivoRef).HasMaxLength(50).IsRequired();
+        builder.Property(e => e.ActivoRef).HasMaxLength(60).IsRequired();
         builder.Property(e => e.Descripcion).HasMaxLength(254).IsRequired();
         builder.Property(e => e.ValorEnLibros).HasPrecision(18, 2).IsRequired();
         builder.Property(e => e.DepreciacionAcumulada).HasPrecision(18, 2).IsRequired();
