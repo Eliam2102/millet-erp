@@ -93,7 +93,7 @@ public class PreviewCubrimientoEndpointsTests : IClassFixture<StubsWebApplicatio
             consultas: consultas);
         var client = await CreateSuperAdminClientAsync(stockFactory);
 
-        var rqId = await CrearTransmitirSinAutorizarAsync(client, new[] { (ArticuloServicio, 5m) });
+        var rqId = await CrearTransmitirSinAutorizarAsync(client, new[] { (ArticuloServicio, 5m) }, clasificacion: 0);
 
         var preview = await ReadJsonAsync(
             await client.GetAsync($"/api/v1/compras/requisiciones/{rqId}/cubrimiento-estimado"));
@@ -203,9 +203,9 @@ public class PreviewCubrimientoEndpointsTests : IClassFixture<StubsWebApplicatio
     }
 
     private static async Task<Guid> CrearTransmitirSinAutorizarAsync(
-        HttpClient client, IReadOnlyList<(Guid articuloId, decimal cantidad)> lineas)
+        HttpClient client, IReadOnlyList<(Guid articuloId, decimal cantidad)> lineas, int clasificacion = 1)
     {
-        var rqId = await CrearConLineasAsync(client, lineas);
+        var rqId = await CrearConLineasAsync(client, lineas, clasificacion);
         var transmit = await client.PostAsync(
             $"/api/v1/compras/requisiciones/{rqId}/transmitir", content: null);
         transmit.EnsureSuccessStatusCode();
@@ -213,9 +213,10 @@ public class PreviewCubrimientoEndpointsTests : IClassFixture<StubsWebApplicatio
     }
 
     private static async Task<Guid> CrearConLineasAsync(
-        HttpClient client, IReadOnlyList<(Guid articuloId, decimal cantidad)> lineas)
+        HttpClient client, IReadOnlyList<(Guid articuloId, decimal cantidad)> lineas, int clasificacion = 1)
     {
         var rqBody = TestComprasFixtures.BuildCrearRqValidBody(
+            clasificacion: clasificacion,
             descripcion: "Test integration PR-C preview cubrimiento");
         var crear = await client.PostAsJsonAsync("/api/v1/compras/requisiciones", rqBody);
         crear.EnsureSuccessStatusCode();

@@ -9,7 +9,7 @@ using Millet.Compras.IntegrationTests.Fixtures;
 using Millet.DatosMaestros.Domain;
 using Millet.SharedKernel.Application;
 
-namespace Millet.Compras.IntegrationTests.Clasificacion;
+namespace Millet.Compras.IntegrationTests.ClasificacionRq;
 
 /// <summary>
 /// 86e3tfedd: la RQ sólo acepta artículos de su clasificación, por HTTP real
@@ -99,7 +99,7 @@ public class ArticulosPorClasificacionEndpointsTests : IClassFixture<StubsWebApp
 
     // --- Helpers ---
 
-    private async Task<string[]> ClavesAsync(HttpClient client, int tipo, string prefijo)
+    private static async Task<string[]> ClavesAsync(HttpClient client, int tipo, string prefijo)
     {
         var resp = await client.GetAsync($"/api/v1/catalogos/articulos?tipoRequisicion={tipo}&clave={prefijo}&limit=50");
         resp.EnsureSuccessStatusCode();
