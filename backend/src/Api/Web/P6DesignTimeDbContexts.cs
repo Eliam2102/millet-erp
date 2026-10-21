@@ -49,3 +49,10 @@ public sealed class FacturacionDesignTimeFactory : IDesignTimeDbContextFactory<M
         new DbContextOptionsBuilder<Millet.Facturacion.Infrastructure.Persistence.FacturacionDbContext>()
             .UseNpgsql(DesignTimeConexion.Valor).UseSnakeCaseNamingConvention().Options, new DesignTimeEmpresa());
 }
+
+public sealed class AlmacenDesignTimeFactory : IDesignTimeDbContextFactory<Millet.Almacen.Infrastructure.Persistence.AlmacenDbContext>
+{
+    public Millet.Almacen.Infrastructure.Persistence.AlmacenDbContext CreateDbContext(string[] args) => new(
+        new DbContextOptionsBuilder<Millet.Almacen.Infrastructure.Persistence.AlmacenDbContext>()
+            .UseNpgsql(DesignTimeConexion.Valor).UseSnakeCaseNamingConvention().Options, new DesignTimeEmpresa());
+}

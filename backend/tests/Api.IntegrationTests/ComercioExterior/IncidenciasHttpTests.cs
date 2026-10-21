@@ -37,7 +37,8 @@ public sealed class IncidenciasHttpTests
         Assert.Equal(HttpStatusCode.Conflict, (await Send(c, $"{Base}/{id}/incidencias/{incidencia}/estado", new { estado = 4, motivo = "Capturada por error" }, etag)).StatusCode);
         var cancelada = await Send(c, $"{Base}/{id}/incidencias/{incidencia}/estado", new { estado = 4, motivo = "Capturada por error" }, atencion.Headers.ETag!.Tag); cancelada.EnsureSuccessStatusCode();
         Assert.Equal(3, (await Json(cancelada)).GetProperty("incidencias")[0].GetProperty("historial").GetArrayLength());
-        Assert.Equal("CE_CIERRE_FINANCIERO_PENDIENTE", (await Json(await Send(c, $"{Base}/{id}/cerrar", null, cancelada.Headers.ETag!.Tag))).GetProperty("code").GetString());
+        // Sin incidencias pendientes ni gastos o anticipos abiertos, el cierre financiero procede (CE-06).
+        (await Send(c, $"{Base}/{id}/cerrar", null, cancelada.Headers.ETag!.Tag)).EnsureSuccessStatusCode();
         var reporte = await c.GetAsync($"/api/v1/comercio-exterior/incidencias?expedienteId={id}&soloAbiertas=true"); reporte.EnsureSuccessStatusCode();
         Assert.Empty((await Json(reporte)).GetProperty("filas").EnumerateArray());
         Assert.Equal(HttpStatusCode.Forbidden, (await ajeno.GetAsync($"/api/v1/comercio-exterior/incidencias?expedienteId={id}")).StatusCode);

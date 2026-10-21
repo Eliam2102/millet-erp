@@ -1,3 +1,4 @@
+import { FinanzasPanel } from '../components/FinanzasPanel';
 import {
   Table,
   TableHeader,
@@ -57,6 +58,7 @@ export function ExpedienteDetallePage({ id }: { id: string }) {
   const [edicion, setEdicion] = useState(false);
   const [cancelando, setCancelando] = useState(false);
   const [motivo, setMotivo] = useState('');
+  const incidenciasPendientes = (data?.incidencias ?? []).filter((i) => i.estado < 3);
   if (query.isError)
     return (
       <ErrorState
@@ -114,7 +116,7 @@ export function ExpedienteDetallePage({ id }: { id: string }) {
               {' '}
               <EstadoExpedienteBadge estado={data.expediente.estado} />
               <Badge variant="warning">
-                {(data.incidencias ?? []).filter((i) => i.estado < 3).length} incidencias pendientes
+                {incidenciasPendientes.length} incidencias pendientes
               </Badge>
               {data.expediente.revisionPendiente && (
                 <Badge variant="warning">Revisión pendiente</Badge>
@@ -132,15 +134,23 @@ export function ExpedienteDetallePage({ id }: { id: string }) {
               {cerrar && abierto && (
                 <Button
                   variant="outline"
-                  disabled
-                  title={
-                    (data.incidencias ?? [])
-                      .filter((i) => i.estado < 3)
-                      .map((i) => i.motivo)
-                      .join('; ') || textoFinanciero(data.estadoFinanciero)
+                  disabled={
+                    data.estadoFinanciero !== 'Listo para cierre' ||
+                    incidenciasPendientes.length > 0 ||
+                    accion.isPending
                   }
+                  title={
+                    incidenciasPendientes.length > 0
+                      ? incidenciasPendientes.map((i) => i.motivo).join('; ')
+                      : data.estadoFinanciero !== 'Listo para cierre'
+                        ? textoFinanciero(data.estadoFinanciero)
+                        : undefined
+                  }
+                  onClick={() => {
+                    void accion.mutateAsync({ accion: 'cerrar' }).catch(() => {});
+                  }}
                 >
-                  Cerrar expediente
+                  Cerrar en lo financiero
                 </Button>
               )}
               {cancelar && abierto && (
@@ -239,6 +249,8 @@ export function ExpedienteDetallePage({ id }: { id: string }) {
                 <TabsTrigger value="otr">A+W OTR</TabsTrigger>
               </>
             )}
+            <TabsTrigger value="gastos">Gastos</TabsTrigger>
+            <TabsTrigger value="anticipos">Anticipo al agente</TabsTrigger>
             <TabsTrigger value="bitacora">Bitácora</TabsTrigger>
           </TabsList>
           <TabsContent value="resumen" className="space-y-4">
@@ -316,6 +328,12 @@ export function ExpedienteDetallePage({ id }: { id: string }) {
               <OtrPanel expedienteId={id} abierto={abierto} />
             </TabsContent>
           )}
+          <TabsContent value="gastos">
+            <FinanzasPanel data={data} tab="gastos" />
+          </TabsContent>
+          <TabsContent value="anticipos">
+            <FinanzasPanel data={data} tab="anticipos" />
+          </TabsContent>
           <TabsContent value="bitacora">
             <Bitacora id={id} />
           </TabsContent>

@@ -28,6 +28,7 @@ public static class ExpedientesEndpoints
         var padre = g.MapGroup("/{id:guid}").WithDocumentoSucursalScope("expediente_ce", "comercio_exterior.documentos");
         padre.MapIncidenciasCe();
         padre.MapContenedoresCe();
+        padre.MapFinanzasCe();
         padre.MapGet("/", async (Guid id, IMediator mediator, HttpResponse response, CancellationToken ct) => Respuesta(await mediator.Send(new ObtenerExpedienteCeQuery(id), ct), response)).RequireAuthorization(Policy(PermisosCanonicos.ComercioExteriorExpedientesLeer));
         padre.MapPatch("/", async (Guid id, EditarExpedienteDatos body, HttpRequest request, HttpResponse response, IMediator mediator, CancellationToken ct) => await Mutar(id, "editar", request, response, mediator, ct, datos: body)).RequireAuthorization(Policy(PermisosCanonicos.ComercioExteriorExpedientesEditar)).WithMetadata(new RequireIdempotencyKeyAttribute());
         padre.MapPost("/participantes", async (Guid id, ParticipanteDatos body, HttpRequest request, HttpResponse response, IMediator mediator, CancellationToken ct) => await Mutar(id, "participantes", request, response, mediator, ct, participante: body)).RequireAuthorization(Policy(PermisosCanonicos.ComercioExteriorExpedientesEditar)).WithMetadata(new RequireIdempotencyKeyAttribute());

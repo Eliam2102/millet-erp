@@ -794,3 +794,28 @@ output almacenEventsComprasSubscriptionName string = almacenEventsComprasSubscri
 
 @secure()
 output primaryConnectionString string = rootAuthRule.listKeys().primaryConnectionString
+
+// CE-06: aplica el costo puesto sin cambiar cantidades; idempotencia en Almacén.
+resource comercioExteriorAlmacenSubscription 'Microsoft.ServiceBus/namespaces/topics/subscriptions@2024-01-01' = {
+  parent: comercioExteriorEventsTopic
+  name: 'almacen-comercio-exterior-sub'
+  properties: {
+    deadLetteringOnMessageExpiration: true
+    deadLetteringOnFilterEvaluationExceptions: true
+    maxDeliveryCount: 10
+    defaultMessageTimeToLive: 'P14D'
+    lockDuration: 'PT1M'
+    enableBatchedOperations: true
+  }
+}
+resource comercioExteriorAlmacenFilter 'Microsoft.ServiceBus/namespaces/topics/subscriptions/rules@2024-01-01' = {
+  parent: comercioExteriorAlmacenSubscription
+  name: 'EventTypeFilter'
+  properties: {
+    filterType: 'SqlFilter'
+    sqlFilter: {
+      sqlExpression: 'user.EventType = \'comercio_exterior.expediente.costo-distribuido.v1\''
+      compatibilityLevel: 20
+    }
+  }
+}

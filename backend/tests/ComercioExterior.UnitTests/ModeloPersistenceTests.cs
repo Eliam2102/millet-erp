@@ -16,6 +16,11 @@ public sealed class ModeloPersistenceTests
         foreach (var type in new[]
         {
             typeof(Millet.ComercioExterior.Domain.Expediente),
+            typeof(Millet.ComercioExterior.Domain.GastoExpediente),
+            typeof(Millet.ComercioExterior.Domain.PartidaCosto),
+            typeof(Millet.ComercioExterior.Domain.DistribucionGasto),
+            typeof(Millet.ComercioExterior.Domain.AnticipoAgente),
+            typeof(Millet.ComercioExterior.Domain.ConceptoGasto),
             typeof(Millet.ComercioExterior.Domain.IncidenciaExpediente),
             typeof(Millet.ComercioExterior.Domain.EstadoIncidenciaHistorial),
             typeof(Millet.ComercioExterior.Domain.AvisoIncidencia),

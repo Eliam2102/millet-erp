@@ -565,6 +565,9 @@ public static class PermisosCanonicos
     public const string ContabilidadRecurrentesAutorizar                = "contabilidad.recurrentes.autorizar";
 
     // Comercio Exterior (CE-01a), namespace 0000000e.
+    public const string ComercioExteriorGastosRegistrar = "comercio_exterior.gastos.registrar";
+    public const string ComercioExteriorGastosDistribuir = "comercio_exterior.gastos.distribuir";
+    public const string ComercioExteriorAnticiposGestionar = "comercio_exterior.anticipos.gestionar";
     public const string ComercioExteriorOtrGestionar = "comercio_exterior.otr.gestionar";
     public const string ComercioExteriorContenedoresGestionar = "comercio_exterior.expedientes.contenedores-gestionar";
     public const string ComercioExteriorRelacionIvaLeer = "comercio_exterior.relacion-iva.leer";
@@ -914,6 +917,9 @@ public static class PermisosCanonicos
         (Guid.Parse("0000000d-0006-0000-0000-000000000003"), ContabilidadRecurrentesAutorizar,       "Activar plantillas recurrentes preparadas por otro usuario"),
 
         // CE-01a. Namespace 0000000e, agregado al final para integrar otros PR.
+        (Guid.Parse("0000000e-0006-0000-0000-000000000001"), ComercioExteriorGastosRegistrar, "Registrar gastos"),
+        (Guid.Parse("0000000e-0006-0000-0000-000000000002"), ComercioExteriorGastosDistribuir, "Distribuir gastos"),
+        (Guid.Parse("0000000e-0006-0000-0000-000000000003"), ComercioExteriorAnticiposGestionar, "Gestionar anticipos al agente"),
         (Guid.Parse("0000000e-0004-0000-0000-000000000001"), ComercioExteriorOtrGestionar, "Gestionar envíos OTR, conflictos y reintentos"),
         (Guid.Parse("0000000e-0001-0000-0000-00000000000b"), ComercioExteriorContenedoresGestionar, "Gestionar contenedores y partidas"),
         (Guid.Parse("0000000e-0003-0000-0000-000000000001"), ComercioExteriorRelacionIvaLeer, "Consultar relación mensual para IVA"),

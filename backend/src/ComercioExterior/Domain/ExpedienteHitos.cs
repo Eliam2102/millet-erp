@@ -37,7 +37,8 @@ public sealed partial class Expediente
     {
         ExigirAbierto();
         if (clave is "documentacion-completa" or "entregado" or "cerrado") ExigirSinIncidencias();
-        if (clave == "cerrado") Cerrar();
+        if (clave == "cerrado" && MotivosFinancieros().Count > 0)
+            throw new BusinessRuleException("CE_CIERRE_FINANCIERO_PENDIENTE", string.Join("; ", MotivosFinancieros()));
         var hito = Hito(clave);
         ExigirAnteriores(hito);
         var anteriorReal = _hitos.Where(h => h.Orden < hito.Orden && h.FechaReal != null).Max(h => h.FechaReal);
@@ -53,6 +54,7 @@ public sealed partial class Expediente
         if (clave == "despacho-aduanal" && !_participantes.Any(p => p.Tipo == TipoParticipante.AgenteAduanal))
             throw new BusinessRuleException("CE_AGENTE_ADUANAL_REQUERIDO", "Agregue un agente aduanal antes del despacho.");
         hito.Completar(fecha, responsable, evidencia, motivo);
+        if (clave == "cerrado") Cerrar();
         RevisionContenido++;
     }
 
@@ -99,6 +101,9 @@ public sealed partial class Expediente
     {
         ExigirAbierto();
         ExigirSinIncidencias();
-        throw new BusinessRuleException("CE_CIERRE_FINANCIERO_PENDIENTE", "El cierre financiero está pendiente; se habilita con CE-03.");
+        var motivos = MotivosFinancieros();
+        if (motivos.Count > 0) throw new BusinessRuleException("CE_CIERRE_FINANCIERO_PENDIENTE", string.Join("; ", motivos));
+        FinancieroCerrado = true;
+        RevisionContenido++;
     }
 }

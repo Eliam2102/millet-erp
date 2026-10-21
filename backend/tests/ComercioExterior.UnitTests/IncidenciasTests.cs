@@ -78,7 +78,8 @@ public sealed class IncidenciasTests
         Assert.Throws<BusinessRuleException>(() => e.CambiarIncidencia(id, EstadoIncidencia.Cancelada, null, null, [], "no", Actor, Ahora, []));
         e.CambiarIncidencia(id, EstadoIncidencia.Cancelada, null, null, [], "Registro duplicado por error", Actor, Ahora, []);
         e.ExigirSinIncidencias();
-        Assert.Throws<BusinessRuleException>(e.Cerrar).Code.Should().Be("CE_CIERRE_FINANCIERO_PENDIENTE");
+        e.Cerrar(); // sin incidencias pendientes ni gastos o anticipos abiertos, el cierre financiero procede (CE-06)
+        e.FinancieroCerrado.Should().BeTrue();
         e.Incidencias.Single().Historial.Should().HaveCount(2); e.AvisosIncidencias.Single().DestinatarioUsuarioId.Should().Be(Actor);
         IncidenciaMap.Dto(e.Incidencias.Single(), new Dictionary<Guid, string>(), Hoy).Historial.Select(h => h.Estado).Should().Equal(EstadoIncidencia.Abierta, EstadoIncidencia.Cancelada);
         e.AvisosIncidencias.Single().IncidenciaId.Should().Be(id);

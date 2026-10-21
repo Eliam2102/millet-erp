@@ -142,6 +142,7 @@ public sealed class HitosTests
     public void Financiero_bloquea_cierre_y_hito_cerrado_incluso_omision()
     {
         var e = Crear();
+        e.RegistrarAnticipo(Guid.NewGuid(), Guid.NewGuid(), "PED-TEST", new(100, 0, 0), Hoy, null);
         Codigo(e.Cerrar, "CE_CIERRE_FINANCIERO_PENDIENTE");
         Codigo(() => Real(e, "cerrado"), "CE_CIERRE_FINANCIERO_PENDIENTE");
         Codigo(() => e.OmitirHito("cerrado", "No aplica DEMO", Actor), "CE_HITO_NO_OMITIBLE");
