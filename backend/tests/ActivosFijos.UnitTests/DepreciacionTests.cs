@@ -19,6 +19,39 @@ public sealed class DepreciacionTests
         Assert.Equal(0, CalculoDepreciacion.Calcular(a, c, new(2026, 1, 1)).Importe);
         var f = CalculoDepreciacion.Calcular(a, c, new(2026, 2, 1)); Assert.Equal(4166.67m, f.Importe); Assert.Equal(4166.67m, f.AcumuladaDespues);
     }
+    [Fact] public void P7_Mismo_mes_deprecia_enero_y_no_diciembre()
+    {
+        var (a, c) = Montacargas();
+        Assert.Equal(4166.67m, CalculoDepreciacion.Calcular(a, c, new(2026, 1, 1), mismoMes: true).Importe);
+        Assert.Equal(0, CalculoDepreciacion.Calcular(a, c, new(2025, 12, 1), mismoMes: true).Importe);
+    }
+    [Fact] public void P7_Sin_tasa_se_omite_y_se_explica_en_previa()
+    {
+        var (a, c) = Montacargas();
+        c.Editar(c.Nombre, null, null, null, null, null, true);
+        var fila = CalculoDepreciacion.Calcular(a, c, new(2026, 2, 1));
+        Assert.Equal(0, fila.Importe); Assert.Null(fila.Tasa); Assert.Contains("Tasa por confirmar", fila.Observacion);
+        Assert.Throws<BusinessRuleException>(() => c.Editar(c.Nombre, null, null, null, null, null, true, true, true));
+    }
+    [Theory] [InlineData("151")] [InlineData("159")]
+    public void P7_Terrenos_y_obras_no_deprecian_incluso_con_tasa(string clave)
+    {
+        var (a, c) = Montacargas();
+        var semilla = CatalogoClasesMillet.Clases.Single(x => x.Clave == clave);
+        c.Editar(semilla.Nombre, 10, null, null, null, null, true, semilla.Depreciable);
+        Assert.Equal(0, CalculoDepreciacion.Calcular(a, c, new(2026, 2, 1), mismoMes: true).Importe);
+    }
+    [Theory] [InlineData(false)] [InlineData(true)]
+    public void P7_Carga_inicial_siempre_empieza_despues_del_corte(bool mismoMes)
+    {
+        var (original, c) = Montacargas();
+        var a = new Activo(Guid.NewGuid(), c.EmpresaId, "SAP-CORTE", new("Carga", c.Id, null, null, null,
+            new(2026, 1, 1), new(2026, 1, 15), 500000, "MXN", 1, original.Custodia(), TipoImportacionActivo.No, null, false, "SAP"));
+        a.CargarLibro(new(2026, 1, 31), 10000);
+        Assert.Equal(new DateOnly(2026, 2, 1), CalculoDepreciacion.PrimerMes(a, mismoMes));
+        Assert.Equal(0, CalculoDepreciacion.Calcular(a, c, new(2026, 1, 1), mismoMes: mismoMes).Importe);
+        Assert.Equal(4166.67m, CalculoDepreciacion.Calcular(a, c, new(2026, 2, 1), mismoMes: mismoMes).Importe);
+    }
     [Fact] public void CA4_Residual_cero_permanece_en_libro()
     {
         var (a, c) = Montacargas(499900); a.Depreciar(CalculoDepreciacion.Calcular(a, c, new(2026, 2, 1)).Importe);

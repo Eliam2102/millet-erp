@@ -35,7 +35,7 @@ public sealed class LibroHttpTests
         using var repetida = await Post(cliente,"depreciacion",new { periodo="2027-02-01" }); repetida.EnsureSuccessStatusCode();
         Assert.Equal(c.GetProperty("id").GetGuid(),(await repetida.Content.ReadFromJsonAsync<JsonElement>()).GetProperty("id").GetGuid());
         var reporte = await cliente.GetFromJsonAsync<ReporteConciliacion>($"{Base}/conciliacion?periodo=2027-02-01");
-        var maq = reporte!.Clases.Single(x=>x.Clase=="MAQ"); Assert.Equal(0,maq.DiferenciaAcumulada); Assert.Equal(500000,maq.DiferenciaValor); // Alta de prueba sin póliza.
+        var maq = reporte!.Clases.Single(x=>x.Clase=="154"); Assert.Equal(0,maq.DiferenciaAcumulada); Assert.Equal(500000,maq.DiferenciaValor); // Alta de prueba sin póliza.
         using var anular = await Post(cliente,$"depreciacion/{c.GetProperty("id").GetGuid()}/anular",new { motivo="FIX corrección" },c.GetProperty("version").GetInt32()); anular.EnsureSuccessStatusCode();
         using var nueva = await Post(cliente,"depreciacion",new { periodo="2027-02-01" }); nueva.EnsureSuccessStatusCode();
         Assert.Equal(2,(await nueva.Content.ReadFromJsonAsync<CorridaDepreciacion>())!.Revision);
@@ -62,7 +62,7 @@ public sealed class LibroHttpTests
         string Csv(string clase) => CargaLibroServicio.Plantilla+$"SAP-PRUEBA,{clase},Montacargas SAP,2026-01-01,2026-01-15,500000,100000,{e.Responsable},{e.SucursalId},Conkal,{centro},,no,,no\n";
         var malo=new SolicitudCarga(Csv("INEXISTENTE"),"1",new(2026,12,31),[]);
         using var prueba=await Post(cliente,"carga/previa",malo); prueba.EnsureSuccessStatusCode(); var resultado=await prueba.Content.ReadFromJsonAsync<ResultadoCarga>(); Assert.False(resultado!.Valida); Assert.Single(resultado.Errores);
-        var bueno=malo with { Csv=Csv("MAQ"),Totales=[new("MAQ",500000,100000)] };
+        var bueno=malo with { Csv=Csv("154"),Totales=[new("154",500000,100000)] };
         using var carga=await Post(cliente,"carga/confirmar",bueno); carga.EnsureSuccessStatusCode(); var r=await carga.Content.ReadFromJsonAsync<ResultadoCarga>(); Assert.True(r!.Valida); Assert.Equal(0,r.Cuadre.Single().DiferenciaValor); Assert.Equal(0,r.Cuadre.Single().DiferenciaAcumulada);
         using var repetir=await Post(cliente,"carga/confirmar",bueno); repetir.EnsureSuccessStatusCode(); Assert.True((await repetir.Content.ReadFromJsonAsync<ResultadoCarga>())!.Idempotente);
         using var ver=e.Scope(); using var lectura=ver.ServiceProvider.GetRequiredService<ICurrentEmpresaContext>().Bypass(); var db=ver.ServiceProvider.GetRequiredService<ActivosFijosDbContext>();
@@ -132,7 +132,7 @@ public sealed class LibroHttpTests
         foreach(var p in ejercicio.GenerarPeriodos()){p.EmpresaId=empresa;if(!cerrado && p.Numero <= 12)p.Abrir(null,null,e.Responsable,"FIX apertura P4",DateTimeOffset.UtcNow);contab.Periodos.Add(p);}
         var centros=sp.GetRequiredService<CentrosCostoDbContext>();var centro=new Dim1(Guid.NewGuid(),"FIXP4","FIX ubicación P4");centros.Dim1s.Add(centro);await centros.SaveChangesAsync();
         contab.UbicacionesSucursal.Add(new UbicacionSucursal(Guid.NewGuid(),centro.Id,e.SucursalId){EmpresaId=empresa});await contab.SaveChangesAsync();
-        var db=sp.GetRequiredService<ActivosFijosDbContext>();var clase=await db.Clases.SingleAsync(x=>x.EmpresaId==empresa&&x.Clave=="MAQ");clase.Editar(clase.Nombre,10,activo.Id,dep.Id,gasto.Id,gasto.Id,true);
+        var db=sp.GetRequiredService<ActivosFijosDbContext>();var clase=await db.Clases.SingleAsync(x=>x.EmpresaId==empresa&&x.Clave=="154");clase.Editar(clase.Nombre,10,activo.Id,dep.Id,gasto.Id,gasto.Id,true);
         var a=new Activo(Guid.NewGuid(),empresa,"FIX-P4-MONTACARGAS",new("FIX Montacargas",clase.Id,null,null,null,new(2027,1,1),new(2027,1,15),500000,"MXN",1,new(e.Responsable,e.SucursalId,"Conkal",centro.Id,null),TipoImportacionActivo.No,null,false,"FIX"));if(acumulada is decimal depInicial) a.CargarLibro(new(2027,1,31),depInicial); else a.Capitalizar(Guid.NewGuid());db.Add(a);
         db.Add(new ConfiguracionLibro { EmpresaId=empresa, CuentaUtilidadId=gasto.Id, CuentaPerdidaId=gasto.Id, CuentaVentaPuenteId=gasto.Id });
         await db.SaveChangesAsync();return a.Id;
