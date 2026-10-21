@@ -74,6 +74,8 @@ public sealed class AgregarLineaHandler : IRequestHandler<AgregarLineaCommand, A
                 $"El artículo '{articulo.Clave}' está {articulo.Estatus} y no puede usarse en líneas nuevas.");
         }
 
+        ArticulosPorClasificacion.Validar(requisicion.Clasificacion, articulo);
+
         // ADR-0046 Etapa 2: la cantidad no puede exceder los decimales de la
         // unidad del artículo (FK NULL → no valida).
         await _decimalesGuard.ValidarAsync(
