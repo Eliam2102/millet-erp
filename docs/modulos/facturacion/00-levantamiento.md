@@ -904,6 +904,29 @@ inline → guardar como `PedidoFacturable` (estado `Importado`, origen
 `Manual`) → emisión por el flujo estándar (§7.1–§7.9 según el comportamiento
 fiscal elegido).
 
+**Clase del pedido manual y serie de Venta directa (F6.1, R2).** Todo pedido
+manual se clasifica al capturarlo (y al editarlo); **no existe clase
+«producción»** — lo producido se factura desde el pedido A+W (F6.1-b):
+
+- **Venta directa** (`clase_manual = 1`) con subtipo **Activo**,
+  **Almacenable** o **Servicio**. El subtipo Activo va siempre con
+  comportamiento `VentaActivoFijo` (y viceversa), de modo que la autorización
+  del Contador General (§7.8) se exige siempre al timbrar (CA6.12).
+- **Emergencia** (`clase_manual = 2`): captura cuando A+W no está disponible;
+  exige motivo (≤ 500), no lleva subtipo y requiere el permiso
+  `facturacion.pedidos.capturar-emergencia` (403 si falta). La bandeja de
+  pedidos y la de facturas la identifican (`esEmergencia`, filtro `clase`).
+- Ambas clases se facturan con la serie dedicada **`VentaDirecta`**
+  (`TipoDocumentoSerie = 6`), configurada **por sucursal** en Administración →
+  Series; la reserva de folio **no** cae a una serie global
+  (`SERIE_VENTA_DIRECTA_NO_CONFIGURADA`, 422). Los pedidos A+W siguen con la
+  serie `Cfdi`. Prefijos y folios iniciales reales: pendiente V27 (la DEMO
+  siembra `VD-{sucursal}` ficticias).
+- No se informan a A+W: sin `ingesta_control` ni write-back. Referencia
+  opcional e informativa al pedido A+W (`referencia_pedido_aw`, ≤ 50).
+- Pedidos manuales capturados antes de F6.1 (sin clase) no se facturan hasta
+  clasificarlos (`PEDIDO_MANUAL_SIN_CLASIFICAR`, 422).
+
 ---
 
 ## 8. Facturación parcial — por unidades facturables discretas
@@ -1306,7 +1329,8 @@ Facturación. Facturación expone los datos.
 | **Outbox para eventos de integración de Facturación** | — | `NoOpIntegrationEventBusSender` si la cs de Service Bus está vacía | Reusar `OutboxSaveChangesInterceptor` + `OutboxPublisherWorker<FacturacionDbContext>`. |
 | **Contabilidad: motor de asientos por `ConceptoContable`** | — | Stub `IContabilidadAsientoPort` que loggea sin persistir | Cuando exista Contabilidad, adapter que consume eventos del Outbox. Mismo patrón que CxP. |
 | **DatosMaestros: master de Cliente (fiscal) y Producto (clave SAT, retención)** | — | Compartido con `DatosMaestros` MVP | Extender entidades con los atributos fiscales de §5.1. Master de Cliente hoy en A+W (§16). |
-| **Catálogo/módulo de Activos Fijos** | `<ActivosFijos>` | Catálogo mínimo de activos con saldos | Para venta de activos (§7.8). |
+| **Catálogo/módulo de Activos Fijos** | `<ActivosFijos>` | Catálogo mínimo de activos con saldos (`NoOpActivosFijosReadPort`; la DEMO inserta una `AutorizacionVentaActivo` directa para probar la venta directa de activo, F6.1) | Para venta de activos (§7.8) y venta directa subtipo Activo (§7.10). |
+| **Series reales de Venta directa por sucursal** | V27 | Series DEMO ficticias `VD-{sucursal}` solo en el seed de demo | Fiscal de Millet define prefijo y folio inicial por sucursal; se dan de alta en Administración → Series (tipo 6, con sucursal). |
 | **ConceptoContable → CuentaContable (mapeo)** | — | Seed con placeholders `TBD-*` + `requiere_codigo_definitivo` | Migración de pocas filas cuando Contabilidad entregue códigos (§6.5). |
 | **Notificaciones / Mailbox para envío de CFDI al cliente** | `<EnvioCfdiCliente>` | NoOp si SMTP/Graph no configurado | Reusar `Millet.Integraciones.Mailbox` / `INotificacionService` cuando exista. |
 | **Servicio compartido de PDF (plantillas bilingües)** | — | Plantillas React propias del módulo ([ADR-0036](../../decisiones/0036-estrategia-de-reporteria.md)) | Reusar utilitarios compartidos de reportería. |

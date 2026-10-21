@@ -1,12 +1,14 @@
 import { SucursalSelector } from '@/components/erp';
 import { ResumenImportes } from '@/components/erp/display/ResumenImportes';
+import { AvisoEnLinea } from '@/components/erp/feedback/AvisoEnLinea';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import type { FacturaCobrablePpdItem } from '@/features/facturacion/api/types';
+import type { ClienteLookupItem, FacturaCobrablePpdItem } from '@/features/facturacion/api/types';
 import { useEmitirRepp } from '@/features/facturacion/api/useRepp';
 import { ErrorTimbradoAviso } from '@/features/facturacion/components/ErrorTimbradoAviso';
 import { FacturaPpdPicker } from '@/features/facturacion/components/FacturaPpdPicker';
+import { ClienteSelector } from '@/features/facturacion/components/selectors/ClienteSelector';
 import { mostrarErrorReceptorFiscal } from '@/features/facturacion/lib/mostrar-error-receptor-fiscal';
 import {
   EmitirReppSchema,
@@ -27,9 +29,10 @@ import { VistaPreviaButton } from '../components/vista-previa/VistaPreviaButton'
  * <c>&lt;NuevoRepp/&gt;</c> — emisión de complemento de pago (Pago 2.0,
  * FE-F6). Cabecera del pago + facturas que cubre (inline), elegidas con
  * <c>FacturaPpdPicker</c> (saldo por cobrar neto, [Decisión 13-K]; cierra
- * PLATFORM-TODO(&lt;FacturaPicker&gt;)). Al elegir factura se propone su
- * saldo como importe; las siguientes se restringen al mismo cliente
- * (regla <c>REPP_MULTIPLES_CLIENTES</c>).
+ * PLATFORM-TODO(&lt;FacturaPicker&gt;)). Primero se elige el cliente y su
+ * RFC acota las facturas PPD del picker (regla <c>REPP_MULTIPLES_CLIENTES</c>,
+ * tarea 86e3tfd8k); cambiarlo limpia las facturas elegidas. Al elegir factura
+ * se propone su saldo como importe.
  */
 export interface NuevoReppProps {
   onClose: (opts?: { force?: boolean }) => void;
@@ -40,7 +43,11 @@ function defaultFactura() {
   return { facturaVentaId: '', importePagado: 0 };
 }
 
+/** RFC genéricos del SAT: varios receptores comparten el mismo RFC. */
+const RFC_GENERICOS = new Set(['XAXX010101000', 'XEXX010101000']);
+
 const VALORES_INICIALES: EmitirReppValues = {
+  clienteId: '',
   sucursalId: '',
   fechaPago: hoyLocalISO(),
   monedaPago: 'MXN',
@@ -73,7 +80,7 @@ export function NuevoRepp({ onClose, onDirtyChange }: NuevoReppProps) {
     defaultValues: VALORES_INICIALES,
   });
 
-  const { fields, append, remove } = useFieldArray({
+  const { fields, append, remove, replace } = useFieldArray({
     control: form.control,
     name: 'facturas',
   });
@@ -90,10 +97,21 @@ export function NuevoRepp({ onClose, onDirtyChange }: NuevoReppProps) {
   // Items elegidos en el picker, por id de factura (para saldo/cliente).
   const [elegidas, setElegidas] = useState<Record<string, FacturaCobrablePpdItem>>({});
 
-  // Todas las facturas de un REPP son del mismo cliente: el RFC de la
-  // primera elegida restringe los pickers restantes.
+  // Todas las facturas de un REPP son del mismo cliente: el elegido en la
+  // cabecera. Su RFC acota los pickers (sin cliente no se consulta nada).
+  const [cliente, setCliente] = useState<ClienteLookupItem | null>(null);
+  const receptorRfc = (cliente?.rfc ?? '').trim().toUpperCase() || null;
+  const rfcGenerico = receptorRfc != null && RFC_GENERICOS.has(receptorRfc);
   const idsElegidos = (facturasWatch ?? []).map((f) => f.facturaVentaId).filter(Boolean);
-  const receptorRfc = idsElegidos.map((id) => elegidas[id]?.receptorRfc).find(Boolean) ?? null;
+
+  function onCambiarCliente(item: ClienteLookupItem | null) {
+    if ((item?.id ?? null) === (cliente?.id ?? null)) return;
+    setCliente(item);
+    form.setValue('clienteId', item?.id ?? '', { shouldDirty: true, shouldValidate: true });
+    // Las facturas elegidas eran del cliente anterior: se descartan.
+    replace([defaultFactura()]);
+    setElegidas({});
+  }
 
   function onElegirFactura(index: number, item: FacturaCobrablePpdItem | null) {
     form.setValue(`facturas.${index}.facturaVentaId`, item?.facturaVentaId ?? '', {
@@ -159,6 +177,27 @@ export function NuevoRepp({ onClose, onDirtyChange }: NuevoReppProps) {
       <div className="min-h-0 flex-1 space-y-5 overflow-y-auto py-5">
         <ErrorTimbradoAviso error={emitir.error} />
         <section className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+          <div className="sm:col-span-2">
+            <Campo
+              label="Cliente"
+              required
+              error={form.formState.errors.clienteId?.message}
+              hint={
+                cliente != null && receptorRfc == null
+                  ? 'El cliente no tiene RFC capturado; corrígelo en el catálogo de clientes.'
+                  : 'Sólo se listan sus facturas PPD timbradas con saldo por cobrar.'
+              }
+            >
+              <ClienteSelector value={cliente?.id ?? null} onChange={onCambiarCliente} />
+            </Campo>
+          </div>
+          {rfcGenerico && (
+            <div className="sm:col-span-2">
+              <AvisoEnLinea tono="advertencia">
+                RFC genérico: se mostrarán las PPD de todos los receptores con este RFC.
+              </AvisoEnLinea>
+            </div>
+          )}
           <Campo label="Sucursal" required error={form.formState.errors.sucursalId?.message}>
             <Controller
               name="sucursalId"
@@ -219,11 +258,17 @@ export function NuevoRepp({ onClose, onDirtyChange }: NuevoReppProps) {
               variant="ghost"
               size="sm"
               onClick={() => append(defaultFactura())}
+              disabled={receptorRfc == null}
             >
               <Plus className="mr-1 h-3 w-3" />
               Agregar factura
             </Button>
           </header>
+          {receptorRfc == null && (
+            <p className="text-[11px] leading-tight text-ink-muted">
+              Elige primero el cliente para ver sus facturas PPD con saldo.
+            </p>
+          )}
           <div className="space-y-2">
             {fields.map((field, index) => {
               const errs = form.formState.errors.facturas?.[index];
@@ -320,7 +365,7 @@ export function NuevoRepp({ onClose, onDirtyChange }: NuevoReppProps) {
                 <VistaPreviaButton
                   motivo={
                     !receptorRfc
-                      ? 'Selecciona el receptor mediante una factura.'
+                      ? 'Elige el cliente del pago.'
                       : !idsElegidos.length
                         ? 'Agrega una factura al pago.'
                         : !emisor.data
@@ -332,7 +377,7 @@ export function NuevoRepp({ onClose, onDirtyChange }: NuevoReppProps) {
                     return {
                       tipo: 'REP',
                       emisor: `${emisor.data?.razonSocialEmisor} · ${emisor.data?.rfcEmisor} · ${emisor.data?.regimenFiscalEmisor}`,
-                      receptor: `${elegidas[idsElegidos[0]]?.receptorNombre} · ${receptorRfc}`,
+                      receptor: `${cliente?.razonSocial} · ${receptorRfc}`,
                       usoCfdi: 'CP01',
                       metodoPago: 'No aplica (complemento de pago)',
                       formaPago: v.formaPagoReal,

@@ -16,7 +16,40 @@ export const TIPO_DOCUMENTO_LABEL: Record<TipoDocumentoSerie, string> = {
   [TipoDocumentoSerie.NotaCredito]: 'Nota de crédito',
   [TipoDocumentoSerie.Poliza]: 'Póliza',
   [TipoDocumentoSerie.FacturaAnticipo]: 'Factura de anticipo',
+  [TipoDocumentoSerie.VentaDirecta]: 'Venta directa',
 };
+
+/** Orden de los tipos de documento en selects y filtros. */
+export const TIPOS_DOCUMENTO_SERIE: readonly TipoDocumentoSerie[] = [
+  TipoDocumentoSerie.OrdenCompra,
+  TipoDocumentoSerie.Cfdi,
+  TipoDocumentoSerie.NotaCredito,
+  TipoDocumentoSerie.Poliza,
+  TipoDocumentoSerie.FacturaAnticipo,
+  TipoDocumentoSerie.VentaDirecta,
+];
+
+/**
+ * Series fiscales: mantienen continuidad sin reinicio de periodo. Mirror de
+ * <c>Serie.EsFiscal</c> backend (Cfdi, NotaCredito, FacturaAnticipo y,
+ * desde F6.1, VentaDirecta).
+ */
+export function esTipoSerieFiscal(tipo: TipoDocumentoSerie): boolean {
+  return (
+    tipo === TipoDocumentoSerie.Cfdi ||
+    tipo === TipoDocumentoSerie.NotaCredito ||
+    tipo === TipoDocumentoSerie.FacturaAnticipo ||
+    tipo === TipoDocumentoSerie.VentaDirecta
+  );
+}
+
+/**
+ * Tipos que solo existen por sucursal (sin serie global de respaldo).
+ * Mirror de <c>Serie.RequiereSucursal</c> backend (F6.1: VentaDirecta).
+ */
+export function tipoSerieRequiereSucursal(tipo: TipoDocumentoSerie): boolean {
+  return tipo === TipoDocumentoSerie.VentaDirecta;
+}
 
 export const REINICIO_PERIODO_LABEL: Record<ReinicioPeriodo, string> = {
   [ReinicioPeriodo.None]: 'Eterno',

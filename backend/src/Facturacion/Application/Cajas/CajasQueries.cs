@@ -1,8 +1,11 @@
 using MediatR;
 using Microsoft.EntityFrameworkCore;
 using Millet.Catalogos.Domain;
+using System.Text.Json.Serialization;
+using Millet.Facturacion.Domain.Cajas;
 using Millet.Facturacion.Domain.Ports;
 using Millet.Facturacion.Infrastructure.Persistence;
+using Millet.SharedKernel.Application;
 using Millet.SharedKernel.Application.Exceptions;
 
 namespace Millet.Facturacion.Application.Cajas;
@@ -16,7 +19,13 @@ namespace Millet.Facturacion.Application.Cajas;
 /// resuelto en el handler — el pipeline de authorization solo compone AND);
 /// el listado expone solo nombre/estatus/counts, sin datos sensibles.
 /// </summary>
-public sealed record ListarCajasQuery(bool SoloActivas = false) : IRequest<IReadOnlyList<CajaListadoItem>>;
+public sealed record ListarCajasQuery(bool SoloActivas = false)
+    : IRequest<IReadOnlyList<CajaListadoItem>>, ISucursalScopedQuery
+{
+    // 86e3t97uy (ADR-0051): el usuario de sucursal solo ve las cajas de sus sucursales.
+    public string PermisoTodasSucursales => PermisoLecturaCaja.LeerTodas;
+    [JsonIgnore] public IReadOnlyList<Guid>? SucursalesPermitidas { get; set; }
+}
 
 public sealed record CajaListadoItem(
     Guid Id,
@@ -36,6 +45,15 @@ internal static class PermisoLecturaCaja
     private const string Administrar = "facturacion.caja.administrar";
     private const string Operar = "facturacion.caja.operar";
     private const string Supervisar = "facturacion.caja.supervisar";
+    public const string LeerTodas = "facturacion.caja.leer-todas";
+
+    /// <summary>
+    /// Filtro por sucursal (86e3t97uy): <c>null</c> = corporativo, ve todas; si no,
+    /// solo cajas con alguna sucursal permitida. Las cajas sin sucursal (heredadas,
+    /// antes de exigirla al crear) solo las ve el corporativo.
+    /// </summary>
+    public static IQueryable<Caja> EnAlcance(IQueryable<Caja> cajas, IReadOnlyList<Guid>? permitidas) =>
+        permitidas is null ? cajas : cajas.Where(c => c.Sucursales.Any(s => permitidas.Contains(s.SucursalId)));
 
     public static async Task ExigirAsync(
         Millet.SharedKernel.Application.ICurrentUserPermissions permisos,
@@ -70,7 +88,7 @@ public sealed class ListarCajasHandler : IRequestHandler<ListarCajasQuery, IRead
     {
         await PermisoLecturaCaja.ExigirAsync(_permisos, cancellationToken);
 
-        var q = _db.Cajas.AsNoTracking();
+        var q = PermisoLecturaCaja.EnAlcance(_db.Cajas.AsNoTracking(), query.SucursalesPermitidas);
         if (query.SoloActivas)
             q = q.Where(c => c.Estatus == EstatusCatalogo.Activo);
 
@@ -91,7 +109,11 @@ public sealed class ListarCajasHandler : IRequestHandler<ListarCajasQuery, IRead
 // ---- Detalle (master-detail + ETag) ----
 
 /// <summary>Detalle de una caja con sus tres alcances y la versión para el ETag.</summary>
-public sealed record CajaDetalleQuery(Guid Id) : IRequest<CajaDetalleResponse>;
+public sealed record CajaDetalleQuery(Guid Id) : IRequest<CajaDetalleResponse>, ISucursalScopedQuery
+{
+    public string PermisoTodasSucursales => PermisoLecturaCaja.LeerTodas;
+    [JsonIgnore] public IReadOnlyList<Guid>? SucursalesPermitidas { get; set; }
+}
 
 public sealed record CajaSucursalItem(Guid SucursalId);
 public sealed record CajaCanalItem(short CanalVentaId, string? Nombre);
@@ -120,7 +142,8 @@ public sealed class CajaDetalleHandler : IRequestHandler<CajaDetalleQuery, CajaD
 
     public async Task<CajaDetalleResponse> Handle(CajaDetalleQuery query, CancellationToken cancellationToken)
     {
-        var caja = await _db.Cajas.AsNoTracking()
+        // Caja de otra sucursal = 404: no se revela que existe.
+        var caja = await PermisoLecturaCaja.EnAlcance(_db.Cajas.AsNoTracking(), query.SucursalesPermitidas)
             .Include(c => c.Sucursales)
             .Include(c => c.Canales)
             .Include(c => c.Usuarios)

@@ -36,12 +36,14 @@ public static class PedidosFacturablesEndpoints
             [FromQuery] int? offset,
             [FromQuery] int? limit,
             [FromQuery] string? alcance,
+            [FromQuery] ClasePedidoManual? clase,
             IMediator mediator,
             CancellationToken cancellationToken) =>
         {
+            // F6.1: ?clase=VentaDirecta|Emergencia filtra los pedidos manuales clasificados.
             var response = await mediator.Send(
                 new BandejaPedidosFacturablesQuery(
-                    estado, origen, offset ?? 0, limit ?? 50, AlcanceParam.SoloSinAsignar(alcance)),
+                    estado, origen, offset ?? 0, limit ?? 50, AlcanceParam.SoloSinAsignar(alcance), clase),
                 cancellationToken);
             return Results.Ok(response);
         })
@@ -94,10 +96,11 @@ public static class PedidosFacturablesEndpoints
         .WithMetadata(new RequireIdempotencyKeyAttribute())
         .RequireAuthorization(PermissionPolicyProvider.Prefix + PermisosCanonicos.FacturacionPedidosCapturar)
         .WithName("CrearPedidoFacturableManual")
-        .WithSummary("Captura un pedido facturable manual con líneas inline")
+        .WithSummary("Captura un pedido facturable manual (venta directa o emergencia) con líneas inline")
         .Produces<PedidoFacturableResponse>(StatusCodes.Status201Created)
         .ProducesValidationProblem()
-        .ProducesProblem(StatusCodes.Status403Forbidden);
+        .ProducesProblem(StatusCodes.Status403Forbidden)
+        .ProducesProblem(StatusCodes.Status422UnprocessableEntity);
 
         // PUT: edición con concurrencia optimista (If-Match con la versión actual).
         group.MapPut("/{id:guid}", async (
@@ -119,7 +122,8 @@ public static class PedidosFacturablesEndpoints
                 new EditarPedidoFacturableManualCommand(
                     id, version, body.ClienteId, body.ClienteNombre, body.CanalVenta,
                     body.ComportamientoFiscal, body.Moneda, body.ObraId, body.ObraNombre,
-                    body.Comentarios, body.Lineas),
+                    body.Comentarios, body.Lineas, body.ClaseManual, body.SubtipoVentaDirecta,
+                    body.MotivoEmergencia, body.ReferenciaPedidoAw),
                 cancellationToken);
             return Results.Ok(response);
         })
@@ -127,6 +131,8 @@ public static class PedidosFacturablesEndpoints
         .WithName("EditarPedidoFacturableManual")
         .WithSummary("Edita un pedido manual no facturado (If-Match → 409 al choque)")
         .Produces<PedidoFacturableResponse>(StatusCodes.Status200OK)
+        .ProducesValidationProblem()
+        .ProducesProblem(StatusCodes.Status403Forbidden)
         .ProducesProblem(StatusCodes.Status404NotFound)
         .ProducesProblem(StatusCodes.Status409Conflict)
         .ProducesProblem(StatusCodes.Status428PreconditionRequired);
@@ -199,7 +205,10 @@ public static class PedidosFacturablesEndpoints
 
     /// <summary>Body de edición (la versión va en el header If-Match, no en el cuerpo).
     /// <c>CanalVenta</c> es el id del catálogo <c>compartido.canales_venta</c>
-    /// (FAC-ING-PR2) — mismo nombre y forma numérica en JSON que cuando era enum.</summary>
+    /// (FAC-ING-PR2) — mismo nombre y forma numérica en JSON que cuando era enum.
+    /// F6.1: <c>ClaseManual</c> (1 VentaDirecta, 2 Emergencia) y
+    /// <c>SubtipoVentaDirecta</c> (1 Activo, 2 Almacenable, 3 Servicio) van en
+    /// forma numérica, igual que <c>ComportamientoFiscal</c>.</summary>
     public sealed record EditarPedidoFacturableRequest(
         Guid ClienteId,
         string ClienteNombre,
@@ -209,5 +218,9 @@ public static class PedidosFacturablesEndpoints
         long? ObraId,
         string? ObraNombre,
         string? Comentarios,
-        IReadOnlyList<PedidoFacturableLineaInput> Lineas);
+        IReadOnlyList<PedidoFacturableLineaInput> Lineas,
+        ClasePedidoManual? ClaseManual = null,
+        SubtipoVentaDirecta? SubtipoVentaDirecta = null,
+        string? MotivoEmergencia = null,
+        string? ReferenciaPedidoAw = null);
 }

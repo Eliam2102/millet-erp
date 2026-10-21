@@ -76,7 +76,7 @@ describe('mutaciones de caja', () => {
       wrapper: createQueryWrapper(),
     });
     result.current.mutate({
-      command: { nombre: 'Caja 9', descripcion: null },
+      command: { nombre: 'Caja 9', descripcion: null, sucursalId: 's-1' },
       idempotencyKey: 'idem-123',
     });
     await waitFor(() => expect(result.current.isSuccess).toBe(true));
