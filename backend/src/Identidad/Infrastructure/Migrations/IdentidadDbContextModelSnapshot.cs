@@ -1403,6 +1403,20 @@ namespace Millet.Identidad.Infrastructure.Migrations
                         },
                         new
                         {
+                            Id = new Guid("00000003-0003-0000-0000-00000000000e"),
+                            Accion = "registrar-incidencia-proveedor",
+                            Codigo = "compras.ordenes.registrar-incidencia-proveedor",
+                            CreatedAt = new DateTimeOffset(new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            CreatedBy = "seed",
+                            Descripcion = "Registrar, reprogramar y cerrar incidencias del proveedor (faltante, dañado o atraso) por línea de una orden de compra",
+                            Modulo = "compras",
+                            Recurso = "ordenes",
+                            UpdatedAt = new DateTimeOffset(new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            UpdatedBy = "seed",
+                            Version = 1
+                        },
+                        new
+                        {
                             Id = new Guid("00000003-0004-0000-0000-000000000001"),
                             Accion = "leer",
                             Codigo = "compras.configuracion.leer",

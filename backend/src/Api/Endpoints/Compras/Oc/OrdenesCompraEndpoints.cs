@@ -31,6 +31,7 @@ using Millet.Compras.Application.Oc.ListarPartidasAbiertas;
 using Millet.Compras.Application.Oc.ListarPendientesAutorizacion;
 using Millet.Compras.Application.Oc.ListarRequisicionesDisponibles;
 using Millet.Compras.Application.Oc.Rechazar;
+using Millet.Compras.Application.Oc.Incidencias;
 using Millet.Compras.Application.Oc.RespuestaProveedor;
 using Millet.Compras.Application.Oc.Lineas.ActualizarLinea;
 using Millet.Compras.Application.Oc.Lineas.ActualizarTextoAdicional;
@@ -1344,6 +1345,70 @@ public static class OrdenesCompraEndpoints
             PermisosCanonicos.ComprasOrdenesLeer, PermisosCanonicos.ComprasOrdenesRegistrarRespuestaProveedor,
             PermisosCanonicos.ComprasOrdenesRegistrarRespuestaProveedor);
 
+        // --- F1-COM-07: incidencias del proveedor por línea (faltante, dañado, atraso) ---
+        group.MapPost("/{id:guid}/incidencias-proveedor", async (
+            Guid id, [FromBody] RegistrarIncidenciaProveedorRequest body, IMediator mediator,
+            ComprasDbContext scopeDb, ICurrentUserContext scopeUser,
+            ICurrentUserPermissions scopePermisos, IUsuarioSucursalReadPort scopeSucursales,
+            CancellationToken cancellationToken) =>
+        {
+            await OcSucursalScope.VerificarAsync(id, scopeDb, scopeUser, scopePermisos, scopeSucursales, cancellationToken, escritura: true);
+            var response = await mediator.Send(new RegistrarIncidenciaProveedorCommand(id, body.LineaOrdenCompraId,
+                body.Tipo, body.Cantidad, body.FechaCompromiso, body.ResponsableId, body.Descripcion), cancellationToken);
+            return Results.Created($"/api/v1/compras/ordenes/{id}", response);
+        })
+        .WithMetadata(new RequireIdempotencyKeyAttribute())
+        .RequireAuthorization(PermissionPolicyProvider.Prefix + PermisosCanonicos.ComprasOrdenesRegistrarIncidenciaProveedor)
+        .WithName("RegistrarIncidenciaProveedorOrdenCompra")
+        .WithSummary("Registrar una incidencia del proveedor en una línea de la OC (F1-COM-07)")
+        .WithDescription("Solo en OC autorizada. Faltante y atraso cubren piezas pendientes; dañado, piezas ya recibidas. No modifica cantidades, recepción, facturación ni pago. Header `Idempotency-Key` obligatorio.")
+        .Produces<IncidenciaProveedorOcResponse>(StatusCodes.Status201Created)
+        .ProducesProblem(StatusCodes.Status400BadRequest)
+        .ProducesProblem(StatusCodes.Status401Unauthorized)
+        .ProducesProblem(StatusCodes.Status403Forbidden)
+        .ProducesProblem(StatusCodes.Status404NotFound)
+        .ProducesProblem(StatusCodes.Status422UnprocessableEntity);
+
+        group.MapPost("/{id:guid}/incidencias-proveedor/{incidenciaId:guid}/reprogramar", async (
+            Guid id, Guid incidenciaId, [FromBody] ReprogramarIncidenciaProveedorRequest body, IMediator mediator,
+            ComprasDbContext scopeDb, ICurrentUserContext scopeUser,
+            ICurrentUserPermissions scopePermisos, IUsuarioSucursalReadPort scopeSucursales,
+            CancellationToken cancellationToken) =>
+        {
+            await OcSucursalScope.VerificarAsync(id, scopeDb, scopeUser, scopePermisos, scopeSucursales, cancellationToken, escritura: true);
+            return Results.Ok(await mediator.Send(new ReprogramarIncidenciaProveedorCommand(id, incidenciaId,
+                body.FechaCompromiso, body.Motivo), cancellationToken));
+        })
+        .WithMetadata(new RequireIdempotencyKeyAttribute())
+        .RequireAuthorization(PermissionPolicyProvider.Prefix + PermisosCanonicos.ComprasOrdenesRegistrarIncidenciaProveedor)
+        .WithName("ReprogramarIncidenciaProveedorOrdenCompra")
+        .WithSummary("Nueva fecha compromiso de una incidencia abierta; conserva las anteriores (F1-COM-07)")
+        .Produces<IncidenciaProveedorOcResponse>()
+        .ProducesProblem(StatusCodes.Status400BadRequest)
+        .ProducesProblem(StatusCodes.Status403Forbidden)
+        .ProducesProblem(StatusCodes.Status404NotFound)
+        .ProducesProblem(StatusCodes.Status422UnprocessableEntity);
+
+        group.MapPost("/{id:guid}/incidencias-proveedor/{incidenciaId:guid}/cerrar", async (
+            Guid id, Guid incidenciaId, [FromBody] CerrarIncidenciaProveedorRequest body, IMediator mediator,
+            ComprasDbContext scopeDb, ICurrentUserContext scopeUser,
+            ICurrentUserPermissions scopePermisos, IUsuarioSucursalReadPort scopeSucursales,
+            CancellationToken cancellationToken) =>
+        {
+            await OcSucursalScope.VerificarAsync(id, scopeDb, scopeUser, scopePermisos, scopeSucursales, cancellationToken, escritura: true);
+            return Results.Ok(await mediator.Send(new CerrarIncidenciaProveedorCommand(id, incidenciaId, body.Motivo),
+                cancellationToken));
+        })
+        .WithMetadata(new RequireIdempotencyKeyAttribute())
+        .RequireAuthorization(PermissionPolicyProvider.Prefix + PermisosCanonicos.ComprasOrdenesRegistrarIncidenciaProveedor)
+        .WithName("CerrarIncidenciaProveedorOrdenCompra")
+        .WithSummary("Cerrar a mano una incidencia abierta con motivo (F1-COM-07)")
+        .Produces<IncidenciaProveedorOcResponse>()
+        .ProducesProblem(StatusCodes.Status400BadRequest)
+        .ProducesProblem(StatusCodes.Status403Forbidden)
+        .ProducesProblem(StatusCodes.Status404NotFound)
+        .ProducesProblem(StatusCodes.Status422UnprocessableEntity);
+
         // --- F3-PR2: rechazar (EnAutorizacion N1/N2 → Rechazada) ---
         group.MapPost("/{id:guid}/rechazar", async (
             Guid id,
@@ -1786,4 +1851,7 @@ public static class OrdenesCompraEndpoints
     public sealed record ActualizarTextoAdicionalRequest(string? TextoAdicional);
     public sealed record ResolverCancelacionOcRequest(bool Confirmar, string Motivo);
     public sealed record RegistrarRespuestaProveedorRequest(TipoRespuestaProveedorOc Tipo, DateOnly FechaRespuesta, string Evidencia, string? ContactoProveedor, string? Motivo, IReadOnlyList<CompromisoEntregaInput>? Compromisos);
+    public sealed record RegistrarIncidenciaProveedorRequest(Guid LineaOrdenCompraId, TipoIncidenciaProveedorOc Tipo, decimal Cantidad, DateOnly FechaCompromiso, Guid ResponsableId, string? Descripcion);
+    public sealed record ReprogramarIncidenciaProveedorRequest(DateOnly FechaCompromiso, string Motivo);
+    public sealed record CerrarIncidenciaProveedorRequest(string Motivo);
 }
