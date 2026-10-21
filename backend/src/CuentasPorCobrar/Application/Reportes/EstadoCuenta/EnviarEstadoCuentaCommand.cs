@@ -105,12 +105,15 @@ public sealed class EnviarEstadoCuentaHandler(
         // Mismo corte que ve el usuario (el alcance por sucursal ya lo validó el endpoint).
         var reporte = await new EstadoCuentaClienteHandler(db, anticipos, clientes, clock)
             .Handle(new EstadoCuentaClienteQuery(command.ClienteId), cancellationToken);
+        // Mismos totales que el reporte, por moneda: el saldo de anticipo es
+        // informativo y no entra al abono, para que cargo − abono = saldo.
         var totales = reporte.Filas
             .GroupBy(f => f.GetValueOrDefault("moneda") as string ?? "MXN")
             .OrderBy(g => g.Key)
             .Select(g => new TotalMonedaEstadoCuenta(g.Key,
                 g.Sum(f => f.GetValueOrDefault("cargo") as decimal? ?? 0m),
-                g.Sum(f => f.GetValueOrDefault("abono") as decimal? ?? 0m),
+                g.Where(f => f.GetValueOrDefault("tipo") as string != "Anticipo (saldo disponible)")
+                    .Sum(f => f.GetValueOrDefault("abono") as decimal? ?? 0m),
                 // Saldo = solo facturas (el saldo de anticipo es informativo, no cartera).
                 g.Where(f => f.GetValueOrDefault("tipo") as string == "Factura")
                     .Sum(f => f.GetValueOrDefault("saldo_documento") as decimal? ?? 0m)))

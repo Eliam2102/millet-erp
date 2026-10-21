@@ -116,6 +116,36 @@ public sealed class EstadoCuentaEnvioTests
     }
 
     [Fact]
+    public async Task Registro_del_envio_usa_totales_del_reporte_sin_anticipos()
+    {
+        using var db = CrearDbContext();
+        var factura = FacturaCartera.Crear(
+            EmpresaId, Guid.NewGuid(), ClienteId, "VGL860910IU4", "Cliente",
+            Guid.NewGuid().ToString(), "FV-92", 11_600m, "MXN", "PPD", Ahora.AddDays(-20), Ahora.AddDays(10));
+        factura.AplicarPago(5_000m);
+        db.FacturasCartera.Add(factura);
+        db.MovimientosCartera.Add(new MovimientoCartera(
+            EmpresaId, factura.Id, TipoMovimientoCartera.Pago, Guid.NewGuid(), 5_000m, Ahora.AddDays(-3)));
+        await db.SaveChangesAsync();
+        var anticipos = new[]
+        {
+            new AnticipoSaldoClienteDto(Guid.NewGuid(), ClienteId, "Abierto", 2_000m, 0m, 2_000m, 2_000m, "MXN", "PED-9"),
+        };
+        var handler = CrearHandler(db, new(false, []), new FakeCorreo(), anticipos);
+
+        var r = await handler.Handle(Comando(), default);
+
+        // El anticipo es informativo: no entra al abono, igual que en el reporte.
+        var mxn = r.Totales.Should().ContainSingle(t => t.Moneda == "MXN").Subject;
+        mxn.Cargo.Should().Be(11_600m);
+        mxn.Abono.Should().Be(5_000m);
+        mxn.Saldo.Should().Be(6_600m);
+        (mxn.Cargo - mxn.Abono).Should().Be(mxn.Saldo);
+        var guardado = await db.EstadoCuentaEnvios.SingleAsync();
+        guardado.TotalesJson.Should().Contain("5000").And.NotContain("7000");
+    }
+
+    [Fact]
     public async Task Sin_transporte_de_correo_queda_Registrado()
     {
         using var db = CrearDbContext();
@@ -187,8 +217,9 @@ public sealed class EstadoCuentaEnvioTests
         new(ClienteId, destinatario, "Adjunto su estado de cuenta.", "estado-cuenta.pdf", "application/pdf", Pdf);
 
     private static EnviarEstadoCuentaHandler CrearHandler(
-        CuentasPorCobrarDbContext db, ReppClienteEstado estado, FakeCorreo correo) =>
-        new(db, new FakeAnticipos(), new FakeClientePort(), new FakeClock(), new FakeEmpresaContext(),
+        CuentasPorCobrarDbContext db, ReppClienteEstado estado, FakeCorreo correo,
+        IReadOnlyList<AnticipoSaldoClienteDto>? anticipos = null) =>
+        new(db, new FakeAnticipos(anticipos), new FakeClientePort(), new FakeClock(), new FakeEmpresaContext(),
             new FakeUser(), correo, new FakeReppPort(estado));
 
     private static CuentasPorCobrarDbContext CrearDbContext()
@@ -217,10 +248,10 @@ public sealed class EstadoCuentaEnvioTests
             Task.FromResult(estado);
     }
 
-    private sealed class FakeAnticipos : IFacturacionAnticiposReadPort
+    private sealed class FakeAnticipos(IReadOnlyList<AnticipoSaldoClienteDto>? anticipos = null) : IFacturacionAnticiposReadPort
     {
         public Task<IReadOnlyList<AnticipoSaldoClienteDto>> ListarPorClienteAsync(Guid clienteId, CancellationToken ct) =>
-            Task.FromResult<IReadOnlyList<AnticipoSaldoClienteDto>>([]);
+            Task.FromResult(anticipos ?? []);
     }
 
     private sealed class FakeClientePort : IClienteReadPort
