@@ -49,10 +49,11 @@ public sealed class EmitirFacturaVentaHandlerTests
         Guid empresaId,
         bool periodoAbierto = true,
         bool catalogosValidos = true,
-        Millet.Integraciones.Fiscal.Domain.Ports.ICfdiTimbradoPort? fiscal = null, IEmbarqueExportacionReadPort? embarques = null, string receptorRfc = "XAXX010101000") =>
+        Millet.Integraciones.Fiscal.Domain.Ports.ICfdiTimbradoPort? fiscal = null, IEmbarqueExportacionReadPort? embarques = null, string receptorRfc = "XAXX010101000",
+        FakeSender? sender = null) =>
         new(
             db,
-            new FakeSender(new ReservarFolioResponse("FA-000001", 1, "")),
+            sender ?? new FakeSender(new ReservarFolioResponse("FA-000001", 1, "")),
             new FakePeriodoContablePort(periodoAbierto),
             new FakeCatalogosSatReadPort(catalogosValidos),
             fiscal ?? new FakeFiscalApiClient(),
@@ -218,7 +219,7 @@ public sealed class EmitirFacturaVentaHandlerTests
         using var db = NewDb(empresaId);
         var pedido = Millet.Facturacion.Domain.Pedidos.PedidoFacturable.CrearManual(
             empresaId, "P-1", Guid.NewGuid(), Guid.NewGuid(), "Cliente", 1,
-            ComportamientoFiscal.MostradorInmediato, "MXN", null, null, null, Guid.NewGuid());
+            ComportamientoFiscal.MostradorInmediato, "MXN", null, null, null, Guid.NewGuid(), Millet.Facturacion.Domain.Pedidos.ClasePedidoManual.VentaDirecta, Millet.Facturacion.Domain.Pedidos.SubtipoVentaDirecta.Servicio, null, null);
         db.PedidosFacturables.Add(pedido);
         db.SaveChanges();
 
@@ -267,5 +268,117 @@ public sealed class EmitirFacturaVentaHandlerTests
         var act = () => handler.Handle(Command(), CancellationToken.None);
 
         await act.Should().ThrowAsync<ForbiddenException>().Where(e => e.Code == "EMPRESA_NO_SELECCIONADA");
+    }
+
+    // ----- F6.1: venta directa con serie propia; no se informa a A+W -----
+
+    private static PedidoFacturable PedidoManual(FacturacionDbContext db, Guid empresaId, ClasePedidoManual? clase,
+        SubtipoVentaDirecta? subtipo = null, ComportamientoFiscal comportamiento = ComportamientoFiscal.MostradorInmediato)
+    {
+        var p = PedidoFacturable.CrearManual(empresaId, "VD-1", Guid.NewGuid(), Guid.NewGuid(), "Cliente", 1,
+            comportamiento, "MXN", null, null, null, Guid.NewGuid(),
+            clase ?? ClasePedidoManual.VentaDirecta, clase is null ? SubtipoVentaDirecta.Servicio : subtipo,
+            clase == ClasePedidoManual.Emergencia ? "A+W fuera de servicio" : null, null);
+        if (clase is null)
+            Millet.Facturacion.UnitTests.Pedidos.PedidoFacturableManualClasificacionTests.VolverLegacy(p);
+        db.PedidosFacturables.Add(p);
+        db.SaveChanges();
+        return p;
+    }
+
+    [Theory]
+    [InlineData(ClasePedidoManual.VentaDirecta, SubtipoVentaDirecta.Servicio)]
+    [InlineData(ClasePedidoManual.Emergencia, null)]
+    public async Task Pedido_manual_clasificado_usa_serie_VentaDirecta_sin_writeback_AW(
+        ClasePedidoManual clase, SubtipoVentaDirecta? subtipo)
+    {
+        var empresa = Guid.NewGuid(); using var db = NewDb(empresa);
+        var pedido = PedidoManual(db, empresa, clase, subtipo);
+        var sender = new FakeSender(new ReservarFolioResponse("VD-MID-000001", 1, ""));
+
+        var resp = await Handler(db, empresa, sender: sender)
+            .Handle(Command() with { PedidoFacturableId = pedido.Id }, CancellationToken.None);
+
+        resp.Estado.Should().Be("Timbrado");
+        resp.Folio.Should().Be("VD-MID-000001");
+        sender.TiposReservados.Should().Equal(Millet.Administracion.Domain.TipoDocumentoSerie.VentaDirecta);
+        pedido.Estado.Should().Be(EstadoPedidoFacturable.Facturado);
+        db.IngestaControles.Should().BeEmpty("la venta directa no se informa a A+W");
+    }
+
+    [Fact]
+    public async Task Pedido_AW_sigue_usando_serie_Cfdi()
+    {
+        var empresa = Guid.NewGuid(); using var db = NewDb(empresa); var command = Command();
+        var p = CrearPedido(db, empresa, command.SucursalId, ComportamientoFiscal.MostradorInmediato);
+        var sender = new FakeSender(new ReservarFolioResponse("F-000001", 1, ""));
+
+        await Handler(db, empresa, sender: sender).Handle(command with { PedidoFacturableId = p.Id }, CancellationToken.None);
+
+        sender.TiposReservados.Should().Equal(Millet.Administracion.Domain.TipoDocumentoSerie.Cfdi);
+    }
+
+    [Fact]
+    public async Task Pedido_manual_legacy_sin_clase_se_rechaza_sin_quemar_folio()
+    {
+        var empresa = Guid.NewGuid(); using var db = NewDb(empresa);
+        var pedido = PedidoManual(db, empresa, clase: null);
+        var sender = new FakeSender(new ReservarFolioResponse("VD-000001", 1, ""));
+
+        var act = () => Handler(db, empresa, sender: sender)
+            .Handle(Command() with { PedidoFacturableId = pedido.Id }, CancellationToken.None);
+
+        await act.Should().ThrowAsync<BusinessRuleException>().Where(e => e.Code == "PEDIDO_MANUAL_SIN_CLASIFICAR");
+        sender.VecesReservoFolio.Should().Be(0);
+        db.FacturasVenta.Should().BeEmpty();
+    }
+
+    [Fact]
+    public async Task Venta_directa_activo_exige_comportamiento_VentaActivoFijo()
+    {
+        var empresa = Guid.NewGuid(); using var db = NewDb(empresa);
+        var pedido = PedidoManual(db, empresa, ClasePedidoManual.VentaDirecta, SubtipoVentaDirecta.Activo, ComportamientoFiscal.VentaActivoFijo);
+
+        var act = () => Handler(db, empresa)
+            .Handle(Command() with { PedidoFacturableId = pedido.Id }, CancellationToken.None);
+
+        await act.Should().ThrowAsync<BusinessRuleException>().Where(e => e.Code == "FAC_PEDIDO_ACTIVO_COMPORTAMIENTO");
+    }
+
+    [Fact]
+    public async Task Venta_directa_activo_sin_autorizacion_no_se_timbra_CA6_12()
+    {
+        var empresa = Guid.NewGuid(); using var db = NewDb(empresa);
+        var pedido = PedidoManual(db, empresa, ClasePedidoManual.VentaDirecta, SubtipoVentaDirecta.Activo, ComportamientoFiscal.VentaActivoFijo);
+        var sender = new FakeSender(new ReservarFolioResponse("VD-000001", 1, ""));
+
+        var act = () => Handler(db, empresa, sender: sender).Handle(Command() with
+        {
+            PedidoFacturableId = pedido.Id, ComportamientoFiscal = ComportamientoFiscal.VentaActivoFijo,
+        }, CancellationToken.None);
+
+        await act.Should().ThrowAsync<BusinessRuleException>().Where(e => e.Code == "AUTORIZACION_REQUERIDA");
+        sender.VecesReservoFolio.Should().Be(0);
+    }
+
+    [Fact]
+    public async Task Venta_directa_activo_con_autorizacion_la_consume_y_usa_serie_VD()
+    {
+        var empresa = Guid.NewGuid(); using var db = NewDb(empresa);
+        var pedido = PedidoManual(db, empresa, ClasePedidoManual.VentaDirecta, SubtipoVentaDirecta.Activo, ComportamientoFiscal.VentaActivoFijo);
+        var autorizacion = Millet.Facturacion.Domain.Activos.AutorizacionVentaActivo.Crear(
+            empresa, "DEMO-ACT", "Camioneta", 250000m, 180000m, false, 200m, Guid.NewGuid(), Ahora); // AF-04: precio autorizado = neto de la factura (2 × $100)
+        db.AutorizacionesVentaActivo.Add(autorizacion); db.SaveChanges();
+        var sender = new FakeSender(new ReservarFolioResponse("VD-000001", 1, ""));
+
+        var resp = await Handler(db, empresa, sender: sender).Handle(Command() with
+        {
+            PedidoFacturableId = pedido.Id, ComportamientoFiscal = ComportamientoFiscal.VentaActivoFijo,
+            AutorizacionId = autorizacion.Id,
+        }, CancellationToken.None);
+
+        sender.TiposReservados.Should().Equal(Millet.Administracion.Domain.TipoDocumentoSerie.VentaDirecta);
+        autorizacion.Estado.Should().Be(Millet.Facturacion.Domain.Activos.EstadoAutorizacionActivo.Usada);
+        autorizacion.FacturaVentaId.Should().Be(resp.Id);
     }
 }

@@ -119,7 +119,8 @@ public static class TestComprasFixtures
         string? sucursalCodigo = null,
         short? folioAnio = null,
         Guid? departamentoId = null,
-        int clasificacion = 2,           // MateriaPrima
+        // 86e3tfedd: Orden de compra acepta artículos sin categoría (los de prueba); MP sólo las categorías de MP.
+        int clasificacion = 1,           // OrdenCompra
         int prioridad = 1,               // Normal
         DateTimeOffset? fechaSolicitud = null,
         DateOnly? fechaEntregaDeseada = null,

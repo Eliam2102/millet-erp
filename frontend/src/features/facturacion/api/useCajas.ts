@@ -53,12 +53,12 @@ export function useCaja(id: string | null | undefined) {
   });
 }
 
-/** <c>useCrearCaja()</c> — POST con Idempotency-Key; nace activa y sin alcance. */
+/** <c>useCrearCaja()</c> — POST con Idempotency-Key; nace activa en la sucursal elegida. */
 export function useCrearCaja() {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: async (args: {
-      command: { nombre: string; descripcion: string | null };
+      command: { nombre: string; descripcion: string | null; sucursalId: string };
       idempotencyKey: string;
     }) => {
       const { data } = await apiRequest<CajaMutadaResponse>(`${BASE}/`, {

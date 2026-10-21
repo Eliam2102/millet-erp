@@ -34,6 +34,7 @@ import { Route as AppComprasConfiguracionRouteImport } from './routes/_app/compr
 import { Route as AppComprasAyudaRouteImport } from './routes/_app/compras/ayuda';
 import { Route as AppComercioExteriorRelacionIvaRouteImport } from './routes/_app/comercio-exterior/relacion-iva';
 import { Route as AppComercioExteriorOtrRouteImport } from './routes/_app/comercio-exterior/otr';
+import { Route as AppComercioExteriorIncidenciasRouteImport } from './routes/_app/comercio-exterior/incidencias';
 import { Route as AppCentrosCostoConfiguracionRouteImport } from './routes/_app/centros-costo/configuracion';
 import { Route as AppCentrosCostoAsignacionesRouteImport } from './routes/_app/centros-costo/asignaciones';
 import { Route as AppAlmacenUbicacionesRouteImport } from './routes/_app/almacen/ubicaciones';
@@ -117,6 +118,7 @@ import { Route as AppFacturacionReppPendientesRouteImport } from './routes/_app/
 import { Route as AppFacturacionReppIdRouteImport } from './routes/_app/facturacion/repp/$id';
 import { Route as AppFacturacionReportesLiquidacionCajaRouteImport } from './routes/_app/facturacion/reportes/liquidacion-caja';
 import { Route as AppFacturacionReportesEstadosAnticiposRouteImport } from './routes/_app/facturacion/reportes/estados-anticipos';
+import { Route as AppFacturacionReportesComparativaAnticiposRouteImport } from './routes/_app/facturacion/reportes/comparativa-anticipos';
 import { Route as AppFacturacionPedidosExcepcionesRouteImport } from './routes/_app/facturacion/pedidos/excepciones';
 import { Route as AppFacturacionPedidosIdRouteImport } from './routes/_app/facturacion/pedidos/$id';
 import { Route as AppFacturacionFacturasNuevaRouteImport } from './routes/_app/facturacion/facturas/nueva';
@@ -332,6 +334,12 @@ const AppComercioExteriorOtrRoute = AppComercioExteriorOtrRouteImport.update({
   path: '/comercio-exterior/otr',
   getParentRoute: () => AppRoute,
 } as any);
+const AppComercioExteriorIncidenciasRoute =
+  AppComercioExteriorIncidenciasRouteImport.update({
+    id: '/comercio-exterior/incidencias',
+    path: '/comercio-exterior/incidencias',
+    getParentRoute: () => AppRoute,
+  } as any);
 const AppCentrosCostoConfiguracionRoute =
   AppCentrosCostoConfiguracionRouteImport.update({
     id: '/centros-costo/configuracion',
@@ -788,6 +796,12 @@ const AppFacturacionReportesEstadosAnticiposRoute =
   AppFacturacionReportesEstadosAnticiposRouteImport.update({
     id: '/facturacion/reportes/estados-anticipos',
     path: '/facturacion/reportes/estados-anticipos',
+    getParentRoute: () => AppRoute,
+  } as any);
+const AppFacturacionReportesComparativaAnticiposRoute =
+  AppFacturacionReportesComparativaAnticiposRouteImport.update({
+    id: '/facturacion/reportes/comparativa-anticipos',
+    path: '/facturacion/reportes/comparativa-anticipos',
     getParentRoute: () => AppRoute,
   } as any);
 const AppFacturacionPedidosExcepcionesRoute =
@@ -1301,6 +1315,7 @@ export interface FileRoutesByFullPath {
   '/almacen/ubicaciones': typeof AppAlmacenUbicacionesRoute;
   '/centros-costo/asignaciones': typeof AppCentrosCostoAsignacionesRoute;
   '/centros-costo/configuracion': typeof AppCentrosCostoConfiguracionRoute;
+  '/comercio-exterior/incidencias': typeof AppComercioExteriorIncidenciasRoute;
   '/comercio-exterior/otr': typeof AppComercioExteriorOtrRoute;
   '/comercio-exterior/relacion-iva': typeof AppComercioExteriorRelacionIvaRoute;
   '/compras/ayuda': typeof AppComprasAyudaRoute;
@@ -1374,6 +1389,7 @@ export interface FileRoutesByFullPath {
   '/facturacion/pedidos/$id': typeof AppFacturacionPedidosIdRoute;
   '/facturacion/pedidos/excepciones': typeof AppFacturacionPedidosExcepcionesRoute;
   '/facturacion/reportes/estados-anticipos': typeof AppFacturacionReportesEstadosAnticiposRoute;
+  '/facturacion/reportes/comparativa-anticipos': typeof AppFacturacionReportesComparativaAnticiposRoute;
   '/facturacion/reportes/liquidacion-caja': typeof AppFacturacionReportesLiquidacionCajaRoute;
   '/facturacion/repp/$id': typeof AppFacturacionReppIdRoute;
   '/facturacion/repp/pendientes': typeof AppFacturacionReppPendientesRoute;
@@ -1496,6 +1512,7 @@ export interface FileRoutesByTo {
   '/almacen/ubicaciones': typeof AppAlmacenUbicacionesRoute;
   '/centros-costo/asignaciones': typeof AppCentrosCostoAsignacionesRoute;
   '/centros-costo/configuracion': typeof AppCentrosCostoConfiguracionRoute;
+  '/comercio-exterior/incidencias': typeof AppComercioExteriorIncidenciasRoute;
   '/comercio-exterior/otr': typeof AppComercioExteriorOtrRoute;
   '/comercio-exterior/relacion-iva': typeof AppComercioExteriorRelacionIvaRoute;
   '/compras/ayuda': typeof AppComprasAyudaRoute;
@@ -1569,6 +1586,7 @@ export interface FileRoutesByTo {
   '/facturacion/pedidos/$id': typeof AppFacturacionPedidosIdRoute;
   '/facturacion/pedidos/excepciones': typeof AppFacturacionPedidosExcepcionesRoute;
   '/facturacion/reportes/estados-anticipos': typeof AppFacturacionReportesEstadosAnticiposRoute;
+  '/facturacion/reportes/comparativa-anticipos': typeof AppFacturacionReportesComparativaAnticiposRoute;
   '/facturacion/reportes/liquidacion-caja': typeof AppFacturacionReportesLiquidacionCajaRoute;
   '/facturacion/repp/$id': typeof AppFacturacionReppIdRoute;
   '/facturacion/repp/pendientes': typeof AppFacturacionReppPendientesRoute;
@@ -1693,6 +1711,7 @@ export interface FileRoutesById {
   '/_app/almacen/ubicaciones': typeof AppAlmacenUbicacionesRoute;
   '/_app/centros-costo/asignaciones': typeof AppCentrosCostoAsignacionesRoute;
   '/_app/centros-costo/configuracion': typeof AppCentrosCostoConfiguracionRoute;
+  '/_app/comercio-exterior/incidencias': typeof AppComercioExteriorIncidenciasRoute;
   '/_app/comercio-exterior/otr': typeof AppComercioExteriorOtrRoute;
   '/_app/comercio-exterior/relacion-iva': typeof AppComercioExteriorRelacionIvaRoute;
   '/_app/compras/ayuda': typeof AppComprasAyudaRoute;
@@ -1766,6 +1785,7 @@ export interface FileRoutesById {
   '/_app/facturacion/pedidos/$id': typeof AppFacturacionPedidosIdRoute;
   '/_app/facturacion/pedidos/excepciones': typeof AppFacturacionPedidosExcepcionesRoute;
   '/_app/facturacion/reportes/estados-anticipos': typeof AppFacturacionReportesEstadosAnticiposRoute;
+  '/_app/facturacion/reportes/comparativa-anticipos': typeof AppFacturacionReportesComparativaAnticiposRoute;
   '/_app/facturacion/reportes/liquidacion-caja': typeof AppFacturacionReportesLiquidacionCajaRoute;
   '/_app/facturacion/repp/$id': typeof AppFacturacionReppIdRoute;
   '/_app/facturacion/repp/pendientes': typeof AppFacturacionReppPendientesRoute;
@@ -1890,6 +1910,7 @@ export interface FileRouteTypes {
     | '/almacen/ubicaciones'
     | '/centros-costo/asignaciones'
     | '/centros-costo/configuracion'
+    | '/comercio-exterior/incidencias'
     | '/comercio-exterior/otr'
     | '/comercio-exterior/relacion-iva'
     | '/compras/ayuda'
@@ -1963,6 +1984,7 @@ export interface FileRouteTypes {
     | '/facturacion/pedidos/$id'
     | '/facturacion/pedidos/excepciones'
     | '/facturacion/reportes/estados-anticipos'
+    | '/facturacion/reportes/comparativa-anticipos'
     | '/facturacion/reportes/liquidacion-caja'
     | '/facturacion/repp/$id'
     | '/facturacion/repp/pendientes'
@@ -2085,6 +2107,7 @@ export interface FileRouteTypes {
     | '/almacen/ubicaciones'
     | '/centros-costo/asignaciones'
     | '/centros-costo/configuracion'
+    | '/comercio-exterior/incidencias'
     | '/comercio-exterior/otr'
     | '/comercio-exterior/relacion-iva'
     | '/compras/ayuda'
@@ -2158,6 +2181,7 @@ export interface FileRouteTypes {
     | '/facturacion/pedidos/$id'
     | '/facturacion/pedidos/excepciones'
     | '/facturacion/reportes/estados-anticipos'
+    | '/facturacion/reportes/comparativa-anticipos'
     | '/facturacion/reportes/liquidacion-caja'
     | '/facturacion/repp/$id'
     | '/facturacion/repp/pendientes'
@@ -2281,6 +2305,7 @@ export interface FileRouteTypes {
     | '/_app/almacen/ubicaciones'
     | '/_app/centros-costo/asignaciones'
     | '/_app/centros-costo/configuracion'
+    | '/_app/comercio-exterior/incidencias'
     | '/_app/comercio-exterior/otr'
     | '/_app/comercio-exterior/relacion-iva'
     | '/_app/compras/ayuda'
@@ -2354,6 +2379,7 @@ export interface FileRouteTypes {
     | '/_app/facturacion/pedidos/$id'
     | '/_app/facturacion/pedidos/excepciones'
     | '/_app/facturacion/reportes/estados-anticipos'
+    | '/_app/facturacion/reportes/comparativa-anticipos'
     | '/_app/facturacion/reportes/liquidacion-caja'
     | '/_app/facturacion/repp/$id'
     | '/_app/facturacion/repp/pendientes'
@@ -2633,6 +2659,13 @@ declare module '@tanstack/react-router' {
       path: '/comercio-exterior/otr';
       fullPath: '/comercio-exterior/otr';
       preLoaderRoute: typeof AppComercioExteriorOtrRouteImport;
+      parentRoute: typeof AppRoute;
+    };
+    '/_app/comercio-exterior/incidencias': {
+      id: '/_app/comercio-exterior/incidencias';
+      path: '/comercio-exterior/incidencias';
+      fullPath: '/comercio-exterior/incidencias';
+      preLoaderRoute: typeof AppComercioExteriorIncidenciasRouteImport;
       parentRoute: typeof AppRoute;
     };
     '/_app/centros-costo/configuracion': {
@@ -3214,6 +3247,13 @@ declare module '@tanstack/react-router' {
       path: '/facturacion/reportes/estados-anticipos';
       fullPath: '/facturacion/reportes/estados-anticipos';
       preLoaderRoute: typeof AppFacturacionReportesEstadosAnticiposRouteImport;
+      parentRoute: typeof AppRoute;
+    };
+    '/_app/facturacion/reportes/comparativa-anticipos': {
+      id: '/_app/facturacion/reportes/comparativa-anticipos';
+      path: '/facturacion/reportes/comparativa-anticipos';
+      fullPath: '/facturacion/reportes/comparativa-anticipos';
+      preLoaderRoute: typeof AppFacturacionReportesComparativaAnticiposRouteImport;
       parentRoute: typeof AppRoute;
     };
     '/_app/facturacion/pedidos/excepciones': {
@@ -3861,6 +3901,7 @@ interface AppRouteChildren {
   AppAlmacenUbicacionesRoute: typeof AppAlmacenUbicacionesRoute;
   AppCentrosCostoAsignacionesRoute: typeof AppCentrosCostoAsignacionesRoute;
   AppCentrosCostoConfiguracionRoute: typeof AppCentrosCostoConfiguracionRoute;
+  AppComercioExteriorIncidenciasRoute: typeof AppComercioExteriorIncidenciasRoute;
   AppComercioExteriorOtrRoute: typeof AppComercioExteriorOtrRoute;
   AppComercioExteriorRelacionIvaRoute: typeof AppComercioExteriorRelacionIvaRoute;
   AppComprasAyudaRoute: typeof AppComprasAyudaRoute;
@@ -3934,6 +3975,7 @@ interface AppRouteChildren {
   AppFacturacionPedidosIdRoute: typeof AppFacturacionPedidosIdRoute;
   AppFacturacionPedidosExcepcionesRoute: typeof AppFacturacionPedidosExcepcionesRoute;
   AppFacturacionReportesEstadosAnticiposRoute: typeof AppFacturacionReportesEstadosAnticiposRoute;
+  AppFacturacionReportesComparativaAnticiposRoute: typeof AppFacturacionReportesComparativaAnticiposRoute;
   AppFacturacionReportesLiquidacionCajaRoute: typeof AppFacturacionReportesLiquidacionCajaRoute;
   AppFacturacionReppIdRoute: typeof AppFacturacionReppIdRoute;
   AppFacturacionReppPendientesRoute: typeof AppFacturacionReppPendientesRoute;
@@ -4055,6 +4097,7 @@ const AppRouteChildren: AppRouteChildren = {
   AppAlmacenUbicacionesRoute: AppAlmacenUbicacionesRoute,
   AppCentrosCostoAsignacionesRoute: AppCentrosCostoAsignacionesRoute,
   AppCentrosCostoConfiguracionRoute: AppCentrosCostoConfiguracionRoute,
+  AppComercioExteriorIncidenciasRoute: AppComercioExteriorIncidenciasRoute,
   AppComercioExteriorOtrRoute: AppComercioExteriorOtrRoute,
   AppComercioExteriorRelacionIvaRoute: AppComercioExteriorRelacionIvaRoute,
   AppComprasAyudaRoute: AppComprasAyudaRoute,
@@ -4132,6 +4175,8 @@ const AppRouteChildren: AppRouteChildren = {
   AppFacturacionPedidosExcepcionesRoute: AppFacturacionPedidosExcepcionesRoute,
   AppFacturacionReportesEstadosAnticiposRoute:
     AppFacturacionReportesEstadosAnticiposRoute,
+  AppFacturacionReportesComparativaAnticiposRoute:
+    AppFacturacionReportesComparativaAnticiposRoute,
   AppFacturacionReportesLiquidacionCajaRoute:
     AppFacturacionReportesLiquidacionCajaRoute,
   AppFacturacionReppIdRoute: AppFacturacionReppIdRoute,

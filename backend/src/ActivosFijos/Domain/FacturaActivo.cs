@@ -1,7 +1,8 @@
 using Millet.SharedKernel.Domain;
 namespace Millet.ActivosFijos.Domain;
-/// <summary>Snapshot de conciliación para soportar factura antes o después de recepción.</summary>
-public sealed class FacturaActivo : BaseEntity, IPerteneceAEmpresa
+/// <summary>Snapshot de conciliación para soportar factura antes o después de recepción.
+/// Copia del evento de CxP (proyección): la auditoría vive en la factura origen.</summary>
+public sealed class FacturaActivo : BaseEntity, IPerteneceAEmpresa, INotAudited
 {
     public Guid EmpresaId { get; set; }
     public Guid FacturaId { get; set; }

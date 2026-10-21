@@ -76,6 +76,7 @@ public sealed class AgregarLineaHandler : IRequestHandler<AgregarLineaCommand, A
                 $"El artículo '{articulo.Clave}' está {articulo.Estatus} y no puede usarse en líneas nuevas.");
         }
 
+        ArticulosPorClasificacion.Validar(requisicion.Clasificacion, articulo);
         if (command.EsActivoFijo && (command.ClaseActivoId is not Guid claseId || _clasesActivos is null || !await _clasesActivos.EsActivaAsync(claseId, cancellationToken)))
             throw new BusinessRuleException("COMPRA_CLASE_ACTIVO_INVALIDA", "Seleccione una clase de activo activa de la empresa.");
 

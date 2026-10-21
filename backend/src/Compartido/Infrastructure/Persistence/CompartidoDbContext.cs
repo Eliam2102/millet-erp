@@ -509,7 +509,10 @@ public sealed class CompartidoDbContext : BaseDbContext
             t.HasCheckConstraint("ck_series_reinicio_periodo",
                 "reinicio_periodo BETWEEN 0 AND 2");
             t.HasCheckConstraint("ck_series_tipo_documento",
-                "tipo_documento BETWEEN 1 AND 5");
+                "tipo_documento BETWEEN 1 AND 6");
+            // F6.1: la serie de Venta directa (6) siempre es por sucursal.
+            t.HasCheckConstraint("ck_series_vd_sucursal",
+                "tipo_documento <> 6 OR sucursal_id IS NOT NULL");
             t.HasCheckConstraint("ck_series_prefijo_no_vacio",
                 "char_length(prefijo) BETWEEN 1 AND 10");
             t.HasCheckConstraint("ck_series_sufijo_max",
@@ -526,10 +529,10 @@ public sealed class CompartidoDbContext : BaseDbContext
         serie.Property(x => x.FolioInicial).HasDefaultValue(1L).IsRequired();
         serie.HasIndex(x => new { x.EmpresaId, x.SucursalId, x.TipoDocumento })
             .HasDatabaseName("ix_series_fiscal_activa_sucursal").IsUnique()
-            .HasFilter("activa AND sucursal_id IS NOT NULL AND tipo_documento IN (2, 3, 5)");
+            .HasFilter("activa AND sucursal_id IS NOT NULL AND tipo_documento IN (2, 3, 5, 6)");
         serie.HasIndex(x => new { x.EmpresaId, x.TipoDocumento })
             .HasDatabaseName("ix_series_fiscal_activa_global").IsUnique()
-            .HasFilter("activa AND sucursal_id IS NULL AND tipo_documento IN (2, 3, 5)");
+            .HasFilter("activa AND sucursal_id IS NULL AND tipo_documento IN (2, 3, 5, 6)");
 
         // Índice único compuesto. Para que los NULLs de SucursalId/Sufijo
         // no salten el unique de PostgreSQL, usamos COALESCE a sentinels.

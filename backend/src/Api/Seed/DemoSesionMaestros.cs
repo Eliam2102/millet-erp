@@ -81,6 +81,7 @@ public sealed partial class DemoSesionSeedHostedService
         }
         await db.SaveChangesAsync(ct);
         await SembrarSedesMilletAsync(db, ct);
+        await SembrarSeriesVentaDirectaAsync(db, ct);
         // Solo etiquetas históricas; conservar ID y ClaveAw para pedidos existentes.
         foreach (var canal in await db.CanalesVenta.Where(c => c.Nombre.StartsWith("Tienda ")).ToListAsync(ct))
             canal.ActualizarDatos(nombre: canal.Nombre.Replace("Tienda ", "Mostrador "));
@@ -168,6 +169,27 @@ public sealed partial class DemoSesionSeedHostedService
         ("CIR", "", "Sucursal Circuito", TipoSucursal.Taller, "Mérida", "Mérida", "Yucatán", "97000"),
         ("PIN", "", "Planta Pintura", TipoSucursal.Planta, "Mérida", "Mérida", "Yucatán", "97000"),
     ];
+
+    // F6.1: una serie de Venta directa por sede (la venta directa y la emergencia
+    // se folian por sucursal emisora, sin serie global). DEMO ficticia; serie
+    // real pendiente V27 (prefijos/folios iniciales los define Fiscal de Millet).
+    private static async Task SembrarSeriesVentaDirectaAsync(CompartidoDbContext db, CancellationToken ct)
+    {
+        foreach (var clave in ClavesSedesDemo)
+        {
+            var sucursal = await db.Sucursales.SingleOrDefaultAsync(s => s.EmpresaId == EmpresaId && s.Clave == clave, ct);
+            if (sucursal is null) continue;
+            var serieId = Id("DEMO-SERIE-VD/" + clave);
+            // Igual que DEMO-F/DEMO-NC: una serie desactivada o editada conserva su ID y se respeta.
+            if (await db.Series.IgnoreQueryFilters().AnyAsync(s => s.Id == serieId, ct))
+                continue;
+            if (!await db.Series.AnyAsync(s => s.EmpresaId == EmpresaId && s.SucursalId == sucursal.Id
+                    && s.TipoDocumento == TipoDocumentoSerie.VentaDirecta && s.Activa, ct))
+                db.Series.Add(new Serie(serieId, EmpresaId, sucursal.Id, TipoDocumentoSerie.VentaDirecta,
+                    "VD-" + clave, null, ReinicioPeriodo.None));
+        }
+        await db.SaveChangesAsync(ct);
+    }
 
     private static async Task SembrarSedesMilletAsync(CompartidoDbContext db, CancellationToken ct)
     {

@@ -196,12 +196,8 @@ export function DetalleRequisicion() {
         </div>
 
         <CabeceraRequisicion rq={rq} resolverNombre={resolverNombre} />
-        <DocumentoAdjuntosSection
-          base={`/api/v1/compras/requisiciones/${rq.id}`}
-          tipo="requisicion"
-          permiso="compras.requisiciones"
-        />
 
+        {/* Orden del detalle: datos, partidas y al final adjuntos (igual que la OC). */}
         <section className="space-y-2">
           <div className="flex flex-wrap items-center justify-between gap-3">
             <h2 className="text-lg font-semibold">Partidas</h2>
@@ -209,6 +205,12 @@ export function DetalleRequisicion() {
           </div>
           <RenderLineas rq={rq} />
         </section>
+
+        <DocumentoAdjuntosSection
+          base={`/api/v1/compras/requisiciones/${rq.id}`}
+          tipo="requisicion"
+          permiso="compras.requisiciones"
+        />
       </div>
 
       <HistoricoModal

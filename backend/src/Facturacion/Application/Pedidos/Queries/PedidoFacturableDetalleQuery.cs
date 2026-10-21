@@ -50,7 +50,13 @@ public sealed record PedidoFacturableDetalleResponse(
     decimal? Ranura,
     int Version,
     PedidoClienteFiscal? ClienteFiscal,
-    IReadOnlyList<PedidoFacturableLineaDetalle> Lineas, EmbarqueExportacionLectura? EmbarqueCe = null);
+    IReadOnlyList<PedidoFacturableLineaDetalle> Lineas, EmbarqueExportacionLectura? EmbarqueCe = null,
+    // F6.1: clasificación del pedido manual (null fuera de Manual o legacy).
+    string? ClaseManual = null,
+    string? SubtipoVentaDirecta = null,
+    bool EsEmergencia = false,
+    string? MotivoEmergencia = null,
+    string? ReferenciaPedidoAw = null);
 
 /// <summary>
 /// Datos fiscales vivos del cliente en el master (<c>compartido.clientes</c>).
@@ -172,6 +178,8 @@ public sealed class PedidoFacturableDetalleHandler
             pedido.SucursalId, pedido.ClienteId, pedido.ClienteNombre,
             pedido.CanalVentaId, canalVentaNombre, pedido.ComportamientoFiscal.ToString(),
             pedido.Moneda, pedido.ObraId, pedido.ObraNombre, pedido.Comentarios, pedido.ComprobanteVigenteId,
-            pedido.Total, pedido.Ranura, pedido.Version, clienteFiscal, lineas, _embarques is null ? null : await _embarques.ObtenerAsync(pedido.Id, cancellationToken));
+            pedido.Total, pedido.Ranura, pedido.Version, clienteFiscal, lineas, _embarques is null ? null : await _embarques.ObtenerAsync(pedido.Id, cancellationToken),
+            pedido.ClaseManual?.ToString(), pedido.SubtipoVentaDirecta?.ToString(), pedido.EsEmergencia,
+            pedido.MotivoEmergencia, pedido.ReferenciaPedidoAw);
     }
 }

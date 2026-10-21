@@ -1844,6 +1844,95 @@ namespace Millet.Almacen.Infrastructure.Persistence.Migrations
                         });
                 });
 
+            modelBuilder.Entity("Millet.Almacen.Domain.Saldos.AjusteCostoExpediente", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<decimal>("AcumuladoMxn")
+                        .HasPrecision(20, 2)
+                        .HasColumnType("numeric(20,2)")
+                        .HasColumnName("acumulado_mxn");
+
+                    b.Property<Guid>("ArticuloId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("articulo_id");
+
+                    b.Property<decimal>("CostoVentasMxn")
+                        .HasPrecision(20, 2)
+                        .HasColumnType("numeric(20,2)")
+                        .HasColumnName("costo_ventas_mxn");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at");
+
+                    b.Property<string>("CreatedBy")
+                        .HasColumnType("text")
+                        .HasColumnName("created_by");
+
+                    b.Property<DateTimeOffset?>("DeletedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("deleted_at");
+
+                    b.Property<decimal>("DiferenciaMxn")
+                        .HasPrecision(20, 2)
+                        .HasColumnType("numeric(20,2)")
+                        .HasColumnName("diferencia_mxn");
+
+                    b.Property<Guid>("EmpresaId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("empresa_id");
+
+                    b.Property<Guid>("ExpedienteId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("expediente_id");
+
+                    b.Property<DateTimeOffset>("Fecha")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("fecha");
+
+                    b.Property<decimal>("InventarioMxn")
+                        .HasPrecision(20, 2)
+                        .HasColumnType("numeric(20,2)")
+                        .HasColumnName("inventario_mxn");
+
+                    b.Property<int>("NumeroVersion")
+                        .HasColumnType("integer")
+                        .HasColumnName("numero_version");
+
+                    b.Property<Guid>("PartidaId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("partida_id");
+
+                    b.Property<Guid>("UbicacionId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("ubicacion_id");
+
+                    b.Property<DateTimeOffset>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("updated_at");
+
+                    b.Property<string>("UpdatedBy")
+                        .HasColumnType("text")
+                        .HasColumnName("updated_by");
+
+                    b.Property<int>("Version")
+                        .IsConcurrencyToken()
+                        .HasColumnType("integer")
+                        .HasColumnName("version");
+
+                    b.HasKey("Id")
+                        .HasName("pk_ajustes_costo_expediente");
+
+                    b.HasIndex("EmpresaId", "ExpedienteId", "NumeroVersion", "PartidaId")
+                        .IsUnique()
+                        .HasDatabaseName("ix_ajustes_costo_expediente_empresa_id_expediente_id_numero_ve");
+
+                    b.ToTable("ajustes_costo_expediente", "almacen");
+                });
+
             modelBuilder.Entity("Millet.Almacen.Domain.Saldos.SaldoInventario", b =>
                 {
                     b.Property<Guid>("UbicacionId")
@@ -1867,8 +1956,8 @@ namespace Millet.Almacen.Infrastructure.Persistence.Migrations
                         .HasComputedColumnSql("cantidad", true);
 
                     b.Property<decimal>("CostoPromedioMxn")
-                        .HasPrecision(14, 4)
-                        .HasColumnType("numeric(14,4)")
+                        .HasPrecision(28, 12)
+                        .HasColumnType("numeric(28,12)")
                         .HasColumnName("costo_promedio_mxn");
 
                     b.Property<Guid>("SubAlmacenId")

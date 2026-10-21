@@ -45,7 +45,7 @@ public sealed class RelacionIvaHandler(ComercioExteriorDbContext db, ExpedienteS
             {
                 if (!ocs.TryGetValue(oid, out var oc)) continue;
                 // PLATFORM-TODO(<CeRelacionEntradas>): Almacén aún no expone un puerto de entradas por OC.
-                filas.Add(new(periodo, e.Folio, "Importación", oc.Folio, oc.InformacionImportacion?.NumeroPedimento,
+                filas.Add(new(periodo, e.Folio, "Importación", oc.Folio, e.PedimentoVigente(oc.InformacionImportacion?.NumeroPedimento),
                     null, oc.InformacionImportacion?.NumeroBl, oc.InformacionImportacion?.NumeroContenedor, null, null, null, null, null, null));
                 continue;
             }
@@ -53,7 +53,7 @@ public sealed class RelacionIvaHandler(ComercioExteriorDbContext db, ExpedienteS
                 foreach (var id in e.Partidas.Where(p => p.ContenedorId == c.Id && p.Estado != EstadoPartida.Liberada).Select(p => p.PedidoFacturableId).Distinct())
                 {
                     origen.TryGetValue(id, out var p);
-                    filas.Add(new(periodo, e.Folio, "Exportación", null, e.NumeroPedimentoExportacion, e.ClavePedimento,
+                    filas.Add(new(periodo, e.Folio, "Exportación", null, e.PedimentoVigente(), e.ClavePedimento,
                         c.BlGuia, c.Numero, p?.ClienteNombre, p?.NumeroPedido, p?.FacturaFolio, p?.FacturaUuid, c.FechaEmbarqueReal, null));
                 }
         }

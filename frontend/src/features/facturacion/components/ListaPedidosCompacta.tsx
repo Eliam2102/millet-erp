@@ -1,5 +1,6 @@
 import { DateTimeDisplay } from '@/components/erp';
 import { Badge } from '@/components/ui/badge';
+import { ClasePedidoBadge } from '@/features/facturacion/components/ClasePedidoBadge';
 import type { PedidoBandejaItem } from '@/features/facturacion/api/types';
 import { ETIQUETA_ORIGEN_PEDIDO } from '@/features/facturacion/lib/glosario';
 import type { PedidosSearch } from '@/features/facturacion/lib/pedidos-search-schema';
@@ -56,6 +57,7 @@ export function ListaPedidosCompacta({ items, idActivo, search }: ListaPedidosCo
                 {formatMoney({ amount: p.total, currency: p.moneda })}
               </span>
             </div>
+            <ClasePedidoBadge clasificacion={p} className="mt-1" />
             <div className="mt-0.5 text-right text-[11px] text-ink-muted tabular-nums">
               <span className="mr-2">Subtotal sin impuestos</span>
               <DateTimeDisplay value={p.createdAt} />

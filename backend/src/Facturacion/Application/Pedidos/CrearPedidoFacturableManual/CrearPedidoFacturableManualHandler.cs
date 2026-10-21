@@ -15,19 +15,22 @@ public sealed class CrearPedidoFacturableManualHandler
     private readonly ICurrentUserContext _user;
     private readonly IProductosReadPort _productos;
     private readonly IEmpresaFiscalReadPort _empresasFiscal;
+    private readonly ICurrentUserPermissions _permisos;
 
     public CrearPedidoFacturableManualHandler(
         FacturacionDbContext db,
         ICurrentEmpresaContext empresa,
         ICurrentUserContext user,
         IProductosReadPort productos,
-        IEmpresaFiscalReadPort empresasFiscal)
+        IEmpresaFiscalReadPort empresasFiscal,
+        ICurrentUserPermissions permisos)
     {
         _db = db;
         _empresa = empresa;
         _user = user;
         _productos = productos;
         _empresasFiscal = empresasFiscal;
+        _permisos = permisos;
     }
 
     public async Task<PedidoFacturableResponse> Handle(
@@ -36,6 +39,9 @@ public sealed class CrearPedidoFacturableManualHandler
     {
         if (_empresa.Current is not Guid empresaId)
             throw new ForbiddenException("EMPRESA_NO_SELECCIONADA", "No hay empresa seleccionada en el contexto del request.");
+
+        // F6.1: la captura de emergencia exige su propio permiso (403).
+        await PermisoEmergenciaPedido.VerificarAsync(command.ClaseManual, _permisos, cancellationToken);
 
         var pedido = PedidoFacturable.CrearManual(
             empresaId: empresaId,
@@ -49,7 +55,11 @@ public sealed class CrearPedidoFacturableManualHandler
             obraId: command.ObraId,
             obraNombre: command.ObraNombre,
             comentarios: command.Comentarios,
-            capturadoPor: _user.UserId);
+            capturadoPor: _user.UserId,
+            claseManual: command.ClaseManual,
+            subtipoVentaDirecta: command.SubtipoVentaDirecta,
+            motivoEmergencia: command.MotivoEmergencia,
+            referenciaPedidoAw: command.ReferenciaPedidoAw);
 
         // FAC-DET-PR2: tasa de IVA por línea manual — artículo > empresa.
         var tasaIvaDe = await TasaIvaLineaManual.CrearResolverAsync(

@@ -1049,12 +1049,12 @@ namespace Millet.Compartido.Infrastructure.Migrations.Compartido
                     b.HasIndex("EmpresaId", "TipoDocumento")
                         .IsUnique()
                         .HasDatabaseName("ix_series_fiscal_activa_global")
-                        .HasFilter("activa AND sucursal_id IS NULL AND tipo_documento IN (2, 3, 5)");
+                        .HasFilter("activa AND sucursal_id IS NULL AND tipo_documento IN (2, 3, 5, 6)");
 
                     b.HasIndex("EmpresaId", "SucursalId", "TipoDocumento")
                         .IsUnique()
                         .HasDatabaseName("ix_series_fiscal_activa_sucursal")
-                        .HasFilter("activa AND sucursal_id IS NOT NULL AND tipo_documento IN (2, 3, 5)");
+                        .HasFilter("activa AND sucursal_id IS NOT NULL AND tipo_documento IN (2, 3, 5, 6)");
 
                     b.HasIndex("EmpresaId", "TipoDocumento", "Activa")
                         .HasDatabaseName("ix_series_empresa_id_tipo_documento_activa");
@@ -1070,7 +1070,9 @@ namespace Millet.Compartido.Infrastructure.Migrations.Compartido
 
                             t.HasCheckConstraint("ck_series_sufijo_max", "sufijo IS NULL OR char_length(sufijo) BETWEEN 0 AND 10");
 
-                            t.HasCheckConstraint("ck_series_tipo_documento", "tipo_documento BETWEEN 1 AND 5");
+                            t.HasCheckConstraint("ck_series_tipo_documento", "tipo_documento BETWEEN 1 AND 6");
+
+                            t.HasCheckConstraint("ck_series_vd_sucursal", "tipo_documento <> 6 OR sucursal_id IS NOT NULL");
                         });
                 });
 

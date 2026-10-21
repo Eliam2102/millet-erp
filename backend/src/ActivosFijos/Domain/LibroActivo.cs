@@ -47,7 +47,8 @@ public sealed class CorridaDepreciacion : BaseEntity, IPerteneceAEmpresa, IAudit
     public List<DetalleDepreciacion> Detalles { get; set; } = [];
     public CorridaDepreciacion() : base(Guid.CreateVersion7()) { }
 }
-public sealed class DetalleDepreciacion : BaseEntity, IPerteneceAEmpresa
+/// <summary>Renglón inmutable de una corrida; la auditoría vive en <see cref="CorridaDepreciacion"/> (ADR-0008).</summary>
+public sealed class DetalleDepreciacion : BaseEntity, IPerteneceAEmpresa, INotAudited
 {
     public Guid EmpresaId { get; set; }
     public Guid CorridaId { get; set; }

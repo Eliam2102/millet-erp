@@ -89,6 +89,11 @@ export interface ArticuloSelectorProps {
    * <c>false</c>.
    */
   permitirBusquedaPorNombre?: boolean;
+  /**
+   * Clasificación de la requisición (0–3). Si viene, sólo se ofrecen los
+   * artículos de ese tipo (86e3tfedd). Sin ella, el catálogo completo.
+   */
+  tipoRequisicion?: number;
 }
 
 export function ArticuloSelector({
@@ -101,6 +106,7 @@ export function ArticuloSelector({
   triggerProps,
   initialLabel,
   permitirBusquedaPorNombre = true,
+  tipoRequisicion,
 }: ArticuloSelectorProps) {
   const [open, setOpen] = useState(false);
   const [inputClave, setInputClave] = useState('');
@@ -131,6 +137,7 @@ export function ArticuloSelector({
   const articulosQuery = useArticulos({
     clave: claveQuery,
     nombre: nombreQuery,
+    tipoRequisicion,
     limit: 50,
   });
   const items = articulosQuery.data?.items ?? [];
@@ -244,7 +251,9 @@ export function ArticuloSelector({
                 <CommandEmpty>
                   {terminoActivo
                     ? `Ningún artículo activo coincide con "${terminoActivo}".`
-                    : permitirBusquedaPorNombre
+                    : tipoRequisicion != null
+                      ? 'No hay artículos dados de alta para este tipo de requisición.'
+                      : permitirBusquedaPorNombre
                       ? 'Empieza a escribir la clave o el nombre del artículo.'
                       : 'Empieza a escribir la clave del artículo.'}
                 </CommandEmpty>
