@@ -191,10 +191,19 @@ describe('navSidebarItems', () => {
       ['/facturacion/carta-porte', '/facturacion/activos'],
       ['/facturacion/pedidos/excepciones'],
       ['/facturacion/cajas'],
-      ['/facturacion/reportes/liquidacion-caja', '/facturacion/reportes/estados-anticipos'],
+      [
+        '/facturacion/reportes/liquidacion-caja',
+        '/facturacion/reportes/estados-anticipos',
+        // F6.2: la comparativa de anticipos va junto a Estados de facturas de anticipo.
+        '/facturacion/reportes/comparativa-anticipos',
+      ],
     ]);
     const facturas = facturacion.secciones[0].cards.find((c) => c.to === '/facturacion/facturas');
     expect(facturas?.permission).toBe(PermisosCanonicos.FacturacionFacturasLeer);
+    const comparativa = facturacion.secciones
+      .flatMap((s) => s.cards)
+      .find((c) => c.to === '/facturacion/reportes/comparativa-anticipos');
+    expect(comparativa?.permission).toBe(PermisosCanonicos.FacturacionReportesLeer);
   });
 
   it('Compras tiene Operación (P1+P2) y Configuración (Aprobadores)', () => {

@@ -914,6 +914,14 @@ const moduloFacturacion: NavModulo = {
           icon: BarChart3,
           permission: PermisosCanonicos.FacturacionReportesLeer,
         },
+        {
+          label: 'Comparativa de anticipos',
+          description:
+            'Anticipos contra sus aplicaciones: factura final, CFDI de egreso 07 y saldo a una fecha de corte.',
+          to: '/facturacion/reportes/comparativa-anticipos',
+          icon: Scale,
+          permission: PermisosCanonicos.FacturacionReportesLeer,
+        },
       ],
     },
   ],

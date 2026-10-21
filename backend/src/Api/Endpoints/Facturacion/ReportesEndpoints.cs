@@ -3,6 +3,7 @@ using Microsoft.AspNetCore.Mvc;
 using Millet.Api.Auth;
 using Millet.Facturacion.Application.Reportes;
 using Millet.Facturacion.Application.Reportes.CfdisPorObra;
+using Millet.Facturacion.Application.Reportes.ComparativaAnticipos;
 using Millet.Facturacion.Application.Reportes.EstadosFacturasAnticipo;
 using Millet.Facturacion.Application.Reportes.LiquidacionCaja;
 using Millet.Facturacion.Domain.Anticipos;
@@ -12,7 +13,8 @@ namespace Millet.Api.Endpoints.Facturacion;
 
 /// <summary>
 /// Reportes del módulo Facturación (F11): liquidación de caja, estados de
-/// facturas de anticipo, CFDIs por obra. Contrato JSON ADR-0036; export
+/// facturas de anticipo, comparativa de anticipos vs aplicaciones (F6.2),
+/// CFDIs por obra. Contrato JSON ADR-0036; export
 /// client-side. <c>/api/v1/facturacion/reportes</c>.
 /// </summary>
 public static class ReportesEndpoints
@@ -55,6 +57,27 @@ public static class ReportesEndpoints
         .WithName("EstadosFacturasAnticipo")
         .WithSummary("Reporte de estados de facturas de anticipo")
         .Produces<ReporteResponse<EstadoFacturaAnticipoFila>>(StatusCodes.Status200OK);
+
+        // GET: comparativa de anticipos vs aplicaciones y relación CFDI (F6.2).
+        group.MapGet("/comparativa-anticipos", async (
+            [FromQuery] Guid? sucursalId,
+            [FromQuery] Guid? clienteId,
+            [FromQuery] DateTimeOffset? desde,
+            [FromQuery] DateTimeOffset? hasta,
+            [FromQuery] DateTimeOffset? corte,
+            [FromQuery] EstadoComparativaAnticipo? estado,
+            IMediator mediator,
+            CancellationToken ct) =>
+        {
+            var r = await mediator.Send(
+                new ComparativaAnticiposQuery(sucursalId, clienteId, desde, hasta, corte, estado), ct);
+            return Results.Ok(r);
+        })
+        .RequireAuthorization(leer)
+        .WithName("ComparativaAnticipos")
+        .WithSummary("Comparativa de anticipos contra aplicaciones (egresos 07) con saldo a fecha de corte")
+        .Produces<ReporteResponse<ComparativaAnticipoFila>>(StatusCodes.Status200OK)
+        .ProducesValidationProblem();
 
         // GET: CFDIs por obra.
         group.MapGet("/cfdis-por-obra/{obraId:long}", async (
