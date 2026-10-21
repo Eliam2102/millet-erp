@@ -48,8 +48,8 @@ public sealed class IncidenciaVencidaWorker(
         }
     }
 
-    /// <summary>Internal para tests. Devuelve cuántos avisos nuevos registró.</summary>
-    internal async Task<int> TickAsync(CancellationToken cancellationToken)
+    /// <summary>Una revisión. Pública para las pruebas de integración; devuelve cuántos avisos registró.</summary>
+    public async Task<int> TickAsync(CancellationToken cancellationToken)
     {
         using var scope = scopeFactory.CreateScope();
         var sp = scope.ServiceProvider;
