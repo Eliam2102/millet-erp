@@ -177,6 +177,30 @@ public class RegistrarRecepcionServiciosCa210Tests
             .Which.Code.Should().Be("RECEPCION_LINEA_OC_REQUERIDA");
     }
 
+    [Fact]
+    public async Task Compra_mixta_recibe_diez_cajas_y_un_activo_sin_generar_existencia_del_activo()
+    {
+        await using var db = NuevaDb();
+        var (_, bin, silicon, montacargas, oc, lineaSilicon, lineaActivo) = await SembrarDatosAsync(db);
+        var eventos = new FakeEvents();
+        var handler = new RegistrarRecepcionConPackingListHandler(db,
+            new FakeOcMixta(oc, silicon, montacargas, lineaSilicon, lineaActivo), eventos,
+            new FakeUser(), new FakeEmpresa(EmpresaId), new FakeDecimales(), new PeriodoContableStub(abierto: true), new P7Support.Conversion());
+        var respuesta = await handler.Handle(new RegistrarRecepcionConPackingListCommand(oc, new DateOnly(2026,10,8), "FIX-AF-packing.pdf", null,
+            [new(silicon, lineaSilicon, 10, null, null, bin), new(montacargas, lineaActivo, 1, null, null, null)]), CancellationToken.None);
+        var movimiento = await db.Movimientos.Include(x=>x.Lineas).SingleAsync(x=>x.Id==respuesta.RecepcionId);
+        Assert.Single(movimiento.Lineas); Assert.Equal(silicon, movimiento.Lineas.Single().ArticuloId);
+        var ledger = Assert.Single(await db.RecepcionesActivos.ToListAsync()); Assert.Equal(1, ledger.Cantidad); Assert.Equal(lineaActivo, ledger.LineaOcId);
+        var publicado = Assert.Single(eventos.Publicados.OfType<Millet.Almacen.Application.Integration.OcRecepcionRegistradaIntegrationEvent>());
+        Assert.Equal(2, publicado.Lineas.Count); Assert.Equal(1, publicado.Lineas.Single(x=>x.EsActivoFijo).Cantidad);
+    }
+    private sealed class FakeOcMixta(Guid oc, Guid silicon, Guid montacargas, Guid lineaSilicon, Guid lineaActivo) : IComprasOcReadPort
+    {
+        public Task<OcLectura?> ObtenerAsync(Guid id, CancellationToken ct) => Task.FromResult<OcLectura?>(new OcLectura(oc,"OC-MID2026-000100",Guid.NewGuid(),EmpresaId,"Autorizada",
+            [new(lineaSilicon,silicon,"PZA",10,0,100), new(lineaActivo,montacargas,"PZA",1,0,500000,EsActivoFijo:true,ClaseActivoId:Guid.NewGuid())]));
+        public Task<IReadOnlyDictionary<Guid,string>> ObtenerFoliosAsync(IReadOnlyCollection<Guid> ids,CancellationToken ct) => Task.FromResult<IReadOnlyDictionary<Guid,string>>(new Dictionary<Guid,string>{{oc,"OC-MID2026-000100"}});
+    }
+
     // ─── Helpers y Fakes ──────────────────────────────────────────────────────
 
     private static async Task<(Guid subId, Guid binId, Guid artFisico, Guid artServicio, Guid ocId, Guid lineaFisicaId, Guid lineaServicioId)>
@@ -284,7 +308,8 @@ public class RegistrarRecepcionServiciosCa210Tests
 
     private sealed class FakeEvents : IIntegrationEventPublisher
     {
-        public Task PublishAsync(object integrationEvent, CancellationToken ct) => Task.CompletedTask;
+        public List<object> Publicados { get; } = [];
+        public Task PublishAsync(object integrationEvent, CancellationToken ct) { Publicados.Add(integrationEvent); return Task.CompletedTask; }
     }
 
     private sealed class FakeUser : ICurrentUserContext

@@ -40,7 +40,7 @@ public sealed partial class DemoSesionSeedHostedService
             "Tesorería" => codigo.StartsWith("tesoreria.", StringComparison.Ordinal),
             "Facturación" => codigo.StartsWith("facturacion.", StringComparison.Ordinal)
                 || codigo.StartsWith("datos_maestros.clientes.", StringComparison.Ordinal),
-            "Contabilidad" => codigo.StartsWith("contabilidad.", StringComparison.Ordinal)
+            "Contabilidad" => (codigo.StartsWith("contabilidad.", StringComparison.Ordinal) || codigo.StartsWith("activos_fijos.", StringComparison.Ordinal))
                 && codigo != PermisosCanonicos.ContabilidadCatalogoAutorizar,
             "DAF" => codigo is PermisosCanonicos.ContabilidadCatalogoLeer or PermisosCanonicos.ContabilidadCatalogoAutorizar,
             _ => false,

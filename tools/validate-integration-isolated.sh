@@ -4,6 +4,12 @@ set -euo pipefail
 
 # CE-01a exige EntraId y ejecuta únicamente sus pruebas HTTP con JWT firmado.
 ce_entra=false
+af_mode=false
+if [[ "${1:-}" == "--activos-fijos" ]]; then
+  ce_entra=true
+  af_mode=true
+  shift
+fi
 if [[ "${1:-}" == "--comercio-exterior" ]]; then
   ce_entra=true
   shift
@@ -83,7 +89,11 @@ projects=(
 
 if [[ "$ce_entra" == true ]]; then
   projects=('tests/Api.IntegrationTests/Millet.Api.IntegrationTests.csproj')
-  set -- --filter 'FullyQualifiedName~Millet.Api.IntegrationTests.ComercioExterior' "$@"
+  if [[ "$af_mode" == true ]]; then
+    set -- --filter 'FullyQualifiedName~Millet.Api.IntegrationTests.ActivosFijos' "$@"
+  else
+    set -- --filter 'FullyQualifiedName~Millet.Api.IntegrationTests.ComercioExterior' "$@"
+  fi
 fi
 
 # F1 (Parte F): argumentos extra (p. ej. --filter "FullyQualifiedName~Empleado")

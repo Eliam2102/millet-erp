@@ -8,6 +8,14 @@
  * Uso: <c>useHasPermission(PermisosCanonicos.IdentidadUsuariosCrear)</c>.
  */
 export const PermisosCanonicos = {
+  ActivosFijosClasesAdministrar: 'activos_fijos.clases.administrar',
+  ActivosFijosActivosVer: 'activos_fijos.activos.ver',
+  ActivosFijosActivosGestionar: 'activos_fijos.activos.gestionar',
+  ActivosFijosCapitalizar: 'activos_fijos.capitalizar',
+  ActivosFijosTrasladosGestionar: 'activos_fijos.traslados.gestionar',
+  ActivosFijosLeerTodasSucursales: 'activos_fijos.activos.leer-todas-sucursales',
+  ActivosFijosGestionarTodasSucursales: 'activos_fijos.activos.gestionar-todas-sucursales',
+
   // Infraestructura
   InfraHealthLeer: 'infra.health.leer',
   InfraAuditLogLeer: 'infra.audit_log.leer',

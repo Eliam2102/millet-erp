@@ -1,3 +1,5 @@
+using Millet.ActivosFijos.Infrastructure;
+using Millet.ActivosFijos.Infrastructure.Persistence;
 using Millet.ComercioExterior.Application;
 using Millet.ComercioExterior.Infrastructure;
 using Millet.ComercioExterior.Infrastructure.Persistence;
@@ -241,6 +243,10 @@ if (!string.IsNullOrWhiteSpace(outboxConnString))
     // internal a Almacen.IntegrationTests).
     builder.Services.AddHostedService<Millet.Almacen.Infrastructure.Workers.CxpEventListenerWorker>();
     builder.Services.AddHostedService<Millet.Almacen.Infrastructure.Workers.ComercioExteriorEventListenerWorker>();
+
+    // AF: listener de recepciones (Almacén) y facturas (CxP) que crean y valúan
+    // activos por capitalizar. Solo con Service Bus real, como los demás listeners.
+    builder.Services.AddHostedService<Millet.ActivosFijos.Infrastructure.Workers.ComprasActivoWorker>();
 
     // F6-PR3 CxP: listener Service Bus para eventos de Almacén
     // (recepciones + devoluciones). Cierra el ciclo bidireccional.
@@ -695,6 +701,7 @@ builder.Services.AddMilletApplication(
     TesoreriaAssemblyMarker.Assembly,
     CentrosCostoAssemblyMarker.Assembly,
     typeof(CrearExpedienteCommand).Assembly,
+    typeof(Millet.ActivosFijos.Application.CrearActivoCommand).Assembly,
     ContabilidadAssemblyMarker.Assembly);
 
 // === Módulo Integraciones.Aw ===
@@ -1348,6 +1355,9 @@ builder.Services.AddDbContext<ComercioExteriorDbContext>((sp, opts) =>
     opts.AddInterceptors(sp.GetRequiredService<OutboxSaveChangesInterceptor>());
 });
 
+builder.Services.AddActivosFijosModule();
+builder.Services.AddDbContext<ActivosFijosDbContext>((sp, opts) => ConfigureMilletDbContext(opts, sp));
+
 // === Manejo de errores: Problem Details vía IExceptionHandler ===
 builder.Services.AddExceptionHandler<GlobalExceptionHandler>();
 builder.Services.AddProblemDetails();
@@ -1379,6 +1389,7 @@ builder.Services.AddSingleton(new MigrationsHealthCheckOptions
         typeof(CentrosCostoDbContext),
         typeof(ContabilidadDbContext),
         typeof(ComercioExteriorDbContext),
+        typeof(ActivosFijosDbContext),
     },
 });
 
@@ -1731,6 +1742,7 @@ Millet.Api.Endpoints.CuentasPorCobrar.AlertasEndpoints.MapAlertasEndpoints(app);
 Millet.Api.Endpoints.Inicio.ResumenesInicioEndpoints.MapResumenesInicioEndpoints(app);
 
 Millet.Api.Endpoints.ComercioExterior.ExpedientesEndpoints.MapExpedientesCe(app);
+Millet.Api.Endpoints.ActivosFijos.ActivosEndpoints.MapActivosFijos(app);
 Millet.Api.Endpoints.ComercioExterior.OtrEndpoints.MapOtrCe(app);
 
 Millet.Api.Endpoints.Tesoreria.CuentasEndpoints.MapTesoreriaCuentasEndpoints(app);

@@ -83,4 +83,5 @@
       </AssemblyAttribute>
     </ItemGroup>
   </Target>
+  <ItemGroup><ProjectReference Include="../ActivosFijos/Millet.ActivosFijos.csproj" /></ItemGroup>
 </Project>

@@ -52,7 +52,7 @@ public static class RepartoDisponibilidadService
     {
         var lineasLista = lineas.ToList();
         var idsInventario = lineasLista
-            .Where(l => clasificacionRq != Clasificacion.Servicio && !EsServicio(l, articulos))
+            .Where(l => clasificacionRq != Clasificacion.Servicio && !l.EsActivoFijo && !EsServicio(l, articulos))
             .Select(l => l.ArticuloId)
             .Distinct()
             .ToList();
@@ -64,9 +64,9 @@ public static class RepartoDisponibilidadService
         var disponiblesEnBase = new Dictionary<Guid, decimal>();
         foreach (var linea in lineasLista)
         {
-            if (clasificacionRq == Clasificacion.Servicio || EsServicio(linea, articulos))
+            if (linea.EsActivoFijo || clasificacionRq == Clasificacion.Servicio || EsServicio(linea, articulos))
             {
-                resultado.Add(new RepartoLinea(linea, 0m, 0m, linea.Cantidad, EsServicio: true));
+                resultado.Add(new RepartoLinea(linea, 0m, 0m, linea.Cantidad, EsServicio: !linea.EsActivoFijo));
                 continue;
             }
 

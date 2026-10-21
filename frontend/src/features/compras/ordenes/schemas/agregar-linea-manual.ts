@@ -1,9 +1,6 @@
 import { z } from 'zod';
 import { DescuentoTipo } from '@/features/compras/ordenes/api/types';
-import {
-  cabeEnDecimales,
-  DECIMALES_FALLBACK,
-} from '@/components/erp/forms/decimales-unidad';
+import { cabeEnDecimales, DECIMALES_FALLBACK } from '@/components/erp/forms/decimales-unidad';
 
 import { zId } from '@/lib/z-id';
 import { FraccionArancelariaSchema } from '@/features/compras/ordenes/schemas/comercio-exterior';
@@ -24,85 +21,93 @@ export function crearAgregarLineaManualSchema(
   getDecimalesCantidad: () => number = () => DECIMALES_FALLBACK,
   ccRequerido = true,
 ) {
-  return z.object({
-  articuloId: idLike('Selecciona un artículo.'),
-  cantidad: z
-    .number()
-    .positive('La cantidad debe ser mayor a 0.')
-    .max(999_999_999, 'Cantidad fuera de rango.')
-    .refine(
-      (v) => cabeEnDecimales(v, getDecimalesCantidad()),
-      'Demasiados decimales para la unidad seleccionada',
-    ),
-  unidadMedida: z
-    .string()
-    .min(1, 'La unidad de medida es requerida.')
-    .max(20, 'Máximo 20 caracteres.'),
-  precioUnitario: z
-    .number()
-    .nonnegative('El precio no puede ser negativo.')
-    .max(999_999_999, 'Precio fuera de rango.'),
-  departamentoSolicitanteId: idLike('Selecciona un departamento.'),
-  // Descuento opcional. Si tipo es Porcentaje, valor 0-100. Si es
-  // Monto, no negativo. Las dos validaciones combinadas en
-  // superRefine.
-  descuentoTipo: z
-    .union([
-      z.literal(DescuentoTipo.Porcentaje),
-      z.literal(DescuentoTipo.Monto),
-    ])
-    .nullish(),
-  descuentoValor: z
-    .number()
-    .nonnegative('El descuento no puede ser negativo.')
-    .nullish(),
-  indicadorImpuestos: z.string().max(50).nullish(),
-  descripcionExtendida: z.string().max(1000).nullish(),
-  fechaEntregaLinea: z.string().nullish(),
-  textoAdicional: z.string().max(2000).nullish(),
-  // Fracción arancelaria (comercio exterior, solo se captura al EDITAR; la
-  // alta manual la deja undefined y no viaja en el POST). PLATFORM-TODO(<F1-COM-06>): supuesto Vilo.
-  fraccionArancelaria: FraccionArancelariaSchema.nullish(),
-  // Fase E PR3.1: CC-Máquina elegido por el comprador (proxy, selector
-  // abierto). REQUERIDO en la línea manual. La exigencia es condicional
-  // porque este mismo schema resuelve el form al EDITAR una línea heredada
-  // de RQ, donde el campo se pinta read-only (el CC viene 1:1 de la RQ): si
-  // fuera requerido siempre, una línea heredada legada con CC null quedaría
-  // imposible de guardar — requerida pero no capturable. Ver ADR-0050.
-  // El tipo inferido no cambia (string | null | undefined) en ninguna rama.
-  centroCostoId: ccRequerido
-    ? zId('Centro de costo requerido')
-        .nullish()
-        .refine((v) => v != null, 'Centro de costo requerido')
-    : zId().nullish(),
-}).superRefine((data, ctx) => {
-  if (data.descuentoTipo != null && data.descuentoValor == null) {
-    ctx.addIssue({
-      code: z.ZodIssueCode.custom,
-      path: ['descuentoValor'],
-      message: 'Captura el valor del descuento.',
+  return z
+    .object({
+      esActivoFijo: z.boolean().optional(),
+      claseActivoId: zId().nullish(),
+      articuloId: idLike('Selecciona un artículo.'),
+      cantidad: z
+        .number()
+        .positive('La cantidad debe ser mayor a 0.')
+        .max(999_999_999, 'Cantidad fuera de rango.')
+        .refine(
+          (v) => cabeEnDecimales(v, getDecimalesCantidad()),
+          'Demasiados decimales para la unidad seleccionada',
+        ),
+      unidadMedida: z
+        .string()
+        .min(1, 'La unidad de medida es requerida.')
+        .max(20, 'Máximo 20 caracteres.'),
+      precioUnitario: z
+        .number()
+        .nonnegative('El precio no puede ser negativo.')
+        .max(999_999_999, 'Precio fuera de rango.'),
+      departamentoSolicitanteId: idLike('Selecciona un departamento.'),
+      // Descuento opcional. Si tipo es Porcentaje, valor 0-100. Si es
+      // Monto, no negativo. Las dos validaciones combinadas en
+      // superRefine.
+      descuentoTipo: z
+        .union([z.literal(DescuentoTipo.Porcentaje), z.literal(DescuentoTipo.Monto)])
+        .nullish(),
+      descuentoValor: z.number().nonnegative('El descuento no puede ser negativo.').nullish(),
+      indicadorImpuestos: z.string().max(50).nullish(),
+      descripcionExtendida: z.string().max(1000).nullish(),
+      fechaEntregaLinea: z.string().nullish(),
+      textoAdicional: z.string().max(2000).nullish(),
+      // Fracción arancelaria (comercio exterior, solo se captura al EDITAR; la
+      // alta manual la deja undefined y no viaja en el POST). PLATFORM-TODO(<F1-COM-06>): supuesto Vilo.
+      fraccionArancelaria: FraccionArancelariaSchema.nullish(),
+      // Fase E PR3.1: CC-Máquina elegido por el comprador (proxy, selector
+      // abierto). REQUERIDO en la línea manual. La exigencia es condicional
+      // porque este mismo schema resuelve el form al EDITAR una línea heredada
+      // de RQ, donde el campo se pinta read-only (el CC viene 1:1 de la RQ): si
+      // fuera requerido siempre, una línea heredada legada con CC null quedaría
+      // imposible de guardar — requerida pero no capturable. Ver ADR-0050.
+      // El tipo inferido no cambia (string | null | undefined) en ninguna rama.
+      centroCostoId: ccRequerido
+        ? zId('Centro de costo requerido')
+            .nullish()
+            .refine((v) => v != null, 'Centro de costo requerido')
+        : zId().nullish(),
+    })
+    .superRefine((data, ctx) => {
+      if (data.esActivoFijo && !data.claseActivoId)
+        ctx.addIssue({
+          code: 'custom',
+          path: ['claseActivoId'],
+          message: 'Selecciona la clase de activo.',
+        });
+      if (data.esActivoFijo && !Number.isInteger(data.cantidad))
+        ctx.addIssue({
+          code: 'custom',
+          path: ['cantidad'],
+          message: 'Los activos requieren unidades enteras.',
+        });
+      if (data.descuentoTipo != null && data.descuentoValor == null) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: ['descuentoValor'],
+          message: 'Captura el valor del descuento.',
+        });
+      }
+      if (
+        data.descuentoTipo === DescuentoTipo.Porcentaje &&
+        data.descuentoValor != null &&
+        data.descuentoValor > 100
+      ) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: ['descuentoValor'],
+          message: 'El porcentaje no puede exceder 100.',
+        });
+      }
     });
-  }
-  if (
-    data.descuentoTipo === DescuentoTipo.Porcentaje &&
-    data.descuentoValor != null &&
-    data.descuentoValor > 100
-  ) {
-    ctx.addIssue({
-      code: z.ZodIssueCode.custom,
-      path: ['descuentoValor'],
-      message: 'El porcentaje no puede exceder 100.',
-    });
-  }
-  });
 }
 
 /** Schema estático con el fallback global (usos que no resuelven unidad). */
 export const AgregarLineaManualSchema = crearAgregarLineaManualSchema();
 
-export type AgregarLineaManualValues = z.infer<
-  typeof AgregarLineaManualSchema
->;
+export type AgregarLineaManualValues = z.infer<typeof AgregarLineaManualSchema>;
 
 /** Default puro para inicializar react-hook-form. */
 export const DEFAULT_AGREGAR_LINEA_MANUAL: AgregarLineaManualValues = {

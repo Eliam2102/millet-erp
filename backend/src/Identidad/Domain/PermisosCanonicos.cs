@@ -564,6 +564,14 @@ public static class PermisosCanonicos
     public const string ContabilidadRecurrentesAdministrar              = "contabilidad.recurrentes.administrar";
     public const string ContabilidadRecurrentesAutorizar                = "contabilidad.recurrentes.autorizar";
 
+    public const string ActivosFijosClasesAdministrar = "activos_fijos.clases.administrar";
+    public const string ActivosFijosActivosVer = "activos_fijos.activos.ver";
+    public const string ActivosFijosActivosGestionar = "activos_fijos.activos.gestionar";
+    public const string ActivosFijosCapitalizar = "activos_fijos.capitalizar";
+    public const string ActivosFijosTrasladosGestionar = "activos_fijos.traslados.gestionar";
+    public const string ActivosFijosLeerTodasSucursales = "activos_fijos.activos.leer-todas-sucursales";
+    public const string ActivosFijosGestionarTodasSucursales = "activos_fijos.activos.gestionar-todas-sucursales";
+
     // Comercio Exterior (CE-01a), namespace 0000000e.
     public const string ComercioExteriorGastosRegistrar = "comercio_exterior.gastos.registrar";
     public const string ComercioExteriorGastosDistribuir = "comercio_exterior.gastos.distribuir";
@@ -936,5 +944,12 @@ public static class PermisosCanonicos
         (Guid.Parse("0000000e-0001-0000-0000-00000000000a"), ComercioExteriorExpedientesAdjuntosBaja, "Baja lógica con motivo"),
         (Guid.Parse("0000000e-0002-0000-0000-000000000001"), ComercioExteriorDocumentosLeerTodasSucursales, "Consultar todas las sucursales"),
         (Guid.Parse("0000000e-0002-0000-0000-000000000002"), ComercioExteriorDocumentosGestionarTodasSucursales, "Operar todas las sucursales"),
+        (Guid.Parse("0000000f-0001-0000-0000-000000000001"), ActivosFijosClasesAdministrar, "Activos fijos: clases.administrar"),
+        (Guid.Parse("0000000f-0001-0000-0000-000000000002"), ActivosFijosActivosVer, "Activos fijos: activos.ver"),
+        (Guid.Parse("0000000f-0001-0000-0000-000000000003"), ActivosFijosActivosGestionar, "Activos fijos: activos.gestionar"),
+        (Guid.Parse("0000000f-0001-0000-0000-000000000004"), ActivosFijosCapitalizar, "Activos fijos: capitalizar"),
+        (Guid.Parse("0000000f-0001-0000-0000-000000000005"), ActivosFijosTrasladosGestionar, "Activos fijos: traslados.gestionar"),
+        (Guid.Parse("0000000f-0001-0000-0000-000000000006"), ActivosFijosLeerTodasSucursales, "Activos fijos: activos.leer-todas-sucursales"),
+        (Guid.Parse("0000000f-0001-0000-0000-000000000007"), ActivosFijosGestionarTodasSucursales, "Activos fijos: activos.gestionar-todas-sucursales"),
     };
 }

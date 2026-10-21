@@ -50,9 +50,30 @@ public sealed class FacturacionDesignTimeFactory : IDesignTimeDbContextFactory<M
             .UseNpgsql(DesignTimeConexion.Valor).UseSnakeCaseNamingConvention().Options, new DesignTimeEmpresa());
 }
 
+public sealed class ActivosFijosDesignTimeFactory : IDesignTimeDbContextFactory<Millet.ActivosFijos.Infrastructure.Persistence.ActivosFijosDbContext>
+{
+    public Millet.ActivosFijos.Infrastructure.Persistence.ActivosFijosDbContext CreateDbContext(string[] args) => new(
+        new DbContextOptionsBuilder<Millet.ActivosFijos.Infrastructure.Persistence.ActivosFijosDbContext>()
+            .UseNpgsql(DesignTimeConexion.Valor).UseSnakeCaseNamingConvention().Options, new DesignTimeEmpresa());
+}
+
+public sealed class ComprasDesignTimeFactory : IDesignTimeDbContextFactory<Millet.Compras.Infrastructure.ComprasDbContext>
+{
+    public Millet.Compras.Infrastructure.ComprasDbContext CreateDbContext(string[] args) => new(
+        new DbContextOptionsBuilder<Millet.Compras.Infrastructure.ComprasDbContext>()
+            .UseNpgsql(DesignTimeConexion.Valor).UseSnakeCaseNamingConvention().Options, new DesignTimeEmpresa());
+}
+
 public sealed class AlmacenDesignTimeFactory : IDesignTimeDbContextFactory<Millet.Almacen.Infrastructure.Persistence.AlmacenDbContext>
 {
     public Millet.Almacen.Infrastructure.Persistence.AlmacenDbContext CreateDbContext(string[] args) => new(
         new DbContextOptionsBuilder<Millet.Almacen.Infrastructure.Persistence.AlmacenDbContext>()
+            .UseNpgsql(DesignTimeConexion.Valor).UseSnakeCaseNamingConvention().Options, new DesignTimeEmpresa());
+}
+
+public sealed class ContabilidadDesignTimeFactory : IDesignTimeDbContextFactory<Millet.Contabilidad.Infrastructure.Persistence.ContabilidadDbContext>
+{
+    public Millet.Contabilidad.Infrastructure.Persistence.ContabilidadDbContext CreateDbContext(string[] args) => new(
+        new DbContextOptionsBuilder<Millet.Contabilidad.Infrastructure.Persistence.ContabilidadDbContext>()
             .UseNpgsql(DesignTimeConexion.Valor).UseSnakeCaseNamingConvention().Options, new DesignTimeEmpresa());
 }
