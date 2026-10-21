@@ -508,6 +508,10 @@ namespace Millet.Compras.Infrastructure.Migrations
                         .HasColumnType("uuid")
                         .HasColumnName("centro_costo_id");
 
+                    b.Property<Guid?>("ClaseActivoId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("clase_activo_id");
+
                     b.Property<DateTimeOffset>("CreatedAt")
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("created_at");
@@ -523,6 +527,10 @@ namespace Millet.Compras.Infrastructure.Migrations
                     b.Property<DateTimeOffset?>("DeletedAt")
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("deleted_at");
+
+                    b.Property<bool>("EsActivoFijo")
+                        .HasColumnType("boolean")
+                        .HasColumnName("es_activo_fijo");
 
                     b.Property<DateOnly?>("FechaRequerida")
                         .HasColumnType("date")
@@ -967,6 +975,10 @@ namespace Millet.Compras.Infrastructure.Migrations
                         .HasColumnType("uuid")
                         .HasColumnName("centro_costo_id");
 
+                    b.Property<Guid?>("ClaseActivoId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("clase_activo_id");
+
                     b.Property<DateTimeOffset>("CreatedAt")
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("created_at");
@@ -986,6 +998,10 @@ namespace Millet.Compras.Infrastructure.Migrations
                     b.Property<string>("DescripcionExtendida")
                         .HasColumnType("text")
                         .HasColumnName("descripcion_extendida");
+
+                    b.Property<bool>("EsActivoFijo")
+                        .HasColumnType("boolean")
+                        .HasColumnName("es_activo_fijo");
 
                     b.Property<bool>("EsServicio")
                         .ValueGeneratedOnAdd()

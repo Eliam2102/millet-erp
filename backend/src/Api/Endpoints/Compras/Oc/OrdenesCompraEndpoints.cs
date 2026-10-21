@@ -356,7 +356,7 @@ public static class OrdenesCompraEndpoints
                     DescripcionExtendida: body.DescripcionExtendida,
                     FechaEntregaLinea: body.FechaEntregaLinea,
                     CentroCostoId: body.CentroCostoId,
-                    TextoAdicional: body.TextoAdicional),
+                    TextoAdicional: body.TextoAdicional, EsActivoFijo: body.EsActivoFijo, ClaseActivoId: body.ClaseActivoId),
                 cancellationToken);
             return Results.Created($"/api/v1/compras/ordenes/{id}/lineas/{response.LineaId}", response);
         })
@@ -1759,7 +1759,7 @@ public static class OrdenesCompraEndpoints
         // Fase E PR3 (fix #701 API boundary): el CC-Máquina elegido en el
         // Dim3Picker viaja aquí; sin este campo System.Text.Json lo descartaba.
         Guid? CentroCostoId,
-        string? TextoAdicional);
+        string? TextoAdicional, bool EsActivoFijo = false, Guid? ClaseActivoId = null);
 
     /// <summary>Body del PATCH lineas (F2-PR2).</summary>
     public sealed record ActualizarLineaOcRequest(

@@ -44,6 +44,16 @@ public sealed class LineaOrdenCompra : BaseEntity, IAuditable, IBelongsToAggrega
 
     public int Posicion { get; private set; }
 
+    public bool EsActivoFijo { get; private set; }
+    public Guid? ClaseActivoId { get; private set; }
+
+    internal void ClasificarActivo(bool esActivo, Guid? clase)
+    {
+        if (esActivo && (clase is null || clase == Guid.Empty || Cantidad != decimal.Truncate(Cantidad)))
+            throw new BusinessRuleException("COMPRA_ACTIVO_INVALIDO", "El activo requiere clase sugerida y cantidad entera.");
+        EsActivoFijo = esActivo; ClaseActivoId = esActivo ? clase : null;
+    }
+
     public Guid ArticuloId { get; private set; }
 
     /// <summary>
@@ -321,6 +331,7 @@ public sealed class LineaOrdenCompra : BaseEntity, IAuditable, IBelongsToAggrega
                     "LINEA_OC_CANTIDAD_INVALIDA",
                     "La cantidad debe ser mayor a cero.");
             }
+            if (EsActivoFijo && c != decimal.Truncate(c)) throw new BusinessRuleException("COMPRA_ACTIVO_CANTIDAD", "El activo requiere unidades enteras.");
             Cantidad = c;
         }
         if (unidadMedida is not null)

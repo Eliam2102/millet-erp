@@ -235,7 +235,8 @@ public sealed class AbrirCajaSesionHandler : IRequestHandler<AbrirCajaSesionComm
 /// <summary>
 /// Registra un depósito o retiro manual en la sesión. <c>Importe</c> viaja
 /// positivo; el signo lo pone el tipo (retiro = negativo). Retiros: en v1
-/// basta <c>caja.operar</c> y quedan auditados (P4).
+/// basta <c>caja.operar</c> y quedan auditados (P4); el motivo (<c>Descripcion</c>)
+/// lleva al menos 15 caracteres.
 /// </summary>
 public sealed record RegistrarCajaMovimientoCommand(
     Guid SesionId,
@@ -258,6 +259,10 @@ public sealed class RegistrarCajaMovimientoValidator : AbstractValidator<Registr
         RuleFor(c => c.FormaPago).NotEmpty().MaximumLength(2);
         RuleFor(c => c.Importe).GreaterThan(0);
         RuleFor(c => c.Descripcion).NotEmpty().MaximumLength(254);
+        RuleFor(c => c.Descripcion)
+            .Must(d => d.Trim().Length >= CajaMovimiento.MotivoRetiroMinimo)
+            .When(c => c.Tipo == TipoCajaMovimiento.Retiro && !string.IsNullOrWhiteSpace(c.Descripcion))
+            .WithMessage($"El motivo del retiro debe tener al menos {CajaMovimiento.MotivoRetiroMinimo} caracteres.");
         RuleFor(c => c.Referencia!).MaximumLength(100).When(c => c.Referencia is not null);
     }
 }

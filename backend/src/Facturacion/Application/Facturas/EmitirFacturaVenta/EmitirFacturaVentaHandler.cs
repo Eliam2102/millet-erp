@@ -26,7 +26,8 @@ namespace Millet.Facturacion.Application.Facturas.EmitirFacturaVenta;
 /// Orquesta la emisión de una factura de venta (§7.1, §12.2 levantamiento):
 /// candado de período (D13) → validación local previa de catálogos SAT (no
 /// consumir timbres en errores corregibles) → reserva atómica de folio
-/// (<c>Compartido.Series</c>, tipo <c>Cfdi</c>) → construcción del agregado →
+/// (<c>Compartido.Series</c>, tipo <c>Cfdi</c>; <c>VentaDirecta</c> para pedidos
+/// manuales clasificados, F6.1) → construcción del agregado →
 /// timbrado contra el PAC (stub hasta F12) → persistencia.
 ///
 /// <para>
@@ -187,12 +188,16 @@ public sealed class EmitirFacturaVentaHandler
         // abortar sin quemar el timbre.
         var anticipos = await CargarYValidarAnticiposAsync(command, receptor.Rfc, cancellationToken);
 
-        // 3.bis F9: venta de activo fijo exige autorización del Contador General
+        // 3.bis B2: si se emite desde un pedido, debe estar Importado (re-facturable).
+        // F6.1: se carga ANTES de la autorización de activo — un pedido de venta
+        // directa subtipo Activo fuerza el comportamiento VentaActivoFijo y, con
+        // él, la autorización del Contador General (CA6.12). Un pedido manual
+        // legacy (sin clase) se rechaza aquí.
+        var pedido = await CargarYValidarPedidoAsync(command, copiaCe is not null, cancellationToken);
+
+        // 3.ter F9: venta de activo fijo exige autorización del Contador General
         // (no se timbra sin ella). Se valida antes de reservar folio.
         var autorizacion = await CargarYValidarAutorizacionAsync(command, cancellationToken);
-
-        // 3.ter B2: si se emite desde un pedido, debe estar Importado (re-facturable).
-        var pedido = await CargarYValidarPedidoAsync(command, copiaCe is not null, cancellationToken);
 
         if (copiaCe is not null && pedido is not null)
         {
@@ -220,12 +225,18 @@ public sealed class EmitirFacturaVentaHandler
             cancellationToken, exportacionConCce: command.ComportamientoFiscal == ComportamientoFiscal.ExportacionConCce,
             numRegIdTrib: command.Cce?.ReceptorNumRegIdTrib, paisResidencia: command.Cce?.ReceptorPaisResidencia, ventaNueva: true);
 
-        // 4. Reserva atómica de folio (Cfdi) vía Compartido.Series.
+        // 4. Reserva atómica de folio vía Compartido.Series. F6.1: la venta
+        // directa / emergencia (pedido manual clasificado) usa la serie
+        // VentaDirecta de la sucursal (sin caer a la global); el resto, Cfdi.
+        // Las reservas de NC (amortización, ranura) no cambian.
+        var tipoSerie = pedido?.EsVentaDirectaManual == true
+            ? TipoDocumentoSerie.VentaDirecta
+            : TipoDocumentoSerie.Cfdi;
         var reserva = await _sender.Send(
             new ReservarFolioCommand(
                 empresaId,
                 command.SucursalId,
-                TipoDocumentoSerie.Cfdi,
+                tipoSerie,
                 DateOnly.FromDateTime(ahora.UtcDateTime)),
             cancellationToken);
 
@@ -455,6 +466,19 @@ public sealed class EmitirFacturaVentaHandler
             throw new BusinessRuleException(
                 "PEDIDO_NO_FACTURABLE",
                 $"El pedido {pedidoId} no es facturable (estado actual: {pedido.Estado}; sólo Importado).");
+
+        // F6.1: un pedido manual sin clase (legacy) no se factura hasta clasificarlo.
+        pedido.AsegurarClasificadoParaFacturar();
+
+        // F6.1 / CA6.12: la venta directa de un activo va siempre como
+        // VentaActivoFijo, para que la autorización del Contador General no
+        // pueda saltarse cambiando el comportamiento en la emisión.
+        if (pedido.EsVentaDirectaManual
+            && pedido.SubtipoVentaDirecta == SubtipoVentaDirecta.Activo
+            && command.ComportamientoFiscal != ComportamientoFiscal.VentaActivoFijo)
+            throw new BusinessRuleException(
+                "FAC_PEDIDO_ACTIVO_COMPORTAMIENTO",
+                "El pedido es una venta directa de activo fijo: emítelo con el comportamiento «Venta de activo fijo» y la autorización del Contador General.");
 
         return pedido;
     }

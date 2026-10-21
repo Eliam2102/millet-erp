@@ -70,4 +70,4 @@ public sealed record LineaResponse(
     /// <c>CantidadDeCompra − comprometido − recibido de OCs canceladas</c>,
     /// clamped a ≥ 0. Lo puebla el handler en lote; el map la deja en 0.
     /// </summary>
-    decimal CantSaldoPorComprar = 0m);
+    decimal CantSaldoPorComprar = 0m, bool EsActivoFijo = false, Guid? ClaseActivoId = null);

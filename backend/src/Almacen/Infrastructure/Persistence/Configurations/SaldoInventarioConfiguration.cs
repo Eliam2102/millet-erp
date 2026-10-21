@@ -44,7 +44,7 @@ public sealed class SaldoInventarioConfiguration : IEntityTypeConfiguration<Sald
         builder.Property(x => x.SubAlmacenId).IsRequired();
         builder.Property(x => x.ArticuloId).IsRequired();
         builder.Property(x => x.Cantidad).HasPrecision(14, 4).IsRequired();
-        builder.Property(x => x.CostoPromedioMxn).HasPrecision(14, 4).IsRequired();
+        builder.Property(x => x.CostoPromedioMxn).HasPrecision(28, 12).IsRequired();
 
         // Columnas generadas STORED — PostgreSQL las calcula al insert/update.
         // PR4 (ADR-0047): sin reservas, disponible == cantidad física.

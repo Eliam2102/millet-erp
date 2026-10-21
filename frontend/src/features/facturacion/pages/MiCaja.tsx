@@ -1,4 +1,6 @@
 import { DateTimeDisplay, ErrorState, TableSkeleton } from '@/components/erp';
+import { KpiCard } from '@/components/erp/display/KpiCard';
+import { resumirSesionCaja } from '@/features/facturacion/lib/resumen-caja';
 import { ContextoSucursal } from '@/components/erp/display/ContextoSucursal';
 import { MontoMovimiento } from '@/components/erp/display/MontoMovimiento';
 import { PageHeader } from '@/components/erp/PageHeader';
@@ -49,6 +51,12 @@ import {
   formasPagoCaja,
   formasPagoVigentes,
 } from '@/features/facturacion/lib/formas-pago-caja';
+import {
+  MOTIVO_RETIRO_MINIMO,
+  TIPO_MOVIMIENTO_DEPOSITO as TIPO_DEPOSITO,
+  TIPO_MOVIMIENTO_RETIRO as TIPO_RETIRO,
+  errorDescripcionMovimiento,
+} from '@/features/facturacion/schemas/movimiento-caja';
 import { esApiError, useFormIdempotencyKey } from '@/lib/api';
 import { PermisosCanonicos } from '@/lib/auth/permission-codes';
 import { useHasPermission } from '@/lib/auth/useHasPermission';
@@ -59,10 +67,6 @@ import { AlertTriangle, Copy, FileText, Plus, Truck } from 'lucide-react';
 import { useState } from 'react';
 import { toast } from 'sonner';
 import { EstadoFacturacionBadge } from '../components/EstadoFacturacionBadge';
-
-/** Tipos de movimiento manual (espejo de TipoCajaMovimiento backend). */
-const TIPO_DEPOSITO = 2;
-const TIPO_RETIRO = 3;
 
 const ETIQUETA_FORMA: Record<string, string> = {
   '01': 'Efectivo',
@@ -77,7 +81,9 @@ function nombreForma(clave: string): string {
 }
 
 function formatearMxn(v: number): string {
-  return new Intl.NumberFormat('es-MX', { style: 'currency', currency: 'MXN' }).format(v);
+  return new Intl.NumberFormat('es-MX', { style: 'currency', currency: 'MXN' })
+    .format(v)
+    .replace('-', '−');
 }
 
 function toastError(error: unknown, fallback: string) {
@@ -267,6 +273,18 @@ function AperturaSesionCard() {
 function SesionPanel(props: { sesion: CajaSesionDetalleResponse; bloqueada: boolean }) {
   const { sesion } = props;
   const enArqueo = sesion.estado === 'EnArqueo';
+  const resumen = resumirSesionCaja(sesion);
+  const desglose = [
+    `Fondo ${formatearMxn(resumen.fondo)}`,
+    resumen.cobrosEfectivo !== 0 && `cobros ${formatearMxn(resumen.cobrosEfectivo)}`,
+    resumen.retiros !== 0 && `retiros ${formatearMxn(resumen.retiros)}`,
+    resumen.depositos !== 0 && `depósitos ${formatearMxn(resumen.depositos)}`,
+    resumen.ajustes !== 0 &&
+      `ajustes ${resumen.ajustes > 0 ? '+' : ''}${formatearMxn(resumen.ajustes)}`,
+  ]
+    .filter(Boolean)
+    .join(' · ');
+
   const puedeOperar = useHasPermission(PermisosCanonicos.FacturacionCajaOperar);
 
   return (
@@ -293,15 +311,26 @@ function SesionPanel(props: { sesion: CajaSesionDetalleResponse; bloqueada: bool
           </div>
         </div>
 
-        <div className="mt-3 grid grid-cols-2 gap-2 md:grid-cols-4">
-          {sesion.totalesPorForma.map((t) => (
-            <div
-              key={t.formaPago}
-              className="rounded-md border bg-surface-muted/20 p-2 border-line"
-            >
-              <div className="text-xs text-ink-muted">{nombreForma(t.formaPago)}</div>
-              <div className="font-mono text-sm tabular-nums">{formatearMxn(t.montoSistema)}</div>
-            </div>
+        <div className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
+          <KpiCard
+            etiqueta={enArqueo ? 'Efectivo esperado' : 'Efectivo en caja'}
+            valor={formatearMxn(resumen.efectivo)}
+            subdato={<span className="tabular-nums">{desglose}</span>}
+            tono="success"
+          />
+          <KpiCard
+            etiqueta="Cobrado en la sesión"
+            valor={formatearMxn(resumen.cobradoSesion)}
+            subdato={`${resumen.numeroCobros} ${resumen.numeroCobros === 1 ? 'cobro' : 'cobros'}`}
+            tono="info"
+          />
+          {resumen.otrasFormas.map(({ formaPago, monto }) => (
+            <KpiCard
+              key={formaPago}
+              etiqueta={nombreForma(formaPago)}
+              valor={formatearMxn(monto)}
+              tono="neutral"
+            />
           ))}
         </div>
       </div>
@@ -616,6 +645,8 @@ function MovimientoInlineForm(props: { sesionId: string; onCerrar: () => void })
   const [importe, setImporte] = useState('');
   const [descripcion, setDescripcion] = useState('');
   const [referencia, setReferencia] = useState('');
+  const esRetiro = Number(tipo) === TIPO_RETIRO;
+  const largoMotivo = descripcion.trim().length;
 
   function onGuardar() {
     if (!vigente) {
@@ -627,8 +658,9 @@ function MovimientoInlineForm(props: { sesionId: string; onCerrar: () => void })
       toast.error('El importe debe ser mayor que cero.');
       return;
     }
-    if (descripcion.trim() === '') {
-      toast.error('La descripción es obligatoria.');
+    const errorDescripcion = errorDescripcionMovimiento(Number(tipo), descripcion);
+    if (errorDescripcion) {
+      toast.error(errorDescripcion);
       return;
     }
     registrar.mutate(
@@ -696,7 +728,7 @@ function MovimientoInlineForm(props: { sesionId: string; onCerrar: () => void })
         />
       </div>
       <div className="space-y-1 md:col-span-3">
-        <Label htmlFor="mov-desc">Descripción *</Label>
+        <Label htmlFor="mov-desc">{esRetiro ? 'Motivo del retiro *' : 'Descripción *'}</Label>
         <Input
           aria-describedby="mov-desc-ayuda"
           id="mov-desc"
@@ -706,6 +738,7 @@ function MovimientoInlineForm(props: { sesionId: string; onCerrar: () => void })
         />
         <p id="mov-desc-ayuda" className="text-xs text-ink-muted">
           Por qué se movió el dinero, quién autorizó y a quién se entregó
+          {esRetiro && ` · mínimo ${MOTIVO_RETIRO_MINIMO} caracteres (${largoMotivo}/${MOTIVO_RETIRO_MINIMO})`}
         </p>
       </div>
       <div className="space-y-1 md:col-span-3">

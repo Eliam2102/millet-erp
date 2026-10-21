@@ -131,6 +131,23 @@ public sealed class RepartoDisponibilidadServiceTests
         Assert.Equal(0, stock.LlamadasUnitarias);
     }
 
+    [Fact]
+    public async Task Compra_mixta_reserva_silicon_y_compra_montacargas_sin_consumir_stock()
+    {
+        var rq = CrearRequisicion(Clasificacion.MateriaPrima, (Articulo, 10m, 100m));
+        var clase = Guid.NewGuid();
+        var activo = rq.AgregarLinea(Guid.NewGuid(), Servicio, 1, "PZA", new Money(500000, "MXN"), esActivoFijo: true, claseActivoId: clase);
+        var stock = new StockFalso((Articulo, 10m), (Servicio, 5m));
+        var r = await RepartoDisponibilidadService.RepartirAsync(stock, new ConversionIdentidad(), Articulos(), Clasificacion.MateriaPrima, Sucursal, rq.Lineas, default);
+        Assert.Equal(10, r[0].DeAlmacen);
+        Assert.Equal(0, r[1].DeAlmacen);
+        Assert.Equal(1, r[1].DeCompra);
+        Assert.False(r[1].EsServicio);
+        Assert.DoesNotContain(Servicio, stock.Consultas);
+        Assert.True(activo.EsActivoFijo); Assert.Equal(clase, activo.ClaseActivoId);
+        Assert.Throws<Millet.SharedKernel.Application.Exceptions.BusinessRuleException>(() => rq.AgregarLinea(Guid.NewGuid(), Servicio, 0.5m, "PZA", new Money(10, "MXN"), esActivoFijo: true, claseActivoId: clase));
+    }
+
     private static Dictionary<Guid, ArticuloLectura> Articulos(params Guid[] servicios) =>
         new Dictionary<Guid, ArticuloLectura>
         {
