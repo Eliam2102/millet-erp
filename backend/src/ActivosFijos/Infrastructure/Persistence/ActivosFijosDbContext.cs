@@ -4,7 +4,7 @@ using Millet.SharedKernel.Application;
 using Millet.SharedKernel.Infrastructure.Persistence;
 
 namespace Millet.ActivosFijos.Infrastructure.Persistence;
-public sealed class ActivosFijosDbContext(DbContextOptions<ActivosFijosDbContext> options, ICurrentEmpresaContext empresa) : BaseDbContext(options, empresa)
+public sealed partial class ActivosFijosDbContext(DbContextOptions<ActivosFijosDbContext> options, ICurrentEmpresaContext empresa) : BaseDbContext(options, empresa)
 {
     public const string SchemaName = "activos_fijos";
     public DbSet<FacturaActivo> Facturas => Set<FacturaActivo>();
@@ -64,6 +64,7 @@ public sealed class ActivosFijosDbContext(DbContextOptions<ActivosFijosDbContext
         var carga = modelBuilder.Entity<CargaLibro>();
         carga.ToTable("cargas_libro"); carga.HasKey(x => x.Id); carga.Property(x => x.Id).ValueGeneratedNever();
         carga.HasIndex(x => new { x.EmpresaId, x.Huella, x.VersionArchivo }).IsUnique();
+        ConfigurarConservacion(modelBuilder);
         foreach (var entity in modelBuilder.Model.GetEntityTypes())
             foreach (var p in entity.GetProperties().Where(x => x.ClrType == typeof(decimal))) { p.SetPrecision(18); p.SetScale(p.Name == "TipoCambio" ? 6 : 2); }
         base.OnModelCreating(modelBuilder);

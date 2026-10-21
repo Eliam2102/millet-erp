@@ -58,6 +58,11 @@ export const cxcKeys = {
     [...cxcKeys.cartera(), 'antiguedad', filtros] as const,
   estadoCuenta: (clienteId: string) =>
     [...cxcKeys.cartera(), 'estado-cuenta', clienteId] as const,
+  // C7.8: bloqueo por REP pendientes + historial de envíos del estado de cuenta.
+  estadoCuentaPendientes: (clienteId: string) =>
+    [...cxcKeys.estadoCuenta(clienteId), 'pendientes'] as const,
+  estadoCuentaEnvios: (clienteId: string) =>
+    [...cxcKeys.estadoCuenta(clienteId), 'envios'] as const,
   anticipos: (clienteId: string) =>
     [...cxcKeys.all, 'anticipos', clienteId] as const,
 

@@ -1,5 +1,6 @@
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+using Millet.CuentasPorCobrar.Domain.Ports.Correo;
 using Millet.CuentasPorCobrar.Domain.Ports.DatosMaestros;
 using Millet.CuentasPorCobrar.Infrastructure.Adapters;
 
@@ -22,7 +23,8 @@ public static class DependencyInjection
 {
     public static IServiceCollection AddCuentasPorCobrarModule(
         this IServiceCollection services,
-        IConfiguration configuration)
+        IConfiguration configuration,
+        bool isDevelopment = false)
     {
         // CXC-PR3: resolución RFC → cliente para la proyección de cartera.
         services.AddScoped<IClienteReadPort, ClienteReadPortAdapter>();
@@ -46,6 +48,26 @@ public static class DependencyInjection
             .AddOptions<Application.Alertas.AlertasCarteraOptions>()
             .Bind(configuration.GetSection(Application.Alertas.AlertasCarteraOptions.SectionName));
         services.AddHostedService<Workers.AlertaCarteraWorker>();
+
+        // C7.8: correo del estado de cuenta. SandboxLocal (Mailpit) solo en
+        // Development y en loopback; cualquier otro ambiente usa el NoOp con
+        // PLATFORM-TODO(<EnvioEstadoCuentaCliente>).
+        services
+            .AddOptions<EstadoCuentaCorreoOptions>()
+            .Bind(configuration.GetSection(EstadoCuentaCorreoOptions.SectionName));
+        var correo = configuration.GetSection(EstadoCuentaCorreoOptions.SectionName).Get<EstadoCuentaCorreoOptions>()
+            ?? new EstadoCuentaCorreoOptions();
+        if (correo.EsSandboxLocal)
+        {
+            if (!isDevelopment || !correo.EsLoopback || correo.Puerto is < 1 or > 65535)
+                throw new InvalidOperationException(
+                    "CuentasPorCobrar:EstadoCuentaCorreo:Proveedor=SandboxLocal solo se permite en Development con SMTP de captura en loopback.");
+            services.AddScoped<IEstadoCuentaCorreoPort, SandboxLocalEstadoCuentaCorreoAdapter>();
+        }
+        else
+        {
+            services.AddScoped<IEstadoCuentaCorreoPort, NoOpEstadoCuentaCorreoAdapter>();
+        }
 
         return services;
     }
