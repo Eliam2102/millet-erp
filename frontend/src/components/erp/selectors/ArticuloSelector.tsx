@@ -251,7 +251,9 @@ export function ArticuloSelector({
                 <CommandEmpty>
                   {terminoActivo
                     ? `Ningún artículo activo coincide con "${terminoActivo}".`
-                    : permitirBusquedaPorNombre
+                    : tipoRequisicion != null
+                      ? 'No hay artículos dados de alta para este tipo de requisición.'
+                      : permitirBusquedaPorNombre
                       ? 'Empieza a escribir la clave o el nombre del artículo.'
                       : 'Empieza a escribir la clave del artículo.'}
                 </CommandEmpty>
