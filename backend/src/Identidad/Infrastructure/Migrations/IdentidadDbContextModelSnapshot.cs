@@ -4567,6 +4567,48 @@ namespace Millet.Identidad.Infrastructure.Migrations
                         },
                         new
                         {
+                            Id = new Guid("0000000e-0006-0000-0000-000000000001"),
+                            Accion = "registrar",
+                            Codigo = "comercio_exterior.gastos.registrar",
+                            CreatedAt = new DateTimeOffset(new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            CreatedBy = "seed",
+                            Descripcion = "Registrar gastos",
+                            Modulo = "comercio_exterior",
+                            Recurso = "gastos",
+                            UpdatedAt = new DateTimeOffset(new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            UpdatedBy = "seed",
+                            Version = 1
+                        },
+                        new
+                        {
+                            Id = new Guid("0000000e-0006-0000-0000-000000000002"),
+                            Accion = "distribuir",
+                            Codigo = "comercio_exterior.gastos.distribuir",
+                            CreatedAt = new DateTimeOffset(new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            CreatedBy = "seed",
+                            Descripcion = "Distribuir gastos",
+                            Modulo = "comercio_exterior",
+                            Recurso = "gastos",
+                            UpdatedAt = new DateTimeOffset(new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            UpdatedBy = "seed",
+                            Version = 1
+                        },
+                        new
+                        {
+                            Id = new Guid("0000000e-0006-0000-0000-000000000003"),
+                            Accion = "gestionar",
+                            Codigo = "comercio_exterior.anticipos.gestionar",
+                            CreatedAt = new DateTimeOffset(new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            CreatedBy = "seed",
+                            Descripcion = "Gestionar anticipos al agente",
+                            Modulo = "comercio_exterior",
+                            Recurso = "anticipos",
+                            UpdatedAt = new DateTimeOffset(new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            UpdatedBy = "seed",
+                            Version = 1
+                        },
+                        new
+                        {
                             Id = new Guid("0000000e-0004-0000-0000-000000000001"),
                             Accion = "gestionar",
                             Codigo = "comercio_exterior.otr.gestionar",

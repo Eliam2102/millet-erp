@@ -10,6 +10,8 @@ public static class DependencyInjection
     public static IServiceCollection AddComercioExteriorModule(this IServiceCollection services)
     {
         services.AddScoped<ExpedienteServicio>();
+        services.AddScoped<FinanzasServicio>();
+        services.AddScoped<Millet.ComercioExterior.Application.Ports.ITipoCambioGastoReadPort, TipoCambioGastoReadAdapter>();
         services.AddScoped<ContenedoresServicio>();
         services.AddScoped<OtrServicio>();
         services.AddScoped<Millet.ComercioExterior.Application.PublicPorts.IEmbarqueExportacionReadPort, EmbarqueExportacionReadAdapter>();

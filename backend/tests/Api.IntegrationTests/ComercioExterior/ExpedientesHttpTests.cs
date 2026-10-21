@@ -269,6 +269,15 @@ public sealed class ExpedientesHttpTests
         var omitir = await Send(client, HttpMethod.Post, $"{Base}/{id}/hitos/documentacion-completa/omitir", new { clave = "documentacion-completa", responsableUsuarioId = escenario.Responsable, motivo = "FIX-CE faltan documentos" }, etag);
         Assert.Equal(HttpStatusCode.UnprocessableEntity, omitir.StatusCode);
         Assert.Equal("CE_HITO_NO_OMITIBLE", (await Json(omitir)).GetProperty("code").GetString());
+        using (var pendienteScope = escenario.Scope())
+        {
+            using var bypass = pendienteScope.ServiceProvider.GetRequiredService<ICurrentEmpresaContext>().Bypass();
+            var ce = pendienteScope.ServiceProvider.GetRequiredService<ComercioExteriorDbContext>();
+            var pendiente = await ce.Expedientes.SingleAsync(x => x.Id == id);
+            pendiente.RegistrarAnticipo(Guid.NewGuid(), Guid.NewGuid(), "FIX-CE pendiente", new(100, 0, 0), hoy, null);
+            await ce.SaveChangesAsync();
+        }
+        etag = (await client.GetAsync($"{Base}/{id}")).Headers.ETag!.Tag;
         foreach (var ruta in new[] { "cerrar", "hitos/cerrado/real", "hitos/cerrado/omitir" })
         {
             var cierre = await Send(client, HttpMethod.Post, $"{Base}/{id}/{ruta}", new { clave = "cerrado", fechaReal = hoy, responsableUsuarioId = escenario.Responsable, motivo = "FIX-CE no aplica" }, etag);

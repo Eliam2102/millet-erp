@@ -322,7 +322,9 @@ const CODIGOS_BACKEND_ESPERADOS = new Set<string>([
   'comercio_exterior.expedientes.adjuntos-baja',
   'comercio_exterior.documentos.leer-todas-sucursales',
   'comercio_exterior.documentos.gestionar-todas-sucursales',
-
+  'comercio_exterior.gastos.registrar',
+  'comercio_exterior.gastos.distribuir',
+  'comercio_exterior.anticipos.gestionar',
 ]);
 
 describe('PermisosCanonicos — coincidencia con backend', () => {

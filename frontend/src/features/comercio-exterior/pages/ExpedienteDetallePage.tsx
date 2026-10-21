@@ -1,3 +1,4 @@
+import { FinanzasPanel } from '../components/FinanzasPanel';
 import {
   Table,
   TableHeader,
@@ -126,8 +127,19 @@ export function ExpedienteDetallePage({ id }: { id: string }) {
                 </Button>
               )}
               {cerrar && abierto && (
-                <Button variant="outline" disabled title={textoFinanciero(data.estadoFinanciero)}>
-                  Cerrar expediente
+                <Button
+                  variant="outline"
+                  disabled={data.estadoFinanciero !== 'Listo para cierre' || accion.isPending}
+                  title={
+                    data.estadoFinanciero !== 'Listo para cierre'
+                      ? textoFinanciero(data.estadoFinanciero)
+                      : undefined
+                  }
+                  onClick={() => {
+                    void accion.mutateAsync({ accion: 'cerrar' }).catch(() => {});
+                  }}
+                >
+                  Cerrar en lo financiero
                 </Button>
               )}
               {cancelar && abierto && (
@@ -225,6 +237,8 @@ export function ExpedienteDetallePage({ id }: { id: string }) {
                 <TabsTrigger value="otr">A+W OTR</TabsTrigger>
               </>
             )}
+            <TabsTrigger value="gastos">Gastos</TabsTrigger>
+            <TabsTrigger value="anticipos">Anticipo al agente</TabsTrigger>
             <TabsTrigger value="bitacora">Bitácora</TabsTrigger>
           </TabsList>
           <TabsContent value="resumen" className="space-y-4">
@@ -243,14 +257,28 @@ export function ExpedienteDetallePage({ id }: { id: string }) {
                 </TableHeader>
                 <TableBody>
                   <TableRow>
-                    <TableCell className="font-mono text-xs">{data.ocFolio ?? 'Sin número'}</TableCell>
-                    <TableCell>{data.informacionImportacion?.paisOrigen ?? <span className="text-ink-muted">Sin país de origen</span>}</TableCell>
                     <TableCell className="font-mono text-xs">
-                      {data.informacionImportacion?.numeroContenedor ?? <span className="text-ink-muted">Sin número</span>}
+                      {data.ocFolio ?? 'Sin número'}
                     </TableCell>
-                    <TableCell>{data.informacionImportacion?.codigoRuta ?? <span className="text-ink-muted">Sin ruta</span>}</TableCell>
+                    <TableCell>
+                      {data.informacionImportacion?.paisOrigen ?? (
+                        <span className="text-ink-muted">Sin país de origen</span>
+                      )}
+                    </TableCell>
                     <TableCell className="font-mono text-xs">
-                      {data.informacionImportacion?.numeroPedimento ?? <span className="text-ink-muted">Sin número</span>}
+                      {data.informacionImportacion?.numeroContenedor ?? (
+                        <span className="text-ink-muted">Sin número</span>
+                      )}
+                    </TableCell>
+                    <TableCell>
+                      {data.informacionImportacion?.codigoRuta ?? (
+                        <span className="text-ink-muted">Sin ruta</span>
+                      )}
+                    </TableCell>
+                    <TableCell className="font-mono text-xs">
+                      {data.informacionImportacion?.numeroPedimento ?? (
+                        <span className="text-ink-muted">Sin número</span>
+                      )}
                     </TableCell>
                   </TableRow>
                 </TableBody>
@@ -285,6 +313,12 @@ export function ExpedienteDetallePage({ id }: { id: string }) {
               <OtrPanel expedienteId={id} abierto={abierto} />
             </TabsContent>
           )}
+          <TabsContent value="gastos">
+            <FinanzasPanel data={data} tab="gastos" />
+          </TabsContent>
+          <TabsContent value="anticipos">
+            <FinanzasPanel data={data} tab="anticipos" />
+          </TabsContent>
           <TabsContent value="bitacora">
             <Bitacora id={id} />
           </TabsContent>

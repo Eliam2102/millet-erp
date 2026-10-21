@@ -123,6 +123,11 @@ public class AlmacenDbContext : BaseDbContext
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         modelBuilder.HasDefaultSchema("almacen");
+        var ajuste = modelBuilder.Entity<AjusteCostoExpediente>();
+        ajuste.ToTable("ajustes_costo_expediente"); ajuste.HasKey(x => x.Id); ajuste.Property(x => x.Id).ValueGeneratedNever();
+        ajuste.HasIndex(x => new { x.EmpresaId, x.ExpedienteId, x.NumeroVersion, x.PartidaId }).IsUnique();
+        ajuste.Property(x => x.AcumuladoMxn).HasPrecision(20, 2); ajuste.Property(x => x.DiferenciaMxn).HasPrecision(20, 2);
+        ajuste.Property(x => x.InventarioMxn).HasPrecision(20, 2); ajuste.Property(x => x.CostoVentasMxn).HasPrecision(20, 2);
         base.OnModelCreating(modelBuilder);
 
         modelBuilder.ApplyConfiguration(new IntegrationEventOutboxEntryConfiguration());

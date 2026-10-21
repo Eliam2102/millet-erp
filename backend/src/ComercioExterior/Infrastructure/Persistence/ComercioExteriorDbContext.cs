@@ -115,6 +115,7 @@ public sealed partial class ComercioExteriorDbContext(DbContextOptions<ComercioE
         pe.HasIndex(x => new { x.EmpresaId, x.PedidoFacturableId, x.Posicion });
         pe.HasOne<ContenedorExpediente>().WithMany().HasForeignKey(x => x.ContenedorId).OnDelete(DeleteBehavior.Restrict);
         ConfigurarOtr(modelBuilder);
+        ConfigurarFinanzas(modelBuilder);
         modelBuilder.ApplyConfiguration(new IntegrationEventOutboxEntryConfiguration());
         base.OnModelCreating(modelBuilder);
     }

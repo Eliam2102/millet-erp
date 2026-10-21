@@ -110,6 +110,7 @@ public sealed partial class DemoSesionSeedHostedService
             await sp.GetRequiredService<IIntegrationEventPublisher>().PublishAsync(new ExpedienteCeAbiertoEvent(EmpresaId, Fecha, e.Id, e.Folio), ct);
             await ce.SaveChangesAsync(ct);
         }
+        await SembrarFinanzasCeAsync(sp, ct);
         await SembrarContenedoresCeAsync(sp, sucursal.Id, ddp.Id, ct);
     }
 }

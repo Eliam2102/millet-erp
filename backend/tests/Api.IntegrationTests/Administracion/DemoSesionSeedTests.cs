@@ -327,7 +327,7 @@ public sealed partial class DemoSesionSeedTests
         Assert.Equal(EstadoPeriodo.Abierto, periodos.Single(p => p.Numero == 10).Estado);
         Assert.Equal(7, await contabilidad.Cuentas.CountAsync(c => c.Nombre.StartsWith("DEMO")));
         Assert.Equal(2, await tesoreria.CuentasBancarias.CountAsync(c => c.Banco.StartsWith("DEMO-")));
-        Assert.Equal(3, await compras.OrdenesCompra.CountAsync()); // + OC de importación DEMO de CE-01a
+        Assert.Equal(4, await compras.OrdenesCompra.CountAsync()); // + OC de importación DEMO de CE-01a y de gastos CE-06 (OC-DEMO2026-000206)
         Assert.Equal(3, await compras.OutboxEntries.CountAsync());
         Assert.Equal(3, await maestros.Series.CountAsync(s => s.Prefijo == "FA" || s.Prefijo == "NC" || s.Prefijo == "AN"));
         var pedidos = await facturacion.PedidosFacturables.Where(p => p.NumeroPedido!.StartsWith("DEMO-")).ToListAsync();
@@ -393,7 +393,7 @@ public sealed partial class DemoSesionSeedTests
         var ocPort = scope.ServiceProvider.GetRequiredService<Millet.CuentasPorPagar.Domain.Ports.Compras.IComprasOcReadPort>();
         var ocs = await compras.OrdenesCompra.ToListAsync();
         var folios = await ocPort.ObtenerFoliosAsync(ocs.Select(o => o.Id).Append(Guid.NewGuid()).ToArray(), CancellationToken.None);
-        Assert.Equal(3, folios.Count);
+        Assert.Equal(ocs.Count, folios.Count); // el id aleatorio no tiene folio
         Assert.All(ocs, o => Assert.Equal(o.Folio.Valor, folios[o.Id]));
         return new Snapshot(await maestros.Proveedores.CountAsync(p => p.Clave.StartsWith("DEMO-")),
             await maestros.Articulos.CountAsync(a => a.Clave.StartsWith("DEMO-")), await maestros.Clientes.CountAsync(c => c.Clave.StartsWith("DEMO-")),
