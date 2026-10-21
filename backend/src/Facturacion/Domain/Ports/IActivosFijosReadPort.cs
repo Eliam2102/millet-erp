@@ -13,7 +13,7 @@ public interface IActivosFijosReadPort
     Task<ActivoFijoLectura?> ObtenerAsync(string activoRef, CancellationToken cancellationToken);
 }
 
-/// <summary>Snapshot de un activo fijo para autorizar su venta (§7.8).</summary>
+/// <summary>Snapshot real para autorizar venta. ValorEnLibros es el neto; DepreciacionAcumulada se informa por separado y no se vuelve a descontar.</summary>
 public sealed record ActivoFijoLectura(
     string ActivoRef,
     string Descripcion,

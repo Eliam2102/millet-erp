@@ -9,6 +9,12 @@ public static class DependencyInjection
     public static IServiceCollection AddActivosFijosModule(this IServiceCollection services)
     {
         services.AddScoped<ActivoServicio>();
+        services.AddScoped<LibroServicio>();
+        services.AddScoped<CargaLibroServicio>();
+        services.AddScoped<ReportesLibroServicio>();
+        services.AddScoped<OperacionesLibroServicio>();
+        services.AddScoped<VentaActivoConsumer>();
+        services.AddScoped<IVentaActivoReadPort, Millet.Facturacion.Infrastructure.VentaActivoReadAdapter>();
         services.AddScoped<IConservacionReadPort, ConservacionReadAdapter>();
         services.AddScoped<Millet.SharedKernel.Application.Adjuntos.IAdjuntoPropietario, ActivoAdjuntoPropietario>();
         services.AddScoped<Millet.Compras.Domain.Ports.IClaseActivoCompraReadPort, ClaseActivoCompraReadAdapter>();

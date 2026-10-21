@@ -32,8 +32,8 @@ namespace Millet.Facturacion.Infrastructure.Persistence.Migrations
 
                     b.Property<string>("ActivoRef")
                         .IsRequired()
-                        .HasMaxLength(50)
-                        .HasColumnType("character varying(50)")
+                        .HasMaxLength(60)
+                        .HasColumnType("character varying(60)")
                         .HasColumnName("activo_ref");
 
                     b.Property<Guid>("AutorizadoPor")

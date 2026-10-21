@@ -6,128 +6,124 @@ using Microsoft.EntityFrameworkCore.Migrations;
 namespace Millet.ActivosFijos.Infrastructure.Persistence.Migrations
 {
     /// <inheritdoc />
-    public partial class AF06ConservacionConteos : Migration
+    public partial class AF04LibroDepreciacion : Migration
     {
         /// <inheritdoc />
         protected override void Up(MigrationBuilder migrationBuilder)
         {
-            migrationBuilder.AddColumn<DateTimeOffset>(
-                name: "ultima_impresion_en",
+            migrationBuilder.AddColumn<decimal>(
+                name: "acumulada_carga",
                 schema: "activos_fijos",
                 table: "activos",
-                type: "timestamp with time zone",
+                type: "numeric(18,2)",
+                precision: 18,
+                scale: 2,
+                nullable: false,
+                defaultValue: 0m);
+
+            migrationBuilder.AddColumn<DateOnly>(
+                name: "corte_carga",
+                schema: "activos_fijos",
+                table: "activos",
+                type: "date",
+                nullable: true);
+
+            migrationBuilder.AddColumn<DateOnly>(
+                name: "fecha_baja",
+                schema: "activos_fijos",
+                table: "activos",
+                type: "date",
                 nullable: true);
 
             migrationBuilder.CreateTable(
-                name: "avisos",
+                name: "cargas_libro",
+                schema: "activos_fijos",
+                columns: table => new
+                {
+                    id = table.Column<Guid>(type: "uuid", nullable: false),
+                    empresa_id = table.Column<Guid>(type: "uuid", nullable: false),
+                    huella = table.Column<string>(type: "text", nullable: false),
+                    version_archivo = table.Column<string>(type: "text", nullable: false),
+                    corte = table.Column<DateOnly>(type: "date", nullable: false),
+                    cuadre_json = table.Column<string>(type: "text", nullable: false),
+                    version = table.Column<int>(type: "integer", nullable: false),
+                    created_at = table.Column<DateTimeOffset>(type: "timestamp with time zone", nullable: false),
+                    updated_at = table.Column<DateTimeOffset>(type: "timestamp with time zone", nullable: false),
+                    created_by = table.Column<string>(type: "text", nullable: true),
+                    updated_by = table.Column<string>(type: "text", nullable: true),
+                    deleted_at = table.Column<DateTimeOffset>(type: "timestamp with time zone", nullable: true)
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("pk_cargas_libro", x => x.id);
+                });
+
+            migrationBuilder.CreateTable(
+                name: "configuracion_libro",
+                schema: "activos_fijos",
+                columns: table => new
+                {
+                    id = table.Column<Guid>(type: "uuid", nullable: false),
+                    empresa_id = table.Column<Guid>(type: "uuid", nullable: false),
+                    revalorizacion_habilitada = table.Column<bool>(type: "boolean", nullable: false),
+                    cuenta_utilidad_id = table.Column<Guid>(type: "uuid", nullable: true),
+                    cuenta_perdida_id = table.Column<Guid>(type: "uuid", nullable: true),
+                    cuenta_venta_puente_id = table.Column<Guid>(type: "uuid", nullable: true),
+                    cuenta_revalorizacion_id = table.Column<Guid>(type: "uuid", nullable: true),
+                    version = table.Column<int>(type: "integer", nullable: false),
+                    created_at = table.Column<DateTimeOffset>(type: "timestamp with time zone", nullable: false),
+                    updated_at = table.Column<DateTimeOffset>(type: "timestamp with time zone", nullable: false),
+                    created_by = table.Column<string>(type: "text", nullable: true),
+                    updated_by = table.Column<string>(type: "text", nullable: true),
+                    deleted_at = table.Column<DateTimeOffset>(type: "timestamp with time zone", nullable: true)
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("pk_configuracion_libro", x => x.id);
+                });
+
+            migrationBuilder.CreateTable(
+                name: "corridas",
+                schema: "activos_fijos",
+                columns: table => new
+                {
+                    id = table.Column<Guid>(type: "uuid", nullable: false),
+                    empresa_id = table.Column<Guid>(type: "uuid", nullable: false),
+                    periodo = table.Column<DateOnly>(type: "date", nullable: false),
+                    revision = table.Column<int>(type: "integer", nullable: false),
+                    poliza_id = table.Column<Guid>(type: "uuid", nullable: true),
+                    anulada = table.Column<bool>(type: "boolean", nullable: false),
+                    motivo_anulacion = table.Column<string>(type: "text", nullable: true),
+                    version = table.Column<int>(type: "integer", nullable: false),
+                    created_at = table.Column<DateTimeOffset>(type: "timestamp with time zone", nullable: false),
+                    updated_at = table.Column<DateTimeOffset>(type: "timestamp with time zone", nullable: false),
+                    created_by = table.Column<string>(type: "text", nullable: true),
+                    updated_by = table.Column<string>(type: "text", nullable: true),
+                    deleted_at = table.Column<DateTimeOffset>(type: "timestamp with time zone", nullable: true)
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("pk_corridas", x => x.id);
+                });
+
+            migrationBuilder.CreateTable(
+                name: "operaciones_libro",
                 schema: "activos_fijos",
                 columns: table => new
                 {
                     id = table.Column<Guid>(type: "uuid", nullable: false),
                     empresa_id = table.Column<Guid>(type: "uuid", nullable: false),
                     activo_id = table.Column<Guid>(type: "uuid", nullable: false),
-                    fuente_id = table.Column<Guid>(type: "uuid", nullable: false),
-                    es_mantenimiento = table.Column<bool>(type: "boolean", nullable: false),
-                    responsable_id = table.Column<Guid>(type: "uuid", nullable: false),
                     tipo = table.Column<string>(type: "text", nullable: false),
-                    vencimiento = table.Column<DateOnly>(type: "date", nullable: false),
-                    fecha_aviso = table.Column<DateOnly>(type: "date", nullable: false),
-                    version = table.Column<int>(type: "integer", nullable: false),
-                    created_at = table.Column<DateTimeOffset>(type: "timestamp with time zone", nullable: false),
-                    updated_at = table.Column<DateTimeOffset>(type: "timestamp with time zone", nullable: false),
-                    created_by = table.Column<string>(type: "text", nullable: true),
-                    updated_by = table.Column<string>(type: "text", nullable: true),
-                    deleted_at = table.Column<DateTimeOffset>(type: "timestamp with time zone", nullable: true)
-                },
-                constraints: table =>
-                {
-                    table.PrimaryKey("pk_avisos", x => x.id);
-                    table.ForeignKey(
-                        name: "fk_avisos_activos_activo_id",
-                        column: x => x.activo_id,
-                        principalSchema: "activos_fijos",
-                        principalTable: "activos",
-                        principalColumn: "id",
-                        onDelete: ReferentialAction.Restrict);
-                });
-
-            migrationBuilder.CreateTable(
-                name: "conteos",
-                schema: "activos_fijos",
-                columns: table => new
-                {
-                    id = table.Column<Guid>(type: "uuid", nullable: false),
-                    empresa_id = table.Column<Guid>(type: "uuid", nullable: false),
-                    sucursal_id = table.Column<Guid>(type: "uuid", nullable: false),
-                    ubicacion = table.Column<string>(type: "character varying(500)", maxLength: 500, nullable: true),
-                    abierto_por = table.Column<Guid>(type: "uuid", nullable: false),
-                    cerrado_en = table.Column<DateTimeOffset>(type: "timestamp with time zone", nullable: true),
-                    cerrado_por = table.Column<Guid>(type: "uuid", nullable: true),
-                    version = table.Column<int>(type: "integer", nullable: false),
-                    created_at = table.Column<DateTimeOffset>(type: "timestamp with time zone", nullable: false),
-                    updated_at = table.Column<DateTimeOffset>(type: "timestamp with time zone", nullable: false),
-                    created_by = table.Column<string>(type: "text", nullable: true),
-                    updated_by = table.Column<string>(type: "text", nullable: true),
-                    deleted_at = table.Column<DateTimeOffset>(type: "timestamp with time zone", nullable: true)
-                },
-                constraints: table =>
-                {
-                    table.PrimaryKey("pk_conteos", x => x.id);
-                });
-
-            migrationBuilder.CreateTable(
-                name: "documentos",
-                schema: "activos_fijos",
-                columns: table => new
-                {
-                    id = table.Column<Guid>(type: "uuid", nullable: false),
-                    empresa_id = table.Column<Guid>(type: "uuid", nullable: false),
-                    activo_id = table.Column<Guid>(type: "uuid", nullable: false),
-                    tipo = table.Column<string>(type: "text", nullable: false),
-                    adjunto_id = table.Column<Guid>(type: "uuid", nullable: false),
-                    folio = table.Column<string>(type: "character varying(100)", maxLength: 100, nullable: false),
-                    emisor = table.Column<string>(type: "character varying(200)", maxLength: 200, nullable: false),
-                    fecha_emision = table.Column<DateOnly>(type: "date", nullable: false),
-                    vigente_desde = table.Column<DateOnly>(type: "date", nullable: true),
-                    vigente_hasta = table.Column<DateOnly>(type: "date", nullable: true),
-                    notas = table.Column<string>(type: "character varying(2000)", maxLength: 2000, nullable: true),
-                    reemplaza_a = table.Column<Guid>(type: "uuid", nullable: true),
-                    numero_version = table.Column<int>(type: "integer", nullable: false),
-                    reemplazado = table.Column<bool>(type: "boolean", nullable: false),
-                    version = table.Column<int>(type: "integer", nullable: false),
-                    created_at = table.Column<DateTimeOffset>(type: "timestamp with time zone", nullable: false),
-                    updated_at = table.Column<DateTimeOffset>(type: "timestamp with time zone", nullable: false),
-                    created_by = table.Column<string>(type: "text", nullable: true),
-                    updated_by = table.Column<string>(type: "text", nullable: true),
-                    deleted_at = table.Column<DateTimeOffset>(type: "timestamp with time zone", nullable: true)
-                },
-                constraints: table =>
-                {
-                    table.PrimaryKey("pk_documentos", x => x.id);
-                    table.ForeignKey(
-                        name: "fk_documentos_activos_activo_id",
-                        column: x => x.activo_id,
-                        principalSchema: "activos_fijos",
-                        principalTable: "activos",
-                        principalColumn: "id",
-                        onDelete: ReferentialAction.Restrict);
-                });
-
-            migrationBuilder.CreateTable(
-                name: "mantenimientos",
-                schema: "activos_fijos",
-                columns: table => new
-                {
-                    id = table.Column<Guid>(type: "uuid", nullable: false),
-                    empresa_id = table.Column<Guid>(type: "uuid", nullable: false),
-                    activo_id = table.Column<Guid>(type: "uuid", nullable: false),
                     fecha = table.Column<DateOnly>(type: "date", nullable: false),
-                    tipo = table.Column<string>(type: "text", nullable: false),
-                    proveedor_id = table.Column<Guid>(type: "uuid", nullable: false),
-                    descripcion = table.Column<string>(type: "character varying(2000)", maxLength: 2000, nullable: false),
-                    costo = table.Column<decimal>(type: "numeric(18,2)", precision: 18, scale: 2, nullable: false),
-                    factura_proveedor_id = table.Column<Guid>(type: "uuid", nullable: true),
-                    proximo = table.Column<DateOnly>(type: "date", nullable: true),
+                    importe = table.Column<decimal>(type: "numeric(18,2)", precision: 18, scale: 2, nullable: false),
+                    motivo = table.Column<string>(type: "text", nullable: false),
+                    evidencia = table.Column<string>(type: "text", nullable: true),
+                    registrado_por = table.Column<Guid>(type: "uuid", nullable: false),
+                    autorizado_por = table.Column<Guid>(type: "uuid", nullable: true),
+                    poliza_id = table.Column<Guid>(type: "uuid", nullable: true),
+                    factura_id = table.Column<Guid>(type: "uuid", nullable: true),
+                    anulada = table.Column<bool>(type: "boolean", nullable: false),
                     version = table.Column<int>(type: "integer", nullable: false),
                     created_at = table.Column<DateTimeOffset>(type: "timestamp with time zone", nullable: false),
                     updated_at = table.Column<DateTimeOffset>(type: "timestamp with time zone", nullable: false),
@@ -137,9 +133,9 @@ namespace Millet.ActivosFijos.Infrastructure.Persistence.Migrations
                 },
                 constraints: table =>
                 {
-                    table.PrimaryKey("pk_mantenimientos", x => x.id);
+                    table.PrimaryKey("pk_operaciones_libro", x => x.id);
                     table.ForeignKey(
-                        name: "fk_mantenimientos_activos_activo_id",
+                        name: "fk_operaciones_libro_activos_activo_id",
                         column: x => x.activo_id,
                         principalSchema: "activos_fijos",
                         principalTable: "activos",
@@ -148,25 +144,23 @@ namespace Millet.ActivosFijos.Infrastructure.Persistence.Migrations
                 });
 
             migrationBuilder.CreateTable(
-                name: "partidas_conteo",
+                name: "depreciaciones",
                 schema: "activos_fijos",
                 columns: table => new
                 {
                     id = table.Column<Guid>(type: "uuid", nullable: false),
                     empresa_id = table.Column<Guid>(type: "uuid", nullable: false),
-                    conteo_id = table.Column<Guid>(type: "uuid", nullable: false),
-                    activo_id = table.Column<Guid>(type: "uuid", nullable: true),
-                    numero = table.Column<string>(type: "character varying(60)", maxLength: 60, nullable: true),
-                    descripcion_esperada = table.Column<string>(type: "text", nullable: false),
-                    ubicacion_esperada = table.Column<string>(type: "text", nullable: true),
-                    resultado = table.Column<string>(type: "text", nullable: false),
-                    ubicacion_real = table.Column<string>(type: "text", nullable: true),
-                    evidencia = table.Column<string>(type: "character varying(2000)", maxLength: 2000, nullable: true),
-                    capturado_por = table.Column<Guid>(type: "uuid", nullable: true),
-                    autorizado_por = table.Column<Guid>(type: "uuid", nullable: true),
-                    autorizado_en = table.Column<DateTimeOffset>(type: "timestamp with time zone", nullable: true),
-                    evidencia_autorizacion = table.Column<string>(type: "character varying(2000)", maxLength: 2000, nullable: true),
-                    propuesta = table.Column<string>(type: "text", nullable: true),
+                    corrida_id = table.Column<Guid>(type: "uuid", nullable: false),
+                    activo_id = table.Column<Guid>(type: "uuid", nullable: false),
+                    numero = table.Column<string>(type: "text", nullable: false),
+                    clase_id = table.Column<Guid>(type: "uuid", nullable: false),
+                    sucursal_id = table.Column<Guid>(type: "uuid", nullable: false),
+                    centro_costo_id = table.Column<Guid>(type: "uuid", nullable: false),
+                    equipo_id = table.Column<Guid>(type: "uuid", nullable: true),
+                    @base = table.Column<decimal>(name: "base", type: "numeric(18,2)", precision: 18, scale: 2, nullable: false),
+                    tasa = table.Column<decimal>(type: "numeric(18,2)", precision: 18, scale: 2, nullable: false),
+                    importe = table.Column<decimal>(type: "numeric(18,2)", precision: 18, scale: 2, nullable: false),
+                    acumulada_antes = table.Column<decimal>(type: "numeric(18,2)", precision: 18, scale: 2, nullable: false),
                     version = table.Column<int>(type: "integer", nullable: false),
                     created_at = table.Column<DateTimeOffset>(type: "timestamp with time zone", nullable: false),
                     updated_at = table.Column<DateTimeOffset>(type: "timestamp with time zone", nullable: false),
@@ -176,66 +170,63 @@ namespace Millet.ActivosFijos.Infrastructure.Persistence.Migrations
                 },
                 constraints: table =>
                 {
-                    table.PrimaryKey("pk_partidas_conteo", x => x.id);
+                    table.PrimaryKey("pk_depreciaciones", x => x.id);
                     table.ForeignKey(
-                        name: "fk_partidas_conteo_conteos_conteo_id",
-                        column: x => x.conteo_id,
+                        name: "fk_depreciaciones_corridas_corrida_id",
+                        column: x => x.corrida_id,
                         principalSchema: "activos_fijos",
-                        principalTable: "conteos",
+                        principalTable: "corridas",
                         principalColumn: "id",
                         onDelete: ReferentialAction.Restrict);
                 });
 
             migrationBuilder.CreateIndex(
-                name: "ix_avisos_activo_id",
+                name: "ix_cargas_libro_empresa_id_huella_version_archivo",
                 schema: "activos_fijos",
-                table: "avisos",
-                column: "activo_id");
-
-            migrationBuilder.CreateIndex(
-                name: "ix_avisos_empresa_id_fuente_id_tipo",
-                schema: "activos_fijos",
-                table: "avisos",
-                columns: new[] { "empresa_id", "fuente_id", "tipo" },
+                table: "cargas_libro",
+                columns: new[] { "empresa_id", "huella", "version_archivo" },
                 unique: true);
 
             migrationBuilder.CreateIndex(
-                name: "ix_conteos_empresa_id_sucursal_id",
+                name: "ix_configuracion_libro_empresa_id",
                 schema: "activos_fijos",
-                table: "conteos",
-                columns: new[] { "empresa_id", "sucursal_id" });
-
-            migrationBuilder.CreateIndex(
-                name: "ix_documentos_activo_id",
-                schema: "activos_fijos",
-                table: "documentos",
-                column: "activo_id");
-
-            migrationBuilder.CreateIndex(
-                name: "ix_documentos_adjunto_id",
-                schema: "activos_fijos",
-                table: "documentos",
-                column: "adjunto_id",
+                table: "configuracion_libro",
+                column: "empresa_id",
                 unique: true);
 
             migrationBuilder.CreateIndex(
-                name: "ix_documentos_reemplaza_a",
+                name: "ix_corridas_empresa_id_periodo",
                 schema: "activos_fijos",
-                table: "documentos",
-                column: "reemplaza_a",
+                table: "corridas",
+                columns: new[] { "empresa_id", "periodo" },
+                unique: true,
+                filter: "NOT anulada");
+
+            migrationBuilder.CreateIndex(
+                name: "ix_corridas_empresa_id_periodo_revision",
+                schema: "activos_fijos",
+                table: "corridas",
+                columns: new[] { "empresa_id", "periodo", "revision" },
                 unique: true);
 
             migrationBuilder.CreateIndex(
-                name: "ix_mantenimientos_activo_id",
+                name: "ix_depreciaciones_corrida_id_activo_id",
                 schema: "activos_fijos",
-                table: "mantenimientos",
+                table: "depreciaciones",
+                columns: new[] { "corrida_id", "activo_id" },
+                unique: true);
+
+            migrationBuilder.CreateIndex(
+                name: "ix_operaciones_libro_activo_id",
+                schema: "activos_fijos",
+                table: "operaciones_libro",
                 column: "activo_id");
 
             migrationBuilder.CreateIndex(
-                name: "ix_partidas_conteo_conteo_id_numero",
+                name: "ix_operaciones_libro_empresa_id_factura_id",
                 schema: "activos_fijos",
-                table: "partidas_conteo",
-                columns: new[] { "conteo_id", "numero" },
+                table: "operaciones_libro",
+                columns: new[] { "empresa_id", "factura_id" },
                 unique: true);
         }
 
@@ -243,27 +234,37 @@ namespace Millet.ActivosFijos.Infrastructure.Persistence.Migrations
         protected override void Down(MigrationBuilder migrationBuilder)
         {
             migrationBuilder.DropTable(
-                name: "avisos",
+                name: "cargas_libro",
                 schema: "activos_fijos");
 
             migrationBuilder.DropTable(
-                name: "documentos",
+                name: "configuracion_libro",
                 schema: "activos_fijos");
 
             migrationBuilder.DropTable(
-                name: "mantenimientos",
+                name: "depreciaciones",
                 schema: "activos_fijos");
 
             migrationBuilder.DropTable(
-                name: "partidas_conteo",
+                name: "operaciones_libro",
                 schema: "activos_fijos");
 
             migrationBuilder.DropTable(
-                name: "conteos",
+                name: "corridas",
                 schema: "activos_fijos");
 
             migrationBuilder.DropColumn(
-                name: "ultima_impresion_en",
+                name: "acumulada_carga",
+                schema: "activos_fijos",
+                table: "activos");
+
+            migrationBuilder.DropColumn(
+                name: "corte_carga",
+                schema: "activos_fijos",
+                table: "activos");
+
+            migrationBuilder.DropColumn(
+                name: "fecha_baja",
                 schema: "activos_fijos",
                 table: "activos");
         }

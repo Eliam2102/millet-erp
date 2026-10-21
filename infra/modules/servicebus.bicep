@@ -834,3 +834,23 @@ resource afCxpFilter 'Microsoft.ServiceBus/namespaces/topics/subscriptions/rules
   sqlFilter: { sqlExpression: 'user.EventType = \'cuentas_por_pagar.factura.registrada.v1\'' }
  }
 }
+
+// AF-04: baja/reintegro por timbrado y cancelación de factura.
+resource afVentas 'Microsoft.ServiceBus/namespaces/topics/subscriptions@2024-01-01' = {
+ parent: facturacionEventsTopic
+ name: 'activos-fijos-ventas'
+ properties: {
+  deadLetteringOnMessageExpiration: true
+  maxDeliveryCount: 5
+  defaultMessageTimeToLive: 'P1D'
+  lockDuration: 'PT1M'
+ }
+}
+resource afVentasFilter 'Microsoft.ServiceBus/namespaces/topics/subscriptions/rules@2024-01-01' = {
+ parent: afVentas
+ name: 'EventTypeFilter'
+ properties: {
+  filterType: 'SqlFilter'
+  sqlFilter: { sqlExpression: 'user.EventType IN (\'facturacion.factura-venta.timbrada.v1\', \'facturacion.comprobante.cancelado.v1\')' }
+ }
+}

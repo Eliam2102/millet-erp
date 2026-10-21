@@ -1,3 +1,4 @@
+import { DepreciacionActivo } from '../components/DepreciacionActivo';
 import { ImprimirEtiquetas } from '../components/ImprimirEtiquetas';
 import { DocumentosActivo } from '../components/DocumentosActivo';
 import { MantenimientosActivo } from '../components/MantenimientosActivo';
@@ -92,6 +93,7 @@ export function ActivoDetallePage() {
             <TabsTrigger value="valores">Valores e historial</TabsTrigger>
             <TabsTrigger value="traslados">Traslados</TabsTrigger>
             <TabsTrigger value="origen">Origen</TabsTrigger>
+            <TabsTrigger value="depreciacion">Depreciación</TabsTrigger>
             <TabsTrigger value="documentos">Documentos</TabsTrigger>
             <TabsTrigger value="mantenimientos">Mantenimientos</TabsTrigger>
           </TabsList>
@@ -269,6 +271,9 @@ export function ActivoDetallePage() {
                 </form>
               )}
             </div>
+          </TabsContent>
+          <TabsContent value="depreciacion">
+            <DepreciacionActivo activo={a} />
           </TabsContent>
           <TabsContent value="origen">
             <dl className="space-y-3 rounded-lg bg-surface-card p-4 shadow-card-flat">

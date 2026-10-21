@@ -46,6 +46,24 @@ public sealed partial class ActivosFijosDbContext(DbContextOptions<ActivosFijosD
         t.ToTable("traslados"); t.HasKey(x => x.Id); t.Property(x => x.Id).ValueGeneratedNever();
         t.OwnsOne(x => x.Origen); t.OwnsOne(x => x.Destino);
         t.HasIndex(x => x.ActivoId).IsUnique().HasFilter("aceptado_en IS NULL");
+        var corrida = modelBuilder.Entity<CorridaDepreciacion>();
+        corrida.ToTable("corridas"); corrida.HasKey(x => x.Id); corrida.Property(x => x.Id).ValueGeneratedNever();
+        corrida.HasIndex(x => new { x.EmpresaId, x.Periodo, x.Revision }).IsUnique();
+        corrida.HasIndex(x => new { x.EmpresaId, x.Periodo }).IsUnique().HasFilter("NOT anulada");
+        corrida.HasMany(x => x.Detalles).WithOne().HasForeignKey(x => x.CorridaId).OnDelete(DeleteBehavior.Restrict);
+        var detalle = modelBuilder.Entity<DetalleDepreciacion>();
+        detalle.ToTable("depreciaciones"); detalle.HasKey(x => x.Id); detalle.Property(x => x.Id).ValueGeneratedNever();
+        detalle.Ignore(x => x.AcumuladaDespues); detalle.HasIndex(x => new { x.CorridaId, x.ActivoId }).IsUnique();
+        var operacion = modelBuilder.Entity<OperacionLibro>();
+        operacion.ToTable("operaciones_libro"); operacion.HasKey(x => x.Id); operacion.Property(x => x.Id).ValueGeneratedNever();
+        operacion.HasIndex(x => new { x.EmpresaId, x.FacturaId }).IsUnique();
+        operacion.HasOne<Activo>().WithMany().HasForeignKey(x => x.ActivoId).OnDelete(DeleteBehavior.Restrict);
+        var configuracion = modelBuilder.Entity<ConfiguracionLibro>();
+        configuracion.ToTable("configuracion_libro"); configuracion.HasKey(x => x.Id); configuracion.Property(x => x.Id).ValueGeneratedNever();
+        configuracion.HasIndex(x => x.EmpresaId).IsUnique();
+        var carga = modelBuilder.Entity<CargaLibro>();
+        carga.ToTable("cargas_libro"); carga.HasKey(x => x.Id); carga.Property(x => x.Id).ValueGeneratedNever();
+        carga.HasIndex(x => new { x.EmpresaId, x.Huella, x.VersionArchivo }).IsUnique();
         ConfigurarConservacion(modelBuilder);
         foreach (var entity in modelBuilder.Model.GetEntityTypes())
             foreach (var p in entity.GetProperties().Where(x => x.ClrType == typeof(decimal))) { p.SetPrecision(18); p.SetScale(p.Name == "TipoCambio" ? 6 : 2); }
