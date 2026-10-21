@@ -1027,6 +1027,13 @@ const comercioExterior: NavModulo = {
           permission: PermisosCanonicos.ComercioExteriorExpedientesLeer,
         },
         {
+          label: 'Incidencias',
+          description: 'Incidencias pendientes, seguimiento y antigüedad.',
+          to: '/comercio-exterior/incidencias',
+          icon: FileText,
+          permission: PermisosCanonicos.ComercioExteriorExpedientesLeer,
+        },
+        {
           label: 'Bandeja OTR',
           description: 'Vincular envíos y revisar salidas fallidas o sin acuse.',
           to: '/comercio-exterior/otr',

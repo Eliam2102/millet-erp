@@ -30,6 +30,7 @@ import { CE_BASE, useAccionExpediente, useExpediente, useExpedientes } from '../
 import { EstadoExpedienteBadge } from '../components/EstadoExpedienteBadge';
 import { OtrPanel } from '../components/OtrPanel';
 import { ContenedoresPanel } from '../components/ContenedoresPanel';
+import { IncidenciasPanel } from '../components/IncidenciasPanel';
 import { HitosPanel } from '../components/HitosPanel';
 import { DocumentosPanel } from '../components/DocumentosPanel';
 import {
@@ -57,6 +58,7 @@ export function ExpedienteDetallePage({ id }: { id: string }) {
   const [edicion, setEdicion] = useState(false);
   const [cancelando, setCancelando] = useState(false);
   const [motivo, setMotivo] = useState('');
+  const incidenciasPendientes = (data?.incidencias ?? []).filter((i) => i.estado < 3);
   if (query.isError)
     return (
       <ErrorState
@@ -113,6 +115,9 @@ export function ExpedienteDetallePage({ id }: { id: string }) {
             <>
               {' '}
               <EstadoExpedienteBadge estado={data.expediente.estado} />
+              <Badge variant="warning">
+                {incidenciasPendientes.length} incidencias pendientes
+              </Badge>
               {data.expediente.revisionPendiente && (
                 <Badge variant="warning">Revisión pendiente</Badge>
               )}
@@ -129,11 +134,17 @@ export function ExpedienteDetallePage({ id }: { id: string }) {
               {cerrar && abierto && (
                 <Button
                   variant="outline"
-                  disabled={data.estadoFinanciero !== 'Listo para cierre' || accion.isPending}
+                  disabled={
+                    data.estadoFinanciero !== 'Listo para cierre' ||
+                    incidenciasPendientes.length > 0 ||
+                    accion.isPending
+                  }
                   title={
-                    data.estadoFinanciero !== 'Listo para cierre'
-                      ? textoFinanciero(data.estadoFinanciero)
-                      : undefined
+                    incidenciasPendientes.length > 0
+                      ? incidenciasPendientes.map((i) => i.motivo).join('; ')
+                      : data.estadoFinanciero !== 'Listo para cierre'
+                        ? textoFinanciero(data.estadoFinanciero)
+                        : undefined
                   }
                   onClick={() => {
                     void accion.mutateAsync({ accion: 'cerrar' }).catch(() => {});
@@ -230,6 +241,7 @@ export function ExpedienteDetallePage({ id }: { id: string }) {
             <TabsTrigger value="resumen">Resumen</TabsTrigger>
             <TabsTrigger value="participantes">Participantes</TabsTrigger>
             <TabsTrigger value="documentos">Documentos</TabsTrigger>
+            <TabsTrigger value="incidencias">Incidencias</TabsTrigger>
             <TabsTrigger value="hitos">Hitos</TabsTrigger>
             {data.expediente.tipo === 2 && (
               <>
@@ -299,6 +311,9 @@ export function ExpedienteDetallePage({ id }: { id: string }) {
           </TabsContent>
           <TabsContent value="documentos">
             <DocumentosPanel data={data} />
+          </TabsContent>
+          <TabsContent value="incidencias">
+            <IncidenciasPanel data={data} />
           </TabsContent>
           <TabsContent value="hitos">
             <HitosPanel data={data} />

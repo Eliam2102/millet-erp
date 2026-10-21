@@ -36,6 +36,7 @@ public sealed partial class Expediente
         IReadOnlyList<RequisitoDocumento> requisitos, IReadOnlyCollection<Guid> adjuntosVigentes, DateOnly hoy)
     {
         ExigirAbierto();
+        if (clave is "documentacion-completa" or "entregado" or "cerrado") ExigirSinIncidencias();
         if (clave == "cerrado" && MotivosFinancieros().Count > 0)
             throw new BusinessRuleException("CE_CIERRE_FINANCIERO_PENDIENTE", string.Join("; ", MotivosFinancieros()));
         var hito = Hito(clave);
@@ -89,6 +90,7 @@ public sealed partial class Expediente
 
     public string EstadoFisico(IReadOnlyList<RequisitoDocumento> requisitos, IReadOnlyCollection<Guid> adjuntosVigentes)
     {
+        if (_incidencias.Any(i => i.Pendiente)) return "Con incidencias pendientes";
         if (!_hitos.Any(h => h.Clave == "entregado" && h.FechaReal is not null)) return "Pendiente";
         if (Tipo == TipoExpediente.Importacion) return "Completo";
         var pod = requisitos.SingleOrDefault(r => r.Codigo == "EXP_POD");
@@ -98,6 +100,7 @@ public sealed partial class Expediente
     public void Cerrar()
     {
         ExigirAbierto();
+        ExigirSinIncidencias();
         var motivos = MotivosFinancieros();
         if (motivos.Count > 0) throw new BusinessRuleException("CE_CIERRE_FINANCIERO_PENDIENTE", string.Join("; ", motivos));
         FinancieroCerrado = true;
