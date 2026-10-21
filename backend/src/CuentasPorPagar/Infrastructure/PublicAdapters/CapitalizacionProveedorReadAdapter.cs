@@ -18,6 +18,8 @@ public sealed class CapitalizacionProveedorReadAdapter(CuentasPorPagarDbContext 
         return await facturas.OrderByDescending(x => x.CreatedAt).Take(100)
             .Select(x => new DocumentoCapitalizacionOpcion(x.Id, x.Id, (x.SerieProveedor ?? "") + " " + (x.FolioProveedor ?? "Factura"), (x.Subtotal - x.Descuentos) * (x.TipoCambio ?? 1))).ToListAsync(ct);
     }
+    public Task<bool> ValidarMantenimientoAsync(Guid factura, Guid proveedor, Guid sucursal, CancellationToken ct) =>
+        db.FacturasProveedor.AnyAsync(x => x.Id == factura && x.ProveedorId == proveedor && x.SucursalId == sucursal && x.Estado != EstadoPasivo.Cancelada, ct);
     public async Task<DocumentoCapitalizacion?> ObtenerAsync(Guid documentoId, Guid facturaId, bool notaCredito, CancellationToken ct)
     {
         if (!await db.FacturasProveedor.AnyAsync(x => x.Id == facturaId && x.Estado != EstadoPasivo.Cancelada, ct)) return null;

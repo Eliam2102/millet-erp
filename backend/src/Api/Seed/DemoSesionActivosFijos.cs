@@ -28,6 +28,7 @@ public sealed partial class DemoSesionSeedHostedService
                 importacion == TipoImportacionActivo.Definitivo ? "DEMO-PEDIMENTO-NO-FISCAL" : null, false, "Documento ficticio DEMO")));
         }
         await db.SaveChangesAsync(ct);
+        await SembrarConservacionActivosAsync(sp, ct);
         var compras = sp.GetRequiredService<ComprasDbContext>();
         var ocId = Id("DEMO-AF-OC-MIXTA");
         if (!await compras.OrdenesCompra.AnyAsync(x => x.Id == ocId, ct))
