@@ -1,3 +1,6 @@
+import { ImprimirEtiquetas } from '../components/ImprimirEtiquetas';
+import { DocumentosActivo } from '../components/DocumentosActivo';
+import { MantenimientosActivo } from '../components/MantenimientosActivo';
 import { DocumentoProveedorSelector } from '../components/DocumentoProveedorSelector';
 import { useState } from 'react';
 import { Link, useParams } from '@tanstack/react-router';
@@ -62,6 +65,7 @@ export function ActivoDetallePage() {
       <section className="min-w-0 flex-1 space-y-5 overflow-auto">
         <div className="flex flex-wrap items-center gap-3" data-print="hidden">
           <h1 className="font-mono text-xl font-semibold">{a.numero}</h1>
+          <ImprimirEtiquetas activoId={a.id} />
           <Badge variant={a.estado === 1 ? 'success' : 'warning'}>{estadoActivo[a.estado]}</Badge>
           {a.enTraslado && <Badge variant="info">En traslado</Badge>}
           {gestionar && a.estado === 0 && (
@@ -88,6 +92,8 @@ export function ActivoDetallePage() {
             <TabsTrigger value="valores">Valores e historial</TabsTrigger>
             <TabsTrigger value="traslados">Traslados</TabsTrigger>
             <TabsTrigger value="origen">Origen</TabsTrigger>
+            <TabsTrigger value="documentos">Documentos</TabsTrigger>
+            <TabsTrigger value="mantenimientos">Mantenimientos</TabsTrigger>
           </TabsList>
           <TabsContent value="datos">
             <dl className="grid grid-cols-2 gap-4 rounded-lg bg-surface-card p-4 shadow-card-flat">
@@ -279,6 +285,12 @@ export function ActivoDetallePage() {
                 </div>
               ))}
             </dl>
+          </TabsContent>
+          <TabsContent value="documentos">
+            <DocumentosActivo activo={a} />
+          </TabsContent>
+          <TabsContent value="mantenimientos">
+            <MantenimientosActivo activo={a} />
           </TabsContent>
         </Tabs>
         {editar && <ActivoForm activo={a} onClose={() => setEditar(false)} />}

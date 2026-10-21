@@ -46,7 +46,9 @@ import { Route as AppAlmacenCierreMesRouteImport } from './routes/_app/almacen/c
 import { Route as AppAlmacenAsignacionesRouteImport } from './routes/_app/almacen/asignaciones';
 import { Route as AppAlmacenAlmacenesRouteImport } from './routes/_app/almacen/almacenes';
 import { Route as AppAdminMiEmpresaRouteImport } from './routes/_app/admin/mi-empresa';
+import { Route as AppActivosFijosPorVencerRouteImport } from './routes/_app/activos-fijos/por-vencer';
 import { Route as AppActivosFijosPorCapitalizarRouteImport } from './routes/_app/activos-fijos/por-capitalizar';
+import { Route as AppActivosFijosConteosRouteImport } from './routes/_app/activos-fijos/conteos';
 import { Route as AppActivosFijosClasesRouteImport } from './routes/_app/activos-fijos/clases';
 import { Route as AppTesoreriaReppIndexRouteImport } from './routes/_app/tesoreria/repp/index';
 import { Route as AppTesoreriaPagosIndexRouteImport } from './routes/_app/tesoreria/pagos/index';
@@ -388,12 +390,23 @@ const AppAdminMiEmpresaRoute = AppAdminMiEmpresaRouteImport.update({
   path: '/admin/mi-empresa',
   getParentRoute: () => AppRoute,
 } as any);
+const AppActivosFijosPorVencerRoute =
+  AppActivosFijosPorVencerRouteImport.update({
+    id: '/activos-fijos/por-vencer',
+    path: '/activos-fijos/por-vencer',
+    getParentRoute: () => AppRoute,
+  } as any);
 const AppActivosFijosPorCapitalizarRoute =
   AppActivosFijosPorCapitalizarRouteImport.update({
     id: '/activos-fijos/por-capitalizar',
     path: '/activos-fijos/por-capitalizar',
     getParentRoute: () => AppRoute,
   } as any);
+const AppActivosFijosConteosRoute = AppActivosFijosConteosRouteImport.update({
+  id: '/activos-fijos/conteos',
+  path: '/activos-fijos/conteos',
+  getParentRoute: () => AppRoute,
+} as any);
 const AppActivosFijosClasesRoute = AppActivosFijosClasesRouteImport.update({
   id: '/activos-fijos/clases',
   path: '/activos-fijos/clases',
@@ -1234,7 +1247,9 @@ export interface FileRoutesByFullPath {
   '/': typeof AppIndexRoute;
   '/login': typeof LoginRoute;
   '/activos-fijos/clases': typeof AppActivosFijosClasesRoute;
+  '/activos-fijos/conteos': typeof AppActivosFijosConteosRoute;
   '/activos-fijos/por-capitalizar': typeof AppActivosFijosPorCapitalizarRoute;
+  '/activos-fijos/por-vencer': typeof AppActivosFijosPorVencerRoute;
   '/admin/mi-empresa': typeof AppAdminMiEmpresaRoute;
   '/almacen/almacenes': typeof AppAlmacenAlmacenesRoute;
   '/almacen/asignaciones': typeof AppAlmacenAsignacionesRoute;
@@ -1422,7 +1437,9 @@ export interface FileRoutesByTo {
   '/login': typeof LoginRoute;
   '/': typeof AppIndexRoute;
   '/activos-fijos/clases': typeof AppActivosFijosClasesRoute;
+  '/activos-fijos/conteos': typeof AppActivosFijosConteosRoute;
   '/activos-fijos/por-capitalizar': typeof AppActivosFijosPorCapitalizarRoute;
+  '/activos-fijos/por-vencer': typeof AppActivosFijosPorVencerRoute;
   '/admin/mi-empresa': typeof AppAdminMiEmpresaRoute;
   '/almacen/almacenes': typeof AppAlmacenAlmacenesRoute;
   '/almacen/asignaciones': typeof AppAlmacenAsignacionesRoute;
@@ -1612,7 +1629,9 @@ export interface FileRoutesById {
   '/login': typeof LoginRoute;
   '/_app/': typeof AppIndexRoute;
   '/_app/activos-fijos/clases': typeof AppActivosFijosClasesRoute;
+  '/_app/activos-fijos/conteos': typeof AppActivosFijosConteosRoute;
   '/_app/activos-fijos/por-capitalizar': typeof AppActivosFijosPorCapitalizarRoute;
+  '/_app/activos-fijos/por-vencer': typeof AppActivosFijosPorVencerRoute;
   '/_app/admin/mi-empresa': typeof AppAdminMiEmpresaRoute;
   '/_app/almacen/almacenes': typeof AppAlmacenAlmacenesRoute;
   '/_app/almacen/asignaciones': typeof AppAlmacenAsignacionesRoute;
@@ -1802,7 +1821,9 @@ export interface FileRouteTypes {
     | '/'
     | '/login'
     | '/activos-fijos/clases'
+    | '/activos-fijos/conteos'
     | '/activos-fijos/por-capitalizar'
+    | '/activos-fijos/por-vencer'
     | '/admin/mi-empresa'
     | '/almacen/almacenes'
     | '/almacen/asignaciones'
@@ -1990,7 +2011,9 @@ export interface FileRouteTypes {
     | '/login'
     | '/'
     | '/activos-fijos/clases'
+    | '/activos-fijos/conteos'
     | '/activos-fijos/por-capitalizar'
+    | '/activos-fijos/por-vencer'
     | '/admin/mi-empresa'
     | '/almacen/almacenes'
     | '/almacen/asignaciones'
@@ -2179,7 +2202,9 @@ export interface FileRouteTypes {
     | '/login'
     | '/_app/'
     | '/_app/activos-fijos/clases'
+    | '/_app/activos-fijos/conteos'
     | '/_app/activos-fijos/por-capitalizar'
+    | '/_app/activos-fijos/por-vencer'
     | '/_app/admin/mi-empresa'
     | '/_app/almacen/almacenes'
     | '/_app/almacen/asignaciones'
@@ -2630,11 +2655,25 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppAdminMiEmpresaRouteImport;
       parentRoute: typeof AppRoute;
     };
+    '/_app/activos-fijos/por-vencer': {
+      id: '/_app/activos-fijos/por-vencer';
+      path: '/activos-fijos/por-vencer';
+      fullPath: '/activos-fijos/por-vencer';
+      preLoaderRoute: typeof AppActivosFijosPorVencerRouteImport;
+      parentRoute: typeof AppRoute;
+    };
     '/_app/activos-fijos/por-capitalizar': {
       id: '/_app/activos-fijos/por-capitalizar';
       path: '/activos-fijos/por-capitalizar';
       fullPath: '/activos-fijos/por-capitalizar';
       preLoaderRoute: typeof AppActivosFijosPorCapitalizarRouteImport;
+      parentRoute: typeof AppRoute;
+    };
+    '/_app/activos-fijos/conteos': {
+      id: '/_app/activos-fijos/conteos';
+      path: '/activos-fijos/conteos';
+      fullPath: '/activos-fijos/conteos';
+      preLoaderRoute: typeof AppActivosFijosConteosRouteImport;
       parentRoute: typeof AppRoute;
     };
     '/_app/activos-fijos/clases': {
@@ -3703,7 +3742,9 @@ const AppAlmacenInventariosIdRouteWithChildren =
 interface AppRouteChildren {
   AppIndexRoute: typeof AppIndexRoute;
   AppActivosFijosClasesRoute: typeof AppActivosFijosClasesRoute;
+  AppActivosFijosConteosRoute: typeof AppActivosFijosConteosRoute;
   AppActivosFijosPorCapitalizarRoute: typeof AppActivosFijosPorCapitalizarRoute;
+  AppActivosFijosPorVencerRoute: typeof AppActivosFijosPorVencerRoute;
   AppAdminMiEmpresaRoute: typeof AppAdminMiEmpresaRoute;
   AppAlmacenAlmacenesRoute: typeof AppAlmacenAlmacenesRoute;
   AppAlmacenAsignacionesRoute: typeof AppAlmacenAsignacionesRoute;
@@ -3889,7 +3930,9 @@ interface AppRouteChildren {
 const AppRouteChildren: AppRouteChildren = {
   AppIndexRoute: AppIndexRoute,
   AppActivosFijosClasesRoute: AppActivosFijosClasesRoute,
+  AppActivosFijosConteosRoute: AppActivosFijosConteosRoute,
   AppActivosFijosPorCapitalizarRoute: AppActivosFijosPorCapitalizarRoute,
+  AppActivosFijosPorVencerRoute: AppActivosFijosPorVencerRoute,
   AppAdminMiEmpresaRoute: AppAdminMiEmpresaRoute,
   AppAlmacenAlmacenesRoute: AppAlmacenAlmacenesRoute,
   AppAlmacenAsignacionesRoute: AppAlmacenAsignacionesRoute,

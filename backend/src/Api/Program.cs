@@ -915,6 +915,11 @@ builder.Services.AddOptions<Millet.ComercioExterior.Infrastructure.Workers.Aviso
     .Validate(o => o.Interval > TimeSpan.Zero, "ComercioExterior:AvisosHitos:Interval debe ser mayor que cero.")
     .ValidateOnStart();
 builder.Services.AddHostedService<Millet.ComercioExterior.Infrastructure.Workers.AvisosHitosWorker>();
+builder.Services.AddOptions<Millet.ActivosFijos.Infrastructure.Workers.AvisosActivosOptions>()
+    .Bind(builder.Configuration.GetSection(Millet.ActivosFijos.Infrastructure.Workers.AvisosActivosOptions.SectionName))
+    .Validate(o => o.Interval > TimeSpan.Zero && o.DiasAnticipacion is >= 0 and <= 365 && o.DiasPorEmpresa.Values.All(d => d is >= 0 and <= 365), "Revise intervalo y días de anticipación de avisos AF.")
+    .ValidateOnStart();
+builder.Services.AddHostedService<Millet.ActivosFijos.Infrastructure.Workers.AvisosActivosWorker>();
 builder.Services.AddOptions<OutboxPublisherOptions>(nameof(ComercioExteriorDbContext))
     .Configure(o => o.ServiceBusTopicName = "comercio-exterior-events")
     .Bind(builder.Configuration.GetSection("ComercioExterior:Outbox"));

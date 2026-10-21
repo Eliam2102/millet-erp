@@ -1068,6 +1068,20 @@ const activosFijos: NavModulo = {
           permission: PermisosCanonicos.ActivosFijosCapitalizar,
         },
         {
+          description: 'Garantías, seguros y mantenimientos próximos.',
+          label: 'Por vencer',
+          to: '/activos-fijos/por-vencer',
+          icon: Building2,
+          permission: PermisosCanonicos.ActivosFijosActivosVer,
+        },
+        {
+          description: 'Conteos y autorización de diferencias.',
+          label: 'Inventario físico',
+          to: '/activos-fijos/conteos',
+          icon: Building2,
+          permission: PermisosCanonicos.ActivosFijosActivosVer,
+        },
+        {
           label: 'Clases',
           description: 'Tasas y cuentas contables.',
           to: '/activos-fijos/clases',

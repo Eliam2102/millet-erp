@@ -9,6 +9,8 @@ public static class DependencyInjection
     public static IServiceCollection AddActivosFijosModule(this IServiceCollection services)
     {
         services.AddScoped<ActivoServicio>();
+        services.AddScoped<IConservacionReadPort, ConservacionReadAdapter>();
+        services.AddScoped<Millet.SharedKernel.Application.Adjuntos.IAdjuntoPropietario, ActivoAdjuntoPropietario>();
         services.AddScoped<Millet.Compras.Domain.Ports.IClaseActivoCompraReadPort, ClaseActivoCompraReadAdapter>();
         services.AddScoped<ITransaccionPolizaActivo, TransaccionPolizaAdapter>();
         services.AddScoped<CompraActivoConsumer>();

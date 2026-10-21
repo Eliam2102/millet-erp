@@ -47,6 +47,7 @@ public static class ActivosEndpoints
                 Version(request) is int v ? Respuesta(await m.Send(new MutarActivoCommand(id, v, accion, datos.Datos, datos.Destino, datos.TrasladoId, datos.Ajuste), ct), response) : FaltaVersion())
                 .RequireAuthorization(Policy(permiso)).WithMetadata(new RequireIdempotencyKeyAttribute());
         }
+        g.MapConservacion();
         return app;
     }
     private static string Policy(string p) => PermissionPolicyProvider.Prefix + p;

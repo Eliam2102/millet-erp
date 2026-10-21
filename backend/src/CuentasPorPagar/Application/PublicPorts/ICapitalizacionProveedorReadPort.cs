@@ -3,6 +3,7 @@ namespace Millet.CuentasPorPagar.Application.PublicPorts;
 public interface ICapitalizacionProveedorReadPort
 {
     Task<IReadOnlyList<DocumentoCapitalizacionOpcion>> BuscarAsync(bool notaCredito, Guid? facturaId, Guid sucursalId, string? q, CancellationToken ct) => Task.FromResult<IReadOnlyList<DocumentoCapitalizacionOpcion>>([]);
+    Task<bool> ValidarMantenimientoAsync(Guid factura, Guid proveedor, Guid sucursal, CancellationToken ct) => Task.FromResult(false);
     Task<DocumentoCapitalizacion?> ObtenerAsync(Guid documentoId, Guid facturaId, bool notaCredito, CancellationToken ct);
 }
 public sealed record DocumentoCapitalizacion(Guid Id, Guid FacturaId, decimal BaseMxn);

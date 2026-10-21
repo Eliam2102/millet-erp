@@ -48,6 +48,8 @@ public sealed class Activo : BaseEntity, IPerteneceAEmpresa, IAuditable
     public EstadoActivo Estado { get; private set; }
     [System.ComponentModel.DataAnnotations.Schema.NotMapped]
     public CustodiaDescripcion? CustodiaDescripcion { get; set; }
+    public DateTimeOffset? UltimaImpresionEn { get; private set; }
+    public void RegistrarImpresion(DateTimeOffset ahora) => UltimaImpresionEn = ahora;
     public bool PuedeAceptarTraslado { get; set; }
     public bool EnTraslado => Traslados.Any(x => x.AceptadoEn == null);
     public List<MovimientoValorActivo> Historial { get; private set; } = [];

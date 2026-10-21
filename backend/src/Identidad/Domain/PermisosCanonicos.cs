@@ -560,6 +560,11 @@ public static class PermisosCanonicos
     public const string ContabilidadRecurrentesAdministrar              = "contabilidad.recurrentes.administrar";
     public const string ContabilidadRecurrentesAutorizar                = "contabilidad.recurrentes.autorizar";
 
+    public const string ActivosFijosDocumentosGestionar = "activos_fijos.documentos.gestionar";
+    public const string ActivosFijosMantenimientosGestionar = "activos_fijos.mantenimientos.gestionar";
+    public const string ActivosFijosEtiquetasImprimir = "activos_fijos.etiquetas.imprimir";
+    public const string ActivosFijosConteosGestionar = "activos_fijos.conteos.gestionar";
+    public const string ActivosFijosConteosAutorizar = "activos_fijos.conteos.autorizar";
     public const string ActivosFijosClasesAdministrar = "activos_fijos.clases.administrar";
     public const string ActivosFijosActivosVer = "activos_fijos.activos.ver";
     public const string ActivosFijosActivosGestionar = "activos_fijos.activos.gestionar";
@@ -931,6 +936,11 @@ public static class PermisosCanonicos
         (Guid.Parse("0000000e-0001-0000-0000-00000000000a"), ComercioExteriorExpedientesAdjuntosBaja, "Baja lógica con motivo"),
         (Guid.Parse("0000000e-0002-0000-0000-000000000001"), ComercioExteriorDocumentosLeerTodasSucursales, "Consultar todas las sucursales"),
         (Guid.Parse("0000000e-0002-0000-0000-000000000002"), ComercioExteriorDocumentosGestionarTodasSucursales, "Operar todas las sucursales"),
+        (Guid.Parse("0000000f-0006-0000-0000-000000000001"), ActivosFijosDocumentosGestionar, "Activos fijos: documentos.gestionar"),
+        (Guid.Parse("0000000f-0006-0000-0000-000000000002"), ActivosFijosMantenimientosGestionar, "Activos fijos: mantenimientos.gestionar"),
+        (Guid.Parse("0000000f-0006-0000-0000-000000000003"), ActivosFijosEtiquetasImprimir, "Activos fijos: etiquetas.imprimir"),
+        (Guid.Parse("0000000f-0006-0000-0000-000000000004"), ActivosFijosConteosGestionar, "Activos fijos: conteos.gestionar"),
+        (Guid.Parse("0000000f-0006-0000-0000-000000000005"), ActivosFijosConteosAutorizar, "Activos fijos: conteos.autorizar"),
         (Guid.Parse("0000000f-0001-0000-0000-000000000001"), ActivosFijosClasesAdministrar, "Activos fijos: clases.administrar"),
         (Guid.Parse("0000000f-0001-0000-0000-000000000002"), ActivosFijosActivosVer, "Activos fijos: activos.ver"),
         (Guid.Parse("0000000f-0001-0000-0000-000000000003"), ActivosFijosActivosGestionar, "Activos fijos: activos.gestionar"),

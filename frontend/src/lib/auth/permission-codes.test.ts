@@ -12,6 +12,11 @@ import { PermisosCanonicos } from '@/lib/auth/permission-codes';
  * vuelve redundante y se borra.</para>
  */
 const CODIGOS_BACKEND_ESPERADOS = new Set<string>([
+  'activos_fijos.documentos.gestionar',
+  'activos_fijos.mantenimientos.gestionar',
+  'activos_fijos.etiquetas.imprimir',
+  'activos_fijos.conteos.gestionar',
+  'activos_fijos.conteos.autorizar',
   'activos_fijos.clases.administrar',
   'activos_fijos.activos.ver',
   'activos_fijos.activos.gestionar',
@@ -330,7 +335,6 @@ const CODIGOS_BACKEND_ESPERADOS = new Set<string>([
   'comercio_exterior.expedientes.adjuntos-baja',
   'comercio_exterior.documentos.leer-todas-sucursales',
   'comercio_exterior.documentos.gestionar-todas-sucursales',
-
 ]);
 
 describe('PermisosCanonicos — coincidencia con backend', () => {
