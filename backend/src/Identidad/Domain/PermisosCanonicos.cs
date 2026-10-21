@@ -572,6 +572,7 @@ public static class PermisosCanonicos
     public const string ComercioExteriorExpedientesCrear = "comercio_exterior.expedientes.crear";
     public const string ComercioExteriorExpedientesEditar = "comercio_exterior.expedientes.editar";
     public const string ComercioExteriorExpedientesCancelar = "comercio_exterior.expedientes.cancelar";
+    public const string ComercioExteriorIncidenciasGestionar = "comercio_exterior.incidencias.gestionar";
     public const string ComercioExteriorExpedientesCerrar = "comercio_exterior.expedientes.cerrar";
     public const string ComercioExteriorExpedientesHitosRegistrar = "comercio_exterior.expedientes.hitos-registrar";
     public const string ComercioExteriorExpedientesDocumentosRevisar = "comercio_exterior.expedientes.documentos-revisar";
@@ -920,6 +921,7 @@ public static class PermisosCanonicos
         (Guid.Parse("0000000e-0001-0000-0000-000000000002"), ComercioExteriorExpedientesCrear, "Abrir expedientes"),
         (Guid.Parse("0000000e-0001-0000-0000-000000000003"), ComercioExteriorExpedientesEditar, "Editar expedientes y participantes"),
         (Guid.Parse("0000000e-0001-0000-0000-000000000004"), ComercioExteriorExpedientesCancelar, "Cancelar con motivo"),
+        (Guid.Parse("0000000e-0005-0000-0000-000000000001"), ComercioExteriorIncidenciasGestionar, "Gestionar incidencias del expediente"),
         (Guid.Parse("0000000e-0001-0000-0000-000000000005"), ComercioExteriorExpedientesCerrar, "Reservado para CE-01b"),
         (Guid.Parse("0000000e-0001-0000-0000-000000000006"), ComercioExteriorExpedientesHitosRegistrar, "Reservado para CE-01b"),
         (Guid.Parse("0000000e-0001-0000-0000-000000000007"), ComercioExteriorExpedientesDocumentosRevisar, "Revisar requisitos documentales"),

@@ -452,6 +452,7 @@ export const PermisosCanonicos = {
   ComercioExteriorExpedientesCrear: 'comercio_exterior.expedientes.crear',
   ComercioExteriorExpedientesEditar: 'comercio_exterior.expedientes.editar',
   ComercioExteriorExpedientesCancelar: 'comercio_exterior.expedientes.cancelar',
+  ComercioExteriorIncidenciasGestionar: 'comercio_exterior.incidencias.gestionar',
   ComercioExteriorExpedientesCerrar: 'comercio_exterior.expedientes.cerrar',
   ComercioExteriorExpedientesHitosRegistrar: 'comercio_exterior.expedientes.hitos-registrar',
   ComercioExteriorExpedientesDocumentosRevisar: 'comercio_exterior.expedientes.documentos-revisar',
