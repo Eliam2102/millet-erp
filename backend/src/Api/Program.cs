@@ -401,6 +401,13 @@ builder.Services
         Millet.Compras.Application.MigracionEntrega.MigracionEntregaHistoricaOptions.SectionName));
 builder.Services.AddHostedService<Millet.Compras.Infrastructure.Workers.MigracionEntregaHistoricaJob>();
 
+// F1-COM-07: revisión diaria de incidencias del proveedor con compromiso vencido (aviso único por
+// incidencia y fecha). Apagable con Compras:Workers:IncidenciasVencidas:Disabled.
+builder.Services
+    .AddOptions<Millet.Compras.Infrastructure.Workers.IncidenciaVencidaOptions>()
+    .Bind(builder.Configuration.GetSection(Millet.Compras.Infrastructure.Workers.IncidenciaVencidaOptions.SectionName));
+builder.Services.AddHostedService<Millet.Compras.Infrastructure.Workers.IncidenciaVencidaWorker>();
+
 // === Compras IConsultarStockPort → adapter real ===
 // Reemplaza el InMemoryConsultarStockPort stub (config-driven que
 // devolvía stock fake). Sin esto, las requisiciones autorizadas
