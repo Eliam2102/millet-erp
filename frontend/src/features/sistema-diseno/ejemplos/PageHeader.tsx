@@ -4,7 +4,7 @@ import { Button } from '@/components/ui/button';
 export default function Ejemplo() {
   return (
     <PageHeader
-      titulo="[DOCUMENTOS DE EJEMPLO]"
+      titulo="Órdenes de compra"
       descripcion="Consulta documentos ficticios y prueba sus acciones."
       acciones={
         <Button disabled title="Selecciona un documento para continuar">

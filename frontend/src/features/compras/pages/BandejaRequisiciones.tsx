@@ -56,7 +56,7 @@ const BANDEJA_FROM = '/_app/compras/requisiciones/' as const;
  * <para>Los nombres de requisitante y departamento vienen resueltos del
  * backend (ADR-0042: <c>requisitanteNombre</c>, <c>departamentoNombre</c>,
  * <c>departamentoClave</c>); el front ya no lee los catálogos completos.
- * Etiqueta Por confirmar si el backend no resolvió el nombre.</para>
+ * Etiqueta de dato faltante si el backend no resolvió el nombre.</para>
  */
 export function BandejaRequisiciones() {
   const search = useSearch({ from: BANDEJA_FROM });
@@ -268,8 +268,8 @@ function RenderTabla({ query, itemsFiltrados, canCrear, search }: RenderTablaPro
                 <TableCell className="px-3 py-2">
                   <DateTimeDisplay value={r.fechaSolicitud} />
                 </TableCell>
-                <TableCell className="px-3 py-2">{requisitante}</TableCell>
-                <TableCell className="px-3 py-2">{deptoLabel}</TableCell>
+                <TableCell className={`px-3 py-2${requisitante === 'Sin asignar' ? ' text-ink-muted' : ''}`}>{requisitante}</TableCell>
+                <TableCell className={`px-3 py-2${deptoLabel === 'Sin departamento' ? ' text-ink-muted' : ''}`}>{deptoLabel}</TableCell>
                 <TableCell className="px-3 py-2">
                   <div className="flex flex-wrap items-center gap-1.5">
                     <EstadoBadge

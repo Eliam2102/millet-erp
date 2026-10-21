@@ -263,11 +263,11 @@ export function PendientesRepp() {
                     <TableCell>
                       <p className="font-medium">{p.clienteNombre}</p>
                       <p className="font-mono text-xs text-ink-muted">
-                        {p.referencia ?? 'Sin referencia'}
+                        {p.referencia ?? <span className="text-ink-muted">Sin referencia</span>}
                       </p>
                     </TableCell>
                     <TableCell className="font-mono text-xs">
-                      {p.facturas.map((f) => f.folio ?? '[FACTURA]').join(', ') || 'Por relacionar'}
+                      {p.facturas.map((f) => f.folio ?? 'Sin número').join(', ') || 'Por relacionar'}
                     </TableCell>
                     <TableCell>{p.fechaValor}</TableCell>
                     <TableCell className="text-right tabular-nums">
@@ -432,7 +432,7 @@ function RevisionPago({
             </div>
             <div>
               <dt className="text-xs text-ink-muted">Referencia bancaria</dt>
-              <dd className="font-mono text-xs">{pago.referencia ?? 'Sin referencia'}</dd>
+              <dd className="font-mono text-xs">{pago.referencia ?? <span className="text-ink-muted">Sin referencia</span>}</dd>
             </div>
             <div>
               <dt className="text-xs text-ink-muted">Tipo de cambio del pago</dt>
@@ -459,7 +459,7 @@ function RevisionPago({
           <legend className="font-semibold">2. Relación de facturas</legend>
           {facturas.map((f, index) => (
             <div key={f.facturaVentaId} className="space-y-2 rounded-lg bg-surface-subtle p-3">
-              <p className="font-mono text-xs">{f.folio ?? '[FACTURA POR IDENTIFICAR]'}</p>
+              <p className="font-mono text-xs">{f.folio ?? <span className="text-ink-muted">Sin número</span>}</p>
               <Label htmlFor={`importe-${index}`}>Importe aplicado</Label>
               <div className="flex gap-2">
                 <Input

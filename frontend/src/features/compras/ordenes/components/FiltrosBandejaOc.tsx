@@ -210,7 +210,7 @@ export function FiltrosBandejaOc({ search, onChange }: FiltrosBandejaOcProps) {
             Más filtros
             {subFiltrosActivos > 0 && (
               <span
-                className="ml-1 inline-flex h-4 min-w-4 items-center justify-center rounded-full bg-brand px-1 text-2xs font-semibold text-white"
+                className="ml-1 inline-flex h-4 min-w-4 items-center justify-center rounded-full bg-brand px-1 text-2xs font-semibold text-primary-foreground"
                 aria-label={`${subFiltrosActivos} sub-filtros activos`}
               >
                 {subFiltrosActivos}

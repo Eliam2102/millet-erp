@@ -18,8 +18,8 @@ import {
  * fondo/texto AA verificados.</para>
  */
 const COLORES: Record<NivelAutorizacion, string> = {
-  [NivelAutorizacion.Nivel1]: 'border-sky-300 bg-sky-50 text-sky-700',
-  [NivelAutorizacion.Nivel2]: 'border-indigo-300 bg-indigo-50 text-indigo-700',
+  [NivelAutorizacion.Nivel1]: 'border-info bg-info-bg text-info-fg',
+  [NivelAutorizacion.Nivel2]: 'border-info bg-info-bg text-info-fg',
 };
 
 export interface NivelPendienteBadgeProps {

@@ -163,9 +163,9 @@ export function FacturaDetallePage() {
           {query.data.estado === EstadoPasivo.EnRevision && query.data.revisionVigente && (
             <AvisoEnLinea
               tono={query.data.revisionVigente.vencida ? 'error' : 'advertencia'}
-              titulo={`En revisión: ${query.data.revisionVigente.motivoNombre ?? 'motivo no disponible'}`}
+              titulo={`En revisión: ${query.data.revisionVigente.motivoNombre ?? 'Sin motivo'}`}
             >
-              {query.data.revisionVigente.areaNombre ?? 'Área no disponible'} ·{' '}
+              {query.data.revisionVigente.areaNombre ?? <span className="text-ink-muted">Sin área</span>} ·{' '}
               {query.data.revisionVigente.diasHabiles}
               {query.data.revisionVigente.slaDias != null
                 ? ` de ${query.data.revisionVigente.slaDias}`
@@ -310,13 +310,14 @@ export function FacturaDetallePage() {
                     params={{ id: query.data.ordenCompraId }}
                     className="text-brand underline"
                   >
-                    {query.data.ordenCompraFolio?.trim() || 'Sin folio'}
+                    {query.data.ordenCompraFolio?.trim() || <span className="text-ink-muted">Sin folio</span>}
                   </Link>
                 ) : (
                   '—'
                 )}
               </dd>
             </div>
+            <Campo label="Recepción" valor={query.data.recepcionFolio?.trim() || '—'} mono />
             <Campo label="UUID CFDI" valor={query.data.uuidCfdi ?? '—'} mono />
             <Campo label="Moneda" valor={query.data.moneda} />
             <Campo

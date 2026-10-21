@@ -139,6 +139,75 @@ public class DatosMaestrosEndpointsTests : IClassFixture<WebApplicationFactory<P
     }
 
     [Fact]
+    public async Task ListarProveedores_RazonSocial_BuscaTambienEnNombreComercial()
+    {
+        var client = await CreateSuperAdminClientAsync();
+        var marca = $"Marca{Guid.NewGuid():N}"[..16];
+        var crear = await client.PostAsJsonAsync("/api/v1/catalogos/proveedores", new
+        {
+            Clave = $"PROV-NC-{Guid.NewGuid().ToString("N")[..8]}",
+            RazonSocial = "Razon Distinta Test SA de CV",
+            Rfc = $"TST{Guid.NewGuid():N}"[..12].ToUpperInvariant(),
+            TipoPersona = TipoPersonaProveedor.Moral,
+            NombreComercial = marca,
+            CondicionesPagoDias = (short)30,
+            MonedaPreferidaId = MonedaMxnId,
+            Email = (string?)null,
+            Telefono = (string?)null,
+        });
+        crear.EnsureSuccessStatusCode();
+        var id = (await ReadJsonAsync(crear)).GetProperty("id").GetGuid();
+
+        var response = await client.GetAsync(
+            $"/api/v1/datos-maestros/proveedores?razonSocial={Uri.EscapeDataString(marca.ToLowerInvariant())}&limit=50");
+        response.EnsureSuccessStatusCode();
+        var json = await ReadJsonAsync(response);
+        Assert.Contains(json.GetProperty("items").EnumerateArray(),
+            i => i.GetProperty("id").GetGuid() == id);
+    }
+
+    [Fact]
+    public async Task ListarProveedores_Q_BuscaEnClaveRfcRazonSocialYNombreComercial()
+    {
+        var client = await CreateSuperAdminClientAsync();
+        var sufijo = Guid.NewGuid().ToString("N")[..8];
+        var clave = $"PROV-Q-{sufijo}";
+        var rfc = $"QQQ{Guid.NewGuid():N}"[..12].ToUpperInvariant();
+        var crear = await client.PostAsJsonAsync("/api/v1/catalogos/proveedores", new
+        {
+            Clave = clave,
+            RazonSocial = $"Cristalería Ñandú {sufijo} SA de CV",
+            Rfc = rfc,
+            TipoPersona = TipoPersonaProveedor.Moral,
+            NombreComercial = $"Zafiro {sufijo}",
+            CondicionesPagoDias = (short)30,
+            MonedaPreferidaId = MonedaMxnId,
+            Email = (string?)null,
+            Telefono = (string?)null,
+        });
+        crear.EnsureSuccessStatusCode();
+        var id = (await ReadJsonAsync(crear)).GetProperty("id").GetGuid();
+
+        foreach (var fragmento in new[]
+                 {
+                     clave.ToLowerInvariant(), rfc.ToLowerInvariant(),
+                     $"cristaleria nandu {sufijo}", $"zafiro {sufijo}",
+                 })
+        {
+            var response = await client.GetAsync(
+                $"/api/v1/datos-maestros/proveedores?q={Uri.EscapeDataString(fragmento)}&limit=50");
+            response.EnsureSuccessStatusCode();
+            var json = await ReadJsonAsync(response);
+            Assert.Contains(json.GetProperty("items").EnumerateArray(),
+                i => i.GetProperty("id").GetGuid() == id);
+        }
+
+        var vacio = await client.GetAsync("/api/v1/datos-maestros/proveedores?q=zzz-no-existe&limit=50");
+        vacio.EnsureSuccessStatusCode();
+        Assert.Empty((await ReadJsonAsync(vacio)).GetProperty("items").EnumerateArray());
+    }
+
+    [Fact]
     public async Task ListarProveedores_Rfc_CaseInsensitive()
     {
         var client = await CreateSuperAdminClientAsync();

@@ -83,7 +83,7 @@ function ItemCompacto({ item, activo, requisitante, search }: ItemCompactoProps)
           </div>
         </div>
         <div className="mt-1 flex items-center justify-between gap-2 text-xs text-ink-muted">
-          <span className="truncate">{requisitante}</span>
+          <span className={cn('truncate', requisitante === 'Sin asignar' && 'text-ink-muted')}>{requisitante}</span>
           <DateTimeDisplay value={item.fechaSolicitud} />
         </div>
       </Link>

@@ -20,7 +20,7 @@ export default function Ejemplo() {
       </TableHeader>
       <TableBody>
         <TableRow>
-          <TableCell className="font-mono">[DEMO-001]</TableCell>
+          <TableCell className="font-mono">OC-2026-0412</TableCell>
           <TableCell className="text-right">
             <MoneyDisplay amount={100} currency="MXN" />
           </TableCell>

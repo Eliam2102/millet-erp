@@ -197,4 +197,50 @@ public class EmpresaTests
         empresa.AsignarEmpresaPadre(padreRaiz, padreEsRaiz: true);
         empresa.EmpresaPadreId.Should().Be(padreRaiz);
     }
+
+    [Fact]
+    public void ConfigurarDatosFiscalesIniciales_Should_ReplaceProvisionalData()
+    {
+        var empresa = Crear(
+            clave: Empresa.RfcProvisional,
+            rfc: Empresa.RfcProvisional,
+            razonSocial: "Empresa inicial pendiente de configuración");
+        empresa.EsProvisional.Should().BeTrue();
+
+        empresa.ConfigurarDatosFiscalesIniciales(
+            "min120224147", "M INDUSTRIA SA DE C V", "601", "Millet Industria de Vidrio");
+
+        empresa.Rfc.Should().Be("min120224147");
+        empresa.Clave.Should().Be("MIN120224147");
+        empresa.RazonSocial.Should().Be("M INDUSTRIA SA DE C V");
+        empresa.RegimenFiscal.Should().Be("601");
+        empresa.NombreComercial.Should().Be("Millet Industria de Vidrio");
+        empresa.EsProvisional.Should().BeFalse();
+    }
+
+    [Fact]
+    public void ConfigurarDatosFiscalesIniciales_Should_Reject_EmpresaConRfcReal()
+    {
+        var empresa = Crear();
+
+        var act = () => empresa.ConfigurarDatosFiscalesIniciales(
+            "MIN120224147", "M INDUSTRIA SA DE C V", "601", null);
+
+        act.Should().Throw<BusinessRuleException>()
+            .Where(e => e.Code == "EMPRESA_NO_PROVISIONAL");
+        empresa.Rfc.Should().Be("MIL010101AB1");
+        empresa.Clave.Should().Be("MILLET");
+    }
+
+    [Fact]
+    public void ConfigurarDatosFiscalesIniciales_Should_Validate_Rfc()
+    {
+        var empresa = Crear(clave: Empresa.RfcProvisional, rfc: Empresa.RfcProvisional);
+
+        var act = () => empresa.ConfigurarDatosFiscalesIniciales("CORTO", "Razón", "601", null);
+
+        act.Should().Throw<BusinessRuleException>()
+            .Where(e => e.Code == "EMPRESA_RFC_INVALIDO");
+        empresa.EsProvisional.Should().BeTrue();
+    }
 }

@@ -141,7 +141,7 @@ export function ContenedoresPanel({ data }: { data: ExpedienteDetalle }) {
                     {c.numero ?? 'Por asignar'}
                   </TableCell>
                   <TableCell className="px-3">{c.blGuia ?? 'Pendiente'}</TableCell>
-                  <TableCell className="px-3">{c.booking ?? 'Sin booking'}</TableCell>
+                  <TableCell className="px-3">{c.booking ?? <span className="text-ink-muted">Sin booking</span>}</TableCell>
                   <TableCell className="px-3">
                     {c.fechaEmbarqueReal ? (
                       <DateTimeDisplay value={c.fechaEmbarqueReal} />
@@ -199,7 +199,7 @@ export function ContenedoresPanel({ data }: { data: ExpedienteDetalle }) {
             >
               {activos.map((c) => (
                 <option key={c.id} value={c.id}>
-                  {c.numero ?? '[CONTENEDOR SIN NÚMERO]'}
+                  {c.numero ?? <span className="text-ink-muted">Sin número</span>}
                 </option>
               ))}
             </select>
@@ -223,7 +223,7 @@ export function ContenedoresPanel({ data }: { data: ExpedienteDetalle }) {
                     <TableRow key={p.id}>
                       <TableCell>
                         <span className="font-mono text-xs">
-                          {pedido(p.pedidoFacturableId)?.numeroPedido ?? '[PEDIDO]'}
+                          {pedido(p.pedidoFacturableId)?.numeroPedido ?? <span className="text-ink-muted">Sin número</span>}
                         </span>
                         <p className="text-xs text-ink-muted">
                           {pedido(p.pedidoFacturableId)?.clienteNombre}
@@ -760,7 +760,7 @@ function AsignarPartida({
                 ))}
               </select>
             </Campo>
-            <Campo label={`Cantidad (${linea?.unidad ?? '[UNIDAD]'})`} id="ce-as-cantidad">
+            <Campo label={`Cantidad (${linea?.unidad ?? 'Sin unidad'})`} id="ce-as-cantidad">
               <Input
                 id="ce-as-cantidad"
                 required

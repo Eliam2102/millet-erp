@@ -85,7 +85,7 @@ export function DetalleRequisicion() {
    * Resuelve sucursal / almacén por id (catálogos chicos que el backend aún
    * no enriquece en el DTO). Requisitante, departamento (ADR-0042) y proveedor
    * sugerido (addendum) ya vienen resueltos en el DTO. Si no matchea, devuelve
-   * una etiqueta Por confirmar.
+   * una etiqueta de dato faltante.
    */
   const resolverNombre = useMemo(
     () =>
@@ -95,7 +95,7 @@ export function DetalleRequisicion() {
         if (s) return s.nombre;
         const a = almacenesMap.get(id);
         if (a) return a.nombre;
-        return 'Nombre no disponible';
+        return 'Sin asignar';
       },
     [sucursalesMap, almacenesMap],
   );
@@ -143,7 +143,7 @@ export function DetalleRequisicion() {
           <PageHeader
             mono
             titulo={rq.folio}
-            descripcion={rq.departamentoNombre ?? '[DEPARTAMENTO]'}
+            descripcion={rq.departamentoNombre ?? 'Sin departamento'}
           />
           <EstadoBadge tipo="requisicion" estado={rq.estado} situacion={rq.situacionSurtido} />
           {!esRecurrente && <EnAlmacenBadge enAlmacen={rq.enAlmacen} />}
@@ -256,7 +256,7 @@ function RenderLineas({ rq }: { rq: import('@/features/compras/api/types').Requi
   const articulosMap = useMemo(() => mapById(articulosQuery.data?.items), [articulosQuery.data]);
   const resolverArticulo = (articuloId: string): string => {
     const a = articulosMap.get(articuloId);
-    return a ? `${a.clave} — ${a.nombre}` : 'Artículo no disponible';
+    return a ? `${a.clave} — ${a.nombre}` : 'Sin artículo';
   };
 
   return (

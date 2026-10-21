@@ -300,7 +300,7 @@ function RenderTabla({
                 ? (proveedor.nombreComercial ?? proveedor.razonSocial)
                 : oc.proveedorId;
             const comprador =
-              oc.compradorNombre ?? usuariosMap.get(oc.compradorTitularId)?.nombre ?? '[NOMBRE]';
+              oc.compradorNombre ?? usuariosMap.get(oc.compradorTitularId)?.nombre ?? 'Sin asignar';
             return (
               <TableRow key={oc.id} className={i % 2 === 1 ? 'bg-surface-muted/20' : undefined}>
                 <TableCell className="whitespace-nowrap px-3 py-2 font-mono">
@@ -319,7 +319,7 @@ function RenderTabla({
                 <TableCell className="px-3 py-2 truncate" title={proveedorLabel}>
                   {proveedorLabel}
                 </TableCell>
-                <TableCell className="px-3 py-2 truncate" title={comprador}>
+                <TableCell className={`px-3 py-2 truncate${comprador === 'Sin asignar' ? ' text-ink-muted' : ''}`} title={comprador}>
                   {comprador}
                 </TableCell>
                 <TableCell className="px-3 py-2">

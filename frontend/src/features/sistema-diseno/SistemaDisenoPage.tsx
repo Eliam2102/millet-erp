@@ -237,7 +237,7 @@ export function SistemaDisenoPage() {
             </p>
             <p>
               Los renglones se llaman Partidas. Los obligatorios llevan *. Los valores desconocidos
-              se escriben [ENTRE CORCHETES].
+              se muestran con nombres verosímiles y se identifican como ficticios.
             </p>
             <p>
               Importes: $412,875.40; porcentajes: 82 %; fechas en listas: 21 sep; detalle: 21 sep

@@ -11,7 +11,7 @@ import { MENSAJE_UNIDAD_NO_RESOLUBLE } from '@/components/erp/forms/decimales-fi
 export function AvisoUnidadNoResoluble({ visible }: { visible: boolean }) {
   if (!visible) return null;
   return (
-    <p className="mt-1 flex items-center gap-1 text-[11px] text-amber-600">
+    <p className="mt-1 flex items-center gap-1 text-[11px] text-warning-fg">
       <AlertTriangle className="h-3 w-3 shrink-0" aria-hidden="true" />
       {MENSAJE_UNIDAD_NO_RESOLUBLE}
     </p>

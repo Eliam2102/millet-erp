@@ -84,7 +84,7 @@ export function CubrimientoBar({
       label: 'almacén',
       valor: cantDeAlmacen,
       pct: pct(cantDeAlmacen),
-      bgClass: 'bg-emerald-500',
+      bgClass: 'bg-success',
       pattern: 'none',
     },
     {
@@ -92,7 +92,7 @@ export function CubrimientoBar({
       label: 'recibida',
       valor: cantRecibida,
       pct: pct(cantRecibida),
-      bgClass: 'bg-blue-700',
+      bgClass: 'bg-info',
       pattern:
         'radial-gradient(circle, rgba(255,255,255,0.6) 1px, transparent 1.5px)',
     },
@@ -101,7 +101,7 @@ export function CubrimientoBar({
       label: 'pendiente recepción',
       valor: cantPendienteRecepcion,
       pct: pct(cantPendienteRecepcion),
-      bgClass: 'bg-amber-400',
+      bgClass: 'bg-warning',
       pattern:
         'repeating-linear-gradient(45deg, rgba(0,0,0,0.18) 0 4px, transparent 4px 8px)',
     },
@@ -110,7 +110,7 @@ export function CubrimientoBar({
       label: 'pendiente compra',
       valor: cantPendiente,
       pct: pct(cantPendiente),
-      bgClass: 'bg-slate-300',
+      bgClass: 'bg-surface-muted',
       pattern:
         'repeating-linear-gradient(45deg, rgba(0,0,0,0.25) 0 1px, transparent 1px 6px), repeating-linear-gradient(-45deg, rgba(0,0,0,0.25) 0 1px, transparent 1px 6px)',
     },
@@ -152,7 +152,7 @@ export function CubrimientoBar({
             <span
               role="img"
               aria-label={aria}
-              className="relative inline-flex h-3 w-32 overflow-hidden rounded border border-slate-300 bg-slate-100"
+              className="relative inline-flex h-3 w-32 overflow-hidden rounded border border-line-control bg-surface-muted"
             >
               {segmentos.map((s) =>
                 s.pct > 0 ? (

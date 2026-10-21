@@ -98,7 +98,7 @@ export function DevolucionProveedorDetallePage() {
             }
             descripcion={
               <>
-                {query.data.proveedorNombre ?? '[PROVEEDOR]'} · Solicitada el{' '}
+                {query.data.proveedorNombre ?? <span className="text-ink-muted">Sin proveedor</span>} · Solicitada el{' '}
                 <DateTimeDisplay value={query.data.solicitadaAt} variant="datetime" />
                 {query.data.autorizadaAt && (
                   <>

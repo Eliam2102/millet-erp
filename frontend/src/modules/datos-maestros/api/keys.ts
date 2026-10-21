@@ -20,6 +20,8 @@ import type {
 } from '@/modules/datos-maestros/api/types';
 
 export interface ListarProveedoresFiltros {
+  /** Caja única: clave, RFC, razón social o nombre comercial (parcial). */
+  q?: string;
   rfc?: string;
   razonSocial?: string;
   tipoPersona?: TipoPersonaProveedor;

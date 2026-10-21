@@ -6,7 +6,7 @@ export default function Ejemplo() {
       {(['success', 'warning', 'danger', 'info', 'neutral'] as const).map((tono) => (
         <KpiCard
           key={tono}
-          etiqueta={`[EJEMPLO] ${tono}`}
+          etiqueta="Órdenes de compra"
           valor="3"
           tono={tono}
           href="#plantillas"
