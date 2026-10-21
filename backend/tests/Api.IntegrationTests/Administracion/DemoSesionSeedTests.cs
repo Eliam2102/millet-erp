@@ -327,7 +327,7 @@ public sealed partial class DemoSesionSeedTests
         Assert.Equal(EstadoPeriodo.Abierto, periodos.Single(p => p.Numero == 10).Estado);
         Assert.Equal(7, await contabilidad.Cuentas.CountAsync(c => c.Nombre.StartsWith("DEMO")));
         Assert.Equal(2, await tesoreria.CuentasBancarias.CountAsync(c => c.Banco.StartsWith("DEMO-")));
-        Assert.Equal(4, await compras.OrdenesCompra.CountAsync()); // + OC de importación DEMO de CE-01a y de gastos CE-06 (OC-DEMO2026-000206)
+        Assert.Equal(5, await compras.OrdenesCompra.CountAsync()); // + OC de importación DEMO de CE-01a, de gastos CE-06 (OC-DEMO2026-000206) y OC mixta de Activos Fijos
         Assert.Equal(3, await compras.OutboxEntries.CountAsync());
         Assert.Equal(3, await maestros.Series.CountAsync(s => s.Prefijo == "FA" || s.Prefijo == "NC" || s.Prefijo == "AN"));
         var pedidos = await facturacion.PedidosFacturables.Where(p => p.NumeroPedido!.StartsWith("DEMO-")).ToListAsync();
@@ -431,6 +431,7 @@ public sealed partial class DemoSesionSeedTests
                 typeof(Millet.CuentasPorCobrar.Infrastructure.Persistence.CuentasPorCobrarDbContext), typeof(TesoreriaDbContext),
                 typeof(Millet.CentrosCosto.Infrastructure.Persistence.CentrosCostoDbContext), typeof(ContabilidadDbContext),
                 typeof(Millet.ComercioExterior.Infrastructure.Persistence.ComercioExteriorDbContext),
+                typeof(Millet.ActivosFijos.Infrastructure.Persistence.ActivosFijosDbContext),
             ];
             var instancias = contextos.Select(tipo => (DbContext)scope.ServiceProvider.GetRequiredService(tipo)).ToArray();
             // Comprobar TODOS antes de que la primera migración escriba datos.
