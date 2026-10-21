@@ -1,3 +1,4 @@
+import { DepreciacionActivo } from '../components/DepreciacionActivo';
 import { DocumentoProveedorSelector } from '../components/DocumentoProveedorSelector';
 import { useState } from 'react';
 import { Link, useParams } from '@tanstack/react-router';
@@ -88,6 +89,7 @@ export function ActivoDetallePage() {
             <TabsTrigger value="valores">Valores e historial</TabsTrigger>
             <TabsTrigger value="traslados">Traslados</TabsTrigger>
             <TabsTrigger value="origen">Origen</TabsTrigger>
+            <TabsTrigger value="depreciacion">Depreciación</TabsTrigger>
           </TabsList>
           <TabsContent value="datos">
             <dl className="grid grid-cols-2 gap-4 rounded-lg bg-surface-card p-4 shadow-card-flat">
@@ -263,6 +265,9 @@ export function ActivoDetallePage() {
                 </form>
               )}
             </div>
+          </TabsContent>
+          <TabsContent value="depreciacion">
+            <DepreciacionActivo activo={a} />
           </TabsContent>
           <TabsContent value="origen">
             <dl className="space-y-3 rounded-lg bg-surface-card p-4 shadow-card-flat">
