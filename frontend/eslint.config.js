@@ -17,14 +17,43 @@ export default defineConfig([
     ],
     plugins: { ds },
     rules: {
-      'ds/no-paleta-default': 'warn',
-      'ds/no-hex': 'warn',
-      'ds/no-dark': 'warn',
-      'ds/no-texto-interno': 'warn',
+      'ds/no-paleta-default': 'error',
+      'ds/no-hex': 'error',
+      'ds/no-dark': 'error',
     },
   },
   {
-    files: ['src/features/comercio-exterior/**/*.tsx'],
+    files: ['src/**/*.{ts,tsx}'],
+    ignores: [
+      '**/*.{test,spec}.{ts,tsx}',
+      'src/test/**',
+      '**/mocks/**',
+      '**/__mocks__/**',
+      'src/routeTree.gen.ts',
+      'src/components/erp/reportes/exporters/**',
+      'src/features/almacen/components/impresion/**',
+      'src/components/auth/DevUserSelector.tsx',
+    ],
+    plugins: { ds },
+    rules: { 'ds/no-texto-interno': 'error' },
+  },
+  {
+    files: ['src/features/comercio-exterior/**/*.tsx', 'src/features/sistema-diseno/**/*.{ts,tsx}'],
+    ignores: [
+      '**/*.test.tsx',
+      'src/components/erp/reportes/exporters/**',
+      'src/features/almacen/components/impresion/**',
+      'src/components/auth/DevUserSelector.tsx',
+    ],
+    rules: {
+      'ds/no-paleta-default': 'error',
+      'ds/no-hex': 'error',
+      'ds/no-dark': 'error',
+      'ds/no-texto-interno': 'error',
+    },
+  },
+  {
+    files: ['src/features/centros-costo/**/*.tsx'],
     ignores: [
       '**/*.test.tsx',
       'src/components/erp/reportes/exporters/**',
@@ -40,6 +69,21 @@ export default defineConfig([
   },
   {
     files: ['src/features/facturacion/**/*.tsx'],
+    ignores: [
+      '**/*.test.tsx',
+      'src/components/erp/reportes/exporters/**',
+      'src/features/almacen/components/impresion/**',
+      'src/components/auth/DevUserSelector.tsx',
+    ],
+    rules: {
+      'ds/no-paleta-default': 'error',
+      'ds/no-hex': 'error',
+      'ds/no-dark': 'error',
+      'ds/no-texto-interno': 'error',
+    },
+  },
+  {
+    files: ['src/features/almacen/**/*.tsx', 'src/features/compras/**/*.tsx'],
     ignores: [
       '**/*.test.tsx',
       'src/components/erp/reportes/exporters/**',
@@ -76,6 +120,21 @@ export default defineConfig([
       'src/features/almacen/components/impresion/**',
       'src/components/auth/DevUserSelector.tsx',
     ],
+    rules: {
+      'ds/no-paleta-default': 'error',
+      'ds/no-hex': 'error',
+      'ds/no-dark': 'error',
+      'ds/no-texto-interno': 'error',
+    },
+  },
+  {
+    files: [
+      'src/modules/administracion/**/*.tsx',
+      'src/modules/identidad/**/*.tsx',
+      'src/modules/catalogos/**/*.tsx',
+      'src/modules/datos-maestros/**/*.tsx',
+    ],
+    ignores: ['**/*.test.tsx'],
     rules: {
       'ds/no-paleta-default': 'error',
       'ds/no-hex': 'error',

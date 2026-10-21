@@ -15,9 +15,7 @@ export const NuevaMonedaContext = createContext<NuevaMonedaApi | null>(null);
 export function useNuevaMoneda(): NuevaMonedaApi {
   const ctx = useContext(NuevaMonedaContext);
   if (ctx == null) {
-    throw new Error(
-      'useNuevaMoneda() debe usarse dentro de <NuevaMonedaProvider>.',
-    );
+    throw new Error('useNuevaMoneda() debe usarse dentro de <NuevaMonedaProvider>.');
   }
   return ctx;
 }

@@ -1,3 +1,5 @@
+import { FormGrid, FormCampo } from '@/components/erp/forms/FormGrid';
+import { PageHeader } from '@/components/erp/PageHeader';
 import { useMemo } from 'react';
 import { Plus } from 'lucide-react';
 import { useForm } from 'react-hook-form';
@@ -8,10 +10,7 @@ import {
   CatalogoEditableTable,
   type CatalogoColumn,
 } from '@/modules/catalogos/components/CatalogoEditableTable';
-import {
-  FieldInline,
-  InlineFormShell,
-} from '@/modules/catalogos/components/InlineFormShell';
+import { FieldInline, InlineFormShell } from '@/modules/catalogos/components/InlineFormShell';
 import {
   useActualizarCondicionesPago,
   useCondicionesPagoList,
@@ -33,9 +32,7 @@ import { toast } from 'sonner';
  * Pago (UF-Admin-PR5.2). Edición inline (border-amber); alta vía Sheet.
  */
 export function CondicionesPagoPage() {
-  const canGestionar = useHasPermission(
-    PermisosCanonicos.CatalogosCondicionesPagoGestionar,
-  );
+  const canGestionar = useHasPermission(PermisosCanonicos.CatalogosCondicionesPagoGestionar);
   const nueva = useNuevaCondicionesPago();
   const query = useCondicionesPagoList();
   const desactivar = useDesactivarCondicionesPago();
@@ -59,18 +56,20 @@ export function CondicionesPagoPage() {
   ];
 
   return (
-    <div className="space-y-4 p-4">
-      <div className="flex flex-wrap items-center justify-between gap-2">
-        <h1 className="text-xl font-semibold tracking-tight">
-          Condiciones de pago
-        </h1>
-        {canGestionar && (
-          <Button size="sm" onClick={() => nueva.abrir()}>
-            <Plus className="mr-1 h-4 w-4" />
-            Nueva condición
-          </Button>
-        )}
-      </div>
+    <div className="space-y-5">
+      <PageHeader
+        titulo={<>Condiciones de pago</>}
+        acciones={
+          <>
+            {canGestionar && (
+              <Button size="sm" onClick={() => nueva.abrir()}>
+                <Plus className="mr-1 h-4 w-4" />
+                Nueva condición
+              </Button>
+            )}
+          </>
+        }
+      />
 
       <CatalogoEditableTable
         recurso="condiciones de pago"
@@ -88,9 +87,7 @@ export function CondicionesPagoPage() {
           <CondicionesPagoInlineEditForm item={item} onClose={onClose} />
         )}
         emptyMessage={
-          canGestionar
-            ? 'Crea la primera para empezar.'
-            : 'Cuando se creen, aparecerán aquí.'
+          canGestionar ? 'Crea la primera para empezar.' : 'Cuando se creen, aparecerán aquí.'
         }
         emptyAction={
           canGestionar ? (
@@ -110,10 +107,7 @@ interface CondicionesPagoInlineEditFormProps {
   onClose: () => void;
 }
 
-function CondicionesPagoInlineEditForm({
-  item,
-  onClose,
-}: CondicionesPagoInlineEditFormProps) {
+function CondicionesPagoInlineEditForm({ item, onClose }: CondicionesPagoInlineEditFormProps) {
   const idempotencyKey = useFormIdempotencyKey();
   const actualizar = useActualizarCondicionesPago();
   const form = useForm<ActualizarCondicionesPagoValues>({
@@ -139,10 +133,7 @@ function CondicionesPagoInlineEditForm({
         onError: (err) => {
           if (esApiError(err)) {
             if (
-              applyServerErrors(
-                form as unknown as Parameters<typeof applyServerErrors>[0],
-                err,
-              )
+              applyServerErrors(form as unknown as Parameters<typeof applyServerErrors>[0], err)
             ) {
               return;
             }
@@ -162,36 +153,39 @@ function CondicionesPagoInlineEditForm({
       onCancel={onClose}
       isPending={actualizar.isPending}
     >
-      <div className="grid grid-cols-1 gap-2 md:grid-cols-12">
-        <FieldInline
-          label="Clave"
-          className="md:col-span-3"
-        >
-          <Input value={item.clave} readOnly className="font-mono" />
-        </FieldInline>
-        <FieldInline
-          label="Nombre"
-          required
-          error={form.formState.errors.nombre?.message}
-          className="md:col-span-6"
-        >
-          <Input maxLength={100} {...form.register('nombre')} />
-        </FieldInline>
-        <FieldInline
-          label="Días crédito"
-          required
-          error={form.formState.errors.diasCredito?.message}
-          className="md:col-span-3"
-        >
-          <Input
-            type="number"
-            min={0}
-            max={365}
-            step={1}
-            {...form.register('diasCredito', { valueAsNumber: true })}
-          />
-        </FieldInline>
-      </div>
+      <FormGrid>
+        <FormCampo span={3}>
+          <FieldInline label="Clave" className="md:col-span-3">
+            <Input value={item.clave} readOnly className="font-mono" />
+          </FieldInline>
+        </FormCampo>
+        <FormCampo span={6}>
+          <FieldInline
+            label="Nombre"
+            required
+            error={form.formState.errors.nombre?.message}
+            className="md:col-span-6"
+          >
+            <Input maxLength={100} {...form.register('nombre')} />
+          </FieldInline>
+        </FormCampo>
+        <FormCampo span={3}>
+          <FieldInline
+            label="Días crédito"
+            required
+            error={form.formState.errors.diasCredito?.message}
+            className="md:col-span-3"
+          >
+            <Input
+              type="number"
+              min={0}
+              max={365}
+              step={1}
+              {...form.register('diasCredito', { valueAsNumber: true })}
+            />
+          </FieldInline>
+        </FormCampo>
+      </FormGrid>
     </InlineFormShell>
   );
 }

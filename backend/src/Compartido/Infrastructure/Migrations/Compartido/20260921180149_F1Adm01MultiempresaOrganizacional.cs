@@ -261,9 +261,12 @@ namespace Millet.Compartido.Infrastructure.Migrations.Compartido
             // ── Paso 3: backfill. En una instalación limpia, las migraciones
             // corren ANTES del hosted service que crea la empresa inicial. Los
             // catálogos HasData ya existen y requieren empresa_id no nulo.
-            // Crear la raíz provisional sólo si no hay empresas. El bootstrap
-            // reemplaza sus datos por la configuración real antes de asignar
-            // usuarios. En una actualización se conserva la empresa existente.
+            // Crear la raíz provisional sólo si no hay empresas. Al arrancar,
+            // BootstrapSuperAdminHostedService le aplica RFC, clave, razón
+            // social, régimen y nombre comercial de Auth:Bootstrap:EmpresaInicial
+            // (Empresa.ConfigurarDatosFiscalesIniciales) antes de asignar al
+            // SuperAdmin; sin esa configuración queda provisional. En una
+            // actualización se conserva la empresa existente.
             migrationBuilder.Sql(
                 """
                 INSERT INTO compartido.empresas

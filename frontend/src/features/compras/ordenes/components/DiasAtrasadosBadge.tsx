@@ -1,3 +1,4 @@
+import { Badge } from '@/components/ui/badge';
 import { Clock, AlertTriangle, AlertCircle } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
@@ -20,19 +21,13 @@ export interface DiasAtrasadosBadgeProps {
   className?: string;
 }
 
-export function DiasAtrasadosBadge({
-  diasAtrasados,
-  className,
-}: DiasAtrasadosBadgeProps) {
-  const { color, Icon, label } = resolverEstado(diasAtrasados);
+export function DiasAtrasadosBadge({ diasAtrasados, className }: DiasAtrasadosBadgeProps) {
+  const { tono, Icon, label } = resolverEstado(diasAtrasados);
 
   return (
-    <span
-      className={cn(
-        'inline-flex items-center gap-1 rounded-full px-1.5 py-0.5 text-xs font-medium ring-1 ring-inset',
-        color,
-        className,
-      )}
+    <Badge
+      variant={tono}
+      className={cn('gap-1', className)}
       data-component="dias-atrasados-badge"
       data-nivel={diasAtrasados <= 0 ? 'al-dia' : diasAtrasados <= 7 ? 'reciente' : 'critica'}
       aria-label={label}
@@ -40,27 +35,27 @@ export function DiasAtrasadosBadge({
     >
       <Icon className="h-3 w-3" aria-hidden="true" />
       {diasAtrasados <= 0 ? 'Al día' : `+${diasAtrasados}d`}
-    </span>
+    </Badge>
   );
 }
 
 function resolverEstado(dias: number) {
   if (dias <= 0) {
     return {
-      color: 'bg-success-bg text-success-fg ring-success',
+      tono: 'success' as const,
       Icon: Clock,
       label: 'Al día (no atrasada)',
     };
   }
   if (dias <= 7) {
     return {
-      color: 'bg-warning-bg text-warning-fg ring-warning',
+      tono: 'warning' as const,
       Icon: AlertTriangle,
       label: `Atrasada reciente: ${dias} día${dias === 1 ? '' : 's'}`,
     };
   }
   return {
-    color: 'bg-danger-bg text-danger-fg ring-danger',
+    tono: 'danger' as const,
     Icon: AlertCircle,
     label: `Atrasada crítica: ${dias} días`,
   };

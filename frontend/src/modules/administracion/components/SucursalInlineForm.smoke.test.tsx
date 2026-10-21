@@ -16,38 +16,25 @@ const sucursalExistente = {
 
 describe('<SucursalInlineForm> — smoke', () => {
   it('modo agregar: muestra "Agregar sucursal" + border dashed', () => {
-    const { container } = render(
-      <SucursalInlineForm empresaId="e-1" onCancel={() => {}} />,
-      { wrapper: createQueryWrapper() },
-    );
-    expect(
-      screen.getByRole('button', { name: /agregar sucursal/i }),
-    ).toBeInTheDocument();
-    expect(
-      screen.getByRole('form', { name: /agregar sucursal/i }),
-    ).toBeInTheDocument();
+    const { container } = render(<SucursalInlineForm empresaId="e-1" onCancel={() => {}} />, {
+      wrapper: createQueryWrapper(),
+    });
+    expect(screen.getByRole('button', { name: /agregar sucursal/i })).toBeInTheDocument();
+    expect(screen.getByRole('form', { name: /agregar sucursal/i })).toBeInTheDocument();
     const form = container.querySelector('form');
     expect(form?.className).toMatch(/border-dashed/);
-    expect(form?.className).not.toMatch(/border-amber/);
+    expect(form?.className).not.toMatch(/bg-warning-bg/);
   });
 
-  it('modo editar: muestra "Guardar cambios" + border amber + clave read-only', () => {
+  it('modo editar: muestra "Guardar cambios" + fondo semántico de edición + clave read-only', () => {
     const { container } = render(
-      <SucursalInlineForm
-        empresaId="e-1"
-        sucursal={sucursalExistente}
-        onCancel={() => {}}
-      />,
+      <SucursalInlineForm empresaId="e-1" sucursal={sucursalExistente} onCancel={() => {}} />,
       { wrapper: createQueryWrapper() },
     );
-    expect(
-      screen.getByRole('button', { name: /guardar cambios/i }),
-    ).toBeInTheDocument();
-    expect(
-      screen.getByRole('form', { name: /editar sucursal mid/i }),
-    ).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /guardar cambios/i })).toBeInTheDocument();
+    expect(screen.getByRole('form', { name: /editar sucursal mid/i })).toBeInTheDocument();
     const form = container.querySelector('form');
-    expect(form?.className).toMatch(/border-amber/);
+    expect(form?.className).toMatch(/bg-warning-bg/);
 
     // Clave debe ser readOnly en modo editar
     const claveInput = screen.getByPlaceholderText('MID') as HTMLInputElement;
@@ -56,29 +43,26 @@ describe('<SucursalInlineForm> — smoke', () => {
 
   it('Esc llama onCancel cuando no está pending', () => {
     const onCancel = vi.fn();
-    render(
-      <SucursalInlineForm empresaId="e-1" onCancel={onCancel} />,
-      { wrapper: createQueryWrapper() },
-    );
+    render(<SucursalInlineForm empresaId="e-1" onCancel={onCancel} />, {
+      wrapper: createQueryWrapper(),
+    });
     fireEvent.keyDown(screen.getByRole('form'), { key: 'Escape' });
     expect(onCancel).toHaveBeenCalledTimes(1);
   });
 
   it('botón Cancelar llama onCancel', () => {
     const onCancel = vi.fn();
-    render(
-      <SucursalInlineForm empresaId="e-1" onCancel={onCancel} />,
-      { wrapper: createQueryWrapper() },
-    );
+    render(<SucursalInlineForm empresaId="e-1" onCancel={onCancel} />, {
+      wrapper: createQueryWrapper(),
+    });
     fireEvent.click(screen.getByRole('button', { name: /cancelar/i }));
     expect(onCancel).toHaveBeenCalledTimes(1);
   });
 
   it('renderiza selector de tipo con opciones Taller y Planta', () => {
-    render(
-      <SucursalInlineForm empresaId="e-1" onCancel={() => {}} />,
-      { wrapper: createQueryWrapper() },
-    );
+    render(<SucursalInlineForm empresaId="e-1" onCancel={() => {}} />, {
+      wrapper: createQueryWrapper(),
+    });
     const select = screen.getByRole('combobox', { name: /tipo de sucursal/i }) as HTMLSelectElement;
     expect(select).toBeInTheDocument();
     expect(select.value).toBe(String(TipoSucursal.Taller));
@@ -87,4 +71,3 @@ describe('<SucursalInlineForm> — smoke', () => {
     expect(screen.getByRole('option', { name: /planta/i })).toBeInTheDocument();
   });
 });
-

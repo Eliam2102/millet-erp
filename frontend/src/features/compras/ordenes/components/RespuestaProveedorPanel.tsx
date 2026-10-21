@@ -1,3 +1,11 @@
+import {
+  Table,
+  TableHeader,
+  TableBody,
+  TableRow,
+  TableHead,
+  TableCell,
+} from '@/components/ui/table';
 import { useState } from 'react';
 import { toast } from 'sonner';
 import { Badge } from '@/components/ui/badge';
@@ -21,7 +29,9 @@ import { RegistrarRespuestaProveedorSheet } from './RegistrarRespuestaProveedorS
 export function RespuestaProveedorPanel({ oc }: { oc: OrdenCompraDetalleResponse }) {
   const usuarios = useUsuarios();
   const nombres = mapById(usuarios.data?.items);
-  const puedeRegistrar = useHasPermission(PermisosCanonicos.ComprasOrdenesRegistrarRespuestaProveedor);
+  const puedeRegistrar = useHasPermission(
+    PermisosCanonicos.ComprasOrdenesRegistrarRespuestaProveedor,
+  );
   const mutation = useRegistrarRespuestaProveedor();
   const [abierto, setAbierto] = useState(false);
   const [errorServidor, setErrorServidor] = useState<string | null>(null);
@@ -32,16 +42,22 @@ export function RespuestaProveedorPanel({ oc }: { oc: OrdenCompraDetalleResponse
   const posicion = (lineaId: string) => oc.lineas.find((l) => l.id === lineaId)?.posicion ?? 0;
 
   return (
-    <section aria-label="Respuesta del proveedor" className="space-y-3 rounded-lg bg-surface-card p-4 shadow-card-flat">
+    <section
+      aria-label="Respuesta del proveedor"
+      className="space-y-3 rounded-lg bg-surface-card p-4 shadow-card-flat"
+    >
       <h2 className="text-md font-semibold">Respuesta del proveedor</h2>
       <div className="flex flex-wrap items-center gap-3 text-sm">
         <EstadoComercialProveedorBadge estado={oc.estadoComercialProveedor ?? 0} />
         {oc.fechaCompromisoProveedor && (
-          <span>Compromiso vigente: <DateTimeDisplay value={oc.fechaCompromisoProveedor} /></span>
+          <span>
+            Compromiso vigente: <DateTimeDisplay value={oc.fechaCompromisoProveedor} />
+          </span>
         )}
       </div>
       <p className="text-xs text-ink-muted">
-        La respuesta no registra recepción ni cambia cantidades: recepción, factura y pago avanzan por separado.
+        La respuesta no registra recepción ni cambia cantidades: recepción, factura y pago avanzan
+        por separado.
       </p>
       {puedeRegistrar && (
         <Button
@@ -63,26 +79,41 @@ export function RespuestaProveedorPanel({ oc }: { oc: OrdenCompraDetalleResponse
             <Badge variant={r.tipo === TipoRespuestaProveedorOc.Confirmacion ? 'info' : 'danger'}>
               {r.tipo === TipoRespuestaProveedorOc.Confirmacion ? 'Confirmación' : 'Rechazo'}
             </Badge>
-            <Badge variant={r.vigente ? 'success' : 'neutral'}>{r.vigente ? 'Vigente' : 'Reemplazada'}</Badge>
+            <Badge variant={r.vigente ? 'success' : 'neutral'}>
+              {r.vigente ? 'Vigente' : 'Reemplazada'}
+            </Badge>
             {r.tieneDiferencias && <Badge variant="warning">Con diferencias</Badge>}
           </div>
           <p className="text-ink-secondary">
-            Fecha de respuesta: <DateTimeDisplay value={r.fechaRespuesta} /> · Registró {nombre(r.registradaPorId)}{' '}
+            Fecha de respuesta: <DateTimeDisplay value={r.fechaRespuesta} /> · Registró{' '}
+            {nombre(r.registradaPorId)}{' '}
             <DateTimeDisplay value={r.registradaEn} variant="datetime" />
           </p>
-          {r.contactoProveedor && <p className="text-ink-secondary">Contacto: {r.contactoProveedor}</p>}
+          {r.contactoProveedor && (
+            <p className="text-ink-secondary">Contacto: {r.contactoProveedor}</p>
+          )}
           <p className="text-ink-secondary">Evidencia: {r.evidencia}</p>
-          {r.motivo && <p className="text-ink-secondary">{r.tipo === TipoRespuestaProveedorOc.Rechazo ? 'Motivo' : 'Comentario'}: {r.motivo}</p>}
+          {r.motivo && (
+            <p className="text-ink-secondary">
+              {r.tipo === TipoRespuestaProveedorOc.Rechazo ? 'Motivo' : 'Comentario'}: {r.motivo}
+            </p>
+          )}
           {r.compromisos.length > 0 && (
-            <table className="w-full max-w-md text-left text-xs">
-              <thead>
-                <tr className="text-ink-muted">
-                  <th scope="col" className="py-1 font-medium">Línea</th>
-                  <th scope="col" className="py-1 text-right font-medium">Cantidad</th>
-                  <th scope="col" className="py-1 pl-4 font-medium">Fecha prometida</th>
-                </tr>
-              </thead>
-              <tbody>
+            <Table className="w-full max-w-md text-left text-xs">
+              <TableHeader>
+                <TableRow className="text-ink-muted">
+                  <TableHead scope="col" className="py-1 font-medium">
+                    Partida
+                  </TableHead>
+                  <TableHead scope="col" className="py-1 text-right font-medium">
+                    Cantidad
+                  </TableHead>
+                  <TableHead scope="col" className="py-1 pl-4 font-medium">
+                    Fecha prometida
+                  </TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody className="[&_tr]:h-12">
                 {[...r.compromisos]
                   .sort(
                     (a, b) =>
@@ -90,17 +121,23 @@ export function RespuestaProveedorPanel({ oc }: { oc: OrdenCompraDetalleResponse
                       a.fechaPrometida.localeCompare(b.fechaPrometida),
                   )
                   .map((c) => (
-                  <tr key={c.id}>
-                    <td className="py-1">Línea {posicion(c.lineaOrdenCompraId) || '—'}</td>
-                    <td className="py-1 text-right tabular-nums">{c.cantidad}</td>
-                    <td className="py-1 pl-4"><DateTimeDisplay value={c.fechaPrometida} /></td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+                    <TableRow key={c.id}>
+                      <TableCell className="py-1">
+                        Partida {posicion(c.lineaOrdenCompraId) || '—'}
+                      </TableCell>
+                      <TableCell className="py-1 text-right tabular-nums">{c.cantidad}</TableCell>
+                      <TableCell className="py-1 pl-4">
+                        <DateTimeDisplay value={c.fechaPrometida} />
+                      </TableCell>
+                    </TableRow>
+                  ))}
+              </TableBody>
+            </Table>
           )}
           <details open={r.vigente}>
-            <summary className="cursor-pointer text-sm text-ink-secondary">Archivos de evidencia</summary>
+            <summary className="cursor-pointer text-sm text-ink-secondary">
+              Archivos de evidencia
+            </summary>
             <DocumentoAdjuntosSection
               base={`/api/v1/compras/ordenes/respuestas-proveedor/${r.id}`}
               tipo="oc_respuesta_proveedor"
@@ -121,11 +158,19 @@ export function RespuestaProveedorPanel({ oc }: { oc: OrdenCompraDetalleResponse
         errorServidor={errorServidor}
         onSubmit={async (command) => {
           try {
-            await mutation.mutateAsync({ ordenCompraId: oc.id, command, idempotencyKey: crypto.randomUUID() });
+            await mutation.mutateAsync({
+              ordenCompraId: oc.id,
+              command,
+              idempotencyKey: crypto.randomUUID(),
+            });
             toast.success('Respuesta del proveedor registrada.');
             setAbierto(false);
           } catch (error) {
-            setErrorServidor(esApiError(error) ? error.problem.detail ?? error.problem.title : 'No se pudo registrar la respuesta. Vuelve a intentarlo.');
+            setErrorServidor(
+              esApiError(error)
+                ? (error.problem.detail ?? error.problem.title)
+                : 'No se pudo registrar la respuesta. Vuelve a intentarlo.',
+            );
           }
         }}
       />

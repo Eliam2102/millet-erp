@@ -12,9 +12,9 @@ import type {
 } from '@/features/compras/ordenes/api/types';
 
 /**
- * Fase E PR3 — Centro de costo (Dim3) en la línea de OC. El campo es CONDICIONAL
- * (ADR-0050): línea MANUAL → picker ABIERTO por proxy (el comprador elige);
- * línea HEREDADA de RQ → display BLOQUEADO read-only (1:1 de la RQ, no editable).
+ * Fase E PR3 — Centro de costo (Dim3) en la partida de OC. El campo es CONDICIONAL
+ * (ADR-0050): partida MANUAL → picker ABIERTO por proxy (el comprador elige);
+ * partida HEREDADA de RQ → display BLOQUEADO read-only (1:1 de la RQ, no editable).
  */
 
 const OC = {
@@ -87,7 +87,7 @@ describe('<LineaInlineFormOc> — Centro de costo condicional (Fase E PR3)', () 
     await waitFor(() => expect(enviado).toMatchObject({ descuentoTipo: DescuentoTipo.Monto, descuentoValor: 10 }));
   });
 
-  it('línea manual (modo agregar): muestra el picker ABIERTO, no el display bloqueado', () => {
+  it('partida manual (modo agregar): muestra el picker ABIERTO, no el display bloqueado', () => {
     render(<LineaInlineFormOc oc={OC} onCancel={() => {}} />, {
       wrapper: createQueryWrapper(),
     });
@@ -95,7 +95,7 @@ describe('<LineaInlineFormOc> — Centro de costo condicional (Fase E PR3)', () 
     expect(
       screen.getByRole('combobox', { name: /seleccionar centro de costo/i }),
     ).toBeInTheDocument();
-    // No hay input read-only de "heredado" en una línea manual.
+    // No hay input read-only de "heredado" en una partida manual.
     expect(
       screen.queryByLabelText(
         /Centro de costo \(heredado de la requisición, no editable\)/i,
@@ -103,7 +103,7 @@ describe('<LineaInlineFormOc> — Centro de costo condicional (Fase E PR3)', () 
     ).not.toBeInTheDocument();
   });
 
-  it('línea heredada con CC: display read-only "clave — nombre", sin picker', () => {
+  it('partida heredada con CC: display read-only "clave — nombre", sin picker', () => {
     render(
       <LineaInlineFormOc
         oc={OC}
@@ -124,9 +124,9 @@ describe('<LineaInlineFormOc> — Centro de costo condicional (Fase E PR3)', () 
     ).not.toBeInTheDocument();
   });
 
-  // ─── Fase E PR3.1: obligatoriedad en la línea MANUAL ───
+  // ─── Fase E PR3.1: obligatoriedad en la partida MANUAL ───
 
-  it('línea manual legada sin CC: bloquea el submit y muestra el error inline', async () => {
+  it('partida manual legada sin CC: bloquea el submit y muestra el error inline', async () => {
     const patches: string[] = [];
     mswServer.use(
       http.patch('*/api/v1/compras/ordenes/oc-1/lineas/l-1', async () => {
@@ -150,8 +150,8 @@ describe('<LineaInlineFormOc> — Centro de costo condicional (Fase E PR3)', () 
     expect(patches).toHaveLength(0);
   });
 
-  it('línea HEREDADA sin CC: NO la bloquea la obligatoriedad de PR3.1', async () => {
-    // El campo es read-only en heredadas: exigirlo aquí dejaría la línea
+  it('partida HEREDADA sin CC: NO la bloquea la obligatoriedad de PR3.1', async () => {
+    // El campo es read-only en heredadas: exigirlo aquí dejaría la partida
     // imposible de guardar. Su CC se arregla en la RQ, que ya lo obliga.
     const patches: string[] = [];
     mswServer.use(
@@ -175,7 +175,7 @@ describe('<LineaInlineFormOc> — Centro de costo condicional (Fase E PR3)', () 
     await waitFor(() => expect(patches).toHaveLength(1));
   });
 
-  it('línea heredada sin CC: display read-only "—"', () => {
+  it('partida heredada sin CC: display read-only "—"', () => {
     render(
       <LineaInlineFormOc
         oc={OC}

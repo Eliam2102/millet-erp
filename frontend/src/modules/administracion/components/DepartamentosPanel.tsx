@@ -1,11 +1,18 @@
+import {
+  Table,
+  TableHeader,
+  TableRow,
+  TableHead,
+  TableBody,
+  TableCell,
+} from '@/components/ui/table';
+import { ListadoCatalogo } from '@/modules/administracion/components/ListadoCatalogo';
+import { OPCIONES_CATALOGO } from '@/modules/administracion/lib/estados-ui';
 import { useState } from 'react';
 import { Pencil, Plus } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import {
-  EstatusCatalogo,
-  type DepartamentoResponse,
-} from '@/modules/administracion/api/types';
+import { EstatusCatalogo, type DepartamentoResponse } from '@/modules/administracion/api/types';
 import { useHasPermission } from '@/lib/auth/useHasPermission';
 import { PermisosCanonicos } from '@/lib/auth/permission-codes';
 import { DepartamentoInlineForm } from '@/modules/administracion/components/DepartamentoInlineForm';
@@ -37,15 +44,14 @@ export function DepartamentosPanel({
   const [editandoId, setEditandoId] = useState<string | null>(null);
 
   const canGestionar =
-    useHasPermission(PermisosCanonicos.AdminDepartamentosGestionar) &&
-    !bloqueadoPorEmpresaActiva;
+    useHasPermission(PermisosCanonicos.AdminDepartamentosGestionar) && !bloqueadoPorEmpresaActiva;
 
   return (
     <section className="space-y-3">
       <header className="flex flex-wrap items-center justify-between gap-2">
         <div>
           <h3 className="text-base font-semibold">Departamentos</h3>
-          <p className="text-xs text-muted-foreground">
+          <p className="text-xs text-ink-muted">
             Catálogo organizacional compartido. Total: {departamentos.length}.
           </p>
         </div>
@@ -73,55 +79,80 @@ export function DepartamentosPanel({
       )}
 
       {departamentos.length === 0 ? (
-        <div className="rounded-md border border-dashed bg-muted/20 px-4 py-6 text-center text-sm text-muted-foreground">
+        <div className="rounded-md border border-dashed bg-surface-muted/20 px-4 py-6 text-center text-sm text-ink-muted">
           No hay departamentos registrados.
         </div>
       ) : (
-        <ul className="divide-y rounded-md border bg-card">
-          {departamentos.map((d) => {
-            const editando = editandoId === d.id;
-            const activo = d.estatus === EstatusCatalogo.Activo;
-            return (
-              <li key={d.id} className="px-3 py-2">
-                {editando && canGestionar ? (
-                  <DepartamentoInlineForm
-                    empresaId={empresaId}
-                    departamento={d}
-                    onCancel={() => setEditandoId(null)}
-                    onSaved={() => setEditandoId(null)}
-                  />
-                ) : (
-                  <div className="flex flex-wrap items-center gap-3">
-                    <span className="font-mono text-sm font-semibold">
-                      {d.clave}
-                    </span>
-                    <span className="flex-1 truncate text-sm">{d.nombre}</span>
-                    {activo ? (
-                      <Badge variant="secondary">Activo</Badge>
-                    ) : (
-                      <Badge variant="outline" className="text-muted-foreground">
-                        Inactivo
-                      </Badge>
-                    )}
-                    {canGestionar && (
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => {
-                          setEditandoId(d.id);
-                          setAgregando(false);
-                        }}
-                        aria-label={`Editar departamento ${d.clave}`}
-                      >
-                        <Pencil className="h-3.5 w-3.5" />
-                      </Button>
-                    )}
-                  </div>
-                )}
-              </li>
-            );
-          })}
-        </ul>
+        <ListadoCatalogo
+          items={departamentos}
+          texto={(d) => d.clave + ' ' + d.nombre}
+          estado={(d) => d.estatus}
+          opciones={OPCIONES_CATALOGO}
+        >
+          {(visibles) => (
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Clave</TableHead>
+                  <TableHead>Departamento</TableHead>
+                  <TableHead>Estado</TableHead>
+                  <TableHead>Acciones</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {visibles.map((d) => {
+                  const editando = editandoId === d.id;
+                  const activo = d.estatus === EstatusCatalogo.Activo;
+                  return (
+                    <TableRow key={d.id} className="px-3 py-2">
+                      {editando && canGestionar ? (
+                        <TableCell colSpan={4}>
+                          <DepartamentoInlineForm
+                            empresaId={empresaId}
+                            departamento={d}
+                            onCancel={() => setEditandoId(null)}
+                            onSaved={() => setEditandoId(null)}
+                          />
+                        </TableCell>
+                      ) : (
+                        <>
+                          <TableCell className="w-32">
+                            <span className="font-mono text-sm font-semibold">{d.clave}</span>
+                          </TableCell>
+                          <TableCell className="min-w-48">
+                            <span className="flex-1 truncate text-sm">{d.nombre}</span>
+                          </TableCell>
+                          <TableCell className="w-32">
+                            {activo ? (
+                              <Badge variant="success">Activo</Badge>
+                            ) : (
+                              <Badge variant="neutral">Inactivo</Badge>
+                            )}
+                          </TableCell>
+                          <TableCell className="w-28">
+                            {canGestionar && (
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => {
+                                  setEditandoId(d.id);
+                                  setAgregando(false);
+                                }}
+                                aria-label={`Editar departamento ${d.clave}`}
+                              >
+                                <Pencil className="h-3.5 w-3.5" />
+                              </Button>
+                            )}
+                          </TableCell>
+                        </>
+                      )}
+                    </TableRow>
+                  );
+                })}
+              </TableBody>
+            </Table>
+          )}
+        </ListadoCatalogo>
       )}
     </section>
   );

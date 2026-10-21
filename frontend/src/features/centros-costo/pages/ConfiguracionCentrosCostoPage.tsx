@@ -1,6 +1,8 @@
+import { PageHeader } from '@/components/erp/PageHeader';
+import { BarraFiltros } from '@/components/erp/data/BarraFiltros';
 import { EquivalenciasDepartamento } from '../components/EquivalenciasDepartamento';
 import { useState } from 'react';
-import { ListTree, Plus, Settings2 } from 'lucide-react';
+import { Plus, Settings2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
   DropdownMenu,
@@ -52,18 +54,14 @@ import type { NodoCeCo } from '@/features/centros-costo/api/types';
  * consulta pura).
  */
 export function ConfiguracionCentrosCostoPage() {
-  const puedeAdministrar = useHasPermission(
-    PermisosCanonicos.CentrosCostoCatalogoAdministrar,
-  );
+  const puedeAdministrar = useHasPermission(PermisosCanonicos.CentrosCostoCatalogoAdministrar);
 
   const [incluirInactivos, setIncluirInactivos] = useState(false);
   const [expandidos, setExpandidos] = useState<ReadonlySet<string>>(new Set());
   const [dim1Dialog, setDim1Dialog] = useState<Dim1DialogModo | null>(null);
   const [dim2Dialog, setDim2Dialog] = useState<Dim2DialogModo | null>(null);
   const [dim3Dialog, setDim3Dialog] = useState<Dim3DialogModo | null>(null);
-  const [gruposManager, setGruposManager] = useState<
-    'grupos-dim2' | 'grupos-dim3' | null
-  >(null);
+  const [gruposManager, setGruposManager] = useState<'grupos-dim2' | 'grupos-dim3' | null>(null);
   const [confirmar, setConfirmar] = useState<{
     target: ConfirmarEstatusTarget;
     accion: 'desactivar' | 'reactivar';
@@ -98,14 +96,12 @@ export function ConfiguracionCentrosCostoPage() {
   }
 
   return (
-    <div className="mx-auto max-w-6xl space-y-6 px-4 py-8">
-      <header className="space-y-3">
-        <div className="flex flex-wrap items-center gap-2">
-          <h1 className="flex items-center gap-2 text-2xl font-semibold">
-            <ListTree className="h-6 w-6 text-primary" aria-hidden="true" />
-            Centros de Costo
-          </h1>
-          <div className="ml-auto flex items-center gap-2">
+    <div className="space-y-5">
+      <PageHeader
+        titulo="Centros de costo"
+        descripcion="Consulta y administra el catálogo jerárquico y sus grupos de clasificación."
+        acciones={
+          <>
             {puedeAdministrar && (
               <>
                 <Button onClick={() => setDim1Dialog({ tipo: 'crear' })}>
@@ -120,46 +116,43 @@ export function ConfiguracionCentrosCostoPage() {
                     </Button>
                   </DropdownMenuTrigger>
                   <DropdownMenuContent align="end">
-                    <DropdownMenuItem
-                      onSelect={() => setGruposManager('grupos-dim2')}
-                    >
+                    <DropdownMenuItem onSelect={() => setGruposManager('grupos-dim2')}>
                       {etiquetaNivel('grupoDim2', 'configuracion')}
                     </DropdownMenuItem>
-                    <DropdownMenuItem
-                      onSelect={() => setGruposManager('grupos-dim3')}
-                    >
+                    <DropdownMenuItem onSelect={() => setGruposManager('grupos-dim3')}>
                       {etiquetaNivel('grupoDim3', 'configuracion')}
                     </DropdownMenuItem>
                   </DropdownMenuContent>
                 </DropdownMenu>
               </>
             )}
-          </div>
-        </div>
-
-        <div className="flex flex-wrap items-center gap-3">
-          <BuscadorCatalogo
-            onExpandirRama={(ids) =>
-              setExpandidos((prev) => new Set([...prev, ...ids]))
-            }
-          />
-          {/* Filtro de estado (molde Select ˅ del ERP; reemplaza el
+          </>
+        }
+      />
+      <BarraFiltros
+        filtros={
+          <>
+            <BuscadorCatalogo
+              onExpandirRama={(ids) => setExpandidos((prev) => new Set([...prev, ...ids]))}
+            />
+            {/* Filtro de estado (molde Select ˅ del ERP; reemplaza el
               checkbox suelto). El árbol lazy solo distingue vivos vs
               incluir-inactivos — no un estatus fino. */}
-          <Select
-            value={incluirInactivos ? 'todos' : 'activos'}
-            onValueChange={(v) => setIncluirInactivos(v === 'todos')}
-          >
-            <SelectTrigger className="w-48" aria-label="Filtro de estado">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="activos">Activos y en revisión</SelectItem>
-              <SelectItem value="todos">Incluir inactivos</SelectItem>
-            </SelectContent>
-          </Select>
-        </div>
-      </header>
+            <Select
+              value={incluirInactivos ? 'todos' : 'activos'}
+              onValueChange={(v) => setIncluirInactivos(v === 'todos')}
+            >
+              <SelectTrigger className="w-48" aria-label="Filtro de estado">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="activos">Activos y en revisión</SelectItem>
+                <SelectItem value="todos">Incluir inactivos</SelectItem>
+              </SelectContent>
+            </Select>
+          </>
+        }
+      />
 
       <ArbolCentrosCosto
         key={[...expandidos].join(':')}

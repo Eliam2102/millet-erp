@@ -86,7 +86,7 @@ export function TextAreaField({
           className={cn(
             'text-right text-xs',
             length === maxLength
-              ? 'text-rose-600'
+              ? 'text-danger-fg'
               : 'text-muted-foreground',
           )}
           aria-live="polite"

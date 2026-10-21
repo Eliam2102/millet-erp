@@ -12,7 +12,7 @@ export function SerieAnticipoProveedor({ proveedorId }: { proveedorId: string })
     onSuccess: () => { query.refetch(); toast.success('Serie de anticipos configurada'); }, onError: e => toast.error(esApiError(e) ? e.problem.detail ?? e.problem.title : 'No se pudo configurar la serie.') });
   if (!proveedorId) return null;
   return <fieldset className="space-y-2 rounded-lg border border-line p-3"><legend className="text-sm font-medium text-ink">Serie de anticipos del proveedor</legend>
-    <p className="text-xs text-ink-muted">Serie vigente: {query.data?.serie ?? (query.isLoading ? 'Cargando…' : 'Por confirmar')}. FANT es la serie por omisión.</p>
+    <p className="text-xs text-ink-muted">Serie vigente: {query.data?.serie ?? (query.isLoading ? 'Cargando…' : 'Sin serie')}. FANT es la serie por omisión.</p>
     <Label htmlFor="p4-serie-config">Nueva serie</Label><Input id="p4-serie-config" value={serie} maxLength={25} onChange={e => setSerie(e.target.value)} />
     <Button type="button" variant="secondary" disabled={!serie.trim() || guardar.isPending} title={!serie.trim() ? 'Captura la serie del proveedor.' : undefined} onClick={() => guardar.mutate()}>Configurar serie</Button>
   </fieldset>;

@@ -204,7 +204,7 @@ export function UbicacionBinSelector({
             adornos={
               <>
                 {u.esDefault && (
-                  <span className="ml-2 rounded bg-sky-100 px-1 text-[10px] font-medium text-sky-800">
+                  <span className="ml-2 rounded bg-info-bg px-1 text-[10px] font-medium text-info-fg">
                     ÚNICA
                   </span>
                 )}

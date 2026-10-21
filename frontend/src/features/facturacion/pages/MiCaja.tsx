@@ -1,4 +1,6 @@
 import { DateTimeDisplay, ErrorState, TableSkeleton } from '@/components/erp';
+import { KpiCard } from '@/components/erp/display/KpiCard';
+import { resumirSesionCaja } from '@/features/facturacion/lib/resumen-caja';
 import { ContextoSucursal } from '@/components/erp/display/ContextoSucursal';
 import { MontoMovimiento } from '@/components/erp/display/MontoMovimiento';
 import { PageHeader } from '@/components/erp/PageHeader';
@@ -79,7 +81,9 @@ function nombreForma(clave: string): string {
 }
 
 function formatearMxn(v: number): string {
-  return new Intl.NumberFormat('es-MX', { style: 'currency', currency: 'MXN' }).format(v);
+  return new Intl.NumberFormat('es-MX', { style: 'currency', currency: 'MXN' })
+    .format(v)
+    .replace('-', '−');
 }
 
 function toastError(error: unknown, fallback: string) {
@@ -269,6 +273,18 @@ function AperturaSesionCard() {
 function SesionPanel(props: { sesion: CajaSesionDetalleResponse; bloqueada: boolean }) {
   const { sesion } = props;
   const enArqueo = sesion.estado === 'EnArqueo';
+  const resumen = resumirSesionCaja(sesion);
+  const desglose = [
+    `Fondo ${formatearMxn(resumen.fondo)}`,
+    resumen.cobrosEfectivo !== 0 && `cobros ${formatearMxn(resumen.cobrosEfectivo)}`,
+    resumen.retiros !== 0 && `retiros ${formatearMxn(resumen.retiros)}`,
+    resumen.depositos !== 0 && `depósitos ${formatearMxn(resumen.depositos)}`,
+    resumen.ajustes !== 0 &&
+      `ajustes ${resumen.ajustes > 0 ? '+' : ''}${formatearMxn(resumen.ajustes)}`,
+  ]
+    .filter(Boolean)
+    .join(' · ');
+
   const puedeOperar = useHasPermission(PermisosCanonicos.FacturacionCajaOperar);
 
   return (
@@ -295,15 +311,26 @@ function SesionPanel(props: { sesion: CajaSesionDetalleResponse; bloqueada: bool
           </div>
         </div>
 
-        <div className="mt-3 grid grid-cols-2 gap-2 md:grid-cols-4">
-          {sesion.totalesPorForma.map((t) => (
-            <div
-              key={t.formaPago}
-              className="rounded-md border bg-surface-muted/20 p-2 border-line"
-            >
-              <div className="text-xs text-ink-muted">{nombreForma(t.formaPago)}</div>
-              <div className="font-mono text-sm tabular-nums">{formatearMxn(t.montoSistema)}</div>
-            </div>
+        <div className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
+          <KpiCard
+            etiqueta={enArqueo ? 'Efectivo esperado' : 'Efectivo en caja'}
+            valor={formatearMxn(resumen.efectivo)}
+            subdato={<span className="tabular-nums">{desglose}</span>}
+            tono="success"
+          />
+          <KpiCard
+            etiqueta="Cobrado en la sesión"
+            valor={formatearMxn(resumen.cobradoSesion)}
+            subdato={`${resumen.numeroCobros} ${resumen.numeroCobros === 1 ? 'cobro' : 'cobros'}`}
+            tono="info"
+          />
+          {resumen.otrasFormas.map(({ formaPago, monto }) => (
+            <KpiCard
+              key={formaPago}
+              etiqueta={nombreForma(formaPago)}
+              valor={formatearMxn(monto)}
+              tono="neutral"
+            />
           ))}
         </div>
       </div>

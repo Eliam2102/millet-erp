@@ -33,9 +33,11 @@ public sealed record FacturaCobrablePpdItem(
 public sealed class FacturasCobrablesPpdHandler
     : IRequestHandler<FacturasCobrablesPpdQuery, IReadOnlyList<FacturaCobrablePpdItem>>
 {
-    // Se cargan más candidatas que el límite porque las saldadas se filtran
-    // en memoria (el saldo requiere NC + pagos agregados).
-    private const int FactorCandidatas = 3;
+    // El saldo requiere NC + pagos agregados, así que se filtra en memoria.
+    // Las candidatas se recorren en lotes (orden estable) hasta llenar el
+    // límite o agotarlas: un corte fijo perdía las PPD vigentes cuando el
+    // cliente tenía muchas saldadas más recientes (tarea 86e3tfd8k).
+    private const int FactorLote = 3;
 
     private readonly FacturacionDbContext _db;
 
@@ -63,40 +65,53 @@ public sealed class FacturasCobrablesPpdHandler
                              || f.ReceptorRfc.Contains(search));
         }
 
-        var candidatas = await q
+        var ordenadas = q
             .OrderByDescending(f => f.FechaTimbrado)
-            .Take(limite * FactorCandidatas)
-            .Select(f => new
-            {
-                f.Id, f.Folio, f.ReceptorRfc, f.ReceptorNombre, f.Moneda, f.Total, f.FechaTimbrado,
-            })
-            .ToListAsync(cancellationToken);
+            .ThenBy(f => f.Id);
+        var lote = limite * FactorLote;
+        var resultado = new List<FacturaCobrablePpdItem>(limite);
 
-        if (candidatas.Count == 0)
-            return [];
+        for (var saltar = 0; resultado.Count < limite; saltar += lote)
+        {
+            var candidatas = await ordenadas
+                .Skip(saltar)
+                .Take(lote)
+                .Select(f => new
+                {
+                    f.Id, f.Folio, f.ReceptorRfc, f.ReceptorNombre, f.Moneda, f.Total, f.FechaTimbrado,
+                })
+                .ToListAsync(cancellationToken);
 
-        var ids = candidatas.Select(c => c.Id).ToList();
-        var acreditados = await SaldoPorCobrar.AcreditadoPorFacturaAsync(_db, ids, cancellationToken);
-        var pagos = await SaldoPorCobrar.PagosVigentes(_db)
-            .Where(p => ids.Contains(p.FacturaVentaId))
-            .GroupBy(p => p.FacturaVentaId)
-            .Select(g => new { FacturaId = g.Key, Pagado = g.Sum(p => p.ImportePagado), Parcialidades = g.Count() })
-            .ToDictionaryAsync(x => x.FacturaId, cancellationToken);
+            if (candidatas.Count == 0)
+                break;
 
-        return candidatas
-            .Select(c =>
-            {
-                var acreditado = acreditados.GetValueOrDefault(c.Id);
-                pagos.TryGetValue(c.Id, out var pago);
-                return new FacturaCobrablePpdItem(
-                    c.Id, c.Folio, c.ReceptorRfc, c.ReceptorNombre, c.Moneda, c.Total,
-                    acreditado, pago?.Pagado ?? 0m,
-                    c.Total - acreditado - (pago?.Pagado ?? 0m),
-                    (pago?.Parcialidades ?? 0) + 1,
-                    c.FechaTimbrado);
-            })
-            .Where(i => i.Saldo > 0)
-            .Take(limite)
-            .ToList();
+            var ids = candidatas.Select(c => c.Id).ToList();
+            var acreditados = await SaldoPorCobrar.AcreditadoPorFacturaAsync(_db, ids, cancellationToken);
+            var pagos = await SaldoPorCobrar.PagosVigentes(_db)
+                .Where(p => ids.Contains(p.FacturaVentaId))
+                .GroupBy(p => p.FacturaVentaId)
+                .Select(g => new { FacturaId = g.Key, Pagado = g.Sum(p => p.ImportePagado), Parcialidades = g.Count() })
+                .ToDictionaryAsync(x => x.FacturaId, cancellationToken);
+
+            resultado.AddRange(candidatas
+                .Select(c =>
+                {
+                    var acreditado = acreditados.GetValueOrDefault(c.Id);
+                    pagos.TryGetValue(c.Id, out var pago);
+                    return new FacturaCobrablePpdItem(
+                        c.Id, c.Folio, c.ReceptorRfc, c.ReceptorNombre, c.Moneda, c.Total,
+                        acreditado, pago?.Pagado ?? 0m,
+                        c.Total - acreditado - (pago?.Pagado ?? 0m),
+                        (pago?.Parcialidades ?? 0) + 1,
+                        c.FechaTimbrado);
+                })
+                .Where(i => i.Saldo > 0)
+                .Take(limite - resultado.Count));
+
+            if (candidatas.Count < lote)
+                break;
+        }
+
+        return resultado;
     }
 }

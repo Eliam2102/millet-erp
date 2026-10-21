@@ -17,12 +17,12 @@ export const PendientesSearchSchema = z.object({
   // Filtro server-side; ausente = todos.
   nivelPendiente: z.coerce.number().int().min(1).max(2).optional(),
   offset: z.coerce.number().int().min(0).optional().default(0),
-  limit: z.coerce.number().int().min(1).max(200).optional().default(25),
+  limit: z.coerce.number().int().min(1).max(200).optional().default(10),
 });
 
 export type PendientesSearch = z.infer<typeof PendientesSearchSchema>;
 
 export const DEFAULT_PENDIENTES_SEARCH: PendientesSearch = {
   offset: 0,
-  limit: 25,
+  limit: 10,
 };

@@ -243,14 +243,14 @@ export function ExpedienteDetallePage({ id }: { id: string }) {
                 </TableHeader>
                 <TableBody>
                   <TableRow>
-                    <TableCell className="font-mono text-xs">{data.ocFolio ?? '[OC]'}</TableCell>
-                    <TableCell>{data.informacionImportacion?.paisOrigen ?? '[SIN DATO]'}</TableCell>
+                    <TableCell className="font-mono text-xs">{data.ocFolio ?? 'Sin número'}</TableCell>
+                    <TableCell>{data.informacionImportacion?.paisOrigen ?? <span className="text-ink-muted">Sin país de origen</span>}</TableCell>
                     <TableCell className="font-mono text-xs">
-                      {data.informacionImportacion?.numeroContenedor ?? '[SIN DATO]'}
+                      {data.informacionImportacion?.numeroContenedor ?? <span className="text-ink-muted">Sin número</span>}
                     </TableCell>
-                    <TableCell>{data.informacionImportacion?.codigoRuta ?? '[SIN DATO]'}</TableCell>
+                    <TableCell>{data.informacionImportacion?.codigoRuta ?? <span className="text-ink-muted">Sin ruta</span>}</TableCell>
                     <TableCell className="font-mono text-xs">
-                      {data.informacionImportacion?.numeroPedimento ?? '[SIN DATO]'}
+                      {data.informacionImportacion?.numeroPedimento ?? <span className="text-ink-muted">Sin número</span>}
                     </TableCell>
                   </TableRow>
                 </TableBody>

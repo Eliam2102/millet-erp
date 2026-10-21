@@ -12,10 +12,7 @@ interface ResumenAprobacionMasivaProps {
  * eso vive en el estado de la página y se cierra con «Entendido» o al cambiar
  * la selección.
  */
-export function ResumenAprobacionMasiva({
-  resultados,
-  onCerrar,
-}: ResumenAprobacionMasivaProps) {
+export function ResumenAprobacionMasiva({ resultados, onCerrar }: ResumenAprobacionMasivaProps) {
   if (resultados.length === 0) return null;
 
   const aprobadas = resultados.filter((r) => r.ok);
@@ -28,7 +25,7 @@ export function ResumenAprobacionMasiva({
       aria-live="polite"
       aria-label="Resumen de aprobación"
       data-component="resumen-aprobacion-masiva"
-      className="space-y-2 rounded-md border bg-card p-3 text-sm"
+      className="space-y-2 rounded-md border bg-surface-card p-3 text-sm"
     >
       <div className="flex flex-wrap items-center justify-between gap-2">
         <p className="font-medium">{titulo}</p>
@@ -53,9 +50,7 @@ export function ResumenAprobacionMasiva({
             {errores.map((r) => (
               <li key={r.id}>
                 <span className="font-mono">{r.folio}</span>:{' '}
-                <span className="text-danger-fg">
-                  {r.mensaje ?? 'Error al aprobar'}
-                </span>
+                <span className="text-danger-fg">{r.mensaje ?? 'Error al aprobar'}</span>
               </li>
             ))}
           </ul>

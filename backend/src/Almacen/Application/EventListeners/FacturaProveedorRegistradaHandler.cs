@@ -54,13 +54,18 @@ public sealed class FacturaProveedorRegistradaHandler
         // F2-PR1; se infiere por (oc_id presente, packing_list_blob_ref
         // presente, factura_id NULL). Cuando aparezca el flag explícito,
         // bastará con substituir el predicado.
-        var recepcionesPendientes = await _db.Movimientos
+        var consulta = _db.Movimientos
             .Where(m => m.Tipo == TipoMovimiento.EntradaCompra
                 && m.OcId == payload.OrdenCompraId
                 && m.PackingListBlobRef != null
                 && m.FacturaId == null
-                && m.Estado == EstadoMovimiento.Registrado)
-            .ToListAsync(cancellationToken);
+                && m.Estado == EstadoMovimiento.Registrado);
+
+        // 86e3tfedr: con RecepcionId solo esa recepción (principal + revisión).
+        if (payload.RecepcionId is Guid rid)
+            consulta = consulta.Where(m => m.Id == rid || m.RecepcionOrigenId == rid);
+
+        var recepcionesPendientes = await consulta.ToListAsync(cancellationToken);
 
         if (recepcionesPendientes.Count == 0)
         {
@@ -70,8 +75,8 @@ public sealed class FacturaProveedorRegistradaHandler
             return;
         }
 
-        // Vincula la factura a TODAS las recepciones pendientes de la OC
-        // (puede haber varias parciales).
+        // Con RecepcionId: sólo esa recepción (principal + revisión). Sin RecepcionId
+        // (mensajes antiguos o captura sin elección): todas las pendientes de la OC.
         foreach (var recepcion in recepcionesPendientes)
         {
             // Reflexión interna: ConciliarConFacturaProveedor es internal.
@@ -86,12 +91,12 @@ public sealed class FacturaProveedorRegistradaHandler
         _db.Set<EventoProcesado>().Add(new EventoProcesado(
             eventoId: request.EventId,
             eventoTipo: EventType,
-            observaciones: $"OC={payload.OrdenCompraId}, factura={payload.FacturaProveedorId}, recepciones={recepcionesPendientes.Count}"));
+            observaciones: $"OC={payload.OrdenCompraId}, factura={payload.FacturaProveedorId}, recepciones={recepcionesPendientes.Count}, RecepcionId={payload.RecepcionId}"));
 
         await _db.SaveChangesAsync(cancellationToken);
 
         _logger.LogInformation(
-            "FacturaProveedorRegistrada procesada. OC={OcId} Factura={FacturaId} RecepcionesVinculadas={N}",
-            payload.OrdenCompraId, payload.FacturaProveedorId, recepcionesPendientes.Count);
+            "FacturaProveedorRegistrada procesada. OC={OcId} Factura={FacturaId} RecepcionesVinculadas={N} RecepcionId={RecepcionId}",
+            payload.OrdenCompraId, payload.FacturaProveedorId, recepcionesPendientes.Count, payload.RecepcionId);
     }
 }

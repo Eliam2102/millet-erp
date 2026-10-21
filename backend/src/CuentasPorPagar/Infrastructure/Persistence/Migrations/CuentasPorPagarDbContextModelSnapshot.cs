@@ -1696,6 +1696,10 @@ namespace Millet.CuentasPorPagar.Infrastructure.Persistence.Migrations
                         .HasColumnType("uuid")
                         .HasColumnName("proveedor_id");
 
+                    b.Property<Guid?>("RecepcionId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("recepcion_id");
+
                     b.Property<decimal>("RedondeoAplicado")
                         .HasPrecision(18, 4)
                         .HasColumnType("numeric(18,4)")
@@ -1780,6 +1784,10 @@ namespace Millet.CuentasPorPagar.Infrastructure.Persistence.Migrations
 
                     b.HasKey("Id")
                         .HasName("pk_facturas_proveedor");
+
+                    b.HasIndex("RecepcionId")
+                        .HasDatabaseName("ix_facturas_proveedor_recepcion")
+                        .HasFilter("recepcion_id IS NOT NULL");
 
                     b.HasIndex("UuidCfdi")
                         .HasDatabaseName("ix_facturas_proveedor_uuid")

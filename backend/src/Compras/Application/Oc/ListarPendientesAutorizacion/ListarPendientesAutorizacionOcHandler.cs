@@ -126,15 +126,8 @@ public sealed class ListarPendientesAutorizacionOcHandler
         var proveedores = await _proveedores.ObtenerPorIdsAsync(proveedorIds, cancellationToken);
         var decisiones = await _evaluadorNivel.EvaluarAsync(ocs, cancellationToken);
 
-        var desde = DateOnly.FromDateTime(_clock.UtcNow.UtcDateTime).AddDays(-PendientesAutorizacionClasificacion.VentanaRecurrenciaDias);
-        var conteoRecurrencia = await _db.OrdenesCompra
-            .AsNoTracking()
-            .Where(o => proveedorIds.Contains(o.ProveedorId)
-                        && o.FechaDocumento >= desde
-                        && o.Estado != EstadoOrdenCompra.Cancelada)
-            .GroupBy(o => new { o.ProveedorId, o.CompradorTitularId })
-            .Select(g => new { g.Key.ProveedorId, g.Key.CompradorTitularId, Conteo = g.Count() })
-            .ToListAsync(cancellationToken);
+        var conteoRecurrencia = await RecurrenciaOc.ContarAsync(
+            _db, proveedorIds, RecurrenciaOc.Desde(_clock.UtcNow), cancellationToken);
 
         var proveedoresConocidos = (await _db.OrdenesCompra
             .AsNoTracking()
@@ -152,10 +145,7 @@ public sealed class ListarPendientesAutorizacionOcHandler
                 return i;
             }
 
-            var recurrente = conteoRecurrencia.Any(c =>
-                c.ProveedorId == i.ProveedorId
-                && c.CompradorTitularId == i.CompradorTitularId
-                && PendientesAutorizacionClasificacion.EsRecurrente(c.Conteo));
+            var recurrente = RecurrenciaOc.EsRecurrente(conteoRecurrencia, i.ProveedorId, i.CompradorTitularId);
 
             return i with
             {

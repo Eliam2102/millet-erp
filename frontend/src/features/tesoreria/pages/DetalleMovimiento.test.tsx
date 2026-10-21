@@ -37,4 +37,10 @@ describe('<DetalleMovimiento> fondos verificados', () => {
     detalle({ fondosVerificados: true, destinoBanco: 'Banco', destinoNumeroCuenta: '••••1' });
     expect(await screen.findByText('Fondos verificados')).toBeInTheDocument();
   });
+
+  it('no lo muestra con cuenta destino si fondosVerificados es false', async () => {
+    detalle({ fondosVerificados: false, destinoBanco: 'Banco', destinoNumeroCuenta: '••••1' });
+    await screen.findByText('Estados');
+    expect(screen.queryByText('Fondos verificados')).not.toBeInTheDocument();
+  });
 });

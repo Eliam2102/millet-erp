@@ -277,7 +277,7 @@ export function BandejaCuentas() {
           <AlertDialogFooter>
             <AlertDialogCancel>Cancelar</AlertDialogCancel>
             <AlertDialogAction
-              className="bg-danger text-white hover:bg-danger"
+              className="bg-danger text-primary-foreground hover:bg-danger"
               onClick={() => {
                 if (desactivando != null) ejecutarCambioEstado(desactivando, false);
                 setDesactivando(null);

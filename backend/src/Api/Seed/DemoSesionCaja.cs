@@ -1,4 +1,5 @@
 using Microsoft.EntityFrameworkCore;
+using Millet.Administracion.Domain;
 using Millet.Compartido.Infrastructure.Persistence;
 using Millet.Facturacion.Application.Cajas.Sesiones;
 using Millet.Facturacion.Domain.Cajas;
@@ -18,7 +19,7 @@ namespace Millet.Api.Seed;
 /// queda Cerrada; así no bloquea abrir la sesión de hoy (§5.2).
 ///
 /// <para>
-/// Las facturas son ficticias: folio <c>DEMO-C*</c> (corto: cabe en la columna del corte en PDF), sin XML ni PDF y con
+/// Las facturas son ficticias: folio reservado de la serie de facturas (<c>FA-000001</c>…), avanzando su consecutivo como una factura real para que la primera emisión real no repita folio, sin XML ni PDF y con
 /// un UUID simulado (no pasan por el PAC). No publica eventos de integración,
 /// así que CxC no las ve en cartera y Tesorería no proyecta el depósito
 /// esperado de esta sesión; para mostrar ese recorrido se cobra en vivo.
@@ -88,6 +89,17 @@ public sealed partial class DemoSesionSeedHostedService
             (CajaMovimiento.Crear(EmpresaId, sesion.Id, TipoCajaMovimiento.Retiro, CajaSesion.FormaPagoEfectivo,
                 -RetiroDemo, CajeraDemoId, "Retiro parcial entregado a caja general"), A(new(15, 0))),
         };
+        // Los folios salen del consecutivo de la serie de facturas (igual que ReservarFolioCommand):
+        // si se escribieran fijos, la primera factura real repetiría FA-000001 (ix_comprobante_sucursal_folio).
+        var serieId = Id("DEMO-F");
+        var serie = await maestros.Series.IgnoreQueryFilters().SingleAsync(s => s.Id == serieId, ct);
+        var secuencia = await maestros.SecuenciasFolio.IgnoreQueryFilters()
+            .SingleOrDefaultAsync(s => s.SerieId == serieId && s.PeriodoClave == string.Empty, ct);
+        if (secuencia is null)
+        {
+            secuencia = new SecuenciaFolio(Guid.CreateVersion7(), serieId, string.Empty, serie.FolioInicial - 1);
+            maestros.SecuenciasFolio.Add(secuencia);
+        }
         var facturas = new List<FacturaVenta>();
         var cobros = new List<CobroMostrador>();
         for (var i = 0; i < CobrosDemo.Length; i++)
@@ -96,7 +108,8 @@ public sealed partial class DemoSesionSeedHostedService
             var cliente = ClientesSat.Single(x => x.Clave == c.Cliente);
             var receptor = new DatosFiscalesReceptor(cliente.Rfc, cliente.Nombre, "601", cliente.Cp, "G03", "MEX", false);
             var fecha = A(c.Hora);
-            var factura = FacturaVenta.CrearBorrador(EmpresaId, $"FA-{i + 1:000000}", i + 1, mid.Id, caja.Id, CajeraDemoId,
+            var numero = secuencia.ReservarSiguiente();
+            var factura = FacturaVenta.CrearBorrador(EmpresaId, $"{serie.Prefijo}{serie.Sufijo}-{numero:D6}", numero, mid.Id, caja.Id, CajeraDemoId,
                 receptor, emisor, "PUE", c.Pagos[0].Forma, "MXN", null, dia.Year, dia.Month, 1,
                 ComportamientoFiscal.MostradorInmediato, null, null, null, false);
             factura.AgregarLinea(null, "30171700", c.Articulo, "H87", c.Cantidad, c.Precio, 0, "02", .16m, null, null);
@@ -130,6 +143,7 @@ public sealed partial class DemoSesionSeedHostedService
         db.CobrosMostrador.AddRange(cobros);
         db.CajaMovimientos.AddRange(movimientos.Select(m => m.Movimiento));
         await db.SaveChangesAsync(ct);
+        await maestros.SaveChangesAsync(ct);
         // El corte ordena y fecha los movimientos por CreatedAt, que el interceptor
         // fija al momento de guardar: se lleva cada uno a su hora del día DEMO.
         foreach (var (movimiento, fecha) in movimientos)

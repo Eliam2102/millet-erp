@@ -1,3 +1,14 @@
+import { ListadoModulo } from '@/components/erp/data/ListadoModulo';
+import { BarraFiltros, PaginacionTabla } from '@/components/erp';
+import {
+  Table,
+  TableHeader,
+  TableRow,
+  TableHead,
+  TableBody,
+  TableCell,
+} from '@/components/ui/table';
+import { PageHeader } from '@/components/erp/PageHeader';
 import { useMemo, useState } from 'react';
 import { useQuery, useMutation } from '@tanstack/react-query';
 import { toast } from 'sonner';
@@ -355,30 +366,31 @@ export function AuditoriaPage() {
 
   return (
     <div className="space-y-4">
-      <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
-        <div>
-          <h1 className="text-2xl font-bold tracking-tight">Bitácora de auditoría</h1>
-          <Button
-            variant="secondary"
-            onClick={() => exportacion.mutate()}
-            disabled={exportacion.isPending}
-            title={
-              exportacion.isPending
-                ? 'Se está preparando el archivo.'
-                : 'Exportar todos los registros con los filtros aplicados'
-            }
-          >
-            <Download className="size-3.5" />
-            {exportacion.isPending ? 'Exportando…' : 'Exportar'}
-          </Button>
-          <p className="text-sm text-muted-foreground">
+      <PageHeader
+        titulo={<>Bitácora de auditoría</>}
+        descripcion={
+          <>
+            <Button
+              variant="secondary"
+              onClick={() => exportacion.mutate()}
+              disabled={exportacion.isPending}
+              title={
+                exportacion.isPending
+                  ? 'Se está preparando el archivo.'
+                  : 'Exportar todos los registros con los filtros aplicados'
+              }
+            >
+              <Download className="size-3.5" />
+              {exportacion.isPending ? 'Exportando…' : 'Exportar'}
+            </Button>
             Consulta consolidada de eventos del sistema (rango obligatorio, máx. 90 días).
-          </p>
-        </div>
-      </div>
+          </>
+        }
+        acciones={<></>}
+      />
 
       {filtroAggregateRootId && (
-        <div className="flex items-center justify-between rounded-md border border-primary/20 bg-primary/5 px-4 py-2 text-sm text-primary">
+        <div className="flex items-center justify-between rounded-md border border-brand/20 bg-brand/5 px-4 py-2 text-sm text-brand">
           <div className="flex items-center gap-2">
             <History className="h-4 w-4" />
             <span>
@@ -400,245 +412,237 @@ export function AuditoriaPage() {
       )}
 
       {/* Panel de Filtros */}
-      <div className="grid gap-3 rounded-lg border bg-card p-4 md:grid-cols-3 lg:grid-cols-4">
-        {/* Rango obligatorio */}
-        <div className="flex flex-col gap-1">
-          <label htmlFor="auditoria-desde" className="text-xs font-medium text-muted-foreground">
-            Desde <span className="text-destructive">*</span>
-          </label>
-          <Input
-            id="auditoria-desde"
-            type="date"
-            className="h-9"
-            value={draftDesde}
-            onChange={(e) => setDraftDesde(e.target.value)}
+      <ListadoModulo
+        filtros={
+          <BarraFiltros
+            filtros={
+              <div className="grid gap-3 rounded-lg border bg-surface-card p-4 md:grid-cols-3 lg:grid-cols-4">
+                {/* Rango obligatorio */}
+                <div className="flex flex-col gap-1">
+                  <label htmlFor="auditoria-desde" className="text-xs font-medium text-ink-muted">
+                    Desde <span className="text-danger-fg">*</span>
+                  </label>
+                  <Input
+                    id="auditoria-desde"
+                    type="date"
+                    className="h-9"
+                    value={draftDesde}
+                    onChange={(e) => setDraftDesde(e.target.value)}
+                  />
+                </div>
+
+                <div className="flex flex-col gap-1">
+                  <label htmlFor="auditoria-hasta" className="text-xs font-medium text-ink-muted">
+                    Hasta <span className="text-danger-fg">*</span>
+                  </label>
+                  <Input
+                    id="auditoria-hasta"
+                    type="date"
+                    className="h-9"
+                    value={draftHasta}
+                    onChange={(e) => setDraftHasta(e.target.value)}
+                  />
+                  {diasRango != null && diasRango > RANGO_MAX_DIAS && (
+                    <span className="text-2xs text-danger-fg">Máximo 90 días.</span>
+                  )}
+                </div>
+
+                {/* Búsqueda de texto */}
+                <div className="flex flex-col gap-1">
+                  <label htmlFor="auditoria-q" className="text-xs font-medium text-ink-muted">
+                    Buscar (texto libre)
+                  </label>
+                  <Input
+                    id="auditoria-q"
+                    type="search"
+                    placeholder="Actor, resumen, registro..."
+                    className="h-9"
+                    value={draftQ}
+                    onChange={(e) => setDraftQ(e.target.value)}
+                  />
+                </div>
+
+                {/* Tipo de actor */}
+                <div className="flex flex-col gap-1">
+                  <label className="text-xs font-medium text-ink-muted">Tipo de actor</label>
+                  <Select
+                    value={draftActorTipo || TODOS}
+                    onValueChange={(v) => setDraftActorTipo(v === TODOS ? '' : v)}
+                  >
+                    <SelectTrigger className="h-9">
+                      <SelectValue placeholder="Todos" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value={TODOS}>Todos los tipos</SelectItem>
+                      {ACTOR_TIPOS.map((t) => (
+                        <SelectItem key={t.value} value={t.value}>
+                          {t.label}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                {/* Módulo */}
+                <div className="flex flex-col gap-1">
+                  <label className="text-xs font-medium text-ink-muted">Módulo</label>
+                  <Select
+                    value={draftModulo || TODOS}
+                    onValueChange={(v) => setDraftModulo(v === TODOS ? '' : v)}
+                  >
+                    <SelectTrigger className="h-9">
+                      <SelectValue placeholder="Todos" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value={TODOS}>Todos</SelectItem>
+                      {MODULOS.map((m) => (
+                        <SelectItem key={m} value={m}>
+                          {m}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                {/* Recurso / Entidad */}
+                <div className="flex flex-col gap-1">
+                  <label htmlFor="auditoria-recurso" className="text-xs font-medium text-ink-muted">
+                    Entidad
+                  </label>
+                  <Input
+                    id="auditoria-recurso"
+                    placeholder="ej. Requisicion, Empleado..."
+                    className="h-9"
+                    value={draftRecurso}
+                    onChange={(e) => setDraftRecurso(e.target.value)}
+                  />
+                </div>
+
+                {/* Acción */}
+                <div className="flex flex-col gap-1">
+                  <label className="text-xs font-medium text-ink-muted">Acción</label>
+                  <Select
+                    value={draftAccion || TODOS}
+                    onValueChange={(v) => setDraftAccion(v === TODOS ? '' : v)}
+                  >
+                    <SelectTrigger className="h-9">
+                      <SelectValue placeholder="Todas" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value={TODOS}>Todas</SelectItem>
+                      {ACCIONES.map((a) => (
+                        <SelectItem key={a.value} value={a.value}>
+                          {a.label}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                {/* Usuario */}
+                <div className="flex flex-col gap-1">
+                  <label className="text-xs font-medium text-ink-muted">Usuario</label>
+                  <Select
+                    value={draftUsuarioId || TODOS}
+                    onValueChange={(v) => setDraftUsuarioId(v === TODOS ? '' : v)}
+                  >
+                    <SelectTrigger className="h-9">
+                      <SelectValue placeholder="Todos" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value={TODOS}>Todos</SelectItem>
+                      {usuarios.map((u) => (
+                        <SelectItem key={u.id} value={u.id}>
+                          {u.nombre || u.email}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                {/* Empresa */}
+                <div className="flex flex-col gap-1">
+                  <label className="text-xs font-medium text-ink-muted">Empresa</label>
+                  <Select
+                    value={draftEmpresaId || TODOS}
+                    onValueChange={(v) => setDraftEmpresaId(v === TODOS ? '' : v)}
+                  >
+                    <SelectTrigger className="h-9">
+                      <SelectValue placeholder="Todas" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value={TODOS}>Todas</SelectItem>
+                      {empresas.map((e) => (
+                        <SelectItem key={e.id} value={e.id}>
+                          <span className="font-mono text-xs">{e.rfc}</span> — {e.razonSocial}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                {/* Sucursal */}
+                <div className="flex flex-col gap-1">
+                  <label
+                    htmlFor="auditoria-sucursal"
+                    className="text-xs font-medium text-ink-muted"
+                  >
+                    Sucursal
+                  </label>
+                  <select
+                    id="auditoria-sucursal"
+                    className="h-9 rounded-md border border-line-control bg-surface-page px-2 text-sm"
+                    value={draftSucursalId}
+                    onChange={(e) => setDraftSucursalId(e.target.value)}
+                  >
+                    <option value="">Todas las sucursales de la empresa</option>
+                    {draftSucursalId &&
+                      !(sucursalesQuery.data ?? []).some((s) => s.id === draftSucursalId) && (
+                        <option value={draftSucursalId} hidden>
+                          {draftSucursalId}
+                        </option>
+                      )}
+                    {(sucursalesQuery.data ?? []).map((s) => (
+                      <option key={s.id} value={s.id}>
+                        {s.clave} · {s.nombre}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                {/* Botones de acción */}
+                <div className="flex items-end gap-2 md:col-span-3 lg:col-span-4">
+                  <Button type="button" size="sm" onClick={aplicar} disabled={rangoInvalido}>
+                    Aplicar
+                  </Button>
+                  <Button type="button" size="sm" variant="ghost" onClick={limpiar}>
+                    Limpiar
+                  </Button>
+                </div>
+              </div>
+            }
           />
-        </div>
-
-        <div className="flex flex-col gap-1">
-          <label htmlFor="auditoria-hasta" className="text-xs font-medium text-muted-foreground">
-            Hasta <span className="text-destructive">*</span>
-          </label>
-          <Input
-            id="auditoria-hasta"
-            type="date"
-            className="h-9"
-            value={draftHasta}
-            onChange={(e) => setDraftHasta(e.target.value)}
+        }
+        pie={
+          <PaginacionTabla
+            total={total}
+            offset={offset}
+            limit={PAGE_LIMIT}
+            tamanos={[]}
+            onChange={cambiarPagina}
           />
-          {diasRango != null && diasRango > RANGO_MAX_DIAS && (
-            <span className="text-[11px] text-destructive">Máximo 90 días.</span>
-          )}
-        </div>
-
-        {/* Búsqueda de texto */}
-        <div className="flex flex-col gap-1">
-          <label htmlFor="auditoria-q" className="text-xs font-medium text-muted-foreground">
-            Buscar (texto libre)
-          </label>
-          <Input
-            id="auditoria-q"
-            type="search"
-            placeholder="Actor, resumen, registro..."
-            className="h-9"
-            value={draftQ}
-            onChange={(e) => setDraftQ(e.target.value)}
-          />
-        </div>
-
-        {/* Tipo de actor */}
-        <div className="flex flex-col gap-1">
-          <label className="text-xs font-medium text-muted-foreground">Tipo de actor</label>
-          <Select
-            value={draftActorTipo || TODOS}
-            onValueChange={(v) => setDraftActorTipo(v === TODOS ? '' : v)}
-          >
-            <SelectTrigger className="h-9">
-              <SelectValue placeholder="Todos" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value={TODOS}>Todos los tipos</SelectItem>
-              {ACTOR_TIPOS.map((t) => (
-                <SelectItem key={t.value} value={t.value}>
-                  {t.label}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
-
-        {/* Módulo */}
-        <div className="flex flex-col gap-1">
-          <label className="text-xs font-medium text-muted-foreground">Módulo</label>
-          <Select
-            value={draftModulo || TODOS}
-            onValueChange={(v) => setDraftModulo(v === TODOS ? '' : v)}
-          >
-            <SelectTrigger className="h-9">
-              <SelectValue placeholder="Todos" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value={TODOS}>Todos</SelectItem>
-              {MODULOS.map((m) => (
-                <SelectItem key={m} value={m}>
-                  {m}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
-
-        {/* Recurso / Entidad */}
-        <div className="flex flex-col gap-1">
-          <label htmlFor="auditoria-recurso" className="text-xs font-medium text-muted-foreground">
-            Entidad
-          </label>
-          <Input
-            id="auditoria-recurso"
-            placeholder="ej. Requisicion, Empleado..."
-            className="h-9"
-            value={draftRecurso}
-            onChange={(e) => setDraftRecurso(e.target.value)}
-          />
-        </div>
-
-        {/* Acción */}
-        <div className="flex flex-col gap-1">
-          <label className="text-xs font-medium text-muted-foreground">Acción</label>
-          <Select
-            value={draftAccion || TODOS}
-            onValueChange={(v) => setDraftAccion(v === TODOS ? '' : v)}
-          >
-            <SelectTrigger className="h-9">
-              <SelectValue placeholder="Todas" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value={TODOS}>Todas</SelectItem>
-              {ACCIONES.map((a) => (
-                <SelectItem key={a.value} value={a.value}>
-                  {a.label}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
-
-        {/* Usuario */}
-        <div className="flex flex-col gap-1">
-          <label className="text-xs font-medium text-muted-foreground">Usuario</label>
-          <Select
-            value={draftUsuarioId || TODOS}
-            onValueChange={(v) => setDraftUsuarioId(v === TODOS ? '' : v)}
-          >
-            <SelectTrigger className="h-9">
-              <SelectValue placeholder="Todos" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value={TODOS}>Todos</SelectItem>
-              {usuarios.map((u) => (
-                <SelectItem key={u.id} value={u.id}>
-                  {u.nombre || u.email}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
-
-        {/* Empresa */}
-        <div className="flex flex-col gap-1">
-          <label className="text-xs font-medium text-muted-foreground">Empresa</label>
-          <Select
-            value={draftEmpresaId || TODOS}
-            onValueChange={(v) => setDraftEmpresaId(v === TODOS ? '' : v)}
-          >
-            <SelectTrigger className="h-9">
-              <SelectValue placeholder="Todas" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value={TODOS}>Todas</SelectItem>
-              {empresas.map((e) => (
-                <SelectItem key={e.id} value={e.id}>
-                  <span className="font-mono text-xs">{e.rfc}</span> — {e.razonSocial}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
-
-        {/* Sucursal */}
-        <div className="flex flex-col gap-1">
-          <label htmlFor="auditoria-sucursal" className="text-xs font-medium text-muted-foreground">
-            Sucursal
-          </label>
-          <select
-            id="auditoria-sucursal"
-            className="h-9 rounded-md border border-input bg-background px-2 text-sm"
-            value={draftSucursalId}
-            onChange={(e) => setDraftSucursalId(e.target.value)}
-          >
-            <option value="">Todas las sucursales de la empresa</option>
-            {draftSucursalId &&
-              !(sucursalesQuery.data ?? []).some((s) => s.id === draftSucursalId) && (
-                <option value={draftSucursalId} hidden>
-                  {draftSucursalId}
-                </option>
-              )}
-            {(sucursalesQuery.data ?? []).map((s) => (
-              <option key={s.id} value={s.id}>
-                {s.clave} · {s.nombre}
-              </option>
-            ))}
-          </select>
-        </div>
-
-        {/* Botones de acción */}
-        <div className="flex items-end gap-2 md:col-span-3 lg:col-span-4">
-          <Button type="button" size="sm" onClick={aplicar} disabled={rangoInvalido}>
-            Aplicar
-          </Button>
-          <Button type="button" size="sm" variant="ghost" onClick={limpiar}>
-            Limpiar
-          </Button>
-        </div>
-      </div>
-
-      <AuditoriaTabla
-        items={items}
-        isLoading={auditoriaQuery.isLoading || auditoriaQuery.isFetching}
-        isError={auditoriaQuery.isError}
-        error={auditoriaQuery.error}
-        onRetry={() => auditoriaQuery.refetch()}
-        onVer={(entry) => setSeleccionado(entry)}
-        lookups={lookups}
-      />
-
-      {total > PAGE_LIMIT && (
-        <div className="flex items-center justify-between text-xs text-muted-foreground">
-          <span>
-            Mostrando {offset + 1}–{Math.min(offset + items.length, total)} de {total}
-          </span>
-          <div className="flex items-center gap-2">
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              disabled={offset === 0}
-              onClick={() => cambiarPagina(Math.max(0, offset - PAGE_LIMIT))}
-            >
-              Anterior
-            </Button>
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              disabled={offset + PAGE_LIMIT >= total}
-              onClick={() => cambiarPagina(offset + PAGE_LIMIT)}
-            >
-              Siguiente
-            </Button>
-          </div>
-        </div>
-      )}
+        }
+      >
+        <AuditoriaTabla
+          items={items}
+          isLoading={auditoriaQuery.isLoading || auditoriaQuery.isFetching}
+          isError={auditoriaQuery.isError}
+          error={auditoriaQuery.error}
+          onRetry={() => auditoriaQuery.refetch()}
+          onVer={(entry) => setSeleccionado(entry)}
+          lookups={lookups}
+        />
+      </ListadoModulo>
 
       <AuditoriaDetalleDrawer
         entry={seleccionado}
@@ -704,34 +708,34 @@ function AuditoriaTabla({
   }
 
   return (
-    <div className="overflow-x-auto rounded-md border bg-card">
-      <table className="w-full text-sm">
-        <thead className="border-b bg-muted/30 text-xs uppercase text-muted-foreground">
-          <tr>
-            <th scope="col" className="px-3 py-2 text-left">
+    <div className="overflow-x-auto rounded-md border bg-surface-card">
+      <Table className="w-full text-sm">
+        <TableHeader className="border-b bg-surface-muted/30 text-xs uppercase text-ink-muted">
+          <TableRow>
+            <TableHead scope="col" className="px-3 py-2 text-left">
               Fecha y hora
-            </th>
-            <th scope="col" className="px-3 py-2 text-left">
+            </TableHead>
+            <TableHead scope="col" className="px-3 py-2 text-left">
               Quién
-            </th>
-            <th scope="col" className="px-3 py-2 text-left">
+            </TableHead>
+            <TableHead scope="col" className="px-3 py-2 text-left">
               Qué hizo
-            </th>
-            <th scope="col" className="px-3 py-2 text-left">
+            </TableHead>
+            <TableHead scope="col" className="px-3 py-2 text-left">
               Registro
-            </th>
-            <th scope="col" className="px-3 py-2 text-left">
+            </TableHead>
+            <TableHead scope="col" className="px-3 py-2 text-left">
               Módulo
-            </th>
-            <th scope="col" className="px-3 py-2 text-left">
+            </TableHead>
+            <TableHead scope="col" className="px-3 py-2 text-left">
               Sucursal
-            </th>
-            <th scope="col" className="px-3 py-2 text-right">
+            </TableHead>
+            <TableHead scope="col" className="px-3 py-2 text-right">
               Acciones
-            </th>
-          </tr>
-        </thead>
-        <tbody className="divide-y">
+            </TableHead>
+          </TableRow>
+        </TableHeader>
+        <TableBody className="divide-y">
           {items.map((entry) => {
             const actorTipo = entry.actorTipo?.toLowerCase() ?? 'usuario';
             const actorNombre =
@@ -792,24 +796,19 @@ function AuditoriaTabla({
             );
 
             return (
-              <tr key={entry.id} className="hover:bg-muted/10">
-                <td
+              <TableRow key={entry.id} className="hover:bg-surface-muted/10">
+                <TableCell
                   className="px-3 py-2 whitespace-nowrap tabular-nums text-xs"
                   title={entry.timestamp}
                 >
-                  <div className="font-medium text-foreground">{formatFecha(entry.timestamp)}</div>
-                  <div className="text-[11px] text-muted-foreground">
-                    {formatHora(entry.timestamp)} hrs
-                  </div>
-                </td>
-                <td className="px-3 py-2">
+                  <div className="font-medium text-ink">{formatFecha(entry.timestamp)}</div>
+                  <div className="text-2xs text-ink-muted">{formatHora(entry.timestamp)} hrs</div>
+                </TableCell>
+                <TableCell className="px-3 py-2">
                   <div className="flex flex-col gap-0.5">
                     <div className="flex items-center gap-1.5 flex-wrap">
-                      <span className="font-medium text-foreground">{actorNombre}</span>
-                      <Badge
-                        variant={actorTipo === 'usuario' ? 'secondary' : 'outline'}
-                        className="text-[10px] px-1.5 py-0 capitalize"
-                      >
+                      <span className="font-medium text-ink">{actorNombre}</span>
+                      <Badge variant={actorTipo === 'usuario' ? 'success' : 'neutral'}>
                         {entry.actorTipo || 'usuario'}
                       </Badge>
                     </div>
@@ -818,48 +817,44 @@ function AuditoriaTabla({
                         entry.actorEmail ||
                         (entry.usuarioId ? lookups.usuariosEmail?.[entry.usuarioId] : null);
                       if (email) {
-                        return <span className="text-xs text-muted-foreground">{email}</span>;
+                        return <span className="text-xs text-ink-muted">{email}</span>;
                       }
                       if (entry.origen) {
-                        return (
-                          <span className="text-xs text-muted-foreground">{entry.origen}</span>
-                        );
+                        return <span className="text-xs text-ink-muted">{entry.origen}</span>;
                       }
                       return null;
                     })()}
                   </div>
-                </td>
-                <td className="px-3 py-2">
-                  <span className="text-sm font-medium text-foreground">{resumenHumanizado}</span>
-                </td>
-                <td className="px-3 py-2">
+                </TableCell>
+                <TableCell className="px-3 py-2">
+                  <span className="text-sm font-medium text-ink">{resumenHumanizado}</span>
+                </TableCell>
+                <TableCell className="px-3 py-2">
                   <div className="flex flex-col">
-                    <span className="text-sm font-medium text-foreground">{etiquetaRegistro}</span>
-                    <span className="text-xs text-muted-foreground">{entry.entidad}</span>
+                    <span className="text-sm font-medium text-ink">{etiquetaRegistro}</span>
+                    <span className="text-xs text-ink-muted">{entry.entidad}</span>
                   </div>
-                </td>
-                <td className="px-3 py-2 whitespace-nowrap">
+                </TableCell>
+                <TableCell className="px-3 py-2 whitespace-nowrap">
                   <span className="text-sm">{entry.modulo}</span>
-                </td>
-                <td className="px-3 py-2 whitespace-nowrap">
+                </TableCell>
+                <TableCell className="px-3 py-2 whitespace-nowrap">
                   {sucursalNombre ? (
                     <div className="flex flex-col">
-                      <span className="text-sm font-medium text-foreground">{sucursalNombre}</span>
+                      <span className="text-sm font-medium text-ink">{sucursalNombre}</span>
                       {entry.sucursalClave && (
-                        <span className="text-[11px] text-muted-foreground font-mono">
+                        <span className="text-2xs text-ink-muted font-mono">
                           {entry.sucursalClave}
                         </span>
                       )}
                     </div>
                   ) : entry.sucursalClave ? (
-                    <span className="text-sm text-muted-foreground font-mono">
-                      {entry.sucursalClave}
-                    </span>
+                    <span className="text-sm text-ink-muted font-mono">{entry.sucursalClave}</span>
                   ) : (
-                    <span className="text-sm text-muted-foreground">No aplica</span>
+                    <span className="text-sm text-ink-muted">No aplica</span>
                   )}
-                </td>
-                <td className="px-3 py-2 text-right whitespace-nowrap">
+                </TableCell>
+                <TableCell className="px-3 py-2 text-right whitespace-nowrap">
                   <Button
                     type="button"
                     size="sm"
@@ -870,12 +865,12 @@ function AuditoriaTabla({
                     <Eye className="mr-1 h-4 w-4" />
                     Ver
                   </Button>
-                </td>
-              </tr>
+                </TableCell>
+              </TableRow>
             );
           })}
-        </tbody>
-      </table>
+        </TableBody>
+      </Table>
     </div>
   );
 }

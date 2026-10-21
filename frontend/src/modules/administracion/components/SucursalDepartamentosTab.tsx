@@ -11,6 +11,7 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
+  DialogBody,
 } from '@/components/ui/dialog';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useDepartamentos } from '@/features/catalogos/api';
@@ -78,7 +79,7 @@ export function SucursalDepartamentosTab({
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div className="flex items-center gap-2">
           <div className="relative w-full sm:w-72">
-            <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+            <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-ink-muted" />
             <Input
               placeholder="Buscar en asignados..."
               value={filtro}
@@ -87,7 +88,7 @@ export function SucursalDepartamentosTab({
               aria-label="Buscar departamentos asignados"
             />
           </div>
-          <span className="text-xs text-muted-foreground whitespace-nowrap">
+          <span className="text-xs text-ink-muted whitespace-nowrap">
             {asignados.length} {asignados.length === 1 ? 'asignado' : 'asignados'}
           </span>
         </div>
@@ -105,12 +106,12 @@ export function SucursalDepartamentosTab({
 
       {/* Lista de asignados o empty states */}
       {asignados.length === 0 ? (
-        <div className="flex flex-col items-center justify-center rounded-lg border border-dashed bg-muted/20 px-6 py-10 text-center">
-          <Building2 className="mb-3 h-10 w-10 text-muted-foreground/60" />
+        <div className="flex flex-col items-center justify-center rounded-lg border border-dashed bg-surface-muted/20 px-6 py-10 text-center">
+          <Building2 className="mb-3 h-10 w-10 text-ink-muted/60" />
           <h3 className="text-sm font-semibold">No hay departamentos asignados</h3>
-          <p className="mt-1 text-xs text-muted-foreground max-w-sm">
-            Esta sucursal aún no tiene departamentos vinculados. Asigna departamentos
-            del catálogo maestro para habilitar puestos y operaciones.
+          <p className="mt-1 text-xs text-ink-muted max-w-sm">
+            Esta sucursal aún no tiene departamentos vinculados. Asigna departamentos del catálogo
+            maestro para habilitar puestos y operaciones.
           </p>
           {canGestionar && (
             <Button
@@ -124,11 +125,11 @@ export function SucursalDepartamentosTab({
           )}
         </div>
       ) : asignadosFiltrados.length === 0 ? (
-        <div className="rounded-md border border-dashed bg-muted/10 px-4 py-8 text-center text-sm text-muted-foreground">
+        <div className="rounded-md border border-dashed bg-surface-muted/10 px-4 py-8 text-center text-sm text-ink-muted">
           No se encontraron departamentos asignados que coincidan con &ldquo;{filtro}&rdquo;.
         </div>
       ) : (
-        <ul className="divide-y rounded-md border bg-card">
+        <ul className="divide-y rounded-md border bg-surface-card">
           {asignadosFiltrados.map((item) => (
             <FilaDepartamentoAsignado
               key={item.departamentoId}
@@ -194,16 +195,18 @@ function FilaDepartamentoAsignado({
       etiquetaAccesible={`departamento ${item.departamentoClave}`}
       tituloConfirmacion="Desactivar departamento"
       descripcionConfirmacion={
-        <div className="space-y-2 text-sm text-muted-foreground">
+        <div className="space-y-2 text-sm text-ink-muted">
           <p>
             ¿Confirmas desactivar el departamento{' '}
-            <span className="font-mono font-semibold text-foreground">{item.departamentoClave}</span> en
+            <span className="font-mono font-semibold text-ink">{item.departamentoClave}</span> en
             esta sucursal?
           </p>
-          <div className="rounded-md border border-amber-200 bg-amber-50/70 p-2.5 text-xs text-amber-900 dark:border-amber-900/50 dark:bg-amber-950/20 dark:text-amber-200">
+          <div className="rounded-md border border-line bg-warning-bg/70 p-2.5 text-xs text-warning-fg   ">
             <p className="font-semibold">Información operativa:</p>
             <p className="mt-0.5">
-              Los empleados asignados actualmente continuarán operando con normalidad. Esta acción únicamente impide que se registren nuevos empleados o requisiciones con esta combinación en la sucursal.
+              Los empleados asignados actualmente continuarán operando con normalidad. Esta acción
+              únicamente impide que se registren nuevos empleados o requisiciones con esta
+              combinación en la sucursal.
             </p>
           </div>
         </div>
@@ -213,12 +216,8 @@ function FilaDepartamentoAsignado({
       onConfirmarDesactivar={handleConfirmarDesactivar}
       onReactivar={handleReactivar}
     >
-      <span className="font-mono text-sm font-semibold text-primary">
-        {item.departamentoClave}
-      </span>
-      <span className="text-sm font-medium text-foreground">
-        {item.departamentoNombre}
-      </span>
+      <span className="font-mono text-sm font-semibold text-brand">{item.departamentoClave}</span>
+      <span className="text-sm font-medium text-ink">{item.departamentoNombre}</span>
     </FilaAsignacionSucursal>
   );
 }
@@ -255,9 +254,7 @@ function AsignarDepartamentoModal({
     const q = busquedaCatalogo.trim().toLowerCase();
     if (!q) return disponibles;
     return disponibles.filter(
-      (d) =>
-        d.clave.toLowerCase().includes(q) ||
-        d.nombre.toLowerCase().includes(q),
+      (d) => d.clave.toLowerCase().includes(q) || d.nombre.toLowerCase().includes(q),
     );
   }, [disponibles, busquedaCatalogo]);
 
@@ -273,9 +270,7 @@ function AsignarDepartamentoModal({
       },
       {
         onSuccess: () => {
-          toast.success(
-            depto ? `Departamento ${depto.clave} asignado` : 'Departamento asignado',
-          );
+          toast.success(depto ? `Departamento ${depto.clave} asignado` : 'Departamento asignado');
           setDepartamentoSeleccionadoId('');
           setBusquedaCatalogo('');
           onOpenChange(false);
@@ -287,60 +282,61 @@ function AsignarDepartamentoModal({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-md">
+      <DialogContent size="md" className="">
         <DialogHeader>
           <DialogTitle>Asignar departamento a la sucursal</DialogTitle>
           <DialogDescription>
-            Selecciona un departamento del catálogo maestro para habilitarlo en esta
-            sucursal.
+            Selecciona un departamento del catálogo maestro para habilitarlo en esta sucursal.
           </DialogDescription>
         </DialogHeader>
-
-        {catalogoQuery.isLoading ? (
-          <div className="space-y-3 py-2">
-            <Skeleton className="h-9 w-full" />
-            <Skeleton className="h-9 w-full" />
-          </div>
-        ) : disponibles.length === 0 ? (
-          <div className="rounded-md border border-dashed bg-muted/20 p-4 text-center text-sm text-muted-foreground">
-            Todos los departamentos del catálogo maestro ya están asignados a esta sucursal.
-          </div>
-        ) : (
-          <div className="space-y-3 py-2">
-            {disponibles.length > 8 && (
-              <div className="relative">
-                <Search className="absolute left-2.5 top-2.5 h-3.5 w-3.5 text-muted-foreground" />
-                <Input
-                  placeholder="Filtrar departamentos disponibles..."
-                  value={busquedaCatalogo}
-                  onChange={(e) => setBusquedaCatalogo(e.target.value)}
-                  className="h-8 pl-8 text-xs"
-                />
-              </div>
-            )}
-
-            <div className="space-y-1.5">
-              <Label htmlFor="select-departamento-catalogo" className="text-xs font-medium">
-                Departamento *
-              </Label>
-              <select
-                id="select-departamento-catalogo"
-                aria-label="Departamento a asignar"
-                value={departamentoSeleccionadoId}
-                onChange={(e) => setDepartamentoSeleccionadoId(e.target.value)}
-                className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50"
-              >
-                <option value="">-- Selecciona un departamento ({disponiblesFiltrados.length} disponibles) --</option>
-                {disponiblesFiltrados.map((d) => (
-                  <option key={d.id} value={d.id}>
-                    {d.clave} - {d.nombre}
-                  </option>
-                ))}
-              </select>
+        <DialogBody>
+          {catalogoQuery.isLoading ? (
+            <div className="space-y-3 py-2">
+              <Skeleton className="h-9 w-full" />
+              <Skeleton className="h-9 w-full" />
             </div>
-          </div>
-        )}
+          ) : disponibles.length === 0 ? (
+            <div className="rounded-md border border-dashed bg-surface-muted/20 p-4 text-center text-sm text-ink-muted">
+              Todos los departamentos del catálogo maestro ya están asignados a esta sucursal.
+            </div>
+          ) : (
+            <div className="space-y-3 py-2">
+              {disponibles.length > 8 && (
+                <div className="relative">
+                  <Search className="absolute left-2.5 top-2.5 h-3.5 w-3.5 text-ink-muted" />
+                  <Input
+                    placeholder="Filtrar departamentos disponibles..."
+                    value={busquedaCatalogo}
+                    onChange={(e) => setBusquedaCatalogo(e.target.value)}
+                    className="h-8 pl-8 text-xs"
+                  />
+                </div>
+              )}
 
+              <div className="space-y-1.5">
+                <Label htmlFor="select-departamento-catalogo" className="text-xs font-medium">
+                  Departamento *
+                </Label>
+                <select
+                  id="select-departamento-catalogo"
+                  aria-label="Departamento a asignar"
+                  value={departamentoSeleccionadoId}
+                  onChange={(e) => setDepartamentoSeleccionadoId(e.target.value)}
+                  className="flex h-9 w-full rounded-md border border-line-control bg-transparent px-3 py-1 text-sm shadow-card-flat transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-brand disabled:cursor-not-allowed disabled:opacity-50"
+                >
+                  <option value="">
+                    -- Selecciona un departamento ({disponiblesFiltrados.length} disponibles) --
+                  </option>
+                  {disponiblesFiltrados.map((d) => (
+                    <option key={d.id} value={d.id}>
+                      {d.clave} - {d.nombre}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            </div>
+          )}
+        </DialogBody>
         <DialogFooter className="gap-2 sm:gap-0">
           <Button
             type="button"

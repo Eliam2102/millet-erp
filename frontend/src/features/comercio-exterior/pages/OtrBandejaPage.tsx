@@ -158,7 +158,7 @@ export function OtrBandejaPage() {
                           <p className="text-xs text-ink-muted">{e.contenido.direccionEntrega}</p>
                         </TableCell>
                         <TableCell className="px-3 font-mono text-xs">
-                          {e.contenido.contenedor.numero ?? '[SIN NÚMERO]'}
+                          {e.contenido.contenedor.numero ?? <span className="text-ink-muted">Sin número</span>}
                         </TableCell>
                         <TableCell className="px-3 tabular-nums">{e.versionAplicada}</TableCell>
                         <TableCell className="px-3">

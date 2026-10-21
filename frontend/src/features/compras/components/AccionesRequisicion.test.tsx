@@ -163,7 +163,7 @@ describe('<AccionesRequisicion>', () => {
     expect(btn).toBeEnabled();
   });
 
-  it('Borrador con 0 líneas: Transmitir disabled con tooltip', () => {
+  it('Borrador con 0 partidas: Transmitir disabled con tooltip', () => {
     setupSession([PermisosCanonicos.ComprasRequisicionesEditar]);
     render(
       <AccionesRequisicion rq={makeRq({ lineas: [] })} />,

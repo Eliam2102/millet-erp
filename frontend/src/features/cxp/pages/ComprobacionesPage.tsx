@@ -294,17 +294,17 @@ function Tabla({ items }: { items: readonly ComprobacionGastosListItem[] }) {
                     params={{ id: c.id }}
                     search={search}
                     className="font-medium text-brand hover:underline"
-                    aria-label={`Abrir comprobación ${tipo} de ${c.responsableNombre ?? 'responsable por confirmar'}`}
+                    aria-label={`Abrir comprobación ${tipo} de ${c.responsableNombre ?? 'Sin asignar'}`}
                   >
                     {tipo}
                   </Link>
                 </TableCell>
                 <TableCell>
                   <div className="max-w-56 truncate" title={c.responsableNombre ?? undefined}>
-                    {c.responsableNombre?.trim() || '[RESPONSABLE POR CONFIRMAR]'}
+                    {c.responsableNombre?.trim() || <span className="text-ink-muted">Sin asignar</span>}
                   </div>
                 </TableCell>
-                <TableCell>{c.sucursalNombre?.trim() || '[SUCURSAL POR CONFIRMAR]'}</TableCell>
+                <TableCell>{c.sucursalNombre?.trim() || <span className="text-ink-muted">Sin sucursal</span>}</TableCell>
                 <TableCell className="whitespace-nowrap text-xs">
                   {c.fechaInicio} → {c.fechaFin}
                 </TableCell>

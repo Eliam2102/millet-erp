@@ -368,7 +368,7 @@ function DetallePoliza({ id, search, onNavegar }: Props) {
             {p.motivoAnulacion && <p className="mt-1">Motivo: {p.motivoAnulacion}</p>}
             {(p.anuladaPor || p.anuladaEn) && (
               <p className="mt-1 text-xs">
-                {p.anuladaPor ?? '[USUARIO]'}
+                {p.anuladaPor ?? <span className="text-ink-muted">Sin asignar</span>}
                 {p.anuladaEn ? ` · ${formatDateTime(p.anuladaEn)}` : ''}
               </p>
             )}
@@ -409,7 +409,7 @@ function DetallePoliza({ id, search, onNavegar }: Props) {
                 params={{ id: p.plantillaRecurrenteId }}
                 className="font-medium underline"
               >
-                «{p.plantillaRecurrenteNombre ?? '[PLANTILLA]'}»
+                «{p.plantillaRecurrenteNombre ?? 'Sin plantilla'}»
               </Link>
               .
             </span>
@@ -635,8 +635,8 @@ function Dato({ k, children }: { k: string; children: React.ReactNode }) {
 function actividad(p: Poliza): { texto: string; en: string }[] {
   const filas = [{ texto: `Capturó ${p.capturadaPor}`, en: p.capturadaEn }];
   if (p.autorizadaEn)
-    filas.push({ texto: `Autorizó ${p.autorizadaPor ?? '[USUARIO]'}`, en: p.autorizadaEn });
-  if (p.anuladaEn) filas.push({ texto: `Anuló ${p.anuladaPor ?? '[USUARIO]'}`, en: p.anuladaEn });
+    filas.push({ texto: `Autorizó ${p.autorizadaPor ?? 'Sin asignar'}`, en: p.autorizadaEn });
+  if (p.anuladaEn) filas.push({ texto: `Anuló ${p.anuladaPor ?? 'Sin asignar'}`, en: p.anuladaEn });
   return filas.sort((a, b) => b.en.localeCompare(a.en));
 }
 
@@ -691,7 +691,7 @@ function TablaPartidas({ poliza }: { poliza: Poliza }) {
                   <span className="block text-xs text-ink-muted">{x.cuentaNombre ?? ''}</span>
                 </TableCell>
                 <TableCell className="px-3 py-2">{x.concepto ?? '—'}</TableCell>
-                <TableCell className="px-3 py-2">{x.sucursalNombre ?? '[SUCURSAL]'}</TableCell>
+                <TableCell className="px-3 py-2">{x.sucursalNombre ?? <span className="text-ink-muted">Sin sucursal</span>}</TableCell>
                 <TableCell className="px-3 py-2 font-mono text-xs">
                   {centros(x)}
                   {otras(x) && <span className="block font-sans text-ink-muted">{otras(x)}</span>}

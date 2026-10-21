@@ -32,12 +32,15 @@ export function DisponibilidadBadge({
   );
 }
 
-/** Badge "Recurrente"; no se pinta si el requisitante no es recurrente. */
-export function RecurrenteBadge({ esRecurrente }: { esRecurrente: boolean }) {
-  if (!esRecurrente) return null;
+/**
+ * Badge de recurrencia: `true` = "Recurrente", `false` = "No recurrente";
+ * `null`/`undefined` (proyección sin dato) no se pinta.
+ */
+export function RecurrenteBadge({ esRecurrente }: { esRecurrente?: boolean | null }) {
+  if (esRecurrente == null) return null;
   return (
-    <Badge variant="info" className="font-medium">
-      Recurrente
+    <Badge variant={esRecurrente ? 'info' : 'neutral'} className="font-medium">
+      {esRecurrente ? 'Recurrente' : 'No recurrente'}
     </Badge>
   );
 }

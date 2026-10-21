@@ -1,11 +1,6 @@
-import {
-  useCallback,
-  useEffect,
-  useMemo,
-  useRef,
-  useState,
-  type ReactNode,
-} from 'react';
+import { FormCampo } from '@/components/erp/forms/FormGrid';
+import { FormSeccion } from '@/components/erp/forms/FormSeccion';
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { useNavigate } from '@tanstack/react-router';
 import { Controller, useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -20,18 +15,15 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import {
+  SheetBody,
   Sheet,
   SheetContent,
   SheetDescription,
   SheetHeader,
   SheetTitle,
+  SheetFooter,
 } from '@/components/ui/sheet';
-import {
-  applyServerErrors,
-  esApiError,
-  useFormIdempotencyKey,
-  codigoSoporte,
-} from '@/lib/api';
+import { applyServerErrors, esApiError, useFormIdempotencyKey, codigoSoporte } from '@/lib/api';
 import {
   NuevoArticuloContext,
   type NuevoArticuloApi,
@@ -98,26 +90,19 @@ export function NuevoArticuloProvider({ children }: { children: ReactNode }) {
           setAbierto(true);
         }}
       >
-        <SheetContent
-          side="right"
-          className="w-full overflow-y-auto sm:max-w-2xl"
-        >
+        <SheetContent size="lg" side="right">
           <SheetHeader>
             <SheetTitle>Nuevo artículo</SheetTitle>
             <SheetDescription>
-              Alta del artículo en el catálogo cross-empresa. Datos
-              opcionales (descripción larga, precio referencia) se
-              ajustan después en el detalle.
+              Alta del artículo en el catálogo cross-empresa. Datos opcionales (descripción larga,
+              precio referencia) se ajustan después en el detalle.
             </SheetDescription>
           </SheetHeader>
 
-          <div className="px-6 pb-6">
-            {abierto && (
-              <NuevoArticuloForm
-                onClose={cerrarConConfirm}
-                onDirtyChange={setDirty}
-              />
-            )}
+          <div className="contents">
+            <div className="contents">
+              {abierto && <NuevoArticuloForm onClose={cerrarConConfirm} onDirtyChange={setDirty} />}
+            </div>
           </div>
         </SheetContent>
       </Sheet>
@@ -203,10 +188,7 @@ function NuevoArticuloForm({ onClose, onDirtyChange }: NuevoArticuloFormProps) {
               return;
             }
             if (
-              applyServerErrors(
-                form as unknown as Parameters<typeof applyServerErrors>[0],
-                error,
-              )
+              applyServerErrors(form as unknown as Parameters<typeof applyServerErrors>[0], error)
             ) {
               return;
             }
@@ -225,119 +207,112 @@ function NuevoArticuloForm({ onClose, onDirtyChange }: NuevoArticuloFormProps) {
     <form
       onSubmit={form.handleSubmit(onSubmit)}
       noValidate
-      className="space-y-4 rounded-md border bg-card p-4"
+      className="flex min-h-0 flex-1 flex-col overflow-hidden"
     >
-      <FormRow
-        label="Clave"
-        required
-        hint="Identificador corto. Inmutable."
-        error={form.formState.errors.clave?.message}
-      >
-        <Input
-          autoFocus
-          maxLength={20}
-          placeholder="A-001"
-          className="font-mono"
-          {...form.register('clave')}
-        />
-      </FormRow>
-
-      <FormRow
-        label="Nombre"
-        required
-        error={form.formState.errors.nombre?.message}
-      >
-        <Input
-          maxLength={254}
-          placeholder="Caja de cartón 30×30×30"
-          {...form.register('nombre')}
-        />
-      </FormRow>
-
-      <FormRow
-        label="Unidad de medida"
-        required
-        hint="Del catálogo de unidades."
-        error={form.formState.errors.unidadMedidaId?.message}
-      >
-        <Controller
-          name="unidadMedidaId"
-          control={form.control}
-          render={({ field }) => (
-            <UnidadMedidaSelect
-              value={field.value || null}
-              onChange={(id) => field.onChange(id ?? '')}
-            />
-          )}
-        />
-      </FormRow>
-
-      <FormRow
-        label="Naturaleza"
-        required
-        hint="Alimenta la matriz de aprobación de Compras."
-        error={form.formState.errors.naturaleza?.message}
-      >
-        <Controller
-          name="naturaleza"
-          control={form.control}
-          render={({ field }) => (
-            <Select
-              value={String(field.value)}
-              onValueChange={(v) => field.onChange(Number(v))}
+      <SheetBody>
+        <FormSeccion titulo="Datos del registro">
+          <FormCampo span={6}>
+            <FormRow
+              label="Clave"
+              required
+              hint="Identificador corto. Inmutable."
+              error={form.formState.errors.clave?.message}
             >
-              <SelectTrigger>
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value={String(Naturaleza.Estandar)}>
-                  Estándar
-                </SelectItem>
-                <SelectItem value={String(Naturaleza.Servicio)}>
-                  Servicio
-                </SelectItem>
-                <SelectItem value={String(Naturaleza.Critico)}>
-                  Crítico
-                </SelectItem>
-                <SelectItem value={String(Naturaleza.Riesgo)}>
-                  Riesgo
-                </SelectItem>
-              </SelectContent>
-            </Select>
-          )}
-        />
-      </FormRow>
+              <Input
+                autoFocus
+                maxLength={20}
+                placeholder="A-001"
+                className="font-mono"
+                {...form.register('clave')}
+              />
+            </FormRow>
+          </FormCampo>
 
-      <FormRow
-        label="Categoría"
-        hint="Opcional. Del catálogo de categorías."
-        error={form.formState.errors.categoriaId?.message}
-      >
-        <Controller
-          name="categoriaId"
-          control={form.control}
-          render={({ field }) => (
-            <CategoriaSelector
-              value={field.value ?? null}
-              onChange={field.onChange}
-            />
-          )}
-        />
-      </FormRow>
+          <FormCampo span={6}>
+            <FormRow label="Nombre" required error={form.formState.errors.nombre?.message}>
+              <Input
+                maxLength={254}
+                placeholder="Caja de cartón 30×30×30"
+                {...form.register('nombre')}
+              />
+            </FormRow>
+          </FormCampo>
 
-      <div className="flex flex-wrap items-center justify-end gap-2 border-t pt-3">
-        <Button
-          type="button"
-          variant="ghost"
-          onClick={() => onClose()}
-          disabled={crear.isPending}
-        >
+          <FormCampo span={6}>
+            <FormRow
+              label="Unidad de medida"
+              required
+              hint="Del catálogo de unidades."
+              error={form.formState.errors.unidadMedidaId?.message}
+            >
+              <Controller
+                name="unidadMedidaId"
+                control={form.control}
+                render={({ field }) => (
+                  <UnidadMedidaSelect
+                    value={field.value || null}
+                    onChange={(id) => field.onChange(id ?? '')}
+                  />
+                )}
+              />
+            </FormRow>
+          </FormCampo>
+
+          <FormCampo span={6}>
+            <FormRow
+              label="Naturaleza"
+              required
+              hint="Alimenta la matriz de aprobación de Compras."
+              error={form.formState.errors.naturaleza?.message}
+            >
+              <Controller
+                name="naturaleza"
+                control={form.control}
+                render={({ field }) => (
+                  <Select
+                    value={String(field.value)}
+                    onValueChange={(v) => field.onChange(Number(v))}
+                  >
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value={String(Naturaleza.Estandar)}>Estándar</SelectItem>
+                      <SelectItem value={String(Naturaleza.Servicio)}>Servicio</SelectItem>
+                      <SelectItem value={String(Naturaleza.Critico)}>Crítico</SelectItem>
+                      <SelectItem value={String(Naturaleza.Riesgo)}>Riesgo</SelectItem>
+                    </SelectContent>
+                  </Select>
+                )}
+              />
+            </FormRow>
+          </FormCampo>
+
+          <FormCampo span={6}>
+            <FormRow
+              label="Categoría"
+              hint="Opcional. Del catálogo de categorías."
+              error={form.formState.errors.categoriaId?.message}
+            >
+              <Controller
+                name="categoriaId"
+                control={form.control}
+                render={({ field }) => (
+                  <CategoriaSelector value={field.value ?? null} onChange={field.onChange} />
+                )}
+              />
+            </FormRow>
+          </FormCampo>
+        </FormSeccion>
+      </SheetBody>
+      <SheetFooter>
+        <Button type="button" variant="ghost" onClick={() => onClose()} disabled={crear.isPending}>
           Cancelar
         </Button>
         <Button type="submit" disabled={crear.isPending}>
           {crear.isPending ? 'Creando…' : 'Crear artículo'}
         </Button>
-      </div>
+      </SheetFooter>
     </form>
   );
 }
@@ -356,17 +331,15 @@ function FormRow({ label, required, hint, error, children }: FormRowProps) {
       <label className="flex items-center gap-1 text-sm font-medium">
         {label}
         {required && (
-          <span aria-hidden="true" className="text-rose-600">
+          <span aria-hidden="true" className="text-danger-fg">
             *
           </span>
         )}
       </label>
       {children}
-      {hint != null && error == null && (
-        <p className="text-xs text-muted-foreground">{hint}</p>
-      )}
+      {hint != null && error == null && <p className="text-xs text-ink-muted">{hint}</p>}
       {error != null && (
-        <p role="alert" className="text-xs text-rose-600">
+        <p role="alert" className="text-xs text-danger-fg">
           {error}
         </p>
       )}

@@ -11,6 +11,6 @@ describe('ProveedorCelda', () => {
 
   it('sin nombre muestra el marcador y nunca un GUID', () => {
     render(<ProveedorCelda nombre={null} />);
-    expect(screen.getByText('[PROVEEDOR POR CONFIRMAR]')).toBeInTheDocument();
+    expect(screen.getByText('Sin proveedor')).toBeInTheDocument();
   });
 });

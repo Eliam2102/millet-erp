@@ -39,23 +39,17 @@ import type { LineaResponse } from '@/features/compras/api/types';
  */
 export type EstadoEntregaLinea = 'sin-entregar' | 'parcial' | 'entregada';
 
-export function clasificarEntrega(
-  entregado: number,
-  solicitada: number,
-): EstadoEntregaLinea {
+export function clasificarEntrega(entregado: number, solicitada: number): EstadoEntregaLinea {
   if (entregado <= 0) return 'sin-entregar';
   if (entregado >= solicitada) return 'entregada';
   return 'parcial';
 }
 
-export function construirFilasDeRq(
-  lineasRq: LineaResponse[],
-): FilaSalidaValues[] {
+export function construirFilasDeRq(lineasRq: LineaResponse[]): FilaSalidaValues[] {
   return lineasRq.map((l) => {
     const yaEntregada = l.cantEntregadoDeAlmacen ?? 0;
     const pendiente =
-      l.cantPendienteEntregar ??
-      Math.max(0, l.cantDeAlmacen + l.cantRecibida - yaEntregada);
+      l.cantPendienteEntregar ?? Math.max(0, l.cantDeAlmacen + l.cantRecibida - yaEntregada);
     return {
       lineaRqId: l.id,
       articuloId: l.articuloId,
@@ -112,7 +106,8 @@ export const AVISOS_SALIDA: Record<string, { titulo: string; ayuda: string }> = 
   },
   SALIDA_EXISTENCIA_APARTADA: {
     titulo: 'La existencia está apartada',
-    ayuda: 'Otra requisición tiene apartada esa existencia; reduce la cantidad o libera el apartado.',
+    ayuda:
+      'Otra requisición tiene apartada esa existencia; reduce la cantidad o libera el apartado.',
   },
   SALIDA_UBICACION_REQUERIDA: {
     titulo: 'Falta el rack de una línea',

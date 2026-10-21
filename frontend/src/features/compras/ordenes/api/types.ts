@@ -328,6 +328,8 @@ export interface CotizacionElegidaOc {
 }
 
 export interface OrdenCompraDetalleResponse {
+  /** Proveedor con compras previas recurrentes; ausente si no hay dato. */
+  esRecurrente?: boolean;
   obra?: string | null;
   cicloAutorizacion?: number;
   autorizaciones?: AutorizacionOc[];

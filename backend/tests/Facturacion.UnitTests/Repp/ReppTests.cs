@@ -130,16 +130,19 @@ public sealed class ReppTests
 
     // ---- Handler ----
 
-    private static FacturaVenta FacturaPpd(Guid empresaId, string moneda = "MXN", decimal? tc = null, decimal valor = 1000m)
+    private static FacturaVenta FacturaPpd(
+        Guid empresaId, string moneda = "MXN", decimal? tc = null, decimal valor = 1000m,
+        string rfc = "AAA010101AAA", string metodoPago = "PPD", DateTimeOffset? fechaTimbrado = null)
     {
         var fv = FacturaVenta.CrearBorrador(empresaId, "F-1", 1, Guid.NewGuid(), null, null,
-            new DatosFiscalesReceptor("AAA010101AAA", "Cliente", "601", "97000", "G03", "MEX", false),
-            new DatosFiscalesEmisor("BBB010101BBB", "Millet", "601", "76120"), "PPD", "99", moneda, tc, 2026, 5,
+            new DatosFiscalesReceptor(rfc, "Cliente", "601", "97000", "G03", "MEX", false),
+            new DatosFiscalesEmisor("BBB010101BBB", "Millet", "601", "76120"), metodoPago,
+            metodoPago == "PPD" ? "99" : "03", moneda, tc, 2026, 5,
             (short)7, ComportamientoFiscal.MostradorInmediato, null, null, null, false);
         fv.AgregarLinea(null, "01010101", "Servicio", "E48", 1m, valor, 0m, "02", 0m, null, null);
         fv.RecalcularTotales();
         fv.MarcarTimbradoEnProceso();
-        fv.MarcarTimbrado("11111111-1111-1111-1111-111111111111", null, null, null, Ahora, null, null);
+        fv.MarcarTimbrado("11111111-1111-1111-1111-111111111111", null, null, null, fechaTimbrado ?? Ahora, null, null);
         return fv;
     }
 
@@ -331,6 +334,55 @@ public sealed class ReppTests
 
         deOtroCliente.Should().BeEmpty();
         delCliente.Should().ContainSingle();
+    }
+
+    [Fact]
+    public async Task Cobrables_dos_clientes_solo_devuelve_PPD_con_saldo_del_RFC_pedido()
+    {
+        var empresaId = Guid.NewGuid();
+        using var db = NewDb(empresaId);
+        const string rfcA = "AAA010101AAA";
+        const string rfcB = "BBB020202BBB";
+        var aConSaldo = FacturaPpd(empresaId, rfc: rfcA);
+        var aSaldada = FacturaPpd(empresaId, valor: 500m, rfc: rfcA);
+        var aPue = FacturaPpd(empresaId, rfc: rfcA, metodoPago: "PUE");
+        var bConSaldo = FacturaPpd(empresaId, rfc: rfcB);
+        db.FacturasVenta.AddRange(aConSaldo, aSaldada, aPue, bConSaldo);
+        db.RecibosPago.Add(ReppPrevio(empresaId, aSaldada, 500m, 500m));
+        await db.SaveChangesAsync();
+
+        var items = await new FacturasCobrablesPpdHandler(db)
+            .Handle(new FacturasCobrablesPpdQuery(ReceptorRfc: " aaa010101aaa "), CancellationToken.None);
+
+        var item = items.Should().ContainSingle().Subject;
+        item.FacturaVentaId.Should().Be(aConSaldo.Id);
+        item.ReceptorRfc.Should().Be(rfcA);
+        item.Saldo.Should().Be(1000m);
+    }
+
+    [Fact]
+    public async Task Cobrables_con_muchas_PPD_saldadas_devuelve_las_vigentes()
+    {
+        // Antes el handler tomaba sólo limite*3 candidatas (por fecha de
+        // timbrado desc.) y filtraba el saldo en memoria: con muchas PPD
+        // saldadas más recientes, la vigente (más antigua) se perdía.
+        var empresaId = Guid.NewGuid();
+        using var db = NewDb(empresaId);
+        const int limite = 2;
+        var vigente = FacturaPpd(empresaId, fechaTimbrado: Ahora.AddDays(-30));
+        db.FacturasVenta.Add(vigente);
+        for (var i = 0; i < (limite * 3) + 4; i++)
+        {
+            var saldada = FacturaPpd(empresaId, valor: 100m, fechaTimbrado: Ahora.AddDays(-i));
+            db.FacturasVenta.Add(saldada);
+            db.RecibosPago.Add(ReppPrevio(empresaId, saldada, 100m, 100m));
+        }
+        await db.SaveChangesAsync();
+
+        var items = await new FacturasCobrablesPpdHandler(db)
+            .Handle(new FacturasCobrablesPpdQuery(ReceptorRfc: "AAA010101AAA", Limite: limite), CancellationToken.None);
+
+        items.Should().ContainSingle().Which.FacturaVentaId.Should().Be(vigente.Id);
     }
 
     [Fact]

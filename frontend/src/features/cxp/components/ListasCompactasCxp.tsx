@@ -58,7 +58,7 @@ export function ListaFacturasCompacta({ idActivo, search }: ListaProps<FacturasS
         badge: <EstadoPasivoChip estado={f.estado} />,
         secundario: (
           <>
-            <span className="truncate">{f.proveedorNombre?.trim() || 'Proveedor por confirmar'}</span>
+            <span className="truncate">{f.proveedorNombre?.trim() || <span className="text-ink-muted">Sin proveedor</span>}</span>
             <MoneyDisplay amount={f.total} currency={f.moneda} />
           </>
         ),
@@ -87,7 +87,7 @@ export function ListaNotasCargoCompacta({ idActivo, search }: ListaProps<NotasCa
         badge: <EstadoNotaCargoChip estado={n.estado} />,
         secundario: (
           <>
-            <span className="truncate">{n.proveedorNombre?.trim() || 'Proveedor por confirmar'}</span>
+            <span className="truncate">{n.proveedorNombre?.trim() || <span className="text-ink-muted">Sin proveedor</span>}</span>
             <MoneyDisplay amount={n.monto} currency={n.moneda} />
           </>
         ),
@@ -118,7 +118,7 @@ export function ListaNotasCreditoCompacta({ idActivo, search }: ListaProps<Notas
         badge: <EstadoNotaCreditoChip estado={n.estado} />,
         secundario: (
           <>
-            <span className="truncate">{n.proveedorNombre?.trim() || 'Proveedor por confirmar'}</span>
+            <span className="truncate">{n.proveedorNombre?.trim() || <span className="text-ink-muted">Sin proveedor</span>}</span>
             <MoneyDisplay amount={n.total} currency={n.moneda} />
           </>
         ),
