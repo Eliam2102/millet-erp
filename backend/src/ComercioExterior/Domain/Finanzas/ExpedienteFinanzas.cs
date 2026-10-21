@@ -30,7 +30,7 @@ public sealed partial class Expediente
         ExigirAbierto(); FinancieroCerrado = false; RevisionContenido++;
         if (requiereDistribuir) RevisionFinanciera++;
     }
-    public void GuardarGasto(Guid id, DatosGasto datos, ConceptoGasto concepto, decimal tc, string fuente)
+    public void GuardarGasto(Guid id, DatosGasto datos, ConceptoGasto concepto, decimal tc, string fuente, OrdenServicioCopia? orden = null)
     {
         ExigirAbierto();
         if (concepto.EmpresaId != EmpresaId) throw new BusinessRuleException("CE_CONCEPTO_INVALIDO", "El concepto no pertenece a la empresa.");
@@ -38,8 +38,10 @@ public sealed partial class Expediente
         var gasto = _gastos.SingleOrDefault(g => g.Id == id);
         var nuevo = gasto is null;
         gasto ??= new(id, EmpresaId, Id);
-        gasto.Editar(datos, concepto, tc, fuente);
+        gasto.Editar(datos, concepto, tc, fuente, orden);
         if (nuevo) _gastos.Add(gasto);
+        if (orden is not null)
+            foreach (var ligado in _gastos.Where(g => g.OrdenServicioId == orden.Id)) ligado.AsignarOrdenServicio(orden.Asignado);
         MarcarCambioFinanciero(true);
     }
     private void ValidarContenedorCosto(Guid? contenedor)

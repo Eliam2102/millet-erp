@@ -56,14 +56,14 @@ public sealed class CostoInventarioTests
         using var scope = escenario.Scope(); using var bypass = scope.ServiceProvider.GetRequiredService<ICurrentEmpresaContext>().Bypass();
         var db = scope.ServiceProvider.GetRequiredService<ComercioExteriorDbContext>();
         var e = await db.Expedientes.Include(x => x.Gastos).Include(x => x.Distribuciones).SingleAsync(x => x.Id == DemoSesionSeedHostedService.Id("DEMO-CE-P1-FINANZAS"));
-        Assert.Equal(3, e.Gastos.Count);
+        Assert.Equal(4, e.Gastos.Count); // flete, IVA y dos facturas de honorarios ligadas a la orden de servicio DEMO (P6)
         var conceptos = await db.ConceptosGasto.ToListAsync();
         var d = e.PrepararDistribucion(conceptos, [new(Guid.NewGuid(), null, "A", 200000, 2000, 1000), new(Guid.NewGuid(), null, "B", 300000, 6000, 1000)], Guid.NewGuid(), DateTimeOffset.UtcNow);
         e.ConfirmarDistribucion(d);
         await scope.ServiceProvider.GetRequiredService<IIntegrationEventPublisher>().PublishAsync(new Millet.ComercioExterior.Application.ExpedienteCostoDistribuidoEvent(e.EmpresaId, DateTimeOffset.UtcNow, e.Id, e.SucursalId, d.NumeroVersion, d.Partidas), CancellationToken.None);
         await db.SaveChangesAsync(); db.ChangeTracker.Clear();
         var guardada = await db.Set<DistribucionGasto>().SingleAsync(x => x.ExpedienteId == e.Id);
-        Assert.Equal(50000, guardada.Partidas.Sum(p => p.ImporteMxn)); Assert.Equal(4, guardada.Renglones.Count);
+        Assert.Equal(92000, guardada.Partidas.Sum(p => p.ImporteMxn)); Assert.Equal(6, guardada.Renglones.Count); // 40,000 flete + 30,000 + 22,000 honorarios; IVA no se distribuye
         Assert.True(await db.OutboxEntries.AnyAsync(x => x.EventType == "comercio_exterior.expediente.costo-distribuido.v1"));
     }
 }
