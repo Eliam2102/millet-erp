@@ -158,6 +158,7 @@ public static class CatalogosEndpoints
             [FromQuery] EstatusCatalogo? estatus,
             [FromQuery] string? clave,
             [FromQuery] string? nombre,
+            [FromQuery] Millet.Compras.Domain.Clasificacion? tipoRequisicion,
             [FromQuery] int? offset,
             [FromQuery] int? limit,
             CompartidoDbContext db,
@@ -168,6 +169,8 @@ public static class CatalogosEndpoints
 
             IQueryable<Articulo> q = db.Articulos.AsNoTracking();
             if (naturaleza is Naturaleza n) q = q.Where(a => a.Naturaleza == n);
+            if (tipoRequisicion is { } t)
+                q = q.Where(Millet.Compras.Domain.ArticulosPorClasificacion.Filtro(t));
             if (estatus is EstatusCatalogo e) q = q.Where(a => a.Estatus == e);
             // `clave` y `nombre` son excluyentes: se aplica el que venga con
             // valor, nunca ambos. `clave` tiene precedencia (comportamiento
@@ -215,7 +218,8 @@ public static class CatalogosEndpoints
             "opcionales: `naturaleza` (Estandar/Servicio/Critico/Riesgo — " +
             "alimenta la matriz de aprobación A1 §3.bis), `estatus`, `clave` " +
             "(substring) y `nombre` (substring insensible a acentos y " +
-            "mayúsculas vía `translate` nativo, ADR-0045). `clave` y `nombre` " +
+            "mayúsculas vía `translate` nativo, ADR-0045). `tipoRequisicion` " +
+            "(clasificación de la RQ) deja sólo los artículos de ese tipo. `clave` y `nombre` " +
             "son excluyentes; si llegan ambos, `clave` tiene precedencia. " +
             $"Paginación offset-based, tope `limit={LimitMax}`.")
         .Produces<PagedCatalogoResponse<ArticuloListItem>>(StatusCodes.Status200OK)

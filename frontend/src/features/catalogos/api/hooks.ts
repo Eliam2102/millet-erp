@@ -61,6 +61,8 @@ export interface ListarArticulosFiltros {
    */
   nombre?: string;
   naturaleza?: Naturaleza;
+  /** Clasificación de la RQ (0–3): sólo artículos de ese tipo (86e3tfedd). */
+  tipoRequisicion?: number;
   estatus?: EstatusCatalogo;
   limit?: number;
   /** Si <c>true</c>, omite el filtro de estatus (trae activos +
@@ -320,6 +322,8 @@ function buildArticulosPath(filtros: ListarArticulosFiltros): string {
   }
   if (filtros.naturaleza != null)
     params.set('naturaleza', String(filtros.naturaleza));
+  if (filtros.tipoRequisicion != null)
+    params.set('tipoRequisicion', String(filtros.tipoRequisicion));
   // clave y nombre son excluyentes; clave tiene precedencia (igual que el
   // backend). Se hace trim y se OMITE el param si queda vacío/whitespace —
   // así "limpiar" una caja (queda "") no contamina la URL ni el filtro de
