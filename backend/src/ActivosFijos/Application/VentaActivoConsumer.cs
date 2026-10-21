@@ -24,8 +24,7 @@ public sealed class VentaActivoConsumer(ActivosFijosDbContext db, LibroServicio 
         {
             var a = await db.Activos.Include(x => x.Traslados).SingleAsync(x => x.Numero == venta.ActivoRef, ct);
             var ultimo = await db.Set<CorridaDepreciacion>().Where(x => !x.Anulada).MaxAsync(x => (DateOnly?)x.Periodo, ct);
-            var inicios = await db.Activos.Where(x => x.Estado == EstadoActivo.Activo && x.InicioUso != null).Select(x => x.CorteCarga ?? x.InicioUso!.Value).ToListAsync(ct);
-            var siguiente = ultimo?.AddMonths(1) ?? CalculoDepreciacion.Mes(inicios.Min()).AddMonths(1);
+            var siguiente = ultimo?.AddMonths(1) ?? await libro.PrimerMesAsync(ct) ?? CalculoDepreciacion.Mes(venta.Fecha);
             for (var mes = siguiente; mes < CalculoDepreciacion.Mes(venta.Fecha); mes = mes.AddMonths(1))
                 await libro.ConfirmarInternoAsync(mes, false, ct);
             await libro.FechaModificableAsync(venta.Fecha, ct); await libro.PeriodoAsync(venta.Fecha, ct);

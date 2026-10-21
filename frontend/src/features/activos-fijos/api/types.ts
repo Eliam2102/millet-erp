@@ -67,7 +67,10 @@ export interface Clase {
   version: number;
   clave: string;
   nombre: string;
-  tasaFiscalAnual: number;
+  tasaFiscalAnual: number | null;
+  depreciable: boolean;
+  tasaConfirmada: boolean;
+  requiereRevision: boolean;
   cuentaActivoId: string | null;
   cuentaDepreciacionId: string | null;
   cuentaGastoId: string | null;

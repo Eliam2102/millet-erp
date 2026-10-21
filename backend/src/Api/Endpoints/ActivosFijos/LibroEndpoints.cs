@@ -52,6 +52,7 @@ public static class LibroEndpoints
             foreach (var cuenta in new[] { datos.CuentaUtilidadId, datos.CuentaPerdidaId, datos.CuentaVentaPuenteId, datos.CuentaRevalorizacionId }.OfType<Guid>())
                 if (!(await cuentas.ValidarParaMovimientoAsync(cuenta, OrigenMovimiento.AuxiliarCxP, ct)).Valida) throw new BusinessRuleException("AF_CUENTA_INVALIDA", "La cuenta no admite movimientos.");
             if (config == null) { config = new() { EmpresaId = libro.Empresa }; db.Add(config); }
+            config.DepreciarMismoMes = datos.DepreciarMismoMes; config.InicioDepreciacionConfirmado = datos.InicioDepreciacionConfirmado;
             config.RevalorizacionHabilitada = datos.RevalorizacionHabilitada; config.CuentaUtilidadId = datos.CuentaUtilidadId; config.CuentaPerdidaId = datos.CuentaPerdidaId;
             config.CuentaVentaPuenteId = datos.CuentaVentaPuenteId; config.CuentaRevalorizacionId = datos.CuentaRevalorizacionId;
             await db.SaveChangesAsync(ct); await tx.CommitAsync(ct); return Results.Ok(config);
@@ -68,5 +69,5 @@ public static class LibroEndpoints
     private static int Version(HttpRequest req) => int.TryParse(req.Headers.IfMatch.ToString().Trim('"'), NumberStyles.None, CultureInfo.InvariantCulture, out var v) && v > 0 ? v : throw new BusinessRuleException("AF_VERSION_REQUERIDA", "Envíe If-Match con la versión vigente.");
     public sealed record PeriodoBody(DateOnly Periodo);
     public sealed record MotivoBody(string Motivo);
-    public sealed record ConfiguracionBody(bool RevalorizacionHabilitada, Guid? CuentaUtilidadId, Guid? CuentaPerdidaId, Guid? CuentaVentaPuenteId, Guid? CuentaRevalorizacionId);
+    public sealed record ConfiguracionBody(bool RevalorizacionHabilitada, Guid? CuentaUtilidadId, Guid? CuentaPerdidaId, Guid? CuentaVentaPuenteId, Guid? CuentaRevalorizacionId, bool DepreciarMismoMes = false, bool InicioDepreciacionConfirmado = false);
 }

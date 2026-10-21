@@ -63,7 +63,8 @@ public sealed class DetalleDepreciacion : BaseEntity, IPerteneceAEmpresa, INotAu
     public string CentroCosto { get; set; } = "";
     public string? Equipo { get; set; }
     public decimal Base { get; set; }
-    public decimal Tasa { get; set; }
+    public decimal? Tasa { get; set; }
+    public string? Observacion { get; set; }
     public decimal Importe { get; set; }
     public decimal AcumuladaAntes { get; set; }
     public decimal AcumuladaDespues => AcumuladaAntes + Importe;
@@ -97,6 +98,8 @@ public sealed class OperacionLibro : BaseEntity, IPerteneceAEmpresa, IAuditable
 public sealed class ConfiguracionLibro : BaseEntity, IPerteneceAEmpresa, IAuditable
 {
     public Guid EmpresaId { get; set; }
+    public bool DepreciarMismoMes { get; set; }
+    public bool InicioDepreciacionConfirmado { get; set; }
     public bool RevalorizacionHabilitada { get; set; }
     public Guid? CuentaUtilidadId { get; set; }
     public Guid? CuentaPerdidaId { get; set; }
@@ -116,20 +119,23 @@ public sealed class CargaLibro : BaseEntity, IPerteneceAEmpresa, IAuditable
 
 public static class CalculoDepreciacion
 {
+    public static DateOnly PrimerMes(Activo a, bool mismoMes) => a.CorteCarga is DateOnly corte
+        ? Mes(corte).AddMonths(1) : Mes(a.InicioUso!.Value).AddMonths(mismoMes ? 0 : 1);
     public static DateOnly Mes(DateOnly fecha) => new(fecha.Year, fecha.Month, 1);
     public static DateOnly Cierre(DateOnly fecha) => Mes(fecha).AddMonths(1).AddDays(-1);
-    public static DetalleDepreciacion Calcular(Activo a, ClaseActivo clase, DateOnly periodo, decimal revalorizacion = 0)
+    public static DetalleDepreciacion Calcular(Activo a, ClaseActivo clase, DateOnly periodo, decimal revalorizacion = 0, bool mismoMes = false)
     {
         var mes = Mes(periodo);
         var movimientos = a.Historial.Where(x => Mes(x.Fecha) < mes).Sum(x => x.Importe);
         var @base = a.ValorOriginal + movimientos + revalorizacion;
-        var importe = a.Estado == EstadoActivo.Activo && a.InicioUso is DateOnly inicio && Mes(inicio) < mes
+        var importe = clase.Depreciable && clase.TasaFiscalAnual is decimal tasa && a.Estado == EstadoActivo.Activo && a.InicioUso != null && PrimerMes(a, mismoMes) <= mes
             && (a.CorteCarga == null || mes > a.CorteCarga)
-            ? Math.Min(a.ValorEnLibros, Math.Max(0, decimal.Round(@base * clase.TasaFiscalAnual / 1200m, 2, MidpointRounding.AwayFromZero))) : 0;
+            ? Math.Min(a.ValorEnLibros, Math.Max(0, decimal.Round(@base * tasa / 1200m, 2, MidpointRounding.AwayFromZero))) : 0;
         // Reconstruye la custodia al cierre, incluso si hay traslados posteriores.
         var custodia = CustodiaAFecha(a, Cierre(mes));
         return new() { EmpresaId = a.EmpresaId, ActivoId = a.Id, Numero = a.Numero, ClaseId = a.ClaseId,
             SucursalId = custodia.SucursalId, CentroCostoId = custodia.CentroCostoId, EquipoId = custodia.EquipoId,
+            Observacion = !clase.Depreciable ? "No depreciable" : clase.TasaFiscalAnual == null ? "Tasa por confirmar: capture la tasa" : !clase.TasaConfirmada ? "Tasa por confirmar con Millet" : null,
             Clase = clase.Clave, Base = @base, Tasa = clase.TasaFiscalAnual, Importe = importe, AcumuladaAntes = a.DepreciacionAcumulada };
     }
     public static CustodiaActivo CustodiaAFecha(Activo a, DateOnly corte)

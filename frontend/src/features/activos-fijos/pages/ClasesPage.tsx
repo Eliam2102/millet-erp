@@ -1,3 +1,4 @@
+import { useCuenta } from '@/features/contabilidad/api/hooks';
 import { CuentaActivoSelector } from '../components/CuentaActivoSelector';
 import { useState } from 'react';
 import { PageHeader } from '@/components/erp/PageHeader';
@@ -14,6 +15,21 @@ import {
 } from '@/components/ui/table';
 import { useClasesActivo, useGuardarActivo } from '../api/hooks';
 import type { Clase } from '../api/types';
+function CuentaClase({ id }: { id: string | null }) {
+  const q = useCuenta(id);
+  const c = q.data?.data;
+  return (
+    <span title={c?.nombre}>
+      {c
+        ? `${c.codigo} · ${c.nombre}`
+        : q.isLoading
+          ? 'Cargando cuenta…'
+          : q.error
+            ? 'Error al consultar cuenta'
+            : 'Sin cuenta configurada'}
+    </span>
+  );
+}
 export function ClasesPage() {
   const query = useClasesActivo();
   const guardar = useGuardarActivo();
@@ -22,12 +38,26 @@ export function ClasesPage() {
     <main className="space-y-5 text-sm">
       <PageHeader
         titulo="Clases de activo"
-        descripcion="Cuentas y tasas propuestas por VILO, pendientes de validación por Laura Cerón."
-        acciones={<Button onClick={() => setEditar({ activa: true })}>Nueva clase</Button>}
+        descripcion="Clases del catálogo de Millet, cuentas y tasas configurables."
+        acciones={
+          <Button
+            onClick={() =>
+              setEditar({
+                activa: true,
+                depreciable: true,
+                tasaConfirmada: false,
+                tasaFiscalAnual: null,
+              })
+            }
+          >
+            Nueva clase
+          </Button>
+        }
       />
+      {/* eslint-disable-next-line ds/no-texto-interno -- FICHA_P7 exige marcar las sugerencias como Por confirmar con Millet. */}
       <p className="rounded-lg bg-warning-bg p-3 text-warning-fg">
-        Las clases DEMO pueden tener cuentas vacías. Configure las cuentas contables antes de
-        capitalizar.
+        Las tasas sembradas son sugerencias: Por confirmar con Millet. Capture las tasas y configure
+        las cuentas pendientes antes de depreciar.
       </p>
       {query.error && (
         <p role="alert" className="text-danger-fg">
@@ -40,6 +70,10 @@ export function ClasesPage() {
             <TableRow>
               <TableHead>Clave</TableHead>
               <TableHead>Nombre</TableHead>
+              <TableHead>Cuenta de activo</TableHead>
+              <TableHead>Depreciación acumulada</TableHead>
+              <TableHead>Gasto</TableHead>
+              <TableHead>Depreciable</TableHead>
               <TableHead>Tasa anual</TableHead>
               <TableHead>Estado</TableHead>
               <TableHead>Acciones</TableHead>
@@ -50,11 +84,26 @@ export function ClasesPage() {
               <TableRow key={c.id}>
                 <TableCell className="font-mono">{c.clave}</TableCell>
                 <TableCell>{c.nombre}</TableCell>
-                <TableCell className="tabular-nums">{c.tasaFiscalAnual}% · Línea recta</TableCell>
+                <TableCell>
+                  <CuentaClase id={c.cuentaActivoId} />
+                </TableCell>
+                <TableCell>
+                  <CuentaClase id={c.cuentaDepreciacionId} />
+                </TableCell>
+                <TableCell>
+                  <CuentaClase id={c.cuentaGastoId} />
+                </TableCell>
+                <TableCell>{c.depreciable ? 'Sí' : 'No'}</TableCell>
+                <TableCell className="tabular-nums">
+                  {c.tasaFiscalAnual == null ? 'Sin tasa' : `${c.tasaFiscalAnual} % · Línea recta`}
+                  {/* eslint-disable-next-line ds/no-texto-interno -- FICHA_P7 exige el estado de negocio Tasa por confirmar. */}
+                  {!c.tasaConfirmada && <p className="text-warning-fg">Tasa por confirmar</p>}
+                </TableCell>
                 <TableCell>
                   <Badge variant={c.activa ? 'success' : 'neutral'}>
                     {c.activa ? 'Activa' : 'Inactiva'}
                   </Badge>
+                  {c.requiereRevision && <Badge variant="warning">Revisar clase anterior</Badge>}
                 </TableCell>
                 <TableCell>
                   <Button variant="outline" onClick={() => setEditar(c)}>
@@ -119,16 +168,38 @@ export function ClasesPage() {
             </label>
           ))}
           <label className="text-xs">
-            Tasa anual *
+            Tasa anual (sugerencia hasta confirmar)
             <Input
-              required
               type="number"
               min="0"
               max="100"
               step="0.01"
               value={editar.tasaFiscalAnual ?? ''}
-              onChange={(e) => setEditar({ ...editar, tasaFiscalAnual: Number(e.target.value) })}
+              onChange={(e) =>
+                setEditar({
+                  ...editar,
+                  tasaFiscalAnual: e.target.value === '' ? null : Number(e.target.value),
+                  tasaConfirmada: false,
+                })
+              }
             />
+          </label>
+          <label className="flex items-center gap-2 text-xs">
+            <input
+              type="checkbox"
+              checked={editar.depreciable ?? true}
+              onChange={(e) => setEditar({ ...editar, depreciable: e.target.checked })}
+            />
+            Depreciable
+          </label>
+          <label className="flex items-center gap-2 text-xs">
+            <input
+              type="checkbox"
+              checked={editar.tasaConfirmada ?? false}
+              disabled={editar.tasaFiscalAnual == null}
+              onChange={(e) => setEditar({ ...editar, tasaConfirmada: e.target.checked })}
+            />
+            Tasa confirmada con Millet (requiere capturar una tasa)
           </label>
           <label className="flex items-center gap-2 text-xs">
             <input
