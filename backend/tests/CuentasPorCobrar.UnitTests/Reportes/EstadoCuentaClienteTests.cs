@@ -40,7 +40,8 @@ public sealed class EstadoCuentaClienteTests
         response.Filas.Select(f => f["tipo"]).Should().Contain(
             ["Factura", "Pago", "Anticipo (saldo disponible)"]);
         response.Totales!["cargo"].Should().Be(10_000m);
-        response.Totales!["abono"].Should().Be(9_000m); // 4,000 pago + 5,000 anticipo
+        // C7.8: el anticipo es informativo; no entra al total de abono.
+        response.Totales!["abono"].Should().Be(4_000m);
         response.Totales!["saldo_documento"].Should().Be(6_000m);
 
         // Sin UUIDs de cara al usuario: la referencia del pago es el folio y
@@ -48,6 +49,42 @@ public sealed class EstadoCuentaClienteTests
         response.Filas.Single(f => (string?)f["tipo"] == "Pago")["referencia"].Should().Be("FV-77");
         response.FiltrosAplicados.Should().Contain(
             f => f.Label == "Cliente" && f.Valor == "Vidrios del Golfo");
+    }
+
+    [Fact]
+    public async Task Totales_cuadran_cargo_menos_abono_igual_saldo_con_anticipos_informativos()
+    {
+        using var db = CrearDbContext();
+        var parcial = FacturaCartera.Crear(
+            Guid.NewGuid(), Guid.NewGuid(), ClienteId, "VGL860910IU4", "Cliente",
+            Guid.NewGuid().ToString(), "FV-90", 11_600m, "MXN", "PPD", Ahora.AddDays(-20), Ahora.AddDays(10));
+        parcial.AplicarPago(5_000m);
+        var abierta = FacturaCartera.Crear(
+            Guid.NewGuid(), Guid.NewGuid(), ClienteId, "VGL860910IU4", "Cliente",
+            Guid.NewGuid().ToString(), "FV-91", 3_480m, "MXN", "PPD", Ahora.AddDays(-5), Ahora.AddDays(25));
+        db.FacturasCartera.AddRange(parcial, abierta);
+        db.MovimientosCartera.Add(new MovimientoCartera(
+            parcial.EmpresaId, parcial.Id, TipoMovimientoCartera.Pago, Guid.NewGuid(), 5_000m, Ahora.AddDays(-3)));
+        await db.SaveChangesAsync();
+
+        var anticipos = new[]
+        {
+            new AnticipoSaldoClienteDto(Guid.NewGuid(), ClienteId, "Abierto", 2_000m, 0m, 2_000m, 2_000m, "MXN", "PED-9"),
+        };
+
+        var handler = new EstadoCuentaClienteHandler(
+            db, new FakePort(anticipos), new FakeClientePort(), new FakeClock());
+        var response = await handler.Handle(new EstadoCuentaClienteQuery(ClienteId), CancellationToken.None);
+
+        var cargo = (decimal)response.Totales!["cargo"]!;
+        var abono = (decimal)response.Totales!["abono"]!;
+        var saldo = (decimal)response.Totales!["saldo_documento"]!;
+        cargo.Should().Be(15_080m);
+        abono.Should().Be(5_000m);
+        saldo.Should().Be(10_080m);
+        (cargo - abono).Should().Be(saldo);
+        // El anticipo sigue visible como fila informativa.
+        response.Filas.Should().Contain(f => (string?)f["tipo"] == "Anticipo (saldo disponible)");
     }
 
     [Fact]

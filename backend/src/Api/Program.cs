@@ -889,7 +889,7 @@ builder.Services.AddFacturacionModule(builder.Configuration);
 // Foundation: LineaCredito + DbContext (abajo, junto a los demás contextos)
 // + outbox. Sin ports todavía — IClienteReadPort/IFacturacionAnticiposReadPort
 // entran con sus consumidores (CXC-PR3+). Ver 01-diseño §6.1.
-builder.Services.AddCuentasPorCobrarModule(builder.Configuration);
+builder.Services.AddCuentasPorCobrarModule(builder.Configuration, builder.Environment.IsDevelopment());
 
 // === Módulo Tesorería (TES-PR1) ===
 // Foundation: esquema `tesoreria` + DbContext (abajo, junto a los demás
