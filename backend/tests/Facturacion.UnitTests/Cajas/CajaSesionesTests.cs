@@ -198,7 +198,7 @@ public sealed class CajaSesionesTests
             new FakeClock(Ahora), new FakeSucursalesReadPort(), new FakeCatalogosSatReadPort());
 
         var retiro = await handler.Handle(new RegistrarCajaMovimientoCommand(
-            sesion.Id, TipoCajaMovimiento.Retiro, "01", 200m, "Retiro parcial"), CancellationToken.None);
+            sesion.Id, TipoCajaMovimiento.Retiro, "01", 200m, "Retiro parcial entregado a caja general"), CancellationToken.None);
         retiro.Importe.Should().Be(-200m);
 
         var ajeno = new RegistrarCajaMovimientoHandler(
@@ -228,6 +228,46 @@ public sealed class CajaSesionesTests
         await act.Should().ThrowAsync<BusinessRuleException>().Where(e => e.Code == "SESION_DIA_ANTERIOR");
     }
 
+    // ---- Motivo obligatorio del retiro (86e3tfdwa: mínimo 15 caracteres) ----
+
+    [Theory]
+    [InlineData("")]
+    [InlineData("Camión taller")]           // 13 caracteres
+    [InlineData("   Pago taller 1   ")]     // 13 sin los espacios de los extremos
+    public void Retiro_validator_rechaza_motivo_de_menos_de_15_caracteres(string motivo)
+    {
+        var resultado = new RegistrarCajaMovimientoValidator().Validate(new RegistrarCajaMovimientoCommand(
+            Guid.NewGuid(), TipoCajaMovimiento.Retiro, "01", 100m, motivo));
+
+        resultado.IsValid.Should().BeFalse();
+        resultado.Errors.Should().Contain(e => e.PropertyName == nameof(RegistrarCajaMovimientoCommand.Descripcion));
+    }
+
+    [Fact]
+    public void Retiro_validator_acepta_motivo_de_15_caracteres()
+    {
+        new RegistrarCajaMovimientoValidator().Validate(new RegistrarCajaMovimientoCommand(
+            Guid.NewGuid(), TipoCajaMovimiento.Retiro, "01", 100m, "Reparación 1234"))
+            .IsValid.Should().BeTrue();
+    }
+
+    [Fact]
+    public void Deposito_no_exige_el_minimo_del_motivo_de_retiro()
+    {
+        var validator = new RegistrarCajaMovimientoValidator();
+        validator.Validate(new RegistrarCajaMovimientoCommand(
+            Guid.NewGuid(), TipoCajaMovimiento.Deposito, "01", 100m, "Depósito")).IsValid.Should().BeTrue();
+    }
+
+    [Fact]
+    public void Retiro_con_motivo_corto_se_rechaza_en_el_dominio()
+    {
+        var act = () => CajaMovimiento.Crear(
+            Empresa, Guid.NewGuid(), TipoCajaMovimiento.Retiro, "01", -100m, Cajero, "  Camión taller ");
+
+        act.Should().Throw<BusinessRuleException>().Where(e => e.Code == "MOVIMIENTO_MOTIVO_RETIRO_CORTO");
+    }
+
     // ---- Arqueo y cierre ----
 
     [Fact]
@@ -245,7 +285,7 @@ public sealed class CajaSesionesTests
         await movimientos.Handle(new RegistrarCajaMovimientoCommand(
             abierta.Id, TipoCajaMovimiento.Deposito, "03", 1000m, "Transferencia recibida"), CancellationToken.None);
         await movimientos.Handle(new RegistrarCajaMovimientoCommand(
-            abierta.Id, TipoCajaMovimiento.Retiro, "01", 100m, "Retiro parcial"), CancellationToken.None);
+            abierta.Id, TipoCajaMovimiento.Retiro, "01", 100m, "Retiro parcial entregado a caja general"), CancellationToken.None);
 
         // OJO: el interceptor de Version no corre bajo InMemory; se lee la
         // versión real en vez de asumir incrementos.
