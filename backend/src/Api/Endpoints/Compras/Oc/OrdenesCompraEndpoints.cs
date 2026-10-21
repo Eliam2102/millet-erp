@@ -1045,6 +1045,7 @@ public static class OrdenesCompraEndpoints
             [FromQuery] string? codigoRuta,
             [FromQuery] string? semanaEmbarque,
             [FromQuery] int? diasAtrasadosMinimos,
+            [FromQuery] bool? conIncidenciasAbiertas,
             // Defaults explícitos (= 0): mismo motivo que la bandeja general
             // — sin esto el endpoint truena con 500 si la URL no trae los
             // params. Ver comentario en MapGet("/").
@@ -1066,6 +1067,7 @@ public static class OrdenesCompraEndpoints
                     CodigoRuta: codigoRuta,
                     SemanaEmbarque: semanaEmbarque,
                     DiasAtrasadosMinimos: diasAtrasadosMinimos,
+                    ConIncidenciasAbiertas: conIncidenciasAbiertas,
                     Page: page == 0 ? 1 : page,
                     PageSize: pageSize == 0 ? 50 : pageSize),
                 cancellationToken);
@@ -1083,6 +1085,24 @@ public static class OrdenesCompraEndpoints
             "`fechaEntregaEsperada` (NULLS LAST → fecha documento) + folio. " +
             "Indexado por `ix_oc_partidas_abiertas`.")
         .Produces<ListarPartidasAbiertasResponse>(StatusCodes.Status200OK)
+        .ProducesProblem(StatusCodes.Status401Unauthorized)
+        .ProducesProblem(StatusCodes.Status403Forbidden);
+
+        // --- F1-COM-07: historial de incidencias del proveedor (base de COM-13) ---
+        group.MapGet("/incidencias-proveedor", async (
+            IMediator mediator,
+            [FromQuery] Guid? proveedorId,
+            [FromQuery] bool? soloAbiertas,
+            [FromQuery] int page = 0,
+            [FromQuery] int pageSize = 0,
+            CancellationToken cancellationToken = default) =>
+            Results.Ok(await mediator.Send(new ListarIncidenciasProveedorQuery(proveedorId, soloAbiertas,
+                page == 0 ? 1 : page, pageSize == 0 ? 50 : pageSize), cancellationToken)))
+        .RequireAuthorization(
+            PermissionPolicyProvider.Prefix + PermisosCanonicos.ComprasOrdenesReportesPartidasAbiertas)
+        .WithName("ListarIncidenciasProveedorOc")
+        .WithSummary("Historial de incidencias del proveedor con cumplimiento de compromisos (F1-COM-07)")
+        .Produces<ListarIncidenciasProveedorResponse>(StatusCodes.Status200OK)
         .ProducesProblem(StatusCodes.Status401Unauthorized)
         .ProducesProblem(StatusCodes.Status403Forbidden);
 
