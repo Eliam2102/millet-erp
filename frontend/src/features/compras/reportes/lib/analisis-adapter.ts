@@ -27,11 +27,15 @@ const num2 = new Intl.NumberFormat('es-MX', { minimumFractionDigits: 2, maximumF
  */
 export function analisisToShell(data: AnalisisResponse): AnalisisShell {
   const base = backendToShellShape({ ...data.reporte, totales: null });
+  // backendToShellShape ya pasa los importes (tipo 4 del backend) a 'numero';
+  // se identifican por el tipo original para fijarles 2 decimales.
+  const importes = new Set(data.reporte.columnas.filter((c) => c.tipo === 4).map((c) => c.key));
   const columnas = base.columnas.map((c) => ({
     ...c,
-    tipo: c.tipo === 'moneda' ? ('numero' as const) : c.tipo,
+    // Los porcentajes llegan como texto («50.0 %» / «n/d»): exportarlos como número los volvía 0.
+    tipo: PORCENTAJES.has(c.clave) ? ('texto' as const) : c.tipo === 'moneda' ? ('numero' as const) : c.tipo,
     // Importes siempre con 2 decimales, sin símbolo de una moneda fija.
-    decimales: c.tipo === 'moneda' ? 2 : null,
+    decimales: importes.has(c.clave) ? 2 : null,
   }));
   const claves = new Set(columnas.map((c) => c.clave));
   const colEtiqueta = columnas[0]?.clave;
