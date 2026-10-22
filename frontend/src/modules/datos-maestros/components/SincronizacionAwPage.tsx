@@ -29,6 +29,7 @@ import {
   mensajeErrorSincronizacion,
   useEjecucionesSync,
 } from '@/modules/datos-maestros/api/clientes';
+import { RfcRepetidosSeccion } from '@/modules/datos-maestros/components/RfcRepetidosSeccion';
 import { EstadoCorridaBadge } from '@/modules/datos-maestros/components/EstadoCorridaBadge';
 import {
   fechaCorridaAw,
@@ -376,6 +377,8 @@ export function SincronizacionAwPage() {
           </div>
         )}
       </section>
+
+      {puedeClientes && <RfcRepetidosSeccion />}
 
       <section
         className="rounded-lg bg-surface-card p-4 shadow-card-flat"

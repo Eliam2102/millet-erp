@@ -134,3 +134,56 @@ export function useIniciarCorridaAw() {
 export async function obtenerReporteDiferenciasAw(id: string) {
   return (await apiRequest<ReporteDiferenciasAw>(`${base}/sincronizacion-aw/corridas/${id}/diferencias`)).data;
 }
+
+// ─── RFC repetidos: unificar clientes de A+W que comparten RFC (86e3qcgyn) ──
+
+// PLATFORM-TODO: usar PermisosCanonicos.DatosMaestrosClientesUnificar cuando el backend lo agregue a permission-codes.ts.
+export const PERMISO_UNIFICAR_CLIENTES = 'datos_maestros.clientes.unificar';
+
+export type AccionSugeridaRfc = 'Principal' | 'Fusionar' | 'Agrupar';
+export interface ClienteRfcRepetido {
+  clienteId: string;
+  referenciaAw: string | null;
+  razonSocial: string;
+  tieneRfc: boolean;
+  estatus: string;
+  unificadoEnClienteId: string | null;
+  pedidosAw: number;
+  ultimoPedidoAw: string | null;
+  pedidosErp: number;
+  accionSugerida: AccionSugeridaRfc;
+}
+export interface GrupoRfcRepetido {
+  rfc: string;
+  principalSugeridoId: string;
+  motivoSugerencia: string;
+  resuelto: boolean;
+  clientes: ClienteRfcRepetido[];
+}
+export interface RfcRepetidosPagina { total: number; offset: number; limit: number; items: GrupoRfcRepetido[] }
+
+const RFC_REPETIDOS_KEY = [...SINCRONIZACION_AW_KEY, 'rfc-repetidos'] as const;
+
+export function useRfcRepetidos({ offset, limit, soloPendientes }: { offset: number; limit: number; soloPendientes: boolean }, enabled = true) {
+  return useQuery({
+    queryKey: [...RFC_REPETIDOS_KEY, { offset, limit, soloPendientes }],
+    queryFn: async ({ signal }) =>
+      (await apiRequest<RfcRepetidosPagina>(
+        `${base}/clientes/rfc-repetidos?limit=${limit}&offset=${offset}&soloPendientes=${soloPendientes}`, { signal })).data,
+    enabled,
+  });
+}
+
+export function useUnificarClientesRfc() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (body: { rfc: string; principalClienteId: string; motivo: string }) =>
+      (await apiRequest<GrupoRfcRepetido>(`${base}/clientes/rfc-repetidos/unificar`, {
+        method: 'POST', body, idempotencyKey: crypto.randomUUID(),
+      })).data,
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: RFC_REPETIDOS_KEY });
+      void queryClient.invalidateQueries({ queryKey: ['datos-maestros', 'clientes'] });
+    },
+  });
+}
