@@ -90,6 +90,15 @@ public static class DependencyInjection
             client.Timeout = TimeSpan.FromSeconds(opts.TimeoutSeconds > 0 ? opts.TimeoutSeconds : 5);
         });
 
+        // Confianza en el cert de SER-DATA (ADR-0048): se instala al registrar, antes de que arranque cualquier worker.
+        var certPem = configuration[AwSqlCertificadoServidor.ConfigKey];
+        if (!string.IsNullOrWhiteSpace(certPem))
+        {
+            services.AddSingleton(AwSqlCertificadoServidor.Instalar(certPem));
+            services.AddHostedService<AwSqlCertificadoServidorLogger>();
+            services.AddHealthChecks().AddCheck<AwSqlCertificadoServidorHealthCheck>("aw-sql-certificado-servidor", tags: ["aw-tls"]);
+        }
+
         // ───────── PR C — adapters reales ─────────
         services.AddSingleton<ISqlConnectionFactory, SqlConnectionFactory>();
         services.AddScoped<IAwSqlReader, HybridConnectionAwSqlReader>();

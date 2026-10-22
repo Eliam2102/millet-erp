@@ -972,6 +972,7 @@ var awIntegracionDb = builder.Configuration.GetConnectionString("AwIntegracionDb
 if (!string.IsNullOrWhiteSpace(awIntegracionDb)
     && !awIntegracionDb.StartsWith("@Microsoft.KeyVault", StringComparison.OrdinalIgnoreCase))
 {
+    Millet.Integraciones.Aw.Infrastructure.Adapters.AwSqlTls.Validar(awIntegracionDb, "AwIntegracionDb");
     builder.Services.AddIntegracionesAwPedidosAdapters(builder.Configuration);
 }
 
