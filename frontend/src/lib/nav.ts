@@ -174,6 +174,13 @@ const moduloCompras: NavModulo = {
           ],
         },
         {
+          label: 'Análisis de compras',
+          description: 'Compras, saldos pendientes y cumplimiento por proveedor, artículo y departamento.',
+          to: '/compras/reportes/analisis',
+          icon: BarChart3,
+          permission: PermisosCanonicos.ComprasOrdenesReportesPartidasAbiertas,
+        },
+        {
           label: 'Partidas abiertas (reporte)',
           description:
             'KPI cards + tabla densa de OCs no terminales con seguimiento de recepción/facturación/pago. Filtros sticky y badge de días atrasados.',

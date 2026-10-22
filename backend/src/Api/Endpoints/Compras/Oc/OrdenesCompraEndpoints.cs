@@ -71,6 +71,17 @@ public static class OrdenesCompraEndpoints
     {
         var group = app.MapGroup("/api/v1/compras/ordenes").WithTags("Compras");
 
+        group.MapGet("/analisis", async (DateOnly desde, DateOnly hasta, Guid? proveedorId,
+            Guid? articuloId, Guid? departamentoId, Guid? sucursalId, ISender sender, CancellationToken ct) =>
+            Results.Ok(await sender.Send(new Millet.Compras.Application.Oc.Analisis.ObtenerAnalisisComprasQuery(
+                desde, hasta, proveedorId, articuloId, departamentoId, sucursalId), ct)))
+            .RequireAuthorization(PermissionPolicyProvider.Prefix + PermisosCanonicos.ComprasOrdenesReportesPartidasAbiertas)
+            .WithName("ObtenerAnalisisCompras")
+            .WithSummary("Consultar compras, saldos y cumplimiento de proveedores al corte")
+            .Produces<Millet.Compras.Application.Oc.Analisis.AnalisisComprasResultado>()
+            .ProducesProblem(StatusCodes.Status403Forbidden)
+            .ProducesProblem(StatusCodes.Status422UnprocessableEntity);
+
         group.MapPost("/", async (
             [FromBody] CrearOrdenCompraVaciaCommand command,
             IMediator mediator,

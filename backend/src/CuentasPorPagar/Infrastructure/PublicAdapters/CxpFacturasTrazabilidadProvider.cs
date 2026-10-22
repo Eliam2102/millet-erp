@@ -24,6 +24,27 @@ public sealed class CxpFacturasTrazabilidadProvider : IProveedorNodosTrazabilida
         _empresaContext = empresaContext;
     }
 
+    public async Task<IReadOnlyList<FacturaOcAnalisisLectura>> LeerAnalisisAsync(Guid empresa,
+        IReadOnlyCollection<Guid> ordenesIds, DateOnly corte, CancellationToken ct)
+    {
+        if (ordenesIds.Count == 0) return [];
+        var fin = FechaContable.InicioDelDiaUtc(corte.AddDays(1));
+        var facturas = await _db.FacturasProveedor.AsNoTracking().Include(f => f.Lineas).Include(f => f.Movimientos)
+            .Where(f => f.EmpresaId == empresa && f.OrdenCompraId != null && ordenesIds.Contains(f.OrdenCompraId.Value)
+                && f.FechaDocumento < fin && (f.FechaCancelacion == null || f.FechaCancelacion >= fin)).ToListAsync(ct);
+        foreach (var f in facturas)
+        {
+            Millet.CuentasPorPagar.Application.Reportes.Comun.SaldosHistoricos.VerificarHistorial(f);
+            if (f.Lineas.Count == 0 || f.Lineas.Any(l => l.LineaOcId == null))
+                throw new Millet.SharedKernel.Application.Exceptions.BusinessRuleException("COMPRAS_FACTURA_SIN_PARTIDA",
+                    "Por confirmar: hay facturas sin vínculo a la partida de compra. Completa su trazabilidad antes de conciliar.");
+        }
+        return facturas.Select(f => new FacturaOcAnalisisLectura(f.Id, f.OrdenCompraId!.Value, f.Moneda, f.Total,
+            f.Total - f.Movimientos.Where(m => m.Fecha <= corte).Sum(m => m.Monto),
+            f.Lineas.OrderBy(l => l.Posicion).Select(l => new LineaFacturaOcAnalisisLectura(l.LineaOcId!.Value,
+                l.Cantidad, l.Importe - (l.Descuento ?? 0))).ToArray())).ToArray();
+    }
+
     public async Task<IReadOnlyList<NodoArbolDocumento>> ObtenerDescendentesAsync(
         TipoDocumentoTrazabilidad tipoOrigen,
         Guid idOrigen,
