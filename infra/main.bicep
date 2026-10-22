@@ -112,6 +112,9 @@ param glassAgentSpnClientId string = ''
 @description('EmpresaId (GUID) que procesa el AwSolicitudesWorker (ingesta de pedidos A+W → Facturación, ADR-0048). Vacío = worker apagado. Ver appservice.bicep.')
 param awSolicitudesEmpresaId string = ''
 
+@description('Candado selector Demo del origen A+W (nunca en Production; requiere además ConnectionStrings__AwOrigenPgDb). Default false. Ver appservice.bicep.')
+param awOrigenDemoPermitido bool = false
+
 @description('Apaga el SDK de FiscalAPI. Default true; dev lo enciende en su .bicepparam (tenant sandbox en el KV dev). Ver appservice.bicep.')
 param integracionesFiscalSdkDisabled bool = true
 
@@ -391,6 +394,7 @@ module appservice 'modules/appservice.bicep' = {
     hcAwDropServiceSendKey: hybridConnections.outputs.hcAwDropServiceSendKey
     glassAgentSpnClientId: glassAgentSpnClientId
     awSolicitudesEmpresaId: awSolicitudesEmpresaId
+    awOrigenDemoPermitido: awOrigenDemoPermitido
     integracionesFiscalSdkDisabled: integracionesFiscalSdkDisabled
     awClientesOrigen: awClientesOrigen
     awClientesLecturaHabilitada: awClientesLecturaHabilitada

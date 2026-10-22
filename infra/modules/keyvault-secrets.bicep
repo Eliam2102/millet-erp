@@ -105,6 +105,7 @@ resource storageConnectionStringSecret 'Microsoft.KeyVault/vaults/secrets@2024-0
 //   az keyvault secret set --vault-name <kv> --name aw-sql-connection-string --value '<conn-string>'
 //   az keyvault secret set --vault-name <kv> --name aw-drop-service-api-key --value '<api-key>'
 //   az keyvault secret set --vault-name <kv> --name glass-agent-spn-client-secret --value '<spn-secret>'
+//   az keyvault secret set --vault-name <kv> --name aw-origen-pg-connection-string --value '<conn-string>'   # origen demo A+W (sin slot Bicep; ver docs/operacion/aw-canal-demo-pruebas.md)
 //
 // Hasta que los tres estén presentes en KV, el App Service que los
 // referencia desde appsettings va a fallar a resolver las refs

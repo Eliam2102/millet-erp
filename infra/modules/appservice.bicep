@@ -176,6 +176,9 @@ param awDocumentSyncHabilitado bool = true
 @description('IntegracionesAw:LateReconciliation:Habilitado — conciliación tardía de A+W.')
 param awLateReconciliationHabilitado bool = true
 
+@description('IntegracionesAw:OrigenDemo:Permitido — selector Demo del origen A+W (nunca en Production; requiere además ConnectionStrings__AwOrigenPgDb). Default false; solo el .bicepparam del servidor de pruebas lo enciende.')
+param awOrigenDemoPermitido bool = false
+
 // ============================================================================
 // Variables: app settings construidas dinámicamente
 // ============================================================================
@@ -250,6 +253,13 @@ var awIntegrationAppSettings = [
   { name: 'IntegracionesAw__Productos__OrigenHabilitado', value: string(awProductosOrigenHabilitado) }
   { name: 'IntegracionesAw__Productos__Origen', value: awProductosOrigen }
   { name: 'IntegracionesAw__Cambios__Habilitado', value: string(awCambiosHabilitado) }
+  {
+    // Origen demo de A+W (BD millet_aw_origen en PostgreSQL). Secreto operator-managed:
+    // sin crear, la ref queda sin resolver y el selector responde AW_DEMO_NO_CONFIGURADA.
+    name: 'ConnectionStrings__AwOrigenPgDb'
+    value: '@Microsoft.KeyVault(VaultName=${keyVaultName};SecretName=aw-origen-pg-connection-string)'
+  }
+  { name: 'IntegracionesAw__OrigenDemo__Permitido', value: string(awOrigenDemoPermitido) }
   {
     name: 'IntegracionesAw__DropServiceBaseAddress'
     value: 'http://${hcAwDropServiceHost}:${hcAwDropServicePort}'

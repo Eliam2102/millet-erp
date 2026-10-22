@@ -64,10 +64,14 @@ param awSolicitudesEmpresaId = ''
 // hybridConnections.bicep); awOnPremHostname solo apunta el drop service
 // (SER-DATA, default de main.bicep).
 param awClientesOrigen = 'Simulado'
-param awClientesLecturaHabilitada = false
-param awClientesAplicacionHabilitada = false
+// Canal demo (A+W-QA-3): lectura/aplicación encendidas para que Millet pruebe con el origen Demo.
+// Con Origen='Simulado' el canal real no lee nada; el Demo responde AW_DEMO_NO_CONFIGURADA
+// hasta que exista el secreto aw-origen-pg-connection-string.
+param awClientesLecturaHabilitada = true
+param awClientesAplicacionHabilitada = true
 param awClientesProgramacionHabilitada = false
-param awProductosOrigenHabilitado = false
+param awProductosOrigenHabilitado = true
+param awOrigenDemoPermitido = true
 param awProductosOrigen = 'Simulado'
 param awCambiosHabilitado = false
 param awDocumentSyncHabilitado = false
