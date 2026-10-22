@@ -111,6 +111,7 @@ public sealed partial class DemoSesionSeedHostedService
             await ce.SaveChangesAsync(ct);
         }
         await SembrarFinanzasCeAsync(sp, ct);
+        await SembrarOrdenesServicioCeAsync(sp, ct);
         await SembrarContenedoresCeAsync(sp, sucursal.Id, ddp.Id, ct);
         await SembrarIncidenciasCeAsync(sp, sucursal.Id, ddp.Id, ct);
     }

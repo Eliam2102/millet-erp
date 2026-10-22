@@ -42,7 +42,7 @@ public sealed class OperacionesLibroServicio(ActivosFijosDbContext db, ActivoSer
         if (op.Fecha < a.InicioUso || op.Fecha <= a.CorteCarga) throw new BusinessRuleException("AF_FECHA_INVALIDA", "La fecha debe ser posterior al corte y al inicio de uso.");
         await libro.FechaModificableAsync(op.Fecha, ct); await libro.PeriodoAsync(op.Fecha, ct);
         var ultima = await db.Set<CorridaDepreciacion>().Where(x => !x.Anulada).MaxAsync(x => (DateOnly?)x.Periodo, ct);
-        var siguiente = (ultima ?? CalculoDepreciacion.Mes(a.CorteCarga ?? a.InicioUso!.Value)).AddMonths(1);
+        var siguiente = ultima?.AddMonths(1) ?? CalculoDepreciacion.PrimerMes(a, cfg.DepreciarMismoMes);
         if (siguiente < CalculoDepreciacion.Mes(op.Fecha))
             throw new BusinessRuleException("AF_MESES_PENDIENTES", "Complete la depreciación hasta el mes anterior antes de autorizar este ajuste o baja.");
         if (op.Tipo == "Baja") await BajaAsync(a, op, cfg, 0, ct);

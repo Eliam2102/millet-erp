@@ -15,6 +15,8 @@ public static class DependencyInjection
         services.AddScoped<OperacionesLibroServicio>();
         services.AddScoped<VentaActivoConsumer>();
         services.AddScoped<IVentaActivoReadPort, Millet.Facturacion.Infrastructure.VentaActivoReadAdapter>();
+        services.AddScoped<IConservacionReadPort, ConservacionReadAdapter>();
+        services.AddScoped<Millet.SharedKernel.Application.Adjuntos.IAdjuntoPropietario, ActivoAdjuntoPropietario>();
         services.AddScoped<Millet.Compras.Domain.Ports.IClaseActivoCompraReadPort, ClaseActivoCompraReadAdapter>();
         services.AddScoped<ITransaccionPolizaActivo, TransaccionPolizaAdapter>();
         services.AddScoped<CompraActivoConsumer>();

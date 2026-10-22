@@ -48,6 +48,7 @@ public static class ActivosEndpoints
                 .RequireAuthorization(Policy(permiso)).WithMetadata(new RequireIdempotencyKeyAttribute());
         }
         app.MapLibroActivos();
+        g.MapConservacion();
         return app;
     }
     private static string Policy(string p) => PermissionPolicyProvider.Prefix + p;

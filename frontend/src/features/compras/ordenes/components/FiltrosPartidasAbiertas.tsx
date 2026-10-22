@@ -216,6 +216,19 @@ export function FiltrosPartidasAbiertas({
           />
         </Field>
 
+        <div className="flex items-center gap-2 self-end pb-1.5">
+          <input
+            id="filtro-con-incidencias"
+            type="checkbox"
+            className="accent-brand"
+            checked={search.conIncidenciasAbiertas === true}
+            onChange={(e) => update('conIncidenciasAbiertas', e.target.checked || undefined)}
+          />
+          <label htmlFor="filtro-con-incidencias" className="text-xs font-medium text-ink-muted">
+            Solo con incidencias abiertas
+          </label>
+        </div>
+
         <Field label="Contenedor">
           <Input
             type="text"

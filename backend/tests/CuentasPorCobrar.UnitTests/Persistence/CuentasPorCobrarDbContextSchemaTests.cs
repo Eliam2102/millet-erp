@@ -30,6 +30,17 @@ public sealed class CuentasPorCobrarDbContextSchemaTests
         entityType!.GetTableName().Should().Be("integration_events_outbox");
     }
 
+    [Fact]
+    public void EstadoCuentaEnvio_se_mapea_en_schema_del_modulo()
+    {
+        using var db = CrearDbContext();
+
+        var entityType = db.Model.FindEntityType(typeof(Millet.CuentasPorCobrar.Domain.EstadoCuenta.EstadoCuentaEnvio));
+        entityType.Should().NotBeNull("C7.8 registra cada envío del estado de cuenta");
+        entityType!.GetSchema().Should().Be("cuentas_por_cobrar");
+        entityType!.GetTableName().Should().Be("estado_cuenta_envio");
+    }
+
     private static CuentasPorCobrarDbContext CrearDbContext()
     {
         var options = new DbContextOptionsBuilder<CuentasPorCobrarDbContext>()

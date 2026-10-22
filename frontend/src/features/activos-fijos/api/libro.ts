@@ -13,7 +13,8 @@ export interface Depreciacion {
   centroCostoId: string;
   equipoId: string | null;
   base: number;
-  tasa: number;
+  tasa: number | null;
+  observacion?: string | null;
   importe: number;
   acumuladaAntes: number;
   acumuladaDespues: number;
@@ -84,6 +85,8 @@ export interface CargaResultado {
 export interface Configuracion {
   version: number;
   revalorizacionHabilitada: boolean;
+  depreciarMismoMes: boolean;
+  inicioDepreciacionConfirmado: boolean;
   cuentaUtilidadId: string | null;
   cuentaPerdidaId: string | null;
   cuentaVentaPuenteId: string | null;

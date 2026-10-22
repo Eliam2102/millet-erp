@@ -20,6 +20,11 @@ const CODIGOS_BACKEND_ESPERADOS = new Set<string>([
   'activos_fijos.ajustes.autorizar',
   'activos_fijos.carga.ejecutar',
   'activos_fijos.conciliacion.ver',
+  'activos_fijos.documentos.gestionar',
+  'activos_fijos.mantenimientos.gestionar',
+  'activos_fijos.etiquetas.imprimir',
+  'activos_fijos.conteos.gestionar',
+  'activos_fijos.conteos.autorizar',
   'activos_fijos.clases.administrar',
   'activos_fijos.activos.ver',
   'activos_fijos.activos.gestionar',
@@ -78,6 +83,7 @@ const CODIGOS_BACKEND_ESPERADOS = new Set<string>([
   'compras.ordenes.cancelar-doble',
   'compras.ordenes.reportes-partidas-abiertas',
   'compras.ordenes.registrar-respuesta-proveedor',
+  'compras.ordenes.registrar-incidencia-proveedor',
   // Compras — Configuración (PR-A 2026-05-13, setting AutoGenerarOcAlAutorizar).
   'compras.configuracion.leer',
   'compras.configuracion.editar',
@@ -360,11 +366,11 @@ describe('PermisosCanonicos — coincidencia con backend', () => {
     }
   });
 
-  it('el módulo Compras aporta exactamente 30 permisos (13 de RQ + 1 de aprobadores + 11 de OC + 2 de cotizaciones + 2 de configuración + 1 de catálogos.leer)', () => {
+  it('el módulo Compras aporta exactamente 31 permisos (13 de RQ + 1 de aprobadores + 12 de OC + 2 de cotizaciones + 2 de configuración + 1 de catálogos.leer)', () => {
     const delModulo = codigos.filter(
       (c) => c.startsWith('compras.') || c === 'compartido.catalogos.leer',
     );
-    expect(delModulo).toHaveLength(30);
+    expect(delModulo).toHaveLength(31);
   });
 
   it('formato canónico, con capitalizar de P3 como excepción explícita', () => {

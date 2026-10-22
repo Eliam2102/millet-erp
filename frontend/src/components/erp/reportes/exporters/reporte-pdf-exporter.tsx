@@ -18,27 +18,41 @@ import {
 export type { ReporteParaExportar };
 
 /**
+ * Genera el Blob PDF del reporte sin descargarlo (C7.8: el estado de
+ * cuenta se descarga y además se adjunta al envío al cliente).
+ */
+export async function generarReportePdfBlob<TFila>(
+  reporte: ReporteParaExportar<TFila>,
+): Promise<Blob> {
+  const obtenerCelda = (row: TFila, clave: string): unknown =>
+    (row as unknown as Record<string, unknown>)[clave];
+
+  return pdf(<ReporteDocument reporte={reporte} obtenerCelda={obtenerCelda} />).toBlob();
+}
+
+/** Dispara la descarga de un Blob PDF en el browser. */
+export function descargarBlob(blob: Blob, nombreArchivo: string): void {
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = nombreArchivoPdf(nombreArchivo);
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+}
+
+/** Agrega la extensión <c>.pdf</c> si falta. */
+export function nombreArchivoPdf(nombreArchivo: string): string {
+  return nombreArchivo.endsWith('.pdf') ? nombreArchivo : `${nombreArchivo}.pdf`;
+}
+
+/**
  * Genera un Blob PDF y dispara la descarga en el browser.
  */
 export async function descargarReportePdf<TFila>(
   reporte: ReporteParaExportar<TFila>,
   nombreArchivo: string,
 ): Promise<void> {
-  const obtenerCelda = (row: TFila, clave: string): unknown =>
-    (row as unknown as Record<string, unknown>)[clave];
-
-  const blob = await pdf(
-    <ReporteDocument reporte={reporte} obtenerCelda={obtenerCelda} />,
-  ).toBlob();
-
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement('a');
-  a.href = url;
-  a.download = nombreArchivo.endsWith('.pdf')
-    ? nombreArchivo
-    : `${nombreArchivo}.pdf`;
-  document.body.appendChild(a);
-  a.click();
-  document.body.removeChild(a);
-  URL.revokeObjectURL(url);
+  descargarBlob(await generarReportePdfBlob(reporte), nombreArchivo);
 }

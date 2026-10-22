@@ -50,6 +50,11 @@ const GC = 2 * 60 * 60 * 1000; // 2 h
  * (mirror del query string del endpoint).
  */
 export interface ListarArticulosFiltros {
+  /**
+   * Búsqueda parcial en una sola caja: el backend la aplica a clave o nombre
+   * (insensible a acentos y mayúsculas). Se combina por AND con los demás.
+   */
+  q?: string;
   /** Substring contra <c>clave</c>; el backend hace <c>LIKE %q%</c>. */
   clave?: string;
   /**
@@ -338,6 +343,8 @@ function buildArticulosPath(filtros: ListarArticulosFiltros): string {
   const nombreTrim = filtros.nombre?.trim();
   if (claveTrim) params.set('clave', claveTrim);
   else if (nombreTrim) params.set('nombre', nombreTrim);
+  const qTrim = filtros.q?.trim();
+  if (qTrim) params.set('q', qTrim);
   params.set('limit', String(filtros.limit ?? 50));
   return `/api/v1/catalogos/articulos?${params}`;
 }

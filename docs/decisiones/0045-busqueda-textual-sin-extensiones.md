@@ -168,3 +168,22 @@ ADR no cambian** — sólo se amplía la superficie:
 
 Sin ADR nuevo: es la misma decisión técnica (built-in `translate`, sin extensiones,
 server-side, excluyente con precedencia de clave) aplicada a un segundo selector.
+
+---
+
+## Addendum (2026-10-21): una sola caja en los selectores (86e3ufkgd)
+
+El owner pidió que todo buscador que filtra por varios datos lo haga en **una sola
+caja** ("buscador inteligente"). La técnica de este ADR no cambia (`translate`
+built-in, server-side, `lower()` para códigos); cambia la UI de los selectores:
+
+- **Backend.** `GET /api/v1/catalogos/articulos` gana `q` (clave OR nombre), igual
+  que `q` de proveedores (clave OR RFC OR razón social OR nombre comercial, PR #163).
+  `q` se combina por AND con los demás filtros (`tipoRequisicion`, `naturaleza`,
+  `estatus`). `clave` y `nombre` se conservan por compatibilidad.
+- **Frontend.** `BuscadorInteligente` (`frontend/src/components/erp/selectors/`) es
+  la base compartida: una caja, debounce 300 ms, estados cargando/vacío/error y
+  teclado de cmdk. `ArticuloSelector` y `ProveedorSelector` lo usan con `q`; se
+  retiran las dos cajas excluyentes y la prop `permitirBusquedaPorNombre`.
+- **Catálogos chicos precargados** (`CatalogoEagerCombobox`, p. ej. `UsuarioSelector`)
+  ya tenían una sola caja; su filtro client-side ahora también ignora acentos.

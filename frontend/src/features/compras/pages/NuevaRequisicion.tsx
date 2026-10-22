@@ -112,6 +112,8 @@ export function NuevaRequisicion({ onClose, onDirtyChange }: NuevaRequisicionPro
   const embedded = onClose != null;
   const userId = useAuthStore((s) => s.user?.id);
   const empresaId = useAuthStore((s) => s.currentEmpresaId);
+  const sucursalActivaId = useAuthStore((s) => s.currentSucursalId);
+  const nombreUsuario = useAuthStore((s) => s.user?.nombre);
   const canSelectRequisitante = useHasPermission(
     PermisosCanonicos.ComprasRequisicionesSeleccionarRequisitante,
   );
@@ -128,7 +130,8 @@ export function NuevaRequisicion({ onClose, onDirtyChange }: NuevaRequisicionPro
 
   const form = useForm<CrearRequisicionValues>({
     resolver: zodResolver(CrearRequisicionSchema),
-    defaultValues: buildEmptyValues(),
+    // La sucursal arranca en la activa del sistema; con «todas», se elige aquí.
+    defaultValues: buildEmptyValues(sucursalActivaId),
   });
 
   // Sucursal cambia → reset departamento (PR-A3: el departamento depende de
@@ -337,7 +340,7 @@ export function NuevaRequisicion({ onClose, onDirtyChange }: NuevaRequisicionPro
                         triggerProps={c}
                         value={field.value || null}
                         onChange={(id) => field.onChange(id ?? null)}
-                        placeholder="Yo (default)"
+                        placeholder={nombreUsuario ?? 'Selecciona usuario'}
                       />
                     )}
                   />
@@ -624,9 +627,9 @@ function RecuperarBorradorModal({
   );
 }
 
-function buildEmptyValues(): CrearRequisicionValues {
+function buildEmptyValues(sucursalActivaId?: string | null): CrearRequisicionValues {
   return {
-    sucursalId: '',
+    sucursalId: sucursalActivaId ?? '',
     departamentoId: '',
     requisitanteId: undefined,
     clasificacion: Clasificacion.Servicio,
