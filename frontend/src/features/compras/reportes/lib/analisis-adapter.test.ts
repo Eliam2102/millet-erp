@@ -17,7 +17,8 @@ describe('analisisToShell', () => {
       [{ key: 'moneda', tipo: 1 }, { key: 'ordenado', tipo: 4 }, { key: 'ordenes', tipo: 2 }],
       [{ moneda: 'MXN', ordenado: 1800, ordenes: 1 }],
     ));
-    const col = (k: string) => r.reporte.columnas.find((c) => c.clave === k)!;
+    const col = (k: string) =>
+      r.reporte.columnas.find((c) => c.clave === k) as { tipo: string; decimales?: number | null };
     expect(col('ordenado')).toMatchObject({ tipo: 'numero', decimales: 2 });
     expect(col('ordenes').decimales).toBeNull();
   });

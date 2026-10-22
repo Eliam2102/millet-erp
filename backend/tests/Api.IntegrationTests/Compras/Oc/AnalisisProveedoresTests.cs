@@ -25,8 +25,7 @@ public partial class OrdenesCompraEndpointsTests
         var (oc1, _) = await SembrarP2(client, recepcion: false);
         var (oc2, _) = await SembrarP2(client, recepcion: false);
         var (oc3, _) = await SembrarP2(client, recepcion: false);
-        var dia = new DateOnly(2001 + System.Security.Cryptography.RandomNumberGenerator.GetInt32(0, 20), 3,
-            1 + System.Security.Cryptography.RandomNumberGenerator.GetInt32(0, 28));
+        var dia = DiaUnico();
         var proveedorB = Guid.NewGuid();
 
         using var scope = _factory.Services.CreateScope();
@@ -42,6 +41,13 @@ public partial class OrdenesCompraEndpointsTests
         var proveedorA = await db.OrdenesCompra.Where(o => o.Id == oc1).Select(o => o.ProveedorId).SingleAsync();
         return (dia, proveedorA, proveedorB, oc1, oc2, client);
     }
+
+    /// <summary>
+    /// Día al azar entre 1800 y 1999 (~73 mil opciones): con --shared-db la BD no se
+    /// limpia entre corridas y un rango corto repetía fechas y mezclaba datos.
+    /// </summary>
+    private static DateOnly DiaUnico() =>
+        new DateOnly(1800, 1, 1).AddDays(System.Security.Cryptography.RandomNumberGenerator.GetInt32(0, 73_000));
 
     private static string Periodo(DateOnly dia) => $"desde={dia:yyyy-MM-dd}&hasta={dia:yyyy-MM-dd}";
 
@@ -148,8 +154,7 @@ public partial class OrdenesCompraEndpointsTests
     {
         var client = await CreateSuperAdminClientAsync();
         var (ocId, _) = await SembrarP2(client, recepcion: false, borrador: true);
-        var dia = new DateOnly(2001 + System.Security.Cryptography.RandomNumberGenerator.GetInt32(0, 20), 7,
-            1 + System.Security.Cryptography.RandomNumberGenerator.GetInt32(0, 28));
+        var dia = DiaUnico();
         using (var scope = _factory.Services.CreateScope())
         {
             using var bypass = scope.ServiceProvider.GetRequiredService<ICurrentEmpresaContext>().Bypass();
