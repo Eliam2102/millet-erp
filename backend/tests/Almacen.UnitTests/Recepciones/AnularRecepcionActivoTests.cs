@@ -1,4 +1,5 @@
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Configuration;
 using Millet.Almacen.Application.Integration;
 using Millet.Almacen.Application.Recepciones;
 using Millet.Almacen.Domain.Ports;
@@ -91,8 +92,19 @@ public class AnularRecepcionActivoTests
             new PeriodoContableStub(abierto: true), new P7Support.Conversion())
             .Handle(new RegistrarRecepcionConPackingListCommand(Oc, new DateOnly(2026, 10, 8), "packing.pdf", null, [new(Articulo, Linea, 1, null, null, null)]), default);
 
-    private static AnularRecepcionActivoHandler Anulador(AlmacenDbContext db, FakeEvents eventos, EstadoActivosRecepcion estado)
-        => new(db, new FakeActivos(estado), eventos, new FakeUser());
+    private static AnularRecepcionActivoHandler Anulador(AlmacenDbContext db, FakeEvents eventos, EstadoActivosRecepcion estado, bool habilitada = true)
+        => new(db, new FakeActivos(estado), eventos, new FakeUser(), new ConfigurationBuilder()
+            .AddInMemoryCollection(new Dictionary<string, string?> { ["Almacen:AnulacionRecepcionActivo:Habilitada"] = habilitada.ToString() }).Build());
+
+    [Fact]
+    public async Task Anulacion_deshabilitada_rechaza_sin_tocar_la_recepcion()
+    {
+        await using var db = NuevaDb();
+        var ex = await Assert.ThrowsAsync<BusinessRuleException>(() =>
+            Anulador(db, new FakeEvents(), new EstadoActivosRecepcion(0, 0), habilitada: false)
+                .Handle(new AnularRecepcionActivoCommand(Guid.NewGuid(), Guid.NewGuid(), "Captura errónea"), default));
+        Assert.Equal("RECEPCION_ACTIVO_ANULACION_DESHABILITADA", ex.Code);
+    }
 
     private static AlmacenDbContext NuevaDb()
     {

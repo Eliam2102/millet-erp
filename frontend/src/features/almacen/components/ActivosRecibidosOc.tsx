@@ -37,6 +37,8 @@ const MENSAJES: Record<string, string> = {
   RECEPCION_ACTIVO_ESTADO_NO_VERIFICABLE:
     'No se pudo verificar el estado del activo. Intenta de nuevo.',
   RECEPCION_ACTIVO_NO_ENCONTRADA: 'La recepción de activo no existe.',
+  RECEPCION_ACTIVO_ANULACION_DESHABILITADA:
+    'La anulación de recepciones de activo aún no está habilitada en este ambiente.',
 };
 
 export function AnularRecepcionActivoDialog({

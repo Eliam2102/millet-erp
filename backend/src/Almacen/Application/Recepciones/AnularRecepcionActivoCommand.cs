@@ -1,6 +1,7 @@
 using FluentValidation;
 using MediatR;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Configuration;
 using Millet.Almacen.Application.Integration;
 using Millet.Almacen.Domain.Ports;
 using Millet.Almacen.Infrastructure.Persistence;
@@ -33,11 +34,16 @@ public sealed class AnularRecepcionActivoValidator : AbstractValidator<AnularRec
 }
 
 public sealed class AnularRecepcionActivoHandler(
-    AlmacenDbContext db, IActivoRecepcionReadPort activos, IIntegrationEventPublisher events, ICurrentUserContext user)
+    AlmacenDbContext db, IActivoRecepcionReadPort activos, IIntegrationEventPublisher events, ICurrentUserContext user, IConfiguration config)
     : IRequestHandler<AnularRecepcionActivoCommand, AnularRecepcionActivoResponse>
 {
     public async Task<AnularRecepcionActivoResponse> Handle(AnularRecepcionActivoCommand request, CancellationToken cancellationToken)
     {
+        // Apagada por omisión: Compras, Activos Fijos y CxP sólo reciben el evento si las suscripciones de
+        // almacen-events ya filtran almacen.recepcion_activo.anulada.v1 (infra/modules/servicebus.bicep).
+        if (!config.GetValue("Almacen:AnulacionRecepcionActivo:Habilitada", false))
+            throw new BusinessRuleException("RECEPCION_ACTIVO_ANULACION_DESHABILITADA",
+                "La anulación de recepciones de activo aún no está habilitada en este ambiente.");
         // Mismo lock por OC que el registro y las devoluciones: serializa contra recepciones concurrentes de la línea.
         await using var transaccion = await DevolucionesProveedor.DevolucionOrigenLock.AbrirAsync(db, request.OrdenCompraId, cancellationToken);
         var filas = await db.RecepcionesActivos
