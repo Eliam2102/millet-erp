@@ -1,3 +1,4 @@
+import { PermisosCanonicos } from '@/lib/auth/permission-codes';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { apiRequest } from '@/lib/api';
 import { formatDateTime } from '@/lib/datetime';
@@ -137,8 +138,7 @@ export async function obtenerReporteDiferenciasAw(id: string) {
 
 // ─── RFC repetidos: unificar clientes de A+W que comparten RFC (86e3qcgyn) ──
 
-// PLATFORM-TODO: usar PermisosCanonicos.DatosMaestrosClientesUnificar cuando el backend lo agregue a permission-codes.ts.
-export const PERMISO_UNIFICAR_CLIENTES = 'datos_maestros.clientes.unificar';
+export const PERMISO_UNIFICAR_CLIENTES = PermisosCanonicos.DatosMaestrosClientesUnificar;
 
 export type AccionSugeridaRfc = 'Principal' | 'Fusionar' | 'Agrupar';
 export interface ClienteRfcRepetido {

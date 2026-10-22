@@ -104,7 +104,7 @@ internal static class RfcRepetidosGrupos
         if (grupos.Count == 0) return [];
         var ids = grupos.SelectMany(g => g.Ids).ToHashSet();
         var clientes = await db.Clientes.AsNoTracking().Where(c => ids.Contains(c.Id))
-            .Select(c => new { c.Id, c.ReferenciaExterna, c.RazonSocial, c.Rfc, c.Estatus, c.UnificadoEnClienteId }).ToListAsync(ct);
+            .Select(c => new { c.Id, c.ReferenciaExterna, c.RazonSocial, c.Rfc, c.Estatus, c.UnificadoEnClienteId, c.UnificacionConHistorial }).ToListAsync(ct);
         var porId = clientes.ToDictionary(c => c.Id);
         var refs = clientes.Where(c => c.ReferenciaExterna is not null).Select(c => c.ReferenciaExterna!).ToArray();
         var pedidosAw = refs.Length == 0 ? new Dictionary<string, AwPedidosCliente>() : await aw.ContarAsync(refs, ct);
@@ -120,13 +120,17 @@ internal static class RfcRepetidosGrupos
                     c.UnificadoEnClienteId is not null, a?.Pedidos ?? 0, a?.Ultimo, pedidosErp.GetValueOrDefault(id));
             }).ToList();
             var (principal, motivo) = RfcRepetidosReglas.SugerirPrincipal(miembros);
+            // Grupo ya unificado: el principal es el elegido, no el que sugeriría la regla hoy.
+            if (miembros.Select(m => porId[m.Id].UnificadoEnClienteId).FirstOrDefault(x => x is not null) is { } elegido
+                && porId.ContainsKey(elegido))
+                (principal, motivo) = (elegido, "Principal elegido al unificar.");
             var dtos = miembros
                 .OrderBy(m => m.Id == principal ? 0 : 1).ThenBy(m => m.ReferenciaAw is not null && long.TryParse(m.ReferenciaAw, out var n) ? n : long.MaxValue)
                 .Select(m =>
                 {
                     var c = porId[m.Id];
                     // Un ya unificado conserva la acción con la que se unificó (Fusionado = Inactivo, Agrupado = Activo).
-                    var accion = m.Unificado ? (c.Estatus == EstatusCatalogo.Inactivo ? "Fusionar" : "Agrupar")
+                    var accion = m.Unificado ? (c.UnificacionConHistorial ? "Agrupar" : "Fusionar")
                         : RfcRepetidosReglas.AccionSugerida(m, principal);
                     return new RfcRepetidoClienteDto(m.Id, c.ReferenciaExterna, c.RazonSocial, m.TieneRfc, c.Estatus.ToString(),
                         c.UnificadoEnClienteId, m.PedidosAw, m.UltimoPedidoAw, m.PedidosErp, accion);
