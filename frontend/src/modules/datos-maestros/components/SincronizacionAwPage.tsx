@@ -44,7 +44,6 @@ import {
   type TipoCambioAw,
 } from '@/modules/datos-maestros/api/sincronizacion-aw';
 
-const POR_PAGINA = 10;
 const ENTIDAD_MATRIZ: Record<string, string> = { Cliente: 'Cliente', ProductoAw: 'Producto A+W' };
 
 function mensaje(error: unknown) {
@@ -68,6 +67,7 @@ export function SincronizacionAwPage() {
   const apagada = lecturaAwApagada(useAwOrigen(puedeClientes).data);
   const [estado, setEstado] = useState<'Pendiente' | 'Resuelto' | 'Todos'>('Pendiente');
   const [pagina, setPagina] = useState(0);
+  const [porPagina, setPorPagina] = useState(10);
   const [confirmar, setConfirmar] = useState<CambioMaestroAw | null>(null);
   const [unificando, setUnificando] = useState<CambioMaestroAw | null>(null);
   const [tipo, setTipo] = useState<TipoCambioAw | ''>('');
@@ -85,7 +85,7 @@ export function SincronizacionAwPage() {
   const tiposPresentes = [...new Set([...(pendientes.data ?? []), ...(resueltos.data ?? [])].map((c) => c.tipo))];
   const filas = tipo ? todas.filter((c) => c.tipo === tipo) : todas;
   const paginaCorridas = usePaginacionLocal(corridas.data?.items ?? []);
-  const visibles = filas.slice(pagina * POR_PAGINA, (pagina + 1) * POR_PAGINA);
+  const visibles = filas.slice(pagina * porPagina, (pagina + 1) * porPagina);
 
   function correr() {
     iniciarCorrida.mutate(undefined, {
@@ -121,8 +121,8 @@ export function SincronizacionAwPage() {
       </nav>
       <PageHeader titulo="Sincronización con A+W" />
 
-      <section className="rounded-lg bg-surface-card p-4 shadow-card-flat" aria-label="Corridas">
-        <div className="flex items-center justify-between gap-3">
+      <section className="space-y-4 rounded-lg bg-surface-card p-4 shadow-card-flat" aria-label="Corridas">
+        <div className="flex flex-wrap items-center justify-between gap-3">
           <h2 className="text-lg font-semibold">Corridas</h2>
           <div className="flex items-center gap-3">
             {apagada && (
@@ -172,8 +172,8 @@ export function SincronizacionAwPage() {
               <PaginacionTabla
                 total={corridas.data?.items.length ?? 0}
                 offset={paginaCorridas.offset}
-                limit={10}
-                tamanos={[]}
+                limit={paginaCorridas.limit}
+                extremos
                 onChange={paginaCorridas.onChange}
               />
             }
@@ -214,7 +214,7 @@ export function SincronizacionAwPage() {
       </section>
 
       <section
-        className="rounded-lg bg-surface-card p-4 shadow-card-flat"
+        className="space-y-4 rounded-lg bg-surface-card p-4 shadow-card-flat"
         aria-label="Conflictos por resolver"
       >
         <h2 className="text-lg font-semibold">Conflictos por resolver</h2>
@@ -274,10 +274,13 @@ export function SincronizacionAwPage() {
           pie={
             <PaginacionTabla
               total={filas.length}
-              offset={pagina * POR_PAGINA}
-              limit={POR_PAGINA}
-              tamanos={[]}
-              onChange={(offset) => setPagina(offset / POR_PAGINA)}
+              offset={pagina * porPagina}
+              limit={porPagina}
+              extremos
+              onChange={(offset, limit) => {
+                setPorPagina(limit);
+                setPagina(Math.floor(offset / limit));
+              }}
             />
           }
         >
@@ -421,7 +424,7 @@ export function SincronizacionAwPage() {
       )}
 
       <section
-        className="rounded-lg bg-surface-card p-4 shadow-card-flat"
+        className="space-y-4 rounded-lg bg-surface-card p-4 shadow-card-flat"
         aria-label="Matriz campo a dueño"
       >
         <h2 className="text-lg font-semibold">Matriz campo → dueño</h2>

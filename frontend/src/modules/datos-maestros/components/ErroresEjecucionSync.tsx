@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { AlertTriangle, ChevronDown, ChevronRight, RefreshCw, XCircle } from 'lucide-react';
 import { PaginacionTabla } from '@/components/erp/data/PaginacionTabla';
+import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import type { EjecucionSyncErrorItem } from '@/modules/datos-maestros/api/types';
 import { DetalleOrigenAw } from '@/modules/datos-maestros/components/DetalleOrigenAw';
@@ -73,7 +74,7 @@ export function ErroresEjecucionSync({
   titulo?: string;
 }) {
   const [abierto, setAbierto] = useState<string | null>(null);
-  const { offset, visibles, onChange } = usePaginacionLocal(errores);
+  const { offset, limit, visibles, onChange } = usePaginacionLocal(errores);
   return (
     <section aria-label={titulo} className="space-y-2">
       <h4 className="text-xs text-ink-muted">
@@ -88,74 +89,82 @@ export function ErroresEjecucionSync({
           const expandido = abierto === clave;
           const Icono = c?.conflicto ? AlertTriangle : XCircle;
           return (
-            <li key={`${er.referencia}-${offset + i}`} className="flex gap-3 p-3 text-sm">
-              <Icono
-                aria-hidden
-                className={
-                  c?.conflicto
-                    ? 'mt-0.5 h-4 w-4 shrink-0 text-warning-fg'
-                    : 'mt-0.5 h-4 w-4 shrink-0 text-danger-fg'
-                }
-              />
-              <div className="min-w-0 flex-1 space-y-1">
-                <p className="font-medium">
-                  {c?.titulo ?? 'Error'}{' '}
-                  <span className="font-mono text-xs font-normal text-ink-muted">
-                    · ref. {er.referencia}
-                  </span>
-                </p>
+            <li
+              key={`${er.referencia}-${offset + i}`}
+              className="grid gap-x-4 gap-y-2 p-3 text-sm sm:grid-cols-[minmax(0,1fr)_auto]"
+            >
+              <div className="min-w-0 space-y-1">
+                <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
+                  <Icono
+                    aria-hidden
+                    className={
+                      c?.conflicto
+                        ? 'h-4 w-4 shrink-0 text-warning-fg'
+                        : 'h-4 w-4 shrink-0 text-danger-fg'
+                    }
+                  />
+                  <span className="font-medium">{c?.titulo ?? 'Error'}</span>
+                  <span className="font-mono text-xs text-ink-muted">· ref. {er.referencia}</span>
+                  {c?.area != null && (
+                    <>
+                      <Badge variant="neutral">Valida: {c.area}</Badge>
+                      <Badge variant="neutral">Se corrige en {c.corrigeEn}</Badge>
+                    </>
+                  )}
+                  <span className="font-mono text-2xs text-ink-muted">{er.codigo}</span>
+                </div>
                 <p className="break-words text-ink-muted">{er.mensaje}</p>
                 {c != null && <p className="text-xs">{c.accion}</p>}
-                {c?.area != null && (
-                  <p className="text-xs">
-                    <span className="text-ink-muted">Área que valida:</span>{' '}
-                    <strong>{c.area}</strong>
-                    <span className="text-ink-muted"> · se corrige en {c.corrigeEn}</span>
-                  </p>
-                )}
-                <p className="font-mono text-2xs text-ink-muted">{er.codigo}</p>
+              </div>
+              <div className="flex flex-wrap items-start gap-2 sm:justify-end">
                 {conDetalle && (
-                  <button
+                  <Button
                     type="button"
-                    className="inline-flex items-center gap-1 text-xs text-brand underline-offset-2 hover:underline"
+                    variant="ghost"
+                    size="sm"
                     aria-expanded={expandido}
                     aria-controls={`origen-${clave}`}
                     onClick={() => setAbierto(expandido ? null : clave)}
                   >
                     {expandido ? (
-                      <ChevronDown aria-hidden className="h-3.5 w-3.5" />
+                      <ChevronDown aria-hidden className="mr-1 h-3.5 w-3.5" />
                     ) : (
-                      <ChevronRight aria-hidden className="h-3.5 w-3.5" />
+                      <ChevronRight aria-hidden className="mr-1 h-3.5 w-3.5" />
                     )}
                     {expandido ? 'Ocultar cómo llegó de A+W' : 'Ver cómo llegó de A+W y qué falta'}
-                  </button>
+                  </Button>
                 )}
-                {conDetalle && expandido && (
-                  <div id={`origen-${clave}`}>
-                    <DetalleOrigenAw referencia={er.referencia} fecha={origen.fecha} />
-                  </div>
-                )}
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  disabled={reintentando != null}
+                  onClick={() => onReintentar(er.referencia)}
+                  aria-label={`Reintentar referencia ${er.referencia}`}
+                >
+                  <RefreshCw
+                    className={`mr-1.5 h-3.5 w-3.5 ${reintentando === er.referencia ? 'animate-spin motion-reduce:animate-none' : ''}`}
+                  />
+                  {reintentando === er.referencia ? 'Leyendo…' : 'Reintentar'}
+                </Button>
               </div>
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                className="shrink-0 self-start"
-                disabled={reintentando != null}
-                onClick={() => onReintentar(er.referencia)}
-                aria-label={`Reintentar referencia ${er.referencia}`}
-              >
-                <RefreshCw
-                  className={`mr-1.5 h-3.5 w-3.5 ${reintentando === er.referencia ? 'animate-spin' : ''}`}
-                />
-                {reintentando === er.referencia ? 'Leyendo…' : 'Reintentar'}
-              </Button>
+              {conDetalle && expandido && (
+                <div id={`origen-${clave}`} className="min-w-0 sm:col-span-2">
+                  <DetalleOrigenAw referencia={er.referencia} fecha={origen.fecha} />
+                </div>
+              )}
             </li>
           );
         })}
       </ul>
       {errores.length > 10 && (
-        <PaginacionTabla total={errores.length} offset={offset} limit={10} tamanos={[]} onChange={onChange} />
+        <PaginacionTabla
+          total={errores.length}
+          offset={offset}
+          limit={limit}
+          extremos
+          onChange={onChange}
+        />
       )}
       {truncados && (
         <p className="text-xs text-ink-muted">

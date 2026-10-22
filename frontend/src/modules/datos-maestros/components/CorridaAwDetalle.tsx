@@ -279,7 +279,7 @@ export function CorridaAwDetalle({ id }: { id: string }) {
                 Conflictos ({conflictos.length + coincidencias.length})
               </TabsTrigger>
             </TabsList>
-            <TabsContent value="errores" className="space-y-3 pt-3">
+            <TabsContent value="errores" className="space-y-4 pt-4">
               {erroresFila.length > 0 && puedeVerOrigen && (
                 <div data-print="hidden" className="flex flex-wrap items-center gap-2">
                   <span className="text-xs text-ink-muted">Solicitudes de corrección por área:</span>
@@ -315,7 +315,7 @@ export function CorridaAwDetalle({ id }: { id: string }) {
                 />
               )}
             </TabsContent>
-            <TabsContent value="conflictos" className="space-y-4 pt-3">
+            <TabsContent value="conflictos" className="space-y-4 pt-4">
               {conflictos.length === 0 && coincidencias.length === 0 ? (
                 <p className="py-3 text-ink-muted">Esta corrida no dejó conflictos.</p>
               ) : (
@@ -355,8 +355,8 @@ export function CorridaAwDetalle({ id }: { id: string }) {
                       <PaginacionTabla
                         total={conflictos.length}
                         offset={paginaConflictos.offset}
-                        limit={10}
-                        tamanos={[]}
+                        limit={paginaConflictos.limit}
+                        extremos
                         onChange={paginaConflictos.onChange}
                       />
                     )}
