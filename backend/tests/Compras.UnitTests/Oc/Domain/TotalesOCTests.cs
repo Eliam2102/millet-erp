@@ -27,7 +27,7 @@ public class TotalesOCTests
             encargadoComprasId: Guid.CreateVersion7(),
             fechaDocumento: DateOnly.FromDateTime(DateTimeOffset.UtcNow.UtcDateTime),
             sinRequisicionPrevia: true,
-            motivoSinRequisicion: "Compra emergencia tests");
+            motivoSinRequisicion: "Compra emergencia tests", usoCfdiClave: "G03", metodoPago: "PPD", formaPagoClave: "99");
     }
 
     private static void Agregar(

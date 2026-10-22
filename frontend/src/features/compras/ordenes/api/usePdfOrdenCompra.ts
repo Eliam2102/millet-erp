@@ -1,4 +1,4 @@
-import { useQuery } from '@tanstack/react-query';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { apiFetch } from '@/lib/auth/api-client';
 import { ApiError } from '@/lib/api/error';
 import { ordenesKeys } from '@/features/compras/ordenes/api/keys';
@@ -18,7 +18,7 @@ import { ordenesKeys } from '@/features/compras/ordenes/api/keys';
  * el caller (componente) debe revocar via <c>URL.revokeObjectURL</c>
  * en cleanup del effect cuando el componente se desmonta o cambia el
  * id. TanStack Query maneja el caching del request HTTP, no del Blob —
- * cada mount genera una nueva URL para evitar memory leaks largos.</para>
+ * al quedar sin observadores se elimina la URL revocada del caché.</para>
  *
  * <para>Solo se ejecuta si <c>autorizada=true</c> — caso contrario el
  * backend devuelve 404 OC_PDF_NO_ENCONTRADO. El componente
@@ -29,6 +29,7 @@ import { ordenesKeys } from '@/features/compras/ordenes/api/keys';
 export interface UsePdfOrdenCompraOpts {
   /** Si <c>false</c>, el query no se ejecuta. Default <c>true</c>. */
   enabled?: boolean;
+  cicloAutorizacion?: number;
 }
 
 export function usePdfOrdenCompra(
@@ -38,15 +39,15 @@ export function usePdfOrdenCompra(
   const enabled = opts.enabled !== false;
 
   return useQuery({
-    queryKey: [...ordenesKeys.detail(id), 'pdf'] as const,
+    queryKey: [...ordenesKeys.detail(id), 'pdf', opts.cicloAutorizacion] as const,
     enabled,
     // No revalidar el blob automáticamente — el PDF es inmutable post-
     // autorización (F6-PR1 lo genera al autorizar N2).
     staleTime: Infinity,
-    gcTime: 5 * 60 * 1000, // 5 min — libera el blob de memoria pasado un rato.
+    gcTime: 0, // El componente revoca la URL al desmontar; no reutilizarla al volver.
     retry: false, // 404 no debe reintentar.
     queryFn: async ({ signal }) => {
-      const response = await apiFetch(`/api/v1/compras/ordenes/${id}/pdf`, {
+      const response = await apiFetch(`/api/v1/compras/ordenes/${id}/pdf?vistaPrevia=true`, {
         signal,
       });
       if (!response.ok) {
@@ -66,6 +67,30 @@ export function usePdfOrdenCompra(
       }
       const blob = await response.blob();
       return URL.createObjectURL(blob);
+    },
+  });
+}
+
+
+/** Cada clic solicita una descarga nueva; nunca reutiliza el blob de la vista previa. */
+export function useDescargarPdfOrdenCompra() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    retry: false,
+    mutationFn: async ({ id, folio }: { id: string; folio: string }) => {
+      const response = await apiFetch(`/api/v1/compras/ordenes/${id}/pdf`);
+      if (!response.ok) throw new ApiError(await response.json(), response.status);
+      const url = URL.createObjectURL(await response.blob());
+      const enlace = document.createElement('a');
+      enlace.href = url;
+      enlace.download = `${folio}.pdf`;
+      document.body.appendChild(enlace);
+      enlace.click();
+      enlace.remove();
+      setTimeout(() => URL.revokeObjectURL(url), 1000);
+    },
+    onSuccess: (_data, { id }) => {
+      void queryClient.invalidateQueries({ queryKey: ordenesKeys.detail(id) });
     },
   });
 }

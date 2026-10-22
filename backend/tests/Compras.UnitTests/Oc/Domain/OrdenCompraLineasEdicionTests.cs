@@ -34,7 +34,7 @@ public class OrdenCompraLineasEdicionTests
             encargadoComprasId: Guid.CreateVersion7(),
             fechaDocumento: DateOnly.FromDateTime(DateTimeOffset.UtcNow.UtcDateTime),
             sinRequisicionPrevia: true,
-            motivoSinRequisicion: "Test edicion linea");
+            motivoSinRequisicion: "Test edicion linea", usoCfdiClave: "G03", metodoPago: "PPD", formaPagoClave: "99");
         linea = oc.AgregarLineaManual(
             lineaId: Guid.CreateVersion7(),
             articuloId: Guid.CreateVersion7(),
@@ -63,7 +63,7 @@ public class OrdenCompraLineasEdicionTests
             compradorTitularId: Guid.CreateVersion7(),
             encargadoComprasId: Guid.CreateVersion7(),
             fechaDocumento: DateOnly.FromDateTime(DateTimeOffset.UtcNow.UtcDateTime),
-            sinRequisicionPrevia: false);
+            sinRequisicionPrevia: false, usoCfdiClave: "G03", metodoPago: "PPD", formaPagoClave: "99");
         linea = oc.AgregarLineaDesdeRequisicion(
             lineaId: Guid.CreateVersion7(),
             articuloId: Guid.CreateVersion7(),

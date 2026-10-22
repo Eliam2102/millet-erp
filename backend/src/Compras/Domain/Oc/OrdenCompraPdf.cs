@@ -40,6 +40,20 @@ public sealed class OrdenCompraPdf : BaseEntity, IAuditable, IBelongsToAggregate
     /// </summary>
     public string GeneradoPor { get; private set; } = string.Empty;
 
+    public int Impresiones { get; private set; }
+    public DateTimeOffset? UltimaImpresionEn { get; private set; }
+    public Guid? UltimaImpresionPor { get; private set; }
+
+    public int RegistrarImpresion(Guid usuarioId, DateTimeOffset ahora)
+    {
+        if (usuarioId == Guid.Empty)
+            throw new BusinessRuleException("OC_PDF_USUARIO_REQUERIDO", "Inicia sesión para descargar la orden de compra.");
+        Impresiones = checked(Impresiones + 1);
+        UltimaImpresionEn = ahora;
+        UltimaImpresionPor = usuarioId;
+        return Impresiones;
+    }
+
     private OrdenCompraPdf() { }
 
     public OrdenCompraPdf(

@@ -205,7 +205,7 @@ public partial class OrdenesCompraEndpointsTests
     private static object DesdeRqCotizacion(Guid rqId, DateOnly hoy, string moneda, Guid cotizacionId, string motivo) => new
     {
         RequisicionId = rqId, SucursalCodigo = "MID", FolioAnio = (short)2026, ProveedorId = ProveedorActivoId,
-        CondicionesPagoId = Guid.NewGuid(), UsoPrincipalId = Guid.NewGuid(), FechaDocumento = hoy, Moneda = moneda,
+        CondicionesPagoId = Guid.NewGuid(), UsoPrincipalId = Guid.NewGuid(), UsoCfdiClave = "G03", MetodoPago = "PPD", FormaPagoClave = "99", FechaDocumento = hoy, Moneda = moneda,
         TipoCambio = moneda == "MXN" ? (decimal?)null : 17.85m, CotizacionId = cotizacionId, MotivoEleccion = motivo,
     };
 
@@ -415,7 +415,7 @@ public partial class OrdenesCompraEndpointsTests
         var directa = await client.PostAsJsonAsync($"{EndpointBase}/desde-requisicion", new
         {
             RequisicionId = rqId, SucursalCodigo = "MID", FolioAnio = (short)2026, ProveedorId = ProveedorActivoId,
-            CondicionesPagoId = Guid.NewGuid(), UsoPrincipalId = Guid.NewGuid(), FechaDocumento = hoy, Moneda = "MXN",
+            CondicionesPagoId = Guid.NewGuid(), UsoPrincipalId = Guid.NewGuid(), UsoCfdiClave = "G03", MetodoPago = "PPD", FormaPagoClave = "99", FechaDocumento = hoy, Moneda = "MXN",
         });
         await AssertCodigoP2(directa, HttpStatusCode.UnprocessableEntity, "COT_ELEGIR_DESDE_COMPARATIVO");
 

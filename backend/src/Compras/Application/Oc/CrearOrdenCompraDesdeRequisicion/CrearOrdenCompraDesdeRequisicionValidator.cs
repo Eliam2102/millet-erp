@@ -13,6 +13,16 @@ public sealed partial class CrearOrdenCompraDesdeRequisicionValidator
 
     public CrearOrdenCompraDesdeRequisicionValidator()
     {
+        RuleFor(c => c.UsoCfdiClave).Length(3, 4)
+            .WithMessage("Selecciona una clave de uso de CFDI de 3 o 4 caracteres.")
+            .When(c => !string.IsNullOrEmpty(c.UsoCfdiClave));
+        RuleFor(c => c.FormaPagoClave).Matches("^[0-9]{2}$")
+            .WithMessage("Selecciona una forma de pago del catálogo SAT.")
+            .When(c => !string.IsNullOrEmpty(c.FormaPagoClave));
+        RuleFor(c => c.MetodoPago).Must(m => m is "PUE" or "PPD")
+            .WithMessage("El método de pago debe ser PUE o PPD.")
+            .When(c => !string.IsNullOrEmpty(c.MetodoPago));
+
         RuleFor(c => c.RequisicionId).NotEmpty().WithErrorCode("RQ_ID_REQUERIDA");
         RuleFor(c => c.ProveedorId).NotEmpty().WithErrorCode("PROVEEDOR_REQUERIDO");
         RuleFor(c => c.CondicionesPagoId).NotEmpty().WithErrorCode("CONDICIONES_PAGO_REQUERIDAS");

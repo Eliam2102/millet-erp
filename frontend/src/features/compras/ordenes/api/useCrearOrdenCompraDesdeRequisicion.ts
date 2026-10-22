@@ -21,6 +21,9 @@ export interface CrearOrdenCompraDesdeRequisicionCommand {
   proveedorId: string;
   condicionesPagoId: string;
   usoPrincipalId: string;
+  usoCfdiClave?: string | null;
+  metodoPago?: string | null;
+  formaPagoClave?: string | null;
   /** ISO 8601 UTC. */
   fechaDocumento: string;
   moneda?: string;

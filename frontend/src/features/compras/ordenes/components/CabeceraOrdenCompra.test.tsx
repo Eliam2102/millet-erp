@@ -9,6 +9,7 @@ import { useAuthStore } from '@/lib/auth/auth-store';
 import { PermisosCanonicos } from '@/lib/auth/permission-codes';
 
 const mutate = vi.fn();
+vi.mock('@/modules/catalogos/api', () => ({ useUsosCfdi: () => ({ data: [] }), useFormasPago: () => ({ data: [] }) }));
 vi.mock('@tanstack/react-router', () => ({
   Link: ({ children }: { children: React.ReactNode }) => <a href="#">{children}</a>,
 }));
@@ -49,6 +50,7 @@ function makeOc(overrides: Partial<OrdenCompraDetalleResponse> = {}): OrdenCompr
     sucursalDestinoId: 's-1',
     condicionesPagoId: 'cp-1',
     usoPrincipalId: 'up-1',
+    usoCfdiClave: 'G03', metodoPago: 'PPD', formaPagoClave: '99',
     moneda: 'MXN',
     tipoCambio: null,
     compradorTitularId: 'u-1',
@@ -83,7 +85,7 @@ describe('CabeceraOrdenCompra — campos por capturar', () => {
     );
     expect(screen.getAllByText('Por capturar')).toHaveLength(2);
     expect(screen.getByRole('note')).toHaveTextContent(
-      'Falta proveedor y uso principal. Captúralos para poder enviar la OC a autorización.',
+      'Falta proveedor y uso interno de la compra. Captúralos para poder enviar la OC a autorización.',
     );
   });
 

@@ -45,6 +45,7 @@ public sealed class CrearOrdenCompraDesdeRequisicionHandler
     : IRequestHandler<CrearOrdenCompraDesdeRequisicionCommand, CrearOrdenCompraDesdeRequisicionResponse>
 {
     private readonly IDim3ElegibilidadPort _dim3;
+    private readonly Millet.Compras.Domain.Ports.Catalogos.ICatalogoSatReadPort _catalogos;
     private readonly ComprasDbContext _db;
     private readonly CompartidoDbContext _compartido;
     private readonly ICurrentUserContext _currentUser;
@@ -57,7 +58,7 @@ public sealed class CrearOrdenCompraDesdeRequisicionHandler
     private readonly IAlmacenarBlobPort _blobOc;
 
     public CrearOrdenCompraDesdeRequisicionHandler(
-        ComprasDbContext db,
+        ComprasDbContext db, Millet.Compras.Domain.Ports.Catalogos.ICatalogoSatReadPort catalogos,
         IDim3ElegibilidadPort dim3,
         CompartidoDbContext compartido,
         ICurrentUserContext currentUser,
@@ -70,6 +71,7 @@ public sealed class CrearOrdenCompraDesdeRequisicionHandler
         IAlmacenarBlobPort blobOc)
     {
         _db = db;
+        _catalogos = catalogos;
         _dim3 = dim3;
         _compartido = compartido;
         _currentUser = currentUser;
@@ -242,6 +244,9 @@ public sealed class CrearOrdenCompraDesdeRequisicionHandler
             esImportacion: command.EsImportacion,
             observaciones: command.Observaciones,
             fechaEntregaEsperada: command.FechaEntregaEsperada);
+
+        await DatosFacturaOcGuard.ValidarAsync(_catalogos, command.UsoCfdiClave, command.FormaPagoClave, cancellationToken);
+        oc.ActualizarDatosFactura(command.UsoCfdiClave, command.MetodoPago, command.FormaPagoClave);
 
         // Heredar solo las líneas con saldo de compra; la cantidad de la
         // línea OC es CantidadDeCompra (lo que el comprador debe pedir al

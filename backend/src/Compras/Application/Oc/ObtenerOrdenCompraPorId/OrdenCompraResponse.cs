@@ -101,6 +101,15 @@ public sealed record OrdenCompraResponse(
     decimal GastosAdicionales,
     decimal Redondeo)
 {
+    public string? UsoCfdiClave { get; init; }
+    public string? UsoCfdiDescripcion { get; init; }
+    public string? MetodoPago { get; init; }
+    public string? FormaPagoClave { get; init; }
+    public string? FormaPagoDescripcion { get; init; }
+    public int Impresiones { get; init; }
+    public DateTimeOffset? UltimaImpresionEn { get; init; }
+    public Guid? UltimaImpresionPor { get; init; }
+    public string? UltimaImpresionPorNombre { get; init; }
     public string? Obra { get; init; }
     public int CicloAutorizacion { get; init; }
     public IReadOnlyList<AutorizacionOcResponse> Autorizaciones { get; init; } = [];
@@ -113,7 +122,8 @@ public sealed record OrdenCompraResponse(
 
     /// <summary>
     /// Campos de cabecera que siguen en TBD; la OC no se puede transmitir mientras la lista no esté vacía.
-    /// Valores posibles: <c>proveedor</c>, <c>condicionesPago</c>, <c>usoPrincipal</c>.
+    /// Valores posibles: <c>proveedor</c>, <c>condicionesPago</c>, <c>usoPrincipal</c>,
+    /// <c>usoCfdiClave</c>, <c>metodoPago</c>, <c>formaPagoClave</c>.
     /// </summary>
     public IReadOnlyList<string>? CamposPorCapturar { get; init; }
 

@@ -20,6 +20,9 @@ public sealed class OrdenCompraPdfConfiguration : IEntityTypeConfiguration<Orden
             t.HasCheckConstraint("ck_oc_pdf_tamano_pos", "tamano_bytes >= 0");
         });
 
+        builder.Property(p => p.Impresiones).HasDefaultValue(0).IsConcurrencyToken();
+        builder.Property(p => p.UltimaImpresionEn);
+        builder.Property(p => p.UltimaImpresionPor);
         builder.HasKey(p => p.Id);
 
         // Id asignado por el dominio con Guid.CreateVersion7(); sin esta

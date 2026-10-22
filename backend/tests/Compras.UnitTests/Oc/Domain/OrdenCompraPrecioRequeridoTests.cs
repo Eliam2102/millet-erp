@@ -23,7 +23,7 @@ public class OrdenCompraPrecioRequeridoTests
             encargadoComprasId: Guid.CreateVersion7(),
             fechaDocumento: DateOnly.FromDateTime(DateTimeOffset.UtcNow.UtcDateTime),
             sinRequisicionPrevia: true,
-            motivoSinRequisicion: "manual");
+            motivoSinRequisicion: "manual", usoCfdiClave: "G03", metodoPago: "PPD", formaPagoClave: "99");
         foreach (var precio in precios)
         {
             oc.AgregarLineaManual(

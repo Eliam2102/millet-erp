@@ -423,6 +423,9 @@ builder.Services.AddScoped<
     Millet.Compras.Infrastructure.PublicAdapters.AlmacenReadAdapter>();
 
 // === ADR-0042: enriquecer DTOs de requisiciones con nombres cross-módulo ===
+builder.Services.AddScoped<
+    Millet.Compras.Domain.Ports.Catalogos.ICatalogoSatReadPort,
+    Millet.Compras.Infrastructure.Catalogos.CatalogoSatReadAdapter>();
 // IUsuarioReadPort lee identidad.usuarios (nombre del requisitante);
 // IDepartamentoReadPort lee compartido.departamentos (clave + nombre).
 // Adapters en Compras.Infrastructure.PublicAdapters (mismo patrón que arriba).
@@ -1166,7 +1169,7 @@ builder.Services.AddCors(options =>
                   // Sin esto el browser NO puede leer ETag cross-origin
                   // (Access-Control-Expose-Headers) y el If-Match de las
                   // mutaciones nunca se envía (ADR-0012).
-                  .WithExposedHeaders(Microsoft.Net.Http.Headers.HeaderNames.ETag);
+                  .WithExposedHeaders(Microsoft.Net.Http.Headers.HeaderNames.ETag, "X-Oc-Impresion");
         }
         // Si AllowedOrigins está vacío, la policy queda sin orígenes
         // permitidos — preflight siempre falla. Comportamiento secure-by-default.

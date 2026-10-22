@@ -447,5 +447,8 @@ public class AdjuntosOcSubidaTests : IClassFixture<WebApplicationFactory<Program
         string? MotivoSinRequisicion,
         DateOnly? FechaEntregaEsperada,
         Guid? EncargadoComprasId,
-        Guid? OcOrigenId);
+        Guid? OcOrigenId,
+        string? UsoCfdiClave = "G03",
+        string? MetodoPago = "PPD",
+        string? FormaPagoClave = "99");
 }

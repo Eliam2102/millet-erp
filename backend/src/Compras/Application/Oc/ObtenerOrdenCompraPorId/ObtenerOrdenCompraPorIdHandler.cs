@@ -1,4 +1,6 @@
 using MapsterMapper;
+using Millet.Compras.Domain.Ports.Catalogos;
+using Millet.Compras.Domain.Ports.Identidad;
 using MediatR;
 using Microsoft.EntityFrameworkCore;
 using Millet.CentrosCosto.Application.PublicPorts;
@@ -41,6 +43,8 @@ public sealed class ObtenerOrdenCompraPorIdHandler
     private readonly IProveedorReadPort _proveedores;
     private readonly IDim3ReadPort _centrosCosto;
     private readonly IClock _clock;
+    private readonly ICatalogoSatReadPort _catalogos;
+    private readonly IUsuarioReadPort _usuarios;
 
     public ObtenerOrdenCompraPorIdHandler(
         ComprasDbContext db,
@@ -48,7 +52,7 @@ public sealed class ObtenerOrdenCompraPorIdHandler
         IArticuloReadPort articulos,
         IProveedorReadPort proveedores,
         IDim3ReadPort centrosCosto,
-        IClock clock)
+        IClock clock, ICatalogoSatReadPort catalogos, IUsuarioReadPort usuarios)
     {
         _db = db;
         _mapper = mapper;
@@ -56,6 +60,8 @@ public sealed class ObtenerOrdenCompraPorIdHandler
         _proveedores = proveedores;
         _centrosCosto = centrosCosto;
         _clock = clock;
+        _catalogos = catalogos;
+        _usuarios = usuarios;
     }
 
     public async Task<OrdenCompraResponse> Handle(
@@ -125,8 +131,27 @@ public sealed class ObtenerOrdenCompraPorIdHandler
                 await RecurrenciaOc.ContarAsync(_db, new[] { oc.ProveedorId }, RecurrenciaOc.Desde(_clock.UtcNow), cancellationToken),
                 oc.ProveedorId, oc.CompradorTitularId);
 
+        var uso = oc.UsoCfdiClave is null ? null : await _catalogos.ObtenerUsoCfdiAsync(oc.UsoCfdiClave, cancellationToken);
+        var forma = oc.FormaPagoClave is null ? null : await _catalogos.ObtenerFormaPagoAsync(oc.FormaPagoClave, cancellationToken);
+        var pdf = await _db.OrdenCompraPdfs.AsNoTracking().SingleOrDefaultAsync(p => p.OrdenCompraId == oc.Id, cancellationToken);
+        string? ultimaImpresionNombre = null;
+        if (pdf?.UltimaImpresionPor is Guid usuarioId)
+        {
+            var nombres = await _usuarios.ObtenerNombresAsync(new[] { usuarioId }, cancellationToken);
+            nombres.TryGetValue(usuarioId, out ultimaImpresionNombre);
+        }
+
         return response with
         {
+            UsoCfdiClave = oc.UsoCfdiClave,
+            UsoCfdiDescripcion = uso?.Descripcion,
+            MetodoPago = oc.MetodoPago,
+            FormaPagoClave = oc.FormaPagoClave,
+            FormaPagoDescripcion = forma?.Descripcion,
+            Impresiones = pdf?.Impresiones ?? 0,
+            UltimaImpresionEn = pdf?.UltimaImpresionEn,
+            UltimaImpresionPor = pdf?.UltimaImpresionPor,
+            UltimaImpresionPorNombre = ultimaImpresionNombre,
             EsRecurrente = esRecurrente,
             CotizacionElegida = cotizacion,
             ProveedorRazonSocial = prov?.RazonSocial,
@@ -155,6 +180,9 @@ public sealed class ObtenerOrdenCompraPorIdHandler
         if (oc.ProveedorId == OrdenCompraTbdSentinels.Proveedor) campos.Add("proveedor");
         if (oc.CondicionesPagoId == OrdenCompraTbdSentinels.CondicionesPago) campos.Add("condicionesPago");
         if (oc.UsoPrincipalId == OrdenCompraTbdSentinels.UsoPrincipal) campos.Add("usoPrincipal");
+        if (string.IsNullOrWhiteSpace(oc.UsoCfdiClave)) campos.Add("usoCfdiClave");
+        if (string.IsNullOrWhiteSpace(oc.MetodoPago)) campos.Add("metodoPago");
+        if (string.IsNullOrWhiteSpace(oc.FormaPagoClave)) campos.Add("formaPagoClave");
         return campos;
     }
 

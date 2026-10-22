@@ -341,7 +341,7 @@ export interface OrdenCompraDetalleResponse {
   /** F1-COM-11: más reciente primero. */
   respuestasProveedor?: RespuestaProveedorOc[];
   /** Campos de cabecera aún en TBD; la OC no se puede transmitir mientras haya alguno. */
-  camposPorCapturar?: ('proveedor' | 'condicionesPago' | 'usoPrincipal')[] | null;
+  camposPorCapturar?: ('proveedor' | 'condicionesPago' | 'usoPrincipal' | 'usoCfdiClave' | 'metodoPago' | 'formaPagoClave')[] | null;
   // F1-COM-02
   cotizacionElegida?: CotizacionElegidaOc | null;
   id: string;
@@ -355,6 +355,15 @@ export interface OrdenCompraDetalleResponse {
   sucursalDestinoId: string;
   condicionesPagoId: string;
   usoPrincipalId: string;
+  usoCfdiClave?: string | null;
+  usoCfdiDescripcion?: string | null;
+  metodoPago?: string | null;
+  formaPagoClave?: string | null;
+  formaPagoDescripcion?: string | null;
+  impresiones?: number;
+  ultimaImpresionEn?: string | null;
+  ultimaImpresionPor?: string | null;
+  ultimaImpresionPorNombre?: string | null;
   moneda: string;
   tipoCambio: number | null;
   compradorTitularId: string;

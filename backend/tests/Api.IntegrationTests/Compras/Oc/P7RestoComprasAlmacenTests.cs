@@ -52,7 +52,7 @@ public partial class OrdenesCompraEndpointsTests
         // La BD exige motivo por CHECK. Simula el dato incompleto sólo en el
         // agregado rastreado que lee el handler, sin persistir un estado inválido.
         if (caso == "motivo") db.Entry(oc).Property(o => o.MotivoSinRequisicion).CurrentValue = null;
-        var handler = new EnviarAAutorizacionOcHandler(db, sp.GetRequiredService<CompartidoDbContext>(), sp.GetRequiredService<IClock>(), sp.GetRequiredService<IPublisher>(), new Millet.Compras.Application.Oc.EvaluadorNivelOc(db, sp.GetRequiredService<IClock>()));
+        var handler = new EnviarAAutorizacionOcHandler(db, sp.GetRequiredService<Millet.Compras.Domain.Ports.Catalogos.ICatalogoSatReadPort>(), sp.GetRequiredService<CompartidoDbContext>(), sp.GetRequiredService<IClock>(), sp.GetRequiredService<IPublisher>(), new Millet.Compras.Application.Oc.EvaluadorNivelOc(db, sp.GetRequiredService<IClock>()));
         try
         {
             if (codigo is not null)

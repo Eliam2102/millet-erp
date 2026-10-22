@@ -95,7 +95,7 @@ public sealed class CompraAPagoDemoTests(WebApplicationFactory<Program> factory)
         var ocResp = await a.PostAsJsonAsync("/api/v1/compras/ordenes/desde-requisicion", new
         {
             RequisicionId = rqId, SucursalCodigo = "MID", FolioAnio = (short)hoy.Year, ProveedorId = Proveedor,
-            CondicionesPagoId = Guid.NewGuid(), UsoPrincipalId = Guid.NewGuid(), FechaDocumento = hoy,
+            CondicionesPagoId = Guid.NewGuid(), UsoPrincipalId = Guid.NewGuid(), UsoCfdiClave = "G03", MetodoPago = "PPD", FormaPagoClave = "99", FechaDocumento = hoy,
         });
         await Ok(ocResp, "A crea OC desde RQ (faltante)");
         var ocTxt = await ocResp.Content.ReadAsStringAsync();
