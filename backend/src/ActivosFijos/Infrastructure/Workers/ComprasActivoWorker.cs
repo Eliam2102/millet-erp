@@ -31,6 +31,8 @@ public sealed class ComprasActivoWorker(ServiceBusClient client, IServiceScopeFa
         {
             if (e.Message.Subject == "almacen.oc_recepcion.registrada.v1")
                 await consumer.RecibirAsync(JsonSerializer.Deserialize<OcRecepcionRegistradaIntegrationEvent>(e.Message.Body.ToString(), Json) ?? throw new JsonException(), e.CancellationToken);
+            else if (e.Message.Subject == "almacen.recepcion_activo.anulada.v1")
+                await consumer.AnularAsync(JsonSerializer.Deserialize<RecepcionActivoAnuladaIntegrationEvent>(e.Message.Body.ToString(), Json) ?? throw new JsonException(), e.CancellationToken);
             else if (e.Message.Subject == "cuentas_por_pagar.factura.registrada.v1")
                 await consumer.ConciliarAsync(JsonSerializer.Deserialize<FacturaConciliadaActivo>(e.Message.Body.ToString(), Json) ?? throw new JsonException(), e.CancellationToken);
             await e.CompleteMessageAsync(e.Message, e.CancellationToken);
