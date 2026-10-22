@@ -77,7 +77,7 @@ Política: **aplica** = se escribe en el maestro ERP; **solo registra** = se gua
 | `KU_KUNDEN.ZAHLBED` | nvarchar NOT NULL | `CondicionCodigoOrigen` (registro) | Comercial recibido | A+W | Sin sustituir por enum genérico | No nulo | Facturación, CxC (referencia) | Solo registra | validado en forma; mapeo PENDIENTE |
 | `KA_ZAHLBED.NUMMER` | int NULL | `CondicionNumeroOrigen` (registro) | Comercial recibido | A+W | Resolución `ZAHLBED -> KA_ZAHLBED.BEZ`; 0 o >1 coincidencias = pendiente sin duplicar cliente | Nulo posible | CxC (referencia) | Solo registra | PENDIENTE (cardinalidad completa) |
 | `KA_ZAHLBED.BRUTTOTAGE` | int NULL | `DiasNominalesOrigen` (registro) | Comercial recibido | A+W | Ninguna; **no** se calculan vencimientos | Nulo posible (nulo != 0) | CxC (referencia) | Solo registra | catálogo observado CONTADO 1/0, REPARTO 4/3, 60 DIAS 6/60; PENDIENTE completo |
-| `KU_KUNDEN.WAEHRUNG` | nvarchar NOT NULL | `MonedaCodigoOrigen` (crudo) + `MonedaNormalizada` | Comercial recibido | A+W | `PESOSMX` -> candidato `MXN`; `<indf>` y desconocidas sin equivalencia | No nulo | Facturación (`MonedaDefault`) | Solo registra crudo; aplica `MonedaDefault` solo con mapeo validado | PENDIENTE (`PESOSMX`->MXN) |
+| `KU_KUNDEN.WAEHRUNG` | nvarchar NOT NULL | `MonedaCodigoOrigen` (crudo) + `MonedaNormalizada` | Comercial recibido | A+W | `PESOSMX`->`MXN`, `USD`->`USD`, `Euro`->`EUR`, `CAN`->`CAD` (`KA_WAEHRUNGEN.FREMD_KEY`); `<indf>`, vacío y desconocidas -> `MXN` | No nulo | Facturación (`MonedaDefault`) | Registra crudo y aplica `MonedaDefault` al crear | Validado 22-oct (regla A+W→SAP: «cualquier otro valor se transmite como MXP») |
 | `KREDIT_LIMIT`, `KREDIT_LIMIT1` | decimal NULL | `CreditoReferencia*` (registro) | Comercial recibido | CxC (autoriza) | Valores fuente explícitos; nunca elegir el máximo | Nulo != 0 | CxC (lectura) | Solo registra. **Nunca** escribe `CxC.LineaCredito` | PENDIENTE (precisión/escala) |
 | `KREDIT_LIMIT_NET` | float NULL | `CreditoReferenciaNet` (registro) | Comercial recibido | CxC | Ninguna | Nulo != 0 | CxC (lectura) | Solo registra | PENDIENTE |
 | `KZ_STATUS` | int NULL | `EstadoOrigenCrudo` (registro) | Comercial recibido | A+W + decisión Millet | Conservar número; mapeo aprobado por separado | Nulo != 0 != desconocido | Facturación, UI | Solo registra; **no** cambia `Estatus` mientras no haya mapeo | PENDIENTE (mapeo) |
@@ -144,7 +144,8 @@ La prueba `AwFullCorridaMaestrosTests` toma la huella (`CHECKSUM_AGG`) de `KU_KU
 
 - `NULL` en `BRUTTOTAGE`, `KREDIT_LIMIT*` o `KZ_STATUS` significa "el origen no informa"; `0` es un valor informado; un código sin mapeo es "desconocido". Los tres se conservan distintos y se aplican por política de campo.
 - Un nulo de origen **no borra** un valor existente en ERP (en particular ningún fiscal).
-- Un código de estado o moneda desconocido queda **pendiente de validación**, sin baja, activación ni conversión automática.
+- Un código de estado desconocido queda **pendiente de validación**, sin baja, activación ni conversión automática.
+- Moneda: `PESOSMX`→MXN, `USD`→USD, `Euro`→EUR, `CAN`→CAD; cualquier otro valor (incluidos `<indf>` y vacío) se toma como **MXN**, igual que la regla de A+W hacia SAP («cualquier otro valor se transmite como MXP», cruce de la base de conocimiento 14-oct, validado 22-oct).
 - Un cliente sin fiscales suficientes puede existir como maestro incompleto (aptitud comercial != aptitud fiscal); no se inventan valores para volverlo timbrable.
 
 ## 6. Condición del maestro vs. condición del pedido
@@ -180,7 +181,7 @@ Cada fixture (`backend/tests/Integraciones.Aw.UnitTests/Clientes/Fixtures/<escen
 | 2 | `repeticion` | Misma fila ya aplicada, sin cambios | **Sin cambios**; no se crea otro cliente; se registra la comprobación. |
 | 3 | `cambio-comercial` | Cambia un campo comercial permitido (p. ej. teléfono vacío localmente) | **Actualizado** solo en campos permitidos; hash nuevo; fiscales intactos. |
 | 4 | `correccion-fiscal-local` | Fiscales corregidos localmente; origen trae valores distintos | Fiscales locales **preservados**; diferencia como candidato/conflicto registrado con causa; sin sobrescritura. |
-| 5 | `moneda-desconocida` | `WAEHRUNG` sin equivalencia (p. ej. `<indf>`) | Valor crudo conservado; `MonedaDefault` no cambia; resultado **pendiente de validación**. |
+| 5 | `moneda-desconocida` | `WAEHRUNG` sin equivalencia (p. ej. `<indf>`) | Valor crudo conservado; se toma como MXN y el cliente se crea. |
 | 6 | `condicion-sin-coincidencia-o-duplicada` | `ZAHLBED` con 0 o >1 coincidencias en `KA_ZAHLBED` | Condición **no resuelta**, pendiente con causa; cliente no duplicado ni bloqueado en su identidad. |
 | 7 | `cambio-catalogo-dias` | `BRUTTOTAGE` cambia en catálogo con `ZAHLBED` igual | Hash **distinto**; actualización del registro de condición; snapshots de pedidos históricos intactos. |
 | 8 | `estado-desconocido` | `KZ_STATUS`/`KZ_GESPERRT` con código sin mapeo | Números crudos conservados; **sin baja ni activación**; pendiente de validación. |

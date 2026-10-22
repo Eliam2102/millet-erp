@@ -98,17 +98,22 @@ public sealed class AwClientesOrigenTests
     }
 
     [Fact]
-    public void Moneda_solo_se_normaliza_con_MapeoMoneda()
+    public void Moneda_se_normaliza_con_MapeoMoneda_y_lo_demas_es_MXN()
     {
         var sin = Mapear(Fila()).Snapshot!;
-        (sin.MonedaCodigoOrigen, sin.MonedaNormalizada, sin.MonedaDefault).Should().Be(("PESOSMX", null, null));
+        (sin.MonedaCodigoOrigen, sin.MonedaNormalizada, sin.MonedaDefault).Should().Be(("PESOSMX", "MXN", "MXN"));
 
-        var mapeo = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase) { ["pesosmx"] = "MXN" };
+        var mapeo = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase) { ["pesosmx"] = "MXN", ["usd"] = "USD" };
         var con = Mapear(Fila(), mapeo).Snapshot!;
         (con.MonedaCodigoOrigen, con.MonedaNormalizada, con.MonedaDefault).Should().Be(("PESOSMX", "MXN", "MXN"));
 
         var desconocida = Mapear(Fila(waehrung: "<indf>"), mapeo).Snapshot!;
-        (desconocida.MonedaCodigoOrigen, desconocida.MonedaNormalizada).Should().Be(("<indf>", null));
+        (desconocida.MonedaCodigoOrigen, desconocida.MonedaNormalizada).Should().Be(("<indf>", "MXN"));
+
+        var vacia = Mapear(Fila(waehrung: null), mapeo).Snapshot!;
+        (vacia.MonedaCodigoOrigen, vacia.MonedaNormalizada).Should().Be((null, "MXN"));
+
+        Mapear(Fila(waehrung: "USD"), mapeo).Snapshot!.MonedaNormalizada.Should().Be("USD");
     }
 
     [Fact]
