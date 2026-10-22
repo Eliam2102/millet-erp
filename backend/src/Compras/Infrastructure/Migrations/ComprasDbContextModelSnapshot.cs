@@ -1753,7 +1753,7 @@ namespace Millet.Compras.Infrastructure.Migrations
                         {
                             t.HasCheckConstraint("ck_oc_estado", "estado BETWEEN 0 AND 7");
 
-                            t.HasCheckConstraint("ck_oc_estado_comercial_proveedor", "estado_comercial_proveedor BETWEEN 0 AND 3");
+                            t.HasCheckConstraint("ck_oc_estado_comercial_proveedor", "estado_comercial_proveedor BETWEEN 0 AND 4");
 
                             t.HasCheckConstraint("ck_oc_import_campos", "(es_importacion = false) OR (estado IN (0, 6)) OR (info_import_incoterm_id IS NOT NULL AND info_import_pais_origen IS NOT NULL)");
 
