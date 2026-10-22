@@ -2,22 +2,27 @@
    07_job_aviso_pedidos.sql — Job de respaldo: aviso de pedidos en firme
    (U1.4 · ADR-0048 · doc integration/04 §2 · runbook de customizing §3.ter)
 
-   Ejecutar en: MILLET_INTEGRACION (y en MILLET_INTEGRACION_DEV si se quiere
-   el aviso automático en desarrollo; cambiar USE y el nombre del job).
+   Ejecutar en: MILLET_INTEGRACION (producción) o MILLET_INTEGRACION_DEV
+   (pruebas): cambiar los USE y @base (sección 4); el nombre del job agrega
+   « (DEV)» solo.
    Requiere: 02_create_table.sql. Compatible con SQL Server 2016 RTM (sin
    CREATE OR ALTER ni STRING_AGG). Idempotente.
 
    QUÉ HACE
-   Mientras A+W no tenga el customizing que inserta en la cola (G1), este
-   job lo sustituye: cada 15 s revisa A+W en SOLO LECTURA y escribe en
-   dbo.aw_solicitud_pedido las mismas filas que escribiría el customizing:
+   Aviso automático del pedido en firme: cada 15 s revisa A+W en SOLO
+   LECTURA y escribe en dbo.aw_solicitud_pedido. Convive con el botón del
+   vendedor, que escribe en la misma cola:
 
      Pedido en firme (STATUS 15 almacenable o 42 máquina; Módulo 13 R1):
        - nunca avisado               → operacion 1 (Alta)
+       - ya dado de alta por el botón → operacion 2 (Modificación), nunca
+         una segunda Alta
        - ya avisado y vuelve a 15/42 → operacion 2 (Modificación)
          (nuevo evento en BW_AUFTR_HIST posterior al último avisado)
+     Pedidos internos Serie 9000 (ID 90000000–99999999): no se avisan.
      Pedido cancelado (STATUS 900 o 999; arquitectura A+W §4):
-       - ya avisado y no cancelado   → operacion 3 (Cancelación)
+       - ya avisado (por el job o por el botón) y no cancelado
+                                     → operacion 3 (Cancelación)
        - nunca avisado               → se ignora (el ERP no lo conoce)
 
    Reglas del contrato que respeta (runbook §4 y §6):
@@ -44,13 +49,14 @@
    sandbox local (tools/aw-sandbox) se re-apuntan a AW_SANDBOX; en SER-DATA
    quedan en MILMAIN tal cual.
 
-   PENDIENTES CON JORGE (I13.4 / V01):
-     - Elegir customizing o este job, y permiso para crearlo en SER-DATA.
-     - Confirmar que basta el STATUS actual de BW_AUFTR_KOPF: un pedido que
-       pase por 15 y salte a otro estatus en menos de 15 s no se avisa
-       (el job no barre BW_AUFTR_HIST por fecha: no tiene índice por DATUM).
-     - Qué hacer si un pedido cancelado (900/999) vuelve a 15/42 (hoy se
-       avisa como Modificación y el ERP lo resuelve con su matriz).
+   LÍMITES CONOCIDOS:
+     - Se basa en el STATUS actual de BW_AUFTR_KOPF: un pedido que pase por
+       15 y salte a otro estatus en menos de 15 s no se avisa por este
+       medio (el botón del vendedor lo cubre).
+     - Un pedido cancelado (900/999) que vuelve a 15/42 se avisa como
+       Modificación.
+     - Lee MILMAIN con prioridad baja (DEADLOCK_PRIORITY LOW, LOCK_TIMEOUT
+       5 s, READ UNCOMMITTED solo para la lectura de A+W).
    ========================================================================== */
 
 USE MILLET_INTEGRACION;  -- repetir con MILLET_INTEGRACION_DEV
