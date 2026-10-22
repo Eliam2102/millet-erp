@@ -54,7 +54,10 @@ public class AlmacenRecepcionesOcReadAdapterIntegrationTests : IClassFixture<Stu
             db.DevolucionesProveedor.Add(dev);
             await db.SaveChangesAsync();
 
-            var adapter = new AlmacenRecepcionesOcReadAdapter(db, scope.ServiceProvider.GetRequiredService<ICurrentEmpresaContext>());
+            var adapter = new AlmacenRecepcionesOcReadAdapter(db,
+                scope.ServiceProvider.GetRequiredService<Millet.Compras.Infrastructure.ComprasDbContext>(),
+                scope.ServiceProvider.GetRequiredService<Millet.SharedKernel.Application.UnidadesMedida.IConversionUnidadPort>(),
+                scope.ServiceProvider.GetRequiredService<ICurrentEmpresaContext>());
             var filas = await adapter.ListarPorOcAsync([oc], CancellationToken.None);
 
             filas.Should().HaveCount(2);

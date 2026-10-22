@@ -130,6 +130,49 @@ public partial class OrdenesCompraEndpointsTests
     }
 
     [Fact]
+    public async Task Com13_Saldos_coincide_con_partidas_abiertas()
+    {
+        var (dia, _, _, _, _, client) = await SembrarDemoAnalisisAsync();
+
+        var saldos = await ReadJsonAsync(await client.GetAsync($"{AnalisisBase}/saldos?{Periodo(dia)}"));
+        var partidas = await ReadJsonAsync(await client.GetAsync(
+            $"{EndpointBase}/partidas-abiertas?fechaDesde={dia:yyyy-MM-dd}&fechaHasta={dia:yyyy-MM-dd}&pageSize=500"));
+
+        Assert.Equal(
+            partidas.GetProperty("items").EnumerateArray().Select(i => i.GetProperty("id").GetGuid()).OrderBy(x => x),
+            Filas(saldos).Select(f => f.GetProperty("ocId").GetGuid()).OrderBy(x => x));
+    }
+
+    [Fact]
+    public async Task Com13_Total_de_ordenes_por_articulo_no_cuenta_dos_veces_la_misma_oc()
+    {
+        var client = await CreateSuperAdminClientAsync();
+        var (ocId, _) = await SembrarP2(client, recepcion: false, borrador: true);
+        var dia = new DateOnly(2001 + System.Security.Cryptography.RandomNumberGenerator.GetInt32(0, 20), 7,
+            1 + System.Security.Cryptography.RandomNumberGenerator.GetInt32(0, 28));
+        using (var scope = _factory.Services.CreateScope())
+        {
+            using var bypass = scope.ServiceProvider.GetRequiredService<ICurrentEmpresaContext>().Bypass();
+            var db = scope.ServiceProvider.GetRequiredService<ComprasDbContext>();
+            var oc = await db.OrdenesCompra.Include(o => o.Lineas).SingleAsync(o => o.Id == ocId);
+            oc.AgregarLineaDesdeRequisicion(Guid.NewGuid(), Guid.NewGuid(), 2, "PZA", 50, oc.Lineas.Single().DepartamentoSolicitanteId,
+                Guid.NewGuid(), Guid.NewGuid(), centroCostoId: CentroCostoSeedId);
+            oc.EnviarAAutorizacion(DateTimeOffset.UtcNow);
+            oc.Autorizar(Guid.NewGuid(), Millet.Compras.Domain.NivelAutorizacion.Nivel1, Guid.NewGuid(), DateTimeOffset.UtcNow);
+            oc.Autorizar(Guid.NewGuid(), Millet.Compras.Domain.NivelAutorizacion.Nivel2, Guid.NewGuid(), DateTimeOffset.UtcNow);
+            await db.SaveChangesAsync();
+            await db.OrdenesCompra.Where(o => o.Id == ocId).ExecuteUpdateAsync(s => s.SetProperty(o => o.FechaDocumento, dia));
+        }
+
+        var r = await ReadJsonAsync(await client.GetAsync($"{AnalisisBase}/compras?{Periodo(dia)}&agruparPor=articulo"));
+
+        Assert.Equal(2, Filas(r).Count());
+        var total = r.GetProperty("totalesPorMoneda").EnumerateArray().Single();
+        Assert.Equal(1, total.GetProperty("ordenes").GetInt32());
+        Assert.Equal(1100m, total.GetProperty("ordenado").GetDecimal());
+    }
+
+    [Fact]
     public async Task Com13_Proveedor_sin_compras_en_el_periodo_no_aparece()
     {
         var (dia, _, _, _, _, client) = await SembrarDemoAnalisisAsync();

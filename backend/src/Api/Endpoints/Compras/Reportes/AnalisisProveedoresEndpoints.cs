@@ -22,8 +22,8 @@ public static class AnalisisProveedoresEndpoints
             .RequireAuthorization(PermissionPolicyProvider.Prefix + PermisosCanonicos.ComprasOrdenesReportesAnalisisProveedores);
 
         group.MapGet("/compras", async (IMediator mediator, [AsParameters] FiltrosRequest filtros,
-                [FromQuery] AgruparComprasPor? agruparPor, CancellationToken ct) =>
-            Results.Ok(await mediator.Send(new ConsultarComprasPeriodoQuery(filtros.ToFiltros(), agruparPor ?? AgruparComprasPor.Proveedor), ct)))
+                [FromQuery] string? agruparPor, CancellationToken ct) =>
+            Results.Ok(await mediator.Send(new ConsultarComprasPeriodoQuery(filtros.ToFiltros(), ParseAgrupar(agruparPor)), ct)))
             .WithName("AnalisisProveedoresCompras")
             .WithSummary("Compras por periodo agrupadas por proveedor, artículo, departamento o mes (F1-COM-13)")
             .Produces<AnalisisProveedoresResponse>()
@@ -53,6 +53,11 @@ public static class AnalisisProveedoresEndpoints
 
         return app;
     }
+
+    private static AgruparComprasPor ParseAgrupar(string? agruparPor) =>
+        string.IsNullOrEmpty(agruparPor) ? AgruparComprasPor.Proveedor
+        : Enum.TryParse<AgruparComprasPor>(agruparPor, ignoreCase: true, out var valor) && Enum.IsDefined(valor) ? valor
+        : throw new BadHttpRequestException($"Agrupación desconocida: {agruparPor}.");
 
     private static IndicadorDetalle ParseIndicador(string? indicador) => indicador switch
     {

@@ -4,36 +4,29 @@ using Millet.Almacen.Domain.Movimientos;
 using Millet.Almacen.Infrastructure.Persistence;
 using Millet.Compras.Domain.Ports.Almacen;
 using Millet.SharedKernel.Application;
+using Millet.SharedKernel.Application.UnidadesMedida;
 
 namespace Millet.Compras.Infrastructure.PublicAdapters;
 
 /// <summary>
-/// Adapter productivo de <see cref="IRecepcionesOcReadPort"/>. Lee movimientos
-/// Registrados <c>EntradaCompra</c> y <c>SalidaPorDevolucionAProveedor</c> de las OC pedidas.
+/// Adapter productivo de <see cref="IRecepcionesOcReadPort"/>: entradas <c>EntradaCompra</c>
+/// Registradas y devoluciones 8.B (Registrada / ConciliadaConNcFiscal) de las OC pedidas.
 ///
 /// <para>
-/// Las líneas del movimiento 8.B no traen <c>LineaOcId</c> (solo la cabecera lleva
-/// <c>OcId</c> y <c>RecepcionOrigenId</c>). La línea de OC se resuelve por
-/// devolución (<c>MovimientoSalidaId</c>) → línea de devolución con la misma
-/// posición (el movimiento se crea recorriendo las líneas por <c>Posicion</c>) →
-/// <c>LineaRecepcionOrigenId</c> → <c>LineaOcId</c> de la línea de recepción.
+/// La devolución se liga a la línea de OC por su línea de recepción de origen
+/// (<c>LineaRecepcionOrigenId</c> → <c>LineaOcId</c>), igual que
+/// <c>RecibidoPorLineaOc</c>; la fecha es la de su movimiento de salida. Almacén
+/// guarda cantidades en unidad base: se convierten a la unidad de la línea de OC.
 /// </para>
 ///
 /// <para>Bypass de empresa, igual que <see cref="AlmacenEntregasReadAdapter"/>.</para>
 /// </summary>
-public sealed class AlmacenRecepcionesOcReadAdapter : IRecepcionesOcReadPort
+public sealed class AlmacenRecepcionesOcReadAdapter(
+    AlmacenDbContext db,
+    ComprasDbContext compras,
+    IConversionUnidadPort conversion,
+    ICurrentEmpresaContext empresaContext) : IRecepcionesOcReadPort
 {
-    private readonly AlmacenDbContext _db;
-    private readonly ICurrentEmpresaContext _empresaContext;
-
-    public AlmacenRecepcionesOcReadAdapter(
-        AlmacenDbContext db,
-        ICurrentEmpresaContext empresaContext)
-    {
-        _db = db;
-        _empresaContext = empresaContext;
-    }
-
     public async Task<IReadOnlyList<RecepcionOcLinea>> ListarPorOcAsync(
         IReadOnlyCollection<Guid> ocIds,
         CancellationToken ct)
@@ -43,87 +36,55 @@ public sealed class AlmacenRecepcionesOcReadAdapter : IRecepcionesOcReadPort
             return [];
         }
 
-        using var bypass = _empresaContext.Bypass();
+        using var bypass = empresaContext.Bypass();
         var ids = ocIds.Distinct().ToArray();
 
-        var filas = await _db.Movimientos
-            .AsNoTracking()
+        var entradas = await db.Movimientos.AsNoTracking()
             .Where(m => m.Estado == EstadoMovimiento.Registrado
-                     && (m.Tipo == TipoMovimiento.EntradaCompra
-                         || m.Tipo == TipoMovimiento.SalidaPorDevolucionAProveedor)
+                     && m.Tipo == TipoMovimiento.EntradaCompra
                      && m.OcId != null
                      && ids.Contains(m.OcId.Value))
-            .SelectMany(m => m.Lineas, (m, l) => new
-            {
-                MovimientoId = m.Id,
-                m.Folio,
-                OcId = m.OcId!.Value,
-                m.Tipo,
-                m.FechaMovimiento,
-                l.Posicion,
-                l.Cantidad,
-                l.LineaOcId,
-            })
+            .SelectMany(m => m.Lineas, (m, l) => new { m, l })
+            .Where(x => x.l.LineaOcId != null)
+            .Select(x => new Fila(x.m.Id, x.m.Folio, x.m.OcId!.Value, x.l.LineaOcId!.Value,
+                x.m.FechaMovimiento, x.l.Cantidad, false))
             .ToListAsync(ct);
 
-        var movDevIds = filas
-            .Where(f => f.Tipo == TipoMovimiento.SalidaPorDevolucionAProveedor)
-            .Select(f => f.MovimientoId)
-            .Distinct()
-            .ToArray();
+        var devoluciones = await (
+            from d in db.DevolucionesProveedor.AsNoTracking()
+            where d.OrdenCompraOrigenId != null && ids.Contains(d.OrdenCompraOrigenId.Value)
+                && d.MovimientoSalidaId != null
+                && (d.Estado == EstadoDevolucionProveedor.Registrada
+                    || d.Estado == EstadoDevolucionProveedor.ConciliadaConNcFiscal)
+            join m in db.Movimientos.AsNoTracking() on d.MovimientoSalidaId equals (Guid?)m.Id
+            join ld in db.LineasDevolucionProveedor.AsNoTracking() on d.Id equals ld.DevolucionId
+            join lm in db.LineasMovimiento.AsNoTracking() on ld.LineaRecepcionOrigenId equals (Guid?)lm.Id
+            where lm.LineaOcId != null
+            select new Fila(m.Id, m.Folio, d.OrdenCompraOrigenId!.Value, lm.LineaOcId!.Value,
+                m.FechaMovimiento, ld.Cantidad, true)
+        ).ToListAsync(ct);
 
-        // (movimiento 8.B, posición) → línea de OC, vía la línea de recepción de origen.
-        var lineaOcPorDev = new Dictionary<(Guid, int), Guid>();
-        if (movDevIds.Length > 0)
+        var filas = entradas.Concat(devoluciones).ToList();
+        var lineasIds = filas.Select(f => f.LineaOcId).Distinct().ToArray();
+        var lineasOc = await compras.LineasOrdenCompra.AsNoTracking()
+            .Where(l => lineasIds.Contains(l.Id))
+            .Select(l => new { l.Id, l.ArticuloId, l.UnidadMedida })
+            .ToListAsync(ct);
+        var factor = new Dictionary<Guid, decimal>();
+        foreach (var l in lineasOc)
         {
-            var devLineas = await _db.DevolucionesProveedor
-                .AsNoTracking()
-                .Where(d => d.MovimientoSalidaId != null && movDevIds.Contains(d.MovimientoSalidaId.Value))
-                .SelectMany(d => d.Lineas, (d, l) => new
-                {
-                    MovimientoId = d.MovimientoSalidaId!.Value,
-                    l.Posicion,
-                    l.LineaRecepcionOrigenId,
-                })
-                .ToListAsync(ct);
-
-            var origenIds = devLineas
-                .Where(l => l.LineaRecepcionOrigenId != null)
-                .Select(l => l.LineaRecepcionOrigenId!.Value)
-                .Distinct()
-                .ToArray();
-
-            var lineaOcPorOrigen = await _db.LineasMovimiento
-                .AsNoTracking()
-                .Where(l => origenIds.Contains(l.Id) && l.LineaOcId != null)
-                .ToDictionaryAsync(l => l.Id, l => l.LineaOcId!.Value, ct);
-
-            foreach (var l in devLineas)
-            {
-                if (l.LineaRecepcionOrigenId is Guid origen && lineaOcPorOrigen.TryGetValue(origen, out var lineaOc))
-                {
-                    lineaOcPorDev[(l.MovimientoId, l.Posicion)] = lineaOc;
-                }
-            }
+            var f = (await conversion.ConvertirAsync(l.ArticuloId, 1m, null, l.UnidadMedida, ct)).FactorDocumentoABase;
+            factor[l.Id] = f == 0m ? 1m : f;
         }
 
-        var resultado = new List<RecepcionOcLinea>(filas.Count);
-        foreach (var f in filas)
+        return filas.Select(f =>
         {
-            var esDevolucion = f.Tipo == TipoMovimiento.SalidaPorDevolucionAProveedor;
-            Guid? lineaOcId = esDevolucion
-                ? lineaOcPorDev.TryGetValue((f.MovimientoId, f.Posicion), out var lo) ? lo : null
-                : f.LineaOcId;
-            if (lineaOcId is null)
-            {
-                continue; // histórico sin enlace a línea de OC: no atribuible
-            }
-
-            resultado.Add(new RecepcionOcLinea(
-                f.MovimientoId, f.Folio, f.OcId, lineaOcId.Value, f.FechaMovimiento,
-                esDevolucion ? -f.Cantidad : f.Cantidad, esDevolucion));
-        }
-
-        return resultado;
+            var cantidad = Math.Round(f.CantidadBase / factor.GetValueOrDefault(f.LineaOcId, 1m), 4);
+            return new RecepcionOcLinea(f.MovimientoId, f.Folio, f.OcId, f.LineaOcId, f.Fecha,
+                f.EsDevolucion ? -cantidad : cantidad, f.EsDevolucion);
+        }).ToList();
     }
+
+    private sealed record Fila(Guid MovimientoId, string? Folio, Guid OcId, Guid LineaOcId,
+        DateOnly Fecha, decimal CantidadBase, bool EsDevolucion);
 }

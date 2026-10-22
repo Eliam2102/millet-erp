@@ -78,7 +78,13 @@ public sealed class ConsultarComprasPeriodoHandler(ComprasDbContext db, NombresA
              ReporteBuilder.Importe("recibido", "Recibido"),
              ReporteBuilder.Importe("pendienteFisico", "Pendiente físico valorizado (no es deuda)")],
             filas, null);
-        return new(reporte, ReporteBuilder.TotalesPorMoneda(filas, "ordenes", "ordenado", "recibido", "pendienteFisico"));
+        // Una OC con varios artículos o departamentos sale en varias filas: el
+        // total de órdenes se cuenta distinto por moneda, no se suma.
+        var ordenesPorMoneda = lineas.GroupBy(x => x.oc.Moneda).ToDictionary(g => g.Key, g => g.Select(x => x.oc.Id).Distinct().Count());
+        var totales = ReporteBuilder.TotalesPorMoneda(filas, "ordenado", "recibido", "pendienteFisico")
+            .Select(t => (Fila)new Dictionary<string, object?>(t) { ["ordenes"] = ordenesPorMoneda[(string)t["moneda"]!] })
+            .ToList();
+        return new(reporte, totales);
     }
 
     internal static string? NombreProveedorFiltro(FiltrosAnalisis f, NombresAnalisis nombres) =>
@@ -107,13 +113,16 @@ public sealed class ConsultarSaldosOcHandler(ComprasDbContext db, NombresAnalisi
         // Saldo inicial: OC firmes anteriores al periodo que seguían abiertas al
         // inicio (owner, 22-oct-2026). ponytail: usa los acumulados actuales,
         // no reconstruye lo recibido al día de corte; una OC cerrada después
-        // del inicio queda con pendiente 0.
-        var inicio = new DateTimeOffset(f.Desde.ToDateTime(TimeOnly.MinValue), TimeSpan.Zero);
-        var anteriores = await OcAnalisisCargador.CargarAsync(OcAnalisisCargador.Base(db, q)
+        // del inicio queda con pendiente 0, y las canceladas no cuentan.
+        // El margen de un día cubre el desfase UTC; el corte fino es en hora local (ADR-0040).
+        var margen = new DateTimeOffset(f.Desde.AddDays(-1).ToDateTime(TimeOnly.MinValue), TimeSpan.Zero);
+        var anteriores = (await OcAnalisisCargador.CargarAsync(OcAnalisisCargador.Base(db, q)
             .Where(o => o.FechaDocumento < f.Desde)
-            .Where(o => o.Estado != EstadoOrdenCompra.Cerrada || o.FechaCierre == null || o.FechaCierre >= inicio), cancellationToken);
+            .Where(o => o.Estado != EstadoOrdenCompra.Cerrada || o.FechaCierre == null || o.FechaCierre >= margen), cancellationToken))
+            .Where(o => o.Estado != EstadoOrdenCompra.Cerrada || o.FechaCierre is not { } cierre
+                || FechaContable.HoyLocal(cierre) >= f.Desde);
         var saldoInicial = anteriores
-            .Select(o => (o.Moneda, Pendiente: SaldosOc.PorRecibir(o)))
+            .Select(o => (o.Moneda, Pendiente: SaldosOc.PorRecibir(o, OcAnalisisCargador.LineasFiltradas(o, f))))
             .Where(x => x.Pendiente > 0m)
             .GroupBy(x => x.Moneda).OrderBy(g => g.Key)
             .Select(g => new SaldoInicialMoneda(g.Key, g.Count(), g.Sum(x => x.Pendiente)))
@@ -151,16 +160,22 @@ public sealed class ConsultarSaldosOcHandler(ComprasDbContext db, NombresAnalisi
 
 internal static class SaldosOc
 {
-    /// <summary>OC firme no cerrada con algo pendiente de recibir, facturar o pagar.</summary>
+    /// <summary>
+    /// OC firme no cerrada con alguna dimensión abierta: mismo criterio que el
+    /// reporte de partidas abiertas (<c>ListarPartidasAbiertasHandler</c>), para
+    /// que ambos conjuntos coincidan con los mismos filtros.
+    /// </summary>
     internal static bool Abierta(OrdenCompra o) =>
         o.Estado != EstadoOrdenCompra.Cerrada
-        && (PorRecibir(o) > 0m
+        && (o.SubEstadoRecepcion != SubEstadoRecepcion.Completa
             || o.SubEstadoFacturacion != SubEstadoFacturacion.Completa
             || o.SubEstadoPago != SubEstadoPago.Pagada);
 
     /// <summary>Pendiente físico valorizado; los servicios no se reciben en almacén.</summary>
-    internal static decimal PorRecibir(OrdenCompra o) =>
-        o.Lineas.Where(l => !l.EsServicio)
+    internal static decimal PorRecibir(OrdenCompra o) => PorRecibir(o, o.Lineas);
+
+    internal static decimal PorRecibir(OrdenCompra o, IEnumerable<LineaOrdenCompra> lineas) =>
+        lineas.Where(l => !l.EsServicio)
             .Sum(l => Math.Round(Math.Max(0m, l.Cantidad - l.CantidadRecibida) * ReglasAnalisisProveedores.PrecioNeto(l), 2));
 }
 

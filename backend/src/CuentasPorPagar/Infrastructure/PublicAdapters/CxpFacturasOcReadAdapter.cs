@@ -45,7 +45,7 @@ public sealed class CxpFacturasOcReadAdapter : IFacturasOcReadPort
         return filas
             .Select(f => new FacturaOcLectura(
                 f.Id, f.OcId, f.SerieProveedor, f.FolioProveedor,
-                DateOnly.FromDateTime(f.FechaDocumento.Date), f.Moneda, f.Total,
+                Millet.SharedKernel.Application.FechaContable.HoyLocal(f.FechaDocumento), f.Moneda, f.Total,
                 f.DiferenciaContraOc, f.Estado.ToString()))
             .ToList();
     }
