@@ -14,7 +14,7 @@ using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 namespace Millet.Compras.Infrastructure.Migrations
 {
     [DbContext(typeof(ComprasDbContext))]
-    [Migration("20261022184907_EnviosOc")]
+    [Migration("20261022191136_EnviosOc")]
     partial class EnviosOc
     {
         /// <inheritdoc />
@@ -1814,6 +1814,9 @@ namespace Millet.Compras.Infrastructure.Migrations
                     b.HasIndex("EmpresaId", "FechaDocumento")
                         .IsDescending(false, true)
                         .HasDatabaseName("ix_oc_empresa_fecha");
+
+                    b.HasIndex("EmpresaId", "InfoImportNumeroPedimento")
+                        .HasDatabaseName("ix_ordenes_compra_empresa_id_info_import_numero_pedimento");
 
                     b.HasIndex("EmpresaId", "ProveedorId")
                         .HasDatabaseName("ix_oc_empresa_proveedor");
