@@ -1,3 +1,4 @@
+import { PermisosCanonicos } from '@/lib/auth/permission-codes';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { apiRequest } from '@/lib/api';
 import { formatDateTime } from '@/lib/datetime';
@@ -82,6 +83,11 @@ export function useResolverConflictoAw() {
 }
 
 type Variante = 'info' | 'warning' | 'success' | 'danger' | 'neutral';
+export const ESTADO_CAMBIO_AW: Record<EstadoCambioAw, { texto: string; variante: Variante }> = {
+  Pendiente: { texto: 'Por resolver', variante: 'warning' },
+  Resuelto: { texto: 'Resuelto', variante: 'success' },
+  Informativo: { texto: 'Informativo', variante: 'neutral' },
+};
 export const TIPO_CAMBIO_AW: Record<TipoCambioAw, { texto: string; variante: Variante }> = {
   Aplicado: { texto: 'Aplicado', variante: 'info' },
   Baja: { texto: 'Baja', variante: 'warning' },
@@ -131,6 +137,72 @@ export function useIniciarCorridaAw() {
   });
 }
 
+/** Errores de la corrida agrupados por área que valida y dónde se corrigen (mismo formato de reporte). */
+export async function obtenerSolicitudesCorreccionAw(id: string) {
+  return (
+    await apiRequest<ReporteDiferenciasAw>(
+      `${base}/clientes/sincronizacion/ejecuciones/${id}/solicitudes`,
+    )
+  ).data;
+}
+
 export async function obtenerReporteDiferenciasAw(id: string) {
   return (await apiRequest<ReporteDiferenciasAw>(`${base}/sincronizacion-aw/corridas/${id}/diferencias`)).data;
+}
+
+// ─── RFC repetidos: unificar clientes de A+W que comparten RFC (86e3qcgyn) ──
+
+export const PERMISO_UNIFICAR_CLIENTES = PermisosCanonicos.DatosMaestrosClientesUnificar;
+
+export type AccionSugeridaRfc = 'Principal' | 'Fusionar' | 'Agrupar';
+export interface ClienteRfcRepetido {
+  clienteId: string;
+  referenciaAw: string | null;
+  razonSocial: string;
+  tieneRfc: boolean;
+  estatus: string;
+  unificadoEnClienteId: string | null;
+  pedidosAw: number;
+  ultimoPedidoAw: string | null;
+  pedidosErp: number;
+  accionSugerida: AccionSugeridaRfc;
+}
+export interface GrupoRfcRepetido {
+  rfc: string;
+  principalSugeridoId: string;
+  motivoSugerencia: string;
+  resuelto: boolean;
+  clientes: ClienteRfcRepetido[];
+}
+const RFC_REPETIDOS_KEY = [...SINCRONIZACION_AW_KEY, 'rfc-repetidos'] as const;
+
+/** Un grupo de RFC repetido. 404 = el RFC ya no tiene clientes repetidos. */
+export function useRfcRepetido(rfc: string | null) {
+  return useQuery({
+    queryKey: [...RFC_REPETIDOS_KEY, rfc],
+    queryFn: async ({ signal }) =>
+      (await apiRequest<GrupoRfcRepetido>(`${base}/clientes/rfc-repetidos/${encodeURIComponent(rfc ?? '')}`, { signal })).data,
+    enabled: !!rfc,
+    retry: false,
+  });
+}
+
+/** Resumen corto de un conflicto de RFC repetido: RFC y referencias A+W tomadas de la causa. */
+export function resumenRfcCompartido(c: Pick<CambioMaestroAw, 'valorDespues' | 'causa'>) {
+  const refs = c.causa.match(/AW-[\w-]+/g) ?? [];
+  return { rfc: c.valorDespues ?? '', refs, clientes: Math.max(refs.length, 2) };
+}
+
+export function useUnificarClientesRfc() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (body: { rfc: string; principalClienteId: string; motivo: string }) =>
+      (await apiRequest<GrupoRfcRepetido>(`${base}/clientes/rfc-repetidos/unificar`, {
+        method: 'POST', body, idempotencyKey: crypto.randomUUID(),
+      })).data,
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: SINCRONIZACION_AW_KEY });
+      void queryClient.invalidateQueries({ queryKey: ['datos-maestros', 'clientes'] });
+    },
+  });
 }

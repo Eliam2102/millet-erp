@@ -119,6 +119,7 @@ const CODIGOS_BACKEND_ESPERADOS = new Set<string>([
   'datos_maestros.clientes.sincronizar',
   'datos_maestros.clientes.origen-ver',
   'datos_maestros.clientes.fiscal-editar',
+  'datos_maestros.clientes.unificar',
   'datos_maestros.productos-aw.gestionar',
   // Diferencias fiscales A+W vs ERP (U1.8b).
   'datos_maestros.diferencias-fiscales-aw.leer',

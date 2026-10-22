@@ -4,6 +4,7 @@ using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 using Microsoft.Extensions.Options;
+using Millet.DatosMaestros.Application.Clientes;
 using Millet.Integraciones.Aw.Application.Clientes;
 using Millet.Integraciones.Aw.Application.Workers;
 using Millet.Integraciones.Aw.Infrastructure.Pedidos;
@@ -35,6 +36,10 @@ public static class ClientesDependencyInjection
                     new ClientesSqlConnectionFactory(cs),
                     sp.GetRequiredService<IOptions<AwClientesOptions>>(),
                     sp.GetRequiredService<Microsoft.Extensions.Logging.ILogger<AwClientesSqlOrigen>>()));
+                services.AddSingleton<IAwClientesPedidosOrigen>(sp => new AwClientesPedidosSqlOrigen(
+                    new ClientesSqlConnectionFactory(cs),
+                    sp.GetRequiredService<IOptions<AwClientesOptions>>(),
+                    sp.GetRequiredService<Microsoft.Extensions.Logging.ILogger<AwClientesPedidosSqlOrigen>>()));
             }
         }
         else
@@ -46,6 +51,7 @@ public static class ClientesDependencyInjection
                     ? new AwClientesOrigenSimulado()
                     : AwClientesOrigenSimulado.DesdeArchivo(archivo);
             });
+            services.AddSingleton<IAwClientesPedidosOrigen, AwClientesPedidosVacio>();
         }
 
         services.TryAddSingleton(TimeProvider.System);
