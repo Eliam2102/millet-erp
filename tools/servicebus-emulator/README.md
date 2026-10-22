@@ -62,8 +62,8 @@ Cómo funciona: los `OutboxPublisherWorker` de cada módulo siguen leyendo su
 outbox, pero en lugar de enviar a Service Bus usan
 `LocalDispatchIntegrationEventBusSender`, que llama directamente a los
 listeners reales de los módulos suscritos al tema (`*EventListenerWorker`,
-que implementan `ILocalIntegrationEventConsumer`; hoy son los 14 workers del
-bloque con conexión de `Program.cs`, que dan 15 consumidores porque
+que implementan `ILocalIntegrationEventConsumer`; hoy son los 15 workers del
+bloque con conexión de `Program.cs`, que dan 16 consumidores porque
 `ComprasActivoWorker` de Activos Fijos escucha dos temas y aporta uno por tema).
 `AwDropWorker` queda fuera a propósito: es el adaptador hacia A+W, no consume
 eventos internos. Si un listener falla, la
