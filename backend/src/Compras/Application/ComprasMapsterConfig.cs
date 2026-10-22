@@ -24,7 +24,7 @@ public sealed class ComprasMapsterConfig : IRegister
             .Map(dest => dest.PrecioEstimadoMonto, src => src.PrecioEstimado.Amount)
             .Map(dest => dest.PrecioEstimadoMoneda, src => src.PrecioEstimado.Currency)
             .Map(dest => dest.CantPendiente,
-                src => src.Cantidad - (src.CantidadDeAlmacen + src.CantidadRecibida))
+                src => src.CantidadVigente - (src.CantidadDeAlmacen + src.CantidadRecibida))
             .Map(dest => dest.CantDeAlmacen, src => src.CantidadDeAlmacen)
             .Map(dest => dest.CantDeCompra, src => src.CantidadDeCompra)
             .Map(dest => dest.CantRecibida, src => src.CantidadRecibida)

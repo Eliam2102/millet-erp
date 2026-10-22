@@ -30,4 +30,5 @@ public enum HistoricoTipo
     RecepcionRegistrada = 12,
     SaldoNoSurtido = 13,
     Cerrada = 14,
+    ApartadoLiberado = 15,
 }

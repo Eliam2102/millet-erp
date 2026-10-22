@@ -161,7 +161,7 @@ public partial class OrdenesCompraEndpointsTests
         await using var _ = esc;
         var client = await CreateSuperAdminClientAsync();
         var linea = rq.Lineas.Single().Id;
-        var resp = await client.PostAsJsonAsync(UrlLiberar(rq.Id, linea), new { Cantidad = 2m, Motivo = "  Ya no lo necesito  " });
+        var resp = await client.PostAsJsonAsync(UrlLiberar(rq.Id, linea), new { Cantidad = 2m, Motivo = "  Ya no lo necesito  ", MandarACompra = false });
         Assert.Equal(HttpStatusCode.NoContent, resp.StatusCode);
 
         var lista = await ReadJsonAsync(await client.GetAsync(UrlApartados(rq.Id)));
@@ -182,7 +182,7 @@ public partial class OrdenesCompraEndpointsTests
         var (esc, rq) = await ParcialAutorizadaAsync();
         await using var _ = esc;
         var client = await CreateClientConPermisosAsync(PermisosCanonicos.ComprasRequisicionesLeer);
-        var resp = await client.PostAsJsonAsync(UrlLiberar(rq.Id, rq.Lineas.Single().Id), new { Cantidad = 1m, Motivo = "x" });
+        var resp = await client.PostAsJsonAsync(UrlLiberar(rq.Id, rq.Lineas.Single().Id), new { Cantidad = 1m, Motivo = "x", MandarACompra = false });
         Assert.Equal(HttpStatusCode.Forbidden, resp.StatusCode);
         Assert.Equal(3m, (await esc.LeerAsync(rq)).Pendiente);
     }
@@ -193,7 +193,7 @@ public partial class OrdenesCompraEndpointsTests
         var (esc, rq) = await ParcialAutorizadaAsync();
         await using var _ = esc;
         var client = await CreateSuperAdminClientAsync();
-        var resp = await client.PostAsJsonAsync(UrlLiberar(rq.Id, rq.Lineas.Single().Id), new { Cantidad = 4m, Motivo = "x" });
+        var resp = await client.PostAsJsonAsync(UrlLiberar(rq.Id, rq.Lineas.Single().Id), new { Cantidad = 4m, Motivo = "x", MandarACompra = false });
         Assert.Equal(HttpStatusCode.UnprocessableEntity, resp.StatusCode);
         Assert.Contains("APARTADO_LIBERACION_EXCEDE", await resp.Content.ReadAsStringAsync());
         Assert.Equal(3m, (await esc.LeerAsync(rq)).Pendiente);
@@ -207,7 +207,7 @@ public partial class OrdenesCompraEndpointsTests
         var (esc, rq) = await ParcialAutorizadaAsync();
         await using var _ = esc;
         var client = await CreateSuperAdminClientAsync();
-        var resp = await client.PostAsJsonAsync(UrlLiberar(rq.Id, rq.Lineas.Single().Id), new { Cantidad = 1m, Motivo = motivo });
+        var resp = await client.PostAsJsonAsync(UrlLiberar(rq.Id, rq.Lineas.Single().Id), new { Cantidad = 1m, Motivo = motivo, MandarACompra = false });
         Assert.True(resp.StatusCode is HttpStatusCode.BadRequest or HttpStatusCode.UnprocessableEntity, resp.StatusCode.ToString());
         Assert.Equal(3m, (await esc.LeerAsync(rq)).Pendiente);
     }
@@ -219,7 +219,7 @@ public partial class OrdenesCompraEndpointsTests
         await using var _ = esc;
         var otra = await esc.NuevaRqAsync(1, soloCompleto: false, enviar: false);
         var client = await CreateSuperAdminClientAsync();
-        var resp = await client.PostAsJsonAsync(UrlLiberar(rq.Id, otra.Lineas.Single().Id), new { Cantidad = 1m, Motivo = "x" });
+        var resp = await client.PostAsJsonAsync(UrlLiberar(rq.Id, otra.Lineas.Single().Id), new { Cantidad = 1m, Motivo = "x", MandarACompra = false });
         Assert.Equal(HttpStatusCode.NotFound, resp.StatusCode);
     }
 
@@ -230,7 +230,7 @@ public partial class OrdenesCompraEndpointsTests
         await esc.InicializarAsync(3);
         var rq = await esc.NuevaRqAsync(5, soloCompleto: false, enviar: false);
         var client = await CreateSuperAdminClientAsync();
-        var resp = await client.PostAsJsonAsync(UrlLiberar(rq.Id, rq.Lineas.Single().Id), new { Cantidad = 1m, Motivo = "x" });
+        var resp = await client.PostAsJsonAsync(UrlLiberar(rq.Id, rq.Lineas.Single().Id), new { Cantidad = 1m, Motivo = "x", MandarACompra = false });
         Assert.Equal(HttpStatusCode.UnprocessableEntity, resp.StatusCode);
         Assert.Contains("RQ_SIN_APARTADO_LIBERABLE", await resp.Content.ReadAsStringAsync());
     }
@@ -248,7 +248,7 @@ public partial class OrdenesCompraEndpointsTests
         var rq = await esc.NuevaRqAsync(5, soloCompleto: false, sucursalId: otraSucursal);
         // El usuario de prueba sólo está asociado a la sucursal fija.
         var client = await CreateClientConPermisosAsync(PermisosCanonicos.ComprasRequisicionesLeer, PermisosCanonicos.ComprasRequisicionesLiberarApartado);
-        var resp = await client.PostAsJsonAsync(UrlLiberar(rq.Id, rq.Lineas.Single().Id), new { Cantidad = 1m, Motivo = "x" });
+        var resp = await client.PostAsJsonAsync(UrlLiberar(rq.Id, rq.Lineas.Single().Id), new { Cantidad = 1m, Motivo = "x", MandarACompra = false });
         Assert.Equal(HttpStatusCode.Forbidden, resp.StatusCode);
         Assert.Equal(HttpStatusCode.Forbidden, (await client.GetAsync(UrlApartados(rq.Id))).StatusCode);
     }
@@ -259,7 +259,7 @@ public partial class OrdenesCompraEndpointsTests
         var (esc, rq) = await ParcialAutorizadaAsync();
         await using var _ = esc;
         var client = await CreateSuperAdminClientAsync();
-        (await client.PostAsJsonAsync(UrlLiberar(rq.Id, rq.Lineas.Single().Id), new { Cantidad = 2m, Motivo = "x" })).EnsureSuccessStatusCode();
+        (await client.PostAsJsonAsync(UrlLiberar(rq.Id, rq.Lineas.Single().Id), new { Cantidad = 2m, Motivo = "x", MandarACompra = false })).EnsureSuccessStatusCode();
         using (var scope = _factory.Services.CreateScope())
         {
             var sp = scope.ServiceProvider;
@@ -282,7 +282,7 @@ public partial class OrdenesCompraEndpointsTests
         for (var n = 0; n < 2; n++)
         {
             using var request = new HttpRequestMessage(HttpMethod.Post, UrlLiberar(rq.Id, rq.Lineas.Single().Id))
-            { Content = JsonContent.Create(new { Cantidad = 2m, Motivo = "Reintento" }) };
+            { Content = JsonContent.Create(new { Cantidad = 2m, Motivo = "Reintento", MandarACompra = false }) };
             request.Headers.Add("Idempotency-Key", key);
             using var resp = await client.SendAsync(request);
             Assert.Equal(HttpStatusCode.NoContent, resp.StatusCode);
@@ -309,7 +309,7 @@ public partial class OrdenesCompraEndpointsTests
         var (esc, rq) = await ParcialAutorizadaAsync();
         await using var _ = esc;
         var client = await CreateSuperAdminClientAsync();
-        (await client.PostAsJsonAsync(UrlLiberar(rq.Id, rq.Lineas.Single().Id), new { Cantidad = 2m, Motivo = "x" })).EnsureSuccessStatusCode();
+        (await client.PostAsJsonAsync(UrlLiberar(rq.Id, rq.Lineas.Single().Id), new { Cantidad = 2m, Motivo = "x", MandarACompra = false })).EnsureSuccessStatusCode();
         using (var scope = _factory.Services.CreateScope())
         {
             var sp = scope.ServiceProvider;
@@ -335,5 +335,169 @@ public partial class OrdenesCompraEndpointsTests
         var item = json.GetProperty("items").EnumerateArray().Single(i => i.GetProperty("id").GetGuid() == rq.Id);
         var disp = item.GetProperty("disponibilidad");
         Assert.True(disp.ValueKind == System.Text.Json.JsonValueKind.Number ? disp.GetInt32() == esperadoNumerico : disp.GetString() == esperado, disp.ToString());
+    }
+
+    private async Task<(decimal Almacen, decimal Compra, decimal SinCompra, EstadoRequisicion Estado)> LeerLineaAsync(Requisicion rq)
+    {
+        using var scope = _factory.Services.CreateScope();
+        using var bypass = scope.ServiceProvider.GetRequiredService<ICurrentEmpresaContext>().Bypass();
+        var r = await scope.ServiceProvider.GetRequiredService<ComprasDbContext>().Requisiciones.AsNoTracking()
+            .Include(x => x.Lineas).SingleAsync(x => x.Id == rq.Id);
+        var l = r.Lineas.Single();
+        return (l.CantidadDeAlmacen, l.CantidadDeCompra, l.CantidadSinCompra, r.Estado);
+    }
+
+    [Fact]
+    public async Task Liberar_MandandoACompra_RecalculaCubrimientoYQuedaComoSaldoPorComprar()
+    {
+        var (esc, rq) = await ParcialAutorizadaAsync();
+        await using var _ = esc;
+        var client = await CreateSuperAdminClientAsync();
+        var resp = await client.PostAsJsonAsync(UrlLiberar(rq.Id, rq.Lineas.Single().Id), new { Cantidad = 2m, Motivo = "Se usa en otra obra", MandarACompra = true });
+        Assert.Equal(HttpStatusCode.NoContent, resp.StatusCode);
+
+        Assert.Equal((1m, 4m, 0m, EstadoRequisicion.EnSurtido), await LeerLineaAsync(rq));
+        var detalle = await ReadJsonAsync(await client.GetAsync($"/api/v1/compras/requisiciones/{rq.Id}"));
+        var linea = detalle.GetProperty("lineas")[0];
+        Assert.Equal(4m, linea.GetProperty("cantSaldoPorComprar").GetDecimal());
+        Assert.Equal(4m, linea.GetProperty("cantPendiente").GetDecimal());
+        Assert.Equal(1m, (await esc.LeerAsync(rq)).Pendiente);
+    }
+
+    [Fact]
+    public async Task Liberar_SinMandarACompra_NoCompraYDejaDePedirse()
+    {
+        var (esc, rq) = await ParcialAutorizadaAsync();
+        await using var _ = esc;
+        var client = await CreateSuperAdminClientAsync();
+        (await client.PostAsJsonAsync(UrlLiberar(rq.Id, rq.Lineas.Single().Id), new { Cantidad = 2m, Motivo = "Ya no lo necesita", MandarACompra = false })).EnsureSuccessStatusCode();
+
+        Assert.Equal((1m, 2m, 2m, EstadoRequisicion.EnSurtido), await LeerLineaAsync(rq));
+        var linea = (await ReadJsonAsync(await client.GetAsync($"/api/v1/compras/requisiciones/{rq.Id}"))).GetProperty("lineas")[0];
+        Assert.Equal(2m, linea.GetProperty("cantSaldoPorComprar").GetDecimal());
+        Assert.Equal(2m, linea.GetProperty("cantPendiente").GetDecimal());
+    }
+
+    [Fact]
+    public async Task Liberar_TodoSinCompraEnRqSurtidaDeAlmacen_CierraLaRqYSueltaElApartado()
+    {
+        var (esc, rq) = await ParcialAutorizadaAsync(stock: 3, pedido: 3);
+        await using var _ = esc;
+        var client = await CreateSuperAdminClientAsync();
+        var resp = await client.PostAsJsonAsync(UrlLiberar(rq.Id, rq.Lineas.Single().Id), new { Cantidad = 3m, Motivo = "Cancelaron el trabajo", MandarACompra = false });
+        Assert.Equal(HttpStatusCode.NoContent, resp.StatusCode);
+
+        Assert.Equal((0m, 0m, 3m, EstadoRequisicion.Cerrada), await LeerLineaAsync(rq));
+        Assert.Equal(0m, (await esc.LeerAsync(rq)).Pendiente);
+    }
+
+    [Fact]
+    public async Task Liberar_SinIndicarSiVaACompra_400_YNadaCambia()
+    {
+        var (esc, rq) = await ParcialAutorizadaAsync();
+        await using var _ = esc;
+        var client = await CreateSuperAdminClientAsync();
+        var resp = await client.PostAsJsonAsync(UrlLiberar(rq.Id, rq.Lineas.Single().Id), new { Cantidad = 1m, Motivo = "x" });
+        Assert.Equal(HttpStatusCode.BadRequest, resp.StatusCode);
+        Assert.Contains("MANDAR_A_COMPRA_REQUERIDO", await resp.Content.ReadAsStringAsync());
+        Assert.Equal((3m, 2m, 0m, EstadoRequisicion.EnSurtido), await LeerLineaAsync(rq));
+    }
+
+    [Fact]
+    public async Task Liberar_MandandoACompraConRqYaEnOc_422_YNadaCambia()
+    {
+        var (esc, rq) = await ParcialAutorizadaAsync();
+        await using var _ = esc;
+        using (var scope = _factory.Services.CreateScope())
+        {
+            using var bypass = scope.ServiceProvider.GetRequiredService<ICurrentEmpresaContext>().Bypass();
+            var db = scope.ServiceProvider.GetRequiredService<ComprasDbContext>();
+            var tracked = await db.Requisiciones.SingleAsync(r => r.Id == rq.Id);
+            tracked.ComprometerEnOc(Guid.NewGuid());
+            await db.SaveChangesAsync();
+        }
+        var client = await CreateSuperAdminClientAsync();
+        var resp = await client.PostAsJsonAsync(UrlLiberar(rq.Id, rq.Lineas.Single().Id), new { Cantidad = 1m, Motivo = "x", MandarACompra = true });
+        Assert.Equal(HttpStatusCode.UnprocessableEntity, resp.StatusCode);
+        Assert.Contains("RQ_COMPROMETIDA_EN_OC", await resp.Content.ReadAsStringAsync());
+        Assert.Equal((3m, 2m, 0m, EstadoRequisicion.EnSurtido), await LeerLineaAsync(rq));
+        Assert.Equal(3m, (await esc.LeerAsync(rq)).Pendiente);
+    }
+
+    [Fact]
+    public async Task Liberar_QuedaEnElHistoricoConActorMotivoYCantidad()
+    {
+        var (esc, rq) = await ParcialAutorizadaAsync();
+        await using var _ = esc;
+        var client = await CreateSuperAdminClientAsync();
+        (await client.PostAsJsonAsync(UrlLiberar(rq.Id, rq.Lineas.Single().Id), new { Cantidad = 2m, Motivo = "Motivo histórico", MandarACompra = true })).EnsureSuccessStatusCode();
+
+        var historico = await ReadJsonAsync(await client.GetAsync($"/api/v1/compras/requisiciones/{rq.Id}/historico"));
+        var entrada = historico.EnumerateArray().Single(e =>
+        {
+            var tipo = e.GetProperty("tipo");
+            return tipo.ValueKind == System.Text.Json.JsonValueKind.Number ? tipo.GetInt32() == 15 : tipo.GetString() == "ApartadoLiberado";
+        });
+        Assert.NotEqual(System.Text.Json.JsonValueKind.Null, entrada.GetProperty("actorId").ValueKind);
+        var cambios = entrada.GetProperty("cambios").GetString()!;
+        Assert.Contains("Motivo histórico", cambios);
+        Assert.Contains("CantidadLiberadaApartado", cambios);
+        Assert.Contains("CantidadDeCompra", cambios);
+    }
+
+    [Fact]
+    public async Task Liberar_SiAlmacenRechazaDespuesDeRecalcular_NoQuedaNadaAMedias()
+    {
+        // Apartado global apagado: Compras cubre 3 de almacén pero Almacén no tiene
+        // apartado; Almacén rechaza después de que Compras ya recalculó en memoria.
+        await using var esc = new EscenarioLiberar(this, SucursalIdFija);
+        await esc.InicializarAsync(3, apartar: false);
+        var rq = await esc.NuevaRqAsync(5, soloCompleto: false);
+        await esc.AutorizarAsync(rq);
+        var client = await CreateSuperAdminClientAsync();
+
+        var resp = await client.PostAsJsonAsync(UrlLiberar(rq.Id, rq.Lineas.Single().Id), new { Cantidad = 1m, Motivo = "x", MandarACompra = true });
+
+        Assert.Equal(HttpStatusCode.UnprocessableEntity, resp.StatusCode);
+        Assert.Contains("APARTADO_SIN_PENDIENTE", await resp.Content.ReadAsStringAsync());
+        Assert.Equal((3m, 2m, 0m, EstadoRequisicion.EnSurtido), await LeerLineaAsync(rq));
+    }
+
+    [Fact]
+    public async Task Liberar_DosLiberacionesSimultaneas_SoloUnaPasaYNoSeLiberaDeMas()
+    {
+        var (esc, rq) = await ParcialAutorizadaAsync();
+        await using var _ = esc;
+        var a = await CreateSuperAdminClientAsync();
+        var b = await CreateSuperAdminClientAsync();
+        var linea = rq.Lineas.Single().Id;
+
+        var respuestas = await Task.WhenAll(
+            a.PostAsJsonAsync(UrlLiberar(rq.Id, linea), new { Cantidad = 2m, Motivo = "A", MandarACompra = false }),
+            b.PostAsJsonAsync(UrlLiberar(rq.Id, linea), new { Cantidad = 2m, Motivo = "B", MandarACompra = false }));
+
+        Assert.Single(respuestas, r => r.StatusCode == HttpStatusCode.NoContent);
+        Assert.Single(respuestas, r => r.StatusCode is HttpStatusCode.UnprocessableEntity or HttpStatusCode.Conflict);
+        Assert.Equal(1m, (await esc.LeerAsync(rq)).Pendiente);
+        Assert.Equal((1m, 2m, 2m, EstadoRequisicion.EnSurtido), await LeerLineaAsync(rq));
+    }
+
+    [Fact]
+    public async Task Liberar_MientrasOtraRqSeAutoriza_NuncaSeApartaMasQueLaExistencia()
+    {
+        var (esc, rq) = await ParcialAutorizadaAsync();
+        await using var _ = esc;
+        var rq2 = await esc.NuevaRqAsync(5, soloCompleto: false);
+        var client = await CreateSuperAdminClientAsync();
+
+        var liberar = client.PostAsJsonAsync(UrlLiberar(rq.Id, rq.Lineas.Single().Id), new { Cantidad = 2m, Motivo = "x", MandarACompra = false });
+        await Task.WhenAll(liberar, esc.AutorizarAsync(rq2));
+
+        Assert.Equal(HttpStatusCode.NoContent, (await liberar).StatusCode);
+        var p1 = (await esc.LeerAsync(rq)).Pendiente;
+        var p2 = (await esc.LeerAsync(rq2)).Pendiente;
+        Assert.Equal(1m, p1);
+        Assert.True(p2 is 0m or 2m, $"rq2 apartó {p2}");
+        Assert.True(p1 + p2 <= 3m);
     }
 }

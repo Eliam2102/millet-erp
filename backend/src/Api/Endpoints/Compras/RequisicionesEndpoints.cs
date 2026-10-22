@@ -645,7 +645,7 @@ public static class RequisicionesEndpoints
             CancellationToken cancellationToken) =>
         {
             await RqSucursalScope.VerificarAsync(id, scopeDb, scopeUser, scopePermisos, scopeSucursales, cancellationToken, escritura: true);
-            await mediator.Send(new LiberarApartadoLineaCommand(id, lineaId, request.Cantidad, request.Motivo), cancellationToken);
+            await mediator.Send(new LiberarApartadoLineaCommand(id, lineaId, request.Cantidad, request.Motivo, request.MandarACompra), cancellationToken);
             return Results.NoContent();
         })
         .WithMetadata(new RequireIdempotencyKeyAttribute())
@@ -654,8 +654,10 @@ public static class RequisicionesEndpoints
         .WithSummary("Libera con motivo la existencia apartada de una línea")
         .WithDescription(
             "Libera parte o todo lo apartado pendiente de una línea de una RQ Autorizada/EnSurtido para que " +
-            "otra requisición la use. Cantidad en la unidad de la línea; motivo obligatorio (máx. 500). " +
-            "No cambia el cubrimiento ni emite eventos. Header `Idempotency-Key` obligatorio.")
+            "otra requisición la use. Cantidad en la unidad de la línea; motivo obligatorio (máx. 500); " +
+            "`mandarACompra` obligatorio: true suma lo liberado al saldo de compra (422 RQ_COMPROMETIDA_EN_OC si " +
+            "la RQ ya está en una OC); false deja de pedirlo y cierra la RQ si ya no falta nada por entregar. " +
+            "Queda en el histórico de la RQ. Header `Idempotency-Key` obligatorio.")
         .Produces(StatusCodes.Status204NoContent)
         .ProducesProblem(StatusCodes.Status400BadRequest)
         .ProducesProblem(StatusCodes.Status403Forbidden)
@@ -797,7 +799,7 @@ public static class RequisicionesEndpoints
 
     /// <summary>Body común para POST /rechazar y POST /eliminar.</summary>
     public sealed record TerminarRequisicionRequest(Guid MotivoId, string? MotivoTexto);
-    public sealed record LiberarApartadoRequest(decimal Cantidad, string Motivo);
+    public sealed record LiberarApartadoRequest(decimal Cantidad, string Motivo, bool? MandarACompra);
 
     /// <summary>
     /// Body del PATCH /requisiciones/{id} (B.4). Todos los campos

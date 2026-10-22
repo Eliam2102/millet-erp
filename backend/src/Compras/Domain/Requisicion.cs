@@ -725,8 +725,7 @@ public sealed class Requisicion : BaseEntity, IPerteneceAEmpresa, IAuditable, IF
         var (excedio, total, techo) = linea.RegistrarEntrega(cantidadEntregada);
 
         Events.RequisicionCerradaEvent? cierre = null;
-        if (Estado == EstadoRequisicion.EnSurtido
-            && _lineas.All(l => l.CantidadEntregada >= l.Cantidad))
+        if (Estado == EstadoRequisicion.EnSurtido && TodoEntregado())
         {
             Estado = EstadoRequisicion.Cerrada;
             cierre = new Events.RequisicionCerradaEvent(
@@ -742,6 +741,34 @@ public sealed class Requisicion : BaseEntity, IPerteneceAEmpresa, IAuditable, IF
             TotalEntregado: total,
             TechoDisponible: techo);
     }
+
+    /// <summary>
+    /// Libera con motivo existencia apartada de una línea y recalcula el
+    /// cubrimiento (86e3tferc). Con <paramref name="mandarACompra"/> lo liberado
+    /// queda como saldo de compra; sin él, deja de pedirse y la RQ puede quedar
+    /// entregada completa, en cuyo caso se cierra aquí.
+    /// </summary>
+    public Events.RequisicionCerradaEvent? LiberarApartado(
+        Guid lineaId, decimal cantidad, string motivo, bool mandarACompra, DateTimeOffset ocurridoEn)
+    {
+        if (Estado is not (EstadoRequisicion.Autorizada or EstadoRequisicion.EnSurtido))
+            throw new BusinessRuleException(
+                "RQ_SIN_APARTADO_LIBERABLE",
+                "Sólo se libera existencia apartada de requisiciones autorizadas o en surtido.");
+        if (mandarACompra && ComprometidaEnOcId is not null)
+            throw new BusinessRuleException(
+                "RQ_COMPROMETIDA_EN_OC",
+                "La requisición ya está en una orden de compra; lo liberado no puede agregarse a compra. Libéralo sin mandarlo a compra o captura una requisición nueva.");
+
+        BuscarLineaOLanzar(lineaId).LiberarApartado(cantidad, motivo, mandarACompra);
+
+        if (Estado != EstadoRequisicion.EnSurtido || !TodoEntregado()) return null;
+        Estado = EstadoRequisicion.Cerrada;
+        return new Events.RequisicionCerradaEvent(RequisicionId: Id, EmpresaId: EmpresaId, OcurridoEn: ocurridoEn);
+    }
+
+    // Cierre por entrega (ADR-0043): lo liberado sin compra ya no se espera.
+    private bool TodoEntregado() => _lineas.All(l => l.CantidadEntregada >= l.CantidadVigente);
 
     private void AplicarTerminacion(
         EstadoRequisicion nuevoEstado,
