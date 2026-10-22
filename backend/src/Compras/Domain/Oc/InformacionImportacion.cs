@@ -117,7 +117,7 @@ public readonly record struct InformacionImportacion
         NumeroContenedor = string.IsNullOrWhiteSpace(numeroContenedor) ? null : numeroContenedor;
         CodigoRuta = string.IsNullOrWhiteSpace(codigoRuta) ? null : codigoRuta;
         SemanaEmbarque = string.IsNullOrWhiteSpace(semanaEmbarque) ? null : semanaEmbarque;
-        NumeroPedimento = Millet.SharedKernel.Domain.NumeroPedimento.Normalizar(numeroPedimento);
+        NumeroPedimento = Millet.SharedKernel.Domain.NumeroPedimento.Limpiar(numeroPedimento);
         TipoOperacion = tipoOperacion;
         NumeroBl = string.IsNullOrWhiteSpace(numeroBl) ? null : numeroBl;
         TipoTransporte = tipoTransporte;

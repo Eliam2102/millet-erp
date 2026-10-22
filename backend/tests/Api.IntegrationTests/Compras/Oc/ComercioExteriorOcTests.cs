@@ -68,7 +68,7 @@ public partial class OrdenesCompraEndpointsTests
             $"{EndpointBase}/{id}/numero-pedimento",
             new
             {
-                NumeroPedimento = "PED-2026-77",
+                NumeroPedimento = "26 47 3082 6000777",
                 NumeroBl = "BL-POST-1",
                 FechaEstimadaArribo = (DateOnly?)new DateOnly(2026, 12, 1),
                 AgenteAduanalNaviera = "Agente Post",
@@ -81,7 +81,7 @@ public partial class OrdenesCompraEndpointsTests
         Assert.Equal(HttpStatusCode.UnprocessableEntity, info.StatusCode);
 
         var detalle = await ReadJsonAsync(await client.GetAsync($"{EndpointBase}/{id}"));
-        Assert.Equal("PED-2026-77", detalle.GetProperty("infoImportNumeroPedimento").GetString());
+        Assert.Equal("264730826000777", detalle.GetProperty("infoImportNumeroPedimento").GetString());
         Assert.Equal("BL-POST-1", detalle.GetProperty("infoImportNumeroBl").GetString());
         Assert.Equal("2026-12-01", detalle.GetProperty("infoImportFechaEstimadaArribo").GetString());
         Assert.Equal("Agente Post", detalle.GetProperty("infoImportAgenteAduanalNaviera").GetString());

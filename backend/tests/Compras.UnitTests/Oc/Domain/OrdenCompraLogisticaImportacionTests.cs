@@ -189,6 +189,14 @@ public class OrdenCompraLogisticaImportacionTests
         Assert.Equal("IMPORT_PEDIMENTO_DEMASIADO_LARGO", ex.Code);
     }
 
+    [Fact]
+    public void ActualizarNumeroPedimento_SinQuinceDigitos_Lanza()
+    {
+        var oc = NewOcBorrador();
+        var ex = Assert.Throws<BusinessRuleException>(() => oc.ActualizarNumeroPedimento("PED-2026-77"));
+        Assert.Equal("IMPORT_PEDIMENTO_FORMATO_INVALIDO", ex.Code);
+    }
+
     // --- VOs ---
 
     [Fact]

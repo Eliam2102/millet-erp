@@ -12,4 +12,7 @@ public class ImportacionCom06Tests
     [Fact]
     public void Pedimento_se_normaliza_en_la_OC() =>
         Assert.Equal("261612346000001", new InformacionImportacion(numeroPedimento: "26 16 1234 6000001").NumeroPedimento);
+    [Fact]
+    public void Pedimento_guardado_con_formato_anterior_no_impide_leer_la_OC() =>
+        Assert.Equal("PED-2026-77", new InformacionImportacion(numeroPedimento: "PED-2026-77").NumeroPedimento);
 }
