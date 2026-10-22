@@ -2,6 +2,7 @@ using Microsoft.Data.SqlClient;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Millet.ComercioExterior.Application.Ports;
+using Millet.Integraciones.Aw.Infrastructure.Adapters;
 using Millet.Integraciones.Aw.Infrastructure.Origen;
 using Millet.Integraciones.Aw.Infrastructure.OrigenPg;
 using Millet.SharedKernel.Application.Exceptions;
@@ -18,7 +19,7 @@ public static class OtrDependencyInjection
         {
             services.AddKeyedScoped<OtrTablasAdapter>(key, (_, _) => new(() => pg
                 ? new AwOrigenPg.Fabrica(config).CreateConnection()
-                : new SqlConnection(config.GetConnectionString("AwIntegracionDb")), pg));
+                : new SqlConnection(AwSqlTls.Validar(config.GetConnectionString("AwIntegracionDb")!, "AwIntegracionDb")), pg));
             if (key == "Demo" || options.EntradaHabilitada)
                 services.AddKeyedScoped<IOtrEntradaReader>(key, (sp, _) => sp.GetRequiredKeyedService<OtrTablasAdapter>(key));
             if (key == "Demo" || options.SalidaHabilitada)
