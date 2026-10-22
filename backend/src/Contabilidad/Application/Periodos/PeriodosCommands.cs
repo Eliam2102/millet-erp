@@ -51,7 +51,13 @@ internal static class PoliticaPeriodos
         return p;
     }
 
-    public static string Usuario(ICurrentUserContext usuario) => usuario.UserName ?? "system";
+    /// <summary>
+    /// Responsable visible del periodo (86e3t97vh): nombre del token; si no viene, el correo o el id del usuario.
+    /// «system» solo cuando no hay usuario (procesos internos).
+    /// </summary>
+    public static string Usuario(ICurrentUserContext usuario) =>
+        new[] { usuario.UserName, usuario.Email, usuario.UserId?.ToString() }
+            .FirstOrDefault(v => !string.IsNullOrWhiteSpace(v)) ?? "system";
 }
 
 /// <summary>D7: motivo de 10 a 500 caracteres en cerrar y reabrir (el dominio lo vuelve a exigir).</summary>

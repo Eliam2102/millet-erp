@@ -43,6 +43,10 @@ public sealed record PedidoBandejaItem(
     string? ClaseManual = null,
     string? SubtipoVentaDirecta = null,
     bool EsEmergencia = false,
+    // 86e3tfd7j: Total (subtotal sin IVA) + IVA trasladado por línea, redondeado
+    // por línea como la factura. Null si alguna línea no tiene tasa (legacy).
+    // No resta ranura ni retenciones.
+    decimal? TotalConIva = null,
     // 86e3tfdw2: pedido a crédito (condición de pago del origen ≠ contado).
     bool EsCredito = false);
 
@@ -92,6 +96,7 @@ public sealed class BandejaPedidosFacturablesHandler
             {
                 p.Id, p.NumeroPedido, p.Origen, p.Estado, p.ClienteNombre, p.Total, p.Moneda, p.CreatedAt,
                 p.ClaseManual, p.SubtipoVentaDirecta, p.EsCredito,
+                Lineas = p.Lineas.Select(l => new { l.Importe, l.TasaIva }).ToList(),
             })
             .ToListAsync(cancellationToken);
 
@@ -101,6 +106,9 @@ public sealed class BandejaPedidosFacturablesHandler
                 r.ClienteNombre, r.Total, r.Moneda, r.CreatedAt,
                 r.ClaseManual?.ToString(), r.SubtipoVentaDirecta?.ToString(),
                 r.Origen == OrigenPedido.Manual && r.ClaseManual == ClasePedidoManual.Emergencia,
+                r.Lineas.Any(l => l.TasaIva is null)
+                    ? null
+                    : r.Total + r.Lineas.Sum(l => Math.Round(l.Importe * l.TasaIva!.Value, 2, MidpointRounding.AwayFromZero)),
                 r.EsCredito))
             .ToList();
 

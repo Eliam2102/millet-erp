@@ -87,6 +87,8 @@ public static class PermisosCanonicos
     public const string ComprasRequisicionesEliminar                   = "compras.requisiciones.eliminar";
     public const string ComprasRequisicionesCancelar                   = "compras.requisiciones.cancelar";
     public const string ComprasRequisicionesCerrarManual               = "compras.requisiciones.cerrar-manual";
+    // 86e3tferc: liberar con motivo la existencia apartada de una línea de RQ.
+    public const string ComprasRequisicionesLiberarApartado            = "compras.requisiciones.liberar-apartado";
     public const string ComprasRequisicionesAutorizarNivel1            = "compras.requisiciones.autorizar-nivel1";
     public const string ComprasRequisicionesAutorizarNivel2            = "compras.requisiciones.autorizar-nivel2";
     public const string ComprasRequisicionesRechazar                   = "compras.requisiciones.rechazar";
@@ -680,6 +682,7 @@ public static class PermisosCanonicos
         (Guid.Parse("00000003-0001-0000-0000-00000000000b"), ComprasRequisicionesVerTodosDepartamentos,    "Consultar requisiciones de cualquier departamento (sin restricción)"),
         (Guid.Parse("00000003-0001-0000-0000-00000000000c"), ComprasRequisicionesCerrarManual,             "Cerrar manualmente requisiciones no surtidas o surtidas parcialmente (ADR-0043; jefe de almacén / almacenista)"),
         (Guid.Parse("00000003-0001-0000-0000-00000000000d"), ComprasRequisicionesLeerTodasSucursales,      "Consultar requisiciones de todas las sucursales de la empresa"),
+        (Guid.Parse("00000003-0001-0000-0000-00000000000e"), ComprasRequisicionesLiberarApartado,          "Liberar con motivo la existencia apartada de una línea de requisición autorizada para que otra la use (86e3tferc)"),
         (Guid.Parse("00000003-0002-0000-0000-000000000001"), ComprasAprobadoresAdministrar,                "Designar y revocar aprobadores por departamento (JefeDpto, JefeAlmacen, AutorizadorN2)"),
         (Guid.Parse("00000003-0003-0000-0000-000000000001"), ComprasOrdenesLeer,                           "Consultar órdenes de compra (detalle y listados)"),
         (Guid.Parse("00000003-0003-0000-0000-000000000002"), ComprasOrdenesCrear,                          "Crear órdenes de compra (desde RQ o consolidación)"),

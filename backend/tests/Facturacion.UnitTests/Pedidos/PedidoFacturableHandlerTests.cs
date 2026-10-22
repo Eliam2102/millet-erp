@@ -169,4 +169,66 @@ public sealed class PedidoFacturableHandlerTests
         response.Items.Should().HaveCount(2);
         response.Items.Should().OnlyContain(i => i.Estado == "Importado" && i.Origen == "Manual");
     }
+
+    // 86e3tfd7j: la bandeja muestra el total con IVA (caja ve cuánto cobrará).
+    [Fact]
+    public async Task Bandeja_calcula_el_total_con_iva_por_linea()
+    {
+        var empresaId = Guid.NewGuid();
+        using var db = NewDb(empresaId);
+        var emisor = new EmpresaFiscalLectura(empresaId, "MIL010101ABC", "Millet", "601", 0.16m, "76120");
+        var crear = new CrearPedidoFacturableManualHandler(db, new FakeEmpresaContext(empresaId), new FakeUserContext(Guid.NewGuid()), new FakeProductosReadPort(), new FakeEmpresaFiscalReadPort(emisor), new FakeCurrentUserPermissions());
+        await crear.Handle(CrearCmd() with
+        {
+            Lineas =
+            [
+                new PedidoFacturableLineaInput(null, "A", "01010101", "H87", 1m, 600m, 0m, false),
+                new PedidoFacturableLineaInput(null, "B", "01010101", "H87", 1m, 400m, 0m, false),
+            ],
+        }, CancellationToken.None);
+
+        var bandeja = new BandejaPedidosFacturablesHandler(db, new FakeAlcanceCajaEvaluator());
+        var item = (await bandeja.Handle(new BandejaPedidosFacturablesQuery(null, null, 0, 50), CancellationToken.None)).Items.Single();
+
+        item.Total.Should().Be(1000m);
+        item.TotalConIva.Should().Be(1160m);
+    }
+
+    [Fact]
+    public async Task Bandeja_redondea_el_iva_por_linea_como_la_factura()
+    {
+        var empresaId = Guid.NewGuid();
+        using var db = NewDb(empresaId);
+        var emisor = new EmpresaFiscalLectura(empresaId, "MIL010101ABC", "Millet", "601", 0.16m, "76120");
+        var crear = new CrearPedidoFacturableManualHandler(db, new FakeEmpresaContext(empresaId), new FakeUserContext(Guid.NewGuid()), new FakeProductosReadPort(), new FakeEmpresaFiscalReadPort(emisor), new FakeCurrentUserPermissions());
+        await crear.Handle(CrearCmd() with
+        {
+            Lineas =
+            [
+                new PedidoFacturableLineaInput(null, "A", "01010101", "H87", 1m, 0.03m, 0m, false),
+                new PedidoFacturableLineaInput(null, "B", "01010101", "H87", 1m, 0.03m, 0m, false),
+            ],
+        }, CancellationToken.None);
+
+        var bandeja = new BandejaPedidosFacturablesHandler(db, new FakeAlcanceCajaEvaluator());
+        var item = (await bandeja.Handle(new BandejaPedidosFacturablesQuery(null, null, 0, 50), CancellationToken.None)).Items.Single();
+
+        // 0.03 × 0.16 = 0.0048 → 0.00 por línea (total 0.06); global daría 0.0096 → 0.07.
+        item.TotalConIva.Should().Be(0.06m);
+    }
+
+    [Fact]
+    public async Task Bandeja_sin_tasa_en_alguna_linea_deja_el_total_con_iva_vacio()
+    {
+        var empresaId = Guid.NewGuid();
+        using var db = NewDb(empresaId);
+        var crear = new CrearPedidoFacturableManualHandler(db, new FakeEmpresaContext(empresaId), new FakeUserContext(Guid.NewGuid()), new FakeProductosReadPort(), new FakeEmpresaFiscalReadPort(), new FakeCurrentUserPermissions());
+        await crear.Handle(CrearCmd(), CancellationToken.None);
+
+        var bandeja = new BandejaPedidosFacturablesHandler(db, new FakeAlcanceCajaEvaluator());
+        var item = (await bandeja.Handle(new BandejaPedidosFacturablesQuery(null, null, 0, 50), CancellationToken.None)).Items.Single();
+
+        item.Total.Should().Be(200m);
+        item.TotalConIva.Should().BeNull();
+    }
 }

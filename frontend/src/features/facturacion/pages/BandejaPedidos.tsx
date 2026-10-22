@@ -227,6 +227,8 @@ export function BandejaPedidos() {
               { width: 'w-32' },
               { width: 'w-28' },
               { width: 'w-28' },
+              { width: 'w-28' },
+              { width: 'w-20' },
             ]}
           />
         ) : items.length === 0 ? (
@@ -249,6 +251,7 @@ export function BandejaPedidos() {
                   <TableHead className="px-3 py-2 text-right tabular-nums">
                     Subtotal sin impuestos
                   </TableHead>
+                  <TableHead className="px-3 py-2 text-right tabular-nums">Total con IVA</TableHead>
                   <TableHead className="px-3 py-2 text-left">Estado</TableHead>
                   <TableHead className="px-3 py-2 text-left">Creado</TableHead>
                   <TableHead className="px-3 py-2 text-right tabular-nums">Acción</TableHead>
@@ -270,6 +273,12 @@ export function BandejaPedidos() {
                     <TableCell className="px-3 py-2">{p.clienteNombre}</TableCell>
                     <TableCell className="px-3 py-2 text-right font-mono tabular-nums">
                       {formatearMonto(p.total, p.moneda)}
+                    </TableCell>
+                    <TableCell
+                      className="px-3 py-2 text-right font-mono tabular-nums"
+                      title={p.totalConIva == null ? 'Sin tasa de IVA en alguna línea' : undefined}
+                    >
+                      {p.totalConIva == null ? '—' : formatearMonto(p.totalConIva, p.moneda)}
                     </TableCell>
                     <TableCell className="px-3 py-2">
                       <EstadoFacturacionBadge entidad="pedido" estado={p.estado} />

@@ -405,6 +405,32 @@ public class PeriodosHttpTests(WebApplicationFactory<Program> factory) : IClassF
         }
     }
 
+    // ── 86e3t97vh: responsable tras cerrar, reabrir y volver a cerrar ──
+
+    [Fact]
+    public async Task Cerrar_reabrir_y_volver_a_cerrar_muestra_solo_el_ultimo_cierre()
+    {
+        var anio = AnioPrueba();
+        try
+        {
+            var admin = await LoginAsync(factory);
+            var ejercicio = await CrearEjercicioAsync(admin, anio, 1);
+            var cerrado = await Json(await Cerrar(admin, Periodo(ejercicio, 1)));
+            var reabierto = await Json(await Reabrir(admin, cerrado));
+            Assert.False(string.IsNullOrWhiteSpace(reabierto.GetProperty("reabiertoPor").GetString()));
+
+            var otraVez = await Cerrar(admin, reabierto, "FIX segundo cierre tras corrección");
+            Assert.Equal(HttpStatusCode.OK, otraVez.StatusCode);
+            var final = await Json(otraVez);
+            Assert.Equal("Cerrado", final.GetProperty("estado").GetString());
+            Assert.NotEqual("system", final.GetProperty("cerradoPor").GetString());
+            Assert.Equal(JsonValueKind.Null, final.GetProperty("reabiertoPor").ValueKind);
+            Assert.Equal(JsonValueKind.Null, final.GetProperty("reabiertoEn").ValueKind);
+            Assert.Equal(4, await Bitacora(Id(final))); // abrir + cerrar + reabrir + cerrar: la historia sigue completa
+        }
+        finally { await LimpiarPeriodosAsync(anio); }
+    }
+
     // ── Caso 3: cierre concurrente ──
 
     [Fact]
