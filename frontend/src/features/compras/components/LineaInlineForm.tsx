@@ -27,7 +27,12 @@ import { comprasKeys } from '@/features/compras/api/keys';
 import { crearLineaSchema, type LineaValues } from '@/features/compras/schemas/linea';
 import { useActualizarLinea, useAgregarLinea } from '@/features/compras/api/useLineas';
 
-import type { Clasificacion, LineaResponse } from '@/features/compras/api/types';
+import {
+  Clasificacion as ClasificacionRq,
+  Naturaleza,
+  type Clasificacion,
+  type LineaResponse,
+} from '@/features/compras/api/types';
 import { CentroCostoPicker } from '@/features/centros-costo/components/CentroCostoPicker';
 import { useCentroCostoCaptura } from '@/features/centros-costo/api/captura';
 import { centroCostoInicial } from '@/features/centros-costo/lib/captura';
@@ -103,6 +108,8 @@ function buildValuesFromLinea(linea: LineaResponse): LineaValues {
     proyecto: linea.proyecto,
     fechaRequerida: linea.fechaRequerida,
     notas: linea.notas,
+    esActivoFijo: linea.esActivoFijo ?? false,
+    claseActivoId: linea.claseActivoId ?? null,
   } as LineaValues;
 }
 
@@ -119,6 +126,9 @@ export function LineaInlineForm({
   const conflictDialog = useConflictDialog();
   const queryClient = useQueryClient();
   const [detallesAbiertos, setDetallesAbiertos] = useState(false);
+  // Un servicio (artículo o RQ de clasificación Servicio) no puede ser activo fijo.
+  const [articuloServicio, setArticuloServicio] = useState(false);
+  const esServicio = articuloServicio || clasificacion === ClasificacionRq.Servicio;
 
   const [unidadMedidaIdSel, setUnidadMedidaIdSel] = useState<string | null>(null);
   const lookupDecimales = useDecimalesUnidad();
@@ -294,6 +304,12 @@ export function LineaInlineForm({
                         shouldValidate: true,
                       });
                       setUnidadMedidaIdSel(articulo.unidadMedidaId);
+                      const srv = articulo.naturaleza === Naturaleza.Servicio;
+                      setArticuloServicio(srv);
+                      if (srv) {
+                        form.setValue('esActivoFijo', false, { shouldDirty: true });
+                        form.setValue('claseActivoId', null, { shouldDirty: true });
+                      }
                     }}
                     // En edición, etiqueta inicial desde el DTO enriquecido para no
                     // depender de la lista capada del typeahead (ADR-0042 addendum).
@@ -519,16 +535,16 @@ export function LineaInlineForm({
           </FormCampo>
         </FormGrid>
       )}
-      {!esEditar && (
-        <LineaActivoFields
-          error={form.formState.errors.claseActivoId?.message}
-          activo={form.watch('esActivoFijo') ?? false}
-          clase={form.watch('claseActivoId')}
-          onChange={(activo, clase) => {
-            form.setValue('esActivoFijo', activo, { shouldDirty: true });
-            form.setValue('claseActivoId', clase, { shouldDirty: true });
-          }}
-        />
+      {!esServicio && (
+      <LineaActivoFields
+        error={form.formState.errors.claseActivoId?.message}
+        activo={form.watch('esActivoFijo') ?? false}
+        clase={form.watch('claseActivoId')}
+        onChange={(activo, clase) => {
+          form.setValue('esActivoFijo', activo, { shouldDirty: true });
+          form.setValue('claseActivoId', clase, { shouldDirty: true });
+        }}
+      />
       )}
     </form>
   );
