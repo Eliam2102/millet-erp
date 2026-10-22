@@ -25,7 +25,8 @@ public sealed partial class DemoSesionSeedHostedService
             var pedido = PedidoFacturable.ImportarDesdeAw(EmpresaId, clave, mid.Id, cliente.Id, cliente.RazonSocial,
                 1, ComportamientoFiscal.MostradorInmediato, "MXN", null, null,
                 "Pedido de prueba con origen A+W simulado localmente; sin conexión ni escritura al origen.", 1, "15", ranura);
-            pedido.AgregarLinea(null, "Vidrio templado 6 mm", "30171700", "H87", 10, 100, 0, false, tasaIva: .16m);
+            pedido.AgregarLinea(null, "Vidrio templado 6 mm", "30171700", "H87", 10, 100, 0, false, tasaIva: .16m)
+                .EstablecerDatosImpresion("ITEM.1 REF: 1001 - DEMO - CW-01", 150.500m, 215.278m);
             pedido.RecalcularTotal();
             db.PedidosFacturables.Add(pedido);
         }

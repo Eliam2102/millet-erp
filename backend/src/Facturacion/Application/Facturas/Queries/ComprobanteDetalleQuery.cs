@@ -47,7 +47,11 @@ public sealed record ComprobanteDetalleResponse(
     IReadOnlyList<NotaCreditoAplicadaDetalle>? NotasCreditoAplicadas = null,
     string? MetodoPago = null,
     CobroFacturaDetalle? CobroMostrador = null,
-    decimal PagadoPorRep = 0m, Millet.Facturacion.Domain.Facturas.DatosEmbarqueCe? DatosEmbarqueCe = null);
+    decimal PagadoPorRep = 0m, Millet.Facturacion.Domain.Facturas.DatosEmbarqueCe? DatosEmbarqueCe = null,
+    string? OrdenCompraCliente = null, string? ReferenciaCliente = null, string? CondicionesPago = null,
+    string? Proforma = null, string? Comentarios = null,
+    decimal TotalKg = 0m, decimal TotalPie2 = 0m, decimal TotalPiezas = 0m,
+    string? NoCertificadoEmisor = null, string? CadenaOriginalTimbre = null);
 
 /// <summary>Cobro vigente de la factura, con la sesión donde se registró.</summary>
 public sealed record CobroFacturaDetalle(
@@ -75,7 +79,7 @@ public sealed record ComprobanteLineaDetalle(
     decimal Cantidad,
     decimal ValorUnitario,
     decimal Descuento,
-    decimal Importe);
+    decimal Importe, string? Referencia = null, decimal? PesoKg = null, decimal? AreaPie2 = null);
 
 public sealed record RelacionCfdiDetalle(
     string TipoRelacion,
@@ -113,7 +117,7 @@ public sealed class ComprobanteDetalleHandler
             .OrderBy(l => l.Posicion)
             .Select(l => new ComprobanteLineaDetalle(
                 l.Posicion, l.ClaveProdServSat, l.Descripcion, l.ClaveUnidadSat,
-                l.Cantidad, l.ValorUnitario, l.Descuento, l.Importe))
+                l.Cantidad, l.ValorUnitario, l.Descuento, l.Importe, l.Referencia, l.PesoKg, l.AreaPie2))
             .ToList();
 
         // Enriquecer las relaciones con el comprobante relacionado (por UUID).
@@ -191,6 +195,10 @@ public sealed class ComprobanteDetalleHandler
             NotasCreditoAplicadas: ncAplicadas,
             MetodoPago: f.MetodoPago,
             CobroMostrador: cobroDetalle,
-            PagadoPorRep: pagadoPorRep, DatosEmbarqueCe: f.DatosEmbarqueCe);
+            PagadoPorRep: pagadoPorRep, DatosEmbarqueCe: f.DatosEmbarqueCe,
+            OrdenCompraCliente: f.OrdenCompraCliente, ReferenciaCliente: f.ReferenciaCliente,
+            CondicionesPago: f.CondicionesPago, Proforma: f.Proforma, Comentarios: f.Comentarios,
+            TotalKg: f.TotalKg, TotalPie2: f.TotalPie2, TotalPiezas: f.TotalPiezas,
+            NoCertificadoEmisor: f.NoCertificadoEmisor, CadenaOriginalTimbre: f.CadenaOriginalTimbre);
     }
 }

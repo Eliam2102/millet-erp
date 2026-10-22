@@ -12,6 +12,11 @@ public sealed class EmitirFacturaVentaValidator : AbstractValidator<EmitirFactur
 {
     public EmitirFacturaVentaValidator(ICanalesVentaReadPort canalesVenta)
     {
+        RuleFor(c => c.OrdenCompraCliente).MaximumLength(60);
+        RuleFor(c => c.ReferenciaCliente).MaximumLength(60);
+        RuleFor(c => c.CondicionesPago).MaximumLength(60);
+        RuleFor(c => c.Proforma).MaximumLength(40);
+        RuleFor(c => c.Comentarios).MaximumLength(1000);
         RuleFor(c => c.SucursalId).NotEmpty();
 
 

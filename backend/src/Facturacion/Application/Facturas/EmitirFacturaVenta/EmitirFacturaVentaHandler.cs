@@ -192,7 +192,7 @@ public sealed class EmitirFacturaVentaHandler
         var autorizacion = await CargarYValidarAutorizacionAsync(command, cancellationToken);
 
         // 3.ter B2: si se emite desde un pedido, debe estar Importado (re-facturable).
-        var pedido = await CargarYValidarPedidoAsync(command, copiaCe is not null, cancellationToken);
+        var pedido = await CargarYValidarPedidoAsync(command, true, cancellationToken);
 
         if (copiaCe is not null && pedido is not null)
         {
@@ -256,8 +256,22 @@ public sealed class EmitirFacturaVentaHandler
 
         if (copiaCe is not null) factura.TomarEmbarqueCe(copiaCe);
 
-        foreach (var l in command.Lineas)
+        factura.EditarDatosCliente(command.OrdenCompraCliente,
+            command.ReferenciaCliente ?? pedido?.NumeroPedido,
+            command.CondicionesPago ?? (command.MetodoPago == "PUE" ? "CONTADO" : null),
+            command.Proforma, command.Comentarios ?? pedido?.Comentarios);
+
+        var partidasPedido = pedido?.Lineas.OrderBy(l => l.Posicion).ToArray();
+        for (var indice = 0; indice < command.Lineas.Count; indice++)
         {
+            var l = command.Lineas[indice];
+            // Solo copiar de una partida identificable; nunca asociar datos a otro producto.
+            var origen = partidasPedido is not null && indice < partidasPedido.Length
+                && partidasPedido[indice].ProductoId == l.ProductoId
+                && partidasPedido[indice].Cantidad == l.Cantidad ? partidasPedido[indice] : null;
+            var peso = origen?.PesoKg;
+            if (peso is null && l.ProductoId is Guid productoId && _productos is not null)
+                peso = (await _productos.ObtenerAsync(productoId, cancellationToken))?.PesoUnitarioKg * l.Cantidad;
             factura.AgregarLinea(
                 productoId: l.ProductoId,
                 claveProdServSat: l.ClaveProdServSat,
@@ -270,7 +284,7 @@ public sealed class EmitirFacturaVentaHandler
                 tasaIvaTraslado: l.TasaIvaTraslado,
                 tasaRetencionIva: l.TasaRetencionIva,
                 tasaRetencionIsr: l.TasaRetencionIsr,
-                requierePedimento: l.RequierePedimento);
+                requierePedimento: l.RequierePedimento, referencia: origen?.Referencia, pesoKg: peso, areaPie2: origen?.AreaPie2);
         }
 
         factura.RecalcularTotales();

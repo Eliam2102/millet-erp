@@ -49,7 +49,7 @@ public sealed class EmitirFacturaVentaHandlerTests
         Guid empresaId,
         bool periodoAbierto = true,
         bool catalogosValidos = true,
-        Millet.Integraciones.Fiscal.Domain.Ports.ICfdiTimbradoPort? fiscal = null, IEmbarqueExportacionReadPort? embarques = null, string receptorRfc = "XAXX010101000") =>
+        Millet.Integraciones.Fiscal.Domain.Ports.ICfdiTimbradoPort? fiscal = null, IEmbarqueExportacionReadPort? embarques = null, string receptorRfc = "XAXX010101000", IProductosReadPort? productos = null) =>
         new(
             db,
             new FakeSender(new ReservarFolioResponse("FA-000001", 1, "")),
@@ -62,7 +62,7 @@ public sealed class EmitirFacturaVentaHandlerTests
             new FakeContabilidadAsientoPort(),
             new FakeEmpresaContext(empresaId),
             new FakeUserContext(Guid.NewGuid()),
-            new FakeClock(Ahora), ReceptorFiscalTestFactory.Crear(db, receptorRfc, "616", "76120"), embarques: embarques);
+            new FakeClock(Ahora), ReceptorFiscalTestFactory.Crear(db, receptorRfc, "616", "76120"), embarques: embarques, productos: productos);
 
     private sealed class Embarques(EmbarqueExportacionLectura lectura) : IEmbarqueExportacionReadPort
     {
@@ -75,6 +75,93 @@ public sealed class EmitirFacturaVentaHandlerTests
         p.AgregarLinea(null, "Producto", "01010101", "H87", 2, 100, 0, false); p.RecalcularTotal();
         db.PedidosFacturables.Add(p); db.SaveChanges(); return p;
     }
+    [Fact]
+    public async Task Edicion_datos_cliente_exige_alcance_version_y_estado_editable()
+    {
+        var empresa = Guid.NewGuid(); using var db = NewDb(empresa);
+        var command = Command();
+        await Handler(db, empresa).Handle(command with { Lineas = [command.Lineas[0] with { RequierePedimento = true }] }, CancellationToken.None);
+        var f = await db.FacturasVenta.SingleAsync();
+        var editar = new Millet.Facturacion.Application.Facturas.EditarDatosCliente.EditarDatosClienteCommand(
+            f.Id, f.Version, "OC DEMO", "REF DEMO", "30 DIAS", "PRO DEMO", "Comentario ficticio");
+        var handler = new Millet.Facturacion.Application.Facturas.EditarDatosCliente.EditarDatosClienteHandler(db, new FakeAlcanceCajaEvaluator());
+        await Assert.ThrowsAsync<ConcurrencyException>(() => handler.Handle(editar with { VersionEsperada = f.Version + 1 }, CancellationToken.None));
+        var sinAlcance = new Millet.Facturacion.Application.Facturas.EditarDatosCliente.EditarDatosClienteHandler(db,
+            new FakeAlcanceCajaEvaluator(Millet.Facturacion.Application.Cajas.Alcance.AlcanceCajas.Ninguno()));
+        await Assert.ThrowsAsync<EntityNotFoundException>(() => sinAlcance.Handle(editar, CancellationToken.None));
+        await handler.Handle(editar, CancellationToken.None);
+        Assert.Equal("OC DEMO", f.OrdenCompraCliente);
+        f.AplicarPedimento("26  01  1234  6000001", null, null);
+        f.MarcarTimbradoEnProceso(); f.MarcarTimbrado("DEMO", null, null, null, Ahora, null, null);
+        await Assert.ThrowsAsync<BusinessRuleException>(() => handler.Handle(editar with { VersionEsperada = f.Version }, CancellationToken.None));
+    }
+
+    [Fact]
+    public async Task Registro_del_pac_guarda_certificado_y_cadena_y_mantenimiento_los_recupera()
+    {
+        var empresa = Guid.NewGuid(); using var db = NewDb(empresa);
+        await Handler(db, empresa, fiscal: new FiscalConXml()).Handle(Command(), CancellationToken.None);
+        var f = await db.FacturasVenta.SingleAsync();
+        Assert.Equal("00000000000000000001", f.NoCertificadoEmisor);
+        Assert.Equal(Millet.Facturacion.Domain.Comprobantes.CadenaOriginalTimbre.Desde(Timbrado.CadenaOriginalTimbreTests.Xml()), f.CadenaOriginalTimbre);
+        var mantenimiento = new Millet.Facturacion.Application.Timbrado.RecalcularDatosTimbreHandler(db, new ArchivoConXml());
+        await mantenimiento.Handle(new(f.Id), CancellationToken.None);
+        Assert.Equal("00000000000000000001", f.NoCertificadoEmisor);
+    }
+
+    private sealed class FiscalConXml : Millet.Integraciones.Fiscal.Domain.Ports.ICfdiTimbradoPort
+    {
+        private readonly FakeFiscalApiClient inner = new();
+        public async Task<Millet.Integraciones.Fiscal.Domain.Ports.TimbradoResultado> TimbrarAsync(
+            Millet.Integraciones.Fiscal.Domain.Ports.CfdiEmision emision, CancellationToken ct) =>
+            (await inner.TimbrarAsync(emision, ct)) with { XmlTimbrado = Timbrado.CadenaOriginalTimbreTests.Xml() };
+        public Task<Millet.Integraciones.Fiscal.Domain.Ports.CancelacionResultado> CancelarAsync(
+            Millet.Integraciones.Fiscal.Domain.Ports.CancelacionSolicitud solicitud, CancellationToken ct) => inner.CancelarAsync(solicitud, ct);
+        public Task<Millet.Integraciones.Fiscal.Domain.Ports.EstatusCfdiResultado> ConsultarEstatusAsync(
+            Millet.Integraciones.Fiscal.Domain.Ports.EstatusCfdiSolicitud solicitud, CancellationToken ct) => inner.ConsultarEstatusAsync(solicitud, ct);
+    }
+
+    private sealed class ArchivoConXml : Millet.Integraciones.Fiscal.Domain.Ports.ICfdiRepositorioPort
+    {
+        public Task<Guid> GuardarAsync(Millet.Integraciones.Fiscal.Domain.Ports.CfdiArchivoNuevo a, CancellationToken ct) => throw new NotSupportedException();
+        public Task<Millet.Integraciones.Fiscal.Domain.Ports.CfdiArchivoLeido?> ObtenerAsync(Guid id, CancellationToken ct) =>
+            Task.FromResult<Millet.Integraciones.Fiscal.Domain.Ports.CfdiArchivoLeido?>(new(id,
+                "11111111-1111-1111-1111-111111111111", Timbrado.CadenaOriginalTimbreTests.Xml(), null, null, Ahora));
+        public Task<Millet.Integraciones.Fiscal.Domain.Ports.CfdiArchivoLeido?> ObtenerPorUuidAsync(string uuid, CancellationToken ct) => throw new NotSupportedException();
+    }
+
+    [Theory]
+    [InlineData(true)]
+    [InlineData(false)]
+    public async Task Copia_datos_del_pedido_y_completa_peso_desde_puerto(bool tienePeso)
+    {
+        var empresa = Guid.NewGuid();
+        using var db = NewDb(empresa);
+        var productoId = Guid.NewGuid();
+        var command = Command();
+        var pedido = PedidoFacturable.ImportarDesdeAw(empresa, "DEMO-1001", command.SucursalId,
+            Guid.NewGuid(), "Cliente ficticio DEMO", 1, command.ComportamientoFiscal, "MXN", null, null,
+            "Comentario ficticio DEMO", 1, "15");
+        pedido.AgregarLinea(productoId, "Producto", "01010101", "H87", 2, 100, 0, false)
+            .EstablecerDatosImpresion("ITEM.1 REF: 1001 - DEMO - CW-01", tienePeso ? 8.125m : null, 20.250m);
+        pedido.RecalcularTotal(); db.PedidosFacturables.Add(pedido); await db.SaveChangesAsync();
+        var producto = new ProductoFiscalLectura(productoId, "Producto", "01010101", "H87", "02", .16m, null, null,
+            "Aw", EstadoFiscal: "Completo", PesoUnitarioKg: 3.250m);
+        await Handler(db, empresa, productos: new FakeProductosReadPort(producto)).Handle(command with {
+            PedidoFacturableId = pedido.Id,
+            Lineas = [command.Lineas[0] with { ProductoId = productoId }]
+        }, CancellationToken.None);
+        var factura = await db.FacturasVenta.Include(f => f.Lineas).SingleAsync();
+        Assert.Equal("DEMO-1001", factura.ReferenciaCliente);
+        Assert.Equal("Comentario ficticio DEMO", factura.Comentarios);
+        Assert.Equal("CONTADO", factura.CondicionesPago);
+        var partida = Assert.Single(factura.Lineas);
+        Assert.Equal("ITEM.1 REF: 1001 - DEMO - CW-01", partida.Referencia);
+        Assert.Equal(tienePeso ? 8.125m : 6.500m, partida.PesoKg);
+        Assert.Equal(20.250m, factura.TotalPie2);
+        Assert.Equal(2, factura.TotalPiezas);
+    }
+
     [Fact]
     public async Task Pedido_no_ligado_se_factura_igual_y_sin_copia_ce()
     {

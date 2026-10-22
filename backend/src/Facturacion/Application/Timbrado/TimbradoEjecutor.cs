@@ -71,6 +71,11 @@ public static class TimbradoEjecutor
                     rfcProveedorCertificacion: timbre.RfcProveedorCertificacion,
                     cfdiArchivoId: cfdiArchivoId,
                     folioPac: timbre.FolioPac);
+                // La metadata informativa no debe revertir un timbrado ya confirmado por el PAC.
+                // Un archivo ajeno se conserva para diagnóstico, pero no se copian sus datos.
+                var uuidXml = CadenaOriginalTimbre.UuidDesde(timbre.XmlTimbrado);
+                if (uuidXml is null || string.Equals(uuidXml, timbre.Uuid, StringComparison.OrdinalIgnoreCase))
+                    comprobante.RecalcularDatosTimbre(timbre.XmlTimbrado);
                 break;
 
             case TimbradoEstado.EnProceso:

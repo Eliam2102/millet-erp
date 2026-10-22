@@ -31,6 +31,8 @@ export interface EmitirFacturaPrefill {
   canalVentaNombre?: string;
   comportamientoFiscal?: number;
   moneda?: string;
+  referenciaCliente?: string | null;
+  comentarios?: string | null;
   obraNombre?: string | null;
   lineas?: Array<{
     productoId: string | null;

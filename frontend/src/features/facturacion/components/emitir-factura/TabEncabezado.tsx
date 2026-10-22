@@ -1,3 +1,5 @@
+import { DatosClienteCampos } from '../DatosClienteCampos';
+import { camposDatosCliente } from '../../lib/datos-cliente';
 import { FormaPagoSelector, SucursalSelector, UsoCfdiSelector } from '@/components/erp';
 import { ClaveSatSelector } from '@/components/erp/selectors/ClaveSatSelector';
 import { MonedaSelector } from '@/components/erp/selectors/MonedaSelector';
@@ -78,6 +80,7 @@ export function TabEncabezado({
   clienteFijo,
   canalVentaNombre,
 }: TabEncabezadoProps) {
+  const datosCliente = useWatch({ control: form.control });
   const moneda = useWatch({ control: form.control, name: 'moneda' });
   const metodoPago = useWatch({ control: form.control, name: 'metodoPago' });
   const [receptorRfc, receptorNombre, receptorRegimen, receptorCp] = useWatch({
@@ -288,6 +291,9 @@ export function TabEncabezado({
           </Campo>
         </div>
       </Seccion>
+
+      <DatosClienteCampos errors={Object.fromEntries(camposDatosCliente.map(([campo]) => [campo, form.formState.errors[campo]?.message]))} datos={{ ...datosCliente, condicionesPago: datosCliente.condicionesPago ?? (metodoPago === 'PUE' ? 'CONTADO' : '') }}
+        onChange={(campo, valor) => form.setValue(campo, valor, { shouldDirty: true, shouldValidate: true })} />
 
       {/* ── Comercio Exterior (CCE) — solo exportación ───────────── */}
       {esCce && (

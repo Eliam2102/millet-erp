@@ -77,6 +77,8 @@ public sealed class ComprobanteConfiguration : IEntityTypeConfiguration<Comproba
         builder.Property(e => e.Uuid).HasMaxLength(36);
         builder.Property(e => e.SelloCfdi).HasColumnType("text");
         builder.Property(e => e.SelloSat).HasColumnType("text");
+        builder.Property(e => e.NoCertificadoEmisor).HasMaxLength(20);
+        builder.Property(e => e.CadenaOriginalTimbre).HasColumnType("text");
         builder.Property(e => e.NoCertificadoSat).HasMaxLength(20);
         builder.Property(e => e.FechaTimbrado);
         builder.Property(e => e.RfcProveedorCertificacion).HasMaxLength(13);

@@ -50,7 +50,22 @@ public sealed class PedidoFacturableLinea : BaseEntity, IBelongsToAggregate, IAu
     /// </summary>
     public decimal? TasaIva { get; private set; }
 
+    public string? Referencia { get; private set; }
+    public decimal? PesoKg { get; private set; }
+    public decimal? AreaPie2 { get; private set; }
+
     public Guid AggregateRootId => PedidoFacturableId;
+
+    /// <summary>Datos informativos del origen, disponibles para futuras ingestas A+W.</summary>
+    public void EstablecerDatosImpresion(string? referencia, decimal? pesoKg, decimal? areaPie2)
+    {
+        var referenciaValidada = Facturas.DatosImpresion.Texto(referencia, 80, "Referencia de la partida");
+        var peso = Facturas.DatosImpresion.Medida(pesoKg);
+        var area = Facturas.DatosImpresion.Medida(areaPie2);
+        Referencia = referenciaValidada;
+        PesoKg = peso;
+        AreaPie2 = area;
+    }
 
     private PedidoFacturableLinea() { }
 

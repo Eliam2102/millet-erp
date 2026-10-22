@@ -7,7 +7,7 @@ namespace Millet.Facturacion.Domain.Anticipos;
 /// CFDI de anticipo — especialización de <see cref="Comprobante"/> tipo Ingreso
 /// (§4.3 levantamiento, serie dedicada <c>FANT</c>). Documenta el cobro
 /// adelantado de un pedido de maquila o de obra. Lleva un concepto único (el
-/// servicio "Anticipo de clientes", clave SAT 84111506) y es <b>siempre
+/// servicio "Anticipo del bien o servicio", clave SAT 84111506) y es <b>siempre
 /// nominal</b> — un anticipo no se emite a RFC genérico (invariante 4 del §4.3
 /// diseño).
 ///
@@ -32,8 +32,8 @@ public sealed class FacturaAnticipo : Comprobante
 
     // ---- Concepto único del anticipo (§4.3) — el XML real lo arma F12 ----
     public string ClaveProdServSat { get; private set; } = "84111506";
-    public string ClaveUnidadSat { get; private set; } = "E48"; // Unidad de servicio
-    public string Descripcion { get; private set; } = "Anticipo de clientes";
+    public string ClaveUnidadSat { get; private set; } = "ACT"; // Actividad
+    public string Descripcion { get; private set; } = "Anticipo del bien o servicio";
 
     private FacturaAnticipo() { }
 
@@ -130,8 +130,8 @@ public sealed class FacturaAnticipo : Comprobante
             pedidoFacturableId: pedidoFacturableId,
             anticipoId: anticipoId,
             claveProdServSat: "84111506",
-            claveUnidadSat: "E48",
-            descripcion: string.IsNullOrWhiteSpace(descripcion) ? "Anticipo de clientes" : descripcion!);
+            claveUnidadSat: "ACT",
+            descripcion: string.IsNullOrWhiteSpace(descripcion) ? "Anticipo del bien o servicio" : descripcion!);
 
         var iva = tasaIvaTraslado is > 0 ? Math.Round(montoBase * tasaIvaTraslado.Value, 2) : 0m;
         var total = montoBase + iva;
