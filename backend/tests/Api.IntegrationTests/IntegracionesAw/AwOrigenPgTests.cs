@@ -319,14 +319,14 @@ public class AwOrigenPgTests(WebApplicationFactory<Program> factory)
         Assert.Equal("XAXX010101000", cs["3"].Rfc); // UST_ID válido se aplica solo en demo
         Assert.Equal("DEMO010", r10.CandidatoFiscalUstId);
 
-        // 61 y 62 comparten RFC: ambos se crean (no se fusionan) y el segundo queda con un RfcCompartido informativo (no va a revisión).
+        // 61 y 62 comparten RFC: ambos se crean (no se fusionan) y el segundo queda con un RfcCompartido pendiente (va a revisión).
         Assert.Equal(("DEMO010101AB1", null), (cs["61"].Rfc, cs["62"].Rfc));
         // Solo los clientes de este barrido: otras pruebas de ADM-06 dejan conflictos RfcCompartido en la base compartida.
         var idsBarrido = cs.Values.Select(c => (Guid?)c.Id).ToList();
         var conflictos = await ConDb(db => db.CambiosMaestrosAw.AsNoTracking()
             .Where(c => c.TipoEntidad == "Cliente" && c.Tipo == TipoCambioMaestroAw.RfcCompartido && idsBarrido.Contains(c.EntidadId)).ToListAsync());
         var conflicto = Assert.Single(conflictos);
-        Assert.Equal(("62", EstadoCambioMaestroAw.Informativo, "DEMO010101AB1", cs["62"].Id), (conflicto.ReferenciaExterna, conflicto.Estado, conflicto.ValorDespues, conflicto.EntidadId));
+        Assert.Equal(("62", EstadoCambioMaestroAw.Pendiente, "DEMO010101AB1", cs["62"].Id), (conflicto.ReferenciaExterna, conflicto.Estado, conflicto.ValorDespues, conflicto.EntidadId));
 
         // Segundo barrido: idempotente. Un cambio en el origen se aplica en el siguiente barrido.
         var e2 = await BarridoClientes(OrigenClientes(), OptsClientes());

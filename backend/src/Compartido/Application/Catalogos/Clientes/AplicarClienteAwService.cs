@@ -201,8 +201,8 @@ public sealed class AplicarClienteAwService
     }
 
     /// <summary>
-    /// RFC repetido: solo va a revisión (Pendiente) si lo ocupa un cliente manual del ERP. Entre clientes de A+W es informativo:
-    /// casi todos son históricos (~1,600 en la copia real) y se informan en el reporte de la corrida (doc 05 §10.8).
+    /// RFC repetido: siempre va a revisión (Pendiente) y se resuelve unificando o manteniendo separados. Decisión del owner 22-oct
+    /// (reemplaza la del 21-oct, que lo dejaba informativo entre clientes de A+W; doc 05 §10.8).
     /// </summary>
     internal static CambioMaestroAw ConflictoRfc(Guid clienteId, string claveErp, AplicarClienteAwSnapshot snap, string hash, string rfc,
         IReadOnlyList<(string Clave, ClienteExistente Cliente)> ocupantes, bool conManual, string? hashAnterior)
@@ -210,10 +210,10 @@ public sealed class AplicarClienteAwService
         var otros = string.Join(", ", ocupantes.Select(o => o.Cliente.Clave));
         var causa = conManual
             ? $"Dos clientes con la misma clave fiscal {rfc}: {claveErp} y {otros}. No se fusionan."
-            : $"Dos clientes de A+W con la misma clave fiscal {rfc}: {claveErp} y {otros}. No se fusionan; informativo, no va a revisión.";
+            : $"Dos clientes de A+W con la misma clave fiscal {rfc}: {claveErp} y {otros}. Elige el cliente principal para unificarlos.";
         return new CambioMaestroAw(Guid.CreateVersion7(), "Cliente", clienteId, snap.ReferenciaExterna,
             "RFC repetido entre clientes de A+W", otros, rfc, MatrizCampoDuenoAw.DuenoAw, TipoCambioMaestroAw.RfcCompartido,
-            conManual ? EstadoCambioMaestroAw.Pendiente : EstadoCambioMaestroAw.Informativo, causa.Length <= 500 ? causa : causa[..500], hash, MatrizCampoDuenoAw.Version,
+            EstadoCambioMaestroAw.Pendiente, causa.Length <= 500 ? causa : causa[..500], hash, MatrizCampoDuenoAw.Version,
             snap.EjecucionId, DateTime.UtcNow, hashAnterior);
     }
 

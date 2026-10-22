@@ -60,12 +60,13 @@ public sealed class CambioMaestroAwTests
     }
 
     [Fact]
-    public void Rfc_repetido_entre_clientes_aw_es_informativo_y_no_va_a_revision()
+    public void Rfc_repetido_entre_clientes_aw_va_a_revision_pendiente()
     {
         var snap = new Millet.DatosMaestros.Application.Clientes.AplicarClienteAwSnapshot("62", "Cliente", DateTime.UtcNow, "1", "0-borrador");
         var ocupante = new Millet.DatosMaestros.Application.Clientes.ClienteExistente(Guid.NewGuid(), "AW-61", "Otro");
         var c = Millet.DatosMaestros.Application.Clientes.AplicarClienteAwService.ConflictoRfc(Guid.NewGuid(), "AW-62", snap, "h", "DEMO010101AB1", [("DEMO010101AB1", ocupante)], false, null);
-        Assert.Equal((TipoCambioMaestroAw.RfcCompartido, EstadoCambioMaestroAw.Informativo), (c.Tipo, c.Estado));
+        Assert.Equal((TipoCambioMaestroAw.RfcCompartido, EstadoCambioMaestroAw.Pendiente), (c.Tipo, c.Estado));
         Assert.Contains("AW-62 y AW-61", c.Causa);
+        Assert.Contains("Elige el cliente principal", c.Causa);
     }
 }

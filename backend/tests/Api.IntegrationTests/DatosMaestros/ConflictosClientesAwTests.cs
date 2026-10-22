@@ -49,11 +49,11 @@ public sealed class ConflictosClientesAwTests(WebApplicationFactory<Program> fac
     [Theory]
     [InlineData(false)]
     [InlineData(true)]
-    public async Task Mismo_rfc_en_dos_clientes_aw_crea_ambos_y_un_registro_informativo_sin_duplicarse(bool modoReal)
+    public async Task Mismo_rfc_en_dos_clientes_aw_crea_ambos_y_un_conflicto_pendiente_sin_duplicarse(bool modoReal)
     {
         var (r1, r2) = await DosClientesAsync(modoReal);
         var c = Assert.Single(await Conflictos(r2));
-        Assert.Equal(EstadoCambioMaestroAw.Informativo, c.Estado); // entre clientes de A+W no va a revisión (doc 05 §10.8)
+        Assert.Equal(EstadoCambioMaestroAw.Pendiente, c.Estado); // decisión 22-oct: entre clientes de A+W también va a revisión (doc 05 §10.8)
         Assert.Contains(r2, c.Causa);
         Assert.Contains("AW-" + r1, c.Causa);
 
@@ -70,7 +70,7 @@ public sealed class ConflictosClientesAwTests(WebApplicationFactory<Program> fac
     [Theory]
     [InlineData(false)]
     [InlineData(true)]
-    public async Task Al_actualizar_un_cliente_aw_con_un_rfc_ocupado_por_otro_aw_registra_informativo_y_no_fusiona(bool modoReal)
+    public async Task Al_actualizar_un_cliente_aw_con_un_rfc_ocupado_por_otro_aw_registra_conflicto_pendiente_y_no_fusiona(bool modoReal)
     {
         var rfc = NuevoRfc(); var r1 = NuevaRef(); var r2 = NuevaRef();
         string Ust() => $"{rfc[..3]}-{rfc[3..9]}-{rfc[9..]}";
@@ -83,7 +83,7 @@ public sealed class ConflictosClientesAwTests(WebApplicationFactory<Program> fac
         Assert.Equal(b.Cliente!.Id, actualizado.Cliente!.Id); Assert.NotEqual(a.Cliente!.Id, actualizado.Cliente.Id);
         Assert.Null(actualizado.Cliente.Rfc); // no se completa un RFC que ya ocupa otro cliente
         var c = Assert.Single(await Conflictos(r2));
-        Assert.Equal(EstadoCambioMaestroAw.Informativo, c.Estado); Assert.Contains("AW-" + r1, c.Causa);
+        Assert.Equal(EstadoCambioMaestroAw.Pendiente, c.Estado); Assert.Contains("AW-" + r1, c.Causa);
 
         await Aplicar((modoReal ? Snap(r2, null, Ust()) : Snap(r2, rfc)) with { LeidoEnUtc = DateTime.UtcNow.AddSeconds(3), NombreComercialOrigen = "OTRO NOMBRE" });
         Assert.Single(await Conflictos(r2));
@@ -137,11 +137,11 @@ public sealed class ConflictosClientesAwTests(WebApplicationFactory<Program> fac
         Assert.Equal(HttpStatusCode.UnprocessableEntity, (await http.PostAsJsonAsync($"{Base}/{otro.Id}/resolver", new { resolucion = "AplicarAw", version = otro.Version })).StatusCode);
 
         var (_, r6) = await DosClientesAsync(false);
-        var informativo = (await Conflictos(r6)).Single();
+        var entreAw = (await Conflictos(r6)).Single();
         var lista = await http.GetFromJsonAsync<JsonElement>($"{Base}?estado=Pendiente");
         Assert.Contains(lista.EnumerateArray(), e => e.GetProperty("id").GetGuid() == otro.Id);
-        Assert.DoesNotContain(lista.EnumerateArray(), e => e.GetProperty("id").GetGuid() == informativo.Id); // fuera de la bandeja
-        Assert.Equal(HttpStatusCode.UnprocessableEntity, (await http.PostAsJsonAsync($"{Base}/{informativo.Id}/resolver", new { resolucion = "MantenerSeparados", version = informativo.Version })).StatusCode);
+        Assert.Contains(lista.EnumerateArray(), e => e.GetProperty("id").GetGuid() == entreAw.Id); // decisión 22-oct: entre clientes de A+W también va a la bandeja
+        Assert.Equal(HttpStatusCode.NoContent, (await http.PostAsJsonAsync($"{Base}/{entreAw.Id}/resolver", new { resolucion = "MantenerSeparados", version = entreAw.Version })).StatusCode);
     }
 
     [Fact]

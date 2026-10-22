@@ -165,8 +165,8 @@ public static class SincronizacionAwEndpoints
                     ["productosErrores"] = resumen.Errores,
                     ["cambiosRegistrados"] = cambios.Count(c => c.Estado == EstadoCambioMaestroAw.Informativo),
                     ["conflictosPendientes"] = cambios.Count(c => c.Estado == EstadoCambioMaestroAw.Pendiente),
-                    // RFC repetido entre clientes de A+W: informativo, no va a revisión; se cuenta aparte para el reporte de G1.10.
-                    ["rfcRepetidosEntreAw"] = cambios.Count(c => c.Tipo == TipoCambioMaestroAw.RfcCompartido && c.Estado == EstadoCambioMaestroAw.Informativo),
+                    // RFC repetido entre clientes de A+W: va a revisión (Pendiente) y luego se resuelve; se cuenta en cualquier estado para el reporte de G1.10.
+                    ["rfcRepetidosEntreAw"] = cambios.Count(c => c.Tipo == TipoCambioMaestroAw.RfcCompartido),
                 };
                 return Results.Ok(new ReporteDiferenciasAwDto(
                     $"Diferencias de la corrida del {e.IniciadaEnUtc.UtcDateTime.ToString("dd/MM/yyyy HH:mm", CultureInfo.InvariantCulture)} UTC",

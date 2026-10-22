@@ -4,6 +4,7 @@ using Microsoft.EntityFrameworkCore;
 using Millet.Catalogos.Domain;
 using Millet.Compartido.Infrastructure.Persistence;
 using Millet.DatosMaestros.Domain;
+using Millet.SharedKernel.Application;
 using Millet.SharedKernel.Application.Exceptions;
 
 #pragma warning disable CA1304, CA1311, CA1862
@@ -165,12 +166,28 @@ public sealed class ListarRfcRepetidosHandler(
     }
 }
 
+/// <summary>Un grupo por RFC (misma forma que la lista); 404 si no hay 2+ clientes o el RFC es genérico/inválido.</summary>
+public sealed record ObtenerRfcRepetidoQuery(string Rfc) : IRequest<RfcRepetidoGrupoDto>;
+
+public sealed class ObtenerRfcRepetidoHandler(
+    CompartidoDbContext db, IAwClientesPedidosOrigen aw, IPedidosErpPorClienteReadPort erp)
+    : IRequestHandler<ObtenerRfcRepetidoQuery, RfcRepetidoGrupoDto>
+{
+    public async Task<RfcRepetidoGrupoDto> Handle(ObtenerRfcRepetidoQuery request, CancellationToken cancellationToken)
+    {
+        var rfc = RfcCliente.ClaveLigado(request.Rfc);
+        var ids = rfc is null ? null : (await RfcRepetidosGrupos.CargarAsync(db, cancellationToken)).GetValueOrDefault(rfc);
+        if (ids is null) throw new EntityNotFoundException("CLIENTE_UNIFICAR_GRUPO_NO_ENCONTRADO", "No hay clientes repetidos con ese RFC.");
+        return (await RfcRepetidosGrupos.ConstruirAsync(db, aw, erp, [(rfc!, ids)], cancellationToken))[0];
+    }
+}
+
 /// <summary>Unifica todos los demás clientes del grupo del RFC en el principal elegido.</summary>
 public sealed record UnificarRfcRepetidoCommand(string Rfc, Guid PrincipalClienteId, string Motivo, string Actor)
     : IRequest<RfcRepetidoGrupoDto>;
 
 public sealed class UnificarRfcRepetidoHandler(
-    CompartidoDbContext db, IAwClientesPedidosOrigen aw, IPedidosErpPorClienteReadPort erp)
+    CompartidoDbContext db, IAwClientesPedidosOrigen aw, IPedidosErpPorClienteReadPort erp, ICurrentUserContext user)
     : IRequestHandler<UnificarRfcRepetidoCommand, RfcRepetidoGrupoDto>
 {
     public async Task<RfcRepetidoGrupoDto> Handle(UnificarRfcRepetidoCommand request, CancellationToken cancellationToken)
@@ -210,6 +227,11 @@ public sealed class UnificarRfcRepetidoHandler(
                 || pedidosErp.GetValueOrDefault(s.Id) > 0;
             s.UnificarEn(principal, conHistorial, motivo, request.Actor, ahora);
         }
+        // Unificar resuelve los conflictos RfcCompartido pendientes de los clientes del grupo para esta clave.
+        var refsGrupo = clientes.Where(c => c.ReferenciaExterna is not null).Select(c => c.ReferenciaExterna!).ToList();
+        var conflictos = await db.CambiosMaestrosAw.Where(c => c.TipoEntidad == "Cliente" && c.Tipo == TipoCambioMaestroAw.RfcCompartido
+            && c.Estado == EstadoCambioMaestroAw.Pendiente && c.ValorDespues == rfc && refsGrupo.Contains(c.ReferenciaExterna)).ToListAsync(ct);
+        foreach (var c in conflictos) c.Resolver("Unificado", user.UserId ?? throw new ForbiddenException("USUARIO_REQUERIDO", "Inicia sesión para unificar."), ahora);
         await db.SaveChangesAsync(ct);
         await scope.ConfirmarAsync(ct);
 

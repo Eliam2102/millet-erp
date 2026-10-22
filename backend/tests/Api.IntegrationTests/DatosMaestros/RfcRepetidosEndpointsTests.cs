@@ -9,6 +9,7 @@ using Millet.Catalogos.Domain;
 using Millet.Api.IntegrationTests.Fixtures;
 using Millet.Compartido.Infrastructure.Persistence;
 using Millet.DatosMaestros.Application.Clientes;
+using Millet.DatosMaestros.Domain;
 using Millet.Facturacion.Domain.Facturas;
 using Millet.Facturacion.Domain.Pedidos;
 using Millet.Facturacion.Domain.Ports;
@@ -131,6 +132,46 @@ public sealed class RfcRepetidosEndpointsTests(WebApplicationFactory<Program> fa
 
         Assert.Equal(HttpStatusCode.OK, r.StatusCode);
         Assert.Equal(("Activo", (Guid?)a), await EstadoAsync(b));
+    }
+
+    private async Task<List<CambioMaestroAw>> ConflictosRfcAsync(string referencia)
+    {
+        using var scope = factory.Services.CreateScope();
+        return await scope.ServiceProvider.GetRequiredService<CompartidoDbContext>().CambiosMaestrosAw.AsNoTracking()
+            .Where(c => c.ReferenciaExterna == referencia && c.Tipo == TipoCambioMaestroAw.RfcCompartido).ToListAsync();
+    }
+
+    [Fact]
+    public async Task La_sincronizacion_crea_el_conflicto_rfc_pendiente_con_el_rfc_en_valor_despues_y_unificar_lo_resuelve()
+    {
+        var (a, _, refA, refB, rfc) = await DosAsync();
+        var c = Assert.Single(await ConflictosRfcAsync(refB));
+        Assert.Equal((EstadoCambioMaestroAw.Pendiente, rfc), (c.Estado, c.ValorDespues));
+        var http = await UsuariosAwHttp.SuperAdminAsync(factory);
+
+        Assert.Equal(HttpStatusCode.OK, (await Unificar(http, rfc, a)).StatusCode);
+
+        var resuelto = Assert.Single(await ConflictosRfcAsync(refB));
+        Assert.Equal((EstadoCambioMaestroAw.Resuelto, "Unificado"), (resuelto.Estado, resuelto.Resolucion));
+        Assert.NotNull(resuelto.ResueltoEnUtc); Assert.NotNull(resuelto.ResueltoPor);
+        Assert.DoesNotContain(await ConflictosRfcAsync(refA), x => x.Estado == EstadoCambioMaestroAw.Pendiente);
+    }
+
+    [Fact]
+    public async Task Obtener_por_rfc_devuelve_el_grupo_y_404_si_es_generico_o_no_se_repite()
+    {
+        var (a, b, _, _, rfc) = await DosAsync();
+        var http = await UsuariosAwHttp.SuperAdminAsync(factory);
+
+        var r = await http.GetAsync($"{Base}/{rfc}");
+        Assert.Equal(HttpStatusCode.OK, r.StatusCode);
+        using var doc = JsonDocument.Parse(await r.Content.ReadAsStringAsync());
+        Assert.Equal(rfc, doc.RootElement.GetProperty("rfc").GetString());
+        Assert.Equal(new[] { a, b }.Order(), doc.RootElement.GetProperty("clientes").EnumerateArray().Select(x => x.GetProperty("clienteId").GetGuid()).Order());
+
+        Assert.Equal(HttpStatusCode.NotFound, (await http.GetAsync($"{Base}/XAXX010101000")).StatusCode);
+        var solo = NuevoRfc(); await CrearAsync(NuevaRef(), solo);
+        Assert.Equal(HttpStatusCode.NotFound, (await http.GetAsync($"{Base}/{solo}")).StatusCode);
     }
 
     [Fact]

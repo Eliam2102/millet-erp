@@ -35,6 +35,17 @@ public static class RfcRepetidosEndpoints
         .ProducesProblem(StatusCodes.Status403Forbidden)
         .ProducesProblem(StatusCodes.Status503ServiceUnavailable);
 
+        group.MapGet("/{rfc}", async (string rfc, IMediator mediator, CancellationToken ct) =>
+            Results.Ok(await mediator.Send(new ObtenerRfcRepetidoQuery(rfc), ct)))
+        .RequireAuthorization(PermissionPolicyProvider.Prefix + PermisosCanonicos.DatosMaestrosClientesSincronizar)
+        .WithName("ObtenerRfcRepetidoCliente")
+        .WithSummary("Un grupo de clientes que comparten RFC (misma forma que la lista)")
+        .Produces<RfcRepetidoGrupoDto>(StatusCodes.Status200OK)
+        .ProducesProblem(StatusCodes.Status401Unauthorized)
+        .ProducesProblem(StatusCodes.Status403Forbidden)
+        .ProducesProblem(StatusCodes.Status404NotFound)
+        .ProducesProblem(StatusCodes.Status503ServiceUnavailable);
+
         group.MapPost("/unificar", async (
             [FromBody] UnificarRfcRepetidoRequest body, IMediator mediator, ICurrentUserContext user, CancellationToken ct) =>
             Results.Ok(await mediator.Send(new UnificarRfcRepetidoCommand(
