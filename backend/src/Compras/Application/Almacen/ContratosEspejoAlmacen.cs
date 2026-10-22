@@ -109,3 +109,18 @@ public sealed record LineaDevolucionAlmacenPayload(
     decimal MontoTotalMxn,
     // Aditivo (86e3pc50v): cantidad devuelta en unidad de la línea de OC (Cantidad va en unidad base del inventario).
     decimal? CantidadDocumento = null);
+
+/// <summary>
+/// Espejo de <c>almacen.recepcion_activo.anulada.v1</c>. Compras lo consume para fijar
+/// <c>CantidadRecibida</c> de la línea de OC al acumulado (<c>CantidadRecibidaAcumulada</c>) que calcula Almacén.
+/// </summary>
+public sealed record RecepcionActivoAnuladaAlmacenPayload(
+    Guid EmpresaId,
+    DateTimeOffset OcurridoEn,
+    Guid RecepcionActivoId,
+    Guid RecepcionId,
+    Guid OrdenCompraId,
+    Guid LineaOcId,
+    decimal Cantidad,
+    decimal CantidadRecibidaAcumulada,
+    string Motivo);

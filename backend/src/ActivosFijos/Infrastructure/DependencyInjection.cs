@@ -19,6 +19,7 @@ public static class DependencyInjection
         services.AddScoped<Millet.SharedKernel.Application.Adjuntos.IAdjuntoPropietario, ActivoAdjuntoPropietario>();
         services.AddScoped<Millet.Compras.Domain.Ports.IClaseActivoCompraReadPort, ClaseActivoCompraReadAdapter>();
         services.AddScoped<ITransaccionPolizaActivo, TransaccionPolizaAdapter>();
+        services.Replace(ServiceDescriptor.Scoped<Millet.Almacen.Domain.Ports.IActivoRecepcionReadPort, ActivoRecepcionReadAdapter>());
         services.AddScoped<CompraActivoConsumer>();
         services.AddScoped<ICatalogosActivoReadPort, CatalogosActivoReadAdapter>();
         services.Replace(ServiceDescriptor.Scoped<IActivosFijosReadPort, ActivosFijosReadAdapter>());

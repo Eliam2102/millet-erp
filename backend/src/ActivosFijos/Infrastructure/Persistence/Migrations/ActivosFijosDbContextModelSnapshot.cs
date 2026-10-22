@@ -133,6 +133,11 @@ namespace Millet.ActivosFijos.Infrastructure.Persistence.Migrations
                         .HasColumnType("text")
                         .HasColumnName("moneda");
 
+                    b.Property<string>("MotivoBaja")
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)")
+                        .HasColumnName("motivo_baja");
+
                     b.Property<string>("Numero")
                         .IsRequired()
                         .HasMaxLength(60)

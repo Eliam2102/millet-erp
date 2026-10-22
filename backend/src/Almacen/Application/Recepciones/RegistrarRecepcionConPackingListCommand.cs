@@ -289,7 +289,9 @@ public sealed class RegistrarRecepcionConPackingListHandler
 
         if (payloadLineas.All(x => x.EsActivoFijo))
         {
-            var folioActivo = $"REC-AF-{movimientoId:N}";
+            // Sin bin no hay almacén que comparar: la sucursal destino de la OC la verifica el endpoint (alcance del usuario sobre la OC o permiso de todas las sucursales).
+            var folioActivo = await Catalogo.FolioMovimientoLock.SiguienteEntradaCompraAsync(_db, request.FechaMovimiento.Year, cancellationToken);
+            foreach (var ra in _db.RecepcionesActivos.Local.Where(x => x.RecepcionId == movimientoId)) ra.Folio = folioActivo;
             await _events.PublishAsync(new OcRecepcionRegistradaIntegrationEvent(empresaId, DateTimeOffset.UtcNow,
                 movimientoId, folioActivo, request.OrdenCompraId, request.FechaMovimiento, true, null, null,
                 request.Observaciones, payloadLineas, SucursalId: oc!.SucursalDestinoId), cancellationToken);
@@ -340,6 +342,7 @@ public sealed class RegistrarRecepcionConPackingListHandler
             m!.Registrar(FolioMovimiento.Construir(TipoMovimiento.EntradaCompra, anio, secuencia.Incrementar()), registradoPor);
             _db.Movimientos.Add(m);
         }
+        foreach (var ra in _db.RecepcionesActivos.Local.Where(x => x.RecepcionId == principal.Id)) ra.Folio = principal.Folio;
 
         // 7. Evento con FacturaPendiente=true (variante B).
         await _events.PublishAsync(new OcRecepcionRegistradaIntegrationEvent(

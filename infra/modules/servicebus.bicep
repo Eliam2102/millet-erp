@@ -341,7 +341,7 @@ resource almacenEventsComprasSubscriptionFilter 'Microsoft.ServiceBus/namespaces
   properties: {
     filterType: 'SqlFilter'
     sqlFilter: {
-      sqlExpression: 'user.EventType IN (\'almacen.oc_recepcion.registrada.v1\', \'almacen.oc_devolucion.registrada.v1\', \'almacen.salida_requisicion.registrada.v1\')'
+      sqlExpression: 'user.EventType IN (\'almacen.oc_recepcion.registrada.v1\', \'almacen.oc_devolucion.registrada.v1\', \'almacen.salida_requisicion.registrada.v1\', \'almacen.recepcion_activo.anulada.v1\')'
       compatibilityLevel: 20
     }
   }
@@ -811,7 +811,7 @@ resource afAlmacenFilter 'Microsoft.ServiceBus/namespaces/topics/subscriptions/r
  name: 'EventTypeFilter'
  properties: {
   filterType: 'SqlFilter'
-  sqlFilter: { sqlExpression: 'user.EventType = \'almacen.oc_recepcion.registrada.v1\'' }
+  sqlFilter: { sqlExpression: 'user.EventType IN (\'almacen.oc_recepcion.registrada.v1\', \'almacen.recepcion_activo.anulada.v1\')' }
  }
 }
 

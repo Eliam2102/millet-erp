@@ -33,6 +33,15 @@ public sealed partial class Activo
             throw new BusinessRuleException("AF_BAJA_INVALIDA", "El activo debe estar vigente y sin traslado pendiente.");
         Estado = EstadoActivo.DadoDeBaja; FechaBaja = fecha;
     }
+    public string? MotivoBaja { get; private set; }
+    /// <summary>Baja sin capitalizar porque se anuló la recepción que lo originó (idempotente; la fila se conserva).</summary>
+    public void DarDeBajaPorRecepcionAnulada(DateOnly fecha, string motivo)
+    {
+        if (Estado == EstadoActivo.DadoDeBaja) return;
+        if (Estado != EstadoActivo.PorCapitalizar || FacturaProveedorId != null || PolizaAltaId != null || EnTraslado)
+            throw new BusinessRuleException("AF_BAJA_INVALIDA", "Solo se anula un activo por capitalizar, sin factura conciliada ni traslado pendiente.");
+        Estado = EstadoActivo.DadoDeBaja; FechaBaja = fecha; MotivoBaja = motivo;
+    }
     public void Reintegrar() { Estado = EstadoActivo.Activo; FechaBaja = null; }
 }
 
