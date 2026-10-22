@@ -108,6 +108,13 @@ function makeOc(
     infoImportCodigoRuta: null,
     infoImportSemanaEmbarque: null,
     infoImportNumeroPedimento: null,
+    infoImportTipoOperacion: null,
+    infoImportNumeroBl: null,
+    infoImportTipoTransporte: null,
+    infoImportAgenteAduanalNaviera: null,
+    infoImportPuertoAduanaEntrada: null,
+    infoImportFechaEstimadaArribo: null,
+    infoImportCertificadoOrigen: false,
     descuentoGlobalTipo: null,
     descuentoGlobalValor: null,
     gastosAdicionales: 0,
@@ -511,7 +518,7 @@ function lineaParaDuplicar(lineaRequisicionId: string, cantidadRecibida: number)
     ivaImporte: 0, retencionIsr: null, subtotalLinea: 1000, departamentoSolicitanteId: 'departamento',
     centroCostoId: 'ceco', centroCostoClave: null, centroCostoNombre: null, requisicionId: 'rq',
     lineaRequisicionId, requisicionFolio: null, fechaEntregaLinea: null, cantidadRecibida,
-    cantidadFacturada: 0, textoAdicional: null,
+    cantidadFacturada: 0, textoAdicional: null, fraccionArancelaria: null,
   };
 }
 

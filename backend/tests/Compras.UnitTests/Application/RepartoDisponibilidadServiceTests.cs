@@ -20,6 +20,19 @@ public sealed class RepartoDisponibilidadServiceTests
     private static readonly Guid Servicio = Guid.CreateVersion7();
 
     [Fact]
+    public async Task DEMO_Completo_no_aparta_parcial_y_deja_stock_para_la_siguiente_partida()
+    {
+        var rq = CrearRequisicion(Clasificacion.MateriaPrima, (Articulo, 10m, 1m), (Articulo, 2m, 1m));
+        rq.EstablecerModoSurtido(true);
+        Assert.True(rq.SoloApartarSiCompleto);
+        var r = await RepartoDisponibilidadService.RepartirAsync(
+            new StockFalso((Articulo, 2m)), new ConversionIdentidad(), Articulos(),
+            rq.Clasificacion, Sucursal, rq.Lineas, default, rq.SoloApartarSiCompleto);
+        Assert.Equal((0m, 10m), (r[0].DeAlmacen, r[0].DeCompra));
+        Assert.Equal((2m, 0m), (r[1].DeAlmacen, r[1].DeCompra));
+    }
+
+    [Fact]
     public async Task Demo19Oct_10_TreintaSolicitadas_DoceDisponibles_DieciochoPorComprar()
     {
         var rq = CrearRequisicion(Clasificacion.MateriaPrima, (Articulo, 30m, 100m));

@@ -68,4 +68,4 @@ public sealed record RequisicionResponse(
     // (estimación de solo lectura; sin apartar stock). False en otros estados o si falla.
     bool EnAlmacen = false,
     // true si además ninguna línea va a compra (surtido total). Solo válido con EnAlmacen.
-    bool AlmacenCubreTodo = false);
+    bool AlmacenCubreTodo = false, bool SoloApartarSiCompleto = false);

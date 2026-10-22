@@ -22,10 +22,11 @@ public sealed class ApartadosRequisicionService(AlmacenDbContext db, IAlmacenSal
     }
 
     public async Task<decimal> ApartarAsync(Guid empresaId, Guid sucursalId, Guid rqId,
-        Guid lineaId, Guid articuloId, decimal solicitada, CancellationToken ct)
+        Guid lineaId, Guid articuloId, decimal solicitada, CancellationToken ct, bool soloSiCompleto = false)
     {
         var disponible = await saldos.ConsultarDisponibilidadPorSucursalAsync(sucursalId, articuloId, ct);
-        var cantidad = Math.Min(solicitada, disponible.CantidadDisponible);
+        var cantidad = soloSiCompleto && disponible.CantidadDisponible < solicitada
+            ? 0m : Math.Min(solicitada, disponible.CantidadDisponible);
         if (cantidad > 0)
         {
             db.ApartadosRequisicion.Add(new ApartadoRequisicion(empresaId, sucursalId, rqId,
@@ -34,6 +35,22 @@ public sealed class ApartadosRequisicionService(AlmacenDbContext db, IAlmacenSal
         }
         return cantidad;
     }
+
+    public async Task LiberarLineaAsync(Guid rqId, Guid lineaId, decimal cantidad, string motivo,
+        Guid actorId, DateTimeOffset fecha, CancellationToken ct)
+    {
+        // El llamador mantiene la transacción y el bloqueo por sucursal/artículo.
+        var apartado = await db.ApartadosRequisicion.SingleOrDefaultAsync(
+            a => a.RequisicionId == rqId && a.LineaRequisicionId == lineaId, ct)
+            ?? throw new EntityNotFoundException("APARTADO_NO_ENCONTRADO", "La partida no tiene existencia apartada.");
+        await db.Entry(apartado).ReloadAsync(ct);
+        db.LiberacionesApartado.Add(new LiberacionApartado(apartado, cantidad, motivo, actorId, fecha));
+        await db.SaveChangesAsync(ct);
+    }
+
+    public async Task<IReadOnlyDictionary<Guid, decimal>> ConsultarAsync(Guid rqId, CancellationToken ct) =>
+        await db.ApartadosRequisicion.AsNoTracking().Where(a => a.RequisicionId == rqId && a.Pendiente > 0)
+            .ToDictionaryAsync(a => a.LineaRequisicionId, a => a.Pendiente, ct);
 
     public async Task LiberarAsync(Guid rqId, CancellationToken ct)
     {

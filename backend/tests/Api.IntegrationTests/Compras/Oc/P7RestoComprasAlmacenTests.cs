@@ -28,6 +28,85 @@ namespace Millet.Api.IntegrationTests.Compras.Oc;
 // Documentos y ubicaciones propios; los catálogos compartidos usan el seed.
 public partial class OrdenesCompraEndpointsTests
 {
+    [Fact]
+    public async Task DEMO_LiberarApartado_sin_permiso_responde_403()
+    {
+        using var client = await CreateClientConPermisosAsync("compras.requisiciones.leer");
+        client.DefaultRequestHeaders.Add("Idempotency-Key", Guid.NewGuid().ToString());
+        var response = await client.PostAsJsonAsync($"/api/v1/compras/requisiciones/{Guid.NewGuid()}/apartados/{Guid.NewGuid()}/liberar",
+            new { cantidad = 1, motivo = "DEMO liberar" });
+        Assert.Equal(System.Net.HttpStatusCode.Forbidden, response.StatusCode);
+    }
+
+    [Fact]
+    public async Task DEMO_ModoCompleto_LiberacionParcialConPermiso_YDisponibilidadParaOtraRq()
+    {
+        using var client = await CreateClientConPermisosAsync("compras.requisiciones.leer", "compras.requisiciones.liberar-apartado");
+        using var scope = _factory.Services.CreateScope();
+        var sp = scope.ServiceProvider;
+        using var bypass = sp.GetRequiredService<ICurrentEmpresaContext>().Bypass();
+        var db = sp.GetRequiredService<ComprasDbContext>();
+        var almacen = sp.GetRequiredService<AlmacenDbContext>();
+        var maestro = sp.GetRequiredService<CompartidoDbContext>();
+        var articulo = new Millet.DatosMaestros.Domain.Articulo(Guid.NewGuid(), $"LIB{Guid.NewGuid():N}"[..16], "DEMO liberación apartado", "PZA");
+        var alm = new Millet.Almacen.Domain.Catalogo.Almacen(Guid.NewGuid(), $"LIB{Guid.NewGuid():N}"[..18], "DEMO liberación", SucursalIdFija);
+        var sub = new SubAlmacen(Guid.NewGuid(), alm.Id, "DEMO", "DEMO", TipoSubAlmacen.Insumos);
+        var bin = new Ubicacion(Guid.NewGuid(), sub.Id, "DEMO", "DEMO");
+        var rqs = new[] { NuevaRqP7(SucursalIdFija, articulo.Id, completo: true), NuevaRqP7(SucursalIdFija, articulo.Id), NuevaRqP7(SucursalIdFija, articulo.Id) };
+        var ids = rqs.Select(r => r.Id).ToArray();
+        var settings = await db.ComprasSettings.SingleOrDefaultAsync(x => x.EmpresaId == EmpresaInicialId);
+        var existia = settings is not null;
+        var apartarAnterior = settings?.ApartarExistenciaAlAutorizar ?? true;
+        var ocAnterior = settings?.AutoGenerarOcAlAutorizar ?? false;
+        if (settings is null) { settings = ComprasSettings.CrearDefault(EmpresaInicialId); db.Add(settings); }
+        try
+        {
+            maestro.Add(articulo); await maestro.SaveChangesAsync();
+            almacen.AddRange(alm, sub, bin, new SaldoInventario(bin.Id, sub.Id, articulo.Id, 2, 100));
+            await almacen.SaveChangesAsync();
+            settings.EstablecerApartarExistenciaAlAutorizar(true);
+            settings.EstablecerAutoGenerarOcAlAutorizar(false);
+            db.AddRange(rqs); await db.SaveChangesAsync();
+            Assert.True((await db.Requisiciones.AsNoTracking().SingleAsync(r => r.Id == rqs[0].Id)).SoloApartarSiCompleto);
+            AutorizarRequisicionHandler Handler() => new(db, sp.GetRequiredService<IMediator>(), new UsuarioP2(Guid.NewGuid()), new NivelP7(),
+                sp.GetRequiredService<IConsultarStockPort>(), sp.GetRequiredService<IGenerarSolicitudCompraPort>(),
+                sp.GetRequiredService<IClock>(), sp.GetRequiredService<TransaccionApartadosRq>(), sp.GetRequiredService<IConversionUnidadPort>(), sp.GetRequiredService<IArticuloReadPort>());
+            await Handler().Handle(new(rqs[0].Id, NivelAutorizacion.Nivel1), default);
+            Assert.Equal(0, rqs[0].Lineas.Single().CantidadDeAlmacen);
+            Assert.False(await almacen.ApartadosRequisicion.AnyAsync(a => a.RequisicionId == rqs[0].Id));
+            await Handler().Handle(new(rqs[1].Id, NivelAutorizacion.Nivel1), default);
+            var partida = rqs[1].Lineas.Single().Id;
+            var url = $"/api/v1/compras/requisiciones/{rqs[1].Id}/apartados/{partida}/liberar";
+            var response = await client.PostAsJsonAsync(url, new { cantidad = 1, motivo = "DEMO reasignar material" });
+            Assert.Equal(System.Net.HttpStatusCode.NoContent, response.StatusCode);
+            Assert.Equal(1, await almacen.ApartadosRequisicion.AsNoTracking().Where(a => a.LineaRequisicionId == partida).Select(a => a.Pendiente).SingleAsync());
+            var evidencia = await almacen.LiberacionesApartado.AsNoTracking().SingleAsync(a => a.RequisicionId == rqs[1].Id);
+            Assert.Equal(1, evidencia.Cantidad);
+            Assert.Equal("DEMO reasignar material", evidencia.Motivo);
+            Assert.NotEqual(Guid.Empty, evidencia.ActorId);
+            Assert.True(evidencia.Fecha > DateTimeOffset.UtcNow.AddMinutes(-5));
+            await Handler().Handle(new(rqs[2].Id, NivelAutorizacion.Nivel1), default);
+            Assert.Equal(1, rqs[2].Lineas.Single().CantidadDeAlmacen);
+            Assert.Equal(2, (await almacen.SaldosInventario.SingleAsync(x => x.UbicacionId == bin.Id)).Cantidad);
+        }
+        finally
+        {
+            db.ChangeTracker.Clear(); almacen.ChangeTracker.Clear();
+            await almacen.LiberacionesApartado.Where(a => ids.Contains(a.RequisicionId)).ExecuteDeleteAsync();
+            await almacen.ApartadosRequisicion.Where(a => ids.Contains(a.RequisicionId)).ExecuteDeleteAsync();
+            await db.Requisiciones.Where(r => ids.Contains(r.Id)).ExecuteDeleteAsync();
+            var restaurar = await db.ComprasSettings.SingleAsync(x => x.EmpresaId == EmpresaInicialId);
+            if (existia) { restaurar.EstablecerApartarExistenciaAlAutorizar(apartarAnterior); restaurar.EstablecerAutoGenerarOcAlAutorizar(ocAnterior); }
+            else db.ComprasSettings.Remove(restaurar);
+            await db.SaveChangesAsync();
+            await almacen.SaldosInventario.Where(x => x.UbicacionId == bin.Id).ExecuteDeleteAsync();
+            await almacen.Ubicaciones.Where(x => x.Id == bin.Id).ExecuteDeleteAsync();
+            await almacen.SubAlmacenes.Where(x => x.Id == sub.Id).ExecuteDeleteAsync();
+            await almacen.Almacenes.Where(x => x.Id == alm.Id).ExecuteDeleteAsync();
+            await maestro.Articulos.Where(x => x.Id == articulo.Id).ExecuteDeleteAsync();
+        }
+    }
+
     [Theory]
     [InlineData("motivo", "OC_MOTIVO_SIN_RQ_REQUERIDO")]
     [InlineData("correo", "OC_SIN_RQ_CORREO_REQUERIDO")]
@@ -300,13 +379,14 @@ public partial class OrdenesCompraEndpointsTests
             await db.Requisiciones.Where(r => r.Id == rq.Id).ExecuteDeleteAsync();
         }
     }
-    private static Requisicion NuevaRqP7(Guid sucursal, Guid articulo, string? obra = null)
+    private static Requisicion NuevaRqP7(Guid sucursal, Guid articulo, string? obra = null, bool completo = false)
     {
         var numero = System.Security.Cryptography.RandomNumberGenerator.GetInt32(100000, 999999);
         var rq = new Requisicion(Guid.NewGuid(), EmpresaInicialId, Millet.Compras.Domain.Folio.Parse($"MID2026-{numero}"), 2026,
             Clasificacion.MateriaPrima, sucursal, Guid.NewGuid(), null, Guid.NewGuid(), Guid.NewGuid(), Prioridad.Normal, DateTimeOffset.UtcNow, descripcion: "DEMO P7");
         rq.AgregarLinea(Guid.NewGuid(), articulo, 10, "PZA", Money.Mxn(100), centroCostoId: CentroCostoSeedId);
         rq.AsignarObra(obra);
+        rq.EstablecerModoSurtido(completo);
         rq.EnviarAAutorizacion(DateTimeOffset.UtcNow);
         return rq;
     }

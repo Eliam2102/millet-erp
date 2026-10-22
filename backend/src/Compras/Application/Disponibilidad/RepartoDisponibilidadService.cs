@@ -48,7 +48,7 @@ public static class RepartoDisponibilidadService
         Clasificacion clasificacionRq,
         Guid sucursalId,
         IEnumerable<LineaRequisicion> lineas,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken, bool soloApartarSiCompleto = false)
     {
         var lineasLista = lineas.ToList();
         var idsInventario = lineasLista
@@ -76,7 +76,8 @@ public static class RepartoDisponibilidadService
             var disponibleBase = disponiblesEnBase.GetValueOrDefault(linea.ArticuloId, disponibilidad.Disponible);
             var escala = (decimal)Math.Pow(10, Math.Min(4, conversionLinea.DecimalesDocumento));
             var disponibleDocumento = decimal.Floor(disponibleBase / conversionLinea.FactorDocumentoABase * escala) / escala;
-            var (deAlmacen, deCompra) = Cubrimiento.Repartir(disponibleDocumento, linea.Cantidad);
+            var (deAlmacen, deCompra) = Cubrimiento.Repartir(
+                soloApartarSiCompleto && disponibleDocumento < linea.Cantidad ? 0m : disponibleDocumento, linea.Cantidad);
             disponiblesEnBase[linea.ArticuloId] = disponibleBase - deAlmacen * conversionLinea.FactorDocumentoABase;
             resultado.Add(new RepartoLinea(linea, disponibleDocumento, deAlmacen, deCompra, EsServicio: false));
         }

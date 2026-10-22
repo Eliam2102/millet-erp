@@ -58,6 +58,15 @@ public sealed class Requisicion : BaseEntity, IPerteneceAEmpresa, IAuditable, IF
     /// </summary>
     public Guid CreadorId { get; private set; }
 
+    public bool SoloApartarSiCompleto { get; private set; }
+
+    public void EstablecerModoSurtido(bool soloApartarSiCompleto)
+    {
+        if (Estado != EstadoRequisicion.Borrador)
+            throw new BusinessRuleException("RQ_MODO_SURTIDO_CONGELADO", "El modo de surtido no puede cambiar después de transmitir la requisición.");
+        SoloApartarSiCompleto = soloApartarSiCompleto;
+    }
+
     public string? Obra { get; private set; }
 
     public void AsignarObra(string? obra)

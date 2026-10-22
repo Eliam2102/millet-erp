@@ -62,6 +62,7 @@ export const PermisosCanonicos = {
   ComprasRequisicionesEditar: 'compras.requisiciones.editar',
   ComprasRequisicionesEliminar: 'compras.requisiciones.eliminar',
   ComprasRequisicionesCancelar: 'compras.requisiciones.cancelar',
+  ComprasRequisicionesLiberarApartado: 'compras.requisiciones.liberar-apartado',
   ComprasRequisicionesCerrarManual: 'compras.requisiciones.cerrar-manual',
   ComprasRequisicionesAutorizarNivel1: 'compras.requisiciones.autorizar-nivel1',
   ComprasRequisicionesAutorizarNivel2: 'compras.requisiciones.autorizar-nivel2',

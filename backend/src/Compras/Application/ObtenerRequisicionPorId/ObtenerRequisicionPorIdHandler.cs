@@ -256,7 +256,7 @@ public sealed class ObtenerRequisicionPorIdHandler : IRequestHandler<ObtenerRequ
                 requisicion.Lineas.Select(l => l.ArticuloId).Distinct().ToList(), cancellationToken);
             var repartos = await RepartoDisponibilidadService.RepartirAsync(
                 _stock, _conversion, articulos, requisicion.Clasificacion, requisicion.SucursalId,
-                requisicion.Lineas, cancellationToken);
+                requisicion.Lineas, cancellationToken, requisicion.SoloApartarSiCompleto);
             return CalcularCobertura(repartos);
         }
         catch (Exception ex) when (ex is not OperationCanceledException)

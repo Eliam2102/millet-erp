@@ -1,3 +1,4 @@
+import { Checkbox } from '@/components/ui/checkbox';
 import { FormCampo } from '@/components/erp/forms/FormGrid';
 import { FormGrid } from '@/components/erp/forms/FormGrid';
 import { DialogBody } from '@/components/ui/dialog';
@@ -448,6 +449,16 @@ export function NuevaRequisicion({ onClose, onDirtyChange }: NuevaRequisicionPro
             </Field>
           </FormCampo>
 
+          <FormCampo span={6}>
+            <div className="flex items-center gap-2">
+              <Controller name="soloApartarSiCompleto" control={form.control} render={({ field }) => (
+                <Checkbox id="surtido-completo" checked={field.value ?? false} onCheckedChange={(value) => field.onChange(value === true)} />
+              )} />
+              <label htmlFor="surtido-completo" className="text-xs font-medium text-ink-strong">Surtir partidas completas</label>
+            </div>
+            <p className="text-xs text-ink-muted">Si no alcanza para toda la partida, no se aparta existencia. Sin marcar, se permite surtido parcial.</p>
+          </FormCampo>
+
           {/* Proveedor sugerido */}
           <FormCampo span={6}>
             <Field
@@ -639,5 +650,6 @@ function buildEmptyValues(sucursalActivaId?: string | null): CrearRequisicionVal
     proveedorSugeridoId: null,
     descripcion: null,
     obra: null,
+    soloApartarSiCompleto: false,
   } as CrearRequisicionValues;
 }

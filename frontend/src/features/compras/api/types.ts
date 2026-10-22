@@ -344,6 +344,7 @@ export interface RequisicionListItemResponse {
  * mutaciones (ver <c>useRequisicion</c>).</para>
  */
 export interface RequisicionResponse {
+  soloApartarSiCompleto?: boolean;
   obra?: string | null;
   id: string;
   empresaId: string;

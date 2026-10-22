@@ -75,7 +75,7 @@ public sealed class PreviewCubrimientoHandler
             requisicion.Lineas.Select(l => l.ArticuloId).Distinct().ToList(), cancellationToken);
         var repartos = await RepartoDisponibilidadService.RepartirAsync(
             _stock, _conversion, articulosReparto, requisicion.Clasificacion, requisicion.SucursalId,
-            requisicion.Lineas, cancellationToken);
+            requisicion.Lineas, cancellationToken, requisicion.SoloApartarSiCompleto);
         var lineas = repartos
             .Select(r => new PreviewCubrimientoLinea(
                 LineaId: r.Linea.Id,

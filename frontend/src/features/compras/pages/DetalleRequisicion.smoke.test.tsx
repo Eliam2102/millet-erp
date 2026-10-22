@@ -65,6 +65,7 @@ vi.mock('@tanstack/react-router', () => ({
 
 function setupCatalogos() {
   mswServer.use(
+    http.get('*/api/v1/compras/requisiciones/:id/apartados', () => HttpResponse.json([])),
     http.get('*/api/v1/catalogos/departamentos', () =>
       HttpResponse.json({
         items: [{ id: 'd-1', nombre: 'Mantenimiento', clave: 'MTO' }],

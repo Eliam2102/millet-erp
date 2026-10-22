@@ -30,5 +30,12 @@ public sealed class ApartadoRequisicion : BaseEntity, IPerteneceAEmpresa, IAudit
             "La cantidad surtida debe ser positiva.");
         Pendiente = Math.Max(0m, Pendiente - cantidad);
     }
+    public void Liberar(decimal cantidad)
+    {
+        if (cantidad <= 0 || cantidad > Pendiente || decimal.Round(cantidad, 4) != cantidad)
+            throw new BusinessRuleException("APARTADO_LIBERACION_INVALIDA",
+                "La cantidad debe ser positiva, tener hasta cuatro decimales y no exceder lo apartado pendiente.");
+        Pendiente -= cantidad;
+    }
     public void Liberar() => Pendiente = 0m;
 }

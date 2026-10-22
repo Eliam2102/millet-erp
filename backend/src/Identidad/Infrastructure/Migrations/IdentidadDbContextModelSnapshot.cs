@@ -1193,6 +1193,20 @@ namespace Millet.Identidad.Infrastructure.Migrations
                         },
                         new
                         {
+                            Id = new Guid("00000003-0001-0000-0000-00000000000e"),
+                            Accion = "liberar-apartado",
+                            Codigo = "compras.requisiciones.liberar-apartado",
+                            CreatedAt = new DateTimeOffset(new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            CreatedBy = "seed",
+                            Descripcion = "Liberar existencia apartada por partida y cantidad con motivo obligatorio",
+                            Modulo = "compras",
+                            Recurso = "requisiciones",
+                            UpdatedAt = new DateTimeOffset(new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            UpdatedBy = "seed",
+                            Version = 1
+                        },
+                        new
+                        {
                             Id = new Guid("00000003-0001-0000-0000-00000000000d"),
                             Accion = "leer-todas-sucursales",
                             Codigo = "compras.requisiciones.leer-todas-sucursales",

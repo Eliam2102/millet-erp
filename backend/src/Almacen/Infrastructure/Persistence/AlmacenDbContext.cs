@@ -118,6 +118,7 @@ public class AlmacenDbContext : BaseDbContext
     /// </summary>
     public DbSet<IntegrationEventOutboxEntry> OutboxEntries => Set<IntegrationEventOutboxEntry>();
 
+    public DbSet<Domain.Apartados.LiberacionApartado> LiberacionesApartado => Set<Domain.Apartados.LiberacionApartado>();
     public DbSet<Domain.Apartados.ApartadoRequisicion> ApartadosRequisicion => Set<Domain.Apartados.ApartadoRequisicion>();
 
     public DbSet<RecepcionActivo> RecepcionesActivos => Set<RecepcionActivo>();
@@ -166,6 +167,15 @@ public class AlmacenDbContext : BaseDbContext
             b.Property(a => a.Pendiente).HasPrecision(14, 4);
             b.HasIndex(a => a.LineaRequisicionId).IsUnique();
             b.HasIndex(a => new { a.SucursalId, a.ArticuloId });
+        });
+        modelBuilder.Entity<Domain.Apartados.LiberacionApartado>(b =>
+        {
+            b.ToTable("liberaciones_apartado");
+            b.HasKey(a => a.Id);
+            b.Property(a => a.Id).ValueGeneratedNever();
+            b.Property(a => a.Cantidad).HasPrecision(14, 4);
+            b.Property(a => a.Motivo).HasMaxLength(500);
+            b.HasIndex(a => a.RequisicionId);
         });
         OnModelCreatingProviderSpecific(modelBuilder);
     }

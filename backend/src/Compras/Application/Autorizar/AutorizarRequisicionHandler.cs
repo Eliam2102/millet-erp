@@ -257,7 +257,7 @@ public sealed class AutorizarRequisicionHandler : IRequestHandler<AutorizarRequi
             requisicion.Lineas.Select(l => l.ArticuloId).Distinct().ToList(), cancellationToken);
         var repartos = await RepartoDisponibilidadService.RepartirAsync(
             _stock, _conversion, articulos, requisicion.Clasificacion, requisicion.SucursalId,
-            requisicion.Lineas, cancellationToken);
+            requisicion.Lineas, cancellationToken, requisicion.SoloApartarSiCompleto);
 
         var resultado = new List<CubrimientoLinea>(repartos.Count);
         foreach (var reparto in repartos)
@@ -272,7 +272,7 @@ public sealed class AutorizarRequisicionHandler : IRequestHandler<AutorizarRequi
             {
                 var conversion = await _conversion.ConvertirAsync(linea.ArticuloId, linea.Cantidad, null, linea.UnidadMedida, cancellationToken);
                 cantidadDeAlmacen = await _apartadosTx.Apartados.ApartarAsync(requisicion.EmpresaId,
-                    requisicion.SucursalId, requisicion.Id, linea.Id, linea.ArticuloId, cantidadDeAlmacen * conversion.FactorDocumentoABase, cancellationToken) / conversion.FactorDocumentoABase;
+                    requisicion.SucursalId, requisicion.Id, linea.Id, linea.ArticuloId, cantidadDeAlmacen * conversion.FactorDocumentoABase, cancellationToken, requisicion.SoloApartarSiCompleto) / conversion.FactorDocumentoABase;
                 cantidadDeCompra = linea.Cantidad - cantidadDeAlmacen;
             }
             resultado.Add(new CubrimientoLinea(linea.Id, cantidadDeAlmacen, cantidadDeCompra));

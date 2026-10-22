@@ -1,3 +1,4 @@
+import { ApartadosRequisicion } from '@/features/compras/components/ApartadosRequisicion';
 import { PageHeader } from '@/components/erp/PageHeader';
 import { useContext } from 'react';
 import { RecurrenciaContext } from '@/features/compras/components/recurrencia-context';
@@ -205,6 +206,15 @@ export function DetalleRequisicion() {
           </div>
           <RenderLineas rq={rq} />
         </section>
+
+        <p className="text-sm text-ink-secondary">Modo de surtido: {rq.soloApartarSiCompleto ? 'Partidas completas' : 'Parcial'}</p>
+        {(rq.estado === EstadoRequisicion.Autorizada || rq.estado === EstadoRequisicion.EnSurtido) && (
+          <ApartadosRequisicion requisicionId={rq.id} puedeLiberarPorEstado
+            resolverPartida={(id) => {
+              const linea = rq.lineas.find((l) => l.id === id);
+              return `Partida ${linea?.posicion ?? ''} · ${linea?.articuloNombre ?? 'Sin descripción'}`;
+            }} />
+        )}
 
         <DocumentoAdjuntosSection
           base={`/api/v1/compras/requisiciones/${rq.id}`}

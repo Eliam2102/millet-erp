@@ -158,3 +158,11 @@ describe('<NuevaRequisicion> — smoke', () => {
     }
   });
 });
+
+it('permite elegir surtido completo o parcial por partida', () => {
+  render(<NuevaRequisicion />, { wrapper: createQueryWrapper() });
+  const completo = screen.getByRole('checkbox', { name: /surtir partidas completas/i });
+  expect(completo).not.toBeChecked();
+  fireEvent.click(completo);
+  expect(completo).toBeChecked();
+});

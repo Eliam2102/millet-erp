@@ -2397,6 +2397,10 @@ namespace Millet.Compras.Infrastructure.Migrations
                         .HasColumnType("uuid")
                         .HasColumnName("requisitante_id");
 
+                    b.Property<bool>("SoloApartarSiCompleto")
+                        .HasColumnType("boolean")
+                        .HasColumnName("solo_apartar_si_completo");
+
                     b.Property<Guid>("SucursalId")
                         .HasColumnType("uuid")
                         .HasColumnName("sucursal_id");

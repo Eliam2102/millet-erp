@@ -1,3 +1,4 @@
+using Millet.Compras.Application.Apartados;
 using MediatR;
 using Millet.Api.Endpoints.Adjuntos;
 using Microsoft.AspNetCore.Http;
@@ -571,6 +572,37 @@ public static class RequisicionesEndpoints
         .ProducesProblem(StatusCodes.Status409Conflict)
         .ProducesProblem(StatusCodes.Status422UnprocessableEntity);
 
+        group.MapGet("/{id:guid}/apartados", async (Guid id, IMediator mediator,
+            ComprasDbContext scopeDb, ICurrentUserContext scopeUser, ICurrentUserPermissions scopePermisos,
+            IUsuarioSucursalReadPort scopeSucursales, CancellationToken ct) =>
+        {
+            await RqSucursalScope.VerificarAsync(id, scopeDb, scopeUser, scopePermisos, scopeSucursales, ct);
+            return Results.Ok(await mediator.Send(new ConsultarApartadosQuery(id), ct));
+        })
+        .RequireAuthorization(PermissionPolicyProvider.Prefix + PermisosCanonicos.ComprasRequisicionesLeer)
+        .WithName("ConsultarApartadosRequisicion")
+        .WithSummary("Consultar la existencia apartada pendiente por partida")
+        .Produces<IReadOnlyList<ApartadoResponse>>()
+        .ProducesProblem(StatusCodes.Status403Forbidden)
+        .ProducesProblem(StatusCodes.Status404NotFound);
+
+        group.MapPost("/{id:guid}/apartados/{lineaId:guid}/liberar", async (Guid id, Guid lineaId,
+            LiberarApartadoRequest request, IMediator mediator,
+            ComprasDbContext scopeDb, ICurrentUserContext scopeUser, ICurrentUserPermissions scopePermisos,
+            IUsuarioSucursalReadPort scopeSucursales, CancellationToken ct) =>
+        {
+            await RqSucursalScope.VerificarAsync(id, scopeDb, scopeUser, scopePermisos, scopeSucursales, ct, escritura: true);
+            await mediator.Send(new LiberarApartadoCommand(id, lineaId, request.Cantidad, request.Motivo), ct);
+            return Results.NoContent();
+        })
+        .WithMetadata(new RequireIdempotencyKeyAttribute())
+        .RequireAuthorization(PermissionPolicyProvider.Prefix + PermisosCanonicos.ComprasRequisicionesLiberarApartado)
+        .WithName("LiberarApartadoRequisicion")
+        .WithSummary("Liberar una cantidad apartada de una partida con motivo obligatorio")
+        .Produces(StatusCodes.Status204NoContent)
+        .ProducesProblem(StatusCodes.Status403Forbidden)
+        .ProducesProblem(StatusCodes.Status422UnprocessableEntity);
+
         // ADR-0043: cierre manual del jefe de almacén / almacenista. POST con
         // body (motivo) siguiendo el patrón de cancelar.
         group.MapPost("/{id:guid}/cerrar-manual", async (
@@ -736,6 +768,8 @@ public static class RequisicionesEndpoints
     }
 
     /// <summary>Body del POST /autorizaciones.</summary>
+    public sealed record LiberarApartadoRequest(decimal Cantidad, string Motivo);
+
     public sealed record AutorizarRequisicionRequest(NivelAutorizacion Nivel, string? Notas);
 
     /// <summary>Body del POST /autorizaciones-masivas (S2): 1 a 50 ids.</summary>
