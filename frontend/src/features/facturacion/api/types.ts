@@ -236,7 +236,10 @@ export interface PedidoBandejaItem extends ClasificacionPedidoLectura {
   origen: string;
   estado: string;
   clienteNombre: string;
+  /** Subtotal sin impuestos. */
   total: number;
+  /** 86e3tfd7j: subtotal + IVA por línea; null si alguna línea no tiene tasa. */
+  totalConIva?: number | null;
   moneda: string;
   createdAt: string;
 }

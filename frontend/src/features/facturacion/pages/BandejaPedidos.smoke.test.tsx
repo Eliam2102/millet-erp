@@ -77,9 +77,21 @@ describe('<BandejaPedidos> — smoke', () => {
               origen: 'Manual',
               estado: 'Importado',
               clienteNombre: 'Cliente Demo SA',
-              total: 232.5,
+              total: 1000,
+              totalConIva: 1160,
               moneda: 'MXN',
               createdAt: '2026-05-30T10:00:00Z',
+            },
+            {
+              id: 'p-2',
+              numeroPedido: 'MID-002',
+              origen: 'Aw',
+              estado: 'Importado',
+              clienteNombre: 'Cliente Legacy SA',
+              total: 50,
+              totalConIva: null,
+              moneda: 'MXN',
+              createdAt: '2026-05-29T10:00:00Z',
             },
           ],
           sinAsignarCount: null,
@@ -89,7 +101,14 @@ describe('<BandejaPedidos> — smoke', () => {
     render(<BandejaPedidos />, { wrapper: createQueryWrapper() });
     await waitFor(() => expect(screen.getByText('Cliente Demo SA')).toBeInTheDocument());
     expect(screen.getByText('MID-001')).toBeInTheDocument();
-    expect(screen.getByRole('cell', { name: 'Importado' })).toBeInTheDocument();
+    expect(screen.getAllByRole('cell', { name: 'Importado' })).toHaveLength(2);
+    // 86e3tfd7j: columna Total con IVA (caja ve cuánto cobrará).
+    expect(screen.getByRole('columnheader', { name: 'Total con IVA' })).toBeInTheDocument();
+    expect(screen.getByRole('cell', { name: /1,160\.00/ })).toBeInTheDocument();
+    expect(screen.getByRole('cell', { name: '—' })).toHaveAttribute(
+      'title',
+      'Sin tasa de IVA en alguna línea',
+    );
   });
 
   it('F6.1: badges de clase y filtro «Clase» sincronizado con ?clase=', async () => {
