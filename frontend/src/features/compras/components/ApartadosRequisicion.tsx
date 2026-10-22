@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import {
   Dialog,
@@ -112,6 +112,8 @@ function LiberarApartadoDialog({
   const [cantidad, setCantidad] = useState<number | null>(apartado.pendiente);
   const [motivo, setMotivo] = useState('');
   const [error, setError] = useState<string | null>(null);
+  // Guard síncrono: isPending se actualiza tras un render y un doble clic rápido enviaba dos POST.
+  const enVuelo = useRef(false);
   // Misma clave al reintentar los mismos valores; valores distintos => clave nueva.
   const [idempotencyKey, setIdempotencyKey] = useState(() => crypto.randomUUID());
 
@@ -127,9 +129,11 @@ function LiberarApartadoDialog({
   }
 
   function enviar() {
+    if (enVuelo.current || mutation.isPending) return;
     const msg = validar();
     setError(msg);
     if (msg != null || cantidad == null) return;
+    enVuelo.current = true;
     mutation.mutate(
       {
         requisicionId,
@@ -143,6 +147,9 @@ function LiberarApartadoDialog({
           setError(
             esApiError(e) ? (e.problem.detail ?? e.message) : 'No se pudo liberar el apartado.',
           ),
+        onSettled: () => {
+          enVuelo.current = false;
+        },
       },
     );
   }

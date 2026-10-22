@@ -100,6 +100,27 @@ describe('<ApartadosRequisicion>', () => {
     expect(key).toBeTruthy();
   });
 
+  it('doble clic síncrono envía un solo POST', async () => {
+    let llamadas = 0;
+    mswServer.use(
+      http.post(URL_LIBERAR, async () => {
+        llamadas++;
+        return new HttpResponse(null, { status: 204 });
+      }),
+    );
+    setup([PermisosCanonicos.ComprasRequisicionesLiberarApartado]);
+    fireEvent.click(await screen.findByRole('button', { name: /liberar apartado/i }));
+    const dialog = await screen.findByRole('dialog');
+    fireEvent.change(screen.getByLabelText(/cantidad a liberar/i), { target: { value: '3' } });
+    fireEvent.change(screen.getByLabelText(/motivo/i), { target: { value: 'Ya no se necesita' } });
+    const enviar = dialog.querySelector('button:last-of-type') as HTMLButtonElement;
+    fireEvent.click(enviar);
+    fireEvent.click(enviar);
+    await waitFor(() => expect(llamadas).toBe(1));
+    await new Promise((r) => setTimeout(r, 50));
+    expect(llamadas).toBe(1);
+  });
+
   it('reintento con mismos valores reusa la Idempotency-Key; cambiar motivo la renueva', async () => {
     const keys: (string | null)[] = [];
     mswServer.use(
