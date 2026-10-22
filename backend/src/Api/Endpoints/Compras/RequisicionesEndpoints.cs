@@ -308,7 +308,8 @@ public static class RequisicionesEndpoints
                     LimpiarDescripcion: body.LimpiarDescripcion ?? false,
                     LimpiarFechaEntregaDeseada: body.LimpiarFechaEntregaDeseada ?? false,
                     LimpiarProveedorSugeridoId: body.LimpiarProveedorSugeridoId ?? false,
-                    Obra: body.Obra, LimpiarObra: body.LimpiarObra ?? false),
+                    Obra: body.Obra, LimpiarObra: body.LimpiarObra ?? false,
+                    SoloApartarSiCompleto: body.SoloApartarSiCompleto),
                 cancellationToken);
             return Results.NoContent();
         })
@@ -757,5 +758,5 @@ public static class RequisicionesEndpoints
         Clasificacion? Clasificacion,
         bool? LimpiarDescripcion,
         bool? LimpiarFechaEntregaDeseada,
-        bool? LimpiarProveedorSugeridoId, string? Obra = null, bool? LimpiarObra = null);
+        bool? LimpiarProveedorSugeridoId, string? Obra = null, bool? LimpiarObra = null, bool? SoloApartarSiCompleto = null);
 }

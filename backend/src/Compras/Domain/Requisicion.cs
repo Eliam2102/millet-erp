@@ -69,6 +69,19 @@ public sealed class Requisicion : BaseEntity, IPerteneceAEmpresa, IAuditable, IF
         Obra = string.IsNullOrWhiteSpace(obra) ? null : obra.Trim();
     }
 
+    /// <summary>
+    /// Si es true, al autorizar sólo se aparta una línea cuando la existencia la cubre completa;
+    /// si no alcanza, la línea va completa a compra (86e3tferc).
+    /// </summary>
+    public bool SoloApartarSiCompleto { get; private set; }
+
+    public void EstablecerSoloApartarSiCompleto(bool valor)
+    {
+        if (Estado != EstadoRequisicion.Borrador)
+            throw new BusinessRuleException("RQ_SURTIDO_CONGELADO", "El modo de surtido no puede cambiar después de transmitir la requisición.");
+        SoloApartarSiCompleto = valor;
+    }
+
     public string? Descripcion { get; private set; }
 
     public Prioridad Prioridad { get; private set; }
