@@ -250,6 +250,7 @@ if (!string.IsNullOrWhiteSpace(outboxConnString))
     // AF: listener de recepciones (Almacén) y facturas (CxP) que crean y valúan
     // activos por capitalizar. Solo con Service Bus real, como los demás listeners.
     builder.Services.AddHostedService<Millet.ActivosFijos.Infrastructure.Workers.ComprasActivoWorker>();
+    builder.Services.AddHostedService<Millet.ActivosFijos.Infrastructure.Workers.VentaActivoWorker>();
 
     // F6-PR3 CxP: listener Service Bus para eventos de Almacén
     // (recepciones + devoluciones). Cierra el ciclo bidireccional.
@@ -406,6 +407,13 @@ builder.Services
     .Bind(builder.Configuration.GetSection(
         Millet.Compras.Application.MigracionEntrega.MigracionEntregaHistoricaOptions.SectionName));
 builder.Services.AddHostedService<Millet.Compras.Infrastructure.Workers.MigracionEntregaHistoricaJob>();
+
+// F1-COM-07: revisión diaria de incidencias del proveedor con compromiso vencido (aviso único por
+// incidencia y fecha). Apagable con Compras:Workers:IncidenciasVencidas:Disabled.
+builder.Services
+    .AddOptions<Millet.Compras.Infrastructure.Workers.IncidenciaVencidaOptions>()
+    .Bind(builder.Configuration.GetSection(Millet.Compras.Infrastructure.Workers.IncidenciaVencidaOptions.SectionName));
+builder.Services.AddHostedService<Millet.Compras.Infrastructure.Workers.IncidenciaVencidaWorker>();
 
 // === Compras IConsultarStockPort → adapter real ===
 // Reemplaza el InMemoryConsultarStockPort stub (config-driven que
@@ -895,7 +903,7 @@ builder.Services.AddFacturacionModule(builder.Configuration);
 // Foundation: LineaCredito + DbContext (abajo, junto a los demás contextos)
 // + outbox. Sin ports todavía — IClienteReadPort/IFacturacionAnticiposReadPort
 // entran con sus consumidores (CXC-PR3+). Ver 01-diseño §6.1.
-builder.Services.AddCuentasPorCobrarModule(builder.Configuration);
+builder.Services.AddCuentasPorCobrarModule(builder.Configuration, builder.Environment.IsDevelopment());
 
 // === Módulo Tesorería (TES-PR1) ===
 // Foundation: esquema `tesoreria` + DbContext (abajo, junto a los demás
@@ -923,6 +931,11 @@ builder.Services.AddOptions<Millet.ComercioExterior.Infrastructure.Workers.Aviso
     .Validate(o => o.Interval > TimeSpan.Zero, "ComercioExterior:AvisosHitos:Interval debe ser mayor que cero.")
     .ValidateOnStart();
 builder.Services.AddHostedService<Millet.ComercioExterior.Infrastructure.Workers.AvisosHitosWorker>();
+builder.Services.AddOptions<Millet.ActivosFijos.Infrastructure.Workers.AvisosActivosOptions>()
+    .Bind(builder.Configuration.GetSection(Millet.ActivosFijos.Infrastructure.Workers.AvisosActivosOptions.SectionName))
+    .Validate(o => o.Interval > TimeSpan.Zero && o.DiasAnticipacion is >= 0 and <= 365 && o.DiasPorEmpresa.Values.All(d => d is >= 0 and <= 365), "Revise intervalo y días de anticipación de avisos AF.")
+    .ValidateOnStart();
+builder.Services.AddHostedService<Millet.ActivosFijos.Infrastructure.Workers.AvisosActivosWorker>();
 builder.Services.AddOptions<OutboxPublisherOptions>(nameof(ComercioExteriorDbContext))
     .Configure(o => o.ServiceBusTopicName = "comercio-exterior-events")
     .Bind(builder.Configuration.GetSection("ComercioExterior:Outbox"));

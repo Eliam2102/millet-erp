@@ -108,15 +108,20 @@ internal static class AutorizacionTestSeeding
     /// <paramref name="sucursalId"/> debe pasarse también su código
     /// (<paramref name="sucursalCodigo"/>, p. ej. "MTY").
     /// </summary>
+    /// <summary>86e3tfedd: un artículo de servicio sólo entra en una RQ de Servicio.</summary>
+    internal const int ClasificacionServicio = 0;
+
     internal static async Task<Guid> CrearRqAsync(
         HttpClient client,
         IReadOnlyList<(Guid ArticuloId, decimal Cantidad)> lineas,
         Guid? sucursalId = null,
-        string? sucursalCodigo = null)
+        string? sucursalCodigo = null,
+        int clasificacion = 1)
     {
         var body = TestComprasFixtures.BuildCrearRqValidBody(
             sucursalId: sucursalId,
             sucursalCodigo: sucursalCodigo,
+            clasificacion: clasificacion,
             descripcion: "Test integration autorización");
         var crear = await client.PostAsJsonAsync("/api/v1/compras/requisiciones", body);
         crear.EnsureSuccessStatusCode();
@@ -149,9 +154,10 @@ internal static class AutorizacionTestSeeding
         HttpClient client,
         IReadOnlyList<(Guid ArticuloId, decimal Cantidad)> lineas,
         Guid? sucursalId = null,
-        string? sucursalCodigo = null)
+        string? sucursalCodigo = null,
+        int clasificacion = 1)
     {
-        var rqId = await CrearRqAsync(client, lineas, sucursalId, sucursalCodigo);
+        var rqId = await CrearRqAsync(client, lineas, sucursalId, sucursalCodigo, clasificacion);
         var transmit = await client.PostAsync(
             $"/api/v1/compras/requisiciones/{rqId}/transmitir", content: null);
         transmit.EnsureSuccessStatusCode();

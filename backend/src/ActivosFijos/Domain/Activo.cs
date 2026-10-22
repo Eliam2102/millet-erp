@@ -11,7 +11,7 @@ public sealed record DatosActivo(string Descripcion, Guid ClaseId, string? Marca
     DateOnly FechaAdquisicion, DateOnly? InicioUso, decimal ValorMonedaOriginal, string Moneda, decimal TipoCambio,
     CustodiaActivo Custodia, TipoImportacionActivo Importacion, string? Pedimento, bool Arrendado, string? DocumentoSoporte);
 
-public sealed class Activo : BaseEntity, IPerteneceAEmpresa, IAuditable
+public sealed partial class Activo : BaseEntity, IPerteneceAEmpresa, IAuditable
 {
     public Guid EmpresaId { get; set; }
     public string Numero { get; private set; } = "";
@@ -48,6 +48,8 @@ public sealed class Activo : BaseEntity, IPerteneceAEmpresa, IAuditable
     public EstadoActivo Estado { get; private set; }
     [System.ComponentModel.DataAnnotations.Schema.NotMapped]
     public CustodiaDescripcion? CustodiaDescripcion { get; set; }
+    public DateTimeOffset? UltimaImpresionEn { get; private set; }
+    public void RegistrarImpresion(DateTimeOffset ahora) => UltimaImpresionEn = ahora;
     public bool PuedeAceptarTraslado { get; set; }
     public bool EnTraslado => Traslados.Any(x => x.AceptadoEn == null);
     public List<MovimientoValorActivo> Historial { get; private set; } = [];

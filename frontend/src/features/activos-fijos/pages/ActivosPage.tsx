@@ -1,3 +1,4 @@
+import { ImprimirEtiquetas } from '../components/ImprimirEtiquetas';
 import { useState } from 'react';
 import { EmpleadoSelector } from '@/components/erp/selectors/EmpleadoSelector';
 import { Link, useSearch, useNavigate } from '@tanstack/react-router';
@@ -37,7 +38,12 @@ export function ActivosPage() {
       <PageHeader
         titulo="Activos fijos"
         descripcion="Maestro, capitalización y custodia de activos."
-        acciones={gestionar && <Button onClick={nuevo.abrir}>Alta manual</Button>}
+        acciones={
+          <div className="flex gap-2">
+            <ImprimirEtiquetas sucursalId={filtros.sucursalId} claseId={filtros.claseId} />
+            {gestionar && <Button onClick={nuevo.abrir}>Alta manual</Button>}
+          </div>
+        }
       />
       <ListadoModulo
         filtros={

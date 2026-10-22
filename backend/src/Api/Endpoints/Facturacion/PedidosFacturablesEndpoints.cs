@@ -9,6 +9,11 @@ using Millet.Facturacion.Application.Pedidos.CrearPedidoFacturableManual;
 using Millet.Facturacion.Application.Pedidos.EditarPedidoFacturableManual;
 using Millet.Facturacion.Application.Trazabilidad;
 using Millet.Facturacion.Application.Pedidos.Queries;
+using Millet.Facturacion.Application.Facturas.EmitirFacturaVenta;
+using Millet.Facturacion.Application.Proformas;
+using Millet.Facturacion.Application.Proformas.CompararProformaPedido;
+using Millet.Facturacion.Application.Proformas.GenerarProformaPedido;
+using Millet.Facturacion.Application.Proformas.Queries;
 using Millet.Facturacion.Domain.Facturas;
 using Millet.Facturacion.Domain.Pedidos;
 using Millet.Identidad.Domain;
@@ -189,6 +194,60 @@ public static class PedidosFacturablesEndpoints
         .WithSummary("Árbol de trazabilidad de un pedido facturable")
         .Produces<ArbolDocumentosFacturacionResponse>(StatusCodes.Status200OK)
         .ProducesProblem(StatusCodes.Status404NotFound);
+
+        // U1.8a: proforma del pedido antes del timbrado. POST genera una versión
+        // nueva (sin folio fiscal); mutación → Idempotency-Key (ADR-0020).
+        group.MapPost("/{id:guid}/proformas", async (
+            Guid id,
+            IMediator mediator,
+            CancellationToken cancellationToken) =>
+        {
+            var response = await mediator.Send(new GenerarProformaPedidoCommand(id), cancellationToken);
+            return Results.Created($"/api/v1/facturacion/pedidos-facturables/{id}/proformas/ultima", response);
+        })
+        .WithMetadata(new RequireIdempotencyKeyAttribute())
+        .RequireAuthorization(PermissionPolicyProvider.Prefix + PermisosCanonicos.FacturacionFacturasEmitir)
+        .WithName("GenerarProformaPedido")
+        .WithSummary("Genera la proforma (sin valor fiscal) de un pedido por facturar")
+        .Produces<ProformaPedidoResponse>(StatusCodes.Status201Created)
+        .ProducesProblem(StatusCodes.Status403Forbidden)
+        .ProducesProblem(StatusCodes.Status404NotFound)
+        .ProducesProblem(StatusCodes.Status422UnprocessableEntity);
+
+        // U1.8a: última proforma del pedido (204 si aún no tiene; 404 si el pedido no existe).
+        group.MapGet("/{id:guid}/proformas/ultima", async (
+            Guid id,
+            IMediator mediator,
+            CancellationToken cancellationToken) =>
+        {
+            var response = await mediator.Send(new UltimaProformaPedidoQuery(id), cancellationToken);
+            return response is null ? Results.NoContent() : Results.Ok(response);
+        })
+        .RequireAuthorization(PermissionPolicyProvider.Prefix + PermisosCanonicos.FacturacionFacturasLeer)
+        .WithName("UltimaProformaPedido")
+        .WithSummary("Última proforma generada de un pedido")
+        .Produces<ProformaPedidoResponse>(StatusCodes.Status200OK)
+        .Produces(StatusCodes.Status204NoContent)
+        .ProducesProblem(StatusCodes.Status404NotFound);
+
+        // U1.8a: compara el payload de emisión contra la última proforma antes de
+        // timbrar. Lectura pura (no persiste) → sin Idempotency-Key.
+        group.MapPost("/{id:guid}/proformas/comparar", async (
+            Guid id,
+            EmitirFacturaVentaCommand emision,
+            IMediator mediator,
+            CancellationToken cancellationToken) =>
+        {
+            var response = await mediator.Send(new CompararProformaPedidoQuery(id, emision), cancellationToken);
+            return Results.Ok(response);
+        })
+        .RequireAuthorization(PermissionPolicyProvider.Prefix + PermisosCanonicos.FacturacionFacturasEmitir)
+        .WithName("CompararProformaPedido")
+        .WithSummary("Diferencias entre lo que se va a timbrar y la última proforma del pedido")
+        .Produces<ComparacionProformaResponse>(StatusCodes.Status200OK)
+        .ProducesValidationProblem()
+        .ProducesProblem(StatusCodes.Status404NotFound)
+        .ProducesProblem(StatusCodes.Status422UnprocessableEntity);
 
         return app;
     }

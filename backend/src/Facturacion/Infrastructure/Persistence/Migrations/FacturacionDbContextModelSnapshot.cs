@@ -32,8 +32,8 @@ namespace Millet.Facturacion.Infrastructure.Persistence.Migrations
 
                     b.Property<string>("ActivoRef")
                         .IsRequired()
-                        .HasMaxLength(50)
-                        .HasColumnType("character varying(50)")
+                        .HasMaxLength(60)
+                        .HasColumnType("character varying(60)")
                         .HasColumnName("activo_ref");
 
                     b.Property<Guid>("AutorizadoPor")
@@ -2694,6 +2694,108 @@ namespace Millet.Facturacion.Infrastructure.Persistence.Migrations
                         .HasDatabaseName("ix_pedido_facturable_linea_posicion");
 
                     b.ToTable("pedido_facturable_linea", "facturacion");
+                });
+
+            modelBuilder.Entity("Millet.Facturacion.Domain.Proformas.ProformaPedido", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<string>("AvisosJson")
+                        .IsRequired()
+                        .HasColumnType("jsonb")
+                        .HasColumnName("avisos_json");
+
+                    b.Property<string>("ContenidoJson")
+                        .IsRequired()
+                        .HasColumnType("jsonb")
+                        .HasColumnName("contenido_json");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at");
+
+                    b.Property<string>("CreatedBy")
+                        .HasColumnType("text")
+                        .HasColumnName("created_by");
+
+                    b.Property<DateTimeOffset?>("DeletedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("deleted_at");
+
+                    b.Property<Guid>("EmpresaId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("empresa_id");
+
+                    b.Property<string>("Folio")
+                        .IsRequired()
+                        .HasMaxLength(80)
+                        .HasColumnType("character varying(80)")
+                        .HasColumnName("folio");
+
+                    b.Property<DateTimeOffset>("GeneradaEn")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("generada_en");
+
+                    b.Property<string>("GeneradaPorNombre")
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)")
+                        .HasColumnName("generada_por_nombre");
+
+                    b.Property<Guid?>("GeneradaPorUsuarioId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("generada_por_usuario_id");
+
+                    b.Property<string>("Moneda")
+                        .IsRequired()
+                        .HasMaxLength(3)
+                        .HasColumnType("character varying(3)")
+                        .HasColumnName("moneda");
+
+                    b.Property<string>("NumeroPedido")
+                        .HasMaxLength(60)
+                        .HasColumnType("character varying(60)")
+                        .HasColumnName("numero_pedido");
+
+                    b.Property<int>("NumeroVersion")
+                        .HasColumnType("integer")
+                        .HasColumnName("numero_version");
+
+                    b.Property<Guid>("PedidoFacturableId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("pedido_facturable_id");
+
+                    b.Property<Guid>("SucursalId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("sucursal_id");
+
+                    b.Property<decimal>("Total")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("numeric(18,2)")
+                        .HasColumnName("total");
+
+                    b.Property<DateTimeOffset>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("updated_at");
+
+                    b.Property<string>("UpdatedBy")
+                        .HasColumnType("text")
+                        .HasColumnName("updated_by");
+
+                    b.Property<int>("Version")
+                        .IsConcurrencyToken()
+                        .HasColumnType("integer")
+                        .HasColumnName("version");
+
+                    b.HasKey("Id")
+                        .HasName("pk_proformas_pedido");
+
+                    b.HasIndex("PedidoFacturableId", "NumeroVersion")
+                        .IsUnique()
+                        .HasDatabaseName("ux_proformas_pedido_pedido_version");
+
+                    b.ToTable("proformas_pedido", "facturacion");
                 });
 
             modelBuilder.Entity("Millet.Facturacion.Domain.Repp.ReciboPagoFactura", b =>

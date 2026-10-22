@@ -167,7 +167,8 @@ public sealed class ListarPendientesAutorizacionHandler
             // ponytail: N+1 por línea (consulta de stock por línea dentro del loop) mientras limit<=200;
             // si hay lentitud, puerto batch de stock por sucursal (un solo viaje para la página).
             var repartos = await RepartoDisponibilidadService.RepartirAsync(
-                _stock, _conversion, articulos, item.Clasificacion, item.SucursalId, lineas, cancellationToken);
+                _stock, _conversion, articulos, item.Clasificacion, item.SucursalId, lineas, cancellationToken,
+                soloCompleto: req?.SoloApartarSiCompleto ?? false);
             var disponibilidad = PendientesAutorizacionClasificacion.Disponibilidad(
                 repartos.Select(r => (r.Linea.Cantidad, r.DeAlmacen)).ToList());
             var recurrente = PendientesAutorizacionClasificacion.EsRecurrente(

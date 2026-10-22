@@ -8,7 +8,8 @@ public sealed record ClienteRefDto(
     Guid Id,
     string? Rfc,
     string RazonSocial,
-    bool EsGenerico);
+    bool EsGenerico,
+    string? Email = null);
 
 /// <summary>
 /// Item del lookup de clientes para bandejas y selectores del frontend

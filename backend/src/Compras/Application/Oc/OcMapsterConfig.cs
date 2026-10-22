@@ -26,6 +26,7 @@ public sealed class OcMapsterConfig : IRegister
             .Ignore(dest => dest.Autorizaciones)
             .Ignore(dest => dest.SolicitudesCancelacion)
             .Ignore(dest => dest.RespuestasProveedor)
+            .Ignore(dest => dest.Incidencias)
             .Ignore(dest => dest.EstadoComercialProveedor)
             .Map(dest => dest.Folio, src => src.Folio.Valor)
             // ADR-0042 addendum: etiqueta del proveedor resuelta por el handler

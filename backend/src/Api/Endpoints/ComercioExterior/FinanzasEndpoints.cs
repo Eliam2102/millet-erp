@@ -14,6 +14,8 @@ public static class FinanzasEndpoints
         var gastos = PermissionPolicyProvider.Prefix + PermisosCanonicos.ComercioExteriorGastosRegistrar;
         var distribuir = PermissionPolicyProvider.Prefix + PermisosCanonicos.ComercioExteriorGastosDistribuir;
         var anticipos = PermissionPolicyProvider.Prefix + PermisosCanonicos.ComercioExteriorAnticiposGestionar;
+        padre.MapGet("/gastos/ordenes-servicio", async (Guid id, Guid? proveedorId, string? q, OrdenesServicioServicio servicio, CancellationToken ct) =>
+            Results.Ok(await servicio.BuscarAsync(id, proveedorId, q, ct))).RequireAuthorization(gastos);
         padre.MapGet("/finanzas", async (Guid id, FinanzasServicio servicio, HttpResponse response, CancellationToken ct) => Respuesta(await servicio.ObtenerAsync(id, ct), response))
             .RequireAuthorization(PermissionPolicyProvider.Prefix + PermisosCanonicos.ComercioExteriorExpedientesLeer);
         padre.MapPost("/gastos/conceptos/inicializar", async (Guid id, HttpRequest request, HttpResponse response, IMediator mediator, CancellationToken ct) =>

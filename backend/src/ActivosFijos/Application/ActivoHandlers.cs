@@ -53,6 +53,8 @@ public sealed class MutarActivoHandler(ActivosFijosDbContext db, ActivoServicio 
             _ => throw new BusinessRuleException("AF_ACCION_INVALIDA", "Acción desconocida.") };
         await servicio.PermisoAsync(permiso, cancellationToken);
         await using var tx = await db.Database.BeginTransactionAsync(cancellationToken);
+        var libroLlave = $"AF-LIBRO-{(await db.Activos.AsNoTracking().SingleAsync(x => x.Id == request.Id, cancellationToken)).EmpresaId}";
+        await db.Database.ExecuteSqlInterpolatedAsync($"SELECT pg_advisory_xact_lock(hashtextextended({libroLlave}, 0))", cancellationToken);
         var llave = request.Id.ToString();
         await db.Database.ExecuteSqlInterpolatedAsync($"SELECT pg_advisory_xact_lock(hashtextextended({llave}, 0))", cancellationToken);
         await using var enlaceContable = request.Accion is "capitalizar" or "mejora" or "nota-credito" ? await transaccionPoliza.VincularAsync(cancellationToken) : null;
@@ -67,6 +69,8 @@ public sealed class MutarActivoHandler(ActivosFijosDbContext db, ActivoServicio 
             case "capitalizar":
                 if (a.Estado == EstadoActivo.Activo) break;
                 a.ValidarCapitalizacion(); await catalogos.ValidarCustodiaAsync(a.Custodia(), true, cancellationToken);
+                if (await db.Set<CorridaDepreciacion>().AnyAsync(x => !x.Anulada && x.Periodo >= CalculoDepreciacion.Mes(a.InicioUso!.Value), cancellationToken))
+                    throw new BusinessRuleException("AF_PERIODO_YA_DEPRECIADO", "Anule las corridas desde el inicio de uso antes de capitalizar retroactivamente.");
                 var clase = await servicio.ClaseAsync(a.ClaseId, cancellationToken);
                 a.Capitalizar(await servicio.PolizaAsync(a, clase, a.Id, a.InicioUso!.Value, a.ValorOriginal, $"AF-CAP-{a.Id}", $"Alta {a.Numero}", cancellationToken)); break;
             case "mejora":
@@ -77,6 +81,12 @@ public sealed class MutarActivoHandler(ActivosFijosDbContext db, ActivoServicio 
                     a.Ajustar(ajuste.DocumentoId, ajuste.FacturaId, ajuste.Fecha, ajuste.Importe, request.Accion == "nota-credito", ajuste.Descripcion, previo.PolizaId);
                     break;
                 }
+                if (ajuste.Fecha <= a.CorteCarga || await db.Set<CorridaDepreciacion>().AnyAsync(x => !x.Anulada && x.Periodo >= CalculoDepreciacion.Mes(ajuste.Fecha), cancellationToken))
+                    throw new BusinessRuleException("AF_PERIODO_YA_DEPRECIADO", "No se puede modificar valor de un periodo ya cargado o depreciado.");
+                var ultimaDepreciacion = await db.Set<CorridaDepreciacion>().Where(x => !x.Anulada).MaxAsync(x => (DateOnly?)x.Periodo, cancellationToken);
+                var mismoMes = await db.Set<ConfiguracionLibro>().Select(x => (bool?)x.DepreciarMismoMes).SingleOrDefaultAsync(cancellationToken) ?? false;
+                if ((ultimaDepreciacion?.AddMonths(1) ?? CalculoDepreciacion.PrimerMes(a, mismoMes)) < CalculoDepreciacion.Mes(ajuste.Fecha))
+                    throw new BusinessRuleException("AF_MESES_PENDIENTES", "Complete los meses anteriores antes de aplicar el documento de valor.");
                 var credito = request.Accion == "nota-credito";
                 var docLlave = ajuste.DocumentoId.ToString();
                 await db.Database.ExecuteSqlInterpolatedAsync($"SELECT pg_advisory_xact_lock(hashtextextended({docLlave}, 0))", cancellationToken);
@@ -111,7 +121,7 @@ public sealed class GuardarClaseHandler(ActivosFijosDbContext db, ActivoServicio
             : new ClaseActivo(Guid.CreateVersion7(), empresa.Current ?? throw new UnauthorizedAccessException(), d.Clave, d.Nombre, d.TasaFiscalAnual);
         if (request.Id != null && c.Version != request.Version) throw new ConcurrencyException("ClaseActivo", c.Id);
         if (await db.Clases.AnyAsync(x => x.Clave == c.Clave && x.Id != c.Id, cancellationToken)) throw new BusinessRuleException("AF_CLAVE_DUPLICADA", "Ya existe esta clave.");
-        c.Editar(d.Nombre, d.TasaFiscalAnual, d.CuentaActivoId, d.CuentaDepreciacionId, d.CuentaGastoId, d.CuentaPuenteId, d.Activa);
+        c.Editar(d.Nombre, d.TasaFiscalAnual, d.CuentaActivoId, d.CuentaDepreciacionId, d.CuentaGastoId, d.CuentaPuenteId, d.Activa, d.Depreciable, d.TasaConfirmada);
         if (request.Id == null) db.Clases.Add(c);
         await db.SaveChangesAsync(cancellationToken); return c;
     }

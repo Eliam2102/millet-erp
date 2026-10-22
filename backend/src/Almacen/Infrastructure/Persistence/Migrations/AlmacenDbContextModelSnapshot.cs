@@ -86,6 +86,13 @@ namespace Millet.Almacen.Infrastructure.Persistence.Migrations
                         .HasColumnType("uuid")
                         .HasColumnName("articulo_id");
 
+                    b.Property<decimal>("CantidadLiberada")
+                        .ValueGeneratedOnAdd()
+                        .HasPrecision(14, 4)
+                        .HasColumnType("numeric(14,4)")
+                        .HasDefaultValue(0m)
+                        .HasColumnName("cantidad_liberada");
+
                     b.Property<DateTimeOffset>("CreatedAt")
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("created_at");
@@ -105,6 +112,11 @@ namespace Millet.Almacen.Infrastructure.Persistence.Migrations
                     b.Property<Guid>("LineaRequisicionId")
                         .HasColumnType("uuid")
                         .HasColumnName("linea_requisicion_id");
+
+                    b.Property<string>("MotivoLiberacion")
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)")
+                        .HasColumnName("motivo_liberacion");
 
                     b.Property<decimal>("Pendiente")
                         .HasPrecision(14, 4)
