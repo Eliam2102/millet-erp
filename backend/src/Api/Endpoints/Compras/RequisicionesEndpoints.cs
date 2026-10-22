@@ -7,6 +7,7 @@ using Millet.Api.Auth;
 using Millet.Api.Web;
 using Millet.Compras.Application.Autorizar;
 using Millet.Compras.Application.Cancelar;
+using Millet.Compras.Application.Apartados;
 using Millet.Compras.Application.CerrarManual;
 using Millet.Compras.Application.CrearRequisicion;
 using Millet.Compras.Application.Eliminar;
@@ -610,6 +611,58 @@ public static class RequisicionesEndpoints
         .ProducesProblem(StatusCodes.Status409Conflict)
         .ProducesProblem(StatusCodes.Status422UnprocessableEntity);
 
+        // 86e3tferc: existencia apartada por línea y liberación con motivo.
+        group.MapGet("/{id:guid}/apartados", async (
+            Guid id,
+            IMediator mediator,
+            ComprasDbContext scopeDb,
+            ICurrentUserContext scopeUser,
+            ICurrentUserPermissions scopePermisos,
+            IUsuarioSucursalReadPort scopeSucursales,
+            CancellationToken cancellationToken) =>
+        {
+            await RqSucursalScope.VerificarAsync(id, scopeDb, scopeUser, scopePermisos, scopeSucursales, cancellationToken, escritura: false);
+            return Results.Ok(await mediator.Send(new ObtenerApartadosRequisicionQuery(id), cancellationToken));
+        })
+        .RequireAuthorization(PermissionPolicyProvider.Prefix + PermisosCanonicos.ComprasRequisicionesLeer)
+        .WithName("ObtenerApartadosRequisicion")
+        .WithSummary("Existencia apartada por línea de la requisición")
+        .WithDescription(
+            "Por línea con apartado: pendiente, liberada, unidad de la línea y último motivo de liberación.")
+        .Produces<IReadOnlyList<ApartadoLineaResponse>>()
+        .ProducesProblem(StatusCodes.Status403Forbidden)
+        .ProducesProblem(StatusCodes.Status404NotFound);
+
+        group.MapPost("/{id:guid}/lineas/{lineaId:guid}/liberar-apartado", async (
+            Guid id,
+            Guid lineaId,
+            [FromBody] LiberarApartadoRequest request,
+            IMediator mediator,
+            ComprasDbContext scopeDb,
+            ICurrentUserContext scopeUser,
+            ICurrentUserPermissions scopePermisos,
+            IUsuarioSucursalReadPort scopeSucursales,
+            CancellationToken cancellationToken) =>
+        {
+            await RqSucursalScope.VerificarAsync(id, scopeDb, scopeUser, scopePermisos, scopeSucursales, cancellationToken, escritura: true);
+            await mediator.Send(new LiberarApartadoLineaCommand(id, lineaId, request.Cantidad, request.Motivo), cancellationToken);
+            return Results.NoContent();
+        })
+        .WithMetadata(new RequireIdempotencyKeyAttribute())
+        .RequireAuthorization(PermissionPolicyProvider.Prefix + PermisosCanonicos.ComprasRequisicionesLiberarApartado)
+        .WithName("LiberarApartadoLineaRequisicion")
+        .WithSummary("Libera con motivo la existencia apartada de una línea")
+        .WithDescription(
+            "Libera parte o todo lo apartado pendiente de una línea de una RQ Autorizada/EnSurtido para que " +
+            "otra requisición la use. Cantidad en la unidad de la línea; motivo obligatorio (máx. 500). " +
+            "No cambia el cubrimiento ni emite eventos. Header `Idempotency-Key` obligatorio.")
+        .Produces(StatusCodes.Status204NoContent)
+        .ProducesProblem(StatusCodes.Status400BadRequest)
+        .ProducesProblem(StatusCodes.Status403Forbidden)
+        .ProducesProblem(StatusCodes.Status404NotFound)
+        .ProducesProblem(StatusCodes.Status409Conflict)
+        .ProducesProblem(StatusCodes.Status422UnprocessableEntity);
+
         // F2-PR4: bandeja general con filtros opcionales por estado,
         // departamento y requisitante. Paginación offset-based.
         group.MapGet("/", async (
@@ -744,6 +797,7 @@ public static class RequisicionesEndpoints
 
     /// <summary>Body común para POST /rechazar y POST /eliminar.</summary>
     public sealed record TerminarRequisicionRequest(Guid MotivoId, string? MotivoTexto);
+    public sealed record LiberarApartadoRequest(decimal Cantidad, string Motivo);
 
     /// <summary>
     /// Body del PATCH /requisiciones/{id} (B.4). Todos los campos
