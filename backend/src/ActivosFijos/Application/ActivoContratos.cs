@@ -9,8 +9,10 @@ public sealed record AjusteActivoDatos(Guid DocumentoId, Guid FacturaId, DateOnl
 public sealed record MutarActivoCommand(Guid Id, int Version, string Accion, DatosActivo? Datos = null, CustodiaActivo? Destino = null, Guid? TrasladoId = null, AjusteActivoDatos? Ajuste = null) : IRequest<Activo>;
 public sealed record ClaseActivoDatos(string Clave, string Nombre, decimal? TasaFiscalAnual, Guid? CuentaActivoId, Guid? CuentaDepreciacionId, Guid? CuentaGastoId, Guid? CuentaPuenteId, bool Activa, bool Depreciable = true, bool TasaConfirmada = false);
 public sealed record GuardarClaseCommand(Guid? Id, int? Version, ClaseActivoDatos Datos) : IRequest<ClaseActivo>;
+public sealed record ReferenciaCarga(Guid Id, string Nombre);
 public interface ICatalogosActivoReadPort
 {
+    Task<IReadOnlyList<ReferenciaCarga>> ResolverCargaAsync(string columna, string valor, CancellationToken ct);
     Task<CustodiaDescripcion> DescribirAsync(CustodiaActivo custodia, CancellationToken ct);
     Task<IReadOnlyList<Guid>> ResponsablesAsync(Guid usuario, CancellationToken ct);
     Task ValidarCustodiaAsync(CustodiaActivo custodia, bool completa, CancellationToken ct);

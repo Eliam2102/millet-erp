@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
-import { apiRequest, useBodyScopedIdempotencyKey } from '@/lib/api';
+import { apiRequest } from '@/lib/api';
+import { apiFetch } from '@/lib/auth/api-client';
 import { PageHeader } from '@/components/erp/PageHeader';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
@@ -11,28 +12,33 @@ import { TablaLibro } from '../components/TablaLibro';
 const plantilla =
   'numero,clase,descripcion,fechaAdquisicion,inicioUso,valorOriginal,depreciacionAcumulada,responsableId,sucursalId,ubicacion,centroCostoId,equipoId,importado,pedimento,arrendado\n';
 export function CargaInicialPage() {
-  const [csv, setCsv] = useState('');
+  const [archivo, setArchivo] = useState<File>();
+  const [hoja, setHoja] = useState('');
   const [corte, setCorte] = useState('2026-10-31');
   const [versionArchivo, setVersion] = useState('1');
   const [totales, setTotales] = useState<Record<string, { valor: number; acumulada: number }>>({});
   const [resultado, setResultado] = useState<CargaResultado>();
   const [errorArchivo, setErrorArchivo] = useState('');
   const clases = useClasesActivo();
-  const key = useBodyScopedIdempotencyKey();
   const qc = useQueryClient();
   const cargar = useMutation({
     mutationFn: async (confirmar: boolean) => {
-      const body = {
-        csv,
-        corte,
-        versionArchivo,
-        totales: Object.entries(totales).map(([clase, t]) => ({ clase, ...t })),
-      };
+      const form = new FormData();
+      form.set('archivo', archivo!);
+      form.set('corte', corte);
+      form.set('versionArchivo', versionArchivo);
+      form.set('hoja', hoja);
+      form.set(
+        'totales',
+        JSON.stringify(Object.entries(totales).map(([clase, t]) => ({ clase, ...t }))),
+      );
+      // Fija el boundary para que los reintentos HTTP conserven el mismo cuerpo.
+      const body = await new Response(form).blob();
       return (
         await apiRequest<CargaResultado>(`${AF_BASE}/carga/${confirmar ? 'confirmar' : 'previa'}`, {
           method: 'POST',
           body,
-          idempotencyKey: confirmar ? key(body) : undefined,
+          idempotencyKey: confirmar ? crypto.randomUUID() : undefined,
         })
       ).data;
     },
@@ -47,42 +53,66 @@ export function CargaInicialPage() {
         titulo="Carga inicial"
         descripcion="Valide el libro SAP y compruebe sus saldos antes de incorporar los activos."
         acciones={
-          <Button variant="outline" onClick={() => descargarCsv('libro-sap.csv', plantilla)}>
-            Descargar plantilla CSV
-          </Button>
+          <div className="flex gap-2">
+            <Button
+              variant="outline"
+              onClick={async () => {
+                try {
+                  const response = await apiFetch(`${AF_BASE}/carga/plantilla.xlsx`);
+                  if (!response.ok) throw new Error('No se pudo descargar la plantilla Excel.');
+                  const url = URL.createObjectURL(await response.blob());
+                  const enlace = document.createElement('a');
+                  enlace.href = url;
+                  enlace.download = 'libro-sap.xlsx';
+                  enlace.click();
+                  URL.revokeObjectURL(url);
+                } catch {
+                  setErrorArchivo('No se pudo descargar la plantilla Excel. Intente de nuevo.');
+                }
+              }}
+            >
+              Descargar plantilla Excel
+            </Button>
+            <Button variant="outline" onClick={() => descargarCsv('libro-sap.csv', plantilla)}>
+              Descargar plantilla CSV
+            </Button>
+          </div>
         }
       />
       <p className="text-ink-muted">
-        Fechas: AAAA-MM-DD; importes en MXN con punto decimal. Clase: clave del catálogo.
-        Responsable, sucursal, centro y equipo: identificadores del catálogo. Importado: no,
-        temporal o definitivo. Arrendado: si o no. La carga no crea póliza.
+        Fechas: DD/MM/AAAA o AAAA-MM-DD; importes en MXN, por ejemplo $1,234.56. Clase y sucursal:
+        clave o nombre. Centro de costo y equipo: código. Responsable opcional: correo o nombre de
+        usuario. Importado: no, temporal o definitivo. Arrendado: sí o no. Elimine la fila EJEMPLO
+        de la plantilla. La carga no crea póliza.
       </p>
       <div className="grid gap-3 md:grid-cols-3">
         <label>
-          Archivo CSV *
+          Archivo Excel o CSV *
           <Input
+            disabled={cargar.isPending}
             type="file"
-            accept=".csv,text/csv"
-            onChange={async (e) => {
+            accept=".xlsx,.csv"
+            onChange={(e) => {
               setResultado(undefined);
               const f = e.target.files?.[0];
               setErrorArchivo('');
               if (!f) {
-                setCsv('');
+                setArchivo(undefined);
                 return;
               }
-              if (f.size > 5_000_000) {
-                setErrorArchivo('El archivo debe pesar menos de 5 MB.');
-                setCsv('');
+              if (f.size > 10 * 1024 * 1024 || !/\.(xlsx|csv)$/i.test(f.name)) {
+                setErrorArchivo('Seleccione un archivo .xlsx o .csv de hasta 10 MB.');
+                setArchivo(undefined);
                 return;
               }
-              setCsv(await f.text());
+              setArchivo(f);
             }}
           />
         </label>
         <label>
           Fecha de corte *
           <Input
+            disabled={cargar.isPending}
             type="date"
             value={corte}
             onChange={(e) => {
@@ -94,6 +124,7 @@ export function CargaInicialPage() {
         <label>
           Versión del archivo *
           <Input
+            disabled={cargar.isPending}
             value={versionArchivo}
             onChange={(e) => {
               setVersion(e.target.value);
@@ -102,6 +133,17 @@ export function CargaInicialPage() {
           />
         </label>
       </div>
+      <label className="block">
+        Nombre de hoja (opcional; se usa la primera con datos)
+        <Input
+          value={hoja}
+          disabled={cargar.isPending}
+          onChange={(e) => {
+            setHoja(e.target.value);
+            setResultado(undefined);
+          }}
+        />
+      </label>
       <section className="space-y-3 rounded-lg bg-surface-card p-4 shadow-card-flat">
         <h2 className="text-lg font-semibold">Totales de la balanza SAP por clase</h2>
         {clases.data?.map((c) => (
@@ -113,6 +155,7 @@ export function CargaInicialPage() {
               <label key={k}>
                 {k === 'valor' ? 'Valor original' : 'Depreciación acumulada'}
                 <Input
+                  disabled={cargar.isPending}
                   type="number"
                   min="0"
                   step="0.01"
@@ -137,9 +180,9 @@ export function CargaInicialPage() {
       <div className="flex gap-3">
         <Button
           variant="outline"
-          disabled={!csv || !corte || !versionArchivo || cargar.isPending}
+          disabled={!archivo || !corte || !versionArchivo || cargar.isPending}
           title={
-            !csv
+            !archivo
               ? 'Seleccione el archivo'
               : cargar.isPending
                 ? 'Procesando archivo'
@@ -187,8 +230,18 @@ export function CargaInicialPage() {
             titulo="Errores por renglón"
             filas={resultado.errores}
             columnas={[
-              { clave: 'renglon', etiqueta: 'Renglón', tipo: 'numero' },
+              { clave: 'renglon', etiqueta: 'Fila', tipo: 'numero' },
+              { clave: 'columna', etiqueta: 'Columna', tipo: 'texto' },
               { clave: 'mensaje', etiqueta: 'Error', tipo: 'texto' },
+            ]}
+          />
+          <TablaLibro
+            titulo="Avisos"
+            filas={resultado.avisos ?? []}
+            columnas={[
+              { clave: 'renglon', etiqueta: 'Fila', tipo: 'numero' },
+              { clave: 'columna', etiqueta: 'Columna', tipo: 'texto' },
+              { clave: 'mensaje', etiqueta: 'Motivo', tipo: 'texto' },
             ]}
           />
           <TablaLibro
