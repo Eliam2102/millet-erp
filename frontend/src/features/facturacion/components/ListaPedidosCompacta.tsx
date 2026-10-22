@@ -1,6 +1,7 @@
 import { DateTimeDisplay } from '@/components/erp';
 import { Badge } from '@/components/ui/badge';
 import { ClasePedidoBadge } from '@/features/facturacion/components/ClasePedidoBadge';
+import { BadgeCredito } from '@/features/facturacion/components/BadgeCredito';
 import type { PedidoBandejaItem } from '@/features/facturacion/api/types';
 import { ETIQUETA_ORIGEN_PEDIDO } from '@/features/facturacion/lib/glosario';
 import type { PedidosSearch } from '@/features/facturacion/lib/pedidos-search-schema';
@@ -48,6 +49,7 @@ export function ListaPedidosCompacta({ items, idActivo, search }: ListaPedidosCo
               </span>
               <div className="flex shrink-0 items-center gap-1">
                 <Badge variant="neutral">{ETIQUETA_ORIGEN_PEDIDO[p.origen] ?? p.origen}</Badge>
+                <BadgeCredito esCredito={p.esCredito} />
                 <ChipEstadoPedido estado={p.estado} />
               </div>
             </div>

@@ -33,6 +33,8 @@ import { ClasePedidoBadge } from '@/features/facturacion/components/ClasePedidoB
 import { FiltroClasePedido } from '@/features/facturacion/components/FiltroClasePedido';
 import { EstadoFacturacionBadge } from '@/features/facturacion/components/EstadoFacturacionBadge';
 import { useNuevoPedido } from '@/features/facturacion/components/nuevo-pedido-context';
+import { BadgeCredito } from '@/features/facturacion/components/BadgeCredito';
+import { FiltroCondicionPago } from '@/features/facturacion/components/FiltroCondicionPago';
 import {
   ETIQUETA_ORIGEN_PEDIDO,
   OPCIONES_ORIGEN_PEDIDO,
@@ -65,11 +67,14 @@ export function BandejaPedidos() {
   const navigate = useNavigate();
   const nuevoPedido = useNuevoPedido();
   const puedeCapturar = useHasPermission(PermisosCanonicos.FacturacionPedidosCapturar);
+  // 86e3tfdw2: sin leer-credito el backend no devuelve pedidos a crédito.
+  const puedeVerCredito = useHasPermission(PermisosCanonicos.FacturacionPedidosLeerCredito);
 
   const query = useListarPedidos({
     estado: search.estado,
     origen: search.origen,
     clase: search.clase,
+    credito: puedeVerCredito ? search.credito : undefined,
     limit: 200,
     alcance: search.alcance,
   });
@@ -87,7 +92,10 @@ export function BandejaPedidos() {
   });
 
   const hayFiltros =
-    search.estado != null || search.origen != null || search.clase != null;
+    search.estado != null ||
+    search.origen != null ||
+    search.clase != null ||
+    (puedeVerCredito && search.credito != null);
 
   const paginacion = usePaginacionLocal(items, JSON.stringify(search));
   return (
@@ -159,11 +167,22 @@ export function BandejaPedidos() {
                   value={search.clase}
                   onChange={(clase) => actualizarSearch({ clase })}
                 />
+                {puedeVerCredito && (
+                  <FiltroCondicionPago
+                    value={search.credito}
+                    onChange={(credito) => actualizarSearch({ credito })}
+                  />
+                )}
                 {hayFiltros && (
                   <Button
                     variant="ghost"
                     onClick={() =>
-                      actualizarSearch({ estado: undefined, origen: undefined, clase: undefined })
+                      actualizarSearch({
+                        estado: undefined,
+                        origen: undefined,
+                        clase: undefined,
+                        credito: undefined,
+                      })
                     }
                   >
                     Limpiar
@@ -245,6 +264,7 @@ export function BandejaPedidos() {
                       <div className="flex flex-wrap items-center gap-1">
                         <Chip>{ETIQUETA_ORIGEN_PEDIDO[p.origen] ?? p.origen}</Chip>
                         <ClasePedidoBadge clasificacion={p} />
+                        <BadgeCredito esCredito={p.esCredito} />
                       </div>
                     </TableCell>
                     <TableCell className="px-3 py-2">{p.clienteNombre}</TableCell>
