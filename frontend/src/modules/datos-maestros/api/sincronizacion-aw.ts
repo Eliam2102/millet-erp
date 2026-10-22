@@ -137,6 +137,15 @@ export function useIniciarCorridaAw() {
   });
 }
 
+/** Errores de la corrida agrupados por área que valida y dónde se corrigen (mismo formato de reporte). */
+export async function obtenerSolicitudesCorreccionAw(id: string) {
+  return (
+    await apiRequest<ReporteDiferenciasAw>(
+      `${base}/clientes/sincronizacion/ejecuciones/${id}/solicitudes`,
+    )
+  ).data;
+}
+
 export async function obtenerReporteDiferenciasAw(id: string) {
   return (await apiRequest<ReporteDiferenciasAw>(`${base}/sincronizacion-aw/corridas/${id}/diferencias`)).data;
 }

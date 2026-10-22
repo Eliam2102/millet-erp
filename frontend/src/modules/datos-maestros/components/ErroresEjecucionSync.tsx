@@ -12,12 +12,14 @@ import { usePaginacionLocal } from '@/modules/datos-maestros/lib/use-paginacion-
  */
 export type CatalogoErroresSync = Record<
   string,
-  { titulo: string; accion: string; conflicto?: boolean }
+  { titulo: string; accion: string; conflicto?: boolean; area?: string; corrigeEn?: string }
 >;
 
 const CODIGOS: CatalogoErroresSync = {
   moneda_sin_equivalencia: {
     titulo: 'Moneda sin equivalencia',
+    area: 'TI',
+    corrigeEn: 'A+W',
     accion: 'El cliente no se creó. Configura el mapeo de moneda y reintenta.',
   },
   conflicto_correlacion: {
@@ -29,15 +31,21 @@ const CODIGOS: CatalogoErroresSync = {
   fila_invalida: {
     titulo: 'Fila inválida en A+W',
     accion:
-      'Falta un dato obligatorio en el origen (p. ej. el nombre). Corrígelo en A+W y reintenta.',
+      'Falta un dato obligatorio. Fiscal valida el dato correcto contra la constancia; después se corrige en A+W y se reintenta.',
+    area: 'Fiscal',
+    corrigeEn: 'A+W',
   },
   no_encontrada_en_origen: {
     titulo: 'No existe en A+W',
+    area: 'TI',
+    corrigeEn: 'A+W',
     accion:
       'La referencia ya no está en el origen. Verifica que sea correcta; no se da de baja al cliente.',
   },
   aplicacion_fallida: {
     titulo: 'No se pudo aplicar',
+    area: 'Soporte VILO',
+    corrigeEn: 'ERP',
     accion:
       'Falló al guardar este cliente; los demás siguieron. Reintenta y, si persiste, avisa a soporte.',
   },
@@ -98,6 +106,13 @@ export function ErroresEjecucionSync({
                 </p>
                 <p className="break-words text-ink-muted">{er.mensaje}</p>
                 {c != null && <p className="text-xs">{c.accion}</p>}
+                {c?.area != null && (
+                  <p className="text-xs">
+                    <span className="text-ink-muted">Área que valida:</span>{' '}
+                    <strong>{c.area}</strong>
+                    <span className="text-ink-muted"> · se corrige en {c.corrigeEn}</span>
+                  </p>
+                )}
                 <p className="font-mono text-2xs text-ink-muted">{er.codigo}</p>
                 {conDetalle && (
                   <button

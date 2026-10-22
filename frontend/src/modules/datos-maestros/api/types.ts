@@ -376,7 +376,15 @@ export type EstadoEjecucionSync =
 export interface ClienteAwOrigenDetalle {
   referencia: string;
   campos: { campo: string; etiqueta: string; valor: string | null }[];
-  faltantes: { campo: string; etiqueta: string; regla: string; comoDebeQuedar: string }[];
+  faltantes: {
+    campo: string;
+    etiqueta: string;
+    regla: string;
+    comoDebeQuedar: string;
+    /** Área que valida el dato correcto antes de corregirlo. */
+    area: string;
+    corrigeEn: string;
+  }[];
 }
 
 export interface EjecucionSyncErrorItem {

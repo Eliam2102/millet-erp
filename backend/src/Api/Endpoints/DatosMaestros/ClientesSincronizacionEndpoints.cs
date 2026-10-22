@@ -32,6 +32,19 @@ public sealed record ClienteAwOrigenCampo(string Campo, string Etiqueta, string?
 public sealed record ClienteAwOrigenDetalle(
     string Referencia, IReadOnlyList<ClienteAwOrigenCampo> Campos, IReadOnlyList<AwCampoFaltante> Faltantes);
 
+/// <summary>Área que valida y dónde se corrige cada código de error por fila (propuesta, se confirma con Millet).</summary>
+public static class AreasIncidenciaAw
+{
+    public static (string Area, string CorrigeEn, string Paso) De(string codigo) => codigo switch
+    {
+        "fila_invalida" => ("Fiscal", "A+W", "Fiscal valida el dato correcto contra la constancia; después se corrige en A+W."),
+        "no_encontrada_en_origen" => ("TI", "A+W", "TI confirma si la referencia se dio de baja o cambió de número en A+W."),
+        "moneda_sin_equivalencia" => ("TI", "A+W", "TI confirma la moneda del cliente en A+W."),
+        "aplicacion_fallida" => ("Soporte VILO", "ERP", "Soporte revisa la falla del ERP y reintenta."),
+        _ => ("Soporte VILO", "ERP", "Soporte revisa el caso."),
+    };
+}
+
 public sealed record ListarEjecucionesSincronizacionResponse(
     IReadOnlyList<EjecucionSincronizacionResumen> Items, int Total, int Offset, int Limit);
 
@@ -121,6 +134,49 @@ public static class ClientesSincronizacionEndpoints
         .ProducesProblem(StatusCodes.Status403Forbidden)
         .ProducesProblem(StatusCodes.Status422UnprocessableEntity)
         .ProducesProblem(StatusCodes.Status503ServiceUnavailable);
+
+        group.MapGet("/ejecuciones/{id:guid}/solicitudes", async (
+            Guid id, IntegracionesAwDbContext db, IAwClientesOrigen origen, CancellationToken ct) =>
+        {
+            var d = await DetalleAsync(db, id, ct);
+            var filas = new List<IReadOnlyDictionary<string, string?>>();
+            foreach (var er in d.Errores.Where(x => x.Codigo != "conflicto_correlacion"))
+            {
+                var (area, corrigeEn, paso) = AreasIncidenciaAw.De(er.Codigo);
+                string? llego = null, falta = null, debe = null;
+                if (er.Codigo == "fila_invalida" && await origen.LeerPorReferenciaAsync(er.Referencia, ct) is { } f)
+                {
+                    var faltantes = AwClienteSnapshotMapper.Faltantes(f);
+                    llego = $"NAME1: {f.Name1 ?? "(vacío)"} · NAME2: {f.Name2 ?? "(vacío)"} · RFC: {f.UstId ?? "(vacío)"} · Bloqueado: {(f.KzGesperrt is null or 0 ? "No" : "Sí")}";
+                    falta = string.Join("; ", faltantes.Select(x => $"{x.Campo} ({x.Etiqueta}): {x.Regla}"));
+                    debe = string.Join("; ", faltantes.Select(x => $"{x.Campo}: {x.ComoDebeQuedar}"));
+                    if (faltantes.Count > 0) (area, corrigeEn) = (faltantes[0].Area, faltantes[0].CorrigeEn);
+                }
+                filas.Add(new Dictionary<string, string?>
+                {
+                    ["area"] = area, ["corrigeEn"] = corrigeEn, ["paso"] = paso, ["referencia"] = er.Referencia,
+                    ["codigo"] = er.Codigo, ["error"] = er.Mensaje, ["comoLlego"] = llego, ["queFalta"] = falta ?? er.Mensaje,
+                    ["comoDebeQuedar"] = debe,
+                });
+            }
+            filas = filas.OrderBy(x => x["area"]).ThenBy(x => x["referencia"]).ToList();
+            return Results.Ok(new ReporteDiferenciasAwDto(
+                $"Solicitudes de corrección por área · corrida {d.Ejecucion.IniciadaEnUtc:dd/MM/yyyy HH:mm} UTC", DateTimeOffset.UtcNow,
+                new Dictionary<string, string?> { ["Corrida"] = id.ToString() },
+                [
+                    new("area", "Área que valida", "texto"), new("corrigeEn", "Dónde se corrige", "texto"),
+                    new("paso", "Siguiente paso", "texto"), new("referencia", "Referencia A+W", "texto"),
+                    new("codigo", "Código", "texto"), new("comoLlego", "Cómo llegó de A+W", "texto"),
+                    new("queFalta", "Qué falta", "texto"), new("comoDebeQuedar", "Cómo debe quedar", "texto"),
+                ],
+                filas, new Dictionary<string, decimal> { ["solicitudes"] = filas.Count }, d.ErroresTruncados));
+        })
+        .RequireAuthorization(policy, PermissionPolicyProvider.Prefix + PermisosCanonicos.DatosMaestrosClientesOrigenVer)
+        .WithName("SolicitudesCorreccionClientesAw")
+        .WithSummary("Errores de la corrida agrupados por área que valida y dónde se corrigen (JSON de reporte ADR-0036)")
+        .Produces<ReporteDiferenciasAwDto>(StatusCodes.Status200OK)
+        .ProducesProblem(StatusCodes.Status403Forbidden)
+        .ProducesProblem(StatusCodes.Status404NotFound);
 
         group.MapGet("/origen/{referencia}", async (string referencia, IAwClientesOrigen origen, CancellationToken ct) =>
         {

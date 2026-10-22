@@ -36,6 +36,7 @@ import {
   fechaCorridaAw,
   leerResumenProductos,
   obtenerReporteDiferenciasAw,
+  obtenerSolicitudesCorreccionAw,
   TIPO_CAMBIO_AW,
   useConflictosAw,
   useIniciarCorridaAw,
@@ -46,6 +47,7 @@ import { UnificarClientesRfcSheet } from '@/modules/datos-maestros/components/Un
 import { CorridaEnCursoBanner } from '@/modules/datos-maestros/components/CorridaEnCursoBanner';
 import { EstadoCorridaBadge } from '@/modules/datos-maestros/components/EstadoCorridaBadge';
 import { usePaginacionLocal } from '@/modules/datos-maestros/lib/use-paginacion-local';
+import { textoSolicitudesPorArea } from '@/modules/datos-maestros/lib/solicitud-aw';
 
 /** Detalle de una corrida de clientes y productos (ADM-06): contadores, conflictos, reporte de diferencias. */
 export function CorridaAwDetalle({ id }: { id: string }) {
@@ -107,6 +109,30 @@ export function CorridaAwDetalle({ id }: { id: string }) {
         onError: (err) => toast.error(mensajeErrorSincronizacion(err)),
       },
     );
+  }
+
+  const [preparando, setPreparando] = useState(false);
+  async function prepararSolicitudes(modo: 'excel' | 'copiar') {
+    setPreparando(true);
+    try {
+      const reporte = await obtenerSolicitudesCorreccionAw(id);
+      if (modo === 'copiar') {
+        await navigator.clipboard.writeText(textoSolicitudesPorArea(reporte));
+        toast.success('Resumen por área copiado. Pégalo en el correo de cada área.');
+      } else {
+        const { descargarReporteExcel } =
+          await import('@/components/erp/reportes/exporters/reporte-excel-exporter');
+        await descargarReporteExcel(reporte, `solicitudes-aw-${id.slice(0, 8)}.xlsx`);
+      }
+    } catch (err) {
+      toast.error(
+        esApiError(err)
+          ? (err.problem.detail ?? err.problem.title)
+          : 'No se pudieron preparar las solicitudes.',
+      );
+    } finally {
+      setPreparando(false);
+    }
   }
 
   async function descargar() {
@@ -253,7 +279,29 @@ export function CorridaAwDetalle({ id }: { id: string }) {
                 Conflictos ({conflictos.length + coincidencias.length})
               </TabsTrigger>
             </TabsList>
-            <TabsContent value="errores" className="pt-3">
+            <TabsContent value="errores" className="space-y-3 pt-3">
+              {erroresFila.length > 0 && puedeVerOrigen && (
+                <div data-print="hidden" className="flex flex-wrap items-center gap-2">
+                  <span className="text-xs text-ink-muted">Solicitudes de corrección por área:</span>
+                  <Button
+                    variant="secondary"
+                    size="sm"
+                    disabled={preparando}
+                    aria-busy={preparando}
+                    onClick={() => void prepararSolicitudes('excel')}
+                  >
+                    Descargar Excel
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    disabled={preparando}
+                    onClick={() => void prepararSolicitudes('copiar')}
+                  >
+                    Copiar resumen por área
+                  </Button>
+                </div>
+              )}
               {erroresFila.length === 0 ? (
                 <p className="py-3 text-ink-muted">Esta corrida no dejó errores.</p>
               ) : (

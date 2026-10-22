@@ -58,7 +58,10 @@ export function DetalleOrigenAw({ referencia, fecha }: { referencia: string; fec
             <ul className="list-disc pl-4">
               {d.faltantes.map((f) => (
                 <li key={f.campo}>
-                  <span className="font-mono">{f.campo}</span> ({f.etiqueta}): {f.regla}
+                  <span className="font-mono">{f.campo}</span> ({f.etiqueta}): {f.regla}{' '}
+                  <span className="text-ink-muted">
+                    Valida: <strong className="text-ink">{f.area}</strong> · se corrige en {f.corrigeEn}
+                  </span>
                 </li>
               ))}
             </ul>

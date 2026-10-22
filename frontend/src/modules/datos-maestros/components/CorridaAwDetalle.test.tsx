@@ -99,7 +99,7 @@ describe('<CorridaAwDetalle>', () => {
       http.get('*/clientes/sincronizacion/origen/6682', () => HttpResponse.json({
         referencia: '6682',
         campos: [{ campo: 'NAME1', etiqueta: 'Nombre o razón social', valor: null }, { campo: 'UST_ID', etiqueta: 'RFC', valor: 'ABC010101AB1' }],
-        faltantes: [{ campo: 'NAME1', etiqueta: 'Nombre o razón social', regla: 'Obligatorio, no puede ir vacío.', comoDebeQuedar: 'Razón social.' }],
+        faltantes: [{ campo: 'NAME1', etiqueta: 'Nombre o razón social', regla: 'Obligatorio, no puede ir vacío.', comoDebeQuedar: 'Razón social.', area: 'Fiscal', corrigeEn: 'A+W' }],
       })),
     );
     arrancar(JSON.stringify({ leidos: 1 }), [], [
@@ -112,6 +112,8 @@ describe('<CorridaAwDetalle>', () => {
     expect(await screen.findByText('ABC010101AB1')).toBeInTheDocument();
     expect(screen.getByText('(vacío) · falta')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Copiar solicitud para A+W' })).toBeInTheDocument();
+    expect(screen.getAllByText('Fiscal').length).toBeGreaterThan(0);
+    expect(screen.getByRole('button', { name: 'Copiar resumen por área' })).toBeInTheDocument();
   });
 
   it('en curso: aviso con barra y tiempo, productos en espera y «Volver a correr» deshabilitado', async () => {

@@ -18,8 +18,12 @@ public sealed record AwClienteMapeoResultado(AplicarClienteAwSnapshot? Snapshot,
 /// <paramref name="mapeoMoneda"/> y cualquier otro valor (incluidos <c>&lt;indf&gt;</c> y vacío) se toma como MXN
 /// (regla de A+W hacia SAP: «USD y Euro se mapean a USD y EUR; cualquier otro valor se transmite como MXP»).
 /// </summary>
-/// <summary>Dato obligatorio que no llegó de A+W: campo de origen, qué es, regla y cómo debe quedar.</summary>
-public sealed record AwCampoFaltante(string Campo, string Etiqueta, string Regla, string ComoDebeQuedar);
+/// <summary>
+/// Dato obligatorio que no llegó de A+W: campo, regla, cómo debe quedar, área que valida el dato correcto
+/// y dónde se corrige (el ERP nunca escribe en A+W).
+/// </summary>
+public sealed record AwCampoFaltante(
+    string Campo, string Etiqueta, string Regla, string ComoDebeQuedar, string Area = "Fiscal", string CorrigeEn = "A+W");
 
 public static class AwClienteSnapshotMapper
 {
