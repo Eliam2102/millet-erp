@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { AnticipoSchema } from '@/features/facturacion/schemas/anticipo';
+import { AnticipoSchema, desglosarTotalAnticipo } from '@/features/facturacion/schemas/anticipo';
 import { TipoAnticipo } from '@/features/facturacion/api/types';
 
 const valido = {
@@ -18,7 +18,7 @@ const valido = {
   moneda: 'MXN',
   tipoCambio: null,
   tipoAnticipo: TipoAnticipo.ClientesMxp,
-  montoBase: 1000,
+  total: 1160,
   tasaIvaTraslado: 0.16,
   descripcion: null,
   obraNombre: null,
@@ -29,10 +29,22 @@ describe('AnticipoSchema', () => {
     expect(AnticipoSchema.safeParse(valido).success).toBe(true);
   });
 
-  it('exige monto base > 0', () => {
-    expect(AnticipoSchema.safeParse({ ...valido, montoBase: 0 }).success).toBe(
+  it('exige total > 0', () => {
+    expect(AnticipoSchema.safeParse({ ...valido, total: 0 }).success).toBe(
       false,
     );
+  });
+
+  it.each([
+    [1160, 0.16, 1000, 160],
+    [1000, 0.16, 862.07, 137.93],
+    [1000.03, 0.16, 862.09, 137.94],
+    [1000.25, 0.16, 862.28, 137.97],
+    [500, 0.08, 462.96, 37.04],
+    [1160, 0, 1160, 0],
+    [1160, null, 1160, 0],
+  ])('desglosa %s con tasa %s en base %s + IVA %s', (total, tasa, base, iva) => {
+    expect(desglosarTotalAnticipo(total, tasa)).toEqual({ base, iva });
   });
 
   it('exige clienteId GUID (anticipo nominal)', () => {
