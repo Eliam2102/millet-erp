@@ -295,7 +295,8 @@ public sealed class AplicarClienteAwService
         if (clave is not null)
         {
             var ocupantes = await ClientesPorRfc.BuscarAsync(_db, [clave], cliente.Id, ct);
-            if (ocupantes.Count > 0 && !await _db.CambiosMaestrosAw.AnyAsync(c => c.TipoEntidad == "Cliente"
+            // Ya unificado en uno de los clientes que comparten la clave: la repetición está resuelta, no se vuelve a informar.
+            if (ocupantes.Count > 0 && !ocupantes.Any(o => o.Cliente.Id == cliente.UnificadoEnClienteId) && !await _db.CambiosMaestrosAw.AnyAsync(c => c.TipoEntidad == "Cliente"
                     && c.ReferenciaExterna == snap.ReferenciaExterna && c.Tipo == TipoCambioMaestroAw.RfcCompartido && c.ValorDespues == clave, ct))
                 cambios.Add(ConflictoRfc(cliente.Id, cliente.Clave, snap, hash, clave, ocupantes, await AlgunoManualAsync(ocupantes, ct), null));
         }
