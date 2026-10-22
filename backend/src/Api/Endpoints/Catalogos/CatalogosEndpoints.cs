@@ -177,6 +177,7 @@ public static class CatalogosEndpoints
             [FromQuery] EstatusCatalogo? estatus,
             [FromQuery] string? clave,
             [FromQuery] string? nombre,
+            [FromQuery] string? q,
             [FromQuery] Millet.Compras.Domain.Clasificacion? tipoRequisicion,
             [FromQuery] int? offset,
             [FromQuery] int? limit,
@@ -186,11 +187,11 @@ public static class CatalogosEndpoints
             var off = offset is < 0 ? 0 : offset ?? 0;
             var lim = limit is null or <= 0 ? 50 : Math.Min(limit.Value, LimitMax);
 
-            IQueryable<Articulo> q = db.Articulos.AsNoTracking();
-            if (naturaleza is Naturaleza n) q = q.Where(a => a.Naturaleza == n);
+            IQueryable<Articulo> query = db.Articulos.AsNoTracking();
+            if (naturaleza is Naturaleza n) query = query.Where(a => a.Naturaleza == n);
             if (tipoRequisicion is { } t)
-                q = q.Where(Millet.Compras.Domain.ArticulosPorClasificacion.Filtro(t));
-            if (estatus is EstatusCatalogo e) q = q.Where(a => a.Estatus == e);
+                query = query.Where(Millet.Compras.Domain.ArticulosPorClasificacion.Filtro(t));
+            if (estatus is EstatusCatalogo e) query = query.Where(a => a.Estatus == e);
             // `clave` y `nombre` son excluyentes: se aplica el que venga con
             // valor, nunca ambos. `clave` tiene precedencia (comportamiento
             // histórico intacto). La búsqueda por nombre es insensible a
@@ -201,7 +202,7 @@ public static class CatalogosEndpoints
             {
                 // clave = código → case-insensitive con lower() en ambos lados.
 #pragma warning disable CA1304, CA1311, CA1862
-                q = q.Where(a => a.Clave.ToLower().Contains(clave.ToLower()));
+                query = query.Where(a => a.Clave.ToLower().Contains(clave.ToLower()));
 #pragma warning restore CA1304, CA1311, CA1862
             }
             else if (!string.IsNullOrWhiteSpace(nombre))
@@ -212,14 +213,28 @@ public static class CatalogosEndpoints
                 // PostgreSQL. La cultura es la del servidor (collation de la BD),
                 // no la del proceso; el análisis de cultura no aplica.
 #pragma warning disable CA1304, CA1311
-                q = q.Where(a =>
+                query = query.Where(a =>
                     PostgresFunctions.Translate(a.Nombre.ToLower(), PostgresFunctions.AcentosOrigen, PostgresFunctions.AcentosDestino)
                         .Contains(PostgresFunctions.Translate(aguja.ToLower(), PostgresFunctions.AcentosOrigen, PostgresFunctions.AcentosDestino)));
 #pragma warning restore CA1304, CA1311
             }
 
-            var total = await q.CountAsync(ct);
-            var items = await q
+            // `q` = caja única (clave OR nombre), AND con lo demás (incluido
+            // `tipoRequisicion`); no participa en la exclusividad clave/nombre.
+            // Clave con lower(); nombre con folding de acentos (ADR-0045).
+            if (!string.IsNullOrWhiteSpace(q))
+            {
+                string busqueda = q;
+#pragma warning disable CA1304, CA1311, CA1862
+                query = query.Where(a =>
+                    a.Clave.ToLower().Contains(busqueda.ToLower())
+                    || PostgresFunctions.Translate(a.Nombre.ToLower(), PostgresFunctions.AcentosOrigen, PostgresFunctions.AcentosDestino)
+                        .Contains(PostgresFunctions.Translate(busqueda.ToLower(), PostgresFunctions.AcentosOrigen, PostgresFunctions.AcentosDestino)));
+#pragma warning restore CA1304, CA1311, CA1862
+            }
+
+            var total = await query.CountAsync(ct);
+            var items = await query
                 .OrderBy(a => a.Clave)
                 .Skip(off).Take(lim)
                 .Select(a => new ArticuloListItem(
@@ -240,6 +255,8 @@ public static class CatalogosEndpoints
             "mayúsculas vía `translate` nativo, ADR-0045). `tipoRequisicion` " +
             "(clasificación de la RQ) deja sólo los artículos de ese tipo. `clave` y `nombre` " +
             "son excluyentes; si llegan ambos, `clave` tiene precedencia. " +
+            "`q` es una caja única (substring sobre clave o nombre, con folding " +
+            "de acentos/mayúsculas) y se combina por AND con los demás filtros. " +
             $"Paginación offset-based, tope `limit={LimitMax}`.")
         .Produces<PagedCatalogoResponse<ArticuloListItem>>(StatusCodes.Status200OK)
         .ProducesProblem(StatusCodes.Status401Unauthorized)

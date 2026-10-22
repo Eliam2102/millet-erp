@@ -33,6 +33,9 @@ export interface PartidaAbiertaResumen {
   numeroContenedor: string | null;
   codigoRuta: string | null;
   semanaEmbarque: string | null;
+  /** F1-COM-07: incidencias del proveedor abiertas y, de ellas, con compromiso vencido. */
+  incidenciasAbiertas: number;
+  incidenciasVencidas: number;
 }
 
 export interface ListarPartidasAbiertasResponse {
@@ -55,6 +58,7 @@ export interface PartidasAbiertasFiltros {
   codigoRuta?: string;
   semanaEmbarque?: string;
   diasAtrasadosMinimos?: number;
+  conIncidenciasAbiertas?: boolean;
   page?: number;
   pageSize?: number;
 }
@@ -105,6 +109,7 @@ function buildPath(filtros: PartidasAbiertasFiltros): string {
     params.set('semanaEmbarque', filtros.semanaEmbarque);
   if (filtros.diasAtrasadosMinimos != null)
     params.set('diasAtrasadosMinimos', String(filtros.diasAtrasadosMinimos));
+  if (filtros.conIncidenciasAbiertas) params.set('conIncidenciasAbiertas', 'true');
   if (filtros.page != null) params.set('page', String(filtros.page));
   if (filtros.pageSize != null)
     params.set('pageSize', String(filtros.pageSize));

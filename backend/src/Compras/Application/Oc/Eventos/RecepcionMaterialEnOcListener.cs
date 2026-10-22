@@ -41,6 +41,7 @@ public sealed class RecepcionMaterialEnOcListener
     {
         var oc = await _db.OrdenesCompra
             .Include(o => o.Lineas)
+            .Include(o => o.Incidencias.Where(i => i.CerradaEn == null))
             .FirstOrDefaultAsync(o => o.Id == notification.OrdenCompraId, cancellationToken)
             ?? throw new EntityNotFoundException(
                 "ORDEN_COMPRA_NO_ENCONTRADA",

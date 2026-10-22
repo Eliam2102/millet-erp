@@ -53,6 +53,8 @@ export const PartidasAbiertasSearchSchema = z.object({
   codigoRuta: z.string().min(1).optional(),
   semanaEmbarque: z.string().min(1).optional(),
   diasAtrasadosMinimos: z.coerce.number().int().min(0).optional(),
+  /** F1-COM-07: solo OC con incidencias del proveedor abiertas. */
+  conIncidenciasAbiertas: z.boolean().optional(),
   page: z.coerce.number().int().min(1).optional().default(1),
   pageSize: z.coerce.number().int().min(10).max(200).optional().default(10),
 });

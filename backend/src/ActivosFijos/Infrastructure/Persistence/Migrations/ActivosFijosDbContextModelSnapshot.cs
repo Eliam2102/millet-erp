@@ -418,6 +418,10 @@ namespace Millet.ActivosFijos.Infrastructure.Persistence.Migrations
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("deleted_at");
 
+                    b.Property<bool>("Depreciable")
+                        .HasColumnType("boolean")
+                        .HasColumnName("depreciable");
+
                     b.Property<Guid>("EmpresaId")
                         .HasColumnType("uuid")
                         .HasColumnName("empresa_id");
@@ -433,7 +437,15 @@ namespace Millet.ActivosFijos.Infrastructure.Persistence.Migrations
                         .HasColumnType("character varying(200)")
                         .HasColumnName("nombre");
 
-                    b.Property<decimal>("TasaFiscalAnual")
+                    b.Property<bool>("RequiereRevision")
+                        .HasColumnType("boolean")
+                        .HasColumnName("requiere_revision");
+
+                    b.Property<bool>("TasaConfirmada")
+                        .HasColumnType("boolean")
+                        .HasColumnName("tasa_confirmada");
+
+                    b.Property<decimal?>("TasaFiscalAnual")
                         .HasPrecision(18, 2)
                         .HasColumnType("numeric(18,2)")
                         .HasColumnName("tasa_fiscal_anual");
@@ -463,79 +475,202 @@ namespace Millet.ActivosFijos.Infrastructure.Persistence.Migrations
                     b.HasData(
                         new
                         {
-                            Id = new Guid("0000000f-0002-0000-0000-000000000001"),
+                            Id = new Guid("0000000f-0007-0000-0000-000000000151"),
                             Activa = true,
-                            Clave = "EDI",
+                            Clave = "151",
                             CreatedAt = new DateTimeOffset(new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            Depreciable = false,
                             EmpresaId = new Guid("00000003-0000-0000-0000-000000000001"),
                             Metodo = "LineaRecta",
-                            Nombre = "Edificios · propuesta VILO",
+                            Nombre = "TERRENOS",
+                            RequiereRevision = false,
+                            TasaConfirmada = false,
+                            TasaFiscalAnual = 0m,
+                            UpdatedAt = new DateTimeOffset(new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            Version = 1
+                        },
+                        new
+                        {
+                            Id = new Guid("0000000f-0007-0000-0000-000000000152"),
+                            Activa = true,
+                            Clave = "152",
+                            CreatedAt = new DateTimeOffset(new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            Depreciable = true,
+                            EmpresaId = new Guid("00000003-0000-0000-0000-000000000001"),
+                            Metodo = "LineaRecta",
+                            Nombre = "EDIFICIOS",
+                            RequiereRevision = false,
+                            TasaConfirmada = false,
                             TasaFiscalAnual = 5m,
                             UpdatedAt = new DateTimeOffset(new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
                             Version = 1
                         },
                         new
                         {
-                            Id = new Guid("0000000f-0002-0000-0000-000000000002"),
+                            Id = new Guid("0000000f-0007-0000-0000-000000000153"),
                             Activa = true,
-                            Clave = "MAQ",
+                            Clave = "153",
                             CreatedAt = new DateTimeOffset(new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            Depreciable = true,
                             EmpresaId = new Guid("00000003-0000-0000-0000-000000000001"),
                             Metodo = "LineaRecta",
-                            Nombre = "Maquinaria y equipo industrial · propuesta VILO",
+                            Nombre = "MAQUINARIA Y EQUIPO",
+                            RequiereRevision = false,
+                            TasaConfirmada = false,
                             TasaFiscalAnual = 10m,
                             UpdatedAt = new DateTimeOffset(new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
                             Version = 1
                         },
                         new
                         {
-                            Id = new Guid("0000000f-0002-0000-0000-000000000003"),
+                            Id = new Guid("0000000f-0007-0000-0000-000000000154"),
                             Activa = true,
-                            Clave = "MOB",
+                            Clave = "154",
                             CreatedAt = new DateTimeOffset(new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            Depreciable = true,
                             EmpresaId = new Guid("00000003-0000-0000-0000-000000000001"),
                             Metodo = "LineaRecta",
-                            Nombre = "Mobiliario y equipo de oficina · propuesta VILO",
-                            TasaFiscalAnual = 10m,
-                            UpdatedAt = new DateTimeOffset(new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
-                            Version = 1
-                        },
-                        new
-                        {
-                            Id = new Guid("0000000f-0002-0000-0000-000000000004"),
-                            Activa = true,
-                            Clave = "TRA",
-                            CreatedAt = new DateTimeOffset(new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
-                            EmpresaId = new Guid("00000003-0000-0000-0000-000000000001"),
-                            Metodo = "LineaRecta",
-                            Nombre = "Automóviles y equipo de transporte · propuesta VILO",
+                            Nombre = "AUTOMOVILES AUTOBUSES CAM DE CARGA MONTAC Y REMOLQUES",
+                            RequiereRevision = false,
+                            TasaConfirmada = false,
                             TasaFiscalAnual = 25m,
                             UpdatedAt = new DateTimeOffset(new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
                             Version = 1
                         },
                         new
                         {
-                            Id = new Guid("0000000f-0002-0000-0000-000000000005"),
+                            Id = new Guid("0000000f-0007-0000-0000-000000000155"),
                             Activa = true,
-                            Clave = "COM",
+                            Clave = "155",
                             CreatedAt = new DateTimeOffset(new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            Depreciable = true,
                             EmpresaId = new Guid("00000003-0000-0000-0000-000000000001"),
                             Metodo = "LineaRecta",
-                            Nombre = "Equipo de cómputo · propuesta VILO",
+                            Nombre = "MOBILIARIO Y EQUIPO DE OFICINA",
+                            RequiereRevision = false,
+                            TasaConfirmada = false,
+                            TasaFiscalAnual = 10m,
+                            UpdatedAt = new DateTimeOffset(new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            Version = 1
+                        },
+                        new
+                        {
+                            Id = new Guid("0000000f-0007-0000-0000-000000000156"),
+                            Activa = true,
+                            Clave = "156",
+                            CreatedAt = new DateTimeOffset(new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            Depreciable = true,
+                            EmpresaId = new Guid("00000003-0000-0000-0000-000000000001"),
+                            Metodo = "LineaRecta",
+                            Nombre = "EQUIPO DE COMPUTO",
+                            RequiereRevision = false,
+                            TasaConfirmada = false,
                             TasaFiscalAnual = 30m,
                             UpdatedAt = new DateTimeOffset(new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
                             Version = 1
                         },
                         new
                         {
-                            Id = new Guid("0000000f-0002-0000-0000-000000000006"),
+                            Id = new Guid("0000000f-0007-0000-0000-000000000157"),
                             Activa = true,
-                            Clave = "HER",
+                            Clave = "157",
                             CreatedAt = new DateTimeOffset(new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            Depreciable = true,
                             EmpresaId = new Guid("00000003-0000-0000-0000-000000000001"),
                             Metodo = "LineaRecta",
-                            Nombre = "Herramientas y moldes · propuesta VILO",
-                            TasaFiscalAnual = 35m,
+                            Nombre = "EQUIPO DE COMUNICACION",
+                            RequiereRevision = false,
+                            TasaConfirmada = false,
+                            UpdatedAt = new DateTimeOffset(new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            Version = 1
+                        },
+                        new
+                        {
+                            Id = new Guid("0000000f-0007-0000-0000-000000000159"),
+                            Activa = true,
+                            Clave = "159",
+                            CreatedAt = new DateTimeOffset(new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            Depreciable = false,
+                            EmpresaId = new Guid("00000003-0000-0000-0000-000000000001"),
+                            Metodo = "LineaRecta",
+                            Nombre = "OBRAS EN PROCESO DE ACTIVOS FIJOS",
+                            RequiereRevision = false,
+                            TasaConfirmada = false,
+                            UpdatedAt = new DateTimeOffset(new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            Version = 1
+                        },
+                        new
+                        {
+                            Id = new Guid("0000000f-0007-0000-0000-000000000160"),
+                            Activa = true,
+                            Clave = "160",
+                            CreatedAt = new DateTimeOffset(new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            Depreciable = true,
+                            EmpresaId = new Guid("00000003-0000-0000-0000-000000000001"),
+                            Metodo = "LineaRecta",
+                            Nombre = "OTROS ACTIVOS FIJOS",
+                            RequiereRevision = false,
+                            TasaConfirmada = false,
+                            UpdatedAt = new DateTimeOffset(new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            Version = 1
+                        },
+                        new
+                        {
+                            Id = new Guid("0000000f-0007-0000-0000-000000000165"),
+                            Activa = true,
+                            Clave = "165",
+                            CreatedAt = new DateTimeOffset(new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            Depreciable = true,
+                            EmpresaId = new Guid("00000003-0000-0000-0000-000000000001"),
+                            Metodo = "LineaRecta",
+                            Nombre = "EQUIPO DE COMUNICACIONES TELEFONICAS",
+                            RequiereRevision = false,
+                            TasaConfirmada = false,
+                            UpdatedAt = new DateTimeOffset(new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            Version = 1
+                        },
+                        new
+                        {
+                            Id = new Guid("0000000f-0007-0000-0000-000000000166"),
+                            Activa = true,
+                            Clave = "166",
+                            CreatedAt = new DateTimeOffset(new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            Depreciable = true,
+                            EmpresaId = new Guid("00000003-0000-0000-0000-000000000001"),
+                            Metodo = "LineaRecta",
+                            Nombre = "EQUIPO DE COMUNICACION SATELITAL",
+                            RequiereRevision = false,
+                            TasaConfirmada = false,
+                            UpdatedAt = new DateTimeOffset(new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            Version = 1
+                        },
+                        new
+                        {
+                            Id = new Guid("0000000f-0007-0000-0000-000000000169"),
+                            Activa = true,
+                            Clave = "169",
+                            CreatedAt = new DateTimeOffset(new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            Depreciable = true,
+                            EmpresaId = new Guid("00000003-0000-0000-0000-000000000001"),
+                            Metodo = "LineaRecta",
+                            Nombre = "OTRA MAQUINARIA Y EQUIPO",
+                            RequiereRevision = false,
+                            TasaConfirmada = false,
+                            UpdatedAt = new DateTimeOffset(new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            Version = 1
+                        },
+                        new
+                        {
+                            Id = new Guid("0000000f-0007-0000-0000-000000000170"),
+                            Activa = true,
+                            Clave = "170",
+                            CreatedAt = new DateTimeOffset(new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            Depreciable = true,
+                            EmpresaId = new Guid("00000003-0000-0000-0000-000000000001"),
+                            Metodo = "LineaRecta",
+                            Nombre = "ADAPTACIONES Y MEJORAS",
+                            RequiereRevision = false,
+                            TasaConfirmada = false,
                             UpdatedAt = new DateTimeOffset(new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
                             Version = 1
                         });
@@ -575,9 +710,17 @@ namespace Millet.ActivosFijos.Infrastructure.Persistence.Migrations
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("deleted_at");
 
+                    b.Property<bool>("DepreciarMismoMes")
+                        .HasColumnType("boolean")
+                        .HasColumnName("depreciar_mismo_mes");
+
                     b.Property<Guid>("EmpresaId")
                         .HasColumnType("uuid")
                         .HasColumnName("empresa_id");
+
+                    b.Property<bool>("InicioDepreciacionConfirmado")
+                        .HasColumnType("boolean")
+                        .HasColumnName("inicio_depreciacion_confirmado");
 
                     b.Property<bool>("RevalorizacionHabilitada")
                         .HasColumnType("boolean")
@@ -817,6 +960,10 @@ namespace Millet.ActivosFijos.Infrastructure.Persistence.Migrations
                         .HasColumnType("text")
                         .HasColumnName("numero");
 
+                    b.Property<string>("Observacion")
+                        .HasColumnType("text")
+                        .HasColumnName("observacion");
+
                     b.Property<string>("Sucursal")
                         .IsRequired()
                         .HasColumnType("text")
@@ -826,7 +973,7 @@ namespace Millet.ActivosFijos.Infrastructure.Persistence.Migrations
                         .HasColumnType("uuid")
                         .HasColumnName("sucursal_id");
 
-                    b.Property<decimal>("Tasa")
+                    b.Property<decimal?>("Tasa")
                         .HasPrecision(18, 2)
                         .HasColumnType("numeric(18,2)")
                         .HasColumnName("tasa");
