@@ -8,9 +8,14 @@ export function nombreArchivoProforma(proforma: ProformaPedidoResponse): string 
   return `proforma-${base}-v${proforma.version}.pdf`;
 }
 
+/** PDF de la proforma como Blob, para verlo en pantalla (visor) o descargarlo. */
+export function generarProformaPdfBlob(proforma: ProformaPedidoResponse): Promise<Blob> {
+  return pdf(<ProformaCfdiDocument proforma={proforma} />).toBlob();
+}
+
 /** Genera y descarga el PDF de la proforma (se importa en diferido). */
 export async function descargarProformaCfdi(proforma: ProformaPedidoResponse) {
-  const blob = await pdf(<ProformaCfdiDocument proforma={proforma} />).toBlob();
+  const blob = await generarProformaPdfBlob(proforma);
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
   a.href = url;
