@@ -30,6 +30,11 @@
        aw_aviso_job_pedido.
      - Sin duplicados: un mismo evento (pedido + estatus + fecha de
        BW_AUFTR_HIST) produce a lo sumo un aviso.
+     - Coexiste con el botón del vendedor y con el customizing: los tres
+       escriben la MISMA cola y un pedido nunca se duplica. Si la cola ya
+       tiene una solicitud del pedido creada en/después del evento (para
+       cancelación, una cancelación), el job NO inserta; solo registra en
+       aw_aviso_job_pedido el evento y la versión ya cubiertos.
 
    ARRANQUE: solo avisa eventos posteriores a aw_aviso_job_config.desde
    (se fija al instalar), para no inundar la cola con pedidos viejos que
@@ -161,7 +166,7 @@ BEGIN
 
     /* Un aviso por pedido, cada uno en su transacción: si uno falla, los
        demás siguen y el fallido se reintenta en el siguiente barrido. */
-    DECLARE @np nvarchar(50), @st int, @ev datetime, @op tinyint, @ver bigint;
+    DECLARE @np nvarchar(50), @st int, @ev datetime, @op tinyint, @ver bigint, @cubierto int;
     DECLARE @avisos int = 0;
 
     DECLARE cur CURSOR LOCAL FAST_FORWARD FOR
@@ -174,12 +179,22 @@ BEGIN
         BEGIN TRY
             BEGIN TRANSACTION;
 
-            SELECT @ver = ISNULL(MAX([version]), 0) + 1
+            /* @cubierto: otro escritor (botón del vendedor, customizing) ya
+               dejó en la cola una solicitud posterior a este evento — para
+               cancelación, una cancelación. creada_at es datetimeoffset: se
+               compara su hora local contra la fecha local de A+W. */
+            SELECT @ver = ISNULL(MAX([version]), 0) + 1,
+                   @cubierto = ISNULL(MAX(CASE
+                       WHEN CAST(creada_at AS datetime) >= ISNULL(@ev, @desde)
+                            AND (@op < 3 OR operacion = 3) THEN 1 END), 0)
               FROM dbo.aw_solicitud_pedido WITH (UPDLOCK, HOLDLOCK)
              WHERE numero_pedido = @np;
 
-            INSERT INTO dbo.aw_solicitud_pedido (numero_pedido, operacion, [version])
-            VALUES (@np, @op, @ver);
+            IF @cubierto = 1
+                SET @ver -= 1;  -- el control del job recuerda la versión ya cubierta
+            ELSE
+                INSERT INTO dbo.aw_solicitud_pedido (numero_pedido, operacion, [version])
+                VALUES (@np, @op, @ver);
 
             IF EXISTS (SELECT 1 FROM dbo.aw_aviso_job_pedido WHERE numero_pedido = @np)
                 UPDATE dbo.aw_aviso_job_pedido
@@ -192,7 +207,7 @@ BEGIN
                 VALUES (@np, @st, @ev, @ver);
 
             COMMIT TRANSACTION;
-            SET @avisos += 1;
+            IF @cubierto = 0 SET @avisos += 1;
         END TRY
         BEGIN CATCH
             IF @@TRANCOUNT > 0 ROLLBACK TRANSACTION;

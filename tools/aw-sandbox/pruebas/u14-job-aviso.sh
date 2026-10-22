@@ -47,6 +47,21 @@ echo "== Fase 4: otro barrido sin cambios en A+W (no debe duplicar)"
 esperar
 cola
 
+echo "== Fase 5: el botón del vendedor inserta ANTES que el job (990007: una sola fila, op 1 v1)"
+sq -d AW_SANDBOX -v FASE=5 -i /tmp/u14-escenarios.sql -W
+esperar
+esperar
+cola
+n=$(sq -d MILLET_INTEGRACION -h -1 -W -Q "SET NOCOUNT ON; SELECT COUNT(*) FROM dbo.aw_solicitud_pedido WHERE numero_pedido = '990007';" | tr -d '[:space:]')
+[ "$n" = 1 ] || { echo "FALLA: 990007 tiene $n filas, se esperaba 1 (el job duplicó el botón)" >&2; exit 1; }
+
+echo "== Fase 6: reconfirmación posterior al botón → Modificación v2 (no se pierde)"
+sq -d AW_SANDBOX -v FASE=6 -i /tmp/u14-escenarios.sql -W
+esperar
+cola
+n=$(sq -d MILLET_INTEGRACION -h -1 -W -Q "SET NOCOUNT ON; SELECT COUNT(*) FROM dbo.aw_solicitud_pedido WHERE numero_pedido = '990007' AND operacion = 2 AND [version] = 2;" | tr -d '[:space:]')
+[ "$n" = 1 ] || { echo "FALLA: falta la Modificación v2 de 990007" >&2; exit 1; }
+
 echo "== Historial del job en el Agent (últimas 5 ejecuciones)"
 sq -d msdb -W -s ' | ' -Q "SET NOCOUNT ON; SELECT TOP 5 h.run_date, h.run_time, h.run_status, h.run_duration
   FROM msdb.dbo.sysjobhistory h JOIN msdb.dbo.sysjobs j ON j.job_id = h.job_id
