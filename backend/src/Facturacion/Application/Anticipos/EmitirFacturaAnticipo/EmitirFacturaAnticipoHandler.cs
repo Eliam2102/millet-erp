@@ -139,6 +139,7 @@ public sealed class EmitirFacturaAnticipoHandler
             pedidoFacturableId: command.PedidoFacturableId,
             anticipoId: anticipoId,
             montoBase: command.MontoBase,
+            totalConIva: command.Total,
             tasaIvaTraslado: command.TasaIvaTraslado,
             descripcion: command.Descripcion,
             canalVentaId: command.CanalVentaId);
