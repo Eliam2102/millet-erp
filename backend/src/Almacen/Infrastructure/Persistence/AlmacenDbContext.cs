@@ -164,6 +164,8 @@ public class AlmacenDbContext : BaseDbContext
             b.HasKey(a => a.Id);
             b.Property(a => a.Id).ValueGeneratedNever();
             b.Property(a => a.Pendiente).HasPrecision(14, 4);
+            b.Property(a => a.CantidadLiberada).HasPrecision(14, 4).HasDefaultValue(0m);
+            b.Property(a => a.MotivoLiberacion).HasMaxLength(500);
             b.HasIndex(a => a.LineaRequisicionId).IsUnique();
             b.HasIndex(a => new { a.SucursalId, a.ArticuloId });
         });

@@ -94,6 +94,8 @@ public sealed class EditarCabeceraRequisicionHandler
 
         if (request.LimpiarObra || request.Obra is not null)
             requisicion.AsignarObra(request.LimpiarObra ? null : request.Obra);
+        if (request.SoloApartarSiCompleto is bool soloCompleto)
+            requisicion.EstablecerSoloApartarSiCompleto(soloCompleto);
         await _comprasDb.SaveChangesAsync(cancellationToken);
     }
 }
