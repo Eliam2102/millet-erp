@@ -188,6 +188,20 @@ public sealed class RepartoDisponibilidadServiceTests
         Assert.True(r[0].EsServicio);
     }
 
+    [Theory]
+    [InlineData(3, 0, 3)]
+    [InlineData(2, 2, 0)]
+    public async Task Surtido_completo_con_factor_de_conversion_compara_en_unidad_de_documento(int cajas, int deAlmacen, int deCompra)
+    {
+        // Línea en cajas de 12 piezas; 30 piezas base = 2.5 cajas: no alcanza para 3, sí para 2.
+        var rq = CrearRequisicion(Clasificacion.MateriaPrima, (Articulo, cajas, 100m));
+        var r = await RepartoDisponibilidadService.RepartirAsync(
+            new StockFalso((Articulo, 30m)), new ConversionFactor(12m), Articulos(),
+            Clasificacion.MateriaPrima, Sucursal, rq.Lineas, default, soloCompleto: true);
+        Assert.Equal(deAlmacen, r[0].DeAlmacen);
+        Assert.Equal(deCompra, r[0].DeCompra);
+    }
+
     private static Dictionary<Guid, ArticuloLectura> Articulos(params Guid[] servicios) =>
         new Dictionary<Guid, ArticuloLectura>
         {
@@ -257,6 +271,13 @@ public sealed class RepartoDisponibilidadServiceTests
             return Task.FromResult<IReadOnlyDictionary<Guid, DisponibilidadStock>>(
                 articuloIds.ToDictionary(id => id, _ => new DisponibilidadStock(0m, 0m)));
         }
+    }
+
+    private sealed class ConversionFactor(decimal factor) : IConversionUnidadPort
+    {
+        public Task<ConversionUnidad> ConvertirAsync(
+            Guid articuloId, decimal cantidad, string? unidadCapturada, string unidadDocumento, CancellationToken ct) =>
+            Task.FromResult(new ConversionUnidad(cantidad * factor, "PZA", cantidad, factor, unidadDocumento, cantidad));
     }
 
     private sealed class ConversionIdentidad : IConversionUnidadPort

@@ -9,6 +9,7 @@ using Millet.Almacen.Infrastructure.Persistence;
 using Millet.Compartido.Infrastructure.Persistence;
 using Millet.Compras.Application.Autorizar;
 using Millet.Compras.Application.Cancelar;
+using Millet.Compras.Application.CerrarManual;
 using Millet.Compras.Domain;
 using Millet.Compras.Domain.Matriz;
 using Millet.Compras.Domain.Ports.Almacen;
@@ -33,7 +34,7 @@ public partial class OrdenesCompraEndpointsTests
         private Guid _alm, _sub, _bin;
         private bool _settingsExistia, _anteriorApartar, _anteriorOc;
 
-        public async Task InicializarAsync(decimal stock)
+        public async Task InicializarAsync(decimal stock, bool apartar = true)
         {
             using var scope = t._factory.Services.CreateScope();
             var sp = scope.ServiceProvider;
@@ -50,7 +51,7 @@ public partial class OrdenesCompraEndpointsTests
             _anteriorApartar = settings?.ApartarExistenciaAlAutorizar ?? true;
             _anteriorOc = settings?.AutoGenerarOcAlAutorizar ?? false;
             if (settings is null) { settings = ComprasSettings.CrearDefault(EmpresaInicialId); db.Add(settings); }
-            settings.EstablecerApartarExistenciaAlAutorizar(true);
+            settings.EstablecerApartarExistenciaAlAutorizar(apartar);
             settings.EstablecerAutoGenerarOcAlAutorizar(false);
             await db.SaveChangesAsync();
             var compartido = sp.GetRequiredService<CompartidoDbContext>();
@@ -97,6 +98,13 @@ public partial class OrdenesCompraEndpointsTests
             var pend = await scope.ServiceProvider.GetRequiredService<AlmacenDbContext>().ApartadosRequisicion
                 .Where(a => a.RequisicionId == rq.Id).SumAsync(a => a.Pendiente);
             return (l.CantidadDeAlmacen, l.CantidadDeCompra, pend);
+        }
+
+        public async Task<int> ContarApartadosAsync(Requisicion rq)
+        {
+            using var scope = t._factory.Services.CreateScope();
+            using var bypass = scope.ServiceProvider.GetRequiredService<ICurrentEmpresaContext>().Bypass();
+            return await scope.ServiceProvider.GetRequiredService<AlmacenDbContext>().ApartadosRequisicion.CountAsync(a => a.RequisicionId == rq.Id);
         }
 
         public async ValueTask DisposeAsync()
@@ -262,5 +270,70 @@ public partial class OrdenesCompraEndpointsTests
                 .Handle(new(rq.Id, cancelar.Id, "DEMO liberar cancelar"), default);
         }
         Assert.Equal(0m, (await esc.LeerAsync(rq)).Pendiente);
+    }
+
+    [Fact]
+    public async Task Liberar_MismaIdempotencyKey_ReintentoNoLiberaDosVeces()
+    {
+        var (esc, rq) = await ParcialAutorizadaAsync();
+        await using var _ = esc;
+        var client = await CreateSuperAdminClientAsync();
+        var key = Guid.NewGuid().ToString("D");
+        for (var n = 0; n < 2; n++)
+        {
+            using var request = new HttpRequestMessage(HttpMethod.Post, UrlLiberar(rq.Id, rq.Lineas.Single().Id))
+            { Content = JsonContent.Create(new { Cantidad = 2m, Motivo = "Reintento" }) };
+            request.Headers.Add("Idempotency-Key", key);
+            using var resp = await client.SendAsync(request);
+            Assert.Equal(HttpStatusCode.NoContent, resp.StatusCode);
+        }
+        Assert.Equal(1m, (await esc.LeerAsync(rq)).Pendiente);
+    }
+
+    [Theory]
+    [InlineData(true, 0, 5)]
+    [InlineData(false, 3, 2)]
+    public async Task Liberar_ApartarAlAutorizarApagado_NoCreaApartadosPeroElCubrimientoSigueLaBandera(bool completo, decimal almacen, decimal compra)
+    {
+        await using var esc = new EscenarioLiberar(this, SucursalIdFija);
+        await esc.InicializarAsync(3, apartar: false);
+        var rq = await esc.NuevaRqAsync(5, completo);
+        await esc.AutorizarAsync(rq);
+        Assert.Equal((almacen, compra, 0m), await esc.LeerAsync(rq));
+        Assert.Equal(0, await esc.ContarApartadosAsync(rq));
+    }
+
+    [Fact]
+    public async Task Liberar_CerrarManualDespuesDeLiberacionParcial_DejaPendienteEnCeroSinError()
+    {
+        var (esc, rq) = await ParcialAutorizadaAsync();
+        await using var _ = esc;
+        var client = await CreateSuperAdminClientAsync();
+        (await client.PostAsJsonAsync(UrlLiberar(rq.Id, rq.Lineas.Single().Id), new { Cantidad = 2m, Motivo = "x" })).EnsureSuccessStatusCode();
+        using (var scope = _factory.Services.CreateScope())
+        {
+            var sp = scope.ServiceProvider;
+            using var libre = sp.GetRequiredService<ICurrentEmpresaContext>().Bypass();
+            var compras = sp.GetRequiredService<ComprasDbContext>();
+            var cierre = await compras.MotivosRechazo.FirstAsync(m => m.Activo && (m.AplicaA & MotivoRechazoAplicaA.CierreManual) != 0);
+            await new CerrarManualRequisicionHandler(compras, sp.GetRequiredService<IMediator>(), new UsuarioP2(Guid.NewGuid()), sp.GetRequiredService<IClock>(), sp.GetRequiredService<TransaccionApartadosRq>())
+                .Handle(new(rq.Id, cierre.Id, "DEMO liberar cerrar"), default);
+        }
+        Assert.Equal(0m, (await esc.LeerAsync(rq)).Pendiente);
+    }
+
+    [Theory]
+    [InlineData(true, "Nula", 2)]
+    [InlineData(false, "Parcial", 1)]
+    public async Task Liberar_BandejaPendientes_CompletoReportaCincoPorComprar(bool completo, string esperado, int esperadoNumerico)
+    {
+        await using var esc = new EscenarioLiberar(this, SucursalIdFija);
+        await esc.InicializarAsync(3);
+        var rq = await esc.NuevaRqAsync(5, completo);
+        var client = await CreateSuperAdminClientAsync();
+        var json = await ReadJsonAsync(await client.GetAsync($"/api/v1/compras/pendientes-autorizacion?departamentoId={rq.DepartamentoId}"));
+        var item = json.GetProperty("items").EnumerateArray().Single(i => i.GetProperty("id").GetGuid() == rq.Id);
+        var disp = item.GetProperty("disponibilidad");
+        Assert.True(disp.ValueKind == System.Text.Json.JsonValueKind.Number ? disp.GetInt32() == esperadoNumerico : disp.GetString() == esperado, disp.ToString());
     }
 }
