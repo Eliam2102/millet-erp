@@ -20,6 +20,8 @@ export interface ListarPedidosFiltros {
   limit?: number;
   /** Bucket "Sin asignar" de la Capa A (solo caja.leer-todas, CAJAS-PR6). */
   alcance?: 'sin-asignar';
+  /** F6.1: clase del pedido manual de origen (server-side). */
+  clase?: 'VentaDirecta' | 'Emergencia';
 }
 
 export interface ListarFacturasFiltros {
@@ -32,6 +34,8 @@ export interface ListarFacturasFiltros {
   limit?: number;
   /** Bucket "Sin asignar" de la Capa A (solo caja.leer-todas, CAJAS-PR6). */
   alcance?: 'sin-asignar';
+  /** F6.1: clase del pedido manual de origen (server-side). */
+  clase?: 'VentaDirecta' | 'Emergencia';
 }
 
 export const facturacionKeys = {
@@ -123,6 +127,8 @@ export const facturacionKeys = {
     [...facturacionKeys.reportes(), 'liquidacion-caja', filtros] as const,
   reporteEstadosAnticipos: (filtros: Record<string, unknown>) =>
     [...facturacionKeys.reportes(), 'estados-anticipos', filtros] as const,
+  reporteComparativaAnticipos: (filtros: Record<string, unknown>) =>
+    [...facturacionKeys.reportes(), 'comparativa-anticipos', filtros] as const,
 
   // Activos (FE-F9)
   activosAutorizaciones: (estado: string | null) =>

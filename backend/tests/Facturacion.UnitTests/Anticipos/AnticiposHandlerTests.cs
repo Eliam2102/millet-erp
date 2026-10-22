@@ -252,4 +252,34 @@ public sealed class AnticiposHandlerTests
 
         reporte.Filas.Should().BeEmpty();
     }
+
+    // ---- 86e3tfd7j: anticipo capturado por total ----
+
+    [Fact]
+    public async Task Emitir_por_total_desglosa_subtotal_e_iva_al_centavo()
+    {
+        var empresaId = Guid.NewGuid();
+        using var db = NewDb(empresaId);
+
+        var resp = await EmitirHandler(db, empresaId)
+            .Handle(Command(montoBase: 0m) with { Total = 1160m }, CancellationToken.None);
+
+        resp.Total.Should().Be(1160m);
+        resp.Saldo.Should().Be(1160m);
+        var factura = await db.FacturasAnticipo.SingleAsync();
+        factura.Subtotal.Should().Be(1000m);
+        factura.ImpuestosTrasladados.Should().Be(160m);
+        factura.Total.Should().Be(1160m);
+    }
+
+    [Fact]
+    public void Validador_exige_monto_base_o_total()
+    {
+        var validador = new EmitirFacturaAnticipoValidator();
+
+        validador.Validate(Command(montoBase: 0m)).IsValid.Should().BeFalse();
+        validador.Validate(Command(montoBase: 0m) with { Total = 1160m }).IsValid.Should().BeTrue();
+        validador.Validate(Command() with { Total = 1160m }).IsValid.Should().BeFalse("monto base y total son excluyentes");
+        validador.Validate(Command(montoBase: 0m) with { Total = 0m }).IsValid.Should().BeFalse();
+    }
 }

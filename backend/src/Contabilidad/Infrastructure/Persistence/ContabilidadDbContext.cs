@@ -56,5 +56,11 @@ public sealed class ContabilidadDbContext : BaseDbContext
             .HasSchema("pg_catalog");
 
         modelBuilder.ApplyConfigurationsFromAssembly(typeof(ContabilidadDbContext).Assembly);
+        // AF-01: tipo de operación para altas, mejoras y notas de crédito de activos.
+        var fecha = new DateTimeOffset(2026, 1, 1, 0, 0, 0, TimeSpan.Zero);
+        modelBuilder.Entity<TipoDocumentoContable>().HasData(new {
+            Id = Guid.Parse("0000000f-0003-0000-0000-000000000001"), EmpresaId = Guid.Parse("00000003-0000-0000-0000-000000000001"),
+            Clave = "AF", Nombre = "Capitalización de activos fijos", Estatus = Millet.Catalogos.Domain.EstatusCatalogo.Activo,
+            EsPrueba = false, TipoSat = TipoPolizaSat.Diario, Version = 1, CreatedAt = fecha, UpdatedAt = fecha });
     }
 }

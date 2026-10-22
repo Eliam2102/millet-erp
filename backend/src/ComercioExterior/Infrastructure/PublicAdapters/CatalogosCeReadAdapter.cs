@@ -72,4 +72,11 @@ public sealed class CatalogosCeReadAdapter(CompartidoDbContext db, IdentidadDbCo
     public async Task<IReadOnlyDictionary<Guid, string>> NombresAsync(IEnumerable<Guid> ids, CancellationToken ct) => await identidad.Usuarios.Where(x => ids.Contains(x.Id)).ToDictionaryAsync(x => x.Id, x => x.Nombre, ct);
     public async Task<IReadOnlyDictionary<Guid, string>> SucursalesAsync(IEnumerable<Guid> ids, CancellationToken ct) => await db.Sucursales.Where(x => ids.Contains(x.Id)).ToDictionaryAsync(x => x.Id, x => x.Nombre, ct);
     public async Task<IReadOnlyDictionary<Guid, string>> IncotermsAsync(IEnumerable<Guid> ids, CancellationToken ct) => await db.Incoterms.Where(x => ids.Contains(x.Id)).ToDictionaryAsync(x => x.Id, x => x.Codigo, ct);
+    public async Task<IReadOnlyDictionary<Guid, string>> NombresTercerosAsync(IEnumerable<Guid> ids, CancellationToken ct)
+    {
+        var proveedores = await db.Proveedores.Where(x => ids.Contains(x.Id)).ToDictionaryAsync(x => x.Id, x => x.RazonSocial, ct);
+        var clientes = await db.Clientes.Where(x => ids.Contains(x.Id)).ToDictionaryAsync(x => x.Id, x => x.RazonSocial, ct);
+        foreach (var cliente in clientes) proveedores.TryAdd(cliente.Key, cliente.Value);
+        return proveedores;
+    }
 }

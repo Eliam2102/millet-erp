@@ -182,6 +182,7 @@ Resolución por tipo de raíz (un nivel por lado):
 | GET | `/api/v1/facturacion/notas-credito/{id}/pdf` | `facturacion.notas-credito.leer` | PR1 |
 | GET | `/api/v1/facturacion/comprobantes/{id}/arbol-documentos` | `leer` de la familia del comprobante | PR3 |
 | GET | `/api/v1/facturacion/pedidos-facturables/{id}/arbol-documentos` | `facturacion.pedidos.leer` | PR3 |
+| GET | `/api/v1/facturacion/reportes/comparativa-anticipos` | `facturacion.reportes.leer` | F6.2 |
 
 Los existentes `/facturas/{id}/xml|pdf` no cambian de contrato (migran a las
 queries genéricas y ganan alcance de cajas).
@@ -221,6 +222,49 @@ REPP → `/facturacion/repp/$id`, CP → `/facturacion/carta-porte/$id`,
 NC → sin ruta (chip). `TrazabilidadFacturacion(tipo, id)` consume el endpoint
 de §5 y se monta en `DetalleFactura`, `DetalleFacturaAnticipo`,
 `DetalleCartaPorte`, `DetalleRepp` y `DetallePedido`.
+
+### 6.4 Comparativa de anticipos vs aplicaciones (F6.2)
+
+Reporte operativo `/facturacion/reportes/comparativa-anticipos`
+(`ReporteComparativaAnticipos`, `<ReporteShell>` de ADR-0036; tarjeta en
+Facturación › Reportes junto a «Estados de facturas de anticipo»). Backend:
+`ComparativaAnticiposQuery` (`GET /api/v1/facturacion/reportes/comparativa-anticipos`
+con `sucursalId`, `clienteId`, `desde`, `hasta`, `corte`, `estado`).
+
+Forma de libro mayor: por cada factura de anticipo una fila **Anticipo**
+(cobrado base / IVA / total, aplicado acumulado, comprometido, saldo y estado)
+seguida de una fila por aplicación con la **factura final** (folio + UUID) y el
+**CFDI de egreso tipo 07** que amortiza el anticipo (NC de amortización: folio,
+UUID, fecha de timbrado, estado, base / IVA / total). Las vinculaciones M2 sin
+egreso timbrado se listan como **Vinculación sin egreso** en la columna
+«Comprometido». Totales calculados en backend: Σ cobrado − Σ aplicado = Σ saldo.
+Desde la fila del anticipo se abre su detalle (si el usuario tiene
+`facturacion.anticipos.leer`).
+
+Decisiones:
+
+- **Alcance:** Capa A de Cajas (12-cajas §9) sobre la **sucursal y canal de la
+  factura de anticipo**. La factura final y la NC de la cadena no se filtran
+  aparte: si el anticipo es visible, su cadena se muestra completa.
+- **Periodo:** `desde`/`hasta` filtran por **fecha de timbrado del anticipo**
+  (la pantalla envía el día completo en hora de México; por omisión, el mes en
+  curso). Se incluyen anticipos Timbrados, en cancelación y Cancelados.
+- **Fecha de corte:** el saldo se calcula con los egresos timbrados hasta el
+  corte (sin corte = hoy). Anticipos, vinculaciones y egresos posteriores al
+  corte no se listan. Solo sin corte se compara el saldo calculado contra el
+  `Anticipo.Saldo` persistido; si difieren, la observación dice «Saldo en
+  sistema $X».
+- **Egreso cancelado:** se muestra con estado «Cancelado» y **no resta saldo**;
+  un egreso en cancelación pendiente sigue restando. La restitución del saldo
+  en el agregado `Anticipo` al cancelar la NC es un bug conocido **fuera de
+  alcance** (ficha aparte); mientras exista, esa diferencia aparece como «Saldo
+  en sistema».
+- **Estado derivado:** Cancelado (anticipo o su CFDI cancelados) · Pendiente
+  (sin aplicaciones vigentes) · Parcial · Aplicado (saldo ≤ 0). El filtro de
+  estado se evalúa sobre la fila del anticipo y arrastra sus aplicaciones.
+- **Cuadre contable:** el saldo del reporte debe cuadrar con la cuenta 206
+  (anticipos de clientes); la verificación será posible cuando C1.5 (pólizas de
+  Facturación) esté integrada.
 
 ---
 
@@ -271,3 +315,4 @@ faltante de `VEN-000003`).
 |---|---|---|
 | 1.0 | 2026-07-12 | Adenda inicial: bandeja/detalle de facturas de anticipo, descargas XML/PDF genéricas (anticipo+NC), acciones de ciclo de vida en el detalle, trazabilidad transversal (tipos 5–10) y fix 13-J (relación 07 faltante con CFDI de anticipo no timbrado). |
 | 1.1 | 2026-07-13 | Decisión 13-K: saldo por cobrar neto de NC (REPP, cobro mostrador, cobrables, detalle) + PR4/PR5. |
+| 1.2 | 2026-10-19 | F6.2: comparativa de anticipos vs aplicaciones y relación CFDI (§5, §6.4). |

@@ -68,8 +68,10 @@ export function TimbradoFallidoBanner({
     // Key FRESCA por clic: reintentar timbrado debe volver a pegarle al PAC.
     // Una key estable devolvería la respuesta (fallida) cacheada del primer
     // intento y el PAC nunca se re-llamaría. La no-duplicación ante el SAT la
-    // garantiza el backend (estado del comprobante + confirmarNoDuplicado en
-    // fallos ambiguos), no la idempotency-key.
+    // garantiza el backend, no la idempotency-key: guarda el estado «en
+    // proceso» ANTES de llamar al PAC (un reintento concurrente recibe
+    // REINTENTO_EN_CURSO o COMPROBANTE_NO_REINTENTABLE sin timbrar) y exige
+    // confirmarNoDuplicado en fallos ambiguos.
     reintentar.mutate(
       {
         id: comprobanteId,

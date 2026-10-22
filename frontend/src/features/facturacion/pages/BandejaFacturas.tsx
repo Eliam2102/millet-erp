@@ -21,6 +21,8 @@ import {
 import { EstadoTimbrado } from '@/features/facturacion/api/types';
 import { useListarFacturas } from '@/features/facturacion/api/useFacturas';
 import { BadgeSinAsignar } from '@/features/facturacion/components/BadgeSinAsignar';
+import { ClasePedidoBadge } from '@/features/facturacion/components/ClasePedidoBadge';
+import { FiltroClasePedido } from '@/features/facturacion/components/FiltroClasePedido';
 import { EstadoFacturacionBadge } from '@/features/facturacion/components/EstadoFacturacionBadge';
 import type { FacturasSearch } from '@/features/facturacion/lib/facturas-search-schema';
 import { esApiError } from '@/lib/api';
@@ -46,6 +48,7 @@ export function BandejaFacturas() {
 
   const query = useListarFacturas({
     estado: search.estado,
+    clase: search.clase,
     limit: 200,
     alcance: search.alcance,
   });
@@ -110,8 +113,15 @@ export function BandejaFacturas() {
             }
             filtros={
               <>
-                {search.estado != null && (
-                  <Button variant="ghost" onClick={() => actualizarSearch({ estado: undefined })}>
+                <FiltroClasePedido
+                  value={search.clase}
+                  onChange={(clase) => actualizarSearch({ clase })}
+                />
+                {(search.estado != null || search.clase != null) && (
+                  <Button
+                    variant="ghost"
+                    onClick={() => actualizarSearch({ estado: undefined, clase: undefined })}
+                  >
                     Limpiar
                   </Button>
                 )}
@@ -160,7 +170,7 @@ export function BandejaFacturas() {
           <EmptyState
             title="Sin facturas"
             description={
-              search.estado != null || q.length > 0
+              search.estado != null || search.clase != null || q.length > 0
                 ? 'No hay facturas que coincidan con los filtros.'
                 : 'Aún no hay facturas emitidas. Emite una con "Nueva factura".'
             }
@@ -181,7 +191,10 @@ export function BandejaFacturas() {
               <TableBody>
                 {paginacion.visibles.map((f) => (
                   <TableRow key={f.id} className="border-t hover:bg-surface-muted/30 border-line">
-                    <TableCell className="px-3 py-2 font-mono text-xs">{f.folio}</TableCell>
+                    <TableCell className="px-3 py-2">
+                      <div className="font-mono text-xs">{f.folio}</div>
+                      <ClasePedidoBadge clasificacion={f} className="mt-1" />
+                    </TableCell>
                     <TableCell className="px-3 py-2">
                       <div>{f.receptorNombre}</div>
                       <div className="font-mono text-xs text-ink-muted">{f.receptorRfc}</div>

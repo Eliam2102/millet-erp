@@ -32,8 +32,8 @@ namespace Millet.Facturacion.Infrastructure.Persistence.Migrations
 
                     b.Property<string>("ActivoRef")
                         .IsRequired()
-                        .HasMaxLength(50)
-                        .HasColumnType("character varying(50)")
+                        .HasMaxLength(60)
+                        .HasColumnType("character varying(60)")
                         .HasColumnName("activo_ref");
 
                     b.Property<Guid>("AutorizadoPor")
@@ -2449,6 +2449,10 @@ namespace Millet.Facturacion.Infrastructure.Persistence.Migrations
                         .HasColumnType("uuid")
                         .HasColumnName("capturado_por");
 
+                    b.Property<short?>("ClaseManual")
+                        .HasColumnType("smallint")
+                        .HasColumnName("clase_manual");
+
                     b.Property<Guid>("ClienteId")
                         .HasColumnType("uuid")
                         .HasColumnName("cliente_id");
@@ -2503,6 +2507,11 @@ namespace Millet.Facturacion.Infrastructure.Persistence.Migrations
                         .HasColumnType("character varying(3)")
                         .HasColumnName("moneda");
 
+                    b.Property<string>("MotivoEmergencia")
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)")
+                        .HasColumnName("motivo_emergencia");
+
                     b.Property<string>("NumeroPedido")
                         .HasMaxLength(50)
                         .HasColumnType("character varying(50)")
@@ -2525,6 +2534,15 @@ namespace Millet.Facturacion.Infrastructure.Persistence.Migrations
                         .HasPrecision(18, 2)
                         .HasColumnType("numeric(18,2)")
                         .HasColumnName("ranura");
+
+                    b.Property<string>("ReferenciaPedidoAw")
+                        .HasMaxLength(50)
+                        .HasColumnType("character varying(50)")
+                        .HasColumnName("referencia_pedido_aw");
+
+                    b.Property<short?>("SubtipoVentaDirecta")
+                        .HasColumnType("smallint")
+                        .HasColumnName("subtipo_venta_directa");
 
                     b.Property<Guid>("SucursalId")
                         .HasColumnType("uuid")
@@ -2566,7 +2584,14 @@ namespace Millet.Facturacion.Infrastructure.Persistence.Migrations
                         .HasDatabaseName("ix_pedido_facturable_origen_numero")
                         .HasFilter("numero_pedido IS NOT NULL");
 
-                    b.ToTable("pedido_facturable", "facturacion");
+                    b.ToTable("pedido_facturable", "facturacion", t =>
+                        {
+                            t.HasCheckConstraint("ck_pedido_clase_solo_manual", "clase_manual IS NULL OR origen = 3");
+
+                            t.HasCheckConstraint("ck_pedido_emergencia", "clase_manual <> 2 OR (motivo_emergencia IS NOT NULL AND subtipo_venta_directa IS NULL)");
+
+                            t.HasCheckConstraint("ck_pedido_vd_subtipo", "clase_manual <> 1 OR subtipo_venta_directa IS NOT NULL");
+                        });
                 });
 
             modelBuilder.Entity("Millet.Facturacion.Domain.Pedidos.PedidoFacturableLinea", b =>

@@ -12,6 +12,27 @@ import { PermisosCanonicos } from '@/lib/auth/permission-codes';
  * vuelve redundante y se borra.</para>
  */
 const CODIGOS_BACKEND_ESPERADOS = new Set<string>([
+  'activos_fijos.depreciacion.correr',
+  'activos_fijos.depreciacion.anular',
+  'activos_fijos.bajas.registrar',
+  'activos_fijos.bajas.autorizar',
+  'activos_fijos.ajustes.registrar',
+  'activos_fijos.ajustes.autorizar',
+  'activos_fijos.carga.ejecutar',
+  'activos_fijos.conciliacion.ver',
+  'activos_fijos.documentos.gestionar',
+  'activos_fijos.mantenimientos.gestionar',
+  'activos_fijos.etiquetas.imprimir',
+  'activos_fijos.conteos.gestionar',
+  'activos_fijos.conteos.autorizar',
+  'activos_fijos.clases.administrar',
+  'activos_fijos.activos.ver',
+  'activos_fijos.activos.gestionar',
+  'activos_fijos.capitalizar',
+  'activos_fijos.traslados.gestionar',
+  'activos_fijos.activos.leer-todas-sucursales',
+  'activos_fijos.activos.gestionar-todas-sucursales',
+
   // Infra
   'infra.health.leer',
   'infra.audit_log.leer',
@@ -62,6 +83,7 @@ const CODIGOS_BACKEND_ESPERADOS = new Set<string>([
   'compras.ordenes.cancelar-doble',
   'compras.ordenes.reportes-partidas-abiertas',
   'compras.ordenes.registrar-respuesta-proveedor',
+  'compras.ordenes.registrar-incidencia-proveedor',
   // Compras — Configuración (PR-A 2026-05-13, setting AutoGenerarOcAlAutorizar).
   'compras.configuracion.leer',
   'compras.configuracion.editar',
@@ -247,6 +269,7 @@ const CODIGOS_BACKEND_ESPERADOS = new Set<string>([
   'facturacion.pedidos.importar',
   'facturacion.pedidos.capturar',
   'facturacion.pedidos.excepciones-resolver',
+  'facturacion.pedidos.capturar-emergencia',
   'facturacion.facturas.emitir',
   'facturacion.facturas.leer',
   'facturacion.facturas.editar-receptor',
@@ -311,6 +334,7 @@ const CODIGOS_BACKEND_ESPERADOS = new Set<string>([
   'comercio_exterior.expedientes.leer',
   'comercio_exterior.expedientes.contenedores-gestionar',
   'comercio_exterior.relacion-iva.leer',
+  'comercio_exterior.incidencias.gestionar',
   'comercio_exterior.expedientes.crear',
   'comercio_exterior.expedientes.editar',
   'comercio_exterior.expedientes.cancelar',
@@ -322,7 +346,9 @@ const CODIGOS_BACKEND_ESPERADOS = new Set<string>([
   'comercio_exterior.expedientes.adjuntos-baja',
   'comercio_exterior.documentos.leer-todas-sucursales',
   'comercio_exterior.documentos.gestionar-todas-sucursales',
-
+  'comercio_exterior.gastos.registrar',
+  'comercio_exterior.gastos.distribuir',
+  'comercio_exterior.anticipos.gestionar',
 ]);
 
 describe('PermisosCanonicos — coincidencia con backend', () => {
@@ -340,17 +366,17 @@ describe('PermisosCanonicos — coincidencia con backend', () => {
     }
   });
 
-  it('el módulo Compras aporta exactamente 30 permisos (13 de RQ + 1 de aprobadores + 11 de OC + 2 de cotizaciones + 2 de configuración + 1 de catálogos.leer)', () => {
+  it('el módulo Compras aporta exactamente 31 permisos (13 de RQ + 1 de aprobadores + 12 de OC + 2 de cotizaciones + 2 de configuración + 1 de catálogos.leer)', () => {
     const delModulo = codigos.filter(
       (c) => c.startsWith('compras.') || c === 'compartido.catalogos.leer',
     );
-    expect(delModulo).toHaveLength(30);
+    expect(delModulo).toHaveLength(31);
   });
 
-  it('formato modulo.recurso.accion (entre 3 y 4 segmentos)', () => {
+  it('formato canónico, con capitalizar de P3 como excepción explícita', () => {
     for (const code of codigos) {
       const segmentos = code.split('.');
-      expect(segmentos.length).toBeGreaterThanOrEqual(3);
+      expect(segmentos.length).toBeGreaterThanOrEqual(code === 'activos_fijos.capitalizar' ? 2 : 3);
       expect(segmentos.length).toBeLessThanOrEqual(4);
       // Sin mayúsculas (todo lowercase + guiones internos).
       expect(code).toBe(code.toLowerCase());

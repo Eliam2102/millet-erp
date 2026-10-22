@@ -106,6 +106,42 @@ export const ComportamientoFiscal = {
 export type ComportamientoFiscal =
   (typeof ComportamientoFiscal)[keyof typeof ComportamientoFiscal];
 
+/**
+ * Clase de un pedido manual (F6.1). Mirror de backend <c>ClasePedidoManual</c>:
+ * los commands la mandan numérica; las lecturas la devuelven como nombre
+ * (<c>"VentaDirecta"</c> / <c>"Emergencia"</c>). Ambas se facturan con la
+ * serie de Venta directa de la sucursal y no se informan a A+W.
+ */
+export const ClasePedidoManual = {
+  VentaDirecta: 1,
+  Emergencia: 2,
+} as const satisfies Record<string, number>;
+export type ClasePedidoManual =
+  (typeof ClasePedidoManual)[keyof typeof ClasePedidoManual];
+/** Nombre de la clase tal como llega en las lecturas (`.ToString()`). */
+export type ClasePedidoManualNombre = keyof typeof ClasePedidoManual;
+
+/** Subtipo de una venta directa (F6.1). Mirror de backend <c>SubtipoVentaDirecta</c>. */
+export const SubtipoVentaDirecta = {
+  Activo: 1,
+  Almacenable: 2,
+  Servicio: 3,
+} as const satisfies Record<string, number>;
+export type SubtipoVentaDirecta =
+  (typeof SubtipoVentaDirecta)[keyof typeof SubtipoVentaDirecta];
+export type SubtipoVentaDirectaNombre = keyof typeof SubtipoVentaDirecta;
+
+/**
+ * Campos de clasificación que exponen las lecturas de pedidos y facturas
+ * (F6.1). <c>null</c> fuera de pedidos manuales o en pedidos manuales
+ * legacy sin clasificar. Opcionales para tolerar respuestas previas.
+ */
+export interface ClasificacionPedidoLectura {
+  claseManual?: ClasePedidoManualNombre | null;
+  subtipoVentaDirecta?: SubtipoVentaDirectaNombre | null;
+  esEmergencia?: boolean;
+}
+
 /** Tipo de anticipo (serie FANT). Mirror de backend <c>TipoAnticipo</c>. */
 export const TipoAnticipo = {
   ClientesMxp: 1,
@@ -130,6 +166,20 @@ export const EstadoAnticipo = {
 } as const satisfies Record<string, number>;
 export type EstadoAnticipo =
   (typeof EstadoAnticipo)[keyof typeof EstadoAnticipo];
+
+/**
+ * Estado derivado en la comparativa de anticipos vs aplicaciones (F6.2):
+ * enum <c>EstadoComparativaAnticipo</c> del backend. No es el estado
+ * persistido del anticipo, sino el saldo a la fecha de corte.
+ */
+export const EstadoComparativaAnticipo = {
+  Pendiente: 1,
+  Parcial: 2,
+  Aplicado: 3,
+  Cancelado: 4,
+} as const satisfies Record<string, number>;
+export type EstadoComparativaAnticipo =
+  (typeof EstadoComparativaAnticipo)[keyof typeof EstadoComparativaAnticipo];
 
 /**
  * Item del lookup de canales de venta (FAC-ING-PR3). Eje organizacional
@@ -180,13 +230,16 @@ export interface BandejaScoped<TItem> {
  * <c>origen</c> llegan como string (el backend serializa el enum con
  * <c>.ToString()</c>: "Importado", "Aw", "Manual", …).
  */
-export interface PedidoBandejaItem {
+export interface PedidoBandejaItem extends ClasificacionPedidoLectura {
   id: string;
   numeroPedido: string | null;
   origen: string;
   estado: string;
   clienteNombre: string;
+  /** Subtotal sin impuestos. */
   total: number;
+  /** 86e3tfd7j: subtotal + IVA por línea; null si alguna línea no tiene tasa. */
+  totalConIva?: number | null;
   moneda: string;
   createdAt: string;
 }
@@ -210,8 +263,11 @@ export interface EmitirAnticipoCommand {
   moneda: string;
   tipoCambio: number | null;
   tipoAnticipo: number;
+  /** 0 cuando se captura `total` (86e3tfd7j: excluyentes). */
   montoBase: number;
   tasaIvaTraslado: number | null;
+  /** 86e3tfd7j: total con IVA; el backend desglosa subtotal e IVA. */
+  total?: number | null;
   descripcion: string | null;
   pedidoFacturableId: string | null;
   pedidoOrigenRef: string | null;
@@ -775,7 +831,12 @@ export interface PedidoClienteFiscal {
  * canal desactivado sigue mostrando su nombre). `version` se usa como
  * `If-Match` al editar.
  */
-export interface PedidoFacturableDetalleResponse {
+export interface PedidoFacturableDetalleResponse
+  extends ClasificacionPedidoLectura {
+  /** F6.1: motivo de la captura de emergencia (solo clase Emergencia). */
+  motivoEmergencia?: string | null;
+  /** F6.1: pedido A+W para conciliar después (opcional, emergencia). */
+  referenciaPedidoAw?: string | null;
   embarqueCe?: import('@/features/comercio-exterior/api/types').EmbarqueCe | null;
   id: string;
   numeroPedido: string | null;
@@ -1038,7 +1099,7 @@ export interface EmitirFacturaVentaCce {
 }
 
 /** Item de la bandeja de comprobantes emitidos. */
-export interface FacturaBandejaItem {
+export interface FacturaBandejaItem extends ClasificacionPedidoLectura {
   id: string;
   folio: string;
   estado: string;

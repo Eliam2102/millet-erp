@@ -1,3 +1,4 @@
+import { LineaActivoFields } from '@/features/activos-fijos/components/LineaActivoFields';
 import { FormCampo } from '@/components/erp/forms/FormGrid';
 import { FormGrid } from '@/components/erp/forms/FormGrid';
 /* eslint-disable react-hooks/incompatible-library -- react-hook-form watch alimenta validación dinámica; React Compiler omite su memoización de forma segura. */
@@ -26,7 +27,7 @@ import { comprasKeys } from '@/features/compras/api/keys';
 import { crearLineaSchema, type LineaValues } from '@/features/compras/schemas/linea';
 import { useActualizarLinea, useAgregarLinea } from '@/features/compras/api/useLineas';
 
-import type { LineaResponse } from '@/features/compras/api/types';
+import type { Clasificacion, LineaResponse } from '@/features/compras/api/types';
 import { CentroCostoPicker } from '@/features/centros-costo/components/CentroCostoPicker';
 import { useCentroCostoCaptura } from '@/features/centros-costo/api/captura';
 import { centroCostoInicial } from '@/features/centros-costo/lib/captura';
@@ -69,6 +70,8 @@ export interface LineaInlineFormProps {
   /** Callback tras submit exitoso. Modo agregar: el form se resetea
    * para agregar otra; modo editar: el parent debe colapsar. */
   onSaved?: () => void;
+  /** Clasificación de la RQ: el selector sólo ofrece artículos de ese tipo. */
+  clasificacion?: Clasificacion;
 }
 
 const VALORES_INICIALES: LineaValues = {
@@ -103,7 +106,13 @@ function buildValuesFromLinea(linea: LineaResponse): LineaValues {
   } as LineaValues;
 }
 
-export function LineaInlineForm({ requisicionId, linea, onCancel, onSaved }: LineaInlineFormProps) {
+export function LineaInlineForm({
+  requisicionId,
+  linea,
+  onCancel,
+  onSaved,
+  clasificacion,
+}: LineaInlineFormProps) {
   const esEditar = linea != null;
   const agregar = useAgregarLinea();
   const actualizar = useActualizarLinea();
@@ -277,6 +286,7 @@ export function LineaInlineForm({ requisicionId, linea, onCancel, onSaved }: Lin
                 render={({ field }) => (
                   <ArticuloSelector
                     triggerProps={c}
+                    tipoRequisicion={clasificacion}
                     value={field.value || null}
                     onChange={(id) => field.onChange(id ?? '')}
                     onSelect={(articulo) => {
@@ -508,6 +518,17 @@ export function LineaInlineForm({ requisicionId, linea, onCancel, onSaved }: Lin
             </div>
           </FormCampo>
         </FormGrid>
+      )}
+      {!esEditar && (
+        <LineaActivoFields
+          error={form.formState.errors.claseActivoId?.message}
+          activo={form.watch('esActivoFijo') ?? false}
+          clase={form.watch('claseActivoId')}
+          onChange={(activo, clase) => {
+            form.setValue('esActivoFijo', activo, { shouldDirty: true });
+            form.setValue('claseActivoId', clase, { shouldDirty: true });
+          }}
+        />
       )}
     </form>
   );

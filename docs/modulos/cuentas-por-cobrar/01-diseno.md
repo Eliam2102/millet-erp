@@ -271,10 +271,37 @@ ETag; errores RFC 7807.
 | `/autorizaciones` | GET · POST · POST/{id}/cancelar |
 | `/cobranza` | GET?clienteId= · POST |
 | `/propuestas-aplicacion` | GET · POST · GET/{id} · POST/{id}/confirmar · POST/{id}/rechazar |
-| `/cartera` | GET /antiguedad · GET /estado-cuenta/{clienteId} · GET /saldo-neto/{clienteId} |
+| `/cartera` | GET /antiguedad · GET /estado-cuenta/{clienteId} · GET /estado-cuenta/{clienteId}/pendientes · GET /estado-cuenta/{clienteId}/envios · POST /estado-cuenta/{clienteId}/envios (multipart, C7.8) · GET /saldo-neto/{clienteId} |
 | `/anticipos` | GET?clienteId= (proxy a `IFacturacionAnticiposReadPort`) |
 | `/alertas` | GET · POST/{id}/atender |
 | `/credito-disponible/{clienteId}` | GET (con bandera `datoIncompleto`) |
+
+### 11.1 Estado de cuenta al cliente (F1-CXC-09 · C7.8)
+
+- **Bloqueo (CA7.14).** Una sola regla (`EstadoCuentaBloqueo`) para el reporte,
+  los pendientes y el envío: no se emite ni se envía mientras el cliente tenga
+  un pago confirmado en `ReppPendiente` (Facturación) en estado *Pendiente* o un
+  REP emitido cuyo `ReciboPagoId` aún no aparece como `OrigenComprobanteId` en
+  `movimiento_cartera`. Responde 422 `ESTADO_CUENTA_REPP_PENDIENTE`; el POST lo
+  recalcula en servidor y no registra nada.
+- **Pendientes.** `GET .../estado-cuenta/{clienteId}/pendientes` →
+  `{ emitible, pendientes[], recibosSinReflejar[], emailCliente }` (detalle vía
+  `IReppPendientesReadPort`, sin tocar tablas de Facturación). La pantalla lo
+  muestra en lugar del reporte con enlace a `/facturacion/repp/pendientes`.
+- **Envío.** `POST .../estado-cuenta/{clienteId}/envios` (multipart `pdf` +
+  `destinatario` + `mensaje`; Idempotency-Key; permiso
+  `cuentas_por_cobrar.cobranza.registrar`; alcance `cliente_cartera`). El PDF
+  lo genera el navegador con el exportador del reporte (ADR-0036); el backend
+  guarda en `estado_cuenta_envio` destinatario, usuario, fecha, totales por
+  moneda (jsonb), número de filas, SHA-256 y nombre del PDF, y el estado
+  *Registrado* / *Enviado* / *Fallido*. Un fallo del correo no revierte el
+  registro. `GET .../envios` devuelve el historial (permiso `cartera.leer`).
+- **Correo.** Puerto `IEstadoCuentaCorreoPort`: SMTP de captura en loopback
+  (Mailpit) solo en Development (`CuentasPorCobrar:EstadoCuentaCorreo:Proveedor=SandboxLocal`);
+  en los demás ambientes NoOp → queda *Registrado* (ver §13).
+- **Fuera de alcance:** NC sin proyectar en cartera (no bloquean), cobros de
+  mostrador que no pasan por `ReppPendiente`, y los totales del encabezado del
+  reporte que suman MXN y USD (el registro del envío sí los guarda por moneda).
 
 ---
 
@@ -295,6 +322,7 @@ patrones P1–P4 de `frontend/docs/patrones-compras.md`, reportes con
 | Contrato write-back de liberación en `MILLET_INTEGRACION` | `<CxcWriteBackLiberacion>` | Decisión persiste sin efecto en A+W | PR-9: worker consume `DecisionLiberacionEmitidaEvent` → tabla-puente |
 | Feed bancario de depósitos | `<DepositoBancarioFeed>` | Captura manual del depósito en la propuesta | Integración bancaria futura (fuera de alcance v1) |
 | Motor de notificaciones para `AlertaCarteraGeneradaEvent` | `<Notificaciones>` | Alerta visible solo en bandeja `/cxc/alertas` | Cuando exista el motor transversal |
+| Correo saliente del estado de cuenta al cliente (C7.8) | `<EnvioEstadoCuentaCliente>` | `NoOpEstadoCuentaCorreoAdapter` (el envío queda *Registrado*; el PDF se descarga). En Development, `SandboxLocalEstadoCuentaCorreoAdapter` → Mailpit | Adaptador de `IEstadoCuentaCorreoPort` sobre el motor de correo transversal (Graph/SMTP corporativo, ADR-0026) |
 
 ---
 
@@ -303,3 +331,4 @@ patrones P1–P4 de `frontend/docs/patrones-compras.md`, reportes con
 | Versión | Fecha | Cambio |
 |---|---|---|
 | v0.1 | 2026-07-13 | Borrador inicial derivado del levantamiento v0.2 |
+| v0.2 | 2026-10-20 | F1-CXC-09 · C7.8: envío del estado de cuenta, bloqueo por REP pendientes (§11.1) y PLATFORM-TODO `<EnvioEstadoCuentaCliente>` (§13) |

@@ -50,6 +50,11 @@ const GC = 2 * 60 * 60 * 1000; // 2 h
  * (mirror del query string del endpoint).
  */
 export interface ListarArticulosFiltros {
+  /**
+   * Búsqueda parcial en una sola caja: el backend la aplica a clave o nombre
+   * (insensible a acentos y mayúsculas). Se combina por AND con los demás.
+   */
+  q?: string;
   /** Substring contra <c>clave</c>; el backend hace <c>LIKE %q%</c>. */
   clave?: string;
   /**
@@ -61,6 +66,8 @@ export interface ListarArticulosFiltros {
    */
   nombre?: string;
   naturaleza?: Naturaleza;
+  /** Clasificación de la RQ (0–3): sólo artículos de ese tipo (86e3tfedd). */
+  tipoRequisicion?: number;
   estatus?: EstatusCatalogo;
   limit?: number;
   /** Si <c>true</c>, omite el filtro de estatus (trae activos +
@@ -325,6 +332,8 @@ function buildArticulosPath(filtros: ListarArticulosFiltros): string {
   }
   if (filtros.naturaleza != null)
     params.set('naturaleza', String(filtros.naturaleza));
+  if (filtros.tipoRequisicion != null)
+    params.set('tipoRequisicion', String(filtros.tipoRequisicion));
   // clave y nombre son excluyentes; clave tiene precedencia (igual que el
   // backend). Se hace trim y se OMITE el param si queda vacío/whitespace —
   // así "limpiar" una caja (queda "") no contamina la URL ni el filtro de
@@ -334,6 +343,8 @@ function buildArticulosPath(filtros: ListarArticulosFiltros): string {
   const nombreTrim = filtros.nombre?.trim();
   if (claveTrim) params.set('clave', claveTrim);
   else if (nombreTrim) params.set('nombre', nombreTrim);
+  const qTrim = filtros.q?.trim();
+  if (qTrim) params.set('q', qTrim);
   params.set('limit', String(filtros.limit ?? 50));
   return `/api/v1/catalogos/articulos?${params}`;
 }

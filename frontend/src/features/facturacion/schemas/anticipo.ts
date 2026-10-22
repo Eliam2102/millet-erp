@@ -5,7 +5,8 @@ import { TipoAnticipo } from '@/features/facturacion/api/types';
 /**
  * Schema del form "Nuevo anticipo" (FE-F4). El anticipo NO admite RFC
  * genérico (es nominal). Comparte los campos fiscales de la emisión
- * (receptor + emisor + pago) más tipo y monto base. El backend valida
+ * (receptor + emisor + pago) más tipo y total con IVA (86e3tfd7j: caja
+ * captura el total y el backend desglosa subtotal e IVA). El backend valida
  * FormaPago/UsoCfdi/RegimenFiscalEmisor/Moneda contra el catálogo SAT.
  */
 const tipoValues = Object.values(TipoAnticipo) as [number, ...number[]];
@@ -32,7 +33,7 @@ export const AnticipoSchema = z.object({
   tipoAnticipo: z
     .number()
     .refine((v) => tipoValues.includes(v), 'Selecciona el tipo de anticipo'),
-  montoBase: z.number().positive('El monto del anticipo debe ser mayor a 0'),
+  total: z.number().positive('El total del anticipo debe ser mayor a 0'),
   tasaIvaTraslado: z.number().min(0).max(1).nullable(),
   descripcion: z.string().max(1000).nullable(),
   obraNombre: z.string().max(254).nullable(),
@@ -52,3 +53,21 @@ export const AnticipoSchema = z.object({
 });
 
 export type AnticipoValues = z.infer<typeof AnticipoSchema>;
+
+/**
+ * Desglose del total con IVA en subtotal e IVA (vista previa; el backend
+ * calcula el definitivo con la misma regla): base = round(total / (1 + tasa))
+ * e IVA = total − base, así subtotal + IVA suman exacto al total capturado.
+ */
+export function desglosarTotalAnticipo(
+  total: number,
+  tasa: number | null | undefined,
+): { base: number; iva: number } {
+  const totalCentavos = Math.round((Number.isFinite(total) ? total : 0) * 100);
+  if (totalCentavos <= 0) return { base: 0, iva: 0 };
+  if (tasa == null || !Number.isFinite(tasa) || tasa <= 0) {
+    return { base: totalCentavos / 100, iva: 0 };
+  }
+  const baseCentavos = Math.round(totalCentavos / (1 + tasa));
+  return { base: baseCentavos / 100, iva: (totalCentavos - baseCentavos) / 100 };
+}

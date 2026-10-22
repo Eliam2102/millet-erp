@@ -262,7 +262,8 @@ public sealed class Requisicion : BaseEntity, IPerteneceAEmpresa, IAuditable, IF
         Guid? centroCostoId = null,
         string? proyecto = null,
         DateOnly? fechaRequerida = null,
-        string? notas = null)
+        string? notas = null,
+        bool esActivoFijo = false, Guid? claseActivoId = null)
     {
         if (Estado != EstadoRequisicion.Borrador)
         {
@@ -289,6 +290,7 @@ public sealed class Requisicion : BaseEntity, IPerteneceAEmpresa, IAuditable, IF
             fechaRequerida: fechaRequerida,
             notas: notas);
 
+        linea.ClasificarActivo(esActivoFijo, claseActivoId);
         _lineas.Add(linea);
         return linea;
     }

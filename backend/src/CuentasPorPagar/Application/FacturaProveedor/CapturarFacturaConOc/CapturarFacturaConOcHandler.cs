@@ -345,7 +345,9 @@ public sealed class CapturarFacturaConOcHandler : IRequestHandler<CapturarFactur
                 .OrderBy(l => l.Posicion)
                 .Select(l => new LineaFacturada(
                     l.Id, l.LineaOcId, l.Cantidad, l.Importe,
-                    CentroCostoId: oc.Lineas.FirstOrDefault(x => x.Id == l.LineaOcId)?.CentroCostoId))
+                    CentroCostoId: oc.Lineas.FirstOrDefault(x => x.Id == l.LineaOcId)?.CentroCostoId,
+                    ValorCapitalizable: l.Importe - (l.Descuento ?? 0) - (command.Subtotal == 0 ? 0 :
+                        (command.Descuentos - command.Lineas.Sum(x => x.Descuento ?? 0)) * l.Importe / command.Subtotal)))
                 .ToList();
             var cecos = lineasEvento.Select(l => l.CentroCostoId).Distinct().ToList();
 

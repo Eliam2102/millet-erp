@@ -188,4 +188,46 @@ public sealed class AnticipoAggregateTests
 
         act.Should().Throw<BusinessRuleException>().Where(e => e.Code == "ANTICIPO_RECEPTOR_GENERICO");
     }
+
+    // ---- 86e3tfd7j: desglose de un total capturado con IVA ----
+
+    [Theory]
+    [InlineData(1160, 0.16, 1000, 160)]
+    [InlineData(1000, 0.16, 862.07, 137.93)]
+    [InlineData(1000.03, 0.16, 862.09, 137.94)]
+    [InlineData(1000.10, 0.16, 862.16, 137.94)]
+    [InlineData(1000.25, 0.16, 862.28, 137.97)]
+    [InlineData(500, 0.08, 462.96, 37.04)]
+    public void DesglosarTotal_cuadra_al_centavo_dentro_de_la_tolerancia_SAT(
+        decimal total, decimal tasa, decimal baseEsperada, decimal ivaEsperado)
+    {
+        var (montoBase, iva) = FacturaAnticipo.DesglosarTotal(total, tasa);
+
+        montoBase.Should().Be(baseEsperada);
+        iva.Should().Be(ivaEsperado);
+        (montoBase + iva).Should().Be(total);
+        // Tolerancia SAT del importe trasladado: (base ± 0.005) × tasa.
+        iva.Should().BeInRange(
+            Math.Floor((montoBase - 0.005m) * tasa * 100m) / 100m,
+            Math.Ceiling((montoBase + 0.005m) * tasa * 100m) / 100m);
+    }
+
+    [Theory]
+    [InlineData(null)]
+    [InlineData(0.0)]
+    public void DesglosarTotal_sin_iva_la_base_es_el_total(double? tasa)
+    {
+        var (montoBase, iva) = FacturaAnticipo.DesglosarTotal(1160m, tasa is null ? null : (decimal)tasa);
+
+        montoBase.Should().Be(1160m);
+        iva.Should().Be(0m);
+    }
+
+    [Fact]
+    public void DesglosarTotal_rechaza_total_no_positivo()
+    {
+        var act = () => FacturaAnticipo.DesglosarTotal(0m, 0.16m);
+
+        act.Should().Throw<BusinessRuleException>().Which.Code.Should().Be("ANTICIPO_MONTO_INVALIDO");
+    }
 }

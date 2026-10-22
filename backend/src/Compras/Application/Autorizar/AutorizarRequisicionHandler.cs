@@ -268,7 +268,7 @@ public sealed class AutorizarRequisicionHandler : IRequestHandler<AutorizarRequi
 
             // Lo único propio de la autorización: apartar la existencia real.
             // Los servicios no tienen existencia que apartar.
-            if (apartar && !reparto.EsServicio)
+            if (apartar && !reparto.EsServicio && !linea.EsActivoFijo)
             {
                 var conversion = await _conversion.ConvertirAsync(linea.ArticuloId, linea.Cantidad, null, linea.UnidadMedida, cancellationToken);
                 cantidadDeAlmacen = await _apartadosTx.Apartados.ApartarAsync(requisicion.EmpresaId,

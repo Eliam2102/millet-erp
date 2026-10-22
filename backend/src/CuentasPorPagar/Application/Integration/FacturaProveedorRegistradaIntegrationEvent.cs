@@ -46,7 +46,7 @@ public sealed record LineaFacturadaPayload(
     Guid? LineaOcId,
     decimal Cantidad,
     decimal Importe,
-    Guid? CentroCostoId = null);
+    Guid? CentroCostoId = null, decimal? ValorCapitalizable = null);
 
 /// <summary>
 /// Retención del CFDI: <c>Impuesto</c> = código SAT (001 ISR, 002 IVA,

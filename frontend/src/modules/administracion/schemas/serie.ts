@@ -46,6 +46,7 @@ const tipoDocumentoSchema = z.union([
   z.literal(TipoDocumentoSerie.NotaCredito),
   z.literal(TipoDocumentoSerie.Poliza),
   z.literal(TipoDocumentoSerie.FacturaAnticipo),
+  z.literal(TipoDocumentoSerie.VentaDirecta),
 ]);
 
 export const CrearSerieSchema = z.object({
@@ -60,6 +61,16 @@ export const CrearSerieSchema = z.object({
     .max(10, 'Máximo 10 caracteres'),
   sufijo: sufijoOptional,
   reinicioPeriodo: reinicioPeriodoSchema,
+}).superRefine((v, ctx) => {
+  // F6.1: la serie de Venta directa se configura por sucursal (mirror de
+  // SERIE_VD_REQUIERE_SUCURSAL del backend; no hay serie global de respaldo).
+  if (v.tipoDocumento === TipoDocumentoSerie.VentaDirecta && v.sucursalId == null) {
+    ctx.addIssue({
+      code: 'custom',
+      path: ['sucursalId'],
+      message: 'La serie de Venta directa se configura por sucursal; elige la sucursal emisora.',
+    });
+  }
 });
 
 export type CrearSerieValues = z.infer<typeof CrearSerieSchema>;
