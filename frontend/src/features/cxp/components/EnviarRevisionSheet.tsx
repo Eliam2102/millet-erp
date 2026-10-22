@@ -37,6 +37,14 @@ import {
 } from '@/features/cxp/api/useRevision';
 import type { FacturaDetalle } from '@/features/cxp/api/types';
 
+const nombresAreas: Record<string, string> = {
+  COMPRAS: 'Compras',
+  ALMACEN: 'Almacén',
+  AREA_USUARIA: 'Área solicitante',
+  DIRECCION_F: 'Dirección de Finanzas',
+  CXP: 'Cuentas por pagar',
+};
+
 /** Envía la factura a un área activa del catálogo organizacional. */
 export interface EnviarRevisionSheetProps {
   open: boolean;
@@ -71,6 +79,11 @@ export function EnviarRevisionSheet({
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open, factura?.id]);
+
+  function nombreArea(codigo: string | null) {
+    if (!codigo) return 'Sin área definida';
+    return nombresAreas[codigo] ?? dependencias.data?.find(d => d.codigo === codigo)?.nombre ?? 'Sin área definida';
+  }
 
   function onSubmit(values: EnviarRevisionValues) {
     if (!factura) return;
@@ -134,7 +147,11 @@ export function EnviarRevisionSheet({
                     {motivos.data?.map((m) => (
                       <SelectItem key={m.id} value={m.id}>
                         {m.nombre}
-                        {m.slaDias != null && ` · SLA ${m.slaDias}d`}
+                        {m.slaDias != null && ` · ${m.slaDias} días hábiles`}
+                        <span className="block whitespace-normal text-xs text-ink-muted">
+                          Área responsable: {nombreArea(m.dependenciaRevisoraDefaultCodigo)}
+                          {m.areaAvisadaCodigo && ` · Avisar a: ${nombreArea(m.areaAvisadaCodigo)} si no se recibe a satisfacción`}
+                        </span>
                       </SelectItem>
                     ))}
                   </SelectContent>

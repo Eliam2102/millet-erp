@@ -34,7 +34,7 @@ public sealed class DanosRecepcionTests
     {
         f.Estado.Should().Be(EstadoPasivo.EnRevision);
         f.MotivoRevisionId.Should().Be(DetencionPorDanoService.MotivoDanosId);
-        f.DependenciaRevisoraId.Should().Be(DependenciasFake.AlmacenId);
+        f.DependenciaRevisoraId.Should().Be(DependenciasFake.ComprasId);
     }
 
     [Fact]

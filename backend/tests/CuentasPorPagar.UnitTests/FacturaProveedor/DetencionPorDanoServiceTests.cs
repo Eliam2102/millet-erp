@@ -22,8 +22,8 @@ public sealed class DetencionPorDanoServiceTests : IDisposable
 
     public void Dispose() => _db.Dispose();
 
-    private DetencionPorDanoService Servicio(bool conAlmacen = true) =>
-        new(_db, new AlmacenRevisionFake(), new DependenciasFake(conAlmacen), NullLogger<DetencionPorDanoService>.Instance);
+    private DetencionPorDanoService Servicio(bool conCompras = true) =>
+        new(_db, new AlmacenRevisionFake(), new DependenciasFake(conCompras), NullLogger<DetencionPorDanoService>.Instance);
 
     private static Domain.FacturaProveedor.FacturaProveedor Factura(Guid lineaOcId)
     {
@@ -44,7 +44,7 @@ public sealed class DetencionPorDanoServiceTests : IDisposable
     private static HashSet<Guid> Dano(Guid lineaOcId) => [lineaOcId];
 
     [Fact]
-    public async Task Linea_danada_de_la_misma_linea_de_OC_detiene_con_Danos_y_area_Almacen()
+    public async Task Linea_danada_de_la_misma_linea_de_OC_detiene_con_Danos_y_area_Compras()
     {
         var a = Guid.NewGuid();
         var f = Factura(a);
@@ -53,7 +53,7 @@ public sealed class DetencionPorDanoServiceTests : IDisposable
 
         f.Estado.Should().Be(EstadoPasivo.EnRevision);
         f.MotivoRevisionId.Should().Be(DetencionPorDanoService.MotivoDanosId);
-        f.DependenciaRevisoraId.Should().Be(DependenciasFake.AlmacenId);
+        f.DependenciaRevisoraId.Should().Be(DependenciasFake.ComprasId);
     }
 
     [Fact]
@@ -103,12 +103,12 @@ public sealed class DetencionPorDanoServiceTests : IDisposable
     }
 
     [Fact]
-    public async Task Sin_area_Almacen_asigna_CxP()
+    public async Task Sin_area_Compras_asigna_CxP()
     {
         var a = Guid.NewGuid();
         var f = Factura(a);
 
-        (await Servicio(conAlmacen: false).DetenerSiAplicaAsync(f, Dano(a), Ahora, default)).Should().BeTrue();
+        (await Servicio(conCompras: false).DetenerSiAplicaAsync(f, Dano(a), Ahora, default)).Should().BeTrue();
 
         f.DependenciaRevisoraId.Should().Be(CancelacionPasivoSolicitadaHandler.DependenciaCxpId);
     }

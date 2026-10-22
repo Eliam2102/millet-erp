@@ -27,6 +27,9 @@ public sealed class MotivoRevision : BaseEntity, IAuditable
     /// <summary>Código de la dependencia revisora que típicamente libera. Informativo.</summary>
     public string? DependenciaRevisoraDefaultCodigo { get; private set; }
 
+    /// <summary>Área a avisar si el área solicitante no está satisfecha; no sustituye a quien valida.</summary>
+    public string? AreaAvisadaCodigo { get; private set; }
+
     public bool Activo { get; private set; }
 
     private MotivoRevision() { }
@@ -38,7 +41,8 @@ public sealed class MotivoRevision : BaseEntity, IAuditable
         string? descripcion,
         int? slaDias,
         string? dependenciaRevisoraDefaultCodigo,
-        bool activo = true) : base(id)
+        bool activo = true,
+        string? areaAvisadaCodigo = null) : base(id)
     {
         Codigo = codigo;
         Nombre = nombre;
@@ -46,5 +50,6 @@ public sealed class MotivoRevision : BaseEntity, IAuditable
         SlaDias = slaDias;
         DependenciaRevisoraDefaultCodigo = dependenciaRevisoraDefaultCodigo;
         Activo = activo;
+        AreaAvisadaCodigo = areaAvisadaCodigo;
     }
 }

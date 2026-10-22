@@ -409,6 +409,7 @@ export interface MotivoRevision {
   descripcion: string | null;
   slaDias: number | null;
   dependenciaRevisoraDefaultCodigo: string | null;
+  areaAvisadaCodigo: string | null;
   activo: boolean;
 }
 

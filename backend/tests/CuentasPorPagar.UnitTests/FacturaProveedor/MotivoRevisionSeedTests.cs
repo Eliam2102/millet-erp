@@ -1,3 +1,8 @@
+using Microsoft.EntityFrameworkCore;
+using Millet.CuentasPorPagar.Application.Catalogos;
+using Millet.CuentasPorPagar.Infrastructure.Persistence;
+using Millet.CuentasPorPagar.UnitTests.P8;
+using Millet.SharedKernel.Application;
 using Millet.CuentasPorPagar.Infrastructure.Persistence.Configurations;
 
 namespace Millet.CuentasPorPagar.UnitTests.FacturaProveedor;
@@ -46,5 +51,42 @@ public sealed class MotivoRevisionSeedTests
     {
         var ids = MotivoRevisionConfiguration.SeedMotivos.Select(m => m.Id.ToString()).ToList();
         ids.Should().AllSatisfy(id => id.Should().StartWith("00000007-1001-0000-0000-"));
+    }
+
+    [Theory]
+    [InlineData("DISCREPANCIA_OC", "COMPRAS", null)]
+    [InlineData("DANOS_MERCANCIA", "COMPRAS", null)]
+    [InlineData("DIFERENCIA_PRECIO", "COMPRAS", null)]
+    [InlineData("DEVOLUCION_PENDIENTE", "COMPRAS", null)]
+    [InlineData("NO_CONFORMIDAD", "AREA_USUARIA", "COMPRAS")]
+    [InlineData("TIEMPO_RESPUESTA", "COMPRAS", null)]
+    [InlineData("CALIDAD_SERVICIO", "AREA_USUARIA", "COMPRAS")]
+    [InlineData("GARANTIA_ABIERTA", "COMPRAS", null)]
+    [InlineData("FALTA_REPP", "COMPRAS", null)]
+    [InlineData("DOCUMENTACION_FISCAL", "COMPRAS", null)]
+    [InlineData("DISPUTA_CONTRACTUAL", "DIRECCION_F", null)]
+    [InlineData("FIRMA_PENDIENTE", "DIRECCION_F", null)]
+    [InlineData("INDICACION_EXPRESA", "CXP", null)]
+    [InlineData("OTROS", "CXP", null)]
+    public async Task Catalogo_persistido_y_consulta_respetan_reparto_de_Laura(
+        string codigo, string responsable, string? avisada)
+    {
+        var options = new DbContextOptionsBuilder<CuentasPorPagarDbContext>()
+            .UseInMemoryDatabase(Guid.NewGuid().ToString()).Options;
+        await using var db = new CuentasPorPagarDbContext(
+            options, new BypassedEmpresaContext(), new PeriodoAbiertoStub(), new PeriodoAbiertoStub());
+        await db.Database.EnsureCreatedAsync();
+        var motivos = await new ListarMotivosRevisionHandler(db)
+            .Handle(new ListarMotivosRevisionQuery(), default);
+        var motivo = motivos.Single(m => m.Codigo == codigo);
+        motivo.DependenciaRevisoraDefaultCodigo.Should().Be(responsable);
+        motivo.AreaAvisadaCodigo.Should().Be(avisada);
+    }
+    private sealed class BypassedEmpresaContext : ICurrentEmpresaContext
+    {
+        public Guid? Current => null;
+        public bool IsBypassed => true;
+        public IDisposable Bypass() => new NoOpScope();
+        private sealed class NoOpScope : IDisposable { public void Dispose() { } }
     }
 }

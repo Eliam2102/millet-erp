@@ -1925,6 +1925,11 @@ namespace Millet.CuentasPorPagar.Infrastructure.Persistence.Migrations
                         .HasColumnType("boolean")
                         .HasColumnName("activo");
 
+                    b.Property<string>("AreaAvisadaCodigo")
+                        .HasMaxLength(40)
+                        .HasColumnType("character varying(40)")
+                        .HasColumnName("area_avisada_codigo");
+
                     b.Property<string>("Codigo")
                         .IsRequired()
                         .HasMaxLength(60)
@@ -2008,8 +2013,8 @@ namespace Millet.CuentasPorPagar.Infrastructure.Persistence.Migrations
                             Codigo = "DANOS_MERCANCIA",
                             CreatedAt = new DateTimeOffset(new DateTime(2026, 5, 22, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
                             CreatedBy = "seed",
-                            DependenciaRevisoraDefaultCodigo = "ALMACEN",
-                            Descripcion = "Recepción reporta daño físico vía OcRecepcionRegistradaEvent",
+                            DependenciaRevisoraDefaultCodigo = "COMPRAS",
+                            Descripcion = "Compras gestiona la nota de crédito por daño y la entrega a Cuentas por pagar",
                             Nombre = "Daños o defectos en mercancía",
                             SlaDias = 5,
                             UpdatedAt = new DateTimeOffset(new DateTime(2026, 5, 22, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
@@ -2038,8 +2043,8 @@ namespace Millet.CuentasPorPagar.Infrastructure.Persistence.Migrations
                             Codigo = "DEVOLUCION_PENDIENTE",
                             CreatedAt = new DateTimeOffset(new DateTime(2026, 5, 22, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
                             CreatedBy = "seed",
-                            DependenciaRevisoraDefaultCodigo = "ALMACEN",
-                            Descripcion = "Devolución a proveedor abierta sin liquidar (Almacén sub-flujo 8.B)",
+                            DependenciaRevisoraDefaultCodigo = "COMPRAS",
+                            Descripcion = "Compras gestiona la nota de crédito; Almacén registra la salida por devolución",
                             Nombre = "Devolución pendiente",
                             SlaDias = 5,
                             UpdatedAt = new DateTimeOffset(new DateTime(2026, 5, 22, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
@@ -2050,11 +2055,12 @@ namespace Millet.CuentasPorPagar.Infrastructure.Persistence.Migrations
                         {
                             Id = new Guid("00000007-1001-0000-0000-000000000005"),
                             Activo = true,
+                            AreaAvisadaCodigo = "COMPRAS",
                             Codigo = "NO_CONFORMIDAD",
                             CreatedAt = new DateTimeOffset(new DateTime(2026, 5, 22, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
                             CreatedBy = "seed",
                             DependenciaRevisoraDefaultCodigo = "AREA_USUARIA",
-                            Descripcion = "Servicio no cumple especificación",
+                            Descripcion = "El área solicitante valida; si no está satisfecha, avisa a Compras",
                             Nombre = "No conformidad con servicio o producto",
                             SlaDias = 5,
                             UpdatedAt = new DateTimeOffset(new DateTime(2026, 5, 22, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
@@ -2080,11 +2086,12 @@ namespace Millet.CuentasPorPagar.Infrastructure.Persistence.Migrations
                         {
                             Id = new Guid("00000007-1001-0000-0000-000000000007"),
                             Activo = true,
+                            AreaAvisadaCodigo = "COMPRAS",
                             Codigo = "CALIDAD_SERVICIO",
                             CreatedAt = new DateTimeOffset(new DateTime(2026, 5, 22, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
                             CreatedBy = "seed",
                             DependenciaRevisoraDefaultCodigo = "AREA_USUARIA",
-                            Descripcion = "Servicio recibido no satisfactorio",
+                            Descripcion = "El área solicitante valida la calidad; si no está satisfecha, avisa a Compras",
                             Nombre = "Calidad de servicio insuficiente",
                             SlaDias = 5,
                             UpdatedAt = new DateTimeOffset(new DateTime(2026, 5, 22, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
@@ -2113,8 +2120,8 @@ namespace Millet.CuentasPorPagar.Infrastructure.Persistence.Migrations
                             Codigo = "FALTA_REPP",
                             CreatedAt = new DateTimeOffset(new DateTime(2026, 5, 22, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
                             CreatedBy = "seed",
-                            DependenciaRevisoraDefaultCodigo = "CXP",
-                            Descripcion = "REPP no emitido pasados 5 días del pago",
+                            DependenciaRevisoraDefaultCodigo = "COMPRAS",
+                            Descripcion = "Compras solicita el complemento de pago al proveedor y lo envía a Tesorería",
                             Nombre = "Falta complemento de pago + 5 días",
                             SlaDias = 5,
                             UpdatedAt = new DateTimeOffset(new DateTime(2026, 5, 22, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
@@ -2128,8 +2135,8 @@ namespace Millet.CuentasPorPagar.Infrastructure.Persistence.Migrations
                             Codigo = "DOCUMENTACION_FISCAL",
                             CreatedAt = new DateTimeOffset(new DateTime(2026, 5, 22, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
                             CreatedBy = "seed",
-                            DependenciaRevisoraDefaultCodigo = "CXP",
-                            Descripcion = "CFDI con datos inválidos, RFC mal, fechas inconsistentes",
+                            DependenciaRevisoraDefaultCodigo = "COMPRAS",
+                            Descripcion = "Cuentas por pagar detecta datos fiscales incorrectos; Compras gestiona la corrección con el proveedor",
                             Nombre = "Documentación fiscal incompleta",
                             SlaDias = 5,
                             UpdatedAt = new DateTimeOffset(new DateTime(2026, 5, 22, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
