@@ -2,7 +2,9 @@ import { KpiCard } from '@/components/erp/display/KpiCard';
 import { useState } from 'react';
 import { Link, useNavigate } from '@tanstack/react-router';
 import { toast } from 'sonner';
+import { PaginacionTabla } from '@/components/erp/data/PaginacionTabla';
 import { Badge } from '@/components/ui/badge';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Button } from '@/components/ui/button';
 import {
   Table,
@@ -37,11 +39,13 @@ import {
   useIniciarCorridaAw,
 } from '@/modules/datos-maestros/api/sincronizacion-aw';
 import { EstadoCorridaBadge } from '@/modules/datos-maestros/components/EstadoCorridaBadge';
+import { usePaginacionLocal } from '@/modules/datos-maestros/lib/use-paginacion-local';
 
 /** Detalle de una corrida de clientes y productos (ADM-06): contadores, conflictos, reporte de diferencias. */
 export function CorridaAwDetalle({ id }: { id: string }) {
   const navigate = useNavigate();
   const puedeProductos = useHasPermission(PermisosCanonicos.DatosMaestrosProductosAwGestionar);
+  const puedeVerOrigen = useHasPermission(PermisosCanonicos.DatosMaestrosClientesOrigenVer);
   const ejecucion = useEjecucionSync(id);
   const origen = useAwOrigen(true);
   const clientes = useConflictosAw('clientes', 'Todos', true, id);
@@ -54,6 +58,10 @@ export function CorridaAwDetalle({ id }: { id: string }) {
   const fecha = fechaCorridaAw(e?.iniciadaEnUtc);
   const resumen = leerResumenProductos(e?.resumenProductos);
   const conflictos = [...(clientes.data ?? []), ...(productos.data ?? [])];
+  const paginaConflictos = usePaginacionLocal(conflictos, id);
+  // Coincidencia de RFC con un cliente del ERP es conflicto, no error: va en su pestaña.
+  const coincidencias = (e?.errores ?? []).filter((x) => x.codigo === 'conflicto_correlacion');
+  const erroresFila = (e?.errores ?? []).filter((x) => x.codigo !== 'conflicto_correlacion');
 
   function volverACorrer() {
     iniciar.mutate(undefined, {
@@ -150,23 +158,15 @@ export function CorridaAwDetalle({ id }: { id: string }) {
 
           <section aria-label="Clientes" className="space-y-2">
             <h2 className="text-lg font-semibold">Clientes</h2>
-            <div className="grid grid-cols-4 gap-3">
+            <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
               <KpiCard etiqueta="Leídos" valor={e.leidos} />
               <KpiCard etiqueta="Creados + Actualizados" valor={e.creados + e.actualizados} />
               <KpiCard etiqueta="Sin cambios" valor={e.sinCambios} />
               <KpiCard
                 etiqueta="Errores"
-                valor={e.erroresTruncados ? `${e.errores.length}+` : e.errores.length}
+                valor={e.erroresTruncados ? `${erroresFila.length}+` : erroresFila.length}
               />
             </div>
-            {e.errores.length > 0 && (
-              <ErroresEjecucionSync
-                errores={e.errores}
-                truncados={e.erroresTruncados}
-                reintentando={reintentar.isPending ? reintentar.variables?.referencia : null}
-                onReintentar={reintentarReferencia}
-              />
-            )}
           </section>
 
           <section aria-label="Productos" className="space-y-2">
@@ -178,7 +178,7 @@ export function CorridaAwDetalle({ id }: { id: string }) {
             ) : resumen == null ? (
               <p className="text-ink-muted">Sin resumen de productos para esta corrida.</p>
             ) : (
-              <div className="grid grid-cols-4 gap-3">
+              <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
                 <KpiCard etiqueta="Leídos" valor={resumen?.leidos} />
                 <KpiCard
                   etiqueta="Creados + Actualizados"
@@ -190,40 +190,87 @@ export function CorridaAwDetalle({ id }: { id: string }) {
             )}
           </section>
 
-          <section
-            aria-label="Conflictos de esta corrida"
+          <Tabs
+            key={id}
+            defaultValue={erroresFila.length > 0 ? 'errores' : 'conflictos'}
             className="rounded-lg bg-surface-card p-4 shadow-card-flat"
           >
-            <h2 className="text-lg font-semibold">Conflictos de esta corrida</h2>
-            {conflictos.length === 0 ? (
-              <p className="py-3 text-ink-muted">Esta corrida no dejó conflictos.</p>
-            ) : (
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Registro</TableHead>
-                    <TableHead>Tipo</TableHead>
-                    <TableHead>Causa</TableHead>
-                    <TableHead>Estado</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {conflictos.map((c) => (
-                    <TableRow key={c.id}>
-                      <TableCell className="font-mono">{c.referenciaExterna}</TableCell>
-                      <TableCell>
-                        <Badge variant={TIPO_CAMBIO_AW[c.tipo].variante}>
-                          {TIPO_CAMBIO_AW[c.tipo].texto}
-                        </Badge>
-                      </TableCell>
-                      <TableCell>{c.causa}</TableCell>
-                      <TableCell>{c.estado}</TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            )}
-          </section>
+            <TabsList aria-label="Errores y conflictos de la corrida">
+              <TabsTrigger value="errores">
+                Errores ({erroresFila.length}
+                {e.erroresTruncados ? '+' : ''})
+              </TabsTrigger>
+              <TabsTrigger value="conflictos">
+                Conflictos ({conflictos.length + coincidencias.length})
+              </TabsTrigger>
+            </TabsList>
+            <TabsContent value="errores" className="pt-3">
+              {erroresFila.length === 0 ? (
+                <p className="py-3 text-ink-muted">Esta corrida no dejó errores.</p>
+              ) : (
+                <ErroresEjecucionSync
+                  titulo="Errores por referencia"
+                  errores={erroresFila}
+                  truncados={e.erroresTruncados}
+                  reintentando={reintentar.isPending ? reintentar.variables?.referencia : null}
+                  onReintentar={reintentarReferencia}
+                  origen={puedeVerOrigen ? { fecha } : undefined}
+                />
+              )}
+            </TabsContent>
+            <TabsContent value="conflictos" className="space-y-4 pt-3">
+              {conflictos.length === 0 && coincidencias.length === 0 ? (
+                <p className="py-3 text-ink-muted">Esta corrida no dejó conflictos.</p>
+              ) : (
+                conflictos.length > 0 && (
+                  <div>
+                    <Table>
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead>Registro</TableHead>
+                          <TableHead>Tipo</TableHead>
+                          <TableHead>Causa</TableHead>
+                          <TableHead>Estado</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {paginaConflictos.visibles.map((c) => (
+                          <TableRow key={c.id}>
+                            <TableCell className="font-mono">{c.referenciaExterna}</TableCell>
+                            <TableCell>
+                              <Badge variant={TIPO_CAMBIO_AW[c.tipo].variante}>
+                                {TIPO_CAMBIO_AW[c.tipo].texto}
+                              </Badge>
+                            </TableCell>
+                            <TableCell>{c.causa}</TableCell>
+                            <TableCell>{c.estado}</TableCell>
+                          </TableRow>
+                        ))}
+                      </TableBody>
+                    </Table>
+                    {conflictos.length > 10 && (
+                      <PaginacionTabla
+                        total={conflictos.length}
+                        offset={paginaConflictos.offset}
+                        limit={10}
+                        tamanos={[]}
+                        onChange={paginaConflictos.onChange}
+                      />
+                    )}
+                  </div>
+                )
+              )}
+              {coincidencias.length > 0 && (
+                <ErroresEjecucionSync
+                  titulo="Coincidencias con clientes del ERP"
+                  errores={coincidencias}
+                  truncados={e.erroresTruncados}
+                  reintentando={reintentar.isPending ? reintentar.variables?.referencia : null}
+                  onReintentar={reintentarReferencia}
+                />
+              )}
+            </TabsContent>
+          </Tabs>
         </>
       )}
     </div>

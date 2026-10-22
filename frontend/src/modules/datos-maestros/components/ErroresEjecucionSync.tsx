@@ -1,6 +1,10 @@
-import { AlertTriangle, RefreshCw, XCircle } from 'lucide-react';
+import { useState } from 'react';
+import { AlertTriangle, ChevronDown, ChevronRight, RefreshCw, XCircle } from 'lucide-react';
+import { PaginacionTabla } from '@/components/erp/data/PaginacionTabla';
 import { Button } from '@/components/ui/button';
 import type { EjecucionSyncErrorItem } from '@/modules/datos-maestros/api/types';
+import { DetalleOrigenAw } from '@/modules/datos-maestros/components/DetalleOrigenAw';
+import { usePaginacionLocal } from '@/modules/datos-maestros/lib/use-paginacion-local';
 
 /**
  * Catálogo de los códigos por fila que emite el sincronizador de clientes A+W
@@ -46,6 +50,8 @@ export function ErroresEjecucionSync({
   reintentando,
   onReintentar,
   catalogo = CODIGOS,
+  origen,
+  titulo = 'Errores y conflictos por referencia',
 }: {
   errores: EjecucionSyncErrorItem[];
   truncados?: boolean;
@@ -54,19 +60,27 @@ export function ErroresEjecucionSync({
   onReintentar: (referencia: string) => void;
   /** Catálogo de causas del recurso; por defecto el de clientes. */
   catalogo?: CatalogoErroresSync;
+  /** Con permiso de ver origen: cada error (no conflicto) muestra cómo llegó de A+W. */
+  origen?: { fecha: string };
+  titulo?: string;
 }) {
+  const [abierto, setAbierto] = useState<string | null>(null);
+  const { offset, visibles, onChange } = usePaginacionLocal(errores);
   return (
-    <section aria-label="Errores y conflictos por referencia" className="space-y-2">
+    <section aria-label={titulo} className="space-y-2">
       <h4 className="text-xs text-ink-muted">
-        Errores y conflictos por referencia ({errores.length}
+        {titulo} ({errores.length}
         {truncados ? '+' : ''})
       </h4>
       <ul className="divide-y rounded-md border">
-        {errores.map((er, i) => {
+        {visibles.map((er, i) => {
           const c = catalogo[er.codigo];
+          const clave = `${er.referencia}-${er.codigo}`;
+          const conDetalle = origen != null && !c?.conflicto && er.codigo !== 'no_encontrada_en_origen';
+          const expandido = abierto === clave;
           const Icono = c?.conflicto ? AlertTriangle : XCircle;
           return (
-            <li key={`${er.referencia}-${i}`} className="flex gap-3 p-3 text-sm">
+            <li key={`${er.referencia}-${offset + i}`} className="flex gap-3 p-3 text-sm">
               <Icono
                 aria-hidden
                 className={
@@ -85,6 +99,27 @@ export function ErroresEjecucionSync({
                 <p className="break-words text-ink-muted">{er.mensaje}</p>
                 {c != null && <p className="text-xs">{c.accion}</p>}
                 <p className="font-mono text-2xs text-ink-muted">{er.codigo}</p>
+                {conDetalle && (
+                  <button
+                    type="button"
+                    className="inline-flex items-center gap-1 text-xs text-brand underline-offset-2 hover:underline"
+                    aria-expanded={expandido}
+                    aria-controls={`origen-${clave}`}
+                    onClick={() => setAbierto(expandido ? null : clave)}
+                  >
+                    {expandido ? (
+                      <ChevronDown aria-hidden className="h-3.5 w-3.5" />
+                    ) : (
+                      <ChevronRight aria-hidden className="h-3.5 w-3.5" />
+                    )}
+                    {expandido ? 'Ocultar cómo llegó de A+W' : 'Ver cómo llegó de A+W y qué falta'}
+                  </button>
+                )}
+                {conDetalle && expandido && (
+                  <div id={`origen-${clave}`}>
+                    <DetalleOrigenAw referencia={er.referencia} fecha={origen.fecha} />
+                  </div>
+                )}
               </div>
               <Button
                 type="button"
@@ -104,6 +139,9 @@ export function ErroresEjecucionSync({
           );
         })}
       </ul>
+      {errores.length > 10 && (
+        <PaginacionTabla total={errores.length} offset={offset} limit={10} tamanos={[]} onChange={onChange} />
+      )}
       {truncados && (
         <p className="text-xs text-ink-muted">
           Se muestran solo los primeros errores de la ejecución.

@@ -55,7 +55,10 @@ public sealed class AwClientesOrigenTests
     {
         var r = Mapear(Fila(name1: name1));
         r.EsValido.Should().BeFalse();
-        r.Error.Should().NotBeNullOrWhiteSpace();
+        r.Error.Should().StartWith("NAME1 vacío");
+        AwClienteSnapshotMapper.Faltantes(Fila(name1: name1)).Should().ContainSingle()
+            .Which.Campo.Should().Be("NAME1");
+        AwClienteSnapshotMapper.Faltantes(Fila()).Should().BeEmpty();
     }
 
     [Fact]

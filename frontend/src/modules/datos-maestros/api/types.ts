@@ -372,6 +372,13 @@ export type EstadoEjecucionSync =
   | 'Fallida'
   | 'Cancelada';
 
+/** GET …/clientes/sincronizacion/origen/{referencia}: cómo llegó de A+W y qué le falta. */
+export interface ClienteAwOrigenDetalle {
+  referencia: string;
+  campos: { campo: string; etiqueta: string; valor: string | null }[];
+  faltantes: { campo: string; etiqueta: string; regla: string; comoDebeQuedar: string }[];
+}
+
 export interface EjecucionSyncErrorItem {
   referencia: string;
   codigo: string;

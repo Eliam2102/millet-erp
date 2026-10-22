@@ -26,6 +26,12 @@ public sealed record EjecucionSincronizacionError(
 public sealed record EjecucionSincronizacionDetalle(
     EjecucionSincronizacionResumen Ejecucion, IReadOnlyList<EjecucionSincronizacionError> Errores, bool ErroresTruncados);
 
+public sealed record ClienteAwOrigenCampo(string Campo, string Etiqueta, string? Valor);
+
+/// <summary>Cómo llegó una referencia de A+W y qué le falta para importarse.</summary>
+public sealed record ClienteAwOrigenDetalle(
+    string Referencia, IReadOnlyList<ClienteAwOrigenCampo> Campos, IReadOnlyList<AwCampoFaltante> Faltantes);
+
 public sealed record ListarEjecucionesSincronizacionResponse(
     IReadOnlyList<EjecucionSincronizacionResumen> Items, int Total, int Offset, int Limit);
 
@@ -114,6 +120,32 @@ public static class ClientesSincronizacionEndpoints
         .ProducesProblem(StatusCodes.Status401Unauthorized)
         .ProducesProblem(StatusCodes.Status403Forbidden)
         .ProducesProblem(StatusCodes.Status422UnprocessableEntity)
+        .ProducesProblem(StatusCodes.Status503ServiceUnavailable);
+
+        group.MapGet("/origen/{referencia}", async (string referencia, IAwClientesOrigen origen, CancellationToken ct) =>
+        {
+            var f = await origen.LeerPorReferenciaAsync(referencia, ct)
+                ?? throw new EntityNotFoundException("AW_CLIENTE_NO_ENCONTRADO", "La referencia no existe en el origen A+W.");
+            ClienteAwOrigenCampo C(string campo, string etiqueta, object? v) =>
+                new(campo, etiqueta, v is null || (v is string t && string.IsNullOrWhiteSpace(t)) ? null : Convert.ToString(v, System.Globalization.CultureInfo.InvariantCulture)?.Trim());
+            return Results.Ok(new ClienteAwOrigenDetalle(f.Id.ToString(System.Globalization.CultureInfo.InvariantCulture),
+            [
+                C("NAME1", "Nombre o razón social", f.Name1), C("NAME2", "Nombre 2", f.Name2), C("NAME3", "Nombre 3", f.Name3),
+                C("UST_ID", "RFC", f.UstId), C("STRASSE", "Calle", f.Strasse), C("ORT", "Ciudad", f.Ort),
+                C("PLZ", "Código postal", f.Plz), C("PROVINZ", "Estado", f.Provinz), C("LAND", "País", f.Land),
+                C("WAEHRUNG", "Moneda", f.Waehrung), C("ZAHLBED", "Condición de pago", f.Zahlbed),
+                C("KZ_GESPERRT", "Bloqueado en A+W", f.KzGesperrt is null ? null : f.KzGesperrt == 0 ? "No" : "Sí"),
+                C("DATUM", "Fecha de alta", f.Datum?.ToString("yyyy-MM-dd", System.Globalization.CultureInfo.InvariantCulture)),
+            ],
+            AwClienteSnapshotMapper.Faltantes(f)));
+        })
+        .RequireAuthorization(policy, PermissionPolicyProvider.Prefix + PermisosCanonicos.DatosMaestrosClientesOrigenVer)
+        .WithName("ObtenerOrigenClienteAw")
+        .WithSummary("Cómo llegó una referencia de A+W (lectura en vivo) y qué datos obligatorios le faltan")
+        .Produces<ClienteAwOrigenDetalle>(StatusCodes.Status200OK)
+        .ProducesProblem(StatusCodes.Status401Unauthorized)
+        .ProducesProblem(StatusCodes.Status403Forbidden)
+        .ProducesProblem(StatusCodes.Status404NotFound)
         .ProducesProblem(StatusCodes.Status503ServiceUnavailable);
 
         return app;

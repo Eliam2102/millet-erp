@@ -18,8 +18,18 @@ public sealed record AwClienteMapeoResultado(AplicarClienteAwSnapshot? Snapshot,
 /// <paramref name="mapeoMoneda"/> y cualquier otro valor (incluidos <c>&lt;indf&gt;</c> y vacío) se toma como MXN
 /// (regla de A+W hacia SAP: «USD y Euro se mapean a USD y EUR; cualquier otro valor se transmite como MXP»).
 /// </summary>
+/// <summary>Dato obligatorio que no llegó de A+W: campo de origen, qué es, regla y cómo debe quedar.</summary>
+public sealed record AwCampoFaltante(string Campo, string Etiqueta, string Regla, string ComoDebeQuedar);
+
 public static class AwClienteSnapshotMapper
 {
+    /// <summary>Datos obligatorios de la fila; si falta alguno, la fila es inválida (error <c>fila_invalida</c>).</summary>
+    public static IReadOnlyList<AwCampoFaltante> Faltantes(AwClienteOrigenFila f) =>
+        Limpiar(f.Name1) is null
+            ? [new("NAME1", "Nombre o razón social", "Obligatorio, no puede ir vacío.",
+                "Razón social o nombre del cliente, igual que en su constancia de situación fiscal.")]
+            : [];
+
     public const string VersionContrato = "1";
     public const string VersionMapeo = "0-borrador";
     public const string MonedaPorOmision = "MXN";
@@ -32,8 +42,8 @@ public static class AwClienteSnapshotMapper
     {
         var referencia = f.Id.ToString(CultureInfo.InvariantCulture);
         var razonSocial = Limpiar(f.Name1);
-        if (razonSocial is null)
-            return new(null, $"NAME1 vacío (referencia {referencia}).");
+        if (razonSocial is null || Faltantes(f) is [_, ..])
+            return new(null, $"{Faltantes(f)[0].Campo} vacío (referencia {referencia}).");
 
         var unica = f.CondicionCoincidencias.Count == 1 ? f.CondicionCoincidencias[0] : null;
 
