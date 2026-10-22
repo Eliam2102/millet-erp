@@ -495,6 +495,8 @@ export interface LineaResponse {
   cantSaldoPorComprar?: number;
   /** Apartado liberado que ya no se pide ni se compra (86e3tferc). */
   cantSinCompra?: number;
+  esActivoFijo?: boolean;
+  claseActivoId?: string | null;
 }
 
 /** Mirror de <c>AutorizacionResponse</c>. */

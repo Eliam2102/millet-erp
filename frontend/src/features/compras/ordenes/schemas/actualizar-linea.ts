@@ -52,6 +52,8 @@ export const ActualizarLineaSchema = z
       .regex(/^\d{8}(\d{2})?$/, 'La fracción arancelaria debe tener 8 o 10 dígitos.')
       .nullish(),
     limpiarFraccionArancelaria: z.boolean().nullish(),
+    esActivoFijo: z.boolean().nullish(),
+    claseActivoId: z.string().nullish(),
   })
   .superRefine((data, ctx) => {
     if (

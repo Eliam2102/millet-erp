@@ -48,6 +48,7 @@ import {
 import { useHasPermission } from '@/lib/auth/useHasPermission';
 import { PermisosCanonicos } from '@/lib/auth/permission-codes';
 import { esApiError } from '@/lib/api';
+import { ActivosRecibidosOc } from '@/features/almacen/components/ActivosRecibidosOc';
 import { NuevaRecepcionSheet } from '@/features/almacen/components/NuevaRecepcionSheet';
 import type { RecepcionesSearch } from '@/features/almacen/lib/recepciones-search-schema';
 import { Field } from '@/features/almacen/components/internal/Field';
@@ -151,6 +152,7 @@ export function RecepcionesPage() {
           </Button>
         ))}
       </div>
+      {search.ordenCompraId && <ActivosRecibidosOc ordenCompraId={search.ordenCompraId} />}
       <ListadoModulo
         tabs={
           <TabsEstado
