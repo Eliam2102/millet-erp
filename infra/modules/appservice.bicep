@@ -147,6 +147,12 @@ https://test.fiscalapi.com en la ConfiguracionPac); prod usará su propio
 tenant en su propio KV.''')
 param integracionesFiscalSdkDisabled bool = true
 
+@description('Enciende el AwDocumentSyncWorker (PDF de A+W → ERP). Default true; apagar en ambientes sin servicio A+W alcanzable (cada ciclo fallido tarda ~5 min por el timeout de 180 s).')
+param awDocumentSyncHabilitado bool = true
+
+@description('Enciende el AwLateReconciliationWorker (rescate de cotizaciones FailedDrop). Default true; apagar en ambientes sin servicio A+W alcanzable.')
+param awLateReconciliationHabilitado bool = true
+
 // ============================================================================
 // Variables: app settings construidas dinámicamente
 // ============================================================================
@@ -210,6 +216,14 @@ var awIntegrationAppSettings = [
     // Gate del worker de ingesta de pedidos (flujo 2, ADR-0048).
     name: 'Facturacion__Workers__AwSolicitudes__EmpresaId'
     value: awSolicitudesEmpresaId
+  }
+  {
+    name: 'IntegracionesAw__DocumentSync__Habilitado'
+    value: string(awDocumentSyncHabilitado)
+  }
+  {
+    name: 'IntegracionesAw__LateReconciliation__Habilitado'
+    value: string(awLateReconciliationHabilitado)
   }
   {
     name: 'IntegracionesAw__Pedidos__SqlQueryTimeoutSeconds'

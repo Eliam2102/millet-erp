@@ -115,6 +115,12 @@ param awSolicitudesEmpresaId string = ''
 @description('Apaga el SDK de FiscalAPI. Default true; dev lo enciende en su .bicepparam (tenant sandbox en el KV dev). Ver appservice.bicep.')
 param integracionesFiscalSdkDisabled bool = true
 
+@description('Enciende el AwDocumentSyncWorker. Default true. Ver appservice.bicep.')
+param awDocumentSyncHabilitado bool = true
+
+@description('Enciende el AwLateReconciliationWorker. Default true. Ver appservice.bicep.')
+param awLateReconciliationHabilitado bool = true
+
 // ============================================================================
 // VARIABLES
 // ============================================================================
@@ -381,6 +387,8 @@ module appservice 'modules/appservice.bicep' = {
     glassAgentSpnClientId: glassAgentSpnClientId
     awSolicitudesEmpresaId: awSolicitudesEmpresaId
     integracionesFiscalSdkDisabled: integracionesFiscalSdkDisabled
+    awDocumentSyncHabilitado: awDocumentSyncHabilitado
+    awLateReconciliationHabilitado: awLateReconciliationHabilitado
   }
   // Esperar a que los secretos estén en KV antes de arrancar el App Service:
   // las referencias @Microsoft.KeyVault(...) deben resolver al primer arranque.
