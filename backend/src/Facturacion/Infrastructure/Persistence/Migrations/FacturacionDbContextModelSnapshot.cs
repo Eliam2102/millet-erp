@@ -2476,6 +2476,11 @@ namespace Millet.Facturacion.Infrastructure.Persistence.Migrations
                         .HasColumnType("uuid")
                         .HasColumnName("comprobante_vigente_id");
 
+                    b.Property<string>("CondicionPagoOrigen")
+                        .HasMaxLength(50)
+                        .HasColumnType("character varying(50)")
+                        .HasColumnName("condicion_pago_origen");
+
                     b.Property<DateTimeOffset>("CreatedAt")
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("created_at");
@@ -2492,6 +2497,12 @@ namespace Millet.Facturacion.Infrastructure.Persistence.Migrations
                         .HasColumnType("uuid")
                         .HasColumnName("empresa_id");
 
+                    b.Property<bool>("EsCredito")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("boolean")
+                        .HasDefaultValue(false)
+                        .HasColumnName("es_credito");
+
                     b.Property<short>("Estado")
                         .HasColumnType("smallint")
                         .HasColumnName("estado");
@@ -2500,6 +2511,11 @@ namespace Millet.Facturacion.Infrastructure.Persistence.Migrations
                         .HasMaxLength(20)
                         .HasColumnType("character varying(20)")
                         .HasColumnName("estado_origen");
+
+                    b.Property<string>("MetodoPagoOrigen")
+                        .HasMaxLength(5)
+                        .HasColumnType("character varying(5)")
+                        .HasColumnName("metodo_pago_origen");
 
                     b.Property<string>("Moneda")
                         .IsRequired()
@@ -3445,6 +3461,11 @@ namespace Millet.Facturacion.Infrastructure.Persistence.Migrations
                         .HasMaxLength(200)
                         .HasColumnType("character varying(200)")
                         .HasColumnName("obra_nombre");
+
+                    b.Property<string>("Observaciones")
+                        .HasMaxLength(1000)
+                        .HasColumnType("character varying(1000)")
+                        .HasColumnName("observaciones");
 
                     b.Property<Guid?>("PedidoFacturableId")
                         .HasColumnType("uuid")

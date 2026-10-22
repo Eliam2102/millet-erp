@@ -242,6 +242,8 @@ export interface PedidoBandejaItem extends ClasificacionPedidoLectura {
   totalConIva?: number | null;
   moneda: string;
   createdAt: string;
+  /** 86e3tfdw2: pedido a crédito (solo llega a quien tiene leer-credito). */
+  esCredito?: boolean;
 }
 
 // ─── Anticipos (FE-F4) ────────────────────────────────────────────────
@@ -837,6 +839,12 @@ export interface PedidoFacturableDetalleResponse
   motivoEmergencia?: string | null;
   /** F6.1: pedido A+W para conciliar después (opcional, emergencia). */
   referenciaPedidoAw?: string | null;
+  /** 86e3tfdw2: pedido a crédito (condición de pago del origen ≠ CONTADO). */
+  esCredito?: boolean;
+  /** 86e3tfdw2: método de pago SAT que mandó A+W (PUE/PPD). */
+  metodoPagoOrigen?: string | null;
+  /** 86e3tfdw2: condición de pago del pedido en A+W (CONTADO, CRÉDITO 30 DÍAS…). */
+  condicionPagoOrigen?: string | null;
   embarqueCe?: import('@/features/comercio-exterior/api/types').EmbarqueCe | null;
   id: string;
   numeroPedido: string | null;
@@ -1029,6 +1037,8 @@ export interface EmitirFacturaVentaCommand {
   cce?: EmitirFacturaVentaCce | null;
   /** Autorización del Contador General (obligatoria para venta de activo fijo). */
   autorizacionId?: string | null;
+  /** Observaciones (86e3tfdw2, ≤1000): se imprimen en el PDF; NO van al XML del CFDI. */
+  observaciones?: string | null;
   lineas: EmitirFacturaVentaLinea[];
 }
 

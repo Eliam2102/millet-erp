@@ -61,6 +61,11 @@ public sealed class PedidoFacturableConfiguration : IEntityTypeConfiguration<Ped
         builder.Property(e => e.MotivoEmergencia).HasMaxLength(500);
         builder.Property(e => e.ReferenciaPedidoAw).HasMaxLength(50);
 
+        // 86e3tfdw2: método/condición de pago del origen + bandera de crédito.
+        builder.Property(e => e.MetodoPagoOrigen).HasMaxLength(PedidoFacturable.MetodoPagoOrigenMaxLength);
+        builder.Property(e => e.CondicionPagoOrigen).HasMaxLength(PedidoFacturable.CondicionPagoOrigenMaxLength);
+        builder.Property(e => e.EsCredito).IsRequired().HasDefaultValue(false);
+
         builder.HasMany(e => e.Lineas)
             .WithOne()
             .HasForeignKey(l => l.PedidoFacturableId)

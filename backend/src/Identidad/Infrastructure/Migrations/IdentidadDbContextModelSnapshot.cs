@@ -3517,6 +3517,20 @@ namespace Millet.Identidad.Infrastructure.Migrations
                         },
                         new
                         {
+                            Id = new Guid("00000009-0001-0000-0000-000000000005"),
+                            Accion = "leer-credito",
+                            Codigo = "facturacion.pedidos.leer-credito",
+                            CreatedAt = new DateTimeOffset(new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            CreatedBy = "seed",
+                            Descripcion = "Ver pedidos facturables a crédito (86e3tfdw2)",
+                            Modulo = "facturacion",
+                            Recurso = "pedidos",
+                            UpdatedAt = new DateTimeOffset(new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            UpdatedBy = "seed",
+                            Version = 1
+                        },
+                        new
+                        {
                             Id = new Guid("00000009-0002-0000-0000-000000000001"),
                             Accion = "emitir",
                             Codigo = "facturacion.facturas.emitir",
