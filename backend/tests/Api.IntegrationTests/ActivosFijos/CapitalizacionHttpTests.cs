@@ -41,7 +41,7 @@ public sealed class CapitalizacionHttpTests
             var centro = new Dim1(Guid.NewGuid(), "FIXAF", "FIX ubicación AF"); centros.Dim1s.Add(centro); await centros.SaveChangesAsync();
             contab.UbicacionesSucursal.Add(new UbicacionSucursal(Guid.NewGuid(), centro.Id, e.SucursalId) { EmpresaId = empresa }); await contab.SaveChangesAsync();
             var db = sp.GetRequiredService<ActivosFijosDbContext>();
-            var clase = await db.Clases.SingleAsync(x => x.EmpresaId == empresa && x.Clave == "MAQ");
+            var clase = await db.Clases.SingleAsync(x => x.EmpresaId == empresa && x.Clave == "154");
             clase.Editar(clase.Nombre, 10, activoCuenta.Id, null, null, puente.Id, true);
             var a = new Activo(id, empresa, "FIX-AF-500K", new DatosActivo("FIX Montacargas", clase.Id, null, null, null, new DateOnly(2027,1,1), new DateOnly(2027,1,15), 0, "MXN", 1,
                 new CustodiaActivo(e.Responsable, e.SucursalId, "FIX ubicación", centro.Id, null), TipoImportacionActivo.No, null, false, null), Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid(), 1);

@@ -21,6 +21,8 @@ import { apiRequest, esApiError } from '@/lib/api';
 import { CE_BASE, useContenedores, useExpedientes, useMutarContenedor } from '../api/hooks';
 import {
   useFinanzas,
+  useOrdenesServicio,
+  type OrdenServicio,
   useMutarFinanzas,
   type Distribucion,
   type Gasto,
@@ -140,6 +142,46 @@ function Gastos({
           </Button>
         )}
       </div>
+      <section aria-label="Órdenes de servicio del expediente" className="space-y-2">
+        <h3 className="text-md font-semibold">Órdenes de servicio del expediente</h3>
+        {!f.ordenesServicio?.length ? (
+          <p className="text-ink-muted">No hay órdenes de servicio ligadas.</p>
+        ) : (
+          <Table>
+            <TableHeader>
+              <TableRow>
+                {[
+                  'Orden',
+                  'Moneda',
+                  'Total OC',
+                  'Asignado al expediente',
+                  'Facturado',
+                  'Diferencia',
+                ].map((h) => (
+                  <TableHead key={h}>{h}</TableHead>
+                ))}
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {f.ordenesServicio.map((o) => (
+                <TableRow key={o.id}>
+                  <TableCell className="font-mono">{o.folio}</TableCell>
+                  <TableCell>{o.moneda}</TableCell>
+                  {[o.total, o.asignado, o.facturado, o.diferencia].map((n, i) => (
+                    <TableCell key={i} className="text-right tabular-nums">
+                      {dinero(n)}
+                    </TableCell>
+                  ))}
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        )}
+        <p className="text-xs text-ink-muted">
+          La diferencia compara lo facturado con el importe asignado. Un valor positivo indica
+          excedente.
+        </p>
+      </section>
       {!f.conceptos.length && registrar && (
         <Button
           variant="outline"
@@ -276,12 +318,21 @@ function Gastos({
                     body: {
                       importacion: Number(d.get('importacion')),
                       exportacion: Number(d.get('exportacion')),
+                      requiereOrdenServicio: d.get('requiereOrdenServicio') === 'on',
                     },
                   })
                   .catch(() => {});
               }}
             >
               <span>{c.nombre}</span>
+              <label className="flex items-center gap-2 text-xs">
+                <input
+                  type="checkbox"
+                  name="requiereOrdenServicio"
+                  defaultChecked={c.requiereOrdenServicio}
+                />
+                Requiere orden de servicio
+              </label>
               {(['importacion', 'exportacion'] as const).map((tipo) => (
                 <label key={tipo} className="space-y-1 text-xs">
                   {tipo === 'importacion' ? 'Importación' : 'Exportación'}
@@ -463,6 +514,25 @@ function GastoForm({
 }) {
   const [proveedor, setProveedor] = useState<string | null>(gasto?.proveedorId ?? null);
   const [concepto, setConcepto] = useState(gasto?.conceptoId ?? f.conceptos[0]?.id ?? '');
+  const [busquedaOrden, setBusquedaOrden] = useState('');
+  const [orden, setOrden] = useState<OrdenServicio | null>(
+    gasto?.ordenServicioId
+      ? {
+          id: gasto.ordenServicioId,
+          folio: gasto.ordenServicioFolio!,
+          total: gasto.ordenServicioTotal!,
+          moneda: gasto.ordenServicioMoneda!,
+          proveedor: '',
+          tieneCotizacion: false,
+          cotizacionAdjuntoId: null,
+          contenedor: null,
+        }
+      : null,
+  );
+  const [moneda, setMoneda] = useState(gasto?.moneda ?? 'MXN');
+  const [contenedor, setContenedor] = useState(gasto?.contenedorId ?? '');
+  const ordenes = useOrdenesServicio(data.expediente.id, proveedor, busquedaOrden);
+  const requiereOrden = f.conceptos.find((c) => c.id === concepto)?.requiereOrdenServicio;
   const accion = useMutarFinanzas(data.expediente.id);
   const contenedores = useContenedores(data.expediente.id);
   const directo =
@@ -471,6 +541,8 @@ function GastoForm({
     ev.preventDefault();
     const d = new FormData(ev.currentTarget);
     const body = {
+      ordenServicioId: orden?.id ?? null,
+      importeAsignado: orden && d.get('asignado') ? Number(d.get('asignado')) : null,
       conceptoId: concepto,
       proveedorId: proveedor,
       factura: d.get('factura'),
@@ -513,8 +585,80 @@ function GastoForm({
         </Campo>
         <FormCampo span={6}>
           <Label>Proveedor *</Label>
-          <ReferenciaSelector tipo="proveedores" value={proveedor} onChange={setProveedor} />
+          <ReferenciaSelector
+            tipo="proveedores"
+            value={proveedor}
+            onChange={(value) => {
+              setProveedor(value);
+              setOrden(null);
+            }}
+          />
         </FormCampo>
+        <Campo label="Buscar orden por folio o descripción" id="fg-buscar-orden">
+          <Input
+            id="fg-buscar-orden"
+            value={busquedaOrden}
+            onChange={(ev) => setBusquedaOrden(ev.target.value)}
+          />
+        </Campo>
+        <Campo label={`Orden de servicio${requiereOrden ? ' *' : ' (opcional)'}`} id="fg-orden">
+          <select
+            id="fg-orden"
+            className={selectClass}
+            value={orden?.id ?? ''}
+            required={requiereOrden}
+            onChange={(ev) => {
+              const seleccion = ordenes.data?.data.find((o) => o.id === ev.target.value) ?? null;
+              setOrden(seleccion);
+              if (seleccion) {
+                setMoneda(seleccion.moneda);
+                const sugerido = contenedores.data?.data.contenedores.find(
+                  (c) => c.estado === 1 && c.numero === seleccion.contenedor,
+                );
+                if (sugerido) setContenedor(sugerido.id);
+              }
+            }}
+          >
+            <option value="">Selecciona una orden del proveedor</option>
+            {orden && !ordenes.data?.data.some((o) => o.id === orden.id) && (
+              <option value={orden.id}>{orden.folio}</option>
+            )}
+            {ordenes.data?.data.map((o) => (
+              <option key={o.id} value={o.id}>
+                {o.folio} · {o.moneda} {dinero(o.total)} ·{' '}
+                {o.tieneCotizacion ? 'Con cotización' : 'Sin cotización'}
+              </option>
+            ))}
+          </select>
+          {ordenes.isError && (
+            <p role="alert" className="text-danger-fg">
+              No se pudieron cargar las órdenes de servicio.
+            </p>
+          )}
+          {orden?.contenedor && (
+            <p className="text-xs text-ink-muted">Contenedor sugerido: {orden.contenedor}</p>
+          )}
+        </Campo>
+        {orden && (
+          <Campo label={`Asignado a este expediente (${orden.moneda})`} id="fg-asignado">
+            <Input
+              key={orden.id}
+              id="fg-asignado"
+              name="asignado"
+              type="number"
+              min="0.01"
+              max={orden.total}
+              step="0.01"
+              defaultValue={
+                gasto?.ordenServicioId === orden.id ? (gasto.ordenServicioAsignado ?? '') : ''
+              }
+            />
+            <p className="text-xs text-ink-muted">
+              Para repartir entre expedientes, indica el importe. Se cuenta una vez por expediente,
+              aunque tenga varias facturas.
+            </p>
+          </Campo>
+        )}
         <Campo label="UUID o folio de factura *" id="fg-factura">
           <Input
             id="fg-factura"
@@ -529,7 +673,8 @@ function GastoForm({
             id="fg-moneda"
             name="moneda"
             className={selectClass}
-            defaultValue={gasto?.moneda ?? 'MXN'}
+            value={moneda}
+            onChange={(ev) => setMoneda(ev.target.value)}
           >
             <option>MXN</option>
             <option>USD</option>
@@ -546,14 +691,21 @@ function GastoForm({
             defaultValue={gasto?.importe}
           />
         </Campo>
-        <Campo label="Importe cotizado (misma moneda)" id="fg-cotizado">
+        <Campo
+          label={
+            orden ? `Cotizado de la orden (${orden.moneda})` : 'Importe cotizado (misma moneda)'
+          }
+          id="fg-cotizado"
+        >
           <Input
             id="fg-cotizado"
             name="cotizado"
             type="number"
             min="0"
             step="0.01"
-            defaultValue={gasto?.cotizado ?? ''}
+            key={orden?.id ?? 'manual'}
+            readOnly={Boolean(orden)}
+            defaultValue={orden?.total ?? gasto?.cotizado ?? ''}
           />
         </Campo>
         <Campo label="Fecha de factura *" id="fg-fecha">
@@ -578,7 +730,8 @@ function GastoForm({
             id="fg-contenedor"
             name="contenedorId"
             className={selectClass}
-            defaultValue={gasto?.contenedorId ?? ''}
+            value={contenedor}
+            onChange={(ev) => setContenedor(ev.target.value)}
           >
             <option value="">Todo el expediente</option>
             {contenedores.data?.data.contenedores
@@ -620,10 +773,10 @@ function GastoForm({
           )}
           <div className="mt-3 flex gap-2">
             <Button
-              disabled={!proveedor || !concepto || accion.isPending}
+              disabled={!proveedor || !concepto || (requiereOrden && !orden) || accion.isPending}
               title={
-                !proveedor || !concepto
-                  ? 'Selecciona proveedor y concepto.'
+                !proveedor || !concepto || (requiereOrden && !orden)
+                  ? 'Selecciona proveedor, concepto y la orden requerida.'
                   : accion.isPending
                     ? 'Guardando gasto.'
                     : undefined

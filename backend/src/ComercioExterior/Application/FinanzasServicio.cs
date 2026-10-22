@@ -16,10 +16,22 @@ public sealed record PartidaCostoDatos(Guid PartidaId, Guid? ContenedorId, strin
 public sealed record AnticipoDatos(Guid AgenteId, string Pedimento, ImpuestosPedimento Impuestos, DateOnly Fecha, string? ReferenciaPago);
 public sealed record ComprobacionAnticipoDatos(ImpuestosPedimento Impuestos, Guid PedimentoPagadoId, Guid ComprobantePagoId, DateOnly Fecha);
 public sealed record ResolucionAnticipoDatos(string Tipo, decimal Importe, DateOnly Fecha, string Referencia, Guid EvidenciaId, Guid? AnticipoDestinoId = null, int? VersionDestino = null);
-public sealed record ConceptoGastoDatos(BaseDistribucion Importacion, BaseDistribucion Exportacion);
+public sealed record ConceptoGastoDatos(BaseDistribucion Importacion, BaseDistribucion Exportacion, bool? RequiereOrdenServicio = null);
 public sealed record FinanzasDetalle(int Version, string EstadoFinanciero, IReadOnlyList<string> Pendientes,
     IReadOnlyList<ConceptoGasto> Conceptos, IReadOnlyCollection<GastoExpediente> Gastos, IReadOnlyCollection<PartidaCosto> Bases,
-    IReadOnlyList<BasePartidaCosto> Partidas, IReadOnlyCollection<DistribucionGasto> Distribuciones, IReadOnlyCollection<AnticipoAgente> Anticipos, IReadOnlyDictionary<Guid, string> Nombres);
+    IReadOnlyList<BasePartidaCosto> Partidas, IReadOnlyCollection<DistribucionGasto> Distribuciones, IReadOnlyCollection<AnticipoAgente> Anticipos, IReadOnlyDictionary<Guid, string> Nombres)
+{
+    public IReadOnlyList<OrdenServicioResumen> OrdenesServicio => Gastos.Where(g => g.OrdenServicioId != null)
+        .GroupBy(g => g.OrdenServicioId!.Value).Select(g =>
+        {
+            var primero = g.First();
+            var facturado = g.Sum(x => x.Moneda == x.OrdenServicioMoneda ? x.Importe : decimal.Round(x.Importe * x.TipoCambio / x.OrdenServicioTipoCambio!.Value, 2, MidpointRounding.AwayFromZero));
+            return new OrdenServicioResumen(g.Key, primero.OrdenServicioFolio!, primero.OrdenServicioMoneda!,
+                primero.OrdenServicioTotal!.Value, primero.OrdenServicioAsignado!.Value, facturado,
+                facturado - primero.OrdenServicioAsignado.Value);
+        }).ToArray();
+}
+public sealed record OrdenServicioResumen(Guid Id, string Folio, string Moneda, decimal Total, decimal Asignado, decimal Facturado, decimal Diferencia);
 public sealed record MutarFinanzasCommand(Guid ExpedienteId, int Version, string Accion, Guid? ElementoId = null,
     DatosGasto? Gasto = null, PartidaCostoDatos? Partida = null, AnticipoDatos? Anticipo = null,
     ComprobacionAnticipoDatos? Comprobacion = null, ResolucionAnticipoDatos? Resolucion = null, ConceptoGastoDatos? Concepto = null) : IRequest<FinanzasDetalle>;
@@ -80,7 +92,7 @@ public sealed class MutarFinanzasValidator : AbstractValidator<MutarFinanzasComm
 }
 public sealed class MutarFinanzasHandler(ComercioExteriorDbContext db, ExpedienteServicio servicio, FinanzasServicio finanzas,
     ICatalogosCeReadPort catalogos, IFacturaGastoReadPort facturas, ITipoCambioGastoReadPort cambio, IClock clock,
-    IIntegrationEventPublisher eventos) : IRequestHandler<MutarFinanzasCommand, FinanzasDetalle>
+    IIntegrationEventPublisher eventos, OrdenesServicioServicio ordenes) : IRequestHandler<MutarFinanzasCommand, FinanzasDetalle>
 {
     public async Task<FinanzasDetalle> Handle(MutarFinanzasCommand request, CancellationToken cancellationToken)
     {
@@ -91,6 +103,9 @@ public sealed class MutarFinanzasHandler(ComercioExteriorDbContext db, Expedient
             _ => PermisosCanonicos.ComercioExteriorGastosRegistrar
         };
         await servicio.PermisoAsync(permiso, cancellationToken);
+        await using var tx = request.Accion == "gasto" ? await db.Database.BeginTransactionAsync(cancellationToken) : null;
+        // El saldo compartido abarca expedientes distintos; el ETag de un expediente no lo protege.
+        if (tx is not null) await db.Database.ExecuteSqlRawAsync("SELECT pg_advisory_xact_lock(7060601)", cancellationToken);
         var e = await servicio.CargarAsync(request.ExpedienteId, true, cancellationToken);
         if (e.Version != request.Version) throw new ConcurrencyException("Expediente", e.Id);
         e.ExigirAbierto();
@@ -110,7 +125,7 @@ public sealed class MutarFinanzasHandler(ComercioExteriorDbContext db, Expedient
             case "concepto":
                 var config = request.Concepto ?? throw new BusinessRuleException("CE_CONCEPTO_INVALIDO", "Capture las bases.");
                 var conceptoEditar = await db.ConceptosGasto.SingleOrDefaultAsync(c => c.Id == id, cancellationToken) ?? throw new EntityNotFoundException("CE_CONCEPTO_INVALIDO", "No existe el concepto.");
-                conceptoEditar.Configurar(config.Importacion, config.Exportacion);
+                conceptoEditar.Configurar(config.Importacion, config.Exportacion, config.RequiereOrdenServicio);
                 // El catálogo es de empresa: no se permite alterar expedientes de sucursales fuera del alcance del actor.
                 var afectados = await db.Expedientes.Where(x => x.Gastos.Any(g => g.ConceptoId == id)).ToListAsync(cancellationToken);
                 foreach (var afectado in afectados.Where(x => x.Estado == EstadoExpediente.Abierto))
@@ -126,8 +141,11 @@ public sealed class MutarFinanzasHandler(ComercioExteriorDbContext db, Expedient
                 if ((g.FacturaProveedorId is not null && factura is null) || (factura is not null && (factura.SucursalId != e.SucursalId || factura.Moneda != g.Moneda || factura.Fecha != g.FechaFactura)))
                     throw new BusinessRuleException("CE_FACTURA_INVALIDA", "La factura debe corresponder al proveedor, sucursal, moneda y fecha del gasto.");
                 var tc = g.Moneda == "MXN" ? 1 : await cambio.ObtenerBanxicoAsync(g.FechaFactura, cancellationToken);
+                var orden = await ordenes.ValidarAsync(e, g, concepto, tc, cancellationToken);
+                if (orden?.Moneda == "USD" && g.Moneda == "MXN")
+                    orden = orden with { TipoCambio = await cambio.ObtenerBanxicoAsync(g.FechaFactura, cancellationToken) };
                 if (request.ElementoId is not null && !e.Gastos.Any(x => x.Id == id)) throw new EntityNotFoundException("CE_GASTO_NO_ENCONTRADO", "No existe el gasto.");
-                e.GuardarGasto(id, g with { FacturaProveedorId = factura?.Id }, concepto, tc, g.Moneda == "MXN" ? "MXN" : "Banxico");
+                e.GuardarGasto(id, g with { FacturaProveedorId = factura?.Id }, concepto, tc, g.Moneda == "MXN" ? "MXN" : "Banxico", orden);
                 break;
             case "partida":
                 var p = request.Partida ?? throw new BusinessRuleException("CE_PARTIDA_COSTO_INVALIDA", "Capture las bases de la partida.");
@@ -174,6 +192,7 @@ public sealed class MutarFinanzasHandler(ComercioExteriorDbContext db, Expedient
             default: throw new BusinessRuleException("CE_ACCION_INVALIDA", "Acción desconocida.");
         }
         await db.SaveChangesAsync(cancellationToken);
+        if (tx is not null) await tx.CommitAsync(cancellationToken);
         return await finanzas.DetalleAsync(e, cancellationToken);
     }
 }

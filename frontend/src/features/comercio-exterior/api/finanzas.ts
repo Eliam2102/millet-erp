@@ -6,6 +6,7 @@ export interface Concepto {
   id: string;
   nombre: string;
   codigo: string;
+  requiereOrdenServicio: boolean;
   baseImportacion: number;
   baseExportacion: number;
 }
@@ -22,6 +23,11 @@ export interface Gasto {
   tipoCambio: number;
   fechaFactura: string;
   pedimento: string | null;
+  ordenServicioId: string | null;
+  ordenServicioFolio: string | null;
+  ordenServicioTotal: number | null;
+  ordenServicioMoneda: string | null;
+  ordenServicioAsignado: number | null;
   cotizado: number | null;
   diferencia: number | null;
   contenedorId: string | null;
@@ -77,7 +83,27 @@ export interface Anticipo {
     anticipoDestinoId: string | null;
   }[];
 }
+export interface OrdenServicio {
+  id: string;
+  folio: string;
+  proveedor: string;
+  moneda: string;
+  total: number;
+  tieneCotizacion: boolean;
+  cotizacionAdjuntoId: string | null;
+  contenedor: string | null;
+}
+export interface OrdenServicioResumen {
+  id: string;
+  folio: string;
+  moneda: string;
+  total: number;
+  asignado: number;
+  facturado: number;
+  diferencia: number;
+}
 export interface Finanzas {
+  ordenesServicio: OrdenServicioResumen[];
   nombres: Record<string, string>;
   version: number;
   estadoFinanciero: string;
@@ -129,5 +155,17 @@ export function useMutarFinanzas(id: string) {
       if (esConflictoConcurrencia(error))
         conflict.openSimple({ onRefrescar: () => qc.invalidateQueries({ queryKey: ceKeys.all }) });
     },
+  });
+}
+
+export function useOrdenesServicio(id: string, proveedorId: string | null, q: string) {
+  return useQuery({
+    queryKey: [...ceKeys.all, 'ordenes-servicio', id, proveedorId, q],
+    enabled: Boolean(proveedorId),
+    queryFn: ({ signal }) =>
+      apiRequest<OrdenServicio[]>(
+        `${CE_BASE}/${id}/gastos/ordenes-servicio?${new URLSearchParams({ proveedorId: proveedorId!, q })}`,
+        { signal },
+      ),
   });
 }

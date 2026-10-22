@@ -21,6 +21,7 @@ const commandValido: CrearRequisicionCommand = {
   clasificacion: Clasificacion.Servicio,
   prioridad: Prioridad.Normal,
   fechaSolicitud: '2026-05-09T10:00:00Z',
+  soloApartarSiCompleto: false,
   sucursalCodigo: 'MID',
   folioAnio: 2026,
 };

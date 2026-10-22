@@ -1,4 +1,9 @@
+import { useState } from 'react';
 import { DateTimeDisplay } from '@/components/erp';
+import { Button } from '@/components/ui/button';
+import { EditarCabeceraRequisicionForm } from '@/features/compras/components/EditarCabeceraRequisicionForm';
+import { accionEditarCabecera } from '@/features/compras/lib/acciones-disponibles';
+import { useAuthStore } from '@/lib/auth/auth-store';
 import {
   clasificacionToString,
   prioridadToString,
@@ -8,8 +13,8 @@ import { departamentoLabel, requisitanteLabel } from '@/features/compras/lib/nom
 
 /**
  * <c>&lt;CabeceraRequisicion/&gt;</c> — bloque superior del detalle
- * P3 con los datos de cabecera de la RQ. Read-only en UF1-PR2; la
- * edición vive en UF2 (P4 nueva) y futuras (PATCH cabecera).
+ * P3 con los datos de cabecera de la RQ. En Borrador, con permiso de
+ * editar, se editan aquí vía PATCH cabecera (86e3tferc).
  */
 export interface CabeceraRequisicionProps {
   rq: RequisicionResponse;
@@ -23,8 +28,19 @@ export interface CabeceraRequisicionProps {
 }
 
 export function CabeceraRequisicion({ rq, resolverNombre }: CabeceraRequisicionProps) {
+  const permisos = useAuthStore((s) => s.permisos);
+  const puedeEditar = accionEditarCabecera(rq, permisos).habilitada;
+  const [editando, setEditando] = useState(false);
   return (
-    <section className="rounded-md border bg-surface-card p-4">
+    <section className="space-y-4 rounded-md border bg-surface-card p-4">
+      {puedeEditar && !editando && (
+        <div className="flex justify-end">
+          <Button variant="secondary" onClick={() => setEditando(true)}>
+            Editar cabecera
+          </Button>
+        </div>
+      )}
+      {editando && <EditarCabeceraRequisicionForm rq={rq} onClose={() => setEditando(false)} />}
       <dl className="grid grid-cols-1 gap-x-6 gap-y-2 text-sm @lg:grid-cols-2 @3xl:grid-cols-3">
         <Item label="Solicitada">
           <DateTimeDisplay value={rq.fechaSolicitud} variant="long" />
@@ -44,6 +60,7 @@ export function CabeceraRequisicion({ rq, resolverNombre }: CabeceraRequisicionP
               resolverNombre(rq.proveedorSugeridoId))
             : '—'}
         </Item>
+        <Item label="Surtido de almacén">{rq.soloApartarSiCompleto ? 'Completo' : 'Parcial'}</Item>
         <Item label="Versión" mono>
           v{rq.version}
         </Item>

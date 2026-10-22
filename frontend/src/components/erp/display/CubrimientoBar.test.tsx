@@ -195,4 +195,12 @@ describe('<CubrimientoBar> — accesibilidad (axe-core)', () => {
 
     expect(results.violations).toHaveLength(0);
   });
+
+  it('muestra lo liberado sin compra como segmento propio (86e3tferc)', () => {
+    render(
+      <CubrimientoBar cantidad={5} cantDeAlmacen={1} cantDeCompra={2} cantRecibida={0} cantPendiente={2} cantSinCompra={2} />,
+    );
+    expect(screen.getByText(/2 sin compra/)).toBeInTheDocument();
+    expect(screen.getByRole('img').getAttribute('aria-label')).toContain('2 liberado sin compra');
+  });
 });

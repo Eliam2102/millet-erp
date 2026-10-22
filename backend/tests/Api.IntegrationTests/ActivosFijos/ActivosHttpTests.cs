@@ -41,7 +41,7 @@ public sealed class ActivosHttpTests
         var linea=DemoSesionSeedHostedService.Id("DEMO-AF-MONTACARGAS"); var factura=Guid.NewGuid();var recepcion=Guid.NewGuid();
         var evento=new OcRecepcionRegistradaIntegrationEvent(empresa,DateTimeOffset.UtcNow,recepcion,"FIX-AF-REC",oc,new DateOnly(2026,1,1),true,null,null,null,
             [new LineaRecepcionPayload(Guid.NewGuid(),DemoSesionSeedHostedService.Id("DEMO-AF-SILICON"),Guid.NewGuid(),"PZA",10,100,1000,Guid.NewGuid()),
-             new LineaRecepcionPayload(Guid.NewGuid(),linea,Guid.NewGuid(),"PZA",1,490000,490000,Guid.Empty,EsActivoFijo:true,ClaseActivoId:Guid.Parse("0000000f-0002-0000-0000-000000000002"))],SucursalId:e.SucursalId);
+             new LineaRecepcionPayload(Guid.NewGuid(),linea,Guid.NewGuid(),"PZA",1,490000,490000,Guid.Empty,EsActivoFijo:true,ClaseActivoId:Guid.Parse("0000000f-0007-0000-0000-000000000154"))],SucursalId:e.SucursalId);
         var facturado=new FacturaConciliadaActivo(empresa,factura,"MXN",1,[new LineaFacturaActivo(Guid.NewGuid(),linea,1,500000,500000)]);
         if(facturaPrimero) await consumer.ConciliarAsync(facturado,CancellationToken.None);
         await consumer.RecibirAsync(evento,CancellationToken.None);await consumer.RecibirAsync(evento,CancellationToken.None);

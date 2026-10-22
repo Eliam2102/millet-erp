@@ -85,6 +85,24 @@ public sealed class LineaRequisicion : BaseEntity, IAuditable, IBelongsToAggrega
     public decimal CantidadEntregada { get; private set; }
 
     /// <summary>
+    /// Acumulado de existencia apartada liberada con motivo (86e3tferc), en la
+    /// unidad de la línea. Sale de <see cref="CantidadDeAlmacen"/>.
+    /// </summary>
+    public decimal CantidadLiberadaApartado { get; private set; }
+
+    /// <summary>
+    /// Parte liberada que el requisitante ya no necesita y no se manda a
+    /// compra: deja de contar para el cierre por entrega (86e3tferc).
+    /// </summary>
+    public decimal CantidadSinCompra { get; private set; }
+
+    /// <summary>Motivo de la última liberación del apartado (queda en el histórico).</summary>
+    public string? MotivoUltimaLiberacion { get; private set; }
+
+    /// <summary>Cantidad que todavía debe entregarse para cerrar la línea.</summary>
+    public decimal CantidadVigente => Cantidad - CantidadSinCompra;
+
+    /// <summary>
     /// VO computed a partir de las cantidades persistidas. No se almacena
     /// duplicado en BD (la <c>CantidadOriginal</c> es <see cref="Cantidad"/>).
     /// </summary>
@@ -361,5 +379,33 @@ public sealed class LineaRequisicion : BaseEntity, IAuditable, IBelongsToAggrega
         CantidadEntregada = nuevoTotal;
 
         return (Excedio: nuevoTotal > techo, Total: nuevoTotal, Techo: techo);
+    }
+
+    /// <summary>
+    /// Libera con motivo parte de lo cubierto por almacén (86e3tferc) y
+    /// recalcula el cubrimiento: si se manda a compra pasa a
+    /// <see cref="CantidadDeCompra"/>; si no, queda como <see cref="CantidadSinCompra"/>.
+    /// </summary>
+    internal void LiberarApartado(decimal cantidad, string motivo, bool mandarACompra)
+    {
+        if (cantidad <= 0)
+            throw new BusinessRuleException("APARTADO_LIBERACION_INVALIDA",
+                "La cantidad a liberar debe ser positiva.");
+        if (string.IsNullOrWhiteSpace(motivo))
+            throw new BusinessRuleException("APARTADO_MOTIVO_REQUERIDO",
+                "Indica el motivo de la liberación.");
+        if (cantidad > CantidadDeAlmacen)
+            throw new BusinessRuleException("APARTADO_LIBERACION_EXCEDE",
+                $"La línea sólo tiene {CantidadDeAlmacen} cubierto por almacén; no se puede liberar {cantidad}.");
+
+        var deAlmacen = CantidadDeAlmacen - cantidad;
+        var deCompra = mandarACompra ? CantidadDeCompra + cantidad : CantidadDeCompra;
+        _ = new Cubrimiento(Cantidad, deAlmacen, deCompra, CantidadRecibida);
+
+        CantidadDeAlmacen = deAlmacen;
+        CantidadDeCompra = deCompra;
+        if (!mandarACompra) CantidadSinCompra += cantidad;
+        CantidadLiberadaApartado += cantidad;
+        MotivoUltimaLiberacion = motivo.Trim();
     }
 }

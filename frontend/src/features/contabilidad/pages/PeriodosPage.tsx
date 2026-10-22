@@ -89,15 +89,15 @@ function etiquetaPeriodo(p: Pick<PeriodoContable, 'numero' | 'nombre'>): string 
   return `${p.numero} · ${p.nombre}`;
 }
 
-/** Quién y cuándo cerró o reabrió (lo más reciente que explica el estado actual). */
+/**
+ * Quién y cuándo dejó el periodo en su estado actual (86e3t97vh): cerrado → último cierre; abierto → la reapertura si
+ * la hubo, si no la apertura. La historia completa está en la bitácora.
+ */
 function responsable(p: PeriodoContable): string[] {
-  const lineas: string[] = [];
-  if (p.estado === 'Cerrado' && p.cerradoPor)
-    lineas.push(`Cerró ${p.cerradoPor} · ${formatDateTime(p.cerradoEn!)}`);
-  if (p.reabiertoPor) lineas.push(`Reabrió ${p.reabiertoPor} · ${formatDateTime(p.reabiertoEn!)}`);
-  if (lineas.length === 0 && p.abiertoPor)
-    lineas.push(`Abrió ${p.abiertoPor} · ${formatDateTime(p.abiertoEn!)}`);
-  return lineas;
+  if (p.estado === 'Cerrado' && p.cerradoPor) return [`Cerró ${p.cerradoPor} · ${formatDateTime(p.cerradoEn!)}`];
+  if (p.estado === 'Abierto' && p.reabiertoPor) return [`Reabrió ${p.reabiertoPor} · ${formatDateTime(p.reabiertoEn!)}`];
+  if (p.abiertoPor) return [`Abrió ${p.abiertoPor} · ${formatDateTime(p.abiertoEn!)}`];
+  return [];
 }
 
 /** F1-CON-03: ejercicio contable con 12 periodos + 13 de ajustes; apertura, cierre y reapertura con motivo y bitácora. */

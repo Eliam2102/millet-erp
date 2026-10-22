@@ -181,11 +181,28 @@ describe('NuevoAnticipo · sucursal de la caja abierta (86e3tfd80)', () => {
     const { container } = renderizar();
     await screen.findByLabelText('Sucursal (stub)');
     fireEvent.click(screen.getByRole('button', { name: 'Elegir cliente' }));
-    fireEvent.change(container.querySelector('input[name="montoBase"]')!, {
-      target: { value: '100' },
+    fireEvent.change(container.querySelector('input[name="total"]')!, {
+      target: { value: '1160' },
     });
     fireEvent.click(screen.getByRole('button', { name: 'Emitir y timbrar' }));
     await waitFor(() => expect(cuerpo).not.toBeNull());
     expect(cuerpo!.sucursalId).toBe(SUCURSAL_CAJA);
+    // 86e3tfd7j: se manda el total capturado; el backend desglosa.
+    expect(cuerpo!.total).toBe(1160);
+    expect(cuerpo!.montoBase).toBe(0);
+  });
+});
+
+describe('NuevoAnticipo · captura por total (86e3tfd7j)', () => {
+  it('muestra subtotal e IVA calculados del total capturado', async () => {
+    const { container } = renderizar();
+    await screen.findByLabelText('Sucursal (stub)');
+    expect(screen.getByText(/Total \(con IVA\)/)).toBeInTheDocument();
+    fireEvent.change(container.querySelector('input[name="total"]')!, {
+      target: { value: '1160' },
+    });
+    await waitFor(() => expect(screen.getAllByText(/1,000\.00/).length).toBeGreaterThan(0));
+    expect(screen.getAllByText(/160\.00/).length).toBeGreaterThan(0);
+    expect(screen.getAllByText(/1,160\.00/).length).toBeGreaterThan(0);
   });
 });

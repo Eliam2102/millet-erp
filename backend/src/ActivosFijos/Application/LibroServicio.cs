@@ -15,6 +15,15 @@ public sealed class LibroServicio(ActivosFijosDbContext db, ActivoServicio acces
     ICentroCostoContabilidadPort centros, ICatalogosActivoReadPort? catalogos = null)
 {
     public Guid Empresa => empresa.Current ?? throw new UnauthorizedAccessException();
+    public async Task<bool> MismoMesAsync(CancellationToken ct) =>
+        await db.Set<ConfiguracionLibro>().Select(x => (bool?)x.DepreciarMismoMes).SingleOrDefaultAsync(ct) ?? false;
+    public async Task<DateOnly?> PrimerMesAsync(CancellationToken ct)
+    {
+        var mismoMes = await MismoMesAsync(ct);
+        var activos = await db.Activos.Where(x => x.Estado == EstadoActivo.Activo && x.InicioUso != null)
+            .Join(db.Clases.Where(c => c.Depreciable && c.TasaFiscalAnual != null && c.TasaFiscalAnual > 0), a => a.ClaseId, c => c.Id, (a, c) => a).ToListAsync(ct);
+        return activos.Select(a => (DateOnly?)CalculoDepreciacion.PrimerMes(a, mismoMes)).Min();
+    }
     public async Task BloquearAsync(CancellationToken ct)
     {
         var llave = $"AF-LIBRO-{Empresa}";
@@ -63,8 +72,8 @@ public sealed class LibroServicio(ActivosFijosDbContext db, ActivoServicio acces
             throw new BusinessRuleException("AF_MESES_PENDIENTES", "Ejecute primero los meses intermedios pendientes.");
         if (ultima == null)
         {
-            var inicios = await db.Activos.Where(x => x.Estado == EstadoActivo.Activo && x.InicioUso != null).Select(x => x.CorteCarga ?? x.InicioUso!.Value).ToListAsync(ct);
-            if (inicios.Count > 0 && CalculoDepreciacion.Mes(inicios.Min()).AddMonths(1) < periodo)
+            var primero = await PrimerMesAsync(ct);
+            if (primero < periodo)
                 throw new BusinessRuleException("AF_MESES_PENDIENTES", "Ejecute primero el primer mes pendiente del libro.");
         }
         var filas = await PreviaInternaAsync(periodo, verificarAlcance, ct);
@@ -92,7 +101,8 @@ public sealed class LibroServicio(ActivosFijosDbContext db, ActivoServicio acces
         var activos = await db.Activos.Include(x => x.Historial).Include(x => x.Traslados).AsSplitQuery().Where(x => x.Estado == EstadoActivo.Activo).ToListAsync(ct);
         var clases = await db.Clases.ToDictionaryAsync(x => x.Id, ct);
         var ajustes = await db.Set<OperacionLibro>().Where(x => x.Tipo == "Revalorizacion" && x.PolizaId != null && !x.Anulada && x.Fecha < CalculoDepreciacion.Mes(periodo)).ToListAsync(ct);
-        var filas = activos.Select(a => CalculoDepreciacion.Calcular(a, clases[a.ClaseId], periodo, ajustes.Where(x => x.ActivoId == a.Id).Sum(x => x.Importe))).ToList();
+        var mismoMes = await MismoMesAsync(ct);
+        var filas = activos.Select(a => CalculoDepreciacion.Calcular(a, clases[a.ClaseId], periodo, ajustes.Where(x => x.ActivoId == a.Id).Sum(x => x.Importe), mismoMes)).ToList();
         if (alcance) foreach (var sucursal in filas.Select(x => x.SucursalId).Distinct()) await acceso.SucursalAsync(sucursal, escribir, ct);
         if (catalogos != null) foreach (var f in filas)
         {

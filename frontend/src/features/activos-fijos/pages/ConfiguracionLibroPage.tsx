@@ -7,6 +7,8 @@ import { useLibroQuery, type Configuracion } from '../api/libro';
 const inicial: Configuracion = {
   version: 0,
   revalorizacionHabilitada: false,
+  depreciarMismoMes: false,
+  inicioDepreciacionConfirmado: false,
   cuentaUtilidadId: null,
   cuentaPerdidaId: null,
   cuentaVentaPuenteId: null,
@@ -33,6 +35,57 @@ export function ConfiguracionLibroPage() {
           );
         }}
       >
+        <fieldset className="space-y-2">
+          <legend>Inicio de la depreciación</legend>
+          <label className="flex items-center gap-2">
+            <input
+              type="radio"
+              name="inicio"
+              checked={!datos.depreciarMismoMes}
+              onChange={() =>
+                setEdicion({
+                  ...datos,
+                  depreciarMismoMes: false,
+                  inicioDepreciacionConfirmado: false,
+                })
+              }
+            />
+            Mes siguiente al inicio de uso
+          </label>
+          <label className="flex items-center gap-2">
+            <input
+              type="radio"
+              name="inicio"
+              checked={datos.depreciarMismoMes}
+              onChange={() =>
+                setEdicion({
+                  ...datos,
+                  depreciarMismoMes: true,
+                  inicioDepreciacionConfirmado: false,
+                })
+              }
+            />
+            Mismo mes del inicio de uso
+          </label>
+          <label className="flex items-center gap-2">
+            <input
+              type="checkbox"
+              checked={datos.inicioDepreciacionConfirmado}
+              onChange={(e) =>
+                setEdicion({ ...datos, inicioDepreciacionConfirmado: e.target.checked })
+              }
+            />
+            Inicio confirmado con Millet
+          </label>
+          {!datos.inicioDepreciacionConfirmado && (
+            // eslint-disable-next-line ds/no-texto-interno -- FICHA_P7 exige la confirmación pendiente de esta regla.
+            <p className="text-warning-fg">Por confirmar con Millet</p>
+          )}
+          <p className="text-ink-muted">
+            Aplica a las siguientes corridas. Las corridas registradas conservan sus importes; una
+            carga inicial empieza después de su corte.
+          </p>
+        </fieldset>
         <label className="flex items-center gap-2">
           <input
             type="checkbox"

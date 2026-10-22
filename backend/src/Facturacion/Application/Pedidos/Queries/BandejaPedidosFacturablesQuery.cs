@@ -37,7 +37,11 @@ public sealed record PedidoBandejaItem(
     // F6.1: clasificación del pedido manual (null fuera de Manual o legacy).
     string? ClaseManual = null,
     string? SubtipoVentaDirecta = null,
-    bool EsEmergencia = false);
+    bool EsEmergencia = false,
+    // 86e3tfd7j: Total (subtotal sin IVA) + IVA trasladado por línea, redondeado
+    // por línea como la factura. Null si alguna línea no tiene tasa (legacy).
+    // No resta ranura ni retenciones.
+    decimal? TotalConIva = null);
 
 public sealed class BandejaPedidosFacturablesHandler
     : IRequestHandler<BandejaPedidosFacturablesQuery, BandejaPedidosFacturablesResponse>
@@ -75,6 +79,7 @@ public sealed class BandejaPedidosFacturablesHandler
             {
                 p.Id, p.NumeroPedido, p.Origen, p.Estado, p.ClienteNombre, p.Total, p.Moneda, p.CreatedAt,
                 p.ClaseManual, p.SubtipoVentaDirecta,
+                Lineas = p.Lineas.Select(l => new { l.Importe, l.TasaIva }).ToList(),
             })
             .ToListAsync(cancellationToken);
 
@@ -83,7 +88,10 @@ public sealed class BandejaPedidosFacturablesHandler
                 r.Id, r.NumeroPedido, r.Origen.ToString(), r.Estado.ToString(),
                 r.ClienteNombre, r.Total, r.Moneda, r.CreatedAt,
                 r.ClaseManual?.ToString(), r.SubtipoVentaDirecta?.ToString(),
-                r.Origen == OrigenPedido.Manual && r.ClaseManual == ClasePedidoManual.Emergencia))
+                r.Origen == OrigenPedido.Manual && r.ClaseManual == ClasePedidoManual.Emergencia,
+                r.Lineas.Any(l => l.TasaIva is null)
+                    ? null
+                    : r.Total + r.Lineas.Sum(l => Math.Round(l.Importe * l.TasaIva!.Value, 2, MidpointRounding.AwayFromZero))))
             .ToList();
 
         return new BandejaPedidosFacturablesResponse(items, sinAsignarCount);

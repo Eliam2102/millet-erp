@@ -82,6 +82,16 @@ beforeEach(() => {
         { id: 8, nombre: 'Exportación' },
       ]),
     ),
+    // U1.8a: por omisión el pedido no tiene proforma → se timbra directo.
+    http.post('*/api/v1/facturacion/pedidos-facturables/:id/proformas/comparar', () =>
+      HttpResponse.json({
+        hayProforma: false,
+        folio: null,
+        version: null,
+        generadaEn: null,
+        diferencias: [],
+      }),
+    ),
   );
 });
 afterEach(() => {
@@ -876,5 +886,168 @@ describe('<EmitirFacturaForm> — venta directa (F6.1)', () => {
     expect(screen.queryByTestId('leyenda-serie-venta-directa')).not.toBeInTheDocument();
     fireEvent.click(screen.getByRole('button', { name: 'Editar pedido' }));
     expect(onEditarPedido).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe('<EmitirFacturaForm> — diferencias contra la proforma (U1.8a)', () => {
+  const PEDIDO_ID = '00000003-0000-0000-0000-0000000000a8';
+  const prefill: EmitirFacturaPrefill = {
+    pedidoFacturableId: PEDIDO_ID,
+    clienteId: '00000003-0000-0000-0000-000000000001',
+    receptorNombre: 'CLIENTE FICTICIO',
+    receptorRfc: 'AAA010101AAA',
+    receptorRegimenFiscal: '601',
+    receptorCodigoPostal: '97000',
+    receptorUsoCfdi: 'G03',
+    lineas: [
+      {
+        productoId: null,
+        claveProdServSat: '01010101',
+        descripcion: 'Vidrio prueba',
+        claveUnidadSat: 'H87',
+        cantidad: 3,
+        valorUnitario: 100,
+        descuento: 0,
+        requierePedimento: false,
+        tasaIvaTraslado: 0.16,
+      },
+    ],
+  };
+
+  function mockEmision() {
+    const emitidas: unknown[] = [];
+    mswServer.use(
+      http.post('*/api/v1/facturacion/facturas/', async ({ request }) => {
+        emitidas.push(await request.json());
+        return HttpResponse.json(
+          { id: 'f-1', folio: 'A-1', total: 348, version: 1, estado: 'Timbrado', uuid: 'u' },
+          { status: 201 },
+        );
+      }),
+    );
+    return emitidas;
+  }
+
+  function mockComparar(respuesta: unknown, status = 200) {
+    const comparadas: unknown[] = [];
+    mswServer.use(
+      http.post(
+        `*/api/v1/facturacion/pedidos-facturables/${PEDIDO_ID}/proformas/comparar`,
+        async ({ request }) => {
+          comparadas.push(await request.json());
+          return HttpResponse.json(respuesta, { status });
+        },
+      ),
+    );
+    return comparadas;
+  }
+
+  const CON_DIFERENCIAS = {
+    hayProforma: true,
+    folio: 'PF-MID-001-1',
+    version: 1,
+    generadaEn: '2026-10-20T15:00:00Z',
+    diferencias: [
+      { campo: 'Partida 1 · Cantidad', proforma: '2', timbrado: '3' },
+      { campo: 'Total', proforma: '$232.00', timbrado: '$348.00' },
+    ],
+  };
+
+  function renderForm(onSuccess = vi.fn()) {
+    setPermisos([PermisosCanonicos.FacturacionFacturasEmitir]);
+    render(<EmitirFacturaForm prefill={prefill} onSuccess={onSuccess} onCancel={() => {}} />, {
+      wrapper: createQueryWrapper(),
+    });
+    return onSuccess;
+  }
+
+  it('con diferencias abre el diálogo con la tabla y NO emite hasta «Timbrar de todos modos»', async () => {
+    const emitidas = mockEmision();
+    const comparadas = mockComparar(CON_DIFERENCIAS);
+    const onSuccess = renderForm();
+    fireEvent.click(await screen.findByRole('button', { name: /Emitir y timbrar/i }));
+
+    const dialogo = await screen.findByRole('alertdialog');
+    expect(within(dialogo).getByText(/difiere de la proforma/i)).toBeInTheDocument();
+    expect(within(dialogo).getByText('PF-MID-001-1')).toBeInTheDocument();
+    expect(within(dialogo).getByRole('columnheader', { name: 'Campo' })).toBeInTheDocument();
+    expect(within(dialogo).getByText('Partida 1 · Cantidad')).toBeInTheDocument();
+    expect(within(dialogo).getByText('$348.00')).toBeInTheDocument();
+    // El comparar recibe el mismo payload que se emitiría.
+    expect(comparadas).toEqual([
+      expect.objectContaining({ pedidoFacturableId: PEDIDO_ID, receptorRfc: 'AAA010101AAA' }),
+    ]);
+    expect(emitidas).toHaveLength(0);
+
+    fireEvent.click(within(dialogo).getByRole('button', { name: 'Timbrar de todos modos' }));
+    await waitFor(() => expect(emitidas).toHaveLength(1));
+    expect(emitidas[0]).toEqual(comparadas[0]);
+    await waitFor(() => expect(onSuccess).toHaveBeenCalledTimes(1));
+  });
+
+  it('«Revisar» cierra el diálogo sin emitir', async () => {
+    const emitidas = mockEmision();
+    mockComparar(CON_DIFERENCIAS);
+    renderForm();
+    fireEvent.click(await screen.findByRole('button', { name: /Emitir y timbrar/i }));
+    const dialogo = await screen.findByRole('alertdialog');
+    fireEvent.click(within(dialogo).getByRole('button', { name: 'Revisar' }));
+    await waitFor(() => expect(screen.queryByRole('alertdialog')).not.toBeInTheDocument());
+    expect(emitidas).toHaveLength(0);
+    expect(screen.getByRole('button', { name: /Emitir y timbrar/i })).toBeEnabled();
+  });
+
+  it('sin diferencias contra la proforma emite directo', async () => {
+    const emitidas = mockEmision();
+    mockComparar({ ...CON_DIFERENCIAS, diferencias: [] });
+    renderForm();
+    fireEvent.click(await screen.findByRole('button', { name: /Emitir y timbrar/i }));
+    await waitFor(() => expect(emitidas).toHaveLength(1));
+    expect(screen.queryByRole('alertdialog')).not.toBeInTheDocument();
+  });
+
+  it('sin proforma emite directo', async () => {
+    const emitidas = mockEmision();
+    const comparadas = mockComparar({
+      hayProforma: false,
+      folio: null,
+      version: null,
+      generadaEn: null,
+      diferencias: [],
+    });
+    renderForm();
+    fireEvent.click(await screen.findByRole('button', { name: /Emitir y timbrar/i }));
+    await waitFor(() => expect(emitidas).toHaveLength(1));
+    expect(comparadas).toHaveLength(1);
+    expect(screen.queryByRole('alertdialog')).not.toBeInTheDocument();
+  });
+
+  it('si la comparación falla avisa y permite continuar sin comparar', async () => {
+    const emitidas = mockEmision();
+    mockComparar({ type: 'about:blank', title: 'Error', status: 500 }, 500);
+    renderForm();
+    fireEvent.click(await screen.findByRole('button', { name: /Emitir y timbrar/i }));
+    const dialogo = await screen.findByRole('alertdialog');
+    expect(within(dialogo).getByText(/No se pudo comparar/i)).toBeInTheDocument();
+    expect(emitidas).toHaveLength(0);
+    fireEvent.click(within(dialogo).getByRole('button', { name: 'Timbrar sin comparar' }));
+    await waitFor(() => expect(emitidas).toHaveLength(1));
+  });
+
+  it('factura manual (sin pedido) no compara contra proforma', async () => {
+    const comparadas = mockComparar(CON_DIFERENCIAS);
+    const emitidas = mockEmision();
+    setPermisos([PermisosCanonicos.FacturacionFacturasEmitir]);
+    render(
+      <EmitirFacturaForm
+        prefill={{ ...prefill, pedidoFacturableId: undefined as unknown as string }}
+        onSuccess={() => {}}
+        onCancel={() => {}}
+      />,
+      { wrapper: createQueryWrapper() },
+    );
+    fireEvent.click(await screen.findByRole('button', { name: /Emitir y timbrar/i }));
+    await waitFor(() => expect(emitidas).toHaveLength(1));
+    expect(comparadas).toHaveLength(0);
   });
 });
