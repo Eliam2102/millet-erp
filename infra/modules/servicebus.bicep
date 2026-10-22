@@ -288,8 +288,9 @@ resource almacenEventsTopic 'Microsoft.ServiceBus/namespaces/topics@2024-01-01' 
 
 // Subscription consumida por CxP AlmacenEventListenerWorker (F6-PR3).
 // Procesa recepciones (proyecta a `recepciones_oc_local`) + devoluciones
-// (genera `NotaCargo` Borrador). Filtra a esos 2 EventTypes para evitar
-// carga inútil con eventos informativos.
+// (genera `NotaCargo` Borrador) + anulaciones de recepción de activo (marca
+// la línea anulada en `recepciones_oc_local`). Filtra a esos 3 EventTypes para
+// evitar carga inútil con eventos informativos.
 // Referencia: backend/src/CuentasPorPagar/Infrastructure/Workers/AlmacenEventListenerWorker.cs
 resource almacenEventsCxpSubscription 'Microsoft.ServiceBus/namespaces/topics/subscriptions@2024-01-01' = {
   parent: almacenEventsTopic
@@ -318,9 +319,9 @@ resource almacenEventsCxpSubscriptionFilter 'Microsoft.ServiceBus/namespaces/top
 
 // Subscription consumida por Compras AlmacenEventListenerWorker
 // (PR #293, "fix recepciones parciales"). Incrementa CantidadRecibida
-// por línea de OC. Filtra estrictamente al único EventType que Compras
-// consume; los informativos van a esta subscription pero el worker los
-// loggea + marca idempotencia sin dispatch.
+// por línea de OC; también consume devoluciones, salidas por requisición y
+// anulaciones de recepción de activo. Filtra a los EventTypes que Compras
+// despacha; cualquier otro no llega a esta subscription.
 // Referencia: backend/src/Compras/Infrastructure/Workers/AlmacenEventListenerWorker.cs
 resource almacenEventsComprasSubscription 'Microsoft.ServiceBus/namespaces/topics/subscriptions@2024-01-01' = {
   parent: almacenEventsTopic
