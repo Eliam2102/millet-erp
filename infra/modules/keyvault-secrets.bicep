@@ -45,11 +45,11 @@ param storageConnectionString string
 
 // === Operator-managed (opcionales — vacío = no crear, operador setea con `az keyvault secret set`) ===
 
-@description('Connection string al SQL Server AWBUSINESS on-prem (BD MILMAIN) vía Hybrid Connection. Formato: `Server=SER-DATA,1433;Database=MILMAIN;User ID=...;Password=...;Encrypt=False;TrustServerCertificate=True;`. Vacío = no crear; operador lo setea post-deploy.')
+@description('Connection string al SQL Server AWBUSINESS on-prem (BD MILMAIN) vía Hybrid Connection. Formato: `Server=aw-sql-onprem,1433;Database=MILMAIN;User ID=...;Password=...;Encrypt=True;TrustServerCertificate=False;`. Vacío = no crear; operador lo setea post-deploy.')
 @secure()
 param awSqlConnectionString string = ''
 
-@description('Connection string a la BD de integración MILLET_INTEGRACION(_DEV) on-prem vía Hybrid Connection (ADR-0048, flujo 2 — ingesta de pedidos → Facturación). Formato: `Server=SER-DATA,1433;Database=MILLET_INTEGRACION;User ID=millet_erp_integracion;Password=...;Encrypt=False;TrustServerCertificate=True;`. Vacío = no crear; operador lo setea post-deploy (dev apunta a _DEV).')
+@description('Connection string a la BD de integración MILLET_INTEGRACION(_DEV) on-prem vía Hybrid Connection (ADR-0048, flujo 2 — ingesta de pedidos → Facturación). Formato: `Server=aw-sql-onprem,1433;Database=MILLET_INTEGRACION;User ID=millet_erp_integracion;Password=...;Encrypt=True;TrustServerCertificate=False;`. Vacío = no crear; operador lo setea post-deploy (dev apunta a _DEV).')
 @secure()
 param awIntegracionConnectionString string = ''
 
@@ -148,6 +148,17 @@ resource glassAgentSpnClientSecretSecret 'Microsoft.KeyVault/vaults/secrets@2024
     contentType: 'text/plain'
   }
 }
+
+// === A+W SQL TLS verificado + flujos clientes/productos/cambios (operator-managed, sin slot Bicep) ===
+//
+// Todas las connection strings A+W usan `Server=aw-sql-onprem,1433;...;Encrypt=True;TrustServerCertificate=False`
+// (el host aw-sql-onprem está en el SAN del cert de SER-DATA). Se cargan una vez con:
+//   az keyvault secret set --vault-name <kv> --name aw-clientes-connection-string  --value '<conn-string>'
+//   az keyvault secret set --vault-name <kv> --name aw-productos-connection-string --value '<conn-string>'
+//   az keyvault secret set --vault-name <kv> --name aw-cambios-connection-string   --value '<conn-string>'
+//   az keyvault secret set --vault-name <kv> --name aw-sql-server-certificate --file ser-data-sql.pem
+// aw-sql-server-certificate = PEM PÚBLICO de SER-DATA (no es secreto sensible); al renovarlo en
+// SER-DATA, subir el nuevo PEM y reiniciar el App Service.
 
 // === Soketi (operator-managed, sin slot Bicep) ===
 //

@@ -181,6 +181,14 @@ const moduloCompras: NavModulo = {
           icon: BarChart3,
           permission: PermisosCanonicos.ComprasOrdenesReportesPartidasAbiertas,
         },
+        {
+          label: 'Análisis de proveedores',
+          description:
+            'Compras por periodo, saldos pendientes por OC y cumplimiento de proveedores (a tiempo, completo, incidencias).',
+          to: '/compras/reportes/analisis-proveedores',
+          icon: BarChart3,
+          permission: PermisosCanonicos.ComprasOrdenesReportesAnalisisProveedores,
+        },
       ],
     },
     {
