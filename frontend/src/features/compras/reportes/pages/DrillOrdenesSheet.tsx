@@ -128,7 +128,7 @@ function Contenido({ target, filtros }: { target: DrillTarget; filtros: FiltrosA
           </p>
         ) : (
           <>
-            <p className="text-xs text-ink-muted">{items.length} órdenes</p>
+            <p className="text-xs text-ink-muted">{items.length} {items.length === 1 ? 'orden' : 'órdenes'}</p>
             <ul className="space-y-3">
               {items.map((oc) => (
                 <li key={oc.ocId}>
