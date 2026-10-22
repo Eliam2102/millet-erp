@@ -183,6 +183,11 @@ public sealed class CapturarFacturaConOcHandler : IRequestHandler<CapturarFactur
                 throw new BusinessRuleException(
                     "RECEPCION_DE_OTRA_OC",
                     $"La recepción {recepcion.FolioRecepcion} no pertenece a la OC {oc.Folio} de esta factura.");
+            if (recepcion.LineasOcAnuladas.Count > 0 && (System.Text.Json.JsonSerializer.Deserialize<List<EventListeners.LineaRecepcionPayload>>(
+                    recepcion.LineasJson, System.Text.Json.JsonSerializerOptions.Web) ?? []).All(l => recepcion.LineaAnulada(l.LineaOcId)))
+                throw new BusinessRuleException(
+                    "RECEPCION_ANULADA",
+                    $"La recepción {recepcion.FolioRecepcion} fue anulada. Elige otra recepción.");
             var ligada = await _db.FacturasProveedor.AsNoTracking().FirstOrDefaultAsync(
                 f => f.RecepcionId == recepcionId && f.Estado != EstadoPasivo.Cancelada, cancellationToken);
             if (ligada is not null)

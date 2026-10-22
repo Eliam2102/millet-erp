@@ -47,7 +47,7 @@ public sealed class DetencionPorDanoService(
         recepciones = recepciones.Concat(db.RecepcionesOcLocal.Local.Where(r => r.OrdenCompraId == ordenCompraId))
             .DistinctBy(r => r.RecepcionId).ToList();
         var lineas = recepciones
-            .SelectMany(r => JsonSerializer.Deserialize<List<LineaRecepcionPayload>>(r.LineasJson, JsonOptions) ?? [])
+            .SelectMany(r => (JsonSerializer.Deserialize<List<LineaRecepcionPayload>>(r.LineasJson, JsonOptions) ?? []).Where(l => !r.LineaAnulada(l.LineaOcId)))
             .ToList();
         return await LineasOcConDanoAsync(lineas, ct);
     }
