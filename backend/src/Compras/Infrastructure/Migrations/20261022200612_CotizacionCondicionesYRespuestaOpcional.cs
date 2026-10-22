@@ -11,6 +11,11 @@ namespace Millet.Compras.Infrastructure.Migrations
         /// <inheritdoc />
         protected override void Up(MigrationBuilder migrationBuilder)
         {
+            migrationBuilder.DropCheckConstraint(
+                name: "ck_oc_estado_comercial_proveedor",
+                schema: "compras",
+                table: "ordenes_compra");
+
             migrationBuilder.AlterColumn<short>(
                 name: "tipo",
                 schema: "compras",
@@ -53,11 +58,22 @@ namespace Millet.Compras.Infrastructure.Migrations
                 table: "cotizaciones",
                 type: "date",
                 nullable: true);
+
+            migrationBuilder.AddCheckConstraint(
+                name: "ck_oc_estado_comercial_proveedor",
+                schema: "compras",
+                table: "ordenes_compra",
+                sql: "estado_comercial_proveedor BETWEEN 0 AND 4");
         }
 
         /// <inheritdoc />
         protected override void Down(MigrationBuilder migrationBuilder)
         {
+            migrationBuilder.DropCheckConstraint(
+                name: "ck_oc_estado_comercial_proveedor",
+                schema: "compras",
+                table: "ordenes_compra");
+
             migrationBuilder.DropColumn(
                 name: "condiciones_pago_id",
                 schema: "compras",
@@ -102,6 +118,12 @@ namespace Millet.Compras.Infrastructure.Migrations
                 oldType: "character varying(300)",
                 oldMaxLength: 300,
                 oldNullable: true);
+
+            migrationBuilder.AddCheckConstraint(
+                name: "ck_oc_estado_comercial_proveedor",
+                schema: "compras",
+                table: "ordenes_compra",
+                sql: "estado_comercial_proveedor BETWEEN 0 AND 3");
         }
     }
 }

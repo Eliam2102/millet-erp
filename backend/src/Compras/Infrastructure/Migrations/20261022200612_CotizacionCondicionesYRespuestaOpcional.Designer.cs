@@ -14,8 +14,8 @@ using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 namespace Millet.Compras.Infrastructure.Migrations
 {
     [DbContext(typeof(ComprasDbContext))]
-    [Migration("20261022183701_OcEstadoComercialRespuestaRegistrada")]
-    partial class OcEstadoComercialRespuestaRegistrada
+    [Migration("20261022200612_CotizacionCondicionesYRespuestaOpcional")]
+    partial class CotizacionCondicionesYRespuestaOpcional
     {
         /// <inheritdoc />
         protected override void BuildTargetModel(ModelBuilder modelBuilder)
@@ -508,12 +508,26 @@ namespace Millet.Compras.Infrastructure.Migrations
                         .HasDefaultValue(0m)
                         .HasColumnName("cant_entregada");
 
+                    b.Property<decimal>("CantidadLiberadaApartado")
+                        .ValueGeneratedOnAdd()
+                        .HasPrecision(18, 5)
+                        .HasColumnType("numeric(18,5)")
+                        .HasDefaultValue(0m)
+                        .HasColumnName("cant_liberada_apartado");
+
                     b.Property<decimal>("CantidadRecibida")
                         .ValueGeneratedOnAdd()
                         .HasPrecision(18, 5)
                         .HasColumnType("numeric(18,5)")
                         .HasDefaultValue(0m)
                         .HasColumnName("cant_recibida");
+
+                    b.Property<decimal>("CantidadSinCompra")
+                        .ValueGeneratedOnAdd()
+                        .HasPrecision(18, 5)
+                        .HasColumnType("numeric(18,5)")
+                        .HasDefaultValue(0m)
+                        .HasColumnName("cant_sin_compra");
 
                     b.Property<Guid?>("CentroCostoId")
                         .HasColumnType("uuid")
@@ -546,6 +560,11 @@ namespace Millet.Compras.Infrastructure.Migrations
                     b.Property<DateOnly?>("FechaRequerida")
                         .HasColumnType("date")
                         .HasColumnName("fecha_requerida");
+
+                    b.Property<string>("MotivoUltimaLiberacion")
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)")
+                        .HasColumnName("motivo_ultima_liberacion");
 
                     b.Property<string>("Notas")
                         .HasMaxLength(500)
@@ -2408,7 +2427,9 @@ namespace Millet.Compras.Infrastructure.Migrations
                         .HasColumnName("requisitante_id");
 
                     b.Property<bool>("SoloApartarSiCompleto")
+                        .ValueGeneratedOnAdd()
                         .HasColumnType("boolean")
+                        .HasDefaultValue(false)
                         .HasColumnName("solo_apartar_si_completo");
 
                     b.Property<Guid>("SucursalId")
