@@ -329,6 +329,20 @@ Los mensajes de error persistidos no incluyen texto de excepción ni payload.
 - **Dispatcher single-host**: el índice único evita dos barridos vivos, pero no hay elección de líder; con varias instancias ambas podrían tomar la misma ejecución. Operar con una instancia o revisar antes de escalar.
 - **Primera corrida real**: medido en la copia `AW_FULL` (solo lectura), 1,404 claves repetidas entre clientes de A+W con 1,634 referencias adicionales, casi todas históricas (solo 3 con pedidos en 24 meses); no se envían a revisión; se informan en el reporte de G1.10 y quedan pendientes de la aclaración con Millet.
 
+### 10.8.1 Unificar clientes con RFC repetido (86e3qcgyn)
+
+> **Propuesta, pendiente de validar con Millet** (quién aprueba al principal y las reglas de abajo). Solo toca el ERP: nunca escribe en A+W ni mueve historial.
+
+- **Grupos.** `GET /api/v1/datos-maestros/clientes/rfc-repetidos` (permiso `sincronizar`) agrupa por RFC normalizado (`clientes.rfc` y `UST_ID` candidato de A+W), sin RFC genéricos ni formas inválidas, solo grupos de 2 o más. Por cliente muestra pedidos y último pedido en A+W (`SYSADM.BW_AUFTR_KOPF`, `AH_IDENT`/`DATUM_ERF`, solo SELECT por la misma conexión de clientes) y pedidos del ERP (`PedidoFacturable`).
+- **Principal sugerido (en este orden).** 1) el que ya tiene el RFC en `clientes.rfc`; 2) el pedido más reciente en A+W; 3) más pedidos en el ERP; 4) la referencia A+W más baja. La respuesta incluye el motivo.
+- **Unificar.** `POST .../rfc-repetidos/unificar` (permiso `datos_maestros.clientes.unificar`, `Idempotency-Key`) unifica en el principal elegido a todos los demás del grupo. El servidor decide por cliente con el historial real:
+  - **Fusionar** (sin pedidos en A+W ni en el ERP): el secundario pasa a `Inactivo`.
+  - **Agrupar** (con historial): el secundario sigue `Activo` para conservar saldos y facturas; no se mueve nada.
+  - Los pedidos **nuevos** de la referencia secundaria se ingestan al principal (`ResolverPorReferenciaAsync` sigue `unificado_en_cliente_id`, un solo salto).
+- **Sincronización.** Un Fusionado nunca se reactiva por A+W ni a mano (`CLIENTE_FUSIONADO`); los datos de origen se siguen registrando en el secundario. Ya unificado en uno de los clientes que comparten la clave, no se vuelve a informar `RfcCompartido`.
+- **Errores 422.** `CLIENTE_UNIFICAR_RFC_INVALIDO` (genérico), `CLIENTE_UNIFICAR_MOTIVO_INVALIDO` (5 a 300), `CLIENTE_UNIFICAR_PRINCIPAL_FUERA_DE_GRUPO`, `CLIENTE_PRINCIPAL_UNIFICADO`, `CLIENTE_YA_UNIFICADO`, `CLIENTE_SECUNDARIO_TIENE_UNIFICADOS`. Si la lectura de A+W está apagada o falla, el endpoint responde 503 en lugar de suponer «sin pedidos».
+- **Fuera de alcance.** Deshacer la unificación; mover pedidos, facturas o saldos entre clientes.
+
 ## 10.9 Propuestas de flujo pendientes de confirmación (cierre ADM-06)
 
 Todas son **PROPUESTA — cambiable**: se construyeron así para no inventar política de Millet; si Millet/Eliam pide otra cosa, cambia solo el punto indicado.
