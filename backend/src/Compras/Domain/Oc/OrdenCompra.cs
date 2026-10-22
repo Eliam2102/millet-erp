@@ -726,7 +726,6 @@ public sealed class OrdenCompra : BaseEntity, IPerteneceAEmpresa, IAuditable, IF
             esServicio: esServicio,
             fraccionArancelaria: fraccionArancelaria);
 
-        if (esActivoFijo && esServicio) throw new BusinessRuleException("OC_ACTIVO_SERVICIO", "Un servicio no puede ser activo fijo.");
         linea.ClasificarActivo(esActivoFijo, claseActivoId);
         _lineas.Add(linea);
         return linea;
@@ -816,7 +815,6 @@ public sealed class OrdenCompra : BaseEntity, IPerteneceAEmpresa, IAuditable, IF
             esServicio: esServicio,
             fraccionArancelaria: fraccionArancelaria);
 
-        if (esActivoFijo && esServicio) throw new BusinessRuleException("OC_ACTIVO_SERVICIO", "Un servicio no puede ser activo fijo.");
         linea.ClasificarActivo(esActivoFijo, claseActivoId);
         _lineas.Add(linea);
         return linea;
@@ -844,7 +842,9 @@ public sealed class OrdenCompra : BaseEntity, IPerteneceAEmpresa, IAuditable, IF
         bool? esServicio = null,
         Guid? centroCostoId = null,
         string? fraccionArancelaria = null,
-        bool limpiarFraccionArancelaria = false)
+        bool limpiarFraccionArancelaria = false,
+        bool? esActivoFijo = null,
+        Guid? claseActivoId = null)
     {
         if (!EstadosEditables.Contains(Estado))
         {
@@ -861,7 +861,7 @@ public sealed class OrdenCompra : BaseEntity, IPerteneceAEmpresa, IAuditable, IF
             departamentoSolicitanteId, descripcionExtendida,
             fechaEntregaLinea, limpiarDescripcionExtendida,
             limpiarFechaEntregaLinea, esServicio, centroCostoId,
-            fraccionArancelaria, limpiarFraccionArancelaria);
+            fraccionArancelaria, limpiarFraccionArancelaria, esActivoFijo, claseActivoId);
     }
 
     /// <summary>

@@ -276,7 +276,7 @@ public sealed class Requisicion : BaseEntity, IPerteneceAEmpresa, IAuditable, IF
         string? proyecto = null,
         DateOnly? fechaRequerida = null,
         string? notas = null,
-        bool esActivoFijo = false, Guid? claseActivoId = null)
+        bool esActivoFijo = false, Guid? claseActivoId = null, bool articuloEsServicio = false)
     {
         if (Estado != EstadoRequisicion.Borrador)
         {
@@ -303,7 +303,7 @@ public sealed class Requisicion : BaseEntity, IPerteneceAEmpresa, IAuditable, IF
             fechaRequerida: fechaRequerida,
             notas: notas);
 
-        linea.ClasificarActivo(esActivoFijo, claseActivoId);
+        linea.ClasificarActivo(esActivoFijo, claseActivoId, articuloEsServicio || Clasificacion == Clasificacion.Servicio);
         _lineas.Add(linea);
         return linea;
     }
@@ -322,7 +322,8 @@ public sealed class Requisicion : BaseEntity, IPerteneceAEmpresa, IAuditable, IF
         Guid? cuentaContableId = null,
         Guid? centroCostoId = null,
         string? proyecto = null,
-        DateOnly? fechaRequerida = null)
+        DateOnly? fechaRequerida = null,
+        bool? esActivoFijo = null, Guid? claseActivoId = null, bool articuloEsServicio = false)
     {
         if (Estado != EstadoRequisicion.Borrador)
         {
@@ -335,6 +336,9 @@ public sealed class Requisicion : BaseEntity, IPerteneceAEmpresa, IAuditable, IF
         linea.ActualizarEstructural(
             articuloId, cantidad, unidadMedida, precioEstimado,
             cuentaContableId, centroCostoId, proyecto, fechaRequerida);
+        // null = conservar; se revalida siempre (clase, cantidad entera, servicio) por si cambió el artículo.
+        linea.ClasificarActivo(esActivoFijo ?? linea.EsActivoFijo, claseActivoId ?? linea.ClaseActivoId,
+            articuloEsServicio || Clasificacion == Clasificacion.Servicio);
     }
 
     /// <summary>

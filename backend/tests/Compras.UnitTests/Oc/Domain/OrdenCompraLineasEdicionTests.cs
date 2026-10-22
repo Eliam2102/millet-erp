@@ -231,4 +231,47 @@ public class OrdenCompraLineasEdicionTests
             oc.ActualizarTextoAdicionalLinea(linea.Id, new string('x', 501)));
         Assert.Equal("LINEA_OC_TEXTO_ADICIONAL_DEMASIADO_LARGO", ex.Code);
     }
+
+    [Fact]
+    public void ActualizarLinea_ActivoFijo_marca_y_null_conserva()
+    {
+        var oc = NewOcConLinea(out var linea);
+        var clase = Guid.CreateVersion7();
+        oc.ActualizarLinea(linea.Id, esActivoFijo: true, claseActivoId: clase);
+        Assert.True(linea.EsActivoFijo);
+        Assert.Equal(clase, linea.ClaseActivoId);
+
+        oc.ActualizarLinea(linea.Id, precioUnitario: 120m);
+        Assert.True(linea.EsActivoFijo);
+        Assert.Equal(clase, linea.ClaseActivoId);
+
+        oc.ActualizarLinea(linea.Id, esActivoFijo: false);
+        Assert.False(linea.EsActivoFijo);
+        Assert.Null(linea.ClaseActivoId);
+    }
+
+    [Fact]
+    public void ActualizarLinea_ActivoFijo_sin_clase_o_con_recepcion_lanza()
+    {
+        var oc = NewOcConLinea(out var linea);
+        var ex = Assert.Throws<BusinessRuleException>(() => oc.ActualizarLinea(linea.Id, esActivoFijo: true));
+        Assert.Equal("COMPRA_ACTIVO_INVALIDO", ex.Code);
+
+        typeof(LineaOrdenCompra).GetProperty(nameof(LineaOrdenCompra.CantidadRecibida))!.SetValue(linea, 1m);
+        ex = Assert.Throws<BusinessRuleException>(() => oc.ActualizarLinea(linea.Id, esActivoFijo: true, claseActivoId: Guid.CreateVersion7()));
+        Assert.Equal("LINEA_OC_CON_RECEPCION_NO_ESTRUCTURAL", ex.Code);
+    }
+
+    [Fact]
+    public void ActivoFijo_en_servicio_lanza_al_actualizar_y_al_agregar()
+    {
+        var oc = NewOcConLinea(out var linea);
+        oc.ActualizarLinea(linea.Id, esActivoFijo: true, claseActivoId: Guid.CreateVersion7());
+        var ex = Assert.Throws<BusinessRuleException>(() => oc.ActualizarLinea(linea.Id, esServicio: true));
+        Assert.Equal("OC_ACTIVO_SERVICIO", ex.Code);
+
+        ex = Assert.Throws<BusinessRuleException>(() => oc.AgregarLineaManual(Guid.CreateVersion7(), Guid.CreateVersion7(), 1m, "PZA", 10m,
+            Guid.CreateVersion7(), esServicio: true, centroCostoId: Guid.CreateVersion7(), esActivoFijo: true, claseActivoId: Guid.CreateVersion7()));
+        Assert.Equal("OC_ACTIVO_SERVICIO", ex.Code);
+    }
 }

@@ -411,7 +411,9 @@ public static class OrdenesCompraEndpoints
                     LimpiarDescripcionExtendida: body.LimpiarDescripcionExtendida ?? false,
                     LimpiarFechaEntregaLinea: body.LimpiarFechaEntregaLinea ?? false,
                     FraccionArancelaria: body.FraccionArancelaria,
-                    LimpiarFraccionArancelaria: body.LimpiarFraccionArancelaria ?? false),
+                    LimpiarFraccionArancelaria: body.LimpiarFraccionArancelaria ?? false,
+                    EsActivoFijo: body.EsActivoFijo,
+                    ClaseActivoId: body.ClaseActivoId),
                 cancellationToken);
             return Results.NoContent();
         })
@@ -1865,7 +1867,8 @@ public static class OrdenesCompraEndpoints
         bool? LimpiarFechaEntregaLinea,
         // PLATFORM-TODO(F1-COM-06): supuesto Vilo. Solo OC de comercio exterior.
         string? FraccionArancelaria = null,
-        bool? LimpiarFraccionArancelaria = null);
+        bool? LimpiarFraccionArancelaria = null,
+        bool? EsActivoFijo = null, Guid? ClaseActivoId = null);
 
     /// <summary>Body del PATCH texto-adicional (F2-PR2).</summary>
     public sealed record ActualizarTextoAdicionalRequest(string? TextoAdicional);
