@@ -31,10 +31,15 @@ Origen: sesión con Millet del 19-oct-2026 (Jorge, 01:08:04–01:11:28). Confirm
 
 **Surtido parcial o completo.** La requisición lleva el indicador `SoloApartarSiCompleto`, que elige quien la solicita; por omisión es surtido parcial. Queda congelado al transmitir la requisición, igual que `Obra`. Se decide por línea: una línea con el indicador activo solo aparta si la existencia libre cubre la cantidad pendiente completa; si no, no aparta nada de esa línea. La regla se aplica de la misma forma en la división estimada (matriz, bandeja y vista previa) y de forma atómica al apartar en la autorización. El parámetro global `ApartarExistenciaAlAutorizar` sigue prevaleciendo: si está apagado no se aparta nada, sin importar el indicador.
 
-**Liberar apartado.** Se puede liberar el apartado por línea y por cantidad, con el permiso `compras.requisiciones.liberar-apartado` y un motivo obligatorio. La operación corre dentro de la transacción compartida con Almacén y bajo el mismo bloqueo asesor por sucursal/artículo, y nunca libera más de lo pendiente. No recalcula la cobertura de la línea ni manda a compra lo liberado (el solicitante ya no lo necesita), y no emite evento de integración. El permiso se siembra sin asignarlo a ningún rol; se asigna en Administración.
+**Liberar apartado.** Se puede liberar el apartado por línea y por cantidad, con el permiso `compras.requisiciones.liberar-apartado` y un motivo obligatorio. La operación corre dentro de la transacción compartida con Almacén, bajo el bloqueo de saldo de OC de Compras y el bloqueo asesor por sucursal/artículo de Almacén, y nunca libera más de lo pendiente. Quien libera responde siempre si lo liberado se manda a compra (decisión del owner, 22-oct):
+- **Sí:** la cobertura se recalcula; la cantidad pasa de almacén a saldo de compra y la ve el comprador al generar la OC. Si la requisición ya está en una OC, no se permite (`RQ_COMPROMETIDA_EN_OC`): solo se libera sin compra o se captura otra requisición.
+- **No:** la cantidad sale de almacén y queda como `cant_sin_compra` de la línea. Ya no cuenta para el cierre por entrega; si con eso no falta nada por entregar, la requisición se cierra en la misma transacción.
+
+No emite evento de integración nuevo; el cierre usa el `RequisicionCerradaEvent` existente. La liberación queda en el histórico de la requisición (tipo `ApartadoLiberado`: quién, cuándo, cantidad, destino y motivo). El permiso se siembra sin asignarlo a ningún rol de sistema; se asigna en Administración a los roles de Compras.
 
 **Superficie técnica.**
 - `GET /api/v1/compras/requisiciones/{id}/apartados` consulta el apartado por línea.
 - `POST /api/v1/compras/requisiciones/{id}/lineas/{lineaId}/liberar-apartado` libera cantidad con motivo.
-- Almacén registra la liberación en las columnas `cantidad_liberada` y `motivo_liberacion` del apartado.
+- Almacén registra la liberación en las columnas `cantidad_liberada` y `motivo_liberacion` del apartado; Compras, en `cant_liberada_apartado`, `cant_sin_compra` y `motivo_ultima_liberacion` de la línea.
+- `PATCH /api/v1/compras/requisiciones/{id}` edita el surtido junto con el resto de la cabecera; en pantalla se edita desde el detalle mientras la requisición está en Borrador.
 - La pantalla de detalle de la requisición muestra el apartado por línea y, con el permiso, la acción de liberar.
