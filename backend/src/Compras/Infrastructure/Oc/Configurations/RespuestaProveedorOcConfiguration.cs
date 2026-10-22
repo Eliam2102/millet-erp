@@ -14,7 +14,7 @@ public sealed class RespuestaProveedorOcConfiguration : IEntityTypeConfiguration
         builder.Property(r => r.Id).ValueGeneratedNever();
         builder.Ignore(r => r.AggregateRootId);
         builder.Property(r => r.Tipo).HasConversion<short>();
-        builder.Property(r => r.Evidencia).HasMaxLength(300).IsRequired();
+        builder.Property(r => r.Evidencia).HasMaxLength(300);
         builder.Property(r => r.ContactoProveedor).HasMaxLength(120);
         builder.Property(r => r.Motivo).HasMaxLength(500);
         builder.HasIndex(r => new { r.OrdenCompraId, r.Numero }).IsUnique()

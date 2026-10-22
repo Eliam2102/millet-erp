@@ -54,6 +54,9 @@ const respuesta = (numero: number, vigente: boolean): RespuestaProveedorOc => ({
 
 function abrirSheet(onSubmit = vi.fn().mockResolvedValue(undefined)) {
   render(<RegistrarRespuestaProveedorSheet oc={ocDePrueba()} open onOpenChange={vi.fn()} onSubmit={onSubmit} />);
+  fireEvent.change(screen.getByLabelText(/Archivo de evidencia/), {
+    target: { files: [new File(['%PDF-1.4 DEMO ficticio'], 'DEMO.pdf', { type: 'application/pdf' })] },
+  });
   return onSubmit;
 }
 
@@ -64,7 +67,10 @@ describe('Respuesta del proveedor (F1-COM-11)', () => {
 
   it('confirmación envía un compromiso por partida pendiente con la cantidad pendiente', async () => {
     const submit = abrirSheet();
-    fireEvent.change(screen.getByLabelText(/^Evidencia/), { target: { value: 'Correo P-881' } });
+    fireEvent.click(screen.getByLabelText('El proveedor confirma'));
+    fireEvent.click(screen.getByRole('button', { name: /Agregar parcialidad/ }));
+    fireEvent.change(screen.getByLabelText(/^Cantidad/), { target: { value: '10' } });
+    fireEvent.change(screen.getByLabelText(/^Referencia de la evidencia/), { target: { value: 'Correo P-881' } });
     fireEvent.click(screen.getByRole('button', { name: 'Registrar respuesta' }));
     await waitFor(() => expect(submit).toHaveBeenCalledTimes(1));
     expect(submit.mock.calls[0][0]).toMatchObject({
@@ -76,13 +82,18 @@ describe('Respuesta del proveedor (F1-COM-11)', () => {
 
   it('avisa que la orden no cambia cuando se confirma menos del pendiente', () => {
     abrirSheet();
+    fireEvent.click(screen.getByLabelText('El proveedor confirma'));
+    fireEvent.click(screen.getByRole('button', { name: /Agregar parcialidad/ }));
     fireEvent.change(screen.getByLabelText(/^Cantidad \(partida 1, parcialidad 1\)/), { target: { value: '8' } });
     expect(screen.getByRole('note')).toHaveTextContent('la orden no cambia; quedará marcada con diferencias');
   });
 
   it('agregar parcialidad envía dos compromisos de la misma partida', async () => {
     const submit = abrirSheet();
-    fireEvent.change(screen.getByLabelText(/^Evidencia/), { target: { value: 'Correo' } });
+    fireEvent.click(screen.getByLabelText('El proveedor confirma'));
+    fireEvent.click(screen.getByRole('button', { name: /Agregar parcialidad/ }));
+    fireEvent.change(screen.getByLabelText(/^Cantidad/), { target: { value: '10' } });
+    fireEvent.change(screen.getByLabelText(/^Referencia de la evidencia/), { target: { value: 'Correo' } });
     fireEvent.change(screen.getByLabelText(/^Cantidad \(partida 1, parcialidad 1\)/), { target: { value: '6' } });
     fireEvent.click(screen.getByRole('button', { name: /Agregar parcialidad/ }));
     fireEvent.change(screen.getByLabelText(/^Cantidad \(partida 1, parcialidad 2\)/), { target: { value: '4' } });
@@ -93,13 +104,12 @@ describe('Respuesta del proveedor (F1-COM-11)', () => {
     expect(compromisos.every((c: { lineaOrdenCompraId: string }) => c.lineaOrdenCompraId === LINEA)).toBe(true);
   });
 
-  it('rechazo sin motivo muestra alerta y no envía', () => {
+  it('rechazo sin motivo se registra con archivo', async () => {
     const submit = abrirSheet();
     fireEvent.click(screen.getByLabelText('El proveedor rechaza'));
-    fireEvent.change(screen.getByLabelText(/^Evidencia/), { target: { value: 'Correo' } });
+    fireEvent.change(screen.getByLabelText(/^Referencia de la evidencia/), { target: { value: 'Correo' } });
     fireEvent.click(screen.getByRole('button', { name: 'Registrar respuesta' }));
-    expect(screen.getByRole('alert')).toHaveTextContent('Indica el motivo del rechazo del proveedor.');
-    expect(submit).not.toHaveBeenCalled();
+    await waitFor(() => expect(submit).toHaveBeenCalledTimes(1));
   });
 
   it('el panel muestra estado, vigente, reemplazada y evidencia', () => {
@@ -109,7 +119,7 @@ describe('Respuesta del proveedor (F1-COM-11)', () => {
     expect(screen.getByText('Confirmada por el proveedor')).toBeInTheDocument();
     expect(screen.getByText('Vigente')).toBeInTheDocument();
     expect(screen.getByText('Reemplazada')).toBeInTheDocument();
-    expect(screen.getByText('Evidencia: Correo folio P-882')).toBeInTheDocument();
+    expect(screen.getByText('Referencia: Correo folio P-882')).toBeInTheDocument();
   });
 
   it('el panel monta la evidencia en archivo de cada respuesta con su base', () => {
@@ -126,4 +136,18 @@ describe('Respuesta del proveedor (F1-COM-11)', () => {
     render(<RespuestaProveedorPanel oc={ocDePrueba()} />, { wrapper: createQueryWrapper() });
     expect(screen.queryByRole('button', { name: 'Registrar respuesta del proveedor' })).not.toBeInTheDocument();
   });
+});
+
+it('registra solo evidencia sin clasificar ni inventar fechas', async () => {
+  const submit = abrirSheet();
+  fireEvent.click(screen.getByRole('button', { name: 'Registrar respuesta' }));
+  await waitFor(() => expect(submit).toHaveBeenCalledTimes(1));
+  expect(submit.mock.calls[0][0]).toMatchObject({ tipo: null, compromisos: [], fechaRespuesta: undefined });
+});
+it('sin archivo muestra un mensaje claro y no envía', () => {
+  const submit = abrirSheet();
+  fireEvent.change(screen.getByLabelText(/Archivo de evidencia/), { target: { files: [] } });
+  fireEvent.click(screen.getByRole('button', { name: 'Registrar respuesta' }));
+  expect(screen.getByRole('alert')).toHaveTextContent('Adjunta el archivo de evidencia');
+  expect(submit).not.toHaveBeenCalled();
 });

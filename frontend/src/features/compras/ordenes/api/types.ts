@@ -101,6 +101,7 @@ export type TipoIncidenciaProveedorOc =
 
 /** F1-COM-11: estado comercial de la OC. Mirror de <c>EstadoComercialProveedorOc.cs</c>. */
 export const EstadoComercialProveedorOc = {
+  RespuestaRegistrada: 4,
   SinRespuesta: 0,
   Confirmada: 1,
   ConfirmadaConDiferencias: 2,
@@ -209,6 +210,7 @@ export const subEstadoPagoToString = (s: SubEstadoPago): string =>
 
 /** F1-COM-11 */
 export const ESTADO_COMERCIAL_PROVEEDOR_LABELS: Record<EstadoComercialProveedorOc, string> = {
+  [EstadoComercialProveedorOc.RespuestaRegistrada]: 'Respuesta sin clasificar',
   [EstadoComercialProveedorOc.SinRespuesta]: 'Sin respuesta del proveedor',
   [EstadoComercialProveedorOc.Confirmada]: 'Confirmada por el proveedor',
   [EstadoComercialProveedorOc.ConfirmadaConDiferencias]: 'Confirmada con diferencias',
@@ -219,6 +221,7 @@ export const ESTADO_COMERCIAL_PROVEEDOR_VARIANT: Record<
   EstadoComercialProveedorOc,
   'neutral' | 'success' | 'warning' | 'danger'
 > = {
+  [EstadoComercialProveedorOc.RespuestaRegistrada]: 'neutral',
   [EstadoComercialProveedorOc.SinRespuesta]: 'neutral',
   [EstadoComercialProveedorOc.Confirmada]: 'success',
   [EstadoComercialProveedorOc.ConfirmadaConDiferencias]: 'warning',
@@ -312,9 +315,9 @@ export interface CompromisoEntregaOc {
 export interface RespuestaProveedorOc {
   id: string;
   numero: number;
-  tipo: TipoRespuestaProveedorOc;
-  fechaRespuesta: string;
-  evidencia: string;
+  tipo: TipoRespuestaProveedorOc | null;
+  fechaRespuesta: string | null;
+  evidencia: string | null;
   contactoProveedor: string | null;
   motivo: string | null;
   tieneDiferencias: boolean;

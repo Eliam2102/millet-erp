@@ -1,6 +1,13 @@
 using FluentValidation;
 using MediatR;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Storage;
+using Millet.Compartido.Application.Adjuntos;
+using Millet.Compartido.Infrastructure.Persistence;
+using Millet.SharedKernel.Application.Blob;
+using Microsoft.Extensions.Logging;
+using Npgsql;
 using Millet.Compras.Application.Oc.ObtenerOrdenCompraPorId;
 using Millet.Compras.Domain.Oc;
 using Millet.Compras.Infrastructure;
@@ -11,9 +18,10 @@ namespace Millet.Compras.Application.Oc.RespuestaProveedor;
 
 public sealed record CompromisoEntregaInput(Guid LineaOrdenCompraId, decimal Cantidad, DateOnly FechaPrometida);
 
-public sealed record RegistrarRespuestaProveedorCommand(Guid OrdenCompraId, TipoRespuestaProveedorOc Tipo,
-    DateOnly FechaRespuesta, string Evidencia, string? ContactoProveedor, string? Motivo,
-    IReadOnlyList<CompromisoEntregaInput> Compromisos) : IRequest<RespuestaProveedorOcResponse>;
+public sealed record RegistrarRespuestaProveedorCommand(Guid OrdenCompraId, TipoRespuestaProveedorOc? Tipo,
+    DateOnly? FechaRespuesta, string? Evidencia, string? ContactoProveedor, string? Motivo,
+    IReadOnlyList<CompromisoEntregaInput> Compromisos, Stream? Archivo = null,
+    string? NombreArchivo = null, string? ContentType = null) : IRequest<RespuestaProveedorOcResponse>;
 
 public sealed class RegistrarRespuestaProveedorValidator : AbstractValidator<RegistrarRespuestaProveedorCommand>
 {
@@ -21,10 +29,11 @@ public sealed class RegistrarRespuestaProveedorValidator : AbstractValidator<Reg
     {
         RuleFor(c => c.OrdenCompraId).NotEmpty();
         RuleFor(c => c.Tipo).IsInEnum();
-        RuleFor(c => c.FechaRespuesta).NotEmpty();
-        RuleFor(c => c.Evidencia).NotEmpty()
-            .WithMessage("Indica la evidencia de la respuesta (correo, folio o documento del proveedor).")
-            .MaximumLength(300);
+        RuleFor(c => c.Archivo).Must(a => a is { CanSeek: true, Length: > 0 })
+            .WithMessage("Adjunta el archivo de evidencia de la respuesta del proveedor.");
+        RuleFor(c => c.NombreArchivo).NotEmpty().MaximumLength(255);
+        RuleFor(c => c.ContentType).NotEmpty().MaximumLength(120);
+        RuleFor(c => c.Evidencia).MaximumLength(300);
         RuleFor(c => c.ContactoProveedor).MaximumLength(120);
         RuleFor(c => c.Motivo).MaximumLength(500);
         RuleFor(c => c.Compromisos).NotNull().Must(c => c is null || c.Count <= 200)
@@ -32,13 +41,7 @@ public sealed class RegistrarRespuestaProveedorValidator : AbstractValidator<Reg
 
         When(c => c.Tipo == TipoRespuestaProveedorOc.Rechazo, () =>
         {
-            RuleFor(c => c.Motivo).NotEmpty().WithMessage("Indica el motivo del rechazo del proveedor.");
             RuleFor(c => c.Compromisos).Empty().WithMessage("Un rechazo no lleva fechas prometidas.");
-        });
-
-        When(c => c.Tipo == TipoRespuestaProveedorOc.Confirmacion, () =>
-        {
-            RuleFor(c => c.Compromisos).NotEmpty().WithMessage("Captura al menos una fecha prometida.");
         });
 
         RuleForEach(c => c.Compromisos).ChildRules(x =>
@@ -51,7 +54,8 @@ public sealed class RegistrarRespuestaProveedorValidator : AbstractValidator<Reg
 }
 
 public sealed class RegistrarRespuestaProveedorHandler(ComprasDbContext db, ICurrentUserContext currentUser,
-    IClock clock) : IRequestHandler<RegistrarRespuestaProveedorCommand, RespuestaProveedorOcResponse>
+    IClock clock, CompartidoDbContext compartido, IMediator mediator, IBlobStoragePort blob,
+    ILogger<RegistrarRespuestaProveedorHandler> logger) : IRequestHandler<RegistrarRespuestaProveedorCommand, RespuestaProveedorOcResponse>
 {
     public async Task<RespuestaProveedorOcResponse> Handle(RegistrarRespuestaProveedorCommand command,
         CancellationToken cancellationToken)
@@ -68,7 +72,42 @@ public sealed class RegistrarRespuestaProveedorHandler(ComprasDbContext db, ICur
             command.ContactoProveedor, command.Motivo,
             command.Compromisos.Select(c => new CompromisoEntregaPropuesto(c.LineaOrdenCompraId, c.Cantidad, c.FechaPrometida)).ToList(),
             userId, ahora);
-        await db.SaveChangesAsync(cancellationToken);
-        return RespuestaProveedorMapper.ToResponse(respuesta, vigente: true);
+        // Comparte la transacción con el servicio de adjuntos: no se registra una respuesta sin archivo.
+        await using var tx = await db.Database.BeginTransactionAsync(cancellationToken);
+        var anterior = compartido.Database.GetDbConnection();
+        var opciones = RelationalOptionsExtension.Extract(compartido.GetService<IDbContextOptions>());
+        var propia = opciones.Connection is null || opciones.IsConnectionOwned;
+        var restaurada = propia ? (NpgsqlConnection)((ICloneable)anterior).Clone() : anterior;
+        string? blobRef = null;
+        try
+        {
+            await compartido.Database.CloseConnectionAsync();
+            compartido.Database.SetDbConnection(db.Database.GetDbConnection(), contextOwnsConnection: false);
+            await compartido.Database.UseTransactionAsync(tx.GetDbTransaction(), cancellationToken);
+            await db.SaveChangesAsync(cancellationToken);
+            var tipoDocumentoId = await compartido.AdjuntoTiposDocumento
+                .Where(t => t.TipoEntidad == "oc_respuesta_proveedor" && t.Codigo == "evidencia_respuesta" && t.Activo)
+                .Select(t => t.Id).SingleAsync(cancellationToken);
+            var adjunto = await mediator.Send(new SubirAdjuntoCommand("oc_respuesta_proveedor", respuesta.Id,
+                tipoDocumentoId, command.NombreArchivo!, command.ContentType!, command.Archivo!), cancellationToken);
+            blobRef = compartido.Adjuntos.Local.Single(a => a.Id == adjunto.Id).BlobRef;
+            await tx.CommitAsync(cancellationToken);
+            return RespuestaProveedorMapper.ToResponse(respuesta, vigente: true);
+        }
+        catch
+        {
+            await tx.RollbackAsync(CancellationToken.None);
+            if (blobRef is not null)
+            {
+                try { await blob.EliminarAsync(blobRef, CancellationToken.None); }
+                catch (Exception error) { logger.LogError(error, "No se pudo limpiar la evidencia de la respuesta {RespuestaId}", respuesta.Id); }
+            }
+            throw;
+        }
+        finally
+        {
+            await compartido.Database.UseTransactionAsync(null, CancellationToken.None);
+            compartido.Database.SetDbConnection(restaurada, contextOwnsConnection: propia);
+        }
     }
 }

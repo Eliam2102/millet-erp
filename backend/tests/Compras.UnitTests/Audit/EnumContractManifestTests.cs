@@ -55,6 +55,8 @@ public class EnumContractManifestTests
         typeof(EstadoRequisicion),
         typeof(SituacionSurtido),
         typeof(EstadoOrdenCompra),
+        typeof(EstadoComercialProveedorOc),
+        typeof(TipoRespuestaProveedorOc),
         typeof(NivelAutorizacion),
         typeof(Clasificacion),
         typeof(Prioridad),
