@@ -2,9 +2,11 @@ using MapsterMapper;
 using MediatR;
 using Microsoft.EntityFrameworkCore;
 using Millet.CentrosCosto.Application.PublicPorts;
+using Millet.Compras.Application.Oc.Incidencias;
 using Millet.Compras.Application.Oc.RespuestaProveedor;
 using Millet.Compras.Domain.Oc;
 using Millet.Compras.Domain.Ports.DatosMaestros;
+using Millet.Compras.Domain.Ports.Identidad;
 using Millet.Compras.Infrastructure;
 using Millet.SharedKernel.Application;
 using Millet.SharedKernel.Application.Exceptions;
@@ -41,6 +43,7 @@ public sealed class ObtenerOrdenCompraPorIdHandler
     private readonly IProveedorReadPort _proveedores;
     private readonly IDim3ReadPort _centrosCosto;
     private readonly IClock _clock;
+    private readonly IUsuarioReadPort _usuarios;
 
     public ObtenerOrdenCompraPorIdHandler(
         ComprasDbContext db,
@@ -48,7 +51,8 @@ public sealed class ObtenerOrdenCompraPorIdHandler
         IArticuloReadPort articulos,
         IProveedorReadPort proveedores,
         IDim3ReadPort centrosCosto,
-        IClock clock)
+        IClock clock,
+        IUsuarioReadPort usuarios)
     {
         _db = db;
         _mapper = mapper;
@@ -56,6 +60,7 @@ public sealed class ObtenerOrdenCompraPorIdHandler
         _proveedores = proveedores;
         _centrosCosto = centrosCosto;
         _clock = clock;
+        _usuarios = usuarios;
     }
 
     public async Task<OrdenCompraResponse> Handle(
@@ -73,6 +78,7 @@ public sealed class ObtenerOrdenCompraPorIdHandler
             .Include(o => o.Adjuntos)
             .Include(o => o.SolicitudesCancelacion)
             .Include(o => o.RespuestasProveedor).ThenInclude(r => r.Compromisos)
+            .Include(o => o.Incidencias).ThenInclude(i => i.Compromisos)
             .Include(o => o.Autorizaciones)
             .FirstOrDefaultAsync(o => o.Id == query.Id, cancellationToken)
             ?? throw new EntityNotFoundException(
@@ -146,6 +152,8 @@ public sealed class ObtenerOrdenCompraPorIdHandler
             FechaCompromisoProveedor = oc.FechaCompromisoProveedor,
             RespuestasProveedor = oc.RespuestasProveedor.OrderByDescending(r => r.Numero)
                 .Select(r => RespuestaProveedorMapper.ToResponse(r, r.Numero == oc.RespuestasProveedor.Max(x => x.Numero))).ToList(),
+            Incidencias = await IncidenciaProveedorMapper.ToResponsesAsync(oc.Incidencias, _db, _usuarios,
+                FechaContable.HoyLocal(_clock.UtcNow), cancellationToken),
         };
     }
 

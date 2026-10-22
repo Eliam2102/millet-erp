@@ -29,6 +29,8 @@ import { KpiCardsPartidasAbiertas } from '@/features/compras/ordenes/components/
 import { DiasAtrasadosBadge } from '@/features/compras/ordenes/components/DiasAtrasadosBadge';
 import { FiltrosPartidasAbiertas } from '@/features/compras/ordenes/components/FiltrosPartidasAbiertas';
 import { HoverSubEstados } from '@/features/compras/ordenes/components/HoverSubEstados';
+import { HistorialIncidenciasProveedor } from '@/features/compras/ordenes/components/HistorialIncidenciasProveedor';
+import { Badge } from '@/components/ui/badge';
 import type { PartidasAbiertasSearch } from '@/features/compras/ordenes/lib/partidas-abiertas-search-schema';
 import { cn } from '@/lib/utils';
 import { nombreUsuarioOGuion } from '@/lib/nombre-usuario';
@@ -146,6 +148,13 @@ export function PartidasAbiertas() {
             resolverUsuario={resolverUsuario}
           />
         </ListadoModulo>
+
+        {search.proveedorId && (
+          <HistorialIncidenciasProveedor
+            proveedorId={search.proveedorId}
+            proveedorNombre={resolverProveedor(search.proveedorId)}
+          />
+        )}
       </div>
     </div>
   );
@@ -196,6 +205,7 @@ function RenderTabla({ query, resolverProveedor, resolverUsuario }: RenderTablaP
               <TableHead className="px-3 py-2 text-left font-medium">F. doc.</TableHead>
               <TableHead className="px-3 py-2 text-left font-medium">F. entrega</TableHead>
               <TableHead className="px-3 py-2 text-left font-medium">Atraso</TableHead>
+              <TableHead className="px-3 py-2 text-left font-medium">Incidencias</TableHead>
               <TableHead className="px-3 py-2 text-left font-medium">Estado</TableHead>
               <TableHead className="px-3 py-2 text-left font-medium">
                 Avance (recepción · facturación · pago)
@@ -235,6 +245,17 @@ function RenderTabla({ query, resolverProveedor, resolverUsuario }: RenderTablaP
                 </TableCell>
                 <TableCell className="px-3 py-2">
                   <DiasAtrasadosBadge diasAtrasados={p.diasAtrasados} />
+                </TableCell>
+                <TableCell className="px-3 py-2">
+                  {p.incidenciasAbiertas > 0 ? (
+                    <Badge variant={p.incidenciasVencidas > 0 ? 'danger' : 'warning'}>
+                      {p.incidenciasVencidas > 0
+                        ? `${p.incidenciasVencidas} vencida${p.incidenciasVencidas === 1 ? '' : 's'}`
+                        : `${p.incidenciasAbiertas} abierta${p.incidenciasAbiertas === 1 ? '' : 's'}`}
+                    </Badge>
+                  ) : (
+                    <span className="text-ink-muted">—</span>
+                  )}
                 </TableCell>
                 <TableCell className="px-3 py-2">
                   <EstadoBadge tipo="orden-compra" estado={p.estado} />

@@ -60,7 +60,7 @@ public sealed class ActivosTests
     {
         var empresaId = Guid.NewGuid();
         using var db = NewDb(empresaId);
-        var activo = new ActivoFijoLectura("AF-1", "Torno CNC", 100000m, 60000m, false);
+        var activo = new ActivoFijoLectura("AF-1", "Torno CNC", 40000m, 60000m, false);
 
         var resp = await AutorizarHandler(db, empresaId, activo).Handle(new AutorizarVentaActivoCommand("AF-1", 50000m), CancellationToken.None);
 
@@ -141,4 +141,16 @@ public sealed class ActivosTests
 
         await act.Should().ThrowAsync<BusinessRuleException>().Where(e => e.Code == "AUTORIZACION_NO_DISPONIBLE");
     }
+    [Theory]
+    [InlineData(31, 50000)]
+    [InlineData(0, 60000)]
+    public async Task CA8_Emision_no_invoca_timbrado_con_autorizacion_vencida_o_precio_distinto(int dias, decimal precio)
+    {
+        var empresaId = Guid.NewGuid(); using var db = NewDb(empresaId);
+        var a = AutorizacionVentaActivo.Crear(empresaId, "AF-1", "Torno", 100000, 60000, false, precio, Guid.NewGuid(), Ahora.AddDays(-dias));
+        db.AutorizacionesVentaActivo.Add(a); await db.SaveChangesAsync();
+        var act = () => EmitirHandler(db, empresaId).Handle(Command(a.Id), CancellationToken.None);
+        await act.Should().ThrowAsync<BusinessRuleException>().Where(e => e.Code == "AF_NUEVA_AUTORIZACION_REQUERIDA");
+    }
+
 }

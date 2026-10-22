@@ -327,7 +327,7 @@ public sealed partial class DemoSesionSeedTests
         Assert.Equal(EstadoPeriodo.Abierto, periodos.Single(p => p.Numero == 10).Estado);
         Assert.Equal(7, await contabilidad.Cuentas.CountAsync(c => c.Nombre.StartsWith("DEMO")));
         Assert.Equal(2, await tesoreria.CuentasBancarias.CountAsync(c => c.Banco.StartsWith("DEMO-")));
-        Assert.Equal(5, await compras.OrdenesCompra.CountAsync()); // + OC de importación DEMO de CE-01a, de gastos CE-06 (OC-DEMO2026-000206) y OC mixta de Activos Fijos
+        Assert.Equal(6, await compras.OrdenesCompra.CountAsync()); // + OC de importación CE-01a, de gastos CE-06, OC mixta de Activos Fijos y OC de servicio del agente (P6)
         Assert.Equal(3, await compras.OutboxEntries.CountAsync());
         Assert.Equal(3, await maestros.Series.CountAsync(s => s.Prefijo == "FA" || s.Prefijo == "NC" || s.Prefijo == "AN"));
         var pedidos = await facturacion.PedidosFacturables.Where(p => p.NumeroPedido!.StartsWith("DEMO-")).ToListAsync();

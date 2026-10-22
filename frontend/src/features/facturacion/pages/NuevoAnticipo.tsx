@@ -10,6 +10,7 @@ import {
   type EmisorDefaultsResponse,
 } from '@/features/facturacion/api/types';
 import { useEmitirAnticipo } from '@/features/facturacion/api/useAnticipos';
+import { useSesionActual } from '@/features/facturacion/api/useCajaSesiones';
 import { useEmisorDefaults } from '@/features/facturacion/api/useFacturas';
 import { EmisorInfoBar } from '@/features/facturacion/components/EmisorInfoBar';
 import { ErrorTimbradoAviso } from '@/features/facturacion/components/ErrorTimbradoAviso';
@@ -78,10 +79,19 @@ const numeroONull = (v: unknown): number | null => {
   return Number.isNaN(n) ? null : n;
 };
 
+/** Caja abierta del cajero de la que se toma la sucursal (86e3tfd80). */
+interface CajaAbierta {
+  sucursalId: string;
+  cajaNombre: string;
+}
+
 export function NuevoAnticipo(props: NuevoAnticipoProps) {
-  // Gate: los defaults del emisor deben existir ANTES de inicializar el
-  // useForm (defaultValues se evalúa una sola vez por montaje).
+  // Gate: los defaults del emisor y la sesión de caja deben existir ANTES
+  // de inicializar el useForm (defaultValues se evalúa una sola vez por montaje).
   const defaults = useEmisorDefaults();
+  // Sin permiso de caja no se consulta la sesión (el endpoint respondería 403).
+  const operaCaja = useHasPermission(PermisosCanonicos.FacturacionCajaOperar);
+  const sesionActual = useSesionActual({ enabled: operaCaja });
 
   if (defaults.isError) {
     return (
@@ -93,7 +103,7 @@ export function NuevoAnticipo(props: NuevoAnticipoProps) {
       </div>
     );
   }
-  if (defaults.isLoading || defaults.data == null) {
+  if (defaults.isLoading || defaults.data == null || sesionActual.isLoading) {
     return (
       <div className="space-y-3">
         <div className="h-9 w-72 animate-pulse rounded bg-surface-muted" />
@@ -101,14 +111,22 @@ export function NuevoAnticipo(props: NuevoAnticipoProps) {
       </div>
     );
   }
-  return <FormInner {...props} emisor={defaults.data} />;
+  // La sucursal se toma de la caja solo si está abierta y operable (mismo
+  // criterio que el cobro en caja); si no, o si falla la consulta, se deja elegir.
+  const sesion = operaCaja ? sesionActual.data?.sesion : null;
+  const cajaAbierta: CajaAbierta | null =
+    sesion != null && sesion.estado === 'Abierta' && !sesionActual.data?.diaAnteriorPendiente
+      ? { sucursalId: sesion.sucursalId, cajaNombre: sesion.cajaNombre }
+      : null;
+  return <FormInner {...props} emisor={defaults.data} cajaAbierta={cajaAbierta} />;
 }
 
 function FormInner({
   onClose,
   onDirtyChange,
   emisor,
-}: NuevoAnticipoProps & { emisor: EmisorDefaultsResponse }) {
+  cajaAbierta,
+}: NuevoAnticipoProps & { emisor: EmisorDefaultsResponse; cajaAbierta: CajaAbierta | null }) {
   const idempotencyKey = useFormIdempotencyKey();
   const emitir = useEmitirAnticipo();
   // El receptor es de solo lectura; el permiso solo controla el CTA al
@@ -123,7 +141,7 @@ function FormInner({
       ...VALORES_INICIALES,
       rfcEmisor: emisor.rfcEmisor,
       regimenFiscalEmisor: emisor.regimenFiscalEmisor,
-      sucursalId: emisor.sucursalIdDefault ?? '',
+      sucursalId: cajaAbierta?.sucursalId ?? emisor.sucursalIdDefault ?? '',
       tasaIvaTraslado: emisor.tasaIvaDefault ?? VALORES_INICIALES.tasaIvaTraslado,
     },
   });
@@ -283,7 +301,16 @@ function FormInner({
         </Seccion>
 
         <Seccion titulo="Anticipo y pago">
-          <Campo label="Sucursal" required error={form.formState.errors.sucursalId?.message}>
+          <Campo
+            label="Sucursal"
+            required
+            error={form.formState.errors.sucursalId?.message}
+            hint={
+              cajaAbierta
+                ? `Tomada de tu caja abierta: ${cajaAbierta.cajaNombre}.`
+                : 'No tienes caja abierta; elige la sucursal.'
+            }
+          >
             <Controller
               name="sucursalId"
               control={form.control}
@@ -291,6 +318,7 @@ function FormInner({
                 <SucursalSelector
                   value={field.value || null}
                   onChange={(id) => field.onChange(id ?? '')}
+                  disabled={cajaAbierta != null}
                 />
               )}
             />

@@ -44,6 +44,8 @@ public sealed class ComprasDbContext : BaseDbContext
     public DbSet<AdjuntoOC> AdjuntosOc => Set<AdjuntoOC>();
     public DbSet<AutorizacionOC> AutorizacionesOc => Set<AutorizacionOC>();
     public DbSet<RespuestaProveedorOc> RespuestasProveedorOc => Set<RespuestaProveedorOc>();
+    public DbSet<IncidenciaProveedorOc> IncidenciasProveedorOc => Set<IncidenciaProveedorOc>();
+    public DbSet<AvisoIncidenciaProveedorOc> AvisosIncidenciaProveedorOc => Set<AvisoIncidenciaProveedorOc>();
     public DbSet<RegimenFiscalArticulo> RegimenesFiscalesArticulo => Set<RegimenFiscalArticulo>();
     public DbSet<OrdenCompraPdf> OrdenCompraPdfs => Set<OrdenCompraPdf>();
 
@@ -98,6 +100,9 @@ public sealed class ComprasDbContext : BaseDbContext
         modelBuilder.ApplyConfiguration(new SolicitudCancelacionOcConfiguration());
         modelBuilder.ApplyConfiguration(new RespuestaProveedorOcConfiguration());
         modelBuilder.ApplyConfiguration(new CompromisoEntregaOcConfiguration());
+        modelBuilder.ApplyConfiguration(new IncidenciaProveedorOcConfiguration());
+        modelBuilder.ApplyConfiguration(new CompromisoIncidenciaOcConfiguration());
+        modelBuilder.ApplyConfiguration(new AvisoIncidenciaProveedorOcConfiguration());
         modelBuilder.ApplyConfiguration(new RegimenFiscalArticuloConfiguration());
         modelBuilder.ApplyConfiguration(new OrdenCompraPdfConfiguration());
     }

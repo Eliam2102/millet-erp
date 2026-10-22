@@ -66,7 +66,7 @@ public sealed partial class DemoSesionSeedHostedService
         e.AgregarParticipante(Id("DEMO-CE-P1-AGENTE"), "DEMO · agente aduanal", TipoParticipante.AgenteAduanal, null, PapelParticipante.Captura, original.ProveedorId, null);
         e.GuardarPartidaCosto(Id("DEMO-CE-P1-RECEPCION/A"), null, "DEMO · partida A", 200000, 2000, "DEMO-PED-P1");
         e.GuardarPartidaCosto(Id("DEMO-CE-P1-RECEPCION/B"), null, "DEMO · partida B", 300000, 6000, "DEMO-PED-P1");
-        foreach (var (codigo, importe) in new[] { ("FLETE_INT", 40000m), ("HONORARIOS", 10000m), ("IVA", 80000m) })
+        foreach (var (codigo, importe) in new[] { ("FLETE_INT", 40000m), ("IVA", 80000m) })
         {
             var concepto = conceptos.Single(c => c.Codigo == codigo);
             e.GuardarGasto(Id("DEMO-CE-P1/GASTO/" + codigo), new(concepto.Id, original.ProveedorId, "DEMO-FAC-" + codigo, "MXN", importe, new(2026, 10, 15), "DEMO-PED-P1", importe - 1000), concepto, 1, "MXN");

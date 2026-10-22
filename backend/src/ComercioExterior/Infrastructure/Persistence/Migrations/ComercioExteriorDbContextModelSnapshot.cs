@@ -316,6 +316,10 @@ namespace Millet.ComercioExterior.Infrastructure.Persistence.Migrations
                         .HasColumnType("character varying(200)")
                         .HasColumnName("nombre");
 
+                    b.Property<bool>("RequiereOrdenServicio")
+                        .HasColumnType("boolean")
+                        .HasColumnName("requiere_orden_servicio");
+
                     b.Property<DateTimeOffset>("UpdatedAt")
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("updated_at");
@@ -926,6 +930,35 @@ namespace Millet.ComercioExterior.Infrastructure.Persistence.Migrations
                         .HasColumnType("text")
                         .HasColumnName("moneda");
 
+                    b.Property<decimal?>("OrdenServicioAsignado")
+                        .HasPrecision(20, 2)
+                        .HasColumnType("numeric(20,2)")
+                        .HasColumnName("orden_servicio_asignado");
+
+                    b.Property<string>("OrdenServicioFolio")
+                        .HasMaxLength(40)
+                        .HasColumnType("character varying(40)")
+                        .HasColumnName("orden_servicio_folio");
+
+                    b.Property<Guid?>("OrdenServicioId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("orden_servicio_id");
+
+                    b.Property<string>("OrdenServicioMoneda")
+                        .HasMaxLength(3)
+                        .HasColumnType("character varying(3)")
+                        .HasColumnName("orden_servicio_moneda");
+
+                    b.Property<decimal?>("OrdenServicioTipoCambio")
+                        .HasPrecision(20, 6)
+                        .HasColumnType("numeric(20,6)")
+                        .HasColumnName("orden_servicio_tipo_cambio");
+
+                    b.Property<decimal?>("OrdenServicioTotal")
+                        .HasPrecision(20, 2)
+                        .HasColumnType("numeric(20,2)")
+                        .HasColumnName("orden_servicio_total");
+
                     b.Property<string>("Pedimento")
                         .HasColumnType("text")
                         .HasColumnName("pedimento");
@@ -960,6 +993,9 @@ namespace Millet.ComercioExterior.Infrastructure.Persistence.Migrations
 
                     b.HasIndex("ExpedienteId")
                         .HasDatabaseName("ix_gastos_expediente_expediente_id");
+
+                    b.HasIndex("EmpresaId", "OrdenServicioId", "ExpedienteId")
+                        .HasDatabaseName("ix_gastos_expediente_empresa_id_orden_servicio_id_expediente_id");
 
                     b.ToTable("gastos_expediente", "comercio_exterior");
                 });

@@ -97,6 +97,24 @@ public class ArticulosPorClasificacionEndpointsTests : IClassFixture<StubsWebApp
         Assert.Equal(HttpStatusCode.NoContent, resp.StatusCode);
     }
 
+    [Fact]
+    public async Task Listado_q_ConTipoRequisicion_SoloDevuelveLosDeEseTipo()
+    {
+        // La caja única `q` (86e3ufkgd) se combina por AND con tipoRequisicion.
+        var client = await CreateSuperAdminClientAsync();
+        var prefijo = $"CLQ{Guid.NewGuid().ToString("N")[..6].ToUpperInvariant()}";
+        await SeedArticuloAsync(Naturaleza.Servicio, null, prefijo + "S");
+        await SeedArticuloAsync(Naturaleza.Estandar, null, prefijo + "E");
+
+        var resp = await client.GetAsync(
+            $"/api/v1/catalogos/articulos?tipoRequisicion={Servicio}&q={prefijo.ToLowerInvariant()}&limit=50");
+        resp.EnsureSuccessStatusCode();
+        using var doc = await JsonDocument.ParseAsync(await resp.Content.ReadAsStreamAsync());
+        var claves = doc.RootElement.GetProperty("items").EnumerateArray()
+            .Select(i => i.GetProperty("clave").GetString()!).ToArray();
+        Assert.Equal(new[] { prefijo + "S" }, claves);
+    }
+
     // --- Helpers ---
 
     private static async Task<string[]> ClavesAsync(HttpClient client, int tipo, string prefijo)

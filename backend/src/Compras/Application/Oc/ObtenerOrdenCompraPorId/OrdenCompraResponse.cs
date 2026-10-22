@@ -111,6 +111,9 @@ public sealed record OrdenCompraResponse(
     public DateOnly? FechaCompromisoProveedor { get; init; }
     public IReadOnlyList<RespuestaProveedorOcResponse> RespuestasProveedor { get; init; } = [];
 
+    /// <summary>Incidencias del proveedor por línea (F1-COM-07), la más reciente primero.</summary>
+    public IReadOnlyList<Incidencias.IncidenciaProveedorOcResponse> Incidencias { get; init; } = [];
+
     /// <summary>
     /// Campos de cabecera que siguen en TBD; la OC no se puede transmitir mientras la lista no esté vacía.
     /// Valores posibles: <c>proveedor</c>, <c>condicionesPago</c>, <c>usoPrincipal</c>.

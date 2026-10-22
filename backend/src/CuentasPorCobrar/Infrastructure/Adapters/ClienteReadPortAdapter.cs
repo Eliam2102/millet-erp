@@ -49,7 +49,7 @@ public sealed class ClienteReadPortAdapter : IClienteReadPort
 
         return cliente is null
             ? null
-            : new ClienteRefDto(cliente.Id, cliente.Rfc, cliente.RazonSocial, cliente.EsGenerico);
+            : new ClienteRefDto(cliente.Id, cliente.Rfc, cliente.RazonSocial, cliente.EsGenerico, cliente.Email);
     }
 
     public async Task<ClienteRefDto?> ObtenerAsync(Guid clienteId, CancellationToken cancellationToken)
@@ -60,7 +60,7 @@ public sealed class ClienteReadPortAdapter : IClienteReadPort
 
         return cliente is null
             ? null
-            : new ClienteRefDto(cliente.Id, cliente.Rfc, cliente.RazonSocial, cliente.EsGenerico);
+            : new ClienteRefDto(cliente.Id, cliente.Rfc, cliente.RazonSocial, cliente.EsGenerico, cliente.Email);
     }
 
     public async Task<IReadOnlyList<ClienteLookupCxcDto>> BuscarAsync(

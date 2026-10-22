@@ -1,0 +1,258 @@
+[
+  {
+    "numero": "151.00.00.000.000",
+    "nombre": "TERRENOS"
+  },
+  {
+    "numero": "151.01.00.000.000",
+    "nombre": "TERRENOS"
+  },
+  {
+    "numero": "152.00.00.000.000",
+    "nombre": "EDIFICIOS"
+  },
+  {
+    "numero": "152.01.00.000.000",
+    "nombre": "EDIFICIOS"
+  },
+  {
+    "numero": "153.00.00.000.000",
+    "nombre": "MAQUINARIA Y EQUIPO"
+  },
+  {
+    "numero": "153.01.00.000.000",
+    "nombre": "MAQUINARIA Y EQUIPO"
+  },
+  {
+    "numero": "154.00.00.000.000",
+    "nombre": "AUTOMOVILES AUTOBUSES CAM DE CARGA MONTAC Y REMOLQUES"
+  },
+  {
+    "numero": "154.01.00.000.000",
+    "nombre": "AUTOMOVILES AUTOBUSES CAM DE CARGA MONTAC Y REMOLQUES"
+  },
+  {
+    "numero": "155.00.00.000.000",
+    "nombre": "MOBILIARIO Y EQUIPO DE OFICINA"
+  },
+  {
+    "numero": "155.01.00.000.000",
+    "nombre": "MOBILIARIO Y EQUIPO DE OFICINA"
+  },
+  {
+    "numero": "156.00.00.000.000",
+    "nombre": "EQUIPO DE COMPUTO"
+  },
+  {
+    "numero": "156.01.00.000.000",
+    "nombre": "EQUIPO DE COMPUTO"
+  },
+  {
+    "numero": "157.00.00.000.000",
+    "nombre": "EQUIPO DE COMUNICACION"
+  },
+  {
+    "numero": "157.01.00.000.000",
+    "nombre": "EQUIPO DE COMUNICACION"
+  },
+  {
+    "numero": "159.00.00.000.000",
+    "nombre": "OBRAS EN PROCESO DE ACTIVOS FIJOS"
+  },
+  {
+    "numero": "159.01.00.000.000",
+    "nombre": "OBRAS EN PROCESO DE ACTIVOS FIJOS"
+  },
+  {
+    "numero": "160.00.00.000.000",
+    "nombre": "OTROS ACTIVOS FIJOS"
+  },
+  {
+    "numero": "160.01.00.000.000",
+    "nombre": "OTROS ACTIVOS FIJOS"
+  },
+  {
+    "numero": "165.00.00.000.000",
+    "nombre": "EQUIPO DE COMUNICACIONES TELEFONICAS"
+  },
+  {
+    "numero": "165.01.00.000.000",
+    "nombre": "EQUIPO DE COMUNICACIONES TELEFONICAS"
+  },
+  {
+    "numero": "166.00.00.000.000",
+    "nombre": "EQUIPO DE COMUNICACION SATELITAL"
+  },
+  {
+    "numero": "166.01.00.000.000",
+    "nombre": "EQUIPO DE COMUNICACION SATELITAL"
+  },
+  {
+    "numero": "169.00.00.000.000",
+    "nombre": "OTRA MAQUINARIA Y EQUIPO"
+  },
+  {
+    "numero": "169.01.00.000.000",
+    "nombre": "OTRA MAQUINARIA Y EQUIPO"
+  },
+  {
+    "numero": "170.00.00.000.000",
+    "nombre": "ADAPTACIONES Y MEJORAS"
+  },
+  {
+    "numero": "170.01.00.000.000",
+    "nombre": "ADAPTACIONES Y MEJORAS"
+  },
+  {
+    "numero": "171.00.00.000",
+    "nombre": "DEPRECIACION ACUMULADA DE ACTIVOS FIJOS"
+  },
+  {
+    "numero": "171.01.00.000",
+    "nombre": "DEPRECIACION ACUMULADA DE EDIFICIOS"
+  },
+  {
+    "numero": "171.02.00.000",
+    "nombre": "DEPRECIACION ACUMULADA DE MAQUINARIA Y EQUIPO"
+  },
+  {
+    "numero": "171.03.00.000",
+    "nombre": "DEPRECIACION ACUMULADA DE AUTOMOVILES AUTOBUSES CAMIONES"
+  },
+  {
+    "numero": "171.04.00.000",
+    "nombre": "DEPRECIACION ACUMULADA DE MOBILIARIO Y EQUIPO DE OFICINA"
+  },
+  {
+    "numero": "171.05.00.000",
+    "nombre": "DEPRECIACION ACUMULADA DE EQUIPO DE COMPUTO"
+  },
+  {
+    "numero": "171.06.00.000",
+    "nombre": "DEPRECIACION ACUMULADA DE EQUIPO DE COMUNICACION"
+  },
+  {
+    "numero": "171.08.00.000",
+    "nombre": "DEPRECIACION ACUMULADA DE OTROS ACTIVOS FIJOS"
+  },
+  {
+    "numero": "171.13.00.000",
+    "nombre": "DEPRECIACION ACUM DE EQUIPO DE COMUNICACIONES TELEFONICAS"
+  },
+  {
+    "numero": "171.14.00.000",
+    "nombre": "DEPRECIACION ACUM DE EQUIPO DE COMUNICACION SATELITAL"
+  },
+  {
+    "numero": "171.17.00.000",
+    "nombre": "DEPRECIACION ACUMULADA DE ADAPTACIONES Y MEJORAS"
+  },
+  {
+    "numero": "171.18.00.000",
+    "nombre": "DEPRECIACION ACUMULADA DE OTRA MAQUINARIA Y EQUIPO"
+  },
+  {
+    "numero": "505.01.00.000.000",
+    "nombre": "COSTO POR VENTA DE ACTIVO FIJO"
+  },
+  {
+    "numero": "505.02.00.000.000",
+    "nombre": "COSTO POR BAJA DE ACTIVO FIJO"
+  },
+  {
+    "numero": "613.00.00.000.000",
+    "nombre": "DEPRECIACION CONTABLE"
+  },
+  {
+    "numero": "613.01.00.000.000",
+    "nombre": "DEPRECIACION DE EDIFICIOS"
+  },
+  {
+    "numero": "613.02.00.000.000",
+    "nombre": "DEPRECIACION DE MAQUINARIA Y EQUIPO"
+  },
+  {
+    "numero": "613.03.00.000.000",
+    "nombre": "DEPRECIACION DE AUTOMOVILES MONTACARGAS Y REMOLQUES"
+  },
+  {
+    "numero": "613.04.00.000.000",
+    "nombre": "DEPRECIACION DE MOBILIARIO Y EQUIPO DE OFICINA"
+  },
+  {
+    "numero": "613.05.00.000.000",
+    "nombre": "DEPRECIACION DE EQUIPO DE COMPUTO"
+  },
+  {
+    "numero": "613.06.00.000.000",
+    "nombre": "DEPRECIACION DE EQUIPO DE COMUNICACION"
+  },
+  {
+    "numero": "613.08.00.000.000",
+    "nombre": "DEPRECIACION DE OTROS ACTIVOS FIJOS"
+  },
+  {
+    "numero": "613.17.00.000.000",
+    "nombre": "DEPRECIACION DE ADAPTACIONES Y MEJORAS"
+  },
+  {
+    "numero": "613.18.00.000.000",
+    "nombre": "DEPRECIACION DE OTRA MAQUINARIA Y EQUIPO"
+  },
+  {
+    "numero": "703.01.00.000.000",
+    "nombre": "PERDIDA EN VENTA Y/O BAJA DE TERRENOS"
+  },
+  {
+    "numero": "703.02.00.000.000",
+    "nombre": "PERDIDA EN VENTA Y/O BAJA DE EDIFICIOS"
+  },
+  {
+    "numero": "703.03.00.000.000",
+    "nombre": "PERDIDA EN VENTA Y/O BAJA DE MAQUINARIA Y EQUIPO"
+  },
+  {
+    "numero": "703.04.00.000.000",
+    "nombre": "PERDIDA EN VENTA Y/O BAJA AUTOMOVILES MONTACARGAS REMOLQUES"
+  },
+  {
+    "numero": "703.05.00.000.000",
+    "nombre": "PERDIDA EN VENTA Y/O BAJA DE MOBILIARIO Y EQUIPO DE OFICINA"
+  },
+  {
+    "numero": "703.06.00.000.000",
+    "nombre": "PERDIDA EN VENTA Y/O BAJA DE EQUIPO DE COMPUTO"
+  },
+  {
+    "numero": "703.07.00.000.000",
+    "nombre": "PERDIDA EN VENTA Y/O BAJA DE EQUIPO DE COMUNICACION"
+  },
+  {
+    "numero": "703.09.00.000.000",
+    "nombre": "PERDIDA EN VENTA Y/O BAJA DE OTROS ACTIVOS FIJOS"
+  },
+  {
+    "numero": "703.18.00.000.000",
+    "nombre": "PERDIDA EN VENTA Y/O BAJA DE OTRA MAQUINARIA Y EQUIPO"
+  },
+  {
+    "numero": "811.00.00.000.000",
+    "nombre": "UTILIDAD O PERDIDA FISCAL EN VENTA Y/O BAJA DE ACTIVO FIJO"
+  },
+  {
+    "numero": "811.01.00.000.000",
+    "nombre": "UTILIDAD O PERDIDA FISCAL EN VENTA Y/O BAJA DE ACTIVO FIJO"
+  },
+  {
+    "numero": "811.02.00.000.000",
+    "nombre": "CONTRA CUENTA UTIL O PERDIDA FISCAL VENTA BAJA ACTIVO FIJO"
+  },
+  {
+    "numero": "812.00.00.000.000",
+    "nombre": "UTILIDAD PERDIDA FISCAL EN VENTA ACCIONES O PARTES SOCIALES"
+  },
+  {
+    "numero": "812.01.00.000.000",
+    "nombre": "UTILIDAD PERDIDA FISCAL EN VENTA ACCIONES O PARTES SOCIALES"
+  }
+]
