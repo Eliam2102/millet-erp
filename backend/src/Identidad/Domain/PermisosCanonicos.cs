@@ -186,6 +186,8 @@ public static class PermisosCanonicos
     public const string DatosMaestrosClientesSincronizar               = "datos_maestros.clientes.sincronizar";
     public const string DatosMaestrosClientesOrigenVer                 = "datos_maestros.clientes.origen-ver";
     public const string DatosMaestrosClientesFiscalEditar              = "datos_maestros.clientes.fiscal-editar";
+    // 86e3qcgyn: unificar clientes de A+W que comparten RFC (Fusionar / Agrupar).
+    public const string DatosMaestrosClientesUnificar                  = "datos_maestros.clientes.unificar";
     public const string DatosMaestrosProductosAwGestionar              = "datos_maestros.productos-aw.gestionar";
     // U1.8b (F1-FAC-14): reporte de diferencias fiscales A+W vs ERP (clientes y productos A+W).
     // leer = consultar el reporte y sus corridas; revisar = marcar revisado y ejecutar/guardar una corrida.
@@ -743,6 +745,7 @@ public static class PermisosCanonicos
         (Guid.Parse("00000004-0011-0000-0000-000000000002"), DatosMaestrosClientesSincronizar,             "Iniciar y consultar la sincronización de clientes desde A+W"),
         (Guid.Parse("00000004-0011-0000-0000-000000000003"), DatosMaestrosClientesOrigenVer,               "Consultar datos de origen A+W del cliente (candidatos fiscales, crédito de referencia, domicilio)"),
         (Guid.Parse("00000004-0011-0000-0000-000000000004"), DatosMaestrosClientesFiscalEditar,            "Modificar datos fiscales de clientes con origen A+W"),
+        (Guid.Parse("00000004-0011-0000-0000-000000000005"), DatosMaestrosClientesUnificar,                "Unificar clientes de A+W que comparten RFC en un cliente principal (fusionar o agrupar)"),
         (Guid.Parse("00000004-0012-0000-0000-000000000001"), DatosMaestrosProductosAwGestionar,            "Crear, editar y desactivar productos de venta A+W del master cross-empresa (ADR-0048)"),
         (Guid.Parse("00000004-0013-0000-0000-000000000001"), DatosMaestrosDiferenciasFiscalesAwLeer,       "Consultar el reporte de diferencias fiscales entre A+W y el ERP (clientes y productos)"),
         (Guid.Parse("00000004-0013-0000-0000-000000000002"), DatosMaestrosDiferenciasFiscalesAwRevisar,    "Marcar como revisadas las diferencias fiscales A+W vs ERP y guardar corridas del reporte"),

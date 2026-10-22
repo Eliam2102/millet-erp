@@ -2089,6 +2089,20 @@ namespace Millet.Identidad.Infrastructure.Migrations
                         },
                         new
                         {
+                            Id = new Guid("00000004-0011-0000-0000-000000000005"),
+                            Accion = "unificar",
+                            Codigo = "datos_maestros.clientes.unificar",
+                            CreatedAt = new DateTimeOffset(new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            CreatedBy = "seed",
+                            Descripcion = "Unificar clientes de A+W que comparten RFC en un cliente principal (fusionar o agrupar)",
+                            Modulo = "datos_maestros",
+                            Recurso = "clientes",
+                            UpdatedAt = new DateTimeOffset(new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            UpdatedBy = "seed",
+                            Version = 1
+                        },
+                        new
+                        {
                             Id = new Guid("00000004-0012-0000-0000-000000000001"),
                             Accion = "gestionar",
                             Codigo = "datos_maestros.productos-aw.gestionar",
