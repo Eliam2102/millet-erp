@@ -109,6 +109,11 @@ AS
 BEGIN
     SET NOCOUNT ON;
     SET XACT_ABORT ON;
+    /* MILMAIN es la base viva de A+W: el job cede ante cualquier bloqueo y
+       no espera más de 5 s. Si no alcanza a leer, el siguiente barrido
+       (15 s después) lo vuelve a intentar. */
+    SET DEADLOCK_PRIORITY LOW;
+    SET LOCK_TIMEOUT 5000;
 
     DECLARE @desde datetime = (SELECT desde FROM dbo.aw_aviso_job_config WHERE id = 1);
     IF @desde IS NULL
@@ -130,12 +135,17 @@ BEGIN
         operacion     tinyint      NULL
     );
 
+    /* Lectura de MILMAIN sin tomar bloqueos compartidos: un estatus leído a
+       medio cambio se corrige en el siguiente barrido. */
+    SET TRANSACTION ISOLATION LEVEL READ UNCOMMITTED;
+
     INSERT INTO @candidatos (numero_pedido, [status], evento)
     SELECT CAST(K.ID AS nvarchar(50)), K.STATUS,
            (SELECT MAX(H.DATUM) FROM dbo.aw_src_auftr_hist AS H
              WHERE H.ID = K.ID AND H.STATUS_ID = K.STATUS)
       FROM dbo.aw_src_auftr_kopf AS K
-     WHERE K.STATUS IN (15, 42);
+     WHERE K.STATUS IN (15, 42)
+       AND K.ID NOT BETWEEN 90000000 AND 99999999;  -- Serie 9000: pedidos internos, no se facturan
 
     INSERT INTO @candidatos (numero_pedido, [status], evento)
     SELECT C.numero_pedido, K.STATUS,
@@ -145,6 +155,23 @@ BEGIN
       JOIN dbo.aw_src_auftr_kopf   AS K ON K.ID = TRY_CAST(C.numero_pedido AS int)
      WHERE C.ultimo_status NOT IN (900, 999)
        AND K.STATUS IN (900, 999);
+
+    /* Cancelaciones de pedidos que solo avisó otro escritor (botón del
+       vendedor, customizing) y que el job nunca registró. */
+    INSERT INTO @candidatos (numero_pedido, [status], evento)
+    SELECT Q.numero_pedido, K.STATUS,
+           (SELECT MAX(H.DATUM) FROM dbo.aw_src_auftr_hist AS H
+             WHERE H.ID = K.ID AND H.STATUS_ID = K.STATUS)
+      FROM (SELECT numero_pedido, operacion,
+                   ROW_NUMBER() OVER (PARTITION BY numero_pedido ORDER BY [version] DESC) AS rn
+              FROM dbo.aw_solicitud_pedido) AS Q
+      JOIN dbo.aw_src_auftr_kopf AS K ON K.ID = TRY_CAST(Q.numero_pedido AS int)
+     WHERE Q.rn = 1 AND Q.operacion < 3
+       AND K.STATUS IN (900, 999)
+       AND NOT EXISTS (SELECT 1 FROM dbo.aw_aviso_job_pedido AS C WHERE C.numero_pedido = Q.numero_pedido)
+       AND NOT EXISTS (SELECT 1 FROM @candidatos AS X WHERE X.numero_pedido = Q.numero_pedido);
+
+    SET TRANSACTION ISOLATION LEVEL READ COMMITTED;
 
     /* Clasificación (ver encabezado). Un pedido en 15/42 sin evento en el
        historial no se puede fechar contra @desde: no se avisa (A+W registra
@@ -166,7 +193,7 @@ BEGIN
 
     /* Un aviso por pedido, cada uno en su transacción: si uno falla, los
        demás siguen y el fallido se reintenta en el siguiente barrido. */
-    DECLARE @np nvarchar(50), @st int, @ev datetime, @op tinyint, @ver bigint, @cubierto int;
+    DECLARE @np nvarchar(50), @st int, @ev datetime, @op tinyint, @ver bigint, @cubierto int, @ultv bigint;
     DECLARE @avisos int = 0;
 
     DECLARE cur CURSOR LOCAL FAST_FORWARD FOR
@@ -181,12 +208,24 @@ BEGIN
 
             /* @cubierto: otro escritor (botón del vendedor, customizing) ya
                dejó en la cola una solicitud posterior a este evento — para
-               cancelación, una cancelación. creada_at es datetimeoffset: se
-               compara su hora local contra la fecha local de A+W. */
+               cancelación, una cancelación; para alta o modificación, una
+               alta o modificación. Solo cuentan las filas que el job no
+               escribió (versión mayor a la última suya). creada_at es
+               datetimeoffset: se compara su hora local contra la fecha local
+               de A+W. */
+            SET @ultv = ISNULL((SELECT ultima_version FROM dbo.aw_aviso_job_pedido
+                                 WHERE numero_pedido = @np), 0);
+            /* El botón del vendedor ya dio de alta el pedido (antes de 15/42):
+               el job no manda otra Alta, manda Modificación para que el ERP
+               tome lo que cambió hasta el firme. */
+            IF @op = 1 AND EXISTS (SELECT 1 FROM dbo.aw_solicitud_pedido
+                                    WHERE numero_pedido = @np AND [version] > @ultv AND operacion < 3)
+                SET @op = 2;
             SELECT @ver = ISNULL(MAX([version]), 0) + 1,
                    @cubierto = ISNULL(MAX(CASE
-                       WHEN CAST(creada_at AS datetime) >= ISNULL(@ev, @desde)
-                            AND (@op < 3 OR operacion = 3) THEN 1 END), 0)
+                       WHEN [version] > @ultv
+                            AND CAST(creada_at AS datetime) >= ISNULL(@ev, @desde)
+                            AND ((@op < 3 AND operacion < 3) OR (@op = 3 AND operacion = 3)) THEN 1 END), 0)
               FROM dbo.aw_solicitud_pedido WITH (UPDLOCK, HOLDLOCK)
              WHERE numero_pedido = @np;
 
@@ -229,12 +268,15 @@ GO
 /* ---------------------------------------------------------------------------
    4. Job de SQL Server Agent: cada 15 s (mínimo que permite el Agent: 10 s)
    Requiere SQL Server Agent activo en SER-DATA\AWBUSINESS y permiso de
-   Jorge. Para DEV: cambiar @job y @base.
+   Jorge. Para la base de pruebas: cambiar @base a MILLET_INTEGRACION_DEV;
+   el nombre del job agrega « (DEV)» solo, para que pruebas y producción
+   puedan convivir en el mismo Agent.
    -------------------------------------------------------------------------*/
 USE msdb;
 GO
-DECLARE @job  sysname = N'Millet ERP - aviso de pedidos A+W';
 DECLARE @base sysname = N'MILLET_INTEGRACION';
+DECLARE @job  sysname = N'Millet ERP - aviso de pedidos A+W'
+                      + CASE WHEN @base LIKE N'%[_]DEV' THEN N' (DEV)' ELSE N'' END;
 
 IF EXISTS (SELECT 1 FROM msdb.dbo.sysjobs WHERE name = @job)
     PRINT 'El job ya existe — sin cambios.';
@@ -263,7 +305,7 @@ BEGIN
 END
 GO
 
-/* Rollback:
+/* Rollback (en pruebas: job « (DEV)» y USE MILLET_INTEGRACION_DEV):
    EXEC msdb.dbo.sp_delete_job @job_name = N'Millet ERP - aviso de pedidos A+W';
    USE MILLET_INTEGRACION;
    DROP PROCEDURE dbo.usp_aw_aviso_pedidos;
