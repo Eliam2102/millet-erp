@@ -1,5 +1,6 @@
 using MediatR;
 using Microsoft.EntityFrameworkCore;
+using Millet.Compras.Domain;
 using Millet.Compras.Infrastructure;
 using Millet.SharedKernel.Application.Exceptions;
 using Millet.SharedKernel.Application.UnidadesMedida;
@@ -55,6 +56,8 @@ public sealed class ActualizarLineaHandler : IRequestHandler<ActualizarLineaComm
                 "ARTICULO_INACTIVO",
                 $"El artículo '{articulo.Clave}' está {articulo.Estatus} y no puede usarse en líneas.");
         }
+
+        ArticulosPorClasificacion.Validar(requisicion.Clasificacion, articulo);
 
         // ADR-0046 Etapa 2: la cantidad no puede exceder los decimales de la
         // unidad del artículo (FK NULL → no valida).

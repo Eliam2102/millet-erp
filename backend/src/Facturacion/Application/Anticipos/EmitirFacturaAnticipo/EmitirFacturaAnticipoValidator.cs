@@ -34,7 +34,12 @@ public sealed class EmitirFacturaAnticipoValidator : AbstractValidator<EmitirFac
             .WithMessage("Con método de pago PUE (pago en una sola exhibición) captura la forma de pago real del cobro — 99 (Por definir) solo aplica a PPD.");
 
         RuleFor(c => c.TipoAnticipo).IsInEnum();
-        RuleFor(c => c.MontoBase).GreaterThan(0);
+        // 86e3tfd7j: se captura el monto base o el total con IVA, no ambos.
+        RuleFor(c => c.MontoBase).GreaterThan(0).When(c => c.Total is null);
+        RuleFor(c => c.Total).GreaterThan(0).When(c => c.Total.HasValue);
+        RuleFor(c => c.MontoBase).Equal(0)
+            .When(c => c.Total.HasValue)
+            .WithMessage("Captura el monto base o el total con IVA, no ambos.");
         RuleFor(c => c.TasaIvaTraslado).GreaterThanOrEqualTo(0).When(c => c.TasaIvaTraslado.HasValue);
         RuleFor(c => c.CanalVentaId).GreaterThan((short)0).When(c => c.CanalVentaId.HasValue);
     }

@@ -100,11 +100,15 @@ public sealed class FakeSender(ReservarFolioResponse reservaResponse) : ISender
 {
     public int VecesReservoFolio { get; private set; }
 
+    /// <summary>F6.1: tipos de serie solicitados, en orden (VentaDirecta vs Cfdi).</summary>
+    public List<Millet.Administracion.Domain.TipoDocumentoSerie> TiposReservados { get; } = [];
+
     public Task<TResponse> Send<TResponse>(IRequest<TResponse> request, CancellationToken cancellationToken = default)
     {
-        if (request is ReservarFolioCommand)
+        if (request is ReservarFolioCommand reserva)
         {
             VecesReservoFolio++;
+            TiposReservados.Add(reserva.TipoDocumento);
             return Task.FromResult((TResponse)(object)reservaResponse);
         }
 
@@ -294,4 +298,63 @@ public sealed class FakeCurrentUserPermissions(params string[] permisos) : ICurr
 {
     public ValueTask<bool> TieneAsync(string permiso, CancellationToken cancellationToken = default) =>
         ValueTask.FromResult(permisos.Contains(permiso, StringComparer.Ordinal));
+}
+
+/// <summary>
+/// <see cref="ISender"/> que reserva folios únicos y consecutivos (DOC-000001,
+/// DOC-000002…) — para flujos que emiten varios comprobantes en la misma base
+/// (anticipo + factura final + NC de amortización). Compartido por F6.2.
+/// </summary>
+public sealed class FakeSenderFoliosSecuenciales : ISender
+{
+    private int _n;
+
+    public Task<TResponse> Send<TResponse>(IRequest<TResponse> request, CancellationToken cancellationToken = default)
+    {
+        if (request is ReservarFolioCommand)
+        {
+            _n++;
+            return Task.FromResult((TResponse)(object)new ReservarFolioResponse($"DOC-{_n:D6}", _n, ""));
+        }
+
+        throw new NotImplementedException($"FakeSenderFoliosSecuenciales no maneja {request.GetType().Name}.");
+    }
+
+    public Task Send<TRequest>(TRequest request, CancellationToken cancellationToken = default) where TRequest : IRequest =>
+        throw new NotImplementedException();
+
+    public Task<object?> Send(object request, CancellationToken cancellationToken = default) =>
+        throw new NotImplementedException();
+
+    public IAsyncEnumerable<TResponse> CreateStream<TResponse>(IStreamRequest<TResponse> request, CancellationToken cancellationToken = default) =>
+        throw new NotImplementedException();
+
+    public IAsyncEnumerable<object?> CreateStream(object request, CancellationToken cancellationToken = default) =>
+        throw new NotImplementedException();
+}
+
+/// <summary>
+/// PAC simulado que timbra con UUIDs únicos y una fecha de timbrado
+/// configurable (<see cref="Fecha"/>), para probar cortes por fecha (F6.2).
+/// </summary>
+public sealed class FakeFiscalUuidsSecuenciales(DateTimeOffset fecha) : ICfdiTimbradoPort
+{
+    private int _n;
+
+    /// <summary>Fecha que se sella en el siguiente timbrado.</summary>
+    public DateTimeOffset Fecha { get; set; } = fecha;
+
+    public Task<TimbradoResultado> TimbrarAsync(CfdiEmision emision, CancellationToken cancellationToken)
+    {
+        _n++;
+        return Task.FromResult(new TimbradoResultado(
+            TimbradoEstado.Timbrado, $"00000000-0000-0000-0000-{_n:D12}", "S", "S", "0",
+            Fecha, "SAT970701NN3", $"<cfdi serie=\"{emision.Serie}\" folio=\"{emision.Folio}\" fake=\"true\" />", null, null));
+    }
+
+    public Task<CancelacionResultado> CancelarAsync(CancelacionSolicitud solicitud, CancellationToken cancellationToken) =>
+        Task.FromResult(new CancelacionResultado(CancelacionEstado.Aceptada, "ok", null));
+
+    public Task<EstatusCfdiResultado> ConsultarEstatusAsync(EstatusCfdiSolicitud solicitud, CancellationToken cancellationToken) =>
+        Task.FromResult(new EstatusCfdiResultado(true, "Vigente", true, null));
 }

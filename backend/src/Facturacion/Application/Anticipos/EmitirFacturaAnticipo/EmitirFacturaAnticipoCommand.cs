@@ -43,7 +43,10 @@ public sealed record EmitirFacturaAnticipoCommand(
     string? ObraNombre,
     // CAJAS-PR2 ([Decisión 12-D]): dimensión de la Capa A; null = sin canal
     // (anticipo administrativo) → bucket "Sin asignar".
-    short? CanalVentaId = null) : IRequest<EmitirFacturaAnticipoResponse>;
+    short? CanalVentaId = null,
+    // 86e3tfd7j: total capturado con IVA (excluyente con MontoBase); el
+    // dominio desglosa subtotal e IVA para que el CFDI sume exacto.
+    decimal? Total = null) : IRequest<EmitirFacturaAnticipoResponse>;
 
 public sealed record EmitirFacturaAnticipoResponse(
     Guid AnticipoId,

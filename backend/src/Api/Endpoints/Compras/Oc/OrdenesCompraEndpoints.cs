@@ -31,6 +31,7 @@ using Millet.Compras.Application.Oc.ListarPartidasAbiertas;
 using Millet.Compras.Application.Oc.ListarPendientesAutorizacion;
 using Millet.Compras.Application.Oc.ListarRequisicionesDisponibles;
 using Millet.Compras.Application.Oc.Rechazar;
+using Millet.Compras.Application.Oc.Incidencias;
 using Millet.Compras.Application.Oc.RespuestaProveedor;
 using Millet.Compras.Application.Oc.Lineas.ActualizarLinea;
 using Millet.Compras.Application.Oc.Lineas.ActualizarTextoAdicional;
@@ -356,7 +357,7 @@ public static class OrdenesCompraEndpoints
                     DescripcionExtendida: body.DescripcionExtendida,
                     FechaEntregaLinea: body.FechaEntregaLinea,
                     CentroCostoId: body.CentroCostoId,
-                    TextoAdicional: body.TextoAdicional),
+                    TextoAdicional: body.TextoAdicional, EsActivoFijo: body.EsActivoFijo, ClaseActivoId: body.ClaseActivoId),
                 cancellationToken);
             return Results.Created($"/api/v1/compras/ordenes/{id}/lineas/{response.LineaId}", response);
         })
@@ -1044,6 +1045,7 @@ public static class OrdenesCompraEndpoints
             [FromQuery] string? codigoRuta,
             [FromQuery] string? semanaEmbarque,
             [FromQuery] int? diasAtrasadosMinimos,
+            [FromQuery] bool? conIncidenciasAbiertas,
             // Defaults explícitos (= 0): mismo motivo que la bandeja general
             // — sin esto el endpoint truena con 500 si la URL no trae los
             // params. Ver comentario en MapGet("/").
@@ -1065,6 +1067,7 @@ public static class OrdenesCompraEndpoints
                     CodigoRuta: codigoRuta,
                     SemanaEmbarque: semanaEmbarque,
                     DiasAtrasadosMinimos: diasAtrasadosMinimos,
+                    ConIncidenciasAbiertas: conIncidenciasAbiertas,
                     Page: page == 0 ? 1 : page,
                     PageSize: pageSize == 0 ? 50 : pageSize),
                 cancellationToken);
@@ -1082,6 +1085,24 @@ public static class OrdenesCompraEndpoints
             "`fechaEntregaEsperada` (NULLS LAST → fecha documento) + folio. " +
             "Indexado por `ix_oc_partidas_abiertas`.")
         .Produces<ListarPartidasAbiertasResponse>(StatusCodes.Status200OK)
+        .ProducesProblem(StatusCodes.Status401Unauthorized)
+        .ProducesProblem(StatusCodes.Status403Forbidden);
+
+        // --- F1-COM-07: historial de incidencias del proveedor (base de COM-13) ---
+        group.MapGet("/incidencias-proveedor", async (
+            IMediator mediator,
+            [FromQuery] Guid? proveedorId,
+            [FromQuery] bool? soloAbiertas,
+            [FromQuery] int page = 0,
+            [FromQuery] int pageSize = 0,
+            CancellationToken cancellationToken = default) =>
+            Results.Ok(await mediator.Send(new ListarIncidenciasProveedorQuery(proveedorId, soloAbiertas,
+                page == 0 ? 1 : page, pageSize == 0 ? 50 : pageSize), cancellationToken)))
+        .RequireAuthorization(
+            PermissionPolicyProvider.Prefix + PermisosCanonicos.ComprasOrdenesReportesPartidasAbiertas)
+        .WithName("ListarIncidenciasProveedorOc")
+        .WithSummary("Historial de incidencias del proveedor con cumplimiento de compromisos (F1-COM-07)")
+        .Produces<ListarIncidenciasProveedorResponse>(StatusCodes.Status200OK)
         .ProducesProblem(StatusCodes.Status401Unauthorized)
         .ProducesProblem(StatusCodes.Status403Forbidden);
 
@@ -1343,6 +1364,70 @@ public static class OrdenesCompraEndpoints
         group.MapGroup("/respuestas-proveedor/{id:guid}").MapAdjuntos("oc_respuesta_proveedor",
             PermisosCanonicos.ComprasOrdenesLeer, PermisosCanonicos.ComprasOrdenesRegistrarRespuestaProveedor,
             PermisosCanonicos.ComprasOrdenesRegistrarRespuestaProveedor);
+
+        // --- F1-COM-07: incidencias del proveedor por línea (faltante, dañado, atraso) ---
+        group.MapPost("/{id:guid}/incidencias-proveedor", async (
+            Guid id, [FromBody] RegistrarIncidenciaProveedorRequest body, IMediator mediator,
+            ComprasDbContext scopeDb, ICurrentUserContext scopeUser,
+            ICurrentUserPermissions scopePermisos, IUsuarioSucursalReadPort scopeSucursales,
+            CancellationToken cancellationToken) =>
+        {
+            await OcSucursalScope.VerificarAsync(id, scopeDb, scopeUser, scopePermisos, scopeSucursales, cancellationToken, escritura: true);
+            var response = await mediator.Send(new RegistrarIncidenciaProveedorCommand(id, body.LineaOrdenCompraId,
+                body.Tipo, body.Cantidad, body.FechaCompromiso, body.ResponsableId, body.Descripcion), cancellationToken);
+            return Results.Created($"/api/v1/compras/ordenes/{id}", response);
+        })
+        .WithMetadata(new RequireIdempotencyKeyAttribute())
+        .RequireAuthorization(PermissionPolicyProvider.Prefix + PermisosCanonicos.ComprasOrdenesRegistrarIncidenciaProveedor)
+        .WithName("RegistrarIncidenciaProveedorOrdenCompra")
+        .WithSummary("Registrar una incidencia del proveedor en una línea de la OC (F1-COM-07)")
+        .WithDescription("Solo en OC autorizada. Faltante y atraso cubren piezas pendientes; dañado, piezas ya recibidas. No modifica cantidades, recepción, facturación ni pago. Header `Idempotency-Key` obligatorio.")
+        .Produces<IncidenciaProveedorOcResponse>(StatusCodes.Status201Created)
+        .ProducesProblem(StatusCodes.Status400BadRequest)
+        .ProducesProblem(StatusCodes.Status401Unauthorized)
+        .ProducesProblem(StatusCodes.Status403Forbidden)
+        .ProducesProblem(StatusCodes.Status404NotFound)
+        .ProducesProblem(StatusCodes.Status422UnprocessableEntity);
+
+        group.MapPost("/{id:guid}/incidencias-proveedor/{incidenciaId:guid}/reprogramar", async (
+            Guid id, Guid incidenciaId, [FromBody] ReprogramarIncidenciaProveedorRequest body, IMediator mediator,
+            ComprasDbContext scopeDb, ICurrentUserContext scopeUser,
+            ICurrentUserPermissions scopePermisos, IUsuarioSucursalReadPort scopeSucursales,
+            CancellationToken cancellationToken) =>
+        {
+            await OcSucursalScope.VerificarAsync(id, scopeDb, scopeUser, scopePermisos, scopeSucursales, cancellationToken, escritura: true);
+            return Results.Ok(await mediator.Send(new ReprogramarIncidenciaProveedorCommand(id, incidenciaId,
+                body.FechaCompromiso, body.Motivo), cancellationToken));
+        })
+        .WithMetadata(new RequireIdempotencyKeyAttribute())
+        .RequireAuthorization(PermissionPolicyProvider.Prefix + PermisosCanonicos.ComprasOrdenesRegistrarIncidenciaProveedor)
+        .WithName("ReprogramarIncidenciaProveedorOrdenCompra")
+        .WithSummary("Nueva fecha compromiso de una incidencia abierta; conserva las anteriores (F1-COM-07)")
+        .Produces<IncidenciaProveedorOcResponse>()
+        .ProducesProblem(StatusCodes.Status400BadRequest)
+        .ProducesProblem(StatusCodes.Status403Forbidden)
+        .ProducesProblem(StatusCodes.Status404NotFound)
+        .ProducesProblem(StatusCodes.Status422UnprocessableEntity);
+
+        group.MapPost("/{id:guid}/incidencias-proveedor/{incidenciaId:guid}/cerrar", async (
+            Guid id, Guid incidenciaId, [FromBody] CerrarIncidenciaProveedorRequest body, IMediator mediator,
+            ComprasDbContext scopeDb, ICurrentUserContext scopeUser,
+            ICurrentUserPermissions scopePermisos, IUsuarioSucursalReadPort scopeSucursales,
+            CancellationToken cancellationToken) =>
+        {
+            await OcSucursalScope.VerificarAsync(id, scopeDb, scopeUser, scopePermisos, scopeSucursales, cancellationToken, escritura: true);
+            return Results.Ok(await mediator.Send(new CerrarIncidenciaProveedorCommand(id, incidenciaId, body.Motivo),
+                cancellationToken));
+        })
+        .WithMetadata(new RequireIdempotencyKeyAttribute())
+        .RequireAuthorization(PermissionPolicyProvider.Prefix + PermisosCanonicos.ComprasOrdenesRegistrarIncidenciaProveedor)
+        .WithName("CerrarIncidenciaProveedorOrdenCompra")
+        .WithSummary("Cerrar a mano una incidencia abierta con motivo (F1-COM-07)")
+        .Produces<IncidenciaProveedorOcResponse>()
+        .ProducesProblem(StatusCodes.Status400BadRequest)
+        .ProducesProblem(StatusCodes.Status403Forbidden)
+        .ProducesProblem(StatusCodes.Status404NotFound)
+        .ProducesProblem(StatusCodes.Status422UnprocessableEntity);
 
         // --- F3-PR2: rechazar (EnAutorizacion N1/N2 → Rechazada) ---
         group.MapPost("/{id:guid}/rechazar", async (
@@ -1759,7 +1844,7 @@ public static class OrdenesCompraEndpoints
         // Fase E PR3 (fix #701 API boundary): el CC-Máquina elegido en el
         // Dim3Picker viaja aquí; sin este campo System.Text.Json lo descartaba.
         Guid? CentroCostoId,
-        string? TextoAdicional);
+        string? TextoAdicional, bool EsActivoFijo = false, Guid? ClaseActivoId = null);
 
     /// <summary>Body del PATCH lineas (F2-PR2).</summary>
     public sealed record ActualizarLineaOcRequest(
@@ -1786,4 +1871,7 @@ public static class OrdenesCompraEndpoints
     public sealed record ActualizarTextoAdicionalRequest(string? TextoAdicional);
     public sealed record ResolverCancelacionOcRequest(bool Confirmar, string Motivo);
     public sealed record RegistrarRespuestaProveedorRequest(TipoRespuestaProveedorOc Tipo, DateOnly FechaRespuesta, string Evidencia, string? ContactoProveedor, string? Motivo, IReadOnlyList<CompromisoEntregaInput>? Compromisos);
+    public sealed record RegistrarIncidenciaProveedorRequest(Guid LineaOrdenCompraId, TipoIncidenciaProveedorOc Tipo, decimal Cantidad, DateOnly FechaCompromiso, Guid ResponsableId, string? Descripcion);
+    public sealed record ReprogramarIncidenciaProveedorRequest(DateOnly FechaCompromiso, string Motivo);
+    public sealed record CerrarIncidenciaProveedorRequest(string Motivo);
 }

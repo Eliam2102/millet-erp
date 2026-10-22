@@ -36,6 +36,7 @@ public sealed record ListarPartidasAbiertasQuery(
     string? CodigoRuta = null,
     string? SemanaEmbarque = null,
     int? DiasAtrasadosMinimos = null,
+    bool? ConIncidenciasAbiertas = null,
     int Page = 1,
     int PageSize = 50) : IRequest<ListarPartidasAbiertasResponse>, Millet.SharedKernel.Application.ISucursalScopedQuery
 {
@@ -66,4 +67,6 @@ public sealed record PartidaAbiertaResumen(
     string? ReferenciaProveedor,
     string? NumeroContenedor,
     string? CodigoRuta,
-    string? SemanaEmbarque);
+    string? SemanaEmbarque,
+    int IncidenciasAbiertas = 0,
+    int IncidenciasVencidas = 0);

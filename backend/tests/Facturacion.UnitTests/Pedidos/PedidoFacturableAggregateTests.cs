@@ -18,7 +18,11 @@ public sealed class PedidoFacturableAggregateTests
         obraId: null,
         obraNombre: null,
         comentarios: "no va al XML",
-        capturadoPor: Guid.NewGuid());
+        capturadoPor: Guid.NewGuid(),
+        claseManual: ClasePedidoManual.VentaDirecta,
+        subtipoVentaDirecta: SubtipoVentaDirecta.Servicio,
+        motivoEmergencia: null,
+        referenciaPedidoAw: null);
 
     [Fact]
     public void CrearManual_arranca_Importado_origen_Manual()
@@ -50,7 +54,8 @@ public sealed class PedidoFacturableAggregateTests
         p.AgregarLinea(null, "Vieja", "01010101", "H87", 1m, 10m, 0m, false);
 
         p.EditarCabecera(Guid.NewGuid(), "Nuevo cliente", (short)1,
-            ComportamientoFiscal.MostradorInmediato, "USD", 99L, "Obra X", "nuevo comentario");
+            ComportamientoFiscal.MostradorInmediato, "USD", 99L, "Obra X", "nuevo comentario",
+            ClasePedidoManual.VentaDirecta, SubtipoVentaDirecta.Almacenable, null, null);
         p.LimpiarLineas();
         p.AgregarLinea(null, "Nueva", "01010101", "H87", 2m, 25m, 0m, false);
         p.RecalcularTotal();

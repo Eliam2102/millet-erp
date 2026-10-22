@@ -12,8 +12,9 @@ public class SerieTests
     private static Serie Crear(
         TipoDocumentoSerie tipo = TipoDocumentoSerie.Cfdi,
         ReinicioPeriodo reinicio = ReinicioPeriodo.None,
-        long folioInicial = 1) =>
-        new(Guid.NewGuid(), Guid.NewGuid(), sucursalId: null, tipo, "DEMO", sufijo: null, reinicio, folioInicial);
+        long folioInicial = 1,
+        Guid? sucursalId = null) =>
+        new(Guid.NewGuid(), Guid.NewGuid(), sucursalId, tipo, "DEMO", sufijo: null, reinicio, folioInicial);
 
     [Fact]
     public void Should_Default_FolioInicial_To_One()
@@ -55,5 +56,35 @@ public class SerieTests
     public void Should_Allow_Period_Reset_On_Non_Fiscal_Series(TipoDocumentoSerie tipo)
     {
         Crear(tipo, ReinicioPeriodo.Mensual).ReinicioPeriodo.Should().Be(ReinicioPeriodo.Mensual);
+    }
+
+    // ----- F6.1: serie de Venta directa (por sucursal, fiscal) -----
+
+    [Fact]
+    public void VentaDirecta_sin_sucursal_se_rechaza()
+    {
+        var act = () => Crear(TipoDocumentoSerie.VentaDirecta);
+        act.Should().Throw<BusinessRuleException>()
+            .Where(e => e.Code == "SERIE_VD_REQUIERE_SUCURSAL");
+    }
+
+    [Fact]
+    public void VentaDirecta_con_sucursal_es_fiscal_y_por_sucursal()
+    {
+        var sucursal = Guid.NewGuid();
+        var serie = Crear(TipoDocumentoSerie.VentaDirecta, sucursalId: sucursal);
+
+        serie.SucursalId.Should().Be(sucursal);
+        Serie.EsFiscal(TipoDocumentoSerie.VentaDirecta).Should().BeTrue();
+        Serie.RequiereSucursal(TipoDocumentoSerie.VentaDirecta).Should().BeTrue();
+        Serie.RequiereSucursal(TipoDocumentoSerie.Cfdi).Should().BeFalse();
+    }
+
+    [Fact]
+    public void VentaDirecta_rechaza_reinicio_de_periodo()
+    {
+        var act = () => Crear(TipoDocumentoSerie.VentaDirecta, ReinicioPeriodo.Anual, sucursalId: Guid.NewGuid());
+        act.Should().Throw<BusinessRuleException>()
+            .Where(e => e.Code == "SERIE_FISCAL_SIN_REINICIO");
     }
 }

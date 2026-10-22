@@ -277,6 +277,9 @@ public sealed class CompartidoDbContext : BaseDbContext
         tipo.HasIndex(x => new { x.TipoEntidad, x.Codigo }).IsUnique();
 
         var seedTime = new DateTimeOffset(2026, 1, 1, 0, 0, 0, TimeSpan.Zero);
+        var afTipos = new[] { "Factura de compra", "Póliza de seguro", "Garantía", "Contrato de arrendamiento", "Pedimento", "Manual", "Fotografía", "Otro" };
+        for (var i = 0; i < afTipos.Length; i++)
+            tipo.HasData(new { Id = Guid.Parse($"0000000f-0003-0000-0000-{i + 1:000000000000}"), TipoEntidad = "activo_fijo", Codigo = $"AF_{i}", Nombre = afTipos[i], Orden = i + 1, Obligatorio = false, ObligatorioPersonaMoral = false, ObligatorioPersonaFisica = false, VigenciaMeses = (int?)null, SoloPersonaMoral = false, AplicaOrigen = AdjuntoAplicaOrigen.Todos, Activo = true, Version = 1, CreatedAt = seedTime, UpdatedAt = seedTime, CreatedBy = (string?)"seed", UpdatedBy = (string?)"seed", DeletedAt = (DateTimeOffset?)null });
         tipo.HasData(
             new { Id = Guid.Parse("00000011-0006-0000-0000-000000000001"), TipoEntidad = "requisicion", Codigo = "soporte", Nombre = "Documento de soporte", Orden = 1, Obligatorio = false, ObligatorioPersonaMoral = false, ObligatorioPersonaFisica = false, VigenciaMeses = (int?)null, SoloPersonaMoral = false, AplicaOrigen = AdjuntoAplicaOrigen.Todos, Activo = true, Version = 1, CreatedAt = seedTime, UpdatedAt = seedTime, CreatedBy = (string?)"seed", UpdatedBy = (string?)"seed", DeletedAt = (DateTimeOffset?)null },
             new { Id = Guid.Parse("00000011-0006-0000-0000-000000000002"), TipoEntidad = "factura_proveedor", Codigo = "soporte", Nombre = "Documento de soporte", Orden = 1, Obligatorio = false, ObligatorioPersonaMoral = false, ObligatorioPersonaFisica = false, VigenciaMeses = (int?)null, SoloPersonaMoral = false, AplicaOrigen = AdjuntoAplicaOrigen.Todos, Activo = true, Version = 1, CreatedAt = seedTime, UpdatedAt = seedTime, CreatedBy = (string?)"seed", UpdatedBy = (string?)"seed", DeletedAt = (DateTimeOffset?)null },
@@ -506,7 +509,10 @@ public sealed class CompartidoDbContext : BaseDbContext
             t.HasCheckConstraint("ck_series_reinicio_periodo",
                 "reinicio_periodo BETWEEN 0 AND 2");
             t.HasCheckConstraint("ck_series_tipo_documento",
-                "tipo_documento BETWEEN 1 AND 5");
+                "tipo_documento BETWEEN 1 AND 6");
+            // F6.1: la serie de Venta directa (6) siempre es por sucursal.
+            t.HasCheckConstraint("ck_series_vd_sucursal",
+                "tipo_documento <> 6 OR sucursal_id IS NOT NULL");
             t.HasCheckConstraint("ck_series_prefijo_no_vacio",
                 "char_length(prefijo) BETWEEN 1 AND 10");
             t.HasCheckConstraint("ck_series_sufijo_max",
@@ -523,10 +529,10 @@ public sealed class CompartidoDbContext : BaseDbContext
         serie.Property(x => x.FolioInicial).HasDefaultValue(1L).IsRequired();
         serie.HasIndex(x => new { x.EmpresaId, x.SucursalId, x.TipoDocumento })
             .HasDatabaseName("ix_series_fiscal_activa_sucursal").IsUnique()
-            .HasFilter("activa AND sucursal_id IS NOT NULL AND tipo_documento IN (2, 3, 5)");
+            .HasFilter("activa AND sucursal_id IS NOT NULL AND tipo_documento IN (2, 3, 5, 6)");
         serie.HasIndex(x => new { x.EmpresaId, x.TipoDocumento })
             .HasDatabaseName("ix_series_fiscal_activa_global").IsUnique()
-            .HasFilter("activa AND sucursal_id IS NULL AND tipo_documento IN (2, 3, 5)");
+            .HasFilter("activa AND sucursal_id IS NULL AND tipo_documento IN (2, 3, 5, 6)");
 
         // Índice único compuesto. Para que los NULLs de SucursalId/Sufijo
         // no salten el unique de PostgreSQL, usamos COALESCE a sentinels.
@@ -1370,6 +1376,10 @@ public sealed class CompartidoDbContext : BaseDbContext
             .HasFilter("rfc NOT IN ('XAXX010101000','XEXX010101000')");
         cliente.HasOne<ClasificacionCliente>().WithMany().HasForeignKey(c => c.ClasificacionId).OnDelete(DeleteBehavior.Restrict);
         cliente.HasIndex(x => x.Estatus);
+        cliente.Property(x => x.UnificadoPor).HasMaxLength(200);
+        cliente.Property(x => x.MotivoUnificacion).HasMaxLength(300);
+        cliente.HasOne<Cliente>().WithMany().HasForeignKey(c => c.UnificadoEnClienteId).OnDelete(DeleteBehavior.Restrict);
+        cliente.HasIndex(x => x.UnificadoEnClienteId);
     }
 
     /// <summary>

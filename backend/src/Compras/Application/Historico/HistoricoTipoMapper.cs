@@ -76,6 +76,7 @@ public static class HistoricoTipoMapper
         // edición estructural.
         var campos = ExtraerCamposModificados(cambiosJson);
         if (campos.Contains("CantidadRecibida")) return HistoricoTipo.RecepcionRegistrada;
+        if (campos.Contains("CantidadLiberadaApartado")) return HistoricoTipo.ApartadoLiberado;
         if (campos.Contains("CantidadDeAlmacen") || campos.Contains("CantidadDeCompra"))
             return HistoricoTipo.CubrimientoRegistrado;
         return HistoricoTipo.LineaActualizada;

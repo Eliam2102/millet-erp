@@ -28,6 +28,7 @@ export function construirFilas(
       const pendiente = r ? r.pendiente : Math.max(0, l.cantidad - l.cantidadRecibida);
       return {
         lineaOcId: l.id,
+        esActivoFijo: l.esActivoFijo ?? false,
         articuloId: l.articuloId,
         articuloClave: l.articuloClave,
         articuloNombre: l.articuloNombre,
@@ -66,7 +67,7 @@ export function indicesParaAutoAsignar(
   puedeAsignar?: (fila: FilaRecepcionValues) => boolean,
 ): number[] {
   return filas.reduce<number[]>((acc, fila, index) => {
-    if (!fila.ubicacionId && (puedeAsignar?.(fila) ?? true)) acc.push(index);
+    if (!fila.esActivoFijo && !fila.ubicacionId && (puedeAsignar?.(fila) ?? true)) acc.push(index);
     return acc;
   }, []);
 }

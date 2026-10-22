@@ -319,7 +319,7 @@ public class AwOrigenPgTests(WebApplicationFactory<Program> factory)
         Assert.Equal("XAXX010101000", cs["3"].Rfc); // UST_ID válido se aplica solo en demo
         Assert.Equal("DEMO010", r10.CandidatoFiscalUstId);
 
-        // 61 y 62 comparten RFC: ambos se crean (no se fusionan) y el segundo queda con un conflicto RfcCompartido pendiente.
+        // 61 y 62 comparten RFC: ambos se crean (no se fusionan) y el segundo queda con un RfcCompartido pendiente (va a revisión).
         Assert.Equal(("DEMO010101AB1", null), (cs["61"].Rfc, cs["62"].Rfc));
         // Solo los clientes de este barrido: otras pruebas de ADM-06 dejan conflictos RfcCompartido en la base compartida.
         var idsBarrido = cs.Values.Select(c => (Guid?)c.Id).ToList();

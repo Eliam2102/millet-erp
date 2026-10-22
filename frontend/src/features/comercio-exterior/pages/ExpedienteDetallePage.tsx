@@ -1,3 +1,4 @@
+import { FinanzasPanel } from '../components/FinanzasPanel';
 import {
   Table,
   TableHeader,
@@ -29,6 +30,7 @@ import { CE_BASE, useAccionExpediente, useExpediente, useExpedientes } from '../
 import { EstadoExpedienteBadge } from '../components/EstadoExpedienteBadge';
 import { OtrPanel } from '../components/OtrPanel';
 import { ContenedoresPanel } from '../components/ContenedoresPanel';
+import { IncidenciasPanel } from '../components/IncidenciasPanel';
 import { HitosPanel } from '../components/HitosPanel';
 import { DocumentosPanel } from '../components/DocumentosPanel';
 import {
@@ -56,6 +58,7 @@ export function ExpedienteDetallePage({ id }: { id: string }) {
   const [edicion, setEdicion] = useState(false);
   const [cancelando, setCancelando] = useState(false);
   const [motivo, setMotivo] = useState('');
+  const incidenciasPendientes = (data?.incidencias ?? []).filter((i) => i.estado < 3);
   if (query.isError)
     return (
       <ErrorState
@@ -112,6 +115,9 @@ export function ExpedienteDetallePage({ id }: { id: string }) {
             <>
               {' '}
               <EstadoExpedienteBadge estado={data.expediente.estado} />
+              <Badge variant="warning">
+                {incidenciasPendientes.length} incidencias pendientes
+              </Badge>
               {data.expediente.revisionPendiente && (
                 <Badge variant="warning">Revisión pendiente</Badge>
               )}
@@ -126,8 +132,25 @@ export function ExpedienteDetallePage({ id }: { id: string }) {
                 </Button>
               )}
               {cerrar && abierto && (
-                <Button variant="outline" disabled title={textoFinanciero(data.estadoFinanciero)}>
-                  Cerrar expediente
+                <Button
+                  variant="outline"
+                  disabled={
+                    data.estadoFinanciero !== 'Listo para cierre' ||
+                    incidenciasPendientes.length > 0 ||
+                    accion.isPending
+                  }
+                  title={
+                    incidenciasPendientes.length > 0
+                      ? incidenciasPendientes.map((i) => i.motivo).join('; ')
+                      : data.estadoFinanciero !== 'Listo para cierre'
+                        ? textoFinanciero(data.estadoFinanciero)
+                        : undefined
+                  }
+                  onClick={() => {
+                    void accion.mutateAsync({ accion: 'cerrar' }).catch(() => {});
+                  }}
+                >
+                  Cerrar en lo financiero
                 </Button>
               )}
               {cancelar && abierto && (
@@ -218,6 +241,7 @@ export function ExpedienteDetallePage({ id }: { id: string }) {
             <TabsTrigger value="resumen">Resumen</TabsTrigger>
             <TabsTrigger value="participantes">Participantes</TabsTrigger>
             <TabsTrigger value="documentos">Documentos</TabsTrigger>
+            <TabsTrigger value="incidencias">Incidencias</TabsTrigger>
             <TabsTrigger value="hitos">Hitos</TabsTrigger>
             {data.expediente.tipo === 2 && (
               <>
@@ -225,6 +249,8 @@ export function ExpedienteDetallePage({ id }: { id: string }) {
                 <TabsTrigger value="otr">A+W OTR</TabsTrigger>
               </>
             )}
+            <TabsTrigger value="gastos">Gastos</TabsTrigger>
+            <TabsTrigger value="anticipos">Anticipo al agente</TabsTrigger>
             <TabsTrigger value="bitacora">Bitácora</TabsTrigger>
           </TabsList>
           <TabsContent value="resumen" className="space-y-4">
@@ -243,14 +269,28 @@ export function ExpedienteDetallePage({ id }: { id: string }) {
                 </TableHeader>
                 <TableBody>
                   <TableRow>
-                    <TableCell className="font-mono text-xs">{data.ocFolio ?? 'Sin número'}</TableCell>
-                    <TableCell>{data.informacionImportacion?.paisOrigen ?? <span className="text-ink-muted">Sin país de origen</span>}</TableCell>
                     <TableCell className="font-mono text-xs">
-                      {data.informacionImportacion?.numeroContenedor ?? <span className="text-ink-muted">Sin número</span>}
+                      {data.ocFolio ?? 'Sin número'}
                     </TableCell>
-                    <TableCell>{data.informacionImportacion?.codigoRuta ?? <span className="text-ink-muted">Sin ruta</span>}</TableCell>
+                    <TableCell>
+                      {data.informacionImportacion?.paisOrigen ?? (
+                        <span className="text-ink-muted">Sin país de origen</span>
+                      )}
+                    </TableCell>
                     <TableCell className="font-mono text-xs">
-                      {data.informacionImportacion?.numeroPedimento ?? <span className="text-ink-muted">Sin número</span>}
+                      {data.informacionImportacion?.numeroContenedor ?? (
+                        <span className="text-ink-muted">Sin número</span>
+                      )}
+                    </TableCell>
+                    <TableCell>
+                      {data.informacionImportacion?.codigoRuta ?? (
+                        <span className="text-ink-muted">Sin ruta</span>
+                      )}
+                    </TableCell>
+                    <TableCell className="font-mono text-xs">
+                      {data.informacionImportacion?.numeroPedimento ?? (
+                        <span className="text-ink-muted">Sin número</span>
+                      )}
                     </TableCell>
                   </TableRow>
                 </TableBody>
@@ -272,6 +312,9 @@ export function ExpedienteDetallePage({ id }: { id: string }) {
           <TabsContent value="documentos">
             <DocumentosPanel data={data} />
           </TabsContent>
+          <TabsContent value="incidencias">
+            <IncidenciasPanel data={data} />
+          </TabsContent>
           <TabsContent value="hitos">
             <HitosPanel data={data} />
           </TabsContent>
@@ -285,6 +328,12 @@ export function ExpedienteDetallePage({ id }: { id: string }) {
               <OtrPanel expedienteId={id} abierto={abierto} />
             </TabsContent>
           )}
+          <TabsContent value="gastos">
+            <FinanzasPanel data={data} tab="gastos" />
+          </TabsContent>
+          <TabsContent value="anticipos">
+            <FinanzasPanel data={data} tab="anticipos" />
+          </TabsContent>
           <TabsContent value="bitacora">
             <Bitacora id={id} />
           </TabsContent>

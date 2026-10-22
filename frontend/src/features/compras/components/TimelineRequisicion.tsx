@@ -16,6 +16,7 @@ import {
   ShieldCheck,
   Sparkles,
   Trash2,
+  Undo2,
   type LucideIcon,
 } from 'lucide-react';
 import { DateTimeDisplay } from '@/components/erp';
@@ -72,12 +73,23 @@ export function TimelineRequisicion({ entradas, isLoading }: TimelineRequisicion
     return <p className="text-sm text-ink-muted">Sin transiciones registradas todavía.</p>;
   }
 
+  // El diff de auditoría omite el motivo cuando se repite: se arrastra el
+  // último motivo conocido de cada línea (las entradas vienen en orden).
+  const motivoPorLinea = new Map<string, string>();
+  const motivos = entradas.map((e) => {
+    if (e.tipo !== HistoricoTipo.ApartadoLiberado) return undefined;
+    const motivo = leerDiff(e.cambios).MotivoUltimaLiberacion?.despues;
+    if (typeof motivo === 'string' && e.entidadId) motivoPorLinea.set(e.entidadId, motivo);
+    return typeof motivo === 'string' ? motivo : motivoPorLinea.get(e.entidadId ?? '');
+  });
+
   return (
     <ol className="space-y-3" aria-label="Actividad de la requisición">
       {entradas.map((e, idx) => (
         <EntradaTimeline
           key={`${e.timestamp}-${e.tipo}-${e.entidadId ?? 'agg'}-${idx}`}
           entrada={e}
+          motivoLiberacion={motivos[idx]}
         />
       ))}
     </ol>
@@ -86,9 +98,10 @@ export function TimelineRequisicion({ entradas, isLoading }: TimelineRequisicion
 
 interface EntradaTimelineProps {
   entrada: HistoricoEntryResponse;
+  motivoLiberacion?: string;
 }
 
-function EntradaTimeline({ entrada }: EntradaTimelineProps) {
+function EntradaTimeline({ entrada, motivoLiberacion }: EntradaTimelineProps) {
   const [abierto, setAbierto] = useState(false);
   const config = TIPO_CONFIG[entrada.tipo] ?? FALLBACK_CONFIG;
   const Icon = config.icon;
@@ -118,6 +131,9 @@ function EntradaTimeline({ entrada }: EntradaTimelineProps) {
         <p className="text-xs text-ink-muted">
           <DateTimeDisplay value={entrada.timestamp} variant="datetime" />
         </p>
+        {entrada.tipo === HistoricoTipo.ApartadoLiberado && (
+          <ResumenLiberacion cambios={entrada.cambios} motivo={motivoLiberacion} />
+        )}
         {cambiosLegible != null && (
           <button
             type="button"
@@ -231,6 +247,11 @@ const TIPO_CONFIG: Partial<Record<HistoricoTipo, TipoConfig>> = {
     bgClass: 'bg-success-bg',
     textClass: 'text-success-fg',
   },
+  [HistoricoTipo.ApartadoLiberado]: {
+    icon: Undo2,
+    bgClass: 'bg-warning-bg',
+    textClass: 'text-warning-fg',
+  },
 };
 
 const FALLBACK_CONFIG: TipoConfig = {
@@ -238,6 +259,29 @@ const FALLBACK_CONFIG: TipoConfig = {
   bgClass: 'bg-surface-muted',
   textClass: 'text-ink-muted',
 };
+
+type Diff = Record<string, { antes?: unknown; despues?: unknown } | undefined>;
+
+function leerDiff(cambios: string): Diff {
+  try {
+    return (JSON.parse(cambios) as { diff?: Diff }).diff ?? {};
+  } catch {
+    return {};
+  }
+}
+
+/** Cantidad, destino y motivo de una liberación de apartado (86e3tferc). */
+function ResumenLiberacion({ cambios, motivo }: { cambios: string; motivo?: string }) {
+  const diff = leerDiff(cambios);
+  const liberada = diff.CantidadLiberadaApartado;
+  const cantidad = Number(liberada?.despues ?? 0) - Number(liberada?.antes ?? 0);
+  return (
+    <p className="mt-1 text-sm text-ink">
+      Liberó {cantidad} · {diff.CantidadDeCompra ? 'se manda a compra' : 'no se compra'}
+      {motivo && <> · Motivo: {motivo}</>}
+    </p>
+  );
+}
 
 /**
  * Intenta parsear el JSON crudo de <c>cambios</c> y devolverlo

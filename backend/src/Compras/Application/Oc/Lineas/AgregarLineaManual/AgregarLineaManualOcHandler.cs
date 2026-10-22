@@ -17,6 +17,7 @@ namespace Millet.Compras.Application.Oc.Lineas.AgregarLineaManual;
 public sealed class AgregarLineaManualOcHandler
     : IRequestHandler<AgregarLineaManualOcCommand, AgregarLineaManualOcResponse>
 {
+    private readonly Millet.Compras.Domain.Ports.IClaseActivoCompraReadPort? _clasesActivos;
     private readonly ComprasDbContext _db;
     private readonly IDecimalesUnidadGuard _decimalesGuard;
     private readonly IArticuloReadPort _articulos;
@@ -26,8 +27,9 @@ public sealed class AgregarLineaManualOcHandler
         ComprasDbContext db,
         IDecimalesUnidadGuard decimalesGuard,
         IArticuloReadPort articulos,
-        Millet.CentrosCosto.Application.PublicPorts.IDim3ElegibilidadPort dim3ElegibilidadPort)
+        Millet.CentrosCosto.Application.PublicPorts.IDim3ElegibilidadPort dim3ElegibilidadPort, Millet.Compras.Domain.Ports.IClaseActivoCompraReadPort? clasesActivos = null)
     {
+        _clasesActivos = clasesActivos;
         _db = db;
         _decimalesGuard = decimalesGuard;
         _articulos = articulos;
@@ -54,6 +56,9 @@ public sealed class AgregarLineaManualOcHandler
         IndicadorImpuestos? indicador = command.IndicadorImpuestos is not null
             ? new IndicadorImpuestos(command.IndicadorImpuestos)
             : null;
+
+        if (command.EsActivoFijo && (command.ClaseActivoId is not Guid claseId || _clasesActivos is null || !await _clasesActivos.EsActivaAsync(claseId, cancellationToken)))
+            throw new BusinessRuleException("COMPRA_CLASE_ACTIVO_INVALIDA", "Seleccione una clase de activo activa de la empresa.");
 
         // ADR-0046 Etapa 2: la cantidad no puede exceder los decimales de la
         // unidad del artículo (FK NULL → no valida).
@@ -93,7 +98,7 @@ public sealed class AgregarLineaManualOcHandler
             textoAdicional: command.TextoAdicional,
             esServicio: esServicio,
             // Fase E PR3: CC-Máquina elegido por el comprador (proxy, abierto).
-            centroCostoId: command.CentroCostoId);
+            centroCostoId: command.CentroCostoId, esActivoFijo: command.EsActivoFijo, claseActivoId: command.ClaseActivoId);
 
         await _db.SaveChangesAsync(cancellationToken);
 

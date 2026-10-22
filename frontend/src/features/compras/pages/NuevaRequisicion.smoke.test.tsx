@@ -157,4 +157,28 @@ describe('<NuevaRequisicion> — smoke', () => {
       expect(screen.getByLabelText(nombre)).toBeInTheDocument();
     }
   });
+
+  it('surtido de almacén: Parcial por defecto y se puede elegir Completo', () => {
+    render(<NuevaRequisicion />, { wrapper: createQueryWrapper() });
+    const parcial = screen.getByRole('radio', { name: /^Parcial/ });
+    const completo = screen.getByRole('radio', { name: /^Completo/ });
+    expect(parcial).toBeChecked();
+    fireEvent.click(completo);
+    expect(completo).toBeChecked();
+    expect(parcial).not.toBeChecked();
+  });
+
+  it('recuperar un borrador previo sin la bandera deja Parcial marcado', () => {
+    const key = buildNuevaRequisicionDraftKey('u-test', 'e-test')!;
+    window.localStorage.setItem(
+      key,
+      JSON.stringify({
+        values: { sucursalId: '', departamentoId: '', clasificacion: 0, prioridad: 1, fechaSolicitud: new Date().toISOString() },
+        meta: { savedAt: '2026-05-09T10:00:00Z' },
+      }),
+    );
+    render(<NuevaRequisicion />, { wrapper: createQueryWrapper() });
+    fireEvent.click(screen.getByRole('button', { name: /recuperar borrador/i }));
+    expect(screen.getByRole('radio', { name: /^Parcial/ })).toBeChecked();
+  });
 });
