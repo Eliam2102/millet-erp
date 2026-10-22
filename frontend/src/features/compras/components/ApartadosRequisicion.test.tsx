@@ -12,7 +12,7 @@ const RQ = 'rq-1';
 const LINEA = 'l-1';
 const URL_LIBERAR = `*/api/v1/compras/requisiciones/${RQ}/lineas/${LINEA}/liberar-apartado`;
 
-function setup(permisos: string[]) {
+function setup(permisos: string[], comprometidaEnOc = false) {
   useAuthStore.setState({
     status: 'authenticated',
     accessToken: 't',
@@ -39,10 +39,21 @@ function setup(permisos: string[]) {
   const lineas = [
     { id: LINEA, posicion: 1, articuloClave: 'A1', articuloNombre: 'Tornillo' } as LineaResponse,
   ];
-  render(<ApartadosRequisicion requisicionId={RQ} lineas={lineas} enabled />, {
-    wrapper: createQueryWrapper(),
-  });
+  render(
+    <ApartadosRequisicion
+      requisicionId={RQ}
+      lineas={lineas}
+      enabled
+      comprometidaEnOc={comprometidaEnOc}
+    />,
+    {
+      wrapper: createQueryWrapper(),
+    },
+  );
 }
+
+const noCompra = () => fireEvent.click(screen.getByLabelText(/No, ya no lo necesita/));
+const siCompra = () => fireEvent.click(screen.getByLabelText(/Sí, el requisitante aún lo necesita/));
 
 afterEach(() => {
   useAuthStore.setState({
@@ -95,8 +106,11 @@ describe('<ApartadosRequisicion>', () => {
     fireEvent.change(screen.getByLabelText(/motivo/i), {
       target: { value: '  Ya no se necesita ' },
     });
+    noCompra();
     fireEvent.click(dialog.querySelector('button:last-of-type') as HTMLButtonElement);
-    await waitFor(() => expect(body).toEqual({ cantidad: 3, motivo: 'Ya no se necesita' }));
+    await waitFor(() =>
+      expect(body).toEqual({ cantidad: 3, motivo: 'Ya no se necesita', mandarACompra: false }),
+    );
     expect(key).toBeTruthy();
   });
 
@@ -113,6 +127,7 @@ describe('<ApartadosRequisicion>', () => {
     const dialog = await screen.findByRole('dialog');
     fireEvent.change(screen.getByLabelText(/cantidad a liberar/i), { target: { value: '3' } });
     fireEvent.change(screen.getByLabelText(/motivo/i), { target: { value: 'Ya no se necesita' } });
+    noCompra();
     const enviar = dialog.querySelector('button:last-of-type') as HTMLButtonElement;
     fireEvent.click(enviar);
     fireEvent.click(enviar);
@@ -143,6 +158,7 @@ describe('<ApartadosRequisicion>', () => {
     const dialog = await screen.findByRole('dialog');
     const enviar = dialog.querySelector('button:last-of-type') as HTMLButtonElement;
     fireEvent.change(screen.getByLabelText(/motivo/i), { target: { value: 'x' } });
+    noCompra();
     fireEvent.click(enviar);
     await waitFor(() => expect(keys).toHaveLength(1));
     await screen.findByText('No hay apartado pendiente.');
@@ -175,7 +191,40 @@ describe('<ApartadosRequisicion>', () => {
     fireEvent.click(await screen.findByRole('button', { name: /liberar apartado/i }));
     const dialog = await screen.findByRole('dialog');
     fireEvent.change(screen.getByLabelText(/motivo/i), { target: { value: 'x' } });
+    noCompra();
     fireEvent.click(dialog.querySelector('button:last-of-type') as HTMLButtonElement);
     expect(await screen.findByText('No hay apartado pendiente.')).toBeInTheDocument();
+  });
+
+  it('exige elegir si va a compra y manda true al elegir Sí', async () => {
+    let body: unknown = null;
+    mswServer.use(
+      http.post(URL_LIBERAR, async ({ request }) => {
+        body = await request.json();
+        return new HttpResponse(null, { status: 204 });
+      }),
+    );
+    setup([PermisosCanonicos.ComprasRequisicionesLiberarApartado]);
+    fireEvent.click(await screen.findByRole('button', { name: /liberar apartado/i }));
+    const dialog = await screen.findByRole('dialog');
+    const enviar = dialog.querySelector('button:last-of-type') as HTMLButtonElement;
+    fireEvent.change(screen.getByLabelText(/motivo/i), { target: { value: 'Otra obra' } });
+    fireEvent.click(enviar);
+    expect(await screen.findByText(/indica si lo liberado se manda a compra/i)).toBeInTheDocument();
+    expect(body).toBeNull();
+    siCompra();
+    fireEvent.click(enviar);
+    await waitFor(() =>
+      expect(body).toEqual({ cantidad: 5, motivo: 'Otra obra', mandarACompra: true }),
+    );
+  });
+
+  it('con la RQ en una OC no deja mandar a compra', async () => {
+    setup([PermisosCanonicos.ComprasRequisicionesLiberarApartado], true);
+    fireEvent.click(await screen.findByRole('button', { name: /liberar apartado/i }));
+    await screen.findByRole('dialog');
+    expect(screen.getByLabelText(/Sí, el requisitante aún lo necesita/)).toBeDisabled();
+    expect(screen.getByLabelText(/No, ya no lo necesita/)).not.toBeDisabled();
+    expect(screen.getByText(/ya está en una orden de compra/i)).toBeInTheDocument();
   });
 });

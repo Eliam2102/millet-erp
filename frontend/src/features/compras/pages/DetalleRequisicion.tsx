@@ -279,6 +279,7 @@ function RenderLineas({ rq }: { rq: import('@/features/compras/api/types').Requi
       <ApartadosRequisicion
         requisicionId={rq.id}
         lineas={rq.lineas}
+        comprometidaEnOc={rq.comprometidaEnOcId != null}
         enabled={
           rq.estado === EstadoRequisicion.Autorizada || rq.estado === EstadoRequisicion.EnSurtido
         }

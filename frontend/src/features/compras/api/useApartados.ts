@@ -28,7 +28,7 @@ export function useApartadosRequisicion(requisicionId: string, enabled = true) {
 export interface LiberarApartadoArgs {
   requisicionId: string;
   lineaId: string;
-  values: { cantidad: number; motivo: string };
+  values: { cantidad: number; motivo: string; mandarACompra: boolean };
   idempotencyKey: string;
 }
 

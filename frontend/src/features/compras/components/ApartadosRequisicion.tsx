@@ -32,6 +32,8 @@ export interface ApartadosRequisicionProps {
   lineas: LineaResponse[];
   /** Solo se consulta en estados con reserva viva (Autorizada / EnSurtido). */
   enabled: boolean;
+  /** Si la RQ ya está en una OC, lo liberado no puede mandarse a compra. */
+  comprometidaEnOc: boolean;
 }
 
 /**
@@ -43,6 +45,7 @@ export function ApartadosRequisicion({
   requisicionId,
   lineas,
   enabled,
+  comprometidaEnOc,
 }: ApartadosRequisicionProps) {
   const permisos = useAuthStore((s) => s.permisos);
   const puedeLiberar = permisos.includes(PermisosCanonicos.ComprasRequisicionesLiberarApartado);
@@ -91,6 +94,7 @@ export function ApartadosRequisicion({
         <LiberarApartadoDialog
           requisicionId={requisicionId}
           apartado={liberando}
+          comprometidaEnOc={comprometidaEnOc}
           onClose={() => setLiberando(null)}
         />
       )}
@@ -101,16 +105,19 @@ export function ApartadosRequisicion({
 function LiberarApartadoDialog({
   requisicionId,
   apartado,
+  comprometidaEnOc,
   onClose,
 }: {
   requisicionId: string;
   apartado: ApartadoLineaResponse;
+  comprometidaEnOc: boolean;
   onClose: () => void;
 }) {
   const decimales = useDecimalesUnidad().porCodigo(apartado.unidadMedida) ?? DECIMALES_FALLBACK;
   const mutation = useLiberarApartado();
   const [cantidad, setCantidad] = useState<number | null>(apartado.pendiente);
   const [motivo, setMotivo] = useState('');
+  const [mandarACompra, setMandarACompra] = useState<boolean | null>(null);
   const [error, setError] = useState<string | null>(null);
   // Guard síncrono: isPending se actualiza tras un render y un doble clic rápido enviaba dos POST.
   const enVuelo = useRef(false);
@@ -125,6 +132,7 @@ function LiberarApartadoDialog({
       return `La unidad admite máximo ${decimales} decimales.`;
     if (motivo.trim().length === 0) return 'El motivo es obligatorio.';
     if (motivo.trim().length > 500) return 'El motivo no puede exceder 500 caracteres.';
+    if (mandarACompra == null) return 'Indica si lo liberado se manda a compra.';
     return null;
   }
 
@@ -132,13 +140,13 @@ function LiberarApartadoDialog({
     if (enVuelo.current || mutation.isPending) return;
     const msg = validar();
     setError(msg);
-    if (msg != null || cantidad == null) return;
+    if (msg != null || cantidad == null || mandarACompra == null) return;
     enVuelo.current = true;
     mutation.mutate(
       {
         requisicionId,
         lineaId: apartado.lineaId,
-        values: { cantidad, motivo: motivo.trim() },
+        values: { cantidad, motivo: motivo.trim(), mandarACompra },
         idempotencyKey,
       },
       {
@@ -161,7 +169,7 @@ function LiberarApartadoDialog({
           <DialogTitle>Liberar apartado</DialogTitle>
           <DialogDescription>
             Apartado actual: {apartado.pendiente} {apartado.unidadMedida}. Lo liberado vuelve a
-            existencia libre y no se compra.
+            existencia libre para otra requisición.
           </DialogDescription>
         </DialogHeader>
         <DialogBody>
@@ -197,6 +205,45 @@ function LiberarApartadoDialog({
                 textareaProps={{ id: 'liberar-motivo' }}
               />
             </div>
+            <fieldset className="space-y-1.5">
+              <legend className="text-sm font-medium">
+                ¿Se manda a compra lo liberado? <span className="text-danger-fg">*</span>
+              </legend>
+              <div role="radiogroup" aria-label="¿Se manda a compra lo liberado?" className="grid gap-2">
+                {[
+                  {
+                    v: true,
+                    t: 'Sí, el requisitante aún lo necesita: pasa a saldo por comprar',
+                    deshabilitada: comprometidaEnOc,
+                  },
+                  { v: false, t: 'No, ya no lo necesita: deja de pedirse', deshabilitada: false },
+                ].map((o) => (
+                  <label
+                    key={String(o.v)}
+                    className={`flex items-start gap-2 text-sm ${o.deshabilitada ? 'text-ink-muted' : 'text-ink'}`}
+                  >
+                    <input
+                      type="radio"
+                      name="liberar-mandar-compra"
+                      className="mt-0.5 accent-primary"
+                      checked={mandarACompra === o.v}
+                      disabled={o.deshabilitada}
+                      onChange={() => {
+                        setMandarACompra(o.v);
+                        setIdempotencyKey(crypto.randomUUID());
+                      }}
+                    />
+                    {o.t}
+                  </label>
+                ))}
+              </div>
+              {comprometidaEnOc && (
+                <p className="text-xs text-ink-muted">
+                  La requisición ya está en una orden de compra: lo liberado no puede agregarse a
+                  compra.
+                </p>
+              )}
+            </fieldset>
             {error && (
               <div role="alert" className="text-sm text-danger-fg">
                 {error}

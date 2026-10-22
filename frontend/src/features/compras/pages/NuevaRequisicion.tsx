@@ -5,6 +5,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { Link, useNavigate } from '@tanstack/react-router';
 import { Controller, useForm, useWatch } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
+import type { z } from 'zod';
 import { ArrowLeft, HelpCircle } from 'lucide-react';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
@@ -128,7 +129,7 @@ export function NuevaRequisicion({ onClose, onDirtyChange }: NuevaRequisicionPro
   const recovery = useDraftRecovery<CrearRequisicionValues>(draftKey);
   const [showRecoverModal, setShowRecoverModal] = useState(recovery.draft != null);
 
-  const form = useForm<CrearRequisicionValues>({
+  const form = useForm<z.input<typeof CrearRequisicionSchema>, unknown, CrearRequisicionValues>({
     resolver: zodResolver(CrearRequisicionSchema),
     // La sucursal arranca en la activa del sistema; con «todas», se elige aquí.
     defaultValues: buildEmptyValues(sucursalActivaId),

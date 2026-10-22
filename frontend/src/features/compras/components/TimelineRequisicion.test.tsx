@@ -120,4 +120,32 @@ describe('<TimelineRequisicion>', () => {
     );
     expect(list?.querySelectorAll('li').length).toBe(1);
   });
+
+  it('liberación de apartado: muestra cantidad, destino y motivo (arrastra el motivo repetido)', () => {
+    const lib = (antes: number, despues: number, extra: object) =>
+      entry({
+        tipo: HistoricoTipo.ApartadoLiberado,
+        operacion: 'actualizar',
+        entidad: 'LineaRequisicion',
+        entidadId: 'l-1',
+        actorNombre: 'Ana Compras',
+        cambios: JSON.stringify({
+          diff: { CantidadLiberadaApartado: { antes, despues }, ...extra },
+        }),
+      });
+    render(
+      <TimelineRequisicion
+        entradas={[
+          lib(0, 2, {
+            CantidadDeCompra: { antes: 2, despues: 4 },
+            MotivoUltimaLiberacion: { antes: null, despues: 'Otra obra' },
+          }),
+          lib(2, 3, { CantidadSinCompra: { antes: 0, despues: 1 } }),
+        ]}
+      />,
+    );
+    expect(screen.getAllByText('Apartado liberado')).toHaveLength(2);
+    expect(screen.getByText('Liberó 2 · se manda a compra · Motivo: Otra obra')).toBeInTheDocument();
+    expect(screen.getByText('Liberó 1 · no se compra · Motivo: Otra obra')).toBeInTheDocument();
+  });
 });
