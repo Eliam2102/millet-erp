@@ -170,7 +170,7 @@ public class DimensionesTests
         e.Codigo.Should().Be("CONTAB_DIM_OBLIGATORIA_FALTANTE");
         e.Campo.Should().Be("dim3Id");
         e.Dimension.Should().Be(DimensionContable.Dim3);
-        e.Mensaje.Should().Contain("Dimensión 3").And.Contain("FIX-501.01.01");
+        e.Mensaje.Should().Contain("Equipo").And.Contain("FIX-501.01.01");
     }
 
     [Fact]
@@ -256,6 +256,34 @@ public class DimensionesTests
         var errores = ValidadorDimensiones.EvaluarRequerimientos(rs, Mov(d3: d3), new(d1, d2, d3), "la cuenta FIX-401").ToList();
         errores.Should().ContainSingle(e => e.Campo == "clienteId");
         ValidadorDimensiones.EvaluarRequerimientos(rs, Mov(d3: d3) with { ClienteId = Guid.NewGuid() }, new(d1, d2, d3), "x").Should().BeEmpty();
+    }
+
+    [Fact]
+    public void Activos_fijos_en_gastos_piden_ubicacion_y_area_pero_el_equipo_es_opcional()
+    {
+        // K10.2 + decisión (a) del 21-oct: el rubro de gastos exige ubicación, área y equipo; para el tipo de activos fijos
+        // (AC/AF) una regla del mismo rubro deja el equipo opcional. El rubro va al final de la cadena (cuenta → ramas → rubro).
+        var rubroGastos = Guid.NewGuid();
+        var tipoActivos = Guid.NewGuid();
+        var cadena = Cadena.Append((rubroGastos, "600.00.00.00")).ToArray();
+        var reglas = new[]
+        {
+            R(rubroGastos, DimensionContable.Dim1, RequerimientoDimension.Obligatorio),
+            R(rubroGastos, DimensionContable.Dim2, RequerimientoDimension.Obligatorio),
+            R(rubroGastos, DimensionContable.Dim3, RequerimientoDimension.Obligatorio),
+            R(rubroGastos, DimensionContable.Dim3, RequerimientoDimension.Opcional, tipoActivos),
+        };
+        var d1 = Guid.NewGuid(); var d2 = Guid.NewGuid();
+        var conArea = Mov(d2: d2);
+
+        var activos = ValidadorDimensiones.Resolver(cadena, reglas, tipoActivos, Dia, Opc());
+        De(activos, DimensionContable.Dim3).Requerimiento.Should().Be(RequerimientoDimension.Opcional);
+        De(activos, DimensionContable.Dim2).Requerimiento.Should().Be(RequerimientoDimension.Obligatorio);
+        ValidadorDimensiones.EvaluarRequerimientos(activos, conArea, new(d1, d2, null), "x").Should().BeEmpty();
+
+        var otro = ValidadorDimensiones.Resolver(cadena, reglas, TipoFactura, Dia, Opc());
+        ValidadorDimensiones.EvaluarRequerimientos(otro, conArea, new(d1, d2, null), "x")
+            .Should().ContainSingle(e => e.Campo == "dim3Id" && e.Mensaje.Contains("Equipo"));
     }
 
     // ── Opciones ─────────────────────────────────────────────────────────────

@@ -121,6 +121,7 @@ public sealed class RegistroPolizas(
     /// <summary>
     /// Valida cada partida contra el catálogo y las reglas de dimensión (K10.2) a la fecha de la póliza y junta TODOS los errores
     /// (400 con el campo <c>partidas[i].campo</c>). Guarda los centros efectivos (los superiores derivados por jerarquía).
+    /// Las dimensiones obligatorias que faltan se resumen además en un error por partida que las nombra juntas (CA10.4).
     /// </summary>
     public async Task<PartidasValidadas> ValidarPartidasAsync(
         IReadOnlyList<PartidaRequest> partidas, Guid tipoOperacionId, DateOnly fecha, OrigenMovimiento origen, CancellationToken ct)
@@ -141,6 +142,12 @@ public sealed class RegistroPolizas(
             // El tipo se reporta una sola vez en el encabezado (TipoAsync), no en cada partida.
             errores.AddRange(v.Errores.Where(e => e.Campo != "tipoDocumentoId")
                 .Select(e => new ValidationError($"partidas[{i}].{e.Campo}", e.Codigo, $"Partida {i + 1}: {e.Mensaje}")));
+            var faltantes = v.Requerimientos
+                .Where(r => v.Errores.Any(e => e.Codigo == "CONTAB_DIM_OBLIGATORIA_FALTANTE" && e.Dimension == r.Dimension))
+                .Select(r => r.NombreDimension.ToLowerInvariant()).ToList();
+            if (faltantes.Count > 0)
+                errores.Add(new ValidationError($"partidas[{i}]", "CONTAB_DIM_FALTANTES",
+                    $"Partida {i + 1} (cuenta {codigos.GetValueOrDefault(p.CuentaId, "?")}): capture {Enumerar(faltantes)}."));
             foreach (var r in v.Requerimientos.Where(r => r.ReglaId is not null)) reglas.Add(r.ReglaId!.Value);
             datos.Add(new DatosPartida(p.CuentaId, codigos.GetValueOrDefault(p.CuentaId, "?"), p.Concepto, p.Cargo, p.Abono,
                 p.Moneda ?? Poliza.MonedaNacional, p.TipoCambio ?? 1m, p.ImporteOriginal, p.SucursalId,
@@ -149,6 +156,10 @@ public sealed class RegistroPolizas(
         if (errores.Count > 0) throw new ValidationException(errores);
         return new(datos, [.. reglas]);
     }
+
+    /// <summary>«ubicación, área y equipo».</summary>
+    private static string Enumerar(List<string> nombres) =>
+        nombres.Count == 1 ? nombres[0] : $"{string.Join(", ", nombres.Take(nombres.Count - 1))} y {nombres[^1]}";
 
     /// <summary>
     /// Al autorizar (o al nacer autorizada la automática): marca las cuentas como usadas con <see cref="RegistrarUsoCuentaCommand"/>

@@ -95,17 +95,19 @@ export function ReglaSheet({ open, onOpenChange, regla }: Props) {
                   <FormCampo span={12}>
                     <div className=" flex flex-col gap-1.5">
                       <Label htmlFor="regla-cuenta">
-                        Cuenta o rama<span aria-hidden="true"> *</span>
+                        Cuenta, rama o grupo<span aria-hidden="true"> *</span>
                       </Label>
                       <CuentaSelector
                         id="regla-cuenta"
                         value={cuenta}
                         onChange={setCuenta}
                         disabled={!!regla}
+                        incluirRubros
                       />
                       <span className="text-xs text-ink-muted">
-                        Una regla en una cuenta que acumula aplica a todas sus cuentas debajo, salvo
-                        que tengan una regla propia.
+                        Una regla en una cuenta que acumula aplica a todas sus cuentas debajo, y la
+                        de un grupo (rubro: ingresos, costos, gastos) a todas sus cuentas, salvo que
+                        tengan una regla propia.
                       </span>
                     </div>
                   </FormCampo>
