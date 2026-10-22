@@ -134,6 +134,9 @@ public sealed class PeriodoContable : BaseEntity, IAuditable, IPerteneceAEmpresa
         ValidarMotivo(motivo);
         CerradoPor = usuarioNombre;
         CerradoEn = ahora;
+        // 86e3t97vh: el último cierre explica el estado; la reapertura previa queda solo en la bitácora.
+        ReabiertoPor = null;
+        ReabiertoEn = null;
         return Transicion(AccionPeriodo.Cerrar, EstadoPeriodo.Cerrado, motivo, usuarioId, usuarioNombre, ahora);
     }
 

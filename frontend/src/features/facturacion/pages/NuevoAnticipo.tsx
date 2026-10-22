@@ -20,7 +20,11 @@ import {
 } from '@/features/facturacion/components/ReceptorFiscalInfo';
 import { ClienteSelector } from '@/features/facturacion/components/selectors/ClienteSelector';
 import { mostrarErrorReceptorFiscal } from '@/features/facturacion/lib/mostrar-error-receptor-fiscal';
-import { AnticipoSchema, type AnticipoValues } from '@/features/facturacion/schemas/anticipo';
+import {
+  AnticipoSchema,
+  desglosarTotalAnticipo,
+  type AnticipoValues,
+} from '@/features/facturacion/schemas/anticipo';
 import { applyServerErrors, esApiError, useFormIdempotencyKey } from '@/lib/api';
 import { PermisosCanonicos } from '@/lib/auth/permission-codes';
 import { useHasPermission } from '@/lib/auth/useHasPermission';
@@ -62,7 +66,7 @@ const VALORES_INICIALES: AnticipoValues = {
   moneda: 'MXN',
   tipoCambio: null,
   tipoAnticipo: TipoAnticipo.ClientesMxp,
-  montoBase: 0,
+  total: 0,
   tasaIvaTraslado: 0.16,
   descripcion: null,
   obraNombre: null,
@@ -146,12 +150,12 @@ function FormInner({
     },
   });
 
-  const [baseActual, tasaActual, monedaActual] = useWatch({
+  const [totalActual, tasaActual, monedaActual] = useWatch({
     control: form.control,
-    name: ['montoBase', 'tasaIvaTraslado', 'moneda'],
+    name: ['total', 'tasaIvaTraslado', 'moneda'],
   });
-  const base = Number.isFinite(baseActual) ? baseActual : 0;
-  const iva = Math.round(base * (Number.isFinite(tasaActual) ? (tasaActual ?? 0) : 0) * 100) / 100;
+  // 86e3tfd7j: se captura el total con IVA; subtotal e IVA se derivan.
+  const { base, iva } = desglosarTotalAnticipo(totalActual, tasaActual);
   const isDirty = form.formState.isDirty;
   useEffect(() => {
     onDirtyChange?.(isDirty);
@@ -193,7 +197,9 @@ function FormInner({
           moneda: values.moneda.toUpperCase(),
           tipoCambio: values.tipoCambio,
           tipoAnticipo: values.tipoAnticipo,
-          montoBase: values.montoBase,
+          // 86e3tfd7j: se manda el total; el backend desglosa (excluyente con montoBase).
+          montoBase: 0,
+          total: values.total,
           tasaIvaTraslado: values.tasaIvaTraslado,
           descripcion: nullIfEmpty(values.descripcion),
           pedidoFacturableId: null,
@@ -332,12 +338,17 @@ function FormInner({
               <option value={TipoAnticipo.ClientesUsd}>Clientes USD</option>
             </select>
           </Campo>
-          <Campo label="Monto base" required error={form.formState.errors.montoBase?.message}>
+          <Campo
+            label="Total (con IVA)"
+            required
+            error={form.formState.errors.total?.message}
+            hint="El subtotal y el IVA se calculan del total."
+          >
             <Input
               type="number"
               step="0.01"
               min="0"
-              {...form.register('montoBase', { valueAsNumber: true })}
+              {...form.register('total', { valueAsNumber: true })}
             />
           </Campo>
           <Campo label="Tasa IVA" error={form.formState.errors.tasaIvaTraslado?.message}>
@@ -426,7 +437,7 @@ function FormInner({
                   !clienteId || receptorBloqueado
                     ? 'Selecciona un receptor con datos fiscales.'
                     : base <= 0
-                      ? 'Captura el monto de la partida de anticipo.'
+                      ? 'Captura el total del anticipo.'
                       : undefined
                 }
                 obtenerDatos={() => {

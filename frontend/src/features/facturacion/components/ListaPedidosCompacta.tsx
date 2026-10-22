@@ -53,13 +53,18 @@ export function ListaPedidosCompacta({ items, idActivo, search }: ListaPedidosCo
             </div>
             <div className="mt-1 flex items-center justify-between gap-2 text-xs text-ink-muted">
               <span className="truncate">{p.clienteNombre}</span>
-              <span className="shrink-0 font-mono tabular-nums" title="Subtotal sin impuestos">
-                {formatMoney({ amount: p.total, currency: p.moneda })}
+              <span
+                className="shrink-0 font-mono tabular-nums"
+                title={`Subtotal sin impuestos: ${formatMoney({ amount: p.total, currency: p.moneda })}`}
+              >
+                {p.totalConIva == null
+                  ? '—'
+                  : formatMoney({ amount: p.totalConIva, currency: p.moneda })}
               </span>
             </div>
             <ClasePedidoBadge clasificacion={p} className="mt-1" />
             <div className="mt-0.5 text-right text-[11px] text-ink-muted tabular-nums">
-              <span className="mr-2">Subtotal sin impuestos</span>
+              <span className="mr-2">Total con IVA</span>
               <DateTimeDisplay value={p.createdAt} />
             </div>
           </Link>

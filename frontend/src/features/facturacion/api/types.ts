@@ -236,7 +236,10 @@ export interface PedidoBandejaItem extends ClasificacionPedidoLectura {
   origen: string;
   estado: string;
   clienteNombre: string;
+  /** Subtotal sin impuestos. */
   total: number;
+  /** 86e3tfd7j: subtotal + IVA por línea; null si alguna línea no tiene tasa. */
+  totalConIva?: number | null;
   moneda: string;
   createdAt: string;
 }
@@ -260,8 +263,11 @@ export interface EmitirAnticipoCommand {
   moneda: string;
   tipoCambio: number | null;
   tipoAnticipo: number;
+  /** 0 cuando se captura `total` (86e3tfd7j: excluyentes). */
   montoBase: number;
   tasaIvaTraslado: number | null;
+  /** 86e3tfd7j: total con IVA; el backend desglosa subtotal e IVA. */
+  total?: number | null;
   descripcion: string | null;
   pedidoFacturableId: string | null;
   pedidoOrigenRef: string | null;
