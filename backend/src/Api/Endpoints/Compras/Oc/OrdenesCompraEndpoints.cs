@@ -1345,7 +1345,16 @@ public static class OrdenesCompraEndpoints
             await OcSucursalScope.VerificarAsync(id, scopeDb, scopeUser, scopePermisos, scopeSucursales, cancellationToken, escritura: true);
             if (!request.HasFormContentType)
                 throw new BusinessRuleException("OC_RESPUESTA_EVIDENCIA_REQUERIDA", "Adjunta el archivo de evidencia de la respuesta del proveedor.");
-            var form = await request.ReadFormAsync(cancellationToken);
+            IFormCollection form;
+            try
+            {
+                form = await request.ReadFormAsync(cancellationToken);
+            }
+            catch (InvalidDataException)
+            {
+                // Multipart vacío o mal formado: se trata igual que la falta de evidencia.
+                throw new BusinessRuleException("OC_RESPUESTA_EVIDENCIA_REQUERIDA", "Adjunta el archivo de evidencia de la respuesta del proveedor.");
+            }
             var archivo = form.Files.GetFile("archivo");
             if (archivo is null || archivo.Length == 0)
                 throw new BusinessRuleException("OC_RESPUESTA_EVIDENCIA_REQUERIDA", "Adjunta el archivo de evidencia de la respuesta del proveedor.");
