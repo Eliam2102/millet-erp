@@ -1,3 +1,6 @@
+using Millet.DatosMaestros.Domain;
+using Millet.Compartido.Infrastructure.Persistence;
+using Millet.Almacen.Domain.Catalogo;
 using System.Net;
 using System.Net.Http.Json;
 using Microsoft.EntityFrameworkCore;
@@ -36,6 +39,13 @@ public partial class OrdenesCompraEndpointsTests
             var compras = sp.GetRequiredService<ComprasDbContext>();
             var oc = await compras.OrdenesCompra.Include(o => o.Lineas).SingleAsync(o => o.Id == ocId);
             var l = oc.Lineas.Single(); lineaId = l.Id; depto = l.DepartamentoSolicitanteId;
+            // El análisis convierte cantidades con el catálogo: la partida necesita un artículo real.
+            var catalogos = sp.GetRequiredService<CompartidoDbContext>();
+            var pza = await catalogos.UnidadesMedida.SingleAsync(u => u.Codigo == "PZA");
+            var articulo = new Articulo(Guid.NewGuid(), $"C13A{Guid.NewGuid():N}"[..16], "DEMO COM-13 artículo ficticio", "PZA", unidadMedidaId: pza.Id);
+            catalogos.Set<Articulo>().Add(articulo);
+            await catalogos.SaveChangesAsync();
+            compras.Entry(l).Property(x => x.ArticuloId).CurrentValue = articulo.Id;
             compras.Entry(oc).Property(o => o.FechaDocumento).CurrentValue = new(2026, 1, 1);
             compras.Entry(oc).Property(o => o.FechaContabilizacion).CurrentValue = enero;
             compras.Entry(oc).Property(o => o.FechaEntregaEsperada).CurrentValue = new(2026, 1, 10);
@@ -47,9 +57,13 @@ public partial class OrdenesCompraEndpointsTests
             await compras.SaveChangesAsync();
 
             var almacen = sp.GetRequiredService<AlmacenDbContext>();
-            var ubicacion = await (from u in almacen.Ubicaciones join s in almacen.SubAlmacenes on u.SubAlmacenId equals s.Id
-                join a in almacen.Almacenes on s.AlmacenId equals a.Id where a.SucursalId == oc.SucursalDestinoId
-                select new { u.Id, SubId = s.Id }).FirstAsync();
+            // Las entradas exigen ubicación real (la ÚNICA del sub-almacén sólo se drena).
+            var subAlmacenId = await (from s in almacen.SubAlmacenes join a in almacen.Almacenes on s.AlmacenId equals a.Id
+                where a.SucursalId == oc.SucursalDestinoId select s.Id).FirstAsync();
+            var rack = new Ubicacion(Guid.NewGuid(), subAlmacenId, "DEMO-COM13-R1", "Rack DEMO COM-13");
+            almacen.Ubicaciones.Add(rack);
+            await almacen.SaveChangesAsync();
+            var ubicacion = new { rack.Id, SubId = subAlmacenId };
             var rec = new MovimientoInventario(Guid.NewGuid(), TipoMovimiento.EntradaCompra, oc.EmpresaId, new(2026, 1, 15));
             var lr = new LineaMovimiento(Guid.NewGuid(), rec.Id, 1, l.ArticuloId, 10, "PZA", 100,
                 ubicacionId: ubicacion.Id, lineaOcId: l.Id);
@@ -106,6 +120,11 @@ public partial class OrdenesCompraEndpointsTests
             using var bypass = sp.GetRequiredService<ICurrentEmpresaContext>().Bypass();
             var db = sp.GetRequiredService<ComprasDbContext>();
             var oc = await db.OrdenesCompra.SingleAsync(o => o.Id == ocId);
+            // La auditoría está particionada por mes desde mayo de 2026; la base desechable
+            // necesita la partición de abril para el registro histórico ficticio.
+            await db.Database.ExecuteSqlRawAsync(
+                "CREATE TABLE IF NOT EXISTS core.audit_log_y2026m04 PARTITION OF core.audit_log " +
+                "FOR VALUES FROM ('2026-04-01 00:00:00+00') TO ('2026-05-01 00:00:00+00')");
             db.Entry(oc).Property(o => o.Estado).CurrentValue = EstadoOrdenCompra.Cancelada;
             db.Set<AuditLogEntry>().Add(new AuditLogEntry { Id = Guid.NewGuid(), EmpresaId = oc.EmpresaId,
                 EntidadId = ocId, AggregateRootId = ocId, Modulo = "Compras", Entidad = "OrdenCompra", Operacion = "Actualizar",
