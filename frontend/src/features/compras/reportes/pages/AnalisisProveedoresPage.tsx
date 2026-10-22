@@ -42,6 +42,9 @@ const FROM = '/_app/compras/reportes/analisis-proveedores' as const;
 const SELECT_CLASS =
   'flex h-ctl-xl w-full rounded-md border border-line-control bg-surface-card px-3 text-sm text-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand';
 
+/** El análisis sólo considera OC firmes (ya comprometidas con el proveedor). */
+const ESTADOS_FIRMES = ['Autorizada', 'Cerrada', 'CancelacionSolicitada'] as const;
+
 const ETIQUETA_AGRUPAR: Record<(typeof AGRUPAR_POR)[number], string> = {
   proveedor: 'Proveedor',
   articulo: 'Artículo',
@@ -132,7 +135,9 @@ export function AnalisisProveedoresPage() {
               if (fila.__total) {
                 return <BotonVer fila={fila} onClick={() => abrirTotal('compras', fila.__total!)} />;
               }
-              if (search.agruparPor !== 'proveedor' || !fila.grupoId) return null;
+              // Por mes no hay id de grupo: el detalle es el del total.
+              if (search.agruparPor === 'mes' || !fila.grupoId) return null;
+              const grupoId = String(fila.grupoId);
               return (
                 <BotonVer
                   fila={fila}
@@ -141,8 +146,10 @@ export function AnalisisProveedoresPage() {
                     setDrill({
                       titulo: String(fila.grupo),
                       indicador: 'compras',
-                      proveedorId: String(fila.grupoId),
                       moneda: String(fila.moneda ?? '') || undefined,
+                      ...(search.agruparPor === 'articulo' ? { articuloId: grupoId }
+                        : search.agruparPor === 'departamento' ? { departamentoId: grupoId }
+                        : { proveedorId: grupoId }),
                     })
                   }
                 />
@@ -327,8 +334,8 @@ function FiltrosAnalisisUi({ filtros, moneda, errorPeriodo, setSearch }: Filtros
         <Campo id="f-estado" label="Estado de la OC">
           <select id="f-estado" className={SELECT_CLASS} value={filtros.estado ?? ''} onChange={(e) => setSearch({ estado: e.target.value || undefined })}>
             <option value="">Todos</option>
-            {Object.entries(EstadoOrdenCompra).map(([clave, valor]) => (
-              <option key={clave} value={clave}>{estadoOcToString(valor)}</option>
+            {ESTADOS_FIRMES.map((clave) => (
+              <option key={clave} value={clave}>{estadoOcToString(EstadoOrdenCompra[clave])}</option>
             ))}
           </select>
         </Campo>

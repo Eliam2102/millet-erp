@@ -25,6 +25,8 @@ export interface DrillTarget {
   titulo: string;
   indicador: IndicadorDrill;
   proveedorId?: string;
+  articuloId?: string;
+  departamentoId?: string;
   moneda?: string;
   /** Indicadores que el usuario puede alternar dentro del sheet. */
   indicadores?: readonly IndicadorDrill[];
@@ -77,6 +79,8 @@ function Contenido({ target, filtros }: { target: DrillTarget; filtros: FiltrosA
   const query = useAnalisisOrdenes({
     ...filtros,
     ...(target.proveedorId ? { proveedorId: target.proveedorId } : {}),
+    ...(target.articuloId ? { articuloId: target.articuloId } : {}),
+    ...(target.departamentoId ? { departamentoId: target.departamentoId } : {}),
     ...(target.moneda ? { moneda: target.moneda } : {}),
     indicador,
   });

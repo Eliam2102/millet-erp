@@ -30,6 +30,8 @@ export function analisisToShell(data: AnalisisResponse): AnalisisShell {
   const columnas = base.columnas.map((c) => ({
     ...c,
     tipo: c.tipo === 'moneda' ? ('numero' as const) : c.tipo,
+    // Importes siempre con 2 decimales, sin símbolo de una moneda fija.
+    decimales: c.tipo === 'moneda' ? 2 : null,
   }));
   const claves = new Set(columnas.map((c) => c.clave));
   const colEtiqueta = columnas[0]?.clave;

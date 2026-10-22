@@ -43,6 +43,7 @@ export function errorPeriodo(desde: string, hasta: string): string | null {
   if (!desde || !hasta) return 'Captura las fechas desde y hasta.';
   if (hasta < desde) return 'La fecha «Hasta» no puede ser anterior a «Desde».';
   const dias = (Date.parse(hasta) - Date.parse(desde)) / 86_400_000;
-  if (dias > 366) return 'El periodo no puede exceder 366 días.';
+  // Mismo tope que el backend: hasta − desde < 366 días.
+  if (dias >= 366) return 'El periodo no puede exceder 366 días.';
   return null;
 }

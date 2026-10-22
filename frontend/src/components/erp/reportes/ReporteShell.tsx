@@ -1,3 +1,4 @@
+import { formatearFechaCelda } from '@/components/erp/reportes/formatear-fecha-celda';
 import { type ReactNode, useState } from 'react';
 import { FileSpreadsheet, FileText, Loader2, Printer } from 'lucide-react';
 import { toast } from 'sonner';
@@ -37,6 +38,8 @@ export interface ReporteShellProps<TFila> {
           tipo: 'texto' | 'numero' | 'moneda' | 'fecha';
           alineacion?: string | null;
           anchoPx?: number | null;
+          /** Decimales fijos para columnas numéricas (p. ej. importes). */
+          decimales?: number | null;
         }[];
         filas: readonly TFila[];
         totales?: Record<string, number> | null;
@@ -101,7 +104,7 @@ export function ReporteShell<TFila>({
     : reporte;
 
   async function descargarPdf() {
-    if (reporte == null || paraExport == null) return;
+    if (paraExport == null) return;
     setDescargandoPdf(true);
     try {
       const { descargarReportePdf } = await import(
@@ -109,7 +112,7 @@ export function ReporteShell<TFila>({
       );
       await descargarReportePdf(
         paraExport,
-        nombreArchivo ?? slugify(reporte.titulo),
+        nombreArchivo ?? slugify(paraExport.titulo),
       );
     } catch (err) {
       toast.error('No se pudo generar el PDF', {
@@ -121,7 +124,7 @@ export function ReporteShell<TFila>({
   }
 
   async function descargarExcel() {
-    if (reporte == null || paraExport == null) return;
+    if (paraExport == null) return;
     setDescargandoExcel(true);
     try {
       const { descargarReporteExcel } = await import(
@@ -129,7 +132,7 @@ export function ReporteShell<TFila>({
       );
       await descargarReporteExcel(
         paraExport,
-        nombreArchivo ?? slugify(reporte.titulo),
+        nombreArchivo ?? slugify(paraExport.titulo),
       );
     } catch (err) {
       toast.error('No se pudo generar el Excel', {
@@ -272,7 +275,7 @@ export function ReporteShell<TFila>({
                             c.tipo === 'texto' && 'truncate',
                           )}
                         >
-                          {renderCelda(getCelda(fila, c.clave), c.tipo)}
+                          {renderCelda(getCelda(fila, c.clave), c.tipo, c.decimales)}
                         </td>
                       ))}
                       {accionFila && (
@@ -301,7 +304,7 @@ export function ReporteShell<TFila>({
                           )}
                         >
                           {esPrimera && total == null ? 'Totales' : ''}
-                          {total != null && renderCelda(total, c.tipo)}
+                          {total != null && renderCelda(total, c.tipo, c.decimales)}
                         </td>
                       );
                     })}
@@ -317,7 +320,7 @@ export function ReporteShell<TFila>({
   );
 }
 
-function renderCelda(valor: unknown, tipo: string): string {
+function renderCelda(valor: unknown, tipo: string, decimales?: number | null): string {
   if (valor == null) return '—';
   switch (tipo) {
     case 'moneda':
@@ -331,14 +334,12 @@ function renderCelda(valor: unknown, tipo: string): string {
     case 'numero':
       return typeof valor === 'number'
         ? valor.toLocaleString('es-MX', {
-            minimumFractionDigits: 0,
-            maximumFractionDigits: 4,
+            minimumFractionDigits: decimales ?? 0,
+            maximumFractionDigits: decimales ?? 4,
           })
         : String(valor);
     case 'fecha':
-      return typeof valor === 'string'
-        ? new Date(valor).toLocaleDateString('es-MX')
-        : String(valor);
+      return typeof valor === 'string' ? formatearFechaCelda(valor) : String(valor);
     default:
       return String(valor);
   }
@@ -353,3 +354,4 @@ function slugify(s: string): string {
     .toLowerCase()
     .slice(0, 80) || 'reporte';
 }
+
