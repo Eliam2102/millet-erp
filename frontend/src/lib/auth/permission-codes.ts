@@ -173,6 +173,7 @@ export const PermisosCanonicos = {
   DatosMaestrosClientesSincronizar: 'datos_maestros.clientes.sincronizar',
   DatosMaestrosClientesOrigenVer: 'datos_maestros.clientes.origen-ver',
   DatosMaestrosClientesFiscalEditar: 'datos_maestros.clientes.fiscal-editar',
+  DatosMaestrosClientesUnificar: 'datos_maestros.clientes.unificar',
   DatosMaestrosProductosAwGestionar: 'datos_maestros.productos-aw.gestionar',
   // U1.8b (F1-FAC-14): reporte de diferencias fiscales A+W vs ERP.
   DatosMaestrosDiferenciasFiscalesAwLeer:
