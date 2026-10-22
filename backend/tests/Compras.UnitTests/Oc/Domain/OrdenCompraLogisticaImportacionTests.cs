@@ -146,7 +146,7 @@ public class OrdenCompraLogisticaImportacionTests
             numeroContenedor: "CONT-001",
             codigoRuta: "RUTA-01",
             semanaEmbarque: "S10",
-            numeroPedimento: "PED-INVALIDO"));
+            numeroPedimento: "261612346000002"));
 
         // Pedimento debería seguir null — se setea solo vía ActualizarNumeroPedimento.
         Assert.Null(oc.InfoImportNumeroPedimento);
@@ -176,8 +176,8 @@ public class OrdenCompraLogisticaImportacionTests
         var oc = NewOcBorrador();
         // En Borrador también funciona. Estado terminal sí lanza —
         // verificado por OrdenCompra.ActualizarNumeroPedimento.
-        oc.ActualizarNumeroPedimento("PED-12345");
-        Assert.Equal("PED-12345", oc.InfoImportNumeroPedimento);
+        oc.ActualizarNumeroPedimento("261612346000001");
+        Assert.Equal("261612346000001", oc.InfoImportNumeroPedimento);
     }
 
     [Fact]

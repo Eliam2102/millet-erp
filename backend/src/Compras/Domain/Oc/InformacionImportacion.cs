@@ -8,7 +8,7 @@ namespace Millet.Compras.Domain.Oc;
 /// es true.
 ///
 /// Campos requeridos al autorizar: <see cref="IncotermId"/>,
-/// <see cref="PaisOrigen"/>, <see cref="NumeroContenedor"/>,
+/// <see cref="PaisOrigen"/>,
 /// <see cref="CodigoRuta"/>, <see cref="SemanaEmbarque"/> (validado por
 /// CHECK ck_oc_import_campos a nivel BD). <see cref="NumeroPedimento"/>,
 /// <see cref="NumeroBl"/>, <see cref="FechaEstimadaArribo"/> y
@@ -117,7 +117,7 @@ public readonly record struct InformacionImportacion
         NumeroContenedor = string.IsNullOrWhiteSpace(numeroContenedor) ? null : numeroContenedor;
         CodigoRuta = string.IsNullOrWhiteSpace(codigoRuta) ? null : codigoRuta;
         SemanaEmbarque = string.IsNullOrWhiteSpace(semanaEmbarque) ? null : semanaEmbarque;
-        NumeroPedimento = string.IsNullOrWhiteSpace(numeroPedimento) ? null : numeroPedimento;
+        NumeroPedimento = Millet.SharedKernel.Domain.NumeroPedimento.Normalizar(numeroPedimento);
         TipoOperacion = tipoOperacion;
         NumeroBl = string.IsNullOrWhiteSpace(numeroBl) ? null : numeroBl;
         TipoTransporte = tipoTransporte;
@@ -144,8 +144,8 @@ public readonly record struct InformacionImportacion
 
     /// <summary>
     /// Valida los campos requeridos al autorizar (§4.7): incoterm,
-    /// pais origen, numero contenedor, codigo ruta, semana embarque.
-    /// <see cref="NumeroPedimento"/> NO se requiere al autorizar.
+    /// país origen, código ruta y semana de embarque.
+    /// Pedimento, BL y contenedor se exigen en la recepción, no al autorizar.
     /// Lanza <c>BusinessRuleException</c> si falta cualquiera.
     /// </summary>
     public void ValidarParaAutorizar()
@@ -154,8 +154,6 @@ public readonly record struct InformacionImportacion
             throw new BusinessRuleException("IMPORT_INCOTERM_REQUERIDO", "IncotermId requerido al autorizar.");
         if (PaisOrigen is null)
             throw new BusinessRuleException("IMPORT_PAIS_REQUERIDO", "PaisOrigen requerido al autorizar.");
-        if (NumeroContenedor is null)
-            throw new BusinessRuleException("IMPORT_CONTENEDOR_REQUERIDO", "NumeroContenedor requerido al autorizar.");
         if (CodigoRuta is null)
             throw new BusinessRuleException("IMPORT_RUTA_REQUERIDA", "CodigoRuta requerido al autorizar.");
         if (SemanaEmbarque is null)
