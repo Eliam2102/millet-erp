@@ -20,8 +20,7 @@ export const EstatusCatalogo = {
   Inactivo: 1,
   EnRevision: 2,
 } as const;
-export type EstatusCatalogo =
-  (typeof EstatusCatalogo)[keyof typeof EstatusCatalogo];
+export type EstatusCatalogo = (typeof EstatusCatalogo)[keyof typeof EstatusCatalogo];
 
 /**
  * Tipo persona para proveedores fiscales mexicanos. Mirror del enum
@@ -31,8 +30,7 @@ export const TipoPersonaProveedor = {
   Moral: 0,
   Fisica: 1,
 } as const;
-export type TipoPersonaProveedor =
-  (typeof TipoPersonaProveedor)[keyof typeof TipoPersonaProveedor];
+export type TipoPersonaProveedor = (typeof TipoPersonaProveedor)[keyof typeof TipoPersonaProveedor];
 
 /**
  * Origen de un registro de master auto-provisionable (ADR-0048).
@@ -83,6 +81,17 @@ export interface ListarProveedoresResponse {
 }
 
 export interface ProveedorDetalle {
+  calle?: string | null;
+  numeroExterior?: string | null;
+  numeroInterior?: string | null;
+  colonia?: string | null;
+  ciudad?: string | null;
+  municipio?: string | null;
+  estado?: string | null;
+  codigoPostal?: string | null;
+  pais?: string | null;
+  taxId?: string | null;
+
   id: string;
   clave: string;
   claveLegacy: string | null;
@@ -117,6 +126,17 @@ export interface ClasificacionFiscalProveedorPayload {
 }
 
 export interface CrearProveedorPayload {
+  calle?: string | null;
+  numeroExterior?: string | null;
+  numeroInterior?: string | null;
+  colonia?: string | null;
+  ciudad?: string | null;
+  municipio?: string | null;
+  estado?: string | null;
+  codigoPostal?: string | null;
+  pais?: string | null;
+  taxId?: string | null;
+
   clave: string;
   razonSocial: string;
   /** Opcional solo si el origen es Extranjero: el backend guarda el RFC genérico XEXX010101000. */
@@ -134,6 +154,17 @@ export interface CrearProveedorPayload {
 }
 
 export interface ActualizarProveedorPayload {
+  calle?: string | null;
+  numeroExterior?: string | null;
+  numeroInterior?: string | null;
+  colonia?: string | null;
+  ciudad?: string | null;
+  municipio?: string | null;
+  estado?: string | null;
+  codigoPostal?: string | null;
+  pais?: string | null;
+  taxId?: string | null;
+
   razonSocial?: string | null;
   nombreComercial?: string | null;
   rfc?: string | null;
@@ -172,10 +203,7 @@ export const EstadoCuentaBancariaProveedor = {
 export type EstadoCuentaBancariaProveedor =
   (typeof EstadoCuentaBancariaProveedor)[keyof typeof EstadoCuentaBancariaProveedor];
 
-export const EstadoCuentaBancariaProveedorLabels: Record<
-  EstadoCuentaBancariaProveedor,
-  string
-> = {
+export const EstadoCuentaBancariaProveedorLabels: Record<EstadoCuentaBancariaProveedor, string> = {
   0: 'Por validar',
   1: 'Activa',
   2: 'Inhabilitada',
@@ -398,8 +426,7 @@ export interface EjecucionSyncResumen {
   resumenProductos?: string | null;
 }
 
-export interface EjecucionSyncDetalle
-  extends Omit<EjecucionSyncResumen, 'errores'> {
+export interface EjecucionSyncDetalle extends Omit<EjecucionSyncResumen, 'errores'> {
   errores: EjecucionSyncErrorItem[];
   /** El backend limita cuántos errores lista; true = hay más de los mostrados. */
   erroresTruncados?: boolean;

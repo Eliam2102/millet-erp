@@ -1,7 +1,7 @@
 import { FormSeccion } from '@/components/erp/forms/FormSeccion';
 import { FormGrid, FormCampo } from '@/components/erp/forms/FormGrid';
 import { useEffect, useState } from 'react';
-import { Controller, useForm } from 'react-hook-form';
+import { Controller, useForm, useWatch } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import {
   AlertCircle,
@@ -115,6 +115,8 @@ export function EmpleadoInlineForm({
           clave: empleado.clave,
           nombre: empleado.nombre,
           email: empleado.email ?? '',
+          telefono: empleado.telefono ?? '',
+          extension: empleado.extension ?? '',
           puestoId: empleado.puestoId ?? '',
           jefeDirectoId: empleado.jefeDirectoId ?? '',
           sucursalId: empleado.sucursalId ?? '',
@@ -132,6 +134,8 @@ export function EmpleadoInlineForm({
         clave: empleado.clave,
         nombre: empleado.nombre,
         email: empleado.email ?? '',
+        telefono: empleado.telefono ?? '',
+        extension: empleado.extension ?? '',
         puestoId: empleado.puestoId ?? '',
         jefeDirectoId: empleado.jefeDirectoId ?? '',
         sucursalId: empleado.sucursalId ?? '',
@@ -220,10 +224,10 @@ export function EmpleadoInlineForm({
     }
   }, [esEditar, form, paso, acceso, emailContacto, rolId, emailPrefix, emailDomain]);
 
-  const puestoSeleccionado = form.watch('puestoId');
-  const sucursalSeleccionada = form.watch('sucursalId');
-  const departamentoSeleccionado = form.watch('departamentoId');
-  const correoCorporativo = form.watch('email');
+  const puestoSeleccionado = useWatch({ control: form.control, name: 'puestoId' });
+  const sucursalSeleccionada = useWatch({ control: form.control, name: 'sucursalId' });
+  const departamentoSeleccionado = useWatch({ control: form.control, name: 'departamentoId' });
+  const correoCorporativo = useWatch({ control: form.control, name: 'email' });
 
   useEffect(() => {
     const timer = setTimeout(() => setCorreoValidable(correoCorporativo?.trim() ?? ''), 350);
@@ -606,6 +610,26 @@ export function EmpleadoInlineForm({
       )}
 
       <FormSeccion titulo="Datos del colaborador" className="">
+        {esEditar && (
+          <>
+            <FormCampo span={6}>
+              <label htmlFor="empleado-telefono" className="text-xs font-medium text-ink-strong">
+                Teléfono
+              </label>
+              <Input id="empleado-telefono" maxLength={20} {...form.register('telefono')} />
+              {form.formState.errors.telefono?.message && (
+                <p role="alert">{form.formState.errors.telefono.message}</p>
+              )}
+            </FormCampo>
+            <FormCampo span={6}>
+              <label htmlFor="empleado-extension" className="text-xs font-medium text-ink-strong">
+                Extensión
+              </label>
+              <Input id="empleado-extension" maxLength={10} {...form.register('extension')} />
+            </FormCampo>
+          </>
+        )}
+
         <FormCampo span={6}>
           <Field
             label="Clave"
@@ -705,7 +729,7 @@ export function EmpleadoInlineForm({
                       form.setValue('puestoId', '');
                     }
                   }}
-                  sucursalId={form.watch('sucursalId') || undefined}
+                  sucursalId={sucursalSeleccionada || undefined}
                   className="w-full"
                 />
               )}
@@ -726,8 +750,8 @@ export function EmpleadoInlineForm({
                 <PuestoSelector
                   value={field.value || null}
                   onChange={(id) => field.onChange(id ?? '')}
-                  sucursalId={form.watch('sucursalId') || undefined}
-                  departamentoId={form.watch('departamentoId') || undefined}
+                  sucursalId={sucursalSeleccionada || undefined}
+                  departamentoId={departamentoSeleccionado || undefined}
                   className="w-full"
                 />
               )}
@@ -1346,6 +1370,8 @@ function payloadPatch(
 
   return {
     nombre: values.nombre,
+    telefono: values.telefono,
+    extension: values.extension,
     email: email.valor,
     limpiarEmail: email.limpiar,
     puestoId: puesto.valor,

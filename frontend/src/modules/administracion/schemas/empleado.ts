@@ -8,16 +8,14 @@ import { z } from 'zod';
  * (string vacío ≡ sin valor; se normaliza a null en el submit).
  */
 export const EmpleadoSchema = z.object({
-  clave: z
+  telefono: z
     .string()
-    .trim()
     .max(20, 'Máximo 20 caracteres')
+    .regex(/^[0-9 ()+-]*$/, 'Usa dígitos, espacios, paréntesis, guiones o +')
     .optional(),
-  nombre: z
-    .string()
-    .trim()
-    .min(1, 'Nombre requerido')
-    .max(254, 'Máximo 254 caracteres'),
+  extension: z.string().max(10, 'Máximo 10 caracteres').optional(),
+  clave: z.string().trim().max(20, 'Máximo 20 caracteres').optional(),
+  nombre: z.string().trim().min(1, 'Nombre requerido').max(254, 'Máximo 254 caracteres'),
   email: z
     .string()
     .trim()
@@ -31,11 +29,7 @@ export const EmpleadoSchema = z.object({
   sucursalId: z.string().optional(),
   departamentoId: z.string().optional(),
   usuarioId: z.string().optional(),
-  codigoNomina: z
-    .string()
-    .trim()
-    .max(20, 'Máximo 20 caracteres')
-    .optional(),
+  codigoNomina: z.string().trim().max(20, 'Máximo 20 caracteres').optional(),
 });
 
 export type EmpleadoValues = z.infer<typeof EmpleadoSchema>;

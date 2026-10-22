@@ -6,10 +6,7 @@
  * lleguen CxC, OC, etc., la consumirán igual.
  */
 
-import type {
-  EstatusCatalogo,
-  Naturaleza,
-} from '@/features/compras/api/types';
+import type { EstatusCatalogo, Naturaleza } from '@/features/compras/api/types';
 
 /**
  * Tipo de persona del proveedor (mirror de
@@ -20,8 +17,7 @@ export const TipoPersonaProveedor = {
   Moral: 0,
   Fisica: 1,
 } as const satisfies Record<string, number>;
-export type TipoPersonaProveedor =
-  (typeof TipoPersonaProveedor)[keyof typeof TipoPersonaProveedor];
+export type TipoPersonaProveedor = (typeof TipoPersonaProveedor)[keyof typeof TipoPersonaProveedor];
 
 export const TipoSucursal = {
   Taller: 1,
@@ -65,6 +61,8 @@ export interface PuestoListItem {
  * fetch extra.
  */
 export interface EmpleadoListItem {
+  telefono?: string | null;
+  extension?: string | null;
   id: string;
   empresaId: string;
   clave: string;

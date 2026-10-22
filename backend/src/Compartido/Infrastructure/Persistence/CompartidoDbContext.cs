@@ -1098,6 +1098,8 @@ public sealed class CompartidoDbContext : BaseDbContext
     private static void ConfigureEmpresa(ModelBuilder modelBuilder)
     {
         var empresa = modelBuilder.Entity<Empresa>();
+        empresa.Property(x => x.LogoBlobRef).HasMaxLength(512);
+        empresa.Property(x => x.LogoContentType).HasMaxLength(50);
         empresa.ToTable("empresas");
         empresa.HasKey(x => x.Id);
         empresa.HasIndex(x => x.Rfc).IsUnique();
@@ -1197,6 +1199,17 @@ public sealed class CompartidoDbContext : BaseDbContext
         proveedor.Property(x => x.MonedaPreferidaId);
         proveedor.Property(x => x.Email).HasMaxLength(254);
         proveedor.Property(x => x.Telefono).HasMaxLength(50);
+        proveedor.Property(x => x.Calle).HasMaxLength(254);
+        proveedor.Property(x => x.NumeroExterior).HasMaxLength(20);
+        proveedor.Property(x => x.NumeroInterior).HasMaxLength(20);
+        proveedor.Property(x => x.Colonia).HasMaxLength(254);
+        proveedor.Property(x => x.Ciudad).HasMaxLength(100);
+        proveedor.Property(x => x.Municipio).HasMaxLength(100);
+        proveedor.Property(x => x.Estado).HasMaxLength(100);
+        proveedor.Property(x => x.CodigoPostal).HasMaxLength(20);
+        proveedor.Property(x => x.Pais).HasMaxLength(3);
+        proveedor.Property(x => x.TaxId).HasMaxLength(40);
+
         proveedor.Property(x => x.Estatus).HasConversion<short>().IsRequired();
         // F1-ADM-05 G1.1: validación CxP y motivo de rechazo.
         proveedor.Property(x => x.ToleranciaFacturaContraOcMxn).HasPrecision(18, 4);
@@ -1852,6 +1865,8 @@ public sealed class CompartidoDbContext : BaseDbContext
         });
         empleado.HasKey(x => x.Id);
         empleado.Property(x => x.EmpresaId).IsRequired();
+        empleado.Property(x => x.Telefono).HasMaxLength(20);
+        empleado.Property(x => x.Extension).HasMaxLength(10);
         empleado.Property(x => x.Clave).HasMaxLength(20).IsRequired();
         empleado.Property(x => x.Nombre).HasMaxLength(254).IsRequired();
         empleado.Property(x => x.Email).HasMaxLength(254);

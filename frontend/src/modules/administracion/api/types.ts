@@ -13,8 +13,7 @@ export const EstatusCatalogo = {
   Inactivo: 1,
   EnRevision: 2,
 } as const;
-export type EstatusCatalogo =
-  (typeof EstatusCatalogo)[keyof typeof EstatusCatalogo];
+export type EstatusCatalogo = (typeof EstatusCatalogo)[keyof typeof EstatusCatalogo];
 
 export interface EmpresaResponse {
   calle?: string | null;
@@ -267,8 +266,7 @@ export const ReinicioPeriodo = {
   Anual: 1,
   Mensual: 2,
 } as const;
-export type ReinicioPeriodo =
-  (typeof ReinicioPeriodo)[keyof typeof ReinicioPeriodo];
+export type ReinicioPeriodo = (typeof ReinicioPeriodo)[keyof typeof ReinicioPeriodo];
 
 /**
  * Tipos de documento que pueden tener serie de folios. Mirror de
@@ -281,8 +279,7 @@ export const TipoDocumentoSerie = {
   Poliza: 4,
   FacturaAnticipo: 5,
 } as const;
-export type TipoDocumentoSerie =
-  (typeof TipoDocumentoSerie)[keyof typeof TipoDocumentoSerie];
+export type TipoDocumentoSerie = (typeof TipoDocumentoSerie)[keyof typeof TipoDocumentoSerie];
 
 export interface SerieResponse {
   id: string;
@@ -390,8 +387,7 @@ export const TipoParametro = {
   Booleano: 2,
   Json: 3,
 } as const;
-export type TipoParametro =
-  (typeof TipoParametro)[keyof typeof TipoParametro];
+export type TipoParametro = (typeof TipoParametro)[keyof typeof TipoParametro];
 
 export interface ParametroResponse {
   id: string;
@@ -461,6 +457,8 @@ export interface ActualizarPuestoPayload {
 
 /** Mirror de <c>EmpleadoResponse</c> backend. */
 export interface EmpleadoResponse {
+  telefono?: string | null;
+  extension?: string | null;
   id: string;
   empresaId: string;
   clave: string;
@@ -497,6 +495,8 @@ export interface CrearEmpleadoCommand {
  * nullable en null. Inmutables: clave y empresaId.
  */
 export interface ActualizarEmpleadoPayload {
+  telefono?: string | null;
+  extension?: string | null;
   nombre?: string | null;
   email?: string | null;
   limpiarEmail?: boolean;

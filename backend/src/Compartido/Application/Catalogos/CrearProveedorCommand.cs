@@ -31,7 +31,17 @@ public sealed record CrearProveedorCommand(
     string? Telefono,
     OrigenProveedor? Origen = null,
     string? RegimenFiscalCodigo = null,
-    string? ConceptoRetencion = null) : IRequest<CrearProveedorResponse>;
+    string? ConceptoRetencion = null,
+    string? Calle = null,
+    string? NumeroExterior = null,
+    string? NumeroInterior = null,
+    string? Colonia = null,
+    string? Ciudad = null,
+    string? Municipio = null,
+    string? Estado = null,
+    string? CodigoPostal = null,
+    string? Pais = null,
+    string? TaxId = null) : IRequest<CrearProveedorResponse>;
 
 public sealed record CrearProveedorResponse(
     Guid Id,
@@ -44,6 +54,18 @@ public sealed class CrearProveedorValidator : AbstractValidator<CrearProveedorCo
     public CrearProveedorValidator()
     {
         RuleFor(c => c.Clave).NotEmpty().MaximumLength(20);
+        RuleFor(c => c.Calle).MaximumLength(254);
+        RuleFor(c => c.NumeroExterior).MaximumLength(20);
+        RuleFor(c => c.NumeroInterior).MaximumLength(20);
+        RuleFor(c => c.Colonia).MaximumLength(254);
+        RuleFor(c => c.Ciudad).MaximumLength(100);
+        RuleFor(c => c.Municipio).MaximumLength(100);
+        RuleFor(c => c.Estado).MaximumLength(100);
+        RuleFor(c => c.CodigoPostal).MaximumLength(20);
+        RuleFor(c => c.Pais).MaximumLength(3);
+        RuleFor(c => c.TaxId).MaximumLength(40);
+        RuleFor(c => c.Pais).Matches(@"^([A-Za-z]{3})?$").WithMessage("Escribe el país con tres letras, por ejemplo MEX.");
+        RuleFor(c => c.TaxId).Must(string.IsNullOrWhiteSpace).When(c => c.Origen != OrigenProveedor.Extranjero).WithErrorCode("PROVEEDOR_TAXID_SOLO_EXTRANJERO").WithMessage("El Tax ID solo corresponde a proveedores extranjeros.");
         RuleFor(c => c.RazonSocial).NotEmpty().MaximumLength(254);
         // 86e3pdmee: el extranjero no tiene RFC; se guarda el genérico XEXX010101000.
         RuleFor(c => c.Rfc!).NotEmpty().When(c => c.Origen != OrigenProveedor.Extranjero);
@@ -153,6 +175,7 @@ public sealed class CrearProveedorHandler
         }
 
         _db.Proveedores.Add(proveedor);
+        proveedor.ActualizarDomicilioFiscal(request.Calle, request.NumeroExterior, request.NumeroInterior, request.Colonia, request.Ciudad, request.Municipio, request.Estado, request.CodigoPostal, request.Pais, request.TaxId);
         await _db.SaveChangesAsync(cancellationToken);
 
         return new CrearProveedorResponse(

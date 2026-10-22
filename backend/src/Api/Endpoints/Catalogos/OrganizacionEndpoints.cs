@@ -330,7 +330,7 @@ public static class OrganizacionEndpoints
                         x.EmailContacto,
                         sucInfo?.Nombre,
                         sucInfo?.Tipo,
-                        x.CodigoNomina);
+                        x.CodigoNomina, x.Telefono, x.Extension);
                 })
                 .ToList();
 
@@ -415,4 +415,4 @@ public sealed record EmpleadoListItem(
     string? EmailContacto = null,
     string? SucursalNombre = null,
     short? SucursalTipo = null,
-    string? CodigoNomina = null);
+    string? CodigoNomina = null, string? Telefono = null, string? Extension = null);
