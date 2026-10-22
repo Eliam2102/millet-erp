@@ -27,6 +27,13 @@ vi.mock(
   }),
 );
 
+// U1.8a: el PDF de la proforma se genera con @react-pdf; el smoke solo
+// verifica que se descargue con la respuesta del POST.
+const descargarProformaSpy = vi.hoisted(() => vi.fn());
+vi.mock('@/components/erp/reportes/exporters/proforma-cfdi-exporter', () => ({
+  descargarProformaCfdi: descargarProformaSpy,
+}));
+
 const abrirPedidoSpy = vi.fn();
 vi.mock('@/features/facturacion/components/nuevo-pedido-context', () => ({
   useNuevoPedido: () => ({
@@ -108,6 +115,13 @@ function setPermisos(permisos: string[]) {
 beforeEach(() => {
   prefillSpy.mockClear();
   abrirPedidoSpy.mockClear();
+  descargarProformaSpy.mockReset();
+  // U1.8a: por omisión el pedido aún no tiene proforma.
+  mswServer.use(
+    http.get('*/api/v1/facturacion/pedidos-facturables/p-1/proformas/ultima', () =>
+      new HttpResponse(null, { status: 204 }),
+    ),
+  );
 });
 afterEach(() => {
   useAuthStore.setState({
@@ -339,4 +353,76 @@ it.each([false, true])('muestra Pedimento sólo si alguna partida lo requiere (%
   expect(screen.queryByRole('columnheader', { name: 'Pedimento' }) != null).toBe(requierePedimento);
   expect(screen.getByRole('columnheader', { name: 'Clave SAT' })).toBeInTheDocument();
   expect(screen.getByRole('columnheader', { name: 'Descuento' })).toBeInTheDocument();
+});
+
+describe('<DetallePedido> — proforma (U1.8a)', () => {
+  function proforma(version: number) {
+    return {
+      id: `pf-${version}`,
+      pedidoFacturableId: 'p-1',
+      folio: `PF-MID-001-${version}`,
+      version,
+      generadaEn: '2026-10-21T15:30:00Z',
+      generadaPor: 'Ana López',
+      numeroPedido: 'MID-001',
+      avisos: [],
+      contenido: {
+        emisor: { rfc: 'MIL010101ABC', nombre: 'Millet', regimenFiscal: '601', lugarExpedicion: '76120' },
+        receptor: { rfc: 'AAA010101AAA', nombre: 'Cliente Demo SA', regimenFiscal: '601', codigoPostal: '97000', usoCfdi: 'G03' },
+        metodoPago: 'PUE', formaPago: '03', moneda: 'MXN', tipoCambio: null, exportacion: '01',
+        serieFiscalPrevista: 'Cfdi', conceptos: [],
+        totales: { subtotal: 200, descuento: 0, impuestosTrasladados: 32, retenciones: 0, total: 232 },
+      },
+    };
+  }
+  function pedidoBase(estado: string) {
+    mswServer.use(
+      http.get('*/api/v1/facturacion/pedidos-facturables/p-1', () => HttpResponse.json(pedido(estado))),
+      http.get('*/api/v1/facturacion/pedidos-facturables/p-1/comprobantes', () => HttpResponse.json([])),
+    );
+  }
+
+  it('«Generar proforma» con permiso emitir en Importado: POST con Idempotency-Key, descarga y muestra la tarjeta', async () => {
+    setPermisos(['facturacion.facturas.leer', 'facturacion.facturas.emitir']);
+    pedidoBase('Importado');
+    let idempotencyKey: string | null = null;
+    mswServer.use(
+      http.post('*/api/v1/facturacion/pedidos-facturables/p-1/proformas', ({ request }) => {
+        idempotencyKey = request.headers.get('Idempotency-Key');
+        return HttpResponse.json(proforma(1), { status: 201 });
+      }),
+    );
+    render(<DetallePedido />, { wrapper: createQueryWrapper() });
+    expect(await screen.findByText(/aún no tiene proforma/i)).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: /Generar proforma/i }));
+    await waitFor(() => expect(descargarProformaSpy).toHaveBeenCalledTimes(1));
+    expect(descargarProformaSpy.mock.calls[0][0].folio).toBe('PF-MID-001-1');
+    expect(idempotencyKey).toBeTruthy();
+    expect(await screen.findByText('PF-MID-001-1')).toBeInTheDocument();
+  });
+
+  it('muestra la última proforma con «Descargar» para quien solo puede leer', async () => {
+    setPermisos(['facturacion.facturas.leer']);
+    pedidoBase('Importado');
+    mswServer.use(
+      http.get('*/api/v1/facturacion/pedidos-facturables/p-1/proformas/ultima', () =>
+        HttpResponse.json(proforma(2)),
+      ),
+    );
+    render(<DetallePedido />, { wrapper: createQueryWrapper() });
+    expect(await screen.findByText('PF-MID-001-2')).toBeInTheDocument();
+    expect(screen.getByText(/Ana López/)).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /Generar proforma/i })).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: /Descargar proforma/i }));
+    await waitFor(() => expect(descargarProformaSpy).toHaveBeenCalledTimes(1));
+    expect(descargarProformaSpy.mock.calls[0][0].version).toBe(2);
+  });
+
+  it('«Generar proforma» oculto si el pedido ya no está Importado', async () => {
+    setPermisos(['facturacion.facturas.leer', 'facturacion.facturas.emitir']);
+    pedidoBase('Facturado');
+    render(<DetallePedido />, { wrapper: createQueryWrapper() });
+    await screen.findByText('Vidrio templado 6mm');
+    expect(screen.queryByRole('button', { name: /Generar proforma/i })).not.toBeInTheDocument();
+  });
 });

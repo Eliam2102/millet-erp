@@ -1607,3 +1607,89 @@ export interface CajaAjusteItem {
   creadoEn: string;
   aplicadoEnSesionId: string | null;
 }
+
+// ─── U1.8a · Proforma antes del timbrado ────────────────────────────────
+// Único lugar de los tipos del contrato de proformas (JSON camelCase de los
+// records ProformaCfdi / ProformaPedidoResponse / ComparacionProformaResponse).
+// Si el contrato cambia algún nombre, se ajusta solo aquí.
+
+export interface ProformaEmisor {
+  rfc: string;
+  nombre: string;
+  regimenFiscal: string;
+  lugarExpedicion: string;
+}
+
+export interface ProformaReceptor {
+  rfc: string;
+  nombre: string;
+  regimenFiscal: string;
+  codigoPostal: string;
+  usoCfdi: string;
+}
+
+export interface ProformaConcepto {
+  posicion: number;
+  claveProdServ: string;
+  claveUnidad: string;
+  descripcion: string;
+  cantidad: number;
+  valorUnitario: number;
+  importe: number;
+  descuento: number;
+  objetoImp: string;
+  iva: number;
+  retencionIva: number;
+  retencionIsr: number;
+  tasaIva: number | null;
+}
+
+export interface ProformaTotales {
+  subtotal: number;
+  descuento: number;
+  impuestosTrasladados: number;
+  retenciones: number;
+  total: number;
+}
+
+export interface ProformaCfdi {
+  emisor: ProformaEmisor;
+  receptor: ProformaReceptor;
+  metodoPago: string;
+  formaPago: string;
+  moneda: string;
+  tipoCambio: number | null;
+  exportacion: string;
+  /** Tipo de serie que se usará al timbrar ("Cfdi" | "VentaDirecta"), sin número. */
+  serieFiscalPrevista: string;
+  conceptos: ProformaConcepto[];
+  totales: ProformaTotales;
+}
+
+export interface ProformaPedidoResponse {
+  id: string;
+  pedidoFacturableId: string;
+  /** PF-{numeroPedido}-{version}; no consume folio fiscal. */
+  folio: string;
+  version: number;
+  generadaEn: string;
+  generadaPor: string | null;
+  numeroPedido: string | null;
+  contenido: ProformaCfdi;
+  /** Datos fiscales incompletos detectados al generar (no bloquean). */
+  avisos: string[];
+}
+
+export interface DiferenciaProforma {
+  campo: string;
+  proforma: string | null;
+  timbrado: string | null;
+}
+
+export interface ComparacionProformaResponse {
+  hayProforma: boolean;
+  folio: string | null;
+  version: number | null;
+  generadaEn: string | null;
+  diferencias: DiferenciaProforma[];
+}
