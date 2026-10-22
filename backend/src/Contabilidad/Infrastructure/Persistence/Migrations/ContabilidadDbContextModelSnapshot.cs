@@ -1587,6 +1587,21 @@ namespace Millet.Contabilidad.Infrastructure.Persistence.Migrations
 
                             t.HasCheckConstraint("ck_tipos_documento_tipo_sat", "tipo_sat BETWEEN 1 AND 3");
                         });
+
+                    b.HasData(
+                        new
+                        {
+                            Id = new Guid("0000000f-0003-0000-0000-000000000001"),
+                            Clave = "AF",
+                            CreatedAt = new DateTimeOffset(new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            EmpresaId = new Guid("00000003-0000-0000-0000-000000000001"),
+                            EsPrueba = false,
+                            Estatus = (short)0,
+                            Nombre = "Capitalización de activos fijos",
+                            TipoSat = (short)3,
+                            UpdatedAt = new DateTimeOffset(new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            Version = 1
+                        });
                 });
 
             modelBuilder.Entity("Millet.Contabilidad.Domain.UbicacionSucursal", b =>

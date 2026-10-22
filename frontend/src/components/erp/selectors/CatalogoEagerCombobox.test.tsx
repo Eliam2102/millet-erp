@@ -102,4 +102,15 @@ describe('<CatalogoEagerCombobox> — invariante lista larga (PR-A)', () => {
       expect(visibles[0]).toHaveTextContent('Contado');
     });
   });
+
+  it('ignora acentos al filtrar (buscador inteligente, 86e3ufkgd)', async () => {
+    renderCombo();
+    fireEvent.click(screen.getByRole('combobox'));
+    fireEvent.change(screen.getByPlaceholderText('Buscar condiciones…'), {
+      target: { value: 'dias' },
+    });
+    // Todas menos "Contado" llevan "días" con acento.
+    await waitFor(() => expect(screen.getAllByRole('option')).toHaveLength(26));
+    expect(screen.getByText('15 días')).toBeInTheDocument();
+  });
 });

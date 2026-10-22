@@ -54,6 +54,7 @@ public static class DependencyInjection
         // Deuda <DatosMaestrosFiscal> cerrada (ADR-0048 PR2).
         services.AddScoped<IClientesReadPort, DatosMaestros.ClientesReadAdapter>();
         services.AddScoped<IProductosReadPort, DatosMaestros.ProductosReadAdapter>();
+        services.AddScoped<Millet.DatosMaestros.Application.Clientes.IPedidosErpPorClienteReadPort, PublicAdapters.PedidosErpPorClienteReadAdapter>();
 
         // --- Datos fiscales del emisor (Administración): adapter REAL sobre ---
         // compartido.empresas/sucursales (FAC-UX-PR1, cierra la pata backend

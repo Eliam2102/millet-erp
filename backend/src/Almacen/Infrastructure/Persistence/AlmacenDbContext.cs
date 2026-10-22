@@ -120,9 +120,19 @@ public class AlmacenDbContext : BaseDbContext
 
     public DbSet<Domain.Apartados.ApartadoRequisicion> ApartadosRequisicion => Set<Domain.Apartados.ApartadoRequisicion>();
 
+    public DbSet<RecepcionActivo> RecepcionesActivos => Set<RecepcionActivo>();
+
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         modelBuilder.HasDefaultSchema("almacen");
+        var af = modelBuilder.Entity<RecepcionActivo>();
+        af.ToTable("recepciones_activos", "almacen"); af.HasKey(x => x.Id); af.Property(x => x.Id).ValueGeneratedNever();
+        af.Property(x => x.Cantidad).HasPrecision(18, 4); af.HasIndex(x => new { x.EmpresaId, x.OrdenCompraId, x.LineaOcId });
+        var ajuste = modelBuilder.Entity<AjusteCostoExpediente>();
+        ajuste.ToTable("ajustes_costo_expediente"); ajuste.HasKey(x => x.Id); ajuste.Property(x => x.Id).ValueGeneratedNever();
+        ajuste.HasIndex(x => new { x.EmpresaId, x.ExpedienteId, x.NumeroVersion, x.PartidaId }).IsUnique();
+        ajuste.Property(x => x.AcumuladoMxn).HasPrecision(20, 2); ajuste.Property(x => x.DiferenciaMxn).HasPrecision(20, 2);
+        ajuste.Property(x => x.InventarioMxn).HasPrecision(20, 2); ajuste.Property(x => x.CostoVentasMxn).HasPrecision(20, 2);
         base.OnModelCreating(modelBuilder);
 
         modelBuilder.ApplyConfiguration(new IntegrationEventOutboxEntryConfiguration());
@@ -154,6 +164,8 @@ public class AlmacenDbContext : BaseDbContext
             b.HasKey(a => a.Id);
             b.Property(a => a.Id).ValueGeneratedNever();
             b.Property(a => a.Pendiente).HasPrecision(14, 4);
+            b.Property(a => a.CantidadLiberada).HasPrecision(14, 4).HasDefaultValue(0m);
+            b.Property(a => a.MotivoLiberacion).HasMaxLength(500);
             b.HasIndex(a => a.LineaRequisicionId).IsUnique();
             b.HasIndex(a => new { a.SucursalId, a.ArticuloId });
         });

@@ -85,6 +85,8 @@ public sealed class FacturaAnticipo : Comprobante
     /// <param name="anticipoId">Id pre-generado del agregado <see cref="Anticipo"/> asociado.</param>
     /// <param name="montoBase">Importe del anticipo antes de IVA (subtotal).</param>
     /// <param name="tasaIvaTraslado">Tasa de IVA trasladado (p.ej. 0.16); null/0 = exento.</param>
+    /// <param name="totalConIva">86e3tfd7j: total capturado con IVA; si viene, se ignora
+    /// <paramref name="montoBase"/> y se desglosa con <see cref="DesglosarTotal"/>.</param>
     public static FacturaAnticipo CrearBorrador(
         Guid empresaId,
         string folio,
@@ -105,8 +107,13 @@ public sealed class FacturaAnticipo : Comprobante
         decimal montoBase,
         decimal? tasaIvaTraslado,
         string? descripcion = null,
-        short? canalVentaId = null)
+        short? canalVentaId = null,
+        decimal? totalConIva = null)
     {
+        decimal? ivaDesglosado = null;
+        if (totalConIva is { } totalCapturado)
+            (montoBase, ivaDesglosado) = DesglosarTotal(totalCapturado, tasaIvaTraslado);
+
         if (montoBase <= 0)
             throw new BusinessRuleException("ANTICIPO_MONTO_INVALIDO", "El monto del anticipo debe ser mayor que cero.");
 
@@ -133,7 +140,8 @@ public sealed class FacturaAnticipo : Comprobante
             claveUnidadSat: "E48",
             descripcion: string.IsNullOrWhiteSpace(descripcion) ? "Anticipo de clientes" : descripcion!);
 
-        var iva = tasaIvaTraslado is > 0 ? Math.Round(montoBase * tasaIvaTraslado.Value, 2) : 0m;
+        var iva = ivaDesglosado
+            ?? (tasaIvaTraslado is > 0 ? Math.Round(montoBase * tasaIvaTraslado.Value, 2) : 0m);
         var total = montoBase + iva;
         factura.EstablecerTotales(
             subtotal: montoBase,
@@ -143,5 +151,31 @@ public sealed class FacturaAnticipo : Comprobante
             total: total);
 
         return factura;
+    }
+
+    /// <summary>
+    /// 86e3tfd7j — desglosa un total capturado con IVA en subtotal e IVA de modo
+    /// que sumen exacto al centavo: base = round(total / (1 + tasa)) e
+    /// IVA = total − base. Calcular el IVA sobre la base redondeada no siempre
+    /// regresa al total (p.ej. 1000.03 a 0.16); el resto queda dentro de la
+    /// tolerancia SAT del importe trasladado ((base ± 0.005) × tasa).
+    /// </summary>
+    public static (decimal MontoBase, decimal Iva) DesglosarTotal(decimal total, decimal? tasaIvaTraslado)
+    {
+        if (total <= 0)
+            throw new BusinessRuleException("ANTICIPO_MONTO_INVALIDO", "El monto del anticipo debe ser mayor que cero.");
+        if (tasaIvaTraslado is not > 0)
+            return (total, 0m);
+
+        var tasa = tasaIvaTraslado.Value;
+        var montoBase = Math.Round(total / (1m + tasa), 2, MidpointRounding.AwayFromZero);
+        var iva = total - montoBase;
+        var minimo = Math.Floor((montoBase - 0.005m) * tasa * 100m) / 100m;
+        var maximo = Math.Ceiling((montoBase + 0.005m) * tasa * 100m) / 100m;
+        if (iva < minimo || iva > maximo)
+            throw new BusinessRuleException(
+                "ANTICIPO_TOTAL_NO_DESGLOSABLE",
+                $"El total {total:0.00} no se puede desglosar en subtotal e IVA dentro de la tolerancia del SAT.");
+        return (montoBase, iva);
     }
 }

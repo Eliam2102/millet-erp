@@ -213,7 +213,7 @@ export function ReporteShell<TFila>({
             </div>
           </header>
 
-          <div className="overflow-x-auto rounded-md border">
+          <div className="relative overflow-x-auto rounded-md border">
             <table className="w-full text-sm">
               <thead className="bg-muted/50">
                 <tr>

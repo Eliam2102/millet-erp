@@ -77,9 +77,15 @@ describe('<ProveedorSelector>', () => {
     // limpiarse el input tras seleccionar, la recarga (primer page) vuelve
     // vacía → el trigger debe seguir mostrando la etiqueta desde el objeto
     // seleccionado guardado, no caer al UUID.
+    let lookups = 0;
     mswServer.use(
+      // Lo elegido en esta sesión no necesita lookup por id.
+      http.get('*/api/v1/catalogos/proveedores/:id', () => {
+        lookups += 1;
+        return HttpResponse.json({});
+      }),
       http.get('*/api/v1/catalogos/proveedores', ({ request }) => {
-        const clave = new URL(request.url).searchParams.get('clave');
+        const clave = new URL(request.url).searchParams.get('q');
         const item = {
           id: 'prov-x',
           clave: 'PROV-777',
@@ -107,7 +113,7 @@ describe('<ProveedorSelector>', () => {
     render(<Controlled />, { wrapper: createQueryWrapper() });
 
     fireEvent.click(screen.getByRole('combobox'));
-    fireEvent.change(screen.getByPlaceholderText('Buscar por clave…'), {
+    fireEvent.change(screen.getByPlaceholderText('Buscar por clave, RFC o nombre…'), {
       target: { value: 'PROV' },
     });
     fireEvent.click(await screen.findByText('Distribuidora Lejana SA'));
@@ -115,6 +121,9 @@ describe('<ProveedorSelector>', () => {
     expect(
       await screen.findByText('PROV-777 · Distribuidora Lejana SA'),
     ).toBeInTheDocument();
+    // Deja pasar el debounce de la caja limpia y la recarga vacía.
+    await new Promise((r) => setTimeout(r, 400));
+    expect(lookups).toBe(0);
   });
 
   it('resuelve un value frío (sin selected ni initialLabel) vía lookup por id — no muestra el GUID', async () => {
@@ -157,14 +166,16 @@ describe('<ProveedorSelector>', () => {
     expect(screen.queryByText(COLD_ID)).not.toBeInTheDocument();
   });
 
-  it('busca por nombre: teclear en la caja de nombre consulta con ?nombre y renderiza', async () => {
-    // El endpoint devuelve el item SOLO cuando la búsqueda viaja por nombre
-    // (no por clave) — comprueba que el selector manda `nombre` (Defect A).
+  it.each([
+    ['fragmento de nombre', 'ceros'],
+    ['clave', 'PROV-555'],
+    ['RFC', 'AND9001'],
+  ])('busca por %s: una sola caja consulta con ?q y renderiza', async (_n, texto) => {
+    let qRecibido: string | null = null;
     mswServer.use(
       http.get('*/api/v1/catalogos/proveedores', ({ request }) => {
-        const url = new URL(request.url);
-        const nombre = url.searchParams.get('nombre');
-        const clave = url.searchParams.get('clave');
+        const q = new URL(request.url).searchParams.get('q');
+        if (q) qRecibido = q;
         const item = {
           id: 'prov-n',
           clave: 'PROV-555',
@@ -176,12 +187,11 @@ describe('<ProveedorSelector>', () => {
           monedaPreferidaId: null,
           estatus: EstatusCatalogo.Activo,
         };
-        const aplica = Boolean(nombre) && !clave;
         return HttpResponse.json({
-          items: aplica ? [item] : [],
+          items: q ? [item] : [],
           offset: 0,
           limit: 50,
-          total: aplica ? 1 : 0,
+          total: q ? 1 : 0,
         });
       }),
     );
@@ -191,43 +201,11 @@ describe('<ProveedorSelector>', () => {
     });
 
     fireEvent.click(screen.getByRole('combobox'));
-    fireEvent.change(screen.getByPlaceholderText('Buscar por nombre…'), {
-      target: { value: 'aceros' },
+    fireEvent.change(screen.getByRole('textbox', { name: 'Buscar proveedor' }), {
+      target: { value: texto },
     });
 
     expect(await screen.findByText('Aceros del Norte SA')).toBeInTheDocument();
-  });
-
-  it('exclusividad: clave y nombre se limpian/deshabilitan mutuamente', async () => {
-    mswServer.use(
-      http.get('*/api/v1/catalogos/proveedores', () =>
-        HttpResponse.json({ items: [], offset: 0, limit: 50, total: 0 }),
-      ),
-    );
-
-    render(<ProveedorSelector value={null} onChange={() => {}} />, {
-      wrapper: createQueryWrapper(),
-    });
-
-    fireEvent.click(screen.getByRole('combobox'));
-    const cajaClave = screen.getByPlaceholderText(
-      'Buscar por clave…',
-    ) as HTMLInputElement;
-    const cajaNombre = screen.getByPlaceholderText(
-      'Buscar por nombre…',
-    ) as HTMLInputElement;
-
-    // Texto en clave → la caja de nombre se deshabilita.
-    fireEvent.change(cajaClave, { target: { value: 'PROV' } });
-    expect(cajaClave.value).toBe('PROV');
-    expect(cajaNombre).toBeDisabled();
-
-    // Limpiar clave re-habilita nombre; escribir en nombre limpia clave.
-    fireEvent.change(cajaClave, { target: { value: '' } });
-    expect(cajaNombre).not.toBeDisabled();
-    fireEvent.change(cajaNombre, { target: { value: 'acer' } });
-    expect(cajaNombre.value).toBe('acer');
-    expect(cajaClave.value).toBe('');
-    expect(cajaClave).toBeDisabled();
+    expect(qRecibido).toBe(texto);
   });
 });

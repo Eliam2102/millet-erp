@@ -67,7 +67,7 @@ public sealed class DescartarComprobanteHandlerTests
         using var db = NewDb(empresaId);
         var pedido = PedidoFacturable.CrearManual(
             empresaId, "P-1", Guid.NewGuid(), Guid.NewGuid(), "Cliente", 1,
-            ComportamientoFiscal.MostradorInmediato, "MXN", null, null, null, Guid.NewGuid());
+            ComportamientoFiscal.MostradorInmediato, "MXN", null, null, null, Guid.NewGuid(), Millet.Facturacion.Domain.Pedidos.ClasePedidoManual.VentaDirecta, Millet.Facturacion.Domain.Pedidos.SubtipoVentaDirecta.Servicio, null, null);
         db.PedidosFacturables.Add(pedido);
         db.SaveChanges();
 
@@ -89,7 +89,7 @@ public sealed class DescartarComprobanteHandlerTests
         using var db = NewDb(empresaId);
         var pedido = PedidoFacturable.CrearManual(
             empresaId, "P-2", Guid.NewGuid(), Guid.NewGuid(), "Cliente", 1,
-            ComportamientoFiscal.MostradorInmediato, "MXN", null, null, null, Guid.NewGuid());
+            ComportamientoFiscal.MostradorInmediato, "MXN", null, null, null, Guid.NewGuid(), Millet.Facturacion.Domain.Pedidos.ClasePedidoManual.VentaDirecta, Millet.Facturacion.Domain.Pedidos.SubtipoVentaDirecta.Servicio, null, null);
         db.PedidosFacturables.Add(pedido);
         db.SaveChanges();
 

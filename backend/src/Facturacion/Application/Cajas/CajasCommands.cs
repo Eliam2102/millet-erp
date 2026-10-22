@@ -1,3 +1,4 @@
+using System.Text.Json.Serialization;
 using FluentValidation;
 using MediatR;
 using Microsoft.EntityFrameworkCore;
@@ -14,8 +15,17 @@ public sealed record CajaMutadaResponse(Guid Id, int Version);
 
 // ---- Crear ----
 
-/// <summary>Da de alta una caja (CAJAS-PR1, 12-cajas.md §7). Nace activa y sin alcance.</summary>
-public sealed record CrearCajaCommand(string Nombre, string? Descripcion) : IRequest<CajaMutadaResponse>;
+/// <summary>
+/// Da de alta una caja (CAJAS-PR1, 12-cajas.md §7). Nace activa con la sucursal
+/// elegida como alcance (86e3t97uy): sin sucursal la caja quedaba visible para todas.
+/// </summary>
+public sealed record CrearCajaCommand(string Nombre, string? Descripcion, Guid SucursalId)
+    : IRequest<CajaMutadaResponse>, ISucursalScopedQuery
+{
+    // Solo puede crear cajas en sus sucursales; el corporativo (leer-todas) en cualquiera.
+    public string PermisoTodasSucursales => PermisoLecturaCaja.LeerTodas;
+    [JsonIgnore] public IReadOnlyList<Guid>? SucursalesPermitidas { get; set; }
+}
 
 /// <summary>Validación estructural; el negocio vive en el dominio.</summary>
 public sealed class CrearCajaValidator : AbstractValidator<CrearCajaCommand>
@@ -24,6 +34,7 @@ public sealed class CrearCajaValidator : AbstractValidator<CrearCajaCommand>
     {
         RuleFor(c => c.Nombre).NotEmpty().MaximumLength(100);
         RuleFor(c => c.Descripcion!).MaximumLength(254).When(c => c.Descripcion is not null);
+        RuleFor(c => c.SucursalId).NotEmpty().WithMessage("Selecciona la sucursal de la caja.");
     }
 }
 
@@ -31,11 +42,13 @@ public sealed class CrearCajaHandler : IRequestHandler<CrearCajaCommand, CajaMut
 {
     private readonly FacturacionDbContext _db;
     private readonly ICurrentEmpresaContext _empresa;
+    private readonly ISucursalesReadPort _sucursales;
 
-    public CrearCajaHandler(FacturacionDbContext db, ICurrentEmpresaContext empresa)
+    public CrearCajaHandler(FacturacionDbContext db, ICurrentEmpresaContext empresa, ISucursalesReadPort sucursales)
     {
         _db = db;
         _empresa = empresa;
+        _sucursales = sucursales;
     }
 
     public async Task<CajaMutadaResponse> Handle(CrearCajaCommand command, CancellationToken cancellationToken)
@@ -49,7 +62,14 @@ public sealed class CrearCajaHandler : IRequestHandler<CrearCajaCommand, CajaMut
         if (duplicada)
             throw new BusinessRuleException("CAJA_NOMBRE_DUPLICADO", $"Ya existe una caja llamada '{nombre}'.");
 
+        if (command.SucursalesPermitidas is { } permitidas && !permitidas.Contains(command.SucursalId))
+            throw new ForbiddenException(
+                "CAJA_SUCURSAL_FUERA_DE_ALCANCE", "Solo puedes crear cajas en las sucursales a las que estás asociado.");
+        if ((await _sucursales.FiltrarNoActivasAsync([command.SucursalId], cancellationToken)).Count > 0)
+            throw new BusinessRuleException("CAJA_SUCURSAL_INACTIVA", "La sucursal no existe o no está activa.");
+
         var caja = Caja.Crear(empresaId, command.Nombre, command.Descripcion);
+        caja.ReemplazarSucursales([command.SucursalId]);
         _db.Cajas.Add(caja);
         await _db.SaveChangesAsync(cancellationToken);
         return new CajaMutadaResponse(caja.Id, caja.Version);

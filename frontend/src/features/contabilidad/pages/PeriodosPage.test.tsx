@@ -99,6 +99,23 @@ describe('<PeriodosPage>', () => {
     expect(boton).toHaveFocus();
   });
 
+  it('86e3t97vh: un periodo vuelto a cerrar muestra solo su último cierre; uno reabierto, solo la reapertura', async () => {
+    // Datos previos al fix: enero se cerró, se reabrió y se volvió a cerrar sin limpiar reabiertoPor.
+    const enero = { ...periodo(1, 'Cerrado'), cerradoPor: 'Carla Contralora', reabiertoPor: 'Beto Auxiliar', reabiertoEn: '2026-02-04T18:00:00Z' };
+    const febrero = { ...periodo(2, 'Abierto'), reabiertoPor: 'Beto Auxiliar', reabiertoEn: '2026-03-04T18:00:00Z' };
+    mswServer.use(
+      http.get(`${API}/ejercicios`, () => HttpResponse.json([{ ...EJERCICIO, periodos: [enero, febrero, ...EJERCICIO.periodos.slice(2)] }])),
+    );
+    conPermisos();
+    render(<PeriodosPage />, { wrapper: createQueryWrapper() });
+    const filaEnero = await fila('1 · Enero');
+    expect(filaEnero.getByText(/Cerró Carla Contralora/)).toBeInTheDocument();
+    expect(filaEnero.queryByText(/Reabrió/)).not.toBeInTheDocument();
+    const filaFebrero = await fila('2 · Febrero');
+    expect(filaFebrero.getByText(/Reabrió Beto Auxiliar/)).toBeInTheDocument();
+    expect(filaFebrero.queryByText(/Abrió fix.contador/)).not.toBeInTheDocument();
+  });
+
   it('solo lectura: pagina los 13 periodos de diez en diez, con su estado y sin acciones', async () => {
     servidor();
     conPermisos();

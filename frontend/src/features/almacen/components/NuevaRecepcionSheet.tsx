@@ -811,7 +811,11 @@ function LineasDesdeOc({
   // Líneas sin rack a las que el helper no pudo asignar (artículo sin ese rack).
   const sinRackDelHelper = ubicacionHelperId
     ? filas.filter(
-        (f) => f.incluida && !f.ubicacionId && !asignadas.get(f.articuloId)?.has(ubicacionHelperId),
+        (f) =>
+          f.incluida &&
+          !f.esActivoFijo &&
+          !f.ubicacionId &&
+          !asignadas.get(f.articuloId)?.has(ubicacionHelperId),
       ).length
     : 0;
   // Un movimiento = un sub-almacén (RECEPCION_MULTI_SUBALMACEN), avisado por línea.
@@ -1023,27 +1027,31 @@ function FilaLineaOc({
         </TableCell>
 
         <TableCell className="align-top">
-          <Controller
-            name={`filas.${index}.ubicacionId` as const}
-            control={control}
-            render={({ field }) => (
-              <UbicacionBinSelector
-                modo="asignacion"
-                articuloId={fila.articuloId}
-                subAlmacenId={null}
-                requiereSubAlmacen={false}
-                value={field.value ?? null}
-                onChange={(id) => field.onChange(id)}
-                disabled={!incluida}
-                accionSinUbicaciones={
-                  <AsignarUbicacionEnLinea
-                    articuloId={fila.articuloId}
-                    onAsignada={(ubicacionId) => field.onChange(ubicacionId)}
-                  />
-                }
-              />
-            )}
-          />
+          {fila.esActivoFijo ? (
+            <span className="text-xs text-ink-muted">Activo fijo · sin existencia</span>
+          ) : (
+            <Controller
+              name={`filas.${index}.ubicacionId` as const}
+              control={control}
+              render={({ field }) => (
+                <UbicacionBinSelector
+                  modo="asignacion"
+                  articuloId={fila.articuloId}
+                  subAlmacenId={null}
+                  requiereSubAlmacen={false}
+                  value={field.value ?? null}
+                  onChange={(id) => field.onChange(id)}
+                  disabled={!incluida}
+                  accionSinUbicaciones={
+                    <AsignarUbicacionEnLinea
+                      articuloId={fila.articuloId}
+                      onAsignada={(ubicacionId) => field.onChange(ubicacionId)}
+                    />
+                  }
+                />
+              )}
+            />
+          )}
           {coincideConHelper && <IndicadorAlmacenBadge estado="rackPredeterminado" />}
           {errorRack && (
             <p id={idRack} role="alert" className="mt-1 text-2xs text-danger-fg">

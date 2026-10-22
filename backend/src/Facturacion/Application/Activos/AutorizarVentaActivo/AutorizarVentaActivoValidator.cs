@@ -7,7 +7,7 @@ public sealed class AutorizarVentaActivoValidator : AbstractValidator<AutorizarV
 {
     public AutorizarVentaActivoValidator()
     {
-        RuleFor(c => c.ActivoRef).NotEmpty().MaximumLength(50);
+        RuleFor(c => c.ActivoRef).NotEmpty().MaximumLength(60);
         RuleFor(c => c.PrecioVenta).GreaterThan(0);
     }
 }

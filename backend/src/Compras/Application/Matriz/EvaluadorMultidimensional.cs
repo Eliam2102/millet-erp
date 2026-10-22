@@ -135,7 +135,7 @@ public sealed class EvaluadorMultidimensional : IRequiereNivelEvaluator
             cancellationToken);
         var repartos = await RepartoDisponibilidadService.RepartirAsync(
             _stock, _conversion, articulos, requisicion.Clasificacion, requisicion.SucursalId,
-            requisicion.Lineas, cancellationToken);
+            requisicion.Lineas, cancellationToken, soloCompleto: requisicion.SoloApartarSiCompleto);
 
         var faltantes = repartos.Where(r => !r.EsServicio && r.DeCompra > 0m).ToList();
         return faltantes.Count == 0

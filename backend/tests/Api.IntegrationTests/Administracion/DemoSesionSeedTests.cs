@@ -327,11 +327,19 @@ public sealed partial class DemoSesionSeedTests
         Assert.Equal(EstadoPeriodo.Abierto, periodos.Single(p => p.Numero == 10).Estado);
         Assert.Equal(7, await contabilidad.Cuentas.CountAsync(c => c.Nombre.StartsWith("DEMO")));
         Assert.Equal(2, await tesoreria.CuentasBancarias.CountAsync(c => c.Banco.StartsWith("DEMO-")));
-        Assert.Equal(3, await compras.OrdenesCompra.CountAsync()); // + OC de importación DEMO de CE-01a
+        Assert.Equal(6, await compras.OrdenesCompra.CountAsync()); // + OC de importación CE-01a, de gastos CE-06, OC mixta de Activos Fijos y OC de servicio del agente (P6)
         Assert.Equal(3, await compras.OutboxEntries.CountAsync());
         Assert.Equal(3, await maestros.Series.CountAsync(s => s.Prefijo == "FA" || s.Prefijo == "NC" || s.Prefijo == "AN"));
         var pedidos = await facturacion.PedidosFacturables.Where(p => p.NumeroPedido!.StartsWith("DEMO-")).ToListAsync();
-        Assert.Equal(8, pedidos.Count); // + DEMO de CE-02
+        Assert.Equal(11, pedidos.Count); // + DEMO de CE-02 + 3 manuales F6.1
+        // F6.1: serie de Venta directa por sede (5) y pedidos manuales clasificados.
+        Assert.Equal(DemoSesionSeedHostedService.ClavesSedesDemo.Length, await maestros.Series.CountAsync(s =>
+            s.TipoDocumento == Millet.Administracion.Domain.TipoDocumentoSerie.VentaDirecta && s.Prefijo.StartsWith("VD-") && s.SucursalId != null));
+        Assert.Equal(Millet.Facturacion.Domain.Pedidos.ClasePedidoManual.Emergencia,
+            pedidos.Single(p => p.NumeroPedido == "DEMO-PED-EMERG").ClaseManual);
+        Assert.Equal(Millet.Facturacion.Domain.Pedidos.SubtipoVentaDirecta.Activo,
+            pedidos.Single(p => p.NumeroPedido == "DEMO-PED-VD-ACTIVO").SubtipoVentaDirecta);
+        Assert.Equal(1, await facturacion.AutorizacionesVentaActivo.CountAsync(a => a.ActivoRef == "DEMO-ACT-CAMIONETA"));
         Assert.Equal(116m, pedidos.Single(p => p.NumeroPedido == "DEMO-PED-RANURA").Ranura);
         foreach (var pedido in pedidos) Assert.True(await maestros.Clientes.AnyAsync(c => c.Id == pedido.ClienteId));
         Assert.False((await maestros.Clientes.SingleAsync(c => c.Clave == "DEMO-CLI-INCOMPLETO")).DatosFiscalesCompletos);
@@ -393,7 +401,7 @@ public sealed partial class DemoSesionSeedTests
         var ocPort = scope.ServiceProvider.GetRequiredService<Millet.CuentasPorPagar.Domain.Ports.Compras.IComprasOcReadPort>();
         var ocs = await compras.OrdenesCompra.ToListAsync();
         var folios = await ocPort.ObtenerFoliosAsync(ocs.Select(o => o.Id).Append(Guid.NewGuid()).ToArray(), CancellationToken.None);
-        Assert.Equal(3, folios.Count);
+        Assert.Equal(ocs.Count, folios.Count); // el id aleatorio no tiene folio
         Assert.All(ocs, o => Assert.Equal(o.Folio.Valor, folios[o.Id]));
         return new Snapshot(await maestros.Proveedores.CountAsync(p => p.Clave.StartsWith("DEMO-")),
             await maestros.Articulos.CountAsync(a => a.Clave.StartsWith("DEMO-")), await maestros.Clientes.CountAsync(c => c.Clave.StartsWith("DEMO-")),
@@ -423,6 +431,7 @@ public sealed partial class DemoSesionSeedTests
                 typeof(Millet.CuentasPorCobrar.Infrastructure.Persistence.CuentasPorCobrarDbContext), typeof(TesoreriaDbContext),
                 typeof(Millet.CentrosCosto.Infrastructure.Persistence.CentrosCostoDbContext), typeof(ContabilidadDbContext),
                 typeof(Millet.ComercioExterior.Infrastructure.Persistence.ComercioExteriorDbContext),
+                typeof(Millet.ActivosFijos.Infrastructure.Persistence.ActivosFijosDbContext),
             ];
             var instancias = contextos.Select(tipo => (DbContext)scope.ServiceProvider.GetRequiredService(tipo)).ToArray();
             // Comprobar TODOS antes de que la primera migración escriba datos.

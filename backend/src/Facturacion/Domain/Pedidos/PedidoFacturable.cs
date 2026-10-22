@@ -72,6 +72,39 @@ public sealed class PedidoFacturable : BaseEntity, IPerteneceAEmpresa, IFiscalme
     /// <summary>Estatus del pedido en el origen (catálogo A+W: 15/69/70/115…). Null para Manual.</summary>
     public string? EstadoOrigen { get; private set; }
 
+    /// <summary>
+    /// Clase del pedido manual (R2 / F6.1): venta directa o emergencia. Sólo
+    /// aplica a <see cref="OrigenPedido.Manual"/>; <c>null</c> en A+W/Planta
+    /// Pintura y en pedidos manuales capturados antes de F6.1 (legacy), que
+    /// deben clasificarse antes de facturarse.
+    /// </summary>
+    public ClasePedidoManual? ClaseManual { get; private set; }
+
+    /// <summary>Subtipo de la venta directa (activo, almacenable, servicio). Sólo con <see cref="ClasePedidoManual.VentaDirecta"/>.</summary>
+    public SubtipoVentaDirecta? SubtipoVentaDirecta { get; private set; }
+
+    /// <summary>Motivo de la captura de emergencia (≤ 500). Obligatorio con <see cref="ClasePedidoManual.Emergencia"/>.</summary>
+    public string? MotivoEmergencia { get; private set; }
+
+    /// <summary>
+    /// Referencia opcional al pedido A+W relacionado (≤ 50), p. ej. el pedido
+    /// que se capturará en A+W cuando vuelva el servicio. Informativa: no se
+    /// usa para conciliar ni para write-back.
+    /// </summary>
+    public string? ReferenciaPedidoAw { get; private set; }
+
+    /// <summary>
+    /// Pedido manual clasificado (venta directa o emergencia): se factura con la
+    /// serie dedicada <c>VentaDirecta</c> de la sucursal y no se informa a A+W (F6.1).
+    /// </summary>
+    public bool EsVentaDirectaManual => Origen == OrigenPedido.Manual && ClaseManual is not null;
+
+    /// <summary>Pedido manual capturado en emergencia (A+W fuera de servicio).</summary>
+    public bool EsEmergencia => Origen == OrigenPedido.Manual && ClaseManual == ClasePedidoManual.Emergencia;
+
+    /// <summary>Pedido manual capturado antes de F6.1 (sin clase): no se factura hasta clasificarlo.</summary>
+    public bool EsManualSinClasificar => Origen == OrigenPedido.Manual && ClaseManual is null;
+
     private readonly List<PedidoFacturableLinea> _lineas = [];
     public IReadOnlyCollection<PedidoFacturableLinea> Lineas => _lineas.AsReadOnly();
 
@@ -134,8 +167,13 @@ public sealed class PedidoFacturable : BaseEntity, IPerteneceAEmpresa, IFiscalme
         long? obraId,
         string? obraNombre,
         string? comentarios,
-        Guid? capturadoPor) =>
-        new(
+        Guid? capturadoPor,
+        ClasePedidoManual? claseManual,
+        SubtipoVentaDirecta? subtipoVentaDirecta,
+        string? motivoEmergencia,
+        string? referenciaPedidoAw)
+    {
+        var pedido = new PedidoFacturable(
             id: Guid.CreateVersion7(),
             empresaId: empresaId,
             origen: OrigenPedido.Manual,
@@ -153,6 +191,9 @@ public sealed class PedidoFacturable : BaseEntity, IPerteneceAEmpresa, IFiscalme
             versionOrigen: null,
             estadoOrigen: null,
             estado: EstadoPedidoFacturable.Importado);
+        pedido.EstablecerClasificacionManual(claseManual, subtipoVentaDirecta, motivoEmergencia, referenciaPedidoAw);
+        return pedido;
+    }
 
     /// <summary>
     /// Ingesta un pedido desde A+W en <see cref="EstadoPedidoFacturable.Importado"/>
@@ -370,7 +411,11 @@ public sealed class PedidoFacturable : BaseEntity, IPerteneceAEmpresa, IFiscalme
         string moneda,
         long? obraId,
         string? obraNombre,
-        string? comentarios)
+        string? comentarios,
+        ClasePedidoManual? claseManual,
+        SubtipoVentaDirecta? subtipoVentaDirecta,
+        string? motivoEmergencia,
+        string? referenciaPedidoAw)
     {
         AsegurarEditable("editar cabecera");
 
@@ -389,6 +434,86 @@ public sealed class PedidoFacturable : BaseEntity, IPerteneceAEmpresa, IFiscalme
         ObraId = obraId;
         ObraNombre = obraNombre;
         Comentarios = comentarios;
+
+        // F6.1: un pedido manual legacy (sin clase) queda clasificado al editarlo;
+        // la validación exige la clase igual que en la captura.
+        EstablecerClasificacionManual(claseManual, subtipoVentaDirecta, motivoEmergencia, referenciaPedidoAw);
+    }
+
+    /// <summary>
+    /// Compuerta de facturación F6.1: un pedido manual capturado antes de la
+    /// clasificación (sin clase) no se factura hasta que el operador lo
+    /// clasifique como venta directa o emergencia.
+    /// </summary>
+    public void AsegurarClasificadoParaFacturar()
+    {
+        if (EsManualSinClasificar)
+            throw new BusinessRuleException(
+                "PEDIDO_MANUAL_SIN_CLASIFICAR",
+                "Clasifica el pedido manual (venta directa o emergencia) antes de facturarlo.");
+    }
+
+    /// <summary>
+    /// Valida y aplica la clase del pedido manual (R2 / F6.1). No existe clase
+    /// «producción» (F6.1-b): sin clase válida el pedido manual se rechaza.
+    /// <list type="bullet">
+    ///   <item>Venta directa exige subtipo; Emergencia exige motivo y no lleva subtipo.</item>
+    ///   <item>Subtipo Activo ⇔ comportamiento fiscal <c>VentaActivoFijo</c>
+    ///   (en ambos sentidos), para que la autorización del Contador General
+    ///   se exija siempre al timbrar (CA6.12).</item>
+    /// </list>
+    /// </summary>
+    private void EstablecerClasificacionManual(
+        ClasePedidoManual? claseManual,
+        SubtipoVentaDirecta? subtipoVentaDirecta,
+        string? motivoEmergencia,
+        string? referenciaPedidoAw)
+    {
+        if (claseManual is null || !Enum.IsDefined(claseManual.Value))
+            throw new BusinessRuleException(
+                "PEDIDO_MANUAL_CLASE_REQUERIDA",
+                "Indica la clase del pedido manual: venta directa o emergencia.");
+        if (subtipoVentaDirecta is { } st && !Enum.IsDefined(st))
+            throw new BusinessRuleException(
+                "PEDIDO_VD_SUBTIPO_REQUERIDO",
+                "El subtipo de venta directa no es válido (activo, almacenable o servicio).");
+
+        var motivo = string.IsNullOrWhiteSpace(motivoEmergencia) ? null : motivoEmergencia.Trim();
+        var referencia = string.IsNullOrWhiteSpace(referenciaPedidoAw) ? null : referenciaPedidoAw.Trim();
+        if (motivo is { Length: > 500 })
+            throw new BusinessRuleException("PEDIDO_EMERGENCIA_MOTIVO_INVALIDO", "El motivo de emergencia no puede exceder 500 caracteres.");
+        if (referencia is { Length: > 50 })
+            throw new BusinessRuleException("PEDIDO_REFERENCIA_AW_INVALIDA", "La referencia al pedido A+W no puede exceder 50 caracteres.");
+
+        if (claseManual == ClasePedidoManual.VentaDirecta)
+        {
+            if (subtipoVentaDirecta is null)
+                throw new BusinessRuleException(
+                    "PEDIDO_VD_SUBTIPO_REQUERIDO",
+                    "Indica el subtipo de la venta directa: activo, almacenable o servicio.");
+        }
+        else
+        {
+            if (motivo is null)
+                throw new BusinessRuleException(
+                    "PEDIDO_EMERGENCIA_MOTIVO_REQUERIDO",
+                    "Indica el motivo de la captura de emergencia.");
+            if (subtipoVentaDirecta is not null)
+                throw new BusinessRuleException(
+                    "PEDIDO_EMERGENCIA_SIN_SUBTIPO",
+                    "Un pedido de emergencia no lleva subtipo de venta directa.");
+        }
+
+        var esActivo = subtipoVentaDirecta == Pedidos.SubtipoVentaDirecta.Activo;
+        if (esActivo != (ComportamientoFiscal == ComportamientoFiscal.VentaActivoFijo))
+            throw new BusinessRuleException(
+                "PEDIDO_ACTIVO_COMPORTAMIENTO",
+                "La venta de un activo fijo va con el comportamiento fiscal «Venta de activo fijo», y ese comportamiento sólo aplica al subtipo Activo.");
+
+        ClaseManual = claseManual;
+        SubtipoVentaDirecta = subtipoVentaDirecta;
+        MotivoEmergencia = claseManual == ClasePedidoManual.Emergencia ? motivo : null;
+        ReferenciaPedidoAw = referencia;
     }
 
     /// <summary>Reemplaza todas las líneas (edición). Sólo Importado.</summary>

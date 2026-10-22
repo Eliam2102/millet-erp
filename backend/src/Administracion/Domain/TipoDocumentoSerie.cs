@@ -16,6 +16,11 @@ namespace Millet.Administracion.Domain;
 ///   <see cref="Cfdi"/> porque <c>ReservarFolioCommand</c> resuelve una sola
 ///   serie activa por (empresa, sucursal, tipo): el anticipo necesita su
 ///   propio prefijo para no consumir el folio de las facturas de venta.</item>
+///   <item><see cref="VentaDirecta"/>: Facturación — serie CFDI dedicada a la
+///   venta directa del ERP (pedidos manuales de venta directa o emergencia,
+///   F6.1 / P6.1). Siempre <b>por sucursal</b> (sin serie global de respaldo);
+///   mismo precedente que <see cref="FacturaAnticipo"/>: un prefijo propio para
+///   no consumir el folio de las facturas de pedidos A+W.</item>
 /// </list>
 ///
 /// El valor numérico (<c>short</c>) está fijo por ABI — agregar nuevos
@@ -28,4 +33,5 @@ public enum TipoDocumentoSerie : short
     NotaCredito = 3,
     Poliza = 4,
     FacturaAnticipo = 5,
+    VentaDirecta = 6,
 }

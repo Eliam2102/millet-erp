@@ -7,6 +7,8 @@ using Millet.SharedKernel.Application.Exceptions;
 
 namespace Millet.Almacen.Infrastructure.PublicAdapters;
 
+public sealed record ApartadoLineaLectura(Guid LineaRequisicionId, Guid ArticuloId, decimal Pendiente, decimal Liberada, string? UltimoMotivo);
+
 // Open Host Service: sólo Almacén escribe sus apartados. El llamador une la TX.
 public sealed class ApartadosRequisicionService(AlmacenDbContext db, IAlmacenSaldoQueryPort saldos)
 {
@@ -22,9 +24,11 @@ public sealed class ApartadosRequisicionService(AlmacenDbContext db, IAlmacenSal
     }
 
     public async Task<decimal> ApartarAsync(Guid empresaId, Guid sucursalId, Guid rqId,
-        Guid lineaId, Guid articuloId, decimal solicitada, CancellationToken ct)
+        Guid lineaId, Guid articuloId, decimal solicitada, CancellationToken ct, bool soloCompleto = false)
     {
         var disponible = await saldos.ConsultarDisponibilidadPorSucursalAsync(sucursalId, articuloId, ct);
+        // Surtido completo (86e3tferc): si no alcanza la línea entera, no se aparta nada.
+        if (soloCompleto && disponible.CantidadDisponible < solicitada) return 0m;
         var cantidad = Math.Min(solicitada, disponible.CantidadDisponible);
         if (cantidad > 0)
         {
@@ -39,6 +43,24 @@ public sealed class ApartadosRequisicionService(AlmacenDbContext db, IAlmacenSal
     {
         var apartados = await db.ApartadosRequisicion.Where(a => a.RequisicionId == rqId && a.Pendiente > 0).ToListAsync(ct);
         foreach (var a in apartados) a.Liberar();
+        await db.SaveChangesAsync(ct);
+    }
+
+    public async Task<IReadOnlyList<ApartadoLineaLectura>> ConsultarPorRequisicionAsync(Guid rqId, CancellationToken ct)
+    {
+        var filas = await db.ApartadosRequisicion.AsNoTracking().Where(a => a.RequisicionId == rqId).ToListAsync(ct);
+        return filas.GroupBy(a => a.LineaRequisicionId).Select(g => new ApartadoLineaLectura(
+            g.Key, g.First().ArticuloId, g.Sum(a => a.Pendiente), g.Sum(a => a.CantidadLiberada),
+            g.Select(a => a.MotivoLiberacion).LastOrDefault(m => m is not null))).ToList();
+    }
+
+    // El llamador ya unió la TX y tomó el lock con BloquearAsync.
+    public async Task LiberarLineaAsync(Guid rqId, Guid lineaId, decimal cantidadBase, string motivo, CancellationToken ct)
+    {
+        var apartado = await db.ApartadosRequisicion
+            .FirstOrDefaultAsync(a => a.RequisicionId == rqId && a.LineaRequisicionId == lineaId && a.Pendiente > 0, ct)
+            ?? throw new BusinessRuleException("APARTADO_SIN_PENDIENTE", "La línea no tiene existencia apartada pendiente.");
+        apartado.Liberar(cantidadBase, motivo);
         await db.SaveChangesAsync(ct);
     }
 

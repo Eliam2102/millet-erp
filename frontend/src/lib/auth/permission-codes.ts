@@ -8,6 +8,27 @@
  * Uso: <c>useHasPermission(PermisosCanonicos.IdentidadUsuariosCrear)</c>.
  */
 export const PermisosCanonicos = {
+  ActivosFijosDepreciacionCorrer: 'activos_fijos.depreciacion.correr',
+  ActivosFijosDepreciacionAnular: 'activos_fijos.depreciacion.anular',
+  ActivosFijosBajasRegistrar: 'activos_fijos.bajas.registrar',
+  ActivosFijosBajasAutorizar: 'activos_fijos.bajas.autorizar',
+  ActivosFijosAjustesRegistrar: 'activos_fijos.ajustes.registrar',
+  ActivosFijosAjustesAutorizar: 'activos_fijos.ajustes.autorizar',
+  ActivosFijosCargaEjecutar: 'activos_fijos.carga.ejecutar',
+  ActivosFijosConciliacionVer: 'activos_fijos.conciliacion.ver',
+  ActivosFijosDocumentosGestionar: 'activos_fijos.documentos.gestionar',
+  ActivosFijosMantenimientosGestionar: 'activos_fijos.mantenimientos.gestionar',
+  ActivosFijosEtiquetasImprimir: 'activos_fijos.etiquetas.imprimir',
+  ActivosFijosConteosGestionar: 'activos_fijos.conteos.gestionar',
+  ActivosFijosConteosAutorizar: 'activos_fijos.conteos.autorizar',
+  ActivosFijosClasesAdministrar: 'activos_fijos.clases.administrar',
+  ActivosFijosActivosVer: 'activos_fijos.activos.ver',
+  ActivosFijosActivosGestionar: 'activos_fijos.activos.gestionar',
+  ActivosFijosCapitalizar: 'activos_fijos.capitalizar',
+  ActivosFijosTrasladosGestionar: 'activos_fijos.traslados.gestionar',
+  ActivosFijosLeerTodasSucursales: 'activos_fijos.activos.leer-todas-sucursales',
+  ActivosFijosGestionarTodasSucursales: 'activos_fijos.activos.gestionar-todas-sucursales',
+
   // Infraestructura
   InfraHealthLeer: 'infra.health.leer',
   InfraAuditLogLeer: 'infra.audit_log.leer',
@@ -42,6 +63,7 @@ export const PermisosCanonicos = {
   ComprasRequisicionesEliminar: 'compras.requisiciones.eliminar',
   ComprasRequisicionesCancelar: 'compras.requisiciones.cancelar',
   ComprasRequisicionesCerrarManual: 'compras.requisiciones.cerrar-manual',
+  ComprasRequisicionesLiberarApartado: 'compras.requisiciones.liberar-apartado',
   ComprasRequisicionesAutorizarNivel1: 'compras.requisiciones.autorizar-nivel1',
   ComprasRequisicionesAutorizarNivel2: 'compras.requisiciones.autorizar-nivel2',
   ComprasRequisicionesRechazar: 'compras.requisiciones.rechazar',
@@ -75,6 +97,7 @@ export const PermisosCanonicos = {
   ComprasOrdenesReportesPartidasAbiertas:
     'compras.ordenes.reportes-partidas-abiertas',
   ComprasOrdenesRegistrarRespuestaProveedor: 'compras.ordenes.registrar-respuesta-proveedor',
+  ComprasOrdenesRegistrarIncidenciaProveedor: 'compras.ordenes.registrar-incidencia-proveedor',
 
   // Compras — Cotizaciones (F1-COM-02)
   ComprasCotizacionesLeer: 'compras.cotizaciones.leer',
@@ -148,6 +171,7 @@ export const PermisosCanonicos = {
   DatosMaestrosClientesSincronizar: 'datos_maestros.clientes.sincronizar',
   DatosMaestrosClientesOrigenVer: 'datos_maestros.clientes.origen-ver',
   DatosMaestrosClientesFiscalEditar: 'datos_maestros.clientes.fiscal-editar',
+  DatosMaestrosClientesUnificar: 'datos_maestros.clientes.unificar',
   DatosMaestrosProductosAwGestionar: 'datos_maestros.productos-aw.gestionar',
   // U1.8b (F1-FAC-14): reporte de diferencias fiscales A+W vs ERP.
   DatosMaestrosDiferenciasFiscalesAwLeer:
@@ -377,6 +401,8 @@ export const PermisosCanonicos = {
   FacturacionPedidosCapturar: 'facturacion.pedidos.capturar',
   FacturacionPedidosExcepcionesResolver:
     'facturacion.pedidos.excepciones-resolver',
+  // F6.1: captura de pedidos manuales de emergencia (A+W fuera de servicio).
+  FacturacionPedidosCapturarEmergencia: 'facturacion.pedidos.capturar-emergencia',
   FacturacionFacturasEmitir: 'facturacion.facturas.emitir',
   FacturacionFacturasLeer: 'facturacion.facturas.leer',
   // CTA "Corregir en catálogo" del receptor en la emisión (detallado
@@ -443,6 +469,9 @@ export const PermisosCanonicos = {
   ContabilidadRecurrentesLeer: 'contabilidad.recurrentes.leer',
   ContabilidadRecurrentesAdministrar: 'contabilidad.recurrentes.administrar',
   ContabilidadRecurrentesAutorizar: 'contabilidad.recurrentes.autorizar',
+  ComercioExteriorGastosRegistrar: 'comercio_exterior.gastos.registrar',
+  ComercioExteriorGastosDistribuir: 'comercio_exterior.gastos.distribuir',
+  ComercioExteriorAnticiposGestionar: 'comercio_exterior.anticipos.gestionar',
   ComercioExteriorOtrGestionar: 'comercio_exterior.otr.gestionar',
   ComercioExteriorContenedoresGestionar: 'comercio_exterior.expedientes.contenedores-gestionar',
   ComercioExteriorRelacionIvaLeer: 'comercio_exterior.relacion-iva.leer',
@@ -450,6 +479,7 @@ export const PermisosCanonicos = {
   ComercioExteriorExpedientesCrear: 'comercio_exterior.expedientes.crear',
   ComercioExteriorExpedientesEditar: 'comercio_exterior.expedientes.editar',
   ComercioExteriorExpedientesCancelar: 'comercio_exterior.expedientes.cancelar',
+  ComercioExteriorIncidenciasGestionar: 'comercio_exterior.incidencias.gestionar',
   ComercioExteriorExpedientesCerrar: 'comercio_exterior.expedientes.cerrar',
   ComercioExteriorExpedientesHitosRegistrar: 'comercio_exterior.expedientes.hitos-registrar',
   ComercioExteriorExpedientesDocumentosRevisar: 'comercio_exterior.expedientes.documentos-revisar',

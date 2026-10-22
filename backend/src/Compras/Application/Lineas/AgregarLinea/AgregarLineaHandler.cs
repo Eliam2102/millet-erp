@@ -31,6 +31,7 @@ namespace Millet.Compras.Application.Lineas.AgregarLinea;
 /// </summary>
 public sealed class AgregarLineaHandler : IRequestHandler<AgregarLineaCommand, AgregarLineaResponse>
 {
+    private readonly Millet.Compras.Domain.Ports.IClaseActivoCompraReadPort? _clasesActivos;
     private readonly ComprasDbContext _db;
     private readonly CompartidoDbContext _compartido;
     private readonly IDecimalesUnidadGuard _decimalesGuard;
@@ -40,8 +41,9 @@ public sealed class AgregarLineaHandler : IRequestHandler<AgregarLineaCommand, A
         ComprasDbContext db,
         CompartidoDbContext compartido,
         IDecimalesUnidadGuard decimalesGuard,
-        Millet.CentrosCosto.Application.PublicPorts.ICentroCostoCapturaPort capturaCentroCosto)
+        Millet.CentrosCosto.Application.PublicPorts.ICentroCostoCapturaPort capturaCentroCosto, Millet.Compras.Domain.Ports.IClaseActivoCompraReadPort? clasesActivos = null)
     {
+        _clasesActivos = clasesActivos;
         _db = db;
         _compartido = compartido;
         _decimalesGuard = decimalesGuard;
@@ -74,6 +76,10 @@ public sealed class AgregarLineaHandler : IRequestHandler<AgregarLineaCommand, A
                 $"El artículo '{articulo.Clave}' está {articulo.Estatus} y no puede usarse en líneas nuevas.");
         }
 
+        ArticulosPorClasificacion.Validar(requisicion.Clasificacion, articulo);
+        if (command.EsActivoFijo && (command.ClaseActivoId is not Guid claseId || _clasesActivos is null || !await _clasesActivos.EsActivaAsync(claseId, cancellationToken)))
+            throw new BusinessRuleException("COMPRA_CLASE_ACTIVO_INVALIDA", "Seleccione una clase de activo activa de la empresa.");
+
         // ADR-0046 Etapa 2: la cantidad no puede exceder los decimales de la
         // unidad del artículo (FK NULL → no valida).
         await _decimalesGuard.ValidarAsync(
@@ -93,7 +99,7 @@ public sealed class AgregarLineaHandler : IRequestHandler<AgregarLineaCommand, A
             centroCostoId: centroCostoId,
             proyecto: command.Proyecto,
             fechaRequerida: command.FechaRequerida,
-            notas: command.Notas);
+            notas: command.Notas, esActivoFijo: command.EsActivoFijo, claseActivoId: command.ClaseActivoId);
 
         await _db.SaveChangesAsync(cancellationToken);
 

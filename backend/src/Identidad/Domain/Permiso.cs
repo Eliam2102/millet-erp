@@ -31,7 +31,8 @@ public sealed class Permiso : BaseEntity, IAuditable
         if (string.IsNullOrWhiteSpace(descripcion))
             throw new ArgumentException("Descripcion es requerida.", nameof(descripcion));
 
-        var partes = codigo.Split('.');
+        // P3 exige conservar este código de dos segmentos; el recurso contable es activos.
+        var partes = codigo == PermisosCanonicos.ActivosFijosCapitalizar ? "activos_fijos.activos.capitalizar".Split('.') : codigo.Split('.');
         if (partes.Length != 3 || partes.Any(string.IsNullOrWhiteSpace))
             throw new ArgumentException(
                 $"Codigo de permiso inválido: '{codigo}'. Formato esperado: 'modulo.recurso.accion'.",

@@ -151,7 +151,7 @@ describe('<ArticuloSelector>', () => {
     // seleccionado guardado, no caer al UUID.
     mswServer.use(
       http.get('*/api/v1/catalogos/articulos', ({ request }) => {
-        const clave = new URL(request.url).searchParams.get('clave');
+        const clave = new URL(request.url).searchParams.get('q');
         const item = {
           id: 'art-x',
           clave: 'SOLV-001',
@@ -177,7 +177,7 @@ describe('<ArticuloSelector>', () => {
     render(<Controlled />, { wrapper: createQueryWrapper() });
 
     fireEvent.click(screen.getByRole('combobox'));
-    fireEvent.change(screen.getByPlaceholderText('Buscar por clave…'), {
+    fireEvent.change(screen.getByPlaceholderText('Buscar por clave o nombre…'), {
       target: { value: 'SOLV' },
     });
     fireEvent.click(await screen.findByText('Solvente industrial'));
@@ -187,91 +187,80 @@ describe('<ArticuloSelector>', () => {
     ).toBeInTheDocument();
   });
 
-  // --- Búsqueda por nombre + exclusividad (ADR-0045) ---
+  // --- Caja única `q` (86e3ufkgd): sustituye las dos cajas de ADR-0045 ---
 
-  it('por defecto renderiza las dos cajas (clave y nombre)', () => {
+  it('renderiza una sola caja de búsqueda por clave o nombre', () => {
     render(<ArticuloSelector value={null} onChange={() => {}} />, {
       wrapper: createQueryWrapper(),
     });
     fireEvent.click(screen.getByRole('combobox'));
-    expect(screen.getByPlaceholderText('Buscar por clave…')).toBeInTheDocument();
-    expect(screen.getByPlaceholderText('Buscar por nombre…')).toBeInTheDocument();
-  });
-
-  it('con permitirBusquedaPorNombre=false solo renderiza la caja de clave', () => {
-    render(
-      <ArticuloSelector
-        value={null}
-        onChange={() => {}}
-        permitirBusquedaPorNombre={false}
-      />,
-      { wrapper: createQueryWrapper() },
-    );
-    fireEvent.click(screen.getByRole('combobox'));
-    expect(screen.getByPlaceholderText('Buscar por clave…')).toBeInTheDocument();
+    expect(screen.getAllByRole('textbox')).toHaveLength(1);
     expect(
-      screen.queryByPlaceholderText('Buscar por nombre…'),
-    ).not.toBeInTheDocument();
+      screen.getByRole('textbox', { name: 'Buscar artículo' }),
+    ).toHaveAttribute('placeholder', 'Buscar por clave o nombre…');
   });
 
-  it('al escribir en la caja de nombre, manda ?nombre= y deshabilita la caja de clave', async () => {
-    let urlVisto: string | null = null;
+  it.each([
+    ['fragmento de nombre', 'papeleria'],
+    ['clave', 'TORN'],
+  ])('busca por %s: manda ?q= (no clave ni nombre)', async (_n, texto) => {
+    let urlVisto = '';
     mswServer.use(
       http.get('*/api/v1/catalogos/articulos', ({ request }) => {
         urlVisto = request.url;
         return HttpResponse.json({ items: [], offset: 0, limit: 50, total: 0 });
       }),
     );
-
     render(<ArticuloSelector value={null} onChange={() => {}} />, {
       wrapper: createQueryWrapper(),
     });
-
     fireEvent.click(screen.getByRole('combobox'));
-    fireEvent.change(screen.getByPlaceholderText('Buscar por nombre…'), {
-      target: { value: 'papeleria' },
+    fireEvent.change(screen.getByRole('textbox', { name: 'Buscar artículo' }), {
+      target: { value: texto },
     });
-
-    // Exclusividad en UI: la caja de clave queda deshabilitada.
-    expect(screen.getByPlaceholderText('Buscar por clave…')).toBeDisabled();
-
-    // El término viaja como ?nombre= (no como clave). Debounce 300ms.
-    await waitFor(() => expect(urlVisto).toContain('nombre=papeleria'));
+    await waitFor(() => expect(urlVisto).toContain(`q=${texto}`));
     expect(urlVisto).not.toContain('clave=');
+    expect(urlVisto).not.toContain('nombre=');
+    expect(
+      await screen.findByText(`Ningún artículo activo coincide con "${texto}".`),
+    ).toBeInTheDocument();
   });
 
-  it('al escribir en la caja de clave, deshabilita la caja de nombre', () => {
+  it('con tipoRequisicion, el término viaja junto con el tipo', async () => {
+    let urlVisto = '';
+    mswServer.use(
+      http.get('*/api/v1/catalogos/articulos', ({ request }) => {
+        urlVisto = request.url;
+        return HttpResponse.json({ items: [], offset: 0, limit: 50, total: 0 });
+      }),
+    );
+    render(
+      <ArticuloSelector value={null} onChange={() => {}} tipoRequisicion={0} />,
+      { wrapper: createQueryWrapper() },
+    );
+    fireEvent.click(screen.getByRole('combobox'));
+    fireEvent.change(screen.getByRole('textbox', { name: 'Buscar artículo' }), {
+      target: { value: 'limpieza' },
+    });
+    await waitFor(() => expect(urlVisto).toContain('q=limpieza'));
+    expect(urlVisto).toContain('tipoRequisicion=0');
+  });
+
+  it('con tipoRequisicion y sin artículos de ese tipo, lo dice', async () => {
     mswServer.use(
       http.get('*/api/v1/catalogos/articulos', () =>
         HttpResponse.json({ items: [], offset: 0, limit: 50, total: 0 }),
       ),
     );
-    render(<ArticuloSelector value={null} onChange={() => {}} />, {
-      wrapper: createQueryWrapper(),
-    });
-    fireEvent.click(screen.getByRole('combobox'));
-    fireEvent.change(screen.getByPlaceholderText('Buscar por clave…'), {
-      target: { value: 'TORN' },
-    });
-    expect(screen.getByPlaceholderText('Buscar por nombre…')).toBeDisabled();
-    expect(screen.getByPlaceholderText('Buscar por clave…')).not.toBeDisabled();
-  });
-
-  it('limpiar la caja activa rehabilita la otra (exclusividad reversible)', () => {
-    mswServer.use(
-      http.get('*/api/v1/catalogos/articulos', () =>
-        HttpResponse.json({ items: [], offset: 0, limit: 50, total: 0 }),
-      ),
+    render(
+      <ArticuloSelector value={null} onChange={() => {}} tipoRequisicion={2} />,
+      { wrapper: createQueryWrapper() },
     );
-    render(<ArticuloSelector value={null} onChange={() => {}} />, {
-      wrapper: createQueryWrapper(),
-    });
     fireEvent.click(screen.getByRole('combobox'));
-    const clave = screen.getByPlaceholderText('Buscar por clave…');
-    fireEvent.change(clave, { target: { value: 'TORN' } });
-    expect(screen.getByPlaceholderText('Buscar por nombre…')).toBeDisabled();
-
-    fireEvent.change(clave, { target: { value: '' } });
-    expect(screen.getByPlaceholderText('Buscar por nombre…')).not.toBeDisabled();
+    expect(
+      await screen.findByText(
+        'No hay artículos dados de alta para este tipo de requisición.',
+      ),
+    ).toBeInTheDocument();
   });
 });

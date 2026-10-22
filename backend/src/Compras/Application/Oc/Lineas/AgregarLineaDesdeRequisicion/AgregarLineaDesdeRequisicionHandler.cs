@@ -152,7 +152,7 @@ public sealed class AgregarLineaDesdeRequisicionHandler
                 requisicionId: rq.Id,
                 lineaRequisicionId: lineaRq.Id,
                 // Fase E PR3: el CC-Máquina se hereda 1:1 de la línea de RQ.
-                centroCostoId: lineaRq.CentroCostoId,
+                centroCostoId: lineaRq.CentroCostoId, esActivoFijo: lineaRq.EsActivoFijo, claseActivoId: lineaRq.ClaseActivoId,
                 esServicio: articulos.TryGetValue(lineaRq.ArticuloId, out var articulo)
                     && articulo.EsServicio);
             lineasAgregadas++;

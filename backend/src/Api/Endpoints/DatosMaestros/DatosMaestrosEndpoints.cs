@@ -65,6 +65,7 @@ public static class DatosMaestrosEndpoints
         proveedores.MapGet("/", async (
             [FromQuery] string? rfc,
             [FromQuery] string? razonSocial,
+            [FromQuery] string? q,
             [FromQuery] TipoPersonaProveedor? tipoPersona,
             [FromQuery] EstatusCatalogo? estatus,
             [FromQuery] int? offset,
@@ -79,7 +80,8 @@ public static class DatosMaestrosEndpoints
                     TipoPersona: tipoPersona,
                     Estatus: estatus,
                     Offset: offset ?? 0,
-                    Limit: limit ?? 50),
+                    Limit: limit ?? 50,
+                    Q: q),
                 ct);
             return Results.Ok(response);
         })
