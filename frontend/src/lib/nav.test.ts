@@ -292,6 +292,12 @@ describe('visibilidad por permisos (sidebar y URLs)', () => {
     ).toBe(true);
   });
 
+  it('análisis de proveedores: sin su permiso ni el menú ni la URL', () => {
+    const url = '/compras/reportes/analisis-proveedores';
+    expect(rutaPermitida(url, [P.ComprasOrdenesLeer])).toBe(false);
+    expect(rutaPermitida(url, [P.ComprasOrdenesReportesAnalisisProveedores])).toBe(true);
+  });
+
   it('URL: permissionsAny acepta cualquiera', () => {
     expect(rutaPermitida('/compras/pendientes', [P.ComprasRequisicionesAutorizarNivel2])).toBe(
       true,

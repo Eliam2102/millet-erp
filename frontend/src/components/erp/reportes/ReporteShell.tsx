@@ -67,6 +67,10 @@ export interface ReporteShellProps<TFila> {
   etiquetaAccion?: string;
   /** Filas visibles; las exportaciones conservan el reporte completo. */
   filasVisibles?: readonly TFila[];
+  /** Notas que solo viajan en PDF/Excel (p. ej. fórmulas); en pantalla las muestra el caller. */
+  notasExport?: Record<string, string>;
+  /** Nivel del título; <c>h2</c> cuando la página ya tiene su propio H1. */
+  nivelTitulo?: 'h1' | 'h2';
 }
 
 export function ReporteShell<TFila>({
@@ -80,7 +84,10 @@ export function ReporteShell<TFila>({
   accionFila,
   etiquetaAccion = 'Acciones',
   filasVisibles,
+  notasExport,
+  nivelTitulo = 'h1',
 }: ReporteShellProps<TFila>) {
+  const Titulo = nivelTitulo;
   const getCelda =
     obtenerCelda ??
     ((row: TFila, clave: string) =>
@@ -89,15 +96,19 @@ export function ReporteShell<TFila>({
   const [descargandoPdf, setDescargandoPdf] = useState(false);
   const [descargandoExcel, setDescargandoExcel] = useState(false);
 
+  const paraExport = reporte && notasExport
+    ? { ...reporte, filtrosAplicados: { ...reporte.filtrosAplicados, ...notasExport } }
+    : reporte;
+
   async function descargarPdf() {
-    if (reporte == null) return;
+    if (reporte == null || paraExport == null) return;
     setDescargandoPdf(true);
     try {
       const { descargarReportePdf } = await import(
         '@/components/erp/reportes/exporters/reporte-pdf-exporter'
       );
       await descargarReportePdf(
-        reporte,
+        paraExport,
         nombreArchivo ?? slugify(reporte.titulo),
       );
     } catch (err) {
@@ -110,14 +121,14 @@ export function ReporteShell<TFila>({
   }
 
   async function descargarExcel() {
-    if (reporte == null) return;
+    if (reporte == null || paraExport == null) return;
     setDescargandoExcel(true);
     try {
       const { descargarReporteExcel } = await import(
         '@/components/erp/reportes/exporters/reporte-excel-exporter'
       );
       await descargarReporteExcel(
-        reporte,
+        paraExport,
         nombreArchivo ?? slugify(reporte.titulo),
       );
     } catch (err) {
@@ -156,9 +167,9 @@ export function ReporteShell<TFila>({
         <>
           <header className="flex flex-wrap items-center justify-between gap-3">
             <div>
-              <h1 className="text-2xl font-semibold tracking-tight">
+              <Titulo className="text-2xl font-semibold tracking-tight">
                 {reporte.titulo}
-              </h1>
+              </Titulo>
               <p className="text-xs text-muted-foreground">
                 Generado: {new Date(reporte.generadoEn).toLocaleString('es-MX')}
               </p>
