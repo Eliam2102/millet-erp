@@ -270,6 +270,7 @@ const CODIGOS_BACKEND_ESPERADOS = new Set<string>([
   'facturacion.pedidos.capturar',
   'facturacion.pedidos.excepciones-resolver',
   'facturacion.pedidos.capturar-emergencia',
+  'facturacion.pedidos.leer-credito',
   'facturacion.facturas.emitir',
   'facturacion.facturas.leer',
   'facturacion.facturas.editar-receptor',
