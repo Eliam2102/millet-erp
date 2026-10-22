@@ -7,7 +7,7 @@ namespace Millet.Compras.Domain.Oc;
 /// (incidencia, fecha compromiso): la revisión diaria no repite el aviso; una fecha reprogramada
 /// que vuelve a vencer genera otro.
 /// </summary>
-public sealed class AvisoIncidenciaProveedorOc : BaseEntity
+public sealed class AvisoIncidenciaProveedorOc : BaseEntity, INotAudited
 {
     public Guid IncidenciaProveedorOcId { get; private set; }
     public Guid OrdenCompraId { get; private set; }
