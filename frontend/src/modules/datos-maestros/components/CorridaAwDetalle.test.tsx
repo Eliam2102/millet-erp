@@ -75,16 +75,20 @@ describe('<CorridaAwDetalle>', () => {
     expect(nombre).toBe('diferencias-aw-0190aaaa.xlsx');
   });
 
-  it('el RFC repetido entre clientes de A+W se muestra como Informativo, no como Resuelto', async () => {
+  it('el RFC repetido pendiente se muestra «Por resolver» con acción «Resolver» y causa corta', async () => {
     arrancar(null, [{
       id: 'c1', tipoEntidad: 'Cliente', entidadId: null, referenciaExterna: '62', campo: 'RFC repetido entre clientes de A+W',
-      valorAntes: 'AW-61', valorDespues: 'DEMO010101AB1', dueno: 'AW', tipo: 'RfcCompartido', estado: 'Informativo',
-      causa: 'Dos clientes de A+W con la misma clave fiscal.', versionEvento: 'h', versionMatriz: '0-propuesta',
+      valorAntes: 'AW-61', valorDespues: 'DEMO010101AB1', dueno: 'AW', tipo: 'RfcCompartido', estado: 'Pendiente',
+      causa: 'Dos o más clientes de A+W con la misma clave fiscal DEMO010101AB1: AW-62 y AW-61. Elige el cliente principal para unificarlos.',
+      versionEvento: 'h', versionMatriz: '0-propuesta',
       ejecucionId: ID, ocurridoEnUtc: '2026-10-17T10:00:00Z', resolucion: null, version: 1,
     }]);
     const tabla = await screen.findByRole('tabpanel', { name: /^Conflictos/ });
-    expect((await within(tabla).findAllByText('Informativo')).length).toBeGreaterThan(0);
-    expect(within(tabla).queryByText('Resuelto')).not.toBeInTheDocument();
+    expect((await within(tabla).findAllByText('Por resolver')).length).toBeGreaterThan(0);
+    expect(within(tabla).getAllByText('DEMO010101AB1').length).toBeGreaterThan(0);
+    expect(within(tabla).getAllByText(/2 clientes/).length).toBeGreaterThan(0);
+    expect(within(tabla).getAllByRole('button', { name: 'Resolver' }).length).toBeGreaterThan(0);
+    expect(within(tabla).queryByText('Informativo')).not.toBeInTheDocument();
   });
 
   it('errores y conflictos van en pestañas; el error muestra cómo llegó de A+W y qué falta', async () => {

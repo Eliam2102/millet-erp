@@ -83,6 +83,11 @@ export function useResolverConflictoAw() {
 }
 
 type Variante = 'info' | 'warning' | 'success' | 'danger' | 'neutral';
+export const ESTADO_CAMBIO_AW: Record<EstadoCambioAw, { texto: string; variante: Variante }> = {
+  Pendiente: { texto: 'Por resolver', variante: 'warning' },
+  Resuelto: { texto: 'Resuelto', variante: 'success' },
+  Informativo: { texto: 'Informativo', variante: 'neutral' },
+};
 export const TIPO_CAMBIO_AW: Record<TipoCambioAw, { texto: string; variante: Variante }> = {
   Aplicado: { texto: 'Aplicado', variante: 'info' },
   Baja: { texto: 'Baja', variante: 'warning' },
@@ -160,18 +165,23 @@ export interface GrupoRfcRepetido {
   resuelto: boolean;
   clientes: ClienteRfcRepetido[];
 }
-export interface RfcRepetidosPagina { total: number; offset: number; limit: number; items: GrupoRfcRepetido[] }
-
 const RFC_REPETIDOS_KEY = [...SINCRONIZACION_AW_KEY, 'rfc-repetidos'] as const;
 
-export function useRfcRepetidos({ offset, limit, soloPendientes }: { offset: number; limit: number; soloPendientes: boolean }, enabled = true) {
+/** Un grupo de RFC repetido. 404 = el RFC ya no tiene clientes repetidos. */
+export function useRfcRepetido(rfc: string | null) {
   return useQuery({
-    queryKey: [...RFC_REPETIDOS_KEY, { offset, limit, soloPendientes }],
+    queryKey: [...RFC_REPETIDOS_KEY, rfc],
     queryFn: async ({ signal }) =>
-      (await apiRequest<RfcRepetidosPagina>(
-        `${base}/clientes/rfc-repetidos?limit=${limit}&offset=${offset}&soloPendientes=${soloPendientes}`, { signal })).data,
-    enabled,
+      (await apiRequest<GrupoRfcRepetido>(`${base}/clientes/rfc-repetidos/${encodeURIComponent(rfc ?? '')}`, { signal })).data,
+    enabled: !!rfc,
+    retry: false,
   });
+}
+
+/** Resumen corto de un conflicto de RFC repetido: RFC y referencias A+W tomadas de la causa. */
+export function resumenRfcCompartido(c: Pick<CambioMaestroAw, 'valorDespues' | 'causa'>) {
+  const refs = c.causa.match(/AW-[\w-]+/g) ?? [];
+  return { rfc: c.valorDespues ?? '', refs, clientes: Math.max(refs.length, 2) };
 }
 
 export function useUnificarClientesRfc() {
@@ -182,7 +192,7 @@ export function useUnificarClientesRfc() {
         method: 'POST', body, idempotencyKey: crypto.randomUUID(),
       })).data,
     onSuccess: () => {
-      void queryClient.invalidateQueries({ queryKey: RFC_REPETIDOS_KEY });
+      void queryClient.invalidateQueries({ queryKey: SINCRONIZACION_AW_KEY });
       void queryClient.invalidateQueries({ queryKey: ['datos-maestros', 'clientes'] });
     },
   });

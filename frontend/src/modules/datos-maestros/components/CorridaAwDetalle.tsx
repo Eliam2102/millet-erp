@@ -39,7 +39,10 @@ import {
   TIPO_CAMBIO_AW,
   useConflictosAw,
   useIniciarCorridaAw,
+  type CambioMaestroAw,
 } from '@/modules/datos-maestros/api/sincronizacion-aw';
+import { CausaConflictoAw, EstadoConflictoAwBadge } from '@/modules/datos-maestros/components/ConflictoAwCeldas';
+import { UnificarClientesRfcSheet } from '@/modules/datos-maestros/components/UnificarClientesRfcSheet';
 import { CorridaEnCursoBanner } from '@/modules/datos-maestros/components/CorridaEnCursoBanner';
 import { EstadoCorridaBadge } from '@/modules/datos-maestros/components/EstadoCorridaBadge';
 import { usePaginacionLocal } from '@/modules/datos-maestros/lib/use-paginacion-local';
@@ -56,6 +59,7 @@ export function CorridaAwDetalle({ id }: { id: string }) {
   const iniciar = useIniciarCorridaAw();
   const reintentar = useReintentarCliente();
   const [descargando, setDescargando] = useState(false);
+  const [unificando, setUnificando] = useState<CambioMaestroAw | null>(null);
 
   const e = ejecucion.data;
   const fecha = fechaCorridaAw(e?.iniciadaEnUtc);
@@ -276,6 +280,7 @@ export function CorridaAwDetalle({ id }: { id: string }) {
                           <TableHead>Tipo</TableHead>
                           <TableHead>Causa</TableHead>
                           <TableHead>Estado</TableHead>
+                          <TableHead>Acción</TableHead>
                         </TableRow>
                       </TableHeader>
                       <TableBody>
@@ -287,8 +292,13 @@ export function CorridaAwDetalle({ id }: { id: string }) {
                                 {TIPO_CAMBIO_AW[c.tipo].texto}
                               </Badge>
                             </TableCell>
-                            <TableCell>{c.causa}</TableCell>
-                            <TableCell>{c.estado}</TableCell>
+                            <TableCell className="max-w-[28rem]"><CausaConflictoAw c={c} /></TableCell>
+                            <TableCell><EstadoConflictoAwBadge estado={c.estado} /></TableCell>
+                            <TableCell>
+                              {c.tipo === 'RfcCompartido' && c.estado === 'Pendiente' && (
+                                <Button size="sm" onClick={() => setUnificando(c)}>Resolver</Button>
+                              )}
+                            </TableCell>
                           </TableRow>
                         ))}
                       </TableBody>
@@ -316,6 +326,9 @@ export function CorridaAwDetalle({ id }: { id: string }) {
               )}
             </TabsContent>
           </Tabs>
+          {unificando && (
+            <UnificarClientesRfcSheet key={unificando.id} conflicto={unificando} onClose={() => setUnificando(null)} />
+          )}
         </>
       )}
     </div>
