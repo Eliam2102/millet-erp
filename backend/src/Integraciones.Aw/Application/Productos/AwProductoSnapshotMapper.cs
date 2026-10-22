@@ -51,11 +51,13 @@ public static class AwProductoSnapshotMapper
 
     /// <summary>
     /// UPPER(REPLACE(unidad,'²','2'), '³'→'3' y alias de A+W a códigos del catálogo <c>UnidadMedida</c>:
-    /// <c>&lt;INDF&gt;</c> (indefinido) = null, <c>M LIN.</c> = M, <c>LTR</c> = L. Vacío = null (sin equivalencia).
+    /// <c>M LIN.</c> = M, <c>LTR</c> = L. <c>&lt;INDF&gt;</c> (indefinido) y vacío = PZA: en AW_FULL son procesos,
+    /// servicios, anticipos y herrajes que se venden por unidad; el catálogo interno solo tiene unidades de medida
+    /// (la ClaveUnidad SAT, p. ej. E48/ACT, va en los datos fiscales del producto, no aquí).
     /// </summary>
-    public static string? NormalizarUnidad(string? u) => Limpiar(u)?.Replace('²', '2').Replace('³', '3').ToUpperInvariant() switch
+    public static string NormalizarUnidad(string? u) => Limpiar(u)?.Replace('²', '2').Replace('³', '3').ToUpperInvariant() switch
     {
-        "<INDF>" => null,
+        null or "<INDF>" => "PZA",
         "M LIN." => "M",
         "LTR" => "L",
         var x => x,

@@ -8,6 +8,7 @@ import {
 } from '@/modules/datos-maestros/api/keys';
 import type {
   ActualizarClientePayload,
+  ClienteAwOrigenDetalle,
   ClienteDetalle,
   ClienteItem,
   CrearClientePayload,
@@ -209,6 +210,22 @@ export function useEjecucionesSync(
       q.state.data?.items.some((e) => ESTADOS_VIVOS.includes(e.estado))
         ? 3000
         : false,
+  });
+}
+
+/** Lectura en vivo de una referencia de A+W (solo al abrir el detalle de un error). */
+export function useOrigenClienteAw(referencia: string, enabled: boolean) {
+  return useQuery({
+    queryKey: ['datos-maestros', 'clientes', 'origen-aw', referencia] as const,
+    enabled,
+    staleTime: 60_000,
+    queryFn: async ({ signal }) =>
+      (
+        await apiRequest<ClienteAwOrigenDetalle>(
+          `${SYNC_BASE}/origen/${encodeURIComponent(referencia)}`,
+          { signal },
+        )
+      ).data,
   });
 }
 

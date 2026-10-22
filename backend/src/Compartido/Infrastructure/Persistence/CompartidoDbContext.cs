@@ -1376,6 +1376,10 @@ public sealed class CompartidoDbContext : BaseDbContext
             .HasFilter("rfc NOT IN ('XAXX010101000','XEXX010101000')");
         cliente.HasOne<ClasificacionCliente>().WithMany().HasForeignKey(c => c.ClasificacionId).OnDelete(DeleteBehavior.Restrict);
         cliente.HasIndex(x => x.Estatus);
+        cliente.Property(x => x.UnificadoPor).HasMaxLength(200);
+        cliente.Property(x => x.MotivoUnificacion).HasMaxLength(300);
+        cliente.HasOne<Cliente>().WithMany().HasForeignKey(c => c.UnificadoEnClienteId).OnDelete(DeleteBehavior.Restrict);
+        cliente.HasIndex(x => x.UnificadoEnClienteId);
     }
 
     /// <summary>
