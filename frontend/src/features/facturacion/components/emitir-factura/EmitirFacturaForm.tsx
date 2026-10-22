@@ -7,9 +7,11 @@ import {
   ComportamientoFiscal,
   type ClienteLookupItem,
   type EmisorDefaultsResponse,
+  type EmitirFacturaVentaCommand,
   type EmitirFacturaVentaResponse,
 } from '@/features/facturacion/api/types';
 import { useEmisorDefaults, useEmitirFactura } from '@/features/facturacion/api/useFacturas';
+import { compararProforma } from '@/features/facturacion/api/useProformas';
 import { ErrorTimbradoAviso } from '@/features/facturacion/components/ErrorTimbradoAviso';
 import { errorEmisionVentaDirecta } from '@/features/facturacion/lib/errores-venta-directa';
 import { mostrarErrorReceptorFiscal } from '@/features/facturacion/lib/mostrar-error-receptor-fiscal';
@@ -29,6 +31,7 @@ import { useForm, useWatch } from 'react-hook-form';
 import { toast } from 'sonner';
 import { VistaPreviaButton } from '../vista-previa/VistaPreviaButton';
 import type { EmitirFacturaPrefill } from './prefill';
+import { DiferenciasProformaDialog, type ConfirmacionProforma } from './DiferenciasProformaDialog';
 import { resultadoEmision } from './resultado-emision';
 import { TabEncabezado } from './TabEncabezado';
 import { TabPosiciones } from './TabPosiciones';
@@ -178,6 +181,13 @@ function FormInner({
   // fijo; se elige con <AutorizacionPicker/> (FAC-UX-PR4).
   const [autorizacionId, setAutorizacionId] = useState('');
 
+  // U1.8a: antes de timbrar un pedido se compara contra su última proforma.
+  const [comparando, setComparando] = useState(false);
+  const [pendiente, setPendiente] = useState<{
+    confirmacion: ConfirmacionProforma;
+    command: EmitirFacturaVentaCommand;
+  } | null>(null);
+
   // Cliente de la factura (FAC-UX-PR4): del pedido en el flujo prellenado
   // o del <ClienteSelector/> en el manual. Habilita el picker de anticipos
   // y el autollenado fiscal del receptor.
@@ -268,15 +278,42 @@ function FormInner({
     onCancel();
   }
 
-  function onSubmit(values: EmitirFacturaValues) {
+  async function onSubmit(values: EmitirFacturaValues) {
     if (ceBloqueado || manualSinClase) return;
     if (esActivo && autorizacionId.trim() === '') {
       toast.error('La venta de activo fijo requiere el ID de autorización del Contador General.');
       return;
     }
-    emitir.mutate(
-      {
-        command: {
+    const command = construirComando(values);
+    const pedidoId = prefill?.pedidoFacturableId;
+    if (!pedidoId) {
+      emitirComando(command);
+      return;
+    }
+    setComparando(true);
+    try {
+      const comparacion = await compararProforma(pedidoId, command);
+      if (comparacion.hayProforma && comparacion.diferencias.length > 0) {
+        setPendiente({ confirmacion: { tipo: 'diferencias', comparacion }, command });
+        return;
+      }
+      emitirComando(command);
+    } catch {
+      setPendiente({ confirmacion: { tipo: 'error' }, command });
+    } finally {
+      setComparando(false);
+    }
+  }
+
+  function timbrarPendiente() {
+    if (pendiente == null) return;
+    const { command } = pendiente;
+    setPendiente(null);
+    emitirComando(command);
+  }
+
+  function construirComando(values: EmitirFacturaValues): EmitirFacturaVentaCommand {
+    return {
           sucursalId: values.sucursalId,
           receptorRfc: values.receptorRfc.toUpperCase(),
           receptorNombre: values.receptorNombre,
@@ -341,9 +378,12 @@ function FormInner({
             tasaRetencionIsr: l.tasaRetencionIsr,
             requierePedimento: l.requierePedimento,
           })),
-        },
-        idempotencyKey,
-      },
+    };
+  }
+
+  function emitirComando(command: EmitirFacturaVentaCommand) {
+    emitir.mutate(
+      { command, idempotencyKey },
       {
         onSuccess: (res) => {
           const aviso = resultadoEmision(res);
@@ -549,7 +589,9 @@ function FormInner({
             />
             <Button
               type="submit"
-              disabled={emitir.isPending || receptorBloqueado || ceBloqueado || manualSinClase}
+              disabled={
+                emitir.isPending || comparando || receptorBloqueado || ceBloqueado || manualSinClase
+              }
               title={
                 manualSinClase
                   ? 'Clasifica el pedido (venta directa o emergencia) antes de facturarlo.'
@@ -560,10 +602,19 @@ function FormInner({
                       : undefined
               }
             >
-              {emitir.isPending ? 'Emitiendo…' : 'Emitir y timbrar'}
+              {emitir.isPending
+                ? 'Emitiendo…'
+                : comparando
+                  ? 'Comparando con la proforma…'
+                  : 'Emitir y timbrar'}
             </Button>
           </>
         }
+      />
+      <DiferenciasProformaDialog
+        confirmacion={pendiente?.confirmacion ?? null}
+        onRevisar={() => setPendiente(null)}
+        onTimbrar={timbrarPendiente}
       />
     </form>
   );
