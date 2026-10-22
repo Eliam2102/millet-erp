@@ -36,6 +36,10 @@ vi.mock('@tanstack/react-router', () => ({
 
 function setupCatalogos() {
   mswServer.use(
+    http.get('*/api/v1/compras/ordenes/:id/envios', () =>
+      HttpResponse.json({ correoProveedor: null, esSimulado: true, puedeEnviar: false,
+        motivoBloqueo: 'Autoriza la orden con dos firmas distintas antes de enviarla.', envios: [] }),
+    ),
     http.get('*/api/v1/catalogos/proveedores', () =>
       HttpResponse.json({ items: [], offset: 0, limit: 200, total: 0 }),
     ),

@@ -1,3 +1,4 @@
+import { EnviosOcPanel } from '../components/EnviosOcPanel';
 import { PageHeader } from '@/components/erp/PageHeader';
 import { CancelacionOcPanel } from '../components/CancelacionOcPanel';
 import { IncidenciasProveedorPanel } from '../components/IncidenciasProveedorPanel';
@@ -241,6 +242,7 @@ export function DetalleOrdenCompra() {
 
         <StepperAutorizacionOc estado={oc.estado} />
         <CancelacionOcPanel oc={oc} />
+        <EnviosOcPanel key={oc.id} ordenCompraId={oc.id} />
         <RespuestaProveedorPanel oc={oc} />
         <IncidenciasProveedorPanel oc={oc} />
 
