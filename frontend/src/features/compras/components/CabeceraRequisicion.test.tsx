@@ -109,4 +109,11 @@ describe('<CabeceraRequisicion>', () => {
     // "Proveedor sugerido" exista.
     expect(screen.getByText('Proveedor sugerido')).toBeInTheDocument();
   });
+
+  it('muestra "Surtido: Completo" solo cuando la bandera está activa', () => {
+    const { rerender } = render(<CabeceraRequisicion rq={makeRq()} resolverNombre={resolverIdentidad} />);
+    expect(screen.queryByText(/Surtido: Completo/)).not.toBeInTheDocument();
+    rerender(<CabeceraRequisicion rq={makeRq({ soloApartarSiCompleto: true })} resolverNombre={resolverIdentidad} />);
+    expect(screen.getByText('Surtido: Completo')).toBeInTheDocument();
+  });
 });

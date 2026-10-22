@@ -345,6 +345,8 @@ export interface RequisicionListItemResponse {
  */
 export interface RequisicionResponse {
   obra?: string | null;
+  /** Surtido de almacén: true = solo aparta si alcanza la línea completa. */
+  soloApartarSiCompleto?: boolean;
   id: string;
   empresaId: string;
   folio: string;
