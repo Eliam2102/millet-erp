@@ -22,9 +22,11 @@ public sealed class ApartadosRequisicionService(AlmacenDbContext db, IAlmacenSal
     }
 
     public async Task<decimal> ApartarAsync(Guid empresaId, Guid sucursalId, Guid rqId,
-        Guid lineaId, Guid articuloId, decimal solicitada, CancellationToken ct)
+        Guid lineaId, Guid articuloId, decimal solicitada, CancellationToken ct, bool soloCompleto = false)
     {
         var disponible = await saldos.ConsultarDisponibilidadPorSucursalAsync(sucursalId, articuloId, ct);
+        // Surtido completo (86e3tferc): si no alcanza la línea entera, no se aparta nada.
+        if (soloCompleto && disponible.CantidadDisponible < solicitada) return 0m;
         var cantidad = Math.Min(solicitada, disponible.CantidadDisponible);
         if (cantidad > 0)
         {

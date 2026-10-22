@@ -148,6 +148,46 @@ public sealed class RepartoDisponibilidadServiceTests
         Assert.Throws<Millet.SharedKernel.Application.Exceptions.BusinessRuleException>(() => rq.AgregarLinea(Guid.NewGuid(), Servicio, 0.5m, "PZA", new Money(10, "MXN"), esActivoFijo: true, claseActivoId: clase));
     }
 
+    [Theory]
+    [InlineData(5, 3, false, 3, 2)]
+    [InlineData(5, 3, true, 0, 5)]
+    [InlineData(3, 5, true, 3, 0)]
+    [InlineData(5, 5, true, 5, 0)]
+    public async Task Surtido_completo_reparte_por_linea(int pide, int hay, bool completo, int deAlmacen, int deCompra)
+    {
+        var rq = CrearRequisicion(Clasificacion.MateriaPrima, (Articulo, pide, 100m));
+        var r = await RepartoDisponibilidadService.RepartirAsync(
+            new StockFalso((Articulo, hay)), new ConversionIdentidad(), Articulos(),
+            Clasificacion.MateriaPrima, Sucursal, rq.Lineas, default, soloCompleto: completo);
+        Assert.Equal(deAlmacen, r[0].DeAlmacen);
+        Assert.Equal(deCompra, r[0].DeCompra);
+    }
+
+    [Fact]
+    public async Task Surtido_completo_decide_por_linea_y_no_descuenta_la_linea_rechazada()
+    {
+        var rq = CrearRequisicion(Clasificacion.MateriaPrima, (Articulo, 5m, 100m), (Articulo, 3m, 100m));
+        var r = await RepartoDisponibilidadService.RepartirAsync(
+            new StockFalso((Articulo, 3m)), new ConversionIdentidad(), Articulos(),
+            Clasificacion.MateriaPrima, Sucursal, rq.Lineas, default, soloCompleto: true);
+        Assert.Equal(0m, r[0].DeAlmacen);
+        Assert.Equal(5m, r[0].DeCompra);
+        Assert.Equal(3m, r[1].DeAlmacen);
+        Assert.Equal(0m, r[1].DeCompra);
+    }
+
+    [Fact]
+    public async Task Surtido_completo_no_afecta_lineas_de_servicio()
+    {
+        var rq = CrearRequisicion(Clasificacion.Servicio, (Articulo, 2m, 100m));
+        var r = await RepartoDisponibilidadService.RepartirAsync(
+            new StockFalso((Articulo, 9m)), new ConversionIdentidad(), Articulos(),
+            Clasificacion.Servicio, Sucursal, rq.Lineas, default, soloCompleto: true);
+        Assert.Equal(0m, r[0].DeAlmacen);
+        Assert.Equal(2m, r[0].DeCompra);
+        Assert.True(r[0].EsServicio);
+    }
+
     private static Dictionary<Guid, ArticuloLectura> Articulos(params Guid[] servicios) =>
         new Dictionary<Guid, ArticuloLectura>
         {

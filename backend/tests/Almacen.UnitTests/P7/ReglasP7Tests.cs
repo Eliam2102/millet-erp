@@ -109,6 +109,21 @@ public sealed class ReglasP7Tests
     }
 
     [Fact]
+    public async Task Apartado_solo_completo_con_existencia_insuficiente_no_aparta_nada()
+    {
+        await using var f = new P1Fixture();
+        var saldo = await f.Db.SaldosInventario.SingleAsync();
+        f.Db.SaldosInventario.Remove(saldo);
+        f.Db.SaldosInventario.Add(new(f.BinId, f.SubId, f.ArticuloId, 3, 25));
+        await f.Db.SaveChangesAsync();
+        var sucursal = (await f.Db.Almacenes.SingleAsync()).SucursalId;
+        var servicio = P7Support.Apartados(f.Db);
+        (await servicio.ApartarAsync(P1Fixture.EmpresaId, sucursal, f.DocumentoId, f.LineaId, f.ArticuloId, 5, default, soloCompleto: true)).Should().Be(0);
+        (await f.Db.ApartadosRequisicion.CountAsync()).Should().Be(0);
+        (await servicio.ApartarAsync(P1Fixture.EmpresaId, sucursal, f.DocumentoId, f.LineaId, f.ArticuloId, 3, default, soloCompleto: true)).Should().Be(3);
+    }
+
+    [Fact]
     public async Task Salida_sin_apartados_y_mayor_a_existencia_responde_stock_insuficiente()
     {
         await using var f = new P1Fixture();
