@@ -1,9 +1,11 @@
 import { KpiCard } from '@/components/erp/display/KpiCard';
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
+import { Loader2 } from 'lucide-react';
 import { Link, useNavigate } from '@tanstack/react-router';
 import { toast } from 'sonner';
 import { PaginacionTabla } from '@/components/erp/data/PaginacionTabla';
 import { Badge } from '@/components/ui/badge';
+import { Skeleton } from '@/components/ui/skeleton';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Button } from '@/components/ui/button';
 import {
@@ -38,6 +40,7 @@ import {
   useConflictosAw,
   useIniciarCorridaAw,
 } from '@/modules/datos-maestros/api/sincronizacion-aw';
+import { CorridaEnCursoBanner } from '@/modules/datos-maestros/components/CorridaEnCursoBanner';
 import { EstadoCorridaBadge } from '@/modules/datos-maestros/components/EstadoCorridaBadge';
 import { usePaginacionLocal } from '@/modules/datos-maestros/lib/use-paginacion-local';
 
@@ -62,6 +65,20 @@ export function CorridaAwDetalle({ id }: { id: string }) {
   // Coincidencia de RFC con un cliente del ERP es conflicto, no error: va en su pestaña.
   const coincidencias = (e?.errores ?? []).filter((x) => x.codigo === 'conflicto_correlacion');
   const erroresFila = (e?.errores ?? []).filter((x) => x.codigo !== 'conflicto_correlacion');
+  const vivo = e != null && (e.estado === 'Pendiente' || e.estado === 'EnCurso');
+  const cargando = <Skeleton className="h-9 w-16" />;
+
+  // Aviso al terminar, solo si esta pantalla vio la corrida en curso (no al recargar una ya cerrada).
+  const estadoPrevio = useRef<string | undefined>(undefined);
+  useEffect(() => {
+    const previo = estadoPrevio.current;
+    estadoPrevio.current = e?.estado;
+    if (e == null || (previo !== 'Pendiente' && previo !== 'EnCurso') || vivo) return;
+    const leidos = `${e.leidos.toLocaleString('es-MX')} clientes leídos`;
+    if (e.estado === 'Completa') toast.success(`Corrida completa: ${leidos}.`);
+    else if (e.estado === 'Parcial') toast.warning(`Corrida parcial: ${leidos}. Revisa la pestaña Errores.`);
+    else toast.error('La corrida terminó con errores. Revisa la pestaña Errores.');
+  }, [e, vivo]);
 
   function volverACorrer() {
     iniciar.mutate(undefined, {
@@ -142,9 +159,12 @@ export function CorridaAwDetalle({ id }: { id: string }) {
             </Button>
             <Button
               variant="ghost"
-              disabled={iniciar.isPending || !puedeProductos || lecturaAwApagada(origen.data)}
+              aria-busy={iniciar.isPending}
+              disabled={vivo || iniciar.isPending || !puedeProductos || lecturaAwApagada(origen.data)}
               title={
-                lecturaAwApagada(origen.data)
+                vivo
+                  ? 'Hay una corrida en curso.'
+                  : lecturaAwApagada(origen.data)
                   ? MOTIVO_LECTURA_AW_APAGADA
                   : puedeProductos
                     ? undefined
@@ -152,16 +172,31 @@ export function CorridaAwDetalle({ id }: { id: string }) {
               }
               onClick={volverACorrer}
             >
-              Volver a correr
+              {iniciar.isPending && (
+                <Loader2 aria-hidden className="mr-1.5 h-4 w-4 animate-spin motion-reduce:animate-none" />
+              )}
+              {iniciar.isPending ? 'Iniciando…' : 'Volver a correr'}
             </Button>
           </div>
+          {iniciar.isPending && (
+            <p role="status" className="text-xs text-ink-muted">
+              Leyendo productos de A+W. Puede tardar un par de minutos; no cierres esta pestaña hasta
+              que se abra la corrida.
+            </p>
+          )}
+          {vivo && (
+            <CorridaEnCursoBanner iniciadaEnUtc={e.iniciadaEnUtc} pendiente={e.estado === 'Pendiente'} />
+          )}
 
           <section aria-label="Clientes" className="space-y-2">
             <h2 className="text-lg font-semibold">Clientes</h2>
             <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
-              <KpiCard etiqueta="Leídos" valor={e.leidos} />
-              <KpiCard etiqueta="Creados + Actualizados" valor={e.creados + e.actualizados} />
-              <KpiCard etiqueta="Sin cambios" valor={e.sinCambios} />
+              <KpiCard etiqueta="Leídos" valor={vivo && e.leidos === 0 ? cargando : e.leidos} />
+              <KpiCard
+                etiqueta="Creados + Actualizados"
+                valor={vivo && e.leidos === 0 ? cargando : e.creados + e.actualizados}
+              />
+              <KpiCard etiqueta="Sin cambios" valor={vivo && e.leidos === 0 ? cargando : e.sinCambios} />
               <KpiCard
                 etiqueta="Errores"
                 valor={e.erroresTruncados ? `${erroresFila.length}+` : erroresFila.length}
@@ -175,6 +210,16 @@ export function CorridaAwDetalle({ id }: { id: string }) {
               <p role="alert" className="text-danger-fg">
                 {resumen.mensaje ?? resumen.error}
               </p>
+            ) : resumen == null && vivo ? (
+              <div className="space-y-1">
+                <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
+                  <KpiCard etiqueta="Leídos" valor={cargando} />
+                  <KpiCard etiqueta="Creados + Actualizados" valor={cargando} />
+                  <KpiCard etiqueta="Sin cambios" valor={cargando} />
+                  <KpiCard etiqueta="Errores" valor={cargando} />
+                </div>
+                <p className="text-xs text-ink-muted">Los productos se muestran al terminar la corrida.</p>
+              </div>
             ) : resumen == null ? (
               <p className="text-ink-muted">Sin resumen de productos para esta corrida.</p>
             ) : (

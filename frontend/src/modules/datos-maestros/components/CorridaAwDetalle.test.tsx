@@ -23,10 +23,10 @@ const reporte = {
   filas: [{ entidad: 'ProductoAw' }], totales: { productosLeidos: 3 }, truncado: false,
 };
 
-function ejecucion(resumenProductos: string | null, errores: unknown[] = []) {
+function ejecucion(resumenProductos: string | null, errores: unknown[] = [], estado = 'Completa') {
   return {
     ejecucion: {
-      id: ID, tipo: 'Barrido', estado: 'Completa', leidos: 10, creados: 4, actualizados: 2, sinCambios: 3, pendientes: 0,
+      id: ID, tipo: 'Barrido', estado, leidos: 10, creados: 4, actualizados: 2, sinCambios: 3, pendientes: 0,
       conflictos: 1, errores: 1, iniciadaEnUtc: '2026-10-17T10:00:00Z', terminadaEnUtc: '2026-10-17T10:01:00Z', actor: 'a@b.com',
       reintentoDeId: null, errorGeneral: null, resumenProductos,
     },
@@ -108,6 +108,19 @@ describe('<CorridaAwDetalle>', () => {
     expect(await screen.findByText('ABC010101AB1')).toBeInTheDocument();
     expect(screen.getByText('(vacío) · falta')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Copiar solicitud para A+W' })).toBeInTheDocument();
+  });
+
+  it('en curso: aviso con barra y tiempo, productos en espera y «Volver a correr» deshabilitado', async () => {
+    mswServer.use(
+      http.get('*/clientes/sincronizacion/ejecuciones/*', () => HttpResponse.json(ejecucion(null, [], 'EnCurso'))),
+      http.get('*/integraciones/aw/origen', () => HttpResponse.json({ origen: 'Real', version: 1 })),
+      http.get('*/conflictos-aw', () => HttpResponse.json([])),
+    );
+    render(<CorridaAwDetalle id={ID} />, { wrapper: createQueryWrapper() });
+    expect(await screen.findByText('Sincronizando con A+W')).toBeInTheDocument();
+    expect(screen.getByText(/transcurridos/)).toBeInTheDocument();
+    expect(screen.getByText('Los productos se muestran al terminar la corrida.')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Volver a correr' })).toBeDisabled();
   });
 
   it('un resumen de productos con error se anuncia con role alert', async () => {

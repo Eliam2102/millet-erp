@@ -2,6 +2,7 @@ import { BarraFiltros, PaginacionTabla, TabsEstado } from '@/components/erp';
 import { ListadoModulo } from '@/components/erp/data/ListadoModulo';
 import { usePaginacionLocal } from '../lib/use-paginacion-local';
 import { useState } from 'react';
+import { Loader2 } from 'lucide-react';
 import { Link, useNavigate } from '@tanstack/react-router';
 import { toast } from 'sonner';
 import { Badge } from '@/components/ui/badge';
@@ -122,7 +123,14 @@ export function SincronizacionAwPage() {
                 {MOTIVO_LECTURA_AW_APAGADA}
               </p>
             )}
+            {iniciarCorrida.isPending && (
+              <p role="status" className="max-w-xs text-xs text-ink-muted">
+                Leyendo productos de A+W. Puede tardar un par de minutos; no cierres esta pestaña
+                hasta que se abra la corrida.
+              </p>
+            )}
             <Button
+              aria-busy={iniciarCorrida.isPending}
               disabled={iniciarCorrida.isPending || !puedeProductos || !puedeClientes || apagada}
               title={
                 !puedeClientes
@@ -133,7 +141,10 @@ export function SincronizacionAwPage() {
               }
               onClick={correr}
             >
-              Correr sincronización
+              {iniciarCorrida.isPending && (
+                <Loader2 aria-hidden className="mr-1.5 h-4 w-4 animate-spin motion-reduce:animate-none" />
+              )}
+              {iniciarCorrida.isPending ? 'Iniciando…' : 'Correr sincronización'}
             </Button>
           </div>
         </div>
