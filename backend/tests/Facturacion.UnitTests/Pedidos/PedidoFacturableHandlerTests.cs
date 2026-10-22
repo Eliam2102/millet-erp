@@ -163,7 +163,7 @@ public sealed class PedidoFacturableHandlerTests
         await crear.Handle(CrearCmd(), CancellationToken.None);
         await crear.Handle(CrearCmd(), CancellationToken.None);
 
-        var bandeja = new BandejaPedidosFacturablesHandler(db, new FakeAlcanceCajaEvaluator());
+        var bandeja = new BandejaPedidosFacturablesHandler(db, new FakeAlcanceCajaEvaluator(), new FakeCurrentUserPermissions());
         var response = await bandeja.Handle(new BandejaPedidosFacturablesQuery(EstadoPedidoFacturable.Importado, OrigenPedido.Manual, 0, 50), CancellationToken.None);
 
         response.Items.Should().HaveCount(2);
