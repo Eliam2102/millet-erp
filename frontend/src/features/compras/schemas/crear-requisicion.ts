@@ -70,7 +70,7 @@ export const CrearRequisicionSchema = z.object({
   fechaEntregaDeseada: z.iso.date().nullish(),
   proveedorSugeridoId: idLikeOpcional,
   obra: z.string().max(120, 'Máximo 120 caracteres').nullish(),
-  soloApartarSiCompleto: z.boolean(),
+  soloApartarSiCompleto: z.boolean().default(false),
   descripcion: z.string().max(500, 'Máximo 500 caracteres').nullish(),
 });
 
