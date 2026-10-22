@@ -108,6 +108,27 @@ public sealed class RfcRepetidosEndpointsTests(WebApplicationFactory<Program> fa
     }
 
     [Fact]
+    public async Task Unificar_completa_al_principal_con_el_rfc_del_grupo_aunque_lo_tuviera_otro()
+    {
+        var (a, b, _, _, rfc) = await DosAsync();
+        var http = await UsuariosAwHttp.SuperAdminAsync(factory);
+        using (var scope = factory.Services.CreateScope())
+        {
+            var db = scope.ServiceProvider.GetRequiredService<CompartidoDbContext>();
+            var porId = await db.Clientes.AsNoTracking().Where(x => x.Id == a || x.Id == b).ToDictionaryAsync(x => x.Id, x => x.Rfc);
+            Assert.Null(porId[b]); // el segundo de A+W llega sin RFC
+        }
+
+        Assert.Equal(HttpStatusCode.OK, (await Unificar(http, rfc, b)).StatusCode);
+
+        using var scope2 = factory.Services.CreateScope();
+        var db2 = scope2.ServiceProvider.GetRequiredService<CompartidoDbContext>();
+        var rfcs = await db2.Clientes.AsNoTracking().Where(x => x.Id == a || x.Id == b).ToDictionaryAsync(x => x.Id, x => x.Rfc);
+        Assert.Equal(rfc, rfcs[b]);
+        Assert.Null(rfcs[a]);
+    }
+
+    [Fact]
     public async Task Unificar_con_pedido_erp_agrupa_y_el_secundario_sigue_activo()
     {
         var (a, b, _, _, rfc) = await DosAsync();

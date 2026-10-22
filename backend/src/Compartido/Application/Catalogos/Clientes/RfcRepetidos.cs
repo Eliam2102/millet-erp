@@ -227,6 +227,7 @@ public sealed class UnificarRfcRepetidoHandler(
                 || pedidosErp.GetValueOrDefault(s.Id) > 0;
             s.UnificarEn(principal, conHistorial, motivo, request.Actor, ahora);
         }
+        await CompletarPrincipalAsync(principal, clientes, rfc, ct);
         // Unificar resuelve los conflictos RfcCompartido pendientes de los clientes del grupo para esta clave.
         var refsGrupo = clientes.Where(c => c.ReferenciaExterna is not null).Select(c => c.ReferenciaExterna!).ToList();
         var conflictos = await db.CambiosMaestrosAw.Where(c => c.TipoEntidad == "Cliente" && c.Tipo == TipoCambioMaestroAw.RfcCompartido
@@ -236,5 +237,31 @@ public sealed class UnificarRfcRepetidoHandler(
         await scope.ConfirmarAsync(ct);
 
         return (await RfcRepetidosGrupos.ConstruirAsync(db, aw, erp, [(rfc, ids)], ct))[0];
+    }
+
+    /// <summary>
+    /// El principal queda completo (decisión del owner 22-oct): recibe el RFC del grupo y los datos fiscales y de
+    /// contacto que le falten, tomados de los demás clientes del grupo. Si otro cliente tenía el RFC, se le quita
+    /// primero (índice único de RFC); su historial ya emitido conserva el RFC en sus CFDI.
+    /// </summary>
+    private async Task CompletarPrincipalAsync(Cliente principal, List<Cliente> grupo, string rfc, CancellationToken ct)
+    {
+        var otros = grupo.Where(c => c.Id != principal.Id).ToList();
+        if (principal.Rfc is null)
+        {
+            foreach (var o in otros.Where(o => o.Rfc is not null && RfcCliente.ClaveLigado(o.Rfc) == rfc))
+                o.ActualizarDatos(limpiarRfc: true);
+            await db.SaveChangesAsync(ct);
+            principal.ActualizarDatos(rfc: rfc);
+        }
+        string? De(Func<Cliente, string?> campo) => otros.Select(campo).FirstOrDefault(v => !string.IsNullOrWhiteSpace(v));
+        principal.ActualizarDatos(
+            regimenFiscal: principal.RegimenFiscal is null ? De(c => c.RegimenFiscal) : null,
+            codigoPostalFiscal: principal.CodigoPostalFiscal is null ? De(c => c.CodigoPostalFiscal) : null,
+            usoCfdiDefault: principal.UsoCfdiDefault is null ? De(c => c.UsoCfdiDefault) : null,
+            formaPagoDefault: principal.FormaPagoDefault is null ? De(c => c.FormaPagoDefault) : null,
+            metodoPagoDefault: principal.MetodoPagoDefault is null ? De(c => c.MetodoPagoDefault) : null,
+            email: principal.Email is null ? De(c => c.Email) : null,
+            telefono: principal.Telefono is null ? De(c => c.Telefono) : null);
     }
 }
