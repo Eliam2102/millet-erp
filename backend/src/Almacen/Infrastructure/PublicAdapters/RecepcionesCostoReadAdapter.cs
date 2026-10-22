@@ -1,10 +1,11 @@
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Logging;
 using Millet.Almacen.Application.PublicPorts;
 using Millet.Almacen.Domain.Movimientos;
 using Millet.Almacen.Infrastructure.Persistence;
 
 namespace Millet.Almacen.Infrastructure.PublicAdapters;
-public sealed class RecepcionesCostoReadAdapter(AlmacenDbContext db) : IRecepcionesCostoReadPort
+public sealed class RecepcionesCostoReadAdapter(AlmacenDbContext db, ILogger<RecepcionesCostoReadAdapter> logger) : IRecepcionesCostoReadPort
 {
     public async Task<IReadOnlyList<RecepcionCostoLectura>> ListarAsync(Guid empresa, Guid sucursal, Guid oc, CancellationToken ct)
     {
@@ -19,32 +20,58 @@ public sealed class RecepcionesCostoReadAdapter(AlmacenDbContext db) : IRecepcio
         {
             var l = entrada.Linea;
             var saldo = await db.SaldosInventario.AsNoTracking().SingleOrDefaultAsync(s => s.UbicacionId == l.UbicacionId && s.ArticuloId == l.ArticuloId, ct);
-            var remanente = await RemanenteAsync(db, empresa, l.Id, l.UbicacionId!.Value, l.ArticuloId, ct);
-            resultado.Add(new(l.Id, oc, entrada.Recepcion.Id, l.ArticuloId, l.UbicacionId.Value,
+            var remanentes = await RemanentesAsync(db, empresa, l.Id, l.ArticuloId, logger, ct);
+            var destinos = remanentes.Keys.ToList();
+            var saldos = await db.SaldosInventario.AsNoTracking()
+                .Where(s => s.ArticuloId == l.ArticuloId && destinos.Contains(s.UbicacionId)).ToListAsync(ct);
+            var remanente = saldos.Sum(s => Math.Min(s.Cantidad, remanentes[s.UbicacionId]));
+            resultado.Add(new(l.Id, oc, entrada.Recepcion.Id, l.ArticuloId, l.UbicacionId!.Value,
                 (entrada.Recepcion.Folio ?? "Recepción") + " · partida " + l.Posicion, l.Cantidad,
-                Math.Min(remanente, saldo?.Cantidad ?? 0), saldo?.Cantidad ?? 0, saldo?.CostoPromedioMxn ?? 0));
+                remanente, saldo?.Cantidad ?? 0, saldo?.CostoPromedioMxn ?? 0));
         }
         return resultado;
     }
-    public static async Task<decimal> RemanenteAsync(AlmacenDbContext db, Guid empresa, Guid partida, Guid ubicacion, Guid articulo, CancellationToken ct)
+    public static async Task<IReadOnlyDictionary<Guid, decimal>> RemanentesAsync(
+        AlmacenDbContext db, Guid empresa, Guid partida, Guid articulo, ILogger logger, CancellationToken ct)
     {
         var historial = await (from m in db.Movimientos.AsNoTracking() join l in db.LineasMovimiento on m.Id equals l.MovimientoId
-            where m.EmpresaId == empresa && m.Estado == EstadoMovimiento.Registrado && l.UbicacionId == ubicacion && l.ArticuloId == articulo
+            where m.EmpresaId == empresa && m.Estado == EstadoMovimiento.Registrado && l.UbicacionId != null && l.ArticuloId == articulo
             orderby m.FechaRegistro, m.Id, l.Posicion
-            select new { l.Id, l.Cantidad, m.Tipo }).ToListAsync(ct);
-        decimal existencia = 0, remanente = 0;
-        // Sin lotes físicos: cada salida consume proporcionalmente las entradas del pool de costo promedio.
-        // Una entrada posterior no repone el remanente de una recepción ya consumida.
+            select new { l.Id, l.MovimientoId, l.Posicion, l.UbicacionId, l.Cantidad, m.Tipo, m.SalidaOrigenId }).ToListAsync(ct);
+        var dictamenes = await db.DictamenesRevision.AsNoTracking()
+            .Where(d => d.EmpresaId == empresa && d.MovimientoSalidaRevisionId != null && d.MovimientoEntradaId != null)
+            .Select(d => new { Salida = d.MovimientoSalidaRevisionId, Entrada = d.MovimientoEntradaId }).ToListAsync(ct);
+        Dictionary<Guid, decimal> existencias = [], remanentes = [];
+        HashSet<Guid> entradasTrasladadas = [];
         foreach (var h in historial)
         {
-            if (h.Tipo == TipoMovimiento.AjustePrecioFactura) continue;
-            if (h.Tipo.EsEntrada()) { existencia += h.Cantidad; if (h.Id == partida) remanente += h.Cantidad; }
-            else
+            if (h.Tipo == TipoMovimiento.AjustePrecioFactura || entradasTrasladadas.Contains(h.Id)) continue;
+            var ubicacion = h.UbicacionId!.Value;
+            var existencia = existencias.GetValueOrDefault(ubicacion);
+            var remanente = remanentes.GetValueOrDefault(ubicacion);
+            if (h.Tipo.EsEntrada())
             {
-                remanente *= existencia > 0 ? Math.Max(0, (existencia - h.Cantidad) / existencia) : 0;
-                existencia = Math.Max(0, existencia - h.Cantidad);
+                existencias[ubicacion] = existencia + h.Cantidad;
+                if (h.Id == partida) remanentes[ubicacion] = remanente + h.Cantidad;
+                continue;
             }
+            // Cada salida toma su proporción del pool; las entradas nuevas no reponen esta partida.
+            var retirado = remanente * (existencia > 0 ? Math.Min(1, h.Cantidad / existencia) : 1);
+            remanentes[ubicacion] = remanente - retirado;
+            existencias[ubicacion] = Math.Max(0, existencia - h.Cantidad);
+            if (!h.Tipo.EsTraslado()) continue;
+            var pares = historial.Where(e => e.Tipo == TipoMovimiento.ReincorporacionTrasRevision &&
+                e.Posicion == h.Posicion && e.Cantidad == h.Cantidad &&
+                (e.SalidaOrigenId == h.MovimientoId || dictamenes.Any(d => d.Salida == h.MovimientoId && d.Entrada == e.MovimientoId))).ToList();
+            if (pares.Count != 1 || historial.IndexOf(pares[0]) <= historial.IndexOf(h) || !entradasTrasladadas.Add(pares[0].Id))
+            {
+                logger.LogWarning("Traslado {MovimientoId}, línea {LineaId} sin par inequívoco; se trata como salida real", h.MovimientoId, h.Id);
+                continue;
+            }
+            var destino = pares[0].UbicacionId!.Value;
+            existencias[destino] = existencias.GetValueOrDefault(destino) + h.Cantidad;
+            remanentes[destino] = remanentes.GetValueOrDefault(destino) + retirado;
         }
-        return remanente;
+        return remanentes.Where(x => x.Value > 0).ToDictionary(x => x.Key, x => x.Value);
     }
 }

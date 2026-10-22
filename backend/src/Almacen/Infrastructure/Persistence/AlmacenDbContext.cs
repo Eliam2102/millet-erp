@@ -130,7 +130,7 @@ public class AlmacenDbContext : BaseDbContext
         af.Property(x => x.Cantidad).HasPrecision(18, 4); af.HasIndex(x => new { x.EmpresaId, x.OrdenCompraId, x.LineaOcId });
         var ajuste = modelBuilder.Entity<AjusteCostoExpediente>();
         ajuste.ToTable("ajustes_costo_expediente"); ajuste.HasKey(x => x.Id); ajuste.Property(x => x.Id).ValueGeneratedNever();
-        ajuste.HasIndex(x => new { x.EmpresaId, x.ExpedienteId, x.NumeroVersion, x.PartidaId }).IsUnique();
+        ajuste.HasIndex(x => new { x.EmpresaId, x.ExpedienteId, x.NumeroVersion, x.PartidaId, x.UbicacionId }).IsUnique();
         ajuste.Property(x => x.AcumuladoMxn).HasPrecision(20, 2); ajuste.Property(x => x.DiferenciaMxn).HasPrecision(20, 2);
         ajuste.Property(x => x.InventarioMxn).HasPrecision(20, 2); ajuste.Property(x => x.CostoVentasMxn).HasPrecision(20, 2);
         base.OnModelCreating(modelBuilder);
