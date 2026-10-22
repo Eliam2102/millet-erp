@@ -25,9 +25,13 @@ public sealed class RecepcionesCostoReadAdapter(AlmacenDbContext db, ILogger<Rec
             var saldos = await db.SaldosInventario.AsNoTracking()
                 .Where(s => s.ArticuloId == l.ArticuloId && destinos.Contains(s.UbicacionId)).ToListAsync(ct);
             var remanente = saldos.Sum(s => Math.Min(s.Cantidad, remanentes[s.UbicacionId]));
+            // Existencia y costo de donde está hoy la partida; sin remanente, los de la ubicación de recepción.
+            if (saldos.Count == 0 && saldo is not null) saldos = [saldo];
+            var existencia = saldos.Sum(s => s.Cantidad);
+            var costoPromedio = existencia > 0 ? saldos.Sum(s => s.Cantidad * s.CostoPromedioMxn) / existencia : saldo?.CostoPromedioMxn ?? 0;
             resultado.Add(new(l.Id, oc, entrada.Recepcion.Id, l.ArticuloId, l.UbicacionId!.Value,
                 (entrada.Recepcion.Folio ?? "Recepción") + " · partida " + l.Posicion, l.Cantidad,
-                remanente, saldo?.Cantidad ?? 0, saldo?.CostoPromedioMxn ?? 0));
+                remanente, existencia, costoPromedio));
         }
         return resultado;
     }
@@ -38,9 +42,17 @@ public sealed class RecepcionesCostoReadAdapter(AlmacenDbContext db, ILogger<Rec
             where m.EmpresaId == empresa && m.Estado == EstadoMovimiento.Registrado && l.UbicacionId != null && l.ArticuloId == articulo
             orderby m.FechaRegistro, m.Id, l.Posicion
             select new { l.Id, l.MovimientoId, l.Posicion, l.UbicacionId, l.Cantidad, m.Tipo, m.SalidaOrigenId }).ToListAsync(ct);
+        var salidasTraslado = historial.Where(h => h.Tipo.EsTraslado()).Select(h => (Guid?)h.MovimientoId).Distinct().ToList();
         var dictamenes = await db.DictamenesRevision.AsNoTracking()
-            .Where(d => d.EmpresaId == empresa && d.MovimientoSalidaRevisionId != null && d.MovimientoEntradaId != null)
+            .Where(d => d.EmpresaId == empresa && salidasTraslado.Contains(d.MovimientoSalidaRevisionId) && d.MovimientoEntradaId != null)
             .Select(d => new { Salida = d.MovimientoSalidaRevisionId, Entrada = d.MovimientoEntradaId }).ToListAsync(ct);
+        // Índices para no recorrer el historial por cada traslado: posición de cada línea y reincorporaciones por (salida, posición).
+        var indice = historial.Select((h, i) => (h.Id, i)).ToDictionary(x => x.Id, x => x.i);
+        var salidasPorEntrada = dictamenes.ToLookup(d => d.Entrada, d => d.Salida);
+        var reincorporaciones = historial.Where(e => e.Tipo == TipoMovimiento.ReincorporacionTrasRevision)
+            .SelectMany(e => salidasPorEntrada[e.MovimientoId].Append(e.SalidaOrigenId).OfType<Guid>().Distinct()
+                .Select(salida => (Salida: salida, Entrada: e)))
+            .ToLookup(x => (x.Salida, x.Entrada.Posicion), x => x.Entrada);
         Dictionary<Guid, decimal> existencias = [], remanentes = [];
         HashSet<Guid> entradasTrasladadas = [];
         foreach (var h in historial)
@@ -60,10 +72,8 @@ public sealed class RecepcionesCostoReadAdapter(AlmacenDbContext db, ILogger<Rec
             remanentes[ubicacion] = remanente - retirado;
             existencias[ubicacion] = Math.Max(0, existencia - h.Cantidad);
             if (!h.Tipo.EsTraslado()) continue;
-            var pares = historial.Where(e => e.Tipo == TipoMovimiento.ReincorporacionTrasRevision &&
-                e.Posicion == h.Posicion && e.Cantidad == h.Cantidad &&
-                (e.SalidaOrigenId == h.MovimientoId || dictamenes.Any(d => d.Salida == h.MovimientoId && d.Entrada == e.MovimientoId))).ToList();
-            if (pares.Count != 1 || historial.IndexOf(pares[0]) <= historial.IndexOf(h) || !entradasTrasladadas.Add(pares[0].Id))
+            var pares = reincorporaciones[(h.MovimientoId, h.Posicion)].Where(e => e.Cantidad == h.Cantidad).ToList();
+            if (pares.Count != 1 || indice[pares[0].Id] <= indice[h.Id] || !entradasTrasladadas.Add(pares[0].Id))
             {
                 logger.LogWarning("Traslado {MovimientoId}, línea {LineaId} sin par inequívoco; se trata como salida real", h.MovimientoId, h.Id);
                 continue;
