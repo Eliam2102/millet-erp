@@ -37,7 +37,7 @@ que se lista aquí. Tarea ClickUp 86e3uzwme.
    Mientras el secreto no exista, la referencia queda sin resolver y el selector responde
    `AW_DEMO_NO_CONFIGURADA` (la pestaña Demo sigue deshabilitada). No rompe el arranque.
 
-3. **Valores del servidor de pruebas** en su `.bicepparam` (el archivo lo crea la otra rama; aquí solo se listan):
+3. **Valores del servidor de pruebas**, ya puestos en `infra/parameters/qa.bicepparam`:
 
    ```bicep
    param awOrigenDemoPermitido = true
