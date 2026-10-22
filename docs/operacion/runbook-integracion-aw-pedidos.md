@@ -35,11 +35,14 @@ para SER-DATA debe respetar esa restricción:
    az keyvault secret set \
      --vault-name <kv-millet-dev> \
      --name aw-integracion-connection-string \
-     --value "Server=SER-DATA,1433;Database=MILLET_INTEGRACION_DEV;User ID=millet_erp_integracion;Password=<pwd>;Encrypt=False;TrustServerCertificate=True;Connection Timeout=10;"
+     --value "Server=aw-sql-onprem,1433;Database=MILLET_INTEGRACION_DEV;User ID=millet_erp_integracion;Password=<pwd>;Encrypt=True;TrustServerCertificate=False;Connection Timeout=10;"
    ```
 
-   (`Encrypt=False` mientras siga vigente `<SqlTlsHardening>` — mismo criterio
-   que `aw-sql-connection-string`.)
+   (TLS verificado obligatorio en todas las conexiones A+W: la app rechaza
+   `Encrypt=False/Optional`, `TrustServerCertificate=True` y `Encrypt=Strict`.
+   `aw-sql-onprem` está en el SAN del certificado de SER-DATA. Además hay que
+   cargar el certificado público: `az keyvault secret set --vault-name <kv-millet-dev>
+   --name aw-sql-server-certificate --file ser-data-sql.pem`.)
 
 6. **Entregar la spec al equipo A+W** —
    [`aw-solicitud-pedido-customizing.md`](../integration/runbooks/aw-solicitud-pedido-customizing.md)
@@ -136,6 +139,14 @@ spec), UI de clientes/productos-aw desplegada, gaps G1–G13 cerrados.
 5. Monitorear la primera semana: bandeja de excepciones
    (`/facturacion/excepciones`), logs del worker, y
    `SELECT resultado, COUNT(*) FROM aw_solicitud_pedido GROUP BY resultado`.
+
+## Renovación del certificado TLS de SER-DATA
+
+El certificado actual (CN=SER-DATA, SAN `SER-DATA, aw-sql-onprem, ser-data`) vence el
+2036-07-07. La app lo confía desde `IntegracionesAw__SqlTls__CertificadoServidorPem`
+(KV `aw-sql-server-certificate`, PEM público) y el health check
+`aw-sql-certificado-servidor` avisa (Degraded) 60 días antes del vencimiento.
+Al renovarlo en SER-DATA: subir el nuevo PEM a KV y reiniciar el App Service.
 
 ## Rollback / apagado de emergencia
 

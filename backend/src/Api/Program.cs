@@ -651,6 +651,12 @@ builder.Services.AddScoped<Millet.Compras.Domain.Trazabilidad.IProveedorNodosTra
 builder.Services.AddScoped<Millet.Compras.Domain.Trazabilidad.ICxpFacturasTrazabilidadReadPort,
     Millet.CuentasPorPagar.Infrastructure.PublicAdapters.CxpFacturasTrazabilidadProvider>();
 builder.Services.AddScoped<Millet.Almacen.Infrastructure.PublicAdapters.ApartadosRequisicionService>();
+// F1-COM-13 (86e3jvu98): puertos de lectura de la tríada para el análisis de proveedores.
+builder.Services.AddScoped<Millet.Compras.Domain.Ports.Almacen.IRecepcionesOcReadPort,
+    Millet.Compras.Infrastructure.PublicAdapters.AlmacenRecepcionesOcReadAdapter>();
+builder.Services.AddScoped<Millet.Compras.Domain.Ports.CuentasPorPagar.IFacturasOcReadPort,
+    Millet.CuentasPorPagar.Infrastructure.PublicAdapters.CxpFacturasOcReadAdapter>();
+builder.Services.AddScoped<Millet.Compras.Application.Reportes.AnalisisProveedores.NombresAnalisis>();
 builder.Services.AddScoped<Millet.Compras.Infrastructure.PublicAdapters.TransaccionApartadosRq>();
 
 // === Compras — Trazabilidad cross-módulo (F7-PR2) ===
@@ -966,6 +972,7 @@ var awIntegracionDb = builder.Configuration.GetConnectionString("AwIntegracionDb
 if (!string.IsNullOrWhiteSpace(awIntegracionDb)
     && !awIntegracionDb.StartsWith("@Microsoft.KeyVault", StringComparison.OrdinalIgnoreCase))
 {
+    Millet.Integraciones.Aw.Infrastructure.Adapters.AwSqlTls.Validar(awIntegracionDb, "AwIntegracionDb");
     builder.Services.AddIntegracionesAwPedidosAdapters(builder.Configuration);
 }
 
@@ -1593,6 +1600,9 @@ Millet.Api.Endpoints.Compras.Oc.Dim3BuscarAbiertoEndpoint.MapDim3BuscarAbiertoEn
 
 // === Compras — Trazabilidad cross-módulo (F7-PR2) ===
 Millet.Api.Endpoints.Compras.Trazabilidad.ArbolDocumentosEndpoint.MapArbolDocumentosEndpoint(app);
+
+// === Compras — Análisis de compras, saldos y cumplimiento de proveedores (F1-COM-13) ===
+Millet.Api.Endpoints.Compras.Reportes.AnalisisProveedoresEndpoints.MapAnalisisProveedoresEndpoints(app);
 
 // === Compras — Historial de compras por artículo (F7-PR3) ===
 Millet.Api.Endpoints.Compras.Articulos.HistorialComprasMaterialEndpoint.MapHistorialComprasMaterialEndpoint(app);

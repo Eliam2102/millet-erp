@@ -129,6 +129,8 @@ public static class PermisosCanonicos
     public const string ComprasOrdenesRegistrarRespuestaProveedor      = "compras.ordenes.registrar-respuesta-proveedor";
     // F1-COM-07 (86e3jvu77): incidencias del proveedor por línea de la OC.
     public const string ComprasOrdenesRegistrarIncidenciaProveedor     = "compras.ordenes.registrar-incidencia-proveedor";
+    // F1-COM-13 (86e3jvu98): análisis de compras, saldos pendientes y cumplimiento de proveedores.
+    public const string ComprasOrdenesReportesAnalisisProveedores     = "compras.ordenes.reportes-analisis-proveedores";
 
     // ----- Compras — Cotizaciones (F1-COM-02, 86e3jvu2a). Namespace GUID 00000003-0005-* -----
     public const string ComprasCotizacionesLeer                        = "compras.cotizaciones.leer";
@@ -700,6 +702,7 @@ public static class PermisosCanonicos
         (Guid.Parse("00000003-0003-0000-0000-00000000000c"), ComprasOrdenesLeerTodasSucursales,            "Consultar órdenes de compra y sus adjuntos de todas las sucursales de la empresa"),
         (Guid.Parse("00000003-0003-0000-0000-00000000000d"), ComprasOrdenesRegistrarRespuestaProveedor,   "Registrar la confirmación o el rechazo del proveedor sobre una orden de compra autorizada, con fechas prometidas y evidencia"),
         (Guid.Parse("00000003-0003-0000-0000-00000000000e"), ComprasOrdenesRegistrarIncidenciaProveedor,  "Registrar, reprogramar y cerrar incidencias del proveedor (faltante, dañado o atraso) por línea de una orden de compra"),
+        (Guid.Parse("00000003-0003-0000-0000-00000000000f"), ComprasOrdenesReportesAnalisisProveedores,  "Consultar el análisis de compras, saldos pendientes y cumplimiento de proveedores"),
         (Guid.Parse("00000003-0004-0000-0000-000000000001"), ComprasConfiguracionLeer,                     "Leer la configuración del módulo Compras de la empresa actual"),
         (Guid.Parse("00000003-0004-0000-0000-000000000002"), ComprasConfiguracionEditar,                   "Editar la configuración del módulo Compras de la empresa actual"),
         (Guid.Parse("00000003-0005-0000-0000-000000000001"), ComprasCotizacionesLeer,                      "Consultar cotizaciones y el comparativo de una requisición"),

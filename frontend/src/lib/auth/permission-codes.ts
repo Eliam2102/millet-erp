@@ -96,6 +96,8 @@ export const PermisosCanonicos = {
   ComprasOrdenesCancelarDoble: 'compras.ordenes.cancelar-doble',
   ComprasOrdenesReportesPartidasAbiertas:
     'compras.ordenes.reportes-partidas-abiertas',
+  ComprasOrdenesReportesAnalisisProveedores:
+    'compras.ordenes.reportes-analisis-proveedores',
   ComprasOrdenesRegistrarRespuestaProveedor: 'compras.ordenes.registrar-respuesta-proveedor',
   ComprasOrdenesRegistrarIncidenciaProveedor: 'compras.ordenes.registrar-incidencia-proveedor',
 
