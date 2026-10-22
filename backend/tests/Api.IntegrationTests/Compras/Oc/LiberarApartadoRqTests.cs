@@ -376,6 +376,7 @@ public partial class OrdenesCompraEndpointsTests
         var linea = (await ReadJsonAsync(await client.GetAsync($"/api/v1/compras/requisiciones/{rq.Id}"))).GetProperty("lineas")[0];
         Assert.Equal(2m, linea.GetProperty("cantSaldoPorComprar").GetDecimal());
         Assert.Equal(2m, linea.GetProperty("cantPendiente").GetDecimal());
+        Assert.Equal(2m, linea.GetProperty("cantSinCompra").GetDecimal());
     }
 
     [Fact]

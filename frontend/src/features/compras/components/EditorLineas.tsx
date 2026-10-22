@@ -403,6 +403,7 @@ function FilaLinea({
           cantDeCompra={linea.cantDeCompra}
           cantRecibida={linea.cantRecibida}
           cantPendiente={linea.cantPendiente}
+          cantSinCompra={linea.cantSinCompra}
         />
       </TableCell>
       <TableCell className="hidden px-3 py-2 @4xl:table-cell">

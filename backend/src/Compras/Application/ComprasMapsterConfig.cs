@@ -28,6 +28,7 @@ public sealed class ComprasMapsterConfig : IRegister
             .Map(dest => dest.CantDeAlmacen, src => src.CantidadDeAlmacen)
             .Map(dest => dest.CantDeCompra, src => src.CantidadDeCompra)
             .Map(dest => dest.CantRecibida, src => src.CantidadRecibida)
+            .Map(dest => dest.CantSinCompra, src => src.CantidadSinCompra)
             // ADR-0043 #3: el pendiente de entregar se deriva del DOMINIO
             // (LineaRequisicion.CantidadPendienteEntregar = (almacén+recibida)
             // − entregada), fuente única. Ya NO se enriquece en el handler vía

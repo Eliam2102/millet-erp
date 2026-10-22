@@ -493,6 +493,8 @@ export interface LineaResponse {
    * resiliencia ante respuestas viejas.
    */
   cantSaldoPorComprar?: number;
+  /** Apartado liberado que ya no se pide ni se compra (86e3tferc). */
+  cantSinCompra?: number;
 }
 
 /** Mirror de <c>AutorizacionResponse</c>. */
