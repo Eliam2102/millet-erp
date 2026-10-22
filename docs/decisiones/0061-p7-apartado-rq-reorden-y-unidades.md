@@ -24,3 +24,17 @@ ADM-08 no se modifica mientras se concilia el conflicto con ADR-0050, que exige 
 ## Validación
 
 Ver el informe local de P7 para las pruebas ejecutadas y las pendientes. Las pruebas PostgreSQL deben correr en aislamiento mediante `tools/validate-integration-isolated.sh`, incluyendo rojo/verde. No equivale a aceptación de Millet ni despliegue.
+
+## Adenda 22-oct-2026 · Liberar apartado y surtido completo (86e3tferc)
+
+Origen: sesión con Millet del 19-oct-2026 (Jorge, 01:08:04–01:11:28). Confirmación con Millet: **por validar**.
+
+**Surtido parcial o completo.** La requisición lleva el indicador `SoloApartarSiCompleto`, que elige quien la solicita; por omisión es surtido parcial. Queda congelado al transmitir la requisición, igual que `Obra`. Se decide por línea: una línea con el indicador activo solo aparta si la existencia libre cubre la cantidad pendiente completa; si no, no aparta nada de esa línea. La regla se aplica de la misma forma en la división estimada (matriz, bandeja y vista previa) y de forma atómica al apartar en la autorización. El parámetro global `ApartarExistenciaAlAutorizar` sigue prevaleciendo: si está apagado no se aparta nada, sin importar el indicador.
+
+**Liberar apartado.** Se puede liberar el apartado por línea y por cantidad, con el permiso `compras.requisiciones.liberar-apartado` y un motivo obligatorio. La operación corre dentro de la transacción compartida con Almacén y bajo el mismo bloqueo asesor por sucursal/artículo, y nunca libera más de lo pendiente. No recalcula la cobertura de la línea ni manda a compra lo liberado (el solicitante ya no lo necesita), y no emite evento de integración. El permiso se siembra sin asignarlo a ningún rol; se asigna en Administración.
+
+**Superficie técnica.**
+- `GET /api/v1/compras/requisiciones/{id}/apartados` consulta el apartado por línea.
+- `POST /api/v1/compras/requisiciones/{id}/lineas/{lineaId}/liberar-apartado` libera cantidad con motivo.
+- Almacén registra la liberación en las columnas `cantidad_liberada` y `motivo_liberacion` del apartado.
+- La pantalla de detalle de la requisición muestra el apartado por línea y, con el permiso, la acción de liberar.
