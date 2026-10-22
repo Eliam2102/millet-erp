@@ -115,10 +115,15 @@ param awSolicitudesEmpresaId string = ''
 @description('Apaga el SDK de FiscalAPI. Default true; dev lo enciende en su .bicepparam (tenant sandbox en el KV dev). Ver appservice.bicep.')
 param integracionesFiscalSdkDisabled bool = true
 
-@description('Enciende el AwDocumentSyncWorker. Default true. Ver appservice.bicep.')
+@description('Interruptores A+W por ambiente (apagados por defecto salvo documentos/conciliación tardía). Ver appservice.bicep.')
+param awClientesOrigen string = 'Simulado'
+param awClientesLecturaHabilitada bool = false
+param awClientesAplicacionHabilitada bool = false
+param awClientesProgramacionHabilitada bool = false
+param awProductosOrigenHabilitado bool = false
+param awProductosOrigen string = 'Simulado'
+param awCambiosHabilitado bool = false
 param awDocumentSyncHabilitado bool = true
-
-@description('Enciende el AwLateReconciliationWorker. Default true. Ver appservice.bicep.')
 param awLateReconciliationHabilitado bool = true
 
 // ============================================================================
@@ -387,6 +392,13 @@ module appservice 'modules/appservice.bicep' = {
     glassAgentSpnClientId: glassAgentSpnClientId
     awSolicitudesEmpresaId: awSolicitudesEmpresaId
     integracionesFiscalSdkDisabled: integracionesFiscalSdkDisabled
+    awClientesOrigen: awClientesOrigen
+    awClientesLecturaHabilitada: awClientesLecturaHabilitada
+    awClientesAplicacionHabilitada: awClientesAplicacionHabilitada
+    awClientesProgramacionHabilitada: awClientesProgramacionHabilitada
+    awProductosOrigenHabilitado: awProductosOrigenHabilitado
+    awProductosOrigen: awProductosOrigen
+    awCambiosHabilitado: awCambiosHabilitado
     awDocumentSyncHabilitado: awDocumentSyncHabilitado
     awLateReconciliationHabilitado: awLateReconciliationHabilitado
   }

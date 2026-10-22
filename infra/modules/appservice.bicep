@@ -147,10 +147,33 @@ https://test.fiscalapi.com en la ConfiguracionPac); prod usará su propio
 tenant en su propio KV.''')
 param integracionesFiscalSdkDisabled bool = true
 
-@description('Enciende el AwDocumentSyncWorker (PDF de A+W → ERP). Default true; apagar en ambientes sin servicio A+W alcanzable (cada ciclo fallido tarda ~5 min por el timeout de 180 s).')
+// ── Interruptores A+W (todos APAGADOS por defecto; se encienden por ambiente en el .bicepparam) ──
+// El deploy re-aplica la lista COMPLETA de app settings: lo no declarado aquí se borra.
+@description('IntegracionesAw:Clientes:Origen — "Simulado" | "Sql" (Sql exige ConnectionStrings__AwClientesDb).')
+param awClientesOrigen string = 'Simulado'
+
+@description('IntegracionesAw:Clientes:LecturaHabilitada.')
+param awClientesLecturaHabilitada bool = false
+
+@description('IntegracionesAw:Clientes:AplicacionHabilitada.')
+param awClientesAplicacionHabilitada bool = false
+
+@description('IntegracionesAw:Clientes:ProgramacionHabilitada (barrido periódico).')
+param awClientesProgramacionHabilitada bool = false
+
+@description('IntegracionesAw:Productos:OrigenHabilitado.')
+param awProductosOrigenHabilitado bool = false
+
+@description('IntegracionesAw:Productos:Origen — "Simulado" | "Sql" (Sql exige ConnectionStrings__AwProductosDb).')
+param awProductosOrigen string = 'Simulado'
+
+@description('IntegracionesAw:Cambios:Habilitado (exige ConnectionStrings__AwCambiosDb).')
+param awCambiosHabilitado bool = false
+
+@description('IntegracionesAw:DocumentSync:Habilitado — sincronización de documentos (PDF) de A+W.')
 param awDocumentSyncHabilitado bool = true
 
-@description('Enciende el AwLateReconciliationWorker (rescate de cotizaciones FailedDrop). Default true; apagar en ambientes sin servicio A+W alcanzable.')
+@description('IntegracionesAw:LateReconciliation:Habilitado — conciliación tardía de A+W.')
 param awLateReconciliationHabilitado bool = true
 
 // ============================================================================
@@ -200,6 +223,33 @@ var awIntegrationAppSettings = [
     name: 'ConnectionStrings__AwIntegracionDb'
     value: '@Microsoft.KeyVault(VaultName=${keyVaultName};SecretName=aw-integracion-connection-string)'
   }
+  {
+    // Flujos 1 (clientes), productos y cambios: una BD de integración por flujo en SER-DATA.
+    // Secretos operator-managed (ver keyvault-secrets.bicep); formato con TLS verificado.
+    name: 'ConnectionStrings__AwClientesDb'
+    value: '@Microsoft.KeyVault(VaultName=${keyVaultName};SecretName=aw-clientes-connection-string)'
+  }
+  {
+    name: 'ConnectionStrings__AwProductosDb'
+    value: '@Microsoft.KeyVault(VaultName=${keyVaultName};SecretName=aw-productos-connection-string)'
+  }
+  {
+    name: 'ConnectionStrings__AwCambiosDb'
+    value: '@Microsoft.KeyVault(VaultName=${keyVaultName};SecretName=aw-cambios-connection-string)'
+  }
+  {
+    // Cert público de SER-DATA (CN=SER-DATA, SAN aw-sql-onprem): la app lo agrega a CurrentUser\Root
+    // al arrancar para que SqlClient verifique la cadena (ADR-0048). Renovar: nuevo PEM en KV + restart.
+    name: 'IntegracionesAw__SqlTls__CertificadoServidorPem'
+    value: '@Microsoft.KeyVault(VaultName=${keyVaultName};SecretName=aw-sql-server-certificate)'
+  }
+  { name: 'IntegracionesAw__Clientes__Origen', value: awClientesOrigen }
+  { name: 'IntegracionesAw__Clientes__LecturaHabilitada', value: string(awClientesLecturaHabilitada) }
+  { name: 'IntegracionesAw__Clientes__AplicacionHabilitada', value: string(awClientesAplicacionHabilitada) }
+  { name: 'IntegracionesAw__Clientes__ProgramacionHabilitada', value: string(awClientesProgramacionHabilitada) }
+  { name: 'IntegracionesAw__Productos__OrigenHabilitado', value: string(awProductosOrigenHabilitado) }
+  { name: 'IntegracionesAw__Productos__Origen', value: awProductosOrigen }
+  { name: 'IntegracionesAw__Cambios__Habilitado', value: string(awCambiosHabilitado) }
   {
     name: 'IntegracionesAw__DropServiceBaseAddress'
     value: 'http://${hcAwDropServiceHost}:${hcAwDropServicePort}'
