@@ -87,7 +87,10 @@ describe('<SincronizacionAwPage>', () => {
     );
     render(<SincronizacionAwPage />, { wrapper: createQueryWrapper() });
 
-    expect(await screen.findByText(/misma clave fiscal DEMO010101AB1/)).toBeInTheDocument();
+    expect(await screen.findByText('DEMO010101AB1')).toBeInTheDocument();
+    expect(screen.getByText('Por resolver')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Resolver' })).toBeInTheDocument();
+    expect(screen.queryByRole('region', { name: 'RFC repetidos' })).not.toBeInTheDocument();
     expect(await screen.findByText(/Versión 0-propuesta/)).toBeInTheDocument();
     fireEvent.click(screen.getByRole('button', { name: 'Mantener separados' }));
     expect(screen.getByText('Los dos clientes quedan separados. Esto no fusiona ni liga identidades.')).toBeInTheDocument();

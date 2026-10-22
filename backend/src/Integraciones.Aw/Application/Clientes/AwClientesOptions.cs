@@ -26,8 +26,8 @@ public sealed class AwClientesOptions
     public string? ArchivoSimulado { get; set; }
 
     /// <summary>
-    /// Código de moneda A+W (WAEHRUNG) → ISO. Vacío por defecto: sin mapeo validado
-    /// no se normaliza (PESOSMX→MXN está PENDIENTE, doc 05 §4).
+    /// Código de moneda A+W (WAEHRUNG) → ISO (appsettings: PESOSMX, USD, Euro). Lo que no está aquí,
+    /// incluidos <c>&lt;indf&gt;</c> y vacío, se toma como MXN (doc 05 §4).
     /// </summary>
     public Dictionary<string, string> MapeoMoneda { get; set; } = new(StringComparer.OrdinalIgnoreCase);
 }

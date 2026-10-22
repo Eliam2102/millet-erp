@@ -36,8 +36,10 @@ public sealed class ClientesReadAdapter : IClientesReadPort
     public async Task<ClienteFiscalLectura?> ResolverPorReferenciaAsync(
         string referenciaExterna, CancellationToken cancellationToken)
     {
+        // Un cliente unificado (RFC repetido) resuelve a su principal: los pedidos nuevos van al principal (un solo salto).
         return await _db.Clientes.AsNoTracking()
             .Where(c => c.ReferenciaExterna == referenciaExterna)
+            .Join(_db.Clientes.AsNoTracking(), s => s.UnificadoEnClienteId ?? s.Id, c => c.Id, (s, c) => c)
             .Select(c => new ClienteFiscalLectura(
                 c.Id, c.Rfc, c.RazonSocial, c.RegimenFiscal,
                 c.CodigoPostalFiscal, c.UsoCfdiDefault, c.FormaPagoDefault,

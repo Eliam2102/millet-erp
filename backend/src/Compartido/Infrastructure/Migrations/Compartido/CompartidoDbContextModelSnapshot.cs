@@ -4430,6 +4430,11 @@ namespace Millet.Compartido.Infrastructure.Migrations.Compartido
                         .HasColumnType("character varying(3)")
                         .HasColumnName("moneda_default");
 
+                    b.Property<string>("MotivoUnificacion")
+                        .HasMaxLength(300)
+                        .HasColumnType("character varying(300)")
+                        .HasColumnName("motivo_unificacion");
+
                     b.Property<string>("NumRegIdTrib")
                         .HasMaxLength(40)
                         .HasColumnType("character varying(40)")
@@ -4470,6 +4475,23 @@ namespace Millet.Compartido.Infrastructure.Migrations.Compartido
                         .HasColumnType("character varying(50)")
                         .HasColumnName("telefono");
 
+                    b.Property<bool>("UnificacionConHistorial")
+                        .HasColumnType("boolean")
+                        .HasColumnName("unificacion_con_historial");
+
+                    b.Property<Guid?>("UnificadoEnClienteId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("unificado_en_cliente_id");
+
+                    b.Property<DateTimeOffset?>("UnificadoEnUtc")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("unificado_en_utc");
+
+                    b.Property<string>("UnificadoPor")
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)")
+                        .HasColumnName("unificado_por");
+
                     b.Property<DateTimeOffset>("UpdatedAt")
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("updated_at");
@@ -4509,6 +4531,9 @@ namespace Millet.Compartido.Infrastructure.Migrations.Compartido
                         .IsUnique()
                         .HasDatabaseName("ux_clientes_rfc_no_generico")
                         .HasFilter("rfc NOT IN ('XAXX010101000','XEXX010101000')");
+
+                    b.HasIndex("UnificadoEnClienteId")
+                        .HasDatabaseName("ix_clientes_unificado_en_cliente_id");
 
                     b.ToTable("clientes", "compartido", t =>
                         {
@@ -7373,6 +7398,12 @@ namespace Millet.Compartido.Infrastructure.Migrations.Compartido
                         .HasForeignKey("ClasificacionId")
                         .OnDelete(DeleteBehavior.Restrict)
                         .HasConstraintName("fk_clientes_clasificacion_cliente_clasificacion_id");
+
+                    b.HasOne("Millet.DatosMaestros.Domain.Cliente", null)
+                        .WithMany()
+                        .HasForeignKey("UnificadoEnClienteId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .HasConstraintName("fk_clientes_clientes_unificado_en_cliente_id");
                 });
 
             modelBuilder.Entity("Millet.DatosMaestros.Domain.ClienteLigadoAw", b =>

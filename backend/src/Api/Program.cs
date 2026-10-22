@@ -1620,6 +1620,7 @@ Millet.Api.Endpoints.DatosMaestros.DatosMaestrosEndpoints.MapDatosMaestrosEndpoi
 Millet.Api.Endpoints.DatosMaestros.F1AEndpoints.MapF1AEndpoints(app);
 Millet.Api.Endpoints.DatosMaestros.SincronizacionAwEndpoints.MapSincronizacionAwEndpoints(app);
 Millet.Api.Endpoints.DatosMaestros.ClientesSincronizacionEndpoints.MapClientesSincronizacionEndpoints(app);
+Millet.Api.Endpoints.DatosMaestros.RfcRepetidosEndpoints.MapRfcRepetidosEndpoints(app);
 Millet.Api.Endpoints.DatosMaestros.ProductosAwSincronizacionEndpoints.MapProductosAwSincronizacionEndpoints(app);
 Millet.Api.Endpoints.DatosMaestros.DiferenciasFiscalesAwEndpoints.MapDiferenciasFiscalesAwEndpoints(app);
 
