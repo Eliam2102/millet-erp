@@ -11,6 +11,7 @@ using Millet.Facturacion.Domain.Facturas;
 using Millet.Facturacion.Domain.Ingesta;
 using Millet.Facturacion.Domain.NotasCredito;
 using Millet.Facturacion.Domain.Pedidos;
+using Millet.Facturacion.Domain.Proformas;
 using Millet.Facturacion.Domain.Repp;
 using Millet.Facturacion.Infrastructure.Persistence.Configurations;
 using Millet.SharedKernel.Application;
@@ -105,6 +106,9 @@ public sealed class FacturacionDbContext : BaseDbContext
     /// <summary>Pedidos facturables (origen Aw/PlantaPintura/Manual, F1-PR2).</summary>
     public DbSet<PedidoFacturable> PedidosFacturables => Set<PedidoFacturable>();
 
+    /// <summary>Proformas versionadas de pedidos facturables, sin valor fiscal (U1.8a).</summary>
+    public DbSet<ProformaPedido> ProformasPedido => Set<ProformaPedido>();
+
     /// <summary>Bitácora de envíos de CFDI al correo del cliente (F2-PR2).</summary>
     public DbSet<BitacoraEnvioCorreo> BitacorasEnvioCorreo => Set<BitacoraEnvioCorreo>();
 
@@ -179,6 +183,7 @@ public sealed class FacturacionDbContext : BaseDbContext
         modelBuilder.ApplyConfiguration(new AutorizacionVentaActivoConfiguration());
         modelBuilder.ApplyConfiguration(new PedidoFacturableConfiguration());
         modelBuilder.ApplyConfiguration(new PedidoFacturableLineaConfiguration());
+        modelBuilder.ApplyConfiguration(new ProformaPedidoConfiguration());
         modelBuilder.ApplyConfiguration(new BitacoraEnvioCorreoConfiguration());
         modelBuilder.ApplyConfiguration(new BitacoraIntentoTimbradoConfiguration());
         modelBuilder.ApplyConfiguration(new IngestaControlConfiguration());
