@@ -13,7 +13,7 @@ using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 namespace Millet.Almacen.Infrastructure.Persistence.Migrations
 {
     [DbContext(typeof(AlmacenDbContext))]
-    [Migration("20261022183734_ImportacionRecepcionCom06")]
+    [Migration("20261022201114_ImportacionRecepcionCom06")]
     partial class ImportacionRecepcionCom06
     {
         /// <inheritdoc />
@@ -89,6 +89,13 @@ namespace Millet.Almacen.Infrastructure.Persistence.Migrations
                         .HasColumnType("uuid")
                         .HasColumnName("articulo_id");
 
+                    b.Property<decimal>("CantidadLiberada")
+                        .ValueGeneratedOnAdd()
+                        .HasPrecision(14, 4)
+                        .HasColumnType("numeric(14,4)")
+                        .HasDefaultValue(0m)
+                        .HasColumnName("cantidad_liberada");
+
                     b.Property<DateTimeOffset>("CreatedAt")
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("created_at");
@@ -108,6 +115,11 @@ namespace Millet.Almacen.Infrastructure.Persistence.Migrations
                     b.Property<Guid>("LineaRequisicionId")
                         .HasColumnType("uuid")
                         .HasColumnName("linea_requisicion_id");
+
+                    b.Property<string>("MotivoLiberacion")
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)")
+                        .HasColumnName("motivo_liberacion");
 
                     b.Property<decimal>("Pendiente")
                         .HasPrecision(14, 4)
@@ -149,77 +161,6 @@ namespace Millet.Almacen.Infrastructure.Persistence.Migrations
                         {
                             t.HasCheckConstraint("ck_apartado_pendiente", "pendiente >= 0");
                         });
-                });
-
-            modelBuilder.Entity("Millet.Almacen.Domain.Apartados.LiberacionApartado", b =>
-                {
-                    b.Property<Guid>("Id")
-                        .HasColumnType("uuid")
-                        .HasColumnName("id");
-
-                    b.Property<Guid>("ActorId")
-                        .HasColumnType("uuid")
-                        .HasColumnName("actor_id");
-
-                    b.Property<decimal>("Cantidad")
-                        .HasPrecision(14, 4)
-                        .HasColumnType("numeric(14,4)")
-                        .HasColumnName("cantidad");
-
-                    b.Property<DateTimeOffset>("CreatedAt")
-                        .HasColumnType("timestamp with time zone")
-                        .HasColumnName("created_at");
-
-                    b.Property<string>("CreatedBy")
-                        .HasColumnType("text")
-                        .HasColumnName("created_by");
-
-                    b.Property<DateTimeOffset?>("DeletedAt")
-                        .HasColumnType("timestamp with time zone")
-                        .HasColumnName("deleted_at");
-
-                    b.Property<Guid>("EmpresaId")
-                        .HasColumnType("uuid")
-                        .HasColumnName("empresa_id");
-
-                    b.Property<DateTimeOffset>("Fecha")
-                        .HasColumnType("timestamp with time zone")
-                        .HasColumnName("fecha");
-
-                    b.Property<Guid>("LineaRequisicionId")
-                        .HasColumnType("uuid")
-                        .HasColumnName("linea_requisicion_id");
-
-                    b.Property<string>("Motivo")
-                        .IsRequired()
-                        .HasMaxLength(500)
-                        .HasColumnType("character varying(500)")
-                        .HasColumnName("motivo");
-
-                    b.Property<Guid>("RequisicionId")
-                        .HasColumnType("uuid")
-                        .HasColumnName("requisicion_id");
-
-                    b.Property<DateTimeOffset>("UpdatedAt")
-                        .HasColumnType("timestamp with time zone")
-                        .HasColumnName("updated_at");
-
-                    b.Property<string>("UpdatedBy")
-                        .HasColumnType("text")
-                        .HasColumnName("updated_by");
-
-                    b.Property<int>("Version")
-                        .IsConcurrencyToken()
-                        .HasColumnType("integer")
-                        .HasColumnName("version");
-
-                    b.HasKey("Id")
-                        .HasName("pk_liberaciones_apartado");
-
-                    b.HasIndex("RequisicionId")
-                        .HasDatabaseName("ix_liberaciones_apartado_requisicion_id");
-
-                    b.ToTable("liberaciones_apartado", "almacen");
                 });
 
             modelBuilder.Entity("Millet.Almacen.Domain.Catalogo.Almacen", b =>
