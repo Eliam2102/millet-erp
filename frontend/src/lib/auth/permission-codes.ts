@@ -435,6 +435,9 @@ export const PermisosCanonicos = {
   FacturacionCajaSupervisar: 'facturacion.caja.supervisar',
   FacturacionCajaLeerTodas: 'facturacion.caja.leer-todas',
   FacturacionReportesLeer: 'facturacion.reportes.leer',
+  // F6.7 (ADR-0051): cierre del día de todas las sucursales.
+  FacturacionReportesLeerTodasSucursales:
+    'facturacion.reportes.leer-todas-sucursales',
   FacturacionComprobantesReintentarTimbrado:
     'facturacion.comprobantes.reintentar-timbrado',
   FacturacionComprobantesDescartar: 'facturacion.comprobantes.descartar',

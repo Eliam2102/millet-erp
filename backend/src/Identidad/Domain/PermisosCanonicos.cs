@@ -472,6 +472,8 @@ public static class PermisosCanonicos
     public const string FacturacionCajaSupervisar              = "facturacion.caja.supervisar";
     public const string FacturacionCajaLeerTodas               = "facturacion.caja.leer-todas";
     public const string FacturacionReportesLeer                = "facturacion.reportes.leer";
+    // F6.7 (ADR-0051): bypass de sucursal del cierre del día (monitor de CFDI y conciliación).
+    public const string FacturacionReportesLeerTodasSucursales = "facturacion.reportes.leer-todas-sucursales";
     public const string FacturacionComprobantesReintentarTimbrado = "facturacion.comprobantes.reintentar-timbrado";
     public const string FacturacionComprobantesDescartar        = "facturacion.comprobantes.descartar";
 
@@ -888,6 +890,7 @@ public static class PermisosCanonicos
         (Guid.Parse("00000009-0009-0000-0000-000000000004"), FacturacionCajaSupervisar,              "Autorizar apertura de caja ajena, reabrir sesión en arqueo y cancelar cobros"),
         (Guid.Parse("00000009-0009-0000-0000-000000000005"), FacturacionCajaLeerTodas,               "Alcance administrativo total en Facturación, incluido el bucket Sin asignar"),
         (Guid.Parse("00000009-000a-0000-0000-000000000001"), FacturacionReportesLeer,                "Consultar los reportes del módulo Facturación"),
+        (Guid.Parse("00000009-000a-0000-0000-000000000002"), FacturacionReportesLeerTodasSucursales, "Consultar el cierre del día (monitor de CFDI y facturado contra ingresado) de todas las sucursales, sin estar asociado a ellas"),
         (Guid.Parse("00000009-000b-0000-0000-000000000001"), FacturacionComprobantesReintentarTimbrado, "Reintentar el timbrado de un comprobante en TimbradoFallido (cualquier tipo)"),
         (Guid.Parse("00000009-000b-0000-0000-000000000002"), FacturacionComprobantesDescartar,        "Descartar un comprobante fallido que no se reintentará (quema el folio y libera el pedido)"),
 

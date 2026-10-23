@@ -299,6 +299,7 @@ const CODIGOS_BACKEND_ESPERADOS = new Set<string>([
   'facturacion.caja.supervisar',
   'facturacion.caja.leer-todas',
   'facturacion.reportes.leer',
+  'facturacion.reportes.leer-todas-sucursales',
   // Centros de Costo (CECO-FE-PR1; dim3.leer-todos post-renombre CECO-PR4)
   'centros_costo.catalogo.leer',
   'centros_costo.catalogo.administrar',
