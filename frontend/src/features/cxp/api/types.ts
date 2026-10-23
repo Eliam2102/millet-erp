@@ -821,6 +821,7 @@ export const EstadoComprobacionGastos = {
   Aplicada: 4,
   Rechazada: 5,
   AutorizadaNivel1: 6,
+  PendienteAprobarPasivo: 7,
 } as const satisfies Record<string, number>;
 export type EstadoComprobacionGastos =
   (typeof EstadoComprobacionGastos)[keyof typeof EstadoComprobacionGastos];
@@ -839,6 +840,7 @@ export const EstadoComprobacionGastosLabels: Record<EstadoComprobacionGastos, st
   [EstadoComprobacionGastos.Aplicada]: 'Aplicada',
   [EstadoComprobacionGastos.Rechazada]: 'Rechazada',
   [EstadoComprobacionGastos.AutorizadaNivel1]: 'Autorizada N1',
+  [EstadoComprobacionGastos.PendienteAprobarPasivo]: 'Pendiente de aprobar pasivo',
 };
 
 export interface ComprobacionGastosListItem {

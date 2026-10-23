@@ -24,6 +24,7 @@ export const ComprobacionesSearchSchema = z.object({
       z.literal(EstadoComprobacionGastos.Aplicada),
       z.literal(EstadoComprobacionGastos.Rechazada),
       z.literal(EstadoComprobacionGastos.AutorizadaNivel1),
+      z.literal(EstadoComprobacionGastos.PendienteAprobarPasivo),
     ])
     .optional(),
   sucursalId: z.string().regex(UUID_RE).optional(),

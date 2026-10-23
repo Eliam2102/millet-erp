@@ -8,6 +8,7 @@ import { ConfirmarAccionDialog } from '@/components/erp/feedback/ConfirmarAccion
 import { MotivoDialog } from '@/components/erp/feedback/MotivoDialog';
 import {
   useAplicarComprobacion,
+  useAprobarPasivoComprobacion,
   useAutorizarComprobacion,
   useAutorizarNivel1Aduanales,
   useAutorizarNivel2Aduanales,
@@ -30,7 +31,7 @@ export type ComprobacionAccionable = Pick<
   'id' | 'version' | 'estado' | 'tipo' | 'montoTotal' | 'moneda'
 >;
 
-type Dialogo = 'autorizar' | 'n1' | 'n2' | 'aplicar' | 'rechazar' | null;
+type Dialogo = 'autorizar' | 'n1' | 'n2' | 'aplicar' | 'aprobarPasivo' | 'rechazar' | null;
 
 /**
  * Acciones de workflow de una comprobación de gastos. Misma lógica en la fila
@@ -50,6 +51,7 @@ export function AccionesComprobacion({
   const enviar = useEnviarComprobacionARevision();
   const autorizar = useAutorizarComprobacion();
   const aplicar = useAplicarComprobacion();
+  const aprobarPasivo = useAprobarPasivoComprobacion();
   const autN1 = useAutorizarNivel1Aduanales();
   const autN2 = useAutorizarNivel2Aduanales();
   const rechazar = useRechazarComprobacion();
@@ -61,15 +63,18 @@ export function AccionesComprobacion({
 
   const pendiente =
     enviar.isPending || autorizar.isPending || aplicar.isPending ||
-    autN1.isPending || autN2.isPending || rechazar.isPending;
+    autN1.isPending || autN2.isPending || rechazar.isPending || aprobarPasivo.isPending;
   const base = { id: c.id, versionEsperada: c.version };
   const esAduanal = c.tipo === TipoComprobacionGastos.GastosAduanales;
+  const esCajaChica = c.tipo === TipoComprobacionGastos.ReembolsoCajaChica;
 
   function ejecutar(etiqueta: string, p: Promise<unknown>) {
     p.then(
       () => toast.success(etiqueta),
       (error) =>
-        toast.error(esApiError(error) ? error.problem.title : 'Error al ejecutar la acción.'),
+        toast.error(
+          esApiError(error) ? (error.problem.detail ?? error.problem.title) : 'Error al ejecutar la acción.',
+        ),
     ).finally(() => setDialogo(null));
   }
 
@@ -87,6 +92,11 @@ export function AccionesComprobacion({
         );
       case 'aplicar':
         return ejecutar('Comprobación aplicada', aplicar.mutateAsync({ ...base, idempotencyKey }));
+      case 'aprobarPasivo':
+        return ejecutar(
+          'Pasivo aprobado; reposición generada',
+          aprobarPasivo.mutateAsync({ ...base, idempotencyKey }),
+        );
     }
   }
 
@@ -114,6 +124,11 @@ export function AccionesComprobacion({
       verbo: 'Aplicar comprobación',
       texto: <>Se aplicará la comprobación de {tipo}{quien} por {monto}; no se puede deshacer.</>,
     },
+    aprobarPasivo: {
+      titulo: 'Aprobar pasivo',
+      verbo: 'Aprobar pasivo',
+      texto: <>Se aprobará el pasivo de la comprobación de {tipo}{quien} por {monto} y se generará su reposición para Tesorería; no se puede deshacer.</>,
+    },
   };
   const abierto = dialogo !== null && dialogo !== 'rechazar' ? resumen[dialogo] : null;
 
@@ -135,12 +150,21 @@ export function AccionesComprobacion({
           Enviar
         </Button>
       )}
-      {c.estado === EstadoComprobacionGastos.PorRevisar && !esAduanal && puedeAprobarN1 && (
+      {c.estado === EstadoComprobacionGastos.PorRevisar && !esAduanal && !esCajaChica && puedeAprobarN1 && (
         <Button variant="outline" size="sm" onClick={() => setDialogo('autorizar')} disabled={pendiente}>
           <CheckCircle2 className="mr-1 size-3.5" aria-hidden="true" />
           Autorizar
         </Button>
       )}
+      {esCajaChica &&
+        (c.estado === EstadoComprobacionGastos.PendienteAprobarPasivo ||
+          c.estado === EstadoComprobacionGastos.PorRevisar) &&
+        puedeAprobarN1 && (
+          <Button variant="outline" size="sm" onClick={() => setDialogo('aprobarPasivo')} disabled={pendiente}>
+            <CheckCircle2 className="mr-1 size-3.5" aria-hidden="true" />
+            Aprobar pasivo
+          </Button>
+        )}
       {c.estado === EstadoComprobacionGastos.PorRevisar && esAduanal && puedeAprobarN1 && (
         <Button variant="outline" size="sm" onClick={() => setDialogo('n1')} disabled={pendiente}>
           <CheckCircle2 className="mr-1 size-3.5" aria-hidden="true" />
@@ -159,6 +183,7 @@ export function AccionesComprobacion({
         </Button>
       )}
       {(c.estado === EstadoComprobacionGastos.PorRevisar ||
+        c.estado === EstadoComprobacionGastos.PendienteAprobarPasivo ||
         c.estado === EstadoComprobacionGastos.AutorizadaNivel1) &&
         puedeAprobarN1 && (
           <Button
