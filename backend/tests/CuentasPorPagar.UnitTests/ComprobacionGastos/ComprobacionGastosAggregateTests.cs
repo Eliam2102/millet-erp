@@ -18,6 +18,7 @@ public sealed class ComprobacionGastosAggregateTests
             moneda: moneda,
             observaciones: null,
             ahora: DateTimeOffset.UtcNow,
+            numeroPedimento: tipo == TipoComprobacionGastos.GastosAduanales ? "26-13-3018-000123" : null,
             destinoReposicion: tipo == TipoComprobacionGastos.ReembolsoCajaChica
                 ? DestinoReposicionCaja.CuentaSucursal
                 : null);
@@ -108,7 +109,7 @@ public sealed class ComprobacionGastosAggregateTests
     [Fact]
     public void AgregarLinea_solo_permitido_en_Borrador()
     {
-        var c = Crear();
+        var c = Crear(TipoComprobacionGastos.Viaticos);
         AgregarCfdi(c);
         c.Autorizar(Guid.NewGuid(), DateTimeOffset.UtcNow);
 
@@ -125,9 +126,9 @@ public sealed class ComprobacionGastosAggregateTests
     }
 
     [Fact]
-    public void EnviarARevision_con_lineas_pasa_a_PorRevisar()
+    public void EnviarARevision_no_caja_chica_pasa_a_PorRevisar()
     {
-        var c = Crear();
+        var c = Crear(TipoComprobacionGastos.Viaticos);
         AgregarCfdi(c);
         c.EnviarARevision(DateTimeOffset.UtcNow);
         c.Estado.Should().Be(EstadoComprobacionGastos.PorRevisar);
@@ -137,7 +138,7 @@ public sealed class ComprobacionGastosAggregateTests
     [Fact]
     public void Autorizar_desde_Borrador_OK()
     {
-        var c = Crear();
+        var c = Crear(TipoComprobacionGastos.Viaticos);
         AgregarCfdi(c);
         c.Autorizar(Guid.NewGuid(), DateTimeOffset.UtcNow);
         c.Estado.Should().Be(EstadoComprobacionGastos.Autorizada);
@@ -148,7 +149,7 @@ public sealed class ComprobacionGastosAggregateTests
     [Fact]
     public void Autorizar_desde_PorRevisar_OK()
     {
-        var c = Crear();
+        var c = Crear(TipoComprobacionGastos.Viaticos);
         AgregarCfdi(c);
         c.EnviarARevision(DateTimeOffset.UtcNow);
         c.Autorizar(Guid.NewGuid(), DateTimeOffset.UtcNow);
@@ -158,7 +159,7 @@ public sealed class ComprobacionGastosAggregateTests
     [Fact]
     public void Autorizar_sin_lineas_rechaza()
     {
-        var c = Crear();
+        var c = Crear(TipoComprobacionGastos.Viaticos);
         var act = () => c.Autorizar(Guid.NewGuid(), DateTimeOffset.UtcNow);
         act.Should().Throw<BusinessRuleException>().Where(e => e.Code == "COMP_SIN_LINEAS");
     }
@@ -166,7 +167,7 @@ public sealed class ComprobacionGastosAggregateTests
     [Fact]
     public void Aplicar_solo_permitido_desde_Autorizada()
     {
-        var c = Crear();
+        var c = Crear(TipoComprobacionGastos.Viaticos);
         AgregarCfdi(c);
         var act = () => c.Aplicar(Guid.NewGuid(), DateTimeOffset.UtcNow);
         act.Should().Throw<BusinessRuleException>().Where(e => e.Code == "COMP_NO_APLICABLE");
@@ -175,7 +176,7 @@ public sealed class ComprobacionGastosAggregateTests
     [Fact]
     public void Ciclo_Borrador_Autorizada_Aplicada()
     {
-        var c = Crear();
+        var c = Crear(TipoComprobacionGastos.Viaticos);
         AgregarCfdi(c, total: 580m);
         c.Autorizar(Guid.NewGuid(), DateTimeOffset.UtcNow);
         c.Aplicar(Guid.NewGuid(), DateTimeOffset.UtcNow);
@@ -203,11 +204,111 @@ public sealed class ComprobacionGastosAggregateTests
     [Fact]
     public void Rechazar_desde_Aplicada_no_permitido()
     {
-        var c = Crear();
+        var c = Crear(TipoComprobacionGastos.Viaticos);
         AgregarCfdi(c);
         c.Autorizar(Guid.NewGuid(), DateTimeOffset.UtcNow);
         c.Aplicar(Guid.NewGuid(), DateTimeOffset.UtcNow);
         var act = () => c.Rechazar(Guid.NewGuid(), "x", DateTimeOffset.UtcNow);
         act.Should().Throw<BusinessRuleException>().Where(e => e.Code == "COMP_NO_RECHAZABLE");
+    }
+
+    private static Domain.ComprobacionGastos.ComprobacionGastos CajaChicaConLineas()
+    {
+        var c = Crear();
+        AgregarCfdi(c);
+        return c;
+    }
+
+    private static void Code(Action act, string code) =>
+        act.Should().Throw<BusinessRuleException>().Where(e => e.Code == code);
+
+    [Fact]
+    public void EnviarARevision_caja_chica_pasa_a_PendienteAprobarPasivo()
+    {
+        var c = CajaChicaConLineas();
+        c.EnviarARevision(DateTimeOffset.UtcNow);
+        c.Estado.Should().Be(EstadoComprobacionGastos.PendienteAprobarPasivo);
+        c.FechaEnvioRevision.Should().NotBeNull();
+    }
+
+    [Fact]
+    public void EnviarARevision_aduanal_pasa_a_PorRevisar()
+    {
+        var c = Crear(TipoComprobacionGastos.GastosAduanales);
+        AgregarCfdi(c);
+        c.EnviarARevision(DateTimeOffset.UtcNow);
+        c.Estado.Should().Be(EstadoComprobacionGastos.PorRevisar);
+    }
+
+    [Fact]
+    public void AprobarPasivo_desde_PendienteAprobarPasivo_aplica()
+    {
+        var c = CajaChicaConLineas();
+        c.EnviarARevision(DateTimeOffset.UtcNow);
+        var u = Guid.NewGuid();
+        var t = DateTimeOffset.UtcNow;
+        c.AprobarPasivo(u, t);
+        c.Estado.Should().Be(EstadoComprobacionGastos.Aplicada);
+        c.AutorizadoPor.Should().Be(u);
+        c.AplicadoPor.Should().Be(u);
+        c.FechaAutorizacion.Should().Be(t);
+        c.FechaAplicacion.Should().Be(t);
+    }
+
+    [Fact]
+    public void AprobarPasivo_desde_PorRevisar_legado_aplica()
+    {
+        var c = CajaChicaConLineas();
+        typeof(Domain.ComprobacionGastos.ComprobacionGastos).GetProperty("Estado")!
+            .SetValue(c, EstadoComprobacionGastos.PorRevisar);
+        c.AprobarPasivo(Guid.NewGuid(), DateTimeOffset.UtcNow);
+        c.Estado.Should().Be(EstadoComprobacionGastos.Aplicada);
+    }
+
+    [Fact]
+    public void AprobarPasivo_desde_Borrador_Rechazada_Aplicada_no_permitido()
+    {
+        var borrador = CajaChicaConLineas();
+        Code(() => borrador.AprobarPasivo(Guid.NewGuid(), DateTimeOffset.UtcNow), "COMP_NO_APROBABLE_PASIVO");
+
+        var rechazada = CajaChicaConLineas();
+        rechazada.EnviarARevision(DateTimeOffset.UtcNow);
+        rechazada.Rechazar(Guid.NewGuid(), "x", DateTimeOffset.UtcNow);
+        Code(() => rechazada.AprobarPasivo(Guid.NewGuid(), DateTimeOffset.UtcNow), "COMP_NO_APROBABLE_PASIVO");
+
+        var aplicada = CajaChicaConLineas();
+        aplicada.EnviarARevision(DateTimeOffset.UtcNow);
+        aplicada.AprobarPasivo(Guid.NewGuid(), DateTimeOffset.UtcNow);
+        Code(() => aplicada.AprobarPasivo(Guid.NewGuid(), DateTimeOffset.UtcNow), "COMP_NO_APROBABLE_PASIVO");
+    }
+
+    [Fact]
+    public void AprobarPasivo_aduanal_solo_caja_chica()
+    {
+        var c = Crear(TipoComprobacionGastos.GastosAduanales);
+        AgregarCfdi(c);
+        c.EnviarARevision(DateTimeOffset.UtcNow);
+        Code(() => c.AprobarPasivo(Guid.NewGuid(), DateTimeOffset.UtcNow), "COMP_APROBAR_PASIVO_SOLO_CAJA_CHICA");
+    }
+
+    [Fact]
+    public void Rechazar_desde_PendienteAprobarPasivo_con_y_sin_motivo()
+    {
+        var sin = CajaChicaConLineas();
+        sin.EnviarARevision(DateTimeOffset.UtcNow);
+        Code(() => sin.Rechazar(Guid.NewGuid(), " ", DateTimeOffset.UtcNow), "COMP_MOTIVO_VACIO");
+
+        var con = CajaChicaConLineas();
+        con.EnviarARevision(DateTimeOffset.UtcNow);
+        con.Rechazar(Guid.NewGuid(), "Falta soporte", DateTimeOffset.UtcNow);
+        con.Estado.Should().Be(EstadoComprobacionGastos.Rechazada);
+        con.MotivoRechazo.Should().Be("Falta soporte");
+    }
+
+    [Fact]
+    public void Autorizar_caja_chica_requiere_AprobarPasivo()
+    {
+        var c = CajaChicaConLineas();
+        Code(() => c.Autorizar(Guid.NewGuid(), DateTimeOffset.UtcNow), "COMP_CAJA_CHICA_REQUIERE_APROBAR_PASIVO");
     }
 }

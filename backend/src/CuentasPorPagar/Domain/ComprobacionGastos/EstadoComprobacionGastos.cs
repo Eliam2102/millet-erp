@@ -27,4 +27,10 @@ public enum EstadoComprobacionGastos
     /// Solo aplicable a <see cref="TipoComprobacionGastos.GastosAduanales"/>.
     /// </summary>
     AutorizadaNivel1 = 6,
+
+    /// <summary>
+    /// Caja chica enviada; espera la aprobación del pasivo por CxP.
+    /// Solo <see cref="TipoComprobacionGastos.ReembolsoCajaChica"/>.
+    /// </summary>
+    PendienteAprobarPasivo = 7,
 }
