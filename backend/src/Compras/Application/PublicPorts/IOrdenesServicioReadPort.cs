@@ -10,6 +10,6 @@ public sealed record OrdenServicioLectura(Guid Id, Guid EmpresaId, Guid Sucursal
 }
 public interface IOrdenesServicioReadPort
 {
-    Task<OrdenServicioLectura?> ObtenerAsync(Guid id, CancellationToken ct);
+    Task<OrdenServicioLectura?> ObtenerAsync(Guid empresaId, Guid id, CancellationToken ct);
     Task<IReadOnlyList<OrdenServicioLectura>> BuscarAsync(Guid empresaId, Guid sucursalId, Guid? proveedorId, string? texto, CancellationToken ct);
 }

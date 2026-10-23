@@ -39,6 +39,17 @@ public sealed class CompraActivoConsumer(ActivosFijosDbContext db, IComprasOcRea
         }
         await db.SaveChangesAsync(ct); await tx.CommitAsync(ct);
     }
+    /// <summary>Anulación de la recepción: da de baja (sin borrar) los activos por capitalizar de la línea; idempotente porque los ya dados de baja se omiten.</summary>
+    public async Task AnularAsync(RecepcionActivoAnuladaIntegrationEvent e, CancellationToken ct)
+    {
+        await using var tx = await db.Database.BeginTransactionAsync(ct);
+        var llave = e.LineaOcId.ToString();
+        await db.Database.ExecuteSqlInterpolatedAsync($"SELECT pg_advisory_xact_lock(hashtextextended({llave}, 0))", ct);
+        var fecha = DateOnly.FromDateTime(e.OcurridoEn.UtcDateTime);
+        foreach (var a in await db.Activos.Where(x => x.EmpresaId == e.EmpresaId && x.RecepcionId == e.RecepcionId && x.LineaOcId == e.LineaOcId).ToListAsync(ct))
+            a.DarDeBajaPorRecepcionAnulada(fecha, e.Motivo);
+        await db.SaveChangesAsync(ct); await tx.CommitAsync(ct);
+    }
     public async Task ConciliarAsync(FacturaConciliadaActivo e, CancellationToken ct)
     {
         await using var tx = await db.Database.BeginTransactionAsync(ct);
