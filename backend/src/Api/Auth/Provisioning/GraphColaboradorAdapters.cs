@@ -5,6 +5,8 @@ using Microsoft.Graph.Models.ODataErrors;
 using Microsoft.Graph.Users.Item.SendMail;
 using Microsoft.Extensions.Options;
 using Millet.Api.Auth.Options;
+using Millet.CuentasPorPagar.Domain.Notificaciones;
+using Millet.CuentasPorPagar.Infrastructure.Notificaciones;
 using Millet.Identidad.Application.DirectorioEntra;
 using Millet.Identidad.Application.Ports;
 using Millet.Identidad.Infrastructure.Stubs;
@@ -55,6 +57,10 @@ public static class GraphColaboradorRegistration
             services.AddSingleton<ICorreoSalientePort, CorreoSandboxLocal>();
         else
             services.AddSingleton<ICorreoSalientePort, GraphCorreoColaboradores>();
+        // Avisos SLA de facturas en revisión (CxP): sustituye al NoOp registrado antes. Con correo sandbox sigue el NoOp (log).
+        var avisos = configuration.GetSection(AvisosRevisionOptions.SectionName).Get<AvisosRevisionOptions>() ?? new();
+        if (!correoSandbox && avisos.Proveedor.Equals("Graph", StringComparison.OrdinalIgnoreCase))
+            services.AddSingleton<INotificacionService, GraphAvisoRevisionCxp>();
         return services;
     }
 }
@@ -228,15 +234,22 @@ public sealed class GraphCorreoColaboradores : ICorreoSalientePort
                    $"<p><a href='{url}' style='display:inline-block;padding:12px 20px;background:#4F46E5;color:#fff;text-decoration:none;border-radius:6px'>Iniciar sesión en el ERP</a></p>" +
                    $"<p>Si el botón no abre, copia este enlace: {url}</p>" +
                    "<p>Si no solicitaste este acceso, contacta al administrador.</p></div>";
+        await EnviarHtmlAsync(_graph, _sender, [correo.Destinatario], "Acceso al ERP Millet", body, ct);
+    }
+
+    /// <summary>Envío HTML por Graph desde <paramref name="sender"/>; compartido con los avisos de CxP.</summary>
+    internal static async Task EnviarHtmlAsync(
+        GraphServiceClient graph, string sender, IEnumerable<string> para, string asunto, string html, CancellationToken ct)
+    {
         try
         {
-            await _graph.Users[_sender].SendMail.PostAsync(new SendMailPostRequestBody
+            await graph.Users[sender].SendMail.PostAsync(new SendMailPostRequestBody
             {
                 Message = new Message
                 {
-                    Subject = "Acceso al ERP Millet",
-                    Body = new ItemBody { ContentType = BodyType.Html, Content = body },
-                    ToRecipients = [new Recipient { EmailAddress = new EmailAddress { Address = correo.Destinatario } }]
+                    Subject = asunto,
+                    Body = new ItemBody { ContentType = BodyType.Html, Content = html },
+                    ToRecipients = [.. para.Select(a => new Recipient { EmailAddress = new EmailAddress { Address = a } })]
                 },
                 SaveToSentItems = true
             }, cancellationToken: ct);
@@ -254,5 +267,54 @@ public sealed class GraphCorreoColaboradores : ICorreoSalientePort
                 "CORREO_ERROR_ENVIO",
                 $"Error al enviar correo vía Microsoft Graph: {ex.Error?.Message ?? ex.Message}");
         }
+    }
+}
+
+/// <summary>Correo del aviso SLA de factura en revisión al Contador General (y Compras según el motivo).</summary>
+public sealed class GraphAvisoRevisionCxp : INotificacionService
+{
+    private readonly GraphServiceClient _graph;
+    private readonly string _sender;
+    private readonly AvisosRevisionOptions _avisos;
+    private readonly ILogger<GraphAvisoRevisionCxp> _logger;
+
+    public GraphAvisoRevisionCxp(
+        GraphServiceClient graph, IOptions<EntraIdOptions> entra,
+        IOptions<AvisosRevisionOptions> avisos, ILogger<GraphAvisoRevisionCxp> logger)
+    {
+        _graph = graph;
+        _sender = entra.Value.SenderEmail;
+        _avisos = avisos.Value;
+        _logger = logger;
+    }
+
+    public async Task NotificarSlaRevisionAsync(SlaRevisionNotificacion notificacion, CancellationToken cancellationToken)
+    {
+        var para = _avisos.Destinatarios(notificacion);
+        if (para.Count == 0)
+        {
+            _logger.LogWarning("[GraphAvisoRevisionCxp] Sin destinatarios en {Seccion}; el aviso de factura {Factura} no se envió.",
+                AvisosRevisionOptions.SectionName, notificacion.FacturaProveedorId);
+            return;
+        }
+        await GraphCorreoColaboradores.EnviarHtmlAsync(
+            _graph, _sender, para, $"Factura en revisión: {NombreNivel(notificacion.Nivel)}", ConstruirHtml(notificacion), cancellationToken);
+    }
+
+    public static string NombreNivel(NivelEscalamientoSla nivel) => nivel switch
+    {
+        NivelEscalamientoSla.AvisoGerente => "primer aviso",
+        NivelEscalamientoSla.SlaVencido => "plazo vencido",
+        _ => "escalamiento",
+    };
+
+    public static string ConstruirHtml(SlaRevisionNotificacion n)
+    {
+        static string E(string? s) => System.Net.WebUtility.HtmlEncode(s ?? string.Empty);
+        return "<div style='font-family:Arial,sans-serif;max-width:600px;margin:auto'>" +
+               "<h2>Factura de proveedor en revisión</h2>" +
+               $"<p>Factura <strong>{E(n.Folio ?? "sin folio")}</strong> con motivo «{E(n.MotivoNombre)}».</p>" +
+               $"<p>Lleva <strong>{n.DiasEnRevision}</strong> días hábiles en revisión (plazo: {n.SlaDias}). Nivel: {E(NombreNivel(n.Nivel))}.</p>" +
+               "<p>Revísala en el ERP, bandeja «Revisión por área».</p></div>";
     }
 }
