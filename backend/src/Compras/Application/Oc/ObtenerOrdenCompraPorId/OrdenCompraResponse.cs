@@ -101,6 +101,7 @@ public sealed record OrdenCompraResponse(
     decimal GastosAdicionales,
     decimal Redondeo)
 {
+    public IReadOnlyList<Millet.Almacen.Application.PublicPorts.RecepcionImportacionLectura> RecepcionesImportacion { get; init; } = [];
     public string? Obra { get; init; }
     public int CicloAutorizacion { get; init; }
     public IReadOnlyList<AutorizacionOcResponse> Autorizaciones { get; init; } = [];

@@ -120,11 +120,29 @@ public class AlmacenDbContext : BaseDbContext
 
     public DbSet<Domain.Apartados.ApartadoRequisicion> ApartadosRequisicion => Set<Domain.Apartados.ApartadoRequisicion>();
 
+    public DbSet<RecepcionImportacion> RecepcionesImportacion => Set<RecepcionImportacion>();
+
     public DbSet<RecepcionActivo> RecepcionesActivos => Set<RecepcionActivo>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         modelBuilder.HasDefaultSchema("almacen");
+        var importacion = modelBuilder.Entity<RecepcionImportacion>();
+        importacion.ToTable("recepciones_importacion"); importacion.HasKey(x => x.Id);
+        importacion.Property(x => x.Id).ValueGeneratedNever();
+        importacion.Property(x => x.NumeroPedimento).HasMaxLength(15);
+        importacion.Property(x => x.NumeroBl).HasMaxLength(50);
+        importacion.Property(x => x.NumeroContenedor).HasMaxLength(40);
+        importacion.Property(x => x.Aduana).HasMaxLength(2);
+        importacion.Property(x => x.ClavePedimento).HasMaxLength(2);
+        importacion.HasIndex(x => new { x.EmpresaId, x.NumeroPedimento });
+        importacion.HasIndex(x => new { x.EmpresaId, x.OrdenCompraId });
+        importacion.HasIndex(x => x.RecepcionId).IsUnique();
+        importacion.HasMany(x => x.Partidas).WithOne().HasForeignKey("RecepcionImportacionId");
+        var partidaImportacion = modelBuilder.Entity<RecepcionImportacionPartida>();
+        partidaImportacion.ToTable("recepcion_importacion_partidas"); partidaImportacion.HasKey(x => x.Id);
+        partidaImportacion.Property(x => x.Id).ValueGeneratedNever();
+        partidaImportacion.Property(x => x.FraccionArancelaria).HasMaxLength(10);
         var af = modelBuilder.Entity<RecepcionActivo>();
         af.ToTable("recepciones_activos", "almacen"); af.HasKey(x => x.Id); af.Property(x => x.Id).ValueGeneratedNever();
         af.Property(x => x.Cantidad).HasPrecision(18, 4); af.HasIndex(x => new { x.EmpresaId, x.OrdenCompraId, x.LineaOcId });

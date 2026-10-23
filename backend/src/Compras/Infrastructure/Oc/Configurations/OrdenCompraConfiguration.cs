@@ -55,7 +55,7 @@ public sealed class OrdenCompraConfiguration : IEntityTypeConfiguration<OrdenCom
             // crearse en Borrador (0) o Rechazada (6) sin incoterm ni país; ambos
             // se exigen en BD a partir de cualquier otro estado, y el handler de
             // transmitir los valida antes (422). El contenedor no es obligatorio
-            // en BD (embarque aéreo/terrestre no lo lleva).
+            // en BD; pedimento, BL y contenedor se exigen al recibir (V46).
             t.HasCheckConstraint("ck_oc_import_campos",
                 "(es_importacion = false) OR (estado IN (0, 6)) OR " +
                 "(info_import_incoterm_id IS NOT NULL AND info_import_pais_origen IS NOT NULL)");
@@ -167,6 +167,7 @@ public sealed class OrdenCompraConfiguration : IEntityTypeConfiguration<OrdenCom
         builder.Property(o => o.InfoImportCodigoRuta).HasMaxLength(40);
         builder.Property(o => o.InfoImportSemanaEmbarque).HasMaxLength(40);
         builder.Property(o => o.InfoImportNumeroPedimento).HasMaxLength(60);
+        builder.HasIndex(o => new { o.EmpresaId, o.InfoImportNumeroPedimento });
         // PLATFORM-TODO(F1-COM-06): supuesto Vilo, confirmar con lista de Millet.
         builder.Property(o => o.InfoImportTipoOperacion).HasConversion<short>();
         builder.Property(o => o.InfoImportNumeroBl).HasMaxLength(50);

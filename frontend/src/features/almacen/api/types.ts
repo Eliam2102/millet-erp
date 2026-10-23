@@ -384,6 +384,7 @@ export interface RegistrarRecepcionConFacturaCommand {
    * ubicación efectiva de cada línea va en <c>lineas[].ubicacionId</c>.
    */
   ubicacionHelperId: string | null;
+  importacion?: import('../schemas/recepcion').ImportacionRecepcionValues | null;
   lineas: RegistrarRecepcionLineaInput[];
 }
 
@@ -399,10 +400,12 @@ export interface RegistrarRecepcionConPackingListCommand {
   observaciones: string | null;
   /** PR4: helper de cabecera (ver variante A). null = no lo usó. */
   ubicacionHelperId: string | null;
+  importacion?: import('../schemas/recepcion').ImportacionRecepcionValues | null;
   lineas: RegistrarRecepcionLineaInput[];
 }
 
 export interface RegistrarRecepcionLineaInput {
+  fraccionArancelaria?: string | null;
   unidadCapturada?: string | null;
   articuloId: string;
   lineaOcId: string | null;

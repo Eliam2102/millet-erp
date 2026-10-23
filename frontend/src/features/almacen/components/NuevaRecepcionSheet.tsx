@@ -1,3 +1,7 @@
+import { useQuery } from '@tanstack/react-query';
+import { apiRequest } from '@/lib/api';
+import type { ImportacionRecepcionValues } from '../schemas/recepcion';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { FormSeccion } from '@/components/erp/forms/FormSeccion';
 import { IndicadorAlmacenBadge } from './IndicadorAlmacenBadge';
 import { OrdenCompraRecepcionSelector } from './OrdenCompraRecepcionSelector';
@@ -321,6 +325,7 @@ function NuevaRecepcionFormBody({
     const lineasParaBackend = values.filas
       .filter((f) => f.incluida)
       .map((f) => ({
+        fraccionArancelaria: f.fraccionArancelaria ?? null,
         articuloId: f.articuloId,
         lineaOcId: f.lineaOcId,
         cantidad: f.cantidad,
@@ -337,6 +342,7 @@ function NuevaRecepcionFormBody({
       registrarA.mutate(
         {
           command: {
+            importacion: v.importacion ?? null,
             ordenCompraId: v.ordenCompraId,
             fechaMovimiento: v.fechaMovimiento,
             cfdiRecibidoId: v.cfdiRecibidoId ?? null,
@@ -375,6 +381,7 @@ function NuevaRecepcionFormBody({
     registrarB.mutate(
       {
         command: {
+          importacion: v.importacion ?? null,
           ordenCompraId: v.ordenCompraId,
           fechaMovimiento: v.fechaMovimiento,
           packingListBlobRef: packingListAdjunto.blobRef,
@@ -753,6 +760,7 @@ function LineasDesdeOc({
       if (ultimaOcCargada.current !== null) {
         ultimaOcCargada.current = null;
         form.setValue('filas', []);
+        form.setValue('importacion', null);
       }
       return;
     }
@@ -760,6 +768,12 @@ function LineasDesdeOc({
     if (ultimaOcCargada.current === ocId) return;
     ultimaOcCargada.current = ocId;
     form.setValue('filas', construirFilas(ocQuery.data.lineas, recibiblesQuery.data));
+    form.setValue('importacion', ocQuery.data.esImportacion ? {
+      numeroPedimento: ocQuery.data.infoImportNumeroPedimento ?? '',
+      numeroBl: ocQuery.data.infoImportNumeroBl ?? '',
+      numeroContenedor: ocQuery.data.infoImportNumeroContenedor ?? '',
+      aduana: '', clavePedimento: '',
+    } : null);
   }, [ocId, ocQuery.data, recibiblesQuery.data, form]);
 
   const filas = useWatch({ control: form.control, name: 'filas' }) ?? [];
@@ -833,7 +847,13 @@ function LineasDesdeOc({
 
   return (
     <section className="space-y-2">
+      {ocQuery.data?.esImportacion && <DatosImportacionRecepcion form={form} />}
       <h3 className="text-sm font-semibold">Partidas de la OC ({filas.length} pendientes)</h3>
+      {ocQuery.data?.esImportacion && filas.map((fila, index) => fila.incluida && (
+        <Field key={fila.lineaOcId} label={`Fracción arancelaria de la partida ${fila.posicion}`} error={form.formState.errors.filas?.[index]?.fraccionArancelaria?.message}>
+          <Input aria-label={`Fracción arancelaria de la partida ${fila.posicion}`} {...form.register(`filas.${index}.fraccionArancelaria`)} />
+        </Field>
+      ))}
 
       {errorMessage && (
         <p role="alert" className="text-xs text-danger-fg">
@@ -1200,6 +1220,7 @@ function VarianteOption({
 }
 
 type RecepcionFormValues = {
+  importacion?: ImportacionRecepcionValues | null;
   ordenCompraId: string;
   fechaMovimiento: string;
   observaciones?: string | null;
@@ -1223,4 +1244,35 @@ function defaultValuesParaVariante(variante: Variante, hoyIso: string): Recepcio
     return { ...base, cfdiRecibidoId: null, cfdiUuidFiscal: null };
   }
   return { ...base, packingListBlobRef: '' };
+}
+
+function DatosImportacionRecepcion({ form }: { form: import('react-hook-form').UseFormReturn<RecepcionFormValues> }) {
+  const catalogo = useQuery({
+    queryKey: ['almacen', 'catalogos-importacion'],
+    queryFn: async () => (await apiRequest<{ demo: boolean; aduanas: Record<string, string>; clavesPedimento: Record<string, string> }>('/api/v1/almacen/recepciones/catalogos-importacion')).data,
+  });
+  return (
+    <FormSeccion titulo="Datos de importación" descripcion="Pedimento, BL o guía aérea y contenedor son obligatorios para confirmar. Catálogo DEMO de aduanas y claves de pedimento; selección limitada para demostración.">
+        {([['numeroPedimento', 'Número de pedimento'], ['numeroBl', 'BL o guía aérea'], ['numeroContenedor', 'Número de contenedor']] as const).map(([campo, etiqueta]) => (
+          <FormCampo key={campo} span={6}>
+            <Field label={etiqueta} required error={form.formState.errors.importacion?.[campo]?.message}>
+              <Input aria-label={etiqueta} {...form.register(`importacion.${campo}`)} />
+            </Field>
+          </FormCampo>
+        ))}
+        {([['aduana', 'Aduana', catalogo.data?.aduanas], ['clavePedimento', 'Clave de pedimento', catalogo.data?.clavesPedimento]] as const).map(([campo, etiqueta, opciones]) => (
+          <FormCampo key={campo} span={6}>
+            <Field label={etiqueta} required error={form.formState.errors.importacion?.[campo]?.message}>
+              <Controller control={form.control} name={`importacion.${campo}`} render={({ field }) => (
+                <Select value={field.value ?? ''} onValueChange={field.onChange}>
+                  <SelectTrigger aria-label={etiqueta}><SelectValue placeholder="Seleccionar" /></SelectTrigger>
+                  <SelectContent>{Object.entries(opciones ?? {}).map(([clave, nombre]) => <SelectItem key={clave} value={clave}>{clave} · {nombre}</SelectItem>)}</SelectContent>
+                </Select>
+              )} />
+            </Field>
+          </FormCampo>
+        ))}
+      {catalogo.isError && <p role="alert" className="text-sm text-danger-fg">No se pudo cargar el catálogo de importación. Vuelve a abrir la recepción para reintentar.</p>}
+    </FormSeccion>
+  );
 }

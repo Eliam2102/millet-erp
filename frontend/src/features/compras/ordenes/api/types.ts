@@ -372,7 +372,18 @@ export interface CotizacionElegidaOc {
   precios: { lineaRequisicionId: string; precioPorUnidadRequisicion: number }[];
 }
 
+export interface RecepcionImportacion {
+  recepcionId: string;
+  numeroPedimento: string;
+  numeroBl: string;
+  numeroContenedor: string;
+  aduana: string;
+  clavePedimento: string;
+  partidas: { lineaOcId: string; fraccionArancelaria: string }[];
+}
+
 export interface OrdenCompraDetalleResponse {
+  recepcionesImportacion?: RecepcionImportacion[];
   /** Proveedor con compras previas recurrentes; ausente si no hay dato. */
   esRecurrente?: boolean;
   obra?: string | null;
