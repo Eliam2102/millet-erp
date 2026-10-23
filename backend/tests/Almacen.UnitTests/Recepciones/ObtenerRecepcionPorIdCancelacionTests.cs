@@ -85,7 +85,7 @@ public class ObtenerRecepcionPorIdCancelacionTests
         dto.CanceladaAt.Should().NotBeNull();
         dto.MotivoCancelacion.Should().Be("ARTICULO: era otro");
         dto.FoliosCancelacion.Should().Equal("M-CEN2026-000001", "M-CEN2026-000002");
-        dto.PuedeCancelarMismoUsuario.Should().BeTrue(); // quien consulta (Beto) no la registró
+        dto.RegistradaPorOtroUsuario.Should().BeTrue(); // quien consulta (Beto) no la registró
     }
 
     [Fact]
@@ -100,7 +100,7 @@ public class ObtenerRecepcionPorIdCancelacionTests
         dto.RegistradoPorNombre.Should().Be("Ana (registró)");
         (dto.CanceladaAt, dto.CanceladaPor, dto.CanceladaPorNombre, dto.MotivoCancelacion, dto.FoliosCancelacion)
             .Should().Be((null, null, null, null, null));
-        dto.PuedeCancelarMismoUsuario.Should().BeFalse();
+        dto.RegistradaPorOtroUsuario.Should().BeFalse();
     }
 
     [Fact]
