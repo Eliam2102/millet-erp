@@ -145,6 +145,12 @@ public static class DependencyInjection
             Millet.CuentasPorCobrar.Domain.Ports.Facturacion.IFacturacionAnticiposReadPort,
             PublicAdapters.FacturacionAnticiposReadAdapter>();
 
+        // --- F1-CXC-05: anticipos con sus aplicaciones a factura final (mismas
+        // reglas que la comparativa F6.2, sin alcance de Cajas; CxC filtra por sucursal).
+        services.AddScoped<
+            Millet.CuentasPorCobrar.Domain.Ports.Facturacion.IFacturacionAplicacionesAnticipoReadPort,
+            PublicAdapters.FacturacionAplicacionesAnticipoReadAdapter>();
+
         return services;
     }
 }

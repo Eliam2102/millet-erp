@@ -6,11 +6,13 @@ import { createQueryWrapper } from '@/test/test-query-client';
 import {
   useAnticiposCliente,
   useAntiguedadSaldos,
+  useAplicacionesAnticipo,
   useEnviarEstadoCuenta,
   useEnviosEstadoCuenta,
   useEstadoCuentaCliente,
   usePendientesEstadoCuenta,
 } from '@/features/cxc/api/useCartera';
+import { cxcKeys } from '@/features/cxc/api/keys';
 import {
   AlineacionColumnaCxc,
   TipoColumnaReporteCxc,
@@ -112,6 +114,79 @@ describe('useAnticiposCliente', () => {
       wrapper: createQueryWrapper(),
     });
     expect(result.current.fetchStatus).toBe('idle');
+  });
+});
+
+describe('useAplicacionesAnticipo (F1-CXC-05)', () => {
+  const respuesta = {
+    anticipos: [
+      {
+        anticipoId: 'ant-1',
+        facturaAnticipoId: 'fa-1',
+        clienteId: 'cli-1',
+        clienteNombre: 'Cliente Maquila',
+        folio: 'FA-10',
+        uuid: 'uuid-fa-10',
+        fechaTimbrado: '2026-10-01T16:00:00Z',
+        sucursalId: 'suc-1',
+        sucursalNombre: 'MID — Mérida',
+        moneda: 'MXN',
+        estado: 'Parcial',
+        cobrado: 30000,
+        aplicado: 20000,
+        comprometido: 0,
+        saldo: 10000,
+        saldoSistema: 10000,
+        pedidoOrigenRef: null,
+        observacion: null,
+        aplicaciones: [],
+      },
+    ],
+    totalesPorMoneda: [
+      { moneda: 'MXN', cobrado: 30000, aplicado: 20000, comprometido: 0, saldo: 10000 },
+    ],
+  };
+
+  it('sin cliente consulta todos los clientes (sin clienteId en la URL)', async () => {
+    let params: URLSearchParams | null = null;
+    mswServer.use(
+      http.get(`${BASE}/anticipos/aplicaciones`, ({ request }) => {
+        params = new URL(request.url).searchParams;
+        return HttpResponse.json(respuesta);
+      }),
+    );
+    const { result } = renderHook(() => useAplicacionesAnticipo({}), {
+      wrapper: createQueryWrapper(),
+    });
+    await waitFor(() => expect(result.current.isSuccess).toBe(true));
+    expect(params!.has('clienteId')).toBe(false);
+    expect(result.current.data?.anticipos[0].saldo).toBe(10000);
+  });
+
+  it('con cliente y estado los manda como query params', async () => {
+    let params: URLSearchParams | null = null;
+    mswServer.use(
+      http.get(`${BASE}/anticipos/aplicaciones`, ({ request }) => {
+        params = new URL(request.url).searchParams;
+        return HttpResponse.json(respuesta);
+      }),
+    );
+    const { result } = renderHook(
+      () => useAplicacionesAnticipo({ clienteId: 'cli-1', estado: 'Parcial' }),
+      { wrapper: createQueryWrapper() },
+    );
+    await waitFor(() => expect(result.current.isSuccess).toBe(true));
+    expect(params!.get('clienteId')).toBe('cli-1');
+    expect(params!.get('estado')).toBe('Parcial');
+  });
+
+  it('query key incluye los filtros bajo la familia de anticipos', () => {
+    expect(cxcKeys.aplicacionesAnticipo({ clienteId: 'cli-1' })).toEqual([
+      'cxc',
+      'anticipos',
+      'aplicaciones',
+      { clienteId: 'cli-1' },
+    ]);
   });
 });
 
