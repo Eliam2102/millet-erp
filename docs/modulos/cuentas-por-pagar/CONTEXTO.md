@@ -49,11 +49,11 @@ Estado verificado en: `develop` @ b2ff9280 el 2026-10-22 (working tree limpio al
 | 8 | Una factura de caja chica o viáticos no se puede autorizar (candado anti doble pago) | `[CÓDIGO · backend/src/CuentasPorPagar/Application/FacturaProveedor/AutorizarFactura/AutorizarFacturaCommand.cs]` |
 
 ## 5. Datos y entidades
-- `ComprobacionGastos` (tipos ReembolsoCajaChica y GastosAduanales) con estados Borrador 1, PorRevisar 2, Autorizada 3, Aplicada 4, Rechazada 5, AutorizadaNivel1 6 (solo aduanales). Campos clave: SucursalId, ResponsableId, DestinoReposicion, ReposicionId, MontoTotal, Moneda, motivo de rechazo. `[CÓDIGO · Domain/ComprobacionGastos]`
+- `ComprobacionGastos` (tipos ReembolsoCajaChica y GastosAduanales) con estados Borrador 1, PorRevisar 2, Autorizada 3, Aplicada 4, Rechazada 5, AutorizadaNivel1 6 (solo aduanales), PendienteAprobarPasivo 7 (solo caja chica: al enviarla queda aquí y CxP la resuelve con «Aprobar pasivo» o «Rechazar»). Campos clave: SucursalId, ResponsableId, DestinoReposicion, ReposicionId, MontoTotal, Moneda, motivo de rechazo. `[CÓDIGO · Domain/ComprobacionGastos]`
 - `LineaComprobacionGastos` liga cada línea a una `FacturaProveedor`. En caja chica las facturas nacen Capturada al crear la comprobación y se cancelan al rechazar. `[CÓDIGO · CrearComprobacionCajaChicaCommand.cs y TransicionesComprobacionGastosCommands.cs]`
 - `ReposicionCajaChica`: pasivo interno hacia Tesorería; destino CuentaSucursal o Responsable; agrupa N comprobaciones por sucursal, destino y moneda. `[CÓDIGO · Domain/ComprobacionGastos/ReposicionCajaChica.cs]`
-- `ConfiguracionReposicionCaja`: monto mínimo por sucursal (0 si no hay fila). Vigente en el código, contradice la regla 1. `[CÓDIGO]`
-- `AprobadorLimite`: EmpleadoId, TipoGasto (ReembolsoCajaChica, Viaticos, TarjetaCreditoEmpresarial, OtrosSinOc), MontoMax, moneda, vigencia. Solo catálogo; ningún handler lo aplica. `[CÓDIGO · Domain/Catalogos/AprobadorLimite.cs]`
+- Sin mínimo de reposición: «Aprobar pasivo» genera una reposición por comprobación; la tabla `configuracion_reposicion_caja` se eliminó (migración `QuitarConfiguracionReposicionCaja`). `[CÓDIGO]`
+- `AprobadorLimite`: EmpleadoId, TipoGasto (ReembolsoCajaChica, Viaticos, TarjetaCreditoEmpresarial, OtrosSinOc), MontoMax, moneda, vigencia. «Aprobar pasivo» de caja chica lo aplica (límite inclusivo por moneda y vigencia; sin fila o sin empleado ligado no hay límite). `[CÓDIGO · Domain/Catalogos/AprobadorLimite.cs, Application/ComprobacionGastos/Transiciones/TransicionesComprobacionGastosCommands.cs]`
 - Liga usuario a empleado: `Empleado.UsuarioId`, leída con `IEmpleadoReadPort.ObtenerPorUsuarioAsync`. `[CÓDIGO · Domain/Ports/Administracion/IEmpleadoReadPort.cs]`
 
 ## 6. Contratos
@@ -62,13 +62,13 @@ Estado verificado en: `develop` @ b2ff9280 el 2026-10-22 (working tree limpio al
 - **Triada y demás eventos:** ver tabla de `CLAUDE.md` de la raíz.
 - **Puertos de lectura que usa:** `IEmpleadoReadPort`, `ISucursalReadPort`.
 - **Permisos:** `cuentas_por_pagar.comprobaciones.{leer,capturar}`, `comprobaciones.aprobar-nivel1` y `aprobar-nivel2` (Autorizar, Aplicar y Rechazar de caja chica usan nivel 1), `reposiciones.{leer,administrar}`, `documentos.{leer,gestionar}-todas-sucursales` (bypass por sucursal, ADR-0051). `[CÓDIGO · Identidad/Domain/PermisosCanonicos.cs]`
-- **Endpoints:** `/api/v1/cuentas-por-pagar/comprobaciones` (`/caja-chica`, `/{id}/enviar-revision`, `/autorizar`, `/aplicar`, `/rechazar`, aduanales); `/api/v1/cuentas-por-pagar/reposiciones-caja` (`/`, `/saldos`, `/emitir`, `/configuracion`); catálogo de aprobadores en `CatalogosCxpAdminEndpoints.cs`.
+- **Endpoints:** `/api/v1/cuentas-por-pagar/comprobaciones` (`/caja-chica`, `/{id}/enviar-revision`, `/autorizar`, `/aplicar`, `/aprobar-pasivo`, `/rechazar`, aduanales); `/api/v1/cuentas-por-pagar/reposiciones-caja` (`/`, `/saldos`, `/emitir`); catálogo de aprobadores en `CatalogosCxpAdminEndpoints.cs`.
 
 ## 7. Código: dónde vive y trampas
 | Qué | Ruta |
 |---|---|
 | Comprobaciones (comandos y transiciones) | `backend/src/CuentasPorPagar/Application/ComprobacionGastos/` |
-| Reposición y mínimo | `.../ComprobacionGastos/Reposiciones/ReposicionesCajaChica.cs`, `Domain/ComprobacionGastos/ConfiguracionReposicionCaja.cs` |
+| Reposición | `.../ComprobacionGastos/Reposiciones/ReposicionesCajaChica.cs` |
 | Aprobadores con límite | `.../Application/Catalogos/AprobadoresLimites/`, `Domain/Catalogos/AprobadorLimite.cs` |
 | Endpoints | `backend/src/Api/Endpoints/CuentasPorPagar/ComprobacionesEndpoints.cs`, `ReposicionesCajaEndpoints.cs` |
 | Frontend | `frontend/src/features/cxp/` (`pages/ComprobacionesPage.tsx`, `ComprobacionDetallePage.tsx`, `ReposicionesCajaPage.tsx`, `components/AccionesComprobacion.tsx`, `api/useReposiciones.ts`, `lib/estado-variante.ts`) |
