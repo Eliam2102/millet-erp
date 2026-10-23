@@ -112,8 +112,22 @@ param glassAgentSpnClientId string = ''
 @description('EmpresaId (GUID) que procesa el AwSolicitudesWorker (ingesta de pedidos A+W → Facturación, ADR-0048). Vacío = worker apagado. Ver appservice.bicep.')
 param awSolicitudesEmpresaId string = ''
 
+@description('Candado selector Demo del origen A+W (nunca en Production; requiere además ConnectionStrings__AwOrigenPgDb). Default false. Ver appservice.bicep.')
+param awOrigenDemoPermitido bool = false
+
 @description('Apaga el SDK de FiscalAPI. Default true; dev lo enciende en su .bicepparam (tenant sandbox en el KV dev). Ver appservice.bicep.')
 param integracionesFiscalSdkDisabled bool = true
+
+@description('Interruptores A+W por ambiente (apagados por defecto salvo documentos/conciliación tardía). Ver appservice.bicep.')
+param awClientesOrigen string = 'Simulado'
+param awClientesLecturaHabilitada bool = false
+param awClientesAplicacionHabilitada bool = false
+param awClientesProgramacionHabilitada bool = false
+param awProductosOrigenHabilitado bool = false
+param awProductosOrigen string = 'Simulado'
+param awCambiosHabilitado bool = false
+param awDocumentSyncHabilitado bool = true
+param awLateReconciliationHabilitado bool = true
 
 // ============================================================================
 // VARIABLES
@@ -380,7 +394,17 @@ module appservice 'modules/appservice.bicep' = {
     hcAwDropServiceSendKey: hybridConnections.outputs.hcAwDropServiceSendKey
     glassAgentSpnClientId: glassAgentSpnClientId
     awSolicitudesEmpresaId: awSolicitudesEmpresaId
+    awOrigenDemoPermitido: awOrigenDemoPermitido
     integracionesFiscalSdkDisabled: integracionesFiscalSdkDisabled
+    awClientesOrigen: awClientesOrigen
+    awClientesLecturaHabilitada: awClientesLecturaHabilitada
+    awClientesAplicacionHabilitada: awClientesAplicacionHabilitada
+    awClientesProgramacionHabilitada: awClientesProgramacionHabilitada
+    awProductosOrigenHabilitado: awProductosOrigenHabilitado
+    awProductosOrigen: awProductosOrigen
+    awCambiosHabilitado: awCambiosHabilitado
+    awDocumentSyncHabilitado: awDocumentSyncHabilitado
+    awLateReconciliationHabilitado: awLateReconciliationHabilitado
   }
   // Esperar a que los secretos estén en KV antes de arrancar el App Service:
   // las referencias @Microsoft.KeyVault(...) deben resolver al primer arranque.

@@ -7,6 +7,7 @@ using Microsoft.Extensions.Options;
 using Millet.DatosMaestros.Application.Clientes;
 using Millet.Integraciones.Aw.Application.Clientes;
 using Millet.Integraciones.Aw.Application.Workers;
+using Millet.Integraciones.Aw.Infrastructure.Adapters;
 using Millet.Integraciones.Aw.Infrastructure.Pedidos;
 
 namespace Millet.Integraciones.Aw.Infrastructure.Clientes;
@@ -85,11 +86,7 @@ public static class ClientesDependencyInjection
 
         public ClientesSqlConnectionFactory(string connectionString, string nombre = AwClientesOptions.ConnectionStringName)
         {
-            var b = new SqlConnectionStringBuilder(connectionString);
-            if (b.Encrypt == SqlConnectionEncryptOption.Optional || b.TrustServerCertificate)
-                throw new InvalidOperationException(
-                    $"ConnectionStrings:{nombre} exige TLS verificado (Encrypt=True, sin TrustServerCertificate).");
-            _connectionString = b.ConnectionString;
+            _connectionString = AwSqlTls.Validar(connectionString, nombre);
         }
 
         public DbConnection CreateConnection() => new SqlConnection(_connectionString);
