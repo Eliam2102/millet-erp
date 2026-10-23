@@ -80,13 +80,14 @@ export function useCreditoDisponible(clienteId: string | null) {
  * nombres de una página de bandeja.
  */
 export function useClientesLookupCxc(
-  filtros: { rfc?: string; razonSocial?: string; ids?: string[]; limit?: number },
+  filtros: { rfc?: string; razonSocial?: string; q?: string; ids?: string[]; limit?: number },
   opts: { enabled?: boolean } = {},
 ) {
   return useQuery<ClienteLookupCxcItem[]>({
     queryKey: cxcKeys.clientesLookup({
       rfc: filtros.rfc ?? null,
       razonSocial: filtros.razonSocial ?? null,
+      q: filtros.q ?? null,
       ids: filtros.ids ?? null,
       limit: filtros.limit ?? null,
     }),
@@ -95,6 +96,7 @@ export function useClientesLookupCxc(
       const params = new URLSearchParams();
       if (filtros.rfc) params.set('rfc', filtros.rfc);
       if (filtros.razonSocial) params.set('razonSocial', filtros.razonSocial);
+      if (filtros.q) params.set('q', filtros.q);
       if (filtros.ids != null && filtros.ids.length > 0)
         params.set('ids', filtros.ids.join(','));
       if (filtros.limit != null) params.set('limit', String(filtros.limit));

@@ -71,7 +71,7 @@ public sealed class CrearPolizaHandler(
             var tipo = await registro.TipoAsync(r.TipoOperacionId, ct);
             var (anio, numero) = RegistroPolizas.Periodo(r.Fecha, r.PeriodoNumero);
             await registro.VerificarPeriodoAsync(anio, numero, OrigenPoliza.Manual, ct);
-            var partidas = await registro.ValidarPartidasAsync(r.Partidas, tipo.Id, r.Fecha, OrigenMovimiento.Manual, ct);
+            var partidas = await registro.ValidarPartidasAsync(r.Partidas, tipo.Id, r.Fecha, OrigenMovimiento.Manual, ct, aplicarAlcanceCentros: true);
             poliza = Poliza.CrearManual(Guid.CreateVersion7(), tipo, r.Fecha, anio, numero, r.Concepto, Documento(r.DocumentoOrigen),
                 partidas.Partidas, usuario.UserId, PoliticaPolizas.Usuario(usuario));
             if (r.ReclasificaPolizaId is { } reclasificada)
@@ -117,7 +117,7 @@ public sealed class EditarPolizaHandler(
                 throw new BusinessRuleException("CONTAB_POLIZA_TIPO_INMUTABLE", "El tipo de operación no se cambia: descarte el borrador y capture otro.");
             var (anio, numero) = RegistroPolizas.Periodo(r.Fecha, r.PeriodoNumero);
             await registro.VerificarPeriodoAsync(anio, numero, OrigenPoliza.Manual, ct);
-            var partidas = await registro.ValidarPartidasAsync(r.Partidas, poliza.TipoOperacionId, r.Fecha, OrigenMovimiento.Manual, ct);
+            var partidas = await registro.ValidarPartidasAsync(r.Partidas, poliza.TipoOperacionId, r.Fecha, OrigenMovimiento.Manual, ct, aplicarAlcanceCentros: true);
             db.PolizasPartidas.RemoveRange(poliza.Partidas);
             poliza.Editar(r.Fecha, anio, numero, r.Concepto, partidas.Partidas, usuario.UserId);
             db.PolizasPartidas.AddRange(poliza.Partidas);

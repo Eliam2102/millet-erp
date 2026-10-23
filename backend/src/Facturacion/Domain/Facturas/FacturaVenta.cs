@@ -33,6 +33,34 @@ public sealed class FacturaVenta : Comprobante
     /// <summary>Autorización previa (venta de activo fijo, §7.8). Null por default.</summary>
     public Guid? AutorizacionId { get; private set; }
 
+    public const int ObservacionesMaxLength = 1000;
+
+    /// <summary>
+    /// Observaciones de la factura (86e3tfdw2): nota libre del cajero,
+    /// prellenada con los anticipos aplicados. Se imprime en el PDF y
+    /// <b>jamás</b> llega al XML del CFDI (mismo trato que la Obra, §7.4).
+    /// </summary>
+    public string? Observaciones { get; private set; }
+
+    /// <summary>
+    /// Fija las observaciones (≤ <see cref="ObservacionesMaxLength"/>). Vacía =
+    /// sin observaciones. Solo antes de timbrar (Borrador/PendientePedimento):
+    /// el PDF es la representación impresa del CFDI y no cambia después.
+    /// </summary>
+    public void FijarObservaciones(string? texto)
+    {
+        if (Estado is not (EstadoTimbrado.Borrador or EstadoTimbrado.PendientePedimento))
+            throw new BusinessRuleException("FACTURA_INMUTABLE",
+                $"No se pueden cambiar las observaciones de una factura en estado {Estado}.");
+
+        var limpio = string.IsNullOrWhiteSpace(texto) ? null : texto.Trim();
+        if (limpio is { Length: > ObservacionesMaxLength })
+            throw new BusinessRuleException("FACTURA_OBSERVACIONES_LARGAS",
+                $"Las observaciones no pueden exceder {ObservacionesMaxLength} caracteres.");
+
+        Observaciones = limpio;
+    }
+
     private readonly List<FacturaVentaLinea> _lineas = [];
     public IReadOnlyCollection<FacturaVentaLinea> Lineas => _lineas.AsReadOnly();
 

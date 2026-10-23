@@ -153,6 +153,15 @@ public sealed class FacturacionDbContext : BaseDbContext
         modelBuilder.HasDefaultSchema(SchemaName);
         base.OnModelCreating(modelBuilder);
 
+        // 86e3tfdx8 (ADR-0045): translate() nativo para la búsqueda sin acentos
+        // de comprobantes cobrables en caja. pg_catalog explícito para que el
+        // schema default no genere `facturacion.translate(...)`.
+        modelBuilder
+            .HasDbFunction(typeof(PostgresFunctions).GetMethod(
+                nameof(PostgresFunctions.Translate), [typeof(string), typeof(string), typeof(string)])!)
+            .HasName("translate")
+            .HasSchema("pg_catalog");
+
         modelBuilder.ApplyConfiguration(new IntegrationEventOutboxEntryConfiguration());
         modelBuilder.ApplyConfiguration(new ComprobanteConfiguration());
         modelBuilder.ApplyConfiguration(new FacturaVentaConfiguration());
