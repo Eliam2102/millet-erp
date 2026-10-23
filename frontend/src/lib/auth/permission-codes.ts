@@ -405,6 +405,8 @@ export const PermisosCanonicos = {
     'facturacion.pedidos.excepciones-resolver',
   // F6.1: captura de pedidos manuales de emergencia (A+W fuera de servicio).
   FacturacionPedidosCapturarEmergencia: 'facturacion.pedidos.capturar-emergencia',
+  // 86e3tfdw2: ver pedidos facturables a crédito (sin él se ocultan).
+  FacturacionPedidosLeerCredito: 'facturacion.pedidos.leer-credito',
   FacturacionFacturasEmitir: 'facturacion.facturas.emitir',
   FacturacionFacturasLeer: 'facturacion.facturas.leer',
   // CTA "Corregir en catálogo" del receptor en la emisión (detallado
@@ -433,6 +435,9 @@ export const PermisosCanonicos = {
   FacturacionCajaSupervisar: 'facturacion.caja.supervisar',
   FacturacionCajaLeerTodas: 'facturacion.caja.leer-todas',
   FacturacionReportesLeer: 'facturacion.reportes.leer',
+  // F6.7 (ADR-0051): cierre del día de todas las sucursales.
+  FacturacionReportesLeerTodasSucursales:
+    'facturacion.reportes.leer-todas-sucursales',
   FacturacionComprobantesReintentarTimbrado:
     'facturacion.comprobantes.reintentar-timbrado',
   FacturacionComprobantesDescartar: 'facturacion.comprobantes.descartar',

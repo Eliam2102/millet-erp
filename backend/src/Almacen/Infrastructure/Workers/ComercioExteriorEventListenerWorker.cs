@@ -9,11 +9,12 @@ using Millet.Almacen.Application.EventListeners;
 using Millet.Almacen.Domain.Idempotencia;
 using Millet.Almacen.Infrastructure.Persistence;
 using Millet.SharedKernel.Application;
+using Millet.SharedKernel.Application.Integration;
 
 namespace Millet.Almacen.Infrastructure.Workers;
 
 /// <summary>Consume las distribuciones de Comercio Exterior; deduplica por expediente, versión y partida.</summary>
-public sealed class ComercioExteriorEventListenerWorker : BackgroundService
+public sealed class ComercioExteriorEventListenerWorker : BackgroundService, ILocalIntegrationEventConsumer
 {
     public const string TopicName = "comercio-exterior-events";
     public const string SubscriptionName = "almacen-comercio-exterior-sub";
@@ -145,9 +146,21 @@ public sealed class ComercioExteriorEventListenerWorker : BackgroundService
             {
                 await smbArgs.AbandonMessageAsync(smbArgs.Message, cancellationToken: cancellationToken);
             }
-            // No re-lanzamos — el SB processor maneja la lifecycle.
+            // C1.8: en entrega local (sin smbArgs) no hay mensaje que abandonar;
+            // relanzamos para que el outbox reintente la fila.
+            if (smbArgs is null) throw;
+            // Con Service Bus no re-lanzamos — el SB processor maneja la lifecycle.
         }
     }
+
+    // C1.8 — entrega local sin Service Bus: el eventId es el Id de la fila
+    // del outbox. Sin smbArgs, ProcessAsync relanza las fallas para que el
+    // outbox reintente.
+    string ILocalIntegrationEventConsumer.TopicName => TopicName;
+
+    Task ILocalIntegrationEventConsumer.ConsumirLocalAsync(
+        string eventType, Guid eventId, string body, CancellationToken cancellationToken)
+        => ProcessAsync(eventType, eventId, body, smbArgs: null, cancellationToken);
 
     private Task OnErrorAsync(ProcessErrorEventArgs args)
     {

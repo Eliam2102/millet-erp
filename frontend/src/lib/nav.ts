@@ -915,6 +915,14 @@ const moduloFacturacion: NavModulo = {
           permission: PermisosCanonicos.FacturacionReportesLeer,
         },
         {
+          label: 'Cierre del día por sucursal',
+          description:
+            'Monitor de CFDI del día (timbrados, cancelados, sin timbrar, estatus SAT) y facturado de contado contra ingresado en caja.',
+          to: '/facturacion/reportes/cierre-dia',
+          icon: ClipboardCheck,
+          permission: PermisosCanonicos.FacturacionReportesLeer,
+        },
+        {
           label: 'Estados de facturas de anticipo',
           description:
             'Reporte de anticipos emitidos, facturas vinculadas, NCs de amortización y saldo por cliente.',
