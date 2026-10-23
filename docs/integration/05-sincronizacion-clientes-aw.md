@@ -77,7 +77,7 @@ Política: **aplica** = se escribe en el maestro ERP; **solo registra** = se gua
 | `KU_KUNDEN.ZAHLBED` | nvarchar NOT NULL | `CondicionCodigoOrigen` (registro) | Comercial recibido | A+W | Sin sustituir por enum genérico | No nulo | Facturación, CxC (referencia) | Solo registra | validado en forma; mapeo PENDIENTE |
 | `KA_ZAHLBED.NUMMER` | int NULL | `CondicionNumeroOrigen` (registro) | Comercial recibido | A+W | Resolución `ZAHLBED -> KA_ZAHLBED.BEZ`; 0 o >1 coincidencias = pendiente sin duplicar cliente | Nulo posible | CxC (referencia) | Solo registra | PENDIENTE (cardinalidad completa) |
 | `KA_ZAHLBED.BRUTTOTAGE` | int NULL | `DiasNominalesOrigen` (registro) | Comercial recibido | A+W | Ninguna; **no** se calculan vencimientos | Nulo posible (nulo != 0) | CxC (referencia) | Solo registra | catálogo observado CONTADO 1/0, REPARTO 4/3, 60 DIAS 6/60; PENDIENTE completo |
-| `KU_KUNDEN.WAEHRUNG` | nvarchar NOT NULL | `MonedaCodigoOrigen` (crudo) + `MonedaNormalizada` | Comercial recibido | A+W | `PESOSMX` -> candidato `MXN`; `<indf>` y desconocidas sin equivalencia | No nulo | Facturación (`MonedaDefault`) | Solo registra crudo; aplica `MonedaDefault` solo con mapeo validado | PENDIENTE (`PESOSMX`->MXN) |
+| `KU_KUNDEN.WAEHRUNG` | nvarchar NOT NULL | `MonedaCodigoOrigen` (crudo) + `MonedaNormalizada` | Comercial recibido | A+W | `PESOSMX`->`MXN`, `USD`->`USD`, `Euro`->`EUR`, `CAN`->`CAD` (`KA_WAEHRUNGEN.FREMD_KEY`); `<indf>`, vacío y desconocidas -> `MXN` | No nulo | Facturación (`MonedaDefault`) | Registra crudo y aplica `MonedaDefault` al crear | Validado 22-oct (regla A+W→SAP: «cualquier otro valor se transmite como MXP») |
 | `KREDIT_LIMIT`, `KREDIT_LIMIT1` | decimal NULL | `CreditoReferencia*` (registro) | Comercial recibido | CxC (autoriza) | Valores fuente explícitos; nunca elegir el máximo | Nulo != 0 | CxC (lectura) | Solo registra. **Nunca** escribe `CxC.LineaCredito` | PENDIENTE (precisión/escala) |
 | `KREDIT_LIMIT_NET` | float NULL | `CreditoReferenciaNet` (registro) | Comercial recibido | CxC | Ninguna | Nulo != 0 | CxC (lectura) | Solo registra | PENDIENTE |
 | `KZ_STATUS` | int NULL | `EstadoOrigenCrudo` (registro) | Comercial recibido | A+W + decisión Millet | Conservar número; mapeo aprobado por separado | Nulo != 0 != desconocido | Facturación, UI | Solo registra; **no** cambia `Estatus` mientras no haya mapeo | PENDIENTE (mapeo) |
@@ -123,11 +123,11 @@ La matriz campo → dueño vive en código, en `MatrizCampoDuenoAw` (`backend/sr
 | RFC y CP fiscal | ERP | A+W solo completa si el ERP está vacío; nunca sobrescribe. |
 | Teléfono y correo | ERP | A+W solo completa si el ERP está vacío. |
 | Régimen, uso de CFDI, clasificación y moneda del cliente | ERP | Se conserva el ERP; A+W solo informa. |
-| RFC repetido entre clientes de A+W | A+W | No se fusionan; queda un conflicto visible con su causa. |
+| RFC repetido entre clientes de A+W | A+W | No se fusionan solos: va a revisión (pendiente) y se resuelve unificando los clientes o manteniéndolos separados; se cuenta en el reporte de la corrida. Decisión del owner 22-oct-2026 (reemplaza la del 21-oct, que lo dejaba informativo). |
 
 Cada cambio queda en la bitácora `compartido.cambios_maestros_aw` (una fila por campo): valor antes y después, dueño, tipo (`Aplicado`, `EditadoEnErp`, `RfcCompartido`, `Baja`, `Reactivacion`), estado (`Informativo`, `Pendiente`, `Resuelto`), la versión del evento (el `HashOrigen` de lo leído), la versión de la matriz y la ejecución que lo produjo. Hay un índice único por referencia, campo, tipo y versión de evento: un reenvío o una segunda corrida con los mismos datos no duplica filas. El detalle del cliente muestra su historial.
 
-**RFC repetido entre clientes de A+W.** Si dos clientes de A+W traen la misma clave fiscal, ambos se crean y **no se fusionan**; el segundo deja un conflicto pendiente con su causa. Se resuelve con «Mantener separados», que solo marca el conflicto como revisado y no liga identidades. «Ligar a uno» queda pendiente de la respuesta a la pregunta P6 (tratamiento de referencias y saldos) con Millet.
+**RFC repetido entre clientes de A+W.** Si dos clientes de A+W traen la misma clave fiscal, ambos se crean y **no se fusionan**; el segundo deja una fila `RfcCompartido` en estado **Pendiente** (el RFC va en `valorDespues`) que entra a la bandeja de conflictos y se cuenta en el reporte de diferencias de la corrida (`rfcRepetidosEntreAw`, en cualquier estado). **Decisión del owner del 22-oct-2026 (86e3qcgyn), que reemplaza la del 21-oct** (informativo, fuera de la bandeja; en la copia real son ~1,634 referencias, casi todas históricas): un RFC repetido exige acción. Se resuelve **unificando** (§10.8.1; marca «Unificado» todos los pendientes del grupo) o con «Mantener separados», que solo lo marca como revisado y no liga identidades. «Ligar a uno» queda pendiente de la respuesta a la pregunta P6 (tratamiento de referencias y saldos) con Millet.
 
 **Corrida y reporte de diferencias.** `POST /api/v1/datos-maestros/sincronizacion-aw/corridas` (requiere `datos_maestros.clientes.sincronizar` y `datos_maestros.productos-aw.gestionar`) encola el barrido de clientes y ejecuta el de productos con el mismo id de ejecución; `GET .../corridas/{id}/diferencias` devuelve el reporte en el JSON de ADR-0036 que la pantalla exporta a Excel. La corrida contra la copia local `AW_FULL` es opt-in y solo de lectura:
 
@@ -144,7 +144,8 @@ La prueba `AwFullCorridaMaestrosTests` toma la huella (`CHECKSUM_AGG`) de `KU_KU
 
 - `NULL` en `BRUTTOTAGE`, `KREDIT_LIMIT*` o `KZ_STATUS` significa "el origen no informa"; `0` es un valor informado; un código sin mapeo es "desconocido". Los tres se conservan distintos y se aplican por política de campo.
 - Un nulo de origen **no borra** un valor existente en ERP (en particular ningún fiscal).
-- Un código de estado o moneda desconocido queda **pendiente de validación**, sin baja, activación ni conversión automática.
+- Un código de estado desconocido queda **pendiente de validación**, sin baja, activación ni conversión automática.
+- Moneda: `PESOSMX`→MXN, `USD`→USD, `Euro`→EUR, `CAN`→CAD; cualquier otro valor (incluidos `<indf>` y vacío) se toma como **MXN**, igual que la regla de A+W hacia SAP («cualquier otro valor se transmite como MXP», cruce de la base de conocimiento 14-oct, validado 22-oct).
 - Un cliente sin fiscales suficientes puede existir como maestro incompleto (aptitud comercial != aptitud fiscal); no se inventan valores para volverlo timbrable.
 
 ## 6. Condición del maestro vs. condición del pedido
@@ -180,7 +181,7 @@ Cada fixture (`backend/tests/Integraciones.Aw.UnitTests/Clientes/Fixtures/<escen
 | 2 | `repeticion` | Misma fila ya aplicada, sin cambios | **Sin cambios**; no se crea otro cliente; se registra la comprobación. |
 | 3 | `cambio-comercial` | Cambia un campo comercial permitido (p. ej. teléfono vacío localmente) | **Actualizado** solo en campos permitidos; hash nuevo; fiscales intactos. |
 | 4 | `correccion-fiscal-local` | Fiscales corregidos localmente; origen trae valores distintos | Fiscales locales **preservados**; diferencia como candidato/conflicto registrado con causa; sin sobrescritura. |
-| 5 | `moneda-desconocida` | `WAEHRUNG` sin equivalencia (p. ej. `<indf>`) | Valor crudo conservado; `MonedaDefault` no cambia; resultado **pendiente de validación**. |
+| 5 | `moneda-desconocida` | `WAEHRUNG` sin equivalencia (p. ej. `<indf>`) | Valor crudo conservado; se toma como MXN y el cliente se crea. |
 | 6 | `condicion-sin-coincidencia-o-duplicada` | `ZAHLBED` con 0 o >1 coincidencias en `KA_ZAHLBED` | Condición **no resuelta**, pendiente con causa; cliente no duplicado ni bloqueado en su identidad. |
 | 7 | `cambio-catalogo-dias` | `BRUTTOTAGE` cambia en catálogo con `ZAHLBED` igual | Hash **distinto**; actualización del registro de condición; snapshots de pedidos históricos intactos. |
 | 8 | `estado-desconocido` | `KZ_STATUS`/`KZ_GESPERRT` con código sin mapeo | Números crudos conservados; **sin baja ni activación**; pendiente de validación. |
@@ -326,7 +327,22 @@ Los mensajes de error persistidos no incluyen texto de excepción ni payload.
 - **Bajas explícitas**: la ausencia de una fila nunca es baja. Sin mapeo aprobado, no se cambia `Estatus`; V52 se activa únicamente con la configuración versionada de §10.1.1.
 - **Cancelación a mitad de lote** no persiste los contadores de ese lote (`Leidos` exacto; al reanudar, esas filas cuentan como `SinCambios`).
 - **Dispatcher single-host**: el índice único evita dos barridos vivos, pero no hay elección de líder; con varias instancias ambas podrían tomar la misma ejecución. Operar con una instancia o revisar antes de escalar.
-- **Primera corrida real**: medido en la copia `AW_FULL` (solo lectura), 1,404 claves repetidas entre clientes de A+W con 1,634 referencias adicionales, casi todas históricas (solo 3 con pedidos en 24 meses); no se envían a revisión; se informan en el reporte de G1.10 y quedan pendientes de la aclaración con Millet.
+- **Primera corrida real**: corrida del 23-oct en la copia `AW_FULL` (solo lectura): 44,694 clientes leídos, 44,685 creados y 9 con error (`fila_invalida`); las claves repetidas entre clientes de A+W dejaron 1,634 referencias en revisión (`RfcCompartido` pendiente), casi todas históricas (la medición del 13-oct halló solo 3 con pedidos en 24 meses); desde la decisión del 22-oct van a revisión (pendiente); antes (21-oct) eran informativas. La segunda corrida no creó nada. Conteos en `docs/integration/evidencia/g1.10/resumen-corrida-maestros.md`.
+
+### 10.8.1 Unificar clientes con RFC repetido (86e3qcgyn)
+
+> **Propuesta, pendiente de validar con Millet** (quién aprueba al principal y las reglas de abajo). Solo toca el ERP: nunca escribe en A+W ni mueve historial.
+
+- **Grupos.** `GET /api/v1/datos-maestros/clientes/rfc-repetidos` (permiso `sincronizar`) agrupa por RFC normalizado (`clientes.rfc` y `UST_ID` candidato de A+W), sin RFC genéricos ni formas inválidas, solo grupos de 2 o más. Por cliente muestra pedidos y último pedido en A+W (`SYSADM.BW_AUFTR_KOPF`, `AH_IDENT`/`DATUM_ERF`, solo SELECT por la misma conexión de clientes) y pedidos del ERP (`PedidoFacturable`).
+- **Principal sugerido (en este orden).** 1) el que ya tiene el RFC en `clientes.rfc`; 2) el pedido más reciente en A+W; 3) más pedidos en el ERP; 4) la referencia A+W más baja. La respuesta incluye el motivo.
+- **Unificar.** `POST .../rfc-repetidos/unificar` (permiso `datos_maestros.clientes.unificar`, `Idempotency-Key`) unifica en el principal elegido a todos los demás del grupo. El servidor decide por cliente con el historial real:
+  - **Fusionar** (sin pedidos en A+W ni en el ERP): el secundario pasa a `Inactivo`.
+  - **Agrupar** (con historial): el secundario sigue `Activo` para conservar saldos y facturas; no se mueve nada.
+  - Los pedidos **nuevos** de la referencia secundaria se ingestan al principal (`ResolverPorReferenciaAsync` sigue `unificado_en_cliente_id`, un solo salto).
+- **Sincronización.** Un Fusionado nunca se reactiva por A+W ni a mano (`CLIENTE_FUSIONADO`); los datos de origen se siguen registrando en el secundario. Ya unificado en uno de los clientes que comparten la clave, no se vuelve a generar `RfcCompartido`. La sincronización no duplica un pendiente de la misma referencia y RFC (idempotente).
+- **Resolución.** Unificar marca `Resuelto` con resolución «Unificado» (actor y fecha) todo `RfcCompartido` pendiente del RFC cuya referencia pertenezca al grupo. `GET .../rfc-repetidos/{rfc}` devuelve un grupo con la forma de la lista (404 si hay menos de 2 clientes o el RFC es genérico); la UI lo abre desde la fila del conflicto con su `valorDespues`.
+- **Errores 422.** `CLIENTE_UNIFICAR_RFC_INVALIDO` (genérico), `CLIENTE_UNIFICAR_MOTIVO_INVALIDO` (5 a 300), `CLIENTE_UNIFICAR_PRINCIPAL_FUERA_DE_GRUPO`, `CLIENTE_PRINCIPAL_UNIFICADO`, `CLIENTE_YA_UNIFICADO`, `CLIENTE_SECUNDARIO_TIENE_UNIFICADOS`. Si la lectura de A+W está apagada o falla, el endpoint responde 503 en lugar de suponer «sin pedidos».
+- **Fuera de alcance.** Deshacer la unificación; mover pedidos, facturas o saldos entre clientes.
 
 ## 10.9 Propuestas de flujo pendientes de confirmación (cierre ADM-06)
 

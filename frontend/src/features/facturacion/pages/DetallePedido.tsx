@@ -20,6 +20,7 @@ import { ClasePedidoBadge } from '@/features/facturacion/components/ClasePedidoB
 import { EmitirFacturaForm } from '@/features/facturacion/components/emitir-factura/EmitirFacturaForm';
 import { EstadoFacturacionBadge } from '@/features/facturacion/components/EstadoFacturacionBadge';
 import { ProformaPedidoCard } from '@/features/facturacion/components/ProformaPedidoCard';
+import { VisorProformaDialog } from '@/features/facturacion/components/VisorProformaDialog';
 import { useNuevoPedido } from '@/features/facturacion/components/nuevo-pedido-context';
 import { TrazabilidadFacturacion } from '@/features/facturacion/components/TrazabilidadFacturacion';
 import {
@@ -33,7 +34,7 @@ import { PermisosCanonicos } from '@/lib/auth/permission-codes';
 import { useHasPermission } from '@/lib/auth/useHasPermission';
 import { useQueryClient } from '@tanstack/react-query';
 import { Link, useParams, useSearch } from '@tanstack/react-router';
-import { FileText, Pencil, Receipt, X } from 'lucide-react';
+import { Eye, FileText, Pencil, Receipt, X } from 'lucide-react';
 import { useState } from 'react';
 import { toast } from 'sonner';
 
@@ -110,13 +111,14 @@ function Contenido({
   const ultimaProforma = useUltimaProforma(p.id, puedeLeerFacturas);
   const generarProforma = useGenerarProforma();
   const [descargandoProforma, setDescargandoProforma] = useState(false);
+  // Proforma abierta en el visor (null = cerrado).
+  const [proformaEnVisor, setProformaEnVisor] = useState<ProformaPedidoResponse | null>(null);
 
   async function descargarProforma(proforma: ProformaPedidoResponse) {
     setDescargandoProforma(true);
     try {
-      const { descargarProformaCfdi } = await import(
-        '@/components/erp/reportes/exporters/proforma-cfdi-exporter'
-      );
+      const { descargarProformaCfdi } =
+        await import('@/components/erp/reportes/exporters/proforma-cfdi-exporter');
       await descargarProformaCfdi(proforma);
     } catch {
       toast.error('No se pudo generar el PDF de la proforma. Vuelve a intentar la descarga.');
@@ -131,9 +133,9 @@ function Contenido({
       {
         onSuccess: (proforma) => {
           toast.success(`Proforma ${proforma.folio} generada`, {
-            description: 'Sin valor fiscal: no consume folio. Se descargará el PDF.',
+            description: 'Sin valor fiscal: no consume folio.',
           });
-          void descargarProforma(proforma);
+          setProformaEnVisor(proforma);
         },
         onError: (error) => {
           toast.error('No se pudo generar la proforma.', {
@@ -242,7 +244,9 @@ function Contenido({
               descripcion={
                 <>
                   <span>{p.clienteNombre}</span> ·{' '}
-                  <span className="font-mono">{p.clienteFiscal?.rfc ?? <span className="text-ink-muted">Sin RFC</span>}</span>
+                  <span className="font-mono">
+                    {p.clienteFiscal?.rfc ?? <span className="text-ink-muted">Sin RFC</span>}
+                  </span>
                 </>
               }
               estado={<ChipEstadoPedido estado={p.estado} />}
@@ -256,6 +260,15 @@ function Contenido({
             <Button variant="outline" onClick={() => nuevoPedido.abrir(p)}>
               <Pencil className="mr-2 h-4 w-4" />
               Editar
+            </Button>
+          )}
+          {puedeLeerFacturas && ultimaProforma.data != null && (
+            <Button
+              variant="outline"
+              onClick={() => setProformaEnVisor(ultimaProforma.data ?? null)}
+            >
+              <Eye className="mr-2 h-4 w-4" />
+              Ver proforma
             </Button>
           )}
           {puedeEmitir && facturable && (
@@ -338,9 +351,16 @@ function Contenido({
           proforma={ultimaProforma.data}
           cargando={ultimaProforma.isLoading}
           descargando={descargandoProforma}
+          onVer={setProformaEnVisor}
           onDescargar={(pf) => void descargarProforma(pf)}
         />
       )}
+      <VisorProformaDialog
+        proforma={proformaEnVisor}
+        descargando={descargandoProforma}
+        onDescargar={(pf) => void descargarProforma(pf)}
+        onCerrar={() => setProformaEnVisor(null)}
+      />
 
       {p.comentarios && (
         <section className="rounded-md bg-surface-muted/40 px-3 py-2 text-sm">

@@ -1,4 +1,6 @@
 using System.Globalization;
+using System.Text.Json;
+using Microsoft.AspNetCore.Http.Features;
 using Microsoft.EntityFrameworkCore;
 using Millet.Api.Auth;
 using Millet.Api.Web;
@@ -38,8 +40,9 @@ public static class LibroEndpoints
         g.MapPost("/operaciones/{id:guid}/autorizar", async (Guid id, HttpRequest req, OperacionesLibroServicio servicio, CancellationToken ct) => Results.Ok(await servicio.AutorizarAsync(id, Version(req), ct)))
             .WithMetadata(new RequireIdempotencyKeyAttribute()).AddEndpointFilter(ExigirVersion);
         g.MapGet("/carga/plantilla", () => Results.File(System.Text.Encoding.UTF8.GetBytes(CargaLibroServicio.Plantilla), "text/csv", "libro-sap.csv")).RequireAuthorization(P("carga.ejecutar"));
-        g.MapPost("/carga/previa", async (SolicitudCarga datos, CargaLibroServicio servicio, CancellationToken ct) => Results.Ok(await servicio.EjecutarAsync(datos, false, ct))).RequireAuthorization(P("carga.ejecutar"));
-        g.MapPost("/carga/confirmar", async (SolicitudCarga datos, CargaLibroServicio servicio, CancellationToken ct) => Results.Ok(await servicio.EjecutarAsync(datos, true, ct)))
+        g.MapGet("/carga/plantilla.xlsx", () => Results.File(ArchivoLibro.PlantillaExcel(), "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", "libro-sap.xlsx")).RequireAuthorization(P("carga.ejecutar"));
+        g.MapPost("/carga/previa", async (HttpRequest req, CargaLibroServicio servicio, CancellationToken ct) => Results.Ok(await Cargar(req, servicio, false, ct))).RequireAuthorization(P("carga.ejecutar"));
+        g.MapPost("/carga/confirmar", async (HttpRequest req, CargaLibroServicio servicio, CancellationToken ct) => Results.Ok(await Cargar(req, servicio, true, ct)))
             .RequireAuthorization(P("carga.ejecutar")).WithMetadata(new RequireIdempotencyKeyAttribute());
         g.MapGet("/conciliacion", async (DateOnly periodo, Guid? sucursalId, ReportesLibroServicio servicio, CancellationToken ct) => Results.Ok(await servicio.ConciliarAsync(periodo, sucursalId, ct))).RequireAuthorization(P("conciliacion.ver"));
         g.MapGet("/reportes/libro", async (DateOnly corte, Guid? sucursalId, ReportesLibroServicio servicio, CancellationToken ct) => Results.Ok(await servicio.LibroAsync(corte, sucursalId, ct))).RequireAuthorization(P("activos.ver"));
@@ -58,6 +61,36 @@ public static class LibroEndpoints
             await db.SaveChangesAsync(ct); await tx.CommitAsync(ct); return Results.Ok(config);
         }).RequireAuthorization(P("clases.administrar")).WithMetadata(new RequireIdempotencyKeyAttribute());
         return app;
+    }
+    private static async Task<ResultadoCarga> Cargar(HttpRequest req, CargaLibroServicio servicio, bool confirmar, CancellationToken ct)
+    {
+        if (req.ContentLength > ArchivoLibro.LimiteBytes + 1024 * 1024)
+            throw new BadHttpRequestException("El archivo excede el límite de 10 MB.", StatusCodes.Status413PayloadTooLarge);
+        if (req.HasJsonContentType())
+        {
+            var datos = await req.ReadFromJsonAsync<SolicitudCarga>(ct);
+            if (datos == null || datos.Csv == null || datos.Totales == null)
+                throw new BusinessRuleException("AF_ARCHIVO_INVALIDO", "Capture CSV, versión, corte y totales.");
+            return await servicio.EjecutarAsync(datos, confirmar, ct);
+        }
+        if (!req.HasFormContentType || !req.ContentType!.StartsWith("multipart/form-data", StringComparison.OrdinalIgnoreCase))
+            throw new BusinessRuleException("AF_ARCHIVO_INVALIDO", "Envíe el archivo como formulario o use el formato JSON anterior.");
+        try
+        {
+            var form = await req.ReadFormAsync(new FormOptions { MultipartBodyLengthLimit = ArchivoLibro.LimiteBytes, ValueLengthLimit = 64 * 1024 }, ct);
+            var archivo = form.Files.GetFile("archivo");
+            if (form.Files.Count != 1 || archivo == null || archivo.Length == 0 || archivo.Length > ArchivoLibro.LimiteBytes)
+                throw new BusinessRuleException("AF_ARCHIVO_INVALIDO", "Seleccione un archivo de hasta 10 MB en el campo archivo.");
+            if (!DateOnly.TryParseExact(form["corte"], "yyyy-MM-dd", CultureInfo.InvariantCulture, DateTimeStyles.None, out var corte))
+                throw new BusinessRuleException("AF_CORTE_INVALIDO", "Capture el corte como aaaa-mm-dd.");
+            var totales = JsonSerializer.Deserialize<List<TotalSap>>(form["totales"].FirstOrDefault() ?? "[]", JsonSerializerOptions.Web)
+                ?? throw new JsonException();
+            using var stream = new MemoryStream();
+            await archivo.CopyToAsync(stream, ct);
+            return await servicio.EjecutarArchivoAsync(new("", form["versionArchivo"].ToString(), corte, totales), stream.ToArray(), archivo.FileName, form["hoja"].FirstOrDefault(), confirmar, ct);
+        }
+        catch (JsonException) { throw new BusinessRuleException("AF_TOTALES_INVALIDOS", "Los totales deben ser una lista de clase, valor y acumulada."); }
+        catch (InvalidDataException) { throw new BusinessRuleException("AF_ARCHIVO_INVALIDO", "Revise el formulario y el límite de 10 MB del archivo."); }
     }
     private static ValueTask<object?> ExigirVersion(EndpointFilterInvocationContext context, EndpointFilterDelegate next)
     {

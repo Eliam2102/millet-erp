@@ -1431,6 +1431,20 @@ namespace Millet.Identidad.Infrastructure.Migrations
                         },
                         new
                         {
+                            Id = new Guid("00000003-0003-0000-0000-00000000000f"),
+                            Accion = "reportes-analisis-proveedores",
+                            Codigo = "compras.ordenes.reportes-analisis-proveedores",
+                            CreatedAt = new DateTimeOffset(new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            CreatedBy = "seed",
+                            Descripcion = "Consultar el análisis de compras, saldos pendientes y cumplimiento de proveedores",
+                            Modulo = "compras",
+                            Recurso = "ordenes",
+                            UpdatedAt = new DateTimeOffset(new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            UpdatedBy = "seed",
+                            Version = 1
+                        },
+                        new
+                        {
                             Id = new Guid("00000003-0004-0000-0000-000000000001"),
                             Accion = "leer",
                             Codigo = "compras.configuracion.leer",
@@ -2081,6 +2095,20 @@ namespace Millet.Identidad.Infrastructure.Migrations
                             CreatedAt = new DateTimeOffset(new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
                             CreatedBy = "seed",
                             Descripcion = "Modificar datos fiscales de clientes con origen A+W",
+                            Modulo = "datos_maestros",
+                            Recurso = "clientes",
+                            UpdatedAt = new DateTimeOffset(new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            UpdatedBy = "seed",
+                            Version = 1
+                        },
+                        new
+                        {
+                            Id = new Guid("00000004-0011-0000-0000-000000000005"),
+                            Accion = "unificar",
+                            Codigo = "datos_maestros.clientes.unificar",
+                            CreatedAt = new DateTimeOffset(new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            CreatedBy = "seed",
+                            Descripcion = "Unificar clientes de A+W que comparten RFC en un cliente principal (fusionar o agrupar)",
                             Modulo = "datos_maestros",
                             Recurso = "clientes",
                             UpdatedAt = new DateTimeOffset(new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
