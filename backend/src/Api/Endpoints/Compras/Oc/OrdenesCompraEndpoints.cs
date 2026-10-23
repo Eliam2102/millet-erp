@@ -1,3 +1,4 @@
+using Millet.Compras.Application.Oc.Envios;
 using MediatR;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
@@ -238,6 +239,35 @@ public static class OrdenesCompraEndpoints
         .ProducesProblem(StatusCodes.Status401Unauthorized)
         .ProducesProblem(StatusCodes.Status403Forbidden)
         .ProducesProblem(StatusCodes.Status404NotFound);
+
+        group.MapGet("/{id:guid}/envios", async (
+            Guid id, IMediator mediator, ComprasDbContext db, ICurrentUserContext scopeUser,
+            ICurrentUserPermissions scopePermisos, IUsuarioSucursalReadPort scopeSucursales,
+            CancellationToken cancellationToken) =>
+        {
+            await OcSucursalScope.VerificarAsync(id, db, scopeUser, scopePermisos, scopeSucursales, cancellationToken);
+            return Results.Ok(await mediator.Send(new ObtenerEnviosOcQuery(id), cancellationToken));
+        })
+        .RequireAuthorization(PermissionPolicyProvider.Prefix + PermisosCanonicos.ComprasOrdenesLeer)
+        .WithName("ObtenerEnviosOrdenCompra")
+        .WithSummary("Consultar historial y disponibilidad del envío de una orden al proveedor")
+        .Produces<EnviosOcResponse>();
+
+        group.MapPost("/{id:guid}/envios", async (
+            Guid id, [FromBody] RegistrarEnvioOcRequest body, IMediator mediator,
+            ComprasDbContext db, ICurrentUserContext scopeUser, ICurrentUserPermissions scopePermisos,
+            IUsuarioSucursalReadPort scopeSucursales, CancellationToken cancellationToken) =>
+        {
+            await OcSucursalScope.VerificarAsync(id, db, scopeUser, scopePermisos, scopeSucursales, cancellationToken, escritura: true);
+            var envio = await mediator.Send(new RegistrarEnvioOcCommand(id, body.Destinatario, body.Modo), cancellationToken);
+            return Results.Ok(EnvioOcResponse.From(envio));
+        })
+        .WithMetadata(new RequireIdempotencyKeyAttribute())
+        .RequireAuthorization(PermissionPolicyProvider.Prefix + PermisosCanonicos.ComprasOrdenesCrear)
+        .WithName("RegistrarEnvioOrdenCompra")
+        .WithSummary("Enviar el PDF existente al proveedor o registrar un envío manual")
+        .Produces<EnvioOcResponse>()
+        .ProducesProblem(StatusCodes.Status422UnprocessableEntity);
 
         // --- F6-PR1: descargar PDF de la OC ---
         group.MapGet("/{id:guid}/pdf", async (
@@ -1904,4 +1934,5 @@ public static class OrdenesCompraEndpoints
     public sealed record RegistrarIncidenciaProveedorRequest(Guid LineaOrdenCompraId, TipoIncidenciaProveedorOc Tipo, decimal Cantidad, DateOnly FechaCompromiso, Guid ResponsableId, string? Descripcion);
     public sealed record ReprogramarIncidenciaProveedorRequest(DateOnly FechaCompromiso, string Motivo);
     public sealed record CerrarIncidenciaProveedorRequest(string Motivo);
+    public sealed record RegistrarEnvioOcRequest(string? Destinatario, string Modo);
 }

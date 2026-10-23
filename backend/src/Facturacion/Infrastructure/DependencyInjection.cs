@@ -94,6 +94,7 @@ public static class DependencyInjection
         services.AddSingleton<IGenerarPdfFacturaPort, QuestPdfFacturaGenerator>();
         // PLATFORM-TODO(<EnvioCfdiCliente>)
         services.AddSingleton<INotificacionService, NoOpNotificacionService>();
+        services.AddSingleton<Millet.SharedKernel.Application.Correo.ICorreoDocumentoService, NoOpNotificacionService>();
 
         // --- F3-PR1b: ingesta A+W (cola + write-back) — stubs hasta Integraciones.Aw ---
         // PR7: señal de nudge del worker de ingesta (el endpoint anónimo con

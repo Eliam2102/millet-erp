@@ -21,4 +21,4 @@ public interface IProveedorReadPort
 }
 
 /// <summary>Proyección mínima de proveedor para display (clave + razón social).</summary>
-public sealed record ProveedorLectura(Guid Id, string Clave, string RazonSocial);
+public sealed record ProveedorLectura(Guid Id, string Clave, string RazonSocial, string? Email = null);
