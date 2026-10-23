@@ -176,6 +176,34 @@ public sealed class MovimientoInventario : BaseEntity, IPerteneceAEmpresa, IAudi
         Motivo = motivo;
     }
 
+    /// <summary>
+    /// Cancelación de una recepción mal capturada: solo una <see cref="TipoMovimiento.EntradaCompra"/>
+    /// firme pasa a Cancelado (su efecto en saldo lo revierte el contramovimiento CEN). Distinto de
+    /// <see cref="Cancelar"/>, que aplica a Borrador/Validado.
+    /// </summary>
+    public void CancelarRecepcion(string motivo)
+    {
+        if (Tipo != TipoMovimiento.EntradaCompra || Estado != EstadoMovimiento.Registrado)
+            throw new BusinessRuleException("MOV_NO_CANCELABLE_RECEPCION",
+                "Solo se puede cancelar una entrada por compra registrada.");
+        if (string.IsNullOrWhiteSpace(motivo))
+            throw new BusinessRuleException("MOV_CANCEL_SIN_MOTIVO", "Cancelar movimiento requiere motivo.");
+        if (motivo.Length > 500)
+            throw new BusinessRuleException("MOV_CANCEL_MOTIVO_LARGO", "El motivo no puede exceder 500 caracteres.");
+        Estado = EstadoMovimiento.Cancelado;
+        Motivo = motivo;
+    }
+
+    /// <summary>El contramovimiento CEN apunta a la entrada que revierte.</summary>
+    internal void VincularCancelacion(Guid entradaOrigenId)
+    {
+        if (Tipo != TipoMovimiento.CancelacionEntradaCompra)
+            throw new BusinessRuleException("MOV_NO_CANCELACION", "Solo una cancelación de entrada puede vincularse a la entrada que revierte.");
+        if (entradaOrigenId == Guid.Empty)
+            throw new BusinessRuleException("MOV_CANCELACION_ORIGEN_INVALIDO", "La entrada a revertir es requerida.");
+        RecepcionOrigenId = entradaOrigenId;
+    }
+
     // ─── Setters internos para vinculaciones (los usan los flujos
     //     específicos de cada fase: F2-PR2 recepción, F4-PR1 salida, etc.) ───
 
