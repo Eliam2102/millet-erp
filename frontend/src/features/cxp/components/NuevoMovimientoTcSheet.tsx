@@ -1,6 +1,6 @@
 import { hoyLocalISO } from '@/lib/datetime';
 import { useState } from 'react';
-import { Controller, useForm } from 'react-hook-form';
+import { Controller, useForm, useWatch } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { toast } from 'sonner';
 import {
@@ -12,6 +12,7 @@ import {
   SheetTitle,
 } from '@/components/ui/sheet';
 import { Button } from '@/components/ui/button';
+import { Checkbox } from '@/components/ui/checkbox';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
@@ -33,6 +34,7 @@ import {
 import { ProveedorSelector, UsuarioSelector } from '@/components/erp';
 import { CfdiPorProcesarPicker } from '@/features/cxp/components/CfdiPorProcesarPicker';
 import { TarjetaSelector } from '@/features/cxp/components/TarjetaSelector';
+import { ClasificacionNoDeducibleSelect } from '@/features/cxp/components/ClasificacionNoDeducibleSelect';
 import { cn } from '@/lib/utils';
 
 /**
@@ -131,6 +133,7 @@ function FormSinCfdi({ onClose }: { onClose: () => void }) {
       descripcionLibre: null,
       conceptoContable: '',
       ticketBlobRef: null,
+      clasificacionNoDeducible: '',
     },
   });
 
@@ -223,6 +226,22 @@ function FormSinCfdi({ onClose }: { onClose: () => void }) {
         <Campo label="Concepto contable" required error={form.formState.errors.conceptoContable?.message}>
           <Input placeholder="Alimentos clientes" {...form.register('conceptoContable')} />
         </Campo>
+        <Campo
+          label="Clasificación (no deducible)"
+          required
+          error={form.formState.errors.clasificacionNoDeducible?.message}
+        >
+          <Controller
+            control={form.control}
+            name="clasificacionNoDeducible"
+            render={({ field }) => (
+              <ClasificacionNoDeducibleSelect
+                value={field.value || null}
+                onChange={field.onChange}
+              />
+            )}
+          />
+        </Campo>
       </div>
       <Campo label="Descripción libre">
         <Textarea rows={2} {...form.register('descripcionLibre')} />
@@ -269,8 +288,11 @@ function FormConCfdi({ onClose }: { onClose: () => void }) {
       retenciones: 0,
       totalFactura: 0,
       fechaVencimiento: hoy,
+      clasificacionNoDeducible: null,
     },
   });
+  const noDeducible =
+    useWatch({ control: form.control, name: 'clasificacionNoDeducible' }) !== null;
 
   function onSubmit(values: MovimientoTcConCfdiValues) {
     registrar.mutate(
@@ -449,6 +471,35 @@ function FormConCfdi({ onClose }: { onClose: () => void }) {
               {...form.register('totalFactura', { valueAsNumber: true })}
             />
           </Campo>
+          <div className="space-y-2 sm:col-span-2">
+            <label className="flex items-center gap-2 text-sm">
+              <Checkbox
+                checked={noDeducible}
+                onCheckedChange={(v) =>
+                  form.setValue('clasificacionNoDeducible', v === true ? '' : null)
+                }
+              />
+              Gasto no deducible (su IVA va a «IVA no acreditable»)
+            </label>
+            {noDeducible && (
+              <Campo
+                label="Clasificación (no deducible)"
+                required
+                error={form.formState.errors.clasificacionNoDeducible?.message}
+              >
+                <Controller
+                  control={form.control}
+                  name="clasificacionNoDeducible"
+                  render={({ field }) => (
+                    <ClasificacionNoDeducibleSelect
+                      value={field.value || null}
+                      onChange={field.onChange}
+                    />
+                  )}
+                />
+              </Campo>
+            )}
+          </div>
         </div>
       </section>
 

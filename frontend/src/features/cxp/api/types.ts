@@ -1308,6 +1308,14 @@ export interface MovimientoTc {
   facturaProveedorId: string | null;
   conceptoContable: string;
   version: number;
+  clasificacionNoDeducible: string | null;
+  ivaNoAcreditable: number;
+}
+
+/** Fila del catálogo de clasificaciones de gasto no deducible (P8.6). */
+export interface ClasificacionNoDeducible {
+  clave: string;
+  descripcion: string;
 }
 
 export interface CrearTarjetaCommand {
@@ -1365,6 +1373,8 @@ export interface RegistrarMovimientoTcConCfdiCommand {
   retenciones: number;
   totalFactura: number;
   fechaVencimiento: string;
+  /** Opcional: si viene, el CFDI es no deducible y su IVA va a «IVA no acreditable». */
+  clasificacionNoDeducible?: string | null;
 }
 
 export interface RegistrarMovimientoTcSinCfdiCommand {
@@ -1378,6 +1388,7 @@ export interface RegistrarMovimientoTcSinCfdiCommand {
   descripcionLibre: string | null;
   conceptoContable: string;
   ticketBlobRef: string | null;
+  clasificacionNoDeducible: string;
 }
 
 // ─── Estados de Cuenta TC + Cierre (FE-F6-PR2) ────────────────────────
