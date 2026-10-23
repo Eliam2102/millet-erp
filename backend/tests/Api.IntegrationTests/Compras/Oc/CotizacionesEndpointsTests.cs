@@ -105,6 +105,8 @@ public partial class OrdenesCompraEndpointsTests
 
         var oc = await ReadJsonAsync(await client.GetAsync($"{EndpointBase}/{ocId}"));
         Assert.Equal("USD", oc.GetProperty("moneda").GetString());
+        Assert.Equal(Guid.Parse("00000002-0003-0000-0000-000000000003"), oc.GetProperty("condicionesPagoId").GetGuid());
+        Assert.Equal(hoy.AddDays(7).ToString("yyyy-MM-dd"), oc.GetProperty("fechaEntregaEsperada").GetString());
         Assert.Equal(25.0000m, oc.GetProperty("lineas")[0].GetProperty("precioUnitario").GetDecimal());
         var adjuntos = oc.GetProperty("adjuntos").EnumerateArray().ToList();
         Assert.Single(adjuntos);
@@ -184,7 +186,8 @@ public partial class OrdenesCompraEndpointsTests
         var r = await client.PostAsJsonAsync($"/api/v1/compras/requisiciones/{rqId}/cotizaciones", new
         {
             ProveedorId = ProveedorActivoId, FolioProveedor = "COT-1", Moneda = moneda, FechaCotizacion = fecha,
-            VigenteHasta = vigenteHasta ?? fecha.AddDays(10), CondicionesCredito = "30 días",
+            VigenteHasta = vigenteHasta ?? fecha.AddDays(10), CondicionesCredito = "Nota DEMO ficticia",
+            CondicionesPagoId = Guid.Parse("00000002-0003-0000-0000-000000000003"), FechaEntrega = fecha.AddDays(7),
             Lineas = new[] { new { LineaRequisicionId = lineaId, UnidadCotizada = unidad, FactorAUnidadRq = factor, PrecioUnitario = precio, DiasEntrega = 3 } },
         });
         Assert.True(r.StatusCode == HttpStatusCode.Created, await r.Content.ReadAsStringAsync());
@@ -205,7 +208,7 @@ public partial class OrdenesCompraEndpointsTests
     private static object DesdeRqCotizacion(Guid rqId, DateOnly hoy, string moneda, Guid cotizacionId, string motivo) => new
     {
         RequisicionId = rqId, SucursalCodigo = "MID", FolioAnio = (short)2026, ProveedorId = ProveedorActivoId,
-        CondicionesPagoId = Guid.NewGuid(), UsoPrincipalId = Guid.NewGuid(), FechaDocumento = hoy, Moneda = moneda,
+        CondicionesPagoId = Guid.Empty, UsoPrincipalId = Guid.NewGuid(), FechaDocumento = hoy, Moneda = moneda,
         TipoCambio = moneda == "MXN" ? (decimal?)null : 17.85m, CotizacionId = cotizacionId, MotivoEleccion = motivo,
     };
 

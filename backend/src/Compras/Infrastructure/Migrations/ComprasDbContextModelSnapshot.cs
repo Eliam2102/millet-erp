@@ -231,6 +231,10 @@ namespace Millet.Compras.Infrastructure.Migrations
                         .HasColumnType("character varying(100)")
                         .HasColumnName("condiciones_credito");
 
+                    b.Property<Guid?>("CondicionesPagoId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("condiciones_pago_id");
+
                     b.Property<DateTimeOffset>("CreatedAt")
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("created_at");
@@ -258,6 +262,10 @@ namespace Millet.Compras.Infrastructure.Migrations
                     b.Property<DateOnly>("FechaCotizacion")
                         .HasColumnType("date")
                         .HasColumnName("fecha_cotizacion");
+
+                    b.Property<DateOnly?>("FechaEntrega")
+                        .HasColumnType("date")
+                        .HasColumnName("fecha_entrega");
 
                     b.Property<string>("FolioProveedor")
                         .HasMaxLength(40)
@@ -1745,7 +1753,7 @@ namespace Millet.Compras.Infrastructure.Migrations
                         {
                             t.HasCheckConstraint("ck_oc_estado", "estado BETWEEN 0 AND 7");
 
-                            t.HasCheckConstraint("ck_oc_estado_comercial_proveedor", "estado_comercial_proveedor BETWEEN 0 AND 3");
+                            t.HasCheckConstraint("ck_oc_estado_comercial_proveedor", "estado_comercial_proveedor BETWEEN 0 AND 4");
 
                             t.HasCheckConstraint("ck_oc_import_campos", "(es_importacion = false) OR (estado IN (0, 6)) OR (info_import_incoterm_id IS NOT NULL AND info_import_pais_origen IS NOT NULL)");
 
@@ -1998,12 +2006,11 @@ namespace Millet.Compras.Infrastructure.Migrations
                         .HasColumnName("deleted_at");
 
                     b.Property<string>("Evidencia")
-                        .IsRequired()
                         .HasMaxLength(300)
                         .HasColumnType("character varying(300)")
                         .HasColumnName("evidencia");
 
-                    b.Property<DateOnly>("FechaRespuesta")
+                    b.Property<DateOnly?>("FechaRespuesta")
                         .HasColumnType("date")
                         .HasColumnName("fecha_respuesta");
 
@@ -2032,7 +2039,7 @@ namespace Millet.Compras.Infrastructure.Migrations
                         .HasColumnType("boolean")
                         .HasColumnName("tiene_diferencias");
 
-                    b.Property<short>("Tipo")
+                    b.Property<short?>("Tipo")
                         .HasColumnType("smallint")
                         .HasColumnName("tipo");
 

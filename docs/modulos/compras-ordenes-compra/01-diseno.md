@@ -745,9 +745,10 @@ Seed inicial:
 
 ### 4.13 Entidades `RespuestaProveedorOc` y `CompromisoEntregaOc` (F1-COM-11)
 
-Registran la respuesta del proveedor sobre una OC **Autorizada** (hasta que exista el envío, F1-COM-10, «OC enviada» equivale a «autorizada»). Una respuesta es una **Confirmación** (con una o varias fechas prometidas por línea, es decir, parcialidades) o un **Rechazo** (con motivo obligatorio y sin fechas).
+Registran la respuesta del proveedor sobre una OC **Autorizada** (hasta que exista el envío, F1-COM-10, «OC enviada» equivale a «autorizada»). **La respuesta es solo evidencia.** Las condiciones del proveedor (condición de pago y crédito, fecha de entrega) se evalúan en la **cotización**, antes de elegir al ganador (JUNTA-07 §4), y la OC las hereda; la respuesta no las vuelve a pedir y el formulario las muestra en solo lectura como «Condiciones pactadas». Lo único obligatorio al registrar una respuesta es el **archivo de evidencia**. Todo lo demás es opcional: una respuesta puede quedar **sin clasificar** (`Tipo` nulo), o clasificarse como **Confirmación** (con una o varias fechas prometidas por línea, es decir, parcialidades) o **Rechazo** (con motivo obligatorio y sin fechas).
+Los días de crédito viven en el catálogo `CondicionesPago` (no hay campo numérico nuevo).
 
-`RespuestaProveedorOc` (hija de `OrdenCompra`, tabla `compras.oc_respuestas_proveedor`): `Numero` (consecutivo por OC, la vigente es la de mayor número), `Tipo` (1 = Confirmación, 2 = Rechazo), `FechaRespuesta`, `Evidencia` (texto obligatorio, máximo 300 caracteres; los archivos de soporte se suben con el servicio genérico de adjuntos G1.2, entidad `oc_respuesta_proveedor`, ADR-0058), `ContactoProveedor` (opcional, máximo 120), `Motivo` (obligatorio en el rechazo, máximo 500), `TieneDiferencias`, `RegistradaPorId` (quien registra queda como responsable de seguimiento) y `RegistradaEn`.
+`RespuestaProveedorOc` (hija de `OrdenCompra`, tabla `compras.oc_respuestas_proveedor`): `Numero` (consecutivo por OC, la vigente es la de mayor número), `Tipo` (nulo = sin clasificar, 1 = Confirmación, 2 = Rechazo), `FechaRespuesta` (opcional), `Evidencia` (nota opcional, máximo 300 caracteres; los archivos de soporte se suben con el servicio genérico de adjuntos G1.2, entidad `oc_respuesta_proveedor`, ADR-0058), `ContactoProveedor` (opcional, máximo 120), `Motivo` (obligatorio en el rechazo, máximo 500), `TieneDiferencias`, `RegistradaPorId` (quien registra queda como responsable de seguimiento) y `RegistradaEn`.
 
 `CompromisoEntregaOc` (tabla `compras.oc_compromisos_entrega`): `RespuestaProveedorOcId`, `LineaOrdenCompraId`, `Cantidad` (mayor a cero) y `FechaPrometida` (no anterior a la fecha de respuesta).
 
@@ -755,11 +756,11 @@ Registran la respuesta del proveedor sobre una OC **Autorizada** (hasta que exis
 
 **Diferencias.** Una confirmación se marca `TieneDiferencias` cuando, para alguna línea con pendiente (`Cantidad - CantidadRecibida > 0`), la suma confirmada difiere del pendiente, o cuando alguna fecha prometida es posterior a `FechaEntregaEsperada` de la OC (si existe). No se compara contra `FechaEntregaLinea`. La OC nunca se modifica en silencio: solo se marca la diferencia para Compras.
 
-**Estado comercial.** `OrdenCompra` materializa `EstadoComercialProveedor` (`SinRespuesta` = 0, `Confirmada` = 1, `ConfirmadaConDiferencias` = 2, `Rechazada` = 3) y `FechaCompromisoProveedor` (la mayor fecha prometida de la respuesta vigente; nula tras un rechazo). Se recalculan al registrar cada respuesta. Una OC duplicada nace `SinRespuesta`.
+**Estado comercial.** `OrdenCompra` materializa `EstadoComercialProveedor` (`SinRespuesta` = 0, `Confirmada` = 1, `ConfirmadaConDiferencias` = 2, `Rechazada` = 3, `RespuestaRegistrada` = 4, «Respuesta sin clasificar»: hay evidencia pero el comprador no indicó si confirma o rechaza; una respuesta posterior clasificada la reemplaza) y `FechaCompromisoProveedor` (la mayor fecha prometida de la respuesta vigente; nula tras un rechazo). Se recalculan al registrar cada respuesta. Una OC duplicada nace `SinRespuesta`.
 
-**Reglas de validación** (códigos `BusinessRuleException` del dominio, `OrdenCompra.RegistrarRespuestaProveedor`): `OC_RESPUESTA_ESTADO_INVALIDO` (la OC no está Autorizada), `OC_RESPUESTA_USUARIO_REQUERIDO`, `OC_RESPUESTA_TIPO_INVALIDO`, `OC_RESPUESTA_EVIDENCIA_REQUERIDA`, `OC_RESPUESTA_CONTACTO_LARGO`, `OC_RESPUESTA_MOTIVO_LARGO`, `OC_RESPUESTA_FECHA_FUTURA` (respecto de hoy en `America/Mexico_City`), `OC_RESPUESTA_FECHA_ANTERIOR_OC`, `OC_RESPUESTA_MOTIVO_REQUERIDO`, `OC_RESPUESTA_RECHAZO_SIN_COMPROMISOS`, `OC_RESPUESTA_SIN_PENDIENTE`, `OC_RESPUESTA_SIN_COMPROMISOS`, `OC_RESPUESTA_LINEA_INVALIDA`, `OC_RESPUESTA_CANTIDAD_INVALIDA` y `OC_RESPUESTA_FECHA_PROMETIDA_INVALIDA`.
+**Reglas de validación** (códigos `BusinessRuleException` del dominio, `OrdenCompra.RegistrarRespuestaProveedor`): `OC_RESPUESTA_ESTADO_INVALIDO` (la OC no está Autorizada), `OC_RESPUESTA_USUARIO_REQUERIDO`, `OC_RESPUESTA_TIPO_INVALIDO`, `OC_RESPUESTA_EVIDENCIA_REQUERIDA`, `OC_RESPUESTA_CONTACTO_LARGO`, `OC_RESPUESTA_MOTIVO_LARGO`, `OC_RESPUESTA_FECHA_FUTURA` (respecto de hoy en `America/Mexico_City`), `OC_RESPUESTA_FECHA_ANTERIOR_OC`, `OC_RESPUESTA_RECHAZO_SIN_COMPROMISOS`, `OC_RESPUESTA_SIN_PENDIENTE`, `OC_RESPUESTA_SIN_COMPROMISOS`, `OC_RESPUESTA_LINEA_INVALIDA`, `OC_RESPUESTA_CANTIDAD_INVALIDA` y `OC_RESPUESTA_FECHA_PROMETIDA_INVALIDA`. El motivo obligatorio del rechazo lo exige `RegistrarRespuestaProveedorValidator` (400), no el dominio.
 
-**API.** `POST /api/v1/compras/ordenes/{id}/respuestas-proveedor` (permiso `compras.ordenes.registrar-respuesta-proveedor`, `Idempotency-Key` obligatorio, alcance por sucursal con `OcSucursalScope`, ADR-0051). La evidencia en archivo usa las rutas genéricas bajo `/api/v1/compras/ordenes/respuestas-proveedor/{respuestaId}/adjuntos` (ver: `compras.ordenes.leer`; subir: `compras.ordenes.registrar-respuesta-proveedor`; el alcance se hereda de la OC dueña). **La baja de archivos de evidencia está denegada** (`RESPUESTA_EVIDENCIA_INMUTABLE`, 422) y la UI no la ofrece: la evidencia es historial inmutable. La bandeja `GET /api/v1/compras/ordenes` filtra en el servidor por `estadoComercialProveedor` (0–3). Tipo de documento `00000011-0006-0000-0000-000000000005`, código `evidencia_respuesta`.
+**API.** `POST /api/v1/compras/ordenes/{id}/respuestas-proveedor` (permiso `compras.ordenes.registrar-respuesta-proveedor`, `Idempotency-Key` obligatorio, alcance por sucursal con `OcSucursalScope`, ADR-0051). La evidencia en archivo usa las rutas genéricas bajo `/api/v1/compras/ordenes/respuestas-proveedor/{respuestaId}/adjuntos` (ver: `compras.ordenes.leer`; subir: `compras.ordenes.registrar-respuesta-proveedor`; el alcance se hereda de la OC dueña). **La baja de archivos de evidencia está denegada** (`RESPUESTA_EVIDENCIA_INMUTABLE`, 422) y la UI no la ofrece: la evidencia es historial inmutable. La bandeja `GET /api/v1/compras/ordenes` filtra en el servidor por `estadoComercialProveedor` (0–4). Tipo de documento `00000011-0006-0000-0000-000000000005`, código `evidencia_respuesta`.
 
 #### Decisiones y pendientes de F1-COM-02
 
@@ -1348,9 +1349,9 @@ compras.oc_respuestas_proveedor (
     id                  uuid          PK,
     orden_compra_id     uuid          NOT NULL FK -> ordenes_compra ON DELETE CASCADE,
     numero              integer       NOT NULL,
-    tipo                smallint      NOT NULL,                     -- CHECK ck_oc_respuestas_proveedor_tipo: IN (1, 2)
-    fecha_respuesta     date          NOT NULL,
-    evidencia           varchar(300)  NOT NULL,
+    tipo                smallint,                                   -- NULL = sin clasificar; CHECK ck_oc_respuestas_proveedor_tipo: IN (1, 2)
+    fecha_respuesta     date,
+    evidencia           varchar(300),
     contacto_proveedor  varchar(120),
     motivo              varchar(500),
     tiene_diferencias   boolean       NOT NULL,

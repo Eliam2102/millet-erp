@@ -68,7 +68,7 @@ public sealed class OrdenCompraConfiguration : IEntityTypeConfiguration<OrdenCom
             t.HasCheckConstraint("ck_oc_sub_recepcion", "sub_estado_recepcion BETWEEN 0 AND 2");
             t.HasCheckConstraint("ck_oc_sub_facturacion", "sub_estado_facturacion BETWEEN 0 AND 2");
             t.HasCheckConstraint("ck_oc_sub_pago", "sub_estado_pago BETWEEN 0 AND 2");
-            t.HasCheckConstraint("ck_oc_estado_comercial_proveedor", "estado_comercial_proveedor BETWEEN 0 AND 3");
+            t.HasCheckConstraint("ck_oc_estado_comercial_proveedor", "estado_comercial_proveedor BETWEEN 0 AND 4");
         });
 
         builder.Property(x => x.Obra).HasMaxLength(120);
