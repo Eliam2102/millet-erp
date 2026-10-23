@@ -34,6 +34,15 @@ public class ImportacionRecepcionTests
     }
 
     [Fact]
+    public void Linea_que_no_es_de_la_OC_da_error_de_negocio()
+    {
+        RegistrarRecepcionLineaInput[] ajena = [new(Articulo, Guid.NewGuid(), 1, null, null)];
+        var ex = Assert.Throws<BusinessRuleException>(() => ImportacionRecepcionGuard.Crear(
+            Oc(), new("261612346000001", "BL-DEMO", "CONT-DEMO", "16", "A1"), ajena));
+        Assert.Equal("RECEPCION_LINEA_OC_NO_ENCONTRADA", ex.Code);
+    }
+
+    [Fact]
     public void CA39_Normaliza_y_conserva_aduana_clave_y_fraccion_editada()
     {
         var datos = ImportacionRecepcionGuard.Crear(Oc(), new("26 16 1234 6000001", "BL-DEMO", "CONT-DEMO", "16", "A1"), Partidas("7007199900"))!;
