@@ -76,7 +76,7 @@ public sealed class CanalVentaCatalogoTests
         var detalle = await new PedidoFacturableDetalleHandler(
                 db, new FakeClientesReadPort(), new FakeProductosReadPort(),
                 new FakeCanalesVentaReadPort(nombres: new Dictionary<short, string> { [4] = "CC Mérida" }),
-                new FakeAlcanceCajaEvaluator())
+                new FakeAlcanceCajaEvaluator(), new FakeCurrentUserPermissions())
             .Handle(new PedidoFacturableDetalleQuery(pedido.Id), CancellationToken.None);
 
         detalle.CanalVentaId.Should().Be((short)4);

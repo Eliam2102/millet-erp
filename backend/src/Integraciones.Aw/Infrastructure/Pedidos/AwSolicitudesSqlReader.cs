@@ -310,7 +310,10 @@ public sealed class AwSolicitudesSqlReader : IAwSolicitudesReader
             EstadoOrigen: cab.EstadoOrigen,
             Lineas: lineasContrato,
             PayloadCrudo: payloadCrudo,
-            Ranura: ranura));
+            Ranura: ranura,
+            // 86e3tfdw2: método/condición de pago del origen → EsCredito.
+            MetodoPagoOrigen: cab.MetodoPago,
+            CondicionPagoOrigen: cab.CondicionPago));
     }
 
     /// <summary>

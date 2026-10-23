@@ -29,6 +29,9 @@ public sealed class FacturaVentaConfiguration : IEntityTypeConfiguration<Factura
         builder.Property(e => e.FacturaAgrupada).IsRequired();
         builder.Property(e => e.AutorizacionId);
 
+        // 86e3tfdw2: nota del cajero (anticipos aplicados); solo PDF, nunca XML.
+        builder.Property(e => e.Observaciones).HasMaxLength(FacturaVenta.ObservacionesMaxLength);
+
         builder.HasMany(e => e.Lineas)
             .WithOne()
             .HasForeignKey(l => l.FacturaVentaId)

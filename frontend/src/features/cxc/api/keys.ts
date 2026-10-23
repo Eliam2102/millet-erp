@@ -19,6 +19,11 @@ export interface ListarLineasCreditoFiltros {
   limit?: number;
 }
 
+export interface AplicacionesAnticipoFiltros {
+  clienteId?: string;
+  estado?: string;
+}
+
 export const cxcKeys = {
   all: ['cxc'] as const,
 
@@ -65,6 +70,9 @@ export const cxcKeys = {
     [...cxcKeys.estadoCuenta(clienteId), 'envios'] as const,
   anticipos: (clienteId: string) =>
     [...cxcKeys.all, 'anticipos', clienteId] as const,
+  // F1-CXC-05: anticipos con su aplicación a factura final (cliente opcional).
+  aplicacionesAnticipo: (filtros: AplicacionesAnticipoFiltros) =>
+    [...cxcKeys.all, 'anticipos', 'aplicaciones', filtros] as const,
 
   // Aplicación de pagos (CXC-FE-PR6)
   propuestas: () => [...cxcKeys.all, 'propuestas-aplicacion'] as const,
