@@ -25,6 +25,7 @@ public static class ClientesLookupEndpoints
             [FromQuery] string? razonSocial,
             [FromQuery] string? ids,
             [FromQuery] int? limit,
+            [FromQuery] string? q,
             IMediator mediator,
             CancellationToken cancellationToken) =>
         {
@@ -44,7 +45,11 @@ public static class ClientesLookupEndpoints
             }
 
             var items = await mediator.Send(
-                new ClientesLookupCxcQuery(rfc, razonSocial, idsParsed, limit ?? (idsParsed is null ? 20 : idsParsed.Count)),
+                new ClientesLookupCxcQuery(
+                    rfc, razonSocial, idsParsed,
+                    // 86e3tfdx8: con `q` (palabras) el default sube a 50.
+                    limit ?? (idsParsed is not null ? idsParsed.Count : string.IsNullOrWhiteSpace(q) ? 20 : 50),
+                    q),
                 cancellationToken);
             return Results.Ok(items);
         })

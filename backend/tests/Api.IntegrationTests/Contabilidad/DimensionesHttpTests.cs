@@ -174,7 +174,7 @@ public class DimensionesHttpTests(WebApplicationFactory<Program> factory) : ICla
             var error = Assert.Single(falta.GetProperty("errores").EnumerateArray());
             Assert.Equal("CONTAB_DIM_OBLIGATORIA_FALTANTE", error.GetProperty("codigo").GetString());
             Assert.Equal("dim3Id", error.GetProperty("campo").GetString());
-            Assert.Contains("Dimensión 3", error.GetProperty("mensaje").GetString());
+            Assert.Contains("Equipo", error.GetProperty("mensaje").GetString());
 
             // Confirmar sin la dimensión: 422 con la lista de errores y nada se guarda.
             var r = await e.Admin.PostAsJsonAsync($"{Base}/movimientos-prueba", Mov(e, e.SucursalA, hoy));

@@ -3,7 +3,8 @@
 Sirve para que, en una sola computadora, los módulos del ERP se pasen sus
 eventos (por ejemplo: Almacén registra una recepción → CxP y Compras se
 enteran). Sin él, en local el ERP usa `NoOpIntegrationEventBusSender` y
-descarta los eventos.
+descarta los eventos, salvo que se active la entrega local (ver
+«Alternativa sin emulador» más abajo).
 
 Solo es para desarrollo y demostraciones locales. En Azure se usa el Service
 Bus real de `infra/modules/servicebus.bicep`, que no cambia.
@@ -45,6 +46,50 @@ dotnet user-secrets set "ServiceBus:Modo" "EmuladorLocal" --project backend/src/
 ```
 
 Para volver al comportamiento anterior: `dotnet user-secrets remove "ServiceBus:Modo" --project backend/src/Api/Millet.Api.csproj`.
+
+## Alternativa sin emulador: entrega local (C1.8)
+
+Para equipos ligeros o cuando el emulador no levanta, la API puede entregar
+los eventos **en el mismo proceso**, sin Service Bus:
+
+```bash
+ServiceBus__EntregaLocal__Habilitada=true dotnet run --project backend/src/Api/Millet.Api.csproj
+# o en la demo:
+DEMO_EVENTOS=local tools/demo/demo.sh api
+```
+
+Cómo funciona: los `OutboxPublisherWorker` de cada módulo siguen leyendo su
+outbox, pero en lugar de enviar a Service Bus usan
+`LocalDispatchIntegrationEventBusSender`, que llama directamente a los
+listeners reales de los módulos suscritos al tema (`*EventListenerWorker`,
+que implementan `ILocalIntegrationEventConsumer`; hoy son los 15 workers del
+bloque con conexión de `Program.cs`, que dan 16 consumidores porque
+`ComprasActivoWorker` de Activos Fijos escucha dos temas y aporta uno por tema).
+`AwDropWorker` queda fuera a propósito: es el adaptador hacia A+W, no consume
+eventos internos. Si un listener falla, la
+fila del outbox se reintenta en el siguiente ciclo y la marca de idempotencia
+(`eventos_procesados`; en Activos Fijos, la llave natural recepción/línea de
+factura) evita repetir el efecto en los que ya terminaron.
+
+Guardas:
+
+- Apagada por omisión (`appsettings.Development.json`: `false`).
+- Solo en `Development`: en cualquier otro ambiente la API no arranca si
+  está en `true`.
+- Si hay conexión a Service Bus (Azure o `ServiceBus:Modo=EmuladorLocal`),
+  se ignora y se deja un aviso en el log.
+
+Diferencias con el emulador: no hay filtros SQL de suscripción (cada listener
+recibe todos los eventos de su tema e ignora los que no maneja) y la entrega
+es en serie dentro del ciclo del outbox. Para validar contra la topología de
+Azure, usa el emulador.
+
+**Pendiente — pólizas automáticas:** el listener de Contabilidad del motor de
+pólizas (C1.4/C1.5, `PLATFORM-TODO(<MotorContable>)` en
+`IPolizaContablePort`) aún no existe. Cuando exista, basta con que implemente
+`ILocalIntegrationEventConsumer` y se registre en los dos bloques:
+`AddHostedService` en la rama con conexión de `Program.cs` y en
+`EntregaLocalIntegrationEventsExtensions` (`backend/src/Api/Infrastructure`).
 
 ## Si cambia el Bicep
 

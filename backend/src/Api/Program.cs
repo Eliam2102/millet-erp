@@ -16,6 +16,7 @@ using Millet.Api.Endpoints.Catalogos;
 using Millet.Api.Endpoints.Compras;
 using Millet.Api.Endpoints.Settings;
 using Millet.Api.Hubs;
+using Millet.Api.Infrastructure;
 using Millet.Api.Web;
 using Millet.CentrosCosto.Application;
 using Millet.CentrosCosto.Infrastructure;
@@ -236,6 +237,8 @@ if (!string.IsNullOrWhiteSpace(outboxConnString))
 {
     builder.Services.AddSingleton(_ => new Azure.Messaging.ServiceBus.ServiceBusClient(outboxConnString));
     builder.Services.AddSingleton<IIntegrationEventBusSender, ServiceBusIntegrationEventBusSender>();
+    // C1.8: con conexión a Service Bus la entrega local se ignora (solo avisa).
+    builder.Services.AdvertirSiEntregaLocalIgnorada(builder.Configuration);
 
     // F3-PR1: listener Service Bus de eventos de CxP. Solo se wirea cuando
     // la conexión real existe — en dev local sin SB, los handlers se pueden
@@ -308,7 +311,10 @@ if (!string.IsNullOrWhiteSpace(outboxConnString))
     // (Bicep en el mismo PR; deploy de infra manual con what-if).
     builder.Services.AddHostedService<Millet.Facturacion.Infrastructure.Workers.TesoreriaEventListenerWorker>();
 }
-else
+// C1.8: sin conexión, `ServiceBus:EntregaLocal:Habilitada=true` (solo Development)
+// entrega los eventos del outbox en el mismo proceso a los listeners de arriba;
+// apagada, los eventos se descartan con el NoOp.
+else if (!builder.Services.AddEntregaLocalIntegrationEvents(builder.Configuration, builder.Environment))
 {
     builder.Services.AddSingleton<IIntegrationEventBusSender, NoOpIntegrationEventBusSender>();
 }

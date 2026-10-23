@@ -40,8 +40,14 @@ public sealed partial class DemoSesionSeedHostedService
             "Tesorería" => codigo.StartsWith("tesoreria.", StringComparison.Ordinal),
             "Facturación" => codigo.StartsWith("facturacion.", StringComparison.Ordinal)
                 || codigo.StartsWith("datos_maestros.clientes.", StringComparison.Ordinal),
-            "Contabilidad" => (codigo.StartsWith("contabilidad.", StringComparison.Ordinal) || codigo.StartsWith("activos_fijos.", StringComparison.Ordinal))
-                && codigo != PermisosCanonicos.ContabilidadCatalogoAutorizar,
+            // 86e3tfdw2 (supuesto por confirmar con Eliam): la caja de mostrador
+            // opera como Facturación pero no ve los pedidos a crédito.
+            "Caja" => PermisoDelRol("Facturación", codigo) && codigo != PermisosCanonicos.FacturacionPedidosLeerCredito,
+            // 86e3tfdw2: el contador ve pedidos a crédito (Facturación ya lo
+            // recibe por el prefijo `facturacion.`).
+            "Contabilidad" => ((codigo.StartsWith("contabilidad.", StringComparison.Ordinal) || codigo.StartsWith("activos_fijos.", StringComparison.Ordinal))
+                && codigo != PermisosCanonicos.ContabilidadCatalogoAutorizar)
+                || codigo == PermisosCanonicos.FacturacionPedidosLeerCredito,
             "DAF" => codigo is PermisosCanonicos.ContabilidadCatalogoLeer or PermisosCanonicos.ContabilidadCatalogoAutorizar,
             _ => false,
         };
@@ -71,7 +77,7 @@ public sealed partial class DemoSesionSeedHostedService
         }
         var sucursales = await sp.GetRequiredService<CompartidoDbContext>().Sucursales
             .Where(s => s.EmpresaId == EmpresaId).ToDictionaryAsync(s => s.Clave, ct);
-        foreach (var nombre in new[] { "Compras", "CxP", "Tesorería", "Facturación", "Contabilidad", "DAF", "Administrador",
+        foreach (var nombre in new[] { "Compras", "CxP", "Tesorería", "Facturación", "Caja", "Contabilidad", "DAF", "Administrador",
             "Capturista Compras", "Jefe Compras", "Dirección", "Jefe Compras y CxP", "Dirección y Tesorería" })
         {
             var codigo = "DEMO-ROL-" + nombre;
@@ -96,7 +102,7 @@ public sealed partial class DemoSesionSeedHostedService
             (CapturistaComprasDemoId, "capturista-compras", "Ana Torres · Compradora", "Capturista Compras"),
             (JefeComprasDemoId, "jefe-compras", "Laura Méndez · Jefa de Compras", "Jefe Compras"),
             (DireccionDemoId, "direccion", "Carlos Medina · Director", "Dirección"),
-            (CajeraDemoId, "cajera-mid", "Lucía Pérez · Cajera de Mostrador Conkal", "Facturación"),
+            (CajeraDemoId, "cajera-mid", "Lucía Pérez · Cajera de Mostrador Conkal", "Caja"),
         })
         {
             if (!await db.Usuarios.AnyAsync(u => u.Id == id, ct))
@@ -109,7 +115,7 @@ public sealed partial class DemoSesionSeedHostedService
             if (!await db.UsuarioEmpresaRoles.AnyAsync(a => a.UsuarioId == id && a.EmpresaId == EmpresaId && a.RolId == rolId, ct))
                 db.UsuarioEmpresaRoles.Add(new UsuarioEmpresaRol(Id($"DEMO-ASIGNACION/{id}/{rolId}"), id, EmpresaId, rolId));
             // Capturista y cajera operan solo en MID (Conkal); el resto ve todas las sucursales.
-            foreach (var sucursal in sucursales.Values.Where(s => rol is not ("Capturista Compras" or "Facturación") || s.Clave == "MID"))
+            foreach (var sucursal in sucursales.Values.Where(s => rol is not ("Capturista Compras" or "Facturación" or "Caja") || s.Clave == "MID"))
             {
                 if (!await db.UsuarioSucursales.AnyAsync(a => a.UsuarioId == id && a.EmpresaId == EmpresaId && a.SucursalId == sucursal.Id, ct))
                     db.UsuarioSucursales.Add(new UsuarioSucursal(Id($"DEMO-SUCURSAL/{id}/{sucursal.Id}"), id, sucursal.Id, EmpresaId));
