@@ -94,6 +94,22 @@ public sealed class RevisionSlaNotificacionWorkerTests : IDisposable
         (await ContarAvisosAsync()).Should().Be(2);
     }
 
+    [Theory]
+    [InlineData("00000007-1001-0000-0000-000000000002", true, "Daños o defectos en mercancía")]
+    [InlineData("00000007-1001-0000-0000-00000000000b", false, "Disputa con proveedor")]
+    [InlineData("00000007-1001-0000-0000-000000000005", true, "No conformidad con servicio o producto")]
+    public async Task Aviso_incluye_a_Compras_si_el_motivo_lo_resuelve_Compras(string motivo, bool esperado, string nombre)
+    {
+        await SembrarAsync(Guid.Parse(motivo));
+
+        await TickEnAsync("2026-11-13T18:00:00Z"); // 20 hábiles: nivel alcanzado en SLA 5 y 15
+
+        var aviso = _enviadas.Should().ContainSingle().Subject;
+        aviso.AvisaCompras.Should().Be(esperado);
+        aviso.MotivoNombre.Should().Be(nombre);
+        aviso.Folio.Should().Be("AF-001");
+    }
+
     [Fact]
     public async Task Indicacion_expresa_no_avisa_y_sigue_en_revision()
     {

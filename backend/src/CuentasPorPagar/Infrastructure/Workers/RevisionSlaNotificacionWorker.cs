@@ -38,8 +38,8 @@ namespace Millet.CuentasPorPagar.Infrastructure.Workers;
 /// <c>cuentas_por_pagar.avisos_sla_revision</c> con índice único
 /// (factura, nivel, día). Correr el worker dos veces el mismo día no duplica
 /// el aviso. El aviso nunca cambia el estado de la factura ni libera el pago.
-/// El envío por correo sigue en <c>NoOpNotificacionService</c>
-/// (PLATFORM-TODO(&lt;NotificacionesGlobal&gt;)).
+/// El envío lo resuelve la implementación de <see cref="INotificacionService"/>
+/// registrada (log o correo Graph).
 /// </para>
 /// </summary>
 public sealed class RevisionSlaNotificacionWorker : BackgroundService
@@ -118,6 +118,10 @@ public sealed class RevisionSlaNotificacionWorker : BackgroundService
                 f.EmpresaId,
                 MotivoId = m.Id,
                 m.SlaDias,
+                MotivoNombre = m.Nombre,
+                AvisaCompras = m.DependenciaRevisoraDefaultCodigo == "COMPRAS" || m.AreaAvisadaCodigo == "COMPRAS",
+                f.SerieProveedor,
+                f.FolioProveedor,
                 FechaEntrada = f.FechaEntradaRevision!.Value,
                 DependenciaId = f.DependenciaRevisoraId!.Value,
             }).ToListAsync(cancellationToken);
@@ -160,7 +164,10 @@ public sealed class RevisionSlaNotificacionWorker : BackgroundService
                     MotivoRevisionId: f.MotivoId,
                     DiasEnRevision: dias,
                     SlaDias: sla,
-                    Nivel: nivel), cancellationToken);
+                    Nivel: nivel,
+                    Folio: string.Concat(f.SerieProveedor, f.FolioProveedor) is { Length: > 0 } folio ? folio : null,
+                    MotivoNombre: f.MotivoNombre,
+                    AvisaCompras: f.AvisaCompras), cancellationToken);
                 enviadas++;
             }
             catch (Exception ex)
