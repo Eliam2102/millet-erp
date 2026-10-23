@@ -11,8 +11,8 @@ namespace Millet.Contabilidad.Application.Dimensiones;
 /// Validación de dimensiones de un movimiento (F1-CON-02, ficha K10.2). Orden: cuenta → tipo de documento → sucursal → centros
 /// (existencia, nivel, jerarquía, estado) → ubicación del centro contra la sucursal (salvo centro corporativo) → auxiliares
 /// (cliente, proveedor, banco) → reglas vigentes a la fecha contable. Junta todos los errores.
-/// Resolución de reglas (D3): por dimensión gana la cuenta más cercana (la propia, luego el ancestro más cercano) y, a igual
-/// cuenta, la regla del tipo de documento sobre la de todos los tipos. Un valor derivado por jerarquía cuenta como capturado
+/// Resolución de reglas (D3): por dimensión gana la cuenta más cercana (la propia, luego el ancestro más cercano, al final su
+/// rubro = grupo de cuentas de C-03) y, a igual cuenta, la regla del tipo de documento sobre la de todos los tipos. Un valor derivado por jerarquía cuenta como capturado
 /// para "obligatorio", pero "no aplica" solo rechaza lo capturado directamente.
 /// </summary>
 public sealed class ValidadorDimensiones(
@@ -126,19 +126,27 @@ public sealed class ValidadorDimensiones(
         }
     }
 
-    /// <summary>La cuenta y sus ancestros, de la más cercana a la raíz.</summary>
+    /// <summary>
+    /// La cuenta y sus ancestros, de la más cercana a la raíz, y al final su rubro (K10.2: el grupo de cuentas de C-03 —balance,
+    /// ingresos, costos, gastos— es el rubro del catálogo, que vive fuera del árbol y se liga por <c>RubroId</c>).
+    /// </summary>
     private async Task<List<(Guid Id, string Codigo)>> CadenaAsync(Guid cuentaId, CancellationToken ct)
     {
         var cadena = new List<(Guid, string)>();
+        Guid? rubroId = null;
         Guid? actual = cuentaId;
         while (actual is { } id && cadena.Count < 32)
         {
             var c = await db.Cuentas.AsNoTracking().Where(x => x.Id == id)
-                .Select(x => new { x.Id, x.Codigo, x.PadreId }).FirstOrDefaultAsync(ct);
+                .Select(x => new { x.Id, x.Codigo, x.PadreId, x.RubroId }).FirstOrDefaultAsync(ct);
             if (c is null) break;
             cadena.Add((c.Id, c.Codigo));
+            rubroId ??= c.RubroId;
             actual = c.PadreId;
         }
+        if (rubroId is { } rid && cadena.All(c => c.Item1 != rid)
+            && await db.Cuentas.AsNoTracking().Where(x => x.Id == rid).Select(x => x.Codigo).FirstOrDefaultAsync(ct) is { } codigoRubro)
+            cadena.Add((rid, codigoRubro));
         return cadena;
     }
 

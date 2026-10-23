@@ -44,11 +44,14 @@ public static class FacturacionCatalogosEndpoints
             [FromQuery] string? rfc,
             [FromQuery] string? razonSocial,
             [FromQuery] int? limit,
+            [FromQuery] string? q,
             IMediator mediator,
             CancellationToken cancellationToken) =>
         {
+            // 86e3tfdx8: con `q` (palabras) el default sube a 50.
             var items = await mediator.Send(
-                new ClientesLookupQuery(rfc, razonSocial, limit ?? 20), cancellationToken);
+                new ClientesLookupQuery(rfc, razonSocial, limit ?? (string.IsNullOrWhiteSpace(q) ? 20 : 50), q),
+                cancellationToken);
             return Results.Ok(items);
         })
         .WithName("FacturacionClientesLookup")

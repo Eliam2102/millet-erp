@@ -470,6 +470,51 @@ comprobantes de TPV»), R18 y CA6.10; minuta del 12-oct-2026 (M19).
   movimientos). Se abre desde «Ver corte» en *Mi caja*, al cerrar la sesión y
   desde cada fila de *Liquidación de caja*.
 
+## 15. Cierre del día por sucursal (F6.7)
+
+Manual de Sucursales §2.4 (R18): además del corte por cajero (§14), la
+conciliación automática facturado contra ingresado y el monitor de estatus
+de facturas y NC. Viven en `/facturacion/reportes/cierre-dia` (dos
+pestañas) y no tocan el corte: el corte muestra lo cobrado en una sesión;
+el cierre del día cuadra la sucursal completa.
+
+- **Día:** de medianoche a medianoche en la zona horaria de la sucursal
+  (`[Decisión 12-8]`).
+- **Alcance (ADR-0051):** usuario asociado a la sucursal o permiso
+  `facturacion.reportes.leer-todas-sucursales` (sembrado en los roles que ya
+  tenían `facturacion.caja.leer-todas`). Endpoints bajo
+  `/api/v1/facturacion/reportes` con `facturacion.reportes.leer`.
+- **Monitor (`GET /monitor-cfdi`):** comprobantes de la sucursal timbrados en
+  el día, los que quedaron sin timbre ese día (incluidos los fallidos del
+  PAC, con su mensaje), y los de días anteriores cuya cancelación el SAT
+  aceptó ese día; más los pedidos facturables que al cierre seguían sin CFDI.
+  Filtro opcional por cajero (emitió o cobró en sus sesiones del día).
+- **Estatus SAT:** `POST /monitor-cfdi/verificar-sat` (Idempotency-Key)
+  consulta hasta 200 CFDI por llamada mediante `IConsultaEstatusCfdiPort` y
+  guarda el resultado en `comprobante` (`estatus_sat`,
+  `es_cancelable_sat`, `estatus_sat_consultado_en`). No cambia el estado
+  interno: si el SAT dice otra cosa, el monitor marca la discrepancia.
+  Adaptador por `Facturacion:ConsultaEstatusSat:Proveedor`: `Simulado`
+  (por omisión; adaptador de prueba, responde según el estado local y admite
+  `UuidsCancelados` / `UuidsNoEncontrados` para forzar discrepancias) o
+  `FiscalApi` (real, mismo camino que el poller de cancelaciones). La
+  pantalla muestra siempre la fuente.
+- **Conciliación (`GET /conciliacion-facturado-ingresado`):**
+  - *Facturado de contado:* facturas y anticipos PUE en pesos, vigentes,
+    timbrados en el día, por su neto de NC (la caja cobra el neto).
+  - *Ingresado:* movimientos de cobro (netos de reversas) de las sesiones de
+    la sucursal con ese día de operación — la misma fuente que el arqueo.
+  - *Diferencia* = facturado de contado − ingresado; una PUE sin cobro el
+    mismo día queda como «Facturada sin cobro» (F6.7-a).
+  - *Informativo, no entra a la diferencia:* crédito PPD emitido en el punto
+    (comentario de Eliam, 14-oct) y facturas en otra moneda.
+  - *Ingreso sin facturado del día:* cobros de documentos de otro día, de
+    complementos de pago o de documentos cancelados.
+  - Cada partida queda con el cajero de la sesión que la cobró o, si nadie
+    la cobró, con quien la emitió; hay resumen por cajero.
+  - Transferencias: forma 03 con su referencia. El folio de confirmación de
+    Ingresos llega con F6.6 y se agregará al emparejamiento.
+
 ---
 
 ## Rev.
@@ -480,3 +525,4 @@ comprobantes de TPV»), R18 y CA6.10; minuta del 12-oct-2026 (M19).
 | 0.6 | 2026-07-10 | Revisión contra código y docs: 12 gaps cerrados (`[Decisión 12-1..12]`), decisiones de diseño 12-A..E, P1–P6 resueltos, modelo de datos, permisos, endpoints y plan de PRs |
 | 0.7 | 2026-10-13 | §14 Corte de caja por cajero (FIX-12): endpoint, fuente única en movimientos, voucher obligatorio en tarjeta y REPP solo en pesos |
 | 0.8 | 2026-10-14 | §14: facturado y notas de crédito del punto de venta y resumen de la entrega (M19: facturado, NC, cobranzas, apartados, TPV), como propuesta a validar; relación con F6.7 |
+| 0.9 | 2026-10-21 | §15 Cierre del día por sucursal (F6.7): monitor de estatus de CFDI con verificación SAT y conciliación facturado contra ingresado por sucursal y cajero |

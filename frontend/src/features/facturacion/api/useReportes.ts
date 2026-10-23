@@ -1,10 +1,13 @@
-import { useQuery } from '@tanstack/react-query';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { apiRequest } from '@/lib/api';
 import { parseLocalToUtc } from '@/lib/datetime';
 import { facturacionKeys } from '@/features/facturacion/api/keys';
 import type {
+  ConciliacionFacturadoIngresadoResponse,
   EstadoComparativaAnticipo,
+  MonitorCfdiResponse,
   ReporteBackend,
+  VerificarEstatusSatResponse,
 } from '@/features/facturacion/api/types';
 
 const BASE = '/api/v1/facturacion/reportes';
@@ -104,6 +107,89 @@ export function useComparativaAnticipos(filtros: ComparativaAnticiposFiltros) {
         { signal },
       );
       return data;
+    },
+  });
+}
+
+// ─── Cierre del día por sucursal (F6.7) ───────────────────────────────
+
+export interface CierreDiaFiltros {
+  /** Sin sucursal no se consulta (el reporte es por sucursal). */
+  sucursalId?: string;
+  /** Día calendario `YYYY-MM-DD` (hora de México; el backend arma el rango). */
+  dia: string;
+  cajeroId?: string;
+}
+
+function cierreDiaParams(filtros: CierreDiaFiltros): string {
+  const params = new URLSearchParams();
+  if (filtros.sucursalId) params.set('sucursalId', filtros.sucursalId);
+  params.set('dia', filtros.dia);
+  if (filtros.cajeroId) params.set('cajeroId', filtros.cajeroId);
+  return params.toString();
+}
+
+/**
+ * <c>useMonitorCfdi(filtros)</c> — monitor de estatus de CFDI del día en una
+ * sucursal: timbrados, cancelados, sin timbrar, pedidos pendientes de
+ * timbrar y estatus SAT de cada comprobante.
+ */
+export function useMonitorCfdi(filtros: CierreDiaFiltros) {
+  return useQuery<MonitorCfdiResponse>({
+    queryKey: facturacionKeys.reporteMonitorCfdi({ ...filtros }),
+    queryFn: async ({ signal }) => {
+      const { data } = await apiRequest<MonitorCfdiResponse>(
+        `${BASE}/monitor-cfdi?${cierreDiaParams(filtros)}`,
+        { signal },
+      );
+      return data;
+    },
+    enabled: Boolean(filtros.sucursalId && filtros.dia),
+  });
+}
+
+/**
+ * <c>useConciliacionFacturadoIngresado(filtros)</c> — facturado de contado
+ * contra lo ingresado en caja del día, por cajero y por partida.
+ */
+export function useConciliacionFacturadoIngresado(filtros: CierreDiaFiltros) {
+  return useQuery<ConciliacionFacturadoIngresadoResponse>({
+    queryKey: facturacionKeys.reporteConciliacionFacturadoIngresado({ ...filtros }),
+    queryFn: async ({ signal }) => {
+      const { data } = await apiRequest<ConciliacionFacturadoIngresadoResponse>(
+        `${BASE}/conciliacion-facturado-ingresado?${cierreDiaParams(filtros)}`,
+        { signal },
+      );
+      return data;
+    },
+    enabled: Boolean(filtros.sucursalId && filtros.dia),
+  });
+}
+
+/**
+ * <c>useVerificarEstatusSat()</c> — POST que consulta en el SAT el estatus
+ * de los CFDI del día (Idempotency-Key, ADR-0020). Al terminar invalida el
+ * monitor para mostrar el estatus actualizado.
+ */
+export function useVerificarEstatusSat() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (args: {
+      sucursalId: string;
+      dia: string;
+      idempotencyKey: string;
+    }) => {
+      const qs = cierreDiaParams({ sucursalId: args.sucursalId, dia: args.dia });
+      const { data } = await apiRequest<VerificarEstatusSatResponse>(
+        `${BASE}/monitor-cfdi/verificar-sat?${qs}`,
+        { method: 'POST', idempotencyKey: args.idempotencyKey },
+      );
+      return data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({
+        queryKey: facturacionKeys.reporteMonitorCfdiTodos(),
+      });
     },
   });
 }
