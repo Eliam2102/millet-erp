@@ -1649,9 +1649,23 @@ namespace Millet.Facturacion.Infrastructure.Persistence.Migrations
                         .HasColumnType("boolean")
                         .HasColumnName("enviado_correo");
 
+                    b.Property<string>("EsCancelableSat")
+                        .HasMaxLength(60)
+                        .HasColumnType("character varying(60)")
+                        .HasColumnName("es_cancelable_sat");
+
                     b.Property<short>("Estado")
                         .HasColumnType("smallint")
                         .HasColumnName("estado");
+
+                    b.Property<string>("EstatusSat")
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)")
+                        .HasColumnName("estatus_sat");
+
+                    b.Property<DateTimeOffset?>("EstatusSatConsultadoEn")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("estatus_sat_consultado_en");
 
                     b.Property<DateTimeOffset?>("FechaTimbrado")
                         .HasColumnType("timestamp with time zone")
@@ -1861,6 +1875,9 @@ namespace Millet.Facturacion.Infrastructure.Persistence.Migrations
 
                     b.HasIndex("SucursalId", "CanalVentaId")
                         .HasDatabaseName("ix_comprobante_sucursal_canal");
+
+                    b.HasIndex("SucursalId", "FechaTimbrado")
+                        .HasDatabaseName("ix_comprobante_sucursal_fecha_timbrado");
 
                     b.HasIndex("SucursalId", "Folio")
                         .IsUnique()
