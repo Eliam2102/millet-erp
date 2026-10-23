@@ -72,6 +72,21 @@ public sealed record LineaRecepcionPayload(
     Guid? SubAlmacenId = null);
 
 /// <summary>
+/// Espejo de <c>almacen.recepcion_oc.cancelada.v1</c> (86e3tabdp). CxP borra la proyección de la recepción, desliga las
+/// facturas que la habían elegido y republica el pasivo de las autorizadas de la OC. No genera nota de cargo.
+/// </summary>
+public sealed record OcRecepcionCanceladaPayload(
+    Guid EmpresaId,
+    DateTimeOffset OcurridoEn,
+    Guid RecepcionId,
+    string FolioRecepcion,
+    Guid OrdenCompraId,
+    IReadOnlyList<LineaRecepcionCanceladaPayload> Lineas);
+
+/// <summary><c>CantidadDocumento</c> viene en unidad de la línea de OC.</summary>
+public sealed record LineaRecepcionCanceladaPayload(Guid? LineaOcId, decimal CantidadDocumento);
+
+/// <summary>
 /// Espejo de <c>almacen.oc_devolucion.registrada.v1</c>. CxP genera
 /// <c>NotaCargo</c> en Borrador asociada a esta devolución, lista para
 /// autorización + aplicación. La NC fiscal del proveedor (tipo 03)

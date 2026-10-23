@@ -215,10 +215,12 @@ public sealed class CancelarRecepcionHandler(
             var saldo = await consulta.SingleAsync(ct);
             await db.Entry(saldo).ReloadAsync(ct);
             if (saldo.Cantidad <= 0m) continue; // sin existencia el siguiente ingreso fija su propio costo (trigger)
-            var costoEntrada = g.Sum(l => l.Cantidad * l.CostoUnitarioMxn) / g.Sum(l => l.Cantidad);
+            // Valor tras quitar las unidades a su costo de entrada (no al promedio, que es lo que dejó el trigger). El valor guardado va
+            // redondeado a centavos, así que el ajuste se mide contra él para que el promedio resultante sea exacto.
+            var objetivo = saldo.Cantidad * saldo.CostoPromedioMxn + g.Sum(l => l.Cantidad * (saldo.CostoPromedioMxn - l.CostoUnitarioMxn));
             try
             {
-                saldo.AjustarValor(g.Sum(l => l.Cantidad) * (saldo.CostoPromedioMxn - costoEntrada), clock.UtcNow);
+                saldo.AjustarValor(objetivo - saldo.ValorInventarioMxn, clock.UtcNow);
             }
             catch (BusinessRuleException ex) when (ex.Code == "CE_AJUSTE_COSTO_INVALIDO")
             {

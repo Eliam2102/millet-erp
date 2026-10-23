@@ -108,6 +108,7 @@ public class CancelarRecepcionHandlerTests
         cen.Select(x => x.RecepcionOrigenId).Should().BeEquivalentTo(entradas.Select(x => (Guid?)x.Id));
         cen.Sum(x => x.Lineas.Sum(l => l.Cantidad)).Should().Be(10m);
         r.RecepcionId.Should().Be(m.RecepcionId);
+        r.FoliosCancelacion.Distinct().Should().HaveCount(2); // una sola secuencia CEN, folios consecutivos
         r.FoliosCancelacion.Should().BeEquivalentTo(cen.Select(x => x.Folio!)).And.OnlyContain(f => f.StartsWith("M-CEN2026-"));
 
         var saldo = await m.Db.SaldosInventario.AsNoTracking().SingleAsync(s => s.UbicacionId == BinId);
