@@ -290,6 +290,8 @@ public sealed class GraphAvisoRevisionCxp : INotificacionService
 
     public async Task NotificarSlaRevisionAsync(SlaRevisionNotificacion notificacion, CancellationToken cancellationToken)
     {
+        if (string.IsNullOrWhiteSpace(_sender))
+            throw new BusinessRuleException("CORREO_ACCESO_NO_CONFIGURADO", "Falta el buzón remitente.");
         var para = _avisos.Destinatarios(notificacion);
         if (para.Count == 0)
         {
