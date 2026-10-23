@@ -738,6 +738,7 @@ Memoria `project_nav_shell_pattern` — entra al sidebar + modal de cards. Secci
 - ~~`StubPuestoReadPort`~~ — ✅ cerrado en ADM-PR2: `PuestoReadPortAdapter` + `EmpleadoReadPortAdapter` sobre `compartido.puestos`/`empleados` (doc 10 de Administración); el seed EJEC/GER/OPER migró a la tabla real con los mismos GUIDs (D6).
 
 - `NoOpNotificacionService` — el correo/Teams de los avisos de plazo de revisión no se envía; el aviso visible vive en la bandeja por área (`/cxp/revision`, columna «Aviso»). `PLATFORM-TODO(<NotificacionesGlobal>)`. Se wirea con el adaptador real del motor de notificaciones (ADR-0026).
+- `NoOpNotificacionService` (destinatarios) — los avisos de día 3/5/10 deben llegar al área revisora, a Compras vía `AreaAvisadaCodigo` del motivo y al Contador General en todos los avisos; el rol «Director de Finanzas» no existe aún en el catálogo de responsables y los departamentos `CXP` y `DIRECCION_F` deben crearse en Administración. `PLATFORM-TODO(<NotificacionContadorGeneral>)`. Parte 2 de la tarea 86e3tfeq7.
 
 Cada `PLATFORM-TODO` busca-able con `rg "PLATFORM-TODO" backend/src/CuentasPorPagar`.
 
