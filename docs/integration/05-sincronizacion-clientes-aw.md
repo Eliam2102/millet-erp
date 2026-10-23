@@ -327,7 +327,7 @@ Los mensajes de error persistidos no incluyen texto de excepción ni payload.
 - **Bajas explícitas**: la ausencia de una fila nunca es baja. Sin mapeo aprobado, no se cambia `Estatus`; V52 se activa únicamente con la configuración versionada de §10.1.1.
 - **Cancelación a mitad de lote** no persiste los contadores de ese lote (`Leidos` exacto; al reanudar, esas filas cuentan como `SinCambios`).
 - **Dispatcher single-host**: el índice único evita dos barridos vivos, pero no hay elección de líder; con varias instancias ambas podrían tomar la misma ejecución. Operar con una instancia o revisar antes de escalar.
-- **Primera corrida real**: medido en la copia `AW_FULL` (solo lectura), 1,404 claves repetidas entre clientes de A+W con 1,634 referencias adicionales, casi todas históricas (solo 3 con pedidos en 24 meses); desde la decisión del 22-oct van a revisión (pendiente) y se informan en el reporte de G1.10; antes (21-oct) eran informativas.
+- **Primera corrida real**: corrida del 23-oct en la copia `AW_FULL` (solo lectura): 44,694 clientes leídos, 44,685 creados y 9 con error (`fila_invalida`); las claves repetidas entre clientes de A+W dejaron 1,634 referencias en revisión (`RfcCompartido` pendiente), casi todas históricas (la medición del 13-oct halló solo 3 con pedidos en 24 meses); desde la decisión del 22-oct van a revisión (pendiente); antes (21-oct) eran informativas. La segunda corrida no creó nada. Conteos en `docs/integration/evidencia/g1.10/resumen-corrida-maestros.md`.
 
 ### 10.8.1 Unificar clientes con RFC repetido (86e3qcgyn)
 
