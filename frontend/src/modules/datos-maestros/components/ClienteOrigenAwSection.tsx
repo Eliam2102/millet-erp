@@ -72,7 +72,7 @@ export function ClienteOrigenAwSection({ cliente }: { cliente: ClienteDetalle })
 
   return (
     <section
-      className="mt-4 max-w-3xl rounded-md border bg-surface-card p-4"
+      className="mt-4 rounded-md border bg-surface-card p-4"
       aria-label="Datos de origen A+W"
     >
       <div className="mb-3 flex flex-wrap items-center justify-between gap-2">

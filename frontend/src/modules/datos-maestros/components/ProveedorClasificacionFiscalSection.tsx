@@ -77,7 +77,7 @@ export function ProveedorClasificacionFiscalSection({
   return (
     <section
       aria-labelledby={tituloId}
-      className="mt-4 max-w-3xl rounded-lg bg-surface-card p-4 shadow-card-flat"
+      className="mt-4 rounded-lg bg-surface-card p-4 shadow-card-flat"
     >
       <div className="mb-3 flex items-center justify-between gap-3">
         <div className="flex items-center gap-2">
