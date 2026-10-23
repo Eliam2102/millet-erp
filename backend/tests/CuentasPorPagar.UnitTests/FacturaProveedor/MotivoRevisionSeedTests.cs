@@ -54,6 +54,29 @@ public sealed class MotivoRevisionSeedTests
     }
 
     [Theory]
+    [InlineData("DISCREPANCIA_OC", "Diferencia con la OC (no de monto)", 5, "COMPRAS")]
+    [InlineData("DANOS_MERCANCIA", "Daños o defectos en mercancía", 5, "COMPRAS")]
+    [InlineData("DIFERENCIA_PRECIO", "Diferencia de precio (solo sin OC)", 5, "COMPRAS")]
+    [InlineData("DEVOLUCION_PENDIENTE", "Devolución pendiente", 5, "COMPRAS")]
+    [InlineData("NO_CONFORMIDAD", "No conformidad con servicio o producto", 5, "AREA_USUARIA")]
+    [InlineData("TIEMPO_RESPUESTA", "Tiempo de respuesta del proveedor", 5, "COMPRAS")]
+    [InlineData("CALIDAD_SERVICIO", "Calidad de servicio insuficiente", 5, "AREA_USUARIA")]
+    [InlineData("GARANTIA_ABIERTA", "Reclamo de garantía abierto", 5, "COMPRAS")]
+    [InlineData("FALTA_REPP", "Falta complemento de pago + 5 días", 5, "COMPRAS")]
+    [InlineData("DOCUMENTACION_FISCAL", "Documentación fiscal incompleta", 5, "COMPRAS")]
+    [InlineData("DISPUTA_CONTRACTUAL", "Disputa contractual", 15, "DIRECCION_F")]
+    [InlineData("FIRMA_PENDIENTE", "Falta de firma (solo sin OC y gastos aduanales)", 5, "DIRECCION_F")]
+    [InlineData("INDICACION_EXPRESA", "Indicación expresa", null, "CXP")]
+    [InlineData("OTROS", "Otros motivos", 5, "CXP")]
+    public void Seed_coincide_con_tabla_literal_de_Laura(string codigo, string nombre, int? sla, string area)
+    {
+        var m = MotivoRevisionConfiguration.SeedMotivos.Single(x => x.Codigo == codigo);
+        m.Nombre.Should().Be(nombre);
+        m.SlaDias.Should().Be(sla);
+        m.Dependencia.Should().Be(area);
+    }
+
+    [Theory]
     [InlineData("DISCREPANCIA_OC", "COMPRAS", null)]
     [InlineData("DANOS_MERCANCIA", "COMPRAS", null)]
     [InlineData("DIFERENCIA_PRECIO", "COMPRAS", null)]
