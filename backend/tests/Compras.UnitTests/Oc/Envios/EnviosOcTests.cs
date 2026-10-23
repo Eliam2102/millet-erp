@@ -1,4 +1,5 @@
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Logging;
 using Millet.Compras.Application.Oc.Envios;
 using Millet.Compras.Domain;
 using Millet.Compras.Domain.Oc;
@@ -99,6 +100,9 @@ public sealed class EnviosOcTests
         var envio = await f.Enviar();
         Assert.Equal("fallido", envio.Resultado);
         Assert.Single(f.Db.EnviosOc);
+        var aviso = Assert.Single(f.Logger.Mensajes);
+        Assert.Contains(f.Oc.Id.ToString(), aviso);
+        Assert.DoesNotContain("example.test", aviso);
     }
 
     [Fact]
@@ -171,6 +175,7 @@ public sealed class EnviosOcTests
         public Reloj Reloj { get; } = new();
         public Proveedores Proveedores { get; } = new();
         public Correo Correo { get; } = new();
+        public LoggerCaptura Logger { get; } = new();
         public Fixture(int firmas = 2, bool requiereNivel2 = true)
         {
             var empresa = new Empresa();
@@ -192,7 +197,7 @@ public sealed class EnviosOcTests
             Db.SaveChanges();
         }
         public Task<EnvioOc> Enviar(string? email = null, string modo = "correo") =>
-            new RegistrarEnvioOcHandler(Db, Usuario, Reloj, Proveedores, new Blob(), Correo)
+            new RegistrarEnvioOcHandler(Db, Usuario, Reloj, Proveedores, new Blob(), Correo, Logger)
                 .Handle(new RegistrarEnvioOcCommand(Oc.Id, email, modo), default);
         public void Dispose() => Db.Dispose();
     }
@@ -225,6 +230,14 @@ public sealed class EnviosOcTests
             if (Falla) throw new InvalidOperationException("Detalle privado del transporte");
             return Task.CompletedTask;
         }
+    }
+    private sealed class LoggerCaptura : ILogger<RegistrarEnvioOcHandler>
+    {
+        public List<string> Mensajes { get; } = [];
+        public IDisposable? BeginScope<TState>(TState state) where TState : notnull => null;
+        public bool IsEnabled(LogLevel logLevel) => true;
+        public void Log<TState>(LogLevel logLevel, EventId eventId, TState state, Exception? exception, Func<TState, Exception?, string> formatter)
+        { if (logLevel == LogLevel.Warning) Mensajes.Add(formatter(state, exception)); }
     }
     private sealed class Blob : IAlmacenarBlobPort
     {

@@ -1,6 +1,7 @@
 using FluentValidation;
 using MediatR;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Logging;
 using Millet.Compras.Domain.Oc;
 using Millet.Compras.Domain.Ports.Blob;
 using Millet.Compras.Domain.Ports.DatosMaestros;
@@ -24,7 +25,8 @@ public sealed class RegistrarEnvioOcValidator : AbstractValidator<RegistrarEnvio
 }
 
 public sealed class RegistrarEnvioOcHandler(ComprasDbContext db, ICurrentUserContext usuario, IClock clock,
-    IProveedorReadPort proveedores, IAlmacenarBlobPort blob, ICorreoDocumentoService correo)
+    IProveedorReadPort proveedores, IAlmacenarBlobPort blob, ICorreoDocumentoService correo,
+    ILogger<RegistrarEnvioOcHandler> logger)
     : IRequestHandler<RegistrarEnvioOcCommand, EnvioOc>
 {
     public async Task<EnvioOc> Handle(RegistrarEnvioOcCommand command, CancellationToken cancellationToken)
@@ -59,7 +61,12 @@ public sealed class RegistrarEnvioOcHandler(ComprasDbContext db, ICurrentUserCon
             envio.Completar(correo.EsSimulado);
         }
         catch (OperationCanceledException) { throw; }
-        catch (Exception) { envio.Fallar(); }
+        catch (Exception ex)
+        {
+            // Sin el correo del proveedor en el log: es dato personal.
+            logger.LogWarning(ex, "Falló el envío de la OC {OrdenCompraId} por correo.", oc.Id);
+            envio.Fallar();
+        }
         await db.SaveChangesAsync(CancellationToken.None);
         return envio;
     }
