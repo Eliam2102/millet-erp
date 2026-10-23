@@ -49,6 +49,16 @@ public sealed record SolicitudAw(
 /// <c>total − NC acreditadas</c> ([Decisión 13-K]). <c>null</c>/0 = sin
 /// ranura. Extensión aditiva al contrato, mismo trato que TasaIva.
 /// </param>
+/// <param name="MetodoPagoOrigen">
+/// Método de pago SAT que manda A+W (<c>metodo_pago</c> de la vista,
+/// derivado de la condición: CONTADO→PUE, resto→PPD; doc 04 §3). Informativo:
+/// alimenta <c>PedidoFacturable.EsCredito</c> (86e3tfdw2). Extensión aditiva.
+/// </param>
+/// <param name="CondicionPagoOrigen">
+/// Condición de pago del pedido en A+W (<c>condicion_pago</c>, catálogo
+/// KA_ZAHLBED; vacío → CONTADO). Distinta de CONTADO = pedido a crédito
+/// (86e3tfdw2). Extensión aditiva.
+/// </param>
 public sealed record DatosPedidoAw(
     string NumeroPedido,
     Guid SucursalId,
@@ -63,7 +73,9 @@ public sealed record DatosPedidoAw(
     string? EstadoOrigen,
     IReadOnlyList<LineaPedidoAw> Lineas,
     string PayloadCrudo,
-    decimal? Ranura = null);
+    decimal? Ranura = null,
+    string? MetodoPagoOrigen = null,
+    string? CondicionPagoOrigen = null);
 
 /// <summary>
 /// Resultado de leer los datos de un pedido: <see cref="Datos"/> completos, o

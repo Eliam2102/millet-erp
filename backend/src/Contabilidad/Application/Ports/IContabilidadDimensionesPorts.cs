@@ -18,6 +18,12 @@ public interface ICentroCostoContabilidadPort
     /// </summary>
     Task<IReadOnlyList<CentroCostoNodo>> BuscarAsync(
         DimensionContable nivel, string? q, AlcanceCentros? alcance, bool incluirInactivos, int limite, CancellationToken ct);
+
+    /// <summary>
+    /// K10.2-d: el centro (de cualquier nivel) está en la asignación de centros del usuario actual (usuario → equipo, ADR-0050/
+    /// 0062; el permiso de alcance total la omite). Solo para captura del usuario, no para pólizas automáticas.
+    /// </summary>
+    Task<bool> EnAlcanceDelUsuarioAsync(Guid centroId, CancellationToken ct);
 }
 
 /// <summary>Centros permitidos: todos los de las ubicaciones <see cref="Dim1Ids"/> más los CeCo <see cref="Dim2Ids"/> (corporativos).</summary>

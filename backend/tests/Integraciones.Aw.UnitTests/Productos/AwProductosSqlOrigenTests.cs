@@ -116,10 +116,10 @@ public sealed class AwProductosSqlOrigenTests
     [InlineData("m³", "M3")]
     [InlineData("m lin.", "M")]
     [InlineData("ltr", "L")]
-    [InlineData("<indf>", null)]
+    [InlineData("<indf>", "PZA")]
     [InlineData("Pza", "PZA")]
-    [InlineData("  ", null)]
-    public void NormalizarUnidad_aplica_alias_de_A_W(string entrada, string? esperado) =>
+    [InlineData("  ", "PZA")]
+    public void NormalizarUnidad_aplica_alias_de_A_W(string entrada, string esperado) =>
         AwProductoSnapshotMapper.NormalizarUnidad(entrada).Should().Be(esperado);
 
     [Theory]

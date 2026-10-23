@@ -232,3 +232,19 @@ Propiedad de campos: propuesta VILO PEN-CE-025, por validar con Millet/Jorge. En
 salida apagadas por omisión, empresa obligatoria; Real requiere conexión, bandera activa
 y contrato I13.4 firmado. Demo PostgreSQL conserva selección keyed y prohibición en
 Production. Contrato, columnas y pendientes: [09-aw-otr-exportacion.md](../integration/09-aw-otr-exportacion.md).
+
+## Adenda A+W-QA-4 (22-oct-2026): TLS verificado hacia SER-DATA
+
+Todas las conexiones A+W (pedidos, clientes, productos, cambios, flujo 1 y OTR) pasan por
+`AwSqlTls.Validar`: `Encrypt=True;TrustServerCertificate=False`, con host `aw-sql-onprem`
+(en el SAN del certificado de SER-DATA). Se rechazan `Encrypt=False/Optional` y
+`TrustServerCertificate=True`. El certificado público de SER-DATA vive en Key Vault
+(`aw-sql-server-certificate`) y la app lo agrega una vez a `CurrentUser\Root` al arrancar
+(`IntegracionesAw:SqlTls:CertificadoServidorPem`), con health check de vencimiento.
+
+- **Por qué no `ServerCertificate=`:** SqlClient 5.2.2 solo lo respeta con `Encrypt=Strict`;
+  con `Encrypt=True` falla con UntrustedRoot (verificado por VPN contra SER-DATA).
+- **Por qué se rechaza `Strict`:** el SQL Server 2016 de SER-DATA no soporta TDS 8.
+- Evidencia: pruebas opt-in `Category=SerDataVpn` (sin certificado confiado falla, con
+  certificado conecta, `HostNameInCertificate` equivocado falla; solo `SELECT` sobre
+  `MILLET_INTEGRACION_DEV`).

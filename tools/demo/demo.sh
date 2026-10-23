@@ -6,6 +6,7 @@
 #             y dependencias del frontend. Con la ruta del paquete de datos de Geovany
 #             (paquete-demo-real.tar.gz) también carga esos clientes, productos y proveedores.
 #  eventos    Levanta el emulador de Service Bus (para que los módulos se pasen eventos).
+#             Alternativa sin emulador: DEMO_EVENTOS=local tools/demo/demo.sh api (C1.8).
 #  correos    Levanta el buzón de prueba en http://localhost:8025.
 #  api        Arranca la API en http://localhost:5080 (deja esta terminal abierta).
 #  web        Arranca la pantalla en http://localhost:5173 (otra terminal).
@@ -102,7 +103,17 @@ api() {
   export ASPNETCORE_ENVIRONMENT=Development
   export ConnectionStrings__Postgres="$CADENA"
   export Seed__DemoSesion__Habilitado=true Seed__DatosDemo__Habilitado=false
-  export ServiceBus__Modo=EmuladorLocal
+  # Eventos entre módulos (C1.8):
+  #  - emulador (por omisión): fiel a Azure (temas, suscripciones y filtros SQL);
+  #    requiere `tools/demo/demo.sh eventos` (Docker, ~750 MB la primera vez).
+  #  - local (DEMO_EVENTOS=local): el outbox entrega los eventos en el mismo
+  #    proceso a los listeners de los módulos, sin emulador. Para equipos
+  #    ligeros o cuando el emulador no levanta. Solo Development.
+  if [[ "${DEMO_EVENTOS:-emulador}" == local ]]; then
+    export ServiceBus__EntregaLocal__Habilitada=true
+  else
+    export ServiceBus__Modo=EmuladorLocal
+  fi
   export ConnectionStrings__AwOrigenPgDb="Host=localhost;Port=$PG_PORT;Database=${AW_ORIGEN_DB:-millet_aw_origen};Username=pgadmin;Password=pgadmin"
   export IntegracionesAw__OrigenDemo__Permitido=true
   export IntegracionesAw__Clientes__LecturaHabilitada="${IntegracionesAw__Clientes__LecturaHabilitada:-true}"
@@ -121,7 +132,11 @@ web() { cd "$raiz/frontend"; exec npm run dev -- --port 5173 --strictPort; }
 
 estado() {
   printf 'PostgreSQL: '; docker exec "$CONTENEDOR" pg_isready -U pgadmin >/dev/null 2>&1 && echo ok || echo "no responde"
-  printf 'Service Bus: '; (nc -z localhost 5672 >/dev/null 2>&1 && echo ok) || echo "no responde (tools/demo/demo.sh eventos)"
+  if [[ "${DEMO_EVENTOS:-emulador}" == local ]]; then
+    echo 'Eventos: entrega local en la API (DEMO_EVENTOS=local, sin emulador)'
+  else
+    printf 'Service Bus: '; (nc -z localhost 5672 >/dev/null 2>&1 && echo ok) || echo "no responde (tools/demo/demo.sh eventos)"
+  fi
   printf 'Correos: '; curl -fsS -o /dev/null "http://localhost:${MAILPIT_UI_PORT:-8025}/api/v1/messages" && echo ok || echo "no responde (tools/demo/demo.sh correos)"
   printf 'API: '; curl -fsS -o /dev/null http://localhost:5080/health/ready && echo ok || echo "no responde (tools/demo/demo.sh api)"
   printf 'Pantalla: '; curl -fsS -o /dev/null http://localhost:5173 && echo ok || echo "no responde (tools/demo/demo.sh web)"

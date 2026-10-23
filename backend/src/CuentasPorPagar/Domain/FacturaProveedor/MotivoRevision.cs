@@ -6,7 +6,7 @@ namespace Millet.CuentasPorPagar.Domain.FacturaProveedor;
 /// Catálogo unificado de motivos de revisión (§5.3 del 00-levantamiento,
 /// §A22 del 01-diseno). Seedea 14 motivos al deploy con
 /// <see cref="SlaDias"/> por motivo — SLA único de 5 días excepto
-/// "Disputa contractual" (15) y "Indicación expresa" (sin SLA, null).
+/// "Disputa con proveedor" (15) y "Indicación expresa" (sin SLA, null).
 ///
 /// <para>
 /// El campo <see cref="DependenciaRevisoraDefaultCodigo"/> indica el
@@ -27,6 +27,9 @@ public sealed class MotivoRevision : BaseEntity, IAuditable
     /// <summary>Código de la dependencia revisora que típicamente libera. Informativo.</summary>
     public string? DependenciaRevisoraDefaultCodigo { get; private set; }
 
+    /// <summary>Área a avisar si el área solicitante no está satisfecha; no sustituye a quien valida.</summary>
+    public string? AreaAvisadaCodigo { get; private set; }
+
     public bool Activo { get; private set; }
 
     private MotivoRevision() { }
@@ -38,7 +41,8 @@ public sealed class MotivoRevision : BaseEntity, IAuditable
         string? descripcion,
         int? slaDias,
         string? dependenciaRevisoraDefaultCodigo,
-        bool activo = true) : base(id)
+        bool activo = true,
+        string? areaAvisadaCodigo = null) : base(id)
     {
         Codigo = codigo;
         Nombre = nombre;
@@ -46,5 +50,6 @@ public sealed class MotivoRevision : BaseEntity, IAuditable
         SlaDias = slaDias;
         DependenciaRevisoraDefaultCodigo = dependenciaRevisoraDefaultCodigo;
         Activo = activo;
+        AreaAvisadaCodigo = areaAvisadaCodigo;
     }
 }

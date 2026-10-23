@@ -7,7 +7,7 @@ namespace Millet.CuentasPorPagar.Application.FacturaProveedor.Revision;
 /// <summary>
 /// Regla del plazo (SLA) de una factura detenida por un motivo de revisión.
 /// El plazo se mide en días hábiles: 5 días hábiles por defecto, 15 para
-/// Disputa contractual y sin plazo para Indicación expresa. El día de entrada
+/// Disputa con proveedor y sin plazo para Indicación expresa. El día de entrada
 /// a revisión (fecha local de México) no cuenta; el día de evaluación cuenta
 /// solo si es hábil.
 ///

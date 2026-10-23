@@ -5,6 +5,7 @@
 > Q2 = `marcar-pagado` queda como fallback manual; Q3 = la diferencia
 > negativa se cubre con depósito del empleado; Q4 = la reposición se
 > **acumula hasta un mínimo configurable por sucursal** (no 1:1).
+> **Reemplazada (23-oct-2026, 86e3kdw2k; fuente: cuestionario 03 de CxP, Laura Cerón, 31-ago-2026): sin mínimo**; ver D2 y Q4.
 > **Implementación COMPLETA** (2026-07-17): GI-PR1 #640, GI-PR2 #641, GI-PR3 #642, GI-PR4a #643+#646, GI-PR4b #645 — todo verificado e2e en dev (evidencia en docs/entrega/pipelines/p7-cxp-gastos-internos.md).
 > Origen: verificación e2e P7 (`docs/entrega/pipelines/p7-cxp-gastos-internos.md`),
 > hallazgo **P7-H3** y análisis de las relaciones CxP ↔ Tesorería en los
@@ -60,7 +61,33 @@ fuera, y el anticipo de viáticos usa el proxy manual `marcar-pagado`
   probado. ✖ duplica bandeja, corridas de pago y reportes; dos caminos
   que mantener.
 
-### D2 — Cuándo nace la reposición de caja chica — ✅ CERRADA (acumulación con mínimo, Q4)
+### D2 — Cuándo nace la reposición de caja chica — ✅ CERRADA (23-oct-2026: sin mínimo, una por comprobación)
+
+Decisión vigente (P8.5, 86e3kdw2k; fuente: cuestionario 03 de CxP, Laura Cerón,
+31-ago-2026): **no hay mínimo**. La reposición nace por comprobación.
+
+1. Al enviar una comprobación de caja chica queda en **`PendienteAprobarPasivo`**
+   (estado 7, «Pendiente de aprobar pasivo»).
+2. CxP aprueba con `POST /api/v1/cuentas-por-pagar/comprobaciones/{id}/aprobar-pasivo`
+   (permiso `cuentas_por_pagar.comprobaciones.aprobar-nivel1`; `X-Expected-Version` e
+   `Idempotency-Key`). En **una sola transacción** la comprobación pasa a `Aplicada`,
+   se crea UNA `ReposicionCajaChica` para esa comprobación y se publica
+   `pasivo.autorizado-para-pago.v1` (`OrigenTipo = ReposicionCajaChica`).
+3. **Límite del aprobador**: si el usuario está ligado a un empleado con un
+   `AprobadorLimite` vigente de tipo `ReembolsoCajaChica` en la moneda de la
+   comprobación, el monto no puede excederlo (inclusivo); si lo excede responde 422
+   `APROBADOR_LIMITE_EXCEDIDO`. Sin fila vigente o sin empleado ligado no hay límite.
+4. **Rechazo** (`/rechazar`, motivo obligatorio) desde `PendienteAprobarPasivo`:
+   cancela las facturas generadas por los CFDI, libera los CFDI a `PorProcesar` y no
+   crea reposición. No se puede reabrir.
+5. `Autorizar` queda cerrado para caja chica (`COMP_CAJA_CHICA_REQUIERE_APROBAR_PASIVO`).
+   Las comprobaciones legadas en `Autorizada` usan `/aplicar` y emiten la reposición de
+   esa sola comprobación; las legadas en `PorRevisar` también se pueden aprobar.
+6. `/reposiciones-caja/saldos` y `/reposiciones-caja/emitir` (corte manual) se conservan
+   solo para comprobaciones aplicadas heredadas sin reposición. La tabla
+   `configuracion_reposicion_caja` y `PUT /reposiciones-caja/configuracion` se eliminaron.
+
+**Historia — Reemplazada (23-oct-2026, 86e3kdw2k): acumulación con mínimo (Q4).**
 
 Decisión final (combina (a) y (b) por Q4): al **`Aplicar`**, el monto de
 la comprobación se **acumula** en un saldo por reponer por
@@ -160,6 +187,7 @@ el listener (regla de oro de #612/#614: cero drift manual).
 
 | PR | Alcance |
 |---|---|
+| ✅ P8.5 86e3kdw2k (`cxp/`) | Estado `PendienteAprobarPasivo`, `aprobar-pasivo` con límite de aprobador, una reposición por comprobación, se elimina el mínimo (tabla `configuracion_reposicion_caja` y endpoint de configuración) |
 | ✅ GI-PR1 #640 (`cxp/`) | Contrato extendido (`TipoBeneficiario`/`OrigenTipo`/`OrigenId`) + `DestinoReposicion` en la comprobación (Q1) + agregado `ReposicionCajaChica` con acumulación por (sucursal, destino), mínimo configurable y corte manual (Q4) + pasivo de préstamo al autorizar viáticos (D3-ida) + guard en el listener de Tesorería (ignora pasivos internos hasta GI-PR2, sin dead-letter) |
 | ✅ GI-PR2 #641 (`tesoreria/`) | `tipo_beneficiario` en `pasivo_pendiente_pago` (migration) + listener tolerante + bandeja FE con etiqueta de beneficiario |
 | ✅ GI-PR3 #642 (`tesoreria/` + `cxp/`) | Vuelta del préstamo: evento de pago aplicado + listener CxP → `Anticipada`; decisión Q2 sobre `marcar-pagado` |
@@ -178,6 +206,6 @@ Anti-scope: contabilización de las pólizas (módulo Contabilidad), nómina
 - **Q3 — ✅**: la diferencia negativa se cubre con **depósito del
   empleado** — cuenta por cobrar interna en CxP conciliable con los
   depósitos de Tesorería (D4-a). Nómina queda como evolución futura.
-- **Q4 — ✅**: la reposición **se acumula hasta un monto mínimo
-  configurable por sucursal** (mínimo 0 = inmediata) con corte manual
-  para vaciar el saldo; ver D2.
+- **Q4 — Reemplazada (23-oct-2026, 86e3kdw2k; fuente: cuestionario 03 de CxP, Laura Cerón, 31-ago-2026): sin mínimo.** Antes: acumulación hasta un
+  mínimo configurable por sucursal con corte manual. Ahora: una reposición por comprobación aprobada; el corte manual solo vacía saldos heredados; ver D2.
+  Abiertos: montos, titular y suplente de los aprobadores (Laura Cerón); rol aprobador nominal (hoy `aprobar-nivel1`); la descripción del permiso `reposiciones.administrar` aún dice «Configurar mínimo…».

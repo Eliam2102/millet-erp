@@ -175,3 +175,14 @@ describe('<InformacionImportacionForm> — comercio exterior', () => {
     errorSpy.mockRestore();
   });
 });
+
+it('C3.4-b muestra pedimento, BL y contenedor de cada recepción de importación', () => {
+  renderSeccion({ ...OC, recepcionesImportacion: [{
+    recepcionId: 'recepcion-demo', numeroPedimento: '261612346000001', numeroBl: 'BL-DEMO-RECEPCION',
+    numeroContenedor: 'CONT-DEMO-RECEPCION', aduana: '16', clavePedimento: 'A1',
+    partidas: [{ lineaOcId: 'linea-demo', fraccionArancelaria: '70071999' }],
+  }] } as OrdenCompraDetalleResponse);
+  expect(screen.getByText('261612346000001')).toBeInTheDocument();
+  expect(screen.getByText('BL-DEMO-RECEPCION')).toBeInTheDocument();
+  expect(screen.getByText('CONT-DEMO-RECEPCION')).toBeInTheDocument();
+});

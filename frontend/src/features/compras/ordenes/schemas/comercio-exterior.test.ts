@@ -57,7 +57,7 @@ describe('NumeroPedimentoSchema', () => {
     ).toThrow();
     expect(() =>
       NumeroPedimentoSchema.parse({ ...valido, numeroPedimento: 'x'.repeat(41) }),
-    ).toThrow('Máximo 40 caracteres.');
+    ).toThrow('El pedimento debe tener 15 dígitos; se permiten espacios.');
   });
 });
 

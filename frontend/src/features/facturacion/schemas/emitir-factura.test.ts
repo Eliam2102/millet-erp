@@ -315,3 +315,19 @@ describe('EmitirFacturaSchema — matriz SAT método/forma de pago (CFDI40105)',
     expect(EmitirFacturaSchema.safeParse(facturaValida).success).toBe(true);
   });
 });
+
+// 86e3tfdw2 — observaciones del PDF (no van al CFDI), espejo del validador backend.
+describe('EmitirFacturaSchema — observaciones', () => {
+  it('son opcionales y aceptan hasta 1000 caracteres', () => {
+    expect(EmitirFacturaSchema.safeParse(facturaValida).success).toBe(true);
+    expect(
+      EmitirFacturaSchema.safeParse({ ...facturaValida, observaciones: 'x'.repeat(1000) }).success,
+    ).toBe(true);
+  });
+
+  it('rechaza más de 1000 caracteres', () => {
+    const r = EmitirFacturaSchema.safeParse({ ...facturaValida, observaciones: 'x'.repeat(1001) });
+    expect(r.success).toBe(false);
+    expect(r.error?.issues.some((i) => i.path[0] === 'observaciones')).toBe(true);
+  });
+});

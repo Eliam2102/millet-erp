@@ -6,7 +6,7 @@ import { Controller, useForm, useWatch } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
-import { DatePickerField, Field, ProveedorSelector } from '@/components/erp';
+import { CondicionesPagoSelector, DatePickerField, Field, ProveedorSelector } from '@/components/erp';
 import { mensajeErrorAdjunto } from '@/components/erp/adjuntos/api';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -93,6 +93,8 @@ function FormularioCotizacion({
       fechaCotizacion: cotizacion?.fechaCotizacion ?? hoyLocalISO(),
       vigenteHasta: cotizacion?.vigenteHasta ?? '',
       condicionesCredito: cotizacion?.condicionesCredito ?? '',
+      condicionesPagoId: cotizacion?.condicionesPagoId ?? '',
+      fechaEntrega: cotizacion?.fechaEntrega ?? '',
       lineas: porComprar.map((p) => {
         const previa = cotizacion?.lineas.find(
           (l) => l.lineaRequisicionId === p.lineaRequisicionId,
@@ -208,6 +210,18 @@ function FormularioCotizacion({
                 </Field>
               )}
             />
+          </FormCampo>
+          <FormCampo span={6}>
+            <Controller control={form.control} name="condicionesPagoId" render={({ field, fieldState }) => (
+              <Field label="Condiciones de pago" optional error={fieldState.error?.message}>
+                {(c) => <CondicionesPagoSelector triggerProps={c} value={field.value || null} onChange={(v) => field.onChange(v ?? '')} />}
+              </Field>
+            )} />
+          </FormCampo>
+          <FormCampo span={6}>
+            <Field label="Fecha de entrega" optional error={errors.fechaEntrega?.message}>
+              <Input type="date" {...form.register('fechaEntrega')} />
+            </Field>
           </FormCampo>
           <FormCampo span={6}>
             <Field label="Folio del proveedor" optional error={errors.folioProveedor?.message}>

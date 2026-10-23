@@ -8,7 +8,6 @@ using Millet.Facturacion.Application.Integration;
 using Millet.Facturacion.Application.NotasCredito;
 using Millet.Facturacion.Application.Timbrado;
 using Millet.Facturacion.Domain.Activos;
-using Millet.Facturacion.Domain.Cce;
 using Millet.Facturacion.Domain.Comprobantes;
 using Millet.Facturacion.Domain.Facturas;
 using Millet.Facturacion.Domain.Ingesta;
@@ -169,14 +168,7 @@ public sealed class EmitirFacturaVentaHandler
         await TipoCambioFactura.ValidarAsync(
             _catalogos, command.Moneda, command.TipoCambio, ahora, cancellationToken);
 
-        var receptor = new DatosFiscalesReceptor(
-            Rfc: command.ReceptorRfc,
-            Nombre: command.ReceptorNombre,
-            RegimenFiscal: command.ReceptorRegimenFiscal,
-            CodigoPostal: command.ReceptorCodigoPostal,
-            UsoCfdi: command.ReceptorUsoCfdi,
-            Pais: command.ReceptorPais,
-            EsGenerico: DatosFiscalesReceptor.EsRfcGenerico(command.ReceptorRfc));
+        var receptor = FacturaVentaArmado.ReceptorDe(command);
 
         // 2.bis F12-PR1: snapshot del emisor (razón social + LugarExpedicion del
         // master). Falla aquí si la empresa no tiene CP fiscal — sin quemar folio.
@@ -240,66 +232,18 @@ public sealed class EmitirFacturaVentaHandler
                 DateOnly.FromDateTime(ahora.UtcDateTime)),
             cancellationToken);
 
-        // 5. Construir la factura (borrador) + líneas + totales.
-        var factura = FacturaVenta.CrearBorrador(
-            empresaId: empresaId,
-            folio: reserva.Folio,
-            folioNumero: reserva.Numero,
-            sucursalId: command.SucursalId,
-            // CAJAS-PR4 (§6): CajaId ya no viene del comando — lo asigna
-            // RegistrarCobroMostrador vía AsignarCajaCobro (Capa B).
-            cajaId: null,
-            usuarioEmisorId: _user.UserId,
-            receptor: receptor,
-            emisor: emisor,
-            metodoPago: command.MetodoPago,
-            formaPago: command.FormaPago,
-            moneda: command.Moneda,
-            tipoCambio: command.TipoCambio,
-            periodoAnio: anio,
-            periodoMes: mes,
-            canalVentaId: command.CanalVenta,
-            comportamientoFiscal: command.ComportamientoFiscal,
-            pedidoFacturableId: command.PedidoFacturableId,
-            obraId: command.ObraId,
-            obraNombre: command.ObraNombre,
-            facturaAgrupada: command.FacturaAgrupada);
+        // 5. Construir la factura (borrador) + líneas + totales + CCE (5.bis
+        // F7-PR1). U1.8a: armado compartido con la proforma del pedido para que
+        // importes, impuestos y redondeos sean idénticos.
+        var factura = FacturaVentaArmado.Construir(
+            command, empresaId, reserva.Folio, reserva.Numero, _user.UserId,
+            receptor, emisor, anio, mes);
+
+        // 86e3tfdw2: observaciones del cajero (solo PDF, nunca XML). Antes de
+        // cualquier cambio de estado (retención por pedimento / timbrado).
+        factura.FijarObservaciones(command.Observaciones);
 
         if (copiaCe is not null) factura.TomarEmbarqueCe(copiaCe);
-
-        foreach (var l in command.Lineas)
-        {
-            factura.AgregarLinea(
-                productoId: l.ProductoId,
-                claveProdServSat: l.ClaveProdServSat,
-                descripcion: l.Descripcion,
-                claveUnidadSat: l.ClaveUnidadSat,
-                cantidad: l.Cantidad,
-                valorUnitario: l.ValorUnitario,
-                descuento: l.Descuento,
-                objetoImp: l.ObjetoImp,
-                tasaIvaTraslado: l.TasaIvaTraslado,
-                tasaRetencionIva: l.TasaRetencionIva,
-                tasaRetencionIsr: l.TasaRetencionIsr,
-                requierePedimento: l.RequierePedimento);
-        }
-
-        factura.RecalcularTotales();
-
-        // 5.bis F7-PR1: Complemento de Comercio Exterior (antes de timbrar — va en
-        // el XML). AdjuntarCce valida que el comportamiento sea ExportacionConCce.
-        if (command.Cce is { } cceDatos)
-        {
-            var cce = ComplementoCce.Crear(
-                factura.Id, cceDatos.TipoOperacion, cceDatos.Incoterm, cceDatos.TcDof,
-                cceDatos.ReceptorNumRegIdTrib, cceDatos.ReceptorPaisResidencia,
-                cceDatos.ClaveDePedimento, cceDatos.CertificadoOrigen,
-                cceDatos.ReceptorDomicilioCalle, cceDatos.ReceptorDomicilioEstado,
-                cceDatos.ReceptorDomicilioCodigoPostal);
-            foreach (var l in cceDatos.Lineas)
-                cce.AgregarLinea(l.FraccionArancelaria, l.UnidadAduana, l.CantidadAduana, l.ValorUnitarioAduana, l.ValorDolares, l.AplicaIva0);
-            factura.AdjuntarCce(cce);
-        }
 
         // 5.quater F9: vincula + consume la autorización de venta de activo fijo.
         if (autorizacion is not null)

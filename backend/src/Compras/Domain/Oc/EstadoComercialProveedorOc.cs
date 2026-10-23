@@ -17,4 +17,7 @@ public enum EstadoComercialProveedorOc : short
 
     /// <summary>El proveedor rechazó la orden.</summary>
     Rechazada = 3,
+
+    /// <summary>Hay evidencia de respuesta sin clasificación comercial.</summary>
+    RespuestaRegistrada = 4,
 }
