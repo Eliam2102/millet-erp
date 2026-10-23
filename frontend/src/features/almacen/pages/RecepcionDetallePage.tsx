@@ -4,6 +4,8 @@ import { PageHeader } from '@/components/erp/PageHeader';
 import { formatCcMaquinaLabel } from '@/features/centros-costo/lib/cc-maquina-label';
 import { TrazabilidadComprasDialog } from '@/components/erp/trazabilidad/TrazabilidadComprasDialog';
 import { TipoDocumentoTrazabilidad } from '@/components/erp/trazabilidad/types';
+import { useState } from 'react';
+import { toast } from 'sonner';
 import { Link, useParams } from '@tanstack/react-router';
 import { ArrowLeft } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -19,13 +21,17 @@ import {
   TableRow,
 } from '@/components/ui/table';
 import { useRecepcion } from '@/features/almacen/api/useRecepciones';
-import {} from '@/features/almacen/api/types';
+import { EstadoMovimiento } from '@/features/almacen/api/types';
 import { esApiError } from '@/lib/api';
 import { EstadoAlmacenBadge } from '@/features/almacen/components/EstadoAlmacenBadge';
 import { MoneyDisplay } from '@/components/erp/display/MoneyDisplay';
 import { formatCantidad } from '@/lib/format-cantidad';
 import { DateTimeDisplay } from '@/components/erp/display/DateTimeDisplay';
 import { useDecimalesUnidad } from '@/components/erp/forms/useDecimalesUnidad';
+import { useHasPermission } from '@/lib/auth/useHasPermission';
+import { PermisosCanonicos } from '@/lib/auth/permission-codes';
+import { CancelarRecepcionDialog } from '@/features/almacen/components/CancelarRecepcionDialog';
+import { NuevaRecepcionSheet } from '@/features/almacen/components/NuevaRecepcionSheet';
 
 /**
  * <c>P2 — Detalle de recepción</c> (doc 07 §FE-F2-PR1). Vista de solo
@@ -45,6 +51,10 @@ export function RecepcionDetallePage() {
   const { id } = useParams({ from: FROM });
   const query = useRecepcion(id);
   const decimalesUnidad = useDecimalesUnidad();
+  const puedeCancelarPermiso = useHasPermission(PermisosCanonicos.AlmacenRecepcionesCancelar);
+  const puedeRegistrar = useHasPermission(PermisosCanonicos.AlmacenEntradasRegistrar);
+  const [cancelarAbierto, setCancelarAbierto] = useState(false);
+  const [capturaAbierta, setCapturaAbierta] = useState(false);
   const lineasEnRevision = query.data?.lineas.filter((l) => l.enRevision).length ?? 0;
 
   return (
@@ -89,7 +99,23 @@ export function RecepcionDetallePage() {
               </>
             }
             acciones={
-              <TrazabilidadComprasDialog tipo={TipoDocumentoTrazabilidad.Recepcion} id={id} />
+              <>
+                {puedeCancelarPermiso &&
+                  query.data.estado === EstadoMovimiento.Registrado &&
+                  query.data.registradaPorOtroUsuario === true && (
+                    <Button variant="secondary-danger" onClick={() => setCancelarAbierto(true)}>
+                      Cancelar recepción
+                    </Button>
+                  )}
+                {puedeRegistrar &&
+                  query.data.estado === EstadoMovimiento.Cancelado &&
+                  query.data.ordenCompraId && (
+                    <Button onClick={() => setCapturaAbierta(true)}>
+                      Capturar la recepción correcta
+                    </Button>
+                  )}
+                <TrazabilidadComprasDialog tipo={TipoDocumentoTrazabilidad.Recepcion} id={id} />
+              </>
             }
             mono
           />
@@ -169,6 +195,47 @@ export function RecepcionDetallePage() {
               </div>
             )}
           </dl>
+
+          {(query.data.canceladaAt || query.data.registradoPorNombre) && (
+            <section
+              aria-labelledby="bitacora-recepcion"
+              className="space-y-3 rounded-lg bg-surface-card p-4 shadow-card-flat"
+            >
+              <h2
+                id="bitacora-recepcion"
+                className="text-sm font-semibold uppercase tracking-wide text-ink-muted"
+              >
+                Bitácora
+              </h2>
+              <dl className="grid grid-cols-1 gap-4 sm:grid-cols-4">
+                {query.data.registradoPorNombre && (
+                  <Campo label="Registró" valor={query.data.registradoPorNombre} />
+                )}
+                {query.data.canceladaAt && (
+                  <>
+                    <Campo label="Canceló" valor={query.data.canceladaPorNombre ?? '—'} />
+                    <div>
+                      <dt className="text-xs text-ink-muted">Fecha de cancelación</dt>
+                      <dd className="text-sm">
+                        <DateTimeDisplay value={query.data.canceladaAt} variant="media" />
+                      </dd>
+                    </div>
+                    <Campo
+                      label="Movimientos de cancelación"
+                      valor={(query.data.foliosCancelacion ?? []).join(', ') || '—'}
+                      mono
+                    />
+                    <div className="sm:col-span-4">
+                      <dt className="text-xs text-ink-muted">Motivo</dt>
+                      <dd className="whitespace-pre-wrap break-words text-sm">
+                        {query.data.motivoCancelacion ?? '—'}
+                      </dd>
+                    </div>
+                  </>
+                )}
+              </dl>
+            </section>
+          )}
 
           <section className="space-y-2">
             <h2 className="text-sm font-semibold uppercase tracking-wide text-ink-muted">
@@ -260,6 +327,22 @@ export function RecepcionDetallePage() {
               total={query.data.lineas.reduce((t, l) => t + l.montoTotalMxn, 0)}
             />
           </section>
+
+          <CancelarRecepcionDialog
+            recepcion={query.data}
+            open={cancelarAbierto}
+            onOpenChange={setCancelarAbierto}
+            onCancelada={() => {
+              toast.success('Recepción cancelada. Ya puedes capturar la correcta.');
+            }}
+          />
+          {capturaAbierta && (
+            <NuevaRecepcionSheet
+              open
+              onOpenChange={setCapturaAbierta}
+              ordenCompraIdInicial={query.data.ordenCompraId ?? undefined}
+            />
+          )}
         </div>
       )}
     </div>
