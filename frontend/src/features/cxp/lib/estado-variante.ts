@@ -72,6 +72,7 @@ export const ESTADO_COMPROBACION = armar(EstadoComprobacionGastosLabels, {
   [EstadoComprobacionGastos.Borrador]: 'neutral',
   [EstadoComprobacionGastos.PorRevisar]: 'warning',
   [EstadoComprobacionGastos.AutorizadaNivel1]: 'info',
+  [EstadoComprobacionGastos.PendienteAprobarPasivo]: 'warning',
   [EstadoComprobacionGastos.Autorizada]: 'info',
   [EstadoComprobacionGastos.Aplicada]: 'success',
   [EstadoComprobacionGastos.Rechazada]: 'danger',

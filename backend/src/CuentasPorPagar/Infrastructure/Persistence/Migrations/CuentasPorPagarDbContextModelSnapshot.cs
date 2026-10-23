@@ -968,63 +968,6 @@ namespace Millet.CuentasPorPagar.Infrastructure.Persistence.Migrations
                         });
                 });
 
-            modelBuilder.Entity("Millet.CuentasPorPagar.Domain.ComprobacionGastos.ConfiguracionReposicionCaja", b =>
-                {
-                    b.Property<Guid>("Id")
-                        .HasColumnType("uuid")
-                        .HasColumnName("id");
-
-                    b.Property<DateTimeOffset>("CreatedAt")
-                        .HasColumnType("timestamp with time zone")
-                        .HasColumnName("created_at");
-
-                    b.Property<string>("CreatedBy")
-                        .HasColumnType("text")
-                        .HasColumnName("created_by");
-
-                    b.Property<DateTimeOffset?>("DeletedAt")
-                        .HasColumnType("timestamp with time zone")
-                        .HasColumnName("deleted_at");
-
-                    b.Property<Guid>("EmpresaId")
-                        .HasColumnType("uuid")
-                        .HasColumnName("empresa_id");
-
-                    b.Property<decimal>("MontoMinimo")
-                        .HasPrecision(18, 4)
-                        .HasColumnType("numeric(18,4)")
-                        .HasColumnName("monto_minimo");
-
-                    b.Property<Guid>("SucursalId")
-                        .HasColumnType("uuid")
-                        .HasColumnName("sucursal_id");
-
-                    b.Property<DateTimeOffset>("UpdatedAt")
-                        .HasColumnType("timestamp with time zone")
-                        .HasColumnName("updated_at");
-
-                    b.Property<string>("UpdatedBy")
-                        .HasColumnType("text")
-                        .HasColumnName("updated_by");
-
-                    b.Property<int>("Version")
-                        .IsConcurrencyToken()
-                        .HasColumnType("integer")
-                        .HasColumnName("version");
-
-                    b.HasKey("Id")
-                        .HasName("pk_configuracion_reposicion_caja");
-
-                    b.HasIndex("SucursalId")
-                        .IsUnique()
-                        .HasDatabaseName("ux_config_reposicion_sucursal");
-
-                    b.ToTable("configuracion_reposicion_caja", "cuentas_por_pagar", t =>
-                        {
-                            t.HasCheckConstraint("ck_config_reposicion_minimo_no_negativo", "monto_minimo >= 0");
-                        });
-                });
-
             modelBuilder.Entity("Millet.CuentasPorPagar.Domain.ComprobacionGastos.LineaComprobacionGastos", b =>
                 {
                     b.Property<Guid>("Id")
