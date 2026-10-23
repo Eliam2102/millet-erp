@@ -341,7 +341,6 @@ public sealed partial class P6SucursalEndpointsTests(P6SucursalEndpointsFactory 
     [InlineData("POST", "/api/v1/cuentas-por-pagar/comprobaciones/caja-chica")]
     [InlineData("POST", "/api/v1/cuentas-por-pagar/comprobaciones/aduanales")]
     [InlineData("POST", "/api/v1/cuentas-por-pagar/reposiciones-caja/emitir")]
-    [InlineData("PUT", "/api/v1/cuentas-por-pagar/reposiciones-caja/configuracion")]
     [InlineData("POST", "/api/v1/cuentas-por-cobrar/propuestas-aplicacion")]
     [InlineData("POST", "/api/v1/cuentas-por-cobrar/cobranza")]
     [InlineData("POST", "/api/v1/tesoreria/pagos")]

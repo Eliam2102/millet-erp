@@ -124,10 +124,9 @@ public sealed class AplicarComprobacionGastosValidator : AbstractValidator<Aplic
 }
 
 /// <summary>
-/// Aplica la comprobación y — para caja chica — acumula su monto en el
-/// saldo por reponer de la (sucursal, destino); si el saldo alcanza el
-/// mínimo configurado, emite la reposición agregada con el pasivo
-/// interno hacia Tesorería (doc 12 §D2/Q4, GI-PR1) en la misma TX.
+/// Aplica la comprobación (ruta de las legadas <c>Autorizada</c>) y — para
+/// caja chica — emite la reposición de esa sola comprobación con el pasivo
+/// interno hacia Tesorería (P8.5, sin mínimo) en la misma TX.
 /// </summary>
 public sealed class AplicarComprobacionGastosHandler
     : IRequestHandler<AplicarComprobacionGastosCommand, TransicionComprobacionResponse>
@@ -168,8 +167,8 @@ public sealed class AplicarComprobacionGastosHandler
         {
             await _emisor.EmitirSiCorrespondeAsync(
                 c.EmpresaId, c.SucursalId, destino,
-                respetarMinimo: true, usuarioId, ahora, cancellationToken,
-                incluirComprobacionId: c.Id);
+                esCorteManual: false, usuarioId, ahora, cancellationToken,
+                soloComprobacionId: c.Id);
         }
 
         await _db.SaveChangesAsync(cancellationToken);
