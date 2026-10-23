@@ -37,7 +37,8 @@ public sealed class RecepcionesCostoReadAdapter(AlmacenDbContext db) : IRecepcio
         // Una entrada posterior no repone el remanente de una recepción ya consumida.
         foreach (var h in historial)
         {
-            if (h.Tipo == TipoMovimiento.AjustePrecioFactura) continue;
+            // La recepción cancelada ya no entra al historial (solo Registrado): su CEN tampoco debe restar al remanente de las demás.
+            if (h.Tipo is TipoMovimiento.AjustePrecioFactura or TipoMovimiento.CancelacionEntradaCompra) continue;
             if (h.Tipo.EsEntrada()) { existencia += h.Cantidad; if (h.Id == partida) remanente += h.Cantidad; }
             else
             {

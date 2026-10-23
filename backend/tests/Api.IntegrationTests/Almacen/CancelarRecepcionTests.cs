@@ -77,6 +77,11 @@ public class CancelarRecepcionTests(WebApplicationFactory<Program> factory) : IC
             e.Lineas.Sum(l => l.Cantidad).Should().Be(4m);
             e.EventType.Should().Be("almacen.recepcion_oc.cancelada.v1");
 
+            // Kardex Alfak: entradas 4 + 3 (la cancelada sigue visible) y una salida CEN de 3; el saldo final queda como antes de la recepción mala.
+            var alfak = (await new Millet.Almacen.Application.Reportes.AlfakHistorialAlmacenHandler(db, new ArticulosUnidad()).Handle(
+                new Millet.Almacen.Application.Reportes.AlfakHistorialAlmacenQuery(Fecha, Fecha, ctx.SubDisponibleId, ctx.ArticuloId), default)).Filas.Single();
+            (alfak.Entradas, alfak.Salidas, alfak.SaldoFinal).Should().Be((7m, 3m, 4m));
+
             var otraVez = await HandlerCancelar(db, new CapturaEventos(), ctx, OtroUsuario).Handle(new CancelarRecepcionCommand(mala, "ARTICULO", "x"), default);
             otraVez.FoliosCancelacion.Should().BeEquivalentTo(r.FoliosCancelacion);
             (await LeerSaldoAsync(db, ctx.RackId, ctx.ArticuloId)).Should().Be(4m);
