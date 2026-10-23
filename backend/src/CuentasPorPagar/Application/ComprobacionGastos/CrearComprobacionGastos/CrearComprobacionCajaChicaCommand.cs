@@ -1,6 +1,7 @@
 using FluentValidation;
 using MediatR;
 using Microsoft.EntityFrameworkCore;
+using Millet.CuentasPorPagar.Application.Catalogos.ClasificacionesNoDeducibles;
 using Millet.CuentasPorPagar.Domain.Cfdi;
 using Millet.CuentasPorPagar.Domain.ComprobacionGastos;
 using Millet.CuentasPorPagar.Domain.FacturaProveedor;
@@ -50,7 +51,9 @@ public sealed record CrearComprobacionCajaChicaLinea(
     decimal Retenciones,
     decimal Total,
     DateOnly FechaVencimiento,
-    string? Concepto);
+    string? Concepto,
+    // P8.6: obligatoria en ticket (sin UUID ni CFDI); en línea con CFDI marca el gasto como no deducible.
+    string? ClasificacionNoDeducible = null);
 
 public sealed record CrearComprobacionCajaChicaResponse(
     Guid Id,
@@ -190,6 +193,15 @@ public sealed class CrearComprobacionCajaChicaHandler
             }
         }
 
+        // P8.6: un ticket (sin UUID ni CFDI) es no deducible y exige clasificación.
+        var clasificaciones = new List<string?>(command.Cfdis.Count);
+        foreach (var linea in command.Cfdis)
+        {
+            var esTicket = linea.CfdiRecibidoId is null && string.IsNullOrWhiteSpace(linea.UuidCfdi);
+            clasificaciones.Add(await ClasificacionNoDeducibleValidador.ResolverAsync(
+                _db, linea.ClasificacionNoDeducible, esTicket, "COMP_LINEA_CLASIFICACION_REQUERIDA", cancellationToken));
+        }
+
         var ahora = _clock.UtcNow;
 
         var comprobacion = global::Millet.CuentasPorPagar.Domain.ComprobacionGastos.ComprobacionGastos.Crear(
@@ -207,8 +219,9 @@ public sealed class CrearComprobacionCajaChicaHandler
         _db.ComprobacionesGastos.Add(comprobacion);
 
         var facturaIds = new List<Guid>(command.Cfdis.Count);
-        foreach (var linea in command.Cfdis)
+        for (var i = 0; i < command.Cfdis.Count; i++)
         {
+            var linea = command.Cfdis[i];
             var cfdiVinculado = linea.CfdiRecibidoId is Guid vinculadoId
                 ? cfdisPorId[vinculadoId]
                 : null;
@@ -234,6 +247,8 @@ public sealed class CrearComprobacionCajaChicaHandler
                 motivoCaptura: $"Caja chica — comprobación {comprobacion.Id}",
                 ahora: ahora);
 
+            if (clasificaciones[i] is string clasificacion) factura.MarcarNoDeducible(clasificacion);
+
             _db.FacturasProveedor.Add(factura);
             facturaIds.Add(factura.Id);
 
@@ -255,7 +270,8 @@ public sealed class CrearComprobacionCajaChicaHandler
                 retenciones: linea.Retenciones,
                 total: linea.Total,
                 moneda: command.Moneda,
-                concepto: linea.Concepto);
+                concepto: linea.Concepto,
+                clasificacionNoDeducible: clasificaciones[i]);
         }
 
         await _db.SaveChangesAsync(cancellationToken);

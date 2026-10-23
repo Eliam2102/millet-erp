@@ -153,6 +153,147 @@ public sealed class NoDeduciblesEndpointsTests(WebApplicationFactory<Program> fa
         Assert.True(ok.StatusCode == HttpStatusCode.Created, await ok.Content.ReadAsStringAsync());
     }
 
+    private async Task<(HttpClient Cliente, AdjuntosProveedorAmbiente Amb)> ClienteComprobacionesAsync()
+    {
+        var amb = new AdjuntosProveedorAmbiente(factory, s =>
+        {
+            s.RemoveAll<Millet.CuentasPorPagar.Domain.Ports.Contabilidad.IPeriodoContablePort>();
+            s.AddSingleton<Millet.CuentasPorPagar.Domain.Ports.Contabilidad.IPeriodoContablePort, PeriodoAbierto>();
+        });
+        var (cliente, _) = await amb.ClienteConPermisosAsync(
+            PermisosCanonicos.CuentasPorPagarComprobacionesCapturar, PermisosCanonicos.CuentasPorPagarComprobacionesLeer,
+            PermisosCanonicos.CuentasPorPagarViaticosCapturarComprobacion, PermisosCanonicos.CuentasPorPagarViaticosLiberar,
+            PermisosCanonicos.CuentasPorPagarViaticosLeer, PermisosCanonicos.CuentasPorPagarDocumentosGestionarTodasSucursales,
+            PermisosCanonicos.CuentasPorPagarDocumentosLeerTodasSucursales);
+        return (cliente, amb);
+    }
+
+    private static object LineaCajaChica(Guid? cfdiId, string? uuid, decimal subtotal, decimal iva, string? clasificacion) => new
+    {
+        cfdiRecibidoId = cfdiId, uuidCfdi = uuid, proveedorId = Guid.NewGuid(), folioProveedor = "ND-1", serieProveedor = "A",
+        fechaCfdi = DateTimeOffset.UtcNow, subtotal, descuentos = 0m, impuestosTrasladados = iva, retenciones = 0m, total = subtotal + iva,
+        fechaVencimiento = DateOnly.FromDateTime(DateTime.UtcNow.AddDays(30)), concepto = "Gasto", clasificacionNoDeducible = clasificacion,
+    };
+
+    [Fact]
+    public async Task Caja_chica_exige_clasificacion_en_ticket_y_marca_no_deducibles_ticket_y_CFDI()
+    {
+        var (c, _) = await ClienteComprobacionesAsync();
+        object Comprobacion(params object[] lineas) => new
+        {
+            sucursalId = Guid.NewGuid(), responsableId = Guid.NewGuid(), fechaInicio = new DateOnly(2026, 10, 1), fechaFin = new DateOnly(2026, 10, 20),
+            moneda = "MXN", cfdis = lineas,
+        };
+
+        var sinClasificacion = await c.PostAsJsonAsync(Cxp + "/comprobaciones/caja-chica", Comprobacion(LineaCajaChica(null, null, 103.45m, 16.55m, null)));
+        Assert.Equal(HttpStatusCode.UnprocessableEntity, sinClasificacion.StatusCode);
+        Assert.Equal("COMP_LINEA_CLASIFICACION_REQUERIDA", (await Json(sinClasificacion)).GetProperty("code").GetString());
+
+        var uuid = Guid.NewGuid().ToString().ToUpperInvariant();
+        var cfdi = await SembrarCfdiAsync(uuid, 500m, 80m);
+        var ok = await c.PostAsJsonAsync(Cxp + "/comprobaciones/caja-chica", Comprobacion(
+            LineaCajaChica(null, null, 103.45m, 16.55m, "ESTACIONAMIENTO"),
+            LineaCajaChica(cfdi, uuid, 500m, 80m, "COMIDAS")));
+        Assert.True(ok.StatusCode == HttpStatusCode.Created, await ok.Content.ReadAsStringAsync());
+        var id = (await Json(ok)).GetProperty("id").GetGuid();
+
+        var detalle = await Json(await c.GetAsync(Cxp + $"/comprobaciones/{id}"));
+        var lineas = detalle.GetProperty("lineas").EnumerateArray().ToList();
+        Assert.Equal(2, lineas.Count);
+        Assert.All(lineas, l => Assert.False(string.IsNullOrEmpty(l.GetProperty("clasificacionNoDeducible").GetString())));
+        Assert.Equal(96.55m + 0m, lineas.Sum(l => l.GetProperty("ivaNoAcreditable").GetDecimal()));
+
+        using var scope = factory.Services.CreateScope();
+        using var bypass = scope.ServiceProvider.GetRequiredService<ICurrentEmpresaContext>().Bypass();
+        var db = scope.ServiceProvider.GetRequiredService<CuentasPorPagarDbContext>();
+        var facturaIds = (await db.ComprobacionesGastos.AsNoTracking().Include(x => x.Lineas).SingleAsync(x => x.Id == id))
+            .Lineas.Select(l => l.FacturaProveedorId).ToList();
+        var facturas = await db.FacturasProveedor.AsNoTracking().Where(f => facturaIds.Contains(f.Id)).ToListAsync();
+        Assert.Equal(2, facturas.Count);
+        Assert.All(facturas, f => Assert.NotNull(f.ClasificacionNoDeducible));
+        Assert.Equal(96.55m, facturas.Sum(f => f.IvaNoAcreditable));
+    }
+
+    [Fact]
+    public async Task Caja_chica_rechaza_clasificacion_inexistente_en_linea_con_CFDI()
+    {
+        var (c, _) = await ClienteComprobacionesAsync();
+        var uuid = Guid.NewGuid().ToString().ToUpperInvariant();
+        var cfdi = await SembrarCfdiAsync(uuid, 500m, 80m);
+        var r = await c.PostAsJsonAsync(Cxp + "/comprobaciones/caja-chica", new
+        {
+            sucursalId = Guid.NewGuid(), responsableId = Guid.NewGuid(), fechaInicio = new DateOnly(2026, 10, 1), fechaFin = new DateOnly(2026, 10, 20),
+            moneda = "MXN", cfdis = new[] { LineaCajaChica(cfdi, uuid, 500m, 80m, "NO_EXISTE") },
+        });
+        Assert.Equal(HttpStatusCode.UnprocessableEntity, r.StatusCode);
+        Assert.Equal("COMP_LINEA_CLASIFICACION_REQUERIDA", (await Json(r)).GetProperty("code").GetString());
+    }
+
+    private async Task<(Guid Id, int Version)> SembrarViaticoAnticipadoAsync()
+    {
+        using var scope = factory.Services.CreateScope();
+        using var bypass = scope.ServiceProvider.GetRequiredService<ICurrentEmpresaContext>().Bypass();
+        var db = scope.ServiceProvider.GetRequiredService<CuentasPorPagarDbContext>();
+        var jefe = Guid.NewGuid();
+        var s = Millet.CuentasPorPagar.Domain.Viaticos.SolicitudViaticos.Solicitar(Empresa, Guid.NewGuid(), Guid.NewGuid(), jefe, "Cancún",
+            Millet.CuentasPorPagar.Domain.Catalogos.TipoDestinoViatico.Nacional, new DateOnly(2026, 10, 1), new DateOnly(2026, 10, 3),
+            "MXN", 5000m, 6000m, 10, null, DateTimeOffset.UtcNow);
+        s.AutorizarPorJefe(jefe, DateTimeOffset.UtcNow);
+        s.MarcarAnticipoPagado(DateTimeOffset.UtcNow);
+        db.SolicitudesViaticos.Add(s);
+        await db.SaveChangesAsync();
+        return (s.Id, s.Version);
+    }
+
+    private static object LineaViatico(string? uuid, bool ticket, decimal subtotal, decimal iva, string? clasificacion) => new
+    {
+        cfdiRecibidoId = (Guid?)null, uuidCfdi = uuid, proveedorId = ticket ? (Guid?)null : Guid.NewGuid(), folioProveedor = "V-1",
+        fechaGasto = DateTimeOffset.UtcNow, subtotal, impuestosTrasladados = iva, retenciones = 0m, total = subtotal + iva, moneda = "MXN",
+        concepto = "Alimentos", esTicketNoFiscal = ticket, clasificacionNoDeducible = clasificacion,
+    };
+
+    private static async Task<HttpResponseMessage> PostConVersionAsync(HttpClient c, string ruta, int version, object? body = null)
+    {
+        var req = new HttpRequestMessage(HttpMethod.Post, ruta) { Content = JsonContent.Create(body ?? new { }) };
+        req.Headers.Add("X-Expected-Version", version.ToString());
+        req.Headers.Add("Idempotency-Key", Guid.NewGuid().ToString());
+        return await c.SendAsync(req);
+    }
+
+    [Fact]
+    public async Task Viaticos_exige_clasificacion_en_ticket_no_fiscal_y_la_copia_a_la_factura_al_liberar()
+    {
+        var (c, _) = await ClienteComprobacionesAsync();
+        var (id, version) = await SembrarViaticoAnticipadoAsync();
+        var ruta = Cxp + $"/viaticos/{id}";
+
+        var sin = await PostConVersionAsync(c, ruta + "/capturar-comprobacion", version,
+            new { lineas = new[] { LineaViatico(null, true, 120m, 0m, null) } });
+        Assert.Equal(HttpStatusCode.UnprocessableEntity, sin.StatusCode);
+        Assert.Equal("VIA_LINEA_CLASIFICACION_REQUERIDA", (await Json(sin)).GetProperty("code").GetString());
+
+        var uuid = Guid.NewGuid().ToString().ToUpperInvariant();
+        var ok = await PostConVersionAsync(c, ruta + "/capturar-comprobacion", version, new
+        {
+            lineas = new[] { LineaViatico(null, true, 120m, 0m, "VIATICOS_SIN_CFDI"), LineaViatico(uuid, false, 500m, 80m, "PROPINAS") },
+        });
+        Assert.True(ok.StatusCode == HttpStatusCode.OK, await ok.Content.ReadAsStringAsync());
+        var nuevaVersion = (await Json(ok)).GetProperty("version").GetInt32();
+
+        var detalle = await Json(await c.GetAsync(ruta));
+        var lineas = detalle.GetProperty("lineas").EnumerateArray().ToList();
+        Assert.All(lineas, l => Assert.False(string.IsNullOrEmpty(l.GetProperty("clasificacionNoDeducible").GetString())));
+        Assert.Equal(80m, lineas.Sum(l => l.GetProperty("ivaNoAcreditable").GetDecimal()));
+
+        var liberar = await PostConVersionAsync(c, ruta + "/liberar", nuevaVersion);
+        Assert.True(liberar.StatusCode == HttpStatusCode.OK, await liberar.Content.ReadAsStringAsync());
+        using var scope = factory.Services.CreateScope();
+        using var bypass = scope.ServiceProvider.GetRequiredService<ICurrentEmpresaContext>().Bypass();
+        var f = await scope.ServiceProvider.GetRequiredService<CuentasPorPagarDbContext>().FacturasProveedor.AsNoTracking().SingleAsync(x => x.UuidCfdi == uuid);
+        Assert.Equal("PROPINAS", f.ClasificacionNoDeducible);
+        Assert.Equal(80m, f.IvaNoAcreditable);
+    }
+
     private sealed class PeriodoAbierto : Millet.CuentasPorPagar.Domain.Ports.Contabilidad.IPeriodoContablePort
     {
         public Task<bool> AdmiteMovimientosAsync(DateOnly fecha, CancellationToken ct) => Task.FromResult(true);

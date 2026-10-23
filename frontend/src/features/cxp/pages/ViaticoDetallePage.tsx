@@ -15,6 +15,7 @@ import { Campo, Importe } from '@/features/cxp/components/DetalleCampos';
 import {
   formatearFechaHora,
 } from '@/features/cxp/lib/formato';
+import { NoDeducibleBadge } from '@/features/cxp/components/NoDeducibleBadge';
 import { MoneyDisplay } from '@/components/erp/display/MoneyDisplay';
 import { DateTimeDisplay } from '@/components/erp/display/DateTimeDisplay';
 
@@ -263,6 +264,13 @@ export function ViaticoDetallePage() {
                         </td>
                         <td className="max-w-64 truncate px-3 py-2">
                           {l.concepto}
+                          <div>
+                            <NoDeducibleBadge
+                              clasificacion={l.clasificacionNoDeducible}
+                              ivaNoAcreditable={l.ivaNoAcreditable}
+                              moneda={l.moneda}
+                            />
+                          </div>
                         </td>
                         <td className="py-2 pl-3 pr-4 text-right tabular-nums">
                           <MoneyDisplay amount={l.subtotal} currency={l.moneda} strong />

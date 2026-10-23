@@ -1,6 +1,7 @@
 using FluentValidation;
 using MediatR;
 using Microsoft.EntityFrameworkCore;
+using Millet.CuentasPorPagar.Application.Catalogos.ClasificacionesNoDeducibles;
 using Millet.CuentasPorPagar.Domain.Cfdi;
 using Millet.CuentasPorPagar.Domain.Viaticos;
 using Millet.CuentasPorPagar.Infrastructure.Persistence;
@@ -31,7 +32,9 @@ public sealed record CapturarLineaViaticosInput(
     decimal Total,
     string Moneda,
     string Concepto,
-    bool EsTicketNoFiscal);
+    bool EsTicketNoFiscal,
+    // P8.6: obligatoria en ticket no fiscal; en línea con CFDI marca el gasto como no deducible.
+    string? ClasificacionNoDeducible = null);
 
 public sealed record CapturarComprobacionViaticosResponse(
     Guid Id,
@@ -139,7 +142,12 @@ public sealed class CapturarComprobacionViaticosHandler
             }
         }
 
-        var dominioLineas = command.Lineas.Select(l => new LineaComprobacionViaticosInput(
+        var clasificaciones = new List<string?>(command.Lineas.Count);
+        foreach (var linea in command.Lineas)
+            clasificaciones.Add(await ClasificacionNoDeducibleValidador.ResolverAsync(
+                _db, linea.ClasificacionNoDeducible, linea.EsTicketNoFiscal, "VIA_LINEA_CLASIFICACION_REQUERIDA", cancellationToken));
+
+        var dominioLineas = command.Lineas.Select((l, i) => new LineaComprobacionViaticosInput(
             CfdiRecibidoId: l.CfdiRecibidoId,
             UuidCfdi: l.UuidCfdi
                 ?? (l.CfdiRecibidoId is Guid id ? cfdisPorId[id].UuidCfdi.Valor : null),
@@ -152,7 +160,8 @@ public sealed class CapturarComprobacionViaticosHandler
             Total: l.Total,
             Moneda: l.Moneda,
             Concepto: l.Concepto,
-            EsTicketNoFiscal: l.EsTicketNoFiscal));
+            EsTicketNoFiscal: l.EsTicketNoFiscal,
+            ClasificacionNoDeducible: clasificaciones[i])).ToList();
 
         s.CapturarComprobacion(dominioLineas, _clock.UtcNow);
         await _db.SaveChangesAsync(cancellationToken);

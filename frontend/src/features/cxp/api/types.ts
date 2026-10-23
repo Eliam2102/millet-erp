@@ -880,6 +880,8 @@ export interface LineaComprobacionDetalle {
   total: number;
   moneda: string;
   concepto: string | null;
+  clasificacionNoDeducible?: string | null;
+  ivaNoAcreditable?: number;
 }
 
 /**
@@ -932,6 +934,8 @@ export interface CrearComprobacionCajaChicaLinea {
   total: number;
   fechaVencimiento: string;
   concepto: string | null;
+  /** Obligatoria en ticket (sin CFDI); en línea con CFDI marca el gasto como no deducible. */
+  clasificacionNoDeducible?: string | null;
 }
 
 /** GI-PR4 (doc 12 Q1): destino de la reposición de caja chica. */
@@ -1102,6 +1106,8 @@ export interface LineaViaticosDetalle {
   moneda: string;
   concepto: string;
   esTicketNoFiscal: boolean;
+  clasificacionNoDeducible?: string | null;
+  ivaNoAcreditable?: number;
 }
 
 /**
@@ -1181,6 +1187,8 @@ export interface CapturarLineaViaticosInput {
   moneda: string;
   concepto: string;
   esTicketNoFiscal: boolean;
+  /** Obligatoria en ticket no fiscal; en línea con CFDI marca el gasto como no deducible. */
+  clasificacionNoDeducible?: string | null;
 }
 
 export interface CapturarComprobacionViaticosCommand {

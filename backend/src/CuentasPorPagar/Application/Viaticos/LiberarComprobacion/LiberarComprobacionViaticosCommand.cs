@@ -168,6 +168,8 @@ public sealed class LiberarComprobacionViaticosHandler
                 motivoCaptura: $"Viáticos — solicitud {s.Id}",
                 ahora: ahora);
 
+            if (linea.ClasificacionNoDeducible is string clasificacion) factura.MarcarNoDeducible(clasificacion);
+
             _db.FacturasProveedor.Add(factura);
 
             if (linea.CfdiRecibidoId is Guid cfdiId &&
@@ -185,6 +187,7 @@ public sealed class LiberarComprobacionViaticosHandler
         }
 
         s.LiberarComprobacion(ahora);
+        // PLATFORM-TODO(<GastoRegistradoC15>): publicar gasto.registrado.v1 por línea aquí (S4, pendiente de Eliam).
 
         // GI-PR4 (doc 12 §D4/Q3): la diferencia de liquidación cruza a
         // Tesorería. Positiva = reembolso al empleado (pasivo interno);

@@ -237,6 +237,7 @@ public sealed class AprobarPasivoComprobacionHandler
                 "Se requiere usuario autenticado para aprobar el pasivo.");
         var ahora = _clock.UtcNow;
         c.AprobarPasivo(usuarioId, ahora);
+        // PLATFORM-TODO(<GastoRegistradoC15>): publicar gasto.registrado.v1 por línea aquí (S4, pendiente de Eliam).
 
         await VerificarLimiteAsync(c, usuarioId, DateOnly.FromDateTime(ahora.UtcDateTime), cancellationToken);
 

@@ -56,6 +56,15 @@ export const ComprobacionLineaSchema = z.object({
     .min(2, 'Concepto mínimo 2 caracteres.')
     .max(500),
   esTicketNoFiscal: z.boolean(),
+  // null = deducible; '' = marcado sin elegir. Un ticket no fiscal la exige.
+  clasificacionNoDeducible: z.string().trim().max(40).nullable(),
+}).superRefine((l, ctx) => {
+  if (l.clasificacionNoDeducible === '' || (l.esTicketNoFiscal && !l.clasificacionNoDeducible))
+    ctx.addIssue({
+      code: 'custom',
+      path: ['clasificacionNoDeducible'],
+      message: 'Selecciona la clasificación del gasto no deducible.',
+    });
 });
 
 export const CapturarComprobacionViaticosSchema = z.object({

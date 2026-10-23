@@ -32,6 +32,7 @@ import type {
 } from '@/features/cxp/api/types';
 import { CfdiPorProcesarPicker } from '@/features/cxp/components/CfdiPorProcesarPicker';
 import { CargarCfdiSheet } from '@/features/cxp/components/CargarCfdiSheet';
+import { ClasificacionNoDeducibleCampo } from '@/features/cxp/components/ClasificacionNoDeducibleCampo';
 import { useProveedor } from '@/features/catalogos/api';
 import { Field, ProveedorSelector } from '@/components/erp';
 import { useConfirmarDescarte } from '@/components/erp/forms/useConfirmarDescarte';
@@ -103,6 +104,7 @@ function defaultLinea(moneda: string) {
     moneda,
     concepto: '',
     esTicketNoFiscal: false,
+    clasificacionNoDeducible: null,
   };
 }
 
@@ -439,6 +441,21 @@ function LineaInline({
           <label htmlFor={`ticketNoFiscal-${index}`} className="text-xs">
             Ticket no fiscal (sin CFDI)
           </label>
+        </div>
+        <div className="col-span-full">
+          <Controller
+            control={form.control}
+            name={`lineas.${index}.clasificacionNoDeducible` as const}
+            render={({ field }) => (
+              <ClasificacionNoDeducibleCampo
+                id={`noDeducible-${index}`}
+                value={field.value}
+                onChange={field.onChange}
+                obligatoria={esTicketNoFiscal}
+                error={lineaErrors?.clasificacionNoDeducible?.message}
+              />
+            )}
+          />
         </div>
         <div className="flex items-end justify-end">
           <Button

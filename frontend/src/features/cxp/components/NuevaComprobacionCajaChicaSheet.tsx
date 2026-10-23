@@ -35,6 +35,7 @@ import { fetchCfdiDetalle } from '@/features/cxp/api/useCfdis';
 import type { CfdiListItem } from '@/features/cxp/api/types';
 import { CfdiPorProcesarPicker } from '@/features/cxp/components/CfdiPorProcesarPicker';
 import { CargarCfdiSheet } from '@/features/cxp/components/CargarCfdiSheet';
+import { ClasificacionNoDeducibleCampo } from '@/features/cxp/components/ClasificacionNoDeducibleCampo';
 import { useProveedor } from '@/features/catalogos/api';
 import {
   EmpleadoSelector,
@@ -109,6 +110,7 @@ function defaultLinea() {
     total: 0,
     fechaVencimiento: hoy,
     concepto: null,
+    clasificacionNoDeducible: null,
   };
 }
 
@@ -516,6 +518,21 @@ function LineaInline({
               {...form.register(`cfdis.${index}.concepto` as const)}
             />
           </Field>
+        </div>
+        <div className="col-span-full">
+          <Controller
+            control={form.control}
+            name={`cfdis.${index}.clasificacionNoDeducible` as const}
+            render={({ field }) => (
+              <ClasificacionNoDeducibleCampo
+                id={`noDeducible-${index}`}
+                value={field.value}
+                onChange={field.onChange}
+                obligatoria={!cfdiRecibidoId && !uuidCfdi}
+                error={lineaErrors?.clasificacionNoDeducible?.message}
+              />
+            )}
+          />
         </div>
         <div className="flex items-end">
           <Button
