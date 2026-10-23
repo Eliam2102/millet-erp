@@ -10,7 +10,10 @@ public sealed partial class Activo
     public DateOnly? FechaBaja { get; private set; }
     public void CargarLibro(DateOnly corte, decimal acumulada)
     {
-        ValidarCapitalizacion();
+        // El saldo inicial SAP admite custodia incompleta; no es una capitalización nueva.
+        if (Estado != EstadoActivo.PorCapitalizar || EnTraslado || InicioUso == null || ValorOriginal <= 0
+            || (OrdenCompraId != null && FacturaProveedorId == null))
+            throw new BusinessRuleException("AF_CARGA_INVALIDA", "Complete inicio de uso y valor antes de cargar el saldo inicial.");
         if (corte < InicioUso || acumulada < 0 || acumulada > ValorActual)
             throw new BusinessRuleException("AF_CARGA_INVALIDA", "Revise corte y depreciación acumulada.");
         CorteCarga = corte; AcumuladaCarga = acumulada; DepreciacionAcumulada = acumulada; Estado = EstadoActivo.Activo;

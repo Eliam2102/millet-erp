@@ -1,3 +1,4 @@
+import { ChevronsLeft, ChevronsRight } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 
 export interface PaginacionTablaProps {
@@ -7,6 +8,8 @@ export interface PaginacionTablaProps {
   onChange: (offset: number, limit: number) => void;
   /** Opciones de tamaño de página. Vacío oculta el selector. */
   tamanos?: number[];
+  /** Agrega «Ir al inicio» / «Ir al final» junto a Anterior/Siguiente. */
+  extremos?: boolean;
 }
 
 const TAMANOS_DEFAULT = [10, 25, 50];
@@ -18,20 +21,23 @@ export function PaginacionTabla({
   limit,
   onChange,
   tamanos = TAMANOS_DEFAULT,
+  extremos = false,
 }: PaginacionTablaProps) {
   const desde = total === 0 ? 0 : offset + 1;
   const hasta = Math.min(offset + limit, total);
   const opciones = tamanos.includes(limit) ? tamanos : [...tamanos, limit].sort((a, b) => a - b);
+  const enPrimera = offset <= 0;
+  const enUltima = offset + limit >= total;
 
   return (
     <nav
       aria-label="Paginación"
-      className="flex h-11 items-center justify-between border-t border-line-divider px-4 text-xs text-ink-muted"
+      className="flex min-h-11 flex-wrap items-center justify-between gap-2 border-t border-line-divider px-4 py-1.5 text-xs text-ink-muted"
     >
       <span className="tabular-nums">
         {total === 0 ? '0 de 0' : `${desde}–${hasta} de ${total}`}
       </span>
-      <div className="flex items-center gap-2">
+      <div className="flex flex-wrap items-center gap-2">
         {tamanos.length > 0 && (
           <label className="flex items-center gap-1.5">
             Filas por página
@@ -48,11 +54,24 @@ export function PaginacionTabla({
             </select>
           </label>
         )}
+        {extremos && (
+          <Button
+            type="button"
+            variant="secondary"
+            size="sm"
+            disabled={enPrimera}
+            aria-label="Ir al inicio"
+            title="Ir al inicio"
+            onClick={() => onChange(0, limit)}
+          >
+            <ChevronsLeft aria-hidden className="h-3.5 w-3.5" />
+          </Button>
+        )}
         <Button
           type="button"
           variant="secondary"
           size="sm"
-          disabled={offset <= 0}
+          disabled={enPrimera}
           aria-label="Página anterior"
           onClick={() => onChange(Math.max(0, offset - limit), limit)}
         >
@@ -62,12 +81,25 @@ export function PaginacionTabla({
           type="button"
           variant="secondary"
           size="sm"
-          disabled={offset + limit >= total}
+          disabled={enUltima}
           aria-label="Página siguiente"
           onClick={() => onChange(offset + limit, limit)}
         >
           Siguiente
         </Button>
+        {extremos && (
+          <Button
+            type="button"
+            variant="secondary"
+            size="sm"
+            disabled={enUltima}
+            aria-label="Ir al final"
+            title="Ir al final"
+            onClick={() => onChange(Math.floor((total - 1) / limit) * limit, limit)}
+          >
+            <ChevronsRight aria-hidden className="h-3.5 w-3.5" />
+          </Button>
+        )}
       </div>
     </nav>
   );

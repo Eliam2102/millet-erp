@@ -68,7 +68,8 @@ export interface Conciliacion {
 }
 export interface CargaResultado {
   valida: boolean;
-  errores: { renglon: number; codigo: string; mensaje: string }[];
+  errores: { renglon: number; codigo: string; mensaje: string; columna?: string | null }[];
+  avisos?: { renglon: number; codigo: string; mensaje: string; columna?: string | null }[];
   cuadre: {
     clase: string;
     valor: number;

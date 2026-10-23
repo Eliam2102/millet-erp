@@ -1,3 +1,4 @@
+import { formatearFechaCelda } from '@/components/erp/reportes/formatear-fecha-celda';
 import {
   Document,
   Page,
@@ -22,6 +23,7 @@ export interface ReporteParaExportar<TFila> {
     tipo: 'texto' | 'numero' | 'moneda' | 'fecha';
     alineacion?: string | null;
     anchoPx?: number | null;
+    decimales?: number | null;
   }[];
   filas: readonly TFila[];
   totales?: Record<string, number> | null;
@@ -163,7 +165,7 @@ export function ReporteDocument<TFila>({
                       esNumerica(c.tipo) ? styles.cellAlignRight : {},
                     ]}
                   >
-                    {formatearCelda(obtenerCelda(fila, c.clave), c.tipo)}
+                    {formatearCelda(obtenerCelda(fila, c.clave), c.tipo, c.decimales)}
                   </Text>
                 ))}
               </View>
@@ -184,7 +186,7 @@ export function ReporteDocument<TFila>({
                     ]}
                   >
                     {idx === 0 && total == null ? 'Totales' : ''}
-                    {total != null ? formatearCelda(total, c.tipo) : ''}
+                    {total != null ? formatearCelda(total, c.tipo, c.decimales) : ''}
                   </Text>
                 );
               })}
@@ -208,7 +210,7 @@ function esNumerica(tipo: string): boolean {
   return tipo === 'numero' || tipo === 'moneda';
 }
 
-function formatearCelda(valor: unknown, tipo: string): string {
+function formatearCelda(valor: unknown, tipo: string, decimales?: number | null): string {
   if (valor == null) return '—';
   switch (tipo) {
     case 'moneda':
@@ -222,14 +224,12 @@ function formatearCelda(valor: unknown, tipo: string): string {
     case 'numero':
       return typeof valor === 'number'
         ? valor.toLocaleString('es-MX', {
-            minimumFractionDigits: 0,
-            maximumFractionDigits: 4,
+            minimumFractionDigits: decimales ?? 0,
+            maximumFractionDigits: decimales ?? 4,
           })
         : String(valor);
     case 'fecha':
-      return typeof valor === 'string'
-        ? new Date(valor).toLocaleDateString('es-MX')
-        : String(valor);
+      return typeof valor === 'string' ? formatearFechaCelda(valor) : String(valor);
     default:
       return String(valor);
   }

@@ -190,7 +190,7 @@ public class ClientesSincronizacionDemo100Tests : IClassFixture<WebApplicationFa
 
     // Paso 3: moneda <indf> no crea el cliente (no se asume MXN); estado sin mapeo y condición duplicada: Pendiente visible, sin éxito inventado.
     [Fact]
-    public async Task Demo100_estado_y_condicion_duplicada_quedan_Pendiente_y_moneda_sin_equivalencia_no_crea()
+    public async Task Demo100_estado_y_condicion_duplicada_quedan_Pendiente_y_moneda_indf_se_crea_en_MXN()
     {
         var b = NuevaBase();
         var origen = new OrigenFake([
@@ -203,9 +203,9 @@ public class ClientesSincronizacionDemo100Tests : IClassFixture<WebApplicationFa
 
         var e = await BarridoAsync(f, c);
 
-        Assert.Equal("Parcial", e.GetProperty("ejecucion").GetProperty("estado").GetString());
-        Assert.Equal((3, 2, 2, 1), (N(e, "leidos"), N(e, "creados"), N(e, "pendientes"), N(e, "errores"))); // b+1 no se crea
-        Assert.Equal(0, (await Json(await c.GetAsync($"{Clientes}?referenciaExterna={b + 1}"))).GetProperty("total").GetInt32());
+        Assert.Equal("Completa", e.GetProperty("ejecucion").GetProperty("estado").GetString());
+        Assert.Equal((3, 3, 2, 0), (N(e, "leidos"), N(e, "creados"), N(e, "pendientes"), N(e, "errores"))); // <indf> = MXN
+        Assert.Equal("Aplicado", (await ListaAsync(c, b + 1)).GetProperty("origenAw").GetProperty("resultado").GetString());
         foreach (var r in new[] { b + 2, b + 3 })
         {
             var item = await ListaAsync(c, r);
