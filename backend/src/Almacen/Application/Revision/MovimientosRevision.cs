@@ -62,6 +62,7 @@ internal static class MovimientosRevision
             fecha, motivo, lineas.Select(l => l.Origen).ToList(), ct);
         var entrada = await AgregarAsync(db, empresaId, usuarioId, TipoMovimiento.ReincorporacionTrasRevision,
             fecha, motivo, lineas.Select(l => l.Origen with { UbicacionId = l.DestinoUbicacionId }).ToList(), ct);
+        db.Movimientos.Local.Single(m => m.Id == entrada.Id).VincularSalidaLiberacion(salida.Id);
         return (salida, entrada);
     }
 }

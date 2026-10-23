@@ -1,5 +1,6 @@
 using MediatR;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Logging;
 using Millet.Almacen.Domain.Movimientos;
 using Millet.Almacen.Domain.Idempotencia;
 using Millet.Almacen.Domain.Saldos;
@@ -16,11 +17,15 @@ public sealed record CostoPartidaPayload(Guid PartidaId, Guid OcId, Guid Recepci
     decimal CantidadRecibida, decimal ImporteMxn, decimal DiferenciaMxn);
 public sealed record AplicarCostoExpedienteCommand(CostoExpedientePayload Payload) : IRequest;
 public sealed record CostoPartidaAplicado(Guid PartidaId, Guid OcId, Guid RecepcionId, Guid ArticuloId, Guid UbicacionId,
-    decimal DiferenciaMxn, decimal InventarioMxn, decimal CostoVentasMxn);
+    decimal DiferenciaMxn, decimal InventarioMxn, decimal CostoVentasMxn)
+{
+    public IReadOnlyList<CostoUbicacionAplicado> Ubicaciones { get; init; } = [];
+}
+public sealed record CostoUbicacionAplicado(Guid UbicacionId, decimal CantidadRemanente, decimal InventarioMxn);
 /// <summary>Contabilidad consume este resultado confirmado, nunca la estimación de la vista previa.</summary>
 public sealed record ExpedienteCostoAplicadoEvent(Guid Empresa, DateTimeOffset Fecha, Guid ExpedienteId, int NumeroVersion,
     IReadOnlyList<CostoPartidaAplicado> Partidas) : IntegrationEvent("almacen.expediente.costo-aplicado.v1", Empresa, Fecha);
-public sealed class ExpedienteCostoDistribuidoHandler(AlmacenDbContext db, IIntegrationEventPublisher eventos, IClock clock)
+public sealed class ExpedienteCostoDistribuidoHandler(AlmacenDbContext db, IIntegrationEventPublisher eventos, IClock clock, ILogger<ExpedienteCostoDistribuidoHandler> logger)
     : IRequestHandler<AplicarCostoExpedienteCommand>
 {
     public const string EventType = "comercio_exterior.expediente.costo-distribuido.v1";
@@ -37,13 +42,31 @@ public sealed class ExpedienteCostoDistribuidoHandler(AlmacenDbContext db, IInte
         var previa = EventType + "/" + (p.NumeroVersion - 1);
         if (p.NumeroVersion > 1 && !await db.EventosProcesados.AnyAsync(x => x.EventoId == p.ExpedienteId && x.EventoTipo == previa, cancellationToken))
             throw new BusinessRuleException("CE_VERSION_COSTO_PENDIENTE", "Falta aplicar la versión anterior.");
+        // Bloquear antes de leer el historial: un traslado concurrente debe terminar completo o esperar.
+        // El orden común entre partidas evita invertir locks cuando comparten artículo y ubicaciones.
+        foreach (var articulo in p.Partidas.Select(x => x.ArticuloId).Distinct().Order())
+        {
+            HashSet<Guid> bloqueadas = [];
+            bool nuevas;
+            do
+            {
+                nuevas = false;
+                var saldos = await db.SaldosInventario.FromSqlInterpolated($"SELECT * FROM almacen.saldos_inventario WHERE articulo_id = {articulo} ORDER BY ubicacion_id FOR UPDATE").ToListAsync(cancellationToken);
+                foreach (var saldo in saldos)
+                {
+                    nuevas |= bloqueadas.Add(saldo.UbicacionId);
+                    await db.Entry(saldo).ReloadAsync(cancellationToken);
+                }
+                // Un traslado que terminó mientras esperábamos pudo crear un saldo destino nuevo.
+            } while (nuevas);
+        }
         List<CostoPartidaAplicado> aplicadas = [];
         foreach (var l in p.Partidas.OrderBy(x => x.UbicacionId).ThenBy(x => x.ArticuloId).ThenBy(x => x.PartidaId))
         {
             var ajustes = db.Set<AjusteCostoExpediente>().Where(x => x.EmpresaId == p.EmpresaId && x.ExpedienteId == p.ExpedienteId && x.PartidaId == l.PartidaId);
             if (await ajustes.AnyAsync(x => x.NumeroVersion == p.NumeroVersion, cancellationToken)) continue;
-            var anterior = await ajustes.OrderByDescending(x => x.NumeroVersion).FirstOrDefaultAsync(cancellationToken);
-            if (l.ImporteMxn - (anterior?.AcumuladoMxn ?? 0) != l.DiferenciaMxn)
+            var anteriores = await ajustes.Where(x => x.NumeroVersion == p.NumeroVersion - 1).ToListAsync(cancellationToken);
+            if (l.ImporteMxn - anteriores.Sum(x => x.AcumuladoMxn) != l.DiferenciaMxn)
                 throw new BusinessRuleException("CE_VERSION_COSTO_PENDIENTE", "Falta aplicar una versión anterior o el acumulado no cuadra.");
             var valida = await (from m in db.Movimientos join linea in db.LineasMovimiento on m.Id equals linea.MovimientoId
                 join u in db.Ubicaciones on linea.UbicacionId equals u.Id join sub in db.SubAlmacenes on u.SubAlmacenId equals sub.Id
@@ -53,15 +76,32 @@ public sealed class ExpedienteCostoDistribuidoHandler(AlmacenDbContext db, IInte
                     linea.ArticuloId == l.ArticuloId && linea.UbicacionId == l.UbicacionId && linea.Cantidad == l.CantidadRecibida
                 select linea.Id).AnyAsync(cancellationToken);
             if (!valida) throw new BusinessRuleException("CE_RECEPCION_INVALIDA", "La partida no corresponde a una recepción de la empresa y sucursal.");
-            // El mismo lock de fila que toma el trigger de movimientos físicos impide perder salidas concurrentes.
-            var saldo = await db.SaldosInventario.FromSqlInterpolated($"SELECT * FROM almacen.saldos_inventario WHERE ubicacion_id = {l.UbicacionId} AND articulo_id = {l.ArticuloId} FOR UPDATE").SingleAsync(cancellationToken);
-            await db.Entry(saldo).ReloadAsync(cancellationToken);
-            var remanente = Math.Min(saldo.Cantidad, await RecepcionesCostoReadAdapter.RemanenteAsync(db, p.EmpresaId, l.PartidaId, l.UbicacionId, l.ArticuloId, cancellationToken));
-            var reparto = SaldoInventario.SepararCosto(l.DiferenciaMxn, l.CantidadRecibida, remanente);
-            saldo.AjustarValor(reparto.Inventario, clock.UtcNow);
-            db.Set<AjusteCostoExpediente>().Add(new(p.EmpresaId, p.ExpedienteId, p.NumeroVersion, l.PartidaId, l.UbicacionId, l.ArticuloId,
-                l.ImporteMxn, l.DiferenciaMxn, reparto.Inventario, clock.UtcNow));
-            aplicadas.Add(new(l.PartidaId, l.OcId, l.RecepcionId, l.ArticuloId, l.UbicacionId, l.DiferenciaMxn, reparto.Inventario, reparto.CostoVentas));
+            var remanentes = await RecepcionesCostoReadAdapter.RemanentesAsync(db, p.EmpresaId, l.PartidaId, l.ArticuloId, logger, cancellationToken);
+            var ubicaciones = remanentes.Keys.Concat(anteriores.Select(x => x.UbicacionId)).Append(l.UbicacionId).Distinct().Order().ToList();
+            List<CostoUbicacionAplicado> detalle = [];
+            decimal diferenciaRestante = l.DiferenciaMxn, cantidadRestante = l.CantidadRecibida;
+            foreach (var ubicacion in ubicaciones)
+            {
+                var saldo = await db.SaldosInventario.SingleAsync(s => s.UbicacionId == ubicacion && s.ArticuloId == l.ArticuloId, cancellationToken);
+                var cantidad = Math.Min(saldo.Cantidad, remanentes.GetValueOrDefault(ubicacion));
+                // Reparto sobre el resto para conservar los centavos incluso si todo sigue en existencia.
+                var inventario = cantidadRestante > 0
+                    ? SaldoInventario.SepararCosto(diferenciaRestante, cantidadRestante, cantidad).Inventario : 0;
+                cantidadRestante -= cantidad;
+                diferenciaRestante -= inventario;
+                saldo.AjustarValor(inventario, clock.UtcNow);
+                detalle.Add(new(ubicacion, cantidad, inventario));
+            }
+            foreach (var d in detalle)
+            {
+                // El consumo se asienta una sola vez en el origen; el valor físico sigue cada destino.
+                var diferencia = d.InventarioMxn + (d.UbicacionId == l.UbicacionId ? diferenciaRestante : 0);
+                var acumulado = (anteriores.SingleOrDefault(x => x.UbicacionId == d.UbicacionId)?.AcumuladoMxn ?? 0) + diferencia;
+                db.Set<AjusteCostoExpediente>().Add(new(p.EmpresaId, p.ExpedienteId, p.NumeroVersion, l.PartidaId, d.UbicacionId, l.ArticuloId,
+                    acumulado, diferencia, d.InventarioMxn, clock.UtcNow));
+            }
+            aplicadas.Add(new(l.PartidaId, l.OcId, l.RecepcionId, l.ArticuloId, l.UbicacionId, l.DiferenciaMxn,
+                detalle.Sum(x => x.InventarioMxn), diferenciaRestante) { Ubicaciones = detalle });
             // Varias partidas pueden compartir saldo; el siguiente cálculo parte del valor recién persistido.
             await db.SaveChangesAsync(cancellationToken);
         }
