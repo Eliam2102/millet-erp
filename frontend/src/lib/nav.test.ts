@@ -194,6 +194,8 @@ describe('navSidebarItems', () => {
       ['/facturacion/cajas'],
       [
         '/facturacion/reportes/liquidacion-caja',
+        // F6.7: cierre del día por sucursal (monitor de CFDI + facturado vs ingresado).
+        '/facturacion/reportes/cierre-dia',
         '/facturacion/reportes/estados-anticipos',
         // F6.2: la comparativa de anticipos va junto a Estados de facturas de anticipo.
         '/facturacion/reportes/comparativa-anticipos',
@@ -205,6 +207,10 @@ describe('navSidebarItems', () => {
       .flatMap((s) => s.cards)
       .find((c) => c.to === '/facturacion/reportes/comparativa-anticipos');
     expect(comparativa?.permission).toBe(PermisosCanonicos.FacturacionReportesLeer);
+    const cierreDia = facturacion.secciones
+      .flatMap((s) => s.cards)
+      .find((c) => c.to === '/facturacion/reportes/cierre-dia');
+    expect(cierreDia?.permission).toBe(PermisosCanonicos.FacturacionReportesLeer);
   });
 
   it('Compras tiene Operación (P1+P2) y Configuración (Aprobadores)', () => {

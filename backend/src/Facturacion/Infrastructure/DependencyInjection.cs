@@ -84,6 +84,14 @@ public static class DependencyInjection
             Millet.Integraciones.Fiscal.Domain.Ports.ICfdiTimbradoPort,
             Millet.Integraciones.Fiscal.Infrastructure.SdkAdapter.FiscalApiTimbradoAdapter>();
 
+        // --- F6.7: estatus del CFDI ante el SAT (monitor por sucursal y día) ---
+        // `Facturacion:ConsultaEstatusSat:Proveedor` = FiscalApi (real) o
+        // Simulado (adaptador de prueba, por omisión; Eliam 20-oct).
+        if (Adapters.ConsultaEstatusSatConfig.UsarFiscalApi(configuration))
+            services.AddScoped<IConsultaEstatusCfdiPort, Adapters.ConsultaEstatusCfdiFiscalApiAdapter>();
+        else
+            services.AddScoped<IConsultaEstatusCfdiPort, Adapters.ConsultaEstatusCfdiSimuladoAdapter>();
+
         // --- Repo de CFDI de emitidos: adapter REAL en Integraciones.Fiscal ---
         // F2-PR1 reemplazó el stub local por `CfdiArchivoRepository`
         // (cfdi_archivo en integraciones_fiscal); lo registra

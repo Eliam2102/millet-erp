@@ -134,6 +134,14 @@ export const facturacionKeys = {
     [...facturacionKeys.reportes(), 'estados-anticipos', filtros] as const,
   reporteComparativaAnticipos: (filtros: Record<string, unknown>) =>
     [...facturacionKeys.reportes(), 'comparativa-anticipos', filtros] as const,
+  // Cierre del día por sucursal (F6.7). `reporteMonitorCfdiTodos` es el
+  // prefijo que invalida «Verificar en SAT».
+  reporteMonitorCfdiTodos: () =>
+    [...facturacionKeys.reportes(), 'monitor-cfdi'] as const,
+  reporteMonitorCfdi: (filtros: Record<string, unknown>) =>
+    [...facturacionKeys.reporteMonitorCfdiTodos(), filtros] as const,
+  reporteConciliacionFacturadoIngresado: (filtros: Record<string, unknown>) =>
+    [...facturacionKeys.reportes(), 'conciliacion-facturado-ingresado', filtros] as const,
 
   // Activos (FE-F9)
   activosAutorizaciones: (estado: string | null) =>

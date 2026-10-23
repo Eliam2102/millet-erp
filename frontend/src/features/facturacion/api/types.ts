@@ -1709,3 +1709,135 @@ export interface ComparacionProformaResponse {
   generadaEn: string | null;
   diferencias: DiferenciaProforma[];
 }
+
+// ─── Cierre del día por sucursal (F6.7) ───────────────────────────────
+
+/** Estado local del comprobante en el monitor de CFDI. */
+export type EstadoMonitorCfdi =
+  | 'Timbrado'
+  | 'Cancelación en trámite'
+  | 'Cancelado'
+  | 'Fallido'
+  | 'Sin timbrar';
+
+/** Estatus del CFDI según la última consulta al SAT. */
+export type EstatusSatCfdi =
+  | 'Vigente'
+  | 'Cancelado'
+  | 'No encontrado'
+  | 'Sin verificar'
+  | 'No aplica';
+
+export interface MonitorCfdiResumen {
+  timbrados: number;
+  cancelados: number;
+  cancelacionEnTramite: number;
+  sinTimbrar: number;
+  fallidos: number;
+  pedidosSinTimbrar: number;
+  sinVerificarSat: number;
+  discrepancias: number;
+  totalVigente: number;
+}
+
+export interface MonitorCfdiFila {
+  comprobanteId: string;
+  fecha: string;
+  tipo: string;
+  folio: string;
+  uuid: string | null;
+  cliente: string;
+  metodoPago: string;
+  moneda: string;
+  total: number;
+  estado: EstadoMonitorCfdi;
+  estatusSat: EstatusSatCfdi;
+  estatusSatConsultadoEn: string | null;
+  discrepancia: boolean;
+  cajero: string | null;
+  detalle: string | null;
+}
+
+export interface MonitorPedidoFila {
+  pedidoId: string;
+  pedido: string;
+  origen: string;
+  cliente: string;
+  estado: string;
+  recibido: string;
+  total: number;
+}
+
+export interface MonitorCfdiResponse {
+  sucursal: string;
+  dia: string;
+  cajero: string | null;
+  /** Fuente de la verificación (p. ej. adaptador simulado); se muestra en pantalla. */
+  fuenteSat: string;
+  resumen: MonitorCfdiResumen;
+  comprobantes: ReporteBackend<MonitorCfdiFila>;
+  pedidosSinTimbrar: ReporteBackend<MonitorPedidoFila>;
+}
+
+export interface VerificarEstatusSatResponse {
+  fuente: string;
+  consultados: number;
+  vigentes: number;
+  cancelados: number;
+  noEncontrados: number;
+  errores: number;
+  pendientes: number;
+}
+
+export interface ConciliacionResumen {
+  /** Facturado de contado (PUE en MXN), neto de notas de crédito. */
+  facturadoContado: number;
+  facturasContado: number;
+  notasCredito: number;
+  porCobrar: number;
+  ingresado: number;
+  ingresadoEfectivo: number;
+  ingresadoTpv: number;
+  ingresadoTransferencia: number;
+  ingresadoOtras: number;
+  diferencia: number;
+  cuadra: boolean;
+  /** Crédito emitido (PPD): informativo, no entra a la diferencia. */
+  facturadoCredito: number;
+  facturasCredito: number;
+}
+
+export interface ConciliacionCajeroFila {
+  cajeroId: string | null;
+  cajero: string;
+  partidas: number;
+  porCobrar: number;
+  ingresado: number;
+  diferencia: number;
+  estado: 'Cuadra' | 'Con diferencia';
+}
+
+export interface ConciliacionPartidaFila {
+  comprobanteId: string;
+  fecha: string;
+  comprobante: string;
+  cliente: string;
+  metodoPago: string;
+  cajero: string;
+  situacion: string;
+  facturado: number;
+  notasCredito: number;
+  porCobrar: number;
+  ingresado: number;
+  diferencia: number;
+  formasPago: string | null;
+}
+
+export interface ConciliacionFacturadoIngresadoResponse {
+  sucursal: string;
+  dia: string;
+  cajero: string | null;
+  resumen: ConciliacionResumen;
+  porCajero: ReporteBackend<ConciliacionCajeroFila>;
+  partidas: ReporteBackend<ConciliacionPartidaFila>;
+}
