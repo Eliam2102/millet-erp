@@ -963,7 +963,6 @@ export interface SaldoPendienteReposicion {
   moneda: string;
   saldo: number;
   numeroComprobaciones: number;
-  montoMinimo: number;
 }
 
 export interface ReposicionCajaListItem {
@@ -976,11 +975,6 @@ export interface ReposicionCajaListItem {
   numeroComprobaciones: number;
   esCorteManual: boolean;
   fechaEmision: string;
-}
-
-export interface ConfiguracionReposicionResponse {
-  sucursalId: string;
-  montoMinimo: number;
 }
 
 export interface EmitirReposicionManualResponse {
