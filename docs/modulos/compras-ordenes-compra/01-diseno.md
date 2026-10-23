@@ -1484,6 +1484,7 @@ un `// PLATFORM-TODO(<id>): ...` en código.
 | **Módulo CxP — `NotaCreditoProveedorRegistradaEvent` granular por línea OC** | `<NcGranularidadLineaOc>` | El listener `NotaCreditoProveedorRegistradaListener` en Compras está escrito pero queda huérfano: la NC en CxP no tiene granularidad por línea (solo `Total`). El worker loggea el evento como informativo. | Rediseño de modelo NC en CxP para incluir líneas con `linea_oc_id`, o decisión explícita de prorrateo por línea. |
 | **Módulo Tesorería (Pago) — `PagoFacturaProveedorEvent`** | `<TesoreriaEventListenerCompras>` | El listener `PagoFacturaProveedorListener` está escrito pero queda huérfano: no hay worker SB en Compras suscrito a `tesoreria-events`. El payload externo no incluye `oc_id` ni acumulado. | Crear `TesoreriaEventListenerWorker` en Compras + proyección local `facturas_proveedor_local` (mapping `factura_id → oc_id`) + proyección de pagos por OC para calcular `MontoPagadoAcumulado`. PR separado. |
 | ~~**Servicio de PDF institucional**~~ | ~~`<PdfService>`~~ | **CERRADO en F6-PR3 (2026-05-12)**: `QuestPdfOrdenCompraGenerator` reemplazó al stub con layout institucional real (QuestPDF Community license, válida hasta $1M revenue). | — |
+| **Correo de OC al proveedor (F1-COM-10 · G1.8)** | `<V08>` | `NoOpNotificacionService` (`EsSimulado = true`, en `Facturacion.Infrastructure.Notificaciones`) implementa `ICorreoDocumentoService`: loggea el envío y no entrega correo; el historial marca el envío como `simulado`. | Registrar en `Api/Program.cs` el adapter real (SMTP / Microsoft Graph) de `ICorreoDocumentoService` en lugar del `NoOp` cuando se confirme el remitente del tenant (V08). Sin más cambios en Compras. |
 | **Módulo Notificaciones** | `<Notificaciones>` | Inexistente. Los eventos `OrdenCompraEnviadaAAutorizacionEvent`, `OrdenCompraAutorizadaEvent`, `OrdenCompraRechazadaEvent` se publican pero no envían email. F1-COM-07: `IncidenciaVencidaWorker` registra el aviso de compromiso vencido en `oc_incidencias_avisos` (único por incidencia y fecha) y solo lo escribe en el log; la OC lo muestra. | ADR 0026: cuando exista, el módulo Notificaciones se suscribe y envía email. |
 | **Catálogo SAT de aduanas y claves de pedimento** | `<CatalogoSatComercioExterior>` | `CatalogosImportacionDemo` (Almacén): subconjunto DEMO de aduanas y claves de pedimento para validar la captura en la recepción de importación. | Sustituir por el catálogo SAT completo y versionado (tabla en Datos Maestros + puerto de lectura) al habilitar operación fiscal de Comercio Exterior. |
 | **Servicio de tipo de cambio (C1)** | `<TipoCambio>` | Inexistente. v1 acepta T/C manual; no hay puerto. | Si se decide automatizar (C1 "no"), se agrega `ITipoCambioPort` con stub apuntando a captura manual. |
@@ -1492,7 +1493,7 @@ un `// PLATFORM-TODO(<id>): ...` en código.
 **Checklist en cada ticket de plataforma:** este submódulo (OC) entra
 como **consumidor** en los tickets de `<Almacen.Recepcion>`,
 `<NcGranularidadLineaOc>`, `<TesoreriaEventListenerCompras>`,
-`<PdfService>` y `<Notificaciones>`.
+`<PdfService>`, `<Notificaciones>` y `<V08>`.
 
 ---
 

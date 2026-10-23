@@ -384,6 +384,11 @@ builder.Services
 // ruidosamente en arranque si el flag está activo en Production.
 builder.Services.AddComprasStubs(builder.Configuration, builder.Environment);
 
+// Correo de documentos (OC al proveedor, etc.): hoy simulado.
+// PLATFORM-TODO(<V08>): sustituir por el transporte real de correo.
+builder.Services.AddSingleton<Millet.SharedKernel.Application.Correo.ICorreoDocumentoService,
+    Millet.Facturacion.Infrastructure.Notificaciones.NoOpNotificacionService>();
+
 // === Compras IAlmacenEntregasReadPort → adapter real ===
 // Permite al handler `ObtenerRequisicionPorIdHandler` enriquecer
 // `LineaResponse` con `cantEntregadoDeAlmacen` y `cantPendienteEntregar`,
