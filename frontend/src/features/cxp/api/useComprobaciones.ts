@@ -1,5 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { apiRequest } from '@/lib/api';
+import { reposicionesKeys } from '@/features/cxp/api/useReposiciones';
 import {
   cxpKeys,
   type ListarComprobacionesFiltros,
@@ -161,6 +162,17 @@ export function useAplicarComprobacion() {
     ...transitionMutation('aplicar'),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: cxpKeys.comprobaciones() });
+    },
+  });
+}
+
+export function useAprobarPasivoComprobacion() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    ...transitionMutation('aprobar-pasivo'),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: cxpKeys.comprobaciones() });
+      queryClient.invalidateQueries({ queryKey: reposicionesKeys.root });
     },
   });
 }
