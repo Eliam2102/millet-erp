@@ -7,7 +7,7 @@ namespace Millet.CuentasPorPagar.Infrastructure.Persistence.Configurations;
 /// <summary>
 /// Configuración EF Core para <see cref="MotivoRevision"/> + seed
 /// inicial con los 14 motivos del §5.3 del 00-levantamiento. SLA
-/// único de 5 días excepto "Disputa contractual" (15) e "Indicación
+/// único de 5 días excepto "Disputa con proveedor" (15) e "Indicación
 /// expresa" (NULL).
 /// </summary>
 public sealed class MotivoRevisionConfiguration : IEntityTypeConfiguration<MotivoRevision>

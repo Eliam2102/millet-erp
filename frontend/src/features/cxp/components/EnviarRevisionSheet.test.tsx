@@ -11,7 +11,7 @@ vi.mock('@/features/cxp/api/useRevision', () => ({
     { id: 'demo-1', nombre: 'Daños o defectos en mercancía', slaDias: 5, dependenciaRevisoraDefaultCodigo: 'COMPRAS', areaAvisadaCodigo: null },
     { id: 'demo-2', nombre: 'No conformidad', slaDias: 5, dependenciaRevisoraDefaultCodigo: 'AREA_USUARIA', areaAvisadaCodigo: 'COMPRAS' },
     { id: 'demo-3', nombre: 'Calidad insuficiente', slaDias: 5, dependenciaRevisoraDefaultCodigo: 'AREA_USUARIA', areaAvisadaCodigo: 'COMPRAS' },
-    { id: 'demo-4', nombre: 'Disputa contractual', slaDias: 15, dependenciaRevisoraDefaultCodigo: 'DIRECCION_F', areaAvisadaCodigo: null },
+    { id: 'demo-4', nombre: 'Disputa con proveedor', slaDias: 15, dependenciaRevisoraDefaultCodigo: 'DIRECCION_F', areaAvisadaCodigo: null },
     { id: 'demo-5', nombre: 'Otros', slaDias: 5, dependenciaRevisoraDefaultCodigo: 'CXP', areaAvisadaCodigo: null },
   ] }),
 }));

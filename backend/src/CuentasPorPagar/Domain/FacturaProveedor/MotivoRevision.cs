@@ -6,7 +6,7 @@ namespace Millet.CuentasPorPagar.Domain.FacturaProveedor;
 /// Catálogo unificado de motivos de revisión (§5.3 del 00-levantamiento,
 /// §A22 del 01-diseno). Seedea 14 motivos al deploy con
 /// <see cref="SlaDias"/> por motivo — SLA único de 5 días excepto
-/// "Disputa contractual" (15) y "Indicación expresa" (sin SLA, null).
+/// "Disputa con proveedor" (15) y "Indicación expresa" (sin SLA, null).
 ///
 /// <para>
 /// El campo <see cref="DependenciaRevisoraDefaultCodigo"/> indica el
