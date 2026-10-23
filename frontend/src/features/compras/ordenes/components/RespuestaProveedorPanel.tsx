@@ -76,8 +76,8 @@ export function RespuestaProveedorPanel({ oc }: { oc: OrdenCompraDetalleResponse
         <div key={r.id} className="space-y-1 border-t border-line-divider pt-3 text-sm">
           <div className="flex flex-wrap items-center gap-2">
             <span className="font-medium">Respuesta {r.numero}</span>
-            <Badge variant={r.tipo === TipoRespuestaProveedorOc.Confirmacion ? 'info' : 'danger'}>
-              {r.tipo === TipoRespuestaProveedorOc.Confirmacion ? 'Confirmación' : 'Rechazo'}
+            <Badge variant={r.tipo == null ? 'neutral' : r.tipo === TipoRespuestaProveedorOc.Confirmacion ? 'info' : 'danger'}>
+              {r.tipo == null ? 'Sin clasificar' : r.tipo === TipoRespuestaProveedorOc.Confirmacion ? 'Confirmación' : 'Rechazo'}
             </Badge>
             <Badge variant={r.vigente ? 'success' : 'neutral'}>
               {r.vigente ? 'Vigente' : 'Reemplazada'}
@@ -85,14 +85,14 @@ export function RespuestaProveedorPanel({ oc }: { oc: OrdenCompraDetalleResponse
             {r.tieneDiferencias && <Badge variant="warning">Con diferencias</Badge>}
           </div>
           <p className="text-ink-secondary">
-            Fecha de respuesta: <DateTimeDisplay value={r.fechaRespuesta} /> · Registró{' '}
+            Fecha de respuesta: {r.fechaRespuesta ? <DateTimeDisplay value={r.fechaRespuesta} /> : 'Sin fecha'} · Registró{' '}
             {nombre(r.registradaPorId)}{' '}
             <DateTimeDisplay value={r.registradaEn} variant="datetime" />
           </p>
           {r.contactoProveedor && (
             <p className="text-ink-secondary">Contacto: {r.contactoProveedor}</p>
           )}
-          <p className="text-ink-secondary">Evidencia: {r.evidencia}</p>
+          {r.evidencia && <p className="text-ink-secondary">Referencia: {r.evidencia}</p>}
           {r.motivo && (
             <p className="text-ink-secondary">
               {r.tipo === TipoRespuestaProveedorOc.Rechazo ? 'Motivo' : 'Comentario'}: {r.motivo}

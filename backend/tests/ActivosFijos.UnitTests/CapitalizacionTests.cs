@@ -35,6 +35,7 @@ public sealed class CapitalizacionTests
         public Task<IReadOnlyDictionary<Guid, CentroCostoNodo>> ObtenerAsync(IReadOnlyCollection<Guid> ids, CancellationToken ct)
             => Task.FromResult<IReadOnlyDictionary<Guid, CentroCostoNodo>>(ids.ToDictionary(id => id, id => new CentroCostoNodo(id, DimensionContable.Dim2, "CE", "Centro", true, true, Guid.NewGuid(), id, "UB", "CE")));
         public Task<IReadOnlyList<CentroCostoNodo>> BuscarAsync(DimensionContable nivel, string? q, AlcanceCentros? alcance, bool incluirInactivos, int limite, CancellationToken ct) => throw new NotSupportedException();
+        public Task<bool> EnAlcanceDelUsuarioAsync(Guid centroId, CancellationToken ct) => Task.FromResult(true);
     }
     private sealed class Polizas(bool cerrado):IPolizaContablePort
     {

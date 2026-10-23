@@ -13,17 +13,17 @@ namespace Millet.CuentasPorPagar.Application.ComprobacionGastos.Reposiciones;
 
 // ============================================================================
 // GI-PR1 (doc 12 §D2/Q1/Q4): reposición agregada de caja chica.
-// El saldo por reponer de una (sucursal, destino) = Σ MontoTotal de las
-// comprobaciones de caja chica Aplicadas sin reposición. Al Aplicar se
-// emite automáticamente si el saldo alcanza el mínimo configurado; el
-// corte manual vacía el saldo sin alcanzar el mínimo. La emisión publica
+// P8.5 (86e3kdw2k): sin mínimo. La reposición nace al aprobar el pasivo de
+// CADA comprobación de caja chica (una reposición por comprobación). El
+// corte manual solo vacía el saldo de comprobaciones Aplicadas heredadas
+// sin reposición (Σ MontoTotal por sucursal, destino). La emisión publica
 // pasivo.autorizado-para-pago.v1 con TipoBeneficiario CajaSucursal|Empleado
 // y OrigenTipo ReposicionCajaChica (idempotencia por OrigenId).
 // ============================================================================
 
 /// <summary>
-/// Emisor compartido entre <c>AplicarComprobacionGastosHandler</c>
-/// (respeta el mínimo) y el corte manual (no lo respeta). NO llama
+/// Emisor compartido entre la aprobación de pasivo / <c>Aplicar</c> legado
+/// (una sola comprobación) y el corte manual. NO llama
 /// <c>SaveChanges</c> — el caller persiste en su propia transacción para
 /// que el outbox drene los eventos atómicamente (ADR-0009).
 /// </summary>
@@ -39,33 +39,35 @@ public sealed class ReposicionCajaChicaEmisor
     }
 
     /// <summary>
-    /// Emite la reposición de <c>(sucursal, destino)</c> si hay saldo y —
-    /// cuando <paramref name="respetarMinimo"/> — este alcanza el mínimo
-    /// configurado. Devuelve null si no se emitió (sin saldo o bajo el
-    /// mínimo). Las comprobaciones cubiertas quedan ligadas vía
+    /// Emite la reposición de <c>(sucursal, destino)</c> si hay saldo. Con
+    /// <paramref name="soloComprobacionId"/> cubre únicamente esa comprobación;
+    /// sin él, todas las Aplicadas sin reposición. Devuelve null si no hay
+    /// nada que reponer. Las comprobaciones cubiertas quedan ligadas vía
     /// <c>ReposicionId</c>.
     /// </summary>
     public async Task<ReposicionCajaChica?> EmitirSiCorrespondeAsync(
         Guid empresaId,
         Guid sucursalId,
         DestinoReposicionCaja destino,
-        bool respetarMinimo,
+        bool esCorteManual,
         Guid? usuarioId,
         DateTimeOffset ahora,
         CancellationToken cancellationToken,
-        Guid? incluirComprobacionId = null)
+        Guid? soloComprobacionId = null)
     {
-        // incluirComprobacionId: la comprobación que se está aplicando en
-        // esta misma TX aún no está persistida como Aplicada — el WHERE
-        // corre sobre valores de BD, así que se incluye por Id y la
-        // identity resolution de EF regresa la instancia tracked (ya
-        // Aplicada en memoria).
+        // soloComprobacionId: la comprobación que se está aprobando en esta
+        // misma TX aún no está persistida como Aplicada — el WHERE corre
+        // sobre valores de BD, así que se filtra por Id y la identity
+        // resolution de EF regresa la instancia tracked (ya Aplicada en
+        // memoria).
         var pendientes = await _db.ComprobacionesGastos
             .Where(c => c.Tipo == TipoComprobacionGastos.ReembolsoCajaChica
                 && c.SucursalId == sucursalId
                 && c.DestinoReposicion == destino
                 && c.ReposicionId == null
-                && (c.Estado == EstadoComprobacionGastos.Aplicada || c.Id == incluirComprobacionId))
+                && (soloComprobacionId != null
+                    ? c.Id == soloComprobacionId
+                    : c.Estado == EstadoComprobacionGastos.Aplicada))
             .ToListAsync(cancellationToken);
 
         pendientes = pendientes
@@ -80,15 +82,6 @@ public sealed class ReposicionCajaChicaEmisor
         foreach (var grupo in pendientes.GroupBy(c => c.Moneda))
         {
             var saldo = grupo.Sum(c => c.MontoTotal);
-            if (respetarMinimo)
-            {
-                var minimo = await _db.ConfiguracionesReposicionCaja
-                    .AsNoTracking()
-                    .Where(x => x.SucursalId == sucursalId)
-                    .Select(x => (decimal?)x.MontoMinimo)
-                    .FirstOrDefaultAsync(cancellationToken) ?? 0m;
-                if (saldo < minimo) continue;
-            }
 
             var beneficiarioId = destino == DestinoReposicionCaja.CuentaSucursal
                 ? sucursalId
@@ -102,7 +95,7 @@ public sealed class ReposicionCajaChicaEmisor
                 moneda: grupo.Key,
                 montoTotal: saldo,
                 numeroComprobaciones: grupo.Count(),
-                esCorteManual: !respetarMinimo,
+                esCorteManual: esCorteManual,
                 emitidaPor: usuarioId,
                 ahora: ahora);
 
@@ -193,7 +186,7 @@ public sealed class EmitirReposicionManualHandler
 
         var reposicion = await _emisor.EmitirSiCorrespondeAsync(
             empresaId, command.SucursalId, command.Destino,
-            respetarMinimo: false,
+            esCorteManual: true,
             usuarioId: _currentUser.UserId,
             ahora: _clock.UtcNow,
             cancellationToken)
@@ -208,65 +201,6 @@ public sealed class EmitirReposicionManualHandler
             MontoTotal: reposicion.MontoTotal,
             NumeroComprobaciones: reposicion.NumeroComprobaciones,
             Moneda: reposicion.Moneda);
-    }
-}
-
-// ------------------------------------------------------------ Configuración
-
-public sealed record ConfigurarReposicionCajaCommand(
-    Guid SucursalId,
-    decimal MontoMinimo) : IRequest<ConfiguracionReposicionResponse>;
-
-public sealed record ConfiguracionReposicionResponse(
-    Guid SucursalId,
-    decimal MontoMinimo);
-
-public sealed class ConfigurarReposicionCajaValidator : AbstractValidator<ConfigurarReposicionCajaCommand>
-{
-    public ConfigurarReposicionCajaValidator()
-    {
-        RuleFor(c => c.SucursalId).NotEmpty();
-        RuleFor(c => c.MontoMinimo).GreaterThanOrEqualTo(0);
-    }
-}
-
-public sealed class ConfigurarReposicionCajaHandler
-    : IRequestHandler<ConfigurarReposicionCajaCommand, ConfiguracionReposicionResponse>
-{
-    private readonly CuentasPorPagarDbContext _db;
-    private readonly ICurrentEmpresaContext _currentEmpresa;
-
-    public ConfigurarReposicionCajaHandler(
-        CuentasPorPagarDbContext db, ICurrentEmpresaContext currentEmpresa)
-    {
-        _db = db; _currentEmpresa = currentEmpresa;
-    }
-
-    public async Task<ConfiguracionReposicionResponse> Handle(
-        ConfigurarReposicionCajaCommand command, CancellationToken cancellationToken)
-    {
-        if (_currentEmpresa.Current is not Guid empresaId)
-        {
-            throw new ForbiddenException(
-                "EMPRESA_NO_SELECCIONADA",
-                "El usuario no tiene una empresa seleccionada en el JWT actual.");
-        }
-
-        var config = await _db.ConfiguracionesReposicionCaja
-            .FirstOrDefaultAsync(c => c.SucursalId == command.SucursalId, cancellationToken);
-
-        if (config is null)
-        {
-            config = ConfiguracionReposicionCaja.Crear(empresaId, command.SucursalId, command.MontoMinimo);
-            _db.ConfiguracionesReposicionCaja.Add(config);
-        }
-        else
-        {
-            config.ActualizarMinimo(command.MontoMinimo);
-        }
-
-        await _db.SaveChangesAsync(cancellationToken);
-        return new ConfiguracionReposicionResponse(config.SucursalId, config.MontoMinimo);
     }
 }
 
@@ -333,8 +267,7 @@ public sealed record SaldoPendienteResponse(
     DestinoReposicionCaja Destino,
     string Moneda,
     decimal Saldo,
-    int NumeroComprobaciones,
-    decimal MontoMinimo);
+    int NumeroComprobaciones);
 
 public sealed class ListarSaldosPendientesHandler
     : IRequestHandler<ListarSaldosPendientesQuery, IReadOnlyList<SaldoPendienteResponse>>
@@ -364,14 +297,9 @@ public sealed class ListarSaldosPendientesHandler
             })
             .ToListAsync(cancellationToken);
 
-        var minimos = await _db.ConfiguracionesReposicionCaja
-            .AsNoTracking()
-            .ToDictionaryAsync(c => c.SucursalId, c => c.MontoMinimo, cancellationToken);
-
         return saldos
             .Select(s => new SaldoPendienteResponse(
-                s.SucursalId, s.Destino, s.Moneda, s.Saldo, s.Numero,
-                minimos.GetValueOrDefault(s.SucursalId, 0m)))
+                s.SucursalId, s.Destino, s.Moneda, s.Saldo, s.Numero))
             .OrderByDescending(s => s.Saldo)
             .ToList();
     }

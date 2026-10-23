@@ -55,6 +55,7 @@ export const VALORES_INICIALES: EmitirFacturaValues = {
   canalVenta: 1,
   comportamientoFiscal: ComportamientoFiscal.MostradorInmediato,
   obraNombre: null,
+  observaciones: null,
   cceTipoOperacion: '2',
   cceIncoterm: null,
   cceTcDof: null,

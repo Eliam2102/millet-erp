@@ -10,10 +10,21 @@ import {
 } from '@/components/ui/table';
 import { cn } from '@/lib/utils';
 import { FileSpreadsheet, FileText, Loader2, Printer } from 'lucide-react';
-import { useState } from 'react';
+import { type ReactNode, useState } from 'react';
 import { toast } from 'sonner';
 
 import type { ReporteShellProps } from '@/components/erp/reportes/ReporteShell';
+
+export interface ReporteFacturacionProps<TFila> extends ReporteShellProps<TFila> {
+  /**
+   * Render en pantalla de una celda (p. ej. un Badge de estado). Si devuelve
+   * <c>undefined</c> se usa el formato por tipo de columna. No afecta a
+   * PDF/Excel, que exportan el valor crudo.
+   */
+  renderCeldaUi?: (fila: TFila, clave: string) => ReactNode | undefined;
+  /** Clases extra por fila (p. ej. resaltar partidas con diferencia). */
+  claseFila?: (fila: TFila) => string | undefined;
+}
 
 // Adaptación visual local: conserva exportadores y datos completos sin cambiar el reporte compartido.
 export function ReporteFacturacion<TFila>({
@@ -27,7 +38,9 @@ export function ReporteFacturacion<TFila>({
   accionFila,
   etiquetaAccion = 'Acciones',
   filasVisibles,
-}: ReporteShellProps<TFila>) {
+  renderCeldaUi,
+  claseFila,
+}: ReporteFacturacionProps<TFila>) {
   const getCelda =
     obtenerCelda ??
     ((row: TFila, clave: string) => (row as unknown as Record<string, unknown>)[clave]);
@@ -184,7 +197,7 @@ export function ReporteFacturacion<TFila>({
                   </TableRow>
                 ) : (
                   (filasVisibles ?? reporte.filas).map((fila, i) => (
-                    <TableRow key={i} className="border-t">
+                    <TableRow key={i} className={cn('border-t', claseFila?.(fila))}>
                       {reporte.columnas.map((c) => (
                         <TableCell
                           key={c.clave}
@@ -195,7 +208,8 @@ export function ReporteFacturacion<TFila>({
                             c.tipo === 'texto' && 'truncate',
                           )}
                         >
-                          {renderCelda(getCelda(fila, c.clave), c.tipo)}
+                          {renderCeldaUi?.(fila, c.clave) ??
+                            renderCelda(getCelda(fila, c.clave), c.tipo)}
                         </TableCell>
                       ))}
                       {accionFila && (

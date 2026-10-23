@@ -35,6 +35,18 @@ public interface IClientesReadPort
         string? razonSocial,
         int limit,
         CancellationToken cancellationToken);
+
+    /// <summary>
+    /// 86e3tfdx8 — búsqueda de una sola caja: todas las palabras de
+    /// <paramref name="texto"/>, en cualquier orden y sin acentos, en razón
+    /// social, RFC o clave; primero las razones sociales que empiezan con la
+    /// primera palabra. El default (dobles de prueba) cae a razón social.
+    /// </summary>
+    Task<IReadOnlyList<ClienteBusquedaItem>> BuscarPorPalabrasAsync(
+        string texto,
+        int limit,
+        CancellationToken cancellationToken)
+        => BuscarAsync(null, texto, limit, cancellationToken);
 }
 
 /// <summary>

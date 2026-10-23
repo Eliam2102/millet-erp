@@ -189,7 +189,6 @@ public sealed class CuentasPorPagarDbContext : BaseDbContext
     public DbSet<ReposicionCajaChica> ReposicionesCajaChica => Set<ReposicionCajaChica>();
 
     /// <summary>Monto mínimo de reposición por sucursal (doc 12 §Q4, GI-PR1).</summary>
-    public DbSet<ConfiguracionReposicionCaja> ConfiguracionesReposicionCaja => Set<ConfiguracionReposicionCaja>();
 
     /// <summary>Catálogo de aprobadores con límite por tipo de gasto (§5.5, F7-PR3).</summary>
     public DbSet<AprobadorLimite> AprobadoresLimites => Set<AprobadorLimite>();
@@ -265,7 +264,6 @@ public sealed class CuentasPorPagarDbContext : BaseDbContext
         modelBuilder.ApplyConfiguration(new ComprobacionGastosConfiguration());
         modelBuilder.ApplyConfiguration(new LineaComprobacionGastosConfiguration());
         modelBuilder.ApplyConfiguration(new ReposicionCajaChicaConfiguration());
-        modelBuilder.ApplyConfiguration(new ConfiguracionReposicionCajaConfiguration());
         modelBuilder.ApplyConfiguration(new AprobadorLimiteConfiguration());
         modelBuilder.ApplyConfiguration(new PoliticaViaticosConfiguration());
         modelBuilder.ApplyConfiguration(new SolicitudViaticosConfiguration());

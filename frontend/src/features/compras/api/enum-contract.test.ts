@@ -12,6 +12,8 @@ import {
   RolAprobador,
 } from '@/features/compras/api/types';
 import {
+  EstadoComercialProveedorOc,
+  TipoRespuestaProveedorOc,
   DescuentoTipo,
   EstadoOrdenCompra,
   SubEstadoFacturacion,
@@ -73,6 +75,8 @@ const manifiesto: Manifiesto = JSON.parse(
  * `toEqual` compare valores sin el branding readonly del `as const`.
  */
 const mirrorsFE: Record<string, Record<string, number>> = {
+  EstadoComercialProveedorOc: { ...EstadoComercialProveedorOc },
+  TipoRespuestaProveedorOc: { ...TipoRespuestaProveedorOc },
   HistoricoTipo: { ...HistoricoTipo },
   EstadoRequisicion: { ...EstadoRequisicion },
   SituacionSurtido: { ...SituacionSurtido },

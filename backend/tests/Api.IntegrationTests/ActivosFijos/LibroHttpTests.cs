@@ -18,7 +18,7 @@ using Millet.Contabilidad.Domain;
 using Millet.Contabilidad.Infrastructure.Persistence;
 using Millet.SharedKernel.Application;
 namespace Millet.Api.IntegrationTests.ActivosFijos;
-public sealed class LibroHttpTests
+public sealed partial class LibroHttpTests
 {
     private const string Base = "/api/v1/activos-fijos";
     [Theory] [InlineData(false)] [InlineData(true)]

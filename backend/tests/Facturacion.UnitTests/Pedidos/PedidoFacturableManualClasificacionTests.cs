@@ -240,7 +240,7 @@ public sealed class PedidoFacturableManualClasificacionTests
         await crear.Handle(Cmd(ClasePedidoManual.VentaDirecta, SubtipoVentaDirecta.Servicio), CancellationToken.None);
         await crear.Handle(Cmd(ClasePedidoManual.Emergencia, motivo: "A+W caído"), CancellationToken.None);
 
-        var bandeja = new BandejaPedidosFacturablesHandler(db, new FakeAlcanceCajaEvaluator());
+        var bandeja = new BandejaPedidosFacturablesHandler(db, new FakeAlcanceCajaEvaluator(), new FakeCurrentUserPermissions());
         var todos = await bandeja.Handle(new BandejaPedidosFacturablesQuery(null, null, 0, 50), CancellationToken.None);
         todos.Items.Should().HaveCount(2);
         todos.Items.Should().Contain(i => i.ClaseManual == "VentaDirecta" && i.SubtipoVentaDirecta == "Servicio" && !i.EsEmergencia);

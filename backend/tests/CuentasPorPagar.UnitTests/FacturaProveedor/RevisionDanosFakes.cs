@@ -12,12 +12,12 @@ internal sealed class AlmacenRevisionFake : IAlmacenRevisionReadPort
         Task.FromResult<IReadOnlySet<Guid>>(subAlmacenIds.Where(EnRevision.Contains).ToHashSet());
 }
 
-internal sealed class DependenciasFake(bool conAlmacen = true) : IDependenciaRevisoraReadPort
+internal sealed class DependenciasFake(bool conCompras = true) : IDependenciaRevisoraReadPort
 {
-    public static readonly Guid AlmacenId = Guid.Parse("00000005-0004-0000-0000-000000000002");
+    public static readonly Guid ComprasId = Guid.Parse("00000005-0004-0000-0000-000000000001");
 
-    private readonly IReadOnlyList<DependenciaRevisoraDto> _lista = conAlmacen
-        ? [new(AlmacenId, "ALMACEN", "Almacén No-Producción", true)]
+    private readonly IReadOnlyList<DependenciaRevisoraDto> _lista = conCompras
+        ? [new(ComprasId, "COMPRAS", "Compras", true)]
         : [];
 
     public Task<IReadOnlyList<DependenciaRevisoraDto>> ListarAsync(CancellationToken cancellationToken) =>

@@ -92,6 +92,10 @@ public sealed class ComprobanteConfiguration : IEntityTypeConfiguration<Comproba
 
         builder.Property(e => e.EnviadoCorreo).IsRequired();
 
+        // F6.7: último estatus consultado al SAT.
+        builder.Property(e => e.EstatusSat).HasMaxLength(20);
+        builder.Property(e => e.EsCancelableSat).HasMaxLength(60);
+
         // Relaciones CFDI (hijas; nodo CfdiRelacionados). F4-PR2.
         builder.HasMany(e => e.Relaciones)
             .WithOne()
@@ -117,5 +121,9 @@ public sealed class ComprobanteConfiguration : IEntityTypeConfiguration<Comproba
         // Capa A de Cajas: las bandejas filtran por pares (sucursal, canal).
         builder.HasIndex(e => new { e.SucursalId, e.CanalVentaId })
             .HasDatabaseName("ix_comprobante_sucursal_canal");
+
+        // F6.7: el monitor y la conciliación leen por sucursal y día de timbrado.
+        builder.HasIndex(e => new { e.SucursalId, e.FechaTimbrado })
+            .HasDatabaseName("ix_comprobante_sucursal_fecha_timbrado");
     }
 }

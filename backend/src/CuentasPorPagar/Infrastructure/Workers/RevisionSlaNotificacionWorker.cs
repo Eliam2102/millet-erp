@@ -26,7 +26,7 @@ namespace Millet.CuentasPorPagar.Infrastructure.Workers;
 /// <list type="bullet">
 ///   <item>SLA 5 días: aviso día 3, SLA vencido día 5, escalamiento
 ///         a Dirección de Finanzas día 10.</item>
-///   <item>SLA 15 días (Disputa contractual): aviso día 8, vencido
+///   <item>SLA 15 días (Disputa con proveedor): aviso día 8, vencido
 ///         día 12, escalamiento día 20.</item>
 ///   <item>SLA null (Indicación expresa): no notifica — libera el
 ///         solicitante.</item>

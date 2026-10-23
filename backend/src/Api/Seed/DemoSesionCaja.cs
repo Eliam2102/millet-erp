@@ -50,12 +50,12 @@ public sealed partial class DemoSesionSeedHostedService
         var maestros = sp.GetRequiredService<CompartidoDbContext>();
         var mid = await maestros.Sucursales.SingleAsync(s => s.EmpresaId == EmpresaId && s.Clave == "MID", ct);
 
-        // Cajeros: la cajera técnica y los usuarios DEMO de Facturación que aún
+        // Cajeros: la cajera técnica y los usuarios DEMO de Facturación o Caja que aún
         // no estén en ninguna caja (los que entran por primera vez después).
         // Nunca se retiran cajeros: se respeta lo que el administrador edite.
-        var rolFacturacion = Id("DEMO-ROL-Facturación");
+        var rolesCaja = new[] { Id("DEMO-ROL-Facturación"), Id("DEMO-ROL-Caja") };
         var cajerosFacturacion = await sp.GetRequiredService<IdentidadDbContext>().UsuarioEmpresaRoles
-            .Where(a => a.EmpresaId == EmpresaId && a.RolId == rolFacturacion)
+            .Where(a => a.EmpresaId == EmpresaId && rolesCaja.Contains(a.RolId))
             .Select(a => a.UsuarioId).ToListAsync(ct);
         var yaRelacionados = await db.Cajas.SelectMany(c => c.Usuarios).Select(u => u.UsuarioId).ToListAsync(ct);
 

@@ -96,6 +96,8 @@ export const PermisosCanonicos = {
   ComprasOrdenesCancelarDoble: 'compras.ordenes.cancelar-doble',
   ComprasOrdenesReportesPartidasAbiertas:
     'compras.ordenes.reportes-partidas-abiertas',
+  ComprasOrdenesReportesAnalisisProveedores:
+    'compras.ordenes.reportes-analisis-proveedores',
   ComprasOrdenesRegistrarRespuestaProveedor: 'compras.ordenes.registrar-respuesta-proveedor',
   ComprasOrdenesRegistrarIncidenciaProveedor: 'compras.ordenes.registrar-incidencia-proveedor',
 
@@ -171,6 +173,7 @@ export const PermisosCanonicos = {
   DatosMaestrosClientesSincronizar: 'datos_maestros.clientes.sincronizar',
   DatosMaestrosClientesOrigenVer: 'datos_maestros.clientes.origen-ver',
   DatosMaestrosClientesFiscalEditar: 'datos_maestros.clientes.fiscal-editar',
+  DatosMaestrosClientesUnificar: 'datos_maestros.clientes.unificar',
   DatosMaestrosProductosAwGestionar: 'datos_maestros.productos-aw.gestionar',
   // U1.8b (F1-FAC-14): reporte de diferencias fiscales A+W vs ERP.
   DatosMaestrosDiferenciasFiscalesAwLeer:
@@ -402,6 +405,8 @@ export const PermisosCanonicos = {
     'facturacion.pedidos.excepciones-resolver',
   // F6.1: captura de pedidos manuales de emergencia (A+W fuera de servicio).
   FacturacionPedidosCapturarEmergencia: 'facturacion.pedidos.capturar-emergencia',
+  // 86e3tfdw2: ver pedidos facturables a crédito (sin él se ocultan).
+  FacturacionPedidosLeerCredito: 'facturacion.pedidos.leer-credito',
   FacturacionFacturasEmitir: 'facturacion.facturas.emitir',
   FacturacionFacturasLeer: 'facturacion.facturas.leer',
   // CTA "Corregir en catálogo" del receptor en la emisión (detallado
@@ -430,6 +435,9 @@ export const PermisosCanonicos = {
   FacturacionCajaSupervisar: 'facturacion.caja.supervisar',
   FacturacionCajaLeerTodas: 'facturacion.caja.leer-todas',
   FacturacionReportesLeer: 'facturacion.reportes.leer',
+  // F6.7 (ADR-0051): cierre del día de todas las sucursales.
+  FacturacionReportesLeerTodasSucursales:
+    'facturacion.reportes.leer-todas-sucursales',
   FacturacionComprobantesReintentarTimbrado:
     'facturacion.comprobantes.reintentar-timbrado',
   FacturacionComprobantesDescartar: 'facturacion.comprobantes.descartar',

@@ -9,6 +9,13 @@
     "Porcentaje": 0,
     "Monto": 1
   },
+  "EstadoComercialProveedorOc": {
+    "SinRespuesta": 0,
+    "Confirmada": 1,
+    "ConfirmadaConDiferencias": 2,
+    "Rechazada": 3,
+    "RespuestaRegistrada": 4
+  },
   "EstadoOrdenCompra": {
     "Borrador": 0,
     "EnAutorizacionJefeCompras": 1,
@@ -106,5 +113,9 @@
     "SinRecepcion": 0,
     "Parcial": 1,
     "Completa": 2
+  },
+  "TipoRespuestaProveedorOc": {
+    "Confirmacion": 1,
+    "Rechazo": 2
   }
 }

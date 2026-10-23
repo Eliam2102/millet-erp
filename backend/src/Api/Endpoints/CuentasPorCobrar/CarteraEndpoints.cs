@@ -167,6 +167,22 @@ public static class CarteraEndpoints
         .WithName("ListarAnticiposCliente")
         .Produces<IReadOnlyList<AnticipoSaldoClienteDto>>(StatusCodes.Status200OK);
 
+        // F1-CXC-05: anticipos con su aplicación a la factura final (solo
+        // consulta). clienteId opcional: sin él lista todos los clientes con
+        // anticipos. Alcance por sucursal vía ISucursalScopedQuery (ADR-0051).
+        cartera.MapGet("/anticipos/aplicaciones", async (
+            [FromQuery] Guid? clienteId,
+            [FromQuery] string? estado,
+            IMediator mediator,
+            CancellationToken cancellationToken) =>
+            Results.Ok(await mediator.Send(
+                new AplicacionesAnticipoClienteQuery(clienteId, estado), cancellationToken)))
+        .RequireAuthorization(PermissionPolicyProvider.Prefix + PermisosCanonicos.CuentasPorCobrarCarteraLeer)
+        .WithName("ListarAplicacionesAnticipo")
+        .Produces<AplicacionesAnticipoResponse>(StatusCodes.Status200OK)
+        .ProducesValidationProblem()
+        .ProducesProblem(StatusCodes.Status403Forbidden);
+
         return app;
     }
 }
