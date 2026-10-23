@@ -62,6 +62,24 @@ public sealed class QuestPdfFacturaGenerator : IGenerarPdfFacturaPort
         return new PdfFacturaGenerado(bytes, "application/pdf", $"nota-credito-{notaCredito.Folio}.pdf");
     }
 
+    /// <summary>
+    /// Bloque «Observaciones» del PDF (86e3tfdw2): null si la factura no
+    /// tiene observaciones. Solo representación impresa — el XML no las lleva.
+    /// </summary>
+    internal static (string Titulo, string Texto)? BloqueObservaciones(FacturaVenta f) =>
+        string.IsNullOrWhiteSpace(f.Observaciones) ? null : ("Observaciones / Remarks", f.Observaciones);
+
+    private static void MostrarObservaciones(ColumnDescriptor col, FacturaVenta f, float tamanoTexto)
+    {
+        if (BloqueObservaciones(f) is not var (titulo, texto))
+            return;
+        col.Item().PaddingTop(6).Column(c =>
+        {
+            c.Item().Text(titulo).Bold();
+            c.Item().Text(texto).FontSize(tamanoTexto);
+        });
+    }
+
     private static string M(decimal v) => v.ToString("N2", CultureInfo.InvariantCulture);
 
     /// <summary>
@@ -179,6 +197,15 @@ public sealed class QuestPdfFacturaGenerator : IGenerarPdfFacturaPort
             });
         }).GeneratePdf();
 
+    private static void MostrarEmbarqueCe(ColumnDescriptor col, FacturaVenta f)
+    {
+        if (f.DatosEmbarqueCe is not { } ce) return;
+        col.Item().Text($"Expediente: {ce.FolioExpediente} · Incoterm: {ce.Incoterm}");
+        col.Item().Text($"Pedimento de exportación: {ce.NumeroPedimento} · {ce.ClavePedimento} · {ce.FechaPedimento:yyyy-MM-dd}");
+        foreach (var c in ce.Contenedores)
+            col.Item().Text($"Contenedor: {c.Numero} · BL o guía: {c.BlGuia} · Embarque: {c.FechaEmbarqueReal:yyyy-MM-dd}");
+    }
+
     private static byte[] GenerarBilingue(FacturaVenta f) =>
         Document.Create(doc =>
         {
@@ -198,6 +225,7 @@ public sealed class QuestPdfFacturaGenerator : IGenerarPdfFacturaPort
                 page.Content().PaddingVertical(8).Column(col =>
                 {
                     col.Spacing(6);
+                    MostrarEmbarqueCe(col, f);
 
                     col.Item().Row(row =>
                     {
@@ -260,6 +288,8 @@ public sealed class QuestPdfFacturaGenerator : IGenerarPdfFacturaPort
                         t.Item().Text($"TOTAL: {f.Moneda} {M(f.Total)}").Bold().FontSize(11);
                     });
 
+                    MostrarObservaciones(col, f, 8);
+
                     if (f.Estado == EstadoTimbrado.Timbrado && f.Uuid is not null)
                     {
                         col.Item().PaddingTop(8).Column(c =>
@@ -292,6 +322,7 @@ public sealed class QuestPdfFacturaGenerator : IGenerarPdfFacturaPort
                 page.Content().Column(col =>
                 {
                     col.Spacing(3);
+                    MostrarEmbarqueCe(col, f);
                     col.Item().AlignCenter().Text("MILLET").FontSize(12).Bold();
                     col.Item().AlignCenter().Text($"Folio: {f.Folio}");
                     col.Item().Text($"RFC emisor: {f.RfcEmisor}");
@@ -309,6 +340,8 @@ public sealed class QuestPdfFacturaGenerator : IGenerarPdfFacturaPort
                     col.Item().AlignRight().Text($"Subtotal: {M(f.Subtotal)}");
                     col.Item().AlignRight().Text($"IVA: {M(f.ImpuestosTrasladados)}");
                     col.Item().AlignRight().Text($"TOTAL: {f.Moneda} {M(f.Total)}").Bold();
+
+                    MostrarObservaciones(col, f, 7);
 
                     if (f.Uuid is not null)
                     {

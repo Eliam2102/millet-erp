@@ -69,27 +69,21 @@ export function FiltrosPartidasAbiertas({
           <Filter className="h-4 w-4" />
           Filtros
         </h2>
-        <Button
-          size="sm"
-          variant="ghost"
-          onClick={reset}
-          data-action="reset-filtros"
-        >
+        <Button size="sm" variant="ghost" onClick={reset} data-action="reset-filtros">
           <RotateCcw className="mr-1 h-3.5 w-3.5" />
           Limpiar
         </Button>
       </div>
 
-      <div className="space-y-3">
+      {/* Bajo 2xl los filtros van en rejilla (no en una columna de 1000 px); en 2xl el aside de 260 px los apila a todo el ancho. */}
+      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4 2xl:grid-cols-1">
         <Field label="Estado">
           <Select
             value={search.estado != null ? String(search.estado) : SENTINEL_ALL}
             onValueChange={(v) =>
               update(
                 'estado',
-                v === SENTINEL_ALL
-                  ? undefined
-                  : (Number(v) as PartidasAbiertasSearch['estado']),
+                v === SENTINEL_ALL ? undefined : (Number(v) as PartidasAbiertasSearch['estado']),
               )
             }
           >
@@ -113,9 +107,7 @@ export function FiltrosPartidasAbiertas({
         <Field label="Recepción">
           <Select
             value={
-              search.subEstadoRecepcion != null
-                ? String(search.subEstadoRecepcion)
-                : SENTINEL_ALL
+              search.subEstadoRecepcion != null ? String(search.subEstadoRecepcion) : SENTINEL_ALL
             }
             onValueChange={(v) =>
               update(
@@ -146,9 +138,7 @@ export function FiltrosPartidasAbiertas({
             onValueChange={(v) =>
               update(
                 'subEstadoFacturacion',
-                v === SENTINEL_ALL
-                  ? undefined
-                  : (Number(v) as SubEstadoFacturacion),
+                v === SENTINEL_ALL ? undefined : (Number(v) as SubEstadoFacturacion),
               )
             }
           >
@@ -166,16 +156,9 @@ export function FiltrosPartidasAbiertas({
 
         <Field label="Pago">
           <Select
-            value={
-              search.subEstadoPago != null
-                ? String(search.subEstadoPago)
-                : SENTINEL_ALL
-            }
+            value={search.subEstadoPago != null ? String(search.subEstadoPago) : SENTINEL_ALL}
             onValueChange={(v) =>
-              update(
-                'subEstadoPago',
-                v === SENTINEL_ALL ? undefined : (Number(v) as SubEstadoPago),
-              )
+              update('subEstadoPago', v === SENTINEL_ALL ? undefined : (Number(v) as SubEstadoPago))
             }
           >
             <SelectTrigger>
@@ -233,13 +216,24 @@ export function FiltrosPartidasAbiertas({
           />
         </Field>
 
+        <div className="flex items-center gap-2 self-end pb-1.5">
+          <input
+            id="filtro-con-incidencias"
+            type="checkbox"
+            className="accent-brand"
+            checked={search.conIncidenciasAbiertas === true}
+            onChange={(e) => update('conIncidenciasAbiertas', e.target.checked || undefined)}
+          />
+          <label htmlFor="filtro-con-incidencias" className="text-xs font-medium text-ink-muted">
+            Solo con incidencias abiertas
+          </label>
+        </div>
+
         <Field label="Contenedor">
           <Input
             type="text"
             value={search.numeroContenedor ?? ''}
-            onChange={(e) =>
-              update('numeroContenedor', e.target.value || undefined)
-            }
+            onChange={(e) => update('numeroContenedor', e.target.value || undefined)}
             placeholder="ABCU1234567"
             maxLength={20}
           />
@@ -258,9 +252,7 @@ export function FiltrosPartidasAbiertas({
           <Input
             type="text"
             value={search.semanaEmbarque ?? ''}
-            onChange={(e) =>
-              update('semanaEmbarque', e.target.value || undefined)
-            }
+            onChange={(e) => update('semanaEmbarque', e.target.value || undefined)}
             placeholder="2026-W12"
             maxLength={20}
           />
@@ -270,18 +262,10 @@ export function FiltrosPartidasAbiertas({
   );
 }
 
-function Field({
-  label,
-  children,
-}: {
-  label: string;
-  children: React.ReactNode;
-}) {
+function Field({ label, children }: { label: string; children: React.ReactNode }) {
   return (
     <div className="space-y-1">
-      <label className="text-xs font-medium text-muted-foreground">
-        {label}
-      </label>
+      <label className="text-xs font-medium text-ink-muted">{label}</label>
       {children}
     </div>
   );

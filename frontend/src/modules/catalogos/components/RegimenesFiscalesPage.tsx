@@ -2,10 +2,7 @@ import { useMemo } from 'react';
 import { Badge } from '@/components/ui/badge';
 import { CatalogoSatReadOnlyTable } from '@/modules/catalogos/components/CatalogoSatReadOnlyTable';
 import { useRegimenesFiscales } from '@/modules/catalogos/api';
-import {
-  EstatusCatalogo,
-  type RegimenFiscalItem,
-} from '@/modules/catalogos/api/types';
+import { EstatusCatalogo, type RegimenFiscalItem } from '@/modules/catalogos/api/types';
 
 /**
  * Página P1 read-only del catálogo SAT Regímenes Fiscales
@@ -36,9 +33,7 @@ export function RegimenesFiscalesPage() {
           key: 'aplicaPersonaFisica',
           label: 'Aplica persona',
           render: (i) => (
-            <span className="text-muted-foreground">
-              {i.aplicaPersonaFisica ? 'Física' : 'Moral'}
-            </span>
+            <span className="text-ink-muted">{i.aplicaPersonaFisica ? 'Física' : 'Moral'}</span>
           ),
           className: 'w-40',
         },
@@ -47,9 +42,9 @@ export function RegimenesFiscalesPage() {
           label: 'Estatus',
           render: (i) =>
             i.estatus === EstatusCatalogo.Activo ? (
-              <Badge variant="secondary">Activo</Badge>
+              <Badge variant="success">Activo</Badge>
             ) : (
-              <Badge variant="outline" className="text-muted-foreground">
+              <Badge variant="neutral" className="text-ink-muted">
                 Inactivo
               </Badge>
             ),

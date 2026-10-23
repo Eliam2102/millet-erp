@@ -43,6 +43,7 @@ public static class DependencyInjection
         // --- Catálogos SAT: adapter REAL sobre Compartido (no stub) ---
         // Scoped porque consume CompartidoDbContext (scoped).
         services.AddScoped<Millet.Facturacion.Application.Timbrado.ValidadorReceptorFiscal>();
+        services.AddScoped<Millet.ComercioExterior.Application.Ports.IPedidosEmbarcablesReadPort, PublicAdapters.PedidosEmbarcablesReadAdapter>();
         services.AddScoped<ICatalogosSatReadPort, CompartidoCatalogosSatReadAdapter>();
         services.AddScoped<IReppBancarioReadPort, ReppBancarioReadAdapter>();
         services.AddScoped<Millet.CuentasPorCobrar.Domain.Ports.Facturacion.IReppPendientesReadPort, PublicAdapters.ReppPendientesReadAdapter>();
@@ -53,6 +54,7 @@ public static class DependencyInjection
         // Deuda <DatosMaestrosFiscal> cerrada (ADR-0048 PR2).
         services.AddScoped<IClientesReadPort, DatosMaestros.ClientesReadAdapter>();
         services.AddScoped<IProductosReadPort, DatosMaestros.ProductosReadAdapter>();
+        services.AddScoped<Millet.DatosMaestros.Application.Clientes.IPedidosErpPorClienteReadPort, PublicAdapters.PedidosErpPorClienteReadAdapter>();
 
         // --- Datos fiscales del emisor (Administración): adapter REAL sobre ---
         // compartido.empresas/sucursales (FAC-UX-PR1, cierra la pata backend
@@ -81,6 +83,14 @@ public static class DependencyInjection
         services.AddScoped<
             Millet.Integraciones.Fiscal.Domain.Ports.ICfdiTimbradoPort,
             Millet.Integraciones.Fiscal.Infrastructure.SdkAdapter.FiscalApiTimbradoAdapter>();
+
+        // --- F6.7: estatus del CFDI ante el SAT (monitor por sucursal y día) ---
+        // `Facturacion:ConsultaEstatusSat:Proveedor` = FiscalApi (real) o
+        // Simulado (adaptador de prueba, por omisión; Eliam 20-oct).
+        if (Adapters.ConsultaEstatusSatConfig.UsarFiscalApi(configuration))
+            services.AddScoped<IConsultaEstatusCfdiPort, Adapters.ConsultaEstatusCfdiFiscalApiAdapter>();
+        else
+            services.AddScoped<IConsultaEstatusCfdiPort, Adapters.ConsultaEstatusCfdiSimuladoAdapter>();
 
         // --- Repo de CFDI de emitidos: adapter REAL en Integraciones.Fiscal ---
         // F2-PR1 reemplazó el stub local por `CfdiArchivoRepository`
@@ -142,6 +152,12 @@ public static class DependencyInjection
         services.AddScoped<
             Millet.CuentasPorCobrar.Domain.Ports.Facturacion.IFacturacionAnticiposReadPort,
             PublicAdapters.FacturacionAnticiposReadAdapter>();
+
+        // --- F1-CXC-05: anticipos con sus aplicaciones a factura final (mismas
+        // reglas que la comparativa F6.2, sin alcance de Cajas; CxC filtra por sucursal).
+        services.AddScoped<
+            Millet.CuentasPorCobrar.Domain.Ports.Facturacion.IFacturacionAplicacionesAnticipoReadPort,
+            PublicAdapters.FacturacionAplicacionesAnticipoReadAdapter>();
 
         return services;
     }

@@ -36,6 +36,13 @@ public sealed class ContabilidadDbContext : BaseDbContext
     public DbSet<EjercicioContable> Ejercicios => Set<EjercicioContable>();
     public DbSet<PeriodoContable> Periodos => Set<PeriodoContable>();
 
+    // F1-CON-04: pólizas (C1.3), numeración por tipo (K10.9) y anulación (K10.3).
+    public DbSet<Poliza> Polizas => Set<Poliza>();
+    public DbSet<PolizaPartida> PolizasPartidas => Set<PolizaPartida>();
+    public DbSet<ConsecutivoPoliza> ConsecutivosPoliza => Set<ConsecutivoPoliza>();
+    // K10.4: pólizas recurrentes.
+    public DbSet<PlantillaRecurrente> PlantillasRecurrentes => Set<PlantillaRecurrente>();
+
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         modelBuilder.HasDefaultSchema(SchemaName);
@@ -49,5 +56,11 @@ public sealed class ContabilidadDbContext : BaseDbContext
             .HasSchema("pg_catalog");
 
         modelBuilder.ApplyConfigurationsFromAssembly(typeof(ContabilidadDbContext).Assembly);
+        // AF-01: tipo de operación para altas, mejoras y notas de crédito de activos.
+        var fecha = new DateTimeOffset(2026, 1, 1, 0, 0, 0, TimeSpan.Zero);
+        modelBuilder.Entity<TipoDocumentoContable>().HasData(new {
+            Id = Guid.Parse("0000000f-0003-0000-0000-000000000001"), EmpresaId = Guid.Parse("00000003-0000-0000-0000-000000000001"),
+            Clave = "AF", Nombre = "Capitalización de activos fijos", Estatus = Millet.Catalogos.Domain.EstatusCatalogo.Activo,
+            EsPrueba = false, TipoSat = TipoPolizaSat.Diario, Version = 1, CreatedAt = fecha, UpdatedAt = fecha });
     }
 }

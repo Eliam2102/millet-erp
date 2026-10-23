@@ -171,6 +171,7 @@ public sealed class CuentasPorPagarDbContext : BaseDbContext
 
     /// <summary>Proyección local de OcRecepcionRegistradaEvent (F5-PR1).</summary>
     public DbSet<RecepcionOcLocal> RecepcionesOcLocal => Set<RecepcionOcLocal>();
+    public DbSet<AvisoSlaRevision> AvisosSlaRevision => Set<AvisoSlaRevision>();
 
     /// <summary>Anticipos a proveedores (§4.5, F6-PR2).</summary>
     public DbSet<AnticipoProveedor> AnticiposProveedor => Set<AnticipoProveedor>();
@@ -188,7 +189,6 @@ public sealed class CuentasPorPagarDbContext : BaseDbContext
     public DbSet<ReposicionCajaChica> ReposicionesCajaChica => Set<ReposicionCajaChica>();
 
     /// <summary>Monto mínimo de reposición por sucursal (doc 12 §Q4, GI-PR1).</summary>
-    public DbSet<ConfiguracionReposicionCaja> ConfiguracionesReposicionCaja => Set<ConfiguracionReposicionCaja>();
 
     /// <summary>Catálogo de aprobadores con límite por tipo de gasto (§5.5, F7-PR3).</summary>
     public DbSet<AprobadorLimite> AprobadoresLimites => Set<AprobadorLimite>();
@@ -251,6 +251,7 @@ public sealed class CuentasPorPagarDbContext : BaseDbContext
         modelBuilder.Entity<NotaCreditoProveedor>().Property(n => n.MotivoExcepcionRelacion).HasMaxLength(400);
         modelBuilder.ApplyConfiguration(new EventoProcesadoConfiguration());
         modelBuilder.ApplyConfiguration(new RecepcionOcLocalConfiguration());
+        modelBuilder.ApplyConfiguration(new AvisoSlaRevisionConfiguration());
         modelBuilder.ApplyConfiguration(new AnticipoProveedorConfiguration());
         modelBuilder.Entity<ConfiguracionAnticipoProveedor>(b =>
         {
@@ -263,7 +264,6 @@ public sealed class CuentasPorPagarDbContext : BaseDbContext
         modelBuilder.ApplyConfiguration(new ComprobacionGastosConfiguration());
         modelBuilder.ApplyConfiguration(new LineaComprobacionGastosConfiguration());
         modelBuilder.ApplyConfiguration(new ReposicionCajaChicaConfiguration());
-        modelBuilder.ApplyConfiguration(new ConfiguracionReposicionCajaConfiguration());
         modelBuilder.ApplyConfiguration(new AprobadorLimiteConfiguration());
         modelBuilder.ApplyConfiguration(new PoliticaViaticosConfiguration());
         modelBuilder.ApplyConfiguration(new SolicitudViaticosConfiguration());

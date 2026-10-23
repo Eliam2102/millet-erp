@@ -15,6 +15,8 @@ import {
   PopoverTrigger,
 } from '@/components/ui/popover';
 import { useOrdenesCompra } from '@/features/compras/ordenes/api/useOrdenesCompra';
+import { useOrdenCompra } from '@/features/compras/ordenes/api/useOrdenCompra';
+import { useDebouncedValue } from '@/lib/hooks/useDebouncedValue';
 import {
   EstadoOrdenCompra,
   type OrdenCompraResumen,
@@ -24,10 +26,12 @@ import { CatalogoQueryError } from './CatalogoQueryError';
 
 /**
  * <c>&lt;OrdenCompraSelector/&gt;</c> — combobox para seleccionar una
- * Orden de Compra. Patrón <b>eager</b> con filtro client-side: el
- * backend no expone filtro por <c>folio</c>, así que cargamos los
- * últimos 200 OCs en el estado pedido y filtramos por
- * folio/referencia/proveedor desde el cliente.
+ * Orden de Compra. Búsqueda <b>en el servidor</b> (UX-F0-03): el texto
+ * escrito viaja como <c>q</c> (folio o referencia de proveedor, contiene,
+ * debounce 200 ms) y se piden páginas de 20; no hay filtrado client-side,
+ * así que una OC antigua se encuentra por folio sin importar cuántas haya.
+ * La etiqueta de la OC elegida se resuelve con <c>useOrdenCompra(value)</c>
+ * cuando no está en la página actual.
  *
  * <para>El filtro por <c>estado</c> es importante: por default
  * mostramos solo <c>Autorizada</c> (las que aceptan recepción).
@@ -83,21 +87,27 @@ export function OrdenCompraSelector({
   const [open, setOpen] = useState(false);
   const [input, setInput] = useState('');
 
+  const debounced = useDebouncedValue(input, 200).trim();
+
   const ocQuery = useOrdenesCompra({
     estado: estado ?? undefined,
     proveedorId: proveedorId ?? undefined,
     soloConPendienteRecepcion: soloConPendienteRecepcion || undefined,
-    pageSize: 200,
+    q: debounced || undefined,
+    pageSize: 20,
   });
   const items = ocQuery.data?.items ?? [];
+  const total = ocQuery.data?.totalCount ?? items.length;
 
   const seleccionada = value ? items.find((o) => o.id === value) : undefined;
+  // Fuera de la página actual: lookup puntual por id (cacheado). Nunca se muestra un GUID.
+  const detalle = useOrdenCompra(value && !seleccionada ? value : null);
   const triggerLabel = seleccionada
-    ? `${seleccionada.folio} · ${seleccionada.proveedorNombre ?? seleccionada.proveedorId}`
+    ? `${seleccionada.folio} · ${seleccionada.proveedorNombre ?? 'Sin proveedor'}`
     : value
-      ? value.length > 18
-        ? `${value.slice(0, 8)}…`
-        : value
+      ? detalle.data
+        ? `${detalle.data.folio} · ${detalle.data.proveedorRazonSocial ?? 'Sin proveedor'}`
+        : 'Sin número'
       : placeholder;
 
   function handleSelect(item: OrdenCompraResumen) {
@@ -133,9 +143,9 @@ export function OrdenCompraSelector({
         </Button>
       </PopoverTrigger>
       <PopoverContent align="start" className="w-[min(40rem,90vw)] p-0">
-        <Command>
+        <Command shouldFilter={false}>
           <CommandInput
-            placeholder="Folio, referencia o proveedor…"
+            placeholder="Folio o referencia…"
             value={input}
             onValueChange={setInput}
           />
@@ -153,22 +163,20 @@ export function OrdenCompraSelector({
             ) : (
               <>
                 <CommandEmpty>
-                  {items.length === 0
-                    ? 'No hay órdenes de compra en este estado.'
-                    : 'No hay coincidencias.'}
+                  {debounced
+                    ? 'No hay coincidencias.'
+                    : 'No hay órdenes de compra en este estado.'}
                 </CommandEmpty>
                 <CommandGroup>
                   {items.map((o) => {
                     // proveedorNombre viene resuelto del resumen (server-side,
-                    // ADR-0042); fallback al id solo si el backend no resolvió.
-                    const proveedor = o.proveedorNombre ?? o.proveedorId;
-                    // Concatenamos los campos buscables en el value para
-                    // que el filtro client-side de Command los matchee.
-                    const valueParaFilter = `${o.folio} ${o.id} ${proveedor}`;
+                    // ADR-0042); etiqueta de reserva si el backend no resolvió.
+                    const proveedor =
+                      o.proveedorNombre ?? 'Sin proveedor';
                     return (
                       <CommandItem
                         key={o.id}
-                        value={valueParaFilter}
+                        value={o.id}
                         onSelect={() => handleSelect(o)}
                         className="flex items-start justify-between gap-3"
                       >
@@ -181,7 +189,7 @@ export function OrdenCompraSelector({
                               {o.moneda}
                             </span>
                           </div>
-                          <p className="truncate text-sm">{proveedor}</p>
+                          <p className={`truncate text-sm${o.proveedorNombre == null ? ' text-ink-muted' : ''}`}>{proveedor}</p>
                         </div>
                         {o.id === value && (
                           <Check
@@ -193,6 +201,12 @@ export function OrdenCompraSelector({
                     );
                   })}
                 </CommandGroup>
+                {total > items.length && (
+                  <p className="border-t px-3 py-2 text-xs text-ink-muted">
+                    Mostrando {items.length} de {total}. Escribe el folio para
+                    acotar.
+                  </p>
+                )}
               </>
             )}
           </CommandList>

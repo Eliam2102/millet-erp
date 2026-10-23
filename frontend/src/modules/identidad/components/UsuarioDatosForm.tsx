@@ -1,3 +1,5 @@
+import { FormSeccion } from '@/components/erp/forms/FormSeccion';
+import { FormCampo } from '@/components/erp/forms/FormGrid';
 import { useEffect } from 'react';
 import { Controller, useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -5,11 +7,7 @@ import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { DepartamentoSelector } from '@/components/erp';
-import {
-  applyServerErrors,
-  esApiError,
-  useFormIdempotencyKey,
-} from '@/lib/api';
+import { applyServerErrors, esApiError, useFormIdempotencyKey, codigoSoporte } from '@/lib/api';
 import {
   ActualizarUsuarioSchema,
   type ActualizarUsuarioValues,
@@ -81,17 +79,12 @@ export function UsuarioDatosForm({ usuario }: UsuarioDatosFormProps) {
               return;
             }
             if (
-              applyServerErrors(
-                form as unknown as Parameters<typeof applyServerErrors>[0],
-                error,
-              )
+              applyServerErrors(form as unknown as Parameters<typeof applyServerErrors>[0], error)
             ) {
               return;
             }
             toast.error(error.problem.title, {
-              description: error.traceId
-                ? `Código: ${error.traceId}`
-                : undefined,
+              description: codigoSoporte(error),
             });
             return;
           }
@@ -107,82 +100,76 @@ export function UsuarioDatosForm({ usuario }: UsuarioDatosFormProps) {
     <form
       onSubmit={form.handleSubmit(onSubmit)}
       noValidate
-      className="grid grid-cols-1 gap-4 rounded-md border bg-card p-4 md:grid-cols-2 max-w-3xl"
+      className="rounded-md border bg-surface-card p-4"
     >
-      <FormRow
-        label="Entra ID Object ID"
-        hint="No editable. Se fija al crear el usuario; placeholders dev-* hasta que el resolver real esté disponible."
-      >
-        <Input
-          value={usuario.entraOid}
-          readOnly
-          aria-readonly
-          className="font-mono text-xs"
-        />
-      </FormRow>
-
-      <FormRow
-        label="Email"
-        required
-        error={form.formState.errors.email?.message}
-      >
-        <Input
-          type="email"
-          maxLength={254}
-          disabled={!canEditar}
-          {...form.register('email')}
-        />
-      </FormRow>
-
-      <div className="md:col-span-2">
-        <FormRow
-          label="Nombre completo"
-          required
-          error={form.formState.errors.nombreCompleto?.message}
-        >
-          <Input
-            maxLength={254}
-            disabled={!canEditar}
-            {...form.register('nombreCompleto')}
-          />
-        </FormRow>
-      </div>
-
-      <div className="md:col-span-2">
-        <FormRow
-          label="Departamento"
-          hint="Opcional. Vacío = sin departamento asignado."
-          error={form.formState.errors.departamentoId?.message}
-        >
-          <Controller
-            name="departamentoId"
-            control={form.control}
-            render={({ field }) => (
-              <DepartamentoSelector
-                value={field.value}
-                onChange={(v) => field.onChange(v)}
-                disabled={!canEditar}
-              />
-            )}
-          />
-        </FormRow>
-      </div>
-
-      {canEditar && (
-        <div className="md:col-span-2 flex flex-wrap items-center justify-end gap-2 border-t pt-3">
-          <Button
-            type="button"
-            variant="ghost"
-            onClick={() => form.reset(buildDefaults(usuario))}
-            disabled={!dirty || actualizar.isPending}
+      <FormSeccion titulo="Datos de la cuenta">
+        <FormCampo span={12}>
+          <FormRow
+            label="Entra ID Object ID"
+            hint="No editable. Se fija al crear el usuario; placeholders dev-* hasta que el resolver real esté disponible."
           >
-            Descartar cambios
-          </Button>
-          <Button type="submit" disabled={!dirty || actualizar.isPending}>
-            {actualizar.isPending ? 'Guardando…' : 'Guardar cambios'}
-          </Button>
-        </div>
-      )}
+            <Input value={usuario.entraOid} readOnly aria-readonly className="font-mono text-xs" />
+          </FormRow>
+        </FormCampo>
+
+        <FormCampo span={12}>
+          <FormRow label="Email" required error={form.formState.errors.email?.message}>
+            <Input type="email" maxLength={254} disabled={!canEditar} {...form.register('email')} />
+          </FormRow>
+        </FormCampo>
+
+        <FormCampo span={12}>
+          <div className="md:col-span-2">
+            <FormRow
+              label="Nombre completo"
+              required
+              error={form.formState.errors.nombreCompleto?.message}
+            >
+              <Input maxLength={254} disabled={!canEditar} {...form.register('nombreCompleto')} />
+            </FormRow>
+          </div>
+        </FormCampo>
+
+        <FormCampo span={12}>
+          <div className="md:col-span-2">
+            <FormRow
+              label="Departamento"
+              hint="Opcional. Vacío = sin departamento asignado."
+              error={form.formState.errors.departamentoId?.message}
+            >
+              <Controller
+                name="departamentoId"
+                control={form.control}
+                render={({ field }) => (
+                  <DepartamentoSelector
+                    value={field.value}
+                    onChange={(v) => field.onChange(v)}
+                    disabled={!canEditar}
+                  />
+                )}
+              />
+            </FormRow>
+          </div>
+        </FormCampo>
+
+        <FormCampo span={12}>
+          {canEditar && (
+            <div className="md:col-span-2 flex flex-wrap items-center justify-end gap-2 border-t pt-3">
+              <Button
+                type="button"
+                variant="ghost"
+                onClick={() => form.reset(buildDefaults(usuario))}
+                disabled={!dirty || actualizar.isPending}
+              >
+                Descartar cambios
+              </Button>
+              <Button type="submit" disabled={!dirty || actualizar.isPending}>
+                {actualizar.isPending ? 'Guardando…' : 'Guardar cambios'}
+              </Button>
+            </div>
+          )}
+        </FormCampo>
+      </FormSeccion>
     </form>
   );
 }
@@ -201,17 +188,15 @@ function FormRow({ label, required, hint, error, children }: FormRowProps) {
       <label className="flex items-center gap-1 text-sm font-medium">
         {label}
         {required && (
-          <span aria-hidden="true" className="text-rose-600">
+          <span aria-hidden="true" className="text-danger-fg">
             *
           </span>
         )}
       </label>
       {children}
-      {hint != null && error == null && (
-        <p className="text-xs text-muted-foreground">{hint}</p>
-      )}
+      {hint != null && error == null && <p className="text-xs text-ink-muted">{hint}</p>}
       {error != null && (
-        <p role="alert" className="text-xs text-rose-600">
+        <p role="alert" className="text-xs text-danger-fg">
           {error}
         </p>
       )}

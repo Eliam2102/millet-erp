@@ -1,3 +1,6 @@
+import { ResumenImportes } from '@/components/erp/display/ResumenImportes';
+import { FormCampo } from '@/components/erp/forms/FormGrid';
+import { FormGrid } from '@/components/erp/forms/FormGrid';
 import { useState } from 'react';
 import { Pencil, Save, X, RotateCcw } from 'lucide-react';
 import { toast } from 'sonner';
@@ -10,11 +13,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { DecimalField } from '@/components/erp';
-import {
-  applyServerErrors,
-  esApiError,
-  useFormIdempotencyKey,
-} from '@/lib/api';
+import { applyServerErrors, esApiError, useFormIdempotencyKey, codigoSoporte } from '@/lib/api';
 import { accionEditarCabecera } from '@/features/compras/ordenes/lib/acciones-disponibles';
 import {
   DescuentoTipo,
@@ -30,6 +29,7 @@ import { useQueryClient } from '@tanstack/react-query';
 import { handleOcMutationError } from '@/features/compras/ordenes/lib/handle-conflict';
 import { cn } from '@/lib/utils';
 import { useForm, Controller, useWatch } from 'react-hook-form';
+import { MoneyDisplay } from '@/components/erp/display/MoneyDisplay';
 
 /**
  * <c>&lt;TotalesFinancierosForm/&gt;</c> — sub-tab "Financiera" del
@@ -75,11 +75,7 @@ export function TotalesFinancierosForm({ oc }: TotalesFinancierosFormProps) {
     oc.descuentoGlobalValor,
   );
   const totalAPagar =
-    subtotalLineas +
-    ivaTotal -
-    descuentoGlobalAplicado +
-    oc.gastosAdicionales +
-    oc.redondeo;
+    subtotalLineas + ivaTotal - descuentoGlobalAplicado + oc.gastosAdicionales + oc.redondeo;
 
   if (!editing) {
     return (
@@ -127,13 +123,11 @@ function ReadView({
 }) {
   return (
     <div
-      className="rounded-md border bg-card p-4 space-y-3"
+      className="rounded-md border bg-surface-card p-4 space-y-3"
       data-component="totales-financieros-read"
     >
       <div className="flex items-center justify-between">
-        <h3 className="text-sm font-semibold tracking-tight">
-          Totales financieros
-        </h3>
+        <h3 className="text-sm font-semibold tracking-tight">Totales financieros</h3>
         {canEdit && (
           <Button
             size="sm"
@@ -147,43 +141,28 @@ function ReadView({
         )}
       </div>
 
-      <dl className="grid gap-2 text-sm">
-        <Row label="Subtotal de líneas" value={subtotalLineas} />
-        <Row label="IVA (16%)" value={ivaTotal} muted />
-        <Row
-          label={
-            oc.descuentoGlobalTipo == null
-              ? 'Descuento global'
-              : oc.descuentoGlobalTipo === DescuentoTipo.Porcentaje
-                ? `Descuento global (${(oc.descuentoGlobalValor ?? 0).toFixed(2)}%)`
-                : 'Descuento global (monto)'
-          }
-          value={-descuentoGlobalAplicado}
-          showSign
-          muted={descuentoGlobalAplicado === 0}
-        />
-        <Row
-          label="Gastos adicionales"
-          value={oc.gastosAdicionales}
-          showSign
-          muted={oc.gastosAdicionales === 0}
-        />
-        <Row
-          label="Redondeo"
-          value={oc.redondeo}
-          showSign
-          muted={oc.redondeo === 0}
-        />
-        <div className="border-t pt-2">
-          <Row label="Total a pagar" value={totalAPagar} bold />
-          <p className="mt-1 text-xs text-muted-foreground">
-            Moneda: {oc.moneda}
-            {oc.tipoCambio != null
-              ? ` (TC: ${oc.tipoCambio.toFixed(4)})`
-              : ''}
-          </p>
-        </div>
-      </dl>
+      {oc.descuentoGlobalTipo != null && (
+        <p className="text-right text-xs text-ink-muted">
+          {oc.descuentoGlobalTipo === DescuentoTipo.Porcentaje
+            ? `Descuento global (${(oc.descuentoGlobalValor ?? 0).toFixed(2)} %)`
+            : 'Descuento global (monto)'}
+        </p>
+      )}
+      <ResumenImportes
+        moneda={oc.moneda}
+        subtotal={subtotalLineas}
+        descuento={descuentoGlobalAplicado}
+        ivaTrasladado={ivaTotal}
+        otrosTrasladados={[
+          { etiqueta: 'Gastos adicionales', monto: oc.gastosAdicionales },
+          { etiqueta: 'Redondeo', monto: oc.redondeo },
+        ]}
+        total={totalAPagar}
+      />
+      <p className="text-right text-xs text-ink-muted">
+        Moneda: {oc.moneda}
+        {oc.tipoCambio != null ? ` (TC: ${oc.tipoCambio.toFixed(4)})` : ''}
+      </p>
     </div>
   );
 }
@@ -247,14 +226,9 @@ function EditView({
             return;
           }
           if (esApiError(err)) {
-            applyServerErrors(
-              form as unknown as Parameters<typeof applyServerErrors>[0],
-              err,
-            );
+            applyServerErrors(form as unknown as Parameters<typeof applyServerErrors>[0], err);
             toast.error(err.problem.title, {
-              description: err.traceId
-                ? `Código: ${err.traceId}`
-                : undefined,
+              description: codigoSoporte(err),
             });
             return;
           }
@@ -274,17 +248,12 @@ function EditView({
           onCancel();
         }
       }}
-      className={cn(
-        'space-y-3 rounded-md border p-3',
-        'border-amber-400 bg-amber-50/40',
-      )}
+      className={cn('space-y-3 rounded-md border p-3', 'border-warning bg-warning-bg/40')}
       aria-label="Editar totales financieros"
       data-component="totales-financieros-edit"
     >
       <div className="flex items-center justify-between">
-        <h3 className="text-sm font-semibold tracking-tight">
-          Totales financieros
-        </h3>
+        <h3 className="text-sm font-semibold tracking-tight">Totales financieros</h3>
         <div className="flex items-center gap-2">
           <Button
             type="button"
@@ -308,83 +277,86 @@ function EditView({
         </div>
       </div>
 
-      <div className="grid gap-3 md:grid-cols-3">
-        <FieldGroup label="Descuento global (tipo)">
-          <Controller
-            name="descuentoGlobalTipo"
-            control={form.control}
-            render={({ field }) => (
-              <Select
-                value={
-                  field.value == null ? '__none__' : String(field.value)
-                }
-                onValueChange={(v) =>
-                  field.onChange(v === '__none__' ? null : Number(v))
-                }
-              >
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="__none__">Sin descuento</SelectItem>
-                  <SelectItem value={String(DescuentoTipo.Porcentaje)}>
-                    Porcentaje (%)
-                  </SelectItem>
-                  <SelectItem value={String(DescuentoTipo.Monto)}>
-                    Monto fijo
-                  </SelectItem>
-                </SelectContent>
-              </Select>
-            )}
-          />
-        </FieldGroup>
-        <FieldGroup label="Valor del descuento">
-          <DescuentoValorField control={form.control} />
-        </FieldGroup>
-        <FieldGroup label="Gastos adicionales">
-          <Controller
-            name="gastosAdicionales"
-            control={form.control}
-            render={({ field }) => (
-              <DecimalField
-                value={field.value ?? null}
-                onChange={(v) => field.onChange(v ?? 0)}
-                min={0}
-                step={0.01}
-              />
-            )}
-          />
-        </FieldGroup>
-      </div>
+      <FormGrid className="">
+        <FormCampo span={4}>
+          <FieldGroup label="Descuento global (tipo)">
+            <Controller
+              name="descuentoGlobalTipo"
+              control={form.control}
+              render={({ field }) => (
+                <Select
+                  value={field.value == null ? '__none__' : String(field.value)}
+                  onValueChange={(v) => field.onChange(v === '__none__' ? null : Number(v))}
+                >
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="__none__">Sin descuento</SelectItem>
+                    <SelectItem value={String(DescuentoTipo.Porcentaje)}>Porcentaje (%)</SelectItem>
+                    <SelectItem value={String(DescuentoTipo.Monto)}>Monto fijo</SelectItem>
+                  </SelectContent>
+                </Select>
+              )}
+            />
+          </FieldGroup>
+        </FormCampo>
+        <FormCampo span={4}>
+          <FieldGroup label="Valor del descuento">
+            <DescuentoValorField control={form.control} />
+          </FieldGroup>
+        </FormCampo>
+        <FormCampo span={4}>
+          <FieldGroup label="Gastos adicionales">
+            <Controller
+              name="gastosAdicionales"
+              control={form.control}
+              render={({ field }) => (
+                <DecimalField
+                  value={field.value ?? null}
+                  onChange={(v) => field.onChange(v ?? 0)}
+                  min={0}
+                  step={0.01}
+                />
+              )}
+            />
+          </FieldGroup>
+        </FormCampo>
+      </FormGrid>
 
-      <div className="grid gap-3 md:grid-cols-3">
-        <FieldGroup label="Redondeo (positivo o negativo)">
-          <Controller
-            name="redondeo"
-            control={form.control}
-            render={({ field }) => (
-              <DecimalField
-                value={field.value ?? null}
-                onChange={(v) => field.onChange(v ?? 0)}
-                step={0.01}
-              />
-            )}
-          />
-        </FieldGroup>
-        <FieldGroup label="Subtotal de líneas (read-only)">
-          <ReadOnlyMoney value={subtotalLineas} />
-        </FieldGroup>
-        <FieldGroup label="IVA total (read-only)">
-          <ReadOnlyMoney value={ivaTotal} />
-        </FieldGroup>
-      </div>
+      <FormGrid className="">
+        <FormCampo span={4}>
+          <FieldGroup label="Redondeo (positivo o negativo)">
+            <Controller
+              name="redondeo"
+              control={form.control}
+              render={({ field }) => (
+                <DecimalField
+                  value={field.value ?? null}
+                  onChange={(v) => field.onChange(v ?? 0)}
+                  step={0.01}
+                />
+              )}
+            />
+          </FieldGroup>
+        </FormCampo>
+        <FormCampo span={4}>
+          <FieldGroup label="Subtotal de partidas (solo lectura)">
+            <ReadOnlyMoney value={subtotalLineas} moneda={oc.moneda} />
+          </FieldGroup>
+        </FormCampo>
+        <FormCampo span={4}>
+          <FieldGroup label="IVA total (solo lectura)">
+            <ReadOnlyMoney value={ivaTotal} moneda={oc.moneda} />
+          </FieldGroup>
+        </FormCampo>
+      </FormGrid>
 
-      <p className="flex items-start gap-2 text-xs text-muted-foreground">
+      <p className="flex items-start gap-2 text-xs text-ink-muted">
         <RotateCcw className="h-3.5 w-3.5 mt-0.5 shrink-0" />
         <span>
-          Tras guardar, el backend recalcula impuestos por línea y devuelve
-          el detalle actualizado. El total a pagar de arriba se reactualiza
-          automáticamente.
+          Tras guardar, el sistema recalcula impuestos por partida y devuelve el detalle
+          actualizado. El total a pagar de arriba se reactualiza automáticamente.
         </span>
       </p>
     </form>
@@ -429,59 +401,18 @@ function DescuentoValorField({
   );
 }
 
-function Row({
-  label,
-  value,
-  showSign,
-  muted,
-  bold,
-}: {
-  label: string;
-  value: number;
-  showSign?: boolean;
-  muted?: boolean;
-  bold?: boolean;
-}) {
-  const formatted =
-    showSign && value > 0
-      ? `+${value.toFixed(2)}`
-      : showSign && value < 0
-        ? value.toFixed(2)
-        : value.toFixed(2);
+function ReadOnlyMoney({ value, moneda }: { value: number; moneda: string }) {
   return (
-    <div
-      className={cn(
-        'flex items-baseline justify-between gap-3',
-        muted && 'text-muted-foreground',
-        bold && 'font-semibold',
-      )}
-    >
-      <dt>{label}</dt>
-      <dd className="tabular-nums">{formatted}</dd>
+    <div className="rounded-md border bg-surface-muted/30 px-3 py-1.5 text-sm tabular-nums">
+      <MoneyDisplay amount={value} currency={moneda} />
     </div>
   );
 }
 
-function ReadOnlyMoney({ value }: { value: number }) {
-  return (
-    <div className="rounded-md border bg-muted/30 px-3 py-1.5 text-sm tabular-nums">
-      {value.toFixed(2)}
-    </div>
-  );
-}
-
-function FieldGroup({
-  label,
-  children,
-}: {
-  label: string;
-  children: React.ReactNode;
-}) {
+function FieldGroup({ label, children }: { label: string; children: React.ReactNode }) {
   return (
     <div className="space-y-1">
-      <label className="text-xs font-medium text-muted-foreground">
-        {label}
-      </label>
+      <label className="text-xs font-medium text-ink-muted">{label}</label>
       {children}
     </div>
   );

@@ -42,6 +42,11 @@ public sealed class GlobalExceptionHandler : IExceptionHandler
     {
         var problem = MapToProblemDetails(exception, httpContext);
 
+        if (exception is ForbiddenException forbidden)
+        {
+            await Millet.Api.Auth.AccesoDenegadoAudit.RegistrarAsync(httpContext, forbidden.Code, null, cancellationToken);
+        }
+
         if (problem.Status >= 500)
         {
             _logger.LogError(exception, "Unhandled exception: {ExceptionType}", exception.GetType().Name);
@@ -49,10 +54,11 @@ public sealed class GlobalExceptionHandler : IExceptionHandler
         else
         {
             _logger.LogInformation(
-                "Domain exception: {ExceptionType} {Code} -> HTTP {Status}",
+                "Domain exception: {ExceptionType} {Code} -> HTTP {Status}: {Message}",
                 exception.GetType().Name,
                 problem.Extensions.TryGetValue("code", out var code) ? code : "(none)",
-                problem.Status);
+                problem.Status,
+                exception.Message);
         }
 
         httpContext.Response.StatusCode = problem.Status ?? StatusCodes.Status500InternalServerError;
@@ -84,6 +90,20 @@ public sealed class GlobalExceptionHandler : IExceptionHandler
         p.Extensions["clientesExistentes"] = e.Clientes; return p;
     }
 
+    // Trigger de saldos de Almacén: RAISE EXCEPTION 'SALDO_INSUFICIENTE|SALDO_INEXISTENTE: …' USING ERRCODE = '23514'.
+    private static bool EsSaldoInsuficiente(PostgresException pg)
+        => pg.SqlState == PostgresErrorCodes.CheckViolation
+            && (pg.MessageText.StartsWith("SALDO_INSUFICIENTE", StringComparison.Ordinal)
+                || pg.MessageText.StartsWith("SALDO_INEXISTENTE", StringComparison.Ordinal));
+
+    private static ProblemDetails CreateSaldoInsuficienteProblem(HttpContext httpContext, string traceId)
+        => CreateProblem(
+            "SALIDA_STOCK_INSUFICIENTE",
+            "La ubicación (bin) no tiene existencia suficiente para alguna línea; revisa el saldo disponible del bin.",
+            StatusCodes.Status422UnprocessableEntity,
+            httpContext,
+            traceId);
+
     private static ProblemDetails MapToProblemDetails(Exception exception, HttpContext httpContext)
     {
         var traceId = Activity.Current?.TraceId.ToString() ?? httpContext.TraceIdentifier;
@@ -95,7 +115,7 @@ public sealed class GlobalExceptionHandler : IExceptionHandler
             ReceptorFiscalInvalidoException rfi => CreateReceptorProblem(rfi, httpContext, traceId),
             Millet.DatosMaestros.Application.Clientes.ClienteRfcDuplicadoException crd => CreateClienteRfcProblem(crd, httpContext, traceId),
             BusinessRuleException bre => CreateProblem(bre.Code, bre.Message, StatusCodes.Status422UnprocessableEntity, httpContext, traceId),
-            EntityNotFoundException enfe => CreateProblem(enfe.Code, enfe.Message, StatusCodes.Status404NotFound, httpContext, traceId),
+            EntityNotFoundException enfe => CreateProblem(enfe.Code, SinIdentificadores(enfe.Message), StatusCodes.Status404NotFound, httpContext, traceId),
             ConcurrencyException ce => CreateProblem(ce.Code, ce.Message, StatusCodes.Status409Conflict, httpContext, traceId),
             // Token de concurrencia (Version) violado: otro usuario/proceso modificó la fila.
             DbUpdateConcurrencyException => CreateProblem(
@@ -112,6 +132,20 @@ public sealed class GlobalExceptionHandler : IExceptionHandler
                 => CreateProblem(
                     "PROVEEDOR_RFC_DUPLICADO",
                     "Ya existe un proveedor con ese RFC.",
+                    StatusCodes.Status409Conflict,
+                    httpContext,
+                    traceId),
+            // 86e3pc50v F4: el trigger es la autoridad del saldo; no se exponen los ids del mensaje.
+            DbUpdateException { InnerException: PostgresException pgs } when EsSaldoInsuficiente(pgs)
+                => CreateSaldoInsuficienteProblem(httpContext, traceId),
+            PostgresException pgd when EsSaldoInsuficiente(pgd)
+                => CreateSaldoInsuficienteProblem(httpContext, traceId),
+            DbUpdateException { InnerException: PostgresException pg }
+                when pg.SqlState == PostgresErrorCodes.UniqueViolation
+                    && pg.ConstraintName == "ux_clientes_rfc_no_generico"
+                => CreateProblem(
+                    "CLIENTE_RFC_DUPLICADO",
+                    "Ya existe un cliente con ese RFC. Usa el cliente existente.",
                     StatusCodes.Status409Conflict,
                     httpContext,
                     traceId),
@@ -162,9 +196,17 @@ public sealed class GlobalExceptionHandler : IExceptionHandler
         "barrido_en_curso" or "ejecucion_no_ejecutable" => StatusCodes.Status409Conflict,
         "referencia_invalida" => StatusCodes.Status422UnprocessableEntity,
         "ejecucion_no_encontrada" => StatusCodes.Status404NotFound,
-        "lectura_deshabilitada" or "aplicacion_deshabilitada" or "origen_sin_configurar" or "origen_deshabilitado" => StatusCodes.Status503ServiceUnavailable,
+        "lectura_deshabilitada" or "aplicacion_deshabilitada" or "origen_sin_configurar" or "origen_deshabilitado" or "origen_no_disponible" => StatusCodes.Status503ServiceUnavailable,
         _ => StatusCodes.Status500InternalServerError,
     };
+
+    // C-07: el 404 no expone UUIDs al usuario ("No existe rol con id '…'." -> "No existe rol.");
+    // el mensaje original sigue en el log (TryHandleAsync).
+    private static readonly System.Text.RegularExpressions.Regex IdEnMensaje = new(
+        @"\s*(?:con id\s*)?'?[0-9a-fA-F]{8}-(?:[0-9a-fA-F]{4}-){3}[0-9a-fA-F]{12}'?",
+        System.Text.RegularExpressions.RegexOptions.Compiled);
+
+    public static string SinIdentificadores(string message) => IdEnMensaje.Replace(message, string.Empty);
 
     private static ProblemDetails CreateProblem(
         string code, string message, int status, HttpContext httpContext, string traceId)

@@ -3,10 +3,12 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using Millet.Facturacion.Domain.Ports;
+using Millet.DatosMaestros.Application.Clientes;
 using Millet.Integraciones.Aw.Application.Clientes;
 using Millet.Integraciones.Aw.Application.Productos;
 using Millet.Integraciones.Aw.Application.Pedidos;
 using Millet.Integraciones.Aw.Application.Origen;
+using Millet.Integraciones.Aw.Infrastructure.Clientes;
 using Millet.Integraciones.Aw.Infrastructure.OrigenPg;
 using Millet.Integraciones.Aw.Infrastructure.Pedidos;
 
@@ -21,6 +23,7 @@ public static class OrigenDependencyInjection
         services.AddScoped<AwOrigenSesion>();
         services.AddScoped<AwOrigenSelectores>();
         ConservarReal<IAwClientesOrigen>(services);
+        ConservarReal<IAwClientesPedidosOrigen>(services);
         ConservarReal<IAwProductosOrigen>(services);
         ConservarReal<IAwSolicitudesReader>(services);
         ConservarReal<IAwWriteBackPort>(services);
@@ -35,6 +38,7 @@ public static class OrigenDependencyInjection
         services.AddKeyedScoped<IAwClientesOrigen>("Demo", (sp, _) => new AwClientesPgOrigen(
             sp.GetRequiredKeyedService<IIntegracionSqlConnectionFactory>("Demo"), sp.GetRequiredService<IOptions<AwClientesOptions>>(),
             sp.GetRequiredService<ILogger<AwClientesPgOrigen>>()));
+        services.AddKeyedScoped<IAwClientesPedidosOrigen>("Demo", (_, _) => new AwClientesPedidosVacio());
         services.AddKeyedScoped<IAwProductosOrigen>("Demo", (sp, _) => new AwProductosPgOrigen(
             sp.GetRequiredKeyedService<IIntegracionSqlConnectionFactory>("Demo"), sp.GetRequiredService<IOptions<AwProductosOptions>>(),
             sp.GetRequiredService<ILogger<AwProductosPgOrigen>>()));

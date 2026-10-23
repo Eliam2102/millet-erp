@@ -131,6 +131,7 @@ public sealed class BandejaPasivosPendientesHandler
         {
             ProveedorBancoDto? prov = null;
             if (!p.EsInterno) proveedores.TryGetValue(p.ProveedorId, out prov);
+            var cuenta = prov?.CuentaPara(p.Moneda);
 
             // Etiqueta sintética para internos: el FE actual muestra la
             // razón social — así la bandeja es legible sin cambios de FE
@@ -150,9 +151,9 @@ public sealed class BandejaPasivosPendientesHandler
                 ProveedorId: p.ProveedorId,
                 ProveedorClave: prov?.Clave,
                 ProveedorRazonSocial: razonSocial,
-                Banco: prov?.Banco,
-                Clabe: prov?.Clabe is null ? null : verCompleta ? prov.Clabe : Clabe.Enmascarar(prov.Clabe),
-                Beneficiario: prov?.Beneficiario,
+                Banco: cuenta?.Banco,
+                Clabe: cuenta is null ? null : verCompleta ? cuenta.Numero : Clabe.Enmascarar(cuenta.Numero),
+                Beneficiario: cuenta?.Titular,
                 OrdenCompraId: p.OrdenCompraId,
                 MontoTotal: p.MontoTotal,
                 SaldoPendiente: p.SaldoPendiente,

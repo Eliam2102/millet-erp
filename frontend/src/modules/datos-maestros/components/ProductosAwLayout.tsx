@@ -1,3 +1,5 @@
+import { BarraFiltros, TabsEstado } from '@/components/erp';
+import { PageHeader } from '@/components/erp/PageHeader';
 import { useMemo, useState, type ReactNode } from 'react';
 import { Boxes, Plus, RefreshCw, TriangleAlert } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -11,10 +13,7 @@ import {
 } from '@/components/ui/select';
 import { EmptyState, ErrorState, TableSkeleton } from '@/components/erp';
 import { useProductosAw } from '@/modules/datos-maestros/api';
-import {
-  EstatusCatalogo,
-  OrigenMaster,
-} from '@/modules/datos-maestros/api/types';
+import { EstatusCatalogo, OrigenMaster } from '@/modules/datos-maestros/api/types';
 import type { ListarProductosAwFiltros } from '@/modules/datos-maestros/api/keys';
 import { esApiError } from '@/lib/api';
 import { useDebouncedValue } from '@/lib/hooks/useDebouncedValue';
@@ -38,14 +37,9 @@ export interface ProductosAwLayoutProps {
   detalle?: ReactNode;
 }
 
-export function ProductosAwLayout({
-  idActivo,
-  detalle,
-}: ProductosAwLayoutProps) {
+export function ProductosAwLayout({ idActivo, detalle }: ProductosAwLayoutProps) {
   const nuevoProductoAw = useNuevoProductoAw();
-  const canGestionar = useHasPermission(
-    PermisosCanonicos.DatosMaestrosProductosAwGestionar,
-  );
+  const canGestionar = useHasPermission(PermisosCanonicos.DatosMaestrosProductosAwGestionar);
 
   const [syncAbierto, setSyncAbierto] = useState(false);
   const [referenciaInput, setReferenciaInput] = useState('');
@@ -53,8 +47,7 @@ export function ProductosAwLayout({
   const [origen, setOrigen] = useState<string>('');
   const [estatus, setEstatus] = useState<string>('');
   const [tipo, setTipo] = useState<string>('');
-  const [soloFiscalesIncompletos, setSoloFiscalesIncompletos] =
-    useState(false);
+  const [soloFiscalesIncompletos, setSoloFiscalesIncompletos] = useState(false);
 
   const referenciaDeb = useDebouncedValue(referenciaInput, 300);
   const descripcionDeb = useDebouncedValue(descripcionInput, 300);
@@ -64,27 +57,16 @@ export function ProductosAwLayout({
       referencia: referenciaDeb.trim() || undefined,
       descripcion: descripcionDeb.trim() || undefined,
       origen: origen !== '' ? (Number(origen) as OrigenMaster) : undefined,
-      estatus:
-        estatus !== '' ? (Number(estatus) as EstatusCatalogo) : undefined,
+      estatus: estatus !== '' ? (Number(estatus) as EstatusCatalogo) : undefined,
       fiscalesIncompletos: soloFiscalesIncompletos ? true : undefined,
       tipo: tipo !== '' ? tipo : undefined,
       limit: 200,
     }),
-    [
-      referenciaDeb,
-      descripcionDeb,
-      origen,
-      estatus,
-      tipo,
-      soloFiscalesIncompletos,
-    ],
+    [referenciaDeb, descripcionDeb, origen, estatus, tipo, soloFiscalesIncompletos],
   );
 
   const productosQuery = useProductosAw(filtros);
-  const items = useMemo(
-    () => productosQuery.data?.items ?? [],
-    [productosQuery.data],
-  );
+  const items = useMemo(() => productosQuery.data?.items ?? [], [productosQuery.data]);
 
   return (
     <div className="flex flex-col gap-4 md:h-[calc(100vh-3.5rem-3rem)] md:flex-row">
@@ -96,42 +78,48 @@ export function ProductosAwLayout({
         aria-label="Lista de productos A+W"
         data-print="hidden"
       >
-        <div className="flex flex-wrap items-center justify-between gap-2">
-          <h1 className="text-xl font-semibold tracking-tight">
-            Productos A+W
-          </h1>
-          <div className="flex items-center gap-1">
-            {canGestionar && (
-              <Button size="sm" variant="outline" onClick={() => setSyncAbierto(true)}>
-                <RefreshCw className="mr-1 h-4 w-4" />
-                Sincronizar con A+W
-              </Button>
-            )}
-            {canGestionar && (
-              <Button size="sm" onClick={() => nuevoProductoAw.abrir()}>
-                <Plus className="mr-1 h-4 w-4" />
-                Nuevo
-              </Button>
-            )}
-          </div>
-        </div>
-
-        <FiltrosBloque
-          referencia={referenciaInput}
-          onReferencia={setReferenciaInput}
-          descripcion={descripcionInput}
-          onDescripcion={setDescripcionInput}
-          origen={origen}
-          onOrigen={setOrigen}
-          estatus={estatus}
-          onEstatus={setEstatus}
-          tipo={tipo}
-          onTipo={setTipo}
-          soloFiscalesIncompletos={soloFiscalesIncompletos}
-          onSoloFiscalesIncompletos={setSoloFiscalesIncompletos}
+        <PageHeader
+          titulo={<>Productos A+W</>}
+          acciones={
+            <>
+              <div className="flex items-center gap-1">
+                {canGestionar && (
+                  <Button size="sm" variant="outline" onClick={() => setSyncAbierto(true)}>
+                    <RefreshCw className="mr-1 h-4 w-4" />
+                    Sincronizar con A+W
+                  </Button>
+                )}
+                {canGestionar && (
+                  <Button size="sm" onClick={() => nuevoProductoAw.abrir()}>
+                    <Plus className="mr-1 h-4 w-4" />
+                    Nuevo
+                  </Button>
+                )}
+              </div>
+            </>
+          }
         />
 
-        <div className="flex-1 overflow-y-auto rounded-md border bg-card">
+        <BarraFiltros
+          filtros={
+            <FiltrosBloque
+              referencia={referenciaInput}
+              onReferencia={setReferenciaInput}
+              descripcion={descripcionInput}
+              onDescripcion={setDescripcionInput}
+              origen={origen}
+              onOrigen={setOrigen}
+              estatus={estatus}
+              onEstatus={setEstatus}
+              tipo={tipo}
+              onTipo={setTipo}
+              soloFiscalesIncompletos={soloFiscalesIncompletos}
+              onSoloFiscalesIncompletos={setSoloFiscalesIncompletos}
+            />
+          }
+        />
+
+        <div className="flex-1 overflow-y-auto rounded-md border bg-surface-card">
           <RenderLista
             query={productosQuery}
             items={items}
@@ -149,7 +137,17 @@ export function ProductosAwLayout({
         )}
         aria-label="Detalle de producto A+W"
       >
-        {idActivo == null ? canGestionar ? <F1AFiscalPanel /> : <p className="p-6 text-sm text-ink-muted">Selecciona un registro para consultar su detalle.</p> : detalle}
+        {idActivo == null ? (
+          canGestionar ? (
+            <F1AFiscalPanel />
+          ) : (
+            <p className="p-6 text-sm text-ink-muted">
+              Selecciona un registro para consultar su detalle.
+            </p>
+          )
+        ) : (
+          detalle
+        )}
       </section>
 
       {canGestionar && (
@@ -192,7 +190,7 @@ function FiltrosBloque({
   onSoloFiscalesIncompletos,
 }: FiltrosBloqueProps) {
   return (
-    <div className="space-y-2 rounded-md border bg-muted/20 p-2">
+    <div className="space-y-2 rounded-md border bg-surface-muted/20 p-2">
       <Input
         placeholder="Referencia…"
         value={referencia}
@@ -221,26 +219,16 @@ function FiltrosBloque({
             <SelectItem value={String(OrigenMaster.Manual)}>Manual</SelectItem>
           </SelectContent>
         </Select>
-        <Select
-          value={estatus === '' ? 'all' : estatus}
-          onValueChange={(v) => onEstatus(v === 'all' ? '' : v)}
-        >
-          <SelectTrigger className="h-8 text-xs" aria-label="Estatus">
-            <SelectValue placeholder="Estatus" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">Todos</SelectItem>
-            <SelectItem value={String(EstatusCatalogo.Activo)}>
-              Activo
-            </SelectItem>
-            <SelectItem value={String(EstatusCatalogo.Inactivo)}>
-              Inactivo
-            </SelectItem>
-            <SelectItem value={String(EstatusCatalogo.EnRevision)}>
-              En revisión
-            </SelectItem>
-          </SelectContent>
-        </Select>
+        <TabsEstado
+          opciones={[
+            { valor: EstatusCatalogo.EnRevision, label: 'En revisión' },
+            { valor: EstatusCatalogo.Activo, label: 'Activo' },
+            { valor: EstatusCatalogo.Inactivo, label: 'Inactivo' },
+          ]}
+          valor={estatus === '' ? undefined : Number(estatus)}
+          onChange={(v) => onEstatus(v === undefined ? '' : String(v))}
+          conteos={undefined}
+        />
       </div>
       <Select
         value={tipo === '' ? 'all' : tipo}
@@ -269,7 +257,7 @@ function FiltrosBloque({
         className={cn(
           'h-8 w-full justify-start text-xs font-normal',
           soloFiscalesIncompletos &&
-            'border-amber-300 bg-amber-500/10 text-amber-700 hover:bg-amber-500/15 hover:text-amber-700 dark:text-amber-300 dark:hover:text-amber-300',
+            'border-warning bg-warning-bg text-warning-fg hover:bg-warning-bg hover:text-warning-fg  :text-warning-fg',
         )}
       >
         <TriangleAlert className="mr-1.5 h-3.5 w-3.5" />
@@ -281,9 +269,7 @@ function FiltrosBloque({
 
 interface RenderListaProps {
   query: ReturnType<typeof useProductosAw>;
-  items: ReturnType<typeof useProductosAw>['data'] extends
-    | { items: infer I }
-    | undefined
+  items: ReturnType<typeof useProductosAw>['data'] extends { items: infer I } | undefined
     ? I
     : never;
   idActivo: string | null;
@@ -291,20 +277,11 @@ interface RenderListaProps {
   onAbrirNuevo: () => void;
 }
 
-function RenderLista({
-  query,
-  items,
-  idActivo,
-  canCrear,
-  onAbrirNuevo,
-}: RenderListaProps) {
+function RenderLista({ query, items, idActivo, canCrear, onAbrirNuevo }: RenderListaProps) {
   if (query.isLoading) {
     return (
       <div className="p-3">
-        <TableSkeleton
-          rows={6}
-          columns={[{ width: 'w-full' }, { width: 'w-full' }]}
-        />
+        <TableSkeleton rows={6} columns={[{ width: 'w-full' }, { width: 'w-full' }]} />
       </div>
     );
   }

@@ -1,9 +1,18 @@
+import { FormCampo, FormGrid } from '@/components/erp/forms/FormGrid';
+import { FormSeccion } from '@/components/erp/forms/FormSeccion';
+import { SheetBody } from '@/components/ui/sheet';
 import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from '@/components/ui/sheet';
+import {
+  Sheet,
+  SheetContent,
+  SheetDescription,
+  SheetHeader,
+  SheetTitle,
+} from '@/components/ui/sheet';
 import { Textarea } from '@/components/ui/textarea';
 import { hoyLocalISO } from '@/lib/datetime';
 import { useCrearRegla, useEditarRegla, useTiposDocumento } from '../../api/dimensiones';
@@ -26,10 +35,13 @@ export function ReglaSheet({ open, onOpenChange, regla }: Props) {
   const crear = useCrearRegla();
   const editar = useEditarRegla();
   const [cuenta, setCuenta] = useState<CuentaOpcion | null>(
-    regla ? { id: regla.cuentaId, codigo: regla.cuentaCodigo, nombre: regla.cuentaNombre } : null);
+    regla ? { id: regla.cuentaId, codigo: regla.cuentaCodigo, nombre: regla.cuentaNombre } : null,
+  );
   const [tipoId, setTipoId] = useState(regla?.tipoDocumentoId ?? '');
   const [dimension, setDimension] = useState<Dimension>(regla?.dimension ?? 'Dim2');
-  const [requerimiento, setRequerimiento] = useState<Requerimiento>(regla?.requerimiento ?? 'Obligatorio');
+  const [requerimiento, setRequerimiento] = useState<Requerimiento>(
+    regla?.requerimiento ?? 'Obligatorio',
+  );
   const [desde, setDesde] = useState(regla?.vigenteDesde ?? hoyLocalISO());
   const [hasta, setHasta] = useState(regla?.vigenteHasta ?? '');
   const [esPrueba, setEsPrueba] = useState(regla?.esPrueba ?? true);
@@ -41,17 +53,32 @@ export function ReglaSheet({ open, onOpenChange, regla }: Props) {
 
   function guardar(e: React.FormEvent) {
     e.preventDefault();
-    if (faltaCuenta) { setError('Elige la cuenta o rama a la que aplica la regla.'); return; }
+    if (faltaCuenta) {
+      setError('Elige la cuenta o rama a la que aplica la regla.');
+      return;
+    }
     setError('');
-    const comun = { requerimiento, vigenteDesde: desde, vigenteHasta: hasta || null, nota: nota.trim() || null };
-    const ok = { onSuccess: () => onOpenChange(false), onError: (x: unknown) => setError(mensajeError(x)) };
+    const comun = {
+      requerimiento,
+      vigenteDesde: desde,
+      vigenteHasta: hasta || null,
+      nota: nota.trim() || null,
+    };
+    const ok = {
+      onSuccess: () => onOpenChange(false),
+      onError: (x: unknown) => setError(mensajeError(x)),
+    };
     if (regla) editar.mutate({ regla, body: comun }, ok);
-    else crear.mutate({ ...comun, cuentaId: cuenta!.id, tipoDocumentoId: tipoId || null, dimension, esPrueba }, ok);
+    else
+      crear.mutate(
+        { ...comun, cuentaId: cuenta!.id, tipoDocumentoId: tipoId || null, dimension, esPrueba },
+        ok,
+      );
   }
 
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
-      <SheetContent side="right" className="w-full overflow-y-auto sm:max-w-sheet" data-print="hidden">
+      <SheetContent size="lg" side="right" data-print="hidden">
         <SheetHeader>
           <SheetTitle>{regla ? 'Editar regla' : 'Nueva regla de dimensión'}</SheetTitle>
           <SheetDescription>
@@ -60,61 +87,179 @@ export function ReglaSheet({ open, onOpenChange, regla }: Props) {
               : 'Define si una dimensión es obligatoria, opcional o no aplica para una cuenta (o rama) en un tipo de documento.'}
           </SheetDescription>
         </SheetHeader>
-        <form onSubmit={guardar} className="flex flex-col gap-4 px-4 pb-6">
-          <fieldset className="grid grid-cols-2 gap-x-4 gap-y-3.5">
-            <legend className="mb-2 text-sm font-semibold">1. Combinación</legend>
-            <div className="col-span-2 flex flex-col gap-1.5">
-              <Label htmlFor="regla-cuenta">Cuenta o rama</Label>
-              <CuentaSelector id="regla-cuenta" value={cuenta} onChange={setCuenta} disabled={!!regla} />
-              <span className="text-xs text-ink-muted">Una regla en una cuenta que acumula aplica a todas sus cuentas debajo, salvo que tengan una regla propia.</span>
-            </div>
-            <div className="flex flex-col gap-1.5">
-              <Label htmlFor="regla-tipo">Tipo de documento</Label>
-              <select id="regla-tipo" className={SELECT_CLASS} value={tipoId} disabled={!!regla} onChange={(e) => setTipoId(e.target.value)}>
-                <option value="">Todos los tipos</option>
-                {(tipos.data ?? []).map((t) => <option key={t.id} value={t.id}>{t.clave} — {t.nombre}</option>)}
-              </select>
-            </div>
-            <div className="flex flex-col gap-1.5">
-              <Label htmlFor="regla-dimension">Dimensión</Label>
-              <select id="regla-dimension" className={SELECT_CLASS} value={dimension} disabled={!!regla} onChange={(e) => setDimension(e.target.value as Dimension)}>
-                {DIMENSIONES.map((d) => <option key={d} value={d}>{ETIQUETA_DIMENSION[d]}</option>)}
-              </select>
-            </div>
-          </fieldset>
-          <fieldset className="grid grid-cols-2 gap-x-4 gap-y-3.5">
-            <legend className="mb-2 text-sm font-semibold">2. Requerimiento y vigencia</legend>
-            <div className="col-span-2 flex flex-col gap-1.5">
-              <Label htmlFor="regla-req">Requerimiento</Label>
-              <select id="regla-req" className={SELECT_CLASS} value={requerimiento} onChange={(e) => setRequerimiento(e.target.value as Requerimiento)}>
-                {REQUERIMIENTOS.map((r) => <option key={r} value={r}>{ETIQUETA_REQUERIMIENTO[r]}</option>)}
-              </select>
-            </div>
-            <div className="flex flex-col gap-1.5">
-              <Label htmlFor="regla-desde">Vigente desde</Label>
-              <Input id="regla-desde" type="date" required min={regla ? undefined : hoyLocalISO()} value={desde} onChange={(e) => setDesde(e.target.value)} />
-            </div>
-            <div className="flex flex-col gap-1.5">
-              <Label htmlFor="regla-hasta">Vigente hasta <span className="font-normal text-ink-muted">(opcional)</span></Label>
-              <Input id="regla-hasta" type="date" min={desde} value={hasta} onChange={(e) => setHasta(e.target.value)} />
-            </div>
-            <div className="col-span-2 flex flex-col gap-1.5">
-              <Label htmlFor="regla-nota">Nota <span className="font-normal text-ink-muted">(opcional)</span></Label>
-              <Textarea id="regla-nota" rows={2} maxLength={500} className="resize-none" value={nota} onChange={(e) => setNota(e.target.value)} />
-            </div>
-            {!regla && (
-              <div className="col-span-2 flex items-center gap-2">
-                <Checkbox id="regla-prueba" checked={esPrueba} onCheckedChange={(v) => setEsPrueba(v === true)} />
-                <Label htmlFor="regla-prueba" className="font-normal">Regla de prueba (no es política confirmada por Contabilidad)</Label>
-              </div>
+        <SheetBody className="space-y-4">
+          <form onSubmit={guardar} className="flex flex-col gap-5">
+            <FormSeccion titulo="1. Combinación">
+              <FormCampo span={12}>
+                <FormGrid>
+                  <FormCampo span={12}>
+                    <div className=" flex flex-col gap-1.5">
+                      <Label htmlFor="regla-cuenta">
+                        Cuenta, rama o grupo<span aria-hidden="true"> *</span>
+                      </Label>
+                      <CuentaSelector
+                        id="regla-cuenta"
+                        value={cuenta}
+                        onChange={setCuenta}
+                        disabled={!!regla}
+                        incluirRubros
+                      />
+                      <span className="text-xs text-ink-muted">
+                        Una regla en una cuenta que acumula aplica a todas sus cuentas debajo, y la
+                        de un grupo (rubro: ingresos, costos, gastos) a todas sus cuentas, salvo que
+                        tengan una regla propia.
+                      </span>
+                    </div>
+                  </FormCampo>
+
+                  <FormCampo span={6}>
+                    <div className="flex flex-col gap-1.5">
+                      <Label htmlFor="regla-tipo">Tipo de documento</Label>
+                      <select
+                        id="regla-tipo"
+                        className={SELECT_CLASS}
+                        value={tipoId}
+                        disabled={!!regla}
+                        onChange={(e) => setTipoId(e.target.value)}
+                      >
+                        <option value="">Todos los tipos</option>
+                        {(tipos.data ?? []).map((t) => (
+                          <option key={t.id} value={t.id}>
+                            {t.clave} — {t.nombre}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                  </FormCampo>
+
+                  <FormCampo span={6}>
+                    <div className="flex flex-col gap-1.5">
+                      <Label htmlFor="regla-dimension">
+                        Dimensión<span aria-hidden="true"> *</span>
+                      </Label>
+                      <select
+                        id="regla-dimension"
+                        className={SELECT_CLASS}
+                        value={dimension}
+                        disabled={!!regla}
+                        onChange={(e) => setDimension(e.target.value as Dimension)}
+                      >
+                        {DIMENSIONES.map((d) => (
+                          <option key={d} value={d}>
+                            {ETIQUETA_DIMENSION[d]}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                  </FormCampo>
+                </FormGrid>
+              </FormCampo>
+            </FormSeccion>
+            <FormSeccion titulo="2. Requerimiento y vigencia">
+              <FormCampo span={12}>
+                <FormGrid>
+                  <FormCampo span={12}>
+                    <div className=" flex flex-col gap-1.5">
+                      <Label htmlFor="regla-req">
+                        Requerimiento<span aria-hidden="true"> *</span>
+                      </Label>
+                      <select
+                        id="regla-req"
+                        className={SELECT_CLASS}
+                        value={requerimiento}
+                        onChange={(e) => setRequerimiento(e.target.value as Requerimiento)}
+                      >
+                        {REQUERIMIENTOS.map((r) => (
+                          <option key={r} value={r}>
+                            {ETIQUETA_REQUERIMIENTO[r]}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                  </FormCampo>
+
+                  <FormCampo span={6}>
+                    <div className="flex flex-col gap-1.5">
+                      <Label htmlFor="regla-desde">
+                        Vigente desde<span aria-hidden="true"> *</span>
+                      </Label>
+                      <Input
+                        id="regla-desde"
+                        type="date"
+                        required
+                        min={regla ? undefined : hoyLocalISO()}
+                        value={desde}
+                        onChange={(e) => setDesde(e.target.value)}
+                      />
+                    </div>
+                  </FormCampo>
+
+                  <FormCampo span={6}>
+                    <div className="flex flex-col gap-1.5">
+                      <Label htmlFor="regla-hasta">
+                        Vigente hasta <span className="font-normal text-ink-muted">(opcional)</span>
+                      </Label>
+                      <Input
+                        id="regla-hasta"
+                        type="date"
+                        min={desde}
+                        value={hasta}
+                        onChange={(e) => setHasta(e.target.value)}
+                      />
+                    </div>
+                  </FormCampo>
+
+                  <FormCampo span={12}>
+                    <div className=" flex flex-col gap-1.5">
+                      <Label htmlFor="regla-nota">
+                        Nota <span className="font-normal text-ink-muted">(opcional)</span>
+                      </Label>
+                      <Textarea
+                        id="regla-nota"
+                        rows={2}
+                        maxLength={500}
+                        className="resize-none"
+                        value={nota}
+                        onChange={(e) => setNota(e.target.value)}
+                      />
+                    </div>
+                  </FormCampo>
+
+                  <FormCampo span={12}>
+                    {!regla && (
+                      <div className=" flex items-center gap-2">
+                        <Checkbox
+                          id="regla-prueba"
+                          checked={esPrueba}
+                          onCheckedChange={(v) => setEsPrueba(v === true)}
+                        />
+                        <Label htmlFor="regla-prueba" className="font-normal">
+                          Regla de prueba (no es política confirmada por Contabilidad)
+                        </Label>
+                      </div>
+                    )}
+                  </FormCampo>
+                </FormGrid>
+              </FormCampo>
+            </FormSeccion>
+            {error && (
+              <p
+                role="alert"
+                className="rounded-md bg-danger-bg px-3 py-2.5 text-sm text-danger-fg"
+              >
+                {error}
+              </p>
             )}
-          </fieldset>
-          {error && <p role="alert" className="rounded-md bg-danger-bg px-3 py-2.5 text-sm text-danger-fg">{error}</p>}
-          <div className="flex justify-between border-t border-line-divider pt-4">
-            <Button type="button" variant="ghost" size="lg" onClick={() => onOpenChange(false)}>Cancelar</Button>
-            <Button type="submit" size="lg" disabled={pendiente}>{pendiente ? 'Guardando…' : regla ? 'Guardar cambios' : 'Crear regla'}</Button>
-          </div>
-        </form>
+            <div className="flex justify-between border-t border-line-divider pt-4">
+              <Button type="button" variant="ghost" size="lg" onClick={() => onOpenChange(false)}>
+                Cancelar
+              </Button>
+              <Button type="submit" size="lg" disabled={pendiente}>
+                {pendiente ? 'Guardando…' : regla ? 'Guardar cambios' : 'Crear regla'}
+              </Button>
+            </div>
+          </form>
+        </SheetBody>
       </SheetContent>
     </Sheet>
   );

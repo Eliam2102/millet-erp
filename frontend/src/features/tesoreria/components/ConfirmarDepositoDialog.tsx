@@ -1,3 +1,7 @@
+import { FormSeccion } from '@/components/erp/forms/FormSeccion';
+import { FormGrid, FormCampo } from '@/components/erp/forms/FormGrid';
+import { DialogBody } from '@/components/ui/dialog';
+import { DateTimeDisplay } from '@/components/erp/display/DateTimeDisplay';
 import { ConceptoSelector } from './ConceptoSelector';
 import { hoyLocalISO } from '@/lib/datetime';
 import { useMemo, useState } from 'react';
@@ -19,10 +23,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import {
-  useConfirmarDeposito,
-  useMovimientos,
-} from '@/features/tesoreria/api/useTesoreria';
+import { useConfirmarDeposito, useMovimientos } from '@/features/tesoreria/api/useTesoreria';
 import {
   BeneficiarioTipo,
   EstadoAplicacionMovimiento,
@@ -30,13 +31,9 @@ import {
   type DepositoConfirmacionResponse,
 } from '@/features/tesoreria/api/types';
 import { CuentaBancariaSelector } from '@/features/tesoreria/components/CuentaBancariaSelector';
-import { formatoFecha, formatoMonto } from '@/features/tesoreria/lib/formato';
+import { formatoMonto } from '@/features/tesoreria/lib/formato';
 import { useQueryClient } from '@tanstack/react-query';
-import {
-  esApiError,
-  esConflictoConcurrencia,
-  useBodyScopedIdempotencyKey,
-} from '@/lib/api';
+import { esApiError, esConflictoConcurrencia, useBodyScopedIdempotencyKey } from '@/lib/api';
 import { useHasPermission } from '@/lib/auth/useHasPermission';
 import { PermisosCanonicos } from '@/lib/auth/permission-codes';
 import { tesoreriaKeys } from '@/features/tesoreria/api/keys';
@@ -59,10 +56,7 @@ export interface ConfirmarDepositoDialogProps {
  * re-proponga. Confirmar ≠ timbrado: el REPP lo emite Facturación y el
  * badge fiscal llega después vía repp_timbrado.
  */
-export function ConfirmarDepositoDialog({
-  deposito,
-  onOpenChange,
-}: ConfirmarDepositoDialogProps) {
+export function ConfirmarDepositoDialog({ deposito, onOpenChange }: ConfirmarDepositoDialogProps) {
   const confirmar = useConfirmarDeposito();
   const queryClient = useQueryClient();
   // La alta rápida y confirmación comparten petición y clave.
@@ -78,14 +72,10 @@ export function ConfirmarDepositoDialog({
 
   const [movimientoId, setMovimientoId] = useState<string | null>(null);
   const [altaRapida, setAltaRapida] = useState(false);
-  const puedeAltaRapida = useHasPermission(
-    PermisosCanonicos.TesoreriaMovimientosRegistrar,
-  );
+  const puedeAltaRapida = useHasPermission(PermisosCanonicos.TesoreriaMovimientosRegistrar);
   const [conceptoId, setConceptoId] = useState<string | null>(null);
   const [cuentaId, setCuentaId] = useState<string | null>(null);
-  const [fechaValor, setFechaValor] = useState(() =>
-    hoyLocalISO(),
-  );
+  const [fechaValor, setFechaValor] = useState(() => hoyLocalISO());
   const [referencia, setReferencia] = useState('');
 
   const esPropuesta = deposito?.propuestaCxcId != null;
@@ -96,14 +86,11 @@ export function ConfirmarDepositoDialog({
     // Moneda igual si el depósito la trae; propuestas además priorizan
     // el monto exacto (los demás siguen visibles — Caja admite aproximado).
     const filtrados =
-      deposito?.moneda != null
-        ? todos.filter((m) => m.moneda === deposito.moneda)
-        : todos;
+      deposito?.moneda != null ? todos.filter((m) => m.moneda === deposito.moneda) : todos;
     if (deposito?.montoEsperado == null) return filtrados;
     return [...filtrados].sort(
       (a, b) =>
-        Math.abs(a.monto - deposito.montoEsperado!) -
-        Math.abs(b.monto - deposito.montoEsperado!),
+        Math.abs(a.monto - deposito.montoEsperado!) - Math.abs(b.monto - deposito.montoEsperado!),
     );
   }, [candidatos.data, deposito]);
 
@@ -117,7 +104,18 @@ export function ConfirmarDepositoDialog({
     onOpenChange(next);
   }
 
-  function confirmarCon(id?: string, ingreso?: { cuentaBancariaId: string; monto: number; fechaValor: string; referenciaBancaria?: string; conceptoId?: string; beneficiarioTipo?: BeneficiarioTipo; beneficiarioRef?: string }) {
+  function confirmarCon(
+    id?: string,
+    ingreso?: {
+      cuentaBancariaId: string;
+      monto: number;
+      fechaValor: string;
+      referenciaBancaria?: string;
+      conceptoId?: string;
+      beneficiarioTipo?: BeneficiarioTipo;
+      beneficiarioRef?: string;
+    },
+  ) {
     if (deposito == null) return;
     const command = {
       depositoId: deposito.id,
@@ -156,9 +154,7 @@ export function ConfirmarDepositoDialog({
             return;
           }
           toast.error(
-            esApiError(error)
-              ? error.problem.title
-              : 'No se pudo confirmar el depósito',
+            esApiError(error) ? error.problem.title : 'No se pudo confirmar el depósito',
             {
               description: esApiError(error)
                 ? (error.problem.detail ?? 'Revisa los datos del depósito antes de reintentar.')
@@ -183,10 +179,8 @@ export function ConfirmarDepositoDialog({
       conceptoId: conceptoId ?? undefined,
       monto: deposito.montoEsperado,
       fechaValor,
-      referenciaBancaria:
-        referencia.trim() || (deposito.depositoRef ?? undefined),
-      beneficiarioTipo:
-        deposito.clienteId != null ? BeneficiarioTipo.Cliente : undefined,
+      referenciaBancaria: referencia.trim() || (deposito.depositoRef ?? undefined),
+      beneficiarioTipo: deposito.clienteId != null ? BeneficiarioTipo.Cliente : undefined,
       beneficiarioRef: deposito.clienteId ?? undefined,
     };
     confirmarCon(undefined, command);
@@ -198,7 +192,7 @@ export function ConfirmarDepositoDialog({
 
   return (
     <Dialog open={deposito != null} onOpenChange={cerrar}>
-      <DialogContent className="sm:max-w-lg">
+      <DialogContent size="lg">
         <DialogHeader>
           <DialogTitle>Confirmar depósito</DialogTitle>
           <DialogDescription>
@@ -209,126 +203,130 @@ export function ConfirmarDepositoDialog({
                   : '—'
               }${deposito.depositoRef ? ` · ref ${deposito.depositoRef}` : ''}. ` +
                 (esPropuesta
-                  ? 'RN-6: exige un ingreso identificado con monto y moneda exactos; si el banco recibió otro importe, rechaza para que CxC re-proponga.'
+                  ? 'Se requiere un ingreso identificado con monto y moneda exactos; si el banco recibió otro importe, rechaza para que CxC re-proponga.'
                   : 'El monto de Caja es aproximado (el fondo del día siguiente se queda en caja).')}
           </DialogDescription>
         </DialogHeader>
-
-        <div className="space-y-3">
-          {!altaRapida ? (
-            <div className="space-y-1">
-              <label className="text-xs text-muted-foreground">
-                Movimiento de ingreso sin aplicar
-              </label>
-              <Select
-                value={movimientoId ?? ''}
-                onValueChange={(v) => setMovimientoId(v)}
-              >
-                <SelectTrigger aria-label="Movimiento de ingreso">
-                  <SelectValue
-                    placeholder={
-                      candidatos.isLoading
-                        ? 'Cargando ingresos…'
-                        : items.length === 0
-                          ? 'No hay ingresos sin aplicar'
-                          : 'Selecciona el ingreso'
-                    }
-                  />
-                </SelectTrigger>
-                <SelectContent>
-                  {items.map((m) => (
-                    <SelectItem key={m.id} value={m.id}>
-                      <span className="font-mono text-xs">
-                        {formatoFecha(m.fechaValor)}
-                      </span>{' '}
-                      · {formatoMonto(m.monto, m.moneda)}
-                      {m.referenciaBancaria ? ` · ${m.referenciaBancaria}` : ''}
-                      {deposito?.montoEsperado != null &&
-                      m.monto === deposito.montoEsperado
-                        ? ' ✓'
-                        : ''}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-              {puedeAltaRapida && (
+        <DialogBody className="space-y-4">
+          <div className="space-y-3">
+            {!altaRapida ? (
+              <div className="space-y-1">
+                <label className="text-xs text-ink-muted">
+                  Movimiento de ingreso sin aplicar *
+                </label>
+                <Select value={movimientoId ?? ''} onValueChange={(v) => setMovimientoId(v)}>
+                  <SelectTrigger aria-label="Movimiento de ingreso">
+                    <SelectValue
+                      placeholder={
+                        candidatos.isLoading
+                          ? 'Cargando ingresos…'
+                          : items.length === 0
+                            ? 'No hay ingresos sin aplicar'
+                            : 'Selecciona el ingreso'
+                      }
+                    />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {items.map((m) => (
+                      <SelectItem key={m.id} value={m.id}>
+                        <span className="font-mono text-xs">
+                          <DateTimeDisplay value={m.fechaValor} variant="corta" />
+                        </span>{' '}
+                        · {formatoMonto(m.monto, m.moneda)}
+                        {m.referenciaBancaria ? ` · ${m.referenciaBancaria}` : ''}
+                        {deposito?.montoEsperado != null && m.monto === deposito.montoEsperado
+                          ? ' ✓'
+                          : ''}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                {puedeAltaRapida && (
+                  <button
+                    type="button"
+                    className="text-xs text-brand underline-offset-2 hover:underline"
+                    onClick={() => setAltaRapida(true)}
+                  >
+                    El ingreso aún no está registrado — alta rápida
+                  </button>
+                )}
+              </div>
+            ) : (
+              <div className="space-y-3 rounded-md border border-dashed border-brand/50 p-3">
+                <p className="text-xs font-medium text-ink-muted">
+                  Alta rápida del ingreso (
+                  {deposito?.montoEsperado != null
+                    ? formatoMonto(deposito.montoEsperado, deposito?.moneda ?? 'MXN')
+                    : '—'}
+                  )
+                </p>
+                <FormSeccion numero={1} titulo="Datos de la operación">
+                  <FormCampo span={6}>
+                    <div className="space-y-1">
+                      <label className="text-xs text-ink-muted">Cuenta bancaria *</label>
+                      <CuentaBancariaSelector
+                        paraIngresos
+                        value={cuentaId}
+                        onChange={setCuentaId}
+                        moneda={deposito?.moneda}
+                      />
+                      <ConceptoSelector value={conceptoId} onChange={setConceptoId} />
+                    </div>
+                  </FormCampo>
+                </FormSeccion>
+                <FormGrid>
+                  <FormCampo span={6}>
+                    <div className="space-y-1">
+                      <label className="text-xs text-ink-muted" htmlFor="dep-fecha">
+                        Fecha valor *
+                      </label>
+                      <Input
+                        id="dep-fecha"
+                        type="date"
+                        value={fechaValor}
+                        onChange={(e) => setFechaValor(e.target.value)}
+                      />
+                    </div>
+                  </FormCampo>
+                  <FormCampo span={6}>
+                    <div className="space-y-1">
+                      <label className="text-xs text-ink-muted" htmlFor="dep-ref">
+                        Referencia bancaria
+                      </label>
+                      <Input
+                        id="dep-ref"
+                        value={referencia}
+                        maxLength={120}
+                        placeholder={deposito?.depositoRef ?? 'SPEI-…'}
+                        onChange={(e) => setReferencia(e.target.value)}
+                      />
+                    </div>
+                  </FormCampo>
+                </FormGrid>
                 <button
                   type="button"
-                  className="text-xs text-primary underline-offset-2 hover:underline"
-                  onClick={() => setAltaRapida(true)}
+                  className="text-xs text-brand underline-offset-2 hover:underline"
+                  onClick={() => setAltaRapida(false)}
                 >
-                  El ingreso aún no está registrado — alta rápida
+                  Volver a seleccionar un ingreso existente
                 </button>
-              )}
-            </div>
-          ) : (
-            <div className="space-y-3 rounded-md border border-dashed border-primary/50 p-3">
-              <p className="text-xs font-medium text-muted-foreground">
-                Alta rápida del ingreso (
-                {deposito?.montoEsperado != null
-                  ? formatoMonto(deposito.montoEsperado, deposito?.moneda ?? 'MXN')
-                  : '—'}
-                )
-              </p>
-              <div className="space-y-1">
-                <label className="text-xs text-muted-foreground">
-                  Cuenta bancaria
-                </label>
-                <CuentaBancariaSelector
-                  paraIngresos
-                  value={cuentaId}
-                  onChange={setCuentaId}
-                  moneda={deposito?.moneda}
-                />
-                <ConceptoSelector value={conceptoId} onChange={setConceptoId} />
               </div>
-              <div className="grid grid-cols-2 gap-3">
-                <div className="space-y-1">
-                  <label
-                    className="text-xs text-muted-foreground"
-                    htmlFor="dep-fecha"
-                  >
-                    Fecha valor
-                  </label>
-                  <Input
-                    id="dep-fecha"
-                    type="date"
-                    value={fechaValor}
-                    onChange={(e) => setFechaValor(e.target.value)}
-                  />
-                </div>
-                <div className="space-y-1">
-                  <label
-                    className="text-xs text-muted-foreground"
-                    htmlFor="dep-ref"
-                  >
-                    Referencia bancaria
-                  </label>
-                  <Input
-                    id="dep-ref"
-                    value={referencia}
-                    maxLength={120}
-                    placeholder={deposito?.depositoRef ?? 'SPEI-…'}
-                    onChange={(e) => setReferencia(e.target.value)}
-                  />
-                </div>
-              </div>
-              <button
-                type="button"
-                className="text-xs text-primary underline-offset-2 hover:underline"
-                onClick={() => setAltaRapida(false)}
-              >
-                Volver a seleccionar un ingreso existente
-              </button>
-            </div>
-          )}
-        </div>
-
+            )}
+          </div>
+        </DialogBody>
         <DialogFooter>
           <Button variant="ghost" onClick={() => cerrar(false)} disabled={pending}>
             Cancelar
           </Button>
-          <Button onClick={submit} disabled={pending || !puedeEnviar}>
+          <Button
+            onClick={submit}
+            disabled={pending || !puedeEnviar}
+            title={
+              !puedeEnviar
+                ? 'Selecciona el ingreso o completa la cuenta y fecha del alta rápida.'
+                : undefined
+            }
+          >
             {pending ? 'Confirmando…' : 'Confirmar depósito'}
           </Button>
         </DialogFooter>

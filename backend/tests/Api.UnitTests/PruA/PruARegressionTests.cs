@@ -86,7 +86,7 @@ public sealed class PruARegressionTests
         await a.Tes.SaveChangesAsync();
         var ingreso = new RegistrarMovimientoIngresoHandler(a.Tes, a, a, a.PeriodoTes, a);
         var pago = new RegistrarPagoProveedorHandler(a.Tes, a, a, a.PeriodoTes, a, a, a.Eventos, a);
-        var cuentaPago = new RegistrarPagoACuentaHandler(a.Tes, a, a, a.PeriodoTes, a);
+        var cuentaPago = new RegistrarPagoACuentaHandler(a.Tes, a, a, a.PeriodoTes, a, a);
         var septiembre = new DateOnly(2026, 9, 30); var octubre = new DateOnly(2026, 10, 10);
         await Cerrado(() => ingreso.Handle(new(cuenta.Id, 100, septiembre, SucursalId: a.Sucursal), default));
         await Cerrado(() => pago.Handle(new(cuenta.Id, septiembre, [new(facturaId, 500)]), default));
@@ -175,7 +175,7 @@ public sealed class PruARegressionTests
         Assert.NotEqual(cuenta.NumeroCuenta, cuentaDisponible.NumeroCuenta);
         Assert.DoesNotContain(typeof(Millet.Tesoreria.Application.Cuentas.CuentaParaIngresoResponse).GetProperties(), p => p.Name == "Saldo");
         var port = new TesoreriaSucursalReadAdapter(a.Tes, a, a, a);
-        var scope = new DocumentoSucursalScope(a, a, a, a, a, a, port, a, a);
+        var scope = new DocumentoSucursalScope(a, a, a, a, a, a, port, a, a, a);
         await scope.VerificarAsync("movimiento_bancario", ingreso.Id, "tesoreria.documentos.gestionar-todas-sucursales", default);
         var doc = (await port.ListarAsync("movimiento_bancario", default)).Single(d => d.Id == ingreso.Id);
         Assert.True(DocumentoSucursalScope.Permitido(doc, [a.Sucursal]));
@@ -324,7 +324,7 @@ public sealed class PruARegressionTests
 
     private sealed class Ambiente : ICurrentEmpresaContext, ICurrentUserContext, IClock, ICurrentUserPermissions, IUsuarioSucursalReadPort,
         IProveedorReadPort, IProveedorBancoReadPort, IElegibleFacturaReadPort, IComprasOcReadPort, IEmpresaFiscalReadPort,
-        IReppBancarioReadPort, ICxpSucursalReadPort, ICxcSucursalReadPort, IFacturacionSucursalReadPort, IComprasSucursalReadPort, IAlmacenSucursalReadPort, IAsyncDisposable
+        IReppBancarioReadPort, ICxpSucursalReadPort, ICxcSucursalReadPort, IFacturacionSucursalReadPort, IComprasSucursalReadPort, IAlmacenSucursalReadPort, IComercioExteriorSucursalReadPort, IAsyncDisposable
     {
         public Guid Empresa { get; } = Guid.NewGuid(); public Guid Sucursal { get; } = Guid.NewGuid();
         public Guid Cliente { get; } = Guid.NewGuid(); public Guid Proveedor { get; } = Guid.NewGuid();
@@ -445,7 +445,7 @@ public sealed class PruARegressionTests
         Task<ProveedorDto?> IProveedorReadPort.ObtenerAsync(Guid id, CancellationToken ct) => Task.FromResult<ProveedorDto?>(new(id, "AAA010101AAA", "Proveedor FIX", null, false, true));
         public Task<ProveedorDto?> ObtenerPorRfcAsync(string rfc, CancellationToken ct) => ((IProveedorReadPort)this).ObtenerAsync(Proveedor, ct);
         public Task<IReadOnlyDictionary<Guid, string>> ObtenerNombresPorIdsAsync(IReadOnlyCollection<Guid> ids, CancellationToken ct) => Task.FromResult<IReadOnlyDictionary<Guid, string>>(ids.ToDictionary(id => id, _ => "Proveedor FIX"));
-        Task<ProveedorBancoDto?> IProveedorBancoReadPort.ObtenerAsync(Guid id, CancellationToken ct) => Task.FromResult<ProveedorBancoDto?>(new(id, "FIX", "Proveedor FIX", null, null, null, Rfc: "AAA010101AAA"));
+        Task<ProveedorBancoDto?> IProveedorBancoReadPort.ObtenerAsync(Guid id, CancellationToken ct) => Task.FromResult<ProveedorBancoDto?>(new(id, "FIX", "Proveedor FIX", [new(Guid.NewGuid(), "FIX Banco", "002010077777777771", true, null, "MXN", "Proveedor FIX", true, "Activa")], Rfc: "AAA010101AAA"));
         public Task<IReadOnlyDictionary<Guid, ProveedorBancoDto>> ObtenerVariosAsync(IReadOnlyCollection<Guid> ids, CancellationToken ct) => Task.FromResult<IReadOnlyDictionary<Guid, ProveedorBancoDto>>(new Dictionary<Guid, ProveedorBancoDto>());
         public Task<decimal> ObtenerLimiteAcumuladoAsync(Guid id, CancellationToken ct) => Task.FromResult(1000m);
         Task<OrdenCompraDto?> IComprasOcReadPort.ObtenerAsync(Guid id, CancellationToken ct) => Task.FromResult<OrdenCompraDto?>(null);

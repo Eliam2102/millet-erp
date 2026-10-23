@@ -1,4 +1,4 @@
-import { useMemo } from 'react';
+import { useMemo, type ReactNode } from 'react';
 import { CatalogoEagerCombobox } from '@/components/erp/selectors/CatalogoEagerCombobox';
 import { UbicacionRutaItem } from '@/components/erp/selectors/UbicacionRutaItem';
 import { rutaUbicacion } from '@/features/almacen/lib/ubicacion-label';
@@ -45,6 +45,12 @@ export interface UbicacionBinSelectorProps {
    * server-side. Aplica a ambos modos (asignación y saldo).
    */
   requiereSubAlmacen?: boolean;
+  /**
+   * Contenido bajo el combobox cuando, en modo asignación, el artículo no
+   * tiene racks (habilitado, sin carga ni error y lista vacía). Sirve para
+   * ofrecer «Asignar ubicación» sin salir del formulario.
+   */
+  accionSinUbicaciones?: ReactNode;
 }
 
 interface BinOption {
@@ -70,12 +76,12 @@ export function UbicacionBinSelector({
   disabled,
   className,
   requiereSubAlmacen = true,
+  accionSinUbicaciones,
 }: UbicacionBinSelectorProps) {
   // El prop modula ambos modos: salida-con-RQ y recepción pasan false (sin sub
   // de cabecera, el bin deriva el sub); vale y devolución omiten el prop (true).
   const requiereSub = requiereSubAlmacen;
-  const habilitado =
-    !!articuloId && (!requiereSub || !!subAlmacenId) && !disabled;
+  const habilitado = !!articuloId && (!requiereSub || !!subAlmacenId) && !disabled;
 
   // ── Modo asignación (entradas) ──────────────────────────────────────────
   const asignacionesQuery = useAsignacionesList(
@@ -122,9 +128,7 @@ export function UbicacionBinSelector({
     // Modo asignación: cruzar las asignaciones activas del artículo con las
     // ubicaciones cargadas (del sub, o todas si requiereSubAlmacen=false) para
     // la etiqueta + ruta.
-    const ubicPorId = new Map(
-      (ubicacionesQuery.data?.items ?? []).map((u) => [u.id, u]),
-    );
+    const ubicPorId = new Map((ubicacionesQuery.data?.items ?? []).map((u) => [u.id, u]));
     return (asignacionesQuery.data?.items ?? [])
       .map((a) => ubicPorId.get(a.ubicacionId))
       .filter((u): u is NonNullable<typeof u> => u != null)
@@ -136,13 +140,7 @@ export function UbicacionBinSelector({
         almacenClave: u.almacenClave,
         subAlmacenClave: u.subAlmacenClave,
       }));
-  }, [
-    habilitado,
-    modo,
-    saldosQuery.data,
-    asignacionesQuery.data,
-    ubicacionesQuery.data,
-  ]);
+  }, [habilitado, modo, saldosQuery.data, asignacionesQuery.data, ubicacionesQuery.data]);
 
   const loading =
     modo === 'saldo'
@@ -150,9 +148,7 @@ export function UbicacionBinSelector({
       : asignacionesQuery.isLoading || ubicacionesQuery.isLoading;
 
   const error =
-    modo === 'saldo'
-      ? saldosQuery.error
-      : asignacionesQuery.error ?? ubicacionesQuery.error;
+    modo === 'saldo' ? saldosQuery.error : (asignacionesQuery.error ?? ubicacionesQuery.error);
 
   const placeholder = !habilitado
     ? requiereSub
@@ -167,57 +163,66 @@ export function UbicacionBinSelector({
         ? 'El artículo no tiene ubicaciones asignadas en este sub-almacén.'
         : 'El artículo no tiene ubicaciones asignadas.';
 
+  const mostrarAccion =
+    modo === 'asignacion' &&
+    !!accionSinUbicaciones &&
+    habilitado &&
+    !loading &&
+    !error &&
+    items.length === 0;
+
   return (
-    <CatalogoEagerCombobox<BinOption>
-      items={items}
-      loading={loading}
-      error={error}
-      value={value}
-      onChange={onChange}
-      itemToLabel={(u) =>
-        `${rutaUbicacion({
-          almacenClave: u.almacenClave,
-          subAlmacenClave: u.subAlmacenClave,
-          clave: u.clave,
-        })} ${u.nombre}`
-      }
-      renderTrigger={(u) =>
-        rutaUbicacion({
-          almacenClave: u.almacenClave,
-          subAlmacenClave: u.subAlmacenClave,
-          clave: u.clave,
-        })
-      }
-      renderItem={(u) => (
-        <UbicacionRutaItem
-          niveles={{
+    <>
+      <CatalogoEagerCombobox<BinOption>
+        items={items}
+        loading={loading}
+        error={error}
+        value={value}
+        onChange={onChange}
+        itemToLabel={(u) =>
+          `${rutaUbicacion({
             almacenClave: u.almacenClave,
             subAlmacenClave: u.subAlmacenClave,
             clave: u.clave,
-          }}
-          nombre={u.nombre}
-          adornos={
-            <>
-              {u.esDefault && (
-                <span className="ml-2 rounded bg-sky-100 px-1 text-[10px] font-medium text-sky-800">
-                  ÚNICA
-                </span>
-              )}
-              {u.cantidad != null && (
-                <span className="ml-2 text-muted-foreground">
-                  · {u.cantidad} disp.
-                </span>
-              )}
-            </>
-          }
-        />
-      )}
-      placeholder={placeholder}
-      searchPlaceholder="Buscar ubicación…"
-      emptyListText={emptyListText}
-      ariaLabel="Seleccionar ubicación"
-      disabled={!habilitado}
-      className={className}
-    />
+          })} ${u.nombre}`
+        }
+        renderTrigger={(u) =>
+          rutaUbicacion({
+            almacenClave: u.almacenClave,
+            subAlmacenClave: u.subAlmacenClave,
+            clave: u.clave,
+          })
+        }
+        renderItem={(u) => (
+          <UbicacionRutaItem
+            niveles={{
+              almacenClave: u.almacenClave,
+              subAlmacenClave: u.subAlmacenClave,
+              clave: u.clave,
+            }}
+            nombre={u.nombre}
+            adornos={
+              <>
+                {u.esDefault && (
+                  <span className="ml-2 rounded bg-info-bg px-1 text-[10px] font-medium text-info-fg">
+                    ÚNICA
+                  </span>
+                )}
+                {u.cantidad != null && (
+                  <span className="ml-2 text-muted-foreground">· {u.cantidad} disp.</span>
+                )}
+              </>
+            }
+          />
+        )}
+        placeholder={placeholder}
+        searchPlaceholder="Buscar ubicación…"
+        emptyListText={emptyListText}
+        ariaLabel="Seleccionar ubicación"
+        disabled={!habilitado}
+        className={className}
+      />
+      {mostrarAccion && accionSinUbicaciones}
+    </>
   );
 }

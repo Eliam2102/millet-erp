@@ -43,8 +43,9 @@ export function useCorteCaja(sesionId: string) {
  * CAJAS-PR6). `sesion` null = sin sesión; `diaAnteriorPendiente` = solo
  * arqueo y cierre extemporáneo (12-cajas.md §5.2). El If-Match de las
  * mutaciones sale de `sesion.version` (respuesta, no header ETag).
+ * `enabled: false` evita el 403 cuando el usuario no opera caja.
  */
-export function useSesionActual() {
+export function useSesionActual(opts?: { enabled?: boolean }) {
   return useQuery<SesionActualResponse>({
     queryKey: facturacionKeys.sesionActual(),
     queryFn: async ({ signal }) => {
@@ -54,6 +55,7 @@ export function useSesionActual() {
       return data;
     },
     staleTime: 0,
+    enabled: opts?.enabled ?? true,
   });
 }
 

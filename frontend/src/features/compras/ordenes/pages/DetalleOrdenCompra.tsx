@@ -1,8 +1,14 @@
+import { EnviosOcPanel } from '../components/EnviosOcPanel';
+import { PageHeader } from '@/components/erp/PageHeader';
 import { CancelacionOcPanel } from '../components/CancelacionOcPanel';
+import { IncidenciasProveedorPanel } from '../components/IncidenciasProveedorPanel';
+import { RespuestaProveedorPanel } from '../components/RespuestaProveedorPanel';
 import { useMemo, useState, type ReactNode } from 'react';
 import { Link, useLocation, useParams } from '@tanstack/react-router';
 import { Compass, GitBranch, Inbox, Lock, Printer, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { Skeleton } from '@/components/ui/skeleton';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import {
   CollaborationIndicator,
   EditandoBanner,
@@ -19,9 +25,11 @@ import {
   useUsosPrincipales,
   mapById,
 } from '@/features/catalogos/api';
+import { RecurrenteBadge } from '@/features/compras/components/IndicadoresPendiente';
 import { useOrdenCompra } from '@/features/compras/ordenes/api/useOrdenCompra';
 import { AccionesOC } from '@/features/compras/ordenes/components/AccionesOC';
 import { AdjuntosManagerOc } from '@/features/compras/ordenes/components/AdjuntosManagerOc';
+import { RevisionPreviaOc } from '@/features/compras/ordenes/components/RevisionPreviaOc';
 import { AsideListOcsHermanas } from '@/features/compras/ordenes/components/AsideListOcsHermanas';
 import { EditorLineas } from '@/features/compras/ordenes/components/EditorLineas';
 import { StepperAutorizacionOc } from '@/features/compras/ordenes/components/StepperAutorizacionOc';
@@ -34,8 +42,11 @@ import {
   DEFAULT_BANDEJA_OC_SEARCH,
   type BandejaOcSearch,
 } from '@/features/compras/ordenes/lib/bandeja-oc-search-schema';
+import { calcularRevisionPrevia } from '@/features/compras/ordenes/lib/revision-previa-oc';
+import { accionTransmitirAAutorizacion } from '@/features/compras/ordenes/lib/acciones-disponibles';
+import { useTiposDocumentoOc } from '@/features/catalogos/api';
+import { useAuthStore } from '@/lib/auth/auth-store';
 import { esApiError, type ApiError } from '@/lib/api';
-import { cn } from '@/lib/utils';
 
 /**
  * <c>P3 — Detalle de orden de compra</c> (read-only en UF1-PR2).
@@ -73,10 +84,12 @@ export function DetalleOrdenCompra() {
   // ruta específica (consistente con <c>&lt;DetalleRequisicion/&gt;</c>).
   const { id } = useParams({ strict: false }) as { id: string };
   const location = useLocation();
-  const bandejaSearch =
-    extractBandejaOcSearch(location.state) ?? DEFAULT_BANDEJA_OC_SEARCH;
+  const bandejaSearch = extractBandejaOcSearch(location.state) ?? DEFAULT_BANDEJA_OC_SEARCH;
 
   const ocQuery = useOrdenCompra(id);
+  const [tabActivo, setTabActivo] = useState<TabId>('informacion');
+  const permisos = useAuthStore((s) => s.permisos);
+  const tiposDocQuery = useTiposDocumentoOc();
 
   // Catálogos cargados con limit alto + includeInactivas para resolver
   // ids históricos en detalles (un proveedor/condición/uso pudo haberse
@@ -88,18 +101,9 @@ export function DetalleOrdenCompra() {
   const condicionesPagoQuery = useCondicionesPago({ includeInactivas: true });
   const usosPrincipalesQuery = useUsosPrincipales({ includeInactivas: true });
 
-  const sucursalesMap = useMemo(
-    () => mapById(sucursalesQuery.data?.items),
-    [sucursalesQuery.data],
-  );
-  const almacenesMap = useMemo(
-    () => mapById(almacenesQuery.data?.items),
-    [almacenesQuery.data],
-  );
-  const usuariosMap = useMemo(
-    () => mapById(usuariosQuery.data?.items),
-    [usuariosQuery.data],
-  );
+  const sucursalesMap = useMemo(() => mapById(sucursalesQuery.data?.items), [sucursalesQuery.data]);
+  const almacenesMap = useMemo(() => mapById(almacenesQuery.data?.items), [almacenesQuery.data]);
+  const usuariosMap = useMemo(() => mapById(usuariosQuery.data?.items), [usuariosQuery.data]);
   const condicionesPagoMap = useMemo(
     () => mapById(condicionesPagoQuery.data),
     [condicionesPagoQuery.data],
@@ -133,13 +137,7 @@ export function DetalleOrdenCompra() {
         if (up) return up.nombre;
         return '—';
       },
-    [
-      usuariosMap,
-      sucursalesMap,
-      almacenesMap,
-      condicionesPagoMap,
-      usosPrincipalesMap,
-    ],
+    [usuariosMap, sucursalesMap, almacenesMap, condicionesPagoMap, usosPrincipalesMap],
   );
 
   if (ocQuery.isError) {
@@ -154,35 +152,41 @@ export function DetalleOrdenCompra() {
 
   if (ocQuery.isLoading || ocQuery.data == null) {
     return (
-      <div className="space-y-4 p-4">
-        <h1 className="text-2xl font-semibold tracking-tight">Cargando…</h1>
+      <div className="flex flex-col gap-5" aria-busy="true">
+        <header className="flex items-center gap-3 border-b px-4 py-2">
+          <Skeleton className="h-7 w-32" />
+          <Skeleton className="h-5 w-24 rounded-full" />
+          <Skeleton className="ml-4 h-8 w-28" />
+        </header>
         <TableSkeleton
           rows={5}
-          columns={[
-            { width: 'w-32' },
-            { width: 'w-48' },
-            { width: 'w-24' },
-            { width: 'w-32' },
-          ]}
+          columns={[{ width: 'w-32' }, { width: 'w-48' }, { width: 'w-24' }, { width: 'w-32' }]}
         />
       </div>
     );
   }
 
   const oc = ocQuery.data;
+  // Revisión previa de «Transmitir»: solo cuando la acción aplica (Borrador/Rechazada + permiso).
+  const revision = accionTransmitirAAutorizacion(oc, permisos).visible
+    ? calcularRevisionPrevia(oc, tiposDocQuery.data)
+    : undefined;
 
   return (
-    <div className="flex flex-col gap-4">
+    <div className="flex flex-col gap-5 px-4 pb-10 md:px-6">
       {/* ── Sub-topbar sticky ───────────────────────────── */}
       <header
-        className="sticky top-14 z-10 flex flex-wrap items-center gap-3 border-b bg-background/95 px-4 py-2 backdrop-blur"
+        className="sticky top-14 z-10 md:top-0 -mx-4 flex flex-wrap items-center gap-3 border-b bg-surface-card px-4 py-3 md:-mx-6 md:px-6"
         data-print="hidden"
       >
         <div className="flex min-w-0 items-center gap-2">
-          <span className="truncate font-mono text-sm font-semibold">
-            {oc.folio}
-          </span>
+          <PageHeader
+            mono
+            titulo={oc.folio}
+            descripcion={oc.proveedorRazonSocial ?? oc.proveedorClave ?? undefined}
+          />
           <EstadoBadge tipo="orden-compra" estado={oc.estado} />
+          <RecurrenteBadge esRecurrente={oc.esRecurrente} />
           <CollaborationIndicator entidad="orden-compra" id={oc.id} />
         </div>
 
@@ -191,7 +195,7 @@ export function DetalleOrdenCompra() {
             matriz §6.1; el componente se auto-oculta si ninguna acción
             aplica al estado + permisos. */}
         <div className="flex flex-wrap items-center gap-2">
-          <AccionesOC oc={oc} />
+          <AccionesOC oc={oc} revision={revision} />
         </div>
 
         <div className="ml-auto flex items-center gap-1">
@@ -217,11 +221,7 @@ export function DetalleOrdenCompra() {
             Imprimir
           </Button>
           <Button asChild variant="ghost" size="icon">
-            <Link
-              to="/compras/ordenes"
-              search={bandejaSearch}
-              aria-label="Cerrar"
-            >
+            <Link to="/compras/ordenes" search={bandejaSearch} aria-label="Cerrar">
               <X className="h-4 w-4" />
             </Link>
           </Button>
@@ -229,7 +229,7 @@ export function DetalleOrdenCompra() {
       </header>
 
       {/* ── Cuerpo ──────────────────────────────────────── */}
-      <div className="space-y-6 px-4 pb-6">
+      <div className="space-y-5">
         <div data-print="hidden">
           <EditandoBanner entidad="orden-compra" id={oc.id} />
         </div>
@@ -242,6 +242,9 @@ export function DetalleOrdenCompra() {
 
         <StepperAutorizacionOc estado={oc.estado} />
         <CancelacionOcPanel oc={oc} />
+        <EnviosOcPanel key={oc.id} ordenCompraId={oc.id} folio={oc.folio} />
+        <RespuestaProveedorPanel oc={oc} />
+        <IncidenciasProveedorPanel oc={oc} />
 
         {/* UF5-PR2: aside de la cadena de duplicación. Solo aparece
             si la OC actual es duplicada (tiene oc_origen_id) o es
@@ -250,22 +253,24 @@ export function DetalleOrdenCompra() {
           <AsideListOcsHermanas oc={oc} />
         </div>
 
+        {revision && <RevisionPreviaOc revision={revision} onIr={setTabActivo} />}
+
         <TabsOc
-          informacion={
-            <TabInformacion oc={oc} resolverNombre={resolverNombre} />
-          }
+          activo={tabActivo}
+          onActivoChange={setTabActivo}
+          informacion={<TabInformacion oc={oc} resolverNombre={resolverNombre} />}
           lineas={<EditorLineas oc={oc} />}
           adjuntos={<AdjuntosManagerOc oc={oc} />}
           pdf={<TabPdf oc={oc} />}
           autorizacion={
             <>
-            <HistorialFirmasOc oc={oc} resolverNombre={resolverNombre} />
-            <TimelineOrdenCompra
-              ocId={oc.id}
-              filtroEntidad="AutorizacionOC"
-              emptyTitle="Sin eventos de autorización"
-              emptyDescription="Cuando esta OC sea aprobada o rechazada en N1 o N2, los eventos individuales aparecerán aquí (con fecha, autorizador y notas por nivel)."
-            />
+              <HistorialFirmasOc oc={oc} resolverNombre={resolverNombre} />
+              <TimelineOrdenCompra
+                ocId={oc.id}
+                filtroEntidad="AutorizacionOC"
+                emptyTitle="Sin eventos de autorización"
+                emptyDescription="Cuando esta OC sea aprobada o rechazada en N1 o N2, los eventos individuales aparecerán aquí (con fecha, autorizador y notas por nivel)."
+              />
             </>
           }
           historial={<TimelineOrdenCompra ocId={oc.id} />}
@@ -276,24 +281,17 @@ export function DetalleOrdenCompra() {
 }
 
 // ============================================================================
-// Tabs locales — minimal hasta que UF2-PR3 / UF3-PR2 / UF4-PR1 / UF7-PR3
+// Tabs (components/ui/tabs, UX-F1-09). Historia: minimal hasta que UF2-PR3 / UF3-PR2 / UF4-PR1 / UF7-PR3
 // traigan el contenido real. No introducimos Radix Tabs (dependency
 // nueva) para una UI tan simple; si en el futuro otros módulos
 // necesitan tabs, promovemos a `components/erp/Tabs.tsx`.
 // ============================================================================
 
-const TAB_IDS = [
-  'informacion',
-  'lineas',
-  'adjuntos',
-  'pdf',
-  'autorizacion',
-  'historial',
-] as const;
+const TAB_IDS = ['informacion', 'lineas', 'adjuntos', 'pdf', 'autorizacion', 'historial'] as const;
 type TabId = (typeof TAB_IDS)[number];
 const TAB_LABEL: Record<TabId, string> = {
   informacion: 'Información',
-  lineas: 'Líneas',
+  lineas: 'Partidas',
   adjuntos: 'Adjuntos',
   pdf: 'PDF',
   autorizacion: 'Autorización',
@@ -301,6 +299,8 @@ const TAB_LABEL: Record<TabId, string> = {
 };
 
 function TabsOc({
+  activo,
+  onActivoChange,
   informacion,
   lineas,
   adjuntos,
@@ -308,6 +308,8 @@ function TabsOc({
   autorizacion,
   historial,
 }: {
+  activo: TabId;
+  onActivoChange: (tab: TabId) => void;
   informacion: ReactNode;
   /** Tab "Líneas" — wireado con <c>&lt;EditorLineas/&gt;</c> desde
    * UF2-PR3-b. Si <c>null</c>, cae al stub "próximamente". */
@@ -326,129 +328,59 @@ function TabsOc({
    * desde UF7-PR3. Si <c>null</c>, cae al stub. */
   historial?: ReactNode;
 }) {
-  const [activo, setActivo] = useState<TabId>('informacion');
+  const stub = (slot: ReactNode, nombre: string, titulo: string) =>
+    slot ?? (
+      <StubProximamente
+        titulo={`${titulo} — wireup pendiente`}
+        descripcion={`El caller no proporcionó el slot ${nombre}; verifica el wireup en DetalleOrdenCompra.`}
+      />
+    );
+  const contenido: Record<TabId, ReactNode> = {
+    informacion: informacion,
+    lineas: stub(lineas, 'lineas', 'Partidas'),
+    adjuntos: stub(adjuntos, 'adjuntos', 'Adjuntos'),
+    pdf: stub(pdf, 'pdf', 'PDF'),
+    autorizacion: stub(autorizacion, 'autorizacion', 'Autorización'),
+    historial: stub(historial, 'historial', 'Historial'),
+  };
+  // Pestañas con formularios en edición: forceMount para no perder lo capturado
+  // al cambiar de pestaña (el CSS de TabsContent oculta las inactivas).
+  const FORCE_MOUNT: TabId[] = ['informacion', 'lineas'];
 
   return (
-    <div data-component="tabs-oc">
-      <nav
-        role="tablist"
-        aria-label="Secciones del detalle de OC"
-        className="flex flex-wrap gap-1 border-b"
-      >
+    <Tabs value={activo} onValueChange={(v) => onActivoChange(v as TabId)} data-component="tabs-oc">
+      <TabsList aria-label="Secciones del detalle de OC">
         {TAB_IDS.map((id) => (
-          <button
+          <TabsTrigger
             key={id}
-            type="button"
-            role="tab"
-            aria-selected={activo === id}
-            aria-controls={`tab-panel-${id}`}
+            value={id}
             id={`tab-${id}`}
-            onClick={() => setActivo(id)}
             data-tab={id}
             data-activo={activo === id || undefined}
-            className={cn(
-              '-mb-px border-b-2 px-3 py-1.5 text-sm font-medium transition-colors',
-              activo === id
-                ? 'border-primary text-primary'
-                : 'border-transparent text-muted-foreground hover:text-foreground',
-            )}
           >
             {TAB_LABEL[id]}
-          </button>
+          </TabsTrigger>
         ))}
-      </nav>
+      </TabsList>
 
-      <div className="pt-4">
-        {activo === 'informacion' && (
-          <Panel id="informacion">{informacion}</Panel>
-        )}
-        {activo === 'lineas' && (
-          <Panel id="lineas">
-            {lineas ?? (
-              <StubProximamente
-                titulo="Líneas — wireup pendiente"
-                descripcion="El caller no proporcionó el slot lineas; verifica el wireup en DetalleOrdenCompra."
-              />
-            )}
-          </Panel>
-        )}
-        {activo === 'adjuntos' && (
-          <Panel id="adjuntos">
-            {adjuntos ?? (
-              <StubProximamente
-                titulo="Adjuntos — wireup pendiente"
-                descripcion="El caller no proporcionó el slot adjuntos; verifica el wireup en DetalleOrdenCompra."
-              />
-            )}
-          </Panel>
-        )}
-        {activo === 'pdf' && (
-          <Panel id="pdf">
-            {pdf ?? (
-              <StubProximamente
-                titulo="PDF — wireup pendiente"
-                descripcion="El caller no proporcionó el slot pdf; verifica el wireup en DetalleOrdenCompra."
-              />
-            )}
-          </Panel>
-        )}
-        {activo === 'autorizacion' && (
-          <Panel id="autorizacion">
-            {autorizacion ?? (
-              <StubProximamente
-                titulo="Autorización — wireup pendiente"
-                descripcion="El caller no proporcionó el slot autorizacion; verifica el wireup en DetalleOrdenCompra."
-              />
-            )}
-          </Panel>
-        )}
-        {activo === 'historial' && (
-          <Panel id="historial">
-            {historial ?? (
-              <StubProximamente
-                titulo="Historial — wireup pendiente"
-                descripcion="El caller no proporcionó el slot historial; verifica el wireup en DetalleOrdenCompra."
-              />
-            )}
-          </Panel>
-        )}
-      </div>
-    </div>
+      {TAB_IDS.map((id) => (
+        <TabsContent
+          key={id}
+          value={id}
+          forceMount={FORCE_MOUNT.includes(id) ? true : undefined}
+          className="pt-4 mt-0"
+          data-tab-panel={id}
+        >
+          {contenido[id]}
+        </TabsContent>
+      ))}
+    </Tabs>
   );
 }
 
-function Panel({
-  id,
-  children,
-}: {
-  id: TabId;
-  children: ReactNode;
-}) {
+function StubProximamente({ titulo, descripcion }: { titulo: string; descripcion: string }) {
   return (
-    <div
-      role="tabpanel"
-      id={`tab-panel-${id}`}
-      aria-labelledby={`tab-${id}`}
-      data-tab-panel={id}
-    >
-      {children}
-    </div>
-  );
-}
-
-function StubProximamente({
-  titulo,
-  descripcion,
-}: {
-  titulo: string;
-  descripcion: string;
-}) {
-  return (
-    <EmptyState
-      icon={<Inbox className="h-10 w-10" />}
-      title={titulo}
-      description={descripcion}
-    />
+    <EmptyState icon={<Inbox className="h-10 w-10" />} title={titulo} description={descripcion} />
   );
 }
 
@@ -465,11 +397,7 @@ interface DetalleErrorBoundaryOcProps {
   bandejaSearch: BandejaOcSearch;
 }
 
-function DetalleErrorBoundaryOc({
-  error,
-  onRetry,
-  bandejaSearch,
-}: DetalleErrorBoundaryOcProps) {
+function DetalleErrorBoundaryOc({ error, onRetry, bandejaSearch }: DetalleErrorBoundaryOcProps) {
   if (esApiError(error)) {
     if (error.status === 403) {
       return <Page403 error={error} bandejaSearch={bandejaSearch} />;
@@ -487,20 +415,12 @@ function DetalleErrorBoundaryOc({
   );
 }
 
-function Page403({
-  error,
-  bandejaSearch,
-}: {
-  error: ApiError;
-  bandejaSearch: BandejaOcSearch;
-}) {
+function Page403({ error, bandejaSearch }: { error: ApiError; bandejaSearch: BandejaOcSearch }) {
   // Loguear traceId — si el 403 llega es por bug de gating de UI
   // (el sidebar no debería haber mostrado el item sin
   // <c>compras.ordenes.leer</c>).
   if (error.traceId != null) {
-    console.warn(
-      `[OC] 403 en GET /api/v1/compras/ordenes/{id} — traceId=${error.traceId}`,
-    );
+    console.warn(`[OC] 403 en GET /api/v1/compras/ordenes/{id} — traceId=${error.traceId}`);
   }
   const description =
     error.problem?.title && error.problem.title !== 'Forbidden'
@@ -548,9 +468,7 @@ interface BandejaOcSearchState {
   bandejaOcSearch: BandejaOcSearch;
 }
 
-function extractBandejaOcSearch(
-  state: unknown,
-): BandejaOcSearch | undefined {
+function extractBandejaOcSearch(state: unknown): BandejaOcSearch | undefined {
   if (state != null && typeof state === 'object' && 'bandejaOcSearch' in state) {
     return (state as BandejaOcSearchState).bandejaOcSearch;
   }

@@ -5,6 +5,9 @@ using Millet.CuentasPorPagar.Domain.Ports.Administracion;
 using Millet.CuentasPorPagar.Domain.Ports.DatosMaestros;
 using Millet.CuentasPorPagar.Domain.Ports.Compras;
 using Millet.CuentasPorPagar.Infrastructure.Persistence;
+using Millet.CuentasPorPagar.Application.FacturaProveedor.Revision;
+using Millet.SharedKernel.Application;
+using Millet.SharedKernel.Application.Calendario;
 using Millet.SharedKernel.Application.Exceptions;
 
 namespace Millet.CuentasPorPagar.Application.FacturaProveedor.Queries;
@@ -50,7 +53,23 @@ public sealed record FacturaDetalleResponse(
     decimal Retenido = 0,
     IReadOnlyList<Domain.Cfdi.RetencionCfdi>? RetencionesDetalle = null,
     string? Obra = null, string? ConceptoRetencion = null, string? AlertaRetenciones = null, decimal CargosAplicadosTotal = 0,
-    string? OrdenCompraFolio = null);
+    string? OrdenCompraFolio = null,
+    DateTimeOffset? RetencionesRevisadasEn = null,
+    string? RetencionesRevisionMotivo = null,
+    RevisionVigenteResponse? RevisionVigente = null,
+    Guid? RecepcionId = null,
+    string? RecepcionFolio = null);
+
+/// <summary>Revisión por área en curso (C-06): motivo, área, fecha de envío y plazo en días hábiles.</summary>
+public sealed record RevisionVigenteResponse(
+    string? MotivoNombre,
+    string? AreaNombre,
+    DateTimeOffset FechaEnvio,
+    int DiasHabiles,
+    int? SlaDias,
+    // 1 = aviso al gerente, 2 = plazo vencido, 3 = escalada; null = sin aviso en el episodio vigente.
+    int? NivelAviso,
+    bool Vencida);
 
 public sealed record FacturaLineaResponse(
     Guid Id,
@@ -73,13 +92,20 @@ public sealed class GetFacturaPorIdHandler : IRequestHandler<GetFacturaPorIdQuer
     private readonly ISucursalReadPort _sucursales;
     private readonly IComprasOcReadPort _ordenes;
     private readonly Elegibilidad.ElegibilidadFacturaService _elegibilidad;
+    private readonly IClock _clock;
+    private readonly ICalendarioHabil _calendario;
+    private readonly IDependenciaRevisoraReadPort _dependencias;
 
     public GetFacturaPorIdHandler(
         CuentasPorPagarDbContext db,
         IProveedorReadPort proveedores,
         ISucursalReadPort sucursales, Elegibilidad.ElegibilidadFacturaService elegibilidad,
-        IComprasOcReadPort ordenes)
+        IComprasOcReadPort ordenes,
+        IClock clock, ICalendarioHabil calendario, IDependenciaRevisoraReadPort dependencias)
     {
+        _clock = clock;
+        _calendario = calendario;
+        _dependencias = dependencias;
         _db = db;
         _proveedores = proveedores;
         _sucursales = sucursales;
@@ -99,6 +125,28 @@ public sealed class GetFacturaPorIdHandler : IRequestHandler<GetFacturaPorIdQuer
         var proveedor = await _proveedores.ObtenerAsync(f.ProveedorId, cancellationToken);
         var sucursal = await _sucursales.ObtenerAsync(f.SucursalId, cancellationToken);
         var orden = f.OrdenCompraId is Guid ocId ? await _ordenes.ObtenerAsync(ocId, cancellationToken) : null;
+
+        RevisionVigenteResponse? revision = null;
+        if (f is { EnRevision: true, MotivoRevisionId: Guid motivoId, FechaEntradaRevision: DateTimeOffset entrada })
+        {
+            var motivo = await _db.MotivosRevision.AsNoTracking().Where(m => m.Id == motivoId)
+                .Select(m => new { m.Nombre, m.SlaDias }).FirstOrDefaultAsync(cancellationToken);
+            var area = f.DependenciaRevisoraId is Guid depId
+                ? await _dependencias.ObtenerAsync(depId, cancellationToken) : null;
+            var dias = await PlazoRevision.DiasHabilesAsync(
+                _calendario, entrada, _clock.UtcNow, new Dictionary<DateOnly, int>(), cancellationToken);
+            var nivel = await _db.AvisosSlaRevision.AsNoTracking()
+                .Where(a => a.FacturaProveedorId == f.Id && a.FechaEntradaRevision == entrada)
+                .Select(a => (int?)a.Nivel).MaxAsync(cancellationToken);
+            revision = new RevisionVigenteResponse(
+                motivo?.Nombre, area?.Nombre, entrada, dias, motivo?.SlaDias, nivel,
+                motivo?.SlaDias is int sla && dias >= PlazoRevision.Umbrales(sla).Vencido);
+        }
+
+        var folioRecepcion = f.RecepcionId is Guid rid
+            ? await _db.RecepcionesOcLocal.AsNoTracking().Where(r => r.RecepcionId == rid)
+                .Select(r => r.FolioRecepcion).FirstOrDefaultAsync(cancellationToken)
+            : null;
 
         var elegibilidad = await _elegibilidad.CalcularAsync(f, cancellationToken);
         return new FacturaDetalleResponse(
@@ -122,6 +170,8 @@ public sealed class GetFacturaPorIdHandler : IRequestHandler<GetFacturaPorIdQuer
             Total: f.Total,
             OrdenCompraId: f.OrdenCompraId,
             OrdenCompraFolio: orden?.Folio,
+            RecepcionId: f.RecepcionId,
+            RecepcionFolio: folioRecepcion,
             Estado: f.Estado,
             DiferenciaContraOc: f.DiferenciaContraOc,
             AnticipoAplicadoTotal: f.AnticipoAplicadoTotal,
@@ -139,6 +189,8 @@ public sealed class GetFacturaPorIdHandler : IRequestHandler<GetFacturaPorIdQuer
             ProveedorNombre: proveedor?.RazonSocial,
             SucursalNombre: sucursal is null ? null : $"{sucursal.Codigo} · {sucursal.Nombre}",
             Elegible: elegibilidad.ElegiblePendiente, Retenido: elegibilidad.Retenido,
-            RetencionesDetalle: f.RetencionesDetalle, Obra: f.Obra, ConceptoRetencion: f.ConceptoRetencion, AlertaRetenciones: f.AlertaRetenciones, CargosAplicadosTotal: f.CargosAplicadosTotal);
+            RetencionesDetalle: f.RetencionesDetalle, Obra: f.Obra, ConceptoRetencion: f.ConceptoRetencion, AlertaRetenciones: f.AlertaRetenciones, CargosAplicadosTotal: f.CargosAplicadosTotal,
+            RetencionesRevisadasEn: f.RetencionesRevisadasEn, RetencionesRevisionMotivo: f.RetencionesRevisionMotivo,
+            RevisionVigente: revision);
     }
 }

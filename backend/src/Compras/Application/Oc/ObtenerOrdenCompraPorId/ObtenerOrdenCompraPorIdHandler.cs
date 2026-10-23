@@ -2,8 +2,13 @@ using MapsterMapper;
 using MediatR;
 using Microsoft.EntityFrameworkCore;
 using Millet.CentrosCosto.Application.PublicPorts;
+using Millet.Compras.Application.Oc.Incidencias;
+using Millet.Compras.Application.Oc.RespuestaProveedor;
+using Millet.Compras.Domain.Oc;
 using Millet.Compras.Domain.Ports.DatosMaestros;
+using Millet.Compras.Domain.Ports.Identidad;
 using Millet.Compras.Infrastructure;
+using Millet.SharedKernel.Application;
 using Millet.SharedKernel.Application.Exceptions;
 
 namespace Millet.Compras.Application.Oc.ObtenerOrdenCompraPorId;
@@ -37,19 +42,27 @@ public sealed class ObtenerOrdenCompraPorIdHandler
     private readonly IArticuloReadPort _articulos;
     private readonly IProveedorReadPort _proveedores;
     private readonly IDim3ReadPort _centrosCosto;
+    private readonly IClock _clock;
+    private readonly IUsuarioReadPort _usuarios;
+    private readonly Millet.Almacen.Application.PublicPorts.IRecepcionesImportacionReadPort _importaciones;
 
     public ObtenerOrdenCompraPorIdHandler(
         ComprasDbContext db,
         IMapper mapper,
         IArticuloReadPort articulos,
         IProveedorReadPort proveedores,
-        IDim3ReadPort centrosCosto)
+        IDim3ReadPort centrosCosto,
+        IClock clock,
+        IUsuarioReadPort usuarios, Millet.Almacen.Application.PublicPorts.IRecepcionesImportacionReadPort importaciones)
     {
         _db = db;
         _mapper = mapper;
         _articulos = articulos;
         _proveedores = proveedores;
         _centrosCosto = centrosCosto;
+        _clock = clock;
+        _usuarios = usuarios;
+        _importaciones = importaciones;
     }
 
     public async Task<OrdenCompraResponse> Handle(
@@ -66,6 +79,8 @@ public sealed class ObtenerOrdenCompraPorIdHandler
             .Include(o => o.Lineas)
             .Include(o => o.Adjuntos)
             .Include(o => o.SolicitudesCancelacion)
+            .Include(o => o.RespuestasProveedor).ThenInclude(r => r.Compromisos)
+            .Include(o => o.Incidencias).ThenInclude(i => i.Compromisos)
             .Include(o => o.Autorizaciones)
             .FirstOrDefaultAsync(o => o.Id == query.Id, cancellationToken)
             ?? throw new EntityNotFoundException(
@@ -108,12 +123,26 @@ public sealed class ObtenerOrdenCompraPorIdHandler
                 AplicarFoliosRequisicion(response.Lineas, folios), articulos),
             centrosCosto);
 
+        var cot = await _db.Cotizaciones.AsNoTracking().Include(c => c.Lineas)
+            .FirstOrDefaultAsync(c => c.OrdenCompraId == oc.Id, cancellationToken);
+        var cotizacion = cot is null ? null : new CotizacionElegidaOcResponse(cot.Id, cot.RequisicionId, cot.ProveedorId,
+            cot.FolioProveedor, cot.MotivoEleccion!, cot.ElegidaEn!.Value,
+            cot.Lineas.Select(l => new PrecioCotizadoLineaResponse(l.LineaRequisicionId, l.PrecioPorUnidadRequisicion)).ToList());
+
+        var esRecurrente = RecurrenciaOc.EsRecurrente(
+                await RecurrenciaOc.ContarAsync(_db, new[] { oc.ProveedorId }, RecurrenciaOc.Desde(_clock.UtcNow), cancellationToken),
+                oc.ProveedorId, oc.CompradorTitularId);
+
         return response with
         {
+            RecepcionesImportacion = oc.EsImportacion ? await _importaciones.ObtenerPorOcAsync(oc.Id, cancellationToken) : [],
+            EsRecurrente = esRecurrente,
+            CotizacionElegida = cotizacion,
             ProveedorRazonSocial = prov?.RazonSocial,
             ProveedorClave = prov?.Clave,
             Lineas = lineas,
             CicloAutorizacion = oc.CicloAutorizacion,
+            CamposPorCapturar = CalcularCamposPorCapturar(oc),
             Autorizaciones = oc.Autorizaciones.OrderBy(a => a.Ciclo).ThenBy(a => a.FechaHora)
                 .Select(a => new AutorizacionOcResponse(a.Id, a.Ciclo, a.Nivel, a.Resultado,
                     a.UsuarioId, a.FechaHora, a.MotivoRechazoId, a.MotivoRechazoTexto, a.Notas)
@@ -122,7 +151,22 @@ public sealed class ObtenerOrdenCompraPorIdHandler
                 .Select(s => new SolicitudCancelacionOcResponse(s.Id, s.SolicitanteId,
                     s.FechaSolicitud, s.MotivoCancelacionId, s.MotivoSolicitud,
                     s.ResolutorId, s.FechaResolucion, s.Confirmada, s.MotivoResolucion)).ToList(),
+            EstadoComercialProveedor = oc.EstadoComercialProveedor,
+            FechaCompromisoProveedor = oc.FechaCompromisoProveedor,
+            RespuestasProveedor = oc.RespuestasProveedor.OrderByDescending(r => r.Numero)
+                .Select(r => RespuestaProveedorMapper.ToResponse(r, r.Numero == oc.RespuestasProveedor.Max(x => x.Numero))).ToList(),
+            Incidencias = await IncidenciaProveedorMapper.ToResponsesAsync(oc.Incidencias, _db, _usuarios,
+                FechaContable.HoyLocal(_clock.UtcNow), cancellationToken),
         };
+    }
+
+    private static List<string> CalcularCamposPorCapturar(OrdenCompra oc)
+    {
+        var campos = new List<string>();
+        if (oc.ProveedorId == OrdenCompraTbdSentinels.Proveedor) campos.Add("proveedor");
+        if (oc.CondicionesPagoId == OrdenCompraTbdSentinels.CondicionesPago) campos.Add("condicionesPago");
+        if (oc.UsoPrincipalId == OrdenCompraTbdSentinels.UsoPrincipal) campos.Add("usoPrincipal");
+        return campos;
     }
 
     /// <summary>

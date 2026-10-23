@@ -22,11 +22,8 @@ export function OrigenBadge({ origen, className }: OrigenBadgeProps) {
   if (origen !== OrigenRequisicion.Sistema) return null;
   return (
     <Badge
-      variant="outline"
-      className={cn(
-        'gap-1 border-violet-300 bg-violet-50 font-medium text-violet-700',
-        className,
-      )}
+      variant="neutral"
+      className={cn('gap-1', className)}
       data-origen="sistema"
       title="Requisición creada automáticamente por el motor de reabasto"
     >

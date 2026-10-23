@@ -1,22 +1,33 @@
-import { useMemo, useState } from 'react';
-import { useNavigate, useSearch } from '@tanstack/react-router';
-import { Plus, Unlock, XCircle } from 'lucide-react';
-import { toast } from 'sonner';
-import { Button } from '@/components/ui/button';
 import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import {
+  ListadoModulo,
+  TabsEstado,
+  BarraFiltros,
+  PaginacionTabla,
+  PageHeader,
   DateTimeDisplay,
   EmptyState,
   ErrorState,
   TableSkeleton,
 } from '@/components/erp';
+
+import { usePaginacionLocal } from '../lib/use-paginacion-local';
+import { ETIQUETA_ESTADO_AUTORIZACION } from '../lib/glosario';
+
+import {
+  Table,
+  TableHeader,
+  TableBody,
+  TableRow,
+  TableHead,
+  TableCell,
+} from '@/components/ui/table';
+import { useMemo, useState } from 'react';
+import { useNavigate, useSearch } from '@tanstack/react-router';
+import { Plus, Unlock, XCircle } from 'lucide-react';
+import { toast } from 'sonner';
+import { Button } from '@/components/ui/button';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+
 import { useUsuarios } from '@/features/catalogos/api';
 import { useClientesLookupCxc } from '@/features/cxc/api/useLineasCredito';
 import {
@@ -30,10 +41,7 @@ import {
 } from '@/features/cxc/components/ChipsLiberacion';
 import { DecidirLiberacionSheet } from '@/features/cxc/components/DecidirLiberacionSheet';
 import { NuevaAutorizacionDialog } from '@/features/cxc/components/NuevaAutorizacionDialog';
-import {
-  EstadoAutorizacionCredito,
-  ResultadoLiberacion,
-} from '@/features/cxc/api/types';
+import { EstadoAutorizacionCredito, ResultadoLiberacion } from '@/features/cxc/api/types';
 import {
   ETIQUETA_REGLA_LIBERACION,
   ETIQUETA_RESULTADO_LIBERACION,
@@ -45,7 +53,6 @@ import { PermisosCanonicos } from '@/lib/auth/permission-codes';
 import { esApiError } from '@/lib/api';
 
 const FROM = '/_app/cxc/liberaciones/' as const;
-const SENTINEL_ALL = '__all__';
 
 const OPCIONES_RESULTADO = [
   ResultadoLiberacion.Liberado,
@@ -62,12 +69,8 @@ const OPCIONES_RESULTADO = [
 export function BandejaLiberaciones() {
   const search = useSearch({ from: FROM });
   const navigate = useNavigate();
-  const puedeDecidir = useHasPermission(
-    PermisosCanonicos.CuentasPorCobrarLiberacionDecidir,
-  );
-  const puedeOverride = useHasPermission(
-    PermisosCanonicos.CuentasPorCobrarLiberacionOverride,
-  );
+  const puedeDecidir = useHasPermission(PermisosCanonicos.CuentasPorCobrarLiberacionDecidir);
+  const puedeOverride = useHasPermission(PermisosCanonicos.CuentasPorCobrarLiberacionOverride);
 
   const [sheetDecidir, setSheetDecidir] = useState(false);
   const [dialogAutorizacion, setDialogAutorizacion] = useState(false);
@@ -79,41 +82,35 @@ export function BandejaLiberaciones() {
   }
 
   return (
-    <div className="space-y-4 px-4 py-6">
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <div>
-          <h1 className="text-2xl font-semibold tracking-tight">
-            Liberación de pedidos
-          </h1>
-          <p className="text-sm text-muted-foreground">
-            Decisiones con cascada serie → crédito → override y
-            autorizaciones consumibles.
-          </p>
-        </div>
-        <div className="flex items-center gap-2">
-          {puedeOverride && (
-            <Button
-              variant="outline"
-              onClick={() => setDialogAutorizacion(true)}
-            >
-              <Plus className="mr-2 h-4 w-4" />
-              Nueva autorización
-            </Button>
-          )}
-          {puedeDecidir && (
-            <Button onClick={() => setSheetDecidir(true)}>
-              <Unlock className="mr-2 h-4 w-4" />
-              Decidir liberación
-            </Button>
-          )}
-        </div>
-      </div>
+    <div className="flex min-h-0 flex-col gap-5">
+      <PageHeader
+        titulo={<>Liberación de pedidos</>}
+        descripcion={
+          <>Decisiones con cascada serie → crédito → override y autorizaciones consumibles.</>
+        }
+        acciones={
+          <>
+            <div className="flex items-center gap-2">
+              {puedeOverride && (
+                <Button variant="outline" onClick={() => setDialogAutorizacion(true)}>
+                  <Plus className="mr-2 h-4 w-4" />
+                  Nueva autorización
+                </Button>
+              )}
+              {puedeDecidir && (
+                <Button onClick={() => setSheetDecidir(true)}>
+                  <Unlock className="mr-2 h-4 w-4" />
+                  Decidir liberación
+                </Button>
+              )}
+            </div>
+          </>
+        }
+      />
 
       <Tabs
         value={tab}
-        onValueChange={(v) =>
-          actualizarSearch({ tab: v as LiberacionesSearch['tab'] })
-        }
+        onValueChange={(v) => actualizarSearch({ tab: v as LiberacionesSearch['tab'] })}
       >
         <TabsList>
           <TabsTrigger value="decisiones">Decisiones</TabsTrigger>
@@ -130,14 +127,8 @@ export function BandejaLiberaciones() {
         </TabsContent>
       </Tabs>
 
-      <DecidirLiberacionSheet
-        open={sheetDecidir}
-        onOpenChange={setSheetDecidir}
-      />
-      <NuevaAutorizacionDialog
-        open={dialogAutorizacion}
-        onOpenChange={setDialogAutorizacion}
-      />
+      <DecidirLiberacionSheet open={sheetDecidir} onOpenChange={setSheetDecidir} />
+      <NuevaAutorizacionDialog open={dialogAutorizacion} onOpenChange={setDialogAutorizacion} />
     </div>
   );
 }
@@ -156,18 +147,12 @@ function TabDecisiones({
   });
 
   const clienteIds = useMemo(
-    () =>
-      Array.from(
-        new Set((query.data?.items ?? []).map((d) => d.clienteId)),
-      ).sort(),
+    () => Array.from(new Set((query.data?.items ?? []).map((d) => d.clienteId))).sort(),
     [query.data],
   );
   // Puede fallar con 403 si el usuario no tiene lineas-credito.leer —
   // fallback al id corto, mismo criterio que los catálogos de Compras.
-  const lookup = useClientesLookupCxc(
-    { ids: clienteIds },
-    { enabled: clienteIds.length > 0 },
-  );
+  const lookup = useClientesLookupCxc({ ids: clienteIds }, { enabled: clienteIds.length > 0 });
   const nombres = useMemo(() => {
     const m = new Map<string, string>();
     for (const c of lookup.data ?? []) m.set(c.id, c.razonSocial);
@@ -183,110 +168,106 @@ function TabDecisiones({
     );
   });
 
+  const pagina = usePaginacionLocal(items, JSON.stringify(search));
+
   return (
     <div className="space-y-3">
-      <div className="flex flex-wrap items-end gap-3">
-        <div className="space-y-1">
-          <label className="text-xs text-muted-foreground">Resultado</label>
-          <Select
-            value={
-              search.resultado != null ? String(search.resultado) : SENTINEL_ALL
+      <ListadoModulo
+        tabs={
+          <TabsEstado
+            opciones={OPCIONES_RESULTADO.map((r) => ({
+              valor: r,
+              label: ETIQUETA_RESULTADO_LIBERACION[r],
+            }))}
+            valor={search.resultado}
+            conteos={undefined}
+            onChange={(v) => onFiltrarResultado(v as ResultadoLiberacion | undefined)}
+          />
+        }
+        filtros={<BarraFiltros total={`${items.length} registros en el lote`} />}
+        pie={
+          <PaginacionTabla
+            total={items.length}
+            offset={pagina.offset}
+            limit={10}
+            tamanos={[]}
+            onChange={pagina.cambiar}
+          />
+        }
+      >
+        {query.isError ? (
+          <ErrorState
+            title="No se pudieron cargar las decisiones"
+            problem={esApiError(query.error) ? query.error.problem : undefined}
+            onRetry={() => query.refetch()}
+          />
+        ) : query.isLoading ? (
+          <TableSkeleton
+            rows={6}
+            columns={[
+              { width: 'w-32' },
+              { width: 'w-48' },
+              { width: 'w-28' },
+              { width: 'w-28' },
+              { width: 'w-32' },
+              { width: 'w-32' },
+            ]}
+          />
+        ) : items.length === 0 ? (
+          <EmptyState
+            icon={<Unlock className="h-10 w-10" />}
+            title={
+              q
+                ? `Ninguna decisión coincide con "${search.q}".`
+                : 'Sin decisiones de liberación con los filtros actuales.'
             }
-            onValueChange={(v) =>
-              onFiltrarResultado(
-                v === SENTINEL_ALL
-                  ? undefined
-                  : (Number(v) as ResultadoLiberacion),
-              )
-            }
-          >
-            <SelectTrigger aria-label="Filtrar por resultado" className="w-56">
-              <SelectValue placeholder="Todos" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value={SENTINEL_ALL}>Todos</SelectItem>
-              {OPCIONES_RESULTADO.map((r) => (
-                <SelectItem key={r} value={String(r)}>
-                  {ETIQUETA_RESULTADO_LIBERACION[r]}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
-      </div>
-
-      {query.isError ? (
-        <ErrorState
-          title="No se pudieron cargar las decisiones"
-          problem={esApiError(query.error) ? query.error.problem : undefined}
-          onRetry={() => query.refetch()}
-        />
-      ) : query.isLoading ? (
-        <TableSkeleton
-          rows={6}
-          columns={[
-            { width: 'w-32' },
-            { width: 'w-48' },
-            { width: 'w-28' },
-            { width: 'w-28' },
-            { width: 'w-32' },
-            { width: 'w-32' },
-          ]}
-        />
-      ) : items.length === 0 ? (
-        <EmptyState
-          icon={<Unlock className="h-10 w-10" />}
-          title={
-            q
-              ? `Ninguna decisión coincide con "${search.q}".`
-              : 'Sin decisiones de liberación con los filtros actuales.'
-          }
-          description='Registra la primera con "Decidir liberación".'
-        />
-      ) : (
-        <div className="overflow-x-auto rounded-md border">
-          <table className="w-full text-sm">
-            <thead className="bg-muted/50 text-left text-xs uppercase tracking-wide text-muted-foreground">
-              <tr>
-                <th className="px-3 py-2 font-medium">Pedido</th>
-                <th className="px-3 py-2 font-medium">Cliente</th>
-                <th className="px-3 py-2 text-right font-medium">Monto</th>
-                <th className="px-3 py-2 text-right font-medium">
-                  Crédito al decidir
-                </th>
-                <th className="px-3 py-2 font-medium">Resultado</th>
-                <th className="px-3 py-2 font-medium">Regla</th>
-                <th className="px-3 py-2 font-medium">Decidido</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y">
-              {items.map((d) => (
-                <tr key={d.id} className="hover:bg-muted/30">
-                  <td className="px-3 py-2 font-mono">{d.pedidoRef}</td>
-                  <td className="max-w-64 truncate px-3 py-2">
-                    {nombres.get(d.clienteId) ?? d.clienteId.slice(0, 8)}
-                  </td>
-                  <td className="px-3 py-2 text-right font-mono tabular-nums">
-                    {formatoMonto(d.montoPedido, d.moneda)}
-                  </td>
-                  <td className="px-3 py-2 text-right font-mono tabular-nums">
-                    {formatoMonto(d.creditoDisponibleSnapshot, d.moneda)}
-                  </td>
-                  <td className="px-3 py-2">
-                    <ChipResultadoLiberacion resultado={d.resultado} />
-                  </td>
-                  <td className="px-3 py-2 text-xs">
-                    {ETIQUETA_REGLA_LIBERACION[d.reglaAplicada]}
-                  </td>
-                  <td className="px-3 py-2 text-xs text-muted-foreground">
-                    <DateTimeDisplay value={d.decididoEn} />
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      )}
+            description='Registra la primera con "Decidir liberación".'
+          />
+        ) : (
+          <div className="overflow-x-auto rounded-md border">
+            <Table className="w-full text-sm">
+              <TableHeader className="bg-surface-muted/50 text-left text-xs uppercase tracking-wide text-ink-muted">
+                <TableRow>
+                  <TableHead className="px-3 py-2 font-medium">Pedido</TableHead>
+                  <TableHead className="px-3 py-2 font-medium">Cliente</TableHead>
+                  <TableHead className="px-3 py-2 text-right font-medium">Monto</TableHead>
+                  <TableHead className="px-3 py-2 text-right font-medium">
+                    Crédito al decidir
+                  </TableHead>
+                  <TableHead className="px-3 py-2 font-medium">Resultado</TableHead>
+                  <TableHead className="px-3 py-2 font-medium">Regla</TableHead>
+                  <TableHead className="px-3 py-2 font-medium">Decidido</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody className="divide-y">
+                {pagina.visibles.map((d) => (
+                  <TableRow key={d.id} className="h-12 hover:bg-surface-subtle">
+                    <TableCell className="px-3 py-2 font-mono">{d.pedidoRef}</TableCell>
+                    <TableCell className="max-w-64 truncate px-3 py-2">
+                      {nombres.get(d.clienteId) ?? d.clienteId.slice(0, 8)}
+                    </TableCell>
+                    <TableCell className="px-3 py-2 text-right font-mono tabular-nums">
+                      {formatoMonto(d.montoPedido, d.moneda)}
+                    </TableCell>
+                    <TableCell className="px-3 py-2 text-right font-mono tabular-nums">
+                      {formatoMonto(d.creditoDisponibleSnapshot, d.moneda)}
+                    </TableCell>
+                    <TableCell className="px-3 py-2">
+                      <ChipResultadoLiberacion resultado={d.resultado} />
+                    </TableCell>
+                    <TableCell className="px-3 py-2 text-xs">
+                      {ETIQUETA_REGLA_LIBERACION[d.reglaAplicada]}
+                    </TableCell>
+                    <TableCell className="px-3 py-2 text-xs text-ink-muted">
+                      <DateTimeDisplay value={d.decididoEn} />
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </div>
+        )}
+      </ListadoModulo>
     </div>
   );
 }
@@ -306,71 +287,99 @@ function TabAutorizaciones({ puedeOverride }: { puedeOverride: boolean }) {
     return nombreUsuario.get(id) ?? id.slice(0, 8);
   }
 
+  const [estado, setEstado] = useState<number | undefined>();
+  const items = (query.data?.items ?? []).filter(
+    (a) => estado === undefined || a.estado === estado,
+  );
+  const pagina = usePaginacionLocal(items, String(estado));
+
   return (
     <div className="space-y-3">
-      {query.isError ? (
-        <ErrorState
-          title="No se pudieron cargar las autorizaciones"
-          problem={esApiError(query.error) ? query.error.problem : undefined}
-          onRetry={() => query.refetch()}
-        />
-      ) : query.isLoading ? (
-        <TableSkeleton
-          rows={4}
-          columns={[
-            { width: 'w-24' },
-            { width: 'w-40' },
-            { width: 'w-40' },
-            { width: 'w-48' },
-            { width: 'w-32' },
-            { width: 'w-16' },
-          ]}
-        />
-      ) : (query.data?.items.length ?? 0) === 0 ? (
-        <EmptyState
-          icon={<Unlock className="h-10 w-10" />}
-          title="Sin autorizaciones de crédito."
-          description="El gerente puede crear una con 'Nueva autorización'; vence a más tardar en 24 horas."
-        />
-      ) : (
-        <div className="overflow-x-auto rounded-md border">
-          <table className="w-full text-sm">
-            <thead className="bg-muted/50 text-left text-xs uppercase tracking-wide text-muted-foreground">
-              <tr>
-                <th className="px-3 py-2 font-medium">Estado</th>
-                <th className="px-3 py-2 font-medium">Cliente / pedido</th>
-                <th className="px-3 py-2 font-medium">Beneficiario</th>
-                <th className="px-3 py-2 font-medium">Motivo</th>
-                <th className="px-3 py-2 font-medium">Vigente hasta</th>
-                <th className="px-3 py-2" />
-              </tr>
-            </thead>
-            <tbody className="divide-y">
-              {query.data!.items.map((a) => (
-                <tr key={a.id} className="hover:bg-muted/30">
-                  <td className="px-3 py-2">
-                    <ChipEstadoAutorizacion estado={a.estado} />
-                  </td>
-                  <td className="px-3 py-2 font-mono text-xs">
-                    {a.clienteOPedidoRef}
-                  </td>
-                  <td className="px-3 py-2">
-                    {resolverUsuario(a.beneficiarioUsuarioId)}
-                    <p className="text-xs text-muted-foreground">
-                      autorizó {resolverUsuario(a.supervisorUsuarioId)}
-                    </p>
-                  </td>
-                  <td className="max-w-64 truncate px-3 py-2">{a.motivo}</td>
-                  <td className="px-3 py-2 text-xs text-muted-foreground">
-                    <DateTimeDisplay value={a.vigenteHasta} />
-                  </td>
-                  <td className="px-3 py-2 text-right">
-                    {puedeOverride &&
-                      a.estado === EstadoAutorizacionCredito.Autorizada && (
+      <ListadoModulo
+        tabs={
+          <TabsEstado
+            opciones={Object.values(EstadoAutorizacionCredito).map((e) => ({
+              valor: e,
+              label: ETIQUETA_ESTADO_AUTORIZACION[e],
+            }))}
+            valor={estado}
+            conteos={undefined}
+            onChange={setEstado}
+          />
+        }
+        filtros={<BarraFiltros total={`${items.length} registros en el lote`} />}
+        pie={
+          <PaginacionTabla
+            total={items.length}
+            offset={pagina.offset}
+            limit={10}
+            tamanos={[]}
+            onChange={pagina.cambiar}
+          />
+        }
+      >
+        {query.isError ? (
+          <ErrorState
+            title="No se pudieron cargar las autorizaciones"
+            problem={esApiError(query.error) ? query.error.problem : undefined}
+            onRetry={() => query.refetch()}
+          />
+        ) : query.isLoading ? (
+          <TableSkeleton
+            rows={4}
+            columns={[
+              { width: 'w-24' },
+              { width: 'w-40' },
+              { width: 'w-40' },
+              { width: 'w-48' },
+              { width: 'w-32' },
+              { width: 'w-16' },
+            ]}
+          />
+        ) : items.length === 0 ? (
+          <EmptyState
+            icon={<Unlock className="h-10 w-10" />}
+            title="Sin autorizaciones de crédito."
+            description="El gerente puede crear una con 'Nueva autorización'; vence a más tardar en 24 horas."
+          />
+        ) : (
+          <div className="overflow-x-auto rounded-md border">
+            <Table className="w-full text-sm">
+              <TableHeader className="bg-surface-muted/50 text-left text-xs uppercase tracking-wide text-ink-muted">
+                <TableRow>
+                  <TableHead className="px-3 py-2 font-medium">Estado</TableHead>
+                  <TableHead className="px-3 py-2 font-medium">Cliente / pedido</TableHead>
+                  <TableHead className="px-3 py-2 font-medium">Beneficiario</TableHead>
+                  <TableHead className="px-3 py-2 font-medium">Motivo</TableHead>
+                  <TableHead className="px-3 py-2 font-medium">Vigente hasta</TableHead>
+                  <TableHead className="px-3 py-2" />
+                </TableRow>
+              </TableHeader>
+              <TableBody className="divide-y">
+                {pagina.visibles.map((a) => (
+                  <TableRow key={a.id} className="h-12 hover:bg-surface-subtle">
+                    <TableCell className="px-3 py-2">
+                      <ChipEstadoAutorizacion estado={a.estado} />
+                    </TableCell>
+                    <TableCell className="px-3 py-2 font-mono text-xs">
+                      {a.clienteOPedidoRef}
+                    </TableCell>
+                    <TableCell className="px-3 py-2">
+                      {resolverUsuario(a.beneficiarioUsuarioId)}
+                      <p className="text-xs text-ink-muted">
+                        autorizó {resolverUsuario(a.supervisorUsuarioId)}
+                      </p>
+                    </TableCell>
+                    <TableCell className="max-w-64 truncate px-3 py-2">{a.motivo}</TableCell>
+                    <TableCell className="px-3 py-2 text-xs text-ink-muted">
+                      <DateTimeDisplay value={a.vigenteHasta} />
+                    </TableCell>
+                    <TableCell className="px-3 py-2 text-right">
+                      {puedeOverride && a.estado === EstadoAutorizacionCredito.Autorizada && (
                         <Button
                           variant="ghost"
                           size="sm"
-                          className="text-destructive"
+                          className="text-danger-fg"
                           disabled={cancelar.isPending}
                           onClick={() =>
                             cancelar.mutate(
@@ -381,8 +390,7 @@ function TabAutorizaciones({ puedeOverride }: { puedeOverride: boolean }) {
                                 idempotencyKey: crypto.randomUUID(),
                               },
                               {
-                                onSuccess: () =>
-                                  toast.success('Autorización cancelada.'),
+                                onSuccess: () => toast.success('Autorización cancelada.'),
                                 onError: (e) =>
                                   toast.error(
                                     esApiError(e)
@@ -397,13 +405,14 @@ function TabAutorizaciones({ puedeOverride }: { puedeOverride: boolean }) {
                           Cancelar
                         </Button>
                       )}
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      )}
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </div>
+        )}
+      </ListadoModulo>
     </div>
   );
 }

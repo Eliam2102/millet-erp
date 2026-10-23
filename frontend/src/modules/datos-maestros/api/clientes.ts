@@ -1,5 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { apiRequest, esApiError } from '@/lib/api';
+import { F1A_QUERY_KEY } from '@/modules/datos-maestros/api/f1a';
 import {
   datosMaestrosKeys,
   type ListarClientesFiltros,
@@ -7,6 +8,7 @@ import {
 } from '@/modules/datos-maestros/api/keys';
 import type {
   ActualizarClientePayload,
+  ClienteAwOrigenDetalle,
   ClienteDetalle,
   ClienteItem,
   CrearClientePayload,
@@ -128,6 +130,8 @@ export function useActualizarCliente() {
       queryClient.invalidateQueries({
         queryKey: datosMaestrosKeys.clientes(),
       });
+      // Un cambio de RFC puede cerrar o abrir huérfanos en el panel de ligados.
+      queryClient.invalidateQueries({ queryKey: F1A_QUERY_KEY });
     },
   });
 }
@@ -143,6 +147,26 @@ export function useDesactivarCliente() {
     mutationFn: async ({ id, idempotencyKey }) => {
       await apiRequest<void>(`/api/v1/datos-maestros/clientes/${id}`, {
         method: 'DELETE',
+        idempotencyKey,
+      });
+    },
+    onSuccess: (_data, vars) => {
+      queryClient.invalidateQueries({
+        queryKey: datosMaestrosKeys.cliente(vars.id),
+      });
+      queryClient.invalidateQueries({
+        queryKey: datosMaestrosKeys.clientes(),
+      });
+    },
+  });
+}
+
+export function useReactivarCliente() {
+  const queryClient = useQueryClient();
+  return useMutation<void, Error, DesactivarClienteArgs>({
+    mutationFn: async ({ id, idempotencyKey }) => {
+      await apiRequest<void>(`/api/v1/datos-maestros/clientes/${id}/reactivar`, {
+        method: 'POST',
         idempotencyKey,
       });
     },
@@ -189,6 +213,22 @@ export function useEjecucionesSync(
   });
 }
 
+/** Lectura en vivo de una referencia de A+W (solo al abrir el detalle de un error). */
+export function useOrigenClienteAw(referencia: string, enabled: boolean) {
+  return useQuery({
+    queryKey: ['datos-maestros', 'clientes', 'origen-aw', referencia] as const,
+    enabled,
+    staleTime: 60_000,
+    queryFn: async ({ signal }) =>
+      (
+        await apiRequest<ClienteAwOrigenDetalle>(
+          `${SYNC_BASE}/origen/${encodeURIComponent(referencia)}`,
+          { signal },
+        )
+      ).data,
+  });
+}
+
 export function useEjecucionSync(id: string | null | undefined) {
   return useQuery({
     queryKey:
@@ -230,6 +270,7 @@ export function useIniciarSincronizacion() {
       queryClient.invalidateQueries({
         queryKey: datosMaestrosKeys.clientesSync(),
       });
+      queryClient.invalidateQueries({ queryKey: F1A_QUERY_KEY });
     },
   });
 }
@@ -252,6 +293,7 @@ export function useReintentarCliente() {
       queryClient.invalidateQueries({
         queryKey: datosMaestrosKeys.clientes(),
       });
+      queryClient.invalidateQueries({ queryKey: F1A_QUERY_KEY });
     },
   });
 }
@@ -292,7 +334,7 @@ export function mensajeErrorSincronizacion(error: unknown): string {
     case 409:
       return 'Ya hay una sincronización en curso. Espera a que termine.';
     case 503:
-      return 'La sincronización con A+W no está disponible (lectura o aplicación deshabilitada, u origen sin configurar).';
+      return 'La sincronización con A+W no está disponible ahora. Avisa a TI.';
     case 422:
       return 'La referencia del cliente no es válida para sincronizar.';
     case 403:

@@ -1,8 +1,10 @@
 using MediatR;
 using Microsoft.EntityFrameworkCore;
+using Millet.Almacen.Domain.Catalogo;
 using Millet.Almacen.Application.Catalogo;
 using Millet.Almacen.Domain.Ports;
 using Millet.Almacen.Infrastructure.Persistence;
+using Millet.SharedKernel.Application;
 
 namespace Millet.Almacen.Application.Saldos;
 
@@ -29,7 +31,11 @@ public sealed record ListarSaldosQuery(
     Guid? ArticuloId,
     bool SoloConStock,
     int Offset,
-    int Limit) : IRequest<AlmacenPagedResponse<SaldoListItem>>;
+    int Limit) : IRequest<AlmacenPagedResponse<SaldoListItem>>, ISucursalScopedQuery
+{
+    public string PermisoTodasSucursales => "almacen.almacenes.leer-todas-sucursales";
+    public IReadOnlyList<Guid>? SucursalesPermitidas { get; set; }
+}
 
 public sealed class ListarSaldosHandler
     : IRequestHandler<ListarSaldosQuery, AlmacenPagedResponse<SaldoListItem>>
@@ -43,13 +49,30 @@ public sealed class ListarSaldosHandler
         _articulos = articulos;
     }
 
+    /// <summary>
+    /// Filtros del listado y de los totales (mismo criterio). El alcance de sucursal
+    /// se aplica junto con los filtros, antes de agrupar o sumar (principio 7).
+    /// </summary>
+    internal static IQueryable<Millet.Almacen.Domain.Saldos.SaldoInventario> SaldosFiltrados(
+        AlmacenDbContext db, Guid? subAlmacenId, Guid? articuloId, bool soloConStock,
+        IReadOnlyList<Guid>? sucursalesPermitidas)
+    {
+        var query = db.SaldosInventario.AsNoTracking().AsQueryable();
+        if (subAlmacenId is Guid sid) query = query.Where(s => s.SubAlmacenId == sid);
+        if (articuloId is Guid aid) query = query.Where(s => s.ArticuloId == aid);
+        if (soloConStock) query = query.Where(s => s.Cantidad > 0);
+        if (sucursalesPermitidas is { } suc)
+            query = query.Where(s => AlcanceSucursalAlmacen.SubAlmacenesPermitidos(db, suc).Contains(s.SubAlmacenId));
+        return query;
+    }
+
     public async Task<AlmacenPagedResponse<SaldoListItem>> Handle(
         ListarSaldosQuery request, CancellationToken cancellationToken)
     {
-        var query = _db.SaldosInventario.AsNoTracking().AsQueryable();
-        if (request.SubAlmacenId is Guid sid) query = query.Where(s => s.SubAlmacenId == sid);
-        if (request.ArticuloId is Guid aid) query = query.Where(s => s.ArticuloId == aid);
-        if (request.SoloConStock) query = query.Where(s => s.Cantidad > 0);
+        await AlcanceSucursalAlmacen.VerificarSubAlmacenAsync(_db, request.SubAlmacenId,
+            request.SucursalesPermitidas, cancellationToken);
+        var query = SaldosFiltrados(_db, request.SubAlmacenId, request.ArticuloId,
+            request.SoloConStock, request.SucursalesPermitidas);
 
         // C7.2a: agregado por (sub-almacén, artículo) — con N bins habría
         // filas duplicadas indistinguibles (el listado no expone ubicación).
@@ -88,7 +111,14 @@ public sealed class ListarSaldosHandler
             ? await _articulos.ObtenerPorIdsAsync(articuloIds, cancellationToken)
             : new Dictionary<Guid, ArticuloLectura>();
 
+        // ALM-04: el material en revisión (MAT-REV) existe físicamente pero no es surtible: disponible = 0.
+        var subIds = items.Select(i => i.SubAlmacenId).Distinct().ToArray();
+        var subsEnRevision = (await _db.SubAlmacenes.AsNoTracking()
+            .Where(sa => subIds.Contains(sa.Id) && sa.Tipo == TipoSubAlmacen.MaterialEnRevision)
+            .Select(sa => sa.Id).ToListAsync(cancellationToken)).ToHashSet();
+
         var enriquecidos = items
+            .Select(i => i with { CantidadDisponible = subsEnRevision.Contains(i.SubAlmacenId) ? 0m : i.CantidadDisponible })
             .Select(i => articulos.TryGetValue(i.ArticuloId, out var art)
                 ? i with { ArticuloClave = art.Clave, ArticuloDescripcion = art.Descripcion }
                 : i)
@@ -96,6 +126,78 @@ public sealed class ListarSaldosHandler
 
         return new AlmacenPagedResponse<SaldoListItem>(
             enriquecidos, request.Offset, request.Limit, total);
+    }
+}
+
+// ─── Totales de saldos (UX-F2-ALM-05) ────────────────────────────────────────
+// Mismos filtros y alcance que ListarSaldos, sobre TODO el conjunto filtrado (no
+// la página). El valor en MXN siempre es sumable; la cantidad solo cuando todos
+// los artículos del conjunto comparten una única unidad de medida (sumar piezas
+// con metros no tiene sentido).
+
+public sealed record SaldosTotalesResponse(
+    decimal ValorInventarioMxn,
+    decimal? CantidadTotal,
+    string? UnidadMedida,
+    int Articulos);
+
+public sealed record ObtenerTotalesSaldosQuery(
+    Guid? SubAlmacenId,
+    Guid? ArticuloId,
+    bool SoloConStock) : IRequest<SaldosTotalesResponse>, ISucursalScopedQuery
+{
+    public string PermisoTodasSucursales => "almacen.almacenes.leer-todas-sucursales";
+    public IReadOnlyList<Guid>? SucursalesPermitidas { get; set; }
+}
+
+public sealed class ObtenerTotalesSaldosHandler
+    : IRequestHandler<ObtenerTotalesSaldosQuery, SaldosTotalesResponse>
+{
+    private readonly AlmacenDbContext _db;
+    private readonly IArticuloReadPort _articulos;
+
+    public ObtenerTotalesSaldosHandler(AlmacenDbContext db, IArticuloReadPort articulos)
+    {
+        _db = db;
+        _articulos = articulos;
+    }
+
+    public async Task<SaldosTotalesResponse> Handle(
+        ObtenerTotalesSaldosQuery request, CancellationToken cancellationToken)
+    {
+        await AlcanceSucursalAlmacen.VerificarSubAlmacenAsync(_db, request.SubAlmacenId,
+            request.SucursalesPermitidas, cancellationToken);
+        var query = ListarSaldosHandler.SaldosFiltrados(_db, request.SubAlmacenId,
+            request.ArticuloId, request.SoloConStock, request.SucursalesPermitidas);
+
+        var porArticulo = await query
+            .GroupBy(s => s.ArticuloId)
+            .Select(g => new
+            {
+                ArticuloId = g.Key,
+                Cantidad = g.Sum(s => s.Cantidad),
+                Valor = g.Sum(s => s.ValorInventarioMxn),
+            })
+            .ToListAsync(cancellationToken);
+
+        var valor = porArticulo.Sum(x => x.Valor);
+        if (porArticulo.Count == 0)
+            return new SaldosTotalesResponse(0m, null, null, 0);
+
+        var articulos = await _articulos.ObtenerPorIdsAsync(
+            porArticulo.Select(x => x.ArticuloId).ToArray(), cancellationToken);
+        // Un artículo sin resolver cuenta como unidad desconocida: no se suma cantidad.
+        var unidades = porArticulo
+            .Select(x => articulos.TryGetValue(x.ArticuloId, out var a) ? a.UnidadMedida : null)
+            .Distinct()
+            .ToList();
+        var unica = unidades.Count == 1 ? unidades[0] : null;
+
+        return new SaldosTotalesResponse(
+            valor,
+            unica is null ? null : porArticulo.Sum(x => x.Cantidad),
+            unica,
+            porArticulo.Count);
     }
 }
 
@@ -127,7 +229,11 @@ public sealed record SaldosPorUbicacionQuery(
     // artículo en cualquier sub (la salida-con-RQ ya no tiene sub de cabecera;
     // el pick cruzado se rechaza en submit vía SALIDA_MULTI_SUBALMACEN). Con
     // valor = acotado a ese sub (vale, devolución a proveedor).
-    Guid? SubAlmacenId) : IRequest<IReadOnlyList<SaldoUbicacionItem>>;
+    Guid? SubAlmacenId) : IRequest<IReadOnlyList<SaldoUbicacionItem>>, ISucursalScopedQuery
+{
+    public string PermisoTodasSucursales => "almacen.almacenes.leer-todas-sucursales";
+    public IReadOnlyList<Guid>? SucursalesPermitidas { get; set; }
+}
 
 public sealed class SaldosPorUbicacionHandler
     : IRequestHandler<SaldosPorUbicacionQuery, IReadOnlyList<SaldoUbicacionItem>>
@@ -139,6 +245,12 @@ public sealed class SaldosPorUbicacionHandler
     public async Task<IReadOnlyList<SaldoUbicacionItem>> Handle(
         SaldosPorUbicacionQuery request, CancellationToken cancellationToken)
     {
+        await AlcanceSucursalAlmacen.VerificarSubAlmacenAsync(_db, request.SubAlmacenId,
+            request.SucursalesPermitidas, cancellationToken);
+        // Materializado antes del join: evita pasar una lista nula a EF dentro del where.
+        var subsPermitidos = request.SucursalesPermitidas is { } suc
+            ? await AlcanceSucursalAlmacen.SubAlmacenesPermitidos(_db, suc).ToListAsync(cancellationToken)
+            : null;
         return await (
             from s in _db.SaldosInventario.AsNoTracking()
             join u in _db.Ubicaciones.AsNoTracking() on s.UbicacionId equals u.Id
@@ -147,10 +259,13 @@ public sealed class SaldosPorUbicacionHandler
             where s.ArticuloId == request.ArticuloId
                && (request.SubAlmacenId == null || s.SubAlmacenId == request.SubAlmacenId)
                && s.Cantidad > 0
+               // ALM-04: sin sub explícito (salida con RQ) no se ofrece material en revisión.
+               && (request.SubAlmacenId != null || sa.Tipo != TipoSubAlmacen.MaterialEnRevision)
+               && (subsPermitidos == null || subsPermitidos.Contains(s.SubAlmacenId))
             orderby u.EsDefault, u.Clave
             select new SaldoUbicacionItem(
                 u.Id, u.Clave, u.Nombre, sa.Clave, al.Clave, u.EsDefault,
-                s.Cantidad, s.CantidadDisponible, s.CostoPromedioMxn))
+                s.Cantidad, sa.Tipo == TipoSubAlmacen.MaterialEnRevision ? 0m : s.CantidadDisponible, s.CostoPromedioMxn))
             .ToListAsync(cancellationToken);
     }
 }

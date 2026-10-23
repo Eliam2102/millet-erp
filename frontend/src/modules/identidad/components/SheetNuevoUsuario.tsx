@@ -1,11 +1,6 @@
-import {
-  useCallback,
-  useEffect,
-  useMemo,
-  useRef,
-  useState,
-  type ReactNode,
-} from 'react';
+import { FormSeccion } from '@/components/erp/forms/FormSeccion';
+import { FormCampo } from '@/components/erp/forms/FormGrid';
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { useNavigate } from '@tanstack/react-router';
 import { Controller, useForm, useWatch } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -18,21 +13,16 @@ import {
   SheetDescription,
   SheetHeader,
   SheetTitle,
+  SheetBody,
+  SheetFooter,
 } from '@/components/ui/sheet';
 import { DepartamentoSelector } from '@/components/erp';
-import {
-  applyServerErrors,
-  esApiError,
-  useFormIdempotencyKey,
-} from '@/lib/api';
+import { applyServerErrors, esApiError, useFormIdempotencyKey, codigoSoporte } from '@/lib/api';
 import {
   NuevoUsuarioContext,
   type NuevoUsuarioApi,
 } from '@/modules/identidad/components/nuevo-usuario-context';
-import {
-  CrearUsuarioSchema,
-  type CrearUsuarioValues,
-} from '@/modules/identidad/schemas/usuario';
+import { CrearUsuarioSchema, type CrearUsuarioValues } from '@/modules/identidad/schemas/usuario';
 import { useCrearUsuario } from '@/modules/identidad/api';
 import { useEntraIdUsuarioSearch } from '@/lib/identidad/use-entra-id-usuario-search';
 
@@ -106,27 +96,17 @@ export function NuevoUsuarioProvider({ children }: { children: ReactNode }) {
           setAbierto(true);
         }}
       >
-        <SheetContent
-          side="right"
-          className="w-full overflow-y-auto sm:max-w-2xl"
-        >
+        <SheetContent size="lg" side="right">
           <SheetHeader>
             <SheetTitle>Nueva cuenta independiente</SheetTitle>
             <SheetDescription>
-              Para personas, da acceso desde Empleados para conservar el vínculo.
-              Usa esta alta solo para cuentas que no corresponden a un empleado;
-              los roles se asignan después en el detalle.
+              Para personas, da acceso desde Empleados para conservar el vínculo. Usa esta alta solo
+              para cuentas que no corresponden a un empleado; los roles se asignan después en el
+              detalle.
             </SheetDescription>
           </SheetHeader>
 
-          <div className="px-6 pb-6">
-            {abierto && (
-              <NuevoUsuarioForm
-                onClose={cerrarConConfirm}
-                onDirtyChange={setDirty}
-              />
-            )}
-          </div>
+          {abierto && <NuevoUsuarioForm onClose={cerrarConConfirm} onDirtyChange={setDirty} />}
         </SheetContent>
       </Sheet>
     </NuevoUsuarioContext.Provider>
@@ -201,23 +181,17 @@ function NuevoUsuarioForm({ onClose, onDirtyChange }: NuevoUsuarioFormProps) {
             if (error.code === 'USUARIO_OID_DUPLICADO') {
               form.setError('email', {
                 type: error.code,
-                message:
-                  'Ya existe un usuario con el mismo Entra ID Object ID.',
+                message: 'Ya existe un usuario con el mismo Entra ID Object ID.',
               });
               return;
             }
             if (
-              applyServerErrors(
-                form as unknown as Parameters<typeof applyServerErrors>[0],
-                error,
-              )
+              applyServerErrors(form as unknown as Parameters<typeof applyServerErrors>[0], error)
             ) {
               return;
             }
             toast.error(error.problem.title, {
-              description: error.traceId
-                ? `Código: ${error.traceId}`
-                : undefined,
+              description: codigoSoporte(error),
             });
             return;
           }
@@ -231,77 +205,76 @@ function NuevoUsuarioForm({ onClose, onDirtyChange }: NuevoUsuarioFormProps) {
     <form
       onSubmit={form.handleSubmit(onSubmit)}
       noValidate
-      className="space-y-4 rounded-md border bg-card p-4"
+      className="flex min-h-0 flex-1 flex-col"
     >
-      <FormRow
-        label="Email"
-        required
-        error={form.formState.errors.email?.message}
-      >
-        <Input
-          type="email"
-          autoFocus
-          maxLength={254}
-          placeholder="usuario@millet.com.mx"
-          {...form.register('email')}
-        />
-      </FormRow>
+      <SheetBody>
+        <FormSeccion titulo="Datos de la cuenta">
+          <FormCampo span={12}>
+            <FormRow label="Email" required error={form.formState.errors.email?.message}>
+              <Input
+                type="email"
+                autoFocus
+                maxLength={254}
+                placeholder="usuario@millet.com.mx"
+                {...form.register('email')}
+              />
+            </FormRow>
+          </FormCampo>
 
-      <FormRow
-        label="Nombre completo"
-        required
-        error={form.formState.errors.nombreCompleto?.message}
-      >
-        <Input
-          maxLength={254}
-          placeholder="Juan Pérez"
-          {...form.register('nombreCompleto')}
-        />
-      </FormRow>
+          <FormCampo span={12}>
+            <FormRow
+              label="Nombre completo"
+              required
+              error={form.formState.errors.nombreCompleto?.message}
+            >
+              <Input
+                maxLength={254}
+                placeholder="Juan Pérez"
+                {...form.register('nombreCompleto')}
+              />
+            </FormRow>
+          </FormCampo>
 
-      <FormRow
-        label="Entra ID Object ID"
-        hint="Pégalo desde Azure Portal → Entra ID → Users → [usuario] → Object ID. Si lo dejas vacío, el usuario quedará con un placeholder y NO podrá iniciar sesión real hasta que el resolver de Entra ID esté disponible."
-        error={form.formState.errors.entraIdObjectId?.message}
-      >
-        <Input
-          maxLength={36}
-          placeholder="00000000-0000-0000-0000-000000000000"
-          autoComplete="off"
-          {...form.register('entraIdObjectId')}
-        />
-      </FormRow>
+          <FormCampo span={12}>
+            <FormRow
+              label="Entra ID Object ID"
+              hint="Pégalo desde Azure Portal → Entra ID → Users → [usuario] → Object ID. Si lo dejas vacío, el usuario quedará con un placeholder y NO podrá iniciar sesión real hasta que el resolver de Entra ID esté disponible."
+              error={form.formState.errors.entraIdObjectId?.message}
+            >
+              <Input
+                maxLength={36}
+                placeholder="00000000-0000-0000-0000-000000000000"
+                autoComplete="off"
+                {...form.register('entraIdObjectId')}
+              />
+            </FormRow>
+          </FormCampo>
 
-      <FormRow
-        label="Departamento"
-        hint="Opcional. Se puede asignar más tarde desde el detalle."
-        error={form.formState.errors.departamentoId?.message}
-      >
-        <Controller
-          name="departamentoId"
-          control={form.control}
-          render={({ field }) => (
-            <DepartamentoSelector
-              value={field.value}
-              onChange={(v) => field.onChange(v)}
-            />
-          )}
-        />
-      </FormRow>
-
-      <div className="flex flex-wrap items-center justify-end gap-2 border-t pt-3">
-        <Button
-          type="button"
-          variant="ghost"
-          onClick={() => onClose()}
-          disabled={crear.isPending}
-        >
+          <FormCampo span={12}>
+            <FormRow
+              label="Departamento"
+              hint="Opcional. Se puede asignar más tarde desde el detalle."
+              error={form.formState.errors.departamentoId?.message}
+            >
+              <Controller
+                name="departamentoId"
+                control={form.control}
+                render={({ field }) => (
+                  <DepartamentoSelector value={field.value} onChange={(v) => field.onChange(v)} />
+                )}
+              />
+            </FormRow>
+          </FormCampo>
+        </FormSeccion>
+      </SheetBody>
+      <SheetFooter>
+        <Button type="button" variant="ghost" onClick={() => onClose()} disabled={crear.isPending}>
           Cancelar
         </Button>
         <Button type="submit" disabled={crear.isPending}>
           {crear.isPending ? 'Creando…' : 'Crear cuenta independiente'}
         </Button>
-      </div>
+      </SheetFooter>
     </form>
   );
 }
@@ -320,17 +293,15 @@ function FormRow({ label, required, hint, error, children }: FormRowProps) {
       <label className="flex items-center gap-1 text-sm font-medium">
         {label}
         {required && (
-          <span aria-hidden="true" className="text-rose-600">
+          <span aria-hidden="true" className="text-danger-fg">
             *
           </span>
         )}
       </label>
       {children}
-      {hint != null && error == null && (
-        <p className="text-xs text-muted-foreground">{hint}</p>
-      )}
+      {hint != null && error == null && <p className="text-xs text-ink-muted">{hint}</p>}
       {error != null && (
-        <p role="alert" className="text-xs text-rose-600">
+        <p role="alert" className="text-xs text-danger-fg">
           {error}
         </p>
       )}

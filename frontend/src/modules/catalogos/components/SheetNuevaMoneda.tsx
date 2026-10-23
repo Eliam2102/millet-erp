@@ -1,11 +1,6 @@
-import {
-  useCallback,
-  useEffect,
-  useMemo,
-  useRef,
-  useState,
-  type ReactNode,
-} from 'react';
+import { FormCampo } from '@/components/erp/forms/FormGrid';
+import { FormSeccion } from '@/components/erp/forms/FormSeccion';
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { useNavigate } from '@tanstack/react-router';
 import { Controller, useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -13,25 +8,20 @@ import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import {
+  SheetBody,
   Sheet,
   SheetContent,
   SheetDescription,
   SheetHeader,
   SheetTitle,
+  SheetFooter,
 } from '@/components/ui/sheet';
-import {
-  applyServerErrors,
-  esApiError,
-  useFormIdempotencyKey,
-} from '@/lib/api';
+import { applyServerErrors, esApiError, useFormIdempotencyKey, codigoSoporte } from '@/lib/api';
 import {
   NuevaMonedaContext,
   type NuevaMonedaApi,
 } from '@/modules/catalogos/components/nueva-moneda-context';
-import {
-  CrearMonedaSchema,
-  type CrearMonedaValues,
-} from '@/modules/catalogos/schemas/moneda';
+import { CrearMonedaSchema, type CrearMonedaValues } from '@/modules/catalogos/schemas/moneda';
 import { useCrearMoneda } from '@/modules/catalogos/api';
 
 /**
@@ -88,26 +78,19 @@ export function NuevaMonedaProvider({ children }: { children: ReactNode }) {
           setAbierto(true);
         }}
       >
-        <SheetContent
-          side="right"
-          className="w-full overflow-y-auto sm:max-w-2xl"
-        >
+        <SheetContent size="lg" side="right">
           <SheetHeader>
             <SheetTitle>Nueva moneda</SheetTitle>
             <SheetDescription>
-              Alta en el catálogo cross-empresa de monedas. El código
-              ISO es inmutable; el nombre y los decimales se editan
-              después en el detalle.
+              Alta en el catálogo cross-empresa de monedas. El código ISO es inmutable; el nombre y
+              los decimales se editan después en el detalle.
             </SheetDescription>
           </SheetHeader>
 
-          <div className="px-6 pb-6">
-            {abierto && (
-              <NuevaMonedaForm
-                onClose={cerrarConConfirm}
-                onDirtyChange={setDirty}
-              />
-            )}
+          <div className="contents">
+            <div className="contents">
+              {abierto && <NuevaMonedaForm onClose={cerrarConConfirm} onDirtyChange={setDirty} />}
+            </div>
           </div>
         </SheetContent>
       </Sheet>
@@ -171,17 +154,12 @@ function NuevaMonedaForm({ onClose, onDirtyChange }: NuevaMonedaFormProps) {
               return;
             }
             if (
-              applyServerErrors(
-                form as unknown as Parameters<typeof applyServerErrors>[0],
-                error,
-              )
+              applyServerErrors(form as unknown as Parameters<typeof applyServerErrors>[0], error)
             ) {
               return;
             }
             toast.error(error.problem.title, {
-              description: error.traceId
-                ? `Código: ${error.traceId}`
-                : undefined,
+              description: codigoSoporte(error),
             });
             return;
           }
@@ -195,81 +173,79 @@ function NuevaMonedaForm({ onClose, onDirtyChange }: NuevaMonedaFormProps) {
     <form
       onSubmit={form.handleSubmit(onSubmit)}
       noValidate
-      className="space-y-4 rounded-md border bg-card p-4"
+      className="flex min-h-0 flex-1 flex-col overflow-hidden"
     >
-      <FormRow
-        label="Código"
-        required
-        hint="ISO 4217, 3 letras (ej. MXN, USD, EUR). Inmutable."
-        error={form.formState.errors.codigo?.message}
-      >
-        <Input
-          autoFocus
-          maxLength={3}
-          placeholder="MXN"
-          className="font-mono uppercase"
-          {...form.register('codigo')}
-        />
-      </FormRow>
-
-      <FormRow
-        label="Nombre"
-        required
-        error={form.formState.errors.nombre?.message}
-      >
-        <Input
-          maxLength={100}
-          placeholder="Peso mexicano"
-          {...form.register('nombre')}
-        />
-      </FormRow>
-
-      <FormRow
-        label="Decimales"
-        required
-        hint="Número de decimales a desplegar (0–6)."
-        error={form.formState.errors.decimales?.message}
-      >
-        <Input
-          type="number"
-          min={0}
-          max={6}
-          step={1}
-          {...form.register('decimales', { valueAsNumber: true })}
-        />
-      </FormRow>
-
-      <FormRow label="Activa">
-        <Controller
-          name="activa"
-          control={form.control}
-          render={({ field }) => (
-            <label className="inline-flex items-center gap-2 text-sm">
-              <input
-                type="checkbox"
-                className="h-4 w-4 rounded border-input"
-                checked={field.value}
-                onChange={(e) => field.onChange(e.target.checked)}
+      <SheetBody>
+        <FormSeccion titulo="Datos del registro">
+          <FormCampo span={6}>
+            <FormRow
+              label="Código"
+              required
+              hint="ISO 4217, 3 letras (ej. MXN, USD, EUR). Inmutable."
+              error={form.formState.errors.codigo?.message}
+            >
+              <Input
+                autoFocus
+                maxLength={3}
+                placeholder="MXN"
+                className="font-mono uppercase"
+                {...form.register('codigo')}
               />
-              <span>{field.value ? 'Activa' : 'Inactiva'}</span>
-            </label>
-          )}
-        />
-      </FormRow>
+            </FormRow>
+          </FormCampo>
 
-      <div className="flex flex-wrap items-center justify-end gap-2 border-t pt-3">
-        <Button
-          type="button"
-          variant="ghost"
-          onClick={() => onClose()}
-          disabled={crear.isPending}
-        >
+          <FormCampo span={6}>
+            <FormRow label="Nombre" required error={form.formState.errors.nombre?.message}>
+              <Input maxLength={100} placeholder="Peso mexicano" {...form.register('nombre')} />
+            </FormRow>
+          </FormCampo>
+
+          <FormCampo span={6}>
+            <FormRow
+              label="Decimales"
+              required
+              hint="Número de decimales a desplegar (0–6)."
+              error={form.formState.errors.decimales?.message}
+            >
+              <Input
+                type="number"
+                min={0}
+                max={6}
+                step={1}
+                {...form.register('decimales', { valueAsNumber: true })}
+              />
+            </FormRow>
+          </FormCampo>
+
+          <FormCampo span={6}>
+            <FormRow label="Activa">
+              <Controller
+                name="activa"
+                control={form.control}
+                render={({ field }) => (
+                  <label className="inline-flex items-center gap-2 text-sm">
+                    <input
+                      type="checkbox"
+                      className="h-4 w-4 rounded border-line-control"
+                      checked={field.value}
+                      onChange={(e) => field.onChange(e.target.checked)}
+                    />
+                    <span>{field.value ? 'Activa' : 'Inactiva'}</span>
+                  </label>
+                )}
+              />
+            </FormRow>
+          </FormCampo>
+        </FormSeccion>
+      </SheetBody>
+      <SheetFooter>
+        <Button type="button" variant="ghost" onClick={() => onClose()} disabled={crear.isPending}>
           Cancelar
         </Button>
         <Button type="submit" disabled={crear.isPending}>
           {crear.isPending ? 'Creando…' : 'Crear moneda'}
         </Button>
-      </div>
+      </SheetFooter>
     </form>
   );
 }
@@ -288,17 +264,15 @@ function FormRow({ label, required, hint, error, children }: FormRowProps) {
       <label className="flex items-center gap-1 text-sm font-medium">
         {label}
         {required && (
-          <span aria-hidden="true" className="text-rose-600">
+          <span aria-hidden="true" className="text-danger-fg">
             *
           </span>
         )}
       </label>
       {children}
-      {hint != null && error == null && (
-        <p className="text-xs text-muted-foreground">{hint}</p>
-      )}
+      {hint != null && error == null && <p className="text-xs text-ink-muted">{hint}</p>}
       {error != null && (
-        <p role="alert" className="text-xs text-rose-600">
+        <p role="alert" className="text-xs text-danger-fg">
           {error}
         </p>
       )}

@@ -18,7 +18,7 @@ using Millet.DatosMaestros.Domain;
 using Millet.Identidad.Domain;
 using Millet.SharedKernel.Application;
 using Millet.SharedKernel.Application.Exceptions;
-using Millet.Tesoreria.Domain.Cuentas;
+using Millet.SharedKernel.Domain.Bancos;
 
 namespace Millet.Api.Endpoints.DatosMaestros;
 
@@ -65,6 +65,7 @@ public static class DatosMaestrosEndpoints
         proveedores.MapGet("/", async (
             [FromQuery] string? rfc,
             [FromQuery] string? razonSocial,
+            [FromQuery] string? q,
             [FromQuery] TipoPersonaProveedor? tipoPersona,
             [FromQuery] EstatusCatalogo? estatus,
             [FromQuery] int? offset,
@@ -79,7 +80,8 @@ public static class DatosMaestrosEndpoints
                     TipoPersona: tipoPersona,
                     Estatus: estatus,
                     Offset: offset ?? 0,
-                    Limit: limit ?? 50),
+                    Limit: limit ?? 50,
+                    Q: q),
                 ct);
             return Results.Ok(response);
         })
@@ -102,7 +104,8 @@ public static class DatosMaestrosEndpoints
                 p.Id, p.Clave, p.ClaveLegacy, p.RazonSocial, p.NombreComercial,
                 p.Rfc, p.TipoPersona, p.CondicionesPagoDias, p.MonedaPreferidaId,
                 p.Email, p.Telefono, p.Estatus,
-                p.ValidadoPorId, p.ValidadoEn, p.MotivoRechazo, p.ToleranciaFacturaContraOcMxn));
+                p.ValidadoPorId, p.ValidadoEn, p.MotivoRechazo, p.ToleranciaFacturaContraOcMxn,
+                p.Origen, p.RegimenFiscalCodigo, p.ConceptoRetencion, p.ValidadoConMatrizVersion));
         })
         .RequireAuthorization(PermissionPolicyProvider.Prefix + PermisosCanonicos.DatosMaestrosProveedoresGestionar)
         .WithName("ObtenerProveedorDatosMaestros")
@@ -126,6 +129,85 @@ public static class DatosMaestrosEndpoints
         .Produces(StatusCodes.Status204NoContent)
         .ProducesValidationProblem()
         .ProducesProblem(StatusCodes.Status401Unauthorized)
+        .ProducesProblem(StatusCodes.Status403Forbidden)
+        .ProducesProblem(StatusCodes.Status404NotFound)
+        .ProducesProblem(StatusCodes.Status422UnprocessableEntity);
+
+        // 86e3pdmee · ADM-01: matriz del expediente (configurable) y excepciones.
+        proveedores.MapGet("/expediente/tipos", async (IMediator mediator, CancellationToken ct) =>
+            Results.Ok(await mediator.Send(new ListarTiposDocumentoProveedorQuery(), ct)))
+        .RequireAuthorization(PermissionPolicyProvider.Prefix + PermisosCanonicos.DatosMaestrosProveedoresGestionar)
+        .WithName("ListarTiposDocumentoProveedor")
+        .Produces<IReadOnlyList<TipoDocumentoProveedorDto>>(StatusCodes.Status200OK);
+
+        proveedores.MapPost("/expediente/tipos", async ([FromBody] TipoDocumentoProveedorRequest body, IMediator mediator, CancellationToken ct) =>
+        {
+            var dto = await mediator.Send(new GuardarTipoDocumentoProveedorCommand(null, null, body.Codigo, body.Nombre,
+                body.ObligatorioPersonaMoral, body.ObligatorioPersonaFisica, body.VigenciaMeses, body.SoloPersonaMoral, body.AplicaOrigen, body.Activo), ct);
+            return Results.Created($"/api/v1/datos-maestros/proveedores/expediente/tipos/{dto.Id}", dto);
+        })
+        .WithMetadata(new RequireIdempotencyKeyAttribute())
+        .RequireAuthorization(PermissionPolicyProvider.Prefix + PermisosCanonicos.DatosMaestrosProveedoresExpedienteConfigurar)
+        .WithName("CrearTipoDocumentoProveedor")
+        .Produces<TipoDocumentoProveedorDto>(StatusCodes.Status201Created)
+        .ProducesProblem(StatusCodes.Status409Conflict)
+        .ProducesProblem(StatusCodes.Status422UnprocessableEntity);
+
+        proveedores.MapPut("/expediente/tipos/{tipoId:guid}", async (
+            Guid tipoId, [FromHeader(Name = "X-Expected-Version")] int? expectedVersion,
+            [FromBody] TipoDocumentoProveedorRequest body, IMediator mediator, CancellationToken ct) =>
+        {
+            if (expectedVersion is not int v) return VersionRequerida();
+            return Results.Ok(await mediator.Send(new GuardarTipoDocumentoProveedorCommand(tipoId, v, null, body.Nombre,
+                body.ObligatorioPersonaMoral, body.ObligatorioPersonaFisica, body.VigenciaMeses, body.SoloPersonaMoral, body.AplicaOrigen, body.Activo), ct));
+        })
+        .WithMetadata(new RequireIdempotencyKeyAttribute())
+        .RequireAuthorization(PermissionPolicyProvider.Prefix + PermisosCanonicos.DatosMaestrosProveedoresExpedienteConfigurar)
+        .WithName("ConfigurarTipoDocumentoProveedor")
+        .Produces<TipoDocumentoProveedorDto>(StatusCodes.Status200OK)
+        .ProducesProblem(StatusCodes.Status409Conflict)
+        .ProducesProblem(StatusCodes.Status422UnprocessableEntity)
+        .ProducesProblem(StatusCodes.Status428PreconditionRequired);
+
+        proveedores.MapPost("/{id:guid}/expediente/excepciones", async (
+            Guid id, [FromBody] ExcepcionExpedienteRequest body, IMediator mediator, CancellationToken ct) =>
+        {
+            var excepcionId = await mediator.Send(new OtorgarExcepcionExpedienteCommand(id, body.TipoDocumentoId, body.Motivo), ct);
+            return Results.Created($"/api/v1/datos-maestros/proveedores/{id}/expediente/excepciones/{excepcionId}", new { id = excepcionId });
+        })
+        .WithMetadata(new RequireIdempotencyKeyAttribute())
+        .RequireAuthorization(PermissionPolicyProvider.Prefix + PermisosCanonicos.DatosMaestrosProveedoresValidar)
+        .WithName("OtorgarExcepcionExpedienteProveedor")
+        .Produces(StatusCodes.Status201Created)
+        .ProducesProblem(StatusCodes.Status409Conflict)
+        .ProducesProblem(StatusCodes.Status422UnprocessableEntity);
+
+        proveedores.MapPost("/{id:guid}/expediente/excepciones/{excepcionId:guid}/revocar", async (
+            Guid id, Guid excepcionId, IMediator mediator, CancellationToken ct) =>
+        {
+            await mediator.Send(new RevocarExcepcionExpedienteCommand(id, excepcionId), ct);
+            return Results.NoContent();
+        })
+        .WithMetadata(new RequireIdempotencyKeyAttribute())
+        .RequireAuthorization(PermissionPolicyProvider.Prefix + PermisosCanonicos.DatosMaestrosProveedoresValidar)
+        .WithName("RevocarExcepcionExpedienteProveedor")
+        .Produces(StatusCodes.Status204NoContent);
+
+        // 86e3pdmee · ADM-01: origen, régimen fiscal y retención esperada.
+        proveedores.MapPut("/{id:guid}/clasificacion-fiscal", async (
+            Guid id, [FromBody] ActualizarClasificacionFiscalRequest body,
+            IMediator mediator, CancellationToken ct) =>
+        {
+            await mediator.Send(new ActualizarClasificacionFiscalProveedorCommand(
+                id, body.Origen, body.RegimenFiscalCodigo, body.ConceptoRetencion), ct);
+            return Results.NoContent();
+        })
+        .WithMetadata(new RequireIdempotencyKeyAttribute())
+        .RequireAuthorization(PermissionPolicyProvider.Prefix + PermisosCanonicos.DatosMaestrosProveedoresGestionar)
+        .WithName("ActualizarClasificacionFiscalProveedor")
+        .WithSummary("Origen, régimen fiscal y retención esperada del proveedor (86e3pdmee)")
+        .Produces(StatusCodes.Status204NoContent)
+        .ProducesValidationProblem()
         .ProducesProblem(StatusCodes.Status403Forbidden)
         .ProducesProblem(StatusCodes.Status404NotFound)
         .ProducesProblem(StatusCodes.Status422UnprocessableEntity);
@@ -171,70 +253,92 @@ public static class DatosMaestrosEndpoints
         .ProducesProblem(StatusCodes.Status404NotFound)
         .ProducesProblem(StatusCodes.Status422UnprocessableEntity);
 
-        proveedores.MapGet("/{id:guid}/datos-bancarios", async (
+        // 86e3pdmee · ADM-02: varias cuentas bancarias por proveedor con validación.
+        proveedores.MapGet("/{id:guid}/cuentas-bancarias", async (
             Guid id,
-            CompartidoDbContext db,
             ICurrentUserPermissions permisos,
-            CancellationToken ct) =>
-        {
-            var p = await db.Proveedores.AsNoTracking()
-                .Select(x => new { x.Id, x.Banco, x.Clabe, x.Beneficiario })
-                .FirstOrDefaultAsync(x => x.Id == id, ct)
-                ?? throw new EntityNotFoundException(
-                    "PROVEEDOR_NO_ENCONTRADO",
-                    $"No existe proveedor con id '{id}'.");
-
-            var verCompleta = await permisos.TieneAsync(
-                PermisosCanonicos.TesoreriaMovimientosVerCuentaCompleta, ct);
-            var clabe = p.Clabe is null ? null : verCompleta ? p.Clabe : Clabe.Enmascarar(p.Clabe);
-
-            return Results.Ok(new ProveedorDatosBancarios(
-                p.Id, p.Banco, clabe, p.Beneficiario, verCompleta));
-        })
-        .RequireAuthorization(PermissionPolicyProvider.Prefix + PermisosCanonicos.DatosMaestrosProveedoresBancariosVer)
-        .WithName("ObtenerProveedorDatosBancarios")
-        .WithSummary("Datos bancarios de proveedor (F1-ADM-05)")
-        .WithDescription(
-            "CLABE enmascarada (últimos 4 dígitos) salvo que el usuario tenga " +
-            "`tesoreria.movimientos.ver-cuenta-completa` (PII, ADR-0018), en " +
-            "cuyo caso `clabeCompleta = true` y viene sin enmascarar.")
-        .Produces<ProveedorDatosBancarios>(StatusCodes.Status200OK)
-        .ProducesProblem(StatusCodes.Status401Unauthorized)
-        .ProducesProblem(StatusCodes.Status403Forbidden)
-        .ProducesProblem(StatusCodes.Status404NotFound);
-
-        proveedores.MapPatch("/{id:guid}/datos-bancarios", async (
-            Guid id,
-            [FromBody] ActualizarDatosBancariosRequest body,
             IMediator mediator,
             CancellationToken ct) =>
         {
-            await mediator.Send(
-                new ActualizarProveedorCommand(
-                    ProveedorId: id,
-                    Banco: body.Banco,
-                    Clabe: body.Clabe,
-                    Beneficiario: body.Beneficiario,
-                    LimpiarBanco: body.LimpiarBanco ?? false,
-                    LimpiarClabe: body.LimpiarClabe ?? false,
-                    LimpiarBeneficiario: body.LimpiarBeneficiario ?? false),
-                ct);
-            return Results.NoContent();
+            var verCompleta = await permisos.TieneAsync(PermisosCanonicos.DatosMaestrosProveedoresCuentasAdministrar, ct)
+                || await permisos.TieneAsync(PermisosCanonicos.TesoreriaMovimientosVerCuentaCompleta, ct);
+            return Results.Ok(await mediator.Send(new ListarCuentasBancariasProveedorQuery(id, verCompleta), ct));
+        })
+        .RequireAuthorization(PermissionPolicyProvider.Prefix + PermisosCanonicos.DatosMaestrosProveedoresBancariosVer)
+        .WithName("ListarCuentasBancariasProveedor")
+        .WithSummary("Cuentas bancarias del proveedor (86e3pdmee)")
+        .WithDescription("Número enmascarado salvo `cuentas-administrar` o `tesoreria.movimientos.ver-cuenta-completa`.")
+        .Produces<IReadOnlyList<CuentaBancariaProveedorDto>>(StatusCodes.Status200OK)
+        .ProducesProblem(StatusCodes.Status403Forbidden);
+
+        proveedores.MapPost("/{id:guid}/cuentas-bancarias", async (
+            Guid id,
+            [FromBody] AgregarCuentaBancariaRequest body,
+            IMediator mediator,
+            CancellationToken ct) =>
+        {
+            var dto = await mediator.Send(new AgregarCuentaBancariaProveedorCommand(
+                id, body.Banco, body.Clabe, body.NumeroCuenta, body.Swift, body.Moneda, body.Titular), ct);
+            return Results.Created($"/api/v1/datos-maestros/proveedores/{id}/cuentas-bancarias/{dto.Id}", dto);
         })
         .WithMetadata(new RequireIdempotencyKeyAttribute())
         .RequireAuthorization(PermissionPolicyProvider.Prefix + PermisosCanonicos.DatosMaestrosProveedoresBancariosEditar)
-        .WithName("ActualizarProveedorDatosBancarios")
-        .WithSummary("Actualizar datos bancarios de proveedor (F1-ADM-05 / G1.9)")
-        .WithDescription(
-            "Edición de banco, CLABE y beneficiario por rol Tesorería (o con permiso `bancarios-editar`). " +
-            "No requiere `compartido.catalogos.administrar`. CLABE nunca se devuelve ni se registra completa; " +
-            "header `Idempotency-Key` obligatorio.")
-        .Produces(StatusCodes.Status204NoContent)
+        .WithName("AgregarCuentaBancariaProveedor")
+        .WithSummary("Agregar cuenta bancaria; queda «Por validar» (86e3pdmee)")
+        .Produces<CuentaBancariaProveedorDto>(StatusCodes.Status201Created)
         .ProducesValidationProblem()
-        .ProducesProblem(StatusCodes.Status400BadRequest)
-        .ProducesProblem(StatusCodes.Status401Unauthorized)
-        .ProducesProblem(StatusCodes.Status403Forbidden)
-        .ProducesProblem(StatusCodes.Status404NotFound);
+        .ProducesProblem(StatusCodes.Status409Conflict)
+        .ProducesProblem(StatusCodes.Status422UnprocessableEntity);
+
+        proveedores.MapPost("/{id:guid}/cuentas-bancarias/{cuentaId:guid}/validar", async (
+            Guid id,
+            Guid cuentaId,
+            [FromHeader(Name = "X-Expected-Version")] int? expectedVersion,
+            [FromBody] ValidarCuentaBancariaRequest body,
+            IMediator mediator,
+            CancellationToken ct) =>
+        {
+            if (expectedVersion is not int v) return VersionRequerida();
+            return Results.Ok(await mediator.Send(new ValidarCuentaBancariaProveedorCommand(
+                id, cuentaId, v, body.DocumentoAdjuntoId, body.CotejoCompleto, body.Nota), ct));
+        })
+        .WithMetadata(new RequireIdempotencyKeyAttribute())
+        .RequireAuthorization(PermissionPolicyProvider.Prefix + PermisosCanonicos.DatosMaestrosProveedoresCuentasAdministrar)
+        .WithName("ValidarCuentaBancariaProveedor")
+        .WithSummary("Validar cuenta contra estado de cuenta vigente; quien capturó no valida (86e3pdmee)")
+        .Produces<CuentaBancariaProveedorDto>(StatusCodes.Status200OK)
+        .ProducesProblem(StatusCodes.Status409Conflict)
+        .ProducesProblem(StatusCodes.Status422UnprocessableEntity)
+        .ProducesProblem(StatusCodes.Status428PreconditionRequired);
+
+        foreach (var (ruta, accion, permiso) in new[]
+        {
+            ("rechazar", AccionCuentaBancariaProveedor.Rechazar, PermisosCanonicos.DatosMaestrosProveedoresCuentasAdministrar),
+            ("inhabilitar", AccionCuentaBancariaProveedor.Inhabilitar, PermisosCanonicos.DatosMaestrosProveedoresCuentasAdministrar),
+            ("reactivar", AccionCuentaBancariaProveedor.Reactivar, PermisosCanonicos.DatosMaestrosProveedoresCuentasAdministrar),
+            ("predeterminada", AccionCuentaBancariaProveedor.MarcarPredeterminada, PermisosCanonicos.DatosMaestrosProveedoresCuentasAdministrar),
+        })
+        {
+            proveedores.MapPost($"/{{id:guid}}/cuentas-bancarias/{{cuentaId:guid}}/{ruta}", async (
+                Guid id,
+                Guid cuentaId,
+                [FromHeader(Name = "X-Expected-Version")] int? expectedVersion,
+                [FromBody] MotivoCuentaBancariaRequest? body,
+                IMediator mediator,
+                CancellationToken ct) =>
+            {
+                if (expectedVersion is not int v) return VersionRequerida();
+                return Results.Ok(await mediator.Send(new CambiarCuentaBancariaProveedorCommand(
+                    id, cuentaId, v, accion, body?.Motivo), ct));
+            })
+            .WithMetadata(new RequireIdempotencyKeyAttribute())
+            .RequireAuthorization(PermissionPolicyProvider.Prefix + permiso)
+            .WithName($"CuentaBancariaProveedor-{ruta}")
+            .Produces<CuentaBancariaProveedorDto>(StatusCodes.Status200OK)
+            .ProducesProblem(StatusCodes.Status409Conflict)
+            .ProducesProblem(StatusCodes.Status422UnprocessableEntity)
+            .ProducesProblem(StatusCodes.Status428PreconditionRequired);
+        }
 
         // ===== ARTÍCULOS =====
         articulos.MapGet("/", async (
@@ -476,6 +580,22 @@ public static class DatosMaestrosEndpoints
         .ProducesProblem(StatusCodes.Status401Unauthorized)
         .ProducesProblem(StatusCodes.Status403Forbidden)
         .ProducesProblem(StatusCodes.Status404NotFound);
+
+        clientes.MapPost("/{id:guid}/reactivar", async (
+            Guid id, IMediator mediator, CancellationToken ct) =>
+        {
+            await mediator.Send(new ReactivarClienteCommand(id), ct);
+            return Results.NoContent();
+        })
+        .WithMetadata(new RequireIdempotencyKeyAttribute())
+        .RequireAuthorization(PermissionPolicyProvider.Prefix + PermisosCanonicos.DatosMaestrosClientesGestionar)
+        .WithName("ReactivarCliente")
+        .WithSummary("Reactivar cliente (ADR-0048)")
+        .Produces(StatusCodes.Status204NoContent)
+        .ProducesProblem(StatusCodes.Status401Unauthorized)
+        .ProducesProblem(StatusCodes.Status403Forbidden)
+        .ProducesProblem(StatusCodes.Status404NotFound)
+        .ProducesProblem(StatusCodes.Status422UnprocessableEntity);
 
         // ===== PRODUCTOS A+W (ADR-0048 D5) =====
         var productosAw = app.MapGroup("/api/v1/datos-maestros/productos-aw")
@@ -828,7 +948,14 @@ public static class DatosMaestrosEndpoints
         Guid? ValidadoPorId = null,
         DateTimeOffset? ValidadoEn = null,
         string? MotivoRechazo = null,
-        decimal? ToleranciaFacturaContraOcMxn = null);
+        decimal? ToleranciaFacturaContraOcMxn = null,
+        OrigenProveedor? Origen = null,
+        string? RegimenFiscalCodigo = null,
+        string? ConceptoRetencion = null,
+        int? ValidadoConMatrizVersion = null);
+
+    public sealed record ActualizarClasificacionFiscalRequest(
+        OrigenProveedor? Origen, string? RegimenFiscalCodigo, string? ConceptoRetencion);
 
     [System.Text.Json.Serialization.JsonUnmappedMemberHandling(System.Text.Json.Serialization.JsonUnmappedMemberHandling.Disallow)]
     public sealed record ActualizarToleranciaProveedorRequest(
@@ -840,21 +967,21 @@ public static class DatosMaestrosEndpoints
     /// Respuesta de <c>GET /datos-maestros/proveedores/{id}/datos-bancarios</c>
     /// (F1-ADM-05). CLABE enmascarada salvo bypass PII (<c>ClabeCompleta</c>).
     /// </summary>
-    public sealed record ProveedorDatosBancarios(
-        Guid Id,
-        string? Banco,
-        string? Clabe,
-        string? Beneficiario,
-        bool ClabeCompleta);
+    public sealed record AgregarCuentaBancariaRequest(
+        string Banco, string? Clabe, string? NumeroCuenta, string? Swift, string Moneda, string Titular);
 
-    /// <summary>
-    /// Payload de <c>PATCH /datos-maestros/proveedores/{id}/datos-bancarios</c> (G1.9 / F1-ADM-05).
-    /// </summary>
-    public sealed record ActualizarDatosBancariosRequest(
-        string? Banco,
-        string? Clabe,
-        string? Beneficiario,
-        bool? LimpiarBanco,
-        bool? LimpiarClabe,
-        bool? LimpiarBeneficiario);
+    public sealed record TipoDocumentoProveedorRequest(
+        string? Codigo, string Nombre, bool ObligatorioPersonaMoral, bool ObligatorioPersonaFisica, int? VigenciaMeses,
+        bool SoloPersonaMoral, Millet.SharedKernel.Domain.Adjuntos.AdjuntoAplicaOrigen AplicaOrigen, bool Activo);
+
+    public sealed record ExcepcionExpedienteRequest(Guid TipoDocumentoId, string Motivo);
+
+    public sealed record ValidarCuentaBancariaRequest(Guid DocumentoAdjuntoId, bool CotejoCompleto, string? Nota);
+
+    public sealed record MotivoCuentaBancariaRequest(string? Motivo);
+
+    private static IResult VersionRequerida() => Results.Problem(
+        title: "X-Expected-Version requerido",
+        detail: "Esta acción requiere el header X-Expected-Version (ADR-0012).",
+        statusCode: StatusCodes.Status428PreconditionRequired);
 }

@@ -39,9 +39,9 @@ namespace Millet.Api.IntegrationTests.Compras;
 public sealed class CompraAPagoDemoTests(WebApplicationFactory<Program> factory) : IClassFixture<WebApplicationFactory<Program>>
 {
     private static Guid Articulo; // articulo nuevo por corrida: el stock de Almacen persiste y cubriria la RQ en re-corridas
-    private static readonly Guid Proveedor = Guid.Parse("00000005-0001-0000-0000-000000000001"); // PROV-EST, RFC SES010101AAA
-    private const string ProveedorRfc = "SES010101AAA";
-    private static readonly Guid CentroCosto = Guid.Parse("0000000c-0005-0000-0000-000000000001");
+    internal static readonly Guid Proveedor = Guid.Parse("00000005-0001-0000-0000-000000000001"); // PROV-EST, RFC SES010101AAA
+    internal const string ProveedorRfc = "SES010101AAA";
+    internal static readonly Guid CentroCosto = Guid.Parse("0000000c-0005-0000-0000-000000000001");
     private readonly List<string> _bitacora = [];
 
     [Fact]
@@ -73,7 +73,7 @@ public sealed class CompraAPagoDemoTests(WebApplicationFactory<Program> factory)
         Assert.NotEqual(idA, idB);
 
         // Umbral del depto: monto <= umbral => basta N1 (con 2 usuarios no hay quien firme N2; sin umbral exige N1+N2 de personas distintas).
-        await Ok(await b.PutAsJsonAsync("/api/v1/compras/umbrales-aprobacion", new { DepartamentoId = TestComprasFixtures.DeptoCompras, UmbralMenorCuantia = 1000m, UmbralMonto = 100000m, Moneda = "MXN" }), "B configura umbral depto");
+        await Ok(await b.PutAsJsonAsync("/api/v1/compras/umbrales-aprobacion", new { DepartamentoId = TestComprasFixtures.DeptoCompras, UmbralMenorCuantia = 1000m, UmbralMonto = 100000m, Moneda = "MXN", ModoNivel2 = "SoloMonto" }), "B configura umbral depto");
 
         // ---------- 1. A crea RQ ----------
         var rqResp = await a.PostAsJsonAsync("/api/v1/compras/requisiciones", TestComprasFixtures.BuildCrearRqValidBody(descripcion: "DEMO compra a pago"));
@@ -179,23 +179,23 @@ public sealed class CompraAPagoDemoTests(WebApplicationFactory<Program> factory)
 
     // ================= helpers =================
 
-    private static async Task<JsonElement> J(HttpResponseMessage r)
+    internal static async Task<JsonElement> J(HttpResponseMessage r)
     {
         var t = await r.Content.ReadAsStringAsync();
         if (t.Length == 0) throw new Xunit.Sdk.XunitException($"Respuesta vacia HTTP {(int)r.StatusCode} de {r.RequestMessage?.Method} {r.RequestMessage?.RequestUri?.PathAndQuery}");
         return JsonDocument.Parse(t).RootElement.Clone();
     }
 
-    private static async Task Ok(HttpResponseMessage r, string paso)
+    internal static async Task Ok(HttpResponseMessage r, string paso)
     {
         if ((int)r.StatusCode is >= 200 and < 300) return;
         throw new Xunit.Sdk.XunitException($"[{paso}] HTTP {(int)r.StatusCode}: {await r.Content.ReadAsStringAsync()}");
     }
 
-    private static async Task<Guid> UserIdAsync(HttpClient c) =>
+    internal static async Task<Guid> UserIdAsync(HttpClient c) =>
         (await J(await c.GetAsync("/api/auth/me"))).GetProperty("userId").GetGuid();
 
-    private static async Task AsociarSucursalAsync(WebApplicationFactory<Program> app, HttpClient c)
+    internal static async Task AsociarSucursalAsync(WebApplicationFactory<Program> app, HttpClient c)
     {
         var uid = await UserIdAsync(c);
         using var scope = app.Services.CreateScope();
@@ -205,7 +205,7 @@ public sealed class CompraAPagoDemoTests(WebApplicationFactory<Program> factory)
         await db.SaveChangesAsync();
     }
 
-    private static async Task AdjuntarCotizacionAsync(WebApplicationFactory<Program> app, Guid ocId)
+    internal static async Task AdjuntarCotizacionAsync(WebApplicationFactory<Program> app, Guid ocId)
     {
         using var scope = app.Services.CreateScope();
         using var bypass = scope.ServiceProvider.GetRequiredService<ICurrentEmpresaContext>().Bypass();
@@ -216,7 +216,7 @@ public sealed class CompraAPagoDemoTests(WebApplicationFactory<Program> factory)
         await db.SaveChangesAsync();
     }
 
-    private static async Task<Guid> SembrarBinAsync(WebApplicationFactory<Program> app)
+    internal static async Task<Guid> SembrarBinAsync(WebApplicationFactory<Program> app, Guid? articulo = null)
     {
         using var scope = app.Services.CreateScope();
         using var bypass = scope.ServiceProvider.GetRequiredService<ICurrentEmpresaContext>().Bypass();
@@ -224,12 +224,12 @@ public sealed class CompraAPagoDemoTests(WebApplicationFactory<Program> factory)
         var alm = new Millet.Almacen.Domain.Catalogo.Almacen(Guid.NewGuid(), $"DM{Guid.NewGuid():N}"[..16], "DEMO compra-pago", TestComprasFixtures.SucursalMid);
         var sub = new SubAlmacen(Guid.NewGuid(), alm.Id, "DM", "DEMO", TipoSubAlmacen.Insumos);
         var bin = new Ubicacion(Guid.NewGuid(), sub.Id, "DM", "DEMO");
-        almacen.AddRange(alm, sub, bin, new AsignacionArticuloUbicacion(Guid.NewGuid(), bin.Id, Articulo));
+        almacen.AddRange(alm, sub, bin, new AsignacionArticuloUbicacion(Guid.NewGuid(), bin.Id, articulo ?? Articulo));
         await almacen.SaveChangesAsync();
         return bin.Id;
     }
 
-    private static async Task<IAsyncDisposable> AbrirPeriodoSiHaceFaltaAsync(WebApplicationFactory<Program> app, DateOnly hoy)
+    internal static async Task<IAsyncDisposable> AbrirPeriodoSiHaceFaltaAsync(WebApplicationFactory<Program> app, DateOnly hoy)
     {
         using var scope = app.Services.CreateScope();
         var cs = scope.ServiceProvider.GetRequiredService<AlmacenDbContext>().Database.GetConnectionString()!;
@@ -238,7 +238,7 @@ public sealed class CompraAPagoDemoTests(WebApplicationFactory<Program> factory)
         catch { return fx; } // ya existia el ejercicio
     }
 
-    private static string Cfdi(string uuid, string rfcEmisor, decimal subtotal, decimal iva, DateOnly f) => $"""
+    internal static string Cfdi(string uuid, string rfcEmisor, decimal subtotal, decimal iva, DateOnly f) => $"""
         <?xml version="1.0" encoding="UTF-8"?>
         <cfdi:Comprobante xmlns:cfdi="http://www.sat.gob.mx/cfd/4" Version="4.0" TipoDeComprobante="I" Serie="A" Folio="F-DEMO"
             Fecha="{f:yyyy-MM-dd}T10:00:00" Total="{subtotal + iva:0.00}" SubTotal="{subtotal:0.00}" Moneda="MXN" MetodoPago="PUE">
@@ -282,8 +282,14 @@ public sealed class CompraAPagoDemoTests(WebApplicationFactory<Program> factory)
                     {
                         var log = new RecLogger();
                         var worker = Activator.CreateInstance(w, sb, app.Services.GetRequiredService<IServiceScopeFactory>(), log.As(w))!;
-                        await (Task)w.GetMethod("ProcessAsync", BindingFlags.NonPublic | BindingFlags.Instance)!
-                            .Invoke(worker, [e.EventType, e.Id, e.Payload, null, CancellationToken.None])!;
+                        // C1.8: sin smbArgs el listener relanza las fallas (antes las tragaba);
+                        // esta bomba las conserva en la bitácora como antes.
+                        try
+                        {
+                            await (Task)w.GetMethod("ProcessAsync", BindingFlags.NonPublic | BindingFlags.Instance)!
+                                .Invoke(worker, [e.EventType, e.Id, e.Payload, null, CancellationToken.None])!;
+                        }
+                        catch (Exception ex) { log.Errores.Add($"relanzada: {ex.Message}"); }
                         foreach (var m in log.Errores.Where(m => !m.Contains("no manejado"))) _bitacora.Add($"ERROR {nombre}:{e.EventType} -> {w.Name}: {m}");
                     }
                     _bitacora.Add($"evento {nombre}:{e.EventType}");

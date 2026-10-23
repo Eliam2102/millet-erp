@@ -1,3 +1,5 @@
+import { FormSeccion } from '@/components/erp/forms/FormSeccion';
+import { FormCampo } from '@/components/erp/forms/FormGrid';
 import { useEffect } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -9,15 +11,13 @@ import {
   applyServerErrors,
   esApiError,
   useBodyScopedIdempotencyKey,
+  codigoSoporte,
 } from '@/lib/api';
 import {
   DepartamentoSchema,
   type DepartamentoValues,
 } from '@/modules/administracion/schemas/departamento';
-import {
-  useActualizarDepartamento,
-  useCrearDepartamento,
-} from '@/modules/administracion/api';
+import { useActualizarDepartamento, useCrearDepartamento } from '@/modules/administracion/api';
 import type { DepartamentoResponse } from '@/modules/administracion/api/types';
 import { cn } from '@/lib/utils';
 
@@ -75,16 +75,11 @@ export function DepartamentoInlineForm({
         });
         return;
       }
-      if (
-        applyServerErrors(
-          form as unknown as Parameters<typeof applyServerErrors>[0],
-          error,
-        )
-      ) {
+      if (applyServerErrors(form as unknown as Parameters<typeof applyServerErrors>[0], error)) {
         return;
       }
       toast.error(error.problem.title, {
-        description: error.traceId ? `Código: ${error.traceId}` : undefined,
+        description: codigoSoporte(error),
       });
       return;
     }
@@ -136,54 +131,42 @@ export function DepartamentoInlineForm({
       }}
       className={cn(
         'space-y-3 rounded-md border p-3',
-        esEditar
-          ? 'border-amber-400 bg-amber-50/40'
-          : 'border-dashed border-primary/40 bg-primary/5',
+        esEditar ? 'border-line bg-warning-bg/40' : 'border-dashed border-brand/40 bg-brand/5',
       )}
-      aria-label={
-        esEditar
-          ? `Editar departamento ${departamento?.clave}`
-          : 'Agregar departamento'
-      }
+      aria-label={esEditar ? `Editar departamento ${departamento?.clave}` : 'Agregar departamento'}
     >
-      <div className="grid grid-cols-1 gap-2 md:grid-cols-12">
-        <Field
-          label="Clave"
-          required
-          error={form.formState.errors.clave?.message}
-          className="md:col-span-3"
-        >
-          <Input
-            maxLength={20}
-            placeholder="COMP"
-            readOnly={esEditar}
-            aria-readonly={esEditar}
-            {...form.register('clave')}
-          />
-        </Field>
+      <FormSeccion titulo="Datos del departamento" className="">
+        <FormCampo span={6}>
+          <Field
+            label="Clave"
+            required
+            error={form.formState.errors.clave?.message}
+            className="md:col-span-3"
+          >
+            <Input
+              maxLength={20}
+              placeholder="COMP"
+              readOnly={esEditar}
+              aria-readonly={esEditar}
+              {...form.register('clave')}
+            />
+          </Field>
+        </FormCampo>
 
-        <Field
-          label="Nombre"
-          required
-          error={form.formState.errors.nombre?.message}
-          className="md:col-span-9"
-        >
-          <Input
-            maxLength={254}
-            placeholder="Compras"
-            {...form.register('nombre')}
-          />
-        </Field>
-      </div>
+        <FormCampo span={6}>
+          <Field
+            label="Nombre"
+            required
+            error={form.formState.errors.nombre?.message}
+            className="md:col-span-9"
+          >
+            <Input maxLength={254} placeholder="Compras" {...form.register('nombre')} />
+          </Field>
+        </FormCampo>
+      </FormSeccion>
 
       <div className="flex items-center justify-end gap-2">
-        <Button
-          type="button"
-          variant="ghost"
-          size="sm"
-          onClick={onCancel}
-          disabled={isPending}
-        >
+        <Button type="button" variant="ghost" size="sm" onClick={onCancel} disabled={isPending}>
           <X className="mr-1 h-4 w-4" />
           Cancelar
         </Button>
@@ -216,17 +199,17 @@ interface FieldProps {
 function Field({ label, required, error, className, children }: FieldProps) {
   return (
     <div className={cn('space-y-1', className)}>
-      <label className="flex items-center gap-1 text-xs font-medium text-muted-foreground">
+      <label className="flex items-center gap-1 text-xs font-medium text-ink-muted">
         {label}
         {required && (
-          <span aria-hidden="true" className="text-rose-600">
+          <span aria-hidden="true" className="text-danger-fg">
             *
           </span>
         )}
       </label>
       {children}
       {error != null && (
-        <p role="alert" className="text-xs text-rose-600">
+        <p role="alert" className="text-xs text-danger-fg">
           {error}
         </p>
       )}

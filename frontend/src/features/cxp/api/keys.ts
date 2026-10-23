@@ -19,6 +19,7 @@ export interface ListarFacturasFiltros {
   sucursalId?: string;
   offset?: number;
   limit?: number;
+  q?: string;
 }
 
 export const cxpKeys = {
@@ -40,14 +41,21 @@ export const cxpKeys = {
   facturasList: (filtros: ListarFacturasFiltros) =>
     [...cxpKeys.facturas(), 'list', filtros] as const,
   facturaById: (id: string) => [...cxpKeys.facturas(), 'byId', id] as const,
+  pendientesProveedor: (rfc: string, proveedorId: string) =>
+    [...cxpKeys.facturas(), 'pendientes-proveedor', rfc, proveedorId] as const,
 
   // Revisión por área (FE-F3-PR1)
   enRevision: () => [...cxpKeys.facturas(), 'enRevision'] as const,
-  enRevisionList: (dependenciaRevisoraId: string, motivoRevisionId?: string) =>
+  enRevisionList: (
+    dependenciaRevisoraId: string,
+    motivoRevisionId?: string,
+    offset = 0,
+    limit?: number,
+  ) =>
     [
       ...cxpKeys.enRevision(),
       'list',
-      { dependenciaRevisoraId, motivoRevisionId: motivoRevisionId ?? null },
+      { dependenciaRevisoraId, motivoRevisionId: motivoRevisionId ?? null, offset, limit: limit ?? null },
     ] as const,
   evidenciasByFactura: (facturaId: string) =>
     [...cxpKeys.facturaById(facturaId), 'evidencias'] as const,
@@ -121,6 +129,7 @@ export interface ListarNotasCreditoFiltros {
   facturaOrigenId?: string;
   offset?: number;
   limit?: number;
+  q?: string;
 }
 
 export interface ListarAnticiposFiltros {
@@ -137,6 +146,7 @@ export interface ListarNotasCargoFiltros {
   facturaOrigenId?: string;
   offset?: number;
   limit?: number;
+  q?: string;
 }
 
 export interface ListarComprobacionesFiltros {
@@ -146,6 +156,7 @@ export interface ListarComprobacionesFiltros {
   responsableId?: string;
   offset?: number;
   limit?: number;
+  q?: string;
 }
 
 export interface ListarViaticosFiltros {
@@ -154,6 +165,7 @@ export interface ListarViaticosFiltros {
   jefeDirectoId?: string;
   offset?: number;
   limit?: number;
+  q?: string;
 }
 
 export interface ListarTarjetasFiltros {

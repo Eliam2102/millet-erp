@@ -16,13 +16,15 @@ public enum AdjuntoOperacion
 /// <param name="PuedeSubir">False si la entidad no admite nuevos adjuntos (p. ej. proveedor inactivo).</param>
 /// <param name="EsPersonaMoral">Solo aplica a entidades con tipo de persona; nulo si no aplica.</param>
 /// <param name="Etiqueta">Texto legible para auditoría (p. ej. "P001 · Vidrios SA").</param>
+/// <param name="EsNacional">Solo aplica a entidades con origen (proveedor); nulo si no aplica.</param>
 public sealed record AdjuntoPropietarioInfo(
     Guid EntidadId,
     Guid? EmpresaId,
     Guid? SucursalId,
     bool PuedeSubir,
     bool? EsPersonaMoral,
-    string Etiqueta);
+    string Etiqueta,
+    bool? EsNacional = null);
 
 /// <summary>
 /// Propietario de adjuntos (F1-ADM-11 G1.2): cada módulo que adjunta archivos a
@@ -44,6 +46,9 @@ public interface IAdjuntoPropietario
     string PermisoSubir { get; }
 
     string PermisoBaja { get; }
+
+    /// <summary>Invalida la revisión del propietario antes de persistir la baja del archivo.</summary>
+    Task AlDarDeBajaAsync(Guid entidadId, Guid adjuntoId, CancellationToken ct) => Task.CompletedTask;
 
     /// <summary>Resuelve el padre; <c>null</c> si no existe (o no es visible para la empresa actual).</summary>
     Task<AdjuntoPropietarioInfo?> ResolverAsync(Guid entidadId, CancellationToken cancellationToken);

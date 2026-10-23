@@ -97,6 +97,17 @@ public sealed class LineaConteo : BaseEntity, IAuditable
     }
 
     /// <summary>
+    /// Cantidad vigente de la línea: la del último recuento (mayor secuencia)
+    /// cuando existe; si no, la captura original. <paramref name="recuentosVigentes"/>
+    /// es el mapa <c>lineaId → cantidad del último recuento</c> (ver
+    /// <c>CantidadVigenteConteo</c>); null equivale a "sin recuentos".
+    /// </summary>
+    public decimal? CantidadVigente(IReadOnlyDictionary<Guid, decimal>? recuentosVigentes) =>
+        recuentosVigentes is not null && recuentosVigentes.TryGetValue(Id, out var vigente)
+            ? vigente
+            : CantidadRealCapturada;
+
+    /// <summary>
     /// F7-PR2: marca la línea como pendiente de recuento porque la
     /// variación excede el umbral A7. El conteo no puede pasar a
     /// Aprobado hasta que esta línea tenga al menos un recuento.

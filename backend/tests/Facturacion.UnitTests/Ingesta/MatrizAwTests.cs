@@ -8,6 +8,7 @@ using Millet.Facturacion.Domain.Ports;
 using Millet.Facturacion.Infrastructure.Persistence;
 using Millet.Facturacion.Infrastructure.Workers;
 using Millet.Facturacion.UnitTests.TestDoubles;
+using Millet.SharedKernel.Application.Exceptions;
 
 namespace Millet.Facturacion.UnitTests.Ingesta;
 
@@ -37,9 +38,9 @@ public sealed class MatrizAwTests
     private static ProcesarSolicitudAwHandler Handler(
         FacturacionDbContext db, FakeAwWriteBackPort wb, DatosPedidoAw? datos, ClienteFiscalLectura? cliente,
         ClienteFiscalLectura? clienteProvisionado = null, LecturaPedidoAw? lectura = null,
-        int pospuestaMaxDias = 7, DateTimeOffset? ahora = null) =>
+        int pospuestaMaxDias = 7, DateTimeOffset? ahora = null, Exception? errorProvision = null) =>
         new(db, new FakeAwSolicitudesReader(datos, lectura: lectura), wb, new FakeClientesReadPort(cliente),
-            new FakeProductosReadPort(), new FakeMasterProvisioningPort(clienteProvisionado),
+            new FakeProductosReadPort(), new FakeMasterProvisioningPort(clienteProvisionado, errorCliente: errorProvision),
             new FakeClock(ahora ?? Ahora),
             Options.Create(new AwSolicitudesOptions { PospuestaMaxDias = pospuestaMaxDias }));
 
@@ -100,6 +101,49 @@ public sealed class MatrizAwTests
         (await db.PedidosFacturables.CountAsync()).Should().Be(0);
         (await db.IngestaControles.CountAsync()).Should().Be(0);
         wb.Ultimo!.Resultado.Should().Be(ResultadoSolicitudAw.Pospuesta);
+    }
+
+    [Fact]
+    public async Task Alta_con_ligado_pendiente_pospone_con_excepcion_legible()
+    {
+        var empresaId = Guid.NewGuid();
+        using var db = NewDb(empresaId);
+        var wb = new FakeAwWriteBackPort();
+
+        var resp = await Handler(db, wb, Datos(), cliente: null, errorProvision: new BusinessRuleException(
+                "CLIENTE_LIGADO_PENDIENTE",
+                "El cliente A+W CLI-1 tiene el mismo RFC de un cliente manual. Revisa el ligado en Datos maestros → Clientes antes de importar el pedido."))
+            .Handle(new ProcesarSolicitudAwCommand(empresaId, Sol(OperacionAw.Alta)), CancellationToken.None);
+
+        resp.Resultado.Should().Be(ResultadoSolicitudAw.Pospuesta);
+        var excepcion = await db.ExcepcionesImportacion.SingleAsync();
+        excepcion.Motivo.Should().Be(MotivoExcepcion.ClienteNoExiste);
+        excepcion.Detalle.Should().Contain("mismo RFC");
+        (await db.PedidosFacturables.CountAsync()).Should().Be(0);
+    }
+
+    [Fact]
+    public async Task Tras_ligar_el_cliente_el_siguiente_tick_importa_con_el_ClienteId_manual()
+    {
+        // M-91: primer tick pospuesto por ligado pendiente; tras ligar, el master
+        // resuelve el cliente manual y el siguiente tick importa el pedido con ese Id.
+        var empresaId = Guid.NewGuid();
+        using var db = NewDb(empresaId);
+        var wb = new FakeAwWriteBackPort();
+        var handler1 = Handler(db, wb, Datos(), cliente: null, errorProvision: new BusinessRuleException(
+                "CLIENTE_LIGADO_PENDIENTE",
+                "El cliente A+W CLI-1 tiene el mismo RFC de un cliente manual. Revisa el ligado en Datos maestros → Clientes antes de importar el pedido."));
+
+        var pospuesta = await handler1.Handle(new ProcesarSolicitudAwCommand(empresaId, Sol(OperacionAw.Alta)), CancellationToken.None);
+        pospuesta.Resultado.Should().Be(ResultadoSolicitudAw.Pospuesta);
+        (await db.PedidosFacturables.CountAsync()).Should().Be(0);
+
+        var clienteManualLigado = Cliente() with { ClienteId = Guid.NewGuid() };
+        var resp = await Handler(db, wb, Datos(), clienteManualLigado)
+            .Handle(new ProcesarSolicitudAwCommand(empresaId, Sol(OperacionAw.Alta)), CancellationToken.None);
+
+        resp.Resultado.Should().Be(ResultadoSolicitudAw.Aplicada);
+        (await db.PedidosFacturables.SingleAsync()).ClienteId.Should().Be(clienteManualLigado.ClienteId);
     }
 
     [Fact]

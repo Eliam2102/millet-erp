@@ -1,3 +1,5 @@
+import { ListadoCatalogo } from './ListadoCatalogo';
+import { PageHeader } from '@/components/erp/PageHeader';
 import { useMemo, useState } from 'react';
 import { Settings2 } from 'lucide-react';
 import { toast } from 'sonner';
@@ -14,22 +16,12 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
-import {
-  EmptyState,
-  ErrorState,
-  TableSkeleton,
-} from '@/components/erp';
+import { EmptyState, ErrorState, TableSkeleton } from '@/components/erp';
 import { esApiError, useBodyScopedIdempotencyKey } from '@/lib/api';
 import { useHasPermission } from '@/lib/auth/useHasPermission';
 import { PermisosCanonicos } from '@/lib/auth/permission-codes';
-import {
-  useActualizarParametro,
-  useParametros,
-} from '@/modules/administracion/api';
-import {
-  TipoParametro,
-  type ParametroResponse,
-} from '@/modules/administracion/api/types';
+import { useActualizarParametro, useParametros } from '@/modules/administracion/api';
+import { TipoParametro, type ParametroResponse } from '@/modules/administracion/api/types';
 import { actualizarParametroSchema } from '@/modules/administracion/schemas/parametro';
 
 const TODOS_LOS_MODULOS = '__todos__';
@@ -58,9 +50,7 @@ const TIPO_LABEL: Record<TipoParametro, string> = {
  * son los nombres de módulos detectados en los items.</para>
  */
 export function ParametrosPage() {
-  const canEditar = useHasPermission(
-    PermisosCanonicos.AdminParametrosEditar,
-  );
+  const canEditar = useHasPermission(PermisosCanonicos.AdminParametrosEditar);
   const [filtroModulo, setFiltroModulo] = useState<string>(TODOS_LOS_MODULOS);
 
   const moduloQuery: string | undefined =
@@ -87,22 +77,18 @@ export function ParametrosPage() {
   }, [items]);
 
   return (
-    <div className="space-y-4 p-4">
-      <header>
-        <h1 className="text-xl font-semibold tracking-tight">
-          Parámetros del sistema
-        </h1>
-        <p className="text-xs text-muted-foreground">
-          Configuración global. Solo el valor es editable; el tipo y la
-          clave son inmutables.
-        </p>
-      </header>
+    <div className="space-y-5">
+      <PageHeader
+        titulo={<>Parámetros del sistema</>}
+        descripcion={
+          <>Configuración global. Solo el valor es editable; el tipo y la clave son inmutables.</>
+        }
+        acciones={<></>}
+      />
 
-      <div className="flex flex-wrap items-end gap-3 rounded-md border bg-card p-3">
+      <div className="flex flex-wrap items-end gap-3 rounded-md border bg-surface-card p-3">
         <div className="flex flex-col gap-1">
-          <label className="text-xs font-medium text-muted-foreground">
-            Módulo
-          </label>
+          <label className="text-xs font-medium text-ink-muted">Módulo</label>
           <Select value={filtroModulo} onValueChange={setFiltroModulo}>
             <SelectTrigger className="h-9 w-56">
               <SelectValue />
@@ -121,10 +107,13 @@ export function ParametrosPage() {
       </div>
 
       {items.some((p) => p.clave.startsWith('almacen.conteo-')) && (
-        <p role="note" className="rounded-md bg-warning-note-bg px-3 py-2.5 text-xs text-warning-note-fg">
-          Los umbrales de inventario son iguales para todos los almacenes. Los cambios
-          aplican al iniciar un conteo; los conteos en curso conservan sus valores.
-          Los montos y su aplicación global están por confirmar con Finanzas de Millet.
+        <p
+          role="note"
+          className="rounded-md bg-warning-note-bg px-3 py-2.5 text-xs text-warning-note-fg"
+        >
+          Los umbrales de inventario son iguales para todos los almacenes. Los cambios aplican al
+          iniciar un conteo; los conteos en curso conservan sus valores. Finanzas de Millet debe
+          validar los montos y su aplicación global.
         </p>
       )}
 
@@ -158,12 +147,7 @@ function ParametrosLista({
   canEditar,
 }: ParametrosListaProps) {
   if (isLoading) {
-    return (
-      <TableSkeleton
-        rows={4}
-        columns={[{ width: 'w-full' }, { width: 'w-64' }]}
-      />
-    );
+    return <TableSkeleton rows={4} columns={[{ width: 'w-full' }, { width: 'w-64' }]} />;
   }
 
   if (isError) {
@@ -182,11 +166,19 @@ function ParametrosLista({
   }
 
   return (
-    <div className="space-y-3">
-      {items.map((p) => (
-        <ParametroFila key={p.id} parametro={p} canEditar={canEditar} />
-      ))}
-    </div>
+    <ListadoCatalogo
+      items={items}
+      texto={(p) => nombreParametro(p.clave)}
+      etiqueta="Buscar parámetro"
+    >
+      {(visibles) => (
+        <div className="space-y-3">
+          {visibles.map((p) => (
+            <ParametroFila key={p.id} parametro={p} canEditar={canEditar} />
+          ))}
+        </div>
+      )}
+    </ListadoCatalogo>
   );
 }
 
@@ -207,10 +199,7 @@ function ParametroFila({ parametro, canEditar }: ParametroFilaProps) {
   const actualizar = useActualizarParametro();
 
   const dirty = valor !== parametro.valor;
-  const schema = useMemo(
-    () => actualizarParametroSchema(parametro.tipo),
-    [parametro.tipo],
-  );
+  const schema = useMemo(() => actualizarParametroSchema(parametro.tipo), [parametro.tipo]);
 
   function guardar() {
     const result = schema.safeParse({ valor });
@@ -246,7 +235,7 @@ function ParametroFila({ parametro, canEditar }: ParametroFilaProps) {
 
   return (
     <div
-      className="flex flex-col gap-3 rounded-md border bg-card p-4"
+      className="flex flex-col gap-3 rounded-md border bg-surface-card p-4"
       data-testid={`parametro-${parametro.clave}`}
     >
       <header className="flex flex-wrap items-start justify-between gap-2">
@@ -255,15 +244,11 @@ function ParametroFila({ parametro, canEditar }: ParametroFilaProps) {
             <Label htmlFor={`parametro-input-${parametro.clave}`} className="text-sm font-semibold">
               {nombreParametro(parametro.clave)}
             </Label>
-            <Badge variant="secondary">{TIPO_LABEL[parametro.tipo]}</Badge>
-            {parametro.modulo != null && (
-              <Badge variant="outline">{parametro.modulo}</Badge>
-            )}
+            <Badge variant="neutral">{TIPO_LABEL[parametro.tipo]}</Badge>
+            {parametro.modulo != null && <Badge variant="neutral">{parametro.modulo}</Badge>}
           </div>
           {parametro.descripcion.length > 0 && (
-            <p className="mt-1 text-xs text-muted-foreground">
-              {parametro.descripcion}
-            </p>
+            <p className="mt-1 text-xs text-ink-muted">{parametro.descripcion}</p>
           )}
         </div>
       </header>
@@ -279,9 +264,7 @@ function ParametroFila({ parametro, canEditar }: ParametroFilaProps) {
           }}
           inputId={`parametro-input-${parametro.clave}`}
         />
-        {errorMsg != null && (
-          <p className="text-xs text-destructive">{errorMsg}</p>
-        )}
+        {errorMsg != null && <p className="text-xs text-danger-fg">{errorMsg}</p>}
 
         <div className="flex items-center justify-end gap-2">
           {canEditar && (
@@ -305,7 +288,13 @@ function ParametroFila({ parametro, canEditar }: ParametroFilaProps) {
                 size="sm"
                 onClick={guardar}
                 disabled={!dirty || actualizar.isPending}
-                title={actualizar.isPending ? 'Guardando el cambio' : !dirty ? 'Modifica el valor para guardar' : undefined}
+                title={
+                  actualizar.isPending
+                    ? 'Guardando el cambio'
+                    : !dirty
+                      ? 'Modifica el valor para guardar'
+                      : undefined
+                }
               >
                 {actualizar.isPending ? 'Guardando…' : 'Guardar'}
               </Button>
@@ -325,13 +314,7 @@ interface ParametroEditorProps {
   inputId: string;
 }
 
-function ParametroEditor({
-  tipo,
-  valor,
-  disabled,
-  onChange,
-  inputId,
-}: ParametroEditorProps) {
+function ParametroEditor({ tipo, valor, disabled, onChange, inputId }: ParametroEditorProps) {
   switch (tipo) {
     case TipoParametro.Texto:
       return (
@@ -361,10 +344,7 @@ function ParametroEditor({
       // tampoco está disponible en este set de UI.
       const checked = valor === 'true';
       return (
-        <label
-          htmlFor={inputId}
-          className="inline-flex items-center gap-2 text-sm"
-        >
+        <label htmlFor={inputId} className="inline-flex items-center gap-2 text-sm">
           <input
             id={inputId}
             type="checkbox"

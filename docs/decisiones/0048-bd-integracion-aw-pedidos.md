@@ -213,3 +213,38 @@ Detalle del contrato y de la detección de cambios en
 - `docs/modulos/facturacion/01-diseno.md` §3 (Decisión 01-E), §5, §6.1, §9, §12.1
 - ADR-0046 (catálogos UM/Categoría), ADR-0009 (Outbox), ADR-0031 (PLATFORM-TODO)
 - [`docs/integration/05-sincronizacion-clientes-aw.md`](../integration/05-sincronizacion-clientes-aw.md) — sincronización de clientes (adenda ADM-06)
+
+## Adenda CE-04 · Flujo 3: A+W OTR y exportación
+
+A+W OTR organiza piezas/cajas dentro de contenedores y rutas; no es una compra
+(SRC-089 §1.0 y respuesta Millet, 05-oct-2026). El flujo 3 se separa de cotizaciones y
+pedidos: `OtrEntradaWorker`/`OtrSalidaWorker`, agregado e idempotencia propios de CE;
+sin `AwSolicitudesWorker` ni `IngestaControl` de Facturación.
+
+CE define `IOtrEntradaReader`/`IOtrSalidaWriter`; `Integraciones.Aw → ComercioExterior`
+los implementa sin referencia inversa. Las nuevas tablas puente ERP en MILLET_INTEGRACION
+son `aw_otr_envio`, `aw_otr_envio_linea` y `erp_otr_estado`; la excepción D18 permite sólo
+columnas ERP en entrada e INSERT idempotente en salida. **No se escriben tablas internas
+A+W**. CE genera las salidas en la misma transacción del cambio, con acuse, intentos y
+llave única por envío/tipo/versión ERP; no consume sus eventos a través de Service Bus.
+
+Propiedad de campos: propuesta VILO PEN-CE-025, por validar con Millet/Jorge. Entrada y
+salida apagadas por omisión, empresa obligatoria; Real requiere conexión, bandera activa
+y contrato I13.4 firmado. Demo PostgreSQL conserva selección keyed y prohibición en
+Production. Contrato, columnas y pendientes: [09-aw-otr-exportacion.md](../integration/09-aw-otr-exportacion.md).
+
+## Adenda A+W-QA-4 (22-oct-2026): TLS verificado hacia SER-DATA
+
+Todas las conexiones A+W (pedidos, clientes, productos, cambios, flujo 1 y OTR) pasan por
+`AwSqlTls.Validar`: `Encrypt=True;TrustServerCertificate=False`, con host `aw-sql-onprem`
+(en el SAN del certificado de SER-DATA). Se rechazan `Encrypt=False/Optional` y
+`TrustServerCertificate=True`. El certificado público de SER-DATA vive en Key Vault
+(`aw-sql-server-certificate`) y la app lo agrega una vez a `CurrentUser\Root` al arrancar
+(`IntegracionesAw:SqlTls:CertificadoServidorPem`), con health check de vencimiento.
+
+- **Por qué no `ServerCertificate=`:** SqlClient 5.2.2 solo lo respeta con `Encrypt=Strict`;
+  con `Encrypt=True` falla con UntrustedRoot (verificado por VPN contra SER-DATA).
+- **Por qué se rechaza `Strict`:** el SQL Server 2016 de SER-DATA no soporta TDS 8.
+- Evidencia: pruebas opt-in `Category=SerDataVpn` (sin certificado confiado falla, con
+  certificado conecta, `HostNameInCertificate` equivocado falla; solo `SELECT` sobre
+  `MILLET_INTEGRACION_DEV`).

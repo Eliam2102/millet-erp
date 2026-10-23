@@ -106,6 +106,42 @@ export const ComportamientoFiscal = {
 export type ComportamientoFiscal =
   (typeof ComportamientoFiscal)[keyof typeof ComportamientoFiscal];
 
+/**
+ * Clase de un pedido manual (F6.1). Mirror de backend <c>ClasePedidoManual</c>:
+ * los commands la mandan numérica; las lecturas la devuelven como nombre
+ * (<c>"VentaDirecta"</c> / <c>"Emergencia"</c>). Ambas se facturan con la
+ * serie de Venta directa de la sucursal y no se informan a A+W.
+ */
+export const ClasePedidoManual = {
+  VentaDirecta: 1,
+  Emergencia: 2,
+} as const satisfies Record<string, number>;
+export type ClasePedidoManual =
+  (typeof ClasePedidoManual)[keyof typeof ClasePedidoManual];
+/** Nombre de la clase tal como llega en las lecturas (`.ToString()`). */
+export type ClasePedidoManualNombre = keyof typeof ClasePedidoManual;
+
+/** Subtipo de una venta directa (F6.1). Mirror de backend <c>SubtipoVentaDirecta</c>. */
+export const SubtipoVentaDirecta = {
+  Activo: 1,
+  Almacenable: 2,
+  Servicio: 3,
+} as const satisfies Record<string, number>;
+export type SubtipoVentaDirecta =
+  (typeof SubtipoVentaDirecta)[keyof typeof SubtipoVentaDirecta];
+export type SubtipoVentaDirectaNombre = keyof typeof SubtipoVentaDirecta;
+
+/**
+ * Campos de clasificación que exponen las lecturas de pedidos y facturas
+ * (F6.1). <c>null</c> fuera de pedidos manuales o en pedidos manuales
+ * legacy sin clasificar. Opcionales para tolerar respuestas previas.
+ */
+export interface ClasificacionPedidoLectura {
+  claseManual?: ClasePedidoManualNombre | null;
+  subtipoVentaDirecta?: SubtipoVentaDirectaNombre | null;
+  esEmergencia?: boolean;
+}
+
 /** Tipo de anticipo (serie FANT). Mirror de backend <c>TipoAnticipo</c>. */
 export const TipoAnticipo = {
   ClientesMxp: 1,
@@ -130,6 +166,20 @@ export const EstadoAnticipo = {
 } as const satisfies Record<string, number>;
 export type EstadoAnticipo =
   (typeof EstadoAnticipo)[keyof typeof EstadoAnticipo];
+
+/**
+ * Estado derivado en la comparativa de anticipos vs aplicaciones (F6.2):
+ * enum <c>EstadoComparativaAnticipo</c> del backend. No es el estado
+ * persistido del anticipo, sino el saldo a la fecha de corte.
+ */
+export const EstadoComparativaAnticipo = {
+  Pendiente: 1,
+  Parcial: 2,
+  Aplicado: 3,
+  Cancelado: 4,
+} as const satisfies Record<string, number>;
+export type EstadoComparativaAnticipo =
+  (typeof EstadoComparativaAnticipo)[keyof typeof EstadoComparativaAnticipo];
 
 /**
  * Item del lookup de canales de venta (FAC-ING-PR3). Eje organizacional
@@ -180,15 +230,20 @@ export interface BandejaScoped<TItem> {
  * <c>origen</c> llegan como string (el backend serializa el enum con
  * <c>.ToString()</c>: "Importado", "Aw", "Manual", …).
  */
-export interface PedidoBandejaItem {
+export interface PedidoBandejaItem extends ClasificacionPedidoLectura {
   id: string;
   numeroPedido: string | null;
   origen: string;
   estado: string;
   clienteNombre: string;
+  /** Subtotal sin impuestos. */
   total: number;
+  /** 86e3tfd7j: subtotal + IVA por línea; null si alguna línea no tiene tasa. */
+  totalConIva?: number | null;
   moneda: string;
   createdAt: string;
+  /** 86e3tfdw2: pedido a crédito (solo llega a quien tiene leer-credito). */
+  esCredito?: boolean;
 }
 
 // ─── Anticipos (FE-F4) ────────────────────────────────────────────────
@@ -210,8 +265,11 @@ export interface EmitirAnticipoCommand {
   moneda: string;
   tipoCambio: number | null;
   tipoAnticipo: number;
+  /** 0 cuando se captura `total` (86e3tfd7j: excluyentes). */
   montoBase: number;
   tasaIvaTraslado: number | null;
+  /** 86e3tfd7j: total con IVA; el backend desglosa subtotal e IVA. */
+  total?: number | null;
   descripcion: string | null;
   pedidoFacturableId: string | null;
   pedidoOrigenRef: string | null;
@@ -775,7 +833,19 @@ export interface PedidoClienteFiscal {
  * canal desactivado sigue mostrando su nombre). `version` se usa como
  * `If-Match` al editar.
  */
-export interface PedidoFacturableDetalleResponse {
+export interface PedidoFacturableDetalleResponse
+  extends ClasificacionPedidoLectura {
+  /** F6.1: motivo de la captura de emergencia (solo clase Emergencia). */
+  motivoEmergencia?: string | null;
+  /** F6.1: pedido A+W para conciliar después (opcional, emergencia). */
+  referenciaPedidoAw?: string | null;
+  /** 86e3tfdw2: pedido a crédito (condición de pago del origen ≠ CONTADO). */
+  esCredito?: boolean;
+  /** 86e3tfdw2: método de pago SAT que mandó A+W (PUE/PPD). */
+  metodoPagoOrigen?: string | null;
+  /** 86e3tfdw2: condición de pago del pedido en A+W (CONTADO, CRÉDITO 30 DÍAS…). */
+  condicionPagoOrigen?: string | null;
+  embarqueCe?: import('@/features/comercio-exterior/api/types').EmbarqueCe | null;
   id: string;
   numeroPedido: string | null;
   origen: string;
@@ -967,6 +1037,8 @@ export interface EmitirFacturaVentaCommand {
   cce?: EmitirFacturaVentaCce | null;
   /** Autorización del Contador General (obligatoria para venta de activo fijo). */
   autorizacionId?: string | null;
+  /** Observaciones (86e3tfdw2, ≤1000): se imprimen en el PDF; NO van al XML del CFDI. */
+  observaciones?: string | null;
   lineas: EmitirFacturaVentaLinea[];
 }
 
@@ -1037,7 +1109,7 @@ export interface EmitirFacturaVentaCce {
 }
 
 /** Item de la bandeja de comprobantes emitidos. */
-export interface FacturaBandejaItem {
+export interface FacturaBandejaItem extends ClasificacionPedidoLectura {
   id: string;
   folio: string;
   estado: string;
@@ -1073,6 +1145,7 @@ export interface RelacionCfdiDetalle {
 
 /** Detalle completo de un comprobante (GET /facturas/{id}). */
 export interface ComprobanteDetalleResponse {
+  datosEmbarqueCe?: import('@/features/comercio-exterior/api/types').DatosEmbarqueCe | null;
   id: string;
   tipo: string;
   folio: string;
@@ -1130,6 +1203,8 @@ export interface NotaCreditoAplicadaDetalle {
   total: number;
   uuid: string | null;
   fechaTimbrado: string | null;
+  /** T9.6 · CA6.17: ya se pidió a Tesorería el reembolso de esta NC. */
+  reembolsoSolicitado?: boolean;
 }
 
 /** Respuesta de POST /comprobantes/{id}/reintentar-timbrado (todos los tipos). */
@@ -1458,10 +1533,50 @@ export interface CorteCajaFormaPago {
   montoDeclarado: number | null;
 }
 
+/** Factura o anticipo emitido en la sesión (sección «Facturado», M19). */
+export interface CorteCajaFacturaFila {
+  fecha: string;
+  comprobante: string;
+  cliente: string;
+  metodoPago: string;
+  moneda: string;
+  estadoCfdi: string;
+  cobro: string;
+  total: number;
+}
+
+/** Nota de crédito emitida en la sesión (sección «Notas de crédito», M19). */
+export interface CorteCajaNotaCreditoFila {
+  fecha: string;
+  folio: string;
+  motivo: string;
+  facturaRelacionada: string | null;
+  cliente: string;
+  moneda: string;
+  estadoCfdi: string;
+  total: number;
+}
+
+/** Lo que entrega la cajera: facturado y NC (vigentes en pesos) contra lo cobrado. */
+export interface CorteCajaResumen {
+  facturado: number;
+  facturas: number;
+  notasCredito: number;
+  notas: number;
+  facturadoNeto: number;
+  cobranzas: number;
+  apartados: number;
+  tpv: number;
+  totalIngresado: number;
+}
+
 export interface CorteCajaResponse {
   encabezado: CorteCajaEncabezado;
   porFormaPago: CorteCajaFormaPago[];
   reporte: ReporteBackend<CorteCajaFila>;
+  resumen: CorteCajaResumen;
+  facturado: ReporteBackend<CorteCajaFacturaFila>;
+  notasCredito: ReporteBackend<CorteCajaNotaCreditoFila>;
 }
 
 // ─── Liquidación de ruta + ajustes de caja (CAJAS-PR7) ────────────────
@@ -1507,4 +1622,222 @@ export interface CajaAjusteItem {
   motivo: string;
   creadoEn: string;
   aplicadoEnSesionId: string | null;
+}
+
+// ─── U1.8a · Proforma antes del timbrado ────────────────────────────────
+// Único lugar de los tipos del contrato de proformas (JSON camelCase de los
+// records ProformaCfdi / ProformaPedidoResponse / ComparacionProformaResponse).
+// Si el contrato cambia algún nombre, se ajusta solo aquí.
+
+export interface ProformaEmisor {
+  rfc: string;
+  nombre: string;
+  regimenFiscal: string;
+  lugarExpedicion: string;
+}
+
+export interface ProformaReceptor {
+  rfc: string;
+  nombre: string;
+  regimenFiscal: string;
+  codigoPostal: string;
+  usoCfdi: string;
+}
+
+export interface ProformaConcepto {
+  posicion: number;
+  claveProdServ: string;
+  claveUnidad: string;
+  descripcion: string;
+  cantidad: number;
+  valorUnitario: number;
+  importe: number;
+  descuento: number;
+  objetoImp: string;
+  iva: number;
+  retencionIva: number;
+  retencionIsr: number;
+  tasaIva: number | null;
+}
+
+export interface ProformaTotales {
+  subtotal: number;
+  descuento: number;
+  impuestosTrasladados: number;
+  retenciones: number;
+  total: number;
+}
+
+export interface ProformaCfdi {
+  emisor: ProformaEmisor;
+  receptor: ProformaReceptor;
+  metodoPago: string;
+  formaPago: string;
+  moneda: string;
+  tipoCambio: number | null;
+  exportacion: string;
+  /** Tipo de serie que se usará al timbrar ("Cfdi" | "VentaDirecta"), sin número. */
+  serieFiscalPrevista: string;
+  conceptos: ProformaConcepto[];
+  totales: ProformaTotales;
+}
+
+export interface ProformaPedidoResponse {
+  id: string;
+  pedidoFacturableId: string;
+  /** PF-{numeroPedido}-{version}; no consume folio fiscal. */
+  folio: string;
+  version: number;
+  generadaEn: string;
+  generadaPor: string | null;
+  numeroPedido: string | null;
+  contenido: ProformaCfdi;
+  /** Datos fiscales incompletos detectados al generar (no bloquean). */
+  avisos: string[];
+}
+
+export interface DiferenciaProforma {
+  campo: string;
+  proforma: string | null;
+  timbrado: string | null;
+}
+
+export interface ComparacionProformaResponse {
+  hayProforma: boolean;
+  folio: string | null;
+  version: number | null;
+  generadaEn: string | null;
+  diferencias: DiferenciaProforma[];
+}
+
+// ─── Cierre del día por sucursal (F6.7) ───────────────────────────────
+
+/** Estado local del comprobante en el monitor de CFDI. */
+export type EstadoMonitorCfdi =
+  | 'Timbrado'
+  | 'Cancelación en trámite'
+  | 'Cancelado'
+  | 'Fallido'
+  | 'Sin timbrar';
+
+/** Estatus del CFDI según la última consulta al SAT. */
+export type EstatusSatCfdi =
+  | 'Vigente'
+  | 'Cancelado'
+  | 'No encontrado'
+  | 'Sin verificar'
+  | 'No aplica';
+
+export interface MonitorCfdiResumen {
+  timbrados: number;
+  cancelados: number;
+  cancelacionEnTramite: number;
+  sinTimbrar: number;
+  fallidos: number;
+  pedidosSinTimbrar: number;
+  sinVerificarSat: number;
+  discrepancias: number;
+  totalVigente: number;
+}
+
+export interface MonitorCfdiFila {
+  comprobanteId: string;
+  fecha: string;
+  tipo: string;
+  folio: string;
+  uuid: string | null;
+  cliente: string;
+  metodoPago: string;
+  moneda: string;
+  total: number;
+  estado: EstadoMonitorCfdi;
+  estatusSat: EstatusSatCfdi;
+  estatusSatConsultadoEn: string | null;
+  discrepancia: boolean;
+  cajero: string | null;
+  detalle: string | null;
+}
+
+export interface MonitorPedidoFila {
+  pedidoId: string;
+  pedido: string;
+  origen: string;
+  cliente: string;
+  estado: string;
+  recibido: string;
+  total: number;
+}
+
+export interface MonitorCfdiResponse {
+  sucursal: string;
+  dia: string;
+  cajero: string | null;
+  /** Fuente de la verificación (p. ej. adaptador simulado); se muestra en pantalla. */
+  fuenteSat: string;
+  resumen: MonitorCfdiResumen;
+  comprobantes: ReporteBackend<MonitorCfdiFila>;
+  pedidosSinTimbrar: ReporteBackend<MonitorPedidoFila>;
+}
+
+export interface VerificarEstatusSatResponse {
+  fuente: string;
+  consultados: number;
+  vigentes: number;
+  cancelados: number;
+  noEncontrados: number;
+  errores: number;
+  pendientes: number;
+}
+
+export interface ConciliacionResumen {
+  /** Facturado de contado (PUE en MXN), neto de notas de crédito. */
+  facturadoContado: number;
+  facturasContado: number;
+  notasCredito: number;
+  porCobrar: number;
+  ingresado: number;
+  ingresadoEfectivo: number;
+  ingresadoTpv: number;
+  ingresadoTransferencia: number;
+  ingresadoOtras: number;
+  diferencia: number;
+  cuadra: boolean;
+  /** Crédito emitido (PPD): informativo, no entra a la diferencia. */
+  facturadoCredito: number;
+  facturasCredito: number;
+}
+
+export interface ConciliacionCajeroFila {
+  cajeroId: string | null;
+  cajero: string;
+  partidas: number;
+  porCobrar: number;
+  ingresado: number;
+  diferencia: number;
+  estado: 'Cuadra' | 'Con diferencia';
+}
+
+export interface ConciliacionPartidaFila {
+  comprobanteId: string;
+  fecha: string;
+  comprobante: string;
+  cliente: string;
+  metodoPago: string;
+  cajero: string;
+  situacion: string;
+  facturado: number;
+  notasCredito: number;
+  porCobrar: number;
+  ingresado: number;
+  diferencia: number;
+  formasPago: string | null;
+}
+
+export interface ConciliacionFacturadoIngresadoResponse {
+  sucursal: string;
+  dia: string;
+  cajero: string | null;
+  resumen: ConciliacionResumen;
+  porCajero: ReporteBackend<ConciliacionCajeroFila>;
+  partidas: ReporteBackend<ConciliacionPartidaFila>;
 }

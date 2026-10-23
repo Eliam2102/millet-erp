@@ -77,8 +77,9 @@ public class EventosContablesG16Tests
     {
         await using var db = await NuevaDbAsync();
         var events = new CapturaEventos();
-        var h = new RegistrarRecepcionConFacturaHandler(db, new FakeOc(), new FakeArticulos(), events,
-            new FakeUser(), new FakeEmpresa(), new FakeDecimales(), new PeriodoContableStub(periodoAbierto), new P7Support.Conversion());
+        var h = new RegistrarRecepcionConFacturaHandler(db, new FakeOc(), events,
+            new FakeUser(), new FakeEmpresa(), new FakeDecimales(), new PeriodoContableStub(periodoAbierto), new P7Support.Conversion(),
+            CfdiFake.Valido(), new ProveedorRfcFake());
 
         Func<Task> registrar = async () => await h.Handle(new RegistrarRecepcionConFacturaCommand(Guid.NewGuid(), new DateOnly(2026, 5, 23),
             Guid.NewGuid(), null, null,
@@ -99,7 +100,7 @@ public class EventosContablesG16Tests
     {
         await using var db = await NuevaDbAsync();
         var events = new CapturaEventos();
-        var h = new RegistrarRecepcionConPackingListHandler(db, new FakeOc(), new FakeArticulos(), events,
+        var h = new RegistrarRecepcionConPackingListHandler(db, new FakeOc(), events,
             new FakeUser(), new FakeEmpresa(), new FakeDecimales(), new PeriodoContableStub(periodoAbierto), new P7Support.Conversion());
 
         Func<Task> registrar = async () => await h.Handle(new RegistrarRecepcionConPackingListCommand(Guid.NewGuid(), new DateOnly(2026, 5, 23),
@@ -190,8 +191,9 @@ public class EventosContablesG16Tests
         var ocId = Guid.NewGuid();
         var events = new CapturaEventos();
         // Recepción real (misma BD) y saldo remanente para que el handler valore.
-        await new RegistrarRecepcionConFacturaHandler(db, new FakeOc(), new FakeArticulos(), events,
-            new FakeUser(), new FakeEmpresa(), new FakeDecimales(), new PeriodoContableStub(true), new P7Support.Conversion())
+        await new RegistrarRecepcionConFacturaHandler(db, new FakeOc(), events,
+            new FakeUser(), new FakeEmpresa(), new FakeDecimales(), new PeriodoContableStub(true), new P7Support.Conversion(),
+            CfdiFake.Valido(), new ProveedorRfcFake())
             .Handle(new RegistrarRecepcionConFacturaCommand(ocId, new DateOnly(2026, 5, 23), Guid.NewGuid(),
                 null, null, [new RegistrarRecepcionLineaInput(ArticuloId, ArticuloId, 5m, null, null, BinId)]), default);
         db.SaldosInventario.Add(new SaldoInventario(BinId, SubId, ArticuloId, 5m, 10m));
@@ -254,7 +256,7 @@ public class EventosContablesG16Tests
         await db.SaveChangesAsync();
 
         var events = new CapturaEventos();
-        await new RegistrarSalidaDevolucionAProveedorHandler(db, events, new FakeUser(), new FakeEmpresa(), new FakeOc(), new PeriodoContableStub(true))
+        await new RegistrarSalidaDevolucionAProveedorHandler(db, events, new FakeUser(), new FakeEmpresa(), new FakeOc(), new PeriodoContableStub(true), new P7Support.Conversion())
             .Handle(new RegistrarSalidaDevolucionAProveedorCommand(dev.Id, SubId, new DateOnly(2026, 6, 1),
                 [new DevolucionProveedorSalidaLineaBin(dev.Lineas.Single().Id, BinId)]), default);
 
@@ -347,7 +349,7 @@ public class EventosContablesG16Tests
     private sealed class FakeArticulos : IArticuloReadPort
     {
         public Task<ArticuloLectura?> ObtenerAsync(Guid articuloId, CancellationToken ct) =>
-            Task.FromResult<ArticuloLectura?>(new ArticuloLectura(articuloId, "ART", "Artículo", "PZA", null, null, true));
+            Task.FromResult<ArticuloLectura?>(new ArticuloLectura(articuloId, "ART", "Artículo", "PZA", null, true));
         public Task<IReadOnlyDictionary<Guid, ArticuloLectura>> ObtenerPorIdsAsync(
             IReadOnlyCollection<Guid> ids, CancellationToken ct) =>
             Task.FromResult<IReadOnlyDictionary<Guid, ArticuloLectura>>(new Dictionary<Guid, ArticuloLectura>());

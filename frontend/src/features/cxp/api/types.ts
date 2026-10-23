@@ -239,6 +239,8 @@ export interface FacturaListItem {
   version: number;
   /** Razón social resuelta server-side (ADR-0042); null si no resuelve. */
   proveedorNombre: string | null;
+  /** RFC del proveedor resuelto server-side; null si no resuelve. */
+  proveedorRfc?: string | null;
 }
 
 export interface FacturaLinea {
@@ -256,10 +258,25 @@ export interface FacturaLinea {
   conceptoContableId: string | null;
 }
 
+/** Revisión por área en curso (C-06). */
+export interface RevisionVigente {
+  motivoNombre: string | null;
+  areaNombre: string | null;
+  fechaEnvio: string;
+  /** Días hábiles transcurridos. */
+  diasHabiles: number;
+  slaDias: number | null;
+  nivelAviso: 1 | 2 | 3 | null;
+  vencida: boolean;
+}
+
 export interface FacturaDetalle {
+  revisionVigente?: RevisionVigente | null;
   obra?: string | null;
   conceptoRetencion?: string | null;
   alertaRetenciones?: string | null;
+  retencionesRevisadasEn?: string | null;
+  retencionesRevisionMotivo?: string | null;
   elegible: number;
   retenido: number;
   retencionesDetalle?: RetencionCfdi[] | null;
@@ -283,6 +300,8 @@ export interface FacturaDetalle {
   total: number;
   ordenCompraId: string | null;
   ordenCompraFolio?: string | null;
+  recepcionId?: string | null;
+  recepcionFolio?: string | null;
   estado: EstadoPasivo;
   diferenciaContraOc: number;
   anticipoAplicadoTotal: number;
@@ -315,6 +334,7 @@ export interface CapturarFacturaConOcLinea {
 }
 
 export interface CapturarFacturaConOcCommand {
+  recepcionId?: string | null;
   obra?: string | null;
   conceptoRetencion?: string | null;
   notasCredito?: NotaCreditoAdjunta[];
@@ -389,6 +409,7 @@ export interface MotivoRevision {
   descripcion: string | null;
   slaDias: number | null;
   dependenciaRevisoraDefaultCodigo: string | null;
+  areaAvisadaCodigo: string | null;
   activo: boolean;
 }
 
@@ -405,8 +426,15 @@ export interface FacturaEnRevisionItem {
   moneda: string;
   motivoRevisionId: string;
   fechaEntradaRevision: string;
+  /** Días hábiles en revisión. */
   diasEnRevision: number;
   version: number;
+  slaDias: number | null;
+  nivelAviso: 1 | 2 | 3 | null;
+  proveedorNombre?: string | null;
+  motivoNombre?: string | null;
+  areaNombre?: string | null;
+  vencida?: boolean;
 }
 
 export interface EnviarFacturaARevisionCommand {
@@ -537,6 +565,8 @@ export interface NotaCreditoListItem {
   version: number;
   /** Razón social resuelta server-side (ADR-0042); null si no resuelve. */
   proveedorNombre: string | null;
+  /** RFC del proveedor resuelto server-side; null si no resuelve. */
+  proveedorRfc?: string | null;
 }
 
 /**
@@ -702,6 +732,8 @@ export interface NotaCargoListItem {
   version: number;
   /** Razón social resuelta server-side (ADR-0042); null si no resuelve. */
   proveedorNombre: string | null;
+  /** RFC del proveedor resuelto server-side; null si no resuelve. */
+  proveedorRfc?: string | null;
 }
 
 /**
@@ -790,6 +822,7 @@ export const EstadoComprobacionGastos = {
   Aplicada: 4,
   Rechazada: 5,
   AutorizadaNivel1: 6,
+  PendienteAprobarPasivo: 7,
 } as const satisfies Record<string, number>;
 export type EstadoComprobacionGastos =
   (typeof EstadoComprobacionGastos)[keyof typeof EstadoComprobacionGastos];
@@ -808,6 +841,7 @@ export const EstadoComprobacionGastosLabels: Record<EstadoComprobacionGastos, st
   [EstadoComprobacionGastos.Aplicada]: 'Aplicada',
   [EstadoComprobacionGastos.Rechazada]: 'Rechazada',
   [EstadoComprobacionGastos.AutorizadaNivel1]: 'Autorizada N1',
+  [EstadoComprobacionGastos.PendienteAprobarPasivo]: 'Pendiente de aprobar pasivo',
 };
 
 export interface ComprobacionGastosListItem {
@@ -823,6 +857,9 @@ export interface ComprobacionGastosListItem {
   numeroLineas: number;
   fechaCreacion: string;
   version: number;
+  /** Resueltos server-side; null si no resuelven. */
+  responsableNombre?: string | null;
+  sucursalNombre?: string | null;
 }
 
 /**
@@ -927,7 +964,6 @@ export interface SaldoPendienteReposicion {
   moneda: string;
   saldo: number;
   numeroComprobaciones: number;
-  montoMinimo: number;
 }
 
 export interface ReposicionCajaListItem {
@@ -940,11 +976,6 @@ export interface ReposicionCajaListItem {
   numeroComprobaciones: number;
   esCorteManual: boolean;
   fechaEmision: string;
-}
-
-export interface ConfiguracionReposicionResponse {
-  sucursalId: string;
-  montoMinimo: number;
 }
 
 export interface EmitirReposicionManualResponse {
@@ -1046,6 +1077,10 @@ export interface SolicitudViaticosListItem {
   diferenciaLiquidacion: number | null;
   fechaSolicitud: string;
   version: number;
+  /** Resueltos server-side; null si no resuelven. */
+  empleadoNombre?: string | null;
+  puesto?: string | null;
+  moneda?: string;
 }
 
 /**
@@ -1536,4 +1571,30 @@ export interface ActualizarPoliticaViaticosCommand {
   montoMaxDia: number;
   diasMax: number;
   moneda: string;
+}
+
+// Panel «recepciones y OC pendientes» del proveedor (espejo de PendientesFacturarProveedorQuery).
+export interface RecepcionPendiente {
+  recepcionId: string;
+  folio: string;
+  /** YYYY-MM-DD */
+  fecha: string;
+  cantidadRecibida: number;
+  facturaPendiente: boolean;
+}
+
+export interface OcPendienteFacturar {
+  ocId: string;
+  folio: string;
+  sucursalId: string;
+  moneda: string;
+  total: number;
+  cantidadPorFacturar: number;
+  recepciones: RecepcionPendiente[];
+}
+
+export interface PendientesFacturarProveedor {
+  proveedorId: string | null;
+  proveedorNombre: string | null;
+  ocs: OcPendienteFacturar[];
 }

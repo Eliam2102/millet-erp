@@ -34,7 +34,7 @@ public sealed class P5ReglasHandlersTests
     }
     private sealed class ProveedoresConClabe : IProveedorBancoReadPort
     {
-        public Task<ProveedorBancoDto?> ObtenerAsync(Guid id, CancellationToken ct) => Task.FromResult<ProveedorBancoDto?>(new(id, "PRU", "Proveedor", "Banco", "000000000000001234", "Proveedor"));
+        public Task<ProveedorBancoDto?> ObtenerAsync(Guid id, CancellationToken ct) => Task.FromResult<ProveedorBancoDto?>(new(id, "PRU", "Proveedor", [new(Guid.NewGuid(), "Banco", "000000000000001234", true, null, "MXN", "Proveedor", true, "Activa")]));
         public async Task<IReadOnlyDictionary<Guid, ProveedorBancoDto>> ObtenerVariosAsync(IReadOnlyCollection<Guid> ids, CancellationToken ct)
         {
             var result = new Dictionary<Guid, ProveedorBancoDto>();
@@ -72,9 +72,43 @@ public sealed class P5ReglasHandlersTests
         await using var db = Db(); var cuenta = Cuenta(db); var pasivo = Pasivo(db);
         var movimiento = MovimientoBancario.RegistrarPagoACuenta(Empresa, cuenta, pasivo.ProveedorId, 500, Fecha, null, null, "Urgencia", Usuario, Ahora);
         movimiento.ActualizarEstadoAplicacion(100); db.MovimientosBancarios.Add(movimiento); await db.SaveChangesAsync();
-        var handler = new RegistrarPagoACuentaHandler(db, new EmpresaContext(), new User(), new Periodo(), new Clock());
+        var handler = new RegistrarPagoACuentaHandler(db, new EmpresaContext(), new User(), new Periodo(), new Clock(), new ProveedoresConClabe());
         var act = () => handler.Handle(new(cuenta.Id, 100, Fecha, "Segundo urgente", pasivo.ProveedorId), default);
         await act.Should().ThrowAsync<BusinessRuleException>().Where(e => e.Code == "PAGO_CUENTA_ABIERTO_EXISTENTE");
+    }
+
+    [Theory]
+    [InlineData(null, "PROVEEDOR_NO_ENCONTRADO")]
+    [InlineData("PorValidar", "PROVEEDOR_SIN_CUENTA_ACTIVA")]
+    [InlineData("EnRevision", "PROVEEDOR_EN_REVISION")]
+    [InlineData("Inactivo", "PROVEEDOR_NO_ACTIVO")]
+    [InlineData("UsdActiva", "PROVEEDOR_SIN_CUENTA_ACTIVA")]
+    public async Task Pago_a_cuenta_rechaza_proveedor_no_apto(string? caso, string codigo)
+    {
+        await using var db = Db(); var cuenta = Cuenta(db); await db.SaveChangesAsync();
+        var handler = new RegistrarPagoACuentaHandler(db, new EmpresaContext(), new User(), new Periodo(), new Clock(), new ProveedorFake(DtoPara(caso)));
+        var act = () => handler.Handle(new(cuenta.Id, 100, Fecha, "Urgente", Guid.NewGuid()), default);
+        await act.Should().ThrowAsync<BusinessRuleException>().Where(e => e.Code == codigo);
+        db.MovimientosBancarios.Should().BeEmpty();
+    }
+
+    [Fact]
+    public async Task Pago_a_cuenta_con_proveedor_de_cuenta_activa_registra_movimiento()
+    {
+        await using var db = Db(); var cuenta = Cuenta(db); await db.SaveChangesAsync();
+        var handler = new RegistrarPagoACuentaHandler(db, new EmpresaContext(), new User(), new Periodo(), new Clock(), new ProveedorFake(DtoPara("Activa")));
+        await handler.Handle(new(cuenta.Id, 100, Fecha, "Urgente", Guid.NewGuid()), default);
+        db.MovimientosBancarios.Should().ContainSingle();
+    }
+
+    private static ProveedorBancoDto? DtoPara(string? caso) => caso is null ? null
+        : new(Guid.NewGuid(), "PRU", "Proveedor", [new(Guid.NewGuid(), "Banco", "000000000000001234", true, null, caso == "UsdActiva" ? "USD" : "MXN", "Proveedor", true, caso is "EnRevision" or "Inactivo" or "UsdActiva" ? "Activa" : caso)], Activo: caso != "Inactivo", EnRevision: caso == "EnRevision");
+
+    private sealed class ProveedorFake(ProveedorBancoDto? dto) : IProveedorBancoReadPort
+    {
+        public Task<ProveedorBancoDto?> ObtenerAsync(Guid id, CancellationToken ct) => Task.FromResult(dto);
+        public Task<IReadOnlyDictionary<Guid, ProveedorBancoDto>> ObtenerVariosAsync(IReadOnlyCollection<Guid> ids, CancellationToken ct)
+            => Task.FromResult<IReadOnlyDictionary<Guid, ProveedorBancoDto>>(new Dictionary<Guid, ProveedorBancoDto>());
     }
 
     [Fact]
@@ -211,7 +245,7 @@ public sealed class P5ReglasHandlersTests
     private sealed class Periodo : IPeriodoContablePort { public Task<bool> EstaAbiertoAsync(int año, int mes, CancellationToken ct) => Task.FromResult(true); }
     private sealed class Proveedores : IProveedorBancoReadPort
     {
-        public Task<ProveedorBancoDto?> ObtenerAsync(Guid id, CancellationToken ct) => Task.FromResult<ProveedorBancoDto?>(null);
+        public Task<ProveedorBancoDto?> ObtenerAsync(Guid id, CancellationToken ct) => Task.FromResult<ProveedorBancoDto?>(new(id, "PRU", "Proveedor", [new(Guid.NewGuid(), "Banco", "000000000000001234", true, null, "MXN", "Proveedor", true, "Activa")]));
         public Task<IReadOnlyDictionary<Guid, ProveedorBancoDto>> ObtenerVariosAsync(IReadOnlyCollection<Guid> ids, CancellationToken ct) => Task.FromResult<IReadOnlyDictionary<Guid, ProveedorBancoDto>>(new Dictionary<Guid, ProveedorBancoDto>());
     }
     private sealed class Publicador(TesoreriaDbContext db) : IIntegrationEventPublisher

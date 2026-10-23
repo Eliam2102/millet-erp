@@ -39,7 +39,7 @@ La aprobación de este contrato **no** acepta el retiro de SAP.
 |---|---|
 | Referencia externa | `KU_KUNDEN.ID` como **texto canónico** -> `Cliente.ReferenciaExterna` (máx. 50, único cuando no es null). |
 | `MANDANT` | Solo contexto (`MandantOrigen`). No equiparar con `EmpresaId` ni con sucursal sin evidencia. **PENDIENTE** de validar. |
-| RFC | **Nunca** es llave de correlación ni de fusión. Dos referencias distintas pueden compartir RFC genérico y siguen siendo dos clientes. |
+| RFC / clave de ligado | Un RFC no genérico identifica a una sola persona (decisión del owner, 2026-10-13; V38). **Clave de ligado** = RFC del ERP o, si no hay, `UST_ID` en mayúsculas sin espacios, guiones ni puntos con forma de RFC. Si A+W trae una clave que ya tiene un cliente manual, no se crea otro cliente: la referencia queda en «Ligados pendientes de revisión» y, al aprobar, se liga. El `UST_ID` sin forma de RFC o genérico nunca liga. RFC genéricos `XAXX010101000`/`XEXX010101000` nunca ligan. En modo real el `UST_ID` se usa solo como clave de ligado y no se copia al RFC del ERP (decisión de implementación de VILO, pendiente de validar por Fiscal o Guadalupe Polanco). El ligado entre dos clientes de A+W con el mismo RFC está diferido hasta aclarar con Millet: de momento ambos se crean, y el segundo se crea sin RFC si el campo ya está ocupado. |
 | Cliente manual con la misma referencia | No se apropia automáticamente: se abre conflicto de correlación. |
 
 Código existente que se reutiliza (no se modifica en A1):
@@ -70,13 +70,14 @@ Política: **aplica** = se escribe en el maestro ERP; **solo registra** = se gua
 | `PLZ` (como CP fiscal) | nvarchar | candidato `CodigoPostalFiscal` | Candidato fiscal | Fiscal | Ninguna | Nulo posible | Facturación | Solo registra; **nunca pisa** CP fiscal local | PENDIENTE |
 | `UST_ID` | nvarchar | `CandidatoFiscalUstId` (registro) | Candidato fiscal | Fiscal | Trim, sin normalizar a RFC | Nulo posible | Facturación | Solo registra; **nunca pisa** `Rfc` | PENDIENTE (equivalencia RFC/TaxId) |
 | `STEUERNUMMER` | nvarchar | `CandidatoFiscalSteuernummer` (registro) | Candidato fiscal | Fiscal | Trim | Nulo posible | Facturación | Solo registra; **nunca pisa** `Rfc` | PENDIENTE (equivalencia RFC) |
+| `KU_KUNDEN.BONITAET` → `KA_BONITAET.FREMD_KEY` | nvarchar(40) NOT NULL → nvarchar(6) | ninguno (solo se lee para el reporte U1.8b, §14) | Candidato fiscal | Fiscal | Join `BONITAET = KA_BONITAET.BEZ` (BEZ es PK); `FREMD_KEY` es la clave SAT de régimen fiscal por decisión de Millet | Nulo posible (sin catálogo o `<indf>`) | Reporte de diferencias fiscales | **No se aplica ni se registra**; **nunca pisa** `RegimenFiscal` | documentado por Millet ("Documentación funcional de los sistemas satélite" §4.2) |
 
 | `TLF1`, `TLF2` | nvarchar | `Cliente.Telefono` (TLF1) / registro (TLF2) | Comercial recibido | A+W | Trim; validar longitud | Nulo posible | UI, CxC | Aplica solo si `Telefono` local vacío; si no, **nunca pisa** y registra | PENDIENTE (campos acordados) |
 | `MAIL` | nvarchar | `Cliente.Email` | Comercial recibido | A+W | Trim; validar formato | Nulo posible | UI, CxC | Aplica solo si `Email` local vacío; si no, **nunca pisa** | PENDIENTE |
 | `KU_KUNDEN.ZAHLBED` | nvarchar NOT NULL | `CondicionCodigoOrigen` (registro) | Comercial recibido | A+W | Sin sustituir por enum genérico | No nulo | Facturación, CxC (referencia) | Solo registra | validado en forma; mapeo PENDIENTE |
 | `KA_ZAHLBED.NUMMER` | int NULL | `CondicionNumeroOrigen` (registro) | Comercial recibido | A+W | Resolución `ZAHLBED -> KA_ZAHLBED.BEZ`; 0 o >1 coincidencias = pendiente sin duplicar cliente | Nulo posible | CxC (referencia) | Solo registra | PENDIENTE (cardinalidad completa) |
 | `KA_ZAHLBED.BRUTTOTAGE` | int NULL | `DiasNominalesOrigen` (registro) | Comercial recibido | A+W | Ninguna; **no** se calculan vencimientos | Nulo posible (nulo != 0) | CxC (referencia) | Solo registra | catálogo observado CONTADO 1/0, REPARTO 4/3, 60 DIAS 6/60; PENDIENTE completo |
-| `KU_KUNDEN.WAEHRUNG` | nvarchar NOT NULL | `MonedaCodigoOrigen` (crudo) + `MonedaNormalizada` | Comercial recibido | A+W | `PESOSMX` -> candidato `MXN`; `<indf>` y desconocidas sin equivalencia | No nulo | Facturación (`MonedaDefault`) | Solo registra crudo; aplica `MonedaDefault` solo con mapeo validado | PENDIENTE (`PESOSMX`->MXN) |
+| `KU_KUNDEN.WAEHRUNG` | nvarchar NOT NULL | `MonedaCodigoOrigen` (crudo) + `MonedaNormalizada` | Comercial recibido | A+W | `PESOSMX`->`MXN`, `USD`->`USD`, `Euro`->`EUR`, `CAN`->`CAD` (`KA_WAEHRUNGEN.FREMD_KEY`); `<indf>`, vacío y desconocidas -> `MXN` | No nulo | Facturación (`MonedaDefault`) | Registra crudo y aplica `MonedaDefault` al crear | Validado 22-oct (regla A+W→SAP: «cualquier otro valor se transmite como MXP») |
 | `KREDIT_LIMIT`, `KREDIT_LIMIT1` | decimal NULL | `CreditoReferencia*` (registro) | Comercial recibido | CxC (autoriza) | Valores fuente explícitos; nunca elegir el máximo | Nulo != 0 | CxC (lectura) | Solo registra. **Nunca** escribe `CxC.LineaCredito` | PENDIENTE (precisión/escala) |
 | `KREDIT_LIMIT_NET` | float NULL | `CreditoReferenciaNet` (registro) | Comercial recibido | CxC | Ninguna | Nulo != 0 | CxC (lectura) | Solo registra | PENDIENTE |
 | `KZ_STATUS` | int NULL | `EstadoOrigenCrudo` (registro) | Comercial recibido | A+W + decisión Millet | Conservar número; mapeo aprobado por separado | Nulo != 0 != desconocido | Facturación, UI | Solo registra; **no** cambia `Estatus` mientras no haya mapeo | PENDIENTE (mapeo) |
@@ -105,11 +106,46 @@ validación ni modifica las consultas o el contrato del camino real. El control 
 [07-sandbox-aw.md](07-sandbox-aw.md).
 
 
+### 4.1 Matriz congelada y bitácora (86e3qcgyn)
+
+La matriz campo → dueño vive en código, en `MatrizCampoDuenoAw` (`backend/src/Compartido/Application/Catalogos/Clientes/MatrizCampoDuenoAw.cs`), con versión `0-propuesta`: refleja el comportamiento actual y está **pendiente de acordar con TI** en el contrato I13.4. Congelarla solo cambia esa constante y, si el dueño de un campo cambia, el código del servicio de aplicación. La pantalla «Sincronización con A+W» la muestra (`GET /api/v1/datos-maestros/sincronizacion-aw/matriz`). Filas de Cliente:
+
+| Campo | Dueño | Si difiere |
+|---|---|---|
+| Nombre de origen | A+W | Se aplica A+W y queda el antes/después en la bitácora. |
+| Domicilio de origen | A+W | Se aplica A+W y queda el antes/después en la bitácora. |
+| Condición de pago | A+W | Se aplica A+W y queda el antes/después en la bitácora. |
+| Moneda de origen | A+W | Se registra; la moneda del cliente solo cambia al crear y con mapeo aprobado. |
+| Límite de crédito de referencia | A+W | Solo informa; nunca cambia la línea de crédito de CxC. |
+| Bloqueo A+W | A+W | Con mapeo aprobado bloquea o reactiva sin borrar historia; queda en la bitácora. |
+| Estado A+W | A+W | Se registra; solo cambia el estatus con mapeo aprobado. |
+| Razón social | ERP | Se conserva el ERP; A+W solo informa la diferencia. |
+| RFC y CP fiscal | ERP | A+W solo completa si el ERP está vacío; nunca sobrescribe. |
+| Teléfono y correo | ERP | A+W solo completa si el ERP está vacío. |
+| Régimen, uso de CFDI, clasificación y moneda del cliente | ERP | Se conserva el ERP; A+W solo informa. |
+| RFC repetido entre clientes de A+W | A+W | No se fusionan solos: va a revisión (pendiente) y se resuelve unificando los clientes o manteniéndolos separados; se cuenta en el reporte de la corrida. Decisión del owner 22-oct-2026 (reemplaza la del 21-oct, que lo dejaba informativo). |
+
+Cada cambio queda en la bitácora `compartido.cambios_maestros_aw` (una fila por campo): valor antes y después, dueño, tipo (`Aplicado`, `EditadoEnErp`, `RfcCompartido`, `Baja`, `Reactivacion`), estado (`Informativo`, `Pendiente`, `Resuelto`), la versión del evento (el `HashOrigen` de lo leído), la versión de la matriz y la ejecución que lo produjo. Hay un índice único por referencia, campo, tipo y versión de evento: un reenvío o una segunda corrida con los mismos datos no duplica filas. El detalle del cliente muestra su historial.
+
+**RFC repetido entre clientes de A+W.** Si dos clientes de A+W traen la misma clave fiscal, ambos se crean y **no se fusionan**; el segundo deja una fila `RfcCompartido` en estado **Pendiente** (el RFC va en `valorDespues`) que entra a la bandeja de conflictos y se cuenta en el reporte de diferencias de la corrida (`rfcRepetidosEntreAw`, en cualquier estado). **Decisión del owner del 22-oct-2026 (86e3qcgyn), que reemplaza la del 21-oct** (informativo, fuera de la bandeja; en la copia real son ~1,634 referencias, casi todas históricas): un RFC repetido exige acción. Se resuelve **unificando** (§10.8.1; marca «Unificado» todos los pendientes del grupo) o con «Mantener separados», que solo lo marca como revisado y no liga identidades. «Ligar a uno» queda pendiente de la respuesta a la pregunta P6 (tratamiento de referencias y saldos) con Millet.
+
+**Corrida y reporte de diferencias.** `POST /api/v1/datos-maestros/sincronizacion-aw/corridas` (requiere `datos_maestros.clientes.sincronizar` y `datos_maestros.productos-aw.gestionar`) encola el barrido de clientes y ejecuta el de productos con el mismo id de ejecución; `GET .../corridas/{id}/diferencias` devuelve el reporte en el JSON de ADR-0036 que la pantalla exporta a Excel. La corrida contra la copia local `AW_FULL` es opt-in y solo de lectura:
+
+```bash
+# La lanza el owner o la sesión principal; nunca CI ni contra la BD on-prem ni Azure.
+AW_FULL_CONN='Server=localhost,14330;Database=AW_FULL;User Id=aw_ro;Password=<del .env del sandbox>;Encrypt=True;TrustServerCertificate=True' \
+AW_FULL_SALIDA=.verification/86e3qcgyn/corrida-aw-full \
+./tools/validate-integration-isolated.sh --filter "FullyQualifiedName~AwFullCorridaMaestros"
+```
+
+La prueba `AwFullCorridaMaestrosTests` toma la huella (`CHECKSUM_AGG`) de `KU_KUNDEN`, `KA_ZAHLBED`, `BA_PRODUKTE`, `BA_STUKL` y `BA_LAGMA` antes y después, corre clientes y productos dos veces seguidas y escribe en `AW_FULL_SALIDA` `resumen-corrida-maestros.md` y `.json` con **solo conteos** (nunca RFC, nombres, domicilios ni descripciones). Sin las variables de entorno la prueba se omite («OMITIDO») sin abrir conexión alguna. No acredita A+W productivo.
+
 ## 5. Nulo != 0 != desconocido
 
 - `NULL` en `BRUTTOTAGE`, `KREDIT_LIMIT*` o `KZ_STATUS` significa "el origen no informa"; `0` es un valor informado; un código sin mapeo es "desconocido". Los tres se conservan distintos y se aplican por política de campo.
 - Un nulo de origen **no borra** un valor existente en ERP (en particular ningún fiscal).
-- Un código de estado o moneda desconocido queda **pendiente de validación**, sin baja, activación ni conversión automática.
+- Un código de estado desconocido queda **pendiente de validación**, sin baja, activación ni conversión automática.
+- Moneda: `PESOSMX`→MXN, `USD`→USD, `Euro`→EUR, `CAN`→CAD; cualquier otro valor (incluidos `<indf>` y vacío) se toma como **MXN**, igual que la regla de A+W hacia SAP («cualquier otro valor se transmite como MXP», cruce de la base de conocimiento 14-oct, validado 22-oct).
 - Un cliente sin fiscales suficientes puede existir como maestro incompleto (aptitud comercial != aptitud fiscal); no se inventan valores para volverlo timbrable.
 
 ## 6. Condición del maestro vs. condición del pedido
@@ -145,7 +181,7 @@ Cada fixture (`backend/tests/Integraciones.Aw.UnitTests/Clientes/Fixtures/<escen
 | 2 | `repeticion` | Misma fila ya aplicada, sin cambios | **Sin cambios**; no se crea otro cliente; se registra la comprobación. |
 | 3 | `cambio-comercial` | Cambia un campo comercial permitido (p. ej. teléfono vacío localmente) | **Actualizado** solo en campos permitidos; hash nuevo; fiscales intactos. |
 | 4 | `correccion-fiscal-local` | Fiscales corregidos localmente; origen trae valores distintos | Fiscales locales **preservados**; diferencia como candidato/conflicto registrado con causa; sin sobrescritura. |
-| 5 | `moneda-desconocida` | `WAEHRUNG` sin equivalencia (p. ej. `<indf>`) | Valor crudo conservado; `MonedaDefault` no cambia; resultado **pendiente de validación**. |
+| 5 | `moneda-desconocida` | `WAEHRUNG` sin equivalencia (p. ej. `<indf>`) | Valor crudo conservado; se toma como MXN y el cliente se crea. |
 | 6 | `condicion-sin-coincidencia-o-duplicada` | `ZAHLBED` con 0 o >1 coincidencias en `KA_ZAHLBED` | Condición **no resuelta**, pendiente con causa; cliente no duplicado ni bloqueado en su identidad. |
 | 7 | `cambio-catalogo-dias` | `BRUTTOTAGE` cambia en catálogo con `ZAHLBED` igual | Hash **distinto**; actualización del registro de condición; snapshots de pedidos históricos intactos. |
 | 8 | `estado-desconocido` | `KZ_STATUS`/`KZ_GESPERRT` con código sin mapeo | Números crudos conservados; **sin baja ni activación**; pendiente de validación. |
@@ -286,11 +322,27 @@ Los mensajes de error persistidos no incluyen texto de excepción ni payload.
 
 - **Conexión y lectura real contra A+W no probadas.** Depende de O1A-AW-INT (ruta privada, TLS, cuenta de lectura, instancia efectiva). Todo lo verificado usa origen simulado y fixtures.
 - **Mapeos PENDIENTES**: moneda (`PESOSMX`->`MXN`, catálogo), estado (`KZ_STATUS`/`KZ_GESPERRT`) y condición (cardinalidad de `KA_ZAHLBED`). Sin mapeo validado, el resultado queda pendiente y no hay cambios de moneda/estatus. `VersionMapeo` sigue en `0-borrador`.
-- **Conflicto con cliente manual**: la resolución (p. ej. clave `AW-{ref}` que choca con una clave manual, o mismo cliente dado de alta a mano) queda fuera de ADM-06; se registra el conflicto y no se fusiona.
+- **Conflicto con cliente manual**: si A+W trae una clave de ligado (RFC, o `UST_ID` con forma de RFC) que ya tiene un cliente manual, no se crea otro cliente; la referencia queda en «Ligados pendientes de revisión» y, al aprobar, se liga. Un conflicto sin candidatos vigentes (p. ej. el manual cambió su RFC) no se muestra y se resuelve en la siguiente aplicación de esa referencia. La coincidencia de clave entre dos clientes de A+W está diferida hasta aclarar con Millet.
 - **Gate de emisión fiscal sin dueño**: `Cliente.DatosFiscalesCompletos` no lo usa ningún gate de servidor; la emisión en Facturación recibe el receptor en el body y no lo coteja con el master, así que un cliente A+W incompleto sigue siendo timbrable. Corresponde a Facturación; ADM-06 solo garantiza que la sincronización no inventa fiscales. Por asignar (Eliam).
 - **Bajas explícitas**: la ausencia de una fila nunca es baja. Sin mapeo aprobado, no se cambia `Estatus`; V52 se activa únicamente con la configuración versionada de §10.1.1.
 - **Cancelación a mitad de lote** no persiste los contadores de ese lote (`Leidos` exacto; al reanudar, esas filas cuentan como `SinCambios`).
 - **Dispatcher single-host**: el índice único evita dos barridos vivos, pero no hay elección de líder; con varias instancias ambas podrían tomar la misma ejecución. Operar con una instancia o revisar antes de escalar.
+- **Primera corrida real**: corrida del 23-oct en la copia `AW_FULL` (solo lectura): 44,694 clientes leídos, 44,685 creados y 9 con error (`fila_invalida`); las claves repetidas entre clientes de A+W dejaron 1,634 referencias en revisión (`RfcCompartido` pendiente), casi todas históricas (la medición del 13-oct halló solo 3 con pedidos en 24 meses); desde la decisión del 22-oct van a revisión (pendiente); antes (21-oct) eran informativas. La segunda corrida no creó nada. Conteos en `docs/integration/evidencia/g1.10/resumen-corrida-maestros.md`.
+
+### 10.8.1 Unificar clientes con RFC repetido (86e3qcgyn)
+
+> **Propuesta, pendiente de validar con Millet** (quién aprueba al principal y las reglas de abajo). Solo toca el ERP: nunca escribe en A+W ni mueve historial.
+
+- **Grupos.** `GET /api/v1/datos-maestros/clientes/rfc-repetidos` (permiso `sincronizar`) agrupa por RFC normalizado (`clientes.rfc` y `UST_ID` candidato de A+W), sin RFC genéricos ni formas inválidas, solo grupos de 2 o más. Por cliente muestra pedidos y último pedido en A+W (`SYSADM.BW_AUFTR_KOPF`, `AH_IDENT`/`DATUM_ERF`, solo SELECT por la misma conexión de clientes) y pedidos del ERP (`PedidoFacturable`).
+- **Principal sugerido (en este orden).** 1) el que ya tiene el RFC en `clientes.rfc`; 2) el pedido más reciente en A+W; 3) más pedidos en el ERP; 4) la referencia A+W más baja. La respuesta incluye el motivo.
+- **Unificar.** `POST .../rfc-repetidos/unificar` (permiso `datos_maestros.clientes.unificar`, `Idempotency-Key`) unifica en el principal elegido a todos los demás del grupo. El servidor decide por cliente con el historial real:
+  - **Fusionar** (sin pedidos en A+W ni en el ERP): el secundario pasa a `Inactivo`.
+  - **Agrupar** (con historial): el secundario sigue `Activo` para conservar saldos y facturas; no se mueve nada.
+  - Los pedidos **nuevos** de la referencia secundaria se ingestan al principal (`ResolverPorReferenciaAsync` sigue `unificado_en_cliente_id`, un solo salto).
+- **Sincronización.** Un Fusionado nunca se reactiva por A+W ni a mano (`CLIENTE_FUSIONADO`); los datos de origen se siguen registrando en el secundario. Ya unificado en uno de los clientes que comparten la clave, no se vuelve a generar `RfcCompartido`. La sincronización no duplica un pendiente de la misma referencia y RFC (idempotente).
+- **Resolución.** Unificar marca `Resuelto` con resolución «Unificado» (actor y fecha) todo `RfcCompartido` pendiente del RFC cuya referencia pertenezca al grupo. `GET .../rfc-repetidos/{rfc}` devuelve un grupo con la forma de la lista (404 si hay menos de 2 clientes o el RFC es genérico); la UI lo abre desde la fila del conflicto con su `valorDespues`.
+- **Errores 422.** `CLIENTE_UNIFICAR_RFC_INVALIDO` (genérico), `CLIENTE_UNIFICAR_MOTIVO_INVALIDO` (5 a 300), `CLIENTE_UNIFICAR_PRINCIPAL_FUERA_DE_GRUPO`, `CLIENTE_PRINCIPAL_UNIFICADO`, `CLIENTE_YA_UNIFICADO`, `CLIENTE_SECUNDARIO_TIENE_UNIFICADOS`. Si la lectura de A+W está apagada o falla, el endpoint responde 503 en lugar de suponer «sin pedidos».
+- **Fuera de alcance.** Deshacer la unificación; mover pedidos, facturas o saldos entre clientes.
 
 ## 10.9 Propuestas de flujo pendientes de confirmación (cierre ADM-06)
 
@@ -300,7 +352,7 @@ Todas son **PROPUESTA — cambiable**: se construyeron así para no inventar pol
 |---|---|---|---|
 | 1 | **Cliente inactivo e ingesta de pedidos.** `ResolverPorReferenciaAsync` (ingesta) y `ObtenerAsync` (cartera, reportes, detalle de pedido) siguen devolviendo al cliente inactivo; el bloqueo de uso nuevo está donde el usuario elige cliente (`BuscarAsync`, solo Activos). Un pedido A+W de un cliente inactivo se importa. | Rechazar o dejar en revisión ese pedido. | `ResolverPorReferenciaAsync` + `ProcesarSolicitudAwHandler` + su prueba. |
 | 2 | **Baja explícita en ERP** (`DesactivarClienteCommand`, permiso y auditoría). Sin mapeo aprobado la sincronización no da de baja ni reactiva; la ausencia de una fila nunca es baja. | Mapear `KZ_STATUS`/`KZ_GESPERRT` a `Estatus` cuando Millet apruebe el mapeo. | `IntegracionesAw:Clientes:MapeoEstatus`, ya implementado y vacío por omisión (§10.1.1). |
-| 3 | **Conflicto con cliente manual** (misma referencia o clave `AW-{ref}`): se registra `Conflicto` con causa, sin fusionar; lo resuelve una persona y se reprocesa. | Asistente de vinculación manual. | Nuevo comando de vinculación. |
+| 3 | **Conflicto con cliente manual**: si A+W trae una clave de ligado que ya tiene un cliente manual, la referencia queda en «Ligados pendientes de revisión»; al aprobar, se liga. No hay fusión automática ni acción «mantener separados». | Asistente de vinculación manual. | Nuevo comando de vinculación. |
 | 4 | **Fuera de orden:** orden por `LeidoEnUtc` + relectura; una lectura más vieja se ignora. | Campo de versión/fecha monotónico de A+W (Jorge). | Reemplazar la comparación en `AplicarClienteAwService`. |
 | 5 | **Mapeos** de moneda, estado, condición y RFC: quedan `Pendiente` con valor crudo (`VersionMapeo=0-borrador`). | Mapeo aprobado por Millet. | Tablas de mapeo + `VersionMapeo`. |
 | 6 | **Bandeja de conflictos:** filtro "Resultado de sincronización" (un valor a la vez) en la lista de clientes, y botón Reintentar por referencia en el detalle de la ejecución y en el detalle del cliente; sin pantalla nueva. | Filtro compuesto "Por revisar" (Pendiente+Conflicto+Error) o bandeja dedicada si el volumen lo pide (ver D1: ~14 mil pendientes por `<indf>`). | Backend (filtro multivalor) y frontend. |
@@ -359,4 +411,95 @@ Cada registro de origen guarda ambas versiones; con V52 configurado, `VersionMap
 - **Moneda sin equivalencia (resuelto, observación de Eliam 2026-09-30):** el barrido **ya no crea** un cliente nuevo si la moneda de origen no tiene equivalencia validada (mapeo vacío o `<indf>`); no se asume MXN. La fila se registra como error por referencia con código `moneda_sin_equivalencia` (la ejecución termina `Parcial`, cuenta en `Pendientes`) y se crea al reintentar una vez configurado el mapeo. Un cliente ya existente no cambia de moneda. Excepción: la auto-provisión por pedido (`SoloCrear`, sin moneda de origen) conserva su default porque el pedido no puede esperar.
 - **Recibido vs. aplicado (resuelto):** en cada aplicación sobre un cliente existente el registro guarda `Diferencias` (campo, recibido, se conserva, motivo) para razón social, moneda, teléfono y correo cuando A+W trae un valor distinto al local. Se ve en el detalle de origen ("Recibido de A+W y no aplicado al cliente"); una lectura posterior sin diferencias las limpia. Los fiscales locales siguen protegidos.
 - **`KREDIT_LIMIT1_NET` no se lee a propósito:** el crédito es solo referencia y no alimenta ninguna política. Se agrega (DTO + columna + migración) solo si CxC lo pide.
-- **Recibido vs aplicado:** hoy el detalle muestra el snapshot de origen y el cliente ERP por separado; una vista de diferencias campo a campo queda fuera de esta entrega (mejora posterior).
+- **Recibido vs aplicado:** hoy el detalle muestra el snapshot de origen y el cliente ERP por separado; una vista de diferencias campo a campo quedó fuera de esta entrega. **Entregada para los datos fiscales por U1.8b** (§14): reporte de diferencias fiscales A+W vs ERP de clientes y productos. Los comerciales (teléfono, correo, moneda) siguen en `Diferencias` del registro de origen.
+
+## 14. Reporte de diferencias fiscales A+W vs ERP (U1.8b, F1-FAC-14)
+
+El ERP es dueño de los datos fiscales de clientes y artículos y A+W de los operativos (regla P160). El reporte
+lista los clientes y productos A+W cuyo dato fiscal del ERP no coincide con A+W (o, en productos, con su regla
+fiscal), con dos acciones: **Marcar revisado** y **Corregir en el ERP** (abre el detalle del cliente o producto;
+nunca escribe en A+W). Se ejecuta a demanda y, si se activa, cada semana.
+
+**Coordinación con F1-ADM-06:** usa la misma identidad (`Cliente.ReferenciaExterna` = `KU_KUNDEN.ID`) y el mismo
+puerto `IAwClientesOrigen` (respeta el origen Real/Demo y `IntegracionesAw:Clientes:LecturaHabilitada`). No crea
+otra sincronización ni ejecución, no duplica la bandeja de errores, los conflictos de ligado por RFC ni la sección
+"Datos de origen A+W". No usa las `Diferencias` guardadas en `cliente_sincronizacion_aw` /
+`producto_sincronizacion_aw` (pueden estar viejas y en Real no traen RFC/CP): compara en vivo.
+
+### 14.1 Reglas de comparación
+
+| Tipo | Campo ERP | Se compara contra | Normalización para decidir igualdad |
+|---|---|---|---|
+| Cliente | `RazonSocial` | A+W `NAME1 + NAME2` (Millet §4.2) | Mayúsculas, sin acentos, espacios colapsados, sin puntos ni comas. **No** se quita el régimen societario (SA DE CV): lo decide una persona. |
+| Cliente | `Rfc` | A+W `UST_ID` | Sin guiones, puntos ni espacios, en mayúsculas (Millet §4.2). |
+| Cliente | `RegimenFiscal` | A+W `KA_BONITAET.FREMD_KEY` por `BONITAET` | Recorte y mayúsculas. |
+| Cliente | `CodigoPostalFiscal` | A+W `PLZ` | Recorte. |
+| Producto A+W | `ClaveProdServSat`, `ObjetoImp` | Regla fiscal (`reglas_fiscales_aw`, Wgr > Grupo > Tipo; luego `IntegracionesAw:Productos:ReglasFiscales` por Tipo) | Recorte y mayúsculas. |
+| Producto A+W | `ClaveUnidadSat` | Unidad de la regla; si la regla no la trae, `IntegracionesAw:Pedidos:MapeoUnidadSat` con la unidad A+W ya normalizada | Recorte y mayúsculas. |
+
+- `<indf>` (indefinido de A+W), vacío y nulo son "sin dato". Estados: **Diferente** (ambos con valor distinto),
+  **Faltante** (el ERP no tiene valor) y **Sin dato en A+W** (solo clientes: el ERP tiene valor y A+W no).
+- **Productos:** A+W no tiene datos SAT, así que la columna "Comparado contra" dice la regla o el mapeo usado
+  (p. ej. `Regla Tipo = VTE`, `Mapeo de unidad M2`), nunca "A+W". Un campo vacío en el ERP es **Faltante** aunque
+  no haya regla (U1.8b-c). Un valor distinto del esperado no se reporta si el producto es **excepción de producto**
+  o su ficha está **confirmada** por Fiscal: la diferencia es deliberada. Sin regla ni mapeo, lo capturado no se compara.
+- La clasificación (Tipo/Grupo/Wgr) y la unidad del producto son las que ya sincronizó ADM-07 (dueño A+W); el reporte
+  no relee A+W para productos.
+- Alcance: clientes **activos** con clave A+W y productos A+W **activos**. Master cross-sucursal: sin alcance por
+  sucursal (ADR-0051 no aplica, igual que clientes y productos).
+- Lectura de A+W: hasta `MaxLecturasPorReferencia` clientes (200) se leen por referencia; con más, se recorre A+W por
+  páginas de 500. Si la lectura está apagada, A+W no responde o el origen real no está configurado, el reporte
+  sale con un **aviso** y sin clientes (los productos sí se comparan). Un cliente del ERP que no aparece en A+W se
+  cuenta en un aviso y no se compara (la ausencia nunca es baja, §8).
+
+### 14.2 Revisión (U1.8b-b)
+
+"Marcar revisado" guarda una revisión por (tipo, entidad, campo) con la **huella** (SHA-256 del tipo, campo y los dos
+valores normalizados), los valores vistos, quién y cuándo (`compartido.diferencias_fiscales_aw_revisiones`, auditada,
+con `Version`). El reporte la oculta mientras la huella actual sea la misma; si cambia el valor de A+W, de la regla o
+del ERP, reaparece. El POST recalcula la diferencia: si ya no existe o la huella no es la que vio el usuario responde
+409 `DIFERENCIA_FISCAL_CAMBIO`. Marcar revisado **no** corrige nada.
+
+### 14.3 API y permisos
+
+Base `/api/v1/datos-maestros/diferencias-fiscales-aw` (Problem Details en errores):
+
+| Método y ruta | Permiso | Efecto |
+|---|---|---|
+| `GET /?tipo&campo&estado&incluirRevisadas` | `datos_maestros.diferencias-fiscales-aw.leer` | Calcula en vivo; shape ADR-0036 + `avisos` + `resumen`. |
+| `POST /revisiones` `{tipo, entidadId, campo, huella, nota?}` | `datos_maestros.diferencias-fiscales-aw.revisar` | Marca revisado. Requiere `Idempotency-Key`. |
+| `GET /corridas/ultima?incluirRevisadas` | `...leer` | Última corrida guardada (con sus filas, ocultando lo revisado después) y resumen de la última programada. |
+| `POST /corridas` | `...revisar` | Calcula todo y guarda una corrida manual. Requiere `Idempotency-Key`. |
+
+Los permisos se siembran con la migración `SeedPermisosDiferenciasFiscalesAw` (Identidad, GUID `00000004-0013-*`).
+Corregir un cliente `Origen=Aw` sigue requiriendo `datos_maestros.clientes.fiscal-editar`; un producto,
+`datos_maestros.productos-aw.gestionar`.
+
+UI: `/admin/datos-maestros/diferencias-fiscales-aw` (tarjeta "Diferencias fiscales A+W" en Administración › Datos
+maestros), con vistas "En vivo" y "Última corrida guardada", filtros por tipo, campo, estado e "Incluir revisadas", y
+exportación PDF/Excel del `ReporteShell`.
+
+### 14.4 Corrida semanal
+
+Sección `IntegracionesAw:DiferenciasFiscales` (`DiferenciasFiscalesAwOptions`):
+
+| Clave | Default | Significado |
+|---|---|---|
+| `ProgramacionHabilitada` | `false` | Registra `DiferenciasFiscalesAwWorker`. |
+| `DiaSemana` | `Monday` | Día de la corrida (`DayOfWeek` en inglés). |
+| `HoraLocal` | `06:00` | Hora local `HH:mm`. |
+| `ZonaHoraria` | `America/Mexico_City` | Zona IANA de `HoraLocal`. |
+| `MaxLecturasPorReferencia` | `200` | Umbral entre leer por referencia o recorrer A+W por páginas. |
+
+El worker espera al siguiente día/hora, calcula y guarda la corrida (`Origen=Programada`, actor
+`system:aw-diferencias-fiscales`) en `compartido.diferencias_fiscales_aw_corridas` +
+`diferencias_fiscales_aw_corrida_filas` (`INotAudited`, solo lo pendiente). Una corrida que falla queda guardada
+como fallida. Una corrida perdida (API apagada a esa hora) no se recupera: queda para la semana siguiente. Las
+corridas se conservan 180 días. Corre con un solo host, como el resto de los workers de A+W.
+
+### 14.5 Copia de demo
+
+`tools/aw-origen-demo` agrega `aw_origen.ka_bonitaet` y la columna `ku_kunden.bonitaet` (scripts idempotentes; correr
+`aw-origen-demo.sh up` en BD existentes). El seed sintético usa 601 en pares, 612 en nones, 616 en RFC genéricos,
+`<indf>` en múltiplos de 7 y una calificación sin catálogo (id 59). La sincronización de demo **no** aplica el
+régimen: en un ERP recién sincronizado los clientes salen como "Faltante" de régimen hasta que Fiscal lo capture.

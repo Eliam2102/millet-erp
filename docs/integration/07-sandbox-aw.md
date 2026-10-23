@@ -21,7 +21,7 @@ Pruebas (opt-in; sin `AW_SANDBOX_CONN` retornan temprano en verde): `dotnet test
 Requieren una BD PostgreSQL desechable (`TestAssemblyInit`), nunca `millet_dev`.
 
 ## Cobertura (10 clientes + 10 productos, todas verdes)
-consulta/recepción paginada · actualización (fiscales/clave SAT del operador no se pisan) · duplicado (RFC/`UST_ID`/`BA_MCODE` repetidos no fusionan; barrido repetido = `SinCambios`) · dato inválido (moneda/estado/unidad) · baja y "ausencia ≠ baja" · conflicto de versión · fallo a mitad (contenedor detenido) · credenciales erróneas (error `auth`, sin filtrar la contraseña) · reintento (converge) · conciliación origen/destino con diferencias explícitas (`AwConciliacion`).
+consulta/recepción paginada · actualización (fiscales/clave SAT del operador no se pisan) · duplicado (`UST_ID` sin forma de RFC y `BA_MCODE` repetidos no ligan; un RFC válido repetido va a la bandeja de ligados; barrido repetido = `SinCambios`) · dato inválido (moneda/estado/unidad) · baja y "ausencia ≠ baja" · conflicto de versión · fallo a mitad (contenedor detenido) · credenciales erróneas (error `auth`, sin filtrar la contraseña) · reintento (converge) · conciliación origen/destino con diferencias explícitas (`AwConciliacion`).
 
 El seed sintético solo informa las columnas relevantes: `03-defaults-temporales.sql` pone defaults mientras se siembra y `04-quitar-defaults.sql` los quita, de modo que la estructura final es idéntica a la real. **Nunca** usar `reset` si `AW_FULL` está cargada: borra el volumen `aw_sandbox_data` (usar `reseed`).
 
@@ -33,7 +33,7 @@ Hybrid Connection, TLS verificado (el test usa `TrustServerCertificate` solo aqu
 2. Cliente **nuevo** con moneda sin equivalencia no se crea (error `moneda_sin_equivalencia`); solo un cliente existente queda `Pendiente`.
 3. Una ejecución de clientes `Fallida` es terminal: el reintento es un barrido nuevo (lo aplicado da `SinCambios`), no una reanudación.
 4. Total múltiplo del lote ⇒ una página final vacía extra (inocuo).
-5. **Productos:** sin ejecución durable; un fallo de origen sale como `AwReaderException` y lo aplicado antes queda aplicado. Los productos `UNIDAD_SIN_EQUIVALENCIA` (`<indf>`, sin descripción en idioma 0) no dejan registro y se reportan en cada barrido.
+5. **Productos:** sin ejecución durable; un fallo de origen sale como `AwReaderException` y lo aplicado antes queda aplicado. Los productos con unidad `<indf>` o sin descripción en idioma 0 se crean con `PZA`.
 6. `KA_ZAHLBED.BEZ` es PK en el real: "ZAHLBED con >1 coincidencia" no puede ocurrir (el caso 6 de [05](05-sincronizacion-clientes-aw.md) §9 solo aplica a 0 coincidencias).
 
 ## Comparación con el A+W real
@@ -65,7 +65,7 @@ bash tools/aw-origen-demo/aw-origen-demo.sh up
 bash tools/aw-origen-demo/aw-origen-demo.sh env
 ```
 
-`up` crea `millet_aw_origen` y aplica `schema.sql`, `seed.sql` y `pedidos.sql` (60 clientes, 47 productos,
+`up` crea `millet_aw_origen` y aplica `schema.sql`, `seed.sql` y `pedidos.sql` (62 clientes, 47 productos,
 3 solicitudes). `env` exporta únicamente `ConnectionStrings__AwOrigenPgDb` y
 `IntegracionesAw__OrigenDemo__Permitido=true`; **no elige el origen** ni reconfigura los modos reales.
 Conservar la conexión fuera del repositorio. `reseed` restaura clientes/productos sintéticos; `pedidos`

@@ -57,7 +57,10 @@ public static class CfdiEmisionBuilder
                 Descuento: l.Descuento,
                 ObjetoImp: l.ObjetoImp,
                 Impuestos: ImpuestosDeLinea(l),
-                Pedimento: l.Pedimento is null
+                // InformacionAduanera solo para la primera venta de producto
+                // importado (§3.bis.5). Con CCE el SAT la prohíbe (CFDI40195): el
+                // pedimento se conserva en la línea pero no viaja en el XML.
+                Pedimento: l.Pedimento is null || esExportacion
                     ? null
                     : new PedimentoCfdi(l.Pedimento, l.FechaDocAduanero, l.IdentificacionMercancia),
                 NoIdentificacion: esExportacion ? NoIdentificacionCce(l) : null))
@@ -392,7 +395,12 @@ public static class CfdiEmisionBuilder
                 Base: subtotal,
                 Impuesto: "002",
                 TipoFactor: "Tasa",
-                TasaOCuota: Math.Round(importeIva / subtotal, 6),
+                // La tasa se reconstruye de los importes; con IVA redondeado (o
+                // desglosado de un total, 86e3tfd7j) el cociente no es exacto
+                // (137.93 / 862.07 = 0.159998) y el PAC rechaza con CFDI40179.
+                // Las tasas de IVA del catálogo c_TasaOCuota (0.16, 0.08) tienen
+                // 2 decimales: se ajusta a ellas.
+                TasaOCuota: Math.Round(importeIva / subtotal, 2, MidpointRounding.AwayFromZero),
                 Importe: importeIva,
                 EsRetencion: false));
         }

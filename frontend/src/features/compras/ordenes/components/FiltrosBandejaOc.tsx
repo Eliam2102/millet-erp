@@ -15,12 +15,10 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-} from '@/components/ui/popover';
-import {
+  ESTADO_COMERCIAL_PROVEEDOR_LABELS,
+  EstadoComercialProveedorOc,
   EstadoOrdenCompra,
   estadoOcToString,
   SubEstadoFacturacion,
@@ -67,10 +65,7 @@ export interface FiltrosBandejaOcProps {
   onChange: (next: BandejaOcSearch) => void;
 }
 
-export function FiltrosBandejaOc({
-  search,
-  onChange,
-}: FiltrosBandejaOcProps) {
+export function FiltrosBandejaOc({ search, onChange }: FiltrosBandejaOcProps) {
   const presetActivo = detectarPresetActivo(search);
 
   function setFiltro(parcial: Partial<BandejaOcSearch>) {
@@ -82,37 +77,34 @@ export function FiltrosBandejaOc({
 
   function handleEstadoChange(value: string) {
     setFiltro({
-      estado:
-        value === SENTINEL_ALL
-          ? undefined
-          : (Number(value) as EstadoOrdenCompra),
+      estado: value === SENTINEL_ALL ? undefined : (Number(value) as EstadoOrdenCompra),
     });
   }
 
   function handleSubEstadoRecepcionChange(value: string) {
     setFiltro({
       subEstadoRecepcion:
-        value === SENTINEL_ALL
-          ? undefined
-          : (Number(value) as SubEstadoRecepcion),
+        value === SENTINEL_ALL ? undefined : (Number(value) as SubEstadoRecepcion),
     });
   }
 
   function handleSubEstadoFacturacionChange(value: string) {
     setFiltro({
       subEstadoFacturacion:
-        value === SENTINEL_ALL
-          ? undefined
-          : (Number(value) as SubEstadoFacturacion),
+        value === SENTINEL_ALL ? undefined : (Number(value) as SubEstadoFacturacion),
     });
   }
 
   function handleSubEstadoPagoChange(value: string) {
     setFiltro({
-      subEstadoPago:
-        value === SENTINEL_ALL
-          ? undefined
-          : (Number(value) as SubEstadoPago),
+      subEstadoPago: value === SENTINEL_ALL ? undefined : (Number(value) as SubEstadoPago),
+    });
+  }
+
+  function handleEstadoComercialChange(value: string) {
+    setFiltro({
+      estadoComercialProveedor:
+        value === SENTINEL_ALL ? undefined : (Number(value) as EstadoComercialProveedorOc),
     });
   }
 
@@ -127,7 +119,8 @@ export function FiltrosBandejaOc({
   const subFiltrosActivos =
     (search.subEstadoRecepcion != null ? 1 : 0) +
     (search.subEstadoFacturacion != null ? 1 : 0) +
-    (search.subEstadoPago != null ? 1 : 0);
+    (search.subEstadoPago != null ? 1 : 0) +
+    (search.estadoComercialProveedor != null ? 1 : 0);
 
   const hayFiltrosActivos =
     search.estado != null ||
@@ -192,10 +185,7 @@ export function FiltrosBandejaOc({
                 onClick={() => onChange(preset.search)}
                 data-preset={preset.id}
                 data-activo={activo || undefined}
-                className={cn(
-                  'font-medium',
-                  activo && 'bg-primary/10 text-primary',
-                )}
+                className={cn('font-medium', activo && 'bg-brand/10 text-brand')}
               >
                 {preset.label}
               </DropdownMenuItem>
@@ -220,7 +210,7 @@ export function FiltrosBandejaOc({
             Más filtros
             {subFiltrosActivos > 0 && (
               <span
-                className="ml-1 inline-flex h-4 min-w-4 items-center justify-center rounded-full bg-primary px-1 text-[10px] font-semibold text-primary-foreground"
+                className="ml-1 inline-flex h-4 min-w-4 items-center justify-center rounded-full bg-brand px-1 text-2xs font-semibold text-primary-foreground"
                 aria-label={`${subFiltrosActivos} sub-filtros activos`}
               >
                 {subFiltrosActivos}
@@ -230,27 +220,18 @@ export function FiltrosBandejaOc({
         </PopoverTrigger>
         <PopoverContent align="start" className="w-72 space-y-3">
           <div>
-            <label className="mb-1 block text-xs font-medium">
-              Recepción
-            </label>
+            <label className="mb-1 block text-xs font-medium">Recepción</label>
             <Select
               value={
-                search.subEstadoRecepcion != null
-                  ? String(search.subEstadoRecepcion)
-                  : SENTINEL_ALL
+                search.subEstadoRecepcion != null ? String(search.subEstadoRecepcion) : SENTINEL_ALL
               }
               onValueChange={handleSubEstadoRecepcionChange}
             >
-              <SelectTrigger
-                className="h-8 text-xs"
-                aria-label="Filtro de sub-estado de recepción"
-              >
+              <SelectTrigger className="h-8 text-xs" aria-label="Filtro de sub-estado de recepción">
                 <SelectValue placeholder="Recepción: cualquier" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value={SENTINEL_ALL}>
-                  Recepción: cualquier
-                </SelectItem>
+                <SelectItem value={SENTINEL_ALL}>Recepción: cualquier</SelectItem>
                 {Object.values(SubEstadoRecepcion).map((s) => (
                   <SelectItem key={s} value={String(s)}>
                     {subEstadoRecepcionToString(s)}
@@ -261,9 +242,7 @@ export function FiltrosBandejaOc({
           </div>
 
           <div>
-            <label className="mb-1 block text-xs font-medium">
-              Facturación
-            </label>
+            <label className="mb-1 block text-xs font-medium">Facturación</label>
             <Select
               value={
                 search.subEstadoFacturacion != null
@@ -279,9 +258,7 @@ export function FiltrosBandejaOc({
                 <SelectValue placeholder="Facturación: cualquier" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value={SENTINEL_ALL}>
-                  Facturación: cualquier
-                </SelectItem>
+                <SelectItem value={SENTINEL_ALL}>Facturación: cualquier</SelectItem>
                 {Object.values(SubEstadoFacturacion).map((s) => (
                   <SelectItem key={s} value={String(s)}>
                     {subEstadoFacturacionToString(s)}
@@ -294,26 +271,44 @@ export function FiltrosBandejaOc({
           <div>
             <label className="mb-1 block text-xs font-medium">Pago</label>
             <Select
-              value={
-                search.subEstadoPago != null
-                  ? String(search.subEstadoPago)
-                  : SENTINEL_ALL
-              }
+              value={search.subEstadoPago != null ? String(search.subEstadoPago) : SENTINEL_ALL}
               onValueChange={handleSubEstadoPagoChange}
             >
-              <SelectTrigger
-                className="h-8 text-xs"
-                aria-label="Filtro de sub-estado de pago"
-              >
+              <SelectTrigger className="h-8 text-xs" aria-label="Filtro de sub-estado de pago">
                 <SelectValue placeholder="Pago: cualquier" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value={SENTINEL_ALL}>
-                  Pago: cualquier
-                </SelectItem>
+                <SelectItem value={SENTINEL_ALL}>Pago: cualquier</SelectItem>
                 {Object.values(SubEstadoPago).map((s) => (
                   <SelectItem key={s} value={String(s)}>
                     {subEstadoPagoToString(s)}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+
+          <div>
+            <label className="mb-1 block text-xs font-medium">Respuesta del proveedor</label>
+            <Select
+              value={
+                search.estadoComercialProveedor != null
+                  ? String(search.estadoComercialProveedor)
+                  : SENTINEL_ALL
+              }
+              onValueChange={handleEstadoComercialChange}
+            >
+              <SelectTrigger
+                className="h-8 text-xs"
+                aria-label="Filtro de estado comercial del proveedor"
+              >
+                <SelectValue placeholder="Respuesta: cualquiera" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value={SENTINEL_ALL}>Respuesta: cualquiera</SelectItem>
+                {Object.values(EstadoComercialProveedorOc).map((s) => (
+                  <SelectItem key={s} value={String(s)}>
+                    {ESTADO_COMERCIAL_PROVEEDOR_LABELS[s]}
                   </SelectItem>
                 ))}
               </SelectContent>

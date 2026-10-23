@@ -1,3 +1,4 @@
+import { NuevoActivoProvider } from '@/features/activos-fijos/components/NuevoActivoProvider';
 import { createFileRoute, Outlet, redirect } from '@tanstack/react-router';
 import { useAuthStore } from '@/lib/auth/auth-store';
 import { rutaPermitida } from '@/lib/nav';
@@ -13,6 +14,7 @@ import { NuevaCajaProvider } from '@/features/facturacion/components/NuevaCajaPr
 import { NuevaLineaCreditoProvider } from '@/features/cxc/components/NuevaLineaCreditoProvider';
 import { RegistrarGestionProvider } from '@/features/cxc/components/RegistrarGestionProvider';
 import { NuevaPropuestaProvider } from '@/features/cxc/components/NuevaPropuestaProvider';
+import { NuevoExpedienteProvider } from '@/features/comercio-exterior/components/NuevoExpedienteProvider';
 import { Toaster } from '@/components/ui/sonner';
 
 /**
@@ -42,34 +44,36 @@ export const Route = createFileRoute('/_app')({
 function AppLayout() {
   return (
     <ConflictDialogProvider>
-      <NuevaRequisicionProvider>
-        <NuevaOrdenCompraProvider>
-          <NuevoPedidoProvider>
+      <NuevoExpedienteProvider><NuevoActivoProvider>
+        <NuevaRequisicionProvider>
+          <NuevaOrdenCompraProvider>
+            <NuevoPedidoProvider>
               <NuevoAnticipoProvider>
-              <NuevoReppProvider>
-              <NuevaCartaPorteProvider>
-              <NuevaCajaProvider>
-              <NuevaLineaCreditoProvider>
-              <RegistrarGestionProvider>
-              <NuevaPropuestaProvider>
-              <AppShell>
-                <Outlet />
-                {/* <c>&lt;Toaster/&gt;</c> vive una sola vez bajo el shell para que toda
+                <NuevoReppProvider>
+                  <NuevaCartaPorteProvider>
+                    <NuevaCajaProvider>
+                      <NuevaLineaCreditoProvider>
+                        <RegistrarGestionProvider>
+                          <NuevaPropuestaProvider>
+                            <AppShell>
+                              <Outlet />
+                              {/* <c>&lt;Toaster/&gt;</c> vive una sola vez bajo el shell para que toda
                     ruta autenticada pueda llamar <c>toast(...)</c> sin re-instanciarlo.
                     La pantalla de login NO está bajo _app, así que no recibe toasts —
                     es deliberado: el flujo de auth maneja sus mensajes inline. */}
-                <Toaster richColors position="top-right" closeButton />
-              </AppShell>
-              </NuevaPropuestaProvider>
-              </RegistrarGestionProvider>
-              </NuevaLineaCreditoProvider>
-              </NuevaCajaProvider>
-              </NuevaCartaPorteProvider>
-              </NuevoReppProvider>
+                              <Toaster position="top-right" offset={{ top: 64 }} closeButton />
+                            </AppShell>
+                          </NuevaPropuestaProvider>
+                        </RegistrarGestionProvider>
+                      </NuevaLineaCreditoProvider>
+                    </NuevaCajaProvider>
+                  </NuevaCartaPorteProvider>
+                </NuevoReppProvider>
               </NuevoAnticipoProvider>
-          </NuevoPedidoProvider>
-        </NuevaOrdenCompraProvider>
-      </NuevaRequisicionProvider>
+            </NuevoPedidoProvider>
+          </NuevaOrdenCompraProvider>
+        </NuevaRequisicionProvider>
+      </NuevoActivoProvider></NuevoExpedienteProvider>
     </ConflictDialogProvider>
   );
 }

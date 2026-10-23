@@ -1,5 +1,14 @@
+import {
+  Table,
+  TableHeader,
+  TableBody,
+  TableRow,
+  TableHead,
+  TableCell,
+} from '@/components/ui/table';
 import { useMemo, useState } from 'react';
-import { Pencil, Plus, Trash2 } from 'lucide-react';
+import { ConMotivo } from '@/features/compras/components/ConMotivo';
+import { Check, Pencil, Plus, Trash2, X } from 'lucide-react';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -13,20 +22,11 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
-import {
-  EmptyState,
-  DateTimeDisplay,
-} from '@/components/erp';
+import { EmptyState, DateTimeDisplay } from '@/components/erp';
 import { CubrimientoBar } from '@/components/erp/display/CubrimientoBar';
 import { LineaInlineForm } from '@/features/compras/components/LineaInlineForm';
-import type {
-  LineaResponse,
-  RequisicionResponse,
-} from '@/features/compras/api/types';
-import {
-  useActualizarNotasLinea,
-  useEliminarLinea,
-} from '@/features/compras/api/useLineas';
+import type { LineaResponse, RequisicionResponse } from '@/features/compras/api/types';
+import { useActualizarNotasLinea, useEliminarLinea } from '@/features/compras/api/useLineas';
 import {
   accionAgregarLinea,
   accionEditarLinea,
@@ -34,7 +34,7 @@ import {
   accionEliminarLinea,
 } from '@/features/compras/lib/acciones-disponibles';
 import { useAuthStore } from '@/lib/auth/auth-store';
-import { esApiError } from '@/lib/api';
+import { esApiError, codigoSoporte } from '@/lib/api';
 import { esConflictoConcurrencia } from '@/lib/api/error';
 import { useConflictDialog } from '@/components/erp/collaboration/conflict-dialog-context';
 import { useQueryClient } from '@tanstack/react-query';
@@ -95,10 +95,7 @@ export function EditorLineas({ rq }: EditorLineasProps) {
     limit: 1000,
     includeInactivas: true,
   });
-  const articulosMap = useMemo(
-    () => mapById(articulosQuery.data?.items),
-    [articulosQuery.data],
-  );
+  const articulosMap = useMemo(() => mapById(articulosQuery.data?.items), [articulosQuery.data]);
 
   const eliminar = useEliminarLinea();
   const conflictDialog = useConflictDialog();
@@ -125,7 +122,7 @@ export function EditorLineas({ rq }: EditorLineasProps) {
       { requisicionId: rq.id, lineaId: linea.id },
       {
         onSuccess: () => {
-          toast.success(`Línea ${linea.posicion} eliminada`);
+          toast.success(`Partida ${linea.posicion} eliminada`);
           setLineaAEliminar(null);
         },
         onError: (error) => {
@@ -142,12 +139,10 @@ export function EditorLineas({ rq }: EditorLineasProps) {
           }
           if (esApiError(error)) {
             toast.error(error.problem.title, {
-              description: error.traceId
-                ? `Código: ${error.traceId}`
-                : undefined,
+              description: codigoSoporte(error),
             });
           } else {
-            toast.error('Error inesperado al eliminar la línea.');
+            toast.error('Error inesperado al eliminar la partida.');
           }
         },
       },
@@ -156,30 +151,25 @@ export function EditorLineas({ rq }: EditorLineasProps) {
 
   if (rq.lineas.length === 0) {
     if (agregarAbierto) {
-      return (
-        <LineaInlineForm
-          requisicionId={rq.id}
-          onCancel={() => setAgregarAbierto(false)}
-        />
-      );
+      return <LineaInlineForm requisicionId={rq.id} clasificacion={rq.clasificacion} onCancel={() => setAgregarAbierto(false)} />;
     }
     return (
       <EmptyState
         title={
           canAgregar.visible && canAgregar.habilitada
-            ? 'Esta requisición no tiene líneas. Agrega la primera.'
-            : 'Sin líneas registradas.'
+            ? 'Esta requisición no tiene partidas. Agrega la primera.'
+            : 'Sin partidas registradas.'
         }
         description={
           canAgregar.visible && canAgregar.habilitada
-            ? 'Una RQ debe tener al menos una línea para transmitirse.'
+            ? 'Una RQ debe tener al menos una partida para transmitirse.'
             : undefined
         }
         action={
           canAgregar.visible && canAgregar.habilitada ? (
             <Button onClick={abrirAgregar}>
               <Plus className="mr-2 h-4 w-4" />
-              Agregar línea
+              Agregar partida
             </Button>
           ) : undefined
         }
@@ -187,67 +177,48 @@ export function EditorLineas({ rq }: EditorLineasProps) {
     );
   }
 
-  const lineas = rq.lineas
-    .slice()
-    .sort((a, b) => a.posicion - b.posicion);
+  const lineas = rq.lineas.slice().sort((a, b) => a.posicion - b.posicion);
+  const lineaEnEdicion = lineas.find((l) => l.id === lineaEnEdicionId);
 
   return (
     <>
       <div className="space-y-3">
         {canAgregar.visible && !agregarAbierto && (
           <div className="flex justify-end">
-            <Button
-              size="sm"
-              onClick={abrirAgregar}
-              disabled={!canAgregar.habilitada}
-              title={canAgregar.motivoDeshabilitada}
-            >
-              <Plus className="mr-2 h-4 w-4" />
-              Agregar línea
-            </Button>
+            <ConMotivo motivo={canAgregar.motivoDeshabilitada}>
+              <Button size="sm" onClick={abrirAgregar} disabled={!canAgregar.habilitada}>
+                <Plus className="mr-2 h-4 w-4" />
+                Agregar partida
+              </Button>
+            </ConMotivo>
           </div>
         )}
 
-        <div className="overflow-x-auto rounded-md border bg-card">
-          <table className="w-full min-w-[960px] text-sm">
-            <thead className="bg-muted/50 text-xs uppercase tracking-wide text-muted-foreground">
-              <tr>
-                <th className="px-3 py-2 text-left font-medium">#</th>
-                <th className="px-3 py-2 text-left font-medium">Artículo</th>
-                <th className="px-3 py-2 text-right font-medium">Cant.</th>
-                <th className="px-3 py-2 text-left font-medium">UM</th>
-                <th className="px-3 py-2 text-left font-medium">Fecha req.</th>
-                <th className="px-3 py-2 text-left font-medium">Cubrimiento</th>
-                <th className="px-3 py-2 text-left font-medium">Notas</th>
+        <div className="overflow-x-auto rounded-md border bg-surface-card">
+          <Table className="w-full min-w-full text-sm">
+            <TableHeader className="bg-surface-muted/50 text-xs uppercase tracking-wide text-ink-muted">
+              <TableRow>
+                <TableHead className="px-3 py-2 text-left font-medium">#</TableHead>
+                <TableHead className="px-3 py-2 text-left font-medium">Artículo</TableHead>
+                <TableHead className="px-3 py-2 text-right font-medium">Cant.</TableHead>
+                <TableHead className="px-3 py-2 text-left font-medium">UM</TableHead>
+                <TableHead className="px-3 py-2 text-left font-medium hidden @4xl:table-cell">
+                  Fecha req.
+                </TableHead>
+                <TableHead className="px-3 py-2 text-left font-medium">Cubrimiento</TableHead>
+                <TableHead className="px-3 py-2 text-left font-medium hidden @4xl:table-cell">
+                  Notas
+                </TableHead>
                 {(canEditarEstructural.visible || canEliminar.visible) && (
-                  <th className="px-3 py-2 text-right font-medium">Acciones</th>
+                  <TableHead className="px-3 py-2 text-right font-medium">Acciones</TableHead>
                 )}
-              </tr>
-            </thead>
-            <tbody>
+              </TableRow>
+            </TableHeader>
+            <TableBody className="[&_tr]:h-12">
               {lineas.map((linea, i) => {
-                if (linea.id === lineaEnEdicionId) {
-                  // La fila se reemplaza por el form inline en modo
-                  // editar. <td colSpan> ocupa todas las columnas de
-                  // la tabla — la cabecera sigue arriba.
-                  const totalColumnas =
-                    7 +
-                    (canEditarEstructural.visible || canEliminar.visible
-                      ? 1
-                      : 0);
-                  return (
-                    <tr key={linea.id}>
-                      <td colSpan={totalColumnas} className="p-2">
-                        <LineaInlineForm
-                          requisicionId={rq.id}
-                          linea={linea}
-                          onCancel={cerrarEdicion}
-                          onSaved={cerrarEdicion}
-                        />
-                      </td>
-                    </tr>
-                  );
-                }
+                // La fila en edición se oculta: su form se monta fuera de la
+                // tabla para no heredar su ancho (UX-F3-01).
+                if (linea.id === lineaEnEdicionId) return null;
                 // Preferir la etiqueta enriquecida del DTO (ADR-0042 addendum);
                 // fallback al catálogo capado client-side y por último al id.
                 const articulo = articulosMap.get(linea.articuloId);
@@ -258,7 +229,7 @@ export function EditorLineas({ rq }: EditorLineasProps) {
                     rqId={rq.id}
                     articuloClave={linea.articuloClave ?? articulo?.clave ?? null}
                     articuloNombre={linea.articuloNombre ?? articulo?.nombre ?? null}
-                    bgClass={i % 2 === 1 ? 'bg-muted/20' : undefined}
+                    bgClass={i % 2 === 1 ? 'bg-surface-muted/20' : undefined}
                     canEditarEstructural={canEditarEstructural.habilitada}
                     canEliminar={canEliminar.habilitada}
                     canEditarNotas={canEditarNotas.habilitada}
@@ -267,18 +238,25 @@ export function EditorLineas({ rq }: EditorLineasProps) {
                   />
                 );
               })}
-            </tbody>
-          </table>
+            </TableBody>
+          </Table>
         </div>
+
+        {lineaEnEdicion && (
+          <LineaInlineForm
+            requisicionId={rq.id}
+            clasificacion={rq.clasificacion}
+            linea={lineaEnEdicion}
+            onCancel={cerrarEdicion}
+            onSaved={cerrarEdicion}
+          />
+        )}
 
         {/* Inline form expandible al final — agregar líneas sin modal
             (design/frontend-polish). El form se mantiene abierto entre
             submits para agregar varias en sucesión. */}
         {agregarAbierto && (
-          <LineaInlineForm
-            requisicionId={rq.id}
-            onCancel={() => setAgregarAbierto(false)}
-          />
+          <LineaInlineForm requisicionId={rq.id} clasificacion={rq.clasificacion} onCancel={() => setAgregarAbierto(false)} />
         )}
       </div>
 
@@ -290,22 +268,17 @@ export function EditorLineas({ rq }: EditorLineasProps) {
       >
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>
-              ¿Eliminar línea {lineaAEliminar?.posicion}?
-            </AlertDialogTitle>
+            <AlertDialogTitle>¿Eliminar partida {lineaAEliminar?.posicion}?</AlertDialogTitle>
             <AlertDialogDescription>
-              Esta acción no se puede deshacer. La línea se borra de la RQ
-              en estado Borrador.
+              Esta acción no se puede deshacer. La partida se borra de la RQ en estado Borrador.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel disabled={eliminar.isPending}>
-              Cancelar
-            </AlertDialogCancel>
+            <AlertDialogCancel disabled={eliminar.isPending}>Cancelar</AlertDialogCancel>
             <AlertDialogAction
               onClick={confirmarEliminar}
               disabled={eliminar.isPending}
-              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              className="bg-danger-bg text-danger-fg hover:bg-danger-bg/90"
             >
               {eliminar.isPending ? 'Eliminando…' : 'Eliminar'}
             </AlertDialogAction>
@@ -349,6 +322,7 @@ function FilaLinea({
 }: FilaLineaProps) {
   const [notasEditando, setNotasEditando] = useState(false);
   const [notasInput, setNotasInput] = useState(linea.notas ?? '');
+  const [notasError, setNotasError] = useState<string | null>(null);
   const actualizarNotas = useActualizarNotasLinea();
   const conflictDialog = useConflictDialog();
   const queryClient = useQueryClient();
@@ -363,6 +337,7 @@ function FilaLinea({
       { requisicionId: rqId, lineaId: linea.id, values: { notas: next } },
       {
         onSuccess: () => {
+          setNotasError(null);
           setNotasEditando(false);
         },
         onError: (error) => {
@@ -382,18 +357,17 @@ function FilaLinea({
             });
             return;
           }
-          if (esApiError(error)) {
-            toast.error(error.problem.title);
-          } else {
-            toast.error('Error al guardar notas.');
-          }
-          setNotasInput(linea.notas ?? '');
+          // Conserva lo tecleado y deja el campo abierto: el usuario corrige o reintenta.
+          setNotasError(
+            esApiError(error) ? error.problem.title : 'No se pudieron guardar las notas.',
+          );
         },
       },
     );
   }
 
   function cancelarNotas() {
+    setNotasError(null);
     setNotasInput(linea.notas ?? '');
     setNotasEditando(false);
   }
@@ -401,48 +375,45 @@ function FilaLinea({
   const showAcciones = canEditarEstructural || canEliminar;
 
   return (
-    <tr className={bgClass}>
-      <td className="px-3 py-2 text-muted-foreground">{linea.posicion}</td>
-      <td className="px-3 py-2">
+    <TableRow className={bgClass}>
+      <TableCell className="px-3 py-2 text-ink-muted">{linea.posicion}</TableCell>
+      <TableCell className="px-3 py-2">
         {articuloClave ? (
           <>
-            <div className="font-mono text-xs font-medium">
-              {articuloClave}
-            </div>
+            <div className="font-mono text-xs font-medium">{articuloClave}</div>
             {articuloNombre && (
-              <p className="mt-0.5 text-xs text-foreground/80 line-clamp-1">
-                {articuloNombre}
-              </p>
+              <p className="mt-0.5 text-xs text-ink/80 line-clamp-1">{articuloNombre}</p>
             )}
           </>
         ) : (
-          <div
-            className="font-mono text-xs text-muted-foreground"
-            title={linea.articuloId}
-          >
+          <div className="font-mono text-xs text-ink-muted" title={linea.articuloId}>
             {linea.articuloId.slice(0, 8)}…
           </div>
         )}
-      </td>
-      <td className="px-3 py-2 text-right tabular-nums">{linea.cantidad}</td>
-      <td className="px-3 py-2">{linea.unidadMedida}</td>
-      <td className="px-3 py-2">
+      </TableCell>
+      <TableCell className="px-3 py-2 text-right tabular-nums">{linea.cantidad}</TableCell>
+      <TableCell className="px-3 py-2">{linea.unidadMedida}</TableCell>
+      <TableCell className="hidden px-3 py-2 @4xl:table-cell">
         <DateTimeDisplay value={linea.fechaRequerida} />
-      </td>
-      <td className="px-3 py-2">
+      </TableCell>
+      <TableCell className="px-3 py-2">
         <CubrimientoBar
           cantidad={linea.cantidad}
           cantDeAlmacen={linea.cantDeAlmacen}
           cantDeCompra={linea.cantDeCompra}
           cantRecibida={linea.cantRecibida}
           cantPendiente={linea.cantPendiente}
+          cantSinCompra={linea.cantSinCompra}
         />
-      </td>
-      <td className="px-3 py-2">
+      </TableCell>
+      <TableCell className="hidden px-3 py-2 @4xl:table-cell">
         {notasEditando ? (
-          <div className="flex items-center gap-1">
+          <div className="flex flex-wrap items-center gap-1">
             <Input
               type="text"
+              aria-label={`Notas de la partida ${linea.posicion}`}
+              aria-invalid={notasError ? true : undefined}
+              aria-describedby={notasError ? `notas-error-${linea.id}` : undefined}
               value={notasInput}
               onChange={(e) => setNotasInput(e.target.value)}
               maxLength={500}
@@ -459,9 +430,10 @@ function FilaLinea({
               variant="ghost"
               onClick={guardarNotas}
               disabled={actualizarNotas.isPending}
+              aria-label={`Guardar notas de la partida ${linea.posicion}`}
               className="h-7 px-2"
             >
-              ✓
+              <Check className="h-3.5 w-3.5" strokeWidth={1.6} aria-hidden="true" />
             </Button>
             <Button
               type="button"
@@ -469,10 +441,20 @@ function FilaLinea({
               variant="ghost"
               onClick={cancelarNotas}
               disabled={actualizarNotas.isPending}
+              aria-label={`Cancelar edición de notas de la partida ${linea.posicion}`}
               className="h-7 px-2"
             >
-              ✕
+              <X className="h-3.5 w-3.5" strokeWidth={1.6} aria-hidden="true" />
             </Button>
+            {notasError && (
+              <p
+                id={`notas-error-${linea.id}`}
+                role="alert"
+                className="w-full text-xs text-danger-fg"
+              >
+                {notasError}
+              </p>
+            )}
           </div>
         ) : (
           <button
@@ -482,16 +464,16 @@ function FilaLinea({
             className={
               canEditarNotas
                 ? 'block w-full max-w-xs text-left text-xs hover:underline'
-                : 'block w-full max-w-xs text-left text-xs text-muted-foreground'
+                : 'block w-full max-w-xs text-left text-xs text-ink-muted'
             }
             title={canEditarNotas ? 'Click para editar' : undefined}
           >
             {linea.notas ?? (canEditarNotas ? '— click para añadir —' : '—')}
           </button>
         )}
-      </td>
+      </TableCell>
       {showAcciones && (
-        <td className="px-3 py-2 text-right">
+        <TableCell className="px-3 py-2 text-right">
           <div className="inline-flex gap-1">
             {canEditarEstructural && (
               <Button
@@ -499,7 +481,7 @@ function FilaLinea({
                 size="sm"
                 variant="ghost"
                 onClick={onEditar}
-                aria-label={`Editar línea ${linea.posicion}`}
+                aria-label={`Editar partida ${linea.posicion}`}
                 className="h-7 px-2"
               >
                 <Pencil className="h-3.5 w-3.5" />
@@ -511,15 +493,15 @@ function FilaLinea({
                 size="sm"
                 variant="ghost"
                 onClick={onEliminar}
-                aria-label={`Eliminar línea ${linea.posicion}`}
-                className="h-7 px-2 text-rose-600 hover:bg-rose-50 hover:text-rose-700"
+                aria-label={`Eliminar partida ${linea.posicion}`}
+                className="h-7 px-2 text-danger-fg hover:bg-danger-bg hover:text-danger-fg"
               >
                 <Trash2 className="h-3.5 w-3.5" />
               </Button>
             )}
           </div>
-        </td>
+        </TableCell>
       )}
-    </tr>
+    </TableRow>
   );
 }

@@ -5,10 +5,14 @@ using Microsoft.EntityFrameworkCore;
 using Millet.Compras.Domain;
 using Millet.Compras.Domain.Oc;
 using Millet.Compras.Domain.Oc.Events;
+using Millet.Compras.Domain.Cotizaciones;
+using Millet.Compras.Domain.Ports.Blob;
 using Millet.Compras.Domain.Ports.DatosMaestros;
 using Millet.Compras.Infrastructure;
 using Millet.SharedKernel.Application;
+using Millet.SharedKernel.Application.Blob;
 using Millet.SharedKernel.Application.Exceptions;
+using Millet.SharedKernel.Application.Inicio;
 using Millet.Administracion.Domain;
 using Millet.Almacen.Domain;
 using Millet.Catalogos.Domain;
@@ -48,6 +52,9 @@ public sealed class CrearOrdenCompraDesdeRequisicionHandler
     private readonly IClock _clock;
     private readonly IPublisher _publisher;
     private readonly IArticuloReadPort _articulos;
+    private readonly ICurrentUserPermissions _permisos;
+    private readonly IBlobStoragePort _blobGenerico;
+    private readonly IAlmacenarBlobPort _blobOc;
 
     public CrearOrdenCompraDesdeRequisicionHandler(
         ComprasDbContext db,
@@ -57,7 +64,10 @@ public sealed class CrearOrdenCompraDesdeRequisicionHandler
         ICurrentEmpresaContext currentEmpresa,
         IClock clock,
         IPublisher publisher,
-        IArticuloReadPort articulos)
+        IArticuloReadPort articulos,
+        ICurrentUserPermissions permisos,
+        IBlobStoragePort blobGenerico,
+        IAlmacenarBlobPort blobOc)
     {
         _db = db;
         _dim3 = dim3;
@@ -67,6 +77,9 @@ public sealed class CrearOrdenCompraDesdeRequisicionHandler
         _clock = clock;
         _publisher = publisher;
         _articulos = articulos;
+        _permisos = permisos;
+        _blobGenerico = blobGenerico;
+        _blobOc = blobOc;
     }
 
     public async Task<CrearOrdenCompraDesdeRequisicionResponse> Handle(
@@ -83,6 +96,8 @@ public sealed class CrearOrdenCompraDesdeRequisicionHandler
                 "EMPRESA_NO_SELECCIONADA",
                 "El usuario no tiene una empresa seleccionada en el JWT actual.");
         }
+
+        var ocId = Guid.CreateVersion7();
 
         await using var tx = await SaldoCompraRq.BloquearAsync(_db, cancellationToken);
 
@@ -141,6 +156,62 @@ public sealed class CrearOrdenCompraDesdeRequisicionHandler
             await CentroCostoLineaGuard.ValidarAsync(_dim3, id, aplicarAlcance: false, cancellationToken);
         }
 
+        if (command.CotizacionId is null)
+        {
+            await Cotizaciones.CotizacionesComparativo.ExigirSinCotizacionesAsync(_db, rq.Id, cancellationToken);
+        }
+
+        // F1-COM-02 (D1): toda validación de la cotización va ANTES del folio y del compromiso de la RQ.
+        Cotizacion? cot = null;
+        Millet.SharedKernel.Domain.Adjuntos.Adjunto? adjuntoCot = null;
+        if (command.CotizacionId is Guid cotId)
+        {
+            if (!await _permisos.TieneAsync("compras.cotizaciones.gestionar", cancellationToken))
+            {
+                throw new ForbiddenException("COT_SIN_PERMISO", "Solo Compras puede elegir una cotización.");
+            }
+
+            cot = await _db.Cotizaciones.Include(c => c.Lineas)
+                    .FirstOrDefaultAsync(c => c.Id == cotId && c.RequisicionId == rq.Id, cancellationToken)
+                ?? throw new EntityNotFoundException("COTIZACION_NO_ENCONTRADA",
+                    $"No se encontró la cotización '{cotId}' en la requisición '{rq.Folio.Valor}'.");
+            if (cot.ProveedorId != command.ProveedorId)
+            {
+                throw new BusinessRuleException("COT_PROVEEDOR_DISTINTO",
+                    "El proveedor de la orden debe ser el de la cotización elegida.");
+            }
+            if (!string.Equals(cot.Moneda, command.Moneda, StringComparison.OrdinalIgnoreCase))
+            {
+                throw new BusinessRuleException("COT_MONEDA_DISTINTA",
+                    "La moneda de la orden debe ser la de la cotización elegida.");
+            }
+            if (lineasDeCompra.Any(l => cot.Lineas.All(x => x.LineaRequisicionId != l.Id)))
+            {
+                throw new BusinessRuleException("COT_PARTIDAS_INCOMPLETAS",
+                    "La cotización no cubre todas las partidas por comprar de la requisición.");
+            }
+
+            adjuntoCot = await _compartido.Adjuntos.AsNoTracking()
+                    .Where(a => a.TipoEntidad == "cotizacion_compra" && a.EntidadId == cot.Id && a.BajaEn == null)
+                    .OrderByDescending(a => a.SubidoEn)
+                    .FirstOrDefaultAsync(cancellationToken)
+                ?? throw new BusinessRuleException("COT_SIN_ARCHIVO", "Adjunta el PDF de la cotización antes de elegirla.");
+
+            var hayOtraElegida = await _db.Cotizaciones.AnyAsync(
+                c => c.RequisicionId == rq.Id && c.Id != cot.Id && c.OrdenCompraId != null, cancellationToken);
+
+            // Lanza COT_YA_HAY_ELEGIDA, COT_VENCIDA, COT_YA_ELEGIDA, COT_MOTIVO_REQUERIDO.
+            cot.Elegir(ocId, command.MotivoEleccion ?? string.Empty, userId, _clock.UtcNow, FechasInicio.Hoy(_clock),
+                hayOtraElegida);
+        }
+
+        var condicionesPagoId = command.CondicionesPagoId != Guid.Empty
+            ? command.CondicionesPagoId : cot?.CondicionesPagoId ?? Guid.Empty;
+        if (condicionesPagoId == Guid.Empty)
+            throw new BusinessRuleException("CONDICIONES_PAGO_REQUERIDAS", "Selecciona las condiciones de pago de la orden.");
+        if (cot is not null)
+            await Cotizaciones.PartidasCotizacion.ValidarPagoAsync(_compartido, condicionesPagoId, cancellationToken);
+
         // C10 — proveedor activo cross-table.
         var proveedor = await _compartido.Proveedores
             .AsNoTracking()
@@ -161,13 +232,13 @@ public sealed class CrearOrdenCompraDesdeRequisicionHandler
 
         // Crear OC con sucursal heredada de la RQ.
         var oc = new OrdenCompra(
-            id: Guid.CreateVersion7(),
+            id: ocId,
             empresaId: empresaId,
             folio: folio,
             folioAnio: command.FolioAnio,
             proveedorId: command.ProveedorId,
             sucursalDestinoId: rq.SucursalId,
-            condicionesPagoId: command.CondicionesPagoId,
+            condicionesPagoId: condicionesPagoId,
             usoPrincipalId: command.UsoPrincipalId,
             compradorTitularId: userId,
             encargadoComprasId: userId,
@@ -177,7 +248,7 @@ public sealed class CrearOrdenCompraDesdeRequisicionHandler
             sinRequisicionPrevia: false,
             esImportacion: command.EsImportacion,
             observaciones: command.Observaciones,
-            fechaEntregaEsperada: command.FechaEntregaEsperada);
+            fechaEntregaEsperada: command.FechaEntregaEsperada ?? cot?.FechaEntrega);
 
         // Heredar solo las líneas con saldo de compra; la cantidad de la
         // línea OC es CantidadDeCompra (lo que el comprador debe pedir al
@@ -198,18 +269,34 @@ public sealed class CrearOrdenCompraDesdeRequisicionHandler
                 articuloId: lineaRq.ArticuloId,
                 cantidad: saldos[lineaRq.Id],
                 unidadMedida: lineaRq.UnidadMedida,
-                precioUnitario: lineaRq.PrecioEstimado.Amount,
+                precioUnitario: cot is null ? lineaRq.PrecioEstimado.Amount : cot.PrecioPorUnidadRequisicion(lineaRq.Id),
                 departamentoSolicitanteId: rq.DepartamentoId,
                 requisicionId: rq.Id,
                 lineaRequisicionId: lineaRq.Id,
                 // Fase E PR3: el CC-Máquina se hereda 1:1 de la línea de RQ.
-                centroCostoId: lineaRq.CentroCostoId,
+                centroCostoId: lineaRq.CentroCostoId, esActivoFijo: lineaRq.EsActivoFijo, claseActivoId: lineaRq.ClaseActivoId,
                 esServicio: articulos.TryGetValue(lineaRq.ArticuloId, out var articulo)
                     && articulo.EsServicio);
         }
 
         // Comprometer RQ en la misma TX.
         rq.ComprometerEnOc(oc.Id);
+
+        if (cot is not null && adjuntoCot is not null)
+        {
+            // El PDF vive en el servicio genérico (ADR-0058) y la OC sigue usando el adjunto legado:
+            // se copia para que el requisito `cotizacion` de transmitir se cumpla sin captura manual (D1).
+            var tipoCotizacionId = await _db.TiposDocumentoOc.AsNoTracking()
+                .Where(t => t.Clave == "cotizacion").Select(t => t.Id).FirstAsync(cancellationToken);
+            var adjuntoOcId = Guid.CreateVersion7();
+            string blobUrl;
+            await using (var origen = await _blobGenerico.ObtenerStreamAsync(adjuntoCot.BlobRef, cancellationToken))
+            {
+                blobUrl = await _blobOc.SubirAsync(adjuntoOcId, origen, adjuntoCot.ContentType, adjuntoCot.NombreArchivo, cancellationToken);
+            }
+            oc.AdjuntarDocumento(adjuntoOcId, tipoCotizacionId, adjuntoCot.NombreArchivo, blobUrl,
+                adjuntoCot.ContentType, adjuntoCot.TamanoBytes, _clock.UtcNow, userId);
+        }
 
         _db.OrdenesCompra.Add(oc);
 

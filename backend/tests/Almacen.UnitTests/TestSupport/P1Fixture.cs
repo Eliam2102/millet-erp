@@ -25,13 +25,14 @@ internal sealed class P1Fixture : IAsyncDisposable
     public Decimales Guard { get; } = new();
     public OcPort Oc { get; }
     public RqPort Rq { get; }
-    public P1Fixture()
+    // ALM-04: por defecto Insumos (surtible); MAT-REV no se surte, así que los tests de 8.A piden MaterialEnRevision.
+    public P1Fixture(TipoSubAlmacen tipoSub = TipoSubAlmacen.Insumos)
     {
         Db = new(new DbContextOptionsBuilder<InMemoryAlmacenDbContext>().UseInMemoryDatabase(Guid.NewGuid().ToString()).Options, Context);
         Db.Database.EnsureCreated();
         var alm = new Domain.Catalogo.Almacen(Guid.NewGuid(), "P1", "Almacén P1", Guid.NewGuid());
         Db.Almacenes.Add(alm);
-        Db.SubAlmacenes.Add(new SubAlmacen(SubId, alm.Id, "P1", "Revisión P1", TipoSubAlmacen.MaterialEnRevision));
+        Db.SubAlmacenes.Add(new SubAlmacen(SubId, alm.Id, "P1", "Revisión P1", tipoSub));
         Db.Ubicaciones.Add(new Ubicacion(BinId, SubId, "R1", "Rack P1"));
         Db.AsignacionesArticuloUbicacion.Add(new AsignacionArticuloUbicacion(Guid.NewGuid(), BinId, ArticuloId));
         Db.SaldosInventario.Add(new Millet.Almacen.Domain.Saldos.SaldoInventario(BinId, SubId, ArticuloId, 100, 25));
@@ -69,6 +70,15 @@ internal sealed class P1Fixture : IAsyncDisposable
         public List<object> Items { get; } = [];
         public Task PublishAsync(object integrationEvent, CancellationToken ct) { Items.Add(integrationEvent); return Task.CompletedTask; }
     }
+    /// <summary>Puerto de artículos mínimo: toda clave existe con la unidad indicada.</summary>
+    public sealed class ArticulosConUnidad(string unidad = "PZA") : IArticuloReadPort
+    {
+        public Task<ArticuloLectura?> ObtenerAsync(Guid articuloId, CancellationToken ct) =>
+            Task.FromResult<ArticuloLectura?>(new ArticuloLectura(articuloId, "ART", "Artículo", unidad, null, true));
+        public Task<IReadOnlyDictionary<Guid, ArticuloLectura>> ObtenerPorIdsAsync(IReadOnlyCollection<Guid> ids, CancellationToken ct) =>
+            Task.FromResult<IReadOnlyDictionary<Guid, ArticuloLectura>>(
+                ids.ToDictionary(i => i, i => new ArticuloLectura(i, "ART", "Artículo", unidad, null, true)));
+    }
     public sealed class Decimales : IDecimalesUnidadGuard
     {
         public Task ValidarAsync(IEnumerable<CantidadAValidar> cantidades, CancellationToken ct) => Task.CompletedTask;
@@ -94,7 +104,7 @@ internal sealed class P1Fixture : IAsyncDisposable
     }
     public sealed class Articulos : IArticuloReadPort
     {
-        public Task<ArticuloLectura?> ObtenerAsync(Guid id, CancellationToken ct) => Task.FromResult<ArticuloLectura?>(new(id, "P1", "Artículo P1", "PZA", 10m, null, true));
+        public Task<ArticuloLectura?> ObtenerAsync(Guid id, CancellationToken ct) => Task.FromResult<ArticuloLectura?>(new(id, "P1", "Artículo P1", "PZA", null, true));
         public Task<IReadOnlyDictionary<Guid, ArticuloLectura>> ObtenerPorIdsAsync(IReadOnlyCollection<Guid> ids, CancellationToken ct) => Task.FromResult<IReadOnlyDictionary<Guid, ArticuloLectura>>(new Dictionary<Guid, ArticuloLectura>());
     }
 }

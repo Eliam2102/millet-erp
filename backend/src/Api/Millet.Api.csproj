@@ -17,6 +17,7 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <ProjectReference Include="..\ComercioExterior\Millet.ComercioExterior.csproj" />
     <ProjectReference Include="..\SharedKernel\Millet.SharedKernel.csproj" />
     <ProjectReference Include="..\Administracion\Millet.Administracion.csproj" />
     <ProjectReference Include="..\Catalogos\Millet.Catalogos.csproj" />
@@ -82,4 +83,5 @@
       </AssemblyAttribute>
     </ItemGroup>
   </Target>
+  <ItemGroup><ProjectReference Include="../ActivosFijos/Millet.ActivosFijos.csproj" /></ItemGroup>
 </Project>

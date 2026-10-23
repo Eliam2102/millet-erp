@@ -54,6 +54,8 @@ export const comprasKeys = {
     [...comprasKeys.requisiciones(), 'list', filtros] as const,
   requisicion: (id: string) =>
     [...comprasKeys.requisiciones(), 'detail', id] as const,
+  /** Existencia apartada por línea de una RQ (86e3tferc). */
+  apartados: (id: string) => [...comprasKeys.requisiciones(), 'apartados', id] as const,
 
   /**
    * Bandeja P2 (pendientes de autorización). Aunque internamente el
@@ -76,6 +78,8 @@ export const comprasKeys = {
 
   /** Umbrales N1/N2 vigentes por departamento (configuración). */
   umbralesAprobacion: () => [...comprasKeys.all, 'umbrales-aprobacion'] as const,
+  cotizaciones: (requisicionId: string) =>
+    [...comprasKeys.all, 'cotizaciones', requisicionId] as const,
   /** Configuración del módulo Compras de la empresa actual. */
   configuracion: () => [...comprasKeys.all, 'configuracion'] as const,
 

@@ -8,8 +8,8 @@ import {
   type NodoTrazabilidadFacturacion,
   type RaizTrazabilidad,
 } from '@/features/facturacion/api/useTrazabilidad';
-import { useHasPermission } from '@/lib/auth/useHasPermission';
 import { PermisosCanonicos } from '@/lib/auth/permission-codes';
+import { useHasPermission } from '@/lib/auth/useHasPermission';
 
 /**
  * <c>&lt;TrazabilidadFacturacion/&gt;</c> — sección de trazabilidad
@@ -20,13 +20,7 @@ import { PermisosCanonicos } from '@/lib/auth/permission-codes';
  * <c>facturacion.facturas.leer</c> (permiso del endpoint); si el árbol no
  * tiene relaciones o falla, la sección no estorba (estado vacío / nada).
  */
-export function TrazabilidadFacturacion({
-  raiz,
-  id,
-}: {
-  raiz: RaizTrazabilidad;
-  id: string;
-}) {
+export function TrazabilidadFacturacion({ raiz, id }: { raiz: RaizTrazabilidad; id: string }) {
   const puedeVer = useHasPermission(PermisosCanonicos.FacturacionFacturasLeer);
   const query = useArbolDocumentosFacturacion(raiz, puedeVer ? id : null);
 
@@ -36,7 +30,7 @@ export function TrazabilidadFacturacion({
     <section className="space-y-2">
       <h2 className="text-sm font-medium">Trazabilidad</h2>
       {query.isLoading || query.data == null ? (
-        <div className="h-24 w-full animate-pulse rounded bg-muted" />
+        <div className="h-24 w-full animate-pulse rounded bg-surface-muted" />
       ) : (
         <ArbolDocumentos
           raiz={mapearRaiz(query.data.actual, query.data.ascendientes, query.data.descendientes)}

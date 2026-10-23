@@ -1,3 +1,5 @@
+import { DialogBody } from '@/components/ui/dialog';
+import { ConfirmacionContent as AlertDialogContent } from '@/modules/administracion/components/ConfirmacionContent';
 import { useState } from 'react';
 import { Plus, Trash2 } from 'lucide-react';
 import { toast } from 'sonner';
@@ -6,13 +8,12 @@ import {
   AlertDialog,
   AlertDialogAction,
   AlertDialogCancel,
-  AlertDialogContent,
   AlertDialogDescription,
   AlertDialogFooter,
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
-import { esApiError } from '@/lib/api';
+import { esApiError, codigoSoporte } from '@/lib/api';
 import { useDesasociarGrupoEntraId } from '@/modules/identidad/api';
 import type { RolGrupoEntraIdResponse } from '@/modules/identidad/api/types';
 import { useHasPermission } from '@/lib/auth/useHasPermission';
@@ -36,18 +37,11 @@ export interface GruposEntraIdPanelProps {
   bloqueado?: boolean;
 }
 
-export function GruposEntraIdPanel({
-  rolId,
-  grupos,
-  bloqueado = false,
-}: GruposEntraIdPanelProps) {
+export function GruposEntraIdPanel({ rolId, grupos, bloqueado = false }: GruposEntraIdPanelProps) {
   const [agregando, setAgregando] = useState(false);
-  const [paraDesasociar, setParaDesasociar] =
-    useState<RolGrupoEntraIdResponse | null>(null);
+  const [paraDesasociar, setParaDesasociar] = useState<RolGrupoEntraIdResponse | null>(null);
 
-  const canGestionar = useHasPermission(
-    PermisosCanonicos.IdentidadRolesGruposEntraIdGestionar,
-  );
+  const canGestionar = useHasPermission(PermisosCanonicos.IdentidadRolesGruposEntraIdGestionar);
   const puedeGestionar = canGestionar && !bloqueado;
 
   const desasociar = useDesasociarGrupoEntraId();
@@ -66,9 +60,7 @@ export function GruposEntraIdPanel({
         onError: (error) => {
           if (esApiError(error)) {
             toast.error(error.problem.title, {
-              description: error.traceId
-                ? `Código: ${error.traceId}`
-                : undefined,
+              description: codigoSoporte(error),
             });
           } else {
             toast.error('Error al desasociar el grupo.');
@@ -84,17 +76,12 @@ export function GruposEntraIdPanel({
       <header className="flex flex-wrap items-center justify-between gap-2">
         <div>
           <h3 className="text-base font-semibold">Grupos de Entra ID</h3>
-          <p className="text-xs text-muted-foreground">
-            Microsoft Entra ID — usuarios miembros del grupo heredan el rol.
-            Total: {grupos.length}.
+          <p className="text-xs text-ink-muted">
+            Microsoft Entra ID — usuarios miembros del grupo heredan el rol. Total: {grupos.length}.
           </p>
         </div>
         {puedeGestionar && !agregando && (
-          <Button
-            size="sm"
-            variant="outline"
-            onClick={() => setAgregando(true)}
-          >
+          <Button size="sm" variant="outline" onClick={() => setAgregando(true)}>
             <Plus className="mr-1 h-4 w-4" />
             Asociar grupo
           </Button>
@@ -104,7 +91,7 @@ export function GruposEntraIdPanel({
       {bloqueado && (
         <div
           role="status"
-          className="rounded-md border border-amber-300 bg-amber-50/50 px-3 py-2 text-xs text-amber-900"
+          className="rounded-md border border-line bg-warning-bg/50 px-3 py-2 text-xs text-warning-fg"
         >
           Los roles del sistema no admiten asociación de grupos.
         </div>
@@ -119,21 +106,17 @@ export function GruposEntraIdPanel({
       )}
 
       {grupos.length === 0 ? (
-        <div className="rounded-md border border-dashed bg-muted/20 px-4 py-6 text-center text-sm text-muted-foreground">
+        <div className="rounded-md border border-dashed bg-surface-muted/20 px-4 py-6 text-center text-sm text-ink-muted">
           No hay grupos asociados.
         </div>
       ) : (
-        <ul className="divide-y rounded-md border bg-card">
+        <ul className="divide-y rounded-md border bg-surface-card">
           {grupos.map((g) => (
             <li key={g.id} className="px-3 py-2">
               <div className="flex flex-wrap items-center gap-3">
                 <div className="min-w-0 flex-1 space-y-0.5">
-                  <div className="truncate text-sm font-medium">
-                    {g.nombre}
-                  </div>
-                  <div className="truncate font-mono text-xs text-muted-foreground">
-                    {g.objectId}
-                  </div>
+                  <div className="truncate text-sm font-medium">{g.nombre}</div>
+                  <div className="truncate font-mono text-xs text-ink-muted">{g.objectId}</div>
                 </div>
                 {puedeGestionar && (
                   <Button
@@ -159,23 +142,19 @@ export function GruposEntraIdPanel({
         }}
       >
         <AlertDialogContent>
-          <AlertDialogHeader>
+          <AlertDialogHeader className="px-6 pt-5 pb-3">
             <AlertDialogTitle>Desasociar grupo</AlertDialogTitle>
+          </AlertDialogHeader>
+          <DialogBody>
             <AlertDialogDescription>
               ¿Confirmas desasociar el grupo{' '}
-              <span className="font-semibold">{paraDesasociar?.nombre}</span>{' '}
-              de este rol? Los usuarios miembros dejarán de heredar este rol
-              al recargar su sesión.
+              <span className="font-semibold">{paraDesasociar?.nombre}</span> de este rol? Los
+              usuarios miembros dejarán de heredar este rol al recargar su sesión.
             </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel disabled={desasociar.isPending}>
-              Cancelar
-            </AlertDialogCancel>
-            <AlertDialogAction
-              onClick={handleConfirmarDesasociar}
-              disabled={desasociar.isPending}
-            >
+          </DialogBody>
+          <AlertDialogFooter className="border-t border-line-divider bg-surface-subtle px-6 py-4">
+            <AlertDialogCancel disabled={desasociar.isPending}>Cancelar</AlertDialogCancel>
+            <AlertDialogAction onClick={handleConfirmarDesasociar} disabled={desasociar.isPending}>
               {desasociar.isPending ? 'Desasociando…' : 'Desasociar'}
             </AlertDialogAction>
           </AlertDialogFooter>

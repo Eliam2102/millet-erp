@@ -1,25 +1,27 @@
 import { z } from 'zod';
+import { FraccionArancelariaSchema } from '@/features/compras/ordenes/schemas/comercio-exterior';
+
+export const ImportacionRecepcionSchema = z.object({
+  numeroPedimento: z.string().refine((v) => /^[0-9]{15}$/.test(v.replaceAll(' ', '')), 'Captura el pedimento de 15 dígitos.'),
+  numeroBl: z.string().trim().min(1, 'Captura el BL o guía aérea.').max(50),
+  numeroContenedor: z.string().trim().min(1, 'Captura el número de contenedor.').max(40),
+  aduana: z.string().min(1, 'Selecciona la aduana.'),
+  clavePedimento: z.string().min(1, 'Selecciona la clave de pedimento.'),
+});
+export type ImportacionRecepcionValues = z.infer<typeof ImportacionRecepcionSchema>;
+
 
 /**
  * Regex laxo de UUID (8-4-4-4-12 hex) — los seeds del backend usan
  * GUIDs deterministas que no califican como v1-v8 estricto.
  */
-const UUID_SHAPE_RE =
-  /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+const UUID_SHAPE_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 /**
  * DateOnly serializado <c>YYYY-MM-DD</c> (sin tiempo, sin zona).
  * Backend lo parsea con <c>DateOnly.Parse</c>.
  */
 const DATE_ONLY_RE = /^\d{4}-\d{2}-\d{2}$/;
-
-/**
- * Tolerancia client-side default para sobre-recepción (5%). El backend
- * revalida con la tolerancia real del artículo (<c>IArticuloReadPort</c>)
- * y rechaza si excede; el cliente usa este valor solo para feedback
- * inmediato al usuario.
- */
-export const TOLERANCIA_RECEPCION_DEFAULT = 0.05;
 
 /**
  * Schema de una fila de recepción derivada de una línea de OC. La fila
@@ -30,6 +32,8 @@ export const TOLERANCIA_RECEPCION_DEFAULT = 0.05;
  */
 export const FilaRecepcionSchema = z
   .object({
+    fraccionArancelaria: FraccionArancelariaSchema.nullish(),
+    esActivoFijo: z.boolean().optional(),
     lineaOcId: z.string().regex(UUID_SHAPE_RE),
     articuloId: z.string().regex(UUID_SHAPE_RE),
     // Etiqueta legible resuelta en backend (ADR-0042); null → id truncado.
@@ -42,17 +46,20 @@ export const FilaRecepcionSchema = z
     cantidadSolicitada: z.number(),
     cantidadYaRecibida: z.number(),
     pendiente: z.number(),
+    // Máximo recibible del servidor (LineaRecibible): igual al pendiente;
+    // en piezas no hay tolerancia, Almacén recibe exacto.
+    maximo: z.number(),
     incluida: z.boolean(),
     cantidad: z
       .number({ message: 'Cantidad requerida' })
       .nonnegative('La cantidad no puede ser negativa'),
-    ubicacionReferencia: z
-      .string()
-      .max(100, 'Máximo 100 caracteres')
-      .nullish(),
+    ubicacionReferencia: z.string().max(100, 'Máximo 100 caracteres').nullish(),
     // C7.2b: bin real destino (rack). Obligatorio en las filas incluidas.
     ubicacionId: z.string().regex(UUID_SHAPE_RE).nullish(),
     comentario: z.string().max(500, 'Máximo 500 caracteres').nullish(),
+    // ALM-04: parte de la cantidad que llegó dañada; va a material en revisión.
+    cantidadDanada: z.number().nonnegative('La cantidad dañada no puede ser negativa'),
+    motivoDano: z.string().max(500, 'Máximo 500 caracteres').nullish(),
   })
   .superRefine((v, ctx) => {
     if (!v.incluida) return;
@@ -64,19 +71,39 @@ export const FilaRecepcionSchema = z
       });
       return;
     }
-    if (!v.ubicacionId) {
+    if (v.cantidadDanada > v.cantidad) {
+      ctx.addIssue({
+        code: 'custom',
+        path: ['cantidadDanada'],
+        message: 'La cantidad dañada no puede ser mayor que la cantidad recibida.',
+      });
+    }
+    if (v.cantidadDanada > 0 && !v.motivoDano?.trim()) {
+      ctx.addIssue({
+        code: 'custom',
+        path: ['motivoDano'],
+        message: 'Indica el motivo del daño.',
+      });
+    }
+    if (v.esActivoFijo && (!Number.isInteger(v.cantidad) || v.cantidadDanada !== 0)) {
+      ctx.addIssue({
+        code: 'custom',
+        path: ['cantidad'],
+        message: 'Recibe unidades enteras de activos, sin cantidad dañada.',
+      });
+    }
+    if (!v.esActivoFijo && !v.ubicacionId) {
       ctx.addIssue({
         code: 'custom',
         path: ['ubicacionId'],
         message: 'Elige la ubicación (rack) destino.',
       });
     }
-    const max = v.pendiente * (1 + TOLERANCIA_RECEPCION_DEFAULT);
-    if (!v.unidadCapturada?.trim() && v.cantidad > max) {
+    if (!v.unidadCapturada?.trim() && v.cantidad > v.pendiente) {
       ctx.addIssue({
         code: 'custom',
         path: ['cantidad'],
-        message: `Excede el pendiente (${v.pendiente}) + 5% de tolerancia (${max.toFixed(4)}).`,
+        message: `Excede lo pendiente de la orden de compra (${Number(v.pendiente.toFixed(4))}). Almacén recibe exacto.`,
       });
     }
   });
@@ -109,10 +136,9 @@ const alMenosUnaFilaIncluida = (
  */
 export const RegistrarRecepcionFacturaSchema = z
   .object({
+    importacion: ImportacionRecepcionSchema.nullish(),
     ordenCompraId: z.string().regex(UUID_SHAPE_RE, 'OC requerida'),
-    fechaMovimiento: z
-      .string()
-      .regex(DATE_ONLY_RE, 'Fecha en formato YYYY-MM-DD'),
+    fechaMovimiento: z.string().regex(DATE_ONLY_RE, 'Fecha en formato YYYY-MM-DD'),
     // Vínculo fiscal obligatorio (§5.4): CFDI del repositorio de CxP o
     // folio fiscal (UUID SAT) capturado del impreso — al menos uno. El
     // refine de abajo lo exige; el backend revalida (RECEPCION_SIN_CFDI).
@@ -134,15 +160,12 @@ export const RegistrarRecepcionFacturaSchema = z
       ctx.addIssue({
         code: 'custom',
         path: ['cfdiRecibidoId'],
-        message:
-          'Vincula el CFDI del proveedor o captura su folio fiscal (UUID del impreso).',
+        message: 'Vincula el CFDI del proveedor o captura su folio fiscal (UUID del impreso).',
       });
     }
   });
 
-export type RegistrarRecepcionFacturaValues = z.infer<
-  typeof RegistrarRecepcionFacturaSchema
->;
+export type RegistrarRecepcionFacturaValues = z.infer<typeof RegistrarRecepcionFacturaSchema>;
 
 /**
  * Variante B — recepción con packing list, factura pendiente
@@ -151,10 +174,9 @@ export type RegistrarRecepcionFacturaValues = z.infer<
  */
 export const RegistrarRecepcionPackingListSchema = z
   .object({
+    importacion: ImportacionRecepcionSchema.nullish(),
     ordenCompraId: z.string().regex(UUID_SHAPE_RE, 'OC requerida'),
-    fechaMovimiento: z
-      .string()
-      .regex(DATE_ONLY_RE, 'Fecha en formato YYYY-MM-DD'),
+    fechaMovimiento: z.string().regex(DATE_ONLY_RE, 'Fecha en formato YYYY-MM-DD'),
     packingListBlobRef: z
       .string()
       .min(1, 'Adjunto del packing list requerido')

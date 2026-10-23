@@ -1,3 +1,5 @@
+using Microsoft.Extensions.DependencyInjection.Extensions;
+using Microsoft.AspNetCore.TestHost;
 using System.Net;
 using System.Net.Http.Headers;
 using System.Net.Http.Json;
@@ -19,12 +21,19 @@ public sealed class P6FormasPagoTests(WebApplicationFactory<Program> factory) : 
     [Fact]
     public async Task Desactivar_02_audita_el_cambio_la_oculta_y_Caja_y_Facturacion_rechazan()
     {
-        var client = factory.CreateClientWithIdempotency();
+        // Esta prueba mide el catálogo de formas de pago; el candado de periodo se prueba aparte
+        // (antes dependía de que el mes actual estuviera abierto en la BD de prueba).
+        var app = factory.WithWebHostBuilder(b => b.ConfigureTestServices(s =>
+        {
+            s.RemoveAll<Millet.Facturacion.Domain.Ports.IPeriodoContablePort>();
+            s.AddScoped<Millet.Facturacion.Domain.Ports.IPeriodoContablePort, PeriodoFacturacionAbierto>();
+        }));
+        var client = app.CreateClientWithIdempotency();
         var loginRes = await client.PostAsJsonAsync("/api/dev/fake-login", new { EntraOid = "dev-superadmin", Email = "superadmin@dev.local", Nombre = "Super Admin Dev" });
         loginRes.EnsureSuccessStatusCode();
         client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", (await loginRes.Content.ReadFromJsonAsync<LoginResponse>())!.AccessToken);
         Guid id; bool estadoOriginal;
-        using (var scope = factory.Services.CreateScope())
+        using (var scope = app.Services.CreateScope())
         {
             var forma = await scope.ServiceProvider.GetRequiredService<CompartidoDbContext>().FormasPago.SingleAsync(x => x.ClaveSat == "02");
             id = forma.Id; estadoOriginal = forma.Activa;
@@ -46,7 +55,7 @@ public sealed class P6FormasPagoTests(WebApplicationFactory<Program> factory) : 
                 "PUE", "02", "MXN", null, 1, ComportamientoFiscal.MostradorInmediato, null, null, false,
                 [new EmitirFacturaVentaLinea(null, "01010101", "Producto de prueba", "H87", 1m, 100m, 0m, "02", 0.16m, null, null)]);
             await AssertFormaInvalidaAsync(await client.PostAsJsonAsync("/api/v1/facturacion/facturas", factura));
-            using var verificar = factory.Services.CreateScope();
+            using var verificar = app.Services.CreateScope();
             var cambios = await verificar.ServiceProvider.GetRequiredService<CoreDbContext>().AuditLog.AsNoTracking()
                 .Where(x => x.Entidad == "FormaPago" && x.EntidadId == id).ToListAsync();
             Assert.Contains(cambios, x => x.Cambios.Contains("Activa", StringComparison.Ordinal));
@@ -61,6 +70,11 @@ public sealed class P6FormasPagoTests(WebApplicationFactory<Program> factory) : 
             restaurar.EnsureSuccessStatusCode();
         }
     }
+    private sealed class PeriodoFacturacionAbierto : Millet.Facturacion.Domain.Ports.IPeriodoContablePort
+    {
+        public Task<bool> EstaAbiertoAsync(int año, int mes, CancellationToken cancellationToken) => Task.FromResult(true);
+    }
+
     private static async Task AssertFormaInvalidaAsync(HttpResponseMessage response)
     {
         Assert.Equal(HttpStatusCode.UnprocessableEntity, response.StatusCode);

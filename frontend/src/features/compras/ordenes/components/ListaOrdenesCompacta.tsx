@@ -1,3 +1,4 @@
+import { RecurrenteBadge } from '@/features/compras/components/IndicadoresPendiente';
 import { Link } from '@tanstack/react-router';
 import { EstadoBadge, DateTimeDisplay } from '@/components/erp';
 import type { OrdenCompraResumen } from '@/features/compras/ordenes/api/types';
@@ -26,24 +27,11 @@ export interface ListaOrdenesCompactaProps {
   search: BandejaOcSearch;
 }
 
-export function ListaOrdenesCompacta({
-  items,
-  idActivo,
-  search,
-}: ListaOrdenesCompactaProps) {
+export function ListaOrdenesCompacta({ items, idActivo, search }: ListaOrdenesCompactaProps) {
   return (
-    <ul
-      className="divide-y"
-      role="list"
-      aria-label="Lista de órdenes de compra"
-    >
+    <ul className="divide-y" role="list" aria-label="Lista de órdenes de compra">
       {items.map((oc) => (
-        <ItemCompacto
-          key={oc.id}
-          item={oc}
-          activo={oc.id === idActivo}
-          search={search}
-        />
+        <ItemCompacto key={oc.id} item={oc} activo={oc.id === idActivo} search={search} />
       ))}
     </ul>
   );
@@ -69,9 +57,7 @@ function ItemCompacto({ item, activo, search }: ItemCompactoProps) {
         state={{ bandejaOcSearch: search } as never}
         className={cn(
           'block px-3 py-2 transition-colors',
-          activo
-            ? 'bg-primary/10 hover:bg-primary/15'
-            : 'hover:bg-muted/40',
+          activo ? 'bg-brand/10 hover:bg-brand/15' : 'hover:bg-surface-muted/40',
         )}
         aria-current={activo ? 'page' : undefined}
       >
@@ -79,20 +65,20 @@ function ItemCompacto({ item, activo, search }: ItemCompactoProps) {
           <span
             className={cn(
               'truncate font-mono text-sm',
-              activo ? 'font-semibold text-foreground' : 'text-foreground',
+              activo ? 'font-semibold text-ink' : 'text-ink',
             )}
           >
             {item.folio}
           </span>
-          <EstadoBadge tipo="orden-compra" estado={item.estado} />
+          <span className="flex flex-wrap justify-end gap-1">
+            <EstadoBadge tipo="orden-compra" estado={item.estado} />
+            <RecurrenteBadge esRecurrente={item.esRecurrente} />
+          </span>
         </div>
-        <div className="mt-1 flex items-center justify-between gap-2 text-xs text-muted-foreground">
+        <div className="mt-1 flex items-center justify-between gap-2 text-xs text-ink-muted">
           <span className="truncate">
-            {item.referenciaProveedor != null ? (
-              <>Ref. {item.referenciaProveedor}</>
-            ) : (
-              <span className="italic">sin referencia del proveedor</span>
-            )}
+            {item.proveedorNombre ?? item.proveedorId}
+            {item.referenciaProveedor != null && <> · Ref. {item.referenciaProveedor}</>}
           </span>
           <DateTimeDisplay value={item.fechaDocumento} />
         </div>

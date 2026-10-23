@@ -1,5 +1,6 @@
 import type { FilaRecepcionValues } from '@/features/almacen/schemas/recepcion';
 import type { LineaOrdenCompraResponse } from '@/features/compras/ordenes/api/types';
+import type { LineaRecibible } from '@/features/almacen/api/types';
 
 /**
  * Mapea las líneas del detalle de OC a filas del form de recepción.
@@ -7,31 +8,44 @@ import type { LineaOrdenCompraResponse } from '@/features/compras/ordenes/api/ty
  * más recepción. El default <c>cantidad</c> es el pendiente; el
  * almacenista solo lo ajusta si lo que llegó difiere de lo solicitado.
  *
+ * <para><paramref name="recibibles"/> es la respuesta del servidor
+ * (<c>useLineasRecibibles</c>): de ahí salen el pendiente y el
+ * máximo recibible (igual al pendiente). Si una línea no aparece en ese índice
+ * (defensivo), se calcula local.</para>
+ *
  * <para>Vive en archivo aparte para satisfacer
  * <c>react-refresh/only-export-components</c> en el sheet.</para>
  */
 export function construirFilas(
   lineasOc: LineaOrdenCompraResponse[],
+  recibibles: readonly LineaRecibible[],
 ): FilaRecepcionValues[] {
+  const porLinea = new Map(recibibles.map((r) => [r.lineaOcId, r]));
   return lineasOc
     .filter((l) => !l.esServicio) // CA2.10: los servicios no se reciben en Almacén
     .map((l) => {
-      const pendiente = Math.max(0, l.cantidad - l.cantidadRecibida);
+      const r = porLinea.get(l.id);
+      const pendiente = r ? r.pendiente : Math.max(0, l.cantidad - l.cantidadRecibida);
       return {
+        fraccionArancelaria: l.fraccionArancelaria ?? null,
         lineaOcId: l.id,
+        esActivoFijo: l.esActivoFijo ?? false,
         articuloId: l.articuloId,
         articuloClave: l.articuloClave,
         articuloNombre: l.articuloNombre,
         posicion: l.posicion,
         unidadMedida: l.unidadMedida,
         cantidadSolicitada: l.cantidad,
-        cantidadYaRecibida: l.cantidadRecibida,
+        cantidadYaRecibida: r ? r.cantidadRecibida : l.cantidadRecibida,
         pendiente,
+        maximo: r ? r.maximoRecibible : pendiente,
         incluida: false,
         cantidad: pendiente,
         ubicacionReferencia: null,
         ubicacionId: null,
         comentario: null,
+        cantidadDanada: 0,
+        motivoDano: null,
       };
     })
     .filter((f) => f.pendiente > 0);
@@ -50,11 +64,35 @@ export function construirFilas(
  */
 export function indicesParaAutoAsignar(
   filas: readonly FilaRecepcionValues[],
+  /** Si se pasa, solo se rellenan las filas que lo cumplen (artículo asignado al rack). */
+  puedeAsignar?: (fila: FilaRecepcionValues) => boolean,
 ): number[] {
   return filas.reduce<number[]>((acc, fila, index) => {
-    if (!fila.ubicacionId) acc.push(index);
+    if (!fila.esActivoFijo && !fila.ubicacionId && (puedeAsignar?.(fila) ?? true)) acc.push(index);
     return acc;
   }, []);
+}
+
+/**
+ * Invariante «una recepción = un sub-almacén» (RECEPCION_MULTI_SUBALMACEN):
+ * el sub de referencia es el de la primera fila incluida con rack; las demás
+ * filas incluidas cuyo rack es de otro sub-almacén quedan en <c>conflictos</c>
+ * (índice de fila → clave del sub de referencia).
+ */
+export function detectarConflictoSubAlmacen(
+  filas: readonly FilaRecepcionValues[],
+  subPorUbicacion: ReadonlyMap<string, { id: string; clave: string }>,
+): { subBaseClave: string | null; conflictos: Set<number> } {
+  let base: { id: string; clave: string } | null = null;
+  const conflictos = new Set<number>();
+  filas.forEach((f, i) => {
+    if (!f.incluida || !f.ubicacionId) return;
+    const sub = subPorUbicacion.get(f.ubicacionId);
+    if (!sub) return;
+    if (!base) base = sub;
+    else if (sub.id !== base.id) conflictos.add(i);
+  });
+  return { subBaseClave: (base as { clave: string } | null)?.clave ?? null, conflictos };
 }
 
 /**
@@ -68,7 +106,6 @@ export function contarLineasEnOtraUbicacion(
   ubicacionHelperId: string | null | undefined,
 ): number {
   if (!ubicacionHelperId) return 0;
-  return filas.filter(
-    (f) => f.incluida && !!f.ubicacionId && f.ubicacionId !== ubicacionHelperId,
-  ).length;
+  return filas.filter((f) => f.incluida && !!f.ubicacionId && f.ubicacionId !== ubicacionHelperId)
+    .length;
 }

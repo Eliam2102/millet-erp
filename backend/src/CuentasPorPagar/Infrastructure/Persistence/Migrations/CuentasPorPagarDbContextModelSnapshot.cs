@@ -968,63 +968,6 @@ namespace Millet.CuentasPorPagar.Infrastructure.Persistence.Migrations
                         });
                 });
 
-            modelBuilder.Entity("Millet.CuentasPorPagar.Domain.ComprobacionGastos.ConfiguracionReposicionCaja", b =>
-                {
-                    b.Property<Guid>("Id")
-                        .HasColumnType("uuid")
-                        .HasColumnName("id");
-
-                    b.Property<DateTimeOffset>("CreatedAt")
-                        .HasColumnType("timestamp with time zone")
-                        .HasColumnName("created_at");
-
-                    b.Property<string>("CreatedBy")
-                        .HasColumnType("text")
-                        .HasColumnName("created_by");
-
-                    b.Property<DateTimeOffset?>("DeletedAt")
-                        .HasColumnType("timestamp with time zone")
-                        .HasColumnName("deleted_at");
-
-                    b.Property<Guid>("EmpresaId")
-                        .HasColumnType("uuid")
-                        .HasColumnName("empresa_id");
-
-                    b.Property<decimal>("MontoMinimo")
-                        .HasPrecision(18, 4)
-                        .HasColumnType("numeric(18,4)")
-                        .HasColumnName("monto_minimo");
-
-                    b.Property<Guid>("SucursalId")
-                        .HasColumnType("uuid")
-                        .HasColumnName("sucursal_id");
-
-                    b.Property<DateTimeOffset>("UpdatedAt")
-                        .HasColumnType("timestamp with time zone")
-                        .HasColumnName("updated_at");
-
-                    b.Property<string>("UpdatedBy")
-                        .HasColumnType("text")
-                        .HasColumnName("updated_by");
-
-                    b.Property<int>("Version")
-                        .IsConcurrencyToken()
-                        .HasColumnType("integer")
-                        .HasColumnName("version");
-
-                    b.HasKey("Id")
-                        .HasName("pk_configuracion_reposicion_caja");
-
-                    b.HasIndex("SucursalId")
-                        .IsUnique()
-                        .HasDatabaseName("ux_config_reposicion_sucursal");
-
-                    b.ToTable("configuracion_reposicion_caja", "cuentas_por_pagar", t =>
-                        {
-                            t.HasCheckConstraint("ck_config_reposicion_minimo_no_negativo", "monto_minimo >= 0");
-                        });
-                });
-
             modelBuilder.Entity("Millet.CuentasPorPagar.Domain.ComprobacionGastos.LineaComprobacionGastos", b =>
                 {
                     b.Property<Guid>("Id")
@@ -1398,6 +1341,90 @@ namespace Millet.CuentasPorPagar.Infrastructure.Persistence.Migrations
                         });
                 });
 
+            modelBuilder.Entity("Millet.CuentasPorPagar.Domain.FacturaProveedor.AvisoSlaRevision", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at");
+
+                    b.Property<string>("CreatedBy")
+                        .HasColumnType("text")
+                        .HasColumnName("created_by");
+
+                    b.Property<DateTimeOffset?>("DeletedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("deleted_at");
+
+                    b.Property<Guid>("DependenciaRevisoraId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("dependencia_revisora_id");
+
+                    b.Property<int>("DiasHabiles")
+                        .HasColumnType("integer")
+                        .HasColumnName("dias_habiles");
+
+                    b.Property<DateTimeOffset>("EmitidoEn")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("emitido_en");
+
+                    b.Property<Guid>("EmpresaId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("empresa_id");
+
+                    b.Property<Guid>("FacturaProveedorId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("factura_proveedor_id");
+
+                    b.Property<DateOnly>("Fecha")
+                        .HasColumnType("date")
+                        .HasColumnName("fecha");
+
+                    b.Property<DateTimeOffset>("FechaEntradaRevision")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("fecha_entrada_revision");
+
+                    b.Property<Guid>("MotivoRevisionId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("motivo_revision_id");
+
+                    b.Property<int>("Nivel")
+                        .HasColumnType("integer")
+                        .HasColumnName("nivel");
+
+                    b.Property<int>("SlaDias")
+                        .HasColumnType("integer")
+                        .HasColumnName("sla_dias");
+
+                    b.Property<DateTimeOffset>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("updated_at");
+
+                    b.Property<string>("UpdatedBy")
+                        .HasColumnType("text")
+                        .HasColumnName("updated_by");
+
+                    b.Property<int>("Version")
+                        .IsConcurrencyToken()
+                        .HasColumnType("integer")
+                        .HasColumnName("version");
+
+                    b.HasKey("Id")
+                        .HasName("pk_avisos_sla_revision");
+
+                    b.HasIndex("FacturaProveedorId", "FechaEntradaRevision")
+                        .HasDatabaseName("ix_avisos_sla_revision_factura_entrada");
+
+                    b.HasIndex("FacturaProveedorId", "Nivel", "Fecha")
+                        .IsUnique()
+                        .HasDatabaseName("ux_avisos_sla_revision_factura_nivel_fecha");
+
+                    b.ToTable("avisos_sla_revision", "cuentas_por_pagar");
+                });
+
             modelBuilder.Entity("Millet.CuentasPorPagar.Domain.FacturaProveedor.BitacoraEstadoFactura", b =>
                 {
                     b.Property<Guid>("Id")
@@ -1612,6 +1639,10 @@ namespace Millet.CuentasPorPagar.Infrastructure.Persistence.Migrations
                         .HasColumnType("uuid")
                         .HasColumnName("proveedor_id");
 
+                    b.Property<Guid?>("RecepcionId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("recepcion_id");
+
                     b.Property<decimal>("RedondeoAplicado")
                         .HasPrecision(18, 4)
                         .HasColumnType("numeric(18,4)")
@@ -1629,6 +1660,19 @@ namespace Millet.CuentasPorPagar.Infrastructure.Persistence.Migrations
                     b.Property<string>("RetencionesDetalle")
                         .HasColumnType("jsonb")
                         .HasColumnName("retenciones_detalle");
+
+                    b.Property<DateTimeOffset?>("RetencionesRevisadasEn")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("retenciones_revisadas_en");
+
+                    b.Property<Guid?>("RetencionesRevisadasPor")
+                        .HasColumnType("uuid")
+                        .HasColumnName("retenciones_revisadas_por");
+
+                    b.Property<string>("RetencionesRevisionMotivo")
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)")
+                        .HasColumnName("retenciones_revision_motivo");
 
                     b.Property<string>("SerieProveedor")
                         .HasMaxLength(25)
@@ -1683,6 +1727,10 @@ namespace Millet.CuentasPorPagar.Infrastructure.Persistence.Migrations
 
                     b.HasKey("Id")
                         .HasName("pk_facturas_proveedor");
+
+                    b.HasIndex("RecepcionId")
+                        .HasDatabaseName("ix_facturas_proveedor_recepcion")
+                        .HasFilter("recepcion_id IS NOT NULL");
 
                     b.HasIndex("UuidCfdi")
                         .HasDatabaseName("ix_facturas_proveedor_uuid")
@@ -1820,6 +1868,11 @@ namespace Millet.CuentasPorPagar.Infrastructure.Persistence.Migrations
                         .HasColumnType("boolean")
                         .HasColumnName("activo");
 
+                    b.Property<string>("AreaAvisadaCodigo")
+                        .HasMaxLength(40)
+                        .HasColumnType("character varying(40)")
+                        .HasColumnName("area_avisada_codigo");
+
                     b.Property<string>("Codigo")
                         .IsRequired()
                         .HasMaxLength(60)
@@ -1889,8 +1942,8 @@ namespace Millet.CuentasPorPagar.Infrastructure.Persistence.Migrations
                             CreatedAt = new DateTimeOffset(new DateTime(2026, 5, 22, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
                             CreatedBy = "seed",
                             DependenciaRevisoraDefaultCodigo = "COMPRAS",
-                            Descripcion = "Monto factura supera tolerancia del proveedor",
-                            Nombre = "Discrepancia con OC fuera de tolerancia",
+                            Descripcion = "Diferencias distintas al monto: artículo, cantidad, condiciones; las diferencias de monto las resuelve la tolerancia",
+                            Nombre = "Diferencia con la OC (no de monto)",
                             SlaDias = 5,
                             UpdatedAt = new DateTimeOffset(new DateTime(2026, 5, 22, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
                             UpdatedBy = "seed",
@@ -1903,8 +1956,8 @@ namespace Millet.CuentasPorPagar.Infrastructure.Persistence.Migrations
                             Codigo = "DANOS_MERCANCIA",
                             CreatedAt = new DateTimeOffset(new DateTime(2026, 5, 22, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
                             CreatedBy = "seed",
-                            DependenciaRevisoraDefaultCodigo = "ALMACEN",
-                            Descripcion = "Recepción reporta daño físico vía OcRecepcionRegistradaEvent",
+                            DependenciaRevisoraDefaultCodigo = "COMPRAS",
+                            Descripcion = "Compras gestiona la nota de crédito por daño y la entrega a Cuentas por pagar",
                             Nombre = "Daños o defectos en mercancía",
                             SlaDias = 5,
                             UpdatedAt = new DateTimeOffset(new DateTime(2026, 5, 22, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
@@ -1919,8 +1972,8 @@ namespace Millet.CuentasPorPagar.Infrastructure.Persistence.Migrations
                             CreatedAt = new DateTimeOffset(new DateTime(2026, 5, 22, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
                             CreatedBy = "seed",
                             DependenciaRevisoraDefaultCodigo = "COMPRAS",
-                            Descripcion = "Precio de factura diferente al acordado",
-                            Nombre = "Diferencia de precio",
+                            Descripcion = "Precio de factura diferente al acordado; solo aplica a facturas sin OC",
+                            Nombre = "Diferencia de precio (solo sin OC)",
                             SlaDias = 5,
                             UpdatedAt = new DateTimeOffset(new DateTime(2026, 5, 22, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
                             UpdatedBy = "seed",
@@ -1933,8 +1986,8 @@ namespace Millet.CuentasPorPagar.Infrastructure.Persistence.Migrations
                             Codigo = "DEVOLUCION_PENDIENTE",
                             CreatedAt = new DateTimeOffset(new DateTime(2026, 5, 22, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
                             CreatedBy = "seed",
-                            DependenciaRevisoraDefaultCodigo = "ALMACEN",
-                            Descripcion = "Devolución a proveedor abierta sin liquidar (Almacén sub-flujo 8.B)",
+                            DependenciaRevisoraDefaultCodigo = "COMPRAS",
+                            Descripcion = "Compras gestiona la nota de crédito; Almacén registra la salida por devolución",
                             Nombre = "Devolución pendiente",
                             SlaDias = 5,
                             UpdatedAt = new DateTimeOffset(new DateTime(2026, 5, 22, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
@@ -1945,11 +1998,12 @@ namespace Millet.CuentasPorPagar.Infrastructure.Persistence.Migrations
                         {
                             Id = new Guid("00000007-1001-0000-0000-000000000005"),
                             Activo = true,
+                            AreaAvisadaCodigo = "COMPRAS",
                             Codigo = "NO_CONFORMIDAD",
                             CreatedAt = new DateTimeOffset(new DateTime(2026, 5, 22, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
                             CreatedBy = "seed",
                             DependenciaRevisoraDefaultCodigo = "AREA_USUARIA",
-                            Descripcion = "Servicio no cumple especificación",
+                            Descripcion = "El área solicitante valida; si no está satisfecha, avisa a Compras",
                             Nombre = "No conformidad con servicio o producto",
                             SlaDias = 5,
                             UpdatedAt = new DateTimeOffset(new DateTime(2026, 5, 22, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
@@ -1975,11 +2029,12 @@ namespace Millet.CuentasPorPagar.Infrastructure.Persistence.Migrations
                         {
                             Id = new Guid("00000007-1001-0000-0000-000000000007"),
                             Activo = true,
+                            AreaAvisadaCodigo = "COMPRAS",
                             Codigo = "CALIDAD_SERVICIO",
                             CreatedAt = new DateTimeOffset(new DateTime(2026, 5, 22, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
                             CreatedBy = "seed",
                             DependenciaRevisoraDefaultCodigo = "AREA_USUARIA",
-                            Descripcion = "Servicio recibido no satisfactorio",
+                            Descripcion = "El área solicitante valida la calidad; si no está satisfecha, avisa a Compras",
                             Nombre = "Calidad de servicio insuficiente",
                             SlaDias = 5,
                             UpdatedAt = new DateTimeOffset(new DateTime(2026, 5, 22, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
@@ -2008,8 +2063,8 @@ namespace Millet.CuentasPorPagar.Infrastructure.Persistence.Migrations
                             Codigo = "FALTA_REPP",
                             CreatedAt = new DateTimeOffset(new DateTime(2026, 5, 22, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
                             CreatedBy = "seed",
-                            DependenciaRevisoraDefaultCodigo = "CXP",
-                            Descripcion = "REPP no emitido pasados 5 días del pago",
+                            DependenciaRevisoraDefaultCodigo = "COMPRAS",
+                            Descripcion = "Compras solicita el complemento de pago al proveedor y lo envía a Tesorería",
                             Nombre = "Falta complemento de pago + 5 días",
                             SlaDias = 5,
                             UpdatedAt = new DateTimeOffset(new DateTime(2026, 5, 22, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
@@ -2023,9 +2078,9 @@ namespace Millet.CuentasPorPagar.Infrastructure.Persistence.Migrations
                             Codigo = "DOCUMENTACION_FISCAL",
                             CreatedAt = new DateTimeOffset(new DateTime(2026, 5, 22, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
                             CreatedBy = "seed",
-                            DependenciaRevisoraDefaultCodigo = "CXP",
-                            Descripcion = "CFDI con datos inválidos, RFC mal, fechas inconsistentes",
-                            Nombre = "Documentación fiscal incompleta",
+                            DependenciaRevisoraDefaultCodigo = "COMPRAS",
+                            Descripcion = "Cuentas por pagar detecta datos fiscales incorrectos; Compras gestiona la corrección con el proveedor",
+                            Nombre = "Datos fiscales incorrectos",
                             SlaDias = 5,
                             UpdatedAt = new DateTimeOffset(new DateTime(2026, 5, 22, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
                             UpdatedBy = "seed",
@@ -2039,8 +2094,8 @@ namespace Millet.CuentasPorPagar.Infrastructure.Persistence.Migrations
                             CreatedAt = new DateTimeOffset(new DateTime(2026, 5, 22, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
                             CreatedBy = "seed",
                             DependenciaRevisoraDefaultCodigo = "DIRECCION_F",
-                            Descripcion = "Reclamación legal",
-                            Nombre = "Disputa contractual",
+                            Descripcion = "Disputa con proveedor atendida por Dirección de Finanzas (15 días hábiles)",
+                            Nombre = "Disputa con proveedor",
                             SlaDias = 15,
                             UpdatedAt = new DateTimeOffset(new DateTime(2026, 5, 22, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
                             UpdatedBy = "seed",
@@ -2054,8 +2109,8 @@ namespace Millet.CuentasPorPagar.Infrastructure.Persistence.Migrations
                             CreatedAt = new DateTimeOffset(new DateTime(2026, 5, 22, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
                             CreatedBy = "seed",
                             DependenciaRevisoraDefaultCodigo = "DIRECCION_F",
-                            Descripcion = "Autorización formal pendiente",
-                            Nombre = "Pendiente firma o autorización",
+                            Descripcion = "Autorización formal pendiente; una OC autorizada ya autoriza su factura",
+                            Nombre = "Falta de firma (solo sin OC y gastos aduanales)",
                             SlaDias = 5,
                             UpdatedAt = new DateTimeOffset(new DateTime(2026, 5, 22, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
                             UpdatedBy = "seed",

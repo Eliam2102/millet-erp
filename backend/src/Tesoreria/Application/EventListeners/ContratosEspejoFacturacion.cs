@@ -53,3 +53,25 @@ public sealed record ReciboPagoTimbradoPayload(
 {
     public const string EventType = "facturacion.recibo-pago.timbrado.v1";
 }
+
+/// <summary>
+/// Espejo (subset) de <c>facturacion.nota-credito.reembolso-solicitado.v1</c>
+/// (T9.6 · CA6.17): Facturación pide devolver en dinero una NC timbrada y
+/// Tesorería crea la <c>DevolucionCliente</c> de origen NC.
+/// </summary>
+public sealed record NotaCreditoReembolsoSolicitadoPayload(
+    Guid EmpresaId,
+    DateTimeOffset OcurridoEn,
+    Guid NotaCreditoId,
+    string Folio,
+    string? Uuid,
+    Guid ClienteId,
+    decimal Importe,
+    decimal TotalNotaCredito,
+    string Moneda,
+    Guid SucursalId,
+    string Motivo,
+    Guid SolicitadoPor)
+{
+    public const string EventType = "facturacion.nota-credito.reembolso-solicitado.v1";
+}

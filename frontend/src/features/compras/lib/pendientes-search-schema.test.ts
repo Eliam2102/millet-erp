@@ -5,9 +5,9 @@ import {
 } from '@/features/compras/lib/pendientes-search-schema';
 
 describe('PendientesSearchSchema', () => {
-  it('input vacío aplica defaults: offset=0, limit=50', () => {
+  it('input vacío aplica defaults: offset=0, limit=10', () => {
     const r = PendientesSearchSchema.parse({});
-    expect(r).toEqual({ offset: 0, limit: 50 });
+    expect(r).toEqual({ offset: 0, limit: 10 });
   });
 
   it('coerciona strings de URL a number en offset/limit', () => {

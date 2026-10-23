@@ -1,3 +1,5 @@
+import { FormGrid, FormCampo, PageHeader, ErrorState } from '@/components/erp';
+
 import { useEffect, useState } from 'react';
 import { Link, useParams, useSearch } from '@tanstack/react-router';
 import { Ban, Lock, Pencil, Unlock, X } from 'lucide-react';
@@ -7,7 +9,7 @@ import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { ErrorState } from '@/components/erp';
+
 import { useConflictDialog } from '@/components/erp/collaboration/conflict-dialog-context';
 import { useQueryClient } from '@tanstack/react-query';
 import {
@@ -26,17 +28,14 @@ import {
   CLASIFICACIONES_CREDITO,
   type LineaCreditoResponse,
 } from '@/features/cxc/api/types';
-import {
-  ETIQUETA_ORIGEN_LINEA,
-  formatoMonto,
-} from '@/features/cxc/lib/glosario';
+import { ETIQUETA_ORIGEN_LINEA, formatoMonto } from '@/features/cxc/lib/glosario';
 import {
   EditarLineaCreditoSchema,
   SIN_CLASIFICACION,
   type EditarLineaCreditoValues,
 } from '@/features/cxc/schemas/linea-credito';
 import type { LineasSearch } from '@/features/cxc/lib/lineas-search-schema';
-import { applyServerErrors, esApiError } from '@/lib/api';
+import { applyServerErrors, esApiError, codigoSoporte } from '@/lib/api';
 import { useHasPermission } from '@/lib/auth/useHasPermission';
 import { PermisosCanonicos } from '@/lib/auth/permission-codes';
 
@@ -51,7 +50,7 @@ export function DetalleLineaCredito() {
   const query = useLineaCredito(id);
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-5">
       {query.isError ? (
         <ErrorState
           title="No se pudo cargar la línea de crédito"
@@ -60,8 +59,8 @@ export function DetalleLineaCredito() {
         />
       ) : query.isLoading || query.data == null ? (
         <div className="space-y-3">
-          <div className="h-8 w-64 animate-pulse rounded bg-muted" />
-          <div className="h-40 w-full animate-pulse rounded bg-muted" />
+          <div className="h-8 w-64 animate-pulse rounded bg-surface-muted" />
+          <div className="h-40 w-full animate-pulse rounded bg-surface-muted" />
         </div>
       ) : (
         <Contenido linea={query.data} />
@@ -74,9 +73,7 @@ function Contenido({ linea }: { linea: LineaCreditoResponse }) {
   const search = useSearch({ strict: false }) as LineasSearch;
   const queryClient = useQueryClient();
   const conflictDialog = useConflictDialog();
-  const puedeGestionar = useHasPermission(
-    PermisosCanonicos.CuentasPorCobrarLineasCreditoGestionar,
-  );
+  const puedeGestionar = useHasPermission(PermisosCanonicos.CuentasPorCobrarLineasCreditoGestionar);
 
   const lookup = useClientesLookupCxc({ ids: [linea.clienteId] });
   const cliente = lookup.data?.[0] ?? null;
@@ -90,8 +87,7 @@ function Contenido({ linea }: { linea: LineaCreditoResponse }) {
 
   function onConflicto(traceId?: string) {
     conflictDialog.openSimple({
-      onRefrescar: () =>
-        queryClient.invalidateQueries({ queryKey: cxcKeys.lineasCredito() }),
+      onRefrescar: () => queryClient.invalidateQueries({ queryKey: cxcKeys.lineasCredito() }),
       traceId,
     });
   }
@@ -103,9 +99,7 @@ function Contenido({ linea }: { linea: LineaCreditoResponse }) {
         return;
       }
       toast.error(error.problem.title, {
-        description:
-          error.problem.detail ??
-          (error.traceId ? `Código: ${error.traceId}` : undefined),
+        description: error.problem.detail ?? codigoSoporte(error),
       });
       return;
     }
@@ -113,79 +107,74 @@ function Contenido({ linea }: { linea: LineaCreditoResponse }) {
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-5">
       {/* ── Sub-topbar §6.5 (sticky, no se imprime) ─────────────── */}
-      <div
-        className="sticky top-0 z-10 flex flex-wrap items-center justify-between gap-2 border-b bg-background/95 pb-2 backdrop-blur"
-        data-print="hidden"
-      >
-        <div className="flex min-w-0 flex-wrap items-center gap-2">
-          <h1 className="truncate text-lg font-semibold">
-            {cliente?.razonSocial ?? '…'}
-          </h1>
-          <span className="font-mono text-sm text-muted-foreground">
-            {linea.moneda}
-          </span>
-          <ChipEstadoLinea estado={linea.estado} />
-        </div>
-        <div className="flex items-center gap-1.5">
-          {puedeGestionar && linea.estado !== EstadoLineaCredito.Suspendida && (
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => setEditando((v) => !v)}
-              aria-pressed={editando}
-            >
-              <Pencil className="mr-1.5 h-3.5 w-3.5" />
-              Editar
-            </Button>
-          )}
-          {puedeGestionar && linea.estado === EstadoLineaCredito.Activa && (
-            <Button
-              variant="outline"
-              size="sm"
-              className="text-destructive"
-              onClick={() => setDialogBloquear(true)}
-            >
-              <Lock className="mr-1.5 h-3.5 w-3.5" />
-              Bloquear
-            </Button>
-          )}
-          {puedeGestionar && linea.estado === EstadoLineaCredito.Bloqueada && (
-            <Button
-              variant="outline"
-              size="sm"
-              disabled={desbloquear.isPending}
-              onClick={() =>
-                desbloquear.mutate(
-                  {
-                    id: linea.id,
-                    versionEsperada: linea.version,
-                    // Key fresca por submit: el backend exige UUID v4 puro.
-                    idempotencyKey: crypto.randomUUID(),
-                  },
-                  {
-                    onSuccess: () => toast.success('Línea desbloqueada.'),
-                    onError: (e) =>
-                      manejarError(e, 'No se pudo desbloquear la línea.'),
-                  },
-                )
-              }
-            >
-              <Unlock className="mr-1.5 h-3.5 w-3.5" />
-              {desbloquear.isPending ? 'Desbloqueando…' : 'Desbloquear'}
-            </Button>
-          )}
-          <Button variant="ghost" size="icon" asChild aria-label="Cerrar detalle">
-            <Link to="/cxc/lineas-credito" search={search}>
-              <X className="h-4 w-4" />
-            </Link>
-          </Button>
-        </div>
+      <div data-print="hidden">
+        <PageHeader
+          mono
+          titulo={linea.id}
+          estado={<ChipEstadoLinea estado={linea.estado} />}
+          descripcion={etiquetaLinea}
+          acciones={
+            <div className="flex items-center gap-1.5">
+              {puedeGestionar && linea.estado !== EstadoLineaCredito.Suspendida && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setEditando((v) => !v)}
+                  aria-pressed={editando}
+                >
+                  <Pencil className="mr-1.5 h-3.5 w-3.5" />
+                  Editar
+                </Button>
+              )}
+              {puedeGestionar && linea.estado === EstadoLineaCredito.Activa && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="text-danger-fg"
+                  onClick={() => setDialogBloquear(true)}
+                >
+                  <Lock className="mr-1.5 h-3.5 w-3.5" />
+                  Bloquear
+                </Button>
+              )}
+              {puedeGestionar && linea.estado === EstadoLineaCredito.Bloqueada && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  disabled={desbloquear.isPending}
+                  onClick={() =>
+                    desbloquear.mutate(
+                      {
+                        id: linea.id,
+                        versionEsperada: linea.version,
+                        // Key fresca por submit: el backend exige UUID v4 puro.
+                        idempotencyKey: crypto.randomUUID(),
+                      },
+                      {
+                        onSuccess: () => toast.success('Línea desbloqueada.'),
+                        onError: (e) => manejarError(e, 'No se pudo desbloquear la línea.'),
+                      },
+                    )
+                  }
+                >
+                  <Unlock className="mr-1.5 h-3.5 w-3.5" />
+                  {desbloquear.isPending ? 'Desbloqueando…' : 'Desbloquear'}
+                </Button>
+              )}
+              <Button variant="ghost" size="icon" asChild aria-label="Cerrar detalle">
+                <Link to="/cxc/lineas-credito" search={search}>
+                  <X className="h-4 w-4" />
+                </Link>
+              </Button>
+            </div>
+          }
+        />
       </div>
 
       {linea.estado === EstadoLineaCredito.Bloqueada && linea.motivoBloqueo && (
-        <div className="flex items-start gap-2 rounded-md border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-900 dark:border-red-900 dark:bg-red-950/40 dark:text-red-200">
+        <div className="flex items-start gap-2 rounded-md border border-line bg-danger-bg px-4 py-3 text-sm text-danger-fg   ">
           <Ban className="mt-0.5 h-4 w-4 shrink-0" aria-hidden="true" />
           <div>
             <p className="font-medium">Línea bloqueada</p>
@@ -194,12 +183,12 @@ function Contenido({ linea }: { linea: LineaCreditoResponse }) {
         </div>
       )}
 
-      <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+      <div className="space-y-5">
         {/* ── Datos de la línea (+ edición inline §6.3) ─────────── */}
-        <section className="rounded-md border bg-card p-4" aria-label="Datos de la línea">
+        <section className="rounded-md border bg-surface-card p-4" aria-label="Datos de la línea">
           <h3 className="text-sm font-medium">Datos de la línea</h3>
           {!editando ? (
-            <dl className="mt-3 grid grid-cols-2 gap-x-4 gap-y-3 text-sm">
+            <dl className="mt-3 grid grid-cols-2 gap-x-4 gap-y-3 lg:grid-cols-4 text-sm">
               <Dato etiqueta="Límite">
                 <span className="font-mono tabular-nums">
                   {formatoMonto(linea.limite, linea.moneda)}
@@ -207,9 +196,7 @@ function Contenido({ linea }: { linea: LineaCreditoResponse }) {
               </Dato>
               <Dato etiqueta="Plazo">{linea.plazoDias} días</Dato>
               <Dato etiqueta="Origen">{ETIQUETA_ORIGEN_LINEA[linea.origen]}</Dato>
-              <Dato etiqueta="Clasificación">
-                {linea.clasificacion ?? 'Sin clasificar'}
-              </Dato>
+              <Dato etiqueta="Clasificación">{linea.clasificacion ?? 'Sin clasificar'}</Dato>
               <Dato etiqueta="RFC">
                 <span className="font-mono">{cliente?.rfc ?? '—'}</span>
               </Dato>
@@ -224,9 +211,9 @@ function Contenido({ linea }: { linea: LineaCreditoResponse }) {
               onConflicto={onConflicto}
             />
           )}
-          <p className="mt-4 text-xs text-muted-foreground">
-            Cliente, moneda y origen son inmutables: para cambiarlos se
-            bloquea esta línea y se crea otra.
+          <p className="mt-4 text-xs text-ink-muted">
+            Cliente, moneda y origen son inmutables: para cambiarlos se bloquea esta línea y se crea
+            otra.
           </p>
         </section>
 
@@ -261,16 +248,10 @@ function Contenido({ linea }: { linea: LineaCreditoResponse }) {
   );
 }
 
-function Dato({
-  etiqueta,
-  children,
-}: {
-  etiqueta: string;
-  children: React.ReactNode;
-}) {
+function Dato({ etiqueta, children }: { etiqueta: string; children: React.ReactNode }) {
   return (
     <div>
-      <dt className="text-xs text-muted-foreground">{etiqueta}</dt>
+      <dt className="text-xs text-ink-muted">{etiqueta}</dt>
       <dd>{children}</dd>
     </div>
   );
@@ -298,9 +279,7 @@ function EditarLineaInlineForm({
     defaultValues: {
       limite: linea.limite,
       plazoDias: linea.plazoDias,
-      clasificacion:
-        (linea.clasificacion as EditarLineaCreditoValues['clasificacion']) ??
-        null,
+      clasificacion: (linea.clasificacion as EditarLineaCreditoValues['clasificacion']) ?? null,
     },
   });
 
@@ -309,9 +288,7 @@ function EditarLineaInlineForm({
     form.reset({
       limite: linea.limite,
       plazoDias: linea.plazoDias,
-      clasificacion:
-        (linea.clasificacion as EditarLineaCreditoValues['clasificacion']) ??
-        null,
+      clasificacion: (linea.clasificacion as EditarLineaCreditoValues['clasificacion']) ?? null,
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [linea.version]);
@@ -341,10 +318,7 @@ function EditarLineaInlineForm({
               return;
             }
             if (
-              applyServerErrors(
-                form as unknown as Parameters<typeof applyServerErrors>[0],
-                error,
-              )
+              applyServerErrors(form as unknown as Parameters<typeof applyServerErrors>[0], error)
             ) {
               return;
             }
@@ -363,12 +337,12 @@ function EditarLineaInlineForm({
     <form
       onSubmit={form.handleSubmit(onSubmit)}
       noValidate
-      className="mt-3 space-y-3 rounded-md border border-amber-400 bg-amber-50/40 p-3 dark:border-amber-700 dark:bg-amber-950/20"
+      className="mt-3 space-y-3 rounded-md border border-line bg-warning-bg p-3  "
     >
-      <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
-        <div className="space-y-1">
+      <FormGrid>
+        <FormCampo span={4} className="space-y-1">
           <Label htmlFor="limite" className="text-xs">
-            Límite ({linea.moneda}) <span className="text-destructive">*</span>
+            Límite ({linea.moneda}) <span className="text-danger-fg">*</span>
           </Label>
           <Input
             id="limite"
@@ -378,14 +352,12 @@ function EditarLineaInlineForm({
             {...form.register('limite', { valueAsNumber: true })}
           />
           {form.formState.errors.limite && (
-            <p className="text-xs text-destructive">
-              {form.formState.errors.limite.message}
-            </p>
+            <p className="text-xs text-danger-fg">{form.formState.errors.limite.message}</p>
           )}
-        </div>
-        <div className="space-y-1">
+        </FormCampo>
+        <FormCampo span={4} className="space-y-1">
           <Label htmlFor="plazoDias" className="text-xs">
-            Plazo (días) <span className="text-destructive">*</span>
+            Plazo (días) <span className="text-danger-fg">*</span>
           </Label>
           <Input
             id="plazoDias"
@@ -396,18 +368,16 @@ function EditarLineaInlineForm({
             {...form.register('plazoDias', { valueAsNumber: true })}
           />
           {form.formState.errors.plazoDias && (
-            <p className="text-xs text-destructive">
-              {form.formState.errors.plazoDias.message}
-            </p>
+            <p className="text-xs text-danger-fg">{form.formState.errors.plazoDias.message}</p>
           )}
-        </div>
-        <div className="space-y-1">
+        </FormCampo>
+        <FormCampo span={4} className="space-y-1">
           <Label htmlFor="clasificacion" className="text-xs">
             Clasificación
           </Label>
           <select
             id="clasificacion"
-            className="h-9 w-full rounded-md border border-input bg-transparent px-3 text-sm shadow-sm"
+            className="h-9 w-full rounded-md border border-line-control bg-transparent px-3 text-sm shadow-card-flat"
             {...form.register('clasificacion', {
               setValueAs: (v) => (v === SIN_CLASIFICACION || v === '' ? null : v),
             })}
@@ -420,8 +390,8 @@ function EditarLineaInlineForm({
               </option>
             ))}
           </select>
-        </div>
-      </div>
+        </FormCampo>
+      </FormGrid>
       <div className="flex items-center justify-end gap-2">
         <Button
           type="button"

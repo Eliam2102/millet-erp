@@ -7,6 +7,8 @@ using Millet.Almacen.Domain.DevolucionesProveedor;
 using Millet.Api.Auth;
 using Millet.Api.Web;
 using Millet.Identidad.Domain;
+using Millet.SharedKernel.Application;
+using Millet.SharedKernel.Application.Exceptions;
 
 namespace Millet.Api.Endpoints.Almacen.DevolucionesProveedor;
 
@@ -32,31 +34,56 @@ public static class DevolucionesProveedorEndpoints
             [FromQuery] EstadoDevolucionProveedor? estado,
             [FromQuery] Guid? proveedorId,
             [FromQuery] bool? soloPendientesNcFiscal,
+            [FromQuery] string? q,
             [FromQuery] int? offset,
             [FromQuery] int? limit,
             IMediator mediator,
+            ICurrentUserPermissions permisos,
             CancellationToken ct) =>
         {
+            await VerificarLecturaDevolucionesAsync(permisos, ct);
             var (off, lim) = NormalizePaging(offset, limit);
             var response = await mediator.Send(
-                new ListarDevolucionesProveedorQuery(estado, proveedorId, soloPendientesNcFiscal, off, lim), ct);
+                new ListarDevolucionesProveedorQuery(estado, proveedorId, soloPendientesNcFiscal, off, lim, q), ct);
             return Results.Ok(response);
         })
-        .RequireAuthorization(PermissionPolicyProvider.Prefix + PermisosCanonicos.AlmacenDevolucionesInternasLeer)
+        .RequireAuthorization()
         .WithName("ListarDevolucionesProveedor")
         .WithSummary("Listar devoluciones a proveedor (bandeja con filtros, incluye \"pendientes de NC fiscal\")")
         .Produces<AlmacenPagedResponse<DevolucionProveedorListItem>>(StatusCodes.Status200OK);
 
+        // GET /conteos-por-estado (tabs de la bandeja; mismos filtros salvo estado)
+        group.MapGet("/conteos-por-estado", async (
+            [FromQuery] Guid? proveedorId,
+            [FromQuery] bool? soloPendientesNcFiscal,
+            [FromQuery] string? q,
+            IMediator mediator,
+            ICurrentUserPermissions permisos,
+            CancellationToken ct) =>
+        {
+            await VerificarLecturaDevolucionesAsync(permisos, ct);
+            return Results.Ok(await mediator.Send(
+                new ConteosDevolucionesProveedorPorEstadoQuery(proveedorId, soloPendientesNcFiscal, q), ct));
+        })
+        .RequireAuthorization()
+        .WithName("ConteosDevolucionesProveedorPorEstado")
+        .WithSummary("Conteo de devoluciones a proveedor por estado, con los filtros de la bandeja salvo el estado")
+        .Produces<IReadOnlyList<ConteoPorEstadoItem>>(StatusCodes.Status200OK);
+
         // GET /{id}
         group.MapGet("/{id:guid}", async (
             Guid id,
+            DocumentoSucursalScope documentos,
             IMediator mediator,
+            ICurrentUserPermissions permisos,
             CancellationToken ct) =>
         {
+            await VerificarLecturaDevolucionesAsync(permisos, ct);
+            await documentos.VerificarAsync("devolucion_proveedor", id, PermisosCanonicos.AlmacenDevolucionesProveedorLeerTodasSucursales, ct);
             var detalle = await mediator.Send(new ObtenerDevolucionProveedorPorIdQuery(id), ct);
             return detalle is null ? Results.NotFound() : Results.Ok(detalle);
         })
-        .RequireAuthorization(PermissionPolicyProvider.Prefix + PermisosCanonicos.AlmacenDevolucionesInternasLeer)
+        .RequireAuthorization()
         .WithName("ObtenerDevolucionProveedorPorId")
         .WithSummary("Detalle de devolución a proveedor con líneas + evidencias")
         .Produces<DevolucionProveedorDetalle>(StatusCodes.Status200OK)
@@ -65,9 +92,17 @@ public static class DevolucionesProveedorEndpoints
         // POST / (Iniciar)
         group.MapPost("/", async (
             IniciarDevolucionAProveedorCommand command,
+            DocumentoSucursalScope documentos,
             IMediator mediator,
             CancellationToken ct) =>
         {
+            if (command.RecepcionOrigenId is Guid recepcionId)
+                await documentos.VerificarAsync("recepcion", recepcionId, PermisosCanonicos.AlmacenDevolucionesProveedorGestionarTodasSucursales, ct);
+            if (command.SubAlmacenOrigenId is Guid subOrigenId)
+                await documentos.VerificarAsync("sub_almacen", subOrigenId, PermisosCanonicos.AlmacenDevolucionesProveedorGestionarTodasSucursales, ct);
+            if (command.RecepcionOrigenId is null && command.SubAlmacenOrigenId is null)
+                await documentos.VerificarSucursalAsync(null, PermisosCanonicos.AlmacenDevolucionesProveedorGestionarTodasSucursales, ct);
+
             var response = await mediator.Send(command, ct);
             return Results.Created(
                 $"/api/v1/almacen/devoluciones-proveedor/{response.DevolucionId}",
@@ -83,9 +118,11 @@ public static class DevolucionesProveedorEndpoints
         group.MapPost("/{id:guid}/evidencias", async (
             Guid id,
             AdjuntarEvidenciaRequest req,
+            DocumentoSucursalScope documentos,
             IMediator mediator,
             CancellationToken ct) =>
         {
+            await documentos.VerificarAsync("devolucion_proveedor", id, PermisosCanonicos.AlmacenDevolucionesProveedorGestionarTodasSucursales, ct);
             await mediator.Send(new AdjuntarEvidenciaDevolucionAProveedorCommand(
                 id, req.TipoEvidencia, req.NombreArchivo, req.BlobRef, req.Comentario), ct);
             return Results.NoContent();
@@ -98,9 +135,11 @@ public static class DevolucionesProveedorEndpoints
         // POST /{id}/solicitar-autorizacion
         group.MapPost("/{id:guid}/solicitar-autorizacion", async (
             Guid id,
+            DocumentoSucursalScope documentos,
             IMediator mediator,
             CancellationToken ct) =>
         {
+            await documentos.VerificarAsync("devolucion_proveedor", id, PermisosCanonicos.AlmacenDevolucionesProveedorGestionarTodasSucursales, ct);
             await mediator.Send(new SolicitarAutorizacionDevolucionAProveedorCommand(id), ct);
             return Results.NoContent();
         })
@@ -112,9 +151,11 @@ public static class DevolucionesProveedorEndpoints
         // POST /{id}/autorizar (Dirección)
         group.MapPost("/{id:guid}/autorizar", async (
             Guid id,
+            DocumentoSucursalScope documentos,
             IMediator mediator,
             CancellationToken ct) =>
         {
+            await documentos.VerificarAsync("devolucion_proveedor", id, PermisosCanonicos.AlmacenDevolucionesProveedorGestionarTodasSucursales, ct);
             await mediator.Send(new AutorizarDevolucionAProveedorCommand(id), ct);
             return Results.NoContent();
         })
@@ -128,9 +169,11 @@ public static class DevolucionesProveedorEndpoints
         group.MapPost("/{id:guid}/rechazar", async (
             Guid id,
             RechazarDevolucionRequest req,
+            DocumentoSucursalScope documentos,
             IMediator mediator,
             CancellationToken ct) =>
         {
+            await documentos.VerificarAsync("devolucion_proveedor", id, PermisosCanonicos.AlmacenDevolucionesProveedorGestionarTodasSucursales, ct);
             await mediator.Send(new RechazarDevolucionAProveedorCommand(id, req.MotivoRechazo), ct);
             return Results.NoContent();
         })
@@ -143,9 +186,12 @@ public static class DevolucionesProveedorEndpoints
         group.MapPost("/{id:guid}/registrar-salida", async (
             Guid id,
             RegistrarSalidaRequest req,
+            DocumentoSucursalScope documentos,
             IMediator mediator,
             CancellationToken ct) =>
         {
+            await documentos.VerificarAsync("devolucion_proveedor", id, PermisosCanonicos.AlmacenDevolucionesProveedorGestionarTodasSucursales, ct);
+            await documentos.VerificarAsync("sub_almacen", req.SubAlmacenId, PermisosCanonicos.AlmacenDevolucionesProveedorGestionarTodasSucursales, ct);
             var response = await mediator.Send(new RegistrarSalidaDevolucionAProveedorCommand(
                 id, req.SubAlmacenId, req.FechaMovimiento, req.Bins), ct);
             return Results.Ok(response);
@@ -157,6 +203,22 @@ public static class DevolucionesProveedorEndpoints
         .Produces<RegistrarSalidaDevolucionAProveedorResponse>(StatusCodes.Status200OK);
 
         return app;
+    }
+
+    /// <summary>
+    /// La bandeja y el detalle se muestran a quien tenga cualquiera de los permisos de devoluciones
+    /// que habilita la ruta del frontend (no solo el de devoluciones internas).
+    /// </summary>
+    private static async Task VerificarLecturaDevolucionesAsync(ICurrentUserPermissions permisos, CancellationToken ct)
+    {
+        if (await permisos.TieneAsync(PermisosCanonicos.AlmacenDevolucionesInternasLeer, ct)
+            || await permisos.TieneAsync(PermisosCanonicos.AlmacenDevolucionesProveedorIniciar, ct)
+            || await permisos.TieneAsync(PermisosCanonicos.AlmacenDevolucionesProveedorAutorizar, ct)
+            || await permisos.TieneAsync(PermisosCanonicos.AlmacenDevolucionesProveedorRegistrar, ct))
+            return;
+        throw new ForbiddenException(
+            "DEVOLUCIONES_LEER_SIN_PERMISO",
+            "Se requiere un permiso de devoluciones para consultar las devoluciones a proveedor.");
     }
 
     private static (int off, int lim) NormalizePaging(int? offset, int? limit)

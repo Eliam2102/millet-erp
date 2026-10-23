@@ -1,11 +1,11 @@
+import { PageHeader } from '@/components/erp/PageHeader';
 import { useAuthStore } from '@/lib/auth/auth-store';
 import { PermisosCanonicos } from '@/lib/auth/permission-codes';
-import { ModoNivel2Selector } from '@/features/compras/components/ModoNivel2Selector';
 import { UmbralesAprobacionSection } from '@/features/compras/components/UmbralesAprobacionSection';
 
 /**
  * <c>/compras/configuracion</c> — configuración del módulo Compras de la
- * empresa actual: modo de nivel 2 y umbrales N1/N2 por departamento.
+ * empresa actual: umbrales N1/N2 y modo de nivel 2 por departamento.
  *
  * <para>La lectura exige <c>compras.configuracion.leer</c> (guard en la
  * ruta). La edición exige <c>compras.configuracion.editar</c>; sin ese
@@ -17,20 +17,20 @@ export function ConfiguracionCompras() {
 
   return (
     <div className="space-y-5">
-      <div>
-        <h1 className="text-2xl font-semibold tracking-tight">Configuración de Compras</h1>
-        <p className="text-sm text-ink-muted">
-          Reglas de autorización de requisiciones para la empresa actual.
-        </p>
-      </div>
+      <PageHeader
+        titulo="Configuración de compras"
+        descripcion="Reglas de autorización de requisiciones por departamento para la empresa actual."
+      />
 
       {!puedeEditar && (
-        <div role="note" className="rounded-md bg-warning-note-bg px-3 py-2.5 text-sm text-warning-note-fg">
+        <div
+          role="note"
+          className="rounded-md bg-warning-note-bg px-3 py-2.5 text-sm text-warning-note-fg"
+        >
           Solo lectura: tu rol puede consultar esta configuración, pero no modificarla.
         </div>
       )}
 
-      <ModoNivel2Selector puedeEditar={puedeEditar} />
       <UmbralesAprobacionSection puedeEditar={puedeEditar} />
     </div>
   );

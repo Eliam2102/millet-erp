@@ -1,3 +1,4 @@
+import { PageHeader } from '@/components/erp/PageHeader';
 import { DocumentoP4Acciones } from '@/features/cxp/components/DocumentoP4Acciones';
 import { useState } from 'react';
 import { useNavigate, useSearch } from '@tanstack/react-router';
@@ -24,6 +25,7 @@ import { esApiError } from '@/lib/api';
 import { EstadoAnticipoChip } from '@/features/cxp/components/EstadoChips';
 import { NuevoAnticipoSheet } from '@/features/cxp/components/NuevoAnticipoSheet';
 import type { AnticiposSearch } from '@/features/cxp/lib/notas-y-anticipos-search-schema';
+import { MoneyDisplay } from '@/components/erp/display/MoneyDisplay';
 
 const FROM = '/_app/cxp/anticipos' as const;
 const SENTINEL_ALL = '__all__';
@@ -55,21 +57,20 @@ export function AnticiposPage() {
 
   return (
     <div className="space-y-4">
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <div>
-          <h1 className="text-2xl font-semibold tracking-tight">Anticipos</h1>
-          <p className="text-sm text-muted-foreground">
-            Anticipos a proveedores (CFDI serie FANT). Se amortizan contra
-            facturas finales desde el detalle de la factura.
-          </p>
-        </div>
-        {puedeCapturar && (
-          <Button onClick={() => setSheetAbierto(true)}>
-            <Plus className="mr-2 h-4 w-4" />
-            Capturar anticipo
-          </Button>
-        )}
-      </div>
+      <PageHeader
+        titulo="Anticipos"
+        descripcion="Anticipos a proveedores (CFDI serie FANT). Se amortizan contra facturas finales desde el detalle de la factura."
+        acciones={
+          <>
+            {puedeCapturar && (
+              <Button onClick={() => setSheetAbierto(true)}>
+                <Plus className="mr-2 size-3.5" />
+                Capturar anticipo
+              </Button>
+            )}
+          </>
+        }
+      />
 
       <div className="flex flex-wrap items-end gap-3">
         <div className="space-y-1">
@@ -183,14 +184,14 @@ export function AnticiposPage() {
                   <td className="px-3 py-2 font-mono text-xs">
                     {a.serie}-{a.folioProveedor ?? '—'}
                   </td>
-                  <td className="px-3 py-2 text-right font-mono">
-                    {formatearMonto(a.montoEntregado, a.moneda)}
+                  <td className="py-2 pl-3 pr-4 text-right tabular-nums">
+                    <MoneyDisplay amount={a.montoEntregado} currency={a.moneda} strong />
                   </td>
-                  <td className="px-3 py-2 text-right font-mono">
-                    {formatearMonto(a.montoAmortizado, a.moneda)}
+                  <td className="py-2 pl-3 pr-4 text-right tabular-nums">
+                    <MoneyDisplay amount={a.montoAmortizado} currency={a.moneda} strong />
                   </td>
                   <td className="px-3 py-2 text-right font-mono font-semibold">
-                    {formatearMonto(a.saldoAmortizable, a.moneda)}
+                    <MoneyDisplay amount={a.saldoAmortizable} currency={a.moneda} strong />
                   </td>
                   <td className="px-3 py-2">
                     <EstadoAnticipoChip estado={a.estado} />
@@ -212,14 +213,3 @@ function abreviar(uuid: string): string {
   return uuid.length > 12 ? `${uuid.slice(0, 8)}…${uuid.slice(-4)}` : uuid;
 }
 
-function formatearMonto(v: number, moneda: string): string {
-  try {
-    return new Intl.NumberFormat('es-MX', {
-      style: 'currency',
-      currency: moneda,
-      minimumFractionDigits: 2,
-    }).format(v);
-  } catch {
-    return `${v.toFixed(2)} ${moneda}`;
-  }
-}

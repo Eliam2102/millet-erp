@@ -45,7 +45,9 @@ public sealed record RegistrarPagoProveedorCommand(
     DateOnly FechaValor,
     IReadOnlyList<AplicacionPagoItem> Aplicaciones,
     string? ReferenciaBancaria = null,
-    Guid? ConceptoId = null) : IRequest<PagoProveedorResponse>;
+    Guid? ConceptoId = null,
+    // 86e3pdmee: cuenta del proveedor elegida (null = la predeterminada activa de la moneda).
+    Guid? CuentaProveedorId = null) : IRequest<PagoProveedorResponse>;
 
 public sealed class RegistrarPagoProveedorValidator : AbstractValidator<RegistrarPagoProveedorCommand>
 {
@@ -165,27 +167,14 @@ public sealed class RegistrarPagoProveedorHandler
                 "Un pago cubre pasivos de un solo proveedor; registra un pago por proveedor.");
         var proveedorId = proveedores[0];
 
-        // F1-ADM-05 G1.1 / Plano G1 §3.1: el proveedor debe estar Activo para recibir pagos.
-        // Si está EnRevision o Inactivo, se bloquea la operación (G1.1-b).
+        // F1-ADM-05 G1.1 / 86e3pdmee: proveedor Activo, fuera de revisión y con cuenta activa en la moneda
+        // del egreso; si el puerto no devuelve datos del proveedor el pago se bloquea.
+        CuentaDestinoPago? destino = null;
         if (!hayInternos)
         {
             var infoProveedor = await _proveedorBancoPort.ObtenerAsync(proveedorId, cancellationToken);
-            if (infoProveedor is not null)
-            {
-                if (infoProveedor.EnRevision)
-                {
-                    throw new BusinessRuleException(
-                        "PROVEEDOR_EN_REVISION",
-                        $"El proveedor '{infoProveedor.RazonSocial}' está en revisión y no admite pagos.");
-                }
-
-                if (!infoProveedor.Activo)
-                {
-                    throw new BusinessRuleException(
-                        "PROVEEDOR_NO_ACTIVO",
-                        $"El proveedor '{infoProveedor.RazonSocial}' no está activo y no admite pagos.");
-                }
-            }
+            var elegida = ReglasDestinoProveedor.Resolver(infoProveedor, cuenta.Moneda, command.CuentaProveedorId);
+            destino = new CuentaDestinoPago(elegida.Id, elegida.Banco, elegida.Numero, elegida.Titular);
         }
 
         // RN-3: la cuenta de egreso coincide en moneda con los pasivos
@@ -225,7 +214,8 @@ public sealed class RegistrarPagoProveedorHandler
             referenciaBancaria: command.ReferenciaBancaria,
             conceptoId: command.ConceptoId,
             creadoPor: usuarioId,
-            ahora: ahora);
+            ahora: ahora,
+            destino: destino);
         _db.MovimientosBancarios.Add(movimiento);
 
         var aplicaciones = new List<AplicacionPagoProveedor>(command.Aplicaciones.Count);

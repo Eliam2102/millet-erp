@@ -1,3 +1,5 @@
+import { FormGrid, FormCampo } from '@/components/erp/forms/FormGrid';
+import { SheetBody } from '@/components/ui/sheet';
 import { Controller, useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { toast } from 'sonner';
@@ -11,7 +13,7 @@ import {
 } from '@/components/ui/sheet';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { esApiError } from '@/lib/api';
+import { esApiError, codigoSoporte } from '@/lib/api';
 import {
   RegularizarValeSchema,
   type RegularizarValeValues,
@@ -43,13 +45,12 @@ export function RegularizarValeSheet({
 }: RegularizarValeSheetProps) {
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
-      <SheetContent side="right" className="sm:max-w-md">
+      <SheetContent side="right" size="form">
         <SheetHeader>
           <SheetTitle>Regularizar vale {folio}</SheetTitle>
           <SheetDescription>
-            Vincula una RQ aprobada posterior al vale para cerrar el
-            ciclo (A14). La RQ debe pertenecer al mismo
-            sub-almacén/persona destinataria/material del vale.
+            Vincula una RQ aprobada posterior al vale para cerrar el ciclo. La RQ debe pertenecer al
+            mismo sub-almacén/persona destinataria/material del vale.
           </SheetDescription>
         </SheetHeader>
 
@@ -100,15 +101,22 @@ function FormBody({
               toast.error('Este vale ya fue regularizado previamente.');
               return;
             }
-            if (error.code === 'RQ_NO_APROBADA') {
+            if (error.code === 'VALE_RQ_REGULARIZADORA_INVALIDA') {
               form.setError('rqRegularizadoraId', {
                 type: error.code,
-                message: 'La RQ no está aprobada o no existe.',
+                message: error.problem.detail ?? 'La RQ no está aprobada o no cubre el vale.',
+              });
+              return;
+            }
+            if (error.code === 'VALE_SUCURSAL_DISTINTA') {
+              form.setError('rqRegularizadoraId', {
+                type: error.code,
+                message: error.problem.detail ?? 'La RQ es de otra sucursal.',
               });
               return;
             }
             toast.error(error.problem.title, {
-              description: error.traceId ? `Código: ${error.traceId}` : undefined,
+              description: codigoSoporte(error),
             });
             return;
           }
@@ -120,52 +128,49 @@ function FormBody({
 
   return (
     <>
-      <form
-        id="regularizar-vale-form"
-        onSubmit={form.handleSubmit(onSubmit)}
-        noValidate
-        className="flex-1 space-y-3 overflow-y-auto px-6"
-      >
-        <Field
-          label="RQ regularizadora"
-          required
-          error={form.formState.errors.rqRegularizadoraId?.message}
+      <SheetBody>
+        <form
+          id="regularizar-vale-form"
+          onSubmit={form.handleSubmit(onSubmit)}
+          noValidate
+          className="space-y-4"
         >
-          <Controller
-            name="rqRegularizadoraId"
-            control={form.control}
-            render={({ field }) => (
-              <Input
-                {...field}
-                value={field.value ?? ''}
-                placeholder="GUID de la RQ aprobada"
-                spellCheck={false}
-                autoFocus
-              />
-            )}
-          />
-        </Field>
-        <p className="text-xs text-muted-foreground">
-          La RQ debe haber sido aprobada con posterioridad al vale y
-          cubrir el mismo material/cantidad. El backend valida el
-          vínculo y, si pasa, marca el vale como regularizado.
-        </p>
-      </form>
+          <FormGrid>
+            <FormCampo span={12}>
+              <Field
+                label="RQ regularizadora"
+                required
+                error={form.formState.errors.rqRegularizadoraId?.message}
+              >
+                <Controller
+                  name="rqRegularizadoraId"
+                  control={form.control}
+                  render={({ field }) => (
+                    <Input
+                      {...field}
+                      value={field.value ?? ''}
+                      placeholder="GUID de la RQ aprobada"
+                      spellCheck={false}
+                      autoFocus
+                    />
+                  )}
+                />
+              </Field>
+            </FormCampo>
+          </FormGrid>
+          <p className="text-xs text-ink-muted">
+            La RQ debe haber sido aprobada con posterioridad al vale y cubrir el mismo
+            material/cantidad. El sistema valida el vínculo y, si pasa, marca el vale como
+            regularizado.
+          </p>
+        </form>
+      </SheetBody>
 
       <SheetFooter>
-        <Button
-          type="button"
-          variant="ghost"
-          onClick={onCancel}
-          disabled={regularizar.isPending}
-        >
+        <Button type="button" variant="ghost" onClick={onCancel} disabled={regularizar.isPending}>
           Cancelar
         </Button>
-        <Button
-          type="submit"
-          form="regularizar-vale-form"
-          disabled={regularizar.isPending}
-        >
+        <Button type="submit" form="regularizar-vale-form" disabled={regularizar.isPending}>
           {regularizar.isPending ? 'Regularizando…' : 'Regularizar'}
         </Button>
       </SheetFooter>

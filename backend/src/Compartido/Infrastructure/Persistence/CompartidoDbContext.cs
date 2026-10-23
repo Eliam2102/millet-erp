@@ -43,12 +43,15 @@ public sealed class CompartidoDbContext : BaseDbContext
     public DbSet<Empresa> Empresas => Set<Empresa>();
     public DbSet<Moneda> Monedas => Set<Moneda>();
     public DbSet<Proveedor> Proveedores => Set<Proveedor>();
+    public DbSet<CuentaBancariaProveedor> CuentasBancariasProveedor => Set<CuentaBancariaProveedor>();
     public DbSet<Articulo> Articulos => Set<Articulo>();
     // ADR-0048 D6: master de clientes (primer consumidor: Facturación vía
     // IClientesReadPort; nacen desde A+W por auto-provisión).
     public DbSet<Cliente> Clientes => Set<Cliente>();
     // ADM-06: registro de origen A+W 1:1 con Cliente (valores crudos + control).
     public DbSet<ClienteSincronizacionAw> ClientesSincronizacionAw => Set<ClienteSincronizacionAw>();
+    // ADM-06: bitácora y conflictos de la sincronización de maestros A+W.
+    public DbSet<CambioMaestroAw> CambiosMaestrosAw => Set<CambioMaestroAw>();
     // ADR-0048 D5: master de productos de venta manufacturados (A+W),
     // SEPARADO de Articulos (compras/almacén) a propósito.
     public DbSet<ProductoAw> ProductosAw => Set<ProductoAw>();
@@ -56,6 +59,9 @@ public sealed class CompartidoDbContext : BaseDbContext
     public DbSet<ProductoAwVariante> ProductosAwVariantes => Set<ProductoAwVariante>();
     public DbSet<ProductoAwComponente> ProductosAwComponentes => Set<ProductoAwComponente>();
     public DbSet<ProductoSincronizacionAw> ProductosSincronizacionAw => Set<ProductoSincronizacionAw>();
+    // U1.8b: revisiones y corridas del reporte de diferencias fiscales A+W vs ERP.
+    public DbSet<DiferenciaFiscalAwRevision> DiferenciasFiscalesAwRevisiones => Set<DiferenciaFiscalAwRevision>();
+    public DbSet<DiferenciaFiscalAwCorrida> DiferenciasFiscalesAwCorridas => Set<DiferenciaFiscalAwCorrida>();
     public DbSet<Sucursal> Sucursales => Set<Sucursal>();
     // FAC-ING-PR2: catálogo administrable de canales de venta (reemplaza el
     // enum de Facturación). PK short asignada por la app; seed 1..10 espejo
@@ -117,6 +123,7 @@ public sealed class CompartidoDbContext : BaseDbContext
     // F1-ADM-11 G1.2: servicio genérico de adjuntos (metadatos; el blob vive en storage).
     public DbSet<Adjunto> Adjuntos => Set<Adjunto>();
     public DbSet<AdjuntoTipoDocumento> AdjuntoTiposDocumento => Set<AdjuntoTipoDocumento>();
+    public DbSet<AdjuntoExcepcion> AdjuntoExcepciones => Set<AdjuntoExcepcion>();
     public DbSet<IntegrationEventOutboxEntry> IntegrationEventsOutbox => Set<IntegrationEventOutboxEntry>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
@@ -142,6 +149,8 @@ public sealed class CompartidoDbContext : BaseDbContext
         ConfigureEmpresa(modelBuilder);
         ConfigureMoneda(modelBuilder);
         ConfigureProveedor(modelBuilder);
+        ConfigureCuentaBancariaProveedor(modelBuilder);
+        ConfigureAdjuntoExcepcion(modelBuilder);
         ConfigureArticulo(modelBuilder);
         ConfigureCliente(modelBuilder);
         var clasificacion = modelBuilder.Entity<ClasificacionCliente>();
@@ -162,6 +171,22 @@ public sealed class CompartidoDbContext : BaseDbContext
         ligado.Property(c => c.Rfc).HasMaxLength(13).IsRequired(); ligado.Property(c => c.SnapshotJson).HasColumnType("jsonb");
         ligado.HasIndex(c => c.ReferenciaExterna).IsUnique(); ligado.Property(c => c.Version).IsConcurrencyToken();
         ligado.HasOne<Cliente>().WithMany().HasForeignKey(c => c.ClienteId).OnDelete(DeleteBehavior.Restrict);
+        var cambioAw = modelBuilder.Entity<CambioMaestroAw>();
+        cambioAw.ToTable("cambios_maestros_aw"); cambioAw.HasKey(c => c.Id);
+        cambioAw.Property(c => c.TipoEntidad).HasMaxLength(20).IsRequired();
+        cambioAw.Property(c => c.ReferenciaExterna).HasMaxLength(50).IsRequired();
+        cambioAw.Property(c => c.Campo).HasMaxLength(60).IsRequired();
+        cambioAw.Property(c => c.ValorAntes).HasMaxLength(400); cambioAw.Property(c => c.ValorDespues).HasMaxLength(400);
+        cambioAw.Property(c => c.Dueno).HasMaxLength(3).IsRequired();
+        cambioAw.Property(c => c.Tipo).HasConversion<short>(); cambioAw.Property(c => c.Estado).HasConversion<short>();
+        cambioAw.Property(c => c.Causa).HasMaxLength(500).IsRequired();
+        cambioAw.Property(c => c.VersionEvento).HasMaxLength(64).IsRequired();
+        cambioAw.Property(c => c.VersionMatriz).HasMaxLength(20).IsRequired();
+        cambioAw.Property(c => c.HuellaPrevia).HasMaxLength(64).IsRequired().HasDefaultValue(string.Empty);
+        cambioAw.Property(c => c.Resolucion).HasMaxLength(40);
+        cambioAw.Property(c => c.Version).IsConcurrencyToken();
+        cambioAw.HasIndex(c => new { c.TipoEntidad, c.ReferenciaExterna, c.Campo, c.Tipo, c.VersionEvento, c.HuellaPrevia }).IsUnique();
+        cambioAw.HasIndex(c => c.EjecucionId); cambioAw.HasIndex(c => new { c.TipoEntidad, c.Estado });
         ConfigureClienteSincronizacionAw(modelBuilder);
         ConfigureProductoAw(modelBuilder);
         modelBuilder.Entity<ProductoAw>().HasOne<ReglaFiscalAw>().WithMany().HasForeignKey(p => p.ReglaFiscalId).OnDelete(DeleteBehavior.Restrict);
@@ -193,6 +218,7 @@ public sealed class CompartidoDbContext : BaseDbContext
         cambio.Property(c => c.AntesJson).HasColumnType("jsonb"); cambio.Property(c => c.DespuesJson).HasColumnType("jsonb");
         cambio.HasIndex(c => new { c.TipoEntidad, c.EntidadId });
         ConfigureProductoAwSincronizacion(modelBuilder);
+        ConfigureDiferenciasFiscalesAw(modelBuilder);
         ConfigureSucursal(modelBuilder);
         ConfigureCanalVenta(modelBuilder);
         ConfigureDepartamento(modelBuilder);
@@ -216,6 +242,7 @@ public sealed class CompartidoDbContext : BaseDbContext
         ConfigureSecuenciaFolio(modelBuilder);
         ConfigureParametroGlobal(modelBuilder);
         ConfigureAdjuntoTipoDocumento(modelBuilder);
+        ComercioExteriorTiposDocumento.Configure(modelBuilder);
         ConfigureAdjunto(modelBuilder);
         ConfigureIntegrationEventOutbox(modelBuilder);
     }
@@ -243,18 +270,52 @@ public sealed class CompartidoDbContext : BaseDbContext
         tipo.Property(x => x.Orden).IsRequired();
         tipo.Property(x => x.Obligatorio).IsRequired();
         tipo.Property(x => x.SoloPersonaMoral).IsRequired();
+        tipo.Property(x => x.ObligatorioPersonaMoral).IsRequired();
+        tipo.Property(x => x.ObligatorioPersonaFisica).IsRequired();
+        tipo.Property(x => x.AplicaOrigen).HasConversion<short>().IsRequired();
         tipo.Property(x => x.Activo).IsRequired();
         tipo.HasIndex(x => new { x.TipoEntidad, x.Codigo }).IsUnique();
 
         var seedTime = new DateTimeOffset(2026, 1, 1, 0, 0, 0, TimeSpan.Zero);
+        var afTipos = new[] { "Factura de compra", "Póliza de seguro", "Garantía", "Contrato de arrendamiento", "Pedimento", "Manual", "Fotografía", "Otro" };
+        for (var i = 0; i < afTipos.Length; i++)
+            tipo.HasData(new { Id = Guid.Parse($"0000000f-0003-0000-0000-{i + 1:000000000000}"), TipoEntidad = "activo_fijo", Codigo = $"AF_{i}", Nombre = afTipos[i], Orden = i + 1, Obligatorio = false, ObligatorioPersonaMoral = false, ObligatorioPersonaFisica = false, VigenciaMeses = (int?)null, SoloPersonaMoral = false, AplicaOrigen = AdjuntoAplicaOrigen.Todos, Activo = true, Version = 1, CreatedAt = seedTime, UpdatedAt = seedTime, CreatedBy = (string?)"seed", UpdatedBy = (string?)"seed", DeletedAt = (DateTimeOffset?)null });
         tipo.HasData(
-            new { Id = Guid.Parse("00000011-0006-0000-0000-000000000001"), TipoEntidad = "requisicion", Codigo = "soporte", Nombre = "Documento de soporte", Orden = 1, Obligatorio = false, VigenciaMeses = (int?)null, SoloPersonaMoral = false, Activo = true, Version = 1, CreatedAt = seedTime, UpdatedAt = seedTime, CreatedBy = (string?)"seed", UpdatedBy = (string?)"seed", DeletedAt = (DateTimeOffset?)null },
-            new { Id = Guid.Parse("00000011-0006-0000-0000-000000000002"), TipoEntidad = "factura_proveedor", Codigo = "soporte", Nombre = "Documento de soporte", Orden = 1, Obligatorio = false, VigenciaMeses = (int?)null, SoloPersonaMoral = false, Activo = true, Version = 1, CreatedAt = seedTime, UpdatedAt = seedTime, CreatedBy = (string?)"seed", UpdatedBy = (string?)"seed", DeletedAt = (DateTimeOffset?)null },
+            new { Id = Guid.Parse("00000011-0006-0000-0000-000000000001"), TipoEntidad = "requisicion", Codigo = "soporte", Nombre = "Documento de soporte", Orden = 1, Obligatorio = false, ObligatorioPersonaMoral = false, ObligatorioPersonaFisica = false, VigenciaMeses = (int?)null, SoloPersonaMoral = false, AplicaOrigen = AdjuntoAplicaOrigen.Todos, Activo = true, Version = 1, CreatedAt = seedTime, UpdatedAt = seedTime, CreatedBy = (string?)"seed", UpdatedBy = (string?)"seed", DeletedAt = (DateTimeOffset?)null },
+            new { Id = Guid.Parse("00000011-0006-0000-0000-000000000002"), TipoEntidad = "factura_proveedor", Codigo = "soporte", Nombre = "Documento de soporte", Orden = 1, Obligatorio = false, ObligatorioPersonaMoral = false, ObligatorioPersonaFisica = false, VigenciaMeses = (int?)null, SoloPersonaMoral = false, AplicaOrigen = AdjuntoAplicaOrigen.Todos, Activo = true, Version = 1, CreatedAt = seedTime, UpdatedAt = seedTime, CreatedBy = (string?)"seed", UpdatedBy = (string?)"seed", DeletedAt = (DateTimeOffset?)null },
+            // F1-CON-04 (C1.3, R7): documento soporte de la póliza contable.
+            new { Id = Guid.Parse("00000011-0006-0000-0000-000000000003"), TipoEntidad = "poliza", Codigo = "soporte", Nombre = "Documento soporte", Orden = 1, Obligatorio = false, ObligatorioPersonaMoral = false, ObligatorioPersonaFisica = false, VigenciaMeses = (int?)null, SoloPersonaMoral = false, AplicaOrigen = AdjuntoAplicaOrigen.Todos, Activo = true, Version = 1, CreatedAt = seedTime, UpdatedAt = seedTime, CreatedBy = (string?)"seed", UpdatedBy = (string?)"seed", DeletedAt = (DateTimeOffset?)null },
+            // ALM-04: evidencia por línea de material en revisión (G1.2). Era ...0003, tomado por F1-CON-04 (póliza) en main.
+            new { Id = Guid.Parse("00000011-0006-0000-0000-000000000006"), TipoEntidad = "linea_revision", Codigo = "foto_dano", Nombre = "Foto o evidencia del daño", Orden = 1, Obligatorio = false, ObligatorioPersonaMoral = false, ObligatorioPersonaFisica = false, VigenciaMeses = (int?)null, SoloPersonaMoral = false, AplicaOrigen = AdjuntoAplicaOrigen.Todos, Activo = true, Version = 1, CreatedAt = seedTime, UpdatedAt = seedTime, CreatedBy = (string?)"seed", UpdatedBy = (string?)"seed", DeletedAt = (DateTimeOffset?)null },
+            // F1-COM-02: PDF de la cotización del proveedor.
+            new { Id = Guid.Parse("00000011-0006-0000-0000-000000000004"), TipoEntidad = "cotizacion_compra", Codigo = "cotizacion", Nombre = "Cotización del proveedor", Orden = 1, Obligatorio = false, ObligatorioPersonaMoral = false, ObligatorioPersonaFisica = false, VigenciaMeses = (int?)null, SoloPersonaMoral = false, AplicaOrigen = AdjuntoAplicaOrigen.Todos, Activo = true, Version = 1, CreatedAt = seedTime, UpdatedAt = seedTime, CreatedBy = (string?)"seed", UpdatedBy = (string?)"seed", DeletedAt = (DateTimeOffset?)null },
+            // F1-COM-11: evidencia de la respuesta del proveedor sobre la OC (G1.2). Plan reservaba ...0004, tomado por COM-02.
+            new { Id = Guid.Parse("00000011-0006-0000-0000-000000000005"), TipoEntidad = "oc_respuesta_proveedor", Codigo = "evidencia_respuesta", Nombre = "Evidencia de la respuesta del proveedor", Orden = 1, Obligatorio = false, ObligatorioPersonaMoral = false, ObligatorioPersonaFisica = false, VigenciaMeses = (int?)null, SoloPersonaMoral = false, AplicaOrigen = AdjuntoAplicaOrigen.Todos, Activo = true, Version = 1, CreatedAt = seedTime, UpdatedAt = seedTime, CreatedBy = (string?)"seed", UpdatedBy = (string?)"seed", DeletedAt = (DateTimeOffset?)null },
             SeedTipoAdjuntoProveedor("00000011-0001-0000-0000-000000000001", "constancia_situacion_fiscal", "Constancia de situación fiscal", 1, 3, false, seedTime),
             SeedTipoAdjuntoProveedor("00000011-0001-0000-0000-000000000002", "contrato", "Contrato", 2, null, false, seedTime),
             SeedTipoAdjuntoProveedor("00000011-0001-0000-0000-000000000003", "acta_constitutiva", "Acta constitutiva", 3, null, true, seedTime),
             SeedTipoAdjuntoProveedor("00000011-0001-0000-0000-000000000004", "identificacion_representante_legal", "Identificación del representante legal", 4, null, false, seedTime),
-            SeedTipoAdjuntoProveedor("00000011-0001-0000-0000-000000000005", "comprobante_domicilio", "Comprobante de domicilio", 5, 3, false, seedTime));
+            SeedTipoAdjuntoProveedor("00000011-0001-0000-0000-000000000005", "comprobante_domicilio", "Comprobante de domicilio", 5, 3, false, seedTime),
+            // 86e3pdmee: soporte para validar cuentas bancarias; no es parte del expediente obligatorio.
+            new { Id = Guid.Parse("00000011-0001-0000-0000-000000000006"), TipoEntidad = "proveedor", Codigo = "estado_cuenta_bancaria", Nombre = "Estado de cuenta o carta bancaria", Orden = 6, Obligatorio = false, ObligatorioPersonaMoral = false, ObligatorioPersonaFisica = false, VigenciaMeses = (int?)3, SoloPersonaMoral = false, AplicaOrigen = AdjuntoAplicaOrigen.Todos, Activo = true, Version = 1, CreatedAt = seedTime, UpdatedAt = seedTime, CreatedBy = (string?)"seed", UpdatedBy = (string?)"seed", DeletedAt = (DateTimeOffset?)null },
+            // 86e3pdmee · demo 12-oct: opinión de cumplimiento y fotos del domicilio fiscal, opcionales (Millet define).
+            new { Id = Guid.Parse("00000011-0001-0000-0000-000000000007"), TipoEntidad = "proveedor", Codigo = "opinion_cumplimiento", Nombre = "Opinión de cumplimiento (32-D)", Orden = 7, Obligatorio = false, ObligatorioPersonaMoral = false, ObligatorioPersonaFisica = false, VigenciaMeses = (int?)1, SoloPersonaMoral = false, AplicaOrigen = AdjuntoAplicaOrigen.SoloNacional, Activo = true, Version = 1, CreatedAt = seedTime, UpdatedAt = seedTime, CreatedBy = (string?)"seed", UpdatedBy = (string?)"seed", DeletedAt = (DateTimeOffset?)null },
+            new { Id = Guid.Parse("00000011-0001-0000-0000-000000000008"), TipoEntidad = "proveedor", Codigo = "fotografias_domicilio", Nombre = "Fotografías del domicilio fiscal", Orden = 8, Obligatorio = false, ObligatorioPersonaMoral = false, ObligatorioPersonaFisica = false, VigenciaMeses = (int?)null, SoloPersonaMoral = false, AplicaOrigen = AdjuntoAplicaOrigen.Todos, Activo = true, Version = 1, CreatedAt = seedTime, UpdatedAt = seedTime, CreatedBy = (string?)"seed", UpdatedBy = (string?)"seed", DeletedAt = (DateTimeOffset?)null });
+    }
+
+    /// <summary>86e3pdmee · ADM-01: excepciones a documentos obligatorios del expediente.</summary>
+    private static void ConfigureAdjuntoExcepcion(ModelBuilder modelBuilder)
+    {
+        var x = modelBuilder.Entity<AdjuntoExcepcion>();
+        x.ToTable("adjunto_excepciones", t =>
+            t.HasCheckConstraint("ck_adjunto_excepciones_motivo", "char_length(motivo) BETWEEN 10 AND 500"));
+        x.HasKey(e => e.Id);
+        x.Ignore(e => e.Vigente);
+        x.Property(e => e.TipoEntidad).HasMaxLength(60).IsRequired();
+        x.Property(e => e.Motivo).HasMaxLength(500).IsRequired();
+        x.Property(e => e.OtorgadaPorNombre).HasMaxLength(200);
+        x.HasOne<AdjuntoTipoDocumento>().WithMany().HasForeignKey(e => e.TipoDocumentoId).OnDelete(DeleteBehavior.Restrict);
+        x.HasIndex(e => new { e.TipoEntidad, e.EntidadId });
     }
 
     private static object SeedTipoAdjuntoProveedor(
@@ -267,8 +328,12 @@ public sealed class CompartidoDbContext : BaseDbContext
         Nombre = nombre,
         Orden = orden,
         Obligatorio = true,
+        ObligatorioPersonaMoral = true,
+        ObligatorioPersonaFisica = !soloPersonaMoral,
         VigenciaMeses = vigenciaMeses,
         SoloPersonaMoral = soloPersonaMoral,
+        // 86e3pdmee: la constancia de situación fiscal es del SAT; no aplica a extranjeros.
+        AplicaOrigen = codigo == "constancia_situacion_fiscal" ? AdjuntoAplicaOrigen.SoloNacional : AdjuntoAplicaOrigen.Todos,
         Activo = true,
         Version = 1,
         CreatedAt = seedTime,
@@ -398,6 +463,9 @@ public sealed class CompartidoDbContext : BaseDbContext
             SeedParametro("00000006-0001-0000-0000-000000000005", ToleranciaFacturaContraOcParametro.Clave,
                 "0.99", TipoParametro.Numero,
                 "Tolerancia factura contra OC (MXN) cuando el proveedor no tiene una propia. Sin opción de forzar el rechazo.", seedTime, "cxp"),
+            SeedParametro("00000006-0001-0000-0000-00000000000b", ToleranciaTarjetasParametro.Clave,
+                "1.00", TipoParametro.Numero,
+                "Tolerancia de conciliación de tarjetas corporativas (MXN). Diferencia máxima aceptada entre el estado de cuenta y lo capturado.", seedTime, "cxp"),
             SeedParametro("00000006-0001-0000-0000-00000000000a",
                 Millet.SharedKernel.Application.Calendario.CalendarioHabil.ClaveFestivos,
                 Millet.SharedKernel.Application.Calendario.CalendarioHabil.FestivosIniciales, TipoParametro.Json,
@@ -444,7 +512,10 @@ public sealed class CompartidoDbContext : BaseDbContext
             t.HasCheckConstraint("ck_series_reinicio_periodo",
                 "reinicio_periodo BETWEEN 0 AND 2");
             t.HasCheckConstraint("ck_series_tipo_documento",
-                "tipo_documento BETWEEN 1 AND 5");
+                "tipo_documento BETWEEN 1 AND 6");
+            // F6.1: la serie de Venta directa (6) siempre es por sucursal.
+            t.HasCheckConstraint("ck_series_vd_sucursal",
+                "tipo_documento <> 6 OR sucursal_id IS NOT NULL");
             t.HasCheckConstraint("ck_series_prefijo_no_vacio",
                 "char_length(prefijo) BETWEEN 1 AND 10");
             t.HasCheckConstraint("ck_series_sufijo_max",
@@ -461,10 +532,10 @@ public sealed class CompartidoDbContext : BaseDbContext
         serie.Property(x => x.FolioInicial).HasDefaultValue(1L).IsRequired();
         serie.HasIndex(x => new { x.EmpresaId, x.SucursalId, x.TipoDocumento })
             .HasDatabaseName("ix_series_fiscal_activa_sucursal").IsUnique()
-            .HasFilter("activa AND sucursal_id IS NOT NULL AND tipo_documento IN (2, 3, 5)");
+            .HasFilter("activa AND sucursal_id IS NOT NULL AND tipo_documento IN (2, 3, 5, 6)");
         serie.HasIndex(x => new { x.EmpresaId, x.TipoDocumento })
             .HasDatabaseName("ix_series_fiscal_activa_global").IsUnique()
-            .HasFilter("activa AND sucursal_id IS NULL AND tipo_documento IN (2, 3, 5)");
+            .HasFilter("activa AND sucursal_id IS NULL AND tipo_documento IN (2, 3, 5, 6)");
 
         // Índice único compuesto. Para que los NULLs de SucursalId/Sufijo
         // no salten el unique de PostgreSQL, usamos COALESCE a sentinels.
@@ -862,6 +933,7 @@ public sealed class CompartidoDbContext : BaseDbContext
         regimen.Property(x => x.Codigo).HasMaxLength(3).IsRequired();
         regimen.Property(x => x.Nombre).HasMaxLength(254).IsRequired();
         regimen.Property(x => x.AplicaPersonaFisica).IsRequired();
+        regimen.Property(x => x.AplicaPersonaMoral).IsRequired();
         regimen.Property(x => x.Estatus).HasConversion<short>().IsRequired();
 
         regimen.HasIndex(x => x.Codigo).IsUnique();
@@ -897,6 +969,8 @@ public sealed class CompartidoDbContext : BaseDbContext
         Codigo = codigo,
         Nombre = nombre,
         AplicaPersonaFisica = aplicaPersonaFisica,
+        // 86e3pdmee: el SAT marca ambas naturalezas en el 626 (RESICO) y el 610 (extranjeros).
+        AplicaPersonaMoral = !aplicaPersonaFisica || codigo is "626" or "610",
         Estatus = EstatusCatalogo.Activo,
         Version = 1,
         CreatedAt = seedTime,
@@ -1120,8 +1194,6 @@ public sealed class CompartidoDbContext : BaseDbContext
             t.HasCheckConstraint("ck_proveedores_tipo_persona", "tipo_persona BETWEEN 0 AND 1");
             t.HasCheckConstraint("ck_proveedores_estatus", "estatus BETWEEN 0 AND 2");
             t.HasCheckConstraint("ck_proveedores_tolerancia_no_negativa", "tolerancia_factura_contra_oc_mxn IS NULL OR tolerancia_factura_contra_oc_mxn >= 0");
-            // TES-PR3 [T-G1]: datos bancarios para pago.
-            t.HasCheckConstraint("ck_proveedores_clabe_formato", "clabe IS NULL OR clabe ~ '^[0-9]{18}$'");
         });
         proveedor.HasKey(x => x.Id);
         proveedor.Property(x => x.Clave).HasMaxLength(20).IsRequired();
@@ -1135,16 +1207,16 @@ public sealed class CompartidoDbContext : BaseDbContext
         proveedor.Property(x => x.Email).HasMaxLength(254);
         proveedor.Property(x => x.Telefono).HasMaxLength(50);
         proveedor.Property(x => x.Estatus).HasConversion<short>().IsRequired();
-        // TES-PR3 [T-G1]: datos bancarios para pago (Tesorería los lee vía
-        // IProveedorBancoReadPort; CLABE enmascarada en logs y DTOs).
-        proveedor.Property(x => x.Banco).HasMaxLength(120);
-        proveedor.Property(x => x.Clabe).HasMaxLength(18);
-        proveedor.Property(x => x.Beneficiario).HasMaxLength(254);
         // F1-ADM-05 G1.1: validación CxP y motivo de rechazo.
         proveedor.Property(x => x.ToleranciaFacturaContraOcMxn).HasPrecision(18, 4);
         proveedor.Property(x => x.ValidadoPorId);
         proveedor.Property(x => x.ValidadoEn);
         proveedor.Property(x => x.MotivoRechazo).HasMaxLength(500);
+        // 86e3pdmee · ADM-01: clasificación fiscal (null = por revisar).
+        proveedor.Property(x => x.Origen).HasConversion<short?>();
+        proveedor.Property(x => x.RegimenFiscalCodigo).HasMaxLength(3);
+        proveedor.Property(x => x.ConceptoRetencion).HasMaxLength(80);
+        proveedor.Property(x => x.ValidadoConMatrizVersion);
 
         proveedor.HasIndex(x => x.Clave).IsUnique();
         // F1-ADM-05: RFC único salvo genéricos SAT (público en general),
@@ -1156,6 +1228,44 @@ public sealed class CompartidoDbContext : BaseDbContext
             .HasDatabaseName("ux_proveedores_rfc_no_generico")
             .HasFilter("rfc NOT IN ('XAXX010101000','XEXX010101000')");
         proveedor.HasIndex(x => x.Estatus);
+    }
+
+    /// <summary>
+    /// 86e3pdmee · ADM-02: varias cuentas por proveedor. Tesorería las lee vía
+    /// IProveedorBancoReadPort; solo paga a cuentas Activas. Una cuenta (CLABE o
+    /// número) no se repite dentro del proveedor salvo que esté rechazada.
+    /// Una sola predeterminada por moneda: la garantiza el comando.
+    /// </summary>
+    private static void ConfigureCuentaBancariaProveedor(ModelBuilder modelBuilder)
+    {
+        var cuenta = modelBuilder.Entity<CuentaBancariaProveedor>();
+        cuenta.ToTable("proveedor_cuentas_bancarias", t =>
+        {
+            t.HasCheckConstraint("ck_proveedor_cuentas_clabe_formato", "clabe IS NULL OR clabe ~ '^[0-9]{18}$'");
+            t.HasCheckConstraint("ck_proveedor_cuentas_numero", "clabe IS NOT NULL OR numero_cuenta IS NOT NULL");
+            t.HasCheckConstraint("ck_proveedor_cuentas_moneda", "moneda IN ('MXN','USD')");
+            t.HasCheckConstraint("ck_proveedor_cuentas_estado", "estado BETWEEN 0 AND 3");
+        });
+        cuenta.HasKey(x => x.Id);
+        cuenta.Ignore(x => x.Identificador);
+        cuenta.Property(x => x.Banco).HasMaxLength(120).IsRequired();
+        cuenta.Property(x => x.Clabe).HasMaxLength(18);
+        cuenta.Property(x => x.NumeroCuenta).HasMaxLength(40);
+        cuenta.Property(x => x.Swift).HasMaxLength(11);
+        cuenta.Property(x => x.Moneda).HasMaxLength(3).IsRequired();
+        cuenta.Property(x => x.Titular).HasMaxLength(254).IsRequired();
+        cuenta.Property(x => x.Estado).HasConversion<short>().IsRequired();
+        cuenta.Property(x => x.NotaValidacion).HasMaxLength(500);
+        cuenta.Property(x => x.MotivoEstado).HasMaxLength(500);
+        cuenta.HasOne<Proveedor>().WithMany().HasForeignKey(x => x.ProveedorId).OnDelete(DeleteBehavior.Restrict);
+        cuenta.HasIndex(x => new { x.ProveedorId, x.Clabe }).IsUnique()
+            .HasDatabaseName("ux_proveedor_cuentas_clabe").HasFilter("clabe IS NOT NULL AND estado <> 3");
+        cuenta.HasIndex(x => new { x.ProveedorId, x.NumeroCuenta }).IsUnique()
+            .HasDatabaseName("ux_proveedor_cuentas_numero").HasFilter("numero_cuenta IS NOT NULL AND estado <> 3");
+        cuenta.Property(x => x.CapturadaPorNombre).HasMaxLength(200);
+        cuenta.Property(x => x.ValidadaPorNombre).HasMaxLength(200);
+        cuenta.Property(x => x.UltimoCambioPorNombre).HasMaxLength(200);
+        cuenta.HasIndex(x => x.ProveedorId);
     }
 
     /// <summary>
@@ -1261,9 +1371,66 @@ public sealed class CompartidoDbContext : BaseDbContext
 
         cliente.HasIndex(x => x.Clave).IsUnique();
         cliente.HasIndex(x => x.ReferenciaExterna).IsUnique();
-        cliente.HasIndex(x => x.Rfc);
+        // ClienteRfcUnico (owner 2026-10-13, M2.2): un RFC no genérico identifica a un solo cliente.
+        // Rfc se persiste normalizado (Trim + ToUpperInvariant) desde el dominio; el filtro excluye genéricos SAT.
+        cliente.HasIndex(x => x.Rfc)
+            .IsUnique()
+            .HasDatabaseName("ux_clientes_rfc_no_generico")
+            .HasFilter("rfc NOT IN ('XAXX010101000','XEXX010101000')");
         cliente.HasOne<ClasificacionCliente>().WithMany().HasForeignKey(c => c.ClasificacionId).OnDelete(DeleteBehavior.Restrict);
         cliente.HasIndex(x => x.Estatus);
+        cliente.Property(x => x.UnificadoPor).HasMaxLength(200);
+        cliente.Property(x => x.MotivoUnificacion).HasMaxLength(300);
+        cliente.HasOne<Cliente>().WithMany().HasForeignKey(c => c.UnificadoEnClienteId).OnDelete(DeleteBehavior.Restrict);
+        cliente.HasIndex(x => x.UnificadoEnClienteId);
+    }
+
+    /// <summary>
+    /// U1.8b: revisión por (tipo, entidad, campo) con huella de los valores comparados, y corridas
+    /// persistidas del reporte (INotAudited) con sus filas en cascada.
+    /// </summary>
+    private static void ConfigureDiferenciasFiscalesAw(ModelBuilder modelBuilder)
+    {
+        var rev = modelBuilder.Entity<DiferenciaFiscalAwRevision>();
+        rev.ToTable("diferencias_fiscales_aw_revisiones");
+        rev.HasKey(x => x.Id);
+        rev.Property(x => x.Tipo).HasConversion<string>().HasMaxLength(10).IsRequired();
+        rev.Property(x => x.ReferenciaExterna).HasMaxLength(50).IsRequired();
+        rev.Property(x => x.Campo).HasMaxLength(DiferenciaFiscalAwRevision.MaxCampo).IsRequired();
+        rev.Property(x => x.ValorOrigen).HasMaxLength(DiferenciaFiscalAwRevision.MaxValor);
+        rev.Property(x => x.ValorErp).HasMaxLength(DiferenciaFiscalAwRevision.MaxValor);
+        rev.Property(x => x.Huella).HasMaxLength(64).IsRequired();
+        rev.Property(x => x.RevisadoPorNombre).HasMaxLength(200);
+        rev.Property(x => x.Nota).HasMaxLength(DiferenciaFiscalAwRevision.MaxNota);
+        rev.Property(x => x.Version).IsConcurrencyToken();
+        rev.HasIndex(x => new { x.Tipo, x.EntidadId, x.Campo }).IsUnique();
+
+        var corrida = modelBuilder.Entity<DiferenciaFiscalAwCorrida>();
+        corrida.ToTable("diferencias_fiscales_aw_corridas");
+        corrida.HasKey(x => x.Id);
+        corrida.Property(x => x.Origen).HasConversion<string>().HasMaxLength(12).IsRequired();
+        corrida.Property(x => x.Actor).HasMaxLength(200).IsRequired();
+        corrida.Property(x => x.Error).HasMaxLength(1000);
+        corrida.Property(x => x.Avisos).HasMaxLength(2000);
+        corrida.Property(x => x.Version).IsConcurrencyToken();
+        corrida.HasIndex(x => x.IniciadaEn);
+        corrida.HasMany(x => x.Filas).WithOne().HasForeignKey(f => f.CorridaId).OnDelete(DeleteBehavior.Cascade);
+        corrida.Navigation(x => x.Filas).UsePropertyAccessMode(PropertyAccessMode.Field);
+
+        var fila = modelBuilder.Entity<DiferenciaFiscalAwCorridaFila>();
+        fila.ToTable("diferencias_fiscales_aw_corrida_filas");
+        fila.HasKey(x => x.Id);
+        fila.Property(x => x.Tipo).HasConversion<string>().HasMaxLength(10).IsRequired();
+        fila.Property(x => x.ReferenciaExterna).HasMaxLength(50).IsRequired();
+        fila.Property(x => x.Nombre).HasMaxLength(300).IsRequired();
+        fila.Property(x => x.Campo).HasMaxLength(DiferenciaFiscalAwRevision.MaxCampo).IsRequired();
+        fila.Property(x => x.Fuente).HasMaxLength(120).IsRequired();
+        fila.Property(x => x.ValorOrigen).HasMaxLength(DiferenciaFiscalAwRevision.MaxValor);
+        fila.Property(x => x.ValorErp).HasMaxLength(DiferenciaFiscalAwRevision.MaxValor);
+        fila.Property(x => x.Estado).HasMaxLength(30).IsRequired();
+        fila.Property(x => x.Huella).HasMaxLength(64).IsRequired();
+        fila.Property(x => x.Version).IsConcurrencyToken();
+        fila.HasIndex(x => x.CorridaId);
     }
 
     /// <summary>

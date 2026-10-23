@@ -40,7 +40,8 @@ public sealed class ComprasOcReadAdapter : IComprasOcReadPort, IComprasRecepcion
                 CantidadSolicitada: l.Cantidad,
                 CantidadRecibida: l.CantidadRecibida,
                 PrecioUnitarioMxn: Math.Round(l.PrecioUnitario * conversionMxn, 4),
-                CentroCostoId: l.CentroCostoId))
+                CentroCostoId: l.CentroCostoId,
+                CantidadFacturada: l.CantidadFacturada, EsActivoFijo: l.EsActivoFijo, ClaseActivoId: l.ClaseActivoId, FraccionArancelaria: l.FraccionArancelaria))
             .ToList();
 
         return new OcLectura(
@@ -49,8 +50,19 @@ public sealed class ComprasOcReadAdapter : IComprasOcReadPort, IComprasRecepcion
             ProveedorId: oc.ProveedorId,
             EmpresaId: oc.EmpresaId,
             Estado: oc.Estado.ToString(),
-            Lineas: lineas);
+            Lineas: lineas,
+            SucursalDestinoId: oc.SucursalDestinoId, EsImportacion: oc.EsImportacion,
+            NumeroPedimento: oc.InfoImportNumeroPedimento, NumeroBl: oc.InfoImportNumeroBl, NumeroContenedor: oc.InfoImportNumeroContenedor);
     }
+
+    public async Task<IReadOnlyCollection<Guid>> ObtenerIdsPorProveedorAsync(
+        Guid proveedorId,
+        CancellationToken cancellationToken)
+        => await _db.OrdenesCompra
+            .AsNoTracking()
+            .Where(o => o.ProveedorId == proveedorId)
+            .Select(o => o.Id)
+            .ToListAsync(cancellationToken);
 
     public async Task<IReadOnlyDictionary<Guid, string>> ObtenerFoliosAsync(
         IReadOnlyCollection<Guid> ocIds,

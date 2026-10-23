@@ -59,6 +59,7 @@ resource rootAuthRule 'Microsoft.ServiceBus/namespaces/authorizationRules@2024-0
 //   - almacen-events          (módulo Millet.Almacen)
 //   - cuentas-por-pagar-events (módulo Millet.CuentasPorPagar)
 //   - facturacion-events       (módulo Millet.Facturacion)
+//   - comercio-exterior-events (módulo Millet.ComercioExterior)
 //   - tesoreria-events         (módulo Millet.Tesoreria; publisher en TES-PR4)
 //   - admin-events              (Administración; publisher en F1-ADM-01)
 //
@@ -548,7 +549,8 @@ resource facturacionEventsCxcSubscriptionFilter 'Microsoft.ServiceBus/namespaces
 // (TES-PR7): caja-sesion.cerrada genera la expectativa de depósito
 // Caja→Banco (cierra PLATFORM-TODO <TesoreriaCajaSesion>) y
 // recibo-pago.timbrado marca repp_timbrado en la confirmación (ciclo
-// fiscal cerrado).
+// fiscal cerrado) y nota-credito.reembolso-solicitado crea la devolución a
+// cliente de origen NC (T9.6 · CA6.17).
 // Referencia: backend/src/Tesoreria/Infrastructure/Workers/FacturacionEventListenerWorker.cs
 resource facturacionEventsTesoreriaSubscription 'Microsoft.ServiceBus/namespaces/topics/subscriptions@2024-01-01' = {
   parent: facturacionEventsTopic
@@ -569,7 +571,7 @@ resource facturacionEventsTesoreriaSubscriptionFilter 'Microsoft.ServiceBus/name
   properties: {
     filterType: 'SqlFilter'
     sqlFilter: {
-      sqlExpression: 'user.EventType IN (\'facturacion.caja-sesion.cerrada.v1\', \'facturacion.recibo-pago.timbrado.v1\')'
+      sqlExpression: 'user.EventType IN (\'facturacion.caja-sesion.cerrada.v1\', \'facturacion.recibo-pago.timbrado.v1\', \'facturacion.nota-credito.reembolso-solicitado.v1\')'
       compatibilityLevel: 20
     }
   }
@@ -649,6 +651,20 @@ resource cxcEventsTesoreriaSubscriptionFilter 'Microsoft.ServiceBus/namespaces/t
 resource tesoreriaEventsTopic 'Microsoft.ServiceBus/namespaces/topics@2024-01-01' = {
   parent: serviceBus
   name: 'tesoreria-events'
+  properties: {
+    defaultMessageTimeToLive: 'P1D'
+    enableBatchedOperations: true
+    enablePartitioning: false
+    maxSizeInMegabytes: 1024
+    requiresDuplicateDetection: false
+    supportOrdering: true
+  }
+}
+
+// CE-01a: publicación de apertura y cancelación; sin consumidores de negocio.
+resource comercioExteriorEventsTopic 'Microsoft.ServiceBus/namespaces/topics@2024-01-01' = {
+  parent: serviceBus
+  name: 'comercio-exterior-events'
   properties: {
     defaultMessageTimeToLive: 'P1D'
     enableBatchedOperations: true
@@ -778,3 +794,88 @@ output almacenEventsComprasSubscriptionName string = almacenEventsComprasSubscri
 
 @secure()
 output primaryConnectionString string = rootAuthRule.listKeys().primaryConnectionString
+
+// AF-01: consumidor idempotente de recepción y conciliación.
+resource afAlmacen 'Microsoft.ServiceBus/namespaces/topics/subscriptions@2024-01-01' = {
+ parent: almacenEventsTopic
+ name: 'activos-fijos-almacen'
+ properties: {
+  deadLetteringOnMessageExpiration: true
+  maxDeliveryCount: 5
+  defaultMessageTimeToLive: 'P1D'
+  lockDuration: 'PT1M'
+ }
+}
+resource afAlmacenFilter 'Microsoft.ServiceBus/namespaces/topics/subscriptions/rules@2024-01-01' = {
+ parent: afAlmacen
+ name: 'EventTypeFilter'
+ properties: {
+  filterType: 'SqlFilter'
+  sqlFilter: { sqlExpression: 'user.EventType = \'almacen.oc_recepcion.registrada.v1\'' }
+ }
+}
+
+// AF-01: consumidor idempotente de recepción y conciliación.
+resource afCxp 'Microsoft.ServiceBus/namespaces/topics/subscriptions@2024-01-01' = {
+ parent: cxpEventsTopic
+ name: 'activos-fijos-cxp'
+ properties: {
+  deadLetteringOnMessageExpiration: true
+  maxDeliveryCount: 5
+  defaultMessageTimeToLive: 'P1D'
+  lockDuration: 'PT1M'
+ }
+}
+resource afCxpFilter 'Microsoft.ServiceBus/namespaces/topics/subscriptions/rules@2024-01-01' = {
+ parent: afCxp
+ name: 'EventTypeFilter'
+ properties: {
+  filterType: 'SqlFilter'
+  sqlFilter: { sqlExpression: 'user.EventType = \'cuentas_por_pagar.factura.registrada.v1\'' }
+ }
+}
+
+// AF-04: baja/reintegro por timbrado y cancelación de factura.
+resource afVentas 'Microsoft.ServiceBus/namespaces/topics/subscriptions@2024-01-01' = {
+ parent: facturacionEventsTopic
+ name: 'activos-fijos-ventas'
+ properties: {
+  deadLetteringOnMessageExpiration: true
+  maxDeliveryCount: 5
+  defaultMessageTimeToLive: 'P1D'
+  lockDuration: 'PT1M'
+ }
+}
+resource afVentasFilter 'Microsoft.ServiceBus/namespaces/topics/subscriptions/rules@2024-01-01' = {
+ parent: afVentas
+ name: 'EventTypeFilter'
+ properties: {
+  filterType: 'SqlFilter'
+  sqlFilter: { sqlExpression: 'user.EventType IN (\'facturacion.factura-venta.timbrada.v1\', \'facturacion.comprobante.cancelado.v1\')' }
+ }
+}
+
+// CE-06: aplica el costo puesto sin cambiar cantidades; idempotencia en Almacén.
+resource comercioExteriorAlmacenSubscription 'Microsoft.ServiceBus/namespaces/topics/subscriptions@2024-01-01' = {
+  parent: comercioExteriorEventsTopic
+  name: 'almacen-comercio-exterior-sub'
+  properties: {
+    deadLetteringOnMessageExpiration: true
+    deadLetteringOnFilterEvaluationExceptions: true
+    maxDeliveryCount: 10
+    defaultMessageTimeToLive: 'P14D'
+    lockDuration: 'PT1M'
+    enableBatchedOperations: true
+  }
+}
+resource comercioExteriorAlmacenFilter 'Microsoft.ServiceBus/namespaces/topics/subscriptions/rules@2024-01-01' = {
+  parent: comercioExteriorAlmacenSubscription
+  name: 'EventTypeFilter'
+  properties: {
+    filterType: 'SqlFilter'
+    sqlFilter: {
+      sqlExpression: 'user.EventType = \'comercio_exterior.expediente.costo-distribuido.v1\''
+      compatibilityLevel: 20
+    }
+  }
+}

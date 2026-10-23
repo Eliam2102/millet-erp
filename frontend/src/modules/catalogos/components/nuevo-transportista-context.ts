@@ -10,15 +10,12 @@ export interface NuevoTransportistaApi {
   setDirty: (dirty: boolean) => void;
 }
 
-export const NuevoTransportistaContext =
-  createContext<NuevoTransportistaApi | null>(null);
+export const NuevoTransportistaContext = createContext<NuevoTransportistaApi | null>(null);
 
 export function useNuevoTransportista(): NuevoTransportistaApi {
   const ctx = useContext(NuevoTransportistaContext);
   if (ctx == null) {
-    throw new Error(
-      'useNuevoTransportista() debe usarse dentro de <NuevoTransportistaProvider>.',
-    );
+    throw new Error('useNuevoTransportista() debe usarse dentro de <NuevoTransportistaProvider>.');
   }
   return ctx;
 }

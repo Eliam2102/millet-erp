@@ -1,3 +1,4 @@
+import { Badge } from '@/components/ui/badge';
 import { LinkIcon } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
@@ -26,28 +27,22 @@ export interface LineaDesdeRqBadgeProps {
   className?: string;
 }
 
-export function LineaDesdeRqBadge({
-  requisicionId,
-  folio,
-  className,
-}: LineaDesdeRqBadgeProps) {
+export function LineaDesdeRqBadge({ requisicionId, folio, className }: LineaDesdeRqBadgeProps) {
   const label = folio ? `RQ ${folio}` : `RQ-${requisicionId.slice(0, 8)}`;
   const tooltip = folio
-    ? `Línea heredada de RQ ${folio} (id ${requisicionId})`
-    : `Línea heredada de la requisición ${requisicionId}`;
+    ? `Partida heredada de RQ ${folio} (id ${requisicionId})`
+    : `Partida heredada de la requisición ${requisicionId}`;
 
   return (
-    <span
-      className={cn(
-        'inline-flex items-center gap-1 rounded-full border border-blue-200 bg-blue-50 px-1.5 py-0.5 text-[0.65rem] font-medium text-blue-900',
-        className,
-      )}
+    <Badge
+      variant="info"
+      className={cn('gap-1 font-mono', className)}
       title={tooltip}
       data-component="linea-desde-rq-badge"
       data-requisicion-id={requisicionId}
     >
       <LinkIcon className="h-2.5 w-2.5" aria-hidden="true" />
       Desde {label}
-    </span>
+    </Badge>
   );
 }

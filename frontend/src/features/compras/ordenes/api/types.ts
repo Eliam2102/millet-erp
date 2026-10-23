@@ -82,6 +82,34 @@ export const SubEstadoPago = {
 } as const satisfies Record<string, number>;
 export type SubEstadoPago = (typeof SubEstadoPago)[keyof typeof SubEstadoPago];
 
+/** F1-COM-11: tipo de respuesta del proveedor. Mirror de <c>TipoRespuestaProveedorOc.cs</c>. */
+export const TipoRespuestaProveedorOc = {
+  Confirmacion: 1,
+  Rechazo: 2,
+} as const satisfies Record<string, number>;
+export type TipoRespuestaProveedorOc =
+  (typeof TipoRespuestaProveedorOc)[keyof typeof TipoRespuestaProveedorOc];
+
+/** F1-COM-07: tipo de incidencia del proveedor. Mirror de <c>TipoIncidenciaProveedorOc.cs</c>. */
+export const TipoIncidenciaProveedorOc = {
+  Faltante: 1,
+  Danado: 2,
+  Atraso: 3,
+} as const satisfies Record<string, number>;
+export type TipoIncidenciaProveedorOc =
+  (typeof TipoIncidenciaProveedorOc)[keyof typeof TipoIncidenciaProveedorOc];
+
+/** F1-COM-11: estado comercial de la OC. Mirror de <c>EstadoComercialProveedorOc.cs</c>. */
+export const EstadoComercialProveedorOc = {
+  RespuestaRegistrada: 4,
+  SinRespuesta: 0,
+  Confirmada: 1,
+  ConfirmadaConDiferencias: 2,
+  Rechazada: 3,
+} as const satisfies Record<string, number>;
+export type EstadoComercialProveedorOc =
+  (typeof EstadoComercialProveedorOc)[keyof typeof EstadoComercialProveedorOc];
+
 /**
  * Tipo de descuento aplicado en línea o cabecera (doc 01 §4.8).
  * Mirror de <c>DescuentoTipo.cs</c>. <c>Porcentaje</c>: el valor es
@@ -180,6 +208,26 @@ const SUB_ESTADO_PAGO_LABELS: Record<SubEstadoPago, string> = {
 export const subEstadoPagoToString = (s: SubEstadoPago): string =>
   SUB_ESTADO_PAGO_LABELS[s];
 
+/** F1-COM-11 */
+export const ESTADO_COMERCIAL_PROVEEDOR_LABELS: Record<EstadoComercialProveedorOc, string> = {
+  [EstadoComercialProveedorOc.RespuestaRegistrada]: 'Respuesta sin clasificar',
+  [EstadoComercialProveedorOc.SinRespuesta]: 'Sin respuesta del proveedor',
+  [EstadoComercialProveedorOc.Confirmada]: 'Confirmada por el proveedor',
+  [EstadoComercialProveedorOc.ConfirmadaConDiferencias]: 'Confirmada con diferencias',
+  [EstadoComercialProveedorOc.Rechazada]: 'Rechazada por el proveedor',
+};
+/** F1-COM-11 */
+export const ESTADO_COMERCIAL_PROVEEDOR_VARIANT: Record<
+  EstadoComercialProveedorOc,
+  'neutral' | 'success' | 'warning' | 'danger'
+> = {
+  [EstadoComercialProveedorOc.RespuestaRegistrada]: 'neutral',
+  [EstadoComercialProveedorOc.SinRespuesta]: 'neutral',
+  [EstadoComercialProveedorOc.Confirmada]: 'success',
+  [EstadoComercialProveedorOc.ConfirmadaConDiferencias]: 'warning',
+  [EstadoComercialProveedorOc.Rechazada]: 'danger',
+};
+
 // ============================================================================
 // DTOs (mirror de los Response records del backend)
 // ============================================================================
@@ -228,6 +276,10 @@ export interface OrdenCompraResumen {
   proveedorConocido?: boolean | null;
   /** <c>true</c> = la OC aún requiere Dirección (N2) después de N1. */
   requiereNivel2?: boolean | null;
+  /** F1-COM-11: estado comercial según la respuesta del proveedor. */
+  estadoComercialProveedor?: EstadoComercialProveedorOc | null;
+  /** F1-COM-11: compromiso vigente (yyyy-MM-dd). */
+  fechaCompromisoProveedor?: string | null;
 }
 
 /**
@@ -250,11 +302,106 @@ export interface SolicitudCancelacionOc {
   motivoResolucion: string | null;
 }
 
+/** F1-COM-11: fecha prometida por el proveedor para una cantidad de una línea. */
+export interface CompromisoEntregaOc {
+  id: string;
+  lineaOrdenCompraId: string;
+  cantidad: number;
+  /** yyyy-MM-dd */
+  fechaPrometida: string;
+}
+
+/** F1-COM-11: respuesta del proveedor (historial inmutable). */
+export interface RespuestaProveedorOc {
+  id: string;
+  numero: number;
+  tipo: TipoRespuestaProveedorOc | null;
+  fechaRespuesta: string | null;
+  evidencia: string | null;
+  contactoProveedor: string | null;
+  motivo: string | null;
+  tieneDiferencias: boolean;
+  registradaPorId: string;
+  registradaEn: string;
+  vigente: boolean;
+  compromisos: CompromisoEntregaOc[];
+}
+
+/** F1-COM-07: fecha compromiso de una incidencia (historial inmutable; la de mayor número es la vigente). */
+export interface CompromisoIncidenciaOc {
+  id: string;
+  numero: number;
+  fechaCompromiso: string;
+  motivo: string | null;
+  registradoPorId: string;
+  registradoEn: string;
+}
+
+/** F1-COM-07: incidencia del proveedor sobre una partida de la OC. */
+export interface IncidenciaProveedorOc {
+  id: string;
+  numero: number;
+  lineaOrdenCompraId: string;
+  tipo: TipoIncidenciaProveedorOc;
+  cantidad: number;
+  descripcion: string | null;
+  responsableId: string;
+  responsableNombre: string | null;
+  fechaCompromisoVigente: string;
+  abierta: boolean;
+  vencida: boolean;
+  avisoVencidaEnviadoEn: string | null;
+  registradaPorId: string;
+  registradaEn: string;
+  cerradaEn: string | null;
+  cerradaPorId: string | null;
+  cerradaPorRecepcion: boolean;
+  motivoCierre: string | null;
+  compromisos: CompromisoIncidenciaOc[];
+}
+
+/** F1-COM-02: cotización elegida que originó la OC. */
+export interface CotizacionElegidaOc {
+  cotizacionId: string;
+  requisicionId: string;
+  proveedorId: string;
+  folioProveedor: string | null;
+  motivoEleccion: string;
+  elegidaEn: string;
+  /** Precio cotizado por unidad de la RQ de cada partida (aviso si la línea se aparta de él). */
+  precios: { lineaRequisicionId: string; precioPorUnidadRequisicion: number }[];
+}
+
+export interface RecepcionImportacion {
+  recepcionId: string;
+  numeroPedimento: string;
+  numeroBl: string;
+  numeroContenedor: string;
+  aduana: string;
+  clavePedimento: string;
+  partidas: { lineaOcId: string; fraccionArancelaria: string }[];
+}
+
 export interface OrdenCompraDetalleResponse {
+  recepcionesImportacion?: RecepcionImportacion[];
+  /** Proveedor con compras previas recurrentes; ausente si no hay dato. */
+  esRecurrente?: boolean;
   obra?: string | null;
   cicloAutorizacion?: number;
   autorizaciones?: AutorizacionOc[];
   solicitudesCancelacion?: SolicitudCancelacionOc[];
+  /** F1-COM-11 */
+  estadoComercialProveedor?: EstadoComercialProveedorOc;
+  /** F1-COM-11 (yyyy-MM-dd) */
+  fechaCompromisoProveedor?: string | null;
+  /** F1-COM-11: más reciente primero. */
+  respuestasProveedor?: RespuestaProveedorOc[];
+  /** F1-COM-07: incidencias del proveedor, la más reciente primero. */
+  incidencias?: IncidenciaProveedorOc[];
+  /** Campos de cabecera aún en TBD; la OC no se puede transmitir mientras haya alguno. */
+  camposPorCapturar?: ('proveedor' | 'condicionesPago' | 'usoPrincipal')[] | null;
+  // F1-COM-02
+  cotizacionElegida?: CotizacionElegidaOc | null;
   id: string;
   empresaId: string;
   folio: string;
@@ -427,6 +574,8 @@ export interface LineaOrdenCompraResponse {
   textoAdicional: string | null;
   /** GAP-9 / CA2.10: servicio (artículo `Servicio`); no se recibe en Almacén. */
   esServicio?: boolean;
+  esActivoFijo?: boolean;
+  claseActivoId?: string | null;
   /**
    * Fracción arancelaria (8 o 10 dígitos). Solo aplica a OC de comercio
    * exterior; <c>null</c> si no se capturó.

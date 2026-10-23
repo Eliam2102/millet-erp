@@ -2,16 +2,22 @@
 -- Referencias <= 100000, como el sandbox de A+W (las reales de productos empiezan en 100002).
 -- Casos incluidos a propósito: cliente sin NAME1 (id 58) y producto sin descripción (46) = error por fila;
 -- producto con unidad sin equivalencia (47) = pendiente; producto en baja (45); condición de pago sin coincidencia.
-TRUNCATE aw_origen.ku_kunden, aw_origen.ka_zahlbed, aw_origen.erp_articulo;
+-- Régimen fiscal (U1.8b, KA_BONITAET.FREMD_KEY): 601 en pares, 612 en nones, 616 en RFC genéricos; '<indf>' sin clave en
+-- múltiplos de 7 y una calificación sin catálogo (id 59) para ver "Sin dato en A+W" en el reporte de diferencias.
+TRUNCATE aw_origen.ku_kunden, aw_origen.ka_zahlbed, aw_origen.ka_bonitaet, aw_origen.erp_articulo;
+
+INSERT INTO aw_origen.ka_bonitaet (bez, fremd_key, kz_gesperrt, nummer) VALUES
+ ('<indf>', NULL, 0, 0), ('MORAL DEMO', '601', 0, 1), ('FISICA DEMO', '612', 0, 2), ('SIN OBLIGACIONES DEMO', '616', 0, 3),
+ ('RESICO DEMO', '626', 0, 4);
 
 INSERT INTO aw_origen.ka_zahlbed (bez, bruttotage, nummer) VALUES
  ('<indf>', NULL, 0), ('CONTADO', 0, 1), ('REPARTO', 0, 2), ('7 DIAS', 7, 3), ('15 DIAS', 15, 4), ('21 DIAS', 21, 5),
  ('30 DIAS', 30, 6), ('45 DIAS', 45, 7), ('60 DIAS', 60, 8), ('75 DIAS', 75, 9), ('90 DIAS', 90, 10);
 
--- ───────── Clientes: 60 ─────────
+-- ───────── Clientes: 62 ─────────
 INSERT INTO aw_origen.ku_kunden (id, mandant, name1, name2, name3, strasse, ort, plz, provinz, land, ust_id, steuernummer,
                                  tlf1, tlf2, mail, zahlbed, waehrung, kredit_limit, kredit_limit1, kredit_limit_net,
-                                 kz_status, kz_gesperrt, datum, transaction_time)
+                                 kz_status, kz_gesperrt, datum, transaction_time, bonitaet)
 SELECT i, 1,
   CASE WHEN i = 58 THEN '' ELSE 'CLIENTE DEMO ' || lpad(i::text, 3, '0') END,
   CASE WHEN i % 20 = 0 THEN 'SA DE CV DEMO' ELSE '' END,
@@ -38,8 +44,16 @@ SELECT i, 1,
   CASE WHEN i % 8 < 3 THEN 1 ELSE 2 END,
   CASE WHEN i % 10 = 0 THEN 1 ELSE 0 END,
   DATE '2020-01-01' + i,
-  CASE WHEN i % 20 = 0 THEN TIMESTAMP '2026-01-01 10:00:00' END
+  CASE WHEN i % 20 = 0 THEN TIMESTAMP '2026-01-01 10:00:00' END,
+  CASE WHEN i = 59 THEN 'CALIFICACION SIN CATALOGO' WHEN i % 7 = 0 THEN '<indf>'
+       WHEN i % 12 <> 0 AND (i % 3 = 0 OR i % 11 = 0) THEN 'SIN OBLIGACIONES DEMO'
+       WHEN i % 2 = 0 THEN 'MORAL DEMO' ELSE 'FISICA DEMO' END
 FROM generate_series(1, 60) AS i;
+
+-- 86e3qcgyn: dos clientes de A+W con el mismo RFC no genérico; no deben fusionarse.
+INSERT INTO aw_origen.ku_kunden (id, mandant, name1, name2, name3, strasse, ort, plz, provinz, land, ust_id, steuernummer, tlf1, tlf2, mail, zahlbed, waehrung, kredit_limit, kredit_limit1, kredit_limit_net, kz_status, kz_gesperrt, datum, transaction_time) VALUES
+ (61, 1, 'CLIENTE DEMO NORTE', '', '', 'CALLE DEMO 61', 'MONTERREY', '64000', 'NL', 'MEX', 'DEMO010101AB1', '', '5500000061', '', 'cliente061@demo.invalid', 'CONTADO', 'PESOSMX', 0, 0, 0, 0, 0, DATE '2020-03-01', NULL),
+ (62, 1, 'CLIENTE DEMO NORTE SUC', '', '', 'CALLE DEMO 62', 'MONTERREY', '64000', 'NL', 'MEX', 'DEMO010101AB1', '', '5500000062', '', 'cliente062@demo.invalid', 'CONTADO', 'PESOSMX', 0, 0, 0, 0, 0, DATE '2020-03-02', NULL);
 
 -- ───────── Productos: float (1-12), componentes PVB (41-42) y perfiles intercalarios (43-44) ─────────
 INSERT INTO aw_origen.erp_articulo (producto_ref, descripcion, unidad_medida, codigo_modelo, grupo, tipo, wgr, wgr_descripcion, variantes)

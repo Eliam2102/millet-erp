@@ -1,3 +1,6 @@
+import { FormSeccion } from '@/components/erp/forms/FormSeccion';
+import { FormCampo } from '@/components/erp/forms/FormGrid';
+import { SheetBody } from '@/components/ui/sheet';
 import { useEffect } from 'react';
 import { Controller, useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -11,21 +14,17 @@ import {
   SheetTitle,
 } from '@/components/ui/sheet';
 import { Button } from '@/components/ui/button';
+import { useConfirmarDescarte } from '@/components/erp/forms/useConfirmarDescarte';
 import { Input } from '@/components/ui/input';
 import { SubAlmacenSelector } from '@/components/erp/selectors/SubAlmacenSelector';
-import { applyServerErrors, esApiError } from '@/lib/api';
+import { applyServerErrors, esApiError, codigoSoporte } from '@/lib/api';
 import {
   UbicacionFormSchema,
   type UbicacionFormValues,
 } from '@/features/almacen/schemas/ubicacion';
-import {
-  useCrearUbicacion,
-  useEditarUbicacion,
-} from '@/features/almacen/api/useUbicaciones';
-import {
-  EstatusCatalogo,
-  type UbicacionListItem,
-} from '@/features/almacen/api/types';
+import { useCrearUbicacion, useEditarUbicacion } from '@/features/almacen/api/useUbicaciones';
+import { EstatusCatalogo, type UbicacionListItem } from '@/features/almacen/api/types';
+import { Field } from '@/features/almacen/components/internal/Field';
 
 /**
  * <c>&lt;UbicacionSheet/&gt;</c> — slide-from-right para crear o editar una
@@ -60,6 +59,13 @@ export function UbicacionSheet({
       nombre: '',
     },
   });
+
+  // Cerrar (Esc, clic fuera, X, Cancelar) con cambios pide confirmación; guardar cierra con force.
+  const { setDirty, solicitarCierre, dialogo } = useConfirmarDescarte(() => onOpenChange(false));
+  const isDirty = form.formState.isDirty;
+  useEffect(() => {
+    setDirty(isDirty);
+  }, [isDirty, setDirty]);
 
   useEffect(() => {
     if (open) {
@@ -96,7 +102,7 @@ export function UbicacionSheet({
         {
           onSuccess: () => {
             toast.success('Ubicación actualizada');
-            onOpenChange(false);
+            solicitarCierre(true);
           },
           onError: (error) => manejarError(error),
         },
@@ -115,7 +121,7 @@ export function UbicacionSheet({
         {
           onSuccess: () => {
             toast.success('Ubicación creada');
-            onOpenChange(false);
+            solicitarCierre(true);
           },
           onError: (error) => manejarError(error),
         },
@@ -139,16 +145,11 @@ export function UbicacionSheet({
         });
         return;
       }
-      if (
-        applyServerErrors(
-          form as unknown as Parameters<typeof applyServerErrors>[0],
-          error,
-        )
-      ) {
+      if (applyServerErrors(form as unknown as Parameters<typeof applyServerErrors>[0], error)) {
         return;
       }
       toast.error(error.problem.title, {
-        description: error.traceId ? `Código: ${error.traceId}` : undefined,
+        description: codigoSoporte(error),
       });
       return;
     }
@@ -159,12 +160,10 @@ export function UbicacionSheet({
   const isEdit = editando != null;
 
   return (
-    <Sheet open={open} onOpenChange={onOpenChange}>
-      <SheetContent side="right" className="sm:max-w-md">
+    <Sheet open={open} onOpenChange={(next) => (next ? onOpenChange(next) : solicitarCierre())}>
+      <SheetContent side="right" size="lg">
         <SheetHeader>
-          <SheetTitle>
-            {isEdit ? 'Editar ubicación' : 'Nueva ubicación'}
-          </SheetTitle>
+          <SheetTitle>{isEdit ? 'Editar ubicación' : 'Nueva ubicación'}</SheetTitle>
           <SheetDescription>
             {isEdit
               ? 'La clave es única dentro del sub-almacén. El sub-almacén no se puede cambiar; crea una nueva si necesitas moverla.'
@@ -172,119 +171,98 @@ export function UbicacionSheet({
           </SheetDescription>
         </SheetHeader>
 
-        <form
-          id="ubicacion-form"
-          onSubmit={form.handleSubmit(onSubmit)}
-          noValidate
-          className="flex-1 space-y-3 overflow-y-auto px-6"
-        >
-          <Field
-            label="Sub-almacén"
-            required
-            error={form.formState.errors.subAlmacenId?.message}
+        <SheetBody>
+          <form
+            id="ubicacion-form"
+            onSubmit={form.handleSubmit(onSubmit)}
+            noValidate
+            className="space-y-4"
           >
-            <Controller
-              name="subAlmacenId"
-              control={form.control}
-              render={({ field }) => (
-                <SubAlmacenSelector
-                  value={field.value || null}
-                  onChange={(id) => field.onChange(id ?? '')}
-                  disabled={isEdit}
-                />
-              )}
-            />
-          </Field>
+            <FormSeccion numero={1} titulo="Datos de la ubicación">
+              <FormCampo span={12}>
+                <Field
+                  className="col-span-2"
+                  label="Sub-almacén"
+                  required
+                  error={form.formState.errors.subAlmacenId?.message}
+                >
+                  <Controller
+                    name="subAlmacenId"
+                    control={form.control}
+                    render={({ field }) => (
+                      <SubAlmacenSelector
+                        value={field.value || null}
+                        onChange={(id) => field.onChange(id ?? '')}
+                        disabled={isEdit}
+                      />
+                    )}
+                  />
+                </Field>
+              </FormCampo>
 
-          <Field
-            label="Clave"
-            required
-            error={form.formState.errors.clave?.message}
-          >
-            <Controller
-              name="clave"
-              control={form.control}
-              render={({ field }) => (
-                <Input
-                  {...field}
-                  value={field.value ?? ''}
-                  maxLength={20}
-                  placeholder="Ej. HG1-84"
-                  autoFocus={!isEdit}
-                />
-              )}
-            />
-          </Field>
+              <FormCampo span={12}>
+                <Field
+                  className="col-span-2"
+                  label="Clave"
+                  required
+                  error={form.formState.errors.clave?.message}
+                >
+                  <Controller
+                    name="clave"
+                    control={form.control}
+                    render={({ field }) => (
+                      <Input
+                        {...field}
+                        value={field.value ?? ''}
+                        maxLength={20}
+                        placeholder="Ej. HG1-84"
+                        autoFocus={!isEdit}
+                      />
+                    )}
+                  />
+                </Field>
+              </FormCampo>
 
-          <Field
-            label="Nombre"
-            required
-            error={form.formState.errors.nombre?.message}
-          >
-            <Controller
-              name="nombre"
-              control={form.control}
-              render={({ field }) => (
-                <Input
-                  {...field}
-                  value={field.value ?? ''}
-                  maxLength={254}
-                  placeholder="Nombre descriptivo (zona / rack / pasillo)"
-                />
-              )}
-            />
-          </Field>
-        </form>
+              <FormCampo span={12}>
+                <Field
+                  className="col-span-2"
+                  label="Nombre"
+                  required
+                  error={form.formState.errors.nombre?.message}
+                >
+                  <Controller
+                    name="nombre"
+                    control={form.control}
+                    render={({ field }) => (
+                      <Input
+                        {...field}
+                        value={field.value ?? ''}
+                        maxLength={254}
+                        placeholder="Nombre descriptivo (zona / rack / pasillo)"
+                      />
+                    )}
+                  />
+                </Field>
+              </FormCampo>
+            </FormSeccion>
+          </form>
+        </SheetBody>
 
         <SheetFooter>
           <Button
             type="button"
             variant="ghost"
-            onClick={() => onOpenChange(false)}
+            onClick={() => solicitarCierre()}
             disabled={isPending}
           >
             Cancelar
           </Button>
           <Button type="submit" form="ubicacion-form" disabled={isPending}>
-            {isPending
-              ? 'Guardando…'
-              : isEdit
-                ? 'Guardar cambios'
-                : 'Crear ubicación'}
+            {isPending ? 'Guardando…' : isEdit ? 'Guardar cambios' : 'Crear ubicación'}
           </Button>
         </SheetFooter>
       </SheetContent>
+      {dialogo}
     </Sheet>
-  );
-}
-
-function Field({
-  label,
-  required,
-  error,
-  children,
-}: {
-  label: string;
-  required?: boolean;
-  error?: string;
-  children: React.ReactNode;
-}) {
-  return (
-    <div className="space-y-1.5">
-      <label className="flex items-center gap-1 text-sm font-medium">
-        {label}
-        {required && (
-          <span aria-hidden="true" className="text-rose-600">
-            *
-          </span>
-        )}
-      </label>
-      {children}
-      {error != null && (
-        <p role="alert" className="text-xs text-rose-600">
-          {error}
-        </p>
-      )}
-    </div>
   );
 }

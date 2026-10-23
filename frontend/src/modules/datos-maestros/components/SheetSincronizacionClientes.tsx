@@ -5,6 +5,7 @@ import { toast } from 'sonner';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import {
+  SheetBody,
   Sheet,
   SheetContent,
   SheetDescription,
@@ -20,10 +21,8 @@ import {
   useIniciarSincronizacion,
   useReintentarCliente,
 } from '@/modules/datos-maestros/api';
-import type {
-  EjecucionSyncResumen,
-  EstadoEjecucionSync,
-} from '@/modules/datos-maestros/api/types';
+import { useInvalidarF1AAlTerminar } from '@/modules/datos-maestros/api/use-invalidar-f1a-al-terminar';
+import type { EjecucionSyncResumen, EstadoEjecucionSync } from '@/modules/datos-maestros/api/types';
 import { esApiError } from '@/lib/api';
 import { cn } from '@/lib/utils';
 
@@ -36,12 +35,14 @@ import { cn } from '@/lib/utils';
  */
 const ESTADO_UI: Record<EstadoEjecucionSync, [string, string]> = {
   Pendiente: ['En cola', ''],
-  EnCurso: ['En curso', 'border-sky-300 text-sky-700 dark:text-sky-300'],
+  EnCurso: ['En curso', 'border-info text-info-fg '],
   Completa: ['Completa', ''],
-  Parcial: ['Parcial (con errores)', 'border-amber-300 bg-amber-500/10 text-amber-700 dark:text-amber-300'],
-  Fallida: ['Fallida', 'border-destructive/40 bg-destructive/10 text-destructive'],
-  Cancelada: ['Cancelada', 'text-muted-foreground'],
+  Parcial: ['Parcial (con errores)', 'border-warning bg-warning-bg text-warning-fg '],
+  Fallida: ['Fallida', 'border-danger/40 bg-danger-bg/10 text-danger-fg'],
+  Cancelada: ['Cancelada', 'text-ink-muted'],
 };
+
+const SIN_EJECUCIONES: readonly { id: string; estado: EstadoEjecucionSync }[] = [];
 
 export function EstadoEjecucionBadge({ estado }: { estado: EstadoEjecucionSync }) {
   const [texto, tono] = ESTADO_UI[estado] ?? [estado, ''];
@@ -62,22 +63,24 @@ export function SheetSincronizacionClientes({
   const [detalleId, setDetalleId] = useState<string | null>(null);
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
-      <SheetContent className="w-full overflow-y-auto sm:max-w-2xl">
+      <SheetContent size="lg">
         <SheetHeader>
           <SheetTitle>Sincronización de clientes A+W</SheetTitle>
           <SheetDescription>
-            Lee los clientes de A+W y los aplica al ERP. Los datos fiscales
-            existentes no se sobrescriben.
+            Lee los clientes de A+W y los aplica al ERP. Los datos fiscales existentes no se
+            sobrescriben.
           </SheetDescription>
         </SheetHeader>
-        <ControlOrigenAw area="clientes" enabled={open} />
-        <div className="mt-4">
-          {detalleId == null ? (
-            <ListaEjecuciones onAbrir={setDetalleId} />
-          ) : (
-            <DetalleEjecucion id={detalleId} onVolver={() => setDetalleId(null)} />
-          )}
-        </div>
+        <SheetBody>
+          <ControlOrigenAw area="clientes" enabled={open} />
+          <div className="mt-4">
+            {detalleId == null ? (
+              <ListaEjecuciones onAbrir={setDetalleId} />
+            ) : (
+              <DetalleEjecucion id={detalleId} onVolver={() => setDetalleId(null)} />
+            )}
+          </div>
+        </SheetBody>
       </SheetContent>
     </Sheet>
   );
@@ -88,7 +91,11 @@ function ErrorConsulta({ error, onRetry }: { error: unknown; onRetry: () => void
     return (
       <ErrorState
         title="Sin permiso"
-        problem={{ ...error.problem, title: 'Sin permiso', detail: 'No tienes permiso para sincronizar clientes.' }}
+        problem={{
+          ...error.problem,
+          title: 'Sin permiso',
+          detail: 'No tienes permiso para sincronizar clientes.',
+        }}
       />
     );
   }
@@ -98,6 +105,12 @@ function ErrorConsulta({ error, onRetry }: { error: unknown; onRetry: () => void
 function ListaEjecuciones({ onAbrir }: { onAbrir: (id: string) => void }) {
   const query = useEjecucionesSync({ limit: 20 });
   const iniciar = useIniciarSincronizacion();
+  useInvalidarF1AAlTerminar(query.data?.items ?? SIN_EJECUCIONES);
+  // Ocupado mientras se envía, mientras haya una ejecución viva y en el refresco que sigue al envío.
+  const ocupado =
+    iniciar.isPending ||
+    (query.data?.items.some((e) => e.estado === 'Pendiente' || e.estado === 'EnCurso') ?? false) ||
+    (iniciar.isSuccess && query.isFetching);
 
   function handleIniciar() {
     iniciar.mutate(undefined, {
@@ -113,9 +126,9 @@ function ListaEjecuciones({ onAbrir }: { onAbrir: (id: string) => void }) {
 
   return (
     <div className="space-y-3">
-      <Button size="sm" onClick={handleIniciar} disabled={iniciar.isPending}>
-        <RefreshCw className="mr-1.5 h-4 w-4" />
-        {iniciar.isPending ? 'Enviando…' : 'Iniciar sincronización'}
+      <Button size="sm" onClick={handleIniciar} disabled={ocupado} aria-busy={ocupado}>
+        <RefreshCw className={cn('mr-1.5 h-4 w-4', ocupado && 'animate-spin')} />
+        {ocupado ? 'Sincronizando…' : 'Iniciar sincronización'}
       </Button>
 
       {query.isLoading ? (
@@ -138,25 +151,19 @@ function ListaEjecuciones({ onAbrir }: { onAbrir: (id: string) => void }) {
   );
 }
 
-function FilaEjecucion({
-  e,
-  onAbrir,
-}: {
-  e: EjecucionSyncResumen;
-  onAbrir: (id: string) => void;
-}) {
+function FilaEjecucion({ e, onAbrir }: { e: EjecucionSyncResumen; onAbrir: (id: string) => void }) {
   return (
     <li>
       <button
         type="button"
         onClick={() => onAbrir(e.id)}
-        className="flex w-full items-center justify-between gap-2 px-3 py-2 text-left text-sm hover:bg-muted/40"
+        className="flex w-full items-center justify-between gap-2 px-3 py-2 text-left text-sm hover:bg-surface-muted/40"
       >
         <span className="flex items-center gap-2">
           <EstadoEjecucionBadge estado={e.estado} />
-          <span className="text-muted-foreground">{e.tipo}</span>
+          <span className="text-ink-muted">{e.tipo}</span>
         </span>
-        <span className="text-xs text-muted-foreground">
+        <span className="text-xs text-ink-muted">
           {e.iniciadaEnUtc ? new Date(e.iniciadaEnUtc).toLocaleString('es-MX') : 'En cola'}
         </span>
       </button>
@@ -168,6 +175,7 @@ function DetalleEjecucion({ id, onVolver }: { id: string; onVolver: () => void }
   const query = useEjecucionSync(id);
   const reintentar = useReintentarCliente();
   const d = query.data;
+  useInvalidarF1AAlTerminar(d != null ? [d] : SIN_EJECUCIONES);
 
   // Reproceso por referencia (mismo endpoint y permiso que el detalle del cliente).
   function handleReintentar(referencia: string) {
@@ -178,7 +186,8 @@ function DetalleEjecucion({ id, onVolver }: { id: string; onVolver: () => void }
           r.estado === 'Completa'
             ? toast.success(`Referencia ${referencia} reprocesada.`)
             : toast.warning(
-                r.errores[0]?.mensaje ?? `La lectura de ${referencia} terminó con estado ${r.estado}.`,
+                r.errores[0]?.mensaje ??
+                  `La lectura de ${referencia} terminó con estado ${r.estado}.`,
               ),
         onError: (e) => toast.error(mensajeErrorSincronizacion(e)),
       },
@@ -200,14 +209,12 @@ function DetalleEjecucion({ id, onVolver }: { id: string; onVolver: () => void }
           <div className="flex items-center gap-2">
             <EstadoEjecucionBadge estado={d.estado} />
             {(d.estado === 'Pendiente' || d.estado === 'EnCurso') && (
-              <span className="text-xs text-muted-foreground">Actualizando…</span>
+              <span className="text-xs text-ink-muted">Actualizando…</span>
             )}
-            {d.actor != null && (
-              <span className="text-xs text-muted-foreground">por {d.actor}</span>
-            )}
+            {d.actor != null && <span className="text-xs text-ink-muted">por {d.actor}</span>}
           </div>
           {d.errorGeneral != null && d.errorGeneral !== '' && (
-            <p role="alert" className="text-sm text-destructive">
+            <p role="alert" className="text-sm text-danger-fg">
               {d.errorGeneral}
             </p>
           )}
@@ -224,7 +231,7 @@ function DetalleEjecucion({ id, onVolver }: { id: string; onVolver: () => void }
               ] as const
             ).map(([t, v]) => (
               <div key={t} className="rounded-md border p-2">
-                <dt className="text-xs text-muted-foreground">{t}</dt>
+                <dt className="text-xs text-ink-muted">{t}</dt>
                 <dd className="font-mono text-base">{v}</dd>
               </div>
             ))}

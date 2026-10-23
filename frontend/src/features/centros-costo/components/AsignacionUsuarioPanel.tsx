@@ -1,13 +1,11 @@
+import { ESTADOS_ALCANCE } from '../lib/estados-ui';
 import { ShieldCheck } from 'lucide-react';
 import { toast } from 'sonner';
 import { Badge } from '@/components/ui/badge';
-import { esApiError } from '@/lib/api';
+import { esApiError, codigoSoporte } from '@/lib/api';
 import { ArbolAsignacion } from '@/features/centros-costo/components/ArbolAsignacion';
 import { ResumenAsignacionBar } from '@/features/centros-costo/components/ResumenAsignacionBar';
-import {
-  useArbolAsignacion,
-  useMarcarAlcance,
-} from '@/features/centros-costo/api/useAsignacion';
+import { useArbolAsignacion, useMarcarAlcance } from '@/features/centros-costo/api/useAsignacion';
 import type { MarcarAlcanceRequest } from '@/features/centros-costo/api/types';
 
 interface AsignacionUsuarioPanelProps {
@@ -44,7 +42,7 @@ export function AsignacionUsuarioPanel({
       onError: (error) => {
         if (esApiError(error)) {
           toast.error(error.problem.title, {
-            description: error.traceId ? `Código: ${error.traceId}` : undefined,
+            description: codigoSoporte(error),
           });
           return;
         }
@@ -59,21 +57,20 @@ export function AsignacionUsuarioPanel({
   // clicar mientras el backend resuelve; el refetch repinta el estado real.
   // `readOnly` es un candado externo adicional (p. ej. superficie sin permiso
   // de edición); no sustituye a los otros dos.
-  const bloqueado =
-    readOnly || esAlcanceTotal || marcar.isPending || arbolQuery.isFetching;
+  const bloqueado = readOnly || esAlcanceTotal || marcar.isPending || arbolQuery.isFetching;
 
   if (arbolQuery.isLoading) {
     return (
       <div className="space-y-2" data-testid="arbol-cargando">
-        <div className="h-8 w-full animate-pulse rounded bg-muted" />
-        <div className="h-8 w-full animate-pulse rounded bg-muted" />
+        <div className="h-8 w-full animate-pulse rounded bg-surface-muted" />
+        <div className="h-8 w-full animate-pulse rounded bg-surface-muted" />
       </div>
     );
   }
 
   if (arbolQuery.isError) {
     return (
-      <div className="rounded-md border border-destructive/40 px-4 py-6 text-center text-sm text-destructive">
+      <div className="rounded-md border border-danger/40 px-4 py-6 text-center text-sm text-danger-fg">
         No se pudo cargar el árbol de asignación.
       </div>
     );
@@ -85,17 +82,16 @@ export function AsignacionUsuarioPanel({
     <div className="space-y-4">
       {esAlcanceTotal && (
         <div
-          className="flex items-start gap-2 rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-900"
+          className="flex items-start gap-2 rounded-md border border-warning bg-warning-note-bg px-3 py-2 text-sm text-warning-note-fg"
           data-testid="badge-alcance-total"
         >
           <ShieldCheck className="mt-0.5 h-4 w-4 shrink-0" aria-hidden="true" />
           <span>
-            <Badge className="mr-1 bg-amber-600 hover:bg-amber-600">
-              Alcance total
+            <Badge className="mr-1" variant={ESTADOS_ALCANCE.total.tono}>
+              {ESTADOS_ALCANCE.total.texto}
             </Badge>
-            Este usuario tiene alcance total (ve todas las máquinas sin
-            asignación). Editar su alcance no cambia lo que ve — el árbol
-            queda deshabilitado.
+            Este usuario tiene alcance total (ve todas las máquinas sin asignación). Editar su
+            alcance no cambia lo que ve — el árbol queda deshabilitado.
           </span>
         </div>
       )}

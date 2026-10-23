@@ -1,17 +1,10 @@
+import { PageHeader } from '@/components/erp/PageHeader';
 import { useState } from 'react';
-import { AlertTriangle, CheckCircle2, Lock } from 'lucide-react';
+import { Check, CheckCircle2, TriangleAlert } from 'lucide-react';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from '@/components/ui/alert-dialog';
+import { ConfirmarAccionDialog } from '@/components/erp/feedback/ConfirmarAccionDialog';
+import { AvisoEnLinea } from '@/components/erp/feedback/AvisoEnLinea';
 import {
   Select,
   SelectContent,
@@ -19,28 +12,71 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { useEjecutarCierreMes } from '@/features/almacen/api/useSaldosCierreReportes';
-import { esApiError, useFormIdempotencyKey } from '@/lib/api';
+import {
+  useEjecutarCierreMes,
+  usePeriodosCierre,
+  useRevisionPreviaCierre,
+} from '@/features/almacen/api/useSaldosCierreReportes';
+import { esApiError, useFormIdempotencyKey, codigoSoporte } from '@/lib/api';
 import { Field } from '@/features/almacen/components/internal/Field';
+
+const MES_NOMBRES = [
+  '',
+  'Enero',
+  'Febrero',
+  'Marzo',
+  'Abril',
+  'Mayo',
+  'Junio',
+  'Julio',
+  'Agosto',
+  'Septiembre',
+  'Octubre',
+  'Noviembre',
+  'Diciembre',
+];
+
+const claveDe = (anio: number, mes: number) => `${anio}-${String(mes).padStart(2, '0')}`;
 
 /**
  * <c>P12 — Cierre de mes</c> (doc 07 §FE-F6-PR1). Pantalla del Jefe
  * Almacén para cerrar el periodo mensual. El backend valida que no
  * existan conteos pendientes ni movimientos en estado Borrador/Validado
- * del mes que se quiere cerrar — si falla, devuelve
- * <c>422 CIERRE_PERIODO_NO_LIMPIO</c> con detalle.
+ * del mes que se quiere cerrar — si falla, devuelve un 422 con
+ * <c>CIERRE_CONTEOS_PENDIENTES</c>, <c>CIERRE_MOVIMIENTOS_PENDIENTES</c>
+ * o <c>CIERRE_VALES_PENDIENTES</c> con detalle.
+ *
+ * <para>La revisión previa lee del servidor las mismas validaciones que el cierre
+ * (<c>GET cierre-mes/revision-previa</c>); el primario queda deshabilitado con motivo
+ * mientras haya bloqueos.</para>
  *
  * <para>Permiso: <c>almacen.cierre-mes.ejecutar</c>. Idempotency-Key
- * obligatorio en el endpoint backend.</para>
+ * obligatorio en el endpoint backend. El cierre aplica a todas las
+ * sucursales (ADR-0051, bypass <c>almacen.cierre-mes.gestionar-todas-sucursales</c>).</para>
  */
 export function CierreMesPage() {
   const idempotencyKey = useFormIdempotencyKey();
   const ejecutar = useEjecutarCierreMes();
+  const periodosQuery = usePeriodosCierre();
 
   const hoy = new Date();
-  const [anio, setAnio] = useState<number>(hoy.getFullYear());
-  const [mes, setMes] = useState<number>(hoy.getMonth() + 1); // 1-12
+  // Por defecto, el mes anterior (el mes en curso y los futuros no se pueden cerrar).
+  const anterior = new Date(hoy.getFullYear(), hoy.getMonth() - 1, 1);
+  const [anio, setAnio] = useState<number>(anterior.getFullYear());
+  const [mes, setMes] = useState<number>(anterior.getMonth() + 1); // 1-12
   const [confirmOpen, setConfirmOpen] = useState(false);
+  const revisionQuery = useRevisionPreviaCierre(anio, mes);
+  const revision = revisionQuery.data;
+  const periodo = claveDe(anio, mes);
+
+  const bloqueos = revision?.checks.filter((c) => !c.ok).length ?? 0;
+  let motivoBloqueo: string | null = null;
+  if (revisionQuery.isError) motivoBloqueo = 'No se pudo revisar el periodo. Recarga la página.';
+  else if (!revision) motivoBloqueo = 'Revisando el periodo…';
+  else if (revision.yaCerrado) motivoBloqueo = `El periodo ${periodo} ya está cerrado.`;
+  else if (revision.periodoNoConcluido) motivoBloqueo = `El periodo ${periodo} aún no termina.`;
+  else if (bloqueos > 0)
+    motivoBloqueo = `Resuelve ${bloqueos} ${bloqueos === 1 ? 'pendiente' : 'pendientes'} de la revisión previa para cerrar ${periodo}.`;
 
   function ejecutarCierre() {
     ejecutar.mutate(
@@ -53,17 +89,20 @@ export function CierreMesPage() {
           setConfirmOpen(false);
         },
         onError: (error) => {
+          setConfirmOpen(false);
           if (esApiError(error)) {
-            if (error.code === 'CIERRE_PERIODO_NO_LIMPIO') {
+            if (
+              error.code === 'CIERRE_CONTEOS_PENDIENTES' ||
+              error.code === 'CIERRE_MOVIMIENTOS_PENDIENTES' ||
+              error.code === 'CIERRE_VALES_PENDIENTES'
+            ) {
               toast.error('Periodo con pendientes', {
-                description:
-                  error.problem.detail ??
-                  'Hay conteos o movimientos pendientes en el periodo. Resuélvelos antes de cerrar.',
+                description: error.problem.detail ?? error.problem.title,
               });
               return;
             }
             toast.error(error.problem.title, {
-              description: error.traceId ? `Código: ${error.traceId}` : undefined,
+              description: codigoSoporte(error),
             });
             return;
           }
@@ -73,131 +112,128 @@ export function CierreMesPage() {
     );
   }
 
-  const MES_NOMBRES = [
-    '',
-    'Enero',
-    'Febrero',
-    'Marzo',
-    'Abril',
-    'Mayo',
-    'Junio',
-    'Julio',
-    'Agosto',
-    'Septiembre',
-    'Octubre',
-    'Noviembre',
-    'Diciembre',
-  ];
+  const periodos = periodosQuery.data ?? [];
+  // El periodo elegido siempre debe existir como opción (aunque la lista aún no cargue).
+  const opciones = periodos.some((p) => p.anio === anio && p.mes === mes)
+    ? periodos
+    : [{ anio, mes, cerrado: false, cerradoAt: null }, ...periodos];
 
   return (
-    <div className="mx-auto max-w-3xl space-y-6">
-      <header className="space-y-1">
-        <h1 className="flex items-center gap-2 text-2xl font-semibold tracking-tight">
-          <Lock className="h-6 w-6 text-primary" />
-          Cierre de mes
-        </h1>
-        <p className="text-sm text-muted-foreground">
-          Cierra el periodo mensual del módulo Almacén. Una vez cerrado, no
-          podrán registrarse ni editarse movimientos con fecha dentro del
-          periodo.
-        </p>
-      </header>
+    <div className="space-y-6">
+      <PageHeader
+        titulo="Cierre de mes"
+        descripcion="Cierra el periodo mensual del módulo Almacén. Una vez cerrado, no podrán registrarse ni editarse movimientos con fecha dentro del periodo."
+      />
 
-      <section className="rounded-md border bg-amber-50 px-4 py-3 text-sm">
-        <h2 className="flex items-center gap-2 font-medium text-amber-900">
-          <AlertTriangle className="h-4 w-4" />
-          Checklist antes de cerrar
-        </h2>
-        <ul className="mt-2 list-inside list-disc space-y-1 text-amber-800">
-          <li>Conteos del periodo aplicados (sin pendientes en conciliación).</li>
-          <li>
-            Recepciones en estado Borrador resueltas (registradas o canceladas).
-          </li>
-          <li>Salidas y devoluciones registradas en firme.</li>
-          <li>
-            Conciliación cross-módulo con CxP completa (NC fiscales aplicadas).
-          </li>
+      <section className="rounded-lg border border-line-row bg-surface-card p-4">
+        <h2 className="text-sm font-semibold text-ink-strong">Periodo a cerrar</h2>
+        <div className="mt-3 max-w-sm">
+          <Field label="Periodo" required>
+            <Select
+              value={periodo}
+              onValueChange={(v) => {
+                const [a, m] = v.split('-').map(Number);
+                setAnio(a);
+                setMes(m);
+              }}
+            >
+              <SelectTrigger aria-label="Periodo a cerrar">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {opciones.map((p) => (
+                  <SelectItem key={claveDe(p.anio, p.mes)} value={claveDe(p.anio, p.mes)}>
+                    {claveDe(p.anio, p.mes)} — {MES_NOMBRES[p.mes]} (
+                    {p.cerrado ? 'Cerrado' : 'Abierto'})
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </Field>
+        </div>
+      </section>
+
+      <section
+        aria-labelledby="revision-previa-cierre-titulo"
+        className="overflow-hidden rounded-lg border border-line-row bg-surface-card"
+        data-component="revision-previa-cierre"
+      >
+        <div className="border-b border-line-row px-4 py-3">
+          <h2 id="revision-previa-cierre-titulo" className="text-sm font-semibold text-ink-strong">
+            Revisión previa
+          </h2>
+          <p className="text-xs text-ink-muted">
+            {revision
+              ? bloqueos === 0
+                ? `El periodo ${periodo} cumple las condiciones para cerrarse.`
+                : `Faltan ${bloqueos} de ${revision.checks.length} condiciones para cerrar ${periodo}.`
+              : 'Revisando el periodo…'}
+          </p>
+        </div>
+        <ul>
+          {revision?.checks.map((c) => (
+            <li
+              key={c.codigo}
+              data-check={c.codigo}
+              data-ok={c.ok}
+              className="flex min-h-11 items-center gap-3 border-b border-line-row px-4 py-2 text-sm last:border-b-0"
+            >
+              {c.ok ? (
+                <span className="flex size-5 shrink-0 items-center justify-center rounded-full bg-success-bg text-success-fg">
+                  <Check aria-hidden="true" className="size-3" />
+                  <span className="sr-only">Listo:</span>
+                </span>
+              ) : (
+                <span className="flex size-5 shrink-0 items-center justify-center rounded-full bg-warning-bg text-warning-fg">
+                  <TriangleAlert aria-hidden="true" className="size-3" />
+                  <span className="sr-only">Pendiente:</span>
+                </span>
+              )}
+              <span className="min-w-0 flex-1 text-ink-strong">{c.titulo}</span>
+              <span className="text-xs text-ink-muted">{c.detalle}</span>
+            </li>
+          ))}
         </ul>
-        <p className="mt-2 text-amber-800">
-          El backend valida estas condiciones y rechaza el cierre si no se
-          cumplen (código <code>CIERRE_PERIODO_NO_LIMPIO</code>).
-        </p>
       </section>
 
-      <section className="rounded-md border p-4">
-        <h2 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">
-          Periodo a cerrar
-        </h2>
-        <div className="mt-3 grid grid-cols-1 gap-3 md:grid-cols-2">
-          <Field label="Año" required>
-            <Select
-              value={String(anio)}
-              onValueChange={(v) => setAnio(Number(v))}
-            >
-              <SelectTrigger aria-label="Año a cerrar">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                {[anio - 2, anio - 1, anio, anio + 1].map((y) => (
-                  <SelectItem key={y} value={String(y)}>
-                    {y}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </Field>
-          <Field label="Mes" required>
-            <Select
-              value={String(mes)}
-              onValueChange={(v) => setMes(Number(v))}
-            >
-              <SelectTrigger aria-label="Mes a cerrar">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                {Array.from({ length: 12 }, (_, i) => i + 1).map((m) => (
-                  <SelectItem key={m} value={String(m)}>
-                    {String(m).padStart(2, '0')} — {MES_NOMBRES[m]}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </Field>
-        </div>
+      {revisionQuery.isError && (
+        <AvisoEnLinea tono="error" titulo="No se pudo revisar el periodo">
+          Recarga la página. Si el problema continúa, avisa a soporte.
+        </AvisoEnLinea>
+      )}
 
-        <div className="mt-4">
-          <Button onClick={() => setConfirmOpen(true)} disabled={ejecutar.isPending}>
-            <CheckCircle2 className="mr-2 h-4 w-4" />
-            Ejecutar cierre {anio}-{String(mes).padStart(2, '0')}
-          </Button>
-        </div>
-      </section>
+      <div>
+        <Button
+          onClick={() => setConfirmOpen(true)}
+          disabled={motivoBloqueo !== null || ejecutar.isPending}
+          aria-describedby={motivoBloqueo ? 'motivo-cierre-bloqueado' : undefined}
+        >
+          <CheckCircle2 className="mr-2 size-3.5" />
+          Ejecutar cierre {periodo}
+        </Button>
+        {motivoBloqueo && (
+          <p id="motivo-cierre-bloqueado" className="mt-2 text-xs text-ink-muted">
+            {motivoBloqueo}
+          </p>
+        )}
+      </div>
 
-      <AlertDialog open={confirmOpen} onOpenChange={setConfirmOpen}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>
-              ¿Cerrar periodo {anio}-{String(mes).padStart(2, '0')}?
-            </AlertDialogTitle>
-            <AlertDialogDescription>
-              Esta acción es irreversible. Después del cierre, no podrán
-              registrarse ni editarse movimientos con fecha dentro del
-              periodo. Asegúrate de haber revisado el checklist.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel disabled={ejecutar.isPending}>
-              Cancelar
-            </AlertDialogCancel>
-            <AlertDialogAction
-              disabled={ejecutar.isPending}
-              onClick={ejecutarCierre}
-            >
-              {ejecutar.isPending ? 'Cerrando…' : 'Cerrar periodo'}
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
+      <ConfirmarAccionDialog
+        open={confirmOpen}
+        onOpenChange={setConfirmOpen}
+        titulo={`¿Cerrar periodo ${periodo}?`}
+        resumen={
+          <p>
+            Esta acción es irreversible. Después del cierre no podrán registrarse ni editarse
+            movimientos con fecha de {MES_NOMBRES[mes]} {anio}. El cierre aplica a todas las
+            sucursales.
+          </p>
+        }
+        verbo="Cerrar periodo"
+        tono="peligro"
+        pendiente={ejecutar.isPending}
+        onConfirmar={ejecutarCierre}
+      />
     </div>
   );
 }

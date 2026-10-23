@@ -1,6 +1,17 @@
+import { ListadoModulo } from '@/components/erp/data/ListadoModulo';
+import { TabsEstado } from '@/components/erp/data/TabsEstado';
+import { BarraFiltros } from '@/components/erp/data/BarraFiltros';
+import { EstadoOrdenCompra, estadoOcToString } from '@/features/compras/ordenes/api/types';
+import {
+  Table,
+  TableHeader,
+  TableBody,
+  TableRow,
+  TableHead,
+  TableCell,
+} from '@/components/ui/table';
 import { useMemo } from 'react';
 import { Link, useNavigate, useSearch } from '@tanstack/react-router';
-import { TrendingDown } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
   EmptyState,
@@ -8,6 +19,7 @@ import {
   TableSkeleton,
   EstadoBadge,
   DateTimeDisplay,
+  PaginacionTabla,
 } from '@/components/erp';
 import { useProveedores, useUsuarios, mapById } from '@/features/catalogos/api';
 import { esApiError } from '@/lib/api';
@@ -17,9 +29,12 @@ import { KpiCardsPartidasAbiertas } from '@/features/compras/ordenes/components/
 import { DiasAtrasadosBadge } from '@/features/compras/ordenes/components/DiasAtrasadosBadge';
 import { FiltrosPartidasAbiertas } from '@/features/compras/ordenes/components/FiltrosPartidasAbiertas';
 import { HoverSubEstados } from '@/features/compras/ordenes/components/HoverSubEstados';
+import { HistorialIncidenciasProveedor } from '@/features/compras/ordenes/components/HistorialIncidenciasProveedor';
+import { Badge } from '@/components/ui/badge';
 import type { PartidasAbiertasSearch } from '@/features/compras/ordenes/lib/partidas-abiertas-search-schema';
 import { cn } from '@/lib/utils';
 import { nombreUsuarioOGuion } from '@/lib/nombre-usuario';
+import { PageHeader } from '@/components/erp/PageHeader';
 
 const FROM = '/_app/compras/ordenes/partidas-abiertas' as const;
 
@@ -56,10 +71,7 @@ export function PartidasAbiertas() {
     () => mapById(proveedoresQuery.data?.items),
     [proveedoresQuery.data],
   );
-  const usuariosMap = useMemo(
-    () => mapById(usuariosQuery.data?.items),
-    [usuariosQuery.data],
-  );
+  const usuariosMap = useMemo(() => mapById(usuariosQuery.data?.items), [usuariosQuery.data]);
 
   function setSearch(next: PartidasAbiertasSearch) {
     navigate({
@@ -79,42 +91,70 @@ export function PartidasAbiertas() {
   }
 
   return (
-    <div
-      className="grid gap-4 p-4 lg:grid-cols-[260px_1fr]"
-      data-component="partidas-abiertas"
-    >
-      {/* Sidebar de filtros sticky */}
-      <FiltrosPartidasAbiertas
-        search={search}
-        onChange={setSearch}
-        className="lg:sticky lg:top-16 lg:self-start lg:max-h-[calc(100vh-5rem)] lg:overflow-y-auto"
-      />
-
+    <div className="flex min-h-0 flex-1 flex-col gap-5" data-component="partidas-abiertas">
       {/* Contenido principal */}
       <div className="space-y-4 min-w-0">
-        <header>
-          <h1 className="flex items-center gap-2 text-2xl font-semibold tracking-tight">
-            <TrendingDown className="h-6 w-6" />
-            Partidas abiertas
-          </h1>
-          <p className="text-sm text-muted-foreground">
-            OCs no terminales con al menos una dimensión sub-estado abierta.
-            Orden FIFO por fecha de entrega esperada (atrasadas primero).
-          </p>
-        </header>
+        <PageHeader
+          titulo="Partidas abiertas"
+          descripcion="Órdenes con recepción, facturación o pago pendientes, las más atrasadas primero."
+        />
 
         <KpiCardsPartidasAbiertas
+          search={search}
           kpis={kpisQuery.data}
           isLoading={kpisQuery.isLoading}
         />
 
-        <RenderTabla
-          query={itemsQuery}
-          search={search}
-          onChangeSearch={setSearch}
-          resolverProveedor={resolverProveedor}
-          resolverUsuario={resolverUsuario}
-        />
+        <ListadoModulo
+          pie={
+            <PaginacionTabla
+              total={itemsQuery.data?.totalCount ?? 0}
+              offset={(search.page - 1) * search.pageSize}
+              limit={search.pageSize}
+              onChange={(offset, limit) =>
+                setSearch({ ...search, page: Math.floor(offset / limit) + 1, pageSize: limit })
+              }
+            />
+          }
+          tabs={
+            <TabsEstado
+              opciones={[
+                EstadoOrdenCompra.Borrador,
+                EstadoOrdenCompra.EnAutorizacionJefeCompras,
+                EstadoOrdenCompra.EnAutorizacionDireccion,
+                EstadoOrdenCompra.Autorizada,
+              ].map((valor) => ({ valor, label: estadoOcToString(valor) }))}
+              valor={search.estado}
+              conteos={undefined}
+              onChange={(estado) =>
+                setSearch({
+                  ...search,
+                  estado: estado as PartidasAbiertasSearch['estado'],
+                  page: 1,
+                })
+              }
+            />
+          }
+          filtros={
+            <BarraFiltros
+              masFiltros={<FiltrosPartidasAbiertas search={search} onChange={setSearch} />}
+              total={`${itemsQuery.data?.totalCount ?? 0} órdenes`}
+            />
+          }
+        >
+          <RenderTabla
+            query={itemsQuery}
+            resolverProveedor={resolverProveedor}
+            resolverUsuario={resolverUsuario}
+          />
+        </ListadoModulo>
+
+        {search.proveedorId && (
+          <HistorialIncidenciasProveedor
+            proveedorId={search.proveedorId}
+            proveedorNombre={resolverProveedor(search.proveedorId)}
+          />
+        )}
       </div>
     </div>
   );
@@ -124,19 +164,11 @@ export function PartidasAbiertas() {
 
 interface RenderTablaProps {
   query: ReturnType<typeof usePartidasAbiertas>;
-  search: PartidasAbiertasSearch;
-  onChangeSearch: (next: PartidasAbiertasSearch) => void;
   resolverProveedor: (id: string) => string;
   resolverUsuario: (id: string) => string;
 }
 
-function RenderTabla({
-  query,
-  search,
-  onChangeSearch,
-  resolverProveedor,
-  resolverUsuario,
-}: RenderTablaProps) {
+function RenderTabla({ query, resolverProveedor, resolverUsuario }: RenderTablaProps) {
   if (query.isLoading) {
     return <TableSkeleton rows={8} />;
   }
@@ -156,112 +188,96 @@ function RenderTabla({
     return (
       <EmptyState
         title="No hay partidas abiertas con los filtros aplicados."
-        description="Prueba ajustando los filtros del sidebar o limpiando todos."
+        description="Ajusta o limpia los filtros para consultar otras partidas."
       />
     );
   }
 
-  const totalPages = Math.max(1, Math.ceil(data.totalCount / data.pageSize));
-
   return (
     <>
-      <div className="overflow-x-auto rounded-md border bg-card">
-        <table className="w-full min-w-[1000px] text-sm">
-          <thead className="bg-muted/50 text-xs uppercase tracking-wide text-muted-foreground">
-            <tr>
-              <th className="px-3 py-2 text-left font-medium">Folio</th>
-              <th className="px-3 py-2 text-left font-medium">Proveedor</th>
-              <th className="px-3 py-2 text-left font-medium">Comprador</th>
-              <th className="px-3 py-2 text-left font-medium">F. doc.</th>
-              <th className="px-3 py-2 text-left font-medium">F. entrega</th>
-              <th className="px-3 py-2 text-left font-medium">Atraso</th>
-              <th className="px-3 py-2 text-left font-medium">Estado</th>
-              <th className="px-3 py-2 text-left font-medium">R/F/P</th>
-              <th className="px-3 py-2 text-right font-medium">Acción</th>
-            </tr>
-          </thead>
-          <tbody>
+      <div className="overflow-x-auto rounded-md border bg-surface-card">
+        <Table className="w-full min-w-full text-sm">
+          <TableHeader className="bg-surface-muted/50 text-xs uppercase tracking-wide text-ink-muted">
+            <TableRow>
+              <TableHead className="px-3 py-2 text-left font-medium">Folio</TableHead>
+              <TableHead className="px-3 py-2 text-left font-medium">Proveedor</TableHead>
+              <TableHead className="px-3 py-2 text-left font-medium">Comprador</TableHead>
+              <TableHead className="px-3 py-2 text-left font-medium">F. doc.</TableHead>
+              <TableHead className="px-3 py-2 text-left font-medium">F. entrega</TableHead>
+              <TableHead className="px-3 py-2 text-left font-medium">Atraso</TableHead>
+              <TableHead className="px-3 py-2 text-left font-medium">Incidencias</TableHead>
+              <TableHead className="px-3 py-2 text-left font-medium">Estado</TableHead>
+              <TableHead className="px-3 py-2 text-left font-medium">
+                Avance (recepción · facturación · pago)
+              </TableHead>
+              <TableHead className="px-3 py-2 text-right font-medium">Acción</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody className="[&_tr]:h-12">
             {data.items.map((p, i) => (
-              <tr
+              <TableRow
                 key={p.id}
-                className={cn(i % 2 === 1 ? 'bg-muted/20' : undefined)}
+                className={cn(i % 2 === 1 ? 'bg-surface-muted/20' : undefined)}
                 data-oc={p.id}
               >
-                <td className="px-3 py-2 font-mono text-xs">{p.folio}</td>
-                <td className="px-3 py-2">{resolverProveedor(p.proveedorId)}</td>
-                <td className="px-3 py-2 text-muted-foreground">
+                <TableCell className="px-3 py-2 font-mono text-xs">
+                  <Link
+                    className="font-mono text-xs font-medium text-brand"
+                    to="/compras/ordenes/$id"
+                    params={{ id: p.id }}
+                  >
+                    {p.folio}
+                  </Link>
+                </TableCell>
+                <TableCell className="px-3 py-2">{resolverProveedor(p.proveedorId)}</TableCell>
+                <TableCell className="px-3 py-2 text-ink-muted">
                   {resolverUsuario(p.compradorTitularId)}
-                </td>
-                <td className="px-3 py-2">
+                </TableCell>
+                <TableCell className="px-3 py-2">
                   <DateTimeDisplay value={p.fechaDocumento} />
-                </td>
-                <td className="px-3 py-2">
+                </TableCell>
+                <TableCell className="px-3 py-2">
                   {p.fechaEntregaEsperada ? (
                     <DateTimeDisplay value={p.fechaEntregaEsperada} />
                   ) : (
-                    <span className="text-muted-foreground">—</span>
+                    <span className="text-ink-muted">—</span>
                   )}
-                </td>
-                <td className="px-3 py-2">
+                </TableCell>
+                <TableCell className="px-3 py-2">
                   <DiasAtrasadosBadge diasAtrasados={p.diasAtrasados} />
-                </td>
-                <td className="px-3 py-2">
+                </TableCell>
+                <TableCell className="px-3 py-2">
+                  {p.incidenciasAbiertas > 0 ? (
+                    <Badge variant={p.incidenciasVencidas > 0 ? 'danger' : 'warning'}>
+                      {p.incidenciasVencidas > 0
+                        ? `${p.incidenciasVencidas} vencida${p.incidenciasVencidas === 1 ? '' : 's'}`
+                        : `${p.incidenciasAbiertas} abierta${p.incidenciasAbiertas === 1 ? '' : 's'}`}
+                    </Badge>
+                  ) : (
+                    <span className="text-ink-muted">—</span>
+                  )}
+                </TableCell>
+                <TableCell className="px-3 py-2">
                   <EstadoBadge tipo="orden-compra" estado={p.estado} />
-                </td>
-                <td className="px-3 py-2">
+                </TableCell>
+                <TableCell className="px-3 py-2">
                   <HoverSubEstados
                     recepcion={p.subEstadoRecepcion}
                     facturacion={p.subEstadoFacturacion}
                     pago={p.subEstadoPago}
                   />
-                </td>
-                <td className="px-3 py-2 text-right">
+                </TableCell>
+                <TableCell className="px-3 py-2 text-right">
                   <Button asChild size="sm" variant="ghost">
-                    <Link
-                      to="/compras/ordenes/$id"
-                      params={{ id: p.id }}
-                      data-action="ver-detalle"
-                    >
+                    <Link to="/compras/ordenes/$id" params={{ id: p.id }} data-action="ver-detalle">
                       Ver
                     </Link>
                   </Button>
-                </td>
-              </tr>
+                </TableCell>
+              </TableRow>
             ))}
-          </tbody>
-        </table>
-      </div>
-
-      {/* Paginación simple */}
-      <div className="flex items-center justify-between text-sm text-muted-foreground">
-        <span>
-          Página {data.page} de {totalPages} · {data.totalCount.toLocaleString()} OCs
-        </span>
-        <div className="flex items-center gap-2">
-          <Button
-            size="sm"
-            variant="outline"
-            disabled={data.page <= 1}
-            onClick={() =>
-              onChangeSearch({ ...search, page: Math.max(1, data.page - 1) })
-            }
-          >
-            Anterior
-          </Button>
-          <Button
-            size="sm"
-            variant="outline"
-            disabled={data.page >= totalPages}
-            onClick={() =>
-              onChangeSearch({
-                ...search,
-                page: Math.min(totalPages, data.page + 1),
-              })
-            }
-          >
-            Siguiente
-          </Button>
-        </div>
+          </TableBody>
+        </Table>
       </div>
     </>
   );

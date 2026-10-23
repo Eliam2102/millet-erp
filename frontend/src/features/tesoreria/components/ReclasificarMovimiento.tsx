@@ -1,3 +1,5 @@
+import { FormSeccion } from '@/components/erp/forms/FormSeccion';
+import { FormCampo } from '@/components/erp/forms/FormGrid';
 import { useState } from 'react';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
@@ -13,18 +15,57 @@ export function ReclasificarMovimiento({ movimiento }: { movimiento: MovimientoB
   const [motivo, setMotivo] = useState('');
   const mutation = useReclasificarMovimiento();
   const keyFor = useBodyScopedIdempotencyKey();
-  return <section className="space-y-3 rounded-lg bg-surface-card p-4 shadow-card-flat">
-    <h2 className="text-md font-semibold">Reclasificar movimiento</h2>
-    <ConceptoSelector value={conceptoId} onChange={setConceptoId} />
-    <Label htmlFor="reclasificar-motivo">Motivo de la reclasificación</Label>
-    <Input id="reclasificar-motivo" value={motivo} maxLength={400} onChange={e => setMotivo(e.target.value)} />
-    <Button disabled={!conceptoId || !motivo.trim() || mutation.isPending} onClick={() => {
-      if (!conceptoId) return;
-      const command = { movimientoId: movimiento.id, conceptoId, motivo: motivo.trim(), version: movimiento.version };
-      mutation.mutate({ ...command, idempotencyKey: keyFor(command) }, {
-        onSuccess: () => { toast.success('Movimiento reclasificado'); setMotivo(''); },
-        onError: e => toast.error(esApiError(e) ? e.problem.detail ?? e.problem.title : 'No se pudo reclasificar'),
-      });
-    }}>Reclasificar</Button>
-  </section>;
+  return (
+    <section className="space-y-3 rounded-lg bg-surface-card p-4 shadow-card-flat">
+      <h2 className="text-md font-semibold">Reclasificar movimiento</h2>
+      <FormSeccion numero={1} titulo="Reclasificación">
+        <FormCampo span={12}>
+          <ConceptoSelector value={conceptoId} onChange={setConceptoId} />
+        </FormCampo>
+        <FormCampo span={12}>
+          {' '}
+          <Label htmlFor="reclasificar-motivo">Motivo de la reclasificación *</Label>
+          <Input
+            id="reclasificar-motivo"
+            value={motivo}
+            maxLength={400}
+            onChange={(e) => setMotivo(e.target.value)}
+          />
+        </FormCampo>
+      </FormSeccion>
+      <Button
+        aria-describedby={!conceptoId || !motivo.trim() ? 'reclasificar-bloqueo' : undefined}
+        disabled={!conceptoId || !motivo.trim() || mutation.isPending}
+        onClick={() => {
+          if (!conceptoId) return;
+          const command = {
+            movimientoId: movimiento.id,
+            conceptoId,
+            motivo: motivo.trim(),
+            version: movimiento.version,
+          };
+          mutation.mutate(
+            { ...command, idempotencyKey: keyFor(command) },
+            {
+              onSuccess: () => {
+                toast.success('Movimiento reclasificado');
+                setMotivo('');
+              },
+              onError: (e) =>
+                toast.error(
+                  esApiError(e) ? (e.problem.detail ?? e.problem.title) : 'No se pudo reclasificar',
+                ),
+            },
+          );
+        }}
+      >
+        Reclasificar
+      </Button>
+      {(!conceptoId || !motivo.trim()) && (
+        <p id="reclasificar-bloqueo" className="text-xs text-ink-muted">
+          Captura el motivo para reclasificar
+        </p>
+      )}
+    </section>
+  );
 }

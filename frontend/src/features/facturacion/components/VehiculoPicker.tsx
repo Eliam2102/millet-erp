@@ -39,11 +39,11 @@ export function VehiculoPicker({
         <div className="min-w-0 flex-1">
           <div className="flex items-center gap-2">
             <span className="truncate font-mono text-xs">{v.placa}</span>
-            <span className="text-xs text-muted-foreground">
+            <span className="text-xs text-ink-muted">
               {v.configVehicular} · {v.anioModelo}
             </span>
           </div>
-          <p className="text-xs tabular-nums text-muted-foreground">
+          <p className="text-xs tabular-nums text-ink-muted">
             {v.pesoBrutoVehicular != null
               ? `Peso bruto ${v.pesoBrutoVehicular} t`
               : 'Sin peso bruto — no timbra CP 3.1'}

@@ -6,6 +6,7 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using Millet.SharedKernel.Application;
+using Millet.SharedKernel.Application.Integration;
 using Millet.Tesoreria.Application.EventListeners;
 using Millet.Tesoreria.Infrastructure.Persistence;
 
@@ -13,13 +14,15 @@ namespace Millet.Tesoreria.Infrastructure.Workers;
 
 /// <summary>
 /// <c>BackgroundService</c> que se conecta al topic
-/// <c>facturacion-events</c> (TES-PR7, 01-diseño §8.2/§9) y cierra dos
-/// ciclos del lado ingresos:
+/// <c>facturacion-events</c> (TES-PR7, 01-diseño §8.2/§9) y cierra
+/// tres ciclos del lado ingresos:
 /// <list type="bullet">
 /// <item><c>caja-sesion.cerrada.v1</c> → expectativa de depósito Caja→Banco
 /// (cierra PLATFORM-TODO(&lt;TesoreriaCajaSesion&gt;)).</item>
 /// <item><c>recibo-pago.timbrado.v1</c> → marca <c>repp_timbrado=true</c>
 /// en la confirmación correspondiente (ciclo fiscal cerrado).</item>
+/// <item><c>nota-credito.reembolso-solicitado.v1</c> → crea la devolución a
+/// cliente de origen nota de crédito (T9.6 · CA6.17).</item>
 /// </list>
 ///
 /// <para>
@@ -30,7 +33,7 @@ namespace Millet.Tesoreria.Infrastructure.Workers;
 /// <c>EventType</c>.
 /// </para>
 /// </summary>
-public sealed class FacturacionEventListenerWorker : BackgroundService
+public sealed class FacturacionEventListenerWorker : BackgroundService, ILocalIntegrationEventConsumer
 {
     public const string TopicName = "facturacion-events";
     public const string SubscriptionName = "tesoreria-subscription";
@@ -160,9 +163,18 @@ public sealed class FacturacionEventListenerWorker : BackgroundService
                     break;
                 }
 
+                case NotaCreditoReembolsoSolicitadoPayload.EventType:
+                {
+                    var payload = JsonSerializer.Deserialize<NotaCreditoReembolsoSolicitadoPayload>(body, JsonOpts)
+                        ?? throw new JsonException("Payload null.");
+                    await mediator.Send(new ProyectarReembolsoNotaCreditoCommand(eventId, payload), cancellationToken);
+                    break;
+                }
+
                 default:
                 {
-                    _logger.LogWarning(
+                    _logger.Log(
+                        smbArgs is null ? LogLevel.Debug : LogLevel.Warning,
                         "EventType no manejado por FacturacionEventListener (Tesorería): {EventType}. Dead-letter.",
                         eventType);
                     if (smbArgs is not null)
@@ -193,6 +205,10 @@ public sealed class FacturacionEventListenerWorker : BackgroundService
         }
         catch (Exception ex)
         {
+            // C1.8: en la entrega local no hay mensaje que abandonar; se relanza
+            // para que el OutboxPublisherWorker registre la falla y reintente.
+            if (smbArgs is null) throw;
+
             _logger.LogError(ex,
                 "Error procesando evento. EventType={EventType} EventId={EventId}. Abandono para retry.",
                 eventType, eventId);
@@ -202,6 +218,16 @@ public sealed class FacturacionEventListenerWorker : BackgroundService
             }
         }
     }
+
+    // C1.8 — entrega local sin Service Bus (solo Development/demo): el
+    // LocalDispatchIntegrationEventBusSender invoca este método con la fila
+    // del outbox. Sin smbArgs, ProcessAsync relanza las fallas para que el
+    // outbox reintente.
+    string ILocalIntegrationEventConsumer.TopicName => TopicName;
+
+    Task ILocalIntegrationEventConsumer.ConsumirLocalAsync(
+        string eventType, Guid eventId, string body, CancellationToken cancellationToken)
+        => ProcessAsync(eventType, eventId, body, smbArgs: null, cancellationToken);
 
     private Task OnErrorAsync(ProcessErrorEventArgs args)
     {

@@ -1,18 +1,23 @@
+import { IndicadorAlmacenBadge } from '../components/IndicadorAlmacenBadge';
+import { MontoMovimiento } from '@/components/erp/display/MontoMovimiento';
+import { DialogBody } from '@/components/ui/dialog';
+import { PageHeader } from '@/components/erp/PageHeader';
 import { useMemo, useState } from 'react';
 import { Controller, useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { Link, useParams } from '@tanstack/react-router';
-import {
-  ArrowLeft,
-  Calculator,
-  Check,
-  Lock,
-  RotateCcw,
-  Wallet,
-  X,
-} from 'lucide-react';
+import { ArrowLeft, Calculator, Check, Lock, RotateCcw, Wallet, X } from 'lucide-react';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableContainer,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '@/components/ui/table';
 import { Input } from '@/components/ui/input';
 import {
   AlertDialog,
@@ -50,7 +55,6 @@ import {
 } from '@/features/almacen/api/useAprobacionConteo';
 import {
   EstadoConteo,
-  EstadoConteoLabels,
   TipoConteo,
   type LineaConteoComparacionDto,
 } from '@/features/almacen/api/types';
@@ -62,11 +66,13 @@ import {
   type AprobarLineaIndividualmenteValues,
   type RechazarConteoValues,
 } from '@/features/almacen/schemas/aprobacion-conteo';
-import { esApiError, useFormIdempotencyKey } from '@/lib/api';
+import { esApiError, useFormIdempotencyKey, codigoSoporte } from '@/lib/api';
 import { VariacionBadge } from '@/features/almacen/components/VariacionBadge';
 import { Field } from '@/features/almacen/components/internal/Field';
-import { cn } from '@/lib/utils';
 import { montoNetoConteo } from '@/features/almacen/lib/monto-neto-conteo';
+import { EstadoAlmacenBadge } from '@/features/almacen/components/EstadoAlmacenBadge';
+import { formatMoney, mxn } from '@/lib/money';
+import { formatCantidad } from '@/lib/format-cantidad';
 
 const FROM = '/_app/almacen/inventarios/$id/aprobacion' as const;
 
@@ -108,6 +114,20 @@ export function AprobacionConteoPage() {
 
   const aplicarIdempotencyKey = useFormIdempotencyKey();
 
+  // Mismo criterio que el backend al aprobar: requiere recuento, sin recuento
+  // ni aprobación individual.
+  const pendientesRecuento = useMemo(
+    () =>
+      (comparacionQuery.data ?? []).filter(
+        (l) => l.requiereRecuento && !l.aprobadoIndividualmente && !l.recuentoRealizado,
+      ).length,
+    [comparacionQuery.data],
+  );
+  const motivoNoAprobar =
+    pendientesRecuento > 0
+      ? `${pendientesRecuento} ${pendientesRecuento === 1 ? 'partida pendiente' : 'partidas pendientes'} de recuento o aprobación individual`
+      : null;
+
   const montoNeto = useMemo(
     () => montoNetoConteo(comparacionQuery.data ?? []),
     [comparacionQuery.data],
@@ -119,9 +139,7 @@ export function AprobacionConteoPage() {
       { conteoId: id },
       {
         onSuccess: (resp) => {
-          toast.success(
-            `${resp.lineasMarcadasParaRecuento} líneas marcadas para recuento (A7)`,
-          );
+          toast.success(`${resp.lineasMarcadasParaRecuento} partidas marcadas para recuento (A7)`);
         },
         onError: manejarError,
       },
@@ -149,7 +167,7 @@ export function AprobacionConteoPage() {
       {
         onSuccess: (resp) => {
           toast.success(
-            `${resp.movimientosGenerados} movimientos aplicados (monto neto ${formatearMonto(resp.montoNetoMxn)})`,
+            `${resp.movimientosGenerados} movimientos aplicados (monto neto ${formatMoney(mxn(resp.montoNetoMxn))})`,
           );
           setAplicarOpen(false);
         },
@@ -164,11 +182,11 @@ export function AprobacionConteoPage() {
   const aplicado = conteo?.estado === EstadoConteo.Aplicado;
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-5">
       <div className="flex items-center justify-between gap-2">
         <Button asChild variant="ghost" size="sm">
           <Link to="/almacen/inventarios/$id" params={{ id: id ?? '' }}>
-            <ArrowLeft className="mr-2 h-4 w-4" />
+            <ArrowLeft className="mr-2 size-3.5" />
             Volver al detalle
           </Link>
         </Button>
@@ -182,21 +200,13 @@ export function AprobacionConteoPage() {
       {conteoQuery.isError ? (
         <ErrorState
           title="No se pudo cargar el conteo"
-          problem={
-            esApiError(conteoQuery.error)
-              ? conteoQuery.error.problem
-              : undefined
-          }
+          problem={esApiError(conteoQuery.error) ? conteoQuery.error.problem : undefined}
           onRetry={() => conteoQuery.refetch()}
         />
       ) : comparacionQuery.isError ? (
         <ErrorState
           title="No se pudo cargar la comparación"
-          problem={
-            esApiError(comparacionQuery.error)
-              ? comparacionQuery.error.problem
-              : undefined
-          }
+          problem={esApiError(comparacionQuery.error) ? comparacionQuery.error.problem : undefined}
           onRetry={() => comparacionQuery.refetch()}
         />
       ) : conteoQuery.isLoading || comparacionQuery.isLoading ? (
@@ -214,59 +224,65 @@ export function AprobacionConteoPage() {
         />
       ) : (
         <>
-          <header className="space-y-2">
-            <div className="flex flex-wrap items-center gap-3">
-              <h1 className="text-2xl font-semibold tracking-tight">
-                Aprobación de conteo
-              </h1>
-              {conteo && (
-                <span className="inline-flex items-center rounded-full bg-slate-200 px-2 py-0.5 text-xs font-medium text-slate-700">
-                  {EstadoConteoLabels[conteo.estado]}
+          <PageHeader
+            titulo="Aprobación de conteo"
+            estado={<>{conteo && <EstadoAlmacenBadge tipo="conteo" estado={conteo.estado} />}</>}
+            descripcion={
+              <>
+                Monto neto del ajuste:{' '}
+                <span className="font-semibold">
+                  <MontoMovimiento
+                    monto={montoNeto}
+                    moneda="MXN"
+                    tipo={montoNeto < 0 ? 'salida' : 'entrada'}
+                  />
                 </span>
-              )}
-            </div>
-            <p className="text-sm text-muted-foreground">
-              Monto neto del ajuste:{' '}
-              <span className="font-mono font-semibold">
-                {formatearMonto(montoNeto)}
-              </span>
-
-            </p>
-
-            <div className="flex flex-wrap gap-2">
-              {enConciliacion && (
-                <>
-                  <Button variant="outline" onClick={ejecutarEvaluar}>
-                    <Calculator className="mr-2 h-4 w-4" />
-                    Evaluar variaciones (A7)
-                  </Button>
-                  <Button onClick={() => setAprobarConteoOpen(true)}>
-                    <Check className="mr-2 h-4 w-4" />
-                    Aprobar conteo
-                  </Button>
-                  <Button
-                    variant="destructive"
-                    onClick={() => setRechazarOpen(true)}
-                  >
-                    <X className="mr-2 h-4 w-4" />
-                    Rechazar
-                  </Button>
-                </>
-              )}
-              {aprobado && (
-                <Button onClick={() => setAplicarOpen(true)}>
-                  <Wallet className="mr-2 h-4 w-4" />
-                  Aplicar (generar movimientos)
-                </Button>
-              )}
-              {aplicado && (
-                <p className="text-sm text-emerald-700 flex items-center gap-2">
-                  <Lock className="h-4 w-4" />
-                  Conteo aplicado. Ajustes generados en el inventario.
-                </p>
-              )}
-            </div>
-          </header>
+              </>
+            }
+            acciones={
+              <>
+                <div className="flex flex-wrap gap-2">
+                  {enConciliacion && (
+                    <>
+                      <Button variant="outline" onClick={ejecutarEvaluar}>
+                        <Calculator className="mr-2 size-3.5" />
+                        Evaluar variaciones
+                      </Button>
+                      <Button
+                        onClick={() => setAprobarConteoOpen(true)}
+                        disabled={motivoNoAprobar != null}
+                        aria-describedby={motivoNoAprobar ? 'motivo-no-aprobar' : undefined}
+                      >
+                        <Check className="mr-2 size-3.5" />
+                        Aprobar conteo
+                      </Button>
+                      <Button variant="secondary-danger" onClick={() => setRechazarOpen(true)}>
+                        <X className="mr-2 size-3.5" />
+                        Rechazar
+                      </Button>
+                    </>
+                  )}
+                  {enConciliacion && motivoNoAprobar && (
+                    <p id="motivo-no-aprobar" className="basis-full text-sm text-ink-muted">
+                      No puedes aprobar aún: {motivoNoAprobar}.
+                    </p>
+                  )}
+                  {aprobado && (
+                    <Button onClick={() => setAplicarOpen(true)}>
+                      <Wallet className="mr-2 size-3.5" />
+                      Aplicar (generar movimientos)
+                    </Button>
+                  )}
+                  {aplicado && (
+                    <p className="text-sm text-success-fg flex items-center gap-2">
+                      <Lock className="h-4 w-4" />
+                      Conteo aplicado. Ajustes generados en el inventario.
+                    </p>
+                  )}
+                </div>
+              </>
+            }
+          />
 
           <TablaComparacion
             items={comparacionQuery.data ?? []}
@@ -282,6 +298,7 @@ export function AprobacionConteoPage() {
         <RecuentoDialog
           conteoId={id}
           lineaId={recuentoLineaId}
+          linea={comparacionQuery.data?.find((l) => l.id === recuentoLineaId)}
           open={recuentoLineaId != null}
           onOpenChange={(v) => !v && setRecuentoLineaId(null)}
         />
@@ -305,31 +322,23 @@ export function AprobacionConteoPage() {
           }}
         />
       )}
-      <AlertDialog
-        open={aprobarConteoOpen}
-        onOpenChange={setAprobarConteoOpen}
-      >
+      <AlertDialog open={aprobarConteoOpen} onOpenChange={setAprobarConteoOpen}>
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>¿Aprobar conteo?</AlertDialogTitle>
             <AlertDialogDescription>
-              Confirmas tu aprobación. Todas las líneas deben estar resueltas
-              (recuento o aprobadas individualmente). El conteo pasará a
-              estado <b>Aprobado</b> y podrás aplicarlo después.
+              Confirmas tu aprobación. Todas las partidas deben estar resueltas (recuento o
+              aprobadas individualmente). El conteo pasará a estado <b>Aprobado</b> y podrás
+              aplicarlo después.
               <span className="mt-2 block text-ink-secondary">
-                El nivel requerido depende del monto neto y de los umbrales
-                guardados al iniciar este conteo. El Nivel 3 genera un aviso a Finanzas.
+                El nivel requerido depende del monto neto y de los umbrales guardados al iniciar
+                este conteo. El Nivel 3 genera un aviso a Finanzas.
               </span>
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel disabled={aprobar.isPending}>
-              Cancelar
-            </AlertDialogCancel>
-            <AlertDialogAction
-              disabled={aprobar.isPending}
-              onClick={ejecutarAprobar}
-            >
+            <AlertDialogCancel disabled={aprobar.isPending}>Cancelar</AlertDialogCancel>
+            <AlertDialogAction disabled={aprobar.isPending} onClick={ejecutarAprobar}>
               {aprobar.isPending ? 'Aprobando…' : 'Aprobar'}
             </AlertDialogAction>
           </AlertDialogFooter>
@@ -341,20 +350,14 @@ export function AprobacionConteoPage() {
           <AlertDialogHeader>
             <AlertDialogTitle>¿Aplicar conteo?</AlertDialogTitle>
             <AlertDialogDescription>
-              Se generarán los movimientos AjustePositivo/AjusteNegativo en
-              batch y los saldos se actualizarán. Esta acción es
-              irreversible. Asegúrate de haber confirmado el resultado del
-              conteo y la justificación de cada variación.
+              Se generarán los movimientos AjustePositivo/AjusteNegativo en batch y los saldos se
+              actualizarán. Esta acción es irreversible. Asegúrate de haber confirmado el resultado
+              del conteo y la justificación de cada variación.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel disabled={aplicar.isPending}>
-              Cancelar
-            </AlertDialogCancel>
-            <AlertDialogAction
-              disabled={aplicar.isPending}
-              onClick={ejecutarAplicar}
-            >
+            <AlertDialogCancel disabled={aplicar.isPending}>Cancelar</AlertDialogCancel>
+            <AlertDialogAction disabled={aplicar.isPending} onClick={ejecutarAplicar}>
               {aplicar.isPending ? 'Aplicando…' : 'Aplicar'}
             </AlertDialogAction>
           </AlertDialogFooter>
@@ -368,16 +371,13 @@ export function AprobacionConteoPage() {
 
 function BloqueoInventarioAnualBanner() {
   return (
-    <div className="flex items-start gap-3 rounded-md border border-rose-200 bg-rose-50 px-4 py-3 text-sm">
-      <Lock className="mt-0.5 h-5 w-5 shrink-0 text-rose-700" />
+    <div className="flex items-start gap-3 rounded-md border border-danger bg-danger-bg px-4 py-3 text-sm">
+      <Lock className="mt-0.5 h-5 w-5 shrink-0 text-danger-fg" />
       <div>
-        <p className="font-medium text-rose-900">
-          Inventario anual — salidas bloqueadas (A18)
-        </p>
-        <p className="text-rose-800">
-          Mientras este conteo esté activo, los almacenes no pueden surtir
-          salidas. Coordina con producción y termina el ciclo lo antes
-          posible.
+        <p className="font-medium text-danger-fg">Inventario anual — salidas bloqueadas</p>
+        <p className="text-danger-fg">
+          Mientras este conteo esté activo, los almacenes no pueden surtir salidas. Coordina con
+          producción y termina el ciclo lo antes posible.
         </p>
       </div>
     </div>
@@ -399,95 +399,78 @@ function TablaComparacion({
 }) {
   if (items.length === 0) {
     return (
-      <div className="rounded-md border bg-muted/30 px-4 py-6 text-center text-sm text-muted-foreground">
-        Sin líneas para comparar.
+      <div className="rounded-md border bg-surface-muted/30 px-4 py-6 text-center text-sm text-ink-muted">
+        Sin partidas para comparar.
       </div>
     );
   }
 
   return (
-    <div className="overflow-x-auto rounded-md border">
-      <table className="w-full text-sm">
-        <thead className="bg-muted/50">
-          <tr>
-            <th className="px-3 py-2 text-left">Artículo</th>
-            <th className="px-3 py-2 text-left">Sub-almacén</th>
-            <th className="px-3 py-2 text-left">Rack</th>
-            <th className="px-3 py-2 text-right">Teórica</th>
-            <th className="px-3 py-2 text-right">Real</th>
-            <th className="px-3 py-2 text-left">Variación</th>
-            <th className="px-3 py-2 text-left">Estado</th>
-            {puedeAccionar && (
-              <th className="px-3 py-2 text-right">Acciones</th>
-            )}
-          </tr>
-        </thead>
-        <tbody>
+    <TableContainer>
+      <Table>
+        <TableHeader>
+          <TableRow>
+            <TableHead>Artículo</TableHead>
+            <TableHead>Sub-almacén</TableHead>
+            <TableHead>Rack</TableHead>
+            <TableHead className="text-right">Teórica</TableHead>
+            <TableHead className="text-right">Real</TableHead>
+            <TableHead>Variación</TableHead>
+            <TableHead>Estado</TableHead>
+            {puedeAccionar && <TableHead className="text-right">Acciones</TableHead>}
+          </TableRow>
+        </TableHeader>
+        <TableBody>
           {items.map((l) => (
-            <tr key={l.id} className="border-t">
-              <td className="px-3 py-2">
+            <TableRow key={l.id}>
+              <TableCell>
                 <EtiquetaArticulo
                   articuloId={l.articuloId}
                   clave={l.articuloClave}
                   descripcion={l.articuloDescripcion}
                 />
-              </td>
-              <td className="px-3 py-2">
-                <EtiquetaSubAlmacen
-                  subAlmacenId={l.subAlmacenId}
-                  clave={l.subAlmacenClave}
-                />
-              </td>
-              <td className="px-3 py-2 font-mono text-xs">{l.ubicacionClave}</td>
-              <td className="px-3 py-2 text-right font-mono">
-                {l.cantidadTeorica.toLocaleString('es-MX', {
-                  minimumFractionDigits: 2,
-                  maximumFractionDigits: 4,
-                })}
-              </td>
-              <td className="px-3 py-2 text-right font-mono">
-                {l.cantidadRealCapturada != null
-                  ? l.cantidadRealCapturada.toLocaleString('es-MX', {
-                      minimumFractionDigits: 2,
-                      maximumFractionDigits: 4,
-                    })
-                  : '—'}
-              </td>
-              <td className="px-3 py-2">
+              </TableCell>
+              <TableCell>
+                <EtiquetaSubAlmacen subAlmacenId={l.subAlmacenId} clave={l.subAlmacenClave} />
+              </TableCell>
+              <TableCell className="font-mono text-xs">{l.ubicacionClave}</TableCell>
+              <TableCell className="text-right font-mono">
+                {formatCantidad(l.cantidadTeorica)}
+              </TableCell>
+              <TableCell className="text-right font-mono">
+                {l.cantidadVigente != null ? formatCantidad(l.cantidadVigente) : '—'}
+                {l.recuentoRealizado && l.cantidadRealCapturada != null && (
+                  <div className="text-xs font-normal text-ink-muted">
+                    Captura original: {formatCantidad(l.cantidadRealCapturada)}
+                  </div>
+                )}
+              </TableCell>
+              <TableCell>
                 <VariacionBadge
                   variacionAbsoluta={l.variacionAbsoluta}
                   variacionPorcentaje={l.variacionPorcentaje}
                   variacionValorMxn={l.variacionValorMxn}
                   requiereRecuento={l.requiereRecuento}
                 />
-              </td>
-              <td className="px-3 py-2">
+              </TableCell>
+              <TableCell>
                 {l.aprobadoIndividualmente ? (
-                  <span
-                    className={cn(
-                      'inline-flex items-center gap-1 rounded-full bg-emerald-100 px-2 py-0.5 text-xs font-medium text-emerald-800',
-                    )}
-                  >
-                    <Check className="h-3 w-3" />
-                    Aprobada
-                  </span>
+                  <IndicadorAlmacenBadge estado="aprobada" />
                 ) : l.requiereRecuento ? (
-                  <span className="inline-flex items-center rounded-full bg-rose-100 px-2 py-0.5 text-xs font-medium text-rose-800">
-                    Pendiente
-                  </span>
+                  <IndicadorAlmacenBadge estado="pendiente" />
                 ) : (
-                  <span className="text-xs text-muted-foreground">OK</span>
+                  <span className="text-xs text-ink-muted">OK</span>
                 )}
-              </td>
+              </TableCell>
               {puedeAccionar && (
-                <td className="px-3 py-2 text-right">
+                <TableCell className="text-right">
                   <div className="flex items-center justify-end gap-1">
                     <Button
                       type="button"
                       size="sm"
                       variant="ghost"
                       onClick={() => onRecuento(l.id)}
-                      aria-label={`Recuento línea ${l.id}`}
+                      aria-label={`Recuento partida ${l.id}`}
                     >
                       <RotateCcw className="h-4 w-4" />
                     </Button>
@@ -497,19 +480,19 @@ function TablaComparacion({
                         size="sm"
                         variant="ghost"
                         onClick={() => onAprobarLinea(l.id)}
-                        aria-label={`Aprobar línea ${l.id}`}
+                        aria-label={`Aprobar partida ${l.id}`}
                       >
                         <Check className="h-4 w-4" />
                       </Button>
                     )}
                   </div>
-                </td>
+                </TableCell>
               )}
-            </tr>
+            </TableRow>
           ))}
-        </tbody>
-      </table>
-    </div>
+        </TableBody>
+      </Table>
+    </TableContainer>
   );
 }
 
@@ -518,11 +501,13 @@ function TablaComparacion({
 function RecuentoDialog({
   conteoId,
   lineaId,
+  linea,
   open,
   onOpenChange,
 }: {
   conteoId: string;
   lineaId: string;
+  linea?: LineaConteoComparacionDto;
   open: boolean;
   onOpenChange: (open: boolean) => void;
 }) {
@@ -552,46 +537,54 @@ function RecuentoDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-md">
+      <DialogContent size="sm">
         <DialogHeader>
           <DialogTitle>Agregar recuento</DialogTitle>
           <DialogDescription>
-            Captura la cantidad recontada por el contador en una segunda
-            pasada. El backend re-evalúa la variación (A7).
+            Captura la cantidad recontada por el contador en una segunda pasada. El sistema vuelve a
+            calcular la variación.
+            {linea && (
+              <span className="mt-1 block font-medium text-ink">
+                {linea.articuloClave ?? linea.articuloId.slice(0, 8)}
+                {linea.articuloDescripcion ? ` · ${linea.articuloDescripcion}` : ''}
+                {' · '}rack {linea.ubicacionClave}
+                {linea.unidadMedida ? ` · en ${linea.unidadMedida}` : ''}
+              </span>
+            )}
           </DialogDescription>
         </DialogHeader>
-        <form
-          id="recuento-form"
-          onSubmit={form.handleSubmit(onSubmit)}
-          noValidate
-          className="space-y-3"
-        >
-          <Field
-            label="Cantidad recontada"
-            required
-            error={form.formState.errors.cantidadRecontada?.message}
+        <DialogBody>
+          <form
+            id="recuento-form"
+            onSubmit={form.handleSubmit(onSubmit)}
+            noValidate
+            className="space-y-4"
           >
-            <Controller
-              name="cantidadRecontada"
-              control={form.control}
-              render={({ field }) => (
-                <Input
-                  type="number"
-                  inputMode="decimal"
-                  step="0.0001"
-                  min="0"
-                  value={field.value ?? ''}
-                  onChange={(e) =>
-                    field.onChange(
-                      e.target.value === '' ? '' : Number(e.target.value),
-                    )
-                  }
-                  autoFocus
-                />
-              )}
-            />
-          </Field>
-        </form>
+            <Field
+              label="Cantidad recontada"
+              required
+              error={form.formState.errors.cantidadRecontada?.message}
+            >
+              <Controller
+                name="cantidadRecontada"
+                control={form.control}
+                render={({ field }) => (
+                  <Input
+                    type="number"
+                    inputMode="decimal"
+                    step="0.0001"
+                    min="0"
+                    value={field.value ?? ''}
+                    onChange={(e) =>
+                      field.onChange(e.target.value === '' ? '' : Number(e.target.value))
+                    }
+                    autoFocus
+                  />
+                )}
+              />
+            </Field>
+          </form>
+        </DialogBody>
         <DialogFooter>
           <Button
             type="button"
@@ -601,11 +594,7 @@ function RecuentoDialog({
           >
             Cancelar
           </Button>
-          <Button
-            type="submit"
-            form="recuento-form"
-            disabled={agregar.isPending}
-          >
+          <Button type="submit" form="recuento-form" disabled={agregar.isPending}>
             {agregar.isPending ? 'Agregando…' : 'Agregar recuento'}
           </Button>
         </DialogFooter>
@@ -644,7 +633,7 @@ function AprobarLineaDialog({
       },
       {
         onSuccess: () => {
-          toast.success('Línea aprobada');
+          toast.success('Partida aprobada');
           onOpenChange(false);
           form.reset({ justificacion: '' });
         },
@@ -655,39 +644,41 @@ function AprobarLineaDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-md">
+      <DialogContent size="sm">
         <DialogHeader>
-          <DialogTitle>Aprobar línea individualmente</DialogTitle>
+          <DialogTitle>Aprobar partida individualmente</DialogTitle>
           <DialogDescription>
-            Captura la justificación. Aplica para líneas dentro de umbral
-            A7 o ya conciliadas con recuento.
+            Captura la justificación. Aplica para partidas dentro de umbral A7 o ya conciliadas con
+            recuento.
           </DialogDescription>
         </DialogHeader>
-        <form
-          id="aprobar-linea-form"
-          onSubmit={form.handleSubmit(onSubmit)}
-          noValidate
-          className="space-y-3"
-        >
-          <Field
-            label="Justificación"
-            required
-            error={form.formState.errors.justificacion?.message}
+        <DialogBody>
+          <form
+            id="aprobar-linea-form"
+            onSubmit={form.handleSubmit(onSubmit)}
+            noValidate
+            className="space-y-4"
           >
-            <Controller
-              name="justificacion"
-              control={form.control}
-              render={({ field }) => (
-                <TextAreaField
-                  value={field.value ?? null}
-                  onChange={(v) => field.onChange(v ?? '')}
-                  maxLength={500}
-                  minRows={3}
-                />
-              )}
-            />
-          </Field>
-        </form>
+            <Field
+              label="Justificación"
+              required
+              error={form.formState.errors.justificacion?.message}
+            >
+              <Controller
+                name="justificacion"
+                control={form.control}
+                render={({ field }) => (
+                  <TextAreaField
+                    value={field.value ?? null}
+                    onChange={(v) => field.onChange(v ?? '')}
+                    maxLength={500}
+                    minRows={3}
+                  />
+                )}
+              />
+            </Field>
+          </form>
+        </DialogBody>
         <DialogFooter>
           <Button
             type="button"
@@ -697,12 +688,8 @@ function AprobarLineaDialog({
           >
             Cancelar
           </Button>
-          <Button
-            type="submit"
-            form="aprobar-linea-form"
-            disabled={aprobar.isPending}
-          >
-            {aprobar.isPending ? 'Aprobando…' : 'Aprobar línea'}
+          <Button type="submit" form="aprobar-linea-form" disabled={aprobar.isPending}>
+            {aprobar.isPending ? 'Aprobando…' : 'Aprobar partida'}
           </Button>
         </DialogFooter>
       </DialogContent>
@@ -745,39 +732,36 @@ function RechazarConteoDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-md">
+      <DialogContent size="sm">
         <DialogHeader>
           <DialogTitle>Rechazar conteo</DialogTitle>
           <DialogDescription>
-            Captura el motivo. El conteo se cierra como Rechazado y no
-            generará ajustes.
+            Captura el motivo. El conteo se cierra como Rechazado y no generará ajustes.
           </DialogDescription>
         </DialogHeader>
-        <form
-          id="rechazar-conteo-form"
-          onSubmit={form.handleSubmit(onSubmit)}
-          noValidate
-          className="space-y-3"
-        >
-          <Field
-            label="Motivo"
-            required
-            error={form.formState.errors.motivo?.message}
+        <DialogBody>
+          <form
+            id="rechazar-conteo-form"
+            onSubmit={form.handleSubmit(onSubmit)}
+            noValidate
+            className="space-y-4"
           >
-            <Controller
-              name="motivo"
-              control={form.control}
-              render={({ field }) => (
-                <TextAreaField
-                  value={field.value ?? null}
-                  onChange={(v) => field.onChange(v ?? '')}
-                  maxLength={500}
-                  minRows={3}
-                />
-              )}
-            />
-          </Field>
-        </form>
+            <Field label="Motivo" required error={form.formState.errors.motivo?.message}>
+              <Controller
+                name="motivo"
+                control={form.control}
+                render={({ field }) => (
+                  <TextAreaField
+                    value={field.value ?? null}
+                    onChange={(v) => field.onChange(v ?? '')}
+                    maxLength={500}
+                    minRows={3}
+                  />
+                )}
+              />
+            </Field>
+          </form>
+        </DialogBody>
         <DialogFooter>
           <Button
             type="button"
@@ -803,21 +787,26 @@ function RechazarConteoDialog({
 
 // ─── Helpers ────────────────────────────────────────────────────────────────
 
+const MENSAJES_APROBACION: Record<string, string> = {
+  CONTEO_APROBAR_LINEAS_PENDIENTES_RECUENTO:
+    'Hay partidas pendientes: haz el recuento o apruébalas una por una antes de aprobar el conteo.',
+  CONTEO_NIVEL_APROBACION_INSUFICIENTE:
+    'Tu permiso no alcanza el nivel que pide el monto neto del ajuste. Pide a un aprobador de nivel superior que apruebe el conteo.',
+};
+
 function manejarError(error: unknown) {
   if (esApiError(error)) {
+    const mensaje = error.code ? MENSAJES_APROBACION[error.code] : undefined;
+    if (mensaje) {
+      toast.error(mensaje, {
+        description: codigoSoporte(error),
+      });
+      return;
+    }
     toast.error(error.problem.title, {
-      description: error.problem.detail ?? (error.traceId ? `Código: ${error.traceId}` : undefined),
+      description: error.problem.detail ?? codigoSoporte(error),
     });
     return;
   }
   toast.error('Error inesperado.');
 }
-
-function formatearMonto(v: number): string {
-  return new Intl.NumberFormat('es-MX', {
-    style: 'currency',
-    currency: 'MXN',
-    minimumFractionDigits: 2,
-  }).format(v);
-}
-

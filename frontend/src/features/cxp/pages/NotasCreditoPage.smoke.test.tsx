@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { render, screen, waitFor } from '@testing-library/react';
+import { render, screen, waitFor, within } from '@testing-library/react';
 import axe, { type AxeResults } from 'axe-core';
 import { http, HttpResponse } from 'msw';
 import { mswServer } from '@/test/mocks/server';
@@ -99,7 +99,7 @@ describe('<NotasCreditoPage> — smoke', () => {
       expect(screen.getByText(/NC-888/i)).toBeInTheDocument(),
     );
     // Badge "En espera" — usar exact match para distinguir del párrafo descriptivo
-    expect(screen.getByText(/^En espera$/i)).toBeInTheDocument();
+    expect(within(screen.getByRole('table')).getByText(/^En espera$/i)).toBeInTheDocument();
   });
 
   it('axe-core: cero violations en estado vacío', async () => {

@@ -16,6 +16,7 @@ import {
   ShieldCheck,
   Sparkles,
   Trash2,
+  Undo2,
   type LucideIcon,
 } from 'lucide-react';
 import { DateTimeDisplay } from '@/components/erp';
@@ -63,33 +64,32 @@ export interface TimelineRequisicionProps {
   isLoading?: boolean;
 }
 
-export function TimelineRequisicion({
-  entradas,
-  isLoading,
-}: TimelineRequisicionProps) {
+export function TimelineRequisicion({ entradas, isLoading }: TimelineRequisicionProps) {
   if (isLoading) {
-    return (
-      <p className="text-sm text-muted-foreground">Cargando histórico…</p>
-    );
+    return <p className="text-sm text-ink-muted">Cargando histórico…</p>;
   }
 
   if (entradas.length === 0) {
-    return (
-      <p className="text-sm text-muted-foreground">
-        Sin transiciones registradas todavía.
-      </p>
-    );
+    return <p className="text-sm text-ink-muted">Sin transiciones registradas todavía.</p>;
   }
 
+  // El diff de auditoría omite el motivo cuando se repite: se arrastra el
+  // último motivo conocido de cada línea (las entradas vienen en orden).
+  const motivoPorLinea = new Map<string, string>();
+  const motivos = entradas.map((e) => {
+    if (e.tipo !== HistoricoTipo.ApartadoLiberado) return undefined;
+    const motivo = leerDiff(e.cambios).MotivoUltimaLiberacion?.despues;
+    if (typeof motivo === 'string' && e.entidadId) motivoPorLinea.set(e.entidadId, motivo);
+    return typeof motivo === 'string' ? motivo : motivoPorLinea.get(e.entidadId ?? '');
+  });
+
   return (
-    <ol
-      className="space-y-3"
-      aria-label="Línea de tiempo de la requisición"
-    >
+    <ol className="space-y-3" aria-label="Actividad de la requisición">
       {entradas.map((e, idx) => (
         <EntradaTimeline
           key={`${e.timestamp}-${e.tipo}-${e.entidadId ?? 'agg'}-${idx}`}
           entrada={e}
+          motivoLiberacion={motivos[idx]}
         />
       ))}
     </ol>
@@ -98,21 +98,22 @@ export function TimelineRequisicion({
 
 interface EntradaTimelineProps {
   entrada: HistoricoEntryResponse;
+  motivoLiberacion?: string;
 }
 
-function EntradaTimeline({ entrada }: EntradaTimelineProps) {
+function EntradaTimeline({ entrada, motivoLiberacion }: EntradaTimelineProps) {
   const [abierto, setAbierto] = useState(false);
   const config = TIPO_CONFIG[entrada.tipo] ?? FALLBACK_CONFIG;
   const Icon = config.icon;
   const label = HISTORICO_TIPO_LABEL[entrada.tipo] ?? `Tipo ${entrada.tipo}`;
   // Actor resuelto en backend (ADR-0042): sin actor → "Sistema"; no resuelto
-  // (service principal / borrado) → indica Por confirmar.
+  // (service principal / borrado) → indica el dato faltante.
   const actor =
-    entrada.actorId == null ? 'Sistema' : entrada.actorNombre?.trim() || '[RESPONSABLE POR CONFIRMAR]';
+    entrada.actorId == null ? 'Sistema' : entrada.actorNombre?.trim() || 'Sin asignar';
   const cambiosLegible = formatearCambios(entrada.cambios);
 
   return (
-    <li className="flex gap-3 rounded-md border bg-card p-3">
+    <li className="flex gap-3 rounded-md border bg-surface-card p-3">
       <div
         className={cn(
           'flex h-9 w-9 shrink-0 items-center justify-center rounded-full',
@@ -124,30 +125,28 @@ function EntradaTimeline({ entrada }: EntradaTimelineProps) {
       </div>
       <div className="min-w-0 flex-1">
         <p className="text-sm">
-          <span className="font-medium">{label}</span>{' '}
-          <span className="text-muted-foreground">por</span>{' '}
-          <span className="font-medium">{actor}</span>
+          <span className="font-medium">{label}</span> <span className="text-ink-muted">por</span>{' '}
+          <span className={cn('font-medium', actor === 'Sin asignar' && 'text-ink-muted')}>{actor}</span>
         </p>
-        <p className="text-xs text-muted-foreground">
+        <p className="text-xs text-ink-muted">
           <DateTimeDisplay value={entrada.timestamp} variant="datetime" />
         </p>
+        {entrada.tipo === HistoricoTipo.ApartadoLiberado && (
+          <ResumenLiberacion cambios={entrada.cambios} motivo={motivoLiberacion} />
+        )}
         {cambiosLegible != null && (
           <button
             type="button"
             onClick={() => setAbierto((v) => !v)}
             aria-expanded={abierto}
-            className="mt-1 inline-flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground"
+            className="mt-1 inline-flex items-center gap-1 text-xs text-ink-muted hover:text-ink"
           >
-            {abierto ? (
-              <ChevronDown className="h-3 w-3" />
-            ) : (
-              <ChevronRight className="h-3 w-3" />
-            )}
+            {abierto ? <ChevronDown className="h-3 w-3" /> : <ChevronRight className="h-3 w-3" />}
             {abierto ? 'Ocultar cambios' : 'Ver cambios'}
           </button>
         )}
         {abierto && cambiosLegible != null && (
-          <pre className="mt-2 max-w-full overflow-x-auto rounded bg-muted/40 p-2 text-[11px] leading-relaxed">
+          <pre className="mt-2 max-w-full overflow-x-auto rounded bg-surface-muted/40 p-2 text-2xs leading-relaxed">
             {cambiosLegible}
           </pre>
         )}
@@ -175,86 +174,114 @@ const TIPO_CONFIG: Partial<Record<HistoricoTipo, TipoConfig>> = {
     // estado. Lápiz simple, distinto de Sparkles (Creada) y FileEdit
     // (LineaActualizada). Azul-neutral por la convención del archivo.
     icon: Pencil,
-    bgClass: 'bg-blue-100',
-    textClass: 'text-blue-700',
+    bgClass: 'bg-info-bg',
+    textClass: 'text-info-fg',
   },
   [HistoricoTipo.Creada]: {
     icon: Sparkles,
-    bgClass: 'bg-blue-100',
-    textClass: 'text-blue-700',
+    bgClass: 'bg-info-bg',
+    textClass: 'text-info-fg',
   },
   [HistoricoTipo.LineaAgregada]: {
     icon: FilePlus,
-    bgClass: 'bg-blue-100',
-    textClass: 'text-blue-700',
+    bgClass: 'bg-info-bg',
+    textClass: 'text-info-fg',
   },
   [HistoricoTipo.LineaActualizada]: {
     icon: FileEdit,
-    bgClass: 'bg-blue-100',
-    textClass: 'text-blue-700',
+    bgClass: 'bg-info-bg',
+    textClass: 'text-info-fg',
   },
   [HistoricoTipo.LineaEliminada]: {
     icon: FileX,
-    bgClass: 'bg-rose-100',
-    textClass: 'text-rose-700',
+    bgClass: 'bg-danger-bg',
+    textClass: 'text-danger-fg',
   },
   [HistoricoTipo.Transmitida]: {
     icon: Send,
-    bgClass: 'bg-blue-100',
-    textClass: 'text-blue-700',
+    bgClass: 'bg-info-bg',
+    textClass: 'text-info-fg',
   },
   [HistoricoTipo.AutorizadaN1]: {
     icon: ShieldCheck,
-    bgClass: 'bg-emerald-100',
-    textClass: 'text-emerald-700',
+    bgClass: 'bg-success-bg',
+    textClass: 'text-success-fg',
   },
   [HistoricoTipo.AutorizadaN2]: {
     icon: ShieldCheck,
-    bgClass: 'bg-emerald-100',
-    textClass: 'text-emerald-700',
+    bgClass: 'bg-success-bg',
+    textClass: 'text-success-fg',
   },
   [HistoricoTipo.Rechazada]: {
     icon: PackageX,
-    bgClass: 'bg-rose-100',
-    textClass: 'text-rose-700',
+    bgClass: 'bg-danger-bg',
+    textClass: 'text-danger-fg',
   },
   [HistoricoTipo.Eliminada]: {
     icon: Trash2,
-    bgClass: 'bg-rose-100',
-    textClass: 'text-rose-700',
+    bgClass: 'bg-danger-bg',
+    textClass: 'text-danger-fg',
   },
   [HistoricoTipo.Cancelada]: {
     icon: Ban,
-    bgClass: 'bg-amber-100',
-    textClass: 'text-amber-800',
+    bgClass: 'bg-warning-bg',
+    textClass: 'text-warning-fg',
   },
   [HistoricoTipo.CubrimientoRegistrado]: {
     icon: Inbox,
-    bgClass: 'bg-blue-100',
-    textClass: 'text-blue-700',
+    bgClass: 'bg-info-bg',
+    textClass: 'text-info-fg',
   },
   [HistoricoTipo.RecepcionRegistrada]: {
     icon: PackageCheck,
-    bgClass: 'bg-emerald-100',
-    textClass: 'text-emerald-700',
+    bgClass: 'bg-success-bg',
+    textClass: 'text-success-fg',
   },
   [HistoricoTipo.SaldoNoSurtido]: {
     icon: CircleDashed,
-    bgClass: 'bg-amber-100',
-    textClass: 'text-amber-800',
+    bgClass: 'bg-warning-bg',
+    textClass: 'text-warning-fg',
   },
   [HistoricoTipo.Cerrada]: {
     icon: CheckCircle2,
-    bgClass: 'bg-emerald-100',
-    textClass: 'text-emerald-700',
+    bgClass: 'bg-success-bg',
+    textClass: 'text-success-fg',
+  },
+  [HistoricoTipo.ApartadoLiberado]: {
+    icon: Undo2,
+    bgClass: 'bg-warning-bg',
+    textClass: 'text-warning-fg',
   },
 };
 
 const FALLBACK_CONFIG: TipoConfig = {
   icon: CircleDashed,
-  bgClass: 'bg-slate-100',
-  textClass: 'text-slate-600',
+  bgClass: 'bg-surface-muted',
+  textClass: 'text-ink-muted',
 };
+
+type Diff = Record<string, { antes?: unknown; despues?: unknown } | undefined>;
+
+function leerDiff(cambios: string): Diff {
+  try {
+    return (JSON.parse(cambios) as { diff?: Diff }).diff ?? {};
+  } catch {
+    return {};
+  }
+}
+
+/** Cantidad, destino y motivo de una liberación de apartado (86e3tferc). */
+function ResumenLiberacion({ cambios, motivo }: { cambios: string; motivo?: string }) {
+  const diff = leerDiff(cambios);
+  const liberada = diff.CantidadLiberadaApartado;
+  const cantidad = Number(liberada?.despues ?? 0) - Number(liberada?.antes ?? 0);
+  return (
+    <p className="mt-1 text-sm text-ink">
+      Liberó {cantidad} · {diff.CantidadDeCompra ? 'se manda a compra' : 'no se compra'}
+      {motivo && <> · Motivo: {motivo}</>}
+    </p>
+  );
+}
 
 /**
  * Intenta parsear el JSON crudo de <c>cambios</c> y devolverlo

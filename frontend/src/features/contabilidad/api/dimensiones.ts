@@ -20,6 +20,7 @@ import type {
   UbicacionSucursal,
   Validacion,
 } from './dimensiones-types';
+import type { TipoPolizaSat } from './polizas-types';
 
 const BASE = '/api/v1/contabilidad';
 
@@ -66,7 +67,7 @@ export function useTiposDocumento(incluirInactivos = false) {
 export function useCrearTipoDocumento() {
   const invalidar = useInvalidar();
   return useMutation({
-    mutationFn: async (body: { clave: string; nombre: string; esPrueba: boolean }) =>
+    mutationFn: async (body: { clave: string; nombre: string; esPrueba: boolean; tipoSat: TipoPolizaSat }) =>
       (await apiRequest<TipoDocumento>(`${BASE}/tipos-documento`, { method: 'POST', body, idempotencyKey: crypto.randomUUID() })).data,
     onSuccess: invalidar,
   });
@@ -75,10 +76,10 @@ export function useCrearTipoDocumento() {
 export function useEditarTipoDocumento() {
   const invalidar = useInvalidar();
   return useMutation({
-    mutationFn: async (t: TipoDocumento & { nuevoNombre?: string; nuevoActivo?: boolean }) =>
+    mutationFn: async (t: TipoDocumento & { nuevoNombre?: string; nuevoActivo?: boolean; nuevoTipoSat?: TipoPolizaSat }) =>
       (await apiRequest<TipoDocumento>(`${BASE}/tipos-documento/${t.id}`, {
         method: 'PUT',
-        body: { nombre: t.nuevoNombre ?? t.nombre, activo: t.nuevoActivo ?? t.activo },
+        body: { nombre: t.nuevoNombre ?? t.nombre, activo: t.nuevoActivo ?? t.activo, tipoSat: t.nuevoTipoSat ?? t.tipoSat },
         idempotencyKey: crypto.randomUUID(),
         ifMatch: String(t.version),
       })).data,

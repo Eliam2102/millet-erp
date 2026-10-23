@@ -1,3 +1,4 @@
+import { DialogBody } from '@/components/ui/dialog';
 import { useState } from 'react';
 import { Controller, useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -30,7 +31,10 @@ import {
 } from '@/features/almacen/schemas/devolucion';
 import { useAdjuntarEvidenciaProveedor } from '@/features/almacen/api/useDevolucionesProveedor';
 import type { DevolucionProveedorEvidenciaItem } from '@/features/almacen/api/types';
-import { esApiError } from '@/lib/api';
+import { esApiError, codigoSoporte } from '@/lib/api';
+import { mensajeErrorAdjunto, useEnlaceAdjunto } from '@/components/erp/adjuntos/api/hooks';
+import { useHasPermission } from '@/lib/auth/useHasPermission';
+import { PermisosCanonicos } from '@/lib/auth/permission-codes';
 import { Field } from '@/features/almacen/components/internal/Field';
 import { cn } from '@/lib/utils';
 
@@ -48,6 +52,44 @@ export interface EvidenciasManagerProps {
   evidencias: readonly DevolucionProveedorEvidenciaItem[];
   /** Si <c>false</c>, oculta el botón de agregar (estado avanzado). */
   canAdd: boolean;
+  /**
+   * Línea de revisión (MAT-REV) de la que viene la devolución. Las evidencias de un rechazo de
+   * cuarentena se guardan como `adjunto:{id}` (referencia al servicio genérico de adjuntos de esa
+   * línea), no como blob: con este id se descargan por su endpoint.
+   */
+  lineaRevisionId?: string | null;
+}
+
+const PREFIJO_ADJUNTO = 'adjunto:';
+
+function DescargarAdjunto({
+  lineaRevisionId,
+  adjuntoId,
+}: {
+  lineaRevisionId: string;
+  adjuntoId: string;
+}) {
+  const puedeVer = useHasPermission(PermisosCanonicos.AlmacenEntradasLeer);
+  const enlace = useEnlaceAdjunto(`/api/v1/almacen/revision/lineas/${lineaRevisionId}`);
+  if (!puedeVer) return null;
+  return (
+    <>
+      <Button
+        type="button"
+        size="sm"
+        variant="outline"
+        disabled={enlace.isPending}
+        onClick={() => enlace.mutate({ adjuntoId })}
+      >
+        Descargar
+      </Button>
+      {enlace.isError && (
+        <p role="alert" className="mt-1 text-xs text-danger-fg">
+          {mensajeErrorAdjunto(enlace.error)}
+        </p>
+      )}
+    </>
+  );
 }
 
 /**
@@ -63,23 +105,17 @@ export function EvidenciasManager({
   devolucionId,
   evidencias,
   canAdd,
+  lineaRevisionId,
 }: EvidenciasManagerProps) {
   const [dialogOpen, setDialogOpen] = useState(false);
 
   return (
     <section className="space-y-2">
       <div className="flex items-center justify-between">
-        <h3 className="text-sm font-semibold">
-          Evidencias ({evidencias.length})
-        </h3>
+        <h3 className="text-sm font-semibold">Evidencias ({evidencias.length})</h3>
         {canAdd && (
-          <Button
-            type="button"
-            size="sm"
-            variant="outline"
-            onClick={() => setDialogOpen(true)}
-          >
-            <Plus className="mr-2 h-4 w-4" />
+          <Button type="button" size="sm" variant="outline" onClick={() => setDialogOpen(true)}>
+            <Plus className="mr-2 size-3.5" />
             Agregar evidencia
           </Button>
         )}
@@ -88,27 +124,32 @@ export function EvidenciasManager({
       {evidencias.length === 0 ? (
         <div
           className={cn(
-            'rounded-md border border-dashed bg-muted/30 px-4 py-6 text-center text-sm text-muted-foreground',
+            'rounded-md border border-dashed bg-surface-muted/30 px-4 py-6 text-center text-sm text-ink-muted',
           )}
         >
-          Sin evidencias adjuntas. Agrega al menos una antes de solicitar
-          autorización.
+          Sin evidencias adjuntas. Agrega al menos una antes de solicitar autorización.
         </div>
       ) : (
         <ul className="divide-y rounded-md border">
           {evidencias.map((e) => (
             <li key={e.id} className="flex items-start gap-3 px-3 py-2">
-              <FileText className="mt-0.5 h-5 w-5 shrink-0 text-primary" />
+              <FileText className="mt-0.5 h-5 w-5 shrink-0 text-brand" />
               <div className="min-w-0 flex-1">
                 <p className="truncate text-sm font-medium">{e.nombreArchivo}</p>
-                <p className="text-xs text-muted-foreground">
+                <p className="text-xs text-ink-muted">
                   {e.tipoEvidencia}
                   {e.comentario ? ` · ${e.comentario}` : ''}
                 </p>
-                <p className="mt-0.5 truncate text-xs text-muted-foreground/80 font-mono">
-                  {e.blobRef}
-                </p>
+                {e.blobRef.startsWith(PREFIJO_ADJUNTO) ? null : (
+                  <p className="mt-0.5 truncate text-xs text-ink-muted/80 font-mono">{e.blobRef}</p>
+                )}
               </div>
+              {e.blobRef.startsWith(PREFIJO_ADJUNTO) && lineaRevisionId && (
+                <DescargarAdjunto
+                  lineaRevisionId={lineaRevisionId}
+                  adjuntoId={e.blobRef.slice(PREFIJO_ADJUNTO.length)}
+                />
+              )}
             </li>
           ))}
         </ul>
@@ -134,7 +175,7 @@ function AgregarEvidenciaDialog({
 }) {
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-lg">
+      <DialogContent size="sm">
         <DialogHeader>
           <DialogTitle>Agregar evidencia</DialogTitle>
           <DialogDescription>
@@ -193,7 +234,7 @@ function AgregarEvidenciaBody({
         onError: (error) => {
           if (esApiError(error)) {
             toast.error(error.problem.title, {
-              description: error.traceId ? `Código: ${error.traceId}` : undefined,
+              description: codigoSoporte(error),
             });
             return;
           }
@@ -205,70 +246,61 @@ function AgregarEvidenciaBody({
 
   return (
     <>
-      <form
-        id="agregar-evidencia-form"
-        onSubmit={form.handleSubmit(onSubmit)}
-        noValidate
-        className="space-y-3"
-      >
-        <Field
-          label="Tipo de evidencia"
-          required
-          error={form.formState.errors.tipoEvidencia?.message}
+      <DialogBody>
+        <form
+          id="agregar-evidencia-form"
+          onSubmit={form.handleSubmit(onSubmit)}
+          noValidate
+          className="space-y-4"
         >
-          <Controller
-            name="tipoEvidencia"
-            control={form.control}
-            render={({ field }) => (
-              <Select
-                value={field.value || ''}
-                onValueChange={(v) => field.onChange(v)}
-              >
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {TIPOS_EVIDENCIA.map((t) => (
-                    <SelectItem key={t} value={t}>
-                      {t}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            )}
-          />
-        </Field>
+          <Field
+            label="Tipo de evidencia"
+            required
+            error={form.formState.errors.tipoEvidencia?.message}
+          >
+            <Controller
+              name="tipoEvidencia"
+              control={form.control}
+              render={({ field }) => (
+                <Select value={field.value || ''} onValueChange={(v) => field.onChange(v)}>
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {TIPOS_EVIDENCIA.map((t) => (
+                      <SelectItem key={t} value={t}>
+                        {t}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              )}
+            />
+          </Field>
 
-        <Field label="Archivo" required>
-          <EvidenciaUpload value={adjunto} onChange={setAdjunto} />
-        </Field>
+          <Field label="Archivo" required>
+            <EvidenciaUpload value={adjunto} onChange={setAdjunto} />
+          </Field>
 
-        <Field
-          label="Comentario (opcional)"
-          error={form.formState.errors.comentario?.message}
-        >
-          <Controller
-            name="comentario"
-            control={form.control}
-            render={({ field }) => (
-              <TextAreaField
-                value={field.value ?? null}
-                onChange={(v) => field.onChange(v)}
-                maxLength={500}
-                minRows={2}
-              />
-            )}
-          />
-        </Field>
-      </form>
+          <Field label="Comentario (opcional)" error={form.formState.errors.comentario?.message}>
+            <Controller
+              name="comentario"
+              control={form.control}
+              render={({ field }) => (
+                <TextAreaField
+                  value={field.value ?? null}
+                  onChange={(v) => field.onChange(v)}
+                  maxLength={500}
+                  minRows={2}
+                />
+              )}
+            />
+          </Field>
+        </form>
+      </DialogBody>
 
       <DialogFooter>
-        <Button
-          type="button"
-          variant="ghost"
-          onClick={onCancel}
-          disabled={adjuntar.isPending}
-        >
+        <Button type="button" variant="ghost" onClick={onCancel} disabled={adjuntar.isPending}>
           Cancelar
         </Button>
         <Button
@@ -282,4 +314,3 @@ function AgregarEvidenciaBody({
     </>
   );
 }
-

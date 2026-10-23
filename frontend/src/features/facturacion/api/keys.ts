@@ -20,6 +20,10 @@ export interface ListarPedidosFiltros {
   limit?: number;
   /** Bucket "Sin asignar" de la Capa A (solo caja.leer-todas, CAJAS-PR6). */
   alcance?: 'sin-asignar';
+  /** F6.1: clase del pedido manual de origen (server-side). */
+  clase?: 'VentaDirecta' | 'Emergencia';
+  /** 86e3tfdw2: condición de pago (true = crédito, false = contado; server-side). */
+  credito?: boolean;
 }
 
 export interface ListarFacturasFiltros {
@@ -32,6 +36,8 @@ export interface ListarFacturasFiltros {
   limit?: number;
   /** Bucket "Sin asignar" de la Capa A (solo caja.leer-todas, CAJAS-PR6). */
   alcance?: 'sin-asignar';
+  /** F6.1: clase del pedido manual de origen (server-side). */
+  clase?: 'VentaDirecta' | 'Emergencia';
 }
 
 export const facturacionKeys = {
@@ -45,6 +51,9 @@ export const facturacionKeys = {
     [...facturacionKeys.pedidos(), 'byId', id] as const,
   pedidoComprobantes: (id: string) =>
     [...facturacionKeys.pedidos(), 'byId', id, 'comprobantes'] as const,
+  // U1.8a: última proforma (sin valor fiscal) del pedido.
+  pedidoUltimaProforma: (id: string) =>
+    [...facturacionKeys.pedidos(), 'byId', id, 'proforma-ultima'] as const,
   pedidosExcepciones: () =>
     [...facturacionKeys.pedidos(), 'excepciones'] as const,
   pedidosExcepcionesList: (soloPendientes: boolean) =>
@@ -123,6 +132,16 @@ export const facturacionKeys = {
     [...facturacionKeys.reportes(), 'liquidacion-caja', filtros] as const,
   reporteEstadosAnticipos: (filtros: Record<string, unknown>) =>
     [...facturacionKeys.reportes(), 'estados-anticipos', filtros] as const,
+  reporteComparativaAnticipos: (filtros: Record<string, unknown>) =>
+    [...facturacionKeys.reportes(), 'comparativa-anticipos', filtros] as const,
+  // Cierre del día por sucursal (F6.7). `reporteMonitorCfdiTodos` es el
+  // prefijo que invalida «Verificar en SAT».
+  reporteMonitorCfdiTodos: () =>
+    [...facturacionKeys.reportes(), 'monitor-cfdi'] as const,
+  reporteMonitorCfdi: (filtros: Record<string, unknown>) =>
+    [...facturacionKeys.reporteMonitorCfdiTodos(), filtros] as const,
+  reporteConciliacionFacturadoIngresado: (filtros: Record<string, unknown>) =>
+    [...facturacionKeys.reportes(), 'conciliacion-facturado-ingresado', filtros] as const,
 
   // Activos (FE-F9)
   activosAutorizaciones: (estado: string | null) =>

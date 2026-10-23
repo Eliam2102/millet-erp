@@ -35,3 +35,45 @@ internal sealed class DesignTimeEmpresa : ICurrentEmpresaContext
     public IDisposable Bypass() => new Noop();
     private sealed class Noop : IDisposable { public void Dispose() { } }
 }
+
+public sealed class ComercioExteriorDesignTimeFactory : IDesignTimeDbContextFactory<Millet.ComercioExterior.Infrastructure.Persistence.ComercioExteriorDbContext>
+{
+    public Millet.ComercioExterior.Infrastructure.Persistence.ComercioExteriorDbContext CreateDbContext(string[] args) => new(
+        new DbContextOptionsBuilder<Millet.ComercioExterior.Infrastructure.Persistence.ComercioExteriorDbContext>()
+            .UseNpgsql(DesignTimeConexion.Valor).UseSnakeCaseNamingConvention().Options, new DesignTimeEmpresa());
+}
+
+public sealed class FacturacionDesignTimeFactory : IDesignTimeDbContextFactory<Millet.Facturacion.Infrastructure.Persistence.FacturacionDbContext>
+{
+    public Millet.Facturacion.Infrastructure.Persistence.FacturacionDbContext CreateDbContext(string[] args) => new(
+        new DbContextOptionsBuilder<Millet.Facturacion.Infrastructure.Persistence.FacturacionDbContext>()
+            .UseNpgsql(DesignTimeConexion.Valor).UseSnakeCaseNamingConvention().Options, new DesignTimeEmpresa());
+}
+
+public sealed class ActivosFijosDesignTimeFactory : IDesignTimeDbContextFactory<Millet.ActivosFijos.Infrastructure.Persistence.ActivosFijosDbContext>
+{
+    public Millet.ActivosFijos.Infrastructure.Persistence.ActivosFijosDbContext CreateDbContext(string[] args) => new(
+        new DbContextOptionsBuilder<Millet.ActivosFijos.Infrastructure.Persistence.ActivosFijosDbContext>()
+            .UseNpgsql(DesignTimeConexion.Valor).UseSnakeCaseNamingConvention().Options, new DesignTimeEmpresa());
+}
+
+public sealed class ComprasDesignTimeFactory : IDesignTimeDbContextFactory<Millet.Compras.Infrastructure.ComprasDbContext>
+{
+    public Millet.Compras.Infrastructure.ComprasDbContext CreateDbContext(string[] args) => new(
+        new DbContextOptionsBuilder<Millet.Compras.Infrastructure.ComprasDbContext>()
+            .UseNpgsql(DesignTimeConexion.Valor).UseSnakeCaseNamingConvention().Options, new DesignTimeEmpresa());
+}
+
+public sealed class AlmacenDesignTimeFactory : IDesignTimeDbContextFactory<Millet.Almacen.Infrastructure.Persistence.AlmacenDbContext>
+{
+    public Millet.Almacen.Infrastructure.Persistence.AlmacenDbContext CreateDbContext(string[] args) => new(
+        new DbContextOptionsBuilder<Millet.Almacen.Infrastructure.Persistence.AlmacenDbContext>()
+            .UseNpgsql(DesignTimeConexion.Valor).UseSnakeCaseNamingConvention().Options, new DesignTimeEmpresa());
+}
+
+public sealed class ContabilidadDesignTimeFactory : IDesignTimeDbContextFactory<Millet.Contabilidad.Infrastructure.Persistence.ContabilidadDbContext>
+{
+    public Millet.Contabilidad.Infrastructure.Persistence.ContabilidadDbContext CreateDbContext(string[] args) => new(
+        new DbContextOptionsBuilder<Millet.Contabilidad.Infrastructure.Persistence.ContabilidadDbContext>()
+            .UseNpgsql(DesignTimeConexion.Valor).UseSnakeCaseNamingConvention().Options, new DesignTimeEmpresa());
+}

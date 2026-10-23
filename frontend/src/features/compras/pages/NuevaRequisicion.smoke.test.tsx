@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { render, screen } from '@testing-library/react';
+import { fireEvent, render, screen } from '@testing-library/react';
 import { http, HttpResponse } from 'msw';
 import { mswServer } from '@/test/mocks/server';
 import { createQueryWrapper } from '@/test/test-query-client';
@@ -134,5 +134,51 @@ describe('<NuevaRequisicion> — smoke', () => {
     expect(
       screen.getByRole('button', { name: /recuperar borrador/i }),
     ).toBeInTheDocument();
+  });
+
+  it('Esc en "Recuperar borrador" solo cierra: el borrador se conserva', () => {
+    const key = buildNuevaRequisicionDraftKey('u-test', 'e-test')!;
+    window.localStorage.setItem(
+      key,
+      JSON.stringify({
+        values: { sucursalId: '', departamentoId: '', clasificacion: 0, prioridad: 1, fechaSolicitud: new Date().toISOString() },
+        meta: { savedAt: '2026-05-09T10:00:00Z' },
+      }),
+    );
+    render(<NuevaRequisicion />, { wrapper: createQueryWrapper() });
+    fireEvent.keyDown(screen.getByRole('dialog'), { key: 'Escape' });
+    expect(screen.queryByText('Tienes un borrador guardado')).not.toBeInTheDocument();
+    expect(window.localStorage.getItem(key)).not.toBeNull();
+  });
+
+  it('los campos tienen label asociado (getByLabelText)', () => {
+    render(<NuevaRequisicion />, { wrapper: createQueryWrapper() });
+    for (const nombre of [/^Sucursal/, /^Departamento/, /^Clasificación/, /^Prioridad/, /^Proveedor sugerido/, /^Descripción/]) {
+      expect(screen.getByLabelText(nombre)).toBeInTheDocument();
+    }
+  });
+
+  it('surtido de almacén: Parcial por defecto y se puede elegir Completo', () => {
+    render(<NuevaRequisicion />, { wrapper: createQueryWrapper() });
+    const parcial = screen.getByRole('radio', { name: /^Parcial/ });
+    const completo = screen.getByRole('radio', { name: /^Completo/ });
+    expect(parcial).toBeChecked();
+    fireEvent.click(completo);
+    expect(completo).toBeChecked();
+    expect(parcial).not.toBeChecked();
+  });
+
+  it('recuperar un borrador previo sin la bandera deja Parcial marcado', () => {
+    const key = buildNuevaRequisicionDraftKey('u-test', 'e-test')!;
+    window.localStorage.setItem(
+      key,
+      JSON.stringify({
+        values: { sucursalId: '', departamentoId: '', clasificacion: 0, prioridad: 1, fechaSolicitud: new Date().toISOString() },
+        meta: { savedAt: '2026-05-09T10:00:00Z' },
+      }),
+    );
+    render(<NuevaRequisicion />, { wrapper: createQueryWrapper() });
+    fireEvent.click(screen.getByRole('button', { name: /recuperar borrador/i }));
+    expect(screen.getByRole('radio', { name: /^Parcial/ })).toBeChecked();
   });
 });

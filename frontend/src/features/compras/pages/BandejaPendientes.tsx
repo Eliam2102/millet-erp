@@ -1,3 +1,14 @@
+import { TabsEstado } from '@/components/erp/data/TabsEstado';
+import { ListadoModulo } from '@/components/erp/data/ListadoModulo';
+import { BarraFiltros } from '@/components/erp/data/BarraFiltros';
+import {
+  Table,
+  TableHeader,
+  TableBody,
+  TableRow,
+  TableHead,
+  TableCell,
+} from '@/components/ui/table';
 import { useMemo, useState } from 'react';
 import { Link, useNavigate, useSearch } from '@tanstack/react-router';
 import { Inbox } from 'lucide-react';
@@ -15,11 +26,11 @@ import {
   ErrorState,
   TableSkeleton,
   EstadoBadge,
-  NivelPendienteBadge,
   DateTimeDisplay,
   SortableHeader,
   compareItemsBy,
   type SortState,
+  PaginacionTabla,
 } from '@/components/erp';
 import { usePendientesAutorizacion } from '@/features/compras/api/usePendientesAutorizacion';
 import {
@@ -40,10 +51,7 @@ import {
   type ResultadoAprobacionItem,
 } from '@/features/compras/lib/resultados-masivos';
 import { useDepartamentos, mapById } from '@/features/catalogos/api';
-import {
-  departamentoLabel,
-  requisitanteLabel,
-} from '@/features/compras/lib/nombres';
+import { departamentoLabel, requisitanteLabel } from '@/features/compras/lib/nombres';
 import { esApiError } from '@/lib/api';
 import { useHasPermission } from '@/lib/auth/useHasPermission';
 import { PermisosCanonicos } from '@/lib/auth/permission-codes';
@@ -51,6 +59,8 @@ import {
   DEFAULT_PENDIENTES_SEARCH,
   type PendientesSearch,
 } from '@/features/compras/lib/pendientes-search-schema';
+import { PageHeader } from '@/components/erp/PageHeader';
+import { ConfirmarAccionDialog } from '@/components/erp/feedback/ConfirmarAccionDialog';
 
 const FROM = '/_app/compras/pendientes/' as const;
 const SENTINEL_ALL = '__all__';
@@ -97,32 +107,20 @@ export function BandejaPendientes() {
     return items.filter((r) => r.folio.toLowerCase().includes(needle));
   }, [query.data, search.q]);
 
-  const [sort, setSort] =
-    useState<SortState<'folio' | 'fechaSolicitud'> | null>(null);
+  const [sort, setSort] = useState<SortState<'folio' | 'fechaSolicitud'> | null>(null);
   const itemsOrdenados = useMemo(() => {
     if (sort == null) return itemsFiltrados;
-    return [...itemsFiltrados].sort((a, b) =>
-      compareItemsBy(a, b, sort.key, sort.dir),
-    );
+    return [...itemsFiltrados].sort((a, b) => compareItemsBy(a, b, sort.key, sort.dir));
   }, [itemsFiltrados, sort]);
 
-  const puedeN1 = useHasPermission(
-    PermisosCanonicos.ComprasRequisicionesAutorizarNivel1,
-  );
-  const puedeN2 = useHasPermission(
-    PermisosCanonicos.ComprasRequisicionesAutorizarNivel2,
-  );
+  const puedeN1 = useHasPermission(PermisosCanonicos.ComprasRequisicionesAutorizarNivel1);
+  const puedeN2 = useHasPermission(PermisosCanonicos.ComprasRequisicionesAutorizarNivel2);
   const autorizarMasivo = useAutorizarMasivo();
-  const [seleccion, setSeleccion] = useState<ReadonlySet<string>>(
-    () => new Set(),
-  );
-  const [resultados, setResultados] = useState<
-    Record<string, AutorizacionMasivaItemResultado>
-  >({});
+  const [seleccion, setSeleccion] = useState<ReadonlySet<string>>(() => new Set());
+  const [resultados, setResultados] = useState<Record<string, AutorizacionMasivaItemResultado>>({});
   const [errorAprobacion, setErrorAprobacion] = useState<string | null>(null);
-  const [resumen, setResumen] = useState<readonly ResultadoAprobacionItem[]>(
-    [],
-  );
+  const [resumen, setResumen] = useState<readonly ResultadoAprobacionItem[]>([]);
+  const [confirmando, setConfirmando] = useState(false);
 
   function puedeAutorizar(r: PendienteAutorizacionItemResponse): boolean {
     if (r.nivelPendiente === NivelAutorizacion.Nivel1) return puedeN1;
@@ -134,8 +132,7 @@ export function BandejaPendientes() {
   const seleccionadas = autorizables.filter((r) => seleccion.has(r.id));
   const todasSeleccionadas =
     autorizables.length > 0 && seleccionadas.length === autorizables.length;
-  const algunaSeleccionada =
-    seleccionadas.length > 0 && !todasSeleccionadas;
+  const algunaSeleccionada = seleccionadas.length > 0 && !todasSeleccionadas;
 
   function alternarSeleccion(id: string, on: boolean) {
     setResumen([]);
@@ -177,14 +174,10 @@ export function BandejaPendientes() {
           nivel,
           idempotencyKey: crypto.randomUUID(),
         });
-        const porId = Object.fromEntries(
-          respuesta.resultados.map((x) => [x.id, x]),
-        );
+        const porId = Object.fromEntries(respuesta.resultados.map((x) => [x.id, x]));
         setResultados((prev) => ({ ...prev, ...porId }));
         acumulado.push(...resultadosConFolio(respuesta.resultados, folioPorId));
-        const okIds = new Set(
-          respuesta.resultados.filter((x) => x.ok).map((x) => x.id),
-        );
+        const okIds = new Set(respuesta.resultados.filter((x) => x.ok).map((x) => x.id));
         setSeleccion((prev) => new Set([...prev].filter((id) => !okIds.has(id))));
       } catch {
         setErrorAprobacion(
@@ -205,312 +198,346 @@ export function BandejaPendientes() {
 
   return (
     <div className="space-y-4">
-      <div className="flex flex-wrap items-center justify-between gap-2">
-        <h1 className="text-2xl font-semibold tracking-tight">
-          Pendientes de autorización
-        </h1>
-      </div>
+      <PageHeader titulo="Requisiciones por autorizar" />
 
-      <ResumenAprobacionMasiva
-        resultados={resumen}
-        onCerrar={() => setResumen([])}
-      />
+      <ResumenAprobacionMasiva resultados={resumen} onCerrar={() => setResumen([])} />
 
-      <div
-        className="flex flex-wrap items-center gap-2"
-        role="search"
-        aria-label="Filtros de bandeja de pendientes"
-      >
-        {verTodosDepartamentos && (
-          <Select
-            value={search.departamentoId ?? SENTINEL_ALL}
-            onValueChange={(v) =>
+      <ListadoModulo
+        pie={
+          <PaginacionTabla
+            total={query.data?.total ?? 0}
+            offset={search.offset ?? 0}
+            limit={search.limit ?? 10}
+            onChange={(offset, limit) => setSearch({ ...search, offset, limit })}
+          />
+        }
+        tabs={
+          <TabsEstado
+            opciones={[
+              { valor: NivelAutorizacion.Nivel1, label: 'Falta N1' },
+              { valor: NivelAutorizacion.Nivel2, label: 'Falta N2' },
+            ]}
+            valor={search.nivelPendiente}
+            conteos={undefined}
+            onChange={(nivelPendiente) =>
               setSearch({
                 ...search,
-                departamentoId: v === SENTINEL_ALL ? undefined : v,
+                nivelPendiente: nivelPendiente as PendientesSearch['nivelPendiente'],
                 offset: 0,
               })
             }
-          >
-            <SelectTrigger
-              aria-label="Filtrar por departamento"
-              className="h-9 w-auto min-w-48 gap-1 font-medium"
-            >
-              <SelectValue placeholder="Todos los departamentos" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value={SENTINEL_ALL}>
-                Todos los departamentos
-              </SelectItem>
-              {Array.from(deptosMap.values()).map((d) => (
-                <SelectItem key={d.id} value={d.id}>
-                  {d.clave} · {d.nombre}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        )}
-
-        {/* Filtro por nivel pendiente (PR-A). No gateado: cualquier
-            autorizador puede acotar a lo que le toca firmar. */}
-        <Select
-          value={
-            search.nivelPendiente != null
-              ? String(search.nivelPendiente)
-              : SENTINEL_ALL
-          }
-          onValueChange={(v) =>
-            setSearch({
-              ...search,
-              nivelPendiente: v === SENTINEL_ALL ? undefined : Number(v),
-              offset: 0,
-            })
-          }
-        >
-          <SelectTrigger
-            aria-label="Filtrar por nivel pendiente"
-            className="h-9 w-auto min-w-40 gap-1 font-medium"
-          >
-            <SelectValue placeholder="Todos los niveles" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value={SENTINEL_ALL}>Todos los niveles</SelectItem>
-            <SelectItem value="1">Falta N1</SelectItem>
-            <SelectItem value="2">Falta N2</SelectItem>
-          </SelectContent>
-        </Select>
-
-        {(search.q || search.departamentoId || search.nivelPendiente) && (
-          <Button
-            type="button"
-            variant="ghost"
-            size="sm"
-            onClick={() =>
-              setSearch({ offset: 0, limit: search.limit ?? 50 })
-            }
-          >
-            Limpiar filtros
-          </Button>
-        )}
-      </div>
-
-      {(seleccionadas.length > 0 || errorAprobacion) && (
-        <div className="flex flex-wrap items-center gap-2">
-          {seleccionadas.length > 0 && (
-            <Button
-              type="button"
-              size="sm"
-              disabled={autorizarMasivo.isPending}
-              onClick={() => aprobar(seleccionadas)}
-            >
-              Aprobar seleccionadas ({seleccionadas.length})
-            </Button>
-          )}
-          {errorAprobacion && (
-            <p role="alert" className="text-sm text-danger-fg">
-              {errorAprobacion}
-            </p>
-          )}
-        </div>
-      )}
-
-      {query.isLoading ? (
-        <TableSkeleton
-          rows={6}
-          columns={[
-            { width: 'w-6' },
-            { width: 'w-32' },
-            { width: 'w-24' },
-            { width: 'w-48' },
-            { width: 'w-40' },
-            { width: 'w-24' },
-            { width: 'w-20' },
-            { width: 'w-20' },
-            { width: 'w-24' },
-            { width: 'w-20' },
-            { width: 'w-12' },
-          ]}
-        />
-      ) : query.isError ? (
-        <ErrorState
-          problem={esApiError(query.error) ? query.error.problem : undefined}
-          onRetry={() => query.refetch()}
-        />
-      ) : (query.data?.total ?? 0) === 0 ? (
-        <EmptyState
-          icon={<Inbox className="h-10 w-10" />}
-          title="No hay requisiciones pendientes de tu autorización."
-          description="Cuando un capturador transmita una RQ, aparecerá aquí."
-        />
-      ) : itemsFiltrados.length === 0 && search.q ? (
-        <EmptyState
-          title={`Ningún folio coincide con "${search.q}".`}
-          description="La búsqueda es sobre la página actual; cambia o limpia el filtro."
-        />
-      ) : (
-        <div className="overflow-x-auto rounded-md border bg-card">
-          {/* Tabla — desktop md+ */}
-          <table className="hidden w-full min-w-[960px] text-sm md:table">
-            <thead className="bg-muted/50 text-xs uppercase tracking-wide text-muted-foreground">
-              <tr>
-                <th className="w-10 px-3 py-2 text-left">
-                  <Checkbox
-                    checked={
-                      todasSeleccionadas ? true : algunaSeleccionada ? 'indeterminate' : false
+          />
+        }
+        filtros={
+          <BarraFiltros
+            filtros={
+              <>
+                {verTodosDepartamentos && (
+                  <Select
+                    value={search.departamentoId ?? SENTINEL_ALL}
+                    onValueChange={(v) =>
+                      setSearch({
+                        ...search,
+                        departamentoId: v === SENTINEL_ALL ? undefined : v,
+                        offset: 0,
+                      })
                     }
-                    onCheckedChange={(v) => alternarTodas(v === true)}
-                    disabled={autorizables.length === 0}
-                    aria-label="Seleccionar todas las pendientes autorizables"
-                  />
-                </th>
-                <th className="px-3 py-2 text-left">
-                  <SortableHeader
-                    columnKey="folio"
-                    label="Folio"
-                    current={sort}
-                    onSortChange={setSort}
-                  />
-                </th>
-                <th className="px-3 py-2 text-left">
-                  <SortableHeader
-                    columnKey="fechaSolicitud"
-                    label="Fecha"
-                    current={sort}
-                    onSortChange={setSort}
-                  />
-                </th>
-                <th className="px-3 py-2 text-left font-medium">Requisitante</th>
-                <th className="px-3 py-2 text-left font-medium">Departamento</th>
-                <th className="px-3 py-2 text-left font-medium">Estado</th>
-                <th className="px-3 py-2 text-left font-medium">Nivel</th>
-                <th className="px-3 py-2 text-left font-medium">Disponibilidad</th>
-                <th className="px-3 py-2 text-left font-medium">Recurrente</th>
-                <th className="px-3 py-2 text-right font-medium">Acciones</th>
-              </tr>
-            </thead>
-            <tbody>
-              {itemsOrdenados.map((r, i) => {
+                  >
+                    <SelectTrigger
+                      aria-label="Filtrar por departamento"
+                      className="h-9 w-auto min-w-48 gap-1 font-medium"
+                    >
+                      <SelectValue placeholder="Todos los departamentos" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value={SENTINEL_ALL}>Todos los departamentos</SelectItem>
+                      {Array.from(deptosMap.values()).map((d) => (
+                        <SelectItem key={d.id} value={d.id}>
+                          {d.clave} · {d.nombre}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                )}
+
+                {/* Filtro por nivel pendiente (PR-A). No gateado: cualquier
+            autorizador puede acotar a lo que le toca firmar. */}
+                <Select
+                  value={
+                    search.nivelPendiente != null ? String(search.nivelPendiente) : SENTINEL_ALL
+                  }
+                  onValueChange={(v) =>
+                    setSearch({
+                      ...search,
+                      nivelPendiente: v === SENTINEL_ALL ? undefined : Number(v),
+                      offset: 0,
+                    })
+                  }
+                >
+                  <SelectTrigger
+                    aria-label="Filtrar por nivel pendiente"
+                    className="h-9 w-auto min-w-40 gap-1 font-medium"
+                  >
+                    <SelectValue placeholder="Todos los niveles" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value={SENTINEL_ALL}>Todos los niveles</SelectItem>
+                    <SelectItem value="1">Falta N1</SelectItem>
+                    <SelectItem value="2">Falta N2</SelectItem>
+                  </SelectContent>
+                </Select>
+
+                {(search.q || search.departamentoId || search.nivelPendiente) && (
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => setSearch({ offset: 0, limit: search.limit ?? 10 })}
+                  >
+                    Limpiar filtros
+                  </Button>
+                )}
+              </>
+            }
+          />
+        }
+      >
+        {(seleccionadas.length > 0 || errorAprobacion) && (
+          <div className="flex flex-wrap items-center gap-2">
+            {seleccionadas.length > 0 && (
+              <Button
+                type="button"
+                size="sm"
+                disabled={autorizarMasivo.isPending}
+                onClick={() => setConfirmando(true)}
+              >
+                Aprobar seleccionadas ({seleccionadas.length})
+              </Button>
+            )}
+            {errorAprobacion && (
+              <p role="alert" className="text-sm text-danger-fg">
+                {errorAprobacion}
+              </p>
+            )}
+          </div>
+        )}
+
+        <ConfirmarAccionDialog
+          open={confirmando}
+          onOpenChange={setConfirmando}
+          titulo={`Aprobar ${seleccionadas.length} ${seleccionadas.length === 1 ? 'requisición' : 'requisiciones'}`}
+          resumen={
+            <p>
+              Vas a firmar {seleccionadas.length}{' '}
+              {seleccionadas.length === 1 ? 'requisición' : 'requisiciones'} (
+              {seleccionadas.filter((r) => r.nivelPendiente === NivelAutorizacion.Nivel1).length} de
+              Nivel 1 y{' '}
+              {seleccionadas.filter((r) => r.nivelPendiente === NivelAutorizacion.Nivel2).length} de
+              Nivel 2). Tu firma queda registrada con tu usuario y no se puede deshacer.
+            </p>
+          }
+          verbo={`Aprobar ${seleccionadas.length}`}
+          tono="primario"
+          pendiente={autorizarMasivo.isPending}
+          onConfirmar={() => {
+            setConfirmando(false);
+            void aprobar(seleccionadas);
+          }}
+        />
+
+        {query.isLoading ? (
+          <TableSkeleton
+            rows={6}
+            columns={[
+              { width: 'w-6' },
+              { width: 'w-32' },
+              { width: 'w-24' },
+              { width: 'w-48' },
+              { width: 'w-40' },
+              { width: 'w-24' },
+              { width: 'w-20' },
+              { width: 'w-20' },
+              { width: 'w-24' },
+              { width: 'w-20' },
+              { width: 'w-12' },
+            ]}
+          />
+        ) : query.isError ? (
+          <ErrorState
+            problem={esApiError(query.error) ? query.error.problem : undefined}
+            onRetry={() => query.refetch()}
+          />
+        ) : (query.data?.total ?? 0) === 0 ? (
+          <EmptyState
+            icon={<Inbox className="h-10 w-10" />}
+            title="No hay requisiciones pendientes de tu autorización."
+            description="Cuando un capturador transmita una RQ, aparecerá aquí."
+          />
+        ) : itemsFiltrados.length === 0 && search.q ? (
+          <EmptyState
+            title={`Ningún folio coincide con "${search.q}".`}
+            description="La búsqueda es sobre la página actual; cambia o limpia el filtro."
+          />
+        ) : (
+          <div className="overflow-x-auto rounded-md border bg-surface-card">
+            {/* Tabla — desktop md+ */}
+            <Table className="hidden w-full min-w-full text-sm md:table">
+              <TableHeader className="bg-surface-muted/50 text-xs uppercase tracking-wide text-ink-muted">
+                <TableRow>
+                  <TableHead className="w-10 px-3 py-2 text-left">
+                    <Checkbox
+                      checked={
+                        todasSeleccionadas ? true : algunaSeleccionada ? 'indeterminate' : false
+                      }
+                      onCheckedChange={(v) => alternarTodas(v === true)}
+                      disabled={autorizables.length === 0}
+                      aria-label="Seleccionar todas las pendientes autorizables"
+                    />
+                  </TableHead>
+                  <TableHead className="px-3 py-2 text-left">
+                    <SortableHeader
+                      columnKey="folio"
+                      label="Folio"
+                      current={sort}
+                      onSortChange={setSort}
+                    />
+                  </TableHead>
+                  <TableHead className="px-3 py-2 text-left">
+                    <SortableHeader
+                      columnKey="fechaSolicitud"
+                      label="Fecha"
+                      current={sort}
+                      onSortChange={setSort}
+                    />
+                  </TableHead>
+                  <TableHead className="px-3 py-2 text-left font-medium">Requisitante</TableHead>
+                  <TableHead className="px-3 py-2 text-left font-medium">Departamento</TableHead>
+                  <TableHead className="px-3 py-2 text-left font-medium">Estado</TableHead>
+                  <TableHead className="px-3 py-2 text-left font-medium">Nivel</TableHead>
+                  <TableHead className="px-3 py-2 text-left font-medium">Disponibilidad</TableHead>
+                  <TableHead className="px-3 py-2 text-left font-medium">Recurrente</TableHead>
+                  <TableHead className="px-3 py-2 text-right font-medium">Acciones</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody className="[&_tr]:h-12">
+                {itemsOrdenados.map((r, i) => {
+                  const requisitante = requisitanteLabel(r);
+                  const deptoLabel = departamentoLabel(r);
+                  return (
+                    <TableRow
+                      key={r.id}
+                      className={i % 2 === 1 ? 'bg-surface-muted/20' : undefined}
+                    >
+                      <TableCell className="px-3 py-2">
+                        <Checkbox
+                          checked={seleccion.has(r.id)}
+                          onCheckedChange={(v) => alternarSeleccion(r.id, v === true)}
+                          disabled={!puedeAutorizar(r)}
+                          aria-label={`Seleccionar ${r.folio}`}
+                        />
+                      </TableCell>
+                      <TableCell className="px-3 py-2 font-mono">{r.folio}</TableCell>
+                      <TableCell className="px-3 py-2">
+                        <DateTimeDisplay value={r.fechaSolicitud} />
+                      </TableCell>
+                      <TableCell className="px-3 py-2">{requisitante}</TableCell>
+                      <TableCell className="px-3 py-2">{deptoLabel}</TableCell>
+                      <TableCell className="px-3 py-2">
+                        <EstadoBadge tipo="requisicion" estado={r.estado} />
+                      </TableCell>
+                      <TableCell className="px-3 py-2">
+                        {r.nivelPendiente != null && (
+                          <span className="text-xs text-ink-muted">Falta N{r.nivelPendiente}</span>
+                        )}
+                      </TableCell>
+                      <TableCell className="px-3 py-2">
+                        {!r.esRecurrente && (
+                          <DisponibilidadBadge disponibilidad={r.disponibilidad} />
+                        )}
+                      </TableCell>
+                      <TableCell className="px-3 py-2">
+                        <RecurrenteBadge esRecurrente={r.esRecurrente} />
+                      </TableCell>
+                      <TableCell className="px-3 py-2 text-right">
+                        <div className="flex flex-wrap items-center justify-end gap-2">
+                          {resultados[r.id] && <ResultadoFila resultado={resultados[r.id]} />}
+                          <Button asChild variant="ghost" size="sm">
+                            <Link
+                              to="/compras/pendientes/$id"
+                              params={{ id: r.id }}
+                              // Pasamos la search actual de la bandeja P2
+                              // para que la lista master del detalle abra
+                              // con los mismos filtros y el botón "Cerrar"
+                              // del detalle vuelva sin perderlos.
+                              search={search}
+                              state={{ pendientesSearch: search } as never}
+                            >
+                              Ver
+                            </Link>
+                          </Button>
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                  );
+                })}
+              </TableBody>
+            </Table>
+
+            {/* Cards apilables — mobile sub-md (UF7-PR3 responsive) */}
+            <ul className="divide-y md:hidden">
+              {itemsOrdenados.map((r) => {
                 const requisitante = requisitanteLabel(r);
                 const deptoLabel = departamentoLabel(r);
                 return (
-                  <tr
-                    key={r.id}
-                    className={i % 2 === 1 ? 'bg-muted/20' : undefined}
-                  >
-                    <td className="px-3 py-2">
+                  <li key={r.id} className="p-3 text-sm">
+                    <div className="flex items-start justify-between gap-3">
                       <Checkbox
+                        className="mt-1"
                         checked={seleccion.has(r.id)}
                         onCheckedChange={(v) => alternarSeleccion(r.id, v === true)}
                         disabled={!puedeAutorizar(r)}
                         aria-label={`Seleccionar ${r.folio}`}
                       />
-                    </td>
-                    <td className="px-3 py-2 font-mono">{r.folio}</td>
-                    <td className="px-3 py-2">
-                      <DateTimeDisplay value={r.fechaSolicitud} />
-                    </td>
-                    <td className="px-3 py-2">{requisitante}</td>
-                    <td className="px-3 py-2">{deptoLabel}</td>
-                    <td className="px-3 py-2">
-                      <EstadoBadge tipo="requisicion" estado={r.estado} />
-                    </td>
-                    <td className="px-3 py-2">
-                      {r.nivelPendiente != null && (
-                        <NivelPendienteBadge nivel={r.nivelPendiente} />
-                      )}
-                    </td>
-                    <td className="px-3 py-2">
-                      <DisponibilidadBadge disponibilidad={r.disponibilidad} />
-                    </td>
-                    <td className="px-3 py-2">
-                      <RecurrenteBadge esRecurrente={r.esRecurrente} />
-                    </td>
-                    <td className="px-3 py-2 text-right">
-                      <div className="flex flex-wrap items-center justify-end gap-2">
-                        {resultados[r.id] && (
-                          <ResultadoFila resultado={resultados[r.id]} />
-                        )}
-                        <Button asChild variant="ghost" size="sm">
-                          <Link
-                            to="/compras/pendientes/$id"
-                            params={{ id: r.id }}
-                            // Pasamos la search actual de la bandeja P2
-                            // para que la lista master del detalle abra
-                            // con los mismos filtros y el botón "Cerrar"
-                            // del detalle vuelva sin perderlos.
-                            search={search}
-                            state={{ pendientesSearch: search } as never}
-                          >
-                            Ver
-                          </Link>
-                        </Button>
+                      <div className="min-w-0 flex-1 space-y-1">
+                        <div className="flex flex-wrap items-center gap-2">
+                          <span className="font-mono text-xs">{r.folio}</span>
+                          <EstadoBadge tipo="requisicion" estado={r.estado} />
+                          {r.nivelPendiente != null && (
+                            <span className="text-xs text-ink-muted">
+                              Falta N{r.nivelPendiente}
+                            </span>
+                          )}
+                          {!r.esRecurrente && (
+                            <DisponibilidadBadge disponibilidad={r.disponibilidad} />
+                          )}
+                          <RecurrenteBadge esRecurrente={r.esRecurrente} />
+                        </div>
+                        <div className="text-xs text-ink-muted">
+                          <DateTimeDisplay value={r.fechaSolicitud} />
+                        </div>
+                        <div className="truncate">
+                          <span className="font-medium">{requisitante}</span>
+                          <span className="text-ink-muted"> · {deptoLabel}</span>
+                        </div>
                       </div>
-                    </td>
-                  </tr>
+                      <Button asChild variant="outline" size="sm" className="shrink-0">
+                        <Link
+                          to="/compras/pendientes/$id"
+                          params={{ id: r.id }}
+                          search={search}
+                          state={{ pendientesSearch: search } as never}
+                        >
+                          Ver
+                        </Link>
+                      </Button>
+                    </div>
+                  </li>
                 );
               })}
-            </tbody>
-          </table>
-
-          {/* Cards apilables — mobile sub-md (UF7-PR3 responsive) */}
-          <ul className="divide-y md:hidden">
-            {itemsOrdenados.map((r) => {
-              const requisitante = requisitanteLabel(r);
-              const deptoLabel = departamentoLabel(r);
-              return (
-                <li key={r.id} className="p-3 text-sm">
-                  <div className="flex items-start justify-between gap-3">
-                    <Checkbox
-                      className="mt-1"
-                      checked={seleccion.has(r.id)}
-                      onCheckedChange={(v) => alternarSeleccion(r.id, v === true)}
-                      disabled={!puedeAutorizar(r)}
-                      aria-label={`Seleccionar ${r.folio}`}
-                    />
-                    <div className="min-w-0 flex-1 space-y-1">
-                      <div className="flex flex-wrap items-center gap-2">
-                        <span className="font-mono text-xs">{r.folio}</span>
-                        <EstadoBadge tipo="requisicion" estado={r.estado} />
-                        {r.nivelPendiente != null && (
-                          <NivelPendienteBadge nivel={r.nivelPendiente} />
-                        )}
-                        <DisponibilidadBadge disponibilidad={r.disponibilidad} />
-                        <RecurrenteBadge esRecurrente={r.esRecurrente} />
-                      </div>
-                      <div className="text-xs text-muted-foreground">
-                        <DateTimeDisplay value={r.fechaSolicitud} />
-                      </div>
-                      <div className="truncate">
-                        <span className="font-medium">{requisitante}</span>
-                        <span className="text-muted-foreground"> · {deptoLabel}</span>
-                      </div>
-                    </div>
-                    <Button asChild variant="outline" size="sm" className="shrink-0">
-                      <Link
-                        to="/compras/pendientes/$id"
-                        params={{ id: r.id }}
-                        search={search}
-                        state={{ pendientesSearch: search } as never}
-                      >
-                        Ver
-                      </Link>
-                    </Button>
-                  </div>
-                </li>
-              );
-            })}
-          </ul>
-
-          <Paginacion
-            total={query.data?.total ?? 0}
-            offset={search.offset ?? 0}
-            limit={search.limit ?? 50}
-            onChange={(offset, limit) =>
-              setSearch({ ...search, offset, limit })
-            }
-          />
-        </div>
-      )}
+            </ul>
+          </div>
+        )}
+      </ListadoModulo>
     </div>
   );
 }
@@ -524,67 +551,10 @@ function ResultadoFila({ resultado }: ResultadoFilaProps) {
   return (
     <span
       role="status"
-      className={
-        resultado.ok ? 'text-xs text-success-fg' : 'text-xs text-danger-fg'
-      }
+      className={resultado.ok ? 'text-xs text-success-fg' : 'text-xs text-danger-fg'}
     >
       {resultado.ok ? 'Aprobada' : (resultado.mensaje ?? 'Error al aprobar')}
     </span>
-  );
-}
-
-interface PaginacionProps {
-  total: number;
-  offset: number;
-  limit: number;
-  onChange: (offset: number, limit: number) => void;
-}
-
-function Paginacion({ total, offset, limit, onChange }: PaginacionProps) {
-  const desde = total === 0 ? 0 : offset + 1;
-  const hasta = Math.min(offset + limit, total);
-  const tieneAnterior = offset > 0;
-  const tieneSiguiente = offset + limit < total;
-
-  return (
-    <div className="flex flex-wrap items-center justify-between gap-3 border-t bg-muted/30 px-3 py-2 text-xs text-muted-foreground">
-      <span>
-        Mostrando {desde}–{hasta} de {total}
-      </span>
-      <div className="flex items-center gap-2">
-        <label className="flex items-center gap-1.5">
-          Tamaño página:
-          <select
-            value={limit}
-            onChange={(e) => onChange(0, Number(e.target.value))}
-            className="rounded border bg-background px-1.5 py-0.5 text-xs"
-            aria-label="Tamaño de página"
-          >
-            <option value={50}>50</option>
-            <option value={100}>100</option>
-            <option value={200}>200</option>
-          </select>
-        </label>
-        <Button
-          type="button"
-          variant="outline"
-          size="sm"
-          disabled={!tieneAnterior}
-          onClick={() => onChange(Math.max(0, offset - limit), limit)}
-        >
-          Anterior
-        </Button>
-        <Button
-          type="button"
-          variant="outline"
-          size="sm"
-          disabled={!tieneSiguiente}
-          onClick={() => onChange(offset + limit, limit)}
-        >
-          Siguiente
-        </Button>
-      </div>
-    </div>
   );
 }
 

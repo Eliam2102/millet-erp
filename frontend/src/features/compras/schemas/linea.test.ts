@@ -87,4 +87,9 @@ describe('LineaSchema', () => {
       LineaSchema.parse({ ...baseValida, notas: 'a'.repeat(501) }),
     ).toThrow();
   });
+
+  it('cuentaContableId vacío se normaliza a null (campo oculto/opcional)', () => {
+    expect(LineaSchema.parse({ ...baseValida, cuentaContableId: '' }).cuentaContableId).toBeNull();
+    expect(LineaSchema.parse({ ...baseValida, cuentaContableId: null }).cuentaContableId).toBeNull();
+  });
 });

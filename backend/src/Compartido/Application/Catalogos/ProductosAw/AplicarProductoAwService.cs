@@ -169,14 +169,17 @@ public sealed class AplicarProductoAwService
         {
             await AplicarFichaAsync(producto, ct);
             registro.RegistrarComprobacion(snap.LeidoEnUtc, snap.EjecucionId);
+            var pendientes = (await EvaluarEdicionErpAsync(producto, snap, registro, hash, ct)).Filas;
+            await BitacoraMaestroAw.AgregarAsync(_db, pendientes, "ProductoAw", snap.ReferenciaExterna, hash, ct);
             try
             {
-                await _db.SaveChangesAsync(ct);
+                await BitacoraMaestroAw.GuardarAsync(_db, pendientes, "ProductoAw", snap.ReferenciaExterna, hash, ct);
             }
             catch (DbUpdateConcurrencyException ex)
             {
                 // El latido es best-effort: otro escritor ya actualizó el registro.
                 foreach (var e in ex.Entries) e.State = EntityState.Detached;
+                DesacoplarCambios();
             }
             return new(producto, AplicarProductoAwAccion.SinCambios, registro.Resultado);
         }
@@ -198,13 +201,23 @@ public sealed class AplicarProductoAwService
         }
 
         var diferencias = Diferencias(producto, snap, registro);
-        producto.ActualizarDatos(descripcion: snap.Descripcion);
-        if (producto.UnidadMedidaId != unidad.Id || producto.UnidadMedida != unidad.Codigo)
+        var cambios = new List<CambioMaestroAw>();
+        var descripcionAntes = producto.Descripcion;
+        var unidadAntes = producto.UnidadMedida;
+        var medidasAntes = Medidas(producto.Variantes.Select(v => v.ClaveVariante));
+        // Ancla de la transición: hash y momento de la última aplicación (iguales para dos escritores en carrera, distintos en cada vuelta de un flip-flop).
+        var hashAnterior = registro.HashOrigen.Length > 0 ? $"{registro.HashOrigen}|{registro.AplicadoEnUtc.Ticks}" : null;
+        var edicion = await EvaluarEdicionErpAsync(producto, snap, registro, hash, ct);
+        var editadoEnErp = edicion.Descripcion;
+        cambios.AddRange(edicion.Filas); // se conserva el valor del ERP hasta «Aplicar A+W»
+        if (!editadoEnErp) producto.ActualizarDatos(descripcion: snap.Descripcion);
+        if (!edicion.Unidad && (producto.UnidadMedidaId != unidad.Id || producto.UnidadMedida != unidad.Codigo))
             producto.AsignarUnidadMedida(unidad.Id, unidad.Codigo);
+        var variantesPrevias = producto.Variantes.Select(v => v.Id).ToHashSet();
         producto.AplicarVariantes(snap.Variantes);
-        // Las variantes nuevas llevan Id asignado: sin esto EF podría tratarlas como Modified.
-        foreach (var v in producto.Variantes)
-            if (_db.Entry(v).State == EntityState.Detached) _db.Entry(v).State = EntityState.Added;
+        // Las variantes nuevas llevan Id asignado: EF las detectaría como Modified (UPDATE de 0 filas) si no se marcan Added.
+        foreach (var v in producto.Variantes.Where(v => !variantesPrevias.Contains(v.Id)).ToList())
+            _db.Entry(v).State = EntityState.Added;
         producto.AplicarClasificacion(snap.CodigoModelo, snap.Grupo, snap.Tipo, snap.Wgr, snap.WgrDescripcion);
         if (snap.Componentes is not null)
         {
@@ -225,15 +238,103 @@ public sealed class AplicarProductoAwService
             fraccionArancelaria: producto.FraccionArancelaria is null ? Vacio(snap.FraccionArancelaria) : null,
             unidadAduana: producto.UnidadAduana is null ? Vacio(snap.UnidadAduana) : null);
 
+        var estatusAntes = producto.Estatus;
         if (snap.Baja)
             producto.DarDeBaja(DateTime.UtcNow);
         else if (producto.Estatus == EstatusCatalogo.Inactivo && registro.BajaOrigenCruda == "1")
             producto.Reactivar(); // solo revierte una baja que vino de A+W; una baja local se respeta
 
+        if (!editadoEnErp) AgregarSiCambio(cambios, producto, snap, hash, hashAnterior, "Descripción", descripcionAntes, producto.Descripcion);
+        if (!edicion.Unidad) AgregarSiCambio(cambios, producto, snap, hash, hashAnterior, "Unidad", unidadAntes, producto.UnidadMedida);
+        AgregarSiCambio(cambios, producto, snap, hash, hashAnterior, "Medidas (variantes)", medidasAntes, Medidas(producto.Variantes.Select(v => v.ClaveVariante)));
+        if (producto.Estatus != estatusAntes)
+        {
+            var baja = producto.Estatus == EstatusCatalogo.Inactivo;
+            cambios.Add(NuevoCambio(producto.Id, snap, hash, hashAnterior, "Estatus", estatusAntes.ToString(), producto.Estatus.ToString(),
+                baja ? TipoCambioMaestroAw.Baja : TipoCambioMaestroAw.Reactivacion, EstadoCambioMaestroAw.Informativo,
+                baja ? "A+W dio de baja el producto (KZ_GESPERRT); no se borra."
+                     : "A+W levantó una baja que vino de A+W; se reactiva."));
+        }
+
         AplicarRegistro(registro, snap, hash, ResultadoSincronizacionAw.Aplicado,
             diferencias: DiferenciaAplicacionAw.Serializar(diferencias));
-        await _db.SaveChangesAsync(ct);
+        await BitacoraMaestroAw.AgregarAsync(_db, cambios, "ProductoAw", snap.ReferenciaExterna, hash, ct);
+        await BitacoraMaestroAw.GuardarAsync(_db, cambios, "ProductoAw", snap.ReferenciaExterna, hash, ct);
         return new(producto, AplicarProductoAwAccion.Actualizado, ResultadoSincronizacionAw.Aplicado);
+    }
+
+    private static bool Difiere(string? a, string? b) => !string.Equals(a?.Trim(), b?.Trim(), StringComparison.Ordinal);
+
+    private static string? NormUnidad(string? u) => Vacio(u)?.ToUpperInvariant();
+
+    /// <summary>El ERP editó la descripción de A+W (difiere de la última leída) y A+W trae otro valor.</summary>
+    private static bool EditadoEnErp(ProductoAw p, AplicarProductoAwSnapshot snap, ProductoSincronizacionAw? registro) =>
+        registro is not null && registro.DescripcionOrigen is not null
+        && Difiere(p.Descripcion, registro.DescripcionOrigen) && Difiere(p.Descripcion, snap.Descripcion);
+
+    /// <summary>
+    /// Igual para la unidad (dueño A+W): solo si la unidad previa de origen sí se aplicó (tenía equivalencia), para no
+    /// confundir una unidad sin equivalencia con una edición del ERP. Sin distinguir mayúsculas.
+    /// </summary>
+    private static bool UnidadEditadaEnErp(ProductoAw p, AplicarProductoAwSnapshot snap, ProductoSincronizacionAw? registro) =>
+        registro is { Resultado: ResultadoSincronizacionAw.Aplicado or ResultadoSincronizacionAw.SinCambios, UnidadOrigenCruda: not null }
+        && NormUnidad(snap.UnidadCruda) is { } nueva
+        && !string.Equals(p.UnidadMedida, NormUnidad(registro.UnidadOrigenCruda), StringComparison.OrdinalIgnoreCase)
+        && !string.Equals(p.UnidadMedida, nueva, StringComparison.OrdinalIgnoreCase);
+
+    private sealed record EdicionErp(bool Descripcion, bool Unidad, List<CambioMaestroAw> Filas);
+
+    /// <summary>
+    /// Campos de dueño A+W editados en el ERP: se conserva el valor del ERP y queda un conflicto pendiente, salvo que ese mismo
+    /// par (valor ERP, valor A+W) ya se resolviera con «Mantener ERP»: no se re-crea mientras ninguno de los dos cambie.
+    /// </summary>
+    private async Task<EdicionErp> EvaluarEdicionErpAsync(
+        ProductoAw p, AplicarProductoAwSnapshot snap, ProductoSincronizacionAw? registro, string hash, CancellationToken ct)
+    {
+        // Sin hash previo en la clave: el conflicto se reevalúa también en lecturas sin cambios y debe seguir siendo el mismo.
+        var filas = new List<CambioMaestroAw>();
+        var desc = EditadoEnErp(p, snap, registro);
+        if (desc && !await MantenidoAsync(snap.ReferenciaExterna, "Descripción", p.Descripcion, snap.Descripcion, ct))
+            filas.Add(NuevoConflicto(p, snap, hash, null, "Descripción", p.Descripcion, snap.Descripcion));
+        var uni = UnidadEditadaEnErp(p, snap, registro);
+        if (uni && !await MantenidoAsync(snap.ReferenciaExterna, "Unidad", p.UnidadMedida, NormUnidad(snap.UnidadCruda), ct))
+            filas.Add(NuevoConflicto(p, snap, hash, null, "Unidad", p.UnidadMedida, NormUnidad(snap.UnidadCruda)));
+        return new(desc, uni, filas);
+    }
+
+    private async Task<bool> MantenidoAsync(string referencia, string campo, string? erp, string? aw, CancellationToken ct)
+    {
+        var e = CambioMaestroAw.Truncar(erp); var a = CambioMaestroAw.Truncar(aw);
+        return await _db.CambiosMaestrosAw.AsNoTracking().AnyAsync(c => c.TipoEntidad == "ProductoAw" && c.ReferenciaExterna == referencia
+            && c.Campo == campo && c.Tipo == TipoCambioMaestroAw.EditadoEnErp && c.Estado == EstadoCambioMaestroAw.Resuelto
+            && c.Resolucion == "MantenerErp" && c.ValorAntes == e && c.ValorDespues == a, ct);
+    }
+
+    private static string Medidas(IEnumerable<string> claves) => string.Join(", ", claves.Order(StringComparer.Ordinal));
+
+    private static CambioMaestroAw NuevoCambio(Guid productoId, AplicarProductoAwSnapshot snap, string hash, string? hashAnterior, string campo,
+        string? antes, string? despues, TipoCambioMaestroAw tipo, EstadoCambioMaestroAw estado, string causa) =>
+        new(Guid.CreateVersion7(), "ProductoAw", productoId, snap.ReferenciaExterna, campo, antes, despues,
+            MatrizCampoDuenoAw.DuenoAw, tipo, estado, causa, hash, MatrizCampoDuenoAw.Version, snap.EjecucionId, DateTime.UtcNow, hashAnterior);
+
+    private static CambioMaestroAw NuevoConflicto(ProductoAw p, AplicarProductoAwSnapshot snap, string hash, string? hashAnterior,
+        string campo, string? erp, string? aw) =>
+        NuevoCambio(p.Id, snap, hash, hashAnterior, campo, erp, aw, TipoCambioMaestroAw.EditadoEnErp,
+            EstadoCambioMaestroAw.Pendiente, "El campo es de A+W y se cambió en el ERP; se conserva el valor del ERP hasta aplicar A+W.");
+
+    private static void AgregarSiCambio(List<CambioMaestroAw> lista, ProductoAw p, AplicarProductoAwSnapshot snap, string hash, string? hashAnterior,
+        string campo, string? antes, string? despues)
+    {
+        if (Difiere(antes, despues))
+            lista.Add(NuevoCambio(p.Id, snap, hash, hashAnterior, campo, antes, despues, TipoCambioMaestroAw.Aplicado,
+                EstadoCambioMaestroAw.Informativo, "Cambio recibido de A+W."));
+    }
+
+    /// <summary>Tras un choque de concurrencia las filas de bitácora pendientes se sueltan para no insertarlas dos veces.</summary>
+    private void DesacoplarCambios()
+    {
+        foreach (var e in _db.ChangeTracker.Entries<CambioMaestroAw>().Where(e => e.State == EntityState.Added).ToList())
+            e.State = EntityState.Detached;
     }
 
     private async Task AplicarFichaAsync(ProductoAw producto, CancellationToken ct, bool nuevo = false)

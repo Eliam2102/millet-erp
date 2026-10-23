@@ -1,29 +1,43 @@
-import { useState } from 'react';
-import { Link, useParams, useSearch } from '@tanstack/react-router';
-import { useQueryClient } from '@tanstack/react-query';
-import { Pencil, Receipt, X } from 'lucide-react';
+import { AvisoEnLinea, ErrorState } from '@/components/erp';
+import { ResumenImportes } from '@/components/erp/display/ResumenImportes';
+import { PageHeader } from '@/components/erp/PageHeader';
+import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { ErrorState } from '@/components/erp';
 import {
-  usePedido,
-  usePedidoComprobantes,
-} from '@/features/facturacion/api/usePedidos';
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '@/components/ui/table';
 import { facturacionKeys } from '@/features/facturacion/api/keys';
+import { ComportamientoFiscal } from '@/features/facturacion/api/types';
+import { usePedido, usePedidoComprobantes } from '@/features/facturacion/api/usePedidos';
+import { useGenerarProforma, useUltimaProforma } from '@/features/facturacion/api/useProformas';
+import type { ProformaPedidoResponse } from '@/features/facturacion/api/types';
+import { ClasePedidoBadge } from '@/features/facturacion/components/ClasePedidoBadge';
+import { BadgeCredito } from '@/features/facturacion/components/BadgeCredito';
 import { EmitirFacturaForm } from '@/features/facturacion/components/emitir-factura/EmitirFacturaForm';
+import { EstadoFacturacionBadge } from '@/features/facturacion/components/EstadoFacturacionBadge';
+import { ProformaPedidoCard } from '@/features/facturacion/components/ProformaPedidoCard';
+import { VisorProformaDialog } from '@/features/facturacion/components/VisorProformaDialog';
 import { useNuevoPedido } from '@/features/facturacion/components/nuevo-pedido-context';
 import { TrazabilidadFacturacion } from '@/features/facturacion/components/TrazabilidadFacturacion';
-import { useHasPermission } from '@/lib/auth/useHasPermission';
-import { PermisosCanonicos } from '@/lib/auth/permission-codes';
-import { esApiError } from '@/lib/api';
-import { ComportamientoFiscal } from '@/features/facturacion/api/types';
 import {
   ETIQUETA_COMPORTAMIENTO_FISCAL,
-  ETIQUETA_ESTADO_PEDIDO,
   ETIQUETA_ORIGEN_PEDIDO,
 } from '@/features/facturacion/lib/glosario';
-import { ChipTimbrado } from '@/features/facturacion/pages/BandejaFacturas';
 import type { PedidosSearch } from '@/features/facturacion/lib/pedidos-search-schema';
-import { cn } from '@/lib/utils';
+import { ChipTimbrado } from '@/features/facturacion/pages/BandejaFacturas';
+import { esApiError } from '@/lib/api';
+import { PermisosCanonicos } from '@/lib/auth/permission-codes';
+import { useHasPermission } from '@/lib/auth/useHasPermission';
+import { useQueryClient } from '@tanstack/react-query';
+import { Link, useParams, useSearch } from '@tanstack/react-router';
+import { Eye, FileText, Pencil, Receipt, X } from 'lucide-react';
+import { useState } from 'react';
+import { toast } from 'sonner';
 
 /**
  * <c>Detalle de un pedido facturable</c> (FE-F1-PR3, B1/B5). Cabecera +
@@ -42,11 +56,11 @@ export function DetallePedido() {
   const comprobantes = usePedidoComprobantes(id);
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-5">
       {/* Sub-topbar del detalle (§6.5): cerrar vuelve a la bandeja
           preservando los filtros activos. */}
       <div
-        className="sticky top-0 z-10 flex items-center justify-end gap-2 border-b bg-background/95 pb-2 backdrop-blur"
+        className="sticky top-0 z-10 flex items-center justify-end gap-2 border-b bg-surface-page/95 pb-2 backdrop-blur border-line"
         data-print="hidden"
       >
         <Button variant="ghost" size="sm" asChild aria-label="Cerrar detalle">
@@ -64,8 +78,8 @@ export function DetallePedido() {
         />
       ) : query.isLoading || query.data == null ? (
         <div className="space-y-3">
-          <div className="h-8 w-64 animate-pulse rounded bg-muted" />
-          <div className="h-40 w-full animate-pulse rounded bg-muted" />
+          <div className="h-8 w-64 animate-pulse rounded bg-surface-muted" />
+          <div className="h-40 w-full animate-pulse rounded bg-surface-muted" />
         </div>
       ) : (
         <Contenido
@@ -92,25 +106,77 @@ function Contenido({
   const [modoEmision, setModoEmision] = useState(false);
   const puedeEmitir = useHasPermission(PermisosCanonicos.FacturacionFacturasEmitir);
   const puedeEditar = useHasPermission(PermisosCanonicos.FacturacionPedidosCapturar);
+  const puedeLeerFacturas = useHasPermission(PermisosCanonicos.FacturacionFacturasLeer);
   const facturable = p.estado === 'Importado';
+  // U1.8a: proforma sin valor fiscal (no consume folio) antes de timbrar.
+  const ultimaProforma = useUltimaProforma(p.id, puedeLeerFacturas);
+  const generarProforma = useGenerarProforma();
+  const [descargandoProforma, setDescargandoProforma] = useState(false);
+  // Proforma abierta en el visor (null = cerrado).
+  const [proformaEnVisor, setProformaEnVisor] = useState<ProformaPedidoResponse | null>(null);
+
+  async function descargarProforma(proforma: ProformaPedidoResponse) {
+    setDescargandoProforma(true);
+    try {
+      const { descargarProformaCfdi } =
+        await import('@/components/erp/reportes/exporters/proforma-cfdi-exporter');
+      await descargarProformaCfdi(proforma);
+    } catch {
+      toast.error('No se pudo generar el PDF de la proforma. Vuelve a intentar la descarga.');
+    } finally {
+      setDescargandoProforma(false);
+    }
+  }
+
+  function onGenerarProforma() {
+    generarProforma.mutate(
+      { pedidoId: p.id, idempotencyKey: crypto.randomUUID() },
+      {
+        onSuccess: (proforma) => {
+          toast.success(`Proforma ${proforma.folio} generada`, {
+            description: 'Sin valor fiscal: no consume folio.',
+          });
+          setProformaEnVisor(proforma);
+        },
+        onError: (error) => {
+          toast.error('No se pudo generar la proforma.', {
+            description: esApiError(error)
+              ? (error.problem.detail ?? error.problem.title)
+              : 'Revisa tu conexión y vuelve a intentarlo.',
+          });
+        },
+      },
+    );
+  }
+  const mostrarSat = p.lineas.some((l) => l.claveProdServSat?.trim() || l.claveUnidadSat?.trim());
+  const mostrarPedimento = p.lineas.some((l) => l.requierePedimento);
   // Solo los manuales en Importado son editables (PUT con If-Match).
   const editable = p.estado === 'Importado' && p.origen === 'Manual';
+  // F6.1: pedido manual legacy sin clase → no se puede facturar hasta clasificarlo.
+  const manualSinClase = p.origen === 'Manual' && p.claseManual == null;
+  const esEmergencia = p.esEmergencia === true || p.claseManual === 'Emergencia';
 
   if (modoEmision) {
     return (
-      <div className="space-y-4">
-        <header className="flex flex-wrap items-center gap-3">
-          <h1 className="font-mono text-2xl font-semibold">
-            {p.numeroPedido ?? 'Pedido manual'}
-          </h1>
-          <ChipEstadoPedido estado={p.estado} />
-          <span className="text-sm text-muted-foreground">
-            Emitiendo factura · {p.clienteNombre}
-          </span>
-        </header>
+      <div className="space-y-5">
+        <div className="flex flex-wrap items-center gap-3">
+          <PageHeader
+            mono
+            titulo={<>{p.numeroPedido ?? 'Pedido manual'}</>}
+            descripcion={<>Consulta el pedido y sus partidas por facturar.</>}
+            estado={<ChipEstadoPedido estado={p.estado} />}
+          />
+          <ClasePedidoBadge clasificacion={p} />
+          <span className="text-sm text-ink-muted">Emitiendo factura · {p.clienteNombre}</span>
+        </div>
         <EmitirFacturaForm
           prefill={{
             pedidoFacturableId: p.id,
+            embarqueCe: p.embarqueCe,
+            // F6.1: clase del pedido manual (serie de Venta directa, activo).
+            origen: p.origen,
+            claseManual: p.claseManual ?? null,
+            subtipoVentaDirecta: p.subtipoVentaDirecta ?? null,
             sucursalId: p.sucursalId,
             clienteId: p.clienteId,
             receptorNombre: p.clienteNombre,
@@ -130,9 +196,7 @@ function Contenido({
             canalVenta: p.canalVentaId,
             canalVentaNombre: p.canalVenta,
             comportamientoFiscal:
-              ComportamientoFiscal[
-                p.comportamientoFiscal as keyof typeof ComportamientoFiscal
-              ],
+              ComportamientoFiscal[p.comportamientoFiscal as keyof typeof ComportamientoFiscal],
             moneda: p.moneda,
             obraNombre: p.obraNombre,
             lineas: p.lineas.map((l) => ({
@@ -151,6 +215,14 @@ function Contenido({
             })),
           }}
           onCancel={() => setModoEmision(false)}
+          onEditarPedido={
+            puedeEditar && editable
+              ? () => {
+                  setModoEmision(false);
+                  nuevoPedido.abrir(p);
+                }
+              : undefined
+          }
           onSuccess={() => {
             void queryClient.invalidateQueries({
               queryKey: facturacionKeys.pedidos(),
@@ -163,19 +235,27 @@ function Contenido({
   }
 
   return (
-    <div className="space-y-6">
-      <header className="flex flex-wrap items-start justify-between gap-3">
+    <div className="space-y-5">
+      <div className="flex flex-wrap items-start justify-between gap-3">
         <div className="space-y-1">
           <div className="flex flex-wrap items-center gap-3">
-            <h1 className="font-mono text-2xl font-semibold">
-              {p.numeroPedido ?? 'Pedido manual'}
-            </h1>
-            <ChipEstadoPedido estado={p.estado} />
-            <span className="rounded-full bg-muted px-2 py-0.5 text-xs">
-              {ETIQUETA_ORIGEN_PEDIDO[p.origen] ?? p.origen}
-            </span>
+            <PageHeader
+              mono
+              titulo={<>{p.numeroPedido ?? 'Pedido manual'}</>}
+              descripcion={
+                <>
+                  <span>{p.clienteNombre}</span> ·{' '}
+                  <span className="font-mono">
+                    {p.clienteFiscal?.rfc ?? <span className="text-ink-muted">Sin RFC</span>}
+                  </span>
+                </>
+              }
+              estado={<ChipEstadoPedido estado={p.estado} />}
+            />
+            <Badge variant="neutral">{ETIQUETA_ORIGEN_PEDIDO[p.origen] ?? p.origen}</Badge>
+            <ClasePedidoBadge clasificacion={p} />
+            <BadgeCredito esCredito={p.esCredito} />
           </div>
-          <p className="text-sm text-muted-foreground">{p.clienteNombre}</p>
         </div>
         <div className="flex items-center gap-2" data-print="hidden">
           {puedeEditar && editable && (
@@ -184,167 +264,225 @@ function Contenido({
               Editar
             </Button>
           )}
+          {puedeLeerFacturas && ultimaProforma.data != null && (
+            <Button
+              variant="outline"
+              onClick={() => setProformaEnVisor(ultimaProforma.data ?? null)}
+            >
+              <Eye className="mr-2 h-4 w-4" />
+              Ver proforma
+            </Button>
+          )}
           {puedeEmitir && facturable && (
-            <Button onClick={() => setModoEmision(true)}>
+            <Button
+              variant="outline"
+              onClick={onGenerarProforma}
+              disabled={generarProforma.isPending}
+            >
+              <FileText className="mr-2 h-4 w-4" />
+              {generarProforma.isPending ? 'Generando…' : 'Generar proforma'}
+            </Button>
+          )}
+          {puedeEmitir && facturable && (
+            <Button
+              onClick={() => setModoEmision(true)}
+              disabled={manualSinClase}
+              title={
+                manualSinClase
+                  ? 'Clasifica el pedido (venta directa o emergencia) antes de facturarlo.'
+                  : undefined
+              }
+            >
               <Receipt className="mr-2 h-4 w-4" />
               Facturar
             </Button>
           )}
         </div>
-      </header>
+      </div>
 
-      <section className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+      {manualSinClase && facturable && (
+        <AvisoEnLinea tono="advertencia" titulo="Pedido manual sin clase">
+          Indica si es venta directa o emergencia para poder facturarlo.
+          {puedeEditar && editable
+            ? ' Usa «Editar» para clasificarlo.'
+            : ' Pide a quien captura pedidos que lo clasifique.'}
+        </AvisoEnLinea>
+      )}
+
+      {esEmergencia && (
+        <section
+          aria-label="Datos de la emergencia"
+          className="space-y-2 rounded-lg bg-surface-card px-4 py-3 shadow-card-flat"
+        >
+          <h2 className="text-sm font-semibold text-ink">Captura de emergencia</h2>
+          <dl className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+            <div className="space-y-0.5 sm:col-span-2">
+              <dt className="text-xs text-ink-muted">Motivo</dt>
+              <dd className="text-sm text-ink">{p.motivoEmergencia ?? '—'}</dd>
+            </div>
+            <div className="space-y-0.5">
+              <dt className="text-xs text-ink-muted">Pedido A+W para conciliar</dt>
+              <dd className="font-mono text-sm text-ink">
+                {p.referenciaPedidoAw ?? 'Sin referencia'}
+              </dd>
+            </div>
+          </dl>
+        </section>
+      )}
+
+      <dl className="grid grid-cols-1 gap-4 rounded-lg bg-surface-card p-4 shadow-card-flat sm:grid-cols-4">
         {/* FAC-ING-PR3: el backend ya devuelve el nombre del catálogo. */}
         <Dato label="Canal de venta">{p.canalVenta}</Dato>
         <Dato label="Comportamiento fiscal">
-          {ETIQUETA_COMPORTAMIENTO_FISCAL[p.comportamientoFiscal] ??
-            p.comportamientoFiscal}
+          {ETIQUETA_COMPORTAMIENTO_FISCAL[p.comportamientoFiscal] ?? p.comportamientoFiscal}
         </Dato>
         <Dato label="Moneda">{p.moneda}</Dato>
+        {p.esCredito && (
+          <Dato label="Condición de pago">{p.condicionPagoOrigen ?? 'Crédito'}</Dato>
+        )}
         {p.obraNombre && <Dato label="Obra">{p.obraNombre}</Dato>}
         <Dato label="RFC del cliente">
           {p.clienteFiscal?.rfc ?? (
-            <span className="text-amber-700">
+            <span className="text-warning-fg">
               Sin RFC — completar en Datos Maestros → Clientes
             </span>
           )}
         </Dato>
         <Dato label="Versión">{p.version}</Dato>
-      </section>
+      </dl>
+
+      {puedeLeerFacturas && (ultimaProforma.data != null || facturable) && (
+        <ProformaPedidoCard
+          proforma={ultimaProforma.data}
+          cargando={ultimaProforma.isLoading}
+          descargando={descargandoProforma}
+          onVer={setProformaEnVisor}
+          onDescargar={(pf) => void descargarProforma(pf)}
+        />
+      )}
+      <VisorProformaDialog
+        proforma={proformaEnVisor}
+        descargando={descargandoProforma}
+        onDescargar={(pf) => void descargarProforma(pf)}
+        onCerrar={() => setProformaEnVisor(null)}
+      />
 
       {p.comentarios && (
-        <section className="rounded-md bg-muted/40 px-3 py-2 text-sm">
-          <span className="text-xs font-medium text-muted-foreground">
-            Comentarios del origen
-          </span>
+        <section className="rounded-md bg-surface-muted/40 px-3 py-2 text-sm">
+          <span className="text-xs font-medium text-ink-muted">Comentarios del origen</span>
           <p className="mt-0.5">{p.comentarios}</p>
         </section>
       )}
 
       <section className="space-y-2">
-        <h2 className="text-sm font-medium">Líneas ({p.lineas.length})</h2>
-        <div className="overflow-x-auto rounded-md border">
-          <table className="w-full text-sm">
-            <thead className="bg-muted/50">
-              <tr>
-                <th className="px-3 py-2 text-left">#</th>
-                <th className="px-3 py-2 text-left">Producto / servicio</th>
-                <th className="px-3 py-2 text-left">Clave SAT</th>
-                <th className="px-3 py-2 text-right">Cant.</th>
-                <th className="px-3 py-2 text-right">Precio</th>
-                <th className="px-3 py-2 text-right">Descuento</th>
-                <th className="px-3 py-2 text-center">Pedimento</th>
-              </tr>
-            </thead>
-            <tbody>
+        <h2 className="text-sm font-medium">Partidas ({p.lineas.length})</h2>
+        <div className="overflow-x-auto rounded-md border border-line">
+          <Table className="w-full text-sm">
+            <TableHeader className="bg-surface-muted/50">
+              <TableRow>
+                <TableHead className="px-3 py-2 text-left">#</TableHead>
+                <TableHead className="px-3 py-2 text-left">Producto / servicio</TableHead>
+                {mostrarSat && <TableHead className="px-3 py-2 text-left">Clave SAT</TableHead>}
+                <TableHead className="px-3 py-2 text-right tabular-nums">Cant.</TableHead>
+                <TableHead className="px-3 py-2 text-right tabular-nums">Precio</TableHead>
+                <TableHead className="px-3 py-2 text-right tabular-nums">Descuento</TableHead>
+                {mostrarPedimento && (
+                  <TableHead className="px-3 py-2 text-center">Pedimento</TableHead>
+                )}
+              </TableRow>
+            </TableHeader>
+            <TableBody>
               {p.lineas.map((l) => (
-                <tr key={l.posicion} className="border-t">
-                  <td className="px-3 py-2 text-muted-foreground">{l.posicion}</td>
-                  <td className="px-3 py-2">{l.productoDescripcion}</td>
-                  <td className="px-3 py-2 font-mono text-xs">
-                    {l.claveProdServSat ?? '—'} · {l.claveUnidadSat ?? '—'}
-                  </td>
-                  <td className="px-3 py-2 text-right font-mono">
+                <TableRow key={l.posicion} className="border-t border-line">
+                  <TableCell className="px-3 py-2 text-ink-muted">{l.posicion}</TableCell>
+                  <TableCell className="px-3 py-2">{l.productoDescripcion}</TableCell>
+                  {mostrarSat && (
+                    <TableCell className="px-3 py-2 font-mono text-xs">
+                      {l.claveProdServSat ?? '—'} · {l.claveUnidadSat ?? '—'}
+                    </TableCell>
+                  )}
+                  <TableCell className="px-3 py-2 text-right font-mono tabular-nums">
                     {l.cantidad.toFixed(2)}
-                  </td>
-                  <td className="px-3 py-2 text-right font-mono">
+                  </TableCell>
+                  <TableCell className="px-3 py-2 text-right font-mono tabular-nums">
                     {l.precio.toFixed(2)}
-                  </td>
-                  <td className="px-3 py-2 text-right font-mono">
+                  </TableCell>
+                  <TableCell className="px-3 py-2 text-right font-mono tabular-nums">
                     {l.descuento.toFixed(2)}
-                  </td>
-                  <td className="px-3 py-2 text-center">
-                    {l.requierePedimento ? 'Sí' : '—'}
-                  </td>
-                </tr>
+                  </TableCell>
+                  {mostrarPedimento && (
+                    <TableCell className="px-3 py-2 text-center">
+                      {l.requierePedimento ? 'Sí' : '—'}
+                    </TableCell>
+                  )}
+                </TableRow>
               ))}
-            </tbody>
-            <tfoot>
-              <tr className="border-t bg-muted/30 font-semibold">
-                <td className="px-3 py-2" colSpan={6}>
-                  Subtotal sin impuestos
-                </td>
-                <td className="px-3 py-2 text-right font-mono">
-                  {p.total.toFixed(2)} {p.moneda}
-                </td>
-              </tr>
-              {p.ranura != null && p.ranura > 0 && (
-                <tr className="border-t text-amber-700 dark:text-amber-400">
-                  <td className="px-3 py-2 text-xs" colSpan={6}>
-                    Ranura (descuento del pedido — la factura va por el total;
-                    se documenta con nota de crédito y la caja cobra el neto)
-                  </td>
-                  <td className="px-3 py-2 text-right font-mono">
-                    −{p.ranura.toFixed(2)} {p.moneda}
-                  </td>
-                </tr>
-              )}
-            </tfoot>
-          </table>
+            </TableBody>
+          </Table>
         </div>
-        <p className="text-xs text-muted-foreground">
+        <p className="text-xs text-ink-muted">Subtotal sin impuestos</p>
+        <ResumenImportes moneda={p.moneda} total={p.total} />
+        {p.ranura != null && p.ranura > 0 && (
+          <p className="text-right text-sm text-warning-fg tabular-nums">
+            Ranura (descuento del pedido — la factura va por el total; se documenta con nota de
+            crédito y la caja cobra el neto): −{p.ranura.toFixed(2)} {p.moneda}
+          </p>
+        )}
+        <p className="text-xs text-ink-muted">
           Los impuestos y el total fiscal se calculan al preparar la factura.
         </p>
       </section>
 
       <section className="space-y-2">
-        <h2 className="text-sm font-medium">
-          Historial de comprobantes ({comprobantes.length})
-        </h2>
+        <h2 className="text-sm font-medium">Historial de comprobantes ({comprobantes.length})</h2>
         {comprobantesLoading ? (
-          <div className="h-16 w-full animate-pulse rounded bg-muted" />
+          <div className="h-16 w-full animate-pulse rounded bg-surface-muted" />
         ) : comprobantes.length === 0 ? (
-          <p className="rounded-md border border-dashed px-3 py-4 text-center text-xs text-muted-foreground">
+          <p className="rounded-md border border-dashed px-3 py-4 text-center text-xs text-ink-muted border-line">
             El pedido aún no tiene comprobantes emitidos.
           </p>
         ) : (
-          <div className="overflow-x-auto rounded-md border">
-            <table className="w-full text-sm">
-              <thead className="bg-muted/50">
-                <tr>
-                  <th className="px-3 py-2 text-left">Folio</th>
-                  <th className="px-3 py-2 text-left">UUID</th>
-                  <th className="px-3 py-2 text-right">Total</th>
-                  <th className="px-3 py-2 text-left">Estado</th>
-                  <th className="px-3 py-2 text-center">Vigente</th>
-                  <th className="px-3 py-2 text-right">Acción</th>
-                </tr>
-              </thead>
-              <tbody>
+          <div className="overflow-x-auto rounded-md border border-line">
+            <Table className="w-full text-sm">
+              <TableHeader className="bg-surface-muted/50">
+                <TableRow>
+                  <TableHead className="px-3 py-2 text-left">Folio</TableHead>
+                  <TableHead className="px-3 py-2 text-left">UUID</TableHead>
+                  <TableHead className="px-3 py-2 text-right tabular-nums">Total</TableHead>
+                  <TableHead className="px-3 py-2 text-left">Estado</TableHead>
+                  <TableHead className="px-3 py-2 text-center">Vigente</TableHead>
+                  <TableHead className="px-3 py-2 text-right tabular-nums">Acción</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
                 {comprobantes.map((c) => (
-                  <tr key={c.id} className="border-t hover:bg-muted/30">
-                    <td className="px-3 py-2 font-mono text-xs">{c.folio}</td>
-                    <td className="px-3 py-2 font-mono text-xs">
+                  <TableRow key={c.id} className="border-t hover:bg-surface-muted/30 border-line">
+                    <TableCell className="px-3 py-2 font-mono text-xs">{c.folio}</TableCell>
+                    <TableCell className="px-3 py-2 font-mono text-xs">
                       {c.uuid ? `${c.uuid.slice(0, 8)}…${c.uuid.slice(-4)}` : '—'}
-                    </td>
-                    <td className="px-3 py-2 text-right font-mono">
+                    </TableCell>
+                    <TableCell className="px-3 py-2 text-right font-mono tabular-nums">
                       {c.total.toFixed(2)} {c.moneda}
-                    </td>
-                    <td className="px-3 py-2">
+                    </TableCell>
+                    <TableCell className="px-3 py-2">
                       <ChipTimbrado estado={c.estado} />
-                    </td>
-                    <td className="px-3 py-2 text-center">
-                      {c.vigente ? (
-                        <span className="rounded-full bg-emerald-100 px-2 py-0.5 text-xs font-medium text-emerald-800">
-                          Vigente
-                        </span>
-                      ) : (
-                        '—'
-                      )}
-                    </td>
-                    <td className="px-3 py-2 text-right">
+                    </TableCell>
+                    <TableCell className="px-3 py-2 text-center">
+                      {c.vigente ? <Badge variant="success">Vigente</Badge> : '—'}
+                    </TableCell>
+                    <TableCell className="px-3 py-2 text-right tabular-nums">
                       <Link
                         to="/facturacion/facturas/$id"
                         params={{ id: c.id }}
-                        className="text-sm font-medium text-primary hover:underline"
+                        className="text-sm font-medium text-brand hover:underline"
                       >
                         Ver
                       </Link>
-                    </td>
-                  </tr>
+                    </TableCell>
+                  </TableRow>
                 ))}
-              </tbody>
-            </table>
+              </TableBody>
+            </Table>
           </div>
         )}
       </section>
@@ -356,32 +494,13 @@ function Contenido({
 }
 
 export function ChipEstadoPedido({ estado }: { estado: string }) {
-  const tono =
-    estado === 'Facturado'
-      ? 'bg-emerald-100 text-emerald-800'
-      : estado === 'Excepcion'
-        ? 'bg-rose-100 text-rose-800'
-        : estado === 'Cancelado'
-          ? 'bg-zinc-200 text-zinc-700'
-          : estado === 'Bloqueado'
-            ? 'bg-amber-100 text-amber-800'
-            : 'bg-sky-100 text-sky-800';
-  return (
-    <span
-      className={cn(
-        'inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium',
-        tono,
-      )}
-    >
-      {ETIQUETA_ESTADO_PEDIDO[estado] ?? estado}
-    </span>
-  );
+  return <EstadoFacturacionBadge entidad="pedido" estado={estado} />;
 }
 
 function Dato({ label, children }: { label: string; children: React.ReactNode }) {
   return (
     <div className="space-y-0.5">
-      <dt className="text-xs text-muted-foreground">{label}</dt>
+      <dt className="text-xs text-ink-muted">{label}</dt>
       <dd className="text-sm">{children}</dd>
     </div>
   );

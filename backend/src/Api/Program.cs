@@ -1,3 +1,8 @@
+using Millet.ActivosFijos.Infrastructure;
+using Millet.ActivosFijos.Infrastructure.Persistence;
+using Millet.ComercioExterior.Application;
+using Millet.ComercioExterior.Infrastructure;
+using Millet.ComercioExterior.Infrastructure.Persistence;
 using Azure.Monitor.OpenTelemetry.AspNetCore;
 using HealthChecks.NpgSql;
 using Microsoft.AspNetCore.DataProtection;
@@ -11,6 +16,7 @@ using Millet.Api.Endpoints.Catalogos;
 using Millet.Api.Endpoints.Compras;
 using Millet.Api.Endpoints.Settings;
 using Millet.Api.Hubs;
+using Millet.Api.Infrastructure;
 using Millet.Api.Web;
 using Millet.CentrosCosto.Application;
 using Millet.CentrosCosto.Infrastructure;
@@ -231,12 +237,20 @@ if (!string.IsNullOrWhiteSpace(outboxConnString))
 {
     builder.Services.AddSingleton(_ => new Azure.Messaging.ServiceBus.ServiceBusClient(outboxConnString));
     builder.Services.AddSingleton<IIntegrationEventBusSender, ServiceBusIntegrationEventBusSender>();
+    // C1.8: con conexión a Service Bus la entrega local se ignora (solo avisa).
+    builder.Services.AdvertirSiEntregaLocalIgnorada(builder.Configuration);
 
     // F3-PR1: listener Service Bus de eventos de CxP. Solo se wirea cuando
     // la conexión real existe — en dev local sin SB, los handlers se pueden
     // ejercitar directo desde tests (CxpEventListenerWorker.ProcessAsync es
     // internal a Almacen.IntegrationTests).
     builder.Services.AddHostedService<Millet.Almacen.Infrastructure.Workers.CxpEventListenerWorker>();
+    builder.Services.AddHostedService<Millet.Almacen.Infrastructure.Workers.ComercioExteriorEventListenerWorker>();
+
+    // AF: listener de recepciones (Almacén) y facturas (CxP) que crean y valúan
+    // activos por capitalizar. Solo con Service Bus real, como los demás listeners.
+    builder.Services.AddHostedService<Millet.ActivosFijos.Infrastructure.Workers.ComprasActivoWorker>();
+    builder.Services.AddHostedService<Millet.ActivosFijos.Infrastructure.Workers.VentaActivoWorker>();
 
     // F6-PR3 CxP: listener Service Bus para eventos de Almacén
     // (recepciones + devoluciones). Cierra el ciclo bidireccional.
@@ -297,7 +311,10 @@ if (!string.IsNullOrWhiteSpace(outboxConnString))
     // (Bicep en el mismo PR; deploy de infra manual con what-if).
     builder.Services.AddHostedService<Millet.Facturacion.Infrastructure.Workers.TesoreriaEventListenerWorker>();
 }
-else
+// C1.8: sin conexión, `ServiceBus:EntregaLocal:Habilitada=true` (solo Development)
+// entrega los eventos del outbox en el mismo proceso a los listeners de arriba;
+// apagada, los eventos se descartan con el NoOp.
+else if (!builder.Services.AddEntregaLocalIntegrationEvents(builder.Configuration, builder.Environment))
 {
     builder.Services.AddSingleton<IIntegrationEventBusSender, NoOpIntegrationEventBusSender>();
 }
@@ -367,6 +384,11 @@ builder.Services
 // ruidosamente en arranque si el flag está activo en Production.
 builder.Services.AddComprasStubs(builder.Configuration, builder.Environment);
 
+// Correo de documentos (OC al proveedor, etc.): hoy simulado.
+// PLATFORM-TODO(<V08>): sustituir por el transporte real de correo.
+builder.Services.AddSingleton<Millet.SharedKernel.Application.Correo.ICorreoDocumentoService,
+    Millet.Facturacion.Infrastructure.Notificaciones.NoOpNotificacionService>();
+
 // === Compras IAlmacenEntregasReadPort → adapter real ===
 // Permite al handler `ObtenerRequisicionPorIdHandler` enriquecer
 // `LineaResponse` con `cantEntregadoDeAlmacen` y `cantPendienteEntregar`,
@@ -390,6 +412,13 @@ builder.Services
     .Bind(builder.Configuration.GetSection(
         Millet.Compras.Application.MigracionEntrega.MigracionEntregaHistoricaOptions.SectionName));
 builder.Services.AddHostedService<Millet.Compras.Infrastructure.Workers.MigracionEntregaHistoricaJob>();
+
+// F1-COM-07: revisión diaria de incidencias del proveedor con compromiso vencido (aviso único por
+// incidencia y fecha). Apagable con Compras:Workers:IncidenciasVencidas:Disabled.
+builder.Services
+    .AddOptions<Millet.Compras.Infrastructure.Workers.IncidenciaVencidaOptions>()
+    .Bind(builder.Configuration.GetSection(Millet.Compras.Infrastructure.Workers.IncidenciaVencidaOptions.SectionName));
+builder.Services.AddHostedService<Millet.Compras.Infrastructure.Workers.IncidenciaVencidaWorker>();
 
 // === Compras IConsultarStockPort → adapter real ===
 // Reemplaza el InMemoryConsultarStockPort stub (config-driven que
@@ -584,7 +613,11 @@ else
 // PLATFORM-TODO(<MigrarAdjuntosOcAlmacen>): OC, vale, packing list y evidencias de Almacén siguen con su patrón propio. Ver ADR-0058.
 builder.Services.AddScoped<Millet.Compartido.Application.Adjuntos.AdjuntoAcceso>();
 builder.Services.AddScoped<Millet.SharedKernel.Application.Adjuntos.IAdjuntoPropietario, Millet.Compras.Application.Adjuntos.RequisicionAdjuntoPropietario>();
+builder.Services.AddScoped<Millet.SharedKernel.Application.Adjuntos.IAdjuntoPropietario, Millet.Compras.Application.Adjuntos.RespuestaProveedorOcAdjuntoPropietario>();
+builder.Services.AddScoped<Millet.SharedKernel.Application.Adjuntos.IAdjuntoPropietario, Millet.Compras.Application.Adjuntos.CotizacionAdjuntoPropietario>();
 builder.Services.AddScoped<Millet.SharedKernel.Application.Adjuntos.IAdjuntoPropietario, Millet.CuentasPorPagar.Application.Adjuntos.FacturaProveedorAdjuntoPropietario>();
+builder.Services.AddScoped<Millet.SharedKernel.Application.Adjuntos.IAdjuntoPropietario, Millet.Api.Endpoints.Almacen.Revision.LineaRevisionAdjuntoPropietario>();
+builder.Services.AddScoped<Millet.SharedKernel.Application.Adjuntos.IAdjuntoPropietario, Millet.Contabilidad.Application.Polizas.PolizaAdjuntoPropietario>();
 builder.Services.AddScoped<
     Millet.SharedKernel.Application.Adjuntos.IAdjuntoPropietario,
     Millet.Compartido.Application.Adjuntos.ProveedorAdjuntoPropietario>();
@@ -629,6 +662,12 @@ builder.Services.AddScoped<Millet.Compras.Domain.Trazabilidad.IProveedorNodosTra
 builder.Services.AddScoped<Millet.Compras.Domain.Trazabilidad.ICxpFacturasTrazabilidadReadPort,
     Millet.CuentasPorPagar.Infrastructure.PublicAdapters.CxpFacturasTrazabilidadProvider>();
 builder.Services.AddScoped<Millet.Almacen.Infrastructure.PublicAdapters.ApartadosRequisicionService>();
+// F1-COM-13 (86e3jvu98): puertos de lectura de la tríada para el análisis de proveedores.
+builder.Services.AddScoped<Millet.Compras.Domain.Ports.Almacen.IRecepcionesOcReadPort,
+    Millet.Compras.Infrastructure.PublicAdapters.AlmacenRecepcionesOcReadAdapter>();
+builder.Services.AddScoped<Millet.Compras.Domain.Ports.CuentasPorPagar.IFacturasOcReadPort,
+    Millet.CuentasPorPagar.Infrastructure.PublicAdapters.CxpFacturasOcReadAdapter>();
+builder.Services.AddScoped<Millet.Compras.Application.Reportes.AnalisisProveedores.NombresAnalisis>();
 builder.Services.AddScoped<Millet.Compras.Infrastructure.PublicAdapters.TransaccionApartadosRq>();
 
 // === Compras — Trazabilidad cross-módulo (F7-PR2) ===
@@ -686,6 +725,8 @@ builder.Services.AddMilletApplication(
     CuentasPorCobrarAssemblyMarker.Assembly,
     TesoreriaAssemblyMarker.Assembly,
     CentrosCostoAssemblyMarker.Assembly,
+    typeof(CrearExpedienteCommand).Assembly,
+    typeof(Millet.ActivosFijos.Application.CrearActivoCommand).Assembly,
     ContabilidadAssemblyMarker.Assembly);
 
 // === Módulo Integraciones.Aw ===
@@ -793,6 +834,9 @@ builder.Services.AddScoped<
 builder.Services.AddScoped<
     Millet.Almacen.Domain.Ports.IProveedorReadPort,
     Millet.Compartido.Infrastructure.PublicAdapters.ProveedorReadAdapter>();
+builder.Services.AddScoped<
+    Millet.Almacen.Domain.Ports.IAdjuntosEntidadReadPort,
+    Millet.Compartido.Infrastructure.PublicAdapters.AdjuntosEntidadReadAdapter>();
 
 // Adapter CxP → hosteado en CuentasPorPagar.Infrastructure.PublicAdapters
 // (CxP referencia Almacén vía Compras; Almacén no referencia CxP — bounded
@@ -876,7 +920,7 @@ builder.Services.AddFacturacionModule(builder.Configuration);
 // Foundation: LineaCredito + DbContext (abajo, junto a los demás contextos)
 // + outbox. Sin ports todavía — IClienteReadPort/IFacturacionAnticiposReadPort
 // entran con sus consumidores (CXC-PR3+). Ver 01-diseño §6.1.
-builder.Services.AddCuentasPorCobrarModule(builder.Configuration);
+builder.Services.AddCuentasPorCobrarModule(builder.Configuration, builder.Environment.IsDevelopment());
 
 // === Módulo Tesorería (TES-PR1) ===
 // Foundation: esquema `tesoreria` + DbContext (abajo, junto a los demás
@@ -896,6 +940,23 @@ builder.Services.AddScoped<Millet.Facturacion.Domain.Ports.IUsuariosReadPort, Mi
 // catálogo general). DbContext abajo, junto a los demás contextos. Sin
 // endpoints ni outbox todavía — CRUD/jerarquía entran en A2/A3.
 builder.Services.AddCentrosCostoModule();
+builder.Services.AddComprasReadPorts();
+builder.Services.AddComercioExteriorModule();
+builder.Services.AddScoped<Millet.CuentasPorPagar.Application.PublicPorts.IFacturaGastoReadPort, Millet.CuentasPorPagar.Infrastructure.PublicAdapters.FacturaGastoReadAdapter>();
+builder.Services.AddOptions<Millet.ComercioExterior.Infrastructure.Workers.AvisosHitosWorkerOptions>()
+    .Bind(builder.Configuration.GetSection(Millet.ComercioExterior.Infrastructure.Workers.AvisosHitosWorkerOptions.SectionName))
+    .Validate(o => o.Interval > TimeSpan.Zero, "ComercioExterior:AvisosHitos:Interval debe ser mayor que cero.")
+    .ValidateOnStart();
+builder.Services.AddHostedService<Millet.ComercioExterior.Infrastructure.Workers.AvisosHitosWorker>();
+builder.Services.AddOptions<Millet.ActivosFijos.Infrastructure.Workers.AvisosActivosOptions>()
+    .Bind(builder.Configuration.GetSection(Millet.ActivosFijos.Infrastructure.Workers.AvisosActivosOptions.SectionName))
+    .Validate(o => o.Interval > TimeSpan.Zero && o.DiasAnticipacion is >= 0 and <= 365 && o.DiasPorEmpresa.Values.All(d => d is >= 0 and <= 365), "Revise intervalo y días de anticipación de avisos AF.")
+    .ValidateOnStart();
+builder.Services.AddHostedService<Millet.ActivosFijos.Infrastructure.Workers.AvisosActivosWorker>();
+builder.Services.AddOptions<OutboxPublisherOptions>(nameof(ComercioExteriorDbContext))
+    .Configure(o => o.ServiceBusTopicName = "comercio-exterior-events")
+    .Bind(builder.Configuration.GetSection("ComercioExterior:Outbox"));
+builder.Services.AddHostedService<OutboxPublisherWorker<ComercioExteriorDbContext>>();
 
 // === Módulo Contabilidad (F1-CON-01): catálogo contable ===
 // Esquema `contabilidad`, ContabilidadDbContext abajo. Config de formato en Contabilidad:Catalogo (ValidateOnStart).
@@ -928,6 +989,7 @@ var awIntegracionDb = builder.Configuration.GetConnectionString("AwIntegracionDb
 if (!string.IsNullOrWhiteSpace(awIntegracionDb)
     && !awIntegracionDb.StartsWith("@Microsoft.KeyVault", StringComparison.OrdinalIgnoreCase))
 {
+    Millet.Integraciones.Aw.Infrastructure.Adapters.AwSqlTls.Validar(awIntegracionDb, "AwIntegracionDb");
     builder.Services.AddIntegracionesAwPedidosAdapters(builder.Configuration);
 }
 
@@ -936,7 +998,10 @@ if (!string.IsNullOrWhiteSpace(awIntegracionDb)
 builder.Services.AddIntegracionesAwClientes(builder.Configuration);
 builder.Services.AddIntegracionesAwProductos(builder.Configuration);
 builder.Services.AddIntegracionesAwCambios(builder.Configuration);
+// U1.8b: reporte de diferencias fiscales A+W vs ERP (solo lee A+W; worker semanal apagado por defecto).
+Millet.Integraciones.Aw.Infrastructure.DiferenciasFiscales.DiferenciasFiscalesDependencyInjection.AddIntegracionesAwDiferenciasFiscales(builder.Services, builder.Configuration);
 Millet.Integraciones.Aw.Infrastructure.Origen.OrigenDependencyInjection.AddIntegracionesAwOrigen(builder.Services, builder.Configuration);
+Millet.Integraciones.Aw.Infrastructure.Exportacion.OtrDependencyInjection.AddAwOtrExportacion(builder.Services, builder.Configuration);
 
 // F2-PR2: worker de envío de CFDI por correo (drena bitacora_envio_correo,
 // genera PDF + adjunta XML, entrega vía INotificacionService [stub]).
@@ -1321,6 +1386,15 @@ builder.Services.AddDbContext<CentrosCostoDbContext>((sp, opts) =>
 builder.Services.AddDbContext<ContabilidadDbContext>((sp, opts) =>
     ConfigureMilletDbContext(opts, sp));
 
+builder.Services.AddDbContext<ComercioExteriorDbContext>((sp, opts) =>
+{
+    ConfigureMilletDbContext(opts, sp);
+    opts.AddInterceptors(sp.GetRequiredService<OutboxSaveChangesInterceptor>());
+});
+
+builder.Services.AddActivosFijosModule();
+builder.Services.AddDbContext<ActivosFijosDbContext>((sp, opts) => ConfigureMilletDbContext(opts, sp));
+
 // === Manejo de errores: Problem Details vía IExceptionHandler ===
 builder.Services.AddExceptionHandler<GlobalExceptionHandler>();
 builder.Services.AddProblemDetails();
@@ -1351,6 +1425,8 @@ builder.Services.AddSingleton(new MigrationsHealthCheckOptions
 
         typeof(CentrosCostoDbContext),
         typeof(ContabilidadDbContext),
+        typeof(ComercioExteriorDbContext),
+        typeof(ActivosFijosDbContext),
     },
 });
 
@@ -1425,6 +1501,7 @@ app.MapLineasEndpoints();
 app.MapAprobadoresEndpoints();
 app.MapComprasSettingsEndpoints();
 app.MapUmbralesAprobacionEndpoints();
+app.MapCotizacionesEndpoints();
 
 // === Settings genéricos /api/v1/{modulo}/settings (F-Admin-PR1.1, ADR-0034) ===
 app.MapSettingsEndpoints();
@@ -1454,6 +1531,8 @@ Millet.Api.Endpoints.Contabilidad.ContabilidadCatalogoEndpoints.MapContabilidadE
 Millet.Api.Endpoints.Contabilidad.ContabilidadDimensionesEndpoints.MapContabilidadDimensionesEndpoints(app);
 // === Contabilidad — ejercicios y periodos contables: apertura, cierre y reapertura con bitácora (F1-CON-03) ===
 Millet.Api.Endpoints.Contabilidad.ContabilidadPeriodosEndpoints.MapContabilidadPeriodosEndpoints(app);
+Millet.Api.Endpoints.Contabilidad.ContabilidadPolizasEndpoints.MapContabilidadPolizasEndpoints(app);
+Millet.Api.Endpoints.Contabilidad.ContabilidadRecurrentesEndpoints.MapContabilidadRecurrentesEndpoints(app);
 
 // === Almacén — CRUD asignación artículo→ubicación (OITW, ADR-0047 PR3) ===
 Millet.Api.Endpoints.Almacen.Asignaciones.AlmacenAsignacionesEndpoints.MapAlmacenAsignacionesEndpoints(app);
@@ -1484,6 +1563,9 @@ Millet.Api.Endpoints.Almacen.Vales.ValeBlobEndpoints.MapValeBlobEndpoints(app);
 // === Almacén — Devoluciones internas 8.A + MAT-REV (F5-PR1) ===
 Millet.Api.Endpoints.Almacen.DevolucionesInternas.DevolucionesInternasEndpoints
     .MapDevolucionesInternasEndpoints(app);
+
+// === Almacén — Material en revisión (ALM-04) ===
+Millet.Api.Endpoints.Almacen.Revision.MaterialEnRevisionEndpoints.MapMaterialEnRevisionEndpoints(app);
 
 // === Almacén — Devoluciones a proveedor 8.B (F6-PR1) ===
 Millet.Api.Endpoints.Almacen.DevolucionesProveedor.DevolucionesProveedorEndpoints
@@ -1536,6 +1618,9 @@ Millet.Api.Endpoints.Compras.Oc.Dim3BuscarAbiertoEndpoint.MapDim3BuscarAbiertoEn
 // === Compras — Trazabilidad cross-módulo (F7-PR2) ===
 Millet.Api.Endpoints.Compras.Trazabilidad.ArbolDocumentosEndpoint.MapArbolDocumentosEndpoint(app);
 
+// === Compras — Análisis de compras, saldos y cumplimiento de proveedores (F1-COM-13) ===
+Millet.Api.Endpoints.Compras.Reportes.AnalisisProveedoresEndpoints.MapAnalisisProveedoresEndpoints(app);
+
 // === Compras — Historial de compras por artículo (F7-PR3) ===
 Millet.Api.Endpoints.Compras.Articulos.HistorialComprasMaterialEndpoint.MapHistorialComprasMaterialEndpoint(app);
 
@@ -1560,8 +1645,11 @@ Millet.Api.Endpoints.Catalogos.CatalogosSatFiscalApiEndpoints.MapCatalogosSatFis
 // === Datos Maestros — queries enriquecidas (F-Admin-PR4.5) ===
 Millet.Api.Endpoints.DatosMaestros.DatosMaestrosEndpoints.MapDatosMaestrosEndpoints(app);
 Millet.Api.Endpoints.DatosMaestros.F1AEndpoints.MapF1AEndpoints(app);
+Millet.Api.Endpoints.DatosMaestros.SincronizacionAwEndpoints.MapSincronizacionAwEndpoints(app);
 Millet.Api.Endpoints.DatosMaestros.ClientesSincronizacionEndpoints.MapClientesSincronizacionEndpoints(app);
+Millet.Api.Endpoints.DatosMaestros.RfcRepetidosEndpoints.MapRfcRepetidosEndpoints(app);
 Millet.Api.Endpoints.DatosMaestros.ProductosAwSincronizacionEndpoints.MapProductosAwSincronizacionEndpoints(app);
+Millet.Api.Endpoints.DatosMaestros.DiferenciasFiscalesAwEndpoints.MapDiferenciasFiscalesAwEndpoints(app);
 
 // === Catálogo de tipos de documento OC (UF3-PR2 — Compras-specific) ===
 Millet.Api.Endpoints.Compras.Oc.TiposDocumentoOcEndpoint.MapTiposDocumentoOcEndpoint(app);
@@ -1694,6 +1782,10 @@ Millet.Api.Endpoints.CuentasPorCobrar.AlertasEndpoints.MapAlertasEndpoints(app);
 // === Tesorería — Cuentas con saldo + libro de movimientos (TES-PR2) ===
 Millet.Api.Endpoints.Inicio.ResumenesInicioEndpoints.MapResumenesInicioEndpoints(app);
 
+Millet.Api.Endpoints.ComercioExterior.ExpedientesEndpoints.MapExpedientesCe(app);
+Millet.Api.Endpoints.ActivosFijos.ActivosEndpoints.MapActivosFijos(app);
+Millet.Api.Endpoints.ComercioExterior.OtrEndpoints.MapOtrCe(app);
+
 Millet.Api.Endpoints.Tesoreria.CuentasEndpoints.MapTesoreriaCuentasEndpoints(app);
 Millet.Api.Endpoints.Tesoreria.ConceptosEndpoints.MapTesoreriaConceptosEndpoints(app);
 Millet.Api.Endpoints.Tesoreria.MovimientosEndpoints.MapTesoreriaMovimientosEndpoints(app);
@@ -1709,6 +1801,7 @@ Millet.Api.Endpoints.Tesoreria.PagosACuentaEndpoints.MapTesoreriaPagosACuentaEnd
 
 // === Tesorería — Confirmación de depósitos de cliente (TES-PR7, TES-9) ===
 Millet.Api.Endpoints.Tesoreria.DepositosEndpoints.MapTesoreriaDepositosEndpoints(app);
+Millet.Api.Endpoints.Tesoreria.DevolucionesEndpoints.MapTesoreriaDevolucionesEndpoints(app);
 
 // === Tesorería — REPP recibido de proveedor: pendientes SLA + registro (TES-PR8, TES-4) ===
 Millet.Api.Endpoints.Tesoreria.ReppEndpoints.MapTesoreriaReppEndpoints(app);

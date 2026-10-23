@@ -19,4 +19,10 @@ public interface IClienteReadPort
     /// </summary>
     Task<IReadOnlyDictionary<Guid, ClienteRefDto>> ObtenerVariosAsync(
         IReadOnlyCollection<Guid> clienteIds, CancellationToken cancellationToken);
+
+    /// <summary>
+    /// Búsqueda por razón social, clave o RFC (texto libre) para el selector
+    /// de cliente de Tesorería. Devuelve como máximo <paramref name="limite"/> resultados.
+    /// </summary>
+    Task<IReadOnlyList<ClienteRefDto>> BuscarAsync(string texto, int limite, CancellationToken cancellationToken);
 }

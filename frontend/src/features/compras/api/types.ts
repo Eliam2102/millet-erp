@@ -345,6 +345,8 @@ export interface RequisicionListItemResponse {
  */
 export interface RequisicionResponse {
   obra?: string | null;
+  /** Surtido de almacén: true = solo aparta si alcanza la línea completa. */
+  soloApartarSiCompleto?: boolean;
   id: string;
   empresaId: string;
   folio: string;
@@ -491,6 +493,8 @@ export interface LineaResponse {
    * resiliencia ante respuestas viejas.
    */
   cantSaldoPorComprar?: number;
+  /** Apartado liberado que ya no se pide ni se compra (86e3tferc). */
+  cantSinCompra?: number;
 }
 
 /** Mirror de <c>AutorizacionResponse</c>. */
@@ -622,6 +626,7 @@ export const HistoricoTipo = {
   RecepcionRegistrada: 12,
   SaldoNoSurtido: 13,
   Cerrada: 14,
+  ApartadoLiberado: 15,
 } as const satisfies Record<string, number>;
 export type HistoricoTipo = (typeof HistoricoTipo)[keyof typeof HistoricoTipo];
 
@@ -646,6 +651,7 @@ export const HISTORICO_TIPO_LABEL: Record<HistoricoTipo, string> = {
   [HistoricoTipo.RecepcionRegistrada]: 'Recepción registrada',
   [HistoricoTipo.SaldoNoSurtido]: 'Saldo no surtido',
   [HistoricoTipo.Cerrada]: 'Cerrada',
+  [HistoricoTipo.ApartadoLiberado]: 'Apartado liberado',
 };
 
 /**
@@ -735,7 +741,6 @@ export interface ComprasConfiguracionResponse {
   empresaId: string;
   autoGenerarOcAlAutorizar: boolean;
   apartarExistenciaAlAutorizar: boolean;
-  modoNivel2: ModoNivel2;
 }
 
 /** Mirror de <c>UmbralAprobacionResponse</c>. <c>umbralMenorCuantia</c> null = sin N1. */
@@ -745,6 +750,8 @@ export interface UmbralAprobacionResponse {
   umbralMonto: number;
   moneda: string;
   vigenteDesde: string;
+  modoNivel2: ModoNivel2;
+  montoMinimoDisponibilidad: number | null;
 }
 
 /** Body de <c>PUT /api/v1/compras/umbrales-aprobacion</c> (mirror de <c>UpsertUmbralCommand</c>). */
@@ -753,4 +760,109 @@ export interface UpsertUmbralRequest {
   umbralMenorCuantia: number | null;
   umbralMonto: number;
   moneda: 'MXN';
+  modoNivel2: ModoNivel2;
+  montoMinimoDisponibilidad: number | null;
+}
+
+// F1-COM-02 · Cotizaciones
+// Espejo de backend/src/Compras/Application/Cotizaciones/*.cs. Fechas DateOnly como 'YYYY-MM-DD'.
+
+/** Tipo de documento del servicio genérico de adjuntos (ADR-0058) para el PDF de la cotización. */
+export const TIPO_ADJUNTO_COTIZACION_ID = '00000011-0006-0000-0000-000000000004';
+
+export interface PartidaComparativo {
+  lineaRequisicionId: string;
+  posicion: number;
+  articuloId: string;
+  articuloClave: string | null;
+  articuloNombre: string | null;
+  cantidadDeCompra: number;
+  saldoPorComprar: number;
+  unidad: string;
+}
+
+export interface TipoCambioComparativo {
+  moneda: string;
+  fecha: string;
+  valorEnMxn: number | null;
+}
+
+export interface LineaComparativo {
+  lineaRequisicionId: string;
+  unidadCotizada: string;
+  factorAUnidadRq: number;
+  precioUnitario: number;
+  diasEntrega: number | null;
+  precioPorUnidadRq: number;
+  precioMxnPorUnidadRq: number | null;
+  importeMxn: number | null;
+  esMenorPrecio: boolean;
+}
+
+export interface CotizacionComparativo {
+  id: string;
+  proveedorId: string;
+  proveedorClave: string | null;
+  proveedorRazonSocial: string | null;
+  proveedorRfc: string | null;
+  proveedorActivo: boolean;
+  folioProveedor: string | null;
+  moneda: string;
+  fechaCotizacion: string;
+  vigenteHasta: string;
+  vigente: boolean;
+  condicionesCredito: string | null;
+  condicionesPagoId?: string | null;
+  fechaEntrega?: string | null;
+  archivoAdjuntoId: string | null;
+  archivoNombre: string | null;
+  elegida: boolean;
+  motivoEleccion: string | null;
+  elegidaPor: string | null;
+  elegidaEn: string | null;
+  ordenCompraId: string | null;
+  registradaPor: string;
+  registradaEn: string;
+  version: number;
+  lineas: LineaComparativo[];
+}
+
+export interface ComparativoCotizaciones {
+  requisicionId: string;
+  requisicionFolio: string;
+  sucursalId: string;
+  estadoRequisicion: EstadoRequisicion;
+  comprometidaEnOcId: string | null;
+  puedeRegistrar: boolean;
+  comparativoCerrado: boolean;
+  hoy: string;
+  partidas: PartidaComparativo[];
+  tiposCambio: TipoCambioComparativo[];
+  cotizaciones: CotizacionComparativo[];
+}
+
+export interface LineaCotizacionRequest {
+  lineaRequisicionId: string;
+  unidadCotizada: string;
+  factorAUnidadRq: number;
+  precioUnitario: number;
+  diasEntrega: number | null;
+}
+
+/** Body de <c>POST /api/v1/compras/requisiciones/{id}/cotizaciones</c> (la RQ sale de la ruta). */
+export interface RegistrarCotizacionRequest {
+  proveedorId: string;
+  folioProveedor: string | null;
+  moneda: string;
+  fechaCotizacion: string;
+  vigenteHasta: string;
+  condicionesCredito: string | null;
+  condicionesPagoId?: string | null;
+  fechaEntrega?: string | null;
+  lineas: LineaCotizacionRequest[];
+}
+
+export interface CotizacionGuardada {
+  id: string;
+  version: number;
 }

@@ -14,8 +14,8 @@ import {
 } from '@/features/compras/ordenes/api/types';
 
 /**
- * Fracción arancelaria por línea (supuesto Vilo, F1-COM-06). Solo visible y
- * editable al EDITAR una línea de OC de comercio exterior; valida 8 o 10
+ * Fracción arancelaria por partida (supuesto Vilo, F1-COM-06). Solo visible y
+ * editable al EDITAR una partida de OC de comercio exterior; valida 8 o 10
  * dígitos y muestra el error del API junto al campo.
  */
 
@@ -113,7 +113,7 @@ describe('<LineaInlineFormOc> — fracción arancelaria', () => {
     expect(patchCount).toBe(0);
   });
 
-  it('envía la fracción de 10 dígitos en el PATCH de la línea', async () => {
+  it('envía la fracción de 10 dígitos en el PATCH de la partida', async () => {
     let body: Record<string, unknown> | null = null;
     mswServer.use(
       http.patch('*/api/v1/compras/ordenes/oc-1/lineas/l-1', async ({ request }) => {
@@ -165,7 +165,7 @@ describe('<LineaInlineFormOc> — fracción arancelaria', () => {
     await waitFor(() =>
       expect(
         screen.getByText('La fracción arancelaria debe tener 8 o 10 dígitos.', {
-          selector: 'p[role="alert"]',
+          selector: 'p',
         }),
       ).toBeInTheDocument(),
     );

@@ -44,6 +44,16 @@ public sealed class LineaOrdenCompra : BaseEntity, IAuditable, IBelongsToAggrega
 
     public int Posicion { get; private set; }
 
+    public bool EsActivoFijo { get; private set; }
+    public Guid? ClaseActivoId { get; private set; }
+
+    internal void ClasificarActivo(bool esActivo, Guid? clase)
+    {
+        if (esActivo && (clase is null || clase == Guid.Empty || Cantidad != decimal.Truncate(Cantidad)))
+            throw new BusinessRuleException("COMPRA_ACTIVO_INVALIDO", "El activo requiere clase sugerida y cantidad entera.");
+        EsActivoFijo = esActivo; ClaseActivoId = esActivo ? clase : null;
+    }
+
     public Guid ArticuloId { get; private set; }
 
     /// <summary>
@@ -321,6 +331,7 @@ public sealed class LineaOrdenCompra : BaseEntity, IAuditable, IBelongsToAggrega
                     "LINEA_OC_CANTIDAD_INVALIDA",
                     "La cantidad debe ser mayor a cero.");
             }
+            if (EsActivoFijo && c != decimal.Truncate(c)) throw new BusinessRuleException("COMPRA_ACTIVO_CANTIDAD", "El activo requiere unidades enteras.");
             Cantidad = c;
         }
         if (unidadMedida is not null)
@@ -428,7 +439,8 @@ public sealed class LineaOrdenCompra : BaseEntity, IAuditable, IBelongsToAggrega
     /// Asigna (no incrementa) el acumulado de recepción para esta línea
     /// (F5-PR1). La idempotencia es del caller: el payload de los
     /// listeners trae el set acumulado, no el delta. Valida rango
-    /// [0, <see cref="Cantidad"/>].
+    /// [0, Cantidad] (86e3tab1k: sin tolerancia en piezas) cuando el acumulado sube; al bajar
+    /// (devolución) no aplica techo.
     /// </summary>
     internal void SetCantidadRecibida(decimal cantidadAcumulada)
     {
@@ -438,7 +450,7 @@ public sealed class LineaOrdenCompra : BaseEntity, IAuditable, IBelongsToAggrega
                 "LINEA_OC_CANTIDAD_RECIBIDA_NEGATIVA",
                 "La cantidad recibida acumulada no puede ser negativa.");
         }
-        if (cantidadAcumulada > Cantidad)
+        if (cantidadAcumulada > Cantidad && cantidadAcumulada > CantidadRecibida)
         {
             throw new BusinessRuleException(
                 "LINEA_OC_CANTIDAD_RECIBIDA_EXCEDE",
@@ -459,11 +471,13 @@ public sealed class LineaOrdenCompra : BaseEntity, IAuditable, IBelongsToAggrega
                 "LINEA_OC_CANTIDAD_FACTURADA_NEGATIVA",
                 "La cantidad facturada acumulada no puede ser negativa.");
         }
-        if (cantidadAcumulada > Cantidad)
+        // three-way match: se factura hasta lo pedido o lo recibido (un recibido histórico puede exceder lo pedido)
+        var techo = Math.Max(Cantidad, CantidadRecibida);
+        if (cantidadAcumulada > techo)
         {
             throw new BusinessRuleException(
                 "LINEA_OC_CANTIDAD_FACTURADA_EXCEDE",
-                $"La cantidad facturada acumulada ({cantidadAcumulada}) excede la cantidad de la línea ({Cantidad}).");
+                $"La cantidad facturada acumulada ({cantidadAcumulada}) excede lo pedido o recibido en la línea ({techo}).");
         }
         CantidadFacturada = cantidadAcumulada;
     }

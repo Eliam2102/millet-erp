@@ -19,6 +19,7 @@ namespace Millet.Almacen.UnitTests.Salidas;
 public class ObtenerSalidaPorIdHandlerTests
 {
     private static readonly Guid SubId = Guid.NewGuid();
+    private static readonly Guid AlmacenId = Guid.NewGuid();
     private static readonly Guid ArtA = Guid.NewGuid();
     private static readonly Guid ArtB = Guid.NewGuid();
     private static readonly Guid RqId = Guid.NewGuid();
@@ -51,6 +52,10 @@ public class ObtenerSalidaPorIdHandlerTests
         dto.Lineas.Where(l => l.ArticuloId == ArtA)
             .Should().OnlyContain(l => l.ArticuloDescripcion == "Tornillo M6" && l.ArticuloClave == "ACC-001");
         dto.Lineas.Single(l => l.ArticuloId == ArtB).ArticuloDescripcion.Should().Be("Tuerca M6");
+        dto.Lineas.Single(l => l.Posicion == 1).ComentarioLinea.Should().Be("Revisar holgura");
+        dto.Lineas.Where(l => l.Posicion != 1).Should().OnlyContain(l => l.ComentarioLinea == null);
+        // Ubicación de cada línea: ruta "ALM › SUB · BIN" resuelta en una sola consulta.
+        dto.Lineas.Should().OnlyContain(l => l.UbicacionCodigo == "ALM-01 › ALM-CEN · U1");
     }
 
     [Fact]
@@ -70,6 +75,8 @@ public class ObtenerSalidaPorIdHandlerTests
         dto.RqFolio.Should().BeNull();
         dto.PersonaDestinatariaNombre.Should().BeNull();
         dto.Lineas.Should().OnlyContain(l => l.ArticuloDescripcion == null && l.ArticuloClave == null);
+        // Sin sub-almacén resoluble la ruta de la ubicación tampoco se arma.
+        dto.Lineas.Should().OnlyContain(l => l.UbicacionCodigo == null);
         // Los ids siguen presentes para que el frontend pueda caer a ellos.
         dto.SubAlmacenId.Should().Be(SubId);
         dto.RqId.Should().Be(RqId);
@@ -121,7 +128,7 @@ public class ObtenerSalidaPorIdHandlerTests
     }
 
     private static ArticuloLectura Art(Guid id, string clave, string descripcion) =>
-        new(id, clave, descripcion, "PZA", null, null, true);
+        new(id, clave, descripcion, "PZA", null, true);
 
     private static Guid SalidaId(AlmacenDbContext db) =>
         db.Movimientos.AsNoTracking().Select(m => m.Id).Single();
@@ -143,8 +150,10 @@ public class ObtenerSalidaPorIdHandlerTests
         db.Ubicaciones.Add(new Ubicacion(UbicId, SubId, "U1", "Ubicación 1"));
         if (conSubAlmacen)
         {
+            db.Almacenes.Add(new Millet.Almacen.Domain.Catalogo.Almacen(
+                AlmacenId, clave: "ALM-01", nombre: "Almacén 01", sucursalId: Guid.NewGuid()));
             db.SubAlmacenes.Add(new SubAlmacen(
-                SubId, almacenId: Guid.NewGuid(), clave: "ALM-CEN",
+                SubId, almacenId: AlmacenId, clave: "ALM-CEN",
                 nombre: "Almacén Central", tipo: TipoSubAlmacen.Insumos));
         }
 
@@ -154,7 +163,7 @@ public class ObtenerSalidaPorIdHandlerTests
             empresaId: Guid.NewGuid(),
             fechaMovimiento: new DateOnly(2026, 6, 1));
 
-        mov.AgregarLinea(new LineaMovimiento(Guid.NewGuid(), mov.Id, 1, ArtA, 2m, "PZA", 10m, ubicacionId: UbicId));
+        mov.AgregarLinea(new LineaMovimiento(Guid.NewGuid(), mov.Id, 1, ArtA, 2m, "PZA", 10m, comentarioLinea: "Revisar holgura", ubicacionId: UbicId));
         mov.AgregarLinea(new LineaMovimiento(Guid.NewGuid(), mov.Id, 2, ArtB, 1m, "PZA", 20m, ubicacionId: UbicId));
         mov.AgregarLinea(new LineaMovimiento(Guid.NewGuid(), mov.Id, 3, ArtA, 3m, "PZA", 10m, ubicacionId: UbicId));
 

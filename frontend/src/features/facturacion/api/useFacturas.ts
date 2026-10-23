@@ -61,6 +61,7 @@ export function useListarFacturas(filtros: ListarFacturasFiltros) {
       if (filtros.offset != null) params.set('offset', String(filtros.offset));
       if (filtros.limit != null) params.set('limit', String(filtros.limit));
       if (filtros.alcance != null) params.set('alcance', filtros.alcance);
+      if (filtros.clase != null) params.set('clase', filtros.clase);
       const qs = params.toString();
       const { data } = await apiRequest<BandejaScoped<FacturaBandejaItem>>(
         qs ? `${BASE}?${qs}` : `${BASE}/`,
@@ -326,6 +327,37 @@ export function useEmitirNcBonificacion() {
       queryClient.invalidateQueries({
         queryKey: facturacionKeys.facturaById(args.command.facturaVentaId),
       });
+    },
+  });
+}
+
+/**
+ * <c>useSolicitarReembolsoNc()</c> — pide a Tesorería el reembolso en dinero de una NC
+ * timbrada (T9.6 · CA6.17; Idempotency-Key). No cambia el saldo de la factura, pero
+ * refresca el detalle para marcar la NC como «Solicitado».
+ */
+export function useSolicitarReembolsoNc() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (args: {
+      notaCreditoId: string;
+      importe: number;
+      motivo: string;
+      idempotencyKey: string;
+    }) => {
+      const { data } = await apiRequest<{
+        notaCreditoId: string;
+        importe: number;
+        reembolsoSolicitadoEn: string;
+      }>(`/api/v1/facturacion/notas-credito/${args.notaCreditoId}/solicitar-reembolso`, {
+        method: 'POST',
+        body: { importe: args.importe, motivo: args.motivo },
+        idempotencyKey: args.idempotencyKey,
+      });
+      return data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: facturacionKeys.facturas() });
     },
   });
 }

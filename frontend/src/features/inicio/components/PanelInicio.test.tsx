@@ -150,7 +150,7 @@ describe('INI-ROL: pantalla y peticiones por permiso', () => {
     }));
     montar([P.TesoreriaCuentasVer]); await listo();
     expect(llamadas).toHaveLength(1);
-    expect(indicadores().getByText('No se pudo cargar. Por confirmar.')).toBeInTheDocument();
+    expect(indicadores().getByText('No se pudieron cargar los datos.')).toBeInTheDocument();
     expect(indicadores().queryByText('$0')).not.toBeInTheDocument();
   });
   it('las pestañas filtran la bandeja existente', async () => {

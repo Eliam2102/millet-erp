@@ -1,3 +1,7 @@
+import { ResumenImportes, FormSeccion, FormCampo } from '@/components/erp';
+
+import { SheetBody, SheetFooter } from '@/components/ui/sheet';
+
 import { diferenciaDeposito } from '../lib/diferencia-deposito';
 import { useEffect, useMemo, useState } from 'react';
 import { Controller, useForm, useWatch } from 'react-hook-form';
@@ -7,9 +11,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { ClienteSelectorCxc } from '@/features/cxc/components/ClienteSelectorCxc';
-import {
-  MatchingAplicacionTable,
-} from '@/features/cxc/components/MatchingAplicacionTable';
+import { MatchingAplicacionTable } from '@/features/cxc/components/MatchingAplicacionTable';
 import {
   useCrearPropuestaAplicacion,
   useFacturasAbiertas,
@@ -21,11 +23,7 @@ import {
   PropuestaAplicacionSchema,
   type PropuestaAplicacionValues,
 } from '@/features/cxc/schemas/propuesta-aplicacion';
-import {
-  applyServerErrors,
-  esApiError,
-  useFormIdempotencyKey,
-} from '@/lib/api';
+import { applyServerErrors, esApiError, useFormIdempotencyKey, codigoSoporte } from '@/lib/api';
 import { cn } from '@/lib/utils';
 
 /**
@@ -35,7 +33,7 @@ import { cn } from '@/lib/utils';
  * checkbox e importe editable inline. Footer con Σ aplicado, diferencia
  * y — si el depósito viene corto dentro de tolerancia — el ajuste no
  * fiscal (comisión bancaria) que NO genera CFDI. Sin remittance el
- * botón queda deshabilitado (regla 2.1).
+ * botón queda deshabilitado.
  */
 export interface NuevaPropuestaAplicacionProps {
   onClose: (opts?: { force?: boolean }) => void;
@@ -99,14 +97,16 @@ export function NuevaPropuestaAplicacion({
     [seleccion],
   );
   const tolerancia = tolerancias.data?.[moneda] ?? 0;
-  const { diferencia, faltaTolerancia, esAjusteNoFiscal, excedeTolerancia } =
-    diferenciaDeposito(montoDeposito || 0, sumaAplicada, tolerancias.isSuccess ? tolerancia : null);
+  const { diferencia, faltaTolerancia, esAjusteNoFiscal, excedeTolerancia } = diferenciaDeposito(
+    montoDeposito || 0,
+    sumaAplicada,
+    tolerancias.isSuccess ? tolerancia : null,
+  );
   const depositoExcedente = diferencia > 0 && seleccion.size > 0;
-  const importesInvalidos =
-    Array.from(seleccion.entries()).some(([uuid, imp]) => {
-      const f = facturas.data?.find((x) => x.uuid === uuid);
-      return imp <= 0 || (f != null && imp > f.saldo);
-    });
+  const importesInvalidos = Array.from(seleccion.entries()).some(([uuid, imp]) => {
+    const f = facturas.data?.find((x) => x.uuid === uuid);
+    return imp <= 0 || (f != null && imp > f.saldo);
+  });
 
   const sinRemittance = (remittanceRef ?? '').trim() === '';
   const puedeProponer =
@@ -127,13 +127,11 @@ export function NuevaPropuestaAplicacion({
           montoDeposito: values.montoDeposito,
           moneda: values.moneda,
           remittanceRef: values.remittanceRef.trim(),
-          facturas: Array.from(seleccion.entries()).map(
-            ([facturaUuid, importeAplicado]) => ({
-              facturaUuid,
-              importeAplicado,
-              numParcialidad: null,
-            }),
-          ),
+          facturas: Array.from(seleccion.entries()).map(([facturaUuid, importeAplicado]) => ({
+            facturaUuid,
+            importeAplicado,
+            numParcialidad: null,
+          })),
         },
         idempotencyKey,
       },
@@ -164,9 +162,7 @@ export function NuevaPropuestaAplicacion({
                 error.problem.detail ??
                 (errsLinea.length > 0
                   ? errsLinea.map((e) => e.mensaje).join(' · ')
-                  : error.traceId
-                    ? `Código: ${error.traceId}`
-                    : undefined),
+                  : codigoSoporte(error)),
             });
             return;
           }
@@ -177,14 +173,17 @@ export function NuevaPropuestaAplicacion({
   }
 
   return (
-    <form onSubmit={form.handleSubmit(onSubmit)} noValidate className="space-y-5">
-      {/* ── Depósito ─────────────────────────────────────────────── */}
-      <section className="space-y-2">
-        <h3 className="text-sm font-medium">Depósito</h3>
-        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-          <div className="space-y-1 sm:col-span-2">
+    <form
+      onSubmit={form.handleSubmit(onSubmit)}
+      noValidate
+      className="flex min-h-0 flex-1 flex-col"
+    >
+      <SheetBody className="space-y-5">
+        {/* ── Depósito ─────────────────────────────────────────────── */}
+        <FormSeccion titulo="Depósito">
+          <FormCampo span={12} className="space-y-1">
             <Label className="text-xs">
-              Cliente <span className="text-destructive">*</span>
+              Cliente <span className="text-danger-fg">*</span>
             </Label>
             <Controller
               name="clienteId"
@@ -197,14 +196,12 @@ export function NuevaPropuestaAplicacion({
               )}
             />
             {form.formState.errors.clienteId && (
-              <p className="text-xs text-destructive">
-                {form.formState.errors.clienteId.message}
-              </p>
+              <p className="text-xs text-danger-fg">{form.formState.errors.clienteId.message}</p>
             )}
-          </div>
-          <div className="space-y-1">
+          </FormCampo>
+          <FormCampo span={6} className="space-y-1">
             <Label htmlFor="depositoRef" className="text-xs">
-              Referencia del depósito <span className="text-destructive">*</span>
+              Referencia del depósito <span className="text-danger-fg">*</span>
             </Label>
             <Input
               id="depositoRef"
@@ -213,14 +210,12 @@ export function NuevaPropuestaAplicacion({
               {...form.register('depositoRef')}
             />
             {form.formState.errors.depositoRef && (
-              <p className="text-xs text-destructive">
-                {form.formState.errors.depositoRef.message}
-              </p>
+              <p className="text-xs text-danger-fg">{form.formState.errors.depositoRef.message}</p>
             )}
-          </div>
-          <div className="space-y-1">
+          </FormCampo>
+          <FormCampo span={6} className="space-y-1">
             <Label htmlFor="remittanceRef" className="text-xs">
-              Remittance del cliente <span className="text-destructive">*</span>
+              Remittance del cliente <span className="text-danger-fg">*</span>
             </Label>
             <Input
               id="remittanceRef"
@@ -228,18 +223,18 @@ export function NuevaPropuestaAplicacion({
               maxLength={120}
               {...form.register('remittanceRef')}
             />
-            <p className="text-[11px] leading-tight text-muted-foreground">
-              Sin remittance no se puede proponer (regla 2.1).
+            <p className="text-2xs leading-tight text-ink-muted">
+              Sin remittance no se puede proponer.
             </p>
             {form.formState.errors.remittanceRef && (
-              <p className="text-xs text-destructive">
+              <p className="text-xs text-danger-fg">
                 {form.formState.errors.remittanceRef.message}
               </p>
             )}
-          </div>
-          <div className="space-y-1">
+          </FormCampo>
+          <FormCampo span={6} className="space-y-1">
             <Label htmlFor="montoDeposito" className="text-xs">
-              Monto del depósito <span className="text-destructive">*</span>
+              Monto del depósito <span className="text-danger-fg">*</span>
             </Label>
             <Input
               id="montoDeposito"
@@ -249,18 +244,18 @@ export function NuevaPropuestaAplicacion({
               {...form.register('montoDeposito', { valueAsNumber: true })}
             />
             {form.formState.errors.montoDeposito && (
-              <p className="text-xs text-destructive">
+              <p className="text-xs text-danger-fg">
                 {form.formState.errors.montoDeposito.message}
               </p>
             )}
-          </div>
-          <div className="space-y-1">
+          </FormCampo>
+          <FormCampo span={6} className="space-y-1">
             <Label htmlFor="monedaDep" className="text-xs">
-              Moneda <span className="text-destructive">*</span>
+              Moneda <span className="text-danger-fg">*</span>
             </Label>
             <select
               id="monedaDep"
-              className="h-9 w-full rounded-md border border-input bg-transparent px-3 text-sm shadow-sm"
+              className="h-9 w-full rounded-md border border-line-control bg-transparent px-3 text-sm shadow-card-flat"
               {...form.register('moneda')}
             >
               {MONEDAS_LINEA_CREDITO.map((m) => (
@@ -269,91 +264,75 @@ export function NuevaPropuestaAplicacion({
                 </option>
               ))}
             </select>
-          </div>
-        </div>
-      </section>
+          </FormCampo>
+        </FormSeccion>
 
-      {/* ── Facturas abiertas (matching) ─────────────────────────── */}
-      {clienteId ? (
-        <section className="space-y-2">
-          <h3 className="text-sm font-medium">
-            Facturas abiertas del cliente ({moneda})
-          </h3>
-          <MatchingAplicacionTable
-            query={facturas}
-            seleccion={seleccion}
-            onCambiar={cambiarSeleccion}
-            disabled={crear.isPending}
-          />
-        </section>
-      ) : (
-        <p className="rounded-md border border-dashed px-3 py-4 text-center text-sm text-muted-foreground">
-          Elige el cliente para cargar sus facturas abiertas.
-        </p>
-      )}
+        {/* ── Facturas abiertas (matching) ─────────────────────────── */}
+        {clienteId ? (
+          <section className="space-y-2">
+            <h3 className="text-sm font-medium">Facturas abiertas del cliente ({moneda})</h3>
+            <MatchingAplicacionTable
+              query={facturas}
+              seleccion={seleccion}
+              onCambiar={cambiarSeleccion}
+              disabled={crear.isPending}
+            />
+          </section>
+        ) : (
+          <p className="rounded-md border border-dashed px-3 py-4 text-center text-sm text-ink-muted">
+            Elige el cliente para cargar sus facturas abiertas.
+          </p>
+        )}
 
-      {/* ── Footer Σ / diferencia / ajuste ───────────────────────── */}
-      <section
-        className={cn(
-          'space-y-1 rounded-md border px-4 py-3 text-sm',
-          excedeTolerancia
-            ? 'border-destructive/50 bg-destructive/5'
-            : esAjusteNoFiscal
-              ? 'border-line bg-warning-bg'
-              : 'bg-muted/30',
-        )}
-        aria-live="polite"
-      >
-        <div className="flex flex-wrap items-center justify-between gap-2 font-mono tabular-nums">
-          <span>Σ aplicado: {formatoMonto(sumaAplicada, moneda)}</span>
-          <span>
-            Diferencia:{' '}
-            <span
-              className={cn(
-                diferencia !== 0 && 'font-semibold',
-                (excedeTolerancia) && 'text-destructive',
-              )}
-            >
-              {formatoMonto(diferencia, moneda)}
-            </span>
-          </span>
-        </div>
-        {depositoExcedente && (
-          <p className="text-xs text-destructive">
-            El excedente quedará como saldo a favor por identificar del cliente
-            cuando Tesorería confirme el depósito.
-          </p>
-        )}
-        {excedeTolerancia && (
-          <p className="text-xs text-destructive">
-            La diferencia excede la tolerancia no fiscal (
-            {formatoMonto(tolerancia, moneda)}). Corrige los importes o
-            gestiona la diferencia con el cliente.
-          </p>
-        )}
-        {esAjusteNoFiscal && (
-          <p className="text-xs text-amber-800 dark:text-amber-300">
-            La diferencia se registrará como ajuste no fiscal (p. ej.
-            comisión bancaria) dentro de la tolerancia de{' '}
-            {formatoMonto(tolerancia, moneda)} — NO genera CFDI.
-          </p>
-        )}
-        {faltaTolerancia && (
-          <p className="text-xs text-muted-foreground">
-            {tolerancias.isError
-              ? 'No se pudo cargar la tolerancia no fiscal; reintenta para poder proponer un depósito corto.'
-              : 'Cargando tolerancia no fiscal…'}
-          </p>
-        )}
-      </section>
-
-      <div className="flex items-center justify-end gap-2 border-t pt-4">
-        <Button
-          type="button"
-          variant="ghost"
-          onClick={() => onClose()}
-          disabled={crear.isPending}
+        {/* ── Footer Σ / diferencia / ajuste ───────────────────────── */}
+        <section
+          className={cn(
+            'space-y-1 rounded-md border px-4 py-3 text-sm',
+            excedeTolerancia
+              ? 'border-line bg-danger-bg'
+              : esAjusteNoFiscal
+                ? 'border-line bg-warning-bg'
+                : 'bg-surface-muted/30',
+          )}
+          aria-live="polite"
         >
+          <ResumenImportes
+            moneda={moneda}
+            total={sumaAplicada}
+            estadoPago={[
+              { etiqueta: 'Depósito', monto: montoDeposito || 0 },
+              { etiqueta: 'Diferencia', monto: diferencia },
+            ]}
+          />
+          {depositoExcedente && (
+            <p className="text-xs text-danger-fg">
+              El excedente quedará como saldo a favor por identificar del cliente cuando Tesorería
+              confirme el depósito.
+            </p>
+          )}
+          {excedeTolerancia && (
+            <p className="text-xs text-danger-fg">
+              La diferencia excede la tolerancia no fiscal ({formatoMonto(tolerancia, moneda)}).
+              Corrige los importes o gestiona la diferencia con el cliente.
+            </p>
+          )}
+          {esAjusteNoFiscal && (
+            <p className="text-xs text-warning-fg ">
+              La diferencia se registrará como ajuste no fiscal (p. ej. comisión bancaria) dentro de
+              la tolerancia de {formatoMonto(tolerancia, moneda)} — NO genera CFDI.
+            </p>
+          )}
+          {faltaTolerancia && (
+            <p className="text-xs text-ink-muted">
+              {tolerancias.isError
+                ? 'No se pudo cargar la tolerancia no fiscal; reintenta para poder proponer un depósito corto.'
+                : 'Cargando tolerancia no fiscal…'}
+            </p>
+          )}
+        </section>
+      </SheetBody>
+      <SheetFooter className="flex-row justify-end border-t border-line-divider">
+        <Button type="button" variant="ghost" onClick={() => onClose()} disabled={crear.isPending}>
           Cancelar
         </Button>
         <Button
@@ -361,7 +340,7 @@ export function NuevaPropuestaAplicacion({
           disabled={crear.isPending || !puedeProponer}
           title={
             sinRemittance
-              ? 'Sin remittance del cliente no se puede proponer (regla 2.1).'
+              ? 'Sin remittance del cliente no se puede proponer.'
               : seleccion.size === 0
                 ? 'Selecciona al menos una factura.'
                 : undefined
@@ -369,7 +348,7 @@ export function NuevaPropuestaAplicacion({
         >
           {crear.isPending ? 'Proponiendo…' : 'Proponer aplicación'}
         </Button>
-      </div>
+      </SheetFooter>
     </form>
   );
 }

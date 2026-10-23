@@ -1,7 +1,18 @@
-﻿import { useEffect, useState } from 'react';
+import { FormSeccion } from '@/components/erp/forms/FormSeccion';
+import { FormGrid, FormCampo } from '@/components/erp/forms/FormGrid';
+import { useEffect, useState } from 'react';
 import { Controller, useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
-import { AlertCircle, AlertTriangle, Check, CheckCircle2, Loader2, Plus, RotateCcw, X } from 'lucide-react';
+import {
+  AlertCircle,
+  AlertTriangle,
+  Check,
+  CheckCircle2,
+  Loader2,
+  Plus,
+  RotateCcw,
+  X,
+} from 'lucide-react';
 import { toast } from 'sonner';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -10,11 +21,9 @@ import {
   applyServerErrors,
   esApiError,
   useBodyScopedIdempotencyKey,
+  codigoSoporte,
 } from '@/lib/api';
-import {
-  EmpleadoSchema,
-  type EmpleadoValues,
-} from '@/modules/administracion/schemas/empleado';
+import { EmpleadoSchema, type EmpleadoValues } from '@/modules/administracion/schemas/empleado';
 import {
   useActualizarEmpleado,
   useAltaColaborador,
@@ -73,7 +82,9 @@ export function EmpleadoInlineForm({
   const canCrearUsuarios = useHasPermission(PermisosCanonicos.IdentidadUsuariosCrear);
   const canAsignar = useHasPermission(PermisosCanonicos.IdentidadAsignacionesAdministrar);
   const canDarAcceso = canCrearUsuarios && canAsignar;
-  const canGestionarCorporativos = useHasPermission(PermisosCanonicos.AdminEmpleadosGestionarTodasSucursales);
+  const canGestionarCorporativos = useHasPermission(
+    PermisosCanonicos.AdminEmpleadosGestionarTodasSucursales,
+  );
   const roles = useRoles({ soloActivos: true, limit: 200 }, !esEditar && canDarAcceso);
   const [paso, setPaso] = useState(0);
   const [acceso, setAcceso] = useState<0 | 1 | 2>(0);
@@ -186,7 +197,14 @@ export function EmpleadoInlineForm({
   useEffect(() => {
     if (esEditar) return;
     const values = form.getValues();
-    if (values.clave || values.nombre || values.email || values.sucursalId || values.departamentoId || values.puestoId) {
+    if (
+      values.clave ||
+      values.nombre ||
+      values.email ||
+      values.sucursalId ||
+      values.departamentoId ||
+      values.puestoId
+    ) {
       sessionStorage.setItem(
         DRAFT_STORAGE_KEY,
         JSON.stringify({
@@ -217,10 +235,7 @@ export function EmpleadoInlineForm({
     (!esEditar && paso === 2 && acceso !== 0 && canDarAcceso) ||
     (esEditar && !!correoValidable && correoEsDiferente);
 
-  const validacion = useValidarCorreoCorporativo(
-    correoValidable,
-    validacionHabilitada,
-  );
+  const validacion = useValidarCorreoCorporativo(correoValidable, validacionHabilitada);
 
   // Rol sugerido por la asignación puntual (sucursal+puesto+departamento) —
   // con Parte E (un puesto en varios departamentos) el rol sugerido ya
@@ -312,7 +327,9 @@ export function EmpleadoInlineForm({
         return;
       }
       if (error.code === 'DOMINIO_NO_PERMITIDO') {
-        toast.error(`El dominio del correo no está autorizado (${DOMINIOS_CORPORATIVOS.join(', ')}).`);
+        toast.error(
+          `El dominio del correo no está autorizado (${DOMINIOS_CORPORATIVOS.join(', ')}).`,
+        );
         return;
       }
       if (error.code === 'USUARIO_YA_VINCULADO') {
@@ -320,17 +337,12 @@ export function EmpleadoInlineForm({
         toast.error('El usuario corporativo ya está vinculado a otro colaborador.');
         return;
       }
-      if (
-        applyServerErrors(
-          form as unknown as Parameters<typeof applyServerErrors>[0],
-          error,
-        )
-      ) {
+      if (applyServerErrors(form as unknown as Parameters<typeof applyServerErrors>[0], error)) {
         toast.error('Corrige los errores indicados en el formulario.');
         return;
       }
       toast.error(error.problem.title || error.message, {
-        description: error.traceId ? `Código: ${error.traceId}` : undefined,
+        description: codigoSoporte(error),
       });
       return;
     }
@@ -350,23 +362,34 @@ export function EmpleadoInlineForm({
           return;
         }
         if (!validacion.data?.dominioPermitido) {
-          toast.error(`El dominio del correo no está permitido. Dominios autorizados: ${DOMINIOS_CORPORATIVOS.join(', ')}`);
+          toast.error(
+            `El dominio del correo no está permitido. Dominios autorizados: ${DOMINIOS_CORPORATIVOS.join(', ')}`,
+          );
           return;
         }
         if (!validacion.data?.cuentaEntra) {
-          toast.error(`No existe una cuenta en Microsoft Entra ID para "${emailTrim}". Debe existir previamente en Azure para vincularla a este colaborador.`);
+          toast.error(
+            `No existe una cuenta en Microsoft Entra ID para "${emailTrim}". Debe existir previamente en Azure para vincularla a este colaborador.`,
+          );
           return;
         }
         if (!validacion.data.cuentaEntra.habilitada) {
           toast.error('La cuenta Microsoft encontrada se encuentra deshabilitada en Entra ID.');
           return;
         }
-        if (validacion.data.empleadoVinculado && validacion.data.empleadoVinculado.id !== empleado.id) {
-          toast.error(`Esta cuenta ya está vinculada al colaborador ${validacion.data.empleadoVinculado.nombre} (${validacion.data.empleadoVinculado.clave}).`);
+        if (
+          validacion.data.empleadoVinculado &&
+          validacion.data.empleadoVinculado.id !== empleado.id
+        ) {
+          toast.error(
+            `Esta cuenta ya está vinculada al colaborador ${validacion.data.empleadoVinculado.nombre} (${validacion.data.empleadoVinculado.clave}).`,
+          );
           return;
         }
         if (validacion.data.usuarioErp && validacion.data.usuarioErp.id !== empleado.usuarioId) {
-          toast.error(`Ya existe un usuario en el ERP registrado con este correo (${validacion.data.usuarioErp.nombre}).`);
+          toast.error(
+            `Ya existe un usuario en el ERP registrado con este correo (${validacion.data.usuarioErp.nombre}).`,
+          );
           return;
         }
       }
@@ -422,9 +445,10 @@ export function EmpleadoInlineForm({
         onSuccess: (resp) => {
           sessionStorage.removeItem(DRAFT_STORAGE_KEY);
           toast.success(`Colaborador "${resp.empleado.nombre}" (${resp.empleado.clave}) agregado`, {
-            description: acceso === 2
-              ? 'La cuenta queda en provisión; revisa su estado en Acceso.'
-              : undefined,
+            description:
+              acceso === 2
+                ? 'La cuenta queda en provisión; revisa su estado en Acceso.'
+                : undefined,
           });
           form.reset({ ...VALORES_INICIALES, sucursalId: sucursalIdInicial ?? '' });
           form.setFocus('nombre');
@@ -437,8 +461,15 @@ export function EmpleadoInlineForm({
 
   function siguientePaso() {
     const values = form.getValues();
-    if (paso === 0 && (!values.nombre.trim() || (!values.sucursalId && !canGestionarCorporativos))) {
-      toast.error(canGestionarCorporativos ? 'Indica el nombre del colaborador.' : 'Indica nombre y sucursal.');
+    if (
+      paso === 0 &&
+      (!values.nombre.trim() || (!values.sucursalId && !canGestionarCorporativos))
+    ) {
+      toast.error(
+        canGestionarCorporativos
+          ? 'Indica el nombre del colaborador.'
+          : 'Indica nombre y sucursal.',
+      );
       return;
     }
     if (paso === 1) {
@@ -467,7 +498,9 @@ export function EmpleadoInlineForm({
           : !validacion.data?.puedeCrearCuentaNueva))
     ) {
       if (validacion.data && !validacion.data.dominioPermitido) {
-        toast.error(`El dominio del correo no está permitido. Dominios permitidos: ${DOMINIOS_CORPORATIVOS.join(', ')}`);
+        toast.error(
+          `El dominio del correo no está permitido. Dominios permitidos: ${DOMINIOS_CORPORATIVOS.join(', ')}`,
+        );
       } else if (acceso === 1) {
         if (validacion.data?.empleadoVinculado) {
           toast.error(
@@ -478,7 +511,9 @@ export function EmpleadoInlineForm({
         } else if (validacion.data?.cuentaEntra && !validacion.data.cuentaEntra.habilitada) {
           toast.error('La cuenta Microsoft se encuentra deshabilitada en el directorio.');
         } else if (!validacion.data?.cuentaEntra) {
-          toast.error(`No se encontró una cuenta Microsoft para vincular con "${correoValidable}".`);
+          toast.error(
+            `No se encontró una cuenta Microsoft para vincular con "${correoValidable}".`,
+          );
         } else {
           toast.error('La cuenta Microsoft no puede ser vinculada a un colaborador.');
         }
@@ -516,21 +551,17 @@ export function EmpleadoInlineForm({
       }}
       className={cn(
         'space-y-3 rounded-md border p-3',
-        esEditar
-          ? 'border-amber-400 bg-amber-50/40'
-          : 'border-dashed border-primary/40 bg-primary/5',
+        esEditar ? 'border-line bg-warning-bg/40' : 'border-dashed border-brand/40 bg-brand/5',
       )}
-      aria-label={
-        esEditar ? `Editar empleado ${empleado?.clave}` : 'Agregar empleado'
-      }
+      aria-label={esEditar ? `Editar empleado ${empleado?.clave}` : 'Agregar empleado'}
     >
       {!esEditar && borradorCargado && (
-        <div className="flex items-center justify-between rounded-md border border-amber-500/30 bg-amber-500/10 px-3 py-1.5 text-xs text-amber-900 dark:text-amber-200">
+        <div className="flex items-center justify-between rounded-md border border-line/30 bg-warning/10 px-3 py-1.5 text-xs text-warning-fg ">
           <span>Se restauró un borrador previo del formulario de alta de empleado.</span>
           <button
             type="button"
             onClick={limpiarBorrador}
-            className="flex items-center gap-1 font-medium underline hover:text-amber-700"
+            className="flex items-center gap-1 font-medium underline hover:text-warning-fg"
           >
             <RotateCcw className="h-3 w-3" />
             Limpiar borrador
@@ -540,542 +571,278 @@ export function EmpleadoInlineForm({
 
       {!esEditar && (
         <div className="space-y-1.5">
-          <div className="rounded-md bg-muted/40 px-3 py-2 text-sm flex items-center justify-between" aria-live="polite">
+          <div
+            className="rounded-md bg-surface-muted/40 px-3 py-2 text-sm flex items-center justify-between"
+            aria-live="polite"
+          >
             <div>
               <span className="font-medium">Paso {paso + 1} de 4:</span>{' '}
-              {['Persona y sucursal', 'Departamento y puesto', 'Acceso y rol', 'Confirmación'][paso]}
+              {
+                ['Persona y sucursal', 'Departamento y puesto', 'Acceso y rol', 'Confirmación'][
+                  paso
+                ]
+              }
             </div>
-            <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
-              {['Persona y sucursal', 'Departamento y puesto', 'Acceso y rol', 'Confirmación'].map((nombre, i) => (
-                <div
-                  key={nombre}
-                  className={cn(
-                    'h-1.5 w-6 rounded-full transition-colors',
-                    i === paso
-                      ? 'bg-primary'
-                      : i < paso
-                        ? 'bg-emerald-500'
-                        : 'bg-muted-foreground/20',
-                  )}
-                  title={`${i + 1}. ${nombre}`}
-                />
-              ))}
+            <div className="flex items-center gap-1.5 text-xs text-ink-muted">
+              {['Persona y sucursal', 'Departamento y puesto', 'Acceso y rol', 'Confirmación'].map(
+                (nombre, i) => (
+                  <div
+                    key={nombre}
+                    className={cn(
+                      'h-1.5 w-6 rounded-full transition-colors',
+                      i === paso
+                        ? 'bg-brand'
+                        : i < paso
+                          ? 'bg-success'
+                          : 'bg-surface-muted-foreground/20',
+                    )}
+                    title={`${i + 1}. ${nombre}`}
+                  />
+                ),
+              )}
             </div>
           </div>
         </div>
       )}
 
-      <div className="grid grid-cols-1 gap-2 md:grid-cols-12">
-        <Field
-          label="Clave"
-          required={esEditar}
-          error={form.formState.errors.clave?.message}
-          className={cn('md:col-span-3', !esEditar && paso !== 0 && 'hidden')}
-        >
-          <Input
-            maxLength={20}
-            placeholder={siguienteClaveQuery.data?.siguienteClave ?? 'EMP-001'}
-            className="font-mono bg-muted/60 cursor-not-allowed select-none text-muted-foreground font-medium"
-            disabled
-            readOnly
-            title={
-              esEditar
-                ? 'La clave es inmutable (business key).'
-                : 'Clave autoincremental asignada automáticamente por el sistema (no editable).'
-            }
-            {...form.register('clave')}
-          />
-          <p className="text-[11px] text-muted-foreground">
-            {esEditar
-              ? 'Identificador inmutable del empleado.'
-              : 'Autoincremental (EMP-xxx). Asignada automáticamente (no editable).'}
-          </p>
-        </Field>
-
-        <Field
-          label="Nombre"
-          required
-          error={form.formState.errors.nombre?.message}
-          className={cn('md:col-span-5', !esEditar && paso !== 0 && 'hidden')}
-        >
-          <Input
-            maxLength={254}
-            placeholder="Juana Pérez"
-            {...form.register('nombre')}
-          />
-        </Field>
-
-        <Field
-          label={sucursalFija ? 'Sucursal (fijada)' : 'Sucursal'}
-          className={cn('md:col-span-4', !esEditar && paso !== 0 && 'hidden')}
-        >
-          <Controller
-            control={form.control}
-            name="sucursalId"
-            render={({ field }) => (
-              <SucursalSelector
-                value={field.value || null}
-                onChange={(id) => {
-                  const nuevo = id ?? '';
-                  if (nuevo !== field.value) {
-                    field.onChange(nuevo);
-                    form.setValue('puestoId', '');
-                    form.setValue('departamentoId', '');
-                  }
-                }}
-                disabled={sucursalFija}
-                placeholder={canGestionarCorporativos ? "Corporativo · todas las sucursales" : undefined}
-                className="w-full"
-              />
-            )}
-          />
-        </Field>
-
-        {paso === 0 && !sucursalSeleccionada && canGestionarCorporativos && (
-          <p className="text-xs text-info-fg md:col-span-12" role="note">
-            Corporativo: si le das acceso al ERP, podrá operar en todas las sucursales de esta empresa, según el rol que elijas.
-            La bitácora registrará la sucursal de cada operación.
-          </p>
-        )}
-
-        <Field
-          label="Departamento"
-          required
-          error={form.formState.errors.departamentoId?.message}
-          className={cn('md:col-span-6', !esEditar && paso !== 1 && 'hidden')}
-        >
-          <Controller
-            control={form.control}
-            name="departamentoId"
-            render={({ field }) => (
-              <DepartamentoSelector
-                value={field.value || null}
-                onChange={(id) => {
-                  const nuevo = id ?? '';
-                  if (nuevo !== field.value) {
-                    field.onChange(nuevo);
-                    form.setValue('puestoId', '');
-                  }
-                }}
-                sucursalId={form.watch('sucursalId') || undefined}
-                className="w-full"
-              />
-            )}
-          />
-        </Field>
-
-        <Field
-          label="Puesto"
-          required
-          className={cn('md:col-span-6', !esEditar && paso !== 1 && 'hidden')}
-        >
-          <Controller
-            control={form.control}
-            name="puestoId"
-            render={({ field }) => (
-              <PuestoSelector
-                value={field.value || null}
-                onChange={(id) => field.onChange(id ?? '')}
-                sucursalId={form.watch('sucursalId') || undefined}
-                departamentoId={form.watch('departamentoId') || undefined}
-                className="w-full"
-              />
-            )}
-          />
-          {!esEditar && paso === 1 && sucursalSeleccionada && departamentoSeleccionado && (
-            <p className="mt-1 text-xs text-muted-foreground">
-              Si el puesto que buscas no aparece para este departamento, puedes agregarlo/vincularlo en el menú de Sucursales.{' '}
-              <span className="font-medium text-amber-700 dark:text-amber-400">Tu avance se guarda como borrador.</span>
-            </p>
-          )}
-        </Field>
-
-        <Field
-          label="Jefe directo (autoriza viáticos N1)"
-          className={cn(
-            'md:col-span-4',
-            !esEditar && paso !== 0 && 'hidden',
-            esEditar && 'md:col-span-12',
-          )}
-        >
-          <Controller
-            control={form.control}
-            name="jefeDirectoId"
-            render={({ field }) => (
-              <EmpleadoSelector
-                value={field.value || null}
-                onChange={(id) => field.onChange(id ?? '')}
-                excludeId={empleado?.id}
-                className="w-full"
-              />
-            )}
-          />
-        </Field>
-
-        {esEditar && (
+      <FormSeccion titulo="Datos del colaborador" className="">
+        <FormCampo span={6}>
           <Field
-            label="Correo corporativo"
-            error={form.formState.errors.email?.message}
-            className="md:col-span-12"
+            label="Clave"
+            required={esEditar}
+            error={form.formState.errors.clave?.message}
+            className={cn('md:col-span-3', !esEditar && paso !== 0 && 'hidden')}
           >
-            <div className="flex items-center w-full">
-              <Input
-                maxLength={100}
-                placeholder="juana.perez"
-                value={emailPrefix}
-                onChange={(e) => handleEmailPrefixChange(e.target.value)}
-                className="flex-1 min-w-0 rounded-r-none border-r-0 focus:z-10"
-              />
-              <div className="flex h-9 shrink-0 items-center rounded-r-md border border-l-0 bg-muted px-3 text-xs text-muted-foreground">
-                <span className="mr-1.5 font-semibold text-foreground">@</span>
-                <select
-                  value={DOMINIOS_CORPORATIVOS.includes(emailDomain) ? emailDomain : DOMINIOS_CORPORATIVOS[0]}
-                  onChange={(e) => handleEmailDomainChange(e.target.value)}
-                  className="cursor-pointer bg-transparent text-xs font-medium text-foreground outline-none"
-                  aria-label="Dominio corporativo"
-                >
-                  {DOMINIOS_CORPORATIVOS.map((d) => (
-                    <option key={d} value={d}>
-                      {d}
-                    </option>
-                  ))}
-                </select>
-              </div>
-            </div>
-            {emailPrefix.trim() ? (
-              <p className="mt-1 text-xs text-muted-foreground">
-                Correo resultante:{' '}
-                <span className="font-mono font-medium text-foreground">
-                  {emailPrefix.trim()}@{DOMINIOS_CORPORATIVOS.includes(emailDomain) ? emailDomain : DOMINIOS_CORPORATIVOS[0]}
-                </span>
-              </p>
-            ) : (
-              <p className="mt-1 text-xs text-muted-foreground">
-                Vacío: sin correo corporativo
-              </p>
-            )}
-          </Field>
-        )}
-
-        <Field
-          label="Código de nómina"
-          error={form.formState.errors.codigoNomina?.message}
-          className={cn(
-            'md:col-span-4',
-            !esEditar && paso !== 0 && 'hidden',
-            esEditar && 'md:col-span-6',
-          )}
-        >
-          <Input
-            maxLength={20}
-            placeholder="A1234"
-            className="font-mono"
-            title="Referencia al código de nómina/SAP (Axxxx). Sin lógica en el ERP."
-            {...form.register('codigoNomina')}
-          />
-        </Field>
-
-        {esEditar && (
-          <Field label="Correo personal de contacto" className="md:col-span-6">
             <Input
-              type="email"
-              value={emailContacto}
-              onChange={(e) => setEmailContacto(e.target.value)}
-              placeholder="contacto@ejemplo.com"
+              maxLength={20}
+              placeholder={siguienteClaveQuery.data?.siguienteClave ?? 'EMP-001'}
+              className="font-mono bg-surface-muted/60 cursor-not-allowed select-none text-ink-muted font-medium"
+              disabled
+              readOnly
+              title={
+                esEditar
+                  ? 'La clave es inmutable (business key).'
+                  : 'Clave autoincremental asignada automáticamente por el sistema (no editable).'
+              }
+              {...form.register('clave')}
+            />
+            <p className="text-2xs text-ink-muted">
+              {esEditar
+                ? 'Identificador inmutable del empleado.'
+                : 'Autoincremental (EMP-xxx). Asignada automáticamente (no editable).'}
+            </p>
+          </Field>
+        </FormCampo>
+
+        <FormCampo span={6}>
+          <Field
+            label="Nombre"
+            required
+            error={form.formState.errors.nombre?.message}
+            className={cn('md:col-span-5', !esEditar && paso !== 0 && 'hidden')}
+          >
+            <Input maxLength={254} placeholder="Juana Pérez" {...form.register('nombre')} />
+          </Field>
+        </FormCampo>
+
+        <FormCampo span={6}>
+          <Field
+            label={sucursalFija ? 'Sucursal (fijada)' : 'Sucursal'}
+            className={cn('md:col-span-4', !esEditar && paso !== 0 && 'hidden')}
+          >
+            <Controller
+              control={form.control}
+              name="sucursalId"
+              render={({ field }) => (
+                <SucursalSelector
+                  value={field.value || null}
+                  onChange={(id) => {
+                    const nuevo = id ?? '';
+                    if (nuevo !== field.value) {
+                      field.onChange(nuevo);
+                      form.setValue('puestoId', '');
+                      form.setValue('departamentoId', '');
+                    }
+                  }}
+                  disabled={sucursalFija}
+                  placeholder={
+                    canGestionarCorporativos ? 'Corporativo · todas las sucursales' : undefined
+                  }
+                  className="w-full"
+                />
+              )}
             />
           </Field>
-        )}
+        </FormCampo>
 
-        {esEditar && correoEsDiferente && correoValidable && (
-          <div className="rounded-md border p-2.5 text-xs md:col-span-12" role="status" aria-live="polite">
-            {validacion.isPending ? (
-              <div className="flex items-center gap-2 text-muted-foreground">
-                <Loader2 className="h-4 w-4 animate-spin text-primary shrink-0" />
-                <span>
-                  Verificando cuenta Microsoft en Entra ID para <strong className="font-mono">{correoValidable}</strong>…
-                </span>
-              </div>
-            ) : validacion.isError ? (
-              <div className="flex items-center gap-2 text-rose-600 font-medium">
-                <AlertCircle className="h-4 w-4 shrink-0" />
-                <span>No se pudo verificar el correo contra Microsoft Entra ID.</span>
-              </div>
-            ) : validacion.data ? (
-              !validacion.data.dominioPermitido ? (
-                <div className="flex items-start gap-2 text-rose-600">
-                  <AlertCircle className="h-4 w-4 mt-0.5 shrink-0" />
-                  <div>
-                    <p className="font-semibold">Dominio no permitido para cuenta corporativa.</p>
-                    <p className="mt-0.5 text-[11px] text-muted-foreground">
-                      El dominio del correo <strong>{correoValidable}</strong> no está dentro de los dominios autorizados ({DOMINIOS_CORPORATIVOS.join(', ')}).
-                    </p>
-                  </div>
-                </div>
-              ) : validacion.data.empleadoVinculado && validacion.data.empleadoVinculado.id !== empleado?.id ? (
-                <div className="flex items-start gap-2 text-rose-600">
-                  <AlertCircle className="h-4 w-4 mt-0.5 shrink-0" />
-                  <div>
-                    <p className="font-semibold">La cuenta ya está vinculada a otro colaborador.</p>
-                    <p className="mt-0.5 text-[11px] text-muted-foreground">
-                      Esta cuenta Microsoft pertenece a{' '}
-                      <strong className="text-foreground">{validacion.data.empleadoVinculado.nombre}</strong> (clave:{' '}
-                      <strong className="font-mono text-foreground">{validacion.data.empleadoVinculado.clave}</strong>).
-                    </p>
-                  </div>
-                </div>
-              ) : validacion.data.usuarioErp && validacion.data.usuarioErp.id !== empleado?.usuarioId ? (
-                <div className="flex items-start gap-2 text-rose-600">
-                  <AlertCircle className="h-4 w-4 mt-0.5 shrink-0" />
-                  <div>
-                    <p className="font-semibold">El correo ya está en uso por otro usuario del ERP.</p>
-                    <p className="mt-0.5 text-[11px] text-muted-foreground">
-                      Ya existe un usuario registrado en el sistema con este correo (<strong>{validacion.data.usuarioErp.nombre}</strong>).
-                    </p>
-                  </div>
-                </div>
-              ) : validacion.data.cuentaEntra ? (
-                !validacion.data.cuentaEntra.habilitada ? (
-                  <div className="flex items-start gap-2 text-rose-600">
-                    <AlertTriangle className="h-4 w-4 mt-0.5 shrink-0" />
-                    <div>
-                      <p className="font-semibold">Cuenta Microsoft deshabilitada.</p>
-                      <p className="mt-0.5 text-[11px] text-muted-foreground">
-                        La cuenta Microsoft ({validacion.data.cuentaEntra.nombreMostrado}) se encuentra deshabilitada en el directorio Entra ID.
-                      </p>
-                    </div>
-                  </div>
-                ) : (
-                  <div className="flex items-center gap-2 font-medium text-emerald-600 dark:text-emerald-400">
-                    <CheckCircle2 className="h-4 w-4 shrink-0" />
-                    <span>
-                      Cuenta Microsoft encontrada en Entra ID: <strong>{validacion.data.cuentaEntra.nombreMostrado}</strong>
-                    </span>
-                  </div>
-                )
-              ) : (
-                <div className="flex items-start gap-2 text-rose-600">
-                  <AlertCircle className="h-4 w-4 mt-0.5 shrink-0" />
-                  <div>
-                    <p className="font-semibold">No se encontró una cuenta en Microsoft Entra ID.</p>
-                    <p className="mt-0.5 text-[11px] text-muted-foreground">
-                      No existe una cuenta Microsoft para <strong>{correoValidable}</strong> en el tenant de Entra ID Azure. Debe existir previamente en Azure antes de poder vincularla o enviarle acceso.
-                    </p>
-                  </div>
-                </div>
-              )
-            ) : null}
-          </div>
-        )}
-      </div>
-
-      {!esEditar && paso === 2 && (
-        <div className="grid grid-cols-1 gap-3 border-t pt-3 md:grid-cols-12">
-          <Field label="Acceso al ERP" className="md:col-span-6">
-            <select
-              aria-label="Acceso al ERP"
-              className="h-9 w-full rounded-md border bg-background px-3 text-sm"
-              value={acceso}
-              onChange={(e) => setAcceso(Number(e.target.value) as 0 | 1 | 2)}
-            >
-              <option value={0}>Sin acceso</option>
-              {canDarAcceso && <option value={1}>Ya tiene cuenta Microsoft</option>}
-              {canDarAcceso && <option value={2}>Cuenta Microsoft nueva</option>}
-            </select>
-          </Field>
-
-          {acceso !== 0 ? (
-            <Field label="Rol en la empresa" required className="md:col-span-6">
-              <select
-                aria-label="Rol en la empresa"
-                className="h-9 w-full rounded-md border bg-background px-3 text-sm"
-                value={rolId}
-                onChange={(e) => setRolId(e.target.value)}
-              >
-                <option value="">Selecciona un rol</option>
-                {(() => {
-                  const rolSugeridoDelPuesto = puestosDeSucursal.data?.items.find(p => p.puestoId === puestoSeleccionado)?.rolSugeridoEfectivoId;
-                  const todosRoles = (roles.data?.items ?? []).filter((r) => r.activo);
-                  const sugerido = todosRoles.find(r => r.id === rolSugeridoDelPuesto);
-                  const otros = todosRoles.filter(r => r.id !== rolSugeridoDelPuesto);
-                  return (
-                    <>
-                      {sugerido && (
-                        <optgroup label="Sugerido para el puesto">
-                          <option value={sugerido.id}>{sugerido.nombre} (Recomendado)</option>
-                        </optgroup>
-                      )}
-                      <optgroup label={sugerido ? "Otros roles disponibles" : "Roles disponibles"}>
-                        {otros.map((r) => (
-                          <option key={r.id} value={r.id}>
-                            {r.nombre}
-                          </option>
-                        ))}
-                      </optgroup>
-                    </>
-                  );
-                })()}
-              </select>
-              {rolSugeridoEfectivoId && rolId === rolSugeridoEfectivoId && (
-                <Badge
-                  variant="secondary"
-                  className="mt-1 font-normal text-muted-foreground"
-                >
-                  Sugerido por el puesto — puedes cambiarlo
-                </Badge>
-              )}
-            </Field>
-          ) : (
-            <div className="flex items-center md:col-span-6 text-xs text-muted-foreground pt-5">
-              Sin rol de sistema (empleado sin acceso al ERP).
-            </div>
+        <FormCampo span={12}>
+          {paso === 0 && !sucursalSeleccionada && canGestionarCorporativos && (
+            <p className="text-xs text-info-fg md:col-span-12" role="note">
+              Corporativo: si le das acceso al ERP, podrá operar en todas las sucursales de esta
+              empresa, según el rol que elijas. La bitácora registrará la sucursal de cada
+              operación.
+            </p>
           )}
+        </FormCampo>
 
+        <FormCampo span={6}>
           <Field
-            label="Correo corporativo"
-            required={acceso !== 0}
-            error={form.formState.errors.email?.message}
-            className="md:col-span-12"
+            label="Departamento"
+            required
+            error={form.formState.errors.departamentoId?.message}
+            className={cn('md:col-span-6', !esEditar && paso !== 1 && 'hidden')}
           >
-            <div className="flex items-center w-full">
-              <Input
-                maxLength={100}
-                placeholder="juana.perez"
-                value={emailPrefix}
-                onChange={(e) => handleEmailPrefixChange(e.target.value)}
-                className="flex-1 min-w-0 rounded-r-none border-r-0 focus:z-10"
-              />
-              <div className="flex h-9 shrink-0 items-center rounded-r-md border border-l-0 bg-muted px-3 text-xs text-muted-foreground">
-                <span className="mr-1.5 font-semibold text-foreground">@</span>
-                <select
-                  value={DOMINIOS_CORPORATIVOS.includes(emailDomain) ? emailDomain : DOMINIOS_CORPORATIVOS[0]}
-                  onChange={(e) => handleEmailDomainChange(e.target.value)}
-                  className="cursor-pointer bg-transparent text-xs font-medium text-foreground outline-none"
-                  aria-label="Dominio corporativo"
-                >
-                  {DOMINIOS_CORPORATIVOS.map((d) => (
-                    <option key={d} value={d}>
-                      {d}
-                    </option>
-                  ))}
-                </select>
-              </div>
-            </div>
-            {emailPrefix.trim() && (
-              <p className="mt-1 text-xs text-muted-foreground">
-                Correo resultante:{' '}
-                <span className="font-mono font-medium text-foreground">
-                  {emailPrefix.trim()}@{emailDomain}
+            <Controller
+              control={form.control}
+              name="departamentoId"
+              render={({ field }) => (
+                <DepartamentoSelector
+                  value={field.value || null}
+                  onChange={(id) => {
+                    const nuevo = id ?? '';
+                    if (nuevo !== field.value) {
+                      field.onChange(nuevo);
+                      form.setValue('puestoId', '');
+                    }
+                  }}
+                  sucursalId={form.watch('sucursalId') || undefined}
+                  className="w-full"
+                />
+              )}
+            />
+          </Field>
+        </FormCampo>
+
+        <FormCampo span={6}>
+          <Field
+            label="Puesto"
+            required
+            className={cn('md:col-span-6', !esEditar && paso !== 1 && 'hidden')}
+          >
+            <Controller
+              control={form.control}
+              name="puestoId"
+              render={({ field }) => (
+                <PuestoSelector
+                  value={field.value || null}
+                  onChange={(id) => field.onChange(id ?? '')}
+                  sucursalId={form.watch('sucursalId') || undefined}
+                  departamentoId={form.watch('departamentoId') || undefined}
+                  className="w-full"
+                />
+              )}
+            />
+            {!esEditar && paso === 1 && sucursalSeleccionada && departamentoSeleccionado && (
+              <p className="mt-1 text-xs text-ink-muted">
+                Si el puesto que buscas no aparece para este departamento, puedes
+                agregarlo/vincularlo en el menú de Sucursales.{' '}
+                <span className="font-medium text-warning-fg ">
+                  Tu avance se guarda como borrador.
                 </span>
               </p>
             )}
           </Field>
+        </FormCampo>
 
-          {acceso !== 0 && correoValidable && (
-            <div className="rounded-md border p-2.5 text-xs md:col-span-12" role="status" aria-live="polite">
-              {validacion.isPending ? (
-                <div className="flex items-center gap-2 text-muted-foreground">
-                  <Loader2 className="h-4 w-4 animate-spin text-primary shrink-0" />
-                  <span>
-                    Verificando disponibilidad de la cuenta Microsoft para <strong className="font-mono">{correoValidable}</strong>…
+        <FormCampo span={6}>
+          <Field
+            label="Jefe directo (autoriza viáticos N1)"
+            className={cn(
+              'md:col-span-4',
+              !esEditar && paso !== 0 && 'hidden',
+              esEditar && 'md:col-span-12',
+            )}
+          >
+            <Controller
+              control={form.control}
+              name="jefeDirectoId"
+              render={({ field }) => (
+                <EmpleadoSelector
+                  value={field.value || null}
+                  onChange={(id) => field.onChange(id ?? '')}
+                  excludeId={empleado?.id}
+                  className="w-full"
+                />
+              )}
+            />
+          </Field>
+        </FormCampo>
+
+        <FormCampo span={12}>
+          {esEditar && (
+            <Field
+              label="Correo corporativo"
+              error={form.formState.errors.email?.message}
+              className="md:col-span-12"
+            >
+              <div className="flex items-center w-full">
+                <Input
+                  maxLength={100}
+                  placeholder="juana.perez"
+                  value={emailPrefix}
+                  onChange={(e) => handleEmailPrefixChange(e.target.value)}
+                  className="flex-1 min-w-0 rounded-r-none border-r-0 focus:z-10"
+                />
+                <div className="flex h-9 shrink-0 items-center rounded-r-md border border-l-0 bg-surface-muted px-3 text-xs text-ink-muted">
+                  <span className="mr-1.5 font-semibold text-ink">@</span>
+                  <select
+                    value={
+                      DOMINIOS_CORPORATIVOS.includes(emailDomain)
+                        ? emailDomain
+                        : DOMINIOS_CORPORATIVOS[0]
+                    }
+                    onChange={(e) => handleEmailDomainChange(e.target.value)}
+                    className="cursor-pointer bg-transparent text-xs font-medium text-ink outline-none"
+                    aria-label="Dominio corporativo"
+                  >
+                    {DOMINIOS_CORPORATIVOS.map((d) => (
+                      <option key={d} value={d}>
+                        {d}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+              {emailPrefix.trim() ? (
+                <p className="mt-1 text-xs text-ink-muted">
+                  Correo resultante:{' '}
+                  <span className="font-mono font-medium text-ink">
+                    {emailPrefix.trim()}@
+                    {DOMINIOS_CORPORATIVOS.includes(emailDomain)
+                      ? emailDomain
+                      : DOMINIOS_CORPORATIVOS[0]}
                   </span>
-                </div>
-              ) : validacion.isError ? (
-                <div className="flex items-center gap-2 text-rose-600 font-medium">
-                  <AlertCircle className="h-4 w-4 shrink-0" />
-                  <span>No se pudo verificar el correo contra Microsoft Entra ID.</span>
-                </div>
-              ) : validacion.data ? (
-                !validacion.data.dominioPermitido ? (
-                  <div className="flex items-start gap-2 text-rose-600">
-                    <AlertCircle className="h-4 w-4 mt-0.5 shrink-0" />
-                    <div>
-                      <p className="font-semibold">Dominio no permitido para cuenta corporativa.</p>
-                      <p className="mt-0.5 text-[11px] text-muted-foreground">
-                        El dominio del correo <strong>{correoValidable}</strong> no está dentro de los dominios autorizados ({DOMINIOS_CORPORATIVOS.join(', ')}).
-                      </p>
-                    </div>
-                  </div>
-                ) : acceso === 1 ? (
-                  validacion.data.puedeVincularCuentaExistente ? (
-                    <div className="flex items-center gap-2 font-medium text-emerald-600 dark:text-emerald-400">
-                      <CheckCircle2 className="h-4 w-4 shrink-0" />
-                      <span>
-                        Cuenta Microsoft encontrada: <strong>{validacion.data.cuentaEntra?.nombreMostrado}</strong>
-                        {validacion.data.usuarioErp && (
-                          <span className="ml-1 text-xs opacity-85 font-normal">
-                            (se vinculará al usuario existente del ERP)
-                          </span>
-                        )}
-                      </span>
-                    </div>
-                  ) : validacion.data.empleadoVinculado ? (
-                    <div className="flex items-start gap-2 text-rose-600">
-                      <AlertCircle className="h-4 w-4 mt-0.5 shrink-0" />
-                      <div>
-                        <p className="font-semibold">La cuenta ya está vinculada a un colaborador en el ERP.</p>
-                        <p className="mt-0.5 text-[11px] text-muted-foreground">
-                          Esta cuenta Microsoft pertenece a{' '}
-                          <strong className="text-foreground">{validacion.data.empleadoVinculado.nombre}</strong> (clave:{' '}
-                          <strong className="font-mono text-foreground">{validacion.data.empleadoVinculado.clave}</strong>).
-                          Cada empleado debe contar con una cuenta Microsoft independiente.
-                        </p>
-                      </div>
-                    </div>
-                  ) : validacion.data.usuarioErp && !validacion.data.usuarioErp.activo ? (
-                    <div className="flex items-start gap-2 text-rose-600">
-                      <AlertCircle className="h-4 w-4 mt-0.5 shrink-0" />
-                      <div>
-                        <p className="font-semibold">Usuario desactivado en el ERP.</p>
-                        <p className="mt-0.5 text-[11px] text-muted-foreground">
-                          Existe un usuario en el ERP con este correo ({validacion.data.usuarioErp.nombre}) pero está desactivado.
-                          Reactívalo desde el módulo de usuarios antes de asignarlo.
-                        </p>
-                      </div>
-                    </div>
-                  ) : validacion.data.cuentaEntra && !validacion.data.cuentaEntra.habilitada ? (
-                    <div className="flex items-start gap-2 text-rose-600">
-                      <AlertTriangle className="h-4 w-4 mt-0.5 shrink-0" />
-                      <div>
-                        <p className="font-semibold">Cuenta Microsoft deshabilitada.</p>
-                        <p className="mt-0.5 text-[11px] text-muted-foreground">
-                          La cuenta Microsoft ({validacion.data.cuentaEntra.nombreMostrado}) se encuentra deshabilitada en el directorio Entra ID.
-                        </p>
-                      </div>
-                    </div>
-                  ) : (
-                    <div className="flex items-center gap-2 font-medium text-amber-600 dark:text-amber-400">
-                      <AlertTriangle className="h-4 w-4 shrink-0" />
-                      <span>No se encontró una cuenta Microsoft activa con {correoValidable} para vincular.</span>
-                    </div>
-                  )
-                ) : validacion.data.puedeCrearCuentaNueva ? (
-                  <div className="flex items-center gap-2 font-medium text-emerald-600 dark:text-emerald-400">
-                    <CheckCircle2 className="h-4 w-4 shrink-0" />
-                    <span>
-                      Correo corporativo <strong className="font-mono">{correoValidable}</strong> disponible para crear cuenta Microsoft nueva.
-                    </span>
-                  </div>
-                ) : (
-                  <div className="flex items-start gap-2 text-rose-600">
-                    <AlertCircle className="h-4 w-4 mt-0.5 shrink-0" />
-                    <div>
-                      <p className="font-semibold">El correo no está disponible para una cuenta nueva.</p>
-                      <p className="mt-0.5 text-[11px] text-muted-foreground">
-                        {validacion.data.cuentaEntra
-                          ? 'Ya existe una cuenta en Entra ID con este correo.'
-                          : validacion.data.empleadoVinculado
-                            ? `Ya existe un colaborador (${validacion.data.empleadoVinculado.nombre}, clave: ${validacion.data.empleadoVinculado.clave}) con este correo en el ERP.`
-                            : 'Ya existe un usuario en el ERP registrado con este correo.'}
-                      </p>
-                    </div>
-                  </div>
-                )
-              ) : null}
-            </div>
+                </p>
+              ) : (
+                <p className="mt-1 text-xs text-ink-muted">Vacío: sin correo corporativo</p>
+              )}
+            </Field>
           )}
+        </FormCampo>
 
-          {acceso === 2 && (
-            <Field label="Correo personal de contacto" required className="md:col-span-6">
+        <FormCampo span={6}>
+          <Field
+            label="Código de nómina"
+            error={form.formState.errors.codigoNomina?.message}
+            className={cn(
+              'md:col-span-4',
+              !esEditar && paso !== 0 && 'hidden',
+              esEditar && 'md:col-span-6',
+            )}
+          >
+            <Input
+              maxLength={20}
+              placeholder="A1234"
+              className="font-mono"
+              title="Referencia al código de nómina/SAP (Axxxx). Sin lógica en el ERP."
+              {...form.register('codigoNomina')}
+            />
+          </Field>
+        </FormCampo>
+
+        <FormCampo span={12}>
+          {esEditar && (
+            <Field label="Correo personal de contacto" className="md:col-span-6">
               <Input
                 type="email"
                 value={emailContacto}
@@ -1084,55 +851,438 @@ export function EmpleadoInlineForm({
               />
             </Field>
           )}
-          {acceso === 2 && (
-            <p className="text-xs text-amber-700 md:col-span-12">
-              Se enviará una contraseña temporal al correo de contacto cuando el entorno tenga Graph y correo habilitados.
-            </p>
+        </FormCampo>
+
+        <FormCampo span={12}>
+          {esEditar && correoEsDiferente && correoValidable && (
+            <div
+              className="rounded-md border p-2.5 text-xs md:col-span-12"
+              role="status"
+              aria-live="polite"
+            >
+              {validacion.isPending ? (
+                <div className="flex items-center gap-2 text-ink-muted">
+                  <Loader2 className="h-4 w-4 animate-spin text-brand shrink-0" />
+                  <span>
+                    Verificando cuenta Microsoft en Entra ID para{' '}
+                    <strong className="font-mono">{correoValidable}</strong>…
+                  </span>
+                </div>
+              ) : validacion.isError ? (
+                <div className="flex items-center gap-2 text-danger-fg font-medium">
+                  <AlertCircle className="h-4 w-4 shrink-0" />
+                  <span>No se pudo verificar el correo contra Microsoft Entra ID.</span>
+                </div>
+              ) : validacion.data ? (
+                !validacion.data.dominioPermitido ? (
+                  <div className="flex items-start gap-2 text-danger-fg">
+                    <AlertCircle className="h-4 w-4 mt-0.5 shrink-0" />
+                    <div>
+                      <p className="font-semibold">Dominio no permitido para cuenta corporativa.</p>
+                      <p className="mt-0.5 text-2xs text-ink-muted">
+                        El dominio del correo{' '}
+                        <strong className="font-semibold">{correoValidable}</strong> no está dentro
+                        de los dominios autorizados ({DOMINIOS_CORPORATIVOS.join(', ')}).
+                      </p>
+                    </div>
+                  </div>
+                ) : validacion.data.empleadoVinculado &&
+                  validacion.data.empleadoVinculado.id !== empleado?.id ? (
+                  <div className="flex items-start gap-2 text-danger-fg">
+                    <AlertCircle className="h-4 w-4 mt-0.5 shrink-0" />
+                    <div>
+                      <p className="font-semibold">
+                        La cuenta ya está vinculada a otro colaborador.
+                      </p>
+                      <p className="mt-0.5 text-2xs text-ink-muted">
+                        Esta cuenta Microsoft pertenece a{' '}
+                        <strong className="text-ink">
+                          {validacion.data.empleadoVinculado.nombre}
+                        </strong>{' '}
+                        (clave:{' '}
+                        <strong className="font-mono text-ink">
+                          {validacion.data.empleadoVinculado.clave}
+                        </strong>
+                        ).
+                      </p>
+                    </div>
+                  </div>
+                ) : validacion.data.usuarioErp &&
+                  validacion.data.usuarioErp.id !== empleado?.usuarioId ? (
+                  <div className="flex items-start gap-2 text-danger-fg">
+                    <AlertCircle className="h-4 w-4 mt-0.5 shrink-0" />
+                    <div>
+                      <p className="font-semibold">
+                        El correo ya está en uso por otro usuario del ERP.
+                      </p>
+                      <p className="mt-0.5 text-2xs text-ink-muted">
+                        Ya existe un usuario registrado en el sistema con este correo (
+                        <strong className="font-semibold">
+                          {validacion.data.usuarioErp.nombre}
+                        </strong>
+                        ).
+                      </p>
+                    </div>
+                  </div>
+                ) : validacion.data.cuentaEntra ? (
+                  !validacion.data.cuentaEntra.habilitada ? (
+                    <div className="flex items-start gap-2 text-danger-fg">
+                      <AlertTriangle className="h-4 w-4 mt-0.5 shrink-0" />
+                      <div>
+                        <p className="font-semibold">Cuenta Microsoft deshabilitada.</p>
+                        <p className="mt-0.5 text-2xs text-ink-muted">
+                          La cuenta Microsoft ({validacion.data.cuentaEntra.nombreMostrado}) se
+                          encuentra deshabilitada en el directorio Entra ID.
+                        </p>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="flex items-center gap-2 font-medium text-success-fg ">
+                      <CheckCircle2 className="h-4 w-4 shrink-0" />
+                      <span>
+                        Cuenta Microsoft encontrada en Entra ID:{' '}
+                        <strong className="font-semibold">
+                          {validacion.data.cuentaEntra.nombreMostrado}
+                        </strong>
+                      </span>
+                    </div>
+                  )
+                ) : (
+                  <div className="flex items-start gap-2 text-danger-fg">
+                    <AlertCircle className="h-4 w-4 mt-0.5 shrink-0" />
+                    <div>
+                      <p className="font-semibold">
+                        No se encontró una cuenta en Microsoft Entra ID.
+                      </p>
+                      <p className="mt-0.5 text-2xs text-ink-muted">
+                        No existe una cuenta Microsoft para{' '}
+                        <strong className="font-semibold">{correoValidable}</strong> en el tenant de
+                        Entra ID Azure. Debe existir previamente en Azure antes de poder vincularla
+                        o enviarle acceso.
+                      </p>
+                    </div>
+                  </div>
+                )
+              ) : null}
+            </div>
           )}
-          {acceso === 1 && (
-            <p className="text-xs text-amber-700 md:col-span-12">
-              El ERP verificará la cuenta Microsoft al guardar; el resultado depende del proveedor configurado en este entorno.
-            </p>
-          )}
-        </div>
+        </FormCampo>
+      </FormSeccion>
+
+      {!esEditar && paso === 2 && (
+        <FormGrid className="border-t pt-3">
+          <FormCampo span={6}>
+            <Field label="Acceso al ERP" className="md:col-span-6">
+              <select
+                aria-label="Acceso al ERP"
+                className="h-9 w-full rounded-md border bg-surface-page px-3 text-sm"
+                value={acceso}
+                onChange={(e) => setAcceso(Number(e.target.value) as 0 | 1 | 2)}
+              >
+                <option value={0}>Sin acceso</option>
+                {canDarAcceso && <option value={1}>Ya tiene cuenta Microsoft</option>}
+                {canDarAcceso && <option value={2}>Cuenta Microsoft nueva</option>}
+              </select>
+            </Field>
+          </FormCampo>
+
+          <FormCampo span={12}>
+            {acceso !== 0 ? (
+              <Field label="Rol en la empresa" required className="md:col-span-6">
+                <select
+                  aria-label="Rol en la empresa"
+                  className="h-9 w-full rounded-md border bg-surface-page px-3 text-sm"
+                  value={rolId}
+                  onChange={(e) => setRolId(e.target.value)}
+                >
+                  <option value="">Selecciona un rol</option>
+                  {(() => {
+                    const rolSugeridoDelPuesto = puestosDeSucursal.data?.items.find(
+                      (p) => p.puestoId === puestoSeleccionado,
+                    )?.rolSugeridoEfectivoId;
+                    const todosRoles = (roles.data?.items ?? []).filter((r) => r.activo);
+                    const sugerido = todosRoles.find((r) => r.id === rolSugeridoDelPuesto);
+                    const otros = todosRoles.filter((r) => r.id !== rolSugeridoDelPuesto);
+                    return (
+                      <>
+                        {sugerido && (
+                          <optgroup label="Sugerido para el puesto">
+                            <option value={sugerido.id}>{sugerido.nombre} (Recomendado)</option>
+                          </optgroup>
+                        )}
+                        <optgroup
+                          label={sugerido ? 'Otros roles disponibles' : 'Roles disponibles'}
+                        >
+                          {otros.map((r) => (
+                            <option key={r.id} value={r.id}>
+                              {r.nombre}
+                            </option>
+                          ))}
+                        </optgroup>
+                      </>
+                    );
+                  })()}
+                </select>
+                {rolSugeridoEfectivoId && rolId === rolSugeridoEfectivoId && (
+                  <Badge variant="neutral">Sugerido por el puesto — puedes cambiarlo</Badge>
+                )}
+              </Field>
+            ) : (
+              <div className="flex items-center md:col-span-6 text-xs text-ink-muted pt-5">
+                Sin rol de sistema (empleado sin acceso al ERP).
+              </div>
+            )}
+          </FormCampo>
+
+          <FormCampo span={6}>
+            <Field
+              label="Correo corporativo"
+              required={acceso !== 0}
+              error={form.formState.errors.email?.message}
+              className="md:col-span-12"
+            >
+              <div className="flex items-center w-full">
+                <Input
+                  maxLength={100}
+                  placeholder="juana.perez"
+                  value={emailPrefix}
+                  onChange={(e) => handleEmailPrefixChange(e.target.value)}
+                  className="flex-1 min-w-0 rounded-r-none border-r-0 focus:z-10"
+                />
+                <div className="flex h-9 shrink-0 items-center rounded-r-md border border-l-0 bg-surface-muted px-3 text-xs text-ink-muted">
+                  <span className="mr-1.5 font-semibold text-ink">@</span>
+                  <select
+                    value={
+                      DOMINIOS_CORPORATIVOS.includes(emailDomain)
+                        ? emailDomain
+                        : DOMINIOS_CORPORATIVOS[0]
+                    }
+                    onChange={(e) => handleEmailDomainChange(e.target.value)}
+                    className="cursor-pointer bg-transparent text-xs font-medium text-ink outline-none"
+                    aria-label="Dominio corporativo"
+                  >
+                    {DOMINIOS_CORPORATIVOS.map((d) => (
+                      <option key={d} value={d}>
+                        {d}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+              {emailPrefix.trim() && (
+                <p className="mt-1 text-xs text-ink-muted">
+                  Correo resultante:{' '}
+                  <span className="font-mono font-medium text-ink">
+                    {emailPrefix.trim()}@{emailDomain}
+                  </span>
+                </p>
+              )}
+            </Field>
+          </FormCampo>
+
+          <FormCampo span={12}>
+            {acceso !== 0 && correoValidable && (
+              <div
+                className="rounded-md border p-2.5 text-xs md:col-span-12"
+                role="status"
+                aria-live="polite"
+              >
+                {validacion.isPending ? (
+                  <div className="flex items-center gap-2 text-ink-muted">
+                    <Loader2 className="h-4 w-4 animate-spin text-brand shrink-0" />
+                    <span>
+                      Verificando disponibilidad de la cuenta Microsoft para{' '}
+                      <strong className="font-mono">{correoValidable}</strong>…
+                    </span>
+                  </div>
+                ) : validacion.isError ? (
+                  <div className="flex items-center gap-2 text-danger-fg font-medium">
+                    <AlertCircle className="h-4 w-4 shrink-0" />
+                    <span>No se pudo verificar el correo contra Microsoft Entra ID.</span>
+                  </div>
+                ) : validacion.data ? (
+                  !validacion.data.dominioPermitido ? (
+                    <div className="flex items-start gap-2 text-danger-fg">
+                      <AlertCircle className="h-4 w-4 mt-0.5 shrink-0" />
+                      <div>
+                        <p className="font-semibold">
+                          Dominio no permitido para cuenta corporativa.
+                        </p>
+                        <p className="mt-0.5 text-2xs text-ink-muted">
+                          El dominio del correo{' '}
+                          <strong className="font-semibold">{correoValidable}</strong> no está
+                          dentro de los dominios autorizados ({DOMINIOS_CORPORATIVOS.join(', ')}).
+                        </p>
+                      </div>
+                    </div>
+                  ) : acceso === 1 ? (
+                    validacion.data.puedeVincularCuentaExistente ? (
+                      <div className="flex items-center gap-2 font-medium text-success-fg ">
+                        <CheckCircle2 className="h-4 w-4 shrink-0" />
+                        <span>
+                          Cuenta Microsoft encontrada:{' '}
+                          <strong className="font-semibold">
+                            {validacion.data.cuentaEntra?.nombreMostrado}
+                          </strong>
+                          {validacion.data.usuarioErp && (
+                            <span className="ml-1 text-xs opacity-85 font-normal">
+                              (se vinculará al usuario existente del ERP)
+                            </span>
+                          )}
+                        </span>
+                      </div>
+                    ) : validacion.data.empleadoVinculado ? (
+                      <div className="flex items-start gap-2 text-danger-fg">
+                        <AlertCircle className="h-4 w-4 mt-0.5 shrink-0" />
+                        <div>
+                          <p className="font-semibold">
+                            La cuenta ya está vinculada a un colaborador en el ERP.
+                          </p>
+                          <p className="mt-0.5 text-2xs text-ink-muted">
+                            Esta cuenta Microsoft pertenece a{' '}
+                            <strong className="text-ink">
+                              {validacion.data.empleadoVinculado.nombre}
+                            </strong>{' '}
+                            (clave:{' '}
+                            <strong className="font-mono text-ink">
+                              {validacion.data.empleadoVinculado.clave}
+                            </strong>
+                            ). Cada empleado debe contar con una cuenta Microsoft independiente.
+                          </p>
+                        </div>
+                      </div>
+                    ) : validacion.data.usuarioErp && !validacion.data.usuarioErp.activo ? (
+                      <div className="flex items-start gap-2 text-danger-fg">
+                        <AlertCircle className="h-4 w-4 mt-0.5 shrink-0" />
+                        <div>
+                          <p className="font-semibold">Usuario desactivado en el ERP.</p>
+                          <p className="mt-0.5 text-2xs text-ink-muted">
+                            Existe un usuario en el ERP con este correo (
+                            {validacion.data.usuarioErp.nombre}) pero está desactivado. Reactívalo
+                            desde el módulo de usuarios antes de asignarlo.
+                          </p>
+                        </div>
+                      </div>
+                    ) : validacion.data.cuentaEntra && !validacion.data.cuentaEntra.habilitada ? (
+                      <div className="flex items-start gap-2 text-danger-fg">
+                        <AlertTriangle className="h-4 w-4 mt-0.5 shrink-0" />
+                        <div>
+                          <p className="font-semibold">Cuenta Microsoft deshabilitada.</p>
+                          <p className="mt-0.5 text-2xs text-ink-muted">
+                            La cuenta Microsoft ({validacion.data.cuentaEntra.nombreMostrado}) se
+                            encuentra deshabilitada en el directorio Entra ID.
+                          </p>
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="flex items-center gap-2 font-medium text-warning-fg ">
+                        <AlertTriangle className="h-4 w-4 shrink-0" />
+                        <span>
+                          No se encontró una cuenta Microsoft activa con {correoValidable} para
+                          vincular.
+                        </span>
+                      </div>
+                    )
+                  ) : validacion.data.puedeCrearCuentaNueva ? (
+                    <div className="flex items-center gap-2 font-medium text-success-fg ">
+                      <CheckCircle2 className="h-4 w-4 shrink-0" />
+                      <span>
+                        Correo corporativo <strong className="font-mono">{correoValidable}</strong>{' '}
+                        disponible para crear cuenta Microsoft nueva.
+                      </span>
+                    </div>
+                  ) : (
+                    <div className="flex items-start gap-2 text-danger-fg">
+                      <AlertCircle className="h-4 w-4 mt-0.5 shrink-0" />
+                      <div>
+                        <p className="font-semibold">
+                          El correo no está disponible para una cuenta nueva.
+                        </p>
+                        <p className="mt-0.5 text-2xs text-ink-muted">
+                          {validacion.data.cuentaEntra
+                            ? 'Ya existe una cuenta en Entra ID con este correo.'
+                            : validacion.data.empleadoVinculado
+                              ? `Ya existe un colaborador (${validacion.data.empleadoVinculado.nombre}, clave: ${validacion.data.empleadoVinculado.clave}) con este correo en el ERP.`
+                              : 'Ya existe un usuario en el ERP registrado con este correo.'}
+                        </p>
+                      </div>
+                    </div>
+                  )
+                ) : null}
+              </div>
+            )}
+          </FormCampo>
+
+          <FormCampo span={12}>
+            {acceso === 2 && (
+              <Field label="Correo personal de contacto" required className="md:col-span-6">
+                <Input
+                  type="email"
+                  value={emailContacto}
+                  onChange={(e) => setEmailContacto(e.target.value)}
+                  placeholder="contacto@ejemplo.com"
+                />
+              </Field>
+            )}
+          </FormCampo>
+          <FormCampo span={12}>
+            {acceso === 2 && (
+              <p className="text-xs text-warning-fg md:col-span-12">
+                Se enviará una contraseña temporal al correo de contacto cuando el entorno tenga
+                Graph y correo habilitados.
+              </p>
+            )}
+          </FormCampo>
+          <FormCampo span={12}>
+            {acceso === 1 && (
+              <p className="text-xs text-warning-fg md:col-span-12">
+                El ERP verificará la cuenta Microsoft al guardar; el resultado depende del proveedor
+                configurado en este entorno.
+              </p>
+            )}
+          </FormCampo>
+        </FormGrid>
       )}
 
       {!esEditar && paso === 3 && (
-        <div className="rounded-md border bg-muted/20 p-3 text-sm space-y-1">
+        <div className="rounded-md border bg-surface-muted/20 p-3 text-sm space-y-1">
           <p className="font-medium">Revisa antes de crear</p>
           <p>
             {form.getValues('nombre')} ·{' '}
             <span className="font-mono">
-              {form.getValues('clave') || siguienteClaveQuery.data?.siguienteClave || 'Autogenerada'}
+              {form.getValues('clave') ||
+                siguienteClaveQuery.data?.siguienteClave ||
+                'Autogenerada'}
             </span>
           </p>
-          <p className="text-muted-foreground text-xs">{sucursalSeleccionada ? "Adscripción a sucursal" : "Corporativo · acceso a todas las sucursales"}. Departamento y puesto seleccionados.</p>
+          <p className="text-ink-muted text-xs">
+            {sucursalSeleccionada
+              ? 'Adscripción a sucursal'
+              : 'Corporativo · acceso a todas las sucursales'}
+            . Departamento y puesto seleccionados.
+          </p>
           <p>
             {acceso === 0
               ? 'Sin acceso al ERP'
               : `${acceso === 1 ? 'Cuenta Microsoft existente' : 'Cuenta Microsoft nueva'} · ${form.getValues('email')}`}
           </p>
           {acceso !== 0 && (
-            <p className="text-xs text-muted-foreground">
+            <p className="text-xs text-ink-muted">
               Rol a asignar:{' '}
-              <span className="font-medium text-foreground">
-                {rolSeleccionado?.nombre ?? '—'}
-              </span>
+              <span className="font-medium text-ink">{rolSeleccionado?.nombre ?? '—'}</span>
             </p>
           )}
-          {acceso === 2 && <p className="text-xs text-muted-foreground">La contraseña temporal se enviará a {emailContacto}.</p>}
+          {acceso === 2 && (
+            <p className="text-xs text-ink-muted">
+              La contraseña temporal se enviará a {emailContacto}.
+            </p>
+          )}
         </div>
       )}
 
       <div className="flex items-center justify-end gap-2">
         <div className="flex items-center gap-2">
-          <Button
-            type="button"
-            variant="ghost"
-            size="sm"
-            onClick={onCancel}
-            disabled={isPending}
-          >
+          <Button type="button" variant="ghost" size="sm" onClick={onCancel} disabled={isPending}>
             <X className="mr-1 h-4 w-4" />
             Cancelar
           </Button>
@@ -1224,17 +1374,17 @@ interface FieldProps {
 function Field({ label, required, error, className, children }: FieldProps) {
   return (
     <div className={cn('space-y-1', className)}>
-      <label className="flex items-center gap-1 text-xs font-medium text-muted-foreground">
+      <label className="flex items-center gap-1 text-xs font-medium text-ink-muted">
         {label}
         {required && (
-          <span aria-hidden="true" className="text-rose-600">
+          <span aria-hidden="true" className="text-danger-fg">
             *
           </span>
         )}
       </label>
       {children}
       {error != null && (
-        <p role="alert" className="text-xs text-rose-600">
+        <p role="alert" className="text-xs text-danger-fg">
           {error}
         </p>
       )}

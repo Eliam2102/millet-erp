@@ -36,7 +36,9 @@ public sealed record FacturaProveedorRegistradaIntegrationEvent(
     string? Moneda = null,
     decimal? TipoCambio = null,
     Guid? SucursalId = null,
-    Guid? CentroCostoId = null)
+    Guid? CentroCostoId = null,
+    // 86e3tfedr: recepción elegida; null = sin elección (Almacén conserva el vínculo a todas las variante B pendientes de la OC).
+    Guid? RecepcionId = null)
     : IntegrationEvent("cuentas_por_pagar.factura.registrada.v1", EmpresaId, OcurridoEn);
 
 public sealed record LineaFacturadaPayload(
@@ -44,7 +46,7 @@ public sealed record LineaFacturadaPayload(
     Guid? LineaOcId,
     decimal Cantidad,
     decimal Importe,
-    Guid? CentroCostoId = null);
+    Guid? CentroCostoId = null, decimal? ValorCapitalizable = null);
 
 /// <summary>
 /// Retención del CFDI: <c>Impuesto</c> = código SAT (001 ISR, 002 IVA,

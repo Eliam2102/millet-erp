@@ -1,5 +1,6 @@
 using Microsoft.EntityFrameworkCore;
 using Millet.Compras.Domain;
+using Millet.Compras.Domain.Cotizaciones;
 using Millet.Compras.Domain.Idempotencia;
 using Millet.Compras.Domain.Oc;
 using Millet.Compras.Infrastructure.Configurations;
@@ -32,14 +33,20 @@ public sealed class ComprasDbContext : BaseDbContext
     public DbSet<AprobadorDepartamento> AprobadoresDepartamento => Set<AprobadorDepartamento>();
     public DbSet<FolioSecuencia> FolioSecuencias => Set<FolioSecuencia>();
     public DbSet<ComprasSettings> ComprasSettings => Set<ComprasSettings>();
+    public DbSet<Cotizacion> Cotizaciones => Set<Cotizacion>();
+    public DbSet<LineaCotizacion> LineasCotizacion => Set<LineaCotizacion>();
 
     // --- Submódulo Órdenes de Compra (F1-PR1, F2-PR1, F2-PR4, F3-PR1, F3-PR2) ---
+    public DbSet<EnvioOc> EnviosOc => Set<EnvioOc>();
     public DbSet<OrdenCompra> OrdenesCompra => Set<OrdenCompra>();
     public DbSet<FolioSecuenciaOc> FolioSecuenciasOc => Set<FolioSecuenciaOc>();
     public DbSet<LineaOrdenCompra> LineasOrdenCompra => Set<LineaOrdenCompra>();
     public DbSet<TipoDocumentoOc> TiposDocumentoOc => Set<TipoDocumentoOc>();
     public DbSet<AdjuntoOC> AdjuntosOc => Set<AdjuntoOC>();
     public DbSet<AutorizacionOC> AutorizacionesOc => Set<AutorizacionOC>();
+    public DbSet<RespuestaProveedorOc> RespuestasProveedorOc => Set<RespuestaProveedorOc>();
+    public DbSet<IncidenciaProveedorOc> IncidenciasProveedorOc => Set<IncidenciaProveedorOc>();
+    public DbSet<AvisoIncidenciaProveedorOc> AvisosIncidenciaProveedorOc => Set<AvisoIncidenciaProveedorOc>();
     public DbSet<RegimenFiscalArticulo> RegimenesFiscalesArticulo => Set<RegimenFiscalArticulo>();
     public DbSet<OrdenCompraPdf> OrdenCompraPdfs => Set<OrdenCompraPdf>();
 
@@ -78,18 +85,26 @@ public sealed class ComprasDbContext : BaseDbContext
         modelBuilder.ApplyConfiguration(new AprobadorDepartamentoConfiguration());
         modelBuilder.ApplyConfiguration(new FolioSecuenciaConfiguration());
         modelBuilder.ApplyConfiguration(new ComprasSettingsConfiguration());
+        modelBuilder.ApplyConfiguration(new CotizacionConfiguration());
+        modelBuilder.ApplyConfiguration(new LineaCotizacionConfiguration());
         modelBuilder.ApplyConfiguration(new OcBorradorStubConfiguration());
         modelBuilder.ApplyConfiguration(new IntegrationEventOutboxEntryConfiguration());
         modelBuilder.ApplyConfiguration(new EventoProcesadoConfiguration());
 
         // Submódulo Órdenes de Compra (F1-PR1, F2-PR1, F2-PR4, F3-PR1, F3-PR2).
         modelBuilder.ApplyConfiguration(new OrdenCompraConfiguration());
+        modelBuilder.ApplyConfiguration(new EnvioOcConfiguration());
         modelBuilder.ApplyConfiguration(new FolioSecuenciaOcConfiguration());
         modelBuilder.ApplyConfiguration(new LineaOrdenCompraConfiguration());
         modelBuilder.ApplyConfiguration(new TipoDocumentoOcConfiguration());
         modelBuilder.ApplyConfiguration(new AdjuntoOcConfiguration());
         modelBuilder.ApplyConfiguration(new AutorizacionOcConfiguration());
         modelBuilder.ApplyConfiguration(new SolicitudCancelacionOcConfiguration());
+        modelBuilder.ApplyConfiguration(new RespuestaProveedorOcConfiguration());
+        modelBuilder.ApplyConfiguration(new CompromisoEntregaOcConfiguration());
+        modelBuilder.ApplyConfiguration(new IncidenciaProveedorOcConfiguration());
+        modelBuilder.ApplyConfiguration(new CompromisoIncidenciaOcConfiguration());
+        modelBuilder.ApplyConfiguration(new AvisoIncidenciaProveedorOcConfiguration());
         modelBuilder.ApplyConfiguration(new RegimenFiscalArticuloConfiguration());
         modelBuilder.ApplyConfiguration(new OrdenCompraPdfConfiguration());
     }

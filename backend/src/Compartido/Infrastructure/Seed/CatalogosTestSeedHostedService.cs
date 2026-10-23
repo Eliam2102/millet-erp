@@ -140,6 +140,10 @@ public sealed class CatalogosTestSeedHostedService : IHostedService
         }
 
         db.Proveedores.AddRange(faltantes);
+        // 86e3pdmee: sin cuenta activa no se paga; los proveedores activos del seed llevan una cuenta ficticia.
+        foreach (var p in faltantes.Where(p => p.Estatus == EstatusCatalogo.Activo))
+            db.CuentasBancariasProveedor.Add(CuentaBancariaProveedor.Heredada(
+                p.Id, "Banco de prueba", "002010077777777771", p.RazonSocial, DateTimeOffset.UtcNow));
         await db.SaveChangesAsync(ct);
         _logger.LogInformation("CatalogosTestSeed proveedores: insertados {N} nuevos.", faltantes.Count);
     }
@@ -411,23 +415,23 @@ public sealed class CatalogosTestSeedHostedService : IHostedService
     /// </summary>
     public static readonly Proveedor[] TestProveedores =
     [
-        new Proveedor(
+        Clasificado(new Proveedor(
             id: Guid.Parse("00000005-0001-0000-0000-000000000001"),
             clave: "PROV-EST",
             razonSocial: "Suministros Estándar SA de CV",
             rfc: "SES010101AAA",
             tipoPersona: TipoPersonaProveedor.Moral,
             condicionesPagoDias: 30,
-            estatus: EstatusCatalogo.Activo),
-        new Proveedor(
+            estatus: EstatusCatalogo.Activo)),
+        Clasificado(new Proveedor(
             id: Guid.Parse("00000005-0001-0000-0000-000000000002"),
             clave: "PROV-SVC",
             razonSocial: "Consultoría Técnica del Norte SC",
             rfc: "CTN020202BBB",
             tipoPersona: TipoPersonaProveedor.Moral,
             condicionesPagoDias: 60,
-            estatus: EstatusCatalogo.Activo),
-        new Proveedor(
+            estatus: EstatusCatalogo.Activo)),
+        Clasificado(new Proveedor(
             id: Guid.Parse("00000005-0001-0000-0000-000000000003"),
             clave: "PROV-MAY",
             razonSocial: "Distribuidora Mayorista de Insumos SA",
@@ -435,8 +439,8 @@ public sealed class CatalogosTestSeedHostedService : IHostedService
             tipoPersona: TipoPersonaProveedor.Moral,
             condicionesPagoDias: 45,
             nombreComercial: "DiMa Insumos",
-            estatus: EstatusCatalogo.Activo),
-        new Proveedor(
+            estatus: EstatusCatalogo.Activo)),
+        Clasificado(new Proveedor(
             id: Guid.Parse("00000005-0001-0000-0000-000000000004"),
             clave: "PROV-INT",
             razonSocial: "Global Supplies Corp",
@@ -444,15 +448,22 @@ public sealed class CatalogosTestSeedHostedService : IHostedService
             tipoPersona: TipoPersonaProveedor.Moral,
             condicionesPagoDias: 90,
             monedaPreferidaId: Guid.Parse("00000001-0000-0000-0000-000000000002"),
-            estatus: EstatusCatalogo.Activo), // USD
-        new Proveedor(
+            estatus: EstatusCatalogo.Activo)), // USD
+        Clasificado(new Proveedor(
             id: Guid.Parse("00000005-0001-0000-0000-000000000005"),
             clave: "PROV-INA",
             razonSocial: "Proveedor Inactivo SA",
             rfc: "PIN050505EEE",
             tipoPersona: TipoPersonaProveedor.Moral,
-            estatus: EstatusCatalogo.Inactivo),
+            estatus: EstatusCatalogo.Inactivo)),
     ];
+
+    /// <summary>Los proveedores de prueba nacen clasificados (nacional, régimen 601): sin origen no se pueden validar (86e3pdmee).</summary>
+    private static Proveedor Clasificado(Proveedor p)
+    {
+        p.ActualizarClasificacionFiscal(OrigenProveedor.Nacional, "601", null);
+        return p;
+    }
 
     /// <summary>
     /// 8 artículos de prueba (00000005-0002-...). Cubren las 4
@@ -596,7 +607,7 @@ public sealed class CatalogosTestSeedHostedService : IHostedService
     ];
 
     /// <summary>
-    /// 5 departamentos funcionales seedeados (00000005-0004-...).
+    /// 7 departamentos funcionales seedeados (00000005-0004-...).
     /// COMPRAS = el "depto primario" del dev-superadmin (asignado en
     /// el bootstrap para que /api/auth/me retorne un departamentoId
     /// no-null en dev/UAT). F1-ADM-01: todos pertenecen a la empresa
@@ -629,6 +640,17 @@ public sealed class CatalogosTestSeedHostedService : IHostedService
             empresaId: CompartidoDbContext.EmpresaBootstrapId,
             clave: "CAL",
             nombre: "Calidad"),
+        // Áreas revisoras de CxP (códigos de MotivoRevision); solo catálogo de prueba, producción los crea el admin.
+        new Departamento(
+            id: Guid.Parse("00000005-0004-0000-0000-000000000006"),
+            empresaId: CompartidoDbContext.EmpresaBootstrapId,
+            clave: "CXP",
+            nombre: "Cuentas por Pagar"),
+        new Departamento(
+            id: Guid.Parse("00000005-0004-0000-0000-000000000007"),
+            empresaId: CompartidoDbContext.EmpresaBootstrapId,
+            clave: "DIRECCION_F",
+            nombre: "Dirección de Finanzas"),
     ];
 
     // F1-PR3: las constantes TestAlmacenes se movieron a

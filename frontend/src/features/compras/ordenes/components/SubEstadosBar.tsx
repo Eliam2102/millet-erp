@@ -60,18 +60,17 @@ interface BarraInfo {
 
 const PROGRESO_FILL: Record<BarraInfo['progreso'], string> = {
   // Vacío (Sin*): tracker visible pero sin fill.
-  vacio: 'w-0 bg-slate-300',
+  vacio: 'w-0 bg-line',
   // Parcial: 50% de fill ámbar + patrón diagonal.
-  parcial:
-    'w-1/2 bg-amber-400 [background-image:repeating-linear-gradient(45deg,_rgba(0,0,0,0.12)_0_4px,_transparent_4px_8px)]',
+  parcial: 'w-1/2 bg-warning',
   // Completo (Completa / Pagada): 100% verde.
-  completo: 'w-full bg-emerald-500',
+  completo: 'w-full bg-success',
 };
 
 const PROGRESO_RING: Record<BarraInfo['progreso'], string> = {
-  vacio: 'ring-slate-200',
-  parcial: 'ring-amber-300',
-  completo: 'ring-emerald-300',
+  vacio: 'ring-line',
+  parcial: 'ring-warning',
+  completo: 'ring-success',
 };
 
 function progresoRecepcion(s: SubEstadoRecepcion): BarraInfo['progreso'] {
@@ -101,12 +100,7 @@ function porcentajeAprox(p: BarraInfo['progreso']): string {
   }
 }
 
-export function SubEstadosBar({
-  recepcion,
-  facturacion,
-  pago,
-  className,
-}: SubEstadosBarProps) {
+export function SubEstadosBar({ recepcion, facturacion, pago, className }: SubEstadosBarProps) {
   const barras: BarraInfo[] = [
     {
       dimension: 'Recepción',
@@ -141,46 +135,33 @@ export function SubEstadosBar({
       data-component="sub-estados-bar"
     >
       {barras.map((b) => (
-        <DomainTermTooltip
-          key={b.data}
-          term={b.glosarioTerm}
-          definicion={definicion}
-        >
+        <DomainTermTooltip key={b.data} term={b.glosarioTerm} definicion={definicion}>
           <div
             className="grid grid-cols-[6.5rem_1fr_8rem] items-center gap-2 text-xs"
             data-sub-estado={b.data}
             data-progreso={b.progreso}
           >
-            <span className="font-medium text-foreground">{b.dimension}</span>
+            <span className="font-medium text-ink">{b.dimension}</span>
             <div
               className={cn(
-                'relative h-2.5 overflow-hidden rounded-full bg-slate-100 ring-1 ring-inset',
+                'relative h-2.5 overflow-hidden rounded-full bg-surface-muted ring-1 ring-inset',
                 PROGRESO_RING[b.progreso],
               )}
               role="progressbar"
               aria-label={`${b.dimension}: ${b.label}`}
               aria-valuemin={0}
               aria-valuemax={100}
-              aria-valuenow={
-                b.progreso === 'completo'
-                  ? 100
-                  : b.progreso === 'parcial'
-                    ? 50
-                    : 0
-              }
+              aria-valuenow={b.progreso === 'completo' ? 100 : b.progreso === 'parcial' ? 50 : 0}
             >
               <div
-                className={cn(
-                  'h-full rounded-full transition-[width]',
-                  PROGRESO_FILL[b.progreso],
-                )}
+                className={cn('h-full rounded-full transition-[width]', PROGRESO_FILL[b.progreso])}
               />
             </div>
             <span
               className={cn(
-                'truncate tabular-nums text-muted-foreground',
-                b.progreso === 'completo' && 'text-emerald-700',
-                b.progreso === 'parcial' && 'text-amber-800',
+                'tabular-nums text-ink-muted',
+                b.progreso === 'completo' && 'text-success-fg',
+                b.progreso === 'parcial' && 'text-warning-fg',
               )}
             >
               {b.label} ({porcentajeAprox(b.progreso)})

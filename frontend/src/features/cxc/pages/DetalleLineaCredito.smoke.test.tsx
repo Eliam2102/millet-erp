@@ -4,10 +4,7 @@ import { http, HttpResponse } from 'msw';
 import { mswServer } from '@/test/mocks/server';
 import { createQueryWrapper } from '@/test/test-query-client';
 import { DetalleLineaCredito } from '@/features/cxc/pages/DetalleLineaCredito';
-import {
-  EstadoLineaCredito,
-  OrigenLineaCredito,
-} from '@/features/cxc/api/types';
+import { EstadoLineaCredito, OrigenLineaCredito } from '@/features/cxc/api/types';
 import { useAuthStore } from '@/lib/auth/auth-store';
 
 vi.mock('@tanstack/react-router', () => ({
@@ -102,31 +99,23 @@ describe('<DetalleLineaCredito> — smoke', () => {
     mockHandlers(EstadoLineaCredito.Activa);
     render(<DetalleLineaCredito />, { wrapper: createQueryWrapper() });
 
-    await waitFor(() => expect(screen.getByText('ACME SA')).toBeInTheDocument());
+    await waitFor(() => expect(screen.getByText('ACME SA · MXN')).toBeInTheDocument());
     // Fórmula del disponible visible y badge del gap G1.
     expect(await screen.findByTestId('badge-dato-incompleto')).toBeInTheDocument();
     expect(screen.getByText(/380,000\.00 MXN/)).toBeInTheDocument();
     // Acciones de línea activa.
     expect(screen.getByRole('button', { name: /Bloquear/i })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /Editar/i })).toBeInTheDocument();
-    expect(
-      screen.queryByRole('button', { name: /Desbloquear/i }),
-    ).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /Desbloquear/i })).not.toBeInTheDocument();
   });
 
   it('línea Bloqueada: banner con motivo + botón Desbloquear', async () => {
     mockHandlers(EstadoLineaCredito.Bloqueada, 'Cartera vencida +90 días');
     render(<DetalleLineaCredito />, { wrapper: createQueryWrapper() });
 
-    await waitFor(() =>
-      expect(screen.getByText('Cartera vencida +90 días')).toBeInTheDocument(),
-    );
-    expect(
-      screen.getByRole('button', { name: /Desbloquear/i }),
-    ).toBeInTheDocument();
-    expect(
-      screen.queryByRole('button', { name: /^Bloquear/i }),
-    ).not.toBeInTheDocument();
+    await waitFor(() => expect(screen.getByText('Cartera vencida +90 días')).toBeInTheDocument());
+    expect(screen.getByRole('button', { name: /Desbloquear/i })).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /^Bloquear/i })).not.toBeInTheDocument();
   });
 
   it('sin permiso gestionar: sin acciones de mutación', async () => {
@@ -136,7 +125,7 @@ describe('<DetalleLineaCredito> — smoke', () => {
     mockHandlers(EstadoLineaCredito.Activa);
     render(<DetalleLineaCredito />, { wrapper: createQueryWrapper() });
 
-    await waitFor(() => expect(screen.getByText('ACME SA')).toBeInTheDocument());
+    await waitFor(() => expect(screen.getByText('ACME SA · MXN')).toBeInTheDocument());
     expect(screen.queryByRole('button', { name: /Bloquear/i })).not.toBeInTheDocument();
     expect(screen.queryByRole('button', { name: /Editar/i })).not.toBeInTheDocument();
   });
@@ -152,9 +141,7 @@ describe('<DetalleLineaCredito> — smoke', () => {
     );
     render(<DetalleLineaCredito />, { wrapper: createQueryWrapper() });
     await waitFor(() =>
-      expect(
-        screen.getByText(/No se pudo cargar la línea/i),
-      ).toBeInTheDocument(),
+      expect(screen.getByText(/No se pudo cargar la línea/i)).toBeInTheDocument(),
     );
   });
 });

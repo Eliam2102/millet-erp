@@ -98,18 +98,39 @@ export interface ProveedorDetalle {
   toleranciaFacturaContraOcMxn: number | null;
   validadoEn: string | null;
   motivoRechazo: string | null;
+  /** 0 = Nacional, 1 = Extranjero, null = por revisar. */
+  origen: OrigenProveedor | null;
+  regimenFiscalCodigo: string | null;
+  /** Concepto de retención esperado; `SIN_RETENCION` = sin retención; null = por revisar. */
+  conceptoRetencion: string | null;
+  /** Versión de la matriz del expediente con la que se validó el proveedor. */
+  validadoConMatrizVersion?: number | null;
+}
+
+export const OrigenProveedor = { Nacional: 0, Extranjero: 1 } as const;
+export type OrigenProveedor = (typeof OrigenProveedor)[keyof typeof OrigenProveedor];
+
+export interface ClasificacionFiscalProveedorPayload {
+  origen: OrigenProveedor | null;
+  regimenFiscalCodigo: string | null;
+  conceptoRetencion: string | null;
 }
 
 export interface CrearProveedorPayload {
   clave: string;
   razonSocial: string;
-  rfc: string;
+  /** Opcional solo si el origen es Extranjero: el backend guarda el RFC genérico XEXX010101000. */
+  rfc: string | null;
   tipoPersona: TipoPersonaProveedor;
   nombreComercial: string | null;
   condicionesPagoDias: number | null;
   monedaPreferidaId: string | null;
   email: string | null;
   telefono: string | null;
+  /** Clasificación fiscal en la misma transacción del alta (86e3pdmee). */
+  origen?: OrigenProveedor | null;
+  regimenFiscalCodigo?: string | null;
+  conceptoRetencion?: string | null;
 }
 
 export interface ActualizarProveedorPayload {
@@ -126,17 +147,6 @@ export interface ActualizarProveedorPayload {
   limpiarMonedaPreferida?: boolean | null;
   limpiarEmail?: boolean | null;
   limpiarTelefono?: boolean | null;
-  /**
-   * Datos bancarios (F1-ADM-05): requieren el permiso dedicado
-   * <c>datos_maestros.proveedores.bancarios-editar</c>; sin él el
-   * backend responde 403 <c>PROVEEDOR_BANCARIOS_SIN_PERMISO</c>.
-   */
-  banco?: string | null;
-  clabe?: string | null;
-  beneficiario?: string | null;
-  limpiarBanco?: boolean | null;
-  limpiarClabe?: boolean | null;
-  limpiarBeneficiario?: boolean | null;
 }
 
 export interface CrearProveedorResponse {
@@ -152,33 +162,77 @@ export interface CrearProveedorResponse {
   posibleDuplicadoDeId: string | null;
 }
 
-/**
- * Respuesta de <c>GET /api/v1/datos-maestros/proveedores/{id}/datos-bancarios</c>
- * (F1-ADM-05). Requiere el permiso <c>datos_maestros.proveedores.bancarios-ver</c>.
- * La CLABE llega enmascarada por el backend salvo que el usuario tenga
- * <c>tesoreria.movimientos.ver-cuenta-completa</c> (ADR-0018), en cuyo
- * caso <c>clabeCompleta = true</c>.
- */
-export interface ProveedorDatosBancarios {
-  id: string;
-  banco: string | null;
-  clabe: string | null;
-  beneficiario: string | null;
-  clabeCompleta: boolean;
-}
+/** Estado de una cuenta bancaria de proveedor (enum del backend, viaja como número). */
+export const EstadoCuentaBancariaProveedor = {
+  PorValidar: 0,
+  Activa: 1,
+  Inhabilitada: 2,
+  Rechazada: 3,
+} as const;
+export type EstadoCuentaBancariaProveedor =
+  (typeof EstadoCuentaBancariaProveedor)[keyof typeof EstadoCuentaBancariaProveedor];
+
+export const EstadoCuentaBancariaProveedorLabels: Record<
+  EstadoCuentaBancariaProveedor,
+  string
+> = {
+  0: 'Por validar',
+  1: 'Activa',
+  2: 'Inhabilitada',
+  3: 'Rechazada',
+};
 
 /**
- * Payload de <c>PATCH /api/v1/datos-maestros/proveedores/{id}/datos-bancarios</c> (G1.9 / F1-ADM-05).
- * Requiere únicamente el permiso <c>datos_maestros.proveedores.bancarios-editar</c>.
+ * Respuesta de <c>GET /api/v1/datos-maestros/proveedores/{id}/cuentas-bancarias</c>.
+ * <c>numero</c> llega enmascarado salvo que <c>numeroCompleto = true</c>.
  */
-export interface ActualizarDatosBancariosProveedorPayload {
-  banco?: string | null;
-  clabe?: string | null;
-  beneficiario?: string | null;
-  limpiarBanco?: boolean | null;
-  limpiarClabe?: boolean | null;
-  limpiarBeneficiario?: boolean | null;
+export interface CuentaBancariaProveedor {
+  id: string;
+  banco: string;
+  numero: string;
+  esClabe: boolean;
+  swift: string | null;
+  moneda: 'MXN' | 'USD';
+  titular: string;
+  predeterminada: boolean;
+  estado: EstadoCuentaBancariaProveedor;
+  capturadaPorNombre: string | null;
+  capturadaEn: string;
+  capturadaPorMi: boolean;
+  validadaPorNombre: string | null;
+  validadaEn: string | null;
+  documentoAdjuntoId: string | null;
+  notaValidacion: string | null;
+  motivoEstado: string | null;
+  numeroCompleto: boolean;
+  version: number;
+  /** Quién y cuándo rechazó, inhabilitó o reactivó la cuenta por última vez. */
+  ultimoCambioPorNombre?: string | null;
+  ultimoCambioEn?: string | null;
+  /** Solo en la respuesta del alta: la misma cuenta existe en otro proveedor. */
+  advertencia?: string | null;
 }
+
+export interface AgregarCuentaBancariaProveedorPayload {
+  banco: string;
+  clabe?: string | null;
+  numeroCuenta?: string | null;
+  swift?: string | null;
+  moneda: 'MXN' | 'USD';
+  titular: string;
+}
+
+export interface ValidarCuentaBancariaProveedorPayload {
+  documentoAdjuntoId: string;
+  cotejoCompleto: boolean;
+  nota?: string | null;
+}
+
+export type AccionCuentaBancariaProveedor =
+  | 'rechazar'
+  | 'inhabilitar'
+  | 'reactivar'
+  | 'predeterminada';
 
 // ─── Artículos ─────────────────────────────────────────────────────
 
@@ -318,6 +372,21 @@ export type EstadoEjecucionSync =
   | 'Fallida'
   | 'Cancelada';
 
+/** GET …/clientes/sincronizacion/origen/{referencia}: cómo llegó de A+W y qué le falta. */
+export interface ClienteAwOrigenDetalle {
+  referencia: string;
+  campos: { campo: string; etiqueta: string; valor: string | null }[];
+  faltantes: {
+    campo: string;
+    etiqueta: string;
+    regla: string;
+    comoDebeQuedar: string;
+    /** Área que valida el dato correcto antes de corregirlo. */
+    area: string;
+    corrigeEn: string;
+  }[];
+}
+
 export interface EjecucionSyncErrorItem {
   referencia: string;
   codigo: string;
@@ -340,6 +409,8 @@ export interface EjecucionSyncResumen {
   actor: string | null;
   reintentoDeId: string | null;
   errorGeneral: string | null;
+  /** JSON del barrido de productos de la corrida (ADM-06 R4); null si la ejecución no es una corrida. */
+  resumenProductos?: string | null;
 }
 
 export interface EjecucionSyncDetalle
@@ -370,6 +441,7 @@ export interface EjecucionSyncAceptada {
 
 export interface ClienteItem {
   clasificacionId?: string | null;
+  clasificacionNombre?: string | null;
   id: string;
   clave: string;
   /** Correlación con A+W (código de cliente en A+W); inmutable. */

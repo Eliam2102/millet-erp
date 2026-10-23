@@ -11,6 +11,9 @@ export interface AwOrigenEstado {
   cambiadoPor: string | null;
   cambiadoEn: string | null;
   version: number;
+  lecturaHabilitada: boolean;
+  aplicacionHabilitada: boolean;
+  origenProductosHabilitado: boolean;
 }
 const key = ['integraciones-aw', 'origen'] as const;
 const path = '/api/v1/integraciones/aw/origen';
@@ -45,4 +48,11 @@ export function etiquetaAwOrigen(estado: AwOrigenEstado, area: 'clientes' | 'pro
 }
 export function puedeCambiarAwOrigen(estado: AwOrigenEstado, permisos: readonly string[]): boolean {
   return estado.permitido && permisos.includes('integraciones.aw.administracion.configuracion');
+}
+
+export const MOTIVO_LECTURA_AW_APAGADA = 'La lectura de A+W está apagada; avisa a TI';
+/** true solo cuando el servidor confirma que la lectura (clientes o productos) está apagada; sin dato no se bloquea. */
+/** Las corridas leen clientes y productos; el reintento de un cliente solo necesita la lectura de clientes. */
+export function lecturaAwApagada(estado: AwOrigenEstado | undefined, { productos = true } = {}): boolean {
+  return estado != null && (!estado.lecturaHabilitada || !estado.aplicacionHabilitada || (productos && !estado.origenProductosHabilitado));
 }

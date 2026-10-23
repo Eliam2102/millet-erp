@@ -39,14 +39,16 @@ public sealed record FacturaProveedorRegistradaDomainEvent(
     string? Moneda = null,
     decimal? TipoCambio = null,
     Guid? SucursalId = null,
-    Guid? CentroCostoId = null) : INotification;
+    Guid? CentroCostoId = null,
+    // 86e3tfedr: recepción elegida; null = sin elección (Almacén conserva el vínculo a todas las variante B pendientes de la OC).
+    Guid? RecepcionId = null) : INotification;
 
 public sealed record LineaFacturada(
     Guid LineaFacturaId,
     Guid? LineaOcId,
     decimal Cantidad,
     decimal Importe,
-    Guid? CentroCostoId = null);
+    Guid? CentroCostoId = null, decimal? ValorCapitalizable = null);
 
 public sealed record LineaOcAcumulada(
     Guid LineaOcId,

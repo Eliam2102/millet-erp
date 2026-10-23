@@ -1,7 +1,7 @@
+import { PageHeader } from '@/components/erp/PageHeader';
 import { useState } from 'react';
 import { Link, useNavigate, useSearch } from '@tanstack/react-router';
-import { CheckCircle2, Eye, Plus, Send, XCircle } from 'lucide-react';
-import { toast } from 'sonner';
+import { Plus } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
   DropdownMenu,
@@ -10,6 +10,15 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import {
+  Table,
+  TableBody,
+  TableCell,
+  TableContainer,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '@/components/ui/table';
+import {
   Select,
   SelectContent,
   SelectItem,
@@ -17,20 +26,20 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import {
+  BarraFiltros,
+  TabsEstado,
+  useConteosPorEstado,
   EmptyState,
   ErrorState,
+  PaginacionTabla,
   SucursalSelector,
   TableSkeleton,
 } from '@/components/erp';
-import {
-  useAplicarComprobacion,
-  useAutorizarComprobacion,
-  useAutorizarNivel1Aduanales,
-  useAutorizarNivel2Aduanales,
-  useComprobaciones,
-  useEnviarComprobacionARevision,
-  useRechazarComprobacion,
-} from '@/features/cxp/api/useComprobaciones';
+import { BusquedaFolio } from '@/components/erp/data/BusquedaFolio';
+import { offsetLimitAPagina, paginaAOffsetLimit } from '@/components/erp/data/paginacion';
+import { cxpKeys } from '@/features/cxp/api/keys';
+import { useComprobaciones } from '@/features/cxp/api/useComprobaciones';
+import { AccionesComprobacion } from '@/features/cxp/components/AccionesComprobacion';
 import {
   EstadoComprobacionGastos,
   TipoComprobacionGastos,
@@ -44,6 +53,7 @@ import { EstadoComprobacionChip } from '@/features/cxp/components/EstadoChips';
 import { NuevaComprobacionCajaChicaSheet } from '@/features/cxp/components/NuevaComprobacionCajaChicaSheet';
 import { NuevaComprobacionAduanalesSheet } from '@/features/cxp/components/NuevaComprobacionAduanalesSheet';
 import type { ComprobacionesSearch } from '@/features/cxp/lib/comprobaciones-search-schema';
+import { MoneyDisplay } from '@/components/erp/display/MoneyDisplay';
 
 const FROM = '/_app/cxp/comprobaciones/' as const;
 const SENTINEL_ALL = '__all__';
@@ -54,7 +64,9 @@ const SENTINEL_ALL = '__all__';
  * contextuales según estado + tipo:
  * <list>
  *   <item><b>Borrador → PorRevisar</b>: enviar a revisión.</item>
- *   <item><b>PorRevisar → Autorizada</b>: autorizar (nivel 1).</item>
+ *   <item><b>Caja chica Borrador → PendienteAprobarPasivo</b>: al enviar; CxP
+ *         «Aprobar pasivo» la aplica y genera su reposición, o la rechaza.</item>
+ *   <item><b>PorRevisar → Autorizada</b>: autorizar (nivel 1; no caja chica).</item>
  *   <item><b>Autorizada → Aplicada</b>: aplicar (lo hace CxP).</item>
  *   <item><b>Aduanales PorRevisar → AutorizadaN1</b>: autorizar-nivel1
  *         (Comercio Exterior).</item>
@@ -66,9 +78,7 @@ const SENTINEL_ALL = '__all__';
 export function ComprobacionesPage() {
   const search = useSearch({ from: FROM });
   const navigate = useNavigate();
-  const puedeCapturar = useHasPermission(
-    PermisosCanonicos.CuentasPorPagarComprobacionesCapturar,
-  );
+  const puedeCapturar = useHasPermission(PermisosCanonicos.CuentasPorPagarComprobacionesCapturar);
   const [sheetCajaChica, setSheetCajaChica] = useState(false);
   const [sheetAduanales, setSheetAduanales] = useState(false);
 
@@ -76,48 +86,63 @@ export function ComprobacionesPage() {
     tipo: search.tipo,
     estado: search.estado,
     sucursalId: search.sucursalId,
-    limit: 200,
+    q: search.q,
+    ...paginaAOffsetLimit(search),
   });
 
+  const conteos = useConteosPorEstado(
+    cxpKeys.comprobaciones(),
+    '/api/v1/cuentas-por-pagar/comprobaciones',
+    { tipo: search.tipo, sucursalId: search.sucursalId, q: search.q },
+  );
+
   function actualizarSearch(parcial: Partial<ComprobacionesSearch>) {
-    navigate({ to: '/cxp/comprobaciones', search: { ...search, ...parcial } });
+    navigate({
+      to: '/cxp/comprobaciones',
+      // Cambiar un filtro regresa a la página 1; la paginación pasa su propia página.
+      search: { ...search, page: undefined, ...parcial },
+    });
   }
 
   const items = query.data?.items ?? [];
 
   return (
     <div className="space-y-4">
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <div>
-          <h1 className="text-2xl font-semibold tracking-tight">
-            Comprobaciones de gastos
-          </h1>
-          <p className="text-sm text-muted-foreground">
-            Caja chica + gastos aduanales (con doble firma). Viáticos y
-            Tarjeta de crédito tienen sus propias pantallas.
-          </p>
-        </div>
-        {puedeCapturar && (
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button>
-                <Plus className="mr-2 h-4 w-4" />
-                Nueva comprobación
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end">
-              <DropdownMenuItem onSelect={() => setSheetCajaChica(true)}>
-                Caja chica (N CFDIs)
-              </DropdownMenuItem>
-              <DropdownMenuItem onSelect={() => setSheetAduanales(true)}>
-                Aduanales (con pedimento)
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
-        )}
-      </div>
+      <PageHeader
+        titulo="Comprobaciones de gastos"
+        descripcion="Caja chica + gastos aduanales (con doble firma). Viáticos y Tarjeta de crédito tienen sus propias pantallas."
+        acciones={
+          <>
+            {puedeCapturar && (
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button>
+                    <Plus className="mr-2 size-3.5" />
+                    Nueva comprobación
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end">
+                  <DropdownMenuItem onSelect={() => setSheetCajaChica(true)}>
+                    Caja chica (N CFDIs)
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onSelect={() => setSheetAduanales(true)}>
+                    Aduanales (con pedimento)
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+            )}
+          </>
+        }
+      />
 
-      <Filtros search={search} onChange={actualizarSearch} />
+      <TabsEstado
+        opciones={TABS_ESTADO}
+        valor={search.estado}
+        onChange={(estado) => actualizarSearch({ estado: estado as EstadoComprobacionGastos | undefined })}
+        conteos={conteos.data}
+      />
+
+      <Filtros search={search} total={query.data?.total} onChange={actualizarSearch} />
 
       {query.isError ? (
         <ErrorState
@@ -140,376 +165,169 @@ export function ComprobacionesPage() {
       ) : items.length === 0 ? (
         <EmptyState
           title="Sin comprobaciones"
-          description="No hay comprobaciones que coincidan con los filtros."
+          description={
+            search.tipo != null || search.estado != null || search.sucursalId || search.q
+              ? 'No hay comprobaciones que coincidan con los filtros.'
+              : 'Aún no hay comprobaciones. Crea la primera desde «Nueva comprobación».'
+          }
         />
       ) : (
-        <Tabla items={items} />
+        <div className="overflow-hidden rounded-lg border border-line-row bg-surface-card">
+          <Tabla items={items} />
+          <PaginacionTabla
+            total={query.data?.total ?? 0}
+            offset={query.data?.offset ?? 0}
+            limit={query.data?.limit ?? paginaAOffsetLimit(search).limit}
+            onChange={(offset, limit) => actualizarSearch(offsetLimitAPagina(offset, limit))}
+          />
+        </div>
       )}
 
-      <NuevaComprobacionCajaChicaSheet
-        open={sheetCajaChica}
-        onOpenChange={setSheetCajaChica}
-      />
-      <NuevaComprobacionAduanalesSheet
-        open={sheetAduanales}
-        onOpenChange={setSheetAduanales}
-      />
+      <NuevaComprobacionCajaChicaSheet open={sheetCajaChica} onOpenChange={setSheetCajaChica} />
+      <NuevaComprobacionAduanalesSheet open={sheetAduanales} onOpenChange={setSheetAduanales} />
     </div>
   );
 }
 
+const TABS_ESTADO = [
+  { valor: EstadoComprobacionGastos.Borrador, label: 'Borrador' },
+  { valor: EstadoComprobacionGastos.PorRevisar, label: 'Por revisar' },
+  { valor: EstadoComprobacionGastos.PendienteAprobarPasivo, label: 'Pendiente de aprobar pasivo' },
+  { valor: EstadoComprobacionGastos.AutorizadaNivel1, label: 'Autorizada N1' },
+  { valor: EstadoComprobacionGastos.Autorizada, label: 'Autorizada' },
+  { valor: EstadoComprobacionGastos.Aplicada, label: 'Aplicada' },
+  { valor: EstadoComprobacionGastos.Rechazada, label: 'Rechazada' },
+] as const;
+
 interface FiltrosProps {
   search: ComprobacionesSearch;
+  total: number | undefined;
   onChange: (parcial: Partial<ComprobacionesSearch>) => void;
 }
 
-function Filtros({ search, onChange }: FiltrosProps) {
-  const algunFiltro =
-    search.tipo != null || search.estado != null || search.sucursalId;
+function Filtros({ search, total, onChange }: FiltrosProps) {
+  const algunFiltro = search.tipo != null || search.sucursalId || search.q;
   return (
-    <div className="flex flex-wrap items-end gap-3">
-      <div className="space-y-1">
-        <label className="text-xs text-muted-foreground">Tipo</label>
+    <BarraFiltros
+      aria-label="Filtros de comprobaciones"
+      busqueda={
+        <BusquedaFolio
+          aria-label="Buscar por pedimento u observaciones"
+          valor={search.q}
+          onCommit={(q) => onChange({ q })}
+          placeholder="Pedimento u observaciones"
+        />
+      }
+      filtros={
         <Select
           value={search.tipo != null ? String(search.tipo) : SENTINEL_ALL}
           onValueChange={(v) =>
             onChange({
-              tipo:
-                v === SENTINEL_ALL
-                  ? undefined
-                  : (Number(v) as TipoComprobacionGastos),
+              tipo: v === SENTINEL_ALL ? undefined : (Number(v) as TipoComprobacionGastos),
             })
           }
         >
-          <SelectTrigger aria-label="Filtrar por tipo" className="w-44">
-            <SelectValue placeholder="Todos" />
+          <SelectTrigger aria-label="Filtrar por tipo" className="h-ctl-md w-40 text-xs">
+            <SelectValue placeholder="Todos los tipos" />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value={SENTINEL_ALL}>Todos</SelectItem>
+            <SelectItem value={SENTINEL_ALL}>Todos los tipos</SelectItem>
             <SelectItem value={String(TipoComprobacionGastos.ReembolsoCajaChica)}>
               Caja chica
             </SelectItem>
             <SelectItem value={String(TipoComprobacionGastos.GastosAduanales)}>
               Aduanales
             </SelectItem>
-            <SelectItem value={String(TipoComprobacionGastos.Viaticos)}>
-              Viáticos
-            </SelectItem>
+            <SelectItem value={String(TipoComprobacionGastos.Viaticos)}>Viáticos</SelectItem>
             <SelectItem value={String(TipoComprobacionGastos.TarjetaCredito)}>
               Tarjeta crédito
             </SelectItem>
           </SelectContent>
         </Select>
-      </div>
-      <div className="space-y-1">
-        <label className="text-xs text-muted-foreground">Estado</label>
-        <Select
-          value={search.estado != null ? String(search.estado) : SENTINEL_ALL}
-          onValueChange={(v) =>
-            onChange({
-              estado:
-                v === SENTINEL_ALL
-                  ? undefined
-                  : (Number(v) as EstadoComprobacionGastos),
-            })
-          }
-        >
-          <SelectTrigger aria-label="Filtrar por estado" className="w-44">
-            <SelectValue placeholder="Todos" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value={SENTINEL_ALL}>Todos</SelectItem>
-            <SelectItem value={String(EstadoComprobacionGastos.Borrador)}>
-              Borrador
-            </SelectItem>
-            <SelectItem value={String(EstadoComprobacionGastos.PorRevisar)}>
-              Por revisar
-            </SelectItem>
-            <SelectItem value={String(EstadoComprobacionGastos.AutorizadaNivel1)}>
-              Autorizada N1
-            </SelectItem>
-            <SelectItem value={String(EstadoComprobacionGastos.Autorizada)}>
-              Autorizada
-            </SelectItem>
-            <SelectItem value={String(EstadoComprobacionGastos.Aplicada)}>
-              Aplicada
-            </SelectItem>
-            <SelectItem value={String(EstadoComprobacionGastos.Rechazada)}>
-              Rechazada
-            </SelectItem>
-          </SelectContent>
-        </Select>
-      </div>
-      <div className="space-y-1">
-        <label className="text-xs text-muted-foreground">Sucursal</label>
-        <SucursalSelector
-          value={search.sucursalId ?? null}
-          onChange={(id) => onChange({ sucursalId: id ?? undefined })}
-          placeholder="Todas las sucursales"
-          className="w-56"
-        />
-      </div>
-      {algunFiltro && (
-        <Button
-          variant="ghost"
-          onClick={() =>
-            onChange({
-              tipo: undefined,
-              estado: undefined,
-              sucursalId: undefined,
-            })
-          }
-        >
-          Limpiar
-        </Button>
-      )}
-    </div>
+      }
+      masFiltros={
+        <div className="space-y-1">
+          <label className="text-xs text-ink-muted">Sucursal</label>
+          <SucursalSelector
+            value={search.sucursalId ?? null}
+            onChange={(id) => onChange({ sucursalId: id ?? undefined })}
+            placeholder="Todas las sucursales"
+            className="w-full"
+          />
+        </div>
+      }
+      masFiltrosActivos={search.sucursalId ? 1 : 0}
+      onLimpiar={
+        algunFiltro
+          ? () => onChange({ tipo: undefined, sucursalId: undefined, q: undefined })
+          : undefined
+      }
+      total={total != null ? `${total} ${total === 1 ? 'comprobación' : 'comprobaciones'}` : undefined}
+    />
   );
 }
 
 function Tabla({ items }: { items: readonly ComprobacionGastosListItem[] }) {
-  const enviar = useEnviarComprobacionARevision();
-  const autorizar = useAutorizarComprobacion();
-  const aplicar = useAplicarComprobacion();
-  const autN1 = useAutorizarNivel1Aduanales();
-  const autN2 = useAutorizarNivel2Aduanales();
-  const rechazar = useRechazarComprobacion();
-
-  const puedeAprobarN1 = useHasPermission(
-    PermisosCanonicos.CuentasPorPagarComprobacionesAprobarNivel1,
-  );
-  const puedeAprobarN2 = useHasPermission(
-    PermisosCanonicos.CuentasPorPagarComprobacionesAprobarNivel2,
-  );
-  const puedeCapturar = useHasPermission(
-    PermisosCanonicos.CuentasPorPagarComprobacionesCapturar,
-  );
-
-  function dispatch(
-    label: string,
-    promise: Promise<unknown>,
-  ) {
-    promise.then(
-      () => toast.success(label),
-      (error) => {
-        if (esApiError(error)) {
-          toast.error(error.problem.title);
-          return;
-        }
-        toast.error('Error al ejecutar acción.');
-      },
-    );
-  }
-
-  function handleEnviar(c: ComprobacionGastosListItem) {
-    dispatch(
-      'Enviada a revisión',
-      enviar.mutateAsync({
-        id: c.id,
-        versionEsperada: c.version,
-        idempotencyKey: crypto.randomUUID(),
-      }),
-    );
-  }
-
-  function handleAutorizar(c: ComprobacionGastosListItem) {
-    dispatch(
-      'Comprobación autorizada',
-      autorizar.mutateAsync({
-        id: c.id,
-        versionEsperada: c.version,
-        idempotencyKey: crypto.randomUUID(),
-      }),
-    );
-  }
-
-  function handleAplicar(c: ComprobacionGastosListItem) {
-    dispatch(
-      'Comprobación aplicada',
-      aplicar.mutateAsync({
-        id: c.id,
-        versionEsperada: c.version,
-        idempotencyKey: crypto.randomUUID(),
-      }),
-    );
-  }
-
-  function handleN1(c: ComprobacionGastosListItem) {
-    dispatch(
-      'Firma Nivel 1 aplicada',
-      autN1.mutateAsync({
-        id: c.id,
-        versionEsperada: c.version,
-        idempotencyKey: crypto.randomUUID(),
-      }),
-    );
-  }
-
-  function handleN2(c: ComprobacionGastosListItem) {
-    dispatch(
-      'Firma Nivel 2 aplicada (segregación validada por backend)',
-      autN2.mutateAsync({
-        id: c.id,
-        versionEsperada: c.version,
-        idempotencyKey: crypto.randomUUID(),
-      }),
-    );
-  }
-
-  function handleRechazar(c: ComprobacionGastosListItem) {
-    const motivo = window.prompt(
-      'Motivo del rechazo (5-500 caracteres):',
-      '',
-    );
-    if (!motivo || motivo.trim().length < 5) {
-      toast.error('Motivo demasiado corto.');
-      return;
-    }
-    dispatch(
-      'Comprobación rechazada',
-      rechazar.mutateAsync({
-        id: c.id,
-        versionEsperada: c.version,
-        command: { motivo: motivo.trim() },
-        idempotencyKey: crypto.randomUUID(),
-      }),
-    );
-  }
-
+  const search = useSearch({ from: FROM });
   return (
-    <div className="overflow-x-auto rounded-md border">
-      <table className="w-full text-sm">
-        <thead className="bg-muted/50">
-          <tr>
-            <th className="px-3 py-2 text-left">Tipo</th>
-            <th className="px-3 py-2 text-left">Periodo</th>
-            <th className="px-3 py-2 text-right">Líneas</th>
-            <th className="px-3 py-2 text-right">Monto</th>
-            <th className="px-3 py-2 text-left">Estado</th>
-            <th className="px-3 py-2 text-right" aria-label="Acciones" />
-          </tr>
-        </thead>
-        <tbody>
-          {items.map((c) => (
-            <tr key={c.id} className="border-t hover:bg-muted/30">
-              <td className="px-3 py-2">
-                {TipoComprobacionGastosLabels[c.tipo]}
-              </td>
-              <td className="px-3 py-2 whitespace-nowrap text-xs">
-                {c.fechaInicio} → {c.fechaFin}
-              </td>
-              <td className="px-3 py-2 text-right font-mono">
-                {c.numeroLineas}
-              </td>
-              <td className="px-3 py-2 text-right font-mono">
-                {formatearMonto(c.montoTotal, c.moneda)}
-              </td>
-              <td className="px-3 py-2">
-                <EstadoComprobacionChip estado={c.estado} />
-              </td>
-              <td className="px-3 py-2 text-right">
-                <Button asChild variant="ghost" size="sm" className="mr-1">
+    <TableContainer>
+      <Table>
+        <TableHeader>
+          <TableRow>
+            <TableHead>Comprobación</TableHead>
+            <TableHead>Responsable</TableHead>
+            <TableHead>Sucursal</TableHead>
+            <TableHead>Periodo</TableHead>
+            <TableHead className="text-right">Líneas</TableHead>
+            <TableHead className="text-right">Monto</TableHead>
+            <TableHead>Estado</TableHead>
+            <TableHead className="text-right">
+              <span className="sr-only">Acciones</span>
+            </TableHead>
+          </TableRow>
+        </TableHeader>
+        <TableBody>
+          {items.map((c) => {
+            const tipo = TipoComprobacionGastosLabels[c.tipo];
+            return (
+              <TableRow key={c.id} className="hover:bg-surface-subtle">
+                <TableCell>
                   <Link
                     to="/cxp/comprobaciones/$id"
                     params={{ id: c.id }}
-                    aria-label={`Ver detalle de comprobación ${TipoComprobacionGastosLabels[c.tipo]}`}
+                    search={search}
+                    className="font-medium text-brand hover:underline"
+                    aria-label={`Abrir comprobación ${tipo} de ${c.responsableNombre ?? 'Sin asignar'}`}
                   >
-                    <Eye className="mr-1 h-3 w-3" />
-                    Ver detalle
+                    {tipo}
                   </Link>
-                </Button>
-                {c.estado === EstadoComprobacionGastos.Borrador &&
-                  puedeCapturar && (
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => handleEnviar(c)}
-                      disabled={enviar.isPending}
-                    >
-                      <Send className="mr-1 h-3 w-3" />
-                      Enviar
-                    </Button>
-                  )}
-                {c.estado === EstadoComprobacionGastos.PorRevisar &&
-                  c.tipo !== TipoComprobacionGastos.GastosAduanales &&
-                  puedeAprobarN1 && (
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => handleAutorizar(c)}
-                      disabled={autorizar.isPending}
-                    >
-                      <CheckCircle2 className="mr-1 h-3 w-3" />
-                      Autorizar
-                    </Button>
-                  )}
-                {c.estado === EstadoComprobacionGastos.PorRevisar &&
-                  c.tipo === TipoComprobacionGastos.GastosAduanales &&
-                  puedeAprobarN1 && (
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => handleN1(c)}
-                      disabled={autN1.isPending}
-                    >
-                      <CheckCircle2 className="mr-1 h-3 w-3" />
-                      Firma N1
-                    </Button>
-                  )}
-                {c.estado === EstadoComprobacionGastos.AutorizadaNivel1 &&
-                  puedeAprobarN2 && (
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => handleN2(c)}
-                      disabled={autN2.isPending}
-                    >
-                      <CheckCircle2 className="mr-1 h-3 w-3" />
-                      Firma N2 (DF)
-                    </Button>
-                  )}
-                {c.estado === EstadoComprobacionGastos.Autorizada &&
-                  puedeAprobarN1 && (
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => handleAplicar(c)}
-                      disabled={aplicar.isPending}
-                    >
-                      Aplicar
-                    </Button>
-                  )}
-                {(c.estado === EstadoComprobacionGastos.PorRevisar ||
-                  c.estado === EstadoComprobacionGastos.AutorizadaNivel1) &&
-                  puedeAprobarN1 && (
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => handleRechazar(c)}
-                      className="ml-1 text-destructive"
-                      disabled={rechazar.isPending}
-                    >
-                      <XCircle className="mr-1 h-3 w-3" />
-                      Rechazar
-                    </Button>
-                  )}
-              </td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
-    </div>
+                </TableCell>
+                <TableCell>
+                  <div className="max-w-56 truncate" title={c.responsableNombre ?? undefined}>
+                    {c.responsableNombre?.trim() || <span className="text-ink-muted">Sin asignar</span>}
+                  </div>
+                </TableCell>
+                <TableCell>{c.sucursalNombre?.trim() || <span className="text-ink-muted">Sin sucursal</span>}</TableCell>
+                <TableCell className="whitespace-nowrap text-xs">
+                  {c.fechaInicio} → {c.fechaFin}
+                </TableCell>
+                <TableCell className="text-right font-mono">{c.numeroLineas}</TableCell>
+                <TableCell className="text-right tabular-nums">
+                  <MoneyDisplay amount={c.montoTotal} currency={c.moneda} strong />
+                </TableCell>
+                <TableCell>
+                  <EstadoComprobacionChip estado={c.estado} />
+                </TableCell>
+                <TableCell>
+                  <div className="flex flex-wrap items-center justify-end gap-1">
+                    <AccionesComprobacion c={c} responsableNombre={c.responsableNombre} />
+                  </div>
+                </TableCell>
+              </TableRow>
+            );
+          })}
+        </TableBody>
+      </Table>
+    </TableContainer>
   );
-}
-
-function formatearMonto(v: number, moneda: string): string {
-  try {
-    return new Intl.NumberFormat('es-MX', {
-      style: 'currency',
-      currency: moneda,
-      minimumFractionDigits: 2,
-    }).format(v);
-  } catch {
-    return `${v.toFixed(2)} ${moneda}`;
-  }
 }

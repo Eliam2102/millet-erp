@@ -1,3 +1,5 @@
+import { useNuevoActivo } from '@/features/activos-fijos/components/nuevo-activo-context';
+import { useNuevoExpediente } from '@/features/comercio-exterior/components/nuevo-expediente-context';
 import {
   BookOpen,
   Building2,
@@ -70,11 +72,14 @@ export function QuickCreateMenu() {
   const nuevaLineaCredito = useNuevaLineaCredito();
   const registrarGestion = useRegistrarGestion();
   const nuevaPropuesta = useNuevaPropuesta();
+  const nuevoActivo = useNuevoActivo();
+  const nuevoExpediente = useNuevoExpediente();
 
   // Catálogo de acciones, definido dentro del componente para poder
   // capturar handlers de hooks. Cuando otros módulos del back-office
   // se implementen, registrar acá (convención §6.4 patrones-compras).
   const grupos: readonly QuickCreateGroup[] = [
+    {label:'Activos fijos',icon:Building2,actions:[{label:'Activo',permission:PermisosCanonicos.ActivosFijosActivosGestionar,onClick:nuevoActivo.abrir}]},
     {
       label: 'Ventas',
       icon: CircleDollarSign,
@@ -164,6 +169,17 @@ export function QuickCreateMenu() {
       label: 'Contabilidad',
       icon: BookOpen,
       actions: [],
+    },
+    {
+      label: 'Comercio Exterior',
+      icon: Receipt,
+      actions: [
+        {
+          label: 'Expediente',
+          permission: PermisosCanonicos.ComercioExteriorExpedientesCrear,
+          onClick: nuevoExpediente.abrir,
+        },
+      ],
     },
   ];
 

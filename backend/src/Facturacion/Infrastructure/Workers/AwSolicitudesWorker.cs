@@ -85,6 +85,7 @@ public sealed class AwSolicitudesWorker : BackgroundService
         var reader = sp.GetRequiredService<IAwSolicitudesReader>();
         var sender = sp.GetRequiredService<ISender>();
         var empresaContext = sp.GetRequiredService<ICurrentEmpresaContext>();
+        var clock = sp.GetRequiredService<IClock>();
 
         var originContext = sp.GetRequiredService<IAuditOriginContext>();
         using var origin = originContext.SetOrigin(nameof(AwSolicitudesWorker));
@@ -96,12 +97,22 @@ public sealed class AwSolicitudesWorker : BackgroundService
             .ToList();
 
         var procesadas = 0;
+        var latencias = new List<TimeSpan>(pendientes.Count);
         foreach (var sol in pendientes)
         {
             try
             {
                 await sender.Send(new ProcesarSolicitudAwCommand(opts.EmpresaId, sol), cancellationToken);
                 procesadas++;
+
+                // U1.4 (R14): latencia cola → ERP = desde que A+W (o el job de
+                // respaldo) insertó la solicitud hasta que el ERP la procesó.
+                // La de punta a punta se mide en SQL con 08_latencia_avisos.sql.
+                var latencia = clock.UtcNow - sol.CreadaAt;
+                latencias.Add(latencia);
+                _logger.LogInformation(
+                    "[AwSolicitudesWorker] Pedido {Pedido} v{Version} ({Operacion}) procesado; latencia cola→ERP {LatenciaMs} ms",
+                    sol.NumeroPedido, sol.Version, sol.Operacion, (long)latencia.TotalMilliseconds);
             }
             catch (Exception ex)
             {
@@ -110,7 +121,11 @@ public sealed class AwSolicitudesWorker : BackgroundService
         }
 
         if (pendientes.Count > 0)
-            _logger.LogInformation("[AwSolicitudesWorker] Tick: {Total} pendientes, {Procesadas} procesadas.", pendientes.Count, procesadas);
+            _logger.LogInformation(
+                "[AwSolicitudesWorker] Tick: {Total} pendientes, {Procesadas} procesadas; latencia cola→ERP promedio {PromedioMs} ms, máxima {MaximaMs} ms.",
+                pendientes.Count, procesadas,
+                latencias.Count == 0 ? 0 : (long)latencias.Average(l => l.TotalMilliseconds),
+                latencias.Count == 0 ? 0 : (long)latencias.Max().TotalMilliseconds);
 
         return procesadas;
     }
@@ -121,7 +136,12 @@ public sealed class AwSolicitudesOptions
     public const string SectionName = "Facturacion:Workers:AwSolicitudes";
 
     public bool Disabled { get; init; }
-    public int IntervalSeconds { get; init; } = 120;
+    /// <summary>
+    /// Segundos entre barridos de la cola. 15 s (U1.4): con el job de respaldo
+    /// también a 15 s, el peor caso de punta a punta queda en ~30 s, dentro
+    /// del «menos de 1 minuto» de hoy con SAP (Módulo 13, R14).
+    /// </summary>
+    public int IntervalSeconds { get; init; } = 15;
     public int BatchSize { get; init; } = 50;
 
     /// <summary>Empresa a la que pertenecen los pedidos de la cola A+W (MVP single-tenant). Vacío → no procesa.</summary>

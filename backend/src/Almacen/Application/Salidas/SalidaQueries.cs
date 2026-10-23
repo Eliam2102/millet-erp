@@ -93,7 +93,13 @@ public sealed record SalidaLineaItem(
     // "No catalogado".
     string? CentroCostoClave,
     string? CentroCostoNombre,
-    Guid? ProyectoId, decimal? CantidadCapturada = null, string? UnidadCapturada = null);
+    Guid? ProyectoId, decimal? CantidadCapturada = null, string? UnidadCapturada = null,
+    // Comentario libre de la línea (captura en el registro). Null = sin comentario.
+    string? ComentarioLinea = null,
+    // Ruta de la ubicación (bin N4) de donde salió la línea, "ALM › SUB · BIN"
+    // (mismo formato que los selectores de Almacén). Null = la línea no lleva bin
+    // (histórico) o el bin no resuelve.
+    string? UbicacionCodigo = null);
 
 public sealed record ListarSalidasQuery(
     EstadoMovimiento? Estado,
@@ -112,7 +118,7 @@ public sealed record ListarSalidasQuery(
     bool? NoRegularizados,
     int Offset,
     int Limit,
-    bool? SoloVencidos = null, bool? SoloPorVencer = null) : IRequest<AlmacenPagedResponse<SalidaListItem>>, IDocumentoScopedQuery
+    bool? SoloVencidos = null, bool? SoloPorVencer = null, string? Q = null) : IRequest<AlmacenPagedResponse<SalidaListItem>>, IDocumentoScopedQuery
 {
     public string TipoDocumento => "salida_almacen";
     public string PermisoTodasSucursales => "almacen.salidas.leer-todas-sucursales";
@@ -120,29 +126,21 @@ public sealed record ListarSalidasQuery(
     public IReadOnlyList<Guid>? DocumentosPermitidos { get; set; }
 }
 
-public sealed class ListarSalidasHandler
-    : IRequestHandler<ListarSalidasQuery, AlmacenPagedResponse<SalidaListItem>>
+/// <summary>
+/// Filtros de la bandeja de salidas salvo el estado, compartidos por el listado
+/// y por los conteos por estado (UX-F3-05) para que ambos coincidan siempre.
+/// </summary>
+internal static class SalidasFiltro
 {
-    private readonly AlmacenDbContext _db;
-    private readonly IComprasRequisicionReadPort _requisiciones;
-
-    public ListarSalidasHandler(AlmacenDbContext db, IComprasRequisicionReadPort requisiciones)
+    public static IQueryable<MovimientoInventario> Aplicar(AlmacenDbContext db, ListarSalidasQuery request)
     {
-        _db = db;
-        _requisiciones = requisiciones;
-    }
-
-    public async Task<AlmacenPagedResponse<SalidaListItem>> Handle(
-        ListarSalidasQuery request, CancellationToken cancellationToken)
-    {
-        IQueryable<MovimientoInventario> query = _db.Movimientos.AsNoTracking()
+        var query = db.Movimientos.AsNoTracking()
             .Where(m => m.Tipo == TipoMovimiento.SalidaConsumo
                 || m.Tipo == TipoMovimiento.SalidaPorVale);
         if (request.DocumentosPermitidos is { } permitidos) query = query.Where(x => permitidos.Contains(x.Id));
-        if (request.Estado is EstadoMovimiento e) query = query.Where(m => m.Estado == e);
         // PR6a: el sub-almacén ya no vive en la cabecera; se filtra vía la vista.
         if (request.SubAlmacenId is Guid sid)
-            query = query.Where(m => _db.MovimientosSubAlmacen
+            query = query.Where(m => db.MovimientosSubAlmacen
                 .Any(v => v.MovimientoId == m.Id && v.SubAlmacenId == sid));
         if (request.RqId is Guid rqid) query = query.Where(m => m.RqId == rqid);
         if (request.PersonaDestinatariaId is Guid pid)
@@ -161,6 +159,13 @@ public sealed class ListarSalidasHandler
                 && m.PendienteRegularizacion);
         }
 
+        // Búsqueda por folio (server-side, después del filtro de sucursal); los folios se generan en mayúsculas.
+        if (!string.IsNullOrWhiteSpace(request.Q))
+        {
+            var q = request.Q.Trim().ToUpperInvariant();
+            query = query.Where(m => m.Folio != null && m.Folio.Contains(q));
+        }
+
         var ahora = DateTimeOffset.UtcNow;
         if (request.SoloVencidos is true)
             query = query.Where(m => m.PendienteRegularizacion && m.FechaLimiteRegularizacion <= ahora);
@@ -169,6 +174,54 @@ public sealed class ListarSalidasHandler
             var horizonte = ahora.AddHours(24);
             query = query.Where(m => m.PendienteRegularizacion && m.FechaLimiteRegularizacion > ahora && m.FechaLimiteRegularizacion <= horizonte);
         }
+        return query;
+    }
+}
+
+public sealed record ConteosSalidasPorEstadoQuery(
+    Guid? SubAlmacenId, Guid? RqId, Guid? PersonaDestinatariaId, DateOnly? Desde, DateOnly? Hasta,
+    bool? SoloVales, bool? NoRegularizados, bool? SoloVencidos = null, bool? SoloPorVencer = null, string? Q = null)
+    : IRequest<IReadOnlyList<ConteoPorEstadoItem>>, IDocumentoScopedQuery
+{
+    public string TipoDocumento => "salida_almacen";
+    public string PermisoTodasSucursales => "almacen.salidas.leer-todas-sucursales";
+    public IReadOnlyList<Guid>? SucursalesPermitidas { get; set; }
+    public IReadOnlyList<Guid>? DocumentosPermitidos { get; set; }
+}
+
+public sealed class ConteosSalidasPorEstadoHandler(AlmacenDbContext db)
+    : IRequestHandler<ConteosSalidasPorEstadoQuery, IReadOnlyList<ConteoPorEstadoItem>>
+{
+    public async Task<IReadOnlyList<ConteoPorEstadoItem>> Handle(
+        ConteosSalidasPorEstadoQuery request, CancellationToken cancellationToken)
+    {
+        var lista = new ListarSalidasQuery(null, request.SubAlmacenId, request.RqId, request.PersonaDestinatariaId,
+            request.Desde, request.Hasta, request.SoloVales, request.NoRegularizados, 0, 0,
+            request.SoloVencidos, request.SoloPorVencer, request.Q) { DocumentosPermitidos = request.DocumentosPermitidos };
+        return await SalidasFiltro.Aplicar(db, lista).GroupBy(m => m.Estado)
+            .Select(g => new ConteoPorEstadoItem((int)g.Key, g.Count()))
+            .ToListAsync(cancellationToken);
+    }
+}
+
+public sealed class ListarSalidasHandler
+    : IRequestHandler<ListarSalidasQuery, AlmacenPagedResponse<SalidaListItem>>
+{
+    private readonly AlmacenDbContext _db;
+    private readonly IComprasRequisicionReadPort _requisiciones;
+
+    public ListarSalidasHandler(AlmacenDbContext db, IComprasRequisicionReadPort requisiciones)
+    {
+        _db = db;
+        _requisiciones = requisiciones;
+    }
+
+    public async Task<AlmacenPagedResponse<SalidaListItem>> Handle(
+        ListarSalidasQuery request, CancellationToken cancellationToken)
+    {
+        var query = SalidasFiltro.Aplicar(_db, request);
+        if (request.Estado is EstadoMovimiento e) query = query.Where(m => m.Estado == e);
+        var ahora = DateTimeOffset.UtcNow;
         var total = await query.CountAsync(cancellationToken);
         var items = await query
             .OrderByDescending(m => m.FechaMovimiento).ThenByDescending(m => m.FechaRegistro)
@@ -297,19 +350,42 @@ public sealed class ObtenerSalidaPorIdHandler
             nombres.TryGetValue(personaId, out personaNombre);
         }
 
+        // Ubicación (bin N4) de las líneas: una sola consulta con los bins
+        // distintos (anti-N+1). Ruta "ALM › SUB · BIN" como en los selectores.
+        // Bin null (histórico) o no resuelto → no entra al diccionario.
+        var ubicacionIds = mov.Lineas
+            .Where(l => l.UbicacionId is not null)
+            .Select(l => l.UbicacionId!.Value)
+            .Distinct()
+            .ToArray();
+        Dictionary<Guid, string> rutasUbicacion = ubicacionIds.Length > 0
+            ? (await (
+                from u in _db.Ubicaciones.AsNoTracking()
+                join sa in _db.SubAlmacenes.AsNoTracking() on u.SubAlmacenId equals sa.Id
+                join al in _db.Almacenes.AsNoTracking() on sa.AlmacenId equals al.Id
+                where ubicacionIds.Contains(u.Id)
+                select new { u.Id, u.Clave, SubClave = sa.Clave, AlmacenClave = al.Clave })
+                .ToListAsync(cancellationToken))
+                .ToDictionary(x => x.Id, x => $"{x.AlmacenClave} › {x.SubClave} · {x.Clave}")
+            : new Dictionary<Guid, string>();
+
         // Líneas base (artículo resuelto; CC-Máquina clave/nombre = null aún).
         var lineas = mov.Lineas
             .OrderBy(l => l.Posicion)
             .Select(l =>
             {
                 articulos.TryGetValue(l.ArticuloId, out var art);
+                var ubicacionCodigo = l.UbicacionId is Guid ub && rutasUbicacion.TryGetValue(ub, out var ruta)
+                    ? ruta
+                    : null;
                 return new SalidaLineaItem(
                     l.Id, l.Posicion, l.ArticuloId,
                     art?.Clave, art?.Descripcion,
                     l.Cantidad, l.UnidadMedida,
                     l.CostoUnitarioMxn, l.MontoTotalMxn,
                     l.CentroCostoId, CentroCostoClave: null, CentroCostoNombre: null,
-                    l.ProyectoId, l.CantidadCapturada, l.UnidadCapturada);
+                    l.ProyectoId, l.CantidadCapturada, l.UnidadCapturada, l.ComentarioLinea,
+                    UbicacionCodigo: ubicacionCodigo);
             })
             .ToList();
 

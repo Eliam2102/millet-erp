@@ -2,8 +2,7 @@ namespace Millet.Almacen.Domain.Ports;
 
 /// <summary>
 /// Puerto de lectura hacia DatosMaestros para obtener el master del
-/// artículo: UM, conversión, sub-almacén default, tolerancia de
-/// recepción (A5 del 01-diseno).
+/// artículo: UM, conversión, sub-almacén default.
 ///
 /// <para>
 /// Lo invocan los handlers de recepción y salida cuando necesitan el
@@ -32,11 +31,12 @@ public sealed record ArticuloLectura(
     string Clave,
     string Descripcion,
     string UnidadMedida,
-    decimal? ToleranciaCantidadPorcentaje,
     Guid? SubAlmacenDefaultId,
     bool EsActivo,
     // ADR-0047 PR5.C: precio de referencia del maestro, para el PrecioEstimado de la
     // línea de la RQ automática del motor de reorden. Opcionales (default null) → las
     // construcciones previas de 7 args siguen compilando; el adapter real los proyecta.
     decimal? PrecioReferenciaMonto = null,
-    string? PrecioReferenciaMoneda = null);
+    string? PrecioReferenciaMoneda = null,
+    // Categoría del artículo (familia del conteo).
+    string? Categoria = null);

@@ -12,10 +12,12 @@ namespace Millet.Compras.Application.Almacen;
 /// <summary>
 /// Command despachado por <c>AlmacenEventListenerWorker</c> al recibir
 /// <c>almacen.oc_recepcion.registrada.v1</c> del topic
-/// <c>almacen-events</c>. Para cada línea del payload con
-/// <c>LineaOcId</c> no-null, calcula el acumulado nuevo
-/// (<c>CantidadRecibida_actual + Cantidad_evento</c>) e invoca
-/// <c>OrdenCompra.RegistrarRecepcionLinea</c>.
+/// <c>almacen-events</c>. Para cada línea del payload resuelve la línea de
+/// OC destino (por <c>LineaOcId</c> o, si es null, por artículo único en la
+/// OC), calcula el acumulado (<c>CantidadRecibidaAcumulada</c> calculado por
+/// Almacén; en eventos anteriores a ese campo, el delta sumado al acumulado
+/// actual) e invoca <c>OrdenCompra.RegistrarRecepcionLinea</c> (techo = cantidad
+/// de la línea; en piezas no hay tolerancia, 86e3tab1k).
 ///
 /// <para>
 /// <b>Idempotencia</b>: dedupe contra <c>compras.eventos_procesados</c>
@@ -35,9 +37,13 @@ namespace Millet.Compras.Application.Almacen;
 ///
 /// <para>
 /// <b>Líneas variante B</b>: payloads con <c>LineaOcId = null</c>
-/// (materiales directos antes de conciliación) se loggean y omiten —
-/// no es posible actualizar sub-estado sin línea destino. Cuando llegue
-/// la factura, el handler de conciliación cerrará la brecha.
+/// (materiales directos antes de conciliación) se resuelven por
+/// (OC, artículo) cuando el artículo tiene exactamente una línea física en
+/// la OC; con 0 o más de 1 candidatas, o con un <c>LineaOcId</c> que no
+/// existe en la OC, el handler lanza <c>BusinessRuleException</c>
+/// <c>RECEPCION_LINEA_OC_NO_RESOLUBLE</c> antes de marcar el evento como
+/// procesado: el worker reintenta y, si persiste, el mensaje va a
+/// dead-letter para corrección manual.
 /// </para>
 /// </summary>
 public sealed record OcRecepcionEnAlmacenCommand(
@@ -80,6 +86,7 @@ public sealed class OcRecepcionEnAlmacenHandler
 
         var oc = await _db.OrdenesCompra
             .Include(o => o.Lineas)
+            .Include(o => o.Incidencias.Where(i => i.CerradaEn == null))
             .FirstOrDefaultAsync(o => o.Id == p.OrdenCompraId, cancellationToken)
             ?? throw new EntityNotFoundException(
                 "ORDEN_COMPRA_NO_ENCONTRADA",
@@ -94,25 +101,42 @@ public sealed class OcRecepcionEnAlmacenHandler
 
         foreach (var linea in p.Lineas)
         {
-            if (linea.LineaOcId is not { } lineaOcId)
+            // Las excepciones de este bucle se lanzan ANTES de agregar EventoProcesado
+            // (más abajo): el evento queda sin marcar y el worker reintenta / dead-letter.
+            Guid lineaOcId;
+            if (linea.LineaOcId is { } idDirecto)
             {
-                _logger.LogInformation(
-                    "[OcRecepcionEnAlmacenHandler] Línea sin LineaOcId (variante B pre-conciliación). Recepcion={RecepcionId} LineaRecepcion={LineaRecepcionId}",
-                    p.RecepcionId, linea.LineaRecepcionId);
-                continue;
+                lineaOcId = idDirecto;
             }
-
-            var lineaOc = oc.Lineas.FirstOrDefault(l => l.Id == lineaOcId);
-            if (lineaOc is null)
+            else
             {
+                var candidatas = oc.Lineas
+                    .Where(l => !l.EsServicio && l.ArticuloId == linea.ArticuloId)
+                    .ToList();
+                if (candidatas.Count != 1)
+                {
+                    throw new BusinessRuleException(
+                        "RECEPCION_LINEA_OC_NO_RESOLUBLE",
+                        $"La recepción {p.RecepcionId} trae una línea sin línea de OC y el artículo {linea.ArticuloId} no es único en la OC {oc.Id}; corrige la recepción y reprocesa el evento.");
+                }
+
+                lineaOcId = candidatas[0].Id;
                 _logger.LogWarning(
-                    "[OcRecepcionEnAlmacenHandler] LineaOcId {LineaOcId} no existe en OC {OcId}. Skip línea pero acepto el evento.",
-                    lineaOcId, p.OrdenCompraId);
-                continue;
+                    "[OcRecepcionEnAlmacenHandler] Línea sin LineaOcId resuelta por artículo. Recepcion={RecepcionId} LineaOc={LineaOcId}",
+                    p.RecepcionId, lineaOcId);
             }
 
-            var acumulado = lineaOc.CantidadRecibida + linea.Cantidad;
-            var resultado = oc.RegistrarRecepcionLinea(lineaOcId, acumulado, p.OcurridoEn);
+            var lineaOc = oc.Lineas.FirstOrDefault(l => l.Id == lineaOcId)
+                ?? throw new BusinessRuleException(
+                    "RECEPCION_LINEA_OC_NO_RESOLUBLE",
+                    $"La línea de OC {lineaOcId} de la recepción {p.RecepcionId} no existe en la OC {oc.Id}.");
+
+            // D7: acumulado calculado por Almacén (regla de oro); max() tolera entrega fuera de orden; eventos viejos sin acumulado usan delta.
+            var acumulado = linea.CantidadRecibidaAcumulada is decimal acc
+                ? Math.Max(lineaOc.CantidadRecibida, acc)
+                : lineaOc.CantidadRecibida + linea.Cantidad;
+            var resultado = oc.RegistrarRecepcionLinea(
+                lineaOcId, acumulado, p.OcurridoEn);
 
             if (resultado.Cerrada is { } cerrada)
             {

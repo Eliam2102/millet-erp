@@ -111,8 +111,8 @@ describe('<HistoricoModal>', () => {
         entradas={[]}
       />,
     );
-    // Radix Dialog expone botón "Close" con sr-only label.
-    const closeBtn = screen.getByRole('button', { name: /close/i });
+    // Radix Dialog expone botón "Cerrar" con sr-only label.
+    const closeBtn = screen.getByRole('button', { name: /cerrar/i });
     closeBtn.click();
     expect(onOpenChange).toHaveBeenCalledWith(false);
   });

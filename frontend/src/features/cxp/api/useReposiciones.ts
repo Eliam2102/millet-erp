@@ -1,7 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { apiRequest } from '@/lib/api';
 import type {
-  ConfiguracionReposicionResponse,
   DestinoReposicionCaja,
   EmitirReposicionManualResponse,
   PagedResponse,
@@ -9,9 +8,8 @@ import type {
   SaldoPendienteReposicion,
 } from './types';
 
-// GI-PR4b (doc 12 §D2/Q4): reposiciones de caja chica — saldos por
-// reponer, bandeja de reposiciones emitidas, corte manual y mínimo por
-// sucursal.
+// GI-PR4b / P8.5: reposiciones de caja chica — saldos heredados por
+// reponer, bandeja de reposiciones emitidas y corte manual.
 
 const BASE = '/api/v1/cuentas-por-pagar/reposiciones-caja';
 
@@ -63,30 +61,6 @@ export function useEmitirReposicionManual() {
         {
           method: 'POST',
           body: { sucursalId: args.sucursalId, destino: args.destino },
-          idempotencyKey: args.idempotencyKey,
-        },
-      );
-      return data;
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: reposicionesKeys.root });
-    },
-  });
-}
-
-export function useConfigurarReposicion() {
-  const queryClient = useQueryClient();
-  return useMutation({
-    mutationFn: async (args: {
-      sucursalId: string;
-      montoMinimo: number;
-      idempotencyKey: string;
-    }) => {
-      const { data } = await apiRequest<ConfiguracionReposicionResponse>(
-        `${BASE}/configuracion`,
-        {
-          method: 'PUT',
-          body: { sucursalId: args.sucursalId, montoMinimo: args.montoMinimo },
           idempotencyKey: args.idempotencyKey,
         },
       );

@@ -3,16 +3,20 @@ import { apiRequest } from '@/lib/api';
 import {
   tesoreriaKeys,
   type DepositosFiltros,
+  type DevolucionesFiltros,
   type MovimientosFiltros,
   type PasivosFiltros,
 } from './keys';
 import type {
+  CuentaProveedorPago,
   ConceptoResponse,
   ClasificacionFlujo,
   AplicacionPagoItem,
   BeneficiarioTipo,
   CuentaSaldoResponse,
+  ClienteRefDto,
   DepositoConfirmacionResponse,
+  DevolucionClienteResponse,
   MovimientoBancarioResponse,
   MovimientoDetalleResponse,
   PagedResponse,
@@ -567,6 +571,21 @@ export function useReporteAuxiliarBancos(filtros: {
 
 // ─── Mutations (Idempotency-Key ADR-0020) ────────────────────────────
 
+/** <c>useCuentasProveedorPago(proveedorId)</c> — cuentas del proveedor para elegir destino del pago. */
+export function useCuentasProveedorPago(proveedorId: string | null) {
+  return useQuery<CuentaProveedorPago[]>({
+    queryKey: tesoreriaKeys.cuentasProveedor(proveedorId ?? ''),
+    enabled: proveedorId != null,
+    queryFn: async ({ signal }) => {
+      const { data } = await apiRequest<CuentaProveedorPago[]>(
+        `${BASE}/proveedores/${proveedorId}/cuentas`,
+        { signal },
+      );
+      return data;
+    },
+  });
+}
+
 /** <c>useRegistrarPago()</c> — POST /pagos multi-pasivo (RN-4: aplicado.v1 por factura). */
 export function useRegistrarPago() {
   const queryClient = useQueryClient();
@@ -578,6 +597,7 @@ export function useRegistrarPago() {
         aplicaciones: AplicacionPagoItem[];
         referenciaBancaria?: string;
         conceptoId?: string;
+        cuentaProveedorId?: string;
       };
       idempotencyKey: string;
     }) => {
@@ -697,4 +717,164 @@ export function useRegistrarSaldoInicial() {
     },
     onSuccess: () => client.invalidateQueries({ queryKey: tesoreriaKeys.all }),
   });
+}
+
+// ─── Devoluciones a clientes (T9.6) ─────────────────────────────────
+
+/** <c>useDevoluciones(filtros)</c> — bandeja de devoluciones (depósito erróneo y reembolso de NC). */
+export function useDevoluciones(filtros: DevolucionesFiltros = {}) {
+  return useQuery<PagedResponse<DevolucionClienteResponse>>({
+    queryKey: tesoreriaKeys.devolucionesList(filtros),
+    queryFn: async ({ signal }) => {
+      const params = new URLSearchParams();
+      if (filtros.estado != null) params.set('estado', String(filtros.estado));
+      if (filtros.origen != null) params.set('origen', String(filtros.origen));
+      if (filtros.offset != null) params.set('offset', String(filtros.offset));
+      if (filtros.limit != null) params.set('limit', String(filtros.limit));
+      const qs = params.toString();
+      const { data } = await apiRequest<PagedResponse<DevolucionClienteResponse>>(
+        qs ? `${BASE}/devoluciones?${qs}` : `${BASE}/devoluciones`,
+        { signal },
+      );
+      return data;
+    },
+  });
+}
+
+export function useDevolucion(id: string | null) {
+  return useQuery<DevolucionClienteResponse>({
+    queryKey: tesoreriaKeys.devolucion(id ?? ''),
+    enabled: id != null,
+    queryFn: async ({ signal }) => {
+      const { data } = await apiRequest<DevolucionClienteResponse>(
+        `${BASE}/devoluciones/${id}`,
+        { signal },
+      );
+      return data;
+    },
+  });
+}
+
+/** <c>useSolicitarDevolucionDeposito()</c> — T9.6-a: nunca más que el depósito. */
+export function useSolicitarDevolucionDeposito() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (args: {
+      movimientoId: string;
+      clienteId: string;
+      importe: number;
+      motivo: string;
+      banco: string;
+      clabe: string;
+      titular: string;
+      idempotencyKey: string;
+    }) => {
+      const { data } = await apiRequest<DevolucionClienteResponse>(
+        `${BASE}/movimientos/${args.movimientoId}/solicitar-devolucion`,
+        {
+          method: 'POST',
+          body: {
+            clienteId: args.clienteId,
+            importe: args.importe,
+            motivo: args.motivo,
+            banco: args.banco,
+            clabe: args.clabe,
+            titular: args.titular,
+          },
+          idempotencyKey: args.idempotencyKey,
+        },
+      );
+      return data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: tesoreriaKeys.all });
+    },
+  });
+}
+
+/** <c>useClientesTesoreria(texto)</c> — buscador de clientes (razón social, clave o RFC). */
+export function useClientesTesoreria(texto: string) {
+  const t = texto.trim();
+  return useQuery<ClienteRefDto[]>({
+    queryKey: tesoreriaKeys.clientesLookup(t),
+    enabled: t.length >= 2,
+    queryFn: async ({ signal }) => {
+      const { data } = await apiRequest<ClienteRefDto[]>(
+        `${BASE}/clientes-lookup?q=${encodeURIComponent(t)}`,
+        { signal },
+      );
+      return data;
+    },
+  });
+}
+
+type TransicionBase = { id: string; versionEsperada: number; idempotencyKey: string };
+
+function useTransicionDevolucion<TArgs extends TransicionBase>(
+  construir: (args: TArgs) => { path: string; method: 'PUT' | 'POST'; body?: unknown },
+) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (args: TArgs) => {
+      const { path, method, body } = construir(args);
+      const { data } = await apiRequest<DevolucionClienteResponse>(
+        `${BASE}/devoluciones/${args.id}${path}`,
+        {
+          method,
+          body,
+          idempotencyKey: args.idempotencyKey,
+          headers: { 'X-Expected-Version': String(args.versionEsperada) },
+        },
+      );
+      return data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: tesoreriaKeys.all });
+    },
+  });
+}
+
+/** Edita una devolución solicitada (importe, motivo, cliente, cuenta destino). */
+export function useEditarDevolucion() {
+  return useTransicionDevolucion(
+    (a: TransicionBase & {
+      clienteId: string; importe: number; motivo: string;
+      banco: string | null; clabe: string | null; titular: string | null;
+    }) => ({
+      path: '', method: 'PUT',
+      body: { clienteId: a.clienteId, importe: a.importe, motivo: a.motivo, banco: a.banco, clabe: a.clabe, titular: a.titular },
+    }),
+  );
+}
+
+export function useCancelarDevolucion() {
+  return useTransicionDevolucion((a: TransicionBase & { motivo: string }) => ({
+    path: '/cancelar', method: 'POST', body: { motivo: a.motivo },
+  }));
+}
+
+/** Quien solicita no autoriza: el backend responde 422 `DEV_MISMO_USUARIO`. */
+export function useAutorizarDevolucion() {
+  return useTransicionDevolucion<TransicionBase>(() => ({ path: '/autorizar', method: 'POST' }));
+}
+
+export function useRechazarDevolucion() {
+  return useTransicionDevolucion((a: TransicionBase & { motivo: string }) => ({
+    path: '/rechazar', method: 'POST', body: { motivo: a.motivo },
+  }));
+}
+
+/** Registra el pago de una devolución autorizada (contramovimiento ligado en depósito; egreso en NC). */
+export function usePagarDevolucion() {
+  return useTransicionDevolucion(
+    (a: TransicionBase & {
+      fechaValor: string; cuentaBancariaId?: string; referenciaBancaria?: string; fondosVerificados: boolean;
+    }) => ({
+      path: '/pagar', method: 'POST',
+      body: {
+        fechaValor: a.fechaValor, cuentaBancariaId: a.cuentaBancariaId,
+        referenciaBancaria: a.referenciaBancaria, fondosVerificados: a.fondosVerificados,
+      },
+    }),
+  );
 }

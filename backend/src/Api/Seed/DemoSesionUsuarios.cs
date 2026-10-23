@@ -40,8 +40,14 @@ public sealed partial class DemoSesionSeedHostedService
             "Tesorería" => codigo.StartsWith("tesoreria.", StringComparison.Ordinal),
             "Facturación" => codigo.StartsWith("facturacion.", StringComparison.Ordinal)
                 || codigo.StartsWith("datos_maestros.clientes.", StringComparison.Ordinal),
-            "Contabilidad" => codigo.StartsWith("contabilidad.", StringComparison.Ordinal)
-                && codigo != PermisosCanonicos.ContabilidadCatalogoAutorizar,
+            // 86e3tfdw2 (supuesto por confirmar con Eliam): la caja de mostrador
+            // opera como Facturación pero no ve los pedidos a crédito.
+            "Caja" => PermisoDelRol("Facturación", codigo) && codigo != PermisosCanonicos.FacturacionPedidosLeerCredito,
+            // 86e3tfdw2: el contador ve pedidos a crédito (Facturación ya lo
+            // recibe por el prefijo `facturacion.`).
+            "Contabilidad" => ((codigo.StartsWith("contabilidad.", StringComparison.Ordinal) || codigo.StartsWith("activos_fijos.", StringComparison.Ordinal))
+                && codigo != PermisosCanonicos.ContabilidadCatalogoAutorizar)
+                || codigo == PermisosCanonicos.FacturacionPedidosLeerCredito,
             "DAF" => codigo is PermisosCanonicos.ContabilidadCatalogoLeer or PermisosCanonicos.ContabilidadCatalogoAutorizar,
             _ => false,
         };
@@ -71,16 +77,17 @@ public sealed partial class DemoSesionSeedHostedService
         }
         var sucursales = await sp.GetRequiredService<CompartidoDbContext>().Sucursales
             .Where(s => s.EmpresaId == EmpresaId).ToDictionaryAsync(s => s.Clave, ct);
-        foreach (var nombre in new[] { "Compras", "CxP", "Tesorería", "Facturación", "Contabilidad", "DAF", "Administrador",
+        foreach (var nombre in new[] { "Compras", "CxP", "Tesorería", "Facturación", "Caja", "Contabilidad", "DAF", "Administrador",
             "Capturista Compras", "Jefe Compras", "Dirección", "Jefe Compras y CxP", "Dirección y Tesorería" })
         {
             var codigo = "DEMO-ROL-" + nombre;
             var rol = await db.Roles.SingleOrDefaultAsync(r => r.Codigo == codigo, ct);
             if (rol is null)
             {
-                rol = new Rol(Id(codigo), codigo, "DEMO " + nombre, descripcion: "Perfil ficticio de la sesión del 12-oct.");
+                rol = new Rol(Id(codigo), codigo, nombre, descripcion: "Perfil ficticio de la sesión del 12-oct.");
                 db.Roles.Add(rol);
             }
+            if (rol.Nombre == "DEMO " + nombre) rol.ActualizarMetadatos(nombre, rol.Descripcion);
             // Los permisos iniciales se crean junto al rol; los cambios del administrador se conservan.
             if (db.Entry(rol).State == EntityState.Added)
                 foreach (var permiso in PermisosCanonicos.Todos.Where(p => PermisoDelRol(nombre, p.Codigo)))
@@ -92,18 +99,23 @@ public sealed partial class DemoSesionSeedHostedService
         // Separarlas del actor técnico conserva las reglas P2 al sembrar las OCs.
         foreach (var (id, clave, nombre, rol) in new[]
         {
-            (CapturistaComprasDemoId, "capturista-compras", "DEMO Capturista Compras", "Capturista Compras"),
-            (JefeComprasDemoId, "jefe-compras", "DEMO Jefe de Compras", "Jefe Compras"),
-            (DireccionDemoId, "direccion", "DEMO Dirección", "Dirección"),
+            (CapturistaComprasDemoId, "capturista-compras", "Ana Torres · Compradora", "Capturista Compras"),
+            (JefeComprasDemoId, "jefe-compras", "Laura Méndez · Jefa de Compras", "Jefe Compras"),
+            (DireccionDemoId, "direccion", "Carlos Medina · Director", "Dirección"),
+            (CajeraDemoId, "cajera-mid", "Lucía Pérez · Cajera de Mostrador Conkal", "Caja"),
         })
         {
             if (!await db.Usuarios.AnyAsync(u => u.Id == id, ct))
                 db.Usuarios.Add(new Usuario(id, "demo-sesion-" + clave,
                     clave + "@example.invalid", nombre, esCuentaTecnica: true));
+            var tecnico = await db.Usuarios.FindAsync([id], ct);
+            if (tecnico is not null && tecnico.Nombre.StartsWith("DEMO ", StringComparison.Ordinal))
+                tecnico.ActualizarPerfil(null, nombre, null, false);
             var rolId = Id("DEMO-ROL-" + rol);
             if (!await db.UsuarioEmpresaRoles.AnyAsync(a => a.UsuarioId == id && a.EmpresaId == EmpresaId && a.RolId == rolId, ct))
                 db.UsuarioEmpresaRoles.Add(new UsuarioEmpresaRol(Id($"DEMO-ASIGNACION/{id}/{rolId}"), id, EmpresaId, rolId));
-            foreach (var sucursal in sucursales.Values.Where(s => rol != "Capturista Compras" || s.Clave == "MID"))
+            // Capturista y cajera operan solo en MID (Conkal); el resto ve todas las sucursales.
+            foreach (var sucursal in sucursales.Values.Where(s => rol is not ("Capturista Compras" or "Facturación" or "Caja") || s.Clave == "MID"))
             {
                 if (!await db.UsuarioSucursales.AnyAsync(a => a.UsuarioId == id && a.EmpresaId == EmpresaId && a.SucursalId == sucursal.Id, ct))
                     db.UsuarioSucursales.Add(new UsuarioSucursal(Id($"DEMO-SUCURSAL/{id}/{sucursal.Id}"), id, sucursal.Id, EmpresaId));

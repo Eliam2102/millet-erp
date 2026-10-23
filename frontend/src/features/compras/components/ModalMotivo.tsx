@@ -1,3 +1,4 @@
+import { DialogBody } from '@/components/ui/dialog';
 import { useState } from 'react';
 import {
   Dialog,
@@ -10,10 +11,7 @@ import {
 import { Button } from '@/components/ui/button';
 import { TextAreaField } from '@/components/erp/forms/TextAreaField';
 import { MotivoRechazoSelector } from '@/features/compras/components/MotivoRechazoSelector';
-import {
-  MotivoRechazoAplicaA,
-  type MotivoRechazoResponse,
-} from '@/features/compras/api/types';
+import { MotivoRechazoAplicaA, type MotivoRechazoResponse } from '@/features/compras/api/types';
 import { cn } from '@/lib/utils';
 
 /**
@@ -44,11 +42,7 @@ import { cn } from '@/lib/utils';
  * hook particular, así puede usarse para Rechazar (UF3-PR1), Eliminar
  * RQ (UF4-PR1) y Cancelar (UF4-PR1) con la misma forma.</para>
  */
-export type ModalMotivoVariante =
-  | 'rechazar'
-  | 'eliminar'
-  | 'cancelar'
-  | 'cerrar-manual';
+export type ModalMotivoVariante = 'rechazar' | 'eliminar' | 'cancelar' | 'cerrar-manual';
 
 export interface ModalMotivoConfirmArgs {
   motivoId: string;
@@ -80,7 +74,7 @@ const VARIANTE_CONFIG: Record<
     extra?: string;
     aplicaA: MotivoRechazoAplicaA;
     accentClass: string;
-    botonClass: string;
+    botonVariant: 'secondary-danger' | 'secondary';
     botonTexto: string;
   }
 > = {
@@ -89,8 +83,8 @@ const VARIANTE_CONFIG: Record<
     descripcion:
       'Esta acción es definitiva. La RQ no podrá volver a Borrador ni re-enviarse a autorización.',
     aplicaA: MotivoRechazoAplicaA.Rechazo,
-    accentClass: 'text-rose-700',
-    botonClass: 'bg-destructive text-destructive-foreground hover:bg-destructive/90',
+    accentClass: 'text-danger-fg',
+    botonVariant: 'secondary-danger',
     botonTexto: 'Confirmar rechazo',
   },
   eliminar: {
@@ -98,17 +92,18 @@ const VARIANTE_CONFIG: Record<
     descripcion:
       'Esta requisición se moverá al estado Eliminada y ya no podrá ser editada ni re-enviada a autorización.',
     aplicaA: MotivoRechazoAplicaA.Eliminacion,
-    accentClass: 'text-rose-700',
-    botonClass: 'bg-destructive text-destructive-foreground hover:bg-destructive/90',
+    accentClass: 'text-danger-fg',
+    botonVariant: 'secondary-danger',
     botonTexto: 'Confirmar eliminación',
   },
   cancelar: {
     titulo: 'Cancelar requisición',
-    descripcion: 'Las reservas de stock se liberarán y cualquier OC borrador asociada se cancelará también.',
+    descripcion:
+      'Las reservas de stock se liberarán y cualquier OC borrador asociada se cancelará también.',
     extra: 'La RQ pasará al estado Cancelada y no podrá reactivarse.',
     aplicaA: MotivoRechazoAplicaA.Cancelacion,
-    accentClass: 'text-amber-700',
-    botonClass: 'bg-amber-600 text-white hover:bg-amber-700',
+    accentClass: 'text-warning-fg',
+    botonVariant: 'secondary-danger',
     botonTexto: 'Confirmar cancelación',
   },
   'cerrar-manual': {
@@ -118,8 +113,8 @@ const VARIANTE_CONFIG: Record<
     extra:
       'La RQ pasará a Cerrada sin surtir o Cerrada surtida parcialmente y no podrá reactivarse.',
     aplicaA: MotivoRechazoAplicaA.CierreManual,
-    accentClass: 'text-zinc-700',
-    botonClass: 'bg-zinc-700 text-white hover:bg-zinc-800',
+    accentClass: 'text-ink-muted',
+    botonVariant: 'secondary',
     botonTexto: 'Confirmar cierre',
   },
 };
@@ -136,8 +131,7 @@ export function ModalMotivo({
   const config = VARIANTE_CONFIG[variante];
 
   const [motivoId, setMotivoId] = useState<string | null>(null);
-  const [motivoActual, setMotivoActual] =
-    useState<MotivoRechazoResponse | null>(null);
+  const [motivoActual, setMotivoActual] = useState<MotivoRechazoResponse | null>(null);
   const [motivoTexto, setMotivoTexto] = useState<string>('');
 
   // Reset al cerrar — patrón "derived state" oficial (React docs):
@@ -168,7 +162,7 @@ export function ModalMotivo({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-md">
+      <DialogContent size="sm" className="">
         <DialogHeader>
           <DialogTitle className={cn('flex items-baseline gap-2', config.accentClass)}>
             <span>⚠</span>
@@ -186,56 +180,53 @@ export function ModalMotivo({
             )}
           </DialogDescription>
         </DialogHeader>
-
-        <div className="space-y-3">
-          {aviso && (
-            <div
-              role="alert"
-              className="rounded-md border border-amber-300 bg-amber-50 px-3 py-2 text-sm text-amber-800"
-            >
-              ⚠ {aviso}
+        <DialogBody>
+          <div className="space-y-3">
+            {aviso && (
+              <div
+                role="alert"
+                className="rounded-md border border-warning bg-warning-bg px-3 py-2 text-sm text-warning-fg"
+              >
+                ⚠ {aviso}
+              </div>
+            )}
+            <div className="space-y-1.5">
+              <label htmlFor="motivo-selector" className="text-sm font-medium">
+                Motivo <span className="text-danger-fg">*</span>
+              </label>
+              <MotivoRechazoSelector
+                id="motivo-selector"
+                aplicaA={config.aplicaA}
+                value={motivoId}
+                onChange={(id) => setMotivoId(id)}
+                onMotivoChange={(m) => {
+                  setMotivoActual(m);
+                  if (m == null || !m.permiteTextoLibre) {
+                    // Si el motivo no requiere texto, no limpiamos el ya
+                    // tipeado (puede ser un comentario voluntario).
+                  }
+                }}
+              />
             </div>
-          )}
-          <div className="space-y-1.5">
-            <label
-              htmlFor="motivo-selector"
-              className="text-sm font-medium"
-            >
-              Motivo <span className="text-rose-600">*</span>
-            </label>
-            <MotivoRechazoSelector
-              id="motivo-selector"
-              aplicaA={config.aplicaA}
-              value={motivoId}
-              onChange={(id) => setMotivoId(id)}
-              onMotivoChange={(m) => {
-                setMotivoActual(m);
-                if (m == null || !m.permiteTextoLibre) {
-                  // Si el motivo no requiere texto, no limpiamos el ya
-                  // tipeado (puede ser un comentario voluntario).
-                }
-              }}
-            />
-          </div>
 
-          <div className="space-y-1.5">
-            <label className="text-sm font-medium">
-              Detalle{' '}
-              {requiereTexto ? (
-                <span className="text-rose-600">(requerido) *</span>
-              ) : (
-                <span className="text-muted-foreground">(opcional)</span>
-              )}
-            </label>
-            <TextAreaField
-              value={motivoTexto.length > 0 ? motivoTexto : null}
-              onChange={(v) => setMotivoTexto(v ?? '')}
-              maxLength={500}
-              minRows={2}
-            />
+            <div className="space-y-1.5">
+              <label className="text-sm font-medium">
+                Detalle{' '}
+                {requiereTexto ? (
+                  <span className="text-danger-fg">(requerido) *</span>
+                ) : (
+                  <span className="text-ink-muted">(opcional)</span>
+                )}
+              </label>
+              <TextAreaField
+                value={motivoTexto.length > 0 ? motivoTexto : null}
+                onChange={(v) => setMotivoTexto(v ?? '')}
+                maxLength={500}
+                minRows={2}
+              />
+            </div>
           </div>
-        </div>
-
+        </DialogBody>
         <DialogFooter className="gap-2">
           <Button
             type="button"
@@ -249,7 +240,7 @@ export function ModalMotivo({
             type="button"
             onClick={handleConfirm}
             disabled={!puedeConfirmar}
-            className={config.botonClass}
+            variant={config.botonVariant}
             title={
               motivoId == null
                 ? 'Selecciona un motivo'

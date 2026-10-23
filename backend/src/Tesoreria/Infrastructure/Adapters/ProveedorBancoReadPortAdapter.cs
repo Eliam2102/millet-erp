@@ -1,6 +1,7 @@
 using Microsoft.EntityFrameworkCore;
 using Millet.Catalogos.Domain;
 using Millet.Compartido.Infrastructure.Persistence;
+using Millet.DatosMaestros.Domain;
 using Millet.SharedKernel.Application;
 using Millet.Tesoreria.Domain.Ports.DatosMaestros;
 
@@ -32,14 +33,8 @@ public sealed class ProveedorBancoReadPortAdapter : IProveedorBancoReadPort
 
     public async Task<ProveedorBancoDto?> ObtenerAsync(Guid proveedorId, CancellationToken cancellationToken)
     {
-        using var bypass = _empresaContext.Bypass();
-        return await _db.Proveedores.AsNoTracking()
-            .Where(p => p.Id == proveedorId)
-            .Select(p => new ProveedorBancoDto(
-                p.Id, p.Clave, p.RazonSocial, p.Banco, p.Clabe, p.Beneficiario,
-                p.Estatus == EstatusCatalogo.Activo,
-                p.Estatus == EstatusCatalogo.EnRevision, p.Rfc))
-            .FirstOrDefaultAsync(cancellationToken);
+        var varios = await ObtenerVariosAsync([proveedorId], cancellationToken);
+        return varios.GetValueOrDefault(proveedorId);
     }
 
     public async Task<IReadOnlyDictionary<Guid, ProveedorBancoDto>> ObtenerVariosAsync(
@@ -49,12 +44,18 @@ public sealed class ProveedorBancoReadPortAdapter : IProveedorBancoReadPort
             return new Dictionary<Guid, ProveedorBancoDto>();
 
         using var bypass = _empresaContext.Bypass();
-        return await _db.Proveedores.AsNoTracking()
+        var proveedores = await _db.Proveedores.AsNoTracking()
             .Where(p => proveedorIds.Contains(p.Id))
-            .Select(p => new ProveedorBancoDto(
-                p.Id, p.Clave, p.RazonSocial, p.Banco, p.Clabe, p.Beneficiario,
-                p.Estatus == EstatusCatalogo.Activo,
-                p.Estatus == EstatusCatalogo.EnRevision, p.Rfc))
-            .ToDictionaryAsync(p => p.Id, cancellationToken);
+            .Select(p => new { p.Id, p.Clave, p.RazonSocial, p.Estatus, p.Rfc })
+            .ToListAsync(cancellationToken);
+        var cuentas = (await _db.CuentasBancariasProveedor.AsNoTracking()
+                .Where(c => proveedorIds.Contains(c.ProveedorId) && c.Estado != EstadoCuentaBancariaProveedor.Rechazada)
+                .ToListAsync(cancellationToken))
+            .ToLookup(c => c.ProveedorId, c => new CuentaProveedorDto(
+                c.Id, c.Banco, c.Identificador, c.Clabe is not null, c.Swift, c.Moneda, c.Titular, c.Predeterminada,
+                c.Estado.ToString()));
+        return proveedores.ToDictionary(p => p.Id, p => new ProveedorBancoDto(
+            p.Id, p.Clave, p.RazonSocial, cuentas[p.Id].ToList(),
+            p.Estatus == EstatusCatalogo.Activo, p.Estatus == EstatusCatalogo.EnRevision, p.Rfc));
     }
 }

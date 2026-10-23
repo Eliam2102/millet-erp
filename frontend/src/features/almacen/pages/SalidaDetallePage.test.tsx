@@ -55,6 +55,8 @@ const detalleConNombres = {
       centroCostoClave: 'MCLC101',
       centroCostoNombre: 'Gantry',
       proyectoId: null,
+      comentarioLinea: 'Revisar holgura del rack',
+      ubicacionCodigo: 'ALM-01 › ALM-CEN · U1',
     },
   ],
 };
@@ -103,12 +105,34 @@ describe('<SalidaDetallePage> — nombres resueltos', () => {
     expect(screen.getByText('Tornillo M6')).toBeInTheDocument();
     // Fase E PR5: columna CC-Máquina con el nombre resuelto por el read-port.
     expect(screen.getByText('MCLC101 — Gantry')).toBeInTheDocument();
+    // Comentario de la línea (M-134/M-136): se pinta bajo el artículo.
+    expect(screen.getByText('Revisar holgura del rack')).toBeInTheDocument();
+    // Ubicación (bin) de la línea: misma ruta que el comprobante PDF.
+    expect(screen.getByText('ALM-01 › ALM-CEN · U1')).toBeInTheDocument();
 
     // Assert clave: con nombre disponible, ningún id/código crudo se pinta.
     expect(screen.queryByText(SUB_ID)).not.toBeInTheDocument();
     expect(screen.queryByText(RQ_ID)).not.toBeInTheDocument();
     expect(screen.queryByText(PERSONA_ID)).not.toBeInTheDocument();
     expect(screen.queryByText(ART_ID)).not.toBeInTheDocument();
+  });
+
+  it('no pinta comentario cuando la línea no lo tiene', async () => {
+    mswServer.use(
+      http.get('*/api/v1/almacen/salidas/s-1', () =>
+        HttpResponse.json({
+          ...detalleConNombres,
+          lineas: [{ ...detalleConNombres.lineas[0], comentarioLinea: null }],
+        }),
+      ),
+    );
+
+    render(<SalidaDetallePage />, { wrapper: createQueryWrapper() });
+
+    await waitFor(() =>
+      expect(screen.getByText('Tornillo M6')).toBeInTheDocument(),
+    );
+    expect(screen.queryByText('Revisar holgura del rack')).not.toBeInTheDocument();
   });
 
   it('cae a los ids crudos cuando el backend no resuelve nombres', async () => {

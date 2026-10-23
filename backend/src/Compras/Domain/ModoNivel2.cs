@@ -3,21 +3,15 @@ using System.Text.Json.Serialization;
 namespace Millet.Compras.Domain;
 
 /// <summary>
-/// Qué condiciones de la requisición exigen nivel 2 de autorización
-/// (además de la naturaleza Crítico/Riesgo, que siempre exige N2).
-///
-/// <list type="bullet">
-///   <item><see cref="SoloMonto"/> (default): en la requisición significa
-///         «sin criterio de disponibilidad»: la RQ sale solo por naturaleza
-///         (N1). El monto contra el umbral del departamento se valida en la
-///         orden de compra (decisión de negocio, minuta Millet 12-oct).
-///         No se renombra el valor por compatibilidad de datos.</item>
-///   <item><see cref="SoloDisponibilidad"/>: exige N2 si alguna línea con
-///         artículo de inventario no tiene existencia suficiente en la
-///         sucursal (la compra quedaría por cubrir).</item>
-///   <item><see cref="Ambos"/>: en la requisición equivale a
-///         <see cref="SoloDisponibilidad"/> (el monto ya no aplica a la RQ).</item>
-/// </list>
+/// Modo de nivel 2 de la requisición, por departamento
+/// (<c>UmbralAprobacionDepartamento.ModoNivel2</c>).
+/// <see cref="SoloMonto"/>: N2 si el monto de la RQ supera <c>UmbralMonto</c>. El monto sale del
+/// precio estimado de cada línea, que es opcional: una línea sin precio suma 0.
+/// <see cref="SoloDisponibilidad"/>: N2 si alguna línea de inventario no se
+/// cubre con la existencia y el importe a comprar supera
+/// <c>MontoMinimoDisponibilidad</c> (si está definido).
+/// <see cref="Ambos"/>: N2 si se cumple cualquiera de las dos.
+/// La naturaleza Crítico o Riesgo siempre exige N2. No aplica a la OC.
 /// </summary>
 [JsonConverter(typeof(JsonStringEnumConverter))]
 public enum ModoNivel2

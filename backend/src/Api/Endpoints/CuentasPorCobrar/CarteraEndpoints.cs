@@ -2,6 +2,7 @@ using MediatR;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Millet.Api.Auth;
+using Millet.Api.Web;
 using Millet.CuentasPorCobrar.Application.Anticipos;
 using Millet.CuentasPorCobrar.Application.Cartera;
 using Millet.CuentasPorCobrar.Application.Reportes.AntiguedadSaldos;
@@ -67,6 +68,76 @@ public static class CarteraEndpoints
         .WithName("ObtenerEstadoCuentaCliente")
         .Produces<ReporteJsonResponse>(StatusCodes.Status200OK);
 
+        // F1-CXC-09 · C7.8: pagos que bloquean el estado de cuenta (CA7.14).
+        cartera.MapGet("/cartera/estado-cuenta/{clienteId:guid}/pendientes", async (
+            Guid clienteId,
+            IMediator mediator,
+            CancellationToken cancellationToken) =>
+            Results.Ok(await mediator.Send(new PendientesEstadoCuentaQuery(clienteId), cancellationToken)))
+        .RequireAuthorization(PermissionPolicyProvider.Prefix + PermisosCanonicos.CuentasPorCobrarCarteraLeer)
+        .WithName("ListarPendientesEstadoCuenta")
+        .Produces<PendientesEstadoCuentaResponse>(StatusCodes.Status200OK)
+        .ProducesProblem(StatusCodes.Status403Forbidden);
+
+        // C7.8: historial de envíos del estado de cuenta, más reciente primero.
+        cartera.MapGet("/cartera/estado-cuenta/{clienteId:guid}/envios", async (
+            Guid clienteId,
+            IMediator mediator,
+            CancellationToken cancellationToken) =>
+            Results.Ok(await mediator.Send(new ListarEnviosEstadoCuentaQuery(clienteId), cancellationToken)))
+        .RequireAuthorization(PermissionPolicyProvider.Prefix + PermisosCanonicos.CuentasPorCobrarCarteraLeer)
+        .WithName("ListarEnviosEstadoCuenta")
+        .Produces<IReadOnlyList<EstadoCuentaEnvioResponse>>(StatusCodes.Status200OK)
+        .ProducesProblem(StatusCodes.Status403Forbidden);
+
+        // C7.8: emitir y enviar. Multipart: pdf (generado en el navegador,
+        // ADR-0036) + destinatario + mensaje opcional. El bloqueo se recalcula
+        // en servidor: con pagos sin REP responde 422 sin registrar nada.
+        cartera.MapPost("/cartera/estado-cuenta/{clienteId:guid}/envios", async (
+            Guid clienteId,
+            [FromForm] string? destinatario,
+            [FromForm] string? mensaje,
+            IFormFile? pdf,
+            IMediator mediator,
+            DocumentoSucursalScope scope,
+            CancellationToken cancellationToken) =>
+        {
+            await scope.VerificarAsync("cliente_cartera", clienteId,
+                PermisosCanonicos.CuentasPorCobrarCarteraGestionarTodasSucursales, cancellationToken);
+
+            byte[] contenido = [];
+            if (pdf is not null && pdf.Length is > 0 and <= EnviarEstadoCuentaValidator.TamanoMaximoBytes)
+            {
+                using var buffer = new MemoryStream();
+                await pdf.CopyToAsync(buffer, cancellationToken);
+                contenido = buffer.ToArray();
+            }
+            else if (pdf is not null && pdf.Length > EnviarEstadoCuentaValidator.TamanoMaximoBytes)
+            {
+                // Se rechaza sin leer el archivo completo a memoria.
+                contenido = new byte[EnviarEstadoCuentaValidator.TamanoMaximoBytes + 1];
+            }
+
+            var response = await mediator.Send(new EnviarEstadoCuentaCommand(
+                clienteId,
+                destinatario ?? string.Empty,
+                mensaje,
+                string.IsNullOrWhiteSpace(pdf?.FileName) ? "estado-cuenta.pdf" : Path.GetFileName(pdf.FileName),
+                pdf?.ContentType ?? string.Empty,
+                contenido), cancellationToken);
+            return Results.Created(
+                $"/api/v1/cuentas-por-cobrar/cartera/estado-cuenta/{clienteId}/envios/{response.Id}", response);
+        })
+        .DisableAntiforgery() // Multipart en API REST con JWT bearer.
+        .WithMetadata(new RequireIdempotencyKeyAttribute())
+        .RequireAuthorization(PermissionPolicyProvider.Prefix + PermisosCanonicos.CuentasPorCobrarCobranzaRegistrar)
+        .WithName("EnviarEstadoCuentaCliente")
+        .Accepts<IFormFile>("multipart/form-data")
+        .Produces<EstadoCuentaEnvioResponse>(StatusCodes.Status201Created)
+        .ProducesValidationProblem()
+        .ProducesProblem(StatusCodes.Status403Forbidden)
+        .ProducesProblem(StatusCodes.Status422UnprocessableEntity);
+
         // Facturas vivas del cliente para el matching depósito↔facturas
         // (CXC-FE-PR6, 05-frontend-diseno §4.1). Gate del flujo que las
         // consume: aplicacion-pago.proponer.
@@ -95,6 +166,22 @@ public static class CarteraEndpoints
         .RequireAuthorization(PermissionPolicyProvider.Prefix + PermisosCanonicos.CuentasPorCobrarCarteraLeer)
         .WithName("ListarAnticiposCliente")
         .Produces<IReadOnlyList<AnticipoSaldoClienteDto>>(StatusCodes.Status200OK);
+
+        // F1-CXC-05: anticipos con su aplicación a la factura final (solo
+        // consulta). clienteId opcional: sin él lista todos los clientes con
+        // anticipos. Alcance por sucursal vía ISucursalScopedQuery (ADR-0051).
+        cartera.MapGet("/anticipos/aplicaciones", async (
+            [FromQuery] Guid? clienteId,
+            [FromQuery] string? estado,
+            IMediator mediator,
+            CancellationToken cancellationToken) =>
+            Results.Ok(await mediator.Send(
+                new AplicacionesAnticipoClienteQuery(clienteId, estado), cancellationToken)))
+        .RequireAuthorization(PermissionPolicyProvider.Prefix + PermisosCanonicos.CuentasPorCobrarCarteraLeer)
+        .WithName("ListarAplicacionesAnticipo")
+        .Produces<AplicacionesAnticipoResponse>(StatusCodes.Status200OK)
+        .ProducesValidationProblem()
+        .ProducesProblem(StatusCodes.Status403Forbidden);
 
         return app;
     }

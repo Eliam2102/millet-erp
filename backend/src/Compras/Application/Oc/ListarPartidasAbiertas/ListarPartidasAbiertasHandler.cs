@@ -116,6 +116,12 @@ public sealed class ListarPartidasAbiertasHandler
                 && o.FechaEntregaEsperada < umbral);
         }
 
+        // F1-COM-07: solo OC con incidencias del proveedor abiertas.
+        if (request.ConIncidenciasAbiertas == true)
+        {
+            query = query.Where(o => o.Incidencias.Any(i => i.CerradaEn == null));
+        }
+
         var total = await query.CountAsync(cancellationToken);
 
         var rows = await query
@@ -145,6 +151,9 @@ public sealed class ListarPartidasAbiertasHandler
                 o.InfoImportNumeroContenedor,
                 o.InfoImportCodigoRuta,
                 o.InfoImportSemanaEmbarque,
+                IncidenciasAbiertas = o.Incidencias.Count(i => i.CerradaEn == null),
+                IncidenciasVencidas = o.Incidencias.Count(i => i.CerradaEn == null
+                    && i.Compromisos.OrderByDescending(c => c.Numero).Select(c => c.FechaCompromiso).First() < hoy),
             })
             .ToListAsync(cancellationToken);
 
@@ -165,7 +174,9 @@ public sealed class ListarPartidasAbiertasHandler
             r.ReferenciaProveedor,
             r.InfoImportNumeroContenedor,
             r.InfoImportCodigoRuta,
-            r.InfoImportSemanaEmbarque)).ToList();
+            r.InfoImportSemanaEmbarque,
+            r.IncidenciasAbiertas,
+            r.IncidenciasVencidas)).ToList();
 
         return new ListarPartidasAbiertasResponse(items, page, pageSize, total);
     }

@@ -1,12 +1,21 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
-import { Link } from '@tanstack/react-router';
-import { useForm, useWatch } from 'react-hook-form';
-import { toast } from 'sonner';
+import { BarraFiltros, PaginacionTabla, TabsEstado } from '@/components/erp';
+import { ListadoModulo } from '@/components/erp/data/ListadoModulo';
+import { KpiCard } from '@/components/erp/display/KpiCard';
+import { PageHeader } from '@/components/erp/PageHeader';
+import { FormaPagoSelector } from '@/components/erp/selectors/FormaPagoSelector';
 import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
+import { Checkbox } from '@/components/ui/checkbox';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Checkbox } from '@/components/ui/checkbox';
+import {
+  Sheet,
+  SheetBody,
+  SheetContent,
+  SheetDescription,
+  SheetFooter,
+  SheetHeader,
+  SheetTitle,
+} from '@/components/ui/sheet';
 import {
   Table,
   TableBody,
@@ -15,31 +24,31 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
-import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import {
-  Sheet,
-  SheetContent,
-  SheetHeader,
-  SheetTitle,
-  SheetDescription,
-  SheetFooter,
-} from '@/components/ui/sheet';
-import { FormaPagoSelector } from '@/components/erp/selectors/FormaPagoSelector';
-import { FacturaPpdPicker } from '../components/FacturaPpdPicker';
-import { useHasPermission } from '@/lib/auth/useHasPermission';
 import { PermisosCanonicos } from '@/lib/auth/permission-codes';
-import {
-  useReppPendientes,
-  useReppPendiente,
-  useAccionesReppPendiente,
-} from '../api/useReppPendientes';
+import { useHasPermission } from '@/lib/auth/useHasPermission';
+import { Link } from '@tanstack/react-router';
+import { useCallback, useEffect, useRef, useState } from 'react';
+import { useForm, useWatch } from 'react-hook-form';
+import { toast } from 'sonner';
 import type {
-  EstadoPendiente,
-  ReppPendiente,
-  RelacionRepp,
   EmisionPendiente,
+  EstadoPendiente,
+  RelacionRepp,
+  ReppPendiente,
 } from '../api/useReppPendientes';
-import { bloqueoRelacion, formatoImporte, totalRelacion, mensajeFalloEmision } from '../lib/repp-pendiente';
+import {
+  useAccionesReppPendiente,
+  useReppPendiente,
+  useReppPendientes,
+} from '../api/useReppPendientes';
+import { EstadoFacturacionBadge } from '../components/EstadoFacturacionBadge';
+import { FacturaPpdPicker } from '../components/FacturaPpdPicker';
+import {
+  bloqueoRelacion,
+  formatoImporte,
+  mensajeFalloEmision,
+  totalRelacion,
+} from '../lib/repp-pendiente';
 
 export function PendientesRepp() {
   const [estado, setEstado] = useState<EstadoPendiente | ''>('Pendiente');
@@ -73,7 +82,10 @@ export function PendientesRepp() {
     ['Vencidos', kpis?.vencidos, 'vencidos'],
     ['Con error', kpis?.conError, 'error'],
   ] as const;
-  const items = query.data?.items ?? [];
+  const [busqueda, setBusqueda] = useState('');
+  const items = (query.data?.items ?? []).filter((p) =>
+    (p.clienteNombre + ' ' + (p.referencia ?? '')).toLowerCase().includes(busqueda.toLowerCase()),
+  );
   function filtrar(nuevoEstado: EstadoPendiente | '', nuevoIndicador: string) {
     setEstado(nuevoEstado);
     setIndicador(nuevoIndicador);
@@ -88,7 +100,8 @@ export function PendientesRepp() {
       });
       setResultados(respuesta);
       const mensaje = mensajeFalloEmision(respuesta);
-      if (mensaje) toast.error('No se pudieron emitir todos los complementos', { description: mensaje });
+      if (mensaje)
+        toast.error('No se pudieron emitir todos los complementos', { description: mensaje });
       setSeleccion([]);
     } catch {
       toast.error(
@@ -97,41 +110,40 @@ export function PendientesRepp() {
     }
   }
   return (
-    <main className="flex h-full min-h-0 flex-col gap-4 px-6 pt-5 text-sm text-ink">
-      <header className="flex items-center justify-between gap-4">
-        <div>
-          <h1 className="text-3xl font-semibold">Pendientes de REP</h1>
-          <p className="text-ink-muted">
-            Revisa los pagos bancarios confirmados y emite sus complementos de pago.
-          </p>
-        </div>
-        {puedeEscribir && (
-          <Button
-            onClick={() => void emitirSeleccionados()}
-            disabled={!seleccion.length || seleccion.length > 50 || emitir.isPending}
-            title={
-              !seleccion.length
-                ? 'Selecciona hasta 50 pagos pendientes para emitir.'
-                : emitir.isPending
-                  ? 'La emisión está en curso.'
-                  : 'Emitir los pagos seleccionados con su relación actual.'
-            }
-          >
-            {emitir.isPending ? 'Emitiendo…' : `Emitir seleccionados (${seleccion.length})`}
-          </Button>
-        )}
-      </header>
+    <main className="flex h-full min-h-0 flex-col gap-5 text-sm text-ink">
+      <PageHeader
+        titulo={<>Pendientes de REP</>}
+        descripcion={<>Revisa los pagos bancarios confirmados y emite sus complementos de pago.</>}
+        acciones={
+          <>
+            {puedeEscribir && (
+              <Button
+                onClick={() => void emitirSeleccionados()}
+                disabled={!seleccion.length || seleccion.length > 50 || emitir.isPending}
+                title={
+                  !seleccion.length
+                    ? 'Selecciona hasta 50 pagos pendientes para emitir.'
+                    : emitir.isPending
+                      ? 'La emisión está en curso.'
+                      : 'Emitir los pagos seleccionados con su relación actual.'
+                }
+              >
+                {emitir.isPending ? 'Emitiendo…' : `Emitir seleccionados (${seleccion.length})`}
+              </Button>
+            )}
+          </>
+        }
+      />
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
         {tarjetas.map(([label, count, filtro]) => (
           <Button
             key={label}
             variant="ghost"
-            className="h-auto flex-col items-start gap-1 rounded-lg bg-surface-card px-4 py-3 shadow-card"
+            className="h-auto items-stretch p-0 text-left [&>div]:w-full"
             aria-pressed={estado === 'Pendiente' && indicador === filtro}
             onClick={() => filtrar('Pendiente', filtro)}
           >
-            <span className="text-xs text-ink-muted">{label}</span>
-            <span className="text-3xl font-semibold tabular-nums">{count ?? '—'}</span>
+            <KpiCard etiqueta={label} valor={count ?? '—'} />
           </Button>
         ))}
       </div>
@@ -144,35 +156,61 @@ export function PendientesRepp() {
                 <Button variant="link" onClick={() => setAbierto(r.id)}>
                   Ver pago
                 </Button>
-                {r.emitido ? 'REP emitido' : r.mensaje ?? 'No se pudo emitir. Consulta el pago antes de reintentar.'}
+                {r.emitido
+                  ? 'REP emitido'
+                  : (r.mensaje ?? 'No se pudo emitir. Consulta el pago antes de reintentar.')}
               </li>
             ))}
           </ul>
         </div>
       )}
-      <section
-        className="flex min-h-0 flex-1 flex-col overflow-hidden rounded-t-lg bg-surface-card shadow-card-flat"
-        aria-label="Bandeja de pendientes de REP"
+      <ListadoModulo
+        tabs={
+          <TabsEstado
+            opciones={[
+              { valor: 1, label: 'Pendientes' },
+              { valor: 2, label: 'Emitidos' },
+              { valor: 3, label: 'Descartados' },
+            ]}
+            valor={estado ? ['Pendiente', 'Emitido', 'Descartado'].indexOf(estado) + 1 : undefined}
+            conteos={undefined}
+            onChange={(v) =>
+              filtrar(
+                v ? (['Pendiente', 'Emitido', 'Descartado'][v - 1] as EstadoPendiente) : '',
+                '',
+              )
+            }
+          />
+        }
+        filtros={
+          <BarraFiltros
+            busqueda={
+              <Input
+                aria-label="Buscar en los pagos de esta página"
+                placeholder="Cliente o referencia en esta página"
+                value={busqueda}
+                onChange={(e) => setBusqueda(e.target.value)}
+              />
+            }
+            chips={
+              indicador ? (
+                <Button size="sm" variant="ghost" onClick={() => filtrar(estado, '')}>
+                  Quitar filtro: {tarjetas.find((t) => t[2] === indicador)?.[0]}
+                </Button>
+              ) : undefined
+            }
+          />
+        }
+        pie={
+          <PaginacionTabla
+            total={query.data?.total ?? 0}
+            offset={offset}
+            limit={10}
+            tamanos={[]}
+            onChange={setOffset}
+          />
+        }
       >
-        <Tabs
-          value={estado || 'Todas'}
-          onValueChange={(v) => filtrar(v === 'Todas' ? '' : (v as EstadoPendiente), '')}
-        >
-          <TabsList className="h-11 w-full justify-start rounded-none border-b border-line-divider bg-surface-card px-4">
-            <TabsTrigger value="Pendiente">Pendientes</TabsTrigger>
-            <TabsTrigger value="Emitido">Emitidos</TabsTrigger>
-            <TabsTrigger value="Descartado">Descartados</TabsTrigger>
-            <TabsTrigger value="Todas">Todas</TabsTrigger>
-          </TabsList>
-        </Tabs>
-        {indicador && (
-          <div className="flex items-center gap-2 border-b border-line-divider px-4 py-2">
-            <span>Filtro: {tarjetas.find((t) => t[2] === indicador)?.[0]}</span>
-            <Button size="sm" variant="ghost" onClick={() => filtrar(estado, '')}>
-              Quitar filtro
-            </Button>
-          </div>
-        )}
         <div className="min-h-0 flex-1 overflow-auto">
           {query.isError ? (
             <div role="alert" className="p-4">
@@ -195,7 +233,7 @@ export function PendientesRepp() {
                   <TableHead>Cliente / referencia</TableHead>
                   <TableHead>Facturas</TableHead>
                   <TableHead>Fecha del pago</TableHead>
-                  <TableHead className="text-right">Importe</TableHead>
+                  <TableHead className="text-right tabular-nums">Importe</TableHead>
                   <TableHead>Plazo</TableHead>
                   <TableHead>Estado</TableHead>
                   <TableHead>Acción</TableHead>
@@ -225,11 +263,11 @@ export function PendientesRepp() {
                     <TableCell>
                       <p className="font-medium">{p.clienteNombre}</p>
                       <p className="font-mono text-xs text-ink-muted">
-                        {p.referencia ?? 'Sin referencia'}
+                        {p.referencia ?? <span className="text-ink-muted">Sin referencia</span>}
                       </p>
                     </TableCell>
                     <TableCell className="font-mono text-xs">
-                      {p.facturas.map((f) => f.folio ?? '[FACTURA]').join(', ') || 'Por relacionar'}
+                      {p.facturas.map((f) => f.folio ?? 'Sin número').join(', ') || 'Por relacionar'}
                     </TableCell>
                     <TableCell>{p.fechaValor}</TableCell>
                     <TableCell className="text-right tabular-nums">
@@ -240,17 +278,7 @@ export function PendientesRepp() {
                       <p className="text-xs">{p.estado === 'Pendiente' ? p.alerta : 'Resuelto'}</p>
                     </TableCell>
                     <TableCell>
-                      <Badge
-                        variant={
-                          p.estado === 'Emitido'
-                            ? 'success'
-                            : p.estado === 'Descartado'
-                              ? 'neutral'
-                              : 'warning'
-                        }
-                      >
-                        {p.estado}
-                      </Badge>
+                      <EstadoFacturacionBadge entidad="repPendiente" estado={p.estado} />
                       {p.tcPorRegistrar && p.estado === 'Pendiente' && (
                         <p className="text-xs text-warning-fg">TC por registrar</p>
                       )}
@@ -271,41 +299,14 @@ export function PendientesRepp() {
             </Table>
           )}
         </div>
-        <footer className="flex h-11 items-center justify-between border-t border-line-divider px-4 text-xs text-ink-muted">
-          <span>
-            {query.data?.total
-              ? `${offset + 1}–${Math.min(offset + 10, query.data.total)} de ${query.data.total}`
-              : '0 pagos'}
-          </span>
-          <div className="flex gap-2">
-            <Button
-              size="sm"
-              variant="secondary"
-              disabled={offset === 0}
-              title="Página anterior"
-              onClick={() => setOffset((o) => Math.max(0, o - 10))}
-            >
-              Anterior
-            </Button>
-            <Button
-              size="sm"
-              variant="secondary"
-              disabled={offset + 10 >= (query.data?.total ?? 0)}
-              title="Página siguiente"
-              onClick={() => setOffset((o) => o + 10)}
-            >
-              Siguiente
-            </Button>
-          </div>
-        </footer>
-      </section>
+      </ListadoModulo>
       <Sheet
         open={abierto !== null}
         onOpenChange={(open) => {
           if (!open) cerrar();
         }}
       >
-        <SheetContent className="flex flex-col overflow-y-auto">
+        <SheetContent size="lg">
           <SheetHeader>
             <SheetTitle>Revisar pago confirmado</SheetTitle>
             <SheetDescription>
@@ -313,23 +314,25 @@ export function PendientesRepp() {
               inmutables.
             </SheetDescription>
           </SheetHeader>
-          {detalle.isLoading ? (
-            <p className="px-4">Cargando revisión…</p>
-          ) : detalle.isError ? (
-            <p role="alert" className="px-4">
-              No se pudo cargar el pago.
-            </p>
-          ) : (
-            detalle.data && (
-              <RevisionPago
-                key={`${detalle.data.id}:${JSON.stringify(detalle.data)}`}
-                pago={detalle.data}
-                puedeEscribir={puedeEscribir}
-                cerrar={cerrar}
-                onDirtyChange={onDirtyChange}
-              />
-            )
-          )}
+          <SheetBody>
+            {detalle.isLoading ? (
+              <p className="px-4">Cargando revisión…</p>
+            ) : detalle.isError ? (
+              <p role="alert" className="px-4">
+                No se pudo cargar el pago.
+              </p>
+            ) : (
+              detalle.data && (
+                <RevisionPago
+                  key={`${detalle.data.id}:${JSON.stringify(detalle.data)}`}
+                  pago={detalle.data}
+                  puedeEscribir={puedeEscribir}
+                  cerrar={cerrar}
+                  onDirtyChange={onDirtyChange}
+                />
+              )
+            )}
+          </SheetBody>
         </SheetContent>
       </Sheet>
     </main>
@@ -377,9 +380,15 @@ function RevisionPago({
   }
   async function emitir() {
     try {
-      const resultado = await acciones.emitirUno.mutateAsync({ id: pago.id, idempotencyKey: crypto.randomUUID() });
+      const resultado = await acciones.emitirUno.mutateAsync({
+        id: pago.id,
+        idempotencyKey: crypto.randomUUID(),
+      });
       const mensaje = mensajeFalloEmision([resultado]);
-      if (mensaje) { toast.error('No se pudo emitir el complemento', { description: mensaje }); return; }
+      if (mensaje) {
+        toast.error('No se pudo emitir el complemento', { description: mensaje });
+        return;
+      }
       toast.success('REP emitido.');
       cerrar(true);
     } catch {
@@ -397,7 +406,7 @@ function RevisionPago({
   }
   return (
     <>
-      <div className="space-y-5 px-4 text-sm">
+      <div className="space-y-5  text-sm">
         <fieldset className="space-y-2">
           <legend className="font-semibold">1. Datos del pago</legend>
           <dl className="grid grid-cols-2 gap-3 rounded-lg bg-surface-subtle p-3">
@@ -423,7 +432,7 @@ function RevisionPago({
             </div>
             <div>
               <dt className="text-xs text-ink-muted">Referencia bancaria</dt>
-              <dd className="font-mono text-xs">{pago.referencia ?? 'Sin referencia'}</dd>
+              <dd className="font-mono text-xs">{pago.referencia ?? <span className="text-ink-muted">Sin referencia</span>}</dd>
             </div>
             <div>
               <dt className="text-xs text-ink-muted">Tipo de cambio del pago</dt>
@@ -450,7 +459,7 @@ function RevisionPago({
           <legend className="font-semibold">2. Relación de facturas</legend>
           {facturas.map((f, index) => (
             <div key={f.facturaVentaId} className="space-y-2 rounded-lg bg-surface-subtle p-3">
-              <p className="font-mono text-xs">{f.folio ?? '[FACTURA POR IDENTIFICAR]'}</p>
+              <p className="font-mono text-xs">{f.folio ?? <span className="text-ink-muted">Sin número</span>}</p>
               <Label htmlFor={`importe-${index}`}>Importe aplicado</Label>
               <div className="flex gap-2">
                 <Input

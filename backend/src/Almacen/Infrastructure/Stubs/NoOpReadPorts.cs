@@ -234,6 +234,12 @@ public sealed class NoOpCxpDocumentosReadPort : ICxpDocumentosReadPort
         _logger.LogDebug("[NoOpCxpDocumentosReadPort] foliosNc({Count}) → vacío", notaCreditoIds.Count);
         return Task.FromResult(Empty);
     }
+
+    public Task<CfdiRecibidoLectura?> ObtenerCfdiAsync(Guid cfdiRecibidoId, CancellationToken cancellationToken)
+    {
+        _logger.LogDebug("[NoOpCxpDocumentosReadPort] cfdi({Id}) → null", cfdiRecibidoId);
+        return Task.FromResult<CfdiRecibidoLectura?>(null);
+    }
 }
 
 /// <summary>

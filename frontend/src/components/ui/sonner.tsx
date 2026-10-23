@@ -11,10 +11,8 @@ type ToasterProps = React.ComponentProps<typeof Sonner>;
 
 /**
  * Wrapper de <c>sonner</c> con los iconos y clases de shadcn. El proyecto
- * todavía no expone toggle de tema (los tokens <c>.dark</c> existen en
- * <c>index.css</c> pero ninguna ruta los aplica), así que fijamos
- * <c>theme="light"</c>. Cuando se agregue un toggle, leerlo desde el
- * store correspondiente y propagarlo aquí.
+ * usa el tema claro aprobado por DESIGN.md §2; no hay paleta oscura.
+ * Por ello se fija <c>theme="light"</c>.
  */
 const Toaster = ({ ...props }: ToasterProps) => {
   return (
@@ -32,6 +30,9 @@ const Toaster = ({ ...props }: ToasterProps) => {
         classNames: {
           toast:
             'group toast group-[.toaster]:bg-background group-[.toaster]:text-foreground group-[.toaster]:border-border group-[.toaster]:shadow-lg',
+          error: 'group-[.toaster]:bg-danger-bg! group-[.toaster]:text-danger-fg!',
+          success: 'group-[.toaster]:bg-success-bg! group-[.toaster]:text-success-fg!',
+          warning: 'group-[.toaster]:bg-warning-bg! group-[.toaster]:text-warning-fg!',
           description: 'group-[.toast]:text-muted-foreground',
           actionButton:
             'group-[.toast]:bg-primary group-[.toast]:text-primary-foreground',

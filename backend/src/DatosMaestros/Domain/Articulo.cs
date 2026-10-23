@@ -51,6 +51,7 @@ public sealed class Articulo : BaseEntity, IAuditable
 
     public decimal? PrecioReferenciaMonto { get; private set; }
     public string? PrecioReferenciaMoneda { get; private set; }
+
     public EstatusCatalogo Estatus { get; private set; } = EstatusCatalogo.Activo;
 
     private Articulo() { }

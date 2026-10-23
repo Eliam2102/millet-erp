@@ -1,3 +1,6 @@
+import { FormSeccion } from '@/components/erp/forms/FormSeccion';
+import { FormCampo } from '@/components/erp/forms/FormGrid';
+import { SheetBody } from '@/components/ui/sheet';
 import { useEffect } from 'react';
 import { Controller, useForm, useWatch } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -13,6 +16,7 @@ import {
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Checkbox } from '@/components/ui/checkbox';
+import { useConfirmarDescarte } from '@/components/erp/forms/useConfirmarDescarte';
 import {
   Select,
   SelectContent,
@@ -21,21 +25,17 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { ArticuloSelector, EntidadReordenSelector } from '@/components/erp';
-import { applyServerErrors, esApiError } from '@/lib/api';
-import {
-  CrearReordenSchema,
-  type CrearReordenValues,
-} from '@/features/almacen/schemas/reorden';
-import {
-  useCrearReorden,
-  useEditarReorden,
-} from '@/features/almacen/api/useReorden';
+import { applyServerErrors, esApiError, codigoSoporte } from '@/lib/api';
+import { CrearReordenSchema, type CrearReordenValues } from '@/features/almacen/schemas/reorden';
+import { useCrearReorden, useEditarReorden } from '@/features/almacen/api/useReorden';
 import {
   NivelReorden,
   NivelReordenLabels,
   ObjetivoReposicion,
   type ConfiguracionReordenListItem,
 } from '@/features/almacen/api/types';
+import { Field } from '@/features/almacen/components/internal/Field';
+import type { FieldControlProps } from '@/components/erp/forms/Field';
 
 /**
  * <c>&lt;ReordenSheet/&gt;</c> — slide-from-right para crear o editar una
@@ -54,10 +54,7 @@ export interface ReordenSheetProps {
   editando: ConfiguracionReordenListItem | null;
 }
 
-const NIVEL_OPTIONS: readonly NivelReorden[] = [
-  NivelReorden.Sucursal,
-  NivelReorden.Almacen,
-];
+const NIVEL_OPTIONS: readonly NivelReorden[] = [NivelReorden.Sucursal, NivelReorden.Almacen];
 
 const DEFAULTS: CrearReordenValues = {
   articuloId: '',
@@ -78,6 +75,13 @@ export function ReordenSheet({ open, onOpenChange, editando }: ReordenSheetProps
     resolver: zodResolver(CrearReordenSchema),
     defaultValues: DEFAULTS,
   });
+
+  // Cerrar (Esc, clic fuera, X, Cancelar) con cambios pide confirmación; guardar cierra con force.
+  const { setDirty, solicitarCierre, dialogo } = useConfirmarDescarte(() => onOpenChange(false));
+  const isDirty = form.formState.isDirty;
+  useEffect(() => {
+    setDirty(isDirty);
+  }, [isDirty, setDirty]);
 
   useEffect(() => {
     if (open) {
@@ -127,7 +131,7 @@ export function ReordenSheet({ open, onOpenChange, editando }: ReordenSheetProps
         {
           onSuccess: () => {
             toast.success('Reabasto actualizado');
-            onOpenChange(false);
+            solicitarCierre(true);
           },
           onError: manejarError,
         },
@@ -138,7 +142,7 @@ export function ReordenSheet({ open, onOpenChange, editando }: ReordenSheetProps
         {
           onSuccess: () => {
             toast.success('Reabasto configurado');
-            onOpenChange(false);
+            solicitarCierre(true);
           },
           onError: manejarError,
         },
@@ -154,16 +158,11 @@ export function ReordenSheet({ open, onOpenChange, editando }: ReordenSheetProps
         );
         return;
       }
-      if (
-        applyServerErrors(
-          form as unknown as Parameters<typeof applyServerErrors>[0],
-          error,
-        )
-      ) {
+      if (applyServerErrors(form as unknown as Parameters<typeof applyServerErrors>[0], error)) {
         return;
       }
       toast.error(error.problem.title, {
-        description: error.traceId ? `Código: ${error.traceId}` : undefined,
+        description: codigoSoporte(error),
       });
       return;
     }
@@ -173,12 +172,10 @@ export function ReordenSheet({ open, onOpenChange, editando }: ReordenSheetProps
   const isPending = crear.isPending || editar.isPending;
 
   return (
-    <Sheet open={open} onOpenChange={onOpenChange}>
-      <SheetContent side="right" className="sm:max-w-md">
+    <Sheet open={open} onOpenChange={(next) => (next ? onOpenChange(next) : solicitarCierre())}>
+      <SheetContent side="right" size="lg">
         <SheetHeader>
-          <SheetTitle>
-            {editando ? 'Editar reabasto' : 'Nuevo reabasto'}
-          </SheetTitle>
+          <SheetTitle>{editando ? 'Editar reabasto' : 'Nuevo reabasto'}</SheetTitle>
           <SheetDescription>
             {editando
               ? 'La llave (artículo, nivel y entidad) no se puede cambiar; solo la política de reabasto.'
@@ -186,154 +183,181 @@ export function ReordenSheet({ open, onOpenChange, editando }: ReordenSheetProps
           </SheetDescription>
         </SheetHeader>
 
-        <form
-          id="reorden-form"
-          onSubmit={form.handleSubmit(onSubmit)}
-          noValidate
-          className="flex-1 space-y-3 overflow-y-auto px-6"
-        >
-          {/* ── Llave: artículo · nivel · entidad (inmutable al editar) ── */}
-          <Field
-            label="Artículo"
-            required
-            error={form.formState.errors.articuloId?.message}
+        <SheetBody>
+          <form
+            id="reorden-form"
+            onSubmit={form.handleSubmit(onSubmit)}
+            noValidate
+            className="space-y-4"
           >
-            <Controller
-              name="articuloId"
-              control={form.control}
-              render={({ field }) => (
-                <ArticuloSelector
-                  value={field.value || null}
-                  onChange={(id) => field.onChange(id ?? '')}
-                  disabled={editando != null}
-                  initialLabel={
-                    editando
-                      ? [editando.articuloClave, editando.articuloDescripcion]
-                          .filter(Boolean)
-                          .join(' · ') || undefined
-                      : undefined
-                  }
-                />
-              )}
-            />
-          </Field>
-
-          <Field
-            label="Nivel"
-            required
-            error={form.formState.errors.nivel?.message}
-          >
-            <Controller
-              name="nivel"
-              control={form.control}
-              render={({ field }) => (
-                <Select
-                  value={String(field.value)}
-                  onValueChange={(v) => field.onChange(Number(v))}
-                  disabled={editando != null}
+            <FormSeccion numero={1} titulo="Configuración del reorden">
+              {/* ── Llave: artículo · nivel · entidad (inmutable al editar) ── */}
+              <FormCampo span={12}>
+                <Field
+                  className="col-span-2"
+                  label="Artículo"
+                  required
+                  error={form.formState.errors.articuloId?.message}
                 >
-                  <SelectTrigger>
-                    <SelectValue placeholder="Seleccionar nivel" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {NIVEL_OPTIONS.map((n) => (
-                      <SelectItem key={n} value={String(n)}>
-                        {NivelReordenLabels[n]}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              )}
-            />
-          </Field>
+                  <Controller
+                    name="articuloId"
+                    control={form.control}
+                    render={({ field }) => (
+                      <ArticuloSelector
+                        value={field.value || null}
+                        onChange={(id) => field.onChange(id ?? '')}
+                        disabled={editando != null}
+                        initialLabel={
+                          editando
+                            ? [editando.articuloClave, editando.articuloDescripcion]
+                                .filter(Boolean)
+                                .join(' · ') || undefined
+                            : undefined
+                        }
+                      />
+                    )}
+                  />
+                </Field>
+              </FormCampo>
 
-          <Field
-            label={nivel === NivelReorden.Sucursal ? 'Sucursal' : 'Almacén'}
-            required
-            error={form.formState.errors.entidadId?.message}
-          >
-            <Controller
-              name="entidadId"
-              control={form.control}
-              render={({ field }) => (
-                <EntidadReordenSelector
-                  nivel={nivel}
-                  value={field.value || null}
-                  onChange={(id) => field.onChange(id ?? '')}
-                  disabled={editando != null}
+              <FormCampo span={6}>
+                <Field label="Nivel" required error={form.formState.errors.nivel?.message}>
+                  <Controller
+                    name="nivel"
+                    control={form.control}
+                    render={({ field }) => (
+                      <Select
+                        value={String(field.value)}
+                        onValueChange={(v) => field.onChange(Number(v))}
+                        disabled={editando != null}
+                      >
+                        <SelectTrigger>
+                          <SelectValue placeholder="Seleccionar nivel" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {NIVEL_OPTIONS.map((n) => (
+                            <SelectItem key={n} value={String(n)}>
+                              {NivelReordenLabels[n]}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    )}
+                  />
+                </Field>
+              </FormCampo>
+
+              <FormCampo span={6}>
+                <Field
+                  label={nivel === NivelReorden.Sucursal ? 'Sucursal' : 'Almacén'}
+                  required
+                  error={form.formState.errors.entidadId?.message}
+                >
+                  <Controller
+                    name="entidadId"
+                    control={form.control}
+                    render={({ field }) => (
+                      <EntidadReordenSelector
+                        nivel={nivel}
+                        value={field.value || null}
+                        onChange={(id) => field.onChange(id ?? '')}
+                        disabled={editando != null}
+                      />
+                    )}
+                  />
+                </Field>
+              </FormCampo>
+
+              <FormCampo span={12}>
+                <div className="col-span-2 border-t border-line-row" />
+              </FormCampo>
+
+              {/* ── Política: objetivo · mín/máx/punto-reorden · auto-RQ ── */}
+              <FormCampo span={12}>
+                <p className="col-span-2 text-xs text-ink-muted">
+                  Al alcanzar el punto de reorden, repone hasta el máximo. Una cantidad fija
+                  sustituye ese cálculo.
+                </p>
+              </FormCampo>
+              <FormCampo span={6}>
+                <Field label="Mínimo" required error={form.formState.errors.minimo?.message}>
+                  <NumberField name="minimo" control={form.control} />
+                </Field>
+              </FormCampo>
+              <FormCampo span={6}>
+                <Field label="Máximo" required error={form.formState.errors.maximo?.message}>
+                  <NumberField name="maximo" control={form.control} />
+                </Field>
+              </FormCampo>
+              <FormCampo span={6}>
+                <Field
+                  label="Punto de reorden"
+                  required
+                  error={form.formState.errors.puntoReorden?.message}
+                >
+                  <NumberField name="puntoReorden" control={form.control} />
+                </Field>
+              </FormCampo>
+              <FormCampo span={6}>
+                <Field
+                  label="Cantidad fija (opcional)"
+                  error={form.formState.errors.cantidadFija?.message}
+                >
+                  {(c) => (
+                    <Controller
+                      name="cantidadFija"
+                      control={form.control}
+                      render={({ field }) => (
+                        <Input
+                          {...c}
+                          type="number"
+                          min="0"
+                          step="0.0001"
+                          value={field.value ?? ''}
+                          onChange={(e) =>
+                            field.onChange(e.target.value === '' ? null : Number(e.target.value))
+                          }
+                        />
+                      )}
+                    />
+                  )}
+                </Field>
+              </FormCampo>
+
+              <FormCampo span={6}>
+                <Controller
+                  name="autoRequisicion"
+                  control={form.control}
+                  render={({ field }) => (
+                    <label className="col-span-2 flex items-center gap-2 text-sm">
+                      <Checkbox
+                        checked={field.value}
+                        onCheckedChange={(v) => field.onChange(v === true)}
+                      />
+                      Genera borrador de requisición al alcanzar el punto de reorden
+                    </label>
+                  )}
                 />
-              )}
-            />
-          </Field>
-
-          <div className="border-t pt-3" />
-
-          {/* ── Política: objetivo · mín/máx/punto-reorden · auto-RQ ── */}
-          <p className="text-xs text-ink-muted">Al alcanzar el punto de reorden, repone hasta el máximo. Una cantidad fija sustituye ese cálculo.</p>
-          <Field label="Cantidad fija (opcional)" error={form.formState.errors.cantidadFija?.message}>
-            <Controller name="cantidadFija" control={form.control} render={({ field }) => (
-              <Input type="number" min="0" step="0.0001" value={field.value ?? ''}
-                onChange={(e) => field.onChange(e.target.value === '' ? null : Number(e.target.value))} />
-            )} />
-          </Field>
-
-          <div className="grid grid-cols-3 gap-2">
-            <Field
-              label="Mínimo"
-              required
-              error={form.formState.errors.minimo?.message}
-            >
-              <NumberField name="minimo" control={form.control} />
-            </Field>
-            <Field
-              label="Máximo"
-              required
-              error={form.formState.errors.maximo?.message}
-            >
-              <NumberField name="maximo" control={form.control} />
-            </Field>
-            <Field
-              label="Punto reorden"
-              required
-              error={form.formState.errors.puntoReorden?.message}
-            >
-              <NumberField name="puntoReorden" control={form.control} />
-            </Field>
-          </div>
-
-          <Controller
-            name="autoRequisicion"
-            control={form.control}
-            render={({ field }) => (
-              <label className="flex items-center gap-2 text-sm">
-                <Checkbox
-                  checked={field.value}
-                  onCheckedChange={(v) => field.onChange(v === true)}
-                />
-                Genera borrador de requisición al alcanzar el punto de reorden
-              </label>
-            )}
-          />
-        </form>
+              </FormCampo>
+            </FormSeccion>
+          </form>
+        </SheetBody>
 
         <SheetFooter>
           <Button
             type="button"
             variant="ghost"
-            onClick={() => onOpenChange(false)}
+            onClick={() => solicitarCierre()}
             disabled={isPending}
           >
             Cancelar
           </Button>
           <Button type="submit" form="reorden-form" disabled={isPending}>
-            {isPending
-              ? 'Guardando…'
-              : editando
-                ? 'Guardar cambios'
-                : 'Configurar reabasto'}
+            {isPending ? 'Guardando…' : editando ? 'Guardar cambios' : 'Configurar reabasto'}
           </Button>
         </SheetFooter>
       </SheetContent>
+      {dialogo}
     </Sheet>
   );
 }
@@ -342,16 +366,18 @@ export function ReordenSheet({ open, onOpenChange, editando }: ReordenSheetProps
 function NumberField({
   name,
   control,
+  ...aria
 }: {
   name: 'minimo' | 'maximo' | 'puntoReorden';
   control: ReturnType<typeof useForm<CrearReordenValues>>['control'];
-}) {
+} & Partial<FieldControlProps>) {
   return (
     <Controller
       name={name}
       control={control}
       render={({ field }) => (
         <Input
+          {...aria}
           type="number"
           inputMode="decimal"
           min={0}
@@ -362,36 +388,5 @@ function NumberField({
         />
       )}
     />
-  );
-}
-
-function Field({
-  label,
-  required,
-  error,
-  children,
-}: {
-  label: string;
-  required?: boolean;
-  error?: string;
-  children: React.ReactNode;
-}) {
-  return (
-    <div className="space-y-1.5">
-      <label className="flex items-center gap-1 text-sm font-medium">
-        {label}
-        {required && (
-          <span aria-hidden="true" className="text-rose-600">
-            *
-          </span>
-        )}
-      </label>
-      {children}
-      {error != null && (
-        <p role="alert" className="text-xs text-rose-600">
-          {error}
-        </p>
-      )}
-    </div>
   );
 }

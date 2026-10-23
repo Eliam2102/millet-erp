@@ -40,17 +40,24 @@ export function useMotivosRevision(incluirInactivos = false) {
 export function useFacturasEnRevision(
   dependenciaRevisoraId: string | undefined,
   motivoRevisionId?: string,
+  paginacion?: { offset: number; limit: number },
 ) {
   return useQuery({
     queryKey: cxpKeys.enRevisionList(
       dependenciaRevisoraId ?? '',
       motivoRevisionId,
+      paginacion?.offset,
+      paginacion?.limit,
     ),
     queryFn: async ({ signal }) => {
       const params = new URLSearchParams();
       params.set('dependenciaRevisoraId', dependenciaRevisoraId ?? '');
       if (motivoRevisionId) {
         params.set('motivoRevisionId', motivoRevisionId);
+      }
+      if (paginacion) {
+        params.set('offset', String(paginacion.offset));
+        params.set('limit', String(paginacion.limit));
       }
       const { data } = await apiRequest<
         PagedResponse<FacturaEnRevisionItem>

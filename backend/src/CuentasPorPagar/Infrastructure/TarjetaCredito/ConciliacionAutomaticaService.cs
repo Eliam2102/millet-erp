@@ -1,4 +1,5 @@
 using Microsoft.Extensions.Logging;
+using Millet.CuentasPorPagar.Domain.Ports.Administracion;
 using Millet.CuentasPorPagar.Domain.Ports.TarjetaCredito;
 using Millet.CuentasPorPagar.Domain.TarjetaCredito;
 
@@ -10,7 +11,7 @@ namespace Millet.CuentasPorPagar.Infrastructure.TarjetaCredito;
 /// merchant) y suma 0-100:
 ///
 /// <list type="bullet">
-///   <item><b>Monto</b> (50/30/0): diff &lt;$0.50 → 50; diff/total &lt; 2% → 30; lo demás → 0.</item>
+///   <item><b>Monto</b> (50/0): diff ≤ tolerancia configurada (por omisión $1.00 MXN) → 50; lo demás → 0.</item>
 ///   <item><b>Fecha</b> (25/15/5): mismo día → 25; ±1 día → 15; ±2-3 días → 5.</item>
 ///   <item><b>Merchant</b> (25/10/0): trigram similarity &gt; 0.80 → 25; &gt; 0.50 → 10; lo demás → 0.</item>
 /// </list>
@@ -31,8 +32,6 @@ public sealed class ConciliacionAutomaticaService : IConciliacionAutomaticaServi
 {
     private const decimal ScoreUmbralAuto = 90m;
     private const decimal ScoreUmbralSugerencia = 60m;
-    private const decimal ToleranciaMontoExacto = 0.50m;
-    private const decimal ToleranciaMontoPorcentaje = 0.02m;
     private const int VentanaCompraDias = 3;
     private const int VentanaRefundDias = 90;
 
@@ -42,17 +41,23 @@ public sealed class ConciliacionAutomaticaService : IConciliacionAutomaticaServi
     };
 
     private readonly ILogger<ConciliacionAutomaticaService> _logger;
+    private readonly IToleranciaTarjetasReadPort _toleranciaTarjetas;
 
-    public ConciliacionAutomaticaService(ILogger<ConciliacionAutomaticaService> logger)
+    public ConciliacionAutomaticaService(
+        ILogger<ConciliacionAutomaticaService> logger,
+        IToleranciaTarjetasReadPort toleranciaTarjetas)
     {
         _logger = logger;
+        _toleranciaTarjetas = toleranciaTarjetas;
     }
 
-    public Task<ConciliacionResultado> ConciliarAsync(
+    public async Task<ConciliacionResultado> ConciliarAsync(
         EstadoCuentaTc estadoCuenta,
         IReadOnlyList<MovimientoTarjetaCredito> candidatos,
         CancellationToken cancellationToken)
     {
+        var toleranciaMonto = await _toleranciaTarjetas.ObtenerMontoMxnAsync(cancellationToken);
+
         // Para garantizar 1:1, recolectamos primero todos los pares
         // (línea, movimiento, score), luego asignamos por score descendente
         // sin reusar movimientos ni líneas.
@@ -84,7 +89,7 @@ public sealed class ConciliacionAutomaticaService : IConciliacionAutomaticaServi
                 var diasDiff = Math.Abs(linea.FechaAplicacion.DayNumber - mov.FechaMovimiento.DayNumber);
                 if (diasDiff > ventanaDias) continue;
 
-                var score = CalcularScore(linea, mov);
+                var score = CalcularScore(linea, mov, toleranciaMonto);
                 if (score < ScoreUmbralSugerencia)
                 {
                     // Lo registramos igual para mostrar "mejor score" cuando no hay match.
@@ -164,10 +169,10 @@ public sealed class ConciliacionAutomaticaService : IConciliacionAutomaticaServi
             estadoCuenta.Id, resultado.LineasTotal, resultado.LineasMatchedAuto,
             resultado.LineasSugerencia, resultado.LineasSinMatch, resultado.LineasOmitidasNoBuscanMatch);
 
-        return Task.FromResult(resultado);
+        return resultado;
     }
 
-    internal static decimal CalcularScore(LineaBancoTc linea, MovimientoTarjetaCredito mov)
+    internal static decimal CalcularScore(LineaBancoTc linea, MovimientoTarjetaCredito mov, decimal toleranciaMonto)
     {
         decimal score = 0m;
 
@@ -175,10 +180,8 @@ public sealed class ConciliacionAutomaticaService : IConciliacionAutomaticaServi
         var lineaMonto = Math.Abs(linea.MontoMxn);
         var movMonto = Math.Abs(mov.MontoMxn);
         var diff = Math.Abs(movMonto - lineaMonto);
-        if (diff < ToleranciaMontoExacto)
+        if (diff <= toleranciaMonto)
             score += 50m;
-        else if (lineaMonto > 0 && diff / lineaMonto < ToleranciaMontoPorcentaje)
-            score += 30m;
 
         // Componente fecha.
         var diasDiff = Math.Abs(linea.FechaAplicacion.DayNumber - mov.FechaMovimiento.DayNumber);

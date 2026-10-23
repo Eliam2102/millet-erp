@@ -88,6 +88,7 @@ public sealed class AgregarLineaDesdeRequisicionHandler
                 "RQ_YA_COMPROMETIDA",
                 $"La RQ '{rq.Folio.Valor}' ya está comprometida en otra OC.");
         }
+        await Cotizaciones.CotizacionesComparativo.ExigirSinCotizacionesAsync(_db, rq.Id, cancellationToken);
         if (rq.SucursalId != oc.SucursalDestinoId)
         {
             throw new BusinessRuleException(
@@ -151,7 +152,7 @@ public sealed class AgregarLineaDesdeRequisicionHandler
                 requisicionId: rq.Id,
                 lineaRequisicionId: lineaRq.Id,
                 // Fase E PR3: el CC-Máquina se hereda 1:1 de la línea de RQ.
-                centroCostoId: lineaRq.CentroCostoId,
+                centroCostoId: lineaRq.CentroCostoId, esActivoFijo: lineaRq.EsActivoFijo, claseActivoId: lineaRq.ClaseActivoId,
                 esServicio: articulos.TryGetValue(lineaRq.ArticuloId, out var articulo)
                     && articulo.EsServicio);
             lineasAgregadas++;

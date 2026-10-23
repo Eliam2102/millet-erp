@@ -66,10 +66,11 @@ export const CrearRequisicionSchema = z.object({
     z.literal(Prioridad.Normal),
     z.literal(Prioridad.Alta),
   ]),
-  fechaSolicitud: z.iso.datetime({ message: 'Fecha de solicitud requerida (ISO 8601 UTC)' }),
+  fechaSolicitud: z.iso.datetime({ message: 'Fecha de solicitud requerida' }),
   fechaEntregaDeseada: z.iso.date().nullish(),
   proveedorSugeridoId: idLikeOpcional,
   obra: z.string().max(120, 'Máximo 120 caracteres').nullish(),
+  soloApartarSiCompleto: z.boolean().default(false),
   descripcion: z.string().max(500, 'Máximo 500 caracteres').nullish(),
 });
 

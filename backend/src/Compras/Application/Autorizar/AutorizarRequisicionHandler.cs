@@ -103,7 +103,20 @@ public sealed class AutorizarRequisicionHandler : IRequestHandler<AutorizarRequi
 
         activity?.SetTag("compras.estado.antes", requisicion.Estado.ToString());
 
-        var requiereNivel = await _evaluator.EvaluarAsync(requisicion, cancellationToken);
+        // La matriz consulta stock (puerto de Almacén): un fallo runtime del puerto
+        // se traduce igual que en la bifurcación (422 BIFURCACION_FALLO, sin filtrar ex.Message).
+        RequiereNivel requiereNivel;
+        try
+        {
+            requiereNivel = await _evaluator.EvaluarAsync(requisicion, cancellationToken);
+        }
+        catch (Exception ex) when (ex is not BusinessRuleException && ex is not OperationCanceledException)
+        {
+            throw new BusinessRuleException(
+                "BIFURCACION_FALLO",
+                "La bifurcación stock-aware falló. Reintente o consulte al administrador.",
+                ex);
+        }
 
         var resultado = requisicion.RegistrarAutorizacion(
             autorizacionId: Guid.CreateVersion7(),
@@ -244,7 +257,7 @@ public sealed class AutorizarRequisicionHandler : IRequestHandler<AutorizarRequi
             requisicion.Lineas.Select(l => l.ArticuloId).Distinct().ToList(), cancellationToken);
         var repartos = await RepartoDisponibilidadService.RepartirAsync(
             _stock, _conversion, articulos, requisicion.Clasificacion, requisicion.SucursalId,
-            requisicion.Lineas, cancellationToken);
+            requisicion.Lineas, cancellationToken, soloCompleto: requisicion.SoloApartarSiCompleto);
 
         var resultado = new List<CubrimientoLinea>(repartos.Count);
         foreach (var reparto in repartos)
@@ -255,11 +268,11 @@ public sealed class AutorizarRequisicionHandler : IRequestHandler<AutorizarRequi
 
             // Lo único propio de la autorización: apartar la existencia real.
             // Los servicios no tienen existencia que apartar.
-            if (apartar && !reparto.EsServicio)
+            if (apartar && !reparto.EsServicio && !linea.EsActivoFijo)
             {
                 var conversion = await _conversion.ConvertirAsync(linea.ArticuloId, linea.Cantidad, null, linea.UnidadMedida, cancellationToken);
                 cantidadDeAlmacen = await _apartadosTx.Apartados.ApartarAsync(requisicion.EmpresaId,
-                    requisicion.SucursalId, requisicion.Id, linea.Id, linea.ArticuloId, cantidadDeAlmacen * conversion.FactorDocumentoABase, cancellationToken) / conversion.FactorDocumentoABase;
+                    requisicion.SucursalId, requisicion.Id, linea.Id, linea.ArticuloId, cantidadDeAlmacen * conversion.FactorDocumentoABase, cancellationToken, requisicion.SoloApartarSiCompleto) / conversion.FactorDocumentoABase;
                 cantidadDeCompra = linea.Cantidad - cantidadDeAlmacen;
             }
             resultado.Add(new CubrimientoLinea(linea.Id, cantidadDeAlmacen, cantidadDeCompra));

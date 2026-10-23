@@ -3,10 +3,12 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
+using Millet.CuentasPorPagar.Application.FacturaProveedor.Revision;
 using Millet.CuentasPorPagar.Domain.FacturaProveedor;
 using Millet.CuentasPorPagar.Domain.Notificaciones;
 using Millet.CuentasPorPagar.Infrastructure.Persistence;
 using Millet.SharedKernel.Application;
+using Millet.SharedKernel.Application.Calendario;
 
 namespace Millet.CuentasPorPagar.Infrastructure.Workers;
 
@@ -18,11 +20,13 @@ namespace Millet.CuentasPorPagar.Infrastructure.Workers;
 /// <see cref="INotificacionService"/>.
 ///
 /// <para>
-/// **Thresholds por SLA**:
+/// **Thresholds por SLA** (en días hábiles con <see cref="ICalendarioHabil"/>;
+/// el día de entrada no cuenta y la fecha es la local de México, ver
+/// <see cref="PlazoRevision"/>):
 /// <list type="bullet">
 ///   <item>SLA 5 días: aviso día 3, SLA vencido día 5, escalamiento
-///         director día 10.</item>
-///   <item>SLA 15 días (Disputa contractual): aviso día 8, vencido
+///         a Dirección de Finanzas día 10.</item>
+///   <item>SLA 15 días (Disputa con proveedor): aviso día 8, vencido
 ///         día 12, escalamiento día 20.</item>
 ///   <item>SLA null (Indicación expresa): no notifica — libera el
 ///         solicitante.</item>
@@ -30,12 +34,12 @@ namespace Millet.CuentasPorPagar.Infrastructure.Workers;
 /// </para>
 ///
 /// <para>
-/// **Idempotencia simplificada en MVP**: el worker no persiste un
-/// historial de notificaciones enviadas. Si corre 2 veces el mismo
-/// día emite la notificación 2 veces. PLATFORM-TODO
-/// (&lt;NotificacionesIdempotency&gt;): cuando el módulo
-/// Notificaciones real exista, deduplica por
-/// <c>(factura_id, nivel, dia)</c>.
+/// **Idempotencia**: cada aviso se persiste en
+/// <c>cuentas_por_pagar.avisos_sla_revision</c> con índice único
+/// (factura, nivel, día). Correr el worker dos veces el mismo día no duplica
+/// el aviso. El aviso nunca cambia el estado de la factura ni libera el pago.
+/// El envío por correo sigue en <c>NoOpNotificacionService</c>
+/// (PLATFORM-TODO(&lt;NotificacionesGlobal&gt;)).
 /// </para>
 /// </summary>
 public sealed class RevisionSlaNotificacionWorker : BackgroundService
@@ -96,6 +100,7 @@ public sealed class RevisionSlaNotificacionWorker : BackgroundService
         var notif = sp.GetRequiredService<INotificacionService>();
         var clock = sp.GetRequiredService<IClock>();
         var empresaContext = sp.GetRequiredService<ICurrentEmpresaContext>();
+        var calendario = sp.GetRequiredService<ICalendarioHabil>();
 
         var originContext = sp.GetRequiredService<IAuditOriginContext>();
         using var origin = originContext.SetOrigin(nameof(RevisionSlaNotificacionWorker));
@@ -117,32 +122,34 @@ public sealed class RevisionSlaNotificacionWorker : BackgroundService
                 DependenciaId = f.DependenciaRevisoraId!.Value,
             }).ToListAsync(cancellationToken);
 
+        var hoy = FechaContable.HoyLocal(ahora);
+        var cache = new Dictionary<DateOnly, int>();
         var enviadas = 0;
         foreach (var f in enRevision)
         {
             if (f.SlaDias is not int sla) continue; // motivo sin SLA (Indicación expresa)
 
-            var dias = (int)Math.Floor((ahora - f.FechaEntrada).TotalDays);
-            if (dias <= 0) continue;
+            var dias = await PlazoRevision.DiasHabilesAsync(calendario, f.FechaEntrada, ahora, cache, cancellationToken);
+            if (PlazoRevision.Nivel(dias, sla) is not NivelEscalamientoSla nivel) continue;
 
-            // Resuelve umbrales 3/5/10 (SLA 5) o 8/12/20 (SLA 15) — escala
-            // lineal: aviso = 60% del SLA, vencido = 100%, escalamiento = 200%.
-            var (avisoDia, vencidoDia, escalamientoDia) = sla switch
+            // Deduplicación (factura, nivel, día local): un aviso por día y nivel.
+            if (await db.AvisosSlaRevision.AnyAsync(
+                    a => a.FacturaProveedorId == f.Id && a.Nivel == nivel && a.Fecha == hoy,
+                    cancellationToken))
+                continue;
+
+            db.AvisosSlaRevision.Add(new AvisoSlaRevision(
+                f.EmpresaId, f.Id, f.DependenciaId, f.MotivoId, nivel, hoy, dias, sla, f.FechaEntrada, ahora));
+            try
             {
-                5  => (3, 5, 10),
-                15 => (8, 12, 20),
-                _  => ((int)Math.Ceiling(sla * 0.6m), sla, sla * 2),
-            };
-
-            NivelEscalamientoSla? nivel = dias switch
+                await db.SaveChangesAsync(cancellationToken);
+            }
+            catch (DbUpdateException ex) when (ex.InnerException is Npgsql.PostgresException { SqlState: Npgsql.PostgresErrorCodes.UniqueViolation })
             {
-                _ when dias >= escalamientoDia => NivelEscalamientoSla.EscalamientoDirector,
-                _ when dias >= vencidoDia      => NivelEscalamientoSla.SlaVencido,
-                _ when dias >= avisoDia        => NivelEscalamientoSla.AvisoGerente,
-                _ => null,
-            };
-
-            if (nivel is null) continue;
+                // Otra instancia ya emitió ese aviso.
+                db.ChangeTracker.Clear();
+                continue;
+            }
 
             try
             {
@@ -153,7 +160,7 @@ public sealed class RevisionSlaNotificacionWorker : BackgroundService
                     MotivoRevisionId: f.MotivoId,
                     DiasEnRevision: dias,
                     SlaDias: sla,
-                    Nivel: nivel.Value), cancellationToken);
+                    Nivel: nivel), cancellationToken);
                 enviadas++;
             }
             catch (Exception ex)

@@ -1,4 +1,6 @@
-import { TrendingDown, AlertTriangle, Truck, Receipt, CreditCard } from 'lucide-react';
+import type { PartidasAbiertasSearch } from '../lib/partidas-abiertas-search-schema';
+import { SubEstadoRecepcion, SubEstadoFacturacion, SubEstadoPago } from '../api/types';
+import { KpiCard } from '@/components/erp/display/KpiCard';
 import type { KpisPartidasAbiertasResponse } from '@/features/compras/ordenes/api/useKpisPartidasAbiertas';
 import { cn } from '@/lib/utils';
 
@@ -17,6 +19,7 @@ import { cn } from '@/lib/utils';
 export interface KpiCardsPartidasAbiertasProps {
   kpis: KpisPartidasAbiertasResponse | undefined;
   isLoading?: boolean;
+  search?: PartidasAbiertasSearch;
   className?: string;
 }
 
@@ -24,96 +27,60 @@ export function KpiCardsPartidasAbiertas({
   kpis,
   isLoading,
   className,
+  search,
 }: KpiCardsPartidasAbiertasProps) {
+  function destino(filtros: Partial<PartidasAbiertasSearch> = {}) {
+    const params = new URLSearchParams();
+    Object.entries({
+      proveedorId: search?.proveedorId,
+      compradorTitularId: search?.compradorTitularId,
+      fechaDesde: search?.fechaDesde,
+      fechaHasta: search?.fechaHasta,
+      pageSize: search?.pageSize,
+      ...filtros,
+      page: 1,
+    }).forEach(([key, value]) => {
+      if (value !== undefined && value !== null) params.set(key, String(value));
+    });
+    return `/compras/ordenes/partidas-abiertas?${params.toString()}`;
+  }
   return (
     <div
-      className={cn(
-        'grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-5',
-        className,
-      )}
+      className={cn('grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-5', className)}
       data-component="kpi-cards-partidas-abiertas"
       role="region"
       aria-label="Indicadores de partidas abiertas"
     >
-      <Card
-        label="Partidas abiertas"
-        value={kpis?.countPartidasAbiertas}
-        loading={isLoading}
-        Icon={TrendingDown}
-        tono="primary"
+      <KpiCard
+        etiqueta="Partidas abiertas"
+        href={destino({})}
+        valor={isLoading ? '…' : (kpis?.countPartidasAbiertas?.toLocaleString('es-MX') ?? '—')}
+        tono="info"
       />
-      <Card
-        label="Atrasadas"
-        value={kpis?.countAtrasadas}
-        loading={isLoading}
-        Icon={AlertTriangle}
-        tono="rojo"
+      <KpiCard
+        etiqueta="Atrasadas"
+        href={destino({ diasAtrasadosMinimos: 1 })}
+        valor={isLoading ? '…' : (kpis?.countAtrasadas?.toLocaleString('es-MX') ?? '—')}
+        tono="danger"
       />
-      <Card
-        label="Recepción parcial"
-        value={kpis?.countConRecepcionParcial}
-        loading={isLoading}
-        Icon={Truck}
-        tono="ambar"
+      <KpiCard
+        etiqueta="Recepción parcial"
+        href={destino({ subEstadoRecepcion: SubEstadoRecepcion.Parcial })}
+        valor={isLoading ? '…' : (kpis?.countConRecepcionParcial?.toLocaleString('es-MX') ?? '—')}
+        tono="warning"
       />
-      <Card
-        label="Facturación parcial"
-        value={kpis?.countConFacturacionParcial}
-        loading={isLoading}
-        Icon={Receipt}
-        tono="ambar"
+      <KpiCard
+        etiqueta="Facturación parcial"
+        href={destino({ subEstadoFacturacion: SubEstadoFacturacion.Parcial })}
+        valor={isLoading ? '…' : (kpis?.countConFacturacionParcial?.toLocaleString('es-MX') ?? '—')}
+        tono="warning"
       />
-      <Card
-        label="Sin pago"
-        value={kpis?.countSinPago}
-        loading={isLoading}
-        Icon={CreditCard}
-        tono="ambar"
+      <KpiCard
+        etiqueta="Sin pago"
+        href={destino({ subEstadoPago: SubEstadoPago.SinPago })}
+        valor={isLoading ? '…' : (kpis?.countSinPago?.toLocaleString('es-MX') ?? '—')}
+        tono="warning"
       />
-    </div>
-  );
-}
-
-const TONOS = {
-  primary: 'border-primary/30 bg-primary/5 text-primary',
-  ambar: 'border-amber-300 bg-amber-50 text-amber-800',
-  rojo: 'border-rose-300 bg-rose-50 text-rose-800',
-} as const;
-
-function Card({
-  label,
-  value,
-  loading,
-  Icon,
-  tono,
-}: {
-  label: string;
-  value: number | undefined;
-  loading?: boolean;
-  Icon: React.ComponentType<{ className?: string }>;
-  tono: keyof typeof TONOS;
-}) {
-  return (
-    <div
-      className={cn(
-        'rounded-md border p-3 transition-colors',
-        TONOS[tono],
-      )}
-      data-kpi={label}
-    >
-      <div className="flex items-center justify-between">
-        <span className="text-xs font-medium uppercase tracking-wide opacity-90">
-          {label}
-        </span>
-        <Icon className="h-4 w-4 opacity-80" />
-      </div>
-      <p className="mt-1 text-2xl font-semibold tabular-nums">
-        {loading ? (
-          <span className="inline-block h-7 w-12 animate-pulse rounded bg-current opacity-20" />
-        ) : (
-          (value ?? 0).toLocaleString()
-        )}
-      </p>
     </div>
   );
 }

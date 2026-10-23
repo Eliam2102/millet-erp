@@ -1,3 +1,4 @@
+import { useEffect } from 'react';
 import { Controller, useForm, useWatch } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { toast } from 'sonner';
@@ -10,8 +11,6 @@ import {
   SheetTitle,
 } from '@/components/ui/sheet';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import {
   applyServerErrors,
@@ -23,7 +22,8 @@ import {
   type CrearNotaCargoValues,
 } from '@/features/cxp/schemas/notas-y-anticipos';
 import { useCrearNotaCargo } from '@/features/cxp/api/useNotasYAnticipos';
-import { ProveedorSelector, SucursalSelector } from '@/components/erp';
+import { Field, MoneyField, ProveedorSelector, SucursalSelector } from '@/components/erp';
+import { useConfirmarDescarte } from '@/components/erp/forms/useConfirmarDescarte';
 import { FacturaPicker } from '@/features/cxp/components/FacturaPicker';
 
 /**
@@ -40,9 +40,16 @@ export function NuevaNotaCargoSheet({
   open,
   onOpenChange,
 }: NuevaNotaCargoSheetProps) {
+  // Confirmación al cerrar con cambios; el alta exitosa cierra con force.
+  const { setDirty, solicitarCierre, dialogo } = useConfirmarDescarte(() =>
+    onOpenChange(false),
+  );
   return (
-    <Sheet open={open} onOpenChange={onOpenChange}>
-      <SheetContent side="right" className="sm:max-w-md">
+    <Sheet
+      open={open}
+      onOpenChange={(next) => (next ? onOpenChange(next) : solicitarCierre())}
+    >
+      <SheetContent side="right" size="form">
         <SheetHeader>
           <SheetTitle>Crear nota de cargo</SheetTitle>
           <SheetDescription>
@@ -51,13 +58,28 @@ export function NuevaNotaCargoSheet({
             autorización Dirección antes de aplicarse.
           </SheetDescription>
         </SheetHeader>
-        {open && <Form onClose={() => onOpenChange(false)} />}
+        {open && (
+          <Form
+            onCancel={() => solicitarCierre()}
+            onCreated={() => solicitarCierre(true)}
+            onDirtyChange={setDirty}
+          />
+        )}
       </SheetContent>
+      {dialogo}
     </Sheet>
   );
 }
 
-function Form({ onClose }: { onClose: () => void }) {
+function Form({
+  onCancel,
+  onCreated,
+  onDirtyChange,
+}: {
+  onCancel: () => void;
+  onCreated: () => void;
+  onDirtyChange: (dirty: boolean) => void;
+}) {
   const idempotencyKey = useFormIdempotencyKey();
   const crear = useCrearNotaCargo();
 
@@ -78,7 +100,13 @@ function Form({ onClose }: { onClose: () => void }) {
 
   // La factura origen es del mismo proveedor: el picker se filtra con el
   // proveedor elegido arriba y se habilita hasta entonces.
+  const monto = useWatch({ control: form.control, name: 'monto' });
+  const moneda = useWatch({ control: form.control, name: 'moneda' });
   const proveedorIdSel = useWatch({ control: form.control, name: 'proveedorId' });
+  const isDirty = form.formState.isDirty;
+  useEffect(() => {
+    onDirtyChange(isDirty);
+  }, [isDirty, onDirtyChange]);
 
   function onSubmit(values: CrearNotaCargoValues) {
     crear.mutate(
@@ -86,7 +114,7 @@ function Form({ onClose }: { onClose: () => void }) {
       {
         onSuccess: (res) => {
           toast.success(`Nota de cargo ${res.folio} creada (Borrador)`);
-          onClose();
+          onCreated();
         },
         onError: (error) => {
           if (esApiError(error)) {
@@ -108,37 +136,43 @@ function Form({ onClose }: { onClose: () => void }) {
 
   return (
     <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4 px-4">
-      <Campo
+      <Field
         label="Proveedor"
         error={form.formState.errors.proveedorId?.message}
         required
       >
-        <Controller
-          control={form.control}
-          name="proveedorId"
-          render={({ field }) => (
-            <ProveedorSelector
-              value={field.value || null}
-              onChange={(id) => field.onChange(id ?? '')}
-            />
-          )}
-        />
-      </Campo>
+        {(control) => (
+          <Controller
+            control={form.control}
+            name="proveedorId"
+            render={({ field }) => (
+              <ProveedorSelector
+                value={field.value || null}
+                onChange={(id) => field.onChange(id ?? '')}
+                triggerProps={control}
+              />
+            )}
+          />
+        )}
+      </Field>
 
-      <Campo label="Sucursal (opcional)">
-        <Controller
-          control={form.control}
-          name="sucursalId"
-          render={({ field }) => (
-            <SucursalSelector
-              value={field.value ?? null}
-              onChange={(id) => field.onChange(id)}
-            />
-          )}
-        />
-      </Campo>
+      <Field label="Sucursal" optional>
+        {(control) => (
+          <Controller
+            control={form.control}
+            name="sucursalId"
+            render={({ field }) => (
+              <SucursalSelector
+                value={field.value ?? null}
+                onChange={(id) => field.onChange(id)}
+                triggerProps={control}
+              />
+            )}
+          />
+        )}
+      </Field>
 
-      <Campo
+      <Field
         label="Concepto"
         error={form.formState.errors.concepto?.message}
         required
@@ -148,68 +182,67 @@ function Form({ onClose }: { onClose: () => void }) {
           placeholder="Ej.: Reembolso por flete duplicado, OC 12345."
           {...form.register('concepto')}
         />
-      </Campo>
+      </Field>
 
-      <div className="grid grid-cols-2 gap-3">
-        <Campo
-          label="Monto"
-          error={form.formState.errors.monto?.message}
-          required
-        >
-          <Input
-            type="number"
-            step="0.01"
-            min="0"
-            {...form.register('monto', { valueAsNumber: true })}
+      <Field
+        label="Monto y moneda"
+        error={
+          form.formState.errors.monto?.message ??
+          form.formState.errors.moneda?.message
+        }
+        required
+      >
+        {(control) => (
+          <MoneyField
+            value={monto > 0 ? { amount: monto, currency: moneda } : null}
+            defaultCurrency={moneda}
+            onChange={(m) => {
+              form.setValue('monto', m?.amount ?? 0, {
+                shouldDirty: true,
+                shouldValidate: form.formState.isSubmitted,
+              });
+              if (m) form.setValue('moneda', m.currency, { shouldDirty: true });
+            }}
+            inputProps={{ ...control, min: 0 }}
           />
-        </Campo>
-        <Campo label="Moneda" required>
-          <Input
-            placeholder="MXN"
-            maxLength={3}
-            className="uppercase"
-            {...form.register('moneda')}
-          />
-        </Campo>
-      </div>
+        )}
+      </Field>
 
-      <Campo label="Factura origen (opcional)">
-        <Controller
-          control={form.control}
-          name="facturaOrigenId"
-          render={({ field }) => (
-            <FacturaPicker
+      <Field label="Factura origen" optional>
+        {(control) => (
+          <Controller
+            control={form.control}
+            name="facturaOrigenId"
+            render={({ field }) => (
+              <FacturaPicker
                 soloConSaldo
-              value={field.value ?? null}
-              onChange={(id) => field.onChange(id)}
-              proveedorId={proveedorIdSel || null}
-              placeholder={
-                proveedorIdSel
-                  ? 'Selecciona factura del proveedor…'
-                  : 'Elige primero el proveedor'
-              }
-              disabled={!proveedorIdSel}
-            />
-          )}
-        />
-      </Campo>
+                value={field.value ?? null}
+                onChange={(id) => field.onChange(id)}
+                proveedorId={proveedorIdSel || null}
+                placeholder={
+                  proveedorIdSel
+                    ? 'Selecciona factura del proveedor…'
+                    : 'Elige primero el proveedor'
+                }
+                disabled={!proveedorIdSel}
+                triggerProps={control}
+              />
+            )}
+          />
+        )}
+      </Field>
 
-      <Campo label="Devolución a proveedor (UUID, opcional)">
-        {/* PLATFORM-TODO(<DevolucionProveedorPicker>): el catálogo de
-            devoluciones 8.B es de Almacén y CxP no tiene query expuesta;
-            sigue como GUID crudo (normalmente lo llena el evento
-            OcDevolucionRegistradaEvent, no un humano). */}
-        <Input
-          placeholder="00000000-…"
-          {...form.register('devolucionAProveedorId')}
-        />
-      </Campo>
+      {/* PLATFORM-TODO(<DevolucionProveedorPicker>): el catálogo de
+          devoluciones 8.B es de Almacén y CxP no tiene query expuesta. El
+          campo `devolucionAProveedorId` se oculta en la captura manual (CXP-17):
+          un humano no puede capturar un GUID; lo llena el evento
+          OcDevolucionRegistradaEvent. Volver a mostrarlo con un picker. */}
 
       <SheetFooter className="px-0">
         <Button
           type="button"
           variant="ghost"
-          onClick={onClose}
+          onClick={onCancel}
           disabled={crear.isPending}
         >
           Cancelar
@@ -219,28 +252,5 @@ function Form({ onClose }: { onClose: () => void }) {
         </Button>
       </SheetFooter>
     </form>
-  );
-}
-
-function Campo({
-  label,
-  required,
-  error,
-  children,
-}: {
-  label: string;
-  required?: boolean;
-  error?: string;
-  children: React.ReactNode;
-}) {
-  return (
-    <div className="space-y-1">
-      <Label className="text-xs">
-        {label}
-        {required && <span className="ml-1 text-destructive">*</span>}
-      </Label>
-      {children}
-      {error && <p className="text-xs text-destructive">{error}</p>}
-    </div>
   );
 }

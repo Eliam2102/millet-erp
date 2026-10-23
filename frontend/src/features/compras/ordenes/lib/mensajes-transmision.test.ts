@@ -20,14 +20,14 @@ describe('mensajeErrorTransmision', () => {
     );
   });
 
-  it('OC_PRECIO_REQUERIDO muestra el mensaje del servidor que nombra las líneas', () => {
-    const detail = 'Captura el precio de las líneas 1, 3 antes de enviar a autorización.';
+  it('OC_PRECIO_REQUERIDO muestra el mensaje del servidor que nombra las partidas', () => {
+    const detail = 'Captura el precio de las partidas 1, 3 antes de enviar a autorización.';
     expect(mensajeErrorTransmision(problema('OC_PRECIO_REQUERIDO', detail))).toBe(detail);
   });
 
   it('OC_PRECIO_REQUERIDO sin detail usa el mensaje de respaldo', () => {
     expect(mensajeErrorTransmision(problema('OC_PRECIO_REQUERIDO', ''))).toBe(
-      'Captura el precio de las líneas sin precio antes de enviar a autorización.',
+      'Captura el precio de las partidas sin precio antes de enviar a autorización.',
     );
   });
 

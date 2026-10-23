@@ -35,7 +35,7 @@ public sealed class ProveedorAdjuntoPropietario : IAdjuntoPropietario
         var p = await _db.Proveedores
             .AsNoTracking()
             .Where(x => x.Id == entidadId)
-            .Select(x => new { x.Id, x.Clave, x.RazonSocial, x.Estatus, x.TipoPersona })
+            .Select(x => new { x.Id, x.Clave, x.RazonSocial, x.Estatus, x.TipoPersona, x.Origen })
             .FirstOrDefaultAsync(cancellationToken);
 
         return p is null
@@ -46,7 +46,9 @@ public sealed class ProveedorAdjuntoPropietario : IAdjuntoPropietario
                 SucursalId: null,
                 PuedeSubir: p.Estatus != EstatusCatalogo.Inactivo,
                 EsPersonaMoral: p.TipoPersona == TipoPersonaProveedor.Moral,
-                Etiqueta: $"{p.Clave} · {p.RazonSocial}");
+                Etiqueta: $"{p.Clave} · {p.RazonSocial}",
+                // 86e3pdmee: por revisar (null) se trata como nacional, la matriz más exigente.
+                EsNacional: p.Origen != OrigenProveedor.Extranjero);
     }
 
     // Proveedor no tiene sucursal: no hay alcance territorial que verificar.

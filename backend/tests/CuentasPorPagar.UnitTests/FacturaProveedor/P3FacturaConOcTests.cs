@@ -3,6 +3,8 @@ using MediatR;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging.Abstractions;
+using Millet.CuentasPorPagar.Application.FacturaProveedor.Revision;
+using Millet.CuentasPorPagar.UnitTests.FacturaProveedor;
 using Millet.CuentasPorPagar.Application.EventListeners;
 using Millet.CuentasPorPagar.Application.FacturaProveedor.CapturarFacturaConOc;
 using Millet.CuentasPorPagar.Application.FacturaProveedor.Elegibilidad;
@@ -77,13 +79,78 @@ public sealed class P3FacturaConOcTests
         await using var a = new Ambiente();
         var captura = await a.Handler.Handle(a.Command(10, 20), default);
         a.OcDisponible = disponible;
-        var detalle = await new GetFacturaPorIdHandler(a.Db, a, new SucursalDetalleStub(), a.Elegibilidad, a)
+        var detalle = await new GetFacturaPorIdHandler(a.Db, a, new SucursalDetalleStub(), a.Elegibilidad, a, a, new CalendarioCero(), new AreaStub())
             .Handle(new GetFacturaPorIdQuery(captura.Id), default);
         detalle.OrdenCompraFolio.Should().Be(folio);
         detalle.OrdenCompraId.Should().NotBeNull();
         detalle.ProveedorNombre.Should().Be("Proveedor ficticio P3");
         var listado = await new ListarFacturasHandler(a.Db, a, a).Handle(new ListarFacturasQuery(), default);
         listado.Items.Should().ContainSingle().Which.OrdenCompraFolio.Should().Be(folio);
+    }
+
+    [Fact]
+    public async Task Capturar_dos_veces_el_mismo_UUID_rechaza_con_FACTURA_DUPLICADA_y_menciona_el_UUID()
+    {
+        await using var a = new Ambiente();
+        var uuid = "7A1B2C3D-0000-4000-8000-00000000AAAA";
+        await a.Handler.Handle(a.Command(4, 20) with { UuidCfdi = uuid.ToLowerInvariant() }, default);
+
+        var segunda = () => a.Handler.Handle(a.Command(4, 20) with { UuidCfdi = uuid }, default);
+
+        var error = (await segunda.Should().ThrowAsync<BusinessRuleException>()).Which;
+        error.Code.Should().Be("FACTURA_DUPLICADA");
+        error.Message.Should().Contain(uuid).And.Contain("P3-FICTICIA").And.Contain("Capturada");
+    }
+
+    [Fact]
+    public async Task Detalle_de_factura_en_revision_trae_motivo_area_y_plazo()
+    {
+        await using var a = new Ambiente();
+        var captura = await a.Handler.Handle(a.Command(10, 20), default);
+        var danos = Guid.NewGuid();
+        a.Db.MotivosRevision.Add(new MotivoRevision(danos, "P3_REVISION_" + danos.ToString("N")[..8], "Daños o defectos en mercancía", null, 5, "ALMACEN"));
+        var f = await a.Db.FacturasProveedor.SingleAsync(x => x.Id == captura.Id);
+        f.EnviarARevision(danos, Guid.NewGuid(), null, a.Ahora);
+        await a.Db.SaveChangesAsync();
+
+        var detalle = await new GetFacturaPorIdHandler(a.Db, a, new SucursalDetalleStub(), a.Elegibilidad, a, a, new CalendarioCero(), new AreaStub())
+            .Handle(new GetFacturaPorIdQuery(captura.Id), default);
+
+        detalle.RevisionVigente.Should().NotBeNull();
+        var r = detalle.RevisionVigente!;
+        r.AreaNombre.Should().Be("Almacén");
+        r.MotivoNombre.Should().NotBeNullOrEmpty();
+        r.SlaDias.Should().Be(5);
+        r.FechaEnvio.Should().Be(a.Ahora);
+        r.Vencida.Should().BeFalse();
+    }
+
+    [Fact]
+    public async Task Detalle_de_factura_trae_la_recepcion_ligada()
+    {
+        await using var a = new Ambiente();
+        var rec = a.Recepcion(5);
+        await a.Recepciones.Handle(rec, default);
+        var captura = await a.Handler.Handle(a.Command(4, 20) with { RecepcionId = rec.Payload.RecepcionId }, default);
+
+        var detalle = await new GetFacturaPorIdHandler(a.Db, a, new SucursalDetalleStub(), a.Elegibilidad, a, a, new CalendarioCero(), new AreaStub())
+            .Handle(new GetFacturaPorIdQuery(captura.Id), default);
+
+        detalle.RecepcionId.Should().Be(rec.Payload.RecepcionId);
+        detalle.RecepcionFolio.Should().Be("REC-P3-FICTICIA");
+    }
+
+    private sealed class CalendarioCero : Millet.SharedKernel.Application.Calendario.ICalendarioHabil
+    {
+        public Task<int> ContarDiasAsync(DateOnly desde, DateOnly hasta, CancellationToken ct) => Task.FromResult(0);
+        public Task<DateTimeOffset> SumarHorasAsync(DateOnly fecha, int horas, CancellationToken ct) => throw new NotSupportedException();
+    }
+
+    private sealed class AreaStub : Millet.CuentasPorPagar.Domain.Ports.Administracion.IDependenciaRevisoraReadPort
+    {
+        public Task<Millet.CuentasPorPagar.Domain.Ports.Administracion.DependenciaRevisoraDto?> ObtenerAsync(Guid id, CancellationToken ct) =>
+            Task.FromResult<Millet.CuentasPorPagar.Domain.Ports.Administracion.DependenciaRevisoraDto?>(new(id, "ALM", "Almacén", true));
+        public Task<IReadOnlyList<Millet.CuentasPorPagar.Domain.Ports.Administracion.DependenciaRevisoraDto>> ListarAsync(CancellationToken ct) => throw new NotSupportedException();
     }
 
     [Fact]
@@ -226,7 +293,7 @@ public sealed class P3FacturaConOcTests
         (await a.Elegibilidad.CalcularAsync(f2, default)).ElegiblePendiente.Should().Be(40);
     }
 
-    private sealed class Ambiente : IAsyncDisposable, ICurrentEmpresaContext, IClock, IComprasOcReadPort, IProveedorReadPort, ICfdiBlobStorage, Millet.CuentasPorPagar.Domain.Ports.Administracion.IToleranciaGeneralReadPort
+    internal sealed class Ambiente : IAsyncDisposable, ICurrentEmpresaContext, IClock, IComprasOcReadPort, IProveedorReadPort, ICfdiBlobStorage, Millet.CuentasPorPagar.Domain.Ports.Administracion.IToleranciaGeneralReadPort
     {
         public Guid? Current { get; } = Guid.NewGuid();
         public bool IsBypassed => false;
@@ -239,6 +306,7 @@ public sealed class P3FacturaConOcTests
         public ElegibilidadFacturaService Elegibilidad { get; }
         public OcRecepcionRegistradaHandler Recepciones { get; }
         public CapturaEventos Eventos { get; } = new();
+        public AlmacenRevisionFake Almacen { get; } = new();
         public bool OcDisponible { get; set; } = true;
         private OrdenCompraDto _oc;
         private readonly Dictionary<string, string> _xmls = [];
@@ -256,7 +324,8 @@ public sealed class P3FacturaConOcTests
 #else
             options.UseInMemoryDatabase($"p3-{Guid.NewGuid()}");
 #endif
-            Db = new(options.Options, this, new PeriodoPruebaAbierto(), this);
+            // Publisher real del contexto (no null): CxP publica ahí PasivoRetiradoDePago al sacar una Autorizada de la cola de pago.
+            Db = new(options.Options, this, new PeriodoPruebaAbierto(), this, Eventos);
             _oc = new(Guid.NewGuid(), "OC-P3-FICTICIA", Guid.NewGuid(), Current!.Value, Guid.NewGuid(), cantidadOc * precioOc * 1.16m,
                 "Autorizada", [new(LineaId, Guid.NewGuid(), cantidadOc, precioOc, 0, recibido)]);
             if (compartir is not null) _oc = compartir._oc;
@@ -268,9 +337,10 @@ public sealed class P3FacturaConOcTests
                 .AddSingleton<INotificationHandler<FacturaProveedorRechazadaPorToleranciaDomainEvent>>(new FacturaProveedorRechazadaPorToleranciaMapper(Eventos))
                 .AddSingleton<INotificationHandler<NotaCreditoProveedorRegistradaDomainEvent>>(new NotaCreditoProveedorRegistradaMapper(Eventos))
                 .BuildServiceProvider();
-            Handler = new(Db, this, this, this, new XmlCfdiParser(), this, new Mediator(_services), this, this, new SinTipoCambio());
+            var danos = new DetencionPorDanoService(Db, Almacen, new DependenciasFake(), NullLogger<DetencionPorDanoService>.Instance);
+            Handler = new(Db, this, this, this, new XmlCfdiParser(), this, new Mediator(_services), this, this, danos, new SinTipoCambio());
             Elegibilidad = new(Db, this);
-            Recepciones = new(Db, this, NullLogger<OcRecepcionRegistradaHandler>.Instance, new(Eventos, Db, Elegibilidad));
+            Recepciones = new(Db, this, NullLogger<OcRecepcionRegistradaHandler>.Instance, new(Eventos, Db, Elegibilidad), danos);
         }
         public CapturarFacturaConOcCommand Command(decimal cantidad, decimal precio, decimal? total = null, decimal iva = 0, decimal retenciones = 0) =>
             new(_oc.Id, _oc.ProveedorId, _oc.SucursalId, null, null, "P3-FICTICIA", null, Ahora, Ahora, new(2026, 11, 9), "MXN", null,
@@ -333,7 +403,7 @@ public sealed class P3FacturaConOcTests
             Task.FromResult<IReadOnlyList<SucursalDto>>([]);
     }
 
-    private sealed class CapturaEventos : IIntegrationEventPublisher,
+    internal sealed class CapturaEventos : IIntegrationEventPublisher,
         INotificationHandler<FacturaProveedorRegistradaDomainEvent>, INotificationHandler<FacturaProveedorRechazadaPorToleranciaDomainEvent>,
         INotificationHandler<DiferenciaPrecioFacturaDetectadaDomainEvent>
     {

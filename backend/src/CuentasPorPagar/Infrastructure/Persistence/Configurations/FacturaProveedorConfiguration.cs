@@ -51,6 +51,7 @@ public sealed class FacturaProveedorConfiguration : IEntityTypeConfiguration<Fac
         builder.Property(e => e.Obra).HasMaxLength(120);
         builder.Property(e => e.ConceptoRetencion).HasMaxLength(80);
         builder.Property(e => e.AlertaRetenciones).HasMaxLength(1000);
+        builder.Property(e => e.RetencionesRevisionMotivo).HasMaxLength(500);
         builder.HasMany(e => e.Movimientos).WithOne().HasForeignKey(m => m.FacturaProveedorId).OnDelete(DeleteBehavior.Cascade);
         builder.Navigation(e => e.Movimientos).UsePropertyAccessMode(PropertyAccessMode.Field);
 
@@ -85,6 +86,7 @@ public sealed class FacturaProveedorConfiguration : IEntityTypeConfiguration<Fac
         builder.Property(e => e.Total).HasPrecision(18, 4).IsRequired();
 
         builder.Property(e => e.OrdenCompraId);
+        builder.Property(e => e.RecepcionId);
         builder.Property(e => e.EncargadoComprasSnapshot);
 
         builder.Property(e => e.Estado).HasConversion<short>().IsRequired();
@@ -135,6 +137,8 @@ public sealed class FacturaProveedorConfiguration : IEntityTypeConfiguration<Fac
         // UUID puede repetirse en escenarios de re-emisión por el proveedor;
         // la unicidad estricta vive en CfdiRecibido. Aquí solo índice
         // secundario para lookup por UUID.
+        builder.HasIndex(e => e.RecepcionId).HasDatabaseName("ix_facturas_proveedor_recepcion").HasFilter("recepcion_id IS NOT NULL");
+
         builder.HasIndex(e => e.UuidCfdi)
             .HasDatabaseName("ix_facturas_proveedor_uuid")
             .HasFilter("uuid_cfdi IS NOT NULL");

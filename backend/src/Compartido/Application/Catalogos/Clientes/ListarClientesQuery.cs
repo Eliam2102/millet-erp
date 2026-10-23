@@ -39,7 +39,8 @@ public sealed record ClienteItem(
     OrigenMaster Origen,
     bool DatosFiscalesCompletos,
     [property: JsonConverter(typeof(JsonStringEnumConverter<EstatusCatalogo>))] EstatusCatalogo Estatus,
-    ClienteOrigenAwResumen? OrigenAw = null, Guid? ClasificacionId = null);
+    ClienteOrigenAwResumen? OrigenAw = null, Guid? ClasificacionId = null,
+    string? ClasificacionNombre = null);
 
 public sealed record ListarClientesResponse(
     IReadOnlyList<ClienteItem> Items,
@@ -112,11 +113,16 @@ public sealed class ListarClientesHandler
                     .Where(s => s.ClienteId == c.Id)
                     .Select(s => new { s.Resultado, s.LeidoEnUtc })
                     .FirstOrDefault(),
+                Clasificacion = _db.Set<ClasificacionCliente>()
+                    .Where(x => x.Id == c.ClasificacionId)
+                    .Select(x => x.Nombre)
+                    .FirstOrDefault(),
             })
             .ToListAsync(cancellationToken);
-        var items = rows.Select(r => r.Sync is null
+        var items = rows.Select(r => (r.Sync is null
             ? r.Item
             : r.Item with { OrigenAw = new ClienteOrigenAwResumen(r.Sync.Resultado.ToString(), r.Sync.LeidoEnUtc) })
+            with { ClasificacionNombre = r.Clasificacion })
             .ToList();
 
         return new ListarClientesResponse(items, offset, limit, total);

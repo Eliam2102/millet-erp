@@ -1,16 +1,19 @@
-import { Link, useParams } from '@tanstack/react-router';
+import { PageHeader } from '@/components/erp/PageHeader';
+import { Link, useParams, useSearch } from '@tanstack/react-router';
 import { ArrowLeft } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { ErrorState, TableSkeleton } from '@/components/erp';
+import { ErrorState, DetalleSkeleton } from '@/components/erp';
 import { useComprobacionGastos } from '@/features/cxp/api/useComprobaciones';
+import { AccionesComprobacion } from '@/features/cxp/components/AccionesComprobacion';
 import { TipoComprobacionGastosLabels } from '@/features/cxp/api/types';
 import { esApiError } from '@/lib/api';
 import { EstadoComprobacionChip } from '@/features/cxp/components/EstadoChips';
 import { Campo, Importe } from '@/features/cxp/components/DetalleCampos';
 import {
   formatearFechaHora,
-  formatearMonto,
 } from '@/features/cxp/lib/formato';
+import { MoneyDisplay } from '@/components/erp/display/MoneyDisplay';
+import { DateTimeDisplay } from '@/components/erp/display/DateTimeDisplay';
 
 /**
  * <c>P3 — Detalle de Comprobación de Gastos</c> (serie detalles CxP,
@@ -23,14 +26,15 @@ const FROM = '/_app/cxp/comprobaciones/$id' as const;
 
 export function ComprobacionDetallePage() {
   const { id } = useParams({ from: FROM });
+  const search = useSearch({ from: FROM });
   const query = useComprobacionGastos(id);
 
   return (
     <div className="space-y-4">
       <div className="flex items-center gap-2">
         <Button asChild variant="ghost" size="sm">
-          <Link to="/cxp/comprobaciones" search={{}}>
-            <ArrowLeft className="mr-2 h-4 w-4" />
+          <Link to="/cxp/comprobaciones" search={search}>
+            <ArrowLeft className="mr-2 size-3.5" />
             Comprobaciones
           </Link>
         </Button>
@@ -43,31 +47,32 @@ export function ComprobacionDetallePage() {
           onRetry={() => query.refetch()}
         />
       ) : query.isLoading ? (
-        <TableSkeleton
-          rows={6}
-          columns={[
-            { width: 'w-40' },
-            { width: 'w-32' },
-            { width: 'w-32' },
-            { width: 'w-32' },
-          ]}
-        />
+        <DetalleSkeleton />
       ) : query.data == null ? null : (
         <div className="space-y-6">
-          <header className="space-y-2">
-            <div className="flex flex-wrap items-center gap-3">
-              <h1 className="text-2xl font-semibold tracking-tight">
-                {TipoComprobacionGastosLabels[query.data.tipo]}
-              </h1>
-              <EstadoComprobacionChip estado={query.data.estado} />
-            </div>
-            <p className="text-sm text-muted-foreground">
-              Periodo: {query.data.fechaInicio} → {query.data.fechaFin} ·
-              Creada: {formatearFechaHora(query.data.fechaCreacion)}
-            </p>
-          </header>
+          <PageHeader
+            titulo={TipoComprobacionGastosLabels[query.data.tipo]}
+            estado={
+              <>
+                <EstadoComprobacionChip estado={query.data.estado} />
+              </>
+            }
+            descripcion={
+              <>
+                Periodo: <DateTimeDisplay value={query.data.fechaInicio} variant="media" /> → <DateTimeDisplay value={query.data.fechaFin} variant="media" /> ·
+                Creada: {formatearFechaHora(query.data.fechaCreacion)}
+              </>
+            }
+          />
 
-          <section className="grid grid-cols-1 gap-x-6 gap-y-2 rounded-md border p-4 md:grid-cols-2">
+          {/* Sub-topbar: mismas acciones que la fila de la bandeja (CXP-29). */}
+          <AccionesComprobacion
+            c={query.data}
+            responsableNombre={query.data.responsableNombre}
+            className="justify-start rounded-md border bg-surface-subtle px-3 py-2"
+          />
+
+          <dl className="grid grid-cols-1 gap-x-6 gap-y-2 rounded-md border p-4 @xl:grid-cols-2 @3xl:grid-cols-4 @5xl:grid-cols-6">
             <Campo
               label="Sucursal"
               valor={query.data.sucursalNombre ?? query.data.sucursalId}
@@ -92,7 +97,7 @@ export function ComprobacionDetallePage() {
                 <dd className="text-sm">{query.data.observaciones}</dd>
               </div>
             )}
-          </section>
+          </dl>
 
           <section className="rounded-md border p-4">
             <h2 className="mb-2 text-sm font-semibold uppercase tracking-wide text-muted-foreground">
@@ -208,14 +213,14 @@ export function ComprobacionDetallePage() {
                       <td className="px-3 py-2 whitespace-nowrap">
                         {l.fechaCfdi.slice(0, 10)}
                       </td>
-                      <td className="px-3 py-2 font-mono text-xs">
+                      <td className="px-3 py-2 break-all font-mono text-xs">
                         {l.uuidCfdi ?? '—'}
                         {l.folioProveedor != null && ` · ${l.folioProveedor}`}
                       </td>
                       <td className="max-w-64 truncate px-3 py-2">
                         {l.concepto ?? '—'}
                       </td>
-                      <td className="px-3 py-2 font-mono text-xs">
+                      <td className="px-3 py-2 break-all font-mono text-xs">
                         <Link
                           to="/cxp/facturas/$id"
                           params={{ id: l.facturaProveedorId }}
@@ -224,17 +229,17 @@ export function ComprobacionDetallePage() {
                           {`${l.facturaProveedorId.slice(0, 8)}…`}
                         </Link>
                       </td>
-                      <td className="px-3 py-2 text-right font-mono">
-                        {formatearMonto(l.subtotal, l.moneda)}
+                      <td className="py-2 pl-3 pr-4 text-right tabular-nums">
+                        <MoneyDisplay amount={l.subtotal} currency={l.moneda} strong />
                       </td>
-                      <td className="px-3 py-2 text-right font-mono">
-                        {formatearMonto(l.impuestosTrasladados, l.moneda)}
+                      <td className="py-2 pl-3 pr-4 text-right tabular-nums">
+                        <MoneyDisplay amount={l.impuestosTrasladados} currency={l.moneda} strong />
                       </td>
-                      <td className="px-3 py-2 text-right font-mono">
-                        {formatearMonto(l.retenciones, l.moneda)}
+                      <td className="py-2 pl-3 pr-4 text-right tabular-nums">
+                        <MoneyDisplay amount={l.retenciones} currency={l.moneda} strong />
                       </td>
-                      <td className="px-3 py-2 text-right font-mono">
-                        {formatearMonto(l.total, l.moneda)}
+                      <td className="py-2 pl-3 pr-4 text-right tabular-nums">
+                        <MoneyDisplay amount={l.total} currency={l.moneda} strong />
                       </td>
                     </tr>
                   ))}

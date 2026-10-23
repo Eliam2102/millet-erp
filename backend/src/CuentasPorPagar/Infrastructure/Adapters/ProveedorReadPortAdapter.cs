@@ -25,7 +25,7 @@ namespace Millet.CuentasPorPagar.Infrastructure.Adapters;
 /// <list>
 ///   <item><c>EnRevision</c> = <see cref="Millet.DatosMaestros.Domain.Proveedor.Estatus"/> == <see cref="EstatusCatalogo.EnRevision"/>.</item>
 ///   <item><c>Activo</c> = <c>Estatus</c> == <see cref="EstatusCatalogo.Activo"/>.</item>
-///   <item><c>Tolerancia</c> = monto en pesos configurado en el proveedor, o null para usar la general.</item>
+///   <item><c>Tolerancia</c> = monto en pesos o % de la OC configurado en el proveedor, o null para usar la general.</item>
 /// </list>
 /// </summary>
 public sealed class ProveedorReadPortAdapter : IProveedorReadPort
@@ -53,10 +53,13 @@ public sealed class ProveedorReadPortAdapter : IProveedorReadPort
                 p.Rfc,
                 p.RazonSocial,
                 p.ToleranciaFacturaContraOcMxn.HasValue
-                    ? new ToleranciaProveedorDto(ToleranciaTipo.MontoAbsoluto, p.ToleranciaFacturaContraOcMxn.Value)
+                    ? new ToleranciaProveedorDto(
+                        ToleranciaTipo.MontoAbsoluto,
+                        p.ToleranciaFacturaContraOcMxn.Value)
                     : null,
                 p.Estatus == EstatusCatalogo.EnRevision,
-                p.Estatus == EstatusCatalogo.Activo))
+                p.Estatus == EstatusCatalogo.Activo,
+                p.ConceptoRetencion))
             .FirstOrDefaultAsync(cancellationToken);
     }
 
@@ -78,10 +81,13 @@ public sealed class ProveedorReadPortAdapter : IProveedorReadPort
                 p.Rfc,
                 p.RazonSocial,
                 p.ToleranciaFacturaContraOcMxn.HasValue
-                    ? new ToleranciaProveedorDto(ToleranciaTipo.MontoAbsoluto, p.ToleranciaFacturaContraOcMxn.Value)
+                    ? new ToleranciaProveedorDto(
+                        ToleranciaTipo.MontoAbsoluto,
+                        p.ToleranciaFacturaContraOcMxn.Value)
                     : null,
                 p.Estatus == EstatusCatalogo.EnRevision,
-                p.Estatus == EstatusCatalogo.Activo))
+                p.Estatus == EstatusCatalogo.Activo,
+                p.ConceptoRetencion))
             .FirstOrDefaultAsync(cancellationToken);
     }
 
@@ -100,5 +106,19 @@ public sealed class ProveedorReadPortAdapter : IProveedorReadPort
             .AsNoTracking()
             .Where(p => proveedorIds.Contains(p.Id))
             .ToDictionaryAsync(p => p.Id, p => p.RazonSocial, cancellationToken);
+    }
+
+    public async Task<IReadOnlyDictionary<Guid, string>> ObtenerRfcsPorIdsAsync(
+        IReadOnlyCollection<Guid> proveedorIds,
+        CancellationToken cancellationToken)
+    {
+        if (proveedorIds.Count == 0) return new Dictionary<Guid, string>();
+
+        using var bypass = _empresaContext.Bypass();
+
+        return await _db.Proveedores
+            .AsNoTracking()
+            .Where(p => proveedorIds.Contains(p.Id))
+            .ToDictionaryAsync(p => p.Id, p => p.Rfc, cancellationToken);
     }
 }

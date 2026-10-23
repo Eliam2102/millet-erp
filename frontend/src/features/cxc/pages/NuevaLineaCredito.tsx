@@ -1,3 +1,6 @@
+import { FormSeccion, FormCampo } from '@/components/erp';
+import { SheetBody, SheetFooter } from '@/components/ui/sheet';
+
 import { useEffect, useState } from 'react';
 import { Controller, useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -17,11 +20,7 @@ import {
   SIN_CLASIFICACION,
   type NuevaLineaCreditoValues,
 } from '@/features/cxc/schemas/linea-credito';
-import {
-  applyServerErrors,
-  esApiError,
-  useFormIdempotencyKey,
-} from '@/lib/api';
+import { applyServerErrors, esApiError, useFormIdempotencyKey, codigoSoporte } from '@/lib/api';
 
 /**
  * <c>&lt;NuevaLineaCredito/&gt;</c> — form del Sheet "Nueva línea de
@@ -43,10 +42,7 @@ const VALORES_INICIALES: NuevaLineaCreditoValues = {
   clasificacion: null,
 };
 
-export function NuevaLineaCredito({
-  onClose,
-  onDirtyChange,
-}: NuevaLineaCreditoProps) {
+export function NuevaLineaCredito({ onClose, onDirtyChange }: NuevaLineaCreditoProps) {
   const idempotencyKey = useFormIdempotencyKey();
   const crear = useCrearLineaCredito();
   const [clienteLabel, setClienteLabel] = useState<string | undefined>();
@@ -76,25 +72,18 @@ export function NuevaLineaCredito({
       },
       {
         onSuccess: (res) => {
-          toast.success(
-            `Línea de crédito creada (${clienteLabel ?? 'cliente'} · ${res.moneda}).`,
-          );
+          toast.success(`Línea de crédito creada (${clienteLabel ?? 'cliente'} · ${res.moneda}).`);
           onClose({ force: true });
         },
         onError: (error) => {
           if (esApiError(error)) {
             if (
-              applyServerErrors(
-                form as unknown as Parameters<typeof applyServerErrors>[0],
-                error,
-              )
+              applyServerErrors(form as unknown as Parameters<typeof applyServerErrors>[0], error)
             ) {
               return;
             }
             toast.error(error.problem.title, {
-              description:
-                error.problem.detail ??
-                (error.traceId ? `Código: ${error.traceId}` : undefined),
+              description: error.problem.detail ?? codigoSoporte(error),
             });
             return;
           }
@@ -105,13 +94,16 @@ export function NuevaLineaCredito({
   }
 
   return (
-    <form onSubmit={form.handleSubmit(onSubmit)} noValidate className="space-y-5">
-      <section className="space-y-2">
-        <h3 className="text-sm font-medium">Cliente y moneda</h3>
-        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-          <div className="space-y-1 sm:col-span-2">
+    <form
+      onSubmit={form.handleSubmit(onSubmit)}
+      noValidate
+      className="flex min-h-0 flex-1 flex-col"
+    >
+      <SheetBody className="space-y-5">
+        <FormSeccion titulo="Cliente y moneda">
+          <FormCampo span={12} className="space-y-1">
             <Label className="text-xs">
-              Cliente <span className="text-destructive">*</span>
+              Cliente <span className="text-danger-fg">*</span>
             </Label>
             <Controller
               name="clienteId"
@@ -127,18 +119,16 @@ export function NuevaLineaCredito({
               )}
             />
             {form.formState.errors.clienteId && (
-              <p className="text-xs text-destructive">
-                {form.formState.errors.clienteId.message}
-              </p>
+              <p className="text-xs text-danger-fg">{form.formState.errors.clienteId.message}</p>
             )}
-          </div>
-          <div className="space-y-1">
+          </FormCampo>
+          <FormCampo span={6} className="space-y-1">
             <Label htmlFor="moneda" className="text-xs">
-              Moneda <span className="text-destructive">*</span>
+              Moneda <span className="text-danger-fg">*</span>
             </Label>
             <select
               id="moneda"
-              className="h-9 w-full rounded-md border border-input bg-transparent px-3 text-sm shadow-sm"
+              className="h-9 w-full rounded-md border border-line-control bg-transparent px-3 text-sm shadow-card-flat"
               {...form.register('moneda')}
             >
               {MONEDAS_LINEA_CREDITO.map((m) => (
@@ -147,37 +137,29 @@ export function NuevaLineaCredito({
                 </option>
               ))}
             </select>
-            <p className="text-[11px] leading-tight text-muted-foreground">
-              Una línea activa por cliente y moneda; sin conversión entre
-              divisas.
+            <p className="text-2xs leading-tight text-ink-muted">
+              Una línea activa por cliente y moneda; sin conversión entre divisas.
             </p>
-          </div>
-          <div className="space-y-1">
+          </FormCampo>
+          <FormCampo span={6} className="space-y-1">
             <Label htmlFor="origen" className="text-xs">
-              Origen del límite <span className="text-destructive">*</span>
+              Origen del límite <span className="text-danger-fg">*</span>
             </Label>
             <select
               id="origen"
-              className="h-9 w-full rounded-md border border-input bg-transparent px-3 text-sm shadow-sm"
+              className="h-9 w-full rounded-md border border-line-control bg-transparent px-3 text-sm shadow-card-flat"
               {...form.register('origen', { valueAsNumber: true })}
             >
-              <option value={OrigenLineaCredito.Solunion}>
-                SOLUNION (asegurado)
-              </option>
-              <option value={OrigenLineaCredito.Interno}>
-                Interno (asignado por Millet)
-              </option>
+              <option value={OrigenLineaCredito.Solunion}>SOLUNION (asegurado)</option>
+              <option value={OrigenLineaCredito.Interno}>Interno (asignado por Millet)</option>
             </select>
-          </div>
-        </div>
-      </section>
+          </FormCampo>
+        </FormSeccion>
 
-      <section className="space-y-2">
-        <h3 className="text-sm font-medium">Condiciones</h3>
-        <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
-          <div className="space-y-1">
+        <FormSeccion titulo="Condiciones">
+          <FormCampo span={4} className="space-y-1">
             <Label htmlFor="limite" className="text-xs">
-              Límite <span className="text-destructive">*</span>
+              Límite <span className="text-danger-fg">*</span>
             </Label>
             <Input
               id="limite"
@@ -187,14 +169,12 @@ export function NuevaLineaCredito({
               {...form.register('limite', { valueAsNumber: true })}
             />
             {form.formState.errors.limite && (
-              <p className="text-xs text-destructive">
-                {form.formState.errors.limite.message}
-              </p>
+              <p className="text-xs text-danger-fg">{form.formState.errors.limite.message}</p>
             )}
-          </div>
-          <div className="space-y-1">
+          </FormCampo>
+          <FormCampo span={4} className="space-y-1">
             <Label htmlFor="plazoDias" className="text-xs">
-              Plazo (días) <span className="text-destructive">*</span>
+              Plazo (días) <span className="text-danger-fg">*</span>
             </Label>
             <Input
               id="plazoDias"
@@ -205,21 +185,18 @@ export function NuevaLineaCredito({
               {...form.register('plazoDias', { valueAsNumber: true })}
             />
             {form.formState.errors.plazoDias && (
-              <p className="text-xs text-destructive">
-                {form.formState.errors.plazoDias.message}
-              </p>
+              <p className="text-xs text-danger-fg">{form.formState.errors.plazoDias.message}</p>
             )}
-          </div>
-          <div className="space-y-1">
+          </FormCampo>
+          <FormCampo span={4} className="space-y-1">
             <Label htmlFor="clasificacion" className="text-xs">
               Clasificación
             </Label>
             <select
               id="clasificacion"
-              className="h-9 w-full rounded-md border border-input bg-transparent px-3 text-sm shadow-sm"
+              className="h-9 w-full rounded-md border border-line-control bg-transparent px-3 text-sm shadow-card-flat"
               {...form.register('clasificacion', {
-                setValueAs: (v) =>
-                  v === SIN_CLASIFICACION || v === '' ? null : v,
+                setValueAs: (v) => (v === SIN_CLASIFICACION || v === '' ? null : v),
               })}
             >
               <option value={SIN_CLASIFICACION}>Sin clasificar</option>
@@ -229,26 +206,20 @@ export function NuevaLineaCredito({
                 </option>
               ))}
             </select>
-            <p className="text-[11px] leading-tight text-muted-foreground">
+            <p className="text-2xs leading-tight text-ink-muted">
               A/B/C/E — atributo asignado por Crédito y Cobranza.
             </p>
-          </div>
-        </div>
-      </section>
-
-      <div className="flex items-center justify-end gap-2 border-t pt-4">
-        <Button
-          type="button"
-          variant="ghost"
-          onClick={() => onClose()}
-          disabled={crear.isPending}
-        >
+          </FormCampo>
+        </FormSeccion>
+      </SheetBody>
+      <SheetFooter className="flex-row justify-end border-t border-line-divider">
+        <Button type="button" variant="ghost" onClick={() => onClose()} disabled={crear.isPending}>
           Cancelar
         </Button>
         <Button type="submit" disabled={crear.isPending}>
           {crear.isPending ? 'Creando…' : 'Crear línea'}
         </Button>
-      </div>
+      </SheetFooter>
     </form>
   );
 }

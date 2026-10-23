@@ -55,7 +55,10 @@ public sealed class AwClientesOrigenTests
     {
         var r = Mapear(Fila(name1: name1));
         r.EsValido.Should().BeFalse();
-        r.Error.Should().NotBeNullOrWhiteSpace();
+        r.Error.Should().StartWith("NAME1 vacío");
+        AwClienteSnapshotMapper.Faltantes(Fila(name1: name1)).Should().ContainSingle()
+            .Which.Campo.Should().Be("NAME1");
+        AwClienteSnapshotMapper.Faltantes(Fila()).Should().BeEmpty();
     }
 
     [Fact]
@@ -98,17 +101,22 @@ public sealed class AwClientesOrigenTests
     }
 
     [Fact]
-    public void Moneda_solo_se_normaliza_con_MapeoMoneda()
+    public void Moneda_se_normaliza_con_MapeoMoneda_y_lo_demas_es_MXN()
     {
         var sin = Mapear(Fila()).Snapshot!;
-        (sin.MonedaCodigoOrigen, sin.MonedaNormalizada, sin.MonedaDefault).Should().Be(("PESOSMX", null, null));
+        (sin.MonedaCodigoOrigen, sin.MonedaNormalizada, sin.MonedaDefault).Should().Be(("PESOSMX", "MXN", "MXN"));
 
-        var mapeo = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase) { ["pesosmx"] = "MXN" };
+        var mapeo = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase) { ["pesosmx"] = "MXN", ["usd"] = "USD" };
         var con = Mapear(Fila(), mapeo).Snapshot!;
         (con.MonedaCodigoOrigen, con.MonedaNormalizada, con.MonedaDefault).Should().Be(("PESOSMX", "MXN", "MXN"));
 
         var desconocida = Mapear(Fila(waehrung: "<indf>"), mapeo).Snapshot!;
-        (desconocida.MonedaCodigoOrigen, desconocida.MonedaNormalizada).Should().Be(("<indf>", null));
+        (desconocida.MonedaCodigoOrigen, desconocida.MonedaNormalizada).Should().Be(("<indf>", "MXN"));
+
+        var vacia = Mapear(Fila(waehrung: null), mapeo).Snapshot!;
+        (vacia.MonedaCodigoOrigen, vacia.MonedaNormalizada).Should().Be((null, "MXN"));
+
+        Mapear(Fila(waehrung: "USD"), mapeo).Snapshot!.MonedaNormalizada.Should().Be("USD");
     }
 
     [Fact]
@@ -221,5 +229,28 @@ public sealed class AwClientesOrigenTests
     public void Sql_de_pagina_parametriza_lote()
     {
         AwClientesSqlOrigen.SqlPagina.Should().Contain("TOP (@n)");
+    }
+
+    [Theory]
+    [InlineData(AwClientesSqlOrigen.SqlPagina)]
+    [InlineData(AwClientesSqlOrigen.SqlReferencia)]
+    public void Sql_lee_regimen_fiscal_de_KA_BONITAET_por_BONITAET(string sql)
+    {
+        // U1.8b, Millet "Documentación funcional de los sistemas satélite" §4.2: régimen = KA_BONITAET.FREMD_KEY.
+        sql.Should().Contain("LEFT JOIN SYSADM.KA_BONITAET AS b ON b.BEZ = k.BONITAET").And.Contain("b.FREMD_KEY");
+    }
+
+    [Fact]
+    public async Task Simulado_resuelve_regimen_por_KA_BONITAET_y_sin_catalogo_queda_nulo()
+    {
+        var o = AwClientesOrigenSimulado.DesdeJson("""
+            {"origen":{"KU_KUNDEN":[{"ID":1,"NAME1":"CLIENTE DEMO 1","BONITAET":"MORAL DEMO"},
+                                    {"ID":2,"NAME1":"CLIENTE DEMO 2","BONITAET":"SIN CATALOGO"},
+                                    {"ID":3,"NAME1":"CLIENTE DEMO 3"}],
+                       "KA_BONITAET":[{"BEZ":"MORAL DEMO","FREMD_KEY":"601"}]}}
+            """);
+        var p = await o.LeerPaginaAsync(null, 10, default);
+        p.Filas.Select(f => (f.Bonitaet, f.RegimenFiscalOrigen)).Should().Equal(
+            ("MORAL DEMO", "601"), ("SIN CATALOGO", null), (null, null));
     }
 }

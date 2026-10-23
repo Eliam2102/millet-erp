@@ -12,6 +12,7 @@ import {
   accionEliminarRequisicion,
   accionRechazar,
   accionTransmitir,
+  accionVerCotizaciones,
   accionVerDetalle,
 } from '@/features/compras/lib/acciones-disponibles';
 import {
@@ -513,5 +514,25 @@ describe('Cobertura matriz §6.1 (acciones sin parámetros × 10 estados)', () =
         ).toBe(esperaVisible);
       }
     }
+  });
+});
+
+describe('accionVerCotizaciones (F1-COM-02)', () => {
+  const visibles: EstadoRequisicion[] = [
+    EstadoRequisicion.EnSurtido,
+    EstadoRequisicion.Cerrada,
+    EstadoRequisicion.CerradaSurtidaParcial,
+    EstadoRequisicion.CerradaSinSurtir,
+  ];
+
+  it('solo es visible en EnSurtido y estados cerrados', () => {
+    for (const estado of ESTADOS_TODOS) {
+      const r = accionVerCotizaciones(makeRq(estado), [PermisosCanonicos.ComprasCotizacionesLeer]);
+      expect(r.visible, `estado=${NOMBRES[estado]}`).toBe(visibles.includes(estado));
+    }
+  });
+
+  it('se oculta sin compras.cotizaciones.leer', () => {
+    expect(accionVerCotizaciones(makeRq(EstadoRequisicion.EnSurtido), []).visible).toBe(false);
   });
 });

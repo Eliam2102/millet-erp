@@ -5,11 +5,7 @@ import { mswServer } from '@/test/mocks/server';
 import { createQueryWrapper } from '@/test/test-query-client';
 import { DetalleRequisicion } from '@/features/compras/pages/DetalleRequisicion';
 import { useAuthStore } from '@/lib/auth/auth-store';
-import {
-  Clasificacion,
-  EstadoRequisicion,
-  Prioridad,
-} from '@/features/compras/api/types';
+import { Clasificacion, EstadoRequisicion, Prioridad } from '@/features/compras/api/types';
 import {
   NuevaOrdenCompraContext,
   type NuevaOrdenCompraApi,
@@ -52,12 +48,7 @@ vi.mock('@tanstack/react-router', () => ({
     asChild?: boolean;
     [key: string]: unknown;
   }) => (
-    <a
-      href={to}
-      className={className}
-      data-search={JSON.stringify(search)}
-      {...rest}
-    >
+    <a href={to} className={className} data-search={JSON.stringify(search)} {...rest}>
       {children}
     </a>
   ),
@@ -69,9 +60,7 @@ vi.mock('@tanstack/react-router', () => ({
   // El componente lee matches para inferir si está en
   // /requisiciones/$id o /pendientes/$id (botón "Cerrar" de la
   // sub-topbar). En tests por default simulamos /requisiciones.
-  useMatches: () => [
-    { routeId: '/_app/compras/requisiciones/$id' as const },
-  ],
+  useMatches: () => [{ routeId: '/_app/compras/requisiciones/$id' as const }],
 }));
 
 function setupCatalogos() {
@@ -111,9 +100,7 @@ function setupCatalogos() {
     // Histórico (UF7-PR4): el detalle dispara el fetch al montar.
     // Default vacío; tests que necesiten entradas específicas lo
     // sobrescriben con su propio handler.
-    http.get('*/api/v1/compras/requisiciones/*/historico', () =>
-      HttpResponse.json([]),
-    ),
+    http.get('*/api/v1/compras/requisiciones/*/historico', () => HttpResponse.json([])),
   );
 }
 
@@ -175,42 +162,28 @@ afterEach(() => {
 describe('<DetalleRequisicion> — smoke', () => {
   it('renderiza folio, cabecera y secciones', async () => {
     mswServer.use(
-      http.get('*/api/v1/compras/requisiciones/rq-1', () =>
-        HttpResponse.json(RQ_BASE),
-      ),
+      http.get('*/api/v1/compras/requisiciones/rq-1', () => HttpResponse.json(RQ_BASE)),
     );
     render(<DetalleRequisicion />, { wrapper: wrapperConStubs() });
-    await waitFor(() =>
-      expect(
-        screen.getAllByText('MID2026-000042').length,
-      ).toBeGreaterThan(0),
-    );
-    expect(screen.getByText('Líneas')).toBeInTheDocument();
+    await waitFor(() => expect(screen.getAllByText('MID2026-000042').length).toBeGreaterThan(0));
+    expect(screen.getByText('Partidas')).toBeInTheDocument();
+    // Un solo H1 (el folio, en el sub-topbar).
+    expect(screen.getAllByRole('heading', { level: 1 })).toHaveLength(1);
     // UF7-PR4: el histórico vive en un modal; en el sub-topbar hay un
     // botón "Histórico" que lo abre.
-    expect(
-      screen.getByRole('button', { name: /^histórico/i }),
-    ).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /^histórico/i })).toBeInTheDocument();
     // design/frontend-polish: en master-detail, el "volver" es un
     // botón de cerrar (X) que vuelve a /compras/requisiciones.
-    expect(
-      screen.getByRole('link', { name: /^cerrar$/i }),
-    ).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: /^cerrar$/i })).toBeInTheDocument();
     // Botón Imprimir — Ctrl+P + click en topbar son equivalentes.
-    expect(
-      screen.getByRole('button', { name: /imprimir/i }),
-    ).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /imprimir/i })).toBeInTheDocument();
   });
 
-  it('estado loading: muestra el breadcrumb con "Cargando…"', () => {
-    mswServer.use(
-      http.get(
-        '*/api/v1/compras/requisiciones/rq-1',
-        () => new Promise(() => {}),
-      ),
-    );
+  it('estado loading: skeleton con la forma del detalle, sin H1', () => {
+    mswServer.use(http.get('*/api/v1/compras/requisiciones/rq-1', () => new Promise(() => {})));
     render(<DetalleRequisicion />, { wrapper: wrapperConStubs() });
-    expect(screen.getByText(/Cargando…/i)).toBeInTheDocument();
+    expect(document.querySelector('[aria-busy="true"]')).not.toBeNull();
+    expect(screen.queryByRole('heading', { level: 1 })).not.toBeInTheDocument();
   });
 
   it('error 403: delega a DetalleErrorBoundary', async () => {
@@ -231,11 +204,7 @@ describe('<DetalleRequisicion> — smoke', () => {
       ),
     );
     render(<DetalleRequisicion />, { wrapper: wrapperConStubs() });
-    await waitFor(() =>
-      expect(
-        screen.getByText(/no tienes permiso/i),
-      ).toBeInTheDocument(),
-    );
+    await waitFor(() => expect(screen.getByText(/no tienes permiso/i)).toBeInTheDocument());
   });
 
   it('estado EnAutorizacion: muestra el panel "Disponibilidad estimada" (PR-C)', async () => {
@@ -268,34 +237,30 @@ describe('<DetalleRequisicion> — smoke', () => {
         }),
       ),
       // PR-C: el detalle auto-fetch el preview en EnAutorizacion.
-      http.get(
-        '*/api/v1/compras/requisiciones/rq-1/cubrimiento-estimado',
-        () =>
-          HttpResponse.json({
-            requisicionId: 'rq-1',
-            aplica: true,
-            lineas: [
-              {
-                lineaId: 'l-1',
-                articuloId: 'art-1',
-                cantidad: 10,
-                estimadoDeAlmacen: 4,
-                estimadoDeCompra: 6,
-                disponible: 4,
-              },
-            ],
-          }),
+      http.get('*/api/v1/compras/requisiciones/rq-1/cubrimiento-estimado', () =>
+        HttpResponse.json({
+          requisicionId: 'rq-1',
+          aplica: true,
+          lineas: [
+            {
+              lineaId: 'l-1',
+              articuloId: 'art-1',
+              cantidad: 10,
+              estimadoDeAlmacen: 4,
+              estimadoDeCompra: 6,
+              disponible: 4,
+            },
+          ],
+        }),
       ),
     );
     render(<DetalleRequisicion />, { wrapper: wrapperConStubs() });
-    await waitFor(() =>
-      expect(screen.getByText('Disponibilidad estimada')).toBeInTheDocument(),
-    );
+    await waitFor(() => expect(screen.getByText('Disponibilidad estimada')).toBeInTheDocument());
     // El disclaimer deja claro que es estimación y no reserva.
     expect(screen.getByText(/no reserva stock/i)).toBeInTheDocument();
   });
 
-  it('estado Autorizada con líneas: muestra ResumenCubrimiento', async () => {
+  it('estado Autorizada con partidas: muestra ResumenCubrimiento', async () => {
     mswServer.use(
       http.get('*/api/v1/compras/requisiciones/rq-1', () =>
         HttpResponse.json({
@@ -326,8 +291,6 @@ describe('<DetalleRequisicion> — smoke', () => {
       ),
     );
     render(<DetalleRequisicion />, { wrapper: wrapperConStubs() });
-    await waitFor(() =>
-      expect(screen.getByText(/Cubrimiento global/i)).toBeInTheDocument(),
-    );
+    await waitFor(() => expect(screen.getByText(/Cubrimiento global/i)).toBeInTheDocument());
   });
 });

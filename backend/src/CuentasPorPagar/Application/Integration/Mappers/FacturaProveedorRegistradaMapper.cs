@@ -24,7 +24,7 @@ public sealed class FacturaProveedorRegistradaMapper
             OrdenCompraId: notification.OrdenCompraId,
             TotalFactura: notification.TotalFactura,
             Lineas: notification.Lineas
-                .Select(l => new LineaFacturadaPayload(l.LineaFacturaId, l.LineaOcId, l.Cantidad, l.Importe, l.CentroCostoId))
+                .Select(l => new LineaFacturadaPayload(l.LineaFacturaId, l.LineaOcId, l.Cantidad, l.Importe, l.CentroCostoId, l.ValorCapitalizable))
                 .ToList(),
             LineasAcumuladasOc: notification.LineasAcumuladasOc
                 .Select(l => new LineaOcAcumuladaPayload(l.LineaOcId, l.CantidadAcumulada))
@@ -38,7 +38,8 @@ public sealed class FacturaProveedorRegistradaMapper
             Moneda: notification.Moneda,
             TipoCambio: notification.TipoCambio,
             SucursalId: notification.SucursalId,
-            CentroCostoId: notification.CentroCostoId);
+            CentroCostoId: notification.CentroCostoId,
+            RecepcionId: notification.RecepcionId);
         return _publisher.PublishAsync(integration, cancellationToken);
     }
 }

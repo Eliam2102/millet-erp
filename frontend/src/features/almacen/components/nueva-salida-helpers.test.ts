@@ -1,5 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
+  AVISOS_SALIDA,
+  CODIGOS_SALIDA,
   clasificarEntrega,
   construirFilasDeRq,
 } from './nueva-salida-helpers';
@@ -156,5 +158,16 @@ describe('clasificarEntrega', () => {
   it('entregada cuando entregado ≥ solicitada', () => {
     expect(clasificarEntrega(10, 10)).toBe('entregada');
     expect(clasificarEntrega(12, 10)).toBe('entregada');
+  });
+});
+
+describe('CODIGOS_SALIDA', () => {
+  it('cada código de callout tiene título y ayuda', () => {
+    const codigos = Object.keys(CODIGOS_SALIDA);
+    expect(codigos).toHaveLength(6);
+    for (const c of codigos) {
+      expect(AVISOS_SALIDA[c]?.titulo).toBeTruthy();
+      expect(AVISOS_SALIDA[c]?.ayuda).toBeTruthy();
+    }
   });
 });

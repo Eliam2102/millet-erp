@@ -12,6 +12,12 @@ public interface IComprasOcReadPort
     Task<IReadOnlyDictionary<Guid, string>> ObtenerFoliosAsync(
         IReadOnlyCollection<Guid> ocIds,
         CancellationToken cancellationToken);
+
+    /// <summary>Ids de las OC de un proveedor (cualquier estado), para filtrar recepciones por proveedor.</summary>
+    Task<IReadOnlyCollection<Guid>> ObtenerIdsPorProveedorAsync(
+        Guid proveedorId,
+        CancellationToken cancellationToken)
+        => Task.FromResult<IReadOnlyCollection<Guid>>(Array.Empty<Guid>());
 }
 
 /// <summary>
@@ -24,7 +30,9 @@ public sealed record OcLectura(
     Guid ProveedorId,
     Guid EmpresaId,
     string Estado,
-    IReadOnlyList<OcLineaLectura> Lineas);
+    IReadOnlyList<OcLineaLectura> Lineas,
+    Guid? SucursalDestinoId = null, bool EsImportacion = false,
+    string? NumeroPedimento = null, string? NumeroBl = null, string? NumeroContenedor = null);
 
 public sealed record OcLineaLectura(
     Guid LineaId,
@@ -33,7 +41,8 @@ public sealed record OcLineaLectura(
     decimal CantidadSolicitada,
     decimal CantidadRecibida,
     decimal PrecioUnitarioMxn,
-    Guid? CentroCostoId = null);
+    Guid? CentroCostoId = null,
+    decimal CantidadFacturada = 0m, bool EsActivoFijo = false, Guid? ClaseActivoId = null, string? FraccionArancelaria = null);
 
 public sealed record RecepcionesPendientesLectura(int Total, int Parciales);
 

@@ -15,7 +15,7 @@ public sealed partial class CrearOrdenCompraDesdeRequisicionValidator
     {
         RuleFor(c => c.RequisicionId).NotEmpty().WithErrorCode("RQ_ID_REQUERIDA");
         RuleFor(c => c.ProveedorId).NotEmpty().WithErrorCode("PROVEEDOR_REQUERIDO");
-        RuleFor(c => c.CondicionesPagoId).NotEmpty().WithErrorCode("CONDICIONES_PAGO_REQUERIDAS");
+        RuleFor(c => c.CondicionesPagoId).NotEmpty().When(c => c.CotizacionId == null).WithErrorCode("CONDICIONES_PAGO_REQUERIDAS");
         RuleFor(c => c.UsoPrincipalId).NotEmpty().WithErrorCode("USO_PRINCIPAL_REQUERIDO");
 
         RuleFor(c => c.SucursalCodigo)
@@ -30,6 +30,12 @@ public sealed partial class CrearOrdenCompraDesdeRequisicionValidator
         RuleFor(c => c.Moneda).Length(3).WithErrorCode("MONEDA_FORMATO_INVALIDO");
         RuleFor(c => c.TipoCambio).GreaterThan(0m).When(c => c.TipoCambio.HasValue)
             .WithErrorCode("TIPO_CAMBIO_INVALIDO");
+
+        RuleFor(c => c.MotivoEleccion)
+            .Must(m => m is not null && m.Trim().Length is >= 5 and <= 500)
+            .When(c => c.CotizacionId.HasValue)
+            .WithErrorCode("COT_MOTIVO_REQUERIDO")
+            .WithMessage("Escribe el motivo de la elección (5 a 500 caracteres).");
 
         RuleFor(c => c.Observaciones).MaximumLength(1000).When(c => c.Observaciones is not null)
             .WithErrorCode("OBSERVACIONES_DEMASIADO_LARGAS");

@@ -18,6 +18,7 @@ import {
   applyServerErrors,
   esApiError,
   useFormIdempotencyKey,
+  codigoSoporte,
 } from '@/lib/api';
 import { useSubirFielReceptor } from '@/features/integraciones-fiscal/api/useIntegracionesFiscal';
 import {
@@ -114,7 +115,7 @@ export function SubirFielDialog({
               return;
             }
             toast.error(error.problem.title, {
-              description: error.traceId ? `Código: ${error.traceId}` : undefined,
+              description: codigoSoporte(error),
             });
             return;
           }

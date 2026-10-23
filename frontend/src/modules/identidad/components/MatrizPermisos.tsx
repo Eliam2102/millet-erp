@@ -3,13 +3,9 @@ import { ChevronRight } from 'lucide-react';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
-import {
-  Collapsible,
-  CollapsibleContent,
-  CollapsibleTrigger,
-} from '@/components/ui/collapsible';
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { ErrorState, TableSkeleton } from '@/components/erp';
-import { esApiError, useBodyScopedIdempotencyKey } from '@/lib/api';
+import { esApiError, useBodyScopedIdempotencyKey, codigoSoporte } from '@/lib/api';
 import { useAsignarPermisos, usePermisos } from '@/modules/identidad/api';
 import type { PermisoResponse } from '@/modules/identidad/api/types';
 import { cn } from '@/lib/utils';
@@ -67,10 +63,7 @@ export function MatrizPermisos({
   // mantenemos la key previa en estado y comparamos en render para
   // disparar el setState de reset. Evita useEffect/useRef y mantiene
   // la lista sincronizada con permisoIdsIniciales sin sobre-renders.
-  const idsKey = useMemo(
-    () => [...permisoIdsIniciales].sort().join('|'),
-    [permisoIdsIniciales],
-  );
+  const idsKey = useMemo(() => [...permisoIdsIniciales].sort().join('|'), [permisoIdsIniciales]);
 
   const [seleccionados, setSeleccionados] = useState<Set<string>>(
     () => new Set(permisoIdsIniciales),
@@ -130,9 +123,7 @@ export function MatrizPermisos({
         onError: (error) => {
           if (esApiError(error)) {
             toast.error(error.problem.title, {
-              description: error.traceId
-                ? `Código: ${error.traceId}`
-                : undefined,
+              description: codigoSoporte(error),
             });
             return;
           }
@@ -149,21 +140,14 @@ export function MatrizPermisos({
   if (permisosQuery.isLoading) {
     return (
       <div className="space-y-3">
-        <TableSkeleton
-          rows={4}
-          columns={[{ width: 'w-full' }, { width: 'w-32' }]}
-        />
+        <TableSkeleton rows={4} columns={[{ width: 'w-full' }, { width: 'w-32' }]} />
       </div>
     );
   }
 
   if (permisosQuery.isError) {
-    const problem = esApiError(permisosQuery.error)
-      ? permisosQuery.error.problem
-      : undefined;
-    return (
-      <ErrorState problem={problem} onRetry={() => permisosQuery.refetch()} />
-    );
+    const problem = esApiError(permisosQuery.error) ? permisosQuery.error.problem : undefined;
+    return <ErrorState problem={problem} onRetry={() => permisosQuery.refetch()} />;
   }
 
   const grupos = permisosQuery.data?.grupos ?? [];
@@ -173,7 +157,7 @@ export function MatrizPermisos({
       {disabled && disabledHint != null && (
         <div
           role="status"
-          className="rounded-md border border-amber-300 bg-amber-50/50 px-3 py-2 text-xs text-amber-900"
+          className="rounded-md border border-line bg-warning-bg/50 px-3 py-2 text-xs text-warning-fg"
         >
           {disabledHint}
         </div>
@@ -181,7 +165,7 @@ export function MatrizPermisos({
 
       <div className="space-y-2">
         {grupos.length === 0 ? (
-          <div className="rounded-md border border-dashed bg-muted/20 px-4 py-6 text-center text-sm text-muted-foreground">
+          <div className="rounded-md border border-dashed bg-surface-muted/20 px-4 py-6 text-center text-sm text-ink-muted">
             No hay permisos registrados en el catálogo.
           </div>
         ) : (
@@ -201,13 +185,9 @@ export function MatrizPermisos({
 
       {!disabled && (
         <div className="flex flex-wrap items-center justify-end gap-2 border-t pt-3">
-          <p className="mr-auto text-xs text-muted-foreground">
+          <p className="mr-auto text-xs text-ink-muted">
             {seleccionados.size} permiso(s) seleccionado(s).
-            {dirty && (
-              <span className="ml-1 text-amber-700">
-                Hay cambios sin guardar.
-              </span>
-            )}
+            {dirty && <span className="ml-1 text-warning-fg">Hay cambios sin guardar.</span>}
           </p>
           <Button
             type="button"
@@ -217,11 +197,7 @@ export function MatrizPermisos({
           >
             Descartar cambios
           </Button>
-          <Button
-            type="button"
-            onClick={handleGuardar}
-            disabled={!dirty || asignar.isPending}
-          >
+          <Button type="button" onClick={handleGuardar} disabled={!dirty || asignar.isPending}>
             {asignar.isPending ? 'Guardando…' : 'Guardar cambios'}
           </Button>
         </div>
@@ -250,46 +226,28 @@ function ModuloCollapsible({
   const [open, setOpen] = useState(false);
 
   const totalModulo = items.length;
-  const seleccionadosEnModulo = items.filter((p) =>
-    seleccionados.has(p.id),
-  ).length;
-  const todosSeleccionados =
-    totalModulo > 0 && seleccionadosEnModulo === totalModulo;
+  const seleccionadosEnModulo = items.filter((p) => seleccionados.has(p.id)).length;
+  const todosSeleccionados = totalModulo > 0 && seleccionadosEnModulo === totalModulo;
   const algunoSeleccionado = seleccionadosEnModulo > 0;
 
   return (
-    <Collapsible
-      open={open}
-      onOpenChange={setOpen}
-      className="rounded-md border bg-card"
-    >
+    <Collapsible open={open} onOpenChange={setOpen} className="rounded-md border bg-surface-card">
       <div className="flex items-center gap-2 px-3 py-2">
         <Checkbox
-          checked={
-            todosSeleccionados
-              ? true
-              : algunoSeleccionado
-                ? 'indeterminate'
-                : false
-          }
+          checked={todosSeleccionados ? true : algunoSeleccionado ? 'indeterminate' : false}
           disabled={disabled}
           aria-label={`Seleccionar todos los permisos de ${modulo}`}
-          onCheckedChange={(checked) =>
-            onToggleModulo(items, checked === true)
-          }
+          onCheckedChange={(checked) => onToggleModulo(items, checked === true)}
         />
         <CollapsibleTrigger
           className="flex flex-1 items-center justify-between gap-2 text-left text-sm font-medium hover:underline"
           aria-label={`Permisos de ${modulo}`}
         >
           <span className="capitalize">{modulo}</span>
-          <span className="flex items-center gap-2 text-xs text-muted-foreground">
+          <span className="flex items-center gap-2 text-xs text-ink-muted">
             {seleccionadosEnModulo}/{totalModulo}
             <ChevronRight
-              className={cn(
-                'h-4 w-4 transition-transform',
-                open && 'rotate-90',
-              )}
+              className={cn('h-4 w-4 transition-transform', open && 'rotate-90')}
               aria-hidden="true"
             />
           </span>
@@ -307,14 +265,9 @@ function ModuloCollapsible({
                 onCheckedChange={(c) => onToggle(p.id, c)}
                 className="mt-0.5"
               />
-              <label
-                htmlFor={`permiso-${p.id}`}
-                className="flex-1 cursor-pointer space-y-0.5"
-              >
+              <label htmlFor={`permiso-${p.id}`} className="flex-1 cursor-pointer space-y-0.5">
                 <div className="font-mono text-xs">{p.codigo}</div>
-                <div className="text-xs text-muted-foreground">
-                  {p.descripcion}
-                </div>
+                <div className="text-xs text-ink-muted">{p.descripcion}</div>
               </label>
             </li>
           ))}

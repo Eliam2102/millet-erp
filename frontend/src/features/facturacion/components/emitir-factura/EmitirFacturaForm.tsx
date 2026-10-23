@@ -1,45 +1,43 @@
-import { ErrorTimbradoAviso } from '@/features/facturacion/components/ErrorTimbradoAviso';
-import { mostrarErrorReceptorFiscal } from '@/features/facturacion/lib/mostrar-error-receptor-fiscal';
-import { useState } from 'react';
-import { useNavigate } from '@tanstack/react-router';
-import { useForm, useWatch } from 'react-hook-form';
-import { zodResolver } from '@hookform/resolvers/zod';
-import { toast } from 'sonner';
+import { AvisoEnLinea } from '@/components/erp/feedback/AvisoEnLinea';
+import { ResumenImportes } from '@/components/erp/display/ResumenImportes';
 import { Button } from '@/components/ui/button';
-import {
-  Tabs,
-  TabsContent,
-  TabsList,
-  TabsTrigger,
-} from '@/components/ui/tabs';
-import {
-  applyServerErrors,
-  esApiError,
-  useFormIdempotencyKey,
-} from '@/lib/api';
-import {
-  EmitirFacturaSchema,
-  type EmitirFacturaValues,
-} from '@/features/facturacion/schemas/emitir-factura';
-import {
-  useEmisorDefaults,
-  useEmitirFactura,
-} from '@/features/facturacion/api/useFacturas';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { EmbarqueCeResumen } from '@/features/comercio-exterior/components/EmbarqueCeResumen';
 import {
   ComportamientoFiscal,
   type ClienteLookupItem,
   type EmisorDefaultsResponse,
+  type EmitirFacturaVentaCommand,
   type EmitirFacturaVentaResponse,
 } from '@/features/facturacion/api/types';
-import { cn } from '@/lib/utils';
+import { useEmisorDefaults, useEmitirFactura } from '@/features/facturacion/api/useFacturas';
+import { compararProforma } from '@/features/facturacion/api/useProformas';
+import { ErrorTimbradoAviso } from '@/features/facturacion/components/ErrorTimbradoAviso';
+import { errorEmisionVentaDirecta } from '@/features/facturacion/lib/errores-venta-directa';
+import { mostrarErrorReceptorFiscal } from '@/features/facturacion/lib/mostrar-error-receptor-fiscal';
+import { notaAnticiposAplicados } from '@/features/facturacion/lib/nota-anticipos';
+import {
+  EmitirFacturaSchema,
+  type EmitirFacturaValues,
+} from '@/features/facturacion/schemas/emitir-factura';
+import { applyServerErrors, esApiError, useFormIdempotencyKey } from '@/lib/api';
 import { PermisosCanonicos } from '@/lib/auth/permission-codes';
 import { useHasPermission } from '@/lib/auth/useHasPermission';
+import { cn } from '@/lib/utils';
+import { zodResolver } from '@hookform/resolvers/zod';
+import { Link, useNavigate } from '@tanstack/react-router';
+import { Info } from 'lucide-react';
+import { useState } from 'react';
+import { useForm, useWatch } from 'react-hook-form';
+import { toast } from 'sonner';
+import { VistaPreviaButton } from '../vista-previa/VistaPreviaButton';
 import type { EmitirFacturaPrefill } from './prefill';
-import { nullIfEmpty, valoresIniciales } from './valores';
+import { DiferenciasProformaDialog, type ConfirmacionProforma } from './DiferenciasProformaDialog';
 import { resultadoEmision } from './resultado-emision';
 import { TabEncabezado } from './TabEncabezado';
 import { TabPosiciones } from './TabPosiciones';
 import { TabTotales, type AnticipoAmortizar } from './TabTotales';
+import { nullIfEmpty, valoresIniciales } from './valores';
 
 /**
  * <c>&lt;EmitirFacturaForm/&gt;</c> — form de emisión de CFDI 4.0 con
@@ -73,6 +71,12 @@ export interface EmitirFacturaFormProps {
   onSuccess: (res: EmitirFacturaVentaResponse) => void;
   /** Se invoca ya confirmado el descarte (el confirm-si-dirty vive aquí). */
   onCancel: () => void;
+  /**
+   * F6.1: abre la edición del pedido de origen (destrabe de
+   * PEDIDO_MANUAL_SIN_CLASIFICAR / FAC_PEDIDO_ACTIVO_COMPORTAMIENTO).
+   * Ausente si el usuario no puede editarlo.
+   */
+  onEditarPedido?: () => void;
 }
 
 /** Campos del schema que viven en la pestaña Encabezado (badge de errores). */
@@ -111,7 +115,7 @@ export function EmitirFacturaForm(props: EmitirFacturaFormProps) {
 
   if (defaults.isError) {
     return (
-      <div className="space-y-2 rounded-md border border-destructive/40 bg-destructive/5 px-4 py-3 text-sm">
+      <div className="space-y-2 rounded-md border border-danger/40 bg-danger-bg/5 px-4 py-3 text-sm">
         <p>No se pudieron cargar los datos del emisor.</p>
         <Button type="button" variant="outline" size="sm" onClick={() => defaults.refetch()}>
           Reintentar
@@ -122,18 +126,25 @@ export function EmitirFacturaForm(props: EmitirFacturaFormProps) {
   if (defaults.isLoading || defaults.data == null) {
     return (
       <div className="space-y-3">
-        <div className="h-9 w-72 animate-pulse rounded bg-muted" />
-        <div className="h-64 w-full animate-pulse rounded bg-muted" />
+        <div className="h-9 w-72 animate-pulse rounded bg-surface-muted" />
+        <div className="h-64 w-full animate-pulse rounded bg-surface-muted" />
       </div>
     );
   }
-  return <FormInner key={props.prefill?.pedidoFacturableId ?? 'manual'} {...props} emisor={defaults.data} />;
+  return (
+    <FormInner
+      key={props.prefill?.pedidoFacturableId ?? 'manual'}
+      {...props}
+      emisor={defaults.data}
+    />
+  );
 }
 
 function FormInner({
   prefill,
   onSuccess,
   onCancel,
+  onEditarPedido,
   emisor,
 }: EmitirFacturaFormProps & { emisor: EmisorDefaultsResponse }) {
   const idempotencyKey = useFormIdempotencyKey();
@@ -150,6 +161,13 @@ function FormInner({
   const puedeCorregirArticulo = useHasPermission(
     PermisosCanonicos.FacturacionFacturasEditarArticulo,
   );
+  const puedeGestionarSeries = useHasPermission(PermisosCanonicos.AdminSeriesGestionar);
+
+  // F6.1: pedido manual clasificado (venta directa o emergencia) → serie
+  // de Venta directa; subtipo Activo → comportamiento fijo + autorización.
+  const esVentaDirecta = prefill?.claseManual != null;
+  const esPedidoActivo = prefill?.subtipoVentaDirecta === 'Activo';
+  const manualSinClase = prefill?.origen === 'Manual' && prefill?.claseManual == null;
 
   const form = useForm<EmitirFacturaValues>({
     resolver: zodResolver(EmitirFacturaSchema),
@@ -160,21 +178,54 @@ function FormInner({
   // schema del form porque son referencias a comprobantes ya emitidos.
   const [anticipos, setAnticipos] = useState<AnticipoAmortizar[]>([]);
 
+  // 86e3tfdw2: «Observaciones» se prellena con los anticipos aplicados
+  // mientras el cajero no la edite a mano; una vez editada, no se pisa.
+  const [observacionesEditadas, setObservacionesEditadas] = useState(false);
+  const observaciones = useWatch({ control: form.control, name: 'observaciones' });
+
+  function cambiarAnticipos(siguientes: AnticipoAmortizar[]) {
+    setAnticipos(siguientes);
+    if (observacionesEditadas) return;
+    const monedaFactura = (form.getValues('moneda') || 'MXN').toUpperCase();
+    const nota = notaAnticiposAplicados(
+      siguientes
+        .filter((a) => a.anticipoId.trim().length > 0 && a.folio)
+        .map((a) => ({ folio: a.folio ?? '', importe: a.importe, moneda: monedaFactura })),
+    );
+    form.setValue('observaciones', nota === '' ? null : nota, {
+      shouldDirty: true,
+      shouldValidate: form.formState.isSubmitted,
+    });
+  }
+
+  function editarObservaciones(texto: string) {
+    setObservacionesEditadas(true);
+    form.setValue('observaciones', texto, {
+      shouldDirty: true,
+      shouldValidate: form.formState.isSubmitted,
+    });
+  }
+
   // Autorización del Contador General — obligatoria en venta de activo
   // fijo; se elige con <AutorizacionPicker/> (FAC-UX-PR4).
   const [autorizacionId, setAutorizacionId] = useState('');
 
+  // U1.8a: antes de timbrar un pedido se compara contra su última proforma.
+  const [comparando, setComparando] = useState(false);
+  const [pendiente, setPendiente] = useState<{
+    confirmacion: ConfirmacionProforma;
+    command: EmitirFacturaVentaCommand;
+  } | null>(null);
+
   // Cliente de la factura (FAC-UX-PR4): del pedido en el flujo prellenado
   // o del <ClienteSelector/> en el manual. Habilita el picker de anticipos
   // y el autollenado fiscal del receptor.
-  const [clienteId, setClienteId] = useState<string | null>(
-    prefill?.clienteId ?? null,
-  );
+  const [clienteId, setClienteId] = useState<string | null>(prefill?.clienteId ?? null);
 
   function onClienteChange(item: ClienteLookupItem | null) {
     setClienteId(item?.id ?? null);
     // Cliente distinto → los anticipos elegidos ya no aplican.
-    setAnticipos([]);
+    cambiarAnticipos([]);
     if (item == null) return;
     const opts = { shouldDirty: true } as const;
     form.setValue('receptorNombre', item.razonSocial, opts);
@@ -200,32 +251,33 @@ function FormInner({
   // G12) bloquea la emisión para todos: se corrige en Datos Maestros.
   const receptorFiscal = useWatch({
     control: form.control,
-    name: [
-      'receptorRfc',
-      'receptorNombre',
-      'receptorRegimenFiscal',
-      'receptorCodigoPostal',
-    ],
+    name: ['receptorRfc', 'receptorNombre', 'receptorRegimenFiscal', 'receptorCodigoPostal'],
   });
-  const receptorBloqueado = receptorFiscal.some(
-    (v) => (v ?? '').trim() === '',
-  );
+  const receptorBloqueado = receptorFiscal.some((v) => (v ?? '').trim() === '');
   const comportamiento = useWatch({
     control: form.control,
     name: 'comportamientoFiscal',
   });
-  const esCce = comportamiento === ComportamientoFiscal.ExportacionConCce;
-  const esActivo = comportamiento === ComportamientoFiscal.VentaActivoFijo;
+  const ce = prefill?.embarqueCe;
+  const rtPorConfirmar =
+    ce?.ligado &&
+    ce.clavePedimento === 'RT' &&
+    comportamiento === ComportamientoFiscal.ExportacionConCce;
+  const motivoCe = rtPorConfirmar
+    ? 'La exportación RT sin complemento requiere confirmación de Fiscal (VAL-CE-08).'
+    : ce?.motivo;
+  const ceBloqueado = Boolean(ce?.ligado && (!ce.listoParaFacturar || rtPorConfirmar));
+  const esCce = ce?.ligado
+    ? ce.clavePedimento === 'A1'
+    : comportamiento === ComportamientoFiscal.ExportacionConCce;
+  const esActivo = esPedidoActivo || comportamiento === ComportamientoFiscal.VentaActivoFijo;
+  const errorVentaDirecta = errorEmisionVentaDirecta(emitir.error);
   // `valueAsNumber` da NaN al vaciar un input, y `NaN ?? 0` = NaN (?? solo
   // atrapa null/undefined) → el total mostraba "NaN". `finito` lo coerce a 0.
-  const finito = (v: number | null | undefined) =>
-    Number.isFinite(v) ? (v as number) : 0;
+  const finito = (v: number | null | undefined) => (Number.isFinite(v) ? (v as number) : 0);
   const totales = (lineas ?? []).reduce(
     (acc, l) => {
-      const base = Math.max(
-        0,
-        finito(l.cantidad) * finito(l.valorUnitario) - finito(l.descuento),
-      );
+      const base = Math.max(0, finito(l.cantidad) * finito(l.valorUnitario) - finito(l.descuento));
       const iva = base * finito(l.tasaIvaTraslado);
       const retIva = base * finito(l.tasaRetencionIva);
       const retIsr = base * finito(l.tasaRetencionIsr);
@@ -239,9 +291,7 @@ function FormInner({
   const total = totales.subtotal + totales.iva - totales.ret;
 
   const errores = form.formState.errors;
-  const erroresEncabezado = CAMPOS_ENCABEZADO.filter(
-    (campo) => errores[campo] != null,
-  ).length;
+  const erroresEncabezado = CAMPOS_ENCABEZADO.filter((campo) => errores[campo] != null).length;
   const erroresPosiciones =
     errores.lineas == null
       ? 0
@@ -251,24 +301,48 @@ function FormInner({
 
   function cancelar() {
     if (form.formState.isDirty) {
-      const confirmar = window.confirm(
-        'Tienes una emisión sin completar. ¿Descartar y cerrar?',
-      );
+      const confirmar = window.confirm('Tienes una emisión sin completar. ¿Descartar y cerrar?');
       if (!confirmar) return;
     }
     onCancel();
   }
 
-  function onSubmit(values: EmitirFacturaValues) {
+  async function onSubmit(values: EmitirFacturaValues) {
+    if (ceBloqueado || manualSinClase) return;
     if (esActivo && autorizacionId.trim() === '') {
-      toast.error(
-        'La venta de activo fijo requiere el ID de autorización del Contador General.',
-      );
+      toast.error('La venta de activo fijo requiere el ID de autorización del Contador General.');
       return;
     }
-    emitir.mutate(
-      {
-        command: {
+    const command = construirComando(values);
+    const pedidoId = prefill?.pedidoFacturableId;
+    if (!pedidoId) {
+      emitirComando(command);
+      return;
+    }
+    setComparando(true);
+    try {
+      const comparacion = await compararProforma(pedidoId, command);
+      if (comparacion.hayProforma && comparacion.diferencias.length > 0) {
+        setPendiente({ confirmacion: { tipo: 'diferencias', comparacion }, command });
+        return;
+      }
+      emitirComando(command);
+    } catch {
+      setPendiente({ confirmacion: { tipo: 'error' }, command });
+    } finally {
+      setComparando(false);
+    }
+  }
+
+  function timbrarPendiente() {
+    if (pendiente == null) return;
+    const { command } = pendiente;
+    setPendiente(null);
+    emitirComando(command);
+  }
+
+  function construirComando(values: EmitirFacturaValues): EmitirFacturaVentaCommand {
+    return {
           sucursalId: values.sucursalId,
           receptorRfc: values.receptorRfc.toUpperCase(),
           receptorNombre: values.receptorNombre,
@@ -282,8 +356,7 @@ function FormInner({
           metodoPago: values.metodoPago,
           formaPago: values.formaPago,
           moneda: values.moneda.toUpperCase(),
-          tipoCambio:
-            values.moneda.toUpperCase() === 'MXN' ? null : values.tipoCambio,
+          tipoCambio: values.moneda.toUpperCase() === 'MXN' ? null : values.tipoCambio,
           canalVenta: values.canalVenta,
           comportamientoFiscal: values.comportamientoFiscal,
           obraId: null,
@@ -293,26 +366,27 @@ function FormInner({
           pedidoFacturableId: prefill?.pedidoFacturableId ?? null,
           anticipos:
             anticipos.filter((a) => a.anticipoId.trim().length > 0).length > 0
-              ? anticipos.filter((a) => a.anticipoId.trim().length > 0)
+              ? anticipos
+                  .filter((a) => a.anticipoId.trim().length > 0)
+                  // El folio es solo del FE (arma la nota); no viaja al backend.
+                  .map((a) => ({ anticipoId: a.anticipoId, importe: a.importe }))
               : null,
+          observaciones: nullIfEmpty(values.observaciones),
           autorizacionId: esActivo ? autorizacionId.trim() : null,
           cce: esCce
             ? {
                 tipoOperacion: values.cceTipoOperacion ?? '2',
-                incoterm: values.cceIncoterm ?? '',
+                incoterm: ce?.ligado ? (ce.incoterm ?? '') : (values.cceIncoterm ?? ''),
                 tcDof: values.cceTcDof ?? 0,
                 receptorNumRegIdTrib: values.cceReceptorNumRegIdTrib ?? '',
                 receptorPaisResidencia: values.cceReceptorPaisResidencia ?? '',
-                claveDePedimento: nullIfEmpty(
-                  values.cceClaveDePedimento,
-                )?.toUpperCase() ?? null,
+                claveDePedimento: ce?.ligado
+                  ? ce.clavePedimento
+                  : (nullIfEmpty(values.cceClaveDePedimento)?.toUpperCase() ?? null),
                 certificadoOrigen: values.cceCertificadoOrigen,
-                receptorDomicilioCalle: nullIfEmpty(
-                  values.cceReceptorDomicilioCalle,
-                ),
+                receptorDomicilioCalle: nullIfEmpty(values.cceReceptorDomicilioCalle),
                 receptorDomicilioEstado: values.cceReceptorDomicilioEstado ?? '',
-                receptorDomicilioCodigoPostal:
-                  values.cceReceptorDomicilioCodigoPostal ?? '',
+                receptorDomicilioCodigoPostal: values.cceReceptorDomicilioCodigoPostal ?? '',
                 lineas: values.lineas.map((l) => ({
                   fraccionArancelaria: l.fraccionArancelaria ?? '',
                   unidadAduana: l.unidadAduana ?? '',
@@ -337,34 +411,40 @@ function FormInner({
             tasaRetencionIsr: l.tasaRetencionIsr,
             requierePedimento: l.requierePedimento,
           })),
-        },
-        idempotencyKey,
-      },
+    };
+  }
+
+  function emitirComando(command: EmitirFacturaVentaCommand) {
+    emitir.mutate(
+      { command, idempotencyKey },
       {
         onSuccess: (res) => {
           const aviso = resultadoEmision(res);
           toast[aviso.tipo](aviso.titulo, {
             description: aviso.descripcion,
-            ...(aviso.reintentable ? {
-              duration: Infinity,
-              action: {
-                label: 'Reintentar timbrado',
-                onClick: () => void navigate({
-                  to: '/facturacion/facturas/$id', params: { id: res.id },
-                }),
-              },
-            } : {}),
+            ...(aviso.reintentable
+              ? {
+                  duration: Infinity,
+                  action: {
+                    label: 'Reintentar timbrado',
+                    onClick: () =>
+                      void navigate({
+                        to: '/facturacion/facturas/$id',
+                        params: { id: res.id },
+                      }),
+                  },
+                }
+              : {}),
           });
           onSuccess(res);
         },
         onError: (error) => {
+          // F6.1: serie de Venta directa / clase del pedido → callout con destrabe.
+          if (errorEmisionVentaDirecta(error) != null) return;
           if (mostrarErrorReceptorFiscal(error)) return;
           if (esApiError(error)) {
             if (
-              applyServerErrors(
-                form as unknown as Parameters<typeof applyServerErrors>[0],
-                error,
-              )
+              applyServerErrors(form as unknown as Parameters<typeof applyServerErrors>[0], error)
             ) {
               return;
             }
@@ -379,12 +459,56 @@ function FormInner({
 
   return (
     <form onSubmit={form.handleSubmit(onSubmit)} noValidate className="space-y-4">
-      <ErrorTimbradoAviso error={emitir.error} />
+      {ce?.ligado && <EmbarqueCeResumen datos={ce} bloqueo={ceBloqueado ? motivoCe : null} />}
+      {errorVentaDirecta != null ? (
+        <AvisoEnLinea
+          tono="error"
+          titulo={errorVentaDirecta.titulo}
+          accion={
+            errorVentaDirecta.destino === 'series' && puedeGestionarSeries ? (
+              <Link to="/admin/series" className="text-sm font-medium text-brand underline">
+                Abrir Administración → Series
+              </Link>
+            ) : errorVentaDirecta.destino === 'editar-pedido' && onEditarPedido ? (
+              <Button type="button" variant="secondary" size="sm" onClick={onEditarPedido}>
+                Editar pedido
+              </Button>
+            ) : undefined
+          }
+        >
+          {errorVentaDirecta.mensaje}
+        </AvisoEnLinea>
+      ) : (
+        <ErrorTimbradoAviso error={emitir.error} />
+      )}
+      {manualSinClase && (
+        <AvisoEnLinea
+          tono="advertencia"
+          titulo="Pedido manual sin clase"
+          accion={
+            onEditarPedido ? (
+              <Button type="button" variant="secondary" size="sm" onClick={onEditarPedido}>
+                Editar pedido
+              </Button>
+            ) : undefined
+          }
+        >
+          Indica si el pedido es venta directa o emergencia antes de facturarlo.
+        </AvisoEnLinea>
+      )}
+      {esVentaDirecta && (
+        <p
+          data-testid="leyenda-serie-venta-directa"
+          className="flex items-start gap-1.5 rounded-md bg-info-bg px-3 py-2 text-sm text-info-fg"
+        >
+          <Info aria-hidden="true" className="mt-0.5 size-4 shrink-0" strokeWidth={1.6} />
+          Se timbrará con la serie de Venta directa de la sucursal.
+        </p>
+      )}
       {prefill?.pedidoFacturableId && (
-        <div className="rounded-md border border-primary/30 bg-primary/5 px-3 py-2 text-sm">
-          Facturando un pedido — líneas, datos comerciales y fiscales vienen
-          precargados desde el pedido y los catálogos. Revisa y completa lo
-          que falte. Al timbrar, el pedido pasa a{' '}
+        <div className="rounded-md border border-brand/30 bg-brand/5 px-3 py-2 text-sm">
+          Facturando un pedido — partidas, datos comerciales y fiscales vienen precargados desde el
+          pedido y los catálogos. Revisa y completa lo que falte. Al timbrar, el pedido pasa a{' '}
           <span className="font-medium">Facturado</span>.
         </div>
       )}
@@ -396,10 +520,13 @@ function FormInner({
             <BadgeErrores cuenta={erroresEncabezado} />
           </TabsTrigger>
           <TabsTrigger value="posiciones">
-            Posiciones
+            Partidas
             <BadgeErrores cuenta={erroresPosiciones} />
           </TabsTrigger>
-          <TabsTrigger value="totales">Totales</TabsTrigger>
+          <TabsTrigger value="totales">
+            Totales
+            <BadgeErrores cuenta={errores.observaciones != null ? 1 : 0} />
+          </TabsTrigger>
         </TabsList>
 
         {/* forceMount: el form es uno solo — los inputs de pestañas
@@ -412,7 +539,13 @@ function FormInner({
             puedeCorregirEnCatalogo={puedeCorregirEnCatalogo}
             receptorBloqueado={receptorBloqueado}
             esCce={esCce}
+            embarqueCe={ce}
             esActivo={esActivo}
+            comportamientoFijo={
+              esPedidoActivo
+                ? 'Fijo: el pedido es una venta directa de un activo.'
+                : undefined
+            }
             autorizacionId={autorizacionId}
             onAutorizacionIdChange={setAutorizacionId}
             clienteId={clienteId}
@@ -438,54 +571,90 @@ function FormInner({
             moneda={moneda}
             clienteId={clienteId}
             anticipos={anticipos}
-            onAnticiposChange={setAnticipos}
+            onAnticiposChange={cambiarAnticipos}
+            observaciones={observaciones ?? ''}
+            onObservacionesChange={editarObservaciones}
+            errorObservaciones={errores.observaciones?.message}
           />
         </TabsContent>
       </Tabs>
 
-      <div className="flex flex-wrap items-center justify-between gap-3 border-t pt-4">
-        <dl className="flex gap-4 text-sm tabular-nums">
-          <div>
-            <dt className="text-xs text-muted-foreground">Subtotal</dt>
-            <dd className="font-medium">{totales.subtotal.toFixed(2)}</dd>
-          </div>
-          <div>
-            <dt className="text-xs text-muted-foreground">IVA</dt>
-            <dd className="font-medium">{totales.iva.toFixed(2)}</dd>
-          </div>
-          <div>
-            <dt className="text-xs text-muted-foreground">Retenciones</dt>
-            <dd className="font-medium">−{totales.ret.toFixed(2)}</dd>
-          </div>
-          <div>
-            <dt className="text-xs text-muted-foreground">Total</dt>
-            <dd className="font-semibold">
-              {total.toFixed(2)} {moneda?.toUpperCase()}
-            </dd>
-          </div>
-        </dl>
-        <div className="flex items-center gap-2">
-          <Button
-            type="button"
-            variant="ghost"
-            onClick={cancelar}
-            disabled={emitir.isPending}
-          >
-            Cancelar
-          </Button>
-          <Button
-            type="submit"
-            disabled={emitir.isPending || receptorBloqueado}
-            title={
-              receptorBloqueado
-                ? 'Receptor incompleto: complétalo en Datos Maestros → Clientes'
-                : undefined
-            }
-          >
-            {emitir.isPending ? 'Emitiendo…' : 'Emitir y timbrar'}
-          </Button>
-        </div>
-      </div>
+      <ResumenImportes
+        className="border-t border-line pt-4"
+        moneda={moneda?.toUpperCase() ?? ''}
+        subtotal={totales.subtotal}
+        ivaTrasladado={totales.iva}
+        otrasRetenciones={[{ etiqueta: 'Retenciones', monto: totales.ret }]}
+        total={total}
+        acciones={
+          <>
+            <Button type="button" variant="ghost" onClick={cancelar} disabled={emitir.isPending}>
+              Cancelar
+            </Button>
+            <VistaPreviaButton
+              motivo={
+                !clienteId || receptorBloqueado
+                  ? 'Selecciona un receptor con datos fiscales.'
+                  : !lineas?.length
+                    ? 'Agrega al menos una partida.'
+                    : undefined
+              }
+              obtenerDatos={() => {
+                const v = form.getValues();
+                return {
+                  tipo: 'Factura',
+                  emisor: `${emisor.razonSocialEmisor} · ${v.rfcEmisor} · ${v.regimenFiscalEmisor}`,
+                  receptor: `${v.receptorNombre} · ${v.receptorRfc} · ${v.receptorRegimenFiscal} · CP ${v.receptorCodigoPostal}`,
+                  usoCfdi: v.receptorUsoCfdi,
+                  metodoPago: v.metodoPago,
+                  formaPago: v.formaPago,
+                  moneda: v.moneda,
+                  partidas: v.lineas.map((l) => ({
+                    descripcion: l.descripcion,
+                    cantidad: l.cantidad,
+                    importe: Math.max(
+                      0,
+                      finito(l.cantidad) * finito(l.valorUnitario) - finito(l.descuento),
+                    ),
+                  })),
+                  importes: [
+                    { etiqueta: 'Subtotal', monto: totales.subtotal },
+                    { etiqueta: 'IVA trasladado', monto: totales.iva },
+                    { etiqueta: 'Retenciones', monto: -totales.ret },
+                    { etiqueta: 'Total', monto: total },
+                  ],
+                };
+              }}
+            />
+            <Button
+              type="submit"
+              disabled={
+                emitir.isPending || comparando || receptorBloqueado || ceBloqueado || manualSinClase
+              }
+              title={
+                manualSinClase
+                  ? 'Clasifica el pedido (venta directa o emergencia) antes de facturarlo.'
+                  : ceBloqueado
+                    ? (motivoCe ?? 'Complete el embarque en Comercio Exterior.')
+                    : receptorBloqueado
+                      ? 'Receptor incompleto: complétalo en Datos Maestros → Clientes'
+                      : undefined
+              }
+            >
+              {emitir.isPending
+                ? 'Emitiendo…'
+                : comparando
+                  ? 'Comparando con la proforma…'
+                  : 'Emitir y timbrar'}
+            </Button>
+          </>
+        }
+      />
+      <DiferenciasProformaDialog
+        confirmacion={pendiente?.confirmacion ?? null}
+        onRevisar={() => setPendiente(null)}
+        onTimbrar={timbrarPendiente}
+      />
     </form>
   );
 }
@@ -496,7 +665,7 @@ function BadgeErrores({ cuenta }: { cuenta: number }) {
     <span
       className={cn(
         'inline-flex h-4 min-w-4 items-center justify-center rounded-full',
-        'bg-destructive px-1 text-[10px] font-semibold text-destructive-foreground',
+        'bg-danger-bg px-1 text-[10px] font-semibold text-danger-fg-foreground',
       )}
       aria-label={`${cuenta} errores`}
     >

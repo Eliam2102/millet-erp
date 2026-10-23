@@ -21,6 +21,7 @@ export const EstadoExpediente = {
   Vigente: 1,
   PorVencer: 2,
   Vencido: 3,
+  Exceptuado: 4,
 } as const;
 export type EstadoExpediente =
   (typeof EstadoExpediente)[keyof typeof EstadoExpediente];
@@ -64,6 +65,15 @@ export interface ExpedienteDocumento {
   vigenciaMeses: number | null;
   estado: EstadoExpediente;
   actual: AdjuntoResponse | null;
+  /** Excepción vigente (estado Exceptuado): motivo y quién la otorgó. */
+  excepcion?: ExcepcionDocumento | null;
+}
+
+export interface ExcepcionDocumento {
+  id: string;
+  motivo: string;
+  otorgadaPorNombre: string;
+  otorgadaEn: string;
 }
 
 export interface Expediente {

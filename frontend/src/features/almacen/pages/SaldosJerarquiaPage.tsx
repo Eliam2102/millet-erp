@@ -1,6 +1,9 @@
+import { PageHeader } from '@/components/erp/PageHeader';
 import { useMemo } from 'react';
 import { useNavigate, useSearch } from '@tanstack/react-router';
 import { Button } from '@/components/ui/button';
+import { Field } from '@/features/almacen/components/internal/Field';
+import { Checkbox } from '@/components/ui/checkbox';
 import {
   Select,
   SelectContent,
@@ -38,9 +41,7 @@ export function SaldosJerarquiaPage() {
   // Sub-almacenes del almacén elegido (client-side; catálogo chico).
   const subAlmacenes = useMemo(() => {
     const items = subAlmacenesQuery.data?.items ?? [];
-    return search.almacenId
-      ? items.filter((s) => s.almacenId === search.almacenId)
-      : items;
+    return search.almacenId ? items.filter((s) => s.almacenId === search.almacenId) : items;
   }, [subAlmacenesQuery.data, search.almacenId]);
 
   function actualizarSearch(parcial: Partial<SaldosJerarquiaSearch>) {
@@ -62,16 +63,11 @@ export function SaldosJerarquiaPage() {
   const arbolListo = modo === 'ubicacion' || !!search.articuloId;
 
   return (
-    <div className="space-y-4">
-      <header>
-        <h1 className="text-2xl font-semibold tracking-tight">
-          Consulta jerárquica
-        </h1>
-        <p className="text-sm text-muted-foreground">
-          Saldos por sucursal → almacén → sub-almacén → rack, con rollup por
-          nivel. El árbol carga cada nivel al expandirlo.
-        </p>
-      </header>
+    <div className="space-y-5">
+      <PageHeader
+        titulo="Consulta jerárquica"
+        descripcion="Saldos por sucursal → almacén → sub-almacén → rack, con rollup por nivel. El árbol carga cada nivel al expandirlo."
+      />
 
       <div className="flex flex-wrap items-end gap-3">
         <Tabs
@@ -93,19 +89,17 @@ export function SaldosJerarquiaPage() {
         </Tabs>
 
         {modo === 'articulo' ? (
-          <div className="space-y-1">
-            <label className="text-xs text-muted-foreground">Artículo</label>
+          <Field label="Artículo" className="gap-1">
             <ArticuloSelector
               value={search.articuloId ?? null}
               onChange={(id) => actualizarSearch({ articuloId: id ?? undefined })}
               placeholder="Buscar artículo"
               className="w-72"
             />
-          </div>
+          </Field>
         ) : (
           <>
-            <div className="space-y-1">
-              <label className="text-xs text-muted-foreground">Almacén</label>
+            <Field label="Almacén" className="gap-1">
               <Select
                 value={search.almacenId ?? SENTINEL_ALL}
                 onValueChange={(v) =>
@@ -119,9 +113,7 @@ export function SaldosJerarquiaPage() {
                   <SelectValue placeholder="Todos" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value={SENTINEL_ALL}>
-                    Todos (desde la raíz)
-                  </SelectItem>
+                  <SelectItem value={SENTINEL_ALL}>Todos (desde la raíz)</SelectItem>
                   {almacenes.map((a) => (
                     <SelectItem key={a.id} value={a.id}>
                       {a.clave} · {a.nombre}
@@ -129,11 +121,8 @@ export function SaldosJerarquiaPage() {
                   ))}
                 </SelectContent>
               </Select>
-            </div>
-            <div className="space-y-1">
-              <label className="text-xs text-muted-foreground">
-                Sub-almacén
-              </label>
+            </Field>
+            <Field label="Sub-almacén" className="gap-1">
               <Select
                 value={search.subAlmacenId ?? SENTINEL_ALL}
                 onValueChange={(v) =>
@@ -142,10 +131,7 @@ export function SaldosJerarquiaPage() {
                   })
                 }
               >
-                <SelectTrigger
-                  aria-label="Saltar a un sub-almacén"
-                  className="w-56"
-                >
+                <SelectTrigger aria-label="Saltar a un sub-almacén" className="w-56">
                   <SelectValue placeholder="Todos" />
                 </SelectTrigger>
                 <SelectContent>
@@ -157,19 +143,17 @@ export function SaldosJerarquiaPage() {
                   ))}
                 </SelectContent>
               </Select>
-            </div>
+            </Field>
           </>
         )}
 
-        <div className="flex items-center gap-2 pb-1">
-          <input
+        <div className="flex items-center gap-2 pb-1.5">
+          <Checkbox
             id="incluir-vacios"
-            type="checkbox"
             checked={search.incluirVacios ?? false}
-            onChange={(e) =>
-              actualizarSearch({ incluirVacios: e.target.checked || undefined })
+            onCheckedChange={(checked) =>
+              actualizarSearch({ incluirVacios: checked === true || undefined })
             }
-            className="h-4 w-4"
           />
           <label htmlFor="incluir-vacios" className="text-sm">
             Incluir vacíos
@@ -187,15 +171,15 @@ export function SaldosJerarquiaPage() {
               })
             }
           >
-            Limpiar
+            Limpiar filtros
           </Button>
         )}
       </div>
 
       {arbolListo ? (
-        <div className="rounded-md border bg-card p-2">
+        <div className="rounded-md border bg-surface-card p-2">
           {/* Encabezado slim alineado con las columnas del árbol. */}
-          <div className="flex items-center gap-2 border-b px-2 pb-1 text-xs text-muted-foreground">
+          <div className="flex items-center gap-2 border-b px-2 pb-1 text-xs text-ink-muted">
             <span>Nodo</span>
             <span className="ml-auto">Cantidad</span>
             <span className="w-32 text-right">Valor</span>

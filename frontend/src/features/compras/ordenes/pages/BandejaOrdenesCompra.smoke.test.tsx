@@ -129,7 +129,7 @@ describe('<BandejaOrdenesCompra> — smoke (UF1-PR3)', () => {
       ),
     );
     renderConProvider(<BandejaOrdenesCompra />);
-    expect(screen.getByText('Bandeja de OCs')).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: 'Órdenes de compra' })).toBeInTheDocument();
   });
 
   it('estado empty: muestra EmptyState con mensaje OC-específico', async () => {
@@ -168,10 +168,10 @@ describe('<BandejaOrdenesCompra> — smoke (UF1-PR3)', () => {
     );
     // Estado badge OC y dot R con progreso parcial visible.
     expect(
-      screen.getByText('En autorización Jefe de Compras'),
+      screen.getByText('En autorización Jefe de Compras', { selector: '[data-estado]' }),
     ).toBeInTheDocument();
     // <HoverSubEstados> (UF6-PR1): un solo tooltip combinado en el wrapper
-    // multi-línea + chips internos con `data-progreso`. Buscamos el chip R
+    // multi-partida + chips internos con `data-progreso`. Buscamos el chip R
     // por su atributo `data-sub-estado="recepcion"`.
     const wrapper = screen.getByRole('img', {
       name: /Recepción: Recepción parcial[\s\S]*Facturación[\s\S]*Pago/i,
@@ -235,7 +235,7 @@ describe('<BandejaOrdenesCompra> — smoke (UF1-PR3)', () => {
     );
     renderConProvider(<BandejaOrdenesCompra />);
     await waitFor(() =>
-      expect(screen.getByText(/Mostrando 1–1 de 1/i)).toBeInTheDocument(),
+      expect(screen.getByText(/1–1 de 1/i)).toBeInTheDocument(),
     );
   });
 

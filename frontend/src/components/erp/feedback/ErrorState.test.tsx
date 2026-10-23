@@ -27,7 +27,7 @@ describe('<ErrorState>', () => {
     render(<ErrorState />);
     expect(screen.getByText('Algo salió mal')).toBeInTheDocument();
     expect(
-      screen.getByText(/si el problema persiste/i),
+      screen.getByText(/si persiste, avisa a soporte/i),
     ).toBeInTheDocument();
   });
 
@@ -48,4 +48,10 @@ describe('<ErrorState>', () => {
     const { container } = render(<ErrorState />);
     expect(container.querySelector('[role="alert"]')).not.toBeNull();
   });
+});
+
+it('muestra la causa del servidor aunque la pantalla tenga su propio título', () => {
+  render(<ErrorState title="No se pudo cargar la OC" problem={{ type: 'about:blank', title: 'No tienes acceso a esta sucursal', status: 403 }} onRetry={() => {}} />);
+  expect(screen.getByText('No tienes acceso a esta sucursal')).toBeInTheDocument();
+  expect(screen.getByRole('button', { name: 'Reintentar' })).toBeInTheDocument();
 });

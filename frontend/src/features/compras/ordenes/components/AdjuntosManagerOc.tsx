@@ -1,9 +1,6 @@
 import { useMemo } from 'react';
 import { toast } from 'sonner';
-import {
-  AdjuntosManager,
-  type AdjuntoItem,
-} from '@/components/erp';
+import { AdjuntosManager, type AdjuntoItem } from '@/components/erp';
 import { useTiposDocumentoOc } from '@/features/catalogos/api';
 import {
   accionAdjuntarDocumento,
@@ -24,8 +21,8 @@ import { useUsuarios, mapById } from '@/features/catalogos/api';
  * catálogo <c>tipos-documento-oc</c> y wira los hooks de mutación
  * de OC contra los callbacks parametrizados del manager genérico.
  *
- * <para>Marca <c>ficha_tecnica</c> como obligatorio si la OC es de
- * importación (FOC2 §4.12). El backend lo valida al transmitir; este
+ * <para>Marca como obligatorios la cotización, el correo de autorización
+ * (OC sin RQ) y los tipos de importación (FOC2 §4.12). El backend lo valida al transmitir; este
  * componente solo decora la lista para que el comprador anticipe el
  * requisito.</para>
  */
@@ -45,17 +42,21 @@ export function AdjuntosManagerOc({ oc }: AdjuntosManagerOcProps) {
   const queryClient = useQueryClient();
 
   const usuariosQuery = useUsuarios();
-  const usuariosMap = useMemo(
-    () => mapById(usuariosQuery.data?.items),
-    [usuariosQuery.data],
-  );
+  const usuariosMap = useMemo(() => mapById(usuariosQuery.data?.items), [usuariosQuery.data]);
 
+  // Cotización siempre; correo de autorización si es sin RQ; los tipos
+  // obligatorios por importación (p. ej. ficha técnica) si es importación.
   const obligatorios = useMemo(() => {
-    if (!oc.esImportacion || tiposQuery.data == null) return [];
-    return tiposQuery.data
-      .filter((t) => t.obligatorioSiImportacion)
+    const tipos = tiposQuery.data ?? [];
+    return tipos
+      .filter(
+        (t) =>
+          t.clave === 'cotizacion' ||
+          (oc.sinRequisicionPrevia && t.clave === 'correo_autorizacion') ||
+          (oc.esImportacion && t.obligatorioSiImportacion),
+      )
       .map((t) => t.id);
-  }, [oc.esImportacion, tiposQuery.data]);
+  }, [oc.esImportacion, oc.sinRequisicionPrevia, tiposQuery.data]);
 
   // Adjuntos del agregado (UF3-PR2 los expone en el detalle).
   const adjuntos = oc.adjuntos as readonly AdjuntoItem[];
@@ -87,8 +88,7 @@ export function AdjuntosManagerOc({ oc }: AdjuntosManagerOcProps) {
       ) {
         return;
       }
-      const msg =
-        err instanceof Error ? err.message : 'Error desconocido al subir.';
+      const msg = err instanceof Error ? err.message : 'Error desconocido al subir.';
       toast.error('No se pudo subir el archivo.', { description: msg });
       throw err;
     }
@@ -108,8 +108,7 @@ export function AdjuntosManagerOc({ oc }: AdjuntosManagerOcProps) {
       ) {
         return;
       }
-      const msg =
-        err instanceof Error ? err.message : 'Error desconocido.';
+      const msg = err instanceof Error ? err.message : 'Error desconocido.';
       toast.error('No se pudo eliminar el adjunto.', { description: msg });
     }
   }
@@ -127,9 +126,7 @@ export function AdjuntosManagerOc({ oc }: AdjuntosManagerOcProps) {
       canRemove={accRemover.visible && accRemover.habilitada}
       obligatorios={obligatorios}
       resolverNombreUsuario={(id) => usuariosMap.get(id)?.nombre ?? null}
-      resolverContenidoUrl={(a) =>
-        `/api/v1/compras/ordenes/${oc.id}/adjuntos/${a.id}/contenido`
-      }
+      resolverContenidoUrl={(a) => `/api/v1/compras/ordenes/${oc.id}/adjuntos/${a.id}/contenido`}
     />
   );
 }

@@ -1,3 +1,6 @@
+import { FormSeccion } from '@/components/erp/forms/FormSeccion';
+import { FormCampo } from '@/components/erp/forms/FormGrid';
+import { SheetBody } from '@/components/ui/sheet';
 import { useEffect } from 'react';
 import { Controller, useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -11,13 +14,12 @@ import {
   SheetTitle,
 } from '@/components/ui/sheet';
 import { Button } from '@/components/ui/button';
+import { useConfirmarDescarte } from '@/components/erp/forms/useConfirmarDescarte';
 import { ArticuloSelector, UbicacionSelector } from '@/components/erp';
 import { applyServerErrors, esApiError } from '@/lib/api';
-import {
-  AsignarSchema,
-  type AsignarValues,
-} from '@/features/almacen/schemas/asignacion';
+import { AsignarSchema, type AsignarValues } from '@/features/almacen/schemas/asignacion';
 import { useCrearAsignacion } from '@/features/almacen/api/useAsignaciones';
+import { Field } from '@/features/almacen/components/internal/Field';
 
 /**
  * <c>&lt;AsignacionSheet/&gt;</c> — slide-from-right para asignar un artículo a
@@ -42,6 +44,13 @@ export function AsignacionSheet({ open, onOpenChange }: AsignacionSheetProps) {
     defaultValues: DEFAULTS,
   });
 
+  // Cerrar (Esc, clic fuera, X, Cancelar) con cambios pide confirmación; guardar cierra con force.
+  const { setDirty, solicitarCierre, dialogo } = useConfirmarDescarte(() => onOpenChange(false));
+  const isDirty = form.formState.isDirty;
+  useEffect(() => {
+    setDirty(isDirty);
+  }, [isDirty, setDirty]);
+
   useEffect(() => {
     if (open) form.reset(DEFAULTS);
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -54,7 +63,7 @@ export function AsignacionSheet({ open, onOpenChange }: AsignacionSheetProps) {
       {
         onSuccess: () => {
           toast.success('Artículo asignado a la ubicación');
-          onOpenChange(false);
+          solicitarCierre(true);
         },
         onError: manejarError,
       },
@@ -77,12 +86,7 @@ export function AsignacionSheet({ open, onOpenChange }: AsignacionSheetProps) {
         });
         return;
       }
-      if (
-        applyServerErrors(
-          form as unknown as Parameters<typeof applyServerErrors>[0],
-          error,
-        )
-      ) {
+      if (applyServerErrors(form as unknown as Parameters<typeof applyServerErrors>[0], error)) {
         return;
       }
       toast.error(error.problem.title, {
@@ -96,62 +100,71 @@ export function AsignacionSheet({ open, onOpenChange }: AsignacionSheetProps) {
   const isPending = crear.isPending;
 
   return (
-    <Sheet open={open} onOpenChange={onOpenChange}>
-      <SheetContent side="right" className="sm:max-w-md">
+    <Sheet open={open} onOpenChange={(next) => (next ? onOpenChange(next) : solicitarCierre())}>
+      <SheetContent side="right" size="lg">
         <SheetHeader>
           <SheetTitle>Asignar artículo a una ubicación</SheetTitle>
           <SheetDescription>
-            Elige el artículo y la ubicación donde vivirá. Se creará su existencia
-            en 0 ahí.
+            Elige el artículo y la ubicación donde vivirá. Se creará su existencia en 0 ahí.
           </SheetDescription>
         </SheetHeader>
 
-        <form
-          id="asignacion-form"
-          onSubmit={form.handleSubmit(onSubmit)}
-          noValidate
-          className="flex-1 space-y-3 overflow-y-auto px-6"
-        >
-          <Field
-            label="Artículo"
-            required
-            error={form.formState.errors.articuloId?.message}
+        <SheetBody>
+          <form
+            id="asignacion-form"
+            onSubmit={form.handleSubmit(onSubmit)}
+            noValidate
+            className="space-y-4"
           >
-            <Controller
-              name="articuloId"
-              control={form.control}
-              render={({ field }) => (
-                <ArticuloSelector
-                  value={field.value || null}
-                  onChange={(id) => field.onChange(id ?? '')}
-                />
-              )}
-            />
-          </Field>
+            <FormSeccion numero={1} titulo="Datos de la asignación">
+              <FormCampo span={12}>
+                <Field
+                  className="col-span-2"
+                  label="Artículo"
+                  required
+                  error={form.formState.errors.articuloId?.message}
+                >
+                  <Controller
+                    name="articuloId"
+                    control={form.control}
+                    render={({ field }) => (
+                      <ArticuloSelector
+                        value={field.value || null}
+                        onChange={(id) => field.onChange(id ?? '')}
+                      />
+                    )}
+                  />
+                </Field>
+              </FormCampo>
 
-          <Field
-            label="Ubicación"
-            required
-            error={form.formState.errors.ubicacionId?.message}
-          >
-            <Controller
-              name="ubicacionId"
-              control={form.control}
-              render={({ field }) => (
-                <UbicacionSelector
-                  value={field.value || null}
-                  onChange={(id) => field.onChange(id ?? '')}
-                />
-              )}
-            />
-          </Field>
-        </form>
+              <FormCampo span={12}>
+                <Field
+                  className="col-span-2"
+                  label="Ubicación"
+                  required
+                  error={form.formState.errors.ubicacionId?.message}
+                >
+                  <Controller
+                    name="ubicacionId"
+                    control={form.control}
+                    render={({ field }) => (
+                      <UbicacionSelector
+                        value={field.value || null}
+                        onChange={(id) => field.onChange(id ?? '')}
+                      />
+                    )}
+                  />
+                </Field>
+              </FormCampo>
+            </FormSeccion>
+          </form>
+        </SheetBody>
 
         <SheetFooter>
           <Button
             type="button"
             variant="ghost"
-            onClick={() => onOpenChange(false)}
+            onClick={() => solicitarCierre()}
             disabled={isPending}
           >
             Cancelar
@@ -161,37 +174,7 @@ export function AsignacionSheet({ open, onOpenChange }: AsignacionSheetProps) {
           </Button>
         </SheetFooter>
       </SheetContent>
+      {dialogo}
     </Sheet>
-  );
-}
-
-function Field({
-  label,
-  required,
-  error,
-  children,
-}: {
-  label: string;
-  required?: boolean;
-  error?: string;
-  children: React.ReactNode;
-}) {
-  return (
-    <div className="space-y-1.5">
-      <label className="flex items-center gap-1 text-sm font-medium">
-        {label}
-        {required && (
-          <span aria-hidden="true" className="text-rose-600">
-            *
-          </span>
-        )}
-      </label>
-      {children}
-      {error != null && (
-        <p role="alert" className="text-xs text-rose-600">
-          {error}
-        </p>
-      )}
-    </div>
   );
 }

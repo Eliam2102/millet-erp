@@ -83,40 +83,28 @@ export function MotivoRechazoSelector({
 
   return (
     <>
-      <Select
-        value={triggerValue}
-        onValueChange={handleChange}
-        disabled={disabled}
-      >
-        <SelectTrigger
-          id={id}
-          aria-label="Seleccionar motivo"
-          className={cn('w-full', className)}
-        >
+      <Select value={triggerValue} onValueChange={handleChange} disabled={disabled}>
+        <SelectTrigger id={id} aria-label="Seleccionar motivo" className={cn('w-full', className)}>
           <SelectValue placeholder={placeholder} />
         </SelectTrigger>
         <SelectContent>
           {motivosQuery.isLoading ? (
-            <div className="px-3 py-2 text-sm text-muted-foreground">
-              Cargando motivos…
-            </div>
+            <div className="px-3 py-2 text-sm text-ink-muted">Cargando motivos…</div>
           ) : opciones.length === 0 ? (
-            <div className="px-3 py-2 text-sm text-muted-foreground">
+            <div className="px-3 py-2 text-sm text-ink-muted">
               No hay motivos disponibles para este flujo.
             </div>
           ) : (
             opciones.map((m) => (
               <SelectItem key={m.id} value={m.id}>
                 <div className="flex items-center gap-2">
-                  <span className="font-mono text-xs text-muted-foreground">
-                    {m.clave}
-                  </span>
+                  <span className="font-mono text-xs text-ink-muted">{m.clave}</span>
                   <span>{m.descripcion}</span>
                   {m.permiteTextoLibre && (
                     <span
                       aria-label="Requiere detalle adicional"
                       title="Requiere detalle adicional"
-                      className="text-xs text-amber-600"
+                      className="text-xs text-warning-fg"
                     >
                       *
                     </span>
@@ -128,7 +116,7 @@ export function MotivoRechazoSelector({
         </SelectContent>
       </Select>
       {motivosQuery.isError && (
-        <p role="alert" className="text-xs text-destructive">
+        <p role="alert" className="text-xs text-danger-fg">
           {mensajeErrorCatalogo(motivosQuery.error)}
         </p>
       )}

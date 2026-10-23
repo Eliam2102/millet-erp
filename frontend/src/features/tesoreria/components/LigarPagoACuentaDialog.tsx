@@ -1,3 +1,7 @@
+import { FormSeccion } from '@/components/erp/forms/FormSeccion';
+import { FormCampo } from '@/components/erp/forms/FormGrid';
+import { DialogBody } from '@/components/ui/dialog';
+import { DateTimeDisplay } from '@/components/erp/display/DateTimeDisplay';
 import { useMemo, useState } from 'react';
 import { toast } from 'sonner';
 import {
@@ -17,13 +21,10 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import {
-  useLigarPagoACuenta,
-  usePasivosPendientes,
-} from '@/features/tesoreria/api/useTesoreria';
+import { useLigarPagoACuenta, usePasivosPendientes } from '@/features/tesoreria/api/useTesoreria';
 import type { PagoACuentaAbiertoResponse } from '@/features/tesoreria/api/types';
-import { formatoFecha, formatoMonto } from '@/features/tesoreria/lib/formato';
-import { esApiError, useBodyScopedIdempotencyKey } from '@/lib/api';
+import { formatoMonto } from '@/features/tesoreria/lib/formato';
+import { esApiError, useBodyScopedIdempotencyKey, codigoSoporte } from '@/lib/api';
 
 export interface LigarPagoACuentaDialogProps {
   pago: PagoACuentaAbiertoResponse | null;
@@ -38,10 +39,7 @@ export interface LigarPagoACuentaDialogProps {
  * confirmación explícita (doble confirmación del §3.4 — la matriz de
  * suplencias llega con T-G4).
  */
-export function LigarPagoACuentaDialog({
-  pago,
-  onOpenChange,
-}: LigarPagoACuentaDialogProps) {
+export function LigarPagoACuentaDialog({ pago, onOpenChange }: LigarPagoACuentaDialogProps) {
   const ligar = useLigarPagoACuenta();
   const keyFor = useBodyScopedIdempotencyKey();
 
@@ -57,19 +55,14 @@ export function LigarPagoACuentaDialog({
 
   const restante = pago == null ? 0 : pago.monto - pago.importeLigado;
   const pasivo = useMemo(
-    () =>
-      (pasivos.data?.items ?? []).find(
-        (p) => p.facturaProveedorId === facturaId,
-      ) ?? null,
+    () => (pasivos.data?.items ?? []).find((p) => p.facturaProveedorId === facturaId) ?? null,
     [pasivos.data, facturaId],
   );
 
   const importeNum = Number(importe);
   const maximo = pasivo == null ? restante : Math.min(restante, pasivo.saldoPendiente);
-  const importeValido =
-    Number.isFinite(importeNum) && importeNum > 0 && importeNum <= maximo;
-  const difiere =
-    pasivo != null && importeValido && importeNum !== pasivo.saldoPendiente;
+  const importeValido = Number.isFinite(importeNum) && importeNum > 0 && importeNum <= maximo;
+  const difiere = pasivo != null && importeValido && importeNum !== pasivo.saldoPendiente;
 
   function seleccionarPasivo(id: string) {
     setFacturaId(id);
@@ -109,20 +102,16 @@ export function LigarPagoACuentaDialog({
       {
         onSuccess: () => {
           toast.success('Pago a cuenta ligado', {
-            description:
-              'Se aplicó sin re-desembolso; CxP recibirá aplicado.v1 por la factura.',
+            description: 'Se aplicó sin re-desembolso; CxP recibirá la aplicación a la factura.',
           });
           cerrar(false);
         },
         onError: (error) => {
-          toast.error(
-            esApiError(error) ? error.problem.title : 'No se pudo ligar el pago',
-            {
-              description: esApiError(error)
-                ? (error.problem.detail ?? `Código: ${error.traceId}`)
-                : undefined,
-            },
-          );
+          toast.error(esApiError(error) ? error.problem.title : 'No se pudo ligar el pago', {
+            description: esApiError(error)
+              ? (error.problem.detail ?? codigoSoporte(error))
+              : undefined,
+          });
         },
       },
     );
@@ -130,81 +119,88 @@ export function LigarPagoACuentaDialog({
 
   return (
     <Dialog open={pago != null} onOpenChange={cerrar}>
-      <DialogContent className="sm:max-w-lg">
+      <DialogContent size="lg">
         <DialogHeader>
           <DialogTitle>Ligar pago a cuenta al pasivo</DialogTitle>
           <DialogDescription>
-            {pago != null &&
-              `Movimiento de ${formatoMonto(pago.monto, pago.moneda)} del ${formatoFecha(pago.fechaValor)} — restante por ligar ${formatoMonto(restante, pago.moneda)}. Sin re-desembolso.`}
+            {pago != null && (
+              <>
+                Movimiento de {formatoMonto(pago.monto, pago.moneda)} del{' '}
+                <DateTimeDisplay value={pago.fechaValor} variant="corta" /> — restante por ligar{' '}
+                {formatoMonto(restante, pago.moneda)}. Sin re-desembolso.
+              </>
+            )}
           </DialogDescription>
         </DialogHeader>
+        <DialogBody className="space-y-4">
+          <div className="space-y-3">
+            <FormSeccion numero={1} titulo="Datos de la operación">
+              <FormCampo span={6}>
+                <div className="space-y-1">
+                  <label className="text-xs text-ink-muted">
+                    Pasivo autorizado del proveedor *
+                  </label>
+                  <Select value={facturaId ?? ''} onValueChange={seleccionarPasivo}>
+                    <SelectTrigger aria-label="Pasivo a ligar">
+                      <SelectValue
+                        placeholder={
+                          pasivos.isLoading
+                            ? 'Cargando pasivos…'
+                            : (pasivos.data?.items.length ?? 0) === 0
+                              ? 'El proveedor no tiene pasivos autorizados'
+                              : 'Selecciona el pasivo'
+                        }
+                      />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {(pasivos.data?.items ?? []).map((p) => (
+                        <SelectItem key={p.facturaProveedorId} value={p.facturaProveedorId}>
+                          <span className="font-mono text-xs">
+                            {p.folioProveedor ?? p.facturaProveedorId.slice(0, 8)}
+                          </span>{' '}
+                          · {formatoMonto(p.saldoPendiente, p.moneda)} · vence{' '}
+                          <DateTimeDisplay value={p.fechaVencimiento} variant="corta" />
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              </FormCampo>
+              <FormCampo span={6}>
+                <div className="space-y-1">
+                  <label className="text-xs text-ink-muted" htmlFor="liga-importe">
+                    Importe a aplicar *
+                  </label>
+                  <Input
+                    id="liga-importe"
+                    type="number"
+                    inputMode="decimal"
+                    min={0.01}
+                    max={maximo}
+                    step="0.01"
+                    value={importe}
+                    onChange={(e) => {
+                      setImporte(e.target.value);
+                      setConfirmaDiferencia(false);
+                    }}
+                    className="text-right font-mono"
+                    disabled={facturaId == null}
+                  />
+                </div>
+              </FormCampo>
+            </FormSeccion>
 
-        <div className="space-y-3">
-          <div className="space-y-1">
-            <label className="text-xs text-muted-foreground">
-              Pasivo autorizado del proveedor
-            </label>
-            <Select value={facturaId ?? ''} onValueChange={seleccionarPasivo}>
-              <SelectTrigger aria-label="Pasivo a ligar">
-                <SelectValue
-                  placeholder={
-                    pasivos.isLoading
-                      ? 'Cargando pasivos…'
-                      : (pasivos.data?.items.length ?? 0) === 0
-                        ? 'El proveedor no tiene pasivos autorizados'
-                        : 'Selecciona el pasivo'
-                  }
-                />
-              </SelectTrigger>
-              <SelectContent>
-                {(pasivos.data?.items ?? []).map((p) => (
-                  <SelectItem
-                    key={p.facturaProveedorId}
-                    value={p.facturaProveedorId}
-                  >
-                    <span className="font-mono text-xs">
-                      {p.folioProveedor ?? p.facturaProveedorId.slice(0, 8)}
-                    </span>{' '}
-                    · {formatoMonto(p.saldoPendiente, p.moneda)} · vence{' '}
-                    {formatoFecha(p.fechaVencimiento)}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            {difiere && (
+              <div className="rounded-md border border-warning bg-warning-bg px-3 py-2 text-xs text-warning-fg">
+                El importe ({pago != null ? formatoMonto(importeNum, pago.moneda) : ''}) difiere del
+                saldo del pasivo (
+                {pasivo != null ? formatoMonto(pasivo.saldoPendiente, pasivo.moneda) : ''}
+                ). La diferencia por comisiones se resuelve en conciliación, no aquí — confirma solo
+                si es correcto.
+              </div>
+            )}
           </div>
-
-          <div className="space-y-1">
-            <label className="text-xs text-muted-foreground" htmlFor="liga-importe">
-              Importe a aplicar
-            </label>
-            <Input
-              id="liga-importe"
-              type="number"
-              inputMode="decimal"
-              min={0.01}
-              max={maximo}
-              step="0.01"
-              value={importe}
-              onChange={(e) => {
-                setImporte(e.target.value);
-                setConfirmaDiferencia(false);
-              }}
-              className="text-right font-mono"
-              disabled={facturaId == null}
-            />
-          </div>
-
-          {difiere && (
-            <div className="rounded-md border border-amber-300 bg-amber-50 px-3 py-2 text-xs text-amber-800">
-              El importe ({pago != null ? formatoMonto(importeNum, pago.moneda) : ''})
-              difiere del saldo del pasivo (
-              {pasivo != null ? formatoMonto(pasivo.saldoPendiente, pasivo.moneda) : ''}
-              ). La diferencia por comisiones se resuelve en conciliación, no
-              aquí — confirma solo si es correcto (§3.4).
-            </div>
-          )}
-        </div>
-
+        </DialogBody>
         <DialogFooter>
           <Button variant="ghost" onClick={() => cerrar(false)} disabled={ligar.isPending}>
             Cancelar
@@ -212,6 +208,11 @@ export function LigarPagoACuentaDialog({
           <Button
             onClick={confirmar}
             disabled={ligar.isPending || facturaId == null || !importeValido}
+            title={
+              facturaId == null || !importeValido
+                ? 'Selecciona un pasivo y captura un importe dentro del saldo disponible.'
+                : undefined
+            }
             variant={difiere && !confirmaDiferencia ? 'destructive' : 'default'}
           >
             {ligar.isPending

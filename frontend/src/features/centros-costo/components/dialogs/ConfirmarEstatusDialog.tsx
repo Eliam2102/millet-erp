@@ -1,3 +1,4 @@
+import { DialogBody } from '@/components/ui/dialog';
 import { toast } from 'sonner';
 import { useQueryClient } from '@tanstack/react-query';
 import {
@@ -11,7 +12,7 @@ import {
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
 import { useConflictDialog } from '@/components/erp/collaboration/conflict-dialog-context';
-import { esApiError } from '@/lib/api';
+import { esApiError, codigoSoporte } from '@/lib/api';
 import { etiquetaNivel, type NivelDim } from '@/features/centros-costo/lib/etiquetas';
 import {
   useCambiarEstatusCatalogo,
@@ -74,9 +75,7 @@ export function ConfirmarEstatusDialog({
   const cambiar = useCambiarEstatusCatalogo<unknown>(target.recurso);
 
   const etiqueta = etiquetaNivel(target.nivel, 'configuracion');
-  const display = target.clave
-    ? `${target.clave} — ${target.nombre}`
-    : target.nombre;
+  const display = target.clave ? `${target.clave} — ${target.nombre}` : target.nombre;
 
   const advertencia = construirAdvertencia(target, accion);
 
@@ -86,25 +85,19 @@ export function ConfirmarEstatusDialog({
       {
         onSuccess: (data) => {
           toast.success(
-            accion === 'desactivar'
-              ? `${etiqueta} desactivada`
-              : `${etiqueta} reactivada`,
+            accion === 'desactivar' ? `${etiqueta} desactivada` : `${etiqueta} reactivada`,
             { description: describirResultado(target, accion, data) },
           );
           onOpenChange(false);
         },
         onError: (error) => {
           onOpenChange(false);
-          if (
-            handleCeCoMutationError(error, { conflictDialog, queryClient })
-          ) {
+          if (handleCeCoMutationError(error, { conflictDialog, queryClient })) {
             return;
           }
           if (esApiError(error)) {
             toast.error(error.problem.title, {
-              description: error.traceId
-                ? `Código: ${error.traceId}`
-                : undefined,
+              description: codigoSoporte(error),
             });
             return;
           }
@@ -116,11 +109,13 @@ export function ConfirmarEstatusDialog({
 
   return (
     <AlertDialog open={open} onOpenChange={onOpenChange}>
-      <AlertDialogContent>
+      <AlertDialogContent className="flex max-h-[90vh] w-[calc(100vw-2rem)] max-w-120 flex-col rounded-2xl border-line bg-surface-card shadow-dialog">
         <AlertDialogHeader>
           <AlertDialogTitle>
             {accion === 'desactivar' ? 'Desactivar' : 'Reactivar'} {etiqueta}
           </AlertDialogTitle>
+        </AlertDialogHeader>
+        <DialogBody>
           <AlertDialogDescription>
             <span className="font-medium">{display}</span>
             {advertencia && (
@@ -132,16 +127,13 @@ export function ConfirmarEstatusDialog({
             {accion === 'desactivar' && (
               <>
                 <br />
-                Nada se borra: la baja es lógica y los documentos históricos
-                siguen resolviendo.
+                Nada se borra: la baja es lógica y los documentos históricos siguen resolviendo.
               </>
             )}
           </AlertDialogDescription>
-        </AlertDialogHeader>
+        </DialogBody>
         <AlertDialogFooter>
-          <AlertDialogCancel disabled={cambiar.isPending}>
-            Cancelar
-          </AlertDialogCancel>
+          <AlertDialogCancel disabled={cambiar.isPending}>Cancelar</AlertDialogCancel>
           <AlertDialogAction
             onClick={(e) => {
               e.preventDefault();

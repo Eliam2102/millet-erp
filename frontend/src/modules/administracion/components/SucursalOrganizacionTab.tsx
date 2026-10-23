@@ -1,3 +1,4 @@
+import { ConfirmacionContent as AlertDialogContent } from '@/modules/administracion/components/ConfirmacionContent';
 import { useMemo, useState } from 'react';
 import { Link } from '@tanstack/react-router';
 import {
@@ -20,7 +21,6 @@ import {
   AlertDialog,
   AlertDialogAction,
   AlertDialogCancel,
-  AlertDialogContent,
   AlertDialogDescription,
   AlertDialogFooter,
   AlertDialogHeader,
@@ -33,6 +33,7 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
+  DialogBody,
 } from '@/components/ui/dialog';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useDepartamentos, usePuestos } from '@/features/catalogos/api';
@@ -51,7 +52,7 @@ import {
   useReactivarAsignacionSucursalDepartamento,
   useReactivarAsignacionSucursalPuesto,
 } from '@/modules/administracion/api';
-import { esApiError } from '@/lib/api';
+import { esApiError, codigoSoporte } from '@/lib/api';
 import { useHasPermission } from '@/lib/auth/useHasPermission';
 import { PermisosCanonicos } from '@/lib/auth/permission-codes';
 import { SucursalTabErrorState } from '@/modules/administracion/components/SucursalTabErrorState';
@@ -68,12 +69,8 @@ export function SucursalOrganizacionTab({
   canGestionarDeptos,
   canGestionarPuestos,
 }: SucursalOrganizacionTabProps) {
-  const canGestionarMasterDeptos = useHasPermission(
-    PermisosCanonicos.AdminDepartamentosGestionar,
-  );
-  const canGestionarMasterPuestos = useHasPermission(
-    PermisosCanonicos.AdminPuestosGestionar,
-  );
+  const canGestionarMasterDeptos = useHasPermission(PermisosCanonicos.AdminDepartamentosGestionar);
+  const canGestionarMasterPuestos = useHasPermission(PermisosCanonicos.AdminPuestosGestionar);
 
   const deptosQuery = useDepartamentosDeSucursal(sucursalId);
   const puestosQuery = usePuestosDeSucursal(sucursalId);
@@ -86,8 +83,11 @@ export function SucursalOrganizacionTab({
   const [modalDeptoOpen, setModalDeptoOpen] = useState(false);
   const [modalPuestoOpen, setModalPuestoOpen] = useState(false);
 
-  const deptosAsignados = deptosQuery.data?.items ?? [];
-  const puestosAsignados = puestosQuery.data?.items ?? [];
+  const deptosAsignados = useMemo(() => deptosQuery.data?.items ?? [], [deptosQuery.data?.items]);
+  const puestosAsignados = useMemo(
+    () => puestosQuery.data?.items ?? [],
+    [puestosQuery.data?.items],
+  );
 
   // Mapear cantidad de puestos por departamento
   const puestosCountPorDepto = useMemo(() => {
@@ -132,26 +132,18 @@ export function SucursalOrganizacionTab({
     const q = filtroPuestos.trim().toLowerCase();
     if (!q) return puestosDelDeptoActivo;
     return puestosDelDeptoActivo.filter(
-      (p) =>
-        p.puestoClave.toLowerCase().includes(q) ||
-        p.puestoNombre.toLowerCase().includes(q),
+      (p) => p.puestoClave.toLowerCase().includes(q) || p.puestoNombre.toLowerCase().includes(q),
     );
   }, [puestosDelDeptoActivo, filtroPuestos]);
 
   if (deptosQuery.isError) {
     return (
-      <SucursalTabErrorState
-        error={deptosQuery.error}
-        onRetry={() => deptosQuery.refetch()}
-      />
+      <SucursalTabErrorState error={deptosQuery.error} onRetry={() => deptosQuery.refetch()} />
     );
   }
   if (puestosQuery.isError) {
     return (
-      <SucursalTabErrorState
-        error={puestosQuery.error}
-        onRetry={() => puestosQuery.refetch()}
-      />
+      <SucursalTabErrorState error={puestosQuery.error} onRetry={() => puestosQuery.refetch()} />
     );
   }
 
@@ -167,25 +159,23 @@ export function SucursalOrganizacionTab({
   }
 
   return (
-    <div className="flex flex-col gap-3.5 h-[calc(100vh-14.5rem)] min-h-[580px]">
+    <div className="flex flex-col gap-3.5 h-[calc(100vh-14.5rem)] min-h-145">
       {/* ─── SECCIÓN SUPERIOR: DEPARTAMENTOS ASIGNADOS (MITAD SUPERIOR) ─── */}
-      <section className="flex flex-col flex-1 min-h-0 rounded-lg border bg-card/60 p-3.5 shadow-xs">
+      <section className="flex flex-col flex-1 min-h-0 rounded-lg border bg-surface-card/60 p-3.5 shadow-card-flat">
         {/* Cabecera fija de la sección superior */}
         <div className="shrink-0 flex flex-col gap-2.5 sm:flex-row sm:items-center sm:justify-between border-b pb-2.5">
           <div className="flex items-center gap-2">
-            <Building2 className="h-4.5 w-4.5 text-primary shrink-0" />
+            <Building2 className="h-4.5 w-4.5 text-brand shrink-0" />
             <div>
               <div className="flex items-center gap-2">
-                <h2 className="text-sm font-semibold leading-none text-foreground">
+                <h2 className="text-sm font-semibold leading-none text-ink">
                   Departamentos de la sucursal
                 </h2>
                 {deptosAsignados.length > 0 && (
-                  <Badge variant="secondary" className="text-xs font-mono">
-                    {deptosAsignados.length}
-                  </Badge>
+                  <Badge variant="neutral">{deptosAsignados.length}</Badge>
                 )}
               </div>
-              <p className="mt-1 text-xs text-muted-foreground line-clamp-1">
+              <p className="mt-1 text-xs text-ink-muted line-clamp-1">
                 Selecciona un departamento para ver y gestionar sus puestos asociados.
               </p>
             </div>
@@ -193,7 +183,7 @@ export function SucursalOrganizacionTab({
 
           <div className="flex items-center gap-2 shrink-0">
             <div className="relative w-full sm:w-56">
-              <Search className="absolute left-2.5 top-2.5 h-3.5 w-3.5 text-muted-foreground" />
+              <Search className="absolute left-2.5 top-2.5 h-3.5 w-3.5 text-ink-muted" />
               <Input
                 placeholder="Buscar departamentos..."
                 value={filtroDeptos}
@@ -206,7 +196,7 @@ export function SucursalOrganizacionTab({
             {canGestionarMasterDeptos && (
               <Button size="sm" variant="outline" className="h-8 whitespace-nowrap text-xs" asChild>
                 <Link to="/admin/departamentos">
-                  <FolderTree className="mr-1.5 h-3.5 w-3.5 text-muted-foreground" /> Catálogo
+                  <FolderTree className="mr-1.5 h-3.5 w-3.5 text-ink-muted" /> Catálogo
                 </Link>
               </Button>
             )}
@@ -226,12 +216,12 @@ export function SucursalOrganizacionTab({
         {/* Contenedor scrolleable de departamentos */}
         <div className="flex-1 min-h-0 overflow-y-auto pt-2.5 pr-1">
           {deptosAsignados.length === 0 ? (
-            <div className="flex h-full min-h-[120px] flex-col items-center justify-center rounded-lg border border-dashed bg-muted/20 px-4 py-6 text-center">
-              <Building2 className="mb-2 h-7 w-7 text-muted-foreground/60" />
+            <div className="flex h-full min-h-30 flex-col items-center justify-center rounded-lg border border-dashed bg-surface-muted/20 px-4 py-6 text-center">
+              <Building2 className="mb-2 h-7 w-7 text-ink-muted/60" />
               <h3 className="text-sm font-semibold">No hay departamentos asignados</h3>
-              <p className="mt-1 text-xs text-muted-foreground max-w-sm">
-                Esta sucursal aún no tiene departamentos vinculados. Asigna departamentos
-                del catálogo para habilitar la asignación de puestos.
+              <p className="mt-1 text-xs text-ink-muted max-w-sm">
+                Esta sucursal aún no tiene departamentos vinculados. Asigna departamentos del
+                catálogo para habilitar la asignación de puestos.
               </p>
               {canGestionarDeptos && (
                 <Button
@@ -245,14 +235,13 @@ export function SucursalOrganizacionTab({
               )}
             </div>
           ) : deptosFiltrados.length === 0 ? (
-            <div className="rounded-md border border-dashed bg-muted/10 px-4 py-6 text-center text-sm text-muted-foreground">
+            <div className="rounded-md border border-dashed bg-surface-muted/10 px-4 py-6 text-center text-sm text-ink-muted">
               No se encontraron departamentos con el término &ldquo;{filtroDeptos}&rdquo;.
             </div>
           ) : (
             <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-3">
               {deptosFiltrados.map((item) => {
-                const estaSeleccionado =
-                  departamentoActivo?.departamentoId === item.departamentoId;
+                const estaSeleccionado = departamentoActivo?.departamentoId === item.departamentoId;
                 const countPuestos = puestosCountPorDepto.get(item.departamentoId) ?? 0;
 
                 return (
@@ -273,24 +262,25 @@ export function SucursalOrganizacionTab({
       </section>
 
       {/* ─── SECCIÓN INFERIOR: PUESTOS DEL DEPARTAMENTO SELECCIONADO (MITAD INFERIOR) ─── */}
-      <section className="flex flex-col flex-1 min-h-0 rounded-lg border bg-card/60 p-3.5 shadow-xs">
+      <section className="flex flex-col flex-1 min-h-0 rounded-lg border bg-surface-card/60 p-3.5 shadow-card-flat">
         {departamentoActivo ? (
           <>
             {/* Cabecera fija de la sección de puestos */}
             <div className="shrink-0 flex flex-col gap-2.5 sm:flex-row sm:items-center sm:justify-between border-b pb-2.5">
               <div className="flex items-center gap-2">
-                <Briefcase className="h-4.5 w-4.5 text-primary shrink-0" />
+                <Briefcase className="h-4.5 w-4.5 text-brand shrink-0" />
                 <div>
                   <div className="flex items-center gap-2">
-                    <h3 className="text-sm font-semibold leading-none text-foreground">
-                      Puestos de {departamentoActivo.departamentoClave} — {departamentoActivo.departamentoNombre}
+                    <h3 className="text-sm font-semibold leading-none text-ink">
+                      Puestos de {departamentoActivo.departamentoClave} —{' '}
+                      {departamentoActivo.departamentoNombre}
                     </h3>
-                    <Badge variant="outline" className="text-xs font-mono">
+                    <Badge variant="neutral">
                       {puestosDelDeptoActivo.length}{' '}
                       {puestosDelDeptoActivo.length === 1 ? 'puesto' : 'puestos'}
                     </Badge>
                   </div>
-                  <p className="mt-1 text-xs text-muted-foreground line-clamp-1">
+                  <p className="mt-1 text-xs text-ink-muted line-clamp-1">
                     Puestos asignados exclusivamente a este departamento en la sucursal.
                   </p>
                 </div>
@@ -298,7 +288,7 @@ export function SucursalOrganizacionTab({
 
               <div className="flex items-center gap-2 shrink-0">
                 <div className="relative w-full sm:w-56">
-                  <Search className="absolute left-2.5 top-2.5 h-3.5 w-3.5 text-muted-foreground" />
+                  <Search className="absolute left-2.5 top-2.5 h-3.5 w-3.5 text-ink-muted" />
                   <Input
                     placeholder="Buscar puesto..."
                     value={filtroPuestos}
@@ -309,9 +299,14 @@ export function SucursalOrganizacionTab({
                 </div>
 
                 {canGestionarMasterPuestos && (
-                  <Button size="sm" variant="outline" className="h-8 whitespace-nowrap text-xs" asChild>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="h-8 whitespace-nowrap text-xs"
+                    asChild
+                  >
                     <Link to="/admin/puestos">
-                      <Briefcase className="mr-1.5 h-3.5 w-3.5 text-muted-foreground" /> Catálogo
+                      <Briefcase className="mr-1.5 h-3.5 w-3.5 text-ink-muted" /> Catálogo
                     </Link>
                   </Button>
                 )}
@@ -331,12 +326,12 @@ export function SucursalOrganizacionTab({
             {/* Contenedor scrolleable de puestos */}
             <div className="flex-1 min-h-0 overflow-y-auto pt-2.5 pr-1">
               {puestosDelDeptoActivo.length === 0 ? (
-                <div className="flex h-full min-h-[120px] flex-col items-center justify-center rounded-lg border border-dashed bg-muted/20 px-4 py-6 text-center">
-                  <FolderTree className="mb-2 h-7 w-7 text-muted-foreground/60" />
+                <div className="flex h-full min-h-30 flex-col items-center justify-center rounded-lg border border-dashed bg-surface-muted/20 px-4 py-6 text-center">
+                  <FolderTree className="mb-2 h-7 w-7 text-ink-muted/60" />
                   <h4 className="text-sm font-semibold">
                     No hay puestos asignados a {departamentoActivo.departamentoClave}
                   </h4>
-                  <p className="mt-1 text-xs text-muted-foreground max-w-sm">
+                  <p className="mt-1 text-xs text-ink-muted max-w-sm">
                     Asigna los puestos que operan dentro de este departamento en la sucursal.
                   </p>
                   {canGestionarPuestos && (
@@ -351,11 +346,11 @@ export function SucursalOrganizacionTab({
                   )}
                 </div>
               ) : puestosFiltrados.length === 0 ? (
-                <div className="rounded-md border border-dashed bg-muted/10 px-4 py-6 text-center text-sm text-muted-foreground">
+                <div className="rounded-md border border-dashed bg-surface-muted/10 px-4 py-6 text-center text-sm text-ink-muted">
                   No se encontraron puestos que coincidan con &ldquo;{filtroPuestos}&rdquo;.
                 </div>
               ) : (
-                <ul className="divide-y rounded-md border bg-card">
+                <ul className="divide-y rounded-md border bg-surface-card">
                   {puestosFiltrados.map((item) => (
                     <FilaPuestoDepartamento
                       key={item.puestoId}
@@ -369,8 +364,8 @@ export function SucursalOrganizacionTab({
             </div>
           </>
         ) : (
-          <div className="flex h-full min-h-[140px] flex-col items-center justify-center text-center text-sm text-muted-foreground">
-            <Building2 className="mb-2 h-7 w-7 text-muted-foreground/40" />
+          <div className="flex h-full min-h-35 flex-col items-center justify-center text-center text-sm text-ink-muted">
+            <Building2 className="mb-2 h-7 w-7 text-ink-muted/40" />
             Primero asigna o selecciona un departamento arriba para ver sus puestos asociados.
           </div>
         )}
@@ -473,25 +468,19 @@ function TarjetaDepartamento({
       className={cn(
         'group relative flex flex-col justify-between rounded-lg border p-3 text-left transition-all cursor-pointer',
         seleccionado
-          ? 'border-primary bg-primary/5 ring-1 ring-primary shadow-xs'
-          : 'border-border/80 bg-card hover:border-primary/50 hover:bg-muted/30',
+          ? 'border-brand bg-brand/5 ring-1 ring-brand shadow-card-flat'
+          : 'border-line/80 bg-surface-card hover:border-brand/50 hover:bg-surface-muted/30',
       )}
     >
       <div className="flex items-start justify-between gap-2">
         <div className="min-w-0 flex-1">
           <div className="flex items-center gap-2">
-            <span className="font-mono text-sm font-bold text-primary">
+            <span className="font-mono text-sm font-semibold text-brand">
               {item.departamentoClave}
             </span>
-            {seleccionado && (
-              <Badge variant="default" className="text-[10px] px-1.5 py-0 h-4">
-                Activo
-              </Badge>
-            )}
+            {seleccionado && <Badge variant="success">Activo</Badge>}
           </div>
-          <p className="mt-1 truncate text-sm font-medium text-foreground">
-            {item.departamentoNombre}
-          </p>
+          <p className="mt-1 truncate text-sm font-medium text-ink">{item.departamentoNombre}</p>
         </div>
 
         <div className="flex items-center gap-1.5" onClick={(e) => e.stopPropagation()}>
@@ -499,7 +488,7 @@ function TarjetaDepartamento({
             <Button
               variant="ghost"
               size="icon"
-              className="h-7 w-7 text-muted-foreground hover:text-destructive"
+              className="h-7 w-7 text-ink-muted hover:text-danger-fg"
               onClick={() => setConfirmDesactivar(true)}
               aria-label={`Desactivar departamento ${item.departamentoClave}`}
             >
@@ -510,7 +499,7 @@ function TarjetaDepartamento({
             <Button
               variant="ghost"
               size="icon"
-              className="h-7 w-7 text-muted-foreground hover:text-primary"
+              className="h-7 w-7 text-ink-muted hover:text-brand"
               onClick={handleReactivar}
               aria-label={`Reactivar departamento ${item.departamentoClave}`}
             >
@@ -521,18 +510,14 @@ function TarjetaDepartamento({
       </div>
 
       <div className="mt-3 flex items-center justify-between border-t pt-2 text-xs">
-        <span className="flex items-center text-muted-foreground">
+        <span className="flex items-center text-ink-muted">
           <Briefcase className="mr-1 h-3 w-3" />
           {countPuestos} {countPuestos === 1 ? 'puesto' : 'puestos'}
         </span>
         {activo ? (
-          <Badge variant="secondary" className="text-[10px] bg-emerald-500/10 text-emerald-700 dark:text-emerald-400">
-            Habilitado
-          </Badge>
+          <Badge variant="success">Habilitado</Badge>
         ) : (
-          <Badge variant="outline" className="text-[10px] text-muted-foreground">
-            Inactivo
-          </Badge>
+          <Badge variant="neutral">Inactivo</Badge>
         )}
       </div>
 
@@ -543,22 +528,19 @@ function TarjetaDepartamento({
         }}
       >
         <AlertDialogContent onClick={(e) => e.stopPropagation()}>
-          <AlertDialogHeader>
+          <AlertDialogHeader className="px-6 pt-5 pb-3">
             <AlertDialogTitle>Desactivar departamento</AlertDialogTitle>
+          </AlertDialogHeader>
+          <DialogBody>
             <AlertDialogDescription>
               ¿Confirmas desactivar{' '}
-              <span className="font-mono font-semibold">{item.departamentoClave}</span> en
-              esta sucursal?
+              <span className="font-mono font-semibold">{item.departamentoClave}</span> en esta
+              sucursal?
             </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel disabled={desactivar.isPending}>
-              Cancelar
-            </AlertDialogCancel>
-            <AlertDialogAction
-              onClick={handleConfirmarDesactivar}
-              disabled={desactivar.isPending}
-            >
+          </DialogBody>
+          <AlertDialogFooter className="border-t border-line-divider bg-surface-subtle px-6 py-4">
+            <AlertDialogCancel disabled={desactivar.isPending}>Cancelar</AlertDialogCancel>
+            <AlertDialogAction onClick={handleConfirmarDesactivar} disabled={desactivar.isPending}>
               {desactivar.isPending ? 'Desactivando…' : 'Desactivar'}
             </AlertDialogAction>
           </AlertDialogFooter>
@@ -576,11 +558,7 @@ interface FilaPuestoDepartamentoProps {
   canGestionar: boolean;
 }
 
-function FilaPuestoDepartamento({
-  sucursalId,
-  item,
-  canGestionar,
-}: FilaPuestoDepartamentoProps) {
+function FilaPuestoDepartamento({ sucursalId, item, canGestionar }: FilaPuestoDepartamentoProps) {
   const desactivar = useDesactivarAsignacionSucursalPuesto();
   const reactivar = useReactivarAsignacionSucursalPuesto();
   const [confirmDesactivar, setConfirmDesactivar] = useState(false);
@@ -629,22 +607,10 @@ function FilaPuestoDepartamento({
   return (
     <li className="flex items-center justify-between gap-3 px-4 py-3">
       <div className="flex flex-wrap items-center gap-3">
-        <span className="font-mono text-sm font-semibold text-primary">
-          {item.puestoClave}
-        </span>
-        <span className="text-sm font-medium text-foreground">
-          {item.puestoNombre}
-        </span>
-        {activo && (
-          <Badge variant="secondary" className="bg-emerald-500/10 text-emerald-700 dark:text-emerald-400">
-            Activo
-          </Badge>
-        )}
-        {inactivo && (
-          <Badge variant="outline" className="text-muted-foreground">
-            Inactivo
-          </Badge>
-        )}
+        <span className="font-mono text-sm font-semibold text-brand">{item.puestoClave}</span>
+        <span className="text-sm font-medium text-ink">{item.puestoNombre}</span>
+        {activo && <Badge variant="success">Activo</Badge>}
+        {inactivo && <Badge variant="neutral">Inactivo</Badge>}
       </div>
 
       <div className="flex items-center gap-2">
@@ -655,7 +621,7 @@ function FilaPuestoDepartamento({
             disabled={pending}
             onClick={() => setConfirmDesactivar(true)}
             aria-label={`Desvincular puesto ${item.puestoClave} del departamento`}
-            className="text-muted-foreground hover:text-destructive"
+            className="text-ink-muted hover:text-danger-fg"
           >
             <Unlink className="h-4 w-4 mr-1" /> Desvincular
           </Button>
@@ -680,32 +646,31 @@ function FilaPuestoDepartamento({
         }}
       >
         <AlertDialogContent>
-          <AlertDialogHeader>
+          <AlertDialogHeader className="px-6 pt-5 pb-3">
             <AlertDialogTitle>Desvincular puesto del departamento</AlertDialogTitle>
+          </AlertDialogHeader>
+          <DialogBody>
             <AlertDialogDescription asChild>
-              <div className="space-y-2 text-sm text-muted-foreground">
+              <div className="space-y-2 text-sm text-ink-muted">
                 <p>
                   ¿Confirmas desvincular el puesto{' '}
-                  <span className="font-mono font-semibold text-foreground">{item.puestoClave}</span> de
+                  <span className="font-mono font-semibold text-ink">{item.puestoClave}</span> de
                   este departamento en la sucursal?
                 </p>
-                <div className="rounded-md border border-amber-200 bg-amber-50/70 p-2.5 text-xs text-amber-900 dark:border-amber-900/50 dark:bg-amber-950/20 dark:text-amber-200">
+                <div className="rounded-md border border-line bg-warning-bg/70 p-2.5 text-xs text-warning-fg   ">
                   <p className="font-semibold">Información operativa:</p>
                   <p className="mt-0.5">
-                    Los empleados asignados actualmente continuarán operando con normalidad. Esta acción únicamente impide realizar nuevos registros o asignaciones con esta combinación en la sucursal.
+                    Los empleados asignados actualmente continuarán operando con normalidad. Esta
+                    acción únicamente impide realizar nuevos registros o asignaciones con esta
+                    combinación en la sucursal.
                   </p>
                 </div>
               </div>
             </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel disabled={desactivar.isPending}>
-              Cancelar
-            </AlertDialogCancel>
-            <AlertDialogAction
-              onClick={handleConfirmarDesactivar}
-              disabled={desactivar.isPending}
-            >
+          </DialogBody>
+          <AlertDialogFooter className="border-t border-line-divider bg-surface-subtle px-6 py-4">
+            <AlertDialogCancel disabled={desactivar.isPending}>Cancelar</AlertDialogCancel>
+            <AlertDialogAction onClick={handleConfirmarDesactivar} disabled={desactivar.isPending}>
               {desactivar.isPending ? 'Desvinculando…' : 'Desvincular'}
             </AlertDialogAction>
           </AlertDialogFooter>
@@ -759,9 +724,7 @@ function AsignarPuestoADepartamentoModal({
     const q = busquedaPuesto.trim().toLowerCase();
     if (!q) return puestosDisponibles;
     return puestosDisponibles.filter(
-      (p) =>
-        p.clave.toLowerCase().includes(q) ||
-        p.nombre.toLowerCase().includes(q),
+      (p) => p.clave.toLowerCase().includes(q) || p.nombre.toLowerCase().includes(q),
     );
   }, [puestosDisponibles, busquedaPuesto]);
 
@@ -797,86 +760,86 @@ function AsignarPuestoADepartamentoModal({
 
   return (
     <Dialog open={open} onOpenChange={handleOpenChange}>
-      <DialogContent className="sm:max-w-md">
+      <DialogContent size="md" className="">
         <DialogHeader>
           <DialogTitle>Asignar puesto al departamento</DialogTitle>
           <DialogDescription>
             El puesto pertenecerá al departamento{' '}
-            <strong className="text-foreground">
+            <strong className="text-ink">
               {departamento.departamentoClave} — {departamento.departamentoNombre}
             </strong>{' '}
             en esta sucursal.
           </DialogDescription>
         </DialogHeader>
+        <DialogBody>
+          <div className="space-y-4 py-2">
+            {catalogoQuery.isLoading ? (
+              <div className="space-y-3">
+                <Skeleton className="h-9 w-full" />
+                <Skeleton className="h-9 w-full" />
+              </div>
+            ) : puestosDisponibles.length === 0 ? (
+              <div className="rounded-md border border-dashed bg-surface-muted/20 p-4 text-center text-sm text-ink-muted space-y-2">
+                <p>Todos los puestos del catálogo maestro ya están asignados a esta sucursal.</p>
+                <Button size="sm" variant="outline" className="text-xs" asChild>
+                  <Link to="/admin/puestos">
+                    <Briefcase className="mr-1.5 h-3.5 w-3.5" /> Ir al catálogo de Puestos
+                  </Link>
+                </Button>
+              </div>
+            ) : (
+              <>
+                {puestosDisponibles.length > 8 && (
+                  <div className="relative">
+                    <Search className="absolute left-2.5 top-2.5 h-3.5 w-3.5 text-ink-muted" />
+                    <Input
+                      placeholder="Filtrar puestos disponibles..."
+                      value={busquedaPuesto}
+                      onChange={(e) => setBusquedaPuesto(e.target.value)}
+                      className="h-8 pl-8 text-xs"
+                    />
+                  </div>
+                )}
 
-        <div className="space-y-4 py-2">
-          {catalogoQuery.isLoading ? (
-            <div className="space-y-3">
-              <Skeleton className="h-9 w-full" />
-              <Skeleton className="h-9 w-full" />
-            </div>
-          ) : puestosDisponibles.length === 0 ? (
-            <div className="rounded-md border border-dashed bg-muted/20 p-4 text-center text-sm text-muted-foreground space-y-2">
-              <p>Todos los puestos del catálogo maestro ya están asignados a esta sucursal.</p>
-              <Button size="sm" variant="outline" className="text-xs" asChild>
-                <Link to="/admin/puestos">
-                  <Briefcase className="mr-1.5 h-3.5 w-3.5" /> Ir al catálogo de Puestos
-                </Link>
-              </Button>
-            </div>
-          ) : (
-            <>
-              {puestosDisponibles.length > 8 && (
-                <div className="relative">
-                  <Search className="absolute left-2.5 top-2.5 h-3.5 w-3.5 text-muted-foreground" />
-                  <Input
-                    placeholder="Filtrar puestos disponibles..."
-                    value={busquedaPuesto}
-                    onChange={(e) => setBusquedaPuesto(e.target.value)}
-                    className="h-8 pl-8 text-xs"
-                  />
-                </div>
-              )}
-
-              <div className="space-y-1.5">
-                <label
-                  htmlFor="puesto-select-depto"
-                  className="text-xs font-semibold uppercase tracking-wider text-foreground"
-                >
-                  Puesto *
-                </label>
-                <select
-                  id="puesto-select-depto"
-                  aria-label="Puesto a asignar"
-                  className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm shadow-xs focus:outline-hidden focus:ring-2 focus:ring-ring"
-                  value={puestoId}
-                  onChange={(e) => setPuestoId(e.target.value)}
-                  disabled={asignar.isPending}
-                >
-                  <option value="">
-                    -- Selecciona un puesto ({puestosFiltrados.length} disponibles) --
-                  </option>
-                  {puestosFiltrados.map((p) => (
-                    <option key={p.id} value={p.id}>
-                      {p.clave} — {p.nombre}
+                <div className="space-y-1.5">
+                  <label
+                    htmlFor="puesto-select-depto"
+                    className="text-xs font-semibold uppercase tracking-wider text-ink"
+                  >
+                    Puesto *
+                  </label>
+                  <select
+                    id="puesto-select-depto"
+                    aria-label="Puesto a asignar"
+                    className="w-full rounded-md border border-line-control bg-surface-page px-3 py-2 text-sm shadow-card-flat focus:outline-hidden focus:ring-2 focus:ring-brand"
+                    value={puestoId}
+                    onChange={(e) => setPuestoId(e.target.value)}
+                    disabled={asignar.isPending}
+                  >
+                    <option value="">
+                      -- Selecciona un puesto ({puestosFiltrados.length} disponibles) --
                     </option>
-                  ))}
-                </select>
-              </div>
+                    {puestosFiltrados.map((p) => (
+                      <option key={p.id} value={p.id}>
+                        {p.clave} — {p.nombre}
+                      </option>
+                    ))}
+                  </select>
+                </div>
 
-              <div className="rounded-md bg-muted/50 p-2.5 text-xs text-muted-foreground flex items-center gap-2">
-                <CheckCircle2 className="h-4 w-4 text-primary shrink-0" />
-                <span>
-                  Departamento destino:{' '}
-                  <strong className="text-foreground">
-                    {departamento.departamentoClave} — {departamento.departamentoNombre}
-                  </strong>
-                </span>
-              </div>
-            </>
-          )}
-        </div>
-
+                <div className="rounded-md bg-surface-muted/50 p-2.5 text-xs text-ink-muted flex items-center gap-2">
+                  <CheckCircle2 className="h-4 w-4 text-brand shrink-0" />
+                  <span>
+                    Departamento destino:{' '}
+                    <strong className="text-ink">
+                      {departamento.departamentoClave} — {departamento.departamentoNombre}
+                    </strong>
+                  </span>
+                </div>
+              </>
+            )}
+          </div>
+        </DialogBody>
         <DialogFooter className="gap-2 sm:gap-0">
           <Button
             variant="outline"
@@ -930,9 +893,7 @@ function AsignarDepartamentoModal({
     const q = busquedaCatalogo.trim().toLowerCase();
     if (!q) return disponibles;
     return disponibles.filter(
-      (d) =>
-        d.clave.toLowerCase().includes(q) ||
-        d.nombre.toLowerCase().includes(q),
+      (d) => d.clave.toLowerCase().includes(q) || d.nombre.toLowerCase().includes(q),
     );
   }, [disponibles, busquedaCatalogo]);
 
@@ -948,9 +909,7 @@ function AsignarDepartamentoModal({
       },
       {
         onSuccess: () => {
-          toast.success(
-            depto ? `Departamento ${depto.clave} asignado` : 'Departamento asignado',
-          );
+          toast.success(depto ? `Departamento ${depto.clave} asignado` : 'Departamento asignado');
           setDepartamentoSeleccionadoId('');
           setBusquedaCatalogo('');
           onOpenChange(false);
@@ -962,65 +921,68 @@ function AsignarDepartamentoModal({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-md">
+      <DialogContent size="md" className="">
         <DialogHeader>
           <DialogTitle>Asignar departamento a la sucursal</DialogTitle>
           <DialogDescription>
-            Selecciona un departamento del catálogo maestro para habilitarlo en esta
-            sucursal.
+            Selecciona un departamento del catálogo maestro para habilitarlo en esta sucursal.
           </DialogDescription>
         </DialogHeader>
-
-        {catalogoQuery.isLoading ? (
-          <div className="space-y-3 py-2">
-            <Skeleton className="h-9 w-full" />
-            <Skeleton className="h-9 w-full" />
-          </div>
-        ) : disponibles.length === 0 ? (
-          <div className="rounded-md border border-dashed bg-muted/20 p-4 text-center text-sm text-muted-foreground space-y-2">
-            <p>Todos los departamentos del catálogo maestro ya están asignados a esta sucursal.</p>
-            <Button size="sm" variant="outline" className="text-xs" asChild>
-              <Link to="/admin/departamentos">
-                <FolderTree className="mr-1.5 h-3.5 w-3.5" /> Ir al catálogo de Departamentos
-              </Link>
-            </Button>
-          </div>
-        ) : (
-          <div className="space-y-3 py-2">
-            {disponibles.length > 8 && (
-              <div className="relative">
-                <Search className="absolute left-2.5 top-2.5 h-3.5 w-3.5 text-muted-foreground" />
-                <Input
-                  placeholder="Filtrar departamentos disponibles..."
-                  value={busquedaCatalogo}
-                  onChange={(e) => setBusquedaCatalogo(e.target.value)}
-                  className="h-8 pl-8 text-xs"
-                />
-              </div>
-            )}
-
-            <div className="space-y-1.5">
-              <Label htmlFor="select-depto-modal" className="text-xs font-medium">
-                Departamento *
-              </Label>
-              <select
-                id="select-depto-modal"
-                aria-label="Departamento a asignar"
-                value={departamentoSeleccionadoId}
-                onChange={(e) => setDepartamentoSeleccionadoId(e.target.value)}
-                className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50"
-              >
-                <option value="">-- Selecciona un departamento ({disponiblesFiltrados.length} disponibles) --</option>
-                {disponiblesFiltrados.map((d) => (
-                  <option key={d.id} value={d.id}>
-                    {d.clave} - {d.nombre}
-                  </option>
-                ))}
-              </select>
+        <DialogBody>
+          {catalogoQuery.isLoading ? (
+            <div className="space-y-3 py-2">
+              <Skeleton className="h-9 w-full" />
+              <Skeleton className="h-9 w-full" />
             </div>
-          </div>
-        )}
+          ) : disponibles.length === 0 ? (
+            <div className="rounded-md border border-dashed bg-surface-muted/20 p-4 text-center text-sm text-ink-muted space-y-2">
+              <p>
+                Todos los departamentos del catálogo maestro ya están asignados a esta sucursal.
+              </p>
+              <Button size="sm" variant="outline" className="text-xs" asChild>
+                <Link to="/admin/departamentos">
+                  <FolderTree className="mr-1.5 h-3.5 w-3.5" /> Ir al catálogo de Departamentos
+                </Link>
+              </Button>
+            </div>
+          ) : (
+            <div className="space-y-3 py-2">
+              {disponibles.length > 8 && (
+                <div className="relative">
+                  <Search className="absolute left-2.5 top-2.5 h-3.5 w-3.5 text-ink-muted" />
+                  <Input
+                    placeholder="Filtrar departamentos disponibles..."
+                    value={busquedaCatalogo}
+                    onChange={(e) => setBusquedaCatalogo(e.target.value)}
+                    className="h-8 pl-8 text-xs"
+                  />
+                </div>
+              )}
 
+              <div className="space-y-1.5">
+                <Label htmlFor="select-depto-modal" className="text-xs font-medium">
+                  Departamento *
+                </Label>
+                <select
+                  id="select-depto-modal"
+                  aria-label="Departamento a asignar"
+                  value={departamentoSeleccionadoId}
+                  onChange={(e) => setDepartamentoSeleccionadoId(e.target.value)}
+                  className="flex h-9 w-full rounded-md border border-line-control bg-transparent px-3 py-1 text-sm shadow-card-flat transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-brand disabled:cursor-not-allowed disabled:opacity-50"
+                >
+                  <option value="">
+                    -- Selecciona un departamento ({disponiblesFiltrados.length} disponibles) --
+                  </option>
+                  {disponiblesFiltrados.map((d) => (
+                    <option key={d.id} value={d.id}>
+                      {d.clave} - {d.nombre}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            </div>
+          )}
+        </DialogBody>
         <DialogFooter className="gap-2 sm:gap-0">
           <Button
             type="button"
@@ -1047,7 +1009,7 @@ function handleError(accion: string) {
   return (error: unknown) => {
     if (esApiError(error)) {
       toast.error(error.problem.title, {
-        description: error.traceId ? `Código: ${error.traceId}` : undefined,
+        description: codigoSoporte(error),
       });
     } else {
       toast.error(`Error al ${accion}.`);

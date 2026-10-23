@@ -1,22 +1,20 @@
-import {
-  EstadoBadge,
-  EnAlmacenBadge,
-  DateTimeDisplay,
-} from '@/components/erp';
+import { useState } from 'react';
+import { DateTimeDisplay } from '@/components/erp';
+import { Button } from '@/components/ui/button';
+import { EditarCabeceraRequisicionForm } from '@/features/compras/components/EditarCabeceraRequisicionForm';
+import { accionEditarCabecera } from '@/features/compras/lib/acciones-disponibles';
+import { useAuthStore } from '@/lib/auth/auth-store';
 import {
   clasificacionToString,
   prioridadToString,
   type RequisicionResponse,
 } from '@/features/compras/api/types';
-import {
-  departamentoLabel,
-  requisitanteLabel,
-} from '@/features/compras/lib/nombres';
+import { departamentoLabel, requisitanteLabel } from '@/features/compras/lib/nombres';
 
 /**
  * <c>&lt;CabeceraRequisicion/&gt;</c> — bloque superior del detalle
- * P3 con los datos de cabecera de la RQ. Read-only en UF1-PR2; la
- * edición vive en UF2 (P4 nueva) y futuras (PATCH cabecera).
+ * P3 con los datos de cabecera de la RQ. En Borrador, con permiso de
+ * editar, se editan aquí vía PATCH cabecera (86e3tferc).
  */
 export interface CabeceraRequisicionProps {
   rq: RequisicionResponse;
@@ -29,41 +27,28 @@ export interface CabeceraRequisicionProps {
   resolverNombre: (id: string | null | undefined) => string;
 }
 
-export function CabeceraRequisicion({
-  rq,
-  resolverNombre,
-}: CabeceraRequisicionProps) {
+export function CabeceraRequisicion({ rq, resolverNombre }: CabeceraRequisicionProps) {
+  const permisos = useAuthStore((s) => s.permisos);
+  const puedeEditar = accionEditarCabecera(rq, permisos).habilitada;
+  const [editando, setEditando] = useState(false);
   return (
-    <section className="rounded-md border bg-card p-4">
-      <header className="flex flex-wrap items-center justify-between gap-3">
-        <div>
-          <h1 className="font-mono text-2xl font-semibold tracking-tight">
-            {rq.folio}
-          </h1>
-          <p className="text-sm text-muted-foreground">
-            Solicitada{' '}
-            <DateTimeDisplay value={rq.fechaSolicitud} variant="long" />
-          </p>
+    <section className="space-y-4 rounded-md border bg-surface-card p-4">
+      {puedeEditar && !editando && (
+        <div className="flex justify-end">
+          <Button variant="secondary" onClick={() => setEditando(true)}>
+            Editar cabecera
+          </Button>
         </div>
-        <EstadoBadge
-          tipo="requisicion"
-          estado={rq.estado}
-          situacion={rq.situacionSurtido}
-          className="text-sm"
-        />
-        <EnAlmacenBadge
-          enAlmacen={rq.enAlmacen}
-          className="text-sm"
-        />
-      </header>
-
-      <dl className="mt-4 grid grid-cols-1 gap-x-6 gap-y-2 text-sm md:grid-cols-2 lg:grid-cols-3">
+      )}
+      {editando && <EditarCabeceraRequisicionForm rq={rq} onClose={() => setEditando(false)} />}
+      <dl className="grid grid-cols-1 gap-x-6 gap-y-2 text-sm @lg:grid-cols-2 @3xl:grid-cols-3">
+        <Item label="Solicitada">
+          <DateTimeDisplay value={rq.fechaSolicitud} variant="long" />
+        </Item>
         <Item label="Requisitante">{requisitanteLabel(rq)}</Item>
         <Item label="Departamento">{departamentoLabel(rq)}</Item>
         <Item label="Sucursal">{resolverNombre(rq.sucursalId)}</Item>
-        <Item label="Clasificación">
-          {clasificacionToString(rq.clasificacion)}
-        </Item>
+        <Item label="Clasificación">{clasificacionToString(rq.clasificacion)}</Item>
         <Item label="Prioridad">{prioridadToString(rq.prioridad)}</Item>
         <Item label="Fecha entrega deseada">
           <DateTimeDisplay value={rq.fechaEntregaDeseada} className="whitespace-nowrap" />
@@ -75,6 +60,7 @@ export function CabeceraRequisicion({
               resolverNombre(rq.proveedorSugeridoId))
             : '—'}
         </Item>
+        <Item label="Surtido de almacén">{rq.soloApartarSiCompleto ? 'Completo' : 'Parcial'}</Item>
         <Item label="Versión" mono>
           v{rq.version}
         </Item>
@@ -82,8 +68,8 @@ export function CabeceraRequisicion({
 
       {rq.obra && <p className="mt-2 text-sm text-ink">Obra: {rq.obra}</p>}
       {rq.descripcion && (
-        <div className="mt-4 rounded-md border bg-muted/30 p-3 text-sm">
-          <p className="mb-1 text-xs font-medium uppercase tracking-wide text-muted-foreground">
+        <div className="mt-4 rounded-md border bg-surface-muted/30 p-3 text-sm">
+          <p className="mb-1 text-xs font-medium uppercase tracking-wide text-ink-muted">
             Descripción
           </p>
           <p className="whitespace-pre-wrap">{rq.descripcion}</p>
@@ -91,19 +77,14 @@ export function CabeceraRequisicion({
       )}
 
       {rq.motivoTerminacionTexto != null && (
-        <div className="mt-3 rounded-md border border-rose-200 bg-rose-50 p-3 text-sm">
-          <p className="mb-1 text-xs font-medium uppercase tracking-wide text-rose-700">
+        <div className="mt-3 rounded-md border border-danger bg-danger-bg p-3 text-sm">
+          <p className="mb-1 text-xs font-medium uppercase tracking-wide text-danger-fg">
             Motivo de terminación
           </p>
-          <p className="whitespace-pre-wrap text-rose-900">
-            {rq.motivoTerminacionTexto}
-          </p>
+          <p className="whitespace-pre-wrap text-danger-fg">{rq.motivoTerminacionTexto}</p>
           {rq.fechaTerminacion && (
-            <p className="mt-1 text-xs text-rose-700">
-              <DateTimeDisplay
-                value={rq.fechaTerminacion}
-                variant="datetime"
-              />
+            <p className="mt-1 text-xs text-danger-fg">
+              <DateTimeDisplay value={rq.fechaTerminacion} variant="datetime" />
             </p>
           )}
         </div>
@@ -124,9 +105,7 @@ function Item({
   return (
     <div className="grid min-w-0 gap-y-1">
       <dt className="text-xs text-ink-muted">{label}</dt>
-      <dd className={mono ? 'min-w-0 break-words font-mono' : 'min-w-0 break-words'}>
-        {children}
-      </dd>
+      <dd className={mono ? 'min-w-0 break-words font-mono' : 'min-w-0 break-words'}>{children}</dd>
     </div>
   );
 }

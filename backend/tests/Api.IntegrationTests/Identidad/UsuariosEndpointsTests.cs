@@ -118,6 +118,19 @@ public class UsuariosEndpointsTests : IClassFixture<WebApplicationFactory<Progra
             deptoProp.GetGuid());
     }
 
+    [Fact]
+    public async Task Me_Expone_EmpleadoId_Aditivo()
+    {
+        var client = await CreateSuperAdminClientAsync();
+        var response = await client.GetAsync("/api/auth/me");
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        var json = await ReadJsonAsync(response);
+        // Aditivo: la clave siempre viaja; es null si el usuario no está ligado a un empleado.
+        Assert.True(json.TryGetProperty("empleadoId", out _),
+            "MeResponse debe exponer empleadoId");
+    }
+
     // ====================================================================
     // ADMIN CRUD (F-Admin-PR4.2).
     // ====================================================================

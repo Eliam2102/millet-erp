@@ -1,3 +1,13 @@
+import { ListadoModulo } from '@/components/erp/data/ListadoModulo';
+import { TabsEstado } from '@/components/erp/data/TabsEstado';
+import {
+  Table,
+  TableHeader,
+  TableBody,
+  TableRow,
+  TableHead,
+  TableCell,
+} from '@/components/ui/table';
 import { useMemo, useState } from 'react';
 import { Link, useNavigate, useSearch } from '@tanstack/react-router';
 import { Inbox, Plus } from 'lucide-react';
@@ -11,6 +21,7 @@ import {
   SortableHeader,
   compareItemsBy,
   type SortState,
+  PaginacionTabla,
 } from '@/components/erp';
 import { useOrdenesCompra } from '@/features/compras/ordenes/api/useOrdenesCompra';
 import { useProveedores, useUsuarios, mapById } from '@/features/catalogos/api';
@@ -20,8 +31,15 @@ import { PermisosCanonicos } from '@/lib/auth/permission-codes';
 import { FiltrosBandejaOc } from '@/features/compras/ordenes/components/FiltrosBandejaOc';
 import { HoverSubEstados } from '@/features/compras/ordenes/components/HoverSubEstados';
 import { useNuevaOrdenCompra } from '@/features/compras/ordenes/components/nueva-orden-compra-context';
-import { type OrdenCompraResumen } from '@/features/compras/ordenes/api/types';
+import {
+  estadoOcToString,
+  ESTADO_COMERCIAL_PROVEEDOR_LABELS,
+  EstadoComercialProveedorOc,
+  EstadoOrdenCompra,
+  type OrdenCompraResumen,
+} from '@/features/compras/ordenes/api/types';
 import { type BandejaOcSearch } from '@/features/compras/ordenes/lib/bandeja-oc-search-schema';
+import { PageHeader } from '@/components/erp/PageHeader';
 
 // Path interno del routeTree (incluye el layout `_app`). Mismo patrón
 // que <c>BandejaRequisiciones</c>; el path público que usa <c>Link</c>
@@ -66,6 +84,7 @@ export function BandejaOrdenesCompra() {
     subEstadoRecepcion: search.subEstadoRecepcion,
     subEstadoFacturacion: search.subEstadoFacturacion,
     subEstadoPago: search.subEstadoPago,
+    estadoComercialProveedor: search.estadoComercialProveedor,
     proveedorId: search.proveedorId,
     compradorTitularId: search.compradorTitularId,
     fechaDesde: search.fechaDesde,
@@ -88,10 +107,7 @@ export function BandejaOrdenesCompra() {
     () => mapById(proveedoresQuery.data?.items),
     [proveedoresQuery.data],
   );
-  const usuariosMap = useMemo(
-    () => mapById(usuariosQuery.data?.items),
-    [usuariosQuery.data],
-  );
+  const usuariosMap = useMemo(() => mapById(usuariosQuery.data?.items), [usuariosQuery.data]);
 
   // Búsqueda por folio: client-side sobre la página actual (el `q`
   // del topbar también se manda como `referenciaProveedor` server-side
@@ -113,29 +129,52 @@ export function BandejaOrdenesCompra() {
   }
 
   return (
-    <div className="space-y-4 p-4" data-component="bandeja-ordenes-compra">
-      <div className="flex flex-wrap items-center justify-between gap-2">
-        <h1 className="text-2xl font-semibold tracking-tight">
-          Bandeja de OCs
-        </h1>
-        {canCrear && (
-          <Button onClick={() => nuevaOC.abrir()} data-action="nueva-oc">
-            <Plus className="mr-2 h-4 w-4" />
-            Nueva OC
-          </Button>
-        )}
-      </div>
-
-      <FiltrosBandejaOc search={search} onChange={setSearch} />
-
-      <RenderTabla
-        query={ordenesQuery}
-        itemsFiltrados={itemsFiltrados}
-        proveedoresMap={proveedoresMap}
-        usuariosMap={usuariosMap}
-        search={search}
-        onChangeSearch={setSearch}
+    <div className="flex min-h-0 flex-1 flex-col gap-5" data-component="bandeja-ordenes-compra">
+      <PageHeader
+        titulo="Órdenes de compra"
+        acciones={
+          canCrear && (
+            <Button onClick={() => nuevaOC.abrir()} data-action="nueva-oc">
+              <Plus className="mr-2 h-4 w-4" />
+              Nueva OC
+            </Button>
+          )
+        }
       />
+
+      <ListadoModulo
+        pie={
+          <PaginacionTabla
+            total={ordenesQuery.data?.totalCount ?? 0}
+            offset={((search.page ?? 1) - 1) * (search.pageSize ?? 10)}
+            limit={search.pageSize ?? 10}
+            onChange={(offset, limit) =>
+              setSearch({ ...search, page: Math.floor(offset / limit) + 1, pageSize: limit })
+            }
+          />
+        }
+        tabs={
+          <TabsEstado
+            opciones={Object.values(EstadoOrdenCompra)
+              .filter((v): v is EstadoOrdenCompra => typeof v === 'number')
+              .map((valor) => ({ valor, label: estadoOcToString(valor) }))}
+            valor={search.estado}
+            conteos={undefined}
+            onChange={(estado) =>
+              setSearch({ ...search, estado: estado as BandejaOcSearch['estado'], page: 1 })
+            }
+          />
+        }
+        filtros={<FiltrosBandejaOc search={search} onChange={setSearch} />}
+      >
+        <RenderTabla
+          query={ordenesQuery}
+          itemsFiltrados={itemsFiltrados}
+          proveedoresMap={proveedoresMap}
+          usuariosMap={usuariosMap}
+          search={search}
+        />
+      </ListadoModulo>
     </div>
   );
 }
@@ -143,13 +182,9 @@ export function BandejaOrdenesCompra() {
 interface RenderTablaProps {
   query: ReturnType<typeof useOrdenesCompra>;
   itemsFiltrados: readonly OrdenCompraResumen[];
-  proveedoresMap: Map<
-    string,
-    { nombreComercial: string | null; razonSocial: string }
-  >;
+  proveedoresMap: Map<string, { nombreComercial: string | null; razonSocial: string }>;
   usuariosMap: Map<string, { nombre: string }>;
   search: BandejaOcSearch;
-  onChangeSearch: (next: BandejaOcSearch) => void;
 }
 
 type SortKey = 'folio' | 'fechaDocumento' | 'estado';
@@ -160,15 +195,12 @@ function RenderTabla({
   proveedoresMap,
   usuariosMap,
   search,
-  onChangeSearch,
 }: RenderTablaProps) {
   const [sort, setSort] = useState<SortState<SortKey> | null>(null);
 
   const itemsOrdenados = useMemo(() => {
     if (sort == null) return itemsFiltrados;
-    return [...itemsFiltrados].sort((a, b) =>
-      compareItemsBy(a, b, sort.key, sort.dir),
-    );
+    return [...itemsFiltrados].sort((a, b) => compareItemsBy(a, b, sort.key, sort.dir));
   }, [itemsFiltrados, sort]);
 
   if (query.isLoading) {
@@ -215,8 +247,8 @@ function RenderTabla({
   }
 
   return (
-    <div className="overflow-x-auto rounded-md border bg-card">
-      <table className="w-full min-w-[1040px] table-fixed text-sm">
+    <div className="flex min-h-0 flex-1 flex-col">
+      <Table className="w-full min-w-full table-fixed text-sm">
         <colgroup>
           <col className="w-[180px]" />
           <col className="w-[110px]" />
@@ -226,41 +258,41 @@ function RenderTabla({
           <col className="w-[84px]" />
           <col className="w-[76px]" />
         </colgroup>
-        <thead className="bg-muted/50 text-xs uppercase tracking-wide text-muted-foreground">
-          <tr>
-            <th className="px-3 py-2 text-left">
+        <TableHeader className="bg-surface-muted/50 text-xs uppercase tracking-wide text-ink-muted">
+          <TableRow>
+            <TableHead className="px-3 py-2 text-left">
               <SortableHeader
                 columnKey="folio"
                 label="Folio"
                 current={sort}
                 onSortChange={setSort}
               />
-            </th>
-            <th className="px-3 py-2 text-left">
+            </TableHead>
+            <TableHead className="px-3 py-2 text-left">
               <SortableHeader
                 columnKey="fechaDocumento"
                 label="Fecha"
                 current={sort}
                 onSortChange={setSort}
               />
-            </th>
-            <th className="px-3 py-2 text-left font-medium">Proveedor</th>
-            <th className="px-3 py-2 text-left font-medium">Comprador</th>
-            <th className="px-3 py-2 text-left">
+            </TableHead>
+            <TableHead className="px-3 py-2 text-left font-medium">Proveedor</TableHead>
+            <TableHead className="px-3 py-2 text-left font-medium">Comprador</TableHead>
+            <TableHead className="px-3 py-2 text-left">
               <SortableHeader
                 columnKey="estado"
                 label="Estado"
                 current={sort}
                 onSortChange={setSort}
               />
-            </th>
-            <th className="px-3 py-2 text-left font-medium">
+            </TableHead>
+            <TableHead className="px-3 py-2 text-left font-medium">
               <abbr title="Recepción · Facturación · Pago">Sub-estados</abbr>
-            </th>
-            <th className="px-3 py-2 text-right font-medium">Ver</th>
-          </tr>
-        </thead>
-        <tbody>
+            </TableHead>
+            <TableHead className="px-3 py-2 text-right font-medium">Ver</TableHead>
+          </TableRow>
+        </TableHeader>
+        <TableBody className="[&_tr]:h-12">
           {itemsOrdenados.map((oc, i) => {
             const proveedor = proveedoresMap.get(oc.proveedorId);
             const proveedorLabel =
@@ -268,34 +300,48 @@ function RenderTabla({
                 ? (proveedor.nombreComercial ?? proveedor.razonSocial)
                 : oc.proveedorId;
             const comprador =
-              oc.compradorNombre ?? usuariosMap.get(oc.compradorTitularId)?.nombre ??
-              '[NOMBRE POR CONFIRMAR]';
+              oc.compradorNombre ?? usuariosMap.get(oc.compradorTitularId)?.nombre ?? 'Sin asignar';
             return (
-              <tr
-                key={oc.id}
-                className={i % 2 === 1 ? 'bg-muted/20' : undefined}
-              >
-                <td className="whitespace-nowrap px-3 py-2 font-mono">{oc.folio}</td>
-                <td className="px-3 py-2">
+              <TableRow key={oc.id} className={i % 2 === 1 ? 'bg-surface-muted/20' : undefined}>
+                <TableCell className="whitespace-nowrap px-3 py-2 font-mono">
+                  <Link
+                    className="font-mono text-xs font-medium text-brand"
+                    to="/compras/ordenes/$id"
+                    params={{ id: oc.id }}
+                    state={{ bandejaOcSearch: search } as never}
+                  >
+                    {oc.folio}
+                  </Link>
+                </TableCell>
+                <TableCell className="px-3 py-2">
                   <DateTimeDisplay value={oc.fechaDocumento} className="whitespace-nowrap" />
-                </td>
-                <td className="px-3 py-2 truncate" title={proveedorLabel}>
+                </TableCell>
+                <TableCell className="px-3 py-2 truncate" title={proveedorLabel}>
                   {proveedorLabel}
-                </td>
-                <td className="px-3 py-2 truncate" title={comprador}>
+                </TableCell>
+                <TableCell className={`px-3 py-2 truncate${comprador === 'Sin asignar' ? ' text-ink-muted' : ''}`} title={comprador}>
                   {comprador}
-                </td>
-                <td className="px-3 py-2">
-                  <EstadoBadge tipo="orden-compra" estado={oc.estado} />
-                </td>
-                <td className="px-3 py-2">
+                </TableCell>
+                <TableCell className="px-3 py-2">
+                  <div className="flex flex-col items-start gap-1">
+                    <EstadoBadge tipo="orden-compra" estado={oc.estado} />
+                    {oc.estadoComercialProveedor != null &&
+                      (oc.estadoComercialProveedor !== EstadoComercialProveedorOc.SinRespuesta ||
+                        oc.estado === EstadoOrdenCompra.Autorizada) && (
+                        <span className="text-xs text-ink-muted">
+                          {ESTADO_COMERCIAL_PROVEEDOR_LABELS[oc.estadoComercialProveedor]}
+                        </span>
+                      )}
+                  </div>
+                </TableCell>
+                <TableCell className="px-3 py-2">
                   <HoverSubEstados
                     recepcion={oc.subEstadoRecepcion}
                     facturacion={oc.subEstadoFacturacion}
                     pago={oc.subEstadoPago}
                   />
-                </td>
-                <td className="px-3 py-2 text-right">
+                </TableCell>
+                <TableCell className="px-3 py-2 text-right">
                   <Button asChild variant="ghost" size="sm">
                     <Link
                       to="/compras/ordenes/$id"
@@ -305,21 +351,12 @@ function RenderTabla({
                       Ver
                     </Link>
                   </Button>
-                </td>
-              </tr>
+                </TableCell>
+              </TableRow>
             );
           })}
-        </tbody>
-      </table>
-
-      <Paginacion
-        total={total}
-        page={search.page ?? 1}
-        pageSize={search.pageSize ?? 50}
-        onChange={(page, pageSize) =>
-          onChangeSearch({ ...search, page, pageSize })
-        }
-      />
+        </TableBody>
+      </Table>
     </div>
   );
 }
@@ -329,65 +366,3 @@ function RenderTabla({
 // `components/HoverSubEstados.tsx` (UF6-PR1). UF7-PR1 lo consumirá
 // también en la pantalla de Partidas Abiertas.
 // ============================================================================
-
-// ============================================================================
-// Paginación page/pageSize (mirror del backend ListarOrdenesCompraResponse).
-// Diferente al de RQ que usa offset/limit; cada submódulo respeta el shape
-// real de su endpoint.
-// ============================================================================
-
-interface PaginacionProps {
-  total: number;
-  page: number;
-  pageSize: number;
-  onChange: (page: number, pageSize: number) => void;
-}
-
-function Paginacion({ total, page, pageSize, onChange }: PaginacionProps) {
-  const desde = total === 0 ? 0 : (page - 1) * pageSize + 1;
-  const hasta = Math.min(page * pageSize, total);
-  const tieneAnterior = page > 1;
-  const tieneSiguiente = page * pageSize < total;
-
-  return (
-    <div className="flex flex-wrap items-center justify-between gap-3 border-t bg-muted/30 px-3 py-2 text-xs text-muted-foreground">
-      <span>
-        Mostrando {desde}–{hasta} de {total}
-      </span>
-      <div className="flex items-center gap-2">
-        <label className="flex items-center gap-1.5">
-          Tamaño página:
-          <select
-            value={pageSize}
-            onChange={(e) => onChange(1, Number(e.target.value))}
-            className="rounded border bg-background px-1.5 py-0.5 text-xs"
-            aria-label="Tamaño de página"
-          >
-            <option value={10}>10</option>
-            <option value={50}>50</option>
-            <option value={100}>100</option>
-            <option value={200}>200</option>
-          </select>
-        </label>
-        <Button
-          type="button"
-          variant="outline"
-          size="sm"
-          disabled={!tieneAnterior}
-          onClick={() => onChange(Math.max(1, page - 1), pageSize)}
-        >
-          Anterior
-        </Button>
-        <Button
-          type="button"
-          variant="outline"
-          size="sm"
-          disabled={!tieneSiguiente}
-          onClick={() => onChange(page + 1, pageSize)}
-        >
-          Siguiente
-        </Button>
-      </div>
-    </div>
-  );
-}

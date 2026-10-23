@@ -33,6 +33,16 @@ internal static class TestAssemblyInit
                 "./tools/validate-integration-isolated.sh [--filter ...]");
         }
 
+        // El modo CE no arranca los defaults de autenticación del resto del assembly.
+        // Sus fixtures usan la emisión JWT y el middleware reales, con EntraId.
+        if (Environment.GetEnvironmentVariable("MILLET_CE_ENTRA_TESTS") == "1")
+        {
+            Environment.SetEnvironmentVariable("Auth__Mode", "EntraId");
+            Environment.SetEnvironmentVariable("Seed__DatosDemo__Habilitado", "false");
+            Environment.SetEnvironmentVariable("Seed__DemoSesion__Habilitado", "false");
+            return;
+        }
+
         // PR B (Integraciones.Aw) — las options del outbox ahora son named
         // por DbContext (Compras:Outbox, IntegracionesAw:Outbox). El env
         // var raíz "Outbox__Disabled" queda como cinturón histórico
@@ -48,6 +58,10 @@ internal static class TestAssemblyInit
         // los usuarios de ColaboradoresCuentaNuevaTests a otro directorio
         // simulado. Esas pruebas corren el ciclo a mano.
         Environment.SetEnvironmentVariable("Entra__Provision__Disabled", "true");
+
+        // K10.4: el generador de pólizas recurrentes procesa todas las plantillas activas de la BD compartida; las pruebas lo
+        // corren a mano con «generar».
+        Environment.SetEnvironmentVariable("Contabilidad__Recurrentes__Deshabilitado", "true");
 
         // Identidad de los tests independiente de la configuración local del
         // desarrollador: quien prueba contra un tenant real guarda Graph y su

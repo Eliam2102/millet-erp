@@ -1,8 +1,21 @@
+import { BarraFiltros } from '@/components/erp';
+import { TabsEstado as TabsCatalogo } from '@/components/erp';
+import { ESTATUS_CATALOGO } from '../lib/estado-variante';
+import { ListadoModulo } from '@/components/erp/data/ListadoModulo';
+import { PageHeader } from '@/components/erp/PageHeader';
 import { useMemo, useState } from 'react';
 import { useNavigate, useSearch } from '@tanstack/react-router';
 import { Pencil, Plus } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableContainer,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '@/components/ui/table';
 import {
   Select,
   SelectContent,
@@ -13,6 +26,7 @@ import {
 import {
   EmptyState,
   ErrorState,
+  PaginacionTabla,
   SortableHeader,
   TableSkeleton,
   compareItemsBy,
@@ -30,7 +44,10 @@ import { PermisosCanonicos } from '@/lib/auth/permission-codes';
 import { esApiError } from '@/lib/api';
 import { AlmacenSheet } from '@/features/almacen/components/AlmacenSheet';
 import type { AlmacenesSearch } from '@/features/almacen/lib/catalogo-search-schemas';
-import { cn } from '@/lib/utils';
+import { Field } from '@/features/almacen/components/internal/Field';
+import { offsetLimitAPagina, paginaAOffsetLimit } from '@/components/erp/data/paginacion';
+import { BusquedaFolio } from '@/components/erp/data/BusquedaFolio';
+import { EstadoAlmacenBadge } from '@/features/almacen/components/EstadoAlmacenBadge';
 
 const FROM = '/_app/almacen/almacenes' as const;
 const SENTINEL_ALL = '__all__';
@@ -48,30 +65,26 @@ type SortKey = 'clave' | 'nombre' | 'sucursal' | 'estatus';
 export function AlmacenesPage() {
   const search = useSearch({ from: FROM });
   const navigate = useNavigate();
-  const puedeAdministrar = useHasPermission(
-    PermisosCanonicos.AlmacenAlmacenesAdministrar,
-  );
+  const puedeAdministrar = useHasPermission(PermisosCanonicos.AlmacenAlmacenesAdministrar);
 
   const [sheetAbierto, setSheetAbierto] = useState(false);
   const [editando, setEditando] = useState<AlmacenListItem | null>(null);
 
   const sucursalesQuery = useSucursales();
-  const sucursalesMap = useMemo(
-    () => mapById(sucursalesQuery.data?.items),
-    [sucursalesQuery.data],
-  );
+  const sucursalesMap = useMemo(() => mapById(sucursalesQuery.data?.items), [sucursalesQuery.data]);
 
   const query = useAlmacenes({
     q: search.q,
     estatus: search.estatus,
     sucursalId: search.sucursalId,
-    limit: 500,
+    ...paginaAOffsetLimit(search),
   });
 
   function actualizarSearch(parcial: Partial<AlmacenesSearch>) {
     navigate({
       to: '/almacen/almacenes',
-      search: { ...search, ...parcial },
+      // Cambiar un filtro regresa a la página 1; la paginación pasa su propia página.
+      search: { ...search, page: undefined, ...parcial },
     });
   }
 
@@ -86,69 +99,93 @@ export function AlmacenesPage() {
   }
 
   return (
-    <div className="space-y-4">
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <div>
-          <h1 className="text-2xl font-semibold tracking-tight">Almacenes</h1>
-          <p className="text-sm text-muted-foreground">
-            Catálogo principal del módulo. Cada almacén agrupa uno o más
-            sub-almacenes por tipo (insumos, materiales directos, etc.).
-          </p>
-        </div>
-        {puedeAdministrar && (
-          <Button onClick={abrirCrear}>
-            <Plus className="mr-2 h-4 w-4" />
-            Nuevo almacén
-          </Button>
+    <div className="space-y-5">
+      <PageHeader
+        titulo="Almacenes"
+        descripcion="Catálogo principal del módulo. Cada almacén agrupa uno o más sub-almacenes por tipo (insumos, materiales directos, etc.)."
+        acciones={
+          <>
+            {puedeAdministrar && (
+              <Button onClick={abrirCrear}>
+                <Plus className="mr-2 size-3.5" />
+                Nuevo almacén
+              </Button>
+            )}
+          </>
+        }
+      />
+
+      <ListadoModulo
+        tabs={
+          <TabsCatalogo
+            opciones={Object.entries(ESTATUS_CATALOGO).map(([valor, e]) => ({
+              valor: Number(valor),
+              label: e.etiqueta,
+            }))}
+            valor={search.estatus}
+            conteos={undefined}
+            onChange={(estatus) => actualizarSearch({ estatus: estatus as typeof search.estatus })}
+          />
+        }
+        filtros={
+          <BarraFiltros
+            filtros={
+              <FiltrosToolbar
+                search={search}
+                sucursales={sucursalesQuery.data?.items ?? []}
+                onChange={actualizarSearch}
+              />
+            }
+          />
+        }
+        pie={
+          <PaginacionTabla
+            total={query.data?.total ?? 0}
+            offset={query.data?.offset ?? 0}
+            limit={query.data?.limit ?? paginaAOffsetLimit(search).limit}
+            onChange={(offset, limit) => actualizarSearch(offsetLimitAPagina(offset, limit))}
+          />
+        }
+      >
+        {query.isError ? (
+          <ErrorState
+            title="No se pudieron cargar los almacenes"
+            problem={esApiError(query.error) ? query.error.problem : undefined}
+            onRetry={() => query.refetch()}
+          />
+        ) : query.isLoading ? (
+          <TableSkeleton
+            rows={6}
+            columns={[
+              { width: 'w-32' },
+              { width: 'w-64' },
+              { width: 'w-48' },
+              { width: 'w-24' },
+              { width: 'w-16' },
+            ]}
+          />
+        ) : (query.data?.items ?? []).length === 0 ? (
+          <EmptyState
+            title="Sin almacenes"
+            description={
+              puedeAdministrar
+                ? 'No hay almacenes que coincidan con los filtros. Usa "Nuevo almacén" para crear el primero.'
+                : 'No hay almacenes registrados.'
+            }
+          />
+        ) : (
+          <div className="overflow-hidden rounded-lg border border-line-row bg-surface-card">
+            <TablaAlmacenes
+              items={query.data!.items}
+              sucursalesMap={sucursalesMap}
+              puedeAdministrar={puedeAdministrar}
+              onEditar={abrirEditar}
+            />
+          </div>
         )}
-      </div>
+      </ListadoModulo>
 
-      <FiltrosToolbar
-        search={search}
-        sucursales={sucursalesQuery.data?.items ?? []}
-        onChange={actualizarSearch}
-      />
-
-      {query.isError ? (
-        <ErrorState
-          title="No se pudieron cargar los almacenes"
-          problem={esApiError(query.error) ? query.error.problem : undefined}
-          onRetry={() => query.refetch()}
-        />
-      ) : query.isLoading ? (
-        <TableSkeleton
-          rows={6}
-          columns={[
-            { width: 'w-32' },
-            { width: 'w-64' },
-            { width: 'w-48' },
-            { width: 'w-24' },
-            { width: 'w-16' },
-          ]}
-        />
-      ) : (query.data?.items ?? []).length === 0 ? (
-        <EmptyState
-          title="Sin almacenes"
-          description={
-            puedeAdministrar
-              ? 'No hay almacenes que coincidan con los filtros. Usa "Nuevo almacén" para crear el primero.'
-              : 'No hay almacenes registrados.'
-          }
-        />
-      ) : (
-        <TablaAlmacenes
-          items={query.data!.items}
-          sucursalesMap={sucursalesMap}
-          puedeAdministrar={puedeAdministrar}
-          onEditar={abrirEditar}
-        />
-      )}
-
-      <AlmacenSheet
-        open={sheetAbierto}
-        onOpenChange={setSheetAbierto}
-        editando={editando}
-      />
+      <AlmacenSheet open={sheetAbierto} onOpenChange={setSheetAbierto} editando={editando} />
     </div>
   );
 }
@@ -162,72 +199,66 @@ interface FiltrosToolbarProps {
 function FiltrosToolbar({ search, sucursales, onChange }: FiltrosToolbarProps) {
   return (
     <div className="flex flex-wrap items-end gap-3">
-      <div className="space-y-1">
-        <label className="text-xs text-muted-foreground">Buscar</label>
-        <Input
-          value={search.q ?? ''}
-          onChange={(e) => onChange({ q: e.target.value || undefined })}
+      <Field label="Buscar" className="gap-1">
+        <BusquedaFolio
+          valor={search.q}
+          onCommit={(q) => onChange({ q })}
           placeholder="Clave o nombre…"
           className="w-64"
         />
-      </div>
-      <div className="space-y-1">
-        <label className="text-xs text-muted-foreground">Estatus</label>
-        <Select
-          value={search.estatus != null ? String(search.estatus) : SENTINEL_ALL}
-          onValueChange={(v) =>
-            onChange({
-              estatus:
-                v === SENTINEL_ALL
-                  ? undefined
-                  : (Number(v) as EstatusCatalogo),
-            })
-          }
-        >
-          <SelectTrigger className="w-44">
-            <SelectValue placeholder="Todos" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value={SENTINEL_ALL}>Todos</SelectItem>
-            <SelectItem value={String(EstatusCatalogo.Activo)}>
-              {EstatusCatalogoLabels[EstatusCatalogo.Activo]}
-            </SelectItem>
-            <SelectItem value={String(EstatusCatalogo.Inactivo)}>
-              {EstatusCatalogoLabels[EstatusCatalogo.Inactivo]}
-            </SelectItem>
-            <SelectItem value={String(EstatusCatalogo.Borrador)}>
-              {EstatusCatalogoLabels[EstatusCatalogo.Borrador]}
-            </SelectItem>
-          </SelectContent>
-        </Select>
-      </div>
-      <div className="space-y-1">
-        <label className="text-xs text-muted-foreground">Sucursal</label>
-        <Select
-          value={search.sucursalId ?? SENTINEL_ALL}
-          onValueChange={(v) =>
-            onChange({ sucursalId: v === SENTINEL_ALL ? undefined : v })
-          }
-        >
-          <SelectTrigger className="w-56">
-            <SelectValue placeholder="Todas" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value={SENTINEL_ALL}>Todas</SelectItem>
-            {sucursales.map((s) => (
-              <SelectItem key={s.id} value={s.id}>
-                {s.clave} · {s.nombre}
+      </Field>
+      <Field label="Estatus" className="gap-1">
+        {(c) => (
+          <Select
+            value={search.estatus != null ? String(search.estatus) : SENTINEL_ALL}
+            onValueChange={(v) =>
+              onChange({
+                estatus: v === SENTINEL_ALL ? undefined : (Number(v) as EstatusCatalogo),
+              })
+            }
+          >
+            <SelectTrigger {...c} className="w-44">
+              <SelectValue placeholder="Todos" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value={SENTINEL_ALL}>Todos</SelectItem>
+              <SelectItem value={String(EstatusCatalogo.Activo)}>
+                {EstatusCatalogoLabels[EstatusCatalogo.Activo]}
               </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-      </div>
+              <SelectItem value={String(EstatusCatalogo.Inactivo)}>
+                {EstatusCatalogoLabels[EstatusCatalogo.Inactivo]}
+              </SelectItem>
+              <SelectItem value={String(EstatusCatalogo.Borrador)}>
+                {EstatusCatalogoLabels[EstatusCatalogo.Borrador]}
+              </SelectItem>
+            </SelectContent>
+          </Select>
+        )}
+      </Field>
+      <Field label="Sucursal" className="gap-1">
+        {(c) => (
+          <Select
+            value={search.sucursalId ?? SENTINEL_ALL}
+            onValueChange={(v) => onChange({ sucursalId: v === SENTINEL_ALL ? undefined : v })}
+          >
+            <SelectTrigger {...c} className="w-56">
+              <SelectValue placeholder="Todas" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value={SENTINEL_ALL}>Todas</SelectItem>
+              {sucursales.map((s) => (
+                <SelectItem key={s.id} value={s.id}>
+                  {s.clave} · {s.nombre}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        )}
+      </Field>
       {(search.q || search.estatus != null || search.sucursalId) && (
         <Button
           variant="ghost"
-          onClick={() =>
-            onChange({ q: undefined, estatus: undefined, sucursalId: undefined })
-          }
+          onClick={() => onChange({ q: undefined, estatus: undefined, sucursalId: undefined })}
         >
           Limpiar filtros
         </Button>
@@ -243,84 +274,74 @@ interface TablaAlmacenesProps {
   onEditar: (a: AlmacenListItem) => void;
 }
 
-function TablaAlmacenes({
-  items,
-  sucursalesMap,
-  puedeAdministrar,
-  onEditar,
-}: TablaAlmacenesProps) {
+function TablaAlmacenes({ items, sucursalesMap, puedeAdministrar, onEditar }: TablaAlmacenesProps) {
   const [sort, setSort] = useState<SortState<SortKey> | null>(null);
 
   const enriquecidos = useMemo(
     () =>
       items.map((a) => ({
         ...a,
-        sucursal:
-          sucursalesMap.get(a.sucursalId)?.nombre ?? a.sucursalId,
+        sucursal: sucursalesMap.get(a.sucursalId)?.nombre ?? a.sucursalId,
       })),
     [items, sucursalesMap],
   );
 
   const ordenados = useMemo(() => {
     if (sort == null) return enriquecidos;
-    return [...enriquecidos].sort((a, b) =>
-      compareItemsBy(a, b, sort.key, sort.dir),
-    );
+    return [...enriquecidos].sort((a, b) => compareItemsBy(a, b, sort.key, sort.dir));
   }, [enriquecidos, sort]);
 
   return (
-    <div className="overflow-x-auto rounded-md border">
-      <table className="w-full text-sm">
-        <thead className="bg-muted/50">
-          <tr>
-            <th className="px-3 py-2 text-left">
+    <TableContainer>
+      <Table>
+        <TableHeader>
+          <TableRow>
+            <TableHead>
               <SortableHeader
                 columnKey="clave"
                 label="Clave"
                 current={sort}
                 onSortChange={setSort}
               />
-            </th>
-            <th className="px-3 py-2 text-left">
+            </TableHead>
+            <TableHead>
               <SortableHeader
                 columnKey="nombre"
                 label="Nombre"
                 current={sort}
                 onSortChange={setSort}
               />
-            </th>
-            <th className="px-3 py-2 text-left">
+            </TableHead>
+            <TableHead>
               <SortableHeader
                 columnKey="sucursal"
                 label="Sucursal"
                 current={sort}
                 onSortChange={setSort}
               />
-            </th>
-            <th className="px-3 py-2 text-left">
+            </TableHead>
+            <TableHead>
               <SortableHeader
                 columnKey="estatus"
                 label="Estatus"
                 current={sort}
                 onSortChange={setSort}
               />
-            </th>
-            {puedeAdministrar && (
-              <th className="px-3 py-2 text-right font-medium">Acciones</th>
-            )}
-          </tr>
-        </thead>
-        <tbody>
+            </TableHead>
+            {puedeAdministrar && <TableHead className="text-right">Acciones</TableHead>}
+          </TableRow>
+        </TableHeader>
+        <TableBody>
           {ordenados.map((a) => (
-            <tr key={a.id} className="border-t">
-              <td className="px-3 py-2 font-mono text-xs">{a.clave}</td>
-              <td className="px-3 py-2">{a.nombre}</td>
-              <td className="px-3 py-2">{a.sucursal}</td>
-              <td className="px-3 py-2">
-                <EstatusBadge estatus={a.estatus} />
-              </td>
+            <TableRow key={a.id}>
+              <TableCell className="font-mono text-xs">{a.clave}</TableCell>
+              <TableCell>{a.nombre}</TableCell>
+              <TableCell>{a.sucursal}</TableCell>
+              <TableCell>
+                <EstadoAlmacenBadge tipo="catalogo" estado={a.estatus} />
+              </TableCell>
               {puedeAdministrar && (
-                <td className="px-3 py-2 text-right">
+                <TableCell className="text-right">
                   <Button
                     type="button"
                     size="sm"
@@ -330,30 +351,12 @@ function TablaAlmacenes({
                   >
                     <Pencil className="h-4 w-4" />
                   </Button>
-                </td>
+                </TableCell>
               )}
-            </tr>
+            </TableRow>
           ))}
-        </tbody>
-      </table>
-    </div>
-  );
-}
-
-function EstatusBadge({ estatus }: { estatus: EstatusCatalogo }) {
-  const label = EstatusCatalogoLabels[estatus];
-  return (
-    <span
-      className={cn(
-        'inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium',
-        estatus === EstatusCatalogo.Activo &&
-          'bg-emerald-100 text-emerald-800',
-        estatus === EstatusCatalogo.Inactivo && 'bg-slate-200 text-slate-700',
-        estatus === EstatusCatalogo.Borrador &&
-          'bg-amber-100 text-amber-800',
-      )}
-    >
-      {label}
-    </span>
+        </TableBody>
+      </Table>
+    </TableContainer>
   );
 }

@@ -65,8 +65,8 @@ public sealed partial class DemoSesionSeedHostedService
                             CapturistaComprasDemoId, ActorId, Prioridad.Normal, Fecha, proveedorSugeridoId: proveedor.Id, descripcion: "DEMO-RQ-MID");
                         rq.AgregarLinea(Id("DEMO-RQ-LINEA"), articulo.Id, 10, "PZA", Money.Mxn(100));
                         rq.EnviarAAutorizacion(Fecha);
-                        rq.RegistrarAutorizacion(Id("DEMO-RQ-N1"), NivelAutorizacion.Nivel1, ActorId, Fecha, RequiereNivel.N1YN2, "DEMO autorización ficticia");
-                        rq.RegistrarAutorizacion(Id("DEMO-RQ-N2"), NivelAutorizacion.Nivel2, ActorId, Fecha, RequiereNivel.N1YN2, "DEMO autorización ficticia");
+                        rq.RegistrarAutorizacion(Id("DEMO-RQ-N1"), NivelAutorizacion.Nivel1, ActorId, Fecha, RequiereNivel.N1YN2, "Autorización de requisición");
+                        rq.RegistrarAutorizacion(Id("DEMO-RQ-N2"), NivelAutorizacion.Nivel2, ActorId, Fecha, RequiereNivel.N1YN2, "Autorización de requisición");
                         rq.RegistrarCubrimiento([new CubrimientoLinea(rq.Lineas.Single().Id, 0, 10)], Fecha);
                         db.Requisiciones.Add(rq);
                         await sp.GetRequiredService<IIntegrationEventPublisher>().PublishAsync(
@@ -77,7 +77,7 @@ public sealed partial class DemoSesionSeedHostedService
                     2026, proveedor.Id, sucursales[sucursal].Id, condicion.Id, uso.Id, CapturistaComprasDemoId, CapturistaComprasDemoId,
                     new DateOnly(2026, 10, 12), moneda: moneda, tipoCambio: moneda == "MXN" ? null : TipoCambioUsdDemo,
                     sinRequisicionPrevia: rq is null,
-                    motivoSinRequisicion: rq is null ? (moneda == "MXN" ? "DEMO acceso restringido a MTY" : "DEMO compra en dólares (C1.2)") : null,
+                    motivoSinRequisicion: rq is null ? (moneda == "MXN" ? "Compra para sucursal Cancún" : "DEMO compra en dólares (C1.2)") : null,
                     observaciones: clave);
                 oc.ActualizarReferenciaProveedor(clave);
                 if (rq is not null)
@@ -97,8 +97,8 @@ public sealed partial class DemoSesionSeedHostedService
                 }
                 oc.RecalcularImpuestos();
                 oc.EnviarAAutorizacion(Fecha);
-                oc.Autorizar(Id(clave + "/N1"), NivelAutorizacion.Nivel1, JefeComprasDemoId, Fecha, "DEMO autorización ficticia N1");
-                var autorizacion = oc.Autorizar(Id(clave + "/N2"), NivelAutorizacion.Nivel2, DireccionDemoId, Fecha, "DEMO autorización ficticia N2");
+                oc.Autorizar(Id(clave + "/N1"), NivelAutorizacion.Nivel1, JefeComprasDemoId, Fecha, "Autorización de Compras");
+                var autorizacion = oc.Autorizar(Id(clave + "/N2"), NivelAutorizacion.Nivel2, DireccionDemoId, Fecha, "Autorización de Dirección");
                 db.OrdenesCompra.Add(oc);
                 // ADR-0009: el mapper encola el evento en el mismo contexto antes
                 // de guardar estado y Outbox. No disparar MatrizAprobacionSatisfecha:

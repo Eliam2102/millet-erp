@@ -1,4 +1,5 @@
 import { useEffect } from 'react';
+import { folioFactura } from '@/features/cxp/lib/formato';
 import { Controller, useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { toast } from 'sonner';
@@ -23,6 +24,7 @@ import {
   applyServerErrors,
   esApiError,
   useFormIdempotencyKey,
+  codigoSoporte,
 } from '@/lib/api';
 import {
   EnviarRevisionSchema,
@@ -34,6 +36,14 @@ import {
   useDependenciasRevisoras,
 } from '@/features/cxp/api/useRevision';
 import type { FacturaDetalle } from '@/features/cxp/api/types';
+
+const nombresAreas: Record<string, string> = {
+  COMPRAS: 'Compras',
+  ALMACEN: 'Almacén',
+  AREA_USUARIA: 'Área solicitante',
+  DIRECCION_F: 'Dirección de Finanzas',
+  CXP: 'Cuentas por pagar',
+};
 
 /** Envía la factura a un área activa del catálogo organizacional. */
 export interface EnviarRevisionSheetProps {
@@ -70,6 +80,21 @@ export function EnviarRevisionSheet({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open, factura?.id]);
 
+  const motivoSel = motivos.data?.find((m) => m.id === form.watch('motivoRevisionId'));
+
+  // El motivo sugiere el área (editable); AREA_USUARIA no tiene departamento fijo y se elige a mano.
+  function elegirMotivo(id: string) {
+    form.setValue('motivoRevisionId', id, { shouldValidate: true });
+    const codigo = motivos.data?.find((m) => m.id === id)?.dependenciaRevisoraDefaultCodigo;
+    const area = dependencias.data?.find((d) => d.codigo === codigo);
+    form.setValue('dependenciaRevisoraId', area?.id ?? '', { shouldValidate: !!area });
+  }
+
+  function nombreArea(codigo: string | null) {
+    if (!codigo) return 'Sin área definida';
+    return nombresAreas[codigo] ?? dependencias.data?.find(d => d.codigo === codigo)?.nombre ?? 'Sin área definida';
+  }
+
   function onSubmit(values: EnviarRevisionValues) {
     if (!factura) return;
     enviar.mutate(
@@ -95,9 +120,7 @@ export function EnviarRevisionSheet({
               return;
             }
             toast.error(error.problem.title, {
-              description: error.traceId
-                ? `Código: ${error.traceId}`
-                : undefined,
+              description: codigoSoporte(error),
             });
             return;
           }
@@ -109,12 +132,12 @@ export function EnviarRevisionSheet({
 
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
-      <SheetContent side="right" className="sm:max-w-md">
+      <SheetContent side="right" size="form">
         <SheetHeader>
           <SheetTitle>Enviar a revisión</SheetTitle>
           <SheetDescription>
             {factura
-              ? `Folio ${factura.serieProveedor ?? ''}${factura.folioProveedor ?? '—'}. La factura quedará bloqueada hasta que el área la libere.`
+              ? `Folio ${folioFactura(factura)}. La factura quedará bloqueada hasta que el área la libere.`
               : 'Selecciona una factura.'}
           </SheetDescription>
         </SheetHeader>
@@ -126,7 +149,7 @@ export function EnviarRevisionSheet({
               control={form.control}
               name="motivoRevisionId"
               render={({ field }) => (
-                <Select value={field.value} onValueChange={field.onChange}>
+                <Select value={field.value} onValueChange={elegirMotivo}>
                   <SelectTrigger id="motivoRevisionId" aria-label="Motivo">
                     <SelectValue placeholder="Selecciona un motivo…" />
                   </SelectTrigger>
@@ -134,7 +157,11 @@ export function EnviarRevisionSheet({
                     {motivos.data?.map((m) => (
                       <SelectItem key={m.id} value={m.id}>
                         {m.nombre}
-                        {m.slaDias != null && ` · SLA ${m.slaDias}d`}
+                        {m.slaDias != null && ` · ${m.slaDias} días hábiles`}
+                        <span className="block whitespace-normal text-xs text-ink-muted">
+                          Área responsable: {nombreArea(m.dependenciaRevisoraDefaultCodigo)}
+                          {m.areaAvisadaCodigo && ` · Avisar a: ${nombreArea(m.areaAvisadaCodigo)} si no se recibe a satisfacción`}
+                        </span>
                       </SelectItem>
                     ))}
                   </SelectContent>
@@ -161,6 +188,9 @@ export function EnviarRevisionSheet({
                 <SelectContent>{dependencias.data?.map(d => <SelectItem key={d.id} value={d.id}>{d.nombre}</SelectItem>)}</SelectContent>
               </Select>
             )} />
+            {motivoSel?.dependenciaRevisoraDefaultCodigo === 'AREA_USUARIA' && (
+              <p className="text-xs text-ink-muted">Elige el área que pidió la compra.</p>
+            )}
             {dependencias.isError && <p role="alert" className="text-xs text-danger-fg">No se pudo cargar el catálogo de áreas.</p>}
             {form.formState.errors.dependenciaRevisoraId && (
               <p className="text-xs text-destructive">

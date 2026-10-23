@@ -1,3 +1,4 @@
+import type { ComponentProps } from 'react';
 import { useEmpleados } from '@/features/catalogos/api';
 import type { EmpleadoListItem } from '@/features/catalogos/api';
 import { EstatusCatalogo } from '@/features/compras/api/types';
@@ -25,6 +26,8 @@ export interface EmpleadoSelectorProps {
   placeholder?: string;
   disabled?: boolean;
   className?: string;
+  /** Props extra del trigger (id y aria-* que entrega `Field`). */
+  triggerProps?: ComponentProps<'button'>;
 }
 
 export function EmpleadoSelector({
@@ -35,6 +38,7 @@ export function EmpleadoSelector({
   placeholder = 'Selecciona empleado',
   disabled,
   className,
+  triggerProps,
 }: EmpleadoSelectorProps) {
   const query = useEmpleados();
   const items = (query.data?.items ?? []).filter(
@@ -72,6 +76,7 @@ export function EmpleadoSelector({
       ariaLabel="Seleccionar empleado"
       disabled={disabled}
       className={className}
+      triggerProps={triggerProps}
     />
   );
 }

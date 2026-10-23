@@ -352,7 +352,7 @@ Atributos relevantes (los que CXP requiere del master):
 - Es nacional o extranjero (afecta retenciones y obligaciones fiscales)
 - Email para envío de complementos de pago
 - Email del que recibimos sus CFDIs (mailbox de origen reconocido)
-- **Tolerancia de conciliación factura vs. OC** — monto absoluto o porcentaje, configurable por proveedor (cambio importante respecto a v0.1)
+- **Tolerancia de conciliación factura vs. OC** — solo monto en MXN, configurable por proveedor (cambio importante respecto a v0.1); el modo porcentaje se retiró. Actualizado 19-oct-2026 (86e3tab1k): la única tolerancia es de dinero por proveedor; fuente: plano CxP 1.7.1 y junta del 8-oct.
 - **Adjuntos obligatorios para el alta:** Constancia de Situación Fiscal, contrato vigente, acta constitutiva (si aplica), identificación del representante legal, comprobante de domicilio. Sin estos no se activa el proveedor.
 
 **Migración desde SAP:** depuración previa obligatoria. **No se migran proveedores sin movimientos en los últimos 2 años.** Para los que sí se migran, hay que completar los campos que SAP no tenga, antes del go-live.
@@ -539,8 +539,9 @@ Modelado como `ComprobacionGastos` agrupadora con N CFDIs y/o tickets sin factur
 2. Al cierre, captura `ComprobacionGastos` tipo `ReembolsoCajaChica`, adjunta CFDIs y tickets.
 3. Sistema valida que cada CFDI esté a nombre de Millet.
 4. Cada CFDI individual se registra como `FacturaProveedor` ligado a la comprobación, con subcategoría "Reembolso caja chica / viáticos".
-5. Total autorizado por responsable de la sucursal/área (con catálogo de límites por persona — el área indicó que esto se integra).
-6. Pasa a Tesorería para reponer la caja.
+5. Al enviarla, la comprobación queda en «Pendiente de aprobar pasivo» (estado 7). No hay monto mínimo (P8.5, 86e3kdw2k; fuente: cuestionario 03 de CxP, Laura Cerón, 31-ago-2026; reemplaza el mínimo configurable por sucursal).
+6. CxP aprueba el pasivo con `POST /api/v1/cuentas-por-pagar/comprobaciones/{id}/aprobar-pasivo` (permiso `cuentas_por_pagar.comprobaciones.aprobar-nivel1`), respetando el límite del aprobador (`AprobadorLimite` `ReembolsoCajaChica`, misma moneda, vigente, inclusivo; sin fila no hay límite; error `APROBADOR_LIMITE_EXCEDIDO`). En la misma transacción la comprobación pasa a `Aplicada`, se emite UNA reposición para ella y se publica el pasivo a Tesorería.
+7. CxP puede rechazarla con motivo obligatorio: se cancelan las facturas, se liberan los CFDI y no hay reposición. `Autorizar` está cerrado para caja chica; las legadas en `Autorizada` usan `/aplicar`. El corte manual y los saldos quedan solo para comprobaciones heredadas sin reposición. Abiertos: montos y suplentes de aprobadores y rol aprobador nominal (Laura Cerón).
 
 #### 7.4.2 Comprobación de Viáticos (pasivo de préstamo a empleado)
 
@@ -999,6 +1000,10 @@ CXP **no administra** préstamos a empleados (códigos `Axxxx`). El módulo due�
 - **Mailbox** — buzón de correo dedicado (ej. `cfdi@millet.com.mx`) donde los proveedores envían sus CFDIs.
 - **Portal propio** — alcance reservado post-MVP: web pública del ERP donde el proveedor sube sus CFDIs interactivamente.
 - **OTR** — Orden de Transporte. Documento del flujo de exportación que da origen a la OC marco con la agencia aduanal.
+  **Aclaración CE-04:** este concepto de CxP es distinto de **A+W OTR**, el producto que
+  acomoda piezas/cajas en contenedores y define rutas (SRC-089 §1.0, 05-oct-2026).
+  A+W OTR no es una compra y no crea requisiciones, OC ni proveedores; ver
+  [contrato de exportación](../../integration/09-aw-otr-exportacion.md).
 - **Pedimento** — documento aduanero que identifica una operación de comercio exterior.
 - **Préstamo a empleado (códigos Axxxx)** — pasivo a empleados que vive fuera de CXP. CXP solo lo referencia.
 - **Subcategoría** — taxonomía de gasto del proveedor (Materia Prima, Insumos, Gastos administrativos, etc.). Catálogo §5.2.

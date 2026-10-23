@@ -1,3 +1,4 @@
+using System.Globalization;
 using Microsoft.EntityFrameworkCore;
 using Millet.Almacen.Domain.Apartados;
 using Millet.Almacen.Domain.Ports.Externos;
@@ -5,6 +6,8 @@ using Millet.Almacen.Infrastructure.Persistence;
 using Millet.SharedKernel.Application.Exceptions;
 
 namespace Millet.Almacen.Infrastructure.PublicAdapters;
+
+public sealed record ApartadoLineaLectura(Guid LineaRequisicionId, Guid ArticuloId, decimal Pendiente, decimal Liberada, string? UltimoMotivo);
 
 // Open Host Service: sólo Almacén escribe sus apartados. El llamador une la TX.
 public sealed class ApartadosRequisicionService(AlmacenDbContext db, IAlmacenSaldoQueryPort saldos)
@@ -21,9 +24,11 @@ public sealed class ApartadosRequisicionService(AlmacenDbContext db, IAlmacenSal
     }
 
     public async Task<decimal> ApartarAsync(Guid empresaId, Guid sucursalId, Guid rqId,
-        Guid lineaId, Guid articuloId, decimal solicitada, CancellationToken ct)
+        Guid lineaId, Guid articuloId, decimal solicitada, CancellationToken ct, bool soloCompleto = false)
     {
         var disponible = await saldos.ConsultarDisponibilidadPorSucursalAsync(sucursalId, articuloId, ct);
+        // Surtido completo (86e3tferc): si no alcanza la línea entera, no se aparta nada.
+        if (soloCompleto && disponible.CantidadDisponible < solicitada) return 0m;
         var cantidad = Math.Min(solicitada, disponible.CantidadDisponible);
         if (cantidad > 0)
         {
@@ -41,6 +46,24 @@ public sealed class ApartadosRequisicionService(AlmacenDbContext db, IAlmacenSal
         await db.SaveChangesAsync(ct);
     }
 
+    public async Task<IReadOnlyList<ApartadoLineaLectura>> ConsultarPorRequisicionAsync(Guid rqId, CancellationToken ct)
+    {
+        var filas = await db.ApartadosRequisicion.AsNoTracking().Where(a => a.RequisicionId == rqId).ToListAsync(ct);
+        return filas.GroupBy(a => a.LineaRequisicionId).Select(g => new ApartadoLineaLectura(
+            g.Key, g.First().ArticuloId, g.Sum(a => a.Pendiente), g.Sum(a => a.CantidadLiberada),
+            g.Select(a => a.MotivoLiberacion).LastOrDefault(m => m is not null))).ToList();
+    }
+
+    // El llamador ya unió la TX y tomó el lock con BloquearAsync.
+    public async Task LiberarLineaAsync(Guid rqId, Guid lineaId, decimal cantidadBase, string motivo, CancellationToken ct)
+    {
+        var apartado = await db.ApartadosRequisicion
+            .FirstOrDefaultAsync(a => a.RequisicionId == rqId && a.LineaRequisicionId == lineaId && a.Pendiente > 0, ct)
+            ?? throw new BusinessRuleException("APARTADO_SIN_PENDIENTE", "La línea no tiene existencia apartada pendiente.");
+        apartado.Liberar(cantidadBase, motivo);
+        await db.SaveChangesAsync(ct);
+    }
+
     public async Task ConsumirAsync(Guid sucursalId, Guid? rqId, Guid? lineaId,
         Guid articuloId, decimal cantidad, CancellationToken ct)
     {
@@ -51,7 +74,12 @@ public sealed class ApartadosRequisicionService(AlmacenDbContext db, IAlmacenSal
             .Where(a => a.RequisicionId == rqId && a.ArticuloId == articuloId).SumAsync(a => a.Pendiente, ct);
         var clave = (sucursalId, articuloId);
         var anteriores = _salidasEnCurso.GetValueOrDefault(clave);
-        if (cantidad + anteriores > disponible.CantidadDisponible + propios)
+        var requerida = cantidad + anteriores;
+        // Existencia total (Cantidad incluye lo apartado): si no alcanza, no es un tema de apartados.
+        if (requerida > disponible.Cantidad)
+            throw new BusinessRuleException("SALIDA_STOCK_INSUFICIENTE",
+                $"La existencia de la sucursal no alcanza: se piden {requerida.ToString("0.####", CultureInfo.InvariantCulture)} y hay {disponible.Cantidad.ToString("0.####", CultureInfo.InvariantCulture)} en existencia.");
+        if (requerida > disponible.CantidadDisponible + propios)
             throw new BusinessRuleException("SALIDA_EXISTENCIA_APARTADA",
                 "La existencia disponible no alcanza; parte del material está apartado para otra requisición.");
         _salidasEnCurso[clave] = anteriores + cantidad;

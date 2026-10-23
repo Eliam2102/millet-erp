@@ -7,6 +7,7 @@ using Millet.Almacen.Domain;
 using Millet.Catalogos.Domain;
 using Millet.DatosMaestros.Domain;
 using Millet.SharedKernel.Domain;
+using Millet.Compartido.Application.Catalogos.Proveedores;
 using Millet.Compartido.Infrastructure.Persistence;
 
 namespace Millet.DatosMaestros.Application.Catalogos;
@@ -21,13 +22,16 @@ namespace Millet.DatosMaestros.Application.Catalogos;
 public sealed record CrearProveedorCommand(
     string Clave,
     string RazonSocial,
-    string Rfc,
+    string? Rfc,
     TipoPersonaProveedor TipoPersona,
     string? NombreComercial,
     short? CondicionesPagoDias,
     Guid? MonedaPreferidaId,
     string? Email,
-    string? Telefono) : IRequest<CrearProveedorResponse>;
+    string? Telefono,
+    OrigenProveedor? Origen = null,
+    string? RegimenFiscalCodigo = null,
+    string? ConceptoRetencion = null) : IRequest<CrearProveedorResponse>;
 
 public sealed record CrearProveedorResponse(
     Guid Id,
@@ -41,7 +45,12 @@ public sealed class CrearProveedorValidator : AbstractValidator<CrearProveedorCo
     {
         RuleFor(c => c.Clave).NotEmpty().MaximumLength(20);
         RuleFor(c => c.RazonSocial).NotEmpty().MaximumLength(254);
-        RuleFor(c => c.Rfc).NotEmpty().Length(12, 13);
+        // 86e3pdmee: el extranjero no tiene RFC; se guarda el genérico XEXX010101000.
+        RuleFor(c => c.Rfc!).NotEmpty().When(c => c.Origen != OrigenProveedor.Extranjero);
+        RuleFor(c => c.Rfc!).Length(12, 13).When(c => !string.IsNullOrWhiteSpace(c.Rfc));
+        RuleFor(c => c.Origen!.Value).IsInEnum().When(c => c.Origen.HasValue);
+        RuleFor(c => c.RegimenFiscalCodigo!).Length(3).When(c => !string.IsNullOrWhiteSpace(c.RegimenFiscalCodigo));
+        RuleFor(c => c.ConceptoRetencion!).MaximumLength(80).When(c => c.ConceptoRetencion is not null);
         RuleFor(c => c.TipoPersona).IsInEnum();
         RuleFor(c => c.NombreComercial!).MaximumLength(254).When(c => c.NombreComercial is not null);
         RuleFor(c => c.CondicionesPagoDias).InclusiveBetween((short)0, (short)365)
@@ -90,7 +99,9 @@ public sealed class CrearProveedorHandler
         // cuenta como duplicado. RFC genérico + misma razón social no se
         // rechaza ni se fusiona: se crea en EnRevision para que alguien lo
         // F1-ADM-05 G1.1: todo proveedor nuevo nace en EnRevision (Compras solicita, CxP valida).
-        var rfcNormalizado = request.Rfc.Trim().ToUpperInvariant();
+        var rfcNormalizado = string.IsNullOrWhiteSpace(request.Rfc)
+            ? Proveedor.RfcGenericoExtranjero
+            : request.Rfc.Trim().ToUpperInvariant();
         var estatus = EstatusCatalogo.EnRevision;
         Guid? posibleDuplicadoDeId = null;
 
@@ -124,7 +135,7 @@ public sealed class CrearProveedorHandler
             id: Guid.CreateVersion7(),
             clave: request.Clave,
             razonSocial: request.RazonSocial,
-            rfc: request.Rfc,
+            rfc: rfcNormalizado,
             tipoPersona: request.TipoPersona,
             estatus: estatus,
             nombreComercial: request.NombreComercial,
@@ -132,6 +143,14 @@ public sealed class CrearProveedorHandler
             monedaPreferidaId: request.MonedaPreferidaId,
             email: request.Email,
             telefono: request.Telefono);
+
+        // 86e3pdmee: la clasificación fiscal viaja en la misma transacción del alta.
+        if (request.Origen is not null || !string.IsNullOrWhiteSpace(request.RegimenFiscalCodigo) || !string.IsNullOrWhiteSpace(request.ConceptoRetencion))
+        {
+            var regimen = string.IsNullOrWhiteSpace(request.RegimenFiscalCodigo) ? null : request.RegimenFiscalCodigo.Trim();
+            await ClasificacionFiscalProveedor.ValidarRegimenAsync(_db, request.TipoPersona, request.Origen, regimen, cancellationToken);
+            proveedor.ActualizarClasificacionFiscal(request.Origen, regimen, request.ConceptoRetencion);
+        }
 
         _db.Proveedores.Add(proveedor);
         await _db.SaveChangesAsync(cancellationToken);

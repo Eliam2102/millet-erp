@@ -60,7 +60,7 @@ describe('P8: catálogo y reportes visibles', () => {
     );
     render(<RetencionesPage />, { wrapper: createQueryWrapper() });
     expect(await screen.findByText('HONORARIOS_PF')).toBeInTheDocument();
-    expect(screen.getByRole('note')).toHaveTextContent('Supuesto SAT, valida Fiscal (D03)');
+    expect(screen.getByRole('note')).toHaveTextContent('Supuesto del SAT: debe validarlo Fiscal.');
     fireEvent.click(screen.getByRole('button', { name: 'Editar' }));
     fireEvent.change(screen.getByLabelText('Tasa (%)'), { target: { value: '12.5' } });
     fireEvent.change(screen.getByLabelText('Motivo del cambio'), {

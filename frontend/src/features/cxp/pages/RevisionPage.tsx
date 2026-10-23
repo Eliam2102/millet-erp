@@ -1,6 +1,16 @@
+import { PageHeader } from '@/components/erp/PageHeader';
 import { useMemo } from 'react';
 import { Link, useNavigate, useSearch } from '@tanstack/react-router';
 import { Button } from '@/components/ui/button';
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableContainer,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '@/components/ui/table';
 import {
   Select,
   SelectContent,
@@ -11,6 +21,7 @@ import {
 import {
   EmptyState,
   ErrorState,
+  PaginacionTabla,
   TableSkeleton,
 } from '@/components/erp';
 import {
@@ -19,8 +30,13 @@ import {
   useDependenciasRevisoras,
 } from '@/features/cxp/api/useRevision';
 import { esApiError } from '@/lib/api';
-import { cn } from '@/lib/utils';
+import { Badge } from '@/components/ui/badge';
+import { etiquetaAviso, tonoPlazo } from '@/features/cxp/lib/sla-revision';
 import type { RevisionSearch } from '@/features/cxp/lib/revision-search-schema';
+import { offsetLimitAPagina, paginaAOffsetLimit } from '@/components/erp/data/paginacion';
+import { folioFactura } from '@/features/cxp/lib/formato';
+import { MoneyDisplay } from '@/components/erp/display/MoneyDisplay';
+import { DateTimeDisplay } from '@/components/erp/display/DateTimeDisplay';
 
 const FROM = '/_app/cxp/revision' as const;
 const SENTINEL_ALL = '__all__';
@@ -28,8 +44,9 @@ const SENTINEL_ALL = '__all__';
 /**
  * <c>P2 — Bandeja "Revisión por área"</c> (doc 07 §FE-F3-PR1). El
  * responsable del área filtra por su dependencia revisora (UUID en URL)
- * y motivo opcional. Cada fila muestra el SLA visualmente: verde si
- * dentro de plazo, ámbar si quedan ≤ 1 día, rojo si excedido.
+ * y motivo opcional. Cada fila muestra los días hábiles contra el plazo
+ * del motivo (verde dentro de plazo, ámbar desde el aviso, rojo desde el
+ * vencimiento; neutral si el motivo no tiene plazo) y el último aviso emitido.
  *
  * <para>PLATFORM-TODO(&lt;DependenciasRevisorasUsuarioContext&gt;):
  * cuando Admin resuelva usuario → dependencia, ocultar el filtro
@@ -43,12 +60,14 @@ export function RevisionPage() {
   const query = useFacturasEnRevision(
     search.dependenciaRevisoraId,
     search.motivoRevisionId,
+    paginaAOffsetLimit(search),
   );
 
   function actualizarSearch(parcial: Partial<RevisionSearch>) {
     navigate({
       to: '/cxp/revision',
-      search: { ...search, ...parcial },
+      // Un filtro nuevo vuelve a la primera página.
+      search: { ...search, page: undefined, ...parcial },
     });
   }
 
@@ -62,15 +81,10 @@ export function RevisionPage() {
 
   return (
     <div className="space-y-4">
-      <header>
-        <h1 className="text-2xl font-semibold tracking-tight">
-          Revisión por área
-        </h1>
-        <p className="text-sm text-muted-foreground">
-          Bandeja de facturas asignadas a tu dependencia. Libera al
-          terminar la revisión documentando la acción tomada.
-        </p>
-      </header>
+      <PageHeader
+        titulo="Revisión por área"
+        descripcion="Bandeja de facturas asignadas a tu dependencia. Libera al terminar la revisión documentando la acción tomada."
+      />
 
       <div className="flex flex-wrap items-end gap-3">
         <div className="space-y-1">
@@ -121,7 +135,7 @@ export function RevisionPage() {
 
       {!filaConDependencia ? (
         <EmptyState
-          title="Selecciona una dependencia"
+          title="Selecciona un área revisora"
           description="Para listar facturas en revisión, selecciona el área revisora arriba."
         />
       ) : query.isError ? (
@@ -136,9 +150,11 @@ export function RevisionPage() {
           columns={[
             { width: 'w-32' },
             { width: 'w-40' },
+            { width: 'w-40' },
             { width: 'w-32' },
             { width: 'w-32' },
             { width: 'w-24' },
+            { width: 'w-32' },
           ]}
         />
       ) : (query.data?.items.length ?? 0) === 0 ? (
@@ -147,50 +163,55 @@ export function RevisionPage() {
           description="No hay facturas asignadas a esta dependencia con los filtros aplicados."
         />
       ) : (
-        <div className="overflow-x-auto rounded-md border">
-          <table className="w-full text-sm">
-            <thead className="bg-muted/50">
-              <tr>
-                <th className="px-3 py-2 text-left">Folio</th>
-                <th className="px-3 py-2 text-left">Motivo</th>
-                <th className="px-3 py-2 text-left">En revisión desde</th>
-                <th className="px-3 py-2 text-right">Días</th>
-                <th className="px-3 py-2 text-right">Total</th>
-              </tr>
-            </thead>
-            <tbody>
-              {(query.data?.items ?? []).map((f) => (
-                <tr
-                  key={f.id}
-                  className="border-t hover:bg-muted/30 focus-within:bg-muted/30"
-                >
-                  <td className="px-3 py-2 font-mono text-xs">
-                    <Link
-                      to="/cxp/facturas/$id"
-                      params={{ id: f.id }}
-                      className="text-primary hover:underline"
-                    >
-                      {f.serieProveedor
-                        ? `${f.serieProveedor}-${f.folioProveedor ?? ''}`
-                        : (f.folioProveedor ?? '—')}
-                    </Link>
-                  </td>
-                  <td className="px-3 py-2">
-                    {motivosMap.get(f.motivoRevisionId) ?? '—'}
-                  </td>
-                  <td className="px-3 py-2 whitespace-nowrap text-xs">
-                    {new Date(f.fechaEntradaRevision).toLocaleDateString('es-MX')}
-                  </td>
-                  <td className="px-3 py-2 text-right">
-                    <SlaBadge dias={f.diasEnRevision} />
-                  </td>
-                  <td className="px-3 py-2 text-right font-mono">
-                    {formatearMonto(f.total, f.moneda)}
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+        <div className="overflow-hidden rounded-lg border border-line-row bg-surface-card">
+          <TableContainer>
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Folio</TableHead>
+                  <TableHead>Proveedor</TableHead>
+                  <TableHead>Motivo</TableHead>
+                  <TableHead>En revisión desde</TableHead>
+                  <TableHead className="text-right">Días hábiles</TableHead>
+                  <TableHead>Aviso</TableHead>
+                  <TableHead className="text-right">Total</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {(query.data?.items ?? []).map((f) => (
+                  <TableRow key={f.id} className="hover:bg-surface-subtle">
+                    <TableCell className="font-mono text-xs">
+                      <Link
+                        to="/cxp/facturas/$id"
+                        params={{ id: f.id }}
+                        className="text-brand hover:underline"
+                      >
+                        {folioFactura(f)}
+                      </Link>
+                    </TableCell>
+                    <TableCell>{f.proveedorNombre ?? '—'}</TableCell>
+                    <TableCell>{f.motivoNombre ?? motivosMap.get(f.motivoRevisionId) ?? '—'}</TableCell>
+                    <TableCell className="whitespace-nowrap text-xs">
+                      <DateTimeDisplay value={f.fechaEntradaRevision} variant="corta" />
+                    </TableCell>
+                    <TableCell className="text-right">
+                      <SlaBadge dias={f.diasEnRevision} slaDias={f.slaDias} />
+                    </TableCell>
+                    <TableCell>{aviso(f.nivelAviso)}</TableCell>
+                    <TableCell className="text-right tabular-nums">
+                      <MoneyDisplay amount={f.total} currency={f.moneda} strong />
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </TableContainer>
+          <PaginacionTabla
+            total={query.data?.total ?? 0}
+            offset={query.data?.offset ?? 0}
+            limit={query.data?.limit ?? paginaAOffsetLimit(search).limit}
+            onChange={(o, l) => actualizarSearch({ ...offsetLimitAPagina(o, l) })}
+          />
         </div>
       )}
     </div>
@@ -198,33 +219,20 @@ export function RevisionPage() {
 }
 
 /**
- * Badge de SLA: ámbar a partir de 3 días, rojo a partir de 5. Los
- * umbrales son una aproximación; el SLA real depende del motivo (5 o
- * 15 días por catálogo).
+ * Badge de plazo: días hábiles contra el plazo del motivo. Ámbar desde el
+ * umbral de aviso, rojo desde el vencimiento (umbrales por motivo, ver
+ * <c>sla-revision.ts</c>); neutral si el motivo no tiene plazo.
  */
-function SlaBadge({ dias }: { dias: number }) {
+function SlaBadge({ dias, slaDias }: { dias: number; slaDias: number | null }) {
   return (
-    <span
-      className={cn(
-        'inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium font-mono',
-        dias < 3 && 'bg-emerald-100 text-emerald-800',
-        dias >= 3 && dias < 5 && 'bg-amber-100 text-amber-800',
-        dias >= 5 && 'bg-rose-100 text-rose-800',
-      )}
-    >
-      {dias}d
-    </span>
+    <Badge variant={tonoPlazo(dias, slaDias)} className="tabular-nums">
+      {slaDias == null ? `${dias} · sin plazo` : `${dias} de ${slaDias}`}
+    </Badge>
   );
 }
 
-function formatearMonto(v: number, moneda: string): string {
-  try {
-    return new Intl.NumberFormat('es-MX', {
-      style: 'currency',
-      currency: moneda,
-      minimumFractionDigits: 2,
-    }).format(v);
-  } catch {
-    return `${v.toFixed(2)} ${moneda}`;
-  }
+/** Último aviso emitido en el episodio vigente, o guion si no hay. */
+function aviso(nivel: 1 | 2 | 3 | null) {
+  const x = etiquetaAviso(nivel);
+  return x ? <Badge variant={x.tono}>{x.texto}</Badge> : <span className="text-muted-foreground">—</span>;
 }

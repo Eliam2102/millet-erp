@@ -15,6 +15,10 @@ public sealed class UpsertUmbralValidator : AbstractValidator<UpsertUmbralComman
             .Must(c => c.UmbralMenorCuantia is null || c.UmbralMenorCuantia.Value < c.UmbralMonto)
             .WithName(c => nameof(c.UmbralMenorCuantia))
             .WithMessage("El umbral N1 (menor cuantía) debe ser menor que el umbral N2.");
+        RuleFor(c => c.ModoNivel2).IsInEnum();
+        RuleFor(c => c.MontoMinimoDisponibilidad)
+            .GreaterThanOrEqualTo(0m)
+            .When(c => c.MontoMinimoDisponibilidad.HasValue);
         // Millet opera solo en MXN; el campo se conserva para el contrato.
         RuleFor(c => c.Moneda).Equal("MXN");
     }

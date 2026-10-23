@@ -1,11 +1,6 @@
+import { PageHeader } from '@/components/erp/PageHeader';
 import { useState } from 'react';
-import {
-  Link,
-  Outlet,
-  useMatchRoute,
-  useNavigate,
-  useParams,
-} from '@tanstack/react-router';
+import { Link, Outlet, useMatchRoute, useNavigate, useParams } from '@tanstack/react-router';
 import { ArrowLeft, ClipboardCheck, GitCompareArrows, Play, Send } from 'lucide-react';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
@@ -19,22 +14,17 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
-import { ErrorState, TableSkeleton } from '@/components/erp';
+import { ErrorState, DetalleSkeleton } from '@/components/erp';
 import {
   useConteo,
   useEnviarConteoAConciliacion,
   useIniciarConteo,
 } from '@/features/almacen/api/useConteos';
-import {
-  EstadoConteo,
-  EstadoConteoLabels,
-  TipoConteo,
-  TipoConteoLabels,
-} from '@/features/almacen/api/types';
+import { EstadoConteo, TipoConteo, TipoConteoLabels } from '@/features/almacen/api/types';
 import { useHasPermission, useHasAnyPermission } from '@/lib/auth/useHasPermission';
 import { PermisosCanonicos } from '@/lib/auth/permission-codes';
-import { esApiError } from '@/lib/api';
-import { cn } from '@/lib/utils';
+import { esApiError, codigoSoporte } from '@/lib/api';
+import { EstadoAlmacenBadge } from '@/features/almacen/components/EstadoAlmacenBadge';
 
 const FROM = '/_app/almacen/inventarios/$id' as const;
 
@@ -58,12 +48,8 @@ export function InventarioDetallePage() {
   const query = useConteo(id);
   const matchRoute = useMatchRoute();
 
-  const puedeCrear = useHasPermission(
-    PermisosCanonicos.AlmacenInventariosCrear,
-  );
-  const puedeCapturar = useHasPermission(
-    PermisosCanonicos.AlmacenInventariosCapturar,
-  );
+  const puedeCrear = useHasPermission(PermisosCanonicos.AlmacenInventariosCrear);
+  const puedeCapturar = useHasPermission(PermisosCanonicos.AlmacenInventariosCapturar);
   const puedeAprobar = useHasAnyPermission([
     PermisosCanonicos.AlmacenInventariosAprobarNivel1,
     PermisosCanonicos.AlmacenInventariosAprobarNivel2,
@@ -113,11 +99,11 @@ export function InventarioDetallePage() {
   }
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-5">
       <div className="flex items-center gap-2">
         <Button asChild variant="ghost" size="sm">
           <Link to="/almacen/inventarios" search={{}}>
-            <ArrowLeft className="mr-2 h-4 w-4" />
+            <ArrowLeft className="mr-2 size-3.5" />
             Inventarios
           </Link>
         </Button>
@@ -130,71 +116,60 @@ export function InventarioDetallePage() {
           onRetry={() => query.refetch()}
         />
       ) : query.isLoading ? (
-        <TableSkeleton
-          rows={4}
-          columns={[
-            { width: 'w-40' },
-            { width: 'w-48' },
-            { width: 'w-32' },
-            { width: 'w-32' },
-            { width: 'w-32' },
-          ]}
-        />
+        <DetalleSkeleton />
       ) : query.data == null ? null : (
-        <div className="space-y-6">
-          <header className="space-y-2">
-            <div className="flex flex-wrap items-center gap-3">
-              <h1 className="text-2xl font-semibold tracking-tight">
-                Conteo {TipoConteoLabels[query.data.tipo]}
-              </h1>
-              <EstadoBadge estado={query.data.estado} />
-            </div>
-            <p className="text-sm text-muted-foreground">
-              Planificado: {query.data.fechaPlanificada}
-              {query.data.fechaInicio && (
-                <>
-                  {' '}
-                  · Iniciado:{' '}
-                  {new Date(query.data.fechaInicio).toLocaleString('es-MX')}
-                </>
-              )}
-              {query.data.snapshotCapturadoAt && (
-                <>
-                  {' '}
-                  · Snapshot:{' '}
-                  {new Date(
-                    query.data.snapshotCapturadoAt,
-                  ).toLocaleString('es-MX')}
-                </>
-              )}
-            </p>
+        <div className="space-y-5">
+          <PageHeader
+            titulo={<>Conteo {TipoConteoLabels[query.data.tipo]}</>}
+            estado={
+              <>
+                <EstadoAlmacenBadge tipo="conteo" estado={query.data.estado} />
+              </>
+            }
+            descripcion={
+              <>
+                Planificado: {query.data.fechaPlanificada}
+                {query.data.fechaInicio && (
+                  <> · Iniciado: {new Date(query.data.fechaInicio).toLocaleString('es-MX')}</>
+                )}
+                {query.data.snapshotCapturadoAt && (
+                  <>
+                    {' '}
+                    · Snapshot: {new Date(query.data.snapshotCapturadoAt).toLocaleString('es-MX')}
+                  </>
+                )}
+              </>
+            }
+            acciones={
+              <>
+                <Acciones
+                  estado={query.data.estado}
+                  tipo={query.data.tipo}
+                  capturadas={query.data.cantidadCapturadas}
+                  total={query.data.cantidadLineas}
+                  puedeCrear={puedeCrear}
+                  puedeCapturar={puedeCapturar}
+                  puedeAprobar={puedeAprobar}
+                  onIniciar={() => setIniciarOpen(true)}
+                  onCapturar={() =>
+                    navigate({
+                      to: '/almacen/inventarios/$id/captura',
+                      params: { id: query.data!.id },
+                    })
+                  }
+                  onAprobar={() =>
+                    navigate({
+                      to: '/almacen/inventarios/$id/aprobacion',
+                      params: { id: query.data!.id },
+                    })
+                  }
+                  onEnviar={() => setEnviarOpen(true)}
+                />
+              </>
+            }
+          />
 
-            <Acciones
-              estado={query.data.estado}
-              tipo={query.data.tipo}
-              capturadas={query.data.cantidadCapturadas}
-              total={query.data.cantidadLineas}
-              puedeCrear={puedeCrear}
-              puedeCapturar={puedeCapturar}
-              puedeAprobar={puedeAprobar}
-              onIniciar={() => setIniciarOpen(true)}
-              onCapturar={() =>
-                navigate({
-                  to: '/almacen/inventarios/$id/captura',
-                  params: { id: query.data!.id },
-                })
-              }
-              onAprobar={() =>
-                navigate({
-                  to: '/almacen/inventarios/$id/aprobacion',
-                  params: { id: query.data!.id },
-                })
-              }
-              onEnviar={() => setEnviarOpen(true)}
-            />
-          </header>
-
-          <section className="grid grid-cols-1 gap-x-6 gap-y-2 rounded-md border p-4 md:grid-cols-2">
+          <dl className="grid grid-cols-1 gap-4 rounded-lg bg-surface-card p-4 shadow-card-flat sm:grid-cols-4">
             <Campo
               label="Sub-almacén"
               valor={
@@ -204,10 +179,7 @@ export function InventarioDetallePage() {
               }
               mono={query.data.subAlmacenId != null}
             />
-            <Campo
-              label="Filtro familia"
-              valor={query.data.filtroFamilia ?? '(sin filtro)'}
-            />
+            <Campo label="Filtro familia" valor={query.data.filtroFamilia ?? '(sin filtro)'} />
             <Campo
               label="Responsable (contador)"
               valor={query.data.responsableNombre ?? query.data.responsableId}
@@ -220,17 +192,15 @@ export function InventarioDetallePage() {
                 mono={query.data.aprobadorNombre == null}
               />
             )}
-          </section>
+          </dl>
 
           <section className="rounded-md border p-4">
-            <h2 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">
+            <h2 className="text-sm font-semibold uppercase tracking-wide text-ink-muted">
               Progreso
             </h2>
             <p className="mt-2 text-2xl font-mono">
               {query.data.cantidadCapturadas} / {query.data.cantidadLineas}
-              <span className="ml-2 text-sm text-muted-foreground">
-                líneas capturadas
-              </span>
+              <span className="ml-2 text-sm text-ink-muted">partidas capturadas</span>
             </p>
           </section>
         </div>
@@ -241,25 +211,18 @@ export function InventarioDetallePage() {
           <AlertDialogHeader>
             <AlertDialogTitle>¿Iniciar conteo?</AlertDialogTitle>
             <AlertDialogDescription>
-              Se tomará el snapshot del inventario teórico actual y el conteo
-              pasará a <b>En curso</b>. A partir de este momento el contador
-              puede capturar.
+              Se tomará el snapshot del inventario teórico actual y el conteo pasará a{' '}
+              <b>En curso</b>. A partir de este momento el contador puede capturar.
               {query.data?.tipo === TipoConteo.Anual && (
-                <span className="mt-2 block text-amber-700">
-                  <b>Conteo anual</b>: las salidas se bloquean durante la
-                  captura (A18).
+                <span className="mt-2 block text-warning-fg">
+                  <b>Conteo anual</b>: las salidas se bloquean durante la captura.
                 </span>
               )}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel disabled={iniciar.isPending}>
-              Cancelar
-            </AlertDialogCancel>
-            <AlertDialogAction
-              disabled={iniciar.isPending}
-              onClick={ejecutarIniciar}
-            >
+            <AlertDialogCancel disabled={iniciar.isPending}>Cancelar</AlertDialogCancel>
+            <AlertDialogAction disabled={iniciar.isPending} onClick={ejecutarIniciar}>
               {iniciar.isPending ? 'Iniciando…' : 'Iniciar'}
             </AlertDialogAction>
           </AlertDialogFooter>
@@ -271,19 +234,13 @@ export function InventarioDetallePage() {
           <AlertDialogHeader>
             <AlertDialogTitle>¿Enviar a conciliación?</AlertDialogTitle>
             <AlertDialogDescription>
-              El conteo pasará a <b>En conciliación</b>. El aprobador
-              comparará teórico vs real y decidirá los ajustes. Asegúrate
-              de haber capturado todas las líneas.
+              El conteo pasará a <b>En conciliación</b>. El aprobador comparará teórico vs real y
+              decidirá los ajustes. Asegúrate de haber capturado todas las partidas.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel disabled={enviarAConciliacion.isPending}>
-              Cancelar
-            </AlertDialogCancel>
-            <AlertDialogAction
-              disabled={enviarAConciliacion.isPending}
-              onClick={ejecutarEnviar}
-            >
+            <AlertDialogCancel disabled={enviarAConciliacion.isPending}>Cancelar</AlertDialogCancel>
+            <AlertDialogAction disabled={enviarAConciliacion.isPending} onClick={ejecutarEnviar}>
               {enviarAConciliacion.isPending ? 'Enviando…' : 'Enviar'}
             </AlertDialogAction>
           </AlertDialogFooter>
@@ -323,7 +280,7 @@ function Acciones({
     return (
       <div className="flex gap-2">
         <Button onClick={onIniciar}>
-          <Play className="mr-2 h-4 w-4" />
+          <Play className="mr-2 size-3.5" />
           Iniciar (tomar snapshot)
         </Button>
       </div>
@@ -335,7 +292,7 @@ function Acciones({
       <div className="flex gap-2">
         {puedeCapturar && (
           <Button onClick={onCapturar} variant="default">
-            <ClipboardCheck className="mr-2 h-4 w-4" />
+            <ClipboardCheck className="mr-2 size-3.5" />
             Capturar (sin sesgo)
           </Button>
         )}
@@ -344,13 +301,9 @@ function Acciones({
             onClick={onEnviar}
             disabled={!completo}
             variant="outline"
-            title={
-              completo
-                ? undefined
-                : `Captura faltante: ${capturadas} / ${total}`
-            }
+            title={completo ? undefined : `Captura faltante: ${capturadas} / ${total}`}
           >
-            <Send className="mr-2 h-4 w-4" />
+            <Send className="mr-2 size-3.5" />
             Enviar a conciliación
           </Button>
         )}
@@ -362,16 +315,15 @@ function Acciones({
       return (
         <div className="flex gap-2">
           <Button onClick={onAprobar}>
-            <GitCompareArrows className="mr-2 h-4 w-4" />
+            <GitCompareArrows className="mr-2 size-3.5" />
             Aprobar / comparar
           </Button>
         </div>
       );
     }
     return (
-      <p className="text-sm text-muted-foreground">
-        El aprobador está comparando teórico vs real en una pantalla
-        dedicada.
+      <p className="text-sm text-ink-muted">
+        El aprobador está comparando teórico vs real en una pantalla dedicada.
       </p>
     );
   }
@@ -379,7 +331,7 @@ function Acciones({
     return (
       <div className="flex gap-2">
         <Button onClick={onAprobar}>
-          <GitCompareArrows className="mr-2 h-4 w-4" />
+          <GitCompareArrows className="mr-2 size-3.5" />
           Ver / aplicar conteo
         </Button>
       </div>
@@ -388,50 +340,19 @@ function Acciones({
   return null;
 }
 
-function Campo({
-  label,
-  valor,
-  mono,
-}: {
-  label: string;
-  valor: string;
-  mono?: boolean;
-}) {
+function Campo({ label, valor, mono }: { label: string; valor: string; mono?: boolean }) {
   return (
     <div>
-      <div className="text-xs uppercase tracking-wide text-muted-foreground">
-        {label}
-      </div>
-      <div className={mono ? 'font-mono text-xs break-all' : 'text-sm'}>
-        {valor}
-      </div>
+      <dt className="text-xs text-ink-muted">{label}</dt>
+      <dd className={mono ? 'font-mono text-xs break-all' : 'text-sm'}>{valor}</dd>
     </div>
-  );
-}
-
-function EstadoBadge({ estado }: { estado: EstadoConteo }) {
-  return (
-    <span
-      className={cn(
-        'inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium',
-        estado === EstadoConteo.Planificado && 'bg-slate-200 text-slate-700',
-        estado === EstadoConteo.EnCurso && 'bg-blue-100 text-blue-800',
-        estado === EstadoConteo.EnConciliacion &&
-          'bg-amber-100 text-amber-800',
-        estado === EstadoConteo.Aprobado && 'bg-violet-100 text-violet-800',
-        estado === EstadoConteo.Aplicado && 'bg-emerald-100 text-emerald-800',
-        estado === EstadoConteo.Rechazado && 'bg-rose-100 text-rose-800',
-      )}
-    >
-      {EstadoConteoLabels[estado]}
-    </span>
   );
 }
 
 function manejarError(error: unknown) {
   if (esApiError(error)) {
     toast.error(error.problem.title, {
-      description: error.traceId ? `Código: ${error.traceId}` : undefined,
+      description: codigoSoporte(error),
     });
     return;
   }

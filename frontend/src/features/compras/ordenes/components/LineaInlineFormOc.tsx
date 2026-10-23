@@ -1,5 +1,8 @@
+import { LineaActivoFields } from '@/features/activos-fijos/components/LineaActivoFields';
+import { FormCampo } from '@/components/erp/forms/FormGrid';
+import { FormGrid } from '@/components/erp/forms/FormGrid';
 /* eslint-disable react-hooks/incompatible-library -- react-hook-form watch alimenta validación dinámica; React Compiler omite su memoización de forma segura. */
-import { useEffect, useId, useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { Controller, useForm, useWatch, type Control } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { Check, ChevronDown, ChevronRight, Plus, X } from 'lucide-react';
@@ -16,16 +19,15 @@ import {
 import {
   ArticuloSelector,
   DecimalField,
+  Field,
   DECIMALES_FALLBACK,
   DepartamentoSelector,
   stepParaDecimales,
   TextAreaField,
   useDecimalesUnidad,
 } from '@/components/erp';
-import {
-  applyServerErrors,
-  esApiError,
-} from '@/lib/api';
+import { applyServerErrors, codigoSoporte, esApiError } from '@/lib/api';
+import { AvisoEnLinea } from '@/components/erp';
 import { useConflictDialog } from '@/components/erp/collaboration/conflict-dialog-context';
 import { useQueryClient } from '@tanstack/react-query';
 import { handleOcMutationError } from '@/features/compras/ordenes/lib/handle-conflict';
@@ -47,6 +49,7 @@ import { CentroCostoPicker } from '@/features/centros-costo/components/CentroCos
 import { formatCcMaquinaLabel } from '@/features/centros-costo/lib/cc-maquina-label';
 import { cn } from '@/lib/utils';
 import { subtotalLinea } from '../lib/subtotal-linea';
+import { MoneyDisplay } from '@/components/erp/display/MoneyDisplay';
 
 /**
  * <c>&lt;LineaInlineFormOc/&gt;</c> — form expandible inline (sin modal)
@@ -87,9 +90,7 @@ export interface LineaInlineFormOcProps {
   onSaved?: () => void;
 }
 
-function buildValuesFromLinea(
-  linea: LineaOrdenCompraResponse,
-): AgregarLineaManualValues {
+function buildValuesFromLinea(linea: LineaOrdenCompraResponse): AgregarLineaManualValues {
   return {
     articuloId: linea.articuloId,
     cantidad: linea.cantidad,
@@ -133,12 +134,7 @@ function comandoFraccion(
   return {};
 }
 
-export function LineaInlineFormOc({
-  oc,
-  linea,
-  onCancel,
-  onSaved,
-}: LineaInlineFormOcProps) {
+export function LineaInlineFormOc({ oc, linea, onCancel, onSaved }: LineaInlineFormOcProps) {
   const esEditar = linea != null;
   const lineaDesdeRq = linea?.requisicionId != null;
   const agregar = useAgregarLineaManual();
@@ -159,10 +155,7 @@ export function LineaInlineFormOc({
   // manda null = "no tocar", así que exigirlo dejaría sin salida a las
   // heredadas legadas con CC null.
   const resolver = useMemo(
-    () =>
-      zodResolver(
-        crearAgregarLineaManualSchema(() => decimalesRef.current, !lineaDesdeRq),
-      ),
+    () => zodResolver(crearAgregarLineaManualSchema(() => decimalesRef.current, !lineaDesdeRq)),
     [lineaDesdeRq],
   );
 
@@ -203,7 +196,14 @@ export function LineaInlineFormOc({
   // Fracción arancelaria: solo al EDITAR una línea de OC de comercio exterior.
   // PLATFORM-TODO(<F1-COM-06>): supuesto Vilo.
   const mostrarFraccion = esEditar && oc.esImportacion;
-  const fraccionId = useId();
+
+  const precioActual = useWatch({ control: form.control, name: 'precioUnitario' });
+  // D1: aviso (no bloqueo) si el precio de una línea que vino de la cotización elegida se modifica.
+  const precioCotizado = oc.cotizacionElegida?.precios.find(
+    (p) => p.lineaRequisicionId === linea?.lineaRequisicionId,
+  )?.precioPorUnidadRequisicion;
+  const apartaDeCotizacion =
+    esEditar && precioCotizado != null && Math.abs((precioActual ?? 0) - precioCotizado) > 0.00005;
 
   const descuentoTipoActual = useWatch({
     control: form.control,
@@ -224,12 +224,7 @@ export function LineaInlineFormOc({
       return;
     }
     if (esApiError(err)) {
-      if (
-        applyServerErrors(
-          form as unknown as Parameters<typeof applyServerErrors>[0],
-          err,
-        )
-      ) {
+      if (applyServerErrors(form as unknown as Parameters<typeof applyServerErrors>[0], err)) {
         return;
       }
       if (CODIGOS_ERROR_FRACCION.includes(err.code ?? '')) {
@@ -238,16 +233,15 @@ export function LineaInlineFormOc({
           message: err.problem.detail ?? err.problem.title,
         });
       }
-      const partes = [
-        err.problem.detail,
-        err.traceId ? `Código: ${err.traceId}` : null,
-      ].filter((p): p is string => Boolean(p));
+      const partes = [err.problem.detail, codigoSoporte(err)].filter((p): p is string =>
+        Boolean(p),
+      );
       toast.error(err.problem.title, {
         description: partes.length > 0 ? partes.join(' · ') : undefined,
       });
       return;
     }
-    toast.error('Error inesperado al guardar la línea.');
+    toast.error('Error inesperado al guardar la partida.');
   }
 
   function onSubmit(values: AgregarLineaManualValues) {
@@ -283,7 +277,7 @@ export function LineaInlineFormOc({
         },
         {
           onSuccess: () => {
-            toast.success(`Línea ${linea.posicion} actualizada.`);
+            toast.success(`Partida ${linea.posicion} actualizada.`);
             onSaved?.();
           },
           onError,
@@ -295,7 +289,7 @@ export function LineaInlineFormOc({
       { ordenCompraId: oc.id, command: values, idempotencyKey },
       {
         onSuccess: (resp) => {
-          toast.success(`Línea ${resp.posicion} agregada.`);
+          toast.success(`Partida ${resp.posicion} agregada.`);
           // Reset y mantener el form abierto + foco al artículo para
           // agregar otra (mismo UX que RQ).
           form.reset(DEFAULT_AGREGAR_LINEA_MANUAL);
@@ -312,8 +306,13 @@ export function LineaInlineFormOc({
     <form
       onSubmit={form.handleSubmit(onSubmit, (errs) => {
         // Si el error cae en un campo del bloque colapsado, ábrelo para que sea visible.
-        if (errs.departamentoSolicitanteId || errs.descuentoTipo || errs.descuentoValor
-          || errs.descripcionExtendida || errs.textoAdicional) setDetallesAbiertos(true);
+        if (
+          errs.descuentoTipo ||
+          errs.descuentoValor ||
+          errs.descripcionExtendida ||
+          errs.textoAdicional
+        )
+          setDetallesAbiertos(true);
       })}
       noValidate
       onKeyDown={(e) => {
@@ -325,218 +324,261 @@ export function LineaInlineFormOc({
       className={cn(
         'space-y-3 rounded-md border p-3',
         // Editar: borde sólido ámbar; agregar: borde dashed primary.
-        esEditar
-          ? 'border-amber-400 bg-amber-50/40'
-          : 'border-dashed border-primary/40 bg-primary/5',
+        esEditar ? 'border-warning bg-warning-bg/40' : 'border-dashed border-brand/40 bg-brand/5',
       )}
-      aria-label={
-        esEditar ? `Editar línea ${linea?.posicion}` : 'Agregar línea'
-      }
+      aria-label={esEditar ? `Editar partida ${linea?.posicion}` : 'Agregar partida'}
       data-component="linea-inline-form-oc"
       data-modo={esEditar ? 'edit' : 'add'}
     >
       {/* Badge si la línea viene de RQ (solo en editar) */}
       {esEditar && lineaDesdeRq && linea?.requisicionId && (
-        <div className="flex items-center gap-2 text-xs text-muted-foreground">
-          <LineaDesdeRqBadge
-            requisicionId={linea.requisicionId}
-            folio={linea.requisicionFolio}
-          />
+        <div className="flex items-center gap-2 text-xs text-ink-muted">
+          <LineaDesdeRqBadge requisicionId={linea.requisicionId} folio={linea.requisicionFolio} />
           <span>
-            Artículo y cantidad están bloqueados por política §4.2 — la RQ
-            es la fuente de verdad. Sí puedes ajustar precio, descuento y
-            datos no estructurales.
+            Artículo y cantidad provienen de la requisición y no se pueden modificar aquí. Sí puedes
+            ajustar precio, descuento y datos no estructurales.
           </span>
         </div>
       )}
 
       {/* ── Fila 1: campos críticos ─────────────────────────────── */}
-      <div className="grid grid-cols-1 gap-2 md:grid-cols-12">
-        <FieldInline
-          label="Artículo"
-          required
-          error={form.formState.errors.articuloId?.message}
-          className="md:col-span-4"
-        >
-          <Controller
-            name="articuloId"
-            control={form.control}
-            render={({ field }) => (
-              <ArticuloSelector
-                value={field.value || null}
-                onChange={(id) => field.onChange(id ?? '')}
-                onSelect={(articulo) => {
-                  form.setValue(
-                    'unidadMedida',
-                    articulo.unidadMedidaDefault || 'PZA',
-                    { shouldValidate: true },
-                  );
-                  setUnidadMedidaIdSel(articulo.unidadMedidaId);
-                }}
-                disabled={lineaDesdeRq}
-                // En edición, etiqueta inicial desde el DTO enriquecido para no
-                // depender de la lista capada del typeahead (ADR-0042 addendum).
-                initialLabel={
-                  linea && (linea.articuloClave || linea.articuloNombre)
-                    ? [linea.articuloClave, linea.articuloNombre]
-                        .filter(Boolean)
-                        .join(' · ')
-                    : undefined
-                }
+      <FormGrid className="">
+        <FormCampo span={12}>
+          <Field
+            label="Artículo"
+            required
+            error={form.formState.errors.articuloId?.message}
+            className="@lg:col-span-3 @3xl:col-span-4"
+          >
+            {(c) => (
+              <Controller
+                name="articuloId"
+                control={form.control}
+                render={({ field }) => (
+                  <ArticuloSelector
+                    triggerProps={c}
+                    value={field.value || null}
+                    onChange={(id) => field.onChange(id ?? '')}
+                    onSelect={(articulo) => {
+                      form.setValue('unidadMedida', articulo.unidadMedidaDefault || 'PZA', {
+                        shouldValidate: true,
+                      });
+                      setUnidadMedidaIdSel(articulo.unidadMedidaId);
+                    }}
+                    disabled={lineaDesdeRq}
+                    // En edición, etiqueta inicial desde el DTO enriquecido para no
+                    // depender de la lista capada del typeahead (ADR-0042 addendum).
+                    initialLabel={
+                      linea && (linea.articuloClave || linea.articuloNombre)
+                        ? [linea.articuloClave, linea.articuloNombre].filter(Boolean).join(' · ')
+                        : undefined
+                    }
+                  />
+                )}
               />
             )}
-          />
-        </FieldInline>
+          </Field>
+        </FormCampo>
 
-        <FieldInline
-          label="Cantidad"
-          required
-          error={form.formState.errors.cantidad?.message}
-          className="md:col-span-2"
-        >
-          <Controller
-            name="cantidad"
-            control={form.control}
-            render={({ field }) => (
-              <DecimalField
-                value={field.value ?? null}
-                onChange={(v) => field.onChange(v ?? 0)}
-                min={0.001}
-                step={stepParaDecimales(decimalesUnidad)}
-                disabled={lineaDesdeRq}
+        <FormCampo span={12}>
+          <Field
+            label="Cantidad"
+            required
+            error={form.formState.errors.cantidad?.message}
+            className="@3xl:col-span-2"
+          >
+            {(c) => (
+              <Controller
+                name="cantidad"
+                control={form.control}
+                render={({ field }) => (
+                  <DecimalField
+                    inputProps={c}
+                    value={field.value ?? null}
+                    onChange={(v) => field.onChange(v ?? 0)}
+                    min={0.001}
+                    step={stepParaDecimales(decimalesUnidad)}
+                    disabled={lineaDesdeRq}
+                  />
+                )}
               />
             )}
-          />
-        </FieldInline>
+          </Field>
+        </FormCampo>
 
-        <FieldInline
-          label="UM"
-          required
-          error={form.formState.errors.unidadMedida?.message}
-          className="md:col-span-1"
-        >
-          {/* Read-only (NO disabled): la UM se hereda del artículo. Con
+        <FormCampo span={4}>
+          <Field
+            label="UM"
+            required
+            error={form.formState.errors.unidadMedida?.message}
+            className="@3xl:col-span-1"
+          >
+            {/* Read-only (NO disabled): la UM se hereda del artículo. Con
               readOnly el valor sigue registrado y viaja en el submit;
               disabled lo excluiría del payload de react-hook-form. En
               líneas heredadas de RQ el selector está disabled, así que la
               UM queda fija con la unidad guardada en la RQ. */}
-          <Input
-            type="text"
-            readOnly
-            tabIndex={-1}
-            maxLength={20}
-            placeholder="—"
-            aria-label="Unidad de medida (heredada del artículo)"
-            className="bg-muted/50"
-            {...form.register('unidadMedida')}
-          />
-        </FieldInline>
-
-        <FieldInline
-          label="Precio"
-          required
-          error={form.formState.errors.precioUnitario?.message}
-          className="md:col-span-3"
-        >
-          <Controller
-            name="precioUnitario"
-            control={form.control}
-            render={({ field }) => (
-              <DecimalField
-                value={field.value ?? null}
-                onChange={(v) => field.onChange(v ?? 0)}
-                min={0}
-                step={0.0001}
+            {(c) => (
+              <Input
+                {...c}
+                type="text"
+                readOnly
+                tabIndex={-1}
+                maxLength={20}
+                placeholder="—"
+                aria-label="Unidad de medida (heredada del artículo)"
+                className="bg-surface-muted/50"
+                {...form.register('unidadMedida')}
               />
             )}
-          />
-        </FieldInline>
+          </Field>
+        </FormCampo>
 
-        <FieldInline
-          label="Subtotal"
-          className="md:col-span-2"
-        >
-          <SubtotalPreview control={form.control} />
-        </FieldInline>
-      </div>
+        <FormCampo span={12}>
+          <Field
+            label="Precio"
+            required
+            error={form.formState.errors.precioUnitario?.message}
+            className="@3xl:col-span-3"
+          >
+            {(c) => (
+              <Controller
+                name="precioUnitario"
+                control={form.control}
+                render={({ field }) => (
+                  <DecimalField
+                    inputProps={c}
+                    value={field.value ?? null}
+                    onChange={(v) => field.onChange(v ?? 0)}
+                    min={0}
+                    step={0.0001}
+                  />
+                )}
+              />
+            )}
+          </Field>
+        </FormCampo>
+
+        <FormCampo span={12}>
+          <Field label="Subtotal" className="@3xl:col-span-2">
+            {(c) => <SubtotalPreview id={c.id} control={form.control} moneda={oc.moneda} />}
+          </Field>
+        </FormCampo>
+      </FormGrid>
+
+      {apartaDeCotizacion && (
+        <AvisoEnLinea tono="advertencia">
+          Se aparta de la cotización elegida (precio cotizado: {precioCotizado}).
+        </AvisoEnLinea>
+      )}
 
       {/* ── Sub-fila (siempre visible): Centro de costo (Fase E PR3) ──────
           Heredada de RQ → display BLOQUEADO read-only (ADR-0050 "heredado,
           solo lectura", 1:1 de la RQ); manual → picker ABIERTO por proxy
           (el comprador elige, /compras/ordenes/dim3/buscar). */}
-      <div className="grid grid-cols-1 gap-2 border-t border-primary/10 pt-2 md:grid-cols-2">
-        <FieldInline
-          label="Centro de costo"
-          error={form.formState.errors.centroCostoId?.message}
-        >
-          {lineaDesdeRq ? (
-            // Bloqueado: mismo patrón que la UM heredada (<Input readOnly>).
-            <Input
-              type="text"
-              readOnly
-              tabIndex={-1}
-              aria-label="Centro de costo (heredado de la requisición, no editable)"
-              className="bg-muted/50"
-              value={
-                linea?.centroCostoId
-                  ? formatCcMaquinaLabel({
-                      clave: linea.centroCostoClave,
-                      nombre: linea.centroCostoNombre,
-                    })
-                  : '—'
-              }
-            />
-          ) : (
-            <Controller
-              name="centroCostoId"
-              control={form.control}
-              render={({ field }) => (
-                <CentroCostoPicker
-                  value={field.value || null}
-                  onChange={(id) => field.onChange(id ?? null)}
-                  endpoint="/api/v1/compras/ordenes/centros-costo/buscar"
-                  initialLabel={
+      <FormGrid className="border-t border-brand/10 pt-2">
+        <FormCampo span={6}>
+          <Field
+            label="Centro de costo"
+            required={!lineaDesdeRq}
+            error={form.formState.errors.centroCostoId?.message}
+          >
+            {(c) =>
+              lineaDesdeRq ? (
+                // Bloqueado: mismo patrón que la UM heredada (<Input readOnly>).
+                <Input
+                  id={c.id}
+                  type="text"
+                  readOnly
+                  tabIndex={-1}
+                  aria-label="Centro de costo (heredado de la requisición, no editable)"
+                  className="bg-surface-muted/50"
+                  value={
                     linea?.centroCostoId
                       ? formatCcMaquinaLabel({
                           clave: linea.centroCostoClave,
                           nombre: linea.centroCostoNombre,
                         })
-                      : undefined
+                      : '—'
                   }
                 />
-              )}
-            />
-          )}
-        </FieldInline>
+              ) : (
+                <Controller
+                  name="centroCostoId"
+                  control={form.control}
+                  render={({ field }) => (
+                    <CentroCostoPicker
+                      triggerProps={c}
+                      value={field.value || null}
+                      onChange={(id) => field.onChange(id ?? null)}
+                      endpoint="/api/v1/compras/ordenes/centros-costo/buscar"
+                      initialLabel={
+                        linea?.centroCostoId
+                          ? formatCcMaquinaLabel({
+                              clave: linea.centroCostoClave,
+                              nombre: linea.centroCostoNombre,
+                            })
+                          : undefined
+                      }
+                    />
+                  )}
+                />
+              )
+            }
+          </Field>
+        </FormCampo>
 
-        {mostrarFraccion && (
-          <FieldInline
-            label="Fracción arancelaria"
-            htmlFor={fraccionId}
-            error={form.formState.errors.fraccionArancelaria?.message}
+        <FormCampo span={6}>
+          <Field
+            label="Departamento solicitante"
+            required
+            error={form.formState.errors.departamentoSolicitanteId?.message}
           >
-            <Input
-              id={fraccionId}
-              type="text"
-              inputMode="numeric"
-              maxLength={10}
-              placeholder="8 u 10 dígitos"
-              data-field="fraccion-arancelaria"
-              {...form.register('fraccionArancelaria')}
-            />
-            <p className="text-xs text-muted-foreground">
-              Clave de la tarifa arancelaria de la mercancía (8 u 10 dígitos).
-            </p>
-          </FieldInline>
-        )}
-      </div>
+            {(c) => (
+              <Controller
+                name="departamentoSolicitanteId"
+                control={form.control}
+                render={({ field }) => (
+                  <DepartamentoSelector
+                    triggerProps={c}
+                    value={field.value || null}
+                    onChange={(v) => field.onChange(v ?? '')}
+                  />
+                )}
+              />
+            )}
+          </Field>
+        </FormCampo>
+
+        <FormCampo span={6}>
+          {mostrarFraccion && (
+            <Field
+              label="Fracción arancelaria"
+              hint="Clave de la tarifa arancelaria de la mercancía (8 u 10 dígitos)."
+              error={form.formState.errors.fraccionArancelaria?.message}
+            >
+              {(c) => (
+                <Input
+                  {...c}
+                  type="text"
+                  inputMode="numeric"
+                  maxLength={10}
+                  placeholder="8 u 10 dígitos"
+                  data-field="fraccion-arancelaria"
+                  {...form.register('fraccionArancelaria')}
+                />
+              )}
+            </Field>
+          )}
+        </FormCampo>
+      </FormGrid>
 
       {/* ── Toggle "+ Detalles" + actions ────────────────────────── */}
       <div className="flex flex-wrap items-center justify-between gap-2">
         <button
           type="button"
           onClick={() => setDetallesAbiertos((v) => !v)}
-          className="inline-flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground"
+          className="inline-flex items-center gap-1 text-xs text-ink-muted hover:text-ink"
           aria-expanded={detallesAbiertos}
         >
           {detallesAbiertos ? (
@@ -544,26 +586,15 @@ export function LineaInlineFormOc({
           ) : (
             <ChevronRight className="h-3 w-3" />
           )}
-          Detalles (almacén, departamento, descuento, texto adicional)
+          Detalles (descuento, descripción, texto adicional)
         </button>
 
         <div className="flex items-center gap-2">
-          <Button
-            type="button"
-            variant="ghost"
-            size="sm"
-            onClick={onCancel}
-            disabled={isPending}
-          >
+          <Button type="button" variant="ghost" size="sm" onClick={onCancel} disabled={isPending}>
             <X className="mr-1 h-4 w-4" />
             Cancelar
           </Button>
-          <Button
-            type="submit"
-            size="sm"
-            disabled={isPending}
-            data-action="submit"
-          >
+          <Button type="submit" size="sm" disabled={isPending} data-action="submit">
             {esEditar ? (
               <>
                 <Check className="mr-1 h-4 w-4" />
@@ -572,7 +603,7 @@ export function LineaInlineFormOc({
             ) : (
               <>
                 <Plus className="mr-1 h-4 w-4" />
-                {isPending ? 'Agregando…' : 'Agregar línea'}
+                {isPending ? 'Agregando…' : 'Agregar partida'}
               </>
             )}
           </Button>
@@ -581,116 +612,123 @@ export function LineaInlineFormOc({
 
       {/* ── Fila 2 (expandible): campos opcionales ───────────────── */}
       {detallesAbiertos && (
-        <div className="grid grid-cols-1 gap-2 border-t border-primary/20 pt-3 md:grid-cols-2">
-          <FieldInline
-            label="Departamento solicitante"
-            required
-            error={form.formState.errors.departamentoSolicitanteId?.message}
-          >
-            <Controller
-              name="departamentoSolicitanteId"
-              control={form.control}
-              render={({ field }) => (
-                <DepartamentoSelector
-                  value={field.value || null}
-                  onChange={(v) => field.onChange(v ?? '')}
+        <FormGrid className="border-t border-brand/20 pt-3">
+          <FormCampo span={6}>
+            <Field
+              label="Descuento (opcional)"
+              error={form.formState.errors.descuentoTipo?.message}
+            >
+              {(c) => (
+                <Controller
+                  name="descuentoTipo"
+                  control={form.control}
+                  render={({ field }) => (
+                    <Select
+                      value={field.value == null ? '__none__' : String(field.value)}
+                      onValueChange={(v) => field.onChange(v === '__none__' ? null : Number(v))}
+                    >
+                      <SelectTrigger data-field="descuento-tipo" {...c}>
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="__none__">Sin descuento</SelectItem>
+                        <SelectItem value={String(DescuentoTipo.Porcentaje)}>
+                          Porcentaje (%)
+                        </SelectItem>
+                        <SelectItem value={String(DescuentoTipo.Monto)}>Monto fijo</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  )}
                 />
               )}
-            />
-          </FieldInline>
+            </Field>
+          </FormCampo>
 
-          <FieldInline
-            label="Descuento (opcional)"
-            error={form.formState.errors.descuentoTipo?.message}
-          >
-            <Controller
-              name="descuentoTipo"
-              control={form.control}
-              render={({ field }) => (
-                <Select
-                  value={
-                    field.value == null ? '__none__' : String(field.value)
-                  }
-                  onValueChange={(v) =>
-                    field.onChange(v === '__none__' ? null : Number(v))
-                  }
-                >
-                  <SelectTrigger data-field="descuento-tipo">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="__none__">Sin descuento</SelectItem>
-                    <SelectItem value={String(DescuentoTipo.Porcentaje)}>
-                      Porcentaje (%)
-                    </SelectItem>
-                    <SelectItem value={String(DescuentoTipo.Monto)}>
-                      Monto fijo
-                    </SelectItem>
-                  </SelectContent>
-                </Select>
-              )}
-            />
-          </FieldInline>
-
-          <FieldInline
-            label="Valor del descuento"
-            error={form.formState.errors.descuentoValor?.message}
-          >
-            <Controller
-              name="descuentoValor"
-              control={form.control}
-              render={({ field }) => (
-                <DecimalField
-                  value={field.value ?? null}
-                  onChange={(v) => field.onChange(v)}
-                  min={0}
-                  step={0.01}
-                  disabled={descuentoTipoActual == null}
+          <FormCampo span={6}>
+            <Field
+              label="Valor del descuento"
+              error={form.formState.errors.descuentoValor?.message}
+            >
+              {(c) => (
+                <Controller
+                  name="descuentoValor"
+                  control={form.control}
+                  render={({ field }) => (
+                    <DecimalField
+                      inputProps={c}
+                      value={field.value ?? null}
+                      onChange={(v) => field.onChange(v)}
+                      min={0}
+                      step={0.01}
+                      disabled={descuentoTipoActual == null}
+                    />
+                  )}
                 />
               )}
-            />
-          </FieldInline>
+            </Field>
+          </FormCampo>
 
-          <div className="md:col-span-2">
-            <FieldInline
-              label="Descripción extendida"
-              error={form.formState.errors.descripcionExtendida?.message}
-            >
-              <Controller
-                name="descripcionExtendida"
-                control={form.control}
-                render={({ field }) => (
-                  <TextAreaField
-                    value={field.value ?? null}
-                    onChange={(v) => field.onChange(v || null)}
-                    maxLength={1000}
-                    minRows={2}
+          <FormCampo span={12}>
+            <div className="@lg:col-span-2">
+              <Field
+                label="Descripción extendida"
+                error={form.formState.errors.descripcionExtendida?.message}
+              >
+                {(c) => (
+                  <Controller
+                    name="descripcionExtendida"
+                    control={form.control}
+                    render={({ field }) => (
+                      <TextAreaField
+                        textareaProps={c}
+                        value={field.value ?? null}
+                        onChange={(v) => field.onChange(v || null)}
+                        maxLength={1000}
+                        minRows={2}
+                      />
+                    )}
                   />
                 )}
-              />
-            </FieldInline>
-          </div>
+              </Field>
+            </div>
+          </FormCampo>
 
-          <div className="md:col-span-2">
-            <FieldInline
-              label="Texto adicional (impreso en PDF)"
-              error={form.formState.errors.textoAdicional?.message}
-            >
-              <Controller
-                name="textoAdicional"
-                control={form.control}
-                render={({ field }) => (
-                  <TextAreaField
-                    value={field.value ?? null}
-                    onChange={(v) => field.onChange(v || null)}
-                    maxLength={2000}
-                    minRows={2}
+          <FormCampo span={12}>
+            <div className="@lg:col-span-2">
+              <Field
+                label="Texto adicional (impreso en PDF)"
+                error={form.formState.errors.textoAdicional?.message}
+              >
+                {(c) => (
+                  <Controller
+                    name="textoAdicional"
+                    control={form.control}
+                    render={({ field }) => (
+                      <TextAreaField
+                        textareaProps={c}
+                        value={field.value ?? null}
+                        onChange={(v) => field.onChange(v || null)}
+                        maxLength={2000}
+                        minRows={2}
+                      />
+                    )}
                   />
                 )}
-              />
-            </FieldInline>
-          </div>
-        </div>
+              </Field>
+            </div>
+          </FormCampo>
+        </FormGrid>
+      )}
+      {!esEditar && (
+        <LineaActivoFields
+          error={form.formState.errors.claseActivoId?.message}
+          activo={form.watch('esActivoFijo') ?? false}
+          clase={form.watch('claseActivoId')}
+          onChange={(activo, clase) => {
+            form.setValue('esActivoFijo', activo, { shouldDirty: true });
+            form.setValue('claseActivoId', clase, { shouldDirty: true });
+          }}
+        />
       )}
     </form>
   );
@@ -700,53 +738,17 @@ export function LineaInlineFormOc({
 // Helpers locales
 // ============================================================================
 
-interface FieldInlineProps {
-  label: string;
-  htmlFor?: string;
-  required?: boolean;
-  error?: string;
-  className?: string;
-  children: React.ReactNode;
-}
-
-function FieldInline({
-  label,
-  htmlFor,
-  required,
-  error,
-  className,
-  children,
-}: FieldInlineProps) {
-  return (
-    <div className={cn('space-y-1', className)}>
-      <label
-        htmlFor={htmlFor}
-        className="flex items-center gap-1 text-xs font-medium text-muted-foreground"
-      >
-        {label}
-        {required && (
-          <span aria-hidden="true" className="text-rose-600">
-            *
-          </span>
-        )}
-      </label>
-      {children}
-      {error != null && (
-        <p role="alert" className="text-xs text-rose-600">
-          {error}
-        </p>
-      )}
-    </div>
-  );
-}
-
 /**
  * Vista previa con descuento y redondeo al par, igual que el dominio.
  */
 function SubtotalPreview({
   control,
+  moneda,
+  id,
 }: {
+  id: string;
   control: Control<AgregarLineaManualValues>;
+  moneda: string;
 }) {
   const cantidad = useWatch({ control, name: 'cantidad' }) ?? 0;
   const precio = useWatch({ control, name: 'precioUnitario' }) ?? 0;
@@ -754,8 +756,11 @@ function SubtotalPreview({
   const valor = useWatch({ control, name: 'descuentoValor' });
   const subtotal = subtotalLinea(cantidad, precio, tipo, valor);
   return (
-    <div className="rounded-md border bg-muted/30 px-3 py-1.5 text-sm tabular-nums">
-      {subtotal.toFixed(2)}
-    </div>
+    <output
+      id={id}
+      className="block rounded-md border bg-surface-muted/30 px-3 py-1.5 text-sm tabular-nums"
+    >
+      <MoneyDisplay amount={subtotal} currency={moneda} />
+    </output>
   );
 }

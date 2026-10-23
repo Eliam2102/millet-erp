@@ -2,6 +2,7 @@ using Millet.Almacen.Infrastructure.PublicAdapters;
 using FluentValidation;
 using MediatR;
 using Microsoft.EntityFrameworkCore;
+using Millet.Almacen.Domain.Catalogo;
 using Millet.Almacen.Application.Integration;
 using Millet.Almacen.Domain.Movimientos;
 using Millet.Almacen.Domain.Ports;
@@ -73,6 +74,9 @@ public sealed class RegistrarSalidaConRequisicionValidator
         RuleFor(c => c.FechaMovimiento)
             .Must(f => f.Year is >= 2020 and <= 2099)
             .WithMessage("Fecha de movimiento fuera de rango razonable.");
+        RuleFor(c => c.Observaciones!).MaximumLength(500)
+            .When(c => c.Observaciones is not null)
+            .WithMessage("Las observaciones no pueden exceder 500 caracteres.");
         RuleFor(c => c.Lineas).NotEmpty();
         RuleForEach(c => c.Lineas).ChildRules(linea =>
         {
@@ -162,9 +166,17 @@ public sealed class RegistrarSalidaConRequisicionHandler
                 "mismo sub-almacén. Revisa los bins elegidos.");
         }
         var subAlmacenId = subsDerivados[0];
+        // ALM-04: el material en revisión no se surte hasta el dictamen.
+        if (await _db.SubAlmacenes.AsNoTracking().AnyAsync(s => s.Id == subAlmacenId && s.Tipo == TipoSubAlmacen.MaterialEnRevision, cancellationToken))
+            throw new BusinessRuleException(
+                "SALIDA_DESDE_REVISION",
+                "El material en revisión no está disponible para surtir: espera el dictamen del Gerente de almacén/calidad.");
         // G1.6: dimensiones contables del evento (una consulta).
         var (almacenId, sucursalId) = await Catalogo.AlmacenSucursalResolver
             .ResolverAsync(_db, subAlmacenId, cancellationToken);
+        // F5 (86e3pc50v): la RQ y el almacén de la salida deben ser de la misma sucursal.
+        Catalogo.SucursalDestinoGuard.Validar(rq?.SucursalId, sucursalId, "SALIDA_SUCURSAL_DISTINTA",
+            "La requisición es de otra sucursal: entrega desde un almacén de la sucursal de la requisición.");
 
         // F7-PR3 (A18): si hay bloqueo activo de salidas para el sub DERIVADO,
         // rechazar — está en conteo anual.
@@ -295,6 +307,7 @@ public sealed class RegistrarSalidaConRequisicionHandler
         // 4. Reservar folio.
         var anio = request.FechaMovimiento.Year;
         var prefijo = TipoMovimiento.SalidaConsumo.PrefijoFolio();
+        _ = await Catalogo.FolioMovimientoLock.AbrirAsync(_db, prefijo, anio, cancellationToken); // M-094: tx ya abierta (txApartados)
         var secuencia = await _db.FolioSecuenciasMovimiento
             .FirstOrDefaultAsync(s => s.Prefijo == prefijo && s.Anio == anio, cancellationToken);
         if (secuencia is null)

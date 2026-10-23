@@ -1,27 +1,45 @@
-import { useMemo, useState } from 'react';
-import { Link, useNavigate, useSearch } from '@tanstack/react-router';
-import { Plus, X } from 'lucide-react';
-import { toast } from 'sonner';
-import { Button } from '@/components/ui/button';
-import { Checkbox } from '@/components/ui/checkbox';
-import { EmptyState, ErrorState, TableSkeleton } from '@/components/erp';
+import {
+  BarraFiltros,
+  EmptyState,
+  ErrorState,
+  PaginacionTabla,
+  TableSkeleton,
+  TabsEstado,
+} from '@/components/erp';
+import { BusquedaFolio } from '@/components/erp/data/BusquedaFolio';
+import { ListadoModulo } from '@/components/erp/data/ListadoModulo';
+import { PageHeader } from '@/components/erp/PageHeader';
 import { SucursalSelector } from '@/components/erp/selectors/SucursalSelector';
 import { UsuarioSelector } from '@/components/erp/selectors/UsuarioSelector';
-import { CanalVentaSelector } from '@/features/facturacion/components/selectors/CanalVentaSelector';
+import { Button } from '@/components/ui/button';
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '@/components/ui/table';
+import { useSucursales, useUsuarios } from '@/features/catalogos/api/hooks';
+import type { UsuarioAlcanceInput } from '@/features/facturacion/api/types';
 import {
   useListarCajas,
   useReemplazarUsuarioAlcances,
   useUsuarioAlcances,
 } from '@/features/facturacion/api/useCajas';
-import { useSucursales, useUsuarios } from '@/features/catalogos/api/hooks';
 import { useCanalesVenta } from '@/features/facturacion/api/useCatalogosFacturacion';
-import { useNuevaCaja } from '@/features/facturacion/components/nueva-caja-context';
 import { ChipEstatusCaja } from '@/features/facturacion/components/ListaCajasCompacta';
+import { useNuevaCaja } from '@/features/facturacion/components/nueva-caja-context';
+import { CanalVentaSelector } from '@/features/facturacion/components/selectors/CanalVentaSelector';
 import { resumenAlcance } from '@/features/facturacion/lib/cajas-format';
-import type { UsuarioAlcanceInput } from '@/features/facturacion/api/types';
 import type { CajasSearch } from '@/features/facturacion/lib/cajas-search-schema';
 import { esApiError } from '@/lib/api';
 import { cn } from '@/lib/utils';
+import { Link, useNavigate, useSearch } from '@tanstack/react-router';
+import { Plus, X } from 'lucide-react';
+import { useMemo, useState } from 'react';
+import { toast } from 'sonner';
+import { usePaginacionLocal } from '../lib/use-paginacion-local';
 
 const FROM = '/_app/facturacion/cajas/' as const;
 
@@ -41,27 +59,21 @@ export function BandejaCajas() {
   }
 
   return (
-    <div className="space-y-4 px-4 py-6">
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <div>
-          <h1 className="text-2xl font-semibold tracking-tight">Cajas</h1>
-          <p className="text-sm text-muted-foreground">
-            Alcance de datos por sucursal × canal y cajeros con acceso (12-cajas.md).
-          </p>
-        </div>
-      </div>
+    <div className="space-y-5">
+      <PageHeader
+        titulo="Cajas"
+        descripcion="Configura las sucursales, los canales y los cajeros con acceso a cada caja."
+      />
 
-      <div className="flex gap-1 border-b" role="tablist" aria-label="Secciones de cajas">
-        <BotonTab
-          activo={tab === 'cajas'}
-          onClick={() => actualizarSearch({ tab: undefined })}
-        >
+      <div
+        className="flex gap-1 border-b border-line"
+        role="tablist"
+        aria-label="Secciones de cajas"
+      >
+        <BotonTab activo={tab === 'cajas'} onClick={() => actualizarSearch({ tab: undefined })}>
           Cajas
         </BotonTab>
-        <BotonTab
-          activo={tab === 'alcances'}
-          onClick={() => actualizarSearch({ tab: 'alcances' })}
-        >
+        <BotonTab activo={tab === 'alcances'} onClick={() => actualizarSearch({ tab: 'alcances' })}>
           Alcances por usuario
         </BotonTab>
       </div>
@@ -84,9 +96,7 @@ function BotonTab(props: { activo: boolean; onClick: () => void; children: strin
       onClick={props.onClick}
       className={cn(
         'border-b-2 px-3 py-2 text-sm font-medium transition-colors',
-        props.activo
-          ? 'border-primary text-foreground'
-          : 'border-transparent text-muted-foreground hover:text-foreground',
+        props.activo ? 'border-brand text-ink' : 'border-transparent text-ink-muted hover:text-ink',
       )}
     >
       {props.children}
@@ -101,91 +111,123 @@ function TabCajas(props: {
   onSearch: (parcial: Partial<CajasSearch>) => void;
 }) {
   const nuevaCaja = useNuevaCaja();
+  const [soloInactivas, setSoloInactivas] = useState(false);
   const query = useListarCajas(props.search.soloActivas ?? false);
 
   const q = (props.search.q ?? '').trim().toLowerCase();
-  const items = (query.data ?? []).filter(
-    (c) =>
-      q.length === 0 ||
-      c.nombre.toLowerCase().includes(q) ||
-      (c.descripcion ?? '').toLowerCase().includes(q),
-  );
+  const items = (query.data ?? [])
+    .filter((c) => !soloInactivas || props.search.soloActivas || c.estatus === 'Inactivo')
+    .filter(
+      (c) =>
+        q.length === 0 ||
+        c.nombre.toLowerCase().includes(q) ||
+        (c.descripcion ?? '').toLowerCase().includes(q),
+    );
 
+  const paginacion = usePaginacionLocal(items, JSON.stringify(props.search) + soloInactivas);
   return (
-    <div className="space-y-4">
-      <div className="flex flex-wrap items-end justify-between gap-3">
-        <label className="flex items-center gap-2 text-sm">
-          <Checkbox
-            checked={props.search.soloActivas ?? false}
-            onCheckedChange={(v) =>
-              props.onSearch({ soloActivas: v === true ? true : undefined })
+    <div className="space-y-5">
+      <ListadoModulo
+        tabs={
+          <TabsEstado
+            opciones={[
+              { valor: 1, label: 'Activa' },
+              { valor: 2, label: 'Inactiva' },
+            ]}
+            valor={props.search.soloActivas ? 1 : soloInactivas ? 2 : undefined}
+            conteos={undefined}
+            onChange={(v) => {
+              setSoloInactivas(v === 2);
+              props.onSearch({ soloActivas: v === 1 ? true : undefined });
+            }}
+          />
+        }
+        filtros={
+          <BarraFiltros
+            busqueda={
+              <BusquedaFolio
+                aria-label="Buscar caja"
+                placeholder="Nombre o descripción de caja"
+                valor={props.search.q}
+                onCommit={(q) => props.onSearch({ q })}
+              />
+            }
+            filtros={
+              <Button onClick={() => nuevaCaja.abrir()}>
+                <Plus className="mr-2 h-4 w-4" />
+                Nueva caja
+              </Button>
             }
           />
-          Solo activas
-        </label>
-        <Button onClick={() => nuevaCaja.abrir()}>
-          <Plus className="mr-2 h-4 w-4" />
-          Nueva caja
-        </Button>
-      </div>
-
-      {query.isError ? (
-        <ErrorState
-          title="No se pudieron cargar las cajas"
-          problem={esApiError(query.error) ? query.error.problem : undefined}
-          onRetry={() => query.refetch()}
-        />
-      ) : query.isLoading ? (
-        <TableSkeleton
-          rows={5}
-          columns={[{ width: 'w-40' }, { width: 'w-64' }, { width: 'w-32' }, { width: 'w-16' }]}
-        />
-      ) : items.length === 0 ? (
-        <EmptyState
-          title="Sin cajas"
-          description='Crea la primera con "Nueva caja"; nace activa y sin alcance (todas las sucursales y canales).'
-        />
-      ) : (
-        <div className="overflow-x-auto rounded-md border">
-          <table className="w-full text-sm">
-            <thead className="bg-muted/50">
-              <tr>
-                <th className="px-3 py-2 text-left">Nombre</th>
-                <th className="px-3 py-2 text-left">Alcance</th>
-                <th className="px-3 py-2 text-left">Estatus</th>
-                <th className="px-3 py-2 text-right">Acción</th>
-              </tr>
-            </thead>
-            <tbody>
-              {items.map((c) => (
-                <tr key={c.id} className="border-t hover:bg-muted/30">
-                  <td className="px-3 py-2">
-                    <div className="font-medium">{c.nombre}</div>
-                    {c.descripcion && (
-                      <div className="text-xs text-muted-foreground">{c.descripcion}</div>
-                    )}
-                  </td>
-                  <td className="px-3 py-2 text-xs text-muted-foreground">
-                    {resumenAlcance(c)}
-                  </td>
-                  <td className="px-3 py-2">
-                    <ChipEstatusCaja estatus={c.estatus} />
-                  </td>
-                  <td className="px-3 py-2 text-right">
-                    <Link
-                      to="/facturacion/cajas/$id"
-                      params={{ id: c.id }}
-                      className="text-sm font-medium text-primary hover:underline"
-                    >
-                      Ver
-                    </Link>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      )}
+        }
+        pie={
+          <PaginacionTabla
+            total={items.length}
+            offset={paginacion.offset}
+            limit={10}
+            tamanos={[]}
+            onChange={paginacion.onChange}
+          />
+        }
+      >
+        {query.isError ? (
+          <ErrorState
+            title="No se pudieron cargar las cajas"
+            problem={esApiError(query.error) ? query.error.problem : undefined}
+            onRetry={() => query.refetch()}
+          />
+        ) : query.isLoading ? (
+          <TableSkeleton
+            rows={5}
+            columns={[{ width: 'w-40' }, { width: 'w-64' }, { width: 'w-32' }, { width: 'w-16' }]}
+          />
+        ) : items.length === 0 ? (
+          <EmptyState
+            title="Sin cajas"
+            description='Crea la primera con "Nueva caja"; nace activa en la sucursal que elijas.'
+          />
+        ) : (
+          <div className="overflow-x-auto rounded-md border border-line">
+            <Table className="w-full text-sm">
+              <TableHeader className="bg-surface-muted/50">
+                <TableRow>
+                  <TableHead className="px-3 py-2 text-left">Nombre</TableHead>
+                  <TableHead className="px-3 py-2 text-left">Alcance</TableHead>
+                  <TableHead className="px-3 py-2 text-left">Estatus</TableHead>
+                  <TableHead className="px-3 py-2 text-right tabular-nums">Acción</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {paginacion.visibles.map((c) => (
+                  <TableRow key={c.id} className="border-t hover:bg-surface-muted/30 border-line">
+                    <TableCell className="px-3 py-2">
+                      <div className="font-medium">{c.nombre}</div>
+                      {c.descripcion && (
+                        <div className="text-xs text-ink-muted">{c.descripcion}</div>
+                      )}
+                    </TableCell>
+                    <TableCell className="px-3 py-2 text-xs text-ink-muted">
+                      {resumenAlcance(c)}
+                    </TableCell>
+                    <TableCell className="px-3 py-2">
+                      <ChipEstatusCaja estatus={c.estatus} />
+                    </TableCell>
+                    <TableCell className="px-3 py-2 text-right tabular-nums">
+                      <Link
+                        to="/facturacion/cajas/$id"
+                        params={{ id: c.id }}
+                        className="text-sm font-medium text-brand hover:underline"
+                      >
+                        Ver
+                      </Link>
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </div>
+        )}
+      </ListadoModulo>
     </div>
   );
 }
@@ -195,12 +237,12 @@ function TabCajas(props: {
 function TabUsuarioAlcances() {
   const [usuarioId, setUsuarioId] = useState<string | null>(null);
   return (
-    <div className="space-y-4">
-      <p className="text-sm text-muted-foreground">
-        Concesiones para perfiles administrativos <b>sin caja</b>: cada fila otorga una
-        combinación sucursal/canal (vacío = comodín). Con el permiso{' '}
-        <code className="text-xs">facturacion.caja.leer-todas</code> el alcance es total y
-        esta tabla no aplica.
+    <div className="space-y-5">
+      <p className="text-sm text-ink-muted">
+        Concesiones para perfiles administrativos <b>sin caja</b>: cada fila otorga una combinación
+        sucursal/canal (vacío = comodín). Con el permiso{' '}
+        <code className="text-xs">facturacion.caja.leer-todas</code> el alcance es total y esta
+        tabla no aplica.
       </p>
       <div className="w-80">
         <UsuarioSelector value={usuarioId} onChange={setUsuarioId} placeholder="Usuario…" />
@@ -258,7 +300,9 @@ function EditorUsuarioAlcances(props: { usuarioId: string }) {
 
   function agregar() {
     if (nuevaSucursal == null && nuevoCanal == null) {
-      toast.error('Una concesión sin sucursal ni canal equivale a alcance total; usa el permiso leer-todas.');
+      toast.error(
+        'Una concesión sin sucursal ni canal equivale a alcance total; usa el permiso leer-todas.',
+      );
       return;
     }
     const nueva: UsuarioAlcanceInput = { sucursalId: nuevaSucursal, canalVentaId: nuevoCanal };
@@ -273,8 +317,8 @@ function EditorUsuarioAlcances(props: { usuarioId: string }) {
   return (
     <div
       className={cn(
-        'space-y-3 rounded-md border bg-card p-4',
-        dirty && 'border-dashed border-primary/40 bg-primary/5',
+        'space-y-3 rounded-md border bg-surface-card p-4',
+        dirty && 'border-dashed border-brand/40 bg-brand/5',
       )}
     >
       <div className="flex items-center justify-between gap-2">
@@ -312,20 +356,23 @@ function EditorUsuarioAlcances(props: { usuarioId: string }) {
       </div>
 
       {alcances.length === 0 ? (
-        <p className="text-sm italic text-muted-foreground">
+        <p className="text-sm italic text-ink-muted">
           Sin concesiones: el usuario solo ve documentos por sus cajas.
         </p>
       ) : (
-        <ul className="divide-y rounded-md border">
+        <ul className="divide-y rounded-md border border-line">
           {alcances.map((a, i) => (
-            <li key={`${a.sucursalId ?? '*'}-${a.canalVentaId ?? '*'}`} className="flex items-center justify-between gap-2 px-3 py-2 text-sm">
+            <li
+              key={`${a.sucursalId ?? '*'}-${a.canalVentaId ?? '*'}`}
+              className="flex items-center justify-between gap-2 px-3 py-2 text-sm"
+            >
               <span>
                 {nombreSucursal(a.sucursalId)} · {nombreCanal(a.canalVentaId)}
               </span>
               <button
                 type="button"
                 onClick={() => setPendientes(alcances.filter((_, j) => j !== i))}
-                className="text-muted-foreground hover:text-destructive"
+                className="text-ink-muted hover:text-danger-fg"
                 aria-label="Quitar concesión"
               >
                 <X className="h-4 w-4" />
@@ -336,13 +383,13 @@ function EditorUsuarioAlcances(props: { usuarioId: string }) {
       )}
 
       {/* Alta inline (border dashed primary, §6.3). */}
-      <div className="flex flex-wrap items-end gap-2 rounded-md border border-dashed border-primary/40 bg-primary/5 p-3">
+      <div className="flex flex-wrap items-end gap-2 rounded-md border border-dashed border-brand/40 bg-brand/5 p-3">
         <div className="w-64 space-y-1">
-          <label className="text-xs text-muted-foreground">Sucursal (vacío = todas)</label>
+          <label className="text-xs text-ink-muted">Sucursal (vacío = todas)</label>
           <SucursalSelector value={nuevaSucursal} onChange={setNuevaSucursal} />
         </div>
         <div className="w-64 space-y-1">
-          <label className="text-xs text-muted-foreground">Canal (vacío = todos)</label>
+          <label className="text-xs text-ink-muted">Canal (vacío = todos)</label>
           <CanalVentaSelector value={nuevoCanal} onChange={setNuevoCanal} />
         </div>
         <Button size="sm" variant="outline" onClick={agregar}>

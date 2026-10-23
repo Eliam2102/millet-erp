@@ -2,6 +2,7 @@ using FluentValidation;
 using MediatR;
 using Microsoft.EntityFrameworkCore;
 using Millet.CuentasPorPagar.Domain.FacturaProveedor;
+using Millet.CuentasPorPagar.Domain.Ports.Administracion;
 using Millet.CuentasPorPagar.Domain.TarjetaCredito;
 using Millet.CuentasPorPagar.Domain.TarjetaCredito.Events;
 using Millet.CuentasPorPagar.Infrastructure.Persistence;
@@ -371,7 +372,12 @@ public sealed class MarcarEstadoCuentaConciliadoHandler
     : IRequestHandler<MarcarEstadoCuentaConciliadoCommand, EstadoCuentaTcResponse>
 {
     private readonly CuentasPorPagarDbContext _db;
-    public MarcarEstadoCuentaConciliadoHandler(CuentasPorPagarDbContext db) { _db = db; }
+    private readonly IToleranciaTarjetasReadPort _tolerancia;
+    public MarcarEstadoCuentaConciliadoHandler(CuentasPorPagarDbContext db, IToleranciaTarjetasReadPort tolerancia)
+    {
+        _db = db;
+        _tolerancia = tolerancia;
+    }
 
     public async Task<EstadoCuentaTcResponse> Handle(
         MarcarEstadoCuentaConciliadoCommand command, CancellationToken cancellationToken)
@@ -384,7 +390,8 @@ public sealed class MarcarEstadoCuentaConciliadoHandler
         if (ec.Version != command.VersionEsperada)
             throw new ConcurrencyException(nameof(EstadoCuentaTc), ec.Id);
 
-        ec.MarcarConciliado();
+        var tolerancia = await _tolerancia.ObtenerMontoMxnAsync(cancellationToken);
+        ec.MarcarConciliado(tolerancia);
         await _db.SaveChangesAsync(cancellationToken);
         return CrearEstadoCuentaTcHandler.ToResponse(ec);
     }

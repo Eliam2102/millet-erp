@@ -1,8 +1,5 @@
-import { useState } from 'react';
-import { Pencil, Plus, Power, PowerOff, Truck, UserRound } from 'lucide-react';
-import { toast } from 'sonner';
-import { Badge } from '@/components/ui/badge';
-import { Button } from '@/components/ui/button';
+import { ErrorState, TableSkeleton } from '@/components/erp';
+import { PageHeader } from '@/components/erp/PageHeader';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -13,22 +10,23 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
-import { ErrorState, TableSkeleton } from '@/components/erp';
-import type {
-  OperadorListItem,
-  VehiculoListItem,
-} from '@/features/facturacion/api/types';
+import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
 import {
   useActualizarOperador,
   useActualizarVehiculo,
   useOperadoresAdmin,
   useVehiculosAdmin,
 } from '@/features/facturacion/api/cartaPorteCatalogos';
-import { useHasPermission } from '@/lib/auth/useHasPermission';
-import { PermisosCanonicos } from '@/lib/auth/permission-codes';
-import { esApiError, useFormIdempotencyKey } from '@/lib/api';
-import { VehiculoInlineForm } from '@/features/facturacion/components/VehiculoInlineForm';
+import type { OperadorListItem, VehiculoListItem } from '@/features/facturacion/api/types';
 import { OperadorInlineForm } from '@/features/facturacion/components/OperadorInlineForm';
+import { VehiculoInlineForm } from '@/features/facturacion/components/VehiculoInlineForm';
+import { codigoSoporte, esApiError, useFormIdempotencyKey } from '@/lib/api';
+import { PermisosCanonicos } from '@/lib/auth/permission-codes';
+import { useHasPermission } from '@/lib/auth/useHasPermission';
+import { Pencil, Plus, Power, PowerOff, Truck, UserRound } from 'lucide-react';
+import { useState } from 'react';
+import { toast } from 'sonner';
 
 /**
  * <c>&lt;CartaPorteCatalogosPage/&gt;</c> — catálogos administrables de
@@ -47,7 +45,11 @@ import { OperadorInlineForm } from '@/features/facturacion/components/OperadorIn
  */
 export function CartaPorteCatalogosPage() {
   return (
-    <div className="mx-auto max-w-5xl space-y-8 p-4">
+    <div className="space-y-5">
+      <PageHeader
+        titulo="Catálogos de Carta Porte"
+        descripcion="Administra los operadores y vehículos disponibles para los traslados."
+      />
       <SeccionVehiculos />
       <SeccionOperadores />
     </div>
@@ -57,7 +59,7 @@ export function CartaPorteCatalogosPage() {
 function toastActualizarError(error: Error, fallback: string) {
   if (esApiError(error)) {
     toast.error(error.problem.title, {
-      description: error.traceId ? `Código: ${error.traceId}` : undefined,
+      description: codigoSoporte(error),
     });
   } else {
     toast.error(fallback);
@@ -70,12 +72,9 @@ function SeccionVehiculos() {
   const [agregando, setAgregando] = useState(false);
   const [editandoId, setEditandoId] = useState<string | null>(null);
   const [mostrarInactivos, setMostrarInactivos] = useState(false);
-  const [confirmDesactivar, setConfirmDesactivar] =
-    useState<VehiculoListItem | null>(null);
+  const [confirmDesactivar, setConfirmDesactivar] = useState<VehiculoListItem | null>(null);
 
-  const canGestionar = useHasPermission(
-    PermisosCanonicos.FacturacionCartaPorteEmitir,
-  );
+  const canGestionar = useHasPermission(PermisosCanonicos.FacturacionCartaPorteEmitir);
 
   const query = useVehiculosAdmin(mostrarInactivos);
   const vehiculos = query.data ?? [];
@@ -100,24 +99,23 @@ function SeccionVehiculos() {
   }
 
   return (
-    <section className="space-y-4">
+    <section className="space-y-5">
       <header className="flex flex-wrap items-center justify-between gap-2">
         <div>
           <h2 className="flex items-center gap-2 text-lg font-semibold">
             <Truck className="h-5 w-5" aria-hidden="true" />
             Vehículos
           </h2>
-          <p className="text-sm text-muted-foreground">
-            Autotransporte para Carta Porte 3.1: placa, configuración SAT,
-            permiso SCT, seguro y peso bruto (obligatorio para timbrar).
-            Total: {vehiculos.length}.
+          <p className="text-sm text-ink-muted">
+            Autotransporte para Carta Porte 3.1: placa, configuración SAT, permiso SCT, seguro y
+            peso bruto (obligatorio para timbrar). Total: {vehiculos.length}.
           </p>
         </div>
         <div className="flex items-center gap-3">
-          <label className="flex items-center gap-1.5 text-xs text-muted-foreground">
+          <label className="flex items-center gap-1.5 text-xs text-ink-muted">
             <input
               type="checkbox"
-              className="size-4 rounded border-input"
+              className="size-4 rounded border-line-control"
               checked={mostrarInactivos}
               onChange={(e) => setMostrarInactivos(e.target.checked)}
             />
@@ -155,11 +153,11 @@ function SeccionVehiculos() {
       ) : query.isLoading ? (
         <TableSkeleton rows={4} />
       ) : vehiculos.length === 0 ? (
-        <div className="rounded-md border border-dashed bg-muted/20 px-4 py-6 text-center text-sm text-muted-foreground">
+        <div className="rounded-md border border-dashed bg-surface-muted/20 px-4 py-6 text-center text-sm text-ink-muted border-line">
           No hay vehículos registrados.
         </div>
       ) : (
-        <ul className="divide-y rounded-md border bg-card">
+        <ul className="divide-y rounded-md border bg-surface-card border-line">
           {vehiculos.map((v) => {
             const editando = editandoId === v.id;
             return (
@@ -172,18 +170,14 @@ function SeccionVehiculos() {
                   />
                 ) : (
                   <div className="flex flex-wrap items-center gap-3">
-                    <span className="w-24 truncate font-mono text-sm font-medium">
-                      {v.placa}
-                    </span>
+                    <span className="w-24 truncate font-mono text-sm font-medium">{v.placa}</span>
                     <span
                       className="w-16 font-mono text-xs"
                       title="Configuración vehicular (c_ConfigAutotransporte)"
                     >
                       {v.configVehicular}
                     </span>
-                    <span className="w-12 text-xs tabular-nums text-muted-foreground">
-                      {v.anioModelo}
-                    </span>
+                    <span className="w-12 text-xs tabular-nums text-ink-muted">{v.anioModelo}</span>
                     {v.pesoBrutoVehicular != null ? (
                       <span
                         className="w-16 text-xs tabular-nums"
@@ -193,13 +187,13 @@ function SeccionVehiculos() {
                       </span>
                     ) : (
                       <span
-                        className="w-16 text-xs text-amber-600"
+                        className="w-16 text-xs text-warning-fg"
                         title="Sin peso bruto vehicular — el SAT lo exige para timbrar Carta Porte 3.1."
                       >
                         Sin peso
                       </span>
                     )}
-                    <span className="flex-1 truncate text-xs text-muted-foreground">
+                    <span className="flex-1 truncate text-xs text-ink-muted">
                       {[
                         v.tipoPermisoSct != null
                           ? `${v.tipoPermisoSct}${v.numPermisoSct != null ? ` ${v.numPermisoSct}` : ''}`
@@ -212,7 +206,7 @@ function SeccionVehiculos() {
                     {v.activo ? (
                       <Badge variant="secondary">Activo</Badge>
                     ) : (
-                      <Badge variant="outline" className="text-muted-foreground">
+                      <Badge variant="outline" className="text-ink-muted">
                         Inactivo
                       </Badge>
                     )}
@@ -243,9 +237,7 @@ function SeccionVehiculos() {
                             variant="ghost"
                             size="sm"
                             disabled={actualizar.isPending}
-                            onClick={() =>
-                              cambiarActivo(v, true, `Vehículo ${v.placa} reactivado`)
-                            }
+                            onClick={() => cambiarActivo(v, true, `Vehículo ${v.placa} reactivado`)}
                             aria-label={`Reactivar vehículo ${v.placa}`}
                           >
                             <Power className="h-3.5 w-3.5" />
@@ -272,16 +264,13 @@ function SeccionVehiculos() {
             <AlertDialogTitle>Desactivar vehículo</AlertDialogTitle>
             <AlertDialogDescription>
               ¿Confirmas desactivar el vehículo{' '}
-              <span className="font-semibold">{confirmDesactivar?.placa}</span>?
-              Saldrá del selector de emisión de Carta Porte, pero las Cartas
-              Porte existentes conservan su histórico. Se puede reactivar en
-              cualquier momento.
+              <span className="font-semibold">{confirmDesactivar?.placa}</span>? Saldrá del selector
+              de emisión de Carta Porte, pero las Cartas Porte existentes conservan su histórico. Se
+              puede reactivar en cualquier momento.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel disabled={actualizar.isPending}>
-              Cancelar
-            </AlertDialogCancel>
+            <AlertDialogCancel disabled={actualizar.isPending}>Cancelar</AlertDialogCancel>
             <AlertDialogAction
               onClick={() => {
                 if (confirmDesactivar == null) return;
@@ -308,12 +297,9 @@ function SeccionOperadores() {
   const [agregando, setAgregando] = useState(false);
   const [editandoId, setEditandoId] = useState<string | null>(null);
   const [mostrarInactivos, setMostrarInactivos] = useState(false);
-  const [confirmDesactivar, setConfirmDesactivar] =
-    useState<OperadorListItem | null>(null);
+  const [confirmDesactivar, setConfirmDesactivar] = useState<OperadorListItem | null>(null);
 
-  const canGestionar = useHasPermission(
-    PermisosCanonicos.FacturacionCartaPorteEmitir,
-  );
+  const canGestionar = useHasPermission(PermisosCanonicos.FacturacionCartaPorteEmitir);
 
   const query = useOperadoresAdmin(mostrarInactivos);
   const operadores = query.data ?? [];
@@ -338,23 +324,23 @@ function SeccionOperadores() {
   }
 
   return (
-    <section className="space-y-4">
+    <section className="space-y-5">
       <header className="flex flex-wrap items-center justify-between gap-2">
         <div>
           <h2 className="flex items-center gap-2 text-lg font-semibold">
             <UserRound className="h-5 w-5" aria-hidden="true" />
             Operadores
           </h2>
-          <p className="text-sm text-muted-foreground">
-            Choferes para Carta Porte 3.1: RFC, nombre y número de licencia
-            federal. Total: {operadores.length}.
+          <p className="text-sm text-ink-muted">
+            Choferes para Carta Porte 3.1: RFC, nombre y número de licencia federal. Total:{' '}
+            {operadores.length}.
           </p>
         </div>
         <div className="flex items-center gap-3">
-          <label className="flex items-center gap-1.5 text-xs text-muted-foreground">
+          <label className="flex items-center gap-1.5 text-xs text-ink-muted">
             <input
               type="checkbox"
-              className="size-4 rounded border-input"
+              className="size-4 rounded border-line-control"
               checked={mostrarInactivos}
               onChange={(e) => setMostrarInactivos(e.target.checked)}
             />
@@ -392,11 +378,11 @@ function SeccionOperadores() {
       ) : query.isLoading ? (
         <TableSkeleton rows={4} />
       ) : operadores.length === 0 ? (
-        <div className="rounded-md border border-dashed bg-muted/20 px-4 py-6 text-center text-sm text-muted-foreground">
+        <div className="rounded-md border border-dashed bg-surface-muted/20 px-4 py-6 text-center text-sm text-ink-muted border-line">
           No hay operadores registrados.
         </div>
       ) : (
-        <ul className="divide-y rounded-md border bg-card">
+        <ul className="divide-y rounded-md border bg-surface-card border-line">
           {operadores.map((o) => {
             const editando = editandoId === o.id;
             return (
@@ -409,12 +395,10 @@ function SeccionOperadores() {
                   />
                 ) : (
                   <div className="flex flex-wrap items-center gap-3">
-                    <span className="w-36 truncate font-mono text-xs">
-                      {o.rfc}
-                    </span>
+                    <span className="w-36 truncate font-mono text-xs">{o.rfc}</span>
                     <span className="flex-1 truncate text-sm">{o.nombre}</span>
                     <span
-                      className="w-28 truncate font-mono text-xs text-muted-foreground"
+                      className="w-28 truncate font-mono text-xs text-ink-muted"
                       title="Número de licencia federal"
                     >
                       {o.numLicencia}
@@ -422,7 +406,7 @@ function SeccionOperadores() {
                     {o.activo ? (
                       <Badge variant="secondary">Activo</Badge>
                     ) : (
-                      <Badge variant="outline" className="text-muted-foreground">
+                      <Badge variant="outline" className="text-ink-muted">
                         Inactivo
                       </Badge>
                     )}
@@ -482,16 +466,13 @@ function SeccionOperadores() {
             <AlertDialogTitle>Desactivar operador</AlertDialogTitle>
             <AlertDialogDescription>
               ¿Confirmas desactivar al operador{' '}
-              <span className="font-semibold">{confirmDesactivar?.nombre}</span>
-              ? Saldrá del selector de emisión de Carta Porte, pero las
-              Cartas Porte existentes conservan su histórico. Se puede
-              reactivar en cualquier momento.
+              <span className="font-semibold">{confirmDesactivar?.nombre}</span>? Saldrá del
+              selector de emisión de Carta Porte, pero las Cartas Porte existentes conservan su
+              histórico. Se puede reactivar en cualquier momento.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel disabled={actualizar.isPending}>
-              Cancelar
-            </AlertDialogCancel>
+            <AlertDialogCancel disabled={actualizar.isPending}>Cancelar</AlertDialogCancel>
             <AlertDialogAction
               onClick={() => {
                 if (confirmDesactivar == null) return;

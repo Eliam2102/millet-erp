@@ -1,3 +1,7 @@
+import { DialogBody } from '@/components/ui/dialog';
+import { ConfirmacionContent as AlertDialogContent } from '@/modules/administracion/components/ConfirmacionContent';
+import { FormSeccion } from '@/components/erp/forms/FormSeccion';
+import { FormCampo } from '@/components/erp/forms/FormGrid';
 import { useEffect, useState } from 'react';
 import { useForm, useWatch } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -9,30 +13,22 @@ import {
   AlertDialog,
   AlertDialogAction,
   AlertDialogCancel,
-  AlertDialogContent,
   AlertDialogDescription,
   AlertDialogFooter,
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
-import {
-  applyServerErrors,
-  esApiError,
-  useFormIdempotencyKey,
-} from '@/lib/api';
+import { applyServerErrors, esApiError, useFormIdempotencyKey, codigoSoporte } from '@/lib/api';
 import {
   ActualizarSerieSchema,
   type ActualizarSerieValues,
 } from '@/modules/administracion/schemas/serie';
+import { useActualizarSerie, useSerie } from '@/modules/administracion/api';
+import { ReinicioPeriodo, type SerieResponse } from '@/modules/administracion/api/types';
 import {
-  useActualizarSerie,
-  useSerie,
-} from '@/modules/administracion/api';
-import {
-  ReinicioPeriodo,
-  type SerieResponse,
-} from '@/modules/administracion/api/types';
-import { REINICIO_PERIODO_LABEL } from '@/modules/administracion/components/series-labels';
+  REINICIO_PERIODO_LABEL,
+  esTipoSerieFiscal,
+} from '@/modules/administracion/components/series-labels';
 import { cn } from '@/lib/utils';
 
 /**
@@ -64,17 +60,12 @@ const REINICIO_OPTIONS: readonly ReinicioPeriodo[] = [
   ReinicioPeriodo.Mensual,
 ];
 
-export function SerieFilaEditable({
-  serie,
-  onCancel,
-  onSaved,
-}: SerieFilaEditableProps) {
+export function SerieFilaEditable({ serie, onCancel, onSaved }: SerieFilaEditableProps) {
   const idempotencyKey = useFormIdempotencyKey();
   const actualizar = useActualizarSerie();
   const detalleQuery = useSerie(serie.id);
   const [confirmReinicioOpen, setConfirmReinicioOpen] = useState(false);
-  const [valoresPendientes, setValoresPendientes] =
-    useState<ActualizarSerieValues | null>(null);
+  const [valoresPendientes, setValoresPendientes] = useState<ActualizarSerieValues | null>(null);
 
   const form = useForm<ActualizarSerieValues>({
     resolver: zodResolver(ActualizarSerieSchema),
@@ -101,16 +92,13 @@ export function SerieFilaEditable({
         id: serie.id,
         versionEsperada: serie.version,
         payload: {
-          prefijo:
-            values.prefijo !== serie.prefijo ? values.prefijo : undefined,
+          prefijo: values.prefijo !== serie.prefijo ? values.prefijo : undefined,
           // Si el usuario lo dejó vacío y antes había valor, mandamos
           // limpiarSufijo. Si lo cambió por otro string, va en sufijo.
           sufijo: sufijoCambio && sufijoTrim != null ? sufijoTrim : undefined,
           limpiarSufijo: limpiarSufijo ? true : undefined,
           reinicioPeriodo:
-            values.reinicioPeriodo !== serie.reinicioPeriodo
-              ? values.reinicioPeriodo
-              : undefined,
+            values.reinicioPeriodo !== serie.reinicioPeriodo ? values.reinicioPeriodo : undefined,
         },
         idempotencyKey,
       },
@@ -129,18 +117,13 @@ export function SerieFilaEditable({
               return;
             }
             if (
-              applyServerErrors(
-                form as unknown as Parameters<typeof applyServerErrors>[0],
-                err,
-              )
+              applyServerErrors(form as unknown as Parameters<typeof applyServerErrors>[0], err)
             ) {
               setConfirmReinicioOpen(false);
               return;
             }
             toast.error(err.problem.title, {
-              description: err.traceId
-                ? `Código: ${err.traceId}`
-                : undefined,
+              description: codigoSoporte(err),
             });
             setConfirmReinicioOpen(false);
             return;
@@ -182,99 +165,96 @@ export function SerieFilaEditable({
         )}
         aria-label={`Editar serie ${serie.prefijo}`}
       >
-        <div className="grid grid-cols-1 gap-3 md:grid-cols-12">
-          <Field
-            label="Prefijo"
-            required
-            error={form.formState.errors.prefijo?.message}
-            className="md:col-span-3"
-          >
-            <Input
-              maxLength={10}
-              placeholder="OC"
-              {...form.register('prefijo')}
-            />
-          </Field>
-
-          <Field
-            label="Sufijo"
-            hint="Opcional, máx. 10 caracteres."
-            error={form.formState.errors.sufijo?.message}
-            className="md:col-span-3"
-          >
-            <Input
-              maxLength={10}
-              placeholder=""
-              defaultValue={serie.sufijo ?? ''}
-              {...form.register('sufijo', {
-                setValueAs: (v: unknown) =>
-                  typeof v === 'string' && v.trim().length === 0
-                    ? null
-                    : typeof v === 'string'
-                      ? v.trim()
-                      : v,
-              })}
-            />
-          </Field>
-
-          <Field
-            label="Reinicio de periodo"
-            required
-            error={form.formState.errors.reinicioPeriodo?.message}
-            className="md:col-span-6"
-          >
-            <div
-              role="radiogroup"
-              aria-label="Reinicio de periodo"
-              className="flex flex-wrap gap-2"
+        <FormSeccion titulo="Datos de la serie" className="">
+          <FormCampo span={6}>
+            <Field
+              label="Prefijo"
+              required
+              error={form.formState.errors.prefijo?.message}
+              className="md:col-span-3"
             >
-              {REINICIO_OPTIONS.map((value) => {
-                const checked = reinicioActual === value;
-                return (
-                  <label
-                    key={value}
-                    className={cn(
-                      'flex cursor-pointer items-center gap-1.5 rounded-md border px-3 py-1.5 text-xs',
-                      checked
-                        ? 'border-primary bg-primary/10 font-medium text-primary'
-                        : 'border-input bg-background hover:bg-muted/40',
-                    )}
-                  >
-                    <input
-                      type="radio"
-                      className="sr-only"
-                      checked={checked}
-                      onChange={() =>
-                        form.setValue('reinicioPeriodo', value, {
-                          shouldDirty: true,
-                          shouldValidate: true,
-                        })
-                      }
-                    />
-                    {REINICIO_PERIODO_LABEL[value]}
-                  </label>
-                );
-              })}
-            </div>
-          </Field>
-        </div>
+              <Input maxLength={10} placeholder="OC" {...form.register('prefijo')} />
+            </Field>
+          </FormCampo>
 
-        <p className="text-xs text-muted-foreground">
+          <FormCampo span={6}>
+            <Field
+              label="Sufijo"
+              hint="Opcional, máx. 10 caracteres."
+              error={form.formState.errors.sufijo?.message}
+              className="md:col-span-3"
+            >
+              <Input
+                maxLength={10}
+                placeholder=""
+                defaultValue={serie.sufijo ?? ''}
+                {...form.register('sufijo', {
+                  setValueAs: (v: unknown) =>
+                    typeof v === 'string' && v.trim().length === 0
+                      ? null
+                      : typeof v === 'string'
+                        ? v.trim()
+                        : v,
+                })}
+              />
+            </Field>
+          </FormCampo>
+
+          <FormCampo span={6}>
+            <Field
+              label="Reinicio de periodo"
+              required
+              error={form.formState.errors.reinicioPeriodo?.message}
+              className="md:col-span-6"
+            >
+              <div
+                role="radiogroup"
+                aria-label="Reinicio de periodo"
+                className="flex flex-wrap gap-2"
+              >
+                {(esTipoSerieFiscal(serie.tipoDocumento)
+                  ? [ReinicioPeriodo.None]
+                  : REINICIO_OPTIONS
+                ).map((value) => {
+                  const checked = reinicioActual === value;
+                  return (
+                    <label
+                      key={value}
+                      className={cn(
+                        'flex cursor-pointer items-center gap-1.5 rounded-md border px-3 py-1.5 text-xs',
+                        checked
+                          ? 'border-brand bg-brand/10 font-medium text-brand'
+                          : 'border-line-control bg-surface-page hover:bg-surface-muted/40',
+                      )}
+                    >
+                      <input
+                        type="radio"
+                        className="sr-only"
+                        checked={checked}
+                        onChange={() =>
+                          form.setValue('reinicioPeriodo', value, {
+                            shouldDirty: true,
+                            shouldValidate: true,
+                          })
+                        }
+                      />
+                      {REINICIO_PERIODO_LABEL[value]}
+                    </label>
+                  );
+                })}
+              </div>
+            </Field>
+          </FormCampo>
+        </FormSeccion>
+
+        <p className="text-xs text-ink-muted">
           Próximo folio:{' '}
-          <span className="font-mono">
-            {detalleQuery.data?.proximoFolioPreview ?? '—'}
-          </span>{' '}
+          <span className="font-mono">{detalleQuery.data?.proximoFolioPreview ?? '—'}</span>{' '}
           {detalleQuery.isLoading && '(cargando…)'}
         </p>
 
         <div className="flex items-center justify-end gap-2 border-t pt-2">
-          <Button
-            type="button"
-            variant="ghost"
-            size="sm"
-            onClick={onCancel}
-            disabled={isPending}
-          >
+          <Button type="button" variant="ghost" size="sm" onClick={onCancel} disabled={isPending}>
             <X className="mr-1 h-4 w-4" />
             Cancelar
           </Button>
@@ -295,14 +275,16 @@ export function SerieFilaEditable({
         }}
       >
         <AlertDialogContent>
-          <AlertDialogHeader>
+          <AlertDialogHeader className="px-6 pt-5 pb-3">
             <AlertDialogTitle>Cambiar reinicio del periodo</AlertDialogTitle>
-            <AlertDialogDescription>
-              Cambiar el reinicio del periodo puede dejar folios huérfanos en
-              el periodo anterior. ¿Confirmas el cambio?
-            </AlertDialogDescription>
           </AlertDialogHeader>
-          <AlertDialogFooter>
+          <DialogBody>
+            <AlertDialogDescription>
+              Cambiar el reinicio del periodo puede dejar folios huérfanos en el periodo anterior.
+              ¿Confirmas el cambio?
+            </AlertDialogDescription>
+          </DialogBody>
+          <AlertDialogFooter className="border-t border-line-divider bg-surface-subtle px-6 py-4">
             <AlertDialogCancel disabled={isPending}>Cancelar</AlertDialogCancel>
             <AlertDialogAction
               disabled={isPending}
@@ -333,7 +315,7 @@ interface FieldProps {
 function Field({ label, required, hint, error, className, children }: FieldProps) {
   return (
     <div className={cn('space-y-1', className)}>
-      <label className="flex items-center gap-1 text-xs font-medium text-muted-foreground">
+      <label className="flex items-center gap-1 text-xs font-medium text-ink-muted">
         {label}
         {required && (
           <span aria-hidden="true" className="text-danger-fg">
@@ -342,9 +324,7 @@ function Field({ label, required, hint, error, className, children }: FieldProps
         )}
       </label>
       {children}
-      {hint != null && error == null && (
-        <p className="text-xs text-muted-foreground">{hint}</p>
-      )}
+      {hint != null && error == null && <p className="text-xs text-ink-muted">{hint}</p>}
       {error != null && (
         <p role="alert" className="text-xs text-danger-fg">
           {error}

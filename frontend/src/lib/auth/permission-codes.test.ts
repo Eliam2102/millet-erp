@@ -12,6 +12,27 @@ import { PermisosCanonicos } from '@/lib/auth/permission-codes';
  * vuelve redundante y se borra.</para>
  */
 const CODIGOS_BACKEND_ESPERADOS = new Set<string>([
+  'activos_fijos.depreciacion.correr',
+  'activos_fijos.depreciacion.anular',
+  'activos_fijos.bajas.registrar',
+  'activos_fijos.bajas.autorizar',
+  'activos_fijos.ajustes.registrar',
+  'activos_fijos.ajustes.autorizar',
+  'activos_fijos.carga.ejecutar',
+  'activos_fijos.conciliacion.ver',
+  'activos_fijos.documentos.gestionar',
+  'activos_fijos.mantenimientos.gestionar',
+  'activos_fijos.etiquetas.imprimir',
+  'activos_fijos.conteos.gestionar',
+  'activos_fijos.conteos.autorizar',
+  'activos_fijos.clases.administrar',
+  'activos_fijos.activos.ver',
+  'activos_fijos.activos.gestionar',
+  'activos_fijos.capitalizar',
+  'activos_fijos.traslados.gestionar',
+  'activos_fijos.activos.leer-todas-sucursales',
+  'activos_fijos.activos.gestionar-todas-sucursales',
+
   // Infra
   'infra.health.leer',
   'infra.audit_log.leer',
@@ -39,6 +60,7 @@ const CODIGOS_BACKEND_ESPERADOS = new Set<string>([
   'compras.requisiciones.eliminar',
   'compras.requisiciones.cancelar',
   'compras.requisiciones.cerrar-manual',
+  'compras.requisiciones.liberar-apartado',
   'compras.requisiciones.autorizar-nivel1',
   'compras.requisiciones.autorizar-nivel2',
   'compras.requisiciones.rechazar',
@@ -61,9 +83,14 @@ const CODIGOS_BACKEND_ESPERADOS = new Set<string>([
   'compras.ordenes.cancelar',
   'compras.ordenes.cancelar-doble',
   'compras.ordenes.reportes-partidas-abiertas',
+  'compras.ordenes.reportes-analisis-proveedores',
+  'compras.ordenes.registrar-respuesta-proveedor',
+  'compras.ordenes.registrar-incidencia-proveedor',
   // Compras — Configuración (PR-A 2026-05-13, setting AutoGenerarOcAlAutorizar).
   'compras.configuracion.leer',
   'compras.configuracion.editar',
+  'compras.cotizaciones.leer',
+  'compras.cotizaciones.gestionar',
   // Compartido — Catálogos. Tras F-Admin-PR4.5 el frontend mantiene el
   // par leer/administrar canónico aunque la UI vaya migrando a los
   // granulares de Datos Maestros.
@@ -80,6 +107,8 @@ const CODIGOS_BACKEND_ESPERADOS = new Set<string>([
   'datos_maestros.proveedores.gestionar',
   'datos_maestros.proveedores.bancarios-ver',
   'datos_maestros.proveedores.bancarios-editar',
+  'datos_maestros.proveedores.cuentas-administrar',
+  'datos_maestros.proveedores.expediente-configurar',
   'datos_maestros.proveedores.adjuntos-ver',
   'datos_maestros.proveedores.adjuntos-subir',
   'datos_maestros.proveedores.adjuntos-baja',
@@ -91,7 +120,11 @@ const CODIGOS_BACKEND_ESPERADOS = new Set<string>([
   'datos_maestros.clientes.sincronizar',
   'datos_maestros.clientes.origen-ver',
   'datos_maestros.clientes.fiscal-editar',
+  'datos_maestros.clientes.unificar',
   'datos_maestros.productos-aw.gestionar',
+  // Diferencias fiscales A+W vs ERP (U1.8b).
+  'datos_maestros.diferencias-fiscales-aw.leer',
+  'datos_maestros.diferencias-fiscales-aw.revisar',
   // Administración — andamio /admin (F-Admin-PR1.2) y CRUDs (PR2.3+).
   'admin.empresas.leer',
   'admin.empresas.crear',
@@ -123,6 +156,7 @@ const CODIGOS_BACKEND_ESPERADOS = new Set<string>([
   'almacen.devoluciones-internas.capturar',
   'almacen.devoluciones-proveedor.iniciar',
   'almacen.devoluciones-proveedor.autorizar',
+  'almacen.cuarentena.dictaminar',
   'almacen.devoluciones-proveedor.registrar',
   'almacen.inventarios.leer',
   'almacen.inventarios.crear',
@@ -183,7 +217,6 @@ const CODIGOS_BACKEND_ESPERADOS = new Set<string>([
   'cuentas_por_pagar.tc.disputar',
   'cuentas_por_pagar.proveedores.poner-revision',
   'cuentas_por_pagar.proveedores.liberar-revision',
-  'cuentas_por_pagar.proveedores.ajustar-tolerancia',
   'cuentas_por_pagar.reportes.cartera',
   'cuentas_por_pagar.reportes.antiguedad',
   'cuentas_por_pagar.reportes.diot',
@@ -230,11 +263,17 @@ const CODIGOS_BACKEND_ESPERADOS = new Set<string>([
   'tesoreria.pasivos.solicitar-cancelacion',
   'tesoreria.pasivos.ver',
   'tesoreria.reportes.ver',
+  'tesoreria.devoluciones.ver',
+  'tesoreria.devoluciones.solicitar',
+  'tesoreria.devoluciones.autorizar',
+  'tesoreria.devoluciones.pagar',
   // Facturación — CFDI 4.0 emitido (FE-F0+). Mirror del backend
   // §"Facturación" (namespace GUID 00000009-*). 24 permisos.
   'facturacion.pedidos.importar',
   'facturacion.pedidos.capturar',
   'facturacion.pedidos.excepciones-resolver',
+  'facturacion.pedidos.capturar-emergencia',
+  'facturacion.pedidos.leer-credito',
   'facturacion.facturas.emitir',
   'facturacion.facturas.leer',
   'facturacion.facturas.editar-receptor',
@@ -244,6 +283,7 @@ const CODIGOS_BACKEND_ESPERADOS = new Set<string>([
   'facturacion.anticipos.leer',
   'facturacion.notas-credito.bonificacion-emitir',
   'facturacion.notas-credito.leer',
+  'facturacion.notas-credito.reembolso-solicitar',
   'facturacion.carta-porte.emitir',
   'facturacion.carta-porte.leer',
   'facturacion.repp.emitir',
@@ -259,6 +299,7 @@ const CODIGOS_BACKEND_ESPERADOS = new Set<string>([
   'facturacion.caja.supervisar',
   'facturacion.caja.leer-todas',
   'facturacion.reportes.leer',
+  'facturacion.reportes.leer-todas-sucursales',
   // Centros de Costo (CECO-FE-PR1; dim3.leer-todos post-renombre CECO-PR4)
   'centros_costo.catalogo.leer',
   'centros_costo.catalogo.administrar',
@@ -277,6 +318,15 @@ const CODIGOS_BACKEND_ESPERADOS = new Set<string>([
   'contabilidad.periodo.administrar',
   'contabilidad.periodo.cerrar',
   'contabilidad.periodo.reabrir',
+  // Pólizas (F1-CON-04)
+  'contabilidad.polizas.leer',
+  'contabilidad.polizas.capturar',
+  'contabilidad.polizas.autorizar',
+  'contabilidad.polizas.anular',
+  // Pólizas recurrentes (K10.4)
+  'contabilidad.recurrentes.leer',
+  'contabilidad.recurrentes.administrar',
+  'contabilidad.recurrentes.autorizar',
   // Administración — Puestos/Empleados. El #629 (ADM-FE-PR1) los agregó a
   // PermisosCanonicos pero olvidó este set → el test quedó rojo en main
   // (CI no corre vitest de FE, así que nadie lo vio). Verificados contra
@@ -284,6 +334,26 @@ const CODIGOS_BACKEND_ESPERADOS = new Set<string>([
   'admin.puestos.gestionar',
   'admin.empleados.gestionar',
   'admin.empleados.gestionar-todas-sucursales',
+  // Comercio Exterior CE-01a.
+  'comercio_exterior.otr.gestionar',
+  'comercio_exterior.expedientes.leer',
+  'comercio_exterior.expedientes.contenedores-gestionar',
+  'comercio_exterior.relacion-iva.leer',
+  'comercio_exterior.incidencias.gestionar',
+  'comercio_exterior.expedientes.crear',
+  'comercio_exterior.expedientes.editar',
+  'comercio_exterior.expedientes.cancelar',
+  'comercio_exterior.expedientes.cerrar',
+  'comercio_exterior.expedientes.hitos-registrar',
+  'comercio_exterior.expedientes.documentos-revisar',
+  'comercio_exterior.expedientes.adjuntos-ver',
+  'comercio_exterior.expedientes.adjuntos-subir',
+  'comercio_exterior.expedientes.adjuntos-baja',
+  'comercio_exterior.documentos.leer-todas-sucursales',
+  'comercio_exterior.documentos.gestionar-todas-sucursales',
+  'comercio_exterior.gastos.registrar',
+  'comercio_exterior.gastos.distribuir',
+  'comercio_exterior.anticipos.gestionar',
 ]);
 
 describe('PermisosCanonicos — coincidencia con backend', () => {
@@ -301,17 +371,17 @@ describe('PermisosCanonicos — coincidencia con backend', () => {
     }
   });
 
-  it('el módulo Compras aporta exactamente 27 permisos (13 de RQ + 1 de aprobadores + 10 de OC + 2 de configuración + 1 de catálogos.leer)', () => {
+  it('el módulo Compras aporta exactamente 33 permisos (14 de RQ + 1 de aprobadores + 13 de OC + 2 de cotizaciones + 2 de configuración + 1 de catálogos.leer)', () => {
     const delModulo = codigos.filter(
       (c) => c.startsWith('compras.') || c === 'compartido.catalogos.leer',
     );
-    expect(delModulo).toHaveLength(27);
+    expect(delModulo).toHaveLength(33);
   });
 
-  it('formato modulo.recurso.accion (entre 3 y 4 segmentos)', () => {
+  it('formato canónico, con capitalizar de P3 como excepción explícita', () => {
     for (const code of codigos) {
       const segmentos = code.split('.');
-      expect(segmentos.length).toBeGreaterThanOrEqual(3);
+      expect(segmentos.length).toBeGreaterThanOrEqual(code === 'activos_fijos.capitalizar' ? 2 : 3);
       expect(segmentos.length).toBeLessThanOrEqual(4);
       // Sin mayúsculas (todo lowercase + guiones internos).
       expect(code).toBe(code.toLowerCase());

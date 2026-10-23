@@ -35,6 +35,7 @@ public sealed class CapturarFacturaConOcHandler : IRequestHandler<CapturarFactur
     private readonly ICurrentEmpresaContext _currentEmpresa;
     private readonly IMediator _mediator;
     private readonly IClock _clock;
+    private readonly Revision.DetencionPorDanoService _danos;
 
     public CapturarFacturaConOcHandler(
         CuentasPorPagarDbContext db,
@@ -46,6 +47,7 @@ public sealed class CapturarFacturaConOcHandler : IRequestHandler<CapturarFactur
         IMediator mediator,
         IClock clock,
         Domain.Ports.Administracion.IToleranciaGeneralReadPort toleranciaGeneral,
+        Revision.DetencionPorDanoService danos,
         Domain.Ports.Administracion.ITipoCambioReadPort tiposCambio)
     {
         _db = db;
@@ -57,6 +59,7 @@ public sealed class CapturarFacturaConOcHandler : IRequestHandler<CapturarFactur
         _mediator = mediator;
         _clock = clock;
         _toleranciaGeneral = toleranciaGeneral;
+        _danos = danos;
         _tiposCambio = tiposCambio;
     }
 
@@ -159,9 +162,41 @@ public sealed class CapturarFacturaConOcHandler : IRequestHandler<CapturarFactur
             throw new BusinessRuleException("CFDI_TIPO_CAMBIO_DISTINTO", "El tipo de cambio capturado debe coincidir con el XML ligado.");
         var tipoCambio = await ResolverTipoCambioAsync(command, cancellationToken);
         var uuidNormalizado = command.UuidCfdi?.Trim().ToUpperInvariant();
-        if (!string.IsNullOrWhiteSpace(command.UuidCfdi) && await _db.FacturasProveedor.AnyAsync(
-            f => f.UuidCfdi == uuidNormalizado && f.Estado != EstadoPasivo.Cancelada, cancellationToken))
-            throw new BusinessRuleException("FACTURA_DUPLICADA", "El CFDI ya tiene una factura vigente.");
+        if (!string.IsNullOrWhiteSpace(command.UuidCfdi))
+        {
+            var duplicada = await _db.FacturasProveedor.AsNoTracking().FirstOrDefaultAsync(
+                f => f.UuidCfdi == uuidNormalizado && f.Estado != EstadoPasivo.Cancelada, cancellationToken);
+            if (duplicada is not null)
+            {
+                var documento = $"{duplicada.SerieProveedor}{duplicada.FolioProveedor}";
+                throw new BusinessRuleException(
+                    "FACTURA_DUPLICADA",
+                    $"Este CFDI ya está registrado: UUID {uuidNormalizado}, factura {(string.IsNullOrWhiteSpace(documento) ? "sin folio" : documento)} (estado {duplicada.Estado}). No se puede registrar dos veces.");
+            }
+        }
+
+        // 86e3tfedr: la recepción elegida debe existir, ser de esta OC y no estar ligada a otra factura vigente.
+        if (command.RecepcionId is Guid recepcionId)
+        {
+            var recepcion = await _db.RecepcionesOcLocal.AsNoTracking()
+                .FirstOrDefaultAsync(r => r.RecepcionId == recepcionId, cancellationToken)
+                ?? throw new BusinessRuleException(
+                    "RECEPCION_NO_ENCONTRADA",
+                    "La recepción elegida no existe o todavía no llega a Cuentas por Pagar. Actualiza la lista e intenta de nuevo.");
+            if (recepcion.OrdenCompraId != oc.Id)
+                throw new BusinessRuleException(
+                    "RECEPCION_DE_OTRA_OC",
+                    $"La recepción {recepcion.FolioRecepcion} no pertenece a la OC {oc.Folio} de esta factura.");
+            var ligada = await _db.FacturasProveedor.AsNoTracking().FirstOrDefaultAsync(
+                f => f.RecepcionId == recepcionId && f.Estado != EstadoPasivo.Cancelada, cancellationToken);
+            if (ligada is not null)
+            {
+                var documentoLigado = $"{ligada.SerieProveedor}{ligada.FolioProveedor}";
+                throw new BusinessRuleException(
+                    "RECEPCION_YA_FACTURADA",
+                    $"La recepción {recepcion.FolioRecepcion} ya está ligada a la factura {(string.IsNullOrWhiteSpace(documentoLigado) ? "sin folio" : documentoLigado)} (estado {ligada.Estado}). Elige otra recepción o cancela esa factura.");
+            }
+        }
 
         var notas = new List<(CfdiRecibido Cfdi, DatosCfdiParseados Xml)>();
         foreach (var adjunta in command.NotasCredito ?? [])
@@ -224,7 +259,9 @@ public sealed class CapturarFacturaConOcHandler : IRequestHandler<CapturarFactur
             redondeoAplicado: redondeo,
             ahora: ahora);
 
-        factura.AsignarDatosP8(oc.Obra ?? command.Obra, command.ConceptoRetencion);
+        // 86e3pdmee: si no se captura el concepto, se usa la retención esperada del proveedor.
+        factura.AsignarDatosP8(oc.Obra ?? command.Obra, command.ConceptoRetencion ?? proveedor?.ConceptoRetencion);
+        factura.ElegirRecepcion(command.RecepcionId);
 
         // 5) Líneas.
         foreach (var l in command.Lineas)
@@ -278,6 +315,10 @@ public sealed class CapturarFacturaConOcHandler : IRequestHandler<CapturarFactur
         factura.AsignarMetodoPago(cfdi?.MetodoPago);
         factura.AsignarRetencionesDetalle(xml is null ? command.RetencionesDetalle : xml.RetencionesDetalle);
 
+        // P8.4a · CA8.7: si la OC ya tiene recepción con daño, la factura nace detenida con «Daños» para el área Almacén.
+        if (factura.Estado != EstadoPasivo.Cancelada)
+            await _danos.DetenerSiAplicaAsync(factura, await _danos.LineasOcConDanoDeOcAsync(command.OrdenCompraId, cancellationToken), ahora, cancellationToken);
+
         _db.FacturasProveedor.Add(factura);
 
         // 8) Publicar domain events ANTES de SaveChanges para que el
@@ -308,7 +349,9 @@ public sealed class CapturarFacturaConOcHandler : IRequestHandler<CapturarFactur
                 .OrderBy(l => l.Posicion)
                 .Select(l => new LineaFacturada(
                     l.Id, l.LineaOcId, l.Cantidad, l.Importe,
-                    CentroCostoId: oc.Lineas.FirstOrDefault(x => x.Id == l.LineaOcId)?.CentroCostoId))
+                    CentroCostoId: oc.Lineas.FirstOrDefault(x => x.Id == l.LineaOcId)?.CentroCostoId,
+                    ValorCapitalizable: l.Importe - (l.Descuento ?? 0) - (command.Subtotal == 0 ? 0 :
+                        (command.Descuentos - command.Lineas.Sum(x => x.Descuento ?? 0)) * l.Importe / command.Subtotal)))
                 .ToList();
             var cecos = lineasEvento.Select(l => l.CentroCostoId).Distinct().ToList();
 
@@ -329,7 +372,8 @@ public sealed class CapturarFacturaConOcHandler : IRequestHandler<CapturarFactur
                 Moneda: factura.Moneda,
                 TipoCambio: factura.TipoCambio,
                 SucursalId: factura.SucursalId,
-                CentroCostoId: cecos.Count == 1 ? cecos[0] : null), cancellationToken);
+                CentroCostoId: cecos.Count == 1 ? cecos[0] : null,
+                RecepcionId: factura.RecepcionId), cancellationToken);
 
         }
 
@@ -439,7 +483,6 @@ public sealed class CapturarFacturaConOcHandler : IRequestHandler<CapturarFactur
         return proveedor.Tolerancia.Tipo switch
         {
             ToleranciaTipo.MontoAbsoluto => Tolerancia.MontoAbsoluto(proveedor.Tolerancia.Valor),
-            ToleranciaTipo.Porcentaje => Tolerancia.Porcentaje(proveedor.Tolerancia.Valor),
             _ => throw new BusinessRuleException("TOLERANCIA_TIPO_INVALIDO", "El tipo de tolerancia no es válido."),
         };
     }

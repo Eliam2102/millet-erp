@@ -24,9 +24,7 @@ namespace Millet.Almacen.Application.Recepciones;
 /// y CxP lo consuman.
 ///
 /// <para>
-/// Tolerancia por material (A5): suma las cantidades por línea de OC y
-/// verifica el saldo pendiente más la tolerancia del artículo, calculada
-/// sobre la cantidad solicitada. Si el artículo no resuelve, la tolerancia es cero.
+/// Pendiente exacto (86e3tab1k, sin tolerancia en piezas): límite = solicitada − máx(recibido en Compras, recibido propio de Almacén), con lock por OC.
 /// </para>
 /// </summary>
 public sealed record RegistrarRecepcionConFacturaCommand(
@@ -44,7 +42,7 @@ public sealed record RegistrarRecepcionConFacturaCommand(
     // líneas vacías en el sheet). Opcional — null = no usó el helper. Solo
     // reportería; la ubicación efectiva de cada línea viaja en cada
     // RegistrarRecepcionLineaInput.UbicacionId y es la que manda.
-    Guid? UbicacionHelperId = null) : IRequest<RegistrarRecepcionResponse>;
+    Guid? UbicacionHelperId = null, ImportacionRecepcionInput? Importacion = null) : IRequest<RegistrarRecepcionResponse>;
 
 public sealed record RegistrarRecepcionLineaInput(
     Guid ArticuloId,
@@ -55,7 +53,9 @@ public sealed record RegistrarRecepcionLineaInput(
     // C7.2b: bin real destino (rack N4). Obligatorio en entradas — el
     // artículo debe estar asignado y no puede ir a la ÚNICA. Nullable en el
     // tipo por compat de construcción; el validator lo exige.
-    Guid? UbicacionId = null, string? UnidadCapturada = null);
+    Guid? UbicacionId = null, string? UnidadCapturada = null,
+    // ALM-04: parte de Cantidad que llegó dañada; va a material en revisión (MAT-REV), no a disponible.
+    decimal CantidadDanada = 0m, string? MotivoDano = null, string? FraccionArancelaria = null);
 
 public sealed record RegistrarRecepcionResponse(
     Guid RecepcionId,
@@ -70,30 +70,33 @@ public sealed class RegistrarRecepcionConFacturaValidator
         RuleFor(c => c.FechaMovimiento)
             .Must(f => f.Year is >= 2020 and <= 2099)
             .WithMessage("Fecha de movimiento fuera de rango razonable.");
-        // Vínculo fiscal obligatorio en variante A (§5.4): CFDI del
-        // repositorio o folio fiscal capturado del impreso.
-        RuleFor(c => c.CfdiRecibidoId)
-            .NotNull()
-            .When(c => string.IsNullOrWhiteSpace(c.CfdiUuidFiscal))
-            .WithMessage(
-                "La recepción con factura requiere el CFDI: vincula el CFDI recibido o captura su folio fiscal (UUID).");
+        // El vínculo fiscal obligatorio se valida en el handler (422 RECEPCION_SIN_CFDI) para que la pantalla reciba el código.
         RuleFor(c => c.CfdiUuidFiscal!)
             .Matches(@"^[0-9A-Fa-f]{8}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{12}$")
             .When(c => !string.IsNullOrWhiteSpace(c.CfdiUuidFiscal))
             .WithMessage("El folio fiscal no cumple el formato UUID del SAT (8-4-4-4-12 hex).");
+        RuleFor(c => c.Observaciones!).MaximumLength(500)
+            .When(c => c.Observaciones is not null)
+            .WithMessage("Las observaciones no pueden exceder 500 caracteres.");
         RuleFor(c => c.Lineas).NotEmpty();
         RuleForEach(c => c.Lineas).ChildRules(linea =>
         {
             linea.RuleFor(l => l.ArticuloId).NotEqual(Guid.Empty);
             linea.RuleFor(l => l.Cantidad).GreaterThan(0);
             linea.RuleFor(l => l.UnidadCapturada).MaximumLength(20);
-            linea.RuleFor(l => l.UbicacionId)
-                .NotNull().NotEqual(Guid.Empty)
-                .WithMessage("La ubicación (rack) es obligatoria en la entrada.");
+
             linea.RuleFor(l => l.UbicacionReferencia!).MaximumLength(100)
                 .When(l => l.UbicacionReferencia is not null);
             linea.RuleFor(l => l.Comentario!).MaximumLength(500)
                 .When(l => l.Comentario is not null);
+            linea.RuleFor(l => l.CantidadDanada).GreaterThanOrEqualTo(0)
+                .WithMessage("La cantidad dañada no puede ser negativa.");
+            linea.RuleFor(l => l.CantidadDanada).LessThanOrEqualTo(l => l.Cantidad)
+                .WithMessage("La cantidad dañada no puede ser mayor que la cantidad recibida.");
+            linea.RuleFor(l => l.MotivoDano).NotEmpty().When(l => l.CantidadDanada > 0)
+                .WithMessage("Indica el motivo del daño.");
+            linea.RuleFor(l => l.MotivoDano!).MaximumLength(500)
+                .When(l => l.MotivoDano is not null);
         });
     }
 }
@@ -103,41 +106,48 @@ public sealed class RegistrarRecepcionConFacturaHandler
 {
     private readonly AlmacenDbContext _db;
     private readonly IComprasOcReadPort _ocPort;
-    private readonly IArticuloReadPort _articuloPort;
     private readonly IIntegrationEventPublisher _events;
     private readonly ICurrentUserContext _currentUser;
     private readonly ICurrentEmpresaContext _currentEmpresa;
     private readonly IPeriodoContableReadPort _periodoContable;
     private readonly IDecimalesUnidadGuard _decimalesGuard;
     private readonly IConversionUnidadPort _conversion;
+    private readonly ICxpDocumentosReadPort _cxpDocumentos;
+    private readonly IProveedorReadPort _proveedores;
 
     public RegistrarRecepcionConFacturaHandler(
         AlmacenDbContext db,
         IComprasOcReadPort ocPort,
-        IArticuloReadPort articuloPort,
         IIntegrationEventPublisher events,
         ICurrentUserContext currentUser,
         ICurrentEmpresaContext currentEmpresa,
         IDecimalesUnidadGuard decimalesGuard,
-        IPeriodoContableReadPort periodoContable, IConversionUnidadPort conversion)
+        IPeriodoContableReadPort periodoContable, IConversionUnidadPort conversion,
+        ICxpDocumentosReadPort cxpDocumentos, IProveedorReadPort proveedores)
     {
         _db = db;
         _ocPort = ocPort;
-        _articuloPort = articuloPort;
         _events = events;
         _currentUser = currentUser;
         _currentEmpresa = currentEmpresa;
         _decimalesGuard = decimalesGuard;
         _periodoContable = periodoContable;
         _conversion = conversion;
+        _cxpDocumentos = cxpDocumentos;
+        _proveedores = proveedores;
     }
 
     public async Task<RegistrarRecepcionResponse> Handle(
         RegistrarRecepcionConFacturaCommand request, CancellationToken cancellationToken)
     {
+        if (request.CfdiRecibidoId is null && string.IsNullOrWhiteSpace(request.CfdiUuidFiscal))
+            throw new BusinessRuleException("RECEPCION_SIN_CFDI", "La recepción con factura requiere el CFDI: vincula el CFDI recibido o captura su folio fiscal (UUID).");
+        // D5: serializa recepciones de la misma OC (advisory lock); ponytail: lock por OC, por línea si el volumen lo pide.
+        await using var transaccion = await DevolucionesProveedor.DevolucionOrigenLock.AbrirAsync(_db, request.OrdenCompraId, cancellationToken);
         var oc = await _ocPort.ObtenerAsync(request.OrdenCompraId, cancellationToken);
+        var recibidoPropio = await RecibidoPorLineaOc.CalcularAsync(_db, _conversion, oc, cancellationToken);
         // Primero valida identidad/estado; después aplica el techo a cantidades equivalentes.
-        await RecepcionOcGuard.ValidarAsync(oc, request.Lineas.Select(l => string.IsNullOrWhiteSpace(l.UnidadCapturada) ? l : l with { Cantidad = 0m }).ToList(), _articuloPort, cancellationToken);
+        await RecepcionOcGuard.ValidarAsync(oc, request.Lineas.Select(l => string.IsNullOrWhiteSpace(l.UnidadCapturada) ? l : l with { Cantidad = 0m }).ToList(), recibidoPropio, cancellationToken);
         // El cierre se rechaza antes de consultar equivalencias o ubicaciones (P1/P7).
         var empresaId = _currentEmpresa.Current ?? throw new BusinessRuleException(
             "RECEPCION_SIN_EMPRESA", "El contexto de empresa es requerido.");
@@ -151,7 +161,9 @@ public sealed class RegistrarRecepcionConFacturaHandler
             conversiones.Add(await _conversion.ConvertirAsync(input.ArticuloId, input.Cantidad,
                 input.UnidadCapturada, oc!.Lineas.Single(l => l.LineaId == input.LineaOcId).UnidadMedida!, cancellationToken));
         var equivalentes = request.Lineas.Select((l, i) => l with { Cantidad = conversiones[i].CantidadDocumento }).ToList();
-        var lineasOc = await RecepcionOcGuard.ValidarAsync(oc, equivalentes, _articuloPort, cancellationToken);
+        var validada = await RecepcionOcGuard.ValidarAsync(oc, equivalentes, recibidoPropio, cancellationToken);
+        var lineasOc = validada.Lineas;
+        var importacion = ImportacionRecepcionGuard.Crear(oc!, request.Importacion, request.Lineas);
 
         // 3. Construir el movimiento (Borrador → AgregarLineas → Registrar).
         //    El sub-almacén ya no viene en cabecera: se deriva del bin de cada
@@ -188,12 +200,33 @@ public sealed class RegistrarRecepcionConFacturaHandler
 
         // 4. Costo de OC + agregar líneas.
         var posicion = 1;
+        var posicionRevision = 1;
         var payloadLineas = new List<LineaRecepcionPayload>(request.Lineas.Count);
         var subsDerivados = new HashSet<Guid>();
-        foreach (var input in request.Lineas)
+        // ALM-04: lo dañado va a un segundo movimiento EntradaCompra en MAT-REV (el trigger prohíbe dos sub-almacenes en uno).
+        MovimientoInventario? movimientoRevision = null;
+        (Guid SubAlmacenRevisionId, Guid UbicacionRevisionId)? rackRevision = null;
+        for (var idx = 0; idx < request.Lineas.Count; idx++)
         {
+            var input = request.Lineas[idx];
+            var afOrigen = lineasOc[input.LineaOcId!.Value];
+            if (afOrigen.EsActivoFijo)
+            {
+                var cantidadActivo = conversiones[idx].CantidadDocumento;
+                if (cantidadActivo != decimal.Truncate(cantidadActivo) || input.CantidadDanada != 0 || afOrigen.ClaseActivoId is null)
+                    throw new BusinessRuleException("RECEPCION_ACTIVO_INVALIDO", "Reciba unidades enteras de activos con clase, sin cantidad dañada.");
+                var afId = Guid.CreateVersion7();
+                _db.RecepcionesActivos.Add(new RecepcionActivo(afId, empresaId, movimientoId, request.OrdenCompraId, afOrigen.LineaId, cantidadActivo));
+                payloadLineas.Add(new LineaRecepcionPayload(afId, afOrigen.LineaId, input.ArticuloId, afOrigen.UnidadMedida, cantidadActivo,
+                    afOrigen.PrecioUnitarioMxn, decimal.Round(cantidadActivo * afOrigen.PrecioUnitarioMxn, 2), Guid.Empty,
+                    CantidadRecibidaAcumulada: validada.RecibidoPorLinea[afOrigen.LineaId] + equivalentes.Where(e => e.LineaOcId == afOrigen.LineaId).Sum(e => e.Cantidad),
+                    EsActivoFijo: true, ClaseActivoId: afOrigen.ClaseActivoId, CentroCostoId: afOrigen.CentroCostoId));
+                continue;
+            }
             // C7.2b: bin real obligatorio + asignación activa + no ÚNICA. Sin
             // sub de cabecera: el guard DERIVA el sub del bin y lo retorna.
+            if (input.UbicacionId is null || input.UbicacionId == Guid.Empty)
+                throw new BusinessRuleException("RECEPCION_UBICACION_REQUERIDA", "La línea de inventario requiere ubicación (rack).");
             var subLinea = await UbicacionEntradaGuard.ValidarEntradaYDerivarSubAsync(
                 _db, input.UbicacionId!.Value, input.ArticuloId, cancellationToken);
             subsDerivados.Add(subLinea);
@@ -201,36 +234,113 @@ public sealed class RegistrarRecepcionConFacturaHandler
             var origen = lineasOc[input.LineaOcId!.Value];
             var (costo, um, lineaOcId) = (origen.PrecioUnitarioMxn, origen.UnidadMedida, origen.LineaId);
 
-            var conversion = conversiones[posicion - 1];
-            var lineaId = Guid.CreateVersion7();
-            var linea = new LineaMovimiento(
-                id: lineaId,
-                movimientoId: movimientoId,
-                posicion: posicion++,
-                articuloId: input.ArticuloId,
-                cantidad: conversion.CantidadBase,
-                unidadMedida: conversion.UnidadBase,
-                costoUnitarioMxn: costo / conversion.FactorDocumentoABase,
-                centroCostoId: origen.CentroCostoId,
-                ubicacionReferencia: input.UbicacionReferencia,
-                comentarioLinea: input.Comentario,
-                ubicacionId: input.UbicacionId,
-                lineaOcId: lineaOcId);
-            linea.AsentarCaptura(conversion.CantidadCapturada, conversion.UnidadCapturada);
-            movimiento.AgregarLinea(linea);
+            var conversion = conversiones[idx];
+            var acumulado = validada.RecibidoPorLinea[lineaOcId] + equivalentes.Where(e => e.LineaOcId == lineaOcId).Sum(e => e.Cantidad);
+            var convDanada = input.CantidadDanada > 0
+                ? await _conversion.ConvertirAsync(input.ArticuloId, input.CantidadDanada, input.UnidadCapturada,
+                    oc!.Lineas.Single(l => l.LineaId == input.LineaOcId).UnidadMedida!, cancellationToken)
+                : null;
+            var baseBuena = conversion.CantidadBase - (convDanada?.CantidadBase ?? 0m);
 
-            payloadLineas.Add(new LineaRecepcionPayload(
-                LineaRecepcionId: lineaId,
-                LineaOcId: lineaOcId,
-                ArticuloId: input.ArticuloId,
-                UnidadMedida: um,
-                Cantidad: conversion.CantidadDocumento,
-                CostoUnitarioMxn: costo,
-                MontoTotalMxn: Math.Round(conversion.CantidadDocumento * costo, 2),
-                // PR4: bin N4 real de la línea (el guard de arriba ya garantizó
-                // que viene poblado y es válido para el sub-almacén).
-                UbicacionId: input.UbicacionId!.Value,
-                SubAlmacenId: subLinea));
+            if (baseBuena > 0)
+            {
+                var lineaId = Guid.CreateVersion7();
+                var linea = new LineaMovimiento(
+                    id: lineaId,
+                    movimientoId: movimientoId,
+                    posicion: posicion++,
+                    articuloId: input.ArticuloId,
+                    cantidad: baseBuena,
+                    unidadMedida: conversion.UnidadBase,
+                    costoUnitarioMxn: costo / conversion.FactorDocumentoABase,
+                    centroCostoId: origen.CentroCostoId,
+                    ubicacionReferencia: input.UbicacionReferencia,
+                    comentarioLinea: input.Comentario,
+                    ubicacionId: input.UbicacionId,
+                    lineaOcId: lineaOcId);
+                if (convDanada is null) linea.AsentarCaptura(conversion.CantidadCapturada, conversion.UnidadCapturada);
+                else linea.AsentarCaptura(input.Cantidad - input.CantidadDanada, conversion.UnidadCapturada);
+                movimiento.AgregarLinea(linea);
+
+                var cantidadBuenaDoc = conversion.CantidadDocumento - (convDanada?.CantidadDocumento ?? 0m);
+                payloadLineas.Add(new LineaRecepcionPayload(
+                    LineaRecepcionId: lineaId,
+                    LineaOcId: lineaOcId,
+                    ArticuloId: input.ArticuloId,
+                    UnidadMedida: um,
+                    Cantidad: cantidadBuenaDoc,
+                    CostoUnitarioMxn: costo,
+                    MontoTotalMxn: Math.Round(cantidadBuenaDoc * costo, 2),
+                    UbicacionId: input.UbicacionId!.Value,
+                    SubAlmacenId: subLinea,
+                    CantidadRecibidaAcumulada: acumulado));
+            }
+
+            if (convDanada is not null)
+            {
+                rackRevision ??= await UbicacionRevisionResolver.ResolverAsync(_db, subLinea, cancellationToken);
+                if (movimientoRevision is null)
+                {
+                    movimientoRevision = new MovimientoInventario(
+                        id: Guid.CreateVersion7(),
+                        tipo: TipoMovimiento.EntradaCompra,
+                        empresaId: empresaId,
+                        fechaMovimiento: request.FechaMovimiento);
+                    movimientoRevision.VincularRecepcionVarianteA(request.OrdenCompraId, null, request.CfdiRecibidoId, request.CfdiUuidFiscal);
+                }
+                var lineaRevId = Guid.CreateVersion7();
+                var lineaRev = new LineaMovimiento(
+                    id: lineaRevId,
+                    movimientoId: movimientoRevision.Id,
+                    posicion: posicionRevision++,
+                    articuloId: input.ArticuloId,
+                    cantidad: convDanada.CantidadBase,
+                    unidadMedida: conversion.UnidadBase,
+                    costoUnitarioMxn: costo / conversion.FactorDocumentoABase,
+                    centroCostoId: origen.CentroCostoId,
+                    comentarioLinea: input.MotivoDano,
+                    ubicacionId: rackRevision.Value.UbicacionRevisionId,
+                    lineaOcId: lineaOcId);
+                lineaRev.AsentarCaptura(input.CantidadDanada, conversion.UnidadCapturada);
+                movimientoRevision.AgregarLinea(lineaRev);
+
+                payloadLineas.Add(new LineaRecepcionPayload(
+                    LineaRecepcionId: lineaRevId,
+                    LineaOcId: lineaOcId,
+                    ArticuloId: input.ArticuloId,
+                    UnidadMedida: um,
+                    Cantidad: convDanada.CantidadDocumento,
+                    CostoUnitarioMxn: costo,
+                    MontoTotalMxn: Math.Round(convDanada.CantidadDocumento * costo, 2),
+                    UbicacionId: rackRevision.Value.UbicacionRevisionId,
+                    SubAlmacenId: rackRevision.Value.SubAlmacenRevisionId,
+                    CantidadRecibidaAcumulada: acumulado));
+            }
+        }
+
+        // F3: el CFDI vinculado debe existir en CxP, estar por procesar como ingreso y ser del RFC del proveedor de la OC.
+        if (request.CfdiRecibidoId is Guid cfdiId)
+        {
+            var cfdi = await _cxpDocumentos.ObtenerCfdiAsync(cfdiId, cancellationToken);
+            if (cfdi is null)
+                throw new BusinessRuleException("RECEPCION_CFDI_NO_ENCONTRADO", "El CFDI seleccionado no existe en el repositorio de CxP; vuelve a elegirlo o captura el folio fiscal.");
+            if (cfdi.Estado != "PorProcesar" || cfdi.Tipo != "Ingreso")
+                throw new BusinessRuleException("RECEPCION_CFDI_NO_VINCULABLE", $"El CFDI está en estado {cfdi.Estado} y es de tipo {cfdi.Tipo}; solo se vinculan CFDI de ingreso por procesar.");
+            var rfcProveedor = (await _proveedores.ObtenerAsync(oc!.ProveedorId, cancellationToken))?.Rfc?.Trim().ToUpperInvariant();
+            if (string.IsNullOrEmpty(rfcProveedor) || !string.Equals(rfcProveedor, cfdi.RfcEmisor.Trim(), StringComparison.OrdinalIgnoreCase))
+                throw new BusinessRuleException("RECEPCION_CFDI_PROVEEDOR_DISTINTO", $"El CFDI es del RFC {cfdi.RfcEmisor} y el proveedor de la orden de compra tiene RFC {(string.IsNullOrEmpty(rfcProveedor) ? "sin registrar" : rfcProveedor)}; vincula un CFDI del proveedor.");
+        }
+
+        if (payloadLineas.All(x => x.EsActivoFijo))
+        {
+            if (importacion is not null) { importacion.VincularRecepcion(movimientoId); _db.RecepcionesImportacion.Add(importacion); }
+            var folioActivo = $"REC-AF-{movimientoId:N}";
+            await _events.PublishAsync(new OcRecepcionRegistradaIntegrationEvent(empresaId, DateTimeOffset.UtcNow,
+                movimientoId, folioActivo, request.OrdenCompraId, request.FechaMovimiento, false, request.CfdiRecibidoId, request.CfdiUuidFiscal,
+                request.Observaciones, payloadLineas, SucursalId: oc!.SucursalDestinoId), cancellationToken);
+            await _db.SaveChangesAsync(cancellationToken);
+            if (transaccion is not null) await transaccion.CommitAsync(cancellationToken);
+            return new RegistrarRecepcionResponse(movimientoId, folioActivo);
         }
 
         // Invariante 'un movimiento = un sub-almacén': antes lo garantizaba el
@@ -245,12 +355,24 @@ public sealed class RegistrarRecepcionConFacturaHandler
         // G1.6: almacén/sucursal del único sub-almacén derivado (una consulta).
         var (almacenId, sucursalId) = await Catalogo.AlmacenSucursalResolver
             .ResolverAsync(_db, subsDerivados.Single(), cancellationToken);
+        Catalogo.SucursalDestinoGuard.Validar(oc!.SucursalDestinoId, sucursalId, "RECEPCION_SUCURSAL_DISTINTA", "La orden de compra está dirigida a otra sucursal: recibe la mercancía en un almacén de la sucursal destino de la orden.");
 
-        // 5. Reservar folio atómicamente. El UPSERT en folio_secuencias_movimiento
-        //    con SELECT ... FOR UPDATE (lo hace EF + el lock del INSERT/UPDATE)
-        //    garantiza secuencias sin huecos por race condition.
+        // ALM-04: principal efectivo = el de lo disponible; si todo llegó dañado, el de revisión.
+        var principal = movimiento.Lineas.Count > 0 ? movimiento : movimientoRevision!;
+        if (importacion is not null) { importacion.VincularRecepcion(principal.Id); _db.RecepcionesImportacion.Add(importacion); }
+        foreach (var recepcionActivo in _db.RecepcionesActivos.Local.Where(x => x.RecepcionId == movimientoId))
+            recepcionActivo.VincularRecepcion(principal.Id);
+        if (movimientoRevision is not null && ReferenceEquals(principal, movimiento))
+            movimientoRevision.VincularRecepcionPrincipal(movimiento.Id);
+        else if (!string.IsNullOrWhiteSpace(request.Observaciones))
+            typeof(MovimientoInventario).GetProperty("ComentarioLibre")!.SetValue(principal, request.Observaciones);
+
+        // 5. Reservar folio por movimiento con líneas (lock por prefijo/año antes de leer la secuencia, M-094; la transacción ya está abierta).
+        var registradoPor = _currentUser.UserId ?? throw new BusinessRuleException(
+            "RECEPCION_SIN_USUARIO", "Se requiere usuario autenticado.");
         var anio = request.FechaMovimiento.Year;
         var prefijo = TipoMovimiento.EntradaCompra.PrefijoFolio();
+        _ = await Catalogo.FolioMovimientoLock.AbrirAsync(_db, prefijo, anio, cancellationToken);
         var secuencia = await _db.FolioSecuenciasMovimiento
             .FirstOrDefaultAsync(s => s.Prefijo == prefijo && s.Anio == anio, cancellationToken);
         if (secuencia is null)
@@ -258,21 +380,20 @@ public sealed class RegistrarRecepcionConFacturaHandler
             secuencia = new FolioSecuenciaMovimiento(Guid.CreateVersion7(), prefijo, anio, 0);
             _db.FolioSecuenciasMovimiento.Add(secuencia);
         }
-        var siguiente = secuencia.Incrementar();
-        var folio = FolioMovimiento.Construir(TipoMovimiento.EntradaCompra, anio, siguiente);
-
-        // 6. Pasar a Registrado (firma + sello + folio).
-        var registradoPor = _currentUser.UserId ?? throw new BusinessRuleException(
-            "RECEPCION_SIN_USUARIO", "Se requiere usuario autenticado.");
-        movimiento.Registrar(folio, registradoPor);
-        _db.Movimientos.Add(movimiento);
+        // Una sola lectura de la secuencia para ambos movimientos (la fila nueva aún no está en BD).
+        foreach (var m in new[] { movimiento, movimientoRevision }.Where(m => m is not null && m.Lineas.Count > 0))
+        {
+            // 6. Pasar a Registrado (firma + sello + folio).
+            m!.Registrar(FolioMovimiento.Construir(TipoMovimiento.EntradaCompra, anio, secuencia.Incrementar()), registradoPor);
+            _db.Movimientos.Add(m);
+        }
 
         // 7. Publicar evento al outbox (interceptor lo persiste en la misma TX).
         await _events.PublishAsync(new OcRecepcionRegistradaIntegrationEvent(
             EmpresaId: empresaId,
             OcurridoEn: DateTimeOffset.UtcNow,
-            RecepcionId: movimientoId,
-            FolioRecepcion: folio.Valor,
+            RecepcionId: principal.Id,
+            FolioRecepcion: principal.Folio!,
             OrdenCompraId: request.OrdenCompraId,
             FechaMovimiento: request.FechaMovimiento,
             FacturaPendiente: false, // Variante A — factura/CFDI ya conocido.
@@ -287,60 +408,8 @@ public sealed class RegistrarRecepcionConFacturaHandler
         //    el interceptor del outbox que persiste el evento. Todo en
         //    la misma TX (atomicidad).
         await _db.SaveChangesAsync(cancellationToken);
+        if (transaccion is not null) await transaccion.CommitAsync(cancellationToken);
 
-        return new RegistrarRecepcionResponse(movimientoId, folio.Valor);
-    }
-
-    private async Task<(decimal costoMxn, string unidadMedida, Guid? lineaOcId)>
-        ResolverCostoYUmAsync(
-            OcLectura? oc,
-            RegistrarRecepcionLineaInput input,
-            CancellationToken cancellationToken)
-    {
-        // 1) Si el caller especificó LineaOcId y la OC es conocida, usar esa línea.
-        if (oc is not null && input.LineaOcId is Guid lineaOcId)
-        {
-            var lineaOc = oc.Lineas.FirstOrDefault(l => l.LineaId == lineaOcId)
-                ?? throw new EntityNotFoundException(
-                    "LINEA_OC_NO_ENCONTRADA",
-                    $"No existe línea '{lineaOcId}' en la OC '{oc.Folio}'.");
-            if (lineaOc.ArticuloId != input.ArticuloId)
-            {
-                throw new BusinessRuleException(
-                    "RECEPCION_LINEA_OC_ARTICULO_INCONGRUENTE",
-                    "El artículo de la línea recibida no coincide con la línea de OC.");
-            }
-            // Tolerancia (A5): articulo readport es NoOp → 0%.
-            var maxTolerable = lineaOc.CantidadSolicitada - lineaOc.CantidadRecibida;
-            var articulo = await _articuloPort.ObtenerAsync(input.ArticuloId, cancellationToken);
-            var tolerancia = articulo?.ToleranciaCantidadPorcentaje ?? 0m;
-            maxTolerable += lineaOc.CantidadSolicitada * (tolerancia / 100m);
-            if (input.Cantidad > maxTolerable)
-            {
-                throw new BusinessRuleException(
-                    "RECEPCION_EXCEDE_TOLERANCIA",
-                    $"Cantidad recibida {input.Cantidad} excede el saldo+tolerancia ({maxTolerable}) de la línea OC '{lineaOcId}'.");
-            }
-            return (lineaOc.PrecioUnitarioMxn, lineaOc.UnidadMedida, lineaOcId);
-        }
-
-        // 2) Si la OC es conocida pero sin LineaOcId, intentar match por artículo.
-        if (oc is not null)
-        {
-            var lineaOc = oc.Lineas.FirstOrDefault(l => l.ArticuloId == input.ArticuloId);
-            if (lineaOc is not null)
-            {
-                return (lineaOc.PrecioUnitarioMxn, lineaOc.UnidadMedida, lineaOc.LineaId);
-            }
-
-            // CA2.10: si la OC es conocida, no se permite recibir un artículo que no esté en sus líneas recibibles (p. ej. servicios).
-            throw new BusinessRuleException(
-                "RECEPCION_ARTICULO_NO_EN_OC",
-                $"El artículo '{input.ArticuloId}' no pertenece a las líneas recibibles de la OC '{oc.Folio}'.");
-        }
-
-        // 3) Fallback (OC stub NoOp): leer UM del artículo si existe; costo = 0.
-        var articulo2 = await _articuloPort.ObtenerAsync(input.ArticuloId, cancellationToken);
-        return (0m, articulo2?.UnidadMedida ?? "PZA", null);
+        return new RegistrarRecepcionResponse(principal.Id, principal.Folio!);
     }
 }

@@ -3,7 +3,7 @@ namespace Millet.Tesoreria.Domain.Ports.DatosMaestros;
 /// <summary>
 /// Datos del proveedor que la bandeja de pasivos y el flujo de pago
 /// necesitan (TES-PR3, [T-G1]): identificación para mostrar (ADR-0042) y
-/// datos bancarios para ejecutar la transferencia. La CLABE viaja
+/// cuentas bancarias para ejecutar la transferencia. La CLABE viaja
 /// COMPLETA dentro del server; el masking se aplica en la capa de
 /// queries/DTOs salvo permiso
 /// <c>tesoreria.movimientos.ver-cuenta-completa</c>.
@@ -12,11 +12,36 @@ public sealed record ProveedorBancoDto(
     Guid Id,
     string Clave,
     string RazonSocial,
-    string? Banco,
-    string? Clabe,
-    string? Beneficiario,
+    IReadOnlyList<CuentaProveedorDto> Cuentas,
     bool Activo = true,
-    bool EnRevision = false, string? Rfc = null);
+    bool EnRevision = false, string? Rfc = null)
+{
+    /// <summary>Cuenta a la que se paga en esa moneda: la predeterminada activa, o la única activa.</summary>
+    public CuentaProveedorDto? CuentaPara(string moneda)
+    {
+        var activas = Cuentas.Where(c => c.Activa && c.Moneda == moneda).ToList();
+        return activas.FirstOrDefault(c => c.Predeterminada) ?? (activas.Count == 1 ? activas[0] : null);
+    }
+}
+
+/// <summary>
+/// Cuenta bancaria del proveedor (86e3pdmee). <c>Estado</c>: «Activa»,
+/// «PorValidar» o «Inhabilitada» (las rechazadas no viajan). Solo se paga a
+/// una activa. <c>Numero</c> viaja completo; se enmascara en los DTOs.
+/// </summary>
+public sealed record CuentaProveedorDto(
+    Guid Id,
+    string Banco,
+    string Numero,
+    bool EsClabe,
+    string? Swift,
+    string Moneda,
+    string Titular,
+    bool Predeterminada,
+    string Estado)
+{
+    public bool Activa => Estado == "Activa";
+}
 
 /// <summary>
 /// Puerto de lectura del master de proveedores de DatosMaestros

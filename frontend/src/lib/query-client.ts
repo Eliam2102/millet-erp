@@ -1,6 +1,6 @@
 import { MutationCache, QueryCache, QueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
-import { esApiError } from '@/lib/api/error';
+import { esApiError, codigoSoporte } from '@/lib/api/error';
 
 /**
  * Metadata opcional en <c>useMutation({ meta })</c> que reconoce el
@@ -94,7 +94,7 @@ export const queryClient = new QueryClient({
       toast.error(esApiError(error) ? error.problem.title : fallback, {
         description: esApiError(error)
           ? (error.problem.detail ??
-            (error.traceId ? `Código: ${error.traceId}` : undefined))
+            (codigoSoporte(error)))
           : undefined,
       });
     },

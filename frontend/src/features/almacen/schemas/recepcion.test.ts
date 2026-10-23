@@ -14,8 +14,10 @@ const filaIncluida = {
   cantidadSolicitada: 10,
   cantidadYaRecibida: 0,
   pendiente: 10,
+  maximo: 10,
   incluida: true,
   cantidad: 10,
+  cantidadDanada: 0,
   ubicacionId: '019e0000-0000-7000-8000-000000000003',
 };
 
@@ -60,6 +62,23 @@ describe('RegistrarRecepcionFacturaSchema — vínculo fiscal obligatorio', () =
     }
   });
 
+  it.each([
+    [100, true],
+    [100.5, false],
+  ])('sin tolerancia: pendiente 100, cantidad %s → ok=%s', (cantidad, ok) => {
+    const r = RegistrarRecepcionFacturaSchema.safeParse({
+      ...base,
+      cfdiRecibidoId: '019e0000-0000-7000-8000-0000000000cc',
+      filas: [{ ...filaIncluida, pendiente: 100, maximo: 100, cantidad }],
+    });
+    expect(r.success).toBe(ok);
+    if (!r.success) {
+      expect(r.error.issues[0].message).toBe(
+        'Excede lo pendiente de la orden de compra (100). Almacén recibe exacto.',
+      );
+    }
+  });
+
   it('rechaza folio fiscal malformado', () => {
     const r = RegistrarRecepcionFacturaSchema.safeParse({
       ...base,
@@ -72,5 +91,37 @@ describe('RegistrarRecepcionFacturaSchema — vínculo fiscal obligatorio', () =
         r.error.issues.some((i) => i.path.join('.') === 'cfdiUuidFiscal'),
       ).toBe(true);
     }
+  });
+});
+
+describe('RegistrarRecepcionFacturaSchema — cantidad dañada (ALM-04)', () => {
+  const conFila = (extra: object) =>
+    RegistrarRecepcionFacturaSchema.safeParse({
+      ...base,
+      cfdiRecibidoId: '019e0000-0000-7000-8000-0000000000cc',
+      filas: [{ ...filaIncluida, ...extra }],
+    });
+
+  it('rechaza dañada mayor que la cantidad recibida', () => {
+    const r = conFila({ cantidadDanada: 11, motivoDano: 'Rota' });
+    expect(r.success).toBe(false);
+    if (!r.success) {
+      expect(r.error.issues.map((i) => i.message)).toContain(
+        'La cantidad dañada no puede ser mayor que la cantidad recibida.',
+      );
+    }
+  });
+
+  it('rechaza dañada sin motivo', () => {
+    const r = conFila({ cantidadDanada: 2, motivoDano: '  ' });
+    expect(r.success).toBe(false);
+    if (!r.success) {
+      expect(r.error.issues.map((i) => i.message)).toContain('Indica el motivo del daño.');
+    }
+  });
+
+  it('acepta dañada cero sin motivo y dañada con motivo', () => {
+    expect(conFila({ cantidadDanada: 0 }).success).toBe(true);
+    expect(conFila({ cantidadDanada: 2, motivoDano: 'Hojas rotas' }).success).toBe(true);
   });
 });

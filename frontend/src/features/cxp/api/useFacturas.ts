@@ -2,6 +2,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { apiRequest } from '@/lib/api';
 import { cxpKeys, type ListarFacturasFiltros } from '@/features/cxp/api/keys';
 import type {
+  PendientesFacturarProveedor,
   AutorizarFacturaResponse,
   CancelarFacturaCommand,
   CancelarFacturaResponse,
@@ -51,6 +52,26 @@ export function useFacturas(filtros: ListarFacturasFiltros = {}) {
       );
       return data;
     },
+  });
+}
+
+export function usePendientesFacturarProveedor({
+  rfc,
+  proveedorId,
+}: {
+  rfc: string | null;
+  proveedorId: string | null;
+}) {
+  return useQuery({
+    queryKey: cxpKeys.pendientesProveedor(rfc ?? '', proveedorId ?? ''),
+    queryFn: async ({ signal }) => {
+      const { data } = await apiRequest<PendientesFacturarProveedor>(
+        `/api/v1/cuentas-por-pagar/facturas/pendientes-por-proveedor?${rfc ? `rfc=${encodeURIComponent(rfc)}` : `proveedorId=${encodeURIComponent(proveedorId ?? '')}`}`,
+        { signal },
+      );
+      return data;
+    },
+    enabled: !!rfc || !!proveedorId,
   });
 }
 
@@ -140,6 +161,33 @@ export function useAutorizarFactura() {
       queryClient.invalidateQueries({
         queryKey: cxpKeys.facturaById(vars.id),
       });
+      queryClient.invalidateQueries({ queryKey: cxpKeys.facturas() });
+    },
+  });
+}
+
+export function useMarcarRetencionesRevisadas() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (args: {
+      id: string;
+      versionEsperada: number;
+      motivo: string;
+      idempotencyKey: string;
+    }) => {
+      const { data } = await apiRequest<{ id: string; version: number }>(
+        `/api/v1/cuentas-por-pagar/facturas/${args.id}/retenciones/revisar`,
+        {
+          method: 'POST',
+          body: { motivo: args.motivo },
+          idempotencyKey: args.idempotencyKey,
+          headers: { 'X-Expected-Version': String(args.versionEsperada) },
+        },
+      );
+      return data;
+    },
+    onSuccess: (_, vars) => {
+      queryClient.invalidateQueries({ queryKey: cxpKeys.facturaById(vars.id) });
       queryClient.invalidateQueries({ queryKey: cxpKeys.facturas() });
     },
   });

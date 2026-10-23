@@ -1,16 +1,17 @@
-import { useCallback, useMemo, useRef, useState, type ReactNode } from 'react';
 import {
   Sheet,
+  SheetBody,
   SheetContent,
   SheetDescription,
   SheetHeader,
   SheetTitle,
 } from '@/components/ui/sheet';
-import { NuevaCartaPorte } from '@/features/facturacion/pages/NuevaCartaPorte';
 import {
   NuevaCartaPorteContext,
   type NuevaCartaPorteApi,
 } from '@/features/facturacion/components/nueva-carta-porte-context';
+import { NuevaCartaPorte } from '@/features/facturacion/pages/NuevaCartaPorte';
+import { useCallback, useMemo, useRef, useState, type ReactNode } from 'react';
 
 /**
  * <c>&lt;NuevaCartaPorteProvider/&gt;</c> + Sheet de captura (FE-F8). Vive a
@@ -30,9 +31,7 @@ export function NuevaCartaPorteProvider({ children }: { children: ReactNode }) {
       setAbierto(false);
       return;
     }
-    const confirmar = window.confirm(
-      'Tienes una Carta Porte sin emitir. ¿Descartar y cerrar?',
-    );
+    const confirmar = window.confirm('Tienes una Carta Porte sin emitir. ¿Descartar y cerrar?');
     if (confirmar) {
       isDirtyRef.current = false;
       setAbierto(false);
@@ -64,20 +63,19 @@ export function NuevaCartaPorteProvider({ children }: { children: ReactNode }) {
           setAbierto(true);
         }}
       >
-        <SheetContent side="right" className="w-full overflow-y-auto sm:max-w-4xl">
+        <SheetContent side="right" size="lg">
           <SheetHeader>
             <SheetTitle>Nueva Carta Porte (3.1)</SheetTitle>
             <SheetDescription>
-              CFDI de Traslado (T) o Ingreso (I). Captura el tramo, el vehículo,
-              el operador y las mercancías.
+              CFDI de Traslado (T) o Ingreso (I). Captura el tramo, el vehículo, el operador y las
+              mercancías.
             </SheetDescription>
           </SheetHeader>
-
-          <div className="px-2 pb-6">
-            {abierto && (
-              <NuevaCartaPorte onClose={cerrarConConfirm} onDirtyChange={setDirty} />
-            )}
-          </div>
+          <SheetBody className="flex flex-col overflow-hidden py-0">
+            <div className="contents">
+              {abierto && <NuevaCartaPorte onClose={cerrarConConfirm} onDirtyChange={setDirty} />}
+            </div>
+          </SheetBody>
         </SheetContent>
       </Sheet>
     </NuevaCartaPorteContext.Provider>

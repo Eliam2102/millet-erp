@@ -145,6 +145,7 @@ public sealed class CrearRequisicionHandler : IRequestHandler<CrearRequisicionCo
             descripcion: command.Descripcion);
 
         requisicion.AsignarObra(command.Obra);
+        requisicion.EstablecerSoloApartarSiCompleto(command.SoloApartarSiCompleto);
         _db.Requisiciones.Add(requisicion);
         await _db.SaveChangesAsync(cancellationToken);
 

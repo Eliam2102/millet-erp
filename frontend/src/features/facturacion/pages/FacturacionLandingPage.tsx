@@ -1,11 +1,16 @@
+import { PageHeader } from '@/components/erp/PageHeader';
 import { AppLauncherCard } from '@/components/layout/AppLauncherCard';
+import { Button } from '@/components/ui/button';
 import { useAuthStore } from '@/lib/auth/auth-store';
+import { PermisosCanonicos } from '@/lib/auth/permission-codes';
 import { filtrarModuloPorPermisos, type NavModulo } from '@/lib/nav';
+import { Link } from '@tanstack/react-router';
 import {
   AlertTriangle,
   Banknote,
   BarChart3,
   Building2,
+  ClipboardCheck,
   ClipboardList,
   FileText,
   HandCoins,
@@ -13,7 +18,6 @@ import {
   Truck,
   Wallet,
 } from 'lucide-react';
-import { PermisosCanonicos } from '@/lib/auth/permission-codes';
 
 /**
  * Landing del módulo Facturación — <c>/facturacion</c>. Mismo patrón que
@@ -34,25 +38,33 @@ export function FacturacionLandingPage() {
   const hayCards = filtrado.secciones.some((s) => s.cards.length > 0);
 
   return (
-    <div className="mx-auto max-w-5xl space-y-6 px-4 py-8">
-      <header className="space-y-1">
-        <h1 className="flex items-center gap-2 text-2xl font-semibold">
-          <FileText className="h-6 w-6 text-primary" />
-          Facturación
-        </h1>
-        <p className="text-sm text-muted-foreground">
-          Emisión de CFDI 4.0: pedidos facturables, cobro y emisión,
-          anticipos, notas de crédito, REPP, Carta Porte y reportes.
-        </p>
-      </header>
+    <div className="space-y-5">
+      <div className="space-y-1">
+        <PageHeader
+          titulo={<>Facturación</>}
+          acciones={
+            filtrado.secciones.some((s) => s.cards.some((c) => c.to === '/facturacion/pedidos')) ? (
+              <Button asChild>
+                <Link to="/facturacion/pedidos">Pedidos facturables</Link>
+              </Button>
+            ) : undefined
+          }
+          descripcion={
+            <>
+              Emisión de CFDI 4.0: pedidos facturables, cobro y emisión, anticipos, notas de
+              crédito, REPP, Carta Porte y reportes.
+            </>
+          }
+        />
+      </div>
 
       {!hayCards && (
         <div
-          className="rounded-md bg-muted/50 px-4 py-6 text-center text-sm text-muted-foreground"
+          className="rounded-md bg-surface-muted/50 px-4 py-6 text-center text-sm text-ink-muted"
           data-testid="facturacion-sin-cards"
         >
-          Sin pantallas disponibles para tu rol en este módulo. Contacta a tu
-          administrador para que te asigne los permisos correspondientes.
+          Sin pantallas disponibles para tu rol en este módulo. Contacta a tu administrador para que
+          te asigne los permisos correspondientes.
         </div>
       )}
 
@@ -60,7 +72,7 @@ export function FacturacionLandingPage() {
         <div className="space-y-8">
           {filtrado.secciones.map((seccion) => (
             <section key={seccion.label} className="space-y-3">
-              <h2 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+              <h2 className="text-xs font-semibold uppercase tracking-wide text-ink-muted">
                 {seccion.label}
               </h2>
               <div className="grid grid-cols-1 gap-3 md:grid-cols-2 lg:grid-cols-3">
@@ -93,12 +105,12 @@ const moduloFacturacionLanding: NavModulo = {
   icon: FileText,
   secciones: [
     {
-      label: 'Operación',
+      label: 'Venta',
       cards: [
         {
           label: 'Pedidos facturables',
           description:
-            'Bandeja de pedidos por facturar (A+W / Planta Pintura / manual). Facturar o capturar un pedido manual.',
+            'Bandeja de pedidos por facturar (A+W / Planta Pintura / manual). Facturar toma soft-lock; o capturar un pedido manual.',
           to: '/facturacion/pedidos',
           icon: ClipboardList,
           permissionsAny: [
@@ -108,17 +120,9 @@ const moduloFacturacionLanding: NavModulo = {
           ],
         },
         {
-          label: 'Excepciones de ingesta',
-          description:
-            'Pedidos que fallaron la importación. Resolución inline.',
-          to: '/facturacion/pedidos/excepciones',
-          icon: AlertTriangle,
-          permission: PermisosCanonicos.FacturacionPedidosExcepcionesResolver,
-        },
-        {
           label: 'Facturas',
           description:
-            'Bandeja de comprobantes emitidos. Cadena CFDI, descargas y cancelación.',
+            'Bandeja de comprobantes emitidos. Cadena de relaciones CFDI, historial del pedido, descargas XML/PDF y cancelación.',
           to: '/facturacion/facturas',
           icon: ReceiptText,
           permission: PermisosCanonicos.FacturacionFacturasLeer,
@@ -126,42 +130,28 @@ const moduloFacturacionLanding: NavModulo = {
         {
           label: 'Anticipos',
           description:
-            'Control de Anticipos por cliente: emisión, vinculación (relación 07) y saldos.',
+            'Control de Anticipos por cliente: emisión, vinculación a la factura final (relación 07) y saldos.',
           to: '/facturacion/anticipos',
           icon: HandCoins,
           permission: PermisosCanonicos.FacturacionAnticiposLeer,
         },
         {
-          label: 'Complementos de pago (REPP)',
+          label: 'Facturas de anticipo',
           description:
-            'Recibos electrónicos de pago (Pago 2.0). Emisión multi-factura y facturas cubiertas.',
-          to: '/facturacion/repp',
-          icon: HandCoins,
-          permissionsAny: [
-            PermisosCanonicos.FacturacionReppEmitir,
-            PermisosCanonicos.FacturacionFacturasLeer,
-          ],
+            'Bandeja de CFDIs de anticipo: detalle con saldo y cadena, descargas XML/PDF, cancelación y reintento.',
+          to: '/facturacion/anticipos/facturas',
+          icon: ReceiptText,
+          permission: PermisosCanonicos.FacturacionAnticiposLeer,
         },
-        {
-          label: 'Carta Porte',
-          description:
-            'Bandeja de Carta Portes 3.1. Captura de tramo y "Crear siguiente tramo".',
-          to: '/facturacion/carta-porte',
-          icon: Truck,
-          permission: PermisosCanonicos.FacturacionCartaPorteLeer,
-        },
-        {
-          label: 'Autorización de activos',
-          description:
-            'El Contador General autoriza la venta de activos fijos antes de timbrar.',
-          to: '/facturacion/activos',
-          icon: Building2,
-          permission: PermisosCanonicos.FacturacionActivosAutorizar,
-        },
+      ],
+    },
+    {
+      label: 'Caja',
+      cards: [
         {
           label: 'Mi caja',
           description:
-            'Sesión de efectivo: apertura con fondo, cobros, movimientos y arqueo de cierre.',
+            'Sesión de efectivo del cajero: apertura con fondo, cobros de mostrador, movimientos y arqueo de cierre.',
           to: '/facturacion/caja',
           icon: Wallet,
           permissionsAny: [
@@ -169,6 +159,63 @@ const moduloFacturacionLanding: NavModulo = {
             PermisosCanonicos.FacturacionCajaSupervisar,
             PermisosCanonicos.FacturacionCajaLiquidar,
           ],
+        },
+      ],
+    },
+    {
+      label: 'Complementos de pago',
+      cards: [
+        {
+          label: 'Pendientes de REP',
+          description: 'Revisión de pagos bancarios y emisión manual de complementos de pago.',
+          to: '/facturacion/repp/pendientes',
+          icon: HandCoins,
+          permission: PermisosCanonicos.FacturacionFacturasLeer,
+        },
+        {
+          label: 'Complementos de pago (REPP)',
+          description:
+            'Recibos electrónicos de pago (Pago 2.0). Emisión multi-factura y consulta de facturas cubiertas.',
+          to: '/facturacion/repp',
+          icon: HandCoins,
+          permissionsAny: [
+            PermisosCanonicos.FacturacionReppEmitir,
+            PermisosCanonicos.FacturacionFacturasLeer,
+          ],
+        },
+      ],
+    },
+    {
+      label: 'Otros documentos',
+      cards: [
+        {
+          label: 'Carta Porte',
+          description:
+            'Bandeja de Carta Portes 3.1. Captura de tramo (vehículo, operador, mercancías) y "Crear siguiente tramo".',
+          to: '/facturacion/carta-porte',
+          icon: Truck,
+          permission: PermisosCanonicos.FacturacionCartaPorteLeer,
+        },
+        {
+          label: 'Autorización de activos',
+          description:
+            'El Contador General autoriza la venta de activos fijos (valor neto + utilidad/pérdida) antes de timbrar.',
+          to: '/facturacion/activos',
+          icon: Building2,
+          permission: PermisosCanonicos.FacturacionActivosAutorizar,
+        },
+      ],
+    },
+    {
+      label: 'Revisión',
+      cards: [
+        {
+          label: 'Excepciones de ingesta',
+          description:
+            'Pedidos que fallaron la importación (cliente no existe, producto sin clave SAT, almacén no asignado). Resolución inline.',
+          to: '/facturacion/pedidos/excepciones',
+          icon: AlertTriangle,
+          permission: PermisosCanonicos.FacturacionPedidosExcepcionesResolver,
         },
       ],
     },
@@ -190,15 +237,24 @@ const moduloFacturacionLanding: NavModulo = {
       cards: [
         {
           label: 'Liquidación de caja',
-          description: 'Facturado vs cobrado por cajero y fecha. PDF/Excel.',
+          description:
+            'Cierre de caja: facturado vs cobrado por cajero y fecha. Exportable PDF/Excel.',
           to: '/facturacion/reportes/liquidacion-caja',
           icon: Banknote,
           permission: PermisosCanonicos.FacturacionReportesLeer,
         },
         {
+          label: 'Cierre del día por sucursal',
+          description:
+            'Monitor de CFDI del día (timbrados, cancelados, sin timbrar, estatus SAT) y facturado de contado contra ingresado en caja.',
+          to: '/facturacion/reportes/cierre-dia',
+          icon: ClipboardCheck,
+          permission: PermisosCanonicos.FacturacionReportesLeer,
+        },
+        {
           label: 'Estados de facturas de anticipo',
           description:
-            'Anticipos, facturas vinculadas, NCs de amortización y saldo por cliente.',
+            'Reporte de anticipos emitidos, facturas vinculadas, NCs de amortización y saldo por cliente.',
           to: '/facturacion/reportes/estados-anticipos',
           icon: BarChart3,
           permission: PermisosCanonicos.FacturacionReportesLeer,

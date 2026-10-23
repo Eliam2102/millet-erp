@@ -67,4 +67,4 @@ public sealed record LineaOrdenCompraResponse(
     // GAP-9 / CA2.10: los servicios no se reciben en Almacén; el form de recepción los omite.
     bool EsServicio = false,
     // PLATFORM-TODO(F1-COM-06): supuesto Vilo, confirmar con lista de Millet.
-    string? FraccionArancelaria = null);
+    string? FraccionArancelaria = null, bool EsActivoFijo = false, Guid? ClaseActivoId = null);

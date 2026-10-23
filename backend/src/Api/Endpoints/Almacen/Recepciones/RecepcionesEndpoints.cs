@@ -1,4 +1,5 @@
 using MediatR;
+using Millet.SharedKernel.Application;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Millet.Almacen.Application.Catalogo;
@@ -6,7 +7,9 @@ using Millet.Almacen.Application.Recepciones;
 using Millet.Almacen.Domain.Movimientos;
 using Millet.Api.Auth;
 using Millet.Api.Web;
+using Millet.CuentasPorPagar.Application.Cfdi.ListarCfdis;
 using Millet.Identidad.Domain;
+using Millet.SharedKernel.Application.Exceptions;
 
 namespace Millet.Api.Endpoints.Almacen.Recepciones;
 
@@ -27,6 +30,11 @@ public static class RecepcionesEndpoints
             .WithTags("Almacen")
             .RequireAuthorization();
 
+        group.MapGet("/catalogos-importacion", () => Results.Ok(new
+        {
+            Demo = true, Aduanas = CatalogosImportacionDemo.Aduanas, ClavesPedimento = CatalogosImportacionDemo.ClavesPedimento
+        })).RequireAuthorization(PermissionPolicyProvider.Prefix + PermisosCanonicos.AlmacenEntradasRegistrar);
+
         // --- Listar Recepciones (bandeja) ---
         group.MapGet("/", async (
             [FromQuery] EstadoMovimiento? estado,
@@ -36,18 +44,37 @@ public static class RecepcionesEndpoints
             [FromQuery] DateOnly? hasta,
             [FromQuery] int? offset,
             [FromQuery] int? limit,
+            [FromQuery] Guid? proveedorId,
+            [FromQuery] string? q,
             IMediator mediator,
             CancellationToken ct) =>
         {
             var (off, lim) = NormalizePaging(offset, limit);
             var response = await mediator.Send(
-                new ListarRecepcionesQuery(estado, subAlmacenId, ordenCompraId, desde, hasta, off, lim), ct);
+                new ListarRecepcionesQuery(estado, subAlmacenId, ordenCompraId, desde, hasta, off, lim, proveedorId, q), ct);
             return Results.Ok(response);
         })
         .RequireAuthorization(PermissionPolicyProvider.Prefix + PermisosCanonicos.AlmacenEntradasLeer)
         .WithName("ListarRecepciones")
         .WithSummary("Listar recepciones (bandeja con filtros estado/sub-almacén/OC/fecha)")
         .Produces<AlmacenPagedResponse<RecepcionListItem>>(StatusCodes.Status200OK);
+
+        // --- Conteos por estado (tabs de la bandeja; mismos filtros salvo estado) ---
+        group.MapGet("/conteos-por-estado", async (
+            [FromQuery] Guid? subAlmacenId,
+            [FromQuery] Guid? ordenCompraId,
+            [FromQuery] DateOnly? desde,
+            [FromQuery] DateOnly? hasta,
+            [FromQuery] Guid? proveedorId,
+            [FromQuery] string? q,
+            IMediator mediator,
+            CancellationToken ct) =>
+            Results.Ok(await mediator.Send(
+                new ConteosRecepcionesPorEstadoQuery(subAlmacenId, ordenCompraId, desde, hasta, proveedorId, q), ct)))
+        .RequireAuthorization(PermissionPolicyProvider.Prefix + PermisosCanonicos.AlmacenEntradasLeer)
+        .WithName("ConteosRecepcionesPorEstado")
+        .WithSummary("Conteo de recepciones por estado, con los filtros de la bandeja salvo el estado")
+        .Produces<IReadOnlyList<ConteoPorEstadoItem>>(StatusCodes.Status200OK);
 
         // --- Obtener Recepción por Id ---
         group.MapGet("/{id:guid}", async (
@@ -66,6 +93,46 @@ public static class RecepcionesEndpoints
         .Produces<RecepcionDetalle>(StatusCodes.Status200OK)
         .ProducesProblem(StatusCodes.Status404NotFound);
 
+        // --- CFDI por procesar del proveedor de la OC (selector de la recepción) ---
+        group.MapGet("/ordenes/{ordenCompraId:guid}/cfdis", async (
+            Guid ordenCompraId,
+            DocumentoSucursalScope documentos,
+            Millet.Almacen.Domain.Ports.IComprasOcReadPort ocPort,
+            Millet.Almacen.Domain.Ports.IProveedorReadPort proveedores,
+            IMediator mediator,
+            CancellationToken ct) =>
+        {
+            await documentos.VerificarAsync("orden_compra", ordenCompraId, PermisosCanonicos.AlmacenEntradasGestionarTodasSucursales, ct);
+            var oc = await ocPort.ObtenerAsync(ordenCompraId, ct)
+                ?? throw new EntityNotFoundException("RECEPCION_OC_NO_ENCONTRADA", "La orden de compra no existe; selecciona una orden autorizada.");
+            var rfc = (await proveedores.ObtenerAsync(oc.ProveedorId, ct))?.Rfc;
+            var response = await mediator.Send(new ListarCfdisParaRecepcionQuery(rfc), ct);
+            return Results.Ok(response);
+        })
+        .RequireAuthorization(PermissionPolicyProvider.Prefix + PermisosCanonicos.AlmacenEntradasRegistrar)
+        .WithName("ListarCfdisParaRecepcion")
+        .WithSummary("CFDI por procesar del proveedor de la OC para vincular a la recepción")
+        .Produces<CfdisParaRecepcionResponse>(StatusCodes.Status200OK)
+        .ProducesProblem(StatusCodes.Status403Forbidden)
+        .ProducesProblem(StatusCodes.Status404NotFound);
+
+        // --- Líneas recibibles de la OC (pendiente, tolerancia y máximo por línea; P-20) ---
+        group.MapGet("/ordenes/{ordenCompraId:guid}/lineas-recibibles", async (
+            Guid ordenCompraId,
+            DocumentoSucursalScope documentos,
+            IMediator mediator,
+            CancellationToken ct) =>
+        {
+            await documentos.VerificarAsync("orden_compra", ordenCompraId, PermisosCanonicos.AlmacenEntradasGestionarTodasSucursales, ct);
+            return Results.Ok(await mediator.Send(new LineasRecibiblesQuery(ordenCompraId), ct));
+        })
+        .RequireAuthorization(PermissionPolicyProvider.Prefix + PermisosCanonicos.AlmacenEntradasRegistrar)
+        .WithName("ListarLineasRecibiblesOc")
+        .WithSummary("Pendiente, tolerancia y máximo recibible por línea de OC (mismo cálculo que el registro)")
+        .Produces<IReadOnlyList<LineaRecibibleDto>>(StatusCodes.Status200OK)
+        .ProducesProblem(StatusCodes.Status403Forbidden)
+        .ProducesProblem(StatusCodes.Status404NotFound);
+
         // --- Registrar Recepción Variante A (factura/CFDI) ---
         group.MapPost("/", async (
             RegistrarRecepcionConFacturaCommand command,
@@ -76,7 +143,9 @@ public static class RecepcionesEndpoints
             await documentos.VerificarAsync("orden_compra", command.OrdenCompraId, PermisosCanonicos.AlmacenEntradasGestionarTodasSucursales, ct);
             foreach (var bin in (command.Lineas ?? []).Select(l => l.UbicacionId).OfType<Guid>().Distinct())
                 await documentos.VerificarAsync("ubicacion_almacen", bin, PermisosCanonicos.AlmacenEntradasGestionarTodasSucursales, ct);
-            if (command.CfdiRecibidoId is Guid cfdi)
+            // D10: un CFDI por procesar no tiene sucursal; lo valida el handler (RFC del proveedor de la OC).
+            if (command.CfdiRecibidoId is Guid cfdi
+                && (await documentos.Puerto("cfdi_recibido").ListarAsync("cfdi_recibido", ct)).FirstOrDefault(x => x.Id == cfdi) is { Sucursales.Count: > 0 })
                 await documentos.VerificarAsync("cfdi_recibido", cfdi, PermisosCanonicos.AlmacenEntradasGestionarTodasSucursales, ct);
             var response = await mediator.Send(command, ct);
             return Results.Created(

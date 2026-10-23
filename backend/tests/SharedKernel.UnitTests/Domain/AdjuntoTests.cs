@@ -139,4 +139,23 @@ public class AdjuntoTests
         var act = () => new AdjuntoTipoDocumento(Guid.CreateVersion7(), "proveedor", "x", "X", 1, true, 0, false);
         act.Should().Throw<BusinessRuleException>().Which.Code.Should().Be("ADJUNTO_TIPO_VIGENCIA_INVALIDA");
     }
+
+    [Fact]
+    public void TipoDocumento_Matriz_Obligatoriedad_Por_Persona_Y_Aplicacion_Por_Origen()
+    {
+        var t = new AdjuntoTipoDocumento(Guid.CreateVersion7(), "proveedor", "acta", "Acta", 1, true, null, true);
+        // Del constructor heredado: obligatorio a morales y no aplica a físicas (conserva el comportamiento previo).
+        t.EsObligatorioPara(true).Should().BeTrue();
+        t.EsObligatorioPara(false).Should().BeFalse();
+        t.AplicaA(esPersonaMoral: false, esNacional: true).Should().BeFalse();
+        t.AplicaA(esPersonaMoral: true, esNacional: null).Should().BeTrue();
+
+        t.Configurar("Acta", obligatorioPersonaMoral: false, obligatorioPersonaFisica: true, 6, false, AdjuntoAplicaOrigen.SoloExtranjero, true);
+        t.Obligatorio.Should().BeTrue("la bandera global es moral o física");
+        t.EsObligatorioPara(false).Should().BeTrue();
+        t.EsObligatorioPara(true).Should().BeFalse();
+        t.EsObligatorioPara(null).Should().BeTrue("sin tipo de persona rige el global");
+        t.AplicaA(true, esNacional: true).Should().BeFalse();
+        t.AplicaA(true, esNacional: false).Should().BeTrue();
+    }
 }

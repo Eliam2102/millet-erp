@@ -1,3 +1,4 @@
+import { ReporteAlmacen } from '../components/ReporteAlmacen';
 import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -8,7 +9,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { ArticuloSelector, ReporteShell } from '@/components/erp';
+import { ArticuloSelector } from '@/components/erp';
 import { useReporteAlfakHistorial } from '@/features/almacen/api/useSaldosCierreReportes';
 import { useSubAlmacenes } from '@/features/almacen/api/useAlmacenes';
 import type { AlfakHistorialFila } from '@/features/almacen/api/types';
@@ -20,7 +21,7 @@ const SENTINEL_ALL = '__all__';
 /**
  * <c>P14 — Reporte ALFAK-HISTORIAL-ALMACEN</c> (doc 07 §FE-F6-PR1).
  * Movimientos del periodo agrupados por sub-almacén / artículo,
- * renderizado con <c>&lt;ReporteShell/&gt;</c>.
+ * renderizado con <c>&lt;ReporteAlmacen/&gt;</c>.
  */
 export function ReporteAlfakPage() {
   const inicioMes = primerDiaMesActualIso();
@@ -40,7 +41,7 @@ export function ReporteAlfakPage() {
   });
 
   return (
-    <ReporteShell<AlfakHistorialFila>
+    <ReporteAlmacen<AlfakHistorialFila>
       reporte={query.data}
       isLoading={query.isLoading}
       error={esApiError(query.error) ? query.error : undefined}
@@ -48,25 +49,15 @@ export function ReporteAlfakPage() {
       filtrosUi={
         <div className="flex flex-wrap items-end gap-3">
           <Field label="Desde">
-            <Input
-              type="date"
-              value={desde}
-              onChange={(e) => setDesde(e.target.value)}
-            />
+            <Input type="date" value={desde} onChange={(e) => setDesde(e.target.value)} />
           </Field>
           <Field label="Hasta">
-            <Input
-              type="date"
-              value={hasta}
-              onChange={(e) => setHasta(e.target.value)}
-            />
+            <Input type="date" value={hasta} onChange={(e) => setHasta(e.target.value)} />
           </Field>
           <Field label="Sub-almacén (opcional)">
             <Select
               value={subAlmacenId ?? SENTINEL_ALL}
-              onValueChange={(v) =>
-                setSubAlmacenId(v === SENTINEL_ALL ? undefined : v)
-              }
+              onValueChange={(v) => setSubAlmacenId(v === SENTINEL_ALL ? undefined : v)}
             >
               <SelectTrigger className="w-56">
                 <SelectValue placeholder="Todos" />
@@ -98,7 +89,7 @@ export function ReporteAlfakPage() {
               setHasta(finMes);
             }}
           >
-            Reset filtros
+            Limpiar filtros
           </Button>
         </div>
       }
@@ -108,14 +99,15 @@ export function ReporteAlfakPage() {
 
 function primerDiaMesActualIso(): string {
   const d = new Date();
-  return new Date(d.getFullYear(), d.getMonth(), 1)
-    .toISOString()
-    .slice(0, 10);
+  const anio = d.getFullYear();
+  const mes = String(d.getMonth() + 1).padStart(2, '0');
+  return `${anio}-${mes}-01`;
 }
 
 function ultimoDiaMesActualIso(): string {
   const d = new Date();
-  return new Date(d.getFullYear(), d.getMonth() + 1, 0)
-    .toISOString()
-    .slice(0, 10);
+  const anio = d.getFullYear();
+  const mes = String(d.getMonth() + 1).padStart(2, '0');
+  const dia = String(new Date(anio, d.getMonth() + 1, 0).getDate()).padStart(2, '0');
+  return `${anio}-${mes}-${dia}`;
 }

@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { fireEvent, render, screen } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { http, HttpResponse } from 'msw';
 import { mswServer } from '@/test/mocks/server';
 import { createQueryWrapper } from '@/test/test-query-client';
@@ -145,6 +145,48 @@ describe('<CapturarFacturaSheet> — OcSelector deriva proveedor/sucursal', () =
     // Sucursal derivada del resumen, resuelta a "clave · nombre" y disabled.
     const sucursal = await screen.findByDisplayValue('MID · Mérida');
     expect(sucursal).toBeDisabled();
+  });
+
+  it('al elegir la línea de OC se limpia el error «Selecciona la línea de OC»', async () => {
+    const LINEA_ID = '55555555-5555-4555-8555-555555555555';
+    mswServer.use(
+      http.get('*/api/v1/compras/ordenes/:id', () =>
+        HttpResponse.json({
+          id: OC_ID,
+          lineas: [
+            {
+              id: LINEA_ID,
+              posicion: 1,
+              articuloId: '66666666-6666-4666-8666-666666666666',
+              articuloClave: 'ART-1',
+              articuloNombre: 'Vidrio',
+              cantidad: 5,
+              cantidadFacturada: 0,
+            },
+          ],
+        }),
+      ),
+    );
+    render(<CapturarFacturaSheet open onOpenChange={() => {}} />, {
+      wrapper: createQueryWrapper(),
+    });
+
+    fireEvent.click(screen.getByRole('combobox', { name: /orden de compra/i }));
+    fireEvent.click(await screen.findByText('OC-MID2026-000123'));
+    // Elegir la OC resetea lineaOcId con shouldValidate → aparece el error.
+    expect(
+      await screen.findByText(/Selecciona la línea de OC que corresponde/),
+    ).toBeInTheDocument();
+
+    fireEvent.click(await screen.findByRole('combobox', { name: /seleccionar línea de oc/i }));
+    fireEvent.click(await screen.findByText('ART-1 · Vidrio'));
+
+    expect(await screen.findByText(/Pos\. 1 · ART-1/)).toBeInTheDocument();
+    await waitFor(() =>
+      expect(
+        screen.queryByText(/Selecciona la línea de OC que corresponde/),
+      ).not.toBeInTheDocument(),
+    );
   });
 });
 

@@ -117,7 +117,7 @@ los tres levantamientos como conjunto:
 - **Cero acceso directo a tablas de otro módulo.** Solo puertos de lectura (`I*ReadPort`) o eventos.
 - **Almacén NO crea `FacturaProveedor` en CxP.** En variante A solo referencia el `CfdiRecibido`; CxP captura la factura por su flujo normal.
 - **Precio de inventario = OC, en ambas variantes A y B.** La diferencia con factura se resuelve aguas arriba (corrección de OC) o vía `DiferenciaPrecioFacturaDetectadaEvent`.
-- **Tres tolerancias ortogonales:** cantidad por línea de OC (Compras), cantidad por material (Almacén/`DatosMaestros`), monto por proveedor (CxP/`DatosMaestros`). Ver `almacen/00-levantamiento.md` §10.7.
+- **Una sola tolerancia, de dinero:** monto por proveedor en MXN (0.99 MXN por omisión, configurable por proveedor; solo CxP la edita). En piezas no hay tolerancia: Almacén recibe exacto lo pendiente o menos (parcial permitido), nunca más (`RECEPCION_EXCEDE_PENDIENTE`), y Compras no acepta recibido mayor a la cantidad de la línea. Se retiraron la tolerancia de cantidad por artículo y por línea de OC, y el modo porcentaje del proveedor. Actualizado 19-oct-2026 (86e3tab1k): la única tolerancia es de dinero por proveedor; fuente: plano CxP 1.7.1 y junta del 8-oct.
 - **Devoluciones tienen dos semánticas:** interna (Almacén 8.A, no cruza con CxP) y a proveedor (Almacén 8.B, sí cruza con CxP). No confundir.
 - **Cierre de OC lo evalúa Compras, no Almacén ni CxP.** Almacén emite `OcRecepcionRegistradaEvent`; CxP emite `FacturaProveedorAutorizadaEvent` y `PagoFacturaProveedorEvent` (proxy desde Tesorería); Compras combina los 3 sub-estados y emite `OrdenCompraCerradaEvent`.
 - **Idempotencia en consumidores de eventos** correlacionando por `recepcion_id`, `devolucion_a_proveedor_id`, `factura_id`, `nota_cargo_id`.
@@ -129,6 +129,7 @@ los tres levantamientos como conjunto:
 |---|---|---|---|
 | `ComprasEventListenerWorker` (en CxP) | `compras-events` | `cuentas-por-pagar-subscription` | ✅ #285 — inbound Compras → CxP |
 | `AlmacenEventListenerWorker` (en CxP) | `almacen-events` | `cuentas-por-pagar-almacen-sub` | ✅ F6-PR3 — recepciones + devoluciones |
+| `OutboxPublisherWorker<ComercioExteriorDbContext>` | `comercio-exterior-events` | Sin consumidor de negocio | CE-01a — apertura y cancelación |
 | `TesoreriaEventListenerWorker` (en CxP) | `tesoreria-events` | `cuentas-por-pagar-tesoreria-sub` | ✅ F9-PR1 — pagos + REPP |
 | `CxpEventListenerWorker` (en Almacén) | `cuentas-por-pagar-events` | `almacen-subscription` | ✅ F3-PR1 — variante B + diferencia precio |
 | `CxpEventListenerWorker` (en Compras) | `cuentas-por-pagar-events` | `compras-subscription` | ✅ #288 — sub-estado Facturación de OC; #613/#614 — sub-estado Pago vía `factura.pago-aplicado.v1` (acumulado por OC calculado por CxP) + cierre/reapertura automática de la OC |
@@ -253,6 +254,15 @@ transversales ya existentes:
   `Integraciones` se reserva para integraciones futuras de la misma
   naturaleza (SAT, bancos, paqueterías, etc.). Esquema Postgres:
   `integraciones_aw`.
+
+### Adenda CE-04 · tercer flujo independiente
+
+El **flujo 3 A+W OTR** intercambia envíos de contenedores con Comercio Exterior,
+separado de cotizaciones y de pedidos para facturar. No es una compra. Contrato:
+[`docs/integration/09-aw-otr-exportacion.md`](docs/integration/09-aw-otr-exportacion.md).
+Entrada/salida apagadas por omisión; conexión real sólo tras I13.4 firmado. La escritura
+se limita a las **nuevas tablas puente definidas por el ERP** en MILLET_INTEGRACION:
+resultado de entrada e INSERT de estado ERP. Nunca modifica tablas internas A+W.
 
 ### Anti-scope (lo que el módulo NO hace)
 

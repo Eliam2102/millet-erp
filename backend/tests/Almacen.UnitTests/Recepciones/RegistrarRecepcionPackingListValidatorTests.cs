@@ -43,6 +43,34 @@ public class RegistrarRecepcionPackingListValidatorTests
         result.IsValid.Should().BeFalse();
     }
 
+    [Fact]
+    public void Linea_con_danada_mayor_que_cantidad_falla()
+    {
+        var cmd = NuevoComandoValido();
+        cmd = cmd with { Lineas = [cmd.Lineas[0] with { CantidadDanada = 101, MotivoDano = "Rota" }] };
+        var result = _validator.Validate(cmd);
+        result.IsValid.Should().BeFalse();
+        result.Errors.Should().Contain(e => e.ErrorMessage == "La cantidad dañada no puede ser mayor que la cantidad recibida.");
+    }
+
+    [Fact]
+    public void Linea_con_danada_sin_motivo_falla()
+    {
+        var cmd = NuevoComandoValido();
+        cmd = cmd with { Lineas = [cmd.Lineas[0] with { CantidadDanada = 2, MotivoDano = null }] };
+        var result = _validator.Validate(cmd);
+        result.IsValid.Should().BeFalse();
+        result.Errors.Should().Contain(e => e.ErrorMessage == "Indica el motivo del daño.");
+    }
+
+    [Fact]
+    public void Linea_con_danada_cero_sin_motivo_pasa()
+    {
+        var cmd = NuevoComandoValido();
+        cmd = cmd with { Lineas = [cmd.Lineas[0] with { CantidadDanada = 0, MotivoDano = null }] };
+        _validator.Validate(cmd).IsValid.Should().BeTrue();
+    }
+
     private static RegistrarRecepcionConPackingListCommand NuevoComandoValido() => new(
         OrdenCompraId: Guid.NewGuid(),
         FechaMovimiento: new DateOnly(2026, 5, 23),

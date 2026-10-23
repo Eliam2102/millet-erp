@@ -1,17 +1,31 @@
+import { IndicadorAlmacenBadge } from '../components/IndicadorAlmacenBadge';
+import { ResumenImportes } from '@/components/erp/display/ResumenImportes';
+import { PageHeader } from '@/components/erp/PageHeader';
 import { formatCcMaquinaLabel } from '@/features/centros-costo/lib/cc-maquina-label';
 import { TrazabilidadComprasDialog } from '@/components/erp/trazabilidad/TrazabilidadComprasDialog';
 import { TipoDocumentoTrazabilidad } from '@/components/erp/trazabilidad/types';
 import { Link, useParams } from '@tanstack/react-router';
 import { ArrowLeft } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { ErrorState, TableSkeleton } from '@/components/erp';
-import { useRecepcion } from '@/features/almacen/api/useRecepciones';
+import { AvisoEnLinea } from '@/components/erp/feedback/AvisoEnLinea';
+import { ErrorState, DetalleSkeleton } from '@/components/erp';
 import {
-  EstadoMovimiento,
-  EstadoMovimientoLabels,
-} from '@/features/almacen/api/types';
+  Table,
+  TableBody,
+  TableCell,
+  TableContainer,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '@/components/ui/table';
+import { useRecepcion } from '@/features/almacen/api/useRecepciones';
+import {} from '@/features/almacen/api/types';
 import { esApiError } from '@/lib/api';
-import { cn } from '@/lib/utils';
+import { EstadoAlmacenBadge } from '@/features/almacen/components/EstadoAlmacenBadge';
+import { MoneyDisplay } from '@/components/erp/display/MoneyDisplay';
+import { formatCantidad } from '@/lib/format-cantidad';
+import { DateTimeDisplay } from '@/components/erp/display/DateTimeDisplay';
+import { useDecimalesUnidad } from '@/components/erp/forms/useDecimalesUnidad';
 
 /**
  * <c>P2 — Detalle de recepción</c> (doc 07 §FE-F2-PR1). Vista de solo
@@ -30,14 +44,15 @@ const FROM = '/_app/almacen/recepciones/$id' as const;
 export function RecepcionDetallePage() {
   const { id } = useParams({ from: FROM });
   const query = useRecepcion(id);
+  const decimalesUnidad = useDecimalesUnidad();
+  const lineasEnRevision = query.data?.lineas.filter((l) => l.enRevision).length ?? 0;
 
   return (
-    <div className="space-y-4">
-      {query.data && <TrazabilidadComprasDialog tipo={TipoDocumentoTrazabilidad.Recepcion} id={id} />}
-      <div className="flex items-center gap-2">
+    <div className="space-y-5">
+      <div className="flex items-center gap-2 md:hidden">
         <Button asChild variant="ghost" size="sm">
           <Link to="/almacen/recepciones" search={{}}>
-            <ArrowLeft className="mr-2 h-4 w-4" />
+            <ArrowLeft className="mr-2 size-3.5" />
             Recepciones
           </Link>
         </Button>
@@ -50,38 +65,36 @@ export function RecepcionDetallePage() {
           onRetry={() => query.refetch()}
         />
       ) : query.isLoading ? (
-        <TableSkeleton
-          rows={4}
-          columns={[
-            { width: 'w-40' },
-            { width: 'w-48' },
-            { width: 'w-32' },
-            { width: 'w-32' },
-            { width: 'w-32' },
-          ]}
-        />
+        <DetalleSkeleton />
       ) : query.data == null ? null : (
-        <div className="space-y-6">
-          <header className="space-y-1">
-            <div className="flex items-center gap-3">
-              <h1 className="text-2xl font-semibold tracking-tight font-mono">
-                {query.data.folio}
-              </h1>
-              <EstadoMovimientoBadge estado={query.data.estado} />
-            </div>
-            <p className="text-sm text-muted-foreground">
-              Fecha de movimiento: {query.data.fechaMovimiento}
-              {query.data.registradoAt && (
-                <>
-                  {' '}
-                  · Registrado:{' '}
-                  {new Date(query.data.registradoAt).toLocaleString('es-MX')}
-                </>
-              )}
-            </p>
-          </header>
+        <div className="space-y-5">
+          <PageHeader
+            titulo={query.data.folio}
+            estado={
+              <>
+                <EstadoAlmacenBadge tipo="movimiento" estado={query.data.estado} />
+              </>
+            }
+            descripcion={
+              <>
+                Fecha de movimiento:{' '}
+                <DateTimeDisplay value={query.data.fechaMovimiento} variant="media" />
+                {query.data.registradoAt && (
+                  <>
+                    {' '}
+                    · Registrado:{' '}
+                    <DateTimeDisplay value={query.data.registradoAt} variant="media" />
+                  </>
+                )}
+              </>
+            }
+            acciones={
+              <TrazabilidadComprasDialog tipo={TipoDocumentoTrazabilidad.Recepcion} id={id} />
+            }
+            mono
+          />
 
-          <section className="grid grid-cols-1 gap-x-6 gap-y-2 rounded-md border p-4 md:grid-cols-2">
+          <dl className="grid grid-cols-1 gap-4 rounded-lg bg-surface-card p-4 shadow-card-flat sm:grid-cols-4">
             <Campo
               label="Sub-almacén"
               valor={
@@ -93,16 +106,22 @@ export function RecepcionDetallePage() {
               }
               mono={!query.data.subAlmacenNombre}
             />
-            <Campo
-              label="Orden de compra"
-              valor={
-                query.data.ordenCompraFolio ?? query.data.ordenCompraId ?? '—'
-              }
-              mono={
-                query.data.ordenCompraFolio == null &&
-                query.data.ordenCompraId != null
-              }
-            />
+            {query.data.ordenCompraId ? (
+              <div>
+                <dt className="text-xs text-ink-muted">Orden de compra</dt>
+                <dd>
+                  <Link
+                    to="/compras/ordenes/$id"
+                    params={{ id: query.data.ordenCompraId }}
+                    className="font-mono text-sm text-brand hover:underline"
+                  >
+                    {query.data.ordenCompraFolio ?? query.data.ordenCompraId}
+                  </Link>
+                </dd>
+              </div>
+            ) : (
+              <Campo label="Orden de compra" valor="—" />
+            )}
             {/* Referencias CxP resueltas en backend (ADR-0042): UUID fiscal
                 del SAT / folio del proveedor; si el puerto no resolvió, cae
                 al id truncado (nunca el GUID interno completo). */}
@@ -110,9 +129,7 @@ export function RecepcionDetallePage() {
               label="CFDI recibido (folio fiscal)"
               valor={
                 query.data.cfdiUuidFiscal ??
-                (query.data.cfdiRecibidoId
-                  ? `${query.data.cfdiRecibidoId.slice(0, 8)}…`
-                  : '—')
+                (query.data.cfdiRecibidoId ? `${query.data.cfdiRecibidoId.slice(0, 8)}…` : '—')
               }
               mono
             />
@@ -120,73 +137,128 @@ export function RecepcionDetallePage() {
               label="Factura proveedor"
               valor={
                 query.data.facturaFolio ??
-                (query.data.facturaId
-                  ? `${query.data.facturaId.slice(0, 8)}…`
-                  : '—')
+                (query.data.facturaId ? `${query.data.facturaId.slice(0, 8)}…` : '—')
               }
               mono={!query.data.facturaFolio}
             />
+            {query.data.importacion && (
+              <>
+                <Campo label="Pedimento" valor={query.data.importacion.numeroPedimento} mono />
+                <Campo label="BL / guía aérea" valor={query.data.importacion.numeroBl} mono />
+                <Campo label="Contenedor" valor={query.data.importacion.numeroContenedor} mono />
+                <Campo
+                  label="Aduana"
+                  valor={[query.data.importacion.aduana, query.data.importacion.aduanaNombre]
+                    .filter(Boolean)
+                    .join(' · ')}
+                />
+                <Campo
+                  label="Clave de pedimento"
+                  valor={[
+                    query.data.importacion.clavePedimento,
+                    query.data.importacion.clavePedimentoNombre,
+                  ]
+                    .filter(Boolean)
+                    .join(' · ')}
+                />
+              </>
+            )}
             {query.data.observaciones && (
               <div className="md:col-span-2">
                 <Campo label="Observaciones" valor={query.data.observaciones} />
               </div>
             )}
-          </section>
+          </dl>
 
           <section className="space-y-2">
-            <h2 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">
-              Líneas ({query.data.lineas.length})
+            <h2 className="text-sm font-semibold uppercase tracking-wide text-ink-muted">
+              Partidas ({query.data.lineas.length})
             </h2>
-            <div className="overflow-x-auto rounded-md border">
-              <table className="w-full text-sm">
-                <thead className="bg-muted/50">
-                  <tr>
-                    <th className="px-3 py-2 text-left">#</th>
-                    <th className="px-3 py-2 text-left">Artículo</th>
-                    <th className="px-3 py-2 text-right">Cantidad</th>
-                    <th className="px-3 py-2 text-left">UM</th>
-                    <th className="px-3 py-2 text-left">Centro de costo</th>
-                    <th className="px-3 py-2 text-right">Costo unitario</th>
-                    <th className="px-3 py-2 text-right">Monto</th>
-                  </tr>
-                </thead>
-                <tbody>
+            {lineasEnRevision > 0 && (
+              <AvisoEnLinea tono="advertencia">
+                {lineasEnRevision} {lineasEnRevision === 1 ? 'partida' : 'partidas'} en material en
+                revisión: no están disponibles hasta el dictamen del Gerente de almacén/calidad.
+              </AvisoEnLinea>
+            )}
+            <TableContainer className="rounded-md border">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>#</TableHead>
+                    <TableHead>Artículo</TableHead>
+                    <TableHead className="text-right">Cantidad</TableHead>
+                    <TableHead>UM</TableHead>
+                    <TableHead>Ubicación (rack)</TableHead>
+                    <TableHead>Centro de costo</TableHead>
+                    {query.data.importacion && <TableHead>Fracción arancelaria</TableHead>}
+                    <TableHead className="text-right">Costo unitario</TableHead>
+                    <TableHead className="text-right">Monto</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
                   {query.data.lineas.map((l) => (
-                    <tr key={l.id} className="border-t">
-                      <td className="px-3 py-2">{l.posicion}</td>
+                    <TableRow key={l.id}>
+                      <TableCell>{l.posicion}</TableCell>
                       {l.articuloDescripcion ? (
-                        <td className="px-3 py-2">
+                        <TableCell>
                           {l.articuloClave && (
-                            <span className="font-mono text-xs text-muted-foreground">
+                            <span className="font-mono text-xs text-ink-muted">
                               {l.articuloClave}
                             </span>
                           )}
                           <div>{l.articuloDescripcion}</div>
-                        </td>
+                          {l.enRevision && (
+                            <div className="mt-1 space-y-0.5">
+                              <IndicadorAlmacenBadge estado="revision" />
+                              {l.motivoDano && (
+                                <p className="text-xs text-ink-muted">{l.motivoDano}</p>
+                              )}
+                            </div>
+                          )}
+                        </TableCell>
                       ) : (
-                        <td className="px-3 py-2 font-mono text-xs">
-                          {l.articuloId}
-                        </td>
+                        <TableCell className="font-mono text-xs">{l.articuloId}</TableCell>
                       )}
-                      <td className="px-3 py-2 text-right font-mono">
-                        {l.cantidad.toLocaleString('es-MX', {
-                          minimumFractionDigits: 2,
-                          maximumFractionDigits: 4,
-                        })}
-                      </td>
-                      <td className="px-3 py-2">{l.unidadMedida}{l.unidadCapturada && <span className="block text-xs text-muted-foreground">Captura: {l.cantidadCapturada} {l.unidadCapturada}</span>}</td>
-                      <td className="px-3 py-2 text-sm text-ink">{l.centroCostoId ? formatCcMaquinaLabel({ clave: l.centroCostoClave, nombre: l.centroCostoNombre }) : '—'}</td>
-                      <td className="px-3 py-2 text-right font-mono">
-                        {formatearMonto(l.costoUnitarioMxn)}
-                      </td>
-                      <td className="px-3 py-2 text-right font-mono">
-                        {formatearMonto(l.montoTotalMxn)}
-                      </td>
-                    </tr>
+                      <TableCell className="text-right tabular-nums">
+                        {formatCantidad(l.cantidad, decimalesUnidad.porCodigo(l.unidadMedida))}
+                      </TableCell>
+                      <TableCell>
+                        {l.unidadMedida}
+                        {l.unidadCapturada && (
+                          <span className="block text-xs text-ink-muted">
+                            Captura: {l.cantidadCapturada} {l.unidadCapturada}
+                          </span>
+                        )}
+                      </TableCell>
+                      <TableCell className="font-mono text-xs">{l.ubicacionClave ?? '—'}</TableCell>
+                      <TableCell className="text-sm text-ink">
+                        {l.centroCostoId
+                          ? formatCcMaquinaLabel({
+                              clave: l.centroCostoClave,
+                              nombre: l.centroCostoNombre,
+                            })
+                          : '—'}
+                      </TableCell>
+                      {query.data.importacion && (
+                        <TableCell className="font-mono text-xs">
+                          {l.fraccionArancelaria ?? '—'}
+                        </TableCell>
+                      )}
+                      <TableCell className="text-right tabular-nums">
+                        <MoneyDisplay amount={l.costoUnitarioMxn} currency="MXN" strong />
+                      </TableCell>
+                      <TableCell className="text-right tabular-nums">
+                        <MoneyDisplay amount={l.montoTotalMxn} currency="MXN" strong />
+                      </TableCell>
+                    </TableRow>
                   ))}
-                </tbody>
-              </table>
-            </div>
+                </TableBody>
+              </Table>
+            </TableContainer>
+            <ResumenImportes
+              moneda="MXN"
+              total={query.data.lineas.reduce((t, l) => t + l.montoTotalMxn, 0)}
+            />
           </section>
         </div>
       )}
@@ -194,48 +266,11 @@ export function RecepcionDetallePage() {
   );
 }
 
-function Campo({
-  label,
-  valor,
-  mono,
-}: {
-  label: string;
-  valor: string;
-  mono?: boolean;
-}) {
+function Campo({ label, valor, mono }: { label: string; valor: string; mono?: boolean }) {
   return (
     <div>
-      <div className="text-xs uppercase tracking-wide text-muted-foreground">
-        {label}
-      </div>
-      <div className={mono ? 'font-mono text-xs break-all' : 'text-sm'}>
-        {valor}
-      </div>
+      <dt className="text-xs text-ink-muted">{label}</dt>
+      <dd className={mono ? 'font-mono text-xs break-all' : 'text-sm'}>{valor}</dd>
     </div>
   );
-}
-
-function EstadoMovimientoBadge({ estado }: { estado: EstadoMovimiento }) {
-  return (
-    <span
-      className={cn(
-        'inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium',
-        estado === EstadoMovimiento.Borrador && 'bg-slate-200 text-slate-700',
-        estado === EstadoMovimiento.Validado && 'bg-blue-100 text-blue-800',
-        estado === EstadoMovimiento.Registrado &&
-          'bg-emerald-100 text-emerald-800',
-        estado === EstadoMovimiento.Cancelado && 'bg-rose-100 text-rose-800',
-      )}
-    >
-      {EstadoMovimientoLabels[estado]}
-    </span>
-  );
-}
-
-function formatearMonto(v: number): string {
-  return new Intl.NumberFormat('es-MX', {
-    style: 'currency',
-    currency: 'MXN',
-    minimumFractionDigits: 2,
-  }).format(v);
 }

@@ -1,7 +1,10 @@
-import { useCallback, useMemo, useRef, useState, type ReactNode } from 'react';
+import { ContextoSucursal } from '@/components/erp/display/ContextoSucursal';
+import { useCallback, useMemo, useState, type ReactNode } from 'react';
+import { useConfirmarDescarte } from '@/components/erp/forms/useConfirmarDescarte';
 import {
   Sheet,
   SheetContent,
+  SheetBody,
   SheetDescription,
   SheetHeader,
   SheetTitle,
@@ -26,41 +29,26 @@ import {
  * confirm es un freno extra para evitar perder cambios que aún no
  * llegaron al debounce de 500ms.</para>
  */
-export function NuevaOrdenCompraProvider({
-  children,
-}: {
-  children: ReactNode;
-}) {
+export function NuevaOrdenCompraProvider({ children }: { children: ReactNode }) {
   const [abierto, setAbierto] = useState(false);
-  const [desdeRequisicion, setDesdeRequisicion] =
-    useState<DesdeRequisicionContext | null>(null);
-  const isDirtyRef = useRef(false);
-
-  const setDirty = useCallback((dirty: boolean) => {
-    isDirtyRef.current = dirty;
+  const [desdeRequisicion, setDesdeRequisicion] = useState<DesdeRequisicionContext | null>(null);
+  const alCerrar = useCallback(() => {
+    setAbierto(false);
+    setDesdeRequisicion(null);
   }, []);
-
-  const cerrarConConfirm = useCallback((opts?: { force?: boolean }) => {
-    if (opts?.force === true || !isDirtyRef.current) {
-      isDirtyRef.current = false;
-      setAbierto(false);
-      setDesdeRequisicion(null);
-      return;
-    }
-    const confirmar = window.confirm(
-      'Tienes cambios sin guardar en la nueva OC. ¿Descartarlos y cerrar?\n\n(Tu borrador queda guardado localmente; la próxima vez te lo ofreceremos recuperar.)',
-    );
-    if (confirmar) {
-      isDirtyRef.current = false;
-      setAbierto(false);
-      setDesdeRequisicion(null);
-    }
-  }, []);
+  const { setDirty, solicitarCierre, dialogo } = useConfirmarDescarte(
+    alCerrar,
+    'Tu borrador queda guardado localmente; la próxima vez te lo ofreceremos recuperar.',
+  );
+  const cerrarConConfirm = useCallback(
+    (opts?: { force?: boolean }) => solicitarCierre(opts?.force),
+    [solicitarCierre],
+  );
 
   const api = useMemo<NuevaOrdenCompraApi>(
     () => ({
       abrir: (opts) => {
-        isDirtyRef.current = false;
+        setDirty(false);
         setDesdeRequisicion(opts?.desdeRequisicion ?? null);
         setAbierto(true);
       },
@@ -83,24 +71,22 @@ export function NuevaOrdenCompraProvider({
           setAbierto(true);
         }}
       >
-        <SheetContent
-          side="right"
-          className="w-full overflow-y-auto sm:max-w-3xl"
-        >
+        <SheetContent side="right" size="lg">
           <SheetHeader>
             <SheetTitle>
               {desdeRequisicion
                 ? `Convertir RQ ${desdeRequisicion.folio ?? ''} a OC`.trim()
                 : 'Nueva orden de compra'}
             </SheetTitle>
+            <ContextoSucursal />
             <SheetDescription>
               {desdeRequisicion
-                ? 'Modo 1:1. La sucursal viene de la RQ origen. Llena los campos restantes (proveedor, condiciones de pago, etc.).'
-                : 'Llena la cabecera. Las líneas se agregan después de crear, dentro del detalle (UF2-PR3 cableará el editor inline).'}
+                ? 'La sucursal viene de la RQ origen. Llena los campos restantes (proveedor, condiciones de pago, etc.).'
+                : 'Llena los datos de la orden y agrega las partidas desde su detalle.'}
             </SheetDescription>
           </SheetHeader>
 
-          <div className="px-6 pb-6">
+          <SheetBody>
             {abierto && (
               <SheetNuevaOC
                 onClose={cerrarConConfirm}
@@ -108,9 +94,10 @@ export function NuevaOrdenCompraProvider({
                 desdeRequisicion={desdeRequisicion}
               />
             )}
-          </div>
+          </SheetBody>
         </SheetContent>
       </Sheet>
+      {dialogo}
     </NuevaOrdenCompraContext.Provider>
   );
 }

@@ -1,3 +1,6 @@
+import { PageHeader } from '@/components/erp/PageHeader';
+import { ConfirmarAccionDialog } from '@/components/erp/feedback/ConfirmarAccionDialog';
+import { MoneyDisplay } from '@/components/erp/display/MoneyDisplay';
 import { useRef, useState } from 'react';
 import { useNavigate, useSearch } from '@tanstack/react-router';
 import {
@@ -79,23 +82,20 @@ export function EstadosCuentaTcPage() {
 
   return (
     <div className="space-y-4">
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <div>
-          <h1 className="text-2xl font-semibold tracking-tight">
-            Estados de cuenta TC
-          </h1>
-          <p className="text-sm text-muted-foreground">
-            Conciliación periódica con el archivo del banco. Al cerrar se
-            genera una factura agregada contra el proveedor banco.
-          </p>
-        </div>
-        {puedeRegistrar && (
-          <Button onClick={() => setSheetAbierto(true)}>
-            <Plus className="mr-2 h-4 w-4" />
-            Nuevo estado de cuenta
-          </Button>
-        )}
-      </div>
+      <PageHeader
+        titulo="Estados de cuenta TC"
+        descripcion="Conciliación periódica con el archivo del banco. Al cerrar se genera una factura agregada contra el proveedor banco."
+        acciones={
+          <>
+            {puedeRegistrar && (
+              <Button onClick={() => setSheetAbierto(true)}>
+                <Plus className="mr-2 size-3.5" />
+                Nuevo estado de cuenta
+              </Button>
+            )}
+          </>
+        }
+      />
 
       <Filtros search={search} onChange={actualizarSearch} />
 
@@ -225,7 +225,8 @@ function Tabla({ items }: { items: readonly EstadoCuentaTc[] }) {
       () => toast.success(label),
       (error) => {
         if (esApiError(error)) {
-          toast.error(error.problem.title);
+          // El detalle trae la diferencia y la tolerancia cuando el servidor rechaza.
+          toast.error(error.problem.detail ?? error.problem.title);
           return;
         }
         toast.error('Error al ejecutar acción.');
@@ -267,13 +268,9 @@ function Tabla({ items }: { items: readonly EstadoCuentaTc[] }) {
     );
   }
 
+  const [aCerrar, setACerrar] = useState<EstadoCuentaTc | null>(null);
+
   function handleCerrar(ec: EstadoCuentaTc) {
-    if (
-      !window.confirm(
-        'Cerrar el estado de cuenta generará una factura agregada contra el banco. ¿Continuar?',
-      )
-    )
-      return;
     cerrar
       .mutateAsync({
         id: ec.id,
@@ -293,7 +290,8 @@ function Tabla({ items }: { items: readonly EstadoCuentaTc[] }) {
           }
           toast.error('Error al cerrar.');
         },
-      );
+      )
+      .finally(() => setACerrar(null));
   }
 
   function handleMarcarPagado(ec: EstadoCuentaTc) {
@@ -371,7 +369,7 @@ function Tabla({ items }: { items: readonly EstadoCuentaTc[] }) {
                   }
                   onConciliar={() => handleConciliar(ec)}
                   onMarcarConciliado={() => handleMarcarConciliado(ec)}
-                  onCerrar={() => handleCerrar(ec)}
+                  onCerrar={() => setACerrar(ec)}
                   onMarcarPagado={() => handleMarcarPagado(ec)}
                 />
               </td>
@@ -379,6 +377,29 @@ function Tabla({ items }: { items: readonly EstadoCuentaTc[] }) {
           ))}
         </tbody>
       </table>
+      <ConfirmarAccionDialog
+        open={aCerrar !== null}
+        onOpenChange={(o) => !o && setACerrar(null)}
+        titulo="Cerrar estado de cuenta"
+        resumen={
+          aCerrar && (
+            <>
+              Cerrar el estado de cuenta {aCerrar.periodoDesde} → {aCerrar.periodoHasta} generará
+              una factura agregada contra el banco
+              {aCerrar.totalBancoMxn != null && (
+                <>
+                  {' '}por <MoneyDisplay amount={aCerrar.totalBancoMxn} currency="MXN" strong />
+                </>
+              )}
+              .
+            </>
+          )
+        }
+        verbo="Cerrar estado de cuenta"
+        tono="primario"
+        pendiente={cerrar.isPending}
+        onConfirmar={() => aCerrar && handleCerrar(aCerrar)}
+      />
     </div>
   );
 }
@@ -431,7 +452,7 @@ function Acciones({
             onClick={() => fileRef.current?.click()}
             disabled={isPending}
           >
-            <FileUp className="mr-1 h-3 w-3" />
+            <FileUp className="mr-1 size-3.5" />
             Subir archivo
           </Button>
           {ec.perfilParserUsado && (
@@ -441,20 +462,21 @@ function Acciones({
               onClick={onConciliar}
               disabled={isPending}
             >
-              <Calculator className="mr-1 h-3 w-3" />
+              <Calculator className="mr-1 size-3.5" />
               Conciliar auto
             </Button>
           )}
         </>
       )}
-      {enConciliacion && puedeCerrar && ec.diferenciaMxn === 0 && (
+      {/* La tolerancia es configurable: el servidor decide si la diferencia se acepta. */}
+      {enConciliacion && puedeCerrar && (
         <Button
           variant="outline"
           size="sm"
           onClick={onMarcarConciliado}
           disabled={isPending}
         >
-          <CheckCircle2 className="mr-1 h-3 w-3" />
+          <CheckCircle2 className="mr-1 size-3.5" />
           Marcar conciliado
         </Button>
       )}
@@ -465,7 +487,7 @@ function Acciones({
           onClick={onCerrar}
           disabled={isPending}
         >
-          <Lock className="mr-1 h-3 w-3" />
+          <Lock className="mr-1 size-3.5" />
           Cerrar
         </Button>
       )}
@@ -476,7 +498,7 @@ function Acciones({
           onClick={onMarcarPagado}
           disabled={isPending}
         >
-          <Wallet className="mr-1 h-3 w-3" />
+          <Wallet className="mr-1 size-3.5" />
           Marcar pagado
         </Button>
       )}

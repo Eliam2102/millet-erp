@@ -1,3 +1,6 @@
+import { FormSeccion } from '@/components/erp/forms/FormSeccion';
+import { FormGrid, FormCampo } from '@/components/erp/forms/FormGrid';
+import { SheetBody } from '@/components/ui/sheet';
 import { hoyLocalISO } from '@/lib/datetime';
 import { Controller, useFieldArray, useForm, useWatch } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -21,20 +24,14 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { TextAreaField } from '@/components/erp';
-import {
-  applyServerErrors,
-  esApiError,
-  useFormIdempotencyKey,
-} from '@/lib/api';
+import { applyServerErrors, esApiError, useFormIdempotencyKey, codigoSoporte } from '@/lib/api';
 import {
   AplicarDevolucionInternaSchema,
   type AplicarDevolucionInternaValues,
 } from '@/features/almacen/schemas/devolucion';
-import {
-  useAplicarDevolucionInterna,
-  useSubAlmacenes,
-} from '@/features/almacen/api';
+import { useAplicarDevolucionInterna, useSubAlmacenes } from '@/features/almacen/api';
 import { Field } from '@/features/almacen/components/internal/Field';
+import { AsignarUbicacionEnLinea } from '@/features/almacen/components/AsignarUbicacionEnLinea';
 import { UbicacionBinSelector } from '@/components/erp/selectors/UbicacionBinSelector';
 import { useSalida } from '@/features/almacen/api/useSalidas';
 
@@ -62,34 +59,24 @@ export function AplicarDevolucionInternaSheet({
 }: AplicarDevolucionInternaSheetProps) {
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
-      <SheetContent side="right" className="sm:max-w-2xl">
+      <SheetContent side="right" size="lg">
         <SheetHeader>
-          <SheetTitle>Devolución interna (8.A)</SheetTitle>
+          <SheetTitle>Devolución interna</SheetTitle>
           <SheetDescription>
-            Devuelve material desde el solicitante al almacén
-            (MAT-REV, sub-almacén destino, o regreso al origen). El
-            backend restituye al costo de la salida origen.
+            Devuelve material desde el solicitante al almacén (material en revisión, sub-almacén
+            destino, o regreso al origen). El sistema restituye al costo de la salida origen.
           </SheetDescription>
         </SheetHeader>
 
         {open && (
-          <FormBody
-            onSuccess={() => onOpenChange(false)}
-            onCancel={() => onOpenChange(false)}
-          />
+          <FormBody onSuccess={() => onOpenChange(false)} onCancel={() => onOpenChange(false)} />
         )}
       </SheetContent>
     </Sheet>
   );
 }
 
-function FormBody({
-  onSuccess,
-  onCancel,
-}: {
-  onSuccess: () => void;
-  onCancel: () => void;
-}) {
+function FormBody({ onSuccess, onCancel }: { onSuccess: () => void; onCancel: () => void }) {
   const idempotencyKey = useFormIdempotencyKey();
   const aplicar = useAplicarDevolucionInterna();
   const subAlmacenesQuery = useSubAlmacenes({ limit: 500 });
@@ -120,9 +107,7 @@ function FormBody({
     name: 'subAlmacenDestinoId',
   });
   const salidaOrigenQuery = useSalida(
-    salidaOrigenId && /^[0-9a-f-]{36}$/i.test(salidaOrigenId)
-      ? salidaOrigenId
-      : undefined,
+    salidaOrigenId && /^[0-9a-f-]{36}$/i.test(salidaOrigenId) ? salidaOrigenId : undefined,
   );
   const articuloPorLineaSalida = new Map(
     (salidaOrigenQuery.data?.lineas ?? []).map((l) => [l.id, l.articuloId]),
@@ -155,15 +140,12 @@ function FormBody({
         onError: (error) => {
           if (esApiError(error)) {
             if (
-              applyServerErrors(
-                form as unknown as Parameters<typeof applyServerErrors>[0],
-                error,
-              )
+              applyServerErrors(form as unknown as Parameters<typeof applyServerErrors>[0], error)
             ) {
               return;
             }
             toast.error(error.problem.title, {
-              description: error.traceId ? `Código: ${error.traceId}` : undefined,
+              description: codigoSoporte(error),
             });
             return;
           }
@@ -175,275 +157,284 @@ function FormBody({
 
   return (
     <>
-      <form
-        id="aplicar-devolucion-interna-form"
-        onSubmit={form.handleSubmit(onSubmit)}
-        noValidate
-        className="flex-1 space-y-4 overflow-y-auto px-6"
-      >
-        <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
-          <Field
-            label="Salida origen"
-            required
-            error={form.formState.errors.salidaOrigenId?.message}
-          >
+      <SheetBody>
+        <form
+          id="aplicar-devolucion-interna-form"
+          onSubmit={form.handleSubmit(onSubmit)}
+          noValidate
+          className="space-y-4"
+        >
+          <FormSeccion numero={1} titulo="Datos de devolución">
+            <FormCampo span={6}>
+              <Field
+                label="Salida origen"
+                required
+                error={form.formState.errors.salidaOrigenId?.message}
+              >
+                <Controller
+                  name="salidaOrigenId"
+                  control={form.control}
+                  render={({ field }) => (
+                    <Input
+                      {...field}
+                      value={field.value ?? ''}
+                      placeholder="GUID de la salida"
+                      spellCheck={false}
+                    />
+                  )}
+                />
+              </Field>
+            </FormCampo>
+
+            <FormCampo span={6}>
+              <Field
+                label="Sub-almacén destino"
+                required
+                error={form.formState.errors.subAlmacenDestinoId?.message}
+              >
+                <Controller
+                  name="subAlmacenDestinoId"
+                  control={form.control}
+                  render={({ field }) => (
+                    <Select
+                      value={field.value || ''}
+                      onValueChange={(v) => field.onChange(v)}
+                      disabled={subAlmacenesQuery.isLoading}
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder="Selecciona sub-almacén" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {(subAlmacenesQuery.data?.items ?? []).map((s) => (
+                          <SelectItem key={s.id} value={s.id}>
+                            {s.clave} · {s.nombre}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  )}
+                />
+              </Field>
+            </FormCampo>
+
+            <FormCampo span={6}>
+              <Field
+                label="Fecha de movimiento"
+                required
+                error={form.formState.errors.fechaMovimiento?.message}
+              >
+                <Controller
+                  name="fechaMovimiento"
+                  control={form.control}
+                  render={({ field }) => <Input {...field} type="date" value={field.value ?? ''} />}
+                />
+              </Field>
+            </FormCampo>
+
+            <FormCampo span={6}>
+              <Field
+                label="Estado del material"
+                required
+                error={form.formState.errors.estadoMaterial?.message}
+              >
+                <Controller
+                  name="estadoMaterial"
+                  control={form.control}
+                  render={({ field }) => (
+                    <Select value={field.value || ''} onValueChange={(v) => field.onChange(v)}>
+                      <SelectTrigger>
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {ESTADOS_MATERIAL.map((e) => (
+                          <SelectItem key={e} value={e}>
+                            {e}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  )}
+                />
+              </Field>
+            </FormCampo>
+          </FormSeccion>
+
+          <Field label="Motivo" required error={form.formState.errors.motivo?.message}>
             <Controller
-              name="salidaOrigenId"
+              name="motivo"
               control={form.control}
               render={({ field }) => (
-                <Input
-                  {...field}
-                  value={field.value ?? ''}
-                  placeholder="GUID de la salida"
-                  spellCheck={false}
+                <TextAreaField
+                  value={field.value ?? null}
+                  onChange={(v) => field.onChange(v ?? '')}
+                  maxLength={500}
+                  minRows={2}
                 />
               )}
             />
           </Field>
 
           <Field
-            label="Sub-almacén destino"
-            required
-            error={form.formState.errors.subAlmacenDestinoId?.message}
+            label="Observaciones (opcional)"
+            error={form.formState.errors.observaciones?.message}
           >
             <Controller
-              name="subAlmacenDestinoId"
+              name="observaciones"
               control={form.control}
               render={({ field }) => (
-                <Select
-                  value={field.value || ''}
-                  onValueChange={(v) => field.onChange(v)}
-                  disabled={subAlmacenesQuery.isLoading}
-                >
-                  <SelectTrigger>
-                    <SelectValue placeholder="Selecciona sub-almacén" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {(subAlmacenesQuery.data?.items ?? []).map((s) => (
-                      <SelectItem key={s.id} value={s.id}>
-                        {s.clave} · {s.nombre}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                <TextAreaField
+                  value={field.value ?? null}
+                  onChange={(v) => field.onChange(v)}
+                  maxLength={500}
+                  minRows={2}
+                />
               )}
             />
           </Field>
 
-          <Field
-            label="Fecha de movimiento"
-            required
-            error={form.formState.errors.fechaMovimiento?.message}
-          >
-            <Controller
-              name="fechaMovimiento"
-              control={form.control}
-              render={({ field }) => (
-                <Input {...field} type="date" value={field.value ?? ''} />
-              )}
-            />
-          </Field>
+          <section className="space-y-2">
+            <div className="flex items-center justify-between">
+              <h3 className="text-sm font-semibold">
+                Partidas a devolver ({lineasFA.fields.length})
+              </h3>
+              <Button
+                type="button"
+                size="sm"
+                variant="outline"
+                onClick={() =>
+                  lineasFA.append({
+                    lineaSalidaOrigenId: '',
+                    cantidadADevolver: 1,
+                    ubicacionId: '',
+                  })
+                }
+              >
+                <Plus className="mr-2 size-3.5" />
+                Agregar partida
+              </Button>
+            </div>
 
-          <Field
-            label="Estado del material"
-            required
-            error={form.formState.errors.estadoMaterial?.message}
-          >
-            <Controller
-              name="estadoMaterial"
-              control={form.control}
-              render={({ field }) => (
-                <Select
-                  value={field.value || ''}
-                  onValueChange={(v) => field.onChange(v)}
-                >
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {ESTADOS_MATERIAL.map((e) => (
-                      <SelectItem key={e} value={e}>
-                        {e}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              )}
-            />
-          </Field>
-        </div>
-
-        <Field
-          label="Motivo"
-          required
-          error={form.formState.errors.motivo?.message}
-        >
-          <Controller
-            name="motivo"
-            control={form.control}
-            render={({ field }) => (
-              <TextAreaField
-                value={field.value ?? null}
-                onChange={(v) => field.onChange(v ?? '')}
-                maxLength={500}
-                minRows={2}
-              />
-            )}
-          />
-        </Field>
-
-        <Field
-          label="Observaciones (opcional)"
-          error={form.formState.errors.observaciones?.message}
-        >
-          <Controller
-            name="observaciones"
-            control={form.control}
-            render={({ field }) => (
-              <TextAreaField
-                value={field.value ?? null}
-                onChange={(v) => field.onChange(v)}
-                maxLength={500}
-                minRows={2}
-              />
-            )}
-          />
-        </Field>
-
-        <section className="space-y-2">
-          <div className="flex items-center justify-between">
-            <h3 className="text-sm font-semibold">
-              Líneas a devolver ({lineasFA.fields.length})
-            </h3>
-            <Button
-              type="button"
-              size="sm"
-              variant="outline"
-              onClick={() =>
-                lineasFA.append({
-                  lineaSalidaOrigenId: '',
-                  cantidadADevolver: 1,
-                  ubicacionId: '',
-                })
-              }
-            >
-              <Plus className="mr-2 h-4 w-4" />
-              Agregar línea
-            </Button>
-          </div>
-
-          <div className="space-y-2">
-            {lineasFA.fields.map((field, index) => {
-              const errs = form.formState.errors.lineas?.[index];
-              const lineaOrigenId = lineasWatch?.[index]?.lineaSalidaOrigenId;
-              const articuloId = lineaOrigenId
-                ? articuloPorLineaSalida.get(lineaOrigenId)
-                : undefined;
-              return (
-                <div
-                  key={field.id}
-                  className="rounded-md border border-dashed border-primary/40 bg-primary/5 p-3 space-y-2"
-                >
-                  <div className="flex items-start justify-between gap-2">
-                    <span className="text-xs font-semibold text-muted-foreground">
-                      Línea #{index + 1}
-                    </span>
-                    <Button
-                      type="button"
-                      size="sm"
-                      variant="ghost"
-                      onClick={() => lineasFA.remove(index)}
-                      aria-label={`Quitar línea ${index + 1}`}
-                    >
-                      <Trash2 className="h-4 w-4" />
-                    </Button>
+            <div className="space-y-2">
+              {lineasFA.fields.map((field, index) => {
+                const errs = form.formState.errors.lineas?.[index];
+                const lineaOrigenId = lineasWatch?.[index]?.lineaSalidaOrigenId;
+                const articuloId = lineaOrigenId
+                  ? articuloPorLineaSalida.get(lineaOrigenId)
+                  : undefined;
+                return (
+                  <div
+                    key={field.id}
+                    className="rounded-md border border-dashed border-brand/40 bg-brand/5 p-3 space-y-2"
+                  >
+                    <div className="flex items-start justify-between gap-2">
+                      <span className="text-xs font-semibold text-ink-muted">
+                        Partida #{index + 1}
+                      </span>
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant="ghost"
+                        onClick={() => lineasFA.remove(index)}
+                        aria-label={`Quitar partida ${index + 1}`}
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
+                    </div>
+                    <FormGrid>
+                      <FormCampo span={6}>
+                        <Field
+                          label="Partida de salida origen"
+                          required
+                          error={errs?.lineaSalidaOrigenId?.message}
+                        >
+                          <Controller
+                            name={`lineas.${index}.lineaSalidaOrigenId` as const}
+                            control={form.control}
+                            render={({ field }) => (
+                              <Input
+                                {...field}
+                                value={field.value ?? ''}
+                                placeholder="GUID de la partida de salida"
+                                spellCheck={false}
+                              />
+                            )}
+                          />
+                        </Field>
+                      </FormCampo>
+                      <FormCampo span={6}>
+                        <Field
+                          label="Cantidad a devolver"
+                          required
+                          error={errs?.cantidadADevolver?.message}
+                        >
+                          <Controller
+                            name={`lineas.${index}.cantidadADevolver` as const}
+                            control={form.control}
+                            render={({ field }) => (
+                              <Input
+                                type="number"
+                                inputMode="decimal"
+                                step="0.0001"
+                                min="0"
+                                value={field.value ?? ''}
+                                onChange={(e) =>
+                                  field.onChange(
+                                    e.target.value === '' ? '' : Number(e.target.value),
+                                  )
+                                }
+                              />
+                            )}
+                          />
+                        </Field>
+                      </FormCampo>
+                      <FormCampo span={6}>
+                        <Field
+                          label="Ubicación (rack) destino"
+                          required
+                          error={errs?.ubicacionId?.message}
+                        >
+                          <Controller
+                            name={`lineas.${index}.ubicacionId` as const}
+                            control={form.control}
+                            render={({ field }) => (
+                              <UbicacionBinSelector
+                                modo="asignacion"
+                                articuloId={articuloId}
+                                subAlmacenId={subAlmacenDestinoId}
+                                value={field.value ?? null}
+                                onChange={(id) => field.onChange(id ?? '')}
+                                accionSinUbicaciones={
+                                  articuloId ? (
+                                    <AsignarUbicacionEnLinea
+                                      articuloId={articuloId}
+                                      onAsignada={(ubicacionId) =>
+                                        form.setValue(`lineas.${index}.ubicacionId`, ubicacionId, {
+                                          shouldDirty: true,
+                                          shouldValidate: true,
+                                        })
+                                      }
+                                    />
+                                  ) : undefined
+                                }
+                              />
+                            )}
+                          />
+                        </Field>
+                      </FormCampo>
+                    </FormGrid>
                   </div>
-                  <div className="grid grid-cols-1 gap-2 md:grid-cols-2">
-                    <Field
-                      label="Línea de salida origen"
-                      required
-                      error={errs?.lineaSalidaOrigenId?.message}
-                    >
-                      <Controller
-                        name={`lineas.${index}.lineaSalidaOrigenId` as const}
-                        control={form.control}
-                        render={({ field }) => (
-                          <Input
-                            {...field}
-                            value={field.value ?? ''}
-                            placeholder="GUID de la línea de salida"
-                            spellCheck={false}
-                          />
-                        )}
-                      />
-                    </Field>
-                    <Field
-                      label="Cantidad a devolver"
-                      required
-                      error={errs?.cantidadADevolver?.message}
-                    >
-                      <Controller
-                        name={`lineas.${index}.cantidadADevolver` as const}
-                        control={form.control}
-                        render={({ field }) => (
-                          <Input
-                            type="number"
-                            inputMode="decimal"
-                            step="0.0001"
-                            min="0"
-                            value={field.value ?? ''}
-                            onChange={(e) =>
-                              field.onChange(
-                                e.target.value === ''
-                                  ? ''
-                                  : Number(e.target.value),
-                              )
-                            }
-                          />
-                        )}
-                      />
-                    </Field>
-                    <Field
-                      label="Ubicación (rack) destino"
-                      required
-                      error={errs?.ubicacionId?.message}
-                    >
-                      <Controller
-                        name={`lineas.${index}.ubicacionId` as const}
-                        control={form.control}
-                        render={({ field }) => (
-                          <UbicacionBinSelector
-                            modo="asignacion"
-                            articuloId={articuloId}
-                            subAlmacenId={subAlmacenDestinoId}
-                            value={field.value ?? null}
-                            onChange={(id) => field.onChange(id ?? '')}
-                          />
-                        )}
-                      />
-                    </Field>
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        </section>
-      </form>
+                );
+              })}
+            </div>
+          </section>
+        </form>
+      </SheetBody>
 
       <SheetFooter>
-        <Button
-          type="button"
-          variant="ghost"
-          onClick={onCancel}
-          disabled={aplicar.isPending}
-        >
+        <Button type="button" variant="ghost" onClick={onCancel} disabled={aplicar.isPending}>
           Cancelar
         </Button>
-        <Button
-          type="submit"
-          form="aplicar-devolucion-interna-form"
-          disabled={aplicar.isPending}
-        >
+        <Button type="submit" form="aplicar-devolucion-interna-form" disabled={aplicar.isPending}>
           {aplicar.isPending ? 'Aplicando…' : 'Aplicar devolución'}
         </Button>
       </SheetFooter>

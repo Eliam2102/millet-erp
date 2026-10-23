@@ -1,3 +1,11 @@
+import {
+  Table,
+  TableHeader,
+  TableRow,
+  TableHead,
+  TableBody,
+  TableCell,
+} from '@/components/ui/table';
 import { RefreshCw } from 'lucide-react';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
@@ -16,6 +24,8 @@ import type {
 } from '@/modules/datos-maestros/api/types';
 import { useHasPermission } from '@/lib/auth/useHasPermission';
 import { PermisosCanonicos } from '@/lib/auth/permission-codes';
+import { CambiosAwHistorial } from '@/modules/datos-maestros/components/CambiosAwHistorial';
+import { useCambiosAwProducto } from '@/modules/datos-maestros/api/sincronizacion-aw';
 import { ResultadoSincronizacionBadge } from '@/modules/datos-maestros/components/master-badges';
 
 const SIN_DATO = 'sin dato';
@@ -51,17 +61,18 @@ export function ProductoAwBajaAviso({ producto }: { producto: ProductoAwDetalle 
   return (
     <p
       role="status"
-      className="mb-4 max-w-3xl rounded-md border border-amber-300 bg-amber-500/10 p-3 text-sm text-amber-800 dark:text-amber-300"
+      className="mb-4 max-w-3xl rounded-md border border-warning bg-warning-bg p-3 text-sm text-warning-fg "
     >
-      Inactivo: no se usa en documentos nuevos; el historial se conserva. Baja
-      desde {new Date(producto.fechaBaja).toLocaleDateString('es-MX')}.
+      Inactivo: no se usa en documentos nuevos; el historial se conserva. Baja desde{' '}
+      {new Date(producto.fechaBaja).toLocaleDateString('es-MX')}.
     </p>
   );
 }
 
 /** Ancho y luego alto, numérico; sin medida (nulo) al final. */
 const porMedida = (a: ProductoAwVariante, b: ProductoAwVariante) =>
-  (a.anchoMm ?? Infinity) - (b.anchoMm ?? Infinity) || (a.altoMm ?? Infinity) - (b.altoMm ?? Infinity);
+  (a.anchoMm ?? Infinity) - (b.anchoMm ?? Infinity) ||
+  (a.altoMm ?? Infinity) - (b.altoMm ?? Infinity);
 
 export function ProductoAwVariantesTable({
   variantes,
@@ -73,33 +84,35 @@ export function ProductoAwVariantesTable({
   if (variantes.length === 0) return null;
   const ordenadas = [...variantes].sort(porMedida);
   return (
-    <section className="mt-4 max-w-3xl rounded-md border bg-card p-4" aria-label="Medidas">
+    <section className="mt-4 max-w-3xl rounded-md border bg-surface-card p-4" aria-label="Medidas">
       <h3 className="mb-2 text-sm font-semibold">
         Medidas ({variantes.length}){' '}
-        {unidadMedida && <span className="text-xs font-normal text-muted-foreground">UC: {unidadMedida}</span>}
+        {unidadMedida && (
+          <span className="text-xs font-normal text-ink-muted">UC: {unidadMedida}</span>
+        )}
       </h3>
-      <table className="w-full text-sm">
-        <thead>
-          <tr className="text-left text-xs text-muted-foreground">
-            <th className="py-1 font-normal">Medida</th>
-            <th className="py-1 font-normal">Ancho</th>
-            <th className="py-1 font-normal">Alto</th>
-            <th className="py-1 font-normal">Espesor</th>
-            <th className="py-1 font-normal">Composición</th>
-          </tr>
-        </thead>
-        <tbody>
+      <Table className="w-full text-sm">
+        <TableHeader>
+          <TableRow className="text-left text-xs text-ink-muted">
+            <TableHead className="py-1 font-normal">Medida</TableHead>
+            <TableHead className="py-1 font-normal">Ancho</TableHead>
+            <TableHead className="py-1 font-normal">Alto</TableHead>
+            <TableHead className="py-1 font-normal">Espesor</TableHead>
+            <TableHead className="py-1 font-normal">Composición</TableHead>
+          </TableRow>
+        </TableHeader>
+        <TableBody>
           {ordenadas.map((v) => (
-            <tr key={v.claveVariante} className="border-t">
-              <td className="py-1 font-mono">{v.claveVariante}</td>
-              <td className="py-1">{mm(v.anchoMm)}</td>
-              <td className="py-1">{mm(v.altoMm)}</td>
-              <td className="py-1">{mm(v.espesorMm)}</td>
-              <td className="py-1">{v.composicion || SIN_DATO}</td>
-            </tr>
+            <TableRow key={v.claveVariante} className="border-t">
+              <TableCell className="py-1 font-mono">{v.claveVariante}</TableCell>
+              <TableCell className="py-1">{mm(v.anchoMm)}</TableCell>
+              <TableCell className="py-1">{mm(v.altoMm)}</TableCell>
+              <TableCell className="py-1">{mm(v.espesorMm)}</TableCell>
+              <TableCell className="py-1">{v.composicion || SIN_DATO}</TableCell>
+            </TableRow>
           ))}
-        </tbody>
-      </table>
+        </TableBody>
+      </Table>
     </section>
   );
 }
@@ -109,7 +122,10 @@ export function ProductoAwComposicion({ componentes }: { componentes: ProductoAw
   if (componentes.length === 0) return null;
   const filas = [...componentes].sort((a, b) => a.orden - b.orden);
   return (
-    <section className="mt-4 max-w-3xl rounded-md border bg-card p-4" aria-label="Composición">
+    <section
+      className="mt-4 max-w-3xl rounded-md border bg-surface-card p-4"
+      aria-label="Composición"
+    >
       <h3 className="mb-2 text-sm font-semibold">Composición ({componentes.length})</h3>
       <div role="tree">
         {filas.map((c) => (
@@ -121,12 +137,12 @@ export function ProductoAwComposicion({ componentes }: { componentes: ProductoAw
             style={{ paddingLeft: `${(Math.max(c.nivel, 1) - 1) * 1.25}rem` }}
             className={cn(
               'flex flex-wrap items-baseline gap-x-3 border-t py-1 text-sm first:border-t-0',
-              c.tipo === 'Proceso' && 'text-muted-foreground',
+              c.tipo === 'Proceso' && 'text-ink-muted',
             )}
           >
             <span className="font-mono">{c.componenteRef}</span>
             <span>{c.descripcion || SIN_DATO}</span>
-            <span className="text-xs text-muted-foreground">
+            <span className="text-xs text-ink-muted">
               {c.tipo || SIN_DATO}
               {c.espesorMm != null ? ` · ${c.espesorMm} mm` : ''}
             </span>
@@ -147,6 +163,7 @@ export function ProductoAwOrigenSection({ producto }: { producto: ProductoAwDeta
   const canGestionar = useHasPermission(PermisosCanonicos.DatosMaestrosProductosAwGestionar);
   const estado = useProductoAwSincronizacion(producto.id);
   const reintentar = useReintentarProductoAw();
+  const cambios = useCambiosAwProducto(producto.id, canGestionar);
   const s = estado.data?.sincronizacion;
   if (!canGestionar || s == null) return null;
 
@@ -167,7 +184,10 @@ export function ProductoAwOrigenSection({ producto }: { producto: ProductoAwDeta
   }
 
   return (
-    <section className="mt-4 max-w-3xl rounded-md border bg-card p-4" aria-label="Datos de origen A+W">
+    <section
+      className="mt-4 max-w-3xl rounded-md border bg-surface-card p-4"
+      aria-label="Datos de origen A+W"
+    >
       <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
         <div className="flex items-center gap-2">
           <h3 className="text-sm font-semibold">Datos de origen A+W</h3>
@@ -175,67 +195,83 @@ export function ProductoAwOrigenSection({ producto }: { producto: ProductoAwDeta
             <ResultadoSincronizacionBadge resultado={s.resultado} aplicado={aplicado} />
           )}
         </div>
-        <Button type="button" variant="ghost" size="sm" disabled={reintentar.isPending} onClick={handleReintentar}>
+        <Button
+          type="button"
+          variant="ghost"
+          size="sm"
+          disabled={reintentar.isPending}
+          onClick={handleReintentar}
+        >
           <RefreshCw className="mr-1.5 h-4 w-4" />
           {reintentar.isPending ? 'Leyendo…' : 'Reintentar lectura'}
         </Button>
       </div>
 
       <div className="mb-3 flex flex-wrap gap-2">
-        <Badge variant="secondary">Tipo: {producto.tipo || SIN_DATO}</Badge>
-        <Badge variant="secondary">Grupo: {producto.grupo || SIN_DATO}</Badge>
-        <Badge variant="secondary">
-          Mercancía: {producto.wgr ? `${producto.wgr} · ${producto.wgrDescripcion || SIN_DATO}` : SIN_DATO}
+        <Badge variant="success">Tipo: {producto.tipo || SIN_DATO}</Badge>
+        <Badge variant="success">Grupo: {producto.grupo || SIN_DATO}</Badge>
+        <Badge variant="success">
+          Mercancía:{' '}
+          {producto.wgr ? `${producto.wgr} · ${producto.wgrDescripcion || SIN_DATO}` : SIN_DATO}
         </Badge>
-        <Badge variant="secondary">Modelo: {producto.codigoModelo || SIN_DATO}</Badge>
+        <Badge variant="success">Modelo: {producto.codigoModelo || SIN_DATO}</Badge>
       </div>
 
       {s.error != null && s.error !== '' && (
-        <p role="alert" className="mb-3 text-sm text-destructive">
+        <p role="alert" className="mb-3 text-sm text-danger-fg">
           {s.error}
         </p>
       )}
 
       <dl className="grid grid-cols-1 gap-3 text-sm md:grid-cols-3">
-        <Dato t="Última lectura" v={fecha(s.leidoEnUtc)} />
+        <Dato
+          t="Última lectura"
+          v={fecha(s.leidoEnUtc)}
+          title={`Contrato ${s.versionContrato ?? '—'} · mapeo ${s.versionMapeo ?? '—'}`}
+        />
         <Dato t="Última aplicación" v={aplicado ? fecha(s.aplicadoEnUtc) : 'Nunca'} />
-        <Dato t="Contrato / mapeo" v={`${s.versionContrato ?? '—'} / ${s.versionMapeo ?? '—'}`} />
         <Dato t="Unidad de origen" v={s.unidadOrigenCruda} />
       </dl>
 
       {diferencias.length > 0 && (
-        <table className="mt-4 w-full text-sm">
-          <caption className="mb-1 text-left text-xs text-muted-foreground">
+        <Table className="mt-4 w-full text-sm">
+          <caption className="mb-1 text-left text-xs text-ink-muted">
             Recibido de A+W y no aplicado al producto
           </caption>
-          <thead>
-            <tr className="text-left text-xs text-muted-foreground">
-              <th className="py-1 font-normal">Campo</th>
-              <th className="py-1 font-normal">Recibido</th>
-              <th className="py-1 font-normal">Se conserva</th>
-              <th className="py-1 font-normal">Motivo</th>
-            </tr>
-          </thead>
-          <tbody>
+          <TableHeader>
+            <TableRow className="text-left text-xs text-ink-muted">
+              <TableHead className="py-1 font-normal">Campo</TableHead>
+              <TableHead className="py-1 font-normal">Recibido</TableHead>
+              <TableHead className="py-1 font-normal">Se conserva</TableHead>
+              <TableHead className="py-1 font-normal">Motivo</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
             {diferencias.map((d) => (
-              <tr key={d.campo} className="border-t">
-                <td className="py-1">{d.campo}</td>
-                <td className="py-1">{d.recibido || '—'}</td>
-                <td className="py-1">{d.conservado || '—'}</td>
-                <td className="py-1 text-muted-foreground">{d.motivo}</td>
-              </tr>
+              <TableRow key={d.campo} className="border-t">
+                <TableCell className="py-1">{d.campo}</TableCell>
+                <TableCell className="py-1">{d.recibido || '—'}</TableCell>
+                <TableCell className="py-1">{d.conservado || '—'}</TableCell>
+                <TableCell className="py-1 text-ink-muted">{d.motivo}</TableCell>
+              </TableRow>
             ))}
-          </tbody>
-        </table>
+          </TableBody>
+        </Table>
       )}
+
+      <CambiosAwHistorial
+        cambios={cambios.data}
+        isLoading={cambios.isLoading}
+        isError={cambios.isError}
+      />
     </section>
   );
 }
 
-function Dato({ t, v }: { t: string; v: string | null }) {
+function Dato({ t, v, title }: { t: string; v: string | null; title?: string }) {
   return (
-    <div>
-      <dt className="text-xs text-muted-foreground">{t}</dt>
+    <div title={title}>
+      <dt className="text-xs text-ink-muted">{t}</dt>
       <dd>{v ?? '—'}</dd>
     </div>
   );

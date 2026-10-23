@@ -258,6 +258,51 @@ public sealed class Empresa : BaseEntity, IAuditable
     }
 
     /// <summary>
+    /// Sustituye los datos fiscales de la empresa provisional que crea la
+    /// migración F1-ADM-01 en una base limpia (RFC <see cref="RfcProvisional"/>)
+    /// por los de la configuración de arranque. Es la única vía para fijar
+    /// RFC y clave después del alta: sólo aplica mientras la empresa siga
+    /// siendo la provisional; una empresa con RFC real no se toca.
+    /// Clave = RFC en mayúsculas, igual que en el alta del bootstrap.
+    /// </summary>
+    public void ConfigurarDatosFiscalesIniciales(
+        string rfc,
+        string razonSocial,
+        string regimenFiscal,
+        string? nombreComercial)
+    {
+        if (!EsProvisional)
+            throw new BusinessRuleException("EMPRESA_NO_PROVISIONAL",
+                "Sólo la empresa provisional puede recibir sus datos fiscales iniciales.");
+
+        var clave = rfc.ToUpperInvariant();
+        ValidarRfc(rfc);
+        ValidarClave(clave);
+        ValidarRazonSocial(razonSocial);
+        ValidarRegimenFiscal(regimenFiscal);
+        ValidarNombreComercial(nombreComercial);
+
+        Rfc = rfc;
+        Clave = clave;
+        RazonSocial = razonSocial;
+        RegimenFiscal = regimenFiscal;
+        NombreComercial = nombreComercial;
+    }
+
+    /// <summary>
+    /// RFC ficticio de la empresa raíz que inserta la migración F1-ADM-01
+    /// cuando la base está vacía (los catálogos sembrados necesitan una
+    /// empresa antes de que corra el bootstrap).
+    /// </summary>
+    public const string RfcProvisional = "TMP010101AAA";
+
+    /// <summary>
+    /// <c>true</c> mientras la empresa conserve el RFC provisional de la
+    /// migración y esté pendiente de recibir sus datos fiscales reales.
+    /// </summary>
+    public bool EsProvisional => Rfc == RfcProvisional;
+
+    /// <summary>
     /// Asigna (o limpia) la empresa padre. Invariantes:
     /// <list type="bullet">
     ///   <item>Auto-referencia trivial: <paramref name="empresaPadreId"/>

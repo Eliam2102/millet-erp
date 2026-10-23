@@ -33,31 +33,28 @@ export function CubrimientoEstimadoPanel({
     <section
       data-cubrimiento-estimado=""
       aria-label="Disponibilidad estimada"
-      className="rounded-md border border-dashed border-sky-300 bg-sky-50/40 p-3"
+      className="rounded-md border border-dashed border-info bg-info-bg/40 p-3"
     >
-      <header className="flex items-center gap-2 text-sm font-medium text-sky-900">
+      <header className="flex items-center gap-2 text-sm font-medium text-info-fg">
         <PackageSearch className="h-4 w-4" />
         Disponibilidad estimada
       </header>
-      <p className="mt-0.5 text-xs text-muted-foreground">
+      <p className="mt-0.5 text-xs text-ink-muted">
         Estimación sujeta a disponibilidad hasta autorizar — no reserva stock.
       </p>
 
       {isLoading ? (
         <div className="mt-2 space-y-1.5" aria-hidden>
-          <div className="h-4 w-full animate-pulse rounded bg-sky-100" />
-          <div className="h-4 w-2/3 animate-pulse rounded bg-sky-100" />
+          <div className="h-4 w-full animate-pulse rounded bg-info-bg" />
+          <div className="h-4 w-2/3 animate-pulse rounded bg-info-bg" />
         </div>
       ) : (
         <ul className="mt-2 space-y-1.5">
           {lineas.map((l) => {
             // Etiqueta enriquecida del DTO (ADR-0042) → fallback al resolver
             // (catálogo capado) → id. Mismo orden que <ListaLineas/>.
-            const etiquetaDto = [l.articuloClave, l.articuloNombre]
-              .filter(Boolean)
-              .join(' · ');
-            const articulo =
-              etiquetaDto || resolverArticulo?.(l.articuloId) || l.articuloId;
+            const etiquetaDto = [l.articuloClave, l.articuloNombre].filter(Boolean).join(' · ');
+            const articulo = etiquetaDto || resolverArticulo?.(l.articuloId) || l.articuloId;
             const total = Math.max(1, l.cantidad);
             const pctAlmacen = (l.estimadoDeAlmacen / total) * 100;
             const pctCompra = (l.estimadoDeCompra / total) * 100;
@@ -67,24 +64,19 @@ export function CubrimientoEstimadoPanel({
                 data-linea-estimada={l.lineaId}
                 className="flex flex-wrap items-center gap-x-2 gap-y-1 text-xs"
               >
-                <span className="min-w-0 flex-1 truncate text-foreground">
-                  {articulo}
-                </span>
+                <span className="min-w-0 flex-1 truncate text-ink">{articulo}</span>
                 {/* Barra estimada — punteada, distinta del CubrimientoBar real. */}
                 <span
                   role="img"
                   aria-label={`Estimado: ${fmt(l.estimadoDeAlmacen)} disponible, ${fmt(l.estimadoDeCompra)} a comprar, de ${fmt(l.cantidad)}`}
-                  className="relative inline-flex h-2.5 w-28 overflow-hidden rounded border border-dashed border-sky-400 bg-white"
+                  className="relative inline-flex h-2.5 w-28 overflow-hidden rounded border border-dashed border-info bg-surface-card"
                 >
                   {pctAlmacen > 0 && (
-                    <span
-                      className="h-full bg-emerald-400/70"
-                      style={{ width: `${pctAlmacen}%` }}
-                    />
+                    <span className="h-full bg-success/70" style={{ width: `${pctAlmacen}%` }} />
                   )}
                   {pctCompra > 0 && (
                     <span
-                      className="h-full bg-amber-300/70"
+                      className="h-full bg-warning/70"
                       style={{
                         width: `${pctCompra}%`,
                         backgroundImage:
@@ -93,7 +85,7 @@ export function CubrimientoEstimadoPanel({
                     />
                   )}
                 </span>
-                <span className="font-mono text-muted-foreground">
+                <span className="font-mono text-ink-muted">
                   {fmt(l.estimadoDeAlmacen)} disp · {fmt(l.estimadoDeCompra)} a comprar
                 </span>
               </li>

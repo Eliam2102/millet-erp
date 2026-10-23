@@ -38,17 +38,31 @@ public static class ComprobacionesEndpoints
             [FromQuery] Guid? responsableId,
             [FromQuery] int? offset,
             [FromQuery] int? limit,
+            [FromQuery] string? q,
             IMediator mediator,
             CancellationToken cancellationToken) =>
         {
             var response = await mediator.Send(
-                new ListarComprobacionesGastosQuery(tipo, estado, sucursalId, responsableId, offset ?? 0, limit ?? 50),
+                new ListarComprobacionesGastosQuery(tipo, estado, sucursalId, responsableId, offset ?? 0, limit ?? 50, q),
                 cancellationToken);
             return Results.Ok(response);
         })
         .RequireAuthorization(PermissionPolicyProvider.Prefix + PermisosCanonicos.CuentasPorPagarComprobacionesLeer)
         .WithName("ListarComprobacionesGastos")
         .Produces<PagedResponse<ComprobacionGastosListItemResponse>>(StatusCodes.Status200OK);
+
+        group.MapGet("/conteos-por-estado", async (
+            [FromQuery] TipoComprobacionGastos? tipo,
+            [FromQuery] Guid? sucursalId,
+            [FromQuery] Guid? responsableId,
+            [FromQuery] string? q,
+            IMediator mediator,
+            CancellationToken cancellationToken) =>
+            Results.Ok(await mediator.Send(new ConteosComprobacionesPorEstadoQuery(tipo, sucursalId, responsableId, q), cancellationToken)))
+        .RequireAuthorization(PermissionPolicyProvider.Prefix + PermisosCanonicos.CuentasPorPagarComprobacionesLeer)
+        .WithName("ConteosComprobacionesPorEstado")
+        .WithSummary("Conteo por estado, con los filtros de la bandeja salvo el estado")
+        .Produces<IReadOnlyList<Millet.SharedKernel.Application.ConteoPorEstadoItem>>(StatusCodes.Status200OK);
 
         group.MapPost("/caja-chica", async (
             [FromBody] CrearComprobacionCajaChicaCommand command,
@@ -129,6 +143,28 @@ public static class ComprobacionesEndpoints
         .WithMetadata(new RequireIdempotencyKeyAttribute())
         .RequireAuthorization(PermissionPolicyProvider.Prefix + PermisosCanonicos.CuentasPorPagarComprobacionesAprobarNivel1)
         .WithName("AplicarComprobacionGastos")
+        .Produces<TransicionComprobacionResponse>(StatusCodes.Status200OK)
+        .ProducesProblem(StatusCodes.Status404NotFound)
+        .ProducesProblem(StatusCodes.Status409Conflict)
+        .ProducesProblem(StatusCodes.Status422UnprocessableEntity)
+        .ProducesProblem(StatusCodes.Status428PreconditionRequired);
+
+        group.MapPost("/{id:guid}/aprobar-pasivo", async (
+            Guid id,
+            [FromHeader(Name = "X-Expected-Version")] int? expectedVersion,
+            IMediator mediator,
+            CancellationToken cancellationToken) =>
+        {
+            if (expectedVersion is not int v)
+                return Results.Problem(title: "X-Expected-Version requerido", statusCode: StatusCodes.Status428PreconditionRequired);
+
+            var response = await mediator.Send(new AprobarPasivoComprobacionCommand(id, v), cancellationToken);
+            return Results.Ok(response);
+        })
+        .WithMetadata(new RequireIdempotencyKeyAttribute())
+        .RequireAuthorization(PermissionPolicyProvider.Prefix + PermisosCanonicos.CuentasPorPagarComprobacionesAprobarNivel1)
+        .WithName("AprobarPasivoComprobacionGastos")
+        .WithSummary("Aprueba el pasivo de una comprobación de caja chica y emite su reposición")
         .Produces<TransicionComprobacionResponse>(StatusCodes.Status200OK)
         .ProducesProblem(StatusCodes.Status404NotFound)
         .ProducesProblem(StatusCodes.Status409Conflict)

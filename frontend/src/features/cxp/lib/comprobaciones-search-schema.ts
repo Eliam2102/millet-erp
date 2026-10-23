@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { PaginaSearchShape } from '@/components/erp/data/paginacion';
 import {
   EstadoComprobacionGastos,
   TipoComprobacionGastos,
@@ -23,9 +24,12 @@ export const ComprobacionesSearchSchema = z.object({
       z.literal(EstadoComprobacionGastos.Aplicada),
       z.literal(EstadoComprobacionGastos.Rechazada),
       z.literal(EstadoComprobacionGastos.AutorizadaNivel1),
+      z.literal(EstadoComprobacionGastos.PendienteAprobarPasivo),
     ])
     .optional(),
   sucursalId: z.string().regex(UUID_RE).optional(),
+  q: z.string().min(1).max(200).optional(),
+  ...PaginaSearchShape,
 });
 
 export type ComprobacionesSearch = z.infer<typeof ComprobacionesSearchSchema>;

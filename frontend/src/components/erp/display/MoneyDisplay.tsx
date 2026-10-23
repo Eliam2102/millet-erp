@@ -19,6 +19,8 @@ export type MoneyDisplayProps =
       amount?: never;
       currency?: never;
       className?: string;
+      /** Énfasis de celda DS (<c>font-medium</c>). */
+      strong?: boolean;
       /** Override del placeholder cuando el valor es nullish. */
       empty?: string;
     }
@@ -27,11 +29,12 @@ export type MoneyDisplayProps =
       amount: number | null | undefined;
       currency: string | null | undefined;
       className?: string;
+      strong?: boolean;
       empty?: string;
     };
 
 export function MoneyDisplay(props: MoneyDisplayProps) {
-  const { className, empty = '—' } = props;
+  const { className, strong, empty = '—' } = props;
   const money: Money | null =
     props.money !== undefined && props.money !== null
       ? props.money
@@ -42,7 +45,7 @@ export function MoneyDisplay(props: MoneyDisplayProps) {
   if (money == null) {
     return (
       <span
-        className={cn('text-muted-foreground', className)}
+        className={cn('text-ink-muted', className)}
         aria-label="Sin monto"
       >
         {empty}
@@ -51,6 +54,8 @@ export function MoneyDisplay(props: MoneyDisplayProps) {
   }
 
   return (
-    <span className={cn('tabular-nums', className)}>{formatMoney(money)}</span>
+    <span className={cn('tabular-nums', strong && 'font-medium', className)}>
+      {formatMoney(money)}
+    </span>
   );
 }

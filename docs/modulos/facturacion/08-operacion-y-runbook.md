@@ -177,6 +177,16 @@ para NC y anticipos (sin página de detalle propia) el reintento se invoca por
 API. Cada llamada al PAC queda en la bitácora de intentos
 (`bitacora_intento_timbrado`, [Decisión 01-G] G4) visible en el detalle.
 
+Concurrencia del reintento (86e3t97tx): antes de llamar al PAC el reintento
+guarda el comprobante en `TimbradoEnProceso` (token `Version`, ADR-0012). Si
+dos reintentos llegan a la vez, solo uno llama al PAC; el otro recibe `409
+REINTENTO_EN_CURSO` (o `422 COMPROBANTE_NO_REINTENTABLE` si ya lo ve en
+proceso) y no se genera un segundo UUID. Si algo falla después de llamar al
+PAC y antes de guardar el resultado, el comprobante queda en
+`TimbradoEnProceso` (no en un fallido "limpio"): el `TimbradoPendienteWorker`
+lo pasa a `PAC_TIMEOUT`, que exige verificar en FiscalAPI y confirmar antes de
+reintentar. Mientras está en proceso tampoco puede descartarse.
+
 Worker: `Facturacion:Workers:TimbradoPendiente` (`Disabled` false,
 `IntervalSeconds` 300, `UmbralMinutos` 30, `BatchSize` 20).
 

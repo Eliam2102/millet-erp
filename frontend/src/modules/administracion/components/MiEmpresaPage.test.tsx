@@ -138,7 +138,7 @@ it('sin lectura bloquea la página, sin edición deshabilita los campos', async 
   expect(await screen.findByLabelText('Código postal fiscal')).toBeDisabled();
   expect(screen.queryByRole('button', { name: 'Guardar cambios' })).not.toBeInTheDocument();
   expect(
-    screen.getByText(/se requiere permiso para consultar Integraciones fiscales/),
+    screen.getByText(/se requiere permiso para consultar Integraciones fiscales/i),
   ).toBeVisible();
 });
 
@@ -194,9 +194,9 @@ it('pagina las sucursales en grupos de diez', async () => {
   render(<MiEmpresaPage />, { wrapper: createQueryWrapper() });
   expect(await screen.findByText('1–10 de 11')).toBeVisible();
   expect(screen.queryByText('AW-10')).not.toBeInTheDocument();
-  fireEvent.click(screen.getByRole('button', { name: 'Siguiente' }));
+  fireEvent.click(screen.getByRole('button', { name: 'Página siguiente' }));
   expect(screen.getByText('AW-10')).toBeVisible();
-  expect(screen.getByRole('button', { name: 'Siguiente' })).toBeDisabled();
+  expect(screen.getByRole('button', { name: 'Página siguiente' })).toBeDisabled();
 });
 
 it('consulta el catálogo SAT para editar el régimen fiscal', async () => {

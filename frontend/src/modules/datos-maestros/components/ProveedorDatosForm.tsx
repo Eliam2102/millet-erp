@@ -1,3 +1,5 @@
+import { FormCampo } from '@/components/erp/forms/FormGrid';
+import { FormSeccion } from '@/components/erp/forms/FormSeccion';
 import { useEffect, type ReactNode } from 'react';
 import { Controller, useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -12,13 +14,14 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { applyServerErrors, esApiError } from '@/lib/api';
+import { applyServerErrors, esApiError, codigoSoporte } from '@/lib/api';
 import {
   ActualizarProveedorSchema,
   type ActualizarProveedorValues,
 } from '@/modules/datos-maestros/schemas/proveedor';
 import { useActualizarProveedor } from '@/modules/datos-maestros/api';
 import {
+  OrigenProveedor,
   TipoPersonaProveedor,
   type ProveedorDetalle,
 } from '@/modules/datos-maestros/api/types';
@@ -39,9 +42,7 @@ export interface ProveedorDatosFormProps {
 }
 
 export function ProveedorDatosForm({ proveedor }: ProveedorDatosFormProps) {
-  const canEditar = useHasPermission(
-    PermisosCanonicos.CompartidoCatalogosAdministrar,
-  );
+  const canEditar = useHasPermission(PermisosCanonicos.CompartidoCatalogosAdministrar);
   const actualizar = useActualizarProveedor();
 
   const form = useForm<ActualizarProveedorValues>({
@@ -59,8 +60,7 @@ export function ProveedorDatosForm({ proveedor }: ProveedorDatosFormProps) {
     const nombreComercialVacio =
       values.nombreComercial == null || values.nombreComercial.length === 0;
     const emailVacio = values.email == null || values.email.length === 0;
-    const telefonoVacio =
-      values.telefono == null || values.telefono.length === 0;
+    const telefonoVacio = values.telefono == null || values.telefono.length === 0;
     const condicionesVacio = values.condicionesPagoDias == null;
 
     actualizar.mutate(
@@ -73,9 +73,7 @@ export function ProveedorDatosForm({ proveedor }: ProveedorDatosFormProps) {
           nombreComercial: nombreComercialVacio ? null : values.nombreComercial,
           email: emailVacio ? null : values.email,
           telefono: telefonoVacio ? null : values.telefono,
-          condicionesPagoDias: condicionesVacio
-            ? null
-            : values.condicionesPagoDias,
+          condicionesPagoDias: condicionesVacio ? null : values.condicionesPagoDias,
           limpiarNombreComercial: nombreComercialVacio,
           limpiarEmail: emailVacio,
           limpiarTelefono: telefonoVacio,
@@ -96,24 +94,17 @@ export function ProveedorDatosForm({ proveedor }: ProveedorDatosFormProps) {
             if (error.code === 'PROVEEDOR_RFC_DUPLICADO') {
               form.setError('rfc', {
                 type: error.code,
-                message:
-                  error.problem.detail ??
-                  'Ya existe un proveedor con ese RFC.',
+                message: error.problem.detail ?? 'Ya existe un proveedor con ese RFC.',
               });
               return;
             }
             if (
-              applyServerErrors(
-                form as unknown as Parameters<typeof applyServerErrors>[0],
-                error,
-              )
+              applyServerErrors(form as unknown as Parameters<typeof applyServerErrors>[0], error)
             ) {
               return;
             }
             toast.error(error.problem.title, {
-              description: error.traceId
-                ? `Código: ${error.traceId}`
-                : undefined,
+              description: codigoSoporte(error),
             });
             return;
           }
@@ -124,191 +115,188 @@ export function ProveedorDatosForm({ proveedor }: ProveedorDatosFormProps) {
   }
 
   const dirty = form.formState.isDirty;
+  const extranjero = proveedor.origen === OrigenProveedor.Extranjero;
 
   return (
     <form
       onSubmit={form.handleSubmit(onSubmit)}
       noValidate
-      className="grid grid-cols-1 gap-4 rounded-md border bg-card p-4 md:grid-cols-2 max-w-3xl"
+      className="  gap-4 rounded-md border bg-surface-card p-4  max-w-3xl"
     >
-      <FormRow label="Clave" hint="No editable.">
-        <Input
-          value={proveedor.clave}
-          readOnly
-          aria-readonly
-          className="font-mono"
-        />
-      </FormRow>
+      <FormSeccion titulo="Datos del registro">
+        <FormCampo span={6}>
+          <FormRow label="Clave" hint="No editable.">
+            <Input value={proveedor.clave} readOnly aria-readonly className="font-mono" />
+          </FormRow>
+        </FormCampo>
 
-      <FormRow
-        label="RFC"
-        required
-        error={form.formState.errors.rfc?.message}
-      >
-        <UppercaseInput
-          maxLength={13}
-          disabled={!canEditar}
-          className="font-mono"
-          {...form.register('rfc')}
-        />
-      </FormRow>
-
-      <div className="md:col-span-2">
-        <FormRow
-          label="Razón social"
-          required
-          error={form.formState.errors.razonSocial?.message}
-        >
-          <Input
-            maxLength={254}
-            disabled={!canEditar}
-            {...form.register('razonSocial')}
-          />
-        </FormRow>
-      </div>
-
-      <FormRow
-        label="Tipo persona"
-        required
-        error={form.formState.errors.tipoPersona?.message}
-      >
-        <Controller
-          name="tipoPersona"
-          control={form.control}
-          render={({ field }) => (
-            <Select
-              value={String(field.value)}
-              onValueChange={(v) => field.onChange(Number(v))}
-              disabled={!canEditar}
-            >
-              <SelectTrigger>
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value={String(TipoPersonaProveedor.Moral)}>
-                  Moral
-                </SelectItem>
-                <SelectItem value={String(TipoPersonaProveedor.Fisica)}>
-                  Física
-                </SelectItem>
-              </SelectContent>
-            </Select>
-          )}
-        />
-      </FormRow>
-
-      <FormRow
-        label="Condiciones de pago (días)"
-        hint="Vacío = no aplica."
-        error={form.formState.errors.condicionesPagoDias?.message}
-      >
-        <Controller
-          name="condicionesPagoDias"
-          control={form.control}
-          render={({ field }) => (
-            <Input
-              type="number"
-              min={0}
-              max={365}
-              disabled={!canEditar}
-              value={field.value ?? ''}
-              onChange={(e) =>
-                field.onChange(
-                  e.target.value === '' ? null : Number(e.target.value),
-                )
-              }
-            />
-          )}
-        />
-      </FormRow>
-
-      <div className="md:col-span-2">
-        <FormRow
-          label="Nombre comercial"
-          hint="Opcional."
-          error={form.formState.errors.nombreComercial?.message}
-        >
-          <Controller
-            name="nombreComercial"
-            control={form.control}
-            render={({ field }) => (
-              <Input
-                maxLength={254}
-                disabled={!canEditar}
-                value={field.value ?? ''}
-                onChange={(e) =>
-                  field.onChange(
-                    e.target.value.length > 0 ? e.target.value : null,
-                  )
-                }
-              />
-            )}
-          />
-        </FormRow>
-      </div>
-
-      <FormRow
-        label="Email"
-        hint="Opcional."
-        error={form.formState.errors.email?.message}
-      >
-        <Controller
-          name="email"
-          control={form.control}
-          render={({ field }) => (
-            <Input
-              type="email"
-              maxLength={254}
-              disabled={!canEditar}
-              value={field.value ?? ''}
-              onChange={(e) =>
-                field.onChange(
-                  e.target.value.length > 0 ? e.target.value : null,
-                )
-              }
-            />
-          )}
-        />
-      </FormRow>
-
-      <FormRow
-        label="Teléfono"
-        hint="Opcional."
-        error={form.formState.errors.telefono?.message}
-      >
-        <Controller
-          name="telefono"
-          control={form.control}
-          render={({ field }) => (
-            <Input
-              maxLength={50}
-              disabled={!canEditar}
-              value={field.value ?? ''}
-              onChange={(e) =>
-                field.onChange(
-                  e.target.value.length > 0 ? e.target.value : null,
-                )
-              }
-            />
-          )}
-        />
-      </FormRow>
-
-      {canEditar && (
-        <div className="md:col-span-2 flex flex-wrap items-center justify-end gap-2 border-t pt-3">
-          <Button
-            type="button"
-            variant="ghost"
-            onClick={() => form.reset(buildDefaults(proveedor))}
-            disabled={!dirty || actualizar.isPending}
+        <FormCampo span={6}>
+          <FormRow
+            label="RFC"
+            required={!extranjero}
+            hint={
+              extranjero
+                ? 'Opcional en proveedores extranjeros: vacío = RFC genérico XEXX010101000.'
+                : undefined
+            }
+            error={form.formState.errors.rfc?.message}
           >
-            Descartar cambios
-          </Button>
-          <Button type="submit" disabled={!dirty || actualizar.isPending}>
-            {actualizar.isPending ? 'Guardando…' : 'Guardar cambios'}
-          </Button>
-        </div>
-      )}
+            <UppercaseInput
+              maxLength={13}
+              disabled={!canEditar}
+              className="font-mono"
+              {...form.register('rfc')}
+            />
+          </FormRow>
+        </FormCampo>
+
+        <FormCampo span={12}>
+          <div className="md:col-span-2">
+            <FormRow
+              label="Razón social"
+              required
+              error={form.formState.errors.razonSocial?.message}
+            >
+              <Input maxLength={254} disabled={!canEditar} {...form.register('razonSocial')} />
+            </FormRow>
+          </div>
+        </FormCampo>
+
+        <FormCampo span={6}>
+          <FormRow label="Tipo persona" required error={form.formState.errors.tipoPersona?.message}>
+            <Controller
+              name="tipoPersona"
+              control={form.control}
+              render={({ field }) => (
+                <Select
+                  value={String(field.value)}
+                  onValueChange={(v) => field.onChange(Number(v))}
+                  disabled={!canEditar}
+                >
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value={String(TipoPersonaProveedor.Moral)}>Moral</SelectItem>
+                    <SelectItem value={String(TipoPersonaProveedor.Fisica)}>Física</SelectItem>
+                  </SelectContent>
+                </Select>
+              )}
+            />
+          </FormRow>
+        </FormCampo>
+
+        <FormCampo span={6}>
+          <FormRow
+            label="Condiciones de pago (días)"
+            hint="Vacío = no aplica."
+            error={form.formState.errors.condicionesPagoDias?.message}
+          >
+            <Controller
+              name="condicionesPagoDias"
+              control={form.control}
+              render={({ field }) => (
+                <Input
+                  type="number"
+                  min={0}
+                  max={365}
+                  disabled={!canEditar}
+                  value={field.value ?? ''}
+                  onChange={(e) =>
+                    field.onChange(e.target.value === '' ? null : Number(e.target.value))
+                  }
+                />
+              )}
+            />
+          </FormRow>
+        </FormCampo>
+
+        <FormCampo span={12}>
+          <div className="md:col-span-2">
+            <FormRow
+              label="Nombre comercial"
+              hint="Opcional."
+              error={form.formState.errors.nombreComercial?.message}
+            >
+              <Controller
+                name="nombreComercial"
+                control={form.control}
+                render={({ field }) => (
+                  <Input
+                    maxLength={254}
+                    disabled={!canEditar}
+                    value={field.value ?? ''}
+                    onChange={(e) =>
+                      field.onChange(e.target.value.length > 0 ? e.target.value : null)
+                    }
+                  />
+                )}
+              />
+            </FormRow>
+          </div>
+        </FormCampo>
+
+        <FormCampo span={6}>
+          <FormRow label="Email" hint="Opcional." error={form.formState.errors.email?.message}>
+            <Controller
+              name="email"
+              control={form.control}
+              render={({ field }) => (
+                <Input
+                  type="email"
+                  maxLength={254}
+                  disabled={!canEditar}
+                  value={field.value ?? ''}
+                  onChange={(e) =>
+                    field.onChange(e.target.value.length > 0 ? e.target.value : null)
+                  }
+                />
+              )}
+            />
+          </FormRow>
+        </FormCampo>
+
+        <FormCampo span={6}>
+          <FormRow
+            label="Teléfono"
+            hint="Opcional."
+            error={form.formState.errors.telefono?.message}
+          >
+            <Controller
+              name="telefono"
+              control={form.control}
+              render={({ field }) => (
+                <Input
+                  maxLength={50}
+                  disabled={!canEditar}
+                  value={field.value ?? ''}
+                  onChange={(e) =>
+                    field.onChange(e.target.value.length > 0 ? e.target.value : null)
+                  }
+                />
+              )}
+            />
+          </FormRow>
+        </FormCampo>
+
+        <FormCampo span={12}>
+          {canEditar && (
+            <div className="md:col-span-2 flex flex-wrap items-center justify-end gap-2 border-t pt-3">
+              <Button
+                type="button"
+                variant="ghost"
+                onClick={() => form.reset(buildDefaults(proveedor))}
+                disabled={!dirty || actualizar.isPending}
+              >
+                Descartar cambios
+              </Button>
+              <Button type="submit" disabled={!dirty || actualizar.isPending}>
+                {actualizar.isPending ? 'Guardando…' : 'Guardar cambios'}
+              </Button>
+            </div>
+          )}
+        </FormCampo>
+      </FormSeccion>
     </form>
   );
 }
@@ -327,17 +315,15 @@ function FormRow({ label, required, hint, error, children }: FormRowProps) {
       <label className="flex items-center gap-1 text-sm font-medium">
         {label}
         {required && (
-          <span aria-hidden="true" className="text-rose-600">
+          <span aria-hidden="true" className="text-danger-fg">
             *
           </span>
         )}
       </label>
       {children}
-      {hint != null && error == null && (
-        <p className="text-xs text-muted-foreground">{hint}</p>
-      )}
+      {hint != null && error == null && <p className="text-xs text-ink-muted">{hint}</p>}
       {error != null && (
-        <p role="alert" className="text-xs text-rose-600">
+        <p role="alert" className="text-xs text-danger-fg">
           {error}
         </p>
       )}
@@ -349,6 +335,7 @@ function buildDefaults(p: ProveedorDetalle): ActualizarProveedorValues {
   return {
     razonSocial: p.razonSocial,
     rfc: p.rfc,
+    origen: p.origen ?? null,
     tipoPersona: p.tipoPersona,
     nombreComercial: p.nombreComercial ?? null,
     email: p.email ?? null,

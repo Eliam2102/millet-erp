@@ -1,25 +1,23 @@
-import { useEffect } from 'react';
-import { useForm } from 'react-hook-form';
-import { zodResolver } from '@hookform/resolvers/zod';
-import { Check, Plus, X } from 'lucide-react';
-import { toast } from 'sonner';
+import { FormCampo } from '@/components/erp/forms/FormGrid';
+import { FormSeccion } from '@/components/erp/forms/FormSeccion';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import {
-  applyServerErrors,
-  esApiError,
-  useFormIdempotencyKey,
-} from '@/lib/api';
-import {
-  OperadorSchema,
-  type OperadorValues,
-} from '@/features/facturacion/schemas/carta-porte-catalogos';
 import {
   useActualizarOperador,
   useCrearOperador,
 } from '@/features/facturacion/api/cartaPorteCatalogos';
 import type { OperadorListItem } from '@/features/facturacion/api/types';
+import {
+  OperadorSchema,
+  type OperadorValues,
+} from '@/features/facturacion/schemas/carta-porte-catalogos';
+import { applyServerErrors, codigoSoporte, esApiError, useFormIdempotencyKey } from '@/lib/api';
 import { cn } from '@/lib/utils';
+import { zodResolver } from '@hookform/resolvers/zod';
+import { Check, Plus, X } from 'lucide-react';
+import { useEffect } from 'react';
+import { useForm } from 'react-hook-form';
+import { toast } from 'sonner';
 
 /**
  * Form inline (sin modal) para AGREGAR o EDITAR un operador (chofer) del
@@ -43,11 +41,7 @@ const VALORES_INICIALES: OperadorValues = {
   numLicencia: '',
 };
 
-export function OperadorInlineForm({
-  operador,
-  onCancel,
-  onSaved,
-}: OperadorInlineFormProps) {
+export function OperadorInlineForm({ operador, onCancel, onSaved }: OperadorInlineFormProps) {
   const esEditar = operador != null;
   const idempotencyKey = useFormIdempotencyKey();
   const crear = useCrearOperador();
@@ -73,16 +67,11 @@ export function OperadorInlineForm({
 
   function onError(error: Error) {
     if (esApiError(error)) {
-      if (
-        applyServerErrors(
-          form as unknown as Parameters<typeof applyServerErrors>[0],
-          error,
-        )
-      ) {
+      if (applyServerErrors(form as unknown as Parameters<typeof applyServerErrors>[0], error)) {
         return;
       }
       toast.error(error.problem.title, {
-        description: error.traceId ? `Código: ${error.traceId}` : undefined,
+        description: codigoSoporte(error),
       });
       return;
     }
@@ -140,60 +129,52 @@ export function OperadorInlineForm({
       }}
       className={cn(
         'space-y-3 rounded-md border p-3',
-        esEditar
-          ? 'border-amber-400 bg-amber-50/40'
-          : 'border-dashed border-primary/40 bg-primary/5',
+        esEditar ? 'border-line bg-warning-bg/40' : 'border-dashed border-brand/40 bg-brand/5',
       )}
-      aria-label={
-        esEditar ? `Editar operador ${operador?.nombre}` : 'Agregar operador'
-      }
+      aria-label={esEditar ? `Editar operador ${operador?.nombre}` : 'Agregar operador'}
     >
-      <div className="grid grid-cols-1 gap-2 md:grid-cols-12">
-        <Field
-          label="RFC"
-          required
-          error={form.formState.errors.rfc?.message}
-          className="md:col-span-3"
-        >
-          <Input
-            className="font-mono uppercase"
-            maxLength={13}
-            placeholder="XAXX010101000"
-            disabled={esEditar}
-            title={esEditar ? 'El RFC es inmutable (identidad fiscal del chofer).' : undefined}
-            {...form.register('rfc')}
-          />
-        </Field>
-        <Field
-          label="Nombre"
-          required
-          error={form.formState.errors.nombre?.message}
-          className="md:col-span-6"
-        >
-          <Input
-            maxLength={254}
-            placeholder="Juan Pérez"
-            {...form.register('nombre')}
-          />
-        </Field>
-        <Field
-          label="Núm. licencia"
-          required
-          error={form.formState.errors.numLicencia?.message}
-          className="md:col-span-3"
-        >
-          <Input maxLength={50} {...form.register('numLicencia')} />
-        </Field>
-      </div>
+      <FormSeccion titulo="Datos del operador">
+        <FormCampo span={3}>
+          <Field
+            label="RFC"
+            required
+            error={form.formState.errors.rfc?.message}
+            className="md:col-span-3"
+          >
+            <Input
+              className="font-mono uppercase"
+              maxLength={13}
+              placeholder="XAXX010101000"
+              disabled={esEditar}
+              title={esEditar ? 'El RFC es inmutable (identidad fiscal del chofer).' : undefined}
+              {...form.register('rfc')}
+            />
+          </Field>
+        </FormCampo>
+        <FormCampo span={6}>
+          <Field
+            label="Nombre"
+            required
+            error={form.formState.errors.nombre?.message}
+            className="md:col-span-6"
+          >
+            <Input maxLength={254} placeholder="Juan Pérez" {...form.register('nombre')} />
+          </Field>
+        </FormCampo>
+        <FormCampo span={3}>
+          <Field
+            label="Núm. licencia"
+            required
+            error={form.formState.errors.numLicencia?.message}
+            className="md:col-span-3"
+          >
+            <Input maxLength={50} {...form.register('numLicencia')} />
+          </Field>
+        </FormCampo>
+      </FormSeccion>
 
       <div className="flex items-center justify-end gap-2">
-        <Button
-          type="button"
-          variant="ghost"
-          size="sm"
-          onClick={onCancel}
-          disabled={isPending}
-        >
+        <Button type="button" variant="ghost" size="sm" onClick={onCancel} disabled={isPending}>
           <X className="mr-1 h-4 w-4" />
           Cancelar
         </Button>
@@ -226,17 +207,17 @@ interface FieldProps {
 function Field({ label, required, error, className, children }: FieldProps) {
   return (
     <div className={cn('space-y-1', className)}>
-      <label className="flex items-center gap-1 text-xs font-medium text-muted-foreground">
+      <label className="flex items-center gap-1 text-xs font-medium text-ink-muted">
         {label}
         {required && (
-          <span aria-hidden="true" className="text-rose-600">
+          <span aria-hidden="true" className="text-danger-fg">
             *
           </span>
         )}
       </label>
       {children}
       {error != null && (
-        <p role="alert" className="text-xs text-rose-600">
+        <p role="alert" className="text-xs text-danger-fg">
           {error}
         </p>
       )}

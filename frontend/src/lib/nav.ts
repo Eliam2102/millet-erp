@@ -15,6 +15,7 @@ import {
   CreditCard,
   FileBadge,
   FileCheck2,
+  FileSpreadsheet,
   FileText,
   FlaskConical,
   Gauge,
@@ -33,11 +34,14 @@ import {
   Plane,
   Receipt,
   ReceiptText,
+  Repeat,
   RotateCcw,
   Scale,
+  ShieldAlert,
   ShoppingCart,
   Sliders,
   Truck,
+  Undo2,
   Unlock,
   Upload,
   Users,
@@ -177,6 +181,14 @@ const moduloCompras: NavModulo = {
           icon: BarChart3,
           permission: PermisosCanonicos.ComprasOrdenesReportesPartidasAbiertas,
         },
+        {
+          label: 'Análisis de proveedores',
+          description:
+            'Compras por periodo, saldos pendientes por OC y cumplimiento de proveedores (a tiempo, completo, incidencias).',
+          to: '/compras/reportes/analisis-proveedores',
+          icon: BarChart3,
+          permission: PermisosCanonicos.ComprasOrdenesReportesAnalisisProveedores,
+        },
       ],
     },
     {
@@ -217,15 +229,20 @@ const moduloAlmacen: NavModulo = {
           permission: PermisosCanonicos.AlmacenEntradasLeer,
         },
         {
+          label: 'Material en revisión',
+          description:
+            'Material dañado en recepción pendiente de dictamen del Gerente de almacén/calidad.',
+          to: '/almacen/revision',
+          icon: ShieldAlert,
+          permission: PermisosCanonicos.AlmacenEntradasLeer,
+        },
+        {
           label: 'Salidas',
           description:
             'Surtido de requisiciones aprobadas y vales urgentes. Comprobante PDF descargable.',
           to: '/almacen/salidas',
           icon: PackageMinus,
-          permissionsAny: [
-            PermisosCanonicos.AlmacenSalidasLeerPropias,
-            PermisosCanonicos.AlmacenSalidasLeerTodas,
-          ],
+          permission: PermisosCanonicos.AlmacenSalidasLeerTodas,
         },
         {
           label: 'Devoluciones',
@@ -476,7 +493,7 @@ const moduloCuentasPorPagar: NavModulo = {
         {
           label: 'Políticas de viáticos',
           description:
-            'Tabuladores por puesto y destino (Nacional / Internacional). El backend valida solicitudes contra estos topes.',
+            'Consulta los topes de viáticos por puesto y destino nacional o internacional.',
           to: '/cxp/admin/politicas-viaticos',
           icon: Sliders,
           permission: PermisosCanonicos.CuentasPorPagarCatalogosPoliticasAdministrar,
@@ -538,6 +555,7 @@ const moduloTesoreria: NavModulo = {
           ],
         },
         {
+          // eslint-disable-next-line ds/no-texto-interno -- Estado de negocio: depósitos pendientes de conciliación.
           label: 'Depósitos por confirmar',
           description:
             'Propuestas de aplicación de CxC y expectativas de Caja: confirmar el hecho bancario que dispara el REPP.',
@@ -546,6 +564,19 @@ const moduloTesoreria: NavModulo = {
           permissionsAny: [
             PermisosCanonicos.TesoreriaDepositosConfirmar,
             PermisosCanonicos.TesoreriaDepositosRechazar,
+          ],
+        },
+        {
+          label: 'Devoluciones a clientes',
+          description:
+            'Depósitos erróneos y reembolsos de notas de crédito: autorizar y pagar con contramovimiento ligado.',
+          to: '/tesoreria/devoluciones',
+          icon: Undo2,
+          permissionsAny: [
+            PermisosCanonicos.TesoreriaDevolucionesVer,
+            PermisosCanonicos.TesoreriaDevolucionesSolicitar,
+            PermisosCanonicos.TesoreriaDevolucionesAutorizar,
+            PermisosCanonicos.TesoreriaDevolucionesPagar,
           ],
         },
         {
@@ -591,7 +622,7 @@ const moduloTesoreria: NavModulo = {
         {
           label: 'Flujo de efectivo',
           description:
-            'Ingresos y egresos clasificados por concepto (Operación / Inversión / Financiamiento). ADR-0036.',
+            'Ingresos y egresos clasificados por concepto (Operación / Inversión / Financiamiento).',
           to: '/tesoreria/reportes/flujo-efectivo',
           icon: BarChart3,
           permission: PermisosCanonicos.TesoreriaReportesVer,
@@ -721,7 +752,7 @@ const moduloCuentasPorCobrar: NavModulo = {
         {
           label: 'Antigüedad de saldos',
           description:
-            'Cartera viva por buckets configurables, totales por moneda. Exportable PDF/Excel (ADR-0036).',
+            'Consulta la cartera por rangos de antigüedad y moneda, y expórtala a PDF o Excel.',
           to: '/cxc/cartera',
           icon: BarChart3,
           permission: PermisosCanonicos.CuentasPorCobrarCarteraLeer,
@@ -745,7 +776,7 @@ const moduloFacturacion: NavModulo = {
   icon: FileCheck2,
   secciones: [
     {
-      label: 'Operación',
+      label: 'Venta',
       cards: [
         {
           label: 'Pedidos facturables',
@@ -760,14 +791,6 @@ const moduloFacturacion: NavModulo = {
           ],
         },
         {
-          label: 'Excepciones de ingesta',
-          description:
-            'Pedidos que fallaron la importación (cliente no existe, producto sin clave SAT, almacén no asignado). Resolución inline.',
-          to: '/facturacion/pedidos/excepciones',
-          icon: AlertTriangle,
-          permission: PermisosCanonicos.FacturacionPedidosExcepcionesResolver,
-        },
-        {
           label: 'Facturas',
           description:
             'Bandeja de comprobantes emitidos. Cadena de relaciones CFDI, historial del pedido, descargas XML/PDF y cancelación.',
@@ -778,7 +801,7 @@ const moduloFacturacion: NavModulo = {
         {
           label: 'Anticipos',
           description:
-            'Control de Anticipos por cliente: emisión (serie FANT), vinculación a la factura final (relación 07) y saldos.',
+            'Control de Anticipos por cliente: emisión, vinculación a la factura final (relación 07) y saldos.',
           to: '/facturacion/anticipos',
           icon: HandCoins,
           permission: PermisosCanonicos.FacturacionAnticiposLeer,
@@ -786,11 +809,33 @@ const moduloFacturacion: NavModulo = {
         {
           label: 'Facturas de anticipo',
           description:
-            'Bandeja de CFDIs de anticipo (serie FANT): detalle con saldo y cadena, descargas XML/PDF, cancelación y reintento.',
+            'Bandeja de CFDIs de anticipo: detalle con saldo y cadena, descargas XML/PDF, cancelación y reintento.',
           to: '/facturacion/anticipos/facturas',
           icon: ReceiptText,
           permission: PermisosCanonicos.FacturacionAnticiposLeer,
         },
+      ],
+    },
+    {
+      label: 'Caja',
+      cards: [
+        {
+          label: 'Mi caja',
+          description:
+            'Sesión de efectivo del cajero: apertura con fondo, cobros de mostrador, movimientos y arqueo de cierre.',
+          to: '/facturacion/caja',
+          icon: Wallet,
+          permissionsAny: [
+            PermisosCanonicos.FacturacionCajaOperar,
+            PermisosCanonicos.FacturacionCajaSupervisar,
+            PermisosCanonicos.FacturacionCajaLiquidar,
+          ],
+        },
+      ],
+    },
+    {
+      label: 'Complementos de pago',
+      cards: [
         {
           label: 'Pendientes de REP',
           description: 'Revisión de pagos bancarios y emisión manual de complementos de pago.',
@@ -809,6 +854,11 @@ const moduloFacturacion: NavModulo = {
             PermisosCanonicos.FacturacionFacturasLeer,
           ],
         },
+      ],
+    },
+    {
+      label: 'Otros documentos',
+      cards: [
         {
           label: 'Carta Porte',
           description:
@@ -825,17 +875,18 @@ const moduloFacturacion: NavModulo = {
           icon: Building2,
           permission: PermisosCanonicos.FacturacionActivosAutorizar,
         },
+      ],
+    },
+    {
+      label: 'Revisión',
+      cards: [
         {
-          label: 'Mi caja',
+          label: 'Excepciones de ingesta',
           description:
-            'Sesión de efectivo del cajero: apertura con fondo, cobros de mostrador, movimientos y arqueo de cierre.',
-          to: '/facturacion/caja',
-          icon: Wallet,
-          permissionsAny: [
-            PermisosCanonicos.FacturacionCajaOperar,
-            PermisosCanonicos.FacturacionCajaSupervisar,
-            PermisosCanonicos.FacturacionCajaLiquidar,
-          ],
+            'Pedidos que fallaron la importación (cliente no existe, producto sin clave SAT, almacén no asignado). Resolución inline.',
+          to: '/facturacion/pedidos/excepciones',
+          icon: AlertTriangle,
+          permission: PermisosCanonicos.FacturacionPedidosExcepcionesResolver,
         },
       ],
     },
@@ -864,11 +915,27 @@ const moduloFacturacion: NavModulo = {
           permission: PermisosCanonicos.FacturacionReportesLeer,
         },
         {
+          label: 'Cierre del día por sucursal',
+          description:
+            'Monitor de CFDI del día (timbrados, cancelados, sin timbrar, estatus SAT) y facturado de contado contra ingresado en caja.',
+          to: '/facturacion/reportes/cierre-dia',
+          icon: ClipboardCheck,
+          permission: PermisosCanonicos.FacturacionReportesLeer,
+        },
+        {
           label: 'Estados de facturas de anticipo',
           description:
             'Reporte de anticipos emitidos, facturas vinculadas, NCs de amortización y saldo por cliente.',
           to: '/facturacion/reportes/estados-anticipos',
           icon: BarChart3,
+          permission: PermisosCanonicos.FacturacionReportesLeer,
+        },
+        {
+          label: 'Comparativa de anticipos',
+          description:
+            'Anticipos contra sus aplicaciones: factura final, CFDI de egreso 07 y saldo a una fecha de corte.',
+          to: '/facturacion/reportes/comparativa-anticipos',
+          icon: Scale,
           permission: PermisosCanonicos.FacturacionReportesLeer,
         },
       ],
@@ -936,6 +1003,159 @@ const moduloContabilidad: NavModulo = {
         },
       ],
     },
+    {
+      label: 'Pólizas',
+      cards: [
+        {
+          label: 'Pólizas',
+          description:
+            'Captura de pólizas manuales en borrador, autorización con folio por tipo de operación (TT-000123) y anulación con motivo.',
+          to: '/contabilidad/polizas',
+          icon: FileSpreadsheet,
+          permission: PermisosCanonicos.ContabilidadPolizasLeer,
+        },
+        {
+          label: 'Movimientos por cuenta',
+          description:
+            'Cargos, abonos y saldo del periodo por cuenta con las pólizas autorizadas; una anulada y su anulación se compensan.',
+          to: '/contabilidad/polizas/saldos',
+          icon: Scale,
+          permission: PermisosCanonicos.ContabilidadPolizasLeer,
+        },
+        {
+          label: 'Pólizas recurrentes',
+          description:
+            'Plantillas que generan la póliza de cada mes en su día, con reversa automática opcional; las activa otro usuario.',
+          to: '/contabilidad/polizas/recurrentes',
+          icon: Repeat,
+          permission: PermisosCanonicos.ContabilidadRecurrentesLeer,
+        },
+      ],
+    },
+  ],
+};
+
+const comercioExterior: NavModulo = {
+  moduloId: 'comercio-exterior',
+  label: 'Comercio Exterior',
+  icon: Plane,
+  secciones: [
+    {
+      label: 'Operación',
+      cards: [
+        {
+          label: 'Expedientes',
+          description: 'Importaciones, exportaciones y documentos con versión.',
+          to: '/comercio-exterior/expedientes',
+          icon: FileText,
+          permission: PermisosCanonicos.ComercioExteriorExpedientesLeer,
+        },
+        {
+          label: 'Incidencias',
+          description: 'Incidencias pendientes, seguimiento y antigüedad.',
+          to: '/comercio-exterior/incidencias',
+          icon: FileText,
+          permission: PermisosCanonicos.ComercioExteriorExpedientesLeer,
+        },
+        {
+          label: 'Bandeja OTR',
+          description: 'Vincular envíos y revisar salidas fallidas o sin acuse.',
+          to: '/comercio-exterior/otr',
+          icon: FileText,
+          permission: PermisosCanonicos.ComercioExteriorExpedientesLeer,
+        },
+        {
+          label: 'Relación para IVA',
+          description: 'Embarques e importaciones por periodo para revisión fiscal.',
+          to: '/comercio-exterior/relacion-iva',
+          icon: FileText,
+          permission: PermisosCanonicos.ComercioExteriorRelacionIvaLeer,
+        },
+      ],
+    },
+  ],
+};
+
+const activosFijos: NavModulo = {
+  moduloId: 'activos-fijos',
+  label: 'Activos fijos',
+  icon: Building2,
+  secciones: [
+    {
+      label: 'Operación',
+      cards: [
+        {
+          label: 'Depreciación',
+          description: 'Depreciación del libro de activos.',
+          to: '/activos-fijos/depreciacion',
+          icon: BookOpen,
+          permission: PermisosCanonicos.ActivosFijosDepreciacionCorrer,
+        },
+        {
+          label: 'Carga inicial',
+          description: 'Carga inicial del libro de activos.',
+          to: '/activos-fijos/carga-inicial',
+          icon: BookOpen,
+          permission: PermisosCanonicos.ActivosFijosCargaEjecutar,
+        },
+        {
+          label: 'Conciliación',
+          description: 'Conciliación del libro de activos.',
+          to: '/activos-fijos/conciliacion',
+          icon: BookOpen,
+          permission: PermisosCanonicos.ActivosFijosConciliacionVer,
+        },
+        {
+          label: 'Libro de activos',
+          description: 'Libro de activos del libro de activos.',
+          to: '/activos-fijos/libro',
+          icon: BookOpen,
+          permission: PermisosCanonicos.ActivosFijosActivosVer,
+        },
+        {
+          label: 'Configuración del libro',
+          description: 'Configuración del libro del libro de activos.',
+          to: '/activos-fijos/configuracion-libro',
+          icon: BookOpen,
+          permission: PermisosCanonicos.ActivosFijosClasesAdministrar,
+        },
+        {
+          label: 'Activos',
+          description: 'Maestro y custodia de activos.',
+          to: '/activos-fijos/activos',
+          icon: Building2,
+          permission: PermisosCanonicos.ActivosFijosActivosVer,
+        },
+        {
+          label: 'Por capitalizar',
+          description: 'Completar datos y registrar la póliza de alta.',
+          to: '/activos-fijos/por-capitalizar',
+          icon: BookOpen,
+          permission: PermisosCanonicos.ActivosFijosCapitalizar,
+        },
+        {
+          description: 'Garantías, seguros y mantenimientos próximos.',
+          label: 'Por vencer',
+          to: '/activos-fijos/por-vencer',
+          icon: Building2,
+          permission: PermisosCanonicos.ActivosFijosActivosVer,
+        },
+        {
+          description: 'Conteos y autorización de diferencias.',
+          label: 'Inventario físico',
+          to: '/activos-fijos/conteos',
+          icon: Building2,
+          permission: PermisosCanonicos.ActivosFijosActivosVer,
+        },
+        {
+          label: 'Clases',
+          description: 'Tasas y cuentas contables.',
+          to: '/activos-fijos/clases',
+          icon: Layers,
+          permission: PermisosCanonicos.ActivosFijosClasesAdministrar,
+        },
+      ],
+    },
   ],
 };
 
@@ -947,9 +1167,10 @@ const modulos: readonly NavModulo[] = [
   moduloCuentasPorPagar,
   moduloTesoreria,
   moduloCentrosCosto,
-  placeholderModulo('activos', 'Activos Fijos', Building2),
+  activosFijos,
   moduloContabilidad,
   placeholderModulo('reportes', 'Reportes', LineChart),
+  comercioExterior,
 ];
 
 /**
@@ -1030,6 +1251,7 @@ export function contextoNavegacion(pathname: string, permisos: readonly string[]
  * leen datos protegidos. Mismo permiso que exige su endpoint en el backend.
  */
 const rutasFueraDelMenu: readonly Pick<NavCard, 'to' | 'permission' | 'permissionsAny'>[] = [
+  { to: '/sistema-diseno', permission: PermisosCanonicos.AdminParametrosEditar },
   { to: '/admin/mi-empresa', permission: PermisosCanonicos.AdminEmpresasLeer },
   { to: '/compras/trazabilidad', permission: PermisosCanonicos.ComprasOrdenesLeer },
   { to: '/compras/articulos', permission: PermisosCanonicos.ComprasOrdenesLeer },

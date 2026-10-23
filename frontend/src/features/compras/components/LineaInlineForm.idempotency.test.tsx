@@ -10,9 +10,9 @@ import { Naturaleza, EstatusCatalogo } from '@/features/compras/api/types';
 /**
  * Regresión — Idempotency-Key por submit (ADR-0020).
  *
- * El inline form de "agregar línea" es multi-submit: al guardar resetea y
+ * El inline form de "agregar partida" es multi-submit: al guardar resetea y
  * queda abierto para capturar la siguiente. Antes tomaba una sola key por
- * montaje (useFormIdempotencyKey), así que la 2ª línea reusaba la misma key
+ * montaje (useFormIdempotencyKey), así que la 2ª partida reusaba la misma key
  * con un body distinto y el backend la rechazaba con 422
  * IDEMPOTENCY_KEY_REUSED_WITH_DIFFERENT_BODY. El fix genera una key fresca
  * por submit. Este test falla contra el código viejo (dos keys iguales) y
@@ -108,7 +108,7 @@ describe('<LineaInlineForm> — Idempotency-Key por submit (regresión)', () => 
     // Add #1.
     await seleccionarArticulo();
     await waitFor(() => expect(umInput().value).toBe('LT'));
-    fireEvent.click(screen.getByRole('button', { name: /agregar línea/i }));
+    fireEvent.click(screen.getByRole('button', { name: /agregar partida/i }));
     await waitFor(() => expect(keys).toHaveLength(1));
 
     // El form se resetea y queda abierto → esperamos el reset antes del 2º.
@@ -117,7 +117,7 @@ describe('<LineaInlineForm> — Idempotency-Key por submit (regresión)', () => 
     // Add #2: cada submit lleva su propia Idempotency-Key.
     await seleccionarArticulo();
     await waitFor(() => expect(umInput().value).toBe('LT'));
-    fireEvent.click(screen.getByRole('button', { name: /agregar línea/i }));
+    fireEvent.click(screen.getByRole('button', { name: /agregar partida/i }));
     await waitFor(() => expect(keys).toHaveLength(2));
 
     expect(keys[0]).toBeTruthy();

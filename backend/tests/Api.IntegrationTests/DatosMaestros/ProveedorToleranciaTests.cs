@@ -21,7 +21,7 @@ namespace Millet.Api.IntegrationTests.DatosMaestros;
 public sealed class ProveedorToleranciaTests(WebApplicationFactory<Program> factory) : IClassFixture<WebApplicationFactory<Program>>
 {
     [Fact]
-    public async Task G113c_Compras403_CxpEdita_Audita_YApiNoAdmitePorcentaje()
+    public async Task G113c_Compras403_CxpEdita_Audita_YRechazaEsPorcentaje()
     {
         var ambiente = new AdjuntosProveedorAmbiente(factory);
         var proveedorId = await ambiente.SeedProveedorAsync();
@@ -63,6 +63,11 @@ public sealed class ProveedorToleranciaTests(WebApplicationFactory<Program> fact
             Assert.Equal(HttpStatusCode.BadRequest, (await cxp.PutAsJsonAsync(url, new { })).StatusCode);
             var negativo = await cxp.PutAsJsonAsync(url, new { montoMxn = -1 });
             Assert.Equal(HttpStatusCode.BadRequest, negativo.StatusCode);
+            // 86e3tab1k: el modo porcentaje se retiró; el campo es desconocido y se rechaza.
+            Assert.Equal(HttpStatusCode.BadRequest, (await cxp.PutAsJsonAsync(url, new { montoMxn = 2.5m, esPorcentaje = true })).StatusCode);
+            var final = await AdjuntosProveedorAmbiente.LeerAsync(await cxp.GetAsync($"{AdjuntosProveedorAmbiente.Base}/{proveedorId}"));
+            Assert.Equal(1m, final.GetProperty("toleranciaFacturaContraOcMxn").GetDecimal());
+            Assert.False(final.TryGetProperty("toleranciaFacturaContraOcEsPorcentaje", out _));
             Assert.Equal(HttpStatusCode.NoContent, (await cxp.PutAsJsonAsync(url, new { montoMxn = (decimal?)null })).StatusCode);
         }
         finally { await LimpiarAsync(ambiente, proveedorId); }

@@ -1,3 +1,5 @@
+import { FormCampo } from '@/components/erp/forms/FormGrid';
+import { FormSeccion } from '@/components/erp/forms/FormSeccion';
 import { type ReactNode } from 'react';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
@@ -33,10 +35,7 @@ export function InlineFormShell({
     <form
       onSubmit={onSubmit}
       noValidate
-      className={cn(
-        'space-y-3 rounded-md border border-amber-400 bg-amber-50/40 p-3',
-        className,
-      )}
+      className={cn('space-y-3 rounded-md border border-warning bg-warning-bg/40 p-3', className)}
       aria-label={ariaLabel}
       onKeyDown={(e) => {
         if (e.key === 'Escape') {
@@ -45,21 +44,19 @@ export function InlineFormShell({
         }
       }}
     >
-      {children}
-      <div className="flex flex-wrap items-center justify-end gap-2 border-t pt-2">
-        <Button
-          type="button"
-          variant="ghost"
-          size="sm"
-          onClick={onCancel}
-          disabled={isPending}
-        >
-          Cancelar
-        </Button>
-        <Button type="submit" size="sm" disabled={isPending}>
-          {isPending ? pendingLabel : submitLabel}
-        </Button>
-      </div>
+      <FormSeccion titulo="Datos del registro">
+        <FormCampo span={12}>{children}</FormCampo>
+        <FormCampo span={12}>
+          <div className="flex flex-wrap items-center justify-end gap-2 border-t pt-2">
+            <Button type="button" variant="ghost" size="sm" onClick={onCancel} disabled={isPending}>
+              Cancelar
+            </Button>
+            <Button type="submit" size="sm" disabled={isPending}>
+              {isPending ? pendingLabel : submitLabel}
+            </Button>
+          </div>
+        </FormCampo>
+      </FormSeccion>
     </form>
   );
 }
@@ -86,17 +83,15 @@ export function FieldInline({
       <label className="mb-1 flex items-center gap-1 text-xs font-medium">
         {label}
         {required && (
-          <span aria-hidden="true" className="text-rose-600">
+          <span aria-hidden="true" className="text-danger-fg">
             *
           </span>
         )}
       </label>
       {children}
-      {hint != null && error == null && (
-        <p className="mt-1 text-xs text-muted-foreground">{hint}</p>
-      )}
+      {hint != null && error == null && <p className="mt-1 text-xs text-ink-muted">{hint}</p>}
       {error != null && (
-        <p role="alert" className="mt-1 text-xs text-rose-600">
+        <p role="alert" className="mt-1 text-xs text-danger-fg">
           {error}
         </p>
       )}

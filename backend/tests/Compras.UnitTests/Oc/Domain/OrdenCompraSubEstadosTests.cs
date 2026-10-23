@@ -349,6 +349,32 @@ public class OrdenCompraSubEstadosTests
         Assert.Equal(SubEstadoRecepcion.SinRecepcion, oc.SubEstadoRecepcion);
     }
 
+    // --- Sin tolerancia en piezas (86e3tab1k): techo de recepción = cantidad de la línea ---
+
+    [Fact]
+    public void RegistrarRecepcionLinea_AcumuladoIgualACantidad_AceptaYCompleta()
+    {
+        var oc = NewOcAutorizada((100m, false));
+        var linea = oc.Lineas.Single();
+
+        oc.RegistrarRecepcionLinea(linea.Id, 100m, DateTimeOffset.UtcNow);
+
+        Assert.Equal(100m, linea.CantidadRecibida);
+        Assert.Equal(SubEstadoRecepcion.Completa, oc.SubEstadoRecepcion);
+    }
+
+    [Fact]
+    public void RegistrarRecepcionLinea_AcumuladoMayorQueCantidad_Lanza()
+    {
+        var oc = NewOcAutorizada((100m, false));
+        var linea = oc.Lineas.Single();
+
+        var ex = Assert.Throws<BusinessRuleException>(() =>
+            oc.RegistrarRecepcionLinea(linea.Id, 100.5m, DateTimeOffset.UtcNow));
+        Assert.Equal("LINEA_OC_CANTIDAD_RECIBIDA_EXCEDE", ex.Code);
+        Assert.Contains("excede la cantidad de la línea (100)", ex.Message);
+    }
+
     // --- GAP-9: cierre manual ---
 
     [Fact]

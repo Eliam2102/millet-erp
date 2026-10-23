@@ -25,6 +25,9 @@ public sealed class ProductoFiscalF1AEndpointsTests(WebApplicationFactory<Progra
 {
     private static readonly Guid EmpresaId = Guid.Parse("00000003-0000-0000-0000-000000000001");
 
+    // RFC no genérico y único por ejecución: ux_clientes_rfc_no_generico impide duplicados en la BD compartida.
+    private static string NuevoRfc() => "ZZZ" + Random.Shared.Next(0, 1_000_000).ToString("D6") + Guid.NewGuid().ToString("N")[..3].ToUpperInvariant();
+
     [Theory]
     [InlineData(false)]
     [InlineData(true)]
@@ -57,12 +60,13 @@ public sealed class ProductoFiscalF1AEndpointsTests(WebApplicationFactory<Progra
 
         var clienteId = Guid.NewGuid();
         var productoId = Guid.NewGuid();
+        var rfc = NuevoRfc();
         using var scope = app.Services.CreateScope();
         var db = scope.ServiceProvider.GetRequiredService<CompartidoDbContext>();
         var facturacion = scope.ServiceProvider.GetRequiredService<FacturacionDbContext>();
         using var bypass = scope.ServiceProvider.GetRequiredService<ICurrentEmpresaContext>().Bypass();
         var cliente = new Cliente(clienteId, "U19-" + clienteId.ToString("N")[..12], "CLIENTE FICTICIO U1.9",
-            rfc: "AAA010101AAA", regimenFiscal: "601", codigoPostalFiscal: "97000", usoCfdiDefault: "G03");
+            rfc: rfc, regimenFiscal: "601", codigoPostalFiscal: "97000", usoCfdiDefault: "G03");
         var producto = new Millet.DatosMaestros.Domain.ProductoAw(productoId, "F1A-" + productoId.ToString("N")[..12], "PROCESO FICTICIO F1A", "PZA");
         db.ProductosAw.Add(producto);
         db.Clientes.Add(cliente);
@@ -78,7 +82,7 @@ public sealed class ProductoFiscalF1AEndpointsTests(WebApplicationFactory<Progra
             Assert.Equal(sandbox, config!.ReceptorSandbox is not null);
 
             // Concepto completo en el request: la ficha incompleta del maestro debe bloquear aunque se suplanten las claves.
-            var command = new EmitirFacturaVentaCommand(sucursal, "AAA010101AAA", "CLIENTE FICTICIO U1.9", "601", "97000", "G03", "MEX",
+            var command = new EmitirFacturaVentaCommand(sucursal, rfc, "CLIENTE FICTICIO U1.9", "601", "97000", "G03", "MEX",
                 "MIL010101AAA", "601", "PUE", "01", "MXN", null, 1, ComportamientoFiscal.Administrativa,
                 null, null, false, [new(productoId, "01010101", "Prueba U1.9b", "H87", 1, 100, 0, "02", 0.16m, null, null)], ClienteId: clienteId);
             var response = await client.PostAsJsonAsync("/api/v1/facturacion/facturas/", command);

@@ -1,5 +1,5 @@
 import { cn } from '@/lib/utils';
-import { formatearMonto } from '@/features/cxp/lib/formato';
+import { MoneyDisplay } from '@/components/erp/display/MoneyDisplay';
 
 /**
  * Piezas compartidas de las páginas de detalle read-only de CxP
@@ -18,7 +18,7 @@ export function Campo({ label, valor, mono }: CampoProps) {
   return (
     <div>
       <dt className="text-xs text-muted-foreground">{label}</dt>
-      <dd className={cn('text-sm', mono && 'font-mono text-xs')}>{valor}</dd>
+      <dd className={cn('text-sm', mono && 'break-all font-mono text-xs')}>{valor}</dd>
     </div>
   );
 }
@@ -28,19 +28,24 @@ interface ImporteProps {
   v: number;
   m: string;
   strong?: boolean;
+  /** Cifra de resultado (p. ej. Saldo pendiente): `text-3xl tabular-nums`. */
+  grande?: boolean;
 }
 
-export function Importe({ label, v, m, strong }: ImporteProps) {
+export function Importe({ label, v, m, strong, grande }: ImporteProps) {
   return (
     <div>
       <dt className="text-xs text-muted-foreground">{label}</dt>
       <dd
-        className={cn(
-          'font-mono',
-          strong ? 'text-base font-semibold' : 'text-sm',
-        )}
+        className={
+          grande
+            ? 'text-3xl font-semibold tabular-nums'
+            : strong
+              ? 'text-base font-semibold'
+              : 'text-sm'
+        }
       >
-        {formatearMonto(v, m)}
+        <MoneyDisplay amount={v} currency={m} />
       </dd>
     </div>
   );

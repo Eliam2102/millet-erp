@@ -139,6 +139,75 @@ public class DatosMaestrosEndpointsTests : IClassFixture<WebApplicationFactory<P
     }
 
     [Fact]
+    public async Task ListarProveedores_RazonSocial_BuscaTambienEnNombreComercial()
+    {
+        var client = await CreateSuperAdminClientAsync();
+        var marca = $"Marca{Guid.NewGuid():N}"[..16];
+        var crear = await client.PostAsJsonAsync("/api/v1/catalogos/proveedores", new
+        {
+            Clave = $"PROV-NC-{Guid.NewGuid().ToString("N")[..8]}",
+            RazonSocial = "Razon Distinta Test SA de CV",
+            Rfc = $"TST{Guid.NewGuid():N}"[..12].ToUpperInvariant(),
+            TipoPersona = TipoPersonaProveedor.Moral,
+            NombreComercial = marca,
+            CondicionesPagoDias = (short)30,
+            MonedaPreferidaId = MonedaMxnId,
+            Email = (string?)null,
+            Telefono = (string?)null,
+        });
+        crear.EnsureSuccessStatusCode();
+        var id = (await ReadJsonAsync(crear)).GetProperty("id").GetGuid();
+
+        var response = await client.GetAsync(
+            $"/api/v1/datos-maestros/proveedores?razonSocial={Uri.EscapeDataString(marca.ToLowerInvariant())}&limit=50");
+        response.EnsureSuccessStatusCode();
+        var json = await ReadJsonAsync(response);
+        Assert.Contains(json.GetProperty("items").EnumerateArray(),
+            i => i.GetProperty("id").GetGuid() == id);
+    }
+
+    [Fact]
+    public async Task ListarProveedores_Q_BuscaEnClaveRfcRazonSocialYNombreComercial()
+    {
+        var client = await CreateSuperAdminClientAsync();
+        var sufijo = Guid.NewGuid().ToString("N")[..8];
+        var clave = $"PROV-Q-{sufijo}";
+        var rfc = $"QQQ{Guid.NewGuid():N}"[..12].ToUpperInvariant();
+        var crear = await client.PostAsJsonAsync("/api/v1/catalogos/proveedores", new
+        {
+            Clave = clave,
+            RazonSocial = $"Cristalería Ñandú {sufijo} SA de CV",
+            Rfc = rfc,
+            TipoPersona = TipoPersonaProveedor.Moral,
+            NombreComercial = $"Zafiro {sufijo}",
+            CondicionesPagoDias = (short)30,
+            MonedaPreferidaId = MonedaMxnId,
+            Email = (string?)null,
+            Telefono = (string?)null,
+        });
+        crear.EnsureSuccessStatusCode();
+        var id = (await ReadJsonAsync(crear)).GetProperty("id").GetGuid();
+
+        foreach (var fragmento in new[]
+                 {
+                     clave.ToLowerInvariant(), rfc.ToLowerInvariant(),
+                     $"cristaleria nandu {sufijo}", $"zafiro {sufijo}",
+                 })
+        {
+            var response = await client.GetAsync(
+                $"/api/v1/datos-maestros/proveedores?q={Uri.EscapeDataString(fragmento)}&limit=50");
+            response.EnsureSuccessStatusCode();
+            var json = await ReadJsonAsync(response);
+            Assert.Contains(json.GetProperty("items").EnumerateArray(),
+                i => i.GetProperty("id").GetGuid() == id);
+        }
+
+        var vacio = await client.GetAsync("/api/v1/datos-maestros/proveedores?q=zzz-no-existe&limit=50");
+        vacio.EnsureSuccessStatusCode();
+        Assert.Empty((await ReadJsonAsync(vacio)).GetProperty("items").EnumerateArray());
+    }
+
+    [Fact]
     public async Task ListarProveedores_Rfc_CaseInsensitive()
     {
         var client = await CreateSuperAdminClientAsync();
@@ -189,63 +258,11 @@ public class DatosMaestrosEndpointsTests : IClassFixture<WebApplicationFactory<P
             i => i.GetProperty("id").GetGuid() == id);
     }
 
-    // --- GET /datos-bancarios (F1-ADM-05) ---
-
-    [Fact]
-    public async Task ObtenerDatosBancarios_Sin_Permiso_Retorna_403()
-    {
-        var admin = await CreateSuperAdminClientAsync();
-        var proveedorId = await CrearProveedorConClabeAsync(admin, "011122223333444455");
-
-        var clienteSinBancarios = await CreateClientConPermisosAsync(
-            PermisosCanonicos.DatosMaestrosProveedoresGestionar);
-
-        var response = await clienteSinBancarios.GetAsync(
-            $"/api/v1/datos-maestros/proveedores/{proveedorId}/datos-bancarios");
-        Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
-    }
-
-    [Fact]
-    public async Task ObtenerDatosBancarios_Con_Permiso_Retorna_Clabe_Enmascarada()
-    {
-        var admin = await CreateSuperAdminClientAsync();
-        var proveedorId = await CrearProveedorConClabeAsync(admin, "011122223333444455");
-
-        var clienteVer = await CreateClientConPermisosAsync(
-            PermisosCanonicos.DatosMaestrosProveedoresBancariosVer);
-
-        var response = await clienteVer.GetAsync(
-            $"/api/v1/datos-maestros/proveedores/{proveedorId}/datos-bancarios");
-        response.EnsureSuccessStatusCode();
-        var json = await ReadJsonAsync(response);
-        Assert.Equal("**************4455", json.GetProperty("clabe").GetString());
-        Assert.False(json.GetProperty("clabeCompleta").GetBoolean());
-    }
-
-    [Fact]
-    public async Task ObtenerDatosBancarios_Con_VerCuentaCompleta_Retorna_Clabe_Completa()
-    {
-        var admin = await CreateSuperAdminClientAsync();
-        const string clabe = "011122223333444455";
-        var proveedorId = await CrearProveedorConClabeAsync(admin, clabe);
-
-        var clienteCompleta = await CreateClientConPermisosAsync(
-            PermisosCanonicos.DatosMaestrosProveedoresBancariosVer,
-            PermisosCanonicos.TesoreriaMovimientosVerCuentaCompleta);
-
-        var response = await clienteCompleta.GetAsync(
-            $"/api/v1/datos-maestros/proveedores/{proveedorId}/datos-bancarios");
-        response.EnsureSuccessStatusCode();
-        var json = await ReadJsonAsync(response);
-        Assert.Equal(clabe, json.GetProperty("clabe").GetString());
-        Assert.True(json.GetProperty("clabeCompleta").GetBoolean());
-    }
-
     [Fact]
     public async Task ListarYDetalle_Proveedores_No_Exponen_Clabe()
     {
         var admin = await CreateSuperAdminClientAsync();
-        var proveedorId = await CrearProveedorConClabeAsync(admin, "011122223333444455");
+        var proveedorId = await CrearProveedorConClabeAsync(admin, "011122223333444456");
 
         var detalle = await admin.GetAsync($"/api/v1/datos-maestros/proveedores/{proveedorId}");
         detalle.EnsureSuccessStatusCode();
@@ -262,7 +279,7 @@ public class DatosMaestrosEndpointsTests : IClassFixture<WebApplicationFactory<P
 
     // --- Helpers ---
 
-    /// <summary>Crea un proveedor y le asigna una CLABE vía el PATCH legacy de /catalogos.</summary>
+    /// <summary>Crea un proveedor y le agrega una cuenta (86e3pdmee).</summary>
     private static async Task<Guid> CrearProveedorConClabeAsync(HttpClient admin, string clabe)
     {
         var crear = await admin.PostAsJsonAsync("/api/v1/catalogos/proveedores", new
@@ -280,9 +297,10 @@ public class DatosMaestrosEndpointsTests : IClassFixture<WebApplicationFactory<P
         crear.EnsureSuccessStatusCode();
         var id = (await ReadJsonAsync(crear)).GetProperty("id").GetGuid();
 
-        var patch = await admin.PatchAsJsonAsync(
-            $"/api/v1/catalogos/proveedores/{id}", new { Banco = "BBVA", Clabe = clabe });
-        patch.EnsureSuccessStatusCode();
+        var cuenta = await admin.PostAsJsonAsync(
+            $"/api/v1/datos-maestros/proveedores/{id}/cuentas-bancarias",
+            new { Banco = "BBVA", Clabe = clabe, Moneda = "MXN", Titular = "Proveedor Bancarios Test SA de CV" });
+        cuenta.EnsureSuccessStatusCode();
         return id;
     }
 

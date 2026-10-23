@@ -4,6 +4,7 @@ using Millet.Almacen.Application.Catalogo;
 using Millet.Almacen.Domain.DevolucionesProveedor;
 using Millet.Almacen.Domain.Ports;
 using Millet.Almacen.Infrastructure.Persistence;
+using Millet.SharedKernel.Application;
 
 namespace Millet.Almacen.Application.DevolucionesProveedor;
 
@@ -56,7 +57,13 @@ public sealed record DevolucionProveedorDetalle(
     // Folio de la NC fiscal que concilió la devolución, resuelto vía
     // ICxpDocumentosReadPort; null si el puerto no resuelve o la NC no
     // tiene folio del proveedor (FE cae al id truncado).
-    string? NotaCreditoFolio = null);
+    string? NotaCreditoFolio = null,
+    // Folios de origen (C-02b): recepción (dato local de Almacén), OC (vía
+    // IComprasOcReadPort) y sub-almacén (catálogo local). Null → FE cae al texto genérico.
+    string? RecepcionOrigenFolio = null,
+    string? OrdenCompraOrigenFolio = null,
+    string? SubAlmacenOrigenClave = null,
+    string? SubAlmacenOrigenNombre = null);
 
 public sealed record DevolucionProveedorLineaItem(
     Guid Id,
@@ -84,7 +91,62 @@ public sealed record ListarDevolucionesProveedorQuery(
     Guid? ProveedorId,
     bool? SoloPendientesNcFiscal,
     int Offset,
-    int Limit) : IRequest<AlmacenPagedResponse<DevolucionProveedorListItem>>;
+    int Limit,
+    string? Q = null) : IRequest<AlmacenPagedResponse<DevolucionProveedorListItem>>, IDocumentoScopedQuery
+{
+    public string TipoDocumento => "devolucion_proveedor";
+    public string PermisoTodasSucursales => "almacen.devoluciones-proveedor.leer-todas-sucursales";
+    public IReadOnlyList<Guid>? SucursalesPermitidas { get; set; }
+    public IReadOnlyList<Guid>? DocumentosPermitidos { get; set; }
+}
+
+/// <summary>
+/// Filtros de la bandeja de devoluciones a proveedor salvo el estado, compartidos por el
+/// listado y por los conteos por estado (UX-F3-05) para que ambos coincidan siempre.
+/// </summary>
+internal static class DevolucionesProveedorFiltro
+{
+    public static IQueryable<DevolucionAProveedor> Aplicar(AlmacenDbContext db, ListarDevolucionesProveedorQuery request)
+    {
+        var query = db.Set<DevolucionAProveedor>().AsNoTracking();
+        if (request.ProveedorId is Guid pid) query = query.Where(d => d.ProveedorId == pid);
+        if (request.SoloPendientesNcFiscal is true)
+            query = query.Where(d => d.Estado == EstadoDevolucionProveedor.Registrada);
+        if (request.DocumentosPermitidos is { } permitidos) query = query.Where(d => permitidos.Contains(d.Id));
+        // Búsqueda por folio de la salida de la devolución (después del filtro de alcance).
+        if (!string.IsNullOrWhiteSpace(request.Q))
+        {
+            var q = request.Q.Trim().ToUpperInvariant();
+            query = query.Where(d => d.FolioMovimientoSalida != null && d.FolioMovimientoSalida.Contains(q));
+        }
+
+        return query;
+    }
+}
+
+public sealed record ConteosDevolucionesProveedorPorEstadoQuery(
+    Guid? ProveedorId, bool? SoloPendientesNcFiscal, string? Q = null)
+    : IRequest<IReadOnlyList<ConteoPorEstadoItem>>, IDocumentoScopedQuery
+{
+    public string TipoDocumento => "devolucion_proveedor";
+    public string PermisoTodasSucursales => "almacen.devoluciones-proveedor.leer-todas-sucursales";
+    public IReadOnlyList<Guid>? SucursalesPermitidas { get; set; }
+    public IReadOnlyList<Guid>? DocumentosPermitidos { get; set; }
+}
+
+public sealed class ConteosDevolucionesProveedorPorEstadoHandler(AlmacenDbContext db)
+    : IRequestHandler<ConteosDevolucionesProveedorPorEstadoQuery, IReadOnlyList<ConteoPorEstadoItem>>
+{
+    public async Task<IReadOnlyList<ConteoPorEstadoItem>> Handle(
+        ConteosDevolucionesProveedorPorEstadoQuery request, CancellationToken cancellationToken)
+    {
+        var lista = new ListarDevolucionesProveedorQuery(null, request.ProveedorId, request.SoloPendientesNcFiscal, 0, 0, request.Q)
+            { DocumentosPermitidos = request.DocumentosPermitidos };
+        return await DevolucionesProveedorFiltro.Aplicar(db, lista).GroupBy(d => d.Estado)
+            .Select(g => new ConteoPorEstadoItem((int)g.Key, g.Count()))
+            .ToListAsync(cancellationToken);
+    }
+}
 
 public sealed class ListarDevolucionesProveedorHandler
     : IRequestHandler<ListarDevolucionesProveedorQuery, AlmacenPagedResponse<DevolucionProveedorListItem>>
@@ -101,11 +163,8 @@ public sealed class ListarDevolucionesProveedorHandler
     public async Task<AlmacenPagedResponse<DevolucionProveedorListItem>> Handle(
         ListarDevolucionesProveedorQuery request, CancellationToken cancellationToken)
     {
-        IQueryable<DevolucionAProveedor> query = _db.Set<DevolucionAProveedor>().AsNoTracking();
+        var query = DevolucionesProveedorFiltro.Aplicar(_db, request);
         if (request.Estado is EstadoDevolucionProveedor e) query = query.Where(d => d.Estado == e);
-        if (request.ProveedorId is Guid pid) query = query.Where(d => d.ProveedorId == pid);
-        if (request.SoloPendientesNcFiscal is true)
-            query = query.Where(d => d.Estado == EstadoDevolucionProveedor.Registrada);
 
         var total = await query.CountAsync(cancellationToken);
         var items = await query
@@ -151,13 +210,16 @@ public sealed class ObtenerDevolucionProveedorPorIdHandler
     private readonly IProveedorReadPort _proveedores;
     private readonly IArticuloReadPort _articulos;
     private readonly ICxpDocumentosReadPort _documentosCxp;
+    private readonly IComprasOcReadPort _ordenesCompra;
 
     public ObtenerDevolucionProveedorPorIdHandler(
         AlmacenDbContext db,
         IProveedorReadPort proveedores,
         IArticuloReadPort articulos,
-        ICxpDocumentosReadPort documentosCxp)
+        ICxpDocumentosReadPort documentosCxp,
+        IComprasOcReadPort ordenesCompra)
     {
+        _ordenesCompra = ordenesCompra;
         _db = db;
         _proveedores = proveedores;
         _articulos = articulos;
@@ -188,6 +250,23 @@ public sealed class ObtenerDevolucionProveedorPorIdHandler
                 new[] { ncId }, cancellationToken);
             foliosNc.TryGetValue(ncId, out notaCreditoFolio);
         }
+
+        string? recepcionFolio = null;
+        if (d.RecepcionOrigenId is Guid recId)
+            recepcionFolio = await _db.Movimientos.AsNoTracking()
+                .Where(m => m.Id == recId).Select(m => m.Folio).FirstOrDefaultAsync(cancellationToken);
+
+        string? ocFolio = null;
+        if (d.OrdenCompraOrigenId is Guid ocId)
+        {
+            var folios = await _ordenesCompra.ObtenerFoliosAsync(new[] { ocId }, cancellationToken);
+            folios.TryGetValue(ocId, out ocFolio);
+        }
+
+        var subAlmacen = d.SubAlmacenOrigenId is Guid saId
+            ? await _db.SubAlmacenes.AsNoTracking().Where(x => x.Id == saId)
+                .Select(x => new { x.Clave, x.Nombre }).FirstOrDefaultAsync(cancellationToken)
+            : null;
 
         return new DevolucionProveedorDetalle(
             Id: d.Id,
@@ -225,6 +304,10 @@ public sealed class ObtenerDevolucionProveedorPorIdHandler
                     e.Id, e.TipoEvidencia, e.NombreArchivo, e.BlobRef, e.Comentario))
                 .ToList(),
             ProveedorNombre: proveedor?.RazonSocial,
-            NotaCreditoFolio: notaCreditoFolio);
+            NotaCreditoFolio: notaCreditoFolio,
+            RecepcionOrigenFolio: recepcionFolio,
+            OrdenCompraOrigenFolio: ocFolio,
+            SubAlmacenOrigenClave: subAlmacen?.Clave,
+            SubAlmacenOrigenNombre: subAlmacen?.Nombre);
     }
 }

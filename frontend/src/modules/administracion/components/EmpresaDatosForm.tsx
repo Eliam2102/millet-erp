@@ -1,3 +1,5 @@
+import { FormSeccion } from '@/components/erp/forms/FormSeccion';
+import { FormCampo } from '@/components/erp/forms/FormGrid';
 import { useEffect, useRef } from 'react';
 import { Controller, useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -6,7 +8,12 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { RegimenFiscalSelector } from '@/components/erp/selectors/RegimenFiscalSelector';
-import { applyServerErrors, esApiError, useBodyScopedIdempotencyKey } from '@/lib/api';
+import {
+  applyServerErrors,
+  esApiError,
+  useBodyScopedIdempotencyKey,
+  codigoSoporte,
+} from '@/lib/api';
 import {
   ActualizarEmpresaSchema,
   type ActualizarEmpresaValues,
@@ -110,7 +117,7 @@ export function EmpresaDatosForm({ empresa }: EmpresaDatosFormProps) {
               return;
             }
             toast.error(error.problem.title, {
-              description: error.traceId ? `Código: ${error.traceId}` : undefined,
+              description: codigoSoporte(error),
             });
             return;
           }
@@ -126,219 +133,251 @@ export function EmpresaDatosForm({ empresa }: EmpresaDatosFormProps) {
     <form
       onSubmit={(event) => void form.handleSubmit(onSubmit)(event)}
       noValidate
-      className="grid grid-cols-1 gap-4 rounded-lg bg-surface-card p-4 shadow-card md:grid-cols-2"
+      className="rounded-lg bg-surface-card p-4 shadow-card"
     >
-      <FormRow
-        id="empresa-rfc"
-        label="RFC"
-        hint="El RFC no puede cambiarse después de crear la empresa."
-      >
-        <Input id="empresa-rfc" value={empresa.rfc} readOnly aria-readonly className="font-mono" />
-      </FormRow>
-
-      <FormRow label="Régimen fiscal" required error={form.formState.errors.regimenFiscal?.message}>
-        {canLeerImpuestos ? (
-          <Controller
-            name="regimenFiscal"
-            control={form.control}
-            render={({ field }) => (
-              <RegimenFiscalSelector
-                value={field.value}
-                onChange={(value) => field.onChange(value ?? '')}
-                disabled={!canEditar || actualizar.isPending}
-              />
-            )}
-          />
-        ) : (
-          <Input aria-label="Régimen fiscal" value={empresa.regimenFiscal} readOnly />
-        )}
-        {!canLeerImpuestos && (
-          <p className="text-xs text-ink-muted">
-            Se requiere permiso de lectura de catálogos para cambiar el régimen fiscal.
-          </p>
-        )}
-      </FormRow>
-
-      <div className="md:col-span-2">
-        <FormRow
-          id="empresa-razon-social"
-          label="Razón social"
-          required
-          error={form.formState.errors.razonSocial?.message}
-        >
-          <Input
-            maxLength={254}
-            disabled={!canEditar || actualizar.isPending}
-            id="empresa-razon-social"
-            {...form.register('razonSocial')}
-          />
-        </FormRow>
-      </div>
-
-      <FormRow
-        id="empresa-tasa"
-        label="Tasa IVA default"
-        hint="Fracción 0–1 (ej. 0.16). Fallback de IVA en captura manual de Facturación; el IVA del artículo tiene prioridad. Vacío = sin default."
-        error={form.formState.errors.tasaIvaDefault?.message}
-      >
-        <div className="space-y-2">
-          <Controller
-            name="tasaIvaDefault"
-            control={form.control}
-            render={({ field }) => (
-              <Input
-                id="empresa-tasa"
-                type="number"
-                step="0.01"
-                min={0}
-                max={1}
-                placeholder="0.16"
-                disabled={!canEditar || actualizar.isPending}
-                value={field.value ?? ''}
-                onChange={(e) =>
-                  field.onChange(e.target.value === '' ? null : Number(e.target.value))
-                }
-              />
-            )}
-          />
-          {canEditar && tasasIva.length > 0 && (
-            <label className="block text-xs text-ink-muted">
-              Tomar una tasa IVA vigente del catálogo
-              <select
-                disabled={actualizar.isPending}
-                className="mt-1 h-9 w-full rounded-md border bg-background px-2 text-sm text-foreground"
-                defaultValue=""
-                onChange={(event) => {
-                  if (event.target.value !== '') {
-                    form.setValue('tasaIvaDefault', Number(event.target.value), {
-                      shouldDirty: true,
-                      shouldValidate: true,
-                    });
-                  }
-                }}
-              >
-                <option value="">Seleccionar referencia…</option>
-                {tasasIva.map((i) => (
-                  <option key={i.id} value={i.tasa}>
-                    {i.nombre} · {i.tasa} · {i.fuente}
-                  </option>
-                ))}
-              </select>
-            </label>
-          )}
-        </div>
-      </FormRow>
-
-      <FormRow
-        id="empresa-cp"
-        label="Código postal fiscal"
-        hint="CP del domicilio fiscal SAT — es el LugarExpedicion del CFDI 4.0. Sin él, la emisión de facturas falla."
-        error={form.formState.errors.codigoPostal?.message}
-      >
-        <Controller
-          name="codigoPostal"
-          control={form.control}
-          render={({ field }) => (
+      <FormSeccion titulo="Datos de la empresa">
+        <FormCampo span={12}>
+          <FormRow
+            id="empresa-rfc"
+            label="RFC"
+            hint="El RFC no puede cambiarse después de crear la empresa."
+          >
             <Input
-              id="empresa-cp"
-              maxLength={5}
-              inputMode="numeric"
-              placeholder="76120"
+              id="empresa-rfc"
+              value={empresa.rfc}
+              readOnly
+              aria-readonly
               className="font-mono"
-              disabled={!canEditar || actualizar.isPending}
-              value={field.value ?? ''}
-              onChange={(e) => field.onChange(e.target.value.length > 0 ? e.target.value : null)}
             />
-          )}
-        />
-      </FormRow>
+          </FormRow>
+        </FormCampo>
 
-      <div className="md:col-span-2">
-        <FormRow
-          id="empresa-nombre"
-          label="Nombre comercial"
-          hint="Opcional. Vacío = no aplica."
-          error={form.formState.errors.nombreComercial?.message}
-        >
-          <Controller
-            name="nombreComercial"
-            control={form.control}
-            render={({ field }) => (
+        <FormCampo span={12}>
+          <FormRow
+            label="Régimen fiscal"
+            required
+            error={form.formState.errors.regimenFiscal?.message}
+          >
+            {canLeerImpuestos ? (
+              <Controller
+                name="regimenFiscal"
+                control={form.control}
+                render={({ field }) => (
+                  <RegimenFiscalSelector
+                    value={field.value}
+                    onChange={(value) => field.onChange(value ?? '')}
+                    disabled={!canEditar || actualizar.isPending}
+                  />
+                )}
+              />
+            ) : (
+              <Input aria-label="Régimen fiscal" value={empresa.regimenFiscal} readOnly />
+            )}
+            {!canLeerImpuestos && (
+              <p className="text-xs text-ink-muted">
+                Se requiere permiso de lectura de catálogos para cambiar el régimen fiscal.
+              </p>
+            )}
+          </FormRow>
+        </FormCampo>
+
+        <FormCampo span={12}>
+          <div className="md:col-span-2">
+            <FormRow
+              id="empresa-razon-social"
+              label="Razón social"
+              required
+              error={form.formState.errors.razonSocial?.message}
+            >
               <Input
-                id="empresa-nombre"
                 maxLength={254}
                 disabled={!canEditar || actualizar.isPending}
-                value={field.value ?? ''}
-                onChange={(e) => field.onChange(e.target.value.length > 0 ? e.target.value : null)}
+                id="empresa-razon-social"
+                {...form.register('razonSocial')}
               />
-            )}
-          />
-        </FormRow>
-      </div>
+            </FormRow>
+          </div>
+        </FormCampo>
 
-      <fieldset className="grid gap-4 md:col-span-2 md:grid-cols-2">
-        <legend className="mb-3 text-md font-semibold text-ink">Domicilio fiscal</legend>
-        {camposDomicilio.map(({ name, label, maxLength }) => (
+        <FormCampo span={12}>
           <FormRow
-            key={name}
-            id={`empresa-${name}`}
-            label={label}
-            error={form.formState.errors[name]?.message}
+            id="empresa-tasa"
+            label="Tasa IVA default"
+            hint="Fracción 0–1 (ej. 0.16). Fallback de IVA en captura manual de Facturación; el IVA del artículo tiene prioridad. Vacío = sin default."
+            error={form.formState.errors.tasaIvaDefault?.message}
+          >
+            <div className="space-y-2">
+              <Controller
+                name="tasaIvaDefault"
+                control={form.control}
+                render={({ field }) => (
+                  <Input
+                    id="empresa-tasa"
+                    type="number"
+                    step="0.01"
+                    min={0}
+                    max={1}
+                    placeholder="0.16"
+                    disabled={!canEditar || actualizar.isPending}
+                    value={field.value ?? ''}
+                    onChange={(e) =>
+                      field.onChange(e.target.value === '' ? null : Number(e.target.value))
+                    }
+                  />
+                )}
+              />
+              {canEditar && tasasIva.length > 0 && (
+                <label className="block text-xs text-ink-muted">
+                  Tomar una tasa IVA vigente del catálogo
+                  <select
+                    disabled={actualizar.isPending}
+                    className="mt-1 h-9 w-full rounded-md border bg-surface-page px-2 text-sm text-ink"
+                    defaultValue=""
+                    onChange={(event) => {
+                      if (event.target.value !== '') {
+                        form.setValue('tasaIvaDefault', Number(event.target.value), {
+                          shouldDirty: true,
+                          shouldValidate: true,
+                        });
+                      }
+                    }}
+                  >
+                    <option value="">Seleccionar referencia…</option>
+                    {tasasIva.map((i) => (
+                      <option key={i.id} value={i.tasa}>
+                        {i.nombre} · {i.tasa} · {i.fuente}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+              )}
+            </div>
+          </FormRow>
+        </FormCampo>
+
+        <FormCampo span={12}>
+          <FormRow
+            id="empresa-cp"
+            label="Código postal fiscal"
+            hint="CP del domicilio fiscal SAT — es el LugarExpedicion del CFDI 4.0. Sin él, la emisión de facturas falla."
+            error={form.formState.errors.codigoPostal?.message}
           >
             <Controller
-              name={name}
+              name="codigoPostal"
               control={form.control}
               render={({ field }) => (
                 <Input
-                  id={`empresa-${name}`}
-                  maxLength={maxLength}
+                  id="empresa-cp"
+                  maxLength={5}
+                  inputMode="numeric"
+                  placeholder="76120"
+                  className="font-mono"
                   disabled={!canEditar || actualizar.isPending}
                   value={field.value ?? ''}
-                  onChange={field.onChange}
-                  onBlur={field.onBlur}
-                  ref={field.ref}
+                  onChange={(e) =>
+                    field.onChange(e.target.value.length > 0 ? e.target.value : null)
+                  }
                 />
               )}
             />
           </FormRow>
-        ))}
-      </fieldset>
+        </FormCampo>
 
-      {canEditar && (
-        <div className="md:col-span-2 flex flex-wrap items-center justify-end gap-2 border-t border-line-divider pt-3">
-          <Button
-            type="button"
-            variant="ghost"
-            onClick={() => {
-              versionEdicion.current = empresa.version;
-              form.reset(buildDefaults(empresa));
-            }}
-            disabled={!dirty || actualizar.isPending}
-            title={
-              actualizar.isPending
-                ? 'Espera a que termine el guardado.'
-                : !dirty
-                  ? 'No hay cambios pendientes.'
-                  : undefined
-            }
-          >
-            Descartar cambios
-          </Button>
-          <Button
-            type="submit"
-            disabled={!dirty || actualizar.isPending}
-            title={
-              actualizar.isPending
-                ? 'Espera a que termine el guardado.'
-                : !dirty
-                  ? 'No hay cambios pendientes.'
-                  : undefined
-            }
-          >
-            {actualizar.isPending ? 'Guardando…' : 'Guardar cambios'}
-          </Button>
-        </div>
-      )}
+        <FormCampo span={12}>
+          <div className="md:col-span-2">
+            <FormRow
+              id="empresa-nombre"
+              label="Nombre comercial"
+              hint="Opcional. Vacío = no aplica."
+              error={form.formState.errors.nombreComercial?.message}
+            >
+              <Controller
+                name="nombreComercial"
+                control={form.control}
+                render={({ field }) => (
+                  <Input
+                    id="empresa-nombre"
+                    maxLength={254}
+                    disabled={!canEditar || actualizar.isPending}
+                    value={field.value ?? ''}
+                    onChange={(e) =>
+                      field.onChange(e.target.value.length > 0 ? e.target.value : null)
+                    }
+                  />
+                )}
+              />
+            </FormRow>
+          </div>
+        </FormCampo>
+
+        <FormCampo span={12}>
+          <fieldset className="grid gap-4 md:col-span-2 md:grid-cols-2">
+            <legend className="mb-3 text-md font-semibold text-ink">Domicilio fiscal</legend>
+            {camposDomicilio.map(({ name, label, maxLength }) => (
+              <FormRow
+                key={name}
+                id={`empresa-${name}`}
+                label={label}
+                error={form.formState.errors[name]?.message}
+              >
+                <Controller
+                  name={name}
+                  control={form.control}
+                  render={({ field }) => (
+                    <Input
+                      id={`empresa-${name}`}
+                      maxLength={maxLength}
+                      disabled={!canEditar || actualizar.isPending}
+                      value={field.value ?? ''}
+                      onChange={field.onChange}
+                      onBlur={field.onBlur}
+                      ref={field.ref}
+                    />
+                  )}
+                />
+              </FormRow>
+            ))}
+          </fieldset>
+        </FormCampo>
+
+        <FormCampo span={12}>
+          {canEditar && (
+            <div className="md:col-span-2 flex flex-wrap items-center justify-end gap-2 border-t border-line-divider pt-3">
+              <Button
+                type="button"
+                variant="ghost"
+                onClick={() => {
+                  versionEdicion.current = empresa.version;
+                  form.reset(buildDefaults(empresa));
+                }}
+                disabled={!dirty || actualizar.isPending}
+                title={
+                  actualizar.isPending
+                    ? 'Espera a que termine el guardado.'
+                    : !dirty
+                      ? 'No hay cambios pendientes.'
+                      : undefined
+                }
+              >
+                Descartar cambios
+              </Button>
+              <Button
+                type="submit"
+                disabled={!dirty || actualizar.isPending}
+                title={
+                  actualizar.isPending
+                    ? 'Espera a que termine el guardado.'
+                    : !dirty
+                      ? 'No hay cambios pendientes.'
+                      : undefined
+                }
+              >
+                {actualizar.isPending ? 'Guardando…' : 'Guardar cambios'}
+              </Button>
+            </div>
+          )}
+        </FormCampo>
+      </FormSeccion>
     </form>
   );
 }

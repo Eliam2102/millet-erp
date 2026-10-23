@@ -13,6 +13,7 @@ import {
   applyServerErrors,
   esApiError,
   useBodyScopedIdempotencyKey,
+  codigoSoporte,
 } from '@/lib/api';
 import { useHasPermission } from '@/lib/auth/useHasPermission';
 import { PermisosCanonicos } from '@/lib/auth/permission-codes';
@@ -230,7 +231,7 @@ export function ConfiguracionPacForm({ empresaId, existing }: ConfiguracionPacFo
               return;
             }
             toast.error(error.problem.title, {
-              description: error.traceId ? `Código: ${error.traceId}` : undefined,
+              description: codigoSoporte(error),
             });
             return;
           }
@@ -366,7 +367,7 @@ export function ConfiguracionPacForm({ empresaId, existing }: ConfiguracionPacFo
           PR-13: Las secciones "Schedule" y "Resiliencia" se eliminaron.
           El SDK NuGet oficial maneja la resiliencia internamente y los
           workers asíncronos (Submitter + Poller) toman su schedule de
-          configuración global del backend.
+          configuración general del sistema.
         */}
 
         {/* === Identidades de prueba (solo sandbox) === */}

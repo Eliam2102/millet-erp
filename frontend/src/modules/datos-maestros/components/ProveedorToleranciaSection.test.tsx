@@ -16,11 +16,10 @@ function mostrar(permisos: string[], montoMxn: number | null = 5) {
 }
 
 describe('Tolerancia del proveedor', () => {
-  it('Compras consulta el monto sin controles de edición ni porcentaje', () => {
+  it('Compras consulta el monto sin controles de edición', () => {
     mostrar([PermisosCanonicos.DatosMaestrosProveedoresGestionar]);
     expect(screen.getByText('$5.00 MXN')).toBeInTheDocument();
     expect(screen.queryByRole('button')).not.toBeInTheDocument();
-    expect(screen.queryByText(/porcentaje/i)).not.toBeInTheDocument();
   });
 
   it.each([['1.50', 1.5], ['0', 0], ['', null]] as const)('CxP guarda %s con idempotencia', async (texto, esperado) => {

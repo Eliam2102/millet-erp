@@ -57,6 +57,7 @@ public static class CatalogosEndpoints
             [FromQuery] EstatusCatalogo? estatus,
             [FromQuery] string? clave,
             [FromQuery] string? nombre,
+            [FromQuery] string? q,
             [FromQuery] string? rfc,
             [FromQuery] int? offset,
             [FromQuery] int? limit,
@@ -66,8 +67,8 @@ public static class CatalogosEndpoints
             var off = offset is < 0 ? 0 : offset ?? 0;
             var lim = limit is null or <= 0 ? 50 : Math.Min(limit.Value, LimitMax);
 
-            IQueryable<Proveedor> q = db.Proveedores.AsNoTracking();
-            if (estatus is EstatusCatalogo e) q = q.Where(p => p.Estatus == e);
+            IQueryable<Proveedor> query = db.Proveedores.AsNoTracking();
+            if (estatus is EstatusCatalogo e) query = query.Where(p => p.Estatus == e);
             // `clave` y `nombre` son excluyentes, `clave` con precedencia (mismo
             // patrón que el endpoint de artículo). clave = código → lower() en
             // ambos lados. nombre = texto libre → folding case + acentos (ADR-0045)
@@ -76,17 +77,32 @@ public static class CatalogosEndpoints
 #pragma warning disable CA1304, CA1311, CA1862
             if (!string.IsNullOrWhiteSpace(clave))
             {
-                q = q.Where(p => p.Clave.ToLower().Contains(clave.ToLower()));
+                query = query.Where(p => p.Clave.ToLower().Contains(clave.ToLower()));
             }
             else if (!string.IsNullOrWhiteSpace(nombre))
             {
                 string aguja = nombre;
-                q = q.Where(p =>
+                query = query.Where(p =>
                     PostgresFunctions.Translate(p.RazonSocial.ToLower(), PostgresFunctions.AcentosOrigen, PostgresFunctions.AcentosDestino)
                         .Contains(PostgresFunctions.Translate(aguja.ToLower(), PostgresFunctions.AcentosOrigen, PostgresFunctions.AcentosDestino))
                     || (p.NombreComercial != null &&
                         PostgresFunctions.Translate(p.NombreComercial.ToLower(), PostgresFunctions.AcentosOrigen, PostgresFunctions.AcentosDestino)
                             .Contains(PostgresFunctions.Translate(aguja.ToLower(), PostgresFunctions.AcentosOrigen, PostgresFunctions.AcentosDestino))));
+            }
+
+            // `q` = caja única (clave OR RFC OR razón social OR nombre comercial), AND con
+            // lo demás. Clave con lower(); textos libres con folding (ADR-0045).
+            if (!string.IsNullOrWhiteSpace(q))
+            {
+                string busqueda = q;
+                query = query.Where(p =>
+                    p.Clave.ToLower().Contains(busqueda.ToLower())
+                    || p.Rfc.ToLower().Contains(busqueda.ToLower())
+                    || PostgresFunctions.Translate(p.RazonSocial.ToLower(), PostgresFunctions.AcentosOrigen, PostgresFunctions.AcentosDestino)
+                        .Contains(PostgresFunctions.Translate(busqueda.ToLower(), PostgresFunctions.AcentosOrigen, PostgresFunctions.AcentosDestino))
+                    || (p.NombreComercial != null &&
+                        PostgresFunctions.Translate(p.NombreComercial.ToLower(), PostgresFunctions.AcentosOrigen, PostgresFunctions.AcentosDestino)
+                            .Contains(PostgresFunctions.Translate(busqueda.ToLower(), PostgresFunctions.AcentosOrigen, PostgresFunctions.AcentosDestino))));
             }
 
             // `rfc` es un filtro AND independiente (no participa en la
@@ -97,12 +113,12 @@ public static class CatalogosEndpoints
             if (!string.IsNullOrWhiteSpace(rfc))
             {
                 var rfcNormalizado = rfc.Trim();
-                q = q.Where(p => p.Rfc.ToLower() == rfcNormalizado.ToLower());
+                query = query.Where(p => p.Rfc.ToLower() == rfcNormalizado.ToLower());
             }
 #pragma warning restore CA1304, CA1311, CA1862
 
-            var total = await q.CountAsync(ct);
-            var items = await q
+            var total = await query.CountAsync(ct);
+            var items = await query
                 .OrderBy(p => p.Clave)
                 .Skip(off).Take(lim)
                 .Select(p => new ProveedorListItem(
@@ -121,7 +137,10 @@ public static class CatalogosEndpoints
             "`clave` (substring case-insensitive) y `nombre` (substring sobre " +
             "razón social o nombre comercial, insensible a acentos y mayúsculas " +
             "vía `translate`, ADR-0045). `clave` y `nombre` son excluyentes; si " +
-            "llegan ambos, `clave` tiene precedencia. `rfc` es un filtro AND " +
+            "llegan ambos, `clave` tiene precedencia. `q` es una caja única de " +
+            "búsqueda (substring sobre clave, RFC, razón social o nombre comercial, " +
+            "con folding de acentos/mayúsculas) y se combina por AND con los demás " +
+            "filtros; no participa en la exclusividad clave/nombre. `rfc` es un filtro AND " +
             "independiente con match exacto case-insensitive (auto-resolve de " +
             "proveedor desde CFDI). Paginación offset-based con " +
             $"tope `limit={LimitMax}`. Permiso: `compartido.catalogos.leer`.")
@@ -158,6 +177,8 @@ public static class CatalogosEndpoints
             [FromQuery] EstatusCatalogo? estatus,
             [FromQuery] string? clave,
             [FromQuery] string? nombre,
+            [FromQuery] string? q,
+            [FromQuery] Millet.Compras.Domain.Clasificacion? tipoRequisicion,
             [FromQuery] int? offset,
             [FromQuery] int? limit,
             CompartidoDbContext db,
@@ -166,9 +187,11 @@ public static class CatalogosEndpoints
             var off = offset is < 0 ? 0 : offset ?? 0;
             var lim = limit is null or <= 0 ? 50 : Math.Min(limit.Value, LimitMax);
 
-            IQueryable<Articulo> q = db.Articulos.AsNoTracking();
-            if (naturaleza is Naturaleza n) q = q.Where(a => a.Naturaleza == n);
-            if (estatus is EstatusCatalogo e) q = q.Where(a => a.Estatus == e);
+            IQueryable<Articulo> query = db.Articulos.AsNoTracking();
+            if (naturaleza is Naturaleza n) query = query.Where(a => a.Naturaleza == n);
+            if (tipoRequisicion is { } t)
+                query = query.Where(Millet.Compras.Domain.ArticulosPorClasificacion.Filtro(t));
+            if (estatus is EstatusCatalogo e) query = query.Where(a => a.Estatus == e);
             // `clave` y `nombre` son excluyentes: se aplica el que venga con
             // valor, nunca ambos. `clave` tiene precedencia (comportamiento
             // histórico intacto). La búsqueda por nombre es insensible a
@@ -179,7 +202,7 @@ public static class CatalogosEndpoints
             {
                 // clave = código → case-insensitive con lower() en ambos lados.
 #pragma warning disable CA1304, CA1311, CA1862
-                q = q.Where(a => a.Clave.ToLower().Contains(clave.ToLower()));
+                query = query.Where(a => a.Clave.ToLower().Contains(clave.ToLower()));
 #pragma warning restore CA1304, CA1311, CA1862
             }
             else if (!string.IsNullOrWhiteSpace(nombre))
@@ -190,14 +213,28 @@ public static class CatalogosEndpoints
                 // PostgreSQL. La cultura es la del servidor (collation de la BD),
                 // no la del proceso; el análisis de cultura no aplica.
 #pragma warning disable CA1304, CA1311
-                q = q.Where(a =>
+                query = query.Where(a =>
                     PostgresFunctions.Translate(a.Nombre.ToLower(), PostgresFunctions.AcentosOrigen, PostgresFunctions.AcentosDestino)
                         .Contains(PostgresFunctions.Translate(aguja.ToLower(), PostgresFunctions.AcentosOrigen, PostgresFunctions.AcentosDestino)));
 #pragma warning restore CA1304, CA1311
             }
 
-            var total = await q.CountAsync(ct);
-            var items = await q
+            // `q` = caja única (clave OR nombre), AND con lo demás (incluido
+            // `tipoRequisicion`); no participa en la exclusividad clave/nombre.
+            // Clave con lower(); nombre con folding de acentos (ADR-0045).
+            if (!string.IsNullOrWhiteSpace(q))
+            {
+                string busqueda = q;
+#pragma warning disable CA1304, CA1311, CA1862
+                query = query.Where(a =>
+                    a.Clave.ToLower().Contains(busqueda.ToLower())
+                    || PostgresFunctions.Translate(a.Nombre.ToLower(), PostgresFunctions.AcentosOrigen, PostgresFunctions.AcentosDestino)
+                        .Contains(PostgresFunctions.Translate(busqueda.ToLower(), PostgresFunctions.AcentosOrigen, PostgresFunctions.AcentosDestino)));
+#pragma warning restore CA1304, CA1311, CA1862
+            }
+
+            var total = await query.CountAsync(ct);
+            var items = await query
                 .OrderBy(a => a.Clave)
                 .Skip(off).Take(lim)
                 .Select(a => new ArticuloListItem(
@@ -215,8 +252,11 @@ public static class CatalogosEndpoints
             "opcionales: `naturaleza` (Estandar/Servicio/Critico/Riesgo — " +
             "alimenta la matriz de aprobación A1 §3.bis), `estatus`, `clave` " +
             "(substring) y `nombre` (substring insensible a acentos y " +
-            "mayúsculas vía `translate` nativo, ADR-0045). `clave` y `nombre` " +
+            "mayúsculas vía `translate` nativo, ADR-0045). `tipoRequisicion` " +
+            "(clasificación de la RQ) deja sólo los artículos de ese tipo. `clave` y `nombre` " +
             "son excluyentes; si llegan ambos, `clave` tiene precedencia. " +
+            "`q` es una caja única (substring sobre clave o nombre, con folding " +
+            "de acentos/mayúsculas) y se combina por AND con los demás filtros. " +
             $"Paginación offset-based, tope `limit={LimitMax}`.")
         .Produces<PagedCatalogoResponse<ArticuloListItem>>(StatusCodes.Status200OK)
         .ProducesProblem(StatusCodes.Status401Unauthorized)
@@ -302,7 +342,10 @@ public static class CatalogosEndpoints
                     CondicionesPagoDias: request.CondicionesPagoDias,
                     MonedaPreferidaId: request.MonedaPreferidaId,
                     Email: request.Email,
-                    Telefono: request.Telefono),
+                    Telefono: request.Telefono,
+                    Origen: request.Origen,
+                    RegimenFiscalCodigo: request.RegimenFiscalCodigo,
+                    ConceptoRetencion: request.ConceptoRetencion),
                 cancellationToken);
             return Results.Created($"/api/v1/catalogos/proveedores/{response.Id}", response);
         })
@@ -350,13 +393,7 @@ public static class CatalogosEndpoints
                     LimpiarCondicionesPago: body.LimpiarCondicionesPago ?? false,
                     LimpiarMonedaPreferida: body.LimpiarMonedaPreferida ?? false,
                     LimpiarEmail: body.LimpiarEmail ?? false,
-                    LimpiarTelefono: body.LimpiarTelefono ?? false,
-                    Banco: body.Banco,
-                    Clabe: body.Clabe,
-                    Beneficiario: body.Beneficiario,
-                    LimpiarBanco: body.LimpiarBanco ?? false,
-                    LimpiarClabe: body.LimpiarClabe ?? false,
-                    LimpiarBeneficiario: body.LimpiarBeneficiario ?? false),
+                    LimpiarTelefono: body.LimpiarTelefono ?? false),
                 cancellationToken);
             return Results.NoContent();
         })
@@ -513,15 +550,18 @@ public static class CatalogosEndpoints
     public sealed record CrearProveedorRequest(
         string Clave,
         string RazonSocial,
-        string Rfc,
+        string? Rfc,
         TipoPersonaProveedor TipoPersona,
         string? NombreComercial,
         short? CondicionesPagoDias,
         Guid? MonedaPreferidaId,
         string? Email,
-        string? Telefono);
+        string? Telefono,
+        OrigenProveedor? Origen = null,
+        string? RegimenFiscalCodigo = null,
+        string? ConceptoRetencion = null);
 
-    /// <summary>Body del PATCH /proveedores/{id} (B.5; datos bancarios TES-PR3). Todos opcionales.</summary>
+    /// <summary>Body del PATCH /proveedores/{id} (B.5). Todos opcionales; las cuentas bancarias van por /datos-maestros/proveedores/{id}/cuentas-bancarias.</summary>
     public sealed record ActualizarProveedorRequest(
         string? RazonSocial,
         string? NombreComercial,
@@ -535,13 +575,7 @@ public static class CatalogosEndpoints
         bool? LimpiarCondicionesPago,
         bool? LimpiarMonedaPreferida,
         bool? LimpiarEmail,
-        bool? LimpiarTelefono,
-        string? Banco = null,
-        string? Clabe = null,
-        string? Beneficiario = null,
-        bool? LimpiarBanco = null,
-        bool? LimpiarClabe = null,
-        bool? LimpiarBeneficiario = null);
+        bool? LimpiarTelefono);
 
     /// <summary>Body del POST /articulos (B.5).</summary>
     public sealed record CrearArticuloRequest(

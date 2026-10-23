@@ -81,16 +81,12 @@ afterEach(() => {
 describe('<RecepcionDetallePage> — nombres resueltos', () => {
   it('muestra nombres (sub-almacén, folio OC, artículo) y NO los ids crudos', async () => {
     mswServer.use(
-      http.get('*/api/v1/almacen/recepciones/r-1', () =>
-        HttpResponse.json(detalleConNombres),
-      ),
+      http.get('*/api/v1/almacen/recepciones/r-1', () => HttpResponse.json(detalleConNombres)),
     );
 
     render(<RecepcionDetallePage />, { wrapper: createQueryWrapper() });
 
-    await waitFor(() =>
-      expect(screen.getByText('ALM-CEN · Almacén Central')).toBeInTheDocument(),
-    );
+    await waitFor(() => expect(screen.getByText('ALM-CEN · Almacén Central')).toBeInTheDocument());
     expect(screen.getByText('OC-MID2026-000050')).toBeInTheDocument();
     expect(screen.getByText('Tornillo M6')).toBeInTheDocument();
 
@@ -98,6 +94,72 @@ describe('<RecepcionDetallePage> — nombres resueltos', () => {
     expect(screen.queryByText(SUB_ID)).not.toBeInTheDocument();
     expect(screen.queryByText(OC_ID)).not.toBeInTheDocument();
     expect(screen.queryByText(ART_ID)).not.toBeInTheDocument();
+  });
+
+  it('F1-COM-06 muestra pedimento, BL, contenedor, aduana, clave y fracción de la partida', async () => {
+    mswServer.use(
+      http.get('*/api/v1/almacen/recepciones/r-1', () =>
+        HttpResponse.json({
+          ...detalleConNombres,
+          importacion: {
+            numeroPedimento: '261612346000001',
+            numeroBl: 'BL-DEMO',
+            numeroContenedor: 'CONT-DEMO',
+            aduana: '16',
+            aduanaNombre: 'Manzanillo',
+            clavePedimento: 'A1',
+            clavePedimentoNombre: 'Importación definitiva',
+          },
+          lineas: [{ ...detalleConNombres.lineas[0], fraccionArancelaria: '84719000' }],
+        }),
+      ),
+    );
+
+    render(<RecepcionDetallePage />, { wrapper: createQueryWrapper() });
+
+    await waitFor(() => expect(screen.getByText('261612346000001')).toBeInTheDocument());
+    expect(screen.getByText('BL-DEMO')).toBeInTheDocument();
+    expect(screen.getByText('CONT-DEMO')).toBeInTheDocument();
+    expect(screen.getByText('16 · Manzanillo')).toBeInTheDocument();
+    expect(screen.getByText('A1 · Importación definitiva')).toBeInTheDocument();
+    expect(screen.getByText('84719000')).toBeInTheDocument();
+  });
+
+  it('sin importación no pinta la columna de fracción', async () => {
+    mswServer.use(
+      http.get('*/api/v1/almacen/recepciones/r-1', () => HttpResponse.json(detalleConNombres)),
+    );
+    render(<RecepcionDetallePage />, { wrapper: createQueryWrapper() });
+    await waitFor(() => expect(screen.getByText('Tornillo M6')).toBeInTheDocument());
+    expect(screen.queryByText('Fracción arancelaria')).not.toBeInTheDocument();
+  });
+
+  it('marca las líneas en revisión con su motivo y avisa que no están disponibles', async () => {
+    mswServer.use(
+      http.get('*/api/v1/almacen/recepciones/r-1', () =>
+        HttpResponse.json({
+          ...detalleConNombres,
+          lineas: [
+            detalleConNombres.lineas[0],
+            {
+              ...detalleConNombres.lineas[0],
+              id: 'l-2',
+              posicion: 2,
+              enRevision: true,
+              motivoDano: 'Hojas rotas',
+            },
+          ],
+        }),
+      ),
+    );
+
+    render(<RecepcionDetallePage />, { wrapper: createQueryWrapper() });
+
+    await waitFor(() => expect(screen.getByText('En revisión')).toBeInTheDocument());
+    expect(screen.getByText('Hojas rotas')).toBeInTheDocument();
+    expect(
+      screen.getByText(/1 partida en material en revisión: no están disponibles hasta el dictamen/),
+    ).toBeInTheDocument();
   });
 
   it('cae a los ids crudos cuando el backend no resuelve nombres', async () => {
@@ -145,9 +207,7 @@ describe('<RecepcionDetallePage> — nombres resueltos', () => {
 
     // CFDI resuelto: se pinta el folio fiscal del SAT, no el GUID interno.
     await waitFor(() =>
-      expect(
-        screen.getByText('5FB0F1C2-3E2A-4F0F-9E2E-2C5C2B5C1A2B'),
-      ).toBeInTheDocument(),
+      expect(screen.getByText('5FB0F1C2-3E2A-4F0F-9E2E-2C5C2B5C1A2B')).toBeInTheDocument(),
     );
     expect(screen.queryByText(CFDI_ID)).not.toBeInTheDocument();
     // Factura sin resolver: id truncado, nunca el GUID completo.

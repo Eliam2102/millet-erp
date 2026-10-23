@@ -20,7 +20,7 @@ describe('CancelarCobroDialog', () => {
     const confirmar = screen.getByRole('button', { name: 'Cancelar cobro' });
     expect(confirmar).toBeDisabled();
 
-    const motivo = screen.getByLabelText('Motivo de la cancelación');
+    const motivo = screen.getByLabelText(/Motivo de la cancelación/);
     fireEvent.change(motivo, { target: { value: 'Err' } });
     expect(confirmar).toBeDisabled();
 
@@ -42,7 +42,9 @@ describe('CancelarCobroDialog', () => {
       />,
     );
 
-    expect(screen.getByRole('alert')).toHaveTextContent('Solo un cobro Registrado puede cancelarse.');
+    expect(screen.getByRole('alert')).toHaveTextContent(
+      'Solo un cobro Registrado puede cancelarse.',
+    );
     expect(screen.getByRole('dialog')).toBeInTheDocument();
   });
 });

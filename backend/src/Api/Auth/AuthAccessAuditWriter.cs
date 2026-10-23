@@ -19,7 +19,12 @@ public sealed class AuthAccessAuditWriter(CoreDbContext db, IClock clock)
         string channel,
         string? reasonCode,
         IPAddress? ip,
-        CancellationToken ct)
+        CancellationToken ct,
+        string? actorNombre = null,
+        string? actorEmail = null,
+        string? resumen = null,
+        string? ruta = null,
+        string? permiso = null)
     {
         db.AuditLog.Add(new AuditLogEntry
         {
@@ -33,14 +38,17 @@ public sealed class AuthAccessAuditWriter(CoreDbContext db, IClock clock)
             AggregateRootId = userId,
             Operacion = operation,
             ActorTipo = "usuario",
-            ActorNombre = userId.HasValue ? $"Usuario {userId.Value.ToString()[..8]}" : "Sistema",
+            ActorNombre = actorNombre ?? (userId.HasValue ? $"Usuario {userId.Value.ToString()[..8]}" : "Sistema"),
+            ActorEmail = actorEmail,
             EntidadEtiqueta = "Sesión de usuario",
-            Resumen = operation == "acceso" ? "Inicio de sesión" : (operation.Contains("denegado") ? $"Acceso denegado ({reasonCode ?? "error"})" : operation),
+            Resumen = resumen ?? (operation == "acceso" ? "Inicio de sesión" : (operation.Contains("denegado") ? $"Acceso denegado ({reasonCode ?? "error"})" : operation)),
             Cambios = JsonSerializer.Serialize(new
             {
                 canal = channel,
                 resultado = operation.EndsWith("denegado", StringComparison.Ordinal) ? "denegado" : "permitido",
                 motivo = reasonCode,
+                ruta,
+                permiso,
             }),
             Ip = ip,
             CorrelationId = Guid.CreateVersion7(),

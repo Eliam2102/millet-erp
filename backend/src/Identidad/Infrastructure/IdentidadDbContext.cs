@@ -406,7 +406,7 @@ public sealed class IdentidadDbContext : BaseDbContext
 
         var seedRows = PermisosCanonicos.Todos.Select(p =>
         {
-            var partes = p.Codigo.Split('.');
+            var partes = p.Codigo == PermisosCanonicos.ActivosFijosCapitalizar ? "activos_fijos.activos.capitalizar".Split('.') : p.Codigo.Split('.');
             return new
             {
                 Id = p.Id,

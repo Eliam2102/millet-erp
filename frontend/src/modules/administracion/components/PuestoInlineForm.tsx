@@ -1,3 +1,5 @@
+import { FormSeccion } from '@/components/erp/forms/FormSeccion';
+import { FormCampo } from '@/components/erp/forms/FormGrid';
 import { useEffect } from 'react';
 import { Controller, useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -10,15 +12,10 @@ import {
   applyServerErrors,
   esApiError,
   useBodyScopedIdempotencyKey,
+  codigoSoporte,
 } from '@/lib/api';
-import {
-  PuestoSchema,
-  type PuestoValues,
-} from '@/modules/administracion/schemas/puesto';
-import {
-  useActualizarPuesto,
-  useCrearPuesto,
-} from '@/modules/administracion/api';
+import { PuestoSchema, type PuestoValues } from '@/modules/administracion/schemas/puesto';
+import { useActualizarPuesto, useCrearPuesto } from '@/modules/administracion/api';
 import { useRoles } from '@/modules/identidad/api/roles';
 import type { PuestoListItem } from '@/features/catalogos/api';
 import { cn } from '@/lib/utils';
@@ -43,11 +40,7 @@ const VALORES_INICIALES: PuestoValues = {
   departamentoId: '',
 };
 
-export function PuestoInlineForm({
-  puesto,
-  onCancel,
-  onSaved,
-}: PuestoInlineFormProps) {
+export function PuestoInlineForm({ puesto, onCancel, onSaved }: PuestoInlineFormProps) {
   const esEditar = puesto != null;
   const keyFor = useBodyScopedIdempotencyKey();
   const crear = useCrearPuesto();
@@ -89,16 +82,11 @@ export function PuestoInlineForm({
         });
         return;
       }
-      if (
-        applyServerErrors(
-          form as unknown as Parameters<typeof applyServerErrors>[0],
-          error,
-        )
-      ) {
+      if (applyServerErrors(form as unknown as Parameters<typeof applyServerErrors>[0], error)) {
         return;
       }
       toast.error(error.problem.title, {
-        description: error.traceId ? `Código: ${error.traceId}` : undefined,
+        description: codigoSoporte(error),
       });
       return;
     }
@@ -168,93 +156,89 @@ export function PuestoInlineForm({
       }}
       className={cn(
         'space-y-3 rounded-md border p-3',
-        esEditar
-          ? 'border-amber-400 bg-amber-50/40'
-          : 'border-dashed border-primary/40 bg-primary/5',
+        esEditar ? 'border-line bg-warning-bg/40' : 'border-dashed border-brand/40 bg-brand/5',
       )}
       aria-label={esEditar ? `Editar puesto ${puesto?.clave}` : 'Agregar puesto'}
     >
-      <div className="grid grid-cols-1 gap-2 md:grid-cols-12">
-        <Field
-          label="Clave"
-          required
-          error={form.formState.errors.clave?.message}
-          className="md:col-span-3"
-        >
-          <Input
-            maxLength={20}
-            placeholder="GER"
-            className="font-mono uppercase"
-            disabled={esEditar}
-            title={
-              esEditar
-                ? 'La clave es inmutable (business key).'
-                : 'Clave corta del puesto (p.ej. GER, EJEC, OPER).'
-            }
-            {...form.register('clave')}
-          />
-        </Field>
-
-        <Field
-          label="Nombre"
-          required
-          error={form.formState.errors.nombre?.message}
-          className="md:col-span-3"
-        >
-          <Input
-            maxLength={254}
-            placeholder="Gerente"
-            {...form.register('nombre')}
-          />
-        </Field>
-
-        <Field
-          label="Departamento de referencia"
-          error={form.formState.errors.departamentoId?.message}
-          className="md:col-span-3"
-        >
-          <Controller
-            control={form.control}
-            name="departamentoId"
-            render={({ field }) => (
-              <DepartamentoSelector
-                value={field.value || null}
-                onChange={(id) => field.onChange(id ?? '')}
-                className="w-full"
-                placeholder="(Sin departamento)"
-              />
-            )}
-          />
-        </Field>
-
-        <Field
-          label="Rol sugerido en el ERP"
-          error={form.formState.errors.rolSugeridoId?.message}
-          className="md:col-span-3"
-        >
-          <select
-            className="flex h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-sm shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50"
-            aria-label="Rol sugerido"
-            {...form.register('rolSugeridoId')}
+      <FormSeccion titulo="Datos del puesto" className="">
+        <FormCampo span={6}>
+          <Field
+            label="Clave"
+            required
+            error={form.formState.errors.clave?.message}
+            className="md:col-span-3"
           >
-            <option value="">(Sin rol sugerido)</option>
-            {rolesQuery.data?.items.map((r) => (
-              <option key={r.id} value={r.id}>
-                {r.nombre} ({r.codigo})
-              </option>
-            ))}
-          </select>
-        </Field>
-      </div>
+            <Input
+              maxLength={20}
+              placeholder="GER"
+              className="font-mono uppercase"
+              disabled={esEditar}
+              title={
+                esEditar
+                  ? 'La clave es inmutable (business key).'
+                  : 'Clave corta del puesto (p.ej. GER, EJEC, OPER).'
+              }
+              {...form.register('clave')}
+            />
+          </Field>
+        </FormCampo>
+
+        <FormCampo span={6}>
+          <Field
+            label="Nombre"
+            required
+            error={form.formState.errors.nombre?.message}
+            className="md:col-span-3"
+          >
+            <Input maxLength={254} placeholder="Gerente" {...form.register('nombre')} />
+          </Field>
+        </FormCampo>
+
+        <FormCampo span={6}>
+          <Field
+            label="Departamento de referencia"
+            error={form.formState.errors.departamentoId?.message}
+            className="md:col-span-3"
+          >
+            <Controller
+              control={form.control}
+              name="departamentoId"
+              render={({ field }) => (
+                <DepartamentoSelector
+                  value={field.value || null}
+                  onChange={(id) => field.onChange(id ?? '')}
+                  className="w-full"
+                  placeholder="(Sin departamento)"
+                />
+              )}
+            />
+          </Field>
+        </FormCampo>
+
+        <FormCampo span={6}>
+          <Field
+            label="Rol sugerido en el ERP"
+            error={form.formState.errors.rolSugeridoId?.message}
+            className="md:col-span-3"
+          >
+            <select
+              className="flex h-9 w-full rounded-md border border-line-control bg-surface-page px-3 py-1 text-sm shadow-card-flat transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-brand disabled:cursor-not-allowed disabled:opacity-50"
+              aria-label="Rol sugerido"
+              {...form.register('rolSugeridoId')}
+            >
+              <option value="">(Sin rol sugerido)</option>
+              {rolesQuery.data?.items.map((r) => (
+                <option key={r.id} value={r.id}>
+                  {r.nombre} ({r.codigo})
+                </option>
+              ))}
+            </select>
+          </Field>
+        </FormCampo>
+      </FormSeccion>
 
       <div className="flex items-center justify-end gap-2">
-        <Button
-          type="button"
-          variant="ghost"
-          size="sm"
-          onClick={onCancel}
-          disabled={isPending}
-        >
+        <Button type="button" variant="ghost" size="sm" onClick={onCancel} disabled={isPending}>
           <X className="mr-1 h-4 w-4" />
           Cancelar
         </Button>
@@ -287,17 +271,17 @@ interface FieldProps {
 function Field({ label, required, error, className, children }: FieldProps) {
   return (
     <div className={cn('space-y-1', className)}>
-      <label className="flex items-center gap-1 text-xs font-medium text-muted-foreground">
+      <label className="flex items-center gap-1 text-xs font-medium text-ink-muted">
         {label}
         {required && (
-          <span aria-hidden="true" className="text-rose-600">
+          <span aria-hidden="true" className="text-danger-fg">
             *
           </span>
         )}
       </label>
       {children}
       {error != null && (
-        <p role="alert" className="text-xs text-rose-600">
+        <p role="alert" className="text-xs text-danger-fg">
           {error}
         </p>
       )}

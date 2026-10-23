@@ -1,8 +1,9 @@
-import { useId, useState } from 'react';
-import { Loader2 } from 'lucide-react';
+import { FormCampo } from '@/components/erp/forms/FormGrid';
+import { FormSeccion } from '@/components/erp/forms/FormSeccion';
 import { Button } from '@/components/ui/button';
 import {
   Dialog,
+  DialogBody,
   DialogContent,
   DialogDescription,
   DialogFooter,
@@ -11,6 +12,8 @@ import {
 } from '@/components/ui/dialog';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
+import { Loader2 } from 'lucide-react';
+import { useId, useState } from 'react';
 
 export const MOTIVO_CANCELACION_MIN = 5;
 /** Tope del backend (CancelarCobroMostradorValidator: MaximumLength(254)). */
@@ -58,7 +61,7 @@ export function CancelarCobroDialog({
 
   return (
     <Dialog open onOpenChange={(abierto) => !abierto && !enviando && onCerrar()}>
-      <DialogContent closeLabel="Cerrar" data-component="cancelar-cobro-dialog">
+      <DialogContent closeLabel="Cerrar" data-component="cancelar-cobro-dialog" size="sm">
         <DialogHeader>
           <DialogTitle>Cancelar el cobro</DialogTitle>
           <DialogDescription>
@@ -66,29 +69,33 @@ export function CancelarCobroDialog({
             reversa por el mismo importe. El comprobante vuelve a quedar por cobrar.
           </DialogDescription>
         </DialogHeader>
-        <div className="grid gap-1.5">
-          <Label htmlFor={id} className="text-xs font-medium text-ink-strong">
-            Motivo de la cancelación
-          </Label>
-          <Textarea
-            id={id}
-            rows={3}
-            value={motivo}
-            maxLength={MOTIVO_CANCELACION_MAX}
-            onChange={(e) => setMotivo(e.target.value)}
-            aria-describedby={`${id}-ayuda`}
-            aria-invalid={largo > 0 && !valido}
-            disabled={enviando}
-          />
-          <p id={`${id}-ayuda`} className="text-xs text-ink-muted">
-            Entre {MOTIVO_CANCELACION_MIN} y {MOTIVO_CANCELACION_MAX} caracteres ({largo}).
-          </p>
-        </div>
-        {error && (
-          <p role="alert" className="text-xs text-danger-fg">
-            {error}
-          </p>
-        )}
+        <DialogBody>
+          <FormSeccion titulo="Motivo del movimiento">
+            <FormCampo span={12} className="space-y-1.5">
+              <Label htmlFor={id} className="text-xs font-medium text-ink-strong">
+                Motivo de la cancelación *
+              </Label>
+              <Textarea
+                id={id}
+                rows={3}
+                value={motivo}
+                maxLength={MOTIVO_CANCELACION_MAX}
+                onChange={(e) => setMotivo(e.target.value)}
+                aria-describedby={`${id}-ayuda`}
+                aria-invalid={largo > 0 && !valido}
+                disabled={enviando}
+              />
+              <p id={`${id}-ayuda`} className="text-xs text-ink-muted">
+                Entre {MOTIVO_CANCELACION_MIN} y {MOTIVO_CANCELACION_MAX} caracteres ({largo}).
+              </p>
+            </FormCampo>
+            {error && (
+              <p role="alert" className="text-xs text-danger-fg">
+                {error}
+              </p>
+            )}
+          </FormSeccion>
+        </DialogBody>
         <DialogFooter>
           <Button variant="ghost" onClick={onCerrar} disabled={enviando}>
             Volver

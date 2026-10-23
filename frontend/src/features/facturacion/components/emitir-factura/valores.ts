@@ -55,6 +55,7 @@ export const VALORES_INICIALES: EmitirFacturaValues = {
   canalVenta: 1,
   comportamientoFiscal: ComportamientoFiscal.MostradorInmediato,
   obraNombre: null,
+  observaciones: null,
   cceTipoOperacion: '2',
   cceIncoterm: null,
   cceTcDof: null,
@@ -133,8 +134,16 @@ export function valoresIniciales(
     metodoPago: prefill.metodoPago ?? base.metodoPago,
     formaPago: prefill.formaPago ?? base.formaPago,
     canalVenta: prefill.canalVenta ?? base.canalVenta,
+    // F6.1: una venta directa de un activo se factura siempre como venta
+    // de activo fijo (el backend lo valida con FAC_PEDIDO_ACTIVO_COMPORTAMIENTO).
     comportamientoFiscal:
-      prefill.comportamientoFiscal ?? base.comportamientoFiscal,
+      prefill.subtipoVentaDirecta === 'Activo'
+        ? ComportamientoFiscal.VentaActivoFijo
+        : (prefill.comportamientoFiscal ?? base.comportamientoFiscal),
+    cceIncoterm: prefill.embarqueCe?.ligado ? prefill.embarqueCe.incoterm : base.cceIncoterm,
+    cceClaveDePedimento: prefill.embarqueCe?.ligado
+      ? prefill.embarqueCe.clavePedimento
+      : base.cceClaveDePedimento,
     moneda: prefill.moneda ?? base.moneda,
     obraNombre: prefill.obraNombre ?? null,
     lineas,

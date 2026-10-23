@@ -51,7 +51,10 @@ public sealed class ActualizarToleranciaProveedorHandler(
             entidadEtiqueta: $"{proveedor.Clave} · {proveedor.RazonSocial}",
             resumen: "Tolerancia factura contra OC (MXN) actualizada por CxP.",
             usuarioId: usuario.UserId, empresaId: empresa.Current,
-            cambios: JsonSerializer.Serialize(new { toleranciaFacturaContraOcMxn = new { antes = anterior, despues = request.MontoMxn } }),
+            cambios: JsonSerializer.Serialize(new
+            {
+                toleranciaFacturaContraOcMxn = new { antes = anterior, despues = request.MontoMxn },
+            }),
             metadatos: JsonSerializer.Serialize(new { ocurridoEn = clock.UtcNow }),
             cancellationToken: cancellationToken);
     }

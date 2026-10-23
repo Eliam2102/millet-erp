@@ -1,12 +1,9 @@
+import { PageHeader } from '@/components/erp/PageHeader';
 import { useMemo, type ReactNode } from 'react';
 import { useNavigate, useSearch } from '@tanstack/react-router';
 import { Inbox, Plus } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import {
-  EmptyState,
-  ErrorState,
-  TableSkeleton,
-} from '@/components/erp';
+import { EmptyState, ErrorState, TableSkeleton } from '@/components/erp';
 import { useOrdenesCompra } from '@/features/compras/ordenes/api/useOrdenesCompra';
 import { useProveedores, useUsuarios } from '@/features/catalogos/api';
 import { useHasPermission } from '@/lib/auth/useHasPermission';
@@ -58,10 +55,7 @@ export interface OrdenesCompraLayoutProps {
   detalle?: ReactNode;
 }
 
-export function OrdenesCompraLayout({
-  idActivo,
-  detalle,
-}: OrdenesCompraLayoutProps) {
+export function OrdenesCompraLayout({ idActivo, detalle }: OrdenesCompraLayoutProps) {
   // <c>useSearch({ strict: false })</c> permite que el componente
   // viva en dos rutas (<c>/ordenes</c> y <c>/ordenes/$id</c>) sin
   // acoplarse al <c>from</c> de una específica. Caveat: con
@@ -88,6 +82,7 @@ export function OrdenesCompraLayout({
     subEstadoRecepcion: search.subEstadoRecepcion,
     subEstadoFacturacion: search.subEstadoFacturacion,
     subEstadoPago: search.subEstadoPago,
+    estadoComercialProveedor: search.estadoComercialProveedor,
     proveedorId: search.proveedorId,
     compradorTitularId: search.compradorTitularId,
     fechaDesde: search.fechaDesde,
@@ -109,10 +104,7 @@ export function OrdenesCompraLayout({
   // Cuando se agregue search por folio, hacerlo dentro de un
   // <c>useMemo</c> sobre <c>data?.items</c> directamente — sin
   // intermediar variable que cambie en cada render.
-  const itemsFiltrados = useMemo(
-    () => ordenesQuery.data?.items ?? [],
-    [ordenesQuery.data],
-  );
+  const itemsFiltrados = useMemo(() => ordenesQuery.data?.items ?? [], [ordenesQuery.data]);
 
   function setSearch(next: BandejaOcSearch) {
     if (idActivo != null) {
@@ -136,22 +128,18 @@ export function OrdenesCompraLayout({
       {/* ── Master (lista) ────────────────────────────── */}
       <aside
         className={cn(
-          'flex flex-col gap-3 md:w-80 md:shrink-0 md:overflow-hidden',
+          'flex flex-col gap-3 md:shrink-0 md:overflow-hidden',
+          // Con detalle abierto la lista se estrecha bajo 2xl (el panel decide).
+          idActivo != null ? 'md:w-64 2xl:w-80' : 'md:w-80',
           idActivo != null ? 'hidden md:flex' : 'flex',
         )}
         aria-label="Lista de órdenes de compra"
         data-print="hidden"
       >
         <div className="flex flex-wrap items-center justify-between gap-2">
-          <h1 className="text-xl font-semibold tracking-tight">
-            Bandeja de OCs
-          </h1>
+          <PageHeader titulo="Bandeja de OCs" />
           {canCrear && (
-            <Button
-              size="sm"
-              onClick={() => nuevaOC.abrir()}
-              data-action="nueva-oc"
-            >
+            <Button size="sm" onClick={() => nuevaOC.abrir()} data-action="nueva-oc">
               <Plus className="mr-1 h-4 w-4" />
               Nueva
             </Button>
@@ -160,19 +148,15 @@ export function OrdenesCompraLayout({
 
         <FiltrosBandejaOc search={search} onChange={setSearch} />
 
-        <div className="flex-1 overflow-y-auto rounded-md border bg-card">
-          <RenderListaContent
-            query={ordenesQuery}
-            items={itemsFiltrados}
-            idActivo={idActivo}
-          />
+        <div className="flex-1 overflow-y-auto rounded-md border bg-surface-card">
+          <RenderListaContent query={ordenesQuery} items={itemsFiltrados} idActivo={idActivo} />
         </div>
       </aside>
 
       {/* ── Detail panel ──────────────────────────────── */}
       <section
         className={cn(
-          'min-w-0 flex-1 md:overflow-y-auto',
+          '@container min-w-0 flex-1 md:overflow-y-auto',
           idActivo == null ? 'hidden md:block' : 'block',
         )}
         aria-label="Detalle de orden de compra"
@@ -189,18 +173,11 @@ interface RenderListaContentProps {
   idActivo: string | null;
 }
 
-function RenderListaContent({
-  query,
-  items,
-  idActivo,
-}: RenderListaContentProps) {
+function RenderListaContent({ query, items, idActivo }: RenderListaContentProps) {
   if (query.isLoading) {
     return (
       <div className="p-3">
-        <TableSkeleton
-          rows={8}
-          columns={[{ width: 'w-full' }, { width: 'w-full' }]}
-        />
+        <TableSkeleton rows={8} columns={[{ width: 'w-full' }, { width: 'w-full' }]} />
       </div>
     );
   }
@@ -242,15 +219,13 @@ function ListaOrdenesCompactaConSearch({
     ...DEFAULT_BANDEJA_OC_SEARCH,
     ...rawSearch,
   };
-  return (
-    <ListaOrdenesCompacta items={items} idActivo={idActivo} search={search} />
-  );
+  return <ListaOrdenesCompacta items={items} idActivo={idActivo} search={search} />;
 }
 
 function PlaceholderSinSeleccion() {
   return (
-    <div className="flex h-full min-h-64 items-center justify-center rounded-md border border-dashed bg-muted/20 p-8 text-center">
-      <div className="space-y-1 text-muted-foreground">
+    <div className="flex h-full min-h-64 items-center justify-center rounded-md border border-dashed bg-surface-muted/20 p-8 text-center">
+      <div className="space-y-1 text-ink-muted">
         <Inbox className="mx-auto h-8 w-8 opacity-50" aria-hidden="true" />
         <p className="text-sm">Selecciona una orden de compra de la lista</p>
         <p className="text-xs">para ver su detalle.</p>

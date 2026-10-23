@@ -10,7 +10,7 @@ import {
 import { Ban, Download, Trash2, Upload, X, Loader2, Inbox } from 'lucide-react';
 import { format } from 'date-fns';
 import { Button } from '@/components/ui/button';
-import { EmptyState } from '@/components/erp';
+import { ConfirmarAccionDialog, EmptyState } from '@/components/erp';
 import {
   TipoDocumentoSelector,
   type TipoDocumentoSelectorItem,
@@ -207,6 +207,7 @@ export function AdjuntosManager<
   const [removingId, setRemovingId] = useState<string | null>(null);
   const [vigenteHasta, setVigenteHasta] = useState('');
   const [accionError, setAccionError] = useState<string | null>(null);
+  const [porEliminar, setPorEliminar] = useState<TItem | null>(null);
   const [bajaDe, setBajaDe] = useState<TItem | null>(null);
   const [bajaError, setBajaError] = useState<string | null>(null);
   const vigenciaId = useId();
@@ -533,7 +534,7 @@ export function AdjuntosManager<
                 usuario={resolverNombreUsuario?.(a.usuarioCargaId) ?? null}
                 canRemove={Boolean(canRemove && onRemove && !modoBaja)}
                 removing={removingId === a.id}
-                onRemove={onRemove ? handleRemove : undefined}
+                onRemove={onRemove ? () => setPorEliminar(a) : undefined}
                 onDescargar={onDescargar ? handleDescargar : undefined}
                 onDarDeBaja={
                   modoBaja && canRemove && onDarDeBaja
@@ -548,6 +549,29 @@ export function AdjuntosManager<
           })}
         </ul>
       )}
+
+      <ConfirmarAccionDialog
+        open={porEliminar !== null}
+        onOpenChange={(abierto) => !abierto && setPorEliminar(null)}
+        titulo="Eliminar adjunto"
+        resumen={
+          <>
+            Se eliminará <strong>{porEliminar?.nombreArchivo}</strong>. Esta
+            acción no se puede deshacer.
+          </>
+        }
+        verbo="Eliminar adjunto"
+        tono="peligro"
+        pendiente={removingId !== null}
+        onConfirmar={async () => {
+          if (porEliminar == null) return;
+          try {
+            await handleRemove(porEliminar.id);
+          } finally {
+            setPorEliminar(null);
+          }
+        }}
+      />
 
       {bajaDe && (
         <MotivoBajaDialog
@@ -635,7 +659,7 @@ function AdjuntoFila({
               href={urlEfectiva}
               download={a.nombreArchivo}
               className="truncate text-sm font-medium hover:underline"
-              title={`Descargar ${a.nombreArchivo}`}
+              title={`Descargar ${a.nombreArchivo}${a.hashSha256 ? ` · SHA-256: ${a.hashSha256}` : ''}`}
               data-action="descargar-adjunto"
             >
               {a.nombreArchivo}
@@ -643,7 +667,7 @@ function AdjuntoFila({
           ) : (
             <span
               className="truncate text-sm font-medium text-muted-foreground"
-              title={a.nombreArchivo}
+              title={`${a.nombreArchivo}${a.hashSha256 ? ` · SHA-256: ${a.hashSha256}` : ''}`}
             >
               {a.nombreArchivo}
               {isLoading ? ' (cargando…)' : ''}
@@ -663,19 +687,11 @@ function AdjuntoFila({
             </span>
           )}
           {tipoExtra}
-          {a.estado != null && <EstadoAdjuntoBadge estado={a.estado} />}
+          {a.estado != null && a.estado !== EstadoAdjunto.SinVigencia && <EstadoAdjuntoBadge estado={a.estado} />}
         </div>
         <p className="mt-0.5 text-xs text-muted-foreground">
           {formatBytes(a.tamanoBytes)} · {formatDateTime(a.fechaCarga)}
           {usuario ? ` · ${usuario}` : ''}
-          {a.hashSha256 && (
-            <>
-              {' · '}
-              <span className="font-mono text-2xs" title={`SHA-256: ${a.hashSha256}`}>
-                {a.hashSha256.slice(0, 8)}
-              </span>
-            </>
-          )}
         </p>
         {a.vigenteHasta && (
           <p

@@ -1,28 +1,21 @@
-import {
-  useCallback,
-  useEffect,
-  useMemo,
-  useRef,
-  useState,
-  type ReactNode,
-} from 'react';
+import { FormCampo } from '@/components/erp/forms/FormGrid';
+import { FormSeccion } from '@/components/erp/forms/FormSeccion';
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import {
+  SheetBody,
   Sheet,
   SheetContent,
   SheetDescription,
   SheetHeader,
   SheetTitle,
+  SheetFooter,
 } from '@/components/ui/sheet';
-import {
-  applyServerErrors,
-  esApiError,
-  useFormIdempotencyKey,
-} from '@/lib/api';
+import { applyServerErrors, esApiError, useFormIdempotencyKey } from '@/lib/api';
 import { useCrearIncoterm } from '@/modules/catalogos/api';
 import {
   CrearIncotermSchema,
@@ -64,25 +57,19 @@ export function NuevoIncotermProvider({ children }: { children: ReactNode }) {
   return (
     <NuevoIncotermContext.Provider value={api}>
       {children}
-      <Sheet
-        open={abierto}
-        onOpenChange={(open) => (open ? setAbierto(true) : cerrar())}
-      >
-        <SheetContent
-          side="right"
-          className="w-full overflow-y-auto sm:max-w-2xl"
-        >
+      <Sheet open={abierto} onOpenChange={(open) => (open ? setAbierto(true) : cerrar())}>
+        <SheetContent size="lg" side="right">
           <SheetHeader>
             <SheetTitle>Nuevo Incoterm</SheetTitle>
             <SheetDescription>
-              Alta en el catálogo cross-empresa de Incoterms (códigos
-              estándar 2-4 letras). El código es inmutable.
+              Alta en el catálogo cross-empresa de Incoterms (códigos estándar 2-4 letras). El
+              código es inmutable.
             </SheetDescription>
           </SheetHeader>
-          <div className="px-6 pb-6">
-            {abierto && (
-              <NuevoIncotermForm onClose={cerrar} onDirtyChange={setDirty} />
-            )}
+          <div className="contents">
+            <div className="contents">
+              {abierto && <NuevoIncotermForm onClose={cerrar} onDirtyChange={setDirty} />}
+            </div>
           </div>
         </SheetContent>
       </Sheet>
@@ -126,12 +113,7 @@ function NuevoIncotermForm({
               });
               return;
             }
-            if (
-              applyServerErrors(
-                form as unknown as Parameters<typeof applyServerErrors>[0],
-                err,
-              )
-            )
+            if (applyServerErrors(form as unknown as Parameters<typeof applyServerErrors>[0], err))
               return;
             toast.error(err.problem.title);
             return;
@@ -146,46 +128,41 @@ function NuevoIncotermForm({
     <form
       onSubmit={form.handleSubmit(onSubmit)}
       noValidate
-      className="space-y-4 rounded-md border bg-card p-4"
+      className="flex min-h-0 flex-1 flex-col overflow-hidden"
     >
-      <FormRow
-        label="Código"
-        required
-        hint="2-4 letras mayúsculas (ej. EXW, FOB, DDP). Inmutable."
-        error={form.formState.errors.codigo?.message}
-      >
-        <Input
-          autoFocus
-          maxLength={4}
-          placeholder="FOB"
-          className="font-mono uppercase"
-          {...form.register('codigo')}
-        />
-      </FormRow>
-      <FormRow
-        label="Nombre"
-        required
-        error={form.formState.errors.nombre?.message}
-      >
-        <Input
-          maxLength={100}
-          placeholder="Free On Board"
-          {...form.register('nombre')}
-        />
-      </FormRow>
-      <div className="flex flex-wrap items-center justify-end gap-2 border-t pt-3">
-        <Button
-          type="button"
-          variant="ghost"
-          onClick={() => onClose()}
-          disabled={crear.isPending}
-        >
+      <SheetBody>
+        <FormSeccion titulo="Datos del registro">
+          <FormCampo span={6}>
+            <FormRow
+              label="Código"
+              required
+              hint="2-4 letras mayúsculas (ej. EXW, FOB, DDP). Inmutable."
+              error={form.formState.errors.codigo?.message}
+            >
+              <Input
+                autoFocus
+                maxLength={4}
+                placeholder="FOB"
+                className="font-mono uppercase"
+                {...form.register('codigo')}
+              />
+            </FormRow>
+          </FormCampo>
+          <FormCampo span={6}>
+            <FormRow label="Nombre" required error={form.formState.errors.nombre?.message}>
+              <Input maxLength={100} placeholder="Free On Board" {...form.register('nombre')} />
+            </FormRow>
+          </FormCampo>
+        </FormSeccion>
+      </SheetBody>
+      <SheetFooter>
+        <Button type="button" variant="ghost" onClick={() => onClose()} disabled={crear.isPending}>
           Cancelar
         </Button>
         <Button type="submit" disabled={crear.isPending}>
           {crear.isPending ? 'Creando…' : 'Crear Incoterm'}
         </Button>
-      </div>
+      </SheetFooter>
     </form>
   );
 }
@@ -208,17 +185,15 @@ function FormRow({
       <label className="flex items-center gap-1 text-sm font-medium">
         {label}
         {required && (
-          <span aria-hidden="true" className="text-rose-600">
+          <span aria-hidden="true" className="text-danger-fg">
             *
           </span>
         )}
       </label>
       {children}
-      {hint != null && error == null && (
-        <p className="text-xs text-muted-foreground">{hint}</p>
-      )}
+      {hint != null && error == null && <p className="text-xs text-ink-muted">{hint}</p>}
       {error != null && (
-        <p role="alert" className="text-xs text-rose-600">
+        <p role="alert" className="text-xs text-danger-fg">
           {error}
         </p>
       )}

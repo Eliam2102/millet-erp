@@ -1,8 +1,17 @@
-import { useForm } from 'react-hook-form';
+import { ListadoModulo } from '@/components/erp/data/ListadoModulo';
+import { TriangleAlert } from 'lucide-react';
+import { Controller, useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 import {
   Table,
   TableBody,
@@ -13,7 +22,12 @@ import {
 } from '@/components/ui/table';
 import { esApiError, useFormIdempotencyKey } from '@/lib/api';
 import { useDepartamentos } from '@/features/catalogos/api/hooks';
-import { EstatusCatalogo, type UmbralAprobacionResponse } from '@/features/compras/api/types';
+import {
+  EstatusCatalogo,
+  MODO_NIVEL2_LABEL,
+  ModoNivel2,
+  type UmbralAprobacionResponse,
+} from '@/features/compras/api/types';
 import {
   useGuardarUmbral,
   useUmbralesAprobacion,
@@ -70,62 +84,81 @@ export function UmbralesAprobacionSection({ puedeEditar }: UmbralesAprobacionSec
     ...departamentos,
   ];
 
-  const umbralPorDepartamento = new Map(
-    umbralesQuery.data.map((u) => [u.departamentoId, u]),
-  );
+  const umbralPorDepartamento = new Map(umbralesQuery.data.map((u) => [u.departamentoId, u]));
 
   return (
-    <section
-      aria-labelledby="umbrales-titulo"
-      className="overflow-hidden rounded-lg bg-surface-card shadow-card-flat"
-    >
-      <div className="space-y-1 border-b border-line-divider px-4 py-3">
-        <h2 id="umbrales-titulo" className="text-sm font-semibold text-ink-strong">
-          Umbrales de aprobación
-        </h2>
-        <p className="text-xs text-ink-muted">
-          N1 = menor cuantía (aprobación rápida); N2 = por encima de este monto la OC también
-          requiere Dirección. N1 es opcional y debe ser menor que N2. Montos en MXN.
-        </p>
-        {departamentos.length === 0 && (
-          <p className="text-xs text-ink-muted">
-            No hay departamentos activos. Da de alta un departamento en el catálogo para definir sus umbrales.
+    <section aria-labelledby="umbrales-titulo" className="space-y-5">
+      <h2 id="umbrales-titulo" className="text-lg font-semibold text-ink">
+        Umbrales de aprobación
+      </h2>
+      <div
+        role="note"
+        className="flex items-start gap-2 rounded-md bg-warning-note-bg px-3 py-2.5 text-sm text-warning-note-fg"
+      >
+        <TriangleAlert className="mt-0.5 size-4 shrink-0" aria-hidden="true" />
+        <div className="space-y-2">
+          <p>
+            N1 es el límite de menor cuantía para aprobación rápida. Por encima del monto N2, la
+            orden de compra también requiere la firma de Dirección. Todos los importes se capturan
+            en MXN.
           </p>
-        )}
-        {!puedeEditar && (
-          <p role="note" className="text-xs text-ink-strong">
-            Solo lectura: tu rol puede consultar los umbrales, pero no modificarlos.
+          <p>
+            En requisiciones, «Solo por monto» evalúa el umbral N2. «Solo por disponibilidad»
+            solicita N2 si falta material en almacén y el importe a comprar supera el mínimo. El
+            modo combinado evalúa ambas condiciones.
           </p>
-        )}
+          <p>Sin umbral del departamento se usa General; sin ninguno, la requisición pide N2.</p>
+          {departamentos.length === 0 && (
+            <p>
+              No hay departamentos activos. Agrega uno en el catálogo para definir sus umbrales.
+            </p>
+          )}
+          {!puedeEditar && (
+            <p>Solo lectura: tu rol puede consultar los umbrales, pero no modificarlos.</p>
+          )}
+        </div>
       </div>
-      <Table>
-        <TableHeader>
-          <TableRow>
-            <TableHead>Departamento</TableHead>
-            <TableHead className="text-right">N1 menor cuantía (MXN)</TableHead>
-            <TableHead className="text-right">N2 monto (MXN)</TableHead>
-            <TableHead>Vigente desde</TableHead>
-            <TableHead>
-              <span className="sr-only">Acciones</span>
-            </TableHead>
-          </TableRow>
-        </TableHeader>
-        <TableBody>
-          {entidades.map((entidad) => {
-            const umbral = umbralPorDepartamento.get(entidad.id);
-            return (
-              <FilaUmbral
-                // Remonta la fila cuando cambia el umbral del servidor, para
-                // que el formulario tome los valores nuevos sin efectos.
-                key={`${entidad.id}-${umbral?.vigenteDesde ?? ''}-${umbral?.umbralMonto ?? ''}-${umbral?.umbralMenorCuantia ?? ''}`}
-                departamento={entidad}
-                umbral={umbral}
-                puedeEditar={puedeEditar}
-              />
-            );
-          })}
-        </TableBody>
-      </Table>
+      <ListadoModulo>
+        <Table className="table-fixed min-w-6xl">
+          <colgroup>
+            <col className="min-w-48" />
+            <col className="w-[160px]" />
+            <col className="w-[160px]" />
+            <col className="w-[220px]" />
+            <col className="w-[180px]" />
+            <col className="w-[120px]" />
+            <col className="w-[96px]" />
+          </colgroup>
+          <TableHeader>
+            <TableRow className="[&_th]:whitespace-normal [&_th]:py-3">
+              <TableHead>Departamento</TableHead>
+              <TableHead className="text-right">N1 menor cuantía (MXN)</TableHead>
+              <TableHead className="text-right">N2 monto (MXN) *</TableHead>
+              <TableHead>Modo de nivel 2</TableHead>
+              <TableHead className="text-right">Mínimo por disponibilidad (MXN)</TableHead>
+              <TableHead>Vigente desde</TableHead>
+              <TableHead>
+                <span className="sr-only">Acciones</span>
+              </TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody className="[&_tr]:h-12">
+            {entidades.map((entidad) => {
+              const umbral = umbralPorDepartamento.get(entidad.id);
+              return (
+                <FilaUmbral
+                  // Remonta la fila cuando cambia el umbral del servidor, para
+                  // que el formulario tome los valores nuevos sin efectos.
+                  key={`${entidad.id}-${umbral?.vigenteDesde ?? ''}-${umbral?.umbralMonto ?? ''}-${umbral?.umbralMenorCuantia ?? ''}-${umbral?.modoNivel2 ?? ''}-${umbral?.montoMinimoDisponibilidad ?? ''}`}
+                  departamento={entidad}
+                  umbral={umbral}
+                  puedeEditar={puedeEditar}
+                />
+              );
+            })}
+          </TableBody>
+        </Table>
+      </ListadoModulo>
     </section>
   );
 }
@@ -160,7 +193,10 @@ function FilaUmbral({ departamento, umbral, puedeEditar }: FilaUmbralProps) {
     guardar.mutate(
       { values: aUpsertUmbral(departamento.id, values), idempotencyKey },
       {
-        onSuccess: () => toast.success(`Umbral guardado para ${nombre}.`),
+        onSuccess: () => {
+          form.reset(values);
+          toast.success(`Umbral guardado para ${nombre}.`);
+        },
         onError: (error) => {
           if (!esApiError(error)) {
             toast.error(`No fue posible guardar el umbral de ${nombre}.`);
@@ -182,7 +218,11 @@ function FilaUmbral({ departamento, umbral, puedeEditar }: FilaUmbralProps) {
   return (
     <TableRow>
       <TableCell>
-        <form id={`umbral-form-${departamento.id}`} onSubmit={form.handleSubmit(onSubmit)} noValidate>
+        <form
+          id={`umbral-form-${departamento.id}`}
+          onSubmit={form.handleSubmit(onSubmit)}
+          noValidate
+        >
           {departamento.clave && (
             <span className="block font-mono text-xs text-ink-muted">{departamento.clave}</span>
           )}
@@ -190,17 +230,25 @@ function FilaUmbral({ departamento, umbral, puedeEditar }: FilaUmbralProps) {
         </form>
       </TableCell>
       <TableCell className="text-right">
-        <Input
-          form={`umbral-form-${departamento.id}`}
-          inputMode="decimal"
-          aria-label={`Umbral N1 de ${nombre}`}
-          aria-invalid={errores.umbralMenorCuantia ? true : undefined}
-          aria-describedby={errores.umbralMenorCuantia ? `n1-err-${departamento.id}` : undefined}
-          disabled={bloqueado}
-          placeholder="Sin N1"
-          className="ml-auto w-36 text-right tabular-nums"
-          {...form.register('umbralMenorCuantia')}
-        />
+        <div className="relative">
+          <span
+            aria-hidden="true"
+            className="pointer-events-none absolute left-2 top-1/2 -translate-y-1/2 text-ink-muted"
+          >
+            $
+          </span>
+          <Input
+            form={`umbral-form-${departamento.id}`}
+            inputMode="decimal"
+            aria-label={`Umbral N1 de ${nombre}`}
+            aria-invalid={errores.umbralMenorCuantia ? true : undefined}
+            aria-describedby={errores.umbralMenorCuantia ? `n1-err-${departamento.id}` : undefined}
+            disabled={bloqueado}
+            placeholder="Sin N1"
+            className="w-full pl-6 text-right tabular-nums"
+            {...form.register('umbralMenorCuantia')}
+          />
+        </div>
         {errores.umbralMenorCuantia && (
           <p id={`n1-err-${departamento.id}`} role="alert" className="mt-1 text-xs text-danger-fg">
             {errores.umbralMenorCuantia.message}
@@ -208,19 +256,75 @@ function FilaUmbral({ departamento, umbral, puedeEditar }: FilaUmbralProps) {
         )}
       </TableCell>
       <TableCell className="text-right">
-        <Input
-          form={`umbral-form-${departamento.id}`}
-          inputMode="decimal"
-          aria-label={`Umbral N2 de ${nombre}`}
-          aria-invalid={errores.umbralMonto ? true : undefined}
-          aria-describedby={errores.umbralMonto ? `n2-err-${departamento.id}` : undefined}
-          disabled={bloqueado}
-          className="ml-auto w-36 text-right tabular-nums"
-          {...form.register('umbralMonto')}
-        />
+        <div className="relative">
+          <span
+            aria-hidden="true"
+            className="pointer-events-none absolute left-2 top-1/2 -translate-y-1/2 text-ink-muted"
+          >
+            $
+          </span>
+          <Input
+            form={`umbral-form-${departamento.id}`}
+            inputMode="decimal"
+            aria-label={`Umbral N2 de ${nombre}`}
+            aria-invalid={errores.umbralMonto ? true : undefined}
+            aria-describedby={errores.umbralMonto ? `n2-err-${departamento.id}` : undefined}
+            disabled={bloqueado}
+            className="w-full pl-6 text-right tabular-nums"
+            {...form.register('umbralMonto')}
+          />
+        </div>
         {errores.umbralMonto && (
           <p id={`n2-err-${departamento.id}`} role="alert" className="mt-1 text-xs text-danger-fg">
             {errores.umbralMonto.message}
+          </p>
+        )}
+      </TableCell>
+      <TableCell>
+        <Controller
+          name="modoNivel2"
+          control={form.control}
+          render={({ field }) => (
+            <Select value={field.value} onValueChange={field.onChange} disabled={bloqueado}>
+              <SelectTrigger aria-label={`Modo de nivel 2 de ${nombre}`} className="w-full">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {Object.values(ModoNivel2).map((m) => (
+                  <SelectItem key={m} value={m}>
+                    {MODO_NIVEL2_LABEL[m]}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          )}
+        />
+      </TableCell>
+      <TableCell className="text-right">
+        <div className="relative">
+          <span
+            aria-hidden="true"
+            className="pointer-events-none absolute left-2 top-1/2 -translate-y-1/2 text-ink-muted"
+          >
+            $
+          </span>
+          <Input
+            form={`umbral-form-${departamento.id}`}
+            inputMode="decimal"
+            aria-label={`Mínimo por disponibilidad de ${nombre}`}
+            aria-invalid={errores.montoMinimoDisponibilidad ? true : undefined}
+            aria-describedby={
+              errores.montoMinimoDisponibilidad ? `min-err-${departamento.id}` : undefined
+            }
+            disabled={bloqueado}
+            placeholder="Sin mínimo"
+            className="w-full pl-6 text-right tabular-nums"
+            {...form.register('montoMinimoDisponibilidad')}
+          />
+        </div>
+        {errores.montoMinimoDisponibilidad && (
+          <p id={`min-err-${departamento.id}`} role="alert" className="mt-1 text-xs text-danger-fg">
+            {errores.montoMinimoDisponibilidad.message}
           </p>
         )}
       </TableCell>
@@ -233,7 +337,16 @@ function FilaUmbral({ departamento, umbral, puedeEditar }: FilaUmbralProps) {
           form={`umbral-form-${departamento.id}`}
           size="sm"
           variant="outline"
-          disabled={bloqueado}
+          disabled={bloqueado || !form.formState.isDirty}
+          title={
+            !puedeEditar
+              ? 'No tienes permiso para editar'
+              : guardar.isPending
+                ? 'Guardando cambios'
+                : !form.formState.isDirty
+                  ? 'Sin cambios por guardar'
+                  : undefined
+          }
           aria-label={`Guardar umbral de ${nombre}`}
         >
           {guardar.isPending ? 'Guardando…' : 'Guardar'}

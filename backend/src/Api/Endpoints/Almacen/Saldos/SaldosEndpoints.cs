@@ -44,6 +44,24 @@ public static class SaldosEndpoints
         .WithSummary("Listar saldos materializados de inventario (F2-PR2)")
         .Produces<AlmacenPagedResponse<SaldoListItem>>(StatusCodes.Status200OK);
 
+        // UX-F2-ALM-05: totales (valor MXN; cantidad solo con una única UM) de todo el
+        // conjunto filtrado, con los mismos filtros y alcance que el listado.
+        group.MapGet("/totales", async (
+            [FromQuery] Guid? subAlmacenId,
+            [FromQuery] Guid? articuloId,
+            [FromQuery] bool? soloConStock,
+            IMediator mediator,
+            CancellationToken ct) =>
+        {
+            var response = await mediator.Send(
+                new ObtenerTotalesSaldosQuery(subAlmacenId, articuloId, soloConStock ?? false), ct);
+            return Results.Ok(response);
+        })
+        .RequireAuthorization(PermissionPolicyProvider.Prefix + PermisosCanonicos.AlmacenAlmacenesRead)
+        .WithName("TotalesSaldos")
+        .WithSummary("Totales de saldos del conjunto filtrado (UX-F2-ALM-05)")
+        .Produces<SaldosTotalesResponse>(StatusCodes.Status200OK);
+
         // C7.2b: puebla el selector de bin en salidas — ubicaciones con
         // existencia (>0) del artículo, incluida la ÚNICA. Salida-por-línea C2:
         // subAlmacenId opcional — sin él, lista bins de todos los subs.

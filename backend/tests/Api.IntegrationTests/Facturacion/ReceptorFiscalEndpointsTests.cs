@@ -56,12 +56,14 @@ public sealed class ReceptorFiscalEndpointsTests(WebApplicationFactory<Program> 
         client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", loginJson.RootElement.GetProperty("accessToken").GetString());
 
         var clienteId = Guid.NewGuid();
+        // RFC único por corrida: el maestro de clientes no admite RFC repetidos (ux_clientes_rfc_no_generico).
+        var rfc = "UAA010101" + clienteId.ToString("N")[..3].ToUpperInvariant();
         using var scope = app.Services.CreateScope();
         var db = scope.ServiceProvider.GetRequiredService<CompartidoDbContext>();
         var facturacion = scope.ServiceProvider.GetRequiredService<FacturacionDbContext>();
         using var bypass = scope.ServiceProvider.GetRequiredService<ICurrentEmpresaContext>().Bypass();
         var cliente = new Cliente(clienteId, "U19-" + clienteId.ToString("N")[..12], "CLIENTE FICTICIO U1.9",
-            rfc: "AAA010101AAA", regimenFiscal: "601", codigoPostalFiscal: null, usoCfdiDefault: "G03");
+            rfc: rfc, regimenFiscal: "601", codigoPostalFiscal: null, usoCfdiDefault: "G03");
         db.Clientes.Add(cliente);
         await db.SaveChangesAsync();
         try
@@ -75,7 +77,7 @@ public sealed class ReceptorFiscalEndpointsTests(WebApplicationFactory<Program> 
             Assert.Equal(sandbox, config!.ReceptorSandbox is not null);
 
             // Snapshot completo: el maestro incompleto debe bloquear aunque el caller lo suplante.
-            var command = new EmitirFacturaVentaCommand(sucursal, "AAA010101AAA", "CLIENTE FICTICIO U1.9", "601", "97000", "G03", "MEX",
+            var command = new EmitirFacturaVentaCommand(sucursal, rfc, "CLIENTE FICTICIO U1.9", "601", "97000", "G03", "MEX",
                 "MIL010101AAA", "601", "PUE", "01", "MXN", null, 1, ComportamientoFiscal.Administrativa,
                 null, null, false, [new(null, "01010101", "Prueba U1.9", "H87", 1, 100, 0, "02", 0.16m, null, null)], ClienteId: clienteId);
             var response = await client.PostAsJsonAsync("/api/v1/facturacion/facturas/", command);

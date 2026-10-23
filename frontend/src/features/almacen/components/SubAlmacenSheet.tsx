@@ -1,3 +1,6 @@
+import { FormSeccion } from '@/components/erp/forms/FormSeccion';
+import { FormCampo } from '@/components/erp/forms/FormGrid';
+import { SheetBody } from '@/components/ui/sheet';
 import { useEffect } from 'react';
 import { Controller, useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -11,6 +14,7 @@ import {
   SheetTitle,
 } from '@/components/ui/sheet';
 import { Button } from '@/components/ui/button';
+import { useConfirmarDescarte } from '@/components/erp/forms/useConfirmarDescarte';
 import { Input } from '@/components/ui/input';
 import {
   Select,
@@ -19,11 +23,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import {
-  applyServerErrors,
-  esApiError,
-  useFormIdempotencyKey,
-} from '@/lib/api';
+import { applyServerErrors, esApiError, useFormIdempotencyKey, codigoSoporte } from '@/lib/api';
 import {
   CrearSubAlmacenSchema,
   type CrearSubAlmacenValues,
@@ -40,6 +40,7 @@ import {
   TipoSubAlmacenLabels,
   type SubAlmacenListItem,
 } from '@/features/almacen/api/types';
+import { Field } from '@/features/almacen/components/internal/Field';
 
 /**
  * <c>&lt;SubAlmacenSheet/&gt;</c> — slide-from-right para crear o
@@ -91,6 +92,13 @@ export function SubAlmacenSheet({
     },
   });
 
+  // Cerrar (Esc, clic fuera, X, Cancelar) con cambios pide confirmación; guardar cierra con force.
+  const { setDirty, solicitarCierre, dialogo } = useConfirmarDescarte(() => onOpenChange(false));
+  const isDirty = form.formState.isDirty;
+  useEffect(() => {
+    setDirty(isDirty);
+  }, [isDirty, setDirty]);
+
   useEffect(() => {
     if (open) {
       form.reset(
@@ -127,7 +135,7 @@ export function SubAlmacenSheet({
         {
           onSuccess: () => {
             toast.success('Sub-almacén actualizado');
-            onOpenChange(false);
+            solicitarCierre(true);
           },
           onError: (error) => manejarError(error),
         },
@@ -138,7 +146,7 @@ export function SubAlmacenSheet({
         {
           onSuccess: () => {
             toast.success('Sub-almacén creado');
-            onOpenChange(false);
+            solicitarCierre(true);
           },
           onError: (error) => manejarError(error),
         },
@@ -162,16 +170,11 @@ export function SubAlmacenSheet({
         });
         return;
       }
-      if (
-        applyServerErrors(
-          form as unknown as Parameters<typeof applyServerErrors>[0],
-          error,
-        )
-      ) {
+      if (applyServerErrors(form as unknown as Parameters<typeof applyServerErrors>[0], error)) {
         return;
       }
       toast.error(error.problem.title, {
-        description: error.traceId ? `Código: ${error.traceId}` : undefined,
+        description: codigoSoporte(error),
       });
       return;
     }
@@ -182,12 +185,10 @@ export function SubAlmacenSheet({
   const isEdit = editando != null;
 
   return (
-    <Sheet open={open} onOpenChange={onOpenChange}>
-      <SheetContent side="right" className="sm:max-w-md">
+    <Sheet open={open} onOpenChange={(next) => (next ? onOpenChange(next) : solicitarCierre())}>
+      <SheetContent side="right" size="lg">
         <SheetHeader>
-          <SheetTitle>
-            {isEdit ? 'Editar sub-almacén' : 'Nuevo sub-almacén'}
-          </SheetTitle>
+          <SheetTitle>{isEdit ? 'Editar sub-almacén' : 'Nuevo sub-almacén'}</SheetTitle>
           <SheetDescription>
             {isEdit
               ? 'La clave es única dentro del almacén padre. El almacén padre no se puede cambiar; crea uno nuevo si necesitas mover el sub-almacén.'
@@ -195,186 +196,161 @@ export function SubAlmacenSheet({
           </SheetDescription>
         </SheetHeader>
 
-        <form
-          id="sub-almacen-form"
-          onSubmit={form.handleSubmit(onSubmit)}
-          noValidate
-          className="flex-1 space-y-3 overflow-y-auto px-6"
-        >
-          <Field
-            label="Almacén"
-            required
-            error={form.formState.errors.almacenId?.message}
+        <SheetBody>
+          <form
+            id="sub-almacen-form"
+            onSubmit={form.handleSubmit(onSubmit)}
+            noValidate
+            className="space-y-4"
           >
-            <Controller
-              name="almacenId"
-              control={form.control}
-              render={({ field }) => (
-                <Select
-                  value={field.value || ''}
-                  onValueChange={(v) => field.onChange(v)}
-                  disabled={isEdit || almacenesQuery.isLoading}
+            <FormSeccion numero={1} titulo="Datos del sub-almacén">
+              <FormCampo span={12}>
+                <Field
+                  className="col-span-2"
+                  label="Almacén"
+                  required
+                  error={form.formState.errors.almacenId?.message}
                 >
-                  <SelectTrigger>
-                    <SelectValue placeholder="Selecciona almacén" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {almacenes.map((a) => (
-                      <SelectItem key={a.id} value={a.id}>
-                        {a.clave} · {a.nombre}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              )}
-            />
-          </Field>
+                  <Controller
+                    name="almacenId"
+                    control={form.control}
+                    render={({ field }) => (
+                      <Select
+                        value={field.value || ''}
+                        onValueChange={(v) => field.onChange(v)}
+                        disabled={isEdit || almacenesQuery.isLoading}
+                      >
+                        <SelectTrigger>
+                          <SelectValue placeholder="Selecciona almacén" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {almacenes.map((a) => (
+                            <SelectItem key={a.id} value={a.id}>
+                              {a.clave} · {a.nombre}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    )}
+                  />
+                </Field>
+              </FormCampo>
 
-          <Field
-            label="Clave"
-            required
-            error={form.formState.errors.clave?.message}
-          >
-            <Controller
-              name="clave"
-              control={form.control}
-              render={({ field }) => (
-                <Input
-                  {...field}
-                  value={field.value ?? ''}
-                  maxLength={20}
-                  placeholder="Ej. INS"
-                  autoFocus={!isEdit}
-                />
-              )}
-            />
-          </Field>
-
-          <Field
-            label="Nombre"
-            required
-            error={form.formState.errors.nombre?.message}
-          >
-            <Controller
-              name="nombre"
-              control={form.control}
-              render={({ field }) => (
-                <Input
-                  {...field}
-                  value={field.value ?? ''}
-                  maxLength={254}
-                  placeholder="Nombre descriptivo"
-                />
-              )}
-            />
-          </Field>
-
-          <Field
-            label="Tipo"
-            required
-            error={form.formState.errors.tipo?.message}
-          >
-            <Controller
-              name="tipo"
-              control={form.control}
-              render={({ field }) => (
-                <Select
-                  value={String(field.value)}
-                  onValueChange={(v) => field.onChange(Number(v))}
+              <FormCampo span={12}>
+                <Field
+                  className="col-span-2"
+                  label="Clave"
+                  required
+                  error={form.formState.errors.clave?.message}
                 >
-                  <SelectTrigger>
-                    <SelectValue placeholder="Seleccionar tipo" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {TIPO_OPTIONS.map((t) => (
-                      <SelectItem key={t} value={String(t)}>
-                        {TipoSubAlmacenLabels[t]}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              )}
-            />
-          </Field>
+                  <Controller
+                    name="clave"
+                    control={form.control}
+                    render={({ field }) => (
+                      <Input
+                        {...field}
+                        value={field.value ?? ''}
+                        maxLength={20}
+                        placeholder="Ej. INS"
+                        autoFocus={!isEdit}
+                      />
+                    )}
+                  />
+                </Field>
+              </FormCampo>
 
-          <Field
-            label="Estatus"
-            required
-            error={form.formState.errors.estatus?.message}
-          >
-            <Controller
-              name="estatus"
-              control={form.control}
-              render={({ field }) => (
-                <Select
-                  value={String(field.value)}
-                  onValueChange={(v) => field.onChange(Number(v))}
+              <FormCampo span={12}>
+                <Field
+                  className="col-span-2"
+                  label="Nombre"
+                  required
+                  error={form.formState.errors.nombre?.message}
                 >
-                  <SelectTrigger>
-                    <SelectValue placeholder="Seleccionar estatus" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {ESTATUS_OPTIONS.map((e) => (
-                      <SelectItem key={e} value={String(e)}>
-                        {EstatusCatalogoLabels[e]}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              )}
-            />
-          </Field>
-        </form>
+                  <Controller
+                    name="nombre"
+                    control={form.control}
+                    render={({ field }) => (
+                      <Input
+                        {...field}
+                        value={field.value ?? ''}
+                        maxLength={254}
+                        placeholder="Nombre descriptivo"
+                      />
+                    )}
+                  />
+                </Field>
+              </FormCampo>
+
+              <FormCampo span={6}>
+                <Field label="Tipo" required error={form.formState.errors.tipo?.message}>
+                  <Controller
+                    name="tipo"
+                    control={form.control}
+                    render={({ field }) => (
+                      <Select
+                        value={String(field.value)}
+                        onValueChange={(v) => field.onChange(Number(v))}
+                      >
+                        <SelectTrigger>
+                          <SelectValue placeholder="Seleccionar tipo" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {TIPO_OPTIONS.map((t) => (
+                            <SelectItem key={t} value={String(t)}>
+                              {TipoSubAlmacenLabels[t]}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    )}
+                  />
+                </Field>
+              </FormCampo>
+
+              <FormCampo span={6}>
+                <Field label="Estatus" required error={form.formState.errors.estatus?.message}>
+                  <Controller
+                    name="estatus"
+                    control={form.control}
+                    render={({ field }) => (
+                      <Select
+                        value={String(field.value)}
+                        onValueChange={(v) => field.onChange(Number(v))}
+                      >
+                        <SelectTrigger>
+                          <SelectValue placeholder="Seleccionar estatus" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {ESTATUS_OPTIONS.map((e) => (
+                            <SelectItem key={e} value={String(e)}>
+                              {EstatusCatalogoLabels[e]}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    )}
+                  />
+                </Field>
+              </FormCampo>
+            </FormSeccion>
+          </form>
+        </SheetBody>
 
         <SheetFooter>
           <Button
             type="button"
             variant="ghost"
-            onClick={() => onOpenChange(false)}
+            onClick={() => solicitarCierre()}
             disabled={isPending}
           >
             Cancelar
           </Button>
           <Button type="submit" form="sub-almacen-form" disabled={isPending}>
-            {isPending
-              ? 'Guardando…'
-              : isEdit
-                ? 'Guardar cambios'
-                : 'Crear sub-almacén'}
+            {isPending ? 'Guardando…' : isEdit ? 'Guardar cambios' : 'Crear sub-almacén'}
           </Button>
         </SheetFooter>
       </SheetContent>
+      {dialogo}
     </Sheet>
-  );
-}
-
-function Field({
-  label,
-  required,
-  error,
-  children,
-}: {
-  label: string;
-  required?: boolean;
-  error?: string;
-  children: React.ReactNode;
-}) {
-  return (
-    <div className="space-y-1.5">
-      <label className="flex items-center gap-1 text-sm font-medium">
-        {label}
-        {required && (
-          <span aria-hidden="true" className="text-rose-600">
-            *
-          </span>
-        )}
-      </label>
-      {children}
-      {error != null && (
-        <p role="alert" className="text-xs text-rose-600">
-          {error}
-        </p>
-      )}
-    </div>
   );
 }

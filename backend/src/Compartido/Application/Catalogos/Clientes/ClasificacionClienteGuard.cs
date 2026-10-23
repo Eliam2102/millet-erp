@@ -4,9 +4,12 @@ using Millet.SharedKernel.Application.Exceptions;
 namespace Millet.DatosMaestros.Application.Clientes;
 internal static class ClasificacionClienteGuard
 {
-    public static async Task ValidarAsync(CompartidoDbContext db, Guid? id, CancellationToken ct)
+    // D7: la clasificación ya asignada al cliente (actual) no exige estar activa; solo el cambio o el alta la exigen.
+    public static async Task ValidarAsync(CompartidoDbContext db, Guid? id, Guid? actual, CancellationToken ct)
     {
-        if (id is null || !await db.Set<Millet.DatosMaestros.Domain.ClasificacionCliente>().AnyAsync(c => c.Id == id && c.Activa, ct))
+        if (id is null) throw new BusinessRuleException("CLIENTE_CLASIFICACION_REQUERIDA", "Elige una clasificación activa para guardar el cliente.");
+        if (id == actual) return; // la FK garantiza que existe
+        if (!await db.Set<Millet.DatosMaestros.Domain.ClasificacionCliente>().AnyAsync(c => c.Id == id && c.Activa, ct))
             throw new BusinessRuleException("CLIENTE_CLASIFICACION_REQUERIDA", "Elige una clasificación activa para guardar el cliente.");
     }
 }

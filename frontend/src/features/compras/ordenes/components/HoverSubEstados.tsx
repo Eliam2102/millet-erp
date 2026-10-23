@@ -34,17 +34,12 @@ export interface HoverSubEstadosProps {
 type Progreso = 'vacio' | 'parcial' | 'completo';
 
 const DOT_BG: Record<Progreso, string> = {
-  vacio: 'bg-slate-200 text-slate-600 ring-slate-300',
-  parcial: 'bg-amber-200 text-amber-900 ring-amber-300',
-  completo: 'bg-emerald-200 text-emerald-900 ring-emerald-300',
+  vacio: 'bg-surface-muted text-ink-muted ring-line',
+  parcial: 'bg-warning-bg text-warning-fg ring-warning',
+  completo: 'bg-success-bg text-success-fg ring-success',
 };
 
-export function HoverSubEstados({
-  recepcion,
-  facturacion,
-  pago,
-  className,
-}: HoverSubEstadosProps) {
+export function HoverSubEstados({ recepcion, facturacion, pago, className }: HoverSubEstadosProps) {
   const tooltip = [
     `Recepción: ${subEstadoRecepcionToString(recepcion)}`,
     `Facturación: ${subEstadoFacturacionToString(facturacion)}`,
@@ -59,13 +54,24 @@ export function HoverSubEstados({
       aria-label={tooltip}
       data-component="hover-sub-estados"
     >
-      <Chip letra="R" progreso={progresoRecepcion(recepcion)} kind="recepcion" />
+      <Chip
+        letra="R"
+        progreso={progresoRecepcion(recepcion)}
+        kind="recepcion"
+        title={`Recepción: ${subEstadoRecepcionToString(recepcion)}`}
+      />
       <Chip
         letra="F"
         progreso={progresoFacturacion(facturacion)}
         kind="facturacion"
+        title={`Facturación: ${subEstadoFacturacionToString(facturacion)}`}
       />
-      <Chip letra="P" progreso={progresoPago(pago)} kind="pago" />
+      <Chip
+        letra="P"
+        progreso={progresoPago(pago)}
+        kind="pago"
+        title={`Pago: ${subEstadoPagoToString(pago)}`}
+      />
     </div>
   );
 }
@@ -74,17 +80,20 @@ function Chip({
   letra,
   progreso,
   kind,
+  title,
 }: {
   letra: 'R' | 'F' | 'P';
   progreso: Progreso;
   kind: 'recepcion' | 'facturacion' | 'pago';
+  title: string;
 }) {
   return (
     <span
+      title={title}
       data-sub-estado={kind}
       data-progreso={progreso}
       className={cn(
-        'inline-flex h-5 w-5 items-center justify-center rounded-full text-[0.65rem] font-semibold ring-1 ring-inset',
+        'inline-flex h-5 w-5 items-center justify-center rounded-full text-2xs font-semibold ring-1 ring-inset',
         DOT_BG[progreso],
       )}
     >

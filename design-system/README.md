@@ -1,63 +1,71 @@
-# Design system Millet — integración
+# Design system Millet — catálogo vivo
 
-Los cuatro archivos aportados (`DESIGN.md`, `tokens.json`, `tokens.css` y
-`tailwind.config.ts`) se conservan como referencia visual versionada. Empieza por
-leer `DESIGN.md` completo y consultar [`FIGMA.md`](./FIGMA.md): el 1-oct-2026
-Eliam compartió el canvas de referencia. Se revisaron sus 13 vistas (incluida
-la variante 3b de búsqueda); ahí están los enlaces directos y la comparación
-con lo implementado.
+El frontend integra los tokens de Millet y los componentes compartidos de
+`src/components/erp` y `src/components/ui`. La guía normativa es [DESIGN.md](./DESIGN.md);
+[FIGMA.md](./FIGMA.md) conserva la referencia visual y las diferencias verificadas.
 
-## Uso en este repositorio
+## Estado actual
 
-El frontend usa Tailwind 4. `frontend/src/index.css` importa `tokens.css` en la
-capa `base` y expone las clases del config adjunto mediante `@theme inline`:
-`bg-surface-page`, `text-ink`, `border-line-control`, `bg-brand`, `h-ctl-xl`,
-`w-rail`, `shadow-card`, etc. Los aliases shadcn existentes siguen funcionando.
-La adaptación usa los valores hex exactos de los tokens para esos aliases;
-no mezcla el formato HSL del adjunto con los colores completos de Tailwind 4.
+Migrados al patrón compartido: **Facturación, CxC, Tesorería, Contabilidad y
+Comercio exterior**. Sus pantallas usan componentes ERP y sus carpetas tienen
+las cuatro reglas `ds/*` con severidad error. Los demás módulos continúan en curso.
+Esta clasificación describe la migración en código; no acredita aceptación del
+cliente ni una comparación visual completa de todas las pantallas.
 
-La fuente se carga mediante links de Google Fonts en `frontend/index.html`, con fallback local. El import del adjunto queda anidado al integrar la capa base y no basta para cargar la fuente en producción.
-El modo oscuro anterior se conserva como compatibilidad: **no tiene una paleta
-aprobada en estos adjuntos y no se declara migrado**.
+El catálogo `/sistema-diseno` documenta 30 componentes con propósito, límites,
+props, reglas, demostración y código copiable. El código mostrado es el mismo
+archivo TSX que se ejecuta en cada ejemplo. Incluye fundamentos, plantillas 5.1
+y 5.2 y reglas de contenido. Los datos están marcados como ficticios; los ejemplos
+no llaman a la API. La caché aislada de ContextoSucursal sustituye los nombres
+sin modificar la sesión ni compartir datos con el QueryClient de la aplicación.
 
-Los tokens se importan en una capa para que clases como `text-white` y tamaños
-explícitos de componentes mantengan prioridad sobre los estilos base del adjunto.
-Al cambiar un token, actualiza JSON, CSS, la referencia Tailwind y la adaptación
-`@theme` cuando corresponda.
+## Cómo entrar
 
-## Primera etapa
+Inicia sesión con una cuenta que tenga `admin.parametros.editar` y abre
+`/sistema-diseno` dentro del ERP. Se reutiliza ese permiso administrativo existente,
+sin agregar permisos al servidor. La guarda de ruta y la navegación lo verifican;
+ser usuario de un módulo o tener sólo lectura de parámetros no permite entrar.
 
-- `Button`: acción primaria, secundaria/outline, ghost, destructive,
-  `secondary-danger` y link; tamaños default 34px, sm 28px, lg 36px e icon 34px.
-  Se conservan las props y nombres ya utilizados por las pantallas.
-- `Input`, `Textarea`, `Select` y `Label`: superficies, bordes, tipografía y foco.
-- `Card`: radios de 10px, sombra de tarjeta y padding/títulos de la guía.
-- `Badge`: variantes semánticas; los nombres anteriores siguen disponibles.
-- `EstadoBadge`: Compras reutiliza las recetas del badge sin cambiar sus labels,
-  glosarios, estados de dominio ni atributos de identificación.
+## Cómo hacer una pantalla nueva en 6 pasos
 
-Ejemplo dentro de una pantalla existente:
+1. **Plantilla:** elige listado §5.1 o detalle §5.2 y consulta el catálogo antes
+   de crear componentes. El AppShell ya aporta los márgenes de página.
+2. **PageHeader:** título, descripción de una oración y una acción primaria por
+   zona; `mono` para folios.
+3. **ListadoModulo o detalle 5.2:** integra tabs, filtros, tabla y paginación de
+   10 filas; diseña vacío, carga y error. En detalle separa datos, validación,
+   partidas, ResumenImportes y actividad.
+4. **FormGrid y tamaños de modal:** declara spans 3/4/6/12 y usa FormSeccion para
+   alinear secciones. DialogContent: sm/md/lg; SheetContent: form/md/lg.
+   Usa lg para partidas, importes o dos columnas; DialogBody/SheetBody para scroll.
+5. **Mapa de estados:** conserva el estado del dominio y asigna texto y tono
+   semántico estable. EstadoBadge sólo cubre Compras; otras entidades usan Badge
+   con su mapa. Las acciones deshabilitadas siempre explican el motivo.
+6. **Lint `ds/*` en verde:** verifica tipos, lint y pruebas afectadas; revisa
+   visualmente la pantalla y su navegación por teclado antes de entregarla.
 
-```tsx
-<Label htmlFor="referencia">Referencia</Label>
-<Input id="referencia" />
-<Button variant="secondary">Guardar borrador</Button>
-<Badge variant="warning">Pendiente</Badge>
+## Tokens y compatibilidad
+
+Tailwind 4 expone los tokens mediante `@theme inline` en `frontend/src/index.css`,
+que importa `tokens.css`. `tailwind.config.ts` es referencia; no se copia sobre
+el proyecto. Al cambiar un token, sincroniza JSON, CSS, referencia y adaptación.
+IBM Plex Sans es la fuente UI (13 px base); IBM Plex Mono se usa para folios.
+El modo oscuro heredado no tiene paleta aprobada y no se declara migrado.
+
+Dialog sin size y Sheet wide/legacy son compatibilidad heredada, no recetas para
+pantallas nuevas. La documentación muestra sus APIs reales. La búsqueda global
+de registros/acciones, Inicio completo y composición móvil siguen en curso.
+
+## Verificación local
+
+Desde `frontend/`:
+
+```sh
+npx tsr generate
+npx tsc -b tsconfig.app.json tsconfig.node.json
+npx eslint src/features/sistema-diseno src/routes/_app/sistema-diseno
+npx vitest run src/features/sistema-diseno src/components src/lib
 ```
 
-Los controles interactivos tienen un mínimo de 44px en móvil. Usa `size="lg"`
-en acciones de formularios/sheets y da `aria-label` al usar `size="icon"`.
-Para una acción deshabilitada, explica el bloqueo en texto cercano o tooltip.
-
-Las clases específicas que las pantallas ya pasan con `className` pueden
-sobrescribir la receta compartida; migrarlas requiere revisar cada consumidor.
-Segunda etapa: rail de 76px, panel de módulo de 240px con filtro y contraer/expandir, breadcrumb, topbar de 56px, Nuevo y avatar. Reutiliza rutas y permisos existentes; el menú móvil conserva el drawer/launcher. La búsqueda contextual y las acciones existentes siguen disponibles.
-
-Buscador de accesos: botón Buscar o ir a, ⌘K/Ctrl+K, búsqueda sin acentos, navegación por teclado y permisos actualizados; reutiliza el catálogo de navegación y Administración. La búsqueda contextual permanece dentro del diálogo.
-
-Pendientes: búsqueda global de registros/acciones, completar composición del topbar, tablas, dialogs/sheets, los demás componentes y
-pantallas, colores locales heredados y comprobación de cada implementación
-contra Figma. Esta etapa
-no cambia reglas funcionales, paginación, prioridades ni permisos.
-
-Las instrucciones para agentes están en `frontend/AGENTS.md` y `CLAUDE.md`.
+Las pruebas del catálogo cubren secciones, bloqueo de acceso, ausencia de red,
+filtrado, paginación, estados de carga/error y copia del código.

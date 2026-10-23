@@ -73,6 +73,20 @@ public sealed class Cliente : BaseEntity, IAuditable
     public string? Telefono { get; private set; }
     public EstatusCatalogo Estatus { get; private set; } = EstatusCatalogo.Activo;
 
+    // ── Unificación por RFC repetido (86e3qcgyn) ────────────────────────
+    // No mueve historial: pedidos nuevos de esta referencia resuelven al principal.
+
+    /// <summary>Cliente principal en el que se unificó este (null = no unificado).</summary>
+    public Guid? UnificadoEnClienteId { get; private set; }
+    public DateTimeOffset? UnificadoEnUtc { get; private set; }
+    public string? UnificadoPor { get; private set; }
+    public string? MotivoUnificacion { get; private set; }
+
+    /// <summary>true = "Agrupado" (conserva saldos/facturas y sigue Activo); false = "Fusionado" (Inactivo).</summary>
+    public bool UnificacionConHistorial { get; private set; }
+
+    private bool Fusionado => UnificadoEnClienteId is not null && !UnificacionConHistorial;
+
     private Cliente() { }
 
     public Cliente(
@@ -98,6 +112,8 @@ public sealed class Cliente : BaseEntity, IAuditable
         string? domicilioExtranjeroEstado = null,
         string? domicilioExtranjeroCodigoPostal = null) : base(id)
     {
+        // RFC persistido normalizado (trim + mayúsculas) para el índice único ux_clientes_rfc_no_generico.
+        rfc = string.IsNullOrWhiteSpace(rfc) ? null : RfcCliente.Normalizar(rfc);
         if (string.IsNullOrWhiteSpace(clave) || clave.Length > 20)
             throw new BusinessRuleException("CLIENTE_CLAVE_INVALIDA",
                 "La clave es requerida y no puede exceder 20 caracteres.");
@@ -161,6 +177,8 @@ public sealed class Cliente : BaseEntity, IAuditable
         bool limpiarEmail = false,
         bool limpiarTelefono = false)
     {
+        // Blanco = sin cambio (null), igual que el resto del PATCH.
+        rfc = string.IsNullOrWhiteSpace(rfc) ? null : RfcCliente.Normalizar(rfc);
         if (razonSocial is not null)
         {
             if (razonSocial.Length is 0 or > 254)
@@ -264,11 +282,38 @@ public sealed class Cliente : BaseEntity, IAuditable
 
     public void AplicarBloqueoAw(bool bloqueado)
     {
-        if (bloqueado) { BloqueadoPorAw = true; Estatus = EstatusCatalogo.Inactivo; }
-        else if (BloqueadoPorAw) { BloqueadoPorAw = false; Estatus = EstatusCatalogo.Activo; }
+        // Un Fusionado nunca se reactiva por A+W (sigue Inactivo aunque A+W lo desbloquee).
+        if (bloqueado) { BloqueadoPorAw = true; if (!Fusionado) Estatus = EstatusCatalogo.Inactivo; }
+        else if (BloqueadoPorAw) { BloqueadoPorAw = false; if (!Fusionado) Estatus = EstatusCatalogo.Activo; }
     }
 
-    public void CambiarEstatus(EstatusCatalogo nuevoEstatus) => Estatus = nuevoEstatus;
+    public void CambiarEstatus(EstatusCatalogo nuevoEstatus)
+    {
+        if (Fusionado && nuevoEstatus == EstatusCatalogo.Activo)
+            throw new BusinessRuleException("CLIENTE_FUSIONADO",
+                "El cliente está fusionado en otro cliente y no se puede reactivar.");
+        Estatus = nuevoEstatus;
+    }
+
+    /// <summary>
+    /// Unifica este cliente en <paramref name="principal"/> (RFC repetido). Sin historial = Fusionado
+    /// (pasa a Inactivo); con historial = Agrupado (sigue Activo para cobrar/consultar sus saldos).
+    /// </summary>
+    public void UnificarEn(Cliente principal, bool conHistorial, string motivo, string actor, DateTimeOffset ahora)
+    {
+        if (principal.Id == Id)
+            throw new BusinessRuleException("CLIENTE_UNIFICAR_A_SI_MISMO", "Un cliente no se puede unificar en sí mismo.");
+        if (principal.UnificadoEnClienteId is not null)
+            throw new BusinessRuleException("CLIENTE_PRINCIPAL_UNIFICADO", "El cliente principal ya está unificado en otro cliente.");
+        if (UnificadoEnClienteId is not null)
+            throw new BusinessRuleException("CLIENTE_YA_UNIFICADO", "El cliente ya está unificado en otro cliente.");
+        UnificadoEnClienteId = principal.Id;
+        UnificadoEnUtc = ahora;
+        UnificadoPor = actor;
+        MotivoUnificacion = motivo;
+        UnificacionConHistorial = conHistorial;
+        if (!conHistorial) Estatus = EstatusCatalogo.Inactivo;
+    }
 
     private static void ValidarFiscales(
         string? rfc, string? regimenFiscal, string? codigoPostalFiscal,

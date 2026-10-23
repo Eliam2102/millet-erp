@@ -38,10 +38,7 @@ export function Dim2Dialog({ open, onOpenChange, modo }: Dim2DialogProps) {
   const etiqueta = etiquetaNivel('dim2', 'configuracion');
   const etiquetaGrupo = etiquetaNivel('grupoDim2', 'configuracion');
 
-  const detalle = useDetalleCatalogo<Dim2Detalle>(
-    'dim2',
-    modo.tipo === 'editar' ? modo.id : null,
-  );
+  const detalle = useDetalleCatalogo<Dim2Detalle>('dim2', modo.tipo === 'editar' ? modo.id : null);
   const crear = useCrearCatalogo<Dim2Values & { dim1Id: string }>('dim2');
   const editar = useEditarCatalogo<Dim2Values>('dim2');
 
@@ -61,11 +58,14 @@ export function Dim2Dialog({ open, onOpenChange, modo }: Dim2DialogProps) {
       return;
     }
     if (modo.tipo === 'editar' && detalle.data) {
-      form.reset({
-        clave: detalle.data.data.clave,
-        nombre: detalle.data.data.nombre,
-        grupoDim2Id: detalle.data.data.grupoDim2Id,
-      }, { keepDirtyValues: cargadoEnEstaApertura.current });
+      form.reset(
+        {
+          clave: detalle.data.data.clave,
+          nombre: detalle.data.data.nombre,
+          grupoDim2Id: detalle.data.data.grupoDim2Id,
+        },
+        { keepDirtyValues: cargadoEnEstaApertura.current },
+      );
       cargadoEnEstaApertura.current = true;
     }
     if (modo.tipo === 'crear') {
@@ -77,14 +77,12 @@ export function Dim2Dialog({ open, onOpenChange, modo }: Dim2DialogProps) {
   function onSubmit(values: Dim2Values) {
     const opciones = {
       onSuccess: () => {
-        toast.success(
-          modo.tipo === 'crear' ? `${etiqueta} creada` : `${etiqueta} actualizada`,
-        );
+        toast.success(modo.tipo === 'crear' ? `${etiqueta} creada` : `${etiqueta} actualizada`);
         onOpenChange(false);
       },
       onError: (error: unknown) =>
         manejarErrorDialogoCatalogo(error, {
-          form: form as unknown as import("@/lib/api/apply-server-errors").FormConSetError,
+          form: form as unknown as import('@/lib/api/apply-server-errors').FormConSetError,
           campoUnicidad: 'clave',
           conflictDialog,
           queryClient,
@@ -109,29 +107,37 @@ export function Dim2Dialog({ open, onOpenChange, modo }: Dim2DialogProps) {
       titulo={titulo}
       descripcion={
         modo.tipo === 'crear'
-          ? `En ${modo.padre.clave} — ${modo.padre.nombre}. El padre queda fijo: reubicar es baja + alta (diseño §5).`
-          : 'El padre no se puede cambiar: reubicar es baja + alta (diseño §5).'
+          ? `En ${modo.padre.clave} — ${modo.padre.nombre}. El padre queda fijo: reubicar es baja + alta.`
+          : 'El padre no se puede cambiar: reubicar es baja + alta.'
       }
       formId="dim2-dialog-form"
       onSubmit={form.handleSubmit(onSubmit)}
       submitting={crear.isPending || editar.isPending}
     >
-      <Field label="Clave" htmlFor="dim2-clave" required error={form.formState.errors.clave?.message}>
+      <Field
+        label="Clave"
+        htmlFor="dim2-clave"
+        required
+        error={form.formState.errors.clave?.message}
+      >
         <Input {...form.register('clave')} id="dim2-clave" maxLength={20} autoFocus />
       </Field>
-      <Field label="Nombre" htmlFor="dim2-nombre" full required error={form.formState.errors.nombre?.message}>
+      <Field
+        label="Nombre"
+        htmlFor="dim2-nombre"
+        full
+        required
+        error={form.formState.errors.nombre?.message}
+      >
         <Input {...form.register('nombre')} id="dim2-nombre" maxLength={254} />
       </Field>
-      <Field
-        label={etiquetaGrupo}
-        required
-        error={form.formState.errors.grupoDim2Id?.message}
-      >
+      <Field label={etiquetaGrupo} required error={form.formState.errors.grupoDim2Id?.message}>
         <Controller
           name="grupoDim2Id"
           control={form.control}
           render={({ field }) => (
             <GrupoDimCombobox
+              id="dim2-grupo"
               recurso="grupos-dim2"
               value={field.value || null}
               onChange={(id) => field.onChange(id ?? '')}

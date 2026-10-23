@@ -190,6 +190,10 @@ public sealed class OrdenCompra : BaseEntity, IPerteneceAEmpresa, IAuditable, IF
     /// </summary>
     public DateTimeOffset? FechaCierre { get; private set; }
 
+    // F1-COM-11: estado comercial y compromiso vigente según la última respuesta del proveedor.
+    public EstadoComercialProveedorOc EstadoComercialProveedor { get; private set; }
+    public DateOnly? FechaCompromisoProveedor { get; private set; }
+
     // --- F2-PR3: referencia proveedor + contacto + logística + importación ---
 
     /// <summary>Folio externo del proveedor (§4.4). Indexado para búsqueda. Normalizado a uppercase + trim.</summary>
@@ -271,6 +275,12 @@ public sealed class OrdenCompra : BaseEntity, IPerteneceAEmpresa, IAuditable, IF
 
     private readonly List<SolicitudCancelacionOc> _solicitudesCancelacion = [];
     public IReadOnlyCollection<SolicitudCancelacionOc> SolicitudesCancelacion => _solicitudesCancelacion.AsReadOnly();
+
+    private readonly List<RespuestaProveedorOc> _respuestasProveedor = [];
+    public IReadOnlyCollection<RespuestaProveedorOc> RespuestasProveedor => _respuestasProveedor.AsReadOnly();
+
+    private readonly List<IncidenciaProveedorOc> _incidencias = [];
+    public IReadOnlyCollection<IncidenciaProveedorOc> Incidencias => _incidencias.AsReadOnly();
 
     /// <summary>Constructor para EF Core.</summary>
     private OrdenCompra() { }
@@ -674,7 +684,8 @@ public sealed class OrdenCompra : BaseEntity, IPerteneceAEmpresa, IAuditable, IF
         string? textoAdicional = null,
         bool esServicio = false,
         Guid? centroCostoId = null,
-        string? fraccionArancelaria = null)
+        string? fraccionArancelaria = null,
+        bool esActivoFijo = false, Guid? claseActivoId = null)
     {
         if (!EstadosEditables.Contains(Estado))
         {
@@ -715,6 +726,8 @@ public sealed class OrdenCompra : BaseEntity, IPerteneceAEmpresa, IAuditable, IF
             esServicio: esServicio,
             fraccionArancelaria: fraccionArancelaria);
 
+        if (esActivoFijo && esServicio) throw new BusinessRuleException("OC_ACTIVO_SERVICIO", "Un servicio no puede ser activo fijo.");
+        linea.ClasificarActivo(esActivoFijo, claseActivoId);
         _lineas.Add(linea);
         return linea;
     }
@@ -754,7 +767,8 @@ public sealed class OrdenCompra : BaseEntity, IPerteneceAEmpresa, IAuditable, IF
         string? textoAdicional = null,
         bool esServicio = false,
         Guid? centroCostoId = null,
-        string? fraccionArancelaria = null)
+        string? fraccionArancelaria = null,
+        bool esActivoFijo = false, Guid? claseActivoId = null)
     {
         if (!EstadosEditables.Contains(Estado))
         {
@@ -802,6 +816,8 @@ public sealed class OrdenCompra : BaseEntity, IPerteneceAEmpresa, IAuditable, IF
             esServicio: esServicio,
             fraccionArancelaria: fraccionArancelaria);
 
+        if (esActivoFijo && esServicio) throw new BusinessRuleException("OC_ACTIVO_SERVICIO", "Un servicio no puede ser activo fijo.");
+        linea.ClasificarActivo(esActivoFijo, claseActivoId);
         _lineas.Add(linea);
         return linea;
     }
@@ -1351,6 +1367,171 @@ public sealed class OrdenCompra : BaseEntity, IPerteneceAEmpresa, IAuditable, IF
     }
 
     /// <summary>
+    /// Registra la respuesta del proveedor (F1-COM-11). Inmutable: una nueva fecha prometida es otra
+    /// respuesta y la anterior se conserva. No modifica cantidades, recepción, facturación, pago ni el estado de la OC.
+    /// </summary>
+    public RespuestaProveedorOc RegistrarRespuestaProveedor(TipoRespuestaProveedorOc? tipo, DateOnly? fechaRespuesta,
+        DateOnly hoy, string? evidencia, string? contactoProveedor, string? motivo,
+        IReadOnlyList<CompromisoEntregaPropuesto> compromisos, Guid usuarioId, DateTimeOffset ahora)
+    {
+        if (Estado != EstadoOrdenCompra.Autorizada)
+            throw new BusinessRuleException("OC_RESPUESTA_ESTADO_INVALIDO",
+                "Solo se registra la respuesta del proveedor en una orden de compra autorizada.");
+        if (usuarioId == Guid.Empty)
+            throw new BusinessRuleException("OC_RESPUESTA_USUARIO_REQUERIDO",
+                "La respuesta requiere el usuario que la registra.");
+        if (tipo.HasValue && !Enum.IsDefined(tipo.Value))
+            throw new BusinessRuleException("OC_RESPUESTA_TIPO_INVALIDO",
+                "Indica si el proveedor confirmó o rechazó la orden.");
+        if (evidencia is { Length: > 300 })
+            throw new BusinessRuleException("OC_RESPUESTA_EVIDENCIA_REQUERIDA",
+                "Indica la evidencia de la respuesta (por ejemplo, el correo o el folio del proveedor), máximo 300 caracteres.");
+        if (contactoProveedor is { Length: > 120 })
+            throw new BusinessRuleException("OC_RESPUESTA_CONTACTO_LARGO",
+                "El contacto del proveedor no puede exceder 120 caracteres.");
+        if (motivo is { Length: > 500 })
+            throw new BusinessRuleException("OC_RESPUESTA_MOTIVO_LARGO",
+                "El motivo no puede exceder 500 caracteres.");
+        if (fechaRespuesta > hoy)
+            throw new BusinessRuleException("OC_RESPUESTA_FECHA_FUTURA",
+                "La fecha de respuesta no puede ser posterior a hoy.");
+        if (fechaRespuesta < FechaDocumento)
+            throw new BusinessRuleException("OC_RESPUESTA_FECHA_ANTERIOR_OC",
+                "La fecha de respuesta no puede ser anterior a la fecha de la orden de compra.");
+
+        var tieneDiferencias = false;
+        if (tipo == TipoRespuestaProveedorOc.Rechazo)
+        {
+            if (compromisos.Count > 0)
+                throw new BusinessRuleException("OC_RESPUESTA_RECHAZO_SIN_COMPROMISOS",
+                    "Un rechazo no lleva fechas prometidas.");
+        }
+        else if (compromisos.Count > 0)
+        {
+            var pendientes = _lineas.Where(l => l.Cantidad - l.CantidadRecibida > 0).ToDictionary(l => l.Id);
+            if (pendientes.Count == 0)
+                throw new BusinessRuleException("OC_RESPUESTA_SIN_PENDIENTE",
+                    "Todas las líneas ya están recibidas; no hay entregas por confirmar.");
+            foreach (var c in compromisos)
+            {
+                if (!pendientes.ContainsKey(c.LineaOrdenCompraId))
+                    throw new BusinessRuleException("OC_RESPUESTA_LINEA_INVALIDA",
+                        "Una fecha prometida apunta a una línea que no es de esta orden o que ya está recibida completa.");
+                if (c.Cantidad <= 0)
+                    throw new BusinessRuleException("OC_RESPUESTA_CANTIDAD_INVALIDA",
+                        "La cantidad prometida debe ser mayor a cero.");
+                if (c.FechaPrometida < (fechaRespuesta ?? FechaDocumento))
+                    throw new BusinessRuleException("OC_RESPUESTA_FECHA_PROMETIDA_INVALIDA",
+                        "La fecha prometida no puede ser anterior a la fecha de respuesta.");
+            }
+            // Regla 2: no se cambia la orden en silencio; la diferencia se marca para Compras.
+            tieneDiferencias = pendientes.Values.Any(l =>
+                    compromisos.Where(c => c.LineaOrdenCompraId == l.Id).Sum(c => c.Cantidad) != l.Cantidad - l.CantidadRecibida)
+                || (FechaEntregaEsperada is DateOnly esperada && compromisos.Any(c => c.FechaPrometida > esperada));
+        }
+
+        var respuesta = new RespuestaProveedorOc(Guid.CreateVersion7(), Id, _respuestasProveedor.Count + 1, tipo,
+            fechaRespuesta, evidencia, contactoProveedor, motivo, tieneDiferencias, usuarioId, ahora, compromisos);
+        _respuestasProveedor.Add(respuesta);
+        EstadoComercialProveedor = tipo is null ? EstadoComercialProveedorOc.RespuestaRegistrada
+            : tipo == TipoRespuestaProveedorOc.Rechazo
+                ? EstadoComercialProveedorOc.Rechazada
+                : tieneDiferencias ? EstadoComercialProveedorOc.ConfirmadaConDiferencias : EstadoComercialProveedorOc.Confirmada;
+        FechaCompromisoProveedor = compromisos.Count == 0 ? null : compromisos.Max(c => c.FechaPrometida);
+        return respuesta;
+    }
+
+    /// <summary>
+    /// Registra una incidencia del proveedor sobre una línea (F1-COM-07). Faltante y atraso cubren
+    /// piezas pendientes; dañado cubre piezas ya recibidas (en revisión). No modifica cantidades,
+    /// recepción, facturación ni pago.
+    /// </summary>
+    public IncidenciaProveedorOc RegistrarIncidenciaProveedor(Guid lineaId, TipoIncidenciaProveedorOc tipo,
+        decimal cantidad, DateOnly fechaCompromiso, Guid responsableId, string? descripcion,
+        DateOnly hoy, Guid usuarioId, DateTimeOffset ahora)
+    {
+        if (Estado != EstadoOrdenCompra.Autorizada)
+            throw new BusinessRuleException("OC_INCIDENCIA_ESTADO_INVALIDO",
+                "Solo se registran incidencias en una orden de compra autorizada.");
+        if (usuarioId == Guid.Empty)
+            throw new BusinessRuleException("OC_INCIDENCIA_USUARIO_REQUERIDO",
+                "La incidencia requiere el usuario que la registra.");
+        if (responsableId == Guid.Empty)
+            throw new BusinessRuleException("OC_INCIDENCIA_RESPONSABLE_REQUERIDO",
+                "Indica quién da seguimiento a la incidencia.");
+        if (!Enum.IsDefined(tipo))
+            throw new BusinessRuleException("OC_INCIDENCIA_TIPO_INVALIDO",
+                "Indica si la incidencia es faltante, dañado o atraso.");
+        if (descripcion is { Length: > 500 })
+            throw new BusinessRuleException("OC_INCIDENCIA_DESCRIPCION_LARGA",
+                "La descripción no puede exceder 500 caracteres.");
+        ValidarFechaCompromiso(fechaCompromiso, hoy);
+        var linea = BuscarLineaOLanzar(lineaId);
+        if (cantidad <= 0)
+            throw new BusinessRuleException("OC_INCIDENCIA_CANTIDAD_INVALIDA",
+                "La cantidad afectada debe ser mayor a cero.");
+        if (tipo == TipoIncidenciaProveedorOc.Danado)
+        {
+            if (cantidad > linea.CantidadRecibida)
+                throw new BusinessRuleException("OC_INCIDENCIA_EXCEDE_RECIBIDO",
+                    $"Solo se pueden marcar como dañadas piezas ya recibidas ({linea.CantidadRecibida:0.####}).");
+        }
+        else if (cantidad > linea.Cantidad - linea.CantidadRecibida)
+            throw new BusinessRuleException("OC_INCIDENCIA_EXCEDE_PENDIENTE",
+                $"La cantidad no puede ser mayor a lo pendiente de la línea ({linea.Cantidad - linea.CantidadRecibida:0.####}).");
+
+        var incidencia = new IncidenciaProveedorOc(Guid.CreateVersion7(), Id, lineaId, _incidencias.Count + 1,
+            tipo, cantidad, descripcion, responsableId, fechaCompromiso, usuarioId, ahora);
+        _incidencias.Add(incidencia);
+        return incidencia;
+    }
+
+    /// <summary>Nueva fecha compromiso de una incidencia abierta; la anterior se conserva (regla 5).</summary>
+    public IncidenciaProveedorOc ReprogramarIncidenciaProveedor(Guid incidenciaId, DateOnly nuevaFecha,
+        string motivo, DateOnly hoy, Guid usuarioId, DateTimeOffset ahora)
+    {
+        var incidencia = BuscarIncidenciaAbierta(incidenciaId);
+        if (string.IsNullOrWhiteSpace(motivo) || motivo.Length > 300)
+            throw new BusinessRuleException("OC_INCIDENCIA_MOTIVO_REQUERIDO",
+                "Indica el motivo del cambio de fecha, máximo 300 caracteres.");
+        ValidarFechaCompromiso(nuevaFecha, hoy);
+        if (nuevaFecha == incidencia.FechaCompromisoVigente)
+            throw new BusinessRuleException("OC_INCIDENCIA_MISMA_FECHA",
+                "La nueva fecha compromiso es igual a la vigente.");
+        incidencia.AgregarCompromiso(nuevaFecha, motivo, usuarioId, ahora);
+        return incidencia;
+    }
+
+    /// <summary>Cierra a mano una incidencia abierta (p. ej. el proveedor no entregará); queda en el historial.</summary>
+    public IncidenciaProveedorOc CerrarIncidenciaProveedor(Guid incidenciaId, string motivo, Guid usuarioId,
+        DateTimeOffset ahora)
+    {
+        var incidencia = BuscarIncidenciaAbierta(incidenciaId);
+        if (string.IsNullOrWhiteSpace(motivo) || motivo.Length > 300)
+            throw new BusinessRuleException("OC_INCIDENCIA_MOTIVO_REQUERIDO",
+                "Indica el motivo del cierre, máximo 300 caracteres.");
+        incidencia.Cerrar(usuarioId, motivo, ahora);
+        return incidencia;
+    }
+
+    private IncidenciaProveedorOc BuscarIncidenciaAbierta(Guid incidenciaId)
+    {
+        var incidencia = _incidencias.FirstOrDefault(i => i.Id == incidenciaId)
+            ?? throw new BusinessRuleException("OC_INCIDENCIA_NO_ENCONTRADA",
+                "La orden de compra no tiene esa incidencia.");
+        if (!incidencia.Abierta)
+            throw new BusinessRuleException("OC_INCIDENCIA_CERRADA", "La incidencia ya está cerrada.");
+        return incidencia;
+    }
+
+    private static void ValidarFechaCompromiso(DateOnly fecha, DateOnly hoy)
+    {
+        if (fecha < hoy)
+            throw new BusinessRuleException("OC_INCIDENCIA_FECHA_PASADA",
+                "La fecha compromiso no puede ser anterior a hoy.");
+    }
+
+    /// <summary>
     /// Recalcula los impuestos (motor v0 IVA 16%) de todas las líneas. Se
     /// invoca tras cambios masivos en líneas o régimen aplicable. F3-PR2
     /// reemplaza el motor.
@@ -1386,7 +1567,13 @@ public sealed class OrdenCompra : BaseEntity, IPerteneceAEmpresa, IAuditable, IF
     {
         ValidarEstadoParaRegistrarMovimiento();
         var linea = BuscarLineaOLanzar(lineaId);
+        var recibidaAntes = linea.CantidadRecibida;
         linea.SetCantidadRecibida(cantidadAcumulada);
+        // F1-COM-07: llegó lo pendiente de la línea → sus incidencias abiertas se cierran solas.
+        // Solo cuando la recepción sube lo recibido, para que una devolución 8.B no las cierre.
+        if (cantidadAcumulada > recibidaAntes && linea.Cantidad - linea.CantidadRecibida <= 0)
+            foreach (var i in _incidencias.Where(i => i.Abierta && i.LineaOrdenCompraId == lineaId))
+                i.Cerrar(null, "Se recibió el pendiente de la línea.", ocurridoEn);
         return RecalcularSubEstadosYAjustarEstado(ocurridoEn);
     }
 
@@ -1446,7 +1633,8 @@ public sealed class OrdenCompra : BaseEntity, IPerteneceAEmpresa, IAuditable, IF
         }
 
         var cantidadTotal = _lineas.Sum(l => l.Cantidad);
-        var facturadoTotal = _lineas.Sum(l => l.CantidadFacturada);
+        // igual que Recepción: el excedente facturado de una línea no completa a otra
+        var facturadoTotal = _lineas.Sum(l => Math.Min(l.CantidadFacturada, l.Cantidad));
 
         // GAP-9: los servicios no se reciben en Almacén — el sub-estado de
         // Recepción se calcula SOLO sobre las líneas físicas (!EsServicio).
@@ -1456,7 +1644,8 @@ public sealed class OrdenCompra : BaseEntity, IPerteneceAEmpresa, IAuditable, IF
         // y Pago siguen calculándose sobre todas las líneas.
         var lineasFisicas = _lineas.Where(l => !l.EsServicio).ToList();
         var cantidadFisicaTotal = lineasFisicas.Sum(l => l.Cantidad);
-        var recibidoTotal = lineasFisicas.Sum(l => l.CantidadRecibida);
+        // defensivo: el excedente de una línea (histórico, de cuando había tolerancia) no completa a otra
+        var recibidoTotal = lineasFisicas.Sum(l => Math.Min(l.CantidadRecibida, l.Cantidad));
 
         SubEstadoRecepcion = recibidoTotal switch
         {
@@ -1701,7 +1890,7 @@ public sealed class OrdenCompra : BaseEntity, IPerteneceAEmpresa, IAuditable, IF
             numeroPedimento: numeroPedimento,
             numeroBl: numeroBl,
             agenteAduanalNaviera: agenteAduanalNaviera);
-        InfoImportNumeroPedimento = post.NumeroPedimento;
+        InfoImportNumeroPedimento = Millet.SharedKernel.Domain.NumeroPedimento.Normalizar(numeroPedimento);
         InfoImportNumeroBl = post.NumeroBl;
         InfoImportAgenteAduanalNaviera = post.AgenteAduanalNaviera;
         InfoImportFechaEstimadaArribo = fechaEstimadaArribo;

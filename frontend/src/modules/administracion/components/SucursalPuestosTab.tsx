@@ -11,6 +11,7 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
+  DialogBody,
 } from '@/components/ui/dialog';
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -27,7 +28,7 @@ import {
 } from '@/modules/administracion/api';
 import { useRoles } from '@/modules/identidad/api/roles';
 import type { RolResponse } from '@/modules/identidad/api/types';
-import { esApiError } from '@/lib/api';
+import { esApiError, codigoSoporte } from '@/lib/api';
 import { SucursalTabErrorState } from '@/modules/administracion/components/SucursalTabErrorState';
 import { FilaAsignacionSucursal } from '@/modules/administracion/components/FilaAsignacionSucursal';
 
@@ -50,10 +51,7 @@ interface PuestoAgrupado {
   asignaciones: SucursalPuestoResponse[];
 }
 
-export function SucursalPuestosTab({
-  sucursalId,
-  canGestionar,
-}: SucursalPuestosTabProps) {
+export function SucursalPuestosTab({ sucursalId, canGestionar }: SucursalPuestosTabProps) {
   const catalogoQuery = usePuestos();
   const asignadosQuery = usePuestosDeSucursal(sucursalId);
   const deptosSucursalQuery = useDepartamentosDeSucursal(sucursalId);
@@ -62,7 +60,7 @@ export function SucursalPuestosTab({
   const [filtro, setFiltro] = useState('');
   const [modalAsignarOpen, setModalAsignarOpen] = useState(false);
 
-  const asignados = asignadosQuery.data?.items ?? [];
+  const asignados = useMemo(() => asignadosQuery.data?.items ?? [], [asignadosQuery.data?.items]);
   const roles = rolesQuery.data?.items ?? [];
 
   const deptosActivos = useMemo(() => {
@@ -93,9 +91,7 @@ export function SucursalPuestosTab({
       }
       grupo.asignaciones.push(item);
     }
-    return Array.from(map.values()).sort((a, b) =>
-      a.puestoClave.localeCompare(b.puestoClave),
-    );
+    return Array.from(map.values()).sort((a, b) => a.puestoClave.localeCompare(b.puestoClave));
   }, [asignados]);
 
   const gruposFiltrados = useMemo(() => {
@@ -105,9 +101,7 @@ export function SucursalPuestosTab({
       (g) =>
         g.puestoClave.toLowerCase().includes(q) ||
         g.puestoNombre.toLowerCase().includes(q) ||
-        g.asignaciones.some((a) =>
-          a.departamentoNombre?.toLowerCase().includes(q),
-        ),
+        g.asignaciones.some((a) => a.departamentoNombre?.toLowerCase().includes(q)),
     );
   }, [grupos, filtro]);
 
@@ -146,7 +140,7 @@ export function SucursalPuestosTab({
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div className="flex items-center gap-2">
           <div className="relative w-full sm:w-72">
-            <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+            <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-ink-muted" />
             <Input
               placeholder="Buscar puesto o departamento..."
               value={filtro}
@@ -155,9 +149,9 @@ export function SucursalPuestosTab({
               aria-label="Buscar puestos asignados"
             />
           </div>
-          <span className="text-xs text-muted-foreground whitespace-nowrap">
-            {grupos.length} {grupos.length === 1 ? 'puesto' : 'puestos'} ·{' '}
-            {asignados.length} {asignados.length === 1 ? 'asignación' : 'asignaciones'}
+          <span className="text-xs text-ink-muted whitespace-nowrap">
+            {grupos.length} {grupos.length === 1 ? 'puesto' : 'puestos'} · {asignados.length}{' '}
+            {asignados.length === 1 ? 'asignación' : 'asignaciones'}
           </span>
         </div>
 
@@ -174,12 +168,12 @@ export function SucursalPuestosTab({
 
       {/* Lista de puestos agrupados o empty state */}
       {grupos.length === 0 ? (
-        <div className="flex flex-col items-center justify-center rounded-lg border border-dashed bg-muted/20 px-6 py-10 text-center">
-          <Briefcase className="mb-3 h-10 w-10 text-muted-foreground/60" />
+        <div className="flex flex-col items-center justify-center rounded-lg border border-dashed bg-surface-muted/20 px-6 py-10 text-center">
+          <Briefcase className="mb-3 h-10 w-10 text-ink-muted/60" />
           <h3 className="text-sm font-semibold">No hay puestos asignados</h3>
-          <p className="mt-1 text-xs text-muted-foreground max-w-sm">
-            Esta sucursal aún no tiene puestos vinculados. Asocia puestos del catálogo
-            a uno o varios departamentos activos de esta sucursal.
+          <p className="mt-1 text-xs text-ink-muted max-w-sm">
+            Esta sucursal aún no tiene puestos vinculados. Asocia puestos del catálogo a uno o
+            varios departamentos activos de esta sucursal.
           </p>
           {canGestionar && (
             <Button
@@ -193,7 +187,7 @@ export function SucursalPuestosTab({
           )}
         </div>
       ) : gruposFiltrados.length === 0 ? (
-        <div className="rounded-md border border-dashed bg-muted/10 px-4 py-8 text-center text-sm text-muted-foreground">
+        <div className="rounded-md border border-dashed bg-surface-muted/10 px-4 py-8 text-center text-sm text-ink-muted">
           No se encontraron puestos asignados que coincidan con &ldquo;{filtro}&rdquo;.
         </div>
       ) : (
@@ -232,22 +226,13 @@ interface GrupoPuestoCardProps {
   roles: RolResponse[];
 }
 
-function GrupoPuestoCard({
-  sucursalId,
-  grupo,
-  canGestionar,
-  roles,
-}: GrupoPuestoCardProps) {
+function GrupoPuestoCard({ sucursalId, grupo, canGestionar, roles }: GrupoPuestoCardProps) {
   return (
-    <div className="rounded-md border bg-card">
-      <div className="flex flex-wrap items-center gap-2 border-b bg-muted/30 px-4 py-2.5">
-        <span className="font-mono text-sm font-semibold text-primary">
-          {grupo.puestoClave}
-        </span>
-        <span className="text-sm font-medium text-foreground">
-          {grupo.puestoNombre}
-        </span>
-        <Badge variant="outline" className="text-xs font-mono">
+    <div className="rounded-md border bg-surface-card">
+      <div className="flex flex-wrap items-center gap-2 border-b bg-surface-muted/30 px-4 py-2.5">
+        <span className="font-mono text-sm font-semibold text-brand">{grupo.puestoClave}</span>
+        <span className="text-sm font-medium text-ink">{grupo.puestoNombre}</span>
+        <Badge variant="neutral">
           {grupo.asignaciones.length}{' '}
           {grupo.asignaciones.length === 1 ? 'departamento' : 'departamentos'}
         </Badge>
@@ -338,8 +323,7 @@ function AsignacionDepartamentoRow({
     );
   }
 
-  const rolNombre = (id: string | null) =>
-    roles.find((r) => r.id === id)?.nombre ?? '—';
+  const rolNombre = (id: string | null) => roles.find((r) => r.id === id)?.nombre ?? '—';
   const tieneExcepcion = item.rolSugeridoId != null;
   const heredaDelPuesto = !tieneExcepcion && item.rolSugeridoEfectivoId != null;
 
@@ -352,19 +336,22 @@ function AsignacionDepartamentoRow({
       textoBotonDesactivar="Desvincular"
       textoAccionConfirmar="Desvincular"
       descripcionConfirmacion={
-        <div className="space-y-2 text-sm text-muted-foreground">
+        <div className="space-y-2 text-sm text-ink-muted">
           <p>
             ¿Confirmas desvincular{' '}
-            <span className="font-mono font-semibold text-foreground">{item.puestoClave}</span> del departamento{' '}
-            <span className="font-semibold text-foreground">
+            <span className="font-mono font-semibold text-ink">{item.puestoClave}</span> del
+            departamento{' '}
+            <span className="font-semibold text-ink">
               {item.departamentoNombre ?? item.departamentoId}
             </span>{' '}
             en esta sucursal?
           </p>
-          <div className="rounded-md border border-amber-200 bg-amber-50/70 p-2.5 text-xs text-amber-900 dark:border-amber-900/50 dark:bg-amber-950/20 dark:text-amber-200">
+          <div className="rounded-md border border-line bg-warning-bg/70 p-2.5 text-xs text-warning-fg   ">
             <p className="font-semibold">Información operativa:</p>
             <p className="mt-0.5">
-              Los empleados asignados actualmente continuarán operando con normalidad. Esta acción únicamente impide que se registren nuevas altas o asignaciones con esta combinación en la sucursal.
+              Los empleados asignados actualmente continuarán operando con normalidad. Esta acción
+              únicamente impide que se registren nuevas altas o asignaciones con esta combinación en
+              la sucursal.
             </p>
           </div>
         </div>
@@ -374,23 +361,19 @@ function AsignacionDepartamentoRow({
       onConfirmarDesactivar={handleConfirmarDesactivar}
       onReactivar={handleReactivar}
     >
-      <span className="text-sm font-medium text-foreground">
+      <span className="text-sm font-medium text-ink">
         {item.departamentoNombre ?? item.departamentoId}
       </span>
-      <span className="text-xs text-muted-foreground">
+      <span className="text-xs text-ink-muted">
         {tieneExcepcion ? (
           <>
             Rol sugerido:{' '}
-            <span className="font-medium text-foreground">
-              {rolNombre(item.rolSugeridoId)}
-            </span>
+            <span className="font-medium text-ink">{rolNombre(item.rolSugeridoId)}</span>
           </>
         ) : heredaDelPuesto ? (
           <>
             Hereda del puesto:{' '}
-            <span className="font-medium text-foreground">
-              {rolNombre(item.rolSugeridoEfectivoId)}
-            </span>
+            <span className="font-medium text-ink">{rolNombre(item.rolSugeridoEfectivoId)}</span>
           </>
         ) : (
           'Sin rol sugerido'
@@ -401,7 +384,7 @@ function AsignacionDepartamentoRow({
           type="button"
           variant="ghost"
           size="sm"
-          className="h-6 px-2 text-xs text-muted-foreground"
+          className="h-6 px-2 text-xs text-ink-muted"
           onClick={() => setEditandoRol(true)}
           aria-label={`Editar rol sugerido de ${etiquetaAsignacion}`}
         >
@@ -455,16 +438,16 @@ function RolSugeridoInlineForm({
 
   return (
     <li
-      className="flex flex-col gap-2 border-l-4 border-amber-400 bg-amber-50/40 px-4 py-3 dark:bg-amber-950/10 sm:flex-row sm:items-center sm:justify-between"
+      className="flex flex-col gap-2 border border-line bg-warning-bg/40 px-4 py-3  sm:flex-row sm:items-center sm:justify-between"
       aria-label={`Editar rol sugerido de ${etiquetaAsignacion}`}
     >
       <div className="flex flex-1 flex-wrap items-center gap-2">
-        <span className="text-sm font-medium text-foreground">
+        <span className="text-sm font-medium text-ink">
           {item.departamentoNombre ?? item.departamentoId}
         </span>
         <select
           aria-label={`Rol sugerido para ${etiquetaAsignacion}`}
-          className="h-8 min-w-48 rounded-md border border-input bg-background px-2 text-sm shadow-xs focus:outline-hidden focus:ring-2 focus:ring-ring"
+          className="h-8 min-w-48 rounded-md border border-line-control bg-surface-page px-2 text-sm shadow-card-flat focus:outline-hidden focus:ring-2 focus:ring-brand"
           value={rolId}
           onChange={(e) => setRolId(e.target.value)}
           disabled={actualizar.isPending}
@@ -487,12 +470,7 @@ function RolSugeridoInlineForm({
         >
           <X className="mr-1 h-3.5 w-3.5" /> Cancelar
         </Button>
-        <Button
-          type="button"
-          size="sm"
-          onClick={handleGuardar}
-          disabled={actualizar.isPending}
-        >
+        <Button type="button" size="sm" onClick={handleGuardar} disabled={actualizar.isPending}>
           <Check className="mr-1 h-3.5 w-3.5" />
           {actualizar.isPending ? 'Guardando…' : 'Guardar'}
         </Button>
@@ -522,9 +500,9 @@ function AsignarPuestoModal({
 }: AsignarPuestoModalProps) {
   const asignar = useAsignarPuestoASucursal();
   const [puestoId, setPuestoId] = useState('');
-  const [departamentosSeleccionados, setDepartamentosSeleccionados] = useState<
-    Set<string>
-  >(new Set());
+  const [departamentosSeleccionados, setDepartamentosSeleccionados] = useState<Set<string>>(
+    new Set(),
+  );
   const [busquedaPuesto, setBusquedaPuesto] = useState('');
   const [enviando, setEnviando] = useState(false);
 
@@ -540,9 +518,7 @@ function AsignarPuestoModal({
     const q = busquedaPuesto.trim().toLowerCase();
     if (!q) return puestosCatalogo;
     return puestosCatalogo.filter(
-      (p) =>
-        p.clave.toLowerCase().includes(q) ||
-        p.nombre.toLowerCase().includes(q),
+      (p) => p.clave.toLowerCase().includes(q) || p.nombre.toLowerCase().includes(q),
     );
   }, [puestosCatalogo, busquedaPuesto]);
 
@@ -650,116 +626,110 @@ function AsignarPuestoModal({
   }
 
   const sinDeptos = deptosActivos.length === 0;
-  const puestoSinDeptosDisponibles =
-    puestoId !== '' && departamentosDisponibles.length === 0;
+  const puestoSinDeptosDisponibles = puestoId !== '' && departamentosDisponibles.length === 0;
 
   return (
     <Dialog open={open} onOpenChange={handleOpenChange}>
-      <DialogContent className="sm:max-w-md">
+      <DialogContent size="md" className="">
         <DialogHeader>
           <DialogTitle>Asignar puesto a departamentos de la sucursal</DialogTitle>
           <DialogDescription>
-            Un mismo puesto (p.ej. &ldquo;Gerente&rdquo;) puede asignarse a varios
-            departamentos activos de la sucursal en vez de crear un puesto por
-            departamento.
+            Un mismo puesto (p.ej. &ldquo;Gerente&rdquo;) puede asignarse a varios departamentos
+            activos de la sucursal en vez de crear un puesto por departamento.
           </DialogDescription>
         </DialogHeader>
-
-        <div className="space-y-4 py-2">
-          {catalogoQuery.isLoading ? (
-            <div className="space-y-3">
-              <Skeleton className="h-9 w-full" />
-              <Skeleton className="h-9 w-full" />
-            </div>
-          ) : puestosCatalogo.length === 0 ? (
-            <div className="rounded-md border border-dashed bg-muted/20 p-4 text-center text-sm text-muted-foreground">
-              No hay puestos en el catálogo maestro.
-            </div>
-          ) : (
-            <>
-              {puestosCatalogo.length > 8 && (
-                <div className="relative">
-                  <Search className="absolute left-2.5 top-2.5 h-3.5 w-3.5 text-muted-foreground" />
-                  <Input
-                    placeholder="Filtrar puestos disponibles..."
-                    value={busquedaPuesto}
-                    onChange={(e) => setBusquedaPuesto(e.target.value)}
-                    className="h-8 pl-8 text-xs"
-                  />
-                </div>
-              )}
-
-              <div className="space-y-1.5">
-                <label
-                  htmlFor="puesto-select"
-                  className="text-xs font-semibold uppercase tracking-wider text-foreground"
-                >
-                  Puesto *
-                </label>
-                <select
-                  id="puesto-select"
-                  aria-label="Puesto a asignar"
-                  className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm shadow-xs focus:outline-hidden focus:ring-2 focus:ring-ring"
-                  value={puestoId}
-                  onChange={(e) => handleSelectPuesto(e.target.value)}
-                  disabled={enviando}
-                >
-                  <option value="">
-                    -- Selecciona un puesto ({puestosFiltrados.length} disponibles) --
-                  </option>
-                  {puestosFiltrados.map((p) => (
-                    <option key={p.id} value={p.id}>
-                      {p.clave} — {p.nombre}
-                    </option>
-                  ))}
-                </select>
+        <DialogBody>
+          <div className="space-y-4 py-2">
+            {catalogoQuery.isLoading ? (
+              <div className="space-y-3">
+                <Skeleton className="h-9 w-full" />
+                <Skeleton className="h-9 w-full" />
               </div>
-            </>
-          )}
-
-          {sinDeptos ? (
-            <div className="rounded-md border border-amber-200 bg-amber-50 p-3 text-sm text-amber-800 dark:border-amber-900/50 dark:bg-amber-950/30 dark:text-amber-300">
-              Esta sucursal no tiene departamentos activos asignados. Ve a la
-              pestaña &ldquo;Departamentos&rdquo; para asignar departamentos a la
-              sucursal antes de asociar puestos.
-            </div>
-          ) : puestoId && puestoSinDeptosDisponibles ? (
-            <div className="rounded-md border border-dashed bg-muted/20 p-3 text-center text-sm text-muted-foreground">
-              {puestoSeleccionado?.clave ?? 'Este puesto'} ya está asignado a todos
-              los departamentos activos de esta sucursal.
-            </div>
-          ) : puestoId ? (
-            <div className="space-y-1.5">
-              <span className="text-xs font-semibold uppercase tracking-wider text-foreground">
-                Departamentos * ({departamentosSeleccionados.size} seleccionados)
-              </span>
-              <div className="max-h-48 space-y-0.5 overflow-y-auto rounded-md border p-2">
-                {departamentosDisponibles.map((d) => (
-                  <label
-                    key={d.id}
-                    className="flex items-center gap-2 rounded px-1.5 py-1.5 text-sm hover:bg-muted/40"
-                  >
-                    <Checkbox
-                      checked={departamentosSeleccionados.has(d.id)}
-                      onCheckedChange={() => toggleDepartamento(d.id)}
-                      disabled={enviando}
-                      aria-label={`Departamento ${d.clave}`}
+            ) : puestosCatalogo.length === 0 ? (
+              <div className="rounded-md border border-dashed bg-surface-muted/20 p-4 text-center text-sm text-ink-muted">
+                No hay puestos en el catálogo maestro.
+              </div>
+            ) : (
+              <>
+                {puestosCatalogo.length > 8 && (
+                  <div className="relative">
+                    <Search className="absolute left-2.5 top-2.5 h-3.5 w-3.5 text-ink-muted" />
+                    <Input
+                      placeholder="Filtrar puestos disponibles..."
+                      value={busquedaPuesto}
+                      onChange={(e) => setBusquedaPuesto(e.target.value)}
+                      className="h-8 pl-8 text-xs"
                     />
-                    <span className="font-mono text-xs">{d.clave}</span>
-                    <span className="text-muted-foreground">— {d.nombre}</span>
-                  </label>
-                ))}
-              </div>
-            </div>
-          ) : null}
-        </div>
+                  </div>
+                )}
 
+                <div className="space-y-1.5">
+                  <label
+                    htmlFor="puesto-select"
+                    className="text-xs font-semibold uppercase tracking-wider text-ink"
+                  >
+                    Puesto *
+                  </label>
+                  <select
+                    id="puesto-select"
+                    aria-label="Puesto a asignar"
+                    className="w-full rounded-md border border-line-control bg-surface-page px-3 py-2 text-sm shadow-card-flat focus:outline-hidden focus:ring-2 focus:ring-brand"
+                    value={puestoId}
+                    onChange={(e) => handleSelectPuesto(e.target.value)}
+                    disabled={enviando}
+                  >
+                    <option value="">
+                      -- Selecciona un puesto ({puestosFiltrados.length} disponibles) --
+                    </option>
+                    {puestosFiltrados.map((p) => (
+                      <option key={p.id} value={p.id}>
+                        {p.clave} — {p.nombre}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              </>
+            )}
+
+            {sinDeptos ? (
+              <div className="rounded-md border border-line bg-warning-bg p-3 text-sm text-warning-fg   ">
+                Esta sucursal no tiene departamentos activos asignados. Ve a la pestaña
+                &ldquo;Departamentos&rdquo; para asignar departamentos a la sucursal antes de
+                asociar puestos.
+              </div>
+            ) : puestoId && puestoSinDeptosDisponibles ? (
+              <div className="rounded-md border border-dashed bg-surface-muted/20 p-3 text-center text-sm text-ink-muted">
+                {puestoSeleccionado?.clave ?? 'Este puesto'} ya está asignado a todos los
+                departamentos activos de esta sucursal.
+              </div>
+            ) : puestoId ? (
+              <div className="space-y-1.5">
+                <span className="text-xs font-semibold uppercase tracking-wider text-ink">
+                  Departamentos * ({departamentosSeleccionados.size} seleccionados)
+                </span>
+                <div className="max-h-48 space-y-0.5 overflow-y-auto rounded-md border p-2">
+                  {departamentosDisponibles.map((d) => (
+                    <label
+                      key={d.id}
+                      className="flex items-center gap-2 rounded px-1.5 py-1.5 text-sm hover:bg-surface-muted/40"
+                    >
+                      <Checkbox
+                        checked={departamentosSeleccionados.has(d.id)}
+                        onCheckedChange={() => toggleDepartamento(d.id)}
+                        disabled={enviando}
+                        aria-label={`Departamento ${d.clave}`}
+                      />
+                      <span className="font-mono text-xs">{d.clave}</span>
+                      <span className="text-ink-muted">— {d.nombre}</span>
+                    </label>
+                  ))}
+                </div>
+              </div>
+            ) : null}
+          </div>
+        </DialogBody>
         <DialogFooter className="gap-2 sm:gap-0">
-          <Button
-            variant="outline"
-            onClick={() => handleOpenChange(false)}
-            disabled={enviando}
-          >
+          <Button variant="outline" onClick={() => handleOpenChange(false)} disabled={enviando}>
             Cancelar
           </Button>
           <Button
@@ -784,9 +754,7 @@ function handleError(accion: string) {
   return (error: unknown) => {
     if (esApiError(error)) {
       toast.error(error.problem.title, {
-        description:
-          error.problem.detail ||
-          (error.traceId ? `Código: ${error.traceId}` : undefined),
+        description: error.problem.detail || codigoSoporte(error),
       });
     } else {
       toast.error(`Error al ${accion}.`);

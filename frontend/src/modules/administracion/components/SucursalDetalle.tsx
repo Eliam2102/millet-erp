@@ -1,3 +1,4 @@
+import { PageHeader } from '@/components/erp/PageHeader';
 import { useState } from 'react';
 import { Link, useParams } from '@tanstack/react-router';
 import { X } from 'lucide-react';
@@ -27,63 +28,47 @@ export function SucursalDetalle() {
   const canGestionarDeptos = useHasPermission(
     PermisosCanonicos.AdminSucursalesDepartamentosGestionar,
   );
-  const canGestionarPuestos = useHasPermission(
-    PermisosCanonicos.AdminSucursalesPuestosGestionar,
-  );
-  const canGestionarEmpleados = useHasPermission(
-    PermisosCanonicos.AdminEmpleadosGestionar,
-  );
+  const canGestionarPuestos = useHasPermission(PermisosCanonicos.AdminSucursalesPuestosGestionar);
+  const canGestionarEmpleados = useHasPermission(PermisosCanonicos.AdminEmpleadosGestionar);
 
   return (
     <div className="flex flex-col h-full">
-      <header
-        className="shrink-0 flex flex-wrap items-center gap-3 border-b bg-background px-4 py-2"
-        data-print="hidden"
-      >
-        <div className="flex min-w-0 items-center gap-2">
-          {sucursalesQuery.isLoading ? (
-            <span className="text-sm text-muted-foreground">Cargando…</span>
-          ) : (
-            <>
-              <span className="truncate font-mono text-sm font-semibold">
-                {sucursal?.clave ?? '—'}
-              </span>
-              <span className="hidden truncate text-sm text-muted-foreground md:inline">
-                · {sucursal?.nombre ?? 'Sucursal'}
-              </span>
-              {sucursal != null && (
-                <Badge
-                  variant="outline"
-                  className={cn(
-                    'text-xs',
-                    sucursal.tipo === TipoSucursal.Planta
-                      ? 'border-indigo-500/40 bg-indigo-500/10 text-indigo-700 dark:text-indigo-300'
-                      : 'border-cyan-500/40 bg-cyan-500/10 text-cyan-700 dark:text-cyan-300',
-                  )}
-                >
-                  {sucursal.tipo === TipoSucursal.Planta ? 'Planta' : 'Taller'}
-                </Badge>
-              )}
-              {sucursal == null && (
-                <Badge variant="outline" className="text-muted-foreground">
-                  No encontrada en el catálogo activo
-                </Badge>
-              )}
-            </>
-          )}
+      <PageHeader
+        mono
+        titulo={sucursal?.clave ?? '—'}
+        descripcion={sucursal?.nombre ?? 'Sucursal'}
+        estado={
+          <>
+            {sucursal != null && (
+              <Badge variant="info">
+                {sucursal.tipo === TipoSucursal.Planta ? 'Planta' : 'Taller'}
+              </Badge>
+            )}
+          </>
+        }
+        acciones={
+          <div className="ml-auto flex items-center gap-1">
+            <Button asChild variant="ghost" size="icon">
+              <Link to="/admin/sucursales" aria-label="Cerrar">
+                <X className="h-4 w-4" />
+              </Link>
+            </Button>
+          </div>
+        }
+      />
+      <dl className="grid gap-4 rounded-lg bg-surface-card p-4 shadow-card-flat sm:grid-cols-4">
+        <div>
+          <dt className="text-xs text-ink-muted">Clave</dt>
+          <dd className="text-sm font-medium ">{sucursal?.clave ?? '—'}</dd>
         </div>
-
-        <div className="ml-auto flex items-center gap-1">
-          <Button asChild variant="ghost" size="icon">
-            <Link to="/admin/sucursales" aria-label="Cerrar">
-              <X className="h-4 w-4" />
-            </Link>
-          </Button>
+        <div>
+          <dt className="text-xs text-ink-muted">Nombre</dt>
+          <dd className="text-sm font-medium ">{sucursal?.nombre ?? '—'}</dd>
         </div>
-      </header>
+      </dl>
 
       <nav
-        className="sticky top-0 z-10 shrink-0 flex items-center gap-1 border-b bg-background/95 px-4 backdrop-blur"
+        className="sticky top-0 z-10 shrink-0 flex items-center gap-1 border-b bg-surface-page/95 px-4 "
         role="tablist"
         aria-label="Secciones de la sucursal"
         data-print="hidden"
@@ -116,10 +101,7 @@ export function SucursalDetalle() {
         )}
         {tab === 'empleados' && (
           <div id="tab-panel-empleados" role="tabpanel">
-            <SucursalColaboradoresTab
-              sucursalId={id}
-              canGestionar={canGestionarEmpleados}
-            />
+            <SucursalColaboradoresTab sucursalId={id} canGestionar={canGestionarEmpleados} />
           </div>
         )}
       </div>
@@ -144,9 +126,7 @@ function TabButton({ activa, onClick, ariaControls, children }: TabButtonProps) 
       onClick={onClick}
       className={cn(
         'border-b-2 px-3 py-2 text-sm font-medium transition-colors',
-        activa
-          ? 'border-primary text-foreground'
-          : 'border-transparent text-muted-foreground hover:text-foreground',
+        activa ? 'border-brand text-ink' : 'border-transparent text-ink-muted hover:text-ink',
       )}
     >
       {children}

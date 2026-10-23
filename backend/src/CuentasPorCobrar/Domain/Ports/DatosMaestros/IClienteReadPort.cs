@@ -8,7 +8,8 @@ public sealed record ClienteRefDto(
     Guid Id,
     string? Rfc,
     string RazonSocial,
-    bool EsGenerico);
+    bool EsGenerico,
+    string? Email = null);
 
 /// <summary>
 /// Item del lookup de clientes para bandejas y selectores del frontend
@@ -51,4 +52,15 @@ public interface IClienteReadPort
         IReadOnlyCollection<Guid>? ids,
         int limit,
         CancellationToken cancellationToken);
+
+    /// <summary>
+    /// 86e3tfdx8 — búsqueda de una sola caja: todas las palabras, en
+    /// cualquier orden y sin acentos, en razón social, RFC o clave. El
+    /// default (dobles de prueba) cae a razón social.
+    /// </summary>
+    Task<IReadOnlyList<ClienteLookupCxcDto>> BuscarPorPalabrasAsync(
+        string texto,
+        int limit,
+        CancellationToken cancellationToken)
+        => BuscarAsync(null, texto, null, limit, cancellationToken);
 }

@@ -8,6 +8,8 @@ import { EstadoOrdenCompra } from '@/features/compras/ordenes/api/types';
 import { useAuthStore } from '@/lib/auth/auth-store';
 
 vi.mock('@tanstack/react-router', () => ({
+  useSearch: () => ({ page: 1, pageSize: 25 }),
+  useNavigate: () => vi.fn(),
   Link: ({
     children,
     to,
@@ -122,6 +124,9 @@ describe('<BandejaPendientesOc>', () => {
     fireEvent.click(checkA);
     fireEvent.click(screen.getByRole('checkbox', { name: 'Seleccionar OC-2026-000002' }));
     fireEvent.click(screen.getByRole('button', { name: 'Aprobar seleccionadas (2)' }));
+    // Sin confirmar no se firma nada.
+    expect(llamadas).toHaveLength(0);
+    fireEvent.click(await screen.findByRole('button', { name: 'Aprobar 2 OC' }));
 
     await waitFor(() => expect(llamadas).toHaveLength(1));
     expect(llamadas[0]).toEqual({
@@ -169,6 +174,7 @@ describe('<BandejaPendientesOc>', () => {
     ).not.toBeInTheDocument();
 
     fireEvent.click(screen.getByRole('button', { name: 'Aprobar OC-2026-000001' }));
+    fireEvent.click(await screen.findByRole('button', { name: 'Aprobar 1 OC' }));
     await waitFor(() => expect(llamadas).toEqual([['oc-1']]));
   });
 
@@ -207,6 +213,7 @@ describe('<BandejaPendientesOc>', () => {
     fireEvent.click(await screen.findByRole('checkbox', { name: 'Seleccionar OC-2026-000001' }));
     fireEvent.click(screen.getByRole('checkbox', { name: 'Seleccionar OC-2026-000002' }));
     fireEvent.click(screen.getByRole('button', { name: 'Aprobar seleccionadas (2)' }));
+    fireEvent.click(await screen.findByRole('button', { name: 'Aprobar 2 OC' }));
 
     // La lista ya no tiene filas; el resumen debe seguir visible.
     await screen.findByText(/sin ocs pendientes/i);

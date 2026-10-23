@@ -28,11 +28,7 @@ export interface ResumenCubrimientoProps {
 // 2=Autorizada, 3=EnSurtido, 4=Cerrada (ver EstadoRequisicion).
 const ESTADOS_CON_CUBRIMIENTO = new Set<number>([2, 3, 4]);
 
-export function ResumenCubrimiento({
-  lineas,
-  estado,
-  className,
-}: ResumenCubrimientoProps) {
+export function ResumenCubrimiento({ lineas, estado, className }: ResumenCubrimientoProps) {
   if (!ESTADOS_CON_CUBRIMIENTO.has(estado)) return null;
   if (lineas.length === 0) return null;
 
@@ -47,18 +43,18 @@ export function ResumenCubrimiento({
     <div
       className={cn(
         'inline-flex items-center gap-2 rounded-md border px-3 py-1.5 text-sm',
-        completo && 'border-emerald-300 bg-emerald-50 text-emerald-900',
-        sinCobertura && 'border-amber-300 bg-amber-50 text-amber-900',
-        !completo && !sinCobertura && 'border-slate-300 bg-slate-50 text-slate-900',
+        completo && 'border-success bg-success-bg text-success-fg',
+        sinCobertura && 'border-warning bg-warning-bg text-warning-fg',
+        !completo && !sinCobertura && 'border-line bg-surface-muted text-ink-muted',
         className,
       )}
       role="status"
-      aria-label={`Cubrimiento global: ${pct}% — ${cerradas} de ${total} líneas cerradas`}
+      aria-label={`Cubrimiento global: ${pct}% — ${cerradas} de ${total} partidas cerradas`}
     >
       <span className="font-semibold">Cubrimiento global:</span>
       <span className="font-mono">{pct}%</span>
-      <span className="text-muted-foreground">
-        ({cerradas} de {total} {total === 1 ? 'línea cerrada' : 'líneas cerradas'})
+      <span className="text-ink-muted">
+        ({cerradas} de {total} {total === 1 ? 'partida cerrada' : 'partidas cerradas'})
       </span>
     </div>
   );

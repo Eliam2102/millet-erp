@@ -10,7 +10,8 @@ using Millet.SharedKernel.Application.Exceptions;
 namespace Millet.Integraciones.Aw.Application.Origen;
 
 public sealed record AwOrigenEstado(string Origen, bool Permitido, bool DemoConfigurada,
-    string OrigenClientesReal, string OrigenProductosReal, string? CambiadoPor, DateTimeOffset? CambiadoEn, int Version);
+    string OrigenClientesReal, string OrigenProductosReal, string? CambiadoPor, DateTimeOffset? CambiadoEn, int Version,
+    bool LecturaHabilitada = false, bool AplicacionHabilitada = false, bool OrigenProductosHabilitado = false);
 
 public interface IAwOrigenActivo
 {
@@ -31,7 +32,10 @@ public sealed class AwOrigenActivo(CompartidoDbContext db, IConfiguration config
             configuration["IntegracionesAw:Clientes:Origen"] ?? "Simulado",
             configuration["IntegracionesAw:Productos:Origen"] ?? "Simulado",
             p?.UpdatedBy == "seed" ? null : p?.UpdatedBy,
-            p?.UpdatedBy == "seed" ? null : p?.UpdatedAt, p?.Version ?? 0);
+            p?.UpdatedBy == "seed" ? null : p?.UpdatedAt, p?.Version ?? 0,
+            configuration.GetValue<bool>("IntegracionesAw:Clientes:LecturaHabilitada"),
+            configuration.GetValue<bool>("IntegracionesAw:Clientes:AplicacionHabilitada"),
+            configuration.GetValue<bool>("IntegracionesAw:Productos:OrigenHabilitado"));
     }
 
     public static void VerificarDemo(AwOrigenEstado estado)
