@@ -94,7 +94,7 @@ function etiquetaPartida(p: PartidaComparativo) {
 export function ComparativoCotizaciones() {
   const { id } = useParams({ strict: false }) as { id: string };
   const query = useComparativoCotizaciones(id);
-  const condiciones = useCondicionesPago().data;
+  const condiciones = useCondicionesPago({ includeInactivas: true }).data;
   const [partidaId, setPartidaId] = useState<string | null>(null);
   const [seleccionadaId, setSeleccionadaId] = useState<string | null>(null);
   const [registrando, setRegistrando] = useState(false);

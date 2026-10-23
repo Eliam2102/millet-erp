@@ -89,7 +89,7 @@ function RespuestaForm({
   onClose: () => void;
 }) {
   const hoy = hoyLocalISO();
-  const condicion = useCondicionesPago().data?.find((c) => c.id === oc.condicionesPagoId);
+  const condicion = useCondicionesPago({ includeInactivas: true }).data?.find((c) => c.id === oc.condicionesPagoId);
   const pendientes = oc.lineas
     .map((l) => ({ linea: l, pendiente: l.cantidad - l.cantidadRecibida }))
     .filter((x) => x.pendiente > 0);
