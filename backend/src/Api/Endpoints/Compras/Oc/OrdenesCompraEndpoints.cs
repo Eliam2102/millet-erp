@@ -1,3 +1,4 @@
+using Millet.Compras.Application.Oc.Envios;
 using MediatR;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
@@ -238,6 +239,35 @@ public static class OrdenesCompraEndpoints
         .ProducesProblem(StatusCodes.Status401Unauthorized)
         .ProducesProblem(StatusCodes.Status403Forbidden)
         .ProducesProblem(StatusCodes.Status404NotFound);
+
+        group.MapGet("/{id:guid}/envios", async (
+            Guid id, IMediator mediator, ComprasDbContext db, ICurrentUserContext scopeUser,
+            ICurrentUserPermissions scopePermisos, IUsuarioSucursalReadPort scopeSucursales,
+            CancellationToken cancellationToken) =>
+        {
+            await OcSucursalScope.VerificarAsync(id, db, scopeUser, scopePermisos, scopeSucursales, cancellationToken);
+            return Results.Ok(await mediator.Send(new ObtenerEnviosOcQuery(id), cancellationToken));
+        })
+        .RequireAuthorization(PermissionPolicyProvider.Prefix + PermisosCanonicos.ComprasOrdenesLeer)
+        .WithName("ObtenerEnviosOrdenCompra")
+        .WithSummary("Consultar historial y disponibilidad del envío de una orden al proveedor")
+        .Produces<EnviosOcResponse>();
+
+        group.MapPost("/{id:guid}/envios", async (
+            Guid id, [FromBody] RegistrarEnvioOcRequest body, IMediator mediator,
+            ComprasDbContext db, ICurrentUserContext scopeUser, ICurrentUserPermissions scopePermisos,
+            IUsuarioSucursalReadPort scopeSucursales, CancellationToken cancellationToken) =>
+        {
+            await OcSucursalScope.VerificarAsync(id, db, scopeUser, scopePermisos, scopeSucursales, cancellationToken, escritura: true);
+            var envio = await mediator.Send(new RegistrarEnvioOcCommand(id, body.Destinatario, body.Modo), cancellationToken);
+            return Results.Ok(EnvioOcResponse.From(envio));
+        })
+        .WithMetadata(new RequireIdempotencyKeyAttribute())
+        .RequireAuthorization(PermissionPolicyProvider.Prefix + PermisosCanonicos.ComprasOrdenesCrear)
+        .WithName("RegistrarEnvioOrdenCompra")
+        .WithSummary("Enviar el PDF existente al proveedor o registrar un envío manual")
+        .Produces<EnvioOcResponse>()
+        .ProducesProblem(StatusCodes.Status422UnprocessableEntity);
 
         // --- F6-PR1: descargar PDF de la OC ---
         group.MapGet("/{id:guid}/pdf", async (
@@ -1337,21 +1367,51 @@ public static class OrdenesCompraEndpoints
 
         // --- F1-COM-11: respuesta del proveedor (confirmación o rechazo) ---
         group.MapPost("/{id:guid}/respuestas-proveedor", async (
-            Guid id, [FromBody] RegistrarRespuestaProveedorRequest body, IMediator mediator,
+            Guid id, HttpRequest request, IMediator mediator,
             ComprasDbContext scopeDb, ICurrentUserContext scopeUser,
             ICurrentUserPermissions scopePermisos, IUsuarioSucursalReadPort scopeSucursales,
             CancellationToken cancellationToken) =>
         {
             await OcSucursalScope.VerificarAsync(id, scopeDb, scopeUser, scopePermisos, scopeSucursales, cancellationToken, escritura: true);
+            if (!request.HasFormContentType)
+                throw new BusinessRuleException("OC_RESPUESTA_EVIDENCIA_REQUERIDA", "Adjunta el archivo de evidencia de la respuesta del proveedor.");
+            IFormCollection form;
+            try
+            {
+                form = await request.ReadFormAsync(cancellationToken);
+            }
+            catch (InvalidDataException)
+            {
+                // Multipart vacío o mal formado: se trata igual que la falta de evidencia.
+                throw new BusinessRuleException("OC_RESPUESTA_EVIDENCIA_REQUERIDA", "Adjunta el archivo de evidencia de la respuesta del proveedor.");
+            }
+            var archivo = form.Files.GetFile("archivo");
+            if (archivo is null || archivo.Length == 0)
+                throw new BusinessRuleException("OC_RESPUESTA_EVIDENCIA_REQUERIDA", "Adjunta el archivo de evidencia de la respuesta del proveedor.");
+            RegistrarRespuestaProveedorRequest body;
+            try
+            {
+                body = System.Text.Json.JsonSerializer.Deserialize<RegistrarRespuestaProveedorRequest>(
+                    form["datos"].FirstOrDefault() ?? "{}", System.Text.Json.JsonSerializerOptions.Web)
+                    ?? throw new System.Text.Json.JsonException();
+            }
+            catch (System.Text.Json.JsonException)
+            {
+                return Results.Problem(statusCode: 400, title: "Los datos de la respuesta no tienen un formato válido.");
+            }
+            await using var stream = archivo.OpenReadStream();
             var response = await mediator.Send(new RegistrarRespuestaProveedorCommand(id, body.Tipo, body.FechaRespuesta,
-                body.Evidencia, body.ContactoProveedor, body.Motivo, body.Compromisos ?? []), cancellationToken);
+                body.Evidencia, body.ContactoProveedor, body.Motivo, body.Compromisos ?? [], stream, archivo.FileName,
+                archivo.ContentType), cancellationToken);
             return Results.Created($"/api/v1/compras/ordenes/{id}", response);
         })
         .WithMetadata(new RequireIdempotencyKeyAttribute())
         .RequireAuthorization(PermissionPolicyProvider.Prefix + PermisosCanonicos.ComprasOrdenesRegistrarRespuestaProveedor)
+        .DisableAntiforgery()
+        .Accepts<IFormFile>("multipart/form-data")
         .WithName("RegistrarRespuestaProveedorOrdenCompra")
         .WithSummary("Registrar la confirmación o el rechazo del proveedor (F1-COM-11)")
-        .WithDescription("Solo en OC autorizada. No modifica cantidades, recepción, facturación, pago ni el estado de la OC; una nueva fecha prometida es otra respuesta y conserva la anterior. Header `Idempotency-Key` obligatorio.")
+        .WithDescription("Multipart con archivo obligatorio y datos JSON opcionales (tipo, fechaRespuesta, evidencia como nota, contactoProveedor, motivo, compromisos). Solo en OC autorizada. No modifica cantidades, recepción, facturación, pago ni el estado de la OC; una nueva fecha prometida es otra respuesta y conserva la anterior. Header `Idempotency-Key` obligatorio.")
         .Produces<RespuestaProveedorOcResponse>(StatusCodes.Status201Created)
         .ProducesProblem(StatusCodes.Status400BadRequest)
         .ProducesProblem(StatusCodes.Status401Unauthorized)
@@ -1870,8 +1930,9 @@ public static class OrdenesCompraEndpoints
     /// <summary>Body del PATCH texto-adicional (F2-PR2).</summary>
     public sealed record ActualizarTextoAdicionalRequest(string? TextoAdicional);
     public sealed record ResolverCancelacionOcRequest(bool Confirmar, string Motivo);
-    public sealed record RegistrarRespuestaProveedorRequest(TipoRespuestaProveedorOc Tipo, DateOnly FechaRespuesta, string Evidencia, string? ContactoProveedor, string? Motivo, IReadOnlyList<CompromisoEntregaInput>? Compromisos);
+    public sealed record RegistrarRespuestaProveedorRequest(TipoRespuestaProveedorOc? Tipo, DateOnly? FechaRespuesta, string? Evidencia, string? ContactoProveedor, string? Motivo, IReadOnlyList<CompromisoEntregaInput>? Compromisos);
     public sealed record RegistrarIncidenciaProveedorRequest(Guid LineaOrdenCompraId, TipoIncidenciaProveedorOc Tipo, decimal Cantidad, DateOnly FechaCompromiso, Guid ResponsableId, string? Descripcion);
     public sealed record ReprogramarIncidenciaProveedorRequest(DateOnly FechaCompromiso, string Motivo);
     public sealed record CerrarIncidenciaProveedorRequest(string Motivo);
+    public sealed record RegistrarEnvioOcRequest(string? Destinatario, string Modo);
 }

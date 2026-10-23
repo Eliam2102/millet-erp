@@ -53,7 +53,7 @@ public sealed class ProveedorReadAdapter : IProveedorReadPort
         return await _db.Proveedores
             .AsNoTracking()
             .Where(p => distinct.Contains(p.Id))
-            .Select(p => new ProveedorLectura(p.Id, p.Clave, p.RazonSocial))
+            .Select(p => new ProveedorLectura(p.Id, p.Clave, p.RazonSocial, p.Email))
             .ToDictionaryAsync(p => p.Id, cancellationToken);
     }
 }

@@ -44,6 +44,7 @@ public sealed class ObtenerOrdenCompraPorIdHandler
     private readonly IDim3ReadPort _centrosCosto;
     private readonly IClock _clock;
     private readonly IUsuarioReadPort _usuarios;
+    private readonly Millet.Almacen.Application.PublicPorts.IRecepcionesImportacionReadPort _importaciones;
 
     public ObtenerOrdenCompraPorIdHandler(
         ComprasDbContext db,
@@ -52,7 +53,7 @@ public sealed class ObtenerOrdenCompraPorIdHandler
         IProveedorReadPort proveedores,
         IDim3ReadPort centrosCosto,
         IClock clock,
-        IUsuarioReadPort usuarios)
+        IUsuarioReadPort usuarios, Millet.Almacen.Application.PublicPorts.IRecepcionesImportacionReadPort importaciones)
     {
         _db = db;
         _mapper = mapper;
@@ -61,6 +62,7 @@ public sealed class ObtenerOrdenCompraPorIdHandler
         _centrosCosto = centrosCosto;
         _clock = clock;
         _usuarios = usuarios;
+        _importaciones = importaciones;
     }
 
     public async Task<OrdenCompraResponse> Handle(
@@ -133,6 +135,7 @@ public sealed class ObtenerOrdenCompraPorIdHandler
 
         return response with
         {
+            RecepcionesImportacion = oc.EsImportacion ? await _importaciones.ObtenerPorOcAsync(oc.Id, cancellationToken) : [],
             EsRecurrente = esRecurrente,
             CotizacionElegida = cotizacion,
             ProveedorRazonSocial = prov?.RazonSocial,

@@ -46,26 +46,30 @@ export function usePdfOrdenCompra(
     gcTime: 5 * 60 * 1000, // 5 min — libera el blob de memoria pasado un rato.
     retry: false, // 404 no debe reintentar.
     queryFn: async ({ signal }) => {
-      const response = await apiFetch(`/api/v1/compras/ordenes/${id}/pdf`, {
-        signal,
-      });
-      if (!response.ok) {
-        // Intentar parsear ProblemDetails para ApiError tipado.
-        let problem;
-        try {
-          problem = await response.json();
-        } catch {
-          problem = {
-            type: 'about:blank',
-            title: response.statusText || 'Error al descargar PDF',
-            status: response.status,
-            code: 'PDF_FETCH_ERROR',
-          };
-        }
-        throw new ApiError(problem, response.status);
-      }
-      const blob = await response.blob();
-      return URL.createObjectURL(blob);
+      return URL.createObjectURL(await descargarPdfOrdenCompra(id, signal));
     },
   });
+}
+
+/** Reutiliza el PDF existente sin compartir object URLs entre consumidores. */
+export async function descargarPdfOrdenCompra(id: string, signal?: AbortSignal): Promise<Blob> {
+  const response = await apiFetch(`/api/v1/compras/ordenes/${id}/pdf`, {
+    signal,
+  });
+  if (!response.ok) {
+    // Intentar parsear ProblemDetails para ApiError tipado.
+    let problem;
+    try {
+      problem = await response.json();
+    } catch {
+      problem = {
+        type: 'about:blank',
+        title: response.statusText || 'Error al descargar PDF',
+        status: response.status,
+        code: 'PDF_FETCH_ERROR',
+      };
+    }
+    throw new ApiError(problem, response.status);
+  }
+  return response.blob();
 }

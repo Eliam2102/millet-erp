@@ -93,6 +93,7 @@ const NOMBRES_UMBRALES: Readonly<Record<string, string>> = {
   'almacen.conteo-variacion-valor-recuento': 'Diferencia en valor que exige recuento (MXN)',
   'almacen.conteo-nivel1-maximo': 'Máximo para aprobación del Nivel 1 (MXN)',
   'almacen.conteo-nivel2-maximo': 'Máximo para aprobación del Nivel 2 (MXN)',
+  'cxp.tolerancia-tarjetas-mxn': 'Tolerancia de conciliación de tarjetas (MXN)',
 };
 
 export function nombreParametro(clave: string): string {

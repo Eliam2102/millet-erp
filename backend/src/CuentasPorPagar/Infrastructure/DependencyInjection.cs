@@ -124,6 +124,7 @@ public static class DependencyInjection
         services.AddScoped<ITipoCambioReadPort, NoOpTipoCambioReadPort>();
         services.AddScoped<IProveedorReadPort, Adapters.ProveedorReadPortAdapter>();
         services.AddScoped<Domain.Ports.Administracion.IToleranciaGeneralReadPort, Adapters.ToleranciaGeneralReadPortAdapter>();
+        services.AddScoped<Domain.Ports.Administracion.IToleranciaTarjetasReadPort, Adapters.ToleranciaTarjetasReadPortAdapter>();
         services.AddScoped<IArticuloReadPort, NoOpArticuloReadPort>();
         // F5-PR1: ComprasOcReadPort y AlmacenRecepcionReadPort tienen
         // adapter real ahora; los NoOp* se conservan en código pero

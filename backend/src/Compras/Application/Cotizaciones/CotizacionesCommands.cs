@@ -21,7 +21,7 @@ public sealed record CotizacionGuardadaResponse(Guid Id, int Version);
 public sealed record RegistrarCotizacionCommand(
     Guid RequisicionId, Guid ProveedorId, string? FolioProveedor, string Moneda,
     DateOnly FechaCotizacion, DateOnly VigenteHasta, string? CondicionesCredito,
-    IReadOnlyList<LineaCotizacionRequest> Lineas) : IRequest<CotizacionGuardadaResponse>;
+    IReadOnlyList<LineaCotizacionRequest> Lineas, Guid? CondicionesPagoId = null, DateOnly? FechaEntrega = null) : IRequest<CotizacionGuardadaResponse>;
 
 public sealed class RegistrarCotizacionValidator : AbstractValidator<RegistrarCotizacionCommand>
 {
@@ -79,12 +79,13 @@ public sealed class RegistrarCotizacionHandler(
                 $"No se encontró proveedor con id '{request.ProveedorId}'.");
         }
 
+        await PartidasCotizacion.ValidarPagoAsync(compartido, request.CondicionesPagoId, cancellationToken);
         var moneda = await PartidasCotizacion.ValidarMonedaAsync(compartido, request.Moneda, cancellationToken);
 
         var cot = Cotizacion.Registrar(Guid.CreateVersion7(), empresaId, rq.Id, rq.SucursalId, request.ProveedorId,
             request.FolioProveedor, moneda, request.FechaCotizacion, request.VigenteHasta, request.CondicionesCredito,
             PartidasCotizacion.Datos(request.Lineas, abiertas),
-            userId, clock.UtcNow, FechasInicio.Hoy(clock));
+            userId, clock.UtcNow, FechasInicio.Hoy(clock), request.CondicionesPagoId, request.FechaEntrega);
 
         db.Cotizaciones.Add(cot);
         await db.SaveChangesAsync(cancellationToken);
@@ -120,6 +121,13 @@ internal static class PartidasCotizacion
         return abiertas;
     }
 
+    public static async Task ValidarPagoAsync(CompartidoDbContext compartido, Guid? id, CancellationToken ct)
+    {
+        if (id.HasValue && !await compartido.CondicionesPago.AsNoTracking()
+            .AnyAsync(p => p.Id == id && p.Estatus == Millet.Catalogos.Domain.EstatusCatalogo.Activo, ct))
+            throw new BusinessRuleException("COT_PAGO_INVALIDO", "Selecciona una condición de pago activa del catálogo.");
+    }
+
     public static async Task<string> ValidarMonedaAsync(CompartidoDbContext compartido, string moneda, CancellationToken ct)
     {
         var norm = moneda.Trim().ToUpperInvariant();
@@ -140,7 +148,7 @@ internal static class PartidasCotizacion
 public sealed record EditarCotizacionCommand(
     Guid CotizacionId, Guid ProveedorId, string? FolioProveedor, string Moneda,
     DateOnly FechaCotizacion, DateOnly VigenteHasta, string? CondicionesCredito,
-    IReadOnlyList<LineaCotizacionRequest> Lineas) : IRequest<CotizacionGuardadaResponse>;
+    IReadOnlyList<LineaCotizacionRequest> Lineas, Guid? CondicionesPagoId = null, DateOnly? FechaEntrega = null) : IRequest<CotizacionGuardadaResponse>;
 
 public sealed class EditarCotizacionValidator : AbstractValidator<EditarCotizacionCommand>
 {
@@ -187,10 +195,11 @@ public sealed class EditarCotizacionHandler(
             throw new EntityNotFoundException("PROVEEDOR_NO_ENCONTRADO",
                 $"No se encontró proveedor con id '{request.ProveedorId}'.");
         }
+        await PartidasCotizacion.ValidarPagoAsync(compartido, request.CondicionesPagoId, cancellationToken);
         var moneda = await PartidasCotizacion.ValidarMonedaAsync(compartido, request.Moneda, cancellationToken);
 
         cot.Editar(request.ProveedorId, request.FolioProveedor, moneda, request.FechaCotizacion, request.VigenteHasta,
-            request.CondicionesCredito, PartidasCotizacion.Datos(request.Lineas, abiertas), FechasInicio.Hoy(clock));
+            request.CondicionesCredito, PartidasCotizacion.Datos(request.Lineas, abiertas), FechasInicio.Hoy(clock), request.CondicionesPagoId, request.FechaEntrega);
         await db.SaveChangesAsync(cancellationToken);
         return new CotizacionGuardadaResponse(cot.Id, cot.Version);
     }
