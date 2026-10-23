@@ -59,7 +59,7 @@ public sealed partial class P6SucursalEndpointsTests(P6SucursalEndpointsFactory 
         { "nota_cargo", "POST", "/autorizar" }, { "nota_cargo", "POST", "/aplicar" },
         { "nota_credito", "POST", "/vincular-factura" },
         { "comprobacion", "POST", "/enviar-revision" }, { "comprobacion", "POST", "/autorizar" },
-        { "comprobacion", "POST", "/aplicar" }, { "comprobacion", "POST", "/autorizar-nivel1" },
+        { "comprobacion", "POST", "/aplicar" }, { "comprobacion", "POST", "/aprobar-pasivo" }, { "comprobacion", "POST", "/autorizar-nivel1" },
         { "comprobacion", "POST", "/autorizar-nivel2" }, { "comprobacion", "POST", "/rechazar" },
         { "pago", "POST", "/revertir" }, { "movimiento", "POST", "/reclasificar" },
         { "factura", "PATCH", "" }, { "factura", "POST", "/enviar-revision" }, { "factura", "POST", "/liberar-revision" },
