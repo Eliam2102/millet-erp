@@ -638,6 +638,13 @@ InformacionImportacion (nullable, solo si EsImportacion == true)
   `SemanaEmbarque` requeridos al autorizar.
 - `NumeroPedimento` opcional al autorizar, editable post-autorización
   (se captura cuando llega el material).
+- **Decisión F1-COM-06 (supuesto de turno nocturno, por confirmar):** el
+  pedimento, BL, contenedor, aduana, clave de pedimento y fracción
+  capturados en la recepción **no se copian de vuelta** a
+  `OrdenCompra.InfoImportNumeroPedimento`. La trazabilidad vive por
+  recepción (patrón SAP B1 GRPO / Odoo picking): cada parcialidad guarda
+  sus documentos en Almacén (`RecepcionImportacion`) y el detalle de la OC
+  los lista por recepción (`recepcionesImportacion`), sin sobrescribir.
 
 ### 4.8 Value object: `DescuentoGlobal` y `DescuentoLinea`
 
@@ -1478,6 +1485,7 @@ un `// PLATFORM-TODO(<id>): ...` en código.
 | **Módulo Tesorería (Pago) — `PagoFacturaProveedorEvent`** | `<TesoreriaEventListenerCompras>` | El listener `PagoFacturaProveedorListener` está escrito pero queda huérfano: no hay worker SB en Compras suscrito a `tesoreria-events`. El payload externo no incluye `oc_id` ni acumulado. | Crear `TesoreriaEventListenerWorker` en Compras + proyección local `facturas_proveedor_local` (mapping `factura_id → oc_id`) + proyección de pagos por OC para calcular `MontoPagadoAcumulado`. PR separado. |
 | ~~**Servicio de PDF institucional**~~ | ~~`<PdfService>`~~ | **CERRADO en F6-PR3 (2026-05-12)**: `QuestPdfOrdenCompraGenerator` reemplazó al stub con layout institucional real (QuestPDF Community license, válida hasta $1M revenue). | — |
 | **Módulo Notificaciones** | `<Notificaciones>` | Inexistente. Los eventos `OrdenCompraEnviadaAAutorizacionEvent`, `OrdenCompraAutorizadaEvent`, `OrdenCompraRechazadaEvent` se publican pero no envían email. F1-COM-07: `IncidenciaVencidaWorker` registra el aviso de compromiso vencido en `oc_incidencias_avisos` (único por incidencia y fecha) y solo lo escribe en el log; la OC lo muestra. | ADR 0026: cuando exista, el módulo Notificaciones se suscribe y envía email. |
+| **Catálogo SAT de aduanas y claves de pedimento** | `<CatalogoSatComercioExterior>` | `CatalogosImportacionDemo` (Almacén): subconjunto DEMO de aduanas y claves de pedimento para validar la captura en la recepción de importación. | Sustituir por el catálogo SAT completo y versionado (tabla en Datos Maestros + puerto de lectura) al habilitar operación fiscal de Comercio Exterior. |
 | **Servicio de tipo de cambio (C1)** | `<TipoCambio>` | Inexistente. v1 acepta T/C manual; no hay puerto. | Si se decide automatizar (C1 "no"), se agrega `ITipoCambioPort` con stub apuntando a captura manual. |
 | **Catálogos maestros (CRUD + migración SAP)** | `<DatosMaestros>` | Heredado del módulo `Datos Maestros` separado. Hoy y durante todo el MVP los catálogos viven de seeds versionados + endpoints GET read-only. | **Bloque post-MVP** (no parte del scope de OC v1): pantallas de CRUD + ejecución de migración inicial desde SAP. |
 

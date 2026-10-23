@@ -1734,6 +1734,9 @@ namespace Millet.Compras.Infrastructure.Migrations
                         .IsDescending(false, true)
                         .HasDatabaseName("ix_oc_empresa_fecha");
 
+                    b.HasIndex("EmpresaId", "InfoImportNumeroPedimento")
+                        .HasDatabaseName("ix_ordenes_compra_empresa_id_info_import_numero_pedimento");
+
                     b.HasIndex("EmpresaId", "ProveedorId")
                         .HasDatabaseName("ix_oc_empresa_proveedor");
 

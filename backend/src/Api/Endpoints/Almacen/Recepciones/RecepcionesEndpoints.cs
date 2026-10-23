@@ -30,6 +30,11 @@ public static class RecepcionesEndpoints
             .WithTags("Almacen")
             .RequireAuthorization();
 
+        group.MapGet("/catalogos-importacion", () => Results.Ok(new
+        {
+            Demo = true, Aduanas = CatalogosImportacionDemo.Aduanas, ClavesPedimento = CatalogosImportacionDemo.ClavesPedimento
+        })).RequireAuthorization(PermissionPolicyProvider.Prefix + PermisosCanonicos.AlmacenEntradasRegistrar);
+
         // --- Listar Recepciones (bandeja) ---
         group.MapGet("/", async (
             [FromQuery] EstadoMovimiento? estado,

@@ -114,6 +114,36 @@ public class ObtenerRecepcionPorIdHandlerTests
 
     // ─── Infra de test ───
 
+    [Fact]
+    public async Task F1COM06_muestra_documentos_de_importacion_y_fraccion_por_linea()
+    {
+        var lineaOc = Guid.NewGuid();
+        await using var db = await NuevaDbConRecepcionAsync(conSubAlmacen: true, lineaOc);
+        var mov = db.Movimientos.AsNoTracking().Single();
+        var imp = new RecepcionImportacion(mov.EmpresaId, OcId, "261612346000001", "BL-1", "CONT-1", "16", "A1",
+            [new RecepcionImportacionPartida(lineaOc, "84719000")]);
+        imp.VincularRecepcion(mov.Id);
+        db.RecepcionesImportacion.Add(imp);
+        await db.SaveChangesAsync();
+
+        var handler = new ObtenerRecepcionPorIdHandler(
+            db, new FakeArticuloReadPort(), new FakeOcReadPort(), new FakeCxpDocumentosReadPort(), new CentrosReadPort());
+        var dto = await handler.Handle(new ObtenerRecepcionPorIdQuery(mov.Id), CancellationToken.None);
+
+        dto!.Importacion.Should().Be(new RecepcionImportacionDetalle("261612346000001", "BL-1", "CONT-1", "16", "Manzanillo", "A1", "Importación definitiva"));
+        dto.Lineas.Single(l => l.Posicion == 1).FraccionArancelaria.Should().Be("84719000");
+        dto.Lineas.Where(l => l.Posicion != 1).Should().OnlyContain(l => l.FraccionArancelaria == null);
+    }
+
+    [Fact]
+    public async Task Sin_importacion_el_detalle_no_trae_documentos()
+    {
+        await using var db = await NuevaDbConRecepcionAsync(conSubAlmacen: true);
+        var handler = new ObtenerRecepcionPorIdHandler(
+            db, new FakeArticuloReadPort(), new FakeOcReadPort(), new FakeCxpDocumentosReadPort(), new CentrosReadPort());
+        (await handler.Handle(new ObtenerRecepcionPorIdQuery(RecepcionId(db)), CancellationToken.None))!.Importacion.Should().BeNull();
+    }
+
     private static ArticuloLectura Art(Guid id, string clave, string descripcion) =>
         new(id, clave, descripcion, "PZA", null, true);
 
@@ -186,7 +216,7 @@ public class ObtenerRecepcionPorIdHandlerTests
         dto.Lineas.Where(l => !l.EnRevision).Should().OnlyContain(l => l.MotivoDano == null);
     }
 
-    private static async Task<AlmacenDbContext> NuevaDbConRecepcionAsync(bool conSubAlmacen)
+    private static async Task<AlmacenDbContext> NuevaDbConRecepcionAsync(bool conSubAlmacen, Guid? lineaOcId = null)
     {
         // PR6a: InMemory con ToInMemoryQuery para la vista v_movimiento_sub_almacen.
         var opts = new DbContextOptionsBuilder<InMemoryAlmacenDbContext>()
@@ -211,7 +241,7 @@ public class ObtenerRecepcionPorIdHandlerTests
             empresaId: Guid.NewGuid(),
             fechaMovimiento: new DateOnly(2026, 6, 1));
 
-        mov.AgregarLinea(new LineaMovimiento(Guid.NewGuid(), mov.Id, 1, ArtA, 2m, "PZA", 10m, ubicacionId: UbicId, centroCostoId: CentroDepartamento));
+        mov.AgregarLinea(new LineaMovimiento(Guid.NewGuid(), mov.Id, 1, ArtA, 2m, "PZA", 10m, ubicacionId: UbicId, centroCostoId: CentroDepartamento, lineaOcId: lineaOcId));
         mov.AgregarLinea(new LineaMovimiento(Guid.NewGuid(), mov.Id, 2, ArtB, 1m, "PZA", 20m, ubicacionId: UbicId, centroCostoId: CentroDepartamento));
         mov.AgregarLinea(new LineaMovimiento(Guid.NewGuid(), mov.Id, 3, ArtA, 3m, "PZA", 10m, ubicacionId: UbicId, centroCostoId: CentroDepartamento));
 

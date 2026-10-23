@@ -1890,7 +1890,7 @@ public sealed class OrdenCompra : BaseEntity, IPerteneceAEmpresa, IAuditable, IF
             numeroPedimento: numeroPedimento,
             numeroBl: numeroBl,
             agenteAduanalNaviera: agenteAduanalNaviera);
-        InfoImportNumeroPedimento = post.NumeroPedimento;
+        InfoImportNumeroPedimento = Millet.SharedKernel.Domain.NumeroPedimento.Normalizar(numeroPedimento);
         InfoImportNumeroBl = post.NumeroBl;
         InfoImportAgenteAduanalNaviera = post.AgenteAduanalNaviera;
         InfoImportFechaEstimadaArribo = fechaEstimadaArribo;
