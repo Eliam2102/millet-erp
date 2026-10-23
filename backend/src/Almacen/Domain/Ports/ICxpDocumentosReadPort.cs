@@ -48,7 +48,18 @@ public interface ICxpDocumentosReadPort
 
     /// <summary>Lectura operativa de un CFDI recibido para validar su vínculo a una recepción (F3). Null = no existe.</summary>
     Task<CfdiRecibidoLectura?> ObtenerCfdiAsync(Guid cfdiRecibidoId, CancellationToken cancellationToken);
+
+    /// <summary>
+    /// Facturas vigentes (no canceladas) ligadas a las recepciones dadas, por la recepción que eligió CxP
+    /// (<c>RecepcionId</c>) o por factura ya conciliada en el movimiento (<paramref name="facturaIds"/>).
+    /// Lectura operativa: la cancelación de una recepción la usa para negar si ya hay dinero aplicado.
+    /// </summary>
+    Task<IReadOnlyList<FacturaLigadaRecepcionLectura>> ObtenerFacturasLigadasRecepcionAsync(
+        IReadOnlyCollection<Guid> recepcionIds, IReadOnlyCollection<Guid> facturaIds, CancellationToken cancellationToken);
 }
+
+/// <summary>Factura de CxP ligada a una recepción. <c>Estado</c> = <c>ToString()</c> del enum de CxP; <c>ImporteSaldado</c> = pagos + anticipo + NC + cargos aplicados.</summary>
+public sealed record FacturaLigadaRecepcionLectura(Guid FacturaId, string? Folio, string Estado, decimal ImporteSaldado);
 
 /// <summary>Proyección mínima de un <c>CfdiRecibido</c> de CxP para validación en Almacén. <c>Estado</c> y <c>Tipo</c> = <c>ToString()</c> de los enums de CxP.</summary>
 public sealed record CfdiRecibidoLectura(Guid Id, string RfcEmisor, string Estado, string Tipo);
