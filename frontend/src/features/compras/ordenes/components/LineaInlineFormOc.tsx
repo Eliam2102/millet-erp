@@ -586,6 +586,20 @@ export function LineaInlineFormOc({ oc, linea, onCancel, onSaved }: LineaInlineF
         </FormCampo>
       </FormGrid>
 
+      {!articuloServicio && (
+        <LineaActivoFields
+          // Con recepciones el backend rechaza cambiar el flag.
+          disabled={esEditar && (linea?.cantidadRecibida ?? 0) > 0}
+          error={form.formState.errors.claseActivoId?.message}
+          activo={form.watch('esActivoFijo') ?? false}
+          clase={form.watch('claseActivoId')}
+          onChange={(activo, clase) => {
+            form.setValue('esActivoFijo', activo, { shouldDirty: true });
+            form.setValue('claseActivoId', clase, { shouldDirty: true });
+          }}
+        />
+      )}
+
       {/* ── Toggle "+ Detalles" + actions ────────────────────────── */}
       <div className="flex flex-wrap items-center justify-between gap-2">
         <button
@@ -731,19 +745,6 @@ export function LineaInlineFormOc({ oc, linea, onCancel, onSaved }: LineaInlineF
             </div>
           </FormCampo>
         </FormGrid>
-      )}
-      {!articuloServicio && (
-      <LineaActivoFields
-        // Con recepciones el backend rechaza cambiar el flag.
-        disabled={esEditar && (linea?.cantidadRecibida ?? 0) > 0}
-        error={form.formState.errors.claseActivoId?.message}
-        activo={form.watch('esActivoFijo') ?? false}
-        clase={form.watch('claseActivoId')}
-        onChange={(activo, clase) => {
-          form.setValue('esActivoFijo', activo, { shouldDirty: true });
-          form.setValue('claseActivoId', clase, { shouldDirty: true });
-        }}
-      />
       )}
     </form>
   );

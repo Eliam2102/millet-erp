@@ -456,6 +456,18 @@ export function LineaInlineForm({
         )}
       </div>
 
+      {!esServicio && (
+        <LineaActivoFields
+          error={form.formState.errors.claseActivoId?.message}
+          activo={form.watch('esActivoFijo') ?? false}
+          clase={form.watch('claseActivoId')}
+          onChange={(activo, clase) => {
+            form.setValue('esActivoFijo', activo, { shouldDirty: true });
+            form.setValue('claseActivoId', clase, { shouldDirty: true });
+          }}
+        />
+      )}
+
       {/* ── Toggle "+ Detalles" + actions ────────────────────────── */}
       <div className="flex flex-wrap items-center justify-between gap-2">
         <button
@@ -534,17 +546,6 @@ export function LineaInlineForm({
             </div>
           </FormCampo>
         </FormGrid>
-      )}
-      {!esServicio && (
-      <LineaActivoFields
-        error={form.formState.errors.claseActivoId?.message}
-        activo={form.watch('esActivoFijo') ?? false}
-        clase={form.watch('claseActivoId')}
-        onChange={(activo, clase) => {
-          form.setValue('esActivoFijo', activo, { shouldDirty: true });
-          form.setValue('claseActivoId', clase, { shouldDirty: true });
-        }}
-      />
       )}
     </form>
   );
