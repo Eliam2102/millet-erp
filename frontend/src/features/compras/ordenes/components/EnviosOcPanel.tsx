@@ -17,7 +17,7 @@ const resultados: Record<EnvioOc['resultado'], string> = {
   fallido: 'No se pudo enviar',
 };
 
-export function EnviosOcPanel({ ordenCompraId }: { ordenCompraId: string }) {
+export function EnviosOcPanel({ ordenCompraId, folio }: { ordenCompraId: string; folio?: string }) {
   const permiso = useHasPermission(PermisosCanonicos.ComprasOrdenesLeer);
   const puedeRegistrar = useHasPermission(PermisosCanonicos.ComprasOrdenesCrear);
   const consulta = useEnviosOc(ordenCompraId);
@@ -32,6 +32,7 @@ export function EnviosOcPanel({ ordenCompraId }: { ordenCompraId: string }) {
   if (!permiso) return null;
   const destinatario = capturado ?? data?.correoProveedor ?? '';
   const correoValido = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(destinatario.trim());
+  const envioManualDisponible = !!data?.esSimulado || data?.envios[0]?.resultado === 'fallido';
   const bloqueado = !data?.puedeEnviar || !correoValido || enviar.isPending;
 
   async function descargar() {
@@ -41,7 +42,7 @@ export function EnviosOcPanel({ ordenCompraId }: { ordenCompraId: string }) {
       const url = URL.createObjectURL(await descargarPdfOrdenCompra(ordenCompraId));
       const enlace = document.createElement('a');
       enlace.href = url;
-      enlace.download = 'Orden-de-compra.pdf';
+      enlace.download = folio ? `${folio}.pdf` : 'Orden-de-compra.pdf';
       enlace.click();
       setTimeout(() => URL.revokeObjectURL(url), 1000);
       setDescargado(true);
@@ -96,8 +97,8 @@ export function EnviosOcPanel({ ordenCompraId }: { ordenCompraId: string }) {
         <>
           {data.esSimulado && (
             <p className="text-sm text-ink-muted">
-              El correo está en modo simulado: no llega al proveedor. Para enviarlo por tu cuenta,
-              descarga el PDF y registra el envío manual.
+              El correo está en modo simulado: no se entrega ningún correo al proveedor. Para
+              enviarlo por tu cuenta, descarga el PDF y registra el envío manual.
             </p>
           )}
           {data.motivoBloqueo && <p className="text-sm text-ink-muted">{data.motivoBloqueo}</p>}
@@ -126,9 +127,9 @@ export function EnviosOcPanel({ ordenCompraId }: { ordenCompraId: string }) {
                   }
                   onClick={() => void registrar('correo')}
                 >
-                  Enviar al proveedor
+                  {data.esSimulado ? 'Probar envío (simulado)' : 'Enviar al proveedor'}
                 </Button>
-                {data.esSimulado && (
+                {envioManualDisponible && (
                   <>
                     <Button
                       variant="secondary"

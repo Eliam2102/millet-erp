@@ -242,7 +242,7 @@ export function DetalleOrdenCompra() {
 
         <StepperAutorizacionOc estado={oc.estado} />
         <CancelacionOcPanel oc={oc} />
-        <EnviosOcPanel key={oc.id} ordenCompraId={oc.id} />
+        <EnviosOcPanel key={oc.id} ordenCompraId={oc.id} folio={oc.folio} />
         <RespuestaProveedorPanel oc={oc} />
         <IncidenciasProveedorPanel oc={oc} />
 
