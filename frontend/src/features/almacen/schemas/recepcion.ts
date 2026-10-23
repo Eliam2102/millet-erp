@@ -3,8 +3,8 @@ import { FraccionArancelariaSchema } from '@/features/compras/ordenes/schemas/co
 
 export const ImportacionRecepcionSchema = z.object({
   numeroPedimento: z.string().refine((v) => /^[0-9]{15}$/.test(v.replaceAll(' ', '')), 'Captura el pedimento de 15 dígitos.'),
-  numeroBl: z.string().trim().min(1, 'Captura el BL o guía aérea.').max(50),
-  numeroContenedor: z.string().trim().min(1, 'Captura el número de contenedor.').max(40),
+  numeroBl: z.string().trim().min(1, 'Captura el BL o guía aérea.').max(50, 'Máximo 50 caracteres.'),
+  numeroContenedor: z.string().trim().min(1, 'Captura el número de contenedor.').max(40, 'Máximo 40 caracteres.'),
   aduana: z.string().min(1, 'Selecciona la aduana.'),
   clavePedimento: z.string().min(1, 'Selecciona la clave de pedimento.'),
 });
