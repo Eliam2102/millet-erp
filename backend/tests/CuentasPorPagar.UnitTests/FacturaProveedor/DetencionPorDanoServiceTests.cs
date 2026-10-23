@@ -103,14 +103,15 @@ public sealed class DetencionPorDanoServiceTests : IDisposable
     }
 
     [Fact]
-    public async Task Sin_area_Compras_asigna_CxP()
+    public async Task Sin_areas_en_el_catalogo_no_detiene_ni_inventa_un_id()
     {
         var a = Guid.NewGuid();
         var f = Factura(a);
 
-        (await Servicio(conCompras: false).DetenerSiAplicaAsync(f, Dano(a), Ahora, default)).Should().BeTrue();
+        (await Servicio(conCompras: false).DetenerSiAplicaAsync(f, Dano(a), Ahora, default)).Should().BeFalse();
 
-        f.DependenciaRevisoraId.Should().Be(CancelacionPasivoSolicitadaHandler.DependenciaCxpId);
+        f.EnRevision.Should().BeFalse();
+        f.DependenciaRevisoraId.Should().BeNull();
     }
 
     private sealed class SinEmpresa : ICurrentEmpresaContext
