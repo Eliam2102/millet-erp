@@ -14,7 +14,10 @@ namespace Millet.Facturacion.Application.Catalogos;
 public sealed record ClientesLookupQuery(
     string? Rfc = null,
     string? RazonSocial = null,
-    int Limit = 20) : IRequest<IReadOnlyList<ClienteLookupItem>>;
+    int Limit = 20,
+    // 86e3tfdx8: caja única por palabras (razón social, RFC o clave); con
+    // texto manda sobre Rfc/RazonSocial.
+    string? Q = null) : IRequest<IReadOnlyList<ClienteLookupItem>>;
 
 public sealed record ClienteLookupItem(
     Guid Id,
@@ -47,7 +50,9 @@ public sealed class ClientesLookupHandler
         ClientesLookupQuery query, CancellationToken cancellationToken)
     {
         var limit = query.Limit is <= 0 or > LimitMax ? 20 : query.Limit;
-        var items = await _clientes.BuscarAsync(query.Rfc, query.RazonSocial, limit, cancellationToken);
+        var items = string.IsNullOrWhiteSpace(query.Q)
+            ? await _clientes.BuscarAsync(query.Rfc, query.RazonSocial, limit, cancellationToken)
+            : await _clientes.BuscarPorPalabrasAsync(query.Q, limit, cancellationToken);
 
         return items
             .Select(c => new ClienteLookupItem(
