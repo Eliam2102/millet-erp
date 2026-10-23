@@ -1,7 +1,9 @@
 using FluentValidation;
 using MediatR;
 using Microsoft.EntityFrameworkCore;
+using Millet.CuentasPorPagar.Domain.Catalogos;
 using Millet.CuentasPorPagar.Domain.ComprobacionGastos;
+using Millet.CuentasPorPagar.Domain.Ports.Administracion;
 using Millet.CuentasPorPagar.Domain.FacturaProveedor.Events;
 using Millet.CuentasPorPagar.Infrastructure.Persistence;
 using Millet.SharedKernel.Application;
@@ -173,6 +175,102 @@ public sealed class AplicarComprobacionGastosHandler
 
         await _db.SaveChangesAsync(cancellationToken);
         return new TransicionComprobacionResponse(c.Id, c.Estado, c.Version);
+    }
+}
+
+// --------------------------------------------------------------- AprobarPasivo
+
+public sealed record AprobarPasivoComprobacionCommand(Guid Id, int VersionEsperada)
+    : IRequest<TransicionComprobacionResponse>;
+
+public sealed class AprobarPasivoComprobacionValidator : AbstractValidator<AprobarPasivoComprobacionCommand>
+{
+    public AprobarPasivoComprobacionValidator()
+    {
+        RuleFor(c => c.Id).NotEmpty();
+        RuleFor(c => c.VersionEsperada).GreaterThanOrEqualTo(0);
+    }
+}
+
+/// <summary>
+/// P8.5: CxP aprueba el pasivo de una comprobación de caja chica. En una sola
+/// TX aplica la comprobación, emite UNA reposición para ella y publica el
+/// pasivo hacia Tesorería (ADR-0009). Si el aprobador tiene un
+/// <c>AprobadorLimite</c> vigente de caja chica en la moneda de la
+/// comprobación, el monto no puede excederlo (límite inclusivo); sin fila o
+/// sin empleado vinculado no hay límite.
+/// </summary>
+public sealed class AprobarPasivoComprobacionHandler
+    : IRequestHandler<AprobarPasivoComprobacionCommand, TransicionComprobacionResponse>
+{
+    private readonly CuentasPorPagarDbContext _db;
+    private readonly Reposiciones.ReposicionCajaChicaEmisor _emisor;
+    private readonly IEmpleadoReadPort _empleados;
+    private readonly ICurrentUserContext _currentUser;
+    private readonly IClock _clock;
+
+    public AprobarPasivoComprobacionHandler(
+        CuentasPorPagarDbContext db,
+        Reposiciones.ReposicionCajaChicaEmisor emisor,
+        IEmpleadoReadPort empleados,
+        ICurrentUserContext currentUser,
+        IClock clock)
+    {
+        _db = db; _emisor = emisor; _empleados = empleados;
+        _currentUser = currentUser; _clock = clock;
+    }
+
+    public async Task<TransicionComprobacionResponse> Handle(
+        AprobarPasivoComprobacionCommand command, CancellationToken cancellationToken)
+    {
+        var c = await _db.ComprobacionesGastos
+            .Include(x => x.Lineas)
+            .FirstOrDefaultAsync(x => x.Id == command.Id, cancellationToken)
+            ?? throw new EntityNotFoundException(
+                "COMP_NO_ENCONTRADA",
+                $"No se encontró la comprobación '{command.Id}'.");
+        if (c.Version != command.VersionEsperada)
+            throw new ConcurrencyException(nameof(Domain.ComprobacionGastos.ComprobacionGastos), c.Id);
+
+        var usuarioId = _currentUser.UserId
+            ?? throw new ForbiddenException("USUARIO_NO_AUTENTICADO",
+                "Se requiere usuario autenticado para aprobar el pasivo.");
+        var ahora = _clock.UtcNow;
+        c.AprobarPasivo(usuarioId, ahora);
+
+        await VerificarLimiteAsync(c, usuarioId, DateOnly.FromDateTime(ahora.UtcDateTime), cancellationToken);
+
+        await _emisor.EmitirSiCorrespondeAsync(
+            c.EmpresaId, c.SucursalId,
+            c.DestinoReposicion ?? throw new BusinessRuleException(
+                "COMP_DESTINO_REPOSICION_REQUERIDO",
+                "La comprobación de caja chica no tiene destino de reposición."),
+            esCorteManual: false, usuarioId, ahora, cancellationToken,
+            soloComprobacionId: c.Id);
+
+        await _db.SaveChangesAsync(cancellationToken);
+        return new TransicionComprobacionResponse(c.Id, c.Estado, c.Version);
+    }
+
+    private async Task VerificarLimiteAsync(
+        Domain.ComprobacionGastos.ComprobacionGastos c, Guid usuarioId, DateOnly hoy, CancellationToken ct)
+    {
+        var empleado = await _empleados.ObtenerPorUsuarioAsync(usuarioId, ct);
+        if (empleado is null) return;
+
+        var vigentes = (await _db.AprobadoresLimites.AsNoTracking()
+                .Where(l => l.EmpleadoId == empleado.Id
+                    && l.TipoGasto == TipoGastoAprobador.ReembolsoCajaChica
+                    && l.Moneda == c.Moneda
+                    && l.VigenciaDesde <= hoy
+                    && (l.VigenciaHasta == null || l.VigenciaHasta >= hoy))
+                .ToListAsync(ct));
+        if (vigentes.Count == 0 || vigentes.Any(l => l.PuedeAutorizar(c.MontoTotal, hoy))) return;
+
+        var max = vigentes.Max(l => l.MontoMax);
+        throw new BusinessRuleException(
+            "APROBADOR_LIMITE_EXCEDIDO",
+            $"El monto de la comprobación ({c.MontoTotal:N2} {c.Moneda}) excede tu límite de aprobación ({max:N2} {c.Moneda}).");
     }
 }
 
