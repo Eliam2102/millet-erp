@@ -351,7 +351,7 @@ El catálogo de dependencias revisoras (A21) **no se crea en este schema** — v
 | `IPuestoReadPort` | ✅ `PuestoReadPortAdapter` sobre `compartido.puestos` (ADM-PR2) | Catálogo de puestos (A18) |
 | `IDependenciaRevisoraReadPort` | Adapter en `Administracion.Infrastructure` (stub `NoOpDependenciaRevisoraReadPort` con seed local hasta que Administración exponga el catálogo — A21) | Catálogo compartido de dependencias / áreas organizacionales para asignar revisión |
 | `IConceptoContableReadPort` | Adapter en `Contabilidad.Infrastructure` (stub hoy) | Mapeo `ConceptoContable` → `CuentaContable` |
-| `ITipoCambioReadPort` | Adapter en `Administracion.Infrastructure` | T/C manual del día (ADR-0014) |
+| `ITipoCambioReadPort` | `CuentasPorPagar.Infrastructure.Adapters.TipoCambioReadPortAdapter` (C1.2) sobre `compartido.tipos_cambio` | Manda el T/C del CFDI; si la factura en moneda extranjera no trae ninguno se toma el del catálogo para la fecha del documento y, sin registro, 422 `TIPO_CAMBIO_NO_REGISTRADO` |
 | `IFiscalApiClient` | Adapter en `CuentasPorPagar.Infrastructure` | Descarga SAT, validación RFC, consulta estado CFDI (ADR-0027) |
 | `IEstadoCuentaTcParserPort` | Adapter en `CuentasPorPagar.Infrastructure` (A20) | Parser configurable de Excel/CSV del portal del banco. Perfil por banco emisor (columnas, formato fecha, separador). |
 | `IAlmacenRecepcionReadPort` | Adapter en `Almacen.Infrastructure` (cuando el módulo esté en runtime; stub `NoOpAlmacenRecepcionReadPort` hasta entonces) | Verificar si una OC tiene recepción registrada (proyección local de eventos `OcRecepcionRegistradaEvent`), incluyendo flag `factura_pendiente` para variante B |

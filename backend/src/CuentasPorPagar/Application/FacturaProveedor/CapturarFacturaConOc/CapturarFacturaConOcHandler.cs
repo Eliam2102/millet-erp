@@ -25,6 +25,7 @@ namespace Millet.CuentasPorPagar.Application.FacturaProveedor.CapturarFacturaCon
 public sealed class CapturarFacturaConOcHandler : IRequestHandler<CapturarFacturaConOcCommand, CapturarFacturaConOcResponse>
 {
     private readonly Domain.Ports.Administracion.IToleranciaGeneralReadPort _toleranciaGeneral;
+    private readonly Domain.Ports.Administracion.ITipoCambioReadPort _tiposCambio;
 
     private readonly CuentasPorPagarDbContext _db;
     private readonly IComprasOcReadPort _ocPort;
@@ -46,7 +47,8 @@ public sealed class CapturarFacturaConOcHandler : IRequestHandler<CapturarFactur
         IMediator mediator,
         IClock clock,
         Domain.Ports.Administracion.IToleranciaGeneralReadPort toleranciaGeneral,
-        Revision.DetencionPorDanoService danos)
+        Revision.DetencionPorDanoService danos,
+        Domain.Ports.Administracion.ITipoCambioReadPort tiposCambio)
     {
         _db = db;
         _ocPort = ocPort;
@@ -58,6 +60,7 @@ public sealed class CapturarFacturaConOcHandler : IRequestHandler<CapturarFactur
         _clock = clock;
         _toleranciaGeneral = toleranciaGeneral;
         _danos = danos;
+        _tiposCambio = tiposCambio;
     }
 
     public async Task<CapturarFacturaConOcResponse> Handle(
@@ -157,6 +160,7 @@ public sealed class CapturarFacturaConOcHandler : IRequestHandler<CapturarFactur
             throw new BusinessRuleException("CFDI_UUID_DISTINTO", "El UUID capturado no coincide con el XML ligado.");
         if (xml is not null && (xml.TipoCambio ?? 1) != (command.TipoCambio ?? 1))
             throw new BusinessRuleException("CFDI_TIPO_CAMBIO_DISTINTO", "El tipo de cambio capturado debe coincidir con el XML ligado.");
+        var tipoCambio = await ResolverTipoCambioAsync(command, cancellationToken);
         var uuidNormalizado = command.UuidCfdi?.Trim().ToUpperInvariant();
         if (!string.IsNullOrWhiteSpace(command.UuidCfdi))
         {
@@ -242,7 +246,7 @@ public sealed class CapturarFacturaConOcHandler : IRequestHandler<CapturarFactur
             fechaContabilizacion: command.FechaContabilizacion,
             fechaVencimiento: command.FechaVencimiento,
             moneda: command.Moneda,
-            tipoCambio: command.TipoCambio,
+            tipoCambio: tipoCambio,
             subtotal: command.Subtotal,
             descuentos: command.Descuentos,
             impuestosTrasladados: command.ImpuestosTrasladados,
@@ -451,6 +455,24 @@ public sealed class CapturarFacturaConOcHandler : IRequestHandler<CapturarFactur
             datos.RfcEmisor != cfdi.RfcEmisor.Valor || datos.Tipo != cfdi.Tipo || datos.Moneda != cfdi.Moneda)
             throw new BusinessRuleException("CFDI_XML_DISTINTO", "El XML almacenado no corresponde al CFDI seleccionado.");
         return datos;
+    }
+
+    /// <summary>
+    /// C1.2 (ficha regla 3 y CA C1.2-b; plan de construcción: «una factura en USD usa el TC de su
+    /// fecha»): el pasivo en moneda extranjera se registra con el TC oficial del catálogo para la fecha
+    /// del documento. El TC del CFDI es dato fiscal del proveedor y no sustituye al del catálogo. Sin TC
+    /// registrado no se inventa uno: 422 <c>TIPO_CAMBIO_NO_REGISTRADO</c> (CA C1.2-c).
+    /// </summary>
+    private async Task<decimal?> ResolverTipoCambioAsync(
+        CapturarFacturaConOcCommand command, CancellationToken cancellationToken)
+    {
+        if (string.Equals(command.Moneda, "MXN", StringComparison.OrdinalIgnoreCase))
+            return command.TipoCambio;
+        var fecha = DateOnly.FromDateTime(command.FechaDocumento.DateTime);
+        return await _tiposCambio.ObtenerAsync(command.Moneda, "MXN", fecha, cancellationToken)
+            ?? throw new BusinessRuleException("TIPO_CAMBIO_NO_REGISTRADO",
+                $"No hay tipo de cambio de {command.Moneda.ToUpperInvariant()} registrado para {fecha:yyyy-MM-dd}. " +
+                "Regístralo en Catálogos › Monedas antes de capturar la factura.");
     }
 
     private async Task<Tolerancia> ResolverToleranciaAsync(ProveedorDto proveedor, CancellationToken cancellationToken)
