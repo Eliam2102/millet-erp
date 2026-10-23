@@ -191,6 +191,30 @@ describe('NuevoAnticipo · sucursal de la caja abierta (86e3tfd80)', () => {
     expect(cuerpo!.total).toBe(1160);
     expect(cuerpo!.montoBase).toBe(0);
   });
+
+  it('86e3tfd6n: manda el número de pedido de A+W cobrado antes de que el pedido llegue', async () => {
+    let cuerpo: Record<string, unknown> | null = null;
+    const emitir = async ({ request }: { request: Request }) => {
+      cuerpo = (await request.json()) as Record<string, unknown>;
+      return HttpResponse.json({ id: 'a-1', folio: 'FANT 1', estado: 'Timbrada', uuid: 'u', saldo: 116 });
+    };
+    mswServer.use(
+      http.post('*/api/v1/facturacion/anticipos', emitir),
+      http.post('*/api/v1/facturacion/anticipos/', emitir),
+    );
+    const { container } = renderizar();
+    await screen.findByLabelText('Sucursal (stub)');
+    fireEvent.click(screen.getByRole('button', { name: 'Elegir cliente' }));
+    fireEvent.change(container.querySelector('input[name="total"]')!, {
+      target: { value: '1160' },
+    });
+    fireEvent.change(screen.getByLabelText(/Número de pedido A\+W/), {
+      target: { value: ' 10425068 ' },
+    });
+    fireEvent.click(screen.getByRole('button', { name: 'Emitir y timbrar' }));
+    await waitFor(() => expect(cuerpo).not.toBeNull());
+    expect(cuerpo!.pedidoOrigenRef).toBe('10425068');
+  });
 });
 
 describe('NuevoAnticipo · captura por total (86e3tfd7j)', () => {
