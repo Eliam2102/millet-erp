@@ -80,6 +80,16 @@ export function EnviarRevisionSheet({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open, factura?.id]);
 
+  const motivoSel = motivos.data?.find((m) => m.id === form.watch('motivoRevisionId'));
+
+  // El motivo sugiere el área (editable); AREA_USUARIA no tiene departamento fijo y se elige a mano.
+  function elegirMotivo(id: string) {
+    form.setValue('motivoRevisionId', id, { shouldValidate: true });
+    const codigo = motivos.data?.find((m) => m.id === id)?.dependenciaRevisoraDefaultCodigo;
+    const area = dependencias.data?.find((d) => d.codigo === codigo);
+    form.setValue('dependenciaRevisoraId', area?.id ?? '', { shouldValidate: !!area });
+  }
+
   function nombreArea(codigo: string | null) {
     if (!codigo) return 'Sin área definida';
     return nombresAreas[codigo] ?? dependencias.data?.find(d => d.codigo === codigo)?.nombre ?? 'Sin área definida';
@@ -139,7 +149,7 @@ export function EnviarRevisionSheet({
               control={form.control}
               name="motivoRevisionId"
               render={({ field }) => (
-                <Select value={field.value} onValueChange={field.onChange}>
+                <Select value={field.value} onValueChange={elegirMotivo}>
                   <SelectTrigger id="motivoRevisionId" aria-label="Motivo">
                     <SelectValue placeholder="Selecciona un motivo…" />
                   </SelectTrigger>
@@ -178,6 +188,9 @@ export function EnviarRevisionSheet({
                 <SelectContent>{dependencias.data?.map(d => <SelectItem key={d.id} value={d.id}>{d.nombre}</SelectItem>)}</SelectContent>
               </Select>
             )} />
+            {motivoSel?.dependenciaRevisoraDefaultCodigo === 'AREA_USUARIA' && (
+              <p className="text-xs text-ink-muted">Elige el área que pidió la compra.</p>
+            )}
             {dependencias.isError && <p role="alert" className="text-xs text-danger-fg">No se pudo cargar el catálogo de áreas.</p>}
             {form.formState.errors.dependenciaRevisoraId && (
               <p className="text-xs text-destructive">
