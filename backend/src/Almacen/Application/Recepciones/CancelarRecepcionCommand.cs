@@ -78,6 +78,9 @@ public sealed class CancelarRecepcionHandler(
         var previa = await CargarAsync(request.RecepcionId, rastrear: false, ct);
         if (previa.Principal.Estado == EstadoMovimiento.Cancelado)
             return await RespuestaYaCanceladaAsync(previa.Ids, request.RecepcionId, ct);
+        // Sin OC no hay candado ni transacción (DevolucionOrigenLock) y el evento no tiene a quién avisar.
+        if (previa.Principal.OcId is null)
+            throw new BusinessRuleException("RECEPCION_SIN_OC", "Solo se puede cancelar una recepción contra orden de compra.");
 
         // 3. Serializa por OC (mismo lock que registrar y devolver) y relee ya con el candado.
         await using var transaccion = await DevolucionOrigenLock.AbrirAsync(db, previa.Principal.OcId, ct);
@@ -189,6 +192,7 @@ public sealed class CancelarRecepcionHandler(
             var saldo = await db.SaldosInventario.AsNoTracking()
                 .Where(s => s.UbicacionId == ubicacion && s.ArticuloId == articulo).Select(s => s.Cantidad).FirstOrDefaultAsync(ct);
             // Entradas y la propia cancelación de otras recepciones no son salidas de esta mercancía.
+            // AjustePrecioFactura cuenta a propósito: el costo ya se ajustó contra la factura y no se revierte aquí.
             var salidaPosterior = await (from m in db.Movimientos.AsNoTracking()
                                          join l in db.LineasMovimiento.AsNoTracking() on m.Id equals l.MovimientoId
                                          where m.Estado == EstadoMovimiento.Registrado && m.RegistradoAt > registradoAt
