@@ -146,7 +146,39 @@ public partial class OrdenesCompraEndpointsTests
 
         var sinMotivo = await client.PostAsync($"{EndpointBase}/{ocId}/respuestas-proveedor",
             CuerpoRespuesta(2, fechaResp, []));
-        Assert.Equal(HttpStatusCode.Created, sinMotivo.StatusCode);
+        Assert.Equal(HttpStatusCode.BadRequest, sinMotivo.StatusCode);
+    }
+
+    [Fact]
+    public async Task Com11_SinClasificar_Y_LuegoConfirmacion_ActualizaEstadoComercial()
+    {
+        var (ocId, lineaId, fechaResp, client) = await SembrarOcRespuestaAsync();
+        using var evidencia = RespuestaMultipart();
+        (await client.PostAsync($"{EndpointBase}/{ocId}/respuestas-proveedor", evidencia)).EnsureSuccessStatusCode();
+        Assert.Equal(4, (await DetalleOcAsync(client, ocId)).GetProperty("estadoComercialProveedor").GetInt32());
+
+        (await client.PostAsync($"{EndpointBase}/{ocId}/respuestas-proveedor",
+            CuerpoRespuesta(1, fechaResp, [Compromiso(lineaId, 10m, fechaResp.AddDays(5))]))).EnsureSuccessStatusCode();
+        var detalle = await DetalleOcAsync(client, ocId);
+        Assert.Equal(1, detalle.GetProperty("estadoComercialProveedor").GetInt32());
+        Assert.Equal(2, detalle.GetProperty("respuestasProveedor").GetArrayLength());
+    }
+
+    [Fact]
+    public async Task Com11_MismaIdempotencyKey_RegistraUnaSolaRespuesta()
+    {
+        var (ocId, _, _, client) = await SembrarOcRespuestaAsync();
+        var key = Guid.NewGuid().ToString("D");
+        async Task<HttpResponseMessage> Enviar()
+        {
+            using var request = new HttpRequestMessage(HttpMethod.Post, $"{EndpointBase}/{ocId}/respuestas-proveedor")
+            { Content = RespuestaMultipart() };
+            request.Headers.Add("Idempotency-Key", key);
+            return await client.SendAsync(request);
+        }
+        Assert.Equal(HttpStatusCode.Created, (await Enviar()).StatusCode);
+        Assert.Equal(HttpStatusCode.Created, (await Enviar()).StatusCode);
+        Assert.Equal(1, (await DetalleOcAsync(client, ocId)).GetProperty("respuestasProveedor").GetArrayLength());
     }
 
     [Fact]

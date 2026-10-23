@@ -41,6 +41,7 @@ public sealed class RegistrarRespuestaProveedorValidator : AbstractValidator<Reg
 
         When(c => c.Tipo == TipoRespuestaProveedorOc.Rechazo, () =>
         {
+            RuleFor(c => c.Motivo).NotEmpty().WithMessage("Indica el motivo del rechazo.");
             RuleFor(c => c.Compromisos).Empty().WithMessage("Un rechazo no lleva fechas prometidas.");
         });
 
