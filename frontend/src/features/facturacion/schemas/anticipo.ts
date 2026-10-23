@@ -37,6 +37,15 @@ export const AnticipoSchema = z.object({
   tasaIvaTraslado: z.number().min(0).max(1).nullable(),
   descripcion: z.string().max(1000).nullable(),
   obraNombre: z.string().max(254).nullable(),
+  // 86e3tfd6n: número de pedido de A+W cuando caja cobra antes de que el pedido llegue al ERP;
+  // se liga solo al importarse el pedido del mismo cliente.
+  pedidoOrigenRef: z
+    .string()
+    .trim()
+    .max(50)
+    .regex(/^\d*$/, 'Solo dígitos, sin la posición del lote (p. ej. 10425068).')
+    .nullable()
+    .optional(),
 }).superRefine((values, ctx) => {
   // Moneda extranjera exige tipo de cambio (CFDI 4.0); sin esto el backend
   // rechaza con 400. Se valida aquí para dar error inline en el campo.

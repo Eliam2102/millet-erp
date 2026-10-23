@@ -357,6 +357,25 @@ export interface AnticipoEstadoCuenta {
   /** Estado de timbrado del CFDI del anticipo (13-J). */
   estadoCfdi: string;
   vinculaciones: AnticipoVinculacionDetalle[];
+  /** 86e3tfd6n: pedido de A+W ya importado con ese número y del mismo cliente (null = pendiente o sin pedido). */
+  pedidoLigado?: PedidoLigadoAnticipo | null;
+}
+
+/** Pedido de A+W al que quedó ligado un anticipo cobrado antes de que el pedido llegara (86e3tfd6n). */
+export interface PedidoLigadoAnticipo {
+  pedidoFacturableId: string;
+  numeroPedido: string;
+  estado: string;
+}
+
+/** Anticipo cobrado con el número de este pedido de A+W (detalle del pedido, 86e3tfd6n). */
+export interface AnticipoLigadoPedido {
+  anticipoId: string;
+  facturaAnticipoId: string;
+  folio: string;
+  montoCobrado: number;
+  saldo: number;
+  estado: string;
 }
 
 /** Estado de cuenta de anticipos por cliente (GET /anticipos/control/{clienteId}). */
@@ -837,6 +856,8 @@ export interface PedidoFacturableDetalleResponse
   motivoEmergencia?: string | null;
   /** F6.1: pedido A+W para conciliar después (opcional, emergencia). */
   referenciaPedidoAw?: string | null;
+  /** 86e3tfd6n: anticipos cobrados con el número de este pedido de A+W (mismo cliente). */
+  anticiposLigados?: AnticipoLigadoPedido[];
   embarqueCe?: import('@/features/comercio-exterior/api/types').EmbarqueCe | null;
   id: string;
   numeroPedido: string | null;
