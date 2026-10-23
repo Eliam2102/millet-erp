@@ -106,4 +106,31 @@ public sealed class ClienteReadPortAdapter : IClienteReadPort
             .Select(c => new ClienteLookupCxcDto(c.Id, c.Clave, c.Rfc, c.RazonSocial))
             .ToListAsync(cancellationToken);
     }
+
+    public async Task<IReadOnlyList<ClienteLookupCxcDto>> BuscarPorPalabrasAsync(
+        string texto, int limit, CancellationToken cancellationToken)
+    {
+        using var bypass = _empresaContext.Bypass();
+        var palabras = BusquedaPorPalabras.Normalizar(texto);
+        IQueryable<Cliente> q = _db.Clientes.AsNoTracking()
+            .Where(c => !c.EsGenerico && c.Estatus == EstatusCatalogo.Activo);
+
+#pragma warning disable CA1304, CA1311, CA1862
+        foreach (var palabra in palabras)
+        {
+            q = q.Where(c =>
+                PostgresFunctions.Translate(c.RazonSocial.ToLower(), PostgresFunctions.AcentosOrigen, PostgresFunctions.AcentosDestino).Contains(palabra)
+                || (c.Rfc != null && c.Rfc.ToLower().Contains(palabra))
+                || c.Clave.ToLower().Contains(palabra));
+        }
+
+        var primera = palabras.Count > 0 ? palabras[0] : string.Empty;
+        return await q
+            .OrderByDescending(c => PostgresFunctions.Translate(c.RazonSocial.ToLower(), PostgresFunctions.AcentosOrigen, PostgresFunctions.AcentosDestino).StartsWith(primera))
+            .ThenBy(c => c.RazonSocial)
+            .Take(limit)
+            .Select(c => new ClienteLookupCxcDto(c.Id, c.Clave, c.Rfc, c.RazonSocial))
+            .ToListAsync(cancellationToken);
+#pragma warning restore CA1304, CA1311, CA1862
+    }
 }

@@ -113,6 +113,13 @@ export const ESTADOS_UI = {
     Amortizado: { tono: 'info', texto: 'Amortizado' },
     Cancelado: { tono: 'neutral', texto: 'Cancelado' },
   },
+  // F1-CXC-05: estado derivado en la consulta de aplicaciones de anticipo.
+  anticipoAplicacion: {
+    Pendiente: { tono: 'info', texto: 'Pendiente' },
+    Parcial: { tono: 'warning', texto: 'Parcial' },
+    Aplicado: { tono: 'success', texto: 'Aplicado' },
+    Cancelado: { tono: 'neutral', texto: 'Cancelado' },
+  },
   atencion: {
     Pendiente: { tono: 'warning', texto: 'Pendiente' },
     Atendida: { tono: 'success', texto: 'Atendida' },

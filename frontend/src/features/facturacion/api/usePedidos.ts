@@ -32,6 +32,7 @@ export function useListarPedidos(filtros: ListarPedidosFiltros) {
       if (filtros.limit != null) params.set('limit', String(filtros.limit));
       if (filtros.alcance != null) params.set('alcance', filtros.alcance);
       if (filtros.clase != null) params.set('clase', filtros.clase);
+      if (filtros.credito != null) params.set('credito', String(filtros.credito));
       const qs = params.toString();
       // CAJAS-PR6: expone el envelope {items, sinAsignarCount} completo
       // (badge "Sin asignar" [Decisión 12-B], solo caja.leer-todas).

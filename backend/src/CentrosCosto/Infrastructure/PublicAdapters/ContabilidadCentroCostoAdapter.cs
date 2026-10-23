@@ -1,5 +1,6 @@
 using Microsoft.EntityFrameworkCore;
 using Millet.Catalogos.Domain;
+using Millet.CentrosCosto.Application.PublicPorts;
 using Millet.CentrosCosto.Infrastructure.Persistence;
 using Millet.Contabilidad.Application.Ports;
 using Millet.Contabilidad.Domain;
@@ -11,8 +12,11 @@ namespace Millet.CentrosCosto.Infrastructure.PublicAdapters;
 /// el árbol Dim1 → Dim2 → Dim3 (mismos IDs de ADM-08). Sin filtro de alcance de usuario: el alcance contable es por
 /// sucursal y lo resuelve Contabilidad. Por id incluye inactivos ("ver ≠ elegir", ADR-0050).
 /// </summary>
-public sealed class ContabilidadCentroCostoAdapter(CentrosCostoDbContext db) : ICentroCostoContabilidadPort
+public sealed class ContabilidadCentroCostoAdapter(CentrosCostoDbContext db, IDim3ElegibilidadPort elegibilidad) : ICentroCostoContabilidadPort
 {
+    public async Task<bool> EnAlcanceDelUsuarioAsync(Guid centroId, CancellationToken ct) =>
+        await elegibilidad.EvaluarAsync(centroId, aplicarAlcance: true, ct) != Dim3Elegibilidad.FueraDeAlcance;
+
     public async Task<IReadOnlyDictionary<Guid, CentroCostoNodo>> ObtenerAsync(IReadOnlyCollection<Guid> ids, CancellationToken ct)
     {
         if (ids.Count == 0) return new Dictionary<Guid, CentroCostoNodo>();

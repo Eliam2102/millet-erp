@@ -184,6 +184,10 @@ financiero es inaceptable. Esto es lo que provoca el caso clásico de
 - Para jobs nocturnos singleton (cleanup, archival, DOF fetcher), se adquiere un **advisory lock** en PostgreSQL al iniciar la ejecución (`pg_try_advisory_lock`): solo la instancia que obtiene el lock ejecuta el job, las demás duermen
 - Si en el futuro algún worker se vuelve pesado (ej. archival procesando GB), se extrae a Container Apps Jobs o Azure Functions con Timer Trigger; el código `IHostedService` permite la extracción mecánica
 
+**Entrega local sin Service Bus (C1.8, solo Development/demo)**
+- Con `ServiceBus:EntregaLocal:Habilitada=true` y sin conexión a Service Bus, el `OutboxPublisherWorker` usa `LocalDispatchIntegrationEventBusSender`: entrega cada fila, en el mismo proceso, a los listeners (`ILocalIntegrationEventConsumer`; 15 workers / 16 consumidores, uno por topic) suscritos al topic, con `eventId = Id` de la fila y `eventType = EventType` (mismo contrato que `MessageId`/`Subject`)
+- Si un listener falla, la excepción llega al worker: la fila se reintenta (hasta `MaxAttempts`) y la idempotencia del consumidor evita duplicar efectos. Apagada por omisión; fuera de Development la API no arranca si está activa; con conexión a Service Bus se ignora. Detalle en `tools/servicebus-emulator/README.md`
+
 **Cambios en otras ADRs**
 - ADR-0008: la tabla outbox NO está marcada como `IAuditable` (se marca con `INotAudited` para evitar ruido); el publish/consume queda visible en App Insights por correlation_id
 - ADR-0011: la columna `empresa_id` del outbox permite filtrar eventos por empresa cuando se requiere

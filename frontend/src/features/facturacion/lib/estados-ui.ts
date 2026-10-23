@@ -73,6 +73,39 @@ export const ESTADOS_UI: Record<string, Record<string, EstadoUi>> = {
     Pendiente: { tono: 'warning', texto: 'Pendiente' },
     Resuelta: { tono: 'success', texto: 'Resuelta' },
   },
+  // F6.7 — Cierre del día por sucursal. El backend ya manda el texto final.
+  monitorCfdi: {
+    Timbrado: { tono: 'success', texto: 'Timbrado' },
+    'Cancelación en trámite': { tono: 'neutral', texto: 'Cancelación en trámite' },
+    Cancelado: { tono: 'neutral', texto: 'Cancelado' },
+    Fallido: { tono: 'danger', texto: 'Fallido' },
+    'Sin timbrar': { tono: 'warning', texto: 'Sin timbrar' },
+  },
+  estatusSat: {
+    Vigente: { tono: 'success', texto: 'Vigente' },
+    Cancelado: { tono: 'neutral', texto: 'Cancelado' },
+    'No encontrado': { tono: 'danger', texto: 'No encontrado' },
+    'Sin verificar': { tono: 'info', texto: 'Sin verificar' },
+    'No aplica': { tono: 'neutral', texto: 'No aplica' },
+  },
+  conciliacionCajero: {
+    Cuadra: { tono: 'success', texto: 'Cuadra' },
+    'Con diferencia': { tono: 'danger', texto: 'Con diferencia' },
+  },
+  conciliacionPartida: {
+    Cuadra: { tono: 'success', texto: 'Cuadra' },
+    'Facturada sin cobro': { tono: 'warning', texto: 'Facturada sin cobro' },
+    'Cobro parcial': { tono: 'warning', texto: 'Cobro parcial' },
+    'Cobrada de más': { tono: 'warning', texto: 'Cobrada de más' },
+    'Crédito (PPD) · informativo': { tono: 'neutral', texto: 'Crédito (PPD) · informativo' },
+    'Otra moneda · informativo': { tono: 'neutral', texto: 'Otra moneda · informativo' },
+    'Cobro de crédito (complemento de pago)': {
+      tono: 'info',
+      texto: 'Cobro de crédito (complemento de pago)',
+    },
+    'Cobro de documento cancelado': { tono: 'danger', texto: 'Cobro de documento cancelado' },
+    'Cobro de documento de otro día': { tono: 'info', texto: 'Cobro de documento de otro día' },
+  },
 };
 export function estadoUi(entidad: string, estado: string | null): EstadoUi {
   return ESTADOS_UI[entidad]?.[estado ?? ''] ?? { tono: 'neutral', texto: estado ?? '—' };

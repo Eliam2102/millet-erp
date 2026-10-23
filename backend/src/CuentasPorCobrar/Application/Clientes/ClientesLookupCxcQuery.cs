@@ -15,7 +15,9 @@ public sealed record ClientesLookupCxcQuery(
     string? Rfc,
     string? RazonSocial,
     IReadOnlyCollection<Guid>? Ids,
-    int Limit = 20) : IRequest<IReadOnlyList<ClienteLookupCxcDto>>;
+    int Limit = 20,
+    // 86e3tfdx8: caja única por palabras; con texto manda sobre Rfc/RazonSocial.
+    string? Q = null) : IRequest<IReadOnlyList<ClienteLookupCxcDto>>;
 
 public sealed class ClientesLookupCxcHandler
     : IRequestHandler<ClientesLookupCxcQuery, IReadOnlyList<ClienteLookupCxcDto>>
@@ -32,6 +34,8 @@ public sealed class ClientesLookupCxcHandler
         // renglones, tope del ListarLineasCreditoHandler); los modos de
         // búsqueda usan el default del combobox.
         var limit = query.Limit is <= 0 or > LimitMax ? 20 : query.Limit;
+        if (query.Ids is not { Count: > 0 } && !string.IsNullOrWhiteSpace(query.Q))
+            return _clientes.BuscarPorPalabrasAsync(query.Q, limit, cancellationToken);
         return _clientes.BuscarAsync(
             query.Rfc, query.RazonSocial, query.Ids, limit, cancellationToken);
     }

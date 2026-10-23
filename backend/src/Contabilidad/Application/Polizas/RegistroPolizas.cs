@@ -3,6 +3,7 @@ using Microsoft.EntityFrameworkCore;
 using Millet.Contabilidad.Application.Catalogo;
 using Millet.Contabilidad.Application.Dimensiones;
 using Millet.Contabilidad.Application.Periodos;
+using Millet.Contabilidad.Application.Ports;
 using Millet.Contabilidad.Application.PublicPorts;
 using Millet.Contabilidad.Domain;
 using Millet.Contabilidad.Infrastructure.Persistence;
@@ -29,7 +30,7 @@ public sealed record PartidasValidadas(IReadOnlyList<DatosPartida> Partidas, IRe
 /// </summary>
 public sealed class RegistroPolizas(
     ContabilidadDbContext db, ValidadorDimensiones validador, IPeriodoContableConsultaPort periodos, ICurrentEmpresaContext empresa,
-    IMediator mediator)
+    IMediator mediator, ICentroCostoContabilidadPort centros)
 {
     /// <summary>Consumidor con que la póliza registra el uso de cuentas y reglas (la referencia es el id de la póliza).</summary>
     public const string ConsumidorPoliza = "POLIZA";
@@ -121,9 +122,13 @@ public sealed class RegistroPolizas(
     /// <summary>
     /// Valida cada partida contra el catálogo y las reglas de dimensión (K10.2) a la fecha de la póliza y junta TODOS los errores
     /// (400 con el campo <c>partidas[i].campo</c>). Guarda los centros efectivos (los superiores derivados por jerarquía).
+    /// Las dimensiones obligatorias que faltan se resumen además en un error por partida que las nombra juntas (CA10.4).
+    /// <paramref name="aplicarAlcanceCentros"/>: captura del usuario (crear/editar): el centro elegido debe estar en su
+    /// asignación de centros (K10.2-d); al autorizar o al generar recurrentes/automáticas no aplica.
     /// </summary>
     public async Task<PartidasValidadas> ValidarPartidasAsync(
-        IReadOnlyList<PartidaRequest> partidas, Guid tipoOperacionId, DateOnly fecha, OrigenMovimiento origen, CancellationToken ct)
+        IReadOnlyList<PartidaRequest> partidas, Guid tipoOperacionId, DateOnly fecha, OrigenMovimiento origen, CancellationToken ct,
+        bool aplicarAlcanceCentros = false)
     {
         var errores = new List<ValidationError>();
         var datos = new List<DatosPartida>();
@@ -141,6 +146,20 @@ public sealed class RegistroPolizas(
             // El tipo se reporta una sola vez en el encabezado (TipoAsync), no en cada partida.
             errores.AddRange(v.Errores.Where(e => e.Campo != "tipoDocumentoId")
                 .Select(e => new ValidationError($"partidas[{i}].{e.Campo}", e.Codigo, $"Partida {i + 1}: {e.Mensaje}")));
+            var faltantes = v.Requerimientos
+                .Where(r => v.Errores.Any(e => e.Codigo == "CONTAB_DIM_OBLIGATORIA_FALTANTE" && e.Dimension == r.Dimension))
+                .Select(r => r.NombreDimension.ToLowerInvariant()).ToList();
+            if (faltantes.Count > 0)
+                errores.Add(new ValidationError($"partidas[{i}]", "CONTAB_DIM_FALTANTES",
+                    $"Partida {i + 1} (cuenta {codigos.GetValueOrDefault(p.CuentaId, "?")}): capture {Enumerar(faltantes)}."));
+            if (aplicarAlcanceCentros && (p.Dim3Id ?? p.Dim2Id ?? p.Dim1Id) is { } centroElegido
+                && v.Errores.All(e => e.Dimension is not (DimensionContable.Dim1 or DimensionContable.Dim2 or DimensionContable.Dim3))
+                && !await centros.EnAlcanceDelUsuarioAsync(centroElegido, ct))
+            {
+                var nivel = p.Dim3Id is not null ? DimensionContable.Dim3 : p.Dim2Id is not null ? DimensionContable.Dim2 : DimensionContable.Dim1;
+                errores.Add(new ValidationError($"partidas[{i}].{ValidadorDimensiones.Campo(nivel)}", "CONTAB_DIM_CENTRO_FUERA_DE_ALCANCE",
+                    $"Partida {i + 1}: el centro de costo elegido no está en tus centros asignados; pide a Contabilidad que lo capture o que te lo asignen."));
+            }
             foreach (var r in v.Requerimientos.Where(r => r.ReglaId is not null)) reglas.Add(r.ReglaId!.Value);
             datos.Add(new DatosPartida(p.CuentaId, codigos.GetValueOrDefault(p.CuentaId, "?"), p.Concepto, p.Cargo, p.Abono,
                 p.Moneda ?? Poliza.MonedaNacional, p.TipoCambio ?? 1m, p.ImporteOriginal, p.SucursalId,
@@ -149,6 +168,10 @@ public sealed class RegistroPolizas(
         if (errores.Count > 0) throw new ValidationException(errores);
         return new(datos, [.. reglas]);
     }
+
+    /// <summary>«ubicación, área y equipo».</summary>
+    private static string Enumerar(List<string> nombres) =>
+        nombres.Count == 1 ? nombres[0] : $"{string.Join(", ", nombres.Take(nombres.Count - 1))} y {nombres[^1]}";
 
     /// <summary>
     /// Al autorizar (o al nacer autorizada la automática): marca las cuentas como usadas con <see cref="RegistrarUsoCuentaCommand"/>
