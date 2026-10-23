@@ -428,6 +428,41 @@ function Contenido({
         </p>
       </section>
 
+      {(p.anticiposLigados?.length ?? 0) > 0 && (
+        <section className="space-y-2">
+          <h2 className="text-sm font-medium">Anticipos del pedido ({p.anticiposLigados!.length})</h2>
+          <p className="text-xs text-ink-muted">
+            Cobrados con este número de pedido de A+W antes de que llegara al ERP; se aplican al facturar.
+          </p>
+          <div className="overflow-x-auto rounded-md border border-line">
+            <Table className="w-full text-sm">
+              <TableHeader className="bg-surface-muted/50">
+                <TableRow>
+                  <TableHead className="px-3 py-2 text-left">Folio</TableHead>
+                  <TableHead className="px-3 py-2 text-right tabular-nums">Cobrado</TableHead>
+                  <TableHead className="px-3 py-2 text-right tabular-nums">Saldo</TableHead>
+                  <TableHead className="px-3 py-2 text-left">Estado</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {p.anticiposLigados!.map((a) => (
+                  <TableRow key={a.anticipoId} className="border-t border-line">
+                    <TableCell className="px-3 py-2 font-mono text-xs">{a.folio}</TableCell>
+                    <TableCell className="px-3 py-2 text-right font-mono tabular-nums">
+                      {a.montoCobrado.toFixed(2)}
+                    </TableCell>
+                    <TableCell className="px-3 py-2 text-right font-mono tabular-nums">
+                      {a.saldo.toFixed(2)}
+                    </TableCell>
+                    <TableCell className="px-3 py-2">{a.estado}</TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </div>
+        </section>
+      )}
+
       <section className="space-y-2">
         <h2 className="text-sm font-medium">Historial de comprobantes ({comprobantes.length})</h2>
         {comprobantesLoading ? (

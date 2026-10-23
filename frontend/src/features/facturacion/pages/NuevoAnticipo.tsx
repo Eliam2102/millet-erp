@@ -70,6 +70,7 @@ const VALORES_INICIALES: AnticipoValues = {
   tasaIvaTraslado: 0.16,
   descripcion: null,
   obraNombre: null,
+  pedidoOrigenRef: '',
 };
 
 function nullIfEmpty(v: string | null | undefined): string | null {
@@ -203,7 +204,7 @@ function FormInner({
           tasaIvaTraslado: values.tasaIvaTraslado,
           descripcion: nullIfEmpty(values.descripcion),
           pedidoFacturableId: null,
-          pedidoOrigenRef: null,
+          pedidoOrigenRef: nullIfEmpty(values.pedidoOrigenRef),
           obraId: null,
           obraNombre: nullIfEmpty(values.obraNombre),
         },
@@ -407,6 +408,19 @@ function FormInner({
               step="0.0001"
               min="0"
               {...form.register('tipoCambio', { setValueAs: numeroONull })}
+            />
+          </Campo>
+          <Campo
+            label="Número de pedido A+W"
+            hint="Si el pedido aún no llega al ERP, el anticipo se liga solo cuando se importe."
+            error={form.formState.errors.pedidoOrigenRef?.message}
+          >
+            <Input
+              aria-label="Número de pedido A+W"
+              placeholder="Opcional"
+              inputMode="numeric"
+              maxLength={50}
+              {...form.register('pedidoOrigenRef')}
             />
           </Campo>
           <div className="sm:col-span-2">

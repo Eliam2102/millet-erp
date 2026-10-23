@@ -171,6 +171,25 @@ describe('<DetallePedido> — smoke', () => {
     expect(screen.getAllByText('Vigente').length).toBeGreaterThanOrEqual(2);
   });
 
+  it('86e3tfd6n: muestra los anticipos cobrados antes de que llegara el pedido', async () => {
+    setPermisos(['facturacion.facturas.leer']);
+    mswServer.use(
+      http.get('*/api/v1/facturacion/pedidos-facturables/p-1', () =>
+        HttpResponse.json({
+          ...pedido('Importado'),
+          anticiposLigados: [
+            { anticipoId: 'a-1', facturaAnticipoId: 'fa-1', folio: 'FANT-7', montoCobrado: 1160, saldo: 1160, estado: 'Abierto' },
+          ],
+        }),
+      ),
+      http.get('*/api/v1/facturacion/pedidos-facturables/p-1/comprobantes', () => HttpResponse.json([])),
+    );
+    render(<DetallePedido />, { wrapper: createQueryWrapper() });
+    expect(await screen.findByText(/Anticipos del pedido \(1\)/)).toBeInTheDocument();
+    expect(screen.getByText('FANT-7')).toBeInTheDocument();
+    expect(screen.getAllByText('1160.00')).toHaveLength(2); // cobrado y saldo
+  });
+
   it('muestra la ranura del pedido cuando viene informada', async () => {
     setPermisos(['facturacion.facturas.leer']);
     mswServer.use(
