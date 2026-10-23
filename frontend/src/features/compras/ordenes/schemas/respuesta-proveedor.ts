@@ -23,6 +23,9 @@ export const RegistrarRespuestaProveedorSchema = z
   })
   .superRefine((v, ctx) => {
     if (v.tipo === 2) {
+      if (!v.motivo) {
+        ctx.addIssue({ code: 'custom', path: ['motivo'], message: 'Indica el motivo del rechazo.' });
+      }
       if (v.compromisos.length > 0) {
         ctx.addIssue({ code: 'custom', path: ['compromisos'], message: 'Un rechazo no lleva fechas prometidas.' });
       }

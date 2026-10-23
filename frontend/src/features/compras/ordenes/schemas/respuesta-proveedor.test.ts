@@ -28,7 +28,7 @@ describe('RegistrarRespuestaProveedorSchema', () => {
     ).toBe(true);
   });
   it('rechazo sin motivo', () => {
-    expect(mensajes(base({ tipo: 2, compromisos: [] }))).toEqual([]);
+    expect(mensajes(base({ tipo: 2, compromisos: [] }))).toEqual(['Indica el motivo del rechazo.']);
   });
   it('rechazo con fechas prometidas', () => {
     expect(mensajes(base({ tipo: 2, motivo: 'x' }))).toContain('Un rechazo no lleva fechas prometidas.');
