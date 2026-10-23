@@ -165,6 +165,77 @@ describe('<BandejaPedidos> — smoke', () => {
     expect(screen.getByRole('button', { name: /Limpiar/i })).toBeInTheDocument();
   });
 
+  it('86e3tfdw2: badge «Crédito» y filtro «Condición de pago» con permiso leer-credito', async () => {
+    routerMocks.search = { credito: true };
+    useAuthStore.setState({
+      permisos: [
+        'facturacion.pedidos.capturar',
+        'facturacion.facturas.leer',
+        'facturacion.pedidos.leer-credito',
+      ],
+    });
+    let urlRecibida = '';
+    mswServer.use(
+      http.get('*/api/v1/facturacion/pedidos-facturables', ({ request }) => {
+        urlRecibida = request.url;
+        return HttpResponse.json({
+          items: [
+            {
+              id: 'p-cre',
+              numeroPedido: 'AW-CRE',
+              origen: 'Aw',
+              estado: 'Importado',
+              clienteNombre: 'Cliente Crédito',
+              total: 10,
+              moneda: 'MXN',
+              createdAt: '2026-10-21T10:00:00Z',
+              esCredito: true,
+            },
+            {
+              id: 'p-con',
+              numeroPedido: 'AW-CON',
+              origen: 'Aw',
+              estado: 'Importado',
+              clienteNombre: 'Cliente Contado',
+              total: 20,
+              moneda: 'MXN',
+              createdAt: '2026-10-21T10:00:00Z',
+              esCredito: false,
+            },
+          ],
+          sinAsignarCount: null,
+        });
+      }),
+    );
+    render(<BandejaPedidos />, { wrapper: createQueryWrapper() });
+    await waitFor(() => expect(screen.getByText('Cliente Crédito')).toBeInTheDocument());
+    expect(new URL(urlRecibida).searchParams.get('credito')).toBe('true');
+    // Solo el pedido a crédito lleva el badge.
+    expect(screen.getAllByText('Crédito', { selector: '[data-slot="badge"]' })).toHaveLength(1);
+    expect(
+      screen.getByRole('combobox', { name: /Filtrar por condición de pago/i }),
+    ).toHaveTextContent('Crédito');
+    expect(screen.getByRole('button', { name: /Limpiar/i })).toBeInTheDocument();
+  });
+
+  it('86e3tfdw2: sin leer-credito no hay filtro de condición de pago ni se manda ?credito=', async () => {
+    routerMocks.search = { credito: true };
+    let urlRecibida = '';
+    mswServer.use(
+      http.get('*/api/v1/facturacion/pedidos-facturables', ({ request }) => {
+        urlRecibida = request.url;
+        return HttpResponse.json({ items: [], sinAsignarCount: null });
+      }),
+    );
+    render(<BandejaPedidos />, { wrapper: createQueryWrapper() });
+    await waitFor(() => expect(screen.getByText(/Sin pedidos/i)).toBeInTheDocument());
+    expect(new URL(urlRecibida).searchParams.has('credito')).toBe(false);
+    expect(
+      screen.queryByRole('combobox', { name: /Filtrar por condición de pago/i }),
+    ).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /Limpiar/i })).not.toBeInTheDocument();
+  });
+
   it('estado error con retry', async () => {
     mswServer.use(
       http.get('*/api/v1/facturacion/pedidos-facturables', () =>

@@ -49,6 +49,36 @@ vi.mock('@tanstack/react-router', () => ({
   ),
 }));
 
+// 86e3tfdw2: el picker real (combobox + estado de cuenta) se sustituye por
+// botones que entregan el anticipo elegido — el smoke valida la nota de
+// observaciones, no el combobox.
+vi.mock('@/features/facturacion/components/AnticipoPicker', () => ({
+  AnticipoPicker: ({
+    onChange,
+  }: {
+    onChange: (item: { anticipoId: string; folio: string; saldo: number }) => void;
+  }) => (
+    <div>
+      <button
+        type="button"
+        onClick={() =>
+          onChange({ anticipoId: '00000012-0000-4000-8000-000000000012', folio: 'FANT-12', saldo: 5000 })
+        }
+      >
+        Elegir FANT-12
+      </button>
+      <button
+        type="button"
+        onClick={() =>
+          onChange({ anticipoId: '00000015-0000-4000-8000-000000000015', folio: 'FANT-15', saldo: 1200 })
+        }
+      >
+        Elegir FANT-15
+      </button>
+    </div>
+  ),
+}));
+
 const EMISOR = {
   rfcEmisor: 'MIL010101ABC',
   razonSocialEmisor: 'Millet SA de CV',
@@ -1049,5 +1079,109 @@ describe('<EmitirFacturaForm> — diferencias contra la proforma (U1.8a)', () =>
     fireEvent.click(await screen.findByRole('button', { name: /Emitir y timbrar/i }));
     await waitFor(() => expect(emitidas).toHaveLength(1));
     expect(comparadas).toHaveLength(0);
+  });
+});
+
+describe('<EmitirFacturaForm> — observaciones con anticipos aplicados (86e3tfdw2)', () => {
+  const NOTA = 'Anticipos aplicados: FANT-12 $5,000.00 MXN; FANT-15 $1,200.00 MXN';
+  const prefill: EmitirFacturaPrefill = {
+    pedidoFacturableId: '00000003-0000-0000-0000-0000000000b1',
+    clienteId: '00000003-0000-0000-0000-000000000001',
+    receptorNombre: 'CLIENTE FICTICIO',
+    receptorRfc: 'AAA010101AAA',
+    receptorRegimenFiscal: '601',
+    receptorCodigoPostal: '97000',
+    receptorUsoCfdi: 'G03',
+    lineas: [
+      {
+        productoId: null,
+        claveProdServSat: '01010101',
+        descripcion: 'Vidrio prueba',
+        claveUnidadSat: 'H87',
+        cantidad: 100,
+        valorUnitario: 100,
+        descuento: 0,
+        requierePedimento: false,
+        tasaIvaTraslado: 0.16,
+      },
+    ],
+  };
+
+  function mockEmision() {
+    const emitidas: Record<string, unknown>[] = [];
+    mswServer.use(
+      http.post('*/api/v1/facturacion/facturas/', async ({ request }) => {
+        emitidas.push((await request.json()) as Record<string, unknown>);
+        return HttpResponse.json(
+          { id: 'f-1', folio: 'A-1', total: 11600, version: 1, estado: 'Timbrado', uuid: 'u' },
+          { status: 201 },
+        );
+      }),
+    );
+    return emitidas;
+  }
+
+  async function elegirDosAnticipos() {
+    const agregar = await screen.findByRole('button', { name: /Anticipos a aplicar: agregar/i });
+    fireEvent.click(agregar);
+    fireEvent.click(agregar);
+    fireEvent.click(screen.getAllByRole('button', { name: 'Elegir FANT-12' })[0]);
+    fireEvent.click(screen.getAllByRole('button', { name: 'Elegir FANT-15' })[1]);
+  }
+
+  function renderForm() {
+    setPermisos([PermisosCanonicos.FacturacionFacturasEmitir]);
+    render(<EmitirFacturaForm prefill={prefill} onSuccess={() => {}} onCancel={() => {}} />, {
+      wrapper: createQueryWrapper(),
+    });
+  }
+
+  it('al elegir 2 anticipos prellena las observaciones y las envía en el payload', async () => {
+    const emitidas = mockEmision();
+    renderForm();
+    await elegirDosAnticipos();
+
+    const campo = screen.getByLabelText(/Observaciones \(aparece en el PDF, no en el CFDI\)/);
+    await waitFor(() => expect(campo).toHaveValue(NOTA));
+
+    fireEvent.click(screen.getByRole('button', { name: /Emitir y timbrar/i }));
+    await waitFor(() => expect(emitidas).toHaveLength(1));
+    expect(emitidas[0]).toEqual(
+      expect.objectContaining({
+        observaciones: NOTA,
+        // El folio es solo del FE: no viaja en los anticipos del comando.
+        anticipos: [
+          { anticipoId: '00000012-0000-4000-8000-000000000012', importe: 5000 },
+          { anticipoId: '00000015-0000-4000-8000-000000000015', importe: 1200 },
+        ],
+      }),
+    );
+  });
+
+  it('si el cajero editó las observaciones, cambiar anticipos no las sobrescribe', async () => {
+    const emitidas = mockEmision();
+    renderForm();
+    const agregar = await screen.findByRole('button', { name: /Anticipos a aplicar: agregar/i });
+    fireEvent.click(agregar);
+    fireEvent.click(screen.getByRole('button', { name: 'Elegir FANT-12' }));
+    const campo = screen.getByLabelText(/Observaciones \(aparece en el PDF, no en el CFDI\)/);
+    await waitFor(() => expect(campo).toHaveValue('Anticipos aplicados: FANT-12 $5,000.00 MXN'));
+
+    fireEvent.change(campo, { target: { value: 'Nota del cajero' } });
+    fireEvent.click(agregar);
+    fireEvent.click(screen.getAllByRole('button', { name: 'Elegir FANT-15' })[1]);
+    expect(campo).toHaveValue('Nota del cajero');
+
+    fireEvent.click(screen.getByRole('button', { name: /Emitir y timbrar/i }));
+    await waitFor(() => expect(emitidas).toHaveLength(1));
+    expect(emitidas[0]).toEqual(expect.objectContaining({ observaciones: 'Nota del cajero' }));
+  });
+
+  it('sin anticipos ni nota envía observaciones null', async () => {
+    const emitidas = mockEmision();
+    renderForm();
+    fireEvent.click(await screen.findByRole('button', { name: /Emitir y timbrar/i }));
+    await waitFor(() => expect(emitidas).toHaveLength(1));
+    expect(emitidas[0]).toEqual(expect.objectContaining({ observaciones: null }));
   });
 });

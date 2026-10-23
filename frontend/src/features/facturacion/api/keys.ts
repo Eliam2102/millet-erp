@@ -22,6 +22,8 @@ export interface ListarPedidosFiltros {
   alcance?: 'sin-asignar';
   /** F6.1: clase del pedido manual de origen (server-side). */
   clase?: 'VentaDirecta' | 'Emergencia';
+  /** 86e3tfdw2: condición de pago (true = crédito, false = contado; server-side). */
+  credito?: boolean;
 }
 
 export interface ListarFacturasFiltros {
