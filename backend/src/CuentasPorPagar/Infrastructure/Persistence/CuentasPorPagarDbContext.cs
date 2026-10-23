@@ -58,6 +58,7 @@ public sealed class CuentasPorPagarDbContext : BaseDbContext
     public DbSet<PagoProveedorLocal> PagosProveedorLocal => Set<PagoProveedorLocal>();
     public DbSet<MovimientoPasivo> MovimientosPasivo => Set<MovimientoPasivo>();
     public DbSet<Domain.Catalogos.RetencionConcepto> RetencionesConcepto => Set<Domain.Catalogos.RetencionConcepto>();
+    public DbSet<Domain.Catalogos.ClasificacionNoDeducible> ClasificacionesNoDeducibles => Set<Domain.Catalogos.ClasificacionNoDeducible>();
 
     public override Task<int> SaveChangesAsync(CancellationToken cancellationToken = default) => SaveChangesAsync(true, cancellationToken);
 
@@ -238,6 +239,7 @@ public sealed class CuentasPorPagarDbContext : BaseDbContext
             b.HasIndex(x => new { x.EmpresaId, x.PagoId }).IsUnique(); b.HasIndex(x => x.FacturaProveedorId);
         });
         modelBuilder.ApplyConfiguration(new RetencionConceptoConfiguration());
+        modelBuilder.ApplyConfiguration(new ClasificacionNoDeducibleConfiguration());
         modelBuilder.Entity<MovimientoPasivo>(b =>
         {
             b.ToTable("movimientos_pasivo"); b.HasKey(m => m.Id); b.Property(m => m.Id).ValueGeneratedNever();

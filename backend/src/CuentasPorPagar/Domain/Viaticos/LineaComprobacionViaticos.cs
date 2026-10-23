@@ -39,6 +39,9 @@ public sealed class LineaComprobacionViaticos : BaseEntity, IPerteneceAEmpresa, 
     /// <summary>True si la línea es un ticket no fiscal (sin CFDI). Limitado a tope contable; el área lo permite con justificación.</summary>
     public bool EsTicketNoFiscal { get; private set; }
 
+    /// <summary>Clave de <c>ClasificacionNoDeducible</c> (P8.6). Obligatoria en ticket no fiscal; en línea con CFDI marca el gasto como no deducible.</summary>
+    public string? ClasificacionNoDeducible { get; private set; }
+
     private LineaComprobacionViaticos() { }
 
     internal LineaComprobacionViaticos(
@@ -56,7 +59,8 @@ public sealed class LineaComprobacionViaticos : BaseEntity, IPerteneceAEmpresa, 
         decimal total,
         string moneda,
         string concepto,
-        bool esTicketNoFiscal) : base(id)
+        bool esTicketNoFiscal,
+        string? clasificacionNoDeducible = null) : base(id)
     {
         if (total <= 0)
             throw new BusinessRuleException("VIA_LINEA_TOTAL_INVALIDO",
@@ -85,6 +89,8 @@ public sealed class LineaComprobacionViaticos : BaseEntity, IPerteneceAEmpresa, 
         Moneda = moneda.ToUpperInvariant();
         Concepto = concepto.Trim();
         EsTicketNoFiscal = esTicketNoFiscal;
+        ClasificacionNoDeducible = string.IsNullOrWhiteSpace(clasificacionNoDeducible)
+            ? null : clasificacionNoDeducible.Trim().ToUpperInvariant();
     }
 
     /// <summary>

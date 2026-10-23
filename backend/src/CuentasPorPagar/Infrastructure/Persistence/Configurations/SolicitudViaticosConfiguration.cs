@@ -98,6 +98,7 @@ public sealed class LineaComprobacionViaticosConfiguration : IEntityTypeConfigur
         builder.Property(e => e.Concepto).HasMaxLength(400).IsRequired();
 
         builder.Property(e => e.EsTicketNoFiscal).IsRequired();
+        builder.Property(e => e.ClasificacionNoDeducible).HasMaxLength(40);
 
         builder.HasIndex(e => e.FacturaProveedorId)
             .HasDatabaseName("ix_linea_via_factura")

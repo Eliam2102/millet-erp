@@ -40,6 +40,12 @@ public static class CatalogosCxpEndpoints
             Results.Ok(await mediator.Send(new ListarDependenciasRevisorasQuery(), ct)))
             .RequireAuthorization(PermissionPolicyProvider.Prefix + PermisosCanonicos.CuentasPorPagarFacturasLeer)
             .WithName("ListarDependenciasRevisoras");
+
+        // P8.6: mismo permiso de captura de la tarjeta (sin permiso nuevo).
+        group.MapGet("/clasificaciones-no-deducibles", async (IMediator mediator, CancellationToken ct) =>
+            Results.Ok(await mediator.Send(new Millet.CuentasPorPagar.Application.Catalogos.ClasificacionesNoDeducibles.ListarClasificacionesNoDeduciblesQuery(), ct)))
+            .RequireAuthorization(PermissionPolicyProvider.Prefix + PermisosCanonicos.CuentasPorPagarTcRegistrarMovimiento)
+            .WithName("ListarClasificacionesNoDeducibles");
         return app;
     }
 }
