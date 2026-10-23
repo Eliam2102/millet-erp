@@ -161,7 +161,7 @@ Tracking sistemático según ADR-0031. Cada item es un código que aparece en al
 | `<ObrasReadPort>` | Módulo Obras (no existe) | Obras (futuro) | Reporte `pasivos-obras` filtra por sucursal sin proyecto | Cuando Obras llegue |
 | `<TesoreriaPagoViaticosEvent>` | Tesorería emite evento real de pago de préstamo a empleado | Tesorería | Hoy `MarcarAnticipoPagado` es endpoint manual proxy | Listener al evento real |
 | `<PayloadEnriquecido>` | Bank data + evidencias inline en `PasivoAutorizadoParaPago` | DatosMaestros + CxP | Payload mínimo; Tesorería resuelve via queries propias | `IProveedorBancoReadPort` |
-| `<NotificacionesGlobal>` / `<NotificacionesCxpOcCancelada>` | Motor de notificaciones global del ERP | Plataforma | `NoOpNotificacionService` loguea — alertas no llegan al humano | Adapter SignalR/email/Teams |
+| `<NotificacionesGlobal>` / `<NotificacionesCxpOcCancelada>` | Motor de notificaciones global del ERP | Plataforma | `NoOpNotificacionService` loguea; los avisos de revisión de factura ya llegan por correo al Contador General (y a Compras según el motivo) si `CuentasPorPagar:AvisosRevision:Proveedor=Graph` con `ContadorGeneral`/`Compras` configurados por variable de entorno y `Mail.Send` concedido; área, jefe, CxP y Director de Finanzas siguen sin aviso | Adapter SignalR/email/Teams |
 
 ### 6.2 Pendientes en CxP que dependen de infra
 
