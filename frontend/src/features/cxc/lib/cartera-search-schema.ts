@@ -20,7 +20,7 @@ export const EstadoCuentaSearchSchema = z.object({
 });
 export type EstadoCuentaSearch = z.infer<typeof EstadoCuentaSearchSchema>;
 
-/** Anticipos (<c>/cxc/anticipos</c>) — cliente obligatorio en el endpoint. */
+/** Anticipos (<c>/cxc/anticipos</c>) — cliente opcional (F1-CXC-05: sin él lista todos). */
 export const AnticiposCxcSearchSchema = z.object({
   clienteId: z.string().optional(),
 });
