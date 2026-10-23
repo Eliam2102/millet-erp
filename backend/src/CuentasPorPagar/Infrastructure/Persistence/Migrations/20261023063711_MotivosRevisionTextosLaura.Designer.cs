@@ -13,7 +13,7 @@ using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 namespace Millet.CuentasPorPagar.Infrastructure.Persistence.Migrations
 {
     [DbContext(typeof(CuentasPorPagarDbContext))]
-    [Migration("20261023060402_MotivosRevisionTextosLaura")]
+    [Migration("20261023063711_MotivosRevisionTextosLaura")]
     partial class MotivosRevisionTextosLaura
     {
         /// <inheritdoc />
@@ -2140,7 +2140,7 @@ namespace Millet.CuentasPorPagar.Infrastructure.Persistence.Migrations
                             CreatedBy = "seed",
                             DependenciaRevisoraDefaultCodigo = "COMPRAS",
                             Descripcion = "Cuentas por pagar detecta datos fiscales incorrectos; Compras gestiona la corrección con el proveedor",
-                            Nombre = "Documentación fiscal incompleta",
+                            Nombre = "Datos fiscales incorrectos",
                             SlaDias = 5,
                             UpdatedAt = new DateTimeOffset(new DateTime(2026, 5, 22, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
                             UpdatedBy = "seed",
@@ -2155,7 +2155,7 @@ namespace Millet.CuentasPorPagar.Infrastructure.Persistence.Migrations
                             CreatedBy = "seed",
                             DependenciaRevisoraDefaultCodigo = "DIRECCION_F",
                             Descripcion = "Disputa con proveedor atendida por Dirección de Finanzas (15 días hábiles)",
-                            Nombre = "Disputa contractual",
+                            Nombre = "Disputa con proveedor",
                             SlaDias = 15,
                             UpdatedAt = new DateTimeOffset(new DateTime(2026, 5, 22, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
                             UpdatedBy = "seed",

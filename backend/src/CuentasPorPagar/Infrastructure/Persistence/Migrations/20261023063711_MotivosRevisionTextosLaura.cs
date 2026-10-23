@@ -31,9 +31,17 @@ namespace Millet.CuentasPorPagar.Infrastructure.Persistence.Migrations
                 schema: "cuentas_por_pagar",
                 table: "motivos_revision",
                 keyColumn: "id",
+                keyValue: new Guid("00000007-1001-0000-0000-00000000000a"),
+                column: "nombre",
+                value: "Datos fiscales incorrectos");
+
+            migrationBuilder.UpdateData(
+                schema: "cuentas_por_pagar",
+                table: "motivos_revision",
+                keyColumn: "id",
                 keyValue: new Guid("00000007-1001-0000-0000-00000000000b"),
-                column: "descripcion",
-                value: "Disputa con proveedor atendida por Dirección de Finanzas (15 días hábiles)");
+                columns: new[] { "descripcion", "nombre" },
+                values: new object[] { "Disputa con proveedor atendida por Dirección de Finanzas (15 días hábiles)", "Disputa con proveedor" });
 
             migrationBuilder.UpdateData(
                 schema: "cuentas_por_pagar",
@@ -67,9 +75,17 @@ namespace Millet.CuentasPorPagar.Infrastructure.Persistence.Migrations
                 schema: "cuentas_por_pagar",
                 table: "motivos_revision",
                 keyColumn: "id",
+                keyValue: new Guid("00000007-1001-0000-0000-00000000000a"),
+                column: "nombre",
+                value: "Documentación fiscal incompleta");
+
+            migrationBuilder.UpdateData(
+                schema: "cuentas_por_pagar",
+                table: "motivos_revision",
+                keyColumn: "id",
                 keyValue: new Guid("00000007-1001-0000-0000-00000000000b"),
-                column: "descripcion",
-                value: "Reclamación legal");
+                columns: new[] { "descripcion", "nombre" },
+                values: new object[] { "Reclamación legal", "Disputa contractual" });
 
             migrationBuilder.UpdateData(
                 schema: "cuentas_por_pagar",
