@@ -27,6 +27,7 @@ export function construirFilas(
       const r = porLinea.get(l.id);
       const pendiente = r ? r.pendiente : Math.max(0, l.cantidad - l.cantidadRecibida);
       return {
+        fraccionArancelaria: l.fraccionArancelaria ?? null,
         lineaOcId: l.id,
         esActivoFijo: l.esActivoFijo ?? false,
         articuloId: l.articuloId,

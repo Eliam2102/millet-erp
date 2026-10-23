@@ -142,6 +142,28 @@ export function RecepcionDetallePage() {
               }
               mono={!query.data.facturaFolio}
             />
+            {query.data.importacion && (
+              <>
+                <Campo label="Pedimento" valor={query.data.importacion.numeroPedimento} mono />
+                <Campo label="BL / guía aérea" valor={query.data.importacion.numeroBl} mono />
+                <Campo label="Contenedor" valor={query.data.importacion.numeroContenedor} mono />
+                <Campo
+                  label="Aduana"
+                  valor={[query.data.importacion.aduana, query.data.importacion.aduanaNombre]
+                    .filter(Boolean)
+                    .join(' · ')}
+                />
+                <Campo
+                  label="Clave de pedimento"
+                  valor={[
+                    query.data.importacion.clavePedimento,
+                    query.data.importacion.clavePedimentoNombre,
+                  ]
+                    .filter(Boolean)
+                    .join(' · ')}
+                />
+              </>
+            )}
             {query.data.observaciones && (
               <div className="md:col-span-2">
                 <Campo label="Observaciones" valor={query.data.observaciones} />
@@ -169,6 +191,7 @@ export function RecepcionDetallePage() {
                     <TableHead>UM</TableHead>
                     <TableHead>Ubicación (rack)</TableHead>
                     <TableHead>Centro de costo</TableHead>
+                    {query.data.importacion && <TableHead>Fracción arancelaria</TableHead>}
                     <TableHead className="text-right">Costo unitario</TableHead>
                     <TableHead className="text-right">Monto</TableHead>
                   </TableRow>
@@ -217,6 +240,11 @@ export function RecepcionDetallePage() {
                             })
                           : '—'}
                       </TableCell>
+                      {query.data.importacion && (
+                        <TableCell className="font-mono text-xs">
+                          {l.fraccionArancelaria ?? '—'}
+                        </TableCell>
+                      )}
                       <TableCell className="text-right tabular-nums">
                         <MoneyDisplay amount={l.costoUnitarioMxn} currency="MXN" strong />
                       </TableCell>

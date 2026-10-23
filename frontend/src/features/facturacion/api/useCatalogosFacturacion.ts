@@ -19,6 +19,8 @@ const BASE = '/api/v1/facturacion/catalogos';
 export interface ClientesLookupFiltros {
   rfc?: string;
   razonSocial?: string;
+  /** 86e3tfdx8: caja única; todas las palabras en razón social, RFC o clave. */
+  q?: string;
   limit?: number;
 }
 
@@ -29,6 +31,7 @@ export function useClientesLookup(filtros: ClientesLookupFiltros, opts?: { enabl
       const params = new URLSearchParams();
       if (filtros.rfc) params.set('rfc', filtros.rfc);
       if (filtros.razonSocial) params.set('razonSocial', filtros.razonSocial);
+      if (filtros.q) params.set('q', filtros.q);
       if (filtros.limit != null) params.set('limit', String(filtros.limit));
       const qs = params.toString();
       const { data } = await apiRequest<ClienteLookupItem[]>(

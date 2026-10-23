@@ -110,7 +110,7 @@ public sealed class ADM08CentroCostoTests
     public async Task Oc_manual_y_lectura_historica_admiten_departamento_sin_maquina()
     {
         await using var db = Contexto(); var d = await SembrarAsync(db);
-        var contable = await new ContabilidadCentroCostoAdapter(db).ObtenerAsync([d.Area], default);
+        var contable = await new ContabilidadCentroCostoAdapter(db, new Dim3ElegibilidadAdapter(db, new Alcance(AlcanceDim3.Total()))).ObtenerAsync([d.Area], default);
         Assert.Equal(Millet.Contabilidad.Domain.DimensionContable.Dim2, contable[d.Area].Nivel);
         var captura = Captura(db, AlcanceDim3.Ninguno());
         Assert.Contains(await captura.BuscarAsync(null, true, default), x => x.Id == d.Area && x.Nivel == 2);

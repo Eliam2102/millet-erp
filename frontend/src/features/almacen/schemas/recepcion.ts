@@ -1,4 +1,15 @@
 import { z } from 'zod';
+import { FraccionArancelariaSchema } from '@/features/compras/ordenes/schemas/comercio-exterior';
+
+export const ImportacionRecepcionSchema = z.object({
+  numeroPedimento: z.string().refine((v) => /^[0-9]{15}$/.test(v.replaceAll(' ', '')), 'Captura el pedimento de 15 dígitos.'),
+  numeroBl: z.string().trim().min(1, 'Captura el BL o guía aérea.').max(50),
+  numeroContenedor: z.string().trim().min(1, 'Captura el número de contenedor.').max(40),
+  aduana: z.string().min(1, 'Selecciona la aduana.'),
+  clavePedimento: z.string().min(1, 'Selecciona la clave de pedimento.'),
+});
+export type ImportacionRecepcionValues = z.infer<typeof ImportacionRecepcionSchema>;
+
 
 /**
  * Regex laxo de UUID (8-4-4-4-12 hex) — los seeds del backend usan
@@ -21,6 +32,7 @@ const DATE_ONLY_RE = /^\d{4}-\d{2}-\d{2}$/;
  */
 export const FilaRecepcionSchema = z
   .object({
+    fraccionArancelaria: FraccionArancelariaSchema.nullish(),
     esActivoFijo: z.boolean().optional(),
     lineaOcId: z.string().regex(UUID_SHAPE_RE),
     articuloId: z.string().regex(UUID_SHAPE_RE),
@@ -124,6 +136,7 @@ const alMenosUnaFilaIncluida = (
  */
 export const RegistrarRecepcionFacturaSchema = z
   .object({
+    importacion: ImportacionRecepcionSchema.nullish(),
     ordenCompraId: z.string().regex(UUID_SHAPE_RE, 'OC requerida'),
     fechaMovimiento: z.string().regex(DATE_ONLY_RE, 'Fecha en formato YYYY-MM-DD'),
     // Vínculo fiscal obligatorio (§5.4): CFDI del repositorio de CxP o
@@ -161,6 +174,7 @@ export type RegistrarRecepcionFacturaValues = z.infer<typeof RegistrarRecepcionF
  */
 export const RegistrarRecepcionPackingListSchema = z
   .object({
+    importacion: ImportacionRecepcionSchema.nullish(),
     ordenCompraId: z.string().regex(UUID_SHAPE_RE, 'OC requerida'),
     fechaMovimiento: z.string().regex(DATE_ONLY_RE, 'Fecha en formato YYYY-MM-DD'),
     packingListBlobRef: z

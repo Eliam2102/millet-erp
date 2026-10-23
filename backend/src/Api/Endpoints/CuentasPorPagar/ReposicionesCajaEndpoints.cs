@@ -12,7 +12,7 @@ namespace Millet.Api.Endpoints.CuentasPorPagar;
 /// <summary>
 /// Endpoints de reposiciones de caja chica (GI-PR1, doc 12 §D2/Q4):
 /// bandeja de reposiciones emitidas, saldos acumulados por reponer,
-/// corte manual y configuración del monto mínimo por sucursal.
+/// y corte manual de comprobaciones heredadas (sin mínimo, P8.5).
 /// </summary>
 public static class ReposicionesCajaEndpoints
 {
@@ -64,27 +64,10 @@ public static class ReposicionesCajaEndpoints
         .WithMetadata(new RequireIdempotencyKeyAttribute())
         .RequireAuthorization(PermissionPolicyProvider.Prefix + PermisosCanonicos.CuentasPorPagarReposicionesAdministrar)
         .WithName("EmitirReposicionManual")
-        .WithSummary("Corte manual: emite la reposición del saldo acumulado sin esperar el mínimo")
+        .WithSummary("Corte manual de comprobaciones heredadas aplicadas sin reposición")
         .Produces<EmitirReposicionManualResponse>(StatusCodes.Status200OK)
         .ProducesValidationProblem()
         .ProducesProblem(StatusCodes.Status422UnprocessableEntity);
-
-        group.MapPut("/configuracion", async (
-            [FromBody] ConfigurarReposicionCajaCommand command,
-            IMediator mediator,
-            DocumentoSucursalScope scope,
-            CancellationToken cancellationToken) =>
-        {
-            await scope.VerificarSucursalAsync(command.SucursalId, "cuentas_por_pagar.documentos.gestionar-todas-sucursales", cancellationToken);
-            var response = await mediator.Send(command, cancellationToken);
-            return Results.Ok(response);
-        })
-        .WithMetadata(new RequireIdempotencyKeyAttribute())
-        .RequireAuthorization(PermissionPolicyProvider.Prefix + PermisosCanonicos.CuentasPorPagarReposicionesAdministrar)
-        .WithName("ConfigurarReposicionCaja")
-        .WithSummary("Configura (upsert) el monto mínimo de reposición de una sucursal")
-        .Produces<ConfiguracionReposicionResponse>(StatusCodes.Status200OK)
-        .ProducesValidationProblem();
 
         return app;
     }

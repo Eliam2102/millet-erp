@@ -47,7 +47,7 @@ public sealed record RegistrarRecepcionConPackingListCommand(
     // líneas vacías en el sheet). Opcional — null = no usó el helper. Solo
     // reportería; la ubicación efectiva de cada línea viaja en cada
     // RegistrarRecepcionLineaInput.UbicacionId y es la que manda.
-    Guid? UbicacionHelperId = null) : IRequest<RegistrarRecepcionResponse>;
+    Guid? UbicacionHelperId = null, ImportacionRecepcionInput? Importacion = null) : IRequest<RegistrarRecepcionResponse>;
 
 public sealed class RegistrarRecepcionConPackingListValidator
     : AbstractValidator<RegistrarRecepcionConPackingListCommand>
@@ -141,6 +141,7 @@ public sealed class RegistrarRecepcionConPackingListHandler
         var equivalentes = request.Lineas.Select((l, i) => l with { Cantidad = conversiones[i].CantidadDocumento }).ToList();
         var validada = await RecepcionOcGuard.ValidarAsync(oc, equivalentes, recibidoPropio, cancellationToken);
         var lineasOc = validada.Lineas;
+        var importacion = ImportacionRecepcionGuard.Crear(oc!, request.Importacion, request.Lineas);
 
         // ADR-0046 Etapa 2: valida los decimales de cada línea contra la unidad
         // del artículo (FK NULL → no valida). Batch, un solo round-trip.
@@ -289,6 +290,7 @@ public sealed class RegistrarRecepcionConPackingListHandler
 
         if (payloadLineas.All(x => x.EsActivoFijo))
         {
+            if (importacion is not null) { importacion.VincularRecepcion(movimientoId); _db.RecepcionesImportacion.Add(importacion); }
             // Sin bin no hay almacén que comparar: la sucursal destino de la OC la verifica el endpoint (alcance del usuario sobre la OC o permiso de todas las sucursales).
             var folioActivo = await Catalogo.FolioMovimientoLock.SiguienteEntradaCompraAsync(_db, request.FechaMovimiento.Year, cancellationToken);
             foreach (var ra in _db.RecepcionesActivos.Local.Where(x => x.RecepcionId == movimientoId)) ra.Folio = folioActivo;
@@ -315,6 +317,7 @@ public sealed class RegistrarRecepcionConPackingListHandler
 
         // ALM-04: principal efectivo = el de lo disponible; si todo llegó dañado, el de revisión.
         var principal = movimiento.Lineas.Count > 0 ? movimiento : movimientoRevision!;
+        if (importacion is not null) { importacion.VincularRecepcion(principal.Id); _db.RecepcionesImportacion.Add(importacion); }
         foreach (var recepcionActivo in _db.RecepcionesActivos.Local.Where(x => x.RecepcionId == movimientoId))
             recepcionActivo.VincularRecepcion(principal.Id);
         if (movimientoRevision is not null && ReferenceEquals(principal, movimiento))

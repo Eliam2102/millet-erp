@@ -1,16 +1,12 @@
 import { PageHeader } from '@/components/erp/PageHeader';
-import { useState } from 'react';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
 import {
   EmptyState,
   ErrorState,
-  SucursalSelector,
   TableSkeleton,
 } from '@/components/erp';
 import {
-  useConfigurarReposicion,
   useEmitirReposicionManual,
   useReposiciones,
   useSaldosReposicion,
@@ -27,9 +23,9 @@ import { MoneyDisplay } from '@/components/erp/display/MoneyDisplay';
 import { DateTimeDisplay } from '@/components/erp/display/DateTimeDisplay';
 
 /**
- * <c>Reposiciones de caja chica</c> (GI-PR4b, doc 12 §D2/Q4). Tres
- * bloques: saldos acumulados por reponer (con corte manual), mínimo por
- * sucursal (upsert) y bandeja de reposiciones emitidas.
+ * <c>Reposiciones de caja chica</c> (GI-PR4b, P8.5). Dos
+ * bloques: saldos heredados por reponer (corte manual) y bandeja de
+ * reposiciones emitidas (una por comprobación aprobada).
  */
 export function ReposicionesCajaPage() {
   const puedeAdmin = useHasPermission(
@@ -40,13 +36,9 @@ export function ReposicionesCajaPage() {
   const reposiciones = useReposiciones();
   const sucursales = useSucursales();
   const emitir = useEmitirReposicionManual();
-  const configurar = useConfigurarReposicion();
 
   const nombreSucursal = (id: string) =>
     sucursales.data?.items.find((s) => s.id === id)?.nombre ?? id.slice(0, 8);
-
-  const [configSucursalId, setConfigSucursalId] = useState<string | null>(null);
-  const [configMinimo, setConfigMinimo] = useState('');
 
   function emitirAhora(s: SaldoPendienteReposicion) {
     emitir.mutate(
@@ -68,34 +60,11 @@ export function ReposicionesCajaPage() {
     );
   }
 
-  function guardarMinimo() {
-    const monto = Number(configMinimo);
-    if (!configSucursalId || Number.isNaN(monto) || monto < 0) {
-      toast.error('Elige sucursal y un mínimo válido (≥ 0).');
-      return;
-    }
-    configurar.mutate(
-      {
-        sucursalId: configSucursalId,
-        montoMinimo: monto,
-        idempotencyKey: crypto.randomUUID(),
-      },
-      {
-        onSuccess: (r) =>
-          toast.success(`Mínimo guardado: ${r.montoMinimo.toFixed(2)}`),
-        onError: (error) =>
-          toast.error(
-            esApiError(error) ? error.problem.title : 'Error al guardar.',
-          ),
-      },
-    );
-  }
-
   return (
     <div className="space-y-6">
       <PageHeader
         titulo="Reposiciones de caja chica"
-        descripcion="Los montos de las comprobaciones aplicadas se acumulan por sucursal y destino; al alcanzar el mínimo se emite la reposición hacia Tesorería (o antes, con el corte manual)."
+        descripcion="La reposición se genera hacia Tesorería cuando CxP aprueba el pasivo de cada comprobación de caja chica. El corte manual solo vacía saldos heredados de comprobaciones aplicadas sin reposición."
       />
 
       <section className="space-y-2">
@@ -118,7 +87,6 @@ export function ReposicionesCajaPage() {
                   <th className="px-3 py-2 font-medium">Destino</th>
                   <th className="px-3 py-2 font-medium text-right">Saldo</th>
                   <th className="px-3 py-2 font-medium text-right">Comps.</th>
-                  <th className="px-3 py-2 font-medium text-right">Mínimo</th>
                   {puedeAdmin ? <th className="px-3 py-2" /> : null}
                 </tr>
               </thead>
@@ -140,9 +108,6 @@ export function ReposicionesCajaPage() {
                     <td className="px-3 py-2 text-right tabular-nums">
                       {s.numeroComprobaciones}
                     </td>
-                    <td className="px-3 py-2 pr-4 text-right tabular-nums">
-                      <MoneyDisplay amount={s.montoMinimo} currency={s.moneda} strong />
-                    </td>
                     {puedeAdmin ? (
                       <td className="px-3 py-2 text-right">
                         <Button
@@ -162,35 +127,6 @@ export function ReposicionesCajaPage() {
           </div>
         )}
       </section>
-
-      {puedeAdmin ? (
-        <section className="space-y-2">
-          <h2 className="text-sm font-medium">Mínimo por sucursal</h2>
-          <div className="flex flex-wrap items-end gap-2">
-            <div className="w-64">
-              <SucursalSelector
-                value={configSucursalId}
-                onChange={setConfigSucursalId}
-              />
-            </div>
-            <Input
-              type="number"
-              min={0}
-              step="0.01"
-              placeholder="Monto mínimo (0 = inmediata)"
-              className="w-56"
-              value={configMinimo}
-              onChange={(e) => setConfigMinimo(e.target.value)}
-            />
-            <Button
-              onClick={guardarMinimo}
-              disabled={configurar.isPending || !configSucursalId}
-            >
-              Guardar mínimo
-            </Button>
-          </div>
-        </section>
-      ) : null}
 
       <section className="space-y-2">
         <h2 className="text-sm font-medium">Reposiciones emitidas</h2>

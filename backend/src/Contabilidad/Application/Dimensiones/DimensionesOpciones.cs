@@ -27,9 +27,10 @@ public sealed class DimensionesOpciones
 
     public void AplicarDefaults()
     {
-        NombresDimension.TryAdd(nameof(DimensionContable.Dim1), "Dimensión 1");
-        NombresDimension.TryAdd(nameof(DimensionContable.Dim2), "Dimensión 2");
-        NombresDimension.TryAdd(nameof(DimensionContable.Dim3), "Dimensión 3");
+        // Nombres de negocio de la ficha K10.2 (cuestionario 08, C-03): ubicación, área y equipo.
+        NombresDimension.TryAdd(nameof(DimensionContable.Dim1), "Ubicación");
+        NombresDimension.TryAdd(nameof(DimensionContable.Dim2), "Área");
+        NombresDimension.TryAdd(nameof(DimensionContable.Dim3), "Equipo");
         NombresDimension.TryAdd(nameof(DimensionContable.Proyecto), "Proyecto");
         NombresDimension.TryAdd(nameof(DimensionContable.Cliente), "Cliente");
         NombresDimension.TryAdd(nameof(DimensionContable.Proveedor), "Proveedor");

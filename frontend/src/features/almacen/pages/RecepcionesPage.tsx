@@ -248,10 +248,10 @@ function FiltrosToolbar({ search, subAlmacenes, total, onChange }: FiltrosToolba
       aria-label="Filtros de recepciones"
       busqueda={
         <BusquedaFolio
-          aria-label="Buscar por folio"
+          aria-label="Buscar por folio o pedimento"
           valor={search.q}
           onCommit={(q) => onChange({ q })}
-          placeholder="Folio de la recepción"
+          placeholder="Folio de recepción o pedimento"
         />
       }
       filtros={

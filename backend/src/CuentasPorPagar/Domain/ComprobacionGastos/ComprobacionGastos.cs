@@ -244,7 +244,10 @@ public sealed class ComprobacionGastos : BaseEntity, IPerteneceAEmpresa, IAudita
             throw new BusinessRuleException("COMP_SIN_LINEAS",
                 "No se puede enviar a revisión sin líneas.");
 
-        Estado = EstadoComprobacionGastos.PorRevisar;
+        // Caja chica espera la aprobación del pasivo por CxP; el resto, revisión normal.
+        Estado = Tipo == TipoComprobacionGastos.ReembolsoCajaChica
+            ? EstadoComprobacionGastos.PendienteAprobarPasivo
+            : EstadoComprobacionGastos.PorRevisar;
         FechaEnvioRevision = ahora;
     }
 
@@ -256,6 +259,10 @@ public sealed class ComprobacionGastos : BaseEntity, IPerteneceAEmpresa, IAudita
     /// </summary>
     public void Autorizar(Guid usuarioId, DateTimeOffset ahora)
     {
+        if (Tipo == TipoComprobacionGastos.ReembolsoCajaChica)
+            throw new BusinessRuleException(
+                "COMP_CAJA_CHICA_REQUIERE_APROBAR_PASIVO",
+                "Caja chica se aprueba como pasivo (AprobarPasivo), no con Autorizar.");
         if (Tipo == TipoComprobacionGastos.GastosAduanales)
             throw new BusinessRuleException(
                 "COMP_ADUANALES_REQUIERE_DOBLE_FIRMA",
@@ -337,14 +344,41 @@ public sealed class ComprobacionGastos : BaseEntity, IPerteneceAEmpresa, IAudita
         FechaAplicacion = ahora;
     }
 
+    /// <summary>
+    /// CxP aprueba el pasivo de una comprobación de caja chica: pasa directo a
+    /// Aplicada. Acepta PorRevisar para no dejar atoradas filas legadas.
+    /// </summary>
+    public void AprobarPasivo(Guid usuarioId, DateTimeOffset ahora)
+    {
+        if (Tipo != TipoComprobacionGastos.ReembolsoCajaChica)
+            throw new BusinessRuleException(
+                "COMP_APROBAR_PASIVO_SOLO_CAJA_CHICA",
+                "Solo las comprobaciones de caja chica se aprueban como pasivo.");
+        if (Estado is not (EstadoComprobacionGastos.PendienteAprobarPasivo
+                           or EstadoComprobacionGastos.PorRevisar))
+            throw new BusinessRuleException(
+                "COMP_NO_APROBABLE_PASIVO",
+                $"Solo se aprueba el pasivo desde PendienteAprobarPasivo o PorRevisar (actual: {Estado}).");
+        if (_lineas.Count == 0)
+            throw new BusinessRuleException("COMP_SIN_LINEAS",
+                "No se puede aprobar el pasivo de una comprobación sin líneas.");
+
+        Estado = EstadoComprobacionGastos.Aplicada;
+        AutorizadoPor = usuarioId;
+        AplicadoPor = usuarioId;
+        FechaAutorizacion = ahora;
+        FechaAplicacion = ahora;
+    }
+
     public void Rechazar(Guid usuarioId, string motivo, DateTimeOffset ahora)
     {
         if (Estado is not (EstadoComprobacionGastos.Borrador
                            or EstadoComprobacionGastos.PorRevisar
+                           or EstadoComprobacionGastos.PendienteAprobarPasivo
                            or EstadoComprobacionGastos.AutorizadaNivel1))
             throw new BusinessRuleException(
                 "COMP_NO_RECHAZABLE",
-                $"Solo se rechaza desde Borrador, PorRevisar o AutorizadaNivel1 (actual: {Estado}).");
+                $"Solo se rechaza desde Borrador, PorRevisar, PendienteAprobarPasivo o AutorizadaNivel1 (actual: {Estado}).");
         if (string.IsNullOrWhiteSpace(motivo))
             throw new BusinessRuleException("COMP_MOTIVO_VACIO",
                 "El motivo de rechazo es obligatorio.");

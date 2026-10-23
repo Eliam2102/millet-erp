@@ -4,7 +4,6 @@ import {
   BarraFiltros,
   PaginacionTabla,
   KpiCard,
-  MontoMovimiento,
   PageHeader,
   EmptyState,
   ErrorState,
@@ -21,55 +20,77 @@ import {
   TableHead,
   TableCell,
 } from '@/components/ui/table';
-import { useMemo, useState } from 'react';
-import { useNavigate, useSearch } from '@tanstack/react-router';
-import { HandCoins } from 'lucide-react';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
+import { Fragment, useMemo, useState } from 'react';
+import { Link, useNavigate, useSearch } from '@tanstack/react-router';
+import { ChevronRight, HandCoins } from 'lucide-react';
 import { Label } from '@/components/ui/label';
 
-import { useAnticiposCliente } from '@/features/cxc/api/useCartera';
+import { useAplicacionesAnticipo } from '@/features/cxc/api/useCartera';
+import type {
+  AnticipoConAplicacionesItem,
+  AplicacionAnticipoItem,
+} from '@/features/cxc/api/types';
 import { ClienteSelectorCxc } from '@/features/cxc/components/ClienteSelectorCxc';
 import { formatoMonto } from '@/features/cxc/lib/glosario';
 import type { AnticiposCxcSearch } from '@/features/cxc/lib/cartera-search-schema';
 import { esApiError } from '@/lib/api';
+import { formatDate } from '@/lib/datetime';
+import { useHasPermission } from '@/lib/auth/useHasPermission';
+import { PermisosCanonicos } from '@/lib/auth/permission-codes';
+import { cn } from '@/lib/utils';
 import { EstadoCxcBadge } from '../components/EstadoCxcBadge';
 
 const FROM = '/_app/cxc/anticipos/' as const;
 
+/** Tabs por estado derivado (mismo cálculo que la comparativa F6.2). */
+const ESTADOS = ['Pendiente', 'Parcial', 'Aplicado', 'Cancelado'] as const;
+
 /**
- * <c>Anticipos de clientes</c> (CXC-FE-PR5) — saldos del read port de
- * Facturación (§6.1 del 01-diseño; reemplazo del "mapa" A+W). Los
- * anticipos NO son cartera: es la vista de "dinero del cliente en la
- * casa". Totales POR MONEDA — nunca se suman divisas distintas (§5).
+ * <c>Anticipos de clientes</c> (CXC-FE-PR5 + F1-CXC-05) — saldo de cada
+ * anticipo y su aplicación a la factura final (factura final + CFDI de egreso
+ * tipo 07), leídos de Facturación vía read port. Solo consulta: la emisión y la
+ * amortización viven en Facturación. El cliente es opcional: sin él se listan
+ * todos los clientes con anticipos (filtrados por las sucursales del usuario).
+ * Totales POR MONEDA — nunca se suman divisas distintas (§5).
  */
 export function AnticiposCxcPage() {
   const search = useSearch({ from: FROM });
   const navigate = useNavigate();
   const clienteId = search.clienteId ?? null;
+  const puedeVerComparativa = useHasPermission(PermisosCanonicos.FacturacionReportesLeer);
 
-  const query = useAnticiposCliente(clienteId);
+  const query = useAplicacionesAnticipo({ clienteId: clienteId ?? undefined });
 
   function actualizar(parcial: Partial<AnticiposCxcSearch>) {
     navigate({ to: '/cxc/anticipos', search: { ...search, ...parcial } });
   }
 
-  // Totales por moneda (nunca cross-divisa).
-  const totalesPorMoneda = useMemo(() => {
-    const m = new Map<string, { saldo: number; disponible: number }>();
-    for (const a of query.data ?? []) {
-      const acc = m.get(a.moneda) ?? { saldo: 0, disponible: 0 };
-      acc.saldo += a.saldo;
-      acc.disponible += a.saldoDisponible;
-      m.set(a.moneda, acc);
-    }
-    return Array.from(m.entries()).sort(([a], [b]) => a.localeCompare(b));
-  }, [query.data]);
-
   const [estado, setEstado] = useState<number | undefined>();
-  const estados = ['Abierto', 'Amortizado', 'Cancelado'];
-  const items = (query.data ?? []).filter(
-    (a) => estado === undefined || a.estado === estados[estado],
-  );
+  const [expandidos, setExpandidos] = useState<ReadonlySet<string>>(new Set());
+
+  const anticipos = useMemo(() => query.data?.anticipos ?? [], [query.data]);
+  const conteos = useMemo(() => {
+    const c: Record<number, number> = {};
+    ESTADOS.forEach((e, i) => {
+      c[i] = anticipos.filter((a) => a.estado === e).length;
+    });
+    return c;
+  }, [anticipos]);
+  const items = anticipos.filter((a) => estado === undefined || a.estado === ESTADOS[estado]);
   const pagina = usePaginacionLocal(items, JSON.stringify([clienteId, estado]));
+
+  const mostrarCliente = clienteId == null;
+  const columnas = mostrarCliente ? 13 : 12;
+
+  function alternar(id: string) {
+    setExpandidos((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  }
 
   return (
     <div className="flex min-h-0 flex-col gap-5">
@@ -78,8 +99,8 @@ export function AnticiposCxcPage() {
           titulo={<>Anticipos de clientes</>}
           descripcion={
             <>
-              Saldos de anticipo por cliente (emisión y amortización viven en Facturación; aquí se
-              consulta el dinero del cliente en la casa).
+              Saldo de cada anticipo y su aplicación a la factura final (la emisión y la amortización
+              viven en Facturación; aquí solo se consultan).
             </>
           }
         />
@@ -88,22 +109,33 @@ export function AnticiposCxcPage() {
       <ListadoModulo
         tabs={
           <TabsEstado
-            opciones={estados.map((label, valor) => ({ label, valor }))}
+            opciones={ESTADOS.map((label, valor) => ({ label, valor }))}
             valor={estado}
-            conteos={undefined}
+            conteos={query.data ? conteos : undefined}
             onChange={setEstado}
           />
         }
         filtros={
           <BarraFiltros
             filtros={
-              <div className="w-full max-w-md space-y-1">
-                <Label className="text-xs text-ink-muted">Cliente *</Label>
-                <ClienteSelectorCxc
-                  value={clienteId}
-                  onChange={(item) => actualizar({ clienteId: item?.id ?? undefined })}
-                  placeholder="Elige el cliente…"
-                />
+              <div className="flex w-full flex-wrap items-end justify-between gap-3">
+                <div className="w-full max-w-md space-y-1">
+                  <Label className="text-xs text-ink-muted">Cliente</Label>
+                  <ClienteSelectorCxc
+                    value={clienteId}
+                    onChange={(item) => actualizar({ clienteId: item?.id ?? undefined })}
+                    placeholder="Todos los clientes"
+                  />
+                </div>
+                {puedeVerComparativa && (
+                  <Link
+                    to="/facturacion/reportes/comparativa-anticipos"
+                    search={clienteId ? { clienteId } : {}}
+                    className="text-xs font-medium text-brand hover:underline"
+                  >
+                    Ver comparativa en Facturación
+                  </Link>
+                )}
               </div>
             }
           />
@@ -118,13 +150,7 @@ export function AnticiposCxcPage() {
           />
         }
       >
-        {clienteId == null ? (
-          <EmptyState
-            icon={<HandCoins className="h-10 w-10" />}
-            title="Elige un cliente para ver sus anticipos."
-            description="Consulta los saldos de anticipos registrados en Facturación."
-          />
-        ) : query.isError ? (
+        {query.isError ? (
           <ErrorState
             title="No se pudieron cargar los anticipos"
             problem={esApiError(query.error) ? query.error.problem : undefined}
@@ -135,79 +161,259 @@ export function AnticiposCxcPage() {
             rows={4}
             columns={[
               { width: 'w-24' },
-              { width: 'w-28' },
-              { width: 'w-28' },
-              { width: 'w-28' },
-              { width: 'w-28' },
               { width: 'w-32' },
+              { width: 'w-28' },
+              { width: 'w-28' },
+              { width: 'w-28' },
+              { width: 'w-24' },
             ]}
+          />
+        ) : anticipos.length === 0 ? (
+          <EmptyState
+            icon={<HandCoins className="h-10 w-10" />}
+            title={
+              clienteId == null ? 'No hay anticipos registrados.' : 'El cliente no tiene anticipos.'
+            }
+            description="Los anticipos se emiten desde Facturación."
           />
         ) : items.length === 0 ? (
           <EmptyState
             icon={<HandCoins className="h-10 w-10" />}
-            title="El cliente no tiene anticipos."
-            description="Los anticipos se emiten desde Facturación."
+            title="Sin anticipos en este estado."
+            description="Cambia de pestaña para ver los demás anticipos."
           />
         ) : (
-          <>
+          <TooltipProvider delayDuration={150}>
             <div className="overflow-x-auto rounded-md border">
               <Table className="w-full text-sm">
                 <TableHeader className="bg-surface-muted/50 text-left text-xs uppercase tracking-wide text-ink-muted">
                   <TableRow>
-                    <TableHead className="px-3 py-2 font-medium">Estado</TableHead>
+                    <TableHead className="w-9 px-2 py-2">
+                      <span className="sr-only">Aplicaciones</span>
+                    </TableHead>
+                    <TableHead className="px-3 py-2 font-medium">Anticipo</TableHead>
+                    {mostrarCliente && (
+                      <TableHead className="px-3 py-2 font-medium">Cliente</TableHead>
+                    )}
+                    <TableHead className="px-3 py-2 font-medium">Fecha</TableHead>
+                    <TableHead className="px-3 py-2 font-medium">Sucursal</TableHead>
+                    <TableHead className="px-3 py-2 font-medium">Moneda</TableHead>
                     <TableHead className="px-3 py-2 text-right font-medium">Cobrado</TableHead>
-                    <TableHead className="px-3 py-2 text-right font-medium">Amortizado</TableHead>
+                    <TableHead className="px-3 py-2 text-right font-medium">Aplicado</TableHead>
+                    <TableHead className="px-3 py-2 text-right font-medium">Comprometido</TableHead>
                     <TableHead className="px-3 py-2 text-right font-medium">Saldo</TableHead>
-                    <TableHead className="px-3 py-2 text-right font-medium">Disponible</TableHead>
+                    <TableHead className="px-3 py-2 font-medium">Estado</TableHead>
                     <TableHead className="px-3 py-2 font-medium">Pedido origen</TableHead>
+                    <TableHead className="px-3 py-2 font-medium">Observación</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody className="divide-y">
-                  {pagina.visibles.map((a) => (
-                    <TableRow key={a.anticipoId} className="h-12 hover:bg-surface-subtle">
-                      <TableCell className="px-3 py-2">
-                        <EstadoCxcBadge entidad="anticipo" estado={a.estado} />
-                      </TableCell>
-                      <TableCell className="px-3 py-2 text-right font-mono tabular-nums">
-                        <MontoMovimiento monto={a.montoCobrado} moneda={a.moneda} tipo="entrada" />
-                      </TableCell>
-                      <TableCell className="px-3 py-2 text-right font-mono tabular-nums">
-                        <MontoMovimiento
-                          monto={a.montoAmortizado}
-                          moneda={a.moneda}
-                          tipo="salida"
+                  {pagina.visibles.map((a) => {
+                    const abierto = expandidos.has(a.anticipoId);
+                    return (
+                      <Fragment key={a.anticipoId}>
+                        <FilaAnticipo
+                          anticipo={a}
+                          abierto={abierto}
+                          mostrarCliente={mostrarCliente}
+                          onAlternar={() => alternar(a.anticipoId)}
                         />
-                      </TableCell>
-                      <TableCell className="px-3 py-2 text-right font-mono tabular-nums">
-                        {formatoMonto(a.saldo, a.moneda)}
-                      </TableCell>
-                      <TableCell className="px-3 py-2 text-right font-mono font-medium tabular-nums">
-                        {formatoMonto(a.saldoDisponible, a.moneda)}
-                      </TableCell>
-                      <TableCell className="px-3 py-2 font-mono text-xs">
-                        {a.pedidoOrigenRef ?? '—'}
-                      </TableCell>
-                    </TableRow>
-                  ))}
+                        {abierto && (
+                          <TableRow className="bg-surface-subtle hover:bg-surface-subtle">
+                            <TableCell colSpan={columnas} className="px-3 py-3">
+                              <AplicacionesAnticipo anticipo={a} />
+                            </TableCell>
+                          </TableRow>
+                        )}
+                      </Fragment>
+                    );
+                  })}
                 </TableBody>
               </Table>
             </div>
 
-            <div className="flex flex-wrap gap-4">
-              {totalesPorMoneda.map(([moneda, t]) => (
-                <div key={moneda} className="grid gap-3 sm:grid-cols-2">
-                  <KpiCard etiqueta={`Saldo ${moneda}`} valor={formatoMonto(t.saldo, moneda)} />
-                  <KpiCard
-                    etiqueta={`Disponible ${moneda}`}
-                    valor={formatoMonto(t.disponible, moneda)}
-                    tono="info"
-                  />
-                </div>
-              ))}
+            <div className="flex flex-col gap-2">
+              <p className="text-xs text-ink-muted">
+                Totales por moneda, sin anticipos cancelados.
+              </p>
+              <div className="flex flex-wrap gap-4">
+                {(query.data?.totalesPorMoneda ?? []).map((t) => (
+                  <div key={t.moneda} className="grid gap-3 sm:grid-cols-3">
+                    <KpiCard
+                      etiqueta={`Cobrado ${t.moneda}`}
+                      valor={formatoMonto(t.cobrado, t.moneda)}
+                    />
+                    <KpiCard
+                      etiqueta={`Aplicado ${t.moneda}`}
+                      valor={formatoMonto(t.aplicado, t.moneda)}
+                    />
+                    <KpiCard
+                      etiqueta={`Saldo ${t.moneda}`}
+                      valor={formatoMonto(t.saldo, t.moneda)}
+                      tono="info"
+                    />
+                  </div>
+                ))}
+              </div>
             </div>
-          </>
+          </TooltipProvider>
         )}
       </ListadoModulo>
     </div>
+  );
+}
+
+function FilaAnticipo({
+  anticipo: a,
+  abierto,
+  mostrarCliente,
+  onAlternar,
+}: {
+  anticipo: AnticipoConAplicacionesItem;
+  abierto: boolean;
+  mostrarCliente: boolean;
+  onAlternar: () => void;
+}) {
+  return (
+    <TableRow className={cn('h-12 hover:bg-surface-subtle', abierto && 'bg-surface-row-focus')}>
+      <TableCell className="px-2 py-2">
+        <button
+          type="button"
+          onClick={onAlternar}
+          aria-expanded={abierto}
+          aria-label={`Ver aplicaciones de ${a.folio}`}
+          className="inline-flex h-7 w-7 items-center justify-center rounded-md text-ink-muted hover:bg-surface-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand"
+        >
+          <ChevronRight
+            className={cn('h-4 w-4 transition-transform', abierto && 'rotate-90')}
+            aria-hidden="true"
+          />
+        </button>
+      </TableCell>
+      <TableCell className="px-3 py-2">
+        <ConUuid texto={a.folio} uuid={a.uuid} />
+      </TableCell>
+      {mostrarCliente && (
+        <TableCell className="max-w-56 truncate px-3 py-2" title={a.clienteNombre}>
+          {a.clienteNombre}
+        </TableCell>
+      )}
+      <TableCell className="px-3 py-2 text-ink-secondary">
+        {a.fechaTimbrado ? formatDate(a.fechaTimbrado) : '—'}
+      </TableCell>
+      <TableCell className="px-3 py-2 text-ink-secondary">
+        {a.sucursalNombre ?? <span className="text-ink-muted">Sin sucursal</span>}
+      </TableCell>
+      <TableCell className="px-3 py-2 font-mono text-xs">{a.moneda}</TableCell>
+      <TableCell className="px-3 py-2 text-right font-mono tabular-nums">
+        {formatoMonto(a.cobrado, a.moneda)}
+      </TableCell>
+      <TableCell className="px-3 py-2 text-right font-mono tabular-nums">
+        {formatoMonto(a.aplicado, a.moneda)}
+      </TableCell>
+      <TableCell className="px-3 py-2 text-right font-mono tabular-nums text-ink-muted">
+        {formatoMonto(a.comprometido, a.moneda)}
+      </TableCell>
+      <TableCell className="px-3 py-2 text-right font-mono font-medium tabular-nums">
+        {formatoMonto(a.saldo, a.moneda)}
+      </TableCell>
+      <TableCell className="px-3 py-2">
+        <EstadoCxcBadge entidad="anticipoAplicacion" estado={a.estado} />
+      </TableCell>
+      <TableCell className="px-3 py-2 font-mono text-xs">{a.pedidoOrigenRef ?? '—'}</TableCell>
+      <TableCell className="px-3 py-2 text-xs text-warning-fg">{a.observacion ?? ''}</TableCell>
+    </TableRow>
+  );
+}
+
+/** Folio en mono con el UUID en tooltip (folio como cara al usuario). */
+function ConUuid({ texto, uuid }: { texto: string | null; uuid: string | null }) {
+  if (!texto) return <span className="text-ink-muted">—</span>;
+  if (!uuid) return <span className="font-mono text-xs font-medium">{texto}</span>;
+  return (
+    <Tooltip>
+      <TooltipTrigger asChild>
+        <span className="cursor-help font-mono text-xs font-medium" tabIndex={0}>
+          {texto}
+        </span>
+      </TooltipTrigger>
+      <TooltipContent>
+        <span className="font-mono">UUID {uuid}</span>
+      </TooltipContent>
+    </Tooltip>
+  );
+}
+
+function AplicacionesAnticipo({ anticipo }: { anticipo: AnticipoConAplicacionesItem }) {
+  return (
+    <div className="flex flex-col gap-2">
+      <p className="text-xs font-semibold uppercase tracking-[0.04em] text-ink-muted">
+        Aplicaciones a factura final
+      </p>
+      {anticipo.aplicaciones.length === 0 ? (
+        <p className="text-sm text-ink-muted">Sin aplicaciones</p>
+      ) : (
+        <div className="overflow-x-auto rounded-md border bg-surface-card">
+          <Table className="w-full text-sm">
+            <TableHeader className="text-left text-xs uppercase tracking-wide text-ink-muted">
+              <TableRow>
+                <TableHead className="px-3 py-2 font-medium">Factura final</TableHead>
+                <TableHead className="px-3 py-2 font-medium">Egreso 07</TableHead>
+                <TableHead className="px-3 py-2 font-medium">UUID egreso</TableHead>
+                <TableHead className="px-3 py-2 font-medium">Fecha</TableHead>
+                <TableHead className="px-3 py-2 text-right font-medium">Importe</TableHead>
+                <TableHead className="px-3 py-2 font-medium">Estado del egreso</TableHead>
+                <TableHead className="px-3 py-2 font-medium">Tipo</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody className="divide-y">
+              {anticipo.aplicaciones.map((ap, i) => (
+                <FilaAplicacion key={i} aplicacion={ap} moneda={anticipo.moneda} />
+              ))}
+            </TableBody>
+          </Table>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function FilaAplicacion({
+  aplicacion: ap,
+  moneda,
+}: {
+  aplicacion: AplicacionAnticipoItem;
+  moneda: string;
+}) {
+  // Solo «Aplicación» resta saldo; el egreso cancelado se tacha y la
+  // vinculación sin egreso (comprometido) se atenúa.
+  const cancelado = ap.tipo === 'Egreso cancelado';
+  const comprometido = ap.tipo === 'Vinculación sin egreso';
+  return (
+    <TableRow className="h-10">
+      <TableCell className="px-3 py-2">
+        <ConUuid texto={ap.facturaFinalFolio} uuid={ap.facturaFinalUuid} />
+      </TableCell>
+      <TableCell className="px-3 py-2 font-mono text-xs font-medium">
+        {ap.egresoFolio ?? <span className="text-ink-muted">Sin egreso</span>}
+      </TableCell>
+      <TableCell className="px-3 py-2 font-mono text-2xs text-ink-secondary">
+        {ap.egresoUuid ?? '—'}
+      </TableCell>
+      <TableCell className="px-3 py-2 text-ink-secondary">
+        {ap.fechaAplicacion ? formatDate(ap.fechaAplicacion) : '—'}
+      </TableCell>
+      <TableCell
+        className={cn(
+          'px-3 py-2 text-right font-mono tabular-nums',
+          comprometido && 'text-ink-muted',
+          cancelado && 'text-ink-muted line-through',
+        )}
+      >
+        {formatoMonto(ap.importe, moneda)}
+      </TableCell>
+      <TableCell className="px-3 py-2 text-xs">{ap.estadoEgreso ?? '—'}</TableCell>
+      <TableCell className="px-3 py-2 text-xs text-ink-secondary">{ap.tipo}</TableCell>
+    </TableRow>
   );
 }

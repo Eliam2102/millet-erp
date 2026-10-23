@@ -50,3 +50,9 @@ describe('cotizacionSchema', () => {
     expect(msgs).toContain('El precio debe ser mayor a cero');
   });
 });
+
+it('conserva pago y entrega y rechaza una entrega anterior a la cotización', () => {
+  const values = { ...base, condicionesPagoId: '00000002-0003-0000-0000-000000000003', fechaEntrega: '2026-10-15' };
+  expect(aRegistrarCotizacionRequest(cotizacionSchema.parse(values))).toMatchObject({ condicionesPagoId: values.condicionesPagoId, fechaEntrega: values.fechaEntrega });
+  expect(cotizacionSchema.safeParse({ ...values, fechaEntrega: '2026-09-30' }).success).toBe(false);
+});

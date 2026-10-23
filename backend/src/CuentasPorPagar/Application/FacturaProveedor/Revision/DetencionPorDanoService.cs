@@ -82,15 +82,14 @@ public sealed class DetencionPorDanoService(
         }
 
         var lista = await dependencias.ListarAsync(ct);
-        var area = lista.FirstOrDefault(d => d.Activa
-            && string.Equals(d.Codigo, motivo.DependenciaRevisoraDefaultCodigo, StringComparison.OrdinalIgnoreCase));
-        Guid dependenciaId;
+        DependenciaRevisoraDto? Area(string? codigo) => lista.FirstOrDefault(d => d.Activa
+            && string.Equals(d.Codigo, codigo, StringComparison.OrdinalIgnoreCase));
+        var area = Area(motivo.DependenciaRevisoraDefaultCodigo) ?? Area("CXP");
+        var dependenciaId = area?.Id ?? EventListeners.Tesoreria.CancelacionPasivoSolicitadaHandler.DependenciaCxpId;
         if (area is null)
-        {
-            logger.LogWarning("No existe el área {Codigo}; se asigna a CxP.", motivo.DependenciaRevisoraDefaultCodigo);
-            dependenciaId = EventListeners.Tesoreria.CancelacionPasivoSolicitadaHandler.DependenciaCxpId;
-        }
-        else dependenciaId = area.Id;
+            // PLATFORM-TODO(<DepartamentosRevisores>): crear los departamentos COMPRAS, CXP y DIRECCION_F (admin/Millet).
+            logger.LogWarning("No existen los departamentos {Codigo} ni CXP; la factura {FacturaId} se detiene con el área CxP por defecto.",
+                motivo.DependenciaRevisoraDefaultCodigo, factura.Id);
 
         factura.EnviarARevision(MotivoDanosId, dependenciaId, null, ahora);
         logger.LogInformation("Factura {FacturaId} (OC {OrdenCompraId}) detenida por daño en la mercancía.",

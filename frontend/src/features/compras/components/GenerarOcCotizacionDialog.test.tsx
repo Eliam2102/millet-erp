@@ -86,3 +86,17 @@ describe('GenerarOcCotizacionDialog', () => {
     );
   });
 });
+
+ it('hereda pago y entrega de la cotización y permite editar la entrega', async () => {
+    render(<GenerarOcCotizacionDialog abierto onClose={vi.fn()} data={data}
+      cotizacion={{ ...cotizacion, condicionesPagoId: 'cp-demo', fechaEntrega: '2026-11-10' }}
+      motivoEleccion="DEMO ficticio: entrega" />);
+    expect(screen.getByLabelText(/Fecha de entrega esperada/)).toHaveValue('2026-11-10');
+    fireEvent.click(screen.getByRole('button', { name: 'elegir uso' }));
+    fireEvent.change(screen.getByLabelText(/Fecha de entrega esperada/), { target: { value: '2026-11-12' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Generar orden de compra' }));
+    await waitFor(() => expect(mocks.mutateAsync).toHaveBeenCalled());
+    expect(mocks.mutateAsync.mock.calls[0]![0].command).toMatchObject({
+      condicionesPagoId: 'cp-demo', fechaEntregaEsperada: '2026-11-12',
+    });
+ });

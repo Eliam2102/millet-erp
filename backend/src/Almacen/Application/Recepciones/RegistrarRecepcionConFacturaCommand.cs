@@ -42,7 +42,7 @@ public sealed record RegistrarRecepcionConFacturaCommand(
     // líneas vacías en el sheet). Opcional — null = no usó el helper. Solo
     // reportería; la ubicación efectiva de cada línea viaja en cada
     // RegistrarRecepcionLineaInput.UbicacionId y es la que manda.
-    Guid? UbicacionHelperId = null) : IRequest<RegistrarRecepcionResponse>;
+    Guid? UbicacionHelperId = null, ImportacionRecepcionInput? Importacion = null) : IRequest<RegistrarRecepcionResponse>;
 
 public sealed record RegistrarRecepcionLineaInput(
     Guid ArticuloId,
@@ -55,7 +55,7 @@ public sealed record RegistrarRecepcionLineaInput(
     // tipo por compat de construcción; el validator lo exige.
     Guid? UbicacionId = null, string? UnidadCapturada = null,
     // ALM-04: parte de Cantidad que llegó dañada; va a material en revisión (MAT-REV), no a disponible.
-    decimal CantidadDanada = 0m, string? MotivoDano = null);
+    decimal CantidadDanada = 0m, string? MotivoDano = null, string? FraccionArancelaria = null);
 
 public sealed record RegistrarRecepcionResponse(
     Guid RecepcionId,
@@ -163,6 +163,7 @@ public sealed class RegistrarRecepcionConFacturaHandler
         var equivalentes = request.Lineas.Select((l, i) => l with { Cantidad = conversiones[i].CantidadDocumento }).ToList();
         var validada = await RecepcionOcGuard.ValidarAsync(oc, equivalentes, recibidoPropio, cancellationToken);
         var lineasOc = validada.Lineas;
+        var importacion = ImportacionRecepcionGuard.Crear(oc!, request.Importacion, request.Lineas);
 
         // 3. Construir el movimiento (Borrador → AgregarLineas → Registrar).
         //    El sub-almacén ya no viene en cabecera: se deriva del bin de cada
@@ -332,6 +333,7 @@ public sealed class RegistrarRecepcionConFacturaHandler
 
         if (payloadLineas.All(x => x.EsActivoFijo))
         {
+            if (importacion is not null) { importacion.VincularRecepcion(movimientoId); _db.RecepcionesImportacion.Add(importacion); }
             // Sin bin no hay almacén que comparar: la sucursal destino de la OC la verifica el endpoint (alcance del usuario sobre la OC o permiso de todas las sucursales).
             var folioActivo = await Catalogo.FolioMovimientoLock.SiguienteEntradaCompraAsync(_db, request.FechaMovimiento.Year, cancellationToken);
             foreach (var ra in _db.RecepcionesActivos.Local.Where(x => x.RecepcionId == movimientoId)) ra.Folio = folioActivo;
@@ -359,6 +361,7 @@ public sealed class RegistrarRecepcionConFacturaHandler
 
         // ALM-04: principal efectivo = el de lo disponible; si todo llegó dañado, el de revisión.
         var principal = movimiento.Lineas.Count > 0 ? movimiento : movimientoRevision!;
+        if (importacion is not null) { importacion.VincularRecepcion(principal.Id); _db.RecepcionesImportacion.Add(importacion); }
         foreach (var recepcionActivo in _db.RecepcionesActivos.Local.Where(x => x.RecepcionId == movimientoId))
             recepcionActivo.VincularRecepcion(principal.Id);
         if (movimientoRevision is not null && ReferenceEquals(principal, movimiento))

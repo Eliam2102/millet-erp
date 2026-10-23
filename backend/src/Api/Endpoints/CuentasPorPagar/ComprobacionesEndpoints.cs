@@ -149,6 +149,28 @@ public static class ComprobacionesEndpoints
         .ProducesProblem(StatusCodes.Status422UnprocessableEntity)
         .ProducesProblem(StatusCodes.Status428PreconditionRequired);
 
+        group.MapPost("/{id:guid}/aprobar-pasivo", async (
+            Guid id,
+            [FromHeader(Name = "X-Expected-Version")] int? expectedVersion,
+            IMediator mediator,
+            CancellationToken cancellationToken) =>
+        {
+            if (expectedVersion is not int v)
+                return Results.Problem(title: "X-Expected-Version requerido", statusCode: StatusCodes.Status428PreconditionRequired);
+
+            var response = await mediator.Send(new AprobarPasivoComprobacionCommand(id, v), cancellationToken);
+            return Results.Ok(response);
+        })
+        .WithMetadata(new RequireIdempotencyKeyAttribute())
+        .RequireAuthorization(PermissionPolicyProvider.Prefix + PermisosCanonicos.CuentasPorPagarComprobacionesAprobarNivel1)
+        .WithName("AprobarPasivoComprobacionGastos")
+        .WithSummary("Aprueba el pasivo de una comprobación de caja chica y emite su reposición")
+        .Produces<TransicionComprobacionResponse>(StatusCodes.Status200OK)
+        .ProducesProblem(StatusCodes.Status404NotFound)
+        .ProducesProblem(StatusCodes.Status409Conflict)
+        .ProducesProblem(StatusCodes.Status422UnprocessableEntity)
+        .ProducesProblem(StatusCodes.Status428PreconditionRequired);
+
         // -------- F7-PR2: Aduanales con doble firma --------
 
         group.MapPost("/aduanales", async (
