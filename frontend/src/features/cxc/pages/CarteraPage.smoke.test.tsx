@@ -234,53 +234,163 @@ describe('<EstadoCuentaPage> — smoke', () => {
   });
 });
 
-describe('<AnticiposCxcPage> — smoke', () => {
-  it('sin cliente: CTA de selección', async () => {
-    render(<AnticiposCxcPage />, { wrapper: createQueryWrapper() });
-    expect(await screen.findByText(/Elige un cliente para ver sus anticipos/i)).toBeInTheDocument();
-  });
+const aplicacionesAnticipo = {
+  anticipos: [
+    {
+      anticipoId: 'ant-1',
+      facturaAnticipoId: 'fa-1',
+      clienteId: 'cli-1',
+      clienteNombre: 'Cliente Maquila',
+      folio: 'FA-10',
+      uuid: 'uuid-fa-10',
+      fechaTimbrado: '2026-10-01T16:00:00Z',
+      sucursalId: 'suc-1',
+      sucursalNombre: 'MID — Mérida',
+      moneda: 'MXN',
+      estado: 'Parcial',
+      cobrado: 30000,
+      aplicado: 20000,
+      comprometido: 0,
+      saldo: 10000,
+      saldoSistema: 10000,
+      pedidoOrigenRef: '3000123456',
+      observacion: null,
+      aplicaciones: [
+        {
+          tipo: 'Aplicación',
+          facturaFinalFolio: 'FV-200',
+          facturaFinalUuid: 'uuid-fv-200',
+          egresoFolio: 'NC-7',
+          egresoUuid: 'uuid-nc-7',
+          fechaAplicacion: '2026-10-05T16:00:00Z',
+          estadoEgreso: 'Timbrado',
+          importe: 20000,
+        },
+      ],
+    },
+    {
+      anticipoId: 'ant-2',
+      facturaAnticipoId: 'fa-2',
+      clienteId: 'cli-2',
+      clienteNombre: 'Vidrios del Golfo',
+      folio: 'FA-11',
+      uuid: 'uuid-fa-11',
+      fechaTimbrado: '2026-10-02T16:00:00Z',
+      sucursalId: 'suc-1',
+      sucursalNombre: 'MID — Mérida',
+      moneda: 'USD',
+      estado: 'Pendiente',
+      cobrado: 5000,
+      aplicado: 0,
+      comprometido: 0,
+      saldo: 5000,
+      saldoSistema: 4000,
+      pedidoOrigenRef: null,
+      observacion: 'Saldo en sistema $4,000.00',
+      aplicaciones: [],
+    },
+  ],
+  totalesPorMoneda: [
+    { moneda: 'MXN', cobrado: 30000, aplicado: 20000, comprometido: 0, saldo: 10000 },
+    { moneda: 'USD', cobrado: 5000, aplicado: 0, comprometido: 0, saldo: 5000 },
+  ],
+};
 
-  it('con cliente: tabla + totales por moneda (nunca cross-divisa)', async () => {
-    searchMock.current = { clienteId: 'cli-1' };
+describe('<AnticiposCxcPage> — smoke', () => {
+  it('sin cliente: lista los anticipos de todos los clientes con KPIs por moneda', async () => {
+    let params: URLSearchParams | null = null;
     mswServer.use(
-      http.get(`${BASE}/anticipos`, () =>
-        HttpResponse.json([
-          {
-            anticipoId: 'ant-1',
-            clienteId: 'cli-1',
-            estado: 'Abierto',
-            montoCobrado: 100000,
-            montoAmortizado: 40000,
-            saldo: 60000,
-            saldoDisponible: 60000,
-            moneda: 'MXN',
-            pedidoOrigenRef: '3000123456',
-          },
-          {
-            anticipoId: 'ant-2',
-            clienteId: 'cli-1',
-            estado: 'Abierto',
-            montoCobrado: 5000,
-            montoAmortizado: 0,
-            saldo: 5000,
-            saldoDisponible: 5000,
-            moneda: 'USD',
-            pedidoOrigenRef: null,
-          },
-        ]),
-      ),
+      http.get(`${BASE}/anticipos/aplicaciones`, ({ request }) => {
+        params = new URL(request.url).searchParams;
+        return HttpResponse.json(aplicacionesAnticipo);
+      }),
     );
     render(<AnticiposCxcPage />, { wrapper: createQueryWrapper() });
-    expect(await screen.findByText('3000123456')).toBeInTheDocument();
-    // Totales separados por divisa.
-    expect(screen.getByText(/Saldo MXN/i)).toBeInTheDocument();
-    expect(screen.getByText(/Saldo USD/i)).toBeInTheDocument();
+    expect(await screen.findByText('FA-10')).toBeInTheDocument();
+    expect(params!.has('clienteId')).toBe(false);
+    // Columna Cliente visible sin filtro de cliente.
+    expect(screen.getByText('Cliente Maquila')).toBeInTheDocument();
+    expect(screen.getByText('Vidrios del Golfo')).toBeInTheDocument();
+    expect(screen.getByText('3000123456')).toBeInTheDocument();
+    expect(screen.getByText('Saldo en sistema $4,000.00')).toBeInTheDocument();
+    // KPIs separados por divisa (nunca cross-divisa).
+    expect(screen.getByText('Cobrado MXN')).toBeInTheDocument();
+    expect(screen.getByText('Aplicado MXN')).toBeInTheDocument();
+    expect(screen.getByText('Saldo MXN')).toBeInTheDocument();
+    expect(screen.getByText('Saldo USD')).toBeInTheDocument();
   });
 
-  it('con cliente sin anticipos: empty', async () => {
+  it('la fila expandible muestra la factura final y el egreso 07', async () => {
+    mswServer.use(
+      http.get(`${BASE}/anticipos/aplicaciones`, () => HttpResponse.json(aplicacionesAnticipo)),
+    );
+    render(<AnticiposCxcPage />, { wrapper: createQueryWrapper() });
+    const expandir = await screen.findByRole('button', { name: /Ver aplicaciones de FA-10/i });
+    expect(expandir).toHaveAttribute('aria-expanded', 'false');
+    expect(screen.queryByText('FV-200')).not.toBeInTheDocument();
+
+    fireEvent.click(expandir);
+
+    expect(expandir).toHaveAttribute('aria-expanded', 'true');
+    expect(screen.getByText('Aplicaciones a factura final')).toBeInTheDocument();
+    expect(screen.getByText('FV-200')).toBeInTheDocument();
+    expect(screen.getByText('NC-7')).toBeInTheDocument();
+    expect(screen.getByText('uuid-nc-7')).toBeInTheDocument();
+    expect(screen.getByText('Timbrado')).toBeInTheDocument();
+  });
+
+  it('anticipo sin aplicaciones: estado vacío al expandir', async () => {
+    mswServer.use(
+      http.get(`${BASE}/anticipos/aplicaciones`, () => HttpResponse.json(aplicacionesAnticipo)),
+    );
+    render(<AnticiposCxcPage />, { wrapper: createQueryWrapper() });
+    fireEvent.click(await screen.findByRole('button', { name: /Ver aplicaciones de FA-11/i }));
+    expect(screen.getByText('Sin aplicaciones')).toBeInTheDocument();
+  });
+
+  it('tabs por estado filtran las filas', async () => {
+    mswServer.use(
+      http.get(`${BASE}/anticipos/aplicaciones`, () => HttpResponse.json(aplicacionesAnticipo)),
+    );
+    render(<AnticiposCxcPage />, { wrapper: createQueryWrapper() });
+    await screen.findByText('FA-10');
+    fireEvent.mouseDown(screen.getByRole('tab', { name: /Parcial/i }));
+    fireEvent.click(screen.getByRole('tab', { name: /Parcial/i }));
+    await waitFor(() => expect(screen.queryByText('FA-11')).not.toBeInTheDocument());
+    expect(screen.getByText('FA-10')).toBeInTheDocument();
+  });
+
+  it('con cliente: manda el clienteId, oculta la columna Cliente y muestra vacío', async () => {
     searchMock.current = { clienteId: 'cli-1' };
-    mswServer.use(http.get(`${BASE}/anticipos`, () => HttpResponse.json([])));
+    let params: URLSearchParams | null = null;
+    mswServer.use(
+      http.get(`${BASE}/anticipos/aplicaciones`, ({ request }) => {
+        params = new URL(request.url).searchParams;
+        return HttpResponse.json({ anticipos: [], totalesPorMoneda: [] });
+      }),
+    );
     render(<AnticiposCxcPage />, { wrapper: createQueryWrapper() });
     expect(await screen.findByText(/El cliente no tiene anticipos/i)).toBeInTheDocument();
+    expect(params!.get('clienteId')).toBe('cli-1');
+  });
+
+  it('enlace a la comparativa de Facturación solo con facturacion.reportes.leer', async () => {
+    mswServer.use(
+      http.get(`${BASE}/anticipos/aplicaciones`, () => HttpResponse.json(aplicacionesAnticipo)),
+    );
+    const { unmount } = render(<AnticiposCxcPage />, { wrapper: createQueryWrapper() });
+    await screen.findByText('FA-10');
+    expect(screen.queryByText(/Ver comparativa en Facturación/i)).not.toBeInTheDocument();
+    unmount();
+
+    useAuthStore.setState({
+      permisos: ['cuentas_por_cobrar.cartera.leer', 'facturacion.reportes.leer'],
+    });
+    render(<AnticiposCxcPage />, { wrapper: createQueryWrapper() });
+    const enlace = await screen.findByText(/Ver comparativa en Facturación/i);
+    expect(enlace.closest('a')).toHaveAttribute(
+      'href',
+      '/facturacion/reportes/comparativa-anticipos',
+    );
   });
 });

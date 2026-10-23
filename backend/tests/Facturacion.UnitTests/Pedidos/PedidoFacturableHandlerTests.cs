@@ -163,7 +163,7 @@ public sealed class PedidoFacturableHandlerTests
         await crear.Handle(CrearCmd(), CancellationToken.None);
         await crear.Handle(CrearCmd(), CancellationToken.None);
 
-        var bandeja = new BandejaPedidosFacturablesHandler(db, new FakeAlcanceCajaEvaluator());
+        var bandeja = new BandejaPedidosFacturablesHandler(db, new FakeAlcanceCajaEvaluator(), new FakeCurrentUserPermissions());
         var response = await bandeja.Handle(new BandejaPedidosFacturablesQuery(EstadoPedidoFacturable.Importado, OrigenPedido.Manual, 0, 50), CancellationToken.None);
 
         response.Items.Should().HaveCount(2);
@@ -187,7 +187,7 @@ public sealed class PedidoFacturableHandlerTests
             ],
         }, CancellationToken.None);
 
-        var bandeja = new BandejaPedidosFacturablesHandler(db, new FakeAlcanceCajaEvaluator());
+        var bandeja = new BandejaPedidosFacturablesHandler(db, new FakeAlcanceCajaEvaluator(), new FakeCurrentUserPermissions());
         var item = (await bandeja.Handle(new BandejaPedidosFacturablesQuery(null, null, 0, 50), CancellationToken.None)).Items.Single();
 
         item.Total.Should().Be(1000m);
@@ -210,7 +210,7 @@ public sealed class PedidoFacturableHandlerTests
             ],
         }, CancellationToken.None);
 
-        var bandeja = new BandejaPedidosFacturablesHandler(db, new FakeAlcanceCajaEvaluator());
+        var bandeja = new BandejaPedidosFacturablesHandler(db, new FakeAlcanceCajaEvaluator(), new FakeCurrentUserPermissions());
         var item = (await bandeja.Handle(new BandejaPedidosFacturablesQuery(null, null, 0, 50), CancellationToken.None)).Items.Single();
 
         // 0.03 × 0.16 = 0.0048 → 0.00 por línea (total 0.06); global daría 0.0096 → 0.07.
@@ -225,7 +225,7 @@ public sealed class PedidoFacturableHandlerTests
         var crear = new CrearPedidoFacturableManualHandler(db, new FakeEmpresaContext(empresaId), new FakeUserContext(Guid.NewGuid()), new FakeProductosReadPort(), new FakeEmpresaFiscalReadPort(), new FakeCurrentUserPermissions());
         await crear.Handle(CrearCmd(), CancellationToken.None);
 
-        var bandeja = new BandejaPedidosFacturablesHandler(db, new FakeAlcanceCajaEvaluator());
+        var bandeja = new BandejaPedidosFacturablesHandler(db, new FakeAlcanceCajaEvaluator(), new FakeCurrentUserPermissions());
         var item = (await bandeja.Handle(new BandejaPedidosFacturablesQuery(null, null, 0, 50), CancellationToken.None)).Items.Single();
 
         item.Total.Should().Be(200m);

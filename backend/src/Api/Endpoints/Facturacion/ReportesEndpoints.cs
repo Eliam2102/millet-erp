@@ -1,7 +1,9 @@
 using MediatR;
 using Microsoft.AspNetCore.Mvc;
 using Millet.Api.Auth;
+using Millet.Api.Web;
 using Millet.Facturacion.Application.Reportes;
+using Millet.Facturacion.Application.Reportes.CierreDia;
 using Millet.Facturacion.Application.Reportes.CfdisPorObra;
 using Millet.Facturacion.Application.Reportes.ComparativaAnticipos;
 using Millet.Facturacion.Application.Reportes.EstadosFacturasAnticipo;
@@ -92,6 +94,55 @@ public static class ReportesEndpoints
         .WithName("CfdisPorObra")
         .WithSummary("Reporte de CFDIs vinculados a una obra")
         .Produces<ReporteResponse<CfdiObraFila>>(StatusCodes.Status200OK);
+
+        // F6.7: cierre del día por sucursal — monitor de estatus de CFDI y
+        // conciliación facturado contra ingresado. Alcance por sucursal
+        // (ADR-0051) en el behavior: asociado a la sucursal o bypass
+        // `facturacion.reportes.leer-todas-sucursales`.
+        group.MapGet("/monitor-cfdi", async (
+            [FromQuery] Guid sucursalId,
+            [FromQuery] DateOnly dia,
+            [FromQuery] Guid? cajeroId,
+            IMediator mediator,
+            CancellationToken ct) =>
+        {
+            var r = await mediator.Send(new MonitorCfdiQuery(sucursalId, dia, cajeroId), ct);
+            return Results.Ok(r);
+        })
+        .RequireAuthorization(leer)
+        .WithName("MonitorCfdi")
+        .WithSummary("Monitor de estatus de CFDI por sucursal y día (timbrados, cancelados, sin timbrar y estatus SAT)")
+        .Produces<MonitorCfdiResponse>(StatusCodes.Status200OK);
+
+        group.MapPost("/monitor-cfdi/verificar-sat", async (
+            [FromQuery] Guid sucursalId,
+            [FromQuery] DateOnly dia,
+            IMediator mediator,
+            CancellationToken ct) =>
+        {
+            var r = await mediator.Send(new VerificarEstatusSatCommand(sucursalId, dia), ct);
+            return Results.Ok(r);
+        })
+        .RequireAuthorization(leer)
+        .WithMetadata(new RequireIdempotencyKeyAttribute())
+        .WithName("VerificarEstatusSat")
+        .WithSummary("Consulta al SAT el estatus de los CFDI timbrados del día y lo guarda")
+        .Produces<VerificarEstatusSatResponse>(StatusCodes.Status200OK);
+
+        group.MapGet("/conciliacion-facturado-ingresado", async (
+            [FromQuery] Guid sucursalId,
+            [FromQuery] DateOnly dia,
+            [FromQuery] Guid? cajeroId,
+            IMediator mediator,
+            CancellationToken ct) =>
+        {
+            var r = await mediator.Send(new ConciliacionFacturadoIngresadoQuery(sucursalId, dia, cajeroId), ct);
+            return Results.Ok(r);
+        })
+        .RequireAuthorization(leer)
+        .WithName("ConciliacionFacturadoIngresado")
+        .WithSummary("Conciliación diaria facturado contra ingresado por sucursal y cajero")
+        .Produces<ConciliacionFacturadoIngresadoResponse>(StatusCodes.Status200OK);
 
         return app;
     }

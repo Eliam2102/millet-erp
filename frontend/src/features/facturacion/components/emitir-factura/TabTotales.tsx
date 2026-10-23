@@ -2,6 +2,7 @@ import { ResumenImportes } from '@/components/erp/display/ResumenImportes';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { Textarea } from '@/components/ui/textarea';
 import { AnticipoPicker } from '@/features/facturacion/components/AnticipoPicker';
 import { Plus, Trash2 } from 'lucide-react';
 
@@ -16,7 +17,11 @@ import { Plus, Trash2 } from 'lucide-react';
 export interface AnticipoAmortizar {
   anticipoId: string;
   importe: number;
+  /** Folio del anticipo elegido (solo FE: arma la nota de observaciones; no viaja al backend). */
+  folio?: string;
 }
+
+export const OBSERVACIONES_MAX = 1000;
 
 export interface TabTotalesProps {
   totales: { subtotal: number; iva: number; ret: number };
@@ -26,6 +31,10 @@ export interface TabTotalesProps {
   clienteId: string | null;
   anticipos: AnticipoAmortizar[];
   onAnticiposChange: (anticipos: AnticipoAmortizar[]) => void;
+  /** Observaciones de la factura (86e3tfdw2): PDF sí, XML del CFDI no. */
+  observaciones: string;
+  onObservacionesChange: (texto: string) => void;
+  errorObservaciones?: string;
 }
 
 export function TabTotales({
@@ -35,6 +44,9 @@ export function TabTotales({
   clienteId,
   anticipos,
   onAnticiposChange,
+  observaciones,
+  onObservacionesChange,
+  errorObservaciones,
 }: TabTotalesProps) {
   return (
     <div className="space-y-5">
@@ -89,6 +101,7 @@ export function TabTotales({
                           i === index
                             ? {
                                 anticipoId: item?.anticipoId ?? '',
+                                folio: item?.folio,
                                 // Propone el saldo; editable abajo.
                                 importe: item != null && x.importe === 0 ? item.saldo : x.importe,
                               }
@@ -130,6 +143,37 @@ export function TabTotales({
             ))}
           </div>
         )}
+      </section>
+
+      {/* ── Observaciones (86e3tfdw2): PDF sí, CFDI no ───────── */}
+      <section className="space-y-1.5">
+        <Label htmlFor="emitir-factura-observaciones" className="text-sm font-medium">
+          Observaciones (aparece en el PDF, no en el CFDI)
+        </Label>
+        <Textarea
+          id="emitir-factura-observaciones"
+          rows={3}
+          maxLength={OBSERVACIONES_MAX}
+          value={observaciones}
+          aria-invalid={errorObservaciones != null}
+          aria-describedby="emitir-factura-observaciones-ayuda"
+          onChange={(e) => onObservacionesChange(e.target.value)}
+        />
+        <p
+          id="emitir-factura-observaciones-ayuda"
+          className="flex justify-between gap-2 text-xs text-ink-muted"
+        >
+          <span>
+            {errorObservaciones ? (
+              <span className="text-danger-fg">{errorObservaciones}</span>
+            ) : (
+              'Se prellena con los anticipos aplicados; puedes editarla.'
+            )}
+          </span>
+          <span className="tabular-nums">
+            {observaciones.length}/{OBSERVACIONES_MAX}
+          </span>
+        </p>
       </section>
     </div>
   );

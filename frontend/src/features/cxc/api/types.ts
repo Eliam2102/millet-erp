@@ -298,6 +298,67 @@ export interface AnticipoSaldoClienteItem {
   pedidoOrigenRef: string | null;
 }
 
+/**
+ * Estado del anticipo en la consulta de aplicaciones (F1-CXC-05). Derivado
+ * de lo cobrado contra lo aplicado con egreso vigente (mismas reglas que la
+ * comparativa F6.2 de Facturación).
+ */
+export type EstadoAnticipoAplicaciones = 'Pendiente' | 'Parcial' | 'Aplicado' | 'Cancelado';
+
+/**
+ * Aplicación de un anticipo a una factura final. Mirror de backend
+ * <c>AplicacionAnticipoDto</c>. <c>tipo</c>: «Aplicación» (resta saldo),
+ * «Vinculación sin egreso» (comprometido) o «Egreso cancelado» (no resta).
+ */
+export interface AplicacionAnticipoItem {
+  tipo: string;
+  facturaFinalFolio: string | null;
+  facturaFinalUuid: string | null;
+  egresoFolio: string | null;
+  egresoUuid: string | null;
+  fechaAplicacion: string | null;
+  estadoEgreso: string | null;
+  importe: number;
+}
+
+/** Mirror de backend <c>AnticipoConAplicacionesDto</c>. */
+export interface AnticipoConAplicacionesItem {
+  anticipoId: string;
+  facturaAnticipoId: string;
+  clienteId: string;
+  clienteNombre: string;
+  folio: string;
+  uuid: string | null;
+  fechaTimbrado: string | null;
+  sucursalId: string | null;
+  sucursalNombre: string | null;
+  moneda: string;
+  estado: EstadoAnticipoAplicaciones | string;
+  cobrado: number;
+  aplicado: number;
+  comprometido: number;
+  saldo: number;
+  saldoSistema: number;
+  pedidoOrigenRef: string | null;
+  observacion: string | null;
+  aplicaciones: AplicacionAnticipoItem[];
+}
+
+/** Totales de una moneda (sin anticipos cancelados; nunca cross-divisa). */
+export interface TotalesAnticiposMoneda {
+  moneda: string;
+  cobrado: number;
+  aplicado: number;
+  comprometido: number;
+  saldo: number;
+}
+
+/** Mirror de backend <c>AplicacionesAnticipoResponse</c>. */
+export interface AplicacionesAnticipoResponse {
+  anticipos: AnticipoConAplicacionesItem[];
+  totalesPorMoneda: TotalesAnticiposMoneda[];
+}
+
 // ─── Aplicación de pagos (Domain.AplicacionPagos, CXC-PR7) ────────────
 
 /**
