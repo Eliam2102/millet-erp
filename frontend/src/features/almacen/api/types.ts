@@ -938,6 +938,11 @@ export interface LineaConteoParaCapturarDto {
   subAlmacenClave: string | null;
   /** Unidad de medida del maestro de artículos (decimales y etiqueta de captura). */
   unidadMedida: string | null;
+  /** F1-MP-01: línea por medida de hoja. La captura es en hojas; las cantidades guardadas van en m² (hojas = m² / área). */
+  productoAwVarianteId?: string | null;
+  anchoMm?: number | null;
+  altoMm?: number | null;
+  areaHojaM2?: number | null;
 }
 
 /**
@@ -970,6 +975,11 @@ export interface LineaConteoComparacionDto {
   articuloDescripcion: string | null;
   subAlmacenClave: string | null;
   unidadMedida: string | null;
+  /** F1-MP-01: línea por medida de hoja. La captura es en hojas; las cantidades guardadas van en m² (hojas = m² / área). */
+  productoAwVarianteId?: string | null;
+  anchoMm?: number | null;
+  altoMm?: number | null;
+  areaHojaM2?: number | null;
 }
 
 /** Líneas que tendría un conteo con el sub-almacén y la familia elegidos. */

@@ -1,3 +1,4 @@
+import { etiquetaMedidaMm, hojasDe } from '@/features/almacen/lib/medida-hoja';
 import { IndicadorAlmacenBadge } from '../components/IndicadorAlmacenBadge';
 import { MontoMovimiento } from '@/components/erp/display/MontoMovimiento';
 import { DialogBody } from '@/components/ui/dialog';
@@ -429,6 +430,11 @@ function TablaComparacion({
                   clave={l.articuloClave}
                   descripcion={l.articuloDescripcion}
                 />
+                {l.productoAwVarianteId && (
+                  <div className="text-xs tabular-nums text-ink-muted">
+                    Medida {etiquetaMedidaMm(l.anchoMm, l.altoMm) ?? '—'}
+                  </div>
+                )}
               </TableCell>
               <TableCell>
                 <EtiquetaSubAlmacen subAlmacenId={l.subAlmacenId} clave={l.subAlmacenClave} />
@@ -436,9 +442,11 @@ function TablaComparacion({
               <TableCell className="font-mono text-xs">{l.ubicacionClave}</TableCell>
               <TableCell className="text-right font-mono">
                 {formatCantidad(l.cantidadTeorica)}
+                <HojasEquivalentes linea={l} cantidad={l.cantidadTeorica} />
               </TableCell>
               <TableCell className="text-right font-mono">
                 {l.cantidadVigente != null ? formatCantidad(l.cantidadVigente) : '—'}
+                {l.cantidadVigente != null && <HojasEquivalentes linea={l} cantidad={l.cantidadVigente} />}
                 {l.recuentoRealizado && l.cantidadRealCapturada != null && (
                   <div className="text-xs font-normal text-ink-muted">
                     Captura original: {formatCantidad(l.cantidadRealCapturada)}
@@ -496,6 +504,17 @@ function TablaComparacion({
   );
 }
 
+/** F1-MP-01: las cantidades de una línea por medida van en m²; esto agrega su equivalente en hojas. */
+function HojasEquivalentes({ linea, cantidad }: { linea: LineaConteoComparacionDto; cantidad: number }) {
+  const hojas = linea.productoAwVarianteId ? hojasDe(cantidad, linea.areaHojaM2) : null;
+  if (hojas == null) return null;
+  return (
+    <div className="text-xs font-normal tabular-nums text-ink-muted">
+      {hojas} {hojas === 1 ? 'hoja' : 'hojas'}
+    </div>
+  );
+}
+
 // ─── Dialog: Recuento ───────────────────────────────────────────────────────
 
 function RecuentoDialog({
@@ -548,7 +567,11 @@ function RecuentoDialog({
                 {linea.articuloClave ?? linea.articuloId.slice(0, 8)}
                 {linea.articuloDescripcion ? ` · ${linea.articuloDescripcion}` : ''}
                 {' · '}rack {linea.ubicacionClave}
-                {linea.unidadMedida ? ` · en ${linea.unidadMedida}` : ''}
+                {linea.productoAwVarianteId
+                  ? ` · medida ${etiquetaMedidaMm(linea.anchoMm, linea.altoMm) ?? ''} · en hojas`
+                  : linea.unidadMedida
+                    ? ` · en ${linea.unidadMedida}`
+                    : ''}
               </span>
             )}
           </DialogDescription>
@@ -572,7 +595,7 @@ function RecuentoDialog({
                   <Input
                     type="number"
                     inputMode="decimal"
-                    step="0.0001"
+                    step={linea?.productoAwVarianteId ? '1' : '0.0001'}
                     min="0"
                     value={field.value ?? ''}
                     onChange={(e) =>

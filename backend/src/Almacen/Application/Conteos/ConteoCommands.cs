@@ -114,10 +114,13 @@ public sealed class IniciarConteoHandler : IRequestHandler<IniciarConteoCommand>
         // filas-en-0 de las asignaciones también entran (teórica 0), que es
         // lo que el conteo inicial siembra por rack.
         var saldos = await saldosQuery.ToListAsync(cancellationToken);
+        var arts = await _articulos.ObtenerPorIdsAsync(
+            saldos.Select(s => s.ArticuloId).Distinct().ToArray(), cancellationToken);
+        // F1-MP-01: el vidrio por medida se cuenta por (rack, medida); la fila en cero sin medida es un resto de la asignación.
+        saldos = saldos.Where(s => !(s.ProductoAwVarianteId is null && s.Cantidad == 0
+            && arts.TryGetValue(s.ArticuloId, out var ligado) && ligado.ProductoAwId is not null)).ToList();
         if (!string.IsNullOrWhiteSpace(conteo.FiltroFamilia))
         {
-            var arts = await _articulos.ObtenerPorIdsAsync(
-                saldos.Select(s => s.ArticuloId).Distinct().ToArray(), cancellationToken);
             var familia = conteo.FiltroFamilia.Trim();
             saldos = saldos
                 .Where(s => arts.TryGetValue(s.ArticuloId, out var a)
@@ -133,7 +136,8 @@ public sealed class IniciarConteoHandler : IRequestHandler<IniciarConteoCommand>
                 subAlmacenId: saldo.SubAlmacenId,
                 ubicacionId: saldo.UbicacionId,
                 cantidadTeorica: saldo.Cantidad,
-                costoPromedioSnapshot: saldo.CostoPromedioMxn));
+                costoPromedioSnapshot: saldo.CostoPromedioMxn,
+                productoAwVarianteId: saldo.ProductoAwVarianteId));
         }
 
         if (conteo.Lineas.Count == 0)
@@ -187,11 +191,13 @@ public sealed class CapturarLineaConteoHandler : IRequestHandler<CapturarLineaCo
     private readonly AlmacenDbContext _db;
     private readonly ICurrentUserContext _currentUser;
     private readonly IDecimalesUnidadGuard _decimalesGuard;
+    private readonly IVarianteVidrioReadPort? _variantes; // opcional solo para pruebas unitarias sin medidas
 
     public CapturarLineaConteoHandler(
-        AlmacenDbContext db, ICurrentUserContext currentUser, IDecimalesUnidadGuard decimalesGuard)
+        AlmacenDbContext db, ICurrentUserContext currentUser, IDecimalesUnidadGuard decimalesGuard,
+        IVarianteVidrioReadPort? variantes = null)
     {
-        _db = db; _currentUser = currentUser; _decimalesGuard = decimalesGuard;
+        _db = db; _currentUser = currentUser; _decimalesGuard = decimalesGuard; _variantes = variantes;
     }
 
     public async Task Handle(CapturarLineaConteoCommand request, CancellationToken cancellationToken)
@@ -217,11 +223,13 @@ public sealed class CapturarLineaConteoHandler : IRequestHandler<CapturarLineaCo
 
         // ADR-0046 Etapa 2: valida los decimales de la cantidad real contra la
         // unidad del artículo de la línea (FK NULL → no valida).
+        // Con medida la captura son hojas; se guarda en m² como la teórica.
+        var real = await ConteoHojas.AM2Async(_variantes, linea, request.CantidadReal, cancellationToken);
         await _decimalesGuard.ValidarAsync(
-            new[] { new CantidadAValidar(linea.ArticuloId, request.CantidadReal) },
+            new[] { new CantidadAValidar(linea.ArticuloId, real) },
             cancellationToken);
 
-        linea.Capturar(request.CantidadReal, capturadoPor);
+        linea.Capturar(real, capturadoPor);
         await _db.SaveChangesAsync(cancellationToken);
     }
 }

@@ -138,7 +138,8 @@ public class RecepcionPorMedidaTests(WebApplicationFactory<Program> factory) : I
             Task.FromResult<ArticuloLectura?>(new ArticuloLectura(articuloId, "VID-CLARO-6", "Vidrio", "M2", null, true,
                 ProductoAwId: ligado ? Guid.NewGuid() : null));
         public Task<IReadOnlyDictionary<Guid, ArticuloLectura>> ObtenerPorIdsAsync(IReadOnlyCollection<Guid> ids, CancellationToken ct) =>
-            Task.FromResult<IReadOnlyDictionary<Guid, ArticuloLectura>>(new Dictionary<Guid, ArticuloLectura>());
+            Task.FromResult<IReadOnlyDictionary<Guid, ArticuloLectura>>(ids.ToDictionary(i => i, i =>
+                new ArticuloLectura(i, "VID-CLARO-6", "Vidrio", "M2", null, true, ProductoAwId: ligado ? Guid.NewGuid() : null)));
     }
 
     internal sealed class Variantes(Guid articuloId) : IVarianteVidrioReadPort

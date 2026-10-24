@@ -132,6 +132,28 @@ describe('<CapturaConteoPage> — captura sin sesgo (A6)', () => {
     expect(screen.queryByRole('columnheader', { name: /Teórica/i })).toBeNull();
   });
 
+  it('F1-MP-01: una línea por medida se cuenta en hojas y muestra su medida', async () => {
+    mswServer.use(
+      http.get('*/api/v1/almacen/conteos/c-1', () => HttpResponse.json(CONTEO_BASE)),
+      http.get('*/api/v1/almacen/conteos/c-1/lineas-para-capturar', () =>
+        HttpResponse.json([
+          {
+            id: 'l-1', articuloId: 'a-1', ubicacionId: 'u-1', ubicacionClave: 'R-07', subAlmacenId: 's-1',
+            cantidadRealCapturada: 169.6776, requiereRecuento: false, articuloClave: 'VID-CLARO-6',
+            articuloDescripcion: 'Vidrio float claro 6 mm', subAlmacenClave: 'HG1', unidadMedida: 'M2',
+            productoAwVarianteId: 'v-1', anchoMm: 2440, altoMm: 3660, areaHojaM2: 8.9304,
+          },
+        ]),
+      ),
+    );
+    render(<CapturaConteoPage />, { wrapper: createQueryWrapper() });
+    await waitFor(() => expect(screen.getByText('VID-CLARO-6')).toBeInTheDocument());
+    expect(screen.getByText(/Medida 2440 × 3660 mm/)).toBeInTheDocument();
+    // La cantidad guardada va en m² (169.6776); la pantalla la muestra como 19 hojas.
+    expect(screen.getByLabelText('Hojas contadas partida 1')).toHaveValue(19);
+    expect(screen.getByText('HOJA')).toBeInTheDocument();
+  });
+
   it('estado no-capturable (Aprobado) muestra mensaje informativo', async () => {
     mswServer.use(
       http.get('*/api/v1/almacen/conteos/c-1', () =>
