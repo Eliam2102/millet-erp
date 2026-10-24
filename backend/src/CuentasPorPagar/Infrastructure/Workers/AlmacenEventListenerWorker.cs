@@ -166,6 +166,14 @@ public sealed class AlmacenEventListenerWorker : BackgroundService, ILocalIntegr
                     break;
                 }
 
+                case RecepcionActivoAnuladaHandler.EventType:
+                {
+                    var payload = JsonSerializer.Deserialize<RecepcionActivoAnuladaAlmacenPayload>(body, JsonOpts)
+                        ?? throw new JsonException("Payload null.");
+                    await mediator.Send(new RecepcionActivoAnuladaCommand(eventId, payload), cancellationToken);
+                    break;
+                }
+
                 case OcDevolucionRegistradaHandler.EventType:
                 {
                     var payload = JsonSerializer.Deserialize<OcDevolucionRegistradaPayload>(body, JsonOpts)

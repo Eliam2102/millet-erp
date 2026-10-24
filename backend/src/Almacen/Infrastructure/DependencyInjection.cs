@@ -39,6 +39,8 @@ public static class DependencyInjection
         services.AddScoped<IAdjuntosEntidadReadPort, NoOpAdjuntosEntidadReadPort>();
         services.AddScoped<ICxpDocumentosReadPort, NoOpCxpDocumentosReadPort>();
         services.AddScoped<ISucursalReadPort, NoOpSucursalReadPort>();
+        // Estado de capitalización de los activos de una recepción; lo reemplaza AddActivosFijosModule.
+        services.AddScoped<IActivoRecepcionReadPort, NoOpActivoRecepcionReadPort>();
         // IEmpleadoReadPort se registra en Program.cs con el adapter real
         // de Compartido (EmpleadoReadAdapter, ADM-PR2) — Almacén no puede
         // referenciar Compartido.Infrastructure sin acoplar el módulo.

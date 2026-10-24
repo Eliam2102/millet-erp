@@ -19,4 +19,7 @@ public sealed record ActualizarLineaCommand(
     Guid? CuentaContableId = null,
     Guid? CentroCostoId = null,
     string? Proyecto = null,
-    DateOnly? FechaRequerida = null) : IRequest<Unit>;
+    DateOnly? FechaRequerida = null,
+    // null = conservar la clasificación actual de la línea.
+    bool? EsActivoFijo = null,
+    Guid? ClaseActivoId = null) : IRequest<Unit>;

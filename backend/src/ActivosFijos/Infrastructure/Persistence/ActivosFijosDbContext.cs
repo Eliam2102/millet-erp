@@ -34,7 +34,7 @@ public sealed partial class ActivosFijosDbContext(DbContextOptions<ActivosFijosD
         a.HasIndex(x => new { x.EmpresaId, x.RecepcionId, x.LineaOcId, x.UnidadRecepcion }).IsUnique();
         a.HasIndex(x => new { x.EmpresaId, x.SucursalId, x.Estado });
         a.HasOne<ClaseActivo>().WithMany().HasForeignKey(x => x.ClaseId).OnDelete(DeleteBehavior.Restrict);
-        a.Property(x => x.Numero).HasMaxLength(60); a.Property(x => x.Descripcion).HasMaxLength(500);
+        a.Property(x => x.Numero).HasMaxLength(60); a.Property(x => x.Descripcion).HasMaxLength(500); a.Property(x => x.MotivoBaja).HasMaxLength(500);
         a.Ignore(x => x.ValorEnLibros); a.Ignore(x => x.EnTraslado); a.Ignore(x => x.PuedeAceptarTraslado);
         a.Property(x => x.Estado).HasConversion<string>(); a.Property(x => x.Importacion).HasConversion<string>();
         a.HasMany(x => x.Historial).WithOne().HasForeignKey(x => x.ActivoId).OnDelete(DeleteBehavior.Restrict);

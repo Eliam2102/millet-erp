@@ -51,7 +51,7 @@ export function ProveedorToleranciaSection({ proveedorId, montoMxn }: Props) {
   return (
     <section
       aria-labelledby={`${campoId}-titulo`}
-      className="mt-4 max-w-3xl rounded-lg bg-surface-card p-4 shadow-card-flat"
+      className="mt-4 rounded-lg bg-surface-card p-4 shadow-card-flat"
     >
       <div className="mb-3 flex items-center justify-between gap-3">
         <h3 id={`${campoId}-titulo`} className="text-sm font-semibold text-ink">

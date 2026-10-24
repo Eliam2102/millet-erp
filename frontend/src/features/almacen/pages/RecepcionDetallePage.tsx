@@ -20,6 +20,7 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
+import { ActivosRecibidosOc } from '@/features/almacen/components/ActivosRecibidosOc';
 import { useRecepcion } from '@/features/almacen/api/useRecepciones';
 import { EstadoMovimiento } from '@/features/almacen/api/types';
 import { esApiError } from '@/lib/api';
@@ -327,6 +328,9 @@ export function RecepcionDetallePage() {
               total={query.data.lineas.reduce((t, l) => t + l.montoTotalMxn, 0)}
             />
           </section>
+          {query.data.ordenCompraId && (
+            <ActivosRecibidosOc ordenCompraId={query.data.ordenCompraId} />
+          )}
 
           <CancelarRecepcionDialog
             recepcion={query.data}

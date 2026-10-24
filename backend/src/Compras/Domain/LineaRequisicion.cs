@@ -42,8 +42,10 @@ public sealed class LineaRequisicion : BaseEntity, IAuditable, IBelongsToAggrega
     public bool EsActivoFijo { get; private set; }
     public Guid? ClaseActivoId { get; private set; }
 
-    internal void ClasificarActivo(bool esActivo, Guid? clase)
+    internal void ClasificarActivo(bool esActivo, Guid? clase, bool esServicio = false)
     {
+        if (esActivo && esServicio)
+            throw new BusinessRuleException("RQ_ACTIVO_SERVICIO", "Un servicio no puede ser activo fijo.");
         if (esActivo && (clase is null || clase == Guid.Empty || Cantidad != decimal.Truncate(Cantidad)))
             throw new BusinessRuleException("COMPRA_ACTIVO_INVALIDO", "El activo requiere clase sugerida y cantidad entera.");
         EsActivoFijo = esActivo; ClaseActivoId = esActivo ? clase : null;

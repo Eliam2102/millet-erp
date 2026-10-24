@@ -240,7 +240,11 @@ export function DetalleOrdenCompra() {
           pago={oc.subEstadoPago}
         />
 
-        <StepperAutorizacionOc estado={oc.estado} />
+        <StepperAutorizacionOc
+          estado={oc.estado}
+          // Autorizada sin firma vigente de Dirección = N2 no hizo falta (monto bajo el umbral).
+          n2NoRequerido={!(oc.autorizaciones ?? []).some((a) => a.nivel === 2 && a.resultado === 1)}
+        />
         <CancelacionOcPanel oc={oc} />
         <EnviosOcPanel key={oc.id} ordenCompraId={oc.id} folio={oc.folio} />
         <RespuestaProveedorPanel oc={oc} />

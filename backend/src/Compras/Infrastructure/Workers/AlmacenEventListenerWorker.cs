@@ -216,6 +216,15 @@ public sealed class AlmacenEventListenerWorker : BackgroundService, ILocalIntegr
                     break;
                 }
 
+                // Anulación de una recepción de activos fijos: baja CantidadRecibida de la línea al acumulado de Almacén.
+                case OcRecepcionActivoAnuladaEnAlmacenHandler.EventType:
+                {
+                    var payload = JsonSerializer.Deserialize<RecepcionActivoAnuladaAlmacenPayload>(body, JsonOpts)
+                        ?? throw new JsonException("Payload null.");
+                    await mediator.Send(new OcRecepcionActivoAnuladaEnAlmacenCommand(eventId, payload), cancellationToken);
+                    break;
+                }
+
                 // Eventos informativos que Almacén publica al mismo topic
                 // pero Compras no consume todavía (saldos / cierres).
                 // Loggeamos + marca de idempotencia para mantener el

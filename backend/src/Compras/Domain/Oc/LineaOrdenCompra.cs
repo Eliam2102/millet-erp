@@ -49,6 +49,8 @@ public sealed class LineaOrdenCompra : BaseEntity, IAuditable, IBelongsToAggrega
 
     internal void ClasificarActivo(bool esActivo, Guid? clase)
     {
+        if (esActivo && EsServicio)
+            throw new BusinessRuleException("OC_ACTIVO_SERVICIO", "Un servicio no puede ser activo fijo.");
         if (esActivo && (clase is null || clase == Guid.Empty || Cantidad != decimal.Truncate(Cantidad)))
             throw new BusinessRuleException("COMPRA_ACTIVO_INVALIDO", "El activo requiere clase sugerida y cantidad entera.");
         EsActivoFijo = esActivo; ClaseActivoId = esActivo ? clase : null;
@@ -297,7 +299,9 @@ public sealed class LineaOrdenCompra : BaseEntity, IAuditable, IBelongsToAggrega
         bool? esServicio = null,
         Guid? centroCostoId = null,
         string? fraccionArancelaria = null,
-        bool limpiarFraccionArancelaria = false)
+        bool limpiarFraccionArancelaria = false,
+        bool? esActivoFijo = null,
+        Guid? claseActivoId = null)
     {
         if (CantidadRecibida > 0m || CantidadFacturada > 0m)
         {
@@ -413,6 +417,9 @@ public sealed class LineaOrdenCompra : BaseEntity, IAuditable, IBelongsToAggrega
                 "LINEA_OC_MANUAL_CENTRO_COSTO_REQUERIDO",
                 "El CC-Máquina es requerido en una línea manual de OC.");
         }
+
+        // null = conservar; se revalida siempre (clase, cantidad entera, servicio) por si cambió el artículo.
+        ClasificarActivo(esActivoFijo ?? EsActivoFijo, claseActivoId ?? ClaseActivoId);
 
         // Recalcular impuestos: si cambió cantidad, precio o descuento, el
         // subtotal cambió → IVA cambia.

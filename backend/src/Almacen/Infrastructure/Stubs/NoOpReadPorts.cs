@@ -354,3 +354,14 @@ public sealed class NoOpCentroCostoReadPort : ICentroCostoReadPort
         return Task.FromResult<IReadOnlyDictionary<Guid, Dim3Lectura>>(new Dictionary<Guid, Dim3Lectura>());
     }
 }
+
+/// <summary>
+/// Falla cerrado: sin el adapter de Activos Fijos no se puede saber si los activos ya se
+/// capitalizaron, así que no se anula. Lo reemplaza <c>AddActivosFijosModule</c>.
+/// </summary>
+public sealed class NoOpActivoRecepcionReadPort : IActivoRecepcionReadPort
+{
+    public Task<EstadoActivosRecepcion> ConsultarAsync(Guid empresaId, Guid recepcionId, Guid lineaOcId, CancellationToken cancellationToken)
+        => throw new Millet.SharedKernel.Application.Exceptions.BusinessRuleException(
+            "RECEPCION_ACTIVO_ESTADO_NO_VERIFICABLE", "No se pudo verificar el estado de los activos de la recepción; intenta de nuevo más tarde.");
+}
