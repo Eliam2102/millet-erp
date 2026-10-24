@@ -142,6 +142,26 @@ public sealed class CapturarComprobacionViaticosHandler
             }
         }
 
+        // CA8.15: avisar al capturar (no solo al liberar) si el UUID ya es una factura viva
+        // (las Canceladas no cuentan, P7-H1). Liberar conserva su propio chequeo.
+        var uuids = command.Lineas
+            .Select(l => l.UuidCfdi ?? (l.CfdiRecibidoId is Guid id ? cfdisPorId[id].UuidCfdi.Valor : null))
+            .Where(u => !string.IsNullOrWhiteSpace(u))
+            .Select(u => u!.Trim().ToUpperInvariant())
+            .ToList();
+        if (uuids.Count > 0)
+        {
+            var yaCapturados = await _db.FacturasProveedor.AsNoTracking()
+                .Where(f => f.UuidCfdi != null && uuids.Contains(f.UuidCfdi)
+                    && f.Estado != Domain.FacturaProveedor.EstadoPasivo.Cancelada)
+                .Select(f => f.UuidCfdi!)
+                .ToListAsync(cancellationToken);
+            if (yaCapturados.Count > 0)
+                throw new BusinessRuleException(
+                    "VIA_LINEA_FACTURA_DUPLICADA",
+                    $"Los CFDIs {string.Join(", ", yaCapturados)} ya están capturados como facturas.");
+        }
+
         var clasificaciones = new List<string?>(command.Lineas.Count);
         foreach (var linea in command.Lineas)
             clasificaciones.Add(await ClasificacionNoDeducibleValidador.ResolverAsync(

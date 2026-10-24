@@ -294,6 +294,79 @@ public sealed class NoDeduciblesEndpointsTests(WebApplicationFactory<Program> fa
         Assert.Equal(80m, f.IvaNoAcreditable);
     }
 
+    // ---- CA8.15: UUID duplicado entre rutas de captura ----
+
+    private static async Task<Guid> SembrarFacturaAsync(AdjuntosProveedorAmbiente amb, string uuid)
+    {
+        using var scope = amb.Factory.Services.CreateScope();
+        using var bypass = scope.ServiceProvider.GetRequiredService<ICurrentEmpresaContext>().Bypass();
+        var db = scope.ServiceProvider.GetRequiredService<CuentasPorPagarDbContext>();
+        var ahora = DateTimeOffset.UtcNow;
+        var f = Millet.CuentasPorPagar.Domain.FacturaProveedor.FacturaProveedor.CapturarSinOc(Empresa, null, uuid, Guid.NewGuid(), Guid.NewGuid(),
+            "DUP-1", null, ahora, ahora, DateOnly.FromDateTime(ahora.DateTime).AddDays(30), "MXN", null, 1000m, 0m, 160m, 0m, 1160m, "CA8.15", ahora);
+        db.FacturasProveedor.Add(f);
+        await db.SaveChangesAsync();
+        return f.Id;
+    }
+
+    [Fact]
+    public async Task UUID_ya_capturado_como_factura_se_bloquea_en_tarjeta()
+    {
+        var (c, tarjeta, titular) = await AmbienteAsync();
+        var (_, amb) = await ClienteComprobacionesAsync();
+        var uuid = Guid.NewGuid().ToString().ToUpperInvariant();
+        await SembrarFacturaAsync(amb, uuid);
+        var cfdi =await SembrarCfdiAsync(uuid, 1000m, 160m);
+
+        var r = await c.PostAsJsonAsync(Cxp + "/movimientos-tc/con-cfdi", ConCfdi(tarjeta, titular, cfdi, uuid, null));
+        Assert.Equal(HttpStatusCode.UnprocessableEntity, r.StatusCode);
+        Assert.Equal("TC_MOV_FACTURA_DUPLICADA", (await Json(r)).GetProperty("code").GetString());
+
+        // Control: un UUID nuevo sí guarda.
+        var uuidNuevo = Guid.NewGuid().ToString().ToUpperInvariant();
+        var cfdiNuevo = await SembrarCfdiAsync(uuidNuevo, 1000m, 160m);
+        var ok = await c.PostAsJsonAsync(Cxp + "/movimientos-tc/con-cfdi", ConCfdi(tarjeta, titular, cfdiNuevo, uuidNuevo, null));
+        Assert.Equal(HttpStatusCode.Created, ok.StatusCode);
+    }
+
+    [Fact]
+    public async Task UUID_capturado_en_tarjeta_se_bloquea_como_factura_y_en_caja_chica()
+    {
+        var (c, tarjeta, titular) = await AmbienteAsync();
+        var (cc, amb) = await ClienteComprobacionesAsync();
+        var uuid = Guid.NewGuid().ToString().ToUpperInvariant();
+        var cfdi = await SembrarCfdiAsync(uuid, 1000m, 160m);
+        var tc =await c.PostAsJsonAsync(Cxp + "/movimientos-tc/con-cfdi", ConCfdi(tarjeta, titular, cfdi, uuid, null));
+        Assert.True(tc.StatusCode == HttpStatusCode.Created, await tc.Content.ReadAsStringAsync());
+
+        // tarjeta → factura: el guard central del DbContext rechaza el UUID repetido.
+        var ex = await Assert.ThrowsAnyAsync<Exception>(() => SembrarFacturaAsync(amb, uuid));
+        Assert.Contains("CXP_UUID_DUPLICADO", ex is Millet.SharedKernel.Application.Exceptions.BusinessRuleException b ? b.Code : ex.ToString());
+
+        // tarjeta → caja chica.
+        var r = await cc.PostAsJsonAsync(Cxp + "/comprobaciones/caja-chica", new
+        {
+            sucursalId = Guid.NewGuid(), responsableId = Guid.NewGuid(), fechaInicio = new DateOnly(2026, 10, 1), fechaFin = new DateOnly(2026, 10, 20),
+            moneda = "MXN", cfdis = new[] { LineaCajaChica(null, uuid, 1000m, 160m, null) },
+        });
+        Assert.Equal(HttpStatusCode.UnprocessableEntity, r.StatusCode);
+        Assert.Equal("COMP_LINEA_FACTURA_DUPLICADA", (await Json(r)).GetProperty("code").GetString());
+    }
+
+    [Fact]
+    public async Task UUID_ya_capturado_como_factura_se_bloquea_al_capturar_viaticos_no_solo_al_liberar()
+    {
+        var (c, amb) = await ClienteComprobacionesAsync();
+        var uuid = Guid.NewGuid().ToString().ToUpperInvariant();
+        await SembrarFacturaAsync(amb, uuid);
+        var (id, version) = await SembrarViaticoAnticipadoAsync();
+
+        var r = await PostConVersionAsync(c, Cxp + $"/viaticos/{id}/capturar-comprobacion", version,
+            new { lineas = new[] { LineaViatico(uuid, false, 500m, 80m, null) } });
+        Assert.Equal(HttpStatusCode.UnprocessableEntity, r.StatusCode);
+        Assert.Equal("VIA_LINEA_FACTURA_DUPLICADA", (await Json(r)).GetProperty("code").GetString());
+    }
+
     private sealed class PeriodoAbierto : Millet.CuentasPorPagar.Domain.Ports.Contabilidad.IPeriodoContablePort
     {
         public Task<bool> AdmiteMovimientosAsync(DateOnly fecha, CancellationToken ct) => Task.FromResult(true);
