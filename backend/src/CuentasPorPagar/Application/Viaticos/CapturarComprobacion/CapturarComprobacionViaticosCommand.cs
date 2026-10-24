@@ -149,6 +149,10 @@ public sealed class CapturarComprobacionViaticosHandler
             .Where(u => !string.IsNullOrWhiteSpace(u))
             .Select(u => u!.Trim().ToUpperInvariant())
             .ToList();
+        if (uuids.Distinct(StringComparer.Ordinal).Count() != uuids.Count)
+            throw new BusinessRuleException(
+                "VIA_LINEA_FACTURA_DUPLICADA",
+                "La comprobación tiene CFDIs con UUID duplicado.");
         if (uuids.Count > 0)
         {
             var yaCapturados = await _db.FacturasProveedor.AsNoTracking()
