@@ -217,8 +217,9 @@ public sealed class CancelarRecepcionHandler(
 
     private async Task RestaurarCostoPromedioAsync(IEnumerable<MovimientoInventario> movimientos, CancellationToken ct)
     {
+        // Orden de bloqueo artículo, ubicación, variante (como el PR #203); #203 debe añadir el desempate por variante al rebasar.
         foreach (var g in movimientos.SelectMany(m => m.Lineas).GroupBy(l => (Ubicacion: l.UbicacionId!.Value, l.ArticuloId, Variante: l.ProductoAwVarianteId))
-                     .OrderBy(g => g.Key.Ubicacion).ThenBy(g => g.Key.ArticuloId).ThenBy(g => g.Key.Variante))
+                     .OrderBy(g => g.Key.ArticuloId).ThenBy(g => g.Key.Ubicacion).ThenBy(g => g.Key.Variante))
         {
             // Mismo bloqueo de fila que el trigger y el ajuste de costo de expediente; el Reload evita leer un saldo rastreado viejo.
             var consulta = db.Database.IsNpgsql()

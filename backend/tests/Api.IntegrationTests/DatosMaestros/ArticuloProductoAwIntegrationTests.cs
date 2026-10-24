@@ -46,5 +46,13 @@ public sealed class ArticuloProductoAwIntegrationTests(WebApplicationFactory<Pro
         Assert.Equal(2, (await puerto.ListarPorArticuloAsync(a1.Id, CancellationToken.None)).Count);
         var ajena = await Assert.ThrowsAsync<BusinessRuleException>(() => puerto.ObtenerAsync(a2.Id, v.Id, CancellationToken.None));
         Assert.Equal("VARIANTE_NO_PERTENECE_AL_ARTICULO", ajena.Code);
+
+        // Carrera: sin la pre-validación, el índice único rechaza la segunda liga con el nombre que mapea GlobalExceptionHandler.
+        using var otro = factory.Services.CreateScope();
+        var db2 = otro.ServiceProvider.GetRequiredService<CompartidoDbContext>();
+        var a2b = await db2.Articulos.SingleAsync(a => a.Id == a2.Id);
+        a2b.AsignarProductoAw(producto.Id);
+        var violacion = await Assert.ThrowsAsync<DbUpdateException>(() => db2.SaveChangesAsync());
+        Assert.Equal("ux_articulos_producto_aw_id", (violacion.InnerException as Npgsql.PostgresException)?.ConstraintName);
     }
 }

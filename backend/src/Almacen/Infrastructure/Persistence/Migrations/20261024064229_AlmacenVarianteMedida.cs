@@ -127,14 +127,15 @@ namespace Millet.Almacen.Infrastructure.Persistence.Migrations
         /// <inheritdoc />
         protected override void Down(MigrationBuilder migrationBuilder)
         {
-            // Revertir con saldos o conteos por variante colapsaría filas (la llave vuelve a ser por artículo y ubicación):
-            // se niega en vez de perder existencia. Ajústalos a una sola fila por artículo y ubicación antes de revertir.
+            // Revertir con cualquier fila por variante perdería la medida (y colapsaría saldos con la llave por artículo y ubicación):
+            // se niega en vez de perder datos. Ajusta o elimina esas filas antes de revertir.
             migrationBuilder.Sql("""
 DO $$
 BEGIN
-    IF EXISTS (SELECT 1 FROM almacen.saldos_inventario GROUP BY ubicacion_id, articulo_id HAVING COUNT(*) > 1)
-       OR EXISTS (SELECT 1 FROM almacen.lineas_conteo GROUP BY conteo_id, articulo_id, ubicacion_id HAVING COUNT(*) > 1) THEN
-        RAISE EXCEPTION 'No se puede revertir AlmacenVarianteMedida: hay saldos o conteos por variante de medida.';
+    IF EXISTS (SELECT 1 FROM almacen.saldos_inventario WHERE producto_aw_variante_id IS NOT NULL)
+       OR EXISTS (SELECT 1 FROM almacen.lineas_movimiento WHERE producto_aw_variante_id IS NOT NULL)
+       OR EXISTS (SELECT 1 FROM almacen.lineas_conteo WHERE producto_aw_variante_id IS NOT NULL) THEN
+        RAISE EXCEPTION 'No se puede revertir AlmacenVarianteMedida: hay filas por variante de medida.';
     END IF;
 END $$;
 """);

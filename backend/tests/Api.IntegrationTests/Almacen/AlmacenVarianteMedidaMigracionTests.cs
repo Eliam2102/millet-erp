@@ -58,6 +58,12 @@ public sealed class AlmacenVarianteMedidaMigracionTests
             Assert.Contains("No se puede revertir AlmacenVarianteMedida", ex.ToString());
             await db.Database.ExecuteSqlRawAsync("DELETE FROM almacen.saldos_inventario WHERE producto_aw_variante_id IS NOT NULL");
 
+            // Una sola fila con variante (sin duplicados por par) también la niega.
+            await db.Database.ExecuteSqlRawAsync("UPDATE almacen.saldos_inventario SET producto_aw_variante_id = gen_random_uuid() WHERE id = (SELECT id FROM almacen.saldos_inventario LIMIT 1)");
+            ex = await Assert.ThrowsAnyAsync<Exception>(() => migrator.MigrateAsync(Anterior));
+            Assert.Contains("No se puede revertir AlmacenVarianteMedida", ex.ToString());
+            await db.Database.ExecuteSqlRawAsync("UPDATE almacen.saldos_inventario SET producto_aw_variante_id = NULL");
+
             await migrator.MigrateAsync(Anterior);
             Assert.Equal(antes, await Resumen(db));
             Assert.Equal(triggerAntes, await Trigger(db));

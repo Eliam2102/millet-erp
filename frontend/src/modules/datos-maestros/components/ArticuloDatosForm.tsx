@@ -45,7 +45,11 @@ export function ArticuloDatosForm({ articulo }: ArticuloDatosFormProps) {
   const canEditar = useHasPermission(PermisosCanonicos.CompartidoCatalogosAdministrar);
   const actualizar = useActualizarArticulo();
   // Etiqueta del producto ya ligado (el selector solo conoce el id).
-  const productoLigado = useProductoAw(articulo.productoAwId);
+  // El selector usa el lookup de facturación y el detalle de Productos A+W: sin ambos permisos se oculta.
+  const puedeLookup = useHasPermission(PermisosCanonicos.FacturacionFacturasEmitir);
+  const puedeProductosAw = useHasPermission(PermisosCanonicos.DatosMaestrosProductosAwGestionar);
+  const puedeLigarProducto = puedeLookup && puedeProductosAw;
+  const productoLigado = useProductoAw(puedeLigarProducto ? articulo.productoAwId : null);
 
   const form = useForm<ActualizarArticuloValues>({
     resolver: zodResolver(ActualizarArticuloSchema),
@@ -222,31 +226,33 @@ export function ArticuloDatosForm({ articulo }: ArticuloDatosFormProps) {
           </FormRow>
         </FormCampo>
 
-        <FormCampo span={12}>
-          <FormRow
-            label="Producto A+W"
-            hint="Solo vidrio crudo por medida: liga el artículo a su familia en A+W (1:1). Vacío = insumo sin medidas."
-            error={form.formState.errors.productoAwId?.message}
-          >
-            <Controller
-              name="productoAwId"
-              control={form.control}
-              render={({ field }) => (
-                <ProductoAwSelector
-                  value={field.value ?? null}
-                  onChange={(item) => field.onChange(item?.id ?? null)}
-                  initialLabel={
-                    productoLigado.data != null
-                      ? `${productoLigado.data.referenciaExterna} · ${productoLigado.data.descripcion}`
-                      : undefined
-                  }
-                  placeholder="Sin producto A+W"
-                  disabled={!canEditar}
-                />
-              )}
-            />
-          </FormRow>
-        </FormCampo>
+        {puedeLigarProducto && (
+          <FormCampo span={12}>
+            <FormRow
+              label="Producto A+W"
+              hint="Solo vidrio crudo por medida: liga el artículo a su familia en A+W (1:1). Vacío = insumo sin medidas."
+              error={form.formState.errors.productoAwId?.message}
+            >
+              <Controller
+                name="productoAwId"
+                control={form.control}
+                render={({ field }) => (
+                  <ProductoAwSelector
+                    value={field.value ?? null}
+                    onChange={(item) => field.onChange(item?.id ?? null)}
+                    initialLabel={
+                      productoLigado.data != null
+                        ? `${productoLigado.data.referenciaExterna} · ${productoLigado.data.descripcion}`
+                        : undefined
+                    }
+                    placeholder="Sin producto A+W"
+                    disabled={!canEditar}
+                  />
+                )}
+              />
+            </FormRow>
+          </FormCampo>
+        )}
 
         <FormCampo span={12}>
           <div className="md:col-span-2">

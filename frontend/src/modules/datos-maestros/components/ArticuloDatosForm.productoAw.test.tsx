@@ -51,7 +51,11 @@ beforeEach(() => {
     user: { id: 'u-1', email: 'a@b.com', nombre: 'Admin' },
     empresas: [],
     currentEmpresaId: 'e-1',
-    permisos: [PermisosCanonicos.CompartidoCatalogosAdministrar],
+    permisos: [
+      PermisosCanonicos.CompartidoCatalogosAdministrar,
+      PermisosCanonicos.FacturacionFacturasEmitir,
+      PermisosCanonicos.DatosMaestrosProductosAwGestionar,
+    ],
     errorMessage: null,
   });
 });
@@ -110,5 +114,20 @@ describe('<ArticuloDatosForm> — producto A+W', () => {
 
     await waitFor(() => expect(body).not.toBeNull());
     expect(body).toMatchObject({ productoAwId: null, limpiarProductoAw: true });
+  });
+
+  it.each([
+    [PermisosCanonicos.FacturacionFacturasEmitir],
+    [PermisosCanonicos.DatosMaestrosProductosAwGestionar],
+  ])('oculta el campo si falta el permiso %s', (faltante) => {
+    useAuthStore.setState({
+      permisos: [
+        PermisosCanonicos.CompartidoCatalogosAdministrar,
+        PermisosCanonicos.FacturacionFacturasEmitir,
+        PermisosCanonicos.DatosMaestrosProductosAwGestionar,
+      ].filter((p) => p !== faltante),
+    });
+    render(<ArticuloDatosForm articulo={ARTICULO} />, { wrapper: createQueryWrapper() });
+    expect(screen.queryByRole('combobox', { name: /producto a\+w/i })).not.toBeInTheDocument();
   });
 });

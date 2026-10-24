@@ -149,6 +149,16 @@ public sealed class GlobalExceptionHandler : IExceptionHandler
                     StatusCodes.Status409Conflict,
                     httpContext,
                     traceId),
+            // F1-MP-01: dos ligas concurrentes del mismo producto A+W; el índice único es la autoridad.
+            DbUpdateException { InnerException: PostgresException pg }
+                when pg.SqlState == PostgresErrorCodes.UniqueViolation
+                    && pg.ConstraintName == "ux_articulos_producto_aw_id"
+                => CreateProblem(
+                    "ARTICULO_PRODUCTO_AW_YA_LIGADO",
+                    "El producto A+W ya está ligado a otro artículo.",
+                    StatusCodes.Status422UnprocessableEntity,
+                    httpContext,
+                    traceId),
             ForbiddenException fe => CreateProblem(fe.Code, fe.Message, StatusCodes.Status403Forbidden, httpContext, traceId),
             CrossTenantViolationException cte => CreateProblem(cte.Code, cte.Message, StatusCodes.Status403Forbidden, httpContext, traceId),
             MissingEmpresaContextException mece => CreateProblem(mece.Code, mece.Message, StatusCodes.Status500InternalServerError, httpContext, traceId),
