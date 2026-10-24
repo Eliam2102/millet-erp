@@ -14,7 +14,7 @@ vi.mock('@/features/almacen/api/useRecepciones', () => ({
   useCfdisParaRecepcion: () => ({ data: undefined }),
   useLineasRecibibles: () => ({ data: undefined }),
 }));
-const useOrdenCompraMock = vi.hoisted(() => vi.fn((_id: string | null) => ({ data: undefined })));
+const useOrdenCompraMock = vi.hoisted(() => vi.fn<(id: string | null) => { data: undefined }>(() => ({ data: undefined })));
 vi.mock('@/features/compras/ordenes/api/useOrdenCompra', () => ({
   useOrdenCompra: useOrdenCompraMock,
 }));

@@ -102,7 +102,7 @@ public sealed class CancelarRecepcionHandler(
             await PeriodoCerradoValidator.LanzarSiCerradoAsync(db, empresaId, hoy, periodoContable, ct);
 
         // 6-9. Bloqueos de negocio.
-        if (await db.RecepcionesActivos.AnyAsync(a => ids.Contains(a.RecepcionId), ct))
+        if (await db.RecepcionesActivos.AnyAsync(a => ids.Contains(a.RecepcionId) && a.AnuladaEn == null, ct))
             throw new BusinessRuleException("RECEPCION_CON_ACTIVOS",
                 "La recepción incluye activos fijos dados de alta o por dar de alta: no se puede cancelar desde Almacén.");
         if (await db.DictamenesRevision.AnyAsync(d => ids.Contains(d.MovimientoRevisionId), ct))
@@ -160,9 +160,15 @@ public sealed class CancelarRecepcionHandler(
         if (principal is null)
         {
             // Recepción solo de activos fijos: no tiene movimiento de inventario, solo su registro por línea.
-            if (await db.RecepcionesActivos.AnyAsync(a => a.RecepcionId == recepcionId, ct))
+            // Las líneas de activos anuladas (#202) ya no cuentan; si todas lo están, no queda nada que cancelar.
+            var activos = await db.RecepcionesActivos.AsNoTracking().Where(a => a.RecepcionId == recepcionId)
+                .Select(a => a.AnuladaEn).ToListAsync(ct);
+            if (activos.Any(anulada => anulada == null))
                 throw new BusinessRuleException("RECEPCION_CON_ACTIVOS",
                     "La recepción incluye activos fijos dados de alta o por dar de alta: no se puede cancelar desde Almacén.");
+            if (activos.Count > 0)
+                throw new BusinessRuleException("RECEPCION_ACTIVOS_ANULADOS",
+                    "Esta recepción solo tenía activos fijos y ya están anulados: no hay nada que cancelar.");
             throw new EntityNotFoundException("RECEPCION_NO_ENCONTRADA", "La recepción no existe.");
         }
         var hijo = movs.FirstOrDefault(m => m.RecepcionOrigenId == recepcionId);

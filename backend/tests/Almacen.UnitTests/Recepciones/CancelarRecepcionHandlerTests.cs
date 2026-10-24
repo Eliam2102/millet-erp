@@ -190,6 +190,35 @@ public class CancelarRecepcionHandlerTests
     }
 
     [Fact]
+    public async Task Activos_anulados_no_bloquean_la_parte_de_inventario()
+    {
+        await using var m = await NuevoMundoAsync();
+        await m.RegistrarAsync();
+        await m.SembrarSaldoPostSalidaAsync(BinId, cantidad: 20m, costoPromedio: 12m);
+        var activo = new RecepcionActivo(Guid.NewGuid(), EmpresaId, m.RecepcionId, m.OcId, Guid.NewGuid(), 1m);
+        activo.Anular(Guid.NewGuid(), "Se capturó por error", DateTimeOffset.UtcNow);
+        m.Db.RecepcionesActivos.Add(activo);
+        await m.Db.SaveChangesAsync();
+
+        await m.CancelarAsync();
+
+        var principal = await m.Db.Movimientos.SingleAsync(x => x.Id == m.RecepcionId);
+        principal.Estado.Should().Be(EstadoMovimiento.Cancelado);
+    }
+
+    [Fact]
+    public async Task Recepcion_solo_de_activos_todos_anulados_no_tiene_nada_que_cancelar()
+    {
+        await using var m = await NuevoMundoAsync();
+        m.RecepcionId = Guid.NewGuid();
+        var activo = new RecepcionActivo(Guid.NewGuid(), EmpresaId, m.RecepcionId, m.OcId, Guid.NewGuid(), 1m);
+        activo.Anular(Guid.NewGuid(), "Se capturó por error", DateTimeOffset.UtcNow);
+        m.Db.RecepcionesActivos.Add(activo);
+        await m.Db.SaveChangesAsync();
+        await Rechaza(m.CancelarAsync(), "RECEPCION_ACTIVOS_ANULADOS");
+    }
+
+    [Fact]
     public async Task Recepcion_solo_de_activos_sin_movimiento_tambien_bloquea_con_activos()
     {
         await using var m = await NuevoMundoAsync();
