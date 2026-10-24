@@ -294,6 +294,35 @@ public sealed class NoDeduciblesEndpointsTests(WebApplicationFactory<Program> fa
         Assert.Equal(80m, f.IvaNoAcreditable);
     }
 
+    [Fact]
+    public async Task Captura_retroactiva_desde_estado_de_cuenta_exige_clasificacion_y_la_guarda()
+    {
+        var (c, tarjeta, titular) = await AmbienteAsync();
+        Guid ecId, lineaId; int version;
+        using (var scope = factory.Services.CreateScope())
+        {
+            using var bypass = scope.ServiceProvider.GetRequiredService<ICurrentEmpresaContext>().Bypass();
+            var db = scope.ServiceProvider.GetRequiredService<CuentasPorPagarDbContext>();
+            var ec = EstadoCuentaTc.Crear(Empresa, tarjeta, new DateOnly(2026, 10, 1), new DateOnly(2026, 10, 31), new DateOnly(2026, 10, 25), new DateOnly(2026, 11, 10));
+            var linea = ec.AgregarLinea(1, new DateOnly(2026, 10, 20), 350m, "MXN", 350m, "RESTAURANTE", null, "Compra");
+            db.EstadosCuentaTc.Add(ec);
+            // MarcarSinSugerencia es internal: se fija el estado por EF para dejar la línea capturable.
+            db.Entry(linea).Property("EstadoMatch").CurrentValue = Millet.CuentasPorPagar.Domain.TarjetaCredito.EstadoMatchLineaBanco.NoConciliado;
+            await db.SaveChangesAsync();
+            (ecId, lineaId, version) = (ec.Id, linea.Id, ec.Version);
+        }
+        var ruta = Cxp + $"/estados-cuenta-tc/{ecId}/lineas/{lineaId}/capturar-retroactiva";
+
+        var sin = await PostConVersionAsync(c, ruta, version, new { usuarioQueUsoId = titular, conceptoContable = "Comidas" });
+        Assert.Equal(HttpStatusCode.UnprocessableEntity, sin.StatusCode);
+        Assert.Equal("TC_MOV_CLASIFICACION_INVALIDA", (await Json(sin)).GetProperty("code").GetString());
+
+        var ok = await PostConVersionAsync(c, ruta, version, new { usuarioQueUsoId = titular, conceptoContable = "Comidas", clasificacionNoDeducible = "comidas" });
+        Assert.True(ok.StatusCode == HttpStatusCode.OK, await ok.Content.ReadAsStringAsync());
+        var lista = (await Json(await c.GetAsync(Cxp + $"/movimientos-tc?tarjetaId={tarjeta}"))).GetProperty("items").EnumerateArray();
+        Assert.Contains(lista, x => x.GetProperty("clasificacionNoDeducible").GetString() == "COMIDAS");
+    }
+
     // ---- CA8.15: UUID duplicado entre rutas de captura ----
 
     private static async Task<Guid> SembrarFacturaAsync(AdjuntosProveedorAmbiente amb, string uuid)

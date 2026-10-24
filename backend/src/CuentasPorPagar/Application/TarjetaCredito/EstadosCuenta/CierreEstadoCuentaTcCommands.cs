@@ -103,7 +103,9 @@ public sealed record CapturarMovimientoDesdeLineaCommand(
     int VersionEsperadaEc,
     Guid LineaBancoId,
     Guid UsuarioQueUsoId,
-    string ConceptoContable) : IRequest<EstadoCuentaTcResponse>;
+    string ConceptoContable,
+    // P8.6: obligatoria (sin CFDI el cargo es no deducible); se valida en el handler → 422 TC_MOV_CLASIFICACION_INVALIDA.
+    string? ClasificacionNoDeducible = null) : IRequest<EstadoCuentaTcResponse>;
 
 public sealed class CapturarMovimientoDesdeLineaValidator : AbstractValidator<CapturarMovimientoDesdeLineaCommand>
 {
@@ -159,6 +161,9 @@ public sealed class CapturarMovimientoDesdeLineaHandler
             ?? throw new EntityNotFoundException("TC_NO_ENCONTRADA",
                 $"No se encontró la tarjeta '{ec.TarjetaId}'.");
 
+        var clasificacion = await Catalogos.ClasificacionesNoDeducibles.ClasificacionNoDeducibleValidador.ResolverAsync(
+            _db, command.ClasificacionNoDeducible, obligatoria: true, "TC_MOV_CLASIFICACION_INVALIDA", cancellationToken);
+
         // Captura retroactiva con tipo CompraSinCfdi (el operador
         // confirma el cargo aunque no haya factura). Después puede
         // reclasificarse si encuentra el CFDI.
@@ -173,7 +178,8 @@ public sealed class CapturarMovimientoDesdeLineaHandler
             merchantRaw: linea.MerchantRaw,
             descripcionLibre: $"Captura retroactiva desde línea {linea.PosicionArchivo}",
             conceptoContable: command.ConceptoContable,
-            ticketBlobRef: null);
+            ticketBlobRef: null,
+            clasificacionNoDeducible: clasificacion);
         mov.MarcarCapturaRetroactiva();
         mov.MarcarConciliadoConEstadoCuenta(ec.Id, linea.Id, linea.FechaAplicacion);
         _db.MovimientosTarjetaCredito.Add(mov);

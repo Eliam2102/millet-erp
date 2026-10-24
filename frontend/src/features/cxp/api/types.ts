@@ -1475,6 +1475,7 @@ export interface ConfirmarMatchLineaBancoCommand {
 export interface CapturarMovimientoDesdeLineaCommand {
   usuarioQueUsoId: string;
   conceptoContable: string;
+  clasificacionNoDeducible: string;
 }
 
 // ─── Refunds + Movimientos Especiales + Disputas (FE-F6-PR2) ──────────
