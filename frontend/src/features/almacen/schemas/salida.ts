@@ -17,6 +17,8 @@ const DATE_ONLY_RE = /^\d{4}-\d{2}-\d{2}$/;
  */
 export const LineaSalidaSchema = z.object({
   unidadCapturada: z.string().max(20).nullish(),
+  // F1-MP-01: medida de hoja (vidrio crudo); con ella la cantidad son hojas.
+  productoAwVarianteId: z.string().nullish(),
   articuloId: z.string().regex(UUID_SHAPE_RE, 'Artículo requerido'),
   // Solo frontend (no se envía al backend): el unidadMedidaId del artículo
   // seleccionado, para la validación advisory de decimales (ADR-0046 2c).
@@ -63,6 +65,7 @@ export const FilaSalidaSchema = z
     posicion: z.number().int(),
     unidadMedida: z.string(),
     unidadCapturada: z.string().max(20).nullish(),
+    productoAwVarianteId: z.string().nullish(),
     cantidadSolicitada: z.number(),
     cantidadPlaneadaAlmacen: z.number(),
     cantidadYaEntregada: z.number(),

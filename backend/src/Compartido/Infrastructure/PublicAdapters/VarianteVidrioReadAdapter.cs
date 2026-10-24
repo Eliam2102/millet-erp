@@ -34,4 +34,16 @@ public sealed class VarianteVidrioReadAdapter(CompartidoDbContext db) : IVariant
             orderby v.ClaveVariante
             select new VarianteVidrioLectura(v.Id, v.ClaveVariante, v.AnchoMm, v.AltoMm, v.EspesorMm))
             .ToListAsync(cancellationToken);
+
+    public async Task<IReadOnlyDictionary<Guid, VarianteVidrioLectura>> ObtenerPorIdsAsync(
+        IReadOnlyCollection<Guid> varianteIds, CancellationToken cancellationToken)
+    {
+        if (varianteIds.Count == 0) return new Dictionary<Guid, VarianteVidrioLectura>();
+        var ids = varianteIds.Distinct().ToArray();
+        return await db.ProductosAw.AsNoTracking()
+            .SelectMany(p => p.Variantes)
+            .Where(v => ids.Contains(v.Id))
+            .Select(v => new VarianteVidrioLectura(v.Id, v.ClaveVariante, v.AnchoMm, v.AltoMm, v.EspesorMm))
+            .ToDictionaryAsync(v => v.VarianteId, cancellationToken);
+    }
 }

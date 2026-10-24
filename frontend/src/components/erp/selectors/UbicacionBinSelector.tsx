@@ -51,6 +51,8 @@ export interface UbicacionBinSelectorProps {
    * ofrecer «Asignar ubicación» sin salir del formulario.
    */
   accionSinUbicaciones?: ReactNode;
+  /** F1-MP-01: en modo saldo, solo los bins con existencia de esa medida de hoja. */
+  varianteId?: string | null;
 }
 
 interface BinOption {
@@ -77,6 +79,7 @@ export function UbicacionBinSelector({
   className,
   requiereSubAlmacen = true,
   accionSinUbicaciones,
+  varianteId,
 }: UbicacionBinSelectorProps) {
   // El prop modula ambos modos: salida-con-RQ y recepción pasan false (sin sub
   // de cabecera, el bin deriva el sub); vale y devolución omiten el prop (true).
@@ -108,6 +111,7 @@ export function UbicacionBinSelector({
   const saldosQuery = useSaldosPorUbicacion(
     modo === 'saldo' ? articuloId : null,
     modo === 'saldo' ? subAlmacenId : null,
+    modo === 'saldo' ? varianteId : null,
   );
 
   const items = useMemo<BinOption[]>(() => {

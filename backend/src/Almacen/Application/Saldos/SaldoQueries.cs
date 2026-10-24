@@ -24,7 +24,9 @@ public sealed record SaldoListItem(
     // Resueltos en backend (ADR-0042). Null = el read-port no resolvió; el
     // frontend cae al ArticuloId crudo.
     string? ArticuloClave,
-    string? ArticuloDescripcion);
+    string? ArticuloDescripcion,
+    // F1-MP-01: medida de hoja (vidrio crudo). Una fila por medida; la cantidad va en m² y las hojas = cantidad / area.
+    Guid? ProductoAwVarianteId = null, decimal? AnchoMm = null, decimal? AltoMm = null, decimal? AreaHojaM2 = null);
 
 public sealed record ListarSaldosQuery(
     Guid? SubAlmacenId,
@@ -42,11 +44,13 @@ public sealed class ListarSaldosHandler
 {
     private readonly AlmacenDbContext _db;
     private readonly IArticuloReadPort _articulos;
+    private readonly IVarianteVidrioReadPort? _variantes;
 
-    public ListarSaldosHandler(AlmacenDbContext db, IArticuloReadPort articulos)
+    public ListarSaldosHandler(AlmacenDbContext db, IArticuloReadPort articulos, IVarianteVidrioReadPort? variantes = null)
     {
         _db = db;
         _articulos = articulos;
+        _variantes = variantes;
     }
 
     /// <summary>
@@ -74,16 +78,17 @@ public sealed class ListarSaldosHandler
         var query = SaldosFiltrados(_db, request.SubAlmacenId, request.ArticuloId,
             request.SoloConStock, request.SucursalesPermitidas);
 
-        // C7.2a: agregado por (sub-almacén, artículo) — con N bins habría
+        // F1-MP-01: y por medida de hoja (NULL = sin medida). C7.2a: agregado por (sub-almacén, artículo) — con N bins habría
         // filas duplicadas indistinguibles (el listado no expone ubicación).
         // Puente determinista: SUM + costo ponderado. El grano por-ubicación
         // (columna de bin) se difiere a C7.2b con su decisión de UX.
         var agrupado = query
-            .GroupBy(s => new { s.SubAlmacenId, s.ArticuloId })
+            .GroupBy(s => new { s.SubAlmacenId, s.ArticuloId, s.ProductoAwVarianteId })
             .Select(g => new
             {
                 g.Key.SubAlmacenId,
                 g.Key.ArticuloId,
+                g.Key.ProductoAwVarianteId,
                 Cantidad = g.Sum(s => s.Cantidad),
                 CantidadDisponible = g.Sum(s => s.CantidadDisponible),
                 ValorInventarioMxn = g.Sum(s => s.ValorInventarioMxn),
@@ -91,7 +96,7 @@ public sealed class ListarSaldosHandler
 
         var total = await agrupado.CountAsync(cancellationToken);
         var pagina = await agrupado
-            .OrderBy(x => x.SubAlmacenId).ThenBy(x => x.ArticuloId)
+            .OrderBy(x => x.SubAlmacenId).ThenBy(x => x.ArticuloId).ThenBy(x => x.ProductoAwVarianteId)
             .Skip(request.Offset).Take(request.Limit)
             .ToListAsync(cancellationToken);
         var items = pagina
@@ -100,7 +105,7 @@ public sealed class ListarSaldosHandler
                 x.Cantidad, x.CantidadDisponible,
                 x.Cantidad > 0 ? Math.Round(x.ValorInventarioMxn / x.Cantidad, 4) : 0m,
                 x.ValorInventarioMxn,
-                null, null)) // ArticuloClave/Descripcion: se enriquecen en batch abajo (ADR-0042).
+                null, null, x.ProductoAwVarianteId)) // ArticuloClave/Descripcion y medida: se enriquecen en batch abajo (ADR-0042).
             .ToList();
 
         // Nombre del artículo: batch sobre los ArticuloId distintos de la página
@@ -117,7 +122,15 @@ public sealed class ListarSaldosHandler
             .Where(sa => subIds.Contains(sa.Id) && sa.Tipo == TipoSubAlmacen.MaterialEnRevision)
             .Select(sa => sa.Id).ToListAsync(cancellationToken)).ToHashSet();
 
+        var medidas = _variantes is null
+            ? new Dictionary<Guid, VarianteVidrioLectura>()
+            : await _variantes.ObtenerPorIdsAsync(
+                items.Where(i => i.ProductoAwVarianteId != null).Select(i => i.ProductoAwVarianteId!.Value).Distinct().ToArray(),
+                cancellationToken);
         var enriquecidos = items
+            .Select(i => i.ProductoAwVarianteId is Guid v && medidas.TryGetValue(v, out var m)
+                ? i with { AnchoMm = m.AnchoMm, AltoMm = m.AltoMm, AreaHojaM2 = m.AreaHojaM2 }
+                : i)
             .Select(i => i with { CantidadDisponible = subsEnRevision.Contains(i.SubAlmacenId) ? 0m : i.CantidadDisponible })
             .Select(i => articulos.TryGetValue(i.ArticuloId, out var art)
                 ? i with { ArticuloClave = art.Clave, ArticuloDescripcion = art.Descripcion }
@@ -221,7 +234,9 @@ public sealed record SaldoUbicacionItem(
     bool EsDefault,
     decimal Cantidad,
     decimal CantidadDisponible,
-    decimal CostoPromedioMxn);
+    decimal CostoPromedioMxn,
+    // F1-MP-01: medida de la fila de saldo; una fila por (ubicación, medida).
+    Guid? ProductoAwVarianteId = null, decimal? AnchoMm = null, decimal? AltoMm = null, decimal? AreaHojaM2 = null);
 
 public sealed record SaldosPorUbicacionQuery(
     Guid ArticuloId,
@@ -229,7 +244,9 @@ public sealed record SaldosPorUbicacionQuery(
     // artículo en cualquier sub (la salida-con-RQ ya no tiene sub de cabecera;
     // el pick cruzado se rechaza en submit vía SALIDA_MULTI_SUBALMACEN). Con
     // valor = acotado a ese sub (vale, devolución a proveedor).
-    Guid? SubAlmacenId) : IRequest<IReadOnlyList<SaldoUbicacionItem>>, ISucursalScopedQuery
+    Guid? SubAlmacenId,
+    // F1-MP-01: solo la fila de esa medida (la salida por medida elige primero la medida).
+    Guid? ProductoAwVarianteId = null) : IRequest<IReadOnlyList<SaldoUbicacionItem>>, ISucursalScopedQuery
 {
     public string PermisoTodasSucursales => "almacen.almacenes.leer-todas-sucursales";
     public IReadOnlyList<Guid>? SucursalesPermitidas { get; set; }
@@ -239,8 +256,13 @@ public sealed class SaldosPorUbicacionHandler
     : IRequestHandler<SaldosPorUbicacionQuery, IReadOnlyList<SaldoUbicacionItem>>
 {
     private readonly AlmacenDbContext _db;
+    private readonly IVarianteVidrioReadPort? _variantes;
 
-    public SaldosPorUbicacionHandler(AlmacenDbContext db) => _db = db;
+    public SaldosPorUbicacionHandler(AlmacenDbContext db, IVarianteVidrioReadPort? variantes = null)
+    {
+        _db = db;
+        _variantes = variantes;
+    }
 
     public async Task<IReadOnlyList<SaldoUbicacionItem>> Handle(
         SaldosPorUbicacionQuery request, CancellationToken cancellationToken)
@@ -251,12 +273,13 @@ public sealed class SaldosPorUbicacionHandler
         var subsPermitidos = request.SucursalesPermitidas is { } suc
             ? await AlcanceSucursalAlmacen.SubAlmacenesPermitidos(_db, suc).ToListAsync(cancellationToken)
             : null;
-        return await (
+        var filas = await (
             from s in _db.SaldosInventario.AsNoTracking()
             join u in _db.Ubicaciones.AsNoTracking() on s.UbicacionId equals u.Id
             join sa in _db.SubAlmacenes.AsNoTracking() on u.SubAlmacenId equals sa.Id
             join al in _db.Almacenes.AsNoTracking() on sa.AlmacenId equals al.Id
             where s.ArticuloId == request.ArticuloId
+               && (request.ProductoAwVarianteId == null || s.ProductoAwVarianteId == request.ProductoAwVarianteId)
                && (request.SubAlmacenId == null || s.SubAlmacenId == request.SubAlmacenId)
                && s.Cantidad > 0
                // ALM-04: sin sub explícito (salida con RQ) no se ofrece material en revisión.
@@ -265,7 +288,18 @@ public sealed class SaldosPorUbicacionHandler
             orderby u.EsDefault, u.Clave
             select new SaldoUbicacionItem(
                 u.Id, u.Clave, u.Nombre, sa.Clave, al.Clave, u.EsDefault,
-                s.Cantidad, sa.Tipo == TipoSubAlmacen.MaterialEnRevision ? 0m : s.CantidadDisponible, s.CostoPromedioMxn))
+                s.Cantidad, sa.Tipo == TipoSubAlmacen.MaterialEnRevision ? 0m : s.CantidadDisponible, s.CostoPromedioMxn,
+                s.ProductoAwVarianteId, null, null, null))
             .ToListAsync(cancellationToken);
+        var medidas = _variantes is null
+            ? new Dictionary<Guid, VarianteVidrioLectura>()
+            : await _variantes.ObtenerPorIdsAsync(
+                filas.Where(f => f.ProductoAwVarianteId != null).Select(f => f.ProductoAwVarianteId!.Value).Distinct().ToArray(),
+                cancellationToken);
+        return filas
+            .Select(f => f.ProductoAwVarianteId is Guid v && medidas.TryGetValue(v, out var m)
+                ? f with { AnchoMm = m.AnchoMm, AltoMm = m.AltoMm, AreaHojaM2 = m.AreaHojaM2 }
+                : f)
+            .ToList();
     }
 }

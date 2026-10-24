@@ -82,6 +82,9 @@ public sealed class RegistrarSalidaPorValeHandler
     private readonly ApartadosRequisicionService _apartados;
     private readonly ICalendarioHabil _calendario;
     private readonly ICentroCostoElegibilidadPort _centros;
+    // Opcionales solo para pruebas unitarias sin medidas; la API los inyecta siempre.
+    private readonly IArticuloReadPort? _articulos;
+    private readonly IVarianteVidrioReadPort? _variantes;
 
     public RegistrarSalidaPorValeHandler(
         AlmacenDbContext db,
@@ -91,8 +94,11 @@ public sealed class RegistrarSalidaPorValeHandler
         IDecimalesUnidadGuard decimalesGuard,
         IPeriodoContableReadPort periodoContable,
         ICalendarioHabil calendario,
-        ICentroCostoElegibilidadPort centros, IConversionUnidadPort conversion, ApartadosRequisicionService apartados)
+        ICentroCostoElegibilidadPort centros, IConversionUnidadPort conversion, ApartadosRequisicionService apartados,
+        IArticuloReadPort? articulos = null, IVarianteVidrioReadPort? variantes = null)
     {
+        _articulos = articulos;
+        _variantes = variantes;
         _db = db;
         _events = events;
         _currentUser = currentUser;
@@ -156,9 +162,14 @@ public sealed class RegistrarSalidaPorValeHandler
         }
 
         var conversiones = new List<ConversionUnidad>();
+        var variantes = new List<VarianteVidrioLectura?>();
         foreach (var input in request.Lineas)
-            conversiones.Add(await _conversion.ConvertirAsync(input.ArticuloId, input.Cantidad,
-                input.UnidadCapturada, "", cancellationToken));
+        {
+            var variante = await Recepciones.RecepcionVariante.ResolverAsync(_articulos, _variantes, input.ArticuloId, input.ProductoAwVarianteId, cancellationToken, nuevoUso: false);
+            variantes.Add(variante);
+            conversiones.Add(await Recepciones.RecepcionVariante.ConvertirAsync(_conversion, input.ArticuloId, input.Cantidad,
+                input.UnidadCapturada, "", variante, cancellationToken));
+        }
 
         var empresaId = _currentEmpresa.Current ?? throw new BusinessRuleException(
             "VALE_SIN_EMPRESA", "El contexto de empresa es requerido.");
@@ -222,9 +233,11 @@ public sealed class RegistrarSalidaPorValeHandler
                     "Cada línea del vale debe indicar la ubicación (bin) de donde sale.");
             var saldo = await _db.SaldosInventario.AsNoTracking()
                 .FirstOrDefaultAsync(
-                    s => s.UbicacionId == ubicacionLinea && s.ArticuloId == input.ArticuloId,
+                    s => s.UbicacionId == ubicacionLinea && s.ArticuloId == input.ArticuloId
+                        && s.ProductoAwVarianteId == input.ProductoAwVarianteId,
                     cancellationToken);
             var costoSnapshot = saldo?.CostoPromedioMxn ?? 0m;
+            var variante = variantes[posicion - 1];
 
             var conversion = conversiones[posicion - 1];
             var lineaId = Guid.CreateVersion7();
@@ -240,7 +253,8 @@ public sealed class RegistrarSalidaPorValeHandler
                 proyectoId: input.ProyectoId,
                 ubicacionReferencia: input.UbicacionReferencia,
                 comentarioLinea: input.Comentario,
-                ubicacionId: ubicacionLinea);
+                ubicacionId: ubicacionLinea,
+                productoAwVarianteId: variante?.VarianteId, anchoMm: variante?.AnchoMm, altoMm: variante?.AltoMm);
             linea.AsentarCaptura(conversion.CantidadCapturada, conversion.UnidadCapturada);
             await _apartados.ConsumirAsync(sucursalId!.Value, null, null, input.ArticuloId,
                 conversion.CantidadBase, cancellationToken);

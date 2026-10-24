@@ -620,6 +620,8 @@ export interface RegistrarSalidaLineaInput {
   // (NULL → ÚNICA); el FE siempre lo manda.
   ubicacionId: string | null;
   comentario: string | null;
+  /** F1-MP-01: medida de la hoja; con ella `cantidad` son hojas y `unidadCapturada` = HOJA. */
+  productoAwVarianteId?: string | null;
 }
 
 export interface RegistrarSalidaResponse {
@@ -1032,6 +1034,11 @@ export interface SaldoListItem {
   // Resueltos en backend (ADR-0042). null = no resolvió → el front cae al id.
   articuloClave: string | null;
   articuloDescripcion: string | null;
+  /** F1-MP-01: una fila por medida de hoja (cantidad en m²); null = artículo sin medida. */
+  productoAwVarianteId?: string | null;
+  anchoMm?: number | null;
+  altoMm?: number | null;
+  areaHojaM2?: number | null;
 }
 
 /** Mirror de <c>SaldosTotalesResponse</c>: totales de todo el conjunto filtrado.
@@ -1058,6 +1065,11 @@ export interface SaldoUbicacionItem {
   cantidad: number;
   cantidadDisponible: number;
   costoPromedioMxn: number;
+  /** F1-MP-01: medida de la fila (una fila por ubicación y medida). */
+  productoAwVarianteId?: string | null;
+  anchoMm?: number | null;
+  altoMm?: number | null;
+  areaHojaM2?: number | null;
 }
 
 // ─── Consulta jerárquica (PR6, ADR-0047) ────────────────────────────────────
@@ -1093,6 +1105,9 @@ export interface NodoJerarquiaSaldo {
   valorInventarioMxn: number;
   esDefault: boolean;
   esHoja: boolean;
+  /** F1-MP-01: en modo ubicación el artículo se parte por medida; `medida` = «2440 × 3660 mm». */
+  productoAwVarianteId?: string | null;
+  medida?: string | null;
 }
 
 // ─── Cierre de mes (FE-F6-PR1) ──────────────────────────────────────────────
@@ -1207,6 +1222,10 @@ export interface MaterialEnRevisionItem {
   /** true = falta el calendario de días hábiles: no se pudo calcular `fechaLimite`. */
   plazoNoCalculable: boolean;
   dictamenes: DictamenRevisionItem[];
+  /** F1-MP-01: medida de la hoja en revisión. */
+  productoAwVarianteId?: string | null;
+  anchoMm?: number | null;
+  altoMm?: number | null;
 }
 
 /** ALM-04 G1.3: resultado del dictamen (espejo de `ResultadoDictamen`). */

@@ -23,21 +23,21 @@ namespace Millet.Api.IntegrationTests.Almacen;
 public class RecepcionPorMedidaTests(WebApplicationFactory<Program> factory) : IClassFixture<WebApplicationFactory<Program>>
 {
     private static readonly DateOnly Fecha = new(2027, 4, 12);
-    private static readonly Guid VarA = Guid.NewGuid(); // 2440 x 3660 → 8.9304 m²
-    private static readonly Guid VarB = Guid.NewGuid(); // 2140 x 3300 → 7.0620 m²
+    internal static readonly Guid VarA = Guid.NewGuid(); // 2440 x 3660 → 8.9304 m²
+    internal static readonly Guid VarB = Guid.NewGuid(); // 2140 x 3300 → 7.0620 m²
     private static readonly Guid OtroUsuario = Guid.NewGuid();
 
-    private static RegistrarRecepcionLineaInput Linea(Ctx ctx, decimal hojas, Guid? variante, decimal danadas = 0m) =>
+    internal static RegistrarRecepcionLineaInput Linea(Ctx ctx, decimal hojas, Guid? variante, decimal danadas = 0m) =>
         new(ctx.ArticuloId, ctx.LineaOcId, hojas, null, null, ctx.RackId, "HOJA",
             CantidadDanada: danadas, MotivoDano: danadas > 0 ? "Hojas rotas" : null, ProductoAwVarianteId: variante);
 
-    private static Task<RegistrarRecepcionResponse> Recibir(AlmacenDbContext db, Ctx ctx, bool ligado, params RegistrarRecepcionLineaInput[] lineas) =>
+    internal static Task<RegistrarRecepcionResponse> Recibir(AlmacenDbContext db, Ctx ctx, bool ligado, params RegistrarRecepcionLineaInput[] lineas) =>
         new RegistrarRecepcionConFacturaHandler(db, new OcM2(ctx), new CapturaEventos(), new UserFake(ctx.UserId), new EmpresaFake(ctx.EmpresaId),
             new DecimalesNulo(), ctx.Periodos, new ConversionM2(), new CxpNulo(), new ProveedorRfc(),
             new Articulos(ligado), new Variantes(ctx.ArticuloId)).Handle(
             new RegistrarRecepcionConFacturaCommand(ctx.OcId, Fecha, null, "AD662D33-6934-459C-A128-BDF0393E0062", null, lineas), default);
 
-    private static async Task<(decimal Cantidad, decimal Costo)?> Fila(AlmacenDbContext db, Guid rack, Guid articulo, Guid? variante)
+    internal static async Task<(decimal Cantidad, decimal Costo)?> Fila(AlmacenDbContext db, Guid rack, Guid articulo, Guid? variante)
     {
         db.ChangeTracker.Clear();
         var f = await db.SaldosInventario.AsNoTracking()
@@ -117,13 +117,13 @@ public class RecepcionPorMedidaTests(WebApplicationFactory<Program> factory) : I
 
     // ─────────────────────────── Dobles ───────────────────────────
 
-    private sealed class RelojFijo : IClock
+    internal sealed class RelojFijo : IClock
     {
         public DateTimeOffset UtcNow => new(Fecha.Year, Fecha.Month, Fecha.Day, 18, 0, 0, TimeSpan.Zero);
     }
 
     /// <summary>OC de 1000 m² (unidad de existencia) a 180 MXN/m².</summary>
-    private sealed class OcM2(Ctx ctx) : IComprasOcReadPort
+    internal sealed class OcM2(Ctx ctx) : IComprasOcReadPort
     {
         public Task<OcLectura?> ObtenerAsync(Guid ocId, CancellationToken ct) => Task.FromResult<OcLectura?>(
             new(ocId, "OC-MEDIDA", Guid.NewGuid(), ctx.EmpresaId, "Autorizada",
@@ -132,7 +132,7 @@ public class RecepcionPorMedidaTests(WebApplicationFactory<Program> factory) : I
             Task.FromResult<IReadOnlyDictionary<Guid, string>>(new Dictionary<Guid, string>());
     }
 
-    private sealed class Articulos(bool ligado) : IArticuloReadPort
+    internal sealed class Articulos(bool ligado) : IArticuloReadPort
     {
         public Task<ArticuloLectura?> ObtenerAsync(Guid articuloId, CancellationToken ct) =>
             Task.FromResult<ArticuloLectura?>(new ArticuloLectura(articuloId, "VID-CLARO-6", "Vidrio", "M2", null, true,
@@ -141,7 +141,7 @@ public class RecepcionPorMedidaTests(WebApplicationFactory<Program> factory) : I
             Task.FromResult<IReadOnlyDictionary<Guid, ArticuloLectura>>(new Dictionary<Guid, ArticuloLectura>());
     }
 
-    private sealed class Variantes(Guid articuloId) : IVarianteVidrioReadPort
+    internal sealed class Variantes(Guid articuloId) : IVarianteVidrioReadPort
     {
         private readonly VarianteVidrioLectura[] _todas =
         [
@@ -152,6 +152,8 @@ public class RecepcionPorMedidaTests(WebApplicationFactory<Program> factory) : I
             Task.FromResult(articulo == articuloId ? _todas.FirstOrDefault(v => v.VarianteId == varianteId) : null) is { Result: { } v }
                 ? Task.FromResult(v)
                 : throw new BusinessRuleException("VARIANTE_NO_PERTENECE_AL_ARTICULO", "Medida ajena.");
+        public Task<IReadOnlyDictionary<Guid, VarianteVidrioLectura>> ObtenerPorIdsAsync(IReadOnlyCollection<Guid> ids, CancellationToken ct) =>
+            Task.FromResult<IReadOnlyDictionary<Guid, VarianteVidrioLectura>>(_todas.Where(v => ids.Contains(v.VarianteId)).ToDictionary(v => v.VarianteId));
         public Task<IReadOnlyList<VarianteVidrioLectura>> ListarPorArticuloAsync(Guid articulo, CancellationToken ct) =>
             Task.FromResult<IReadOnlyList<VarianteVidrioLectura>>(_todas);
     }
@@ -183,7 +185,7 @@ public class RecepcionPorMedidaTests(WebApplicationFactory<Program> factory) : I
     }
 
     /// <summary>Catálogo mínimo: la unidad de existencia es M2 y el factor a documento M2 es 1 (HOJA nunca pasa por aquí).</summary>
-    private sealed class ConversionM2 : IConversionUnidadPort
+    internal sealed class ConversionM2 : IConversionUnidadPort
     {
         public Task<ConversionUnidad> ConvertirAsync(Guid articuloId, decimal cantidad, string? capturada, string documento, CancellationToken ct) =>
             Task.FromResult(new ConversionUnidad(cantidad, "M2", cantidad, 1, "M2", cantidad));

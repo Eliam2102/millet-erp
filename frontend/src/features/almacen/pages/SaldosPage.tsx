@@ -1,3 +1,4 @@
+import { textoMedida } from '@/features/almacen/lib/medida-hoja';
 import { ListadoModulo } from '@/components/erp/data/ListadoModulo';
 import { PageHeader } from '@/components/erp/PageHeader';
 import { useMemo, useState } from 'react';
@@ -138,6 +139,7 @@ export function SaldosPage() {
             columns={[
               { width: 'w-40' },
               { width: 'w-64' },
+              { width: 'w-40' },
               { width: 'w-24' },
               { width: 'w-24' },
               { width: 'w-24' },
@@ -303,6 +305,7 @@ function TablaSaldos({
                 onSortChange={setSort}
               />
             </TableHead>
+            <TableHead className="whitespace-nowrap">Medida</TableHead>
             <TableHead className="text-right">
               <SortableHeader
                 columnKey="cantidad"
@@ -339,7 +342,7 @@ function TablaSaldos({
         </TableHeader>
         <TableBody>
           {ordenados.map((s) => (
-            <TableRow key={`${s.subAlmacenId}-${s.articuloId}`}>
+            <TableRow key={`${s.subAlmacenId}-${s.articuloId}-${s.productoAwVarianteId ?? ''}`}>
               <TableCell className="font-mono text-xs">{s.subAlmacen}</TableCell>
               <TableCell className="max-w-0 truncate text-xs">
                 {s.articuloClave ? (
@@ -350,6 +353,9 @@ function TablaSaldos({
                 ) : (
                   <span className="font-mono">{s.articuloId}</span>
                 )}
+              </TableCell>
+              <TableCell className="whitespace-nowrap text-xs tabular-nums">
+                {textoMedida(s, s.cantidad) ?? <span className="text-ink-muted">—</span>}
               </TableCell>
               <TableCell className="text-right tabular-nums">
                 {formatCantidad(s.cantidad)}

@@ -48,7 +48,10 @@ public sealed record NodoJerarquiaDto(
     decimal Cantidad,
     decimal ValorInventarioMxn,
     bool EsDefault,
-    bool EsHoja);
+    bool EsHoja,
+    // F1-MP-01: en modo ubicación el artículo se parte por medida de hoja (una hoja del árbol por medida).
+    Guid? ProductoAwVarianteId = null,
+    string? Medida = null);
 
 public sealed record ObtenerHijosJerarquiaQuery(
     NivelNodoJerarquia NodoTipo,
@@ -68,15 +71,18 @@ public sealed class ObtenerHijosJerarquiaHandler
     private readonly AlmacenDbContext _db;
     private readonly ISucursalReadPort _sucursales;
     private readonly IArticuloReadPort _articulos;
+    private readonly IVarianteVidrioReadPort? _variantes;
 
     public ObtenerHijosJerarquiaHandler(
         AlmacenDbContext db,
         ISucursalReadPort sucursales,
-        IArticuloReadPort articulos)
+        IArticuloReadPort articulos,
+        IVarianteVidrioReadPort? variantes = null)
     {
         _db = db;
         _sucursales = sucursales;
         _articulos = articulos;
+        _variantes = variantes;
     }
 
     public async Task<IReadOnlyList<NodoJerarquiaDto>> Handle(
@@ -244,13 +250,12 @@ public sealed class ObtenerHijosJerarquiaHandler
     private async Task<IReadOnlyList<NodoJerarquiaDto>> HijosDeUbicacionAsync(
         ObtenerHijosJerarquiaQuery request, CancellationToken ct)
     {
-        // PK (ubicacion_id, articulo_id) → ya hay a lo sumo una fila por
-        // artículo; no hace falta agrupar.
+        // Llave (ubicacion_id, articulo_id, variante) → a lo sumo una fila por artículo y medida; no hace falta agrupar.
         var filas = await SaldosFiltrados(request)
             .Where(s => s.UbicacionId == request.NodoId!.Value)
             .OrderBy(s => s.ArticuloId)
             .Take(LimitMax)
-            .Select(s => new { s.ArticuloId, s.Cantidad, s.ValorInventarioMxn })
+            .Select(s => new { s.ArticuloId, s.ProductoAwVarianteId, s.Cantidad, s.ValorInventarioMxn })
             .ToListAsync(ct);
 
         // Clave/descripción del artículo en batch (ADR-0042); fallback al id.
@@ -259,15 +264,22 @@ public sealed class ObtenerHijosJerarquiaHandler
             ? await _articulos.ObtenerPorIdsAsync(articuloIds, ct)
             : new Dictionary<Guid, ArticuloLectura>();
 
+        var medidas = _variantes is null
+            ? new Dictionary<Guid, VarianteVidrioLectura>()
+            : await _variantes.ObtenerPorIdsAsync(
+                filas.Where(f => f.ProductoAwVarianteId != null).Select(f => f.ProductoAwVarianteId!.Value).Distinct().ToArray(), ct);
+        string? Medida(Guid? v) => v is Guid id && medidas.TryGetValue(id, out var m)
+            ? (m.AnchoMm != null && m.AltoMm != null ? $"{m.AnchoMm:0.##} × {m.AltoMm:0.##} mm" : m.ClaveVariante) : null;
+
         return filas
             .Select(f => articulos.TryGetValue(f.ArticuloId, out var art)
                 ? new NodoJerarquiaDto("articulo", f.ArticuloId,
                     art.Clave, art.Descripcion, f.Cantidad, f.ValorInventarioMxn,
-                    EsDefault: false, EsHoja: true)
+                    EsDefault: false, EsHoja: true, f.ProductoAwVarianteId, Medida(f.ProductoAwVarianteId))
                 : new NodoJerarquiaDto("articulo", f.ArticuloId,
                     f.ArticuloId.ToString(), string.Empty, f.Cantidad, f.ValorInventarioMxn,
-                    EsDefault: false, EsHoja: true))
-            .OrderBy(n => n.Clave, StringComparer.Ordinal)
+                    EsDefault: false, EsHoja: true, f.ProductoAwVarianteId, Medida(f.ProductoAwVarianteId)))
+            .OrderBy(n => n.Clave, StringComparer.Ordinal).ThenBy(n => n.Medida, StringComparer.Ordinal)
             .ToList();
     }
 }

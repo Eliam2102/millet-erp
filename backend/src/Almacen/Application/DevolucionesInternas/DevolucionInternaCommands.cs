@@ -231,7 +231,9 @@ public sealed class AplicarDevolucionInternaHandler
                 unidadMedida: lineaSalida.UnidadMedida,
                 costoUnitarioMxn: lineaSalida.CostoUnitarioMxn, // A9 — snapshot de la salida
                 ubicacionId: input.UbicacionId,
-                lineaSalidaOrigenId: lineaSalida.Id);
+                lineaSalidaOrigenId: lineaSalida.Id,
+                // F1-MP-01: la devolución regresa a la misma medida de la salida original.
+                productoAwVarianteId: lineaSalida.ProductoAwVarianteId, anchoMm: lineaSalida.AnchoMm, altoMm: lineaSalida.AltoMm);
             movimiento.AgregarLinea(linea);
 
             var monto = Math.Round(input.CantidadADevolver * lineaSalida.CostoUnitarioMxn, 2);
@@ -305,7 +307,9 @@ public sealed record MatRevLineaInput(
     decimal Cantidad,
     // C7.2b: bin real. Reincorporación (entrada) lo exige asignado/no-ÚNICA;
     // BajaPorDano (salida) elige un bin con saldo del sub-almacén MAT-REV.
-    Guid? UbicacionId = null);
+    Guid? UbicacionId = null,
+    // F1-MP-01: medida de hoja; exigida si el artículo está ligado a A+W, rechazada si no.
+    Guid? ProductoAwVarianteId = null);
 
 public sealed record BajaPorDanoResponse(Guid MovimientoId, string Folio);
 
@@ -335,6 +339,7 @@ public sealed class BajaPorDanoHandler : IRequestHandler<BajaPorDanoCommand, Baj
     private readonly IDecimalesUnidadGuard _decimalesGuard;
     private readonly IPeriodoContableReadPort _periodoContable;
     private readonly IArticuloReadPort _articulos;
+    private readonly IVarianteVidrioReadPort? _variantes; // opcional solo para pruebas unitarias sin medidas
 
     public BajaPorDanoHandler(
         AlmacenDbContext db,
@@ -342,8 +347,10 @@ public sealed class BajaPorDanoHandler : IRequestHandler<BajaPorDanoCommand, Baj
         ICurrentEmpresaContext currentEmpresa,
         IDecimalesUnidadGuard decimalesGuard,
         IPeriodoContableReadPort periodoContable,
-        IArticuloReadPort articulos)
+        IArticuloReadPort articulos,
+        IVarianteVidrioReadPort? variantes = null)
     {
+        _variantes = variantes;
         _db = db;
         _currentUser = currentUser;
         _currentEmpresa = currentEmpresa;
@@ -427,13 +434,15 @@ public sealed class BajaPorDanoHandler : IRequestHandler<BajaPorDanoCommand, Baj
         if (!esEntrada)
         {
             await ReservaDictamen.ValidarAsync(_db,
-                lineas.Select(l => (l.UbicacionId ?? ubicacionDefaultId ?? Guid.Empty, l.ArticuloId, (Guid?)null, l.Cantidad)).ToList(),
+                lineas.Select(l => (l.UbicacionId ?? ubicacionDefaultId ?? Guid.Empty, l.ArticuloId, l.ProductoAwVarianteId, l.Cantidad)).ToList(),
                 cancellationToken);
         }
 
         var posicion = 1;
         foreach (var l in lineas)
         {
+            var variante = await Recepciones.RecepcionVariante.ResolverAsync(
+                _articulos, _variantes, l.ArticuloId, l.ProductoAwVarianteId, cancellationToken, nuevoUso: false);
             // Reincorporación es entrada: bin obligatorio, asignado, no ÚNICA.
             // BajaPorDano es salida: elige un bin con saldo (guard del trigger).
             if (esEntrada)
@@ -444,8 +453,8 @@ public sealed class BajaPorDanoHandler : IRequestHandler<BajaPorDanoCommand, Baj
 
             var ubicacionCosto = l.UbicacionId ?? ubicacionDefaultId;
             var saldo = await _db.SaldosInventario.AsNoTracking()
-                .FirstOrDefaultAsync(s => s.UbicacionId == ubicacionCosto && s.ArticuloId == l.ArticuloId,
-                    cancellationToken);
+                .FirstOrDefaultAsync(s => s.UbicacionId == ubicacionCosto && s.ArticuloId == l.ArticuloId
+                    && s.ProductoAwVarianteId == l.ProductoAwVarianteId, cancellationToken);
             var costo = saldo?.CostoPromedioMxn ?? 0m;
             var linea = new LineaMovimiento(
                 id: Guid.CreateVersion7(),
@@ -455,7 +464,8 @@ public sealed class BajaPorDanoHandler : IRequestHandler<BajaPorDanoCommand, Baj
                 cantidad: l.Cantidad,
                 unidadMedida: UnidadBase(unidades, l.ArticuloId),
                 costoUnitarioMxn: costo,
-                ubicacionId: l.UbicacionId);
+                ubicacionId: l.UbicacionId,
+                productoAwVarianteId: variante?.VarianteId, anchoMm: variante?.AnchoMm, altoMm: variante?.AltoMm);
             movimiento.AgregarLinea(linea);
         }
 
@@ -522,6 +532,7 @@ public sealed class ReincorporacionTrasRevisionHandler
     private readonly IDecimalesUnidadGuard _decimalesGuard;
     private readonly IPeriodoContableReadPort _periodoContable;
     private readonly IArticuloReadPort _articulos;
+    private readonly IVarianteVidrioReadPort? _variantes; // opcional solo para pruebas unitarias sin medidas
 
     public ReincorporacionTrasRevisionHandler(
         AlmacenDbContext db,
@@ -529,8 +540,10 @@ public sealed class ReincorporacionTrasRevisionHandler
         ICurrentEmpresaContext currentEmpresa,
         IDecimalesUnidadGuard decimalesGuard,
         IPeriodoContableReadPort periodoContable,
-        IArticuloReadPort articulos)
+        IArticuloReadPort articulos,
+        IVarianteVidrioReadPort? variantes = null)
     {
+        _variantes = variantes;
         _db = db;
         _currentUser = currentUser;
         _currentEmpresa = currentEmpresa;
@@ -582,9 +595,9 @@ public sealed class ReincorporacionTrasRevisionHandler
             await DevolucionesProveedor.DevolucionOrigenLock.AbrirAsync(_db, bin, cancellationToken);
         var reservado = await ReservaDictamen.PendientePorBinAsync(_db, binIds, cancellationToken);
         var saldosMatRev = await _db.SaldosInventario.AsNoTracking()
-            // S4: la devolución interna por medida aún no existe; solo se reincorporan saldos sin variante.
-            .Where(s => binIds.Contains(s.UbicacionId) && s.Cantidad > 0 && s.ProductoAwVarianteId == null).ToListAsync(cancellationToken);
-        var consumidoEnEstaSolicitud = new Dictionary<(Guid, Guid), decimal>();
+            
+            .Where(s => binIds.Contains(s.UbicacionId) && s.Cantidad > 0).ToListAsync(cancellationToken);
+        var consumidoEnEstaSolicitud = new Dictionary<(Guid, Guid, Guid?), decimal>();
 
         var pares = new List<ParLiberacionLinea>(request.Lineas.Count);
         foreach (var l in request.Lineas)
@@ -596,15 +609,17 @@ public sealed class ReincorporacionTrasRevisionHandler
             // (saldo − reservado para dictamen − ya tomado por otra línea de esta solicitud) del artículo
             // (ponytail: un solo bin por línea). Sin saldo en ningún bin se usa el bin default de MAT-REV para
             // que el trigger lance SALDO_INEXISTENTE.
-            var candidatos = saldosMatRev.Where(s => s.ArticuloId == l.ArticuloId)
+            var variante = await Recepciones.RecepcionVariante.ResolverAsync(
+                _articulos, _variantes, l.ArticuloId, l.ProductoAwVarianteId, cancellationToken, nuevoUso: false);
+            var candidatos = saldosMatRev.Where(s => s.ArticuloId == l.ArticuloId && s.ProductoAwVarianteId == l.ProductoAwVarianteId)
                 .Select(s => new
                 {
                     s.UbicacionId,
                     s.CostoPromedioMxn,
                     Saldo = s.Cantidad,
-                    Reservado = reservado.GetValueOrDefault((s.UbicacionId, s.ArticuloId, (Guid?)null)),
+                    Reservado = reservado.GetValueOrDefault((s.UbicacionId, s.ArticuloId, s.ProductoAwVarianteId)),
                     Libre = s.Cantidad - reservado.GetValueOrDefault((s.UbicacionId, s.ArticuloId, (Guid?)null))
-                        - consumidoEnEstaSolicitud.GetValueOrDefault((s.UbicacionId, s.ArticuloId)),
+                        - consumidoEnEstaSolicitud.GetValueOrDefault((s.UbicacionId, s.ArticuloId, s.ProductoAwVarianteId)),
                 }).OrderByDescending(c => c.Libre).ToList();
             Guid origenBin;
             decimal origenCosto;
@@ -622,11 +637,12 @@ public sealed class ReincorporacionTrasRevisionHandler
                         $"(libre: {Math.Max(0m, mejor.Libre):0.####}). Dictamina primero la recepción (permiso dictaminar).");
                 origenBin = mejor.UbicacionId;
                 origenCosto = mejor.CostoPromedioMxn;
-                var k = (mejor.UbicacionId, l.ArticuloId);
+                var k = (mejor.UbicacionId, l.ArticuloId, l.ProductoAwVarianteId);
                 consumidoEnEstaSolicitud[k] = consumidoEnEstaSolicitud.GetValueOrDefault(k) + l.Cantidad;
             }
             pares.Add(new ParLiberacionLinea(
-                new LineaRevisionMov(l.ArticuloId, BajaPorDanoHandler.UnidadBase(unidades, l.ArticuloId), l.Cantidad, origenCosto, origenBin),
+                new LineaRevisionMov(l.ArticuloId, BajaPorDanoHandler.UnidadBase(unidades, l.ArticuloId), l.Cantidad, origenCosto, origenBin,
+                    variante?.VarianteId, variante?.AnchoMm, variante?.AltoMm),
                 l.UbicacionId!.Value));
         }
 

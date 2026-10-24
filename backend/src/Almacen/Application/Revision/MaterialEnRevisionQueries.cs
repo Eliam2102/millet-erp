@@ -28,7 +28,9 @@ public sealed record MaterialEnRevisionItem(
     Guid? UbicacionDisponibleSugeridaId, DateTimeOffset? FechaLimite, bool Vencida,
     // true = sin calendario de días hábiles configurado: no se pudo calcular FechaLimite (la UI lo avisa).
     bool PlazoNoCalculable,
-    IReadOnlyList<DictamenRevisionItem> Dictamenes);
+    IReadOnlyList<DictamenRevisionItem> Dictamenes,
+    // F1-MP-01: medida de la hoja en revisión (snapshot de la línea de recepción).
+    Guid? ProductoAwVarianteId = null, decimal? AnchoMm = null, decimal? AltoMm = null);
 
 public sealed record DictamenRevisionItem(
     Guid Id, ResultadoDictamen Resultado, decimal Cantidad, string Motivo, Guid DictaminadoPor,
@@ -146,7 +148,7 @@ public sealed class ListarMaterialEnRevisionHandler(
             }
 
             var sugerida = o.Linea.LineaOcId is Guid lineaOc
-                ? principal?.Lineas.FirstOrDefault(x => x.LineaOcId == lineaOc)?.UbicacionId
+                ? principal?.Lineas.FirstOrDefault(x => x.LineaOcId == lineaOc && x.ProductoAwVarianteId == o.Linea.ProductoAwVarianteId)?.UbicacionId
                 : null;
             var limite = limites.GetValueOrDefault(fechaRecepcion);
             items.Add(new MaterialEnRevisionItem(
@@ -158,7 +160,8 @@ public sealed class ListarMaterialEnRevisionHandler(
                 limite is null,
                 historial.Select(d => new DictamenRevisionItem(
                     d.Id, d.Resultado, d.Cantidad, d.Motivo, d.DictaminadoPor, d.DictaminadoAt,
-                    d.DevolucionAProveedorId)).ToList()));
+                    d.DevolucionAProveedorId)).ToList(),
+                o.Linea.ProductoAwVarianteId, o.Linea.AnchoMm, o.Linea.AltoMm));
         }
         return items.OrderBy(i => i.FechaRecepcion).ThenBy(i => i.RecepcionFolio).ToList();
     }

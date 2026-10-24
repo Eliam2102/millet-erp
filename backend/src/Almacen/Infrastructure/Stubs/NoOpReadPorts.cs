@@ -378,4 +378,8 @@ public sealed class NoOpVarianteVidrioReadPort : IVarianteVidrioReadPort
 
     public Task<IReadOnlyList<VarianteVidrioLectura>> ListarPorArticuloAsync(Guid articuloId, CancellationToken cancellationToken)
         => Task.FromResult<IReadOnlyList<VarianteVidrioLectura>>([]);
+
+    public Task<IReadOnlyDictionary<Guid, VarianteVidrioLectura>> ObtenerPorIdsAsync(
+        IReadOnlyCollection<Guid> varianteIds, CancellationToken cancellationToken)
+        => Task.FromResult<IReadOnlyDictionary<Guid, VarianteVidrioLectura>>(new Dictionary<Guid, VarianteVidrioLectura>());
 }

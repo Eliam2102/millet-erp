@@ -59,7 +59,9 @@ public sealed record RegistrarSalidaLineaInput(
     // C7.2b: bin real de salida (rack con saldo, o la ÚNICA para agotar
     // histórico). El tipo se mantiene nullable porque lo comparte el vale
     // (variante B); en salida-con-RQ (variante A) el validator lo exige.
-    Guid? UbicacionId = null, string? UnidadCapturada = null);
+    Guid? UbicacionId = null, string? UnidadCapturada = null,
+    // F1-MP-01: medida de la hoja (vidrio crudo). Exigida si el artículo está ligado a A+W; rechazada si no.
+    Guid? ProductoAwVarianteId = null);
 
 public sealed record RegistrarSalidaResponse(
     Guid SalidaId,
@@ -108,6 +110,9 @@ public sealed class RegistrarSalidaConRequisicionHandler
     private readonly IDecimalesUnidadGuard _decimalesGuard;
     private readonly IConversionUnidadPort _conversion;
     private readonly ApartadosRequisicionService _apartados;
+    // Opcionales solo para pruebas unitarias sin medidas; la API los inyecta siempre.
+    private readonly IArticuloReadPort? _articulos;
+    private readonly IVarianteVidrioReadPort? _variantes;
 
     public RegistrarSalidaConRequisicionHandler(
         AlmacenDbContext db,
@@ -116,8 +121,11 @@ public sealed class RegistrarSalidaConRequisicionHandler
         ICurrentUserContext currentUser,
         ICurrentEmpresaContext currentEmpresa,
         IDecimalesUnidadGuard decimalesGuard,
-        IPeriodoContableReadPort periodoContable, IConversionUnidadPort conversion, ApartadosRequisicionService apartados)
+        IPeriodoContableReadPort periodoContable, IConversionUnidadPort conversion, ApartadosRequisicionService apartados,
+        IArticuloReadPort? articulos = null, IVarianteVidrioReadPort? variantes = null)
     {
+        _articulos = articulos;
+        _variantes = variantes;
         _db = db;
         _rqPort = rqPort;
         _events = events;
@@ -135,9 +143,14 @@ public sealed class RegistrarSalidaConRequisicionHandler
         var rq = await _rqPort.ObtenerAsync(request.RequisicionId, cancellationToken);
         SalidaRqGuard.Validar(rq, request.Lineas.Select(l => string.IsNullOrWhiteSpace(l.UnidadCapturada) ? l : l with { Cantidad = 0m }).ToList());
         var conversiones = new List<ConversionUnidad>();
+        var variantes = new List<VarianteVidrioLectura?>();
         foreach (var input in request.Lineas)
-            conversiones.Add(await _conversion.ConvertirAsync(input.ArticuloId, input.Cantidad,
-                input.UnidadCapturada, rq!.Lineas.Single(l => l.LineaId == input.LineaRqId).UnidadMedida ?? "PZA", cancellationToken));
+        {
+            var variante = await Recepciones.RecepcionVariante.ResolverAsync(_articulos, _variantes, input.ArticuloId, input.ProductoAwVarianteId, cancellationToken, nuevoUso: false);
+            variantes.Add(variante);
+            conversiones.Add(await Recepciones.RecepcionVariante.ConvertirAsync(_conversion, input.ArticuloId, input.Cantidad,
+                input.UnidadCapturada, rq!.Lineas.Single(l => l.LineaId == input.LineaRqId).UnidadMedida ?? "PZA", variante, cancellationToken));
+        }
         SalidaRqGuard.Validar(rq, request.Lineas.Select((l, i) => l with { Cantidad = conversiones[i].CantidadDocumento }).ToList());
 
         // 2. Salida-por-línea C2: el sub-almacén ya NO viene en la cabecera — se
@@ -254,9 +267,11 @@ public sealed class RegistrarSalidaConRequisicionHandler
                     "Cada línea de salida debe indicar la ubicación (bin) de donde sale.");
             var saldo = await _db.SaldosInventario.AsNoTracking()
                 .FirstOrDefaultAsync(
-                    s => s.UbicacionId == ubicacionLinea && s.ArticuloId == input.ArticuloId,
+                    s => s.UbicacionId == ubicacionLinea && s.ArticuloId == input.ArticuloId
+                        && s.ProductoAwVarianteId == input.ProductoAwVarianteId,
                     cancellationToken);
             var costoSnapshot = saldo?.CostoPromedioMxn ?? 0m;
+            var variante = variantes[posicion - 1];
             var um = rq!.Lineas.First(l => l.LineaId == input.LineaRqId).UnidadMedida
                 ?? "PZA";
 
@@ -283,7 +298,8 @@ public sealed class RegistrarSalidaConRequisicionHandler
                 // ADR-0043: persistir la línea de RQ surtida (antes se
                 // descartaba) para que el evento la propague a Compras.
                 lineaRqId: input.LineaRqId,
-                ubicacionId: ubicacionLinea);
+                ubicacionId: ubicacionLinea,
+                productoAwVarianteId: variante?.VarianteId, anchoMm: variante?.AnchoMm, altoMm: variante?.AltoMm);
             linea.AsentarCaptura(conversion.CantidadCapturada, conversion.UnidadCapturada);
             await _apartados.ConsumirAsync(sucursalId!.Value, request.RequisicionId, input.LineaRqId, input.ArticuloId,
                 conversion.CantidadBase, cancellationToken);

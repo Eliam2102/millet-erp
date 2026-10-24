@@ -15,6 +15,13 @@ public interface IVarianteVidrioReadPort
     /// </summary>
     Task<VarianteVidrioLectura> ObtenerAsync(Guid articuloId, Guid varianteId, CancellationToken cancellationToken);
 
+    /// <summary>
+    /// Medidas por id de variante, sin exigir producto activo ni liga vigente: sirve para mostrar existencia, conteos y reportes
+    /// de medidas ya recibidas. Los ids que no existen no aparecen.
+    /// </summary>
+    Task<IReadOnlyDictionary<Guid, VarianteVidrioLectura>> ObtenerPorIdsAsync(
+        IReadOnlyCollection<Guid> varianteIds, CancellationToken cancellationToken);
+
     /// <summary>Variantes del producto A+W del artículo (vacío si no está ligado o el producto está inactivo).</summary>
     Task<IReadOnlyList<VarianteVidrioLectura>> ListarPorArticuloAsync(Guid articuloId, CancellationToken cancellationToken);
 }

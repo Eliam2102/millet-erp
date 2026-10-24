@@ -14,7 +14,8 @@ internal static class RecepcionVariante
     public const string UnidadHoja = "HOJA";
 
     public static async Task<VarianteVidrioLectura?> ResolverAsync(
-        IArticuloReadPort? articulos, IVarianteVidrioReadPort? variantes, Guid articuloId, Guid? varianteId, CancellationToken ct)
+        IArticuloReadPort? articulos, IVarianteVidrioReadPort? variantes, Guid articuloId, Guid? varianteId, CancellationToken ct,
+        bool nuevoUso = true)
     {
         // Sin los puertos (solo pruebas unitarias que no manejan medidas) no hay artículos ligados.
         var ligado = articulos is not null && (await articulos.ObtenerAsync(articuloId, ct))?.ProductoAwId is not null;
@@ -26,7 +27,12 @@ internal static class RecepcionVariante
         }
         if (varianteId is null)
             throw new BusinessRuleException("VARIANTE_VIDRIO_REQUERIDA", "Elige la medida de la hoja.");
-        var v = await variantes!.ObtenerAsync(articuloId, varianteId.Value, ct);
+        // Recibir es uso nuevo (producto activo y liga vigente). Sacar o mover existencia ya recibida no lo es: la fila de saldo
+        // de esa medida es la que manda (el trigger rechaza una medida sin existencia), aunque el producto se haya dado de baja.
+        var v = nuevoUso
+            ? await variantes!.ObtenerAsync(articuloId, varianteId.Value, ct)
+            : (await variantes!.ObtenerPorIdsAsync([varianteId.Value], ct)).GetValueOrDefault(varianteId.Value)
+                ?? throw new BusinessRuleException("VARIANTE_NO_PERTENECE_AL_ARTICULO", "La medida elegida no existe.");
         if (v.AreaHojaM2 is null)
             throw new BusinessRuleException("VARIANTE_SIN_MEDIDA", "La medida elegida no tiene ancho y alto en A+W; no se puede recibir.");
         return v;
@@ -40,11 +46,11 @@ internal static class RecepcionVariante
             return await conversion.ConvertirAsync(articuloId, cantidad, unidadCapturada, unidadDocumento, ct);
         if (cantidad <= 0 || cantidad != decimal.Truncate(cantidad))
             throw new BusinessRuleException("HOJAS_ENTERAS", "Las hojas se capturan en números enteros mayores a 0.");
-        // La OC de vidrio por medida va en la unidad de existencia (m²); una OC en hojas necesitaría factor por medida.
+        // El documento (OC, RQ) de vidrio por medida va en la unidad de existencia (m²); en hojas necesitaría factor por medida.
         var documento = await conversion.ConvertirAsync(articuloId, 1m, null, unidadDocumento, ct);
         if (documento.FactorDocumentoABase != 1m)
             throw new BusinessRuleException("RECEPCION_UNIDAD_OC_VIDRIO",
-                "La línea de la orden de compra de vidrio por medida debe estar en la unidad del artículo (m²).");
+                "La línea del documento de vidrio por medida debe estar en la unidad del artículo (m²).");
         var m2 = cantidad * variante.AreaHojaM2!.Value;
         return new ConversionUnidad(m2, documento.UnidadBase, m2, 1m, UnidadHoja, cantidad, documento.DecimalesDocumento);
     }
