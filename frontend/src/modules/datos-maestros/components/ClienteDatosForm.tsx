@@ -167,7 +167,7 @@ export function ClienteDatosForm({ cliente }: ClienteDatosFormProps) {
     <form
       onSubmit={form.handleSubmit(onSubmit)}
       noValidate
-      className="  gap-4 rounded-md border bg-surface-card p-4  max-w-3xl"
+      className="  gap-4 rounded-md border bg-surface-card p-4"
     >
       <FormSeccion titulo="Datos del registro">
         <FormCampo span={12}>

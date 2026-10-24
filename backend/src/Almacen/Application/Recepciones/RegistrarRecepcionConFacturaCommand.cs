@@ -334,7 +334,9 @@ public sealed class RegistrarRecepcionConFacturaHandler
         if (payloadLineas.All(x => x.EsActivoFijo))
         {
             if (importacion is not null) { importacion.VincularRecepcion(movimientoId); _db.RecepcionesImportacion.Add(importacion); }
-            var folioActivo = $"REC-AF-{movimientoId:N}";
+            // Sin bin no hay almacén que comparar: la sucursal destino de la OC la verifica el endpoint (alcance del usuario sobre la OC o permiso de todas las sucursales).
+            var folioActivo = await Catalogo.FolioMovimientoLock.SiguienteEntradaCompraAsync(_db, request.FechaMovimiento.Year, cancellationToken);
+            foreach (var ra in _db.RecepcionesActivos.Local.Where(x => x.RecepcionId == movimientoId)) ra.Folio = folioActivo;
             await _events.PublishAsync(new OcRecepcionRegistradaIntegrationEvent(empresaId, DateTimeOffset.UtcNow,
                 movimientoId, folioActivo, request.OrdenCompraId, request.FechaMovimiento, false, request.CfdiRecibidoId, request.CfdiUuidFiscal,
                 request.Observaciones, payloadLineas, SucursalId: oc!.SucursalDestinoId), cancellationToken);
@@ -387,6 +389,7 @@ public sealed class RegistrarRecepcionConFacturaHandler
             m!.Registrar(FolioMovimiento.Construir(TipoMovimiento.EntradaCompra, anio, secuencia.Incrementar()), registradoPor);
             _db.Movimientos.Add(m);
         }
+        foreach (var ra in _db.RecepcionesActivos.Local.Where(x => x.RecepcionId == principal.Id)) ra.Folio = principal.Folio;
 
         // 7. Publicar evento al outbox (interceptor lo persiste en la misma TX).
         await _events.PublishAsync(new OcRecepcionRegistradaIntegrationEvent(

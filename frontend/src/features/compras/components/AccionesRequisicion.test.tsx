@@ -193,7 +193,7 @@ describe('<AccionesRequisicion>', () => {
     ).not.toBeInTheDocument();
   });
 
-  it('EnAutorizacion + permiso N2: muestra Aprobar Nivel 2 disabled hasta que N1 firme', () => {
+  it('EnAutorizacion + permiso N2: oculta Aprobar Nivel 2 hasta que N1 firme', () => {
     setupSession([PermisosCanonicos.ComprasRequisicionesAutorizarNivel2]);
     render(
       <AccionesRequisicion
@@ -204,8 +204,7 @@ describe('<AccionesRequisicion>', () => {
       />,
       { wrapper: wrapperWithStubs() },
     );
-    const btn = screen.getByRole('button', { name: /aprobar nivel 2/i });
-    expect(btn).toBeDisabled();
+    expect(screen.queryByRole('button', { name: /aprobar nivel 2/i })).not.toBeInTheDocument();
   });
 
   it('EnAutorizacion + N1 firmado + permiso N2: Aprobar Nivel 2 habilitado', () => {

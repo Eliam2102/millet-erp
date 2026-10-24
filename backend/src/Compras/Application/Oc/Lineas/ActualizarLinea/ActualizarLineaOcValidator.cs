@@ -45,6 +45,10 @@ public sealed class ActualizarLineaOcValidator : AbstractValidator<ActualizarLin
             .WithMessage("La fracción arancelaria debe tener 8 o 10 dígitos.")
             .When(c => c.FraccionArancelaria is not null);
 
+        RuleFor(c => c.ClaseActivoId)
+            .NotEqual(Guid.Empty).WithErrorCode("CLASE_ACTIVO_INVALIDA")
+            .When(c => c.ClaseActivoId.HasValue);
+
         // Descuento: ambos o ninguno.
         RuleFor(c => c.DescuentoValor)
             .NotNull().WithErrorCode("DESCUENTO_VALOR_REQUERIDO")

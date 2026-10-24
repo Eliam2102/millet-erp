@@ -40,9 +40,14 @@ export interface CubrimientoBarProps {
   cantDeAlmacen: number;
   /** Ordenada en OC (incluye recibido y pendiente recepción). */
   cantDeCompra: number;
+  /**
+   * Ya comprometida en OCs no canceladas (CantComprometidaEnOc del backend). Sin este dato
+   * se asume que todo lo ordenado ya está en OC.
+   */
+  cantEnOc?: number;
   /** De la cantDeCompra, cuánto ya se recibió. */
   cantRecibida: number;
-  /** Cantidad sin asignar/ordenar todavía (= cantidad - alm - oc). */
+  /** Pendiente según el backend. No se pinta: «sin comprar» se deriva (cantidad - alm - OC). */
   cantPendiente: number;
   /** Apartado liberado que ya no se pide ni se compra (86e3tferc). */
   cantSinCompra?: number;
@@ -68,14 +73,17 @@ export function CubrimientoBar({
   cantidad,
   cantDeAlmacen,
   cantDeCompra,
+  cantEnOc,
   cantRecibida,
-  cantPendiente,
   cantSinCompra = 0,
   className,
 }: CubrimientoBarProps) {
   // El backend nos da campos brutos; calculamos derivados acá.
-  // cantDeCompra incluye la recibida y la pendiente de recepción.
-  const cantPendienteRecepcion = Math.max(0, cantDeCompra - cantRecibida);
+  const enOc = Math.max(cantEnOc ?? cantDeCompra, cantRecibida);
+  const cantPendienteRecepcion = Math.max(0, enOc - cantRecibida);
+  // El cantPendiente del backend también cuenta lo que ya está en OC sin recibir:
+  // pintarlo duplicaba la OC («24 OC · 24 pend»).
+  const cantPendiente = Math.max(0, cantidad - cantDeAlmacen - enOc - cantSinCompra);
 
   // Para evitar divisiones por cero cuando cantidad=0 (raro pero posible).
   const total = Math.max(1, cantidad);
@@ -132,7 +140,7 @@ export function CubrimientoBar({
   const inline = formatearInline({
     cantidad,
     cantDeAlmacen,
-    cantDeCompra,
+    cantDeCompra: enOc,
     cantRecibida,
     cantPendiente,
     cantSinCompra,
