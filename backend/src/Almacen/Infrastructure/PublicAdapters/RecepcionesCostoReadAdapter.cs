@@ -18,18 +18,18 @@ public sealed class RecepcionesCostoReadAdapter(AlmacenDbContext db) : IRecepcio
         foreach (var entrada in entradas)
         {
             var l = entrada.Linea;
-            var saldo = await db.SaldosInventario.AsNoTracking().SingleOrDefaultAsync(s => s.UbicacionId == l.UbicacionId && s.ArticuloId == l.ArticuloId, ct);
-            var remanente = await RemanenteAsync(db, empresa, l.Id, l.UbicacionId!.Value, l.ArticuloId, ct);
+            var saldo = await db.SaldosInventario.AsNoTracking().SingleOrDefaultAsync(s => s.UbicacionId == l.UbicacionId && s.ArticuloId == l.ArticuloId && s.ProductoAwVarianteId == l.ProductoAwVarianteId, ct);
+            var remanente = await RemanenteAsync(db, empresa, l.Id, l.UbicacionId!.Value, l.ArticuloId, l.ProductoAwVarianteId, ct);
             resultado.Add(new(l.Id, oc, entrada.Recepcion.Id, l.ArticuloId, l.UbicacionId.Value,
                 (entrada.Recepcion.Folio ?? "Recepción") + " · partida " + l.Posicion, l.Cantidad,
                 Math.Min(remanente, saldo?.Cantidad ?? 0), saldo?.Cantidad ?? 0, saldo?.CostoPromedioMxn ?? 0));
         }
         return resultado;
     }
-    public static async Task<decimal> RemanenteAsync(AlmacenDbContext db, Guid empresa, Guid partida, Guid ubicacion, Guid articulo, CancellationToken ct)
+    public static async Task<decimal> RemanenteAsync(AlmacenDbContext db, Guid empresa, Guid partida, Guid ubicacion, Guid articulo, Guid? variante, CancellationToken ct)
     {
         var historial = await (from m in db.Movimientos.AsNoTracking() join l in db.LineasMovimiento on m.Id equals l.MovimientoId
-            where m.EmpresaId == empresa && m.Estado == EstadoMovimiento.Registrado && l.UbicacionId == ubicacion && l.ArticuloId == articulo
+            where m.EmpresaId == empresa && m.Estado == EstadoMovimiento.Registrado && l.UbicacionId == ubicacion && l.ArticuloId == articulo && l.ProductoAwVarianteId == variante
             orderby m.FechaRegistro, m.Id, l.Posicion
             select new { l.Id, l.Cantidad, m.Tipo }).ToListAsync(ct);
         decimal existencia = 0, remanente = 0;

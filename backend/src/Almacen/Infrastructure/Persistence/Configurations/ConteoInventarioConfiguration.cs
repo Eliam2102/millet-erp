@@ -68,10 +68,12 @@ public sealed class LineaConteoConfiguration : IEntityTypeConfiguration<LineaCon
         builder.Property(x => x.Justificacion).HasMaxLength(500);
 
         // C7.2c: el conteo baja a rack. Índice único por (conteo, artículo,
-        // ubicación) — espeja la PK de saldos por ubicación, así que el
-        // snapshot (una línea por fila de saldo) no puede violarlo.
-        builder.HasIndex(x => new { x.ConteoId, x.ArticuloId, x.UbicacionId })
+        // ubicación, variante) — espeja la llave natural de saldos (F1-MP-01), así que el
+        // snapshot (una línea por fila de saldo) no puede violarlo. NULLS NOT DISTINCT: sin medida = una sola.
+        builder.Property(x => x.ProductoAwVarianteId);
+        builder.HasIndex(x => new { x.ConteoId, x.ArticuloId, x.UbicacionId, x.ProductoAwVarianteId })
             .IsUnique()
+            .AreNullsDistinct(false)
             .HasDatabaseName("ux_lineas_conteo");
         builder.HasIndex(x => x.ConteoId);
 

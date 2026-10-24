@@ -45,18 +45,18 @@ public sealed class ExpedienteCostoDistribuidoHandler(AlmacenDbContext db, IInte
             var anterior = await ajustes.OrderByDescending(x => x.NumeroVersion).FirstOrDefaultAsync(cancellationToken);
             if (l.ImporteMxn - (anterior?.AcumuladoMxn ?? 0) != l.DiferenciaMxn)
                 throw new BusinessRuleException("CE_VERSION_COSTO_PENDIENTE", "Falta aplicar una versión anterior o el acumulado no cuadra.");
-            var valida = await (from m in db.Movimientos join linea in db.LineasMovimiento on m.Id equals linea.MovimientoId
+            var partida = await (from m in db.Movimientos join linea in db.LineasMovimiento on m.Id equals linea.MovimientoId
                 join u in db.Ubicaciones on linea.UbicacionId equals u.Id join sub in db.SubAlmacenes on u.SubAlmacenId equals sub.Id
                 join a in db.Almacenes on sub.AlmacenId equals a.Id
                 where m.EmpresaId == p.EmpresaId && a.SucursalId == p.SucursalId && m.Id == l.RecepcionId && m.OcId == l.OcId &&
                     m.Tipo == TipoMovimiento.EntradaCompra && m.Estado == EstadoMovimiento.Registrado && linea.Id == l.PartidaId &&
                     linea.ArticuloId == l.ArticuloId && linea.UbicacionId == l.UbicacionId && linea.Cantidad == l.CantidadRecibida
-                select linea.Id).AnyAsync(cancellationToken);
-            if (!valida) throw new BusinessRuleException("CE_RECEPCION_INVALIDA", "La partida no corresponde a una recepción de la empresa y sucursal.");
+                select new { linea.ProductoAwVarianteId }).FirstOrDefaultAsync(cancellationToken);
+            if (partida is null) throw new BusinessRuleException("CE_RECEPCION_INVALIDA", "La partida no corresponde a una recepción de la empresa y sucursal.");
             // El mismo lock de fila que toma el trigger de movimientos físicos impide perder salidas concurrentes.
-            var saldo = await db.SaldosInventario.FromSqlInterpolated($"SELECT * FROM almacen.saldos_inventario WHERE ubicacion_id = {l.UbicacionId} AND articulo_id = {l.ArticuloId} FOR UPDATE").SingleAsync(cancellationToken);
+            var saldo = await db.SaldosInventario.FromSqlInterpolated($"SELECT * FROM almacen.saldos_inventario WHERE ubicacion_id = {l.UbicacionId} AND articulo_id = {l.ArticuloId} AND producto_aw_variante_id IS NOT DISTINCT FROM {partida.ProductoAwVarianteId} FOR UPDATE").SingleAsync(cancellationToken);
             await db.Entry(saldo).ReloadAsync(cancellationToken);
-            var remanente = Math.Min(saldo.Cantidad, await RecepcionesCostoReadAdapter.RemanenteAsync(db, p.EmpresaId, l.PartidaId, l.UbicacionId, l.ArticuloId, cancellationToken));
+            var remanente = Math.Min(saldo.Cantidad, await RecepcionesCostoReadAdapter.RemanenteAsync(db, p.EmpresaId, l.PartidaId, l.UbicacionId, l.ArticuloId, partida.ProductoAwVarianteId, cancellationToken));
             var reparto = SaldoInventario.SepararCosto(l.DiferenciaMxn, l.CantidadRecibida, remanente);
             saldo.AjustarValor(reparto.Inventario, clock.UtcNow);
             db.Set<AjusteCostoExpediente>().Add(new(p.EmpresaId, p.ExpedienteId, p.NumeroVersion, l.PartidaId, l.UbicacionId, l.ArticuloId,

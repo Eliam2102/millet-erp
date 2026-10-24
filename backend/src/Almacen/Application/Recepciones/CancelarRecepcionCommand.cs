@@ -129,7 +129,8 @@ public sealed class CancelarRecepcionHandler(
         foreach (var m in movimientos)
         {
             var creado = await MovimientosRevision.AgregarAsync(db, empresaId, usuarioId, TipoMovimiento.CancelacionEntradaCompra, hoy, motivo,
-                m.Lineas.Select(l => new LineaRevisionMov(l.ArticuloId, l.UnidadMedida, l.Cantidad, l.CostoUnitarioMxn, l.UbicacionId!.Value)).ToList(), ct);
+                m.Lineas.Select(l => new LineaRevisionMov(l.ArticuloId, l.UnidadMedida, l.Cantidad, l.CostoUnitarioMxn, l.UbicacionId!.Value,
+                    l.ProductoAwVarianteId, l.AnchoMm, l.AltoMm)).ToList(), ct);
             db.Movimientos.Local.Single(x => x.Id == creado.Id).VincularCancelacion(m.Id);
             m.CancelarRecepcion(motivo);
             cen.Add(creado);
@@ -184,25 +185,26 @@ public sealed class CancelarRecepcionHandler(
     }
 
     /// <summary>
-    /// ponytail: revisa salidas posteriores por (ubicación, artículo) sin rastrear lotes (Almacén no tiene lote). Si el saldo
+    /// ponytail: revisa salidas posteriores por (ubicación, artículo, variante) sin rastrear lotes (Almacén no tiene lote). Si el saldo
     /// alcanza pero hubo una salida, igual se niega: el costo y la existencia ya no se pueden atribuir a esta recepción.
     /// Una carrera entre esta revisión y el commit la ataja el trigger con SALDO_INSUFICIENTE.
     /// </summary>
     private async Task ValidarSinSalidasAsync(IEnumerable<MovimientoInventario> movimientos, DateTimeOffset? registradoAt, CancellationToken ct)
     {
         var porBin = movimientos.SelectMany(m => m.Lineas)
-            .GroupBy(l => (Ubicacion: l.UbicacionId!.Value, l.ArticuloId))
-            .Select(g => (g.Key.Ubicacion, g.Key.ArticuloId, Cantidad: g.Sum(l => l.Cantidad)));
-        foreach (var (ubicacion, articulo, cantidad) in porBin)
+            .GroupBy(l => (Ubicacion: l.UbicacionId!.Value, l.ArticuloId, Variante: l.ProductoAwVarianteId))
+            .Select(g => (g.Key.Ubicacion, g.Key.ArticuloId, g.Key.Variante, Cantidad: g.Sum(l => l.Cantidad)));
+        foreach (var (ubicacion, articulo, variante, cantidad) in porBin)
         {
             var saldo = await db.SaldosInventario.AsNoTracking()
-                .Where(s => s.UbicacionId == ubicacion && s.ArticuloId == articulo).Select(s => s.Cantidad).FirstOrDefaultAsync(ct);
+                .Where(s => s.UbicacionId == ubicacion && s.ArticuloId == articulo && s.ProductoAwVarianteId == variante)
+                .Select(s => s.Cantidad).FirstOrDefaultAsync(ct);
             // Entradas y la propia cancelación de otras recepciones no son salidas de esta mercancía.
             // AjustePrecioFactura cuenta a propósito: el costo ya se ajustó contra la factura y no se revierte aquí.
             var salidaPosterior = await (from m in db.Movimientos.AsNoTracking()
                                          join l in db.LineasMovimiento.AsNoTracking() on m.Id equals l.MovimientoId
                                          where m.Estado == EstadoMovimiento.Registrado && m.RegistradoAt > registradoAt
-                                            && l.UbicacionId == ubicacion && l.ArticuloId == articulo
+                                            && l.UbicacionId == ubicacion && l.ArticuloId == articulo && l.ProductoAwVarianteId == variante
                                             && m.Tipo != TipoMovimiento.EntradaCompra && m.Tipo != TipoMovimiento.DevolucionSalida
                                             && m.Tipo != TipoMovimiento.AjustePositivo && m.Tipo != TipoMovimiento.ReincorporacionTrasRevision
                                             && m.Tipo != TipoMovimiento.CancelacionEntradaCompra
@@ -215,13 +217,13 @@ public sealed class CancelarRecepcionHandler(
 
     private async Task RestaurarCostoPromedioAsync(IEnumerable<MovimientoInventario> movimientos, CancellationToken ct)
     {
-        foreach (var g in movimientos.SelectMany(m => m.Lineas).GroupBy(l => (Ubicacion: l.UbicacionId!.Value, l.ArticuloId))
-                     .OrderBy(g => g.Key.Ubicacion).ThenBy(g => g.Key.ArticuloId))
+        foreach (var g in movimientos.SelectMany(m => m.Lineas).GroupBy(l => (Ubicacion: l.UbicacionId!.Value, l.ArticuloId, Variante: l.ProductoAwVarianteId))
+                     .OrderBy(g => g.Key.Ubicacion).ThenBy(g => g.Key.ArticuloId).ThenBy(g => g.Key.Variante))
         {
             // Mismo bloqueo de fila que el trigger y el ajuste de costo de expediente; el Reload evita leer un saldo rastreado viejo.
             var consulta = db.Database.IsNpgsql()
-                ? db.SaldosInventario.FromSqlInterpolated($"SELECT * FROM almacen.saldos_inventario WHERE ubicacion_id = {g.Key.Ubicacion} AND articulo_id = {g.Key.ArticuloId} FOR UPDATE")
-                : db.SaldosInventario.Where(s => s.UbicacionId == g.Key.Ubicacion && s.ArticuloId == g.Key.ArticuloId);
+                ? db.SaldosInventario.FromSqlInterpolated($"SELECT * FROM almacen.saldos_inventario WHERE ubicacion_id = {g.Key.Ubicacion} AND articulo_id = {g.Key.ArticuloId} AND producto_aw_variante_id IS NOT DISTINCT FROM {g.Key.Variante} FOR UPDATE")
+                : db.SaldosInventario.Where(s => s.UbicacionId == g.Key.Ubicacion && s.ArticuloId == g.Key.ArticuloId && s.ProductoAwVarianteId == g.Key.Variante);
             var saldo = await consulta.SingleAsync(ct);
             await db.Entry(saldo).ReloadAsync(ct);
             if (saldo.Cantidad <= 0m) continue; // sin existencia el siguiente ingreso fija su propio costo (trigger)

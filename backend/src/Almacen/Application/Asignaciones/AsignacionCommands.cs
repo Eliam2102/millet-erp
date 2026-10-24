@@ -116,14 +116,14 @@ public sealed class AsignarArticuloAUbicacionHandler
         await _db.SaveChangesAsync(cancellationToken);
 
         // Fila de saldo en 0, idempotente. Si un movimiento ya la creó, DO NOTHING
-        // (mismo conflict target que el trigger: (ubicacion_id, articulo_id)).
+        // (mismo conflict target que el trigger; la fila-en-0 es la de variante NULL).
         await _db.Database.ExecuteSqlInterpolatedAsync($@"
             INSERT INTO almacen.saldos_inventario
                 (ubicacion_id, sub_almacen_id, articulo_id, cantidad,
                  costo_promedio_mxn, ultima_actualizacion_at)
             VALUES ({request.UbicacionId}, {ubicacion.SubAlmacenId}, {request.ArticuloId},
                     0, 0, NOW())
-            ON CONFLICT (ubicacion_id, articulo_id) DO NOTHING",
+            ON CONFLICT (ubicacion_id, articulo_id, producto_aw_variante_id) DO NOTHING",
             cancellationToken);
 
         await tx.CommitAsync(cancellationToken);

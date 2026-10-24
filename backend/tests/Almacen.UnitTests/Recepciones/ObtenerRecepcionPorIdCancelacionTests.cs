@@ -114,7 +114,7 @@ public class ObtenerRecepcionPorIdCancelacionTests
         db.Movimientos.Add(a);
         await db.SaveChangesAsync();
 
-        var remanente = await RecepcionesCostoReadAdapter.RemanenteAsync(db, Empresa, a.Lineas.Single().Id, BinId, ArtA, default);
+        var remanente = await RecepcionesCostoReadAdapter.RemanenteAsync(db, Empresa, a.Lineas.Single().Id, BinId, ArtA, null, default);
 
         remanente.Should().Be(5m);
     }
