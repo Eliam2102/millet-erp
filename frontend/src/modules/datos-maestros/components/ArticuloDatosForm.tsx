@@ -19,11 +19,12 @@ import {
   ActualizarArticuloSchema,
   type ActualizarArticuloValues,
 } from '@/modules/datos-maestros/schemas/articulo';
-import { useActualizarArticulo } from '@/modules/datos-maestros/api';
+import { useActualizarArticulo, useProductoAw } from '@/modules/datos-maestros/api';
 import { Naturaleza, type ArticuloDetalle } from '@/modules/datos-maestros/api/types';
 import { UnidadMedidaSelect } from '@/modules/catalogos/components/UnidadMedidaSelect';
 import { MonedaSelector } from '@/components/erp/selectors/MonedaSelector';
 import { CategoriaSelector } from '@/components/erp/selectors/CategoriaSelector';
+import { ProductoAwSelector } from '@/features/facturacion/components/selectors/ProductoAwSelector';
 import { useHasPermission } from '@/lib/auth/useHasPermission';
 import { PermisosCanonicos } from '@/lib/auth/permission-codes';
 
@@ -43,6 +44,8 @@ export interface ArticuloDatosFormProps {
 export function ArticuloDatosForm({ articulo }: ArticuloDatosFormProps) {
   const canEditar = useHasPermission(PermisosCanonicos.CompartidoCatalogosAdministrar);
   const actualizar = useActualizarArticulo();
+  // Etiqueta del producto ya ligado (el selector solo conoce el id).
+  const productoLigado = useProductoAw(articulo.productoAwId);
 
   const form = useForm<ActualizarArticuloValues>({
     resolver: zodResolver(ActualizarArticuloSchema),
@@ -80,6 +83,12 @@ export function ArticuloDatosForm({ articulo }: ArticuloDatosFormProps) {
           // origen) NO se toca al guardar → conserva su string legacy.
           limpiarCategoria: articulo.categoriaId != null && values.categoriaId == null,
           limpiarPrecioReferencia: limpiarPrecio,
+          // E07 D5: solo viaja si cambió el vínculo; null con vínculo previo = desligar.
+          productoAwId:
+            values.productoAwId != null && values.productoAwId !== articulo.productoAwId
+              ? values.productoAwId
+              : null,
+          limpiarProductoAw: articulo.productoAwId != null && values.productoAwId == null,
         },
         // Key fresca por submit: este form es multi-submit (queda montado tras
         // guardar), así que una key estable daría 422 al 2º guardado con un body
@@ -206,6 +215,32 @@ export function ArticuloDatosForm({ articulo }: ArticuloDatosFormProps) {
                   value={field.value ?? null}
                   onChange={field.onChange}
                   initialLabel={articulo.categoria}
+                  disabled={!canEditar}
+                />
+              )}
+            />
+          </FormRow>
+        </FormCampo>
+
+        <FormCampo span={12}>
+          <FormRow
+            label="Producto A+W"
+            hint="Solo vidrio crudo por medida: liga el artículo a su familia en A+W (1:1). Vacío = insumo sin medidas."
+            error={form.formState.errors.productoAwId?.message}
+          >
+            <Controller
+              name="productoAwId"
+              control={form.control}
+              render={({ field }) => (
+                <ProductoAwSelector
+                  value={field.value ?? null}
+                  onChange={(item) => field.onChange(item?.id ?? null)}
+                  initialLabel={
+                    productoLigado.data != null
+                      ? `${productoLigado.data.referenciaExterna} · ${productoLigado.data.descripcion}`
+                      : undefined
+                  }
+                  placeholder="Sin producto A+W"
                   disabled={!canEditar}
                 />
               )}
@@ -344,5 +379,6 @@ function buildDefaults(a: ArticuloDetalle): ActualizarArticuloValues {
     categoriaId: a.categoriaId ?? null,
     precioReferenciaMonto: a.precioReferenciaMonto ?? null,
     precioReferenciaMoneda: a.precioReferenciaMoneda ?? null,
+    productoAwId: a.productoAwId ?? null,
   };
 }

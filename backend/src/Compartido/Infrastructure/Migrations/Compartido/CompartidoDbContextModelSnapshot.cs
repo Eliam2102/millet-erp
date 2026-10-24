@@ -3977,6 +3977,10 @@ namespace Millet.Compartido.Infrastructure.Migrations.Compartido
                         .HasColumnType("numeric(15,4)")
                         .HasColumnName("precio_referencia_monto");
 
+                    b.Property<Guid?>("ProductoAwId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("producto_aw_id");
+
                     b.Property<string>("UnidadMedidaDefault")
                         .IsRequired()
                         .HasMaxLength(20)
@@ -4015,6 +4019,11 @@ namespace Millet.Compartido.Infrastructure.Migrations.Compartido
 
                     b.HasIndex("Naturaleza")
                         .HasDatabaseName("ix_articulos_naturaleza");
+
+                    b.HasIndex("ProductoAwId")
+                        .IsUnique()
+                        .HasDatabaseName("ux_articulos_producto_aw_id")
+                        .HasFilter("producto_aw_id IS NOT NULL");
 
                     b.HasIndex("UnidadMedidaId")
                         .HasDatabaseName("ix_articulos_unidad_medida_id");
@@ -7397,6 +7406,12 @@ namespace Millet.Compartido.Infrastructure.Migrations.Compartido
                         .HasForeignKey("CategoriaId")
                         .OnDelete(DeleteBehavior.Restrict)
                         .HasConstraintName("fk_articulos_categorias_articulo_categoria_id");
+
+                    b.HasOne("Millet.DatosMaestros.Domain.ProductoAw", null)
+                        .WithMany()
+                        .HasForeignKey("ProductoAwId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .HasConstraintName("fk_articulos_productos_aw_producto_aw_id");
 
                     b.HasOne("Millet.Catalogos.Domain.UnidadMedida", null)
                         .WithMany()

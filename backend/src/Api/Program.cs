@@ -829,6 +829,9 @@ builder.Services.AddScoped<
     Millet.Almacen.Domain.Ports.IArticuloReadPort,
     Millet.Compartido.Infrastructure.PublicAdapters.ArticuloReadAdapter>();
 builder.Services.AddScoped<
+    Millet.Almacen.Domain.Ports.IVarianteVidrioReadPort,
+    Millet.Compartido.Infrastructure.PublicAdapters.VarianteVidrioReadAdapter>();
+builder.Services.AddScoped<
     Millet.Almacen.Domain.Ports.IEmpleadoReadPort,
     Millet.Compartido.Infrastructure.PublicAdapters.EmpleadoReadAdapter>();
 builder.Services.AddScoped<

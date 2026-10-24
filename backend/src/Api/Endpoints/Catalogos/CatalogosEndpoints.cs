@@ -273,7 +273,7 @@ public static class CatalogosEndpoints
                 a.Id, a.Clave, a.ClaveLegacy, a.Nombre, a.DescripcionLarga,
                 a.UnidadMedidaDefault, a.UnidadMedidaId, a.Naturaleza, a.Categoria,
                 a.CategoriaId,
-                a.PrecioReferenciaMonto, a.PrecioReferenciaMoneda, a.Estatus));
+                a.PrecioReferenciaMonto, a.PrecioReferenciaMoneda, a.Estatus, a.ProductoAwId));
         })
         .RequireAuthorization(PermissionPolicyProvider.Prefix + PermisosCanonicos.CompartidoCatalogosLeer)
         .WithName("ObtenerArticuloPorId")
@@ -456,7 +456,8 @@ public static class CatalogosEndpoints
                     DescripcionLarga: request.DescripcionLarga,
                     CategoriaId: request.CategoriaId,
                     PrecioReferenciaMonto: request.PrecioReferenciaMonto,
-                    PrecioReferenciaMoneda: request.PrecioReferenciaMoneda),
+                    PrecioReferenciaMoneda: request.PrecioReferenciaMoneda,
+                    ProductoAwId: request.ProductoAwId),
                 cancellationToken);
             return Results.Created($"/api/v1/catalogos/articulos/{response.Id}", response);
         })
@@ -495,7 +496,9 @@ public static class CatalogosEndpoints
                     PrecioReferenciaMoneda: body.PrecioReferenciaMoneda,
                     LimpiarDescripcionLarga: body.LimpiarDescripcionLarga ?? false,
                     LimpiarCategoria: body.LimpiarCategoria ?? false,
-                    LimpiarPrecioReferencia: body.LimpiarPrecioReferencia ?? false),
+                    LimpiarPrecioReferencia: body.LimpiarPrecioReferencia ?? false,
+                    ProductoAwId: body.ProductoAwId,
+                    LimpiarProductoAw: body.LimpiarProductoAw ?? false),
                 cancellationToken);
             return Results.NoContent();
         })
@@ -586,7 +589,8 @@ public static class CatalogosEndpoints
         string? DescripcionLarga,
         Guid? CategoriaId,
         decimal? PrecioReferenciaMonto,
-        string? PrecioReferenciaMoneda);
+        string? PrecioReferenciaMoneda,
+        Guid? ProductoAwId = null);
 
     /// <summary>Body del PATCH /articulos/{id} (B.5). Todos opcionales.</summary>
     public sealed record ActualizarArticuloRequest(
@@ -599,7 +603,9 @@ public static class CatalogosEndpoints
         string? PrecioReferenciaMoneda,
         bool? LimpiarDescripcionLarga,
         bool? LimpiarCategoria,
-        bool? LimpiarPrecioReferencia);
+        bool? LimpiarPrecioReferencia,
+        Guid? ProductoAwId = null,
+        bool? LimpiarProductoAw = null);
 }
 
 /// <summary>Wrapper de paginación offset-based para listados de catálogos.</summary>
