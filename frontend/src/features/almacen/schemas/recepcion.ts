@@ -57,12 +57,54 @@ export const FilaRecepcionSchema = z
     // C7.2b: bin real destino (rack). Obligatorio en las filas incluidas.
     ubicacionId: z.string().regex(UUID_SHAPE_RE).nullish(),
     comentario: z.string().max(500, 'Máximo 500 caracteres').nullish(),
+    // F1-MP-01: medidas ofrecidas por el servidor (solo vidrio ligado a A+W) y renglones «medida + hojas» capturados.
+    // Con medidas, `cantidad` y `cantidadDanada` son los m² derivados (Σ hojas × m² por hoja); viajan las hojas por renglón.
+    variantes: z
+      .array(
+        z.object({
+          varianteId: z.string(),
+          claveVariante: z.string(),
+          anchoMm: z.number().nullable(),
+          altoMm: z.number().nullable(),
+          espesorMm: z.number().nullable().optional(),
+          areaHojaM2: z.number().nullable(),
+        }),
+      )
+      .nullish(),
+    medidas: z
+      .array(
+        z.object({
+          varianteId: z.string().nullable(),
+          hojas: z.number().nonnegative(),
+          danadas: z.number().nonnegative(),
+        }),
+      )
+      .nullish(),
     // ALM-04: parte de la cantidad que llegó dañada; va a material en revisión.
     cantidadDanada: z.number().nonnegative('La cantidad dañada no puede ser negativa'),
     motivoDano: z.string().max(500, 'Máximo 500 caracteres').nullish(),
   })
   .superRefine((v, ctx) => {
     if (!v.incluida) return;
+    if (v.variantes?.length) {
+      const m = v.medidas ?? [];
+      const ids = m.map((x) => x.varianteId).filter(Boolean);
+      const mensaje = !m.length
+        ? 'Agrega al menos una medida de hoja.'
+        : m.some((x) => !x.varianteId)
+          ? 'Elige la medida de la hoja.'
+          : m.some((x) => !Number.isInteger(x.hojas) || x.hojas <= 0)
+            ? 'Captura hojas enteras mayores a cero.'
+            : m.some((x) => !Number.isInteger(x.danadas) || x.danadas > x.hojas)
+              ? 'Las hojas dañadas son enteras y no pueden exceder las recibidas.'
+              : new Set(ids).size !== ids.length
+                ? 'Una medida no puede repetirse en la misma partida.'
+                : null;
+      if (mensaje) {
+        ctx.addIssue({ code: 'custom', path: ['medidas'], message: mensaje });
+        return;
+      }
+    }
     if (v.cantidad <= 0) {
       ctx.addIssue({
         code: 'custom',

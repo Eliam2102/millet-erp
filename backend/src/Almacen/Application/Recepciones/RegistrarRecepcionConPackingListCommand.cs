@@ -96,6 +96,9 @@ public sealed class RegistrarRecepcionConPackingListHandler
     private readonly IPeriodoContableReadPort _periodoContable;
     private readonly IDecimalesUnidadGuard _decimalesGuard;
     private readonly IConversionUnidadPort _conversion;
+    // Opcionales solo para pruebas unitarias sin medidas; la API los inyecta siempre.
+    private readonly IArticuloReadPort? _articulos;
+    private readonly IVarianteVidrioReadPort? _variantes;
 
     public RegistrarRecepcionConPackingListHandler(
         AlmacenDbContext db,
@@ -104,8 +107,11 @@ public sealed class RegistrarRecepcionConPackingListHandler
         ICurrentUserContext currentUser,
         ICurrentEmpresaContext currentEmpresa,
         IDecimalesUnidadGuard decimalesGuard,
-        IPeriodoContableReadPort periodoContable, IConversionUnidadPort conversion)
+        IPeriodoContableReadPort periodoContable, IConversionUnidadPort conversion,
+        IArticuloReadPort? articulos = null, IVarianteVidrioReadPort? variantes = null)
     {
+        _articulos = articulos;
+        _variantes = variantes;
         _db = db;
         _ocPort = ocPort;
         _events = events;
@@ -135,9 +141,15 @@ public sealed class RegistrarRecepcionConPackingListHandler
             _db, empresaId, request.FechaMovimiento, _periodoContable, cancellationToken);
 
         var conversiones = new List<ConversionUnidad>();
+        // F1-MP-01: la medida se valida contra el producto A+W vigente del artículo en cada recepción.
+        var variantes = new List<VarianteVidrioLectura?>();
         foreach (var input in request.Lineas)
-            conversiones.Add(await _conversion.ConvertirAsync(input.ArticuloId, input.Cantidad,
-                input.UnidadCapturada, oc!.Lineas.Single(l => l.LineaId == input.LineaOcId).UnidadMedida!, cancellationToken));
+        {
+            var variante = await RecepcionVariante.ResolverAsync(_articulos, _variantes, input.ArticuloId, input.ProductoAwVarianteId, cancellationToken);
+            variantes.Add(variante);
+            conversiones.Add(await RecepcionVariante.ConvertirAsync(_conversion, input.ArticuloId, input.Cantidad,
+                input.UnidadCapturada, oc!.Lineas.Single(l => l.LineaId == input.LineaOcId).UnidadMedida!, variante, cancellationToken));
+        }
         var equivalentes = request.Lineas.Select((l, i) => l with { Cantidad = conversiones[i].CantidadDocumento }).ToList();
         var validada = await RecepcionOcGuard.ValidarAsync(oc, equivalentes, recibidoPropio, cancellationToken);
         var lineasOc = validada.Lineas;
@@ -207,8 +219,8 @@ public sealed class RegistrarRecepcionConPackingListHandler
             var conversion = conversiones[idx];
             var acumulado = validada.RecibidoPorLinea[lineaOcId] + equivalentes.Where(e => e.LineaOcId == lineaOcId).Sum(e => e.Cantidad);
             var convDanada = input.CantidadDanada > 0
-                ? await _conversion.ConvertirAsync(input.ArticuloId, input.CantidadDanada, input.UnidadCapturada,
-                    oc!.Lineas.Single(l => l.LineaId == input.LineaOcId).UnidadMedida!, cancellationToken)
+                ? await RecepcionVariante.ConvertirAsync(_conversion, input.ArticuloId, input.CantidadDanada, input.UnidadCapturada,
+                    oc!.Lineas.Single(l => l.LineaId == input.LineaOcId).UnidadMedida!, variantes[idx], cancellationToken)
                 : null;
             var baseBuena = conversion.CantidadBase - (convDanada?.CantidadBase ?? 0m);
 
@@ -227,7 +239,8 @@ public sealed class RegistrarRecepcionConPackingListHandler
                     ubicacionReferencia: input.UbicacionReferencia,
                     comentarioLinea: input.Comentario,
                     ubicacionId: input.UbicacionId,
-                    lineaOcId: lineaOcId);
+                    lineaOcId: lineaOcId,
+                    productoAwVarianteId: variantes[idx]?.VarianteId, anchoMm: variantes[idx]?.AnchoMm, altoMm: variantes[idx]?.AltoMm);
                 if (convDanada is null) linea.AsentarCaptura(conversion.CantidadCapturada, conversion.UnidadCapturada);
                 else linea.AsentarCaptura(input.Cantidad - input.CantidadDanada, conversion.UnidadCapturada);
                 movimiento.AgregarLinea(linea);
@@ -270,7 +283,8 @@ public sealed class RegistrarRecepcionConPackingListHandler
                     centroCostoId: origen.CentroCostoId,
                     comentarioLinea: input.MotivoDano,
                     ubicacionId: rackRevision.Value.UbicacionRevisionId,
-                    lineaOcId: lineaOcId);
+                    lineaOcId: lineaOcId,
+                    productoAwVarianteId: variantes[idx]?.VarianteId, anchoMm: variantes[idx]?.AnchoMm, altoMm: variantes[idx]?.AltoMm);
                 lineaRev.AsentarCaptura(input.CantidadDanada, conversion.UnidadCapturada);
                 movimientoRevision.AgregarLinea(lineaRev);
 

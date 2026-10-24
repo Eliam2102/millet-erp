@@ -50,6 +50,23 @@ public class RegistrarSalidaDevolucionAProveedorPr6aTests
     }
 
     [Fact]
+    public async Task La_salida_hereda_la_medida_de_la_linea_de_recepcion_original()
+    {
+        await using var db = NuevaDb();
+        var (subId, _, rackId) = await SembrarSubConUnicaAsync(db, conUnica: true);
+        var variante = Guid.NewGuid();
+        var dev = await SembrarDevolucionAutorizadaAsync(db, subId, varianteOrigen: variante);
+
+        var resp = await Handler(db).Handle(
+            new RegistrarSalidaDevolucionAProveedorCommand(dev.Id, subId, new DateOnly(2027, 4, 1),
+                new[] { new DevolucionProveedorSalidaLineaBin(dev.Lineas.Single().Id, rackId) }),
+            CancellationToken.None);
+
+        var linea = await LeerLineaUnicaAsync(db, resp.MovimientoSalidaId);
+        (linea.ProductoAwVarianteId, linea.AnchoMm, linea.AltoMm).Should().Be((variante, 2440m, 3660m));
+    }
+
+    [Fact]
     public async Task Con_bin_explicito_respeta_el_bin_y_no_usa_la_default()
     {
         await using var db = NuevaDb();
@@ -173,7 +190,7 @@ public class RegistrarSalidaDevolucionAProveedorPr6aTests
     }
 
     private static async Task<DevolucionAProveedor> SembrarDevolucionAutorizadaAsync(
-        AlmacenDbContext db, Guid _, Guid? lineaOcId = null, int lineasDev = 1, decimal cantidadPorLinea = 5m)
+        AlmacenDbContext db, Guid _, Guid? lineaOcId = null, int lineasDev = 1, decimal cantidadPorLinea = 5m, Guid? varianteOrigen = null)
     {
         var dev = new DevolucionAProveedor(
             id: Guid.NewGuid(),
@@ -196,7 +213,8 @@ public class RegistrarSalidaDevolucionAProveedorPr6aTests
                 costoUnitarioMxn: 100m));
         var origen = new MovimientoInventario(dev.RecepcionOrigenId!.Value, TipoMovimiento.EntradaCompra, EmpresaId, new DateOnly(2027, 3, 1));
         origen.VincularRecepcionVarianteA(Guid.NewGuid(), null, Guid.NewGuid(), null);
-        var recibida = new LineaMovimiento(Guid.NewGuid(), origen.Id, 1, linea.ArticuloId, 10, "PZA", 100, ubicacionId: Guid.NewGuid(), lineaOcId: lineaOcId);
+        var recibida = new LineaMovimiento(Guid.NewGuid(), origen.Id, 1, linea.ArticuloId, 10, "PZA", 100, ubicacionId: Guid.NewGuid(), lineaOcId: lineaOcId,
+            productoAwVarianteId: varianteOrigen, anchoMm: varianteOrigen is null ? null : 2440m, altoMm: varianteOrigen is null ? null : 3660m);
         origen.AgregarLinea(recibida);
         origen.Registrar(FolioMovimiento.Construir(TipoMovimiento.EntradaCompra, 2027, 100), UserId);
         foreach (var l in dev.Lineas)

@@ -1,6 +1,6 @@
 import type { FilaRecepcionValues } from '@/features/almacen/schemas/recepcion';
 import type { LineaOrdenCompraResponse } from '@/features/compras/ordenes/api/types';
-import type { LineaRecibible } from '@/features/almacen/api/types';
+import type { LineaRecibible, VarianteVidrio } from '@/features/almacen/api/types';
 
 /**
  * Mapea las líneas del detalle de OC a filas del form de recepción.
@@ -40,7 +40,9 @@ export function construirFilas(
         pendiente,
         maximo: r ? r.maximoRecibible : pendiente,
         incluida: false,
-        cantidad: pendiente,
+        cantidad: r?.variantes?.length ? 0 : pendiente,
+        variantes: r?.variantes?.length ? r.variantes : null,
+        medidas: r?.variantes?.length ? [{ varianteId: null, hojas: 0, danadas: 0 }] : null,
         ubicacionReferencia: null,
         ubicacionId: null,
         comentario: null,
@@ -109,3 +111,22 @@ export function contarLineasEnOtraUbicacion(
   return filas.filter((f) => f.incluida && !!f.ubicacionId && f.ubicacionId !== ubicacionHelperId)
     .length;
 }
+
+/** Renglón «medida + hojas» de una partida de vidrio crudo (F1-MP-01). */
+export type MedidaHoja = NonNullable<FilaRecepcionValues['medidas']>[number];
+
+export const etiquetaMedida = (v: Pick<VarianteVidrio, 'anchoMm' | 'altoMm' | 'claveVariante'>) =>
+  v.anchoMm != null && v.altoMm != null ? `${v.anchoMm} × ${v.altoMm} mm` : v.claveVariante;
+
+/** m² de un renglón: hojas × m² por hoja (D6, redondeo por hoja a 4 decimales, como el servidor). */
+export const m2Renglon = (hojas: number, area: number | null | undefined) =>
+  area == null ? 0 : Math.round(hojas * area * 1e4) / 1e4;
+
+/** Totales en m² que alimentan `cantidad` y `cantidadDanada` de la partida (los valida el esquema contra lo pendiente). */
+export function totalesM2(medidas: readonly MedidaHoja[], variantes: readonly VarianteVidrio[]) {
+  const area = (id: string | null) => variantes.find((v) => v.varianteId === id)?.areaHojaM2;
+  const suma = (f: (m: MedidaHoja) => number) =>
+    Math.round(medidas.reduce((a, m) => a + m2Renglon(f(m), area(m.varianteId)), 0) * 1e4) / 1e4;
+  return { cantidad: suma((m) => m.hojas), danada: suma((m) => m.danadas) };
+}
+

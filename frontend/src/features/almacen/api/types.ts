@@ -313,6 +313,10 @@ export interface RecepcionLineaItem {
   motivoDano?: string | null;
   /** F1-COM-06: fracción arancelaria capturada en la recepción de importación. */
   fraccionArancelaria?: string | null;
+  /** F1-MP-01: medida de la hoja (vidrio crudo); null = artículo sin medida. */
+  productoAwVarianteId?: string | null;
+  anchoMm?: number | null;
+  altoMm?: number | null;
 }
 
 /** F1-COM-06: documentos de importación de la recepción. */
@@ -398,6 +402,18 @@ export interface LineaRecibible {
   cantidadRecibida: number;
   pendiente: number;
   maximoRecibible: number;
+  /** F1-MP-01: medidas de hoja del vidrio ligado a A+W; ausente o vacío = el artículo no se recibe por medida. */
+  variantes?: VarianteVidrio[] | null;
+}
+
+/** Medida de hoja (variante de A+W). `areaHojaM2` = ancho × alto / 1e6 a 4 decimales; null si A+W no informó medidas. */
+export interface VarianteVidrio {
+  varianteId: string;
+  claveVariante: string;
+  anchoMm: number | null;
+  altoMm: number | null;
+  espesorMm?: number | null;
+  areaHojaM2: number | null;
 }
 
 /**
@@ -464,6 +480,8 @@ export interface RegistrarRecepcionLineaInput {
   /** ALM-04: parte de la cantidad dañada; entra a material en revisión. */
   cantidadDanada?: number;
   motivoDano?: string | null;
+  /** F1-MP-01: medida de la hoja; con ella `cantidad` son hojas y `unidadCapturada` = HOJA. */
+  productoAwVarianteId?: string | null;
 }
 
 export interface RegistrarRecepcionResponse {

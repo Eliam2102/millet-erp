@@ -46,7 +46,9 @@ public sealed record ListarMaterialEnRevisionQuery(bool SoloPendientes = true, s
 public sealed record LineaRevisionInfo(
     Guid LineaRevisionId, Guid MovimientoRevisionId, Guid EmpresaId, Guid SucursalId, Guid SubAlmacenRevisionId,
     Guid UbicacionRevisionId, Guid ArticuloId, string UnidadMedida, decimal Cantidad, decimal CostoUnitarioMxn,
-    Guid? LineaOcId, Guid? OrdenCompraId, string? MotivoDano, string Etiqueta);
+    Guid? LineaOcId, Guid? OrdenCompraId, string? MotivoDano, string Etiqueta,
+    // F1-MP-01: medida de la hoja en revisión; el dictamen la hereda en salida, baja y devolución.
+    Guid? ProductoAwVarianteId = null, decimal? AnchoMm = null, decimal? AltoMm = null);
 
 public sealed record ObtenerLineaRevisionQuery(Guid LineaRevisionId) : IRequest<LineaRevisionInfo?>;
 
@@ -185,6 +187,7 @@ public sealed class ObtenerLineaRevisionHandler(AlmacenDbContext db)
         return new LineaRevisionInfo(
             r.Linea.Id, r.Linea.MovimientoId, r.EmpresaId, sucursalId.Value, r.SubAlmacenId, r.UbicacionId,
             r.Linea.ArticuloId, r.Linea.UnidadMedida, r.Linea.Cantidad, r.Linea.CostoUnitarioMxn,
-            r.Linea.LineaOcId, r.OcId, r.Linea.ComentarioLinea, $"{r.Folio} · línea {r.Linea.Posicion}");
+            r.Linea.LineaOcId, r.OcId, r.Linea.ComentarioLinea, $"{r.Folio} · línea {r.Linea.Posicion}",
+            r.Linea.ProductoAwVarianteId, r.Linea.AnchoMm, r.Linea.AltoMm);
     }
 }

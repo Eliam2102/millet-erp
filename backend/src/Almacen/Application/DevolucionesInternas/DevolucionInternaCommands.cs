@@ -427,7 +427,7 @@ public sealed class BajaPorDanoHandler : IRequestHandler<BajaPorDanoCommand, Baj
         if (!esEntrada)
         {
             await ReservaDictamen.ValidarAsync(_db,
-                lineas.Select(l => (l.UbicacionId ?? ubicacionDefaultId ?? Guid.Empty, l.ArticuloId, l.Cantidad)).ToList(),
+                lineas.Select(l => (l.UbicacionId ?? ubicacionDefaultId ?? Guid.Empty, l.ArticuloId, (Guid?)null, l.Cantidad)).ToList(),
                 cancellationToken);
         }
 
@@ -582,7 +582,8 @@ public sealed class ReincorporacionTrasRevisionHandler
             await DevolucionesProveedor.DevolucionOrigenLock.AbrirAsync(_db, bin, cancellationToken);
         var reservado = await ReservaDictamen.PendientePorBinAsync(_db, binIds, cancellationToken);
         var saldosMatRev = await _db.SaldosInventario.AsNoTracking()
-            .Where(s => binIds.Contains(s.UbicacionId) && s.Cantidad > 0).ToListAsync(cancellationToken);
+            // S4: la devolución interna por medida aún no existe; solo se reincorporan saldos sin variante.
+            .Where(s => binIds.Contains(s.UbicacionId) && s.Cantidad > 0 && s.ProductoAwVarianteId == null).ToListAsync(cancellationToken);
         var consumidoEnEstaSolicitud = new Dictionary<(Guid, Guid), decimal>();
 
         var pares = new List<ParLiberacionLinea>(request.Lineas.Count);
@@ -601,8 +602,8 @@ public sealed class ReincorporacionTrasRevisionHandler
                     s.UbicacionId,
                     s.CostoPromedioMxn,
                     Saldo = s.Cantidad,
-                    Reservado = reservado.GetValueOrDefault((s.UbicacionId, s.ArticuloId)),
-                    Libre = s.Cantidad - reservado.GetValueOrDefault((s.UbicacionId, s.ArticuloId))
+                    Reservado = reservado.GetValueOrDefault((s.UbicacionId, s.ArticuloId, (Guid?)null)),
+                    Libre = s.Cantidad - reservado.GetValueOrDefault((s.UbicacionId, s.ArticuloId, (Guid?)null))
                         - consumidoEnEstaSolicitud.GetValueOrDefault((s.UbicacionId, s.ArticuloId)),
                 }).OrderByDescending(c => c.Libre).ToList();
             Guid origenBin;

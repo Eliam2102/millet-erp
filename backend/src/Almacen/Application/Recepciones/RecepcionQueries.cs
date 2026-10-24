@@ -89,7 +89,9 @@ public sealed record RecepcionLineaItem(
     // ALM-04: línea que entró al sub-almacén de material en revisión (no disponible hasta el dictamen) y su motivo de daño.
     bool EnRevision = false, string? MotivoDano = null,
     // F1-COM-06: fracción arancelaria capturada en la recepción de importación.
-    string? FraccionArancelaria = null);
+    string? FraccionArancelaria = null,
+    // F1-MP-01: medida de la hoja (vidrio crudo); null = artículo sin medida.
+    Guid? ProductoAwVarianteId = null, decimal? AnchoMm = null, decimal? AltoMm = null);
 
 public sealed record ListarRecepcionesQuery(
     EstadoMovimiento? Estado,
@@ -412,7 +414,8 @@ public sealed class ObtenerRecepcionPorIdHandler
                         l.UbicacionId,
                         l.UbicacionId is Guid ub && rutasUbicacion.TryGetValue(ub, out var ruta) ? ruta : null,
                         enRevision, enRevision ? l.ComentarioLinea : null,
-                        l.LineaOcId is Guid loc ? fracciones.GetValueOrDefault(loc) : null);
+                        l.LineaOcId is Guid loc ? fracciones.GetValueOrDefault(loc) : null,
+                        l.ProductoAwVarianteId, l.AnchoMm, l.AltoMm);
                 })
                 .ToList(),
             CfdiUuidFiscal: cfdiUuidFiscal,
