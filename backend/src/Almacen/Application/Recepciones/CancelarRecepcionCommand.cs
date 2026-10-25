@@ -44,10 +44,11 @@ public sealed class CancelarRecepcionValidator : AbstractValidator<CancelarRecep
     public CancelarRecepcionValidator()
     {
         RuleFor(c => c.RecepcionId).NotEqual(Guid.Empty);
-        RuleFor(c => c.MotivoCodigo).NotEmpty()
+        RuleFor(c => c.MotivoCodigo).NotEmpty().WithMessage("Selecciona el motivo de la cancelación.")
             .Must(c => MotivosCancelacionRecepcion.Codigos.Contains((c ?? "").Trim().ToUpperInvariant()))
             .WithMessage($"El motivo debe ser uno de: {string.Join(", ", MotivosCancelacionRecepcion.Codigos)}.");
-        RuleFor(c => c.MotivoTexto).NotEmpty().MaximumLength(MotivosCancelacionRecepcion.TextoMaximo)
+        RuleFor(c => c.MotivoTexto).NotEmpty().WithMessage("Explica qué se capturó mal.")
+            .MaximumLength(MotivosCancelacionRecepcion.TextoMaximo)
             .WithMessage($"Explica el motivo (máximo {MotivosCancelacionRecepcion.TextoMaximo} caracteres).");
     }
 }

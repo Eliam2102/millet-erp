@@ -82,11 +82,11 @@ export function CancelarRecepcionDialog({
 
   return (
     <Dialog open={open} onOpenChange={(v) => !enviando && onOpenChange(v)}>
-      <DialogContent closeLabel="Cerrar" data-component="cancelar-recepcion-dialog">
+      <DialogContent size="sm" closeLabel="Cerrar" data-component="cancelar-recepcion-dialog">
         <DialogHeader>
           <DialogTitle>Cancelar recepción {recepcion.folio}</DialogTitle>
           <DialogDescription>
-            Úsalo cuando la recepción se capturó mal. Después podrás capturar la correcta.
+            Úsalo cuando la recepción se capturó mal. Esta acción no se puede deshacer; después podrás capturar la correcta.
           </DialogDescription>
         </DialogHeader>
         <DialogBody className="space-y-4">
@@ -120,27 +120,21 @@ export function CancelarRecepcionDialog({
                   .
                 </li>
               )}
-              {(recepcion.cfdiRecibidoId || recepcion.facturaId) && (
+              {recepcion.cfdiRecibidoId && (
                 <li>
-                  Se desvincula
-                  {recepcion.cfdiRecibidoId && (
-                    <>
-                      {' '}
-                      el CFDI{' '}
-                      <span className="font-mono text-xs">
-                        {recepcion.cfdiUuidFiscal ?? `${recepcion.cfdiRecibidoId.slice(0, 8)}…`}
-                      </span>
-                    </>
-                  )}
-                  {recepcion.facturaId && (
-                    <>
-                      {' '}
-                      la factura{' '}
-                      <span className="font-mono text-xs">
-                        {recepcion.facturaFolio ?? `${recepcion.facturaId.slice(0, 8)}…`}
-                      </span>
-                    </>
-                  )}
+                  El CFDI{' '}
+                  <span className="font-mono text-xs">
+                    {recepcion.cfdiUuidFiscal ?? `${recepcion.cfdiRecibidoId.slice(0, 8)}…`}
+                  </span>{' '}
+                  queda libre para la recepción correcta.
+                </li>
+              )}
+              {recepcion.facturaId && (
+                <li>
+                  Se desvincula la factura{' '}
+                  <span className="font-mono text-xs">
+                    {recepcion.facturaFolio ?? `${recepcion.facturaId.slice(0, 8)}…`}
+                  </span>
                   .
                 </li>
               )}
@@ -202,7 +196,7 @@ export function CancelarRecepcionDialog({
             data-action="confirmar-cancelacion"
           >
             {enviando && <Loader2 className="animate-spin" aria-hidden="true" />}
-            Cancelar recepción
+            Confirmar cancelación
           </Button>
         </DialogFooter>
       </DialogContent>
