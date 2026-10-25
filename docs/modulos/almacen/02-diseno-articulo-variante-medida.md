@@ -44,7 +44,7 @@
 
 ## 3. Variante faltante y retazos
 
-- **Medida que no está en `BA_LAGMA`** (no hay variante en `producto_aw_variante`): la línea de RQ queda **bloqueada** (`VARIANTE_VIDRIO_REQUERIDA`); el comprador pide a TI (Jorge) que la dé de alta en A+W; el ERP la recibe en la siguiente sincronización. **El ERP nunca crea variantes** (A+W es solo lectura, doc 06 §1). Caso ya conocido: «10MM CLARO 1100×2100» no está en `BA_LAGMA` (doc 06 §11).
+- **Medida que no está en `BA_LAGMA`** (no hay variante en `producto_aw_variante`): la solicitud de alta sale **desde la requisición**. Quien captura indica la medida nueva (`ancho_mm × alto_mm`) y la línea queda en espera de alta de medida (sin `ProductoAwVarianteId`, con la medida solicitada). El ERP escribe la solicitud completa en una tabla puente nueva de `MILLET_INTEGRACION` (`dbo.erp_solicitud_alta_medida`, mismo patrón que `erp_otr_estado`, doc 09): `solicitud_id` (idempotencia), `producto_ref` (`BA_PRODUKT`), `ancho_mm`, `alto_mm`, `espesor_mm`, folio de RQ, solicitante y fecha, más acuse `aw_resultado`/`aw_motivo`/`aw_atendida_at`. TI ve la lista con todos los datos y da de alta en A+W sin pedir información; marca el acuse (rechazo con motivo vuelve a la RQ). En la siguiente sincronización el ERP liga la variante a la línea por `producto_aw_id + clave_variante` y la RQ sigue sin recapturarse. Solicitudes repetidas de la misma familia y medida se agrupan en una. La RQ no avanza a OC mientras la línea espere (`VARIANTE_VIDRIO_REQUERIDA`). **El ERP nunca crea variantes** ni escribe en `BA_LAGMA` (A+W es solo lectura, doc 06 §1). Escritura de la tabla gated por la misma conexión que §6; mientras no esté, la lista se consulta en una pantalla del ERP. **SUPUESTO:** columnas finales las valida TI (Jorge); atención el mismo día hábil. Caso ya conocido: «10MM CLARO 1100×2100» no está en `BA_LAGMA` (doc 06 §11).
 - **Retazos** viven en A+W (D07). No hay saldo de retazos en el ERP. Una hoja que se corta y deja retazo: el ERP ve la salida de la hoja entera; el retazo lo gestiona A+W.
 
 ## 4. Unidades: existencia y costo en m², captura en hojas
@@ -67,7 +67,7 @@ La llave del saldo **ya no es** `(sub_almacen, artículo)`: tras ADR-0047 es **`
 ### 5.2 Nueva llave
 
 - Columna nueva `almacen.saldos_inventario.producto_aw_variante_id uuid NULL` y la misma columna en `almacen.lineas_movimiento` (junto con `ancho_mm`/`alto_mm` snapshot, ver §5.4).
-- **Llave natural: `(ubicacion_id, articulo_id, producto_aw_variante_id)`** (la ubicación ya determina el sub-almacén). La existencia sigue contándose en la ubicación (rack), alineado con la captura por rack de Jorge.
+- **Llave natural: `(ubicacion_id, articulo_id, producto_aw_variante_id)` + `lote`** (ver S7, §11) (la ubicación ya determina el sub-almacén). La existencia sigue contándose en la ubicación (rack), alineado con la captura por rack de Jorge.
 - **NULL (artículos sin variante):** un PK no admite NULL, así que el saldo pasa a **PK sustituto `id uuid`** + **índice único `ux_saldos_ubic_art_var` sobre las tres columnas con `NULLS NOT DISTINCT`**. PostgreSQL ≥ 15 lo soporta; **el proyecto usa 16** (`docker-compose.dev.yml:23` `postgres:16-alpine`; `infra/modules/database.bicep:38` `postgresVersion = '16'`). Precedente en el repo: `AreNullsDistinct(false)` en `Contabilidad/.../DimensionesConfigurations.cs:49` (Npgsql EF 10.0.3). Alternativa descartada: uuid centinela `Guid.Empty` para «sin variante» (finge un valor que no existe en `producto_aw_variante`).
 - El `ON CONFLICT` del trigger apunta al índice único: `ON CONFLICT (ubicacion_id, articulo_id, producto_aw_variante_id) DO UPDATE …` (válido con `NULLS NOT DISTINCT`).
 
@@ -191,7 +191,7 @@ Compras y Almacén pueden construirse en paralelo después del paso 1; el paso 4
 4. **S4** Columnas del puente `erp_recepcion_vidrio` (Jorge debe validar qué necesita A+W), incluido el **lote** (no existe hoy en el ERP).
 5. **S5** Los datos aduanales se toman del expediente de Comercio Exterior, no de la pantalla de recepción.
 6. **S6** Redondeo del m² por hoja a 4 decimales, por hoja.
-7. **S7** Saldo por ubicación (rack) y variante: coherente con ADR-0047; no se agrega un nivel «lote» al saldo.
+7. **S7** Saldo por ubicación (rack), variante **y lote**. Corrige la versión anterior (sin lote): el plano 1.7.1 de Materia prima (§7.1 paso 5, §7.2 paso 4, §13, caso 1) pide existencia y conciliación por código/medida/lote/ubicación y consumo de A+W por hoja/lote. Llave del saldo: `(ubicacion_id, articulo_id, producto_aw_variante_id, lote)` con `NULLS NOT DISTINCT`; existencia heredada sin lote = «lote de apertura». Costo promedio por variante (todas sus filas de lote comparten costo). Lote obligatorio en MP directa (propuesta del plano, pendiente de que Almacén la confirme).
 8. **S8** Alta de `HOJA` como unidad de captura en el catálogo.
 9. **S9** Sin particionado de saldos; revisar tras datos reales.
 10. **S10** El texto del levantamiento de Almacén (vidrio fuera de alcance) se actualiza; confirma Eliam que el cuestionario 02 manda.
