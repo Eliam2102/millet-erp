@@ -401,6 +401,7 @@ function FilaLinea({
           cantidad={linea.cantidad}
           cantDeAlmacen={linea.cantDeAlmacen}
           cantDeCompra={linea.cantDeCompra}
+          cantEnOc={linea.cantComprometidaEnOc}
           cantRecibida={linea.cantRecibida}
           cantPendiente={linea.cantPendiente}
           cantSinCompra={linea.cantSinCompra}
