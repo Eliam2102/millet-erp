@@ -1,3 +1,4 @@
+using System.Net.Mail;
 using Millet.CuentasPorPagar.Domain.Notificaciones;
 
 namespace Millet.CuentasPorPagar.Infrastructure.Notificaciones;
@@ -17,11 +18,15 @@ public sealed class AvisosRevisionOptions
     public string[] ContadorGeneral { get; init; } = [];
     public string[] Compras { get; init; } = [];
 
-    /// <summary>Contador General siempre; Compras si el motivo la involucra. Sin repetidos.</summary>
+    /// <summary>
+    /// Contador General siempre; Compras si el motivo la involucra. Sin repetidos.
+    /// Un correo mal escrito se descarta: con Graph haría fallar el envío para todos.
+    /// </summary>
     public IReadOnlyList<string> Destinatarios(SlaRevisionNotificacion n) =>
         (n.AvisaCompras ? ContadorGeneral.Concat(Compras) : ContadorGeneral)
             .Where(c => !string.IsNullOrWhiteSpace(c))
             .Select(c => c.Trim())
+            .Where(c => MailAddress.TryCreate(c, out var m) && m.Address == c)
             .Distinct(StringComparer.OrdinalIgnoreCase)
             .ToList();
 }

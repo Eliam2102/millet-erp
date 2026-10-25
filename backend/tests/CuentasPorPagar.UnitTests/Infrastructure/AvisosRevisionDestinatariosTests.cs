@@ -31,4 +31,9 @@ public sealed class AvisosRevisionDestinatariosTests
     [Fact]
     public void Sin_configurar_no_hay_destinatarios() =>
         new AvisosRevisionOptions().Destinatarios(Aviso(true)).Should().BeEmpty();
+
+    [Fact]
+    public void Correos_mal_escritos_se_descartan() =>
+        new AvisosRevisionOptions { ContadorGeneral = ["no-es-correo", " laura@millet.com.mx ", "Laura <x@millet.com.mx>"] }
+            .Destinatarios(Aviso(false)).Should().Equal("laura@millet.com.mx");
 }
