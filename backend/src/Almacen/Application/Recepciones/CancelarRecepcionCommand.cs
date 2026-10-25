@@ -32,7 +32,8 @@ public static class MotivosCancelacionRecepcion
 /// 86e3tabdp: cancela con motivo una recepción mal capturada. Revierte inventario y costo promedio con movimientos
 /// <see cref="TipoMovimiento.CancelacionEntradaCompra"/> (uno por movimiento de la recepción: principal y MAT-REV),
 /// marca las entradas Canceladas y publica <c>almacen.recepcion_oc.cancelada.v1</c> para que Compras devuelva lo
-/// pendiente a la OC y CxP desligue la factura. Idempotente: repetir devuelve los mismos folios CEN.
+/// pendiente a la OC y CxP desligue la factura. Una recepción ya cancelada se rechaza con <c>RECEPCION_YA_CANCELADA</c>
+/// (el reintento de red lo cubre la Idempotency-Key, que devuelve la respuesta guardada).
 /// </summary>
 public sealed record CancelarRecepcionCommand(Guid RecepcionId, string MotivoCodigo, string MotivoTexto)
     : IRequest<CancelarRecepcionResponse>;
@@ -75,10 +76,9 @@ public sealed class CancelarRecepcionHandler(
         var codigo = request.MotivoCodigo.Trim().ToUpperInvariant();
         var texto = request.MotivoTexto.Trim();
 
-        // 1-2. Recepción (principal + hijo MAT-REV). Si ya está cancelada, responde igual que la primera vez.
+        // 1-2. Recepción (principal + hijo MAT-REV). Cancelar dos veces se rechaza.
         var previa = await CargarAsync(request.RecepcionId, rastrear: false, ct);
-        if (previa.Principal.Estado == EstadoMovimiento.Cancelado)
-            return await RespuestaYaCanceladaAsync(previa.Ids, request.RecepcionId, ct);
+        if (previa.Principal.Estado == EstadoMovimiento.Cancelado) throw YaCancelada();
         // Sin OC no hay candado ni transacción (DevolucionOrigenLock) y el evento no tiene a quién avisar.
         if (previa.Principal.OcId is null)
             throw new BusinessRuleException("RECEPCION_SIN_OC", "Solo se puede cancelar una recepción contra orden de compra.");
@@ -86,8 +86,7 @@ public sealed class CancelarRecepcionHandler(
         // 3. Serializa por OC (mismo lock que registrar y devolver) y relee ya con el candado.
         await using var transaccion = await DevolucionOrigenLock.AbrirAsync(db, previa.Principal.OcId, ct);
         var (principal, hijo, ids) = await CargarAsync(request.RecepcionId, rastrear: true, ct);
-        if (principal.Estado == EstadoMovimiento.Cancelado)
-            return await RespuestaYaCanceladaAsync(ids, request.RecepcionId, ct);
+        if (principal.Estado == EstadoMovimiento.Cancelado) throw YaCancelada();
         if (principal.Estado != EstadoMovimiento.Registrado)
             throw new BusinessRuleException("RECEPCION_NO_CANCELABLE", "Solo se puede cancelar una recepción registrada.");
 
@@ -176,13 +175,8 @@ public sealed class CancelarRecepcionHandler(
         return (principal, hijo, movs.Select(m => m.Id).ToList());
     }
 
-    private async Task<CancelarRecepcionResponse> RespuestaYaCanceladaAsync(List<Guid> ids, Guid recepcionId, CancellationToken ct)
-    {
-        var folios = await db.Movimientos.AsNoTracking()
-            .Where(m => m.Tipo == TipoMovimiento.CancelacionEntradaCompra && m.RecepcionOrigenId != null && ids.Contains(m.RecepcionOrigenId.Value))
-            .OrderBy(m => m.Folio).Select(m => m.Folio!).ToListAsync(ct);
-        return new CancelarRecepcionResponse(recepcionId, folios);
-    }
+    private static BusinessRuleException YaCancelada() =>
+        new("RECEPCION_YA_CANCELADA", "Esta recepción ya está cancelada.");
 
     /// <summary>
     /// ponytail: revisa salidas posteriores por (ubicación, artículo) sin rastrear lotes (Almacén no tiene lote). Si el saldo

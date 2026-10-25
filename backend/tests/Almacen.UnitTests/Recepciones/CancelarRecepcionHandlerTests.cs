@@ -145,18 +145,17 @@ public class CancelarRecepcionHandlerTests
     }
 
     [Fact]
-    public async Task Repetir_es_idempotente_no_crea_otro_CEN_ni_otro_evento()
+    public async Task Cancelar_otra_vez_se_rechaza_sin_crear_otro_CEN_ni_otro_evento()
     {
         await using var m = await NuevoMundoAsync();
         await m.RegistrarAsync(danada: 2m);
         await m.SembrarSaldoPostSalidaAsync(BinId, 20m, 10m);
         await m.SembrarSaldoPostSalidaAsync(RevBinId, 5m, 10m);
-        var primera = await m.CancelarAsync();
+        await m.CancelarAsync();
         m.Eventos.Eventos.Clear();
 
-        var segunda = await m.CancelarAsync();
+        await Rechaza(m.CancelarAsync(), "RECEPCION_YA_CANCELADA");
 
-        segunda.FoliosCancelacion.Should().BeEquivalentTo(primera.FoliosCancelacion);
         (await m.Db.Movimientos.CountAsync(x => x.Tipo == TipoMovimiento.CancelacionEntradaCompra)).Should().Be(2);
         m.Eventos.Eventos.Should().BeEmpty();
     }
