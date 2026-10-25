@@ -4,7 +4,7 @@ import { PageHeader } from '@/components/erp/PageHeader';
 import { formatCcMaquinaLabel } from '@/features/centros-costo/lib/cc-maquina-label';
 import { TrazabilidadComprasDialog } from '@/components/erp/trazabilidad/TrazabilidadComprasDialog';
 import { TipoDocumentoTrazabilidad } from '@/components/erp/trazabilidad/types';
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import { toast } from 'sonner';
 import { Link, useParams } from '@tanstack/react-router';
 import { ArrowLeft } from 'lucide-react';
@@ -22,7 +22,7 @@ import {
 } from '@/components/ui/table';
 import { ActivosRecibidosOc } from '@/features/almacen/components/ActivosRecibidosOc';
 import { useRecepcion } from '@/features/almacen/api/useRecepciones';
-import { EstadoMovimiento } from '@/features/almacen/api/types';
+import { EstadoMovimiento, MOTIVOS_CANCELACION_RECEPCION } from '@/features/almacen/api/types';
 import { esApiError } from '@/lib/api';
 import { EstadoAlmacenBadge } from '@/features/almacen/components/EstadoAlmacenBadge';
 import { MoneyDisplay } from '@/components/erp/display/MoneyDisplay';
@@ -48,6 +48,13 @@ import { NuevaRecepcionSheet } from '@/features/almacen/components/NuevaRecepcio
  */
 const FROM = '/_app/almacen/recepciones/$id' as const;
 
+/** El servidor guarda «CODIGO: texto»; se muestra la etiqueta del motivo en lugar del código. */
+function motivoLegible(motivo: string) {
+  const [codigo, ...resto] = motivo.split(': ');
+  const etiqueta = MOTIVOS_CANCELACION_RECEPCION.find((m) => m.codigo === codigo)?.etiqueta;
+  return etiqueta && resto.length ? `${etiqueta} — ${resto.join(': ')}` : motivo;
+}
+
 export function RecepcionDetallePage() {
   const { id } = useParams({ from: FROM });
   const query = useRecepcion(id);
@@ -55,6 +62,7 @@ export function RecepcionDetallePage() {
   const puedeCancelarPermiso = useHasPermission(PermisosCanonicos.AlmacenRecepcionesCancelar);
   const puedeRegistrar = useHasPermission(PermisosCanonicos.AlmacenEntradasRegistrar);
   const [cancelarAbierto, setCancelarAbierto] = useState(false);
+  const botonCancelar = useRef<HTMLButtonElement>(null);
   const [capturaAbierta, setCapturaAbierta] = useState(false);
   const lineasEnRevision = query.data?.lineas.filter((l) => l.enRevision).length ?? 0;
 
@@ -104,9 +112,20 @@ export function RecepcionDetallePage() {
                 {puedeCancelarPermiso &&
                   query.data.estado === EstadoMovimiento.Registrado &&
                   query.data.registradaPorOtroUsuario === true && (
-                    <Button variant="secondary-danger" onClick={() => setCancelarAbierto(true)}>
+                    <Button
+                      ref={botonCancelar}
+                      variant="secondary-danger"
+                      onClick={() => setCancelarAbierto(true)}
+                    >
                       Cancelar recepción
                     </Button>
+                  )}
+                {puedeCancelarPermiso &&
+                  query.data.estado === EstadoMovimiento.Registrado &&
+                  query.data.registradaPorOtroUsuario === false && (
+                    <p className="text-xs text-ink-muted">
+                      Tú registraste esta recepción: la cancela otra persona con permiso.
+                    </p>
                   )}
                 {puedeRegistrar &&
                   query.data.estado === EstadoMovimiento.Cancelado &&
@@ -229,7 +248,7 @@ export function RecepcionDetallePage() {
                     <div className="sm:col-span-4">
                       <dt className="text-xs text-ink-muted">Motivo</dt>
                       <dd className="whitespace-pre-wrap break-words text-sm">
-                        {query.data.motivoCancelacion ?? '—'}
+                        {query.data.motivoCancelacion ? motivoLegible(query.data.motivoCancelacion) : '—'}
                       </dd>
                     </div>
                   </>
@@ -340,9 +359,15 @@ export function RecepcionDetallePage() {
           <CancelarRecepcionDialog
             recepcion={query.data}
             open={cancelarAbierto}
-            onOpenChange={setCancelarAbierto}
+            onOpenChange={(abierto) => {
+              setCancelarAbierto(abierto);
+              // Sin DialogTrigger, Radix no regresa el foco al botón que abrió el diálogo.
+              if (!abierto) requestAnimationFrame(() => botonCancelar.current?.focus());
+            }}
             onCancelada={() => {
-              toast.success('Recepción cancelada. Ya puedes capturar la correcta.');
+              toast.success(
+                puedeRegistrar ? 'Recepción cancelada. Ya puedes capturar la correcta.' : 'Recepción cancelada.',
+              );
             }}
           />
           {capturaAbierta && (
