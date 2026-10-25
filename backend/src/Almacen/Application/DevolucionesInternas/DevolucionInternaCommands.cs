@@ -595,7 +595,6 @@ public sealed class ReincorporacionTrasRevisionHandler
             await DevolucionesProveedor.DevolucionOrigenLock.AbrirAsync(_db, bin, cancellationToken);
         var reservado = await ReservaDictamen.PendientePorBinAsync(_db, binIds, cancellationToken);
         var saldosMatRev = await _db.SaldosInventario.AsNoTracking()
-            
             .Where(s => binIds.Contains(s.UbicacionId) && s.Cantidad > 0).ToListAsync(cancellationToken);
         var consumidoEnEstaSolicitud = new Dictionary<(Guid, Guid, Guid?), decimal>();
 
@@ -618,7 +617,7 @@ public sealed class ReincorporacionTrasRevisionHandler
                     s.CostoPromedioMxn,
                     Saldo = s.Cantidad,
                     Reservado = reservado.GetValueOrDefault((s.UbicacionId, s.ArticuloId, s.ProductoAwVarianteId)),
-                    Libre = s.Cantidad - reservado.GetValueOrDefault((s.UbicacionId, s.ArticuloId, (Guid?)null))
+                    Libre = s.Cantidad - reservado.GetValueOrDefault((s.UbicacionId, s.ArticuloId, s.ProductoAwVarianteId))
                         - consumidoEnEstaSolicitud.GetValueOrDefault((s.UbicacionId, s.ArticuloId, s.ProductoAwVarianteId)),
                 }).OrderByDescending(c => c.Libre).ToList();
             Guid origenBin;

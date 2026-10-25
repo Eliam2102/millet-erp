@@ -84,4 +84,24 @@ public class SalidaPorMedidaTests(WebApplicationFactory<Program> factory) : ICla
             (await Fila(db, ctx.RackId, ctx.ArticuloId, VarB))!.Value.Cantidad.Should().Be(105.93m);
         });
     }
+
+    [Fact]
+    public async Task Reincorporar_lo_reservado_para_dictamen_de_una_medida_se_rechaza()
+    {
+        await new CuarentenaRecepcionTests(factory).EjecutarConFixtureAsync(async (db, ctx) =>
+        {
+            // 10 hojas de 2440×3660 llegan dañadas: todo queda en MAT-REV, reservado para el dictamen (sin dictaminar).
+            await Recibir(db, ctx, true, Linea(ctx, 10m, VarA, danadas: 10m));
+            (await Fila(db, ctx.RackRevisionId, ctx.ArticuloId, VarA))!.Value.Cantidad.Should().Be(89.304m);
+
+            var reincorporar = () => new ReincorporacionTrasRevisionHandler(db, new UserFake(ctx.UserId), new EmpresaFake(ctx.EmpresaId),
+                    new DecimalesNulo(), ctx.Periodos, new Articulos(true), new Variantes(ctx.ArticuloId))
+                .Handle(new ReincorporacionTrasRevisionCommand(ctx.SubDisponibleId, Fecha, "Intento sin dictamen",
+                    [new MatRevLineaInput(ctx.ArticuloId, 44.652m, ctx.RackId, VarA)]), default);
+
+            (await reincorporar.Should().ThrowAsync<BusinessRuleException>()).Which.Code.Should().Be("MATREV_RESERVADO_PARA_DICTAMEN");
+            (await Fila(db, ctx.RackRevisionId, ctx.ArticuloId, VarA))!.Value.Cantidad.Should().Be(89.304m);
+            (await Fila(db, ctx.RackId, ctx.ArticuloId, VarA)).Should().BeNull();
+        });
+    }
 }
