@@ -54,7 +54,7 @@ public class CancelarRecepcionTests(WebApplicationFactory<Program> factory) : IC
     }
 
     [Fact]
-    public async Task Cancelar_revierte_existencia_y_costo_promedio_es_idempotente_y_publica_el_evento()
+    public async Task Cancelar_revierte_existencia_y_costo_promedio_publica_el_evento_y_no_deja_cancelar_dos_veces()
     {
         await new CuarentenaRecepcionTests(factory).EjecutarConFixtureAsync(async (db, ctx) =>
         {
@@ -82,8 +82,8 @@ public class CancelarRecepcionTests(WebApplicationFactory<Program> factory) : IC
                 new Millet.Almacen.Application.Reportes.AlfakHistorialAlmacenQuery(Fecha, Fecha, ctx.SubDisponibleId, ctx.ArticuloId), default)).Filas.Single();
             (alfak.Entradas, alfak.Salidas, alfak.SaldoFinal).Should().Be((7m, 3m, 4m));
 
-            var otraVez = await HandlerCancelar(db, new CapturaEventos(), ctx, OtroUsuario).Handle(new CancelarRecepcionCommand(mala, "ARTICULO", "x"), default);
-            otraVez.FoliosCancelacion.Should().BeEquivalentTo(r.FoliosCancelacion);
+            var otraVez = () => HandlerCancelar(db, new CapturaEventos(), ctx, OtroUsuario).Handle(new CancelarRecepcionCommand(mala, "ARTICULO", "x"), default);
+            (await otraVez.Should().ThrowAsync<BusinessRuleException>()).Which.Code.Should().Be("RECEPCION_YA_CANCELADA");
             (await LeerSaldoAsync(db, ctx.RackId, ctx.ArticuloId)).Should().Be(4m);
         });
     }
