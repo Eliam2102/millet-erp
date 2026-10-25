@@ -12,15 +12,17 @@ export function ClasificacionNoDeducibleSelect({
   value,
   onChange,
   ariaLabel = 'Clasificación de gasto no deducible',
+  ariaDescribedBy,
 }: {
   value: string | null;
   onChange: (clave: string) => void;
   ariaLabel?: string;
+  ariaDescribedBy?: string;
 }) {
   const { data, isPending, isError } = useClasificacionesNoDeducibles();
   return (
     <Select value={value ?? ''} onValueChange={onChange} disabled={isPending || isError}>
-      <SelectTrigger aria-label={ariaLabel}>
+      <SelectTrigger aria-label={ariaLabel} aria-describedby={ariaDescribedBy}>
         <SelectValue
           placeholder={isError ? 'No se pudo cargar el catálogo' : isPending ? 'Cargando…' : 'Selecciona…'}
         />

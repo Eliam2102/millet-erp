@@ -302,6 +302,8 @@ export interface FacturaDetalle {
   ordenCompraFolio?: string | null;
   recepcionId?: string | null;
   recepcionFolio?: string | null;
+  clasificacionNoDeducible?: string | null;
+  ivaNoAcreditable?: number;
   estado: EstadoPasivo;
   diferenciaContraOc: number;
   anticipoAplicadoTotal: number;

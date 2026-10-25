@@ -158,6 +158,9 @@ public sealed class RegistrarMovimientoTcConCfdiHandler
         if (yaCapturado)
             throw new BusinessRuleException("TC_MOV_FACTURA_DUPLICADA",
                 $"El CFDI {uuidNorm} ya está capturado como factura.");
+        if ((await Viaticos.UuidViaticosPendienteValidador.BuscarAsync(_db, new[] { uuidNorm }, Guid.Empty, cancellationToken)).Count > 0)
+            throw new BusinessRuleException("TC_MOV_FACTURA_DUPLICADA",
+                $"El CFDI {uuidNorm} ya está comprobado en una solicitud de viáticos.");
 
         var clasificacion = await ClasificacionNoDeducibleValidador.ResolverAsync(
             _db, command.ClasificacionNoDeducible, obligatoria: false, "TC_MOV_CLASIFICACION_INVALIDA", cancellationToken);

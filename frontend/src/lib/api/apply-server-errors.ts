@@ -127,5 +127,10 @@ function applyDefaultValidationErrors(
 function normalizarCampo(rawKey: string): string {
   const sinPath = rawKey.replace(/^\$\.?/, '');
   if (sinPath === '') return '';
-  return sinPath.charAt(0).toLowerCase() + sinPath.slice(1);
+  // `Lineas[0].ProveedorId` → `lineas.0.proveedorId` (path de RHF para arreglos/anidados).
+  return sinPath
+    .replace(/\[(\d+)\]/g, '.$1')
+    .split('.')
+    .map((s) => s.charAt(0).toLowerCase() + s.slice(1))
+    .join('.');
 }

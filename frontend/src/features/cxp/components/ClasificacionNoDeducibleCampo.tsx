@@ -41,7 +41,18 @@ export function ClasificacionNoDeducibleCampo({
         </div>
       )}
       {marcado && (
-        <ClasificacionNoDeducibleSelect value={value || null} onChange={onChange} />
+        <>
+          <ClasificacionNoDeducibleSelect
+            value={value || null}
+            onChange={onChange}
+            ariaDescribedBy={`${id}-ayuda`}
+          />
+          <p id={`${id}-ayuda`} className="text-xs text-ink-muted">
+            {obligatoria
+              ? 'Sin CFDI el gasto no es deducible: indica su clasificación.'
+              : 'Gasto que no se puede deducir de impuestos; su IVA se registra como no acreditable.'}
+          </p>
+        </>
       )}
       {error && <p className="text-xs text-destructive">{error}</p>}
     </div>

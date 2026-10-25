@@ -6,6 +6,7 @@ import { Plus, Trash2, Upload } from 'lucide-react';
 import { toast } from 'sonner';
 import {
   Sheet,
+  SheetBody,
   SheetContent,
   SheetDescription,
   SheetFooter,
@@ -212,7 +213,8 @@ function Form({ solicitud, onCancel, onCaptured, onDirtyChange }: FormProps) {
   }
 
   return (
-    <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4 px-4">
+    <form onSubmit={form.handleSubmit(onSubmit)} className="flex min-h-0 flex-1 flex-col">
+      <SheetBody className="space-y-4">
       <section className="space-y-2">
         <header className="flex items-center justify-between">
           <h3 className="text-sm font-medium">
@@ -250,8 +252,9 @@ function Form({ solicitud, onCancel, onCaptured, onDirtyChange }: FormProps) {
           </p>
         )}
       </section>
+      </SheetBody>
 
-      <SheetFooter className="px-0">
+      <SheetFooter>
         <Button
           type="button"
           variant="ghost"
@@ -359,7 +362,7 @@ function LineaInline({
           </Field>
         </div>
         <div className="col-span-full sm:col-span-2">
-          <Field label="Proveedor" optional>
+          <Field label="Proveedor" optional error={lineaErrors?.proveedorId?.message}>
             {(control) => (
               <Controller
                 control={form.control}

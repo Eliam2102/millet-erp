@@ -164,6 +164,13 @@ public sealed class CapturarComprobacionViaticosHandler
                 throw new BusinessRuleException(
                     "VIA_LINEA_FACTURA_DUPLICADA",
                     $"Los CFDIs {string.Join(", ", yaCapturados)} ya están capturados como facturas.");
+
+            // Su factura se genera hasta liberar: otro viático pendiente con el mismo UUID colisionaría ahí.
+            var enOtroViatico = await UuidViaticosPendienteValidador.BuscarAsync(_db, uuids, s.Id, cancellationToken);
+            if (enOtroViatico.Count > 0)
+                throw new BusinessRuleException(
+                    "VIA_LINEA_FACTURA_DUPLICADA",
+                    $"Los CFDIs {string.Join(", ", enOtroViatico)} ya están comprobados en otra solicitud de viáticos.");
         }
 
         var clasificaciones = new List<string?>(command.Lineas.Count);

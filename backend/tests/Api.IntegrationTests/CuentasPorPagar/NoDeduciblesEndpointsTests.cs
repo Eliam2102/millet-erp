@@ -31,7 +31,8 @@ public sealed class NoDeduciblesEndpointsTests(WebApplicationFactory<Program> fa
         });
         var (cliente, usuarioId) = await amb.ClienteConPermisosAsync(
             PermisosCanonicos.CuentasPorPagarTcRegistrarMovimiento, PermisosCanonicos.CuentasPorPagarTcLeer,
-            PermisosCanonicos.CuentasPorPagarDocumentosGestionarTodasSucursales, PermisosCanonicos.CuentasPorPagarDocumentosLeerTodasSucursales);
+            PermisosCanonicos.CuentasPorPagarDocumentosGestionarTodasSucursales, PermisosCanonicos.CuentasPorPagarDocumentosLeerTodasSucursales,
+            PermisosCanonicos.CuentasPorPagarFacturasLeer, PermisosCanonicos.CuentasPorPagarFacturasLeerTodasSucursales);
         using var scope = factory.Services.CreateScope();
         using var bypass = scope.ServiceProvider.GetRequiredService<ICurrentEmpresaContext>().Bypass();
         var db = scope.ServiceProvider.GetRequiredService<CuentasPorPagarDbContext>();
@@ -136,6 +137,12 @@ public sealed class NoDeduciblesEndpointsTests(WebApplicationFactory<Program> fa
             .SingleAsync(x => x.UuidCfdi == uuidND);
         Assert.Equal("PROPINAS", f.ClasificacionNoDeducible);
         Assert.Equal(160m, f.IvaNoAcreditable);
+
+        var rd = await c.GetAsync(Cxp + $"/facturas/{f.Id}");
+        Assert.True(rd.StatusCode == HttpStatusCode.OK, await rd.Content.ReadAsStringAsync());
+        var detalle = await Json(rd);
+        Assert.Equal("PROPINAS", detalle.GetProperty("clasificacionNoDeducible").GetString());
+        Assert.Equal(160m, detalle.GetProperty("ivaNoAcreditable").GetDecimal());
     }
 
     [Fact]
@@ -394,6 +401,40 @@ public sealed class NoDeduciblesEndpointsTests(WebApplicationFactory<Program> fa
             new { lineas = new[] { LineaViatico(uuid, false, 500m, 80m, null) } });
         Assert.Equal(HttpStatusCode.UnprocessableEntity, r.StatusCode);
         Assert.Equal("VIA_LINEA_FACTURA_DUPLICADA", (await Json(r)).GetProperty("code").GetString());
+    }
+
+    [Fact]
+    public async Task UUID_en_viatico_pendiente_se_bloquea_en_otro_viatico_caja_chica_y_tarjeta()
+    {
+        var (tc, tarjeta, titular) = await AmbienteAsync();
+        var (c, _) = await ClienteComprobacionesAsync();
+        var uuid = Guid.NewGuid().ToString().ToUpperInvariant();
+        var (id1, v1) = await SembrarViaticoAnticipadoAsync();
+        var ok = await PostConVersionAsync(c, Cxp + $"/viaticos/{id1}/capturar-comprobacion", v1,
+            new { lineas = new[] { LineaViatico(uuid, false, 500m, 80m, null) } });
+        Assert.True(ok.StatusCode == HttpStatusCode.OK, await ok.Content.ReadAsStringAsync());
+
+        // viático → otro viático (minúsculas: debe ser case-insensitive).
+        var (id2, v2) = await SembrarViaticoAnticipadoAsync();
+        var r2 = await PostConVersionAsync(c, Cxp + $"/viaticos/{id2}/capturar-comprobacion", v2,
+            new { lineas = new[] { LineaViatico(uuid.ToLowerInvariant(), false, 500m, 80m, null) } });
+        Assert.Equal(HttpStatusCode.UnprocessableEntity, r2.StatusCode);
+        Assert.Equal("VIA_LINEA_FACTURA_DUPLICADA", (await Json(r2)).GetProperty("code").GetString());
+
+        // viático → caja chica.
+        var r3 = await c.PostAsJsonAsync(Cxp + "/comprobaciones/caja-chica", new
+        {
+            sucursalId = Guid.NewGuid(), responsableId = Guid.NewGuid(), fechaInicio = new DateOnly(2026, 10, 1), fechaFin = new DateOnly(2026, 10, 20),
+            moneda = "MXN", cfdis = new[] { LineaCajaChica(null, uuid, 1000m, 160m, null) },
+        });
+        Assert.Equal(HttpStatusCode.UnprocessableEntity, r3.StatusCode);
+        Assert.Equal("COMP_LINEA_FACTURA_DUPLICADA", (await Json(r3)).GetProperty("code").GetString());
+
+        // viático → tarjeta.
+        var cfdi = await SembrarCfdiAsync(uuid, 1000m, 160m);
+        var r4 = await tc.PostAsJsonAsync(Cxp + "/movimientos-tc/con-cfdi", ConCfdi(tarjeta, titular, cfdi, uuid, null));
+        Assert.Equal(HttpStatusCode.UnprocessableEntity, r4.StatusCode);
+        Assert.Equal("TC_MOV_FACTURA_DUPLICADA", (await Json(r4)).GetProperty("code").GetString());
     }
 
     private sealed class PeriodoAbierto : Millet.CuentasPorPagar.Domain.Ports.Contabilidad.IPeriodoContablePort

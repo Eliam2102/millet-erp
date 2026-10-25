@@ -191,6 +191,15 @@ public sealed class CrearComprobacionCajaChicaHandler
                     "COMP_LINEA_FACTURA_DUPLICADA",
                     $"Los CFDIs {string.Join(", ", yaCapturados)} ya están capturados como facturas.");
             }
+
+            var enViaticos = await Viaticos.UuidViaticosPendienteValidador.BuscarAsync(
+                _db, uuidsConValor, Guid.Empty, cancellationToken);
+            if (enViaticos.Count > 0)
+            {
+                throw new BusinessRuleException(
+                    "COMP_LINEA_FACTURA_DUPLICADA",
+                    $"Los CFDIs {string.Join(", ", enViaticos)} ya están comprobados en una solicitud de viáticos.");
+            }
         }
 
         // P8.6: un ticket (sin UUID ni CFDI) es no deducible y exige clasificación.

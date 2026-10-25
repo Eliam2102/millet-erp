@@ -5,6 +5,7 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { toast } from 'sonner';
 import {
   Sheet,
+  SheetBody,
   SheetContent,
   SheetDescription,
   SheetFooter,
@@ -73,7 +74,8 @@ export function NuevoMovimientoTcSheet({
 function FormContainer({ onClose }: { onClose: () => void }) {
   const [flujo, setFlujo] = useState<Flujo>('B');
   return (
-    <div className="space-y-4 px-4">
+    <div className="flex min-h-0 flex-1 flex-col">
+      <div className="flex shrink-0 flex-col gap-3 px-6 pt-4">
       <div className="flex gap-2">
         <Button
           type="button"
@@ -104,6 +106,7 @@ function FormContainer({ onClose }: { onClose: () => void }) {
         {flujo === 'A'
           ? 'Se generará la FacturaProveedor en estado Pagada al registrar.'
           : 'Solo se registra el movimiento; ningún pasivo se crea (gasto sin CFDI).'}
+      </div>
       </div>
 
       {flujo === 'A' ? (
@@ -164,7 +167,8 @@ function FormSinCfdi({ onClose }: { onClose: () => void }) {
   }
 
   return (
-    <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+    <form onSubmit={form.handleSubmit(onSubmit)} className="flex min-h-0 flex-1 flex-col">
+      <SheetBody className="space-y-4">
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
         <Campo label="Tarjeta" required error={form.formState.errors.tarjetaId?.message}>
           <Controller
@@ -238,16 +242,21 @@ function FormSinCfdi({ onClose }: { onClose: () => void }) {
               <ClasificacionNoDeducibleSelect
                 value={field.value || null}
                 onChange={field.onChange}
+                ariaDescribedBy="tc-clasificacion-ayuda"
               />
             )}
           />
+          <p id="tc-clasificacion-ayuda" className="text-xs text-ink-muted">
+            Sin CFDI el gasto no es deducible: indica su clasificación.
+          </p>
         </Campo>
       </div>
       <Campo label="Descripción libre">
         <Textarea rows={2} {...form.register('descripcionLibre')} />
       </Campo>
+      </SheetBody>
 
-      <SheetFooter className="px-0">
+      <SheetFooter>
         <Button type="button" variant="ghost" onClick={onClose} disabled={registrar.isPending}>
           Cancelar
         </Button>
@@ -324,7 +333,8 @@ function FormConCfdi({ onClose }: { onClose: () => void }) {
   }
 
   return (
-    <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+    <form onSubmit={form.handleSubmit(onSubmit)} className="flex min-h-0 flex-1 flex-col">
+      <SheetBody className="space-y-4">
       <section className="space-y-3">
         <h3 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
           Movimiento
@@ -494,16 +504,21 @@ function FormConCfdi({ onClose }: { onClose: () => void }) {
                     <ClasificacionNoDeducibleSelect
                       value={field.value || null}
                       onChange={field.onChange}
+                      ariaDescribedBy="tc-clasificacion-ayuda"
                     />
                   )}
                 />
+                <p id="tc-clasificacion-ayuda" className="text-xs text-ink-muted">
+                  Gasto que no se puede deducir de impuestos; su IVA se registra como no acreditable.
+                </p>
               </Campo>
             )}
           </div>
         </div>
       </section>
+      </SheetBody>
 
-      <SheetFooter className="px-0">
+      <SheetFooter>
         <Button type="button" variant="ghost" onClick={onClose} disabled={registrar.isPending}>
           Cancelar
         </Button>

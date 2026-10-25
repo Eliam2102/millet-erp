@@ -86,6 +86,7 @@ describe('applyServerErrors', () => {
           // JSON path + PascalCase, como emite el model-binding de STJ
           '$.Monto': ['El campo Monto es requerido.'],
           FechaValor: ['No es una fecha válida.'],
+          'Lineas[0].ProveedorId': ['Proveedor requerido.'],
         },
       },
       400,
@@ -94,7 +95,13 @@ describe('applyServerErrors', () => {
     const ok = applyServerErrors(form, error);
 
     expect(ok).toBe(true);
-    expect(form.setError).toHaveBeenCalledTimes(2);
+    expect(form.setError).toHaveBeenCalledTimes(3);
+    expect(form.setError).toHaveBeenNthCalledWith(
+      3,
+      'lineas.0.proveedorId',
+      { type: 'server', message: 'Proveedor requerido.' },
+      { shouldFocus: false },
+    );
     expect(form.setError).toHaveBeenNthCalledWith(
       1,
       'monto',

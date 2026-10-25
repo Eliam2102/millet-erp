@@ -27,4 +27,30 @@ public sealed class CapturarComprobacionUuidTests
 
         (await act.Should().ThrowAsync<BusinessRuleException>()).Which.Code.Should().Be("VIA_LINEA_FACTURA_DUPLICADA");
     }
+
+    private static async Task<SolicitudViaticos> SolicitudAnticipadaAsync(P8Fixture a)
+    {
+        var s = SolicitudViaticos.Solicitar(a.Current!.Value, Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid(), "FIX", TipoDestinoViatico.Nacional,
+            new DateOnly(2026, 10, 20), new DateOnly(2026, 10, 21), "MXN", 1000m, 6000m, 10, null, DateTimeOffset.UtcNow);
+        s.AutorizarPorJefe(s.JefeDirectoId, DateTimeOffset.UtcNow);
+        s.MarcarAnticipoPagado(DateTimeOffset.UtcNow);
+        a.Db.Add(s); await a.Db.SaveChangesAsync();
+        return s;
+    }
+
+    [Fact]
+    public async Task Rechaza_UUID_ya_comprobado_en_otro_viatico_pendiente_aunque_cambie_la_capitalizacion()
+    {
+        await using var a = new P8Fixture();
+        var s1 = await SolicitudAnticipadaAsync(a);
+        var s2 = await SolicitudAnticipadaAsync(a);
+        var uuid = Guid.NewGuid().ToString().ToUpperInvariant();
+        await new CapturarComprobacionViaticosHandler(a.Db, a).Handle(
+            new CapturarComprobacionViaticosCommand(s1.Id, s1.Version, [Linea(uuid)]), default);
+
+        var act = () => new CapturarComprobacionViaticosHandler(a.Db, a).Handle(
+            new CapturarComprobacionViaticosCommand(s2.Id, s2.Version, [Linea(uuid.ToLowerInvariant())]), default);
+
+        (await act.Should().ThrowAsync<BusinessRuleException>()).Which.Code.Should().Be("VIA_LINEA_FACTURA_DUPLICADA");
+    }
 }

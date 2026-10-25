@@ -6,6 +6,7 @@ import { Plus, Trash2, Upload } from 'lucide-react';
 import { toast } from 'sonner';
 import {
   Sheet,
+  SheetBody,
   SheetContent,
   SheetDescription,
   SheetFooter,
@@ -229,7 +230,8 @@ function Form({
   }
 
   return (
-    <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4 px-4">
+    <form onSubmit={form.handleSubmit(onSubmit)} className="flex min-h-0 flex-1 flex-col">
+      <SheetBody className="space-y-4">
       <section className="grid grid-cols-1 gap-3 sm:grid-cols-2">
         <Campo
           label="Sucursal"
@@ -355,8 +357,9 @@ function Form({
           </p>
         )}
       </section>
+      </SheetBody>
 
-      <SheetFooter className="px-0">
+      <SheetFooter>
         <Button
           type="button"
           variant="ghost"
