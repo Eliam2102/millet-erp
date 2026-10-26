@@ -57,8 +57,10 @@ import { PermisosCanonicos } from '@/lib/auth/permission-codes';
  *
  * <para><b>Reglas operativas</b> (ver ADR-0032 §Reglas):</para>
  * <list>
- *   <item><b>R1</b>: módulos <c>disabled: true</c> aparecen en sidebar
- *   pero no abren modal — awareness sin ruido.</item>
+ *   <item><b>R1</b>: el sidebar solo muestra módulos con al menos una
+ *   card permitida (<c>sidebarItemsVisibles</c>); los <c>disabled</c>
+ *   (placeholders) no se muestran. La misma regla protege la URL directa
+ *   (<c>rutaPermitida</c>, aplicada en el guard de <c>_app</c>).</item>
  *   <item><b>R2</b>: secciones sin cards se omiten (no
  *   "Próximamente").</item>
  *   <item><b>R3</b>: <c>permission</c> (any-of de uno) o
@@ -901,7 +903,7 @@ export function filtrarModuloPorPermisos(
 }
 
 function cardVisible(
-  card: NavCard,
+  card: Pick<NavCard, 'permission' | 'permissionsAny'>,
   permisos: readonly string[],
 ): boolean {
   if (card.permission != null && !permisos.includes(card.permission)) {
@@ -914,4 +916,64 @@ function cardVisible(
     return false;
   }
   return true;
+}
+
+// ============================================================================
+// Visibilidad por permisos (sidebar y URLs)
+// ============================================================================
+
+/**
+ * Items del sidebar que el usuario puede usar: Inicio más los módulos con
+ * al menos una card permitida. Los módulos sin acceso y los placeholders
+ * (<c>disabled</c>) no se muestran — el usuario solo ve lo que puede abrir.
+ */
+export function sidebarItemsVisibles(
+  permisos: readonly string[],
+): readonly NavSidebarItem[] {
+  return navSidebarItems.filter(
+    (item) =>
+      item.kind === 'link' ||
+      (!item.disabled && filtrarModuloPorPermisos(item, permisos).secciones.length > 0),
+  );
+}
+
+/**
+ * Rutas que no tienen card en el menú (se llega desde otra pantalla) pero
+ * leen datos protegidos. Mismo permiso que exige su endpoint en el backend.
+ */
+const rutasFueraDelMenu: readonly Pick<NavCard, 'to' | 'permission' | 'permissionsAny'>[] = [
+  { to: '/compras/trazabilidad', permission: PermisosCanonicos.ComprasOrdenesLeer },
+  { to: '/compras/articulos', permission: PermisosCanonicos.ComprasOrdenesLeer },
+];
+
+function contieneRuta(base: string, pathname: string): boolean {
+  return pathname === base || pathname.startsWith(`${base}/`);
+}
+
+/**
+ * ¿Puede el usuario abrir esta URL? Aplica el permiso de la card más
+ * específica que contiene la ruta (<c>/compras/ordenes/123</c> → card
+ * <c>/compras/ordenes</c>), así el sidebar y la URL directa usan la misma
+ * regla. Sin card: la raíz de un módulo (<c>/tesoreria</c>, su ayuda) exige
+ * ver ese módulo; el resto (Inicio, administración) lo decide su ruta.
+ *
+ * <para>Es una guarda de navegación, no de seguridad: el backend valida
+ * cada endpoint.</para>
+ */
+export function rutaPermitida(pathname: string, permisos: readonly string[]): boolean {
+  const candidatas = [
+    ...modulos.flatMap((m) => m.secciones.flatMap((s) => s.cards)),
+    ...rutasFueraDelMenu,
+  ].filter((card) => contieneRuta(card.to, pathname));
+
+  if (candidatas.length > 0) {
+    const masEspecifica = candidatas.reduce((a, b) => (b.to.length > a.to.length ? b : a));
+    return cardVisible(masEspecifica, permisos);
+  }
+
+  const segmento = `/${pathname.split('/')[1] ?? ''}`;
+  const modulo = modulos.find((m) =>
+    m.secciones.some((s) => s.cards.some((c) => contieneRuta(segmento, c.to))),
+  );
+  return modulo === undefined || filtrarModuloPorPermisos(modulo, permisos).secciones.length > 0;
 }

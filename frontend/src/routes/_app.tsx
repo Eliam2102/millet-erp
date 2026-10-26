@@ -1,5 +1,6 @@
 import { createFileRoute, Outlet, redirect } from '@tanstack/react-router';
 import { useAuthStore } from '@/lib/auth/auth-store';
+import { rutaPermitida } from '@/lib/nav';
 import { AppShell } from '@/components/layout/AppShell';
 import { ConflictDialogProvider } from '@/components/erp/collaboration/ConflictDialogProvider';
 import { NuevaRequisicionProvider } from '@/features/compras/components/NuevaRequisicionProvider';
@@ -24,10 +25,15 @@ import { Toaster } from '@/components/ui/sonner';
  * Login NO está bajo _app → no ve el shell.
  */
 export const Route = createFileRoute('/_app')({
-  beforeLoad: () => {
-    const status = useAuthStore.getState().status;
+  beforeLoad: ({ location }) => {
+    const { status, permisos } = useAuthStore.getState();
     if (status !== 'authenticated') {
       throw redirect({ to: '/login' });
+    }
+    // Misma regla que el sidebar: una URL de un módulo o pantalla sin
+    // permiso regresa a Inicio en lugar de mostrar una pantalla vacía o 403.
+    if (!rutaPermitida(location.pathname, permisos)) {
+      throw redirect({ to: '/' });
     }
   },
   component: AppLayout,

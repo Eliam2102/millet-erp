@@ -1,6 +1,8 @@
-import { describe, expect, it, vi } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { render, screen } from '@testing-library/react';
 import { MobileSidebar } from '@/components/layout/MobileSidebar';
+import { useAuthStore } from '@/lib/auth/auth-store';
+import { PermisosCanonicos } from '@/lib/auth/permission-codes';
 
 vi.mock('@tanstack/react-router', () => ({
   Link: ({
@@ -22,6 +24,11 @@ vi.mock('@tanstack/react-router', () => ({
 }));
 
 describe('<MobileSidebar>', () => {
+  beforeEach(() => {
+    // El sidebar solo muestra módulos con al menos una pantalla permitida.
+    useAuthStore.setState({ permisos: [PermisosCanonicos.ComprasRequisicionesLeer] });
+  });
+
   it('open=false: no renderiza el dialog', () => {
     render(
       <MobileSidebar
@@ -43,7 +50,7 @@ describe('<MobileSidebar>', () => {
     );
     expect(screen.getByRole('dialog')).toBeInTheDocument();
     expect(screen.getByText(/Navegación principal/i)).toBeInTheDocument();
-    // El nav incluye Inicio + 8 módulos.
+    // Inicio + los módulos que el usuario puede abrir (aquí solo Compras).
     expect(screen.getByText('Inicio')).toBeInTheDocument();
     expect(screen.getByText('Compras')).toBeInTheDocument();
   });
@@ -71,7 +78,6 @@ describe('<MobileSidebar>', () => {
         onModuloOpen={onModuloOpen}
       />,
     );
-    // Compras es el único módulo NO disabled (cumple botón clickable).
     screen.getByRole('button', { name: /Compras/i }).click();
     expect(onOpenChange).toHaveBeenCalledWith(false);
     expect(onModuloOpen).toHaveBeenCalledOnce();
@@ -91,5 +97,19 @@ describe('<MobileSidebar>', () => {
     );
     screen.getByRole('button', { name: /cerrar navegación/i }).click();
     expect(onOpenChange).toHaveBeenCalledWith(false);
+  });
+
+  it('sin permisos del módulo no lo muestra (ni placeholders)', () => {
+    useAuthStore.setState({ permisos: [] });
+    render(
+      <MobileSidebar
+        open={true}
+        onOpenChange={() => {}}
+        onModuloOpen={() => {}}
+      />,
+    );
+    expect(screen.getByText('Inicio')).toBeInTheDocument();
+    expect(screen.queryByText('Compras')).not.toBeInTheDocument();
+    expect(screen.queryByText('Contabilidad')).not.toBeInTheDocument();
   });
 });

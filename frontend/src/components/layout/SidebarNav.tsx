@@ -1,5 +1,5 @@
 import { Link, useLocation } from '@tanstack/react-router';
-import { navSidebarItems, type NavModulo } from '@/lib/nav';
+import { sidebarItemsVisibles, type NavModulo } from '@/lib/nav';
 import { useAuthStore } from '@/lib/auth/auth-store';
 import { cn } from '@/lib/utils';
 
@@ -41,7 +41,9 @@ export function SidebarNav({
     );
   }
 
-  void permisos;
+  // Solo lo que el usuario puede abrir: módulos sin cards permitidas y
+  // placeholders no se muestran.
+  const items = sidebarItemsVisibles(permisos);
 
   return (
     <div
@@ -61,7 +63,7 @@ export function SidebarNav({
 
       <nav className="flex-1 overflow-y-auto py-3">
         <ul className="space-y-0.5 px-2">
-          {navSidebarItems.map((item) => {
+          {items.map((item) => {
             const Icon = item.icon;
 
             if (item.kind === 'link') {
@@ -81,20 +83,6 @@ export function SidebarNav({
                     <Icon className="h-4 w-4 shrink-0" />
                     <span className="truncate">{item.label}</span>
                   </Link>
-                </li>
-              );
-            }
-
-            if (item.disabled) {
-              return (
-                <li key={item.moduloId}>
-                  <span
-                    title="Próximamente"
-                    className="flex cursor-not-allowed items-center gap-3 rounded-md px-3 py-2 text-sm text-sidebar-muted/60"
-                  >
-                    <Icon className="h-4 w-4 shrink-0" />
-                    <span className="truncate">{item.label}</span>
-                  </span>
                 </li>
               );
             }
