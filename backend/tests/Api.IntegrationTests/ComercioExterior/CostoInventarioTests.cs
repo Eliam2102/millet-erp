@@ -14,6 +14,79 @@ using Millet.SharedKernel.Infrastructure.Outbox;
 namespace Millet.Api.IntegrationTests.ComercioExterior;
 public sealed class CostoInventarioTests
 {
+    [Theory]
+    [InlineData(100, 0, 0, 1000, 0)]
+    [InlineData(60, 0, 400, 600, 0)]
+    [InlineData(60, 30, 400, 300, 300)]
+    public async Task P8_traslado_reparte_por_ubicacion_duplicado_y_diferencia(
+        int liberadas, int consumidas, decimal costoRevision, decimal costoRack, decimal costoVentas)
+    {
+        await using var escenario = await ExpedientesHttpTests.Escenario.CrearAsync();
+        using var scope = escenario.Scope(); var sp = scope.ServiceProvider;
+        using var bypass = sp.GetRequiredService<ICurrentEmpresaContext>().Bypass();
+        var db = sp.GetRequiredService<AlmacenDbContext>();
+        var empresa = DemoSesionSeedHostedService.EmpresaId;
+        var recepcionDemo = DemoSesionSeedHostedService.Id("DEMO-CE-P1-RECEPCION");
+        var demo = await db.Movimientos.Include(m => m.Lineas).SingleAsync(m => m.Id == recepcionDemo);
+        var articulo = demo.Lineas.First().ArticuloId;
+        var rackDemo = await db.Ubicaciones.SingleAsync(u => u.Id == DemoSesionSeedHostedService.Id("DEMO-CE-P1-RACK"));
+        var subDemo = await db.SubAlmacenes.SingleAsync(s => s.Id == rackDemo.SubAlmacenId);
+        var revision = new Millet.Almacen.Domain.Catalogo.SubAlmacen(Guid.NewGuid(), subDemo.AlmacenId, "P8-REV", "Revisión P8", Millet.Almacen.Domain.Catalogo.TipoSubAlmacen.MaterialEnRevision);
+        var origen = new Millet.Almacen.Domain.Catalogo.Ubicacion(Guid.NewGuid(), revision.Id, "P8-REV", "Revisión P8");
+        var rack = new Millet.Almacen.Domain.Catalogo.Ubicacion(Guid.NewGuid(), subDemo.Id, "P8-R01", "Rack P8");
+        db.SubAlmacenes.Add(revision); db.Ubicaciones.AddRange(origen, rack);
+        await db.SaveChangesAsync();
+        var secuencia = 910000;
+        MovimientoInventario Agregar(TipoMovimiento tipo, Guid ubicacion, decimal cantidad)
+        {
+            var m = new MovimientoInventario(Guid.CreateVersion7(), tipo, empresa, new(2026, 10, 22));
+            m.AgregarLinea(new(Guid.NewGuid(), m.Id, 1, articulo, cantidad, "PZA", 10, ubicacionId: ubicacion));
+            if (tipo == TipoMovimiento.EntradaCompra) m.VincularRecepcionVarianteB(demo.OcId!.Value, null, "P8.pdf");
+            m.Registrar(FolioMovimiento.Construir(tipo, 2026, ++secuencia), DemoSesionSeedHostedService.CapturistaComprasDemoId);
+            db.Movimientos.Add(m); return m;
+        }
+        var recibida = Agregar(TipoMovimiento.EntradaCompra, origen.Id, 100);
+        await db.SaveChangesAsync();
+        var salida = Agregar(TipoMovimiento.SalidaPorLiberacionRevision, origen.Id, liberadas);
+        Agregar(TipoMovimiento.ReincorporacionTrasRevision, rack.Id, liberadas).VincularSalidaLiberacion(salida.Id);
+        await db.SaveChangesAsync();
+        if (consumidas > 0) { Agregar(TipoMovimiento.SalidaConsumo, rack.Id, consumidas); await db.SaveChangesAsync(); }
+        var iniciales = await db.SaldosInventario.AsNoTracking().Where(s => s.UbicacionId == origen.Id || s.UbicacionId == rack.Id).ToDictionaryAsync(s => s.UbicacionId);
+        var expediente = Guid.NewGuid();
+        var partida = recibida.Lineas.Single().Id;
+        var payload = new CostoExpedientePayload(empresa, expediente, escenario.SucursalId, 1,
+            [new(partida, demo.OcId!.Value, recibida.Id, articulo, origen.Id, 100, 1000, 1000)]);
+        var mediator = sp.GetRequiredService<IMediator>();
+        await mediator.Send(new AplicarCostoExpedienteCommand(payload));
+        await mediator.Send(new AplicarCostoExpedienteCommand(payload));
+        var ajustes = await db.Set<AjusteCostoExpediente>().Where(a => a.ExpedienteId == expediente).ToListAsync();
+        Assert.Equal(2, ajustes.Count);
+        Assert.Equal(costoRevision, ajustes.Single(a => a.UbicacionId == origen.Id).InventarioMxn);
+        Assert.Equal(costoRack, ajustes.Single(a => a.UbicacionId == rack.Id).InventarioMxn);
+        Assert.Equal(costoVentas, ajustes.Sum(a => a.CostoVentasMxn));
+        await mediator.Send(new AplicarCostoExpedienteCommand(payload with { NumeroVersion = 2,
+            Partidas = [payload.Partidas[0] with { ImporteMxn = 1200, DiferenciaMxn = 200 }] }));
+        db.ChangeTracker.Clear();
+        var posteriores = await db.SaldosInventario.AsNoTracking().Where(s => s.UbicacionId == origen.Id || s.UbicacionId == rack.Id).ToListAsync();
+        foreach (var saldo in posteriores)
+        {
+            Assert.Equal(iniciales[saldo.UbicacionId].Cantidad, saldo.Cantidad);
+            Assert.Equal(iniciales[saldo.UbicacionId].ValorInventarioMxn + (saldo.UbicacionId == origen.Id ? costoRevision : costoRack) * 1.2m, saldo.ValorInventarioMxn);
+        }
+        ajustes = await db.Set<AjusteCostoExpediente>().Where(a => a.ExpedienteId == expediente && a.NumeroVersion == 2).ToListAsync();
+        Assert.Equal(1200, ajustes.Sum(a => a.AcumuladoMxn));
+        Assert.Equal(200, ajustes.Sum(a => a.DiferenciaMxn));
+        Assert.Equal(costoVentas * .2m, ajustes.Sum(a => a.CostoVentasMxn));
+        var eventos = await db.Set<IntegrationEventOutboxEntry>().Where(x => x.EventType == "almacen.expediente.costo-aplicado.v1").ToListAsync();
+        Assert.Equal(2, eventos.Count);
+        var aplicado = System.Text.Json.JsonSerializer.Deserialize<ExpedienteCostoAplicadoEvent>(eventos[0].Payload,
+            System.Text.Json.JsonSerializerOptions.Web)!;
+        Assert.Single(aplicado.Partidas);
+        Assert.Equal(2, aplicado.Partidas[0].Ubicaciones.Count);
+        Assert.Equal(aplicado.Partidas[0].InventarioMxn, aplicado.Partidas[0].Ubicaciones.Sum(u => u.InventarioMxn));
+        Assert.Equal(aplicado.Partidas[0].DiferenciaMxn, aplicado.Partidas[0].InventarioMxn + aplicado.Partidas[0].CostoVentasMxn);
+    }
+
     [Fact]
     public async Task CA4_CA5_CA6_aplicacion_transaccional_duplicado_y_version_diferencial()
     {
