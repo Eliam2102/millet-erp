@@ -8,6 +8,7 @@ import {
   TableHead,
   TableHeader,
   TableRow,
+  TableContainer,
 } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
 import { formatMoney } from '@/lib/money';
@@ -65,6 +66,7 @@ export function PanelBloqueoEstadoCuenta({
           Cargando pagos pendientes…
         </p>
       ) : pendientes && pendientes.length > 0 ? (
+        <TableContainer maxHeightClassName="">
         <Table aria-label="Pagos que bloquean el estado de cuenta">
           <TableHeader>
             <TableRow>
@@ -95,6 +97,7 @@ export function PanelBloqueoEstadoCuenta({
             ))}
           </TableBody>
         </Table>
+        </TableContainer>
       ) : (
         <p className="text-sm text-ink-muted">
           No se pudo obtener el detalle de los pagos pendientes. Revisa la bandeja de REP

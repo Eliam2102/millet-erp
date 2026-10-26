@@ -12,6 +12,7 @@ import {
   TableHeader,
   TableRow,
   TableCell,
+  TableContainer,
 } from '@/components/ui/table';
 import { useClasesActivo, useGuardarActivo } from '../api/hooks';
 import type { Clase } from '../api/types';
@@ -65,6 +66,7 @@ export function ClasesPage() {
         </p>
       )}
       <div className="rounded-lg bg-surface-card shadow-card-flat">
+        <TableContainer maxHeightClassName="">
         <Table>
           <TableHeader>
             <TableRow>
@@ -114,6 +116,7 @@ export function ClasesPage() {
             ))}
           </TableBody>
         </Table>
+        </TableContainer>
       </div>
       {editar && (
         <form

@@ -11,6 +11,7 @@ import {
   TableHead,
   TableBody,
   TableCell,
+  TableContainer,
 } from '@/components/ui/table';
 import { FormSeccion } from '@/components/erp/forms/FormSeccion';
 import { FormCampo } from '@/components/erp/forms/FormGrid';
@@ -147,6 +148,7 @@ function Gastos({
         {!f.ordenesServicio?.length ? (
           <p className="text-ink-muted">No hay órdenes de servicio ligadas.</p>
         ) : (
+          <TableContainer maxHeightClassName="">
           <Table>
             <TableHeader>
               <TableRow>
@@ -176,6 +178,7 @@ function Gastos({
               ))}
             </TableBody>
           </Table>
+          </TableContainer>
         )}
         <p className="text-xs text-ink-muted">
           La diferencia compara lo facturado con el importe asignado. Un valor positivo indica
@@ -206,6 +209,7 @@ function Gastos({
           onClose={() => setEditar(undefined)}
         />
       )}
+      <TableContainer maxHeightClassName="">
       <Table>
         <TableHeader>
           <TableRow>
@@ -257,6 +261,7 @@ function Gastos({
           ))}
         </TableBody>
       </Table>
+      </TableContainer>
       {!f.gastos.length && <p className="text-ink-muted">Sin gastos registrados.</p>}
       {data.expediente.tipo === 1 && <ContenedorImportacion id={id} />}
       <h3 className="text-md font-semibold">Bases de las partidas</h3>
@@ -396,6 +401,7 @@ function Gastos({
       {data.expediente.tipo === 2 && f.distribuciones.length > 0 && (
         <section>
           <h3 className="text-md font-semibold">Costo logístico por cliente</h3>
+          <TableContainer maxHeightClassName="">
           <Table>
             <TableHeader>
               <TableRow>
@@ -420,6 +426,7 @@ function Gastos({
               ))}
             </TableBody>
           </Table>
+          </TableContainer>
         </section>
       )}
       <h3 className="text-md font-semibold">Historial de versiones</h3>
@@ -909,6 +916,7 @@ function Anticipos({ data, finanzas: f }: { data: ExpedienteDetalle; finanzas: F
     <div className="space-y-4">
       {gestionar && <Button onClick={() => setNuevo(true)}>Registrar anticipo</Button>}
       {nuevo && <NuevoAnticipo id={data.expediente.id} onClose={() => setNuevo(false)} />}
+      <TableContainer maxHeightClassName="">
       <Table>
         <TableHeader>
           <TableRow>
@@ -954,6 +962,7 @@ function Anticipos({ data, finanzas: f }: { data: ExpedienteDetalle; finanzas: F
           ))}
         </TableBody>
       </Table>
+      </TableContainer>
       {seleccion && (
         <ResolverAnticipo
           key={seleccion.id}

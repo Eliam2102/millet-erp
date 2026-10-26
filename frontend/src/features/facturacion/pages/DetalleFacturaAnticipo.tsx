@@ -9,6 +9,7 @@ import {
   TableHead,
   TableHeader,
   TableRow,
+  TableContainer,
 } from '@/components/ui/table';
 import type { FacturaAnticipoDetalleResponse } from '@/features/facturacion/api/types';
 import { useFacturaAnticipoDetalle } from '@/features/facturacion/api/useAnticipos';
@@ -198,6 +199,7 @@ function Contenido({ f }: { f: FacturaAnticipoDetalleResponse }) {
 
         <section className="space-y-4">
           <section className="space-y-3">
+            <TableContainer maxHeightClassName="">
             <Table>
               <TableHeader>
                 <TableRow>
@@ -214,6 +216,7 @@ function Contenido({ f }: { f: FacturaAnticipoDetalleResponse }) {
                 </TableRow>
               </TableBody>
             </Table>
+            </TableContainer>
             <ResumenImportes
               moneda={f.moneda}
               subtotal={f.subtotal}
