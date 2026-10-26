@@ -72,6 +72,20 @@ public sealed record LineaRecepcionPayload(
     Guid? SubAlmacenId = null);
 
 /// <summary>
+/// Espejo de <c>almacen.recepcion_activo.anulada.v1</c> (una por línea de OC). CxP marca la línea
+/// como anulada en la recepción local para que no cuente en conciliación ni en pendientes por facturar.
+/// </summary>
+public sealed record RecepcionActivoAnuladaAlmacenPayload(
+    Guid EmpresaId,
+    DateTimeOffset OcurridoEn,
+    Guid RecepcionActivoId,
+    Guid RecepcionId,
+    Guid OrdenCompraId,
+    Guid LineaOcId,
+    decimal Cantidad,
+    string Motivo);
+
+/// <summary>
 /// Espejo de <c>almacen.oc_devolucion.registrada.v1</c>. CxP genera
 /// <c>NotaCargo</c> en Borrador asociada a esta devolución, lista para
 /// autorización + aplicación. La NC fiscal del proveedor (tipo 03)

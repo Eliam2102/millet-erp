@@ -61,7 +61,7 @@ export function ProductoAwBajaAviso({ producto }: { producto: ProductoAwDetalle 
   return (
     <p
       role="status"
-      className="mb-4 max-w-3xl rounded-md border border-warning bg-warning-bg p-3 text-sm text-warning-fg "
+      className="mb-4 rounded-md border border-warning bg-warning-bg p-3 text-sm text-warning-fg "
     >
       Inactivo: no se usa en documentos nuevos; el historial se conserva. Baja desde{' '}
       {new Date(producto.fechaBaja).toLocaleDateString('es-MX')}.
@@ -84,7 +84,7 @@ export function ProductoAwVariantesTable({
   if (variantes.length === 0) return null;
   const ordenadas = [...variantes].sort(porMedida);
   return (
-    <section className="mt-4 max-w-3xl rounded-md border bg-surface-card p-4" aria-label="Medidas">
+    <section className="mt-4 rounded-md border bg-surface-card p-4" aria-label="Medidas">
       <h3 className="mb-2 text-sm font-semibold">
         Medidas ({variantes.length}){' '}
         {unidadMedida && (
@@ -123,7 +123,7 @@ export function ProductoAwComposicion({ componentes }: { componentes: ProductoAw
   const filas = [...componentes].sort((a, b) => a.orden - b.orden);
   return (
     <section
-      className="mt-4 max-w-3xl rounded-md border bg-surface-card p-4"
+      className="mt-4 rounded-md border bg-surface-card p-4"
       aria-label="Composición"
     >
       <h3 className="mb-2 text-sm font-semibold">Composición ({componentes.length})</h3>
@@ -185,7 +185,7 @@ export function ProductoAwOrigenSection({ producto }: { producto: ProductoAwDeta
 
   return (
     <section
-      className="mt-4 max-w-3xl rounded-md border bg-surface-card p-4"
+      className="mt-4 rounded-md border bg-surface-card p-4"
       aria-label="Datos de origen A+W"
     >
       <div className="mb-3 flex flex-wrap items-center justify-between gap-2">

@@ -25,7 +25,7 @@ public sealed class OrdenesServicioServicio(ComercioExteriorDbContext db, Expedi
                 throw new BusinessRuleException("CE_ORDEN_SERVICIO_INVALIDA", "El reparto requiere una orden de servicio.");
             return null;
         }
-        var oc = await compras.ObtenerAsync(id, ct) ?? throw new BusinessRuleException("CE_ORDEN_SERVICIO_INVALIDA", "No existe la orden de servicio en esta empresa.");
+        var oc = await compras.ObtenerAsync(e.EmpresaId, id, ct) ?? throw new BusinessRuleException("CE_ORDEN_SERVICIO_INVALIDA", "No existe la orden de servicio en esta empresa.");
         await servicio.SucursalAsync(oc.SucursalId, true, ct);
         ValidarOrden(oc, e.EmpresaId, e.SucursalId, gasto.ProveedorId);
         var otros = await db.Set<GastoExpediente>().Where(g => g.OrdenServicioId == id && g.ExpedienteId != e.Id)

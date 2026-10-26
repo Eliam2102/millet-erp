@@ -146,6 +146,7 @@ public class AlmacenDbContext : BaseDbContext
         var af = modelBuilder.Entity<RecepcionActivo>();
         af.ToTable("recepciones_activos", "almacen"); af.HasKey(x => x.Id); af.Property(x => x.Id).ValueGeneratedNever();
         af.Property(x => x.Cantidad).HasPrecision(18, 4); af.HasIndex(x => new { x.EmpresaId, x.OrdenCompraId, x.LineaOcId });
+        af.Property(x => x.Folio).HasMaxLength(30); af.Property(x => x.MotivoAnulacion).HasMaxLength(500); af.Ignore(x => x.EstaAnulada);
         var ajuste = modelBuilder.Entity<AjusteCostoExpediente>();
         ajuste.ToTable("ajustes_costo_expediente"); ajuste.HasKey(x => x.Id); ajuste.Property(x => x.Id).ValueGeneratedNever();
         ajuste.HasIndex(x => new { x.EmpresaId, x.ExpedienteId, x.NumeroVersion, x.PartidaId, x.UbicacionId }).IsUnique();

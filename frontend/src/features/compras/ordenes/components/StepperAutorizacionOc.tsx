@@ -1,4 +1,4 @@
-import { Check, X } from 'lucide-react';
+import { Check, Minus, X } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { EstadoOrdenCompra } from '@/features/compras/ordenes/api/types';
 
@@ -28,11 +28,13 @@ import { EstadoOrdenCompra } from '@/features/compras/ordenes/api/types';
  */
 export interface StepperAutorizacionOcProps {
   estado: EstadoOrdenCompra;
+  /** Autorizada sin firma de Dirección (monto bajo el umbral N2): el paso N2 se pinta «no requerido». */
+  n2NoRequerido?: boolean;
   /** Override de clases del contenedor exterior. */
   className?: string;
 }
 
-type EstadoPaso = 'pendiente' | 'actual' | 'completo' | 'rechazado';
+type EstadoPaso = 'pendiente' | 'actual' | 'completo' | 'rechazado' | 'noRequerido';
 
 interface PasoInfo {
   /** Identificador estable para tests/scraping. */
@@ -91,6 +93,7 @@ const PASO_BG: Record<EstadoPaso, string> = {
   actual: 'bg-warning-bg text-warning-fg ring-warning',
   completo: 'bg-success-bg text-success-fg ring-success',
   rechazado: 'bg-danger-bg text-danger-fg ring-danger',
+  noRequerido: 'bg-surface-muted text-ink-muted ring-line opacity-70',
 };
 
 const CONECTOR_BG: Record<EstadoPaso, string> = {
@@ -99,10 +102,19 @@ const CONECTOR_BG: Record<EstadoPaso, string> = {
   actual: 'bg-warning',
   completo: 'bg-success',
   rechazado: 'bg-danger',
+  noRequerido: 'bg-success',
 };
 
-export function StepperAutorizacionOc({ estado, className }: StepperAutorizacionOcProps) {
-  const pasos = derivarPasos(estado);
+export function StepperAutorizacionOc({
+  estado,
+  n2NoRequerido = false,
+  className,
+}: StepperAutorizacionOcProps) {
+  const pasos = derivarPasos(estado).map((p) =>
+    p.id === 'n2' && n2NoRequerido && p.estado === 'completo'
+      ? { ...p, estado: 'noRequerido' as const, label: 'Dirección (N2) · no requerido' }
+      : p,
+  );
 
   return (
     <ol
@@ -134,6 +146,7 @@ export function StepperAutorizacionOc({ estado, className }: StepperAutorizacion
               >
                 {paso.estado === 'completo' && <Check className="h-3 w-3" />}
                 {paso.estado === 'rechazado' && <X className="h-3 w-3" />}
+                {paso.estado === 'noRequerido' && <Minus className="h-3 w-3" />}
                 {paso.estado === 'actual' && (
                   <span className="block h-1.5 w-1.5 rounded-full bg-current" />
                 )}

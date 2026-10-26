@@ -29,7 +29,7 @@ public sealed class ElegibilidadFacturaService(CuentasPorPagarDbContext db, ICom
             var recepciones = await db.RecepcionesOcLocal.Where(r => r.OrdenCompraId == ocId).ToListAsync(ct);
             recepciones = recepciones.Concat(db.RecepcionesOcLocal.Local.Where(r => r.OrdenCompraId == ocId))
                 .DistinctBy(r => r.RecepcionId).ToList();
-            var recibidoLocal = recepciones.SelectMany(r => JsonSerializer.Deserialize<List<LineaRecepcionPayload>>(r.LineasJson, JsonOptions) ?? [])
+            var recibidoLocal = recepciones.SelectMany(r => (JsonSerializer.Deserialize<List<LineaRecepcionPayload>>(r.LineasJson, JsonOptions) ?? []).Where(l => !r.LineaAnulada(l.LineaOcId)))
                 .Where(l => l.LineaOcId != null).GroupBy(l => l.LineaOcId!.Value)
                 .ToDictionary(g => g.Key, g => g.Sum(l => l.Cantidad));
             disponible = oc.Lineas.ToDictionary(l => l.Id,
