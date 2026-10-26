@@ -150,14 +150,14 @@ export function NotaCreditoDetallePage() {
                 <dt className="text-xs text-muted-foreground">
                   Factura origen
                 </dt>
-                <dd className="font-mono text-xs">
+                <dd className="text-xs">
                   {query.data.facturaOrigenId != null ? (
                     <Link
                       to="/cxp/facturas/$id"
                       params={{ id: query.data.facturaOrigenId }}
                       className="text-primary underline-offset-2 hover:underline"
                     >
-                      {query.data.facturaOrigenId}
+                      Ver factura origen
                     </Link>
                   ) : (
                     '— (en espera de match)'

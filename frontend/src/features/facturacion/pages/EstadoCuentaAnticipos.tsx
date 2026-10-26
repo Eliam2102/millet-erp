@@ -64,7 +64,7 @@ function Contenido({ d }: { d: NonNullable<ReturnType<typeof useEstadoCuentaAnti
         <PageHeader
           mono
           titulo={<>Estado de cuenta de anticipos</>}
-          descripcion={<>Cliente {d.clienteId}</>}
+          descripcion={<>Cliente —</>}
         />
       </div>
 

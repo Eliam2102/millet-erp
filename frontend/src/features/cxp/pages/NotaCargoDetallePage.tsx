@@ -181,14 +181,14 @@ export function NotaCargoDetallePage() {
                 <dt className="text-xs text-muted-foreground">
                   Factura origen
                 </dt>
-                <dd className="font-mono text-xs">
+                <dd className="text-xs">
                   {query.data.facturaOrigenId != null ? (
                     <Link
                       to="/cxp/facturas/$id"
                       params={{ id: query.data.facturaOrigenId }}
                       className="text-primary underline-offset-2 hover:underline"
                     >
-                      {query.data.facturaOrigenId}
+                      Ver factura origen
                     </Link>
                   ) : (
                     '—'
@@ -197,21 +197,20 @@ export function NotaCargoDetallePage() {
               </div>
               <Campo
                 label="Devolución a proveedor"
-                valor={query.data.devolucionAProveedorId ?? '—'}
-                mono={query.data.devolucionAProveedorId != null}
+                valor={query.data.devolucionAProveedorId != null ? 'Vinculada' : '—'}
               />
               <div>
                 <dt className="text-xs text-muted-foreground">
                   NC del proveedor (conciliación)
                 </dt>
-                <dd className="font-mono text-xs">
+                <dd className="text-xs">
                   {query.data.notaCreditoProveedorId != null ? (
                     <Link
                       to="/cxp/notas-credito/$id"
                       params={{ id: query.data.notaCreditoProveedorId }}
                       className="text-primary underline-offset-2 hover:underline"
                     >
-                      {query.data.notaCreditoProveedorId}
+                      Ver NC del proveedor
                     </Link>
                   ) : (
                     '—'
