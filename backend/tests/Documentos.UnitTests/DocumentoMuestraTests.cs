@@ -20,7 +20,9 @@ public sealed class DocumentoMuestraTests
         Encoding.ASCII.GetString(pdf, 0, 4).Should().Be("%PDF");
         // Cada imagen representa una página realmente compuesta por QuestPDF.
         var paginas = documento.GenerateImages(new ImageGenerationSettings { RasterDpi = 72 }).ToArray();
-        paginas.Length.Should().Be(2);
+        // 60 renglones fuerzan salto de página; cuántas exactamente depende de la
+        // fuente disponible (Calibri en Mac, otra más ancha en el CI de Linux).
+        paginas.Length.Should().BeGreaterThanOrEqualTo(2);
         paginas.Should().OnlyContain(x => x.Length > 1000);
         var salida = Path.GetFullPath(Path.Combine(Path.GetDirectoryName(Assembly.GetExecutingAssembly().Location)!, "../../../Salidas"));
         Directory.CreateDirectory(salida);
