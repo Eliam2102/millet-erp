@@ -4,8 +4,10 @@ export function LineaActivoFields({
   activo,
   clase,
   onChange,
+  disabled,
 }: {
   error?: string;
+  disabled?: boolean;
   activo: boolean;
   clase?: string | null;
   onChange: (activo: boolean, clase: string | null) => void;
@@ -17,6 +19,7 @@ export function LineaActivoFields({
         <input
           type="checkbox"
           checked={activo}
+          disabled={disabled}
           onChange={(e) => onChange(e.target.checked, e.target.checked ? (clase ?? null) : null)}
         />
         Activo fijo
@@ -26,6 +29,7 @@ export function LineaActivoFields({
           Clase sugerida *
           <select
             required
+            disabled={disabled}
             aria-label="Clase de activo sugerida"
             className="ml-2 h-ctl-xl rounded-md border border-line-control bg-surface-card px-3"
             value={clase ?? ''}

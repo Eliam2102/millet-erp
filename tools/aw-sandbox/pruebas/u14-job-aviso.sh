@@ -19,7 +19,7 @@ IF OBJECT_ID('dbo.aw_src_auftr_kopf','SN') IS NOT NULL DROP SYNONYM dbo.aw_src_a
 IF OBJECT_ID('dbo.aw_src_auftr_hist','SN') IS NOT NULL DROP SYNONYM dbo.aw_src_auftr_hist;
 CREATE SYNONYM dbo.aw_src_auftr_kopf FOR AW_SANDBOX.SYSADM.BW_AUFTR_KOPF;
 CREATE SYNONYM dbo.aw_src_auftr_hist FOR AW_SANDBOX.SYSADM.BW_AUFTR_HIST;
-DELETE FROM dbo.aw_solicitud_pedido WHERE numero_pedido LIKE '99000_';
+DELETE FROM dbo.aw_solicitud_pedido WHERE numero_pedido LIKE '99000_' OR numero_pedido = '90990001';
 IF OBJECT_ID('dbo.aw_aviso_job_pedido','U') IS NOT NULL DELETE FROM dbo.aw_aviso_job_pedido WHERE numero_pedido LIKE '99000_';"
 
 echo "== 2. Instalar el job (07)"
@@ -46,6 +46,35 @@ done
 echo "== Fase 4: otro barrido sin cambios en A+W (no debe duplicar)"
 esperar
 cola
+
+echo "== Fase 5: el botón del vendedor inserta ANTES que el job (990007: una sola fila, op 1 v1)"
+sq -d AW_SANDBOX -v FASE=5 -i /tmp/u14-escenarios.sql -W
+esperar
+esperar
+cola
+n=$(sq -d MILLET_INTEGRACION -h -1 -W -Q "SET NOCOUNT ON; SELECT COUNT(*) FROM dbo.aw_solicitud_pedido WHERE numero_pedido = '990007';" | tr -d '[:space:]')
+[ "$n" = 1 ] || { echo "FALLA: 990007 tiene $n filas, se esperaba 1 (el job duplicó el botón)" >&2; exit 1; }
+n=$(sq -d MILLET_INTEGRACION -h -1 -W -Q "SET NOCOUNT ON; SELECT COUNT(*) FROM dbo.aw_aviso_job_pedido WHERE numero_pedido = '990007' AND ultima_version = 1;" | tr -d '[:space:]')
+[ "$n" = 1 ] || { echo "FALLA: el job no registró 990007 (¿corrió?)" >&2; exit 1; }
+
+echo "== Fase 6: reconfirmación posterior al botón → Modificación v2 (no se pierde)"
+sq -d AW_SANDBOX -v FASE=6 -i /tmp/u14-escenarios.sql -W
+esperar
+cola
+n=$(sq -d MILLET_INTEGRACION -h -1 -W -Q "SET NOCOUNT ON; SELECT COUNT(*) FROM dbo.aw_solicitud_pedido WHERE numero_pedido = '990007' AND operacion = 2 AND [version] = 2;" | tr -d '[:space:]')
+[ "$n" = 1 ] || { echo "FALLA: falta la Modificación v2 de 990007" >&2; exit 1; }
+
+echo "== Fase 7-8: botón en estatus 10 y luego firme / cancelación (sin segunda Alta)"
+sq -d AW_SANDBOX -v FASE=7 -i /tmp/u14-escenarios.sql -W
+esperar
+sq -d AW_SANDBOX -v FASE=8 -i /tmp/u14-escenarios.sql -W
+esperar
+cola
+chk() { sq -d MILLET_INTEGRACION -h -1 -W -Q "SET NOCOUNT ON; SELECT COUNT(*) FROM dbo.aw_solicitud_pedido WHERE $1;" | tr -d '[:space:]'; }
+[ "$(chk "numero_pedido = '990008' AND operacion = 1")" = 1 ] || { echo "FALLA: 990008 tiene más de una Alta (el job duplicó el botón)" >&2; exit 1; }
+[ "$(chk "numero_pedido = '990008' AND operacion = 2 AND [version] = 2")" = 1 ] || { echo "FALLA: falta la Modificación v2 de 990008 al llegar a 15" >&2; exit 1; }
+[ "$(chk "numero_pedido = '990009' AND operacion = 3 AND [version] = 2")" = 1 ] || { echo "FALLA: falta la Cancelación v2 de 990009 (solo avisado por el botón)" >&2; exit 1; }
+[ "$(chk "numero_pedido = '90990001'")" = 0 ] || { echo "FALLA: se avisó un pedido Serie 9000 (90990001)" >&2; exit 1; }
 
 echo "== Historial del job en el Agent (últimas 5 ejecuciones)"
 sq -d msdb -W -s ' | ' -Q "SET NOCOUNT ON; SELECT TOP 5 h.run_date, h.run_time, h.run_status, h.run_duration

@@ -16,6 +16,8 @@ import { Label } from '@/components/ui/label';
 import { Field } from '@/components/erp';
 import { Textarea } from '@/components/ui/textarea';
 import { hoyLocalISO } from '@/lib/datetime';
+import { useCondicionesPago } from '@/features/catalogos/api';
+import { DateTimeDisplay } from '@/components/erp/display/DateTimeDisplay';
 import { TipoRespuestaProveedorOc, type OrdenCompraDetalleResponse } from '../api/types';
 import {
   RegistrarRespuestaProveedorSchema,
@@ -87,25 +89,20 @@ function RespuestaForm({
   onClose: () => void;
 }) {
   const hoy = hoyLocalISO();
+  const condicion = useCondicionesPago({ includeInactivas: true }).data?.find((c) => c.id === oc.condicionesPagoId);
   const pendientes = oc.lineas
     .map((l) => ({ linea: l, pendiente: l.cantidad - l.cantidadRecibida }))
     .filter((x) => x.pendiente > 0);
   const fechaEsperada = oc.fechaEntregaEsperada?.slice(0, 10) ?? '';
 
-  const [tipo, setTipo] = useState<TipoRespuestaProveedorOc>(TipoRespuestaProveedorOc.Confirmacion);
-  const [fechaRespuesta, setFechaRespuesta] = useState(hoy);
+  const [tipo, setTipo] = useState<TipoRespuestaProveedorOc | null>(null);
+  const [fechaRespuesta, setFechaRespuesta] = useState('');
   const [contacto, setContacto] = useState('');
   const [evidencia, setEvidencia] = useState('');
+  const [archivo, setArchivo] = useState<File>();
   const [texto, setTexto] = useState('');
   const [siguienteKey, setSiguienteKey] = useState(pendientes.length);
-  const [filas, setFilas] = useState<Record<string, FilaParcialidad[]>>(() =>
-    Object.fromEntries(
-      pendientes.map((x, i) => [
-        x.linea.id,
-        [{ key: i, cantidad: String(x.pendiente), fecha: fechaEsperada }],
-      ]),
-    ),
-  );
+  const [filas, setFilas] = useState<Record<string, FilaParcialidad[]>>({});
   const [error, setError] = useState<string | null>(null);
   const confirma = tipo === TipoRespuestaProveedorOc.Confirmacion;
 
@@ -129,7 +126,6 @@ function RespuestaForm({
     const compromisos = confirma
       ? pendientes.flatMap(({ linea }) =>
           (filas[linea.id] ?? [])
-            .filter((r) => Number(r.cantidad) > 0)
             .map((r) => ({
               lineaOrdenCompraId: linea.id,
               cantidad: Number(r.cantidad),
@@ -139,7 +135,8 @@ function RespuestaForm({
       : [];
     const result = RegistrarRespuestaProveedorSchema.safeParse({
       tipo,
-      fechaRespuesta,
+      fechaRespuesta: fechaRespuesta || undefined,
+      archivo,
       evidencia,
       contactoProveedor: contacto.trim() || undefined,
       motivo: texto.trim() || undefined,
@@ -155,9 +152,44 @@ function RespuestaForm({
 
   return (
     <form onSubmit={enviar} className="space-y-5" noValidate>
-      <FormSeccion titulo="1. Respuesta">
+      <FormSeccion titulo="Condiciones pactadas">
+        <FormCampo span={6}>
+          <p className="text-xs text-ink-muted">Condición de pago</p>
+          <p className="text-sm">
+            {condicion
+              ? condicion.diasCredito > 0
+                ? `${condicion.nombre} (${condicion.diasCredito} días)`
+                : condicion.nombre
+              : '—'}
+          </p>
+        </FormCampo>
+        <FormCampo span={6}>
+          <p className="text-xs text-ink-muted">Fecha de entrega esperada</p>
+          <p className="text-sm tabular-nums">
+            {oc.fechaEntregaEsperada ? (
+              <DateTimeDisplay value={oc.fechaEntregaEsperada} variant="corta" />
+            ) : (
+              '—'
+            )}
+          </p>
+        </FormCampo>
+      </FormSeccion>
+      <FormSeccion titulo="1. Evidencia">
+        <FormCampo span={12}>
+          <Field label="Archivo de evidencia" required>
+            <Input type="file" onChange={(e) => setArchivo(e.target.files?.[0])} />
+          </Field>
+          <p className="text-xs text-ink-muted">Adjunta la respuesta del proveedor. Los demás datos son opcionales.</p>
+        </FormCampo>
+      </FormSeccion>
+      <FormSeccion titulo="2. Datos opcionales de la respuesta">
         <FormCampo span={12}>
           <div className="space-y-2" role="radiogroup" aria-label="Respuesta del proveedor">
+            <div className="flex items-center gap-2">
+              <input id="resp-tipo-sin-clasificar" type="radio" name="tipo-respuesta" checked={tipo === null}
+                onChange={() => setTipo(null)} className="accent-brand" />
+              <Label htmlFor="resp-tipo-sin-clasificar">Sin clasificar</Label>
+            </div>
             <div className="flex items-center gap-2">
               <input
                 id="resp-tipo-confirma"
@@ -174,7 +206,7 @@ function RespuestaForm({
                 id="resp-tipo-rechaza"
                 type="radio"
                 name="tipo-respuesta"
-                checked={!confirma}
+                checked={tipo === TipoRespuestaProveedorOc.Rechazo}
                 onChange={() => setTipo(TipoRespuestaProveedorOc.Rechazo)}
                 className="accent-brand"
               />
@@ -183,7 +215,7 @@ function RespuestaForm({
           </div>
         </FormCampo>
         <FormCampo span={6}>
-          <Field label="Fecha de respuesta" required>
+          <Field label="Fecha de respuesta" optional>
             <Input
               type="date"
               value={fechaRespuesta}
@@ -198,7 +230,7 @@ function RespuestaForm({
           </Field>
         </FormCampo>
         <FormCampo span={6}>
-          <Field label="Evidencia" required>
+          <Field label="Referencia de la evidencia" optional>
             <Input
               value={evidencia}
               maxLength={300}
@@ -209,9 +241,9 @@ function RespuestaForm({
         </FormCampo>
         <FormCampo span={6}>
           <Field
-            label={confirma ? 'Comentario' : 'Motivo del rechazo'}
-            optional={confirma}
-            required={!confirma}
+            label={tipo === TipoRespuestaProveedorOc.Rechazo ? 'Motivo del rechazo' : 'Comentario'}
+            required={tipo === TipoRespuestaProveedorOc.Rechazo}
+            optional={tipo !== TipoRespuestaProveedorOc.Rechazo}
           >
             <Textarea
               value={texto}
@@ -224,7 +256,7 @@ function RespuestaForm({
       </FormSeccion>
 
       {confirma && (
-        <FormSeccion titulo="2. Fechas prometidas">
+        <FormSeccion titulo="3. Fechas prometidas (opcionales)">
           <FormCampo span={12}>
             {pendientes.map(({ linea, pendiente }) => {
               const lineaFilas = filas[linea.id] ?? [];
@@ -267,12 +299,6 @@ function RespuestaForm({
                         variant="ghost"
                         size="icon"
                         aria-label="Quitar parcialidad"
-                        disabled={lineaFilas.length === 1}
-                        title={
-                          lineaFilas.length === 1
-                            ? 'La partida necesita al menos una fecha prometida.'
-                            : undefined
-                        }
                         onClick={() => quitarFila(linea.id, r.key)}
                       >
                         <Trash2 className="size-4" aria-hidden="true" />
@@ -287,7 +313,7 @@ function RespuestaForm({
                   >
                     <Plus className="size-4" aria-hidden="true" /> Agregar parcialidad
                   </Button>
-                  {suma !== pendiente && (
+                  {lineaFilas.length > 0 && suma !== pendiente && (
                     <p role="note" className="text-xs text-warning-note-fg">
                       Confirmado {suma} de {pendiente} {linea.unidadMedida}: la orden no cambia;
                       quedará marcada con diferencias para Compras.

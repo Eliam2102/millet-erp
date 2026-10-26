@@ -173,8 +173,7 @@ public sealed class CrearReglaHandler(ContabilidadDbContext db, IOptions<Dimensi
         var p = new PoliticaReglas(db, opciones.Value, clock);
         var cuenta = await db.Cuentas.AsNoTracking().FirstOrDefaultAsync(c => c.Id == request.CuentaId, cancellationToken)
             ?? throw new BusinessRuleException("CONTAB_REGLA_CUENTA_INVALIDA", "La cuenta contable indicada no existe.");
-        if (cuenta.EsRubro)
-            throw new BusinessRuleException("CONTAB_REGLA_CUENTA_INVALIDA", $"{cuenta.Codigo} es un rubro de reporte: las reglas se definen sobre cuentas o ramas del árbol.");
+        // K10.2: una regla sobre un rubro es la regla del grupo de cuentas (C-03); la de una cuenta o rama gana sobre ella.
         if (!cuenta.Activa)
             throw new BusinessRuleException("CONTAB_REGLA_CUENTA_INVALIDA", $"La cuenta {cuenta.Codigo} está dada de baja.");
         if (request.TipoDocumentoId is { } tid && !await db.TiposDocumento.AnyAsync(t => t.Id == tid && t.Estatus == EstatusCatalogo.Activo, cancellationToken))

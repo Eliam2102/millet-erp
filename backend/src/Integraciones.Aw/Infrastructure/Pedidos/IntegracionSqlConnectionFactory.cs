@@ -1,6 +1,7 @@
 using System.Data.Common;
 using Microsoft.Data.SqlClient;
 using Microsoft.Extensions.Configuration;
+using Millet.Integraciones.Aw.Infrastructure.Adapters;
 
 namespace Millet.Integraciones.Aw.Infrastructure.Pedidos;
 
@@ -13,11 +14,11 @@ namespace Millet.Integraciones.Aw.Infrastructure.Pedidos;
 /// <c>aw-integracion-connection-string</c>).
 ///
 /// <para>
-/// Formato esperado: <c>Server=SER-DATA,1433;Database=MILLET_INTEGRACION;
-/// User ID=millet_erp_integracion;Password=...;Encrypt=False;
-/// TrustServerCertificate=True;Connection Timeout=10;</c>. Mismo criterio
-/// <c>Encrypt=False</c> que el flujo 1 mientras siga vigente
-/// PLATFORM-TODO(&lt;SqlTlsHardening&gt;) — TLS at relay layer.
+/// Formato esperado: <c>Server=aw-sql-onprem,1433;Database=MILLET_INTEGRACION;
+/// User ID=millet_erp_integracion;Password=...;Encrypt=True;
+/// TrustServerCertificate=False;Connection Timeout=10;</c>. TLS verificado
+/// (<see cref="AwSqlTls"/>); el cert de SER-DATA se confía vía
+/// <c>IntegracionesAw:SqlTls:CertificadoServidorPem</c>.
 /// </para>
 /// </summary>
 public interface IIntegracionSqlConnectionFactory
@@ -31,14 +32,14 @@ public sealed class IntegracionSqlConnectionFactory : IIntegracionSqlConnectionF
 
     public IntegracionSqlConnectionFactory(IConfiguration configuration)
     {
-        _connectionString = configuration.GetConnectionString("AwIntegracionDb")
+        _connectionString = AwSqlTls.Validar(configuration.GetConnectionString("AwIntegracionDb")
             ?? throw new InvalidOperationException(
                 "ConnectionStrings:AwIntegracionDb no configurado. " +
                 "En QA/Prod viene de KV ref aw-integracion-connection-string. " +
                 "En dev local agregar a appsettings.Development.json o env var " +
                 "ConnectionStrings__AwIntegracionDb. (Sin connection string, " +
                 "Program.cs deja registrados los stubs de F3 — este factory " +
-                "no debería resolverse.)");
+                "no debería resolverse.)"), "AwIntegracionDb");
     }
 
     public DbConnection CreateConnection() => new SqlConnection(_connectionString);

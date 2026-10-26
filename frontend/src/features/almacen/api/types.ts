@@ -311,6 +311,19 @@ export interface RecepcionLineaItem {
   /** ALM-04: la línea está en material en revisión (no disponible hasta el dictamen). */
   enRevision?: boolean;
   motivoDano?: string | null;
+  /** F1-COM-06: fracción arancelaria capturada en la recepción de importación. */
+  fraccionArancelaria?: string | null;
+}
+
+/** F1-COM-06: documentos de importación de la recepción. */
+export interface RecepcionImportacionDetalle {
+  numeroPedimento: string;
+  numeroBl: string;
+  numeroContenedor: string;
+  aduana: string;
+  aduanaNombre: string | null;
+  clavePedimento: string;
+  clavePedimentoNombre: string | null;
 }
 
 export interface RecepcionDetalle {
@@ -336,6 +349,8 @@ export interface RecepcionDetalle {
   cfdiUuidFiscal: string | null;
   /** Folio del proveedor de la factura CxP (ADR-0042); null → id truncado. */
   facturaFolio: string | null;
+  /** null si la OC no es de importación. */
+  importacion?: RecepcionImportacionDetalle | null;
 }
 
 /**
@@ -384,6 +399,7 @@ export interface RegistrarRecepcionConFacturaCommand {
    * ubicación efectiva de cada línea va en <c>lineas[].ubicacionId</c>.
    */
   ubicacionHelperId: string | null;
+  importacion?: import('../schemas/recepcion').ImportacionRecepcionValues | null;
   lineas: RegistrarRecepcionLineaInput[];
 }
 
@@ -399,10 +415,12 @@ export interface RegistrarRecepcionConPackingListCommand {
   observaciones: string | null;
   /** PR4: helper de cabecera (ver variante A). null = no lo usó. */
   ubicacionHelperId: string | null;
+  importacion?: import('../schemas/recepcion').ImportacionRecepcionValues | null;
   lineas: RegistrarRecepcionLineaInput[];
 }
 
 export interface RegistrarRecepcionLineaInput {
+  fraccionArancelaria?: string | null;
   unidadCapturada?: string | null;
   articuloId: string;
   lineaOcId: string | null;

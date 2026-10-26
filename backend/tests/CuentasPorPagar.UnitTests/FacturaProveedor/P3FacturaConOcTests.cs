@@ -338,7 +338,7 @@ public sealed class P3FacturaConOcTests
                 .AddSingleton<INotificationHandler<NotaCreditoProveedorRegistradaDomainEvent>>(new NotaCreditoProveedorRegistradaMapper(Eventos))
                 .BuildServiceProvider();
             var danos = new DetencionPorDanoService(Db, Almacen, new DependenciasFake(), NullLogger<DetencionPorDanoService>.Instance);
-            Handler = new(Db, this, this, this, new XmlCfdiParser(), this, new Mediator(_services), this, this, danos);
+            Handler = new(Db, this, this, this, new XmlCfdiParser(), this, new Mediator(_services), this, this, danos, new SinTipoCambio());
             Elegibilidad = new(Db, this);
             Recepciones = new(Db, this, NullLogger<OcRecepcionRegistradaHandler>.Instance, new(Eventos, Db, Elegibilidad), danos);
         }
@@ -415,6 +415,13 @@ public sealed class P3FacturaConOcTests
         public Task Handle(FacturaProveedorRechazadaPorToleranciaDomainEvent e, CancellationToken ct) { Notificaciones.Add(e); return Task.CompletedTask; }
         public Task Handle(DiferenciaPrecioFacturaDetectadaDomainEvent e, CancellationToken ct) { Notificaciones.Add(e); return Task.CompletedTask; }
     }
+    /// <summary>Las capturas de P3 son en MXN: el catálogo de TC no debe consultarse.</summary>
+    private sealed class SinTipoCambio : ITipoCambioReadPort
+    {
+        public Task<decimal?> ObtenerAsync(string monedaOrigen, string monedaDestino, DateOnly fecha, CancellationToken cancellationToken) =>
+            throw new InvalidOperationException("Una captura en MXN no consulta el tipo de cambio.");
+    }
+
     private sealed class PeriodoPruebaAbierto : Millet.CuentasPorPagar.Domain.Ports.Contabilidad.IPeriodoContablePort
     {
         public Task<bool> AdmiteMovimientosAsync(DateOnly fecha, CancellationToken ct) => Task.FromResult(true);

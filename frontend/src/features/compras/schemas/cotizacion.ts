@@ -52,10 +52,15 @@ export const cotizacionSchema = z
     moneda: z.string().regex(/^[A-Z]{3}$/, 'La moneda debe tener 3 letras, por ejemplo MXN.'),
     fechaCotizacion: z.string().regex(FECHA_DATE_ONLY_RE, 'La fecha de la cotización es requerida.'),
     vigenteHasta: z.string().regex(FECHA_DATE_ONLY_RE, 'La vigencia es requerida.'),
+    condicionesPagoId: z.union([z.string().regex(UUID_SHAPE_RE, 'Selecciona una condición de pago válida.'), z.literal('')]).optional(),
+    fechaEntrega: z.union([z.string().regex(FECHA_DATE_ONLY_RE, 'Indica una fecha de entrega válida.'), z.literal('')]).optional(),
     condicionesCredito: z.string().trim().max(100, 'El crédito admite máximo 100 caracteres.'),
     lineas: z.array(LineaCotizacionSchema).min(1, 'La cotización debe incluir al menos una partida.'),
   })
   .superRefine((v, ctx) => {
+    if (v.fechaEntrega && v.fechaEntrega < v.fechaCotizacion) {
+      ctx.addIssue({ code: 'custom', path: ['fechaEntrega'], message: 'La entrega no puede ser anterior a la cotización.' });
+    }
     if (v.fechaCotizacion > hoyLocalISO()) {
       ctx.addIssue({
         code: 'custom',
@@ -82,6 +87,8 @@ export function aRegistrarCotizacionRequest(values: CotizacionValues): Registrar
     moneda: values.moneda,
     fechaCotizacion: values.fechaCotizacion,
     vigenteHasta: values.vigenteHasta,
+    condicionesPagoId: values.condicionesPagoId || null,
+    fechaEntrega: values.fechaEntrega || null,
     condicionesCredito: values.condicionesCredito.trim() || null,
     lineas: values.lineas.map((l) => ({
       lineaRequisicionId: l.lineaRequisicionId,

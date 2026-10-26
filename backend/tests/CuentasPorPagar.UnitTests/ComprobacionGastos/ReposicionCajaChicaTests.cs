@@ -115,8 +115,8 @@ public sealed class ReposicionCajaChicaTests
             fechaCfdi: DateTimeOffset.UtcNow,
             subtotal: 100m, impuestosTrasladados: 16m, retenciones: 0m, total: 116m,
             moneda: "MXN", concepto: "x");
-        c.Autorizar(Guid.NewGuid(), DateTimeOffset.UtcNow);
-        c.Aplicar(Guid.NewGuid(), DateTimeOffset.UtcNow);
+        c.EnviarARevision(DateTimeOffset.UtcNow);
+        c.AprobarPasivo(Guid.NewGuid(), DateTimeOffset.UtcNow);
 
         var reposicionId = Guid.NewGuid();
         c.AsignarReposicion(reposicionId);

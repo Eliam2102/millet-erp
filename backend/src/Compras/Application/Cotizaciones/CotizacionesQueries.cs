@@ -28,7 +28,7 @@ public sealed record CotizacionComparativoResponse(
     bool ProveedorActivo, string? FolioProveedor, string Moneda, DateOnly FechaCotizacion, DateOnly VigenteHasta,
     bool Vigente, string? CondicionesCredito, Guid? ArchivoAdjuntoId, string? ArchivoNombre, bool Elegida,
     string? MotivoEleccion, Guid? ElegidaPor, DateTimeOffset? ElegidaEn, Guid? OrdenCompraId, Guid RegistradaPor,
-    DateTimeOffset RegistradaEn, int Version, IReadOnlyList<LineaComparativoResponse> Lineas);
+    DateTimeOffset RegistradaEn, int Version, IReadOnlyList<LineaComparativoResponse> Lineas, Guid? CondicionesPagoId, DateOnly? FechaEntrega);
 
 public sealed record ComparativoCotizacionesResponse(
     Guid RequisicionId, string RequisicionFolio, Guid SucursalId, EstadoRequisicion EstadoRequisicion,
@@ -119,7 +119,7 @@ public sealed class ComparativoCotizacionesHandler(
             return new CotizacionComparativoResponse(c.Id, c.ProveedorId, p?.Clave, p?.RazonSocial, p?.Rfc,
                 p?.Activo ?? false, c.FolioProveedor, c.Moneda, c.FechaCotizacion, c.VigenteHasta, c.EsVigente(hoy),
                 c.CondicionesCredito, arch?.Id, arch?.NombreArchivo, c.Elegida, c.MotivoEleccion, c.ElegidaPor,
-                c.ElegidaEn, c.OrdenCompraId, c.RegistradaPor, c.RegistradaEn, c.Version, lineas);
+                c.ElegidaEn, c.OrdenCompraId, c.RegistradaPor, c.RegistradaEn, c.Version, lineas, c.CondicionesPagoId, c.FechaEntrega);
         }).ToList();
 
         // Cerrado = hay cotización elegida con OC vigente (al cancelar la OC la elección se libera).

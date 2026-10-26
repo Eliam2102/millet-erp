@@ -31,6 +31,9 @@ public sealed class ActualizarLineaValidator : AbstractValidator<ActualizarLinea
             .Matches("^[A-Z]{3}$").WithErrorCode("MONEDA_FORMATO_INVALIDO")
             .When(c => c.PrecioEstimadoMoneda is not null);
 
+        RuleFor(c => c.ClaseActivoId).NotEqual(Guid.Empty)
+            .When(c => c.ClaseActivoId.HasValue).WithErrorCode("CLASE_ACTIVO_INVALIDA");
+
         RuleFor(c => c.Proyecto)
             .MaximumLength(200).WithErrorCode("PROYECTO_DEMASIADO_LARGO")
             .When(c => c.Proyecto is not null);

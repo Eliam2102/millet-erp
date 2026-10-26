@@ -42,13 +42,15 @@ public static class PedidosFacturablesEndpoints
             [FromQuery] int? limit,
             [FromQuery] string? alcance,
             [FromQuery] ClasePedidoManual? clase,
+            [FromQuery] bool? credito,
             IMediator mediator,
             CancellationToken cancellationToken) =>
         {
             // F6.1: ?clase=VentaDirecta|Emergencia filtra los pedidos manuales clasificados.
+            // 86e3tfdw2: ?credito=true|false filtra por condición de pago.
             var response = await mediator.Send(
                 new BandejaPedidosFacturablesQuery(
-                    estado, origen, offset ?? 0, limit ?? 50, AlcanceParam.SoloSinAsignar(alcance), clase),
+                    estado, origen, offset ?? 0, limit ?? 50, AlcanceParam.SoloSinAsignar(alcance), clase, credito),
                 cancellationToken);
             return Results.Ok(response);
         })

@@ -99,7 +99,8 @@ public sealed class AgregarLineaHandler : IRequestHandler<AgregarLineaCommand, A
             centroCostoId: centroCostoId,
             proyecto: command.Proyecto,
             fechaRequerida: command.FechaRequerida,
-            notas: command.Notas, esActivoFijo: command.EsActivoFijo, claseActivoId: command.ClaseActivoId);
+            notas: command.Notas, esActivoFijo: command.EsActivoFijo, claseActivoId: command.ClaseActivoId,
+            articuloEsServicio: articulo.Naturaleza == Naturaleza.Servicio);
 
         await _db.SaveChangesAsync(cancellationToken);
 

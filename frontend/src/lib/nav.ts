@@ -181,6 +181,14 @@ const moduloCompras: NavModulo = {
           icon: BarChart3,
           permission: PermisosCanonicos.ComprasOrdenesReportesPartidasAbiertas,
         },
+        {
+          label: 'Análisis de proveedores',
+          description:
+            'Compras por periodo, saldos pendientes por OC y cumplimiento de proveedores (a tiempo, completo, incidencias).',
+          to: '/compras/reportes/analisis-proveedores',
+          icon: BarChart3,
+          permission: PermisosCanonicos.ComprasOrdenesReportesAnalisisProveedores,
+        },
       ],
     },
     {
@@ -904,6 +912,14 @@ const moduloFacturacion: NavModulo = {
             'Cierre de caja: facturado vs cobrado por cajero y fecha. Exportable PDF/Excel.',
           to: '/facturacion/reportes/liquidacion-caja',
           icon: Banknote,
+          permission: PermisosCanonicos.FacturacionReportesLeer,
+        },
+        {
+          label: 'Cierre del día por sucursal',
+          description:
+            'Monitor de CFDI del día (timbrados, cancelados, sin timbrar, estatus SAT) y facturado de contado contra ingresado en caja.',
+          to: '/facturacion/reportes/cierre-dia',
+          icon: ClipboardCheck,
           permission: PermisosCanonicos.FacturacionReportesLeer,
         },
         {

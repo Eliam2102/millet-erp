@@ -41,7 +41,7 @@ internal static class RecibidoPorLineaOc
             select new { LineaOcId = g.Key, Cantidad = g.Sum() }
         ).ToListAsync(ct);
 
-        var activos = await db.RecepcionesActivos.Where(x => x.OrdenCompraId == oc.Id).GroupBy(x => x.LineaOcId)
+        var activos = await db.RecepcionesActivos.Where(x => x.OrdenCompraId == oc.Id && x.AnuladaEn == null).GroupBy(x => x.LineaOcId)
             .Select(g => new { Id = g.Key, Cantidad = g.Sum(x => x.Cantidad) }).ToDictionaryAsync(x => x.Id, x => x.Cantidad, ct);
         var recibido = new Dictionary<Guid, decimal>();
         foreach (var linea in oc.Lineas)

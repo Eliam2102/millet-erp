@@ -327,8 +327,13 @@ public sealed partial class DemoSesionSeedTests
         Assert.Equal(EstadoPeriodo.Abierto, periodos.Single(p => p.Numero == 10).Estado);
         Assert.Equal(7, await contabilidad.Cuentas.CountAsync(c => c.Nombre.StartsWith("DEMO")));
         Assert.Equal(2, await tesoreria.CuentasBancarias.CountAsync(c => c.Banco.StartsWith("DEMO-")));
-        Assert.Equal(6, await compras.OrdenesCompra.CountAsync()); // + OC de importación CE-01a, de gastos CE-06, OC mixta de Activos Fijos y OC de servicio del agente (P6)
-        Assert.Equal(3, await compras.OutboxEntries.CountAsync());
+        Assert.Equal(7, await compras.OrdenesCompra.CountAsync()); // + OC de importación CE-01a, de gastos CE-06, OC mixta de Activos Fijos, OC de servicio del agente (P6) y DEMO-OC-USD (C1.2)
+        // C1.2: OC en dólares autorizada y TC USD del día en el catálogo.
+        var ocUsd = await compras.OrdenesCompra.SingleAsync(o => o.ReferenciaProveedor == "DEMO-OC-USD");
+        Assert.Equal(("USD", EstadoOrdenCompra.Autorizada, (decimal?)DemoSesionSeedHostedService.TipoCambioUsdDemo), (ocUsd.Moneda, ocUsd.Estado, ocUsd.TipoCambio));
+        Assert.True(await maestros.TiposCambio.AnyAsync(t => t.ValorEnMxn == DemoSesionSeedHostedService.TipoCambioUsdDemo
+            && maestros.Monedas.Any(m => m.Id == t.MonedaId && m.Codigo == "USD")));
+        Assert.Equal(4, await compras.OutboxEntries.CountAsync()); // + OrdenCompraAutorizada de DEMO-OC-USD
         Assert.Equal(3, await maestros.Series.CountAsync(s => s.Prefijo == "FA" || s.Prefijo == "NC" || s.Prefijo == "AN"));
         var pedidos = await facturacion.PedidosFacturables.Where(p => p.NumeroPedido!.StartsWith("DEMO-")).ToListAsync();
         Assert.Equal(11, pedidos.Count); // + DEMO de CE-02 + 3 manuales F6.1

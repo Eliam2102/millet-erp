@@ -800,6 +800,20 @@ namespace Millet.Compartido.Infrastructure.Migrations.Compartido
                         },
                         new
                         {
+                            Id = new Guid("00000006-0001-0000-0000-00000000000b"),
+                            Clave = "cxp.tolerancia-tarjetas-mxn",
+                            CreatedAt = new DateTimeOffset(new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            CreatedBy = "seed",
+                            Descripcion = "Tolerancia de conciliación de tarjetas corporativas (MXN). Diferencia máxima aceptada entre el estado de cuenta y lo capturado.",
+                            Modulo = "cxp",
+                            Tipo = (short)1,
+                            UpdatedAt = new DateTimeOffset(new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            UpdatedBy = "seed",
+                            Valor = "1.00",
+                            Version = 1
+                        },
+                        new
+                        {
                             Id = new Guid("00000006-0001-0000-0000-00000000000a"),
                             Clave = "system.dias-festivos",
                             CreatedAt = new DateTimeOffset(new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
