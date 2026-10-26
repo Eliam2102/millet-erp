@@ -14,7 +14,7 @@ public sealed class RegistrarImpresionOcHandler(
 {
     public async Task<int> Handle(RegistrarImpresionOcCommand request, CancellationToken cancellationToken)
     {
-        if (user.UserId is not Guid usuarioId)
+        if (user.UserId is not Guid usuarioId || usuarioId == Guid.Empty)
             throw new UnauthorizedAccessException("Inicia sesión para descargar la orden de compra.");
         var oc = await db.OrdenesCompra.AsNoTracking()
             .SingleOrDefaultAsync(o => o.Id == request.OrdenCompraId, cancellationToken)

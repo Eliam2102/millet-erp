@@ -1,4 +1,6 @@
 import { useRef, useState } from 'react';
+import { useQueryClient } from '@tanstack/react-query';
+import { ordenesKeys } from '../api/keys';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
@@ -18,6 +20,7 @@ const resultados: Record<EnvioOc['resultado'], string> = {
 };
 
 export function EnviosOcPanel({ ordenCompraId }: { ordenCompraId: string }) {
+  const queryClient = useQueryClient();
   const permiso = useHasPermission(PermisosCanonicos.ComprasOrdenesLeer);
   const puedeRegistrar = useHasPermission(PermisosCanonicos.ComprasOrdenesCrear);
   const consulta = useEnviosOc(ordenCompraId);
@@ -45,6 +48,7 @@ export function EnviosOcPanel({ ordenCompraId }: { ordenCompraId: string }) {
       enlace.click();
       setTimeout(() => URL.revokeObjectURL(url), 1000);
       setDescargado(true);
+      void queryClient.invalidateQueries({ queryKey: ordenesKeys.detail(ordenCompraId) });
     } catch {
       setMensaje(
         'No se pudo descargar el PDF. Vuelve a descargarlo antes de registrar el envío manual.',

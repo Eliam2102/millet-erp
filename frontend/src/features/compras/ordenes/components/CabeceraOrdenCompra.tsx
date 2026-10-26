@@ -1,5 +1,4 @@
 import { CampoFacturaOc } from './CampoFacturaOc';
-import { Input } from '@/components/ui/input';
 import { FormCampo } from '@/components/erp/forms/FormGrid';
 import { FormGrid } from '@/components/erp/forms/FormGrid';
 import { useState } from 'react';
@@ -14,7 +13,7 @@ import { useConflictDialog } from '@/components/erp/collaboration/conflict-dialo
 import { CondicionesPagoSelector } from '@/components/erp/selectors/CondicionesPagoSelector';
 import { ProveedorSelector } from '@/components/erp/selectors/ProveedorSelector';
 import { UsoPrincipalSelector } from '@/components/erp/selectors/UsoPrincipalSelector';
-import type { OrdenCompraDetalleResponse } from '@/features/compras/ordenes/api/types';
+import { EstadoOrdenCompra, type OrdenCompraDetalleResponse } from '@/features/compras/ordenes/api/types';
 import {
   useActualizarCabeceraOc,
   type ActualizarCabeceraOcCommand,
@@ -71,7 +70,7 @@ export function CabeceraOrdenCompra({ oc, resolverNombre }: CabeceraOrdenCompraP
         </div>
       )}
 
-      {pendientes.length > 0 && (
+      {(oc.estado === EstadoOrdenCompra.Borrador || oc.estado === EstadoOrdenCompra.Rechazada) && pendientes.length > 0 && (
         <AvisoEnLinea tono="advertencia">
           {`Falta ${listarFaltantes(pendientes)}. Captúralos para poder enviar la OC a autorización.`}
           {!puedeEditar && ' Pide a un comprador con permiso de crear OC que los capture.'}
@@ -137,13 +136,13 @@ export function CabeceraOrdenCompra({ oc, resolverNombre }: CabeceraOrdenCompraP
           <Item label="Uso de CFDI">{oc.usoCfdiClave ? `${oc.usoCfdiClave} – ${oc.usoCfdiDescripcion ?? 'Sin descripción'}` : 'Por capturar'}</Item>
           <Item label="Método de pago">{oc.metodoPago === 'PUE' ? 'PUE – Pago en una sola exhibición' : oc.metodoPago === 'PPD' ? 'PPD – Pago en parcialidades o diferido' : 'Por capturar'}</Item>
           <Item label="Forma de pago">{oc.formaPagoClave ? `${oc.formaPagoClave} – ${oc.formaPagoDescripcion ?? 'Sin descripción'}` : 'Por capturar'}</Item>
-        <Item label="Condiciones de pago">
-          {valor('condicionesPago', resolverNombre(oc.condicionesPagoId))}
-        </Item>
-        <Item label="Moneda" mono>
-          {oc.moneda}
-          {oc.tipoCambio != null ? ` @ ${oc.tipoCambio}` : ''}
-        </Item>
+          <Item label="Condiciones de pago">
+            {valor('condicionesPago', resolverNombre(oc.condicionesPagoId))}
+          </Item>
+          <Item label="Moneda" mono>
+            {oc.moneda}
+            {oc.tipoCambio != null ? ` @ ${oc.tipoCambio}` : ''}
+          </Item>
         </dl>
       </section>
 
@@ -232,8 +231,6 @@ interface CabeceraValues {
   usoCfdiClave: string;
   metodoPago: string;
   formaPagoClave: string;
-  moneda: string;
-  tipoCambio: number | null;
 }
 
 /** Formulario de edición de proveedor, condiciones de pago y uso principal. */
@@ -250,8 +247,6 @@ function FormularioCabecera({
     usoCfdiClave: oc.usoCfdiClave ?? '',
     metodoPago: oc.metodoPago ?? '',
     formaPagoClave: oc.formaPagoClave ?? '',
-    moneda: oc.moneda,
-    tipoCambio: oc.tipoCambio,
     proveedorId: pendientes.includes('proveedor') ? '' : oc.proveedorId,
     condicionesPagoId: pendientes.includes('condicionesPago') ? '' : oc.condicionesPagoId,
     usoPrincipalId: pendientes.includes('usoPrincipal') ? '' : oc.usoPrincipalId,
@@ -272,11 +267,6 @@ function FormularioCabecera({
       command.usoPrincipalId = values.usoPrincipalId;
     for (const campo of ['usoCfdiClave', 'metodoPago', 'formaPagoClave'] as const) {
       if (values[campo] !== inicial[campo]) command[campo] = values[campo];
-    }
-    if (values.moneda !== inicial.moneda || values.tipoCambio !== inicial.tipoCambio) {
-      command.moneda = values.moneda;
-      command.tipoCambio = values.moneda === 'MXN' ? null : values.tipoCambio;
-      command.limpiarTipoCambio = values.moneda === 'MXN';
     }
     if (Object.keys(command).length === 0) {
       onClose();
@@ -369,43 +359,34 @@ function FormularioCabecera({
       <section aria-label="Datos para la factura del proveedor" className="space-y-3">
         <h3 className="text-sm font-semibold">Datos para la factura del proveedor</h3>
         <p className="text-xs text-ink-muted">Completa estos datos antes de enviar a autorización.</p>
-        <FormGrid>{(['usoCfdiClave', 'metodoPago', 'formaPagoClave'] as const).map(campo => (
+        <FormGrid>
+          {(['usoCfdiClave', 'metodoPago', 'formaPagoClave'] as const).map(campo => (
             <FormCampo key={campo} span={4}>
               <Controller control={form.control} name={campo} render={({ field, fieldState }) => (
                 <CampoFacturaOc campo={campo} value={field.value} onChange={field.onChange} error={fieldState.error?.message} />
               )} />
             </FormCampo>
-          ))}        <FormCampo span={4}>
-          <Controller
-            control={form.control}
-            name="condicionesPagoId"
-            render={({ field, fieldState }) => (
-              <Field label="Condiciones de pago" error={fieldState.error?.message}>
-                {(c) => (
-                  <div role="group" aria-label="Condiciones de pago" id={c.id}>
-                    <CondicionesPagoSelector
-                      value={field.value || null}
-                      onChange={(v) => field.onChange(v ?? '')}
-                    />
-                  </div>
-                )}
-              </Field>
-            )}
-          />
-        </FormCampo>
+          ))}
           <FormCampo span={4}>
-            <Controller control={form.control} name="moneda" rules={{ required: 'Captura la moneda.', pattern: { value: /^[A-Z]{3}$/, message: 'Usa una clave de moneda de tres letras.' } }} render={({field, fieldState}) => (
-              <Field label="Moneda" error={fieldState.error?.message}>{props => <Input {...props} {...field} maxLength={3} disabled={!!oc.cotizacionElegida} />}</Field>
-            )} />
-          </FormCampo>
-          <FormCampo span={4}>
-            <Controller control={form.control} name="tipoCambio" rules={{ validate: v => form.getValues('moneda') === 'MXN' || (v != null && v > 0) || 'Captura un tipo de cambio mayor a cero.' }} render={({field, fieldState}) => (
-              <Field label="Tipo de cambio" error={fieldState.error?.message}>{props => <Input {...props} type="number" step="any" value={field.value ?? ''} onChange={e => field.onChange(e.target.value === '' ? null : Number(e.target.value))} />}</Field>
-            )} />
+            <Controller
+              control={form.control}
+              name="condicionesPagoId"
+              render={({ field, fieldState }) => (
+                <Field label="Condiciones de pago" error={fieldState.error?.message}>
+                  {(c) => (
+                    <div role="group" aria-label="Condiciones de pago" id={c.id}>
+                      <CondicionesPagoSelector
+                        value={field.value || null}
+                        onChange={(v) => field.onChange(v ?? '')}
+                      />
+                    </div>
+                  )}
+                </Field>
+              )}
+            />
           </FormCampo>
         </FormGrid>
       </section>
-      <p className="text-xs text-ink-muted">El uso interno de la compra no se imprime en la orden de compra.</p>
       <div className="flex justify-end gap-2">
         <Button type="button" variant="ghost" onClick={onClose} disabled={mutation.isPending}>
           Cancelar

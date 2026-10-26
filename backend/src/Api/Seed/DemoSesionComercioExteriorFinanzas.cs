@@ -38,6 +38,7 @@ public sealed partial class DemoSesionSeedHostedService
             oc.ActualizarInformacionImportacion(original.InformacionImportacion);
             oc.AgregarLineaManual(Id("DEMO-CE-P1-OC/A"), articulo.Id, 1000, "PZA", 200, depto.Id);
             oc.AgregarLineaManual(Id("DEMO-CE-P1-OC/B"), articulo.Id, 1000, "PZA", 300, depto.Id);
+            oc.ActualizarDatosFactura("G03", "PPD", "99");
             oc.RecalcularImpuestos(); oc.EnviarAAutorizacion(Fecha);
             oc.Autorizar(Id("DEMO-CE-P1/N1"), NivelAutorizacion.Nivel1, JefeComprasDemoId, Fecha, "DEMO P1");
             oc.Autorizar(Id("DEMO-CE-P1/N2"), NivelAutorizacion.Nivel2, DireccionDemoId, Fecha, "DEMO P1");

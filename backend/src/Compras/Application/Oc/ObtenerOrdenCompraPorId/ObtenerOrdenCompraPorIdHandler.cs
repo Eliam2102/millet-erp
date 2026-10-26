@@ -182,15 +182,18 @@ public sealed class ObtenerOrdenCompraPorIdHandler
         };
     }
 
-    private static List<string> CalcularCamposPorCapturar(OrdenCompra oc)
+    internal static List<string> CalcularCamposPorCapturar(OrdenCompra oc)
     {
         var campos = new List<string>();
         if (oc.ProveedorId == OrdenCompraTbdSentinels.Proveedor) campos.Add("proveedor");
         if (oc.CondicionesPagoId == OrdenCompraTbdSentinels.CondicionesPago) campos.Add("condicionesPago");
         if (oc.UsoPrincipalId == OrdenCompraTbdSentinels.UsoPrincipal) campos.Add("usoPrincipal");
-        if (string.IsNullOrWhiteSpace(oc.UsoCfdiClave)) campos.Add("usoCfdiClave");
-        if (string.IsNullOrWhiteSpace(oc.MetodoPago)) campos.Add("metodoPago");
-        if (string.IsNullOrWhiteSpace(oc.FormaPagoClave)) campos.Add("formaPagoClave");
+        if (oc.Estado is EstadoOrdenCompra.Borrador or EstadoOrdenCompra.Rechazada)
+        {
+            if (string.IsNullOrWhiteSpace(oc.UsoCfdiClave)) campos.Add("usoCfdiClave");
+            if (string.IsNullOrWhiteSpace(oc.MetodoPago)) campos.Add("metodoPago");
+            if (string.IsNullOrWhiteSpace(oc.FormaPagoClave)) campos.Add("formaPagoClave");
+        }
         return campos;
     }
 

@@ -3,6 +3,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { EnviosOcPanel } from './EnviosOcPanel';
 const mocks = vi.hoisted(() => ({
   enviar: vi.fn(),
+  invalidar: vi.fn(),
   descargar: vi.fn(),
   permiso: true,
   data: {
@@ -13,6 +14,10 @@ const mocks = vi.hoisted(() => ({
     envios: [] as object[],
   },
 }));
+vi.mock('@tanstack/react-query', async (original) => ({
+  ...(await original<typeof import('@tanstack/react-query')>()),
+  useQueryClient: () => ({ invalidateQueries: mocks.invalidar }),
+}));
 vi.mock('../api/useEnviosOc', () => ({
   useEnviosOc: () => ({ data: mocks.data, isPending: false, error: null }),
   useRegistrarEnvioOc: () => ({ mutateAsync: mocks.enviar, isPending: false }),
@@ -22,6 +27,7 @@ vi.mock('@/lib/auth/useHasPermission', () => ({ useHasPermission: () => mocks.pe
 describe('Envíos OC — datos DEMO ficticios', () => {
   beforeEach(() => {
     mocks.permiso = true;
+    mocks.invalidar.mockReset();
     mocks.descargar.mockReset().mockResolvedValue(new Blob(['DEMO PDF ficticio']));
     URL.createObjectURL = vi.fn(() => 'blob:demo-ficticio');
     URL.revokeObjectURL = vi.fn();
@@ -90,6 +96,8 @@ describe('Envíos OC — datos DEMO ficticios', () => {
     await waitFor(() =>
       expect(screen.getByRole('button', { name: 'Marcar como enviada' })).toBeEnabled(),
     );
+    expect(mocks.descargar).toHaveBeenCalledWith('oc-demo');
+    expect(mocks.invalidar).toHaveBeenCalledWith({ queryKey: ['compras', 'ordenes', 'detail', 'oc-demo'] });
     fireEvent.click(screen.getByRole('button', { name: 'Marcar como enviada' }));
     await waitFor(() =>
       expect(mocks.enviar).toHaveBeenCalledWith(expect.objectContaining({ modo: 'manual' })),
