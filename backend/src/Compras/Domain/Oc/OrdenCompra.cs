@@ -685,7 +685,8 @@ public sealed class OrdenCompra : BaseEntity, IPerteneceAEmpresa, IAuditable, IF
         bool esServicio = false,
         Guid? centroCostoId = null,
         string? fraccionArancelaria = null,
-        bool esActivoFijo = false, Guid? claseActivoId = null)
+        bool esActivoFijo = false, Guid? claseActivoId = null,
+        Guid? productoAwVarianteId = null, decimal? anchoMm = null, decimal? altoMm = null)
     {
         if (!EstadosEditables.Contains(Estado))
         {
@@ -724,7 +725,8 @@ public sealed class OrdenCompra : BaseEntity, IPerteneceAEmpresa, IAuditable, IF
             fechaEntregaLinea: fechaEntregaLinea,
             textoAdicional: textoAdicional,
             esServicio: esServicio,
-            fraccionArancelaria: fraccionArancelaria);
+            fraccionArancelaria: fraccionArancelaria,
+            productoAwVarianteId: productoAwVarianteId, anchoMm: anchoMm, altoMm: altoMm);
 
         linea.ClasificarActivo(esActivoFijo, claseActivoId);
         _lineas.Add(linea);
@@ -767,7 +769,8 @@ public sealed class OrdenCompra : BaseEntity, IPerteneceAEmpresa, IAuditable, IF
         bool esServicio = false,
         Guid? centroCostoId = null,
         string? fraccionArancelaria = null,
-        bool esActivoFijo = false, Guid? claseActivoId = null)
+        bool esActivoFijo = false, Guid? claseActivoId = null,
+        Guid? productoAwVarianteId = null, decimal? anchoMm = null, decimal? altoMm = null)
     {
         if (!EstadosEditables.Contains(Estado))
         {
@@ -813,7 +816,8 @@ public sealed class OrdenCompra : BaseEntity, IPerteneceAEmpresa, IAuditable, IF
             fechaEntregaLinea: fechaEntregaLinea,
             textoAdicional: textoAdicional,
             esServicio: esServicio,
-            fraccionArancelaria: fraccionArancelaria);
+            fraccionArancelaria: fraccionArancelaria,
+            productoAwVarianteId: productoAwVarianteId, anchoMm: anchoMm, altoMm: altoMm);
 
         linea.ClasificarActivo(esActivoFijo, claseActivoId);
         _lineas.Add(linea);
@@ -844,7 +848,8 @@ public sealed class OrdenCompra : BaseEntity, IPerteneceAEmpresa, IAuditable, IF
         string? fraccionArancelaria = null,
         bool limpiarFraccionArancelaria = false,
         bool? esActivoFijo = null,
-        Guid? claseActivoId = null)
+        Guid? claseActivoId = null,
+        Guid? productoAwVarianteId = null, decimal? anchoMm = null, decimal? altoMm = null)
     {
         if (!EstadosEditables.Contains(Estado))
         {
@@ -861,7 +866,8 @@ public sealed class OrdenCompra : BaseEntity, IPerteneceAEmpresa, IAuditable, IF
             departamentoSolicitanteId, descripcionExtendida,
             fechaEntregaLinea, limpiarDescripcionExtendida,
             limpiarFechaEntregaLinea, esServicio, centroCostoId,
-            fraccionArancelaria, limpiarFraccionArancelaria, esActivoFijo, claseActivoId);
+            fraccionArancelaria, limpiarFraccionArancelaria, esActivoFijo, claseActivoId,
+            productoAwVarianteId, anchoMm, altoMm);
     }
 
     /// <summary>
@@ -1024,7 +1030,8 @@ public sealed class OrdenCompra : BaseEntity, IPerteneceAEmpresa, IAuditable, IF
     /// </summary>
     public Events.OrdenCompraEnviadaAAutorizacionEvent EnviarAAutorizacion(
         DateTimeOffset ocurridoEn,
-        bool requiereNivel2 = true)
+        bool requiereNivel2 = true,
+        IReadOnlySet<Guid>? articulosVidrio = null)
     {
         if (Estado != EstadoOrdenCompra.Borrador && Estado != EstadoOrdenCompra.Rechazada)
         {
@@ -1050,6 +1057,19 @@ public sealed class OrdenCompra : BaseEntity, IPerteneceAEmpresa, IAuditable, IF
             throw new BusinessRuleException(
                 "OC_PRECIO_REQUERIDO",
                 $"Captura el precio de las líneas {string.Join(", ", sinPrecio)} antes de enviar a autorización.");
+        }
+
+        // F1-MP-01 (E1): las líneas nacidas de una RQ no traen medida; la captura el comprador antes de enviar.
+        var sinMedida = _lineas
+            .Where(l => l.ProductoAwVarianteId is null && articulosVidrio?.Contains(l.ArticuloId) == true)
+            .OrderBy(l => l.Posicion)
+            .Select(l => l.Posicion.ToString(System.Globalization.CultureInfo.InvariantCulture))
+            .ToList();
+        if (sinMedida.Count > 0)
+        {
+            throw new BusinessRuleException(
+                "VARIANTE_VIDRIO_REQUERIDA",
+                $"Elige la medida de la hoja de las líneas {string.Join(", ", sinMedida)} antes de enviar a autorización.");
         }
 
         if (EsBorradorMinimo)

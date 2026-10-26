@@ -1305,6 +1305,16 @@ namespace Millet.Compras.Infrastructure.Migrations
                         .HasColumnType("uuid")
                         .HasColumnName("id");
 
+                    b.Property<decimal?>("AltoMm")
+                        .HasPrecision(12, 3)
+                        .HasColumnType("numeric(12,3)")
+                        .HasColumnName("alto_mm");
+
+                    b.Property<decimal?>("AnchoMm")
+                        .HasPrecision(12, 3)
+                        .HasColumnType("numeric(12,3)")
+                        .HasColumnName("ancho_mm");
+
                     b.Property<Guid>("ArticuloId")
                         .HasColumnType("uuid")
                         .HasColumnName("articulo_id");
@@ -1400,6 +1410,10 @@ namespace Millet.Compras.Infrastructure.Migrations
                         .HasColumnType("numeric(15,4)")
                         .HasColumnName("precio_unitario");
 
+                    b.Property<Guid?>("ProductoAwVarianteId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("producto_aw_variante_id");
+
                     b.Property<Guid?>("RequisicionId")
                         .HasColumnType("uuid")
                         .HasColumnName("requisicion_id");
@@ -1478,6 +1492,8 @@ namespace Millet.Compras.Infrastructure.Migrations
                             t.HasCheckConstraint("ck_oc_lineas_recibida_nn", "cantidad_recibida >= 0");
 
                             t.HasCheckConstraint("ck_oc_lineas_rq_coherente", "(requisicion_id IS NULL AND linea_requisicion_id IS NULL) OR (requisicion_id IS NOT NULL AND linea_requisicion_id IS NOT NULL)");
+
+                            t.HasCheckConstraint("ck_oc_lineas_variante_medida", "(producto_aw_variante_id IS NULL AND ancho_mm IS NULL AND alto_mm IS NULL) OR (producto_aw_variante_id IS NOT NULL AND ancho_mm IS NOT NULL AND ancho_mm > 0 AND alto_mm IS NOT NULL AND alto_mm > 0)");
                         });
                 });
 

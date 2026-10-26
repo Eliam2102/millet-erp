@@ -287,6 +287,20 @@ public static class CatalogosEndpoints
         .ProducesProblem(StatusCodes.Status403Forbidden)
         .ProducesProblem(StatusCodes.Status404NotFound);
 
+        // F1-MP-01 (E1): medidas de hoja del artículo de vidrio crudo (variantes de su producto A+W) para capturarlas en la OC.
+        articulos.MapGet("/{id:guid}/medidas", async (
+            Guid id, Millet.Almacen.Domain.Ports.IVarianteVidrioReadPort variantes, CancellationToken ct) =>
+            Results.Ok(await variantes.ListarPorArticuloAsync(id, ct)))
+        .RequireAuthorization(PermissionPolicyProvider.Prefix + PermisosCanonicos.CompartidoCatalogosLeer)
+        .WithName("ListarMedidasArticulo")
+        .WithSummary("Medidas de hoja de un artículo de vidrio crudo")
+        .WithDescription(
+            "Variantes (ancho × alto, `areaHojaM2`) del producto A+W ligado al artículo. " +
+            "Lista vacía si el artículo no está ligado o su producto está inactivo.")
+        .Produces<IReadOnlyList<Millet.Almacen.Domain.Ports.VarianteVidrioLectura>>(StatusCodes.Status200OK)
+        .ProducesProblem(StatusCodes.Status401Unauthorized)
+        .ProducesProblem(StatusCodes.Status403Forbidden);
+
         // F9-PR1: reclasificar naturaleza en bulk (post-go-live cuando el
         // cliente decide ajustar la matriz A1 §3.bis.1).
         articulos.MapPost("/reclasificar-naturaleza", async (

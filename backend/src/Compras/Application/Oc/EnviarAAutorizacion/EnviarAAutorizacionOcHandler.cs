@@ -152,7 +152,13 @@ public sealed class EnviarAAutorizacionOcHandler : IRequestHandler<EnviarAAutori
         // Transición + emisión de evento.
         // Matriz de nivel (menor cuantía = solo N1). Se fija en cada ciclo de envío.
         var requiereNivel2 = await _evaluadorNivel.RequiereNivel2Async(oc, cancellationToken);
-        var evento = oc.EnviarAAutorizacion(_clock.UtcNow, requiereNivel2);
+        // F1-MP-01 (E1): artículos de vidrio crudo (ligados a A+W) de la OC; el dominio exige la medida de sus líneas.
+        var idsArticulos = oc.Lineas.Select(l => l.ArticuloId).Distinct().ToList();
+        var articulosVidrio = (await _compartido.Articulos.AsNoTracking()
+            .Where(a => idsArticulos.Contains(a.Id) && a.ProductoAwId != null)
+            .Select(a => a.Id)
+            .ToListAsync(cancellationToken)).ToHashSet();
+        var evento = oc.EnviarAAutorizacion(_clock.UtcNow, requiereNivel2, articulosVidrio);
         await _publisher.Publish(evento, cancellationToken);
         await _db.SaveChangesAsync(cancellationToken);
     }

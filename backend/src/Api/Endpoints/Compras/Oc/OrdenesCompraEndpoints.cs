@@ -387,7 +387,8 @@ public static class OrdenesCompraEndpoints
                     DescripcionExtendida: body.DescripcionExtendida,
                     FechaEntregaLinea: body.FechaEntregaLinea,
                     CentroCostoId: body.CentroCostoId,
-                    TextoAdicional: body.TextoAdicional, EsActivoFijo: body.EsActivoFijo, ClaseActivoId: body.ClaseActivoId),
+                    TextoAdicional: body.TextoAdicional, EsActivoFijo: body.EsActivoFijo, ClaseActivoId: body.ClaseActivoId,
+                    ProductoAwVarianteId: body.ProductoAwVarianteId),
                 cancellationToken);
             return Results.Created($"/api/v1/compras/ordenes/{id}/lineas/{response.LineaId}", response);
         })
@@ -443,7 +444,8 @@ public static class OrdenesCompraEndpoints
                     FraccionArancelaria: body.FraccionArancelaria,
                     LimpiarFraccionArancelaria: body.LimpiarFraccionArancelaria ?? false,
                     EsActivoFijo: body.EsActivoFijo,
-                    ClaseActivoId: body.ClaseActivoId),
+                    ClaseActivoId: body.ClaseActivoId,
+                    ProductoAwVarianteId: body.ProductoAwVarianteId),
                 cancellationToken);
             return Results.NoContent();
         })
@@ -1906,7 +1908,9 @@ public static class OrdenesCompraEndpoints
         // Fase E PR3 (fix #701 API boundary): el CC-Máquina elegido en el
         // Dim3Picker viaja aquí; sin este campo System.Text.Json lo descartaba.
         Guid? CentroCostoId,
-        string? TextoAdicional, bool EsActivoFijo = false, Guid? ClaseActivoId = null);
+        string? TextoAdicional, bool EsActivoFijo = false, Guid? ClaseActivoId = null,
+        // F1-MP-01 (E1): medida de la hoja; obligatoria si el artículo es vidrio crudo (liga A+W), prohibida si no.
+        Guid? ProductoAwVarianteId = null);
 
     /// <summary>Body del PATCH lineas (F2-PR2).</summary>
     public sealed record ActualizarLineaOcRequest(
@@ -1928,7 +1932,9 @@ public static class OrdenesCompraEndpoints
         // PLATFORM-TODO(F1-COM-06): supuesto Vilo. Solo OC de comercio exterior.
         string? FraccionArancelaria = null,
         bool? LimpiarFraccionArancelaria = null,
-        bool? EsActivoFijo = null, Guid? ClaseActivoId = null);
+        bool? EsActivoFijo = null, Guid? ClaseActivoId = null,
+        // F1-MP-01 (E1): null = conservar la medida actual.
+        Guid? ProductoAwVarianteId = null);
 
     /// <summary>Body del PATCH texto-adicional (F2-PR2).</summary>
     public sealed record ActualizarTextoAdicionalRequest(string? TextoAdicional);
