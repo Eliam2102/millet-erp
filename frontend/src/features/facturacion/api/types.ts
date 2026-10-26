@@ -938,6 +938,7 @@ export interface EmitirFacturaVentaLinea {
 
 /** Comando de emisión de factura de venta (subset F1 — sin CCE/anticipos). */
 export interface EmitirFacturaVentaCommand {
+  clienteId?: string | null;
   sucursalId: string;
   receptorRfc: string;
   receptorNombre: string;

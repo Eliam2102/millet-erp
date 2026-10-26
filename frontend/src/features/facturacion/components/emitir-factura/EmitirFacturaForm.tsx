@@ -1,3 +1,4 @@
+import { mostrarErrorReceptorFiscal } from '@/features/facturacion/lib/mostrar-error-receptor-fiscal';
 import { useState } from 'react';
 import { useForm, useWatch } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -270,12 +271,8 @@ function FormInner({
           receptorRegimenFiscal: values.receptorRegimenFiscal,
           receptorCodigoPostal: values.receptorCodigoPostal,
           receptorUsoCfdi: values.receptorUsoCfdi,
-          // País derivado (sin campo en el form): MEX salvo exportación
-          // CCE, donde manda el país de residencia del receptor.
-          receptorPais: (esCce
-            ? values.cceReceptorPaisResidencia?.trim() || 'MEX'
-            : 'MEX'
-          ).toUpperCase(),
+          // Conserva el país del cliente extranjero aunque la operación no lleve CCE.
+          receptorPais: (values.cceReceptorPaisResidencia?.trim() || 'MEX').toUpperCase(),
           rfcEmisor: values.rfcEmisor.toUpperCase(),
           regimenFiscalEmisor: values.regimenFiscalEmisor,
           metodoPago: values.metodoPago,
@@ -288,6 +285,7 @@ function FormInner({
           obraId: null,
           obraNombre: nullIfEmpty(values.obraNombre),
           facturaAgrupada: false,
+          clienteId,
           pedidoFacturableId: prefill?.pedidoFacturableId ?? null,
           anticipos:
             anticipos.filter((a) => a.anticipoId.trim().length > 0).length > 0
@@ -348,6 +346,7 @@ function FormInner({
           onSuccess(res);
         },
         onError: (error) => {
+          if (mostrarErrorReceptorFiscal(error)) return;
           if (esApiError(error)) {
             if (
               applyServerErrors(

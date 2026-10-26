@@ -87,7 +87,7 @@ public sealed class ActivosTests
             new FakePeriodoContablePort(), new FakeCatalogosSatReadPort(), new FakeFiscalApiClient(),
             new FakeCfdiRepositorioPort(),
             new FakeEmpresaFiscalReadPort(new EmpresaFiscalLectura(empresaId, "MIL010101AAA", "Millet", "601", 0.16m, "76120")),
-            new FakeIntegrationEventPublisher(), new FakeContabilidadAsientoPort(), new FakeEmpresaContext(empresaId), new FakeUserContext(Guid.NewGuid()), new FakeClock(Ahora));
+            new FakeIntegrationEventPublisher(), new FakeContabilidadAsientoPort(), new FakeEmpresaContext(empresaId), new FakeUserContext(Guid.NewGuid()), new FakeClock(Ahora), ReceptorFiscalTestFactory.Crear(db));
 
     private static EmitirFacturaVentaCommand Command(Guid? autorizacionId) => new(
         Guid.NewGuid(), "AAA010101AAA", "Cliente", "601", "97000", "G03", "MEX",

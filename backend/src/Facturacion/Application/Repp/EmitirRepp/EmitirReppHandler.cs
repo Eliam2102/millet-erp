@@ -24,6 +24,7 @@ namespace Millet.Facturacion.Application.Repp.EmitirRepp;
 /// </summary>
 public sealed class EmitirReppHandler : IRequestHandler<EmitirReppCommand, EmitirReppResponse>
 {
+    private readonly ValidadorReceptorFiscal _receptorFiscal;
     private readonly FacturacionDbContext _db;
     private readonly ISender _sender;
     private readonly IPeriodoContablePort _periodo;
@@ -37,8 +38,9 @@ public sealed class EmitirReppHandler : IRequestHandler<EmitirReppCommand, Emiti
     public EmitirReppHandler(
         FacturacionDbContext db, ISender sender, IPeriodoContablePort periodo, ICfdiTimbradoPort fiscal,
         ICfdiRepositorioPort cfdiRepo, IIntegrationEventPublisher eventos, ICurrentEmpresaContext empresa,
-        ICurrentUserContext user, IClock clock)
+        ICurrentUserContext user, IClock clock, ValidadorReceptorFiscal receptorFiscal)
     {
+        _receptorFiscal = receptorFiscal;
         _db = db;
         _sender = sender;
         _periodo = periodo;
@@ -89,6 +91,8 @@ public sealed class EmitirReppHandler : IRequestHandler<EmitirReppCommand, Emiti
             receptorFactura.ReceptorRfc, receptorFactura.ReceptorNombre, receptorFactura.ReceptorRegimenFiscal,
             receptorFactura.ReceptorCodigoPostal, receptorFactura.ReceptorUsoCfdi, receptorFactura.ReceptorPais,
             receptorFactura.ReceptorEsGenerico);
+
+        await _receptorFiscal.ValidarComprobanteAsync(receptorFactura, cancellationToken, esRep: true);
 
         var reserva = await _sender.Send(
             new ReservarFolioCommand(empresaId, command.SucursalId, TipoDocumentoSerie.Cfdi, DateOnly.FromDateTime(ahora.UtcDateTime)),

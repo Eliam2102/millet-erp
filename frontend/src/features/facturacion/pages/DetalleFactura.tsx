@@ -1,3 +1,4 @@
+import { mostrarErrorReceptorFiscal } from '@/features/facturacion/lib/mostrar-error-receptor-fiscal';
 import { useState } from 'react';
 import { Link, useParams, useSearch } from '@tanstack/react-router';
 import { Ban, Download, FileCode, Mail, Printer, Receipt, X } from 'lucide-react';
@@ -490,6 +491,7 @@ function ReenviarCorreo({ facturaId }: { facturaId: string }) {
           setDestinatario('');
         },
         onError: (error) => {
+          if (mostrarErrorReceptorFiscal(error)) return;
           toast.error(
             esApiError(error) ? error.problem.title : 'No se pudo reenviar.',
           );
@@ -551,10 +553,10 @@ function PedimentoForm({ facturaId }: { facturaId: string }) {
         onSuccess: (res) => {
           toast.success(`Pedimento aplicado · ${res.estado}.`);
         },
-        onError: (error) =>
-          toast.error(
-            esApiError(error) ? error.problem.title : 'No se pudo aplicar el pedimento.',
-          ),
+        onError: (error) => {
+          if (mostrarErrorReceptorFiscal(error)) return;
+          toast.error(esApiError(error) ? error.problem.title : 'No se pudo aplicar el pedimento.');
+        },
       },
     );
   }
@@ -631,8 +633,10 @@ function NcBonificacionForm({
           toast.success(`NC ${res.folio} emitida por ${res.total.toFixed(2)}.`);
           onDone();
         },
-        onError: (error) =>
-          toast.error(esApiError(error) ? error.problem.title : 'No se pudo emitir la NC.'),
+        onError: (error) => {
+          if (mostrarErrorReceptorFiscal(error)) return;
+          toast.error(esApiError(error) ? error.problem.title : 'No se pudo emitir la NC.');
+        },
       },
     );
   }

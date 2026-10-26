@@ -5,9 +5,10 @@ namespace Millet.SharedKernel.Application.Exceptions;
 /// <summary>
 /// Violación de una regla de negocio (estado inválido, transición no
 /// permitida, condición no cumplida). Mapea a HTTP 422 (Unprocessable Entity).
+/// Admite excepciones específicas con metadatos de corrección (p. ej. receptor fiscal).
 /// Ver ADR-0010 y ADR-0018.
 /// </summary>
-public sealed class BusinessRuleException : DomainException
+public class BusinessRuleException : DomainException
 {
     public override string Code { get; }
 

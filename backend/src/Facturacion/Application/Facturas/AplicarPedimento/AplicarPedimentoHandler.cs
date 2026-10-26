@@ -21,6 +21,7 @@ namespace Millet.Facturacion.Application.Facturas.AplicarPedimento;
 /// </summary>
 public sealed class AplicarPedimentoHandler : IRequestHandler<AplicarPedimentoCommand, AplicarPedimentoResponse>
 {
+    private readonly ValidadorReceptorFiscal _receptorFiscal;
     private readonly FacturacionDbContext _db;
     private readonly ISender _sender;
     private readonly IPeriodoContablePort _periodo;
@@ -31,8 +32,9 @@ public sealed class AplicarPedimentoHandler : IRequestHandler<AplicarPedimentoCo
 
     public AplicarPedimentoHandler(
         FacturacionDbContext db, ISender sender, IPeriodoContablePort periodo, ICfdiTimbradoPort fiscal,
-        ICfdiRepositorioPort cfdiRepo, IIntegrationEventPublisher eventos, IClock clock)
+        ICfdiRepositorioPort cfdiRepo, IIntegrationEventPublisher eventos, IClock clock, ValidadorReceptorFiscal receptorFiscal)
     {
+        _receptorFiscal = receptorFiscal;
         _db = db;
         _sender = sender;
         _periodo = periodo;
@@ -58,6 +60,8 @@ public sealed class AplicarPedimentoHandler : IRequestHandler<AplicarPedimentoCo
         if (!await _periodo.EstaAbiertoAsync(ahora.Year, ahora.Month, cancellationToken))
             throw new BusinessRuleException("PERIODO_CERRADO", $"El período contable {ahora.Year}-{ahora.Month:D2} está cerrado; no se puede timbrar.");
 
+        await _receptorFiscal.ValidarComprobanteAsync(factura, cancellationToken);
+
         // Aplica el pedimento (vuelve a Borrador) y timbra.
         factura.AplicarPedimento(command.Pedimento, command.FechaDocAduanero, command.IdentificacionMercancia);
 
@@ -76,7 +80,7 @@ public sealed class AplicarPedimentoHandler : IRequestHandler<AplicarPedimentoCo
         // la NC de la ranura en la emisión — se emite aquí al quedar Timbrada.
         await NcRanuraEmisor.EmitirSiAplicaAsync(
             _db, _sender, _fiscal, _cfdiRepo, _eventos,
-            factura, pedido: null, usuarioEmisorId: null, ahora, cancellationToken);
+            factura, pedido: null, usuarioEmisorId: null, ahora, _receptorFiscal, cancellationToken);
 
         await _db.SaveChangesAsync(cancellationToken);
 

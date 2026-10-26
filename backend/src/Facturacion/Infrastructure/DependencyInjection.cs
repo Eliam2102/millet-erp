@@ -42,6 +42,7 @@ public static class DependencyInjection
     {
         // --- Catálogos SAT: adapter REAL sobre Compartido (no stub) ---
         // Scoped porque consume CompartidoDbContext (scoped).
+        services.AddScoped<Millet.Facturacion.Application.Timbrado.ValidadorReceptorFiscal>();
         services.AddScoped<ICatalogosSatReadPort, CompartidoCatalogosSatReadAdapter>();
 
         // --- Master de Cliente/Producto: adapters REALES sobre Compartido ---

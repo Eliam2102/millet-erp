@@ -1,3 +1,4 @@
+import { mostrarErrorReceptorFiscal } from '@/features/facturacion/lib/mostrar-error-receptor-fiscal';
 import { useEffect } from 'react';
 import { Controller, useForm, useWatch } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -192,6 +193,7 @@ function FormInner({
           onClose({ force: true });
         },
         onError: (error) => {
+          if (mostrarErrorReceptorFiscal(error)) return;
           if (esApiError(error)) {
             if (
               applyServerErrors(

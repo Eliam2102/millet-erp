@@ -52,6 +52,7 @@ public static class NcRanuraEmisor
         PedidoFacturable? pedido,
         Guid? usuarioEmisorId,
         DateTimeOffset ahora,
+        ValidadorReceptorFiscal receptorFiscal,
         CancellationToken cancellationToken)
     {
         if (factura.Estado != EstadoTimbrado.Timbrado)
@@ -74,6 +75,8 @@ public static class NcRanuraEmisor
                 cancellationToken);
         if (yaEmitida)
             return null;
+
+        await receptorFiscal.ValidarComprobanteAsync(factura, cancellationToken);
 
         var reserva = await sender.Send(
             new ReservarFolioCommand(

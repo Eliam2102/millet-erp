@@ -1,5 +1,7 @@
 import { Link } from '@tanstack/react-router';
 import { SquarePen } from 'lucide-react';
+import { Alert } from '@/components/ui/alert';
+import { type DiagnosticoReceptorFiscal } from '../lib/receptor-fiscal-error';
 import { cn } from '@/lib/utils';
 
 /**
@@ -56,22 +58,35 @@ export function ReceptorFiscalInfo({
 export function ReceptorIncompletoBanner({
   clienteId,
   puedeCorregirEnCatalogo,
+  diagnostico,
   textoSinCliente = 'Selecciona un cliente del catálogo para poder emitir.',
   className,
 }: {
   clienteId: string | null;
   puedeCorregirEnCatalogo: boolean;
+  diagnostico?: DiagnosticoReceptorFiscal;
   textoSinCliente?: string;
   className?: string;
 }) {
   return (
-    <div
+    <Alert
       className={cn(
-        'rounded-md border border-amber-300 bg-amber-50/60 px-3 py-2 text-sm',
+        'rounded-md border-line bg-warning-note-bg text-warning-note-fg px-3 py-2.5 text-sm',
         className,
       )}
     >
-      {clienteId == null ? (
+      {diagnostico ? (
+        <>
+          <p className="font-medium">Corrige los datos fiscales del receptor para poder timbrar.</p>
+          <ul className="list-disc pl-4">
+            {diagnostico.campos.map(({ campo, motivo }, index) => <li key={`${campo}-${index}`}>{motivo}</li>)}
+          </ul>
+          {diagnostico.clienteId && (
+            <Link to="/admin/datos-maestros/clientes/$id" params={{ id: diagnostico.clienteId }}
+              className="font-medium underline underline-offset-2">Revisar cliente en Datos Maestros</Link>
+          )}
+        </>
+      ) : clienteId == null ? (
         <>{textoSinCliente}</>
       ) : puedeCorregirEnCatalogo ? (
         <>
@@ -92,7 +107,7 @@ export function ReceptorIncompletoBanner({
           los completen en Datos Maestros → Clientes para poder emitir.
         </>
       )}
-    </div>
+    </Alert>
   );
 }
 

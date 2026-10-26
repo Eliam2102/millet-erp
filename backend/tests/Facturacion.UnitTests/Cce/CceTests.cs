@@ -132,12 +132,12 @@ public sealed class CceTests
             new FakePeriodoContablePort(), new FakeCatalogosSatReadPort(), new FakeFiscalApiClient(),
             new FakeCfdiRepositorioPort(),
             new FakeEmpresaFiscalReadPort(new EmpresaFiscalLectura(empresaId, "MIL010101AAA", "Millet", "601", 0.16m, "76120")),
-            new FakeIntegrationEventPublisher(), new FakeContabilidadAsientoPort(), new FakeEmpresaContext(empresaId), new FakeUserContext(Guid.NewGuid()), new FakeClock(Ahora));
+            new FakeIntegrationEventPublisher(), new FakeContabilidadAsientoPort(), new FakeEmpresaContext(empresaId), new FakeUserContext(Guid.NewGuid()), new FakeClock(Ahora), ReceptorFiscalTestFactory.Crear(db));
 
     private static EmitirFacturaVentaCommand CommandExportacion(EmitirFacturaVentaCce? cce) => new(
         SucursalId: Guid.NewGuid(),
         ReceptorRfc: "XEXX010101000", ReceptorNombre: "Foreign Corp", ReceptorRegimenFiscal: "616",
-        ReceptorCodigoPostal: "00000", ReceptorUsoCfdi: "S01", ReceptorPais: "USA",
+        ReceptorCodigoPostal: "76120", ReceptorUsoCfdi: "S01", ReceptorPais: "USA",
         RfcEmisor: "BBB010101BBB", RegimenFiscalEmisor: "601",
         MetodoPago: "PUE", FormaPago: "01", Moneda: "USD", TipoCambio: 20m,
         CanalVenta: (short)8, ComportamientoFiscal: ComportamientoFiscal.ExportacionConCce,
@@ -190,13 +190,14 @@ public sealed class CceTests
     }
 
     [Fact]
-    public async Task Emitir_factura_exportacion_sin_CCE_no_crea_complemento()
+    public async Task Emitir_factura_exportacion_sin_CCE_rechaza_identidad_extranjera_incompleta()
     {
         var empresaId = Guid.NewGuid();
         using var db = NewDb(empresaId);
 
-        await Handler(db, empresaId).Handle(CommandExportacion(null), CancellationToken.None);
-
-        (await db.FacturasVenta.Include(f => f.ComplementoCce).SingleAsync()).ComplementoCce.Should().BeNull();
+        var act = () => Handler(db, empresaId).Handle(CommandExportacion(null), CancellationToken.None);
+        var error = await act.Should().ThrowAsync<Millet.Facturacion.Application.Timbrado.ReceptorFiscalInvalidoException>();
+        error.Which.Campos.Select(c => c.Campo).Should().Contain(["numRegIdTrib", "paisResidencia"]);
+        (await db.FacturasVenta.AnyAsync()).Should().BeFalse();
     }
 }
