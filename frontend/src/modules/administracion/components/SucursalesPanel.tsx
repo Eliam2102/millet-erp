@@ -7,7 +7,6 @@ import {
   TableHead,
   TableBody,
   TableCell,
-  TableContainer,
 } from '@/components/ui/table';
 import { ListadoCatalogo } from '@/modules/administracion/components/ListadoCatalogo';
 import { OPCIONES_CATALOGO } from '@/modules/administracion/lib/estados-ui';
@@ -170,7 +169,6 @@ export function SucursalesPanel({
           opciones={OPCIONES_CATALOGO}
         >
           {(visibles) => (
-            <TableContainer maxHeightClassName="">
             <Table>
               <TableHeader>
                 <TableRow>
@@ -260,7 +258,6 @@ export function SucursalesPanel({
                 })}
               </TableBody>
             </Table>
-            </TableContainer>
           )}
         </ListadoCatalogo>
       )}

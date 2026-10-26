@@ -156,7 +156,7 @@ describe('ApiError · errores[] del backend ({ field, code, message })', () => {
   it('los lectores directos y applyServerErrors reciben las llaves en español', () => {
     const form = { setError: vi.fn() };
     expect(applyServerErrors(form, nuevo())).toBe(true);
-    expect(form.setError).toHaveBeenCalledWith('Concepto', { type: 'MaximumLength', message: 'Máximo 400.' }, expect.anything());
+    expect(form.setError).toHaveBeenCalledWith('concepto', { type: 'MaximumLength', message: 'Máximo 400.' }, expect.anything());
     expect(mensajeErrorTimbrado(nuevo())).toContain('Máximo 400.');
   });
 });

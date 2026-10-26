@@ -43,6 +43,26 @@ describe('applyServerErrors', () => {
     );
   });
 
+  it('mapea el formato de FluentValidation { field, code, message } con path anidado', () => {
+    const form = fakeForm();
+    const error = new ApiError(
+      {
+        type: 'about:blank',
+        title: 'Errores de validación',
+        status: 400,
+        errores: [{ field: 'Lineas[0].ProveedorId', code: 'NotEmpty', message: 'Una línea fiscal requiere proveedor.' }],
+      },
+      400,
+    );
+
+    expect(applyServerErrors(form, error)).toBe(true);
+    expect(form.setError).toHaveBeenCalledWith(
+      'lineas.0.proveedorId',
+      { type: 'NotEmpty', message: 'Una línea fiscal requiere proveedor.' },
+      expect.anything(),
+    );
+  });
+
   it('devuelve false cuando no hay errores estructurados', () => {
     const form = fakeForm();
     const error = new ApiError(
@@ -86,6 +106,7 @@ describe('applyServerErrors', () => {
           // JSON path + PascalCase, como emite el model-binding de STJ
           '$.Monto': ['El campo Monto es requerido.'],
           FechaValor: ['No es una fecha válida.'],
+          'Lineas[0].ProveedorId': ['Proveedor requerido.'],
         },
       },
       400,
@@ -94,7 +115,13 @@ describe('applyServerErrors', () => {
     const ok = applyServerErrors(form, error);
 
     expect(ok).toBe(true);
-    expect(form.setError).toHaveBeenCalledTimes(2);
+    expect(form.setError).toHaveBeenCalledTimes(3);
+    expect(form.setError).toHaveBeenNthCalledWith(
+      3,
+      'lineas.0.proveedorId',
+      { type: 'server', message: 'Proveedor requerido.' },
+      { shouldFocus: false },
+    );
     expect(form.setError).toHaveBeenNthCalledWith(
       1,
       'monto',
