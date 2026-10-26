@@ -18,7 +18,7 @@ export function Campo({ label, valor, mono }: CampoProps) {
   return (
     <div>
       <dt className="text-xs text-muted-foreground">{label}</dt>
-      <dd className={cn('text-sm', mono && 'break-all font-mono text-xs')}>{valor}</dd>
+      <dd className={cn('text-sm [overflow-wrap:anywhere]', mono && 'break-all font-mono text-xs')}>{valor}</dd>
     </div>
   );
 }
