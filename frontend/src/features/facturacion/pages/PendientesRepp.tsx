@@ -1,5 +1,6 @@
 import { BarraFiltros, PaginacionTabla, TabsEstado } from '@/components/erp';
 import { ListadoModulo } from '@/components/erp/data/ListadoModulo';
+import { useConfirmarDescarte } from '@/components/erp/forms/useConfirmarDescarte';
 import { KpiCard } from '@/components/erp/display/KpiCard';
 import { PageHeader } from '@/components/erp/PageHeader';
 import { FormaPagoSelector } from '@/components/erp/selectors/FormaPagoSelector';
@@ -27,7 +28,7 @@ import {
 import { PermisosCanonicos } from '@/lib/auth/permission-codes';
 import { useHasPermission } from '@/lib/auth/useHasPermission';
 import { Link } from '@tanstack/react-router';
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useForm, useWatch } from 'react-hook-form';
 import { toast } from 'sonner';
 import type {
@@ -56,20 +57,7 @@ export function PendientesRepp() {
   const [offset, setOffset] = useState(0);
   const [seleccion, setSeleccion] = useState<string[]>([]);
   const [abierto, setAbierto] = useState<string | null>(null);
-  const dirty = useRef(false);
-  const onDirtyChange = useCallback((value: boolean) => {
-    dirty.current = value;
-  }, []);
-  function cerrar(force = false) {
-    if (
-      force ||
-      !dirty.current ||
-      window.confirm('Hay cambios sin guardar. ¿Descartar los cambios y cerrar?')
-    ) {
-      dirty.current = false;
-      setAbierto(null);
-    }
-  }
+  const { setDirty, solicitarCierre, dialogo } = useConfirmarDescarte(() => setAbierto(null));
   const [resultados, setResultados] = useState<EmisionPendiente[]>([]);
   const puedeEscribir = useHasPermission(PermisosCanonicos.FacturacionReppEmitir);
   const query = useReppPendientes(estado, indicador, offset);
@@ -303,7 +291,7 @@ export function PendientesRepp() {
       <Sheet
         open={abierto !== null}
         onOpenChange={(open) => {
-          if (!open) cerrar();
+          if (!open) solicitarCierre();
         }}
       >
         <SheetContent size="lg">
@@ -327,14 +315,15 @@ export function PendientesRepp() {
                   key={`${detalle.data.id}:${JSON.stringify(detalle.data)}`}
                   pago={detalle.data}
                   puedeEscribir={puedeEscribir}
-                  cerrar={cerrar}
-                  onDirtyChange={onDirtyChange}
+                  cerrar={solicitarCierre}
+                  onDirtyChange={setDirty}
                 />
               )
             )}
           </SheetBody>
         </SheetContent>
       </Sheet>
+      {dialogo}
     </main>
   );
 }

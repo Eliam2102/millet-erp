@@ -1,3 +1,4 @@
+import { useConfirmarDescarte } from '@/components/erp/forms/useConfirmarDescarte';
 import { PaginacionTabla } from '@/components/erp';
 import { FormSeccion } from '@/components/erp/forms/FormSeccion';
 import { FormCampo, FormGrid } from '@/components/erp/forms/FormGrid';
@@ -522,9 +523,9 @@ function ContenedorForm({
 }) {
   const [datos, setDatos] = useState<DatosContenedor>(inicial === 'nuevo' ? vacio : inicial);
   const mutar = useMutarContenedor(id);
-  const [dirty, setDirty] = useState(false);
+  const { setDirty, solicitarCierre, dialogo } = useConfirmarDescarte(onClose);
   function cerrar() {
-    if (!dirty || window.confirm('Hay cambios sin guardar. ¿Descartarlos?')) onClose();
+    solicitarCierre();
   }
   async function submit(e: FormEvent) {
     e.preventDefault();
@@ -646,6 +647,7 @@ function ContenedorForm({
           </SheetFooter>
         </form>
       </SheetContent>
+      {dialogo}
     </Sheet>
   );
 }

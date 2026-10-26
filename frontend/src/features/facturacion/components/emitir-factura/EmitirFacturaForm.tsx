@@ -20,6 +20,7 @@ import {
   EmitirFacturaSchema,
   type EmitirFacturaValues,
 } from '@/features/facturacion/schemas/emitir-factura';
+import { useConfirmarDescarte } from '@/components/erp/forms/useConfirmarDescarte';
 import { applyServerErrors, esApiError, useFormIdempotencyKey } from '@/lib/api';
 import { PermisosCanonicos } from '@/lib/auth/permission-codes';
 import { useHasPermission } from '@/lib/auth/useHasPermission';
@@ -299,12 +300,10 @@ function FormInner({
         ? errores.lineas.filter(Boolean).length
         : 1;
 
+  const { setDirty, solicitarCierre, dialogo } = useConfirmarDescarte(onCancel);
   function cancelar() {
-    if (form.formState.isDirty) {
-      const confirmar = window.confirm('Tienes una emisión sin completar. ¿Descartar y cerrar?');
-      if (!confirmar) return;
-    }
-    onCancel();
+    setDirty(form.formState.isDirty);
+    solicitarCierre();
   }
 
   async function onSubmit(values: EmitirFacturaValues) {
@@ -655,6 +654,7 @@ function FormInner({
         onRevisar={() => setPendiente(null)}
         onTimbrar={timbrarPendiente}
       />
+      {dialogo}
     </form>
   );
 }
