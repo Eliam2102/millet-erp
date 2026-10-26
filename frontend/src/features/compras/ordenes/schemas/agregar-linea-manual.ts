@@ -34,6 +34,8 @@ export function crearAgregarLineaManualSchema(
           (v) => cabeEnDecimales(v, getDecimalesCantidad()),
           'Demasiados decimales para la unidad seleccionada',
         ),
+      // F1-MP-01 (E1): medida de la hoja; el form la exige solo si el artículo es de vidrio crudo.
+      productoAwVarianteId: zId().nullish(),
       unidadMedida: z
         .string()
         .min(1, 'La unidad de medida es requerida.')
@@ -117,6 +119,7 @@ export const DEFAULT_AGREGAR_LINEA_MANUAL: AgregarLineaManualValues = {
   // UnidadMedidaDefault al seleccionar (campo read-only). No persiste
   // porque articuloId es required.
   unidadMedida: '',
+  productoAwVarianteId: null,
   precioUnitario: 0,
   departamentoSolicitanteId: '',
   descuentoTipo: null,
