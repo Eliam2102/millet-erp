@@ -63,6 +63,7 @@ public sealed record RequisicionResponse(
     // el motor de reabasto. Mapster lo mapea por convención desde Requisicion.Origen;
     // el FE condiciona el aviso del diálogo de eliminar a Origen == Sistema.
     OrigenRequisicion Origen = OrigenRequisicion.Manual, string? Obra = null,
+    bool SoloApartarSiCompleto = false,
     // "En almacén" (aditivo): true si una RQ previa a autorizar (Borrador/EnAutorizacion)
     // tiene al menos una línea con surtido de almacén según el reparto de disponibilidad
     // (estimación de solo lectura; sin apartar stock). False en otros estados o si falla.

@@ -19,4 +19,4 @@ public sealed record AgregarLineaCommand(
     Guid? CentroCostoId = null,
     string? Proyecto = null,
     DateOnly? FechaRequerida = null,
-    string? Notas = null) : IRequest<AgregarLineaResponse>;
+    string? Notas = null, bool EsActivoFijo = false, Guid? ClaseActivoId = null) : IRequest<AgregarLineaResponse>;

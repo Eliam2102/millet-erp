@@ -67,4 +67,19 @@ public sealed class SaldoInventario
         ValorInventarioMxn = cantidad * costoPromedioMxn;
         UltimaActualizacionAt = DateTimeOffset.UtcNow;
     }
+    public static (decimal Inventario, decimal CostoVentas) SepararCosto(decimal diferencia, decimal recibido, decimal remanente)
+    {
+        if (recibido <= 0 || remanente < 0 || remanente > recibido)
+            throw new Millet.SharedKernel.Application.Exceptions.BusinessRuleException("CE_REMANENTE_INVALIDO", "Revise la cantidad recibida y su remanente.");
+        var inventario = decimal.Round(diferencia * remanente / recibido, 2, MidpointRounding.AwayFromZero);
+        return (inventario, diferencia - inventario);
+    }
+    public void AjustarValor(decimal importe, DateTimeOffset fecha)
+    {
+        if ((Cantidad == 0 && importe != 0) || ValorInventarioMxn + importe < 0)
+            throw new Millet.SharedKernel.Application.Exceptions.BusinessRuleException("CE_AJUSTE_COSTO_INVALIDO", "El ajuste requiere existencia y no puede dejar valor negativo.");
+        if (Cantidad > 0) CostoPromedioMxn = decimal.Round((ValorInventarioMxn + importe) / Cantidad, 12, MidpointRounding.AwayFromZero);
+        ValorInventarioMxn = decimal.Round(Cantidad * CostoPromedioMxn, 2, MidpointRounding.AwayFromZero);
+        UltimaActualizacionAt = fecha;
+    }
 }

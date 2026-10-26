@@ -127,9 +127,9 @@ public class OrdenCompraComercioExteriorTests
         oc.EnviarAAutorizacion(DateTimeOffset.UtcNow);
         var eta = new DateOnly(2026, 11, 3);
 
-        oc.ActualizarNumeroPedimento("PED-12345", "BL-998877", eta, "Agencia Aduanal X");
+        oc.ActualizarNumeroPedimento("261612346000001", "BL-998877", eta, "Agencia Aduanal X");
 
-        Assert.Equal("PED-12345", oc.InfoImportNumeroPedimento);
+        Assert.Equal("261612346000001", oc.InfoImportNumeroPedimento);
         Assert.Equal("BL-998877", oc.InfoImportNumeroBl);
         Assert.Equal(eta, oc.InfoImportFechaEstimadaArribo);
         Assert.Equal("Agencia Aduanal X", oc.InfoImportAgenteAduanalNaviera);

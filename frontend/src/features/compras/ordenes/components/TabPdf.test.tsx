@@ -1,4 +1,4 @@
-import { describe, it, expect, vi } from 'vitest';
+import { afterEach, describe, it, expect, vi } from 'vitest';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { TabPdf } from './TabPdf';
@@ -14,6 +14,11 @@ const oc = {
 } as OrdenCompraDetalleResponse;
 
 describe('TabPdf', () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+    vi.unstubAllGlobals();
+    vi.clearAllMocks();
+  });
   it('usa vista previa al abrir y una descarga nueva por clic', async () => {
     vi.mocked(apiFetch).mockImplementation(async () => ({ ok: true, blob: async () => new Blob(['PDF ficticio']) }) as Response);
     vi.stubGlobal('URL', class extends URL {
@@ -35,8 +40,12 @@ describe('TabPdf', () => {
     expect(screen.getByText(/Impreso 2 veces/)).toHaveTextContent('Usuario de prueba');
     fireEvent.click(screen.getByRole('button', { name: 'Descargar PDF' }));
     await waitFor(() => expect(click).toHaveBeenCalledOnce());
-    expect(apiFetch).toHaveBeenCalledWith('/api/v1/compras/ordenes/oc-ficticia/pdf');
+    expect(apiFetch).toHaveBeenCalledWith('/api/v1/compras/ordenes/oc-ficticia/pdf', expect.any(Object));
     expect(invalidate).toHaveBeenCalled();
+    await waitFor(() => expect(screen.getByRole('button', { name: 'Descargar PDF' })).toBeEnabled());
+    fireEvent.click(screen.getByRole('button', { name: 'Descargar PDF' }));
+    await waitFor(() => expect(click).toHaveBeenCalledTimes(2));
+    expect(vi.mocked(apiFetch).mock.calls.filter(([url]) => url === '/api/v1/compras/ordenes/oc-ficticia/pdf')).toHaveLength(2);
     view.unmount();
     client.clear();
     create.mockRestore(); revoke.mockRestore(); click.mockRestore();

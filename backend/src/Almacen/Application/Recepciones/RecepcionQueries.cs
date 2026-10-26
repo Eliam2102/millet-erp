@@ -180,7 +180,9 @@ internal static class RecepcionesFiltro
         if (!string.IsNullOrWhiteSpace(request.Q))
         {
             var q = request.Q.Trim().ToUpperInvariant();
-            query = query.Where(m => m.Folio != null && m.Folio.Contains(q));
+            var pedimento = q.Replace(" ", "");
+            query = query.Where(m => (m.Folio != null && m.Folio.Contains(q)) ||
+                db.RecepcionesImportacion.Any(i => i.RecepcionId == m.Id && i.NumeroPedimento == pedimento));
         }
 
         return query;

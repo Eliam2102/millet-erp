@@ -22,6 +22,22 @@ public class ListarRecepcionesHandlerTests
     private static readonly Guid Oc2 = Guid.NewGuid();
 
     [Fact]
+    public async Task Busca_por_pedimento_normalizado_y_respeta_documentos_permitidos()
+    {
+        await using var db = await NuevaDbAsync();
+        AgregarRecepcion(db, Oc1, "DEMO", new(2026, 10, 22), "M-ENT2026-000001");
+        var mov = db.Movimientos.Local.Single();
+        var importacion = new RecepcionImportacion(mov.EmpresaId, Oc1, "261612346000001", "BL-DEMO", "CONT-DEMO", "16", "A1", []);
+        importacion.VincularRecepcion(mov.Id);
+        db.RecepcionesImportacion.Add(importacion);
+        await db.SaveChangesAsync();
+        var handler = new ListarRecepcionesHandler(db, new FakeOcReadPort());
+        var consulta = new ListarRecepcionesQuery(null, null, null, null, null, 0, 50, Q: "26 16 1234 6000001");
+        Assert.Single((await handler.Handle(consulta, default)).Items);
+        Assert.Empty((await handler.Handle(consulta with { DocumentosPermitidos = [] }, default)).Items);
+    }
+
+    [Fact]
     public async Task Resuelve_folios_de_OC_en_batch_y_cae_a_null_sin_OC()
     {
         await using var db = await NuevaDbAsync();

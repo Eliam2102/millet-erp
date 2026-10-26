@@ -9,6 +9,7 @@ using Millet.Facturacion.Application.Comprobantes.Queries;
 using Millet.Facturacion.Application.Facturas.Queries;
 using Millet.Facturacion.Application.Facturas.ReenviarCfdiCorreo;
 using Millet.Facturacion.Domain.Comprobantes;
+using Millet.Facturacion.Domain.Pedidos;
 using Millet.Facturacion.Domain.Ports;
 using Millet.Identidad.Domain;
 
@@ -54,11 +55,13 @@ public static class FacturasEndpoints
             [FromQuery] int? offset,
             [FromQuery] int? limit,
             [FromQuery] string? alcance,
+            [FromQuery] ClasePedidoManual? clase,
             IMediator mediator,
             CancellationToken cancellationToken) =>
         {
+            // F6.1: ?clase=VentaDirecta|Emergencia filtra por la clase del pedido manual de origen.
             var response = await mediator.Send(
-                new BandejaFacturasQuery(estado, offset ?? 0, limit ?? 50, AlcanceParam.SoloSinAsignar(alcance)),
+                new BandejaFacturasQuery(estado, offset ?? 0, limit ?? 50, AlcanceParam.SoloSinAsignar(alcance), clase),
                 cancellationToken);
             return Results.Ok(response);
         })

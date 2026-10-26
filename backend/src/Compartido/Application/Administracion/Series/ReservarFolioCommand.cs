@@ -35,6 +35,9 @@ namespace Millet.Administracion.Application.Series;
 ///   <item>422 <c>SERIE_NO_CONFIGURADA</c> si no existe Serie activa para
 ///         (Empresa, Sucursal, TipoDocumento). Si hay serie pero está
 ///         inactiva, también se considera "no configurada".</item>
+///   <item>422 <c>SERIE_VENTA_DIRECTA_NO_CONFIGURADA</c> (F6.1): el tipo
+///         <see cref="TipoDocumentoSerie.VentaDirecta"/> exige serie activa de
+///         la sucursal; nunca cae a la serie global.</item>
 /// </list>
 /// </para>
 /// </summary>
@@ -98,7 +101,8 @@ public sealed class ReservarFolioHandler
             if (candidatas.Count > 1) throw new BusinessRuleException("SERIE_AMBIGUA", "Hay varias series activas. Corrige el catálogo antes de reservar.");
             serieId = candidatas.Count == 1 ? candidatas[0] : null;
         }
-        if (serieId is null || serieId == Guid.Empty)
+        // F6.1: los tipos por sucursal (VentaDirecta) no caen a la serie global.
+        if ((serieId is null || serieId == Guid.Empty) && !Serie.RequiereSucursal(command.TipoDocumento))
         {
             const string sqlGlobal = """
                 SELECT id AS "Value"
@@ -120,6 +124,13 @@ public sealed class ReservarFolioHandler
         var serie = serieId is Guid id && id != Guid.Empty
             ? await _db.Series.AsNoTracking().SingleAsync(s => s.Id == id, cancellationToken)
             : null;
+
+        if (serie is null && command.TipoDocumento == TipoDocumentoSerie.VentaDirecta)
+        {
+            throw new BusinessRuleException(
+                "SERIE_VENTA_DIRECTA_NO_CONFIGURADA",
+                "Configura una serie activa de Venta directa para la sucursal emisora en Administración → Series.");
+        }
 
         if (serie is null)
         {

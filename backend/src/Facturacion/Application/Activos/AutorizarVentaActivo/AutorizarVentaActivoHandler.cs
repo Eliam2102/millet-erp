@@ -43,7 +43,7 @@ public sealed class AutorizarVentaActivoHandler : IRequestHandler<AutorizarVenta
                 $"El activo '{command.ActivoRef}' no está dado de alta como activo fijo; no se puede autorizar su venta.");
 
         var autorizacion = AutorizacionVentaActivo.Crear(
-            empresaId, activo.ActivoRef, activo.Descripcion, activo.ValorEnLibros, activo.DepreciacionAcumulada,
+            empresaId, activo.ActivoRef, activo.Descripcion, activo.ValorEnLibros + activo.DepreciacionAcumulada, activo.DepreciacionAcumulada,
             activo.EsImportacion, command.PrecioVenta, autorizadoPor, _clock.UtcNow);
 
         _db.AutorizacionesVentaActivo.Add(autorizacion);

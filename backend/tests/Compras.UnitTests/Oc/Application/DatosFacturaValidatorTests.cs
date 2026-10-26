@@ -1,6 +1,7 @@
 using Millet.Compras.Application.Oc;
 using Millet.Compras.Application.Oc.ActualizarCabecera;
 using Millet.Compras.Application.Oc.CrearOrdenCompraVacia;
+using Millet.Compras.Application.Oc.CrearOrdenCompraDesdeRequisicion;
 using Millet.Compras.Domain.Ports.Catalogos;
 using Millet.SharedKernel.Application.Exceptions;
 
@@ -22,6 +23,10 @@ public sealed class DatosFacturaValidatorTests
             Guid.NewGuid(), new DateOnly(2026, 10, 20), UsoCfdiClave: uso, MetodoPago: metodo, FormaPagoClave: forma);
         var editar = new ActualizarCabeceraOcCommand(Guid.NewGuid(), null, null, null, null, null, null,
             null, null, null, null, null, null, null, null, UsoCfdiClave: uso, MetodoPago: metodo, FormaPagoClave: forma);
+        var desdeRq = new CrearOrdenCompraDesdeRequisicionCommand(Guid.NewGuid(), "MID", 2026, Guid.NewGuid(),
+            Guid.NewGuid(), Guid.NewGuid(), new DateOnly(2026, 10, 20),
+            UsoCfdiClave: uso, MetodoPago: metodo, FormaPagoClave: forma);
+        Assert.Equal(valido, new CrearOrdenCompraDesdeRequisicionValidator().Validate(desdeRq).IsValid);
         Assert.Equal(valido, new CrearOrdenCompraVaciaValidator().Validate(crear).IsValid);
         Assert.Equal(valido, new ActualizarCabeceraOcValidator().Validate(editar).IsValid);
     }

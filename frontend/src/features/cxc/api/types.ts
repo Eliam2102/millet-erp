@@ -454,3 +454,62 @@ export interface CreditoDisponibleResponse {
   lineas: CreditoDisponibleLineaResponse[];
   datoIncompleto: boolean;
 }
+
+// ---------------------------------------------------------------------------
+// F1-CXC-09 · C7.8: envío del estado de cuenta al cliente.
+
+/** Pago que bloquea el estado de cuenta (CA7.14). Mirror de <c>PagoSinReflejarDto</c>. */
+export interface PagoSinReflejarItem {
+  id: string;
+  /** "yyyy-MM-dd". */
+  fechaValor: string;
+  /** "yyyy-MM-dd": límite del día 5 del mes siguiente para emitir el REP. */
+  fechaLimite: string;
+  monto: number;
+  moneda: string;
+  referencia: string | null;
+  /** "SinRep" = pago sin REP; "RepSinReflejar" = REP emitido aún no proyectado en cartera. */
+  motivo: 'SinRep' | 'RepSinReflejar' | string;
+}
+
+/** Mirror de <c>PendientesEstadoCuentaResponse</c>. */
+export interface PendientesEstadoCuentaResponse {
+  emitible: boolean;
+  pendientes: PagoSinReflejarItem[];
+  recibosSinReflejar: string[];
+  /** Correo del maestro de clientes para prellenar el destinatario. */
+  emailCliente: string | null;
+}
+
+export interface TotalMonedaEstadoCuenta {
+  moneda: string;
+  cargo: number;
+  abono: number;
+  saldo: number;
+}
+
+/** Mirror de <c>EstadoCuentaEnvioResponse</c>. */
+export interface EstadoCuentaEnvioItem {
+  id: string;
+  clienteId: string;
+  destinatario: string;
+  mensaje: string | null;
+  usuarioId: string;
+  usuarioNombre: string | null;
+  fecha: string;
+  /** "Registrado" (sin transporte de correo) | "Enviado" | "Fallido". */
+  estado: 'Registrado' | 'Enviado' | 'Fallido' | string;
+  detalleError: string | null;
+  numeroFilas: number;
+  nombreArchivo: string;
+  pdfSha256: string;
+  totales: TotalMonedaEstadoCuenta[];
+}
+
+export interface EnviarEstadoCuentaArgs {
+  clienteId: string;
+  destinatario: string;
+  mensaje?: string;
+  pdf: Blob;
+  nombreArchivo: string;
+}

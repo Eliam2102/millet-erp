@@ -36,7 +36,7 @@ public class PendientesServicioSinStockTests : IClassFixture<StubsWebApplication
             });
         });
         var admin = await CreateSuperAdminClientAsync(factory);
-        var rqId = await CrearTransmitirAsync(admin, new[] { (ArticuloServicio, 10m) });
+        var rqId = await CrearTransmitirAsync(admin, new[] { (ArticuloServicio, 10m) }, clasificacion: ClasificacionServicio);
 
         var ids = await IdsPendientesAsync(admin);
 

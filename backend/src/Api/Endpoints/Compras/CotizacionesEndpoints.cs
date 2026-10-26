@@ -21,7 +21,7 @@ public static class CotizacionesEndpoints
 {
     public sealed record RegistrarCotizacionRequest(
         Guid ProveedorId, string? FolioProveedor, string Moneda, DateOnly FechaCotizacion, DateOnly VigenteHasta,
-        string? CondicionesCredito, IReadOnlyList<LineaCotizacionRequest> Lineas);
+        string? CondicionesCredito, IReadOnlyList<LineaCotizacionRequest> Lineas, Guid? CondicionesPagoId = null, DateOnly? FechaEntrega = null);
 
     public static IEndpointRouteBuilder MapCotizacionesEndpoints(this IEndpointRouteBuilder app)
     {
@@ -50,7 +50,7 @@ public static class CotizacionesEndpoints
         {
             await RqSucursalScope.VerificarAsync(id, scopeDb, scopeUser, scopePermisos, scopeSucursales, cancellationToken, escritura: true);
             var r = await mediator.Send(new RegistrarCotizacionCommand(id, body.ProveedorId, body.FolioProveedor, body.Moneda,
-                body.FechaCotizacion, body.VigenteHasta, body.CondicionesCredito, body.Lineas), cancellationToken);
+                body.FechaCotizacion, body.VigenteHasta, body.CondicionesCredito, body.Lineas, body.CondicionesPagoId, body.FechaEntrega), cancellationToken);
             return Results.Created($"/api/v1/compras/cotizaciones/{r.Id}", r);
         })
         .WithMetadata(new RequireIdempotencyKeyAttribute())
@@ -76,7 +76,7 @@ public static class CotizacionesEndpoints
         {
             await VerificarAlcanceAsync(id, scopeDb, scopeUser, scopePermisos, scopeSucursales, cancellationToken);
             var r = await mediator.Send(new EditarCotizacionCommand(id, body.ProveedorId, body.FolioProveedor, body.Moneda,
-                body.FechaCotizacion, body.VigenteHasta, body.CondicionesCredito, body.Lineas), cancellationToken);
+                body.FechaCotizacion, body.VigenteHasta, body.CondicionesCredito, body.Lineas, body.CondicionesPagoId, body.FechaEntrega), cancellationToken);
             return Results.Ok(r);
         })
         .WithMetadata(new RequireIdempotencyKeyAttribute())

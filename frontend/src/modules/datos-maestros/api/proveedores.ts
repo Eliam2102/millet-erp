@@ -345,6 +345,7 @@ function buildListarProveedoresPath(
   filtros: ListarProveedoresFiltros,
 ): string {
   const params = new URLSearchParams();
+  if (filtros.q != null && filtros.q.length > 0) params.set('q', filtros.q);
   if (filtros.rfc != null && filtros.rfc.length > 0)
     params.set('rfc', filtros.rfc);
   if (filtros.razonSocial != null && filtros.razonSocial.length > 0)

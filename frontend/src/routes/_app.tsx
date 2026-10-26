@@ -1,3 +1,4 @@
+import { NuevoActivoProvider } from '@/features/activos-fijos/components/NuevoActivoProvider';
 import { createFileRoute, Outlet, redirect } from '@tanstack/react-router';
 import { useAuthStore } from '@/lib/auth/auth-store';
 import { rutaPermitida } from '@/lib/nav';
@@ -43,7 +44,7 @@ export const Route = createFileRoute('/_app')({
 function AppLayout() {
   return (
     <ConflictDialogProvider>
-      <NuevoExpedienteProvider>
+      <NuevoExpedienteProvider><NuevoActivoProvider>
         <NuevaRequisicionProvider>
           <NuevaOrdenCompraProvider>
             <NuevoPedidoProvider>
@@ -72,7 +73,7 @@ function AppLayout() {
             </NuevoPedidoProvider>
           </NuevaOrdenCompraProvider>
         </NuevaRequisicionProvider>
-      </NuevoExpedienteProvider>
+      </NuevoActivoProvider></NuevoExpedienteProvider>
     </ConflictDialogProvider>
   );
 }

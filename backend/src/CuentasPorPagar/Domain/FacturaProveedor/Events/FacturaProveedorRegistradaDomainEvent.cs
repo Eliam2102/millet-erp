@@ -48,7 +48,7 @@ public sealed record LineaFacturada(
     Guid? LineaOcId,
     decimal Cantidad,
     decimal Importe,
-    Guid? CentroCostoId = null);
+    Guid? CentroCostoId = null, decimal? ValorCapitalizable = null);
 
 public sealed record LineaOcAcumulada(
     Guid LineaOcId,

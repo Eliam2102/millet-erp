@@ -25,7 +25,10 @@ import {
 } from '@/modules/administracion/schemas/serie';
 import { useActualizarSerie, useSerie } from '@/modules/administracion/api';
 import { ReinicioPeriodo, type SerieResponse } from '@/modules/administracion/api/types';
-import { REINICIO_PERIODO_LABEL } from '@/modules/administracion/components/series-labels';
+import {
+  REINICIO_PERIODO_LABEL,
+  esTipoSerieFiscal,
+} from '@/modules/administracion/components/series-labels';
 import { cn } from '@/lib/utils';
 
 /**
@@ -209,7 +212,10 @@ export function SerieFilaEditable({ serie, onCancel, onSaved }: SerieFilaEditabl
                 aria-label="Reinicio de periodo"
                 className="flex flex-wrap gap-2"
               >
-                {REINICIO_OPTIONS.map((value) => {
+                {(esTipoSerieFiscal(serie.tipoDocumento)
+                  ? [ReinicioPeriodo.None]
+                  : REINICIO_OPTIONS
+                ).map((value) => {
                   const checked = reinicioActual === value;
                   return (
                     <label

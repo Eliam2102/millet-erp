@@ -1,4 +1,5 @@
 import { DateTimeDisplay } from '@/components/erp';
+import { ClasePedidoBadge } from '@/features/facturacion/components/ClasePedidoBadge';
 import type { FacturaBandejaItem } from '@/features/facturacion/api/types';
 import type { FacturasSearch } from '@/features/facturacion/lib/facturas-search-schema';
 import { ChipTimbrado } from '@/features/facturacion/pages/BandejaFacturas';
@@ -51,6 +52,7 @@ export function ListaFacturasCompacta({ items, idActivo, search }: ListaFacturas
                 {formatMoney({ amount: f.total, currency: f.moneda })}
               </span>
             </div>
+            <ClasePedidoBadge clasificacion={f} className="mt-1" />
             {f.fechaTimbrado && (
               <div className="mt-0.5 text-right text-[11px] text-ink-muted tabular-nums">
                 <DateTimeDisplay value={f.fechaTimbrado} />

@@ -345,6 +345,8 @@ export interface RequisicionListItemResponse {
  */
 export interface RequisicionResponse {
   obra?: string | null;
+  /** Surtido de almacén: true = solo aparta si alcanza la línea completa. */
+  soloApartarSiCompleto?: boolean;
   id: string;
   empresaId: string;
   folio: string;
@@ -491,6 +493,8 @@ export interface LineaResponse {
    * resiliencia ante respuestas viejas.
    */
   cantSaldoPorComprar?: number;
+  /** Apartado liberado que ya no se pide ni se compra (86e3tferc). */
+  cantSinCompra?: number;
 }
 
 /** Mirror de <c>AutorizacionResponse</c>. */
@@ -622,6 +626,7 @@ export const HistoricoTipo = {
   RecepcionRegistrada: 12,
   SaldoNoSurtido: 13,
   Cerrada: 14,
+  ApartadoLiberado: 15,
 } as const satisfies Record<string, number>;
 export type HistoricoTipo = (typeof HistoricoTipo)[keyof typeof HistoricoTipo];
 
@@ -646,6 +651,7 @@ export const HISTORICO_TIPO_LABEL: Record<HistoricoTipo, string> = {
   [HistoricoTipo.RecepcionRegistrada]: 'Recepción registrada',
   [HistoricoTipo.SaldoNoSurtido]: 'Saldo no surtido',
   [HistoricoTipo.Cerrada]: 'Cerrada',
+  [HistoricoTipo.ApartadoLiberado]: 'Apartado liberado',
 };
 
 /**
@@ -806,6 +812,8 @@ export interface CotizacionComparativo {
   vigenteHasta: string;
   vigente: boolean;
   condicionesCredito: string | null;
+  condicionesPagoId?: string | null;
+  fechaEntrega?: string | null;
   archivoAdjuntoId: string | null;
   archivoNombre: string | null;
   elegida: boolean;
@@ -849,6 +857,8 @@ export interface RegistrarCotizacionRequest {
   fechaCotizacion: string;
   vigenteHasta: string;
   condicionesCredito: string | null;
+  condicionesPagoId?: string | null;
+  fechaEntrega?: string | null;
   lineas: LineaCotizacionRequest[];
 }
 

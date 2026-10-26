@@ -265,7 +265,7 @@ public sealed class DevolucionesClienteTests(WebApplicationFactory<Program> fact
         var emisor = new DatosFiscalesEmisor("BBB010101BBB", "Emisor ficticio TES-02", "601", "97000");
         var clienteId = Guid.NewGuid();
         var pedido = PedidoFacturable.CrearManual(Empresa, $"FIX-TES02-{Guid.NewGuid():N}", TestComprasFixtures.SucursalMid, clienteId,
-            "Cliente ficticio TES-02", 1, ComportamientoFiscal.MostradorInmediato, "MXN", null, null, null, null);
+            "Cliente ficticio TES-02", 1, ComportamientoFiscal.MostradorInmediato, "MXN", null, null, null, null, Millet.Facturacion.Domain.Pedidos.ClasePedidoManual.VentaDirecta, Millet.Facturacion.Domain.Pedidos.SubtipoVentaDirecta.Servicio, null, null);
         var factura = FacturaVenta.CrearBorrador(Empresa, $"FIX-{Guid.NewGuid():N}", 1, TestComprasFixtures.SucursalMid, null, null, receptor, emisor,
             "PUE", "01", "MXN", null, 2026, 10, 1, ComportamientoFiscal.MostradorInmediato, pedido.Id, null, null, false);
         factura.AgregarLinea(null, "01010101", "FIX prueba ficticia TES-02", "H87", 1, 100, 0, "02", 0.16m, null, null);

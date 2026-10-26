@@ -133,7 +133,12 @@ export function valoresIniciales(
     metodoPago: prefill.metodoPago ?? base.metodoPago,
     formaPago: prefill.formaPago ?? base.formaPago,
     canalVenta: prefill.canalVenta ?? base.canalVenta,
-    comportamientoFiscal: prefill.comportamientoFiscal ?? base.comportamientoFiscal,
+    // F6.1: una venta directa de un activo se factura siempre como venta
+    // de activo fijo (el backend lo valida con FAC_PEDIDO_ACTIVO_COMPORTAMIENTO).
+    comportamientoFiscal:
+      prefill.subtipoVentaDirecta === 'Activo'
+        ? ComportamientoFiscal.VentaActivoFijo
+        : (prefill.comportamientoFiscal ?? base.comportamientoFiscal),
     cceIncoterm: prefill.embarqueCe?.ligado ? prefill.embarqueCe.incoterm : base.cceIncoterm,
     cceClaveDePedimento: prefill.embarqueCe?.ligado
       ? prefill.embarqueCe.clavePedimento
