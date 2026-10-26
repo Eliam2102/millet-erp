@@ -50,6 +50,21 @@ public sealed class ArticuloProductoAwTests
     }
 
     [Fact]
+    public async Task Rechaza_Ligar_Un_Articulo_Que_No_Esta_En_M2()
+    {
+        await using var db = CrearDb();
+        var producto = Producto("P1", ("2440x3660", 3660m, 2440m));
+        var pieza = new Articulo(Guid.NewGuid(), "VID-PZA", "Vidrio por pieza", "PZA");
+        db.AddRange(producto, pieza);
+        await db.SaveChangesAsync();
+
+        var ex = await Assert.ThrowsAsync<BusinessRuleException>(
+            () => new ActualizarArticuloHandler(db, new FakeSaldos(false)).Handle(Liga(pieza.Id, producto.Id), CancellationToken.None));
+        Assert.Equal("ARTICULO_PRODUCTO_AW_UNIDAD", ex.Code);
+        Assert.Null(pieza.ProductoAwId);
+    }
+
+    [Fact]
     public async Task Rechaza_Producto_Inactivo()
     {
         await using var db = CrearDb();

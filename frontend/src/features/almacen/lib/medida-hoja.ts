@@ -4,6 +4,11 @@ export function etiquetaMedidaMm(anchoMm?: number | null, altoMm?: number | null
   return anchoMm != null && altoMm != null ? `${anchoMm} × ${altoMm} mm` : null;
 }
 
+/** m² por hoja, redondeado a 4 decimales como el servidor; null si falta ancho o alto. */
+export function areaHojaDe(anchoMm?: number | null, altoMm?: number | null): number | null {
+  return anchoMm != null && altoMm != null ? Math.round((anchoMm * altoMm) / 100) / 10000 : null;
+}
+
 /** Hojas equivalentes a una cantidad en m²; null si no hay área (medida sin ancho y alto). */
 export function hojasDe(cantidadM2: number, areaHojaM2?: number | null): number | null {
   return areaHojaM2 ? Math.round((cantidadM2 / areaHojaM2) * 100) / 100 : null;

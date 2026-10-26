@@ -32,8 +32,12 @@ public class RecepcionPorMedidaTests(WebApplicationFactory<Program> factory) : I
             CantidadDanada: danadas, MotivoDano: danadas > 0 ? "Hojas rotas" : null, ProductoAwVarianteId: variante);
 
     internal static Task<RegistrarRecepcionResponse> Recibir(AlmacenDbContext db, Ctx ctx, bool ligado, params RegistrarRecepcionLineaInput[] lineas) =>
+        Recibir(db, ctx, ligado, new DecimalesNulo(), lineas);
+
+    internal static Task<RegistrarRecepcionResponse> Recibir(
+        AlmacenDbContext db, Ctx ctx, bool ligado, IDecimalesUnidadGuard decimales, params RegistrarRecepcionLineaInput[] lineas) =>
         new RegistrarRecepcionConFacturaHandler(db, new OcM2(ctx), new CapturaEventos(), new UserFake(ctx.UserId), new EmpresaFake(ctx.EmpresaId),
-            new DecimalesNulo(), ctx.Periodos, new ConversionM2(), new CxpNulo(), new ProveedorRfc(),
+            decimales, ctx.Periodos, new ConversionM2(), new CxpNulo(), new ProveedorRfc(),
             new Articulos(ligado), new Variantes(ctx.ArticuloId)).Handle(
             new RegistrarRecepcionConFacturaCommand(ctx.OcId, Fecha, null, "AD662D33-6934-459C-A128-BDF0393E0062", null, lineas), default);
 
@@ -89,6 +93,23 @@ public class RecepcionPorMedidaTests(WebApplicationFactory<Program> factory) : I
             (await fraccion.Should().ThrowAsync<BusinessRuleException>()).Which.Code.Should().Be("HOJAS_ENTERAS");
 
             (await Fila(db, ctx.RackId, ctx.ArticuloId, VarA)).Should().BeNull();
+        });
+    }
+
+    [Fact]
+    public async Task Con_los_2_decimales_reales_de_M2_las_hojas_enteras_se_reciben_y_en_m2_se_rechaza()
+    {
+        await new CuarentenaRecepcionTests(factory).EjecutarConFixtureAsync(async (db, ctx) =>
+        {
+            var guard = new DecimalesUnidadGuard(new DecimalesM2());
+
+            // 20 hojas de 2440 x 3660 = 178.6080 m² (4 decimales): lo capturado son hojas, no m².
+            await Recibir(db, ctx, true, guard, Linea(ctx, 20m, VarA));
+            (await Fila(db, ctx.RackId, ctx.ArticuloId, VarA))!.Value.Cantidad.Should().Be(178.6080m);
+
+            // Con medida, la cantidad no se captura en m² (dejaría hojas fraccionarias).
+            var enM2 = () => Recibir(db, ctx, true, guard, Linea(ctx, 10m, VarA) with { UnidadCapturada = "M2" });
+            (await enM2.Should().ThrowAsync<BusinessRuleException>()).Which.Message.Should().Be("Con medida, captura la cantidad en hojas enteras.");
         });
     }
 
@@ -157,6 +178,13 @@ public class RecepcionPorMedidaTests(WebApplicationFactory<Program> factory) : I
             Task.FromResult<IReadOnlyDictionary<Guid, VarianteVidrioLectura>>(_todas.Where(v => ids.Contains(v.VarianteId)).ToDictionary(v => v.VarianteId));
         public Task<IReadOnlyList<VarianteVidrioLectura>> ListarPorArticuloAsync(Guid articulo, CancellationToken ct) =>
             Task.FromResult<IReadOnlyList<VarianteVidrioLectura>>(_todas);
+    }
+
+    /// <summary>M2 tal como se siembra en el catálogo: 2 decimales.</summary>
+    private sealed class DecimalesM2 : IUnidadMedidaReadPort
+    {
+        public Task<IReadOnlyDictionary<Guid, int?>> ObtenerDecimalesPorArticulosAsync(IEnumerable<Guid> articuloIds, CancellationToken ct) =>
+            Task.FromResult<IReadOnlyDictionary<Guid, int?>>(articuloIds.Distinct().ToDictionary(i => i, _ => (int?)2));
     }
 
     private sealed class AdjuntosVacios : IAdjuntosEntidadReadPort

@@ -17,7 +17,7 @@ export function MedidaSalidaSelect({
 }: {
   articuloId: string | null | undefined;
   value: string | null | undefined;
-  onChange: (varianteId: string | null) => void;
+  onChange: (varianteId: string | null, areaHojaM2?: number | null) => void;
   disabled?: boolean;
   ariaLabel?: string;
 }) {
@@ -37,6 +37,7 @@ export function MedidaSalidaSelect({
     }
     return [...porMedida.values()].map((m) => ({
       id: m.id,
+      area: m.area,
       texto:
         textoMedida({ productoAwVarianteId: m.id, anchoMm: m.ancho, altoMm: m.alto, areaHojaM2: m.area }, m.m2) ??
         'Medida',
@@ -49,7 +50,7 @@ export function MedidaSalidaSelect({
       <label className="text-sm font-medium">
         Medida de la hoja <span aria-hidden="true" className="text-danger-fg">*</span>
       </label>
-      <Select value={value ?? ''} onValueChange={(v) => onChange(v || null)} disabled={disabled}>
+      <Select value={value ?? ''} onValueChange={(v) => onChange(v || null, opciones.find((o) => o.id === v)?.area)} disabled={disabled}>
         <SelectTrigger aria-label={ariaLabel} aria-required="true">
           <SelectValue placeholder="Elige la medida" />
         </SelectTrigger>

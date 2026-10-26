@@ -49,7 +49,8 @@ public sealed class ActualizarArticuloValidator : AbstractValidator<ActualizarAr
             .When(c => c.PrecioReferenciaMonto.HasValue);
         RuleFor(c => c.PrecioReferenciaMoneda!).Length(3).Matches("^[A-Z]{3}$")
             .When(c => c.PrecioReferenciaMoneda is not null);
-        RuleFor(c => c.ProductoAwId!.Value).NotEqual(Guid.Empty).When(c => c.ProductoAwId.HasValue);
+        RuleFor(c => c.ProductoAwId!.Value).NotEqual(Guid.Empty).When(c => c.ProductoAwId.HasValue)
+            .WithName("Producto A+W").WithMessage("Elige un producto A+W válido.");
     }
 }
 
@@ -126,7 +127,7 @@ public sealed class ActualizarArticuloHandler : IRequestHandler<ActualizarArticu
         // puede ligar (quedaría saldo sin variante) ni desligar/cambiar (quedaría saldo huérfano).
         if (request.ProductoAwId is { } productoAwId && productoAwId != articulo.ProductoAwId)
         {
-            await ArticuloProductoAwGuard.ValidarProductoLigableAsync(_db, articulo.Id, productoAwId, cancellationToken);
+            await ArticuloProductoAwGuard.ValidarProductoLigableAsync(_db, articulo.Id, articulo.UnidadMedidaDefault, productoAwId, cancellationToken);
             if (await _saldos.ArticuloTieneExistenciaAsync(articulo.Id, cancellationToken))
             {
                 throw articulo.ProductoAwId is null
@@ -164,12 +165,16 @@ public sealed class ActualizarArticuloHandler : IRequestHandler<ActualizarArticu
 internal static class ArticuloProductoAwGuard
 {
     public static async Task ValidarProductoLigableAsync(
-        CompartidoDbContext db, Guid articuloId, Guid productoAwId, CancellationToken ct)
+        CompartidoDbContext db, Guid articuloId, string unidadMedida, Guid productoAwId, CancellationToken ct)
     {
+        // El vidrio por medida existe en m²; en otra unidad solo fallaría hasta recibirlo.
+        if (!string.Equals(unidadMedida, "M2", StringComparison.OrdinalIgnoreCase))
+            throw new BusinessRuleException("ARTICULO_PRODUCTO_AW_UNIDAD",
+                "Para ligar un producto A+W, la unidad del artículo debe ser metro cuadrado (M2).");
         var producto = await db.ProductosAw.AsNoTracking()
             .FirstOrDefaultAsync(p => p.Id == productoAwId, ct)
             ?? throw new BusinessRuleException("ARTICULO_PRODUCTO_AW_NO_ENCONTRADO",
-                $"El producto A+W '{productoAwId}' no existe.");
+                "El producto A+W elegido no existe.");
         if (producto.Estatus != EstatusCatalogo.Activo)
             throw new BusinessRuleException("ARTICULO_PRODUCTO_AW_INACTIVO",
                 $"El producto A+W '{producto.ReferenciaExterna}' no está activo.");

@@ -547,6 +547,9 @@ export interface SalidaLineaItem {
   /** Ruta de la ubicación (bin) de donde salió la línea, "ALM › SUB · BIN".
    * Null = línea sin bin (histórico) o no resuelto. */
   ubicacionCodigo: string | null;
+  /** F1-MP-01: medida de la hoja (vidrio por medida). */
+  anchoMm?: number | null;
+  altoMm?: number | null;
 }
 
 export interface SalidaDetalle {

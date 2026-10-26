@@ -43,7 +43,8 @@ public sealed class CrearArticuloValidator : AbstractValidator<CrearArticuloComm
             .When(c => c.PrecioReferenciaMonto.HasValue);
         RuleFor(c => c.PrecioReferenciaMoneda!).Length(3).Matches("^[A-Z]{3}$")
             .When(c => c.PrecioReferenciaMoneda is not null);
-        RuleFor(c => c.ProductoAwId!.Value).NotEqual(Guid.Empty).When(c => c.ProductoAwId.HasValue);
+        RuleFor(c => c.ProductoAwId!.Value).NotEqual(Guid.Empty).When(c => c.ProductoAwId.HasValue)
+            .WithName("Producto A+W").WithMessage("Elige un producto A+W válido.");
     }
 }
 
@@ -121,7 +122,7 @@ public sealed class CrearArticuloHandler
 
         if (request.ProductoAwId is { } productoAwId)
         {
-            await ArticuloProductoAwGuard.ValidarProductoLigableAsync(_db, articulo.Id, productoAwId, cancellationToken);
+            await ArticuloProductoAwGuard.ValidarProductoLigableAsync(_db, articulo.Id, articulo.UnidadMedidaDefault, productoAwId, cancellationToken);
             articulo.AsignarProductoAw(productoAwId);
         }
 

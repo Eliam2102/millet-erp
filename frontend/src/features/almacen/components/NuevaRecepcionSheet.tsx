@@ -466,7 +466,9 @@ function NuevaRecepcionFormBody({
       <SheetBody>
         <form
           id="nueva-recepcion-form"
-          onSubmit={form.handleSubmit(onSubmit)}
+          onSubmit={form.handleSubmit(onSubmit, () =>
+            toast.error('Revisa los campos marcados antes de registrar la recepción.'),
+          )}
           noValidate
           className="space-y-4"
         >
@@ -993,6 +995,10 @@ function FilaLineaOc({
     name: `filas.${index}.incluida` as const,
   });
   const [detalles, setDetalles] = useState(false);
+  // Con hojas dañadas el motivo es obligatorio: los detalles se abren solos para que se vea.
+  const danadas = useWatch({ control, name: `filas.${index}.cantidadDanada` as const }) ?? 0;
+  const motivoRequerido = incluida && danadas > 0;
+  const detallesAbiertos = detalles || motivoRequerido;
   const lookupFila = useDecimalesUnidad();
   const decResuelto = decimalesDeFila(lookupFila, {
     unidadMedida: fila.unidadMedida,
@@ -1143,15 +1149,15 @@ function FilaLineaOc({
             type="button"
             variant="ghost"
             size="sm"
-            aria-expanded={detalles}
+            aria-expanded={detallesAbiertos}
             onClick={() => setDetalles((v) => !v)}
           >
-            {detalles ? '− Detalles' : '+ Detalles'}
+            {detallesAbiertos ? '− Detalles' : '+ Detalles'}
           </Button>
         </TableCell>
       </TableRow>
 
-      {detalles && (
+      {detallesAbiertos && (
         <TableRow className="bg-surface-subtle">
           <TableCell />
           <TableCell colSpan={5}>
@@ -1232,7 +1238,12 @@ function FilaLineaOc({
               </FormCampo>
               )}
               <FormCampo span={6}>
-                <Field label="Motivo del daño" optional error={errors?.motivoDano?.message}>
+                <Field
+                  label="Motivo del daño"
+                  required={motivoRequerido}
+                  optional={!motivoRequerido}
+                  error={errors?.motivoDano?.message}
+                >
                   <Controller
                     name={`filas.${index}.motivoDano` as const}
                     control={control}

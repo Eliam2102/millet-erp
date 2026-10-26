@@ -72,7 +72,7 @@ public sealed class AgregarRecuentoHandler : IRequestHandler<AgregarRecuentoComm
         // Con medida el recuento son hojas; se guarda en m² como la teórica.
         var recontada = await ConteoHojas.AM2Async(_variantes, linea, request.CantidadRecontada, cancellationToken);
         await _decimalesGuard.ValidarAsync(
-            new[] { new CantidadAValidar(linea.ArticuloId, recontada) },
+            new[] { new CantidadAValidar(linea.ArticuloId, recontada, Derivada: linea.ProductoAwVarianteId is not null) },
             cancellationToken);
 
         var recuento = new RecuentoConteo(

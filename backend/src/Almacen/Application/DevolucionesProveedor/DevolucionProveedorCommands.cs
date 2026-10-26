@@ -96,7 +96,11 @@ public sealed class IniciarDevolucionAProveedorHandler
         // ADR-0046 Etapa 2: valida los decimales de cada línea contra la unidad
         // del artículo (FK NULL → no valida). Batch, un solo round-trip.
         await _decimalesGuard.ValidarAsync(
-            request.Lineas.Select(l => new CantidadAValidar(l.ArticuloId, l.Cantidad, l.UnidadMedida)),
+            request.Lineas.Select(l =>
+            {
+                var o = recepcion.Lineas.Single(x => x.Id == l.LineaRecepcionOrigenId);
+                return Recepciones.RecepcionVariante.Cantidad(l.ArticuloId, l.Cantidad, l.UnidadMedida, o.ProductoAwVarianteId, o.AnchoMm, o.AltoMm);
+            }).ToList(), // eager: la regla de hojas enteras corre aunque el guard no enumere
             cancellationToken);
 
         var id = Guid.CreateVersion7();

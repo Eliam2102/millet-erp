@@ -44,6 +44,13 @@ public class SalidaPorMedidaTests(WebApplicationFactory<Program> factory) : ICla
             (linea.ProductoAwVarianteId, linea.AnchoMm, linea.AltoMm, linea.CantidadCapturada).Should().Be((VarA, 2440m, 3660m, 5m));
             linea.CostoUnitarioMxn.Should().Be(180m);
 
+            // Devolver 2.5 m² dejaría hojas fraccionarias: la devolución de una medida es de hojas enteras.
+            var fraccion = () => new AplicarDevolucionInternaHandler(db, new CapturaEventos(), new UserFake(ctx.UserId), new EmpresaFake(ctx.EmpresaId),
+                    new DecimalesNulo(), ctx.Periodos)
+                .Handle(new AplicarDevolucionInternaCommand(vale.SalidaId, ctx.SubDisponibleId, Fecha, "Bueno", "Sobró", null,
+                    [new DevolucionInternaLineaInput(linea.Id, 2.5m, ctx.RackId)]), default);
+            (await fraccion.Should().ThrowAsync<BusinessRuleException>()).Which.Code.Should().Be("HOJAS_ENTERAS");
+
             var dev = await new AplicarDevolucionInternaHandler(db, new CapturaEventos(), new UserFake(ctx.UserId), new EmpresaFake(ctx.EmpresaId),
                     new DecimalesNulo(), ctx.Periodos)
                 .Handle(new AplicarDevolucionInternaCommand(vale.SalidaId, ctx.SubDisponibleId, Fecha, "Bueno", "Sobró", null,
@@ -75,11 +82,13 @@ public class SalidaPorMedidaTests(WebApplicationFactory<Program> factory) : ICla
             (await sin.Should().ThrowAsync<BusinessRuleException>()).Which.Code.Should().Be("VARIANTE_VIDRIO_REQUERIDA");
 
             var otraMedida = () => Vale(db, ctx, Sale(ctx, 1m, VarA));
-            (await otraMedida.Should().ThrowAsync<Exception>()).Which.ToString().Should().Contain("SALDO_INEXISTENTE");
+            (await otraMedida.Should().ThrowAsync<BusinessRuleException>()).Which.Message
+                .Should().Be("No hay hojas suficientes de 2440 × 3660 mm en el rack: hay 0 y pides 1.");
 
             var demasiadas = () => Vale(db, ctx, Sale(ctx, 16m, VarB)); // 112.992 m² > 105.93
-            // El apartado por sucursal (suma por artículo) lo ataja primero; el trigger por medida es el respaldo.
-            (await demasiadas.Should().ThrowAsync<Exception>()).Which.ToString().Should().MatchRegex("no alcanza|SALDO_INSUFICIENTE");
+            // El mensaje nombra la medida y las hojas; el apartado por sucursal y el trigger por medida son el respaldo.
+            (await demasiadas.Should().ThrowAsync<BusinessRuleException>()).Which.Message
+                .Should().Be("No hay hojas suficientes de 2140 × 3300 mm en el rack: hay 15 y pides 16.");
 
             (await Fila(db, ctx.RackId, ctx.ArticuloId, VarB))!.Value.Cantidad.Should().Be(105.93m);
         });

@@ -12,6 +12,35 @@ namespace Millet.Almacen.Application.Recepciones;
 internal static class RecepcionVariante
 {
     public const string UnidadHoja = "HOJA";
+    public const string MensajeHojasEnteras = "Con medida, captura la cantidad en hojas enteras.";
+
+    /// <summary>La cantidad en m² de una línea con medida debe ser un número entero de hojas (m² = hojas × m² por hoja).</summary>
+    public static void ExigirHojasEnteras(decimal cantidadM2, decimal? areaHojaM2)
+    {
+        if (areaHojaM2 is not { } area || cantidadM2 % area != 0)
+            throw new BusinessRuleException("HOJAS_ENTERAS", MensajeHojasEnteras);
+    }
+
+    /// <summary>Salida de una medida sin hojas suficientes en el rack: nombra la medida en vez del mensaje genérico del bin.</summary>
+    public static void ExigirExistencia(VarianteVidrioLectura? medida, decimal disponibleM2, decimal solicitadoM2)
+    {
+        if (medida?.AreaHojaM2 is not { } area || disponibleM2 >= solicitadoM2) return;
+        throw new BusinessRuleException("SALIDA_STOCK_INSUFICIENTE",
+            $"No hay hojas suficientes de {medida.AnchoMm:0.##} × {medida.AltoMm:0.##} mm en el rack: "
+            + $"hay {Math.Floor(disponibleM2 / area):0.##} y pides {solicitadoM2 / area:0.##}.");
+    }
+
+    /// <summary>
+    /// Cantidad (m²) de una línea ya existente para el guard de decimales: con medida exige hojas enteras y la marca derivada
+    /// (los m² no los capturó la persona); sin medida se valida normal.
+    /// </summary>
+    public static CantidadAValidar Cantidad(
+        Guid articuloId, decimal cantidadM2, string? unidad, Guid? varianteId, decimal? anchoMm, decimal? altoMm)
+    {
+        if (varianteId is null) return new CantidadAValidar(articuloId, cantidadM2, unidad);
+        ExigirHojasEnteras(cantidadM2, anchoMm is { } a && altoMm is { } h ? AreaHoja.M2(a, h) : null);
+        return new CantidadAValidar(articuloId, cantidadM2, unidad, Derivada: true);
+    }
 
     public static async Task<VarianteVidrioLectura?> ResolverAsync(
         IArticuloReadPort? articulos, IVarianteVidrioReadPort? variantes, Guid articuloId, Guid? varianteId, CancellationToken ct,
@@ -42,8 +71,10 @@ internal static class RecepcionVariante
         IConversionUnidadPort conversion, Guid articuloId, decimal cantidad, string? unidadCapturada,
         string unidadDocumento, VarianteVidrioLectura? variante, CancellationToken ct)
     {
-        if (variante is null || !string.Equals(unidadCapturada?.Trim(), UnidadHoja, StringComparison.OrdinalIgnoreCase))
+        if (variante is null)
             return await conversion.ConvertirAsync(articuloId, cantidad, unidadCapturada, unidadDocumento, ct);
+        if (!string.Equals(unidadCapturada?.Trim(), UnidadHoja, StringComparison.OrdinalIgnoreCase))
+            throw new BusinessRuleException("HOJAS_ENTERAS", MensajeHojasEnteras);
         if (cantidad <= 0 || cantidad != decimal.Truncate(cantidad))
             throw new BusinessRuleException("HOJAS_ENTERAS", "Las hojas se capturan en números enteros mayores a 0.");
         // El documento (OC, RQ) de vidrio por medida va en la unidad de existencia (m²); en hojas necesitaría factor por medida.

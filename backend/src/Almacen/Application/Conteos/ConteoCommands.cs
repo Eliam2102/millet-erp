@@ -226,7 +226,7 @@ public sealed class CapturarLineaConteoHandler : IRequestHandler<CapturarLineaCo
         // Con medida la captura son hojas; se guarda en m² como la teórica.
         var real = await ConteoHojas.AM2Async(_variantes, linea, request.CantidadReal, cancellationToken);
         await _decimalesGuard.ValidarAsync(
-            new[] { new CantidadAValidar(linea.ArticuloId, real) },
+            new[] { new CantidadAValidar(linea.ArticuloId, real, Derivada: linea.ProductoAwVarianteId is not null) },
             cancellationToken);
 
         linea.Capturar(real, capturadoPor);

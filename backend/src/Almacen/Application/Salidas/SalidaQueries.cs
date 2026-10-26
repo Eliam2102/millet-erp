@@ -99,7 +99,9 @@ public sealed record SalidaLineaItem(
     // Ruta de la ubicación (bin N4) de donde salió la línea, "ALM › SUB · BIN"
     // (mismo formato que los selectores de Almacén). Null = la línea no lleva bin
     // (histórico) o el bin no resuelve.
-    string? UbicacionCodigo = null);
+    string? UbicacionCodigo = null,
+    // F1-MP-01: medida de la hoja (vidrio por medida); null = línea sin medida.
+    decimal? AnchoMm = null, decimal? AltoMm = null);
 
 public sealed record ListarSalidasQuery(
     EstadoMovimiento? Estado,
@@ -385,7 +387,7 @@ public sealed class ObtenerSalidaPorIdHandler
                     l.CostoUnitarioMxn, l.MontoTotalMxn,
                     l.CentroCostoId, CentroCostoClave: null, CentroCostoNombre: null,
                     l.ProyectoId, l.CantidadCapturada, l.UnidadCapturada, l.ComentarioLinea,
-                    UbicacionCodigo: ubicacionCodigo);
+                    UbicacionCodigo: ubicacionCodigo, AnchoMm: l.AnchoMm, AltoMm: l.AltoMm);
             })
             .ToList();
 

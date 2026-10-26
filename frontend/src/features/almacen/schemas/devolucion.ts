@@ -52,6 +52,9 @@ const MatRevLineaSchema = z.object({
   articuloId: z.string().regex(UUID_SHAPE_RE, 'Artículo requerido'),
   // Solo frontend (no se envía): unidadMedidaId para validación advisory (2c).
   unidadMedidaId: z.string().regex(UUID_SHAPE_RE).nullish(),
+  // Vidrio por medida (F1-MP-01): la cantidad se captura en hojas y se envía en m² (hojas × m² por hoja).
+  productoAwVarianteId: z.string().regex(UUID_SHAPE_RE).nullish(),
+  areaHojaM2: z.number().nullish(),
   cantidad: z
     .number({ message: 'Cantidad requerida' })
     .positive('La cantidad debe ser mayor a cero'),

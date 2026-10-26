@@ -47,6 +47,7 @@ import {
   useSubAlmacenes,
 } from '@/features/almacen/api';
 import { Field } from '@/features/almacen/components/internal/Field';
+import { MedidaSalidaSelect } from '@/features/almacen/components/MedidaSalidaSelect';
 
 /**
  * <c>&lt;MatRevSheet/&gt;</c> — sheet doble (Baja por daño /
@@ -143,6 +144,17 @@ function FormBody({
     let decimalesMal = false;
     values.lineas.forEach((l, i) => {
       const dec = lookup.porId((l as { unidadMedidaId?: string | null }).unidadMedidaId);
+      // Con medida la cantidad son hojas (enteras): los m² los deriva el envío.
+      if (l.productoAwVarianteId) {
+        if (!Number.isInteger(l.cantidad)) {
+          form.setError(`lineas.${i}.cantidad` as Parameters<typeof form.setError>[0], {
+            type: 'hojas',
+            message: 'Con medida, captura la cantidad en hojas enteras.',
+          });
+          decimalesMal = true;
+        }
+        return;
+      }
       if (
         dec != null &&
         l.cantidad != null &&
@@ -163,7 +175,9 @@ function FormBody({
       ...values,
       lineas: values.lineas.map((l) => ({
         articuloId: l.articuloId,
-        cantidad: l.cantidad,
+        // Con medida: hojas × m² por hoja (el área ya viene a 4 decimales).
+        cantidad: l.areaHojaM2 ? Math.round(l.cantidad * l.areaHojaM2 * 10000) / 10000 : l.cantidad,
+        productoAwVarianteId: l.productoAwVarianteId ?? null,
         ubicacionId: (l as { ubicacionId?: string | null }).ubicacionId ?? null,
       })),
     };
@@ -304,7 +318,12 @@ function FormBody({
                 ) as string | undefined;
                 const binErr = (lineaErrs as { ubicacionId?: { message?: string } } | undefined)
                   ?.ubicacionId?.message;
-                const decimalesLinea = lookup.porId(umIdLinea) ?? DECIMALES_FALLBACK;
+                const varianteLinea = form.watch(
+                  `lineas.${index}.productoAwVarianteId` as FieldPath<FormValues>,
+                ) as string | null | undefined;
+                const decimalesLinea = varianteLinea
+                  ? 0
+                  : (lookup.porId(umIdLinea) ?? DECIMALES_FALLBACK);
                 return (
                   <div
                     key={field.id}
@@ -334,21 +353,50 @@ function FormBody({
                               <ArticuloSelector
                                 value={(field.value as string) || null}
                                 onChange={(id) => field.onChange(id ?? '')}
-                                onSelect={(articulo) =>
+                                onSelect={(articulo) => {
                                   form.setValue(
                                     `lineas.${index}.unidadMedidaId` as Parameters<
                                       typeof form.setValue
                                     >[0],
                                     articulo.unidadMedidaId,
-                                  )
-                                }
+                                  );
+                                  // Otro artículo, otras medidas: limpia la elegida.
+                                  form.setValue(
+                                    `lineas.${index}.productoAwVarianteId` as FieldPath<FormValues>,
+                                    null as never,
+                                  );
+                                }}
                               />
                             )}
                           />
                         </Field>
                       </FormCampo>
+                      <FormCampo span={12}>
+                        <Controller
+                          name={`lineas.${index}.productoAwVarianteId` as FieldPath<FormValues>}
+                          control={form.control}
+                          render={({ field }) => (
+                            <MedidaSalidaSelect
+                              articuloId={articuloIdLinea}
+                              value={(field.value as string) ?? null}
+                              ariaLabel={`Medida de la hoja, partida ${index + 1}`}
+                              onChange={(id, area) => {
+                                field.onChange(id);
+                                form.setValue(
+                                  `lineas.${index}.areaHojaM2` as FieldPath<FormValues>,
+                                  (id ? area : null) as never,
+                                );
+                              }}
+                            />
+                          )}
+                        />
+                      </FormCampo>
                       <FormCampo span={6}>
-                        <Field label="Cantidad" required error={lineaErrs?.cantidad?.message}>
+                        <Field
+                          label={varianteLinea ? 'Cantidad (hojas)' : 'Cantidad'}
+                          required
+                          error={lineaErrs?.cantidad?.message}
+                        >
                           <Controller
                             name={`lineas.${index}.cantidad` as const}
                             control={form.control}

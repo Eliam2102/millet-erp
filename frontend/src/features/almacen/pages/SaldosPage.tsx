@@ -305,7 +305,7 @@ function TablaSaldos({
                 onSortChange={setSort}
               />
             </TableHead>
-            <TableHead className="whitespace-nowrap">Medida</TableHead>
+            <TableHead className="whitespace-nowrap normal-case">Medida</TableHead>
             <TableHead className="text-right">
               <SortableHeader
                 columnKey="cantidad"
@@ -359,12 +359,15 @@ function TablaSaldos({
               </TableCell>
               <TableCell className="text-right tabular-nums">
                 {formatCantidad(s.cantidad)}
+                {s.productoAwVarianteId && <span className="text-xs text-ink-muted"> m²</span>}
               </TableCell>
               <TableCell className="text-right tabular-nums">
                 {formatCantidad(s.cantidadDisponible)}
+                {s.productoAwVarianteId && <span className="text-xs text-ink-muted"> m²</span>}
               </TableCell>
               <TableCell className="hidden text-right tabular-nums xl:table-cell">
                 <MoneyDisplay amount={s.costoPromedioMxn} currency="MXN" strong />
+                {s.productoAwVarianteId && <span className="text-xs text-ink-muted"> /m²</span>}
               </TableCell>
               <TableCell className="text-right tabular-nums">
                 <MoneyDisplay amount={s.valorInventarioMxn} currency="MXN" strong />

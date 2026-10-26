@@ -168,7 +168,9 @@ public sealed class AplicarDevolucionInternaHandler
                     ls = salidaOrigen.Lineas.FirstOrDefault(l => l.Id == input.LineaSalidaOrigenId),
                 })
                 .Where(x => x.ls is not null)
-                .Select(x => new CantidadAValidar(x.ls!.ArticuloId, x.input.CantidadADevolver, x.ls.UnidadMedida)),
+                .Select(x => Recepciones.RecepcionVariante.Cantidad(x.ls!.ArticuloId, x.input.CantidadADevolver, x.ls.UnidadMedida,
+                    x.ls.ProductoAwVarianteId, x.ls.AnchoMm, x.ls.AltoMm))
+                .ToList(), // eager: la regla de hojas enteras corre aunque el guard no enumere
             cancellationToken);
 
         var movimientoId = Guid.CreateVersion7();
@@ -400,7 +402,7 @@ public sealed class BajaPorDanoHandler : IRequestHandler<BajaPorDanoCommand, Baj
         // unidad del artículo (FK NULL → no valida). Cubre BajaPorDano y
         // ReincorporacionTrasRevision (ambos pasan por aquí). Batch.
         await _decimalesGuard.ValidarAsync(
-            lineas.Select(l => new CantidadAValidar(l.ArticuloId, l.Cantidad)),
+            lineas.Select(l => new CantidadAValidar(l.ArticuloId, l.Cantidad, Derivada: l.ProductoAwVarianteId is not null)),
             cancellationToken);
 
         var movimientoId = Guid.CreateVersion7();
@@ -443,6 +445,7 @@ public sealed class BajaPorDanoHandler : IRequestHandler<BajaPorDanoCommand, Baj
         {
             var variante = await Recepciones.RecepcionVariante.ResolverAsync(
                 _articulos, _variantes, l.ArticuloId, l.ProductoAwVarianteId, cancellationToken, nuevoUso: false);
+            if (variante is not null) Recepciones.RecepcionVariante.ExigirHojasEnteras(l.Cantidad, variante.AreaHojaM2);
             // Reincorporación es entrada: bin obligatorio, asignado, no ÚNICA.
             // BajaPorDano es salida: elige un bin con saldo (guard del trigger).
             if (esEntrada)
@@ -567,7 +570,7 @@ public sealed class ReincorporacionTrasRevisionHandler
         await Cierre.PeriodoCerradoValidator.LanzarSiCerradoAsync(
             _db, empresaId, request.FechaMovimiento, _periodoContable, cancellationToken);
         await _decimalesGuard.ValidarAsync(
-            request.Lineas.Select(l => new CantidadAValidar(l.ArticuloId, l.Cantidad)), cancellationToken);
+            request.Lineas.Select(l => new CantidadAValidar(l.ArticuloId, l.Cantidad, Derivada: l.ProductoAwVarianteId is not null)), cancellationToken);
 
         var almacenId = await _db.SubAlmacenes.AsNoTracking()
             .Where(s => s.Id == request.SubAlmacenDestinoId).Select(s => (Guid?)s.AlmacenId)
@@ -610,6 +613,7 @@ public sealed class ReincorporacionTrasRevisionHandler
             // que el trigger lance SALDO_INEXISTENTE.
             var variante = await Recepciones.RecepcionVariante.ResolverAsync(
                 _articulos, _variantes, l.ArticuloId, l.ProductoAwVarianteId, cancellationToken, nuevoUso: false);
+            if (variante is not null) Recepciones.RecepcionVariante.ExigirHojasEnteras(l.Cantidad, variante.AreaHojaM2);
             var candidatos = saldosMatRev.Where(s => s.ArticuloId == l.ArticuloId && s.ProductoAwVarianteId == l.ProductoAwVarianteId)
                 .Select(s => new
                 {

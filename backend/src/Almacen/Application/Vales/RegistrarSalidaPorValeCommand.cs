@@ -181,7 +181,7 @@ public sealed class RegistrarSalidaPorValeHandler
         // ADR-0046 Etapa 2: valida los decimales de cada línea contra la unidad
         // del artículo (FK NULL → no valida). Batch, un solo round-trip.
         await _decimalesGuard.ValidarAsync(
-            request.Lineas.Select((l, i) => new CantidadAValidar(l.ArticuloId, conversiones[i].CantidadBase)),
+            request.Lineas.Select((l, i) => new CantidadAValidar(l.ArticuloId, conversiones[i].CantidadBase, Derivada: variantes[i] is not null)),
             cancellationToken);
 
         foreach (var centro in request.Lineas.Select(l => l.CentroCostoId).OfType<Guid>().Distinct())
@@ -238,6 +238,7 @@ public sealed class RegistrarSalidaPorValeHandler
                     cancellationToken);
             var costoSnapshot = saldo?.CostoPromedioMxn ?? 0m;
             var variante = variantes[posicion - 1];
+            Recepciones.RecepcionVariante.ExigirExistencia(variante, saldo?.Cantidad ?? 0m, conversiones[posicion - 1].CantidadBase);
 
             var conversion = conversiones[posicion - 1];
             var lineaId = Guid.CreateVersion7();

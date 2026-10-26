@@ -80,7 +80,8 @@ public sealed class DictaminarMaterialEnRevisionHandler(
                 $"La cantidad a dictaminar ({request.Cantidad:0.####}) supera lo pendiente en revisión ({pendiente:0.####}).");
 
         await decimalesGuard.ValidarAsync(
-            [new CantidadAValidar(info.ArticuloId, request.Cantidad, info.UnidadMedida)], cancellationToken);
+            [Recepciones.RecepcionVariante.Cantidad(info.ArticuloId, request.Cantidad, info.UnidadMedida,
+                info.ProductoAwVarianteId, info.AnchoMm, info.AltoMm)], cancellationToken);
 
         var empresaId = currentEmpresa.Current ?? throw new BusinessRuleException(
             "MOV_SIN_EMPRESA", "El contexto de empresa es requerido.");

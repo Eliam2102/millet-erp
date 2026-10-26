@@ -222,6 +222,11 @@ export function SalidaDetallePage() {
                       </TableCell>
                       <TableCell className="px-3 py-2">
                         {l.unidadMedida}
+                        {l.anchoMm != null && l.altoMm != null && (
+                          <span className="block text-xs tabular-nums text-ink-muted">
+                            Medida {l.anchoMm} × {l.altoMm} mm
+                          </span>
+                        )}
                         {l.unidadCapturada && (
                           <span className="block text-xs text-ink-muted">
                             Captura: {l.cantidadCapturada} {l.unidadCapturada}
