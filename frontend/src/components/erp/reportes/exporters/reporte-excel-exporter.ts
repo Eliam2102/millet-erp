@@ -20,6 +20,7 @@ export interface ReporteParaExportar<TFila> {
     tipo: 'texto' | 'numero' | 'moneda' | 'fecha';
     alineacion?: string | null;
     anchoPx?: number | null;
+    decimales?: number | null;
   }[];
   filas: readonly TFila[];
   totales?: Record<string, number> | null;
@@ -69,7 +70,7 @@ export async function descargarReporteExcel<TFila>(
   reporte.columnas.forEach((c, i) => {
     const col = ws.getColumn(i + 1);
     col.width = anchoColumna(c);
-    col.numFmt = formatoNumerico(c.tipo);
+    col.numFmt = formatoNumerico(c.tipo, c.decimales);
   });
 
   // ─── Header de la tabla ────────────────────────────────────────────
@@ -188,12 +189,12 @@ function anchoColumna(c: {
   }
 }
 
-function formatoNumerico(tipo: string): string {
+function formatoNumerico(tipo: string, decimales?: number | null): string {
   switch (tipo) {
     case 'moneda':
       return '"$"#,##0.00;[Red]-"$"#,##0.00';
     case 'numero':
-      return '#,##0.####';
+      return decimales ? `#,##0.${'0'.repeat(decimales)}` : '#,##0.####';
     case 'fecha':
       return 'yyyy-mm-dd';
     default:

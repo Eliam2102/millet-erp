@@ -1,0 +1,121 @@
+{
+  "fechaUtc": "2026-10-23T00:02:50.9564806Z",
+  "huellaAntes": [
+    {
+      "Tabla": "KU_KUNDEN",
+      "Filas": 44695,
+      "Checksum": "-2021978635"
+    },
+    {
+      "Tabla": "KA_ZAHLBED",
+      "Filas": 11,
+      "Checksum": "-2002677067"
+    },
+    {
+      "Tabla": "BA_PRODUKTE",
+      "Filas": 6802,
+      "Checksum": "710838557"
+    },
+    {
+      "Tabla": "BA_STUKL",
+      "Filas": 10548,
+      "Checksum": "-2124846834"
+    },
+    {
+      "Tabla": "BA_LAGMA",
+      "Filas": 1780,
+      "Checksum": "-1531865802"
+    }
+  ],
+  "huellaDespues": [
+    {
+      "Tabla": "KU_KUNDEN",
+      "Filas": 44695,
+      "Checksum": "-2021978635"
+    },
+    {
+      "Tabla": "KA_ZAHLBED",
+      "Filas": 11,
+      "Checksum": "-2002677067"
+    },
+    {
+      "Tabla": "BA_PRODUKTE",
+      "Filas": 6802,
+      "Checksum": "710838557"
+    },
+    {
+      "Tabla": "BA_STUKL",
+      "Filas": 10548,
+      "Checksum": "-2124846834"
+    },
+    {
+      "Tabla": "BA_LAGMA",
+      "Filas": 1780,
+      "Checksum": "-1531865802"
+    }
+  ],
+  "huellasIdenticas": true,
+  "corrida1": {
+    "clientes": {
+      "Leidos": 44694,
+      "Creados": 44685,
+      "Actualizados": 0,
+      "SinCambios": 0,
+      "Conflictos": 0,
+      "Errores": 9,
+      "Pendientes": 44685,
+      "Estado": "Parcial"
+    },
+    "productos": {
+      "Leidos": 6801,
+      "Creados": 6801,
+      "Actualizados": 0,
+      "SinCambios": 0,
+      "Conflictos": 0,
+      "Errores": 0,
+      "Pendientes": 0
+    },
+    "duracionSeg": 1306.3
+  },
+  "corrida2": {
+    "clientes": {
+      "Leidos": 44694,
+      "Creados": 0,
+      "Actualizados": 0,
+      "SinCambios": 44685,
+      "Conflictos": 0,
+      "Errores": 9,
+      "Pendientes": 44685,
+      "Estado": "Parcial"
+    },
+    "productos": {
+      "Leidos": 6801,
+      "Creados": 0,
+      "Actualizados": 0,
+      "SinCambios": 6801,
+      "Conflictos": 0,
+      "Errores": 0,
+      "Pendientes": 0
+    },
+    "duracionSeg": 407.8
+  },
+  "conflictosPorTipo": {
+    "Cliente/RfcCompartido/Pendiente": 1634
+  },
+  "cambiosPorCampo": {},
+  "erroresClientesPorCodigo": {
+    "fila_invalida": 9
+  },
+  "erroresProductosPorCodigo": {},
+  "gruposDuplicadosEnBitacora": 0,
+  "clientesConMismoRfcEnErp": 0,
+  "commitDevelop": "287539ec",
+  "referencia21Oct": {
+    "clientesLeidos": 44694,
+    "clientesCreados": 30556,
+    "clientesErrores": 14138,
+    "productosLeidos": 6801,
+    "productosCreados": 6770,
+    "productosErrores": 31
+  }
+}

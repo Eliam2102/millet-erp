@@ -64,7 +64,9 @@ const SENTINEL_ALL = '__all__';
  * contextuales según estado + tipo:
  * <list>
  *   <item><b>Borrador → PorRevisar</b>: enviar a revisión.</item>
- *   <item><b>PorRevisar → Autorizada</b>: autorizar (nivel 1).</item>
+ *   <item><b>Caja chica Borrador → PendienteAprobarPasivo</b>: al enviar; CxP
+ *         «Aprobar pasivo» la aplica y genera su reposición, o la rechaza.</item>
+ *   <item><b>PorRevisar → Autorizada</b>: autorizar (nivel 1; no caja chica).</item>
  *   <item><b>Autorizada → Aplicada</b>: aplicar (lo hace CxP).</item>
  *   <item><b>Aduanales PorRevisar → AutorizadaN1</b>: autorizar-nivel1
  *         (Comercio Exterior).</item>
@@ -190,6 +192,7 @@ export function ComprobacionesPage() {
 const TABS_ESTADO = [
   { valor: EstadoComprobacionGastos.Borrador, label: 'Borrador' },
   { valor: EstadoComprobacionGastos.PorRevisar, label: 'Por revisar' },
+  { valor: EstadoComprobacionGastos.PendienteAprobarPasivo, label: 'Pendiente de aprobar pasivo' },
   { valor: EstadoComprobacionGastos.AutorizadaNivel1, label: 'Autorizada N1' },
   { valor: EstadoComprobacionGastos.Autorizada, label: 'Autorizada' },
   { valor: EstadoComprobacionGastos.Aplicada, label: 'Aplicada' },

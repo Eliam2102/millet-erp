@@ -14,6 +14,7 @@ import { useRequisicion } from '@/features/compras/api';
 import { useHistoricoRequisicion } from '@/features/compras/api/useHistoricoRequisicion';
 import { useSucursales, useAlmacenes, useArticulos, mapById } from '@/features/catalogos/api';
 import { CabeceraRequisicion } from '@/features/compras/components/CabeceraRequisicion';
+import { ApartadosRequisicion } from '@/features/compras/components/ApartadosRequisicion';
 import { ListaLineas } from '@/features/compras/components/ListaLineas';
 import { EditorLineas } from '@/features/compras/components/EditorLineas';
 import { CubrimientoEstimadoPanel } from '@/features/compras/components/CubrimientoEstimadoPanel';
@@ -275,6 +276,14 @@ function RenderLineas({ rq }: { rq: import('@/features/compras/api/types').Requi
       ) : (
         <ListaLineas lineas={rq.lineas} resolverArticulo={resolverArticulo} />
       )}
+      <ApartadosRequisicion
+        requisicionId={rq.id}
+        lineas={rq.lineas}
+        comprometidaEnOc={rq.comprometidaEnOcId != null}
+        enabled={
+          rq.estado === EstadoRequisicion.Autorizada || rq.estado === EstadoRequisicion.EnSurtido
+        }
+      />
     </div>
   );
 }

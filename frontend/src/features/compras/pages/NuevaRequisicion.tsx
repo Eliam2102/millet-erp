@@ -5,6 +5,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { Link, useNavigate } from '@tanstack/react-router';
 import { Controller, useForm, useWatch } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
+import type { z } from 'zod';
 import { ArrowLeft, HelpCircle } from 'lucide-react';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
@@ -128,7 +129,7 @@ export function NuevaRequisicion({ onClose, onDirtyChange }: NuevaRequisicionPro
   const recovery = useDraftRecovery<CrearRequisicionValues>(draftKey);
   const [showRecoverModal, setShowRecoverModal] = useState(recovery.draft != null);
 
-  const form = useForm<CrearRequisicionValues>({
+  const form = useForm<z.input<typeof CrearRequisicionSchema>, unknown, CrearRequisicionValues>({
     resolver: zodResolver(CrearRequisicionSchema),
     // La sucursal arranca en la activa del sistema; con «todas», se elige aquí.
     defaultValues: buildEmptyValues(sucursalActivaId),
@@ -246,7 +247,7 @@ export function NuevaRequisicion({ onClose, onDirtyChange }: NuevaRequisicionPro
 
   function handleRecuperar() {
     if (recovery.draft) {
-      form.reset(recovery.draft.values, {
+      form.reset({ ...buildEmptyValues(sucursalActivaId), ...recovery.draft.values }, {
         keepDirty: true,
       });
     }
@@ -489,6 +490,35 @@ export function NuevaRequisicion({ onClose, onDirtyChange }: NuevaRequisicionPro
               )}
             </Field>
           </FormCampo>
+          {/* Surtido de almacén */}
+          <FormCampo span={12}>
+            <Controller
+              name="soloApartarSiCompleto"
+              control={form.control}
+              render={({ field }) => (
+                <fieldset className="space-y-2">
+                  <legend className="text-sm font-medium text-ink">Surtido de almacén</legend>
+                  <div role="radiogroup" className="grid gap-2 sm:grid-cols-2">
+                    {[
+                      { v: false, t: 'Parcial: aparta lo que haya y compra el resto' },
+                      { v: true, t: 'Completo: si no alcanza toda la línea, se compra completa' },
+                    ].map((o) => (
+                      <label key={String(o.v)} className="flex items-start gap-2 text-sm text-ink">
+                        <input
+                          type="radio"
+                          name="surtido-almacen"
+                          className="mt-0.5 accent-primary"
+                          checked={field.value === o.v}
+                          onChange={() => field.onChange(o.v)}
+                        />
+                        {o.t}
+                      </label>
+                    ))}
+                  </div>
+                </fieldset>
+              )}
+            />
+          </FormCampo>
           {/* Descripción (full-width) */}
           <FormCampo span={12}>
             <div className="md:col-span-2">
@@ -639,5 +669,6 @@ function buildEmptyValues(sucursalActivaId?: string | null): CrearRequisicionVal
     proveedorSugeridoId: null,
     descripcion: null,
     obra: null,
+    soloApartarSiCompleto: false,
   } as CrearRequisicionValues;
 }

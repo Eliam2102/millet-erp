@@ -90,6 +90,15 @@ public static class DependencyInjection
             client.Timeout = TimeSpan.FromSeconds(opts.TimeoutSeconds > 0 ? opts.TimeoutSeconds : 5);
         });
 
+        // Confianza en el cert de SER-DATA (ADR-0048): se instala al registrar, antes de que arranque cualquier worker.
+        var certPem = configuration[AwSqlCertificadoServidor.ConfigKey];
+        if (!string.IsNullOrWhiteSpace(certPem))
+        {
+            services.AddSingleton(AwSqlCertificadoServidor.Instalar(certPem));
+            services.AddHostedService<AwSqlCertificadoServidorLogger>();
+            services.AddHealthChecks().AddCheck<AwSqlCertificadoServidorHealthCheck>("aw-sql-certificado-servidor", tags: ["aw-tls"]);
+        }
+
         // ───────── PR C — adapters reales ─────────
         services.AddSingleton<ISqlConnectionFactory, SqlConnectionFactory>();
         services.AddScoped<IAwSqlReader, HybridConnectionAwSqlReader>();
@@ -139,14 +148,19 @@ public static class DependencyInjection
         }
 
         // ───────── PR-4 feature late-reconciliation ─────────
-        // Timer-based, no requiere ServiceBus — se registra siempre que el
-        // módulo esté wired. Patrón singleton + IHostedService para que el
+        // Timer-based, no requiere ServiceBus — se registra si el módulo está wired y
+        // `IntegracionesAw:LateReconciliation:Habilitado` (default true). Patrón singleton + IHostedService para que el
         // health check reciba la misma instancia que el host ejecuta.
-        services.AddSingleton<AwLateReconciliationWorker>();
-        services.AddHostedService(sp => sp.GetRequiredService<AwLateReconciliationWorker>());
-        services.AddHealthChecks()
-            .AddCheck<AwLateReconciliationWorkerHealthCheck>(
-                "aw-late-reconciliation-worker", tags: LivenessTags);
+        var o = configuration.GetSection(IntegracionesAwOptions.SectionName).Get<IntegracionesAwOptions>()
+            ?? new IntegracionesAwOptions();
+        if (o.LateReconciliation.Habilitado)
+        {
+            services.AddSingleton<AwLateReconciliationWorker>();
+            services.AddHostedService(sp => sp.GetRequiredService<AwLateReconciliationWorker>());
+            services.AddHealthChecks()
+                .AddCheck<AwLateReconciliationWorkerHealthCheck>(
+                    "aw-late-reconciliation-worker", tags: LivenessTags);
+        }
 
         // ───────── feature aw-documentos-pdf ─────────
         // Timer-based, no requiere ServiceBus. Sube los PDF de A+W al ERP.
@@ -154,11 +168,14 @@ public static class DependencyInjection
         // para despertar al worker de PDF ni bien hay pedido (fetch dirigido
         // por evento en vez de esperar el intervalo idle).
         services.AddSingleton<DocumentSyncKick>();
-        services.AddSingleton<AwDocumentSyncWorker>();
-        services.AddHostedService(sp => sp.GetRequiredService<AwDocumentSyncWorker>());
-        services.AddHealthChecks()
-            .AddCheck<AwDocumentSyncWorkerHealthCheck>(
-                "aw-document-sync-worker", tags: LivenessTags);
+        if (o.DocumentSync.Habilitado)
+        {
+            services.AddSingleton<AwDocumentSyncWorker>();
+            services.AddHostedService(sp => sp.GetRequiredService<AwDocumentSyncWorker>());
+            services.AddHealthChecks()
+                .AddCheck<AwDocumentSyncWorkerHealthCheck>(
+                    "aw-document-sync-worker", tags: LivenessTags);
+        }
 
         // NOTA: IIntegracionesAwNotifier se registra en Program.cs (su
         // implementación productiva IntegracionesAwHubNotifier vive en

@@ -2,6 +2,7 @@ import { BarraFiltros, PaginacionTabla, TabsEstado } from '@/components/erp';
 import { ListadoModulo } from '@/components/erp/data/ListadoModulo';
 import { usePaginacionLocal } from '../lib/use-paginacion-local';
 import { useState } from 'react';
+import { Loader2 } from 'lucide-react';
 import { Link, useNavigate } from '@tanstack/react-router';
 import { toast } from 'sonner';
 import { Badge } from '@/components/ui/badge';
@@ -28,6 +29,8 @@ import {
   mensajeErrorSincronizacion,
   useEjecucionesSync,
 } from '@/modules/datos-maestros/api/clientes';
+import { CausaConflictoAw, EstadoConflictoAwBadge } from '@/modules/datos-maestros/components/ConflictoAwCeldas';
+import { UnificarClientesRfcSheet } from '@/modules/datos-maestros/components/UnificarClientesRfcSheet';
 import { EstadoCorridaBadge } from '@/modules/datos-maestros/components/EstadoCorridaBadge';
 import {
   fechaCorridaAw,
@@ -38,9 +41,9 @@ import {
   TIPO_CAMBIO_AW,
   type CambioMaestroAw,
   type EntidadConflictoAw,
+  type TipoCambioAw,
 } from '@/modules/datos-maestros/api/sincronizacion-aw';
 
-const POR_PAGINA = 10;
 const ENTIDAD_MATRIZ: Record<string, string> = { Cliente: 'Cliente', ProductoAw: 'Producto A+W' };
 
 function mensaje(error: unknown) {
@@ -64,7 +67,10 @@ export function SincronizacionAwPage() {
   const apagada = lecturaAwApagada(useAwOrigen(puedeClientes).data);
   const [estado, setEstado] = useState<'Pendiente' | 'Resuelto' | 'Todos'>('Pendiente');
   const [pagina, setPagina] = useState(0);
+  const [porPagina, setPorPagina] = useState(10);
   const [confirmar, setConfirmar] = useState<CambioMaestroAw | null>(null);
+  const [unificando, setUnificando] = useState<CambioMaestroAw | null>(null);
+  const [tipo, setTipo] = useState<TipoCambioAw | ''>('');
   const [accionProducto, setAccionProducto] = useState<'AplicarAw' | 'MantenerErp'>('AplicarAw');
   const habilitada = entidad === 'clientes' ? puedeClientes : puedeProductos;
   const pendientes = useConflictosAw(entidad, 'Pendiente', habilitada);
@@ -72,12 +78,14 @@ export function SincronizacionAwPage() {
   const matriz = useMatrizAw();
   const resolver = useResolverConflictoAw();
   const lista = estado === 'Pendiente' ? pendientes : resueltos;
-  const filas =
+  const todas =
     estado === 'Todos'
       ? [...(pendientes.data ?? []), ...(resueltos.data ?? [])]
       : (lista.data ?? []);
+  const tiposPresentes = [...new Set([...(pendientes.data ?? []), ...(resueltos.data ?? [])].map((c) => c.tipo))];
+  const filas = tipo ? todas.filter((c) => c.tipo === tipo) : todas;
   const paginaCorridas = usePaginacionLocal(corridas.data?.items ?? []);
-  const visibles = filas.slice(pagina * POR_PAGINA, (pagina + 1) * POR_PAGINA);
+  const visibles = filas.slice(pagina * porPagina, (pagina + 1) * porPagina);
 
   function correr() {
     iniciarCorrida.mutate(undefined, {
@@ -113,8 +121,8 @@ export function SincronizacionAwPage() {
       </nav>
       <PageHeader titulo="Sincronización con A+W" />
 
-      <section className="rounded-lg bg-surface-card p-4 shadow-card-flat" aria-label="Corridas">
-        <div className="flex items-center justify-between gap-3">
+      <section className="space-y-4 rounded-lg bg-surface-card p-4 shadow-card-flat" aria-label="Corridas">
+        <div className="flex flex-wrap items-center justify-between gap-3">
           <h2 className="text-lg font-semibold">Corridas</h2>
           <div className="flex items-center gap-3">
             {apagada && (
@@ -122,7 +130,14 @@ export function SincronizacionAwPage() {
                 {MOTIVO_LECTURA_AW_APAGADA}
               </p>
             )}
+            {iniciarCorrida.isPending && (
+              <p role="status" className="max-w-xs text-xs text-ink-muted">
+                Leyendo productos de A+W. Puede tardar un par de minutos; no cierres esta pestaña
+                hasta que se abra la corrida.
+              </p>
+            )}
             <Button
+              aria-busy={iniciarCorrida.isPending}
               disabled={iniciarCorrida.isPending || !puedeProductos || !puedeClientes || apagada}
               title={
                 !puedeClientes
@@ -133,7 +148,10 @@ export function SincronizacionAwPage() {
               }
               onClick={correr}
             >
-              Correr sincronización
+              {iniciarCorrida.isPending && (
+                <Loader2 aria-hidden className="mr-1.5 h-4 w-4 animate-spin motion-reduce:animate-none" />
+              )}
+              {iniciarCorrida.isPending ? 'Iniciando…' : 'Correr sincronización'}
             </Button>
           </div>
         </div>
@@ -154,8 +172,8 @@ export function SincronizacionAwPage() {
               <PaginacionTabla
                 total={corridas.data?.items.length ?? 0}
                 offset={paginaCorridas.offset}
-                limit={10}
-                tamanos={[]}
+                limit={paginaCorridas.limit}
+                extremos
                 onChange={paginaCorridas.onChange}
               />
             }
@@ -196,7 +214,7 @@ export function SincronizacionAwPage() {
       </section>
 
       <section
-        className="rounded-lg bg-surface-card p-4 shadow-card-flat"
+        className="space-y-4 rounded-lg bg-surface-card p-4 shadow-card-flat"
         aria-label="Conflictos por resolver"
       >
         <h2 className="text-lg font-semibold">Conflictos por resolver</h2>
@@ -231,14 +249,38 @@ export function SincronizacionAwPage() {
               conteos={{ 0: pendientes.data?.length ?? 0, 1: resueltos.data?.length ?? 0 }}
             />
           }
-          filtros={<BarraFiltros total={`${filas.length} conflictos`} />}
+          filtros={
+            <BarraFiltros
+              aria-label="Filtros de conflictos"
+              total={`${filas.length} conflictos`}
+              filtros={
+                tiposPresentes.length > 1 ? (
+                  <select
+                    aria-label="Tipo de conflicto"
+                    className="h-ctl-md rounded-[7px] border border-line-control bg-surface-card px-2 text-xs text-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand"
+                    value={tipo}
+                    onChange={(e) => { setTipo(e.target.value as TipoCambioAw | ''); setPagina(0); }}
+                  >
+                    <option value="">Todos los tipos</option>
+                    {tiposPresentes.map((t) => (
+                      <option key={t} value={t}>{TIPO_CAMBIO_AW[t].texto}</option>
+                    ))}
+                  </select>
+                ) : undefined
+              }
+              onLimpiar={tipo ? () => { setTipo(''); setPagina(0); } : undefined}
+            />
+          }
           pie={
             <PaginacionTabla
               total={filas.length}
-              offset={pagina * POR_PAGINA}
-              limit={POR_PAGINA}
-              tamanos={[]}
-              onChange={(offset) => setPagina(offset / POR_PAGINA)}
+              offset={pagina * porPagina}
+              limit={porPagina}
+              extremos
+              onChange={(offset, limit) => {
+                setPorPagina(limit);
+                setPagina(Math.floor(offset / limit));
+              }}
             />
           }
         >
@@ -271,6 +313,7 @@ export function SincronizacionAwPage() {
                     <TableHead>Registro</TableHead>
                     <TableHead>Tipo</TableHead>
                     <TableHead>Causa</TableHead>
+                    <TableHead>Estado</TableHead>
                     <TableHead>Dueño del campo</TableHead>
                     <TableHead>Acción</TableHead>
                   </TableRow>
@@ -284,23 +327,31 @@ export function SincronizacionAwPage() {
                           {TIPO_CAMBIO_AW[c.tipo].texto}
                         </Badge>
                       </TableCell>
-                      <TableCell>
-                        {c.causa}
+                      <TableCell className="max-w-[28rem]">
+                        <CausaConflictoAw c={c} />
                         {c.tipo === 'EditadoEnErp' && (
                           <span className="block text-xs text-ink-muted">{`ERP «${c.valorAntes ?? ''}» · A+W «${c.valorDespues ?? ''}»`}</span>
                         )}
                       </TableCell>
+                      <TableCell>
+                        <EstadoConflictoAwBadge estado={c.estado} />
+                      </TableCell>
                       <TableCell>{c.dueno === 'AW' ? 'A+W' : 'ERP'}</TableCell>
                       <TableCell>
                         {c.estado === 'Pendiente' && c.tipo === 'RfcCompartido' && (
-                          <Button
-                            size="sm"
-                            variant="secondary"
-                            disabled={resolver.isPending}
-                            onClick={() => setConfirmar(c)}
-                          >
-                            Mantener separados
-                          </Button>
+                          <div className="flex gap-2">
+                            <Button size="sm" onClick={() => setUnificando(c)}>
+                              Resolver
+                            </Button>
+                            <Button
+                              size="sm"
+                              variant="secondary"
+                              disabled={resolver.isPending}
+                              onClick={() => setConfirmar(c)}
+                            >
+                              Mantener separados
+                            </Button>
+                          </div>
                         )}
                         {c.estado === 'Pendiente' && c.tipo === 'EditadoEnErp' && (
                           <div className="flex gap-2">
@@ -333,7 +384,9 @@ export function SincronizacionAwPage() {
                               ? 'A+W aplicado'
                               : c.resolucion === 'MantenerErp'
                                 ? 'ERP mantenido'
-                                : 'Mantenidos separados'}
+                                : c.resolucion === 'Unificado'
+                                  ? 'Unificado'
+                                  : 'Mantenidos separados'}
                           </span>
                         )}
                       </TableCell>
@@ -366,8 +419,12 @@ export function SincronizacionAwPage() {
         )}
       </section>
 
+      {unificando && (
+        <UnificarClientesRfcSheet key={unificando.id} conflicto={unificando} onClose={() => setUnificando(null)} />
+      )}
+
       <section
-        className="rounded-lg bg-surface-card p-4 shadow-card-flat"
+        className="space-y-4 rounded-lg bg-surface-card p-4 shadow-card-flat"
         aria-label="Matriz campo a dueño"
       >
         <h2 className="text-lg font-semibold">Matriz campo → dueño</h2>

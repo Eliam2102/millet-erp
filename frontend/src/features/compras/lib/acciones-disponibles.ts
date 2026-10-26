@@ -234,9 +234,8 @@ export function accionAprobarNivel1(
 
 /**
  * <b>Aprobar Nivel2</b> — solo en <c>EnAutorizacion</c>, requiere
- * que Nivel1 ya esté firmado. Si N1 no está firmado, **se muestra
- * deshabilitada** (no oculta) con tooltip explicativo, para que el
- * autorizador N2 entienda por qué no puede aún. Permiso:
+ * que Nivel1 ya esté firmado. Si N1 no está firmado **se oculta**: aún
+ * no se sabe si hará falta N2 (si N1 basta, la RQ pasa a Autorizada). Permiso:
  * <c>compras.requisiciones.autorizar-nivel2</c>.
  */
 export function accionAprobarNivel2(
@@ -255,10 +254,7 @@ export function accionAprobarNivel2(
       a.nivel === NivelAutorizacion.Nivel2 && a.usuarioId === currentUserId,
   );
   if (yaFirmoN2) return OCULTO;
-  const n1Firmado = tieneFirmaNivel(rq, NivelAutorizacion.Nivel1);
-  if (!n1Firmado) {
-    return DISABLED('Falta autorización Nivel 1');
-  }
+  if (!tieneFirmaNivel(rq, NivelAutorizacion.Nivel1)) return OCULTO;
   return HABILITADA;
 }
 

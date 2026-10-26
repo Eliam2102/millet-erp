@@ -230,7 +230,9 @@ export function Topbar({ onMenuClick, onExpandPanel }: TopbarProps = {}) {
         )}
       </AccessSearch>
 
-      <div className="ml-auto flex items-center gap-2">
+      {/* En teléfono el grupo se encoge y se desplaza por dentro: sin esto la
+          página entera desbordaba y los diálogos centrados quedaban fuera. */}
+      <div className="ml-auto flex min-w-0 items-center gap-2 overflow-x-auto">
         <EmpresaSelector />
         <SucursalSelector />
 

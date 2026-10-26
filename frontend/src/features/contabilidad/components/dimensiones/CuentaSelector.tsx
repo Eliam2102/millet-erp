@@ -23,18 +23,34 @@ interface Props {
   onChange: (cuenta: CuentaOpcion | null) => void;
   /** Movimientos: solo cuentas afectables. Reglas: también ramas (cuentas que acumulan), que heredan a sus hijas. */
   soloAfectables?: boolean;
+  /** Reglas (K10.2): también los rubros, que son el grupo de cuentas de C-03 (ingresos, costos, gastos, balance). */
+  incluirRubros?: boolean;
   /** Texto de la opción vacía; sin él la opción vacía no se ofrece. */
   vacio?: string;
   disabled?: boolean;
 }
 
-/** Combobox de cuenta activa (sin rubros). Mismo patrón que `CuentaPadreSelector`: el servidor filtra, el cliente pinta. */
-export function CuentaSelector({ id, value, onChange, soloAfectables, vacio, disabled }: Props) {
+/** Combobox de cuenta activa (con rubros solo si se piden). Mismo patrón que `CuentaPadreSelector`: el servidor filtra, el cliente pinta. */
+export function CuentaSelector({
+  id,
+  value,
+  onChange,
+  soloAfectables,
+  incluirRubros,
+  vacio,
+  disabled,
+}: Props) {
   const [open, setOpen] = useState(false);
   const [busqueda, setBusqueda] = useState('');
   const q = useDebouncedValue(busqueda.trim(), 200);
   const cuentas = useCuentas(
-    { clase: 'Cuenta', estatus: 'Activo', tipo: soloAfectables ? 'Afectable' : '', q, limit: 50 },
+    {
+      clase: incluirRubros ? undefined : 'Cuenta',
+      estatus: 'Activo',
+      tipo: soloAfectables ? 'Afectable' : '',
+      q,
+      limit: 50,
+    },
     open,
   );
   const items = cuentas.data?.items ?? [];
@@ -120,8 +136,12 @@ export function CuentaSelector({ id, value, onChange, soloAfectables, vacio, dis
                     <span className="min-w-0 truncate">
                       <span className="font-mono text-xs">{c.codigo}</span>
                       <span className="ml-2 text-sm">{c.nombre}</span>
-                      {c.tipo === 'Titulo' && (
-                        <span className="ml-2 text-xs text-ink-muted">(rama)</span>
+                      {c.clase === 'Rubro' ? (
+                        <span className="ml-2 text-xs text-ink-muted">(grupo)</span>
+                      ) : (
+                        c.tipo === 'Titulo' && (
+                          <span className="ml-2 text-xs text-ink-muted">(rama)</span>
+                        )
                       )}
                     </span>
                     {c.id === value?.id && <Check className="size-4 shrink-0" aria-hidden="true" />}

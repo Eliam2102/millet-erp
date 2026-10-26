@@ -9,6 +9,7 @@ using Millet.Almacen.Application.EventListeners;
 using Millet.Almacen.Domain.Idempotencia;
 using Millet.Almacen.Infrastructure.Persistence;
 using Millet.SharedKernel.Application;
+using Millet.SharedKernel.Application.Integration;
 
 namespace Millet.Almacen.Infrastructure.Workers;
 
@@ -46,7 +47,7 @@ namespace Millet.Almacen.Infrastructure.Workers;
 /// (defense-in-depth).
 /// </para>
 /// </summary>
-public sealed class CxpEventListenerWorker : BackgroundService
+public sealed class CxpEventListenerWorker : BackgroundService, ILocalIntegrationEventConsumer
 {
     public const string TopicName = "cuentas-por-pagar-events";
     public const string SubscriptionName = "almacen-subscription";
@@ -209,7 +210,8 @@ public sealed class CxpEventListenerWorker : BackgroundService
                 default:
                 {
                     // EventType desconocido: dead-letter para investigación.
-                    _logger.LogWarning(
+                    _logger.Log(
+                        smbArgs is null ? LogLevel.Debug : LogLevel.Warning,
                         "EventType no manejado por CxpEventListener: {EventType}. Dead-letter.", eventType);
                     if (smbArgs is not null)
                     {
@@ -239,6 +241,10 @@ public sealed class CxpEventListenerWorker : BackgroundService
         }
         catch (Exception ex)
         {
+            // C1.8: en la entrega local no hay mensaje que abandonar; se relanza
+            // para que el OutboxPublisherWorker registre la falla y reintente.
+            if (smbArgs is null) throw;
+
             _logger.LogError(ex,
                 "Error procesando evento. EventType={EventType} EventId={EventId}. Abandono para retry.",
                 eventType, eventId);
@@ -249,6 +255,16 @@ public sealed class CxpEventListenerWorker : BackgroundService
             // No re-lanzamos — el SB processor maneja la lifecycle.
         }
     }
+
+    // C1.8 — entrega local sin Service Bus (solo Development/demo): el
+    // LocalDispatchIntegrationEventBusSender invoca este método con la fila
+    // del outbox. Sin smbArgs, ProcessAsync relanza las fallas para que el
+    // outbox reintente.
+    string ILocalIntegrationEventConsumer.TopicName => TopicName;
+
+    Task ILocalIntegrationEventConsumer.ConsumirLocalAsync(
+        string eventType, Guid eventId, string body, CancellationToken cancellationToken)
+        => ProcessAsync(eventType, eventId, body, smbArgs: null, cancellationToken);
 
     private Task OnErrorAsync(ProcessErrorEventArgs args)
     {

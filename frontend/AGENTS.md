@@ -20,6 +20,10 @@ reales del backend.
   conserva texto visible. Compras usa `EstadoBadge` con sus estados y glosarios.
 - Mantén labels asociados a campos, foco visible y `aria-label` en botones de
   ícono. Explica el motivo de acciones deshabilitadas con texto o tooltip.
+- Ocupa la mayor parte del ancho disponible: el shell ya da el margen. No topes
+  secciones de detalle ni tablas con `max-w-*` angostos (`max-w-3xl`, etc.); deja
+  aire, pero no tanto que una tabla se apriete o obligue a hacer scroll (regla del
+  owner, 19-oct-2026). Los topes solo valen para texto corrido, sheets y diálogos.
 - Las pantallas nuevas parten de las plantillas de la sección 5 y pasan el
   checklist de la sección 9. En una migración parcial, identifica lo pendiente.
 - Verifica build y lint, las pruebas afectadas y la pantalla en navegador antes

@@ -30,6 +30,15 @@ public sealed class CuentasPorPagarDbContextSchemaTests
         entityType!.GetTableName().Should().Be("integration_events_outbox");
     }
 
+    [Fact]
+    public void Modelo_no_tiene_configuracion_de_minimo_de_reposicion()
+    {
+        using var db = CrearDbContext();
+
+        db.Model.GetEntityTypes().Select(e => e.ClrType.Name)
+            .Should().NotContain("ConfiguracionReposicionCaja");
+    }
+
     private static CuentasPorPagarDbContext CrearDbContext()
     {
         var options = new DbContextOptionsBuilder<CuentasPorPagarDbContext>()
