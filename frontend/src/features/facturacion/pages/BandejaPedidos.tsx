@@ -29,8 +29,12 @@ import {
 import { EstadoPedidoFacturable, OrigenPedido } from '@/features/facturacion/api/types';
 import { useListarPedidos } from '@/features/facturacion/api/usePedidos';
 import { BadgeSinAsignar } from '@/features/facturacion/components/BadgeSinAsignar';
+import { ClasePedidoBadge } from '@/features/facturacion/components/ClasePedidoBadge';
+import { FiltroClasePedido } from '@/features/facturacion/components/FiltroClasePedido';
 import { EstadoFacturacionBadge } from '@/features/facturacion/components/EstadoFacturacionBadge';
 import { useNuevoPedido } from '@/features/facturacion/components/nuevo-pedido-context';
+import { BadgeCredito } from '@/features/facturacion/components/BadgeCredito';
+import { FiltroCondicionPago } from '@/features/facturacion/components/FiltroCondicionPago';
 import {
   ETIQUETA_ORIGEN_PEDIDO,
   OPCIONES_ORIGEN_PEDIDO,
@@ -63,10 +67,14 @@ export function BandejaPedidos() {
   const navigate = useNavigate();
   const nuevoPedido = useNuevoPedido();
   const puedeCapturar = useHasPermission(PermisosCanonicos.FacturacionPedidosCapturar);
+  // 86e3tfdw2: sin leer-credito el backend no devuelve pedidos a crédito.
+  const puedeVerCredito = useHasPermission(PermisosCanonicos.FacturacionPedidosLeerCredito);
 
   const query = useListarPedidos({
     estado: search.estado,
     origen: search.origen,
+    clase: search.clase,
+    credito: puedeVerCredito ? search.credito : undefined,
     limit: 200,
     alcance: search.alcance,
   });
@@ -83,7 +91,11 @@ export function BandejaPedidos() {
     );
   });
 
-  const hayFiltros = search.estado != null || search.origen != null;
+  const hayFiltros =
+    search.estado != null ||
+    search.origen != null ||
+    search.clase != null ||
+    (puedeVerCredito && search.credito != null);
 
   const paginacion = usePaginacionLocal(items, JSON.stringify(search));
   return (
@@ -151,10 +163,27 @@ export function BandejaPedidos() {
                     </SelectContent>
                   </Select>
                 </div>
+                <FiltroClasePedido
+                  value={search.clase}
+                  onChange={(clase) => actualizarSearch({ clase })}
+                />
+                {puedeVerCredito && (
+                  <FiltroCondicionPago
+                    value={search.credito}
+                    onChange={(credito) => actualizarSearch({ credito })}
+                  />
+                )}
                 {hayFiltros && (
                   <Button
                     variant="ghost"
-                    onClick={() => actualizarSearch({ estado: undefined, origen: undefined })}
+                    onClick={() =>
+                      actualizarSearch({
+                        estado: undefined,
+                        origen: undefined,
+                        clase: undefined,
+                        credito: undefined,
+                      })
+                    }
                   >
                     Limpiar
                   </Button>
@@ -198,6 +227,8 @@ export function BandejaPedidos() {
               { width: 'w-32' },
               { width: 'w-28' },
               { width: 'w-28' },
+              { width: 'w-28' },
+              { width: 'w-20' },
             ]}
           />
         ) : items.length === 0 ? (
@@ -215,11 +246,12 @@ export function BandejaPedidos() {
               <TableHeader className="bg-surface-muted/50">
                 <TableRow>
                   <TableHead className="px-3 py-2 text-left">Folio / Pedido</TableHead>
-                  <TableHead className="px-3 py-2 text-left">Origen</TableHead>
+                  <TableHead className="px-3 py-2 text-left">Origen / clase</TableHead>
                   <TableHead className="px-3 py-2 text-left">Cliente</TableHead>
                   <TableHead className="px-3 py-2 text-right tabular-nums">
                     Subtotal sin impuestos
                   </TableHead>
+                  <TableHead className="px-3 py-2 text-right tabular-nums">Total con IVA</TableHead>
                   <TableHead className="px-3 py-2 text-left">Estado</TableHead>
                   <TableHead className="px-3 py-2 text-left">Creado</TableHead>
                   <TableHead className="px-3 py-2 text-right tabular-nums">Acción</TableHead>
@@ -232,11 +264,21 @@ export function BandejaPedidos() {
                       {p.numeroPedido ?? '—'}
                     </TableCell>
                     <TableCell className="px-3 py-2">
-                      <Chip>{ETIQUETA_ORIGEN_PEDIDO[p.origen] ?? p.origen}</Chip>
+                      <div className="flex flex-wrap items-center gap-1">
+                        <Chip>{ETIQUETA_ORIGEN_PEDIDO[p.origen] ?? p.origen}</Chip>
+                        <ClasePedidoBadge clasificacion={p} />
+                        <BadgeCredito esCredito={p.esCredito} />
+                      </div>
                     </TableCell>
                     <TableCell className="px-3 py-2">{p.clienteNombre}</TableCell>
                     <TableCell className="px-3 py-2 text-right font-mono tabular-nums">
                       {formatearMonto(p.total, p.moneda)}
+                    </TableCell>
+                    <TableCell
+                      className="px-3 py-2 text-right font-mono tabular-nums"
+                      title={p.totalConIva == null ? 'Sin tasa de IVA en alguna línea' : undefined}
+                    >
+                      {p.totalConIva == null ? '—' : formatearMonto(p.totalConIva, p.moneda)}
                     </TableCell>
                     <TableCell className="px-3 py-2">
                       <EstadoFacturacionBadge entidad="pedido" estado={p.estado} />

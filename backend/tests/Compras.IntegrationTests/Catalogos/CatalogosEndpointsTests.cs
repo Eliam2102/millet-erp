@@ -139,6 +139,58 @@ public class CatalogosEndpointsTests : IClassFixture<StubsWebApplicationFactory>
     }
 
     [Fact]
+    public async Task ListarProveedores_Q_RazonSocial_SinAcentoYMinusculas()
+    {
+        var client = await CreateSuperAdminClientAsync();
+        await AssertNombreProveedorEncuentraAsync(client, "suministros estandar", ProveedorActivoId, "q");
+    }
+
+    [Fact]
+    public async Task ListarProveedores_Q_NombreComercial()
+    {
+        var client = await CreateSuperAdminClientAsync();
+        // "dima insumos" solo existe en el nombre comercial de PROV-MAY.
+        await AssertNombreProveedorEncuentraAsync(client, "dima insumos", ProveedorMayoristaId, "q");
+    }
+
+    [Fact]
+    public async Task ListarProveedores_Q_Clave_Minusculas()
+    {
+        var client = await CreateSuperAdminClientAsync();
+        await AssertNombreProveedorEncuentraAsync(client, "prov-est", ProveedorActivoId, "q");
+    }
+
+    [Fact]
+    public async Task ListarProveedores_Q_Rfc_Fragmento()
+    {
+        var client = await CreateSuperAdminClientAsync();
+        // PROV-EST tiene RFC "SES010101AAA".
+        await AssertNombreProveedorEncuentraAsync(client, "ses0101", ProveedorActivoId, "q");
+    }
+
+    [Fact]
+    public async Task ListarProveedores_Q_Blanco_NoFiltra()
+    {
+        var client = await CreateSuperAdminClientAsync();
+        var response = await client.GetAsync("/api/v1/catalogos/proveedores?q=%20%20&limit=200");
+        response.EnsureSuccessStatusCode();
+        var json = await ReadJsonAsync(response);
+        Assert.Contains(
+            json.GetProperty("items").EnumerateArray(),
+            i => i.GetProperty("id").GetGuid() == ProveedorActivoId);
+    }
+
+    [Fact]
+    public async Task ListarProveedores_Q_SinCoincidencias_DevuelveCero()
+    {
+        var client = await CreateSuperAdminClientAsync();
+        var response = await client.GetAsync("/api/v1/catalogos/proveedores?q=zzz-no-existe&limit=50");
+        response.EnsureSuccessStatusCode();
+        var json = await ReadJsonAsync(response);
+        Assert.Empty(json.GetProperty("items").EnumerateArray());
+    }
+
+    [Fact]
     public async Task ListarProveedores_Clave_TienePrecedencia_SobreNombre()
     {
         var client = await CreateSuperAdminClientAsync();
@@ -289,6 +341,60 @@ public class CatalogosEndpointsTests : IClassFixture<StubsWebApplicationFactory>
             Assert.Contains("ART-EST", i.GetProperty("clave").GetString()));
     }
 
+    // --- Caja única `q` de artículos (86e3ufkgd) ---
+
+    [Fact]
+    public async Task ListarArticulos_Q_Nombre_SinAcentoYMinusculas()
+    {
+        var client = await CreateSuperAdminClientAsync();
+        // "Papelería de oficina genérica" (ART-EST-01) por nombre sin acento;
+        // todo lo devuelto debe coincidir (q sí filtra, no se ignora).
+        foreach (var texto in new[] { "papeleria", "PAPELERÍA" })
+        {
+            var items = await ArticulosQAsync(client, texto);
+            Assert.Contains(items, i => i.GetProperty("id").GetGuid() == ArticuloEstandarId);
+            Assert.All(items, i => Assert.Contains(
+                "papeler", i.GetProperty("nombre").GetString()!, StringComparison.OrdinalIgnoreCase));
+        }
+    }
+
+    [Fact]
+    public async Task ListarArticulos_Q_Clave_Minusculas()
+    {
+        var client = await CreateSuperAdminClientAsync();
+        var items = await ArticulosQAsync(client, "art-est-01");
+        Assert.Contains(items, i => i.GetProperty("id").GetGuid() == ArticuloEstandarId);
+        Assert.All(items, i => Assert.Contains("ART-EST-01", i.GetProperty("clave").GetString()));
+    }
+
+    [Fact]
+    public async Task ListarArticulos_Q_SinCoincidencias_DevuelveCero()
+    {
+        var client = await CreateSuperAdminClientAsync();
+        Assert.Empty(await ArticulosQAsync(client, "zzz-no-existe"));
+    }
+
+    [Fact]
+    public async Task ListarArticulos_Q_Blanco_NoFiltra()
+    {
+        var client = await CreateSuperAdminClientAsync();
+        var response = await client.GetAsync("/api/v1/catalogos/articulos?q=%20%20&limit=200");
+        response.EnsureSuccessStatusCode();
+        var json = await ReadJsonAsync(response);
+        Assert.Contains(
+            json.GetProperty("items").EnumerateArray(),
+            i => i.GetProperty("id").GetGuid() == ArticuloEstandarId);
+    }
+
+    private static async Task<List<JsonElement>> ArticulosQAsync(HttpClient client, string q)
+    {
+        var response = await client.GetAsync(
+            $"/api/v1/catalogos/articulos?q={Uri.EscapeDataString(q)}&limit=200");
+        response.EnsureSuccessStatusCode();
+        var json = await ReadJsonAsync(response);
+        return json.GetProperty("items").EnumerateArray().ToList();
+    }
+
     private static async Task AssertNombreEncuentraAsync(
         HttpClient client, string nombre, Guid esperadoId)
     {
@@ -302,10 +408,10 @@ public class CatalogosEndpointsTests : IClassFixture<StubsWebApplicationFactory>
     }
 
     private static async Task AssertNombreProveedorEncuentraAsync(
-        HttpClient client, string nombre, Guid esperadoId)
+        HttpClient client, string nombre, Guid esperadoId, string parametro = "nombre")
     {
         var response = await client.GetAsync(
-            $"/api/v1/catalogos/proveedores?nombre={Uri.EscapeDataString(nombre)}&limit=50");
+            $"/api/v1/catalogos/proveedores?{parametro}={Uri.EscapeDataString(nombre)}&limit=50");
         response.EnsureSuccessStatusCode();
         var json = await ReadJsonAsync(response);
         Assert.Contains(

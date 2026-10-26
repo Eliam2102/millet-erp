@@ -1,0 +1,77 @@
+[
+  {
+    "contexto": "CompartidoDbContext",
+    "codigo": 0,
+    "salida": "No changes have been made to the model since the last migration.\n"
+  },
+  {
+    "contexto": "CoreDbContext",
+    "codigo": 0,
+    "salida": "No changes have been made to the model since the last migration.\n"
+  },
+  {
+    "contexto": "IdentidadDbContext",
+    "codigo": 0,
+    "salida": "No changes have been made to the model since the last migration.\n"
+  },
+  {
+    "contexto": "ComprasDbContext",
+    "codigo": 0,
+    "salida": "No changes have been made to the model since the last migration.\n"
+  },
+  {
+    "contexto": "IntegracionesAwDbContext",
+    "codigo": 0,
+    "salida": "No changes have been made to the model since the last migration.\n"
+  },
+  {
+    "contexto": "IntegracionesFiscalDbContext",
+    "codigo": 0,
+    "salida": "No changes have been made to the model since the last migration.\n"
+  },
+  {
+    "contexto": "AlmacenDbContext",
+    "codigo": 0,
+    "salida": "No changes have been made to the model since the last migration.\n"
+  },
+  {
+    "contexto": "CuentasPorPagarDbContext",
+    "codigo": 0,
+    "salida": "No changes have been made to the model since the last migration.\n"
+  },
+  {
+    "contexto": "FacturacionDbContext",
+    "codigo": 0,
+    "salida": "No changes have been made to the model since the last migration.\n"
+  },
+  {
+    "contexto": "CuentasPorCobrarDbContext",
+    "codigo": 0,
+    "salida": "No changes have been made to the model since the last migration.\n"
+  },
+  {
+    "contexto": "TesoreriaDbContext",
+    "codigo": 0,
+    "salida": "No changes have been made to the model since the last migration.\n"
+  },
+  {
+    "contexto": "CentrosCostoDbContext",
+    "codigo": 0,
+    "salida": "No changes have been made to the model since the last migration.\n"
+  },
+  {
+    "contexto": "ContabilidadDbContext",
+    "codigo": 0,
+    "salida": "No changes have been made to the model since the last migration.\n"
+  },
+  {
+    "contexto": "ComercioExteriorDbContext",
+    "codigo": 0,
+    "salida": "No changes have been made to the model since the last migration.\n"
+  },
+  {
+    "contexto": "ActivosFijosDbContext",
+    "codigo": 0,
+    "salida": "No changes have been made to the model since the last migration.\n"
+  }
+]

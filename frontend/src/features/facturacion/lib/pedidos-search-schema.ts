@@ -31,6 +31,10 @@ export const PedidosSearchSchema = z.object({
   q: z.string().optional(),
   // Bucket "Sin asignar" de la Capa A (solo caja.leer-todas, CAJAS-PR6).
   alcance: z.literal('sin-asignar').optional(),
+  /** F6.1: clase del pedido manual de origen (server-side). */
+  clase: z.enum(['VentaDirecta', 'Emergencia']).optional(),
+  /** 86e3tfdw2: condición de pago (true = crédito, false = contado; server-side). */
+  credito: z.boolean().optional(),
   offset: z.number().int().min(0).optional(),
   limit: z.number().int().min(1).max(200).optional(),
 });

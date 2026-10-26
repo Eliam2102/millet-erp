@@ -1,3 +1,4 @@
+import { formatCantidad } from '@/lib/format-cantidad';
 import { DatosClienteFactura } from '../components/DatosClienteFactura';
 import { ErrorState } from '@/components/erp';
 import { ResumenImportes } from '@/components/erp/display/ResumenImportes';
@@ -117,9 +118,9 @@ function Contenido({ f }: { f: NonNullable<ReturnType<typeof useComprobante>['da
         <div><dt>Cadena original del timbre</dt><dd className="break-all font-mono text-xs">{f.cadenaOriginalTimbre ?? '—'}</dd></div>
       </dl>}
       <dl className="flex flex-wrap gap-5 text-sm tabular-nums">
-        <div><dt>Total de kilos</dt><dd>{f.totalKg ?? '—'}</dd></div>
-        <div><dt>Total de pies²</dt><dd>{f.totalPie2 ?? '—'}</dd></div>
-        <div><dt>Total de piezas</dt><dd>{f.totalPiezas ?? '—'}</dd></div>
+        <div><dt>Total de kilos</dt><dd>{f.lineas.some(l => l.pesoKg != null) ? formatCantidad(f.totalKg) : '—'}</dd></div>
+        <div><dt>Total de pies²</dt><dd>{f.lineas.some(l => l.areaPie2 != null) ? formatCantidad(f.totalPie2) : '—'}</dd></div>
+        <div><dt>Total de piezas</dt><dd>{formatCantidad(f.totalPiezas)}</dd></div>
       </dl>
       {f.datosEmbarqueCe && <EmbarqueCeResumen datos={f.datosEmbarqueCe} />}
       {/* ── Sub-topbar de acciones (§6.5, no se imprime): sticky con

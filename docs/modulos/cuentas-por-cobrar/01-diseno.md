@@ -163,6 +163,7 @@ Todo enum persistido con `HasCheckConstraint` + mirror FE (incidente 2026-07-11)
 |---|---|---|
 | `IClienteReadPort` | DatosMaestros | Nombre/RFC/datos del cliente para bandejas y reportes |
 | `IFacturacionAnticiposReadPort` | Facturación (**nuevo**, promueve `AnticipoSaldoDetalle` desde `Facturacion.Application`) | Lista de saldos de anticipo por cliente (§1.4 levantamiento) |
+| `IFacturacionAplicacionesAnticipoReadPort` | Facturación (`FacturacionAplicacionesAnticipoReadAdapter`, F1-CXC-05) | Anticipos con sus aplicaciones a factura final (§11.2) |
 | `IUsuarioReadPort` | Identidad | Nombres en auditoría (calco del de Almacén) |
 | `ISucursalReadPort` / `ITipoCambioReadPort` | Administración/Compartido | Solo si el reporte lo exige; evitar consumos prematuros |
 
@@ -271,10 +272,71 @@ ETag; errores RFC 7807.
 | `/autorizaciones` | GET · POST · POST/{id}/cancelar |
 | `/cobranza` | GET?clienteId= · POST |
 | `/propuestas-aplicacion` | GET · POST · GET/{id} · POST/{id}/confirmar · POST/{id}/rechazar |
-| `/cartera` | GET /antiguedad · GET /estado-cuenta/{clienteId} · GET /saldo-neto/{clienteId} |
-| `/anticipos` | GET?clienteId= (proxy a `IFacturacionAnticiposReadPort`) |
+| `/cartera` | GET /antiguedad · GET /estado-cuenta/{clienteId} · GET /estado-cuenta/{clienteId}/pendientes · GET /estado-cuenta/{clienteId}/envios · POST /estado-cuenta/{clienteId}/envios (multipart, C7.8) · GET /saldo-neto/{clienteId} |
+| `/anticipos` | GET?clienteId= (proxy a `IFacturacionAnticiposReadPort`) · GET /aplicaciones?clienteId=&estado= (F1-CXC-05, §11.2) |
 | `/alertas` | GET · POST/{id}/atender |
 | `/credito-disponible/{clienteId}` | GET (con bandera `datoIncompleto`) |
+
+### 11.1 Estado de cuenta al cliente (F1-CXC-09 · C7.8)
+
+- **Bloqueo (CA7.14).** Una sola regla (`EstadoCuentaBloqueo`) para el reporte,
+  los pendientes y el envío: no se emite ni se envía mientras el cliente tenga
+  un pago confirmado en `ReppPendiente` (Facturación) en estado *Pendiente* o un
+  REP emitido cuyo `ReciboPagoId` aún no aparece como `OrigenComprobanteId` en
+  `movimiento_cartera`. Responde 422 `ESTADO_CUENTA_REPP_PENDIENTE`; el POST lo
+  recalcula en servidor y no registra nada.
+- **Pendientes.** `GET .../estado-cuenta/{clienteId}/pendientes` →
+  `{ emitible, pendientes[], recibosSinReflejar[], emailCliente }` (detalle vía
+  `IReppPendientesReadPort`, sin tocar tablas de Facturación). La pantalla lo
+  muestra en lugar del reporte con enlace a `/facturacion/repp/pendientes`.
+- **Envío.** `POST .../estado-cuenta/{clienteId}/envios` (multipart `pdf` +
+  `destinatario` + `mensaje`; Idempotency-Key; permiso
+  `cuentas_por_cobrar.cobranza.registrar`; alcance `cliente_cartera`). El PDF
+  lo genera el navegador con el exportador del reporte (ADR-0036); el backend
+  guarda en `estado_cuenta_envio` destinatario, usuario, fecha, totales por
+  moneda (jsonb), número de filas, SHA-256 y nombre del PDF, y el estado
+  *Registrado* / *Enviado* / *Fallido*. Un fallo del correo no revierte el
+  registro. `GET .../envios` devuelve el historial (permiso `cartera.leer`).
+- **Correo.** Puerto `IEstadoCuentaCorreoPort`: SMTP de captura en loopback
+  (Mailpit) solo en Development (`CuentasPorCobrar:EstadoCuentaCorreo:Proveedor=SandboxLocal`);
+  en los demás ambientes NoOp → queda *Registrado* (ver §13).
+- **Fuera de alcance:** NC sin proyectar en cartera (no bloquean), cobros de
+  mostrador que no pasan por `ReppPendiente`, y los totales del encabezado del
+  reporte que suman MXN y USD (el registro del envío sí los guarda por moneda).
+
+### 11.2 Anticipos con su aplicación a la factura final (F1-CXC-05)
+
+- **Solo consulta (R11).** CxC muestra el saldo de cada anticipo y en qué
+  facturas finales se aplicó; la emisión, la vinculación y la amortización
+  (CFDI de egreso tipo 07) siguen en Facturación.
+- **Endpoint.** `GET /anticipos/aplicaciones?clienteId=&estado=` (permiso
+  `cuentas_por_cobrar.cartera.leer`). `clienteId` es opcional: sin él lista
+  todos los clientes con anticipos; si viene no puede ser `Guid.Empty` (400).
+  `estado` ∈ Pendiente/Parcial/Aplicado/Cancelado. Respuesta
+  `{ anticipos[], totalesPorMoneda[] }`; cada anticipo trae folio/UUID/fecha
+  del CFDI de anticipo, sucursal, moneda, `cobrado`, `aplicado`,
+  `comprometido`, `saldo`, `saldoSistema`, `estado`, `observacion` y
+  `aplicaciones[]` (factura final folio/UUID, egreso 07 folio/UUID, fecha,
+  estado del egreso, importe y tipo).
+- **Alcance por sucursal (ADR-0051).** La query es `ISucursalScopedQuery` con
+  el bypass `cuentas_por_cobrar.cartera.leer-todas-sucursales`; filtra por la
+  sucursal del CFDI de anticipo. No aplica el alcance de Cajas de Facturación.
+- **Cálculo.** El adapter de Facturación copia las reglas de la comparativa
+  F6.2 (`ComparativaAnticiposHandler`) a la fecha de hoy: solo un egreso
+  Timbrado o en cancelación pendiente resta saldo; un egreso cancelado se
+  muestra y no resta; una vinculación sin egreso timbrado va a
+  «Comprometido». `saldo = cobrado − aplicado`. Una prueba de paridad
+  (`AplicacionesAnticipoReadAdapterTests`) amarra ambos cálculos: si cambia una
+  regla en F6.2, cambia aquí. Los totales son por moneda y excluyen anticipos
+  cancelados.
+- **Pantalla.** `/cxc/anticipos` (misma ruta): cliente opcional, pestañas por
+  estado, fila expandible «Aplicaciones a factura final», KPIs por moneda y
+  enlace a `/facturacion/reportes/comparativa-anticipos` solo con
+  `facturacion.reportes.leer`.
+- **Fuera de alcance:** la restitución del saldo del anticipo al cancelar el
+  egreso 07 (reglas 86e3tfcm4 / 86e3tfd6n). Mientras no exista, la diferencia
+  entre el saldo calculado y el persistido se muestra como observación
+  «Saldo en sistema …», sin corregirla.
 
 ---
 
@@ -295,6 +357,7 @@ patrones P1–P4 de `frontend/docs/patrones-compras.md`, reportes con
 | Contrato write-back de liberación en `MILLET_INTEGRACION` | `<CxcWriteBackLiberacion>` | Decisión persiste sin efecto en A+W | PR-9: worker consume `DecisionLiberacionEmitidaEvent` → tabla-puente |
 | Feed bancario de depósitos | `<DepositoBancarioFeed>` | Captura manual del depósito en la propuesta | Integración bancaria futura (fuera de alcance v1) |
 | Motor de notificaciones para `AlertaCarteraGeneradaEvent` | `<Notificaciones>` | Alerta visible solo en bandeja `/cxc/alertas` | Cuando exista el motor transversal |
+| Correo saliente del estado de cuenta al cliente (C7.8) | `<EnvioEstadoCuentaCliente>` | `NoOpEstadoCuentaCorreoAdapter` (el envío queda *Registrado*; el PDF se descarga). En Development, `SandboxLocalEstadoCuentaCorreoAdapter` → Mailpit | Adaptador de `IEstadoCuentaCorreoPort` sobre el motor de correo transversal (Graph/SMTP corporativo, ADR-0026) |
 
 ---
 
@@ -303,3 +366,5 @@ patrones P1–P4 de `frontend/docs/patrones-compras.md`, reportes con
 | Versión | Fecha | Cambio |
 |---|---|---|
 | v0.1 | 2026-07-13 | Borrador inicial derivado del levantamiento v0.2 |
+| v0.2 | 2026-10-20 | F1-CXC-09 · C7.8: envío del estado de cuenta, bloqueo por REP pendientes (§11.1) y PLATFORM-TODO `<EnvioEstadoCuentaCliente>` (§13) |
+| v0.3 | 2026-10-21 | F1-CXC-05: anticipos con su aplicación a la factura final (§6.1, §11, §11.2) |

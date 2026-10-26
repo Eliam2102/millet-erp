@@ -95,8 +95,10 @@ export function ListaLineas({ lineas, resolverArticulo }: ListaLineasProps) {
                       cantidad={l.cantidad}
                       cantDeAlmacen={l.cantDeAlmacen}
                       cantDeCompra={l.cantDeCompra}
+                      cantEnOc={l.cantComprometidaEnOc}
                       cantRecibida={l.cantRecibida}
                       cantPendiente={l.cantPendiente}
+                      cantSinCompra={l.cantSinCompra}
                     />
                     <ResumenParcialLinea linea={l} />
                   </TableCell>

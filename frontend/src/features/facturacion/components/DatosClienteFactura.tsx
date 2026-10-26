@@ -10,14 +10,14 @@ export function DatosClienteFactura({ factura, puedeEditar }: {
   puedeEditar: boolean;
 }) {
   const editable = puedeEditar && factura.uuid == null && ['Borrador', 'TimbradoFallido', 'PendientePedimento'].includes(factura.estado);
-  return editable ? <Editor key={`${factura.id}-${factura.version}`} factura={factura} />
+  return editable ? <Editor key={factura.id} factura={factura} />
     : <DatosClienteCampos datos={factura} readOnly />;
 }
 
 function Editor({ factura }: { factura: DatosCliente & { id: string; version: number } }) {
   const [datos, setDatos] = useState<DatosCliente>({
     ordenCompraCliente: factura.ordenCompraCliente, referenciaCliente: factura.referenciaCliente,
-    condicionesPago: factura.condicionesPago, proforma: factura.proforma, comentarios: factura.comentarios,
+    condicionesPago: factura.condicionesPago, proforma: factura.proforma, observaciones: factura.observaciones,
   });
   const guardar = useEditarDatosCliente();
   return (

@@ -43,7 +43,7 @@ public sealed class CierreEstadoCuentaTcTests
             "AMEX_MX", totalDeclaradoMxn: 1000m, ahora: DateTimeOffset.UtcNow);
         ec.ActualizarTotalConciliado(800m); // diferencia 200
 
-        var act = () => ec.MarcarConciliado();
+        var act = () => ec.MarcarConciliado(0.01m);
         act.Should().Throw<BusinessRuleException>().Where(e => e.Code == "EC_DIFERENCIA_NO_CERO");
     }
 
@@ -58,7 +58,7 @@ public sealed class CierreEstadoCuentaTcTests
         // queda Pendiente
         ec.ActualizarTotalConciliado(1000m); // diferencia 0
 
-        var act = () => ec.MarcarConciliado();
+        var act = () => ec.MarcarConciliado(0.01m);
         act.Should().Throw<BusinessRuleException>().Where(e => e.Code == "EC_LINEAS_PENDIENTES");
     }
 
@@ -73,8 +73,44 @@ public sealed class CierreEstadoCuentaTcTests
         linea.MarcarMatched(Guid.NewGuid(), 100m);
         ec.ActualizarTotalConciliado(1000m);
 
-        ec.MarcarConciliado();
+        ec.MarcarConciliado(0.01m);
         ec.Estado.Should().Be(EstadoCuentaTcStatus.Conciliado);
+    }
+
+    private static EstadoCuentaTc CrearECConDiferencia(decimal diferencia)
+    {
+        var ec = CrearEC();
+        ec.RegistrarArchivoBanco("blob", new string('a', 64), Guid.NewGuid(),
+            "AMEX_MX", totalDeclaradoMxn: 1000m, ahora: DateTimeOffset.UtcNow);
+        ec.ActualizarTotalConciliado(1000m - diferencia);
+        return ec;
+    }
+
+    [Theory]
+    [InlineData(0.80, 1.00)]
+    [InlineData(1.00, 1.00)]
+    [InlineData(0.00, 0.00)]
+    [InlineData(1.20, 2.00)]
+    public void MarcarConciliado_diferencia_dentro_de_tolerancia_configurada_OK(double diferencia, double tolerancia)
+    {
+        var ec = CrearECConDiferencia((decimal)diferencia);
+
+        ec.MarcarConciliado((decimal)tolerancia);
+
+        ec.Estado.Should().Be(EstadoCuentaTcStatus.Conciliado);
+    }
+
+    [Theory]
+    [InlineData(1.20, 1.00)]
+    [InlineData(1.01, 1.00)]
+    [InlineData(0.01, 0.00)]
+    public void MarcarConciliado_diferencia_fuera_de_tolerancia_configurada_rechaza(double diferencia, double tolerancia)
+    {
+        var ec = CrearECConDiferencia((decimal)diferencia);
+
+        var act = () => ec.MarcarConciliado((decimal)tolerancia);
+
+        act.Should().Throw<BusinessRuleException>().Where(e => e.Code == "EC_DIFERENCIA_NO_CERO");
     }
 
     // -------- Cerrar --------
@@ -97,7 +133,7 @@ public sealed class CierreEstadoCuentaTcTests
             "TEST", null, "Compra");
         linea.MarcarMatched(Guid.NewGuid(), 100m);
         ec.ActualizarTotalConciliado(1000m);
-        ec.MarcarConciliado();
+        ec.MarcarConciliado(0.01m);
 
         var facturaId = Guid.NewGuid();
         ec.Cerrar(facturaId);
@@ -117,7 +153,7 @@ public sealed class CierreEstadoCuentaTcTests
             "TEST", null, "Compra");
         linea.MarcarMatched(Guid.NewGuid(), 100m);
         ec.ActualizarTotalConciliado(0m);
-        ec.MarcarConciliado();
+        ec.MarcarConciliado(0.01m);
 
         var act = () => ec.Cerrar(Guid.Empty);
         act.Should().Throw<BusinessRuleException>().Where(e => e.Code == "EC_FACTURA_BANCO_VACIA");

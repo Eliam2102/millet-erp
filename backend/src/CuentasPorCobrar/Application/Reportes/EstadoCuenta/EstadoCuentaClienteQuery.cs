@@ -45,16 +45,9 @@ public sealed class EstadoCuentaClienteHandler : IRequestHandler<EstadoCuentaCli
     public async Task<ReporteJsonResponse> Handle(
         EstadoCuentaClienteQuery query, CancellationToken cancellationToken)
     {
+        // Regla compartida con el envío (C7.8): pagos sin REP o REP sin reflejar → 422.
         if (_repp is not null)
-        {
-            var estado = await _repp.ConsultarAsync(query.ClienteId, cancellationToken);
-            var reflejados = await _db.MovimientosCartera.AsNoTracking()
-                .Where(m => estado.RecibosEmitidos.Contains(m.OrigenComprobanteId))
-                .Select(m => m.OrigenComprobanteId).Distinct().ToListAsync(cancellationToken);
-            if (estado.TienePendientes || estado.RecibosEmitidos.Except(reflejados).Any())
-                throw new Millet.SharedKernel.Application.Exceptions.BusinessRuleException("ESTADO_CUENTA_REPP_PENDIENTE",
-                    "Hay pagos confirmados pendientes de REP o de reflejarse en cartera. Completa su revisión antes de emitir el estado de cuenta.");
-        }
+            await new EstadoCuentaBloqueo(_db, _repp).VerificarEmitibleAsync(query.ClienteId, cancellationToken);
         var facturas = await _db.FacturasCartera
             .Where(x => query.DocumentosPermitidos == null || (query.DocumentosPermitidos ?? Array.Empty<Guid>()).Contains(x.Id)).AsNoTracking()
             .Where(f => f.ClienteId == query.ClienteId
@@ -132,8 +125,9 @@ public sealed class EstadoCuentaClienteHandler : IRequestHandler<EstadoCuentaCli
         var totales = new Dictionary<string, object?>
         {
             ["cargo"] = facturas.Sum(f => f.Total),
-            ["abono"] = movimientos.Sum(m => m.Importe)
-                        + anticipos.Where(a => a.SaldoDisponible > 0).Sum(a => a.SaldoDisponible),
+            // C7.8: los anticipos son informativos (no cartera); no entran al
+            // total de abono para que cargo − abono = saldo.
+            ["abono"] = movimientos.Sum(m => m.Importe),
             ["saldo_documento"] = facturas.Sum(f => f.SaldoPendiente),
         };
 

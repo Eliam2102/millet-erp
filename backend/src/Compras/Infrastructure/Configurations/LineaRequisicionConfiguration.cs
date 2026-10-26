@@ -120,12 +120,27 @@ public sealed class LineaRequisicionConfiguration : IEntityTypeConfiguration<Lin
             .HasPrecision(18, 5)
             .HasDefaultValue(0m)
             .IsRequired();
+        // 86e3tferc: liberación del apartado con motivo.
+        builder.Property(l => l.CantidadLiberadaApartado)
+            .HasColumnName("cant_liberada_apartado")
+            .HasPrecision(18, 5)
+            .HasDefaultValue(0m)
+            .IsRequired();
+        builder.Property(l => l.CantidadSinCompra)
+            .HasColumnName("cant_sin_compra")
+            .HasPrecision(18, 5)
+            .HasDefaultValue(0m)
+            .IsRequired();
+        builder.Property(l => l.MotivoUltimaLiberacion)
+            .HasColumnName("motivo_ultima_liberacion")
+            .HasMaxLength(500);
 
         // Ignorar los computed: no se persisten, se derivan al leer
         // a partir de las cantidades (Cubrimiento y, ADR-0043 #3, el
         // pendiente de entregar = (almacén+recibida) − entregada).
         builder.Ignore(l => l.Cubrimiento);
         builder.Ignore(l => l.CantidadPendienteEntregar);
+        builder.Ignore(l => l.CantidadVigente);
 
         builder.HasIndex(l => new { l.RequisicionId, l.Posicion }).IsUnique();
     }

@@ -28,7 +28,6 @@ public sealed class FacturaVentaConfiguration : IEntityTypeConfiguration<Factura
         builder.Property(e => e.ReferenciaCliente).HasMaxLength(60);
         builder.Property(e => e.CondicionesPago).HasMaxLength(60);
         builder.Property(e => e.Proforma).HasMaxLength(40);
-        builder.Property(e => e.Comentarios).HasMaxLength(1000);
         builder.Ignore(e => e.TotalKg);
         builder.Ignore(e => e.TotalPie2);
         builder.Ignore(e => e.TotalPiezas);
@@ -36,6 +35,9 @@ public sealed class FacturaVentaConfiguration : IEntityTypeConfiguration<Factura
         builder.Property(e => e.ObraNombre).HasMaxLength(200);
         builder.Property(e => e.FacturaAgrupada).IsRequired();
         builder.Property(e => e.AutorizacionId);
+
+        // 86e3tfdw2: nota del cajero (anticipos aplicados); solo PDF, nunca XML.
+        builder.Property(e => e.Observaciones).HasMaxLength(FacturaVenta.ObservacionesMaxLength);
 
         builder.HasMany(e => e.Lineas)
             .WithOne()

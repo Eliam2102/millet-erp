@@ -33,4 +33,7 @@ public sealed record ActualizarLineaOcCommand(
     // PLATFORM-TODO(F1-COM-06): supuesto Vilo. Solo OC de comercio exterior.
     // null = no tocar; LimpiarFraccionArancelaria = true → null.
     string? FraccionArancelaria = null,
-    bool LimpiarFraccionArancelaria = false) : IRequest;
+    bool LimpiarFraccionArancelaria = false,
+    // null = conservar la clasificación de activo fijo actual de la línea.
+    bool? EsActivoFijo = null,
+    Guid? ClaseActivoId = null) : IRequest;

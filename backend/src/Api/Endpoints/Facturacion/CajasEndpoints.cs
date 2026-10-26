@@ -122,7 +122,7 @@ public static class CajasEndpoints
         .WithMetadata(new RequireIdempotencyKeyAttribute())
         .RequireAuthorization(PermissionPolicyProvider.Prefix + PermisosCanonicos.FacturacionCajaAdministrar)
         .WithName("CrearCaja")
-        .WithSummary("Da de alta una caja (nace activa y sin alcance)")
+        .WithSummary("Da de alta una caja en una sucursal (nace activa)")
         .Produces<CajaMutadaResponse>(StatusCodes.Status201Created)
         .ProducesValidationProblem()
         .ProducesProblem(StatusCodes.Status403Forbidden);

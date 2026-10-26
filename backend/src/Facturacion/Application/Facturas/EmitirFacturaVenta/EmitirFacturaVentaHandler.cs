@@ -8,7 +8,6 @@ using Millet.Facturacion.Application.Integration;
 using Millet.Facturacion.Application.NotasCredito;
 using Millet.Facturacion.Application.Timbrado;
 using Millet.Facturacion.Domain.Activos;
-using Millet.Facturacion.Domain.Cce;
 using Millet.Facturacion.Domain.Comprobantes;
 using Millet.Facturacion.Domain.Facturas;
 using Millet.Facturacion.Domain.Ingesta;
@@ -26,7 +25,8 @@ namespace Millet.Facturacion.Application.Facturas.EmitirFacturaVenta;
 /// Orquesta la emisión de una factura de venta (§7.1, §12.2 levantamiento):
 /// candado de período (D13) → validación local previa de catálogos SAT (no
 /// consumir timbres en errores corregibles) → reserva atómica de folio
-/// (<c>Compartido.Series</c>, tipo <c>Cfdi</c>) → construcción del agregado →
+/// (<c>Compartido.Series</c>, tipo <c>Cfdi</c>; <c>VentaDirecta</c> para pedidos
+/// manuales clasificados, F6.1) → construcción del agregado →
 /// timbrado contra el PAC (stub hasta F12) → persistencia.
 ///
 /// <para>
@@ -168,14 +168,7 @@ public sealed class EmitirFacturaVentaHandler
         await TipoCambioFactura.ValidarAsync(
             _catalogos, command.Moneda, command.TipoCambio, ahora, cancellationToken);
 
-        var receptor = new DatosFiscalesReceptor(
-            Rfc: command.ReceptorRfc,
-            Nombre: command.ReceptorNombre,
-            RegimenFiscal: command.ReceptorRegimenFiscal,
-            CodigoPostal: command.ReceptorCodigoPostal,
-            UsoCfdi: command.ReceptorUsoCfdi,
-            Pais: command.ReceptorPais,
-            EsGenerico: DatosFiscalesReceptor.EsRfcGenerico(command.ReceptorRfc));
+        var receptor = FacturaVentaArmado.ReceptorDe(command);
 
         // 2.bis F12-PR1: snapshot del emisor (razón social + LugarExpedicion del
         // master). Falla aquí si la empresa no tiene CP fiscal — sin quemar folio.
@@ -187,12 +180,16 @@ public sealed class EmitirFacturaVentaHandler
         // abortar sin quemar el timbre.
         var anticipos = await CargarYValidarAnticiposAsync(command, receptor.Rfc, cancellationToken);
 
-        // 3.bis F9: venta de activo fijo exige autorización del Contador General
+        // 3.bis B2: si se emite desde un pedido, debe estar Importado (re-facturable).
+        // F6.1: se carga ANTES de la autorización de activo — un pedido de venta
+        // directa subtipo Activo fuerza el comportamiento VentaActivoFijo y, con
+        // él, la autorización del Contador General (CA6.12). Un pedido manual
+        // legacy (sin clase) se rechaza aquí.
+        var pedido = await CargarYValidarPedidoAsync(command, true, cancellationToken);
+
+        // 3.ter F9: venta de activo fijo exige autorización del Contador General
         // (no se timbra sin ella). Se valida antes de reservar folio.
         var autorizacion = await CargarYValidarAutorizacionAsync(command, cancellationToken);
-
-        // 3.ter B2: si se emite desde un pedido, debe estar Importado (re-facturable).
-        var pedido = await CargarYValidarPedidoAsync(command, true, cancellationToken);
 
         if (copiaCe is not null && pedido is not null)
         {
@@ -220,89 +217,55 @@ public sealed class EmitirFacturaVentaHandler
             cancellationToken, exportacionConCce: command.ComportamientoFiscal == ComportamientoFiscal.ExportacionConCce,
             numRegIdTrib: command.Cce?.ReceptorNumRegIdTrib, paisResidencia: command.Cce?.ReceptorPaisResidencia, ventaNueva: true);
 
-        // 4. Reserva atómica de folio (Cfdi) vía Compartido.Series.
+        // 4. Reserva atómica de folio vía Compartido.Series. F6.1: la venta
+        // directa / emergencia (pedido manual clasificado) usa la serie
+        // VentaDirecta de la sucursal (sin caer a la global); el resto, Cfdi.
+        // Las reservas de NC (amortización, ranura) no cambian.
+        var tipoSerie = pedido?.EsVentaDirectaManual == true
+            ? TipoDocumentoSerie.VentaDirecta
+            : TipoDocumentoSerie.Cfdi;
         var reserva = await _sender.Send(
             new ReservarFolioCommand(
                 empresaId,
                 command.SucursalId,
-                TipoDocumentoSerie.Cfdi,
+                tipoSerie,
                 DateOnly.FromDateTime(ahora.UtcDateTime)),
             cancellationToken);
 
-        // 5. Construir la factura (borrador) + líneas + totales.
-        var factura = FacturaVenta.CrearBorrador(
-            empresaId: empresaId,
-            folio: reserva.Folio,
-            folioNumero: reserva.Numero,
-            sucursalId: command.SucursalId,
-            // CAJAS-PR4 (§6): CajaId ya no viene del comando — lo asigna
-            // RegistrarCobroMostrador vía AsignarCajaCobro (Capa B).
-            cajaId: null,
-            usuarioEmisorId: _user.UserId,
-            receptor: receptor,
-            emisor: emisor,
-            metodoPago: command.MetodoPago,
-            formaPago: command.FormaPago,
-            moneda: command.Moneda,
-            tipoCambio: command.TipoCambio,
-            periodoAnio: anio,
-            periodoMes: mes,
-            canalVentaId: command.CanalVenta,
-            comportamientoFiscal: command.ComportamientoFiscal,
-            pedidoFacturableId: command.PedidoFacturableId,
-            obraId: command.ObraId,
-            obraNombre: command.ObraNombre,
-            facturaAgrupada: command.FacturaAgrupada);
-
-        if (copiaCe is not null) factura.TomarEmbarqueCe(copiaCe);
-
-        factura.EditarDatosCliente(command.OrdenCompraCliente,
-            command.ReferenciaCliente ?? pedido?.NumeroPedido,
-            command.CondicionesPago ?? (command.MetodoPago == "PUE" ? "CONTADO" : null),
-            command.Proforma, command.Comentarios ?? pedido?.Comentarios);
-
         var partidasPedido = pedido?.Lineas.OrderBy(l => l.Posicion).ToArray();
+        var lineasImpresion = new List<EmitirFacturaVentaLinea>();
         for (var indice = 0; indice < command.Lineas.Count; indice++)
         {
-            var l = command.Lineas[indice];
-            // Solo copiar de una partida identificable; nunca asociar datos a otro producto.
+            var linea = command.Lineas[indice];
+            // La posición y el producto identifican el origen incluso en una factura parcial.
             var origen = partidasPedido is not null && indice < partidasPedido.Length
-                && partidasPedido[indice].ProductoId == l.ProductoId
-                && partidasPedido[indice].Cantidad == l.Cantidad ? partidasPedido[indice] : null;
-            var peso = origen?.PesoKg;
-            if (peso is null && l.ProductoId is Guid productoId && _productos is not null)
-                peso = (await _productos.ObtenerAsync(productoId, cancellationToken))?.PesoUnitarioKg * l.Cantidad;
-            factura.AgregarLinea(
-                productoId: l.ProductoId,
-                claveProdServSat: l.ClaveProdServSat,
-                descripcion: l.Descripcion,
-                claveUnidadSat: l.ClaveUnidadSat,
-                cantidad: l.Cantidad,
-                valorUnitario: l.ValorUnitario,
-                descuento: l.Descuento,
-                objetoImp: l.ObjetoImp,
-                tasaIvaTraslado: l.TasaIvaTraslado,
-                tasaRetencionIva: l.TasaRetencionIva,
-                tasaRetencionIsr: l.TasaRetencionIsr,
-                requierePedimento: l.RequierePedimento, referencia: origen?.Referencia, pesoKg: peso, areaPie2: origen?.AreaPie2);
+                && partidasPedido[indice].ProductoId == linea.ProductoId ? partidasPedido[indice] : null;
+            var proporcion = origen is { Cantidad: > 0 } ? linea.Cantidad / origen.Cantidad : 0m;
+            var peso = linea.PesoKg ?? origen?.PesoKg * proporcion;
+            if (peso is null && linea.ProductoId is Guid productoId && _productos is not null)
+                peso = (await _productos.ObtenerAsync(productoId, cancellationToken))?.PesoUnitarioKg * linea.Cantidad;
+            lineasImpresion.Add(linea with {
+                Referencia = linea.Referencia ?? origen?.Referencia,
+                PesoKg = peso, AreaPie2 = linea.AreaPie2 ?? origen?.AreaPie2 * proporcion
+            });
         }
+        command = command with { Lineas = lineasImpresion };
 
-        factura.RecalcularTotales();
+        // 5. Construir la factura (borrador) + líneas + totales + CCE (5.bis
+        // F7-PR1). U1.8a: armado compartido con la proforma del pedido para que
+        // importes, impuestos y redondeos sean idénticos.
+        var factura = FacturaVentaArmado.Construir(
+            command, empresaId, reserva.Folio, reserva.Numero, _user.UserId,
+            receptor, emisor, anio, mes);
 
-        // 5.bis F7-PR1: Complemento de Comercio Exterior (antes de timbrar — va en
-        // el XML). AdjuntarCce valida que el comportamiento sea ExportacionConCce.
-        if (command.Cce is { } cceDatos)
-        {
-            var cce = ComplementoCce.Crear(
-                factura.Id, cceDatos.TipoOperacion, cceDatos.Incoterm, cceDatos.TcDof,
-                cceDatos.ReceptorNumRegIdTrib, cceDatos.ReceptorPaisResidencia,
-                cceDatos.ClaveDePedimento, cceDatos.CertificadoOrigen,
-                cceDatos.ReceptorDomicilioCalle, cceDatos.ReceptorDomicilioEstado,
-                cceDatos.ReceptorDomicilioCodigoPostal);
-            foreach (var l in cceDatos.Lineas)
-                cce.AgregarLinea(l.FraccionArancelaria, l.UnidadAduana, l.CantidadAduana, l.ValorUnitarioAduana, l.ValorDolares, l.AplicaIva0);
-            factura.AdjuntarCce(cce);
-        }
+        // 86e3tfdw2: observaciones del cajero (solo PDF, nunca XML). Antes de
+        // cualquier cambio de estado (retención por pedimento / timbrado).
+        factura.EditarDatosCliente(command.OrdenCompraCliente,
+            command.ReferenciaCliente ?? pedido?.NumeroPedido,
+            command.CondicionesPago ?? pedido?.CondicionPagoOrigen ?? (command.MetodoPago == "PUE" ? "CONTADO" : null),
+            command.Proforma, command.Observaciones ?? pedido?.Comentarios);
+
+        if (copiaCe is not null) factura.TomarEmbarqueCe(copiaCe);
 
         // 5.quater F9: vincula + consume la autorización de venta de activo fijo.
         if (autorizacion is not null)
@@ -469,6 +432,19 @@ public sealed class EmitirFacturaVentaHandler
             throw new BusinessRuleException(
                 "PEDIDO_NO_FACTURABLE",
                 $"El pedido {pedidoId} no es facturable (estado actual: {pedido.Estado}; sólo Importado).");
+
+        // F6.1: un pedido manual sin clase (legacy) no se factura hasta clasificarlo.
+        pedido.AsegurarClasificadoParaFacturar();
+
+        // F6.1 / CA6.12: la venta directa de un activo va siempre como
+        // VentaActivoFijo, para que la autorización del Contador General no
+        // pueda saltarse cambiando el comportamiento en la emisión.
+        if (pedido.EsVentaDirectaManual
+            && pedido.SubtipoVentaDirecta == SubtipoVentaDirecta.Activo
+            && command.ComportamientoFiscal != ComportamientoFiscal.VentaActivoFijo)
+            throw new BusinessRuleException(
+                "FAC_PEDIDO_ACTIVO_COMPORTAMIENTO",
+                "El pedido es una venta directa de activo fijo: emítelo con el comportamiento «Venta de activo fijo» y la autorización del Contador General.");
 
         return pedido;
     }

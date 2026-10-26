@@ -4,7 +4,6 @@ import { useMemo, useState, type ReactNode } from 'react';
 import { Plus, Truck } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { UppercaseInput } from '@/components/erp/forms/UppercaseInput';
 import {
   Select,
   SelectContent,
@@ -49,23 +48,20 @@ export function ProveedoresLayout({ idActivo, detalle }: ProveedoresLayoutProps)
 
   // Inputs locales del bloque de filtros — se debouncean antes de
   // alimentar el hook para evitar un fetch por keystroke.
-  const [rfcInput, setRfcInput] = useState('');
-  const [razonInput, setRazonInput] = useState('');
+  const [busquedaInput, setBusquedaInput] = useState('');
   const [tipoPersona, setTipoPersona] = useState<string>('');
   const [estatus, setEstatus] = useState<string>('');
 
-  const rfcDebounced = useDebouncedValue(rfcInput, 300);
-  const razonDebounced = useDebouncedValue(razonInput, 300);
+  const busquedaDebounced = useDebouncedValue(busquedaInput, 300);
 
   const filtros = useMemo<ListarProveedoresFiltros>(
     () => ({
-      rfc: rfcDebounced.trim() || undefined,
-      razonSocial: razonDebounced.trim() || undefined,
+      q: busquedaDebounced.trim() || undefined,
       tipoPersona: tipoPersona !== '' ? (Number(tipoPersona) as TipoPersonaProveedor) : undefined,
       estatus: estatus !== '' ? (Number(estatus) as EstatusCatalogo) : undefined,
       limit: 200,
     }),
-    [rfcDebounced, razonDebounced, tipoPersona, estatus],
+    [busquedaDebounced, tipoPersona, estatus],
   );
 
   const proveedoresQuery = useProveedores(filtros);
@@ -98,10 +94,8 @@ export function ProveedoresLayout({ idActivo, detalle }: ProveedoresLayoutProps)
         <BarraFiltros
           filtros={
             <FiltrosBloque
-              rfc={rfcInput}
-              onRfc={setRfcInput}
-              razon={razonInput}
-              onRazon={setRazonInput}
+              busqueda={busquedaInput}
+              onBusqueda={setBusquedaInput}
               tipoPersona={tipoPersona}
               onTipoPersona={setTipoPersona}
               estatus={estatus}
@@ -135,10 +129,8 @@ export function ProveedoresLayout({ idActivo, detalle }: ProveedoresLayoutProps)
 }
 
 interface FiltrosBloqueProps {
-  rfc: string;
-  onRfc: (v: string) => void;
-  razon: string;
-  onRazon: (v: string) => void;
+  busqueda: string;
+  onBusqueda: (v: string) => void;
   tipoPersona: string;
   onTipoPersona: (v: string) => void;
   estatus: string;
@@ -146,10 +138,8 @@ interface FiltrosBloqueProps {
 }
 
 function FiltrosBloque({
-  rfc,
-  onRfc,
-  razon,
-  onRazon,
+  busqueda,
+  onBusqueda,
   tipoPersona,
   onTipoPersona,
   estatus,
@@ -159,19 +149,12 @@ function FiltrosBloque({
     <div className="space-y-2 rounded-md border bg-surface-muted/20 p-2">
       {/* Filtro rápido / bandeja: Todos / Por validar / Activos */}
 
-      <UppercaseInput
-        placeholder="RFC exacto"
-        value={rfc}
-        onChange={(e) => onRfc(e.target.value)}
-        className="h-8 text-xs"
-        aria-label="Filtrar por RFC"
-      />
       <Input
-        placeholder="Razón social exacta"
-        value={razon}
-        onChange={(e) => onRazon(e.target.value)}
+        placeholder="Clave, RFC, nombre o razón social…"
+        value={busqueda}
+        onChange={(e) => onBusqueda(e.target.value)}
         className="h-8 text-xs"
-        aria-label="Filtrar por razón social"
+        aria-label="Buscar proveedor"
       />
       <div className="flex gap-2">
         <Select

@@ -8,6 +8,8 @@ namespace Millet.Contabilidad.Application.PublicPorts;
 /// No verifica que el usuario pueda operar la sucursal: eso es autorización de quien llama (ADR-0051).
 /// </summary>
 // PLATFORM-TODO(<DimensionesConsumidores>): Pólizas, CxP y Compras definen su puerto propio y un adaptador delgado que delegue aquí.
+// PLATFORM-TODO(<MotorContable>): K10.2-a — el motor C1.4 manda el evento a la bandeja de rechazos con causa DatoFaltante cuando
+// este puerto devuelve CONTAB_DIM_OBLIGATORIA_FALTANTE (la prueba K102a ya cubre la respuesta del puerto).
 public interface IDimensionContableValidacionPort
 {
     Task<ValidacionDimensiones> ValidarAsync(MovimientoDimensionado movimiento, CancellationToken ct);

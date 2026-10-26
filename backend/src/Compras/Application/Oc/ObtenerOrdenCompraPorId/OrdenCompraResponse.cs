@@ -101,6 +101,7 @@ public sealed record OrdenCompraResponse(
     decimal GastosAdicionales,
     decimal Redondeo)
 {
+    public IReadOnlyList<Millet.Almacen.Application.PublicPorts.RecepcionImportacionLectura> RecepcionesImportacion { get; init; } = [];
     public string? Obra { get; init; }
     public int CicloAutorizacion { get; init; }
     public IReadOnlyList<AutorizacionOcResponse> Autorizaciones { get; init; } = [];
@@ -110,6 +111,9 @@ public sealed record OrdenCompraResponse(
     public EstadoComercialProveedorOc EstadoComercialProveedor { get; init; }
     public DateOnly? FechaCompromisoProveedor { get; init; }
     public IReadOnlyList<RespuestaProveedorOcResponse> RespuestasProveedor { get; init; } = [];
+
+    /// <summary>Incidencias del proveedor por línea (F1-COM-07), la más reciente primero.</summary>
+    public IReadOnlyList<Incidencias.IncidenciaProveedorOcResponse> Incidencias { get; init; } = [];
 
     /// <summary>
     /// Campos de cabecera que siguen en TBD; la OC no se puede transmitir mientras la lista no esté vacía.
@@ -147,4 +151,4 @@ public sealed record CotizacionElegidaOcResponse(
 
 public sealed record CompromisoEntregaOcResponse(Guid Id, Guid LineaOrdenCompraId, decimal Cantidad, DateOnly FechaPrometida);
 
-public sealed record RespuestaProveedorOcResponse(Guid Id, int Numero, TipoRespuestaProveedorOc Tipo, DateOnly FechaRespuesta, string Evidencia, string? ContactoProveedor, string? Motivo, bool TieneDiferencias, Guid RegistradaPorId, DateTimeOffset RegistradaEn, bool Vigente, IReadOnlyList<CompromisoEntregaOcResponse> Compromisos);
+public sealed record RespuestaProveedorOcResponse(Guid Id, int Numero, TipoRespuestaProveedorOc? Tipo, DateOnly? FechaRespuesta, string? Evidencia, string? ContactoProveedor, string? Motivo, bool TieneDiferencias, Guid RegistradaPorId, DateTimeOffset RegistradaEn, bool Vigente, IReadOnlyList<CompromisoEntregaOcResponse> Compromisos);

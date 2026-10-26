@@ -36,7 +36,9 @@ public sealed partial class Expediente
         IReadOnlyList<RequisitoDocumento> requisitos, IReadOnlyCollection<Guid> adjuntosVigentes, DateOnly hoy)
     {
         ExigirAbierto();
-        if (clave == "cerrado") Cerrar();
+        if (clave is "documentacion-completa" or "entregado" or "cerrado") ExigirSinIncidencias();
+        if (clave == "cerrado" && MotivosFinancieros().Count > 0)
+            throw new BusinessRuleException("CE_CIERRE_FINANCIERO_PENDIENTE", string.Join("; ", MotivosFinancieros()));
         var hito = Hito(clave);
         ExigirAnteriores(hito);
         var anteriorReal = _hitos.Where(h => h.Orden < hito.Orden && h.FechaReal != null).Max(h => h.FechaReal);
@@ -52,6 +54,7 @@ public sealed partial class Expediente
         if (clave == "despacho-aduanal" && !_participantes.Any(p => p.Tipo == TipoParticipante.AgenteAduanal))
             throw new BusinessRuleException("CE_AGENTE_ADUANAL_REQUERIDO", "Agregue un agente aduanal antes del despacho.");
         hito.Completar(fecha, responsable, evidencia, motivo);
+        if (clave == "cerrado") Cerrar();
         RevisionContenido++;
     }
 
@@ -87,6 +90,7 @@ public sealed partial class Expediente
 
     public string EstadoFisico(IReadOnlyList<RequisitoDocumento> requisitos, IReadOnlyCollection<Guid> adjuntosVigentes)
     {
+        if (_incidencias.Any(i => i.Pendiente)) return "Con incidencias pendientes";
         if (!_hitos.Any(h => h.Clave == "entregado" && h.FechaReal is not null)) return "Pendiente";
         if (Tipo == TipoExpediente.Importacion) return "Completo";
         var pod = requisitos.SingleOrDefault(r => r.Codigo == "EXP_POD");
@@ -96,6 +100,10 @@ public sealed partial class Expediente
     public void Cerrar()
     {
         ExigirAbierto();
-        throw new BusinessRuleException("CE_CIERRE_FINANCIERO_PENDIENTE", "El cierre financiero está pendiente; se habilita con CE-03.");
+        ExigirSinIncidencias();
+        var motivos = MotivosFinancieros();
+        if (motivos.Count > 0) throw new BusinessRuleException("CE_CIERRE_FINANCIERO_PENDIENTE", string.Join("; ", motivos));
+        FinancieroCerrado = true;
+        RevisionContenido++;
     }
 }

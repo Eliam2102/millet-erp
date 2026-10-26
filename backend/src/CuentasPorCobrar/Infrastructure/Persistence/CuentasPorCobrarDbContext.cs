@@ -3,6 +3,7 @@ using Millet.CuentasPorCobrar.Domain.Alertas;
 using Millet.CuentasPorCobrar.Domain.AplicacionPagos;
 using Millet.CuentasPorCobrar.Domain.Cartera;
 using Millet.CuentasPorCobrar.Domain.Cobranza;
+using Millet.CuentasPorCobrar.Domain.EstadoCuenta;
 using Millet.CuentasPorCobrar.Domain.Eventos;
 using Millet.CuentasPorCobrar.Domain.Liberacion;
 using Millet.CuentasPorCobrar.Domain.LineaCredito;
@@ -70,6 +71,9 @@ public sealed class CuentasPorCobrarDbContext : BaseDbContext
     /// <summary>Alertas de cartera generadas por el worker diario (§3.1, CXC-PR8).</summary>
     public DbSet<AlertaCartera> AlertasCartera => Set<AlertaCartera>();
 
+    /// <summary>Envíos del estado de cuenta al cliente — rastro auditable (C7.8).</summary>
+    public DbSet<EstadoCuentaEnvio> EstadoCuentaEnvios => Set<EstadoCuentaEnvio>();
+
     /// <summary>
     /// Outbox de eventos de integración del módulo (ADR-0009). Lo escribe
     /// <c>OutboxSaveChangesInterceptor</c> drenando el buffer scoped
@@ -96,5 +100,6 @@ public sealed class CuentasPorCobrarDbContext : BaseDbContext
         modelBuilder.ApplyConfiguration(new PropuestaAplicacionPagoConfiguration());
         modelBuilder.ApplyConfiguration(new PropuestaAplicacionFacturaConfiguration());
         modelBuilder.ApplyConfiguration(new AlertaCarteraConfiguration());
+        modelBuilder.ApplyConfiguration(new EstadoCuentaEnvioConfiguration());
     }
 }

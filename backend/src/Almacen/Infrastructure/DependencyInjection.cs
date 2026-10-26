@@ -25,6 +25,8 @@ public static class DependencyInjection
 {
     public static IServiceCollection AddAlmacenModule(this IServiceCollection services)
     {
+        services.AddScoped<Millet.Almacen.Application.PublicPorts.IRecepcionesImportacionReadPort, RecepcionesImportacionReadAdapter>();
+        services.AddScoped<Millet.Almacen.Application.PublicPorts.IRecepcionesCostoReadPort, RecepcionesCostoReadAdapter>();
         // PLATFORM-TODO(<AlmacenCrossModulePorts>): reemplazar cada
         // NoOp* por su adapter real cuando entre la fase correspondiente.
         services.AddScoped<IComprasOcReadPort, NoOpComprasOcReadPort>();
@@ -37,11 +39,14 @@ public static class DependencyInjection
         services.AddScoped<IAdjuntosEntidadReadPort, NoOpAdjuntosEntidadReadPort>();
         services.AddScoped<ICxpDocumentosReadPort, NoOpCxpDocumentosReadPort>();
         services.AddScoped<ISucursalReadPort, NoOpSucursalReadPort>();
+        // Estado de capitalización de los activos de una recepción; lo reemplaza AddActivosFijosModule.
+        services.AddScoped<IActivoRecepcionReadPort, NoOpActivoRecepcionReadPort>();
         // IEmpleadoReadPort se registra en Program.cs con el adapter real
         // de Compartido (EmpleadoReadAdapter, ADM-PR2) — Almacén no puede
         // referenciar Compartido.Infrastructure sin acoplar el módulo.
         services.AddScoped<IUsuarioReadPort, NoOpUsuarioReadPort>();
-        services.AddScoped<ITipoCambioReadPort, NoOpTipoCambioReadPort>();
+        // ITipoCambioReadPort se registra en Program.cs con el adapter real de
+        // Compartido (TipoCambioReadAdapter, C1.2), igual que IEmpleadoReadPort.
         services.AddScoped<IConceptoContableReadPort, NoOpConceptoContableReadPort>();
         // Fase E PR5: display del CC-Máquina en salidas. NoOp por defecto; el
         // adapter real (delega en CentrosCosto.IDim3ReadPort) se cablea en Program.cs.

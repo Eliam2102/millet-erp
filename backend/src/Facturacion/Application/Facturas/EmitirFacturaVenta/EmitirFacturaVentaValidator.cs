@@ -1,4 +1,5 @@
 using FluentValidation;
+using Millet.Facturacion.Domain.Facturas;
 using Millet.Facturacion.Domain.Ports;
 
 namespace Millet.Facturacion.Application.Facturas.EmitirFacturaVenta;
@@ -16,7 +17,6 @@ public sealed class EmitirFacturaVentaValidator : AbstractValidator<EmitirFactur
         RuleFor(c => c.ReferenciaCliente).MaximumLength(60);
         RuleFor(c => c.CondicionesPago).MaximumLength(60);
         RuleFor(c => c.Proforma).MaximumLength(40);
-        RuleFor(c => c.Comentarios).MaximumLength(1000);
         RuleFor(c => c.SucursalId).NotEmpty();
 
 
@@ -44,6 +44,11 @@ public sealed class EmitirFacturaVentaValidator : AbstractValidator<EmitirFactur
             .MustAsync(canalesVenta.ExisteActivoAsync)
             .WithMessage("El canal de venta no existe o está inactivo.");
         RuleFor(c => c.ComportamientoFiscal).IsInEnum();
+
+        // 86e3tfdw2: observaciones del PDF (no van al CFDI).
+        RuleFor(c => c.Observaciones)
+            .MaximumLength(FacturaVenta.ObservacionesMaxLength)
+            .WithMessage($"Las observaciones no pueden exceder {FacturaVenta.ObservacionesMaxLength} caracteres.");
 
         RuleFor(c => c.Lineas).NotEmpty().WithMessage("La factura debe tener al menos una línea.");
         RuleForEach(c => c.Lineas).ChildRules(l =>

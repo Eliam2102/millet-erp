@@ -30,14 +30,16 @@ public sealed class PedidoFacturableHandlerTests
         ObraId: null,
         ObraNombre: null,
         Comentarios: null,
-        Lineas: [new PedidoFacturableLineaInput(null, "Producto", "01010101", "H87", 2m, 100m, 0m, false)]);
+        Lineas: [new PedidoFacturableLineaInput(null, "Producto", "01010101", "H87", 2m, 100m, 0m, false)],
+        ClaseManual: ClasePedidoManual.VentaDirecta,
+        SubtipoVentaDirecta: SubtipoVentaDirecta.Servicio);
 
     [Fact]
     public async Task Crear_persiste_pedido_Importado_con_total()
     {
         var empresaId = Guid.NewGuid();
         using var db = NewDb(empresaId);
-        var handler = new CrearPedidoFacturableManualHandler(db, new FakeEmpresaContext(empresaId), new FakeUserContext(Guid.NewGuid()), new FakeProductosReadPort(), new FakeEmpresaFiscalReadPort());
+        var handler = new CrearPedidoFacturableManualHandler(db, new FakeEmpresaContext(empresaId), new FakeUserContext(Guid.NewGuid()), new FakeProductosReadPort(), new FakeEmpresaFiscalReadPort(), new FakeCurrentUserPermissions());
 
         var resp = await handler.Handle(CrearCmd(), CancellationToken.None);
 
@@ -54,14 +56,15 @@ public sealed class PedidoFacturableHandlerTests
     {
         var empresaId = Guid.NewGuid();
         using var db = NewDb(empresaId);
-        var crear = new CrearPedidoFacturableManualHandler(db, new FakeEmpresaContext(empresaId), new FakeUserContext(Guid.NewGuid()), new FakeProductosReadPort(), new FakeEmpresaFiscalReadPort());
+        var crear = new CrearPedidoFacturableManualHandler(db, new FakeEmpresaContext(empresaId), new FakeUserContext(Guid.NewGuid()), new FakeProductosReadPort(), new FakeEmpresaFiscalReadPort(), new FakeCurrentUserPermissions());
         var creado = await crear.Handle(CrearCmd(), CancellationToken.None);
 
-        var editar = new EditarPedidoFacturableManualHandler(db, new FakeEmpresaContext(empresaId), new FakeProductosReadPort(), new FakeEmpresaFiscalReadPort());
+        var editar = new EditarPedidoFacturableManualHandler(db, new FakeEmpresaContext(empresaId), new FakeProductosReadPort(), new FakeEmpresaFiscalReadPort(), new FakeCurrentUserPermissions());
         var resp = await editar.Handle(new EditarPedidoFacturableManualCommand(
             creado.Id, creado.Version, Guid.NewGuid(), "Cliente editado", (short)1,
             ComportamientoFiscal.MostradorInmediato, "MXN", null, null, null,
-            [new PedidoFacturableLineaInput(null, "Otro", "01010101", "H87", 1m, 30m, 0m, false)]),
+            [new PedidoFacturableLineaInput(null, "Otro", "01010101", "H87", 1m, 30m, 0m, false)],
+            ClasePedidoManual.VentaDirecta, SubtipoVentaDirecta.Servicio),
             CancellationToken.None);
 
         resp.Total.Should().Be(30m);
@@ -76,14 +79,15 @@ public sealed class PedidoFacturableHandlerTests
     {
         var empresaId = Guid.NewGuid();
         using var db = NewDb(empresaId);
-        var crear = new CrearPedidoFacturableManualHandler(db, new FakeEmpresaContext(empresaId), new FakeUserContext(Guid.NewGuid()), new FakeProductosReadPort(), new FakeEmpresaFiscalReadPort());
+        var crear = new CrearPedidoFacturableManualHandler(db, new FakeEmpresaContext(empresaId), new FakeUserContext(Guid.NewGuid()), new FakeProductosReadPort(), new FakeEmpresaFiscalReadPort(), new FakeCurrentUserPermissions());
         var creado = await crear.Handle(CrearCmd(), CancellationToken.None);
 
-        var editar = new EditarPedidoFacturableManualHandler(db, new FakeEmpresaContext(empresaId), new FakeProductosReadPort(), new FakeEmpresaFiscalReadPort());
+        var editar = new EditarPedidoFacturableManualHandler(db, new FakeEmpresaContext(empresaId), new FakeProductosReadPort(), new FakeEmpresaFiscalReadPort(), new FakeCurrentUserPermissions());
         var act = () => editar.Handle(new EditarPedidoFacturableManualCommand(
             creado.Id, creado.Version + 99, Guid.NewGuid(), "X", (short)1,
             ComportamientoFiscal.MostradorInmediato, "MXN", null, null, null,
-            [new PedidoFacturableLineaInput(null, "Otro", "01010101", "H87", 1m, 30m, 0m, false)]),
+            [new PedidoFacturableLineaInput(null, "Otro", "01010101", "H87", 1m, 30m, 0m, false)],
+            ClasePedidoManual.VentaDirecta, SubtipoVentaDirecta.Servicio),
             CancellationToken.None);
 
         await act.Should().ThrowAsync<ConcurrencyException>();
@@ -94,12 +98,13 @@ public sealed class PedidoFacturableHandlerTests
     {
         var empresaId = Guid.NewGuid();
         using var db = NewDb(empresaId);
-        var editar = new EditarPedidoFacturableManualHandler(db, new FakeEmpresaContext(empresaId), new FakeProductosReadPort(), new FakeEmpresaFiscalReadPort());
+        var editar = new EditarPedidoFacturableManualHandler(db, new FakeEmpresaContext(empresaId), new FakeProductosReadPort(), new FakeEmpresaFiscalReadPort(), new FakeCurrentUserPermissions());
 
         var act = () => editar.Handle(new EditarPedidoFacturableManualCommand(
             Guid.NewGuid(), 0, Guid.NewGuid(), "X", (short)1,
             ComportamientoFiscal.MostradorInmediato, "MXN", null, null, null,
-            [new PedidoFacturableLineaInput(null, "Otro", "01010101", "H87", 1m, 30m, 0m, false)]),
+            [new PedidoFacturableLineaInput(null, "Otro", "01010101", "H87", 1m, 30m, 0m, false)],
+            ClasePedidoManual.VentaDirecta, SubtipoVentaDirecta.Servicio),
             CancellationToken.None);
 
         await act.Should().ThrowAsync<EntityNotFoundException>();
@@ -116,7 +121,7 @@ public sealed class PedidoFacturableHandlerTests
             productoId, "Vidrio", "43211701", "MTK", "02", 0.16m, null, null, "Aw");
         var handler = new CrearPedidoFacturableManualHandler(
             db, new FakeEmpresaContext(empresaId), new FakeUserContext(Guid.NewGuid()),
-            new FakeProductosReadPort(master), new FakeEmpresaFiscalReadPort(emisor));
+            new FakeProductosReadPort(master), new FakeEmpresaFiscalReadPort(emisor), new FakeCurrentUserPermissions());
 
         var cmd = CrearCmd() with
         {
@@ -141,7 +146,7 @@ public sealed class PedidoFacturableHandlerTests
         using var db = NewDb(empresaId);
         var handler = new CrearPedidoFacturableManualHandler(
             db, new FakeEmpresaContext(empresaId), new FakeUserContext(Guid.NewGuid()),
-            new FakeProductosReadPort(), new FakeEmpresaFiscalReadPort());
+            new FakeProductosReadPort(), new FakeEmpresaFiscalReadPort(), new FakeCurrentUserPermissions());
 
         await handler.Handle(CrearCmd(), CancellationToken.None);
 
@@ -154,14 +159,76 @@ public sealed class PedidoFacturableHandlerTests
     {
         var empresaId = Guid.NewGuid();
         using var db = NewDb(empresaId);
-        var crear = new CrearPedidoFacturableManualHandler(db, new FakeEmpresaContext(empresaId), new FakeUserContext(Guid.NewGuid()), new FakeProductosReadPort(), new FakeEmpresaFiscalReadPort());
+        var crear = new CrearPedidoFacturableManualHandler(db, new FakeEmpresaContext(empresaId), new FakeUserContext(Guid.NewGuid()), new FakeProductosReadPort(), new FakeEmpresaFiscalReadPort(), new FakeCurrentUserPermissions());
         await crear.Handle(CrearCmd(), CancellationToken.None);
         await crear.Handle(CrearCmd(), CancellationToken.None);
 
-        var bandeja = new BandejaPedidosFacturablesHandler(db, new FakeAlcanceCajaEvaluator());
+        var bandeja = new BandejaPedidosFacturablesHandler(db, new FakeAlcanceCajaEvaluator(), new FakeCurrentUserPermissions());
         var response = await bandeja.Handle(new BandejaPedidosFacturablesQuery(EstadoPedidoFacturable.Importado, OrigenPedido.Manual, 0, 50), CancellationToken.None);
 
         response.Items.Should().HaveCount(2);
         response.Items.Should().OnlyContain(i => i.Estado == "Importado" && i.Origen == "Manual");
+    }
+
+    // 86e3tfd7j: la bandeja muestra el total con IVA (caja ve cuánto cobrará).
+    [Fact]
+    public async Task Bandeja_calcula_el_total_con_iva_por_linea()
+    {
+        var empresaId = Guid.NewGuid();
+        using var db = NewDb(empresaId);
+        var emisor = new EmpresaFiscalLectura(empresaId, "MIL010101ABC", "Millet", "601", 0.16m, "76120");
+        var crear = new CrearPedidoFacturableManualHandler(db, new FakeEmpresaContext(empresaId), new FakeUserContext(Guid.NewGuid()), new FakeProductosReadPort(), new FakeEmpresaFiscalReadPort(emisor), new FakeCurrentUserPermissions());
+        await crear.Handle(CrearCmd() with
+        {
+            Lineas =
+            [
+                new PedidoFacturableLineaInput(null, "A", "01010101", "H87", 1m, 600m, 0m, false),
+                new PedidoFacturableLineaInput(null, "B", "01010101", "H87", 1m, 400m, 0m, false),
+            ],
+        }, CancellationToken.None);
+
+        var bandeja = new BandejaPedidosFacturablesHandler(db, new FakeAlcanceCajaEvaluator(), new FakeCurrentUserPermissions());
+        var item = (await bandeja.Handle(new BandejaPedidosFacturablesQuery(null, null, 0, 50), CancellationToken.None)).Items.Single();
+
+        item.Total.Should().Be(1000m);
+        item.TotalConIva.Should().Be(1160m);
+    }
+
+    [Fact]
+    public async Task Bandeja_redondea_el_iva_por_linea_como_la_factura()
+    {
+        var empresaId = Guid.NewGuid();
+        using var db = NewDb(empresaId);
+        var emisor = new EmpresaFiscalLectura(empresaId, "MIL010101ABC", "Millet", "601", 0.16m, "76120");
+        var crear = new CrearPedidoFacturableManualHandler(db, new FakeEmpresaContext(empresaId), new FakeUserContext(Guid.NewGuid()), new FakeProductosReadPort(), new FakeEmpresaFiscalReadPort(emisor), new FakeCurrentUserPermissions());
+        await crear.Handle(CrearCmd() with
+        {
+            Lineas =
+            [
+                new PedidoFacturableLineaInput(null, "A", "01010101", "H87", 1m, 0.03m, 0m, false),
+                new PedidoFacturableLineaInput(null, "B", "01010101", "H87", 1m, 0.03m, 0m, false),
+            ],
+        }, CancellationToken.None);
+
+        var bandeja = new BandejaPedidosFacturablesHandler(db, new FakeAlcanceCajaEvaluator(), new FakeCurrentUserPermissions());
+        var item = (await bandeja.Handle(new BandejaPedidosFacturablesQuery(null, null, 0, 50), CancellationToken.None)).Items.Single();
+
+        // 0.03 × 0.16 = 0.0048 → 0.00 por línea (total 0.06); global daría 0.0096 → 0.07.
+        item.TotalConIva.Should().Be(0.06m);
+    }
+
+    [Fact]
+    public async Task Bandeja_sin_tasa_en_alguna_linea_deja_el_total_con_iva_vacio()
+    {
+        var empresaId = Guid.NewGuid();
+        using var db = NewDb(empresaId);
+        var crear = new CrearPedidoFacturableManualHandler(db, new FakeEmpresaContext(empresaId), new FakeUserContext(Guid.NewGuid()), new FakeProductosReadPort(), new FakeEmpresaFiscalReadPort(), new FakeCurrentUserPermissions());
+        await crear.Handle(CrearCmd(), CancellationToken.None);
+
+        var bandeja = new BandejaPedidosFacturablesHandler(db, new FakeAlcanceCajaEvaluator(), new FakeCurrentUserPermissions());
+        var item = (await bandeja.Handle(new BandejaPedidosFacturablesQuery(null, null, 0, 50), CancellationToken.None)).Items.Single();
+
+        item.Total.Should().Be(200m);
+        item.TotalConIva.Should().BeNull();
     }
 }

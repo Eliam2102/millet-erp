@@ -521,7 +521,7 @@ EF Core (ADR-0005). La migración inicial incluye seeds de:
 | `ICxpDocumentosReadPort` | Adapter en `CuentasPorPagar.Infrastructure.PublicAdapters` | **Primer puerto de lectura Almacén → CxP** (solo presentación, ADR-0042): resuelve `facturaId → folio del proveedor`, `cfdiRecibidoId → UUID fiscal del SAT` y `notaCreditoId → folio` para el detalle de recepción y de devolución 8.B. NO habilita lógica de negocio cruzada — la conciliación de la triada sigue viajando exclusivamente por eventos |
 | `ISucursalReadPort` | Adapter en `Administracion.Infrastructure` | Catálogo de sucursales |
 | `IEmpleadoReadPort` | ✅ `Compartido.Infrastructure.PublicAdapters.EmpleadoReadAdapter` sobre `compartido.empleados` (ADM-PR2, doc 10 de Administración) | Catálogo de empleados (responsables de conteos, solicitante de devolución interna). El destinatario de salidas sigue por `IUsuarioReadPort` (ADR-0042) |
-| `ITipoCambioReadPort` | Adapter en `Administracion.Infrastructure` | T/C del día (ADR-0014) |
+| `ITipoCambioReadPort` | `Compartido.Infrastructure.PublicAdapters.TipoCambioReadAdapter` (registrado en `Program.cs`, C1.2) sobre `compartido.tipos_cambio` | T/C de la fecha exacta (ADR-0014); sin T/C registrado devuelve `null`, nunca uno inventado |
 | `IConceptoContableReadPort` | Adapter en `Contabilidad.Infrastructure` (stub) | Mapeo concepto → cuenta |
 | `IPeriodoContableReadPort` | `Almacen.Infrastructure.PublicAdapters.PeriodoContableReadAdapter` → `Contabilidad.Application.PublicPorts.IPeriodoContableConsultaPort` | C1.2: solo periodo existente y abierto; conserva el cierre propio de inventario (D18) |
 

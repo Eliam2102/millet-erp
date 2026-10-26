@@ -55,6 +55,7 @@ import {
   type LineaComparativo,
   type PartidaComparativo,
 } from '@/features/compras/api/types';
+import { useCondicionesPago } from '@/features/catalogos/api';
 import { esApiError } from '@/lib/api';
 import { PermisosCanonicos } from '@/lib/auth/permission-codes';
 import { useHasPermission } from '@/lib/auth/useHasPermission';
@@ -93,6 +94,7 @@ function etiquetaPartida(p: PartidaComparativo) {
 export function ComparativoCotizaciones() {
   const { id } = useParams({ strict: false }) as { id: string };
   const query = useComparativoCotizaciones(id);
+  const condiciones = useCondicionesPago({ includeInactivas: true }).data;
   const [partidaId, setPartidaId] = useState<string | null>(null);
   const [seleccionadaId, setSeleccionadaId] = useState<string | null>(null);
   const [registrando, setRegistrando] = useState(false);
@@ -344,12 +346,33 @@ export function ComparativoCotizaciones() {
                           )}
                         </TableCell>
                         <TableCell className="text-xs">
-                          <div>{cot.condicionesCredito ?? '—'}</div>
+                          <div>
+                            Pago:{' '}
+                            {(() => {
+                              const c = condiciones?.find((x) => x.id === cot.condicionesPagoId);
+                              if (!c) return '—';
+                              return c.diasCredito > 0 ? `${c.nombre} (${c.diasCredito} días)` : c.nombre;
+                            })()}
+                          </div>
+                          {cot.condicionesCredito && (
+                            <div className="text-ink-muted">{cot.condicionesCredito}</div>
+                          )}
                           <div className="tabular-nums text-ink-muted">
                             {linea.diasEntrega !== null
                               ? `Entrega ${linea.diasEntrega} días`
                               : 'Entrega —'}
                           </div>
+                          <div className="tabular-nums text-ink-muted">
+                            Fecha de entrega:{' '}
+                            {cot.fechaEntrega ? (
+                              <DateTimeDisplay value={cot.fechaEntrega} variant="corta" />
+                            ) : (
+                              '—'
+                            )}
+                          </div>
+                          {!cot.condicionesPagoId && !cot.condicionesCredito && !cot.fechaEntrega && (
+                            <Badge variant="neutral">Sin condiciones</Badge>
+                          )}
                         </TableCell>
                         <TableCell>
                           <ArchivoCotizacion cot={cot} />

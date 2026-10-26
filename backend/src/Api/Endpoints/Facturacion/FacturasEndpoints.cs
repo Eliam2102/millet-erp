@@ -11,6 +11,7 @@ using Millet.Facturacion.Application.Comprobantes.Queries;
 using Millet.Facturacion.Application.Facturas.Queries;
 using Millet.Facturacion.Application.Facturas.ReenviarCfdiCorreo;
 using Millet.Facturacion.Domain.Comprobantes;
+using Millet.Facturacion.Domain.Pedidos;
 using Millet.Facturacion.Domain.Ports;
 using Millet.Identidad.Domain;
 
@@ -57,7 +58,7 @@ public static class FacturasEndpoints
                 return Results.Problem(statusCode: StatusCodes.Status428PreconditionRequired,
                     title: "Recarga la factura antes de guardar sus datos para el cliente.");
             var nuevaVersion = await mediator.Send(new EditarDatosClienteCommand(id, version,
-                body.OrdenCompraCliente, body.ReferenciaCliente, body.CondicionesPago, body.Proforma, body.Comentarios), cancellationToken);
+                body.OrdenCompraCliente, body.ReferenciaCliente, body.CondicionesPago, body.Proforma, body.Observaciones), cancellationToken);
             return Results.Ok(new { Version = nuevaVersion });
         })
         .RequireAuthorization(PermissionPolicyProvider.Prefix + PermisosCanonicos.FacturacionFacturasEmitir)
@@ -70,11 +71,13 @@ public static class FacturasEndpoints
             [FromQuery] int? offset,
             [FromQuery] int? limit,
             [FromQuery] string? alcance,
+            [FromQuery] ClasePedidoManual? clase,
             IMediator mediator,
             CancellationToken cancellationToken) =>
         {
+            // F6.1: ?clase=VentaDirecta|Emergencia filtra por la clase del pedido manual de origen.
             var response = await mediator.Send(
-                new BandejaFacturasQuery(estado, offset ?? 0, limit ?? 50, AlcanceParam.SoloSinAsignar(alcance)),
+                new BandejaFacturasQuery(estado, offset ?? 0, limit ?? 50, AlcanceParam.SoloSinAsignar(alcance), clase),
                 cancellationToken);
             return Results.Ok(response);
         })
@@ -188,7 +191,7 @@ public static class FacturasEndpoints
     }
 
     public sealed record DatosClienteRequest(string? OrdenCompraCliente, string? ReferenciaCliente,
-        string? CondicionesPago, string? Proforma, string? Comentarios);
+        string? CondicionesPago, string? Proforma, string? Observaciones);
 
     /// <summary>Body del reenvío de CFDI por correo.</summary>
     public sealed record ReenviarCfdiCorreoRequest(string Destinatario);

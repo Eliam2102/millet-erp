@@ -1,3 +1,4 @@
+import { LineaActivoFields } from '@/features/activos-fijos/components/LineaActivoFields';
 import { FormCampo } from '@/components/erp/forms/FormGrid';
 import { FormGrid } from '@/components/erp/forms/FormGrid';
 /* eslint-disable react-hooks/incompatible-library -- react-hook-form watch alimenta validación dinámica; React Compiler omite su memoización de forma segura. */
@@ -40,6 +41,7 @@ import {
   type LineaOrdenCompraResponse,
   type OrdenCompraDetalleResponse,
 } from '@/features/compras/ordenes/api/types';
+import { Naturaleza } from '@/features/compras/api/types';
 import { useAgregarLineaManual } from '@/features/compras/ordenes/api/useAgregarLineaManual';
 import { useActualizarLinea } from '@/features/compras/ordenes/api/useActualizarLinea';
 import type { ActualizarLineaValues } from '@/features/compras/ordenes/schemas/actualizar-linea';
@@ -106,6 +108,8 @@ function buildValuesFromLinea(linea: LineaOrdenCompraResponse): AgregarLineaManu
     textoAdicional: linea.textoAdicional ?? null,
     centroCostoId: linea.centroCostoId,
     fraccionArancelaria: linea.fraccionArancelaria ?? null,
+    esActivoFijo: linea.esActivoFijo ?? false,
+    claseActivoId: linea.claseActivoId ?? null,
   };
 }
 
@@ -141,6 +145,8 @@ export function LineaInlineFormOc({ oc, linea, onCancel, onSaved }: LineaInlineF
   const conflictDialog = useConflictDialog();
   const queryClient = useQueryClient();
   const [detallesAbiertos, setDetallesAbiertos] = useState(false);
+  // Un artículo de servicio no puede ser activo fijo.
+  const [articuloServicio, setArticuloServicio] = useState(linea?.esServicio ?? false);
 
   const defaultValues: AgregarLineaManualValues = esEditar
     ? buildValuesFromLinea(linea)
@@ -267,6 +273,8 @@ export function LineaInlineFormOc({ oc, linea, onCancel, onSaved }: LineaInlineF
             // Heredada → null (no se toca; el backend lo rechazaría). Manual →
             // el CC elegido. Fase E PR3.
             centroCostoId: lineaDesdeRq ? null : (values.centroCostoId ?? null),
+            esActivoFijo: values.esActivoFijo ?? false,
+            claseActivoId: values.esActivoFijo ? (values.claseActivoId ?? null) : null,
             // Solo en OC de comercio exterior: fuera de ella el API rechaza el campo.
             ...(oc.esImportacion
               ? comandoFraccion(values.fraccionArancelaria, linea.fraccionArancelaria)
@@ -363,6 +371,12 @@ export function LineaInlineFormOc({ oc, linea, onCancel, onSaved }: LineaInlineF
                         shouldValidate: true,
                       });
                       setUnidadMedidaIdSel(articulo.unidadMedidaId);
+                      const srv = articulo.naturaleza === Naturaleza.Servicio;
+                      setArticuloServicio(srv);
+                      if (srv) {
+                        form.setValue('esActivoFijo', false, { shouldDirty: true });
+                        form.setValue('claseActivoId', null, { shouldDirty: true });
+                      }
                     }}
                     disabled={lineaDesdeRq}
                     // En edición, etiqueta inicial desde el DTO enriquecido para no
@@ -571,6 +585,20 @@ export function LineaInlineFormOc({ oc, linea, onCancel, onSaved }: LineaInlineF
           )}
         </FormCampo>
       </FormGrid>
+
+      {!articuloServicio && (
+        <LineaActivoFields
+          // Con recepciones el backend rechaza cambiar el flag.
+          disabled={esEditar && (linea?.cantidadRecibida ?? 0) > 0}
+          error={form.formState.errors.claseActivoId?.message}
+          activo={form.watch('esActivoFijo') ?? false}
+          clase={form.watch('claseActivoId')}
+          onChange={(activo, clase) => {
+            form.setValue('esActivoFijo', activo, { shouldDirty: true });
+            form.setValue('claseActivoId', clase, { shouldDirty: true });
+          }}
+        />
+      )}
 
       {/* ── Toggle "+ Detalles" + actions ────────────────────────── */}
       <div className="flex flex-wrap items-center justify-between gap-2">

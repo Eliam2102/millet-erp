@@ -413,4 +413,34 @@ public class AwSolicitudesSqlReaderTests
         Assert.NotNull(datos);
         Assert.Equal(ComportamientoFiscal.MostradorInmediato, datos!.ComportamientoFiscal);
     }
+
+    // ------------------------------------------------------------------
+    // 86e3tfdw2: método y condición de pago del origen (pedidos a crédito)
+    // ------------------------------------------------------------------
+
+    [Fact]
+    public void Construir_TransfiereMetodoYCondicionDePagoDelOrigen()
+    {
+        var datos = Construir(
+            Cabecera() with { MetodoPago = "PPD", CondicionPago = "CRÉDITO 30 DÍAS" },
+            new[] { Linea() }, Array.Empty<ComponenteRow>(),
+            SucursalId, CanalVentaId, OpcionesCompletas(), NullLogger.Instance);
+
+        Assert.NotNull(datos);
+        Assert.Equal("PPD", datos!.MetodoPagoOrigen);
+        Assert.Equal("CRÉDITO 30 DÍAS", datos.CondicionPagoOrigen);
+    }
+
+    [Fact]
+    public void Construir_SinMetodoNiCondicion_DejaNull()
+    {
+        var datos = Construir(
+            Cabecera() with { MetodoPago = null, CondicionPago = null },
+            new[] { Linea() }, Array.Empty<ComponenteRow>(),
+            SucursalId, CanalVentaId, OpcionesCompletas(), NullLogger.Instance);
+
+        Assert.NotNull(datos);
+        Assert.Null(datos!.MetodoPagoOrigen);
+        Assert.Null(datos.CondicionPagoOrigen);
+    }
 }

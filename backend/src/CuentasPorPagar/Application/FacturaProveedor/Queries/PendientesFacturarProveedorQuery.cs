@@ -56,28 +56,32 @@ public sealed class PendientesFacturarProveedorHandler(
         var ids = ocs.Select(x => x.Oc.Id).ToList();
         var filas = await db.RecepcionesOcLocal.AsNoTracking()
             .Where(r => ids.Contains(r.OrdenCompraId))
-            .Select(r => new { r.OrdenCompraId, r.RecepcionId, r.FolioRecepcion, r.FechaMovimiento, r.FacturaPendiente, r.LineasJson })
+            .Select(r => new { r.OrdenCompraId, r.RecepcionId, r.FolioRecepcion, r.FechaMovimiento, r.FacturaPendiente, r.LineasJson, r.LineasOcAnuladas })
             .ToListAsync(cancellationToken);
         // Recepciones ya ligadas a una factura vigente: no se ofrecen de nuevo (la OC sigue saliendo si tiene saldo).
         var recepcionIds = filas.Select(r => r.RecepcionId).ToList();
         var ligadas = (await db.FacturasProveedor.AsNoTracking()
             .Where(f => f.RecepcionId != null && recepcionIds.Contains(f.RecepcionId.Value) && f.Estado != EstadoPasivo.Cancelada)
             .Select(f => f.RecepcionId!.Value).ToListAsync(cancellationToken)).ToHashSet();
-        var porOc = filas.Where(r => !ligadas.Contains(r.RecepcionId)).ToLookup(r => r.OrdenCompraId);
+        // Líneas anuladas (activos) no cuentan; una recepción cuyas líneas quedaron todas anuladas no se ofrece.
+        var vigentes = filas.Where(r => !ligadas.Contains(r.RecepcionId))
+            .Select(r => (Fila: r, Cantidad: CantidadRecibida(r.LineasJson, r.LineasOcAnuladas)))
+            .Where(x => x.Cantidad > 0 || x.Fila.LineasOcAnuladas.Count == 0).ToList();
+        var porOc = vigentes.ToLookup(x => x.Fila.OrdenCompraId);
 
         var resultado = ocs.Select(x => new OcPendienteFacturar(
             x.Oc.Id, x.Oc.Folio, x.Oc.SucursalId, x.Oc.Moneda, x.Oc.Total, x.PorFacturar,
-            porOc[x.Oc.Id].OrderByDescending(r => r.FechaMovimiento)
-                .Select(r => new RecepcionPendiente(r.RecepcionId, r.FolioRecepcion, r.FechaMovimiento,
-                    CantidadRecibida(r.LineasJson),
-                    r.FacturaPendiente)).ToList())).ToList();
+            porOc[x.Oc.Id].OrderByDescending(r => r.Fila.FechaMovimiento)
+                .Select(x => new RecepcionPendiente(x.Fila.RecepcionId, x.Fila.FolioRecepcion, x.Fila.FechaMovimiento,
+                    x.Cantidad, x.Fila.FacturaPendiente)).ToList())).ToList();
         return new(proveedor.Id, proveedor.RazonSocial, resultado);
     }
 
     // Una fila con líneas mal formadas no debe tumbar todo el panel: se muestra con cantidad 0.
-    private static decimal CantidadRecibida(string lineasJson)
+    private static decimal CantidadRecibida(string lineasJson, List<Guid> anuladas)
     {
-        try { return (JsonSerializer.Deserialize<List<LineaRecepcionPayload>>(lineasJson, JsonOptions) ?? []).Sum(l => l.Cantidad); }
+        try { return (JsonSerializer.Deserialize<List<LineaRecepcionPayload>>(lineasJson, JsonOptions) ?? [])
+            .Where(l => l.LineaOcId is not Guid g || !anuladas.Contains(g)).Sum(l => l.Cantidad); }
         catch (JsonException) { return 0; }
     }
 }

@@ -42,6 +42,7 @@ public static class DependencyInjection
         // con `CuentasPorPagar:Cfdi:BlobStorage:ConnectionString` configurada
         // (KV en QA/Prod) se usa Azure Blob real; sin ella, el stub filesystem
         // local (dev). Cierra PLATFORM-TODO(<CfdiBlobStorage>).
+        services.AddScoped<Millet.CuentasPorPagar.Application.PublicPorts.ICapitalizacionProveedorReadPort, PublicAdapters.CapitalizacionProveedorReadAdapter>();
         services.AddSingleton<IXmlCfdiParser, XmlCfdiParser>();
         services
             .AddOptions<LocalFilesystemCfdiBlobStorageOptions>()
@@ -120,9 +121,11 @@ public static class DependencyInjection
         services.AddScoped<IEmpleadoReadPort, Adapters.EmpleadoReadPortAdapter>();
         services.AddScoped<IPuestoReadPort, Adapters.PuestoReadPortAdapter>();
         services.AddScoped<IDependenciaRevisoraReadPort, Adapters.DependenciaRevisoraReadPortAdapter>();
-        services.AddScoped<ITipoCambioReadPort, NoOpTipoCambioReadPort>();
+        // C1.2: TC real desde compartido.tipos_cambio (cierra <TipoCambioReadPort>).
+        services.AddScoped<ITipoCambioReadPort, Adapters.TipoCambioReadPortAdapter>();
         services.AddScoped<IProveedorReadPort, Adapters.ProveedorReadPortAdapter>();
         services.AddScoped<Domain.Ports.Administracion.IToleranciaGeneralReadPort, Adapters.ToleranciaGeneralReadPortAdapter>();
+        services.AddScoped<Domain.Ports.Administracion.IToleranciaTarjetasReadPort, Adapters.ToleranciaTarjetasReadPortAdapter>();
         services.AddScoped<IArticuloReadPort, NoOpArticuloReadPort>();
         // F5-PR1: ComprasOcReadPort y AlmacenRecepcionReadPort tienen
         // adapter real ahora; los NoOp* se conservan en código pero

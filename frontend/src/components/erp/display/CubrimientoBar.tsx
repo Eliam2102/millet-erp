@@ -40,16 +40,23 @@ export interface CubrimientoBarProps {
   cantDeAlmacen: number;
   /** Ordenada en OC (incluye recibido y pendiente recepción). */
   cantDeCompra: number;
+  /**
+   * Ya comprometida en OCs no canceladas (CantComprometidaEnOc del backend). Sin este dato
+   * se asume que todo lo ordenado ya está en OC.
+   */
+  cantEnOc?: number;
   /** De la cantDeCompra, cuánto ya se recibió. */
   cantRecibida: number;
-  /** Cantidad sin asignar/ordenar todavía (= cantidad - alm - oc). */
+  /** Pendiente según el backend. No se pinta: «sin comprar» se deriva (cantidad - alm - OC). */
   cantPendiente: number;
+  /** Apartado liberado que ya no se pide ni se compra (86e3tferc). */
+  cantSinCompra?: number;
   className?: string;
 }
 
 interface Segmento {
   /** Identificador para keys / data attrs. */
-  id: 'almacen' | 'recibida' | 'pendienteRecepcion' | 'pendienteCompra';
+  id: 'almacen' | 'recibida' | 'pendienteRecepcion' | 'pendienteCompra' | 'sinCompra';
   /** Etiqueta corta visible en el tooltip y aria. */
   label: string;
   /** Cantidad en este segmento. */
@@ -66,13 +73,17 @@ export function CubrimientoBar({
   cantidad,
   cantDeAlmacen,
   cantDeCompra,
+  cantEnOc,
   cantRecibida,
-  cantPendiente,
+  cantSinCompra = 0,
   className,
 }: CubrimientoBarProps) {
   // El backend nos da campos brutos; calculamos derivados acá.
-  // cantDeCompra incluye la recibida y la pendiente de recepción.
-  const cantPendienteRecepcion = Math.max(0, cantDeCompra - cantRecibida);
+  const enOc = Math.max(cantEnOc ?? cantDeCompra, cantRecibida);
+  const cantPendienteRecepcion = Math.max(0, enOc - cantRecibida);
+  // El cantPendiente del backend también cuenta lo que ya está en OC sin recibir:
+  // pintarlo duplicaba la OC («24 OC · 24 pend»).
+  const cantPendiente = Math.max(0, cantidad - cantDeAlmacen - enOc - cantSinCompra);
 
   // Para evitar divisiones por cero cuando cantidad=0 (raro pero posible).
   const total = Math.max(1, cantidad);
@@ -114,6 +125,14 @@ export function CubrimientoBar({
       pattern:
         'repeating-linear-gradient(45deg, rgba(0,0,0,0.25) 0 1px, transparent 1px 6px), repeating-linear-gradient(-45deg, rgba(0,0,0,0.25) 0 1px, transparent 1px 6px)',
     },
+    {
+      id: 'sinCompra',
+      label: 'liberado sin compra',
+      valor: cantSinCompra,
+      pct: pct(cantSinCompra),
+      bgClass: 'bg-surface-page',
+      pattern: 'repeating-linear-gradient(90deg, rgba(0,0,0,0.2) 0 1px, transparent 1px 4px)',
+    },
   ];
 
   // Etiqueta numérica visible al lado de la barra (no depende de hover).
@@ -121,9 +140,10 @@ export function CubrimientoBar({
   const inline = formatearInline({
     cantidad,
     cantDeAlmacen,
-    cantDeCompra,
+    cantDeCompra: enOc,
     cantRecibida,
     cantPendiente,
+    cantSinCompra,
   });
 
   // Aria-label: misma info pero en frase legible para screen readers.
@@ -133,6 +153,7 @@ export function CubrimientoBar({
     cantPendienteRecepcion,
     cantRecibida,
     cantPendiente,
+    cantSinCompra,
   });
 
   // Backgroundsize default para los patrones.
@@ -215,6 +236,7 @@ interface InlineArgs {
   cantDeCompra: number;
   cantRecibida: number;
   cantPendiente: number;
+  cantSinCompra: number;
 }
 
 function formatearInline({
@@ -223,6 +245,7 @@ function formatearInline({
   cantDeCompra,
   cantRecibida,
   cantPendiente,
+  cantSinCompra,
 }: InlineArgs): string {
   const partes: string[] = [`${fmt(cantidad)} total`];
   if (cantDeAlmacen > 0) partes.push(`${fmt(cantDeAlmacen)} alm`);
@@ -235,6 +258,7 @@ function formatearInline({
     }
   }
   if (cantPendiente > 0) partes.push(`${fmt(cantPendiente)} pend`);
+  if (cantSinCompra > 0) partes.push(`${fmt(cantSinCompra)} sin compra`);
   return partes.join(' · ');
 }
 
@@ -244,6 +268,7 @@ interface AriaArgs {
   cantPendienteRecepcion: number;
   cantRecibida: number;
   cantPendiente: number;
+  cantSinCompra: number;
 }
 
 function formatearAria({
@@ -252,6 +277,7 @@ function formatearAria({
   cantPendienteRecepcion,
   cantRecibida,
   cantPendiente,
+  cantSinCompra,
 }: AriaArgs): string {
   const partes: string[] = [`Cubrimiento de ${fmt(cantidad)}`];
   if (cantDeAlmacen > 0)
@@ -262,6 +288,8 @@ function formatearAria({
     partes.push(`${fmt(cantPendienteRecepcion)} pendiente de recepción`);
   if (cantPendiente > 0)
     partes.push(`${fmt(cantPendiente)} pendiente de compra`);
+  if (cantSinCompra > 0)
+    partes.push(`${fmt(cantSinCompra)} liberado sin compra`);
   if (cantPendiente === 0 && cantPendienteRecepcion === 0) {
     partes.push('línea cubierta');
   }

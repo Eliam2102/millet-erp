@@ -29,15 +29,8 @@ public sealed class NoOpStubsTests
     // sus adapters reales (Adapters.EmpleadoReadPortAdapter /
     // PuestoReadPortAdapter) se cubren en Adapters/PuestoEmpleadoReadAdaptersTests.
 
-    [Fact]
-    public async Task NoOpTipoCambioReadPort_devuelve_1_para_misma_moneda_y_null_en_otra_combinacion()
-    {
-        var port = new NoOpTipoCambioReadPort(NullLogger<NoOpTipoCambioReadPort>.Instance);
-        var fecha = new DateOnly(2026, 5, 22);
-
-        (await port.ObtenerAsync("MXN", "MXN", fecha, CancellationToken.None)).Should().Be(1m);
-        (await port.ObtenerAsync("USD", "MXN", fecha, CancellationToken.None)).Should().BeNull();
-    }
+    // NoOpTipoCambioReadPort retirado en C1.2 — su adapter real
+    // (Adapters.TipoCambioReadPortAdapter) se cubre en Adapters/TipoCambioReadPortAdapterTests.
 
     [Fact]
     public async Task NoOpProveedorReadPort_devuelve_null()

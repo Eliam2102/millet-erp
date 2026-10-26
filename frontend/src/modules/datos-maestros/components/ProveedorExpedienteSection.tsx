@@ -87,14 +87,14 @@ export function ProveedorExpedienteSection({
   if (expediente.isError) {
     const problem = esApiError(expediente.error) ? expediente.error.problem : undefined;
     return (
-      <div className="mt-4 max-w-3xl">
+      <div className="mt-4">
         <ErrorState problem={problem} onRetry={() => expediente.refetch()} />
       </div>
     );
   }
   if (expediente.isLoading || expediente.data == null) {
     return (
-      <div className="mt-4 max-w-3xl">
+      <div className="mt-4">
         <TableSkeleton
           rows={5}
           columns={[{ width: 'w-48' }, { width: 'w-24' }, { width: 'w-32' }]}
@@ -111,7 +111,7 @@ export function ProveedorExpedienteSection({
     <section
       id="expediente-proveedor"
       aria-labelledby="expediente-titulo"
-      className="mt-4 max-w-3xl rounded-lg bg-surface-card p-4 shadow-card-flat"
+      className="mt-4 rounded-lg bg-surface-card p-4 shadow-card-flat"
       data-component="proveedor-expediente"
     >
       <div className="mb-3 flex flex-wrap items-center justify-between gap-2">

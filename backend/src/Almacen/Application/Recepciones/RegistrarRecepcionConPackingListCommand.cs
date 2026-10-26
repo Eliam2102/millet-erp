@@ -47,7 +47,7 @@ public sealed record RegistrarRecepcionConPackingListCommand(
     // líneas vacías en el sheet). Opcional — null = no usó el helper. Solo
     // reportería; la ubicación efectiva de cada línea viaja en cada
     // RegistrarRecepcionLineaInput.UbicacionId y es la que manda.
-    Guid? UbicacionHelperId = null) : IRequest<RegistrarRecepcionResponse>;
+    Guid? UbicacionHelperId = null, ImportacionRecepcionInput? Importacion = null) : IRequest<RegistrarRecepcionResponse>;
 
 public sealed class RegistrarRecepcionConPackingListValidator
     : AbstractValidator<RegistrarRecepcionConPackingListCommand>
@@ -68,9 +68,7 @@ public sealed class RegistrarRecepcionConPackingListValidator
             linea.RuleFor(l => l.ArticuloId).NotEqual(Guid.Empty);
             linea.RuleFor(l => l.Cantidad).GreaterThan(0);
             linea.RuleFor(l => l.UnidadCapturada).MaximumLength(20);
-            linea.RuleFor(l => l.UbicacionId)
-                .NotNull().NotEqual(Guid.Empty)
-                .WithMessage("La ubicación (rack) es obligatoria en la entrada.");
+
             linea.RuleFor(l => l.UbicacionReferencia!).MaximumLength(100)
                 .When(l => l.UbicacionReferencia is not null);
             linea.RuleFor(l => l.Comentario!).MaximumLength(500)
@@ -143,6 +141,7 @@ public sealed class RegistrarRecepcionConPackingListHandler
         var equivalentes = request.Lineas.Select((l, i) => l with { Cantidad = conversiones[i].CantidadDocumento }).ToList();
         var validada = await RecepcionOcGuard.ValidarAsync(oc, equivalentes, recibidoPropio, cancellationToken);
         var lineasOc = validada.Lineas;
+        var importacion = ImportacionRecepcionGuard.Crear(oc!, request.Importacion, request.Lineas);
 
         // ADR-0046 Etapa 2: valida los decimales de cada línea contra la unidad
         // del artículo (FK NULL → no valida). Batch, un solo round-trip.
@@ -180,8 +179,24 @@ public sealed class RegistrarRecepcionConPackingListHandler
         for (var idx = 0; idx < request.Lineas.Count; idx++)
         {
             var input = request.Lineas[idx];
+            var afOrigen = lineasOc[input.LineaOcId!.Value];
+            if (afOrigen.EsActivoFijo)
+            {
+                var cantidadActivo = conversiones[idx].CantidadDocumento;
+                if (cantidadActivo != decimal.Truncate(cantidadActivo) || input.CantidadDanada != 0 || afOrigen.ClaseActivoId is null)
+                    throw new BusinessRuleException("RECEPCION_ACTIVO_INVALIDO", "Reciba unidades enteras de activos con clase, sin cantidad dañada.");
+                var afId = Guid.CreateVersion7();
+                _db.RecepcionesActivos.Add(new RecepcionActivo(afId, empresaId, movimientoId, request.OrdenCompraId, afOrigen.LineaId, cantidadActivo));
+                payloadLineas.Add(new LineaRecepcionPayload(afId, afOrigen.LineaId, input.ArticuloId, afOrigen.UnidadMedida, cantidadActivo,
+                    afOrigen.PrecioUnitarioMxn, decimal.Round(cantidadActivo * afOrigen.PrecioUnitarioMxn, 2), Guid.Empty,
+                    CantidadRecibidaAcumulada: validada.RecibidoPorLinea[afOrigen.LineaId] + equivalentes.Where(e => e.LineaOcId == afOrigen.LineaId).Sum(e => e.Cantidad),
+                    EsActivoFijo: true, ClaseActivoId: afOrigen.ClaseActivoId, CentroCostoId: afOrigen.CentroCostoId));
+                continue;
+            }
             // C7.2b: bin real obligatorio + asignación activa + no ÚNICA. Sin
             // sub de cabecera: el guard DERIVA el sub del bin y lo retorna.
+            if (input.UbicacionId is null || input.UbicacionId == Guid.Empty)
+                throw new BusinessRuleException("RECEPCION_UBICACION_REQUERIDA", "La línea de inventario requiere ubicación (rack).");
             var subLinea = await UbicacionEntradaGuard.ValidarEntradaYDerivarSubAsync(
                 _db, input.UbicacionId!.Value, input.ArticuloId, cancellationToken);
             subsDerivados.Add(subLinea);
@@ -273,6 +288,20 @@ public sealed class RegistrarRecepcionConPackingListHandler
             }
         }
 
+        if (payloadLineas.All(x => x.EsActivoFijo))
+        {
+            if (importacion is not null) { importacion.VincularRecepcion(movimientoId); _db.RecepcionesImportacion.Add(importacion); }
+            // Sin bin no hay almacén que comparar: la sucursal destino de la OC la verifica el endpoint (alcance del usuario sobre la OC o permiso de todas las sucursales).
+            var folioActivo = await Catalogo.FolioMovimientoLock.SiguienteEntradaCompraAsync(_db, request.FechaMovimiento.Year, cancellationToken);
+            foreach (var ra in _db.RecepcionesActivos.Local.Where(x => x.RecepcionId == movimientoId)) ra.Folio = folioActivo;
+            await _events.PublishAsync(new OcRecepcionRegistradaIntegrationEvent(empresaId, DateTimeOffset.UtcNow,
+                movimientoId, folioActivo, request.OrdenCompraId, request.FechaMovimiento, true, null, null,
+                request.Observaciones, payloadLineas, SucursalId: oc!.SucursalDestinoId), cancellationToken);
+            await _db.SaveChangesAsync(cancellationToken);
+            if (transaccion is not null) await transaccion.CommitAsync(cancellationToken);
+            return new RegistrarRecepcionResponse(movimientoId, folioActivo);
+        }
+
         // Invariante 'un movimiento = un sub-almacén': el sub se deriva del bin
         // de cada línea y se compara. El trigger MOVIMIENTO_MULTI_SUBALMACEN es
         // el backstop (23514 genérico); acá lo adelantamos con mensaje legible.
@@ -288,6 +317,9 @@ public sealed class RegistrarRecepcionConPackingListHandler
 
         // ALM-04: principal efectivo = el de lo disponible; si todo llegó dañado, el de revisión.
         var principal = movimiento.Lineas.Count > 0 ? movimiento : movimientoRevision!;
+        if (importacion is not null) { importacion.VincularRecepcion(principal.Id); _db.RecepcionesImportacion.Add(importacion); }
+        foreach (var recepcionActivo in _db.RecepcionesActivos.Local.Where(x => x.RecepcionId == movimientoId))
+            recepcionActivo.VincularRecepcion(principal.Id);
         if (movimientoRevision is not null && ReferenceEquals(principal, movimiento))
             movimientoRevision.VincularRecepcionPrincipal(movimiento.Id);
         else if (!string.IsNullOrWhiteSpace(request.Observaciones))
@@ -313,6 +345,7 @@ public sealed class RegistrarRecepcionConPackingListHandler
             m!.Registrar(FolioMovimiento.Construir(TipoMovimiento.EntradaCompra, anio, secuencia.Incrementar()), registradoPor);
             _db.Movimientos.Add(m);
         }
+        foreach (var ra in _db.RecepcionesActivos.Local.Where(x => x.RecepcionId == principal.Id)) ra.Folio = principal.Folio;
 
         // 7. Evento con FacturaPendiente=true (variante B).
         await _events.PublishAsync(new OcRecepcionRegistradaIntegrationEvent(

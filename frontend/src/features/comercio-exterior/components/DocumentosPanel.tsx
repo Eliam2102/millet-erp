@@ -69,7 +69,7 @@ export function DocumentosPanel({ data }: { data: ExpedienteDetalle }) {
   );
   return (
     <section className="space-y-5">
-      {subir && data.expediente.tipo === 2 && (
+      {subir && (
         <div className="space-y-1.5">
           <FormCampo span={6} className="space-y-1.5">
             <Label htmlFor="ce-doc-numero-pedimento">
@@ -189,6 +189,7 @@ export function DocumentosPanel({ data }: { data: ExpedienteDetalle }) {
                     className="flex flex-wrap items-center gap-2 border-t border-line-row pt-2 text-xs"
                   >
                     <span>Versión {d.numeroVersion}</span>
+                    {d.numeroPedimento && <span>Pedimento: {d.numeroPedimento}</span>}
                     <Badge
                       variant={
                         estadosDocumento[

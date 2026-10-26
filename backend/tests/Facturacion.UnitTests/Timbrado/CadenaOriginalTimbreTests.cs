@@ -22,6 +22,15 @@ public sealed class CadenaOriginalTimbreTests
         Assert.Equal("00000000000000000001", CadenaOriginalTimbre.CertificadoEmisorDesde(Xml(atributo)));
     }
 
+    [Fact]
+    public void Xml_con_bom_conserva_cadena_uuid_y_certificado()
+    {
+        var xml = "\uFEFF" + Xml();
+        Assert.Equal(CadenaOriginalTimbre.Desde(Xml()), CadenaOriginalTimbre.Desde(xml));
+        Assert.Equal("11111111-1111-1111-1111-111111111111", CadenaOriginalTimbre.UuidDesde(xml));
+        Assert.Equal("00000000000000000001", CadenaOriginalTimbre.CertificadoEmisorDesde(xml));
+    }
+
     [Theory]
     [InlineData(null)]
     [InlineData("")]

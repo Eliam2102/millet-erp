@@ -33,6 +33,34 @@ public sealed class FacturaVenta : Comprobante
     /// <summary>Autorización previa (venta de activo fijo, §7.8). Null por default.</summary>
     public Guid? AutorizacionId { get; private set; }
 
+    public const int ObservacionesMaxLength = 1000;
+
+    /// <summary>
+    /// Observaciones de la factura (86e3tfdw2): nota libre del cajero,
+    /// prellenada con los anticipos aplicados. Se imprime en el PDF y
+    /// <b>jamás</b> llega al XML del CFDI (mismo trato que la Obra, §7.4).
+    /// </summary>
+    public string? Observaciones { get; private set; }
+
+    /// <summary>
+    /// Fija las observaciones (≤ <see cref="ObservacionesMaxLength"/>). Vacía =
+    /// sin observaciones. Solo antes de timbrar (Borrador/PendientePedimento):
+    /// el PDF es la representación impresa del CFDI y no cambia después.
+    /// </summary>
+    public void FijarObservaciones(string? texto)
+    {
+        if (Estado is not (EstadoTimbrado.Borrador or EstadoTimbrado.PendientePedimento))
+            throw new BusinessRuleException("FACTURA_INMUTABLE",
+                $"No se pueden cambiar las observaciones de una factura en estado {Estado}.");
+
+        var limpio = string.IsNullOrWhiteSpace(texto) ? null : texto.Trim();
+        if (limpio is { Length: > ObservacionesMaxLength })
+            throw new BusinessRuleException("FACTURA_OBSERVACIONES_LARGAS",
+                $"Las observaciones no pueden exceder {ObservacionesMaxLength} caracteres.");
+
+        Observaciones = limpio;
+    }
+
     private readonly List<FacturaVentaLinea> _lineas = [];
     public IReadOnlyCollection<FacturaVentaLinea> Lineas => _lineas.AsReadOnly();
 
@@ -51,7 +79,6 @@ public sealed class FacturaVenta : Comprobante
     public string? ReferenciaCliente { get; private set; }
     public string? CondicionesPago { get; private set; }
     public string? Proforma { get; private set; }
-    public string? Comentarios { get; private set; }
 
     // Calculados desde las partidas: no se persisten acumulados duplicados.
     public decimal TotalKg => Lineas.Sum(l => l.PesoKg ?? 0m);
@@ -59,7 +86,7 @@ public sealed class FacturaVenta : Comprobante
     public decimal TotalPiezas => Lineas.Sum(l => l.Cantidad);
 
     public void EditarDatosCliente(string? ordenCompraCliente, string? referenciaCliente,
-        string? condicionesPago, string? proforma, string? comentarios)
+        string? condicionesPago, string? proforma, string? observaciones)
     {
         if (Uuid is not null || Estado is not (EstadoTimbrado.Borrador or EstadoTimbrado.TimbradoFallido or EstadoTimbrado.PendientePedimento))
             throw new BusinessRuleException("FACTURA_INMUTABLE", "Los datos para el cliente solo se pueden editar antes del timbrado y fuera de un intento en proceso.");
@@ -68,12 +95,12 @@ public sealed class FacturaVenta : Comprobante
         var referencia = DatosImpresion.Texto(referenciaCliente, 60, "Referencia del cliente");
         var condiciones = DatosImpresion.Texto(condicionesPago, 60, "Condiciones de pago");
         var proformaValidada = DatosImpresion.Texto(proforma, 40, "Proforma");
-        var comentario = DatosImpresion.Texto(comentarios, 1000, "Comentarios");
+        var comentario = DatosImpresion.Texto(observaciones, ObservacionesMaxLength, "Observaciones");
         OrdenCompraCliente = oc;
         ReferenciaCliente = referencia;
         CondicionesPago = condiciones;
         Proforma = proformaValidada;
-        Comentarios = comentario;
+        Observaciones = observaciones is null ? null : comentario ?? "";
     }
 
     private FacturaVenta() { }

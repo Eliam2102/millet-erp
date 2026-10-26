@@ -37,6 +37,7 @@ public sealed class ComprasDbContext : BaseDbContext
     public DbSet<LineaCotizacion> LineasCotizacion => Set<LineaCotizacion>();
 
     // --- Submódulo Órdenes de Compra (F1-PR1, F2-PR1, F2-PR4, F3-PR1, F3-PR2) ---
+    public DbSet<EnvioOc> EnviosOc => Set<EnvioOc>();
     public DbSet<OrdenCompra> OrdenesCompra => Set<OrdenCompra>();
     public DbSet<FolioSecuenciaOc> FolioSecuenciasOc => Set<FolioSecuenciaOc>();
     public DbSet<LineaOrdenCompra> LineasOrdenCompra => Set<LineaOrdenCompra>();
@@ -44,6 +45,8 @@ public sealed class ComprasDbContext : BaseDbContext
     public DbSet<AdjuntoOC> AdjuntosOc => Set<AdjuntoOC>();
     public DbSet<AutorizacionOC> AutorizacionesOc => Set<AutorizacionOC>();
     public DbSet<RespuestaProveedorOc> RespuestasProveedorOc => Set<RespuestaProveedorOc>();
+    public DbSet<IncidenciaProveedorOc> IncidenciasProveedorOc => Set<IncidenciaProveedorOc>();
+    public DbSet<AvisoIncidenciaProveedorOc> AvisosIncidenciaProveedorOc => Set<AvisoIncidenciaProveedorOc>();
     public DbSet<RegimenFiscalArticulo> RegimenesFiscalesArticulo => Set<RegimenFiscalArticulo>();
     public DbSet<OrdenCompraPdf> OrdenCompraPdfs => Set<OrdenCompraPdf>();
 
@@ -90,6 +93,7 @@ public sealed class ComprasDbContext : BaseDbContext
 
         // Submódulo Órdenes de Compra (F1-PR1, F2-PR1, F2-PR4, F3-PR1, F3-PR2).
         modelBuilder.ApplyConfiguration(new OrdenCompraConfiguration());
+        modelBuilder.ApplyConfiguration(new EnvioOcConfiguration());
         modelBuilder.ApplyConfiguration(new FolioSecuenciaOcConfiguration());
         modelBuilder.ApplyConfiguration(new LineaOrdenCompraConfiguration());
         modelBuilder.ApplyConfiguration(new TipoDocumentoOcConfiguration());
@@ -98,6 +102,9 @@ public sealed class ComprasDbContext : BaseDbContext
         modelBuilder.ApplyConfiguration(new SolicitudCancelacionOcConfiguration());
         modelBuilder.ApplyConfiguration(new RespuestaProveedorOcConfiguration());
         modelBuilder.ApplyConfiguration(new CompromisoEntregaOcConfiguration());
+        modelBuilder.ApplyConfiguration(new IncidenciaProveedorOcConfiguration());
+        modelBuilder.ApplyConfiguration(new CompromisoIncidenciaOcConfiguration());
+        modelBuilder.ApplyConfiguration(new AvisoIncidenciaProveedorOcConfiguration());
         modelBuilder.ApplyConfiguration(new RegimenFiscalArticuloConfiguration());
         modelBuilder.ApplyConfiguration(new OrdenCompraPdfConfiguration());
     }

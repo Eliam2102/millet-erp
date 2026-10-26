@@ -1,8 +1,12 @@
-import { useQuery } from '@tanstack/react-query';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { apiRequest } from '@/lib/api';
-import { cxcKeys } from '@/features/cxc/api/keys';
+import { cxcKeys, type AplicacionesAnticipoFiltros } from '@/features/cxc/api/keys';
 import type {
   AnticipoSaldoClienteItem,
+  AplicacionesAnticipoResponse,
+  EnviarEstadoCuentaArgs,
+  EstadoCuentaEnvioItem,
+  PendientesEstadoCuentaResponse,
   ReporteCxcBackend,
 } from '@/features/cxc/api/types';
 
@@ -80,6 +84,91 @@ export function useAnticiposCliente(clienteId: string | null) {
         { signal },
       );
       return data;
+    },
+  });
+}
+
+/**
+ * <c>useAplicacionesAnticipo(filtros)</c> — anticipos con su aplicación a la
+ * factura final (F1-CXC-05, solo consulta). Sin <c>clienteId</c> lista
+ * todos los clientes con anticipos; el backend filtra por las sucursales del
+ * usuario (ADR-0051).
+ */
+export function useAplicacionesAnticipo(filtros: AplicacionesAnticipoFiltros) {
+  const normalizados: AplicacionesAnticipoFiltros = {};
+  if (filtros.clienteId) normalizados.clienteId = filtros.clienteId;
+  if (filtros.estado) normalizados.estado = filtros.estado;
+  return useQuery<AplicacionesAnticipoResponse>({
+    queryKey: cxcKeys.aplicacionesAnticipo(normalizados),
+    queryFn: async ({ signal }) => {
+      const qs = new URLSearchParams(normalizados as Record<string, string>).toString();
+      const { data } = await apiRequest<AplicacionesAnticipoResponse>(
+        qs ? `${BASE}/anticipos/aplicaciones?${qs}` : `${BASE}/anticipos/aplicaciones`,
+        { signal },
+      );
+      return data;
+    },
+  });
+}
+
+/**
+ * <c>usePendientesEstadoCuenta(clienteId)</c> — pagos que impiden emitir
+ * el estado de cuenta (F1-CXC-09 · C7.8, CA7.14): sin REP o con REP aún
+ * no reflejado en cartera. También trae el correo del cliente para
+ * prellenar el envío.
+ */
+export function usePendientesEstadoCuenta(clienteId: string | null) {
+  return useQuery<PendientesEstadoCuentaResponse>({
+    queryKey: cxcKeys.estadoCuentaPendientes(clienteId ?? ''),
+    enabled: clienteId != null,
+    queryFn: async ({ signal }) => {
+      const { data } = await apiRequest<PendientesEstadoCuentaResponse>(
+        `${BASE}/cartera/estado-cuenta/${clienteId}/pendientes`,
+        { signal },
+      );
+      return data;
+    },
+  });
+}
+
+/** <c>useEnviosEstadoCuenta(clienteId)</c> — historial de envíos (C7.8), más reciente primero. */
+export function useEnviosEstadoCuenta(clienteId: string | null) {
+  return useQuery<EstadoCuentaEnvioItem[]>({
+    queryKey: cxcKeys.estadoCuentaEnvios(clienteId ?? ''),
+    enabled: clienteId != null,
+    queryFn: async ({ signal }) => {
+      const { data } = await apiRequest<EstadoCuentaEnvioItem[]>(
+        `${BASE}/cartera/estado-cuenta/${clienteId}/envios`,
+        { signal },
+      );
+      return data;
+    },
+  });
+}
+
+/**
+ * <c>useEnviarEstadoCuenta()</c> — POST multipart del PDF generado en el
+ * navegador (ADR-0036) con destinatario y mensaje. Cada envío lleva su
+ * propia Idempotency-Key (ADR-0020). El backend recalcula el bloqueo y
+ * responde 422 <c>ESTADO_CUENTA_REPP_PENDIENTE</c> si apareció un pago sin REP.
+ */
+export function useEnviarEstadoCuenta() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (args: EnviarEstadoCuentaArgs) => {
+      const formData = new FormData();
+      formData.append('destinatario', args.destinatario);
+      if (args.mensaje) formData.append('mensaje', args.mensaje);
+      formData.append('pdf', args.pdf, args.nombreArchivo);
+      const { data } = await apiRequest<EstadoCuentaEnvioItem>(
+        `${BASE}/cartera/estado-cuenta/${args.clienteId}/envios`,
+        { method: 'POST', body: formData, idempotencyKey: crypto.randomUUID() },
+      );
+      return data;
+    },
+    onSettled: (_data, _error, vars) => {
+      queryClient.invalidateQueries({ queryKey: cxcKeys.estadoCuentaEnvios(vars.clienteId) });
+      queryClient.invalidateQueries({ queryKey: cxcKeys.estadoCuentaPendientes(vars.clienteId) });
     },
   });
 }

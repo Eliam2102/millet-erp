@@ -107,6 +107,21 @@ const CASOS: Caso[] = [
     inlineIncluye: ['10 total', '10 OC (10 rec)'],
     segmentosVisibles: ['recibida'],
   },
+  {
+    // Regresión demo 19-oct: cantPendiente del backend = 24 aunque la OC ya cubre las 24.
+    nombre: 'OC emitida sin recibir con el pendiente del backend',
+    props: { cantidad: 24, cantDeAlmacen: 0, cantDeCompra: 24, cantRecibida: 0, cantPendiente: 24 },
+    ariaIncluye: ['24 pendiente de recepción'],
+    inlineIncluye: ['24 total', '24 OC'],
+    segmentosVisibles: ['pendienteRecepcion'],
+  },
+  {
+    nombre: 'destinada a compra sin OC',
+    props: { cantidad: 24, cantDeAlmacen: 0, cantDeCompra: 24, cantEnOc: 0, cantRecibida: 0, cantPendiente: 24 },
+    ariaIncluye: ['24 pendiente de compra'],
+    inlineIncluye: ['24 total', '24 pend'],
+    segmentosVisibles: ['pendienteCompra'],
+  },
 ];
 
 describe('<CubrimientoBar> — escenarios parametrizados', () => {
@@ -194,5 +209,13 @@ describe('<CubrimientoBar> — accesibilidad (axe-core)', () => {
     }
 
     expect(results.violations).toHaveLength(0);
+  });
+
+  it('muestra lo liberado sin compra como segmento propio (86e3tferc)', () => {
+    render(
+      <CubrimientoBar cantidad={5} cantDeAlmacen={1} cantDeCompra={2} cantRecibida={0} cantPendiente={2} cantSinCompra={2} />,
+    );
+    expect(screen.getByText(/2 sin compra/)).toBeInTheDocument();
+    expect(screen.getByRole('img').getAttribute('aria-label')).toContain('2 liberado sin compra');
   });
 });

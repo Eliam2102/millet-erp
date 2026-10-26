@@ -1,5 +1,7 @@
+import { EnviosOcPanel } from '../components/EnviosOcPanel';
 import { PageHeader } from '@/components/erp/PageHeader';
 import { CancelacionOcPanel } from '../components/CancelacionOcPanel';
+import { IncidenciasProveedorPanel } from '../components/IncidenciasProveedorPanel';
 import { RespuestaProveedorPanel } from '../components/RespuestaProveedorPanel';
 import { useMemo, useState, type ReactNode } from 'react';
 import { Link, useLocation, useParams } from '@tanstack/react-router';
@@ -171,10 +173,10 @@ export function DetalleOrdenCompra() {
     : undefined;
 
   return (
-    <div className="flex flex-col gap-5">
+    <div className="flex flex-col gap-5 px-4 pb-10 md:px-6">
       {/* ── Sub-topbar sticky ───────────────────────────── */}
       <header
-        className="sticky top-14 z-10 md:top-0 flex flex-wrap items-center gap-3 border-b bg-surface-card py-2"
+        className="sticky top-14 z-10 md:top-0 -mx-4 flex flex-wrap items-center gap-3 border-b bg-surface-card px-4 py-3 md:-mx-6 md:px-6"
         data-print="hidden"
       >
         <div className="flex min-w-0 items-center gap-2">
@@ -238,9 +240,15 @@ export function DetalleOrdenCompra() {
           pago={oc.subEstadoPago}
         />
 
-        <StepperAutorizacionOc estado={oc.estado} />
+        <StepperAutorizacionOc
+          estado={oc.estado}
+          // Autorizada sin firma vigente de Dirección = N2 no hizo falta (monto bajo el umbral).
+          n2NoRequerido={!(oc.autorizaciones ?? []).some((a) => a.nivel === 2 && a.resultado === 1)}
+        />
         <CancelacionOcPanel oc={oc} />
+        <EnviosOcPanel key={oc.id} ordenCompraId={oc.id} folio={oc.folio} />
         <RespuestaProveedorPanel oc={oc} />
+        <IncidenciasProveedorPanel oc={oc} />
 
         {/* UF5-PR2: aside de la cadena de duplicación. Solo aparece
             si la OC actual es duplicada (tiene oc_origen_id) o es

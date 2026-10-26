@@ -298,6 +298,67 @@ export interface AnticipoSaldoClienteItem {
   pedidoOrigenRef: string | null;
 }
 
+/**
+ * Estado del anticipo en la consulta de aplicaciones (F1-CXC-05). Derivado
+ * de lo cobrado contra lo aplicado con egreso vigente (mismas reglas que la
+ * comparativa F6.2 de Facturación).
+ */
+export type EstadoAnticipoAplicaciones = 'Pendiente' | 'Parcial' | 'Aplicado' | 'Cancelado';
+
+/**
+ * Aplicación de un anticipo a una factura final. Mirror de backend
+ * <c>AplicacionAnticipoDto</c>. <c>tipo</c>: «Aplicación» (resta saldo),
+ * «Vinculación sin egreso» (comprometido) o «Egreso cancelado» (no resta).
+ */
+export interface AplicacionAnticipoItem {
+  tipo: string;
+  facturaFinalFolio: string | null;
+  facturaFinalUuid: string | null;
+  egresoFolio: string | null;
+  egresoUuid: string | null;
+  fechaAplicacion: string | null;
+  estadoEgreso: string | null;
+  importe: number;
+}
+
+/** Mirror de backend <c>AnticipoConAplicacionesDto</c>. */
+export interface AnticipoConAplicacionesItem {
+  anticipoId: string;
+  facturaAnticipoId: string;
+  clienteId: string;
+  clienteNombre: string;
+  folio: string;
+  uuid: string | null;
+  fechaTimbrado: string | null;
+  sucursalId: string | null;
+  sucursalNombre: string | null;
+  moneda: string;
+  estado: EstadoAnticipoAplicaciones | string;
+  cobrado: number;
+  aplicado: number;
+  comprometido: number;
+  saldo: number;
+  saldoSistema: number;
+  pedidoOrigenRef: string | null;
+  observacion: string | null;
+  aplicaciones: AplicacionAnticipoItem[];
+}
+
+/** Totales de una moneda (sin anticipos cancelados; nunca cross-divisa). */
+export interface TotalesAnticiposMoneda {
+  moneda: string;
+  cobrado: number;
+  aplicado: number;
+  comprometido: number;
+  saldo: number;
+}
+
+/** Mirror de backend <c>AplicacionesAnticipoResponse</c>. */
+export interface AplicacionesAnticipoResponse {
+  anticipos: AnticipoConAplicacionesItem[];
+  totalesPorMoneda: TotalesAnticiposMoneda[];
+}
+
 // ─── Aplicación de pagos (Domain.AplicacionPagos, CXC-PR7) ────────────
 
 /**
@@ -453,4 +514,63 @@ export interface CreditoDisponibleResponse {
   clienteId: string;
   lineas: CreditoDisponibleLineaResponse[];
   datoIncompleto: boolean;
+}
+
+// ---------------------------------------------------------------------------
+// F1-CXC-09 · C7.8: envío del estado de cuenta al cliente.
+
+/** Pago que bloquea el estado de cuenta (CA7.14). Mirror de <c>PagoSinReflejarDto</c>. */
+export interface PagoSinReflejarItem {
+  id: string;
+  /** "yyyy-MM-dd". */
+  fechaValor: string;
+  /** "yyyy-MM-dd": límite del día 5 del mes siguiente para emitir el REP. */
+  fechaLimite: string;
+  monto: number;
+  moneda: string;
+  referencia: string | null;
+  /** "SinRep" = pago sin REP; "RepSinReflejar" = REP emitido aún no proyectado en cartera. */
+  motivo: 'SinRep' | 'RepSinReflejar' | string;
+}
+
+/** Mirror de <c>PendientesEstadoCuentaResponse</c>. */
+export interface PendientesEstadoCuentaResponse {
+  emitible: boolean;
+  pendientes: PagoSinReflejarItem[];
+  recibosSinReflejar: string[];
+  /** Correo del maestro de clientes para prellenar el destinatario. */
+  emailCliente: string | null;
+}
+
+export interface TotalMonedaEstadoCuenta {
+  moneda: string;
+  cargo: number;
+  abono: number;
+  saldo: number;
+}
+
+/** Mirror de <c>EstadoCuentaEnvioResponse</c>. */
+export interface EstadoCuentaEnvioItem {
+  id: string;
+  clienteId: string;
+  destinatario: string;
+  mensaje: string | null;
+  usuarioId: string;
+  usuarioNombre: string | null;
+  fecha: string;
+  /** "Registrado" (sin transporte de correo) | "Enviado" | "Fallido". */
+  estado: 'Registrado' | 'Enviado' | 'Fallido' | string;
+  detalleError: string | null;
+  numeroFilas: number;
+  nombreArchivo: string;
+  pdfSha256: string;
+  totales: TotalMonedaEstadoCuenta[];
+}
+
+export interface EnviarEstadoCuentaArgs {
+  clienteId: string;
+  destinatario: string;
+  mensaje?: string;
+  pdf: Blob;
+  nombreArchivo: string;
 }

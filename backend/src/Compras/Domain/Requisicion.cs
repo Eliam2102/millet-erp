@@ -69,6 +69,19 @@ public sealed class Requisicion : BaseEntity, IPerteneceAEmpresa, IAuditable, IF
         Obra = string.IsNullOrWhiteSpace(obra) ? null : obra.Trim();
     }
 
+    /// <summary>
+    /// Si es true, al autorizar sólo se aparta una línea cuando la existencia la cubre completa;
+    /// si no alcanza, la línea va completa a compra (86e3tferc).
+    /// </summary>
+    public bool SoloApartarSiCompleto { get; private set; }
+
+    public void EstablecerSoloApartarSiCompleto(bool valor)
+    {
+        if (Estado != EstadoRequisicion.Borrador)
+            throw new BusinessRuleException("RQ_SURTIDO_CONGELADO", "El modo de surtido no puede cambiar después de transmitir la requisición.");
+        SoloApartarSiCompleto = valor;
+    }
+
     public string? Descripcion { get; private set; }
 
     public Prioridad Prioridad { get; private set; }
@@ -262,7 +275,8 @@ public sealed class Requisicion : BaseEntity, IPerteneceAEmpresa, IAuditable, IF
         Guid? centroCostoId = null,
         string? proyecto = null,
         DateOnly? fechaRequerida = null,
-        string? notas = null)
+        string? notas = null,
+        bool esActivoFijo = false, Guid? claseActivoId = null, bool articuloEsServicio = false)
     {
         if (Estado != EstadoRequisicion.Borrador)
         {
@@ -289,6 +303,7 @@ public sealed class Requisicion : BaseEntity, IPerteneceAEmpresa, IAuditable, IF
             fechaRequerida: fechaRequerida,
             notas: notas);
 
+        linea.ClasificarActivo(esActivoFijo, claseActivoId, articuloEsServicio || Clasificacion == Clasificacion.Servicio);
         _lineas.Add(linea);
         return linea;
     }
@@ -307,7 +322,8 @@ public sealed class Requisicion : BaseEntity, IPerteneceAEmpresa, IAuditable, IF
         Guid? cuentaContableId = null,
         Guid? centroCostoId = null,
         string? proyecto = null,
-        DateOnly? fechaRequerida = null)
+        DateOnly? fechaRequerida = null,
+        bool? esActivoFijo = null, Guid? claseActivoId = null, bool articuloEsServicio = false)
     {
         if (Estado != EstadoRequisicion.Borrador)
         {
@@ -320,6 +336,9 @@ public sealed class Requisicion : BaseEntity, IPerteneceAEmpresa, IAuditable, IF
         linea.ActualizarEstructural(
             articuloId, cantidad, unidadMedida, precioEstimado,
             cuentaContableId, centroCostoId, proyecto, fechaRequerida);
+        // null = conservar; se revalida siempre (clase, cantidad entera, servicio) por si cambió el artículo.
+        linea.ClasificarActivo(esActivoFijo ?? linea.EsActivoFijo, claseActivoId ?? linea.ClaseActivoId,
+            articuloEsServicio || Clasificacion == Clasificacion.Servicio);
     }
 
     /// <summary>
@@ -710,8 +729,7 @@ public sealed class Requisicion : BaseEntity, IPerteneceAEmpresa, IAuditable, IF
         var (excedio, total, techo) = linea.RegistrarEntrega(cantidadEntregada);
 
         Events.RequisicionCerradaEvent? cierre = null;
-        if (Estado == EstadoRequisicion.EnSurtido
-            && _lineas.All(l => l.CantidadEntregada >= l.Cantidad))
+        if (Estado == EstadoRequisicion.EnSurtido && TodoEntregado())
         {
             Estado = EstadoRequisicion.Cerrada;
             cierre = new Events.RequisicionCerradaEvent(
@@ -727,6 +745,34 @@ public sealed class Requisicion : BaseEntity, IPerteneceAEmpresa, IAuditable, IF
             TotalEntregado: total,
             TechoDisponible: techo);
     }
+
+    /// <summary>
+    /// Libera con motivo existencia apartada de una línea y recalcula el
+    /// cubrimiento (86e3tferc). Con <paramref name="mandarACompra"/> lo liberado
+    /// queda como saldo de compra; sin él, deja de pedirse y la RQ puede quedar
+    /// entregada completa, en cuyo caso se cierra aquí.
+    /// </summary>
+    public Events.RequisicionCerradaEvent? LiberarApartado(
+        Guid lineaId, decimal cantidad, string motivo, bool mandarACompra, DateTimeOffset ocurridoEn)
+    {
+        if (Estado is not (EstadoRequisicion.Autorizada or EstadoRequisicion.EnSurtido))
+            throw new BusinessRuleException(
+                "RQ_SIN_APARTADO_LIBERABLE",
+                "Sólo se libera existencia apartada de requisiciones autorizadas o en surtido.");
+        if (mandarACompra && ComprometidaEnOcId is not null)
+            throw new BusinessRuleException(
+                "RQ_COMPROMETIDA_EN_OC",
+                "La requisición ya está en una orden de compra; lo liberado no puede agregarse a compra. Libéralo sin mandarlo a compra o captura una requisición nueva.");
+
+        BuscarLineaOLanzar(lineaId).LiberarApartado(cantidad, motivo, mandarACompra);
+
+        if (Estado != EstadoRequisicion.EnSurtido || !TodoEntregado()) return null;
+        Estado = EstadoRequisicion.Cerrada;
+        return new Events.RequisicionCerradaEvent(RequisicionId: Id, EmpresaId: EmpresaId, OcurridoEn: ocurridoEn);
+    }
+
+    // Cierre por entrega (ADR-0043): lo liberado sin compra ya no se espera.
+    private bool TodoEntregado() => _lineas.All(l => l.CantidadEntregada >= l.CantidadVigente);
 
     private void AplicarTerminacion(
         EstadoRequisicion nuevoEstado,

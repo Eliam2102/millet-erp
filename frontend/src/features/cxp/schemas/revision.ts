@@ -13,7 +13,7 @@ export const EnviarRevisionSchema = z.object({
     .regex(UUID_RE, 'Motivo de revisión inválido.'),
   dependenciaRevisoraId: z
     .string({ error: 'Indica la dependencia revisora.' })
-    .regex(UUID_RE, 'UUID de dependencia inválido.'),
+    .regex(UUID_RE, 'Elige el área que revisa.'),
 });
 
 export type EnviarRevisionValues = z.infer<typeof EnviarRevisionSchema>;

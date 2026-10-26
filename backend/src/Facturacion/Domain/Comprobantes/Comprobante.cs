@@ -134,6 +134,15 @@ public abstract class Comprobante : BaseEntity, IPerteneceAEmpresa, IFiscalmente
 
     public bool EnviadoCorreo { get; private set; }
 
+    // ---- Estatus ante el SAT (F6.7: último resultado de la consulta; null = sin verificar) ----
+    /// <summary>«Vigente», «Cancelado» o «No encontrado» según la última consulta al SAT.</summary>
+    public string? EstatusSat { get; private set; }
+
+    /// <summary>Si el SAT lo reporta cancelable y cómo (con o sin aceptación del receptor).</summary>
+    public string? EsCancelableSat { get; private set; }
+
+    public DateTimeOffset? EstatusSatConsultadoEn { get; private set; }
+
     // ---- Relaciones CFDI (nodo CfdiRelacionados; §4.4) ----
     private readonly List<RelacionCfdi> _relaciones = [];
 
@@ -313,6 +322,18 @@ public abstract class Comprobante : BaseEntity, IPerteneceAEmpresa, IFiscalmente
 
     /// <summary>Marca el CFDI como enviado por correo al cliente. Idempotente.</summary>
     public void MarcarEnviadoCorreo() => EnviadoCorreo = true;
+
+    /// <summary>
+    /// F6.7: guarda el resultado de la consulta de estatus al SAT. No mueve el
+    /// estado interno: una discrepancia (p. ej. cancelado en el SAT y vigente
+    /// aquí) se muestra en el monitor para que alguien la revise.
+    /// </summary>
+    public void RegistrarEstatusSat(string estatusSat, string? esCancelable, DateTimeOffset consultadoEn)
+    {
+        EstatusSat = estatusSat;
+        EsCancelableSat = esCancelable;
+        EstatusSatConsultadoEn = consultadoEn;
+    }
 
     /// <summary>
     /// Fija el canal de venta del comprobante. Lo invocan los constructores de

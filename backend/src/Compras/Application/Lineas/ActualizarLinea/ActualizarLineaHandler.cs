@@ -1,5 +1,6 @@
 using MediatR;
 using Microsoft.EntityFrameworkCore;
+using Millet.Compras.Domain;
 using Millet.Compras.Infrastructure;
 using Millet.SharedKernel.Application.Exceptions;
 using Millet.SharedKernel.Application.UnidadesMedida;
@@ -19,13 +20,16 @@ public sealed class ActualizarLineaHandler : IRequestHandler<ActualizarLineaComm
     private readonly CompartidoDbContext _compartido;
     private readonly IDecimalesUnidadGuard _decimalesGuard;
     private readonly Millet.CentrosCosto.Application.PublicPorts.ICentroCostoCapturaPort _capturaCentroCosto;
+    private readonly Millet.Compras.Domain.Ports.IClaseActivoCompraReadPort? _clasesActivos;
 
     public ActualizarLineaHandler(
         ComprasDbContext db,
         CompartidoDbContext compartido,
         IDecimalesUnidadGuard decimalesGuard,
-        Millet.CentrosCosto.Application.PublicPorts.ICentroCostoCapturaPort capturaCentroCosto)
+        Millet.CentrosCosto.Application.PublicPorts.ICentroCostoCapturaPort capturaCentroCosto,
+        Millet.Compras.Domain.Ports.IClaseActivoCompraReadPort? clasesActivos = null)
     {
+        _clasesActivos = clasesActivos;
         _db = db;
         _compartido = compartido;
         _decimalesGuard = decimalesGuard;
@@ -56,6 +60,14 @@ public sealed class ActualizarLineaHandler : IRequestHandler<ActualizarLineaComm
                 $"El artículo '{articulo.Clave}' está {articulo.Estatus} y no puede usarse en líneas.");
         }
 
+        ArticulosPorClasificacion.Validar(requisicion.Clasificacion, articulo);
+        // Solo se valida la clase si el cliente envía la clasificación; null = conservar la actual.
+        var linea = requisicion.Lineas.FirstOrDefault(l => l.Id == command.LineaId);
+        var claseEfectiva = command.ClaseActivoId ?? linea?.ClaseActivoId;
+        if ((command.EsActivoFijo ?? linea?.EsActivoFijo) == true && (command.EsActivoFijo is not null || command.ClaseActivoId is not null)
+            && (claseEfectiva is not Guid claseId || _clasesActivos is null || !await _clasesActivos.EsActivaAsync(claseId, cancellationToken)))
+            throw new BusinessRuleException("COMPRA_CLASE_ACTIVO_INVALIDA", "Seleccione una clase de activo activa de la empresa.");
+
         // ADR-0046 Etapa 2: la cantidad no puede exceder los decimales de la
         // unidad del artículo (FK NULL → no valida).
         await _decimalesGuard.ValidarAsync(
@@ -74,7 +86,10 @@ public sealed class ActualizarLineaHandler : IRequestHandler<ActualizarLineaComm
             cuentaContableId: command.CuentaContableId,
             centroCostoId: centroCostoId,
             proyecto: command.Proyecto,
-            fechaRequerida: command.FechaRequerida);
+            fechaRequerida: command.FechaRequerida,
+            esActivoFijo: command.EsActivoFijo,
+            claseActivoId: command.ClaseActivoId,
+            articuloEsServicio: articulo.Naturaleza == Naturaleza.Servicio);
 
         await _db.SaveChangesAsync(cancellationToken);
 

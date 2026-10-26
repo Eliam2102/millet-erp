@@ -1,6 +1,7 @@
 using MediatR;
 using Millet.Compras.Application.Proveedores;
 using Microsoft.EntityFrameworkCore;
+using Millet.Compras.Domain;
 using Millet.Compras.Infrastructure;
 using Millet.SharedKernel.Application.Exceptions;
 using Millet.Administracion.Domain;
@@ -38,6 +39,7 @@ public sealed class EditarCabeceraRequisicionHandler
         EditarCabeceraRequisicionCommand request, CancellationToken cancellationToken)
     {
         var requisicion = await _comprasDb.Requisiciones
+            .Include(r => r.Lineas)
             .FirstOrDefaultAsync(r => r.Id == request.RequisicionId, cancellationToken)
             ?? throw new EntityNotFoundException(
                 "REQUISICION_NO_ENCONTRADA",
@@ -60,6 +62,26 @@ public sealed class EditarCabeceraRequisicionHandler
             }
         }
 
+        // 86e3tfedd: cambiar la clasificación no puede dejar partidas de otro tipo.
+        if (request.Clasificacion is Clasificacion nueva && nueva != requisicion.Clasificacion
+            && requisicion.Lineas.Count > 0)
+        {
+            var ids = requisicion.Lineas.Select(l => l.ArticuloId).Distinct().ToList();
+            var articulos = await _compartidoDb.Articulos.AsNoTracking()
+                .Where(a => ids.Contains(a.Id))
+                .ToDictionaryAsync(a => a.Id, cancellationToken);
+            var fuera = requisicion.Lineas
+                .Where(l => articulos.TryGetValue(l.ArticuloId, out var a)
+                    && !ArticulosPorClasificacion.Aplica(nueva, a.Categoria, a.Naturaleza))
+                .Select(l => l.Posicion)
+                .OrderBy(p => p)
+                .ToList();
+            if (fuera.Count > 0)
+                throw new BusinessRuleException(
+                    "PARTIDAS_NO_APLICAN_A_CLASIFICACION",
+                    $"No se puede cambiar a {ArticulosPorClasificacion.Nombre(nueva)}: las partidas {string.Join(", ", fuera)} son de otro tipo. Quítalas o cámbialas primero.");
+        }
+
         requisicion.EditarCabecera(
             descripcion: request.Descripcion,
             fechaEntregaDeseada: request.FechaEntregaDeseada,
@@ -72,6 +94,8 @@ public sealed class EditarCabeceraRequisicionHandler
 
         if (request.LimpiarObra || request.Obra is not null)
             requisicion.AsignarObra(request.LimpiarObra ? null : request.Obra);
+        if (request.SoloApartarSiCompleto is bool soloCompleto)
+            requisicion.EstablecerSoloApartarSiCompleto(soloCompleto);
         await _comprasDb.SaveChangesAsync(cancellationToken);
     }
 }

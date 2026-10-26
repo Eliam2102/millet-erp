@@ -1,13 +1,18 @@
 import { describe, expect, it } from 'vitest';
-import { renderHook, waitFor } from '@testing-library/react';
+import { act, renderHook, waitFor } from '@testing-library/react';
 import { http, HttpResponse } from 'msw';
 import { mswServer } from '@/test/mocks/server';
 import { createQueryWrapper } from '@/test/test-query-client';
 import {
   useAnticiposCliente,
   useAntiguedadSaldos,
+  useAplicacionesAnticipo,
+  useEnviarEstadoCuenta,
+  useEnviosEstadoCuenta,
   useEstadoCuentaCliente,
+  usePendientesEstadoCuenta,
 } from '@/features/cxc/api/useCartera';
+import { cxcKeys } from '@/features/cxc/api/keys';
 import {
   AlineacionColumnaCxc,
   TipoColumnaReporteCxc,
@@ -109,5 +114,187 @@ describe('useAnticiposCliente', () => {
       wrapper: createQueryWrapper(),
     });
     expect(result.current.fetchStatus).toBe('idle');
+  });
+});
+
+describe('useAplicacionesAnticipo (F1-CXC-05)', () => {
+  const respuesta = {
+    anticipos: [
+      {
+        anticipoId: 'ant-1',
+        facturaAnticipoId: 'fa-1',
+        clienteId: 'cli-1',
+        clienteNombre: 'Cliente Maquila',
+        folio: 'FA-10',
+        uuid: 'uuid-fa-10',
+        fechaTimbrado: '2026-10-01T16:00:00Z',
+        sucursalId: 'suc-1',
+        sucursalNombre: 'MID — Mérida',
+        moneda: 'MXN',
+        estado: 'Parcial',
+        cobrado: 30000,
+        aplicado: 20000,
+        comprometido: 0,
+        saldo: 10000,
+        saldoSistema: 10000,
+        pedidoOrigenRef: null,
+        observacion: null,
+        aplicaciones: [],
+      },
+    ],
+    totalesPorMoneda: [
+      { moneda: 'MXN', cobrado: 30000, aplicado: 20000, comprometido: 0, saldo: 10000 },
+    ],
+  };
+
+  it('sin cliente consulta todos los clientes (sin clienteId en la URL)', async () => {
+    let params: URLSearchParams | null = null;
+    mswServer.use(
+      http.get(`${BASE}/anticipos/aplicaciones`, ({ request }) => {
+        params = new URL(request.url).searchParams;
+        return HttpResponse.json(respuesta);
+      }),
+    );
+    const { result } = renderHook(() => useAplicacionesAnticipo({}), {
+      wrapper: createQueryWrapper(),
+    });
+    await waitFor(() => expect(result.current.isSuccess).toBe(true));
+    expect(params!.has('clienteId')).toBe(false);
+    expect(result.current.data?.anticipos[0].saldo).toBe(10000);
+  });
+
+  it('con cliente y estado los manda como query params', async () => {
+    let params: URLSearchParams | null = null;
+    mswServer.use(
+      http.get(`${BASE}/anticipos/aplicaciones`, ({ request }) => {
+        params = new URL(request.url).searchParams;
+        return HttpResponse.json(respuesta);
+      }),
+    );
+    const { result } = renderHook(
+      () => useAplicacionesAnticipo({ clienteId: 'cli-1', estado: 'Parcial' }),
+      { wrapper: createQueryWrapper() },
+    );
+    await waitFor(() => expect(result.current.isSuccess).toBe(true));
+    expect(params!.get('clienteId')).toBe('cli-1');
+    expect(params!.get('estado')).toBe('Parcial');
+  });
+
+  it('query key incluye los filtros bajo la familia de anticipos', () => {
+    expect(cxcKeys.aplicacionesAnticipo({ clienteId: 'cli-1' })).toEqual([
+      'cxc',
+      'anticipos',
+      'aplicaciones',
+      { clienteId: 'cli-1' },
+    ]);
+  });
+});
+
+describe('usePendientesEstadoCuenta (C7.8)', () => {
+  it('GET de pagos que bloquean el estado de cuenta; null → deshabilitada', async () => {
+    mswServer.use(
+      http.get(`${BASE}/cartera/estado-cuenta/cli-1/pendientes`, () =>
+        HttpResponse.json({
+          emitible: false,
+          pendientes: [
+            {
+              id: 'rp-1',
+              fechaValor: '2026-10-01',
+              fechaLimite: '2026-11-05',
+              monto: 1160,
+              moneda: 'MXN',
+              referencia: 'SPEI 123',
+              motivo: 'SinRep',
+            },
+          ],
+          recibosSinReflejar: [],
+          emailCliente: null,
+        }),
+      ),
+    );
+    const { result } = renderHook(() => usePendientesEstadoCuenta('cli-1'), {
+      wrapper: createQueryWrapper(),
+    });
+    await waitFor(() => expect(result.current.isSuccess).toBe(true));
+    expect(result.current.data?.emitible).toBe(false);
+    expect(result.current.data?.pendientes[0].referencia).toBe('SPEI 123');
+
+    const { result: sinCliente } = renderHook(() => usePendientesEstadoCuenta(null), {
+      wrapper: createQueryWrapper(),
+    });
+    expect(sinCliente.current.fetchStatus).toBe('idle');
+  });
+});
+
+describe('useEnviosEstadoCuenta (C7.8)', () => {
+  it('lista el historial de envíos del cliente', async () => {
+    mswServer.use(
+      http.get(`${BASE}/cartera/estado-cuenta/cli-1/envios`, () =>
+        HttpResponse.json([
+          {
+            id: 'env-1',
+            clienteId: 'cli-1',
+            destinatario: 'cobranza@cliente.mx',
+            mensaje: null,
+            usuarioId: 'u-1',
+            usuarioNombre: 'Uziel',
+            fecha: '2026-10-20T12:00:00Z',
+            estado: 'Enviado',
+            detalleError: null,
+            numeroFilas: 3,
+            nombreArchivo: 'estado-cuenta.pdf',
+            pdfSha256: 'a'.repeat(64),
+            totales: [],
+          },
+        ]),
+      ),
+    );
+    const { result } = renderHook(() => useEnviosEstadoCuenta('cli-1'), {
+      wrapper: createQueryWrapper(),
+    });
+    await waitFor(() => expect(result.current.isSuccess).toBe(true));
+    expect(result.current.data?.[0].estado).toBe('Enviado');
+  });
+});
+
+describe('useEnviarEstadoCuenta (C7.8)', () => {
+  it('POST multipart con PDF, destinatario e Idempotency-Key fresca', async () => {
+    const llaves: string[] = [];
+    let cuerpo = '';
+    mswServer.use(
+      http.post(`${BASE}/cartera/estado-cuenta/cli-1/envios`, async ({ request }) => {
+        llaves.push(request.headers.get('Idempotency-Key') ?? '');
+        // jsdom y undici no comparten la clase File: se inspecciona el multipart crudo.
+        cuerpo = await request.text();
+        return HttpResponse.json({ id: 'env-1', estado: 'Enviado' }, { status: 201 });
+      }),
+    );
+    const { result } = renderHook(() => useEnviarEstadoCuenta(), {
+      wrapper: createQueryWrapper(),
+    });
+    const archivo = new Blob(['%PDF-1.4'], { type: 'application/pdf' });
+    await act(async () => {
+      await result.current.mutateAsync({
+        clienteId: 'cli-1',
+        destinatario: 'cobranza@cliente.mx',
+        mensaje: 'Saludos',
+        pdf: archivo,
+        nombreArchivo: 'estado-cuenta.pdf',
+      });
+      await result.current.mutateAsync({
+        clienteId: 'cli-1',
+        destinatario: 'cobranza@cliente.mx',
+        pdf: archivo,
+        nombreArchivo: 'estado-cuenta.pdf',
+      });
+    });
+    expect(cuerpo).toContain('name="destinatario"');
+    expect(cuerpo).toContain('cobranza@cliente.mx');
+    // El contenido del Blob de jsdom no viaja por el FormData de undici; en el
+    // navegador sí. Aquí basta con la parte "pdf" tipada como application/pdf.
+    expect(cuerpo).toMatch(/name="pdf"; filename="[^"]+"\r?\nContent-Type: application\/pdf/);
+    expect(llaves).toHaveLength(2);
+    expect(llaves[0]).not.toBe('');
+    expect(llaves[0]).not.toBe(llaves[1]);
   });
 });

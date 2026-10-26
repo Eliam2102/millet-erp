@@ -1,4 +1,5 @@
 using Microsoft.Extensions.Logging.Abstractions;
+using Millet.CuentasPorPagar.Domain.Ports.Administracion;
 using Millet.CuentasPorPagar.Domain.TarjetaCredito;
 using Millet.CuentasPorPagar.Infrastructure.TarjetaCredito;
 
@@ -50,23 +51,40 @@ public sealed class ConciliacionAutomaticaServiceTests
         var linea = ec.AgregarLinea(1, new DateOnly(2026, 5, 10), 1160m, "MXN", 1160m,
             "STARBUCKS CDMX", null, "Compra");
 
-        var score = ConciliacionAutomaticaService.CalcularScore(linea, mov);
+        var score = ConciliacionAutomaticaService.CalcularScore(linea, mov, 1.00m);
         score.Should().Be(100m); // 50 (monto exacto) + 25 (fecha exacta) + 25 (merchant idéntico)
     }
 
-    [Fact]
-    public void Score_monto_proximo_2pct_30_puntos()
+    private sealed class ToleranciaFake(decimal monto) : IToleranciaTarjetasReadPort
+    {
+        public Task<decimal> ObtenerMontoMxnAsync(CancellationToken cancellationToken) => Task.FromResult(monto);
+    }
+
+    private static ConciliacionAutomaticaService CrearServicio(decimal tolerancia = 1.00m) =>
+        new(NullLogger<ConciliacionAutomaticaService>.Instance, new ToleranciaFake(tolerancia));
+
+    private static decimal ScoreConDiferencia(decimal diferencia, decimal tolerancia)
     {
         var t = CrearTarjeta();
         var mov = MovSinCfdi(t, new DateOnly(2026, 5, 10), 1000m, "AMAZON");
         var ec = EstadoCuentaTc.Crear(t.EmpresaId, t.Id, new DateOnly(2026, 5, 1),
             new DateOnly(2026, 5, 31), new DateOnly(2026, 5, 15), new DateOnly(2026, 5, 25));
-        // Banco aplica 1.5% extra
-        var linea = ec.AgregarLinea(1, new DateOnly(2026, 5, 10), 1015m, "MXN", 1015m,
+        var linea = ec.AgregarLinea(1, new DateOnly(2026, 5, 10), 1000m + diferencia, "MXN", 1000m + diferencia,
             "AMAZON", null, "Compra");
+        return ConciliacionAutomaticaService.CalcularScore(linea, mov, tolerancia);
+    }
 
-        var score = ConciliacionAutomaticaService.CalcularScore(linea, mov);
-        score.Should().Be(80m); // 30 (2%) + 25 (fecha) + 25 (merchant)
+    [Fact]
+    public void Score_monto_dentro_de_tolerancia_da_50_y_fuera_da_0()
+    {
+        ScoreConDiferencia(0.80m, 1.00m).Should().Be(100m); // 50 monto + 25 fecha + 25 merchant
+        ScoreConDiferencia(1.20m, 1.00m).Should().Be(50m);  // 0 monto + 25 + 25
+    }
+
+    [Fact]
+    public void Score_con_tolerancia_2_diferencia_1_20_da_50_en_monto()
+    {
+        ScoreConDiferencia(1.20m, 2.00m).Should().Be(100m);
     }
 
     [Fact]
@@ -79,7 +97,7 @@ public sealed class ConciliacionAutomaticaServiceTests
         var linea = ec.AgregarLinea(1, new DateOnly(2026, 5, 11), 500m, "MXN", 500m,
             "PEMEX", null, "Compra");
 
-        var score = ConciliacionAutomaticaService.CalcularScore(linea, mov);
+        var score = ConciliacionAutomaticaService.CalcularScore(linea, mov, 1.00m);
         score.Should().Be(90m); // 50 + 15 + 25
     }
 
@@ -93,7 +111,7 @@ public sealed class ConciliacionAutomaticaServiceTests
         var linea = ec.AgregarLinea(1, new DateOnly(2026, 5, 10), 500m, "MXN", 500m,
             "OXXO POLANCO", null, "Compra");
 
-        var score = ConciliacionAutomaticaService.CalcularScore(linea, mov);
+        var score = ConciliacionAutomaticaService.CalcularScore(linea, mov, 1.00m);
         // 50 (monto exacto) + 25 (fecha) + 0 (merchant muy distinto) = 75
         score.Should().Be(75m);
     }
@@ -133,7 +151,7 @@ public sealed class ConciliacionAutomaticaServiceTests
             new DateOnly(2026, 5, 31), new DateOnly(2026, 5, 15), new DateOnly(2026, 5, 25));
         ec.AgregarLinea(1, new DateOnly(2026, 5, 10), 500m, "MXN", 500m, "PEMEX", null, "Compra");
 
-        var svc = new ConciliacionAutomaticaService(NullLogger<ConciliacionAutomaticaService>.Instance);
+        var svc = CrearServicio();
         var result = await svc.ConciliarAsync(ec, [mov], CancellationToken.None);
 
         result.LineasMatchedAuto.Should().Be(1);
@@ -158,7 +176,7 @@ public sealed class ConciliacionAutomaticaServiceTests
             "STARBUCKS REFORMA", null, "Compra");
         // 50 (monto exacto) + 15 (fecha 1 día) + 10 (merchant similar) = 75 → sugerencia
 
-        var svc = new ConciliacionAutomaticaService(NullLogger<ConciliacionAutomaticaService>.Instance);
+        var svc = CrearServicio();
         var result = await svc.ConciliarAsync(ec, [mov], CancellationToken.None);
 
         result.LineasSugerencia.Should().Be(1);
@@ -176,7 +194,7 @@ public sealed class ConciliacionAutomaticaServiceTests
             new DateOnly(2026, 5, 31), new DateOnly(2026, 5, 15), new DateOnly(2026, 5, 25));
         ec.AgregarLinea(1, new DateOnly(2026, 5, 10), 999m, "MXN", 999m, "DESCONOCIDO", null, "Compra");
 
-        var svc = new ConciliacionAutomaticaService(NullLogger<ConciliacionAutomaticaService>.Instance);
+        var svc = CrearServicio();
         var result = await svc.ConciliarAsync(ec, [], CancellationToken.None);
 
         result.LineasSinMatch.Should().Be(1);
@@ -193,7 +211,7 @@ public sealed class ConciliacionAutomaticaServiceTests
         ec.AgregarLinea(1, new DateOnly(2026, 5, 10), 50m, "MXN", 50m,
             "INTERES MORATORIO", null, "Interes");
 
-        var svc = new ConciliacionAutomaticaService(NullLogger<ConciliacionAutomaticaService>.Instance);
+        var svc = CrearServicio();
         var result = await svc.ConciliarAsync(ec, [mov], CancellationToken.None);
 
         result.LineasOmitidasNoBuscanMatch.Should().Be(1);
@@ -212,7 +230,7 @@ public sealed class ConciliacionAutomaticaServiceTests
         ec.AgregarLinea(1, new DateOnly(2026, 5, 10), 500m, "MXN", 500m, "PEMEX", null, "Compra");
         ec.AgregarLinea(2, new DateOnly(2026, 5, 10), 500m, "MXN", 500m, "PEMEX", null, "Compra");
 
-        var svc = new ConciliacionAutomaticaService(NullLogger<ConciliacionAutomaticaService>.Instance);
+        var svc = CrearServicio();
         var result = await svc.ConciliarAsync(ec, [mov1], CancellationToken.None);
 
         result.LineasMatchedAuto.Should().Be(1);

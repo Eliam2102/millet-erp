@@ -53,7 +53,7 @@ public sealed class ConflictosClientesAwTests(WebApplicationFactory<Program> fac
     {
         var (r1, r2) = await DosClientesAsync(modoReal);
         var c = Assert.Single(await Conflictos(r2));
-        Assert.Equal(EstadoCambioMaestroAw.Pendiente, c.Estado);
+        Assert.Equal(EstadoCambioMaestroAw.Pendiente, c.Estado); // decisión 22-oct: entre clientes de A+W también va a revisión (doc 05 §10.8)
         Assert.Contains(r2, c.Causa);
         Assert.Contains("AW-" + r1, c.Causa);
 
@@ -70,7 +70,7 @@ public sealed class ConflictosClientesAwTests(WebApplicationFactory<Program> fac
     [Theory]
     [InlineData(false)]
     [InlineData(true)]
-    public async Task Al_actualizar_un_cliente_aw_con_un_rfc_ocupado_por_otro_aw_registra_conflicto_y_no_fusiona(bool modoReal)
+    public async Task Al_actualizar_un_cliente_aw_con_un_rfc_ocupado_por_otro_aw_registra_conflicto_pendiente_y_no_fusiona(bool modoReal)
     {
         var rfc = NuevoRfc(); var r1 = NuevaRef(); var r2 = NuevaRef();
         string Ust() => $"{rfc[..3]}-{rfc[3..9]}-{rfc[9..]}";
@@ -92,6 +92,14 @@ public sealed class ConflictosClientesAwTests(WebApplicationFactory<Program> fac
     [Fact]
     public async Task Al_actualizar_un_cliente_aw_con_un_rfc_de_un_cliente_manual_registra_conflicto_y_no_completa_el_rfc()
     {
+        var (r, rfc) = await ManualYAwAsync();
+        var c = Assert.Single(await Conflictos(r));
+        Assert.Equal(EstadoCambioMaestroAw.Pendiente, c.Estado); Assert.Equal(rfc, c.ValorDespues);
+    }
+
+    /// <summary>Cliente manual con un RFC y un cliente de A+W que después trae ese mismo RFC: conflicto pendiente de revisión.</summary>
+    private async Task<(string Referencia, string Rfc)> ManualYAwAsync()
+    {
         var http = await UsuariosAwHttp.SuperAdminAsync(factory);
         var rfc = NuevoRfc(); var r = NuevaRef();
         var alta = await http.PostAsJsonAsync("/api/v1/datos-maestros/clientes", new
@@ -108,15 +116,14 @@ public sealed class ConflictosClientesAwTests(WebApplicationFactory<Program> fac
         Assert.Equal(AplicarClienteAwAccion.Actualizado, res.Accion);
         Assert.Equal(creado.Cliente!.Id, res.Cliente!.Id); Assert.NotEqual(manualId, res.Cliente.Id);
         Assert.Null(res.Cliente.Rfc);
-        var c = Assert.Single(await Conflictos(r));
-        Assert.Equal(EstadoCambioMaestroAw.Pendiente, c.Estado); Assert.Equal(rfc, c.ValorDespues);
+        return (r, rfc);
     }
 
     [Fact]
     public async Task Resolver_mantener_separados_es_204_version_vieja_409_y_aplicar_aw_422()
     {
         var http = await UsuariosAwHttp.SuperAdminAsync(factory);
-        var (_, r2) = await DosClientesAsync(false);
+        var (r2, _) = await ManualYAwAsync();
         var version = (await Conflictos(r2)).Single().Version;
         var id = (await Conflictos(r2)).Single().Id;
 
@@ -125,12 +132,16 @@ public sealed class ConflictosClientesAwTests(WebApplicationFactory<Program> fac
         Assert.Equal(EstadoCambioMaestroAw.Resuelto, resuelto.Estado); Assert.Equal("MantenerSeparados", resuelto.Resolucion);
         Assert.Equal(HttpStatusCode.Conflict, (await http.PostAsJsonAsync($"{Base}/{id}/resolver", new { resolucion = "MantenerSeparados", version })).StatusCode);
 
-        var (_, r4) = await DosClientesAsync(false);
+        var (r4, _) = await ManualYAwAsync();
         var otro = (await Conflictos(r4)).Single();
         Assert.Equal(HttpStatusCode.UnprocessableEntity, (await http.PostAsJsonAsync($"{Base}/{otro.Id}/resolver", new { resolucion = "AplicarAw", version = otro.Version })).StatusCode);
 
+        var (_, r6) = await DosClientesAsync(false);
+        var entreAw = (await Conflictos(r6)).Single();
         var lista = await http.GetFromJsonAsync<JsonElement>($"{Base}?estado=Pendiente");
         Assert.Contains(lista.EnumerateArray(), e => e.GetProperty("id").GetGuid() == otro.Id);
+        Assert.Contains(lista.EnumerateArray(), e => e.GetProperty("id").GetGuid() == entreAw.Id); // decisión 22-oct: entre clientes de A+W también va a la bandeja
+        Assert.Equal(HttpStatusCode.NoContent, (await http.PostAsJsonAsync($"{Base}/{entreAw.Id}/resolver", new { resolucion = "MantenerSeparados", version = entreAw.Version })).StatusCode);
     }
 
     [Fact]

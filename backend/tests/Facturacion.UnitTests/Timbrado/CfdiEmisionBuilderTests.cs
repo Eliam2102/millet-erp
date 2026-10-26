@@ -258,7 +258,7 @@ public sealed class CfdiEmisionBuilderTests
     }
 
     [Theory]
-    [InlineData(null, "Anticipo del bien o servicio")]
+    [InlineData(null, "Anticipo de clientes")]
     [InlineData("Anticipo ficticio explícito", "Anticipo ficticio explícito")]
     public void DesdeFacturaAnticipo_es_ingreso_con_concepto_84111506(string? descripcion, string esperada)
     {
@@ -280,6 +280,32 @@ public sealed class CfdiEmisionBuilderTests
         concepto.ClaveProdServ.Should().Be("84111506");
         concepto.ClaveUnidad.Should().Be("ACT");
         concepto.Impuestos.Single().TasaOCuota.Should().Be(0.16m);
+    }
+
+    // 86e3tfd7j: con IVA redondeado (o desglosado de un total) IVA/base no da
+    // 0.160000 exacto; la TasaOCuota debe salir del catálogo (CFDI40179).
+    [Theory]
+    [InlineData(862.07, 0.16)]
+    [InlineData(1000.03, 0.16)]
+    [InlineData(1000.25, 0.16)]
+    [InlineData(500, 0.08)]
+    public void DesdeFacturaAnticipo_tasa_del_catalogo_aunque_el_iva_este_redondeado(decimal monto, decimal tasa)
+    {
+        var porTotal = monto != 862.07m;
+        var fa = FacturaAnticipo.CrearBorrador(
+            empresaId: Guid.NewGuid(), folio: "FANT-000003", folioNumero: 3,
+            sucursalId: Guid.NewGuid(), cajaId: null, usuarioEmisorId: null,
+            receptor: Receptor, emisor: Emisor,
+            formaPago: "03", moneda: "MXN", tipoCambio: null,
+            periodoAnio: 2026, periodoMes: 7,
+            tipoAnticipo: TipoAnticipo.ClientesMxp, pedidoFacturableId: null,
+            anticipoId: Guid.NewGuid(), montoBase: porTotal ? 0m : monto, tasaIvaTraslado: tasa,
+            totalConIva: porTotal ? monto : null);
+
+        var traslado = CfdiEmisionBuilder.DesdeFacturaAnticipo(fa, AhoraUtc).Conceptos.Single().Impuestos.Single();
+
+        traslado.TasaOCuota.Should().Be(tasa);
+        traslado.Importe.Should().Be(fa.ImpuestosTrasladados);
     }
 
     [Fact]

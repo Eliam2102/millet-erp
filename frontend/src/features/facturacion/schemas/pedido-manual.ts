@@ -1,6 +1,10 @@
 import { z } from 'zod';
 import { zId } from '@/lib/z-id';
-import { ComportamientoFiscal } from '@/features/facturacion/api/types';
+import {
+  ClasePedidoManual,
+  ComportamientoFiscal,
+  SubtipoVentaDirecta,
+} from '@/features/facturacion/api/types';
 
 /**
  * Schema del form "Nuevo pedido manual" (FE-F1-PR1). Mirror de
@@ -34,7 +38,7 @@ const comportamientoValues = Object.values(ComportamientoFiscal) as [
   ...number[],
 ];
 
-export const PedidoManualSchema = z.object({
+const PedidoManualBaseSchema = z.object({
   numeroPedido: z.string().max(50).nullable(),
   sucursalId: zId('Selecciona una sucursal'),
   clienteId: zId('ClienteId debe ser un GUID válido'),
@@ -59,7 +63,100 @@ export const PedidoManualSchema = z.object({
   obraNombre: z.string().max(254).nullable(),
   comentarios: z.string().max(1000).nullable(),
   lineas: z.array(PedidoLineaSchema).min(1, 'Agrega al menos una línea'),
+  // ── F6.1: clasificación del pedido manual ──────────────────────────
+  // Nullable en el form para obligar a elegir; el superRefine exige valor.
+  claseManual: z
+    .union([
+      z.literal(ClasePedidoManual.VentaDirecta),
+      z.literal(ClasePedidoManual.Emergencia),
+    ])
+    .nullable(),
+  subtipoVentaDirecta: z
+    .union([
+      z.literal(SubtipoVentaDirecta.Activo),
+      z.literal(SubtipoVentaDirecta.Almacenable),
+      z.literal(SubtipoVentaDirecta.Servicio),
+    ])
+    .nullable(),
+  motivoEmergencia: z
+    .string()
+    .max(500, 'El motivo admite hasta 500 caracteres')
+    .nullable(),
+  referenciaPedidoAw: z
+    .string()
+    .max(50, 'La referencia admite hasta 50 caracteres')
+    .nullable(),
 });
+
+type PedidoManualBase = z.infer<typeof PedidoManualBaseSchema>;
+type ClasificacionCampos = Pick<
+  PedidoManualBase,
+  | 'claseManual'
+  | 'subtipoVentaDirecta'
+  | 'motivoEmergencia'
+  | 'comportamientoFiscal'
+>;
+
+/**
+ * Reglas condicionales de clase (F6.1), espejo de
+ * <c>ClasificacionPedidoManualValidator</c> del backend: clase obligatoria;
+ * venta directa exige subtipo; emergencia exige motivo y no lleva subtipo;
+ * subtipo Activo ⇔ comportamiento «Venta de activo fijo» (en ambos
+ * sentidos — una emergencia no puede usar ese comportamiento).
+ */
+export function validarClasificacionPedido(
+  v: ClasificacionCampos,
+  ctx: z.RefinementCtx,
+): void {
+  if (v.claseManual == null) {
+    ctx.addIssue({
+      code: 'custom',
+      path: ['claseManual'],
+      message: 'Indica la clase del pedido: venta directa o emergencia.',
+    });
+    return;
+  }
+  if (v.claseManual === ClasePedidoManual.VentaDirecta) {
+    if (v.subtipoVentaDirecta == null) {
+      ctx.addIssue({
+        code: 'custom',
+        path: ['subtipoVentaDirecta'],
+        message: 'Elige el subtipo de la venta directa: activo, almacenable o servicio.',
+      });
+    }
+  } else {
+    if ((v.motivoEmergencia ?? '').trim().length === 0) {
+      ctx.addIssue({
+        code: 'custom',
+        path: ['motivoEmergencia'],
+        message: 'Indica el motivo de la captura de emergencia.',
+      });
+    }
+    if (v.subtipoVentaDirecta != null) {
+      ctx.addIssue({
+        code: 'custom',
+        path: ['subtipoVentaDirecta'],
+        message: 'Un pedido de emergencia no lleva subtipo de venta directa.',
+      });
+    }
+  }
+  const esActivo = v.subtipoVentaDirecta === SubtipoVentaDirecta.Activo;
+  const esComportamientoActivo =
+    v.comportamientoFiscal === ComportamientoFiscal.VentaActivoFijo;
+  if (esActivo !== esComportamientoActivo) {
+    ctx.addIssue({
+      code: 'custom',
+      path: ['comportamientoFiscal'],
+      message: esActivo
+        ? 'La venta de un activo fijo va con el comportamiento «Venta de activo fijo».'
+        : '«Venta de activo fijo» solo aplica a una venta directa de subtipo Activo.',
+    });
+  }
+}
+
+export const PedidoManualSchema = PedidoManualBaseSchema.superRefine(
+  validarClasificacionPedido,
+);
 
 export type PedidoManualValues = z.infer<typeof PedidoManualSchema>;
 
@@ -68,7 +165,7 @@ export type PedidoManualValues = z.infer<typeof PedidoManualSchema>;
  * inmutables (el backend `EditarPedidoFacturableRequest` no los acepta y
  * el detalle GET no los devuelve). El resto se valida igual que al crear.
  */
-export const EditarPedidoSchema = PedidoManualSchema.omit({
+export const EditarPedidoSchema = PedidoManualBaseSchema.omit({
   sucursalId: true,
   numeroPedido: true,
-});
+}).superRefine(validarClasificacionPedido);

@@ -114,14 +114,14 @@ describe('navSidebarItems', () => {
       'cxp',
       'tesoreria',
       'centros-costo',
-      'activos',
+      'activos-fijos',
       'contabilidad',
       'reportes',
       'comercio-exterior',
     ]);
   });
 
-  it('Facturación, CxC, Compras, Almacén, CxP, Tesorería, Centros de Costo y Contabilidad son los módulos NO disabled (Contabilidad llegó con F1-CON-01b)', () => {
+  it('los módulos implementados, incluido Activos Fijos P3, están habilitados', () => {
     const modulos = navSidebarItems.filter((i) => i.kind === 'modulo');
     const habilitados = modulos.filter((m) => !m.disabled);
     expect(habilitados.map((m) => m.moduloId)).toEqual([
@@ -132,6 +132,7 @@ describe('navSidebarItems', () => {
       'cxp',
       'tesoreria',
       'centros-costo',
+      'activos-fijos',
       'contabilidad',
       'comercio-exterior',
     ]);
@@ -191,10 +192,25 @@ describe('navSidebarItems', () => {
       ['/facturacion/carta-porte', '/facturacion/activos'],
       ['/facturacion/pedidos/excepciones'],
       ['/facturacion/cajas'],
-      ['/facturacion/reportes/liquidacion-caja', '/facturacion/reportes/estados-anticipos'],
+      [
+        '/facturacion/reportes/liquidacion-caja',
+        // F6.7: cierre del día por sucursal (monitor de CFDI + facturado vs ingresado).
+        '/facturacion/reportes/cierre-dia',
+        '/facturacion/reportes/estados-anticipos',
+        // F6.2: la comparativa de anticipos va junto a Estados de facturas de anticipo.
+        '/facturacion/reportes/comparativa-anticipos',
+      ],
     ]);
     const facturas = facturacion.secciones[0].cards.find((c) => c.to === '/facturacion/facturas');
     expect(facturas?.permission).toBe(PermisosCanonicos.FacturacionFacturasLeer);
+    const comparativa = facturacion.secciones
+      .flatMap((s) => s.cards)
+      .find((c) => c.to === '/facturacion/reportes/comparativa-anticipos');
+    expect(comparativa?.permission).toBe(PermisosCanonicos.FacturacionReportesLeer);
+    const cierreDia = facturacion.secciones
+      .flatMap((s) => s.cards)
+      .find((c) => c.to === '/facturacion/reportes/cierre-dia');
+    expect(cierreDia?.permission).toBe(PermisosCanonicos.FacturacionReportesLeer);
   });
 
   it('Compras tiene Operación (P1+P2) y Configuración (Aprobadores)', () => {
@@ -280,6 +296,12 @@ describe('visibilidad por permisos (sidebar y URLs)', () => {
         P.ComprasOrdenesReportesPartidasAbiertas,
       ]),
     ).toBe(true);
+  });
+
+  it('análisis de proveedores: sin su permiso ni el menú ni la URL', () => {
+    const url = '/compras/reportes/analisis-proveedores';
+    expect(rutaPermitida(url, [P.ComprasOrdenesLeer])).toBe(false);
+    expect(rutaPermitida(url, [P.ComprasOrdenesReportesAnalisisProveedores])).toBe(true);
   });
 
   it('URL: permissionsAny acepta cualquiera', () => {

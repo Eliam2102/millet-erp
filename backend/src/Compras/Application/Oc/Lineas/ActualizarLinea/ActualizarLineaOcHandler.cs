@@ -14,13 +14,16 @@ public sealed class ActualizarLineaOcHandler : IRequestHandler<ActualizarLineaOc
     private readonly IDecimalesUnidadGuard _decimalesGuard;
     private readonly IArticuloReadPort _articulos;
     private readonly Millet.CentrosCosto.Application.PublicPorts.IDim3ElegibilidadPort _dim3ElegibilidadPort;
+    private readonly Millet.Compras.Domain.Ports.IClaseActivoCompraReadPort? _clasesActivos;
 
     public ActualizarLineaOcHandler(
         ComprasDbContext db,
         IDecimalesUnidadGuard decimalesGuard,
         IArticuloReadPort articulos,
-        Millet.CentrosCosto.Application.PublicPorts.IDim3ElegibilidadPort dim3ElegibilidadPort)
+        Millet.CentrosCosto.Application.PublicPorts.IDim3ElegibilidadPort dim3ElegibilidadPort,
+        Millet.Compras.Domain.Ports.IClaseActivoCompraReadPort? clasesActivos = null)
     {
+        _clasesActivos = clasesActivos;
         _db = db;
         _decimalesGuard = decimalesGuard;
         _articulos = articulos;
@@ -44,6 +47,12 @@ public sealed class ActualizarLineaOcHandler : IRequestHandler<ActualizarLineaOc
             var saldos = await SaldoCompraRq.ObtenerAsync(_db, [lineaRqId], cancellationToken, lineaActual.Id);
             SaldoCompraRq.Validar(nuevaCantidad, saldos.GetValueOrDefault(lineaRqId));
         }
+
+        // Solo se valida la clase si el cliente envía la clasificación; null = conservar la actual.
+        var claseEfectiva = command.ClaseActivoId ?? lineaActual?.ClaseActivoId;
+        if ((command.EsActivoFijo ?? lineaActual?.EsActivoFijo) == true && (command.EsActivoFijo is not null || command.ClaseActivoId is not null)
+            && (claseEfectiva is not Guid claseId || _clasesActivos is null || !await _clasesActivos.EsActivaAsync(claseId, cancellationToken)))
+            throw new BusinessRuleException("COMPRA_CLASE_ACTIVO_INVALIDA", "Seleccione una clase de activo activa de la empresa.");
 
         // ADR-0046 Etapa 2: si el PATCH cambia la cantidad, valida sus decimales
         // contra la unidad del artículo. El articuloId puede venir en el comando
@@ -113,7 +122,9 @@ public sealed class ActualizarLineaOcHandler : IRequestHandler<ActualizarLineaOc
             esServicio: esServicio,
             centroCostoId: command.CentroCostoId,
             fraccionArancelaria: command.FraccionArancelaria,
-            limpiarFraccionArancelaria: command.LimpiarFraccionArancelaria);
+            limpiarFraccionArancelaria: command.LimpiarFraccionArancelaria,
+            esActivoFijo: command.EsActivoFijo,
+            claseActivoId: command.ClaseActivoId);
 
         await _db.SaveChangesAsync(cancellationToken);
         if (tx is not null) await tx.CommitAsync(cancellationToken);

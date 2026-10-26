@@ -34,19 +34,16 @@ import {
   REINICIO_PERIODO_DESCRIPCION,
   REINICIO_PERIODO_LABEL,
   TIPO_DOCUMENTO_LABEL,
+  TIPOS_DOCUMENTO_SERIE,
+  esTipoSerieFiscal,
   previewFolioAproximado,
+  tipoSerieRequiereSucursal,
 } from '@/modules/administracion/components/series-labels';
 import { cn } from '@/lib/utils';
 
 const SUCURSAL_NINGUNA = '__ninguna__';
 
-const TIPO_DOC_VALUES: readonly TipoDocumentoSerie[] = [
-  TipoDocumentoSerie.OrdenCompra,
-  TipoDocumentoSerie.Cfdi,
-  TipoDocumentoSerie.NotaCredito,
-  TipoDocumentoSerie.Poliza,
-  TipoDocumentoSerie.FacturaAnticipo,
-];
+const TIPO_DOC_VALUES = TIPOS_DOCUMENTO_SERIE;
 
 const REINICIO_OPTIONS: readonly ReinicioPeriodo[] = [
   ReinicioPeriodo.None,
@@ -119,7 +116,8 @@ export function NuevaSerieProvider({ children }: { children: ReactNode }) {
             <SheetTitle>Nueva serie</SheetTitle>
             <SheetDescription>
               Configura una serie de folios para una empresa y tipo de documento. La sucursal es
-              opcional (cross-sucursal si se deja vacío).
+              opcional (cross-sucursal si se deja vacío), salvo en Venta directa, que se configura por
+              sucursal.
             </SheetDescription>
           </SheetHeader>
 
@@ -158,11 +156,9 @@ function NuevaSerieForm({ onClose, onDirtyChange }: NuevaSerieFormProps) {
   // lint react-hooks/incompatible-library.
   const empresaId = useWatch({ control: form.control, name: 'empresaId' });
   const tipoDocumento = useWatch({ control: form.control, name: 'tipoDocumento' });
-  const esFiscal = [
-    TipoDocumentoSerie.Cfdi,
-    TipoDocumentoSerie.NotaCredito,
-    TipoDocumentoSerie.FacturaAnticipo,
-  ].includes(tipoDocumento as 2 | 3 | 5);
+  const esFiscal = esTipoSerieFiscal(tipoDocumento);
+  // F6.1: la serie de Venta directa solo existe por sucursal.
+  const requiereSucursal = tipoSerieRequiereSucursal(tipoDocumento);
   useEffect(() => {
     if (esFiscal) form.setValue('reinicioPeriodo', ReinicioPeriodo.None, { shouldDirty: true });
   }, [esFiscal, form]);
@@ -300,10 +296,13 @@ function NuevaSerieForm({ onClose, onDirtyChange }: NuevaSerieFormProps) {
 
         <FormRow
           label="Sucursal"
+          required={requiereSucursal}
           hint={
             empresaId.length === 0
               ? 'Selecciona primero una empresa.'
-              : 'Opcional. Sin sucursal aplica a todas (cross-sucursal).'
+              : requiereSucursal
+                ? 'Obligatoria. La serie de Venta directa se configura por sucursal emisora.'
+                : 'Opcional. Sin sucursal aplica a todas (cross-sucursal).'
           }
           error={form.formState.errors.sucursalId?.message}
         >
@@ -312,15 +311,19 @@ function NuevaSerieForm({ onClose, onDirtyChange }: NuevaSerieFormProps) {
             control={form.control}
             render={({ field }) => (
               <Select
-                value={field.value ?? SUCURSAL_NINGUNA}
+                value={field.value ?? (requiereSucursal ? undefined : SUCURSAL_NINGUNA)}
                 onValueChange={(v) => field.onChange(v === SUCURSAL_NINGUNA ? null : v)}
                 disabled={empresaId.length === 0 || empresaDetalle.isLoading}
               >
                 <SelectTrigger>
-                  <SelectValue placeholder="Todas las sucursales" />
+                  <SelectValue
+                    placeholder={requiereSucursal ? 'Selecciona la sucursal' : 'Todas las sucursales'}
+                  />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value={SUCURSAL_NINGUNA}>Todas las sucursales</SelectItem>
+                  {!requiereSucursal && (
+                    <SelectItem value={SUCURSAL_NINGUNA}>Todas las sucursales</SelectItem>
+                  )}
                   {sucursales.map((s) => (
                     <SelectItem key={s.id} value={s.id}>
                       <span className="font-mono text-xs">{s.clave}</span> — {s.nombre}

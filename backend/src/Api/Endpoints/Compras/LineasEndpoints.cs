@@ -65,7 +65,7 @@ public static class LineasEndpoints
                 CentroCostoId: request.CentroCostoId,
                 Proyecto: request.Proyecto,
                 FechaRequerida: request.FechaRequerida,
-                Notas: request.Notas);
+                Notas: request.Notas, EsActivoFijo: request.EsActivoFijo, ClaseActivoId: request.ClaseActivoId);
 
             var response = await mediator.Send(command, cancellationToken);
             return Results.Created(
@@ -108,7 +108,9 @@ public static class LineasEndpoints
                 CuentaContableId: request.CuentaContableId,
                 CentroCostoId: request.CentroCostoId,
                 Proyecto: request.Proyecto,
-                FechaRequerida: request.FechaRequerida);
+                FechaRequerida: request.FechaRequerida,
+                EsActivoFijo: request.EsActivoFijo,
+                ClaseActivoId: request.ClaseActivoId);
 
             await mediator.Send(command, cancellationToken);
             return Results.NoContent();
@@ -191,7 +193,7 @@ public static class LineasEndpoints
         Guid? CentroCostoId,
         string? Proyecto,
         DateOnly? FechaRequerida,
-        string? Notas);
+        string? Notas, bool EsActivoFijo = false, Guid? ClaseActivoId = null);
 
     /// <summary>Body del PATCH estructural. <c>RequisicionId</c> y <c>LineaId</c> vienen del path.</summary>
     public sealed record ActualizarLineaRequest(
@@ -203,7 +205,8 @@ public static class LineasEndpoints
         Guid? CuentaContableId,
         Guid? CentroCostoId,
         string? Proyecto,
-        DateOnly? FechaRequerida);
+        DateOnly? FechaRequerida,
+        bool? EsActivoFijo = null, Guid? ClaseActivoId = null);
 
     /// <summary>Body del PATCH de notas.</summary>
     public sealed record ActualizarNotasLineaRequest(string? Notas);

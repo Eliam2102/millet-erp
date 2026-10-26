@@ -77,8 +77,13 @@ export const EmitirFacturaSchema = z.object({
   referenciaCliente: z.string().max(60, 'Acorta la referencia a un máximo de 60 caracteres.').nullable().optional(),
   condicionesPago: z.string().max(60, 'Acorta las condiciones de pago a un máximo de 60 caracteres.').nullable().optional(),
   proforma: z.string().max(40, 'Acorta la proforma a un máximo de 40 caracteres.').nullable().optional(),
-  comentarios: z.string().max(1000, 'Acorta los comentarios a un máximo de 1000 caracteres.').nullable().optional(),
   obraNombre: z.string().max(254).nullable(),
+  // 86e3tfdw2: observaciones del cajero (prellenadas con los anticipos
+  // aplicados). Se imprimen en el PDF; no viajan al XML del CFDI.
+  observaciones: z
+    .string()
+    .max(1000, 'Las observaciones no pueden exceder 1000 caracteres')
+    .nullish(),
   // Encabezado CCE (Comercio Exterior) — solo exportación con CCE.
   cceTipoOperacion: z.string().max(2).nullable(),
   cceIncoterm: z.string().max(10).nullable(),
