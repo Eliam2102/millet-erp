@@ -90,7 +90,7 @@ describe('<PeriodosPage>', () => {
     const boton = (await fila('2 · Febrero')).getByRole('button', { name: 'Bitácora de 2 · Febrero' });
     fireEvent.click(boton);
     const dialogo = await screen.findByRole('dialog');
-    expect(await within(dialogo).findByRole('alert')).toHaveTextContent('No se pudo cargar la bitácora');
+    expect((await within(dialogo).findAllByRole('alert'))[0]).toHaveTextContent('No se pudo cargar la bitácora');
     fireEvent.click(within(dialogo).getByRole('button', { name: 'Reintentar' }));
     expect(await within(dialogo).findByText('Sin cambios registrados')).toBeInTheDocument();
     expect(lecturas).toBe(2);

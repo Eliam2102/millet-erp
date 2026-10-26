@@ -1,5 +1,12 @@
 import { ListadoModulo } from '@/components/erp/data/ListadoModulo';
-import { BarraFiltros, PaginacionTabla } from '@/components/erp';
+import {
+  BarraFiltros,
+  PaginacionTabla,
+  EmptyState,
+  ErrorState,
+  TableSkeleton,
+} from '@/components/erp';
+import { esApiError } from '@/lib/api';
 import { TabsContabilidad } from '../components/TabsContabilidad';
 import { ESTADOS_POLIZA } from '../lib/estados-ui';
 import { PageHeader } from '@/components/erp/PageHeader';
@@ -16,7 +23,6 @@ import { Link } from '@tanstack/react-router';
 import { BookOpenCheck, Plus, Repeat, Scale, Search } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Skeleton } from '@/components/ui/skeleton';
 import { useHasPermission } from '@/lib/auth/useHasPermission';
 import { PermisosCanonicos } from '@/lib/auth/permission-codes';
 import { useDebouncedValue } from '@/lib/hooks/useDebouncedValue';
@@ -32,7 +38,6 @@ import { SELECT_CLASS } from '../lib/estilos';
 import {
   etiquetaPeriodo,
   folioOBorrador,
-  mensajePoliza,
   monto,
   nombrePeriodo,
   type PolizasSearch,
@@ -233,24 +238,21 @@ export function PolizasPage({ search, onSearch, onAbrir }: Props) {
         }
       >
         {polizas.isLoading ? (
-          <div className="flex flex-col gap-2 p-4" aria-label="Cargando pólizas">
-            <Skeleton className="h-8 w-full" />
-            <Skeleton className="h-8 w-full" />
-            <Skeleton className="h-8 w-full" />
-          </div>
+          <TableSkeleton rows={5} />
         ) : polizas.isError ? (
-          <div role="alert" className="flex items-center gap-2 p-4 text-sm text-danger-fg">
-            No se pudieron cargar las pólizas. {mensajePoliza(polizas.error)}
-            <Button variant="ghost" size="sm" onClick={() => void polizas.refetch()}>
-              Reintentar
-            </Button>
-          </div>
+          <ErrorState
+            title="No se pudieron cargar las pólizas"
+            problem={esApiError(polizas.error) ? polizas.error.problem : undefined}
+            onRetry={() => void polizas.refetch()}
+          />
         ) : items.length === 0 ? (
-          <p className="p-6 text-sm text-ink-muted">
-            {search.q || search.anio || search.tipo || search.estado
-              ? 'Ninguna póliza coincide con los filtros.'
-              : 'Aún no hay pólizas. Captura la primera con «Nueva póliza».'}
-          </p>
+          <EmptyState
+            title={
+              search.q || search.anio || search.tipo || search.estado
+                ? 'Ninguna póliza coincide con los filtros.'
+                : 'Aún no hay pólizas. Captura la primera con «Nueva póliza».'
+            }
+          />
         ) : (
           <div className="overflow-x-auto">
             <Table className="w-full min-w-270 text-sm">

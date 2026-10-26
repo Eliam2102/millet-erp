@@ -2,6 +2,7 @@ import { PageHeader } from '@/components/erp/PageHeader';
 import { useState } from 'react';
 import { Link } from '@tanstack/react-router';
 import { ArrowLeft, Pencil } from 'lucide-react';
+import { ErrorState } from '@/components/erp';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import { esApiError } from '@/lib/api';
@@ -60,17 +61,11 @@ export function CuentaDetallePage({ id }: { id: string }) {
     return (
       <div className="space-y-3">
         {volver}
-        <div
-          role="alert"
-          className="flex items-center gap-2 rounded-lg border border-danger p-4 text-danger-fg"
-        >
-          {noExiste ? 'La cuenta no existe.' : 'No se pudo cargar la cuenta.'}
-          {!noExiste && (
-            <Button variant="ghost" size="sm" onClick={() => void detalle.refetch()}>
-              Reintentar
-            </Button>
-          )}
-        </div>
+        <ErrorState
+          title={noExiste ? 'La cuenta no existe' : 'No se pudo cargar la cuenta'}
+          problem={esApiError(detalle.error) ? detalle.error.problem : undefined}
+          onRetry={() => void detalle.refetch()}
+        />
       </div>
     );
   }
