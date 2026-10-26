@@ -61,6 +61,7 @@ using Scalar.AspNetCore;
 using Serilog;
 
 var builder = WebApplication.CreateBuilder(args);
+Millet.Documentos.PdfLicencia.Inicializar(builder.Configuration["Pdf:LicenciaQuestPdf"]);
 
 // === Auth:Mode validation (fail-fast en arranque) ===
 var authMode = builder.Configuration.GetValue<AuthMode?>("Auth:Mode") ?? AuthMode.EntraId;
