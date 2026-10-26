@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { hoyLocalISO } from '@/lib/datetime';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -18,7 +19,7 @@ export function ReporteAntiguedadAnticiposPage() {
 
   const query = useReporteAntiguedadAnticipos(
     {
-      fechaCorte: fechaCorte || undefined,
+      fechaCorte: fechaCorte || hoyLocalISO(),
       proveedorId: proveedorId || undefined,
     },
     submitted,
