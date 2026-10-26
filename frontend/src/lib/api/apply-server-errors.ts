@@ -74,8 +74,15 @@ export function applyServerErrors(
     return 'campo';
   }
 
-  const errores = error.problem.errores;
-  if (errores && errores.length > 0) {
+  // FluentValidation llega como { field, code, message } (`Lineas[0].ProveedorId`); se normaliza al path de RHF.
+  const errores = (error.problem.errores ?? [])
+    .map((e) => ({
+      campo: normalizarCampo(e.campo ?? e.field ?? ''),
+      codigo: e.codigo ?? e.code ?? '',
+      mensaje: e.mensaje ?? e.message ?? '',
+    }))
+    .filter((e) => e.campo !== '');
+  if (errores.length > 0) {
     let didFocus = false;
     for (const item of errores) {
       const shouldFocusEsteCampo = options.shouldFocus === true && !didFocus;
