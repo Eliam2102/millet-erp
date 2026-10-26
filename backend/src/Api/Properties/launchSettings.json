@@ -5,10 +5,13 @@
       "commandName": "Project",
       "dotnetRunMessages": true,
       "launchBrowser": false,
-      "applicationUrl": "http://localhost:5000",
+      "applicationUrl": "http://localhost:5050",
       "environmentVariables": {
         "ASPNETCORE_ENVIRONMENT": "Development",
-        "ASPNETCORE_URLS": "http://localhost:5000"
+        "ASPNETCORE_URLS": "http://localhost:5050",
+        "Auth__Mode": "EntraId",
+        "Auth__InitialAdminEntraOid": "3af38cc2-5884-449b-8d84-ef1bb9e90ac7",
+        "ConnectionStrings__Postgres": "Host=localhost;Port=5434;Database=millet_dev;Username=pgadmin;Password=pgadmin;Include Error Detail=true"
       }
     }
   }
