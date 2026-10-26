@@ -54,6 +54,9 @@ public enum TipoMovimiento : short
 
 internal static class TipoMovimientoExtensions
 {
+    // Los futuros traslados entre ubicaciones o almacenes deben marcar su salida aquí.
+    public static bool EsTraslado(this TipoMovimiento tipo) => tipo == TipoMovimiento.SalidaPorLiberacionRevision;
+
     /// <summary>
     /// Prefijo de 3 letras del folio para cada tipo. Usado por
     /// <see cref="FolioMovimiento"/> al armar <c>M-{prefijo}{año}-{secuencial}</c>.

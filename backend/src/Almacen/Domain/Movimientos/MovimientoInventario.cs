@@ -72,6 +72,13 @@ public sealed class MovimientoInventario : BaseEntity, IPerteneceAEmpresa, IAudi
     public Guid? RqId { get; private set; }
     public string? ValeBlobRef { get; private set; }
     public Guid? SalidaOrigenId { get; private set; }
+
+    public void VincularSalidaLiberacion(Guid salidaId)
+    {
+        if (Tipo != TipoMovimiento.ReincorporacionTrasRevision || salidaId == Guid.Empty)
+            throw new BusinessRuleException("LIBERACION_PAR_INVALIDO", "La reincorporación requiere una salida válida.");
+        SalidaOrigenId = salidaId;
+    }
     public Guid? RecepcionOrigenId { get; private set; }
     public Guid? ConteoId { get; private set; }
     public Guid? ProveedorId { get; private set; }
