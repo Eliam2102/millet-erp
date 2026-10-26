@@ -463,6 +463,9 @@ public sealed class CompartidoDbContext : BaseDbContext
             SeedParametro("00000006-0001-0000-0000-000000000005", ToleranciaFacturaContraOcParametro.Clave,
                 "0.99", TipoParametro.Numero,
                 "Tolerancia factura contra OC (MXN) cuando el proveedor no tiene una propia. Sin opción de forzar el rechazo.", seedTime, "cxp"),
+            SeedParametro("00000006-0001-0000-0000-00000000000b", ToleranciaTarjetasParametro.Clave,
+                "1.00", TipoParametro.Numero,
+                "Tolerancia de conciliación de tarjetas corporativas (MXN). Diferencia máxima aceptada entre el estado de cuenta y lo capturado.", seedTime, "cxp"),
             SeedParametro("00000006-0001-0000-0000-00000000000a",
                 Millet.SharedKernel.Application.Calendario.CalendarioHabil.ClaveFestivos,
                 Millet.SharedKernel.Application.Calendario.CalendarioHabil.FestivosIniciales, TipoParametro.Json,
@@ -1376,6 +1379,10 @@ public sealed class CompartidoDbContext : BaseDbContext
             .HasFilter("rfc NOT IN ('XAXX010101000','XEXX010101000')");
         cliente.HasOne<ClasificacionCliente>().WithMany().HasForeignKey(c => c.ClasificacionId).OnDelete(DeleteBehavior.Restrict);
         cliente.HasIndex(x => x.Estatus);
+        cliente.Property(x => x.UnificadoPor).HasMaxLength(200);
+        cliente.Property(x => x.MotivoUnificacion).HasMaxLength(300);
+        cliente.HasOne<Cliente>().WithMany().HasForeignKey(c => c.UnificadoEnClienteId).OnDelete(DeleteBehavior.Restrict);
+        cliente.HasIndex(x => x.UnificadoEnClienteId);
     }
 
     /// <summary>

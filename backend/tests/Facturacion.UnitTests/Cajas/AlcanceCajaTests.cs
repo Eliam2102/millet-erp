@@ -298,11 +298,11 @@ public sealed class AlcanceCajaTests
                 ComportamientoFiscal.MostradorInmediato, "MXN", null, null, null, null, Millet.Facturacion.Domain.Pedidos.ClasePedidoManual.VentaDirecta, Millet.Facturacion.Domain.Pedidos.SubtipoVentaDirecta.Servicio, null, null));
         await db.SaveChangesAsync();
 
-        var propio = await new BandejaPedidosFacturablesHandler(db, Evaluador(db))
+        var propio = await new BandejaPedidosFacturablesHandler(db, Evaluador(db), new FakeCurrentUserPermissions())
             .Handle(new BandejaPedidosFacturablesQuery(null, null, 0, 50), CancellationToken.None);
         propio.Items.Should().ContainSingle().Which.NumeroPedido.Should().Be("PED-1");
 
-        var admin = await new BandejaPedidosFacturablesHandler(db, Evaluador(db, AlcanceCajaEvaluator.PermisoLeerTodas))
+        var admin = await new BandejaPedidosFacturablesHandler(db, Evaluador(db, AlcanceCajaEvaluator.PermisoLeerTodas), new FakeCurrentUserPermissions())
             .Handle(new BandejaPedidosFacturablesQuery(null, null, 0, 50), CancellationToken.None);
         admin.Items.Should().HaveCount(2);
         admin.SinAsignarCount.Should().Be(1); // PED-2: (SucursalB, 5) sin caja activa

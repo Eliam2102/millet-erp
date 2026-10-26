@@ -105,6 +105,29 @@ public sealed class PedidoFacturable : BaseEntity, IPerteneceAEmpresa, IFiscalme
     /// <summary>Pedido manual capturado antes de F6.1 (sin clase): no se factura hasta clasificarlo.</summary>
     public bool EsManualSinClasificar => Origen == OrigenPedido.Manual && ClaseManual is null;
 
+    public const int MetodoPagoOrigenMaxLength = 5;
+    public const int CondicionPagoOrigenMaxLength = 50;
+
+    /// <summary>
+    /// Método de pago SAT que manda el origen (A+W: CONTADO→PUE, resto→PPD;
+    /// doc 04 §3). Informativo (86e3tfdw2); null en Manual/Planta Pintura.
+    /// </summary>
+    public string? MetodoPagoOrigen { get; private set; }
+
+    /// <summary>
+    /// Condición de pago del pedido en el origen (A+W, catálogo KA_ZAHLBED:
+    /// CONTADO, CRÉDITO 30 DÍAS, REPARTO…). Null en Manual/Planta Pintura.
+    /// </summary>
+    public string? CondicionPagoOrigen { get; private set; }
+
+    /// <summary>
+    /// Pedido a crédito (86e3tfdw2): condición de pago del origen distinta de
+    /// CONTADO o, sin condición, método PPD. Se persiste (columna filtrable en
+    /// bandeja) y se recalcula en cada ingesta/refresco del origen. Los
+    /// pedidos manuales nunca son a crédito.
+    /// </summary>
+    public bool EsCredito { get; private set; }
+
     private readonly List<PedidoFacturableLinea> _lineas = [];
     public IReadOnlyCollection<PedidoFacturableLinea> Lineas => _lineas.AsReadOnly();
 
@@ -213,7 +236,9 @@ public sealed class PedidoFacturable : BaseEntity, IPerteneceAEmpresa, IFiscalme
         string? comentarios,
         long versionOrigen,
         string? estadoOrigen,
-        decimal? ranura = null)
+        decimal? ranura = null,
+        string? metodoPagoOrigen = null,
+        string? condicionPagoOrigen = null)
     {
         var pedido = new PedidoFacturable(
             id: Guid.CreateVersion7(),
@@ -234,6 +259,7 @@ public sealed class PedidoFacturable : BaseEntity, IPerteneceAEmpresa, IFiscalme
             estadoOrigen: estadoOrigen,
             estado: EstadoPedidoFacturable.Importado);
         pedido.EstablecerRanura(ranura);
+        pedido.EstablecerPagoOrigen(metodoPagoOrigen, condicionPagoOrigen);
         return pedido;
     }
 
@@ -292,7 +318,9 @@ public sealed class PedidoFacturable : BaseEntity, IPerteneceAEmpresa, IFiscalme
         string? comentarios,
         long versionOrigen,
         string? estadoOrigen,
-        decimal? ranura = null)
+        decimal? ranura = null,
+        string? metodoPagoOrigen = null,
+        string? condicionPagoOrigen = null)
     {
         if (Estado == EstadoPedidoFacturable.Facturado)
             throw new BusinessRuleException("PEDIDO_FACTURADO_NO_REFRESCABLE",
@@ -318,6 +346,7 @@ public sealed class PedidoFacturable : BaseEntity, IPerteneceAEmpresa, IFiscalme
         VersionOrigen = versionOrigen;
         EstadoOrigen = estadoOrigen;
         EstablecerRanura(ranura);
+        EstablecerPagoOrigen(metodoPagoOrigen, condicionPagoOrigen);
         Estado = EstadoPedidoFacturable.Importado;
     }
 
@@ -326,6 +355,28 @@ public sealed class PedidoFacturable : BaseEntity, IPerteneceAEmpresa, IFiscalme
         if (ranura is < 0m)
             throw new BusinessRuleException("PEDIDO_RANURA_INVALIDA", "La ranura no puede ser negativa.");
         Ranura = ranura is > 0m ? ranura : null;
+    }
+
+    /// <summary>
+    /// Fija método/condición de pago del origen y deriva <see cref="EsCredito"/>
+    /// (86e3tfdw2). Dato informativo de la ingesta: valores más largos que la
+    /// columna se recortan en lugar de rechazar el pedido.
+    /// </summary>
+    private void EstablecerPagoOrigen(string? metodoPago, string? condicionPago)
+    {
+        MetodoPagoOrigen = Normalizar(metodoPago, MetodoPagoOrigenMaxLength)?.ToUpperInvariant();
+        CondicionPagoOrigen = Normalizar(condicionPago, CondicionPagoOrigenMaxLength);
+        EsCredito = CondicionPagoOrigen is not null
+            ? !string.Equals(CondicionPagoOrigen, "CONTADO", StringComparison.OrdinalIgnoreCase)
+            : MetodoPagoOrigen == "PPD";
+    }
+
+    private static string? Normalizar(string? valor, int maximo)
+    {
+        if (string.IsNullOrWhiteSpace(valor))
+            return null;
+        var limpio = valor.Trim();
+        return limpio.Length > maximo ? limpio[..maximo].TrimEnd() : limpio;
     }
 
     /// <summary>

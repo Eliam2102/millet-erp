@@ -1,8 +1,9 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { apiRequest } from '@/lib/api';
-import { cxcKeys } from '@/features/cxc/api/keys';
+import { cxcKeys, type AplicacionesAnticipoFiltros } from '@/features/cxc/api/keys';
 import type {
   AnticipoSaldoClienteItem,
+  AplicacionesAnticipoResponse,
   EnviarEstadoCuentaArgs,
   EstadoCuentaEnvioItem,
   PendientesEstadoCuentaResponse,
@@ -80,6 +81,29 @@ export function useAnticiposCliente(clienteId: string | null) {
     queryFn: async ({ signal }) => {
       const { data } = await apiRequest<AnticipoSaldoClienteItem[]>(
         `${BASE}/anticipos?clienteId=${clienteId}`,
+        { signal },
+      );
+      return data;
+    },
+  });
+}
+
+/**
+ * <c>useAplicacionesAnticipo(filtros)</c> — anticipos con su aplicación a la
+ * factura final (F1-CXC-05, solo consulta). Sin <c>clienteId</c> lista
+ * todos los clientes con anticipos; el backend filtra por las sucursales del
+ * usuario (ADR-0051).
+ */
+export function useAplicacionesAnticipo(filtros: AplicacionesAnticipoFiltros) {
+  const normalizados: AplicacionesAnticipoFiltros = {};
+  if (filtros.clienteId) normalizados.clienteId = filtros.clienteId;
+  if (filtros.estado) normalizados.estado = filtros.estado;
+  return useQuery<AplicacionesAnticipoResponse>({
+    queryKey: cxcKeys.aplicacionesAnticipo(normalizados),
+    queryFn: async ({ signal }) => {
+      const qs = new URLSearchParams(normalizados as Record<string, string>).toString();
+      const { data } = await apiRequest<AplicacionesAnticipoResponse>(
+        qs ? `${BASE}/anticipos/aplicaciones?${qs}` : `${BASE}/anticipos/aplicaciones`,
         { signal },
       );
       return data;

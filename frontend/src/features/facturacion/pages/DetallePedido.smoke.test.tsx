@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { render, screen, waitFor, fireEvent } from '@testing-library/react';
+import { render, screen, waitFor, fireEvent, within } from '@testing-library/react';
 import { http, HttpResponse } from 'msw';
 import { mswServer } from '@/test/mocks/server';
 import { createQueryWrapper } from '@/test/test-query-client';
@@ -17,21 +17,20 @@ vi.mock('@tanstack/react-router', () => ({
 // FAC-UX-PR2: "Facturar" monta el form de emisión in-place; el smoke lo
 // mockea para asertar el prefill sin arrastrar selectores/catálogos.
 const prefillSpy = vi.fn();
-vi.mock(
-  '@/features/facturacion/components/emitir-factura/EmitirFacturaForm',
-  () => ({
-    EmitirFacturaForm: ({ prefill }: { prefill?: unknown }) => {
-      prefillSpy(prefill);
-      return <div data-testid="emitir-factura-form" />;
-    },
-  }),
-);
+vi.mock('@/features/facturacion/components/emitir-factura/EmitirFacturaForm', () => ({
+  EmitirFacturaForm: ({ prefill }: { prefill?: unknown }) => {
+    prefillSpy(prefill);
+    return <div data-testid="emitir-factura-form" />;
+  },
+}));
 
 // U1.8a: el PDF de la proforma se genera con @react-pdf; el smoke solo
-// verifica que se descargue con la respuesta del POST.
+// verifica que se muestre en el visor o se descargue con la respuesta del API.
 const descargarProformaSpy = vi.hoisted(() => vi.fn());
+const generarBlobSpy = vi.hoisted(() => vi.fn());
 vi.mock('@/components/erp/reportes/exporters/proforma-cfdi-exporter', () => ({
   descargarProformaCfdi: descargarProformaSpy,
+  generarProformaPdfBlob: generarBlobSpy,
 }));
 
 const abrirPedidoSpy = vi.fn();
@@ -116,10 +115,15 @@ beforeEach(() => {
   prefillSpy.mockClear();
   abrirPedidoSpy.mockClear();
   descargarProformaSpy.mockReset();
+  generarBlobSpy.mockReset();
+  generarBlobSpy.mockResolvedValue(new Blob(['%PDF'], { type: 'application/pdf' }));
+  URL.createObjectURL = vi.fn(() => 'blob:proforma');
+  URL.revokeObjectURL = vi.fn();
   // U1.8a: por omisión el pedido aún no tiene proforma.
   mswServer.use(
-    http.get('*/api/v1/facturacion/pedidos-facturables/p-1/proformas/ultima', () =>
-      new HttpResponse(null, { status: 204 }),
+    http.get(
+      '*/api/v1/facturacion/pedidos-facturables/p-1/proformas/ultima',
+      () => new HttpResponse(null, { status: 204 }),
     ),
   );
 });
@@ -159,14 +163,57 @@ describe('<DetallePedido> — smoke', () => {
       ),
     );
     render(<DetallePedido />, { wrapper: createQueryWrapper() });
-    await waitFor(() =>
-      expect(screen.getByText('Cliente Demo SA')).toBeInTheDocument(),
-    );
+    await waitFor(() => expect(screen.getByText('Cliente Demo SA')).toBeInTheDocument());
     expect(screen.getByText('Vidrio templado 6mm')).toBeInTheDocument();
     expect(screen.getByText(/Historial de comprobantes \(1\)/i)).toBeInTheDocument();
     expect(screen.getByText('A-2')).toBeInTheDocument();
     // "Vigente" aparece como encabezado de columna y como chip de la fila.
     expect(screen.getAllByText('Vigente').length).toBeGreaterThanOrEqual(2);
+  });
+
+  it('86e3tfdw2: pedido a crédito muestra badge «Crédito» y la condición de pago', async () => {
+    setPermisos(['facturacion.facturas.leer', 'facturacion.pedidos.leer-credito']);
+    mswServer.use(
+      http.get('*/api/v1/facturacion/pedidos-facturables/p-1', () =>
+        HttpResponse.json({
+          ...pedido('Importado'),
+          origen: 'Aw',
+          claseManual: null,
+          subtipoVentaDirecta: null,
+          esCredito: true,
+          metodoPagoOrigen: 'PPD',
+          condicionPagoOrigen: 'CRÉDITO 30 DÍAS',
+        }),
+      ),
+      http.get('*/api/v1/facturacion/pedidos-facturables/p-1/comprobantes', () =>
+        HttpResponse.json([]),
+      ),
+    );
+    render(<DetallePedido />, { wrapper: createQueryWrapper() });
+    await waitFor(() =>
+      expect(screen.getByText('Cliente Demo SA')).toBeInTheDocument(),
+    );
+    expect(screen.getByText('Crédito', { selector: '[data-slot="badge"]' })).toBeInTheDocument();
+    expect(screen.getByText('Condición de pago')).toBeInTheDocument();
+    expect(screen.getByText('CRÉDITO 30 DÍAS')).toBeInTheDocument();
+  });
+
+  it('86e3tfdw2: pedido de contado no muestra badge ni condición de pago', async () => {
+    setPermisos(['facturacion.facturas.leer']);
+    mswServer.use(
+      http.get('*/api/v1/facturacion/pedidos-facturables/p-1', () =>
+        HttpResponse.json({ ...pedido('Importado'), esCredito: false }),
+      ),
+      http.get('*/api/v1/facturacion/pedidos-facturables/p-1/comprobantes', () =>
+        HttpResponse.json([]),
+      ),
+    );
+    render(<DetallePedido />, { wrapper: createQueryWrapper() });
+    await waitFor(() =>
+      expect(screen.getByText('Cliente Demo SA')).toBeInTheDocument(),
+    );
+    expect(screen.queryByText('Crédito', { selector: '[data-slot="badge"]' })).not.toBeInTheDocument();
+    expect(screen.queryByText('Condición de pago')).not.toBeInTheDocument();
   });
 
   it('muestra la ranura del pedido cuando viene informada', async () => {
@@ -180,9 +227,7 @@ describe('<DetallePedido> — smoke', () => {
       ),
     );
     render(<DetallePedido />, { wrapper: createQueryWrapper() });
-    await waitFor(() =>
-      expect(screen.getByText('Cliente Demo SA')).toBeInTheDocument(),
-    );
+    await waitFor(() => expect(screen.getByText('Cliente Demo SA')).toBeInTheDocument());
     expect(screen.getByText(/Ranura \(descuento del pedido/i)).toBeInTheDocument();
     expect(screen.getByText(/−250\.50 MXN/)).toBeInTheDocument();
   });
@@ -221,9 +266,7 @@ describe('<DetallePedido> — smoke', () => {
     expect(arg.subtipoVentaDirecta).toBe('Almacenable');
     expect(arg.origen).toBe('Manual');
     // El detalle de lectura queda oculto mientras se emite.
-    expect(
-      screen.queryByText(/Historial de comprobantes/i),
-    ).not.toBeInTheDocument();
+    expect(screen.queryByText(/Historial de comprobantes/i)).not.toBeInTheDocument();
   });
 
   it('"Editar" visible en Importado/Manual + permiso capturar; abre el form en edición', async () => {
@@ -254,12 +297,8 @@ describe('<DetallePedido> — smoke', () => {
       ),
     );
     render(<DetallePedido />, { wrapper: createQueryWrapper() });
-    await waitFor(() =>
-      expect(screen.getByText('Cliente Demo SA')).toBeInTheDocument(),
-    );
-    expect(
-      screen.queryByRole('button', { name: /Facturar/i }),
-    ).not.toBeInTheDocument();
+    await waitFor(() => expect(screen.getByText('Cliente Demo SA')).toBeInTheDocument());
+    expect(screen.queryByRole('button', { name: /Facturar/i })).not.toBeInTheDocument();
   });
 
   it('F6.1: emergencia muestra badge, motivo y referencia A+W', async () => {
@@ -340,20 +379,27 @@ describe('<DetallePedido> — smoke', () => {
   });
 });
 
-it.each([false, true])('muestra Pedimento sólo si alguna partida lo requiere (%s)', async (requierePedimento) => {
-  setPermisos(['facturacion.facturas.leer']);
-  const data = pedido('Facturado');
-  data.lineas[0].requierePedimento = requierePedimento;
-  mswServer.use(
-    http.get('*/api/v1/facturacion/pedidos-facturables/p-1', () => HttpResponse.json(data)),
-    http.get('*/api/v1/facturacion/pedidos-facturables/p-1/comprobantes', () => HttpResponse.json([])),
-  );
-  render(<DetallePedido />, { wrapper: createQueryWrapper() });
-  await screen.findByText('Vidrio templado 6mm');
-  expect(screen.queryByRole('columnheader', { name: 'Pedimento' }) != null).toBe(requierePedimento);
-  expect(screen.getByRole('columnheader', { name: 'Clave SAT' })).toBeInTheDocument();
-  expect(screen.getByRole('columnheader', { name: 'Descuento' })).toBeInTheDocument();
-});
+it.each([false, true])(
+  'muestra Pedimento sólo si alguna partida lo requiere (%s)',
+  async (requierePedimento) => {
+    setPermisos(['facturacion.facturas.leer']);
+    const data = pedido('Facturado');
+    data.lineas[0].requierePedimento = requierePedimento;
+    mswServer.use(
+      http.get('*/api/v1/facturacion/pedidos-facturables/p-1', () => HttpResponse.json(data)),
+      http.get('*/api/v1/facturacion/pedidos-facturables/p-1/comprobantes', () =>
+        HttpResponse.json([]),
+      ),
+    );
+    render(<DetallePedido />, { wrapper: createQueryWrapper() });
+    await screen.findByText('Vidrio templado 6mm');
+    expect(screen.queryByRole('columnheader', { name: 'Pedimento' }) != null).toBe(
+      requierePedimento,
+    );
+    expect(screen.getByRole('columnheader', { name: 'Clave SAT' })).toBeInTheDocument();
+    expect(screen.getByRole('columnheader', { name: 'Descuento' })).toBeInTheDocument();
+  },
+);
 
 describe('<DetallePedido> — proforma (U1.8a)', () => {
   function proforma(version: number) {
@@ -367,22 +413,48 @@ describe('<DetallePedido> — proforma (U1.8a)', () => {
       numeroPedido: 'MID-001',
       avisos: [],
       contenido: {
-        emisor: { rfc: 'MIL010101ABC', nombre: 'Millet', regimenFiscal: '601', lugarExpedicion: '76120' },
-        receptor: { rfc: 'AAA010101AAA', nombre: 'Cliente Demo SA', regimenFiscal: '601', codigoPostal: '97000', usoCfdi: 'G03' },
-        metodoPago: 'PUE', formaPago: '03', moneda: 'MXN', tipoCambio: null, exportacion: '01',
-        serieFiscalPrevista: 'Cfdi', conceptos: [],
-        totales: { subtotal: 200, descuento: 0, impuestosTrasladados: 32, retenciones: 0, total: 232 },
+        emisor: {
+          rfc: 'MIL010101ABC',
+          nombre: 'Millet',
+          regimenFiscal: '601',
+          lugarExpedicion: '76120',
+        },
+        receptor: {
+          rfc: 'AAA010101AAA',
+          nombre: 'Cliente Demo SA',
+          regimenFiscal: '601',
+          codigoPostal: '97000',
+          usoCfdi: 'G03',
+        },
+        metodoPago: 'PUE',
+        formaPago: '03',
+        moneda: 'MXN',
+        tipoCambio: null,
+        exportacion: '01',
+        serieFiscalPrevista: 'Cfdi',
+        conceptos: [],
+        totales: {
+          subtotal: 200,
+          descuento: 0,
+          impuestosTrasladados: 32,
+          retenciones: 0,
+          total: 232,
+        },
       },
     };
   }
   function pedidoBase(estado: string) {
     mswServer.use(
-      http.get('*/api/v1/facturacion/pedidos-facturables/p-1', () => HttpResponse.json(pedido(estado))),
-      http.get('*/api/v1/facturacion/pedidos-facturables/p-1/comprobantes', () => HttpResponse.json([])),
+      http.get('*/api/v1/facturacion/pedidos-facturables/p-1', () =>
+        HttpResponse.json(pedido(estado)),
+      ),
+      http.get('*/api/v1/facturacion/pedidos-facturables/p-1/comprobantes', () =>
+        HttpResponse.json([]),
+      ),
     );
   }
 
-  it('«Generar proforma» con permiso emitir en Importado: POST con Idempotency-Key, descarga y muestra la tarjeta', async () => {
+  it('«Generar proforma» con permiso emitir en Importado: POST con Idempotency-Key, la muestra en el visor y en la tarjeta', async () => {
     setPermisos(['facturacion.facturas.leer', 'facturacion.facturas.emitir']);
     pedidoBase('Importado');
     let idempotencyKey: string | null = null;
@@ -395,10 +467,43 @@ describe('<DetallePedido> — proforma (U1.8a)', () => {
     render(<DetallePedido />, { wrapper: createQueryWrapper() });
     expect(await screen.findByText(/aún no tiene proforma/i)).toBeInTheDocument();
     fireEvent.click(screen.getByRole('button', { name: /Generar proforma/i }));
+    const visor = await screen.findByRole('dialog', { name: /Proforma PF-MID-001-1/ });
+    expect(
+      await within(visor).findByTitle('Vista previa de la proforma PF-MID-001-1'),
+    ).toHaveAttribute('src', 'blob:proforma');
+    expect(generarBlobSpy.mock.calls[0][0].folio).toBe('PF-MID-001-1');
+    expect(descargarProformaSpy).not.toHaveBeenCalled();
+    expect(idempotencyKey).toBeTruthy();
+    // «Descargar» sigue disponible desde el visor.
+    fireEvent.click(within(visor).getByRole('button', { name: /Descargar/ }));
     await waitFor(() => expect(descargarProformaSpy).toHaveBeenCalledTimes(1));
     expect(descargarProformaSpy.mock.calls[0][0].folio).toBe('PF-MID-001-1');
-    expect(idempotencyKey).toBeTruthy();
-    expect(await screen.findByText('PF-MID-001-1')).toBeInTheDocument();
+  });
+
+  it('«Ver proforma» del encabezado y de la tarjeta abre la última en el visor sin descargar', async () => {
+    setPermisos(['facturacion.facturas.leer']);
+    pedidoBase('Facturado');
+    mswServer.use(
+      http.get('*/api/v1/facturacion/pedidos-facturables/p-1/proformas/ultima', () =>
+        HttpResponse.json(proforma(2)),
+      ),
+    );
+    render(<DetallePedido />, { wrapper: createQueryWrapper() });
+    fireEvent.click(await screen.findByRole('button', { name: 'Ver proforma' }));
+    const visor = await screen.findByRole('dialog', { name: /Proforma PF-MID-001-2/ });
+    expect(
+      await within(visor).findByTitle('Vista previa de la proforma PF-MID-001-2'),
+    ).toBeInTheDocument();
+    expect(within(visor).getByText(/Sin valor fiscal/)).toBeInTheDocument();
+    fireEvent.click(within(visor).getByRole('button', { name: 'Cerrar' }));
+    await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument());
+    expect(URL.revokeObjectURL).toHaveBeenCalledWith('blob:proforma');
+
+    fireEvent.click(screen.getByRole('button', { name: 'Ver proforma PF-MID-001-2' }));
+    expect(
+      await screen.findByRole('dialog', { name: /Proforma PF-MID-001-2/ }),
+    ).toBeInTheDocument();
+    expect(descargarProformaSpy).not.toHaveBeenCalled();
   });
 
   it('muestra la última proforma con «Descargar» para quien solo puede leer', async () => {

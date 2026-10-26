@@ -49,7 +49,7 @@ public sealed class PedidoDetallePrefillTests
             Guid.NewGuid(), "AAA010101AAA", "Cliente SA", "601", "97000", "G03", "03", "PUE", "MXN", false);
 
         var detalle = await new PedidoFacturableDetalleHandler(
-                db, new FakeClientesReadPort(cliente), new FakeProductosReadPort(master), new FakeCanalesVentaReadPort(), new FakeAlcanceCajaEvaluator())
+                db, new FakeClientesReadPort(cliente), new FakeProductosReadPort(master), new FakeCanalesVentaReadPort(), new FakeAlcanceCajaEvaluator(), new FakeCurrentUserPermissions())
             .Handle(new PedidoFacturableDetalleQuery(db.PedidosFacturables.Single().Id), CancellationToken.None);
 
         detalle.SucursalId.Should().Be(sucursalId);
@@ -81,7 +81,7 @@ public sealed class PedidoDetallePrefillTests
             productoId, "Producto", "43211701", "H87", "02", 0.16m, null, null, "Aw");
 
         var detalle = await new PedidoFacturableDetalleHandler(
-                db, new FakeClientesReadPort(), new FakeProductosReadPort(master), new FakeCanalesVentaReadPort(), new FakeAlcanceCajaEvaluator())
+                db, new FakeClientesReadPort(), new FakeProductosReadPort(master), new FakeCanalesVentaReadPort(), new FakeAlcanceCajaEvaluator(), new FakeCurrentUserPermissions())
             .Handle(new PedidoFacturableDetalleQuery(db.PedidosFacturables.Single().Id), CancellationToken.None);
 
         var linea = detalle.Lineas.Single();
@@ -105,7 +105,7 @@ public sealed class PedidoDetallePrefillTests
             productoId, "Producto", null, null, "02", 0.16m, null, null, "Aw");
 
         var detalle = await new PedidoFacturableDetalleHandler(
-                db, new FakeClientesReadPort(), new FakeProductosReadPort(master), new FakeCanalesVentaReadPort(), new FakeAlcanceCajaEvaluator())
+                db, new FakeClientesReadPort(), new FakeProductosReadPort(master), new FakeCanalesVentaReadPort(), new FakeAlcanceCajaEvaluator(), new FakeCurrentUserPermissions())
             .Handle(new PedidoFacturableDetalleQuery(db.PedidosFacturables.Single().Id), CancellationToken.None);
 
         var linea = detalle.Lineas.Single();
@@ -121,7 +121,7 @@ public sealed class PedidoDetallePrefillTests
         await SembrarPedidoAsync(db, empresaId, Guid.NewGuid(), productoId: null);
 
         var detalle = await new PedidoFacturableDetalleHandler(
-                db, new FakeClientesReadPort(), new FakeProductosReadPort(), new FakeCanalesVentaReadPort(), new FakeAlcanceCajaEvaluator())
+                db, new FakeClientesReadPort(), new FakeProductosReadPort(), new FakeCanalesVentaReadPort(), new FakeAlcanceCajaEvaluator(), new FakeCurrentUserPermissions())
             .Handle(new PedidoFacturableDetalleQuery(db.PedidosFacturables.Single().Id), CancellationToken.None);
 
         detalle.ClienteFiscal.Should().BeNull();

@@ -26,7 +26,8 @@ public sealed class RegistrarEnvioOcValidator : AbstractValidator<RegistrarEnvio
 }
 
 public sealed class RegistrarEnvioOcHandler(ComprasDbContext db, ICurrentUserContext usuario, IClock clock,
-    IProveedorReadPort proveedores, IAlmacenarBlobPort blob, ICorreoDocumentoService correo, ISender sender, ILogger<RegistrarEnvioOcHandler> logger)
+    IProveedorReadPort proveedores, IAlmacenarBlobPort blob, ICorreoDocumentoService correo, ISender sender,
+    ILogger<RegistrarEnvioOcHandler> logger)
     : IRequestHandler<RegistrarEnvioOcCommand, EnvioOc>
 {
     public async Task<EnvioOc> Handle(RegistrarEnvioOcCommand command, CancellationToken cancellationToken)
@@ -61,7 +62,12 @@ public sealed class RegistrarEnvioOcHandler(ComprasDbContext db, ICurrentUserCon
             envio.Completar(correo.EsSimulado);
         }
         catch (OperationCanceledException) { throw; }
-        catch (Exception) { envio.Fallar(); }
+        catch (Exception ex)
+        {
+            // Sin el correo del proveedor en el log: es dato personal.
+            logger.LogWarning(ex, "Falló el envío de la OC {OrdenCompraId} por correo.", oc.Id);
+            envio.Fallar();
+        }
         await db.SaveChangesAsync(CancellationToken.None);
         if (command.Modo == "correo" && envio.Resultado is "aceptado" or "simulado")
         {

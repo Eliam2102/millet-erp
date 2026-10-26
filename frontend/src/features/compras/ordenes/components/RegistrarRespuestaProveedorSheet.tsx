@@ -16,6 +16,8 @@ import { Label } from '@/components/ui/label';
 import { Field } from '@/components/erp';
 import { Textarea } from '@/components/ui/textarea';
 import { hoyLocalISO } from '@/lib/datetime';
+import { useCondicionesPago } from '@/features/catalogos/api';
+import { DateTimeDisplay } from '@/components/erp/display/DateTimeDisplay';
 import { TipoRespuestaProveedorOc, type OrdenCompraDetalleResponse } from '../api/types';
 import {
   RegistrarRespuestaProveedorSchema,
@@ -87,6 +89,7 @@ function RespuestaForm({
   onClose: () => void;
 }) {
   const hoy = hoyLocalISO();
+  const condicion = useCondicionesPago({ includeInactivas: true }).data?.find((c) => c.id === oc.condicionesPagoId);
   const pendientes = oc.lineas
     .map((l) => ({ linea: l, pendiente: l.cantidad - l.cantidadRecibida }))
     .filter((x) => x.pendiente > 0);
@@ -149,6 +152,28 @@ function RespuestaForm({
 
   return (
     <form onSubmit={enviar} className="space-y-5" noValidate>
+      <FormSeccion titulo="Condiciones pactadas">
+        <FormCampo span={6}>
+          <p className="text-xs text-ink-muted">Condición de pago</p>
+          <p className="text-sm">
+            {condicion
+              ? condicion.diasCredito > 0
+                ? `${condicion.nombre} (${condicion.diasCredito} días)`
+                : condicion.nombre
+              : '—'}
+          </p>
+        </FormCampo>
+        <FormCampo span={6}>
+          <p className="text-xs text-ink-muted">Fecha de entrega esperada</p>
+          <p className="text-sm tabular-nums">
+            {oc.fechaEntregaEsperada ? (
+              <DateTimeDisplay value={oc.fechaEntregaEsperada} variant="corta" />
+            ) : (
+              '—'
+            )}
+          </p>
+        </FormCampo>
+      </FormSeccion>
       <FormSeccion titulo="1. Evidencia">
         <FormCampo span={12}>
           <Field label="Archivo de evidencia" required>
@@ -217,7 +242,8 @@ function RespuestaForm({
         <FormCampo span={6}>
           <Field
             label={tipo === TipoRespuestaProveedorOc.Rechazo ? 'Motivo del rechazo' : 'Comentario'}
-            optional
+            required={tipo === TipoRespuestaProveedorOc.Rechazo}
+            optional={tipo !== TipoRespuestaProveedorOc.Rechazo}
           >
             <Textarea
               value={texto}

@@ -8,6 +8,9 @@ import { RespuestaProveedorPanel } from './RespuestaProveedorPanel';
 const permiso = vi.hoisted(() => ({ value: true }));
 vi.mock('@/lib/auth/useHasPermission', () => ({ useHasPermission: () => permiso.value }));
 vi.mock('@/features/catalogos/api', () => ({
+  useCondicionesPago: () => ({
+    data: [{ id: 'cp-30', clave: '30D', nombre: 'Crédito 30 días', diasCredito: 30 }],
+  }),
   useUsuarios: () => ({ data: { items: [{ id: 'u-1', nombre: 'Ana Compras' }] } }),
   mapById: (items: { id: string }[] | undefined) => new Map((items ?? []).map((i) => [i.id, i])),
 }));
@@ -28,6 +31,7 @@ function ocDePrueba(respuestas: RespuestaProveedorOc[] = []): OrdenCompraDetalle
     proveedorClave: 'P-1',
     estado: EstadoOrdenCompra.Autorizada,
     fechaEntregaEsperada: '2026-10-25',
+    condicionesPagoId: 'cp-30',
     estadoComercialProveedor: respuestas.length ? 1 : 0,
     fechaCompromisoProveedor: respuestas.length ? '2026-10-22' : null,
     respuestasProveedor: respuestas,
@@ -63,6 +67,13 @@ function abrirSheet(onSubmit = vi.fn().mockResolvedValue(undefined)) {
 describe('Respuesta del proveedor (F1-COM-11)', () => {
   beforeEach(() => {
     permiso.value = true;
+  });
+
+  it('muestra en solo lectura las condiciones pactadas de la orden', () => {
+    abrirSheet();
+    expect(screen.getByText('Condiciones pactadas')).toBeInTheDocument();
+    expect(screen.getByText('Crédito 30 días (30 días)')).toBeInTheDocument();
+    expect(screen.getByText('Fecha de entrega esperada')).toBeInTheDocument();
   });
 
   it('confirmación envía un compromiso por partida pendiente con la cantidad pendiente', async () => {
@@ -104,10 +115,13 @@ describe('Respuesta del proveedor (F1-COM-11)', () => {
     expect(compromisos.every((c: { lineaOrdenCompraId: string }) => c.lineaOrdenCompraId === LINEA)).toBe(true);
   });
 
-  it('rechazo sin motivo se registra con archivo', async () => {
+  it('rechazo sin motivo no se envía; con motivo se registra', async () => {
     const submit = abrirSheet();
     fireEvent.click(screen.getByLabelText('El proveedor rechaza'));
-    fireEvent.change(screen.getByLabelText(/^Referencia de la evidencia/), { target: { value: 'Correo' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Registrar respuesta' }));
+    expect(await screen.findByText('Indica el motivo del rechazo.')).toBeInTheDocument();
+    expect(submit).not.toHaveBeenCalled();
+    fireEvent.change(screen.getByLabelText(/Motivo del rechazo/), { target: { value: 'Sin stock' } });
     fireEvent.click(screen.getByRole('button', { name: 'Registrar respuesta' }));
     await waitFor(() => expect(submit).toHaveBeenCalledTimes(1));
   });

@@ -16,6 +16,7 @@ using Millet.Api.Endpoints.Catalogos;
 using Millet.Api.Endpoints.Compras;
 using Millet.Api.Endpoints.Settings;
 using Millet.Api.Hubs;
+using Millet.Api.Infrastructure;
 using Millet.Api.Web;
 using Millet.CentrosCosto.Application;
 using Millet.CentrosCosto.Infrastructure;
@@ -236,6 +237,8 @@ if (!string.IsNullOrWhiteSpace(outboxConnString))
 {
     builder.Services.AddSingleton(_ => new Azure.Messaging.ServiceBus.ServiceBusClient(outboxConnString));
     builder.Services.AddSingleton<IIntegrationEventBusSender, ServiceBusIntegrationEventBusSender>();
+    // C1.8: con conexión a Service Bus la entrega local se ignora (solo avisa).
+    builder.Services.AdvertirSiEntregaLocalIgnorada(builder.Configuration);
 
     // F3-PR1: listener Service Bus de eventos de CxP. Solo se wirea cuando
     // la conexión real existe — en dev local sin SB, los handlers se pueden
@@ -308,7 +311,10 @@ if (!string.IsNullOrWhiteSpace(outboxConnString))
     // (Bicep en el mismo PR; deploy de infra manual con what-if).
     builder.Services.AddHostedService<Millet.Facturacion.Infrastructure.Workers.TesoreriaEventListenerWorker>();
 }
-else
+// C1.8: sin conexión, `ServiceBus:EntregaLocal:Habilitada=true` (solo Development)
+// entrega los eventos del outbox en el mismo proceso a los listeners de arriba;
+// apagada, los eventos se descartan con el NoOp.
+else if (!builder.Services.AddEntregaLocalIntegrationEvents(builder.Configuration, builder.Environment))
 {
     builder.Services.AddSingleton<IIntegrationEventBusSender, NoOpIntegrationEventBusSender>();
 }
@@ -377,6 +383,11 @@ builder.Services
 // implementaciones InMemory* de los puertos (Almacén + OC). Falla
 // ruidosamente en arranque si el flag está activo en Production.
 builder.Services.AddComprasStubs(builder.Configuration, builder.Environment);
+
+// Correo de documentos (OC al proveedor, etc.): hoy simulado.
+// PLATFORM-TODO(<V08>): sustituir por el transporte real de correo.
+builder.Services.AddSingleton<Millet.SharedKernel.Application.Correo.ICorreoDocumentoService,
+    Millet.Facturacion.Infrastructure.Notificaciones.NoOpNotificacionService>();
 
 // === Compras IAlmacenEntregasReadPort → adapter real ===
 // Permite al handler `ObtenerRequisicionPorIdHandler` enriquecer
@@ -654,6 +665,12 @@ builder.Services.AddScoped<Millet.Compras.Domain.Trazabilidad.IProveedorNodosTra
 builder.Services.AddScoped<Millet.Compras.Domain.Trazabilidad.ICxpFacturasTrazabilidadReadPort,
     Millet.CuentasPorPagar.Infrastructure.PublicAdapters.CxpFacturasTrazabilidadProvider>();
 builder.Services.AddScoped<Millet.Almacen.Infrastructure.PublicAdapters.ApartadosRequisicionService>();
+// F1-COM-13 (86e3jvu98): puertos de lectura de la tríada para el análisis de proveedores.
+builder.Services.AddScoped<Millet.Compras.Domain.Ports.Almacen.IRecepcionesOcReadPort,
+    Millet.Compras.Infrastructure.PublicAdapters.AlmacenRecepcionesOcReadAdapter>();
+builder.Services.AddScoped<Millet.Compras.Domain.Ports.CuentasPorPagar.IFacturasOcReadPort,
+    Millet.CuentasPorPagar.Infrastructure.PublicAdapters.CxpFacturasOcReadAdapter>();
+builder.Services.AddScoped<Millet.Compras.Application.Reportes.AnalisisProveedores.NombresAnalisis>();
 builder.Services.AddScoped<Millet.Compras.Infrastructure.PublicAdapters.TransaccionApartadosRq>();
 
 // === Compras — Trazabilidad cross-módulo (F7-PR2) ===
@@ -742,9 +759,10 @@ builder.Services.AddScoped<
     Millet.CuentasPorPagar.Infrastructure.PublicAdapters.FiscalCfdiReceiverAdapter>();
 
 // === Módulo Almacén (F0-PR1) ===
-// Foundation: registra los 9 puertos cross-module (Compras OC + Compras RQ +
-// Artículo + Proveedor + Sucursal + Empleado + TipoCambio + ConceptoContable
-// + PeriodoContable) con stubs NoOp* — cada uno con PLATFORM-TODO buscable.
+// Foundation: registra los puertos cross-module (Compras OC + Compras RQ +
+// Artículo + Proveedor + Sucursal + Empleado + ConceptoContable) con stubs
+// NoOp* — cada uno con PLATFORM-TODO buscable. PeriodoContable (C1.2/#54) y
+// TipoCambio (C1.2, abajo) ya usan adapters reales.
 // Las entidades del dominio (Almacen, MovimientoInventario, Saldo, Conteo,
 // Reserva) entran en F1/F2/F3/F7. DbContext + outbox interceptor abajo.
 builder.Services.AddAlmacenModule();
@@ -846,6 +864,11 @@ builder.Services.AddScoped<
 builder.Services.AddScoped<
     Millet.Almacen.Domain.Ports.ISucursalReadPort,
     Millet.Compartido.Infrastructure.PublicAdapters.SucursalReadAdapter>();
+// C1.2: TC de Almacén desde compartido.tipos_cambio; reemplaza el
+// NoOpTipoCambioReadPort (PLATFORM-TODO <TipoCambioReadAdapter> cerrado).
+builder.Services.AddScoped<
+    Millet.Almacen.Domain.Ports.ITipoCambioReadPort,
+    Millet.Compartido.Infrastructure.PublicAdapters.TipoCambioReadAdapter>();
 
 // IUsuarioReadPort de Almacén → adapter hospedado en Identidad (ADR-0042).
 // Reemplaza el NoOpUsuarioReadPort que registró AddAlmacenModule(). El adapter
@@ -969,6 +992,7 @@ var awIntegracionDb = builder.Configuration.GetConnectionString("AwIntegracionDb
 if (!string.IsNullOrWhiteSpace(awIntegracionDb)
     && !awIntegracionDb.StartsWith("@Microsoft.KeyVault", StringComparison.OrdinalIgnoreCase))
 {
+    Millet.Integraciones.Aw.Infrastructure.Adapters.AwSqlTls.Validar(awIntegracionDb, "AwIntegracionDb");
     builder.Services.AddIntegracionesAwPedidosAdapters(builder.Configuration);
 }
 
@@ -1597,6 +1621,9 @@ Millet.Api.Endpoints.Compras.Oc.Dim3BuscarAbiertoEndpoint.MapDim3BuscarAbiertoEn
 // === Compras — Trazabilidad cross-módulo (F7-PR2) ===
 Millet.Api.Endpoints.Compras.Trazabilidad.ArbolDocumentosEndpoint.MapArbolDocumentosEndpoint(app);
 
+// === Compras — Análisis de compras, saldos y cumplimiento de proveedores (F1-COM-13) ===
+Millet.Api.Endpoints.Compras.Reportes.AnalisisProveedoresEndpoints.MapAnalisisProveedoresEndpoints(app);
+
 // === Compras — Historial de compras por artículo (F7-PR3) ===
 Millet.Api.Endpoints.Compras.Articulos.HistorialComprasMaterialEndpoint.MapHistorialComprasMaterialEndpoint(app);
 
@@ -1623,6 +1650,7 @@ Millet.Api.Endpoints.DatosMaestros.DatosMaestrosEndpoints.MapDatosMaestrosEndpoi
 Millet.Api.Endpoints.DatosMaestros.F1AEndpoints.MapF1AEndpoints(app);
 Millet.Api.Endpoints.DatosMaestros.SincronizacionAwEndpoints.MapSincronizacionAwEndpoints(app);
 Millet.Api.Endpoints.DatosMaestros.ClientesSincronizacionEndpoints.MapClientesSincronizacionEndpoints(app);
+Millet.Api.Endpoints.DatosMaestros.RfcRepetidosEndpoints.MapRfcRepetidosEndpoints(app);
 Millet.Api.Endpoints.DatosMaestros.ProductosAwSincronizacionEndpoints.MapProductosAwSincronizacionEndpoints(app);
 Millet.Api.Endpoints.DatosMaestros.DiferenciasFiscalesAwEndpoints.MapDiferenciasFiscalesAwEndpoints(app);
 

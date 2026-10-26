@@ -14,7 +14,7 @@ using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 namespace Millet.Compras.Infrastructure.Migrations
 {
     [DbContext(typeof(ComprasDbContext))]
-    [Migration("20261022224312_FmtOcDatosFacturaImpresiones")]
+    [Migration("20261026180120_FmtOcDatosFacturaImpresiones")]
     partial class FmtOcDatosFacturaImpresiones
     {
         /// <inheritdoc />

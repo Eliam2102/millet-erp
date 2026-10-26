@@ -15,6 +15,7 @@ import { compararProforma } from '@/features/facturacion/api/useProformas';
 import { ErrorTimbradoAviso } from '@/features/facturacion/components/ErrorTimbradoAviso';
 import { errorEmisionVentaDirecta } from '@/features/facturacion/lib/errores-venta-directa';
 import { mostrarErrorReceptorFiscal } from '@/features/facturacion/lib/mostrar-error-receptor-fiscal';
+import { notaAnticiposAplicados } from '@/features/facturacion/lib/nota-anticipos';
 import {
   EmitirFacturaSchema,
   type EmitirFacturaValues,
@@ -177,6 +178,34 @@ function FormInner({
   // schema del form porque son referencias a comprobantes ya emitidos.
   const [anticipos, setAnticipos] = useState<AnticipoAmortizar[]>([]);
 
+  // 86e3tfdw2: «Observaciones» se prellena con los anticipos aplicados
+  // mientras el cajero no la edite a mano; una vez editada, no se pisa.
+  const [observacionesEditadas, setObservacionesEditadas] = useState(false);
+  const observaciones = useWatch({ control: form.control, name: 'observaciones' });
+
+  function cambiarAnticipos(siguientes: AnticipoAmortizar[]) {
+    setAnticipos(siguientes);
+    if (observacionesEditadas) return;
+    const monedaFactura = (form.getValues('moneda') || 'MXN').toUpperCase();
+    const nota = notaAnticiposAplicados(
+      siguientes
+        .filter((a) => a.anticipoId.trim().length > 0 && a.folio)
+        .map((a) => ({ folio: a.folio ?? '', importe: a.importe, moneda: monedaFactura })),
+    );
+    form.setValue('observaciones', nota === '' ? null : nota, {
+      shouldDirty: true,
+      shouldValidate: form.formState.isSubmitted,
+    });
+  }
+
+  function editarObservaciones(texto: string) {
+    setObservacionesEditadas(true);
+    form.setValue('observaciones', texto, {
+      shouldDirty: true,
+      shouldValidate: form.formState.isSubmitted,
+    });
+  }
+
   // Autorización del Contador General — obligatoria en venta de activo
   // fijo; se elige con <AutorizacionPicker/> (FAC-UX-PR4).
   const [autorizacionId, setAutorizacionId] = useState('');
@@ -196,7 +225,7 @@ function FormInner({
   function onClienteChange(item: ClienteLookupItem | null) {
     setClienteId(item?.id ?? null);
     // Cliente distinto → los anticipos elegidos ya no aplican.
-    setAnticipos([]);
+    cambiarAnticipos([]);
     if (item == null) return;
     const opts = { shouldDirty: true } as const;
     form.setValue('receptorNombre', item.razonSocial, opts);
@@ -337,8 +366,12 @@ function FormInner({
           pedidoFacturableId: prefill?.pedidoFacturableId ?? null,
           anticipos:
             anticipos.filter((a) => a.anticipoId.trim().length > 0).length > 0
-              ? anticipos.filter((a) => a.anticipoId.trim().length > 0)
+              ? anticipos
+                  .filter((a) => a.anticipoId.trim().length > 0)
+                  // El folio es solo del FE (arma la nota); no viaja al backend.
+                  .map((a) => ({ anticipoId: a.anticipoId, importe: a.importe }))
               : null,
+          observaciones: nullIfEmpty(values.observaciones),
           autorizacionId: esActivo ? autorizacionId.trim() : null,
           cce: esCce
             ? {
@@ -490,7 +523,10 @@ function FormInner({
             Partidas
             <BadgeErrores cuenta={erroresPosiciones} />
           </TabsTrigger>
-          <TabsTrigger value="totales">Totales</TabsTrigger>
+          <TabsTrigger value="totales">
+            Totales
+            <BadgeErrores cuenta={errores.observaciones != null ? 1 : 0} />
+          </TabsTrigger>
         </TabsList>
 
         {/* forceMount: el form es uno solo — los inputs de pestañas
@@ -535,7 +571,10 @@ function FormInner({
             moneda={moneda}
             clienteId={clienteId}
             anticipos={anticipos}
-            onAnticiposChange={setAnticipos}
+            onAnticiposChange={cambiarAnticipos}
+            observaciones={observaciones ?? ''}
+            onObservacionesChange={editarObservaciones}
+            errorObservaciones={errores.observaciones?.message}
           />
         </TabsContent>
       </Tabs>

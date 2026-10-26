@@ -196,7 +196,7 @@ public sealed class GlobalExceptionHandler : IExceptionHandler
         "barrido_en_curso" or "ejecucion_no_ejecutable" => StatusCodes.Status409Conflict,
         "referencia_invalida" => StatusCodes.Status422UnprocessableEntity,
         "ejecucion_no_encontrada" => StatusCodes.Status404NotFound,
-        "lectura_deshabilitada" or "aplicacion_deshabilitada" or "origen_sin_configurar" or "origen_deshabilitado" => StatusCodes.Status503ServiceUnavailable,
+        "lectura_deshabilitada" or "aplicacion_deshabilitada" or "origen_sin_configurar" or "origen_deshabilitado" or "origen_no_disponible" => StatusCodes.Status503ServiceUnavailable,
         _ => StatusCodes.Status500InternalServerError,
     };
 

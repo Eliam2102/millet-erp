@@ -98,6 +98,7 @@ public sealed class DemoSesionSeedTests
     [InlineData("CxP", new[] { "MID" }, true)]
     [InlineData("Tesorería", new[] { "MID" }, true)]
     [InlineData("Facturación", new[] { "MID" }, true)]
+    [InlineData("Caja", new[] { "MID" }, true)]
     [InlineData("Contabilidad", new[] { "MID" }, true)]
     [InlineData("DAF", new[] { "MID" }, true)]
     [InlineData("Administrador", new[] { "MID" }, true)]
@@ -163,6 +164,28 @@ public sealed class DemoSesionSeedTests
         Assert.True(DemoSesionSeedHostedService.PermisoDelRol("DAF", PermisosCanonicos.ContabilidadCatalogoLeer));
         Assert.False(DemoSesionSeedHostedService.PermisoDelRol("Contabilidad", PermisosCanonicos.ContabilidadCatalogoAutorizar));
         Assert.True(DemoSesionSeedHostedService.PermisoDelRol("Contabilidad", PermisosCanonicos.ContabilidadCatalogoAdministrar));
+    }
+
+    [Fact]
+    public void Pedidos_credito_permiso_existe_y_lo_tienen_Facturacion_y_Contabilidad()
+    {
+        // 86e3tfdw2: el espejo de Facturación coincide con el catálogo canónico.
+        Assert.Contains(PermisosCanonicos.Todos, p => p.Codigo == PermisosCanonicos.FacturacionPedidosLeerCredito
+            && p.Id == Guid.Parse("00000009-0001-0000-0000-000000000005"));
+        Assert.Equal(PermisosCanonicos.FacturacionPedidosLeerCredito,
+            Millet.Facturacion.Application.Pedidos.Queries.PermisoPedidoCredito.PermisoLeerCredito);
+        Assert.True(DemoSesionSeedHostedService.PermisoDelRol("Facturación", PermisosCanonicos.FacturacionPedidosLeerCredito));
+        Assert.True(DemoSesionSeedHostedService.PermisoDelRol("Contabilidad", PermisosCanonicos.FacturacionPedidosLeerCredito));
+        Assert.False(DemoSesionSeedHostedService.PermisoDelRol("Compras", PermisosCanonicos.FacturacionPedidosLeerCredito));
+    }
+
+    [Fact]
+    public void Rol_Caja_opera_como_Facturacion_pero_no_ve_pedidos_a_credito()
+    {
+        // 86e3tfdw2 (supuesto por confirmar con Eliam): la cajera de mostrador no ve pedidos a crédito.
+        Assert.False(DemoSesionSeedHostedService.PermisoDelRol("Caja", PermisosCanonicos.FacturacionPedidosLeerCredito));
+        Assert.True(DemoSesionSeedHostedService.PermisoDelRol("Caja", PermisosCanonicos.FacturacionFacturasLeer));
+        Assert.True(DemoSesionSeedHostedService.PermisoDelRol("Caja", PermisosCanonicos.FacturacionPedidosCapturar));
     }
 
     [Fact]

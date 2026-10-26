@@ -6,6 +6,7 @@ using Millet.Facturacion.Domain.Cajas;
 using Millet.Facturacion.Domain.Comprobantes;
 using Millet.Facturacion.Domain.NotasCredito;
 using Millet.Facturacion.Infrastructure.Persistence;
+using Millet.SharedKernel.Infrastructure.Persistence;
 
 namespace Millet.Facturacion.Application.Cajas.Cobros;
 
@@ -111,11 +112,15 @@ public sealed class ListarComprobantesCobrablesHandler
             .Where(c => !_db.CobrosMostrador.Any(
                 x => x.ComprobanteId == c.Id && x.Estado == EstadoCobroMostrador.Registrado));
 
-        if (!string.IsNullOrWhiteSpace(query.Search))
+        // 86e3tfdx8: todas las palabras, en cualquier orden, sin acentos ni
+        // mayúsculas, en folio o nombre del receptor.
+#pragma warning disable CA1304, CA1311, CA1862
+        foreach (var palabra in BusquedaPorPalabras.Normalizar(query.Search))
         {
-            var search = query.Search.Trim();
-            q = q.Where(c => c.Folio.Contains(search) || c.ReceptorNombre.Contains(search));
+            q = q.Where(c => c.Folio.ToLower().Contains(palabra)
+                || PostgresFunctions.Translate(c.ReceptorNombre.ToLower(), PostgresFunctions.AcentosOrigen, PostgresFunctions.AcentosDestino).Contains(palabra));
         }
+#pragma warning restore CA1304, CA1311, CA1862
 
         var limite = Math.Clamp(query.Limite, 1, 100);
         var items = await q

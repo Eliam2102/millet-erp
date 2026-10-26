@@ -146,6 +146,16 @@ public sealed class RepartoDisponibilidadServiceTests
         Assert.DoesNotContain(Servicio, stock.Consultas);
         Assert.True(activo.EsActivoFijo); Assert.Equal(clase, activo.ClaseActivoId);
         Assert.Throws<Millet.SharedKernel.Application.Exceptions.BusinessRuleException>(() => rq.AgregarLinea(Guid.NewGuid(), Servicio, 0.5m, "PZA", new Money(10, "MXN"), esActivoFijo: true, claseActivoId: clase));
+        var ex = Assert.Throws<Millet.SharedKernel.Application.Exceptions.BusinessRuleException>(() => rq.AgregarLinea(Guid.NewGuid(), Servicio, 1, "PZA", new Money(10, "MXN"), esActivoFijo: true, claseActivoId: clase, articuloEsServicio: true));
+        Assert.Equal("RQ_ACTIVO_SERVICIO", ex.Code);
+        // Edición: null conserva; false limpia; artículo de servicio revalida.
+        rq.ActualizarLineaEstructural(activo.Id, Servicio, 2, "PZA", new Money(10, "MXN"));
+        Assert.True(activo.EsActivoFijo);
+        rq.ActualizarLineaEstructural(activo.Id, Servicio, 2, "PZA", new Money(10, "MXN"), esActivoFijo: false);
+        Assert.False(activo.EsActivoFijo); Assert.Null(activo.ClaseActivoId);
+        rq.ActualizarLineaEstructural(activo.Id, Servicio, 2, "PZA", new Money(10, "MXN"), esActivoFijo: true, claseActivoId: clase);
+        Assert.Equal("RQ_ACTIVO_SERVICIO", Assert.Throws<Millet.SharedKernel.Application.Exceptions.BusinessRuleException>(() =>
+            rq.ActualizarLineaEstructural(activo.Id, Servicio, 2, "PZA", new Money(10, "MXN"), articuloEsServicio: true)).Code);
     }
 
     [Theory]

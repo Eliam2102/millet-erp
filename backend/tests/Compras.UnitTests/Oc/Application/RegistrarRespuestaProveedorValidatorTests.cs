@@ -10,7 +10,7 @@ public sealed class RegistrarRespuestaProveedorValidatorTests
 
     private static CompromisoEntregaInput Comp(decimal cantidad = 10) => new(Guid.NewGuid(), cantidad, F);
 
-    private static RegistrarRespuestaProveedorCommand Cmd(TipoRespuestaProveedorOc tipo = TipoRespuestaProveedorOc.Confirmacion,
+    private static RegistrarRespuestaProveedorCommand Cmd(TipoRespuestaProveedorOc? tipo = TipoRespuestaProveedorOc.Confirmacion,
         string evidencia = "Correo P-881", string? motivo = null, params CompromisoEntregaInput[] compromisos) =>
         new(Guid.NewGuid(), tipo, F, evidencia, null, motivo, compromisos,
             new MemoryStream("%PDF-1.4 DEMO ficticio"u8.ToArray()), "DEMO.pdf", "application/pdf");
@@ -42,6 +42,10 @@ public sealed class RegistrarRespuestaProveedorValidatorTests
     [Fact]
     public void Rechazo_sin_motivo_es_valido() =>
         Assert.True(Validator.Validate(Cmd(TipoRespuestaProveedorOc.Rechazo)).IsValid);
+
+    [Fact]
+    public void Sin_clasificar_sin_motivo_es_valido() =>
+        Assert.True(Validator.Validate(Cmd(null)).IsValid);
 
     [Fact]
     public void Rechazo_con_compromisos_es_invalido() =>

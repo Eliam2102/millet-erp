@@ -23,6 +23,8 @@ public sealed class RecepcionOcLocalConfiguration : IEntityTypeConfiguration<Rec
         builder.Property(e => e.Observaciones).HasMaxLength(1000);
         builder.Property(e => e.LineasJson).HasColumnType("jsonb").IsRequired();
 
+        builder.Property(e => e.LineasOcAnuladas).HasColumnName("lineas_oc_anuladas").HasDefaultValueSql("'{}'").IsRequired();
+
         builder.Property(e => e.OcurridoEn).IsRequired();
         builder.Property(e => e.ProyectadoEn).IsRequired();
 

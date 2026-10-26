@@ -239,6 +239,10 @@ public sealed class EmitirFacturaVentaHandler
             command, empresaId, reserva.Folio, reserva.Numero, _user.UserId,
             receptor, emisor, anio, mes);
 
+        // 86e3tfdw2: observaciones del cajero (solo PDF, nunca XML). Antes de
+        // cualquier cambio de estado (retención por pedimento / timbrado).
+        factura.FijarObservaciones(command.Observaciones);
+
         if (copiaCe is not null) factura.TomarEmbarqueCe(copiaCe);
 
         // 5.quater F9: vincula + consume la autorización de venta de activo fijo.

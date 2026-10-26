@@ -1252,7 +1252,7 @@ function DatosImportacionRecepcion({ form }: { form: import('react-hook-form').U
     queryFn: async () => (await apiRequest<{ demo: boolean; aduanas: Record<string, string>; clavesPedimento: Record<string, string> }>('/api/v1/almacen/recepciones/catalogos-importacion')).data,
   });
   return (
-    <FormSeccion titulo="Datos de importación" descripcion="Pedimento, BL o guía aérea y contenedor son obligatorios para confirmar. Catálogo DEMO de aduanas y claves de pedimento; selección limitada para demostración.">
+    <FormSeccion titulo="Datos de importación" descripcion="Pedimento, BL o guía aérea y contenedor son obligatorios para confirmar. Aduanas y claves de pedimento: lista parcial mientras se carga el catálogo SAT completo.">
         {([['numeroPedimento', 'Número de pedimento'], ['numeroBl', 'BL o guía aérea'], ['numeroContenedor', 'Número de contenedor']] as const).map(([campo, etiqueta]) => (
           <FormCampo key={campo} span={6}>
             <Field label={etiqueta} required error={form.formState.errors.importacion?.[campo]?.message}>

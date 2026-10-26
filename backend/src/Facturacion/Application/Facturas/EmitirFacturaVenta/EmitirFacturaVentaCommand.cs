@@ -47,7 +47,10 @@ public sealed record EmitirFacturaVentaCommand(
     // Pedido facturable de origen (B2, FE-F1). Si viene, el pedido debe estar
     // Importado; al emitir queda Facturado (re-facturable sólo tras cancelar).
     Guid? PedidoFacturableId = null,
-    Guid? ClienteId = null) : IRequest<EmitirFacturaVentaResponse>;
+    Guid? ClienteId = null,
+    // Observaciones (86e3tfdw2): nota libre del cajero, prellenada en el FE con
+    // los anticipos aplicados. Se imprime en el PDF; NUNCA va al XML del CFDI.
+    string? Observaciones = null) : IRequest<EmitirFacturaVentaResponse>;
 
 /// <summary>Anticipo a amortizar contra la factura final, con el importe a aplicar.</summary>
 public sealed record AnticipoAAmortizar(Guid AnticipoId, decimal Importe);

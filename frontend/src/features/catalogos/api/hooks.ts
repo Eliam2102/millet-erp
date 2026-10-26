@@ -457,7 +457,8 @@ export function useArticulo(id: string | null | undefined) {
  */
 export function useCondicionesPago(opts: { includeInactivas?: boolean } = {}) {
   return useQuery({
-    queryKey: catalogosKeys.condicionesPago(),
+    // El filtro va en la llave: activas y todas no comparten caché.
+    queryKey: [...catalogosKeys.condicionesPago(), opts.includeInactivas ? 'todas' : 'activas'],
     queryFn: async ({ signal }) => {
       const params = new URLSearchParams();
       if (!opts.includeInactivas) {

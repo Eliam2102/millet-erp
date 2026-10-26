@@ -372,7 +372,7 @@ function PedimentoEditView({
           htmlFor={`${uid}-bl`}
           ayuda="Conocimiento de embarque (B/L) o guía aérea (AWB)."
         >
-          <Input id={`${uid}-bl`} type="text" maxLength={40} {...form.register('numeroBl')} />
+          <Input id={`${uid}-bl`} type="text" maxLength={50} {...form.register('numeroBl')} />
         </FieldGroup>
         <FieldGroup
           label="Fecha estimada de arribo (ETA)"
@@ -623,7 +623,7 @@ function EditView({
             htmlFor={`${uid}-bl`}
             ayuda="Conocimiento de embarque (B/L) o guía aérea (AWB)."
           >
-            <Input id={`${uid}-bl`} type="text" maxLength={40} {...form.register('numeroBl')} />
+            <Input id={`${uid}-bl`} type="text" maxLength={50} {...form.register('numeroBl')} />
           </FieldGroup>
         </FormCampo>
         <FormCampo span={6}>

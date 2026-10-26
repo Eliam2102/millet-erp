@@ -1709,6 +1709,14 @@ namespace Millet.Almacen.Infrastructure.Persistence.Migrations
                         .HasColumnType("uuid")
                         .HasColumnName("id");
 
+                    b.Property<DateTimeOffset?>("AnuladaEn")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("anulada_en");
+
+                    b.Property<Guid?>("AnuladaPorId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("anulada_por_id");
+
                     b.Property<decimal>("Cantidad")
                         .HasPrecision(18, 4)
                         .HasColumnType("numeric(18,4)")
@@ -1730,9 +1738,19 @@ namespace Millet.Almacen.Infrastructure.Persistence.Migrations
                         .HasColumnType("uuid")
                         .HasColumnName("empresa_id");
 
+                    b.Property<string>("Folio")
+                        .HasMaxLength(30)
+                        .HasColumnType("character varying(30)")
+                        .HasColumnName("folio");
+
                     b.Property<Guid>("LineaOcId")
                         .HasColumnType("uuid")
                         .HasColumnName("linea_oc_id");
+
+                    b.Property<string>("MotivoAnulacion")
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)")
+                        .HasColumnName("motivo_anulacion");
 
                     b.Property<Guid>("OrdenCompraId")
                         .HasColumnType("uuid")
@@ -2081,7 +2099,7 @@ namespace Millet.Almacen.Infrastructure.Persistence.Migrations
                     b.HasKey("Id")
                         .HasName("pk_ajustes_costo_expediente");
 
-                    b.HasIndex("EmpresaId", "ExpedienteId", "NumeroVersion", "PartidaId")
+                    b.HasIndex("EmpresaId", "ExpedienteId", "NumeroVersion", "PartidaId", "UbicacionId")
                         .IsUnique()
                         .HasDatabaseName("ix_ajustes_costo_expediente_empresa_id_expediente_id_numero_ve");
 

@@ -1,7 +1,7 @@
 using Microsoft.EntityFrameworkCore;
-using Microsoft.Extensions.Logging;
 using MediatR;
 using Millet.Compras.Application.Oc.RegistrarImpresion;
+using Microsoft.Extensions.Logging;
 using Millet.Compras.Application.Oc.Envios;
 using Millet.Compras.Domain;
 using Millet.Compras.Domain.Oc;
@@ -106,6 +106,9 @@ public sealed class EnviosOcTests
         Assert.Equal("fallido", envio.Resultado);
         Assert.Empty(f.Sender.Impresiones);
         Assert.Single(f.Db.EnviosOc);
+        var aviso = Assert.Single(f.Logger.Mensajes);
+        Assert.Contains(f.Oc.Id.ToString(), aviso);
+        Assert.DoesNotContain("example.test", aviso);
     }
 
     [Theory]
@@ -200,8 +203,8 @@ public sealed class EnviosOcTests
         public Reloj Reloj { get; } = new();
         public Proveedores Proveedores { get; } = new();
         public Correo Correo { get; } = new();
+        public LoggerCaptura Logger { get; } = new();
         public Sender Sender { get; } = new();
-        public Logger Logger { get; } = new();
         public Fixture(int firmas = 2, bool requiereNivel2 = true)
         {
             var empresa = new Empresa();
@@ -243,14 +246,6 @@ public sealed class EnviosOcTests
         public IAsyncEnumerable<TResponse> CreateStream<TResponse>(IStreamRequest<TResponse> request, CancellationToken cancellationToken = default) => throw new NotSupportedException();
         public IAsyncEnumerable<object?> CreateStream(object request, CancellationToken cancellationToken = default) => throw new NotSupportedException();
     }
-    private sealed class Logger : ILogger<RegistrarEnvioOcHandler>
-    {
-        public List<(LogLevel Nivel, Exception? Error, string Mensaje)> Entradas { get; } = [];
-        public IDisposable? BeginScope<TState>(TState state) where TState : notnull => null;
-        public bool IsEnabled(LogLevel logLevel) => true;
-        public void Log<TState>(LogLevel logLevel, EventId eventId, TState state, Exception? exception,
-            Func<TState, Exception?, string> formatter) => Entradas.Add((logLevel, exception, formatter(state, exception)));
-    }
     private sealed class Empresa : ICurrentEmpresaContext
     {
         public Guid? Current { get; } = Guid.NewGuid();
@@ -279,6 +274,18 @@ public sealed class EnviosOcTests
             Ultimo = correo;
             if (Falla) throw new InvalidOperationException("Detalle privado del transporte");
             return Task.CompletedTask;
+        }
+    }
+    private sealed class LoggerCaptura : ILogger<RegistrarEnvioOcHandler>
+    {
+        public List<string> Mensajes { get; } = [];
+        public List<(LogLevel Nivel, Exception? Error, string Mensaje)> Entradas { get; } = [];
+        public IDisposable? BeginScope<TState>(TState state) where TState : notnull => null;
+        public bool IsEnabled(LogLevel logLevel) => true;
+        public void Log<TState>(LogLevel logLevel, EventId eventId, TState state, Exception? exception, Func<TState, Exception?, string> formatter)
+        {
+            Entradas.Add((logLevel, exception, formatter(state, exception)));
+            if (logLevel == LogLevel.Warning) Mensajes.Add(formatter(state, exception));
         }
     }
     private sealed class Blob : IAlmacenarBlobPort

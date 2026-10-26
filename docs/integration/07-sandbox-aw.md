@@ -33,7 +33,7 @@ Hybrid Connection, TLS verificado (el test usa `TrustServerCertificate` solo aqu
 2. Cliente **nuevo** con moneda sin equivalencia no se crea (error `moneda_sin_equivalencia`); solo un cliente existente queda `Pendiente`.
 3. Una ejecución de clientes `Fallida` es terminal: el reintento es un barrido nuevo (lo aplicado da `SinCambios`), no una reanudación.
 4. Total múltiplo del lote ⇒ una página final vacía extra (inocuo).
-5. **Productos:** sin ejecución durable; un fallo de origen sale como `AwReaderException` y lo aplicado antes queda aplicado. Los productos `UNIDAD_SIN_EQUIVALENCIA` (`<indf>`, sin descripción en idioma 0) no dejan registro y se reportan en cada barrido.
+5. **Productos:** sin ejecución durable; un fallo de origen sale como `AwReaderException` y lo aplicado antes queda aplicado. Los productos con unidad `<indf>` o sin descripción en idioma 0 se crean con `PZA`.
 6. `KA_ZAHLBED.BEZ` es PK en el real: "ZAHLBED con >1 coincidencia" no puede ocurrir (el caso 6 de [05](05-sincronizacion-clientes-aw.md) §9 solo aplica a 0 coincidencias).
 
 ## Comparación con el A+W real

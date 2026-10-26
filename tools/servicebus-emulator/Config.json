@@ -119,7 +119,7 @@
                     "Properties": {
                       "FilterType": "Sql",
                       "SqlFilter": {
-                        "SqlExpression": "user.EventType IN ('almacen.oc_recepcion.registrada.v1', 'almacen.oc_devolucion.registrada.v1')"
+                        "SqlExpression": "user.EventType IN ('almacen.oc_recepcion.registrada.v1', 'almacen.oc_devolucion.registrada.v1', 'almacen.recepcion_activo.anulada.v1')"
                       }
                     }
                   }
@@ -142,7 +142,7 @@
                     "Properties": {
                       "FilterType": "Sql",
                       "SqlFilter": {
-                        "SqlExpression": "user.EventType IN ('almacen.oc_recepcion.registrada.v1', 'almacen.oc_devolucion.registrada.v1', 'almacen.salida_requisicion.registrada.v1')"
+                        "SqlExpression": "user.EventType IN ('almacen.oc_recepcion.registrada.v1', 'almacen.oc_devolucion.registrada.v1', 'almacen.salida_requisicion.registrada.v1', 'almacen.recepcion_activo.anulada.v1')"
                       }
                     }
                   }
@@ -165,7 +165,7 @@
                     "Properties": {
                       "FilterType": "Sql",
                       "SqlFilter": {
-                        "SqlExpression": "user.EventType = 'almacen.oc_recepcion.registrada.v1'"
+                        "SqlExpression": "user.EventType IN ('almacen.oc_recepcion.registrada.v1', 'almacen.recepcion_activo.anulada.v1')"
                       }
                     }
                   }

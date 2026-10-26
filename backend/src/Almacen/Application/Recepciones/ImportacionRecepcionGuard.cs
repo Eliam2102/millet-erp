@@ -7,6 +7,7 @@ namespace Millet.Almacen.Application.Recepciones;
 public sealed record ImportacionRecepcionInput(string? NumeroPedimento = null, string? NumeroBl = null,
     string? NumeroContenedor = null, string? Aduana = null, string? ClavePedimento = null);
 
+// PLATFORM-TODO(<CatalogoSatComercioExterior>): catálogo SAT completo de aduanas y claves de pedimento
 // DEMO: subconjunto local para captura sin PAC. Validar y ampliar contra el catálogo SAT vigente antes de producción.
 // shortcut: catálogo acotado de demostración, sustituir por catálogo completo versionado al habilitar operación fiscal.
 public static class CatalogosImportacionDemo
@@ -43,7 +44,8 @@ internal static class ImportacionRecepcionGuard
         var partidas = new List<RecepcionImportacionPartida>();
         foreach (var linea in lineas)
         {
-            var origen = oc.Lineas.Single(l => l.LineaId == linea.LineaOcId);
+            var origen = oc.Lineas.FirstOrDefault(l => l.LineaId == linea.LineaOcId)
+                ?? throw new BusinessRuleException("RECEPCION_LINEA_OC_NO_ENCONTRADA", "Una partida recibida no pertenece a la orden de compra.");
             var fraccion = Valor(linea.FraccionArancelaria, origen.FraccionArancelaria);
             if (fraccion is null || (fraccion.Length != 8 && fraccion.Length != 10) || fraccion.Any(c => c < '0' || c > '9'))
                 throw new BusinessRuleException("RECEPCION_FRACCION_INVALIDA", "Captura una fracción arancelaria de 8 o 10 dígitos en cada partida recibida.");

@@ -351,7 +351,7 @@ El catálogo de dependencias revisoras (A21) **no se crea en este schema** — v
 | `IPuestoReadPort` | ✅ `PuestoReadPortAdapter` sobre `compartido.puestos` (ADM-PR2) | Catálogo de puestos (A18) |
 | `IDependenciaRevisoraReadPort` | Adapter en `Administracion.Infrastructure` (stub `NoOpDependenciaRevisoraReadPort` con seed local hasta que Administración exponga el catálogo — A21) | Catálogo compartido de dependencias / áreas organizacionales para asignar revisión |
 | `IConceptoContableReadPort` | Adapter en `Contabilidad.Infrastructure` (stub hoy) | Mapeo `ConceptoContable` → `CuentaContable` |
-| `ITipoCambioReadPort` | Adapter en `Administracion.Infrastructure` | T/C manual del día (ADR-0014) |
+| `ITipoCambioReadPort` | `CuentasPorPagar.Infrastructure.Adapters.TipoCambioReadPortAdapter` (C1.2) sobre `compartido.tipos_cambio` | Manda el T/C del CFDI; si la factura en moneda extranjera no trae ninguno se toma el del catálogo para la fecha del documento y, sin registro, 422 `TIPO_CAMBIO_NO_REGISTRADO` |
 | `IFiscalApiClient` | Adapter en `CuentasPorPagar.Infrastructure` | Descarga SAT, validación RFC, consulta estado CFDI (ADR-0027) |
 | `IEstadoCuentaTcParserPort` | Adapter en `CuentasPorPagar.Infrastructure` (A20) | Parser configurable de Excel/CSV del portal del banco. Perfil por banco emisor (columnas, formato fecha, separador). |
 | `IAlmacenRecepcionReadPort` | Adapter en `Almacen.Infrastructure` (cuando el módulo esté en runtime; stub `NoOpAlmacenRecepcionReadPort` hasta entonces) | Verificar si una OC tiene recepción registrada (proyección local de eventos `OcRecepcionRegistradaEvent`), incluyendo flag `factura_pendiente` para variante B |
@@ -738,6 +738,7 @@ Memoria `project_nav_shell_pattern` — entra al sidebar + modal de cards. Secci
 - ~~`StubPuestoReadPort`~~ — ✅ cerrado en ADM-PR2: `PuestoReadPortAdapter` + `EmpleadoReadPortAdapter` sobre `compartido.puestos`/`empleados` (doc 10 de Administración); el seed EJEC/GER/OPER migró a la tabla real con los mismos GUIDs (D6).
 
 - `NoOpNotificacionService` — el correo/Teams de los avisos de plazo de revisión no se envía; el aviso visible vive en la bandeja por área (`/cxp/revision`, columna «Aviso»). `PLATFORM-TODO(<NotificacionesGlobal>)`. Se wirea con el adaptador real del motor de notificaciones (ADR-0026).
+- `NoOpNotificacionService` (destinatarios) — los avisos de día 3/5/10 deben llegar al área revisora, a Compras vía `AreaAvisadaCodigo` del motivo y al Contador General en todos los avisos; el rol «Director de Finanzas» no existe aún en el catálogo de responsables y los departamentos `CXP` y `DIRECCION_F` deben crearse en Administración. `PLATFORM-TODO(<NotificacionContadorGeneral>)`. Parte 2 de la tarea 86e3tfeq7.
 
 Cada `PLATFORM-TODO` busca-able con `rg "PLATFORM-TODO" backend/src/CuentasPorPagar`.
 

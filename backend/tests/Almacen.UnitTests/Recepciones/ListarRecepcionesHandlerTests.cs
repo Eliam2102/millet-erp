@@ -34,6 +34,8 @@ public class ListarRecepcionesHandlerTests
         var handler = new ListarRecepcionesHandler(db, new FakeOcReadPort());
         var consulta = new ListarRecepcionesQuery(null, null, null, null, null, 0, 50, Q: "26 16 1234 6000001");
         Assert.Single((await handler.Handle(consulta, default)).Items);
+        Assert.Single((await handler.Handle(consulta with { Q = "6000001" }, default)).Items);
+        Assert.Empty((await handler.Handle(consulta with { Q = "9999" }, default)).Items);
         Assert.Empty((await handler.Handle(consulta with { DocumentosPermitidos = [] }, default)).Items);
     }
 

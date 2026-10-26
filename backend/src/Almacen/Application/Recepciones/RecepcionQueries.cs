@@ -52,7 +52,13 @@ public sealed record RecepcionDetalle(
     // siguen compilando; null si el puerto no resuelve (FE cae al id
     // truncado).
     string? CfdiUuidFiscal = null,
-    string? FacturaFolio = null);
+    string? FacturaFolio = null,
+    // F1-COM-06: documentos de la recepción de importación; null si la OC no es de importación.
+    RecepcionImportacionDetalle? Importacion = null);
+
+public sealed record RecepcionImportacionDetalle(
+    string NumeroPedimento, string NumeroBl, string NumeroContenedor, string Aduana, string? AduanaNombre,
+    string ClavePedimento, string? ClavePedimentoNombre);
 
 public sealed record RecepcionLineaItem(
     Guid Id,
@@ -70,7 +76,9 @@ public sealed record RecepcionLineaItem(
     // los selectores). Null = línea histórica sin bin o bin no resuelto.
     Guid? UbicacionId = null, string? UbicacionClave = null,
     // ALM-04: línea que entró al sub-almacén de material en revisión (no disponible hasta el dictamen) y su motivo de daño.
-    bool EnRevision = false, string? MotivoDano = null);
+    bool EnRevision = false, string? MotivoDano = null,
+    // F1-COM-06: fracción arancelaria capturada en la recepción de importación.
+    string? FraccionArancelaria = null);
 
 public sealed record ListarRecepcionesQuery(
     EstadoMovimiento? Estado,
@@ -182,7 +190,7 @@ internal static class RecepcionesFiltro
             var q = request.Q.Trim().ToUpperInvariant();
             var pedimento = q.Replace(" ", "");
             query = query.Where(m => (m.Folio != null && m.Folio.Contains(q)) ||
-                db.RecepcionesImportacion.Any(i => i.RecepcionId == m.Id && i.NumeroPedimento == pedimento));
+                db.RecepcionesImportacion.Any(i => i.RecepcionId == m.Id && i.NumeroPedimento.Contains(pedimento)));
         }
 
         return query;
@@ -335,6 +343,10 @@ public sealed class ObtenerRecepcionPorIdHandler
             foliosFactura.TryGetValue(facturaId, out facturaFolio);
         }
 
+        var imp = await _db.RecepcionesImportacion.AsNoTracking().Include(i => i.Partidas)
+            .FirstOrDefaultAsync(i => i.RecepcionId == mov.Id, cancellationToken);
+        var fracciones = imp?.Partidas.ToDictionary(p => p.LineaOcId, p => p.FraccionArancelaria) ?? [];
+
         return new RecepcionDetalle(
             Id: mov.Id,
             Folio: mov.Folio ?? "(borrador)",
@@ -365,10 +377,14 @@ public sealed class ObtenerRecepcionPorIdHandler
                         l.CentroCostoId, centro?.Clave, centro?.Nombre,
                         l.UbicacionId,
                         l.UbicacionId is Guid ub && rutasUbicacion.TryGetValue(ub, out var ruta) ? ruta : null,
-                        enRevision, enRevision ? l.ComentarioLinea : null);
+                        enRevision, enRevision ? l.ComentarioLinea : null,
+                        l.LineaOcId is Guid loc ? fracciones.GetValueOrDefault(loc) : null);
                 })
                 .ToList(),
             CfdiUuidFiscal: cfdiUuidFiscal,
-            FacturaFolio: facturaFolio);
+            FacturaFolio: facturaFolio,
+            Importacion: imp is null ? null : new RecepcionImportacionDetalle(imp.NumeroPedimento, imp.NumeroBl,
+                imp.NumeroContenedor, imp.Aduana, CatalogosImportacionDemo.Aduanas.GetValueOrDefault(imp.Aduana),
+                imp.ClavePedimento, CatalogosImportacionDemo.ClavesPedimento.GetValueOrDefault(imp.ClavePedimento)));
     }
 }
