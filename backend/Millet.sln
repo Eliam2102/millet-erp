@@ -148,6 +148,7 @@ EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Documentos.UnitTests", "Documentos.UnitTests", "{531BBF31-3DF6-B352-4E83-551A522660DF}"
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Millet.Documentos.UnitTests", "tests\Documentos.UnitTests\Millet.Documentos.UnitTests.csproj", "{50127375-CD06-434E-ABAA-BD56207074F9}"
+EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "ActivosFijos", "ActivosFijos", "{43C44086-6AFF-D543-CB84-11AA20511970}"
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Millet.ActivosFijos", "src\ActivosFijos\Millet.ActivosFijos.csproj", "{F61C471B-E8AE-473A-8241-AA53D6E252EB}"
