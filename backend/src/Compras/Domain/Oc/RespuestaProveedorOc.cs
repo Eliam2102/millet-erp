@@ -11,9 +11,9 @@ public sealed class RespuestaProveedorOc : BaseEntity, IAuditable, IBelongsToAgg
     public Guid OrdenCompraId { get; private set; }
     public Guid AggregateRootId => OrdenCompraId;
     public int Numero { get; private set; }
-    public TipoRespuestaProveedorOc Tipo { get; private set; }
-    public DateOnly FechaRespuesta { get; private set; }
-    public string Evidencia { get; private set; } = "";
+    public TipoRespuestaProveedorOc? Tipo { get; private set; }
+    public DateOnly? FechaRespuesta { get; private set; }
+    public string? Evidencia { get; private set; } = "";
     public string? ContactoProveedor { get; private set; }
     public string? Motivo { get; private set; }
     public bool TieneDiferencias { get; private set; }
@@ -25,8 +25,8 @@ public sealed class RespuestaProveedorOc : BaseEntity, IAuditable, IBelongsToAgg
 
     private RespuestaProveedorOc() { }
 
-    internal RespuestaProveedorOc(Guid id, Guid ordenCompraId, int numero, TipoRespuestaProveedorOc tipo,
-        DateOnly fechaRespuesta, string evidencia, string? contactoProveedor, string? motivo,
+    internal RespuestaProveedorOc(Guid id, Guid ordenCompraId, int numero, TipoRespuestaProveedorOc? tipo,
+        DateOnly? fechaRespuesta, string? evidencia, string? contactoProveedor, string? motivo,
         bool tieneDiferencias, Guid registradaPorId, DateTimeOffset registradaEn,
         IEnumerable<CompromisoEntregaPropuesto> compromisos) : base(id)
     {
@@ -34,7 +34,7 @@ public sealed class RespuestaProveedorOc : BaseEntity, IAuditable, IBelongsToAgg
         Numero = numero;
         Tipo = tipo;
         FechaRespuesta = fechaRespuesta;
-        Evidencia = evidencia.Trim();
+        Evidencia = string.IsNullOrWhiteSpace(evidencia) ? null : evidencia.Trim();
         ContactoProveedor = string.IsNullOrWhiteSpace(contactoProveedor) ? null : contactoProveedor.Trim();
         Motivo = string.IsNullOrWhiteSpace(motivo) ? null : motivo.Trim();
         TieneDiferencias = tieneDiferencias;

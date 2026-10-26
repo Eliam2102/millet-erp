@@ -102,6 +102,40 @@ describe('<ComprobacionesPage> — smoke', () => {
     );
   });
 
+  it('caja chica pendiente de aprobar pasivo muestra el chip y las acciones de CxP', async () => {
+    mswServer.use(
+      http.get('*/api/v1/cuentas-por-pagar/comprobaciones', () =>
+        HttpResponse.json({
+          items: [
+            {
+              id: 'c-2',
+              tipo: TipoComprobacionGastos.ReembolsoCajaChica,
+              estado: EstadoComprobacionGastos.PendienteAprobarPasivo,
+              sucursalId: 's-1',
+              responsableId: 'r-1',
+              fechaInicio: '2026-05-01',
+              fechaFin: '2026-05-07',
+              montoTotal: 1200,
+              moneda: 'MXN',
+              numeroLineas: 2,
+              fechaCreacion: '2026-05-20T00:00:00Z',
+              version: 1,
+            },
+          ],
+          offset: 0,
+          limit: 200,
+          total: 1,
+        }),
+      ),
+    );
+    render(<ComprobacionesPage />, { wrapper: createQueryWrapper() });
+    await waitFor(() =>
+      expect(screen.getByRole('button', { name: /Aprobar pasivo/i })).toBeInTheDocument(),
+    );
+    expect(screen.getAllByText('Pendiente de aprobar pasivo').length).toBeGreaterThan(0);
+    expect(screen.queryByRole('button', { name: /^Autorizar$/i })).not.toBeInTheDocument();
+  });
+
   it('axe-core: cero violations en estado vacío', async () => {
     mswServer.use(
       http.get('*/api/v1/cuentas-por-pagar/comprobaciones', () =>

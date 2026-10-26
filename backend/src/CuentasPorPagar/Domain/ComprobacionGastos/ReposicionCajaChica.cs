@@ -12,9 +12,9 @@ namespace Millet.CuentasPorPagar.Domain.ComprobacionGastos;
 /// banco.
 ///
 /// <para>
-/// Se emite cuando el saldo acumulado por reponer alcanza el monto
-/// mínimo configurado para la sucursal (Q4), o por corte manual para
-/// vaciar el saldo sin alcanzar el mínimo. Al emitirse publica
+/// Se emite al aprobar el pasivo de cada comprobación de caja chica (sin
+/// mínimo, P8.5), o por corte manual para vaciar el saldo de comprobaciones
+/// heredadas. Al emitirse publica
 /// <c>pasivo.autorizado-para-pago.v1</c> con
 /// <c>TipoBeneficiario = CajaSucursal | Empleado</c> y
 /// <c>OrigenTipo = ReposicionCajaChica</c>.
@@ -37,7 +37,7 @@ public sealed class ReposicionCajaChica : BaseEntity, IPerteneceAEmpresa, IAudit
 
     public int NumeroComprobaciones { get; private set; }
 
-    /// <summary>True si se emitió por corte manual (sin alcanzar el mínimo).</summary>
+    /// <summary>True si se emitió por corte manual (comprobaciones heredadas).</summary>
     public bool EsCorteManual { get; private set; }
 
     public Guid? EmitidaPor { get; private set; }

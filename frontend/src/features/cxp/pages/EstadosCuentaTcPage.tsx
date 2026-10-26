@@ -225,7 +225,8 @@ function Tabla({ items }: { items: readonly EstadoCuentaTc[] }) {
       () => toast.success(label),
       (error) => {
         if (esApiError(error)) {
-          toast.error(error.problem.title);
+          // El detalle trae la diferencia y la tolerancia cuando el servidor rechaza.
+          toast.error(error.problem.detail ?? error.problem.title);
           return;
         }
         toast.error('Error al ejecutar acción.');
@@ -467,7 +468,8 @@ function Acciones({
           )}
         </>
       )}
-      {enConciliacion && puedeCerrar && ec.diferenciaMxn === 0 && (
+      {/* La tolerancia es configurable: el servidor decide si la diferencia se acepta. */}
+      {enConciliacion && puedeCerrar && (
         <Button
           variant="outline"
           size="sm"

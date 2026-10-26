@@ -16,6 +16,8 @@ public sealed class NoOpNotificacionService : INotificacionService
 
     public NoOpNotificacionService(ILogger<NoOpNotificacionService> logger) { _logger = logger; }
 
+    // PLATFORM-TODO(<NotificacionContadorGeneral>): destinatarios de los avisos día 3/5/10 (SRC-093, parte 2):
+    // el área revisora, Compras vía MotivoRevision.AreaAvisadaCodigo y el Contador General en todos; falta el rol Director de Finanzas.
     public Task NotificarSlaRevisionAsync(SlaRevisionNotificacion notificacion, CancellationToken cancellationToken)
     {
         _logger.LogInformation(

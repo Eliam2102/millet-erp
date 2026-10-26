@@ -5,6 +5,7 @@ using Millet.Facturacion.Application.Cajas.Alcance;
 using Millet.Facturacion.Domain.Pedidos;
 using Millet.Facturacion.Domain.Ports;
 using Millet.Facturacion.Infrastructure.Persistence;
+using Millet.SharedKernel.Application;
 using Millet.SharedKernel.Application.Exceptions;
 
 namespace Millet.Facturacion.Application.Pedidos.Queries;
@@ -24,6 +25,17 @@ namespace Millet.Facturacion.Application.Pedidos.Queries;
 /// solo lectura — la línea persiste su snapshot y NO se muta aquí.
 /// </para>
 /// </summary>
+/// <summary>
+/// 86e3tfdw2: visibilidad de pedidos a crédito por rol. Facturación no
+/// referencia Identidad, así que el código se replica aquí (mismo patrón que
+/// <see cref="PermisoEmergenciaPedido"/>).
+/// </summary>
+public static class PermisoPedidoCredito
+{
+    /// <summary>Espejo de <c>PermisosCanonicos.FacturacionPedidosLeerCredito</c> (Identidad).</summary>
+    public const string PermisoLeerCredito = "facturacion.pedidos.leer-credito";
+}
+
 public sealed record PedidoFacturableDetalleQuery(Guid Id) : IRequest<PedidoFacturableDetalleResponse>;
 
 public sealed record PedidoFacturableDetalleResponse(
@@ -58,6 +70,10 @@ public sealed record PedidoFacturableDetalleResponse(
     bool EsEmergencia = false,
     string? MotivoEmergencia = null,
     string? ReferenciaPedidoAw = null,
+    // 86e3tfdw2: pedido a crédito (condición de pago del origen ≠ CONTADO).
+    bool EsCredito = false,
+    string? MetodoPagoOrigen = null,
+    string? CondicionPagoOrigen = null,
     // 86e3tfd6n: anticipos cobrados con el número de este pedido de A+W y del mismo cliente.
     IReadOnlyList<AnticipoLigadoPedido>? AnticiposLigados = null);
 
@@ -104,6 +120,7 @@ public sealed class PedidoFacturableDetalleHandler
     private readonly IProductosReadPort _productos;
     private readonly ICanalesVentaReadPort _canalesVenta;
     private readonly IAlcanceCajaEvaluator _alcance;
+    private readonly ICurrentUserPermissions _permisos;
     private readonly IEmbarqueExportacionReadPort? _embarques;
 
     public PedidoFacturableDetalleHandler(
@@ -111,13 +128,16 @@ public sealed class PedidoFacturableDetalleHandler
         IClientesReadPort clientes,
         IProductosReadPort productos,
         ICanalesVentaReadPort canalesVenta,
-        IAlcanceCajaEvaluator alcance, IEmbarqueExportacionReadPort? embarques = null)
+        IAlcanceCajaEvaluator alcance,
+        ICurrentUserPermissions permisos,
+        IEmbarqueExportacionReadPort? embarques = null)
     {
         _db = db;
         _clientes = clientes;
         _productos = productos;
         _canalesVenta = canalesVenta;
         _alcance = alcance;
+        _permisos = permisos;
         _embarques = embarques;
     }
 
@@ -130,6 +150,13 @@ public sealed class PedidoFacturableDetalleHandler
             .Include(p => p.Lineas)
             .FirstOrDefaultAsync(p => p.Id == query.Id, cancellationToken)
             ?? throw new EntityNotFoundException("PEDIDO_NO_ENCONTRADO", $"No existe el pedido facturable '{query.Id}'.");
+
+        // 86e3tfdw2: el pedido a crédito sólo lo ve quien tiene
+        // facturacion.pedidos.leer-credito (Contador/Facturación, no el cajero).
+        // Sin el permiso → mismo 404 que inexistente, para no revelar que existe.
+        if (pedido.EsCredito
+            && !await _permisos.TieneAsync(PermisoPedidoCredito.PermisoLeerCredito, cancellationToken))
+            throw new EntityNotFoundException("PEDIDO_NO_ENCONTRADO", $"No existe el pedido facturable '{query.Id}'.");
 
         var clienteMaster = await _clientes.ObtenerAsync(pedido.ClienteId, cancellationToken);
         var clienteFiscal = clienteMaster is null
@@ -188,6 +215,7 @@ public sealed class PedidoFacturableDetalleHandler
             pedido.Total, pedido.Ranura, pedido.Version, clienteFiscal, lineas, _embarques is null ? null : await _embarques.ObtenerAsync(pedido.Id, cancellationToken),
             pedido.ClaseManual?.ToString(), pedido.SubtipoVentaDirecta?.ToString(), pedido.EsEmergencia,
             pedido.MotivoEmergencia, pedido.ReferenciaPedidoAw,
+            pedido.EsCredito, pedido.MetodoPagoOrigen, pedido.CondicionPagoOrigen,
             await AnticiposLigadosAsync(pedido, cancellationToken));
     }
 

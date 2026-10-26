@@ -30,6 +30,11 @@ public static class RecepcionesEndpoints
             .WithTags("Almacen")
             .RequireAuthorization();
 
+        group.MapGet("/catalogos-importacion", () => Results.Ok(new
+        {
+            Demo = true, Aduanas = CatalogosImportacionDemo.Aduanas, ClavesPedimento = CatalogosImportacionDemo.ClavesPedimento
+        })).RequireAuthorization(PermissionPolicyProvider.Prefix + PermisosCanonicos.AlmacenEntradasRegistrar);
+
         // --- Listar Recepciones (bandeja) ---
         group.MapGet("/", async (
             [FromQuery] EstadoMovimiento? estado,
@@ -128,6 +133,43 @@ public static class RecepcionesEndpoints
         .ProducesProblem(StatusCodes.Status403Forbidden)
         .ProducesProblem(StatusCodes.Status404NotFound);
 
+        // --- Recepciones de activos fijos de la OC (no generan movimiento, por eso no salen en la bandeja) ---
+        group.MapGet("/ordenes/{ordenCompraId:guid}/activos", async (
+            Guid ordenCompraId,
+            DocumentoSucursalScope documentos,
+            IMediator mediator,
+            CancellationToken ct) =>
+        {
+            await documentos.VerificarAsync("orden_compra", ordenCompraId, PermisosCanonicos.AlmacenEntradasLeerTodasSucursales, ct);
+            return Results.Ok(await mediator.Send(new ListarRecepcionesActivoQuery(ordenCompraId), ct));
+        })
+        .RequireAuthorization(PermissionPolicyProvider.Prefix + PermisosCanonicos.AlmacenEntradasLeer)
+        .WithName("ListarRecepcionesActivoOc")
+        .WithSummary("Recepciones de activos fijos de la OC, con su estado de anulación")
+        .Produces<IReadOnlyList<RecepcionActivoDto>>(StatusCodes.Status200OK)
+        .ProducesProblem(StatusCodes.Status403Forbidden);
+
+        // --- Anular recepción de activos fijos (antes de capitalizar) ---
+        group.MapPost("/ordenes/{ordenCompraId:guid}/activos/{recepcionId:guid}/anular", async (
+            Guid ordenCompraId,
+            Guid recepcionId,
+            AnularRecepcionActivoRequest body,
+            DocumentoSucursalScope documentos,
+            IMediator mediator,
+            CancellationToken ct) =>
+        {
+            await documentos.VerificarAsync("orden_compra", ordenCompraId, PermisosCanonicos.AlmacenEntradasGestionarTodasSucursales, ct);
+            return Results.Ok(await mediator.Send(new AnularRecepcionActivoCommand(ordenCompraId, recepcionId, body.Motivo), ct));
+        })
+        .RequireAuthorization(PermissionPolicyProvider.Prefix + PermisosCanonicos.AlmacenEntradasRegistrar)
+        .WithMetadata(new RequireIdempotencyKeyAttribute())
+        .WithName("AnularRecepcionActivo")
+        .WithSummary("Anular la recepción de activos fijos mientras no estén capitalizados (idempotente)")
+        .Produces<AnularRecepcionActivoResponse>(StatusCodes.Status200OK)
+        .ProducesProblem(StatusCodes.Status403Forbidden)
+        .ProducesProblem(StatusCodes.Status404NotFound)
+        .ProducesProblem(StatusCodes.Status422UnprocessableEntity);
+
         // --- Registrar Recepción Variante A (factura/CFDI) ---
         group.MapPost("/", async (
             RegistrarRecepcionConFacturaCommand command,
@@ -190,3 +232,6 @@ public static class RecepcionesEndpoints
         return (off, lim);
     }
 }
+
+/// <summary>Cuerpo de <c>POST /ordenes/{ordenCompraId}/activos/{recepcionId}/anular</c>.</summary>
+public sealed record AnularRecepcionActivoRequest(string Motivo);

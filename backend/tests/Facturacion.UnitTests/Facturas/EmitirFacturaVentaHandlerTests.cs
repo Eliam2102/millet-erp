@@ -172,6 +172,45 @@ public sealed class EmitirFacturaVentaHandlerTests
         factura.Lineas.Should().HaveCount(1);
     }
 
+    // ---- 86e3tfdw2: observaciones (solo PDF, nunca XML) ----
+
+    [Fact]
+    public async Task Handle_persiste_observaciones_del_cajero()
+    {
+        var empresaId = Guid.NewGuid();
+        using var db = NewDb(empresaId);
+        const string nota = "Anticipos aplicados: FANT-12 $5,000.00 MXN; FANT-15 $1,200.00 MXN";
+
+        await Handler(db, empresaId).Handle(Command() with { Observaciones = "  " + nota + " " }, CancellationToken.None);
+
+        var factura = await db.FacturasVenta.SingleAsync();
+        factura.Estado.Should().Be(EstadoTimbrado.Timbrado);
+        factura.Observaciones.Should().Be(nota);
+    }
+
+    [Fact]
+    public async Task Handle_sin_observaciones_deja_null()
+    {
+        var empresaId = Guid.NewGuid();
+        using var db = NewDb(empresaId);
+
+        await Handler(db, empresaId).Handle(Command(), CancellationToken.None);
+
+        (await db.FacturasVenta.SingleAsync()).Observaciones.Should().BeNull();
+    }
+
+    [Fact]
+    public async Task Validator_rechaza_observaciones_de_mas_de_1000_caracteres()
+    {
+        var validator = new EmitirFacturaVentaValidator(new FakeCanalesVentaReadPort());
+
+        var larga = await validator.ValidateAsync(Command() with { Observaciones = new string('x', 1001) });
+        var limite = await validator.ValidateAsync(Command() with { Observaciones = new string('x', 1000) });
+
+        larga.Errors.Should().ContainSingle(e => e.PropertyName == nameof(EmitirFacturaVentaCommand.Observaciones));
+        limite.Errors.Should().NotContain(e => e.PropertyName == nameof(EmitirFacturaVentaCommand.Observaciones));
+    }
+
     [Fact]
     public async Task Handle_con_periodo_cerrado_lanza_PERIODO_CERRADO()
     {

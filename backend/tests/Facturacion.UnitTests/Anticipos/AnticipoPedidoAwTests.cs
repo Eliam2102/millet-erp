@@ -115,7 +115,7 @@ public sealed class AnticipoPedidoAwTests
         await db.SaveChangesAsync();
 
         var detalle = await new PedidoFacturableDetalleHandler(
-                db, new FakeClientesReadPort(), new FakeProductosReadPort(), new FakeCanalesVentaReadPort(), new FakeAlcanceCajaEvaluator())
+                db, new FakeClientesReadPort(), new FakeProductosReadPort(), new FakeCanalesVentaReadPort(), new FakeAlcanceCajaEvaluator(), new FakeCurrentUserPermissions())
             .Handle(new PedidoFacturableDetalleQuery(pedido.Id), CancellationToken.None);
 
         var ligado = detalle.AnticiposLigados.Should().ContainSingle().Subject;

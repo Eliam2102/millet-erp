@@ -108,7 +108,9 @@ public static class LineasEndpoints
                 CuentaContableId: request.CuentaContableId,
                 CentroCostoId: request.CentroCostoId,
                 Proyecto: request.Proyecto,
-                FechaRequerida: request.FechaRequerida);
+                FechaRequerida: request.FechaRequerida,
+                EsActivoFijo: request.EsActivoFijo,
+                ClaseActivoId: request.ClaseActivoId);
 
             await mediator.Send(command, cancellationToken);
             return Results.NoContent();
@@ -203,7 +205,8 @@ public static class LineasEndpoints
         Guid? CuentaContableId,
         Guid? CentroCostoId,
         string? Proyecto,
-        DateOnly? FechaRequerida);
+        DateOnly? FechaRequerida,
+        bool? EsActivoFijo = null, Guid? ClaseActivoId = null);
 
     /// <summary>Body del PATCH de notas.</summary>
     public sealed record ActualizarNotasLineaRequest(string? Notas);

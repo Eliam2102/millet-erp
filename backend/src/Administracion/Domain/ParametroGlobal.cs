@@ -55,6 +55,8 @@ public sealed class ParametroGlobal : BaseEntity, IAuditable
         ValidarValorPorTipo(valor, tipo);
         if (clave == ToleranciaFacturaContraOcParametro.Clave)
             ToleranciaFacturaContraOcParametro.LeerValor(valor);
+        if (clave == ToleranciaTarjetasParametro.Clave)
+            ToleranciaTarjetasParametro.LeerValor(valor);
         ValidarDescripcion(descripcion);
         ValidarModulo(modulo);
 
@@ -75,6 +77,8 @@ public sealed class ParametroGlobal : BaseEntity, IAuditable
         ValidarValorPorTipo(nuevoValor, Tipo);
         if (Clave == ToleranciaFacturaContraOcParametro.Clave)
             ToleranciaFacturaContraOcParametro.LeerValor(nuevoValor);
+        if (Clave == ToleranciaTarjetasParametro.Clave)
+            ToleranciaTarjetasParametro.LeerValor(nuevoValor);
         Valor = nuevoValor;
     }
 

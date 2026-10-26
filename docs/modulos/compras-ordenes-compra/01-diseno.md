@@ -638,6 +638,13 @@ InformacionImportacion (nullable, solo si EsImportacion == true)
   `SemanaEmbarque` requeridos al autorizar.
 - `NumeroPedimento` opcional al autorizar, editable post-autorización
   (se captura cuando llega el material).
+- **Decisión F1-COM-06 (supuesto de turno nocturno, por confirmar):** el
+  pedimento, BL, contenedor, aduana, clave de pedimento y fracción
+  capturados en la recepción **no se copian de vuelta** a
+  `OrdenCompra.InfoImportNumeroPedimento`. La trazabilidad vive por
+  recepción (patrón SAP B1 GRPO / Odoo picking): cada parcialidad guarda
+  sus documentos en Almacén (`RecepcionImportacion`) y el detalle de la OC
+  los lista por recepción (`recepcionesImportacion`), sin sobrescribir.
 
 ### 4.8 Value object: `DescuentoGlobal` y `DescuentoLinea`
 
@@ -745,9 +752,10 @@ Seed inicial:
 
 ### 4.13 Entidades `RespuestaProveedorOc` y `CompromisoEntregaOc` (F1-COM-11)
 
-Registran la respuesta del proveedor sobre una OC **Autorizada** (hasta que exista el envío, F1-COM-10, «OC enviada» equivale a «autorizada»). Una respuesta es una **Confirmación** (con una o varias fechas prometidas por línea, es decir, parcialidades) o un **Rechazo** (con motivo obligatorio y sin fechas).
+Registran la respuesta del proveedor sobre una OC **Autorizada** (hasta que exista el envío, F1-COM-10, «OC enviada» equivale a «autorizada»). **La respuesta es solo evidencia.** Las condiciones del proveedor (condición de pago y crédito, fecha de entrega) se evalúan en la **cotización**, antes de elegir al ganador (JUNTA-07 §4), y la OC las hereda; la respuesta no las vuelve a pedir y el formulario las muestra en solo lectura como «Condiciones pactadas». Lo único obligatorio al registrar una respuesta es el **archivo de evidencia**. Todo lo demás es opcional: una respuesta puede quedar **sin clasificar** (`Tipo` nulo), o clasificarse como **Confirmación** (con una o varias fechas prometidas por línea, es decir, parcialidades) o **Rechazo** (con motivo obligatorio y sin fechas).
+Los días de crédito viven en el catálogo `CondicionesPago` (no hay campo numérico nuevo).
 
-`RespuestaProveedorOc` (hija de `OrdenCompra`, tabla `compras.oc_respuestas_proveedor`): `Numero` (consecutivo por OC, la vigente es la de mayor número), `Tipo` (1 = Confirmación, 2 = Rechazo), `FechaRespuesta`, `Evidencia` (texto obligatorio, máximo 300 caracteres; los archivos de soporte se suben con el servicio genérico de adjuntos G1.2, entidad `oc_respuesta_proveedor`, ADR-0058), `ContactoProveedor` (opcional, máximo 120), `Motivo` (obligatorio en el rechazo, máximo 500), `TieneDiferencias`, `RegistradaPorId` (quien registra queda como responsable de seguimiento) y `RegistradaEn`.
+`RespuestaProveedorOc` (hija de `OrdenCompra`, tabla `compras.oc_respuestas_proveedor`): `Numero` (consecutivo por OC, la vigente es la de mayor número), `Tipo` (nulo = sin clasificar, 1 = Confirmación, 2 = Rechazo), `FechaRespuesta` (opcional), `Evidencia` (nota opcional, máximo 300 caracteres; los archivos de soporte se suben con el servicio genérico de adjuntos G1.2, entidad `oc_respuesta_proveedor`, ADR-0058), `ContactoProveedor` (opcional, máximo 120), `Motivo` (obligatorio en el rechazo, máximo 500), `TieneDiferencias`, `RegistradaPorId` (quien registra queda como responsable de seguimiento) y `RegistradaEn`.
 
 `CompromisoEntregaOc` (tabla `compras.oc_compromisos_entrega`): `RespuestaProveedorOcId`, `LineaOrdenCompraId`, `Cantidad` (mayor a cero) y `FechaPrometida` (no anterior a la fecha de respuesta).
 
@@ -755,11 +763,11 @@ Registran la respuesta del proveedor sobre una OC **Autorizada** (hasta que exis
 
 **Diferencias.** Una confirmación se marca `TieneDiferencias` cuando, para alguna línea con pendiente (`Cantidad - CantidadRecibida > 0`), la suma confirmada difiere del pendiente, o cuando alguna fecha prometida es posterior a `FechaEntregaEsperada` de la OC (si existe). No se compara contra `FechaEntregaLinea`. La OC nunca se modifica en silencio: solo se marca la diferencia para Compras.
 
-**Estado comercial.** `OrdenCompra` materializa `EstadoComercialProveedor` (`SinRespuesta` = 0, `Confirmada` = 1, `ConfirmadaConDiferencias` = 2, `Rechazada` = 3) y `FechaCompromisoProveedor` (la mayor fecha prometida de la respuesta vigente; nula tras un rechazo). Se recalculan al registrar cada respuesta. Una OC duplicada nace `SinRespuesta`.
+**Estado comercial.** `OrdenCompra` materializa `EstadoComercialProveedor` (`SinRespuesta` = 0, `Confirmada` = 1, `ConfirmadaConDiferencias` = 2, `Rechazada` = 3, `RespuestaRegistrada` = 4, «Respuesta sin clasificar»: hay evidencia pero el comprador no indicó si confirma o rechaza; una respuesta posterior clasificada la reemplaza) y `FechaCompromisoProveedor` (la mayor fecha prometida de la respuesta vigente; nula tras un rechazo). Se recalculan al registrar cada respuesta. Una OC duplicada nace `SinRespuesta`.
 
-**Reglas de validación** (códigos `BusinessRuleException` del dominio, `OrdenCompra.RegistrarRespuestaProveedor`): `OC_RESPUESTA_ESTADO_INVALIDO` (la OC no está Autorizada), `OC_RESPUESTA_USUARIO_REQUERIDO`, `OC_RESPUESTA_TIPO_INVALIDO`, `OC_RESPUESTA_EVIDENCIA_REQUERIDA`, `OC_RESPUESTA_CONTACTO_LARGO`, `OC_RESPUESTA_MOTIVO_LARGO`, `OC_RESPUESTA_FECHA_FUTURA` (respecto de hoy en `America/Mexico_City`), `OC_RESPUESTA_FECHA_ANTERIOR_OC`, `OC_RESPUESTA_MOTIVO_REQUERIDO`, `OC_RESPUESTA_RECHAZO_SIN_COMPROMISOS`, `OC_RESPUESTA_SIN_PENDIENTE`, `OC_RESPUESTA_SIN_COMPROMISOS`, `OC_RESPUESTA_LINEA_INVALIDA`, `OC_RESPUESTA_CANTIDAD_INVALIDA` y `OC_RESPUESTA_FECHA_PROMETIDA_INVALIDA`.
+**Reglas de validación** (códigos `BusinessRuleException` del dominio, `OrdenCompra.RegistrarRespuestaProveedor`): `OC_RESPUESTA_ESTADO_INVALIDO` (la OC no está Autorizada), `OC_RESPUESTA_USUARIO_REQUERIDO`, `OC_RESPUESTA_TIPO_INVALIDO`, `OC_RESPUESTA_EVIDENCIA_REQUERIDA`, `OC_RESPUESTA_CONTACTO_LARGO`, `OC_RESPUESTA_MOTIVO_LARGO`, `OC_RESPUESTA_FECHA_FUTURA` (respecto de hoy en `America/Mexico_City`), `OC_RESPUESTA_FECHA_ANTERIOR_OC`, `OC_RESPUESTA_RECHAZO_SIN_COMPROMISOS`, `OC_RESPUESTA_SIN_PENDIENTE`, `OC_RESPUESTA_SIN_COMPROMISOS`, `OC_RESPUESTA_LINEA_INVALIDA`, `OC_RESPUESTA_CANTIDAD_INVALIDA` y `OC_RESPUESTA_FECHA_PROMETIDA_INVALIDA`. El motivo obligatorio del rechazo lo exige `RegistrarRespuestaProveedorValidator` (400), no el dominio.
 
-**API.** `POST /api/v1/compras/ordenes/{id}/respuestas-proveedor` (permiso `compras.ordenes.registrar-respuesta-proveedor`, `Idempotency-Key` obligatorio, alcance por sucursal con `OcSucursalScope`, ADR-0051). La evidencia en archivo usa las rutas genéricas bajo `/api/v1/compras/ordenes/respuestas-proveedor/{respuestaId}/adjuntos` (ver: `compras.ordenes.leer`; subir: `compras.ordenes.registrar-respuesta-proveedor`; el alcance se hereda de la OC dueña). **La baja de archivos de evidencia está denegada** (`RESPUESTA_EVIDENCIA_INMUTABLE`, 422) y la UI no la ofrece: la evidencia es historial inmutable. La bandeja `GET /api/v1/compras/ordenes` filtra en el servidor por `estadoComercialProveedor` (0–3). Tipo de documento `00000011-0006-0000-0000-000000000005`, código `evidencia_respuesta`.
+**API.** `POST /api/v1/compras/ordenes/{id}/respuestas-proveedor` (permiso `compras.ordenes.registrar-respuesta-proveedor`, `Idempotency-Key` obligatorio, alcance por sucursal con `OcSucursalScope`, ADR-0051). La evidencia en archivo usa las rutas genéricas bajo `/api/v1/compras/ordenes/respuestas-proveedor/{respuestaId}/adjuntos` (ver: `compras.ordenes.leer`; subir: `compras.ordenes.registrar-respuesta-proveedor`; el alcance se hereda de la OC dueña). **La baja de archivos de evidencia está denegada** (`RESPUESTA_EVIDENCIA_INMUTABLE`, 422) y la UI no la ofrece: la evidencia es historial inmutable. La bandeja `GET /api/v1/compras/ordenes` filtra en el servidor por `estadoComercialProveedor` (0–4). Tipo de documento `00000011-0006-0000-0000-000000000005`, código `evidencia_respuesta`.
 
 #### Decisiones y pendientes de F1-COM-02
 
@@ -1348,9 +1356,9 @@ compras.oc_respuestas_proveedor (
     id                  uuid          PK,
     orden_compra_id     uuid          NOT NULL FK -> ordenes_compra ON DELETE CASCADE,
     numero              integer       NOT NULL,
-    tipo                smallint      NOT NULL,                     -- CHECK ck_oc_respuestas_proveedor_tipo: IN (1, 2)
-    fecha_respuesta     date          NOT NULL,
-    evidencia           varchar(300)  NOT NULL,
+    tipo                smallint,                                   -- NULL = sin clasificar; CHECK ck_oc_respuestas_proveedor_tipo: IN (1, 2)
+    fecha_respuesta     date,
+    evidencia           varchar(300),
     contacto_proveedor  varchar(120),
     motivo              varchar(500),
     tiene_diferencias   boolean       NOT NULL,
@@ -1476,14 +1484,16 @@ un `// PLATFORM-TODO(<id>): ...` en código.
 | **Módulo CxP — `NotaCreditoProveedorRegistradaEvent` granular por línea OC** | `<NcGranularidadLineaOc>` | El listener `NotaCreditoProveedorRegistradaListener` en Compras está escrito pero queda huérfano: la NC en CxP no tiene granularidad por línea (solo `Total`). El worker loggea el evento como informativo. | Rediseño de modelo NC en CxP para incluir líneas con `linea_oc_id`, o decisión explícita de prorrateo por línea. |
 | **Módulo Tesorería (Pago) — `PagoFacturaProveedorEvent`** | `<TesoreriaEventListenerCompras>` | El listener `PagoFacturaProveedorListener` está escrito pero queda huérfano: no hay worker SB en Compras suscrito a `tesoreria-events`. El payload externo no incluye `oc_id` ni acumulado. | Crear `TesoreriaEventListenerWorker` en Compras + proyección local `facturas_proveedor_local` (mapping `factura_id → oc_id`) + proyección de pagos por OC para calcular `MontoPagadoAcumulado`. PR separado. |
 | ~~**Servicio de PDF institucional**~~ | ~~`<PdfService>`~~ | **CERRADO en F6-PR3 (2026-05-12)**: `QuestPdfOrdenCompraGenerator` reemplazó al stub con layout institucional real (QuestPDF Community license, válida hasta $1M revenue). | — |
+| **Correo de OC al proveedor (F1-COM-10 · G1.8)** | `<V08>` | `NoOpNotificacionService` (`EsSimulado = true`, en `Facturacion.Infrastructure.Notificaciones`) implementa `ICorreoDocumentoService`: loggea el envío y no entrega correo; el historial marca el envío como `simulado`. | Registrar en `Api/Program.cs` el adapter real (SMTP / Microsoft Graph) de `ICorreoDocumentoService` en lugar del `NoOp` cuando se confirme el remitente del tenant (V08). Sin más cambios en Compras. |
 | **Módulo Notificaciones** | `<Notificaciones>` | Inexistente. Los eventos `OrdenCompraEnviadaAAutorizacionEvent`, `OrdenCompraAutorizadaEvent`, `OrdenCompraRechazadaEvent` se publican pero no envían email. F1-COM-07: `IncidenciaVencidaWorker` registra el aviso de compromiso vencido en `oc_incidencias_avisos` (único por incidencia y fecha) y solo lo escribe en el log; la OC lo muestra. | ADR 0026: cuando exista, el módulo Notificaciones se suscribe y envía email. |
+| **Catálogo SAT de aduanas y claves de pedimento** | `<CatalogoSatComercioExterior>` | `CatalogosImportacionDemo` (Almacén): subconjunto DEMO de aduanas y claves de pedimento para validar la captura en la recepción de importación. | Sustituir por el catálogo SAT completo y versionado (tabla en Datos Maestros + puerto de lectura) al habilitar operación fiscal de Comercio Exterior. |
 | **Servicio de tipo de cambio (C1)** | `<TipoCambio>` | Inexistente. v1 acepta T/C manual; no hay puerto. | Si se decide automatizar (C1 "no"), se agrega `ITipoCambioPort` con stub apuntando a captura manual. |
 | **Catálogos maestros (CRUD + migración SAP)** | `<DatosMaestros>` | Heredado del módulo `Datos Maestros` separado. Hoy y durante todo el MVP los catálogos viven de seeds versionados + endpoints GET read-only. | **Bloque post-MVP** (no parte del scope de OC v1): pantallas de CRUD + ejecución de migración inicial desde SAP. |
 
 **Checklist en cada ticket de plataforma:** este submódulo (OC) entra
 como **consumidor** en los tickets de `<Almacen.Recepcion>`,
 `<NcGranularidadLineaOc>`, `<TesoreriaEventListenerCompras>`,
-`<PdfService>` y `<Notificaciones>`.
+`<PdfService>`, `<Notificaciones>` y `<V08>`.
 
 ---
 

@@ -96,6 +96,44 @@ describe('<RecepcionDetallePage> — nombres resueltos', () => {
     expect(screen.queryByText(ART_ID)).not.toBeInTheDocument();
   });
 
+  it('F1-COM-06 muestra pedimento, BL, contenedor, aduana, clave y fracción de la partida', async () => {
+    mswServer.use(
+      http.get('*/api/v1/almacen/recepciones/r-1', () =>
+        HttpResponse.json({
+          ...detalleConNombres,
+          importacion: {
+            numeroPedimento: '261612346000001',
+            numeroBl: 'BL-DEMO',
+            numeroContenedor: 'CONT-DEMO',
+            aduana: '16',
+            aduanaNombre: 'Manzanillo',
+            clavePedimento: 'A1',
+            clavePedimentoNombre: 'Importación definitiva',
+          },
+          lineas: [{ ...detalleConNombres.lineas[0], fraccionArancelaria: '84719000' }],
+        }),
+      ),
+    );
+
+    render(<RecepcionDetallePage />, { wrapper: createQueryWrapper() });
+
+    await waitFor(() => expect(screen.getByText('261612346000001')).toBeInTheDocument());
+    expect(screen.getByText('BL-DEMO')).toBeInTheDocument();
+    expect(screen.getByText('CONT-DEMO')).toBeInTheDocument();
+    expect(screen.getByText('16 · Manzanillo')).toBeInTheDocument();
+    expect(screen.getByText('A1 · Importación definitiva')).toBeInTheDocument();
+    expect(screen.getByText('84719000')).toBeInTheDocument();
+  });
+
+  it('sin importación no pinta la columna de fracción', async () => {
+    mswServer.use(
+      http.get('*/api/v1/almacen/recepciones/r-1', () => HttpResponse.json(detalleConNombres)),
+    );
+    render(<RecepcionDetallePage />, { wrapper: createQueryWrapper() });
+    await waitFor(() => expect(screen.getByText('Tornillo M6')).toBeInTheDocument());
+    expect(screen.queryByText('Fracción arancelaria')).not.toBeInTheDocument();
+  });
+
   it('marca las líneas en revisión con su motivo y avisa que no están disponibles', async () => {
     mswServer.use(
       http.get('*/api/v1/almacen/recepciones/r-1', () =>

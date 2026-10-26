@@ -21,6 +21,14 @@ describe('<StepperAutorizacionOc>', () => {
     expect(screen.getByText('Autorizada')).toBeInTheDocument();
   });
 
+  it('Autorizada con n2NoRequerido: N2 gris con «no requerido»', () => {
+    const { container } = render(
+      <StepperAutorizacionOc estado={EstadoOrdenCompra.Autorizada} n2NoRequerido />,
+    );
+    expect(screen.getByText('Dirección (N2) · no requerido')).toBeInTheDocument();
+    expect(leerPasos(container)[2]!.estado).toBe('noRequerido');
+  });
+
   it('Borrador: Borrador=actual, resto pendiente', () => {
     const { container } = render(
       <StepperAutorizacionOc estado={EstadoOrdenCompra.Borrador} />,

@@ -128,7 +128,8 @@ public sealed class ProcesarSolicitudAwHandler
         var nuevo = PedidoFacturable.ImportarDesdeAw(
             empresaId, sol.NumeroPedido, datos.SucursalId, cliente.ClienteId, datos.ClienteNombre,
             datos.CanalVenta, datos.ComportamientoFiscal, datos.Moneda, datos.ObraId, datos.ObraNombre,
-            datos.Comentarios, sol.Version, datos.EstadoOrigen, datos.Ranura);
+            datos.Comentarios, sol.Version, datos.EstadoOrigen, datos.Ranura,
+            datos.MetodoPagoOrigen, datos.CondicionPagoOrigen);
         await AgregarLineasAsync(nuevo, datos.Lineas, ct);
         nuevo.RecalcularTotal();
 
@@ -191,7 +192,7 @@ public sealed class ProcesarSolicitudAwHandler
 
         pedido.RefrescarCabecera(clienteId, datos.ClienteNombre, datos.CanalVenta, datos.ComportamientoFiscal,
             datos.Moneda, datos.ObraId, datos.ObraNombre, datos.Comentarios, sol.Version, datos.EstadoOrigen,
-            datos.Ranura);
+            datos.Ranura, datos.MetodoPagoOrigen, datos.CondicionPagoOrigen);
         pedido.LimpiarLineas();
         await AgregarLineasAsync(pedido, datos.Lineas, ct);
         pedido.RecalcularTotal();

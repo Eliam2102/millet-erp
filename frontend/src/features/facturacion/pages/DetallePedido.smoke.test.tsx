@@ -190,6 +190,51 @@ describe('<DetallePedido> — smoke', () => {
     expect(screen.getAllByText('1160.00')).toHaveLength(2); // cobrado y saldo
   });
 
+  it('86e3tfdw2: pedido a crédito muestra badge «Crédito» y la condición de pago', async () => {
+    setPermisos(['facturacion.facturas.leer', 'facturacion.pedidos.leer-credito']);
+    mswServer.use(
+      http.get('*/api/v1/facturacion/pedidos-facturables/p-1', () =>
+        HttpResponse.json({
+          ...pedido('Importado'),
+          origen: 'Aw',
+          claseManual: null,
+          subtipoVentaDirecta: null,
+          esCredito: true,
+          metodoPagoOrigen: 'PPD',
+          condicionPagoOrigen: 'CRÉDITO 30 DÍAS',
+        }),
+      ),
+      http.get('*/api/v1/facturacion/pedidos-facturables/p-1/comprobantes', () =>
+        HttpResponse.json([]),
+      ),
+    );
+    render(<DetallePedido />, { wrapper: createQueryWrapper() });
+    await waitFor(() =>
+      expect(screen.getByText('Cliente Demo SA')).toBeInTheDocument(),
+    );
+    expect(screen.getByText('Crédito', { selector: '[data-slot="badge"]' })).toBeInTheDocument();
+    expect(screen.getByText('Condición de pago')).toBeInTheDocument();
+    expect(screen.getByText('CRÉDITO 30 DÍAS')).toBeInTheDocument();
+  });
+
+  it('86e3tfdw2: pedido de contado no muestra badge ni condición de pago', async () => {
+    setPermisos(['facturacion.facturas.leer']);
+    mswServer.use(
+      http.get('*/api/v1/facturacion/pedidos-facturables/p-1', () =>
+        HttpResponse.json({ ...pedido('Importado'), esCredito: false }),
+      ),
+      http.get('*/api/v1/facturacion/pedidos-facturables/p-1/comprobantes', () =>
+        HttpResponse.json([]),
+      ),
+    );
+    render(<DetallePedido />, { wrapper: createQueryWrapper() });
+    await waitFor(() =>
+      expect(screen.getByText('Cliente Demo SA')).toBeInTheDocument(),
+    );
+    expect(screen.queryByText('Crédito', { selector: '[data-slot="badge"]' })).not.toBeInTheDocument();
+    expect(screen.queryByText('Condición de pago')).not.toBeInTheDocument();
+  });
+
   it('muestra la ranura del pedido cuando viene informada', async () => {
     setPermisos(['facturacion.facturas.leer']);
     mswServer.use(

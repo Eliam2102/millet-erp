@@ -214,6 +214,7 @@ const UMBRALES = [
   ['almacen.conteo-variacion-valor-recuento', '1000', 'Diferencia en valor que exige recuento (MXN)'],
   ['almacen.conteo-nivel1-maximo', '1000', 'Máximo para aprobación del Nivel 1 (MXN)'],
   ['almacen.conteo-nivel2-maximo', '10000', 'Máximo para aprobación del Nivel 2 (MXN)'],
+  ['cxp.tolerancia-tarjetas-mxn', '1', 'Tolerancia de conciliación de tarjetas (MXN)'],
 ] as const;
 
 it('muestra umbrales globales con nombres accesibles y guarda Nivel 2 sin desplegar', async () => {

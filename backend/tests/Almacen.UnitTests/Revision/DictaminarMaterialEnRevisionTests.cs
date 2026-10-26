@@ -121,6 +121,7 @@ public class DictaminarMaterialEnRevisionTests
         var entrada = await s.Db.Movimientos.Include(m => m.Lineas).SingleAsync(m => m.Tipo == TipoMovimiento.ReincorporacionTrasRevision);
         salida.Lineas.Single().UbicacionId.Should().Be(s.RevBinId);
         entrada.Lineas.Single().UbicacionId.Should().Be(s.RackId);
+        entrada.SalidaOrigenId.Should().Be(salida.Id);
         var d = await s.Db.DictamenesRevision.SingleAsync();
         d.MovimientoSalidaRevisionId.Should().Be(salida.Id);
         d.MovimientoEntradaId.Should().Be(entrada.Id);
@@ -174,6 +175,7 @@ public class DictaminarMaterialEnRevisionTests
         salida.Lineas.Single().UbicacionId.Should().Be(bin8A); // toma el saldo libre, no el reservado de la recepción
         salida.Lineas.Single().Cantidad.Should().Be(1m);
         entrada.Lineas.Single().UbicacionId.Should().Be(s.RackId);
+        entrada.SalidaOrigenId.Should().Be(salida.Id);
         entrada.Lineas.Single().Cantidad.Should().Be(1m);
     }
 

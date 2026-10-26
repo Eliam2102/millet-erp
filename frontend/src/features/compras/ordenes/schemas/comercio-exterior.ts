@@ -41,10 +41,7 @@ export const FechaEstimadaArriboSchema = z
  * cuatro (vacío = null = limpiar).
  */
 export const NumeroPedimentoSchema = z.object({
-  numeroPedimento: z
-    .string()
-    .trim()
-    .max(40, 'Máximo 40 caracteres.'),
+  numeroPedimento: z.string().trim().refine((v) => !v || /^[0-9]{15}$/.test(v.replaceAll(' ', '')), 'El pedimento debe tener 15 dígitos; se permiten espacios.'),
   numeroBl: z
     .string()
     .trim()

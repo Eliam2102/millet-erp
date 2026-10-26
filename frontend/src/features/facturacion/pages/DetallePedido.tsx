@@ -17,6 +17,7 @@ import { usePedido, usePedidoComprobantes } from '@/features/facturacion/api/use
 import { useGenerarProforma, useUltimaProforma } from '@/features/facturacion/api/useProformas';
 import type { ProformaPedidoResponse } from '@/features/facturacion/api/types';
 import { ClasePedidoBadge } from '@/features/facturacion/components/ClasePedidoBadge';
+import { BadgeCredito } from '@/features/facturacion/components/BadgeCredito';
 import { EmitirFacturaForm } from '@/features/facturacion/components/emitir-factura/EmitirFacturaForm';
 import { EstadoFacturacionBadge } from '@/features/facturacion/components/EstadoFacturacionBadge';
 import { ProformaPedidoCard } from '@/features/facturacion/components/ProformaPedidoCard';
@@ -253,6 +254,7 @@ function Contenido({
             />
             <Badge variant="neutral">{ETIQUETA_ORIGEN_PEDIDO[p.origen] ?? p.origen}</Badge>
             <ClasePedidoBadge clasificacion={p} />
+            <BadgeCredito esCredito={p.esCredito} />
           </div>
         </div>
         <div className="flex items-center gap-2" data-print="hidden">
@@ -335,6 +337,9 @@ function Contenido({
           {ETIQUETA_COMPORTAMIENTO_FISCAL[p.comportamientoFiscal] ?? p.comportamientoFiscal}
         </Dato>
         <Dato label="Moneda">{p.moneda}</Dato>
+        {p.esCredito && (
+          <Dato label="Condición de pago">{p.condicionPagoOrigen ?? 'Crédito'}</Dato>
+        )}
         {p.obraNombre && <Dato label="Obra">{p.obraNombre}</Dato>}
         <Dato label="RFC del cliente">
           {p.clienteFiscal?.rfc ?? (
