@@ -122,7 +122,7 @@ function Contenido({ d }: { d: NonNullable<ReturnType<typeof useEstadoCuentaAnti
                             params={{ id: v.facturaVentaId }}
                             className="font-mono text-xs text-brand hover:underline"
                           >
-                            {v.facturaFolio ?? v.facturaVentaId.slice(0, 8)}
+                            {v.facturaFolio ?? 'Ver'}
                           </Link>
                         </TableCell>
                         <TableCell className="px-3 py-2 text-right font-mono tabular-nums">

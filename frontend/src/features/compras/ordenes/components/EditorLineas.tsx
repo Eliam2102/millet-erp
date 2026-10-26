@@ -384,7 +384,7 @@ function FilaLinea({
             <span className="font-mono text-xs font-medium">{articuloClave}</span>
           ) : (
             <span className="font-mono text-xs text-ink-muted" title={linea.articuloId}>
-              {linea.articuloId.slice(0, 8)}…
+              —
             </span>
           )}
           {linea.requisicionId != null && (

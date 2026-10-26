@@ -387,7 +387,7 @@ function FilaLinea({
           </>
         ) : (
           <div className="font-mono text-xs text-ink-muted" title={linea.articuloId}>
-            {linea.articuloId.slice(0, 8)}…
+            —
           </div>
         )}
       </TableCell>

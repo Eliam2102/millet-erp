@@ -244,7 +244,7 @@ function TabDecisiones({
                   <TableRow key={d.id} className="h-12 hover:bg-surface-subtle">
                     <TableCell className="px-3 py-2 font-mono">{d.pedidoRef}</TableCell>
                     <TableCell className="max-w-64 truncate px-3 py-2">
-                      {nombres.get(d.clienteId) ?? d.clienteId.slice(0, 8)}
+                      {nombres.get(d.clienteId) ?? '—'}
                     </TableCell>
                     <TableCell className="px-3 py-2 text-right font-mono tabular-nums">
                       {formatoMonto(d.montoPedido, d.moneda)}
@@ -284,7 +284,7 @@ function TabAutorizaciones({ puedeOverride }: { puedeOverride: boolean }) {
   }, [usuarios.data]);
 
   function resolverUsuario(id: string) {
-    return nombreUsuario.get(id) ?? id.slice(0, 8);
+    return nombreUsuario.get(id) ?? '—';
   }
 
   const [estado, setEstado] = useState<number | undefined>();

@@ -121,7 +121,7 @@ export function ReordenPage() {
 
   function resolverEntidad(item: ConfiguracionReordenListItem): string {
     const mapa = item.nivel === NivelReorden.Sucursal ? sucursalesMap : almacenesMap;
-    return mapa.get(item.entidadId)?.nombre ?? item.entidadId;
+    return mapa.get(item.entidadId)?.nombre ?? '—';
   }
 
   function confirmarCambioMotor(valor: boolean) {

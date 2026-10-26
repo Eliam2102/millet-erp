@@ -268,19 +268,19 @@ export function BandejaPagos() {
                             checked={marcado}
                             disabled={!marcado && !seleccionable}
                             onCheckedChange={(c) => toggle(p, c === true)}
-                            aria-label={`Seleccionar ${p.folioProveedor ?? p.facturaProveedorId}`}
+                            aria-label={`Seleccionar ${p.folioProveedor ?? 'factura'}`}
                           />
                         )}
                       </TableCell>
                       <TableCell className="max-w-72 px-3 py-2">
                         <p className="truncate">
-                          {p.proveedorRazonSocial ?? p.proveedorId.slice(0, 8)}
+                          {p.proveedorRazonSocial ?? '—'}
                         </p>
                         <p className="font-mono text-xs text-ink-muted">{p.proveedorClave ?? ''}</p>
                       </TableCell>
                       <TableCell className="px-3 py-2">
                         <p className="font-mono text-xs">
-                          {p.folioProveedor ?? p.facturaProveedorId.slice(0, 8)}
+                          {p.folioProveedor ?? '—'}
                         </p>
                         {p.pagoACuentaAbiertoMovimientoId != null && (
                           <Link

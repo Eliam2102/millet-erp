@@ -211,12 +211,12 @@ export function ComprobanteSalidaDocument({
           <Text style={styles.seccionTitulo}>Datos generales</Text>
           <Campo label="Sub-almacén:" valor={subAlmacen} />
           {salida.rqId && (
-            <Campo label="Requisición:" valor={requisicionLabel(salida) ?? salida.rqId} />
+            <Campo label="Requisición:" valor={requisicionLabel(salida) ?? '—'} />
           )}
           {salida.rqRegularizadoraId && (
             <Campo
               label="RQ regularizadora:"
-              valor={rqRegularizadoraLabel(salida) ?? salida.rqRegularizadoraId}
+              valor={rqRegularizadoraLabel(salida) ?? '—'}
             />
           )}
           <Campo label="Destinatario:" valor={destinatario} />

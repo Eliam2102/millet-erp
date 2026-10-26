@@ -440,7 +440,7 @@ interface LineaErrors {
 const SIN_LINEA = '__ninguna__';
 
 function etiquetaLinea(l: RecepcionLineaItem): string {
-  const articulo = l.articuloClave ?? `${l.articuloId.slice(0, 8)}…`;
+  const articulo = l.articuloClave ?? '—';
   const desc = l.articuloDescripcion ? ` · ${l.articuloDescripcion}` : '';
   return `#${l.posicion} · ${articulo}${desc} · ${l.cantidad} ${l.unidadMedida}`;
 }

@@ -151,7 +151,7 @@ export function FacturaPicker({
                             </span>
                           </div>
                           <p className="truncate text-xs text-muted-foreground">
-                            {f.proveedorNombre ?? f.proveedorId} ·{' '}
+                            {f.proveedorNombre ?? '—'} ·{' '}
                             {f.fechaDocumento.slice(0, 10)}
                           </p>
                         </div>

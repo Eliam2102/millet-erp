@@ -184,7 +184,7 @@ export function GenerarOcCotizacionDialog({
   onClose,
   ...resto
 }: GenerarOcCotizacionDialogProps) {
-  const proveedor = resto.cotizacion.proveedorRazonSocial ?? resto.cotizacion.proveedorId;
+  const proveedor = resto.cotizacion.proveedorRazonSocial ?? '—';
   return (
     <Dialog open={abierto} onOpenChange={(o) => !o && onClose()}>
       <DialogContent size="lg">

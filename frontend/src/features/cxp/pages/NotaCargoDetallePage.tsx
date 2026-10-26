@@ -131,7 +131,7 @@ export function NotaCargoDetallePage() {
           <dl className="grid grid-cols-1 gap-x-6 gap-y-2 rounded-md border p-4 @xl:grid-cols-2 @3xl:grid-cols-4 @5xl:grid-cols-6">
             <Campo
               label="Proveedor"
-              valor={query.data.proveedorNombre ?? query.data.proveedorId}
+              valor={query.data.proveedorNombre ?? '—'}
               mono={query.data.proveedorNombre == null}
             />
             <Campo

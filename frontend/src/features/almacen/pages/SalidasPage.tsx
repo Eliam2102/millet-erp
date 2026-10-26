@@ -403,7 +403,7 @@ function TablaSalidas({ items, subAlmacenesMap }: TablaSalidasProps) {
     () =>
       items.map((r) => ({
         ...r,
-        subAlmacen: subAlmacenesMap.get(r.subAlmacenId)?.clave ?? r.subAlmacenId,
+        subAlmacen: subAlmacenesMap.get(r.subAlmacenId)?.clave ?? '—',
       })),
     [items, subAlmacenesMap],
   );

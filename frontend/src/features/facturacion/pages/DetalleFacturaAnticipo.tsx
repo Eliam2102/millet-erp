@@ -292,7 +292,7 @@ function Contenido({ f }: { f: FacturaAnticipoDetalleResponse }) {
                                 params={{ id: v.facturaVentaId }}
                                 className="font-mono text-xs font-medium text-brand hover:underline"
                               >
-                                {v.facturaFolio ?? v.facturaVentaId.slice(0, 8)}
+                                {v.facturaFolio ?? 'Ver'}
                               </Link>
                               {v.facturaEstado && (
                                 <span className="ml-2 text-xs text-ink-muted">
