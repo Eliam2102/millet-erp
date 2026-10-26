@@ -1,7 +1,7 @@
 import { FormSeccion } from '@/components/erp/forms/FormSeccion';
 import { FormGrid, FormCampo } from '@/components/erp/forms/FormGrid';
 import { useEffect, useState } from 'react';
-import { Controller, useForm, useWatch } from 'react-hook-form';
+import { Controller, useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import {
   AlertCircle,
@@ -224,10 +224,10 @@ export function EmpleadoInlineForm({
     }
   }, [esEditar, form, paso, acceso, emailContacto, rolId, emailPrefix, emailDomain]);
 
-  const puestoSeleccionado = useWatch({ control: form.control, name: 'puestoId' });
-  const sucursalSeleccionada = useWatch({ control: form.control, name: 'sucursalId' });
-  const departamentoSeleccionado = useWatch({ control: form.control, name: 'departamentoId' });
-  const correoCorporativo = useWatch({ control: form.control, name: 'email' });
+  const puestoSeleccionado = form.watch('puestoId');
+  const sucursalSeleccionada = form.watch('sucursalId');
+  const departamentoSeleccionado = form.watch('departamentoId');
+  const correoCorporativo = form.watch('email');
 
   useEffect(() => {
     const timer = setTimeout(() => setCorreoValidable(correoCorporativo?.trim() ?? ''), 350);
@@ -610,26 +610,6 @@ export function EmpleadoInlineForm({
       )}
 
       <FormSeccion titulo="Datos del colaborador" className="">
-        {esEditar && (
-          <>
-            <FormCampo span={6}>
-              <label htmlFor="empleado-telefono" className="text-xs font-medium text-ink-strong">
-                Teléfono
-              </label>
-              <Input id="empleado-telefono" maxLength={20} {...form.register('telefono')} />
-              {form.formState.errors.telefono?.message && (
-                <p role="alert">{form.formState.errors.telefono.message}</p>
-              )}
-            </FormCampo>
-            <FormCampo span={6}>
-              <label htmlFor="empleado-extension" className="text-xs font-medium text-ink-strong">
-                Extensión
-              </label>
-              <Input id="empleado-extension" maxLength={10} {...form.register('extension')} />
-            </FormCampo>
-          </>
-        )}
-
         <FormCampo span={6}>
           <Field
             label="Clave"
@@ -729,7 +709,7 @@ export function EmpleadoInlineForm({
                       form.setValue('puestoId', '');
                     }
                   }}
-                  sucursalId={sucursalSeleccionada || undefined}
+                  sucursalId={form.watch('sucursalId') || undefined}
                   className="w-full"
                 />
               )}
@@ -750,8 +730,8 @@ export function EmpleadoInlineForm({
                 <PuestoSelector
                   value={field.value || null}
                   onChange={(id) => field.onChange(id ?? '')}
-                  sucursalId={sucursalSeleccionada || undefined}
-                  departamentoId={departamentoSeleccionado || undefined}
+                  sucursalId={form.watch('sucursalId') || undefined}
+                  departamentoId={form.watch('departamentoId') || undefined}
                   className="w-full"
                 />
               )}
@@ -843,6 +823,39 @@ export function EmpleadoInlineForm({
             </Field>
           )}
         </FormCampo>
+
+        {esEditar && (
+          <>
+            <FormCampo span={6}>
+              <Field
+                label="Teléfono"
+                htmlFor="empleado-telefono"
+                error={form.formState.errors.telefono?.message}
+              >
+                <Input
+                  id="empleado-telefono"
+                  maxLength={20}
+                  aria-invalid={!!form.formState.errors.telefono}
+                  {...form.register('telefono')}
+                />
+              </Field>
+            </FormCampo>
+            <FormCampo span={6}>
+              <Field
+                label="Extensión"
+                htmlFor="empleado-extension"
+                error={form.formState.errors.extension?.message}
+              >
+                <Input
+                  id="empleado-extension"
+                  maxLength={10}
+                  aria-invalid={!!form.formState.errors.extension}
+                  {...form.register('extension')}
+                />
+              </Field>
+            </FormCampo>
+          </>
+        )}
 
         <FormCampo span={6}>
           <Field
@@ -1391,16 +1404,20 @@ function payloadPatch(
 
 interface FieldProps {
   label: string;
+  htmlFor?: string;
   required?: boolean;
   error?: string;
   className?: string;
   children: React.ReactNode;
 }
 
-function Field({ label, required, error, className, children }: FieldProps) {
+function Field({ label, htmlFor, required, error, className, children }: FieldProps) {
   return (
     <div className={cn('space-y-1', className)}>
-      <label className="flex items-center gap-1 text-xs font-medium text-ink-muted">
+      <label
+        htmlFor={htmlFor}
+        className="flex items-center gap-1 text-xs font-medium text-ink-muted"
+      >
         {label}
         {required && (
           <span aria-hidden="true" className="text-danger-fg">

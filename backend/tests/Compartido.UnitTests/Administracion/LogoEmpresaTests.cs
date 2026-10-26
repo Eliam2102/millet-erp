@@ -1,4 +1,8 @@
 using Microsoft.EntityFrameworkCore;
+using System.Text.Json;
+using Millet.SharedKernel.Domain.Audit;
+using Millet.SharedKernel.Infrastructure;
+using Millet.SharedKernel.Infrastructure.Persistence.Interceptors;
 using Millet.Administracion.Application.Empresas;
 using Millet.Administracion.Domain;
 using Millet.Compartido.Infrastructure.Persistence;
@@ -13,13 +17,17 @@ public sealed class LogoEmpresaTests
     [Fact]
     public async Task Reemplazar_Y_Quitar_Conserva_Blobs_Historicos()
     {
+        var usuario = new Usuario();
+        var reloj = new Reloj();
+        var contextoEmpresa = new FakeEmpresa();
+        var auditoria = new AuditSaveChangesInterceptor(reloj, usuario, contextoEmpresa, new AuditOriginContext(), new AuditCorrelationContext());
         await using var db = new CompartidoDbContext(new DbContextOptionsBuilder<CompartidoDbContext>()
-            .UseInMemoryDatabase(Guid.NewGuid().ToString()).Options, new FakeEmpresa());
+            .UseInMemoryDatabase(Guid.NewGuid().ToString()).AddInterceptors(auditoria).Options, contextoEmpresa);
         var empresa = new Empresa(Guid.NewGuid(), "DEMO", "DEM010101AAA", "Empresa ficticia", "601", "Calle", "1", "Demo", "Demo", "Demo", "Demo", "MEX");
         db.Empresas.Add(empresa);
         await db.SaveChangesAsync();
         var blobs = new Blobs();
-        var handler = new LogoEmpresaHandler(db, blobs, new Usuario(), new Reloj());
+        var handler = new LogoEmpresaHandler(db, blobs, usuario, reloj);
         var bytes = Png();
         await handler.Handle(new SubirLogoEmpresaCommand(empresa.Id, bytes), CancellationToken.None);
         var primera = empresa.LogoBlobRef;
@@ -33,16 +41,41 @@ public sealed class LogoEmpresaTests
         Assert.Null(await handler.Handle(new ObtenerLogoEmpresaQuery(empresa.Id), CancellationToken.None));
         Assert.Equal(2, blobs.Claves.Count);
         Assert.Equal(0, blobs.Eliminados);
+        var registros = await db.Set<AuditLogEntry>()
+            .Where(x => x.EntidadId == empresa.Id && x.Operacion == "actualizar").ToListAsync();
+        Assert.Equal(3, registros.Count);
+        Assert.All(registros, registro =>
+        {
+            Assert.Equal(usuario.UserId, registro.UsuarioId);
+            using var cambios = JsonDocument.Parse(registro.Cambios);
+            Assert.True(cambios.RootElement.GetProperty("diff").TryGetProperty("LogoBlobRef", out _));
+        });
     }
 
     [Fact]
-    public void Comando_Valida_Formato_Tamano_E_Id()
+    public void Validador_SoloExigeContenidoEId()
     {
         var validator = new SubirLogoEmpresaValidator();
-        Assert.True(validator.Validate(new(Guid.NewGuid(), Png())).IsValid);
-        Assert.False(validator.Validate(new(Guid.Empty, Png())).IsValid);
-        Assert.Contains(validator.Validate(new(Guid.NewGuid(), [1, 2])).Errors, x => x.ErrorCode == "EMPRESA_LOGO_FORMATO");
-        Assert.Contains(validator.Validate(new(Guid.NewGuid(), new byte[LogoEmpresaFormato.MaxBytes + 1])).Errors, x => x.ErrorCode == "EMPRESA_LOGO_TAMANO");
+        Assert.True(validator.Validate(new SubirLogoEmpresaCommand(Guid.NewGuid(), Png())).IsValid);
+        Assert.False(validator.Validate(new SubirLogoEmpresaCommand(Guid.Empty, Png())).IsValid);
+        Assert.True(validator.Validate(new SubirLogoEmpresaCommand(Guid.NewGuid(), [1, 2])).IsValid);
+        Assert.Contains(validator.Validate(new SubirLogoEmpresaCommand(Guid.NewGuid(), null!)).Errors, x => x.ErrorCode == "EMPRESA_LOGO_FORMATO");
+    }
+
+    [Theory]
+    [InlineData(false, "EMPRESA_LOGO_FORMATO")]
+    [InlineData(true, "EMPRESA_LOGO_TAMANO")]
+    public async Task Handler_RechazaLogoConCodigoDeNegocio(bool grande, string codigo)
+    {
+        await using var db = new CompartidoDbContext(new DbContextOptionsBuilder<CompartidoDbContext>()
+            .UseInMemoryDatabase(Guid.NewGuid().ToString()).Options, new FakeEmpresa());
+        var blobs = new Blobs();
+        var handler = new LogoEmpresaHandler(db, blobs, new Usuario(), new Reloj());
+        var bytes = grande ? new byte[LogoEmpresaFormato.MaxBytes + 1] : new byte[] { 1, 2 };
+        var error = await Assert.ThrowsAsync<Millet.SharedKernel.Application.Exceptions.BusinessRuleException>(() =>
+            handler.Handle(new SubirLogoEmpresaCommand(Guid.NewGuid(), bytes), default));
+        Assert.Equal(codigo, error.Code);
+        Assert.Empty(blobs.Claves);
     }
 
     private static byte[] Png()

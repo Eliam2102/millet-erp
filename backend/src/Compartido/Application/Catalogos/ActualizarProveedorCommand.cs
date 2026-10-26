@@ -64,7 +64,7 @@ public sealed class ActualizarProveedorValidator : AbstractValidator<ActualizarP
         RuleFor(c => c.Estado).MaximumLength(100);
         RuleFor(c => c.CodigoPostal).MaximumLength(20);
         RuleFor(c => c.Pais).MaximumLength(3);
-        RuleFor(c => c.TaxId).MaximumLength(40);
+        RuleFor(c => c.TaxId).MaximumLength(40).WithErrorCode("PROVEEDOR_TAXID_INVALIDO").WithMessage("El Tax ID admite hasta 40 caracteres; corrígelo antes de guardar.");
         RuleFor(c => c.Pais).Matches(@"^([A-Za-z]{3})?$").WithMessage("Escribe el país con tres letras, por ejemplo MEX.");
         RuleFor(c => c.RazonSocial!).NotEmpty().MaximumLength(254)
             .When(c => c.RazonSocial is not null);

@@ -101,7 +101,7 @@ public sealed class Proveedor : BaseEntity, IAuditable
         if (estado is { Length: > 100 }) throw new BusinessRuleException("PROVEEDOR_DOMICILIO_INVALIDO", "El campo estado admite hasta 100 caracteres; corrígelo antes de guardar.");
         if (codigoPostal is { Length: > 20 }) throw new BusinessRuleException("PROVEEDOR_DOMICILIO_INVALIDO", "El campo código postal admite hasta 20 caracteres; corrígelo antes de guardar.");
         if (pais is { Length: > 3 }) throw new BusinessRuleException("PROVEEDOR_DOMICILIO_INVALIDO", "El campo país admite hasta 3 caracteres; corrígelo antes de guardar.");
-        if (taxId is { Length: > 40 }) throw new BusinessRuleException("PROVEEDOR_DOMICILIO_INVALIDO", "El campo Tax ID admite hasta 40 caracteres; corrígelo antes de guardar.");
+        if (taxId is { Length: > 40 }) throw new BusinessRuleException("PROVEEDOR_TAXID_INVALIDO", "El campo Tax ID admite hasta 40 caracteres; corrígelo antes de guardar.");
         if (!string.IsNullOrWhiteSpace(pais) && (pais.Length != 3 || !pais.All(char.IsAsciiLetter)))
             throw new BusinessRuleException("PROVEEDOR_PAIS_INVALIDO", "Escribe el país con su código ISO de tres letras, por ejemplo MEX.");
         if (!string.IsNullOrWhiteSpace(taxId) && Origen != OrigenProveedor.Extranjero)
@@ -128,8 +128,7 @@ public sealed class Proveedor : BaseEntity, IAuditable
         var concepto = string.IsNullOrWhiteSpace(conceptoRetencion) ? null : conceptoRetencion.Trim().ToUpperInvariant();
         if (concepto?.Length > 80)
             throw new BusinessRuleException("PROVEEDOR_CONCEPTO_RETENCION_INVALIDO", "El concepto de retención admite hasta 80 caracteres.");
-        if (origen != OrigenProveedor.Extranjero && TaxId is not null)
-            throw new BusinessRuleException("PROVEEDOR_TAXID_SOLO_EXTRANJERO", "Quita el Tax ID antes de cambiar el proveedor a nacional.");
+        if (origen != OrigenProveedor.Extranjero) TaxId = null;
         if (origen == OrigenProveedor.Nacional && Pais is null) Pais = "MEX";
         Origen = origen;
         RegimenFiscalCodigo = origen == OrigenProveedor.Extranjero ? null : regimen;

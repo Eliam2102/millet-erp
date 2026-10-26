@@ -43,7 +43,7 @@ public static class LogoEmpresaFormato
                 if (marcador is 0xd9 or 0xda) break;
                 var longitud = BinaryPrimitives.ReadUInt16BigEndian(bytes.Slice(pos, 2));
                 if (longitud < 2 || pos + longitud > bytes.Length) break;
-                if (marcador is 0xc0 or 0xc1 or 0xc2 && longitud >= 8)
+                if (marcador is >= 0xc0 and <= 0xcf and not (0xc4 or 0xc8 or 0xcc) && longitud >= 8)
                 {
                     ancho = BinaryPrimitives.ReadUInt16BigEndian(bytes.Slice(pos + 5, 2));
                     if (BinaryPrimitives.ReadUInt16BigEndian(bytes.Slice(pos + 3, 2)) > 0) tipo = "image/jpeg";
@@ -65,16 +65,7 @@ public sealed class SubirLogoEmpresaValidator : AbstractValidator<SubirLogoEmpre
     public SubirLogoEmpresaValidator()
     {
         RuleFor(x => x.Id).NotEmpty();
-        RuleFor(x => x.Contenido).NotNull();
-        RuleFor(x => x.Contenido).Custom((bytes, context) =>
-        {
-            if (bytes is null) return;
-            try { LogoEmpresaFormato.Validar(bytes); }
-            catch (BusinessRuleException error)
-            {
-                context.AddFailure(new FluentValidation.Results.ValidationFailure(nameof(SubirLogoEmpresaCommand.Contenido), error.Message) { ErrorCode = error.Code });
-            }
-        });
+        RuleFor(x => x.Contenido).NotNull().WithErrorCode("EMPRESA_LOGO_FORMATO").WithMessage("Selecciona un archivo PNG o JPG.");
     }
 }
 
