@@ -77,7 +77,7 @@ export function FacturaPicker({
   const triggerLabel = seleccionada
     ? `${folioDe(seleccionada)} · ${seleccionada.moneda} ${seleccionada.total.toFixed(2)}`
     : value
-      ? `${value.slice(0, 8)}…`
+      ? '—'
       : placeholder;
 
   return (

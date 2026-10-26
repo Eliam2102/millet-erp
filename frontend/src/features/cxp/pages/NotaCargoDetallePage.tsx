@@ -141,7 +141,7 @@ export function NotaCargoDetallePage() {
             />
             <div className="md:col-span-2">
               <dt className="text-xs text-muted-foreground">Concepto</dt>
-              <dd className="text-sm">{query.data.concepto}</dd>
+              <dd className="text-sm [overflow-wrap:anywhere]">{query.data.concepto}</dd>
             </div>
             <Campo
               label="Concepto contable"

@@ -301,8 +301,10 @@ function FormInner({
         : 1;
 
   const { setDirty, solicitarCierre, dialogo } = useConfirmarDescarte(onCancel);
+  // isDirty se lee en render: RHF solo lo calcula si se suscribe ahí.
+  const { isDirty } = form.formState;
   function cancelar() {
-    setDirty(form.formState.isDirty);
+    setDirty(isDirty);
     solicitarCierre();
   }
 

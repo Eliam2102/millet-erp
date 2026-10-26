@@ -228,13 +228,15 @@ export function PolizasPage({ search, onSearch, onAbrir }: Props) {
           />
         }
         pie={
-          <PaginacionTabla
-            total={total}
-            offset={offset}
-            limit={LIMITE_POLIZAS}
-            tamanos={[]}
-            onChange={(offset) => onSearch({ ...search, offset: offset || undefined })}
-          />
+          polizas.isError ? undefined : (
+            <PaginacionTabla
+              total={total}
+              offset={offset}
+              limit={LIMITE_POLIZAS}
+              tamanos={[]}
+              onChange={(offset) => onSearch({ ...search, offset: offset || undefined })}
+            />
+          )
         }
       >
         {polizas.isLoading ? (
