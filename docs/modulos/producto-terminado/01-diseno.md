@@ -3,7 +3,7 @@
 > **Ticket:** ClickUp 86e3vrh7t (E08). **Habilita:** F1-PT-01 (86e3jvuk2, PT5.1), F1-PT-02 (86e3jvuka, PT5.2), F1-PT-04 (86e3jvukj, PT5.9), PT5.5 (86e3ke339), U1.5 (86e3jvv6z).
 > **Estado:** propuesta para validar con Eliam antes de programar. Lo que no confirma Millet o el código va marcado **SUPUESTO**.
 > **Parte de:** nuestro borrador del 24-oct, ajustado a la ficha PT-01 del 26-oct y al plano 1.7.1 «09 · Producto terminado, salida y entrega» (cuando chocan, manda el plano).
-> **Verificado contra:** `develop` ef12f191.
+> **Verificado contra:** `develop` 3c834939.
 
 ## 0. Contexto y alcance
 
@@ -27,7 +27,7 @@
 
 - Selector Demo/Real por ciclo: `backend/src/Integraciones.Aw/Infrastructure/Origen/AwOrigenSesion.cs` y `AwOrigenSelectores.cs`. Demo usa PostgreSQL `millet_aw_origen` (#200). Real abre SQL Server con TLS verificado (#199).
 - Patrón de tabla puente con candado (flujo 3, OTR), descrito en `docs/integration/09-aw-otr-exportacion.md`:
-  - El puerto vive en el módulo que consume: `backend/src/ComercioExterior/Application/Ports/IOtrIntercambio.cs:3-14`.
+  - El puerto vive en el módulo que consume: `backend/src/ComercioExterior/Application/Ports/IOtrIntercambio.cs:3-15`.
   - El adaptador SQL vive en `backend/src/Integraciones.Aw/Infrastructure/Exportacion/OtrTablasAdapter.cs`.
   - El worker (`backend/src/Integraciones.Aw/Infrastructure/Exportacion/Workers/OtrWorkers.cs`) tiene opciones en l.17, candado de proceso `pg_try_advisory_lock` en l.55, control idempotente en l.71 y acuse a la tabla puente en l.103.
   - Real solo se registra con `ContratoI134Firmado` (`backend/src/Integraciones.Aw/Infrastructure/Exportacion/DependencyInjection.cs:29`).
@@ -46,7 +46,7 @@
   - Proyecto `backend/src/ProductoTerminado/Millet.ProductoTerminado.csproj` (nuevo) con carpetas Domain/Application/Infrastructure.
   - `ProductoTerminadoDbContext` con `SchemaName = "producto_terminado"`, outbox propio y topic `producto-terminado-events`.
   - Alternativa descartada: meterlo en Almacén (su kardex es de insumos y su saldo es por artículo y ubicación) o en Facturación.
-- **D2. Sin FK entre esquemas.** `pedido_facturable_id` y `sucursal_id` son `uuid` planos (ADR-0030). El pedido se lee por un puerto `IPedidosPtReadPort` definido en PT (`Application/Ports`) e implementado en `backend/src/Facturacion/Infrastructure/PublicAdapters/PedidosPtReadAdapter.cs` (nuevo), mismo molde que `PedidosEmbarcablesReadAdapter`. Devuelve cabecera (id, número, sucursal, estado, `CondicionPagoOrigen`, versión de origen) y líneas (posición, producto, descripción, cantidad, unidad SAT).
+- **D2. Sin FK entre esquemas.** `pedido_facturable_id` y `sucursal_id` son `uuid` planos (ADR-0005: sin FK entre esquemas; ADR-0030: un `DbContext` por módulo). El pedido se lee por un puerto `IPedidosPtReadPort` definido en PT (`Application/Ports`) e implementado en `backend/src/Facturacion/Infrastructure/PublicAdapters/PedidosPtReadAdapter.cs` (nuevo), mismo molde que `PedidosEmbarcablesReadAdapter`. Devuelve cabecera (id, número, sucursal, estado, `CondicionPagoOrigen`, versión de origen) y líneas (posición, producto, descripción, cantidad, unidad SAT).
 - **D3. Solo Integraciones.Aw toca A+W.** El lector de escaneos y el futuro retorno de estatus viven en `Integraciones.Aw`. PT no abre conexiones a `MILLET_INTEGRACION`.
 - **D4. PT es dueño de la existencia por pieza y del estado retenido/liberado del pedido.** Facturación es dueña del saldo, CxC de la decisión de crédito y A+W del estatus visible para ventas.
 
@@ -136,10 +136,10 @@ flowchart LR
   DUP --> ACK
 ```
 
-- **Canal:** `PiezasPtOrigenSelector` en `backend/src/Integraciones.Aw/Infrastructure/PiezasPt/` (nuevo), copia de `OtrOrigenSelector`: claves `Demo`/`Real` según `AwOrigenSesion`.
+- **Canal:** `PiezasPtOrigenSelector` en `backend/src/Integraciones.Aw/Infrastructure/PiezasPt/` (nuevo), copia de `OtrOrigenSelector` (`backend/src/Integraciones.Aw/Infrastructure/Exportacion/DependencyInjection.cs:37`): claves `Demo`/`Real` según `AwOrigenSesion`.
 - **Configuración:** sección `IntegracionesAw:PiezasPt` (`EntradaHabilitada=false`, `EmpresaId`, `IntervalSeconds=30`, `BatchSize=200`, `MaxIntentos=5`, `PospuestoHoras=24`, `ContratoI134Firmado=false`). Real solo se registra con contrato firmado y cadena `AwIntegracionDb`. Demo nunca en Production.
 - **Quién reintenta:** la fila del puente se acusa con el resultado del primer intento. Los `Pospuesto` se reintentan desde `producto_terminado.escaneos`, no volviendo a leer SQL Server, para no cargar SER-DATA.
-- **Bandeja:** una persona con permiso puede `Reintentar` o `Descartar` con motivo (molde `backend/src/Facturacion/Application/Ingesta/ResolverExcepcionImportacion/ResolverExcepcionImportacionCommand.cs`). Ninguna acción crea pieza fuera del comando.
+- **Bandeja:** una persona con permiso puede `Reintentar` o `Descartar` con motivo (molde `DescartarReppPendienteCommand(Id, Motivo)` en `backend/src/Facturacion/Application/Repp/Pendientes/ReppPendienteCommands.cs:15`). Ninguna acción crea pieza fuera del comando.
 - **Identidad incompleta:** un evento sin `numero_pieza` o de un pedido `Cancelado` va a `Excepcion`. No creamos existencia anónima (plano §6).
 - **Fuera de orden:** se conserva y nunca retrocede una pieza ya avanzada (plano §12).
 - **Capacidad:** 200 filas cada 30 s son 24,000 por hora, muy por encima del pico de 2,500 al día.
@@ -187,7 +187,7 @@ Plano 1.7.1 §11: «sin acuse no afirmar liberado en A+W». El estado `Liberado`
 | Orden | Cambio | Dónde |
 |---|---|---|
 | 1 | Proyecto, `ProductoTerminadoDbContext`, migración `ProductoTerminadoEsquemaInicial` (tablas de §3 sin columnas de liberación) | `backend/src/ProductoTerminado/` (nuevo) |
-| 2 | Registro de `DbContext` con `OutboxSaveChangesInterceptor`, outbox `producto-terminado-events` y tipo en `MigrationsHealthCheckOptions` | `backend/src/Api/Program.cs` (molde l.956-959, 1389-1393 y 1410-1430) |
+| 2 | Registro de `DbContext` con `OutboxSaveChangesInterceptor`, outbox `producto-terminado-events` y tipo en `MigrationsHealthCheckOptions`, que revisa `MigrationsAppliedHealthCheck` | `backend/src/Api/Program.cs` (molde l.957-960, 1390-1394 y 1411-1432) |
 | 3 | Agregar `ProductoTerminadoDbContext` al bucle de migraciones con su `case`. Aprovechamos para agregar `ComercioExteriorDbContext` y `ActivosFijosDbContext`, que hoy faltan en el bucle aunque el health check los revisa. | `.github/workflows/deploy-app-dev.yml:212` |
 | 4 | Permisos y asignación al rol | `PermisosCanonicos.cs` y semilla de roles |
 | 5 | Puerto de pedido y su adaptador en Facturación | §2 D2 |
