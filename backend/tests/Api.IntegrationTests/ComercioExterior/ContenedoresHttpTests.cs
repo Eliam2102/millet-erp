@@ -167,7 +167,7 @@ public sealed class ContenedoresHttpTests
     }
 
     [Fact]
-    public async Task Nacional_no_ligado_con_ce_registrado_no_toma_candados_ce_ni_carga_lineas_de_pedido()
+    public async Task Nacional_no_ligado_con_ce_registrado_no_toma_candados_ce_y_lee_lineas_una_vez()
     {
         var sql = new SqlCe();
         await using var e = await Escenario(sql); using var c = await e.ClienteAsync(true, facturacion: true, permisosCe: false);
@@ -188,7 +188,8 @@ public sealed class ContenedoresHttpTests
         r.EnsureSuccessStatusCode(); Assert.Equal("Timbrado", (await Body(r)).GetProperty("estado").GetString());
         Assert.DoesNotContain(sql.Comandos, s => s.Contains("pg_advisory", StringComparison.Ordinal));
         Assert.Single(sql.Comandos, s => s.Contains("FROM comercio_exterior.expedientes", StringComparison.Ordinal));
-        Assert.DoesNotContain(sql.Comandos, s => s.Contains("pedido_facturable_linea", StringComparison.Ordinal));
+        // FMT-3: la factura nacional sí lee las líneas del pedido una vez para copiar referencia, peso y área de impresión.
+        Assert.Single(sql.Comandos, s => s.Contains("pedido_facturable_linea", StringComparison.Ordinal));
     }
     [Fact]
     public async Task Facturador_sin_permisos_ce_abre_detalle_de_pedido_ligado_y_emite()
