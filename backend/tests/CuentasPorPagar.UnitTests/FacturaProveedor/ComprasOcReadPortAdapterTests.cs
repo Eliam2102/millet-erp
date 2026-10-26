@@ -53,8 +53,17 @@ public sealed class ComprasOcReadPortAdapterTests
         dto.Total.Should().Be(1044m);
     }
 
+    [Fact]
+    public void MapToDto_expone_EsServicio_de_la_linea_de_OC()
+    {
+        ComprasOcReadPortAdapter.MapToDto(NewOcAutorizadaConUnaLinea(1m, 100m, esServicio: true))
+            .Lineas.Should().ContainSingle().Which.EsServicio.Should().BeTrue();
+        ComprasOcReadPortAdapter.MapToDto(NewOcAutorizadaConUnaLinea(1m, 100m))
+            .Lineas.Should().ContainSingle().Which.EsServicio.Should().BeFalse();
+    }
+
     private static OrdenCompra NewOcAutorizadaConUnaLinea(
-        decimal cantidad, decimal precioUnitario, DescuentoLinea? descuento = null)
+        decimal cantidad, decimal precioUnitario, DescuentoLinea? descuento = null, bool esServicio = false)
     {
         var oc = new OrdenCompra(
             id: Guid.CreateVersion7(),
@@ -78,7 +87,8 @@ public sealed class ComprasOcReadPortAdapterTests
             unidadMedida: "PZA",
             precioUnitario: precioUnitario,
             departamentoSolicitanteId: Guid.CreateVersion7(),
-            descuento: descuento);
+            descuento: descuento,
+            esServicio: esServicio);
 
         // Atajo a Autorizada: enviar + N1 + N2 (las invariantes de
         // adjuntos viven en Application, no en el agregado).
