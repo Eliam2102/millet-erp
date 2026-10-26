@@ -98,3 +98,18 @@ describe('motivoTransmisionBloqueada', () => {
     expect(motivoTransmisionBloqueada({ pendientes: 0, total: 5 })).toBeUndefined();
   });
 });
+
+describe('calcularRevisionPrevia · medida de hoja', () => {
+  it('línea de vidrio sin medida bloquea y apunta a esa línea', () => {
+    const r = calcularRevisionPrevia(
+      oc({ lineas: [{ posicion: 1, precioUnitario: 10, requiereMedida: true }, { posicion: 2, precioUnitario: 10 }] }),
+      tipos,
+    );
+    expect(r.pendientes).toBe(1);
+    expect(req(r, 'medidaHoja')).toMatchObject({
+      ok: false,
+      detalle: 'Falta la medida de la línea 1.',
+      destino: { tab: 'lineas', etiqueta: 'Ir a línea 1' },
+    });
+  });
+});

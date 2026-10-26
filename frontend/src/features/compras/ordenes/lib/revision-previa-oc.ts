@@ -9,6 +9,7 @@ export interface RequisitoRevisionOc {
   id:
     | 'cabecera'
     | 'precios'
+    | 'medidaHoja'
     | 'cotizacion'
     | 'motivoSinRq'
     | 'correoAutorizacion'
@@ -97,6 +98,24 @@ export function calcularRevisionPrevia(
       },
     }),
   });
+
+  // F1-MP-01 (E1): las líneas de vidrio nacidas de una RQ traen la medida vacía; el servidor la exige al transmitir.
+  const sinMedida = oc.lineas
+    .filter((l) => l.requiereMedida)
+    .map((l) => l.posicion)
+    .sort((a, b) => a - b);
+  if (sinMedida.length > 0) {
+    requisitos.push({
+      id: 'medidaHoja',
+      etiqueta: 'Medida de la hoja en las líneas de vidrio',
+      ok: false,
+      detalle:
+        sinMedida.length === 1
+          ? `Falta la medida de la línea ${sinMedida[0]}.`
+          : `Faltan las medidas de las líneas ${sinMedida.join(', ')}.`,
+      destino: { tab: 'lineas' as const, etiqueta: `Ir a línea ${sinMedida[0]}` },
+    });
+  }
 
   const tieneAdjunto = (clave: string): boolean | undefined => {
     const tipo = tipos?.find((t) => t.clave === clave);

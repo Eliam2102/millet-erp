@@ -143,7 +143,10 @@ public sealed class OcLineaMedidaTests(WebApplicationFactory<Program> factory) :
         }
 
         var bloqueada = await client.PostAsync($"{EndpointBase}/{oc}/transmitir", null);
-        (await AssertCodigo(bloqueada, "VARIANTE_VIDRIO_REQUERIDA")).GetProperty("detail").GetString().Should().Contain("líneas 1 antes de enviar");
+        (await AssertCodigo(bloqueada, "VARIANTE_VIDRIO_REQUERIDA")).GetProperty("detail").GetString().Should().Contain("de la línea 1 antes de enviar");
+        // La revisión previa de la pantalla lista esa línea: el detalle la marca como pendiente de medida.
+        (await client.GetFromJsonAsync<JsonElement>($"{EndpointBase}/{oc}")).GetProperty("lineas").EnumerateArray()
+            .Single().GetProperty("requiereMedida").GetBoolean().Should().BeTrue();
 
         // El comprador elige medida y ajusta la cantidad a hojas enteras dentro del saldo de la RQ (33 hojas = 294.7032 m²).
         await AssertCodigo(await client.PatchAsJsonAsync($"{EndpointBase}/{oc}/lineas/{lineaId}", new { ProductoAwVarianteId = varA }), "HOJAS_ENTERAS");

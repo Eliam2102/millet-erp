@@ -69,4 +69,6 @@ public sealed record LineaOrdenCompraResponse(
     // PLATFORM-TODO(F1-COM-06): supuesto Vilo, confirmar con lista de Millet.
     string? FraccionArancelaria = null, bool EsActivoFijo = false, Guid? ClaseActivoId = null,
     // F1-MP-01 (E1): medida de la hoja (vidrio crudo). Cantidad sigue en m²; AreaHojaM2 = m² por hoja (hojas = Cantidad / AreaHojaM2).
-    Guid? ProductoAwVarianteId = null, decimal? AnchoMm = null, decimal? AltoMm = null, decimal? AreaHojaM2 = null);
+    Guid? ProductoAwVarianteId = null, decimal? AnchoMm = null, decimal? AltoMm = null, decimal? AreaHojaM2 = null,
+    // El artículo es vidrio crudo (ligado a A+W) y la línea aún no tiene medida; lo puebla el handler con el artículo.
+    bool RequiereMedida = false);

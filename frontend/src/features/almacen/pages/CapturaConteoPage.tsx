@@ -308,9 +308,11 @@ function FilaCaptura({
     }
     if (decimales != null && !cabeEnDecimales(numero, decimales)) {
       toast.error(
-        decimales === 0
-          ? `${linea.unidadMedida} se cuenta en enteros`
-          : `${linea.unidadMedida} admite hasta ${decimales} decimales`,
+        porMedida
+          ? 'Con medida, captura la cantidad en hojas enteras.'
+          : decimales === 0
+            ? `${linea.unidadMedida} se cuenta en enteros`
+            : `${linea.unidadMedida} admite hasta ${decimales} decimales`,
       );
       return;
     }

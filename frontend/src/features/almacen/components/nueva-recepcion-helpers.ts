@@ -43,6 +43,7 @@ export function construirFilas(
         // Con medida (E1) la cantidad se captura en hojas enteras: por defecto, las hojas pendientes.
         cantidad: r?.medida ? hojasPendientes(pendiente, r.medida.areaHojaM2) : pendiente,
         medida: r?.medida ?? null,
+        requiereMedida: r?.requiereMedida ?? false,
         ubicacionReferencia: null,
         ubicacionId: null,
         comentario: null,

@@ -66,6 +66,8 @@ export const FilaRecepcionSchema = z
         areaHojaM2: z.number(),
       })
       .nullish(),
+    // Línea de vidrio de la OC sin medida (OC previa a la migración): la fila no se puede incluir.
+    requiereMedida: z.boolean().nullish(),
     // ALM-04: parte de la cantidad que llegó dañada; va a material en revisión.
     cantidadDanada: z.number().nonnegative('La cantidad dañada no puede ser negativa'),
     motivoDano: z.string().max(500, 'Máximo 500 caracteres').nullish(),

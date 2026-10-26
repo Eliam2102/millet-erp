@@ -217,7 +217,7 @@ public sealed class ObtenerOrdenCompraPorIdHandler
         IReadOnlyDictionary<Guid, ArticuloLectura> articulos) =>
         lineas
             .Select(l => articulos.TryGetValue(l.ArticuloId, out var a)
-                ? l with { ArticuloClave = a.Clave, ArticuloNombre = a.Nombre }
+                ? l with { ArticuloClave = a.Clave, ArticuloNombre = a.Nombre, RequiereMedida = a.TieneProductoAw && l.ProductoAwVarianteId is null }
                 : l)
             .ToList();
 

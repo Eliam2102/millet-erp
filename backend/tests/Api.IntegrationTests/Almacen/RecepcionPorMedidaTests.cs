@@ -65,7 +65,8 @@ public class RecepcionPorMedidaTests(WebApplicationFactory<Program> factory) : I
         {
             // La línea de la OC trae 20 hojas: 21 es excedente (recepción exacta).
             var veintiuna = () => Recibir(db, ctx, true, Linea(ctx, 21m, VarA));
-            (await veintiuna.Should().ThrowAsync<BusinessRuleException>()).Which.Code.Should().Be("RECEPCION_EXCEDE_PENDIENTE");
+            (await veintiuna.Should().ThrowAsync<BusinessRuleException>()).Which.Should().Match<BusinessRuleException>(e =>
+                e.Code == "RECEPCION_EXCEDE_PENDIENTE" && e.Message == "Excede lo pendiente de la orden de compra (20 hojas). Almacén recibe exacto.");
 
             var r = await Recibir(db, ctx, true, Linea(ctx, 20m, VarA), Linea(ctx, 15m, VarB));
 
@@ -78,7 +79,7 @@ public class RecepcionPorMedidaTests(WebApplicationFactory<Program> factory) : I
 
             // Ya no queda pendiente en ninguna de las dos líneas.
             var excede = () => Recibir(db, ctx, true, Linea(ctx, 1m, VarB));
-            (await excede.Should().ThrowAsync<BusinessRuleException>()).Which.Code.Should().Be("RECEPCION_EXCEDE_PENDIENTE");
+            (await excede.Should().ThrowAsync<BusinessRuleException>()).Which.Message.Should().Contain("(0 hojas)");
 
             await new CancelarRecepcionHandler(db, new OcM2(ctx), new CapturaEventos(), new UserFake(OtroUsuario), new EmpresaFake(ctx.EmpresaId),
                 ctx.Periodos, new ConversionM2(), new CxpNulo(), new RelojFijo())

@@ -132,8 +132,20 @@ public class LineaOrdenCompraMedidaTests
         var ex = Assert.Throws<BusinessRuleException>(() => oc.EnviarAAutorizacion(DateTimeOffset.UtcNow, true, new HashSet<Guid> { vidrio }));
 
         ex.Code.Should().Be("VARIANTE_VIDRIO_REQUERIDA");
-        ex.Message.Should().Contain("líneas 1, 3 antes");
+        ex.Message.Should().Contain("de las líneas 1 y 3 antes");
         oc.Estado.Should().Be(EstadoOrdenCompra.Borrador);
+    }
+
+    [Fact]
+    public void Enviar_a_autorizacion_con_una_sola_linea_sin_medida_habla_en_singular()
+    {
+        var oc = NuevaOc();
+        var vidrio = Guid.NewGuid();
+        Linea(oc, 300m, articulo: vidrio, conMedida: false);
+
+        var ex = Assert.Throws<BusinessRuleException>(() => oc.EnviarAAutorizacion(DateTimeOffset.UtcNow, true, new HashSet<Guid> { vidrio }));
+
+        ex.Message.Should().Be("Elige la medida de la hoja de la línea 1 antes de enviar a autorización.");
     }
 
     [Fact]

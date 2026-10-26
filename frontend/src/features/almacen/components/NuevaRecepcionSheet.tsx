@@ -993,6 +993,8 @@ function FilaLineaOc({
   const errorRack = errors?.ubicacionId?.message ?? conflictoSub;
   const hojasPend = fila.medida ? hojasPendientes(fila.pendiente, fila.medida.areaHojaM2) : 0;
   const textoHojas = hojasPend === 1 ? 'hoja' : 'hojas';
+  // Vidrio sin medida en la OC: se avisa de entrada, antes que cualquier error de decimales.
+  const sinMedidaEnOc = !!fila.requiereMedida && !fila.medida;
   const idCantidad = `fila-${index}-cantidad`;
   const idRack = `fila-${index}-rack`;
 
@@ -1008,6 +1010,7 @@ function FilaLineaOc({
                 type="checkbox"
                 className="mt-1 size-4 cursor-pointer accent-brand"
                 checked={field.value}
+                disabled={sinMedidaEnOc}
                 onChange={(e) => field.onChange(e.target.checked)}
                 aria-label={`Incluir partida ${fila.posicion} en la recepción`}
               />
@@ -1039,6 +1042,11 @@ function FilaLineaOc({
         </TableCell>
 
         <TableCell className="align-top">
+          {sinMedidaEnOc && (
+            <p className="text-xs text-danger-fg" role="alert">
+              La línea de la OC no tiene medida; corrígela en Compras.
+            </p>
+          )}
           {fila.medida && (
             <p className="mb-1 text-xs text-ink">
               {etiquetaMedidaMm(fila.medida.anchoMm, fila.medida.altoMm)} · pendiente {hojasPend} {textoHojas}

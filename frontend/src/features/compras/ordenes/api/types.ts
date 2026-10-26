@@ -588,6 +588,8 @@ export interface LineaOrdenCompraResponse {
   anchoMm?: number | null;
   altoMm?: number | null;
   areaHojaM2?: number | null;
+  /** Artículo de vidrio crudo (A+W) con la línea aún sin medida: se exige antes de transmitir. */
+  requiereMedida?: boolean;
 }
 
 /** Medida de hoja de un artículo de vidrio crudo (<c>GET /api/v1/catalogos/articulos/{id}/medidas</c>). */

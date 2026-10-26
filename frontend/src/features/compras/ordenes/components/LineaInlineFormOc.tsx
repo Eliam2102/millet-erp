@@ -180,8 +180,16 @@ export function LineaInlineFormOc({ oc, linea, onCancel, onSaved }: LineaInlineF
   // heredada de RQ el campo es read-only (viene 1:1 de la RQ) y el submit
   // manda null = "no tocar", así que exigirlo dejaría sin salida a las
   // heredadas legadas con CC null.
+  const esVidrioRef = useRef(false);
   const resolver = useMemo(
-    () => zodResolver(crearAgregarLineaManualSchema(() => decimalesRef.current, !lineaDesdeRq)),
+    () =>
+      zodResolver(
+        crearAgregarLineaManualSchema(
+          () => decimalesRef.current,
+          !lineaDesdeRq,
+          () => esVidrioRef.current,
+        ),
+      ),
     [lineaDesdeRq],
   );
 
@@ -222,7 +230,9 @@ export function LineaInlineFormOc({ oc, linea, onCancel, onSaved }: LineaInlineF
   const varianteIdActual = form.watch('productoAwVarianteId');
   const medidasQ = useMedidasArticulo(articuloIdActual);
   const medidas = medidasQ.data ?? [];
-  const esVidrio = medidas.length > 0 || !!linea?.productoAwVarianteId;
+  // Solo las medidas del artículo ACTUAL deciden si es vidrio (al cambiar de artículo la línea vieja ya no cuenta).
+  const esVidrio = medidas.length > 0;
+  esVidrioRef.current = esVidrio;
   const medidaSel = medidas.find((m) => m.varianteId === varianteIdActual);
   const areaHoja =
     medidaSel?.areaHojaM2 ??
@@ -231,6 +241,7 @@ export function LineaInlineFormOc({ oc, linea, onCancel, onSaved }: LineaInlineF
       ? (linea.areaHojaM2 ?? null)
       : null);
   const cantidadVidrio = useWatch({ control: form.control, name: 'cantidad' });
+  const conMedidaYHojas = !!varianteIdActual && hojas != null && hojas > 0;
 
   // Con medida la unidad es M2 (el dominio lo exige).
   useEffect(() => {
@@ -451,6 +462,7 @@ export function LineaInlineFormOc({ oc, linea, onCancel, onSaved }: LineaInlineF
                       // Otro artículo: la medida anterior ya no aplica.
                       if ((id ?? '') !== field.value) {
                         form.setValue('productoAwVarianteId', null);
+                        form.setValue('cantidad', DEFAULT_AGREGAR_LINEA_MANUAL.cantidad);
                         setHojas(null);
                       }
                       field.onChange(id ?? '');
@@ -562,7 +574,7 @@ export function LineaInlineFormOc({ oc, linea, onCancel, onSaved }: LineaInlineF
                   data-field="cantidad-m2"
                   className="block rounded-md border bg-surface-muted/50 px-3 py-1.5 text-sm tabular-nums"
                 >
-                  {(cantidadVidrio ?? 0).toFixed(4)}
+                  {conMedidaYHojas ? (cantidadVidrio ?? 0).toFixed(4) : '—'}
                 </output>
               ) : (
                 <Controller
@@ -639,7 +651,12 @@ export function LineaInlineFormOc({ oc, linea, onCancel, onSaved }: LineaInlineF
 
         <FormCampo span={12}>
           <Field label="Subtotal" className="@3xl:col-span-2">
-            {(c) => <SubtotalPreview id={c.id} control={form.control} moneda={oc.moneda} />}
+            {(c) => <SubtotalPreview
+                id={c.id}
+                control={form.control}
+                moneda={oc.moneda}
+                oculto={esVidrio && !conMedidaYHojas}
+              />}
           </Field>
         </FormCampo>
       </FormGrid>
@@ -932,8 +949,10 @@ function SubtotalPreview({
   control,
   moneda,
   id,
+  oculto,
 }: {
   id: string;
+  oculto: boolean;
   control: Control<AgregarLineaManualValues>;
   moneda: string;
 }) {
@@ -947,7 +966,7 @@ function SubtotalPreview({
       id={id}
       className="block rounded-md border bg-surface-muted/30 px-3 py-1.5 text-sm tabular-nums"
     >
-      <MoneyDisplay amount={subtotal} currency={moneda} />
+      {oculto ? '—' : <MoneyDisplay amount={subtotal} currency={moneda} />}
     </output>
   );
 }

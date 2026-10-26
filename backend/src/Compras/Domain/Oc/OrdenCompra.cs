@@ -1069,7 +1069,9 @@ public sealed class OrdenCompra : BaseEntity, IPerteneceAEmpresa, IAuditable, IF
         {
             throw new BusinessRuleException(
                 "VARIANTE_VIDRIO_REQUERIDA",
-                $"Elige la medida de la hoja de las líneas {string.Join(", ", sinMedida)} antes de enviar a autorización.");
+                sinMedida.Count == 1
+                    ? $"Elige la medida de la hoja de la línea {sinMedida[0]} antes de enviar a autorización."
+                    : $"Elige la medida de la hoja de las líneas {string.Join(", ", sinMedida.Take(sinMedida.Count - 1))} y {sinMedida[^1]} antes de enviar a autorización.");
         }
 
         if (EsBorradorMinimo)

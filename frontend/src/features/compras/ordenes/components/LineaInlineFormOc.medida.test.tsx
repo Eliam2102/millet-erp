@@ -5,6 +5,7 @@ import { mswServer } from '@/test/mocks/server';
 import { createQueryWrapper } from '@/test/test-query-client';
 import { LineaInlineFormOc } from '@/features/compras/ordenes/components/LineaInlineFormOc';
 import { useAuthStore } from '@/lib/auth/auth-store';
+import { Naturaleza, EstatusCatalogo } from '@/features/compras/api/types';
 import {
   EstadoOrdenCompra,
   type LineaOrdenCompraResponse,
@@ -140,5 +141,67 @@ describe('<LineaInlineFormOc> — medida de hoja', () => {
     expect(screen.getByText('105.9300')).toBeInTheDocument();
     fireEvent.click(screen.getByRole('button', { name: /guardar cambios/i }));
     expect(await screen.findByText('La medida no pertenece al artículo.')).toBeInTheDocument();
+  });
+
+  it('M2 a 2 decimales: 20 hojas 2440×3660 (178.608 m²) guarda; los m² derivados no se validan contra los decimales', async () => {
+    mswServer.use(
+      http.get('*/api/v1/catalogos/unidades-medida', () =>
+        HttpResponse.json([{ id: 'um-m2', codigo: 'M2', nombre: 'Metro cuadrado', decimales: 2 }]),
+      ),
+    );
+    let body: Record<string, unknown> | null = null;
+    mswServer.use(
+      http.patch('*/api/v1/compras/ordenes/oc-1/lineas/l-1', async ({ request }) => {
+        body = (await request.json()) as Record<string, unknown>;
+        return new HttpResponse(null, { status: 204 });
+      }),
+    );
+    render(<LineaInlineFormOc oc={OC} linea={LINEA_VIDRIO} onCancel={() => {}} />, {
+      wrapper: createQueryWrapper(),
+    });
+    await elegirMedida('2440 × 3660 mm');
+    fireEvent.change(screen.getByLabelText(/^Hojas/), { target: { value: '20' } });
+    // Deja que el catálogo de unidades (2 decimales) llegue antes de guardar.
+    await new Promise((r) => setTimeout(r, 50));
+    fireEvent.click(screen.getByRole('button', { name: /guardar cambios/i }));
+    await waitFor(() => expect(body).not.toBeNull());
+    expect(body).toMatchObject({ cantidad: 178.608, unidadMedida: 'M2' });
+    expect(screen.queryByText(/Demasiados decimales/)).not.toBeInTheDocument();
+  });
+
+  it('artículo de vidrio sin medida: m² y subtotal en «—», no «1.0000»', async () => {
+    render(<LineaInlineFormOc oc={OC} linea={{ ...LINEA_VIDRIO, productoAwVarianteId: null } as unknown as LineaOrdenCompraResponse} onCancel={() => {}} />, {
+      wrapper: createQueryWrapper(),
+    });
+    await screen.findByRole('combobox', { name: /medida/i });
+    expect(document.querySelector('[data-field="cantidad-m2"]')?.textContent).toBe('—');
+    expect(screen.queryByText('1.0000')).not.toBeInTheDocument();
+    expect(screen.getByLabelText('Subtotal').textContent).toBe('—');
+  });
+
+  it('al editar, cambiar a un artículo que no es de vidrio quita medida y hojas y pasa la unidad a la del artículo', async () => {
+    mswServer.use(
+      http.get('*/api/v1/catalogos/articulos', () =>
+        HttpResponse.json({
+          items: [
+            {
+              id: ART_PIEZA, clave: 'DEMO-ART-PIEZA', nombre: 'Pieza demo', unidadMedidaDefault: 'PZA',
+              naturaleza: Naturaleza.Estandar, categoria: null, estatus: EstatusCatalogo.Activo,
+            },
+          ],
+          offset: 0, limit: 50, total: 1,
+        }),
+      ),
+    );
+    const linea = { ...LINEA_VIDRIO, productoAwVarianteId: VAR_A, anchoMm: 2440, altoMm: 3660, areaHojaM2: 8.9304, cantidad: 178.608 } as unknown as LineaOrdenCompraResponse;
+    render(<LineaInlineFormOc oc={OC} linea={linea} onCancel={() => {}} />, { wrapper: createQueryWrapper() });
+    await screen.findByLabelText(/^Hojas/);
+    fireEvent.click(screen.getByRole('combobox', { name: /seleccionar artículo/i }));
+    fireEvent.click(await screen.findByText('Pieza demo'));
+    await waitFor(() => expect(screen.queryByLabelText(/^Hojas/)).not.toBeInTheDocument());
+    expect(screen.queryByRole('combobox', { name: /medida/i })).not.toBeInTheDocument();
+    expect(
+      (screen.getByLabelText(/unidad de medida \(heredada del artículo\)/i) as HTMLInputElement).value,
+    ).toBe('PZA');
   });
 });

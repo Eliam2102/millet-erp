@@ -404,6 +404,8 @@ export interface LineaRecibible {
   maximoRecibible: number;
   /** F1-MP-01 (E1): medida de hoja que fijó la OC en la línea; al recibir no se elige. Ausente = línea sin medida. */
   medida?: MedidaLineaOc | null;
+  /** Artículo de vidrio (A+W) con la línea de OC sin medida: no se puede recibir hasta corregirla en Compras. */
+  requiereMedida?: boolean;
 }
 
 /** Medida de hoja de una línea de OC. `areaHojaM2` = ancho × alto / 1e6 a 4 decimales. */
