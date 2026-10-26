@@ -485,7 +485,7 @@ function LineaInline({
           <Field label="Fecha" required>
             <Input type="date" {...form.register(`cfdis.${index}.fechaCfdi` as const)} />
           </Field>
-          <Field label="Vence">
+          <Field label="Vence" required>
             <Input type="date" {...form.register(`cfdis.${index}.fechaVencimiento` as const)} />
           </Field>
           <Field label="Subtotal">

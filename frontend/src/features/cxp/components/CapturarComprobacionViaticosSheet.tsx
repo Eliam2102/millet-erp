@@ -352,7 +352,7 @@ function LineaInline({
           </Field>
         </div>
         <div className="col-span-full">
-          <Field label="UUID CFDI" optional>
+          <Field label="UUID CFDI" required={!esTicketNoFiscal} optional={esTicketNoFiscal}>
             <Input
               placeholder="00000000-…"
               readOnly={!!cfdiRecibidoId}
@@ -362,7 +362,7 @@ function LineaInline({
           </Field>
         </div>
         <div className="col-span-full sm:col-span-2">
-          <Field label="Proveedor" optional error={lineaErrors?.proveedorId?.message}>
+          <Field label="Proveedor" required={!esTicketNoFiscal} optional={esTicketNoFiscal} error={lineaErrors?.proveedorId?.message}>
             {(control) => (
               <Controller
                 control={form.control}

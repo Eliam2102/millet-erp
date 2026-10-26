@@ -213,8 +213,7 @@ export function ViaticoDetallePage() {
               />
               <Campo
                 label="Rechazado por"
-                valor={query.data.rechazadoPor ?? '—'}
-                mono={query.data.rechazadoPor != null}
+                valor="—"
               />
               <Campo
                 label="Motivo rechazo"
