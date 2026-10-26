@@ -43,9 +43,9 @@ function Formulario({
   const esMxn = cotizacion.moneda === 'MXN';
   const tcDelDia = data.tiposCambio.find((t) => t.moneda === cotizacion.moneda)?.valorEnMxn ?? null;
 
-  const [condicionesPagoId, setCondicionesPagoId] = useState('');
+  const [condicionesPagoId, setCondicionesPagoId] = useState(cotizacion.condicionesPagoId ?? '');
   const [usoPrincipalId, setUsoPrincipalId] = useState('');
-  const [fechaEntrega, setFechaEntrega] = useState('');
+  const [fechaEntrega, setFechaEntrega] = useState(cotizacion.fechaEntrega ?? '');
   const [tipoCambio, setTipoCambio] = useState(tcDelDia === null ? '' : String(tcDelDia));
   const [observaciones, setObservaciones] = useState('');
 

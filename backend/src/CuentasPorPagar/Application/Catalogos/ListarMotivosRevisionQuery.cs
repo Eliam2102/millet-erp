@@ -19,7 +19,8 @@ public sealed record MotivoRevisionResponse(
     string? Descripcion,
     int? SlaDias,
     string? DependenciaRevisoraDefaultCodigo,
-    bool Activo);
+    bool Activo,
+    string? AreaAvisadaCodigo);
 
 public sealed class ListarMotivosRevisionHandler
     : IRequestHandler<ListarMotivosRevisionQuery, IReadOnlyList<MotivoRevisionResponse>>
@@ -40,7 +41,7 @@ public sealed class ListarMotivosRevisionHandler
             .OrderBy(m => m.Nombre)
             .Select(m => new MotivoRevisionResponse(
                 m.Id, m.Codigo, m.Nombre, m.Descripcion,
-                m.SlaDias, m.DependenciaRevisoraDefaultCodigo, m.Activo))
+                m.SlaDias, m.DependenciaRevisoraDefaultCodigo, m.Activo, m.AreaAvisadaCodigo))
             .ToListAsync(cancellationToken);
     }
 }

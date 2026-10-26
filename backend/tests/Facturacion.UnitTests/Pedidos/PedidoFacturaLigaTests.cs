@@ -58,7 +58,7 @@ public sealed class PedidoFacturaLigaTests
         using var db = NewDb(empresaId);
         var pedido = await SembrarPedidoAsync(db, empresaId);
 
-        var detalle = await new PedidoFacturableDetalleHandler(db, new FakeClientesReadPort(), new FakeProductosReadPort(), new FakeCanalesVentaReadPort(), new FakeAlcanceCajaEvaluator())
+        var detalle = await new PedidoFacturableDetalleHandler(db, new FakeClientesReadPort(), new FakeProductosReadPort(), new FakeCanalesVentaReadPort(), new FakeAlcanceCajaEvaluator(), new FakeCurrentUserPermissions())
             .Handle(new PedidoFacturableDetalleQuery(pedido.Id), CancellationToken.None);
 
         detalle.Estado.Should().Be("Importado");

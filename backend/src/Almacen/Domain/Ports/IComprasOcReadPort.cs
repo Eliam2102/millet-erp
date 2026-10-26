@@ -31,7 +31,8 @@ public sealed record OcLectura(
     Guid EmpresaId,
     string Estado,
     IReadOnlyList<OcLineaLectura> Lineas,
-    Guid? SucursalDestinoId = null);
+    Guid? SucursalDestinoId = null, bool EsImportacion = false,
+    string? NumeroPedimento = null, string? NumeroBl = null, string? NumeroContenedor = null);
 
 public sealed record OcLineaLectura(
     Guid LineaId,
@@ -41,7 +42,7 @@ public sealed record OcLineaLectura(
     decimal CantidadRecibida,
     decimal PrecioUnitarioMxn,
     Guid? CentroCostoId = null,
-    decimal CantidadFacturada = 0m, bool EsActivoFijo = false, Guid? ClaseActivoId = null);
+    decimal CantidadFacturada = 0m, bool EsActivoFijo = false, Guid? ClaseActivoId = null, string? FraccionArancelaria = null);
 
 public sealed record RecepcionesPendientesLectura(int Total, int Parciales);
 

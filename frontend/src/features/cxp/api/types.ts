@@ -409,6 +409,7 @@ export interface MotivoRevision {
   descripcion: string | null;
   slaDias: number | null;
   dependenciaRevisoraDefaultCodigo: string | null;
+  areaAvisadaCodigo: string | null;
   activo: boolean;
 }
 
@@ -821,6 +822,7 @@ export const EstadoComprobacionGastos = {
   Aplicada: 4,
   Rechazada: 5,
   AutorizadaNivel1: 6,
+  PendienteAprobarPasivo: 7,
 } as const satisfies Record<string, number>;
 export type EstadoComprobacionGastos =
   (typeof EstadoComprobacionGastos)[keyof typeof EstadoComprobacionGastos];
@@ -839,6 +841,7 @@ export const EstadoComprobacionGastosLabels: Record<EstadoComprobacionGastos, st
   [EstadoComprobacionGastos.Aplicada]: 'Aplicada',
   [EstadoComprobacionGastos.Rechazada]: 'Rechazada',
   [EstadoComprobacionGastos.AutorizadaNivel1]: 'Autorizada N1',
+  [EstadoComprobacionGastos.PendienteAprobarPasivo]: 'Pendiente de aprobar pasivo',
 };
 
 export interface ComprobacionGastosListItem {
@@ -961,7 +964,6 @@ export interface SaldoPendienteReposicion {
   moneda: string;
   saldo: number;
   numeroComprobaciones: number;
-  montoMinimo: number;
 }
 
 export interface ReposicionCajaListItem {
@@ -974,11 +976,6 @@ export interface ReposicionCajaListItem {
   numeroComprobaciones: number;
   esCorteManual: boolean;
   fechaEmision: string;
-}
-
-export interface ConfiguracionReposicionResponse {
-  sucursalId: string;
-  montoMinimo: number;
 }
 
 export interface EmitirReposicionManualResponse {

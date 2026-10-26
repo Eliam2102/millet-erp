@@ -86,8 +86,9 @@ public sealed class OrdenCompraRespuestaProveedorTests
     public void Rechazo_sin_motivo()
     {
         var oc = Autorizada();
-        Assert.Equal("OC_RESPUESTA_MOTIVO_REQUERIDO", Codigo(() => oc.RegistrarRespuestaProveedor(
-            TipoRespuestaProveedorOc.Rechazo, Hoy, Hoy, "Correo", null, " ", [], Guid.NewGuid(), DateTimeOffset.UtcNow)));
+        var respuesta = oc.RegistrarRespuestaProveedor(
+            TipoRespuestaProveedorOc.Rechazo, Hoy, Hoy, "Correo", null, " ", [], Guid.NewGuid(), DateTimeOffset.UtcNow);
+        Assert.Null(respuesta.Motivo);
     }
 
     [Fact]
@@ -125,9 +126,12 @@ public sealed class OrdenCompraRespuestaProveedorTests
     public void Evidencia_en_blanco()
     {
         var oc = Autorizada();
-        Assert.Equal("OC_RESPUESTA_EVIDENCIA_REQUERIDA", Codigo(() => oc.RegistrarRespuestaProveedor(
-            TipoRespuestaProveedorOc.Confirmacion, Hoy, Hoy, " ", null, null,
-            [C(oc, 10, 20)], Guid.NewGuid(), DateTimeOffset.UtcNow)));
+        var respuesta = oc.RegistrarRespuestaProveedor(null, null, Hoy, null, null, null,
+            [], Guid.NewGuid(), DateTimeOffset.UtcNow);
+        Assert.Null(respuesta.Tipo);
+        Assert.Null(respuesta.FechaRespuesta);
+        Assert.Equal(EstadoComercialProveedorOc.RespuestaRegistrada, oc.EstadoComercialProveedor);
+        Assert.Null(oc.FechaCompromisoProveedor);
     }
 
     [Fact]

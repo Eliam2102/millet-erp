@@ -20,6 +20,31 @@ public class CotizacionTests
         => Assert.Equal(codigo, Assert.Throws<BusinessRuleException>(accion).Code);
 
     [Fact]
+    public void Conserva_condicion_de_pago_entrega_y_nota_libre()
+    {
+        var pago = Guid.NewGuid();
+        var cot = Cotizacion.Registrar(Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid(),
+            Guid.NewGuid(), "DEMO ficticio", "MXN", Hoy, Hoy.AddDays(30), "Nota DEMO", [Linea()],
+            Guid.NewGuid(), Ahora, Hoy, pago, Hoy.AddDays(7));
+        Assert.Equal(pago, cot.CondicionesPagoId);
+        Assert.Equal(Hoy.AddDays(7), cot.FechaEntrega);
+        Assert.Equal("Nota DEMO", cot.CondicionesCredito);
+    }
+
+    [Fact]
+    public void Editar_actualiza_condiciones_y_rechaza_entrega_anterior_y_pago_vacio()
+    {
+        var cot = Registrar();
+        var pago = Guid.NewGuid();
+        cot.Editar(cot.ProveedorId, null, "MXN", Hoy, Hoy.AddDays(5), "DEMO ficticio", [Linea()], Hoy, pago, Hoy.AddDays(3));
+        Assert.Equal(pago, cot.CondicionesPagoId);
+        Assert.Equal(Hoy.AddDays(3), cot.FechaEntrega);
+        AssertCodigo("COT_ENTREGA_INVALIDA", () => cot.Editar(cot.ProveedorId, null, "MXN", Hoy, Hoy, null, [Linea()], Hoy, pago, Hoy.AddDays(-1)));
+        AssertCodigo("COT_PAGO_INVALIDO", () => cot.Editar(cot.ProveedorId, null, "MXN", Hoy, Hoy, null, [Linea()], Hoy, Guid.Empty));
+        Assert.Equal(pago, cot.CondicionesPagoId);
+    }
+
+    [Fact]
     public void Should_Normalize_Price_To_RequisitionUnit_And_Mxn()
     {
         Assert.Equal(415.0000m, NormalizadorCotizacion.PrecioPorUnidadRequisicion(4980m, 12m));

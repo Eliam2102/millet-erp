@@ -1,5 +1,6 @@
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Options;
+using Millet.DatosMaestros.Application.Clientes;
 using Millet.Facturacion.Domain.Ports;
 using Millet.Integraciones.Aw.Application.Clientes;
 using Millet.Integraciones.Aw.Application.Pedidos;
@@ -10,7 +11,7 @@ namespace Millet.Integraciones.Aw.Infrastructure.Origen;
 
 /// <summary>Selectores por puerto. Los adaptadores se resuelven perezosamente: Demo jamás abre SQL Server.</summary>
 public sealed class AwOrigenSelectores(IServiceProvider services, AwOrigenSesion sesion) :
-    IAwClientesOrigen, IAwProductosOrigen, IAwSolicitudesReader, IAwClientesReader, IAwArticulosReader,
+    IAwClientesOrigen, IAwClientesPedidosOrigen, IAwProductosOrigen, IAwSolicitudesReader, IAwClientesReader, IAwArticulosReader,
     IAwWriteBackPort, IMasterProvisioningPort
 {
     private async Task<T> ResolverAsync<T>(CancellationToken ct) where T : class
@@ -40,6 +41,8 @@ public sealed class AwOrigenSelectores(IServiceProvider services, AwOrigenSesion
             Filas = pagina.Filas.Select(f => f with { AplicarFiscalesDeOrigen = false }).ToArray(),
         };
     }
+    public async Task<IReadOnlyDictionary<string, AwPedidosCliente>> ContarAsync(IReadOnlyCollection<string> referencias, CancellationToken ct) =>
+        await (await ResolverAsync<IAwClientesPedidosOrigen>(ct)).ContarAsync(referencias, ct);
     async Task<AwProductoOrigenFila?> IAwProductosOrigen.LeerPorReferenciaAsync(string referencia, CancellationToken ct)
     {
         sesion.Reiniciar();

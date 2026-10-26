@@ -539,8 +539,9 @@ Modelado como `ComprobacionGastos` agrupadora con N CFDIs y/o tickets sin factur
 2. Al cierre, captura `ComprobacionGastos` tipo `ReembolsoCajaChica`, adjunta CFDIs y tickets.
 3. Sistema valida que cada CFDI esté a nombre de Millet.
 4. Cada CFDI individual se registra como `FacturaProveedor` ligado a la comprobación, con subcategoría "Reembolso caja chica / viáticos".
-5. Total autorizado por responsable de la sucursal/área (con catálogo de límites por persona — el área indicó que esto se integra).
-6. Pasa a Tesorería para reponer la caja.
+5. Al enviarla, la comprobación queda en «Pendiente de aprobar pasivo» (estado 7). No hay monto mínimo (P8.5, 86e3kdw2k; fuente: cuestionario 03 de CxP, Laura Cerón, 31-ago-2026; reemplaza el mínimo configurable por sucursal).
+6. CxP aprueba el pasivo con `POST /api/v1/cuentas-por-pagar/comprobaciones/{id}/aprobar-pasivo` (permiso `cuentas_por_pagar.comprobaciones.aprobar-nivel1`), respetando el límite del aprobador (`AprobadorLimite` `ReembolsoCajaChica`, misma moneda, vigente, inclusivo; sin fila no hay límite; error `APROBADOR_LIMITE_EXCEDIDO`). En la misma transacción la comprobación pasa a `Aplicada`, se emite UNA reposición para ella y se publica el pasivo a Tesorería.
+7. CxP puede rechazarla con motivo obligatorio: se cancelan las facturas, se liberan los CFDI y no hay reposición. `Autorizar` está cerrado para caja chica; las legadas en `Autorizada` usan `/aplicar`. El corte manual y los saldos quedan solo para comprobaciones heredadas sin reposición. Abiertos: montos y suplentes de aprobadores y rol aprobador nominal (Laura Cerón).
 
 #### 7.4.2 Comprobación de Viáticos (pasivo de préstamo a empleado)
 

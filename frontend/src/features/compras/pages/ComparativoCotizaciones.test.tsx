@@ -21,6 +21,11 @@ vi.mock('@/features/compras/components/CotizacionSheet', () => ({
 }));
 
 vi.mock('@/features/compras/api/useCotizaciones', () => hook);
+vi.mock('@/features/catalogos/api', () => ({
+  useCondicionesPago: () => ({
+    data: [{ id: 'cp-30', clave: '30D', nombre: 'Crédito 30 días', diasCredito: 30 }],
+  }),
+}));
 vi.mock('@tanstack/react-router', () => ({
   useParams: () => ({ id: 'rq-1' }),
   useNavigate: () => vi.fn(),
@@ -124,6 +129,19 @@ describe('ComparativoCotizaciones', () => {
     expect(screen.getByText(/^Vencida/)).toBeInTheDocument();
     expect(screen.getByRole('radio', { name: 'Elegir cotización de Proveedor vencido' })).toBeDisabled();
     expect(screen.getByRole('radio', { name: 'Elegir cotización de Proveedor MXN' })).toBeEnabled();
+  });
+
+  it('muestra las condiciones de la cotización o marca que no tiene', () => {
+    datos({
+      cotizaciones: [
+        cot('1', 'Proveedor A', { condicionesPagoId: 'cp-30', fechaEntrega: '2026-11-05' }),
+        cot('2', 'Proveedor B', { condicionesCredito: null, condicionesPagoId: null, fechaEntrega: null }),
+      ],
+    });
+    render(<ComparativoCotizaciones />, { wrapper: createQueryWrapper() });
+    expect(screen.getByText(/Crédito 30 días \(30 días\)/)).toBeInTheDocument();
+    expect(screen.getAllByText(/Fecha de entrega:/)).toHaveLength(2);
+    expect(screen.getAllByText('Sin condiciones')).toHaveLength(1);
   });
 
   it('avisa cuando falta el tipo de cambio', () => {

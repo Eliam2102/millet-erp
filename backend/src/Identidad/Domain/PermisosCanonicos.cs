@@ -129,6 +129,8 @@ public static class PermisosCanonicos
     public const string ComprasOrdenesRegistrarRespuestaProveedor      = "compras.ordenes.registrar-respuesta-proveedor";
     // F1-COM-07 (86e3jvu77): incidencias del proveedor por línea de la OC.
     public const string ComprasOrdenesRegistrarIncidenciaProveedor     = "compras.ordenes.registrar-incidencia-proveedor";
+    // F1-COM-13 (86e3jvu98): análisis de compras, saldos pendientes y cumplimiento de proveedores.
+    public const string ComprasOrdenesReportesAnalisisProveedores     = "compras.ordenes.reportes-analisis-proveedores";
 
     // ----- Compras — Cotizaciones (F1-COM-02, 86e3jvu2a). Namespace GUID 00000003-0005-* -----
     public const string ComprasCotizacionesLeer                        = "compras.cotizaciones.leer";
@@ -186,6 +188,8 @@ public static class PermisosCanonicos
     public const string DatosMaestrosClientesSincronizar               = "datos_maestros.clientes.sincronizar";
     public const string DatosMaestrosClientesOrigenVer                 = "datos_maestros.clientes.origen-ver";
     public const string DatosMaestrosClientesFiscalEditar              = "datos_maestros.clientes.fiscal-editar";
+    // 86e3qcgyn: unificar clientes de A+W que comparten RFC (Fusionar / Agrupar).
+    public const string DatosMaestrosClientesUnificar                  = "datos_maestros.clientes.unificar";
     public const string DatosMaestrosProductosAwGestionar              = "datos_maestros.productos-aw.gestionar";
     // U1.8b (F1-FAC-14): reporte de diferencias fiscales A+W vs ERP (clientes y productos A+W).
     // leer = consultar el reporte y sus corridas; revisar = marcar revisado y ejecutar/guardar una corrida.
@@ -433,6 +437,10 @@ public static class PermisosCanonicos
     // servicio). Se exige en el handler además de `pedidos.capturar` cuando la
     // clase del pedido es Emergencia.
     public const string FacturacionPedidosCapturarEmergencia   = "facturacion.pedidos.capturar-emergencia";
+    // 86e3tfdw2: pedidos a crédito (condición de pago del origen ≠ CONTADO).
+    // Sin este permiso el pedido a crédito se oculta (bandeja y detalle → 404);
+    // pensado para Contador y Facturación, no para el cajero.
+    public const string FacturacionPedidosLeerCredito          = "facturacion.pedidos.leer-credito";
     public const string FacturacionFacturasEmitir              = "facturacion.facturas.emitir";
     public const string FacturacionFacturasLeer                = "facturacion.facturas.leer";
     // Detallado facturación pt. 2: el receptor viene fijo del master de
@@ -464,6 +472,8 @@ public static class PermisosCanonicos
     public const string FacturacionCajaSupervisar              = "facturacion.caja.supervisar";
     public const string FacturacionCajaLeerTodas               = "facturacion.caja.leer-todas";
     public const string FacturacionReportesLeer                = "facturacion.reportes.leer";
+    // F6.7 (ADR-0051): bypass de sucursal del cierre del día (monitor de CFDI y conciliación).
+    public const string FacturacionReportesLeerTodasSucursales = "facturacion.reportes.leer-todas-sucursales";
     public const string FacturacionComprobantesReintentarTimbrado = "facturacion.comprobantes.reintentar-timbrado";
     public const string FacturacionComprobantesDescartar        = "facturacion.comprobantes.descartar";
 
@@ -694,6 +704,7 @@ public static class PermisosCanonicos
         (Guid.Parse("00000003-0003-0000-0000-00000000000c"), ComprasOrdenesLeerTodasSucursales,            "Consultar órdenes de compra y sus adjuntos de todas las sucursales de la empresa"),
         (Guid.Parse("00000003-0003-0000-0000-00000000000d"), ComprasOrdenesRegistrarRespuestaProveedor,   "Registrar la confirmación o el rechazo del proveedor sobre una orden de compra autorizada, con fechas prometidas y evidencia"),
         (Guid.Parse("00000003-0003-0000-0000-00000000000e"), ComprasOrdenesRegistrarIncidenciaProveedor,  "Registrar, reprogramar y cerrar incidencias del proveedor (faltante, dañado o atraso) por línea de una orden de compra"),
+        (Guid.Parse("00000003-0003-0000-0000-00000000000f"), ComprasOrdenesReportesAnalisisProveedores,  "Consultar el análisis de compras, saldos pendientes y cumplimiento de proveedores"),
         (Guid.Parse("00000003-0004-0000-0000-000000000001"), ComprasConfiguracionLeer,                     "Leer la configuración del módulo Compras de la empresa actual"),
         (Guid.Parse("00000003-0004-0000-0000-000000000002"), ComprasConfiguracionEditar,                   "Editar la configuración del módulo Compras de la empresa actual"),
         (Guid.Parse("00000003-0005-0000-0000-000000000001"), ComprasCotizacionesLeer,                      "Consultar cotizaciones y el comparativo de una requisición"),
@@ -743,6 +754,7 @@ public static class PermisosCanonicos
         (Guid.Parse("00000004-0011-0000-0000-000000000002"), DatosMaestrosClientesSincronizar,             "Iniciar y consultar la sincronización de clientes desde A+W"),
         (Guid.Parse("00000004-0011-0000-0000-000000000003"), DatosMaestrosClientesOrigenVer,               "Consultar datos de origen A+W del cliente (candidatos fiscales, crédito de referencia, domicilio)"),
         (Guid.Parse("00000004-0011-0000-0000-000000000004"), DatosMaestrosClientesFiscalEditar,            "Modificar datos fiscales de clientes con origen A+W"),
+        (Guid.Parse("00000004-0011-0000-0000-000000000005"), DatosMaestrosClientesUnificar,                "Unificar clientes de A+W que comparten RFC en un cliente principal (fusionar o agrupar)"),
         (Guid.Parse("00000004-0012-0000-0000-000000000001"), DatosMaestrosProductosAwGestionar,            "Crear, editar y desactivar productos de venta A+W del master cross-empresa (ADR-0048)"),
         (Guid.Parse("00000004-0013-0000-0000-000000000001"), DatosMaestrosDiferenciasFiscalesAwLeer,       "Consultar el reporte de diferencias fiscales entre A+W y el ERP (clientes y productos)"),
         (Guid.Parse("00000004-0013-0000-0000-000000000002"), DatosMaestrosDiferenciasFiscalesAwRevisar,    "Marcar como revisadas las diferencias fiscales A+W vs ERP y guardar corridas del reporte"),
@@ -855,6 +867,7 @@ public static class PermisosCanonicos
         (Guid.Parse("00000009-0001-0000-0000-000000000002"), FacturacionPedidosCapturar,             "Capturar y editar pedidos facturables manuales (origen Manual)"),
         (Guid.Parse("00000009-0001-0000-0000-000000000003"), FacturacionPedidosExcepcionesResolver,  "Resolver excepciones de la bandeja de importación de pedidos"),
         (Guid.Parse("00000009-0001-0000-0000-000000000004"), FacturacionPedidosCapturarEmergencia,   "Capturar pedidos manuales de emergencia (A+W fuera de servicio), facturados con la serie de Venta directa"),
+        (Guid.Parse("00000009-0001-0000-0000-000000000005"), FacturacionPedidosLeerCredito,          "Ver pedidos facturables a crédito (86e3tfdw2)"),
         (Guid.Parse("00000009-0002-0000-0000-000000000001"), FacturacionFacturasEmitir,              "Emitir (sellar + timbrar) facturas de venta CFDI"),
         (Guid.Parse("00000009-0002-0000-0000-000000000002"), FacturacionFacturasLeer,                "Consultar facturas y la cadena de relaciones CFDI"),
         (Guid.Parse("00000009-0002-0000-0000-000000000003"), FacturacionFacturasEditarReceptor,      "Corregir los datos fiscales del receptor desde la emisión: muestra el acceso directo al catálogo de clientes (los datos son de solo lectura en la factura)"),
@@ -877,6 +890,7 @@ public static class PermisosCanonicos
         (Guid.Parse("00000009-0009-0000-0000-000000000004"), FacturacionCajaSupervisar,              "Autorizar apertura de caja ajena, reabrir sesión en arqueo y cancelar cobros"),
         (Guid.Parse("00000009-0009-0000-0000-000000000005"), FacturacionCajaLeerTodas,               "Alcance administrativo total en Facturación, incluido el bucket Sin asignar"),
         (Guid.Parse("00000009-000a-0000-0000-000000000001"), FacturacionReportesLeer,                "Consultar los reportes del módulo Facturación"),
+        (Guid.Parse("00000009-000a-0000-0000-000000000002"), FacturacionReportesLeerTodasSucursales, "Consultar el cierre del día (monitor de CFDI y facturado contra ingresado) de todas las sucursales, sin estar asociado a ellas"),
         (Guid.Parse("00000009-000b-0000-0000-000000000001"), FacturacionComprobantesReintentarTimbrado, "Reintentar el timbrado de un comprobante en TimbradoFallido (cualquier tipo)"),
         (Guid.Parse("00000009-000b-0000-0000-000000000002"), FacturacionComprobantesDescartar,        "Descartar un comprobante fallido que no se reintentará (quema el folio y libera el pedido)"),
 

@@ -14,9 +14,14 @@ import {
 import { facturacionKeys } from '@/features/facturacion/api/keys';
 import { ComportamientoFiscal } from '@/features/facturacion/api/types';
 import { usePedido, usePedidoComprobantes } from '@/features/facturacion/api/usePedidos';
+import { useGenerarProforma, useUltimaProforma } from '@/features/facturacion/api/useProformas';
+import type { ProformaPedidoResponse } from '@/features/facturacion/api/types';
 import { ClasePedidoBadge } from '@/features/facturacion/components/ClasePedidoBadge';
+import { BadgeCredito } from '@/features/facturacion/components/BadgeCredito';
 import { EmitirFacturaForm } from '@/features/facturacion/components/emitir-factura/EmitirFacturaForm';
 import { EstadoFacturacionBadge } from '@/features/facturacion/components/EstadoFacturacionBadge';
+import { ProformaPedidoCard } from '@/features/facturacion/components/ProformaPedidoCard';
+import { VisorProformaDialog } from '@/features/facturacion/components/VisorProformaDialog';
 import { useNuevoPedido } from '@/features/facturacion/components/nuevo-pedido-context';
 import { TrazabilidadFacturacion } from '@/features/facturacion/components/TrazabilidadFacturacion';
 import {
@@ -30,8 +35,9 @@ import { PermisosCanonicos } from '@/lib/auth/permission-codes';
 import { useHasPermission } from '@/lib/auth/useHasPermission';
 import { useQueryClient } from '@tanstack/react-query';
 import { Link, useParams, useSearch } from '@tanstack/react-router';
-import { Pencil, Receipt, X } from 'lucide-react';
+import { Eye, FileText, Pencil, Receipt, X } from 'lucide-react';
 import { useState } from 'react';
+import { toast } from 'sonner';
 
 /**
  * <c>Detalle de un pedido facturable</c> (FE-F1-PR3, B1/B5). Cabecera +
@@ -100,7 +106,48 @@ function Contenido({
   const [modoEmision, setModoEmision] = useState(false);
   const puedeEmitir = useHasPermission(PermisosCanonicos.FacturacionFacturasEmitir);
   const puedeEditar = useHasPermission(PermisosCanonicos.FacturacionPedidosCapturar);
+  const puedeLeerFacturas = useHasPermission(PermisosCanonicos.FacturacionFacturasLeer);
   const facturable = p.estado === 'Importado';
+  // U1.8a: proforma sin valor fiscal (no consume folio) antes de timbrar.
+  const ultimaProforma = useUltimaProforma(p.id, puedeLeerFacturas);
+  const generarProforma = useGenerarProforma();
+  const [descargandoProforma, setDescargandoProforma] = useState(false);
+  // Proforma abierta en el visor (null = cerrado).
+  const [proformaEnVisor, setProformaEnVisor] = useState<ProformaPedidoResponse | null>(null);
+
+  async function descargarProforma(proforma: ProformaPedidoResponse) {
+    setDescargandoProforma(true);
+    try {
+      const { descargarProformaCfdi } =
+        await import('@/components/erp/reportes/exporters/proforma-cfdi-exporter');
+      await descargarProformaCfdi(proforma);
+    } catch {
+      toast.error('No se pudo generar el PDF de la proforma. Vuelve a intentar la descarga.');
+    } finally {
+      setDescargandoProforma(false);
+    }
+  }
+
+  function onGenerarProforma() {
+    generarProforma.mutate(
+      { pedidoId: p.id, idempotencyKey: crypto.randomUUID() },
+      {
+        onSuccess: (proforma) => {
+          toast.success(`Proforma ${proforma.folio} generada`, {
+            description: 'Sin valor fiscal: no consume folio.',
+          });
+          setProformaEnVisor(proforma);
+        },
+        onError: (error) => {
+          toast.error('No se pudo generar la proforma.', {
+            description: esApiError(error)
+              ? (error.problem.detail ?? error.problem.title)
+              : 'Revisa tu conexión y vuelve a intentarlo.',
+          });
+        },
+      },
+    );
+  }
   const mostrarSat = p.lineas.some((l) => l.claveProdServSat?.trim() || l.claveUnidadSat?.trim());
   const mostrarPedimento = p.lineas.some((l) => l.requierePedimento);
   // Solo los manuales en Importado son editables (PUT con If-Match).
@@ -198,13 +245,16 @@ function Contenido({
               descripcion={
                 <>
                   <span>{p.clienteNombre}</span> ·{' '}
-                  <span className="font-mono">{p.clienteFiscal?.rfc ?? <span className="text-ink-muted">Sin RFC</span>}</span>
+                  <span className="font-mono">
+                    {p.clienteFiscal?.rfc ?? <span className="text-ink-muted">Sin RFC</span>}
+                  </span>
                 </>
               }
               estado={<ChipEstadoPedido estado={p.estado} />}
             />
             <Badge variant="neutral">{ETIQUETA_ORIGEN_PEDIDO[p.origen] ?? p.origen}</Badge>
             <ClasePedidoBadge clasificacion={p} />
+            <BadgeCredito esCredito={p.esCredito} />
           </div>
         </div>
         <div className="flex items-center gap-2" data-print="hidden">
@@ -212,6 +262,25 @@ function Contenido({
             <Button variant="outline" onClick={() => nuevoPedido.abrir(p)}>
               <Pencil className="mr-2 h-4 w-4" />
               Editar
+            </Button>
+          )}
+          {puedeLeerFacturas && ultimaProforma.data != null && (
+            <Button
+              variant="outline"
+              onClick={() => setProformaEnVisor(ultimaProforma.data ?? null)}
+            >
+              <Eye className="mr-2 h-4 w-4" />
+              Ver proforma
+            </Button>
+          )}
+          {puedeEmitir && facturable && (
+            <Button
+              variant="outline"
+              onClick={onGenerarProforma}
+              disabled={generarProforma.isPending}
+            >
+              <FileText className="mr-2 h-4 w-4" />
+              {generarProforma.isPending ? 'Generando…' : 'Generar proforma'}
             </Button>
           )}
           {puedeEmitir && facturable && (
@@ -268,6 +337,9 @@ function Contenido({
           {ETIQUETA_COMPORTAMIENTO_FISCAL[p.comportamientoFiscal] ?? p.comportamientoFiscal}
         </Dato>
         <Dato label="Moneda">{p.moneda}</Dato>
+        {p.esCredito && (
+          <Dato label="Condición de pago">{p.condicionPagoOrigen ?? 'Crédito'}</Dato>
+        )}
         {p.obraNombre && <Dato label="Obra">{p.obraNombre}</Dato>}
         <Dato label="RFC del cliente">
           {p.clienteFiscal?.rfc ?? (
@@ -278,6 +350,22 @@ function Contenido({
         </Dato>
         <Dato label="Versión">{p.version}</Dato>
       </dl>
+
+      {puedeLeerFacturas && (ultimaProforma.data != null || facturable) && (
+        <ProformaPedidoCard
+          proforma={ultimaProforma.data}
+          cargando={ultimaProforma.isLoading}
+          descargando={descargandoProforma}
+          onVer={setProformaEnVisor}
+          onDescargar={(pf) => void descargarProforma(pf)}
+        />
+      )}
+      <VisorProformaDialog
+        proforma={proformaEnVisor}
+        descargando={descargandoProforma}
+        onDescargar={(pf) => void descargarProforma(pf)}
+        onCerrar={() => setProformaEnVisor(null)}
+      />
 
       {p.comentarios && (
         <section className="rounded-md bg-surface-muted/40 px-3 py-2 text-sm">

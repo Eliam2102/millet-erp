@@ -812,6 +812,8 @@ export interface CotizacionComparativo {
   vigenteHasta: string;
   vigente: boolean;
   condicionesCredito: string | null;
+  condicionesPagoId?: string | null;
+  fechaEntrega?: string | null;
   archivoAdjuntoId: string | null;
   archivoNombre: string | null;
   elegida: boolean;
@@ -855,6 +857,8 @@ export interface RegistrarCotizacionRequest {
   fechaCotizacion: string;
   vigenteHasta: string;
   condicionesCredito: string | null;
+  condicionesPagoId?: string | null;
+  fechaEntrega?: string | null;
   lineas: LineaCotizacionRequest[];
 }
 

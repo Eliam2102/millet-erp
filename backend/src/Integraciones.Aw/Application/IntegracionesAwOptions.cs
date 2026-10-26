@@ -129,6 +129,12 @@ public sealed class IntegracionesAwOptions
 public sealed class DocumentSyncOptions
 {
     /// <summary>
+    /// Interruptor del worker. <c>false</c> = no se registra ni su health check
+    /// (ambientes sin servicio A+W alcanzable). Default true: corre el flujo vivo del Glass Agent.
+    /// </summary>
+    public bool Habilitado { get; set; } = true;
+
+    /// <summary>
     /// Cadencia del ciclo IDLE (sin PDF pendientes recientes). Default 120s.
     /// Es la red de seguridad; el camino rápido lo maneja
     /// <see cref="FastIntervalSeconds"/> + el <c>DocumentSyncKick</c>.
@@ -176,6 +182,12 @@ public sealed class DocumentSyncOptions
 /// </summary>
 public sealed class LateReconciliationOptions
 {
+    /// <summary>
+    /// Interruptor del worker. <c>false</c> = no se registra ni su health check.
+    /// Default true: corre el flujo vivo del Glass Agent.
+    /// </summary>
+    public bool Habilitado { get; set; } = true;
+
     /// <summary>
     /// Cadencia del ciclo de reconciliación. Default 120s — alineado con
     /// el timeout sync del drop service (<c>WaitTimeoutSeconds</c>). Si
