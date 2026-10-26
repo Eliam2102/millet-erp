@@ -1,4 +1,6 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
+import { applyServerErrors } from '@/lib/api/apply-server-errors';
+import { mensajeErrorTimbrado } from '@/features/facturacion/lib/error-timbrado';
 import {
   ApiError,
   esApiError,
@@ -108,5 +110,53 @@ describe('helpers de detección', () => {
     expect(esCodigoEspecifico(new Error('boom'), 'TRANSMITIR_SIN_LINEAS')).toBe(
       false,
     );
+  });
+});
+
+describe('ApiError · errores[] del backend ({ field, code, message })', () => {
+  const nuevo = () =>
+    new ApiError(
+      {
+        type: 'about:blank',
+        title: 'Errores de validación',
+        status: 400,
+        code: 'VALIDATION_ERROR',
+        detail: 'Errores de validación',
+        errores: [
+          { field: 'Concepto', code: 'MaximumLength', message: 'Máximo 400.' },
+          { field: 'Monto', code: 'GreaterThan', message: 'Debe ser mayor a 0.' },
+        ] as never,
+      },
+      400,
+    );
+
+  it('completa campo/codigo/mensaje y conserva field/code/message', () => {
+    expect(nuevo().problem.errores?.[0]).toEqual({
+      field: 'Concepto',
+      code: 'MaximumLength',
+      message: 'Máximo 400.',
+      campo: 'Concepto',
+      codigo: 'MaximumLength',
+      mensaje: 'Máximo 400.',
+    });
+  });
+
+  it('en VALIDATION_ERROR el detail genérico pasa a ser los mensajes', () => {
+    expect(nuevo().problem.detail).toBe('Máximo 400.; Debe ser mayor a 0.');
+  });
+
+  it('no pisa un detail específico ni otros códigos', () => {
+    const e = new ApiError(
+      { type: 'x', title: 't', status: 422, code: 'OTRO', detail: 'Genérico', errores: [{ field: 'A', code: 'c', message: 'm' }] as never },
+      422,
+    );
+    expect(e.problem.detail).toBe('Genérico');
+  });
+
+  it('los lectores directos y applyServerErrors reciben las llaves en español', () => {
+    const form = { setError: vi.fn() };
+    expect(applyServerErrors(form, nuevo())).toBe(true);
+    expect(form.setError).toHaveBeenCalledWith('Concepto', { type: 'MaximumLength', message: 'Máximo 400.' }, expect.anything());
+    expect(mensajeErrorTimbrado(nuevo())).toContain('Máximo 400.');
   });
 });

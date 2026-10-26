@@ -26,11 +26,12 @@ export interface ProblemDetails {
    */
   code?: string;
   /**
-   * Errores por campo, con la convención del backend:
-   * <c>{ campo, codigo, mensaje }</c>. <see cref="applyServerErrors"/>
-   * los mapea al estado de un <c>react-hook-form</c>.
+   * Errores por campo. FluentValidation (<c>ValidationError</c> del backend)
+   * los serializa como <c>{ field, code, message }</c>; algunos endpoints
+   * usan <c>{ campo, codigo, mensaje }</c>. <see cref="applyServerErrors"/>
+   * acepta ambos y los mapea al estado de un <c>react-hook-form</c>.
    */
-  errores?: Array<{ campo: string; codigo: string; mensaje: string }>;
+  errores?: Array<{ campo: string; codigo: string; mensaje: string; field?: string; code?: string; message?: string }>;
   /**
    * Errores por campo del <c>ValidationProblemDetails</c> DEFAULT de
    * ASP.NET (<c>{ campo: string[] }</c>): los emite el model-binding /
@@ -41,6 +42,31 @@ export interface ProblemDetails {
    */
   errors?: Record<string, string[]>;
   clientesExistentes?: { id: string; clave: string; razonSocial: string }[];
+}
+
+/**
+ * El backend manda <c>errores[]</c> como <c>{ field, code, message }</c> y
+ * <c>detail</c> genérico. Se completan las llaves en español (conservando las
+ * originales) y, en <c>VALIDATION_ERROR</c>, el detail pasa a ser los mensajes.
+ */
+function normalizarErrores(problem: ProblemDetails): ProblemDetails {
+  if (!problem.errores?.length) return problem;
+  const errores = problem.errores.map((e) => ({
+    ...e,
+    campo: e.campo ?? e.field,
+    codigo: e.codigo ?? e.code,
+    mensaje: e.mensaje ?? e.message,
+  }));
+  const generico = !problem.detail || problem.detail === problem.title || problem.detail === 'Errores de validación';
+  const mensajes = errores.map((e) => e.mensaje).filter(Boolean);
+  return {
+    ...problem,
+    errores,
+    detail:
+      problem.code === 'VALIDATION_ERROR' && generico && mensajes.length > 0
+        ? mensajes.join('; ')
+        : problem.detail,
+  };
 }
 
 /**
@@ -71,7 +97,7 @@ export class ApiError extends Error {
     super(problem.title || `HTTP ${status}`);
     this.name = 'ApiError';
     this.status = status;
-    this.problem = problem;
+    this.problem = normalizarErrores(problem);
     this.retryAfterSeconds = retryAfterSeconds;
 
     // Restaura el prototype tras llamar al super-constructor (necesario en
