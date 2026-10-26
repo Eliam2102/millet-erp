@@ -61,11 +61,7 @@ function Contenido({ d }: { d: NonNullable<ReturnType<typeof useEstadoCuentaAnti
   return (
     <div className="space-y-5">
       <div className="space-y-1">
-        <PageHeader
-          mono
-          titulo={<>Estado de cuenta de anticipos</>}
-          descripcion={<>Cliente —</>}
-        />
+        <PageHeader titulo={<>Estado de cuenta de anticipos</>} />
       </div>
 
       <section className="grid grid-cols-1 gap-3 sm:grid-cols-3">
