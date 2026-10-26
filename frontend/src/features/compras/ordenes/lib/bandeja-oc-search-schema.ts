@@ -64,6 +64,7 @@ export const BandejaOcSearchSchema = z.object({
     .optional(),
   estadoComercialProveedor: z
     .union([
+      z.literal(EstadoComercialProveedorOc.RespuestaRegistrada),
       z.literal(EstadoComercialProveedorOc.SinRespuesta),
       z.literal(EstadoComercialProveedorOc.Confirmada),
       z.literal(EstadoComercialProveedorOc.ConfirmadaConDiferencias),

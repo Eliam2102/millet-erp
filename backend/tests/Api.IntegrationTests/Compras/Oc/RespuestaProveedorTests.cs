@@ -34,7 +34,7 @@ public partial class OrdenesCompraEndpointsTests
         return (ocId, lineaId, hoy.AddDays(-1), client);
     }
 
-    private static object CuerpoRespuesta(int tipo, DateOnly fechaRespuesta, object[] compromisos, string? motivo = null) => new
+    private static MultipartFormDataContent CuerpoRespuesta(int tipo, DateOnly fechaRespuesta, object[] compromisos, string? motivo = null) => RespuestaMultipart(new
     {
         Tipo = tipo,
         FechaRespuesta = fechaRespuesta,
@@ -42,7 +42,55 @@ public partial class OrdenesCompraEndpointsTests
         ContactoProveedor = "Ventas E2E",
         Motivo = motivo,
         Compromisos = compromisos,
-    };
+    });
+
+    private static MultipartFormDataContent RespuestaMultipart(object? datos = null, bool conArchivo = true)
+    {
+        var form = new MultipartFormDataContent("DEMO-ficticio-respuesta-boundary");
+        if (datos is not null) form.Add(new StringContent(JsonSerializer.Serialize(datos)), "datos");
+        if (conArchivo)
+        {
+            var archivo = new ByteArrayContent(PdfMinimo);
+            archivo.Headers.ContentType = new MediaTypeHeaderValue("application/pdf");
+            form.Add(archivo, "archivo", "DEMO-ficticio.pdf");
+        }
+        return form;
+    }
+
+    [Fact]
+    public async Task Cond_SoloEvidencia_RegistraArchivoSinInventarConfirmacionNiFecha()
+    {
+        var (ocId, _, _, client) = await SembrarOcRespuestaAsync();
+        using var form = RespuestaMultipart();
+        var response = await client.PostAsync($"{EndpointBase}/{ocId}/respuestas-proveedor", form);
+        Assert.Equal(HttpStatusCode.Created, response.StatusCode);
+        var respuesta = await ReadJsonAsync(response);
+        Assert.Equal(JsonValueKind.Null, respuesta.GetProperty("tipo").ValueKind);
+        Assert.Equal(JsonValueKind.Null, respuesta.GetProperty("fechaRespuesta").ValueKind);
+        Assert.Equal(0, respuesta.GetProperty("compromisos").GetArrayLength());
+        var archivos = await ReadJsonAsync(await client.GetAsync($"{EndpointBase}/respuestas-proveedor/{respuesta.GetProperty("id").GetGuid()}/adjuntos"));
+        Assert.Equal(1, archivos.GetArrayLength());
+        Assert.Equal(4, (await DetalleOcAsync(client, ocId)).GetProperty("estadoComercialProveedor").GetInt32());
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task Cond_SinEvidenciaValida_NoRegistraRespuesta(bool archivoInvalido)
+    {
+        var (ocId, _, _, client) = await SembrarOcRespuestaAsync();
+        using var form = RespuestaMultipart(conArchivo: false);
+        if (archivoInvalido)
+        {
+            var archivo = new ByteArrayContent("archivo DEMO ficticio sin firma PDF"u8.ToArray());
+            archivo.Headers.ContentType = new MediaTypeHeaderValue("application/pdf");
+            form.Add(archivo, "archivo", "DEMO.pdf");
+        }
+        var response = await client.PostAsync($"{EndpointBase}/{ocId}/respuestas-proveedor", form);
+        Assert.Equal(HttpStatusCode.UnprocessableEntity, response.StatusCode);
+        if (!archivoInvalido) Assert.Contains("Adjunta el archivo de evidencia", await response.Content.ReadAsStringAsync());
+        Assert.Equal(0, (await DetalleOcAsync(client, ocId)).GetProperty("respuestasProveedor").GetArrayLength());
+    }
 
     private static object Compromiso(Guid lineaId, decimal cantidad, DateOnly fecha) => new
     {
@@ -59,7 +107,7 @@ public partial class OrdenesCompraEndpointsTests
     {
         var (ocId, lineaId, fechaResp, client) = await SembrarOcRespuestaAsync();
         var prometida = fechaResp.AddDays(5);
-        var response = await client.PostAsJsonAsync($"{EndpointBase}/{ocId}/respuestas-proveedor",
+        var response = await client.PostAsync($"{EndpointBase}/{ocId}/respuestas-proveedor",
             CuerpoRespuesta(1, fechaResp, [Compromiso(lineaId, 10m, prometida)]));
         Assert.Equal(HttpStatusCode.Created, response.StatusCode);
         var creada = await ReadJsonAsync(response);
@@ -82,9 +130,9 @@ public partial class OrdenesCompraEndpointsTests
     public async Task Com11_Rechazo_ConMotivo_NoBorraLaOrden_YConservaHistoria()
     {
         var (ocId, lineaId, fechaResp, client) = await SembrarOcRespuestaAsync();
-        (await client.PostAsJsonAsync($"{EndpointBase}/{ocId}/respuestas-proveedor",
+        (await client.PostAsync($"{EndpointBase}/{ocId}/respuestas-proveedor",
             CuerpoRespuesta(1, fechaResp, [Compromiso(lineaId, 10m, fechaResp.AddDays(5))]))).EnsureSuccessStatusCode();
-        var rechazo = await client.PostAsJsonAsync($"{EndpointBase}/{ocId}/respuestas-proveedor",
+        var rechazo = await client.PostAsync($"{EndpointBase}/{ocId}/respuestas-proveedor",
             CuerpoRespuesta(2, fechaResp, [], "No hay existencia E2E"));
         Assert.Equal(HttpStatusCode.Created, rechazo.StatusCode);
 
@@ -96,9 +144,9 @@ public partial class OrdenesCompraEndpointsTests
         Assert.Equal(2, respuestas.GetArrayLength());
         Assert.Contains(respuestas.EnumerateArray(), x => x.GetProperty("numero").GetInt32() == 1 && !x.GetProperty("vigente").GetBoolean());
 
-        var sinMotivo = await client.PostAsJsonAsync($"{EndpointBase}/{ocId}/respuestas-proveedor",
+        var sinMotivo = await client.PostAsync($"{EndpointBase}/{ocId}/respuestas-proveedor",
             CuerpoRespuesta(2, fechaResp, []));
-        Assert.Equal(HttpStatusCode.BadRequest, sinMotivo.StatusCode);
+        Assert.Equal(HttpStatusCode.Created, sinMotivo.StatusCode);
     }
 
     [Fact]
@@ -107,9 +155,9 @@ public partial class OrdenesCompraEndpointsTests
         var (ocId, lineaId, fechaResp, client) = await SembrarOcRespuestaAsync();
         var f1 = fechaResp.AddDays(5);
         var f2 = fechaResp.AddDays(9);
-        (await client.PostAsJsonAsync($"{EndpointBase}/{ocId}/respuestas-proveedor",
+        (await client.PostAsync($"{EndpointBase}/{ocId}/respuestas-proveedor",
             CuerpoRespuesta(1, fechaResp, [Compromiso(lineaId, 10m, f1)]))).EnsureSuccessStatusCode();
-        (await client.PostAsJsonAsync($"{EndpointBase}/{ocId}/respuestas-proveedor",
+        (await client.PostAsync($"{EndpointBase}/{ocId}/respuestas-proveedor",
             CuerpoRespuesta(1, fechaResp, [Compromiso(lineaId, 10m, f2)]))).EnsureSuccessStatusCode();
 
         var detalle = await DetalleOcAsync(client, ocId);
@@ -124,7 +172,7 @@ public partial class OrdenesCompraEndpointsTests
     public async Task Com11_CantidadDistinta_NoCambiaLaOrden_YMarcaDiferencia()
     {
         var (ocId, lineaId, fechaResp, client) = await SembrarOcRespuestaAsync();
-        (await client.PostAsJsonAsync($"{EndpointBase}/{ocId}/respuestas-proveedor",
+        (await client.PostAsync($"{EndpointBase}/{ocId}/respuestas-proveedor",
             CuerpoRespuesta(1, fechaResp, [Compromiso(lineaId, 8m, fechaResp.AddDays(5))]))).EnsureSuccessStatusCode();
 
         var detalle = await DetalleOcAsync(client, ocId);
@@ -141,7 +189,7 @@ public partial class OrdenesCompraEndpointsTests
         var usuarioId = await UsuarioIdDeAsync(sinPermiso);
         try
         {
-            var response = await sinPermiso.PostAsJsonAsync($"{EndpointBase}/{ocId}/respuestas-proveedor",
+            var response = await sinPermiso.PostAsync($"{EndpointBase}/{ocId}/respuestas-proveedor",
                 CuerpoRespuesta(1, fechaResp, [Compromiso(lineaId, 10m, fechaResp.AddDays(5))]));
             Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
             using var scope = _factory.Services.CreateScope();
@@ -160,7 +208,7 @@ public partial class OrdenesCompraEndpointsTests
     {
         var (ocId, lineaId, fechaResp, client) = await SembrarOcRespuestaAsync();
         var f2 = fechaResp.AddDays(12);
-        (await client.PostAsJsonAsync($"{EndpointBase}/{ocId}/respuestas-proveedor",
+        (await client.PostAsync($"{EndpointBase}/{ocId}/respuestas-proveedor",
             CuerpoRespuesta(1, fechaResp, [Compromiso(lineaId, 6m, fechaResp.AddDays(5)), Compromiso(lineaId, 4m, f2)])))
             .EnsureSuccessStatusCode();
 
@@ -175,7 +223,7 @@ public partial class OrdenesCompraEndpointsTests
     public async Task Com11_OcEnBorrador_422()
     {
         var (ocId, lineaId, fechaResp, client) = await SembrarOcRespuestaAsync(borrador: true);
-        var response = await client.PostAsJsonAsync($"{EndpointBase}/{ocId}/respuestas-proveedor",
+        var response = await client.PostAsync($"{EndpointBase}/{ocId}/respuestas-proveedor",
             CuerpoRespuesta(1, fechaResp, [Compromiso(lineaId, 10m, fechaResp.AddDays(5))]));
         await AssertCodigoP2(response, HttpStatusCode.UnprocessableEntity, "OC_RESPUESTA_ESTADO_INVALIDO");
     }
@@ -184,7 +232,7 @@ public partial class OrdenesCompraEndpointsTests
     public async Task Com11_FechaPrometidaAnteriorALaRespuesta_422()
     {
         var (ocId, lineaId, fechaResp, client) = await SembrarOcRespuestaAsync();
-        var response = await client.PostAsJsonAsync($"{EndpointBase}/{ocId}/respuestas-proveedor",
+        var response = await client.PostAsync($"{EndpointBase}/{ocId}/respuestas-proveedor",
             CuerpoRespuesta(1, fechaResp, [Compromiso(lineaId, 10m, fechaResp.AddDays(-1))]));
         Assert.True(response.StatusCode is HttpStatusCode.UnprocessableEntity or HttpStatusCode.BadRequest,
             $"Estado inesperado: {response.StatusCode}");
@@ -195,7 +243,7 @@ public partial class OrdenesCompraEndpointsTests
     public async Task Com11_Bandeja_MuestraEstadoComercial()
     {
         var (ocId, lineaId, fechaResp, client) = await SembrarOcRespuestaAsync();
-        (await client.PostAsJsonAsync($"{EndpointBase}/{ocId}/respuestas-proveedor",
+        (await client.PostAsync($"{EndpointBase}/{ocId}/respuestas-proveedor",
             CuerpoRespuesta(1, fechaResp, [Compromiso(lineaId, 10m, fechaResp.AddDays(5))]))).EnsureSuccessStatusCode();
 
         var lista = await ReadJsonAsync(await client.GetAsync($"{EndpointBase}?page=1&pageSize=200"));
@@ -214,7 +262,7 @@ public partial class OrdenesCompraEndpointsTests
     public async Task Com11_Evidencia_SubeYSeLista_ConAlcanceDeLaOc()
     {
         var (ocId, lineaId, fechaResp, client) = await SembrarOcRespuestaAsync();
-        var creada = await ReadJsonAsync(await client.PostAsJsonAsync($"{EndpointBase}/{ocId}/respuestas-proveedor",
+        var creada = await ReadJsonAsync(await client.PostAsync($"{EndpointBase}/{ocId}/respuestas-proveedor",
             CuerpoRespuesta(1, fechaResp, [Compromiso(lineaId, 10m, fechaResp.AddDays(5))])));
         var respId = creada.GetProperty("id").GetGuid();
         try
@@ -223,7 +271,7 @@ public partial class OrdenesCompraEndpointsTests
             var tipo = tipos.EnumerateArray().Single(t => t.GetProperty("codigo").GetString() == "evidencia_respuesta");
             var ruta = $"{EndpointBase}/respuestas-proveedor/{respId}/adjuntos";
 
-            using var form = new MultipartFormDataContent();
+            using var form = new MultipartFormDataContent("DEMO-ficticio-respuesta-boundary");
             var archivo = new ByteArrayContent(PdfMinimo);
             archivo.Headers.ContentType = new MediaTypeHeaderValue("application/pdf");
             form.Add(archivo, "archivo", "evidencia.pdf");
@@ -265,7 +313,7 @@ public partial class OrdenesCompraEndpointsTests
         {
             using var request = new HttpRequestMessage(HttpMethod.Post, $"{EndpointBase}/{ocId}/respuestas-proveedor")
             {
-                Content = JsonContent.Create(CuerpoRespuesta(1, fechaResp, [Compromiso(lineaId, 10m, fechaResp.AddDays(5))])),
+                Content = CuerpoRespuesta(1, fechaResp, [Compromiso(lineaId, 10m, fechaResp.AddDays(5))]),
             };
             request.Headers.Add("Idempotency-Key", key);
             using var response = await client.SendAsync(request);
@@ -290,7 +338,7 @@ public partial class OrdenesCompraEndpointsTests
                 await scope.ServiceProvider.GetRequiredService<IdentidadDbContext>().UsuarioSucursales
                     .Where(x => x.UsuarioId == usuarioId).ExecuteDeleteAsync();
             }
-            var response = await operativo.PostAsJsonAsync($"{EndpointBase}/{ocId}/respuestas-proveedor",
+            var response = await operativo.PostAsync($"{EndpointBase}/{ocId}/respuestas-proveedor",
                 CuerpoRespuesta(1, fechaResp, [Compromiso(lineaId, 10m, fechaResp.AddDays(5))]));
             await AssertCodigoP2(response, HttpStatusCode.Forbidden, "SUCURSAL_NO_ASOCIADA");
         }

@@ -42,7 +42,7 @@ public sealed record RegistrarRecepcionConFacturaCommand(
     // líneas vacías en el sheet). Opcional — null = no usó el helper. Solo
     // reportería; la ubicación efectiva de cada línea viaja en cada
     // RegistrarRecepcionLineaInput.UbicacionId y es la que manda.
-    Guid? UbicacionHelperId = null) : IRequest<RegistrarRecepcionResponse>;
+    Guid? UbicacionHelperId = null, ImportacionRecepcionInput? Importacion = null) : IRequest<RegistrarRecepcionResponse>;
 
 public sealed record RegistrarRecepcionLineaInput(
     Guid ArticuloId,
@@ -55,7 +55,7 @@ public sealed record RegistrarRecepcionLineaInput(
     // tipo por compat de construcción; el validator lo exige.
     Guid? UbicacionId = null, string? UnidadCapturada = null,
     // ALM-04: parte de Cantidad que llegó dañada; va a material en revisión (MAT-REV), no a disponible.
-    decimal CantidadDanada = 0m, string? MotivoDano = null);
+    decimal CantidadDanada = 0m, string? MotivoDano = null, string? FraccionArancelaria = null);
 
 public sealed record RegistrarRecepcionResponse(
     Guid RecepcionId,
@@ -84,9 +84,7 @@ public sealed class RegistrarRecepcionConFacturaValidator
             linea.RuleFor(l => l.ArticuloId).NotEqual(Guid.Empty);
             linea.RuleFor(l => l.Cantidad).GreaterThan(0);
             linea.RuleFor(l => l.UnidadCapturada).MaximumLength(20);
-            linea.RuleFor(l => l.UbicacionId)
-                .NotNull().NotEqual(Guid.Empty)
-                .WithMessage("La ubicación (rack) es obligatoria en la entrada.");
+
             linea.RuleFor(l => l.UbicacionReferencia!).MaximumLength(100)
                 .When(l => l.UbicacionReferencia is not null);
             linea.RuleFor(l => l.Comentario!).MaximumLength(500)
@@ -165,6 +163,7 @@ public sealed class RegistrarRecepcionConFacturaHandler
         var equivalentes = request.Lineas.Select((l, i) => l with { Cantidad = conversiones[i].CantidadDocumento }).ToList();
         var validada = await RecepcionOcGuard.ValidarAsync(oc, equivalentes, recibidoPropio, cancellationToken);
         var lineasOc = validada.Lineas;
+        var importacion = ImportacionRecepcionGuard.Crear(oc!, request.Importacion, request.Lineas);
 
         // 3. Construir el movimiento (Borrador → AgregarLineas → Registrar).
         //    El sub-almacén ya no viene en cabecera: se deriva del bin de cada
@@ -210,8 +209,24 @@ public sealed class RegistrarRecepcionConFacturaHandler
         for (var idx = 0; idx < request.Lineas.Count; idx++)
         {
             var input = request.Lineas[idx];
+            var afOrigen = lineasOc[input.LineaOcId!.Value];
+            if (afOrigen.EsActivoFijo)
+            {
+                var cantidadActivo = conversiones[idx].CantidadDocumento;
+                if (cantidadActivo != decimal.Truncate(cantidadActivo) || input.CantidadDanada != 0 || afOrigen.ClaseActivoId is null)
+                    throw new BusinessRuleException("RECEPCION_ACTIVO_INVALIDO", "Reciba unidades enteras de activos con clase, sin cantidad dañada.");
+                var afId = Guid.CreateVersion7();
+                _db.RecepcionesActivos.Add(new RecepcionActivo(afId, empresaId, movimientoId, request.OrdenCompraId, afOrigen.LineaId, cantidadActivo));
+                payloadLineas.Add(new LineaRecepcionPayload(afId, afOrigen.LineaId, input.ArticuloId, afOrigen.UnidadMedida, cantidadActivo,
+                    afOrigen.PrecioUnitarioMxn, decimal.Round(cantidadActivo * afOrigen.PrecioUnitarioMxn, 2), Guid.Empty,
+                    CantidadRecibidaAcumulada: validada.RecibidoPorLinea[afOrigen.LineaId] + equivalentes.Where(e => e.LineaOcId == afOrigen.LineaId).Sum(e => e.Cantidad),
+                    EsActivoFijo: true, ClaseActivoId: afOrigen.ClaseActivoId, CentroCostoId: afOrigen.CentroCostoId));
+                continue;
+            }
             // C7.2b: bin real obligatorio + asignación activa + no ÚNICA. Sin
             // sub de cabecera: el guard DERIVA el sub del bin y lo retorna.
+            if (input.UbicacionId is null || input.UbicacionId == Guid.Empty)
+                throw new BusinessRuleException("RECEPCION_UBICACION_REQUERIDA", "La línea de inventario requiere ubicación (rack).");
             var subLinea = await UbicacionEntradaGuard.ValidarEntradaYDerivarSubAsync(
                 _db, input.UbicacionId!.Value, input.ArticuloId, cancellationToken);
             subsDerivados.Add(subLinea);
@@ -303,6 +318,31 @@ public sealed class RegistrarRecepcionConFacturaHandler
             }
         }
 
+        // F3: el CFDI vinculado debe existir en CxP, estar por procesar como ingreso y ser del RFC del proveedor de la OC.
+        if (request.CfdiRecibidoId is Guid cfdiId)
+        {
+            var cfdi = await _cxpDocumentos.ObtenerCfdiAsync(cfdiId, cancellationToken);
+            if (cfdi is null)
+                throw new BusinessRuleException("RECEPCION_CFDI_NO_ENCONTRADO", "El CFDI seleccionado no existe en el repositorio de CxP; vuelve a elegirlo o captura el folio fiscal.");
+            if (cfdi.Estado != "PorProcesar" || cfdi.Tipo != "Ingreso")
+                throw new BusinessRuleException("RECEPCION_CFDI_NO_VINCULABLE", $"El CFDI está en estado {cfdi.Estado} y es de tipo {cfdi.Tipo}; solo se vinculan CFDI de ingreso por procesar.");
+            var rfcProveedor = (await _proveedores.ObtenerAsync(oc!.ProveedorId, cancellationToken))?.Rfc?.Trim().ToUpperInvariant();
+            if (string.IsNullOrEmpty(rfcProveedor) || !string.Equals(rfcProveedor, cfdi.RfcEmisor.Trim(), StringComparison.OrdinalIgnoreCase))
+                throw new BusinessRuleException("RECEPCION_CFDI_PROVEEDOR_DISTINTO", $"El CFDI es del RFC {cfdi.RfcEmisor} y el proveedor de la orden de compra tiene RFC {(string.IsNullOrEmpty(rfcProveedor) ? "sin registrar" : rfcProveedor)}; vincula un CFDI del proveedor.");
+        }
+
+        if (payloadLineas.All(x => x.EsActivoFijo))
+        {
+            if (importacion is not null) { importacion.VincularRecepcion(movimientoId); _db.RecepcionesImportacion.Add(importacion); }
+            var folioActivo = $"REC-AF-{movimientoId:N}";
+            await _events.PublishAsync(new OcRecepcionRegistradaIntegrationEvent(empresaId, DateTimeOffset.UtcNow,
+                movimientoId, folioActivo, request.OrdenCompraId, request.FechaMovimiento, false, request.CfdiRecibidoId, request.CfdiUuidFiscal,
+                request.Observaciones, payloadLineas, SucursalId: oc!.SucursalDestinoId), cancellationToken);
+            await _db.SaveChangesAsync(cancellationToken);
+            if (transaccion is not null) await transaccion.CommitAsync(cancellationToken);
+            return new RegistrarRecepcionResponse(movimientoId, folioActivo);
+        }
+
         // Invariante 'un movimiento = un sub-almacén': antes lo garantizaba el
         // sub de cabecera; ahora se deriva del bin de cada línea y se compara.
         // El trigger MOVIMIENTO_MULTI_SUBALMACEN es el backstop (23514 genérico);
@@ -317,21 +357,11 @@ public sealed class RegistrarRecepcionConFacturaHandler
             .ResolverAsync(_db, subsDerivados.Single(), cancellationToken);
         Catalogo.SucursalDestinoGuard.Validar(oc!.SucursalDestinoId, sucursalId, "RECEPCION_SUCURSAL_DISTINTA", "La orden de compra está dirigida a otra sucursal: recibe la mercancía en un almacén de la sucursal destino de la orden.");
 
-        // F3: el CFDI vinculado debe existir en CxP, estar por procesar como ingreso y ser del RFC del proveedor de la OC.
-        if (request.CfdiRecibidoId is Guid cfdiId)
-        {
-            var cfdi = await _cxpDocumentos.ObtenerCfdiAsync(cfdiId, cancellationToken);
-            if (cfdi is null)
-                throw new BusinessRuleException("RECEPCION_CFDI_NO_ENCONTRADO", "El CFDI seleccionado no existe en el repositorio de CxP; vuelve a elegirlo o captura el folio fiscal.");
-            if (cfdi.Estado != "PorProcesar" || cfdi.Tipo != "Ingreso")
-                throw new BusinessRuleException("RECEPCION_CFDI_NO_VINCULABLE", $"El CFDI está en estado {cfdi.Estado} y es de tipo {cfdi.Tipo}; solo se vinculan CFDI de ingreso por procesar.");
-            var rfcProveedor = (await _proveedores.ObtenerAsync(oc!.ProveedorId, cancellationToken))?.Rfc?.Trim().ToUpperInvariant();
-            if (string.IsNullOrEmpty(rfcProveedor) || !string.Equals(rfcProveedor, cfdi.RfcEmisor.Trim(), StringComparison.OrdinalIgnoreCase))
-                throw new BusinessRuleException("RECEPCION_CFDI_PROVEEDOR_DISTINTO", $"El CFDI es del RFC {cfdi.RfcEmisor} y el proveedor de la orden de compra tiene RFC {(string.IsNullOrEmpty(rfcProveedor) ? "sin registrar" : rfcProveedor)}; vincula un CFDI del proveedor.");
-        }
-
         // ALM-04: principal efectivo = el de lo disponible; si todo llegó dañado, el de revisión.
         var principal = movimiento.Lineas.Count > 0 ? movimiento : movimientoRevision!;
+        if (importacion is not null) { importacion.VincularRecepcion(principal.Id); _db.RecepcionesImportacion.Add(importacion); }
+        foreach (var recepcionActivo in _db.RecepcionesActivos.Local.Where(x => x.RecepcionId == movimientoId))
+            recepcionActivo.VincularRecepcion(principal.Id);
         if (movimientoRevision is not null && ReferenceEquals(principal, movimiento))
             movimientoRevision.VincularRecepcionPrincipal(movimiento.Id);
         else if (!string.IsNullOrWhiteSpace(request.Observaciones))

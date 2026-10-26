@@ -35,6 +35,7 @@ public sealed class RequisicionConfiguration : IEntityTypeConfiguration<Requisic
         });
 
         builder.Property(x => x.Obra).HasMaxLength(120);
+        builder.Property(x => x.SoloApartarSiCompleto).HasColumnName("solo_apartar_si_completo").IsRequired().HasDefaultValue(false);
         builder.HasKey(r => r.Id);
 
         builder.Property(r => r.EmpresaId).IsRequired();

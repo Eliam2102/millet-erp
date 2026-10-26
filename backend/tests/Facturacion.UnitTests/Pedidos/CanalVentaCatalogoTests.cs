@@ -29,7 +29,9 @@ public sealed class CanalVentaCatalogoTests
         ObraId: null,
         ObraNombre: null,
         Comentarios: null,
-        Lineas: [new PedidoFacturableLineaInput(null, "Producto", null, null, 1m, 100m, 0m, false)]);
+        Lineas: [new PedidoFacturableLineaInput(null, "Producto", null, null, 1m, 100m, 0m, false)],
+        ClaseManual: ClasePedidoManual.VentaDirecta,
+        SubtipoVentaDirecta: SubtipoVentaDirecta.Servicio);
 
     [Fact]
     public async Task Validator_CanalActivoEnCatalogo_EsValido()

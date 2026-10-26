@@ -3,6 +3,10 @@ import {
   EstadoPedidoFacturable,
   EstadoTimbrado,
   OrigenPedido,
+  SubtipoVentaDirecta,
+  type ClasePedidoManualNombre,
+  type ClasificacionPedidoLectura,
+  type SubtipoVentaDirectaNombre,
 } from '@/features/facturacion/api/types';
 
 /**
@@ -121,3 +125,64 @@ export const OPCIONES_ORIGEN_PEDIDO: ReadonlyArray<{
   { value: OrigenPedido.PlantaPintura, label: 'Planta Pintura' },
   { value: OrigenPedido.Manual, label: 'Manual' },
 ];
+
+// ─── F6.1: clase de pedido manual ─────────────────────────────────────
+
+/** Etiqueta del subtipo de venta directa por nombre (lecturas). */
+export const ETIQUETA_SUBTIPO_VENTA_DIRECTA: Record<SubtipoVentaDirectaNombre, string> = {
+  Activo: 'Activo',
+  Almacenable: 'Almacenable',
+  Servicio: 'Servicio',
+};
+
+/** Opciones del subtipo de venta directa (captura, valor numérico). */
+export const OPCIONES_SUBTIPO_VENTA_DIRECTA: ReadonlyArray<{
+  value: SubtipoVentaDirecta;
+  label: string;
+  descripcion: string;
+}> = [
+  {
+    value: SubtipoVentaDirecta.Activo,
+    label: 'Activo',
+    descripcion: 'Venta de un activo fijo de la empresa.',
+  },
+  {
+    value: SubtipoVentaDirecta.Almacenable,
+    label: 'Almacenable',
+    descripcion: 'Producto de inventario que no pasa por producción.',
+  },
+  {
+    value: SubtipoVentaDirecta.Servicio,
+    label: 'Servicio',
+    descripcion: 'Servicio sin entrega de mercancía.',
+  },
+];
+
+/** Opciones del filtro «Clase» de las bandejas (valor = nombre del enum). */
+export const OPCIONES_CLASE_PEDIDO: ReadonlyArray<{
+  value: ClasePedidoManualNombre;
+  label: string;
+}> = [
+  { value: 'VentaDirecta', label: 'Venta directa' },
+  { value: 'Emergencia', label: 'Emergencia' },
+];
+
+/**
+ * Texto del badge de clase: «Venta directa · Activo», «Emergencia» o
+ * null si el registro no viene de un pedido manual clasificado.
+ */
+export function etiquetaClasePedido(
+  c: ClasificacionPedidoLectura,
+): string | null {
+  if (c.esEmergencia === true || c.claseManual === 'Emergencia') {
+    return 'Emergencia';
+  }
+  if (c.claseManual === 'VentaDirecta') {
+    const subtipo =
+      c.subtipoVentaDirecta != null
+        ? ETIQUETA_SUBTIPO_VENTA_DIRECTA[c.subtipoVentaDirecta]
+        : null;
+    return subtipo ? `Venta directa · ${subtipo}` : 'Venta directa';
+  }
+  return null;
+}

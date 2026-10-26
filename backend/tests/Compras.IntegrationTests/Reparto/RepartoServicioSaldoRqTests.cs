@@ -31,7 +31,8 @@ public class RepartoServicioSaldoRqTests : IClassFixture<StubsWebApplicationFact
 {
     private const string SuperAdminOid = "dev-superadmin";
     private const int ClasificacionServicio = 0;
-    private const int ClasificacionMateriaPrima = 2;
+    // 86e3tfedd: la RQ de MP sólo acepta categorías de MP; el artículo de stock va en Orden de compra.
+    private const int ClasificacionOrdenCompra = 1;
 
     // Artículo de inventario (stub: OnHand = 100) y artículo Servicio (ART-SVC-01) sembrados.
     private static readonly Guid ArticuloConStockId = Guid.Parse("00000005-0002-0000-0000-000000000001");
@@ -52,7 +53,7 @@ public class RepartoServicioSaldoRqTests : IClassFixture<StubsWebApplicationFact
         var stock = new ContadorStock(disponible: 100m);
         await using var factory = WithStock(stock);
         var client = await AutorizacionTestSeeding.CreateSuperAdminClientAsync(factory);
-        var rqId = await CrearTransmitirAsync(client, ArticuloServicioId, 10m, ClasificacionMateriaPrima);
+        var rqId = await CrearTransmitirAsync(client, ArticuloServicioId, 10m, ClasificacionServicio);
 
         await AutorizarAsync(client, rqId);
 
@@ -68,7 +69,10 @@ public class RepartoServicioSaldoRqTests : IClassFixture<StubsWebApplicationFact
         var stock = new ContadorStock(disponible: 100m);
         await using var factory = WithStock(stock);
         var client = await AutorizacionTestSeeding.CreateSuperAdminClientAsync(factory);
-        var rqId = await CrearTransmitirAsync(client, ArticuloConStockId, 10m, ClasificacionServicio);
+        // 86e3tfedd: ya no se captura un artículo de inventario en una RQ de Servicio;
+        // se simula una RQ anterior a la regla cambiando la clasificación en BD.
+        var rqId = await CrearTransmitirAsync(client, ArticuloConStockId, 10m, ClasificacionOrdenCompra);
+        await ForzarClasificacionAsync(factory, rqId, ClasificacionServicio);
 
         await AutorizarAsync(client, rqId);
 
@@ -83,7 +87,7 @@ public class RepartoServicioSaldoRqTests : IClassFixture<StubsWebApplicationFact
     {
         var client = await AutorizacionTestSeeding.CreateSuperAdminClientAsync(_factory);
         // Stub: OnHand = 100 → 10 se cubren 100% por almacén, sin saldo de compra.
-        var rqId = await CrearTransmitirAsync(client, ArticuloConStockId, 10m, ClasificacionMateriaPrima);
+        var rqId = await CrearTransmitirAsync(client, ArticuloConStockId, 10m, ClasificacionOrdenCompra);
         await AutorizarAsync(client, rqId);
 
         var disponibles = await ListarDisponiblesAsync(client);
@@ -97,7 +101,7 @@ public class RepartoServicioSaldoRqTests : IClassFixture<StubsWebApplicationFact
     {
         var client = await AutorizacionTestSeeding.CreateSuperAdminClientAsync(_factory);
         // Stub: OnHand = 100; 150 → 100 almacén + 50 saldo de compra.
-        var rqId = await CrearTransmitirAsync(client, ArticuloConStockId, 150m, ClasificacionMateriaPrima);
+        var rqId = await CrearTransmitirAsync(client, ArticuloConStockId, 150m, ClasificacionOrdenCompra);
         await AutorizarAsync(client, rqId);
 
         var disponibles = await ListarDisponiblesAsync(client);
@@ -115,7 +119,7 @@ public class RepartoServicioSaldoRqTests : IClassFixture<StubsWebApplicationFact
     public async Task Detalle_TrasOcParcialDesdeRq_TraeComprometidaYSaldo()
     {
         var client = await AutorizacionTestSeeding.CreateSuperAdminClientAsync(_factory);
-        var rqId = await CrearTransmitirAsync(client, ArticuloConStockId, 150m, ClasificacionMateriaPrima);
+        var rqId = await CrearTransmitirAsync(client, ArticuloConStockId, 150m, ClasificacionOrdenCompra);
         await AutorizarAsync(client, rqId);
 
         // OC desde la RQ: hereda el saldo (50) y luego se reduce a 20 (parcial).
@@ -157,6 +161,14 @@ public class RepartoServicioSaldoRqTests : IClassFixture<StubsWebApplicationFact
                 services.AddSingleton(stock);
             });
         });
+
+    private static async Task ForzarClasificacionAsync(WebApplicationFactory<Program> factory, Guid rqId, int clasificacion)
+    {
+        await using var scope = factory.Services.CreateAsyncScope();
+        var db = scope.ServiceProvider.GetRequiredService<ComprasDbContext>();
+        await db.Database.ExecuteSqlInterpolatedAsync(
+            $"UPDATE compras.requisiciones SET clasificacion = {(short)clasificacion} WHERE id = {rqId}");
+    }
 
     private static async Task AutorizarAsync(HttpClient client, Guid rqId)
     {

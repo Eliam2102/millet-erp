@@ -56,7 +56,7 @@ public class ModoNivel2IntegracionTests : IClassFixture<StubsWebApplicationFacto
         {
             await PutUmbralAsync(admin, modo, montoMinimo: null);
 
-            var servicio = await CrearTransmitirAsync(admin, new[] { (ArticuloServicio, 10m) });
+            var servicio = await CrearTransmitirAsync(admin, new[] { (ArticuloServicio, 10m) }, clasificacion: ClasificacionServicio);
             var sinStock = await CrearTransmitirAsync(admin, new[] { (ArticuloSinStock, 1m) });
             var estandar = await CrearTransmitirAsync(admin, new[] { (ArticuloEstandar, 10m) });
 

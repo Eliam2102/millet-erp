@@ -47,26 +47,7 @@ export function usePdfOrdenCompra(
     gcTime: 0, // El componente revoca la URL al desmontar; no reutilizarla al volver.
     retry: false, // 404 no debe reintentar.
     queryFn: async ({ signal }) => {
-      const response = await apiFetch(`/api/v1/compras/ordenes/${id}/pdf?vistaPrevia=true`, {
-        signal,
-      });
-      if (!response.ok) {
-        // Intentar parsear ProblemDetails para ApiError tipado.
-        let problem;
-        try {
-          problem = await response.json();
-        } catch {
-          problem = {
-            type: 'about:blank',
-            title: response.statusText || 'Error al descargar PDF',
-            status: response.status,
-            code: 'PDF_FETCH_ERROR',
-          };
-        }
-        throw new ApiError(problem, response.status);
-      }
-      const blob = await response.blob();
-      return URL.createObjectURL(blob);
+      return URL.createObjectURL(await descargarPdfOrdenCompra(id, signal, true));
     },
   });
 }
@@ -78,9 +59,7 @@ export function useDescargarPdfOrdenCompra() {
   return useMutation({
     retry: false,
     mutationFn: async ({ id, folio }: { id: string; folio: string }) => {
-      const response = await apiFetch(`/api/v1/compras/ordenes/${id}/pdf`);
-      if (!response.ok) throw new ApiError(await response.json(), response.status);
-      const url = URL.createObjectURL(await response.blob());
+      const url = URL.createObjectURL(await descargarPdfOrdenCompra(id));
       const enlace = document.createElement('a');
       enlace.href = url;
       enlace.download = `${folio}.pdf`;
@@ -93,4 +72,27 @@ export function useDescargarPdfOrdenCompra() {
       void queryClient.invalidateQueries({ queryKey: ordenesKeys.detail(id) });
     },
   });
+}
+
+/** Reutiliza el PDF existente sin compartir object URLs entre consumidores. */
+export async function descargarPdfOrdenCompra(id: string, signal?: AbortSignal, vistaPrevia = false): Promise<Blob> {
+  const response = await apiFetch(`/api/v1/compras/ordenes/${id}/pdf${vistaPrevia ? '?vistaPrevia=true' : ''}`, {
+    signal,
+  });
+  if (!response.ok) {
+    // Intentar parsear ProblemDetails para ApiError tipado.
+    let problem;
+    try {
+      problem = await response.json();
+    } catch {
+      problem = {
+        type: 'about:blank',
+        title: response.statusText || 'Error al descargar PDF',
+        status: response.status,
+        code: 'PDF_FETCH_ERROR',
+      };
+    }
+    throw new ApiError(problem, response.status);
+  }
+  return response.blob();
 }

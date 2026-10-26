@@ -118,6 +118,19 @@ export function InformacionImportacionForm({ oc }: InformacionImportacionFormPro
           onEditar={() => setEditing(true)}
         />
         <PedimentoImportacionControl oc={oc} />
+        {(oc.recepcionesImportacion ?? []).map((recepcion, index) => (
+          <section key={recepcion.recepcionId} className="rounded-lg bg-surface-card p-4 shadow-card-flat">
+            <h3 className="mb-3 text-sm font-semibold">Documentos de recepción {index + 1}</h3>
+            <dl className="grid gap-3 text-sm md:grid-cols-2">
+              <Field label="Número de pedimento">{recepcion.numeroPedimento}</Field>
+              <Field label="BL o guía aérea">{recepcion.numeroBl}</Field>
+              <Field label="Número de contenedor">{recepcion.numeroContenedor}</Field>
+              <Field label="Aduana">{recepcion.aduana}</Field>
+              <Field label="Clave de pedimento">{recepcion.clavePedimento}</Field>
+              {recepcion.partidas.map((partida, posicion) => <Field key={partida.lineaOcId} label={`Fracción arancelaria · partida ${posicion + 1}`}>{partida.fraccionArancelaria}</Field>)}
+            </dl>
+          </section>
+        ))}
       </div>
     );
   }

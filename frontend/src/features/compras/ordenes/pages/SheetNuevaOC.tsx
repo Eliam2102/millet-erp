@@ -127,6 +127,7 @@ export function SheetNuevaOC({
   const navigate = useNavigate();
   const userId = useAuthStore((s) => s.user?.id);
   const empresaId = useAuthStore((s) => s.currentEmpresaId);
+  const sucursalActivaId = useAuthStore((s) => s.currentSucursalId);
   const canCrearSinRq = useHasPermission(PermisosCanonicos.ComprasOrdenesCrearSinRq);
 
   const autoGenerarOcAlAutorizar = useAutoGenerarOcAlAutorizar();
@@ -153,7 +154,8 @@ export function SheetNuevaOC({
 
   const form = useForm<CrearOrdenCompraVaciaValues>({
     resolver: zodResolver(CrearOrdenCompraVaciaSchema),
-    defaultValues: DEFAULT_CREAR_OC_VACIA,
+    // La sucursal destino arranca en la activa del sistema; desde RQ manda la de la RQ.
+    defaultValues: { ...DEFAULT_CREAR_OC_VACIA, sucursalDestinoId: sucursalActivaId ?? '' },
     mode: 'onBlur',
   });
 

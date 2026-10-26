@@ -16,17 +16,20 @@ public sealed class EditarPedidoFacturableManualHandler
     private readonly ICurrentEmpresaContext _empresa;
     private readonly IProductosReadPort _productos;
     private readonly IEmpresaFiscalReadPort _empresasFiscal;
+    private readonly ICurrentUserPermissions _permisos;
 
     public EditarPedidoFacturableManualHandler(
         FacturacionDbContext db,
         ICurrentEmpresaContext empresa,
         IProductosReadPort productos,
-        IEmpresaFiscalReadPort empresasFiscal)
+        IEmpresaFiscalReadPort empresasFiscal,
+        ICurrentUserPermissions permisos)
     {
         _db = db;
         _empresa = empresa;
         _productos = productos;
         _empresasFiscal = empresasFiscal;
+        _permisos = permisos;
     }
 
     public async Task<PedidoFacturableResponse> Handle(
@@ -51,6 +54,9 @@ public sealed class EditarPedidoFacturableManualHandler
         if (pedido.Version != command.VersionEsperada)
             throw new ConcurrencyException(nameof(PedidoFacturable), command.Id);
 
+        // F6.1: si la clase resultante es Emergencia, exige su permiso (403).
+        await PermisoEmergenciaPedido.VerificarAsync(command.ClaseManual, _permisos, cancellationToken);
+
         pedido.EditarCabecera(
             clienteId: command.ClienteId,
             clienteNombre: command.ClienteNombre,
@@ -59,7 +65,11 @@ public sealed class EditarPedidoFacturableManualHandler
             moneda: command.Moneda,
             obraId: command.ObraId,
             obraNombre: command.ObraNombre,
-            comentarios: command.Comentarios);
+            comentarios: command.Comentarios,
+            claseManual: command.ClaseManual,
+            subtipoVentaDirecta: command.SubtipoVentaDirecta,
+            motivoEmergencia: command.MotivoEmergencia,
+            referenciaPedidoAw: command.ReferenciaPedidoAw);
 
         // FAC-DET-PR2: tasa de IVA por línea manual — artículo > empresa.
         var tasaIvaDe = await TasaIvaLineaManual.CrearResolverAsync(

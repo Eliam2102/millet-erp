@@ -51,8 +51,9 @@ export function MasterDetail({
           {lista}
         </div>
       </aside>
+      {/* Aire del detalle (DESIGN §5.2): 16 px en móvil, 24 px en escritorio. */}
       <section
-        className="@container min-w-0 flex-1 md:overflow-y-auto"
+        className="@container min-w-0 flex-1 px-4 pb-10 md:overflow-y-auto md:px-6"
         aria-label={`Detalle de ${titulo.toLowerCase()}`}
       >
         {children}

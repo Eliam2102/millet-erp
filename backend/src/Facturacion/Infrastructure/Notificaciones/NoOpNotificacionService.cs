@@ -1,4 +1,5 @@
 using Microsoft.Extensions.Logging;
+using Millet.SharedKernel.Application.Correo;
 using Millet.Facturacion.Domain.Ports;
 
 namespace Millet.Facturacion.Infrastructure.Notificaciones;
@@ -9,8 +10,19 @@ namespace Millet.Facturacion.Infrastructure.Notificaciones;
 /// por el adapter a <c>Millet.Integraciones.Mailbox</c> / SMTP / Microsoft Graph
 /// cuando exista (§12.5 levantamiento).
 /// </summary>
-public sealed class NoOpNotificacionService : INotificacionService
+public sealed class NoOpNotificacionService : INotificacionService, ICorreoDocumentoService
 {
+    public bool EsSimulado => true;
+
+    // PLATFORM-TODO(<V08>): conectar el transporte corporativo cuando se confirme el remitente del tenant.
+    public Task EnviarAsync(CorreoDocumento correo, CancellationToken cancellationToken)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        _logger.LogInformation("Envío simulado de documento {Archivo}, {Bytes} bytes. No se entregó correo.",
+            correo.NombreArchivo, correo.Pdf.Length);
+        return Task.CompletedTask;
+    }
+
     private readonly ILogger<NoOpNotificacionService> _logger;
 
     public NoOpNotificacionService(ILogger<NoOpNotificacionService> logger) => _logger = logger;

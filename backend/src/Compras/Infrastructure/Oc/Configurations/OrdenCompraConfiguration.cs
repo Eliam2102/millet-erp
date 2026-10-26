@@ -55,7 +55,7 @@ public sealed class OrdenCompraConfiguration : IEntityTypeConfiguration<OrdenCom
             // crearse en Borrador (0) o Rechazada (6) sin incoterm ni país; ambos
             // se exigen en BD a partir de cualquier otro estado, y el handler de
             // transmitir los valida antes (422). El contenedor no es obligatorio
-            // en BD (embarque aéreo/terrestre no lo lleva).
+            // en BD; pedimento, BL y contenedor se exigen al recibir (V46).
             t.HasCheckConstraint("ck_oc_import_campos",
                 "(es_importacion = false) OR (estado IN (0, 6)) OR " +
                 "(info_import_incoterm_id IS NOT NULL AND info_import_pais_origen IS NOT NULL)");
@@ -68,7 +68,7 @@ public sealed class OrdenCompraConfiguration : IEntityTypeConfiguration<OrdenCom
             t.HasCheckConstraint("ck_oc_sub_recepcion", "sub_estado_recepcion BETWEEN 0 AND 2");
             t.HasCheckConstraint("ck_oc_sub_facturacion", "sub_estado_facturacion BETWEEN 0 AND 2");
             t.HasCheckConstraint("ck_oc_sub_pago", "sub_estado_pago BETWEEN 0 AND 2");
-            t.HasCheckConstraint("ck_oc_estado_comercial_proveedor", "estado_comercial_proveedor BETWEEN 0 AND 3");
+            t.HasCheckConstraint("ck_oc_estado_comercial_proveedor", "estado_comercial_proveedor BETWEEN 0 AND 4");
         });
 
         builder.Property(x => x.Obra).HasMaxLength(120);
@@ -170,6 +170,7 @@ public sealed class OrdenCompraConfiguration : IEntityTypeConfiguration<OrdenCom
         builder.Property(o => o.InfoImportCodigoRuta).HasMaxLength(40);
         builder.Property(o => o.InfoImportSemanaEmbarque).HasMaxLength(40);
         builder.Property(o => o.InfoImportNumeroPedimento).HasMaxLength(60);
+        builder.HasIndex(o => new { o.EmpresaId, o.InfoImportNumeroPedimento });
         // PLATFORM-TODO(F1-COM-06): supuesto Vilo, confirmar con lista de Millet.
         builder.Property(o => o.InfoImportTipoOperacion).HasConversion<short>();
         builder.Property(o => o.InfoImportNumeroBl).HasMaxLength(50);
@@ -256,6 +257,11 @@ public sealed class OrdenCompraConfiguration : IEntityTypeConfiguration<OrdenCom
         builder.HasMany(o => o.RespuestasProveedor).WithOne()
             .HasForeignKey(r => r.OrdenCompraId).OnDelete(DeleteBehavior.Cascade);
         builder.Navigation(o => o.RespuestasProveedor).UsePropertyAccessMode(PropertyAccessMode.Field);
+
+        // F1-COM-07: incidencias del proveedor por línea (con historial de compromisos).
+        builder.HasMany(o => o.Incidencias).WithOne()
+            .HasForeignKey(i => i.OrdenCompraId).OnDelete(DeleteBehavior.Cascade);
+        builder.Navigation(o => o.Incidencias).UsePropertyAccessMode(PropertyAccessMode.Field);
 
         // UNIQUE de §10.1: anti-colisión de folios por (empresa, sucursal).
         // El año va embebido en el VO Folio (formato OC-MID2026-000001).

@@ -1046,6 +1046,125 @@ public class RequisicionTests
         Assert.Equal(0m, rq.Lineas.Single().CantidadPendienteEntregar); // piso en 0
     }
 
+    // --- 86e3tferc: liberar apartado recalcula el cubrimiento ---
+
+    [Fact]
+    public void LiberarApartado_MandandoACompra_PasaLoLiberadoASaldoDeCompra()
+    {
+        var rq = CrearEnSurtido(); // 4 almacén + 6 compra
+        var linea = rq.Lineas.Single();
+
+        var cierre = rq.LiberarApartado(linea.Id, 3m, " ya no hay stock para él ", mandarACompra: true, DateTimeOffset.UtcNow);
+
+        Assert.Null(cierre);
+        Assert.Equal(1m, linea.CantidadDeAlmacen);
+        Assert.Equal(9m, linea.CantidadDeCompra);
+        Assert.Equal(0m, linea.CantidadSinCompra);
+        Assert.Equal(3m, linea.CantidadLiberadaApartado);
+        Assert.Equal("ya no hay stock para él", linea.MotivoUltimaLiberacion);
+        Assert.Equal(10m, linea.CantidadVigente);
+    }
+
+    [Fact]
+    public void LiberarApartado_SinCompra_DejaDePedirseYNoCambiaCompra()
+    {
+        var rq = CrearEnSurtido();
+        var linea = rq.Lineas.Single();
+
+        rq.LiberarApartado(linea.Id, 4m, "ya no lo necesita", mandarACompra: false, DateTimeOffset.UtcNow);
+
+        Assert.Equal(0m, linea.CantidadDeAlmacen);
+        Assert.Equal(6m, linea.CantidadDeCompra);
+        Assert.Equal(4m, linea.CantidadSinCompra);
+        Assert.Equal(6m, linea.CantidadVigente);
+        Assert.Equal(EstadoRequisicion.EnSurtido, rq.Estado);
+    }
+
+    [Fact]
+    public void LiberarApartado_SinCompra_CuandoLoRestanteYaSeEntrego_CierraLaRq()
+    {
+        var rq = CrearAutorizada(10m);
+        var lineaId = rq.Lineas.Single().Id;
+        rq.RegistrarCubrimiento([new CubrimientoLinea(lineaId, 10m, 0m)], DateTimeOffset.UtcNow);
+        rq.RegistrarEntrega(lineaId, 7m, DateTimeOffset.UtcNow);
+        var ahora = DateTimeOffset.UtcNow;
+
+        var cierre = rq.LiberarApartado(lineaId, 3m, "sobra", mandarACompra: false, ahora);
+
+        Assert.NotNull(cierre);
+        Assert.Equal(ahora, cierre!.OcurridoEn);
+        Assert.Equal(EstadoRequisicion.Cerrada, rq.Estado);
+    }
+
+    [Fact]
+    public void LiberarApartado_SinCompra_HaceQueLaEntregaCierreConMenosDeLaCantidadOriginal()
+    {
+        var rq = CrearAutorizada(10m);
+        var lineaId = rq.Lineas.Single().Id;
+        rq.RegistrarCubrimiento([new CubrimientoLinea(lineaId, 10m, 0m)], DateTimeOffset.UtcNow);
+        rq.LiberarApartado(lineaId, 2m, "sobra", mandarACompra: false, DateTimeOffset.UtcNow);
+
+        var r = rq.RegistrarEntrega(lineaId, 8m, DateTimeOffset.UtcNow);
+
+        Assert.NotNull(r.CierreEvento);
+        Assert.Equal(EstadoRequisicion.Cerrada, rq.Estado);
+    }
+
+    [Fact]
+    public void LiberarApartado_MandandoACompra_ConRqEnOc_Rechaza()
+    {
+        var rq = CrearEnSurtido();
+        rq.ComprometerEnOc(Guid.CreateVersion7());
+
+        var ex = Assert.Throws<BusinessRuleException>(() =>
+            rq.LiberarApartado(rq.Lineas.Single().Id, 1m, "x", mandarACompra: true, DateTimeOffset.UtcNow));
+        Assert.Equal("RQ_COMPROMETIDA_EN_OC", ex.Code);
+        Assert.Equal(4m, rq.Lineas.Single().CantidadDeAlmacen);
+    }
+
+    [Fact]
+    public void LiberarApartado_ConRqEnOc_SinCompra_SiSePermite()
+    {
+        var rq = CrearEnSurtido();
+        rq.ComprometerEnOc(Guid.CreateVersion7());
+
+        rq.LiberarApartado(rq.Lineas.Single().Id, 1m, "x", mandarACompra: false, DateTimeOffset.UtcNow);
+
+        Assert.Equal(3m, rq.Lineas.Single().CantidadDeAlmacen);
+    }
+
+    [Theory]
+    [InlineData(5, "x", "APARTADO_LIBERACION_EXCEDE")]
+    [InlineData(0, "x", "APARTADO_LIBERACION_INVALIDA")]
+    [InlineData(1, "  ", "APARTADO_MOTIVO_REQUERIDO")]
+    public void LiberarApartado_Invalido_RechazaSinMutar(decimal cantidad, string motivo, string codigo)
+    {
+        var rq = CrearEnSurtido();
+        var linea = rq.Lineas.Single();
+
+        var ex = Assert.Throws<BusinessRuleException>(() =>
+            rq.LiberarApartado(linea.Id, cantidad, motivo, mandarACompra: true, DateTimeOffset.UtcNow));
+
+        Assert.Equal(codigo, ex.Code);
+        Assert.Equal(4m, linea.CantidadDeAlmacen);
+        Assert.Equal(6m, linea.CantidadDeCompra);
+        Assert.Equal(0m, linea.CantidadLiberadaApartado);
+    }
+
+    [Theory]
+    [InlineData(EstadoRequisicion.Borrador)]
+    [InlineData(EstadoRequisicion.Cancelada)]
+    [InlineData(EstadoRequisicion.Cerrada)]
+    public void LiberarApartado_FueraDeAutorizadaOEnSurtido_Rechaza(EstadoRequisicion estado)
+    {
+        var rq = CrearEnSurtido();
+        ForzarEstado(rq, estado);
+
+        var ex = Assert.Throws<BusinessRuleException>(() =>
+            rq.LiberarApartado(rq.Lineas.Single().Id, 1m, "x", mandarACompra: false, DateTimeOffset.UtcNow));
+        Assert.Equal("RQ_SIN_APARTADO_LIBERABLE", ex.Code);
+    }
+
     private static void ForzarEstado(Requisicion rq, EstadoRequisicion estado) =>
         typeof(Requisicion).GetProperty(nameof(Requisicion.Estado))!.SetValue(rq, estado);
 }

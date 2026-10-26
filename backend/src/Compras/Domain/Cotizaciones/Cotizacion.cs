@@ -38,6 +38,8 @@ public sealed class Cotizacion : BaseEntity, IPerteneceAEmpresa, IAuditable
     public string Moneda { get; private set; } = "MXN";
     public DateOnly FechaCotizacion { get; private set; }
     public DateOnly VigenteHasta { get; private set; }
+    public Guid? CondicionesPagoId { get; private set; }
+    public DateOnly? FechaEntrega { get; private set; }
     public string? CondicionesCredito { get; private set; }
     public Guid RegistradaPor { get; private set; }
     public DateTimeOffset RegistradaEn { get; private set; }
@@ -65,7 +67,7 @@ public sealed class Cotizacion : BaseEntity, IPerteneceAEmpresa, IAuditable
         Guid id, Guid empresaId, Guid requisicionId, Guid sucursalId, Guid proveedorId,
         string? folioProveedor, string moneda, DateOnly fechaCotizacion, DateOnly vigenteHasta,
         string? condicionesCredito, IReadOnlyList<LineaCotizacionDatos> lineas,
-        Guid registradaPor, DateTimeOffset ahora, DateOnly hoy)
+        Guid registradaPor, DateTimeOffset ahora, DateOnly hoy, Guid? condicionesPagoId = null, DateOnly? fechaEntrega = null)
     {
         var c = new Cotizacion(id)
         {
@@ -75,13 +77,13 @@ public sealed class Cotizacion : BaseEntity, IPerteneceAEmpresa, IAuditable
             RegistradaPor = registradaPor,
             RegistradaEn = ahora,
         };
-        c.AsignarDatos(proveedorId, folioProveedor, moneda, fechaCotizacion, vigenteHasta, condicionesCredito, lineas, hoy);
+        c.AsignarDatos(proveedorId, folioProveedor, moneda, fechaCotizacion, vigenteHasta, condicionesCredito, lineas, hoy, condicionesPagoId, fechaEntrega);
         return c;
     }
 
     public void Editar(
         Guid proveedorId, string? folioProveedor, string moneda, DateOnly fechaCotizacion,
-        DateOnly vigenteHasta, string? condicionesCredito, IReadOnlyList<LineaCotizacionDatos> lineas, DateOnly hoy)
+        DateOnly vigenteHasta, string? condicionesCredito, IReadOnlyList<LineaCotizacionDatos> lineas, DateOnly hoy, Guid? condicionesPagoId = null, DateOnly? fechaEntrega = null)
     {
         if (Elegida)
         {
@@ -89,12 +91,12 @@ public sealed class Cotizacion : BaseEntity, IPerteneceAEmpresa, IAuditable
                 "La cotización ya se eligió para una orden de compra; no se puede modificar.");
         }
 
-        AsignarDatos(proveedorId, folioProveedor, moneda, fechaCotizacion, vigenteHasta, condicionesCredito, lineas, hoy);
+        AsignarDatos(proveedorId, folioProveedor, moneda, fechaCotizacion, vigenteHasta, condicionesCredito, lineas, hoy, condicionesPagoId, fechaEntrega);
     }
 
     private void AsignarDatos(
         Guid proveedorId, string? folioProveedor, string moneda, DateOnly fechaCotizacion,
-        DateOnly vigenteHasta, string? condicionesCredito, IReadOnlyList<LineaCotizacionDatos> lineas, DateOnly hoy)
+        DateOnly vigenteHasta, string? condicionesCredito, IReadOnlyList<LineaCotizacionDatos> lineas, DateOnly hoy, Guid? condicionesPagoId = null, DateOnly? fechaEntrega = null)
     {
         if (proveedorId == Guid.Empty)
         {
@@ -139,8 +141,15 @@ public sealed class Cotizacion : BaseEntity, IPerteneceAEmpresa, IAuditable
             throw new BusinessRuleException("COT_PARTIDA_DUPLICADA", "Una partida aparece dos veces en la cotización.");
         }
 
+        if (condicionesPagoId == Guid.Empty)
+            throw new BusinessRuleException("COT_PAGO_INVALIDO", "Selecciona una condición de pago válida.");
+        if (fechaEntrega < fechaCotizacion)
+            throw new BusinessRuleException("COT_ENTREGA_INVALIDA", "La entrega no puede ser anterior a la cotización.");
+
         var nuevas = lineas.Select(d => new LineaCotizacion(Guid.CreateVersion7(), Id, d)).ToList();
 
+        CondicionesPagoId = condicionesPagoId;
+        FechaEntrega = fechaEntrega;
         ProveedorId = proveedorId;
         FolioProveedor = string.IsNullOrEmpty(folio) ? null : folio;
         Moneda = monedaNorm;

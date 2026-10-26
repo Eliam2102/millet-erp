@@ -5,6 +5,7 @@ public sealed record ReferenciaCe(Guid Id, string Nombre);
 public interface ICatalogosCeReadPort
 {
     Task<IReadOnlyList<ReferenciaCe>> ReferenciasAsync(string tipo, string q, CancellationToken ct);
+    Task<IReadOnlyDictionary<Guid, string>> NombresTercerosAsync(IEnumerable<Guid> ids, CancellationToken ct) => Task.FromResult<IReadOnlyDictionary<Guid, string>>(new Dictionary<Guid, string>());
     Task<Guid> IncotermDdpAsync(CancellationToken ct);
     Task ValidarAsync(Guid incoterm, string moneda, Guid sucursal, Guid responsable, CancellationToken ct);
     Task ValidarResponsableAsync(Guid sucursal, Guid responsable, CancellationToken ct);

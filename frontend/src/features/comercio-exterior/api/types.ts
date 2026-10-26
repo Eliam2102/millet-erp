@@ -85,6 +85,13 @@ export interface ExpedienteDetalle {
   estadoFinanciero: string;
   hitos: Hito[];
   avisos: AvisoHito[];
+  incidencias?: Incidencia[];
+  avisosIncidencias?: {
+    id: string;
+    incidenciaId: string;
+    destinatarioUsuarioId: string;
+    fecha: string;
+  }[];
 }
 export interface CrearExpediente {
   tipo: TipoExpediente;
@@ -127,6 +134,7 @@ export interface Hito {
   motivoCambioCompromiso: string | null;
   atrasado: boolean;
   diasAtraso: number;
+  conIncidencia?: boolean;
 }
 export interface AvisoHito {
   id: string;
@@ -249,5 +257,68 @@ export interface RelacionIva {
     uuid: string | null;
     fechaEmbarque: string | null;
     entradaAlmacen: string | null;
+  }[];
+}
+
+export const tiposIncidencia = {
+  1: 'Cancelación de la operación',
+  2: 'Rectificación de pedimento',
+  3: 'Mercancía retenida',
+  4: 'Mercancía rechazada',
+  5: 'Mercancía dañada',
+  6: 'Mercancía faltante',
+  7: 'Rotura en transporte',
+  8: 'Documento incorrecto',
+  9: 'Otra',
+} as const;
+export const estadosIncidencia = {
+  1: 'Abierta',
+  2: 'En atención',
+  3: 'Resuelta',
+  4: 'Cancelada',
+} as const;
+export interface Incidencia {
+  id: string;
+  tipo: keyof typeof tiposIncidencia;
+  estado: keyof typeof estadosIncidencia;
+  fecha: string;
+  responsableUsuarioId: string;
+  responsableNombre: string;
+  motivo: string;
+  descripcion: string | null;
+  participanteId: string | null;
+  documentosIds: string[];
+  evidenciasIds: string[];
+  accionCorrectiva: string | null;
+  efectoPosterior: string | null;
+  hitoClave: string | null;
+  contenedorId: string | null;
+  partidaId: string | null;
+  pedimentoAnterior: string | null;
+  pedimentoNuevo: string | null;
+  motivoCancelacion: string | null;
+  antiguedadDias: number;
+  historial: {
+    estado: keyof typeof estadosIncidencia;
+    actorId: string;
+    fecha: string;
+    motivo: string | null;
+  }[];
+}
+export interface IncidenciasReporte {
+  titulo: string;
+  generadoEn: string;
+  filtrosAplicados: Record<string, string | null>;
+  columnas: { clave: string; etiqueta: string; tipo: 'texto' | 'fecha' | 'numero' }[];
+  filas: {
+    expedienteId: string;
+    expediente: string;
+    sucursal: string;
+    tipo: string;
+    estado: string;
+    fecha: string;
+    motivo: string;
+    responsable: string;
+    antiguedadDias: number;
   }[];
 }

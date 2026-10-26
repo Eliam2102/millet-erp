@@ -34,6 +34,11 @@ const commandValido: CrearPedidoManualCommand = {
   obraId: null,
   obraNombre: null,
   comentarios: null,
+  // F6.1: clasificación obligatoria del pedido manual.
+  claseManual: 1,
+  subtipoVentaDirecta: 2,
+  motivoEmergencia: null,
+  referenciaPedidoAw: null,
   lineas: [
     {
       productoId: null,
@@ -78,6 +83,42 @@ describe('useListarPedidos', () => {
     // CAJAS-PR6: el hook expone el envelope {items, sinAsignarCount}.
     expect(result.current.data?.items).toHaveLength(1);
     expect(result.current.data?.items[0].estado).toBe('Importado');
+  });
+
+  it('F6.1: envía ?clase= y expone la clase del pedido', async () => {
+    let urlRecibida = '';
+    mswServer.use(
+      http.get(BASE, ({ request }) => {
+        urlRecibida = request.url;
+        return HttpResponse.json({
+          items: [
+            {
+              id: 'p-2',
+              numeroPedido: null,
+              origen: 'Manual',
+              estado: 'Importado',
+              clienteNombre: 'Cliente Demo',
+              total: 100,
+              moneda: 'MXN',
+              createdAt: '2026-10-19T10:00:00Z',
+              claseManual: 'Emergencia',
+              subtipoVentaDirecta: null,
+              esEmergencia: true,
+            },
+          ],
+          sinAsignarCount: null,
+        });
+      }),
+    );
+
+    const { result } = renderHook(
+      () => useListarPedidos({ clase: 'Emergencia', limit: 200 }),
+      { wrapper: createQueryWrapper() },
+    );
+
+    await waitFor(() => expect(result.current.isSuccess).toBe(true));
+    expect(new URL(urlRecibida).searchParams.get('clase')).toBe('Emergencia');
+    expect(result.current.data?.items[0].esEmergencia).toBe(true);
   });
 });
 
@@ -255,6 +296,11 @@ const editCommand: EditarPedidoCommand = {
   obraId: null,
   obraNombre: null,
   comentarios: null,
+  // F6.1: clasificación obligatoria del pedido manual.
+  claseManual: 1,
+  subtipoVentaDirecta: 2,
+  motivoEmergencia: null,
+  referenciaPedidoAw: null,
   lineas: [
     {
       productoId: null,

@@ -25,7 +25,7 @@ public sealed partial class CrearOrdenCompraDesdeRequisicionValidator
 
         RuleFor(c => c.RequisicionId).NotEmpty().WithErrorCode("RQ_ID_REQUERIDA");
         RuleFor(c => c.ProveedorId).NotEmpty().WithErrorCode("PROVEEDOR_REQUERIDO");
-        RuleFor(c => c.CondicionesPagoId).NotEmpty().WithErrorCode("CONDICIONES_PAGO_REQUERIDAS");
+        RuleFor(c => c.CondicionesPagoId).NotEmpty().When(c => c.CotizacionId == null).WithErrorCode("CONDICIONES_PAGO_REQUERIDAS");
         RuleFor(c => c.UsoPrincipalId).NotEmpty().WithErrorCode("USO_PRINCIPAL_REQUERIDO");
 
         RuleFor(c => c.SucursalCodigo)

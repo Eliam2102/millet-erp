@@ -153,13 +153,13 @@ public sealed class DuplicarOrdenCompraHandler
                     cantidad, linea.UnidadMedida, linea.PrecioUnitario, linea.DepartamentoSolicitanteId,
                     rqId, lineaRqId, linea.Descuento, linea.IndicadorImpuestos,
                     linea.DescripcionExtendida, linea.FechaEntregaLinea, linea.TextoAdicional,
-                    linea.EsServicio, linea.CentroCostoId, linea.FraccionArancelaria);
+                    linea.EsServicio, linea.CentroCostoId, linea.FraccionArancelaria, linea.EsActivoFijo, linea.ClaseActivoId);
             else
                 nueva.AgregarLineaManual(Guid.CreateVersion7(), linea.ArticuloId,
                     cantidad, linea.UnidadMedida, linea.PrecioUnitario, linea.DepartamentoSolicitanteId,
                     linea.Descuento, linea.IndicadorImpuestos, linea.DescripcionExtendida,
                     linea.FechaEntregaLinea, linea.TextoAdicional, linea.EsServicio, linea.CentroCostoId,
-                    linea.FraccionArancelaria);
+                    linea.FraccionArancelaria, linea.EsActivoFijo, linea.ClaseActivoId);
         }
         foreach (var rq in rqs) rq.ComprometerEnOc(nueva.Id);
 

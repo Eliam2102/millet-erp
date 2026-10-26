@@ -10,7 +10,7 @@ namespace Millet.Compras.UnitTests.Oc.Domain;
 /// </summary>
 public class OrdenCompraAutorizarTests
 {
-    private static OrdenCompra NewOcConLineaBorrador()
+    private static OrdenCompra NewOcConLineaBorrador(bool importacion = false)
     {
         var oc = new OrdenCompra(
             id: Guid.CreateVersion7(),
@@ -24,6 +24,7 @@ public class OrdenCompraAutorizarTests
             compradorTitularId: Guid.CreateVersion7(),
             encargadoComprasId: Guid.CreateVersion7(),
             fechaDocumento: DateOnly.FromDateTime(DateTimeOffset.UtcNow.UtcDateTime),
+            esImportacion: importacion,
             sinRequisicionPrevia: true,
             motivoSinRequisicion: "Test autorizar", usoCfdiClave: "G03", metodoPago: "PPD", formaPagoClave: "99");
         oc.AgregarLineaManual(
@@ -34,6 +35,18 @@ public class OrdenCompraAutorizarTests
             precioUnitario: 100m,
             departamentoSolicitanteId: Guid.CreateVersion7());
         return oc;
+    }
+
+    [Fact]
+    public void C34a_OC_importada_se_autoriza_sin_pedimento_BL_ni_contenedor()
+    {
+        var oc = NewOcConLineaBorrador(importacion: true);
+        oc.ActualizarInformacionImportacion(new(incotermId: Guid.NewGuid(), paisOrigen: "CN"));
+        oc.EnviarAAutorizacion(DateTimeOffset.UtcNow);
+        oc.Autorizar(Guid.NewGuid(), NivelAutorizacion.Nivel1, Guid.NewGuid(), DateTimeOffset.UtcNow);
+        oc.Autorizar(Guid.NewGuid(), NivelAutorizacion.Nivel2, Guid.NewGuid(), DateTimeOffset.UtcNow);
+        Assert.Equal(EstadoOrdenCompra.Autorizada, oc.Estado);
+        Assert.Null(oc.InfoImportNumeroPedimento); Assert.Null(oc.InfoImportNumeroBl); Assert.Null(oc.InfoImportNumeroContenedor);
     }
 
     [Fact]

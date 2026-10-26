@@ -207,6 +207,13 @@ public sealed class CrearOrdenCompraDesdeRequisicionHandler
                 hayOtraElegida);
         }
 
+        var condicionesPagoId = command.CondicionesPagoId != Guid.Empty
+            ? command.CondicionesPagoId : cot?.CondicionesPagoId ?? Guid.Empty;
+        if (condicionesPagoId == Guid.Empty)
+            throw new BusinessRuleException("CONDICIONES_PAGO_REQUERIDAS", "Selecciona las condiciones de pago de la orden.");
+        if (cot is not null)
+            await Cotizaciones.PartidasCotizacion.ValidarPagoAsync(_compartido, condicionesPagoId, cancellationToken);
+
         // C10 — proveedor activo cross-table.
         var proveedor = await _compartido.Proveedores
             .AsNoTracking()
@@ -233,7 +240,7 @@ public sealed class CrearOrdenCompraDesdeRequisicionHandler
             folioAnio: command.FolioAnio,
             proveedorId: command.ProveedorId,
             sucursalDestinoId: rq.SucursalId,
-            condicionesPagoId: command.CondicionesPagoId,
+            condicionesPagoId: condicionesPagoId,
             usoPrincipalId: command.UsoPrincipalId,
             compradorTitularId: userId,
             encargadoComprasId: userId,
@@ -243,7 +250,7 @@ public sealed class CrearOrdenCompraDesdeRequisicionHandler
             sinRequisicionPrevia: false,
             esImportacion: command.EsImportacion,
             observaciones: command.Observaciones,
-            fechaEntregaEsperada: command.FechaEntregaEsperada);
+            fechaEntregaEsperada: command.FechaEntregaEsperada ?? cot?.FechaEntrega);
 
         await DatosFacturaOcGuard.ValidarAsync(_catalogos, command.UsoCfdiClave, command.FormaPagoClave, cancellationToken);
         oc.ActualizarDatosFactura(command.UsoCfdiClave, command.MetodoPago, command.FormaPagoClave);
@@ -272,7 +279,7 @@ public sealed class CrearOrdenCompraDesdeRequisicionHandler
                 requisicionId: rq.Id,
                 lineaRequisicionId: lineaRq.Id,
                 // Fase E PR3: el CC-Máquina se hereda 1:1 de la línea de RQ.
-                centroCostoId: lineaRq.CentroCostoId,
+                centroCostoId: lineaRq.CentroCostoId, esActivoFijo: lineaRq.EsActivoFijo, claseActivoId: lineaRq.ClaseActivoId,
                 esServicio: articulos.TryGetValue(lineaRq.ArticuloId, out var articulo)
                     && articulo.EsServicio);
         }

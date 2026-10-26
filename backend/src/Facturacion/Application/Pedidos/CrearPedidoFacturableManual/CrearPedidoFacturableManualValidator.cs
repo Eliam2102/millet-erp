@@ -17,6 +17,8 @@ public sealed class CrearPedidoFacturableManualValidator : AbstractValidator<Cre
             .MustAsync(canalesVenta.ExisteActivoAsync)
             .WithMessage("El canal de venta no existe o está inactivo.");
         RuleFor(c => c.ComportamientoFiscal).IsInEnum();
+        // F6.1 (R2): clase obligatoria + condicionales espejo del dominio.
+        Include(new ClasificacionPedidoManualValidator());
         RuleFor(c => c.NumeroPedido).MaximumLength(50);
         RuleFor(c => c.Comentarios).MaximumLength(1000);
 

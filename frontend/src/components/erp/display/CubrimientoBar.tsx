@@ -44,12 +44,14 @@ export interface CubrimientoBarProps {
   cantRecibida: number;
   /** Cantidad sin asignar/ordenar todavía (= cantidad - alm - oc). */
   cantPendiente: number;
+  /** Apartado liberado que ya no se pide ni se compra (86e3tferc). */
+  cantSinCompra?: number;
   className?: string;
 }
 
 interface Segmento {
   /** Identificador para keys / data attrs. */
-  id: 'almacen' | 'recibida' | 'pendienteRecepcion' | 'pendienteCompra';
+  id: 'almacen' | 'recibida' | 'pendienteRecepcion' | 'pendienteCompra' | 'sinCompra';
   /** Etiqueta corta visible en el tooltip y aria. */
   label: string;
   /** Cantidad en este segmento. */
@@ -68,6 +70,7 @@ export function CubrimientoBar({
   cantDeCompra,
   cantRecibida,
   cantPendiente,
+  cantSinCompra = 0,
   className,
 }: CubrimientoBarProps) {
   // El backend nos da campos brutos; calculamos derivados acá.
@@ -114,6 +117,14 @@ export function CubrimientoBar({
       pattern:
         'repeating-linear-gradient(45deg, rgba(0,0,0,0.25) 0 1px, transparent 1px 6px), repeating-linear-gradient(-45deg, rgba(0,0,0,0.25) 0 1px, transparent 1px 6px)',
     },
+    {
+      id: 'sinCompra',
+      label: 'liberado sin compra',
+      valor: cantSinCompra,
+      pct: pct(cantSinCompra),
+      bgClass: 'bg-surface-page',
+      pattern: 'repeating-linear-gradient(90deg, rgba(0,0,0,0.2) 0 1px, transparent 1px 4px)',
+    },
   ];
 
   // Etiqueta numérica visible al lado de la barra (no depende de hover).
@@ -124,6 +135,7 @@ export function CubrimientoBar({
     cantDeCompra,
     cantRecibida,
     cantPendiente,
+    cantSinCompra,
   });
 
   // Aria-label: misma info pero en frase legible para screen readers.
@@ -133,6 +145,7 @@ export function CubrimientoBar({
     cantPendienteRecepcion,
     cantRecibida,
     cantPendiente,
+    cantSinCompra,
   });
 
   // Backgroundsize default para los patrones.
@@ -215,6 +228,7 @@ interface InlineArgs {
   cantDeCompra: number;
   cantRecibida: number;
   cantPendiente: number;
+  cantSinCompra: number;
 }
 
 function formatearInline({
@@ -223,6 +237,7 @@ function formatearInline({
   cantDeCompra,
   cantRecibida,
   cantPendiente,
+  cantSinCompra,
 }: InlineArgs): string {
   const partes: string[] = [`${fmt(cantidad)} total`];
   if (cantDeAlmacen > 0) partes.push(`${fmt(cantDeAlmacen)} alm`);
@@ -235,6 +250,7 @@ function formatearInline({
     }
   }
   if (cantPendiente > 0) partes.push(`${fmt(cantPendiente)} pend`);
+  if (cantSinCompra > 0) partes.push(`${fmt(cantSinCompra)} sin compra`);
   return partes.join(' · ');
 }
 
@@ -244,6 +260,7 @@ interface AriaArgs {
   cantPendienteRecepcion: number;
   cantRecibida: number;
   cantPendiente: number;
+  cantSinCompra: number;
 }
 
 function formatearAria({
@@ -252,6 +269,7 @@ function formatearAria({
   cantPendienteRecepcion,
   cantRecibida,
   cantPendiente,
+  cantSinCompra,
 }: AriaArgs): string {
   const partes: string[] = [`Cubrimiento de ${fmt(cantidad)}`];
   if (cantDeAlmacen > 0)
@@ -262,6 +280,8 @@ function formatearAria({
     partes.push(`${fmt(cantPendienteRecepcion)} pendiente de recepción`);
   if (cantPendiente > 0)
     partes.push(`${fmt(cantPendiente)} pendiente de compra`);
+  if (cantSinCompra > 0)
+    partes.push(`${fmt(cantSinCompra)} liberado sin compra`);
   if (cantPendiente === 0 && cantPendienteRecepcion === 0) {
     partes.push('línea cubierta');
   }
