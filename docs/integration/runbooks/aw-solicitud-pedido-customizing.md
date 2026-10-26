@@ -89,15 +89,21 @@ que hace el mismo INSERT:
 | Cancelación (3) | Pedido ya avisado que pasa a 900/999. Si nunca se avisó, se ignora |
 | `version` | `MAX(version)+1` con `UPDLOCK, HOLDLOCK` (convive con un customizing futuro) |
 | Duplicados | Cada evento (pedido + estatus + fecha) se avisa una sola vez; control en `dbo.aw_aviso_job_pedido` |
+| Otros escritores | Si la cola ya tiene una solicitud del pedido igual o posterior al evento (botón del vendedor, customizing), no inserta |
 | A+W | Solo lectura de `BW_AUFTR_KOPF` y `BW_AUFTR_HIST` (sinónimos `dbo.aw_src_*`) |
 
 Con el ERP barriendo cada 15 s, el peor caso de punta a punta es ~30 s.
 Medición: [`08_latencia_avisos.sql`](../../operacion/aw-integracion-scripts/08_latencia_avisos.sql)
 y la línea `latencia cola→ERP` del log de `AwSolicitudesWorker`.
 
-**Si A+W implementa el customizing:** desactivar el job
-(`sp_update_job @enabled = 0`) **antes** de activar el customizing, para no
-avisar dos veces el mismo cambio.
+**Si A+W implementa el customizing:** el job y el customizing **conviven**; no
+hay que apagar el job. Igual que el botón del vendedor, todos escriben la misma
+cola y un pedido nunca se duplica: antes de insertar, el job revisa
+`aw_solicitud_pedido` y, si ya hay una solicitud del pedido creada en/después
+del evento (para cancelación, una cancelación), no inserta y solo registra el
+evento como cubierto en `aw_aviso_job_pedido`. Cada escritor debe tomar
+`MAX(version)+1` con `UPDLOCK, HOLDLOCK` (§4). El job se puede retirar cuando
+el equipo de TI decida, sin urgencia.
 
 **Prueba local:** `tools/aw-sandbox/pruebas/u14-job-aviso.sh` instala el job en
 el sandbox A+W y recorre alta (15), alta de máquina (42), modificación,

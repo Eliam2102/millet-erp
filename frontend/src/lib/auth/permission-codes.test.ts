@@ -83,6 +83,7 @@ const CODIGOS_BACKEND_ESPERADOS = new Set<string>([
   'compras.ordenes.cancelar',
   'compras.ordenes.cancelar-doble',
   'compras.ordenes.reportes-partidas-abiertas',
+  'compras.ordenes.reportes-analisis-proveedores',
   'compras.ordenes.registrar-respuesta-proveedor',
   'compras.ordenes.registrar-incidencia-proveedor',
   // Compras — Configuración (PR-A 2026-05-13, setting AutoGenerarOcAlAutorizar).
@@ -272,6 +273,7 @@ const CODIGOS_BACKEND_ESPERADOS = new Set<string>([
   'facturacion.pedidos.capturar',
   'facturacion.pedidos.excepciones-resolver',
   'facturacion.pedidos.capturar-emergencia',
+  'facturacion.pedidos.leer-credito',
   'facturacion.facturas.emitir',
   'facturacion.facturas.leer',
   'facturacion.facturas.editar-receptor',
@@ -297,6 +299,7 @@ const CODIGOS_BACKEND_ESPERADOS = new Set<string>([
   'facturacion.caja.supervisar',
   'facturacion.caja.leer-todas',
   'facturacion.reportes.leer',
+  'facturacion.reportes.leer-todas-sucursales',
   // Centros de Costo (CECO-FE-PR1; dim3.leer-todos post-renombre CECO-PR4)
   'centros_costo.catalogo.leer',
   'centros_costo.catalogo.administrar',
@@ -368,11 +371,11 @@ describe('PermisosCanonicos — coincidencia con backend', () => {
     }
   });
 
-  it('el módulo Compras aporta exactamente 32 permisos (14 de RQ + 1 de aprobadores + 12 de OC + 2 de cotizaciones + 2 de configuración + 1 de catálogos.leer)', () => {
+  it('el módulo Compras aporta exactamente 33 permisos (14 de RQ + 1 de aprobadores + 13 de OC + 2 de cotizaciones + 2 de configuración + 1 de catálogos.leer)', () => {
     const delModulo = codigos.filter(
       (c) => c.startsWith('compras.') || c === 'compartido.catalogos.leer',
     );
-    expect(delModulo).toHaveLength(32);
+    expect(delModulo).toHaveLength(33);
   });
 
   it('formato canónico, con capitalizar de P3 como excepción explícita', () => {

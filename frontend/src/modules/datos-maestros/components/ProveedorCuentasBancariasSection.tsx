@@ -169,7 +169,7 @@ export function ProveedorCuentasBancariasSection({
 
   if (query.isError) {
     return (
-      <div className="mt-4 max-w-3xl">
+      <div className="mt-4">
         <ErrorState
           problem={esApiError(query.error) ? query.error.problem : undefined}
           onRetry={() => query.refetch()}
@@ -180,7 +180,7 @@ export function ProveedorCuentasBancariasSection({
 
   if (query.isLoading || query.data == null) {
     return (
-      <div className="mt-4 max-w-3xl">
+      <div className="mt-4">
         <TableSkeleton rows={3} columns={[{ width: 'w-40' }, { width: 'w-56' }]} />
       </div>
     );
@@ -228,7 +228,7 @@ export function ProveedorCuentasBancariasSection({
   return (
     <section
       aria-labelledby="cuentas-bancarias-titulo"
-      className="mt-4 max-w-3xl rounded-lg bg-surface-card p-4 shadow-card-flat"
+      className="mt-4 rounded-lg bg-surface-card p-4 shadow-card-flat"
       data-component="proveedor-cuentas-bancarias"
     >
       <div className="mb-3 flex items-center justify-between gap-2">

@@ -167,7 +167,7 @@ Inventario completo de stubs `NoOp*` cableados al arranque. Cada uno con su issu
 - `<ProveedorReadAdapter>` — RFC + datos para devolución a proveedor.
 - `<SucursalReadAdapter>` — jerarquía Sucursal → Almacén.
 - ~~`<EmpleadoReadAdapter>`~~ — ✅ cerrado en ADM-PR2: adapter real sobre `compartido.empleados` registrado en `Program.cs`.
-- `<TipoCambioReadAdapter>` — multimoneda real (recepciones USD).
+- ~~`<TipoCambioReadAdapter>`~~ — ✅ cerrado en C1.2: adapter real sobre `compartido.tipos_cambio` registrado en `Program.cs` (sin TC para la fecha devuelve `null`).
 - `<ConceptoContableReadAdapter>` — Contabilidad (futuro).
 - `<PeriodoContableReadAdapter>` — Finanzas (futuro). `almacen.periodos_cerrados` es la fuente local mientras tanto.
 - `<NotificacionService>` — email/SignalR via módulo Notificaciones.

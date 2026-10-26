@@ -454,10 +454,12 @@ Para cada `linea_banco` del estado de cuenta:
 
 ### 7.2 Score
 
+> Actualizado el 23-oct-2026 (G1.5, 86e3kduu6): se retiró el tramo de 30 puntos por diferencia relativa menor a 2 %. La única tolerancia de monto es la de tarjetas, configurable en Administración → Parámetros, y es la misma que usa «Marcar conciliado» para la diferencia del estado de cuenta contra lo conciliado.
+
 ```
 score = 0
-if abs(mov.monto_mxn - linea.monto_mxn) < 0.50:                  score += 50
-elif abs(mov.monto_mxn - linea.monto_mxn) / linea.monto_mxn < 0.02: score += 30
+# tolerancia = parámetro cxp.tolerancia-tarjetas-mxn (por omisión $1.00 MXN, G1.5)
+if abs(mov.monto_mxn - linea.monto_mxn) <= tolerancia:           score += 50
 else:                                                              score += 0
 
 if mov.fecha_movimiento == linea.fecha_aplicacion:                score += 25

@@ -10,7 +10,10 @@ public sealed partial class Activo
     public DateOnly? FechaBaja { get; private set; }
     public void CargarLibro(DateOnly corte, decimal acumulada)
     {
-        ValidarCapitalizacion();
+        // El saldo inicial SAP admite custodia incompleta; no es una capitalización nueva.
+        if (Estado != EstadoActivo.PorCapitalizar || EnTraslado || InicioUso == null || ValorOriginal <= 0
+            || (OrdenCompraId != null && FacturaProveedorId == null))
+            throw new BusinessRuleException("AF_CARGA_INVALIDA", "Complete inicio de uso y valor antes de cargar el saldo inicial.");
         if (corte < InicioUso || acumulada < 0 || acumulada > ValorActual)
             throw new BusinessRuleException("AF_CARGA_INVALIDA", "Revise corte y depreciación acumulada.");
         CorteCarga = corte; AcumuladaCarga = acumulada; DepreciacionAcumulada = acumulada; Estado = EstadoActivo.Activo;
@@ -32,6 +35,15 @@ public sealed partial class Activo
         if (Estado != EstadoActivo.Activo || fecha < InicioUso || EnTraslado)
             throw new BusinessRuleException("AF_BAJA_INVALIDA", "El activo debe estar vigente y sin traslado pendiente.");
         Estado = EstadoActivo.DadoDeBaja; FechaBaja = fecha;
+    }
+    public string? MotivoBaja { get; private set; }
+    /// <summary>Baja sin capitalizar porque se anuló la recepción que lo originó (idempotente; la fila se conserva).</summary>
+    public void DarDeBajaPorRecepcionAnulada(DateOnly fecha, string motivo)
+    {
+        if (Estado == EstadoActivo.DadoDeBaja) return;
+        if (Estado != EstadoActivo.PorCapitalizar || FacturaProveedorId != null || PolizaAltaId != null || EnTraslado)
+            throw new BusinessRuleException("AF_BAJA_INVALIDA", "Solo se anula un activo por capitalizar, sin factura conciliada ni traslado pendiente.");
+        Estado = EstadoActivo.DadoDeBaja; FechaBaja = fecha; MotivoBaja = motivo;
     }
     public void Reintegrar() { Estado = EstadoActivo.Activo; FechaBaja = null; }
 }

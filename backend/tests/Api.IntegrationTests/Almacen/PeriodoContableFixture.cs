@@ -22,6 +22,9 @@ internal sealed class PeriodoContableFixture(string connectionString, Guid empre
 
     public IPeriodoContableReadPort Port => new PeriodoContableReadAdapter(new PeriodoContableConsultaAdapter(_db));
 
+    /// <summary>Puerto público de Contabilidad sobre este calendario, para probar los adapters de otros módulos.</summary>
+    public Millet.Contabilidad.Application.PublicPorts.IPeriodoContableConsultaPort Consulta => new PeriodoContableConsultaAdapter(_db);
+
     public async Task SembrarAsync(int mesAbierto, bool cerrarAnteriores = false)
     {
         var ejercicio = new EjercicioContable(_ejercicioId, anio) { EmpresaId = empresaId };

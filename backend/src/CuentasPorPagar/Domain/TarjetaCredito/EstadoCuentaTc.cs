@@ -203,9 +203,10 @@ public sealed class EstadoCuentaTc : BaseEntity, IPerteneceAEmpresa, IAuditable
     /// Requiere que todas las líneas estén Matched o NoConciliado
     /// (clasificadas explícitamente como gasto financiero / refund /
     /// anualidad / comisión / disputa) y que <see cref="DiferenciaMxn"/>
-    /// sea cero ± $0.01.
+    /// sea cero ± la tolerancia configurada (parámetro
+    /// <c>cxp.tolerancia-tarjetas-mxn</c>, por omisión $1.00 MXN).
     /// </summary>
-    public void MarcarConciliado(decimal toleranciaDiferencia = 0.01m)
+    public void MarcarConciliado(decimal toleranciaDiferencia)
     {
         if (Estado != EstadoCuentaTcStatus.EnConciliacion)
             throw new BusinessRuleException(

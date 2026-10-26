@@ -33,6 +33,8 @@ export const PedidosSearchSchema = z.object({
   alcance: z.literal('sin-asignar').optional(),
   /** F6.1: clase del pedido manual de origen (server-side). */
   clase: z.enum(['VentaDirecta', 'Emergencia']).optional(),
+  /** 86e3tfdw2: condición de pago (true = crédito, false = contado; server-side). */
+  credito: z.boolean().optional(),
   offset: z.number().int().min(0).optional(),
   limit: z.number().int().min(1).max(200).optional(),
 });

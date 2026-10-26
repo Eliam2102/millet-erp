@@ -36,11 +36,14 @@ public sealed class AlmacenRecepcionReadPortAdapter : IAlmacenRecepcionReadPort
         // Si hay más de una recepción contra la misma OC, tomamos la
         // más reciente — caso típico variante B donde una OC puede
         // recibirse en parcialidades.
-        var recepcion = await _db.RecepcionesOcLocal
+        // Recepciones con todas sus líneas anuladas (activos) no cuentan.
+        var recepciones = await _db.RecepcionesOcLocal
             .AsNoTracking()
             .Where(r => r.OrdenCompraId == ordenCompraId)
             .OrderByDescending(r => r.OcurridoEn)
-            .FirstOrDefaultAsync(cancellationToken);
+            .ToListAsync(cancellationToken);
+        var recepcion = recepciones.FirstOrDefault(r => r.LineasOcAnuladas.Count == 0
+            || JsonSerializer.Deserialize<List<LineaRecepcionLocalPayload>>(r.LineasJson, JsonOptions)?.Any(l => !r.LineaAnulada(l.LineaOcId)) == true);
 
         if (recepcion is null) return null;
 
@@ -53,7 +56,7 @@ public sealed class AlmacenRecepcionReadPortAdapter : IAlmacenRecepcionReadPort
             FechaRecepcion: recepcion.FechaMovimiento,
             FacturaPendiente: recepcion.FacturaPendiente,
             Lineas: lineas
-                .Where(l => l.LineaOcId is not null)
+                .Where(l => l.LineaOcId is not null && !recepcion.LineaAnulada(l.LineaOcId))
                 .Select(l => new LineaRecepcionDto(l.LineaOcId!.Value, l.Cantidad))
                 .ToList());
     }

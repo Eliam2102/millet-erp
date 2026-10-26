@@ -4,7 +4,7 @@ import { describe, it, expect } from 'vitest';
 import { pdf } from '@react-pdf/renderer';
 import type { ProformaPedidoResponse } from '@/features/facturacion/api/types';
 import { ProformaCfdiDocument } from './ProformaCfdiDocument';
-import { nombreArchivoProforma } from './proforma-cfdi-exporter';
+import { generarProformaPdfBlob, nombreArchivoProforma } from './proforma-cfdi-exporter';
 
 /** Extrae operadores de texto del PDF real (mismo patrón que borrador-cfdi.test). */
 function textoPdf(bytes: Buffer): string {
@@ -107,5 +107,11 @@ describe('Proforma PDF (U1.8a)', () => {
     expect(nombreArchivoProforma({ ...PROFORMA, numeroPedido: null })).toBe(
       'proforma-PF-MID-001-2-v2.pdf',
     );
+  });
+
+  it('genera el PDF como Blob para mostrarlo en pantalla sin descargarlo', async () => {
+    const blob = await generarProformaPdfBlob(PROFORMA);
+    expect(blob.type).toBe('application/pdf');
+    expect(blob.size).toBeGreaterThan(1000);
   });
 });

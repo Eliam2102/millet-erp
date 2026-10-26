@@ -74,6 +74,12 @@ export const EmitirFacturaSchema = z.object({
       'Selecciona un comportamiento fiscal',
     ),
   obraNombre: z.string().max(254).nullable(),
+  // 86e3tfdw2: observaciones del cajero (prellenadas con los anticipos
+  // aplicados). Se imprimen en el PDF; no viajan al XML del CFDI.
+  observaciones: z
+    .string()
+    .max(1000, 'Las observaciones no pueden exceder 1000 caracteres')
+    .nullish(),
   // Encabezado CCE (Comercio Exterior) — solo exportación con CCE.
   cceTipoOperacion: z.string().max(2).nullable(),
   cceIncoterm: z.string().max(10).nullable(),

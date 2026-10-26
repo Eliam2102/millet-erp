@@ -133,7 +133,8 @@ public sealed class ToleranciaProveedorCapturaTests
                 .BuildServiceProvider();
             Handler = new(Cxp, _oc, new ProveedorReadPortAdapter(Maestros, Empresa), new SinBlobs(), new Millet.CuentasPorPagar.Infrastructure.Parsing.XmlCfdiParser(),
                 Empresa, new Mediator(_services), Clock, new ToleranciaGeneralReadPortAdapter(Maestros),
-                new Millet.CuentasPorPagar.Application.FacturaProveedor.Revision.DetencionPorDanoService(Cxp, new AlmacenRevisionFake(), new DependenciasFake(), NullLogger<Millet.CuentasPorPagar.Application.FacturaProveedor.Revision.DetencionPorDanoService>.Instance));
+                new Millet.CuentasPorPagar.Application.FacturaProveedor.Revision.DetencionPorDanoService(Cxp, new AlmacenRevisionFake(), new DependenciasFake(), NullLogger<Millet.CuentasPorPagar.Application.FacturaProveedor.Revision.DetencionPorDanoService>.Instance),
+                new TipoCambioReadPortAdapter(Maestros));
         }
 
         public async Task PrepararAsync(decimal? monto)

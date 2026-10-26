@@ -58,10 +58,20 @@ internal static class MovimientosRevision
         AlmacenDbContext db, Guid empresaId, Guid usuarioId, DateOnly fecha, string motivo,
         IReadOnlyList<ParLiberacionLinea> lineas, CancellationToken ct)
     {
+        if (db.Database.IsNpgsql())
+        {
+            // Mismo orden (artículo, ubicación) que el reparto del costo de importación: si el trigger
+            // bloqueara origen y luego destino, un destino con id menor cruzaría los bloqueos.
+            var articulos = lineas.Select(l => l.Origen.ArticuloId).Distinct().ToArray();
+            var ubicaciones = lineas.SelectMany(l => new[] { l.Origen.UbicacionId, l.DestinoUbicacionId }).Distinct().ToArray();
+            await db.Database.ExecuteSqlInterpolatedAsync(
+                $"SELECT 1 FROM almacen.saldos_inventario WHERE articulo_id = ANY({articulos}) AND ubicacion_id = ANY({ubicaciones}) ORDER BY articulo_id, ubicacion_id FOR UPDATE", ct);
+        }
         var salida = await AgregarAsync(db, empresaId, usuarioId, TipoMovimiento.SalidaPorLiberacionRevision,
             fecha, motivo, lineas.Select(l => l.Origen).ToList(), ct);
         var entrada = await AgregarAsync(db, empresaId, usuarioId, TipoMovimiento.ReincorporacionTrasRevision,
             fecha, motivo, lineas.Select(l => l.Origen with { UbicacionId = l.DestinoUbicacionId }).ToList(), ct);
+        db.Movimientos.Local.Single(m => m.Id == entrada.Id).VincularSalidaLiberacion(salida.Id);
         return (salida, entrada);
     }
 }

@@ -1,5 +1,6 @@
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Storage;
+using Millet.Almacen.Domain.Movimientos;
 using Millet.Almacen.Infrastructure.Persistence;
 
 namespace Millet.Almacen.Application.Catalogo;
@@ -29,5 +30,19 @@ internal static class FolioMovimientoLock
             if (propia is not null) await propia.DisposeAsync();
             throw;
         }
+    }
+
+    /// <summary>Siguiente folio ENT de la misma secuencia que usan los movimientos (recepciones solo de activos, que no generan movimiento).</summary>
+    public static async Task<string> SiguienteEntradaCompraAsync(AlmacenDbContext db, int anio, CancellationToken ct)
+    {
+        var prefijo = TipoMovimiento.EntradaCompra.PrefijoFolio();
+        _ = await AbrirAsync(db, prefijo, anio, ct);
+        var secuencia = await db.FolioSecuenciasMovimiento.FirstOrDefaultAsync(s => s.Prefijo == prefijo && s.Anio == anio, ct);
+        if (secuencia is null)
+        {
+            secuencia = new FolioSecuenciaMovimiento(Guid.CreateVersion7(), prefijo, anio, 0);
+            db.FolioSecuenciasMovimiento.Add(secuencia);
+        }
+        return FolioMovimiento.Construir(TipoMovimiento.EntradaCompra, anio, secuencia.Incrementar()).Valor;
     }
 }

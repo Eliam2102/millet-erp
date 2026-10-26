@@ -32,26 +32,3 @@ public sealed class ReposicionCajaChicaConfiguration : IEntityTypeConfiguration<
             .HasDatabaseName("ix_reposiciones_sucursal_fecha");
     }
 }
-
-public sealed class ConfiguracionReposicionCajaConfiguration
-    : IEntityTypeConfiguration<ConfiguracionReposicionCaja>
-{
-    public void Configure(EntityTypeBuilder<ConfiguracionReposicionCaja> builder)
-    {
-        builder.ToTable("configuracion_reposicion_caja", t =>
-        {
-            t.HasCheckConstraint("ck_config_reposicion_minimo_no_negativo", "monto_minimo >= 0");
-        });
-
-        builder.HasKey(e => e.Id);
-        builder.Property(e => e.Id).ValueGeneratedNever();
-
-        builder.Property(e => e.EmpresaId).IsRequired();
-        builder.Property(e => e.SucursalId).IsRequired();
-        builder.Property(e => e.MontoMinimo).HasPrecision(18, 4).IsRequired();
-
-        builder.HasIndex(e => e.SucursalId)
-            .HasDatabaseName("ux_config_reposicion_sucursal")
-            .IsUnique();
-    }
-}

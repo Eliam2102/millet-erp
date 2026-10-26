@@ -39,10 +39,23 @@ public sealed class RecepcionOcLocal : BaseEntity, IPerteneceAEmpresa, IAuditabl
     /// </summary>
     public string LineasJson { get; private set; } = "[]";
 
+    /// <summary>
+    /// Líneas de OC cuyas filas de esta recepción se anularon (<c>almacen.recepcion_activo.anulada.v1</c>).
+    /// Dejan de contar como recibido para conciliar facturas y para pendientes por facturar.
+    /// </summary>
+    public List<Guid> LineasOcAnuladas { get; private set; } = [];
+
     public DateTimeOffset OcurridoEn { get; private set; }
     public DateTimeOffset ProyectadoEn { get; private set; }
 
     private RecepcionOcLocal() { }
+
+    public bool LineaAnulada(Guid? lineaOcId) => lineaOcId is Guid g && LineasOcAnuladas.Contains(g);
+
+    public void AnularLineaOc(Guid lineaOcId)
+    {
+        if (!LineasOcAnuladas.Contains(lineaOcId)) LineasOcAnuladas = [.. LineasOcAnuladas, lineaOcId];
+    }
 
     public RecepcionOcLocal(
         Guid empresaId,

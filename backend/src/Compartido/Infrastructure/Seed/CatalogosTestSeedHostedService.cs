@@ -607,7 +607,7 @@ public sealed class CatalogosTestSeedHostedService : IHostedService
     ];
 
     /// <summary>
-    /// 5 departamentos funcionales seedeados (00000005-0004-...).
+    /// 7 departamentos funcionales seedeados (00000005-0004-...).
     /// COMPRAS = el "depto primario" del dev-superadmin (asignado en
     /// el bootstrap para que /api/auth/me retorne un departamentoId
     /// no-null en dev/UAT). F1-ADM-01: todos pertenecen a la empresa
@@ -640,6 +640,17 @@ public sealed class CatalogosTestSeedHostedService : IHostedService
             empresaId: CompartidoDbContext.EmpresaBootstrapId,
             clave: "CAL",
             nombre: "Calidad"),
+        // Áreas revisoras de CxP (códigos de MotivoRevision); solo catálogo de prueba, producción los crea el admin.
+        new Departamento(
+            id: Guid.Parse("00000005-0004-0000-0000-000000000006"),
+            empresaId: CompartidoDbContext.EmpresaBootstrapId,
+            clave: "CXP",
+            nombre: "Cuentas por Pagar"),
+        new Departamento(
+            id: Guid.Parse("00000005-0004-0000-0000-000000000007"),
+            empresaId: CompartidoDbContext.EmpresaBootstrapId,
+            clave: "DIRECCION_F",
+            nombre: "Dirección de Finanzas"),
     ];
 
     // F1-PR3: las constantes TestAlmacenes se movieron a

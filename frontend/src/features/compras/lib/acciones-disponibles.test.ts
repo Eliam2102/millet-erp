@@ -337,15 +337,13 @@ describe('accionAprobarNivel2 (matriz §6.1 fila 8)', () => {
     ).toEqual({ visible: true, habilitada: true });
   });
 
-  it('EnAutorizacion SIN N1 firmado: ⚪ con tooltip "Falta autorización Nivel 1"', () => {
+  it('EnAutorizacion SIN N1 firmado: oculto (aún no se sabe si hará falta N2)', () => {
     const result = accionAprobarNivel2(
       makeRq(EstadoRequisicion.EnAutorizacion),
       TODOS_LOS_PERMISOS,
       'autorizador-2',
     );
-    expect(result.visible).toBe(true);
-    expect(result.habilitada).toBe(false);
-    expect(result.motivoDeshabilitada).toBe('Falta autorización Nivel 1');
+    expect(result.visible).toBe(false);
   });
 
   it('EnAutorizacion CON N2 ya firmado por mí: oculto', () => {

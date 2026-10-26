@@ -15,6 +15,24 @@ public sealed class RegistrarCotizacionHandlerTests
     private static readonly DateOnly Hoy = new(2026, 10, 17);
 
     [Fact]
+    public async Task Condiciones_de_pago_solo_admiten_catalogo_activo()
+    {
+        await using var f = Fixture.Crear();
+        var pago = new Millet.Catalogos.Domain.CondicionesPago(Guid.NewGuid(), "DEMO", "DEMO ficticio", 30);
+        f.Compartido.CondicionesPago.Add(pago);
+        await f.Compartido.SaveChangesAsync();
+        await PartidasCotizacion.ValidarPagoAsync(f.Compartido, null, default);
+        await PartidasCotizacion.ValidarPagoAsync(f.Compartido, pago.Id, default);
+        pago.CambiarEstatus(Millet.Catalogos.Domain.EstatusCatalogo.Inactivo);
+        await f.Compartido.SaveChangesAsync();
+        foreach (var id in new[] { pago.Id, Guid.NewGuid(), Guid.Empty })
+        {
+            var error = await Assert.ThrowsAsync<BusinessRuleException>(() => PartidasCotizacion.ValidarPagoAsync(f.Compartido, id, default));
+            Assert.Equal("COT_PAGO_INVALIDO", error.Code);
+        }
+    }
+
+    [Fact]
     public async Task RqEnBorrador_NoSeCotiza()
     {
         await using var f = Fixture.Crear(autorizar: false);

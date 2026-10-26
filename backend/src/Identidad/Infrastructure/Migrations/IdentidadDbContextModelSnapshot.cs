@@ -1431,6 +1431,20 @@ namespace Millet.Identidad.Infrastructure.Migrations
                         },
                         new
                         {
+                            Id = new Guid("00000003-0003-0000-0000-00000000000f"),
+                            Accion = "reportes-analisis-proveedores",
+                            Codigo = "compras.ordenes.reportes-analisis-proveedores",
+                            CreatedAt = new DateTimeOffset(new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            CreatedBy = "seed",
+                            Descripcion = "Consultar el análisis de compras, saldos pendientes y cumplimiento de proveedores",
+                            Modulo = "compras",
+                            Recurso = "ordenes",
+                            UpdatedAt = new DateTimeOffset(new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            UpdatedBy = "seed",
+                            Version = 1
+                        },
+                        new
+                        {
                             Id = new Guid("00000003-0004-0000-0000-000000000001"),
                             Accion = "leer",
                             Codigo = "compras.configuracion.leer",
@@ -3517,6 +3531,20 @@ namespace Millet.Identidad.Infrastructure.Migrations
                         },
                         new
                         {
+                            Id = new Guid("00000009-0001-0000-0000-000000000005"),
+                            Accion = "leer-credito",
+                            Codigo = "facturacion.pedidos.leer-credito",
+                            CreatedAt = new DateTimeOffset(new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            CreatedBy = "seed",
+                            Descripcion = "Ver pedidos facturables a crédito (86e3tfdw2)",
+                            Modulo = "facturacion",
+                            Recurso = "pedidos",
+                            UpdatedAt = new DateTimeOffset(new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            UpdatedBy = "seed",
+                            Version = 1
+                        },
+                        new
+                        {
                             Id = new Guid("00000009-0002-0000-0000-000000000001"),
                             Accion = "emitir",
                             Codigo = "facturacion.facturas.emitir",
@@ -3817,6 +3845,20 @@ namespace Millet.Identidad.Infrastructure.Migrations
                             CreatedAt = new DateTimeOffset(new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
                             CreatedBy = "seed",
                             Descripcion = "Consultar los reportes del módulo Facturación",
+                            Modulo = "facturacion",
+                            Recurso = "reportes",
+                            UpdatedAt = new DateTimeOffset(new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            UpdatedBy = "seed",
+                            Version = 1
+                        },
+                        new
+                        {
+                            Id = new Guid("00000009-000a-0000-0000-000000000002"),
+                            Accion = "leer-todas-sucursales",
+                            Codigo = "facturacion.reportes.leer-todas-sucursales",
+                            CreatedAt = new DateTimeOffset(new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            CreatedBy = "seed",
+                            Descripcion = "Consultar el cierre del día (monitor de CFDI y facturado contra ingresado) de todas las sucursales, sin estar asociado a ellas",
                             Modulo = "facturacion",
                             Recurso = "reportes",
                             UpdatedAt = new DateTimeOffset(new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),

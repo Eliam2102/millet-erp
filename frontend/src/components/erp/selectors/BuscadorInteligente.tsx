@@ -72,6 +72,8 @@ export interface BuscadorInteligenteProps<TItem extends { id: string }> {
   triggerProps?: ComponentProps<'button'>;
   /** Ancho del popover. Default <c>w-[min(36rem,90vw)]</c>. */
   popoverWidthClassName?: string;
+  /** Nota bajo los resultados (p. ej. «Afina la búsqueda para ver más»). */
+  pie?: ReactNode;
 }
 
 export function BuscadorInteligente<TItem extends { id: string }>({
@@ -94,6 +96,7 @@ export function BuscadorInteligente<TItem extends { id: string }>({
   className,
   triggerProps,
   popoverWidthClassName = 'w-[min(36rem,90vw)]',
+  pie,
 }: BuscadorInteligenteProps<TItem>) {
   const [open, setOpen] = useState(false);
   const [input, setInput] = useState('');
@@ -202,6 +205,9 @@ export function BuscadorInteligente<TItem extends { id: string }>({
                     </CommandItem>
                   ))}
                 </CommandGroup>
+                {pie != null && items.length > 0 && (
+                  <p className="border-t px-3 py-2 text-xs text-ink-muted border-line">{pie}</p>
+                )}
               </>
             )}
           </CommandList>
