@@ -40,8 +40,8 @@ public sealed class RegistrarRespuestaProveedorValidatorTests
         Assert.True(Validator.Validate(Cmd(TipoRespuestaProveedorOc.Rechazo, motivo: "Sin stock")).IsValid);
 
     [Fact]
-    public void Rechazo_sin_motivo_es_valido() =>
-        Assert.True(Validator.Validate(Cmd(TipoRespuestaProveedorOc.Rechazo)).IsValid);
+    public void Rechazo_sin_motivo_es_invalido() =>
+        Assert.False(Validator.Validate(Cmd(TipoRespuestaProveedorOc.Rechazo)).IsValid);
 
     [Fact]
     public void Sin_clasificar_sin_motivo_es_valido() =>

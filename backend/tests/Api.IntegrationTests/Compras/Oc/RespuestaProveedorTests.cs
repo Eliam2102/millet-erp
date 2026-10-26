@@ -146,7 +146,7 @@ public partial class OrdenesCompraEndpointsTests
 
         var sinMotivo = await client.PostAsync($"{EndpointBase}/{ocId}/respuestas-proveedor",
             CuerpoRespuesta(2, fechaResp, []));
-        Assert.Equal(HttpStatusCode.Created, sinMotivo.StatusCode);
+        Assert.Equal(HttpStatusCode.BadRequest, sinMotivo.StatusCode);
     }
 
     [Fact]

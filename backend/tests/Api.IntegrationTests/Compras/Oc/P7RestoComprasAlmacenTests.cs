@@ -237,6 +237,7 @@ public partial class OrdenesCompraEndpointsTests
             ocId = (await ReadJsonAsync(creada)).GetProperty("ordenCompraId").GetGuid();
             var oc = await db.OrdenesCompra.Include(o => o.Lineas).SingleAsync(o => o.Id == ocId);
             Assert.Equal("DEMO Obra P7", oc.Obra);
+            oc.ActualizarDatosFactura("G03", "PPD", "99");
             oc.EnviarAAutorizacion(DateTimeOffset.UtcNow);
             oc.Autorizar(Guid.NewGuid(), NivelAutorizacion.Nivel1, Guid.NewGuid(), DateTimeOffset.UtcNow);
             oc.Autorizar(Guid.NewGuid(), NivelAutorizacion.Nivel2, Guid.NewGuid(), DateTimeOffset.UtcNow);
