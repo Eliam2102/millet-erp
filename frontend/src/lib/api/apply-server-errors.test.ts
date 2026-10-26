@@ -50,7 +50,10 @@ describe('applyServerErrors', () => {
         type: 'about:blank',
         title: 'Errores de validación',
         status: 400,
-        errores: [{ field: 'Lineas[0].ProveedorId', code: 'NotEmpty', message: 'Una línea fiscal requiere proveedor.' }],
+        // El tipo declara { campo, codigo, mensaje }; FluentValidation manda { field, code, message }.
+        errores: [
+          { field: 'Lineas[0].ProveedorId', code: 'NotEmpty', message: 'Una línea fiscal requiere proveedor.' },
+        ] as unknown as NonNullable<ConstructorParameters<typeof ApiError>[0]['errores']>,
       },
       400,
     );
