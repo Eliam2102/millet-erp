@@ -13,7 +13,7 @@ using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 namespace Millet.Almacen.Infrastructure.Persistence.Migrations
 {
     [DbContext(typeof(AlmacenDbContext))]
-    [Migration("20261024064229_AlmacenVarianteMedida")]
+    [Migration("20261026174419_AlmacenVarianteMedida")]
     partial class AlmacenVarianteMedida
     {
         /// <inheritdoc />
@@ -2124,7 +2124,7 @@ namespace Millet.Almacen.Infrastructure.Persistence.Migrations
                     b.HasKey("Id")
                         .HasName("pk_ajustes_costo_expediente");
 
-                    b.HasIndex("EmpresaId", "ExpedienteId", "NumeroVersion", "PartidaId")
+                    b.HasIndex("EmpresaId", "ExpedienteId", "NumeroVersion", "PartidaId", "UbicacionId")
                         .IsUnique()
                         .HasDatabaseName("ix_ajustes_costo_expediente_empresa_id_expediente_id_numero_ve");
 
