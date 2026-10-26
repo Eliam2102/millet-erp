@@ -512,9 +512,16 @@ public class AuthSesionEndpointsTests : IClassFixture<WebApplicationFactory<Prog
             });
         }).CreateClient();
 
+        // Ventana del test: la bitácora es compartida y otros tests escriben
+        // eventos de "Sesion" (incluso con timestamp futuro, ver
+        // Adm03AccesosTests); solo se consideran los de esta ejecución.
+        var inicio = DateTimeOffset.UtcNow.AddSeconds(-1);
+
         // 1. Login exitoso
         var okRes = await client.PostAsJsonAsync(Endpoint, new LoginRequest("token-superadmin-audit", null));
         okRes.StatusCode.Should().Be(HttpStatusCode.OK);
+        var okBody = await okRes.Content.ReadFromJsonAsync<LoginResponse>();
+        var superAdminUsuarioId = okBody!.Usuario.Id;
 
         // 2. Login rechazado (usuario inactivo)
         var inactiveOid = $"inactive-{Guid.NewGuid():N}";
@@ -561,8 +568,12 @@ public class AuthSesionEndpointsTests : IClassFixture<WebApplicationFactory<Prog
         {
             var coreDb = scope.ServiceProvider.GetRequiredService<Millet.SharedKernel.Infrastructure.Persistence.CoreDbContext>();
 
+            var fin = DateTimeOffset.UtcNow.AddSeconds(1);
+
             var accesoLog = await coreDb.AuditLog
-                .Where(a => a.Operacion == "acceso" && a.Entidad == "Sesion")
+                .Where(a => a.Operacion == "acceso" && a.Entidad == "Sesion"
+                    && a.UsuarioId == superAdminUsuarioId
+                    && a.Timestamp >= inicio && a.Timestamp <= fin)
                 .OrderByDescending(a => a.Timestamp)
                 .FirstOrDefaultAsync();
 
@@ -574,7 +585,9 @@ public class AuthSesionEndpointsTests : IClassFixture<WebApplicationFactory<Prog
             accesoLog.ActorEmail.Should().BeNull();
 
             var denegadoLog = await coreDb.AuditLog
-                .Where(a => a.Operacion == "acceso_denegado" && a.Entidad == "Sesion")
+                .Where(a => a.Operacion == "acceso_denegado" && a.Entidad == "Sesion"
+                    && a.UsuarioId == null
+                    && a.Timestamp >= inicio && a.Timestamp <= fin)
                 .OrderByDescending(a => a.Timestamp)
                 .FirstOrDefaultAsync();
 

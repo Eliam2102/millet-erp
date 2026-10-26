@@ -54,9 +54,11 @@ features/compras/
 - **Idempotency-Key** (ADR-0020) en TODAS las mutations de comando
   (POST/PATCH/DELETE) salvo en `useEliminarRequisicion`
   (decisión backend doc 05 §7.6 — operación naturalmente idempotente).
-- Hooks usan `useFormIdempotencyKey()` (un hook que devuelve un UUID
-  estable por monta del componente — un retry del usuario reusa la
-  misma key).
+- Hooks usan `useFormIdempotencyKey()`: UUID estable mientras la
+  operación no termine bien (un retry del usuario reusa la misma key) y
+  nuevo en cuanto la mutación que lo usó tiene éxito, así una lista o
+  detalle que sigue montado puede repetir la acción (ADR-0020
+  §"Revisión 2026-09").
 - En `onError`:
   - 422 → `applyServerErrors(form, error)` mapea `errores[]` del
     `ProblemDetails` a campos del form react-hook-form.

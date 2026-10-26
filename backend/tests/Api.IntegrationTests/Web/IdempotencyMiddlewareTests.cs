@@ -140,7 +140,91 @@ public class IdempotencyMiddlewareTests : IClassFixture<WebApplicationFactory<Pr
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
     }
 
+    // --- Revisión 2026-09 (ADR-0020) ---
+
+    [Fact]
+    public async Task MismaKey_OtroPath_EjecutaComoOperacionNueva()
+    {
+        // Antes: la PK no incluía la ruta y /echo/b devolvía la respuesta
+        // de /echo/a sin ejecutar (bug de "desactivo B y no pasa nada").
+        var client = await CreateSuperAdminClientAsync();
+        var key = NewIdempotencyKey();
+        var payload = $"ruta-{Guid.NewGuid():N}";
+
+        var enA = await PostJsonAsync(client, "/api/dev/idempotent-echo/a", key, payload);
+        var enB = await PostJsonAsync(client, "/api/dev/idempotent-echo/b", key, payload);
+
+        Assert.Equal(HttpStatusCode.OK, enB.StatusCode);
+        Assert.False(enB.Headers.Contains("Idempotent-Replayed"));
+        var countA = (await ReadJsonAsync(enA)).GetProperty("count").GetInt32();
+        var countB = (await ReadJsonAsync(enB)).GetProperty("count").GetInt32();
+        Assert.True(countB > countA, $"countB={countB} debería ser > countA={countA}");
+    }
+
+    [Fact]
+    public async Task Previo4xx_Reintento_ReEjecuta()
+    {
+        // Antes: el error de negocio dejaba la fila 'failed' y el reintento
+        // recibía IDEMPOTENCY_IN_PROGRESS durante 24 h.
+        var client = await CreateSuperAdminClientAsync();
+        var key = NewIdempotencyKey();
+        var payload = $"4xx-{Guid.NewGuid():N}";
+
+        var primero = await PostJsonAsync(client, "/api/dev/idempotent-fail-4xx", key, payload);
+        Assert.Equal(HttpStatusCode.Conflict, primero.StatusCode);
+        Assert.Equal("DEV_CONFLICTO", (await ReadJsonAsync(primero)).GetProperty("code").GetString());
+
+        var reintento = await PostJsonAsync(client, "/api/dev/idempotent-fail-4xx", key, payload);
+        Assert.Equal(HttpStatusCode.OK, reintento.StatusCode);
+        Assert.False(reintento.Headers.Contains("Idempotent-Replayed"));
+    }
+
+    [Fact]
+    public async Task Previo5xx_Reintento_Retorna409PreviousFailure()
+    {
+        var client = await CreateSuperAdminClientAsync();
+        var key = NewIdempotencyKey();
+        var payload = $"5xx-{Guid.NewGuid():N}";
+
+        var primero = await PostJsonAsync(client, "/api/dev/idempotent-fail-5xx", key, payload);
+        Assert.Equal(HttpStatusCode.InternalServerError, primero.StatusCode);
+
+        var reintento = await PostJsonAsync(client, "/api/dev/idempotent-fail-5xx", key, payload);
+        Assert.Equal(HttpStatusCode.Conflict, reintento.StatusCode);
+        Assert.Equal(
+            "IDEMPOTENCY_PREVIOUS_FAILURE",
+            (await ReadJsonAsync(reintento)).GetProperty("code").GetString());
+        // No es transitorio: sin Retry-After el cliente no reintenta solo.
+        Assert.Null(reintento.Headers.RetryAfter);
+    }
+
+    [Fact]
+    public async Task Replay_IncluyeETag()
+    {
+        var client = await CreateSuperAdminClientAsync();
+        var key = NewIdempotencyKey();
+        var payload = $"etag-{Guid.NewGuid():N}";
+
+        var original = await PostJsonAsync(client, "/api/dev/idempotent-echo/x", key, payload);
+        var replay = await PostJsonAsync(client, "/api/dev/idempotent-echo/x", key, payload);
+
+        Assert.True(replay.Headers.Contains("Idempotent-Replayed"));
+        Assert.NotNull(original.Headers.ETag);
+        Assert.Equal(original.Headers.ETag, replay.Headers.ETag);
+    }
+
     // --- Helpers ---
+
+    private static async Task<HttpResponseMessage> PostJsonAsync(
+        HttpClient client, string path, string idempotencyKey, string payload)
+    {
+        var content = new StringContent(
+            JsonSerializer.Serialize(new { Payload = payload }),
+            Encoding.UTF8,
+            "application/json");
+        content.Headers.Add("Idempotency-Key", idempotencyKey);
+        return await client.PostAsync(path, content);
+    }
 
     private async Task<HttpClient> CreateSuperAdminClientAsync()
     {

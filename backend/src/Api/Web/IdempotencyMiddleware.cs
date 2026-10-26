@@ -2,11 +2,13 @@ using System.Data;
 using System.Diagnostics;
 using System.Security.Cryptography;
 using System.Text;
+using System.Text.Json;
 using System.Text.RegularExpressions;
 using Microsoft.AspNetCore.Http;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
+using Microsoft.Net.Http.Headers;
 using Millet.SharedKernel.Application;
 using Millet.SharedKernel.Application.Idempotency;
 using Millet.SharedKernel.Infrastructure.Idempotency;
@@ -32,12 +34,12 @@ namespace Millet.Api.Web;
 /// en endpoints decorados; sin él el header es opcional.
 /// </para>
 /// <para>
-/// Captura de exceptions: si el handler downstream lanza, el
-/// <c>GlobalExceptionHandler</c> escribe el Problem Details cuando el body
-/// del response ya fue restaurado al stream original — la fila se marca
-/// <c>failed</c>+<c>truncated=true</c> y los reintentos reciben 409
-/// <c>IDEMPOTENCY_PREVIOUS_FAILURE_NOT_CACHED</c> en vez de re-ejecutar
-/// (evita side effects parciales en ops fiscales).
+/// Revisión 2026-09 (ADR-0020): la key se aísla por endpoint (método + ruta
+/// en la PK); los errores del cliente (4xx) no se conservan — la fila se
+/// borra y un reintento se ejecuta de nuevo —; los errores del servidor
+/// (5xx) quedan <c>failed</c> y sus reintentos reciben 409
+/// <c>IDEMPOTENCY_PREVIOUS_FAILURE</c> (posibles efectos parciales en ops
+/// fiscales). El replay repite <c>ETag</c> y <c>Location</c>.
 /// </para>
 /// </summary>
 public sealed class IdempotencyMiddleware
@@ -138,20 +140,46 @@ public sealed class IdempotencyMiddleware
 
         if (inserted)
         {
+            await WarnIfKeyReusedOnOtherEndpointAsync(db, newRow, context.RequestAborted);
             await ExecuteAndCacheAsync(context, db, newRow, clock, context.RequestAborted);
             return;
         }
 
-        // No insertado: ya existe una fila con el mismo (empresa, usuario, key).
+        // No insertado: ya existe una fila con la misma (empresa, usuario, key)
+        // en ESTE endpoint (método + ruta).
         var existing = await db.IdempotencyKeys
             .AsNoTracking()
             .FirstOrDefaultAsync(
-                x => x.EmpresaId == empresaId && x.UsuarioId == usuarioId && x.Key == keyValue,
+                x => x.EmpresaId == empresaId && x.UsuarioId == usuarioId && x.Key == keyValue
+                    && x.HttpMethod == newRow.HttpMethod && x.Path == newRow.Path,
                 context.RequestAborted)
             ?? throw new InvalidOperationException(
                 "INSERT ON CONFLICT no insertó pero SELECT no halla la fila — race extrema.");
 
         await HandleExistingAsync(context, existing, bodyHash, context.RequestAborted);
+    }
+
+    /// <summary>
+    /// La misma key en otro endpoint se ejecuta como operación independiente
+    /// (la PK incluye método y ruta), pero suele indicar que el cliente no
+    /// renovó la key tras una operación previa: se deja rastro para detectarlo.
+    /// </summary>
+    private async Task WarnIfKeyReusedOnOtherEndpointAsync(
+        CoreDbContext db, IdempotencyKey row, CancellationToken ct)
+    {
+        var reused = await db.IdempotencyKeys
+            .AsNoTracking()
+            .AnyAsync(
+                x => x.EmpresaId == row.EmpresaId && x.UsuarioId == row.UsuarioId && x.Key == row.Key
+                    && (x.HttpMethod != row.HttpMethod || x.Path != row.Path),
+                ct);
+
+        if (reused)
+        {
+            _logger.LogWarning(
+                "Idempotency-Key reusada en otro endpoint; se ejecuta como operación nueva. {Method} {Path}",
+                row.HttpMethod, row.Path);
+        }
     }
 
     private static async Task<string> ReadAndHashRequestBodyAsync(HttpContext context, int maxBytes)
@@ -217,7 +245,7 @@ public sealed class IdempotencyMiddleware
                 {5}, 'processing', {6}, {7},
                 false
             )
-            ON CONFLICT (empresa_id, usuario_id, key) DO NOTHING
+            ON CONFLICT (empresa_id, usuario_id, key, http_method, path) DO NOTHING
             """;
 
         var affected = await db.Database.ExecuteSqlRawAsync(
@@ -262,30 +290,52 @@ public sealed class IdempotencyMiddleware
             context.Response.Body = originalBody;
         }
 
-        var statusCode = context.Response.StatusCode;
+        // Status efectivo: si el handler lanzó, todavía no se escribió la
+        // respuesta; se resuelve con el mismo mapeo que usará el
+        // GlobalExceptionHandler.
+        var statusCode = caught is null
+            ? context.Response.StatusCode
+            : GlobalExceptionHandler.ResolveStatus(caught, context);
         var contentType = context.Response.ContentType ?? string.Empty;
 
         buffer.Seek(0, SeekOrigin.Begin);
         var responseBytes = buffer.ToArray();
 
-        var canCache =
-            caught is null
-            && responseBytes.Length > 0
-            && responseBytes.Length <= _options.MaxResponseBodyBytes
-            && (contentType.StartsWith("application/json", StringComparison.OrdinalIgnoreCase)
-                || contentType.StartsWith("application/problem+json", StringComparison.OrdinalIgnoreCase));
+        if (statusCode is >= 400 and < 500)
+        {
+            // Error del cliente (validación, regla de negocio, conflicto de
+            // versión, no encontrado): la transacción del handler no se aplicó,
+            // así que no hay efecto que proteger. Se borra la fila para que un
+            // reintento — tras corregir la causa — se ejecute de nuevo en lugar
+            // de repetir el error o quedar bloqueado.
+            await DeleteRowAsync(db, row, ct);
+        }
+        else if (caught is not null || statusCode >= 500)
+        {
+            // Error del servidor: pudo dejar efectos parciales. Se conserva como
+            // 'failed' y los reintentos con esta key reciben
+            // IDEMPOTENCY_PREVIOUS_FAILURE (el cliente debe revisar y usar key nueva).
+            await UpdateRowAsync(
+                db, row, IdempotencyStatuses.Failed, statusCode,
+                responseBody: null, responseHeaders: null, truncated: true, clock.UtcNow, ct);
+        }
+        else
+        {
+            var isJson =
+                contentType.StartsWith("application/json", StringComparison.OrdinalIgnoreCase)
+                || contentType.StartsWith("application/problem+json", StringComparison.OrdinalIgnoreCase);
 
-        var (responseBody, truncated) = canCache
-            ? (Encoding.UTF8.GetString(responseBytes), false)
-            : ((string?)null, true);
+            // Sin body (204, 201 vacío) también es replay-able: se repite el status.
+            var (responseBody, truncated) = responseBytes.Length == 0
+                ? ((string?)null, false)
+                : isJson && responseBytes.Length <= _options.MaxResponseBodyBytes
+                    ? (Encoding.UTF8.GetString(responseBytes), false)
+                    : ((string?)null, true);
 
-        var newStatus = caught is null && statusCode < 500
-            ? IdempotencyStatuses.Completed
-            : IdempotencyStatuses.Failed;
-
-        await UpdateRowAsync(
-            db, row.EmpresaId, row.UsuarioId, row.Key,
-            newStatus, statusCode, responseBody, truncated, clock.UtcNow, ct);
+            await UpdateRowAsync(
+                db, row, IdempotencyStatuses.Completed, statusCode,
+                responseBody, CaptureReplayHeaders(context.Response.Headers), truncated, clock.UtcNow, ct);
+        }
 
         if (responseBytes.Length > 0)
         {
@@ -294,17 +344,38 @@ public sealed class IdempotencyMiddleware
 
         if (caught is not null)
         {
-            // Re-lanzar para que GlobalExceptionHandler escriba ProblemDetails
-            // en el response. Nuestra caché quedó marked truncated; los
-            // retries reciben IDEMPOTENCY_PREVIOUS_FAILURE_NOT_CACHED.
+            // Re-lanzar para que GlobalExceptionHandler escriba ProblemDetails.
             throw caught;
         }
     }
 
+    /// <summary>Headers que un replay debe repetir para que el cliente siga funcionando igual.</summary>
+    private static readonly string[] ReplayHeaderNames = [HeaderNames.ETag, HeaderNames.Location];
+
+    private static string? CaptureReplayHeaders(IHeaderDictionary headers)
+    {
+        var captured = new Dictionary<string, string>();
+        foreach (var name in ReplayHeaderNames)
+        {
+            if (headers.TryGetValue(name, out var value) && !string.IsNullOrEmpty(value))
+            {
+                captured[name] = value.ToString();
+            }
+        }
+
+        return captured.Count == 0 ? null : JsonSerializer.Serialize(captured);
+    }
+
+    private static async Task DeleteRowAsync(CoreDbContext db, IdempotencyKey row, CancellationToken ct)
+        => await db.IdempotencyKeys
+            .Where(x => x.EmpresaId == row.EmpresaId && x.UsuarioId == row.UsuarioId && x.Key == row.Key
+                && x.HttpMethod == row.HttpMethod && x.Path == row.Path)
+            .ExecuteDeleteAsync(ct);
+
     private static async Task UpdateRowAsync(
         CoreDbContext db,
-        Guid empresaId, Guid usuarioId, string key,
-        string status, int? responseStatus, string? responseBody, bool truncated,
+        IdempotencyKey row,
+        string status, int? responseStatus, string? responseBody, string? responseHeaders, bool truncated,
         DateTimeOffset completedAt,
         CancellationToken ct)
     {
@@ -312,12 +383,14 @@ public sealed class IdempotencyMiddleware
         // ExecuteSqlRaw + Npgsql; EF infiere el cast a jsonb por la
         // configuración de la columna.
         await db.IdempotencyKeys
-            .Where(x => x.EmpresaId == empresaId && x.UsuarioId == usuarioId && x.Key == key)
+            .Where(x => x.EmpresaId == row.EmpresaId && x.UsuarioId == row.UsuarioId && x.Key == row.Key
+                && x.HttpMethod == row.HttpMethod && x.Path == row.Path)
             .ExecuteUpdateAsync(
                 setters => setters
                     .SetProperty(x => x.Status, status)
                     .SetProperty(x => x.ResponseStatusCode, responseStatus)
                     .SetProperty(x => x.ResponseBody, responseBody)
+                    .SetProperty(x => x.ResponseHeaders, responseHeaders)
                     .SetProperty(x => x.ResponseBodyTruncated, truncated)
                     .SetProperty(x => x.CompletedAt, (DateTimeOffset?)completedAt),
                 ct);
@@ -337,19 +410,35 @@ public sealed class IdempotencyMiddleware
             throw new IdempotencyBodyMismatchException();
         }
 
-        if (existing.ResponseBodyTruncated || existing.ResponseBody is null)
+        if (existing.Status == IdempotencyStatuses.Failed)
         {
-            // No tenemos respuesta cacheable (response demasiado grande o
-            // handler falló sin body): retry no puede replay sin re-ejecutar.
-            // Se rechaza para evitar side effects parciales en ops fiscales.
-            throw new IdempotencyInProgressException(_options.RetryAfterSeconds);
+            throw new IdempotencyPreviousFailureException();
+        }
+
+        if (existing.ResponseBodyTruncated)
+        {
+            // Completada, pero sin respuesta conservada: no se puede repetir
+            // el resultado sin re-ejecutar (evita duplicar ops fiscales).
+            throw new IdempotencyResponseTooLargeException();
         }
 
         context.Response.StatusCode = existing.ResponseStatusCode ?? StatusCodes.Status200OK;
-        context.Response.ContentType = "application/json";
         context.Response.Headers["Idempotent-Replayed"] = "true";
 
-        var bytes = Encoding.UTF8.GetBytes(existing.ResponseBody);
-        await context.Response.Body.WriteAsync(bytes, ct);
+        if (existing.ResponseHeaders is not null)
+        {
+            var headers = JsonSerializer.Deserialize<Dictionary<string, string>>(existing.ResponseHeaders);
+            foreach (var (name, value) in headers ?? [])
+            {
+                context.Response.Headers[name] = value;
+            }
+        }
+
+        if (existing.ResponseBody is not null)
+        {
+            context.Response.ContentType = "application/json";
+            var bytes = Encoding.UTF8.GetBytes(existing.ResponseBody);
+            await context.Response.Body.WriteAsync(bytes, ct);
+        }
     }
 }

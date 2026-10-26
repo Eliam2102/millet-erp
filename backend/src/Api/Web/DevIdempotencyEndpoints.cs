@@ -1,5 +1,7 @@
 #if DEBUG
+using System.Collections.Concurrent;
 using Microsoft.AspNetCore.Mvc;
+using Millet.SharedKernel.Application.Exceptions;
 
 namespace Millet.Api.Web;
 
@@ -20,6 +22,10 @@ public static class DevIdempotencyEndpoints
 {
     private static int _counter;
 
+    // Cuántas veces se ha ejecutado cada payload en los endpoints de fallo;
+    // permite que la primera ejecución falle y la segunda tenga éxito.
+    private static readonly ConcurrentDictionary<string, int> _intentos = new();
+
     public static IEndpointRouteBuilder MapDevIdempotencyEndpoints(this IEndpointRouteBuilder app)
     {
         app.MapPost("/api/dev/idempotent-echo", (
@@ -27,6 +33,47 @@ public static class DevIdempotencyEndpoints
         {
             var count = Interlocked.Increment(ref _counter);
             return Results.Ok(new IdempotentEchoResponse(count, request.Payload));
+        })
+        .WithMetadata(new RequireIdempotencyKeyAttribute())
+        .RequireAuthorization();
+
+        // Misma lógica con id en la ruta: la misma key en otro {id} es otra
+        // operación (revisión 2026-09 del ADR-0020). Devuelve ETag para
+        // validar que el replay lo repite.
+        app.MapPost("/api/dev/idempotent-echo/{id}", (
+            string id,
+            [FromBody] IdempotentEchoRequest request,
+            HttpContext http) =>
+        {
+            var count = Interlocked.Increment(ref _counter);
+            http.Response.Headers.ETag = $"\"{id}-{count}\"";
+            return Results.Ok(new IdempotentEchoResponse(count, request.Payload));
+        })
+        .WithMetadata(new RequireIdempotencyKeyAttribute())
+        .RequireAuthorization();
+
+        // Primera ejecución de cada payload: error de negocio (409); la
+        // segunda: éxito. Valida que un 4xx no bloquee el reintento.
+        app.MapPost("/api/dev/idempotent-fail-4xx", (
+            [FromBody] IdempotentEchoRequest request) =>
+        {
+            if (_intentos.AddOrUpdate(request.Payload, 1, (_, n) => n + 1) == 1)
+            {
+                throw new ConflictException("DEV_CONFLICTO", "Conflicto simulado en el primer intento.");
+            }
+
+            var count = Interlocked.Increment(ref _counter);
+            return Results.Ok(new IdempotentEchoResponse(count, request.Payload));
+        })
+        .WithMetadata(new RequireIdempotencyKeyAttribute())
+        .RequireAuthorization();
+
+        // Siempre falla con error de servidor (5xx).
+        app.MapPost("/api/dev/idempotent-fail-5xx", (
+            [FromBody] IdempotentEchoRequest request) =>
+        {
+            _intentos.AddOrUpdate(request.Payload, 1, (_, n) => n + 1);
+            throw new InvalidOperationException("Falla de servidor simulada.");
         })
         .WithMetadata(new RequireIdempotencyKeyAttribute())
         .RequireAuthorization();
