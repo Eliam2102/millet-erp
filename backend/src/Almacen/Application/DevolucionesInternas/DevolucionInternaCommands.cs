@@ -436,7 +436,7 @@ public sealed class BajaPorDanoHandler : IRequestHandler<BajaPorDanoCommand, Baj
         if (!esEntrada)
         {
             await ReservaDictamen.ValidarAsync(_db,
-                lineas.Select(l => (l.UbicacionId ?? ubicacionDefaultId ?? Guid.Empty, l.ArticuloId, l.ProductoAwVarianteId, l.Cantidad)).ToList(),
+                lineas.Select(l => (l.UbicacionId ?? ubicacionDefaultId ?? Guid.Empty, l.ArticuloId, l.ProductoAwVarianteId, (string?)null, l.Cantidad)).ToList(), // S4a: las salidas toman solo existencia sin lote (S4b elige lote).
                 cancellationToken);
         }
 
@@ -457,7 +457,7 @@ public sealed class BajaPorDanoHandler : IRequestHandler<BajaPorDanoCommand, Baj
             var ubicacionCosto = l.UbicacionId ?? ubicacionDefaultId;
             var saldo = await _db.SaldosInventario.AsNoTracking()
                 .FirstOrDefaultAsync(s => s.UbicacionId == ubicacionCosto && s.ArticuloId == l.ArticuloId
-                    && s.ProductoAwVarianteId == l.ProductoAwVarianteId, cancellationToken);
+                    && s.ProductoAwVarianteId == l.ProductoAwVarianteId && s.Lote == null, cancellationToken);
             var costo = saldo?.CostoPromedioMxn ?? 0m;
             var linea = new LineaMovimiento(
                 id: Guid.CreateVersion7(),
@@ -599,7 +599,7 @@ public sealed class ReincorporacionTrasRevisionHandler
         var reservado = await ReservaDictamen.PendientePorBinAsync(_db, binIds, cancellationToken);
         var saldosMatRev = await _db.SaldosInventario.AsNoTracking()
             .Where(s => binIds.Contains(s.UbicacionId) && s.Cantidad > 0).ToListAsync(cancellationToken);
-        var consumidoEnEstaSolicitud = new Dictionary<(Guid, Guid, Guid?), decimal>();
+        var consumidoEnEstaSolicitud = new Dictionary<(Guid, Guid, Guid?, string?), decimal>();
 
         var pares = new List<ParLiberacionLinea>(request.Lineas.Count);
         foreach (var l in request.Lineas)
@@ -614,15 +614,15 @@ public sealed class ReincorporacionTrasRevisionHandler
             var variante = await Recepciones.RecepcionVariante.ResolverAsync(
                 _articulos, _variantes, l.ArticuloId, l.ProductoAwVarianteId, cancellationToken, nuevoUso: false);
             if (variante is not null) Recepciones.RecepcionVariante.ExigirHojasEnteras(l.Cantidad, variante.AreaHojaM2);
-            var candidatos = saldosMatRev.Where(s => s.ArticuloId == l.ArticuloId && s.ProductoAwVarianteId == l.ProductoAwVarianteId)
+            var candidatos = saldosMatRev.Where(s => s.ArticuloId == l.ArticuloId && s.ProductoAwVarianteId == l.ProductoAwVarianteId && s.Lote == null)
                 .Select(s => new
                 {
                     s.UbicacionId,
                     s.CostoPromedioMxn,
                     Saldo = s.Cantidad,
-                    Reservado = reservado.GetValueOrDefault((s.UbicacionId, s.ArticuloId, s.ProductoAwVarianteId)),
-                    Libre = s.Cantidad - reservado.GetValueOrDefault((s.UbicacionId, s.ArticuloId, s.ProductoAwVarianteId))
-                        - consumidoEnEstaSolicitud.GetValueOrDefault((s.UbicacionId, s.ArticuloId, s.ProductoAwVarianteId)),
+                    Reservado = reservado.GetValueOrDefault((s.UbicacionId, s.ArticuloId, s.ProductoAwVarianteId, s.Lote)),
+                    Libre = s.Cantidad - reservado.GetValueOrDefault((s.UbicacionId, s.ArticuloId, s.ProductoAwVarianteId, s.Lote))
+                        - consumidoEnEstaSolicitud.GetValueOrDefault((s.UbicacionId, s.ArticuloId, s.ProductoAwVarianteId, s.Lote)),
                 }).OrderByDescending(c => c.Libre).ToList();
             Guid origenBin;
             decimal origenCosto;
@@ -640,7 +640,7 @@ public sealed class ReincorporacionTrasRevisionHandler
                         $"(libre: {Math.Max(0m, mejor.Libre):0.####}). Dictamina primero la recepción (permiso dictaminar).");
                 origenBin = mejor.UbicacionId;
                 origenCosto = mejor.CostoPromedioMxn;
-                var k = (mejor.UbicacionId, l.ArticuloId, l.ProductoAwVarianteId);
+                var k = (mejor.UbicacionId, l.ArticuloId, l.ProductoAwVarianteId, (string?)null);
                 consumidoEnEstaSolicitud[k] = consumidoEnEstaSolicitud.GetValueOrDefault(k) + l.Cantidad;
             }
             pares.Add(new ParLiberacionLinea(

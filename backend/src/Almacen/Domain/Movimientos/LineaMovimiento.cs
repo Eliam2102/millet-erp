@@ -83,6 +83,17 @@ public sealed class LineaMovimiento : BaseEntity, IAuditable
     public decimal? AnchoMm { get; private set; }
     public decimal? AltoMm { get; private set; }
 
+    /// <summary>
+    /// F1-MP-01 S4 (E07 S7): lote del proveedor, parte de la llave del saldo. NULL = sin lote («lote de apertura» en lo
+    /// heredado). Obligatorio solo para artículos ligados a A+W (regla de recepción, no del dominio).
+    /// </summary>
+    public string? Lote { get; private set; }
+
+    public const int LoteMaxLength = 50;
+
+    /// <summary>Recorta espacios y convierte vacío en NULL.</summary>
+    public static string? NormalizarLote(string? lote) => string.IsNullOrWhiteSpace(lote) ? null : lote.Trim();
+
     internal LineaMovimiento() { }
 
     public LineaMovimiento(
@@ -105,7 +116,8 @@ public sealed class LineaMovimiento : BaseEntity, IAuditable
         Guid? lineaSalidaOrigenId = null,
         Guid? productoAwVarianteId = null,
         decimal? anchoMm = null,
-        decimal? altoMm = null) : base(id)
+        decimal? altoMm = null,
+        string? lote = null) : base(id)
     {
         if (movimientoId == Guid.Empty)
             throw new BusinessRuleException("LINEA_MOV_SIN_PADRE",
@@ -130,6 +142,10 @@ public sealed class LineaMovimiento : BaseEntity, IAuditable
             throw new BusinessRuleException("LINEA_MOV_MEDIDA_INVALIDA",
                 "El ancho y el alto de la variante deben ser mayores a 0.");
 
+        lote = NormalizarLote(lote);
+        if (lote is { Length: > LoteMaxLength })
+            throw new BusinessRuleException("LINEA_MOV_LOTE_LARGO", $"El lote no puede exceder {LoteMaxLength} caracteres.");
+
         MovimientoId = movimientoId;
         Posicion = posicion;
         ArticuloId = articuloId;
@@ -150,6 +166,7 @@ public sealed class LineaMovimiento : BaseEntity, IAuditable
         ProductoAwVarianteId = productoAwVarianteId;
         AnchoMm = anchoMm;
         AltoMm = altoMm;
+        Lote = lote;
     }
 
     /// <summary>

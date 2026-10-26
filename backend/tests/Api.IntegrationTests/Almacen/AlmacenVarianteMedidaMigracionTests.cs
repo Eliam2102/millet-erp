@@ -14,7 +14,7 @@ namespace Millet.Api.IntegrationTests.Almacen;
 public sealed class AlmacenVarianteMedidaMigracionTests
 {
     private const string Anterior = "20261026163650_AlmacenCostoExpedientePorUbicacion";
-    private const string Migracion = "20261026174419_AlmacenVarianteMedida";
+    private const string Migracion = "20261026225250_AlmacenVarianteMedida";
 
     [Fact]
     public async Task Up_conserva_filas_cantidades_y_valor_y_Down_restaura_el_trigger()
@@ -63,6 +63,12 @@ public sealed class AlmacenVarianteMedidaMigracionTests
             ex = await Assert.ThrowsAnyAsync<Exception>(() => migrator.MigrateAsync(Anterior));
             Assert.Contains("No se puede revertir AlmacenVarianteMedida", ex.ToString());
             await db.Database.ExecuteSqlRawAsync("UPDATE almacen.saldos_inventario SET producto_aw_variante_id = NULL");
+
+            // Una fila con lote (sin variante) también la niega: el Down perdería el lote.
+            await db.Database.ExecuteSqlRawAsync("UPDATE almacen.saldos_inventario SET lote = 'L-1' WHERE id = (SELECT id FROM almacen.saldos_inventario LIMIT 1)");
+            ex = await Assert.ThrowsAnyAsync<Exception>(() => migrator.MigrateAsync(Anterior));
+            Assert.Contains("No se puede revertir AlmacenVarianteMedida", ex.ToString());
+            await db.Database.ExecuteSqlRawAsync("UPDATE almacen.saldos_inventario SET lote = NULL");
 
             await migrator.MigrateAsync(Anterior);
             Assert.Equal(antes, await Resumen(db));

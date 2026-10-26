@@ -34,6 +34,7 @@ public class ConteoPorMedidaTests(WebApplicationFactory<Program> factory) : ICla
         await new CuarentenaRecepcionTests(factory).EjecutarConFixtureAsync(async (db, ctx) =>
         {
             await Recibir(db, ctx, true, Linea(ctx, 20m, VarA), Linea(ctx, 15m, VarB));
+            await ComoLoteDeApertura(db, ctx.ArticuloId); // existencia sin lote (S4a): el conteo sigue una línea por (rack, medida)
             // Resto de la asignación del vidrio ligado: fila en cero sin medida (no debe contarse).
             await db.Database.ExecuteSqlInterpolatedAsync($@"
                 INSERT INTO almacen.saldos_inventario (ubicacion_id, sub_almacen_id, articulo_id, cantidad, costo_promedio_mxn, ultima_actualizacion_at)

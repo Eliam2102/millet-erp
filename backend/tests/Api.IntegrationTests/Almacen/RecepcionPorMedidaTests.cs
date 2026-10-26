@@ -32,9 +32,23 @@ public class RecepcionPorMedidaTests(WebApplicationFactory<Program> factory) : I
     internal static readonly Guid LineaOcB = Guid.NewGuid(); // segunda línea de la OC: 15 hojas de 2140 x 3300
 
     /// <summary>La OC de vidrio: una línea por medida (E1). La medida no viaja en la captura: <paramref name="variante"/> solo elige la línea.</summary>
-    internal static RegistrarRecepcionLineaInput Linea(Ctx ctx, decimal hojas, Guid? variante, decimal danadas = 0m) =>
+    internal const string LoteProveedor = "L-2610-01";
+
+    /// <summary>El artículo ligado a A+W exige lote (E3): por omisión la línea trae <see cref="LoteProveedor"/>.</summary>
+    internal static RegistrarRecepcionLineaInput Linea(Ctx ctx, decimal hojas, Guid? variante, decimal danadas = 0m, string? lote = LoteProveedor) =>
         new(ctx.ArticuloId, variante == VarB ? LineaOcB : ctx.LineaOcId, hojas, null, null, ctx.RackId, "HOJA",
-            CantidadDanada: danadas, MotivoDano: danadas > 0 ? "Hojas rotas" : null);
+            CantidadDanada: danadas, MotivoDano: danadas > 0 ? "Hojas rotas" : null, Lote: lote);
+
+    /// <summary>
+    /// Deja la existencia del artículo como «lote de apertura» (lote NULL), igual que la que ya había antes de S4: las salidas, el
+    /// conteo y las devoluciones de S4a solo tocan existencia sin lote (S4b agrega la elección del lote).
+    /// </summary>
+    internal static async Task ComoLoteDeApertura(AlmacenDbContext db, Guid articulo)
+    {
+        await db.Database.ExecuteSqlInterpolatedAsync($"UPDATE almacen.lineas_movimiento SET lote = NULL WHERE articulo_id = {articulo}");
+        await db.Database.ExecuteSqlInterpolatedAsync($"UPDATE almacen.saldos_inventario SET lote = NULL WHERE articulo_id = {articulo}");
+        db.ChangeTracker.Clear();
+    }
 
     internal static Task<RegistrarRecepcionResponse> Recibir(AlmacenDbContext db, Ctx ctx, bool ligado, params RegistrarRecepcionLineaInput[] lineas) =>
         Recibir(db, ctx, ligado, new DecimalesNulo(), lineas);
@@ -87,6 +101,39 @@ public class RecepcionPorMedidaTests(WebApplicationFactory<Program> factory) : I
                 .Handle(new CancelarRecepcionCommand(r.RecepcionId, "OC", "Medida equivocada"), default);
             (await Fila(db, ctx.RackId, ctx.ArticuloId, VarA))!.Value.Cantidad.Should().Be(0m);
             (await Fila(db, ctx.RackId, ctx.ArticuloId, VarB))!.Value.Cantidad.Should().Be(0m);
+        });
+    }
+
+    [Fact]
+    public async Task Lote_es_obligatorio_con_liga_a_AW_y_opcional_sin_ella_y_cada_lote_es_su_fila()
+    {
+        await new CuarentenaRecepcionTests(factory).EjecutarConFixtureAsync(async (db, ctx) =>
+        {
+            // Artículo ligado a A+W sin lote (nulo, vacío o solo espacios): LOTE_REQUERIDO y no se toca el saldo.
+            foreach (var vacio in new string?[] { null, "", "   " })
+            {
+                var sinLote = () => Recibir(db, ctx, true, Linea(ctx, 5m, VarA, lote: vacio));
+                (await sinLote.Should().ThrowAsync<BusinessRuleException>()).Which.Should().Match<BusinessRuleException>(e =>
+                    e.Code == "LOTE_REQUERIDO" && e.Message == "Captura el lote del proveedor.");
+            }
+            (await Fila(db, ctx.RackId, ctx.ArticuloId, VarA)).Should().BeNull();
+
+            // Dos recepciones de la misma medida con lotes distintos: dos filas; el lote se guarda recortado y viaja en la línea.
+            var r1 = await Recibir(db, ctx, true, Linea(ctx, 5m, VarA, lote: "  L-1 "));
+            await Recibir(db, ctx, true, Linea(ctx, 6m, VarA, lote: "L-2"));
+            var filas = await db.SaldosInventario.AsNoTracking().Where(s => s.UbicacionId == ctx.RackId && s.ArticuloId == ctx.ArticuloId).ToListAsync();
+            filas.OrderBy(f => f.Lote).Select(f => (f.ProductoAwVarianteId, f.Lote, f.Cantidad))
+                .Should().Equal(((Guid?)VarA, (string?)"L-1", 44.652m), ((Guid?)VarA, (string?)"L-2", 53.5824m));
+            (await db.LineasMovimiento.AsNoTracking().SingleAsync(l => l.MovimientoId == r1.RecepcionId)).Lote.Should().Be("L-1");
+
+            // Sin liga a A+W el lote es opcional: sin lote queda la fila NULL; con lote, su propia fila.
+            var legado = new OcLineaLectura(ctx.LineaOcId, ctx.ArticuloId, "M2", 1000m, 0m, 180m);
+            await Recibir(db, ctx, false, new DecimalesNulo(), [legado], Linea(ctx, 5m, null, lote: null));
+            await Recibir(db, ctx, false, new DecimalesNulo(), [legado], Linea(ctx, 2m, null, lote: " ABC "));
+            (await Fila(db, ctx.RackId, ctx.ArticuloId, null))!.Value.Cantidad.Should().BeGreaterThan(0m);
+            var sinLiga = await db.SaldosInventario.AsNoTracking()
+                .Where(s => s.UbicacionId == ctx.RackId && s.ArticuloId == ctx.ArticuloId && s.ProductoAwVarianteId == null).ToListAsync();
+            sinLiga.OrderBy(f => f.Lote).Select(f => (f.Lote, f.Cantidad)).Should().Equal(((string?)null, 5m), ((string?)"ABC", 2m));
         });
     }
 
@@ -148,12 +195,16 @@ public class RecepcionPorMedidaTests(WebApplicationFactory<Program> factory) : I
             // Liberar 2 hojas: sale de MAT-REV y entra al rack, ambas en la medida A.
             var linea = await db.LineasMovimiento.AsNoTracking().SingleAsync(l => l.UbicacionId == ctx.RackRevisionId);
             (linea.ProductoAwVarianteId, linea.AnchoMm, linea.AltoMm, linea.CantidadCapturada).Should().Be((VarA, 2440m, 3660m, 3m));
+            // Lo dañado lleva el mismo lote que la recepción y el dictamen lo hereda al liberar.
+            linea.Lote.Should().Be(LoteProveedor);
             await new DictaminarMaterialEnRevisionHandler(db, new UserFake(OtroUsuario), new EmpresaFake(ctx.EmpresaId), new DecimalesNulo(), ctx.Periodos,
                     new AdjuntosVacios(), new OcM2(ctx))
                 .Handle(new DictaminarMaterialEnRevisionCommand(linea.Id, ResultadoDictamen.Liberar, 17.8608m, "Sin daño real", Fecha, ctx.RackId), default);
             (await Fila(db, ctx.RackRevisionId, ctx.ArticuloId, VarA))!.Value.Cantidad.Should().Be(8.9304m);
             (await Fila(db, ctx.RackId, ctx.ArticuloId, VarA))!.Value.Cantidad.Should().Be(80.3736m);
             (await Fila(db, ctx.RackId, ctx.ArticuloId, null)).Should().BeNull();
+            (await db.SaldosInventario.AsNoTracking().Where(s => s.ArticuloId == ctx.ArticuloId && s.ProductoAwVarianteId == VarA).Select(s => s.Lote).ToListAsync())
+                .Should().OnlyContain(l => l == LoteProveedor).And.HaveCount(2); // rack y MAT-REV, sin filas sin lote
         });
     }
 

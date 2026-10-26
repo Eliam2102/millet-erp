@@ -213,6 +213,85 @@ public class TriggerSaldosNivel4Tests : IClassFixture<WebApplicationFactory<Prog
         finally { await LimpiarFixtureAsync(db, almacenId, subAlmacenId); }
     }
 
+    // ── F1-MP-01 S4: lote del proveedor en la llave del saldo (E07 S7) ────────
+
+    [Fact]
+    public async Task Trigger_dos_recepciones_de_la_misma_variante_con_lotes_distintos_son_dos_filas_con_costo_compartido()
+    {
+        using var scope = _factory.Services.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<AlmacenDbContext>();
+        var (almacenId, subAlmacenId, rackId) = await CrearFixtureAsync(db);
+        var articulo = Guid.NewGuid();
+        var varA = Guid.NewGuid();
+        try
+        {
+            await RegistrarMovimientoAsync(db, 0, subAlmacenId, Guid.NewGuid(), rackId, articulo, 100m, 170m, varA, 3300m, 2140m, "L-1");
+            await RegistrarMovimientoAsync(db, 0, subAlmacenId, Guid.NewGuid(), rackId, articulo, 353.1m, 180m, varA, 3300m, 2140m, "L-2");
+
+            var filas = await db.SaldosInventario.AsNoTracking().Where(s => s.UbicacionId == rackId).ToListAsync();
+            Assert.Equal(2, filas.Count);
+            var l1 = filas.Single(f => f.Lote == "L-1");
+            var l2 = filas.Single(f => f.Lote == "L-2");
+            // Cada lote conserva su cantidad; el costo promedio es de la variante y lo comparten las dos filas (E07 S7).
+            Assert.Equal(100m, l1.Cantidad);
+            Assert.Equal(353.1m, l2.Cantidad);
+            var promedio = Math.Round(80558m / 453.1m, 12);
+            Assert.Equal(promedio, l1.CostoPromedioMxn);
+            Assert.Equal(promedio, l2.CostoPromedioMxn);
+
+            // Una segunda entrada del mismo lote suma en su fila (misma llave) y reparte el nuevo promedio a ambas.
+            await RegistrarMovimientoAsync(db, 0, subAlmacenId, Guid.NewGuid(), rackId, articulo, 46.9m, 200m, varA, 3300m, 2140m, "L-1");
+            filas = await db.SaldosInventario.AsNoTracking().Where(s => s.UbicacionId == rackId).ToListAsync();
+            Assert.Equal(2, filas.Count);
+            Assert.Equal(146.9m, filas.Single(f => f.Lote == "L-1").Cantidad);
+            var nuevo = Math.Round((80558m + 46.9m * 200m) / 500m, 12);
+            // El valor previo ya viene de un promedio redondeado a 12 decimales: se compara con tolerancia de 1e-9.
+            Assert.All(filas, f => Assert.True(Math.Abs(nuevo - f.CostoPromedioMxn) < 0.000000001m, $"costo {f.CostoPromedioMxn} vs {nuevo}"));
+
+            // La salida del lote L-1 no toca L-2, y pedir de un lote sin existencia nombra el lote.
+            await RegistrarMovimientoAsync(db, 1, subAlmacenId, Guid.NewGuid(), rackId, articulo, 6.9m, 0m, varA, 3300m, 2140m, "L-1");
+            Assert.Equal(140m, (await LeerSaldoAsync(db, rackId, articulo, varA, "L-1"))!.Cantidad);
+            Assert.Equal(353.1m, (await LeerSaldoAsync(db, rackId, articulo, varA, "L-2"))!.Cantidad);
+            var inexistente = await Assert.ThrowsAnyAsync<Exception>(() =>
+                RegistrarMovimientoAsync(db, 1, subAlmacenId, Guid.NewGuid(), rackId, articulo, 1m, 0m, varA, 3300m, 2140m, "L-3"));
+            Assert.Contains("SALDO_INEXISTENTE", MensajeCompleto(inexistente));
+            Assert.Contains("lote=L-3", MensajeCompleto(inexistente));
+            // Una salida sin lote no consume las filas con lote (S4b agrega la elección del lote).
+            var sinLote = await Assert.ThrowsAnyAsync<Exception>(() =>
+                RegistrarMovimientoAsync(db, 1, subAlmacenId, Guid.NewGuid(), rackId, articulo, 1m, 0m, varA, 3300m, 2140m));
+            Assert.Contains("SALDO_INEXISTENTE", MensajeCompleto(sinLote));
+        }
+        finally { await LimpiarFixtureAsync(db, almacenId, subAlmacenId); }
+    }
+
+    [Fact]
+    public async Task Trigger_la_fila_sin_lote_sigue_funcionando_junto_a_filas_con_lote()
+    {
+        using var scope = _factory.Services.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<AlmacenDbContext>();
+        var (almacenId, subAlmacenId, rackId) = await CrearFixtureAsync(db);
+        var articulo = Guid.NewGuid();
+        try
+        {
+            // Sin lote (existencia heredada / artículo sin A+W): NULLS NOT DISTINCT la mantiene como una sola fila.
+            await RegistrarMovimientoAsync(db, 0, subAlmacenId, Guid.NewGuid(), rackId, articulo, 10m, 100m);
+            await RegistrarMovimientoAsync(db, 0, subAlmacenId, Guid.NewGuid(), rackId, articulo, 10m, 200m);
+            await RegistrarMovimientoAsync(db, 0, subAlmacenId, Guid.NewGuid(), rackId, articulo, 5m, 300m, lote: "ABC");
+
+            var filas = await db.SaldosInventario.AsNoTracking().Where(s => s.UbicacionId == rackId).ToListAsync();
+            Assert.Equal(2, filas.Count);
+            Assert.Equal(20m, filas.Single(f => f.Lote == null).Cantidad);
+            Assert.Equal(5m, filas.Single(f => f.Lote == "ABC").Cantidad);
+            // Costo compartido por (ubicación, artículo, variante NULL): (10×100 + 10×200 + 5×300) / 25 = 180.
+            Assert.All(filas, f => Assert.Equal(180m, f.CostoPromedioMxn));
+
+            await RegistrarMovimientoAsync(db, 1, subAlmacenId, Guid.NewGuid(), rackId, articulo, 8m, 0m);
+            Assert.Equal(12m, (await LeerSaldoAsync(db, rackId, articulo))!.Cantidad);
+            Assert.Equal(5m, (await LeerSaldoAsync(db, rackId, articulo, lote: "ABC"))!.Cantidad);
+        }
+        finally { await LimpiarFixtureAsync(db, almacenId, subAlmacenId); }
+    }
+
     [Fact]
     public async Task Linea_con_variante_exige_ancho_y_alto_y_viceversa()
     {
@@ -272,7 +351,7 @@ public class TriggerSaldosNivel4Tests : IClassFixture<WebApplicationFactory<Prog
     private static async Task RegistrarMovimientoAsync(
         AlmacenDbContext db, short tipo, Guid subAlmacenId, Guid empresaId,
         Guid ubicacionId, Guid articuloId, decimal cantidad, decimal costo,
-        Guid? varianteId = null, decimal? anchoMm = null, decimal? altoMm = null)
+        Guid? varianteId = null, decimal? anchoMm = null, decimal? altoMm = null, string? lote = null)
     {
         var movimientoId = Guid.NewGuid();
         await db.Database.ExecuteSqlInterpolatedAsync($@"
@@ -288,16 +367,16 @@ public class TriggerSaldosNivel4Tests : IClassFixture<WebApplicationFactory<Prog
             INSERT INTO almacen.lineas_movimiento
                 (id, movimiento_id, posicion, articulo_id, cantidad, unidad_medida,
                  costo_unitario_mxn, monto_total_mxn, moneda_original, ubicacion_id,
-                 producto_aw_variante_id, ancho_mm, alto_mm, version, created_at, updated_at)
+                 producto_aw_variante_id, ancho_mm, alto_mm, lote, version, created_at, updated_at)
             VALUES
                 ({Guid.NewGuid()}, {movimientoId}, 1, {articuloId}, {cantidad}, 'PZA',
                  {costo}, {cantidad * costo}, 'MXN', {ubicacionId},
-                 {varianteId}, {anchoMm}, {altoMm}, 0, NOW(), NOW())");
+                 {varianteId}, {anchoMm}, {altoMm}, {lote}, 0, NOW(), NOW())");
     }
 
-    private static Task<SaldoInventario?> LeerSaldoAsync(AlmacenDbContext db, Guid ubicacionId, Guid articuloId, Guid? varianteId = null) =>
+    private static Task<SaldoInventario?> LeerSaldoAsync(AlmacenDbContext db, Guid ubicacionId, Guid articuloId, Guid? varianteId = null, string? lote = null) =>
         db.SaldosInventario.AsNoTracking()
-            .FirstOrDefaultAsync(s => s.UbicacionId == ubicacionId && s.ArticuloId == articuloId && s.ProductoAwVarianteId == varianteId);
+            .FirstOrDefaultAsync(s => s.UbicacionId == ubicacionId && s.ArticuloId == articuloId && s.ProductoAwVarianteId == varianteId && s.Lote == lote);
 
     private static string MensajeCompleto(Exception ex) =>
         ex.Message + " | " + (ex.InnerException?.Message ?? string.Empty);

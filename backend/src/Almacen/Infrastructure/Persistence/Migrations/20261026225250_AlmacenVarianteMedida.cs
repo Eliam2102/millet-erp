@@ -39,11 +39,27 @@ namespace Millet.Almacen.Infrastructure.Persistence.Migrations
                 nullable: false,
                 defaultValueSql: "gen_random_uuid()");
 
+            migrationBuilder.AddColumn<string>(
+                name: "lote",
+                schema: "almacen",
+                table: "saldos_inventario",
+                type: "character varying(50)",
+                maxLength: 50,
+                nullable: true);
+
             migrationBuilder.AddColumn<Guid>(
                 name: "producto_aw_variante_id",
                 schema: "almacen",
                 table: "saldos_inventario",
                 type: "uuid",
+                nullable: true);
+
+            migrationBuilder.AddColumn<string>(
+                name: "lote",
+                schema: "almacen",
+                table: "lineas_movimiento",
+                type: "character varying(50)",
+                maxLength: 50,
                 nullable: true);
 
             migrationBuilder.AddColumn<decimal>(
@@ -95,7 +111,7 @@ namespace Millet.Almacen.Infrastructure.Persistence.Migrations
                 name: "ux_saldos_ubic_art_var",
                 schema: "almacen",
                 table: "saldos_inventario",
-                columns: new[] { "ubicacion_id", "articulo_id", "producto_aw_variante_id" },
+                columns: new[] { "ubicacion_id", "articulo_id", "producto_aw_variante_id", "lote" },
                 unique: true)
                 .Annotation("Npgsql:NullsDistinct", false);
 
@@ -119,8 +135,8 @@ namespace Millet.Almacen.Infrastructure.Persistence.Migrations
                 unique: true)
                 .Annotation("Npgsql:NullsDistinct", false);
 
-            // E07 §5.3: misma función vigente (cuerpo de 12 decimales de AlmacenCostoExpedienteP1) con la variante
-            // en el INSERT, el ON CONFLICT, el bloqueo y la salida. Sin backfill: lo existente queda con variante NULL.
+            // E07 §5.3 / S7: misma función vigente (cuerpo de 12 decimales de AlmacenCostoExpedienteP1) con la variante y el lote
+            // en el INSERT, el ON CONFLICT, el bloqueo y la salida. Sin backfill: lo existente queda con variante y lote NULL.
             migrationBuilder.Sql(TriggerConVariante);
         }
 
@@ -132,10 +148,10 @@ namespace Millet.Almacen.Infrastructure.Persistence.Migrations
             migrationBuilder.Sql("""
 DO $$
 BEGIN
-    IF EXISTS (SELECT 1 FROM almacen.saldos_inventario WHERE producto_aw_variante_id IS NOT NULL)
-       OR EXISTS (SELECT 1 FROM almacen.lineas_movimiento WHERE producto_aw_variante_id IS NOT NULL)
+    IF EXISTS (SELECT 1 FROM almacen.saldos_inventario WHERE producto_aw_variante_id IS NOT NULL OR lote IS NOT NULL)
+       OR EXISTS (SELECT 1 FROM almacen.lineas_movimiento WHERE producto_aw_variante_id IS NOT NULL OR lote IS NOT NULL)
        OR EXISTS (SELECT 1 FROM almacen.lineas_conteo WHERE producto_aw_variante_id IS NOT NULL) THEN
-        RAISE EXCEPTION 'No se puede revertir AlmacenVarianteMedida: hay filas por variante de medida.';
+        RAISE EXCEPTION 'No se puede revertir AlmacenVarianteMedida: hay filas por variante de medida o por lote.';
     END IF;
 END $$;
 """);
@@ -176,9 +192,19 @@ END $$;
                 table: "saldos_inventario");
 
             migrationBuilder.DropColumn(
+                name: "lote",
+                schema: "almacen",
+                table: "saldos_inventario");
+
+            migrationBuilder.DropColumn(
                 name: "producto_aw_variante_id",
                 schema: "almacen",
                 table: "saldos_inventario");
+
+            migrationBuilder.DropColumn(
+                name: "lote",
+                schema: "almacen",
+                table: "lineas_movimiento");
 
             migrationBuilder.DropColumn(
                 name: "alto_mm",
@@ -362,6 +388,10 @@ $$ LANGUAGE plpgsql;
 CREATE OR REPLACE FUNCTION almacen.fn_movimientos_actualizar_saldo()
 RETURNS TRIGGER AS $$
 DECLARE
+    v_filas_grupo BIGINT;
+    v_cantidad_grupo NUMERIC;
+    v_valor_grupo NUMERIC;
+    v_costo_nuevo NUMERIC;
     v_tipo SMALLINT;
     v_estado SMALLINT;
     v_sub_almacen_id UUID;
@@ -429,28 +459,50 @@ BEGIN
     END IF;
 
     IF v_es_entrada THEN
+        -- E07 S7: el costo promedio es por (ubicación, artículo, variante); todas las filas de lote de la variante lo comparten.
+        -- Se bloquea el grupo (orden por id) y el promedio se recalcula con todas sus filas más la entrada.
+        PERFORM 1
+           FROM almacen.saldos_inventario
+          WHERE ubicacion_id = NEW.ubicacion_id
+            AND articulo_id = NEW.articulo_id
+            AND producto_aw_variante_id IS NOT DISTINCT FROM NEW.producto_aw_variante_id
+          ORDER BY id
+            FOR UPDATE;
+
+        SELECT COUNT(*), COALESCE(SUM(cantidad), 0), COALESCE(SUM(cantidad * costo_promedio_mxn), 0)
+          INTO v_filas_grupo, v_cantidad_grupo, v_valor_grupo
+          FROM almacen.saldos_inventario
+         WHERE ubicacion_id = NEW.ubicacion_id
+           AND articulo_id = NEW.articulo_id
+           AND producto_aw_variante_id IS NOT DISTINCT FROM NEW.producto_aw_variante_id;
+
+        v_costo_nuevo := CASE
+            WHEN v_filas_grupo = 0 OR v_cantidad_grupo + v_delta = 0 THEN NEW.costo_unitario_mxn
+            ELSE ROUND((v_valor_grupo + (v_delta * NEW.costo_unitario_mxn)) / (v_cantidad_grupo + v_delta), 12)
+        END;
+
         INSERT INTO almacen.saldos_inventario (
-            ubicacion_id, sub_almacen_id, articulo_id, producto_aw_variante_id, cantidad,
+            ubicacion_id, sub_almacen_id, articulo_id, producto_aw_variante_id, lote, cantidad,
             costo_promedio_mxn, ultima_actualizacion_at, ultimo_movimiento_id
         )
         VALUES (
-            NEW.ubicacion_id, v_sub_almacen_id, NEW.articulo_id, NEW.producto_aw_variante_id, v_delta,
-            NEW.costo_unitario_mxn, NOW(), NEW.movimiento_id
+            NEW.ubicacion_id, v_sub_almacen_id, NEW.articulo_id, NEW.producto_aw_variante_id, NEW.lote, v_delta,
+            v_costo_nuevo, NOW(), NEW.movimiento_id
         )
-        ON CONFLICT (ubicacion_id, articulo_id, producto_aw_variante_id) DO UPDATE
+        ON CONFLICT (ubicacion_id, articulo_id, producto_aw_variante_id, lote) DO UPDATE
         SET
-            costo_promedio_mxn = CASE
-                WHEN saldos_inventario.cantidad + v_delta = 0 THEN NEW.costo_unitario_mxn
-                ELSE ROUND(
-                    ((saldos_inventario.cantidad * saldos_inventario.costo_promedio_mxn)
-                     + (v_delta * NEW.costo_unitario_mxn))
-                    / (saldos_inventario.cantidad + v_delta),
-                    12
-                )
-            END,
+            costo_promedio_mxn = v_costo_nuevo,
             cantidad = saldos_inventario.cantidad + v_delta,
             ultima_actualizacion_at = NOW(),
             ultimo_movimiento_id = NEW.movimiento_id;
+
+        UPDATE almacen.saldos_inventario
+           SET costo_promedio_mxn = v_costo_nuevo
+         WHERE ubicacion_id = NEW.ubicacion_id
+           AND articulo_id = NEW.articulo_id
+           AND producto_aw_variante_id IS NOT DISTINCT FROM NEW.producto_aw_variante_id
+           AND lote IS DISTINCT FROM NEW.lote
+           AND costo_promedio_mxn <> v_costo_nuevo;
     ELSE
         SELECT cantidad
           INTO v_existing_cantidad
@@ -458,19 +510,20 @@ BEGIN
          WHERE ubicacion_id = NEW.ubicacion_id
            AND articulo_id = NEW.articulo_id
            AND producto_aw_variante_id IS NOT DISTINCT FROM NEW.producto_aw_variante_id
+           AND lote IS NOT DISTINCT FROM NEW.lote
          FOR UPDATE;
 
         IF v_existing_cantidad IS NULL THEN
             RAISE EXCEPTION
-                'SALDO_INEXISTENTE: ubicacion=% articulo=% variante=% — no se puede aplicar salida (cantidad=%).',
-                NEW.ubicacion_id, NEW.articulo_id, NEW.producto_aw_variante_id, v_delta
+                'SALDO_INEXISTENTE: ubicacion=% articulo=% variante=% lote=% — no se puede aplicar salida (cantidad=%).',
+                NEW.ubicacion_id, NEW.articulo_id, NEW.producto_aw_variante_id, NEW.lote, v_delta
                 USING ERRCODE = '23514';
         END IF;
 
         IF v_existing_cantidad < v_delta THEN
             RAISE EXCEPTION
-                'SALDO_INSUFICIENTE: ubicacion=% articulo=% variante=% disponible=% solicitado=%.',
-                NEW.ubicacion_id, NEW.articulo_id, NEW.producto_aw_variante_id, v_existing_cantidad, v_delta
+                'SALDO_INSUFICIENTE: ubicacion=% articulo=% variante=% lote=% disponible=% solicitado=%.',
+                NEW.ubicacion_id, NEW.articulo_id, NEW.producto_aw_variante_id, NEW.lote, v_existing_cantidad, v_delta
                 USING ERRCODE = '23514';
         END IF;
 
@@ -480,7 +533,8 @@ BEGIN
                ultimo_movimiento_id = NEW.movimiento_id
          WHERE ubicacion_id = NEW.ubicacion_id
            AND articulo_id = NEW.articulo_id
-           AND producto_aw_variante_id IS NOT DISTINCT FROM NEW.producto_aw_variante_id;
+           AND producto_aw_variante_id IS NOT DISTINCT FROM NEW.producto_aw_variante_id
+           AND lote IS NOT DISTINCT FROM NEW.lote;
     END IF;
 
     RETURN NEW;

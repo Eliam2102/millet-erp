@@ -36,6 +36,7 @@ public class SalidaPorMedidaTests(WebApplicationFactory<Program> factory) : ICla
         await new CuarentenaRecepcionTests(factory).EjecutarConFixtureAsync(async (db, ctx) =>
         {
             await Recibir(db, ctx, true, Linea(ctx, 20m, VarA), Linea(ctx, 15m, VarB));
+            await ComoLoteDeApertura(db, ctx.ArticuloId); // existencia sin lote (S4a): la salida y la devolución interna siguen funcionando
 
             var vale = await Vale(db, ctx, Sale(ctx, 5m, VarA));
             (await Fila(db, ctx.RackId, ctx.ArticuloId, VarA))!.Value.Cantidad.Should().Be(133.956m);   // 15 hojas
@@ -77,6 +78,7 @@ public class SalidaPorMedidaTests(WebApplicationFactory<Program> factory) : ICla
         await new CuarentenaRecepcionTests(factory).EjecutarConFixtureAsync(async (db, ctx) =>
         {
             await Recibir(db, ctx, true, Linea(ctx, 15m, VarB));
+            await ComoLoteDeApertura(db, ctx.ArticuloId);
 
             var sin = () => Vale(db, ctx, Sale(ctx, 1m, null));
             (await sin.Should().ThrowAsync<BusinessRuleException>()).Which.Code.Should().Be("VARIANTE_VIDRIO_REQUERIDA");
@@ -95,12 +97,27 @@ public class SalidaPorMedidaTests(WebApplicationFactory<Program> factory) : ICla
     }
 
     [Fact]
+    public async Task Salida_sin_lote_no_consume_existencia_con_lote_hasta_que_S4b_elija_lote()
+    {
+        await new CuarentenaRecepcionTests(factory).EjecutarConFixtureAsync(async (db, ctx) =>
+        {
+            await Recibir(db, ctx, true, Linea(ctx, 15m, VarB)); // llega con lote del proveedor
+
+            var sinLote = () => Vale(db, ctx, Sale(ctx, 1m, VarB));
+            (await sinLote.Should().ThrowAsync<BusinessRuleException>()).Which.Message
+                .Should().Be("No hay hojas suficientes de 2140 × 3300 mm en el rack: hay 0 y pides 1.");
+            (await Fila(db, ctx.RackId, ctx.ArticuloId, VarB))!.Value.Cantidad.Should().Be(105.93m);
+        });
+    }
+
+    [Fact]
     public async Task Reincorporar_lo_reservado_para_dictamen_de_una_medida_se_rechaza()
     {
         await new CuarentenaRecepcionTests(factory).EjecutarConFixtureAsync(async (db, ctx) =>
         {
             // 10 hojas de 2440×3660 llegan dañadas: todo queda en MAT-REV, reservado para el dictamen (sin dictaminar).
             await Recibir(db, ctx, true, Linea(ctx, 10m, VarA, danadas: 10m));
+            await ComoLoteDeApertura(db, ctx.ArticuloId);
             (await Fila(db, ctx.RackRevisionId, ctx.ArticuloId, VarA))!.Value.Cantidad.Should().Be(89.304m);
 
             var reincorporar = () => new ReincorporacionTrasRevisionHandler(db, new UserFake(ctx.UserId), new EmpresaFake(ctx.EmpresaId),

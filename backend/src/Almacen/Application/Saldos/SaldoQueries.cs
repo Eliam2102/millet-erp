@@ -25,8 +25,9 @@ public sealed record SaldoListItem(
     // frontend cae al ArticuloId crudo.
     string? ArticuloClave,
     string? ArticuloDescripcion,
-    // F1-MP-01: medida de hoja (vidrio crudo). Una fila por medida; la cantidad va en m² y las hojas = cantidad / area.
-    Guid? ProductoAwVarianteId = null, decimal? AnchoMm = null, decimal? AltoMm = null, decimal? AreaHojaM2 = null);
+    // F1-MP-01: medida de hoja (vidrio crudo). Una fila por medida y lote; la cantidad va en m² y las hojas = cantidad / area.
+    Guid? ProductoAwVarianteId = null, decimal? AnchoMm = null, decimal? AltoMm = null, decimal? AreaHojaM2 = null,
+    string? Lote = null);
 
 public sealed record ListarSaldosQuery(
     Guid? SubAlmacenId,
@@ -83,12 +84,13 @@ public sealed class ListarSaldosHandler
         // Puente determinista: SUM + costo ponderado. El grano por-ubicación
         // (columna de bin) se difiere a C7.2b con su decisión de UX.
         var agrupado = query
-            .GroupBy(s => new { s.SubAlmacenId, s.ArticuloId, s.ProductoAwVarianteId })
+            .GroupBy(s => new { s.SubAlmacenId, s.ArticuloId, s.ProductoAwVarianteId, s.Lote })
             .Select(g => new
             {
                 g.Key.SubAlmacenId,
                 g.Key.ArticuloId,
                 g.Key.ProductoAwVarianteId,
+                g.Key.Lote,
                 Cantidad = g.Sum(s => s.Cantidad),
                 CantidadDisponible = g.Sum(s => s.CantidadDisponible),
                 ValorInventarioMxn = g.Sum(s => s.ValorInventarioMxn),
@@ -96,7 +98,7 @@ public sealed class ListarSaldosHandler
 
         var total = await agrupado.CountAsync(cancellationToken);
         var pagina = await agrupado
-            .OrderBy(x => x.SubAlmacenId).ThenBy(x => x.ArticuloId).ThenBy(x => x.ProductoAwVarianteId)
+            .OrderBy(x => x.SubAlmacenId).ThenBy(x => x.ArticuloId).ThenBy(x => x.ProductoAwVarianteId).ThenBy(x => x.Lote)
             .Skip(request.Offset).Take(request.Limit)
             .ToListAsync(cancellationToken);
         var items = pagina
@@ -105,7 +107,7 @@ public sealed class ListarSaldosHandler
                 x.Cantidad, x.CantidadDisponible,
                 x.Cantidad > 0 ? Math.Round(x.ValorInventarioMxn / x.Cantidad, 4) : 0m,
                 x.ValorInventarioMxn,
-                null, null, x.ProductoAwVarianteId)) // ArticuloClave/Descripcion y medida: se enriquecen en batch abajo (ADR-0042).
+                null, null, x.ProductoAwVarianteId, Lote: x.Lote)) // ArticuloClave/Descripcion y medida: se enriquecen en batch abajo (ADR-0042).
             .ToList();
 
         // Nombre del artículo: batch sobre los ArticuloId distintos de la página

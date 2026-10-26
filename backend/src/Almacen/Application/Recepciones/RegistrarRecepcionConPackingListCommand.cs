@@ -81,6 +81,9 @@ public sealed class RegistrarRecepcionConPackingListValidator
                 .WithMessage("Indica el motivo del daño.");
             linea.RuleFor(l => l.MotivoDano!).MaximumLength(500)
                 .When(l => l.MotivoDano is not null);
+            linea.RuleFor(l => l.Lote)
+                .Must(x => Domain.Movimientos.LineaMovimiento.NormalizarLote(x) is not { Length: > Domain.Movimientos.LineaMovimiento.LoteMaxLength })
+                .WithMessage($"El lote no puede exceder {Domain.Movimientos.LineaMovimiento.LoteMaxLength} caracteres.");
         });
     }
 }
@@ -143,12 +146,14 @@ public sealed class RegistrarRecepcionConPackingListHandler
         var conversiones = new List<ConversionUnidad>();
         // F1-MP-01: la medida se valida contra el producto A+W vigente del artículo en cada recepción.
         var variantes = new List<VarianteVidrioLectura?>();
+        var lotes = new List<string?>();
         foreach (var input in request.Lineas)
         {
             var lineaOc = oc!.Lineas.Single(l => l.LineaId == input.LineaOcId);
             // E1: la medida la fija la línea de la OC; quien recibe no la elige.
             var variante = await RecepcionVariante.ResolverAsync(_articulos, _variantes, input.ArticuloId, lineaOc.ProductoAwVarianteId, cancellationToken);
             variantes.Add(variante);
+            lotes.Add(RecepcionVariante.ExigirLote(variante, input.Lote));
             conversiones.Add(await RecepcionVariante.ConvertirAsync(_conversion, input.ArticuloId, input.Cantidad,
                 input.UnidadCapturada, lineaOc.UnidadMedida!, variante, cancellationToken));
         }
@@ -242,7 +247,7 @@ public sealed class RegistrarRecepcionConPackingListHandler
                     comentarioLinea: input.Comentario,
                     ubicacionId: input.UbicacionId,
                     lineaOcId: lineaOcId,
-                    productoAwVarianteId: variantes[idx]?.VarianteId, anchoMm: variantes[idx]?.AnchoMm, altoMm: variantes[idx]?.AltoMm);
+                    productoAwVarianteId: variantes[idx]?.VarianteId, anchoMm: variantes[idx]?.AnchoMm, altoMm: variantes[idx]?.AltoMm, lote: lotes[idx]);
                 if (convDanada is null) linea.AsentarCaptura(conversion.CantidadCapturada, conversion.UnidadCapturada);
                 else linea.AsentarCaptura(input.Cantidad - input.CantidadDanada, conversion.UnidadCapturada);
                 movimiento.AgregarLinea(linea);
@@ -286,7 +291,7 @@ public sealed class RegistrarRecepcionConPackingListHandler
                     comentarioLinea: input.MotivoDano,
                     ubicacionId: rackRevision.Value.UbicacionRevisionId,
                     lineaOcId: lineaOcId,
-                    productoAwVarianteId: variantes[idx]?.VarianteId, anchoMm: variantes[idx]?.AnchoMm, altoMm: variantes[idx]?.AltoMm);
+                    productoAwVarianteId: variantes[idx]?.VarianteId, anchoMm: variantes[idx]?.AnchoMm, altoMm: variantes[idx]?.AltoMm, lote: lotes[idx]);
                 lineaRev.AsentarCaptura(input.CantidadDanada, conversion.UnidadCapturada);
                 movimientoRevision.AgregarLinea(lineaRev);
 

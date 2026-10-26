@@ -234,7 +234,7 @@ public sealed class RegistrarSalidaPorValeHandler
             var saldo = await _db.SaldosInventario.AsNoTracking()
                 .FirstOrDefaultAsync(
                     s => s.UbicacionId == ubicacionLinea && s.ArticuloId == input.ArticuloId
-                        && s.ProductoAwVarianteId == input.ProductoAwVarianteId,
+                        && s.ProductoAwVarianteId == input.ProductoAwVarianteId && s.Lote == null, // S4a: sin lote; S4b elige lote
                     cancellationToken);
             var costoSnapshot = saldo?.CostoPromedioMxn ?? 0m;
             var variante = variantes[posicion - 1];

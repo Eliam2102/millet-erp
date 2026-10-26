@@ -456,7 +456,7 @@ public sealed class RegistrarSalidaDevolucionAProveedorHandler
                 costoUnitarioMxn: origen.CostoUnitarioMxn, // Costo histórico verificado contra la recepción.
                 ubicacionId: ubicacionLinea,
                 // F1-MP-01: la devolución hereda la medida de la línea de recepción original.
-                productoAwVarianteId: origen.ProductoAwVarianteId, anchoMm: origen.AnchoMm, altoMm: origen.AltoMm);
+                productoAwVarianteId: origen.ProductoAwVarianteId, anchoMm: origen.AnchoMm, altoMm: origen.AltoMm, lote: origen.Lote);
             movimiento.AgregarLinea(movLinea);
 
             payload.Add(new LineaDevolucionProveedorPayload(

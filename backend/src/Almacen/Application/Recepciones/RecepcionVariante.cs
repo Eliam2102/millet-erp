@@ -14,6 +14,18 @@ internal static class RecepcionVariante
     public const string UnidadHoja = "HOJA";
     public const string MensajeHojasEnteras = "Con medida, captura la cantidad en hojas enteras.";
 
+    /// <summary>
+    /// F1-MP-01 S4 (Eliam E3): el lote del proveedor es obligatorio para el artículo ligado a A+W (el que resuelve una variante)
+    /// y opcional para el resto. Devuelve el lote normalizado (recortado; vacío = NULL).
+    /// </summary>
+    public static string? ExigirLote(VarianteVidrioLectura? variante, string? lote)
+    {
+        var normalizado = Domain.Movimientos.LineaMovimiento.NormalizarLote(lote);
+        if (variante is not null && normalizado is null)
+            throw new BusinessRuleException("LOTE_REQUERIDO", "Captura el lote del proveedor.");
+        return normalizado;
+    }
+
     /// <summary>La cantidad en m² de una línea con medida debe ser un número entero de hojas (m² = hojas × m² por hoja).</summary>
     public static void ExigirHojasEnteras(decimal cantidadM2, decimal? areaHojaM2)
     {

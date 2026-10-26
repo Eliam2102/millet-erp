@@ -91,11 +91,11 @@ public sealed class DictaminarMaterialEnRevisionHandler(
             db, empresaId, request.FechaMovimiento, periodoContable, cancellationToken);
 
         var costo = await db.SaldosInventario.AsNoTracking()
-            .Where(s => s.UbicacionId == info.UbicacionRevisionId && s.ArticuloId == info.ArticuloId && s.ProductoAwVarianteId == info.ProductoAwVarianteId)
+            .Where(s => s.UbicacionId == info.UbicacionRevisionId && s.ArticuloId == info.ArticuloId && s.ProductoAwVarianteId == info.ProductoAwVarianteId && s.Lote == info.Lote)
             .Select(s => (decimal?)s.CostoPromedioMxn).FirstOrDefaultAsync(cancellationToken)
             ?? info.CostoUnitarioMxn;
         var origen = new LineaRevisionMov(info.ArticuloId, info.UnidadMedida, request.Cantidad, costo, info.UbicacionRevisionId,
-            info.ProductoAwVarianteId, info.AnchoMm, info.AltoMm);
+            info.ProductoAwVarianteId, info.AnchoMm, info.AltoMm, info.Lote);
 
         DictamenRevision dictamen;
         string? folio;

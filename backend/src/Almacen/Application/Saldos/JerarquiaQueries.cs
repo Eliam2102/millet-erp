@@ -250,13 +250,16 @@ public sealed class ObtenerHijosJerarquiaHandler
     private async Task<IReadOnlyList<NodoJerarquiaDto>> HijosDeUbicacionAsync(
         ObtenerHijosJerarquiaQuery request, CancellationToken ct)
     {
-        // Llave (ubicacion_id, articulo_id, variante) → a lo sumo una fila por artículo y medida; no hace falta agrupar.
-        var filas = await SaldosFiltrados(request)
+        // Llave (ubicacion_id, articulo_id, variante, lote): el árbol muestra una hoja por artículo y medida, así que los lotes se suman.
+        var filas = (await SaldosFiltrados(request)
             .Where(s => s.UbicacionId == request.NodoId!.Value)
             .OrderBy(s => s.ArticuloId)
             .Take(LimitMax)
             .Select(s => new { s.ArticuloId, s.ProductoAwVarianteId, s.Cantidad, s.ValorInventarioMxn })
-            .ToListAsync(ct);
+            .ToListAsync(ct))
+            .GroupBy(s => (s.ArticuloId, s.ProductoAwVarianteId))
+            .Select(g => new { g.Key.ArticuloId, g.Key.ProductoAwVarianteId, Cantidad = g.Sum(s => s.Cantidad), ValorInventarioMxn = g.Sum(s => s.ValorInventarioMxn) })
+            .ToList();
 
         // Clave/descripción del artículo en batch (ADR-0042); fallback al id.
         var articuloIds = filas.Select(f => f.ArticuloId).Distinct().ToArray();

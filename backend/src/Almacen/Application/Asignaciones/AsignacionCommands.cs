@@ -116,7 +116,7 @@ public sealed class AsignarArticuloAUbicacionHandler
         await _db.SaveChangesAsync(cancellationToken);
 
         // Fila de saldo en 0, idempotente. Si un movimiento ya la creó, DO NOTHING
-        // (mismo conflict target que el trigger; la fila-en-0 es la de variante NULL).
+        // (mismo conflict target que el trigger; la fila-en-0 es la de variante y lote NULL).
         // F1-MP-01: el vidrio por medida no tiene fila sin medida; sus filas nacen con el primer movimiento de cada medida.
         if (articulo.ProductoAwId is null)
         await _db.Database.ExecuteSqlInterpolatedAsync($@"
@@ -125,7 +125,7 @@ public sealed class AsignarArticuloAUbicacionHandler
                  costo_promedio_mxn, ultima_actualizacion_at)
             VALUES ({request.UbicacionId}, {ubicacion.SubAlmacenId}, {request.ArticuloId},
                     0, 0, NOW())
-            ON CONFLICT (ubicacion_id, articulo_id, producto_aw_variante_id) DO NOTHING",
+            ON CONFLICT (ubicacion_id, articulo_id, producto_aw_variante_id, lote) DO NOTHING",
             cancellationToken);
 
         await tx.CommitAsync(cancellationToken);

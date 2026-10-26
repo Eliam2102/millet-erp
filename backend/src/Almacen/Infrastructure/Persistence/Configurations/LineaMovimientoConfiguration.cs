@@ -58,6 +58,7 @@ public sealed class LineaMovimientoConfiguration : IEntityTypeConfiguration<Line
         builder.Property(x => x.ProductoAwVarianteId);
         builder.Property(x => x.AnchoMm).HasPrecision(12, 3);
         builder.Property(x => x.AltoMm).HasPrecision(12, 3);
+        builder.Property(x => x.Lote).HasMaxLength(50);
         // Prefijo (articulo_id) cubre las búsquedas por artículo que antes usaban ix_lineas_movimiento_articulo_id.
         builder.HasIndex(x => new { x.ArticuloId, x.ProductoAwVarianteId });
         builder.HasIndex(x => x.UbicacionId);
