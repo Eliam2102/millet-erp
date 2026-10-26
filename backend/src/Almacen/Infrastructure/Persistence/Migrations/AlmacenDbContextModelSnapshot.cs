@@ -2121,7 +2121,7 @@ namespace Millet.Almacen.Infrastructure.Persistence.Migrations
                     b.HasKey("Id")
                         .HasName("pk_ajustes_costo_expediente");
 
-                    b.HasIndex("EmpresaId", "ExpedienteId", "NumeroVersion", "PartidaId")
+                    b.HasIndex("EmpresaId", "ExpedienteId", "NumeroVersion", "PartidaId", "UbicacionId")
                         .IsUnique()
                         .HasDatabaseName("ix_ajustes_costo_expediente_empresa_id_expediente_id_numero_ve");
 

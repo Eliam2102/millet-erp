@@ -1,4 +1,5 @@
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Logging.Abstractions;
 using Millet.Almacen.Application.Recepciones;
 using Millet.Almacen.Domain.Catalogo;
 using Millet.Almacen.Domain.Movimientos;
@@ -114,7 +115,7 @@ public class ObtenerRecepcionPorIdCancelacionTests
         db.Movimientos.Add(a);
         await db.SaveChangesAsync();
 
-        var remanente = await RecepcionesCostoReadAdapter.RemanenteAsync(db, Empresa, a.Lineas.Single().Id, BinId, ArtA, null, default);
+        var remanente = (await RecepcionesCostoReadAdapter.RemanentesAsync(db, Empresa, a.Lineas.Single().Id, ArtA, NullLogger.Instance, default))[BinId];
 
         remanente.Should().Be(5m);
     }
