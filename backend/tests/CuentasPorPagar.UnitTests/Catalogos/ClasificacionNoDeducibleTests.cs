@@ -6,7 +6,7 @@ using Millet.SharedKernel.Application.Exceptions;
 
 namespace Millet.CuentasPorPagar.UnitTests.Catalogos;
 
-/// <summary>P8.6: IVA no acreditable calculado y catálogo DEMO sembrado.</summary>
+/// <summary>P8.6: IVA no acreditable calculado y catálogo provisional sembrado.</summary>
 public sealed class ClasificacionNoDeducibleTests
 {
     private static Domain.FacturaProveedor.FacturaProveedor Factura() =>
@@ -43,13 +43,13 @@ public sealed class ClasificacionNoDeducibleTests
     }
 
     [Fact]
-    public void Modelo_siembra_seis_clasificaciones_DEMO_y_no_persiste_iva_no_acreditable()
+    public void Modelo_siembra_seis_clasificaciones_sin_prefijo_DEMO_y_no_persiste_iva_no_acreditable()
     {
         using var db = new CuentasPorPagarDbContext(
             new DbContextOptionsBuilder<CuentasPorPagarDbContext>().UseInMemoryDatabase($"cxp_{Guid.NewGuid()}").Options,
             new FakeEmpresa(), new P8.PeriodoAbiertoStub(), new P8.PeriodoAbiertoStub());
         Microsoft.EntityFrameworkCore.Infrastructure.AccessorExtensions.GetService<Microsoft.EntityFrameworkCore.Metadata.IDesignTimeModel>(db).Model.FindEntityType(typeof(ClasificacionNoDeducible))!.GetSeedData().Should().HaveCount(6)
-            .And.OnlyContain(s => ((string)s["Descripcion"]!).StartsWith("DEMO · "));
+            .And.OnlyContain(s => !((string)s["Descripcion"]!).Contains("DEMO"));
         db.Model.FindEntityType(typeof(Domain.FacturaProveedor.FacturaProveedor))!
             .FindProperty("IvaNoAcreditable").Should().BeNull();
     }

@@ -81,7 +81,7 @@ public sealed class NoDeduciblesEndpointsTests(WebApplicationFactory<Program> fa
         var ok = await conPermiso.GetAsync(Cxp + "/catalogos/clasificaciones-no-deducibles");
         Assert.Equal(HttpStatusCode.OK, ok.StatusCode);
         var filas = (await Json(ok)).EnumerateArray().ToList();
-        Assert.Contains(filas, f => f.GetProperty("clave").GetString() == "COMIDAS" && f.GetProperty("descripcion").GetString() == "DEMO · Comidas");
+        Assert.Contains(filas, f => f.GetProperty("clave").GetString() == "COMIDAS" && f.GetProperty("descripcion").GetString() == "Comidas");
         Assert.True(filas.Count >= 6);
 
         Assert.Equal(HttpStatusCode.Unauthorized, (await factory.CreateClient().GetAsync(Cxp + "/catalogos/clasificaciones-no-deducibles")).StatusCode);
