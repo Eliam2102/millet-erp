@@ -47,7 +47,7 @@ export function RegistrarRefundTcSheet({
 }: RegistrarRefundTcSheetProps) {
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
-      <SheetContent side="right" className="sm:max-w-md">
+      <SheetContent side="right" size="form">
         <SheetHeader>
           <SheetTitle>Registrar refund</SheetTitle>
           <SheetDescription>

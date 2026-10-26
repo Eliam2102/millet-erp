@@ -45,7 +45,7 @@ export function CfdiDetalleSheet({
 }: CfdiDetalleSheetProps) {
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
-      <SheetContent side="right" className="w-full max-w-3xl overflow-y-auto sm:max-w-3xl">
+      <SheetContent side="right" size="legacy">
         <SheetHeader>
           <SheetTitle>Detalle del CFDI</SheetTitle>
           <SheetDescription className="font-mono text-xs">
