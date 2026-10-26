@@ -103,12 +103,13 @@
 
   <ItemGroup>
     <!--
-      PDF generation (F6-PR3). QuestPDF tiene Community License para uso
-      comercial bajo $1M USD anuales — válido para Tiglass/Millet en MVP.
-      Reemplaza LocalPdfOrdenCompraStub con QuestPdfOrdenCompraImpl que
-      produce layout institucional real.
+      PDF generation (F6-PR3). La licencia Community de QuestPDF sólo cubre a
+      empresas con ingresos menores a 1 millón de USD al año; Millet requiere
+      licencia comercial (ADR-0025). Se configura en Pdf:LicenciaQuestPdf
+      (Millet.Documentos.PdfLicencia). QRCoder genera el QR del CFDI.
     -->
     <PackageVersion Include="QuestPDF" Version="2024.12.3" />
+    <PackageVersion Include="QRCoder" Version="1.6.0" />
   </ItemGroup>
 
   <ItemGroup>
