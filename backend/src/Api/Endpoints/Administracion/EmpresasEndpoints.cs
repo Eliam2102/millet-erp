@@ -1,6 +1,7 @@
 using MediatR;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.Http.Features;
 using Millet.Administracion.Application.Empresas;
 using Millet.Administracion.Application.Sucursales;
 using Millet.Administracion.Domain;
@@ -33,6 +34,7 @@ namespace Millet.Api.Endpoints.Administracion;
 /// </summary>
 public static class EmpresasEndpoints
 {
+    public const int MaxLogoRequestBytes = LogoEmpresaFormato.MaxBytes + 64 * 1024;
     public static IEndpointRouteBuilder MapEmpresasEndpoints(this IEndpointRouteBuilder app)
     {
         var group = app
@@ -46,12 +48,14 @@ public static class EmpresasEndpoints
         })
         .RequireAuthorization(PermissionPolicyProvider.Prefix + PermisosCanonicos.AdminEmpresasEditar)
         .WithMetadata(new RequireIdempotencyKeyAttribute())
+        .WithMetadata(new RequestSizeLimitAttribute(MaxLogoRequestBytes))
         .WithName("SubirLogoEmpresa");
 
         group.MapGet("/{id:guid}/logo", async (Guid id, HttpResponse response, IMediator mediator, CancellationToken ct) =>
         {
             var logo = await mediator.Send(new ObtenerLogoEmpresaQuery(id), ct);
             response.Headers.CacheControl = "no-store";
+            response.Headers.XContentTypeOptions = "nosniff";
             return logo is null ? Results.NotFound() : Results.Stream(logo.Contenido, logo.ContentType);
         })
         .RequireAuthorization(PermissionPolicyProvider.Prefix + PermisosCanonicos.AdminEmpresasLeer)
@@ -258,7 +262,22 @@ public static class EmpresasEndpoints
     {
         if (!request.HasFormContentType)
             throw new Millet.SharedKernel.Application.Exceptions.BusinessRuleException("EMPRESA_LOGO_FORMATO", "Selecciona un archivo PNG o JPG.");
-        var form = await request.ReadFormAsync(ct);
+        if (request.ContentLength > MaxLogoRequestBytes)
+            throw new Millet.SharedKernel.Application.Exceptions.BusinessRuleException("EMPRESA_LOGO_TAMANO", "El logo excede 1 MB. Selecciona una imagen más pequeña.");
+        var limite = request.HttpContext.Features.Get<IHttpMaxRequestBodySizeFeature>();
+        if (limite is { IsReadOnly: false }) limite.MaxRequestBodySize = MaxLogoRequestBytes;
+        IFormCollection form;
+        try
+        {
+            form = await request.ReadFormAsync(new FormOptions { MultipartBodyLengthLimit = LogoEmpresaFormato.MaxBytes }, ct);
+        }
+        catch (InvalidDataException error)
+        {
+            var excedido = error.Message.Contains("length limit", StringComparison.OrdinalIgnoreCase);
+            throw new Millet.SharedKernel.Application.Exceptions.BusinessRuleException(
+                excedido ? "EMPRESA_LOGO_TAMANO" : "EMPRESA_LOGO_FORMATO",
+                excedido ? "El logo excede 1 MB. Selecciona una imagen más pequeña." : "Selecciona un archivo PNG o JPG válido.");
+        }
         if (form.Files.Count != 1)
             throw new Millet.SharedKernel.Application.Exceptions.BusinessRuleException("EMPRESA_LOGO_FORMATO", "Selecciona un solo archivo PNG o JPG.");
         var archivo = form.Files[0];
@@ -267,7 +286,6 @@ public static class EmpresasEndpoints
         using var contenido = new MemoryStream();
         await archivo.CopyToAsync(contenido, ct);
         var bytes = contenido.ToArray();
-        LogoEmpresaFormato.Validar(bytes);
         return bytes;
     }
 

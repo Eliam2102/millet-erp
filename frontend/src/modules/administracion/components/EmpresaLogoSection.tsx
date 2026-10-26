@@ -1,5 +1,15 @@
 import { useEffect, useRef, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
+import { ConfirmacionContent } from './ConfirmacionContent';
 import { Button } from '@/components/ui/button';
 import { apiRequest, esApiError } from '@/lib/api';
 import { apiFetch } from '@/lib/auth/api-client';
@@ -12,9 +22,10 @@ export function EmpresaLogoSection({ empresaId }: { empresaId: string }) {
   const cliente = useQueryClient();
   const input = useRef<HTMLInputElement>(null);
   const preview = useRef<HTMLImageElement>(null);
+  const [confirmarQuitar, setConfirmarQuitar] = useState(false);
   const [errorLocal, setErrorLocal] = useState<string>();
   const path = `/api/v1/admin/empresas/${empresaId}/logo`;
-  const queryKey = ['admin', 'logo-empresa', empresaId];
+  const queryKey = adminKeys.logoEmpresa(empresaId);
   const logo = useQuery({
     queryKey,
     queryFn: async ({ signal }) => {
@@ -52,8 +63,8 @@ export function EmpresaLogoSection({ empresaId }: { empresaId: string }) {
     errorLocal ??
     (guardar.error
       ? esApiError(guardar.error)
-        ? guardar.error.problem.detail
-        : 'No se pudo guardar el logo. Revisa tu conexión y vuelve a cargarlo.'
+        ? guardar.error.problem.detail || 'No se pudo guardar el logo. Intenta de nuevo.'
+        : 'No se pudo guardar el logo. Intenta de nuevo.'
       : undefined);
   return (
     <section
@@ -62,7 +73,7 @@ export function EmpresaLogoSection({ empresaId }: { empresaId: string }) {
     >
       <h2 className="text-lg font-semibold">Logo para documentos impresos</h2>
       <p className="text-xs text-ink-muted">
-        PNG o JPG de hasta 1 MB. Se usa en órdenes de compra, facturas y notas de crédito
+        PNG o JPG de hasta 1 MB. Se usa en órdenes de compra, facturas y notas de crédito.
       </p>
       <p className="text-xs text-ink-muted">Ancho mínimo: 200 píxeles.</p>
       {logo.isPending ? (
@@ -113,16 +124,31 @@ export function EmpresaLogoSection({ empresaId }: { empresaId: string }) {
               variant="ghost"
               disabled={guardar.isPending}
               title={guardar.isPending ? 'Espera a que termine de guardarse el logo' : undefined}
-              onClick={() => {
-                if (window.confirm('¿Quitar el logo de los documentos impresos de esta empresa?'))
-                  guardar.mutate(null);
-              }}
+              onClick={() => setConfirmarQuitar(true)}
             >
               Quitar
             </Button>
           )}
         </div>
       )}
+      <AlertDialog open={confirmarQuitar} onOpenChange={setConfirmarQuitar}>
+        <ConfirmacionContent>
+          <AlertDialogHeader className="px-6 pt-5 pb-3">
+            <AlertDialogTitle>Quitar logo</AlertDialogTitle>
+          </AlertDialogHeader>
+          <div className="px-6 py-4">
+            <AlertDialogDescription>
+              ¿Quitar el logo de los documentos impresos de esta empresa?
+            </AlertDialogDescription>
+          </div>
+          <AlertDialogFooter className="border-t border-line-divider bg-surface-subtle px-6 py-4">
+            <AlertDialogCancel disabled={guardar.isPending}>Cancelar</AlertDialogCancel>
+            <AlertDialogAction onClick={() => guardar.mutate(null)} disabled={guardar.isPending}>
+              Quitar logo
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </ConfirmacionContent>
+      </AlertDialog>
       {error && (
         <p role="alert" className="text-sm text-danger-fg">
           {error}

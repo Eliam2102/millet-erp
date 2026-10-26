@@ -13,7 +13,8 @@ export const EstatusCatalogo = {
   Inactivo: 1,
   EnRevision: 2,
 } as const;
-export type EstatusCatalogo = (typeof EstatusCatalogo)[keyof typeof EstatusCatalogo];
+export type EstatusCatalogo =
+  (typeof EstatusCatalogo)[keyof typeof EstatusCatalogo];
 
 export interface EmpresaResponse {
   calle?: string | null;
@@ -266,7 +267,8 @@ export const ReinicioPeriodo = {
   Anual: 1,
   Mensual: 2,
 } as const;
-export type ReinicioPeriodo = (typeof ReinicioPeriodo)[keyof typeof ReinicioPeriodo];
+export type ReinicioPeriodo =
+  (typeof ReinicioPeriodo)[keyof typeof ReinicioPeriodo];
 
 /**
  * Tipos de documento que pueden tener serie de folios. Mirror de
@@ -281,7 +283,8 @@ export const TipoDocumentoSerie = {
   /** F6.1: CFDI de venta directa del ERP; siempre por sucursal, fiscal (sin reinicio). */
   VentaDirecta: 6,
 } as const;
-export type TipoDocumentoSerie = (typeof TipoDocumentoSerie)[keyof typeof TipoDocumentoSerie];
+export type TipoDocumentoSerie =
+  (typeof TipoDocumentoSerie)[keyof typeof TipoDocumentoSerie];
 
 export interface SerieResponse {
   id: string;
@@ -389,7 +392,8 @@ export const TipoParametro = {
   Booleano: 2,
   Json: 3,
 } as const;
-export type TipoParametro = (typeof TipoParametro)[keyof typeof TipoParametro];
+export type TipoParametro =
+  (typeof TipoParametro)[keyof typeof TipoParametro];
 
 export interface ParametroResponse {
   id: string;
