@@ -5,7 +5,7 @@ using Millet.SharedKernel.Application.UnidadesMedida;
 namespace Millet.Almacen.Application.Recepciones;
 
 /// <summary>
-/// F1-MP-01 S3 (E07 D3/D5/D6): medida de la hoja en la recepción. Artículo ligado a un producto A+W ⇒ exige variante;
+/// F1-MP-01 S3 (E07 D3/D5/D6): medida de la hoja en la recepción (E1: la trae la línea de la OC, no se captura). Artículo ligado a un producto A+W ⇒ exige variante;
 /// artículo sin liga ⇒ la rechaza. La variante se valida contra el producto vigente del artículo (re-valida la liga y
 /// que el producto siga activo). Captura en HOJA ⇒ m² = hojas × m² por hoja (D6, SUPUESTO por validar con Eliam).
 /// </summary>
@@ -55,7 +55,8 @@ internal static class RecepcionVariante
             return null;
         }
         if (varianteId is null)
-            throw new BusinessRuleException("VARIANTE_VIDRIO_REQUERIDA", "Elige la medida de la hoja.");
+            throw new BusinessRuleException("VARIANTE_VIDRIO_REQUERIDA",
+                nuevoUso ? "La línea de la OC no tiene medida; corrígela en Compras." : "Elige la medida de la hoja.");
         // Recibir es uso nuevo (producto activo y liga vigente). Sacar o mover existencia ya recibida no lo es: la fila de saldo
         // de esa medida es la que manda (el trigger rechaza una medida sin existencia), aunque el producto se haya dado de baja.
         var v = nuevoUso

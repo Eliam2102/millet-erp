@@ -9,7 +9,7 @@ import { FormGrid, FormCampo } from '@/components/erp/forms/FormGrid';
 import { SheetBody } from '@/components/ui/sheet';
 import { hoyLocalISO } from '@/lib/datetime';
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { Controller, useForm, useWatch, type Resolver, type UseFormSetValue } from 'react-hook-form';
+import { Controller, useForm, useWatch, type Resolver } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useNavigate } from '@tanstack/react-router';
 import { useQueryClient } from '@tanstack/react-query';
@@ -67,7 +67,6 @@ import { UbicacionSelector } from '@/components/erp/selectors/UbicacionSelector'
 import { useUbicacionesAsignadasPorArticulo } from '@/features/almacen/api/useAsignaciones';
 import { useUbicaciones } from '@/features/almacen/api/useUbicaciones';
 import {
-  totalesM2,
   construirFilas,
   contarLineasEnOtraUbicacion,
   detectarConflictoSubAlmacen,
@@ -80,7 +79,8 @@ import { useHasPermission } from '@/lib/auth/useHasPermission';
 import { PermisosCanonicos } from '@/lib/auth/permission-codes';
 import { cn } from '@/lib/utils';
 import { Field } from '@/features/almacen/components/internal/Field';
-import { MedidasHojaFila } from '@/features/almacen/components/MedidasHojaFila';
+import { etiquetaMedidaMm } from '@/features/almacen/lib/medida-hoja';
+import { hojasPendientes } from '@/features/almacen/components/nueva-recepcion-helpers';
 
 /**
  * <c>&lt;NuevaRecepcionSheet/&gt;</c> — slide-from-right para registrar
@@ -317,7 +317,7 @@ function NuevaRecepcionFormBody({
     // Advisory: decimales por unidad (solo filas incluidas; backend autoritativo).
     let decimalesMal = false;
     values.filas.forEach((f, i) => {
-      if (!f.incluida || f.variantes?.length) return; // por medida: hojas enteras, el servidor valida
+      if (!f.incluida || f.medida) return; // por medida: hojas enteras, el schema y el servidor validan
       // Solo 'invalidos' bloquea; 'no-resoluble' avisa (sin bloquear) en la fila.
       if (
         evaluarDecimalesFila(lookup, {
@@ -335,7 +335,7 @@ function NuevaRecepcionFormBody({
     if (decimalesMal) return;
     const lineasParaBackend = values.filas
       .filter((f) => f.incluida)
-      .flatMap((f) => {
+      .map((f) => {
         const base = {
           fraccionArancelaria: f.fraccionArancelaria ?? null,
           articuloId: f.articuloId,
@@ -344,26 +344,14 @@ function NuevaRecepcionFormBody({
           ubicacionId: f.ubicacionId ?? null,
           comentario: f.comentario ?? null,
         };
-        // F1-MP-01: vidrio por medida = un renglón de movimiento por medida, con las hojas como cantidad capturada.
-        if (f.variantes?.length) {
-          return (f.medidas ?? []).map((m) => ({
-            ...base,
-            cantidad: m.hojas,
-            unidadCapturada: 'HOJA',
-            productoAwVarianteId: m.varianteId,
-            cantidadDanada: m.danadas,
-            motivoDano: m.danadas > 0 ? f.motivoDano?.trim() || null : null,
-          }));
-        }
-        return [
-          {
-            ...base,
-            cantidad: f.cantidad,
-            unidadCapturada: f.unidadCapturada?.trim() || null,
-            cantidadDanada: f.cantidadDanada ?? 0,
-            motivoDano: (f.cantidadDanada ?? 0) > 0 ? f.motivoDano?.trim() || null : null,
-          },
-        ];
+        // F1-MP-01 (E1): con medida, la cantidad y las dañadas son hojas; la medida la toma el servidor de la línea de OC.
+        return {
+          ...base,
+          cantidad: f.cantidad,
+          unidadCapturada: f.medida ? 'HOJA' : f.unidadCapturada?.trim() || null,
+          cantidadDanada: f.cantidadDanada ?? 0,
+          motivoDano: (f.cantidadDanada ?? 0) > 0 ? f.motivoDano?.trim() || null : null,
+        };
       });
 
     if (variante === 'A') {
@@ -940,7 +928,6 @@ function LineasDesdeOc({
                 index={index}
                 fila={fila}
                 control={form.control}
-                setValue={form.setValue}
                 coincideConHelper={!!ubicacionHelperId && fila.ubicacionId === ubicacionHelperId}
                 conflictoSub={
                   conflictos.has(index) && subBaseClave
@@ -963,7 +950,6 @@ function LineasDesdeOc({
 
 interface FilaErrors {
   cantidad?: { message?: string };
-  medidas?: { message?: string };
   ubicacionReferencia?: { message?: string };
   ubicacionId?: { message?: string };
   comentario?: { message?: string };
@@ -975,7 +961,6 @@ function FilaLineaOc({
   index,
   fila,
   control,
-  setValue,
   coincideConHelper,
   conflictoSub,
   errors,
@@ -983,7 +968,6 @@ function FilaLineaOc({
   index: number;
   fila: FilaRecepcionValues;
   control: ReturnType<typeof useForm<RecepcionFormValues>>['control'];
-  setValue: UseFormSetValue<RecepcionFormValues>;
   /** PR4: la ubicación de la fila es la misma que el helper de cabecera. */
   coincideConHelper: boolean;
   /** Mensaje de conflicto de sub-almacén (RECEPCION_MULTI_SUBALMACEN) para la fila. */
@@ -1007,6 +991,8 @@ function FilaLineaOc({
   const unidadNoResoluble = decResuelto == null;
   const errorCantidad = errors?.cantidad?.message;
   const errorRack = errors?.ubicacionId?.message ?? conflictoSub;
+  const hojasPend = fila.medida ? hojasPendientes(fila.pendiente, fila.medida.areaHojaM2) : 0;
+  const textoHojas = hojasPend === 1 ? 'hoja' : 'hojas';
   const idCantidad = `fila-${index}-cantidad`;
   const idRack = `fila-${index}-rack`;
 
@@ -1048,34 +1034,16 @@ function FilaLineaOc({
         </TableCell>
 
         <TableCell className="whitespace-nowrap text-right align-top tabular-nums">
-          {formatCantidad(fila.pendiente, decResuelto)}{' '}
-          <span className="text-xs text-ink-muted">{fila.unidadMedida}</span>
+          {fila.medida ? hojasPend : formatCantidad(fila.pendiente, decResuelto)}{' '}
+          <span className="text-xs text-ink-muted">{fila.medida ? textoHojas : fila.unidadMedida}</span>
         </TableCell>
 
         <TableCell className="align-top">
-          {fila.variantes?.length ? (
-            <Controller
-              name={`filas.${index}.medidas` as const}
-              control={control}
-              render={({ field }) => (
-                <MedidasHojaFila
-                  idBase={`fila-${index}`}
-                  posicion={fila.posicion}
-                  variantes={fila.variantes ?? []}
-                  medidas={field.value ?? []}
-                  disabled={!incluida}
-                  error={errors?.medidas?.message ?? errorCantidad}
-                  onChange={(medidas) => {
-                    field.onChange(medidas);
-                    const t = totalesM2(medidas, fila.variantes ?? []);
-                    setValue(`filas.${index}.cantidad`, t.cantidad);
-                    setValue(`filas.${index}.cantidadDanada`, t.danada);
-                  }}
-                />
-              )}
-            />
-          ) : (
-            <>
+          {fila.medida && (
+            <p className="mb-1 text-xs text-ink">
+              {etiquetaMedidaMm(fila.medida.anchoMm, fila.medida.altoMm)} · pendiente {hojasPend} {textoHojas}
+            </p>
+          )}
               <Controller
                 name={`filas.${index}.cantidad` as const}
                 control={control}
@@ -1083,15 +1051,15 @@ function FilaLineaOc({
                   <Input
                     id={idCantidad}
                     type="number"
-                    inputMode="decimal"
-                    step={stepParaDecimales(decimalesFila)}
+                    inputMode={fila.medida ? 'numeric' : 'decimal'}
+                    step={fila.medida ? 1 : stepParaDecimales(decimalesFila)}
                     min="0"
-                    max={fila.maximo}
+                    max={fila.medida ? hojasPend : fila.maximo}
                     disabled={!incluida}
                     className="min-w-24 text-right tabular-nums"
                     value={field.value ?? ''}
                     onChange={(e) => field.onChange(e.target.value === '' ? 0 : Number(e.target.value))}
-                    aria-label={`Cantidad a recibir, partida ${fila.posicion}`}
+                    aria-label={`${fila.medida ? 'Hojas' : 'Cantidad'} a recibir, partida ${fila.posicion}`}
                     aria-required={incluida || undefined}
                     aria-invalid={errorCantidad ? true : undefined}
                     aria-describedby={`${idCantidad}-ayuda`}
@@ -1103,11 +1071,12 @@ function FilaLineaOc({
                 className={cn('mt-1 text-2xs', errorCantidad ? 'text-danger-fg' : 'text-ink-muted')}
                 role={errorCantidad ? 'alert' : undefined}
               >
-                {errorCantidad ?? `Pendiente ${formatCantidad(fila.pendiente, decResuelto)}`}
+                {errorCantidad ??
+                  (fila.medida
+                    ? 'Hojas enteras'
+                    : `Pendiente ${formatCantidad(fila.pendiente, decResuelto)}`)}
               </p>
-              <AvisoUnidadNoResoluble visible={unidadNoResoluble} />
-            </>
-          )}
+              <AvisoUnidadNoResoluble visible={unidadNoResoluble && !fila.medida} />
         </TableCell>
 
         <TableCell className="align-top">
@@ -1176,7 +1145,7 @@ function FilaLineaOc({
               </div>
             </dl>
             <FormGrid>
-              {!fila.variantes?.length && (
+              {!fila.medida && (
               <FormCampo span={6}>
                 <Field
                   label="Unidad capturada"
@@ -1209,10 +1178,9 @@ function FilaLineaOc({
                   />
                 </Field>
               </FormCampo>
-              {!fila.variantes?.length && (
               <FormCampo span={6}>
                 <Field
-                  label="Cantidad dañada"
+                  label={fila.medida ? 'Hojas dañadas' : 'Cantidad dañada'}
                   optional
                   hint="Se envía a material en revisión; no queda disponible."
                   error={errors?.cantidadDanada?.message}
@@ -1223,9 +1191,9 @@ function FilaLineaOc({
                     render={({ field }) => (
                       <Input
                         type="number"
-                        inputMode="decimal"
+                        inputMode={fila.medida ? 'numeric' : 'decimal'}
                         min="0"
-                        step={stepParaDecimales(decimalesFila)}
+                        step={fila.medida ? 1 : stepParaDecimales(decimalesFila)}
                         className="tabular-nums"
                         value={field.value ?? ''}
                         onChange={(e) =>
@@ -1236,7 +1204,6 @@ function FilaLineaOc({
                   />
                 </Field>
               </FormCampo>
-              )}
               <FormCampo span={6}>
                 <Field
                   label="Motivo del daño"

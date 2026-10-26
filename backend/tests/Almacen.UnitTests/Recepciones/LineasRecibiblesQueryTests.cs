@@ -49,6 +49,25 @@ public class LineasRecibiblesQueryTests
         lineas[1].MaximoRecibible.Should().Be(100m);
     }
 
+    [Fact]
+    public async Task Devuelve_la_medida_de_la_linea_de_OC_y_null_si_no_la_tiene()
+    {
+        var variante = Guid.NewGuid();
+        var oc = NuevaOc() with
+        {
+            Lineas =
+            [
+                new OcLineaLectura(LineaA, ArticuloA, "M2", 178.608m, 0m, 10m, ProductoAwVarianteId: variante, AnchoMm: 2440m, AltoMm: 3660m),
+                new OcLineaLectura(LineaB, ArticuloB, "PZA", 100m, 0m, 10m),
+            ],
+        };
+
+        var lineas = await NuevoHandler(NuevaDb(), oc).Handle(new LineasRecibiblesQuery(OcId), CancellationToken.None);
+
+        lineas[0].Medida.Should().Be(new MedidaLineaOcDto(variante, 2440m, 3660m, 8.9304m));
+        lineas[1].Medida.Should().BeNull();
+    }
+
     private static readonly Guid OcId = Guid.NewGuid();
 
     private static OcLectura NuevaOc() => new(

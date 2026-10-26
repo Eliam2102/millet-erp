@@ -57,28 +57,14 @@ export const FilaRecepcionSchema = z
     // C7.2b: bin real destino (rack). Obligatorio en las filas incluidas.
     ubicacionId: z.string().regex(UUID_SHAPE_RE).nullish(),
     comentario: z.string().max(500, 'Máximo 500 caracteres').nullish(),
-    // F1-MP-01: medidas ofrecidas por el servidor (solo vidrio ligado a A+W) y renglones «medida + hojas» capturados.
-    // Con medidas, `cantidad` y `cantidadDanada` son los m² derivados (Σ hojas × m² por hoja); viajan las hojas por renglón.
-    variantes: z
-      .array(
-        z.object({
-          varianteId: z.string(),
-          claveVariante: z.string(),
-          anchoMm: z.number().nullable(),
-          altoMm: z.number().nullable(),
-          espesorMm: z.number().nullable().optional(),
-          areaHojaM2: z.number().nullable(),
-        }),
-      )
-      .nullish(),
-    medidas: z
-      .array(
-        z.object({
-          varianteId: z.string().nullable(),
-          hojas: z.number().nonnegative(),
-          danadas: z.number().nonnegative(),
-        }),
-      )
+    // F1-MP-01 (E1): medida de hoja fijada por la línea de OC (solo lectura). Con medida, `cantidad` y `cantidadDanada` van en hojas enteras.
+    medida: z
+      .object({
+        varianteId: z.string(),
+        anchoMm: z.number(),
+        altoMm: z.number(),
+        areaHojaM2: z.number(),
+      })
       .nullish(),
     // ALM-04: parte de la cantidad que llegó dañada; va a material en revisión.
     cantidadDanada: z.number().nonnegative('La cantidad dañada no puede ser negativa'),
@@ -86,22 +72,17 @@ export const FilaRecepcionSchema = z
   })
   .superRefine((v, ctx) => {
     if (!v.incluida) return;
-    if (v.variantes?.length) {
-      const m = v.medidas ?? [];
-      const ids = m.map((x) => x.varianteId).filter(Boolean);
-      const mensaje = !m.length
-        ? 'Agrega al menos una medida de hoja.'
-        : m.some((x) => !x.varianteId)
-          ? 'Elige la medida de la hoja.'
-          : m.some((x) => !Number.isInteger(x.hojas) || x.hojas <= 0)
-            ? 'Con medida, captura la cantidad en hojas enteras.'
-            : m.some((x) => !Number.isInteger(x.danadas) || x.danadas > x.hojas)
-              ? 'Las hojas dañadas son enteras y no pueden exceder las recibidas.'
-              : new Set(ids).size !== ids.length
-                ? 'Una medida no puede repetirse en la misma partida.'
-                : null;
+    if (v.medida) {
+      const hojasMax = Math.floor(v.pendiente / v.medida.areaHojaM2 + 1e-6);
+      const mensaje = !Number.isInteger(v.cantidad) || v.cantidad <= 0
+        ? 'Con medida, captura la cantidad en hojas enteras.'
+        : !Number.isInteger(v.cantidadDanada) || v.cantidadDanada > v.cantidad
+          ? 'Las hojas dañadas son enteras y no pueden exceder las recibidas.'
+          : v.cantidad > hojasMax
+            ? `Excede lo pendiente de la orden de compra (${hojasMax} hojas). Almacén recibe exacto.`
+            : null;
       if (mensaje) {
-        ctx.addIssue({ code: 'custom', path: ['medidas'], message: mensaje });
+        ctx.addIssue({ code: 'custom', path: ['cantidad'], message: mensaje });
         return;
       }
     }
@@ -141,7 +122,7 @@ export const FilaRecepcionSchema = z
         message: 'Elige la ubicación (rack) destino.',
       });
     }
-    if (!v.unidadCapturada?.trim() && v.cantidad > v.pendiente) {
+    if (!v.medida && !v.unidadCapturada?.trim() && v.cantidad > v.pendiente) {
       ctx.addIssue({
         code: 'custom',
         path: ['cantidad'],

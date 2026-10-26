@@ -22,23 +22,19 @@ public sealed record LineaRecibibleDto(
     decimal CantidadRecibida,
     decimal Pendiente,
     decimal MaximoRecibible,
-    // F1-MP-01: artículo de vidrio ligado a A+W ⇒ se recibe por medida de hoja (vacío = sin medidas).
-    IReadOnlyList<VarianteVidrioLectura>? Variantes = null);
+    // F1-MP-01 (E1): medida de hoja que fijó la OC en esta línea (null = línea sin medida). No se elige al recibir.
+    MedidaLineaOcDto? Medida = null);
+
+public sealed record MedidaLineaOcDto(Guid VarianteId, decimal AnchoMm, decimal AltoMm, decimal AreaHojaM2);
 
 public sealed class LineasRecibiblesHandler : IRequestHandler<LineasRecibiblesQuery, IReadOnlyList<LineaRecibibleDto>>
 {
     private readonly AlmacenDbContext _db;
     private readonly IComprasOcReadPort _ordenesCompra;
     private readonly IConversionUnidadPort _conversion;
-    private readonly IArticuloReadPort? _articulos;
-    private readonly IVarianteVidrioReadPort? _variantes;
 
-    public LineasRecibiblesHandler(
-        AlmacenDbContext db, IComprasOcReadPort ordenesCompra, IConversionUnidadPort conversion,
-        IArticuloReadPort? articulos = null, IVarianteVidrioReadPort? variantes = null)
+    public LineasRecibiblesHandler(AlmacenDbContext db, IComprasOcReadPort ordenesCompra, IConversionUnidadPort conversion)
     {
-        _articulos = articulos;
-        _variantes = variantes;
         _db = db;
         _ordenesCompra = ordenesCompra;
         _conversion = conversion;
@@ -51,13 +47,6 @@ public sealed class LineasRecibiblesHandler : IRequestHandler<LineasRecibiblesQu
 
         var propio = await RecibidoPorLineaOc.CalcularAsync(_db, _conversion, oc, cancellationToken);
 
-        var ligados = _articulos is null || _variantes is null ? new Dictionary<Guid, ArticuloLectura>()
-            : (await _articulos.ObtenerPorIdsAsync(oc.Lineas.Select(l => l.ArticuloId).Distinct().ToArray(), cancellationToken))
-                .Where(a => a.Value.ProductoAwId is not null).ToDictionary(a => a.Key, a => a.Value);
-        var variantesPorArticulo = new Dictionary<Guid, IReadOnlyList<VarianteVidrioLectura>>();
-        foreach (var id in ligados.Keys)
-            variantesPorArticulo[id] = await _variantes!.ListarPorArticuloAsync(id, cancellationToken);
-
         return oc.Lineas.Select(l =>
         {
             var recibida = Math.Max(l.CantidadRecibida, propio.GetValueOrDefault(l.LineaId));
@@ -69,7 +58,7 @@ public sealed class LineasRecibiblesHandler : IRequestHandler<LineasRecibiblesQu
                 recibida,
                 Math.Max(0m, l.CantidadSolicitada - recibida),
                 Math.Max(0m, RecepcionOcGuard.Limite(l.CantidadSolicitada, l.CantidadRecibida, propio.GetValueOrDefault(l.LineaId))),
-                ligados.ContainsKey(l.ArticuloId) ? variantesPorArticulo[l.ArticuloId] : null);
+                l is { ProductoAwVarianteId: { } v, AnchoMm: { } ancho, AltoMm: { } alto } ? new MedidaLineaOcDto(v, ancho, alto, AreaHoja.M2(ancho, alto)) : null);
         }).ToList();
     }
 }

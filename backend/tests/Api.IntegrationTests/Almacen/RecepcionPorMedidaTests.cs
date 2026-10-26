@@ -15,9 +15,10 @@ using static Millet.Api.IntegrationTests.Almacen.CuarentenaRecepcionTests;
 namespace Millet.Api.IntegrationTests.Almacen;
 
 /// <summary>
-/// F1-MP-01 S3 con Postgres real y los triggers del ledger: la misma línea de OC (m²) recibida en dos medidas deja dos filas de
-/// saldo; sin medida, con medida ajena o con medida en un artículo sin liga se rechaza; el daño va a MAT-REV con su medida y la
-/// cancelación regresa ambas existencias. Reusa el fixture aislado de ALM-04.
+/// F1-MP-01 S3 (E1) con Postgres real y los triggers del ledger: la medida la trae la línea de la OC (no se captura al recibir);
+/// dos líneas de OC (20 × 2440×3660 y 15 × 2140×3300, en m²) dejan dos filas de saldo; una línea de OC sin medida (legado), con
+/// medida ajena o con medida en un artículo sin liga se rechaza; el daño va a MAT-REV con su medida y la cancelación regresa
+/// ambas existencias. Reusa el fixture aislado de ALM-04.
 /// </summary>
 [Collection(PeriodoContableSinParalelo.Nombre)]
 public class RecepcionPorMedidaTests(WebApplicationFactory<Program> factory) : IClassFixture<WebApplicationFactory<Program>>
@@ -27,16 +28,24 @@ public class RecepcionPorMedidaTests(WebApplicationFactory<Program> factory) : I
     internal static readonly Guid VarB = Guid.NewGuid(); // 2140 x 3300 → 7.0620 m²
     private static readonly Guid OtroUsuario = Guid.NewGuid();
 
+    internal static readonly Guid LineaOcB = Guid.NewGuid(); // segunda línea de la OC: 15 hojas de 2140 x 3300
+
+    /// <summary>La OC de vidrio: una línea por medida (E1). La medida no viaja en la captura: <paramref name="variante"/> solo elige la línea.</summary>
     internal static RegistrarRecepcionLineaInput Linea(Ctx ctx, decimal hojas, Guid? variante, decimal danadas = 0m) =>
-        new(ctx.ArticuloId, ctx.LineaOcId, hojas, null, null, ctx.RackId, "HOJA",
-            CantidadDanada: danadas, MotivoDano: danadas > 0 ? "Hojas rotas" : null, ProductoAwVarianteId: variante);
+        new(ctx.ArticuloId, variante == VarB ? LineaOcB : ctx.LineaOcId, hojas, null, null, ctx.RackId, "HOJA",
+            CantidadDanada: danadas, MotivoDano: danadas > 0 ? "Hojas rotas" : null);
 
     internal static Task<RegistrarRecepcionResponse> Recibir(AlmacenDbContext db, Ctx ctx, bool ligado, params RegistrarRecepcionLineaInput[] lineas) =>
         Recibir(db, ctx, ligado, new DecimalesNulo(), lineas);
 
     internal static Task<RegistrarRecepcionResponse> Recibir(
         AlmacenDbContext db, Ctx ctx, bool ligado, IDecimalesUnidadGuard decimales, params RegistrarRecepcionLineaInput[] lineas) =>
-        new RegistrarRecepcionConFacturaHandler(db, new OcM2(ctx), new CapturaEventos(), new UserFake(ctx.UserId), new EmpresaFake(ctx.EmpresaId),
+        Recibir(db, ctx, ligado, decimales, null, lineas);
+
+    internal static Task<RegistrarRecepcionResponse> Recibir(
+        AlmacenDbContext db, Ctx ctx, bool ligado, IDecimalesUnidadGuard decimales, IReadOnlyList<OcLineaLectura>? lineasOc,
+        params RegistrarRecepcionLineaInput[] lineas) =>
+        new RegistrarRecepcionConFacturaHandler(db, new OcM2(ctx, lineasOc), new CapturaEventos(), new UserFake(ctx.UserId), new EmpresaFake(ctx.EmpresaId),
             decimales, ctx.Periodos, new ConversionM2(), new CxpNulo(), new ProveedorRfc(),
             new Articulos(ligado), new Variantes(ctx.ArticuloId)).Handle(
             new RegistrarRecepcionConFacturaCommand(ctx.OcId, Fecha, null, "AD662D33-6934-459C-A128-BDF0393E0062", null, lineas), default);
@@ -50,10 +59,14 @@ public class RecepcionPorMedidaTests(WebApplicationFactory<Program> factory) : I
     }
 
     [Fact]
-    public async Task Dos_medidas_en_una_linea_de_OC_son_dos_filas_y_la_cancelacion_las_regresa()
+    public async Task Dos_lineas_de_OC_con_medida_son_dos_filas_y_la_cancelacion_las_regresa()
     {
         await new CuarentenaRecepcionTests(factory).EjecutarConFixtureAsync(async (db, ctx) =>
         {
+            // La línea de la OC trae 20 hojas: 21 es excedente (recepción exacta).
+            var veintiuna = () => Recibir(db, ctx, true, Linea(ctx, 21m, VarA));
+            (await veintiuna.Should().ThrowAsync<BusinessRuleException>()).Which.Code.Should().Be("RECEPCION_EXCEDE_PENDIENTE");
+
             var r = await Recibir(db, ctx, true, Linea(ctx, 20m, VarA), Linea(ctx, 15m, VarB));
 
             (await Fila(db, ctx.RackId, ctx.ArticuloId, VarA))!.Value.Cantidad.Should().Be(178.6080m);
@@ -63,8 +76,8 @@ public class RecepcionPorMedidaTests(WebApplicationFactory<Program> factory) : I
             lineas.Select(l => (l.ProductoAwVarianteId, l.AnchoMm, l.AltoMm, l.CantidadCapturada, l.UnidadCapturada))
                 .Should().Equal((VarA, 2440m, 3660m, 20m, "HOJA"), (VarB, 2140m, 3300m, 15m, "HOJA"));
 
-            // Pendiente exacto sobre la línea de OC en m²: 1000 − 284.538 = 715.462 disponibles; 100 hojas de B (706.2) caben, 102 no.
-            var excede = () => Recibir(db, ctx, true, Linea(ctx, 102m, VarB));
+            // Ya no queda pendiente en ninguna de las dos líneas.
+            var excede = () => Recibir(db, ctx, true, Linea(ctx, 1m, VarB));
             (await excede.Should().ThrowAsync<BusinessRuleException>()).Which.Code.Should().Be("RECEPCION_EXCEDE_PENDIENTE");
 
             await new CancelarRecepcionHandler(db, new OcM2(ctx), new CapturaEventos(), new UserFake(OtroUsuario), new EmpresaFake(ctx.EmpresaId),
@@ -76,14 +89,18 @@ public class RecepcionPorMedidaTests(WebApplicationFactory<Program> factory) : I
     }
 
     [Fact]
-    public async Task Vidrio_sin_medida_ajena_o_en_articulo_sin_liga_se_rechaza_sin_tocar_saldos()
+    public async Task Linea_de_OC_sin_medida_ajena_o_en_articulo_sin_liga_se_rechaza_sin_tocar_saldos()
     {
         await new CuarentenaRecepcionTests(factory).EjecutarConFixtureAsync(async (db, ctx) =>
         {
-            var sin = () => Recibir(db, ctx, true, Linea(ctx, 5m, null));
-            (await sin.Should().ThrowAsync<BusinessRuleException>()).Which.Code.Should().Be("VARIANTE_VIDRIO_REQUERIDA");
+            var sinMedida = new OcLineaLectura(ctx.LineaOcId, ctx.ArticuloId, "M2", 1000m, 0m, 180m);
+            var legado = () => Recibir(db, ctx, true, new DecimalesNulo(), [sinMedida], Linea(ctx, 5m, null));
+            (await legado.Should().ThrowAsync<BusinessRuleException>()).Which
+                .Should().Match<BusinessRuleException>(e => e.Code == "VARIANTE_VIDRIO_REQUERIDA"
+                    && e.Message == "La línea de la OC no tiene medida; corrígela en Compras.");
 
-            var ajena = () => Recibir(db, ctx, true, Linea(ctx, 5m, Guid.NewGuid()));
+            var ajena = () => Recibir(db, ctx, true, new DecimalesNulo(),
+                [sinMedida with { ProductoAwVarianteId = Guid.NewGuid(), AnchoMm = 1000m, AltoMm = 1000m }], Linea(ctx, 5m, null));
             (await ajena.Should().ThrowAsync<BusinessRuleException>()).Which.Code.Should().Be("VARIANTE_NO_PERTENECE_AL_ARTICULO");
 
             var sinLiga = () => Recibir(db, ctx, false, Linea(ctx, 5m, VarA));
@@ -93,6 +110,7 @@ public class RecepcionPorMedidaTests(WebApplicationFactory<Program> factory) : I
             (await fraccion.Should().ThrowAsync<BusinessRuleException>()).Which.Code.Should().Be("HOJAS_ENTERAS");
 
             (await Fila(db, ctx.RackId, ctx.ArticuloId, VarA)).Should().BeNull();
+            (await Fila(db, ctx.RackId, ctx.ArticuloId, null)).Should().BeNull();
         });
     }
 
@@ -127,6 +145,7 @@ public class RecepcionPorMedidaTests(WebApplicationFactory<Program> factory) : I
 
             // Liberar 2 hojas: sale de MAT-REV y entra al rack, ambas en la medida A.
             var linea = await db.LineasMovimiento.AsNoTracking().SingleAsync(l => l.UbicacionId == ctx.RackRevisionId);
+            (linea.ProductoAwVarianteId, linea.AnchoMm, linea.AltoMm, linea.CantidadCapturada).Should().Be((VarA, 2440m, 3660m, 3m));
             await new DictaminarMaterialEnRevisionHandler(db, new UserFake(OtroUsuario), new EmpresaFake(ctx.EmpresaId), new DecimalesNulo(), ctx.Periodos,
                     new AdjuntosVacios(), new OcM2(ctx))
                 .Handle(new DictaminarMaterialEnRevisionCommand(linea.Id, ResultadoDictamen.Liberar, 17.8608m, "Sin daño real", Fecha, ctx.RackId), default);
@@ -143,12 +162,16 @@ public class RecepcionPorMedidaTests(WebApplicationFactory<Program> factory) : I
         public DateTimeOffset UtcNow => new(Fecha.Year, Fecha.Month, Fecha.Day, 18, 0, 0, TimeSpan.Zero);
     }
 
-    /// <summary>OC de 1000 m² (unidad de existencia) a 180 MXN/m².</summary>
-    internal sealed class OcM2(Ctx ctx) : IComprasOcReadPort
+    /// <summary>OC en m² (unidad de existencia) a 180 MXN/m²: 20 hojas de 2440 x 3660 y 15 de 2140 x 3300, una línea por medida.</summary>
+    internal sealed class OcM2(Ctx ctx, IReadOnlyList<OcLineaLectura>? lineas = null) : IComprasOcReadPort
     {
         public Task<OcLectura?> ObtenerAsync(Guid ocId, CancellationToken ct) => Task.FromResult<OcLectura?>(
             new(ocId, "OC-MEDIDA", Guid.NewGuid(), ctx.EmpresaId, "Autorizada",
-                [new OcLineaLectura(ctx.LineaOcId, ctx.ArticuloId, "M2", 1000m, 0m, 180m)]));
+                lineas ??
+                [
+                    new OcLineaLectura(ctx.LineaOcId, ctx.ArticuloId, "M2", 178.6080m, 0m, 180m, ProductoAwVarianteId: VarA, AnchoMm: 2440m, AltoMm: 3660m),
+                    new OcLineaLectura(LineaOcB, ctx.ArticuloId, "M2", 105.9300m, 0m, 180m, ProductoAwVarianteId: VarB, AnchoMm: 2140m, AltoMm: 3300m),
+                ]));
         public Task<IReadOnlyDictionary<Guid, string>> ObtenerFoliosAsync(IReadOnlyCollection<Guid> ocIds, CancellationToken ct) =>
             Task.FromResult<IReadOnlyDictionary<Guid, string>>(new Dictionary<Guid, string>());
     }

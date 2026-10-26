@@ -402,18 +402,16 @@ export interface LineaRecibible {
   cantidadRecibida: number;
   pendiente: number;
   maximoRecibible: number;
-  /** F1-MP-01: medidas de hoja del vidrio ligado a A+W; ausente o vacío = el artículo no se recibe por medida. */
-  variantes?: VarianteVidrio[] | null;
+  /** F1-MP-01 (E1): medida de hoja que fijó la OC en la línea; al recibir no se elige. Ausente = línea sin medida. */
+  medida?: MedidaLineaOc | null;
 }
 
-/** Medida de hoja (variante de A+W). `areaHojaM2` = ancho × alto / 1e6 a 4 decimales; null si A+W no informó medidas. */
-export interface VarianteVidrio {
+/** Medida de hoja de una línea de OC. `areaHojaM2` = ancho × alto / 1e6 a 4 decimales. */
+export interface MedidaLineaOc {
   varianteId: string;
-  claveVariante: string;
-  anchoMm: number | null;
-  altoMm: number | null;
-  espesorMm?: number | null;
-  areaHojaM2: number | null;
+  anchoMm: number;
+  altoMm: number;
+  areaHojaM2: number;
 }
 
 /**
@@ -480,8 +478,6 @@ export interface RegistrarRecepcionLineaInput {
   /** ALM-04: parte de la cantidad dañada; entra a material en revisión. */
   cantidadDanada?: number;
   motivoDano?: string | null;
-  /** F1-MP-01: medida de la hoja; con ella `cantidad` son hojas y `unidadCapturada` = HOJA. */
-  productoAwVarianteId?: string | null;
 }
 
 export interface RegistrarRecepcionResponse {

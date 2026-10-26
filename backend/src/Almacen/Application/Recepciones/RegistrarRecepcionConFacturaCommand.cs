@@ -55,9 +55,7 @@ public sealed record RegistrarRecepcionLineaInput(
     // tipo por compat de construcción; el validator lo exige.
     Guid? UbicacionId = null, string? UnidadCapturada = null,
     // ALM-04: parte de Cantidad que llegó dañada; va a material en revisión (MAT-REV), no a disponible.
-    decimal CantidadDanada = 0m, string? MotivoDano = null, string? FraccionArancelaria = null,
-    // F1-MP-01: medida de la hoja (vidrio crudo). Exigida si el artículo está ligado a A+W; rechazada si no.
-    Guid? ProductoAwVarianteId = null);
+    decimal CantidadDanada = 0m, string? MotivoDano = null, string? FraccionArancelaria = null);
 
 public sealed record RegistrarRecepcionResponse(
     Guid RecepcionId,
@@ -169,10 +167,12 @@ public sealed class RegistrarRecepcionConFacturaHandler
         var variantes = new List<VarianteVidrioLectura?>();
         foreach (var input in request.Lineas)
         {
-            var variante = await RecepcionVariante.ResolverAsync(_articulos, _variantes, input.ArticuloId, input.ProductoAwVarianteId, cancellationToken);
+            var lineaOc = oc!.Lineas.Single(l => l.LineaId == input.LineaOcId);
+            // E1: la medida la fija la línea de la OC; quien recibe no la elige.
+            var variante = await RecepcionVariante.ResolverAsync(_articulos, _variantes, input.ArticuloId, lineaOc.ProductoAwVarianteId, cancellationToken);
             variantes.Add(variante);
             conversiones.Add(await RecepcionVariante.ConvertirAsync(_conversion, input.ArticuloId, input.Cantidad,
-                input.UnidadCapturada, oc!.Lineas.Single(l => l.LineaId == input.LineaOcId).UnidadMedida!, variante, cancellationToken));
+                input.UnidadCapturada, lineaOc.UnidadMedida!, variante, cancellationToken));
         }
         var equivalentes = request.Lineas.Select((l, i) => l with { Cantidad = conversiones[i].CantidadDocumento }).ToList();
         var validada = await RecepcionOcGuard.ValidarAsync(oc, equivalentes, recibidoPropio, cancellationToken);

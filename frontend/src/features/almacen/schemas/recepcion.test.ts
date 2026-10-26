@@ -125,3 +125,40 @@ describe('RegistrarRecepcionFacturaSchema — cantidad dañada (ALM-04)', () => 
     expect(conFila({ cantidadDanada: 2, motivoDano: 'Hojas rotas' }).success).toBe(true);
   });
 });
+
+describe('RegistrarRecepcionFacturaSchema — medida de la línea de OC (E1)', () => {
+  const medida = { varianteId: 'v-1', anchoMm: 2440, altoMm: 3660, areaHojaM2: 8.9304 };
+  const conFila = (extra: object) =>
+    RegistrarRecepcionFacturaSchema.safeParse({
+      ...base,
+      cfdiRecibidoId: '019e0000-0000-7000-8000-0000000000cc',
+      // 20 hojas pendientes = 178.608 m².
+      filas: [{ ...filaIncluida, unidadMedida: 'M2', pendiente: 178.608, maximo: 178.608, medida, cantidad: 20, ...extra }],
+    });
+  const mensajes = (r: ReturnType<typeof conFila>) => (r.success ? [] : r.error.issues.map((i) => i.message));
+
+  it('acepta hojas enteras hasta el pendiente en hojas, con dañadas enteras', () => {
+    expect(conFila({}).success).toBe(true);
+    expect(conFila({ cantidad: 5, cantidadDanada: 2, motivoDano: 'Hojas rotas' }).success).toBe(true);
+  });
+
+  it('rechaza 21 hojas: excede lo pendiente (20 hojas)', () => {
+    expect(mensajes(conFila({ cantidad: 21 }))).toContain(
+      'Excede lo pendiente de la orden de compra (20 hojas). Almacén recibe exacto.',
+    );
+  });
+
+  it('rechaza hojas fraccionarias y dañadas fraccionarias o mayores que lo recibido', () => {
+    expect(mensajes(conFila({ cantidad: 2.5 }))).toContain('Con medida, captura la cantidad en hojas enteras.');
+    expect(mensajes(conFila({ cantidad: 5, cantidadDanada: 1.5, motivoDano: 'x' }))).toContain(
+      'Las hojas dañadas son enteras y no pueden exceder las recibidas.',
+    );
+    expect(mensajes(conFila({ cantidad: 5, cantidadDanada: 6, motivoDano: 'x' }))).toContain(
+      'Las hojas dañadas son enteras y no pueden exceder las recibidas.',
+    );
+  });
+
+  it('el motivo del daño sigue siendo obligatorio con hojas dañadas', () => {
+    expect(mensajes(conFila({ cantidad: 5, cantidadDanada: 1, motivoDano: ' ' }))).toContain('Indica el motivo del daño.');
+  });
+});
