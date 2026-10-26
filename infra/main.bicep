@@ -39,11 +39,14 @@ param regionCode string = 'mxc'
 @maxLength(6)
 param projectName string
 
-@description('Object ID del grupo de Entra ID con rol Owner sobre el resource group.')
-param adminsGroupObjectId string
+@description('Object ID del grupo de Entra ID con rol Owner sobre el resource group. Vacío = no se asigna (suscripción de Millet: el rol de VILO no permite nombrar Owners).')
+param adminsGroupObjectId string = ''
 
-@description('Object ID del grupo de Entra ID con rol Contributor sobre el resource group.')
-param developersGroupObjectId string
+@description('Object ID del grupo de Entra ID con rol Contributor sobre el resource group. Vacío = no se asigna.')
+param developersGroupObjectId string = ''
+
+@description('Object IDs de usuarios (no grupos) que reciben Key Vault Administrator. Se usa cuando no hay grupos de Entra en el tenant (suscripción de Millet).')
+param keyVaultAdminUserObjectIds array = []
 
 @description('Nombre legible del grupo de administradores (para registros).')
 param adminsGroupDisplayName string = 'MILLET-ERP-Admins'
@@ -53,6 +56,9 @@ param ownerEmail string
 
 @description('Centro de costos para tags de gobierno.')
 param costCenter string = 'it-projects'
+
+@description('Crear el presupuesto de consumo. false en suscripciones de proveedor (CSP), donde Cost Management de la suscripción no está disponible y el proveedor administra el presupuesto.')
+param deployBudget bool = true
 
 @description('Monto mensual del presupuesto de alertas en USD.')
 param budgetAmount int = 150
@@ -395,11 +401,12 @@ module rbac 'modules/rbac.bicep' = {
   params: {
     adminsGroupObjectId: adminsGroupObjectId
     developersGroupObjectId: developersGroupObjectId
+    keyVaultAdminUserObjectIds: keyVaultAdminUserObjectIds
     keyVaultName: keyvault.outputs.name
   }
 }
 
-module budget 'modules/budget.bicep' = {
+module budget 'modules/budget.bicep' = if (deployBudget) {
   scope: rg
   name: 'deploy-budget'
   params: {

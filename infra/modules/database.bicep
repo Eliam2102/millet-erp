@@ -19,7 +19,7 @@ param adminUsername string
 @secure()
 param adminPassword string
 
-@description('Object ID del grupo de Entra ID que será administrador del servidor.')
+@description('Object ID del grupo de Entra ID que será administrador del servidor. Vacío = sin administrador de Entra (solo password local).')
 param entraAdminGroupObjectId string
 
 @description('Display name del grupo de Entra ID administrador (informativo).')
@@ -96,9 +96,9 @@ resource firewallAzure 'Microsoft.DBforPostgreSQL/flexibleServers/firewallRules@
 // Configurar el grupo de Admins como administrador de Entra ID.
 // Esto permite que los miembros del grupo se conecten con su cuenta corporativa
 // sin necesidad de la password local.
-resource entraAdmin 'Microsoft.DBforPostgreSQL/flexibleServers/administrators@2024-08-01' = {
+resource entraAdmin 'Microsoft.DBforPostgreSQL/flexibleServers/administrators@2024-08-01' = if (!empty(entraAdminGroupObjectId)) {
   parent: postgres
-  name: entraAdminGroupObjectId
+  name: empty(entraAdminGroupObjectId) ? 'sin-admin-entra' : entraAdminGroupObjectId
   properties: {
     principalType: 'Group'
     principalName: entraAdminGroupName

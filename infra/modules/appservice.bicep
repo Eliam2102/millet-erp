@@ -181,7 +181,12 @@ var corsAppSettings = [for (origin, i) in corsAllowedOrigins: {
 // Los settings de polling/correlation timeout (`Polling__IntervalSeconds`,
 // `Correlation__TimeoutMinutes`) fueron retirados en PR #201 al migrar al flow
 // callback per-EDI — el ERP ya no hace polling SQL desde Azure.
-var awIntegrationAppSettings = [
+// `filter` quita el gate del worker de pedidos cuando viene vacío: el binder
+// no convierte '' a Guid y tumba el host al arrancar (pruebas Millet, sin A+W
+// conectado todavía). Sin el setting, el worker queda apagado.
+var awIntegrationAppSettings = filter(awIntegrationAppSettingsTodos, s => s.name != 'Facturacion__Workers__AwSolicitudes__EmpresaId' || !empty(s.value))
+
+var awIntegrationAppSettingsTodos = [
   {
     name: 'ConnectionStrings__AwSqlServer'
     value: '@Microsoft.KeyVault(VaultName=${keyVaultName};SecretName=aw-sql-connection-string)'

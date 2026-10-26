@@ -3,13 +3,19 @@
 // Asigna roles a los grupos de Entra ID:
 //   - Admins: Owner sobre el resource group + Key Vault Administrator
 //   - Developers: Contributor sobre el resource group + Key Vault Secrets User
+// Cada asignación de grupo se omite si su Object ID viene vacío. En la
+// suscripción de Millet no hay grupos y el rol de VILO no puede nombrar
+// Owners: ahí solo se asigna Key Vault Administrator a usuarios concretos.
 // ============================================================================
 
-@description('Object ID del grupo de Admins.')
-param adminsGroupObjectId string
+@description('Object ID del grupo de Admins. Vacío = sin asignaciones de grupo Admins.')
+param adminsGroupObjectId string = ''
 
-@description('Object ID del grupo de Developers.')
-param developersGroupObjectId string
+@description('Object ID del grupo de Developers. Vacío = sin asignaciones de grupo Developers.')
+param developersGroupObjectId string = ''
+
+@description('Object IDs de usuarios que reciben Key Vault Administrator sobre el Key Vault.')
+param keyVaultAdminUserObjectIds array = []
 
 @description('Nombre del Key Vault para asignaciones específicas.')
 param keyVaultName string
@@ -25,7 +31,7 @@ var keyVaultSecretsUserRoleId = '4633458b-17de-408a-b874-0445c86b69e6'
 // ----------------------------------------------------------------------------
 // Owner sobre el resource group para Admins
 // ----------------------------------------------------------------------------
-resource adminsOwnerAssignment 'Microsoft.Authorization/roleAssignments@2022-04-01' = {
+resource adminsOwnerAssignment 'Microsoft.Authorization/roleAssignments@2022-04-01' = if (!empty(adminsGroupObjectId)) {
   name: guid(resourceGroup().id, adminsGroupObjectId, ownerRoleId)
   properties: {
     principalId: adminsGroupObjectId
@@ -37,7 +43,7 @@ resource adminsOwnerAssignment 'Microsoft.Authorization/roleAssignments@2022-04-
 // ----------------------------------------------------------------------------
 // Contributor sobre el resource group para Developers
 // ----------------------------------------------------------------------------
-resource developersContributorAssignment 'Microsoft.Authorization/roleAssignments@2022-04-01' = {
+resource developersContributorAssignment 'Microsoft.Authorization/roleAssignments@2022-04-01' = if (!empty(developersGroupObjectId)) {
   name: guid(resourceGroup().id, developersGroupObjectId, contributorRoleId)
   properties: {
     principalId: developersGroupObjectId
@@ -53,7 +59,7 @@ resource keyVault 'Microsoft.KeyVault/vaults@2024-04-01-preview' existing = {
   name: keyVaultName
 }
 
-resource adminsKvAdminAssignment 'Microsoft.Authorization/roleAssignments@2022-04-01' = {
+resource adminsKvAdminAssignment 'Microsoft.Authorization/roleAssignments@2022-04-01' = if (!empty(adminsGroupObjectId)) {
   scope: keyVault
   name: guid(keyVault.id, adminsGroupObjectId, keyVaultAdministratorRoleId)
   properties: {
@@ -67,7 +73,7 @@ resource adminsKvAdminAssignment 'Microsoft.Authorization/roleAssignments@2022-0
 // Key Vault Secrets User sobre el Key Vault para Developers
 // (Solo lectura de secretos, no puede crear ni modificar)
 // ----------------------------------------------------------------------------
-resource developersKvSecretsAssignment 'Microsoft.Authorization/roleAssignments@2022-04-01' = {
+resource developersKvSecretsAssignment 'Microsoft.Authorization/roleAssignments@2022-04-01' = if (!empty(developersGroupObjectId)) {
   scope: keyVault
   name: guid(keyVault.id, developersGroupObjectId, keyVaultSecretsUserRoleId)
   properties: {
@@ -76,3 +82,16 @@ resource developersKvSecretsAssignment 'Microsoft.Authorization/roleAssignments@
     roleDefinitionId: subscriptionResourceId('Microsoft.Authorization/roleDefinitions', keyVaultSecretsUserRoleId)
   }
 }
+
+// ----------------------------------------------------------------------------
+// Key Vault Administrator sobre el Key Vault para usuarios concretos
+// ----------------------------------------------------------------------------
+resource usersKvAdminAssignments 'Microsoft.Authorization/roleAssignments@2022-04-01' = [for userObjectId in keyVaultAdminUserObjectIds: {
+  scope: keyVault
+  name: guid(keyVault.id, userObjectId, keyVaultAdministratorRoleId)
+  properties: {
+    principalId: userObjectId
+    principalType: 'User'
+    roleDefinitionId: subscriptionResourceId('Microsoft.Authorization/roleDefinitions', keyVaultAdministratorRoleId)
+  }
+}]
