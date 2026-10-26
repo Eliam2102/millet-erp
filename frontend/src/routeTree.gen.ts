@@ -1388,8 +1388,8 @@ export interface FileRoutesByFullPath {
   '/facturacion/facturas/nueva': typeof AppFacturacionFacturasNuevaRoute;
   '/facturacion/pedidos/$id': typeof AppFacturacionPedidosIdRoute;
   '/facturacion/pedidos/excepciones': typeof AppFacturacionPedidosExcepcionesRoute;
-  '/facturacion/reportes/estados-anticipos': typeof AppFacturacionReportesEstadosAnticiposRoute;
   '/facturacion/reportes/comparativa-anticipos': typeof AppFacturacionReportesComparativaAnticiposRoute;
+  '/facturacion/reportes/estados-anticipos': typeof AppFacturacionReportesEstadosAnticiposRoute;
   '/facturacion/reportes/liquidacion-caja': typeof AppFacturacionReportesLiquidacionCajaRoute;
   '/facturacion/repp/$id': typeof AppFacturacionReppIdRoute;
   '/facturacion/repp/pendientes': typeof AppFacturacionReppPendientesRoute;
@@ -1585,8 +1585,8 @@ export interface FileRoutesByTo {
   '/facturacion/facturas/nueva': typeof AppFacturacionFacturasNuevaRoute;
   '/facturacion/pedidos/$id': typeof AppFacturacionPedidosIdRoute;
   '/facturacion/pedidos/excepciones': typeof AppFacturacionPedidosExcepcionesRoute;
-  '/facturacion/reportes/estados-anticipos': typeof AppFacturacionReportesEstadosAnticiposRoute;
   '/facturacion/reportes/comparativa-anticipos': typeof AppFacturacionReportesComparativaAnticiposRoute;
+  '/facturacion/reportes/estados-anticipos': typeof AppFacturacionReportesEstadosAnticiposRoute;
   '/facturacion/reportes/liquidacion-caja': typeof AppFacturacionReportesLiquidacionCajaRoute;
   '/facturacion/repp/$id': typeof AppFacturacionReppIdRoute;
   '/facturacion/repp/pendientes': typeof AppFacturacionReppPendientesRoute;
@@ -1784,8 +1784,8 @@ export interface FileRoutesById {
   '/_app/facturacion/facturas/nueva': typeof AppFacturacionFacturasNuevaRoute;
   '/_app/facturacion/pedidos/$id': typeof AppFacturacionPedidosIdRoute;
   '/_app/facturacion/pedidos/excepciones': typeof AppFacturacionPedidosExcepcionesRoute;
-  '/_app/facturacion/reportes/estados-anticipos': typeof AppFacturacionReportesEstadosAnticiposRoute;
   '/_app/facturacion/reportes/comparativa-anticipos': typeof AppFacturacionReportesComparativaAnticiposRoute;
+  '/_app/facturacion/reportes/estados-anticipos': typeof AppFacturacionReportesEstadosAnticiposRoute;
   '/_app/facturacion/reportes/liquidacion-caja': typeof AppFacturacionReportesLiquidacionCajaRoute;
   '/_app/facturacion/repp/$id': typeof AppFacturacionReppIdRoute;
   '/_app/facturacion/repp/pendientes': typeof AppFacturacionReppPendientesRoute;
@@ -1983,8 +1983,8 @@ export interface FileRouteTypes {
     | '/facturacion/facturas/nueva'
     | '/facturacion/pedidos/$id'
     | '/facturacion/pedidos/excepciones'
-    | '/facturacion/reportes/estados-anticipos'
     | '/facturacion/reportes/comparativa-anticipos'
+    | '/facturacion/reportes/estados-anticipos'
     | '/facturacion/reportes/liquidacion-caja'
     | '/facturacion/repp/$id'
     | '/facturacion/repp/pendientes'
@@ -2180,8 +2180,8 @@ export interface FileRouteTypes {
     | '/facturacion/facturas/nueva'
     | '/facturacion/pedidos/$id'
     | '/facturacion/pedidos/excepciones'
-    | '/facturacion/reportes/estados-anticipos'
     | '/facturacion/reportes/comparativa-anticipos'
+    | '/facturacion/reportes/estados-anticipos'
     | '/facturacion/reportes/liquidacion-caja'
     | '/facturacion/repp/$id'
     | '/facturacion/repp/pendientes'
@@ -2378,8 +2378,8 @@ export interface FileRouteTypes {
     | '/_app/facturacion/facturas/nueva'
     | '/_app/facturacion/pedidos/$id'
     | '/_app/facturacion/pedidos/excepciones'
-    | '/_app/facturacion/reportes/estados-anticipos'
     | '/_app/facturacion/reportes/comparativa-anticipos'
+    | '/_app/facturacion/reportes/estados-anticipos'
     | '/_app/facturacion/reportes/liquidacion-caja'
     | '/_app/facturacion/repp/$id'
     | '/_app/facturacion/repp/pendientes'
@@ -3974,8 +3974,8 @@ interface AppRouteChildren {
   AppFacturacionFacturasNuevaRoute: typeof AppFacturacionFacturasNuevaRoute;
   AppFacturacionPedidosIdRoute: typeof AppFacturacionPedidosIdRoute;
   AppFacturacionPedidosExcepcionesRoute: typeof AppFacturacionPedidosExcepcionesRoute;
-  AppFacturacionReportesEstadosAnticiposRoute: typeof AppFacturacionReportesEstadosAnticiposRoute;
   AppFacturacionReportesComparativaAnticiposRoute: typeof AppFacturacionReportesComparativaAnticiposRoute;
+  AppFacturacionReportesEstadosAnticiposRoute: typeof AppFacturacionReportesEstadosAnticiposRoute;
   AppFacturacionReportesLiquidacionCajaRoute: typeof AppFacturacionReportesLiquidacionCajaRoute;
   AppFacturacionReppIdRoute: typeof AppFacturacionReppIdRoute;
   AppFacturacionReppPendientesRoute: typeof AppFacturacionReppPendientesRoute;
@@ -4173,10 +4173,10 @@ const AppRouteChildren: AppRouteChildren = {
   AppFacturacionFacturasNuevaRoute: AppFacturacionFacturasNuevaRoute,
   AppFacturacionPedidosIdRoute: AppFacturacionPedidosIdRoute,
   AppFacturacionPedidosExcepcionesRoute: AppFacturacionPedidosExcepcionesRoute,
-  AppFacturacionReportesEstadosAnticiposRoute:
-    AppFacturacionReportesEstadosAnticiposRoute,
   AppFacturacionReportesComparativaAnticiposRoute:
     AppFacturacionReportesComparativaAnticiposRoute,
+  AppFacturacionReportesEstadosAnticiposRoute:
+    AppFacturacionReportesEstadosAnticiposRoute,
   AppFacturacionReportesLiquidacionCajaRoute:
     AppFacturacionReportesLiquidacionCajaRoute,
   AppFacturacionReppIdRoute: AppFacturacionReppIdRoute,
