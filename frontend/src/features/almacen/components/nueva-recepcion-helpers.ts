@@ -49,6 +49,7 @@ export function construirFilas(
         comentario: null,
         cantidadDanada: 0,
         motivoDano: null,
+        lote: null,
       };
     })
     .filter((f) => f.pendiente > 0);

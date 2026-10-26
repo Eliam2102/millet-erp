@@ -317,6 +317,8 @@ export interface RecepcionLineaItem {
   productoAwVarianteId?: string | null;
   anchoMm?: number | null;
   altoMm?: number | null;
+  /** F1-MP-01 S4: lote del proveedor; null = sin lote. */
+  lote?: string | null;
 }
 
 /** F1-COM-06: documentos de importación de la recepción. */
@@ -480,6 +482,8 @@ export interface RegistrarRecepcionLineaInput {
   /** ALM-04: parte de la cantidad dañada; entra a material en revisión. */
   cantidadDanada?: number;
   motivoDano?: string | null;
+  /** F1-MP-01 S4: lote del proveedor; obligatorio con artículo ligado a A+W (LOTE_REQUERIDO), opcional si no. */
+  lote?: string | null;
 }
 
 export interface RegistrarRecepcionResponse {
@@ -1054,6 +1058,8 @@ export interface SaldoListItem {
   anchoMm?: number | null;
   altoMm?: number | null;
   areaHojaM2?: number | null;
+  /** F1-MP-01 S4: una fila por lote del proveedor; null = sin lote («lote de apertura»). */
+  lote?: string | null;
 }
 
 /** Mirror de <c>SaldosTotalesResponse</c>: totales de todo el conjunto filtrado.

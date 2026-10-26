@@ -306,6 +306,7 @@ function TablaSaldos({
               />
             </TableHead>
             <TableHead className="whitespace-nowrap normal-case">Medida</TableHead>
+            <TableHead className="whitespace-nowrap normal-case">Lote</TableHead>
             <TableHead className="text-right">
               <SortableHeader
                 columnKey="cantidad"
@@ -342,7 +343,7 @@ function TablaSaldos({
         </TableHeader>
         <TableBody>
           {ordenados.map((s) => (
-            <TableRow key={`${s.subAlmacenId}-${s.articuloId}-${s.productoAwVarianteId ?? ''}`}>
+            <TableRow key={`${s.subAlmacenId}-${s.articuloId}-${s.productoAwVarianteId ?? ''}-${s.lote ?? ''}`}>
               <TableCell className="font-mono text-xs">{s.subAlmacen}</TableCell>
               <TableCell className="max-w-0 truncate text-xs">
                 {s.articuloClave ? (
@@ -356,6 +357,9 @@ function TablaSaldos({
               </TableCell>
               <TableCell className="whitespace-nowrap text-xs tabular-nums">
                 {textoMedida(s, s.cantidad) ?? <span className="text-ink-muted">—</span>}
+              </TableCell>
+              <TableCell className="whitespace-nowrap text-xs">
+                {s.lote ?? <span className="text-ink-muted">—</span>}
               </TableCell>
               <TableCell className="text-right tabular-nums">
                 {formatCantidad(s.cantidad)}

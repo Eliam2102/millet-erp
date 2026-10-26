@@ -71,9 +71,14 @@ export const FilaRecepcionSchema = z
     // ALM-04: parte de la cantidad que llegó dañada; va a material en revisión.
     cantidadDanada: z.number().nonnegative('La cantidad dañada no puede ser negativa'),
     motivoDano: z.string().max(500, 'Máximo 500 caracteres').nullish(),
+    // F1-MP-01 S4 (E3): lote del proveedor. Obligatorio con medida (artículo ligado a A+W; el servidor revalida con LOTE_REQUERIDO).
+    lote: z.string().max(50, 'Máximo 50 caracteres').nullish(),
   })
   .superRefine((v, ctx) => {
     if (!v.incluida) return;
+    if (v.medida && !v.lote?.trim()) {
+      ctx.addIssue({ code: 'custom', path: ['lote'], message: 'Captura el lote del proveedor.' });
+    }
     if (v.medida) {
       const hojasMax = Math.floor(v.pendiente / v.medida.areaHojaM2 + 1e-6);
       const mensaje = !Number.isInteger(v.cantidad) || v.cantidad <= 0

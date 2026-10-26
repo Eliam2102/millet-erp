@@ -133,9 +133,20 @@ describe('RegistrarRecepcionFacturaSchema — medida de la línea de OC (E1)', (
       ...base,
       cfdiRecibidoId: '019e0000-0000-7000-8000-0000000000cc',
       // 20 hojas pendientes = 178.608 m².
-      filas: [{ ...filaIncluida, unidadMedida: 'M2', pendiente: 178.608, maximo: 178.608, medida, cantidad: 20, ...extra }],
+      filas: [{ ...filaIncluida, unidadMedida: 'M2', pendiente: 178.608, maximo: 178.608, medida, cantidad: 20, lote: 'L-2610-01', ...extra }],
     });
   const mensajes = (r: ReturnType<typeof conFila>) => (r.success ? [] : r.error.issues.map((i) => i.message));
+
+  it('el lote del proveedor es obligatorio con medida (artículo ligado a A+W) y máximo 50 caracteres', () => {
+    expect(mensajes(conFila({ lote: null }))).toContain('Captura el lote del proveedor.');
+    expect(mensajes(conFila({ lote: '   ' }))).toContain('Captura el lote del proveedor.');
+    expect(mensajes(conFila({ lote: 'L'.repeat(51) }))).toContain('Máximo 50 caracteres');
+    expect(conFila({ lote: ' L-9 ' }).success).toBe(true);
+  });
+
+  it('sin medida el lote es opcional', () => {
+    expect(conFila({ medida: null, unidadMedida: 'PZA', pendiente: 20, maximo: 20, lote: null }).success).toBe(true);
+  });
 
   it('acepta hojas enteras hasta el pendiente en hojas, con dañadas enteras', () => {
     expect(conFila({}).success).toBe(true);

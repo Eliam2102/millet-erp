@@ -309,6 +309,9 @@ export function RecepcionDetallePage() {
                             Medida {l.anchoMm} × {l.altoMm} mm
                           </span>
                         )}
+                        {l.lote && (
+                          <span className="block text-xs text-ink-muted">Lote {l.lote}</span>
+                        )}
                         {l.unidadCapturada && (
                           <span className="block text-xs text-ink-muted">
                             Captura: {l.cantidadCapturada} {l.unidadCapturada}

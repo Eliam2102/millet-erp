@@ -351,6 +351,8 @@ function NuevaRecepcionFormBody({
           unidadCapturada: f.medida ? 'HOJA' : f.unidadCapturada?.trim() || null,
           cantidadDanada: f.cantidadDanada ?? 0,
           motivoDano: (f.cantidadDanada ?? 0) > 0 ? f.motivoDano?.trim() || null : null,
+          // E3: el lote del proveedor viaja en ambas variantes; lo dañado a MAT-REV lleva el mismo lote.
+          lote: f.lote?.trim() || null,
         };
       });
 
@@ -955,6 +957,7 @@ interface FilaErrors {
   comentario?: { message?: string };
   cantidadDanada?: { message?: string };
   motivoDano?: { message?: string };
+  lote?: { message?: string };
 }
 
 function FilaLineaOc({
@@ -996,6 +999,8 @@ function FilaLineaOc({
   // Vidrio sin medida en la OC: se avisa de entrada, antes que cualquier error de decimales.
   const sinMedidaEnOc = !!fila.requiereMedida && !fila.medida;
   const idCantidad = `fila-${index}-cantidad`;
+  const idLote = `fila-${index}-lote`;
+  const errorLote = errors?.lote?.message;
   const idRack = `fila-${index}-rack`;
 
   return (
@@ -1085,6 +1090,33 @@ function FilaLineaOc({
                     : `Pendiente ${formatCantidad(fila.pendiente, decResuelto)}`)}
               </p>
               <AvisoUnidadNoResoluble visible={unidadNoResoluble && !fila.medida} />
+              {!fila.esActivoFijo && (
+                <div className="mt-2">
+                  <Controller
+                    name={`filas.${index}.lote` as const}
+                    control={control}
+                    render={({ field }) => (
+                      <Input
+                        id={idLote}
+                        value={field.value ?? ''}
+                        onChange={field.onChange}
+                        maxLength={50}
+                        disabled={!incluida}
+                        placeholder={fila.medida ? 'Lote del proveedor' : 'Lote (opcional)'}
+                        aria-label={`Lote del proveedor, partida ${fila.posicion}`}
+                        aria-required={(incluida && !!fila.medida) || undefined}
+                        aria-invalid={errorLote ? true : undefined}
+                        aria-describedby={errorLote ? `${idLote}-error` : undefined}
+                      />
+                    )}
+                  />
+                  {errorLote && (
+                    <p id={`${idLote}-error`} role="alert" className="mt-1 text-2xs text-danger-fg">
+                      {errorLote}
+                    </p>
+                  )}
+                </div>
+              )}
         </TableCell>
 
         <TableCell className="align-top">
