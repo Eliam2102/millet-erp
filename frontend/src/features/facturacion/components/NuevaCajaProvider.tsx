@@ -67,8 +67,8 @@ export function NuevaCajaProvider({ children }: { children: ReactNode }) {
           <SheetHeader>
             <SheetTitle>Nueva caja</SheetTitle>
             <SheetDescription>
-              La caja nace activa y sin alcance (todas las sucursales y canales); asigna sucursales,
-              canales y cajeros desde su detalle.
+              La caja nace activa en la sucursal que elijas; asigna canales, cajeros y más
+              sucursales desde su detalle.
             </SheetDescription>
           </SheetHeader>
           <SheetBody>

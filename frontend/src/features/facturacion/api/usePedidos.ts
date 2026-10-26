@@ -31,6 +31,8 @@ export function useListarPedidos(filtros: ListarPedidosFiltros) {
       if (filtros.offset != null) params.set('offset', String(filtros.offset));
       if (filtros.limit != null) params.set('limit', String(filtros.limit));
       if (filtros.alcance != null) params.set('alcance', filtros.alcance);
+      if (filtros.clase != null) params.set('clase', filtros.clase);
+      if (filtros.credito != null) params.set('credito', String(filtros.credito));
       const qs = params.toString();
       // CAJAS-PR6: expone el envelope {items, sinAsignarCount} completo
       // (badge "Sin asignar" [Decisión 12-B], solo caja.leer-todas).
@@ -104,6 +106,14 @@ export interface CrearPedidoManualCommand {
   obraNombre: string | null;
   comentarios: string | null;
   lineas: PedidoFacturableLineaInput[];
+  /** F6.1: 1 VentaDirecta · 2 Emergencia (obligatoria en pedidos manuales). */
+  claseManual: number | null;
+  /** F6.1: 1 Activo · 2 Almacenable · 3 Servicio (solo VentaDirecta). */
+  subtipoVentaDirecta: number | null;
+  /** F6.1: obligatorio si Emergencia (≤500). */
+  motivoEmergencia: string | null;
+  /** F6.1: pedido A+W para conciliar después (≤50, opcional). */
+  referenciaPedidoAw: string | null;
 }
 
 /**
@@ -183,6 +193,14 @@ export interface EditarPedidoCommand {
   obraNombre: string | null;
   comentarios: string | null;
   lineas: PedidoFacturableLineaInput[];
+  /** F6.1: 1 VentaDirecta · 2 Emergencia (obligatoria en pedidos manuales). */
+  claseManual: number | null;
+  /** F6.1: 1 Activo · 2 Almacenable · 3 Servicio (solo VentaDirecta). */
+  subtipoVentaDirecta: number | null;
+  /** F6.1: obligatorio si Emergencia (≤500). */
+  motivoEmergencia: string | null;
+  /** F6.1: pedido A+W para conciliar después (≤50, opcional). */
+  referenciaPedidoAw: string | null;
 }
 
 /**

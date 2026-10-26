@@ -49,7 +49,7 @@ public sealed record ComprobanteDetalleResponse(
     CobroFacturaDetalle? CobroMostrador = null,
     decimal PagadoPorRep = 0m, Millet.Facturacion.Domain.Facturas.DatosEmbarqueCe? DatosEmbarqueCe = null,
     string? OrdenCompraCliente = null, string? ReferenciaCliente = null, string? CondicionesPago = null,
-    string? Proforma = null, string? Comentarios = null,
+    string? Proforma = null, string? Observaciones = null,
     decimal TotalKg = 0m, decimal TotalPie2 = 0m, decimal TotalPiezas = 0m,
     string? NoCertificadoEmisor = null, string? CadenaOriginalTimbre = null);
 
@@ -197,7 +197,7 @@ public sealed class ComprobanteDetalleHandler
             CobroMostrador: cobroDetalle,
             PagadoPorRep: pagadoPorRep, DatosEmbarqueCe: f.DatosEmbarqueCe,
             OrdenCompraCliente: f.OrdenCompraCliente, ReferenciaCliente: f.ReferenciaCliente,
-            CondicionesPago: f.CondicionesPago, Proforma: f.Proforma, Comentarios: f.Comentarios,
+            CondicionesPago: f.CondicionesPago, Proforma: f.Proforma, Observaciones: f.Observaciones,
             TotalKg: f.TotalKg, TotalPie2: f.TotalPie2, TotalPiezas: f.TotalPiezas,
             NoCertificadoEmisor: f.NoCertificadoEmisor, CadenaOriginalTimbre: f.CadenaOriginalTimbre);
     }

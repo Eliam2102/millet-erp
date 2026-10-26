@@ -51,7 +51,8 @@
     "CubrimientoRegistrado": 11,
     "RecepcionRegistrada": 12,
     "SaldoNoSurtido": 13,
-    "Cerrada": 14
+    "Cerrada": 14,
+    "ApartadoLiberado": 15
   },
   "MotivoRechazoAplicaA": {
     "Ninguno": 0,

@@ -184,7 +184,7 @@ function TabCajas(props: {
         ) : items.length === 0 ? (
           <EmptyState
             title="Sin cajas"
-            description='Crea la primera con "Nueva caja"; nace activa y sin alcance (todas las sucursales y canales).'
+            description='Crea la primera con "Nueva caja"; nace activa en la sucursal que elijas.'
           />
         ) : (
           <div className="overflow-x-auto rounded-md border border-line">

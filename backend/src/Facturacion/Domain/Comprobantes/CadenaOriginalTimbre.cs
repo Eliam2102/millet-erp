@@ -36,7 +36,7 @@ public static class CadenaOriginalTimbre
         if (string.IsNullOrWhiteSpace(xml)) return null;
         try
         {
-            using var input = new StringReader(xml);
+            using var input = new StringReader(xml.TrimStart('\uFEFF'));
             using var reader = XmlReader.Create(input, new XmlReaderSettings { DtdProcessing = DtdProcessing.Prohibit, XmlResolver = null });
             var root = XDocument.Load(reader).Root;
             return root?.Name == Cfdi + "Comprobante" ? root : null;

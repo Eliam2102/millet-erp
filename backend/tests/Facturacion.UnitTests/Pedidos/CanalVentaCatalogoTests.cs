@@ -29,7 +29,9 @@ public sealed class CanalVentaCatalogoTests
         ObraId: null,
         ObraNombre: null,
         Comentarios: null,
-        Lineas: [new PedidoFacturableLineaInput(null, "Producto", null, null, 1m, 100m, 0m, false)]);
+        Lineas: [new PedidoFacturableLineaInput(null, "Producto", null, null, 1m, 100m, 0m, false)],
+        ClaseManual: ClasePedidoManual.VentaDirecta,
+        SubtipoVentaDirecta: SubtipoVentaDirecta.Servicio);
 
     [Fact]
     public async Task Validator_CanalActivoEnCatalogo_EsValido()
@@ -74,7 +76,7 @@ public sealed class CanalVentaCatalogoTests
         var detalle = await new PedidoFacturableDetalleHandler(
                 db, new FakeClientesReadPort(), new FakeProductosReadPort(),
                 new FakeCanalesVentaReadPort(nombres: new Dictionary<short, string> { [4] = "CC Mérida" }),
-                new FakeAlcanceCajaEvaluator())
+                new FakeAlcanceCajaEvaluator(), new FakeCurrentUserPermissions())
             .Handle(new PedidoFacturableDetalleQuery(pedido.Id), CancellationToken.None);
 
         detalle.CanalVentaId.Should().Be((short)4);

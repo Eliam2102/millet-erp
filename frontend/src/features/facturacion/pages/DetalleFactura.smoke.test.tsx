@@ -160,6 +160,20 @@ describe('<DetalleFactura> — smoke', () => {
     expect(screen.getByText('Solicitado')).toBeInTheDocument();
   });
 
+  it.each([false, true])('totales físicos con medidas: %s', async (conMedidas) => {
+    mswServer.use(
+      http.get('*/api/v1/facturacion/facturas/f-1', () => HttpResponse.json({
+        ...detalle, totalKg: conMedidas ? 1234.5 : 0, totalPie2: conMedidas ? 2500.75 : 0,
+        lineas: detalle.lineas.map((l) => ({ ...l, pesoKg: conMedidas ? 1234.5 : null, areaPie2: conMedidas ? 2500.75 : null })),
+      })),
+      http.get('*/api/v1/facturacion/facturas/f-1/envios', () => HttpResponse.json([])),
+    );
+    render(<DetalleFactura />, { wrapper: createQueryWrapper() });
+    await screen.findByText('A-1');
+    expect(screen.getByText('Total de kilos').nextElementSibling).toHaveTextContent(conMedidas ? '1,234.5' : '—');
+    expect(screen.getByText('Total de pies²').nextElementSibling).toHaveTextContent(conMedidas ? '2,500.75' : '—');
+  });
+
   it('estado error cuando la factura no existe', async () => {
     mswServer.use(
       http.get('*/api/v1/facturacion/facturas/f-1', () =>

@@ -4,8 +4,7 @@ import { z } from 'zod';
  * Regex laxo de UUID (8-4-4-4-12 hex) — los seeds del backend usan
  * GUIDs deterministas que no califican como v1-v8 estricto.
  */
-const UUID_SHAPE_RE =
-  /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+const UUID_SHAPE_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 /**
  * DateOnly serializado <c>YYYY-MM-DD</c> (sin tiempo, sin zona).
@@ -22,6 +21,7 @@ const DATE_ONLY_RE = /^\d{4}-\d{2}-\d{2}$/;
  */
 export const FilaRecepcionSchema = z
   .object({
+    esActivoFijo: z.boolean().optional(),
     lineaOcId: z.string().regex(UUID_SHAPE_RE),
     articuloId: z.string().regex(UUID_SHAPE_RE),
     // Etiqueta legible resuelta en backend (ADR-0042); null → id truncado.
@@ -41,10 +41,7 @@ export const FilaRecepcionSchema = z
     cantidad: z
       .number({ message: 'Cantidad requerida' })
       .nonnegative('La cantidad no puede ser negativa'),
-    ubicacionReferencia: z
-      .string()
-      .max(100, 'Máximo 100 caracteres')
-      .nullish(),
+    ubicacionReferencia: z.string().max(100, 'Máximo 100 caracteres').nullish(),
     // C7.2b: bin real destino (rack). Obligatorio en las filas incluidas.
     ubicacionId: z.string().regex(UUID_SHAPE_RE).nullish(),
     comentario: z.string().max(500, 'Máximo 500 caracteres').nullish(),
@@ -76,7 +73,14 @@ export const FilaRecepcionSchema = z
         message: 'Indica el motivo del daño.',
       });
     }
-    if (!v.ubicacionId) {
+    if (v.esActivoFijo && (!Number.isInteger(v.cantidad) || v.cantidadDanada !== 0)) {
+      ctx.addIssue({
+        code: 'custom',
+        path: ['cantidad'],
+        message: 'Recibe unidades enteras de activos, sin cantidad dañada.',
+      });
+    }
+    if (!v.esActivoFijo && !v.ubicacionId) {
       ctx.addIssue({
         code: 'custom',
         path: ['ubicacionId'],
@@ -121,9 +125,7 @@ const alMenosUnaFilaIncluida = (
 export const RegistrarRecepcionFacturaSchema = z
   .object({
     ordenCompraId: z.string().regex(UUID_SHAPE_RE, 'OC requerida'),
-    fechaMovimiento: z
-      .string()
-      .regex(DATE_ONLY_RE, 'Fecha en formato YYYY-MM-DD'),
+    fechaMovimiento: z.string().regex(DATE_ONLY_RE, 'Fecha en formato YYYY-MM-DD'),
     // Vínculo fiscal obligatorio (§5.4): CFDI del repositorio de CxP o
     // folio fiscal (UUID SAT) capturado del impreso — al menos uno. El
     // refine de abajo lo exige; el backend revalida (RECEPCION_SIN_CFDI).
@@ -145,15 +147,12 @@ export const RegistrarRecepcionFacturaSchema = z
       ctx.addIssue({
         code: 'custom',
         path: ['cfdiRecibidoId'],
-        message:
-          'Vincula el CFDI del proveedor o captura su folio fiscal (UUID del impreso).',
+        message: 'Vincula el CFDI del proveedor o captura su folio fiscal (UUID del impreso).',
       });
     }
   });
 
-export type RegistrarRecepcionFacturaValues = z.infer<
-  typeof RegistrarRecepcionFacturaSchema
->;
+export type RegistrarRecepcionFacturaValues = z.infer<typeof RegistrarRecepcionFacturaSchema>;
 
 /**
  * Variante B — recepción con packing list, factura pendiente
@@ -163,9 +162,7 @@ export type RegistrarRecepcionFacturaValues = z.infer<
 export const RegistrarRecepcionPackingListSchema = z
   .object({
     ordenCompraId: z.string().regex(UUID_SHAPE_RE, 'OC requerida'),
-    fechaMovimiento: z
-      .string()
-      .regex(DATE_ONLY_RE, 'Fecha en formato YYYY-MM-DD'),
+    fechaMovimiento: z.string().regex(DATE_ONLY_RE, 'Fecha en formato YYYY-MM-DD'),
     packingListBlobRef: z
       .string()
       .min(1, 'Adjunto del packing list requerido')

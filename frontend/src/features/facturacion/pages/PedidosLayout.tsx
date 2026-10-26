@@ -27,6 +27,8 @@ export function PedidosLayout({ idActivo, detalle }: PedidosLayoutProps) {
   const query = useListarPedidos({
     estado: search.estado,
     origen: search.origen,
+    clase: search.clase,
+    credito: search.credito,
     limit: search.limit ?? 200,
   });
 

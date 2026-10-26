@@ -42,6 +42,7 @@ import { useHasPermission } from '@/lib/auth/useHasPermission';
 import { Link, useParams, useSearch } from '@tanstack/react-router';
 import { Ban, Download, FileCode, Mail, Printer, Receipt, X } from 'lucide-react';
 import { useState } from 'react';
+import { formatCantidad } from '@/lib/format-cantidad';
 import { toast } from 'sonner';
 
 const BASE = '/api/v1/facturacion/facturas';
@@ -111,16 +112,6 @@ function Contenido({ f }: { f: NonNullable<ReturnType<typeof useComprobante>['da
 
   return (
     <div className="space-y-5">
-      <DatosClienteFactura factura={f} puedeEditar={puedeEmitir} />
-      {(f.noCertificadoEmisor || f.cadenaOriginalTimbre) && <dl className="space-y-2 text-sm">
-        <div><dt>Certificado del emisor</dt><dd className="font-mono">{f.noCertificadoEmisor ?? '—'}</dd></div>
-        <div><dt>Cadena original del timbre</dt><dd className="break-all font-mono text-xs">{f.cadenaOriginalTimbre ?? '—'}</dd></div>
-      </dl>}
-      <dl className="flex flex-wrap gap-5 text-sm tabular-nums">
-        <div><dt>Total de kilos</dt><dd>{f.totalKg ?? '—'}</dd></div>
-        <div><dt>Total de pies²</dt><dd>{f.totalPie2 ?? '—'}</dd></div>
-        <div><dt>Total de piezas</dt><dd>{f.totalPiezas ?? '—'}</dd></div>
-      </dl>
       {f.datosEmbarqueCe && <EmbarqueCeResumen datos={f.datosEmbarqueCe} />}
       {/* ── Sub-topbar de acciones (§6.5, no se imprime): sticky con
           cerrar (X) que vuelve a la bandeja preservando filtros ──── */}
@@ -199,6 +190,17 @@ function Contenido({ f }: { f: NonNullable<ReturnType<typeof useComprobante>['da
         </div>
         {f.uuid && <p className="font-mono text-xs text-ink-muted">UUID {f.uuid}</p>}
       </div>
+
+      <DatosClienteFactura factura={f} puedeEditar={puedeEmitir} />
+      {(f.noCertificadoEmisor || f.cadenaOriginalTimbre) && <dl className="space-y-2 text-sm">
+        <div><dt>Certificado del emisor</dt><dd className="font-mono">{f.noCertificadoEmisor ?? '—'}</dd></div>
+        <div><dt>Cadena original del timbre</dt><dd className="break-all font-mono text-xs">{f.cadenaOriginalTimbre ?? '—'}</dd></div>
+      </dl>}
+      <dl className="flex flex-wrap gap-5 text-sm tabular-nums">
+        <div><dt>Total de kilos</dt><dd>{formatCantidad(f.lineas.some((l) => l.pesoKg != null) ? f.totalKg : null)}</dd></div>
+        <div><dt>Total de pies²</dt><dd>{formatCantidad(f.lineas.some((l) => l.areaPie2 != null) ? f.totalPie2 : null)}</dd></div>
+        <div><dt>Total de piezas</dt><dd>{f.totalPiezas ?? '—'}</dd></div>
+      </dl>
 
       {accion === 'nc' && (
         <NcBonificacionForm

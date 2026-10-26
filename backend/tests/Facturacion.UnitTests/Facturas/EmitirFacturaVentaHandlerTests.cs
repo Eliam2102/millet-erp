@@ -1,4 +1,5 @@
 using MediatR;
+using Microsoft.Extensions.Logging;
 using Millet.ComercioExterior.Application.PublicPorts;
 using Millet.Facturacion.Domain.Pedidos;
 using Microsoft.EntityFrameworkCore;
@@ -49,10 +50,11 @@ public sealed class EmitirFacturaVentaHandlerTests
         Guid empresaId,
         bool periodoAbierto = true,
         bool catalogosValidos = true,
-        Millet.Integraciones.Fiscal.Domain.Ports.ICfdiTimbradoPort? fiscal = null, IEmbarqueExportacionReadPort? embarques = null, string receptorRfc = "XAXX010101000", IProductosReadPort? productos = null) =>
+        Millet.Integraciones.Fiscal.Domain.Ports.ICfdiTimbradoPort? fiscal = null, IEmbarqueExportacionReadPort? embarques = null, string receptorRfc = "XAXX010101000",
+        FakeSender? sender = null, IProductosReadPort? productos = null) =>
         new(
             db,
-            new FakeSender(new ReservarFolioResponse("FA-000001", 1, "")),
+            sender ?? new FakeSender(new ReservarFolioResponse("FA-000001", 1, "")),
             new FakePeriodoContablePort(periodoAbierto),
             new FakeCatalogosSatReadPort(catalogosValidos),
             fiscal ?? new FakeFiscalApiClient(),
@@ -131,9 +133,15 @@ public sealed class EmitirFacturaVentaHandlerTests
     }
 
     [Theory]
-    [InlineData(true)]
-    [InlineData(false)]
-    public async Task Copia_datos_del_pedido_y_completa_peso_desde_puerto(bool tienePeso)
+    [InlineData(true, null, null, "PUE", "CONTADO")]
+    [InlineData(false, "45 DIAS", null, "PUE", "45 DIAS")]
+    [InlineData(false, "45 DIAS", "60 DIAS", "PPD", "60 DIAS")]
+    [InlineData(false, null, null, "PPD", null)]
+    [InlineData(true, null, null, "PUE", "CONTADO", "", "")]
+    [InlineData(true, null, null, "PUE", "CONTADO", "Texto editado DEMO", "REF DEMO")]
+    public async Task Copia_datos_del_pedido_y_completa_peso_desde_puerto(bool tienePeso,
+        string? condicionOrigen, string? condicionCapturada, string metodo, string? esperado,
+        string? observaciones = null, string? referencia = null)
     {
         var empresa = Guid.NewGuid();
         using var db = NewDb(empresa);
@@ -141,25 +149,91 @@ public sealed class EmitirFacturaVentaHandlerTests
         var command = Command();
         var pedido = PedidoFacturable.ImportarDesdeAw(empresa, "DEMO-1001", command.SucursalId,
             Guid.NewGuid(), "Cliente ficticio DEMO", 1, command.ComportamientoFiscal, "MXN", null, null,
-            "Comentario ficticio DEMO", 1, "15");
+            "Comentario ficticio DEMO", 1, "15", condicionPagoOrigen: condicionOrigen);
         pedido.AgregarLinea(productoId, "Producto", "01010101", "H87", 2, 100, 0, false)
             .EstablecerDatosImpresion("ITEM.1 REF: 1001 - DEMO - CW-01", tienePeso ? 8.125m : null, 20.250m);
         pedido.RecalcularTotal(); db.PedidosFacturables.Add(pedido); await db.SaveChangesAsync();
         var producto = new ProductoFiscalLectura(productoId, "Producto", "01010101", "H87", "02", .16m, null, null,
             "Aw", EstadoFiscal: "Completo", PesoUnitarioKg: 3.250m);
         await Handler(db, empresa, productos: new FakeProductosReadPort(producto)).Handle(command with {
-            PedidoFacturableId = pedido.Id,
+            PedidoFacturableId = pedido.Id, MetodoPago = metodo, FormaPago = metodo == "PPD" ? "99" : "01",
+            CondicionesPago = condicionCapturada, Observaciones = observaciones, ReferenciaCliente = referencia,
             Lineas = [command.Lineas[0] with { ProductoId = productoId }]
         }, CancellationToken.None);
         var factura = await db.FacturasVenta.Include(f => f.Lineas).SingleAsync();
-        Assert.Equal("DEMO-1001", factura.ReferenciaCliente);
-        Assert.Equal("Comentario ficticio DEMO", factura.Comentarios);
-        Assert.Equal("CONTADO", factura.CondicionesPago);
+        Assert.Equal(string.IsNullOrWhiteSpace(referencia) ? (referencia is null ? "DEMO-1001" : null) : referencia, factura.ReferenciaCliente);
+        Assert.Equal(observaciones ?? "Comentario ficticio DEMO", factura.Observaciones);
+        Assert.Equal(esperado, factura.CondicionesPago);
         var partida = Assert.Single(factura.Lineas);
         Assert.Equal("ITEM.1 REF: 1001 - DEMO - CW-01", partida.Referencia);
         Assert.Equal(tienePeso ? 8.125m : 6.500m, partida.PesoKg);
         Assert.Equal(20.250m, factura.TotalPie2);
         Assert.Equal(2, factura.TotalPiezas);
+        Assert.Equal(232m, factura.Total);
+    }
+
+    [Fact]
+    public async Task Timbrado_confirmado_sin_cadena_registra_advertencia_sin_revertirse()
+    {
+        var empresa = Guid.NewGuid();
+        var log = new CapturaLog();
+        using var loggerFactory = LoggerFactory.Create(b => b.AddProvider(log));
+        using var db = new FacturacionDbContext(new DbContextOptionsBuilder<FacturacionDbContext>()
+            .UseInMemoryDatabase(Guid.NewGuid().ToString()).UseLoggerFactory(loggerFactory).Options,
+            new FakeEmpresaContext(empresa));
+        var resultado = await Handler(db, empresa).Handle(Command(), CancellationToken.None);
+        Assert.Equal("Timbrado", resultado.Estado);
+        Assert.Contains(log.Advertencias, m => m.Contains("sin cadena original del timbre"));
+    }
+
+    private sealed class CapturaLog : ILoggerProvider, ILogger
+    {
+        public List<string> Advertencias { get; } = [];
+        public ILogger CreateLogger(string categoryName) => this;
+        public bool IsEnabled(LogLevel logLevel) => true;
+        public IDisposable? BeginScope<TState>(TState state) where TState : notnull => null;
+        public void Dispose() { }
+        public void Log<TState>(LogLevel logLevel, EventId eventId, TState state, Exception? exception,
+            Func<TState, Exception?, string> formatter)
+        {
+            if (logLevel == LogLevel.Warning) Advertencias.Add(formatter(state, exception));
+        }
+    }
+
+    [Fact]
+    public async Task Facturacion_parcial_prorratea_medidas_y_conserva_referencia()
+    {
+        var empresa = Guid.NewGuid(); using var db = NewDb(empresa);
+        var command = Command(); var productoId = Guid.NewGuid();
+        var pedido = PedidoFacturable.ImportarDesdeAw(empresa, "DEMO-PARCIAL", command.SucursalId,
+            Guid.NewGuid(), "Cliente ficticio DEMO", 1, command.ComportamientoFiscal, "MXN", null, null, null, 1, "15");
+        pedido.AgregarLinea(productoId, "Producto", "01010101", "H87", 10, 100, 0, false)
+            .EstablecerDatosImpresion("REF PARCIAL DEMO", 25m, 50m);
+        pedido.RecalcularTotal(); db.PedidosFacturables.Add(pedido); await db.SaveChangesAsync();
+        await Handler(db, empresa).Handle(command with {
+            PedidoFacturableId = pedido.Id,
+            Lineas = [command.Lineas[0] with { ProductoId = productoId, Cantidad = 4 }]
+        }, CancellationToken.None);
+        var factura = await db.FacturasVenta.Include(f => f.Lineas).SingleAsync();
+        var partida = Assert.Single(factura.Lineas);
+        Assert.Equal("REF PARCIAL DEMO", partida.Referencia);
+        Assert.Equal(10m, partida.PesoKg);
+        Assert.Equal(20m, partida.AreaPie2);
+        Assert.Equal(4m, factura.TotalPiezas);
+    }
+
+    [Fact]
+    public async Task Conserva_datos_de_impresion_capturados_sin_pedido()
+    {
+        var empresa = Guid.NewGuid(); using var db = NewDb(empresa);
+        var command = Command();
+        await Handler(db, empresa).Handle(command with {
+            Lineas = [command.Lineas[0] with { Referencia = "PARTIDA DEMO", PesoKg = 4.125m, AreaPie2 = 8.500m }]
+        }, CancellationToken.None);
+        var factura = await db.FacturasVenta.Include(f => f.Lineas).SingleAsync();
+        Assert.Equal("PARTIDA DEMO", Assert.Single(factura.Lineas).Referencia);
+        Assert.Equal(4.125m, factura.TotalKg);
+        Assert.Equal(8.500m, factura.TotalPie2);
     }
 
     [Fact]
@@ -258,6 +332,58 @@ public sealed class EmitirFacturaVentaHandlerTests
         factura.Lineas.Should().HaveCount(1);
     }
 
+    // ---- 86e3tfdw2: observaciones (solo PDF, nunca XML) ----
+
+    [Fact]
+    public async Task Handle_persiste_observaciones_del_cajero()
+    {
+        var empresaId = Guid.NewGuid();
+        using var db = NewDb(empresaId);
+        const string nota = "Anticipos aplicados: FANT-12 $5,000.00 MXN; FANT-15 $1,200.00 MXN";
+
+        await Handler(db, empresaId).Handle(Command() with { Observaciones = "  " + nota + " " }, CancellationToken.None);
+
+        var factura = await db.FacturasVenta.SingleAsync();
+        factura.Estado.Should().Be(EstadoTimbrado.Timbrado);
+        factura.Observaciones.Should().Be(nota);
+    }
+
+    [Fact]
+    public async Task Handle_sin_observaciones_deja_null()
+    {
+        var empresaId = Guid.NewGuid();
+        using var db = NewDb(empresaId);
+
+        await Handler(db, empresaId).Handle(Command(), CancellationToken.None);
+
+        (await db.FacturasVenta.SingleAsync()).Observaciones.Should().BeNull();
+    }
+
+    [Fact]
+    public async Task Validator_rechaza_medidas_y_referencia_fuera_de_limites()
+    {
+        var command = Command();
+        var validator = new EmitirFacturaVentaValidator(new FakeCanalesVentaReadPort());
+        var resultado = await validator.ValidateAsync(command with {
+            Lineas = [command.Lineas[0] with { Referencia = new string('x', 81), PesoKg = -1m, AreaPie2 = 1000000000000000m }]
+        });
+        Assert.Contains(resultado.Errors, e => e.PropertyName == "Lineas[0].Referencia");
+        Assert.Contains(resultado.Errors, e => e.PropertyName == "Lineas[0].PesoKg");
+        Assert.Contains(resultado.Errors, e => e.PropertyName == "Lineas[0].AreaPie2");
+    }
+
+    [Fact]
+    public async Task Validator_rechaza_observaciones_de_mas_de_1000_caracteres()
+    {
+        var validator = new EmitirFacturaVentaValidator(new FakeCanalesVentaReadPort());
+
+        var larga = await validator.ValidateAsync(Command() with { Observaciones = new string('x', 1001) });
+        var limite = await validator.ValidateAsync(Command() with { Observaciones = new string('x', 1000) });
+
+        larga.Errors.Should().ContainSingle(e => e.PropertyName == nameof(EmitirFacturaVentaCommand.Observaciones));
+        limite.Errors.Should().NotContain(e => e.PropertyName == nameof(EmitirFacturaVentaCommand.Observaciones));
+    }
+
     [Fact]
     public async Task Handle_con_periodo_cerrado_lanza_PERIODO_CERRADO()
     {
@@ -305,7 +431,7 @@ public sealed class EmitirFacturaVentaHandlerTests
         using var db = NewDb(empresaId);
         var pedido = Millet.Facturacion.Domain.Pedidos.PedidoFacturable.CrearManual(
             empresaId, "P-1", Guid.NewGuid(), Guid.NewGuid(), "Cliente", 1,
-            ComportamientoFiscal.MostradorInmediato, "MXN", null, null, null, Guid.NewGuid());
+            ComportamientoFiscal.MostradorInmediato, "MXN", null, null, null, Guid.NewGuid(), Millet.Facturacion.Domain.Pedidos.ClasePedidoManual.VentaDirecta, Millet.Facturacion.Domain.Pedidos.SubtipoVentaDirecta.Servicio, null, null);
         db.PedidosFacturables.Add(pedido);
         db.SaveChanges();
 
@@ -354,5 +480,117 @@ public sealed class EmitirFacturaVentaHandlerTests
         var act = () => handler.Handle(Command(), CancellationToken.None);
 
         await act.Should().ThrowAsync<ForbiddenException>().Where(e => e.Code == "EMPRESA_NO_SELECCIONADA");
+    }
+
+    // ----- F6.1: venta directa con serie propia; no se informa a A+W -----
+
+    private static PedidoFacturable PedidoManual(FacturacionDbContext db, Guid empresaId, ClasePedidoManual? clase,
+        SubtipoVentaDirecta? subtipo = null, ComportamientoFiscal comportamiento = ComportamientoFiscal.MostradorInmediato)
+    {
+        var p = PedidoFacturable.CrearManual(empresaId, "VD-1", Guid.NewGuid(), Guid.NewGuid(), "Cliente", 1,
+            comportamiento, "MXN", null, null, null, Guid.NewGuid(),
+            clase ?? ClasePedidoManual.VentaDirecta, clase is null ? SubtipoVentaDirecta.Servicio : subtipo,
+            clase == ClasePedidoManual.Emergencia ? "A+W fuera de servicio" : null, null);
+        if (clase is null)
+            Millet.Facturacion.UnitTests.Pedidos.PedidoFacturableManualClasificacionTests.VolverLegacy(p);
+        db.PedidosFacturables.Add(p);
+        db.SaveChanges();
+        return p;
+    }
+
+    [Theory]
+    [InlineData(ClasePedidoManual.VentaDirecta, SubtipoVentaDirecta.Servicio)]
+    [InlineData(ClasePedidoManual.Emergencia, null)]
+    public async Task Pedido_manual_clasificado_usa_serie_VentaDirecta_sin_writeback_AW(
+        ClasePedidoManual clase, SubtipoVentaDirecta? subtipo)
+    {
+        var empresa = Guid.NewGuid(); using var db = NewDb(empresa);
+        var pedido = PedidoManual(db, empresa, clase, subtipo);
+        var sender = new FakeSender(new ReservarFolioResponse("VD-MID-000001", 1, ""));
+
+        var resp = await Handler(db, empresa, sender: sender)
+            .Handle(Command() with { PedidoFacturableId = pedido.Id }, CancellationToken.None);
+
+        resp.Estado.Should().Be("Timbrado");
+        resp.Folio.Should().Be("VD-MID-000001");
+        sender.TiposReservados.Should().Equal(Millet.Administracion.Domain.TipoDocumentoSerie.VentaDirecta);
+        pedido.Estado.Should().Be(EstadoPedidoFacturable.Facturado);
+        db.IngestaControles.Should().BeEmpty("la venta directa no se informa a A+W");
+    }
+
+    [Fact]
+    public async Task Pedido_AW_sigue_usando_serie_Cfdi()
+    {
+        var empresa = Guid.NewGuid(); using var db = NewDb(empresa); var command = Command();
+        var p = CrearPedido(db, empresa, command.SucursalId, ComportamientoFiscal.MostradorInmediato);
+        var sender = new FakeSender(new ReservarFolioResponse("F-000001", 1, ""));
+
+        await Handler(db, empresa, sender: sender).Handle(command with { PedidoFacturableId = p.Id }, CancellationToken.None);
+
+        sender.TiposReservados.Should().Equal(Millet.Administracion.Domain.TipoDocumentoSerie.Cfdi);
+    }
+
+    [Fact]
+    public async Task Pedido_manual_legacy_sin_clase_se_rechaza_sin_quemar_folio()
+    {
+        var empresa = Guid.NewGuid(); using var db = NewDb(empresa);
+        var pedido = PedidoManual(db, empresa, clase: null);
+        var sender = new FakeSender(new ReservarFolioResponse("VD-000001", 1, ""));
+
+        var act = () => Handler(db, empresa, sender: sender)
+            .Handle(Command() with { PedidoFacturableId = pedido.Id }, CancellationToken.None);
+
+        await act.Should().ThrowAsync<BusinessRuleException>().Where(e => e.Code == "PEDIDO_MANUAL_SIN_CLASIFICAR");
+        sender.VecesReservoFolio.Should().Be(0);
+        db.FacturasVenta.Should().BeEmpty();
+    }
+
+    [Fact]
+    public async Task Venta_directa_activo_exige_comportamiento_VentaActivoFijo()
+    {
+        var empresa = Guid.NewGuid(); using var db = NewDb(empresa);
+        var pedido = PedidoManual(db, empresa, ClasePedidoManual.VentaDirecta, SubtipoVentaDirecta.Activo, ComportamientoFiscal.VentaActivoFijo);
+
+        var act = () => Handler(db, empresa)
+            .Handle(Command() with { PedidoFacturableId = pedido.Id }, CancellationToken.None);
+
+        await act.Should().ThrowAsync<BusinessRuleException>().Where(e => e.Code == "FAC_PEDIDO_ACTIVO_COMPORTAMIENTO");
+    }
+
+    [Fact]
+    public async Task Venta_directa_activo_sin_autorizacion_no_se_timbra_CA6_12()
+    {
+        var empresa = Guid.NewGuid(); using var db = NewDb(empresa);
+        var pedido = PedidoManual(db, empresa, ClasePedidoManual.VentaDirecta, SubtipoVentaDirecta.Activo, ComportamientoFiscal.VentaActivoFijo);
+        var sender = new FakeSender(new ReservarFolioResponse("VD-000001", 1, ""));
+
+        var act = () => Handler(db, empresa, sender: sender).Handle(Command() with
+        {
+            PedidoFacturableId = pedido.Id, ComportamientoFiscal = ComportamientoFiscal.VentaActivoFijo,
+        }, CancellationToken.None);
+
+        await act.Should().ThrowAsync<BusinessRuleException>().Where(e => e.Code == "AUTORIZACION_REQUERIDA");
+        sender.VecesReservoFolio.Should().Be(0);
+    }
+
+    [Fact]
+    public async Task Venta_directa_activo_con_autorizacion_la_consume_y_usa_serie_VD()
+    {
+        var empresa = Guid.NewGuid(); using var db = NewDb(empresa);
+        var pedido = PedidoManual(db, empresa, ClasePedidoManual.VentaDirecta, SubtipoVentaDirecta.Activo, ComportamientoFiscal.VentaActivoFijo);
+        var autorizacion = Millet.Facturacion.Domain.Activos.AutorizacionVentaActivo.Crear(
+            empresa, "DEMO-ACT", "Camioneta", 250000m, 180000m, false, 200m, Guid.NewGuid(), Ahora); // AF-04: precio autorizado = neto de la factura (2 × $100)
+        db.AutorizacionesVentaActivo.Add(autorizacion); db.SaveChanges();
+        var sender = new FakeSender(new ReservarFolioResponse("VD-000001", 1, ""));
+
+        var resp = await Handler(db, empresa, sender: sender).Handle(Command() with
+        {
+            PedidoFacturableId = pedido.Id, ComportamientoFiscal = ComportamientoFiscal.VentaActivoFijo,
+            AutorizacionId = autorizacion.Id,
+        }, CancellationToken.None);
+
+        sender.TiposReservados.Should().Equal(Millet.Administracion.Domain.TipoDocumentoSerie.VentaDirecta);
+        autorizacion.Estado.Should().Be(Millet.Facturacion.Domain.Activos.EstadoAutorizacionActivo.Usada);
+        autorizacion.FacturaVentaId.Should().Be(resp.Id);
     }
 }

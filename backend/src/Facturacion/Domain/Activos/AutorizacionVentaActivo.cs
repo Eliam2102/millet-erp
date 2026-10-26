@@ -81,6 +81,13 @@ public sealed class AutorizacionVentaActivo : BaseEntity, IPerteneceAEmpresa, IA
             valorEnLibros, depreciacionAcumulada, esImportacion, precioVenta, autorizadoPor, ahora);
     }
 
+    public void ValidarParaTimbrar(decimal precio, DateTimeOffset ahora, Guid? factura = null)
+    {
+        if (ahora < FechaAutorizacion || ahora >= FechaAutorizacion.AddDays(30) || precio != PrecioVenta
+            || (Estado != EstadoAutorizacionActivo.Autorizada && !(Estado == EstadoAutorizacionActivo.Usada && FacturaVentaId == factura)))
+            throw new BusinessRuleException("AF_NUEVA_AUTORIZACION_REQUERIDA", "La autorización debe tener menos de 30 días y el mismo precio neto MXN; solicite una nueva.");
+    }
+
     /// <summary>Consume la autorización al emitirse la factura (no reutilizable).</summary>
     public void MarcarUsada(Guid facturaVentaId)
     {

@@ -1,4 +1,6 @@
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.Extensions.Logging;
 using Millet.Facturacion.Domain.Comprobantes;
 using Millet.Facturacion.Infrastructure.Persistence;
 using Millet.Integraciones.Fiscal.Domain.Ports;
@@ -38,9 +40,23 @@ public static class TimbradoEjecutor
         ICfdiTimbradoPort fiscal,
         ICfdiRepositorioPort cfdiRepo,
         DateTimeOffset ahora,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken,
+        Func<CancellationToken, Task>? persistirEnProcesoAntesDelPac = null)
     {
+        if (comprobante is Millet.Facturacion.Domain.Facturas.FacturaVenta venta
+            && venta.ComportamientoFiscal == Millet.Facturacion.Domain.Facturas.ComportamientoFiscal.VentaActivoFijo)
+        {
+            var autorizacion = db.AutorizacionesVentaActivo.Local.FirstOrDefault(x => x.Id == venta.AutorizacionId)
+                ?? await db.AutorizacionesVentaActivo.SingleOrDefaultAsync(x => x.Id == venta.AutorizacionId, cancellationToken)
+                ?? throw new Millet.SharedKernel.Application.Exceptions.BusinessRuleException("AF_AUTORIZACION_REQUERIDA", "Se requiere autorización de venta.");
+            autorizacion.ValidarParaTimbrar(decimal.Round((venta.Subtotal - venta.Descuento) * (venta.TipoCambio ?? 1), 2), ahora, venta.Id);
+        }
         comprobante.MarcarTimbradoEnProceso();
+        // 86e3t97tx: el reintento guarda aquí el estado «en proceso» ANTES del
+        // PAC; si otro reintento ya lo tomó, el guardado falla y el PAC no se
+        // llama (sin doble UUID). Las emisiones no lo usan (callback nulo).
+        if (persistirEnProcesoAntesDelPac is not null)
+            await persistirEnProcesoAntesDelPac(cancellationToken);
         var timbre = await fiscal.TimbrarAsync(emision, cancellationToken);
 
         switch (timbre.Estado)
@@ -76,6 +92,9 @@ public static class TimbradoEjecutor
                 var uuidXml = CadenaOriginalTimbre.UuidDesde(timbre.XmlTimbrado);
                 if (uuidXml is null || string.Equals(uuidXml, timbre.Uuid, StringComparison.OrdinalIgnoreCase))
                     comprobante.RecalcularDatosTimbre(timbre.XmlTimbrado);
+                if (comprobante.CadenaOriginalTimbre is null)
+                    db.GetService<ILoggerFactory>().CreateLogger(typeof(TimbradoEjecutor).FullName!)
+                        .LogWarning("Timbrado confirmado sin cadena original del timbre para el comprobante {ComprobanteId}", comprobante.Id);
                 break;
 
             case TimbradoEstado.EnProceso:

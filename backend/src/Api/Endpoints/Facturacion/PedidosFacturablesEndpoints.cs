@@ -9,6 +9,11 @@ using Millet.Facturacion.Application.Pedidos.CrearPedidoFacturableManual;
 using Millet.Facturacion.Application.Pedidos.EditarPedidoFacturableManual;
 using Millet.Facturacion.Application.Trazabilidad;
 using Millet.Facturacion.Application.Pedidos.Queries;
+using Millet.Facturacion.Application.Facturas.EmitirFacturaVenta;
+using Millet.Facturacion.Application.Proformas;
+using Millet.Facturacion.Application.Proformas.CompararProformaPedido;
+using Millet.Facturacion.Application.Proformas.GenerarProformaPedido;
+using Millet.Facturacion.Application.Proformas.Queries;
 using Millet.Facturacion.Domain.Facturas;
 using Millet.Facturacion.Domain.Pedidos;
 using Millet.Identidad.Domain;
@@ -36,12 +41,16 @@ public static class PedidosFacturablesEndpoints
             [FromQuery] int? offset,
             [FromQuery] int? limit,
             [FromQuery] string? alcance,
+            [FromQuery] ClasePedidoManual? clase,
+            [FromQuery] bool? credito,
             IMediator mediator,
             CancellationToken cancellationToken) =>
         {
+            // F6.1: ?clase=VentaDirecta|Emergencia filtra los pedidos manuales clasificados.
+            // 86e3tfdw2: ?credito=true|false filtra por condición de pago.
             var response = await mediator.Send(
                 new BandejaPedidosFacturablesQuery(
-                    estado, origen, offset ?? 0, limit ?? 50, AlcanceParam.SoloSinAsignar(alcance)),
+                    estado, origen, offset ?? 0, limit ?? 50, AlcanceParam.SoloSinAsignar(alcance), clase, credito),
                 cancellationToken);
             return Results.Ok(response);
         })
@@ -94,10 +103,11 @@ public static class PedidosFacturablesEndpoints
         .WithMetadata(new RequireIdempotencyKeyAttribute())
         .RequireAuthorization(PermissionPolicyProvider.Prefix + PermisosCanonicos.FacturacionPedidosCapturar)
         .WithName("CrearPedidoFacturableManual")
-        .WithSummary("Captura un pedido facturable manual con líneas inline")
+        .WithSummary("Captura un pedido facturable manual (venta directa o emergencia) con líneas inline")
         .Produces<PedidoFacturableResponse>(StatusCodes.Status201Created)
         .ProducesValidationProblem()
-        .ProducesProblem(StatusCodes.Status403Forbidden);
+        .ProducesProblem(StatusCodes.Status403Forbidden)
+        .ProducesProblem(StatusCodes.Status422UnprocessableEntity);
 
         // PUT: edición con concurrencia optimista (If-Match con la versión actual).
         group.MapPut("/{id:guid}", async (
@@ -119,7 +129,8 @@ public static class PedidosFacturablesEndpoints
                 new EditarPedidoFacturableManualCommand(
                     id, version, body.ClienteId, body.ClienteNombre, body.CanalVenta,
                     body.ComportamientoFiscal, body.Moneda, body.ObraId, body.ObraNombre,
-                    body.Comentarios, body.Lineas),
+                    body.Comentarios, body.Lineas, body.ClaseManual, body.SubtipoVentaDirecta,
+                    body.MotivoEmergencia, body.ReferenciaPedidoAw),
                 cancellationToken);
             return Results.Ok(response);
         })
@@ -127,6 +138,8 @@ public static class PedidosFacturablesEndpoints
         .WithName("EditarPedidoFacturableManual")
         .WithSummary("Edita un pedido manual no facturado (If-Match → 409 al choque)")
         .Produces<PedidoFacturableResponse>(StatusCodes.Status200OK)
+        .ProducesValidationProblem()
+        .ProducesProblem(StatusCodes.Status403Forbidden)
         .ProducesProblem(StatusCodes.Status404NotFound)
         .ProducesProblem(StatusCodes.Status409Conflict)
         .ProducesProblem(StatusCodes.Status428PreconditionRequired);
@@ -184,6 +197,60 @@ public static class PedidosFacturablesEndpoints
         .Produces<ArbolDocumentosFacturacionResponse>(StatusCodes.Status200OK)
         .ProducesProblem(StatusCodes.Status404NotFound);
 
+        // U1.8a: proforma del pedido antes del timbrado. POST genera una versión
+        // nueva (sin folio fiscal); mutación → Idempotency-Key (ADR-0020).
+        group.MapPost("/{id:guid}/proformas", async (
+            Guid id,
+            IMediator mediator,
+            CancellationToken cancellationToken) =>
+        {
+            var response = await mediator.Send(new GenerarProformaPedidoCommand(id), cancellationToken);
+            return Results.Created($"/api/v1/facturacion/pedidos-facturables/{id}/proformas/ultima", response);
+        })
+        .WithMetadata(new RequireIdempotencyKeyAttribute())
+        .RequireAuthorization(PermissionPolicyProvider.Prefix + PermisosCanonicos.FacturacionFacturasEmitir)
+        .WithName("GenerarProformaPedido")
+        .WithSummary("Genera la proforma (sin valor fiscal) de un pedido por facturar")
+        .Produces<ProformaPedidoResponse>(StatusCodes.Status201Created)
+        .ProducesProblem(StatusCodes.Status403Forbidden)
+        .ProducesProblem(StatusCodes.Status404NotFound)
+        .ProducesProblem(StatusCodes.Status422UnprocessableEntity);
+
+        // U1.8a: última proforma del pedido (204 si aún no tiene; 404 si el pedido no existe).
+        group.MapGet("/{id:guid}/proformas/ultima", async (
+            Guid id,
+            IMediator mediator,
+            CancellationToken cancellationToken) =>
+        {
+            var response = await mediator.Send(new UltimaProformaPedidoQuery(id), cancellationToken);
+            return response is null ? Results.NoContent() : Results.Ok(response);
+        })
+        .RequireAuthorization(PermissionPolicyProvider.Prefix + PermisosCanonicos.FacturacionFacturasLeer)
+        .WithName("UltimaProformaPedido")
+        .WithSummary("Última proforma generada de un pedido")
+        .Produces<ProformaPedidoResponse>(StatusCodes.Status200OK)
+        .Produces(StatusCodes.Status204NoContent)
+        .ProducesProblem(StatusCodes.Status404NotFound);
+
+        // U1.8a: compara el payload de emisión contra la última proforma antes de
+        // timbrar. Lectura pura (no persiste) → sin Idempotency-Key.
+        group.MapPost("/{id:guid}/proformas/comparar", async (
+            Guid id,
+            EmitirFacturaVentaCommand emision,
+            IMediator mediator,
+            CancellationToken cancellationToken) =>
+        {
+            var response = await mediator.Send(new CompararProformaPedidoQuery(id, emision), cancellationToken);
+            return Results.Ok(response);
+        })
+        .RequireAuthorization(PermissionPolicyProvider.Prefix + PermisosCanonicos.FacturacionFacturasEmitir)
+        .WithName("CompararProformaPedido")
+        .WithSummary("Diferencias entre lo que se va a timbrar y la última proforma del pedido")
+        .Produces<ComparacionProformaResponse>(StatusCodes.Status200OK)
+        .ProducesValidationProblem()
+        .ProducesProblem(StatusCodes.Status404NotFound)
+        .ProducesProblem(StatusCodes.Status422UnprocessableEntity);
+
         return app;
     }
 
@@ -199,7 +266,10 @@ public static class PedidosFacturablesEndpoints
 
     /// <summary>Body de edición (la versión va en el header If-Match, no en el cuerpo).
     /// <c>CanalVenta</c> es el id del catálogo <c>compartido.canales_venta</c>
-    /// (FAC-ING-PR2) — mismo nombre y forma numérica en JSON que cuando era enum.</summary>
+    /// (FAC-ING-PR2) — mismo nombre y forma numérica en JSON que cuando era enum.
+    /// F6.1: <c>ClaseManual</c> (1 VentaDirecta, 2 Emergencia) y
+    /// <c>SubtipoVentaDirecta</c> (1 Activo, 2 Almacenable, 3 Servicio) van en
+    /// forma numérica, igual que <c>ComportamientoFiscal</c>.</summary>
     public sealed record EditarPedidoFacturableRequest(
         Guid ClienteId,
         string ClienteNombre,
@@ -209,5 +279,9 @@ public static class PedidosFacturablesEndpoints
         long? ObraId,
         string? ObraNombre,
         string? Comentarios,
-        IReadOnlyList<PedidoFacturableLineaInput> Lineas);
+        IReadOnlyList<PedidoFacturableLineaInput> Lineas,
+        ClasePedidoManual? ClaseManual = null,
+        SubtipoVentaDirecta? SubtipoVentaDirecta = null,
+        string? MotivoEmergencia = null,
+        string? ReferenciaPedidoAw = null);
 }

@@ -41,7 +41,7 @@ public sealed record OcLineaLectura(
     decimal CantidadRecibida,
     decimal PrecioUnitarioMxn,
     Guid? CentroCostoId = null,
-    decimal CantidadFacturada = 0m);
+    decimal CantidadFacturada = 0m, bool EsActivoFijo = false, Guid? ClaseActivoId = null);
 
 public sealed record RecepcionesPendientesLectura(int Total, int Parciales);
 

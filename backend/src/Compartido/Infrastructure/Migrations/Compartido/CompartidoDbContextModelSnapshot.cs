@@ -1049,12 +1049,12 @@ namespace Millet.Compartido.Infrastructure.Migrations.Compartido
                     b.HasIndex("EmpresaId", "TipoDocumento")
                         .IsUnique()
                         .HasDatabaseName("ix_series_fiscal_activa_global")
-                        .HasFilter("activa AND sucursal_id IS NULL AND tipo_documento IN (2, 3, 5)");
+                        .HasFilter("activa AND sucursal_id IS NULL AND tipo_documento IN (2, 3, 5, 6)");
 
                     b.HasIndex("EmpresaId", "SucursalId", "TipoDocumento")
                         .IsUnique()
                         .HasDatabaseName("ix_series_fiscal_activa_sucursal")
-                        .HasFilter("activa AND sucursal_id IS NOT NULL AND tipo_documento IN (2, 3, 5)");
+                        .HasFilter("activa AND sucursal_id IS NOT NULL AND tipo_documento IN (2, 3, 5, 6)");
 
                     b.HasIndex("EmpresaId", "TipoDocumento", "Activa")
                         .HasDatabaseName("ix_series_empresa_id_tipo_documento_activa");
@@ -1070,7 +1070,9 @@ namespace Millet.Compartido.Infrastructure.Migrations.Compartido
 
                             t.HasCheckConstraint("ck_series_sufijo_max", "sufijo IS NULL OR char_length(sufijo) BETWEEN 0 AND 10");
 
-                            t.HasCheckConstraint("ck_series_tipo_documento", "tipo_documento BETWEEN 1 AND 5");
+                            t.HasCheckConstraint("ck_series_tipo_documento", "tipo_documento BETWEEN 1 AND 6");
+
+                            t.HasCheckConstraint("ck_series_vd_sucursal", "tipo_documento <> 6 OR sucursal_id IS NOT NULL");
                         });
                 });
 
@@ -6305,6 +6307,158 @@ namespace Millet.Compartido.Infrastructure.Migrations.Compartido
                         });
 
                     b.HasData(
+                        new
+                        {
+                            Id = new Guid("0000000f-0003-0000-0000-000000000001"),
+                            Activo = true,
+                            AplicaOrigen = (short)0,
+                            Codigo = "AF_0",
+                            CreatedAt = new DateTimeOffset(new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            CreatedBy = "seed",
+                            Nombre = "Factura de compra",
+                            Obligatorio = false,
+                            ObligatorioPersonaFisica = false,
+                            ObligatorioPersonaMoral = false,
+                            Orden = 1,
+                            SoloPersonaMoral = false,
+                            TipoEntidad = "activo_fijo",
+                            UpdatedAt = new DateTimeOffset(new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            UpdatedBy = "seed",
+                            Version = 1
+                        },
+                        new
+                        {
+                            Id = new Guid("0000000f-0003-0000-0000-000000000002"),
+                            Activo = true,
+                            AplicaOrigen = (short)0,
+                            Codigo = "AF_1",
+                            CreatedAt = new DateTimeOffset(new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            CreatedBy = "seed",
+                            Nombre = "Póliza de seguro",
+                            Obligatorio = false,
+                            ObligatorioPersonaFisica = false,
+                            ObligatorioPersonaMoral = false,
+                            Orden = 2,
+                            SoloPersonaMoral = false,
+                            TipoEntidad = "activo_fijo",
+                            UpdatedAt = new DateTimeOffset(new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            UpdatedBy = "seed",
+                            Version = 1
+                        },
+                        new
+                        {
+                            Id = new Guid("0000000f-0003-0000-0000-000000000003"),
+                            Activo = true,
+                            AplicaOrigen = (short)0,
+                            Codigo = "AF_2",
+                            CreatedAt = new DateTimeOffset(new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            CreatedBy = "seed",
+                            Nombre = "Garantía",
+                            Obligatorio = false,
+                            ObligatorioPersonaFisica = false,
+                            ObligatorioPersonaMoral = false,
+                            Orden = 3,
+                            SoloPersonaMoral = false,
+                            TipoEntidad = "activo_fijo",
+                            UpdatedAt = new DateTimeOffset(new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            UpdatedBy = "seed",
+                            Version = 1
+                        },
+                        new
+                        {
+                            Id = new Guid("0000000f-0003-0000-0000-000000000004"),
+                            Activo = true,
+                            AplicaOrigen = (short)0,
+                            Codigo = "AF_3",
+                            CreatedAt = new DateTimeOffset(new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            CreatedBy = "seed",
+                            Nombre = "Contrato de arrendamiento",
+                            Obligatorio = false,
+                            ObligatorioPersonaFisica = false,
+                            ObligatorioPersonaMoral = false,
+                            Orden = 4,
+                            SoloPersonaMoral = false,
+                            TipoEntidad = "activo_fijo",
+                            UpdatedAt = new DateTimeOffset(new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            UpdatedBy = "seed",
+                            Version = 1
+                        },
+                        new
+                        {
+                            Id = new Guid("0000000f-0003-0000-0000-000000000005"),
+                            Activo = true,
+                            AplicaOrigen = (short)0,
+                            Codigo = "AF_4",
+                            CreatedAt = new DateTimeOffset(new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            CreatedBy = "seed",
+                            Nombre = "Pedimento",
+                            Obligatorio = false,
+                            ObligatorioPersonaFisica = false,
+                            ObligatorioPersonaMoral = false,
+                            Orden = 5,
+                            SoloPersonaMoral = false,
+                            TipoEntidad = "activo_fijo",
+                            UpdatedAt = new DateTimeOffset(new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            UpdatedBy = "seed",
+                            Version = 1
+                        },
+                        new
+                        {
+                            Id = new Guid("0000000f-0003-0000-0000-000000000006"),
+                            Activo = true,
+                            AplicaOrigen = (short)0,
+                            Codigo = "AF_5",
+                            CreatedAt = new DateTimeOffset(new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            CreatedBy = "seed",
+                            Nombre = "Manual",
+                            Obligatorio = false,
+                            ObligatorioPersonaFisica = false,
+                            ObligatorioPersonaMoral = false,
+                            Orden = 6,
+                            SoloPersonaMoral = false,
+                            TipoEntidad = "activo_fijo",
+                            UpdatedAt = new DateTimeOffset(new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            UpdatedBy = "seed",
+                            Version = 1
+                        },
+                        new
+                        {
+                            Id = new Guid("0000000f-0003-0000-0000-000000000007"),
+                            Activo = true,
+                            AplicaOrigen = (short)0,
+                            Codigo = "AF_6",
+                            CreatedAt = new DateTimeOffset(new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            CreatedBy = "seed",
+                            Nombre = "Fotografía",
+                            Obligatorio = false,
+                            ObligatorioPersonaFisica = false,
+                            ObligatorioPersonaMoral = false,
+                            Orden = 7,
+                            SoloPersonaMoral = false,
+                            TipoEntidad = "activo_fijo",
+                            UpdatedAt = new DateTimeOffset(new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            UpdatedBy = "seed",
+                            Version = 1
+                        },
+                        new
+                        {
+                            Id = new Guid("0000000f-0003-0000-0000-000000000008"),
+                            Activo = true,
+                            AplicaOrigen = (short)0,
+                            Codigo = "AF_7",
+                            CreatedAt = new DateTimeOffset(new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            CreatedBy = "seed",
+                            Nombre = "Otro",
+                            Obligatorio = false,
+                            ObligatorioPersonaFisica = false,
+                            ObligatorioPersonaMoral = false,
+                            Orden = 8,
+                            SoloPersonaMoral = false,
+                            TipoEntidad = "activo_fijo",
+                            UpdatedAt = new DateTimeOffset(new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            UpdatedBy = "seed",
+                            Version = 1
+                        },
                         new
                         {
                             Id = new Guid("00000011-0006-0000-0000-000000000001"),

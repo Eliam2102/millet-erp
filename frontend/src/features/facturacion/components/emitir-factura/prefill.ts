@@ -9,6 +9,15 @@
 export interface EmitirFacturaPrefill {
   embarqueCe?: import('@/features/comercio-exterior/api/types').EmbarqueCe | null;
   pedidoFacturableId: string;
+  /** Origen del pedido ("Aw", "PlantaPintura", "Manual"). */
+  origen?: string;
+  /**
+   * F6.1: clase del pedido manual. Venta directa y emergencia se timbran
+   * con la serie de Venta directa de la sucursal; null fuera de manuales.
+   */
+  claseManual?: import('@/features/facturacion/api/types').ClasePedidoManualNombre | null;
+  /** F6.1: subtipo de la venta directa; Activo fija «Venta de activo fijo». */
+  subtipoVentaDirecta?: import('@/features/facturacion/api/types').SubtipoVentaDirectaNombre | null;
   sucursalId?: string;
   /** Cliente del pedido — habilita el picker de anticipos (FAC-UX-PR4). */
   clienteId?: string;
@@ -33,6 +42,7 @@ export interface EmitirFacturaPrefill {
   moneda?: string;
   referenciaCliente?: string | null;
   comentarios?: string | null;
+  condicionesPago?: string | null;
   obraNombre?: string | null;
   lineas?: Array<{
     productoId: string | null;

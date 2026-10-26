@@ -48,6 +48,38 @@ public class PeriodosTests
     }
 
     [Fact]
+    public void Cerrar_reabrir_y_volver_a_cerrar_deja_solo_el_ultimo_cierre_como_responsable()
+    {
+        // 86e3t97vh (demo 16-oct): tras volver a cerrar, el periodo seguía mostrando «Reabrió …».
+        var ps = Ejercicio();
+        Abrir(ps, 1, 2);
+        var enero = P(ps, 1);
+        enero.Cerrar(ps, Motivo, null, "Ana Contadora", Ahora);
+        enero.Reabrir(P(ps, 2), Motivo, null, "Beto Auxiliar", Ahora.AddHours(1));
+        enero.Cerrar(ps, Motivo, null, "Carla Contralora", Ahora.AddHours(2));
+
+        enero.Estado.Should().Be(EstadoPeriodo.Cerrado);
+        enero.CerradoPor.Should().Be("Carla Contralora");
+        enero.CerradoEn.Should().Be(Ahora.AddHours(2));
+        enero.ReabiertoPor.Should().BeNull();
+        enero.ReabiertoEn.Should().BeNull();
+    }
+
+    [Theory]
+    [InlineData("Ana Contadora", "ana@millet.mx", "Ana Contadora")]
+    [InlineData(null, "ana@millet.mx", "ana@millet.mx")]
+    [InlineData(" ", null, "00000000-0000-0000-0000-0000000000aa")]
+    public void El_responsable_usa_nombre_o_correo_o_id_y_no_system_si_hay_usuario(string? nombre, string? correo, string esperado)
+    {
+        var usuario = new UsuarioDePrueba(Guid.Parse("00000000-0000-0000-0000-0000000000aa"), nombre, correo);
+        PoliticaPeriodos.Usuario(usuario).Should().Be(esperado);
+        PoliticaPeriodos.Usuario(new UsuarioDePrueba(null, null, null)).Should().Be("system");
+    }
+
+    private sealed record UsuarioDePrueba(Guid? UserId, string? UserName, string? Email)
+        : Millet.SharedKernel.Application.ICurrentUserContext;
+
+    [Fact]
     public void Crear_ejercicio_genera_doce_meses_y_el_periodo_13_sin_abrir()
     {
         var ps = Ejercicio(2028);

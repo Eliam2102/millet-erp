@@ -23,7 +23,11 @@ export interface FacturasLayoutProps {
 export function FacturasLayout({ idActivo, detalle }: FacturasLayoutProps) {
   const search = useSearch({ strict: false }) as FacturasSearch;
 
-  const query = useListarFacturas({ estado: search.estado, limit: search.limit ?? 200 });
+  const query = useListarFacturas({
+    estado: search.estado,
+    clase: search.clase,
+    limit: search.limit ?? 200,
+  });
 
   const items = useMemo(() => {
     const todos = query.data?.items ?? [];

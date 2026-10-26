@@ -1,5 +1,7 @@
 import { DateTimeDisplay } from '@/components/erp';
 import { Badge } from '@/components/ui/badge';
+import { ClasePedidoBadge } from '@/features/facturacion/components/ClasePedidoBadge';
+import { BadgeCredito } from '@/features/facturacion/components/BadgeCredito';
 import type { PedidoBandejaItem } from '@/features/facturacion/api/types';
 import { ETIQUETA_ORIGEN_PEDIDO } from '@/features/facturacion/lib/glosario';
 import type { PedidosSearch } from '@/features/facturacion/lib/pedidos-search-schema';
@@ -47,17 +49,24 @@ export function ListaPedidosCompacta({ items, idActivo, search }: ListaPedidosCo
               </span>
               <div className="flex shrink-0 items-center gap-1">
                 <Badge variant="neutral">{ETIQUETA_ORIGEN_PEDIDO[p.origen] ?? p.origen}</Badge>
+                <BadgeCredito esCredito={p.esCredito} />
                 <ChipEstadoPedido estado={p.estado} />
               </div>
             </div>
             <div className="mt-1 flex items-center justify-between gap-2 text-xs text-ink-muted">
               <span className="truncate">{p.clienteNombre}</span>
-              <span className="shrink-0 font-mono tabular-nums" title="Subtotal sin impuestos">
-                {formatMoney({ amount: p.total, currency: p.moneda })}
+              <span
+                className="shrink-0 font-mono tabular-nums"
+                title={`Subtotal sin impuestos: ${formatMoney({ amount: p.total, currency: p.moneda })}`}
+              >
+                {p.totalConIva == null
+                  ? '—'
+                  : formatMoney({ amount: p.totalConIva, currency: p.moneda })}
               </span>
             </div>
+            <ClasePedidoBadge clasificacion={p} className="mt-1" />
             <div className="mt-0.5 text-right text-[11px] text-ink-muted tabular-nums">
-              <span className="mr-2">Subtotal sin impuestos</span>
+              <span className="mr-2">Total con IVA</span>
               <DateTimeDisplay value={p.createdAt} />
             </div>
           </Link>

@@ -254,6 +254,11 @@ public sealed class OrdenCompraConfiguration : IEntityTypeConfiguration<OrdenCom
             .HasForeignKey(r => r.OrdenCompraId).OnDelete(DeleteBehavior.Cascade);
         builder.Navigation(o => o.RespuestasProveedor).UsePropertyAccessMode(PropertyAccessMode.Field);
 
+        // F1-COM-07: incidencias del proveedor por línea (con historial de compromisos).
+        builder.HasMany(o => o.Incidencias).WithOne()
+            .HasForeignKey(i => i.OrdenCompraId).OnDelete(DeleteBehavior.Cascade);
+        builder.Navigation(o => o.Incidencias).UsePropertyAccessMode(PropertyAccessMode.Field);
+
         // UNIQUE de §10.1: anti-colisión de folios por (empresa, sucursal).
         // El año va embebido en el VO Folio (formato OC-MID2026-000001).
         builder.HasIndex(o => new { o.EmpresaId, o.SucursalDestinoId, o.Folio })

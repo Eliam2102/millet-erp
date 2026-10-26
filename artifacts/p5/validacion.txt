@@ -1,0 +1,112 @@
+P5 — evidencias locales, 20-oct-2026 (America/Merida)
+
+COMPILACIÓN FINAL
+
+Compilación correcta.
+    0 Advertencia(s)
+    0 Errores
+
+Tiempo transcurrido 00:00:18.39
+
+VITEST FOCALIZADO (máximo 2 workers)
+
+ RUN  v4.1.5 /Users/eliamcv/Documents/Vidrios millet/millet_erp-AF06/frontend
+
+
+ Test Files  23 passed (23)
+      Tests  162 passed (162)
+   Start at  18:46:55
+   Duration  7.08s (transform 374ms, setup 2.05s, import 2.97s, tests 1.67s, environment 5.83s)
+
+
+TYPESCRIPT
+npx tsc -b tsconfig.app.json: código 0, sin errores.
+
+LINT
+
+> frontend@0.0.0 lint
+> eslint .
+
+
+/Users/eliamcv/Documents/Vidrios millet/millet_erp-AF06/frontend/src/modules/administracion/components/EmpleadoInlineForm.tsx
+  708:31  warning  Compilation Skipped: Use of incompatible library
+
+This API returns functions which cannot be memoized without leading to stale UI. To prevent this, by default React Compiler will skip memoizing this component/hook. However, you may see issues if values from this API are passed to other components/hooks that are memoized.
+
+/Users/eliamcv/Documents/Vidrios millet/millet_erp-AF06/frontend/src/modules/administracion/components/EmpleadoInlineForm.tsx:708:31
+  706 |                     }
+  707 |                   }}
+> 708 |                   sucursalId={form.watch('sucursalId') || undefined}
+      |                               ^^^^ React Hook Form's `useForm()` API returns a `watch()` function which cannot be memoized safely.
+  709 |                   className="w-full"
+  710 |                 />
+  711 |               )}  react-hooks/incompatible-library
+
+✖ 1 problem (0 errors, 1 warning)
+
+
+UNITARIAS AF — MÉTODOS XUNIT EN PROCESO
+PASS ActivoTests.Factura_conciliada_asigna_500000_y_repeticion_no_cambia_valor
+PASS ActivoTests.Capitalizacion_requiere_factura_y_es_idempotente_con_misma_poliza
+PASS ActivoTests.Alta_manual_requiere_soporte_y_pedimento_para_importacion
+PASS ActivoTests.Traslado_conserva_origen_hasta_aceptacion_y_cambia_sucursal_y_equipo
+PASS ActivoTests.Nota_credito_20000_deja_480000_e_historial_idempotente
+PASS ActivoTests.Mejora_aumenta_valor_sin_calcular_depreciacion
+PASS ActivoTests.Clase_valida_tasa_y_clave_y_permite_cuentas_demo_vacias
+PASS CapitalizacionTests.Poliza_balanceada_idempotente_y_periodo_rechazado_no_capitaliza
+PASS CapitalizacionTests.Poliza_balanceada_idempotente_y_periodo_rechazado_no_capitaliza
+PASS ConservacionTests.Garantia_a_30_dias_genera_tipo_anticipado_y_el_dia_de_vencimiento_otro_tipo
+PASS ConservacionTests.Documento_con_vigencia_obligatoria_rechaza_fechas_ausentes_o_invertidas
+PASS ConservacionTests.Documento_con_vigencia_obligatoria_rechaza_fechas_ausentes_o_invertidas
+PASS ConservacionTests.Documento_con_vigencia_obligatoria_rechaza_fechas_ausentes_o_invertidas
+PASS ConservacionTests.Reemplazo_conserva_revision_y_archivo_anterior_y_rechaza_reemplazo_obsoleto
+PASS ConservacionTests.Mantenimiento_ligado_a_factura_no_cambia_valor_ni_crea_movimientos_contables
+PASS ConservacionTests.Conteo_con_tres_esperados_y_sobrante_conserva_los_cuatro_resultados_y_foto_original
+PASS ConservacionTests.Autorizar_exige_otra_persona_y_genera_solo_propuesta_con_evidencia
+PASS ConservacionTests.Autorizar_exige_otra_persona_y_genera_solo_propuesta_con_evidencia
+PASS ConservacionTests.Autorizar_exige_otra_persona_y_genera_solo_propuesta_con_evidencia
+PASS ConservacionTests.Conteo_no_cierra_con_pendientes_y_rechaza_resultados_incompatibles
+PASS ConservacionTests.Impresion_conserva_numero_SAP_y_registra_fecha
+PASS ModeloTests.Modelo_aisla_empresa_controla_version_y_rechaza_traslados_simultaneos
+PASS ModeloTests.Bandeja_de_vencimientos_se_traduce_a_SQL_con_union_y_paginacion
+Casos ejecutados: 23; aprobados: 23; fallos: 0
+
+LÍMITE DEL RUNNER ESTÁNDAR
+Serie de pruebas para /Users/eliamcv/Documents/Vidrios millet/millet_erp-AF06/backend/tests/ActivosFijos.UnitTests/bin/Debug/net10.0/Millet.ActivosFijos.UnitTests.dll (.NETCoreApp,Version=v10.0)
+1 archivos de prueba en total coincidieron con el patrón especificado.
+System.Net.Sockets.SocketException (13): Permission denied
+   at System.Net.Sockets.Socket.UpdateStatusAfterSocketErrorAndThrowException(SocketError error, Boolean disconnectOnFailure, String callerName)
+   at System.Net.Sockets.Socket.DoBind(EndPoint endPointSnapshot, SocketAddress socketAddress)
+   at System.Net.Sockets.Socket.Bind(EndPoint localEP)
+   at System.Net.Sockets.TcpListener.Start(Int32 backlog)
+   at Microsoft.VisualStudio.TestPlatform.CommunicationUtilities.SocketServer.Start(String endPoint) in /_/src/vstest/src/Microsoft.TestPlatform.CommunicationUtilities/SocketServer.cs:line 65
+   at Microsoft.VisualStudio.TestPlatform.CommunicationUtilities.TestRequestSender.InitializeCommunication() in /_/src/vstest/src/Microsoft.TestPlatform.CommunicationUtilities/TestRequestSender.cs:line 168
+   at Microsoft.VisualStudio.TestPlatform.CrossPlatEngine.Client.ProxyOperationManager.SetupChannel(IEnumerable`1 sources, String runSettings) in /_/src/vstest/src/Microsoft.TestPlatform.CrossPlatEngine/Client/ProxyOperationManager.cs:line 207
+   at Microsoft.VisualStudio.TestPlatform.CrossPlatEngine.Client.ProxyExecutionManager.InitializeTestRun(TestRunCriteria testRunCriteria, IInternalTestRunEventsHandler eventHandler) in /_/src/vstest/src/Microsoft.TestPlatform.CrossPlatEngine/Client/ProxyExecutionManager.cs:line 184
+
+Serie de pruebas anulada.
+
+PDF
+Hoja 1: carta 612x792 pt, 10 números de activo, render correcto
+Hoja 2: carta 612x792 pt, 10 números de activo, render correcto
+Hoja 3: carta 612x792 pt, 10 números de activo, render correcto
+Verificados los 30 números SAP, 3 páginas carta y contenido como texto.
+
+MODELOS EF
+CompartidoDbContext: No changes have been made to the model since the last migration.
+CoreDbContext: No changes have been made to the model since the last migration.
+IdentidadDbContext: No changes have been made to the model since the last migration.
+ComprasDbContext: No changes have been made to the model since the last migration.
+IntegracionesAwDbContext: No changes have been made to the model since the last migration.
+IntegracionesFiscalDbContext: No changes have been made to the model since the last migration.
+AlmacenDbContext: No changes have been made to the model since the last migration.
+CuentasPorPagarDbContext: No changes have been made to the model since the last migration.
+FacturacionDbContext: No changes have been made to the model since the last migration.
+CuentasPorCobrarDbContext: No changes have been made to the model since the last migration.
+TesoreriaDbContext: No changes have been made to the model since the last migration.
+CentrosCostoDbContext: No changes have been made to the model since the last migration.
+ContabilidadDbContext: No changes have been made to the model since the last migration.
+ComercioExteriorDbContext: No changes have been made to the model since the last migration.
+ActivosFijosDbContext: No changes have been made to the model since the last migration.
+
+Integración HTTP/PostgreSQL, prueba física de impresión y lector, E2E en navegador: no ejecutados.

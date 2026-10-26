@@ -51,6 +51,11 @@ export interface TabEncabezadoProps {
   esCce: boolean;
   embarqueCe?: import('@/features/comercio-exterior/api/types').EmbarqueCe | null;
   esActivo: boolean;
+  /**
+   * F6.1: motivo por el que el comportamiento fiscal no se puede cambiar
+   * (pedido de venta directa · Activo). Se muestra de solo lectura.
+   */
+  comportamientoFijo?: string;
   autorizacionId: string;
   onAutorizacionIdChange: (value: string) => void;
   clienteId: string | null;
@@ -62,6 +67,7 @@ export interface TabEncabezadoProps {
   /** Nombre del canal precargado desde el pedido (FAC-ING-PR3) — conserva
    * la opción en el selector si el canal ya no está activo. */
   canalVentaNombre?: string;
+  onObservacionesChange: (texto: string) => void;
 }
 
 export function TabEncabezado({
@@ -72,6 +78,7 @@ export function TabEncabezado({
   esCce,
   embarqueCe,
   esActivo,
+  comportamientoFijo,
   autorizacionId,
   onAutorizacionIdChange,
   clienteId,
@@ -79,8 +86,13 @@ export function TabEncabezado({
   clienteLabel,
   clienteFijo,
   canalVentaNombre,
+  onObservacionesChange,
 }: TabEncabezadoProps) {
-  const datosCliente = useWatch({ control: form.control });
+  const [ordenCompraCliente, referenciaCliente, condicionesPago, proforma, observaciones] = useWatch({
+    control: form.control,
+    name: ['ordenCompraCliente', 'referenciaCliente', 'condicionesPago', 'proforma', 'observaciones'],
+  });
+  const datosCliente = { ordenCompraCliente, referenciaCliente, condicionesPago, proforma, observaciones };
   const moneda = useWatch({ control: form.control, name: 'moneda' });
   const metodoPago = useWatch({ control: form.control, name: 'metodoPago' });
   const [receptorRfc, receptorNombre, receptorRegimen, receptorCp] = useWatch({
@@ -92,10 +104,15 @@ export function TabEncabezado({
       {esActivo && (
         <div className="space-y-2 rounded-md border border-line bg-warning-note-bg px-3 py-2">
           <p className="text-sm">
-            Venta de activo fijo: requiere autorización del Contador General.
+            Venta de activo fijo: requiere autorización del Contador General
+            antes de timbrar.
           </p>
           <div className="sm:w-96">
-            <Label className="text-xs">Autorización *</Label>
+            <Label className="text-xs">
+              Autorización del Contador General{' '}
+              <span className="text-danger-fg">*</span>{' '}
+              <span className="font-normal">(obligatoria)</span>
+            </Label>
             <AutorizacionPicker
               value={autorizacionId || null}
               onChange={(id) => onAutorizacionIdChange(id ?? '')}
@@ -268,6 +285,17 @@ export function TabEncabezado({
           required
           hint="Exportación (CCE) habilita los datos de comercio exterior y aduana; si hay expediente ligado, se toma su clave. Venta de activo fijo pide autorización del Contador General. Con anticipo permite aplicar anticipos en Totales, opción disponible también para los demás comportamientos. Mostrador inmediato, Traslado con Carta Porte y Administrativa no abren campos adicionales en este formulario."
         >
+          {comportamientoFijo != null ? (
+            // Fijo (sin registrar el select) para conservar el valor del form.
+            <Input
+              readOnly
+              aria-readonly="true"
+              aria-label="Comportamiento fiscal"
+              value="Venta de activo fijo"
+              title={comportamientoFijo}
+              className="bg-surface-subtle text-ink-secondary"
+            />
+          ) : (
           <select
             className="h-9 w-full rounded-md border border-line-control bg-transparent px-3 text-sm shadow-sm"
             {...form.register('comportamientoFiscal', { valueAsNumber: true })}
@@ -284,6 +312,10 @@ export function TabEncabezado({
               </option>
             ))}
           </select>
+          )}
+          {comportamientoFijo != null && (
+            <p className="text-xs text-ink-muted">{comportamientoFijo}</p>
+          )}
         </Campo>
         <div className="sm:col-span-2">
           <Campo label="Obra (nombre)" error={form.formState.errors.obraNombre?.message}>
@@ -292,8 +324,8 @@ export function TabEncabezado({
         </div>
       </Seccion>
 
-      <DatosClienteCampos errors={Object.fromEntries(camposDatosCliente.map(([campo]) => [campo, form.formState.errors[campo]?.message]))} datos={{ ...datosCliente, condicionesPago: datosCliente.condicionesPago ?? (metodoPago === 'PUE' ? 'CONTADO' : '') }}
-        onChange={(campo, valor) => form.setValue(campo, valor, { shouldDirty: true, shouldValidate: true })} />
+      <DatosClienteCampos errors={Object.fromEntries(camposDatosCliente.map(([campo]) => [campo, form.formState.errors[campo]?.message]))} datos={datosCliente} condicionesPagoPlaceholder={metodoPago === 'PUE' ? 'CONTADO' : undefined}
+        onChange={(campo, valor) => campo === 'observaciones' ? onObservacionesChange(valor) : form.setValue(campo, valor, { shouldDirty: true, shouldValidate: true })} />
 
       {/* ── Comercio Exterior (CCE) — solo exportación ───────────── */}
       {esCce && (

@@ -16,6 +16,8 @@ import { Plus, Trash2 } from 'lucide-react';
 export interface AnticipoAmortizar {
   anticipoId: string;
   importe: number;
+  /** Folio del anticipo elegido (solo FE: arma la nota de observaciones; no viaja al backend). */
+  folio?: string;
 }
 
 export interface TabTotalesProps {
@@ -26,6 +28,7 @@ export interface TabTotalesProps {
   clienteId: string | null;
   anticipos: AnticipoAmortizar[];
   onAnticiposChange: (anticipos: AnticipoAmortizar[]) => void;
+
 }
 
 export function TabTotales({
@@ -89,6 +92,7 @@ export function TabTotales({
                           i === index
                             ? {
                                 anticipoId: item?.anticipoId ?? '',
+                                folio: item?.folio,
                                 // Propone el saldo; editable abajo.
                                 importe: item != null && x.importe === 0 ? item.saldo : x.importe,
                               }
@@ -131,6 +135,7 @@ export function TabTotales({
           </div>
         )}
       </section>
+
     </div>
   );
 }

@@ -42,7 +42,14 @@ public sealed class Serie : BaseEntity, IAuditable, IPerteneceAEmpresa
     public string? Sufijo { get; private set; }
     public ReinicioPeriodo ReinicioPeriodo { get; private set; }
     public long FolioInicial { get; private set; } = 1;
-    public static bool EsFiscal(TipoDocumentoSerie tipo) => tipo is TipoDocumentoSerie.Cfdi or TipoDocumentoSerie.NotaCredito or TipoDocumentoSerie.FacturaAnticipo;
+    public static bool EsFiscal(TipoDocumentoSerie tipo) => tipo is TipoDocumentoSerie.Cfdi or TipoDocumentoSerie.NotaCredito
+        or TipoDocumentoSerie.FacturaAnticipo or TipoDocumentoSerie.VentaDirecta;
+
+    /// <summary>
+    /// Tipos que sólo existen por sucursal: la reserva de folio no cae a una
+    /// serie global (F6.1 — la venta directa se folia por sucursal emisora).
+    /// </summary>
+    public static bool RequiereSucursal(TipoDocumentoSerie tipo) => tipo is TipoDocumentoSerie.VentaDirecta;
     public bool Activa { get; private set; } = true;
 
     private Serie() { } // EF Core
@@ -66,6 +73,9 @@ public sealed class Serie : BaseEntity, IAuditable, IPerteneceAEmpresa
             throw new BusinessRuleException("SERIE_FOLIO_INICIAL_INVALIDO", "El folio inicial debe ser positivo y permitir la siguiente reserva.");
         if (EsFiscal(tipoDocumento) && reinicioPeriodo != ReinicioPeriodo.None)
             throw new BusinessRuleException("SERIE_FISCAL_SIN_REINICIO", "Las series fiscales mantienen continuidad sin reinicio de periodo.");
+        if (RequiereSucursal(tipoDocumento) && sucursalId is null)
+            throw new BusinessRuleException("SERIE_VD_REQUIERE_SUCURSAL",
+                "La serie de Venta directa se configura por sucursal; indica la sucursal emisora.");
         FolioInicial = folioInicial;
         ValidarPrefijo(prefijo);
         ValidarSufijo(sufijo);

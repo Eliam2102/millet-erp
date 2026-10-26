@@ -49,6 +49,36 @@ vi.mock('@tanstack/react-router', () => ({
   ),
 }));
 
+// 86e3tfdw2: el picker real (combobox + estado de cuenta) se sustituye por
+// botones que entregan el anticipo elegido — el smoke valida la nota de
+// observaciones, no el combobox.
+vi.mock('@/features/facturacion/components/AnticipoPicker', () => ({
+  AnticipoPicker: ({
+    onChange,
+  }: {
+    onChange: (item: { anticipoId: string; folio: string; saldo: number }) => void;
+  }) => (
+    <div>
+      <button
+        type="button"
+        onClick={() =>
+          onChange({ anticipoId: '00000012-0000-4000-8000-000000000012', folio: 'FANT-12', saldo: 5000 })
+        }
+      >
+        Elegir FANT-12
+      </button>
+      <button
+        type="button"
+        onClick={() =>
+          onChange({ anticipoId: '00000015-0000-4000-8000-000000000015', folio: 'FANT-15', saldo: 1200 })
+        }
+      >
+        Elegir FANT-15
+      </button>
+    </div>
+  ),
+}));
+
 const EMISOR = {
   rfcEmisor: 'MIL010101ABC',
   razonSocialEmisor: 'Millet SA de CV',
@@ -81,6 +111,16 @@ beforeEach(() => {
         { id: 1, nombre: 'Tienda Cancún' },
         { id: 8, nombre: 'Exportación' },
       ]),
+    ),
+    // U1.8a: por omisión el pedido no tiene proforma → se timbra directo.
+    http.post('*/api/v1/facturacion/pedidos-facturables/:id/proformas/comparar', () =>
+      HttpResponse.json({
+        hayProforma: false,
+        folio: null,
+        version: null,
+        generadaEn: null,
+        diferencias: [],
+      }),
     ),
   );
 });
@@ -755,5 +795,427 @@ describe('<EmitirFacturaForm> — smoke (FAC-UX-PR2/PR3)', () => {
     );
     fireEvent.click(await screen.findByRole('button', { name: /Emitir y timbrar/i }));
     await waitFor(() => expect(solicitudes).toEqual([expect.objectContaining({ clienteId })]));
+  });
+});
+
+describe('<EmitirFacturaForm> — venta directa (F6.1)', () => {
+  const pedidoVd = (
+    extra: Partial<EmitirFacturaPrefill> = {},
+  ): EmitirFacturaPrefill => ({
+    pedidoFacturableId: 'p-vd',
+    origen: 'Manual',
+    claseManual: 'VentaDirecta',
+    subtipoVentaDirecta: 'Activo',
+    clienteId: '22222222-2222-4222-8222-222222222222',
+    receptorNombre: 'Cliente Activo',
+    receptorRfc: 'AAA010101AAA',
+    receptorRegimenFiscal: '601',
+    receptorCodigoPostal: '97000',
+    // El pedido llega con otro comportamiento: la emisión lo fija en activo.
+    comportamientoFiscal: 1,
+    lineas: [
+      {
+        productoId: null,
+        claveProdServSat: '01010101',
+        descripcion: 'Montacargas usado',
+        claveUnidadSat: 'H87',
+        cantidad: 1,
+        valorUnitario: 1000,
+        descuento: 0,
+        requierePedimento: false,
+        tasaIvaTraslado: 0.16,
+      },
+    ],
+    ...extra,
+  });
+
+  beforeEach(() => {
+    mswServer.use(
+      http.get('*/api/v1/facturacion/activos/autorizaciones', () => HttpResponse.json([])),
+    );
+  });
+
+  it('pedido VD · Activo: comportamiento fijo, autorización obligatoria y leyenda de serie', async () => {
+    render(
+      <EmitirFacturaForm prefill={pedidoVd()} onSuccess={() => {}} onCancel={() => {}} />,
+      { wrapper: createQueryWrapper() },
+    );
+    const comportamiento = await screen.findByRole('textbox', {
+      name: /Comportamiento fiscal/i,
+    });
+    expect(comportamiento).toHaveValue('Venta de activo fijo');
+    expect(comportamiento).toHaveAttribute('readonly');
+    expect(screen.getAllByText(/autorización del Contador General/i).length).toBeGreaterThan(0);
+    expect(screen.getByText(/\(obligatoria\)/i)).toBeInTheDocument();
+    expect(screen.getByTestId('leyenda-serie-venta-directa')).toHaveTextContent(
+      'Se timbrará con la serie de Venta directa de la sucursal',
+    );
+  });
+
+  it('sin autorización no envía la emisión del activo', async () => {
+    const solicitudes: unknown[] = [];
+    mswServer.use(
+      http.post('*/api/v1/facturacion/facturas/', async ({ request }) => {
+        solicitudes.push(await request.json());
+        return HttpResponse.json({}, { status: 201 });
+      }),
+    );
+    render(
+      <EmitirFacturaForm prefill={pedidoVd()} onSuccess={() => {}} onCancel={() => {}} />,
+      { wrapper: createQueryWrapper() },
+    );
+    fireEvent.click(await screen.findByRole('button', { name: 'Emitir y timbrar' }));
+    await waitFor(() => expect(toast.error).toHaveBeenCalled());
+    expect(solicitudes).toHaveLength(0);
+  });
+
+  it('422 SERIE_VENTA_DIRECTA_NO_CONFIGURADA: callout con enlace a Series', async () => {
+    setPermisos([PermisosCanonicos.FacturacionFacturasEmitir, PermisosCanonicos.AdminSeriesGestionar]);
+    mswServer.use(
+      http.post('*/api/v1/facturacion/facturas/', () =>
+        HttpResponse.json(
+          {
+            type: 'about:blank',
+            title: 'Regla de negocio',
+            status: 422,
+            code: 'SERIE_VENTA_DIRECTA_NO_CONFIGURADA',
+          },
+          { status: 422, headers: { 'Content-Type': 'application/problem+json' } },
+        ),
+      ),
+    );
+    render(
+      <EmitirFacturaForm
+        prefill={pedidoVd({ subtipoVentaDirecta: 'Almacenable' })}
+        onSuccess={() => {}}
+        onCancel={() => {}}
+      />,
+      { wrapper: createQueryWrapper() },
+    );
+    fireEvent.click(await screen.findByRole('button', { name: 'Emitir y timbrar' }));
+    expect(await screen.findByText('Falta la serie de Venta directa')).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: /Administración → Series/i })).toHaveAttribute(
+      'href',
+      '/admin/series',
+    );
+  });
+
+  it('pedido manual sin clase: bloquea la emisión y ofrece editar el pedido', async () => {
+    const onEditarPedido = vi.fn();
+    render(
+      <EmitirFacturaForm
+        prefill={pedidoVd({ claseManual: null, subtipoVentaDirecta: null })}
+        onSuccess={() => {}}
+        onCancel={() => {}}
+        onEditarPedido={onEditarPedido}
+      />,
+      { wrapper: createQueryWrapper() },
+    );
+    expect(await screen.findByText('Pedido manual sin clase')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Emitir y timbrar' })).toBeDisabled();
+    expect(screen.queryByTestId('leyenda-serie-venta-directa')).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'Editar pedido' }));
+    expect(onEditarPedido).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe('<EmitirFacturaForm> — diferencias contra la proforma (U1.8a)', () => {
+  const PEDIDO_ID = '00000003-0000-0000-0000-0000000000a8';
+  const prefill: EmitirFacturaPrefill = {
+    pedidoFacturableId: PEDIDO_ID,
+    clienteId: '00000003-0000-0000-0000-000000000001',
+    receptorNombre: 'CLIENTE FICTICIO',
+    receptorRfc: 'AAA010101AAA',
+    receptorRegimenFiscal: '601',
+    receptorCodigoPostal: '97000',
+    receptorUsoCfdi: 'G03',
+    lineas: [
+      {
+        productoId: null,
+        claveProdServSat: '01010101',
+        descripcion: 'Vidrio prueba',
+        claveUnidadSat: 'H87',
+        cantidad: 3,
+        valorUnitario: 100,
+        descuento: 0,
+        requierePedimento: false,
+        tasaIvaTraslado: 0.16,
+      },
+    ],
+  };
+
+  function mockEmision() {
+    const emitidas: unknown[] = [];
+    mswServer.use(
+      http.post('*/api/v1/facturacion/facturas/', async ({ request }) => {
+        emitidas.push(await request.json());
+        return HttpResponse.json(
+          { id: 'f-1', folio: 'A-1', total: 348, version: 1, estado: 'Timbrado', uuid: 'u' },
+          { status: 201 },
+        );
+      }),
+    );
+    return emitidas;
+  }
+
+  function mockComparar(respuesta: unknown, status = 200) {
+    const comparadas: unknown[] = [];
+    mswServer.use(
+      http.post(
+        `*/api/v1/facturacion/pedidos-facturables/${PEDIDO_ID}/proformas/comparar`,
+        async ({ request }) => {
+          comparadas.push(await request.json());
+          return HttpResponse.json(respuesta, { status });
+        },
+      ),
+    );
+    return comparadas;
+  }
+
+  const CON_DIFERENCIAS = {
+    hayProforma: true,
+    folio: 'PF-MID-001-1',
+    version: 1,
+    generadaEn: '2026-10-20T15:00:00Z',
+    diferencias: [
+      { campo: 'Partida 1 · Cantidad', proforma: '2', timbrado: '3' },
+      { campo: 'Total', proforma: '$232.00', timbrado: '$348.00' },
+    ],
+  };
+
+  function renderForm(onSuccess = vi.fn()) {
+    setPermisos([PermisosCanonicos.FacturacionFacturasEmitir]);
+    render(<EmitirFacturaForm prefill={prefill} onSuccess={onSuccess} onCancel={() => {}} />, {
+      wrapper: createQueryWrapper(),
+    });
+    return onSuccess;
+  }
+
+  it('con diferencias abre el diálogo con la tabla y NO emite hasta «Timbrar de todos modos»', async () => {
+    const emitidas = mockEmision();
+    const comparadas = mockComparar(CON_DIFERENCIAS);
+    const onSuccess = renderForm();
+    fireEvent.click(await screen.findByRole('button', { name: /Emitir y timbrar/i }));
+
+    const dialogo = await screen.findByRole('alertdialog');
+    expect(within(dialogo).getByText(/difiere de la proforma/i)).toBeInTheDocument();
+    expect(within(dialogo).getByText('PF-MID-001-1')).toBeInTheDocument();
+    expect(within(dialogo).getByRole('columnheader', { name: 'Campo' })).toBeInTheDocument();
+    expect(within(dialogo).getByText('Partida 1 · Cantidad')).toBeInTheDocument();
+    expect(within(dialogo).getByText('$348.00')).toBeInTheDocument();
+    // El comparar recibe el mismo payload que se emitiría.
+    expect(comparadas).toEqual([
+      expect.objectContaining({ pedidoFacturableId: PEDIDO_ID, receptorRfc: 'AAA010101AAA' }),
+    ]);
+    expect(emitidas).toHaveLength(0);
+
+    fireEvent.click(within(dialogo).getByRole('button', { name: 'Timbrar de todos modos' }));
+    await waitFor(() => expect(emitidas).toHaveLength(1));
+    expect(emitidas[0]).toEqual(comparadas[0]);
+    await waitFor(() => expect(onSuccess).toHaveBeenCalledTimes(1));
+  });
+
+  it('«Revisar» cierra el diálogo sin emitir', async () => {
+    const emitidas = mockEmision();
+    mockComparar(CON_DIFERENCIAS);
+    renderForm();
+    fireEvent.click(await screen.findByRole('button', { name: /Emitir y timbrar/i }));
+    const dialogo = await screen.findByRole('alertdialog');
+    fireEvent.click(within(dialogo).getByRole('button', { name: 'Revisar' }));
+    await waitFor(() => expect(screen.queryByRole('alertdialog')).not.toBeInTheDocument());
+    expect(emitidas).toHaveLength(0);
+    expect(screen.getByRole('button', { name: /Emitir y timbrar/i })).toBeEnabled();
+  });
+
+  it('sin diferencias contra la proforma emite directo', async () => {
+    const emitidas = mockEmision();
+    mockComparar({ ...CON_DIFERENCIAS, diferencias: [] });
+    renderForm();
+    fireEvent.click(await screen.findByRole('button', { name: /Emitir y timbrar/i }));
+    await waitFor(() => expect(emitidas).toHaveLength(1));
+    expect(screen.queryByRole('alertdialog')).not.toBeInTheDocument();
+  });
+
+  it('sin proforma emite directo', async () => {
+    const emitidas = mockEmision();
+    const comparadas = mockComparar({
+      hayProforma: false,
+      folio: null,
+      version: null,
+      generadaEn: null,
+      diferencias: [],
+    });
+    renderForm();
+    fireEvent.click(await screen.findByRole('button', { name: /Emitir y timbrar/i }));
+    await waitFor(() => expect(emitidas).toHaveLength(1));
+    expect(comparadas).toHaveLength(1);
+    expect(screen.queryByRole('alertdialog')).not.toBeInTheDocument();
+  });
+
+  it('si la comparación falla avisa y permite continuar sin comparar', async () => {
+    const emitidas = mockEmision();
+    mockComparar({ type: 'about:blank', title: 'Error', status: 500 }, 500);
+    renderForm();
+    fireEvent.click(await screen.findByRole('button', { name: /Emitir y timbrar/i }));
+    const dialogo = await screen.findByRole('alertdialog');
+    expect(within(dialogo).getByText(/No se pudo comparar/i)).toBeInTheDocument();
+    expect(emitidas).toHaveLength(0);
+    fireEvent.click(within(dialogo).getByRole('button', { name: 'Timbrar sin comparar' }));
+    await waitFor(() => expect(emitidas).toHaveLength(1));
+  });
+
+  it('factura manual (sin pedido) no compara contra proforma', async () => {
+    const comparadas = mockComparar(CON_DIFERENCIAS);
+    const emitidas = mockEmision();
+    setPermisos([PermisosCanonicos.FacturacionFacturasEmitir]);
+    render(
+      <EmitirFacturaForm
+        prefill={{ ...prefill, pedidoFacturableId: undefined as unknown as string }}
+        onSuccess={() => {}}
+        onCancel={() => {}}
+      />,
+      { wrapper: createQueryWrapper() },
+    );
+    fireEvent.click(await screen.findByRole('button', { name: /Emitir y timbrar/i }));
+    await waitFor(() => expect(emitidas).toHaveLength(1));
+    expect(comparadas).toHaveLength(0);
+  });
+});
+
+describe('<EmitirFacturaForm> — observaciones con anticipos aplicados (86e3tfdw2)', () => {
+  const NOTA = 'Anticipos aplicados: FANT-12 $5,000.00 MXN; FANT-15 $1,200.00 MXN';
+  const prefill: EmitirFacturaPrefill = {
+    pedidoFacturableId: '00000003-0000-0000-0000-0000000000b1',
+    clienteId: '00000003-0000-0000-0000-000000000001',
+    receptorNombre: 'CLIENTE FICTICIO',
+    receptorRfc: 'AAA010101AAA',
+    receptorRegimenFiscal: '601',
+    receptorCodigoPostal: '97000',
+    receptorUsoCfdi: 'G03',
+    lineas: [
+      {
+        productoId: null,
+        claveProdServSat: '01010101',
+        descripcion: 'Vidrio prueba',
+        claveUnidadSat: 'H87',
+        cantidad: 100,
+        valorUnitario: 100,
+        descuento: 0,
+        requierePedimento: false,
+        tasaIvaTraslado: 0.16,
+      },
+    ],
+  };
+
+  function mockEmision() {
+    const emitidas: Record<string, unknown>[] = [];
+    mswServer.use(
+      http.post('*/api/v1/facturacion/facturas/', async ({ request }) => {
+        emitidas.push((await request.json()) as Record<string, unknown>);
+        return HttpResponse.json(
+          { id: 'f-1', folio: 'A-1', total: 11600, version: 1, estado: 'Timbrado', uuid: 'u' },
+          { status: 201 },
+        );
+      }),
+    );
+    return emitidas;
+  }
+
+  async function elegirDosAnticipos() {
+    const agregar = await screen.findByRole('button', { name: /Anticipos a aplicar: agregar/i });
+    fireEvent.click(agregar);
+    fireEvent.click(agregar);
+    fireEvent.click(screen.getAllByRole('button', { name: 'Elegir FANT-12' })[0]);
+    fireEvent.click(screen.getAllByRole('button', { name: 'Elegir FANT-15' })[1]);
+  }
+
+  function renderForm() {
+    setPermisos([PermisosCanonicos.FacturacionFacturasEmitir]);
+    render(<EmitirFacturaForm prefill={prefill} onSuccess={() => {}} onCancel={() => {}} />, {
+      wrapper: createQueryWrapper(),
+    });
+  }
+
+  it('al elegir 2 anticipos prellena las observaciones y las envía en el payload', async () => {
+    const emitidas = mockEmision();
+    renderForm();
+    await elegirDosAnticipos();
+
+    const campo = screen.getByLabelText('Observaciones');
+    await waitFor(() => expect(campo).toHaveValue(NOTA));
+
+    fireEvent.click(screen.getByRole('button', { name: /Emitir y timbrar/i }));
+    await waitFor(() => expect(emitidas).toHaveLength(1));
+    expect(emitidas[0]).toEqual(
+      expect.objectContaining({
+        observaciones: NOTA,
+        // El folio es solo del FE: no viaja en los anticipos del comando.
+        anticipos: [
+          { anticipoId: '00000012-0000-4000-8000-000000000012', importe: 5000 },
+          { anticipoId: '00000015-0000-4000-8000-000000000015', importe: 1200 },
+        ],
+      }),
+    );
+  });
+
+  it('conserva primero los anticipos y después los comentarios del pedido', async () => {
+    const emitidas = mockEmision();
+    setPermisos([PermisosCanonicos.FacturacionFacturasEmitir]);
+    render(<EmitirFacturaForm prefill={{ ...prefill, comentarios: 'Contenedor ficticio DEMO' }} onSuccess={() => {}} onCancel={() => {}} />, {
+      wrapper: createQueryWrapper(),
+    });
+    await elegirDosAnticipos();
+    expect(screen.getByLabelText('Observaciones')).toHaveValue(`${NOTA}\nContenedor ficticio DEMO`);
+    fireEvent.click(screen.getByRole('button', { name: /Emitir y timbrar/i }));
+    await waitFor(() => expect(emitidas).toHaveLength(1));
+    expect(emitidas[0]).toEqual(expect.objectContaining({ observaciones: `${NOTA}\nContenedor ficticio DEMO` }));
+  });
+
+  it('si el cajero editó las observaciones, cambiar anticipos no las sobrescribe', async () => {
+    const emitidas = mockEmision();
+    renderForm();
+    const agregar = await screen.findByRole('button', { name: /Anticipos a aplicar: agregar/i });
+    fireEvent.click(agregar);
+    fireEvent.click(screen.getByRole('button', { name: 'Elegir FANT-12' }));
+    const campo = screen.getByLabelText('Observaciones');
+    await waitFor(() => expect(campo).toHaveValue('Anticipos aplicados: FANT-12 $5,000.00 MXN'));
+
+    fireEvent.change(campo, { target: { value: 'Nota del cajero' } });
+    fireEvent.click(agregar);
+    fireEvent.click(screen.getAllByRole('button', { name: 'Elegir FANT-15' })[1]);
+    expect(campo).toHaveValue('Nota del cajero');
+
+    fireEvent.click(screen.getByRole('button', { name: /Emitir y timbrar/i }));
+    await waitFor(() => expect(emitidas).toHaveLength(1));
+    expect(emitidas[0]).toEqual(expect.objectContaining({ observaciones: 'Nota del cajero' }));
+  });
+
+  it('respeta el borrado a propósito de los comentarios prellenados', async () => {
+    const emitidas = mockEmision();
+    render(<EmitirFacturaForm prefill={{ ...prefill, comentarios: 'Comentario ficticio DEMO' }} onSuccess={() => {}} onCancel={() => {}} />, {
+      wrapper: createQueryWrapper(),
+    });
+    const campo = await screen.findByLabelText('Observaciones');
+    await waitFor(() => expect(campo).toHaveValue('Comentario ficticio DEMO'));
+    fireEvent.change(campo, { target: { value: '' } });
+    fireEvent.click(screen.getByRole('button', { name: /Emitir y timbrar/i }));
+    await waitFor(() => expect(emitidas).toHaveLength(1));
+    expect(emitidas[0]).toEqual(expect.objectContaining({ observaciones: '' }));
+  });
+
+  it('muestra CONTADO como ejemplo y permite dejar vacía la condición', async () => {
+    renderForm();
+    const campo = await screen.findByLabelText('Condiciones de pago');
+    fireEvent.change(campo, { target: { value: '' } });
+    expect(campo).toHaveValue('');
+    expect(campo).toHaveAttribute('placeholder', 'CONTADO');
+  });
+
+  it('sin anticipos ni nota envía observaciones vacías' , async () => {
+    const emitidas = mockEmision();
+    renderForm();
+    fireEvent.click(await screen.findByRole('button', { name: /Emitir y timbrar/i }));
+    await waitFor(() => expect(emitidas).toHaveLength(1));
+    expect(emitidas[0]).toEqual(expect.objectContaining({ observaciones: '' }));
   });
 });

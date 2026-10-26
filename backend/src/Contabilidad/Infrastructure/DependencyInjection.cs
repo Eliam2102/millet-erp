@@ -27,6 +27,7 @@ public static class DependencyInjection
         services.AddSingleton(sp => new FormatoCatalogo(sp.GetRequiredService<IOptions<CatalogoOpciones>>().Value));
         services.AddScoped<Millet.Contabilidad.Application.Catalogo.SolicitudesCatalogo>();
         services.AddScoped<ICuentaContableReadPort, CuentaContableReadAdapter>();
+        services.AddScoped<ISaldosContablesReadPort, SaldosContablesReadAdapter>();
 
         // F1-CON-02: reglas de dimensión. Los puertos ICentroCostoContabilidadPort e ISucursalContabilidadPort los
         // implementan sus dueños (CentrosCosto, Compartido) y se cablean en Program.cs.

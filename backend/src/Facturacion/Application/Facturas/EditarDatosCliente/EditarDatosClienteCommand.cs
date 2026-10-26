@@ -10,7 +10,7 @@ namespace Millet.Facturacion.Application.Facturas.EditarDatosCliente;
 
 public sealed record EditarDatosClienteCommand(Guid Id, int VersionEsperada,
     string? OrdenCompraCliente, string? ReferenciaCliente, string? CondicionesPago,
-    string? Proforma, string? Comentarios) : IRequest<int>;
+    string? Proforma, string? Observaciones) : IRequest<int>;
 
 public sealed class EditarDatosClienteValidator : AbstractValidator<EditarDatosClienteCommand>
 {
@@ -21,7 +21,7 @@ public sealed class EditarDatosClienteValidator : AbstractValidator<EditarDatosC
         RuleFor(c => c.ReferenciaCliente).MaximumLength(60);
         RuleFor(c => c.CondicionesPago).MaximumLength(60);
         RuleFor(c => c.Proforma).MaximumLength(40);
-        RuleFor(c => c.Comentarios).MaximumLength(1000);
+        RuleFor(c => c.Observaciones).MaximumLength(1000);
     }
 }
 
@@ -37,7 +37,7 @@ public sealed class EditarDatosClienteHandler(FacturacionDbContext db, IAlcanceC
         if (factura.Version != command.VersionEsperada)
             throw new ConcurrencyException(nameof(FacturaVenta), command.Id);
         factura.EditarDatosCliente(command.OrdenCompraCliente, command.ReferenciaCliente,
-            command.CondicionesPago, command.Proforma, command.Comentarios);
+            command.CondicionesPago, command.Proforma, command.Observaciones);
         await db.SaveChangesAsync(cancellationToken);
         return factura.Version;
     }

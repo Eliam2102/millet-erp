@@ -1,4 +1,4 @@
-import { ErrorState } from '@/components/erp';
+import { AvisoEnLinea, ErrorState } from '@/components/erp';
 import { ResumenImportes } from '@/components/erp/display/ResumenImportes';
 import { PageHeader } from '@/components/erp/PageHeader';
 import { Badge } from '@/components/ui/badge';
@@ -14,8 +14,13 @@ import {
 import { facturacionKeys } from '@/features/facturacion/api/keys';
 import { ComportamientoFiscal } from '@/features/facturacion/api/types';
 import { usePedido, usePedidoComprobantes } from '@/features/facturacion/api/usePedidos';
+import { useGenerarProforma, useUltimaProforma } from '@/features/facturacion/api/useProformas';
+import type { ProformaPedidoResponse } from '@/features/facturacion/api/types';
+import { ClasePedidoBadge } from '@/features/facturacion/components/ClasePedidoBadge';
+import { BadgeCredito } from '@/features/facturacion/components/BadgeCredito';
 import { EmitirFacturaForm } from '@/features/facturacion/components/emitir-factura/EmitirFacturaForm';
 import { EstadoFacturacionBadge } from '@/features/facturacion/components/EstadoFacturacionBadge';
+import { ProformaPedidoCard } from '@/features/facturacion/components/ProformaPedidoCard';
 import { useNuevoPedido } from '@/features/facturacion/components/nuevo-pedido-context';
 import { TrazabilidadFacturacion } from '@/features/facturacion/components/TrazabilidadFacturacion';
 import {
@@ -29,8 +34,9 @@ import { PermisosCanonicos } from '@/lib/auth/permission-codes';
 import { useHasPermission } from '@/lib/auth/useHasPermission';
 import { useQueryClient } from '@tanstack/react-query';
 import { Link, useParams, useSearch } from '@tanstack/react-router';
-import { Pencil, Receipt, X } from 'lucide-react';
+import { FileText, Pencil, Receipt, X } from 'lucide-react';
 import { useState } from 'react';
+import { toast } from 'sonner';
 
 /**
  * <c>Detalle de un pedido facturable</c> (FE-F1-PR3, B1/B5). Cabecera +
@@ -99,11 +105,54 @@ function Contenido({
   const [modoEmision, setModoEmision] = useState(false);
   const puedeEmitir = useHasPermission(PermisosCanonicos.FacturacionFacturasEmitir);
   const puedeEditar = useHasPermission(PermisosCanonicos.FacturacionPedidosCapturar);
+  const puedeLeerFacturas = useHasPermission(PermisosCanonicos.FacturacionFacturasLeer);
   const facturable = p.estado === 'Importado';
+  // U1.8a: proforma sin valor fiscal (no consume folio) antes de timbrar.
+  const ultimaProforma = useUltimaProforma(p.id, puedeLeerFacturas);
+  const generarProforma = useGenerarProforma();
+  const [descargandoProforma, setDescargandoProforma] = useState(false);
+
+  async function descargarProforma(proforma: ProformaPedidoResponse) {
+    setDescargandoProforma(true);
+    try {
+      const { descargarProformaCfdi } = await import(
+        '@/components/erp/reportes/exporters/proforma-cfdi-exporter'
+      );
+      await descargarProformaCfdi(proforma);
+    } catch {
+      toast.error('No se pudo generar el PDF de la proforma. Vuelve a intentar la descarga.');
+    } finally {
+      setDescargandoProforma(false);
+    }
+  }
+
+  function onGenerarProforma() {
+    generarProforma.mutate(
+      { pedidoId: p.id, idempotencyKey: crypto.randomUUID() },
+      {
+        onSuccess: (proforma) => {
+          toast.success(`Proforma ${proforma.folio} generada`, {
+            description: 'Sin valor fiscal: no consume folio. Se descargará el PDF.',
+          });
+          void descargarProforma(proforma);
+        },
+        onError: (error) => {
+          toast.error('No se pudo generar la proforma.', {
+            description: esApiError(error)
+              ? (error.problem.detail ?? error.problem.title)
+              : 'Revisa tu conexión y vuelve a intentarlo.',
+          });
+        },
+      },
+    );
+  }
   const mostrarSat = p.lineas.some((l) => l.claveProdServSat?.trim() || l.claveUnidadSat?.trim());
   const mostrarPedimento = p.lineas.some((l) => l.requierePedimento);
   // Solo los manuales en Importado son editables (PUT con If-Match).
   const editable = p.estado === 'Importado' && p.origen === 'Manual';
+  // F6.1: pedido manual legacy sin clase → no se puede facturar hasta clasificarlo.
+  const manualSinClase = p.origen === 'Manual' && p.claseManual == null;
+  const esEmergencia = p.esEmergencia === true || p.claseManual === 'Emergencia';
 
   if (modoEmision) {
     return (
@@ -115,12 +164,17 @@ function Contenido({
             descripcion={<>Consulta el pedido y sus partidas por facturar.</>}
             estado={<ChipEstadoPedido estado={p.estado} />}
           />
+          <ClasePedidoBadge clasificacion={p} />
           <span className="text-sm text-ink-muted">Emitiendo factura · {p.clienteNombre}</span>
         </div>
         <EmitirFacturaForm
           prefill={{
             pedidoFacturableId: p.id,
             embarqueCe: p.embarqueCe,
+            // F6.1: clase del pedido manual (serie de Venta directa, activo).
+            origen: p.origen,
+            claseManual: p.claseManual ?? null,
+            subtipoVentaDirecta: p.subtipoVentaDirecta ?? null,
             sucursalId: p.sucursalId,
             clienteId: p.clienteId,
             receptorNombre: p.clienteNombre,
@@ -143,8 +197,9 @@ function Contenido({
               ComportamientoFiscal[p.comportamientoFiscal as keyof typeof ComportamientoFiscal],
             moneda: p.moneda,
             obraNombre: p.obraNombre,
-      referenciaCliente: p.numeroPedido,
-      comentarios: p.comentarios,
+            referenciaCliente: p.numeroPedido,
+            comentarios: p.comentarios,
+            condicionesPago: p.condicionPagoOrigen,
             lineas: p.lineas.map((l) => ({
               productoId: l.productoId,
               claveProdServSat: l.claveProdServSat ?? '',
@@ -161,6 +216,14 @@ function Contenido({
             })),
           }}
           onCancel={() => setModoEmision(false)}
+          onEditarPedido={
+            puedeEditar && editable
+              ? () => {
+                  setModoEmision(false);
+                  nuevoPedido.abrir(p);
+                }
+              : undefined
+          }
           onSuccess={() => {
             void queryClient.invalidateQueries({
               queryKey: facturacionKeys.pedidos(),
@@ -189,6 +252,8 @@ function Contenido({
               estado={<ChipEstadoPedido estado={p.estado} />}
             />
             <Badge variant="neutral">{ETIQUETA_ORIGEN_PEDIDO[p.origen] ?? p.origen}</Badge>
+            <ClasePedidoBadge clasificacion={p} />
+            <BadgeCredito esCredito={p.esCredito} />
           </div>
         </div>
         <div className="flex items-center gap-2" data-print="hidden">
@@ -199,13 +264,61 @@ function Contenido({
             </Button>
           )}
           {puedeEmitir && facturable && (
-            <Button onClick={() => setModoEmision(true)}>
+            <Button
+              variant="outline"
+              onClick={onGenerarProforma}
+              disabled={generarProforma.isPending}
+            >
+              <FileText className="mr-2 h-4 w-4" />
+              {generarProforma.isPending ? 'Generando…' : 'Generar proforma'}
+            </Button>
+          )}
+          {puedeEmitir && facturable && (
+            <Button
+              onClick={() => setModoEmision(true)}
+              disabled={manualSinClase}
+              title={
+                manualSinClase
+                  ? 'Clasifica el pedido (venta directa o emergencia) antes de facturarlo.'
+                  : undefined
+              }
+            >
               <Receipt className="mr-2 h-4 w-4" />
               Facturar
             </Button>
           )}
         </div>
       </div>
+
+      {manualSinClase && facturable && (
+        <AvisoEnLinea tono="advertencia" titulo="Pedido manual sin clase">
+          Indica si es venta directa o emergencia para poder facturarlo.
+          {puedeEditar && editable
+            ? ' Usa «Editar» para clasificarlo.'
+            : ' Pide a quien captura pedidos que lo clasifique.'}
+        </AvisoEnLinea>
+      )}
+
+      {esEmergencia && (
+        <section
+          aria-label="Datos de la emergencia"
+          className="space-y-2 rounded-lg bg-surface-card px-4 py-3 shadow-card-flat"
+        >
+          <h2 className="text-sm font-semibold text-ink">Captura de emergencia</h2>
+          <dl className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+            <div className="space-y-0.5 sm:col-span-2">
+              <dt className="text-xs text-ink-muted">Motivo</dt>
+              <dd className="text-sm text-ink">{p.motivoEmergencia ?? '—'}</dd>
+            </div>
+            <div className="space-y-0.5">
+              <dt className="text-xs text-ink-muted">Pedido A+W para conciliar</dt>
+              <dd className="font-mono text-sm text-ink">
+                {p.referenciaPedidoAw ?? 'Sin referencia'}
+              </dd>
+            </div>
+          </dl>
+        </section>
+      )}
 
       <dl className="grid grid-cols-1 gap-4 rounded-lg bg-surface-card p-4 shadow-card-flat sm:grid-cols-4">
         {/* FAC-ING-PR3: el backend ya devuelve el nombre del catálogo. */}
@@ -214,6 +327,9 @@ function Contenido({
           {ETIQUETA_COMPORTAMIENTO_FISCAL[p.comportamientoFiscal] ?? p.comportamientoFiscal}
         </Dato>
         <Dato label="Moneda">{p.moneda}</Dato>
+        {p.esCredito && (
+          <Dato label="Condición de pago">{p.condicionPagoOrigen ?? 'Crédito'}</Dato>
+        )}
         {p.obraNombre && <Dato label="Obra">{p.obraNombre}</Dato>}
         <Dato label="RFC del cliente">
           {p.clienteFiscal?.rfc ?? (
@@ -224,6 +340,15 @@ function Contenido({
         </Dato>
         <Dato label="Versión">{p.version}</Dato>
       </dl>
+
+      {puedeLeerFacturas && (ultimaProforma.data != null || facturable) && (
+        <ProformaPedidoCard
+          proforma={ultimaProforma.data}
+          cargando={ultimaProforma.isLoading}
+          descargando={descargandoProforma}
+          onDescargar={(pf) => void descargarProforma(pf)}
+        />
+      )}
 
       {p.comentarios && (
         <section className="rounded-md bg-surface-muted/40 px-3 py-2 text-sm">

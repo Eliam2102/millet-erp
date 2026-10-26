@@ -37,6 +37,11 @@ public sealed record RepartoLinea(
 /// la línea va completa a compra (<c>DeAlmacen = 0</c>, <c>DeCompra = Cantidad</c>)
 /// <b>sin llamar a <see cref="IConsultarStockPort"/></b> ni descontar acumulados.
 /// </para>
+///
+/// <para>
+/// Regla de surtido completo (86e3tferc): con <c>soloCompleto</c>, si el almacén no cubre
+/// la cantidad total de la línea, la línea toma 0 del almacén y todo va a compra.
+/// </para>
 /// </summary>
 public static class RepartoDisponibilidadService
 {
@@ -48,11 +53,12 @@ public static class RepartoDisponibilidadService
         Clasificacion clasificacionRq,
         Guid sucursalId,
         IEnumerable<LineaRequisicion> lineas,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken,
+        bool soloCompleto = false)
     {
         var lineasLista = lineas.ToList();
         var idsInventario = lineasLista
-            .Where(l => clasificacionRq != Clasificacion.Servicio && !EsServicio(l, articulos))
+            .Where(l => clasificacionRq != Clasificacion.Servicio && !l.EsActivoFijo && !EsServicio(l, articulos))
             .Select(l => l.ArticuloId)
             .Distinct()
             .ToList();
@@ -64,9 +70,9 @@ public static class RepartoDisponibilidadService
         var disponiblesEnBase = new Dictionary<Guid, decimal>();
         foreach (var linea in lineasLista)
         {
-            if (clasificacionRq == Clasificacion.Servicio || EsServicio(linea, articulos))
+            if (linea.EsActivoFijo || clasificacionRq == Clasificacion.Servicio || EsServicio(linea, articulos))
             {
-                resultado.Add(new RepartoLinea(linea, 0m, 0m, linea.Cantidad, EsServicio: true));
+                resultado.Add(new RepartoLinea(linea, 0m, 0m, linea.Cantidad, EsServicio: !linea.EsActivoFijo));
                 continue;
             }
 
@@ -77,6 +83,12 @@ public static class RepartoDisponibilidadService
             var escala = (decimal)Math.Pow(10, Math.Min(4, conversionLinea.DecimalesDocumento));
             var disponibleDocumento = decimal.Floor(disponibleBase / conversionLinea.FactorDocumentoABase * escala) / escala;
             var (deAlmacen, deCompra) = Cubrimiento.Repartir(disponibleDocumento, linea.Cantidad);
+            if (soloCompleto && deAlmacen < linea.Cantidad)
+            {
+                deAlmacen = 0m;
+                deCompra = linea.Cantidad;
+            }
+
             disponiblesEnBase[linea.ArticuloId] = disponibleBase - deAlmacen * conversionLinea.FactorDocumentoABase;
             resultado.Add(new RepartoLinea(linea, disponibleDocumento, deAlmacen, deCompra, EsServicio: false));
         }
