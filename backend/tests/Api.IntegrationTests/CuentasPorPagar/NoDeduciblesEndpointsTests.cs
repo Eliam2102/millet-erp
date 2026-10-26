@@ -72,11 +72,11 @@ public sealed class NoDeduciblesEndpointsTests(WebApplicationFactory<Program> fa
     };
 
     [Fact]
-    public async Task Catalogo_clasificaciones_lista_DEMO_con_permiso_de_captura_y_403_sin_el()
+    public async Task Catalogo_clasificaciones_lista_DEMO_a_cualquier_sesion_y_401_sin_sesion()
     {
         var amb = new AdjuntosProveedorAmbiente(factory, _ => { });
-        var (conPermiso, _) = await amb.ClienteConPermisosAsync(PermisosCanonicos.CuentasPorPagarTcRegistrarMovimiento);
-        var (sinPermiso, _) = await amb.ClienteConPermisosAsync(PermisosCanonicos.CuentasPorPagarFacturasLeer);
+        // Quien solo comprueba viáticos (sin permiso de tarjeta) también necesita el catálogo para sus tickets.
+        var (conPermiso, _) = await amb.ClienteConPermisosAsync(PermisosCanonicos.CuentasPorPagarViaticosCapturarComprobacion);
 
         var ok = await conPermiso.GetAsync(Cxp + "/catalogos/clasificaciones-no-deducibles");
         Assert.Equal(HttpStatusCode.OK, ok.StatusCode);
@@ -84,7 +84,7 @@ public sealed class NoDeduciblesEndpointsTests(WebApplicationFactory<Program> fa
         Assert.Contains(filas, f => f.GetProperty("clave").GetString() == "COMIDAS" && f.GetProperty("descripcion").GetString() == "DEMO · Comidas");
         Assert.True(filas.Count >= 6);
 
-        Assert.Equal(HttpStatusCode.Forbidden, (await sinPermiso.GetAsync(Cxp + "/catalogos/clasificaciones-no-deducibles")).StatusCode);
+        Assert.Equal(HttpStatusCode.Unauthorized, (await factory.CreateClient().GetAsync(Cxp + "/catalogos/clasificaciones-no-deducibles")).StatusCode);
     }
 
     [Fact]
