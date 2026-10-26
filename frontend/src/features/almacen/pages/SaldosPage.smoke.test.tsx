@@ -68,7 +68,7 @@ describe('<SaldosPage> — smoke', () => {
     );
   });
 
-  it('columna muestra clave·nombre cuando vienen, y cae al id cuando son null', async () => {
+  it('columna muestra clave·nombre cuando vienen, y no pinta el id cuando son null', async () => {
     mswServer.use(
       http.get('*/api/v1/almacen/saldos', () =>
         HttpResponse.json({
@@ -109,8 +109,8 @@ describe('<SaldosPage> — smoke', () => {
     );
     expect(screen.getByText(/Tornillo M6/)).toBeInTheDocument();
     expect(screen.queryByText('a-1')).not.toBeInTheDocument();
-    // (b) fallback al id en la fila sin clave/nombre.
-    expect(screen.getByText('a-2')).toBeInTheDocument();
+    // (b) sin clave/nombre: guion, nunca el id.
+    expect(screen.queryByText('a-2')).not.toBeInTheDocument();
     // Totales del servidor (no la suma de la página): 40000 MXN, 150 PZA.
     await waitFor(() =>
       expect(screen.getByLabelText('Totales del conjunto filtrado')).toHaveTextContent(
@@ -192,7 +192,7 @@ describe('<SaldosPage> — smoke', () => {
     const { container } = render(<SaldosPage />, {
       wrapper: createQueryWrapper(),
     });
-    await waitFor(() => expect(screen.getByText('a-1')).toBeInTheDocument());
+    await waitFor(() => expect(screen.getAllByText('—').length).toBeGreaterThan(0));
     const results: AxeResults = await axe.run(container, {
       runOnly: {
         type: 'tag',

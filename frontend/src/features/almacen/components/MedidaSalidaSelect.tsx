@@ -10,18 +10,21 @@ import { textoMedida } from '@/features/almacen/lib/medida-hoja';
  */
 export function MedidaSalidaSelect({
   articuloId,
+  subAlmacenId,
   value,
   onChange,
   disabled,
   ariaLabel = 'Medida de la hoja',
 }: {
   articuloId: string | null | undefined;
+  /** Acota la existencia a un sub-almacén (p. ej. MAT-REV en la baja por daño); sin él, la del almacén activo. */
+  subAlmacenId?: string | null;
   value: string | null | undefined;
   onChange: (varianteId: string | null, areaHojaM2?: number | null) => void;
   disabled?: boolean;
   ariaLabel?: string;
 }) {
-  const saldos = useSaldosPorUbicacion(articuloId, null);
+  const saldos = useSaldosPorUbicacion(articuloId, subAlmacenId ?? null);
   const opciones = useMemo(() => {
     const porMedida = new Map<string, { id: string; ancho?: number | null; alto?: number | null; area?: number | null; m2: number }>();
     for (const s of saldos.data ?? []) {

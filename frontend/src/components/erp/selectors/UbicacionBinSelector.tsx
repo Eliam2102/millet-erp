@@ -2,6 +2,7 @@ import { useMemo, type ReactNode } from 'react';
 import { CatalogoEagerCombobox } from '@/components/erp/selectors/CatalogoEagerCombobox';
 import { UbicacionRutaItem } from '@/components/erp/selectors/UbicacionRutaItem';
 import { rutaUbicacion } from '@/features/almacen/lib/ubicacion-label';
+import { hojasDe } from '@/features/almacen/lib/medida-hoja';
 import { useAsignacionesList } from '@/features/almacen/api/useAsignaciones';
 import { useUbicaciones } from '@/features/almacen/api/useUbicaciones';
 import { useSaldosPorUbicacion } from '@/features/almacen/api/useSaldosCierreReportes';
@@ -62,6 +63,8 @@ interface BinOption {
   esDefault: boolean;
   /** Solo en modo saldo: existencia disponible en el bin. */
   cantidad?: number;
+  /** Solo en modo saldo con medida de hoja: la existencia equivalente en hojas. */
+  hojas?: number | null;
   /** Claves de los padres N2/N3 para la ruta. Presentes en ambos modos
    *  (asignación desde UbicacionListItem, saldo desde SaldoUbicacionItem tras
    *  C1); si faltan, la ruta degrada a la clave. */
@@ -123,6 +126,7 @@ export function UbicacionBinSelector({
         nombre: s.nombre,
         esDefault: s.esDefault,
         cantidad: s.cantidad,
+        hojas: s.productoAwVarianteId ? hojasDe(s.cantidad, s.areaHojaM2) : null,
         // C1: el DTO de saldo ya trae la ruta de los padres → misma etiqueta
         // de 3 niveles que el modo asignación.
         almacenClave: s.almacenClave,
@@ -213,7 +217,9 @@ export function UbicacionBinSelector({
                   </span>
                 )}
                 {u.cantidad != null && (
-                  <span className="ml-2 text-muted-foreground">· {u.cantidad} disp.</span>
+                  <span className="ml-2 text-muted-foreground">· {u.cantidad} disp.
+                    {u.hojas != null && ` (${u.hojas} ${u.hojas === 1 ? 'hoja' : 'hojas'})`}
+                  </span>
                 )}
               </>
             }

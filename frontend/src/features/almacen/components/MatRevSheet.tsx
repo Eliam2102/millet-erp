@@ -378,6 +378,8 @@ function FormBody({
                           render={({ field }) => (
                             <MedidaSalidaSelect
                               articuloId={articuloIdLinea}
+                              // Baja: el origen es MAT-REV y ya está elegido. Reincorporar: el cliente no conoce el id de MAT-REV.
+                              subAlmacenId={modo === 'baja' ? subAlmacenId : null}
                               value={(field.value as string) ?? null}
                               ariaLabel={`Medida de la hoja, partida ${index + 1}`}
                               onChange={(id, area) => {

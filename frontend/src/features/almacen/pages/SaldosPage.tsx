@@ -351,7 +351,7 @@ function TablaSaldos({
                     {s.articuloDescripcion ? ` · ${s.articuloDescripcion}` : ''}
                   </>
                 ) : (
-                  <span className="font-mono">{s.articuloId}</span>
+                  <span className="text-ink-muted">—</span>
                 )}
               </TableCell>
               <TableCell className="whitespace-nowrap text-xs tabular-nums">

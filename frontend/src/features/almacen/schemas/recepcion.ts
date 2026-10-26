@@ -94,7 +94,7 @@ export const FilaRecepcionSchema = z
         : m.some((x) => !x.varianteId)
           ? 'Elige la medida de la hoja.'
           : m.some((x) => !Number.isInteger(x.hojas) || x.hojas <= 0)
-            ? 'Captura hojas enteras mayores a cero.'
+            ? 'Con medida, captura la cantidad en hojas enteras.'
             : m.some((x) => !Number.isInteger(x.danadas) || x.danadas > x.hojas)
               ? 'Las hojas dañadas son enteras y no pueden exceder las recibidas.'
               : new Set(ids).size !== ids.length
