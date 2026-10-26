@@ -76,13 +76,11 @@ export function ComprobacionDetallePage() {
           <dl className="grid grid-cols-1 gap-x-6 gap-y-2 rounded-md border p-4 @xl:grid-cols-2 @3xl:grid-cols-4 @5xl:grid-cols-6">
             <Campo
               label="Sucursal"
-              valor={query.data.sucursalNombre ?? query.data.sucursalId}
-              mono={query.data.sucursalNombre == null}
+              valor={query.data.sucursalNombre ?? '—'}
             />
             <Campo
               label="Responsable"
-              valor={query.data.responsableNombre ?? query.data.responsableId}
-              mono={query.data.responsableNombre == null}
+              valor={query.data.responsableNombre ?? '—'}
             />
             <Campo label="Moneda" valor={query.data.moneda} />
             <Campo
@@ -95,7 +93,7 @@ export function ComprobacionDetallePage() {
                 <dt className="text-xs text-muted-foreground">
                   Observaciones
                 </dt>
-                <dd className="text-sm">{query.data.observaciones}</dd>
+                <dd className="text-sm [overflow-wrap:anywhere]">{query.data.observaciones}</dd>
               </div>
             )}
           </dl>
@@ -228,13 +226,13 @@ export function ComprobacionDetallePage() {
                           />
                         </div>
                       </td>
-                      <td className="px-3 py-2 break-all font-mono text-xs">
+                      <td className="px-3 py-2 text-xs">
                         <Link
                           to="/cxp/facturas/$id"
                           params={{ id: l.facturaProveedorId }}
                           className="text-primary underline-offset-2 hover:underline"
                         >
-                          {`${l.facturaProveedorId.slice(0, 8)}…`}
+                          Ver factura
                         </Link>
                       </td>
                       <td className="py-2 pl-3 pr-4 text-right tabular-nums">
