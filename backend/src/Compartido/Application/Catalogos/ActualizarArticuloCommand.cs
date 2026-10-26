@@ -8,6 +8,7 @@ using Millet.Almacen.Domain.Ports.Externos;
 using Millet.Catalogos.Domain;
 using Millet.DatosMaestros.Domain;
 using Millet.SharedKernel.Domain;
+using Millet.Compartido.Application.Ports;
 using Millet.Compartido.Infrastructure.Persistence;
 
 namespace Millet.DatosMaestros.Application.Catalogos;
@@ -58,11 +59,22 @@ public sealed class ActualizarArticuloHandler : IRequestHandler<ActualizarArticu
 {
     private readonly CompartidoDbContext _db;
     private readonly IAlmacenSaldoQueryPort _saldos;
+    private readonly IOcLineaAbiertaConMedidaReadPort _ocLineas;
 
-    public ActualizarArticuloHandler(CompartidoDbContext db, IAlmacenSaldoQueryPort saldos)
+    public ActualizarArticuloHandler(CompartidoDbContext db, IAlmacenSaldoQueryPort saldos, IOcLineaAbiertaConMedidaReadPort ocLineas)
     {
         _db = db;
         _saldos = saldos;
+        _ocLineas = ocLineas;
+    }
+
+    private async Task ValidarSinLineaOcAbiertaAsync(Guid articuloId, string accion, CancellationToken ct)
+    {
+        if (await _ocLineas.ArticuloTieneLineaAbiertaConMedidaAsync(articuloId, ct))
+        {
+            throw new BusinessRuleException("ARTICULO_PRODUCTO_AW_EN_USO",
+                $"El artículo tiene una línea de orden de compra abierta con medida; no se puede {accion} su producto A+W.");
+        }
     }
 
     public async Task Handle(ActualizarArticuloCommand request, CancellationToken cancellationToken)
@@ -136,6 +148,10 @@ public sealed class ActualizarArticuloHandler : IRequestHandler<ActualizarArticu
                     : new BusinessRuleException("ARTICULO_PRODUCTO_AW_EN_USO",
                         "El artículo tiene existencia por medida; no se puede cambiar su producto A+W.");
             }
+            if (articulo.ProductoAwId is not null)
+            {
+                await ValidarSinLineaOcAbiertaAsync(articulo.Id, "cambiar", cancellationToken);
+            }
             articulo.AsignarProductoAw(productoAwId);
         }
         else if (request.ProductoAwId is null && request.LimpiarProductoAw && articulo.ProductoAwId is not null)
@@ -145,6 +161,7 @@ public sealed class ActualizarArticuloHandler : IRequestHandler<ActualizarArticu
                 throw new BusinessRuleException("ARTICULO_PRODUCTO_AW_EN_USO",
                     "El artículo tiene existencia por medida; no se puede quitar su producto A+W.");
             }
+            await ValidarSinLineaOcAbiertaAsync(articulo.Id, "quitar", cancellationToken);
             articulo.LimpiarProductoAw();
         }
 

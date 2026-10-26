@@ -153,6 +153,35 @@ public sealed class OcLineaMedidaTests(WebApplicationFactory<Program> factory) :
         (await client.PostAsync($"{EndpointBase}/{oc}/transmitir", null)).StatusCode.Should().Be(HttpStatusCode.NoContent);
     }
 
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task Articulo_con_linea_de_OC_abierta_con_medida_no_se_desliga_hasta_cancelar_o_recibir(bool recibida)
+    {
+        var (client, vidrio, varA, _) = await SembrarAsync();
+        var oc = await CrearOcAsync(client, sinRq: true);
+        (await client.PostAsJsonAsync($"{EndpointBase}/{oc}/lineas", Linea(vidrio, 20 * HojaA, "M2", varA))).StatusCode.Should().Be(HttpStatusCode.Created);
+        var desligar = new ActualizarArticuloCommand(vidrio, null, null, null, null, null, null, null, false, false, false, null, true);
+
+        using var scope = factory.Services.CreateScope();
+        var mediator = scope.ServiceProvider.GetRequiredService<IMediator>();
+        var ex = await Assert.ThrowsAsync<Millet.SharedKernel.Application.Exceptions.BusinessRuleException>(() => mediator.Send(desligar));
+        ex.Code.Should().Be("ARTICULO_PRODUCTO_AW_EN_USO");
+
+        var db = scope.ServiceProvider.GetRequiredService<ComprasDbContext>();
+        using var bypass = scope.ServiceProvider.GetRequiredService<ICurrentEmpresaContext>().Bypass();
+        var entidad = await db.OrdenesCompra.Include(o => o.Lineas).FirstAsync(o => o.Id == oc);
+        if (recibida)
+            db.Entry(entidad.Lineas.Single()).Property(nameof(LineaOrdenCompra.CantidadRecibida)).CurrentValue = entidad.Lineas.Single().Cantidad;
+        else
+            db.Entry(entidad).Property(nameof(OrdenCompra.Estado)).CurrentValue = EstadoOrdenCompra.Cancelada;
+        await db.SaveChangesAsync();
+
+        await mediator.Send(desligar);
+        (await scope.ServiceProvider.GetRequiredService<CompartidoDbContext>().Articulos.AsNoTracking().SingleAsync(a => a.Id == vidrio))
+            .ProductoAwId.Should().BeNull();
+    }
+
     private static async Task<JsonElement> AssertCodigo(HttpResponseMessage response, string codigo)
     {
         var json = await response.Content.ReadAsStringAsync();

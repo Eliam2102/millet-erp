@@ -1,6 +1,7 @@
 using Microsoft.EntityFrameworkCore;
 using Millet.Almacen.Domain.Ports.Externos;
 using Millet.Catalogos.Domain;
+using Millet.Compartido.Application.Ports;
 using Millet.Compartido.Infrastructure.Persistence;
 using Millet.Compartido.Infrastructure.PublicAdapters;
 using Millet.Compartido.UnitTests.Adjuntos;
@@ -38,7 +39,7 @@ public sealed class ArticuloProductoAwTests
         var a2 = Articulo("VID-2");
         db.AddRange(producto, a1, a2);
         await db.SaveChangesAsync();
-        var handler = new ActualizarArticuloHandler(db, new FakeSaldos(false));
+        var handler = Handler(db, false);
 
         await handler.Handle(Liga(a1.Id, producto.Id), CancellationToken.None);
         Assert.Equal(producto.Id, a1.ProductoAwId);
@@ -59,7 +60,7 @@ public sealed class ArticuloProductoAwTests
         await db.SaveChangesAsync();
 
         var ex = await Assert.ThrowsAsync<BusinessRuleException>(
-            () => new ActualizarArticuloHandler(db, new FakeSaldos(false)).Handle(Liga(pieza.Id, producto.Id), CancellationToken.None));
+            () => Handler(db, false).Handle(Liga(pieza.Id, producto.Id), CancellationToken.None));
         Assert.Equal("ARTICULO_PRODUCTO_AW_UNIDAD", ex.Code);
         Assert.Null(pieza.ProductoAwId);
     }
@@ -75,7 +76,7 @@ public sealed class ArticuloProductoAwTests
         await db.SaveChangesAsync();
 
         var ex = await Assert.ThrowsAsync<BusinessRuleException>(
-            () => new ActualizarArticuloHandler(db, new FakeSaldos(false)).Handle(Liga(a.Id, producto.Id), CancellationToken.None));
+            () => Handler(db, false).Handle(Liga(a.Id, producto.Id), CancellationToken.None));
         Assert.Equal("ARTICULO_PRODUCTO_AW_INACTIVO", ex.Code);
     }
 
@@ -90,7 +91,7 @@ public sealed class ArticuloProductoAwTests
         ligado.AsignarProductoAw(producto.Id);
         db.AddRange(producto, otro, sinVinculo, ligado);
         await db.SaveChangesAsync();
-        var handler = new ActualizarArticuloHandler(db, new FakeSaldos(true));
+        var handler = Handler(db, true);
 
         var liga = await Assert.ThrowsAsync<BusinessRuleException>(
             () => handler.Handle(Liga(sinVinculo.Id, otro.Id), CancellationToken.None));
@@ -112,8 +113,39 @@ public sealed class ArticuloProductoAwTests
         db.AddRange(producto, a);
         await db.SaveChangesAsync();
 
-        await new ActualizarArticuloHandler(db, new FakeSaldos(false)).Handle(Liga(a.Id, null, limpiar: true), CancellationToken.None);
+        await Handler(db, false).Handle(Liga(a.Id, null, limpiar: true), CancellationToken.None);
         Assert.Null(a.ProductoAwId);
+    }
+
+    [Fact]
+    public async Task Con_Linea_De_OC_Abierta_Con_Medida_No_Se_Desliga_Ni_Se_Cambia()
+    {
+        await using var db = CrearDb();
+        var producto = Producto("P1");
+        var otro = Producto("P2");
+        var a = Articulo("VID-1");
+        a.AsignarProductoAw(producto.Id);
+        db.AddRange(producto, otro, a);
+        await db.SaveChangesAsync();
+        var handler = Handler(db, false, ocAbierta: true);
+
+        var desliga = await Assert.ThrowsAsync<BusinessRuleException>(
+            () => handler.Handle(Liga(a.Id, null, limpiar: true), CancellationToken.None));
+        Assert.Equal("ARTICULO_PRODUCTO_AW_EN_USO", desliga.Code);
+        Assert.Contains("línea de orden de compra abierta", desliga.Message);
+
+        var cambia = await Assert.ThrowsAsync<BusinessRuleException>(
+            () => handler.Handle(Liga(a.Id, otro.Id), CancellationToken.None));
+        Assert.Equal("ARTICULO_PRODUCTO_AW_EN_USO", cambia.Code);
+        Assert.Equal(producto.Id, a.ProductoAwId);
+    }
+
+    private static ActualizarArticuloHandler Handler(CompartidoDbContext db, bool existencia, bool ocAbierta = false) =>
+        new(db, new FakeSaldos(existencia), new FakeOcLineas(ocAbierta));
+
+    private sealed class FakeOcLineas(bool abierta) : IOcLineaAbiertaConMedidaReadPort
+    {
+        public Task<bool> ArticuloTieneLineaAbiertaConMedidaAsync(Guid articuloId, CancellationToken cancellationToken) => Task.FromResult(abierta);
     }
 
     [Fact]
