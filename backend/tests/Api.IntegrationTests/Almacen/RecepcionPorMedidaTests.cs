@@ -1,5 +1,6 @@
 using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.EntityFrameworkCore;
+using Millet.Almacen.Application.DevolucionesProveedor;
 using Millet.Almacen.Application.Integration;
 using Millet.Almacen.Application.Recepciones;
 using Millet.Almacen.Application.Revision;
@@ -154,6 +155,53 @@ public class RecepcionPorMedidaTests(WebApplicationFactory<Program> factory) : I
             (await Fila(db, ctx.RackId, ctx.ArticuloId, VarA))!.Value.Cantidad.Should().Be(80.3736m);
             (await Fila(db, ctx.RackId, ctx.ArticuloId, null)).Should().BeNull();
         });
+    }
+
+    [Fact]
+    public async Task Devolucion_a_proveedor_hereda_la_medida_acepta_hojas_enteras_y_rebaja_el_saldo_de_esa_medida()
+    {
+        await new CuarentenaRecepcionTests(factory).EjecutarConFixtureAsync(async (db, ctx) =>
+        {
+            var guard = new DecimalesUnidadGuard(new DecimalesM2());
+            var proveedor = Guid.NewGuid();
+            var oc = new OcProveedor(new OcM2(ctx), proveedor);
+            var r = await Recibir(db, ctx, true, Linea(ctx, 20m, VarA));
+            var origen = await db.LineasMovimiento.AsNoTracking().SingleAsync(l => l.MovimientoId == r.RecepcionId);
+            Task<IniciarDevolucionAProveedorResponse> Iniciar(decimal m2) =>
+                new IniciarDevolucionAProveedorHandler(db, new UserFake(ctx.UserId), new EmpresaFake(ctx.EmpresaId), guard, oc).Handle(
+                    new IniciarDevolucionAProveedorCommand(proveedor, "Hojas rayadas", r.RecepcionId, null, null, null,
+                        [new DevolucionProveedorLineaInput(ctx.ArticuloId, m2, "M2", 0m, origen.Id)]), default);
+
+            // 2.5 hojas y más de lo recibido se rechazan.
+            var fraccion = () => Iniciar(22.3260m);
+            (await fraccion.Should().ThrowAsync<BusinessRuleException>()).Which.Code.Should().Be("HOJAS_ENTERAS");
+            var exceso = () => Iniciar(21m * 8.9304m);
+            (await exceso.Should().ThrowAsync<BusinessRuleException>()).Which.Code.Should().Be("DEVOLUCION_EXCEDE_RECEPCION");
+
+            // 2 de 20 hojas (17.8608 m², 4 decimales con M2 a 2: derivado de hojas, no se revisa) → saldo de esa medida baja 17.8608.
+            var dev = await Iniciar(17.8608m);
+            var lineaDev = await db.Set<Millet.Almacen.Domain.DevolucionesProveedor.LineaDevolucionProveedor>().AsNoTracking().SingleAsync(l => l.DevolucionId == dev.DevolucionId);
+            await new AdjuntarEvidenciaDevolucionAProveedorHandler(db).Handle(
+                new AdjuntarEvidenciaDevolucionAProveedorCommand(dev.DevolucionId, "FOTO", "hojas.jpg", "blob://hojas.jpg", null), default);
+            await new SolicitarAutorizacionDevolucionAProveedorHandler(db).Handle(new SolicitarAutorizacionDevolucionAProveedorCommand(dev.DevolucionId), default);
+            await new AutorizarDevolucionAProveedorHandler(db, new UserFake(ctx.UserId)).Handle(new AutorizarDevolucionAProveedorCommand(dev.DevolucionId), default);
+            await new RegistrarSalidaDevolucionAProveedorHandler(db, new CapturaEventos(), new UserFake(ctx.UserId), new EmpresaFake(ctx.EmpresaId),
+                oc, ctx.Periodos, new ConversionM2()).Handle(
+                new RegistrarSalidaDevolucionAProveedorCommand(dev.DevolucionId, ctx.SubDisponibleId, Fecha, [new DevolucionProveedorSalidaLineaBin(lineaDev.Id, ctx.RackId)]), default);
+            (await Fila(db, ctx.RackId, ctx.ArticuloId, VarA))!.Value.Cantidad.Should().Be(178.6080m - 17.8608m);
+
+            // El detalle muestra la medida de la línea de recepción origen.
+            db.ChangeTracker.Clear();
+            var detalle = await new ObtenerDevolucionProveedorPorIdHandler(db, new ProveedorRfc(), new Articulos(true), new CxpNulo(), oc)
+                .Handle(new ObtenerDevolucionProveedorPorIdQuery(dev.DevolucionId), default);
+            detalle!.Lineas.Single().Should().Match<DevolucionProveedorLineaItem>(l => l.ProductoAwVarianteId == VarA && l.AnchoMm == 2440m && l.AltoMm == 3660m);
+        });
+    }
+
+    sealed class OcProveedor(IComprasOcReadPort inner, Guid proveedorId) : IComprasOcReadPort
+    {
+        public async Task<OcLectura?> ObtenerAsync(Guid ocId, CancellationToken ct) => (await inner.ObtenerAsync(ocId, ct)) is { } o ? o with { ProveedorId = proveedorId } : null;
+        public Task<IReadOnlyDictionary<Guid, string>> ObtenerFoliosAsync(IReadOnlyCollection<Guid> ocIds, CancellationToken ct) => inner.ObtenerFoliosAsync(ocIds, ct);
     }
 
     // ─────────────────────────── Dobles ───────────────────────────

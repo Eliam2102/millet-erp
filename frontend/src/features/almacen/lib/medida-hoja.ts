@@ -24,3 +24,33 @@ export function textoMedida(
   const hojas = hojasDe(cantidadM2, fila.areaHojaM2);
   return hojas == null ? medida : `${medida} · ${hojas} ${hojas === 1 ? 'hoja' : 'hojas'}`;
 }
+
+type FilaRecepcion = {
+  id: string;
+  cantidad: number;
+  productoAwVarianteId?: string | null;
+  anchoMm?: number | null;
+  altoMm?: number | null;
+};
+
+/** Medida de la partida de recepción (vidrio por hoja): m² por hoja, hojas recibidas y texto «2440 × 3660 mm · 20 hojas recibidas». */
+export function medidaDe(l: FilaRecepcion | undefined) {
+  const area = l?.productoAwVarianteId ? areaHojaDe(l.anchoMm, l.altoMm) : null;
+  const hojas = l && area ? hojasDe(l.cantidad, area) : null;
+  if (!l || !area || hojas == null) return null;
+  const medida = etiquetaMedidaMm(l.anchoMm, l.altoMm);
+  return {
+    area,
+    hojas,
+    texto: `${medida} · ${hojas} ${hojas === 1 ? 'hoja recibida' : 'hojas recibidas'}`,
+  };
+}
+
+/** Cantidad a enviar (m²): con medida, las hojas capturadas × m² por hoja. */
+export function cantidadM2(
+  l: { cantidad: number; lineaRecepcionOrigenId?: string | null },
+  origen: FilaRecepcion[] | undefined,
+): number {
+  const medida = medidaDe(origen?.find((o) => o.id === l.lineaRecepcionOrigenId));
+  return medida ? Math.round(l.cantidad * medida.area * 10000) / 10000 : l.cantidad;
+}

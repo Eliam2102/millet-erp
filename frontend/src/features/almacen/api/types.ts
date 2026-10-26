@@ -753,6 +753,10 @@ export interface DevolucionProveedorLineaItem {
   /** Etiqueta resuelta en backend (ADR-0042); null → id truncado. */
   articuloClave: string | null;
   articuloDescripcion: string | null;
+  /** F1-MP-01: medida heredada de la partida de recepción origen; null = artículo sin medida. */
+  productoAwVarianteId?: string | null;
+  anchoMm?: number | null;
+  altoMm?: number | null;
 }
 
 export interface DevolucionProveedorEvidenciaItem {
