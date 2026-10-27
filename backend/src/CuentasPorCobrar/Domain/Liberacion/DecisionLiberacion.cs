@@ -45,6 +45,28 @@ public sealed class DecisionLiberacion : BaseEntity, IPerteneceAEmpresa, IAudita
     public Guid DecididoPor { get; private set; }
     public DateTimeOffset DecididoEn { get; private set; }
 
+    /// <summary>
+    /// C7.3 — cobertura del crédito disponible sobre el monto del pedido
+    /// (%, truncado a 2 decimales y acotado a [0, 100], ver
+    /// <see cref="CoberturaCredito"/>). Null cuando la regla de crédito no
+    /// se evaluó (serie que decide sola o cliente sin línea activa).
+    /// </summary>
+    public decimal? PorcentajeCobertura { get; private set; }
+
+    /// <summary>
+    /// C7.3 — decisión <see cref="ResultadoLiberacion.PendienteAutorizacion"/>
+    /// que esta decisión resuelve («Autorizar» → Liberado / Retenido /
+    /// LiberadoConOverride según el crédito recalculado; «Rechazar» →
+    /// Retenido). Único: una pendiente se resuelve una sola vez.
+    /// </summary>
+    public Guid? DecisionOrigenId { get; private set; }
+
+    /// <summary>
+    /// C7.3 — motivo con el que el gerente de CxC resolvió la pendiente
+    /// (autorizar o rechazar). Null en las decisiones de la cascada.
+    /// </summary>
+    public string? Motivo { get; private set; }
+
     private DecisionLiberacion() { }
 
     public static DecisionLiberacion Emitir(
@@ -58,7 +80,10 @@ public sealed class DecisionLiberacion : BaseEntity, IPerteneceAEmpresa, IAudita
         ReglaAplicadaLiberacion reglaAplicada,
         Guid? overrideId,
         Guid decididoPor,
-        DateTimeOffset decididoEn)
+        DateTimeOffset decididoEn,
+        decimal? porcentajeCobertura = null,
+        Guid? decisionOrigenId = null,
+        string? motivo = null)
     {
         if (string.IsNullOrWhiteSpace(pedidoRef))
             throw new BusinessRuleException("DL_PEDIDO_VACIO", "La referencia del pedido es obligatoria.");
@@ -74,6 +99,22 @@ public sealed class DecisionLiberacion : BaseEntity, IPerteneceAEmpresa, IAudita
         if (resultado != ResultadoLiberacion.LiberadoConOverride && overrideId is not null)
             throw new BusinessRuleException("DL_OVERRIDE_SOBRANTE",
                 "Solo LiberadoConOverride lleva autorización.");
+        if (porcentajeCobertura is decimal p
+            && (p < 0m || p > 100m || decimal.Round(p, 2) != p))
+            throw new BusinessRuleException("DL_COBERTURA_INVALIDA",
+                "La cobertura debe estar entre 0 y 100 con máximo 2 decimales.");
+        if (resultado == ResultadoLiberacion.PendienteAutorizacion
+            && (reglaAplicada != ReglaAplicadaLiberacion.Cobertura
+                || porcentajeCobertura is not decimal pc
+                || pc < CoberturaCredito.UmbralAutorizacionPorcentaje || pc >= 100m))
+            throw new BusinessRuleException("DL_PENDIENTE_SIN_COBERTURA",
+                "Una decisión pendiente de autorización exige cobertura entre 50 % y 99.99 %.");
+        if (decisionOrigenId is not null && resultado == ResultadoLiberacion.PendienteAutorizacion)
+            throw new BusinessRuleException("DL_ORIGEN_INVALIDO",
+                "Una decisión pendiente no puede resolver otra pendiente.");
+        var motivoLimpio = string.IsNullOrWhiteSpace(motivo) ? null : motivo.Trim();
+        if (motivoLimpio is { Length: > 254 })
+            throw new BusinessRuleException("DL_MOTIVO_INVALIDO", "El motivo admite máximo 254 caracteres.");
 
         return new DecisionLiberacion
         {
@@ -89,6 +130,9 @@ public sealed class DecisionLiberacion : BaseEntity, IPerteneceAEmpresa, IAudita
             OverrideId = overrideId,
             DecididoPor = decididoPor,
             DecididoEn = decididoEn,
+            PorcentajeCobertura = porcentajeCobertura,
+            DecisionOrigenId = decisionOrigenId,
+            Motivo = motivoLimpio,
         };
     }
 }
