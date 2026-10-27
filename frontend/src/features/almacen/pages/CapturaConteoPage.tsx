@@ -350,6 +350,7 @@ function FilaCaptura({
             Medida {etiquetaMedidaMm(linea.anchoMm, linea.altoMm) ?? '—'}
           </div>
         )}
+        {linea.lote && <div className="text-xs text-ink-muted">Lote {linea.lote}</div>}
       </TableCell>
       <TableCell>
         <EtiquetaSubAlmacen subAlmacenId={linea.subAlmacenId} clave={linea.subAlmacenClave} />

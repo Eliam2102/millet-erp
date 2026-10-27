@@ -627,6 +627,8 @@ export interface RegistrarSalidaLineaInput {
   comentario: string | null;
   /** F1-MP-01: medida de la hoja; con ella `cantidad` son hojas y `unidadCapturada` = HOJA. */
   productoAwVarianteId?: string | null;
+  /** S4b: lote del que sale; obligatorio con medida si el rack tiene existencia con lote (LOTE_REQUERIDO). */
+  lote?: string | null;
 }
 
 export interface RegistrarSalidaResponse {
@@ -695,6 +697,10 @@ export interface MatRevLineaInput {
   cantidad: number;
   // C7.2b: bin real. Requerido en reincorporación (entrada); libre en baja.
   ubicacionId?: string | null;
+  /** F1-MP-01: medida de hoja; con ella `cantidad` va en m² (hojas × área). */
+  productoAwVarianteId?: string | null;
+  /** S4b: lote del material en MAT-REV; obligatorio con medida si solo hay lotes. */
+  lote?: string | null;
 }
 
 export interface BajaPorDanoResponse {
@@ -952,6 +958,8 @@ export interface LineaConteoParaCapturarDto {
   anchoMm?: number | null;
   altoMm?: number | null;
   areaHojaM2?: number | null;
+  /** S4b: lote de la fila de saldo contada; null = sin lote («apertura»). */
+  lote?: string | null;
 }
 
 /**
@@ -989,6 +997,8 @@ export interface LineaConteoComparacionDto {
   anchoMm?: number | null;
   altoMm?: number | null;
   areaHojaM2?: number | null;
+  /** S4b: lote de la fila de saldo contada; null = sin lote («apertura»). */
+  lote?: string | null;
 }
 
 /** Líneas que tendría un conteo con el sub-almacén y la familia elegidos. */
@@ -1086,11 +1096,13 @@ export interface SaldoUbicacionItem {
   cantidad: number;
   cantidadDisponible: number;
   costoPromedioMxn: number;
-  /** F1-MP-01: medida de la fila (una fila por ubicación y medida). */
+  /** F1-MP-01: medida de la fila (una fila por ubicación, medida y lote). */
   productoAwVarianteId?: string | null;
   anchoMm?: number | null;
   altoMm?: number | null;
   areaHojaM2?: number | null;
+  /** S4b: lote de la fila; null = sin lote («apertura»). */
+  lote?: string | null;
 }
 
 // ─── Consulta jerárquica (PR6, ADR-0047) ────────────────────────────────────
@@ -1247,6 +1259,8 @@ export interface MaterialEnRevisionItem {
   productoAwVarianteId?: string | null;
   anchoMm?: number | null;
   altoMm?: number | null;
+  /** S4b: lote del proveedor de la línea en revisión. */
+  lote?: string | null;
 }
 
 /** ALM-04 G1.3: resultado del dictamen (espejo de `ResultadoDictamen`). */

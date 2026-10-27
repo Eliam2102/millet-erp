@@ -435,6 +435,7 @@ function TablaComparacion({
                     Medida {etiquetaMedidaMm(l.anchoMm, l.altoMm) ?? '—'}
                   </div>
                 )}
+                {l.lote && <div className="text-xs text-ink-muted">Lote {l.lote}</div>}
               </TableCell>
               <TableCell>
                 <EtiquetaSubAlmacen subAlmacenId={l.subAlmacenId} clave={l.subAlmacenClave} />

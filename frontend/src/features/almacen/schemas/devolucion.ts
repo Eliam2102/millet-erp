@@ -55,6 +55,8 @@ const MatRevLineaSchema = z.object({
   // Vidrio por medida (F1-MP-01): la cantidad se captura en hojas y se envía en m² (hojas × m² por hoja).
   productoAwVarianteId: z.string().regex(UUID_SHAPE_RE).nullish(),
   areaHojaM2: z.number().nullish(),
+  // S4b: lote del material (baja por daño / reincorporación desde MAT-REV).
+  lote: z.string().max(50).nullish(),
   cantidad: z
     .number({ message: 'Cantidad requerida' })
     .positive('La cantidad debe ser mayor a cero'),
