@@ -133,8 +133,8 @@ SELECT
          ELSE N'ConAnticipo' END                            AS clase,
     CAST(K.DATUM_ERF AS date)                               AS fecha_transaccion,
     NULLIF(K.AH_HAUPT_AUFTR, 0)                             AS pedido_sustituido_numero,
-    -- VALIDAR: columna real del estatus del pedido en A+W (gap G6).
-    CAST(NULL AS nvarchar(20))                              AS estado_origen,
+    -- Estatus del pedido en A+W (TI, 16-oct: BW_AUFTR_KOPF.STATUS; cierra gap G6).
+    CAST(K.STATUS AS nvarchar(20))                          AS estado_origen,
     -- Totales de control (validación cabecera-vs-líneas en el ERP).
     -- SEMÁNTICA (FAC-DET-PR2, info del owner 2026-07-08): los importes de
     -- A+W (importe_pieza, descuento, importe_total) son BRUTOS (con IVA).
@@ -176,8 +176,9 @@ LEFT JOIN (SELECT DISTINCT MWST
 OUTER APPLY (
     SELECT SUM(P.PP_MENGE)                       AS total_cantidad,
            CAST(SUM(P.PP_QM * P.PP_MENGE) AS decimal(28, 4)) AS total_m2,
-           -- VALIDAR: importe total con DEVUELVE_IMPORTE_Y_DESCTO_N (perf G13);
-           -- si es caro, exponer NULL y el ERP omite la validación de importes.
+           -- TI (16-oct): importe_total = suma de las posiciones. Sigue en NULL hasta
+           -- medir con pedidos reales el costo de DEVUELVE_IMPORTE_Y_DESCTO_N (G13):
+           -- al llenarlo, el ERP rechaza el pedido si no cuadra con sus líneas.
            CAST(NULL AS decimal(28, 4))          AS importe_total
       FROM MILMAIN.SYSADM.BW_AUFTR_POS AS P
      WHERE P.ID = K.ID

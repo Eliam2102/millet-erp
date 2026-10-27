@@ -311,11 +311,15 @@ BEGIN
 END
 GO
 
-/* Rollback (en pruebas: job « (DEV)» y USE MILLET_INTEGRACION_DEV):
-   EXEC msdb.dbo.sp_delete_job @job_name = N'Millet ERP - aviso de pedidos A+W';
-   USE MILLET_INTEGRACION;
-   DROP PROCEDURE dbo.usp_aw_aviso_pedidos;
-   DROP TABLE dbo.aw_aviso_job_pedido; DROP TABLE dbo.aw_aviso_job_config;
-   DROP SYNONYM dbo.aw_src_auftr_hist; DROP SYNONYM dbo.aw_src_auftr_kopf;
+/* Rollback. Se pone la base UNA vez y el nombre del job sale de ella, igual que al crearlo,
+   para que quitar el de pruebas nunca borre el de producción (observación de TI, 26-oct):
+   DECLARE @base sysname = N'MILLET_INTEGRACION_DEV';   -- producción: N'MILLET_INTEGRACION'
+   DECLARE @job  sysname = N'Millet ERP - aviso de pedidos A+W'
+                         + CASE WHEN @base LIKE N'%[_]DEV' THEN N' (DEV)' ELSE N'' END;
+   EXEC msdb.dbo.sp_delete_job @job_name = @job;
+   EXEC (N'USE ' + QUOTENAME(@base) + N';
+     DROP PROCEDURE dbo.usp_aw_aviso_pedidos;
+     DROP TABLE dbo.aw_aviso_job_pedido; DROP TABLE dbo.aw_aviso_job_config;
+     DROP SYNONYM dbo.aw_src_auftr_hist; DROP SYNONYM dbo.aw_src_auftr_kopf;');
    (La cola no se toca: sus filas son bitácora de correlación.)
 */

@@ -101,7 +101,7 @@ A ~7 m² por hoja son ~650–850 hojas/día, es decir decenas de movimientos, no
 
 ## 6. Recepción y envío a A+W (C3.2)
 
-- **Dirección:** el ERP **no escribe en tablas internas de A+W**. Igual que el flujo 3 (`docs/integration/09-aw-otr-exportacion.md`, «Frontera y dependencias»), el ERP escribe en una **tabla puente nueva, definida por el ERP**, en `MILLET_INTEGRACION`: `dbo.erp_recepcion_vidrio` (propuesta; scripts SQL para Jorge siguiendo `docs/operacion/aw-integracion-scripts/07_create_otr_tables.sql` y `08_grant_otr.sql`). A+W (Jorge) la lee y da de alta el inventario de hojas; escribe el acuse en columnas `aw_*` (patrón `erp_otr_estado`).
+- **Dirección:** el ERP **no escribe en tablas internas de A+W**. Igual que el flujo 3 (`docs/integration/09-aw-otr-exportacion.md`, «Frontera y dependencias»), el ERP escribe en una **tabla puente nueva, definida por el ERP**, en `MILLET_INTEGRACION`: `dbo.erp_recepcion_vidrio` (propuesta; scripts SQL para Jorge siguiendo `docs/operacion/aw-integracion-scripts/12_create_otr_tables.sql` y `13_grant_otr.sql`). A+W (Jorge) la lee y da de alta el inventario de hojas; escribe el acuse en columnas `aw_*` (patrón `erp_otr_estado`).
 - **Payload por línea recibida** (columnas, **SUPUESTO** hasta que Jorge valide qué necesita A+W):
 
 | Columna | Origen |
