@@ -39,4 +39,6 @@ public sealed record ArticuloLectura(
     decimal? PrecioReferenciaMonto = null,
     string? PrecioReferenciaMoneda = null,
     // Categoría del artículo (familia del conteo).
-    string? Categoria = null);
+    string? Categoria = null,
+    // E07 D5: familia A+W del vidrio crudo; con valor, la línea exige variante de medida.
+    Guid? ProductoAwId = null);

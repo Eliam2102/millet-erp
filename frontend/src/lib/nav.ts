@@ -47,6 +47,7 @@ import {
   Users,
   Wallet,
   Warehouse,
+  Workflow,
   type LucideIcon,
 } from 'lucide-react';
 import { PermisosCanonicos } from '@/lib/auth/permission-codes';
@@ -870,7 +871,7 @@ const moduloFacturacion: NavModulo = {
         {
           label: 'Autorización de activos',
           description:
-            'El Contador General autoriza la venta de activos fijos (valor neto + utilidad/pérdida) antes de timbrar.',
+            'El Director de Administración y Finanzas autoriza la venta de activos fijos (valor neto + utilidad/pérdida) antes de timbrar.',
           to: '/facturacion/activos',
           icon: Building2,
           permission: PermisosCanonicos.FacturacionActivosAutorizar,
@@ -1029,6 +1030,14 @@ const moduloContabilidad: NavModulo = {
           to: '/contabilidad/polizas/recurrentes',
           icon: Repeat,
           permission: PermisosCanonicos.ContabilidadRecurrentesLeer,
+        },
+        {
+          label: 'Motor contable',
+          description:
+            'Pólizas automáticas de los documentos de otros módulos: cuentas de cada rol, plantillas por evento y eventos rechazados.',
+          to: '/contabilidad/motor',
+          icon: Workflow,
+          permission: PermisosCanonicos.ContabilidadMotorLeer,
         },
       ],
     },

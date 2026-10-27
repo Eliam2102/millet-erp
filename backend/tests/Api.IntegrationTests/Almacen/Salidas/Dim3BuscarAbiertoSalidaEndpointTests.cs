@@ -14,8 +14,8 @@ namespace Millet.Api.IntegrationTests.Almacen.Salidas;
 /// saltarse el alcance por la URL. Devuelve TODAS las activas sin filtro de
 /// alcance (contraste con <c>/api/v1/centros-costo/dim3/buscar</c>, filtrado).
 /// </summary>
+[Collection(ApiCompartida.Nombre)]
 public class Dim3BuscarAbiertoSalidaEndpointTests
-    : IClassFixture<WebApplicationFactory<Program>>
 {
     private const string SuperAdminOid = "dev-superadmin";
     private const string SinPermisosOid = "test-no-perms";

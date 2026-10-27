@@ -14,7 +14,8 @@ using static Millet.Api.IntegrationTests.DatosMaestros.Adjuntos.AdjuntosProveedo
 namespace Millet.Api.IntegrationTests.DatosMaestros.Adjuntos;
 
 /// <summary>Casos negativos y de integridad del servicio de adjuntos sobre proveedor (F1-ADM-11 G1.2).</summary>
-public class ProveedorAdjuntosNegativosTests : IClassFixture<WebApplicationFactory<Program>>
+[Collection(ApiCompartida.Nombre)]
+public class ProveedorAdjuntosNegativosTests
 {
     private readonly WebApplicationFactory<Program> _base;
 
@@ -36,8 +37,8 @@ public class ProveedorAdjuntosNegativosTests : IClassFixture<WebApplicationFacto
     [Fact]
     public async Task Exe_Responde_422_Sin_Tocar_El_Storage()
     {
-        var amb = new AdjuntosProveedorAmbiente(_base);
-        var admin = await amb.SuperAdminAsync();
+        await using var amb = new AdjuntosProveedorAmbiente(_base);
+        using var admin = await amb.SuperAdminAsync();
         var prov = await amb.SeedProveedorAsync();
 
         var r = await SubirAsync(admin, prov, TipoContrato, CabeceraExe, "malicioso.exe", "application/octet-stream");
@@ -48,8 +49,8 @@ public class ProveedorAdjuntosNegativosTests : IClassFixture<WebApplicationFacto
     [Fact]
     public async Task Mime_Falso_Responde_422()
     {
-        var amb = new AdjuntosProveedorAmbiente(_base);
-        var admin = await amb.SuperAdminAsync();
+        await using var amb = new AdjuntosProveedorAmbiente(_base);
+        using var admin = await amb.SuperAdminAsync();
         var prov = await amb.SeedProveedorAsync();
 
         // Extensión .pdf pero MIME de ejecutable.
@@ -61,8 +62,8 @@ public class ProveedorAdjuntosNegativosTests : IClassFixture<WebApplicationFacto
     [Fact]
     public async Task Pdf_Sin_Firma_Responde_422()
     {
-        var amb = new AdjuntosProveedorAmbiente(_base);
-        var admin = await amb.SuperAdminAsync();
+        await using var amb = new AdjuntosProveedorAmbiente(_base);
+        using var admin = await amb.SuperAdminAsync();
         var prov = await amb.SeedProveedorAsync();
 
         // Ejecutable renombrado a .pdf con MIME application/pdf: la firma %PDF delata el engaño.
@@ -74,8 +75,8 @@ public class ProveedorAdjuntosNegativosTests : IClassFixture<WebApplicationFacto
     [Fact]
     public async Task Mayor_A_10_MB_Responde_422_Para_Proveedor()
     {
-        var amb = new AdjuntosProveedorAmbiente(_base);
-        var admin = await amb.SuperAdminAsync();
+        await using var amb = new AdjuntosProveedorAmbiente(_base);
+        using var admin = await amb.SuperAdminAsync();
         var prov = await amb.SeedProveedorAsync();
         var grande = new byte[10 * 1024 * 1024 + 1];
         Pdf.CopyTo(grande, 0);
@@ -88,8 +89,8 @@ public class ProveedorAdjuntosNegativosTests : IClassFixture<WebApplicationFacto
     [Fact]
     public async Task Exactamente_10_MB_Se_Acepta()
     {
-        var amb = new AdjuntosProveedorAmbiente(_base);
-        var admin = await amb.SuperAdminAsync();
+        await using var amb = new AdjuntosProveedorAmbiente(_base);
+        using var admin = await amb.SuperAdminAsync();
         var prov = await amb.SeedProveedorAsync();
         var limite = new byte[10 * 1024 * 1024];
         Pdf.CopyTo(limite, 0);
@@ -102,8 +103,8 @@ public class ProveedorAdjuntosNegativosTests : IClassFixture<WebApplicationFacto
     [Fact]
     public async Task Xml_Binario_Responde_422_Y_Xml_Valido_Se_Acepta()
     {
-        var amb = new AdjuntosProveedorAmbiente(_base);
-        var admin = await amb.SuperAdminAsync();
+        await using var amb = new AdjuntosProveedorAmbiente(_base);
+        using var admin = await amb.SuperAdminAsync();
         var prov = await amb.SeedProveedorAsync();
 
         var binario = await SubirAsync(admin, prov, TipoContrato, CabeceraExe, "datos.xml", "application/xml");
@@ -117,8 +118,8 @@ public class ProveedorAdjuntosNegativosTests : IClassFixture<WebApplicationFacto
     [Fact]
     public async Task Archivo_Vacio_O_Ausente_Responde_422()
     {
-        var amb = new AdjuntosProveedorAmbiente(_base);
-        var admin = await amb.SuperAdminAsync();
+        await using var amb = new AdjuntosProveedorAmbiente(_base);
+        using var admin = await amb.SuperAdminAsync();
         var prov = await amb.SeedProveedorAsync();
 
         var vacio = await SubirAsync(admin, prov, TipoContrato, [], "vacio.pdf", "application/pdf");
@@ -134,8 +135,8 @@ public class ProveedorAdjuntosNegativosTests : IClassFixture<WebApplicationFacto
     [Fact]
     public async Task Tipo_Solo_Persona_Moral_En_Persona_Fisica_Responde_422()
     {
-        var amb = new AdjuntosProveedorAmbiente(_base);
-        var admin = await amb.SuperAdminAsync();
+        await using var amb = new AdjuntosProveedorAmbiente(_base);
+        using var admin = await amb.SuperAdminAsync();
         var prov = await amb.SeedProveedorAsync(TipoPersonaProveedor.Fisica);
 
         var r = await SubirAsync(admin, prov, TipoActa);
@@ -146,8 +147,8 @@ public class ProveedorAdjuntosNegativosTests : IClassFixture<WebApplicationFacto
     [Fact]
     public async Task Tipo_De_Documento_Inexistente_Responde_404_Sin_Blob()
     {
-        var amb = new AdjuntosProveedorAmbiente(_base);
-        var admin = await amb.SuperAdminAsync();
+        await using var amb = new AdjuntosProveedorAmbiente(_base);
+        using var admin = await amb.SuperAdminAsync();
         var prov = await amb.SeedProveedorAsync();
 
         var r = await SubirAsync(admin, prov, Guid.NewGuid());
@@ -158,8 +159,8 @@ public class ProveedorAdjuntosNegativosTests : IClassFixture<WebApplicationFacto
     [Fact]
     public async Task Proveedor_Inexistente_Responde_404()
     {
-        var amb = new AdjuntosProveedorAmbiente(_base);
-        var admin = await amb.SuperAdminAsync();
+        await using var amb = new AdjuntosProveedorAmbiente(_base);
+        using var admin = await amb.SuperAdminAsync();
 
         var r = await SubirAsync(admin, Guid.NewGuid(), TipoContrato);
 
@@ -171,8 +172,8 @@ public class ProveedorAdjuntosNegativosTests : IClassFixture<WebApplicationFacto
     [Fact]
     public async Task Proveedor_Inactivo_No_Admite_Subida_Pero_Si_Lectura()
     {
-        var amb = new AdjuntosProveedorAmbiente(_base);
-        var admin = await amb.SuperAdminAsync();
+        await using var amb = new AdjuntosProveedorAmbiente(_base);
+        using var admin = await amb.SuperAdminAsync();
         var prov = await amb.SeedProveedorAsync(estatus: EstatusCatalogo.Inactivo);
 
         var r = await SubirAsync(admin, prov, TipoContrato);
@@ -184,8 +185,8 @@ public class ProveedorAdjuntosNegativosTests : IClassFixture<WebApplicationFacto
     [Fact]
     public async Task Adjunto_De_Otro_Proveedor_Responde_404_En_Todas_Las_Operaciones_Idor()
     {
-        var amb = new AdjuntosProveedorAmbiente(_base);
-        var admin = await amb.SuperAdminAsync();
+        await using var amb = new AdjuntosProveedorAmbiente(_base);
+        using var admin = await amb.SuperAdminAsync();
         var duenio = await amb.SeedProveedorAsync();
         var otro = await amb.SeedProveedorAsync();
         var adjuntoId = await SubirOkAsync(admin, duenio, TipoContrato);
@@ -215,8 +216,8 @@ public class ProveedorAdjuntosNegativosTests : IClassFixture<WebApplicationFacto
     [Fact]
     public async Task Token_Manipulado_O_Basura_Responde_401_Con_Codigo()
     {
-        var amb = new AdjuntosProveedorAmbiente(_base);
-        var admin = await amb.SuperAdminAsync();
+        await using var amb = new AdjuntosProveedorAmbiente(_base);
+        using var admin = await amb.SuperAdminAsync();
         var prov = await amb.SeedProveedorAsync();
         var adjuntoId = await SubirOkAsync(admin, prov, TipoContrato);
         var url = (await LeerAsync(await admin.PostAsync($"{Base}/{prov}/adjuntos/{adjuntoId}/enlace", null)))
@@ -236,9 +237,9 @@ public class ProveedorAdjuntosNegativosTests : IClassFixture<WebApplicationFacto
     [Fact]
     public async Task Token_Expirado_Responde_401()
     {
-        var amb = new AdjuntosProveedorAmbiente(
+        await using var amb = new AdjuntosProveedorAmbiente(
             _base, s => s.Configure<AdjuntoEnlaceOptions>(o => o.TtlSegundos = 1));
-        var admin = await amb.SuperAdminAsync();
+        using var admin = await amb.SuperAdminAsync();
         var prov = await amb.SeedProveedorAsync();
         var adjuntoId = await SubirOkAsync(admin, prov, TipoContrato);
         var url = (await LeerAsync(await admin.PostAsync($"{Base}/{prov}/adjuntos/{adjuntoId}/enlace", null)))
@@ -255,8 +256,8 @@ public class ProveedorAdjuntosNegativosTests : IClassFixture<WebApplicationFacto
     [Fact]
     public async Task Enlace_Emitido_Antes_De_La_Baja_Responde_404_Despues()
     {
-        var amb = new AdjuntosProveedorAmbiente(_base);
-        var admin = await amb.SuperAdminAsync();
+        await using var amb = new AdjuntosProveedorAmbiente(_base);
+        using var admin = await amb.SuperAdminAsync();
         var prov = await amb.SeedProveedorAsync();
         var adjuntoId = await SubirOkAsync(admin, prov, TipoContrato);
         var url = (await LeerAsync(await admin.PostAsync($"{Base}/{prov}/adjuntos/{adjuntoId}/enlace", null)))
@@ -277,8 +278,8 @@ public class ProveedorAdjuntosNegativosTests : IClassFixture<WebApplicationFacto
     [Fact]
     public async Task Sin_Idempotency_Key_Responde_400_Y_No_Sube_Nada()
     {
-        var amb = new AdjuntosProveedorAmbiente(_base);
-        var admin = await amb.SuperAdminAsync();
+        await using var amb = new AdjuntosProveedorAmbiente(_base);
+        using var admin = await amb.SuperAdminAsync();
         var prov = await amb.SeedProveedorAsync();
 
         // Cliente sin el handler que inyecta la llave automáticamente.
@@ -295,8 +296,8 @@ public class ProveedorAdjuntosNegativosTests : IClassFixture<WebApplicationFacto
     [Fact]
     public async Task Reintento_Con_La_Misma_Llave_No_Duplica_Fila_Ni_Blob()
     {
-        var amb = new AdjuntosProveedorAmbiente(_base);
-        var admin = await amb.SuperAdminAsync();
+        await using var amb = new AdjuntosProveedorAmbiente(_base);
+        using var admin = await amb.SuperAdminAsync();
         var prov = await amb.SeedProveedorAsync();
         var llave = Guid.NewGuid().ToString("D");
 
@@ -314,8 +315,8 @@ public class ProveedorAdjuntosNegativosTests : IClassFixture<WebApplicationFacto
     [Fact]
     public async Task Fallo_Del_Blob_No_Deja_Huerfanos_Ni_Fila()
     {
-        var amb = new AdjuntosProveedorAmbiente(_base);
-        var admin = await amb.SuperAdminAsync();
+        await using var amb = new AdjuntosProveedorAmbiente(_base);
+        using var admin = await amb.SuperAdminAsync();
         var prov = await amb.SeedProveedorAsync();
         amb.Blob.FallarAlSubir = true;
 
@@ -336,8 +337,8 @@ public class ProveedorAdjuntosNegativosTests : IClassFixture<WebApplicationFacto
     [Fact]
     public async Task Fallo_De_BD_Despues_Del_Blob_Compensa_El_Blob_Y_No_Deja_Fila()
     {
-        var amb = new AdjuntosProveedorAmbiente(_base);
-        var admin = await amb.SuperAdminAsync();
+        await using var amb = new AdjuntosProveedorAmbiente(_base);
+        using var admin = await amb.SuperAdminAsync();
         var prov = await amb.SeedProveedorAsync();
 
         // Tipo propio, retirado justo después de subir el blob: el INSERT viola la FK y la BD rechaza la fila.
@@ -368,8 +369,8 @@ public class ProveedorAdjuntosNegativosTests : IClassFixture<WebApplicationFacto
     [Fact]
     public async Task Nombre_Con_Ruta_Se_Neutraliza_Al_Subir_Y_En_Content_Disposition()
     {
-        var amb = new AdjuntosProveedorAmbiente(_base);
-        var admin = await amb.SuperAdminAsync();
+        await using var amb = new AdjuntosProveedorAmbiente(_base);
+        using var admin = await amb.SuperAdminAsync();
         var prov = await amb.SeedProveedorAsync();
 
         var r = await SubirAsync(admin, prov, TipoContrato, Pdf, "..\\..\\etc/passwd.pdf", "application/pdf");

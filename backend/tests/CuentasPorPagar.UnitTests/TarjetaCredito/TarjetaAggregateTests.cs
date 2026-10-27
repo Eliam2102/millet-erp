@@ -169,8 +169,12 @@ public sealed class TarjetaAggregateTests
     public void AsegurarUsuarioAutorizado_otro_no_listado_rechaza()
     {
         var t = Crear();
-        var act = () => t.AsegurarUsuarioAutorizado(Guid.NewGuid(), new DateOnly(2026, 5, 1));
-        act.Should().Throw<BusinessRuleException>().Where(e => e.Code == "TC_USR_NO_AUTORIZADO");
+        var empleado = Guid.NewGuid();
+        var act = () => t.AsegurarUsuarioAutorizado(empleado, new DateOnly(2026, 5, 1));
+        act.Should().Throw<BusinessRuleException>()
+            .Where(e => e.Code == "TC_USR_NO_AUTORIZADO"
+                && e.Message.Contains("01/05/2026")
+                && !e.Message.Contains(empleado.ToString()));
     }
 
     [Fact]

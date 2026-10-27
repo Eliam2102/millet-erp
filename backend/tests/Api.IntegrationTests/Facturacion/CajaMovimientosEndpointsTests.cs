@@ -11,8 +11,8 @@ namespace Millet.Api.IntegrationTests.Facturacion;
 /// Motivo obligatorio del retiro de efectivo (86e3tfdwa): el endpoint rechaza
 /// un retiro con motivo de menos de 15 caracteres antes de tocar la sesión.
 /// </summary>
+[Collection(ApiCompartida.Nombre)]
 public sealed class CajaMovimientosEndpointsTests(WebApplicationFactory<Program> factory)
-    : IClassFixture<WebApplicationFactory<Program>>
 {
     private const int TipoRetiro = 3;
 

@@ -34,6 +34,12 @@ export const cxcKeys = {
   lineaCreditoById: (id: string) =>
     [...cxcKeys.lineasCredito(), 'byId', id] as const,
 
+  // Reglas de liberación por serie (C7.3)
+  reglasSerie: () => [...cxcKeys.all, 'reglas-serie'] as const,
+
+  // Usuarios con permiso de decidir liberaciones (beneficiarios / evaluadores)
+  beneficiariosCredito: () => [...cxcKeys.all, 'beneficiarios-credito'] as const,
+
   // Crédito disponible por cliente (CXC-FE-PR2)
   creditoDisponible: (clienteId: string) =>
     [...cxcKeys.all, 'credito-disponible', clienteId] as const,

@@ -198,8 +198,8 @@ export const almacenKeys = {
   saldosTotales: (filtros: ListarSaldosFiltros) =>
     [...almacenKeys.saldos(), 'totales', filtros] as const,
   // C7.2b: saldo por ubicación de un artículo (selector de bin en salidas)
-  saldosPorUbicacion: (articuloId: string, subAlmacenId: string) =>
-    [...almacenKeys.saldos(), 'por-ubicacion', articuloId, subAlmacenId] as const,
+  saldosPorUbicacion: (articuloId: string, subAlmacenId: string, varianteId = '') =>
+    [...almacenKeys.saldos(), 'por-ubicacion', articuloId, subAlmacenId, varianteId] as const,
   // PR6: hijos de un nodo de la jerarquía (una key por nodo+filtros → cada
   // expansión del árbol se cachea de forma independiente)
   saldosJerarquia: (params: HijosJerarquiaParams) =>

@@ -12,7 +12,8 @@ using Millet.Identidad.Domain;
 namespace Millet.Api.IntegrationTests.DatosMaestros;
 
 /// <summary>ADM-06: dos clientes de A+W con la misma clave fiscal no se fusionan y dejan un conflicto resoluble.</summary>
-public sealed class ConflictosClientesAwTests(WebApplicationFactory<Program> factory) : IClassFixture<WebApplicationFactory<Program>>
+[Collection(ApiCompartida.Nombre)]
+public sealed class ConflictosClientesAwTests(WebApplicationFactory<Program> factory)
 {
     private const string Base = "/api/v1/datos-maestros/clientes/conflictos-aw";
     private static string NuevaRef() => "T" + Guid.NewGuid().ToString("N")[..8];

@@ -463,6 +463,8 @@ export interface ActualizarPuestoPayload {
 
 /** Mirror de <c>EmpleadoResponse</c> backend. */
 export interface EmpleadoResponse {
+  telefono?: string | null;
+  extension?: string | null;
   id: string;
   empresaId: string;
   clave: string;
@@ -499,6 +501,8 @@ export interface CrearEmpleadoCommand {
  * nullable en null. Inmutables: clave y empresaId.
  */
 export interface ActualizarEmpleadoPayload {
+  telefono?: string | null;
+  extension?: string | null;
   nombre?: string | null;
   email?: string | null;
   limpiarEmail?: boolean;

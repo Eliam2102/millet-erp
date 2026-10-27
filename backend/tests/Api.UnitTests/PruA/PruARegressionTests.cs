@@ -249,6 +249,7 @@ public sealed class PruARegressionTests
         var oc = new OrdenCompra(Guid.NewGuid(), a.Empresa, Folio.Parse("OC-FIX2026-000102"), 2026, a.Proveedor, a.Sucursal,
             Guid.NewGuid(), Guid.NewGuid(), a.UserId!.Value, Guid.NewGuid(), new(2026, 10, 10), sinRequisicionPrevia: true, motivoSinRequisicion: "FIX PRU-A");
         var linea = oc.AgregarLineaManual(Guid.NewGuid(), Guid.NewGuid(), 10, "H87", 100, Guid.NewGuid(), descuento: DescuentoLinea.Cero, indicadorImpuestos: IndicadorImpuestos.Iva16Default);
+        oc.ActualizarDatosFactura("G03", "PPD", "99");
         oc.EnviarAAutorizacion(a.UtcNow); oc.Autorizar(Guid.NewGuid(), NivelAutorizacion.Nivel1, Guid.NewGuid(), a.UtcNow);
         oc.Autorizar(Guid.NewGuid(), NivelAutorizacion.Nivel2, Guid.NewGuid(), a.UtcNow);
         oc.RegistrarRecepcionLinea(linea.Id, 10, a.UtcNow); oc.RegistrarFacturacionLinea(linea.Id, 10, a.UtcNow);

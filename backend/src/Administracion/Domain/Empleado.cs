@@ -26,6 +26,8 @@ public sealed class Empleado : BaseEntity, IAuditable
     public string Clave { get; private set; } = string.Empty;
 
     public string Nombre { get; private set; } = string.Empty;
+    public string? Telefono { get; private set; }
+    public string? Extension { get; private set; }
     public string? Email { get; private set; }
 
     /// <summary>
@@ -79,12 +81,13 @@ public sealed class Empleado : BaseEntity, IAuditable
         Guid? usuarioId = null,
         string? codigoNomina = null,
         EstatusCatalogo estatus = EstatusCatalogo.Activo,
-        string? emailContacto = null) : base(id)
+        string? emailContacto = null, string? telefono = null, string? extension = null) : base(id)
     {
         if (id == Guid.Empty)
             throw new BusinessRuleException("EMPLEADO_ID_INVALIDO", "El id es obligatorio.");
         if (empresaId == Guid.Empty)
             throw new BusinessRuleException("EMPLEADO_EMPRESA_INVALIDA", "La empresa es obligatoria.");
+        ActualizarContacto(telefono, extension);
         ValidarClave(clave);
         ValidarNombre(nombre);
         ValidarEmail(email);
@@ -129,8 +132,9 @@ public sealed class Empleado : BaseEntity, IAuditable
         string? codigoNomina = null,
         bool limpiarCodigoNomina = false,
         string? emailContacto = null,
-        bool limpiarEmailContacto = false)
+        bool limpiarEmailContacto = false, string? telefono = null, string? extension = null)
     {
+        ActualizarContacto(telefono, extension);
         if (nombre is not null)
         {
             ValidarNombre(nombre);
@@ -186,6 +190,16 @@ public sealed class Empleado : BaseEntity, IAuditable
     /// comprobaciones) se conservan.
     /// </summary>
     public void Desactivar() => Estatus = EstatusCatalogo.Inactivo;
+
+    private void ActualizarContacto(string? telefono, string? extension)
+    {
+        if (telefono is not null && (telefono.Length > 20 || telefono.Any(c => !char.IsAsciiDigit(c) && !" ()-+".Contains(c))))
+            throw new BusinessRuleException("EMPLEADO_TELEFONO_INVALIDO", "Escribe un teléfono de hasta 20 caracteres con dígitos, espacios, paréntesis, guiones o +.");
+        if (extension is { Length: > 10 })
+            throw new BusinessRuleException("EMPLEADO_EXTENSION_INVALIDA", "Escribe una extensión de hasta 10 caracteres.");
+        if (telefono is not null) Telefono = string.IsNullOrWhiteSpace(telefono) ? null : telefono.Trim();
+        if (extension is not null) Extension = string.IsNullOrWhiteSpace(extension) ? null : extension.Trim();
+    }
 
     private static void ValidarClave(string clave)
     {

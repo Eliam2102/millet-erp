@@ -43,6 +43,12 @@ public sealed class ContabilidadDbContext : BaseDbContext
     // K10.4: pólizas recurrentes.
     public DbSet<PlantillaRecurrente> PlantillasRecurrentes => Set<PlantillaRecurrente>();
 
+    // C1.4: motor de pólizas desde eventos (roles de cuenta, plantillas y bandeja de rechazos).
+    public DbSet<RolCuenta> RolesCuenta => Set<RolCuenta>();
+    public DbSet<RolCuentaCambio> RolesCuentaCambios => Set<RolCuentaCambio>();
+    public DbSet<PlantillaContable> PlantillasContables => Set<PlantillaContable>();
+    public DbSet<RechazoContable> RechazosContables => Set<RechazoContable>();
+
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         modelBuilder.HasDefaultSchema(SchemaName);

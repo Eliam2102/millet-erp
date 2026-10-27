@@ -75,6 +75,34 @@ public sealed class FacturaVenta : Comprobante
         DatosEmbarqueCe = datos with { Contenedores = Array.AsReadOnly(datos.Contenedores.ToArray()) };
     }
 
+    public string? OrdenCompraCliente { get; private set; }
+    public string? ReferenciaCliente { get; private set; }
+    public string? CondicionesPago { get; private set; }
+    public string? Proforma { get; private set; }
+
+    // Calculados desde las partidas: no se persisten acumulados duplicados.
+    public decimal TotalKg => Lineas.Sum(l => l.PesoKg ?? 0m);
+    public decimal TotalPie2 => Lineas.Sum(l => l.AreaPie2 ?? 0m);
+    public decimal TotalPiezas => Lineas.Sum(l => l.Cantidad);
+
+    public void EditarDatosCliente(string? ordenCompraCliente, string? referenciaCliente,
+        string? condicionesPago, string? proforma, string? observaciones)
+    {
+        if (Uuid is not null || Estado is not (EstadoTimbrado.Borrador or EstadoTimbrado.TimbradoFallido or EstadoTimbrado.PendientePedimento))
+            throw new BusinessRuleException("FACTURA_INMUTABLE", "Los datos para el cliente solo se pueden editar antes del timbrado y fuera de un intento en proceso.");
+        // Validar todo antes de mutar el agregado.
+        var oc = DatosImpresion.Texto(ordenCompraCliente, 60, "Orden de compra del cliente");
+        var referencia = DatosImpresion.Texto(referenciaCliente, 60, "Referencia del cliente");
+        var condiciones = DatosImpresion.Texto(condicionesPago, 60, "Condiciones de pago");
+        var proformaValidada = DatosImpresion.Texto(proforma, 40, "Proforma");
+        var comentario = DatosImpresion.Texto(observaciones, ObservacionesMaxLength, "Observaciones");
+        OrdenCompraCliente = oc;
+        ReferenciaCliente = referencia;
+        CondicionesPago = condiciones;
+        Proforma = proformaValidada;
+        Observaciones = observaciones is null ? null : comentario ?? "";
+    }
+
     private FacturaVenta() { }
 
     private FacturaVenta(
@@ -180,7 +208,7 @@ public sealed class FacturaVenta : Comprobante
         decimal? tasaIvaTraslado,
         decimal? tasaRetencionIva,
         decimal? tasaRetencionIsr,
-        bool requierePedimento = false)
+        bool requierePedimento = false, string? referencia = null, decimal? pesoKg = null, decimal? areaPie2 = null)
     {
         if (Estado != EstadoTimbrado.Borrador)
             throw new BusinessRuleException(
@@ -202,7 +230,7 @@ public sealed class FacturaVenta : Comprobante
             tasaIvaTraslado: tasaIvaTraslado,
             tasaRetencionIva: tasaRetencionIva,
             tasaRetencionIsr: tasaRetencionIsr,
-            requierePedimento: requierePedimento);
+            requierePedimento: requierePedimento, referencia: referencia, pesoKg: pesoKg, areaPie2: areaPie2);
 
         _lineas.Add(linea);
         return linea;
@@ -244,7 +272,7 @@ public sealed class FacturaVenta : Comprobante
     }
 
     /// <summary>
-    /// Vincula la autorización del Contador General (venta de activo fijo, §7.8,
+    /// Vincula la autorización del Director de Administración y Finanzas (venta de activo fijo, §7.8,
     /// F9). Solo en comportamiento <see cref="ComportamientoFiscal.VentaActivoFijo"/>
     /// y en Borrador (antes de timbrar).
     /// </summary>
@@ -253,7 +281,7 @@ public sealed class FacturaVenta : Comprobante
         if (ComportamientoFiscal != ComportamientoFiscal.VentaActivoFijo)
             throw new BusinessRuleException(
                 "AUTORIZACION_COMPORTAMIENTO_INVALIDO",
-                "Solo una factura de Venta de activo fijo admite autorización del Contador General.");
+                "Solo una factura de Venta de activo fijo admite autorización del Director de Administración y Finanzas.");
         if (Estado != EstadoTimbrado.Borrador)
             throw new BusinessRuleException("FACTURA_INMUTABLE", $"No se puede vincular autorización a una factura en estado {Estado}.");
 

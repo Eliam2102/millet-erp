@@ -20,7 +20,8 @@ using Millet.SharedKernel.Application;
 namespace Millet.Api.IntegrationTests.DatosMaestros;
 
 /// <summary>86e3qcgyn: grupos de clientes de A+W con RFC repetido y su unificación (Fusionar / Agrupar).</summary>
-public sealed class RfcRepetidosEndpointsTests(WebApplicationFactory<Program> factory) : IClassFixture<WebApplicationFactory<Program>>
+[Collection(ApiCompartida.Nombre)]
+public sealed class RfcRepetidosEndpointsTests(WebApplicationFactory<Program> factory)
 {
     private const string Base = "/api/v1/datos-maestros/clientes/rfc-repetidos";
     private static readonly Guid Empresa = Guid.Parse("00000003-0000-0000-0000-000000000001");

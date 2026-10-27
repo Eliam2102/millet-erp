@@ -13,7 +13,8 @@ using Millet.DatosMaestros.Domain;
 namespace Millet.Api.IntegrationTests.DatosMaestros;
 
 /// <summary>ADM-06 R3: bitácora de productos A+W, descripción editada en el ERP como conflicto, baja/reactivación y variantes.</summary>
-public sealed class BitacoraProductosAwTests(WebApplicationFactory<Program> factory) : IClassFixture<WebApplicationFactory<Program>>
+[Collection(ApiCompartida.Nombre)]
+public sealed class BitacoraProductosAwTests(WebApplicationFactory<Program> factory)
 {
     private const string Base = "/api/v1/datos-maestros/productos-aw";
     private static string NuevaRef() => "BP" + Guid.NewGuid().ToString("N")[..10];

@@ -43,6 +43,17 @@ function validarRfc(rfc: string, origen: OrigenProveedor | null, ctx: z.Refineme
 
 export const CrearProveedorSchema = z
   .object({
+    calle: z.string().max(254, 'Máximo 254 caracteres').optional(),
+    numeroExterior: z.string().max(20, 'Máximo 20 caracteres').optional(),
+    numeroInterior: z.string().max(20, 'Máximo 20 caracteres').optional(),
+    colonia: z.string().max(254, 'Máximo 254 caracteres').optional(),
+    ciudad: z.string().max(100, 'Máximo 100 caracteres').optional(),
+    municipio: z.string().max(100, 'Máximo 100 caracteres').optional(),
+    estado: z.string().max(100, 'Máximo 100 caracteres').optional(),
+    codigoPostal: z.string().max(20, 'Máximo 20 caracteres').optional(),
+    pais: z.string().regex(/^$|^[A-Za-z]{3}$/, 'Escribe el código ISO de tres letras, por ejemplo MEX').optional(),
+    taxId: z.string().max(40, 'Máximo 40 caracteres').optional(),
+
     clave: z.string().trim().min(1, 'Clave requerida').max(20, 'Máximo 20 caracteres'),
     razonSocial: z
       .string()
@@ -89,6 +100,17 @@ export type CrearProveedorValues = z.infer<typeof CrearProveedorSchema>;
  */
 export const ActualizarProveedorSchema = z
   .object({
+    calle: z.string().max(254, 'Máximo 254 caracteres').optional(),
+    numeroExterior: z.string().max(20, 'Máximo 20 caracteres').optional(),
+    numeroInterior: z.string().max(20, 'Máximo 20 caracteres').optional(),
+    colonia: z.string().max(254, 'Máximo 254 caracteres').optional(),
+    ciudad: z.string().max(100, 'Máximo 100 caracteres').optional(),
+    municipio: z.string().max(100, 'Máximo 100 caracteres').optional(),
+    estado: z.string().max(100, 'Máximo 100 caracteres').optional(),
+    codigoPostal: z.string().max(20, 'Máximo 20 caracteres').optional(),
+    pais: z.string().regex(/^$|^[A-Za-z]{3}$/, 'Escribe el código ISO de tres letras, por ejemplo MEX').optional(),
+    taxId: z.string().max(40, 'Máximo 40 caracteres').optional(),
+
     razonSocial: z
       .string()
       .trim()

@@ -29,7 +29,9 @@ public sealed record LineaComprobacionDetalleResponse(
     decimal Retenciones,
     decimal Total,
     string Moneda,
-    string? Concepto);
+    string? Concepto,
+    string? ClasificacionNoDeducible = null,
+    decimal IvaNoAcreditable = 0m);
 
 public sealed record ComprobacionGastosDetalleResponse(
     Guid Id,
@@ -93,7 +95,9 @@ public sealed class ObtenerComprobacionGastosHandler
                 l.Id, l.FacturaProveedorId, l.CfdiRecibidoId, l.UuidCfdi,
                 l.ProveedorId, l.FolioProveedor, l.FechaCfdi,
                 l.Subtotal, l.ImpuestosTrasladados, l.Retenciones, l.Total,
-                l.Moneda, l.Concepto))
+                l.Moneda, l.Concepto,
+                l.ClasificacionNoDeducible,
+                l.ClasificacionNoDeducible is null ? 0m : l.ImpuestosTrasladados))
             .ToList();
 
         return new ComprobacionGastosDetalleResponse(

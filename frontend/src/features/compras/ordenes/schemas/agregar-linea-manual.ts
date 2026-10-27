@@ -20,6 +20,8 @@ const idLike = (mensaje: string) => zId(mensaje);
 export function crearAgregarLineaManualSchema(
   getDecimalesCantidad: () => number = () => DECIMALES_FALLBACK,
   ccRequerido = true,
+  // Con medida los m² se derivan de hojas enteras (D8): no se validan contra los decimales de la unidad.
+  getCantidadDerivada: () => boolean = () => false,
 ) {
   return z
     .object({
@@ -31,9 +33,11 @@ export function crearAgregarLineaManualSchema(
         .positive('La cantidad debe ser mayor a 0.')
         .max(999_999_999, 'Cantidad fuera de rango.')
         .refine(
-          (v) => cabeEnDecimales(v, getDecimalesCantidad()),
+          (v) => getCantidadDerivada() || cabeEnDecimales(v, getDecimalesCantidad()),
           'Demasiados decimales para la unidad seleccionada',
         ),
+      // F1-MP-01 (E1): medida de la hoja; el form la exige solo si el artículo es de vidrio crudo.
+      productoAwVarianteId: zId().nullish(),
       unidadMedida: z
         .string()
         .min(1, 'La unidad de medida es requerida.')
@@ -117,6 +121,7 @@ export const DEFAULT_AGREGAR_LINEA_MANUAL: AgregarLineaManualValues = {
   // UnidadMedidaDefault al seleccionar (campo read-only). No persiste
   // porque articuloId es required.
   unidadMedida: '',
+  productoAwVarianteId: null,
   precioUnitario: 0,
   departamentoSolicitanteId: '',
   descuentoTipo: null,

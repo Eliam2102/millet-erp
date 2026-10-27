@@ -24,7 +24,8 @@ namespace Millet.Api.IntegrationTests.CentrosCosto;
 /// filtro de alcance tiene sus propios asserts en <c>AlcanceTests</c>.
 /// </para>
 /// </summary>
-public class ListasYBusquedaTests : IClassFixture<WebApplicationFactory<Program>>
+[Collection(ApiCompartida.Nombre)]
+public class ListasYBusquedaTests
 {
     private readonly WebApplicationFactory<Program> _factory;
 

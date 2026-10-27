@@ -14,9 +14,10 @@ import {
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { useQuery } from '@tanstack/react-query';
-import { apiRequest } from '@/lib/api';
-import { useCrearAutorizacionCredito } from '@/features/cxc/api/useLiberaciones';
+import {
+  useBeneficiariosCredito,
+  useCrearAutorizacionCredito,
+} from '@/features/cxc/api/useLiberaciones';
 import {
   NuevaAutorizacionSchema,
   type NuevaAutorizacionValues,
@@ -27,9 +28,10 @@ import { useAuthStore } from '@/lib/auth/auth-store';
 /**
  * <c>&lt;NuevaAutorizacionDialog/&gt;</c> — el gerente
  * (<c>liberacion.override</c>) crea una autorización consumible para un
- * beneficiario (§4.3, calco de la UX de apertura de caja): cliente o
- * pedido, motivo y vigencia ≤ 24 h. Un solo uso; nunca autoconsumo — el
- * usuario actual no aparece como beneficiario.
+ * beneficiario (§4.3, calco de la UX de apertura de caja): folio del
+ * pedido, motivo y vigencia ≤ 24 h. Un solo uso y para un solo pedido
+ * (C7.3 · E10: el folio debe coincidir exacto al decidir); nunca
+ * autoconsumo — el usuario actual no aparece como beneficiario.
  */
 export function NuevaAutorizacionDialog({
   open,
@@ -44,8 +46,9 @@ export function NuevaAutorizacionDialog({
         <DialogHeader>
           <DialogTitle>Nueva autorización de crédito</DialogTitle>
           <DialogDescription>
-            Autoriza a un usuario a liberar un pedido o cliente pese al crédito. Vigencia máxima 24
-            horas, un solo uso; puedes cancelarla mientras siga vigente.
+            Autoriza a un usuario a liberar un pedido pese al crédito. Sirve para un solo pedido (el
+            folio debe coincidir exacto), vigencia máxima 24 horas y un solo uso; puedes cancelarla
+            mientras siga vigente.
           </DialogDescription>
         </DialogHeader>
         {open && <FormAutorizacion onClose={() => onOpenChange(false)} />}
@@ -58,16 +61,7 @@ function FormAutorizacion({ onClose }: { onClose: () => void }) {
   const idempotencyKey = useFormIdempotencyKey();
   const crear = useCrearAutorizacionCredito();
   const usuarioActualId = useAuthStore((s) => s.user?.id ?? null);
-  const usuarios = useQuery({
-    queryKey: ['cxc', 'beneficiarios-credito'],
-    queryFn: async ({ signal }) =>
-      (
-        await apiRequest<{ id: string; nombre: string; email: string }[]>(
-          '/api/v1/cuentas-por-cobrar/autorizaciones/beneficiarios',
-          { signal },
-        )
-      ).data,
-  });
+  const usuarios = useBeneficiariosCredito();
 
   const candidatos = (usuarios.data ?? []).filter((u) => u.id !== usuarioActualId);
 
@@ -149,14 +143,18 @@ function FormAutorizacion({ onClose }: { onClose: () => void }) {
 
           <FormCampo span={12} className="space-y-1">
             <Label htmlFor="clienteOPedidoRef" className="text-xs">
-              Cliente o folio de pedido <span className="text-danger-fg">*</span>
+              Folio del pedido <span className="text-danger-fg">*</span>
             </Label>
             <Input
               id="clienteOPedidoRef"
-              placeholder="p. ej. 3000123456 o ACME SA"
+              placeholder="p. ej. 6100901"
               maxLength={80}
               {...form.register('clienteOPedidoRef')}
             />
+            <p className="text-xs text-ink-muted">
+              La autorización solo sirve para este pedido: el folio debe coincidir exacto al
+              decidir.
+            </p>
             {form.formState.errors.clienteOPedidoRef && (
               <p className="text-xs text-danger-fg">
                 {form.formState.errors.clienteOPedidoRef.message}

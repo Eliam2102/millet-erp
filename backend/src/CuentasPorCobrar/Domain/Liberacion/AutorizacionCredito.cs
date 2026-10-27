@@ -21,7 +21,7 @@ public enum EstadoAutorizacionCredito : short
 /// calco de <c>AutorizacionAperturaCaja</c> (`[Decisión 12-1]`, tercera
 /// réplica del patrón; candidato a ADR transversal). Un gerente
 /// (<c>cuentas_por_cobrar.liberacion.override</c>) autoriza que un
-/// usuario específico libere un pedido/cliente pese al crédito, con
+/// usuario específico libere un pedido (E10: uno solo) pese al crédito, con
 /// vigencia ≤ 24 h y un solo uso. Nunca autoconsumo.
 /// </summary>
 public sealed class AutorizacionCredito : BaseEntity, IPerteneceAEmpresa, IAuditable
@@ -36,7 +36,10 @@ public sealed class AutorizacionCredito : BaseEntity, IPerteneceAEmpresa, IAudit
 
     public string Motivo { get; private set; } = string.Empty;
 
-    /// <summary>Cliente o folio de pedido al que aplica el override.</summary>
+    /// <summary>
+    /// Folio del pedido al que aplica el override (C7.3 · E10: por pedido;
+    /// la columna conserva su nombre histórico «cliente o pedido»).
+    /// </summary>
     public string ClienteOPedidoRef { get; private set; } = string.Empty;
 
     public DateTimeOffset FechaAutorizacion { get; private set; }
@@ -92,8 +95,19 @@ public sealed class AutorizacionCredito : BaseEntity, IPerteneceAEmpresa, IAudit
             motivo.Trim(), clienteOPedidoRef.Trim(), ahora, ahora.Add(vigencia));
     }
 
-    /// <summary>Consume la autorización al emitir la decisión (un solo uso).</summary>
-    public void Consumir(Guid decisionLiberacionId, Guid beneficiarioUsuarioId, DateTimeOffset ahora)
+    /// <summary>
+    /// Consume la autorización al emitir la decisión (un solo uso).
+    /// C7.3 · E10 (Eliam, 26-oct): la autorización es POR PEDIDO —
+    /// <see cref="ClienteOPedidoRef"/> debe ser exactamente el folio del
+    /// pedido que se decide (tras <c>Trim</c>, comparación ordinal). Ya no
+    /// se acepta la referencia por cliente (id, RFC o razón social): una
+    /// autorización otorgada para un pedido no libera otro.
+    /// </summary>
+    public void Consumir(
+        Guid decisionLiberacionId,
+        Guid beneficiarioUsuarioId,
+        DateTimeOffset ahora,
+        string pedidoRef)
     {
         if (Estado != EstadoAutorizacionCredito.Autorizada)
             throw new BusinessRuleException(
@@ -105,10 +119,18 @@ public sealed class AutorizacionCredito : BaseEntity, IPerteneceAEmpresa, IAudit
         if (beneficiarioUsuarioId != BeneficiarioUsuarioId)
             throw new BusinessRuleException("AC_BENEFICIARIO_DISTINTO",
                 "La autorización es personal: solo el beneficiario puede consumirla.");
+        if (!AplicaAPedido(pedidoRef))
+            throw new BusinessRuleException("AC_REFERENCIA_DISTINTA",
+                $"La autorización se otorgó para el pedido «{ClienteOPedidoRef}» y no aplica a este pedido.");
 
         Estado = EstadoAutorizacionCredito.Usada;
         DecisionLiberacionId = decisionLiberacionId;
     }
+
+    /// <summary>¿La autorización se otorgó para este folio de pedido (E10)?</summary>
+    public bool AplicaAPedido(string? pedidoRef) =>
+        !string.IsNullOrWhiteSpace(pedidoRef)
+        && string.Equals(pedidoRef.Trim(), ClienteOPedidoRef.Trim(), StringComparison.Ordinal);
 
     /// <summary>Cancela una autorización aún no usada.</summary>
     public void Cancelar()

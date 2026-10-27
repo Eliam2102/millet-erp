@@ -24,10 +24,11 @@ using Nc = Millet.CuentasPorPagar.Domain.NotaCreditoProveedor.NotaCreditoProveed
 using Cargo = Millet.CuentasPorPagar.Domain.NotaCargo.NotaCargo;
 namespace Millet.Api.IntegrationTests.CuentasPorPagar;
 /// <summary>HTTP real y PostgreSQL desechable; documentos FIX-P4, maestros simulados, limpieza por proveedor único.</summary>
-public sealed class P4EndpointsTests(WebApplicationFactory<Program> factory) : IClassFixture<WebApplicationFactory<Program>>
+[Collection(ApiCompartida.Nombre)]
+public sealed class P4EndpointsTests(WebApplicationFactory<Program> factory)
 {
     private const string Cxp="/api/v1/cuentas-por-pagar";
-    private WebApplicationFactory<Program> App(Puertos p) => factory.ConEmpresa(EmpresaBootstrapId).WithWebHostBuilder(b=>b.ConfigureTestServices(s=>{
+    private static WebApplicationFactory<Program> App(WebApplicationFactory<Program> enEmpresa, Puertos p) => enEmpresa.WithWebHostBuilder(b=>b.ConfigureTestServices(s=>{
         s.RemoveAll<IProveedorReadPort>();s.AddSingleton<IProveedorReadPort>(p);
         s.RemoveAll<Millet.Tesoreria.Domain.Ports.IReppXmlBlobStorage>();s.AddSingleton<Millet.Tesoreria.Domain.Ports.IReppXmlBlobStorage, Blob>();
         s.RemoveAll<Millet.Tesoreria.Domain.Ports.DatosMaestros.IProveedorBancoReadPort>();s.AddSingleton<Millet.Tesoreria.Domain.Ports.DatosMaestros.IProveedorBancoReadPort>(p);
@@ -38,7 +39,7 @@ public sealed class P4EndpointsTests(WebApplicationFactory<Program> factory) : I
     [Fact]
     public async Task Cargo_formalizacion_aplicaciones_cancelaciones_y_serie_persisten_con_outbox()
     {
-        var p=new Puertos();using var app=App(p);var client=await LoginAsync(app);
+        var p=new Puertos();await using var enEmpresa=factory.ConEmpresa(EmpresaBootstrapId);await using var app=App(enEmpresa,p);using var client=await LoginAsync(app);
         try {
             Guid fId,cargoId,ncId,antiId,nc07Id,anti07Id,ncManualId;int cargoV,ncV,antiV,nc07V,anti07V,ncManualV;
             using(var scope=app.Services.CreateScope()) {
@@ -71,7 +72,7 @@ public sealed class P4EndpointsTests(WebApplicationFactory<Program> factory) : I
     [Fact]
     public async Task Enviar_factura_a_revision_publica_retiro_y_Tesoreria_rechaza_pago_422()
     {
-        var p=new Puertos();using var app=App(p);var client=await LoginAsync(app);Guid cuentaId=Guid.Empty,facturaId=Guid.Empty;
+        var p=new Puertos();await using var enEmpresa=factory.ConEmpresa(EmpresaBootstrapId);await using var app=App(enEmpresa,p);using var client=await LoginAsync(app);Guid cuentaId=Guid.Empty,facturaId=Guid.Empty;
         try {
             int version;using(var scope=app.Services.CreateScope()) {
                 var cxp=scope.ServiceProvider.GetRequiredService<CuentasPorPagarDbContext>();var f=p.NuevaFactura();f.Autorizar(null,p.Ahora);cxp.Add(f);await cxp.SaveChangesAsync();facturaId=f.Id;version=f.Version;
@@ -96,7 +97,7 @@ public sealed class P4EndpointsTests(WebApplicationFactory<Program> factory) : I
     [Fact]
     public async Task REPP_mal_emitido_rechaza_y_parcialidades_liberan_factura_pagada_solo_al_cubrir_pago()
     {
-        var p=new Puertos();using var app=App(p);var client=await LoginAsync(app);
+        var p=new Puertos();await using var enEmpresa=factory.ConEmpresa(EmpresaBootstrapId);await using var app=App(enEmpresa,p);using var client=await LoginAsync(app);
         Guid facturaId=Guid.Empty,cuentaId=Guid.Empty,movimientoId=Guid.Empty,pagoId=Guid.Empty;string uuidFactura="";
         try {
             using(var scope=app.Services.CreateScope()) {

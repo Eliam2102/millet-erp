@@ -18,7 +18,8 @@ namespace Millet.Api.IntegrationTests.CentrosCosto;
 /// (G1.11 / ADR-0050). Verifica los 7 casos clave de elegibilidad: existencia, estatus activo,
 /// alcance por asignación, bypass por permiso corporativo y captura proxy.
 /// </summary>
-public class ElegibilidadTests : IClassFixture<WebApplicationFactory<Program>>
+[Collection(ApiCompartida.Nombre)]
+public class ElegibilidadTests
 {
     private readonly WebApplicationFactory<Program> _factory;
 

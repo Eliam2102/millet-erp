@@ -37,6 +37,7 @@ public sealed partial class DemoSesionSeedHostedService
             var adjunto = Id("DEMO-CE-P6/COTIZACION");
             var url = await sp.GetRequiredService<IAlmacenarBlobPort>().SubirAsync(adjunto, stream, "application/pdf", "DEMO-P6-cotizacion.pdf", ct);
             oc.AdjuntarDocumento(adjunto, tipo.Id, "DEMO-P6-cotizacion.pdf", url, "application/pdf", bytes.Length, Fecha, CapturistaComprasDemoId);
+            oc.ActualizarDatosFactura("G03", "PPD", "99");
             oc.EnviarAAutorizacion(Fecha);
             oc.Autorizar(Id("DEMO-CE-P6/N1"), NivelAutorizacion.Nivel1, JefeComprasDemoId, Fecha, "DEMO P6");
             oc.Autorizar(Id("DEMO-CE-P6/N2"), NivelAutorizacion.Nivel2, DireccionDemoId, Fecha, "DEMO P6");

@@ -39,7 +39,7 @@ public sealed class PasivoAutorizadoParaPagoMapper
         PublicarAsync(notification, cancellationToken);
 
     public async Task PublicarAsync(FacturaProveedorAutorizadaDomainEvent notification, CancellationToken cancellationToken,
-        bool considerarRecepcionesLocales = false)
+        bool considerarRecepcionesLocales = false, IReadOnlyDictionary<Guid, decimal>? recibidoVigente = null)
     {
         // Resolver datos de la factura para enriquecer el payload — la
         // factura ya está en el ChangeTracker (lo acaba de modificar el
@@ -47,7 +47,7 @@ public sealed class PasivoAutorizadoParaPagoMapper
         var f = _db.FacturasProveedor.Local.FirstOrDefault(x => x.Id == notification.FacturaProveedorId)
             ?? await _db.FacturasProveedor.Include(x => x.Lineas).FirstOrDefaultAsync(x => x.Id == notification.FacturaProveedorId, cancellationToken);
         if (f is null) return;
-        var elegibilidad = await _elegibilidad.CalcularAsync(f, cancellationToken, considerarRecepcionesLocales);
+        var elegibilidad = await _elegibilidad.CalcularAsync(f, cancellationToken, considerarRecepcionesLocales, recibidoVigente);
 
         await _publisher.PublishAsync(new PasivoAutorizadoParaPagoIntegrationEvent(
             EmpresaId: notification.EmpresaId,

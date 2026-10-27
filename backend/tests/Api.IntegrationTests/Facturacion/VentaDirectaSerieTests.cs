@@ -27,7 +27,8 @@ namespace Millet.Api.IntegrationTests.Facturacion;
 /// PAC, repositorio CFDI, período, emisor y maestro de clientes son dobles.
 /// Cada prueba usa una sucursal sintética propia para no chocar con otras series.
 /// </summary>
-public sealed class VentaDirectaSerieTests : IClassFixture<WebApplicationFactory<Program>>
+[Collection(ApiCompartida.Nombre)]
+public sealed class VentaDirectaSerieTests : IClassFixture<VentaDirectaSerieTests.Servidor>
 {
     private const string SuperAdminOid = "dev-superadmin";
     private const string Pedidos = "/api/v1/facturacion/pedidos-facturables";
@@ -37,8 +38,13 @@ public sealed class VentaDirectaSerieTests : IClassFixture<WebApplicationFactory
 
     private readonly WebApplicationFactory<Program> _factory;
 
-    public VentaDirectaSerieTests(WebApplicationFactory<Program> factory) =>
-        _factory = factory.WithWebHostBuilder(builder => builder.ConfigureTestServices(services =>
+    public VentaDirectaSerieTests(Servidor fixture) => _factory = fixture.Factory;
+
+    public sealed class Servidor : IDisposable
+    {
+        private readonly WebApplicationFactory<Program> _raiz = new();
+        public WebApplicationFactory<Program> Factory { get; }
+        public Servidor() => Factory = _raiz.WithWebHostBuilder(builder => builder.ConfigureTestServices(services =>
         {
             services.RemoveAll<ICfdiTimbradoPort>(); services.AddSingleton<ICfdiTimbradoPort, Pac>();
             services.RemoveAll<ICfdiRepositorioPort>(); services.AddSingleton<ICfdiRepositorioPort, Repositorio>();
@@ -46,8 +52,8 @@ public sealed class VentaDirectaSerieTests : IClassFixture<WebApplicationFactory
             services.RemoveAll<IEmpresaFiscalReadPort>(); services.AddSingleton<IEmpresaFiscalReadPort, Emisor>();
             services.RemoveAll<IClientesReadPort>(); services.AddSingleton<IClientesReadPort, Clientes>();
         }));
-
-    // ----- Series -----
+        public void Dispose() => _raiz.Dispose();
+    }
 
     [Fact]
     public async Task Serie_VD_sin_sucursal_se_rechaza_y_segunda_activa_misma_sucursal_choca()
@@ -165,7 +171,7 @@ public sealed class VentaDirectaSerieTests : IClassFixture<WebApplicationFactory
             using var bypass = scope.ServiceProvider.GetRequiredService<ICurrentEmpresaContext>().Bypass();
             var db = scope.ServiceProvider.GetRequiredService<FacturacionDbContext>();
             var a = AutorizacionVentaActivo.Crear(Empresa, $"FIX-ACT-{Guid.NewGuid():N}", "FIX activo ficticio",
-                250000m, 180000m, false, 100m, Guid.NewGuid(), DateTimeOffset.UtcNow); // AF-04: la venta debe timbrarse por el precio autorizado (1 × $100 del pedido)
+                250000m, 180000m, false, 100m, Guid.NewGuid(), DateTimeOffset.UtcNow, Millet.Facturacion.Domain.Activos.MotivoDisposicionActivo.Venta, "Área DEMO", "Soporte DEMO"); // AF-04: la venta debe timbrarse por el precio autorizado (1 × $100 del pedido)
             db.AutorizacionesVentaActivo.Add(a);
             await db.SaveChangesAsync();
             autorizacionId = a.Id;

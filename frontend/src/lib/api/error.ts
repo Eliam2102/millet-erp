@@ -26,11 +26,12 @@ export interface ProblemDetails {
    */
   code?: string;
   /**
-   * Errores por campo, con la convención del backend:
-   * <c>{ campo, codigo, mensaje }</c>. <see cref="applyServerErrors"/>
-   * los mapea al estado de un <c>react-hook-form</c>.
+   * Errores por campo. FluentValidation (<c>ValidationError</c> del backend)
+   * los serializa como <c>{ field, code, message }</c>; algunos endpoints
+   * usan <c>{ campo, codigo, mensaje }</c>. <see cref="applyServerErrors"/>
+   * acepta ambos y los mapea al estado de un <c>react-hook-form</c>.
    */
-  errores?: Array<{ campo: string; codigo: string; mensaje: string }>;
+  errores?: Array<{ campo: string; codigo: string; mensaje: string; field?: string; code?: string; message?: string }>;
   /**
    * Errores por campo del <c>ValidationProblemDetails</c> DEFAULT de
    * ASP.NET (<c>{ campo: string[] }</c>): los emite el model-binding /

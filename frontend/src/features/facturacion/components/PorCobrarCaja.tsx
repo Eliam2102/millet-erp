@@ -116,7 +116,7 @@ export function PorCobrarCaja() {
         />
       )}
       {cobrables.isLoading ? (
-        <TableSkeleton rows={3} />
+        <TableSkeleton rows={10} />
       ) : cobrables.isError ? (
         <ErrorState
           title="No se pudieron cargar los comprobantes por cobrar"

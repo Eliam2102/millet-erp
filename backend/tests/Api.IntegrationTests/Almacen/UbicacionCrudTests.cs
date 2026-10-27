@@ -19,7 +19,8 @@ namespace Millet.Api.IntegrationTests.Almacen;
 /// <para>Nivel BD: siembra un fixture aislado por GUIDs (almacén + sub-almacén)
 /// y ejercita los handlers vía mediator, sin depender del seed de millet_dev.</para>
 /// </summary>
-public class UbicacionCrudTests : IClassFixture<WebApplicationFactory<Program>>
+[Collection(ApiCompartida.Nombre)]
+public class UbicacionCrudTests
 {
     private readonly WebApplicationFactory<Program> _factory;
 

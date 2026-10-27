@@ -1,4 +1,5 @@
 using FluentValidation;
+using Millet.Compras.Application.Oc.RegistrarImpresion;
 using MediatR;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
@@ -25,7 +26,7 @@ public sealed class RegistrarEnvioOcValidator : AbstractValidator<RegistrarEnvio
 }
 
 public sealed class RegistrarEnvioOcHandler(ComprasDbContext db, ICurrentUserContext usuario, IClock clock,
-    IProveedorReadPort proveedores, IAlmacenarBlobPort blob, ICorreoDocumentoService correo,
+    IProveedorReadPort proveedores, IAlmacenarBlobPort blob, ICorreoDocumentoService correo, ISender sender,
     ILogger<RegistrarEnvioOcHandler> logger)
     : IRequestHandler<RegistrarEnvioOcCommand, EnvioOc>
 {
@@ -35,7 +36,7 @@ public sealed class RegistrarEnvioOcHandler(ComprasDbContext db, ICurrentUserCon
         var oc = await db.OrdenesCompra.Include(o => o.Autorizaciones).FirstOrDefaultAsync(o => o.Id == command.OrdenCompraId, cancellationToken)
             ?? throw new EntityNotFoundException("ORDEN_COMPRA_NO_ENCONTRADA", "No se encontró la orden de compra.");
         if (EnvioOc.MotivoBloqueo(oc) is { } motivo) throw new BusinessRuleException("OC_ENVIO_NO_AUTORIZADA", motivo);
-        var pdf = await db.OrdenCompraPdfs.SingleOrDefaultAsync(p => p.OrdenCompraId == oc.Id, cancellationToken)
+        var pdf = await db.OrdenCompraPdfs.AsNoTracking().SingleOrDefaultAsync(p => p.OrdenCompraId == oc.Id, cancellationToken)
             ?? throw new BusinessRuleException("OC_ENVIO_SIN_PDF", "La orden aún no tiene PDF generado. Solicita revisar su generación antes de enviarla.");
         var destinatario = command.Destinatario;
         if (string.IsNullOrWhiteSpace(destinatario))
@@ -68,6 +69,17 @@ public sealed class RegistrarEnvioOcHandler(ComprasDbContext db, ICurrentUserCon
             envio.Fallar();
         }
         await db.SaveChangesAsync(CancellationToken.None);
+        if (command.Modo == "correo" && envio.Resultado is "aceptado" or "simulado")
+        {
+            try
+            {
+                await sender.Send(new RegistrarImpresionOcCommand(oc.Id, pdf.Id), CancellationToken.None);
+            }
+            catch (Exception ex)
+            {
+                logger.LogWarning(ex, "El envío {EnvioId} de la OC {OrdenCompraId} se guardó, pero no se pudo registrar la impresión.", envio.Id, oc.Id);
+            }
+        }
         return envio;
     }
 }

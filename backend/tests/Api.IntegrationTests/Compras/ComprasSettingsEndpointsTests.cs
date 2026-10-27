@@ -20,7 +20,8 @@ namespace Millet.Api.IntegrationTests.Compras;
 /// que fuerza <c>AutoGenerarOcAlAutorizar=true</c> globalmente.
 /// </para>
 /// </summary>
-public class ComprasSettingsEndpointsTests : IClassFixture<WebApplicationFactory<Program>>
+[Collection(ApiCompartida.Nombre)]
+public class ComprasSettingsEndpointsTests
 {
     private const string SuperAdminOid = "dev-superadmin";
     private const string EndpointBase = "/api/v1/compras/configuracion";

@@ -61,6 +61,11 @@ export const ESTADOS_UI = {
       tono: 'warning',
       texto: ETIQUETA_RESULTADO_LIBERACION[ResultadoLiberacion.LiberadoConOverride],
     },
+    // DESIGN.md §tonos: «Pendiente / Por autorizar» = warning.
+    [ResultadoLiberacion.PendienteAutorizacion]: {
+      tono: 'warning',
+      texto: ETIQUETA_RESULTADO_LIBERACION[ResultadoLiberacion.PendienteAutorizacion],
+    },
   },
   autorizacion: {
     [EstadoAutorizacionCredito.Autorizada]: {

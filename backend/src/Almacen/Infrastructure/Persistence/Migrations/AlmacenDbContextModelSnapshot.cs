@@ -862,6 +862,15 @@ namespace Millet.Almacen.Infrastructure.Persistence.Migrations
                         .HasColumnType("character varying(500)")
                         .HasColumnName("justificacion");
 
+                    b.Property<string>("Lote")
+                        .HasMaxLength(50)
+                        .HasColumnType("character varying(50)")
+                        .HasColumnName("lote");
+
+                    b.Property<Guid?>("ProductoAwVarianteId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("producto_aw_variante_id");
+
                     b.Property<bool>("RequiereRecuento")
                         .HasColumnType("boolean")
                         .HasColumnName("requiere_recuento");
@@ -896,9 +905,11 @@ namespace Millet.Almacen.Infrastructure.Persistence.Migrations
                     b.HasIndex("UbicacionId")
                         .HasDatabaseName("ix_lineas_conteo_ubicacion_id");
 
-                    b.HasIndex("ConteoId", "ArticuloId", "UbicacionId")
+                    b.HasIndex("ConteoId", "ArticuloId", "UbicacionId", "ProductoAwVarianteId", "Lote")
                         .IsUnique()
                         .HasDatabaseName("ux_lineas_conteo");
+
+                    NpgsqlIndexBuilderExtensions.AreNullsDistinct(b.HasIndex("ConteoId", "ArticuloId", "UbicacionId", "ProductoAwVarianteId", "Lote"), false);
 
                     b.ToTable("lineas_conteo", "almacen");
                 });
@@ -1343,6 +1354,16 @@ namespace Millet.Almacen.Infrastructure.Persistence.Migrations
                         .HasColumnType("uuid")
                         .HasColumnName("id");
 
+                    b.Property<decimal?>("AltoMm")
+                        .HasPrecision(12, 3)
+                        .HasColumnType("numeric(12,3)")
+                        .HasColumnName("alto_mm");
+
+                    b.Property<decimal?>("AnchoMm")
+                        .HasPrecision(12, 3)
+                        .HasColumnType("numeric(12,3)")
+                        .HasColumnName("ancho_mm");
+
                     b.Property<Guid>("ArticuloId")
                         .HasColumnType("uuid")
                         .HasColumnName("articulo_id");
@@ -1409,6 +1430,11 @@ namespace Millet.Almacen.Infrastructure.Persistence.Migrations
                         .HasColumnType("uuid")
                         .HasColumnName("linea_salida_origen_id");
 
+                    b.Property<string>("Lote")
+                        .HasMaxLength(50)
+                        .HasColumnType("character varying(50)")
+                        .HasColumnName("lote");
+
                     b.Property<string>("MonedaOriginal")
                         .IsRequired()
                         .HasMaxLength(3)
@@ -1427,6 +1453,10 @@ namespace Millet.Almacen.Infrastructure.Persistence.Migrations
                     b.Property<int>("Posicion")
                         .HasColumnType("integer")
                         .HasColumnName("posicion");
+
+                    b.Property<Guid?>("ProductoAwVarianteId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("producto_aw_variante_id");
 
                     b.Property<Guid?>("ProyectoId")
                         .HasColumnType("uuid")
@@ -1473,9 +1503,6 @@ namespace Millet.Almacen.Infrastructure.Persistence.Migrations
                     b.HasKey("Id")
                         .HasName("pk_lineas_movimiento");
 
-                    b.HasIndex("ArticuloId")
-                        .HasDatabaseName("ix_lineas_movimiento_articulo_id");
-
                     b.HasIndex("LineaOcId")
                         .HasDatabaseName("ix_lineas_movimiento_linea_oc_id");
 
@@ -1488,11 +1515,16 @@ namespace Millet.Almacen.Infrastructure.Persistence.Migrations
                     b.HasIndex("UbicacionId")
                         .HasDatabaseName("ix_lineas_movimiento_ubicacion_id");
 
+                    b.HasIndex("ArticuloId", "ProductoAwVarianteId")
+                        .HasDatabaseName("ix_lineas_movimiento_articulo_id_producto_aw_variante_id");
+
                     b.ToTable("lineas_movimiento", "almacen", t =>
                         {
                             t.HasCheckConstraint("ck_lineas_cantidad_positiva", "cantidad > 0");
 
                             t.HasCheckConstraint("ck_lineas_costo_no_negativo", "costo_unitario_mxn >= 0");
+
+                            t.HasCheckConstraint("ck_lineas_variante_medida", "(producto_aw_variante_id IS NULL AND ancho_mm IS NULL AND alto_mm IS NULL) OR (producto_aw_variante_id IS NOT NULL AND ancho_mm IS NOT NULL AND ancho_mm > 0 AND alto_mm IS NOT NULL AND alto_mm > 0)");
                         });
                 });
 
@@ -1684,7 +1716,7 @@ namespace Millet.Almacen.Infrastructure.Persistence.Migrations
                         {
                             t.HasCheckConstraint("ck_movimientos_estado", "estado BETWEEN 0 AND 3");
 
-                            t.HasCheckConstraint("ck_movimientos_tipo", "tipo BETWEEN 0 AND 10");
+                            t.HasCheckConstraint("ck_movimientos_tipo", "tipo BETWEEN 0 AND 11");
                         });
                 });
 
@@ -2108,9 +2140,11 @@ namespace Millet.Almacen.Infrastructure.Persistence.Migrations
 
             modelBuilder.Entity("Millet.Almacen.Domain.Saldos.SaldoInventario", b =>
                 {
-                    b.Property<Guid>("UbicacionId")
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
                         .HasColumnType("uuid")
-                        .HasColumnName("ubicacion_id");
+                        .HasColumnName("id")
+                        .HasDefaultValueSql("gen_random_uuid()");
 
                     b.Property<Guid>("ArticuloId")
                         .HasColumnType("uuid")
@@ -2133,9 +2167,22 @@ namespace Millet.Almacen.Infrastructure.Persistence.Migrations
                         .HasColumnType("numeric(28,12)")
                         .HasColumnName("costo_promedio_mxn");
 
+                    b.Property<string>("Lote")
+                        .HasMaxLength(50)
+                        .HasColumnType("character varying(50)")
+                        .HasColumnName("lote");
+
+                    b.Property<Guid?>("ProductoAwVarianteId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("producto_aw_variante_id");
+
                     b.Property<Guid>("SubAlmacenId")
                         .HasColumnType("uuid")
                         .HasColumnName("sub_almacen_id");
+
+                    b.Property<Guid>("UbicacionId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("ubicacion_id");
 
                     b.Property<DateTimeOffset>("UltimaActualizacionAt")
                         .HasColumnType("timestamp with time zone")
@@ -2152,15 +2199,21 @@ namespace Millet.Almacen.Infrastructure.Persistence.Migrations
                         .HasColumnName("valor_inventario_mxn")
                         .HasComputedColumnSql("cantidad * costo_promedio_mxn", true);
 
-                    b.HasKey("UbicacionId", "ArticuloId")
+                    b.HasKey("Id")
                         .HasName("pk_saldos_inventario");
-
-                    b.HasIndex("ArticuloId", "SubAlmacenId")
-                        .HasDatabaseName("ix_saldos_con_stock")
-                        .HasFilter("cantidad > 0");
 
                     b.HasIndex("SubAlmacenId", "ArticuloId")
                         .HasDatabaseName("ix_saldos_sub_almacen");
+
+                    b.HasIndex("ArticuloId", "ProductoAwVarianteId", "SubAlmacenId")
+                        .HasDatabaseName("ix_saldos_con_stock")
+                        .HasFilter("cantidad > 0");
+
+                    b.HasIndex("UbicacionId", "ArticuloId", "ProductoAwVarianteId", "Lote")
+                        .IsUnique()
+                        .HasDatabaseName("ux_saldos_ubic_art_var");
+
+                    NpgsqlIndexBuilderExtensions.AreNullsDistinct(b.HasIndex("UbicacionId", "ArticuloId", "ProductoAwVarianteId", "Lote"), false);
 
                     b.ToTable("saldos_inventario", "almacen", t =>
                         {

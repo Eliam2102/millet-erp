@@ -14,7 +14,8 @@ namespace Millet.Api.IntegrationTests.Persistence;
 /// tipos de proveedor, roundtrip, constraints, y auditoría agrupada por la
 /// entidad dueña (<c>aggregate_root_id</c> = <c>EntidadId</c>).
 /// </summary>
-public class AdjuntosPersistenciaTests : IClassFixture<WebApplicationFactory<Program>>
+[Collection(ApiCompartida.Nombre)]
+public class AdjuntosPersistenciaTests
 {
     private static readonly Guid TipoContrato = Guid.Parse("00000011-0001-0000-0000-000000000002");
     private readonly WebApplicationFactory<Program> _factory;

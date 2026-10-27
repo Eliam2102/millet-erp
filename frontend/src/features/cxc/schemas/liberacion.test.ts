@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
+  AutorizarPendienteSchema,
   DecidirLiberacionSchema,
   NuevaAutorizacionSchema,
 } from '@/features/cxc/schemas/liberacion';
@@ -70,5 +71,18 @@ describe('NuevaAutorizacionSchema', () => {
     expect(
       NuevaAutorizacionSchema.safeParse({ ...base, motivo: '' }).success,
     ).toBe(false);
+  });
+});
+
+describe('AutorizarPendienteSchema (C7.3)', () => {
+  it('exige motivo (vacío o solo espacios no pasa)', () => {
+    expect(AutorizarPendienteSchema.safeParse({ motivo: '' }).success).toBe(false);
+    expect(AutorizarPendienteSchema.safeParse({ motivo: '   ' }).success).toBe(false);
+  });
+  it('acepta motivo y lo recorta; máximo 254', () => {
+    expect(AutorizarPendienteSchema.parse({ motivo: '  Pago en tránsito  ' }).motivo).toBe(
+      'Pago en tránsito',
+    );
+    expect(AutorizarPendienteSchema.safeParse({ motivo: 'x'.repeat(255) }).success).toBe(false);
   });
 });

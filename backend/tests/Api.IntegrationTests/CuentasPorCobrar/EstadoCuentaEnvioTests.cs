@@ -20,7 +20,8 @@ namespace Millet.Api.IntegrationTests.CuentasPorCobrar;
 /// el cliente tenga un pago confirmado sin REP (CA7.14). PostgreSQL
 /// desechable de TestAssemblyInit; el correo se reemplaza por un falso.
 /// </summary>
-public sealed class EstadoCuentaEnvioTests : IClassFixture<WebApplicationFactory<Program>>
+[Collection(ApiCompartida.Nombre)]
+public sealed class EstadoCuentaEnvioTests : IAsyncLifetime
 {
     private static readonly Guid Empresa = Guid.Parse("00000003-0000-0000-0000-000000000001");
     private const string Base = "/api/v1/cuentas-por-cobrar/cartera/estado-cuenta";
@@ -35,10 +36,13 @@ public sealed class EstadoCuentaEnvioTests : IClassFixture<WebApplicationFactory
             services.AddSingleton<IEstadoCuentaCorreoPort>(_correo);
         }));
 
+    public Task InitializeAsync() => Task.CompletedTask;
+    public async Task DisposeAsync() => await _factory.DisposeAsync();
+
     [Fact]
     public async Task Pago_sin_REP_bloquea_emision_y_envio_hasta_resolverse()
     {
-        var client = await Login();
+        using var client = await Login();
         var cliente = Guid.NewGuid();
         var pendienteId = await SembrarPagoSinRep(cliente);
 
@@ -78,7 +82,7 @@ public sealed class EstadoCuentaEnvioTests : IClassFixture<WebApplicationFactory
     [Fact]
     public async Task Envio_exige_idempotency_key_y_pdf_valido()
     {
-        var client = await Login();
+        using var client = await Login();
         var cliente = Guid.NewGuid();
 
         var sinLlave = await Enviar(client, cliente, conLlave: false);
@@ -92,7 +96,7 @@ public sealed class EstadoCuentaEnvioTests : IClassFixture<WebApplicationFactory
     [Fact]
     public async Task Envio_sin_permiso_retorna_403()
     {
-        var client = await Login("test-no-perms");
+        using var client = await Login("test-no-perms");
         var r = await Enviar(client, Guid.NewGuid());
         Assert.Equal(HttpStatusCode.Forbidden, r.StatusCode);
     }
