@@ -117,8 +117,18 @@ Corre el equivalente local del CI para no romper a otros:
 
 - VS Code: `Tasks: Run Task` → `validate all (CI mirror)`
 - Manual: `dotnet build`, `dotnet test`, `npm run build`, `npm run lint`
+- **Pruebas de integración:** tu módulo con `--filter` mientras programas y,
+  si tocaste algo compartido, el gate completo
+  (`./tools/validate-integration-isolated.sh --shared-db`).
 
-Esto reproduce el workflow de [pr-checks.yml](.github/workflows/pr-checks.yml).
+Esto reproduce el workflow [validate-app.yml](.github/workflows/validate-app.yml).
+El CI rechaza el PR si fallan las pruebas de integración (check «Integration
+backend») o si trae archivos de trabajo (check «Archivos de trabajo»).
+
+**Regla del equipo (27-oct-2026):** cómo correr, medir y escribir pruebas de
+integración, y qué no entra en un PR, en
+[docs/qa/gate-integracion.md](docs/qa/gate-integracion.md). Léela antes de
+tu primer PR de backend.
 
 ---
 
