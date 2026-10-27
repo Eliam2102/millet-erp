@@ -19,6 +19,7 @@ import {
   ReceptorIncompletoBanner,
 } from '@/features/facturacion/components/ReceptorFiscalInfo';
 import { ClienteSelector } from '@/features/facturacion/components/selectors/ClienteSelector';
+import { useAvisoEmisionConCobro } from '@/features/facturacion/lib/cobro-en-caja';
 import { mostrarErrorReceptorFiscal } from '@/features/facturacion/lib/mostrar-error-receptor-fiscal';
 import {
   AnticipoSchema,
@@ -134,6 +135,7 @@ function FormInner({
 }: NuevoAnticipoProps & { emisor: EmisorDefaultsResponse; cajaAbierta: CajaAbierta | null }) {
   const idempotencyKey = useFormIdempotencyKey();
   const emitir = useEmitirAnticipo();
+  const avisarEmision = useAvisoEmisionConCobro();
   // El receptor es de solo lectura; el permiso solo controla el CTA al
   // catálogo de clientes (mismo patrón que la emisión de factura).
   const puedeCorregirEnCatalogo = useHasPermission(
@@ -212,10 +214,11 @@ function FormInner({
       },
       {
         onSuccess: (res) => {
-          toast.success(
+          avisarEmision(
             res.uuid
               ? `Anticipo ${res.folio} timbrado · saldo ${res.saldo.toFixed(2)}`
               : `Anticipo ${res.folio} emitido (${res.estado})`,
+            res.uuid ? { id: res.facturaAnticipoId, folio: res.folio } : null,
           );
           onClose({ force: true });
         },
