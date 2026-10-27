@@ -11,7 +11,7 @@ namespace Millet.Api.Endpoints.Facturacion;
 
 /// <summary>
 /// Endpoints de venta de activos fijos del módulo Facturación (F9). La
-/// autorización del Contador General es previa a la emisión.
+/// autorización del Director de Administración y Finanzas es previa a la emisión.
 /// <c>/api/v1/facturacion/activos</c>.
 /// </summary>
 public static class ActivosEndpoints
@@ -22,7 +22,7 @@ public static class ActivosEndpoints
             .MapGroup("/api/v1/facturacion/activos")
             .WithTags("Facturacion");
 
-        // POST: el Contador General autoriza la venta de un activo fijo (previo a emitir).
+        // POST: el Director de Administración y Finanzas autoriza la venta de un activo fijo (previo a emitir).
         group.MapPost("/autorizar", async (
             AutorizarVentaActivoCommand command,
             IMediator mediator,
@@ -34,7 +34,7 @@ public static class ActivosEndpoints
         .WithMetadata(new RequireIdempotencyKeyAttribute())
         .RequireAuthorization(PermissionPolicyProvider.Prefix + PermisosCanonicos.FacturacionActivosAutorizar)
         .WithName("AutorizarVentaActivo")
-        .WithSummary("Autoriza la venta de un activo fijo (Contador General)")
+        .WithSummary("Autoriza la venta de un activo fijo (Director de Administración y Finanzas)")
         .Produces<AutorizarVentaActivoResponse>(StatusCodes.Status201Created)
         .ProducesValidationProblem()
         .ProducesProblem(StatusCodes.Status401Unauthorized)
@@ -51,7 +51,7 @@ public static class ActivosEndpoints
         })
         .RequireAuthorization(PermissionPolicyProvider.Prefix + PermisosCanonicos.FacturacionActivosAutorizar)
         .WithName("BandejaAutorizacionesActivo")
-        .WithSummary("Bandeja de autorizaciones de venta de activos (Contador General)")
+        .WithSummary("Bandeja de autorizaciones de venta de activos (Director de Administración y Finanzas)")
         .Produces<IReadOnlyList<AutorizacionActivoItem>>(StatusCodes.Status200OK);
 
         return app;

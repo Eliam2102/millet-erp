@@ -56,6 +56,7 @@ public sealed partial class ActivosFijosDbContext(DbContextOptions<ActivosFijosD
         detalle.Ignore(x => x.AcumuladaDespues); detalle.HasIndex(x => new { x.CorridaId, x.ActivoId }).IsUnique();
         var operacion = modelBuilder.Entity<OperacionLibro>();
         operacion.ToTable("operaciones_libro"); operacion.HasKey(x => x.Id); operacion.Property(x => x.Id).ValueGeneratedNever();
+        operacion.Property(x => x.SolicitadoPor).HasMaxLength(200).IsRequired();
         operacion.HasIndex(x => new { x.EmpresaId, x.FacturaId }).IsUnique();
         operacion.HasOne<Activo>().WithMany().HasForeignKey(x => x.ActivoId).OnDelete(DeleteBehavior.Restrict);
         var configuracion = modelBuilder.Entity<ConfiguracionLibro>();

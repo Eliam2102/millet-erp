@@ -14,6 +14,7 @@ import {
 } from '@/components/ui/table';
 import { FormSeccion } from '@/components/erp/forms/FormSeccion';
 import { FormCampo } from '@/components/erp/forms/FormGrid';
+import { AvisoEnLinea } from '@/components/erp/feedback/AvisoEnLinea';
 import { ErrorState } from '@/components/erp';
 import { useHasPermission } from '@/lib/auth/useHasPermission';
 import { PermisosCanonicos as P } from '@/lib/auth/permission-codes';
@@ -444,7 +445,13 @@ export function DistribucionTabla({
   nombres?: Record<string, string>;
 }) {
   return (
-    <div className="overflow-x-auto">
+    <div className="space-y-3 overflow-x-auto">
+      {d.partidas.some((p) => p.tieneSalidas) && (
+        <AvisoEnLinea tono="advertencia">
+          Parte de la mercancía ya salió: el gasto de esas partidas va completo a gastos de
+          importación y no cambia su costo
+        </AvisoEnLinea>
+      )}
       <Table>
         <TableHeader>
           <TableRow>
@@ -454,7 +461,7 @@ export function DistribucionTabla({
               'Total MXN',
               'Ajuste MXN',
               'Inventario',
-              'Ventas o consumo',
+              'A gastos de importación',
               'Costo unitario antes',
               'Costo unitario después',
             ].map((h) => (
@@ -486,7 +493,7 @@ export function DistribucionTabla({
                 p.importeMxn,
                 p.diferenciaMxn,
                 p.inventarioMxn,
-                p.costoVentasMxn,
+                p.gastoImportacionMxn,
                 p.costoUnitarioAntes,
                 p.costoUnitarioDespues,
               ].map((v, i) => (

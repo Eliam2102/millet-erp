@@ -100,7 +100,7 @@ public sealed class FacturacionDbContext : BaseDbContext
     /// <summary>Catálogo de operadores para Carta Porte (F8).</summary>
     public DbSet<Operador> Operadores => Set<Operador>();
 
-    /// <summary>Autorizaciones de venta de activos fijos del Contador General (F9).</summary>
+    /// <summary>Autorizaciones de venta de activos fijos del Director de Administración y Finanzas (F9).</summary>
     public DbSet<AutorizacionVentaActivo> AutorizacionesVentaActivo => Set<AutorizacionVentaActivo>();
 
     /// <summary>Pedidos facturables (origen Aw/PlantaPintura/Manual, F1-PR2).</summary>
