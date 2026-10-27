@@ -2,11 +2,15 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { apiRequest } from '@/lib/api';
 import { cxcKeys } from '@/features/cxc/api/keys';
 import type {
+  AutorizarLiberacionPendienteBody,
   AutorizacionCreditoResponse,
+  BeneficiarioCreditoResponse,
   CrearAutorizacionCreditoCommand,
   DecidirLiberacionCommand,
   DecisionLiberacionResponse,
   PagedResponse,
+  RechazarLiberacionPendienteBody,
+  ReglaLiberacionSerieResponse,
 } from '@/features/cxc/api/types';
 
 const BASE = '/api/v1/cuentas-por-cobrar/liberaciones';
@@ -80,11 +84,111 @@ export function useDecidirLiberacion() {
   });
 }
 
+/**
+ * <c>useAutorizarLiberacionPendiente()</c> — C7.3: el gerente de CxC
+ * (<c>liberacion.override</c>) autoriza con motivo una decisión
+ * PendienteAutorizacion (cobertura 50–99 %). El backend recalcula el
+ * crédito y emite una nueva decisión ligada a la pendiente: Liberado (ya
+ * alcanza), Retenido (bajó de 50 % o no hay línea activa) o
+ * LiberadoConOverride (crea y consume la autorización). 409 si ya se
+ * resolvió; 422 si quien autoriza es quien registró la pendiente.
+ */
+export function useAutorizarLiberacionPendiente() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (args: {
+      decisionId: string;
+      body: AutorizarLiberacionPendienteBody;
+      idempotencyKey: string;
+    }) => {
+      const { data } = await apiRequest<DecisionLiberacionResponse>(
+        `${BASE}/${args.decisionId}/autorizar`,
+        {
+          method: 'POST',
+          body: args.body,
+          idempotencyKey: args.idempotencyKey,
+        },
+      );
+      return data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: cxcKeys.liberaciones() });
+      queryClient.invalidateQueries({ queryKey: cxcKeys.autorizaciones() });
+    },
+  });
+}
+
+/**
+ * <c>useRechazarLiberacionPendiente()</c> — C7.3: el gerente de CxC
+ * rechaza con motivo una pendiente; el backend emite una decisión Retenido
+ * ligada a ella. Mismos 409/422 que autorizar.
+ */
+export function useRechazarLiberacionPendiente() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (args: {
+      decisionId: string;
+      body: RechazarLiberacionPendienteBody;
+      idempotencyKey: string;
+    }) => {
+      const { data } = await apiRequest<DecisionLiberacionResponse>(
+        `${BASE}/${args.decisionId}/rechazar`,
+        {
+          method: 'POST',
+          body: args.body,
+          idempotencyKey: args.idempotencyKey,
+        },
+      );
+      return data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: cxcKeys.liberaciones() });
+    },
+  });
+}
+
+/**
+ * Usuarios con permiso de decidir liberaciones (gate: <c>liberacion.override</c>).
+ * Sirve para elegir beneficiario y para mostrar el nombre de quien evaluó
+ * una pendiente en la bandeja (C7.3).
+ */
+export function useBeneficiariosCredito(options: { enabled?: boolean } = {}) {
+  return useQuery<BeneficiarioCreditoResponse[]>({
+    queryKey: cxcKeys.beneficiariosCredito(),
+    enabled: options.enabled ?? true,
+    staleTime: 5 * 60_000,
+    queryFn: async ({ signal }) => {
+      const { data } = await apiRequest<BeneficiarioCreditoResponse[]>(
+        '/api/v1/cuentas-por-cobrar/autorizaciones/beneficiarios',
+        { signal },
+      );
+      return data;
+    },
+  });
+}
+
 export interface ListarAutorizacionesFiltros {
   estado?: number;
   beneficiarioUsuarioId?: string;
   offset?: number;
   limit?: number;
+}
+
+/**
+ * C7.3: reglas activas por serie, para saber en el panel si el pedido
+ * exige autorización aunque el crédito no alcance el 50 %.
+ */
+export function useReglasLiberacionSerie() {
+  return useQuery<ReglaLiberacionSerieResponse[]>({
+    queryKey: cxcKeys.reglasSerie(),
+    staleTime: 5 * 60_000,
+    queryFn: async ({ signal }) => {
+      const { data } = await apiRequest<ReglaLiberacionSerieResponse[]>(`${BASE}/reglas-serie`, {
+        signal,
+      });
+      return data;
+    },
+  });
 }
 
 /**

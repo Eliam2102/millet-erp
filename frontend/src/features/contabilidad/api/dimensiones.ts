@@ -162,10 +162,12 @@ export function useEliminarRegla() {
 // ─── Sucursales y centros ────────────────────────────────────────────────────
 
 /** Todas las sucursales de la empresa (configuración de centros). */
-export function useSucursalesContables() {
+/** `enabled`: quien no tiene `contabilidad.dimensiones.leer` no la consulta (el endpoint respondería 403). */
+export function useSucursalesContables(options: { enabled?: boolean } = {}) {
   return useQuery({
     queryKey: dimKeys.sucursales,
     queryFn: async ({ signal }) => (await apiRequest<Sucursal[]>(`${BASE}/sucursales`, { signal })).data,
+    enabled: options.enabled ?? true,
   });
 }
 

@@ -25,7 +25,7 @@ public enum ClaseCuenta : short { Cuenta = 0, Rubro = 1 }
 
 /// <summary>Origen declarado por quien quiere afectar una cuenta (regla R10).</summary>
 [JsonConverter(typeof(JsonStringEnumConverter))]
-public enum OrigenMovimiento : short { Manual = 0, AuxiliarCxC = 1, AuxiliarCxP = 2 }
+public enum OrigenMovimiento : short { Manual = 0, AuxiliarCxC = 1, AuxiliarCxP = 2, Automatica = 3 }
 
 /// <summary>
 /// Cuenta del catálogo contable de Millet (<c>contabilidad.cuentas_contables</c>).

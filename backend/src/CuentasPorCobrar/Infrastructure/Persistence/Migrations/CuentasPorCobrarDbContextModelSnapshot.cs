@@ -907,6 +907,10 @@ namespace Millet.CuentasPorCobrar.Infrastructure.Persistence.Migrations
                         .HasColumnType("uuid")
                         .HasColumnName("decidido_por");
 
+                    b.Property<Guid?>("DecisionOrigenId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("decision_origen_id");
+
                     b.Property<DateTimeOffset?>("DeletedAt")
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("deleted_at");
@@ -926,6 +930,11 @@ namespace Millet.CuentasPorCobrar.Infrastructure.Persistence.Migrations
                         .HasColumnType("numeric(14,2)")
                         .HasColumnName("monto_pedido");
 
+                    b.Property<string>("Motivo")
+                        .HasMaxLength(254)
+                        .HasColumnType("character varying(254)")
+                        .HasColumnName("motivo");
+
                     b.Property<Guid?>("OverrideId")
                         .HasColumnType("uuid")
                         .HasColumnName("override_id");
@@ -935,6 +944,11 @@ namespace Millet.CuentasPorCobrar.Infrastructure.Persistence.Migrations
                         .HasMaxLength(40)
                         .HasColumnType("character varying(40)")
                         .HasColumnName("pedido_ref");
+
+                    b.Property<decimal?>("PorcentajeCobertura")
+                        .HasPrecision(5, 2)
+                        .HasColumnType("numeric(5,2)")
+                        .HasColumnName("porcentaje_cobertura");
 
                     b.Property<short>("ReglaAplicada")
                         .HasColumnType("smallint")
@@ -960,21 +974,35 @@ namespace Millet.CuentasPorCobrar.Infrastructure.Persistence.Migrations
                     b.HasKey("Id")
                         .HasName("pk_decision_liberacion");
 
+                    b.HasIndex("DecisionOrigenId")
+                        .IsUnique()
+                        .HasDatabaseName("ux_decision_liberacion_origen")
+                        .HasFilter("decision_origen_id IS NOT NULL");
+
                     b.HasIndex("PedidoRef")
                         .HasDatabaseName("ix_decision_liberacion_pedido");
 
                     b.HasIndex("ClienteId", "DecididoEn")
                         .HasDatabaseName("ix_decision_liberacion_cliente_fecha");
 
+                    b.HasIndex("Resultado", "DecididoEn")
+                        .HasDatabaseName("ix_decision_liberacion_resultado_fecha");
+
                     b.ToTable("decision_liberacion", "cuentas_por_cobrar", t =>
                         {
+                            t.HasCheckConstraint("ck_decision_liberacion_cobertura_rango", "porcentaje_cobertura IS NULL OR (porcentaje_cobertura >= 0 AND porcentaje_cobertura <= 100)");
+
                             t.HasCheckConstraint("ck_decision_liberacion_monto_positivo", "monto_pedido > 0");
+
+                            t.HasCheckConstraint("ck_decision_liberacion_origen_resolucion", "decision_origen_id IS NULL OR resultado IN (1, 2, 3)");
 
                             t.HasCheckConstraint("ck_decision_liberacion_override_consistente", "(resultado = 3 AND override_id IS NOT NULL) OR (resultado != 3 AND override_id IS NULL)");
 
-                            t.HasCheckConstraint("ck_decision_liberacion_regla", "regla_aplicada IN (1, 2, 3)");
+                            t.HasCheckConstraint("ck_decision_liberacion_pendiente_cobertura", "resultado != 4 OR (regla_aplicada = 4 AND porcentaje_cobertura >= 50 AND porcentaje_cobertura < 100)");
 
-                            t.HasCheckConstraint("ck_decision_liberacion_resultado", "resultado IN (1, 2, 3)");
+                            t.HasCheckConstraint("ck_decision_liberacion_regla", "regla_aplicada IN (1, 2, 3, 4)");
+
+                            t.HasCheckConstraint("ck_decision_liberacion_resultado", "resultado IN (1, 2, 3, 4)");
                         });
                 });
 

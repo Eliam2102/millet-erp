@@ -47,6 +47,7 @@ import {
   Users,
   Wallet,
   Warehouse,
+  Workflow,
   type LucideIcon,
 } from 'lucide-react';
 import { PermisosCanonicos } from '@/lib/auth/permission-codes';
@@ -1029,6 +1030,14 @@ const moduloContabilidad: NavModulo = {
           to: '/contabilidad/polizas/recurrentes',
           icon: Repeat,
           permission: PermisosCanonicos.ContabilidadRecurrentesLeer,
+        },
+        {
+          label: 'Motor contable',
+          description:
+            'Pólizas automáticas de los documentos de otros módulos: cuentas de cada rol, plantillas por evento y eventos rechazados.',
+          to: '/contabilidad/motor',
+          icon: Workflow,
+          permission: PermisosCanonicos.ContabilidadMotorLeer,
         },
       ],
     },
