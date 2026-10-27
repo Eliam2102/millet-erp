@@ -3581,6 +3581,11 @@ namespace Millet.CuentasPorPagar.Infrastructure.Persistence.Migrations
                     b.HasIndex("SolicitudViaticosId")
                         .HasDatabaseName("ix_lineas_comprobacion_viaticos_solicitud_viaticos_id");
 
+                    b.HasIndex("UuidCfdi")
+                        .IsUnique()
+                        .HasDatabaseName("ux_linea_via_uuid_pendiente")
+                        .HasFilter("uuid_cfdi IS NOT NULL AND factura_proveedor_id IS NULL");
+
                     b.ToTable("lineas_comprobacion_viaticos", "cuentas_por_pagar", t =>
                         {
                             t.HasCheckConstraint("ck_linea_via_total_positivo", "total > 0");

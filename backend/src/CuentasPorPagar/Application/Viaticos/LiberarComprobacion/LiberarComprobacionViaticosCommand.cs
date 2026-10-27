@@ -187,7 +187,19 @@ public sealed class LiberarComprobacionViaticosHandler
         }
 
         s.LiberarComprobacion(ahora);
-        // PLATFORM-TODO(<GastoRegistradoC15>): publicar gasto.registrado.v1 por línea aquí (S4, pendiente de Eliam).
+        foreach (var l in s.Lineas)
+        {
+            await _events.PublishAsync(new GastoRegistradoIntegrationEvent(
+                EmpresaId: s.EmpresaId, OcurridoEn: ahora, Origen: GastoRegistradoIntegrationEvent.OrigenViaticos,
+                DocumentoId: s.Id, LineaId: l.Id, FacturaProveedorId: l.FacturaProveedorId,
+                Fecha: DateOnly.FromDateTime(l.FechaGasto.UtcDateTime), ProveedorId: l.ProveedorId,
+                ProveedorRfc: l.CfdiRecibidoId is Guid cid && cfdisPorId.TryGetValue(cid, out var cfdiRfc) ? cfdiRfc.RfcEmisor.Valor : null,
+                Uuid: l.UuidCfdi, Deducible: l.ClasificacionNoDeducible is null,
+                ClasificacionNoDeducible: l.ClasificacionNoDeducible,
+                Subtotal: l.Subtotal, IvaTrasladado: l.ImpuestosTrasladados,
+                IvaNoAcreditable: GastoRegistradoIntegrationEvent.IvaNoAcred(l.ClasificacionNoDeducible, l.ImpuestosTrasladados),
+                Total: l.Total, Moneda: l.Moneda, ConceptoContable: l.Concepto), cancellationToken);
+        }
 
         // GI-PR4 (doc 12 §D4/Q3): la diferencia de liquidación cruza a
         // Tesorería. Positiva = reembolso al empleado (pasivo interno);

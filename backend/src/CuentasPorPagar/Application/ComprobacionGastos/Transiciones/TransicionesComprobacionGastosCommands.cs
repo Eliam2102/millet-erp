@@ -1,6 +1,7 @@
 using FluentValidation;
 using MediatR;
 using Microsoft.EntityFrameworkCore;
+using Millet.CuentasPorPagar.Application.Integration;
 using Millet.CuentasPorPagar.Domain.Catalogos;
 using Millet.CuentasPorPagar.Domain.ComprobacionGastos;
 using Millet.CuentasPorPagar.Domain.Ports.Administracion;
@@ -8,6 +9,7 @@ using Millet.CuentasPorPagar.Domain.FacturaProveedor.Events;
 using Millet.CuentasPorPagar.Infrastructure.Persistence;
 using Millet.SharedKernel.Application;
 using Millet.SharedKernel.Application.Exceptions;
+using Millet.SharedKernel.Application.Integration;
 
 namespace Millet.CuentasPorPagar.Application.ComprobacionGastos.Transiciones;
 
@@ -208,16 +210,18 @@ public sealed class AprobarPasivoComprobacionHandler
     private readonly IEmpleadoReadPort _empleados;
     private readonly ICurrentUserContext _currentUser;
     private readonly IClock _clock;
+    private readonly IIntegrationEventPublisher _events;
 
     public AprobarPasivoComprobacionHandler(
         CuentasPorPagarDbContext db,
         Reposiciones.ReposicionCajaChicaEmisor emisor,
         IEmpleadoReadPort empleados,
         ICurrentUserContext currentUser,
-        IClock clock)
+        IClock clock,
+        IIntegrationEventPublisher events)
     {
         _db = db; _emisor = emisor; _empleados = empleados;
-        _currentUser = currentUser; _clock = clock;
+        _currentUser = currentUser; _clock = clock; _events = events;
     }
 
     public async Task<TransicionComprobacionResponse> Handle(
@@ -237,8 +241,6 @@ public sealed class AprobarPasivoComprobacionHandler
                 "Se requiere usuario autenticado para aprobar el pasivo.");
         var ahora = _clock.UtcNow;
         c.AprobarPasivo(usuarioId, ahora);
-        // PLATFORM-TODO(<GastoRegistradoC15>): publicar gasto.registrado.v1 por línea aquí (S4, pendiente de Eliam).
-
         await VerificarLimiteAsync(c, usuarioId, DateOnly.FromDateTime(ahora.UtcDateTime), cancellationToken);
 
         await _emisor.EmitirSiCorrespondeAsync(
@@ -248,6 +250,22 @@ public sealed class AprobarPasivoComprobacionHandler
                 "La comprobación de caja chica no tiene destino de reposición."),
             esCorteManual: false, usuarioId, ahora, cancellationToken,
             soloComprobacionId: c.Id);
+
+        var cfdiIds = c.Lineas.Where(l => l.CfdiRecibidoId != null).Select(l => l.CfdiRecibidoId!.Value).ToList();
+        var rfcs = (await _db.CfdisRecibidos.AsNoTracking().Where(x => cfdiIds.Contains(x.Id)).ToListAsync(cancellationToken))
+            .ToDictionary(x => x.Id, x => x.RfcEmisor.Valor);
+        foreach (var l in c.Lineas)
+        {
+            await _events.PublishAsync(new GastoRegistradoIntegrationEvent(
+                EmpresaId: c.EmpresaId, OcurridoEn: ahora, Origen: GastoRegistradoIntegrationEvent.OrigenCajaChica,
+                DocumentoId: c.Id, LineaId: l.Id, FacturaProveedorId: l.FacturaProveedorId,
+                Fecha: DateOnly.FromDateTime(l.FechaCfdi.UtcDateTime), ProveedorId: l.ProveedorId, ProveedorRfc: l.CfdiRecibidoId is Guid cid && rfcs.TryGetValue(cid, out var rfc) ? rfc : null,
+                Uuid: l.UuidCfdi, Deducible: l.ClasificacionNoDeducible is null,
+                ClasificacionNoDeducible: l.ClasificacionNoDeducible,
+                Subtotal: l.Subtotal, IvaTrasladado: l.ImpuestosTrasladados,
+                IvaNoAcreditable: GastoRegistradoIntegrationEvent.IvaNoAcred(l.ClasificacionNoDeducible, l.ImpuestosTrasladados),
+                Total: l.Total, Moneda: l.Moneda, ConceptoContable: l.Concepto), cancellationToken);
+        }
 
         await _db.SaveChangesAsync(cancellationToken);
         return new TransicionComprobacionResponse(c.Id, c.Estado, c.Version);

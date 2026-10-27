@@ -6,6 +6,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 using Millet.Api.IntegrationTests.DatosMaestros.Adjuntos;
+using Millet.CuentasPorPagar.Application.Integration;
 using Millet.CuentasPorPagar.Domain.Cfdi;
 using Millet.CuentasPorPagar.Domain.TarjetaCredito;
 using Millet.CuentasPorPagar.Infrastructure.Persistence;
@@ -169,6 +170,7 @@ public sealed class NoDeduciblesEndpointsTests(WebApplicationFactory<Program> fa
         });
         var (cliente, _) = await amb.ClienteConPermisosAsync(
             PermisosCanonicos.CuentasPorPagarComprobacionesCapturar, PermisosCanonicos.CuentasPorPagarComprobacionesLeer,
+            PermisosCanonicos.CuentasPorPagarComprobacionesAprobarNivel1,
             PermisosCanonicos.CuentasPorPagarViaticosCapturarComprobacion, PermisosCanonicos.CuentasPorPagarViaticosLiberar,
             PermisosCanonicos.CuentasPorPagarViaticosLeer, PermisosCanonicos.CuentasPorPagarDocumentosGestionarTodasSucursales,
             PermisosCanonicos.CuentasPorPagarDocumentosLeerTodasSucursales);
@@ -435,6 +437,259 @@ public sealed class NoDeduciblesEndpointsTests(WebApplicationFactory<Program> fa
         var r4 = await tc.PostAsJsonAsync(Cxp + "/movimientos-tc/con-cfdi", ConCfdi(tarjeta, titular, cfdi, uuid, null));
         Assert.Equal(HttpStatusCode.UnprocessableEntity, r4.StatusCode);
         Assert.Equal("TC_MOV_FACTURA_DUPLICADA", (await Json(r4)).GetProperty("code").GetString());
+    }
+
+    // ---- S4: gasto.registrado.v1 en el outbox ----
+
+    private async Task<List<GastoRegistradoIntegrationEvent>> EventosGastoAsync(Func<GastoRegistradoIntegrationEvent, bool> filtro)
+    {
+        using var scope = factory.Services.CreateScope();
+        using var bypass = scope.ServiceProvider.GetRequiredService<ICurrentEmpresaContext>().Bypass();
+        var payloads = await scope.ServiceProvider.GetRequiredService<CuentasPorPagarDbContext>().OutboxEntries.AsNoTracking()
+            .Where(e => e.EventType == "cuentas_por_pagar.gasto.registrado.v1").Select(e => e.Payload).ToListAsync();
+        return payloads.Select(p => JsonSerializer.Deserialize<GastoRegistradoIntegrationEvent>(p, JsonSerializerOptions.Web)!).Where(filtro).ToList();
+    }
+
+    [Fact]
+    public async Task Gasto_registrado_tarjeta_sin_CFDI_es_no_deducible_sin_desglose_de_IVA()
+    {
+        var (c, tarjeta, titular) = await AmbienteAsync();
+        var ok = await c.PostAsJsonAsync(Cxp + "/movimientos-tc/sin-cfdi", SinCfdi(tarjeta, titular, "COMIDAS"));
+        var id = (await Json(ok)).GetProperty("id").GetGuid();
+
+        var e = Assert.Single(await EventosGastoAsync(x => x.DocumentoId == id));
+        Assert.Equal("tarjeta", e.Origen);
+        Assert.Equal(Empresa, e.EmpresaId);
+        Assert.False(e.Deducible);
+        Assert.Equal("COMIDAS", e.ClasificacionNoDeducible);
+        Assert.Null(e.Uuid);
+        Assert.Null(e.FacturaProveedorId);
+        Assert.Equal((350m, 0m, 0m, "MXN"), (e.Total, e.IvaTrasladado, e.IvaNoAcreditable, e.Moneda));
+        Assert.Equal(new DateOnly(2026, 10, 20), e.Fecha);
+
+        // Clasificación inválida: no guarda ni publica.
+        var antes = (await EventosGastoAsync(_ => true)).Count;
+        Assert.Equal(HttpStatusCode.UnprocessableEntity, (await c.PostAsJsonAsync(Cxp + "/movimientos-tc/sin-cfdi", SinCfdi(tarjeta, titular, "NO_EXISTE"))).StatusCode);
+        Assert.Equal(antes, (await EventosGastoAsync(_ => true)).Count);
+    }
+
+    [Fact]
+    public async Task Gasto_registrado_tarjeta_con_CFDI_manda_el_IVA_a_no_acreditable_solo_si_es_no_deducible_y_no_se_duplica()
+    {
+        var (c, tarjeta, titular) = await AmbienteAsync();
+        var uuidND = Guid.NewGuid().ToString().ToUpperInvariant();
+        var cfdiND = await SembrarCfdiAsync(uuidND, 1000m, 160m);
+        var nd = await Json(await c.PostAsJsonAsync(Cxp + "/movimientos-tc/con-cfdi", ConCfdi(tarjeta, titular, cfdiND, uuidND, "PROPINAS")));
+        var uuidD = Guid.NewGuid().ToString().ToUpperInvariant();
+        var cfdiD = await SembrarCfdiAsync(uuidD, 1000m, 160m);
+        var d = await Json(await c.PostAsJsonAsync(Cxp + "/movimientos-tc/con-cfdi", ConCfdi(tarjeta, titular, cfdiD, uuidD, null)));
+
+        var eND = Assert.Single(await EventosGastoAsync(x => x.DocumentoId == nd.GetProperty("id").GetGuid()));
+        Assert.Equal("tarjeta", eND.Origen);
+        Assert.False(eND.Deducible);
+        Assert.Equal("PROPINAS", eND.ClasificacionNoDeducible);
+        Assert.Equal(uuidND, eND.Uuid);
+        Assert.Equal("PRO010101AAA", eND.ProveedorRfc);
+        Assert.NotNull(eND.ProveedorId);
+        Assert.NotNull(eND.FacturaProveedorId);
+        Assert.Equal((1000m, 160m, 160m, 1160m, "MXN"), (eND.Subtotal, eND.IvaTrasladado, eND.IvaNoAcreditable, eND.Total, eND.Moneda));
+
+        var eD = Assert.Single(await EventosGastoAsync(x => x.DocumentoId == d.GetProperty("id").GetGuid()));
+        Assert.True(eD.Deducible);
+        Assert.Null(eD.ClasificacionNoDeducible);
+        Assert.Equal((160m, 0m), (eD.IvaTrasladado, eD.IvaNoAcreditable));
+
+        // Reprocesar el mismo CFDI se rechaza y no agrega eventos.
+        var otra = await c.PostAsJsonAsync(Cxp + "/movimientos-tc/con-cfdi", ConCfdi(tarjeta, titular, cfdiND, uuidND, "PROPINAS"));
+        Assert.False(otra.IsSuccessStatusCode);
+        Assert.Single(await EventosGastoAsync(x => x.Uuid == uuidND));
+    }
+
+    [Fact]
+    public async Task Gasto_registrado_caja_chica_se_publica_una_vez_por_linea_al_aprobar_el_pasivo_no_antes()
+    {
+        var (c, _) = await ClienteComprobacionesAsync();
+        var uuidND = Guid.NewGuid().ToString().ToUpperInvariant();
+        var uuidD = Guid.NewGuid().ToString().ToUpperInvariant();
+        var cfdiND = await SembrarCfdiAsync(uuidND, 500m, 80m);
+        var cfdiD = await SembrarCfdiAsync(uuidD, 200m, 32m);
+        var creada = await c.PostAsJsonAsync(Cxp + "/comprobaciones/caja-chica", new
+        {
+            sucursalId = Guid.NewGuid(), responsableId = Guid.NewGuid(), fechaInicio = new DateOnly(2026, 10, 1), fechaFin = new DateOnly(2026, 10, 20),
+            moneda = "MXN", cfdis = new[]
+            {
+                LineaCajaChica(null, null, 103.45m, 16.55m, "ESTACIONAMIENTO"),
+                LineaCajaChica(cfdiND, uuidND, 500m, 80m, "COMIDAS"),
+                LineaCajaChica(cfdiD, uuidD, 200m, 32m, null),
+            },
+        });
+        Assert.True(creada.StatusCode == HttpStatusCode.Created, await creada.Content.ReadAsStringAsync());
+        var id = (await Json(creada)).GetProperty("id").GetGuid();
+        var ruta = Cxp + $"/comprobaciones/{id}";
+
+        var version = (await Json(await c.GetAsync(ruta))).GetProperty("version").GetInt32();
+        var envio = await PostConVersionAsync(c, ruta + "/enviar-revision", version);
+        Assert.True(envio.StatusCode == HttpStatusCode.OK, await envio.Content.ReadAsStringAsync());
+        Assert.Empty(await EventosGastoAsync(x => x.DocumentoId == id));
+
+        version = (await Json(envio)).GetProperty("version").GetInt32();
+        var aprobada = await PostConVersionAsync(c, ruta + "/aprobar-pasivo", version);
+        Assert.True(aprobada.StatusCode == HttpStatusCode.OK, await aprobada.Content.ReadAsStringAsync());
+
+        var eventos = await EventosGastoAsync(x => x.DocumentoId == id);
+        Assert.Equal(3, eventos.Count);
+        Assert.All(eventos, e => { Assert.Equal("caja_chica", e.Origen); Assert.NotNull(e.LineaId); Assert.NotNull(e.FacturaProveedorId); });
+        Assert.Equal(3, eventos.Select(e => e.LineaId).Distinct().Count());
+        var ticket = eventos.Single(e => e.Uuid is null);
+        Assert.False(ticket.Deducible);
+        Assert.Equal("ESTACIONAMIENTO", ticket.ClasificacionNoDeducible);
+        Assert.Equal((16.55m, 16.55m, 120m), (ticket.IvaTrasladado, ticket.IvaNoAcreditable, ticket.Total));
+        var nd = eventos.Single(e => e.Uuid == uuidND);
+        Assert.Equal((false, "COMIDAS", 80m, 80m, "PRO010101AAA"), (nd.Deducible, nd.ClasificacionNoDeducible, nd.IvaTrasladado, nd.IvaNoAcreditable, nd.ProveedorRfc));
+        var d = eventos.Single(e => e.Uuid == uuidD);
+        Assert.Equal((true, (string?)null, 32m, 0m), (d.Deducible, d.ClasificacionNoDeducible, d.IvaTrasladado, d.IvaNoAcreditable));
+
+        // Re-aprobar: la comprobación ya está Aplicada → se rechaza y no hay eventos nuevos.
+        var otra = await PostConVersionAsync(c, ruta + "/aprobar-pasivo", version + 1);
+        Assert.False(otra.IsSuccessStatusCode);
+        Assert.Equal(3, (await EventosGastoAsync(x => x.DocumentoId == id)).Count);
+    }
+
+    [Fact]
+    public async Task Gasto_registrado_viaticos_se_publica_una_vez_por_linea_al_liberar_no_al_capturar()
+    {
+        var (c, _) = await ClienteComprobacionesAsync();
+        var (id, version) = await SembrarViaticoAnticipadoAsync();
+        var ruta = Cxp + $"/viaticos/{id}";
+        var uuidND = Guid.NewGuid().ToString().ToUpperInvariant();
+        var uuidD = Guid.NewGuid().ToString().ToUpperInvariant();
+
+        var cap = await PostConVersionAsync(c, ruta + "/capturar-comprobacion", version, new
+        {
+            lineas = new[]
+            {
+                LineaViatico(null, true, 120m, 0m, "VIATICOS_SIN_CFDI"),
+                LineaViatico(uuidND, false, 500m, 80m, "PROPINAS"),
+                LineaViatico(uuidD, false, 200m, 32m, null),
+            },
+        });
+        Assert.True(cap.StatusCode == HttpStatusCode.OK, await cap.Content.ReadAsStringAsync());
+        Assert.Empty(await EventosGastoAsync(x => x.DocumentoId == id));
+
+        version = (await Json(cap)).GetProperty("version").GetInt32();
+        var lib = await PostConVersionAsync(c, ruta + "/liberar", version);
+        Assert.True(lib.StatusCode == HttpStatusCode.OK, await lib.Content.ReadAsStringAsync());
+
+        var eventos = await EventosGastoAsync(x => x.DocumentoId == id);
+        Assert.Equal(3, eventos.Count);
+        Assert.All(eventos, e => Assert.Equal("viaticos", e.Origen));
+        var ticket = eventos.Single(e => e.Uuid is null);
+        Assert.Equal((false, "VIATICOS_SIN_CFDI", 0m, 0m, 120m, (Guid?)null), (ticket.Deducible, ticket.ClasificacionNoDeducible, ticket.IvaTrasladado, ticket.IvaNoAcreditable, ticket.Total, ticket.FacturaProveedorId));
+        var nd = eventos.Single(e => e.Uuid == uuidND);
+        Assert.Equal((false, "PROPINAS", 80m, 80m), (nd.Deducible, nd.ClasificacionNoDeducible, nd.IvaTrasladado, nd.IvaNoAcreditable));
+        Assert.NotNull(nd.FacturaProveedorId);
+        var d = eventos.Single(e => e.Uuid == uuidD);
+        Assert.Equal((true, (string?)null, 32m, 0m), (d.Deducible, d.ClasificacionNoDeducible, d.IvaTrasladado, d.IvaNoAcreditable));
+
+        var otra = await PostConVersionAsync(c, ruta + "/liberar", version + 1);
+        Assert.False(otra.IsSuccessStatusCode);
+        Assert.Equal(3, (await EventosGastoAsync(x => x.DocumentoId == id)).Count);
+    }
+
+    [Fact]
+    public async Task Gasto_registrado_captura_retroactiva_desde_estado_de_cuenta_se_publica_una_vez()
+    {
+        var (c, tarjeta, titular) = await AmbienteAsync();
+        Guid ecId, lineaId; int version;
+        using (var scope = factory.Services.CreateScope())
+        {
+            using var bypass = scope.ServiceProvider.GetRequiredService<ICurrentEmpresaContext>().Bypass();
+            var db = scope.ServiceProvider.GetRequiredService<CuentasPorPagarDbContext>();
+            var ec = EstadoCuentaTc.Crear(Empresa, tarjeta, new DateOnly(2026, 10, 1), new DateOnly(2026, 10, 31), new DateOnly(2026, 10, 25), new DateOnly(2026, 11, 10));
+            var linea = ec.AgregarLinea(1, new DateOnly(2026, 10, 20), 350m, "MXN", 350m, "RESTAURANTE", null, "Compra");
+            db.EstadosCuentaTc.Add(ec);
+            db.Entry(linea).Property("EstadoMatch").CurrentValue = EstadoMatchLineaBanco.NoConciliado;
+            await db.SaveChangesAsync();
+            (ecId, lineaId, version) = (ec.Id, linea.Id, ec.Version);
+        }
+        var ruta = Cxp + $"/estados-cuenta-tc/{ecId}/lineas/{lineaId}/capturar-retroactiva";
+        var cuerpo = new { usuarioQueUsoId = titular, conceptoContable = "Comidas", clasificacionNoDeducible = "PROPINAS" };
+
+        var ok = await PostConVersionAsync(c, ruta, version, cuerpo);
+        Assert.True(ok.StatusCode == HttpStatusCode.OK, await ok.Content.ReadAsStringAsync());
+        var movId = (await Json(await c.GetAsync(Cxp + $"/movimientos-tc?tarjetaId={tarjeta}"))).GetProperty("items").EnumerateArray().Single().GetProperty("id").GetGuid();
+
+        var e = Assert.Single(await EventosGastoAsync(x => x.DocumentoId == movId));
+        Assert.Equal("estado_cuenta", e.Origen);
+        Assert.Equal((false, "PROPINAS", 350m, 0m, "MXN"), (e.Deducible, e.ClasificacionNoDeducible, e.Total, e.IvaNoAcreditable, e.Moneda));
+        Assert.Equal(new DateOnly(2026, 10, 20), e.Fecha);
+
+        // Reintento con la versión nueva: la línea ya no es NoConciliado → 422 y sin evento extra.
+        var nuevaVersion = (await Json(ok)).GetProperty("version").GetInt32();
+        var otra = await PostConVersionAsync(c, ruta, nuevaVersion, cuerpo);
+        Assert.Equal(HttpStatusCode.UnprocessableEntity, otra.StatusCode);
+        Assert.Single(await EventosGastoAsync(x => x.DocumentoId == movId));
+    }
+
+    // ---- Unicidad de UUID en BD: carrera entre capturas ----
+
+    [Fact]
+    public async Task Dos_capturas_de_viaticos_con_el_mismo_UUID_en_paralelo_dejan_una_sola_y_la_otra_recibe_el_error_de_negocio()
+    {
+        var (c, _) = await ClienteComprobacionesAsync();
+        var uuid = Guid.NewGuid().ToString().ToUpperInvariant();
+        var a = await SembrarViaticoAnticipadoAsync();
+        var b = await SembrarViaticoAnticipadoAsync();
+
+        var respuestas = await Task.WhenAll(new[] { a, b }.Select(v => PostConVersionAsync(c, Cxp + $"/viaticos/{v.Id}/capturar-comprobacion", v.Version,
+            new { lineas = new[] { LineaViatico(uuid, false, 500m, 80m, null) } })));
+
+        Assert.Equal(new[] { HttpStatusCode.OK, HttpStatusCode.UnprocessableEntity }, respuestas.Select(r => r.StatusCode).OrderBy(x => x).ToArray());
+        var perdedora = respuestas.Single(r => r.StatusCode == HttpStatusCode.UnprocessableEntity);
+        Assert.Equal("VIA_LINEA_FACTURA_DUPLICADA", (await Json(perdedora)).GetProperty("code").GetString());
+    }
+
+    [Fact]
+    public async Task El_indice_de_viaticos_pendientes_rechaza_el_UUID_repetido_aunque_el_chequeo_de_la_app_se_salte()
+    {
+        var uuid = Guid.NewGuid().ToString().ToLowerInvariant(); // el dominio lo guarda en mayúsculas
+        async Task CapturarAsync(Guid id)
+        {
+            using var scope = factory.Services.CreateScope();
+            using var bypass = scope.ServiceProvider.GetRequiredService<ICurrentEmpresaContext>().Bypass();
+            var db = scope.ServiceProvider.GetRequiredService<CuentasPorPagarDbContext>();
+            var s = await db.SolicitudesViaticos.Include(x => x.Lineas).SingleAsync(x => x.Id == id);
+            s.CapturarComprobacion([new Millet.CuentasPorPagar.Domain.Viaticos.LineaComprobacionViaticosInput(null, uuid, Guid.NewGuid(), "V-1",
+                DateTimeOffset.UtcNow, 500m, 80m, 0m, 580m, "MXN", "Alimentos", false)], DateTimeOffset.UtcNow);
+            await db.SaveChangesAsync();
+        }
+        var a = await SembrarViaticoAnticipadoAsync();
+        var b = await SembrarViaticoAnticipadoAsync();
+        await CapturarAsync(a.Id);
+
+        var ex = await Assert.ThrowsAsync<Millet.SharedKernel.Application.Exceptions.BusinessRuleException>(() => CapturarAsync(b.Id));
+        Assert.Equal("VIA_LINEA_FACTURA_DUPLICADA", ex.Code);
+
+        // Recapturar la misma solicitud con el mismo UUID (reemplaza sus líneas) no es duplicado.
+        await CapturarAsync(a.Id);
+    }
+
+    [Fact]
+    public async Task El_indice_de_facturas_rechaza_el_UUID_repetido_sin_distinguir_mayusculas_y_ignora_las_canceladas()
+    {
+        var (_, amb) = await ClienteComprobacionesAsync();
+        var uuid = Guid.NewGuid().ToString().ToUpperInvariant();
+        await SembrarFacturaAsync(amb, uuid);
+        var otraId = await SembrarFacturaAsync(amb, Guid.NewGuid().ToString().ToUpperInvariant());
+
+        // Cambiar el UUID de una factura existente no pasa por el chequeo de altas: lo ataja el índice único.
+        using var scope = factory.Services.CreateScope();
+        using var bypass = scope.ServiceProvider.GetRequiredService<ICurrentEmpresaContext>().Bypass();
+        var db = scope.ServiceProvider.GetRequiredService<CuentasPorPagarDbContext>();
+        var otra = await db.FacturasProveedor.SingleAsync(f => f.Id == otraId);
+        db.Entry(otra).Property(f => f.UuidCfdi).CurrentValue = uuid.ToLowerInvariant();
+        var ex = await Assert.ThrowsAsync<Millet.SharedKernel.Application.Exceptions.BusinessRuleException>(() => db.SaveChangesAsync());
+        Assert.Equal("CXP_UUID_DUPLICADO", ex.Code);
     }
 
     private sealed class PeriodoAbierto : Millet.CuentasPorPagar.Domain.Ports.Contabilidad.IPeriodoContablePort

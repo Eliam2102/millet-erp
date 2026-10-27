@@ -3,11 +3,13 @@ using MediatR;
 using Microsoft.EntityFrameworkCore;
 using Millet.CuentasPorPagar.Application.Catalogos.ClasificacionesNoDeducibles;
 using Millet.CuentasPorPagar.Application.Common;
+using Millet.CuentasPorPagar.Application.Integration;
 using Millet.CuentasPorPagar.Domain.FacturaProveedor;
 using Millet.CuentasPorPagar.Domain.TarjetaCredito;
 using Millet.CuentasPorPagar.Infrastructure.Persistence;
 using Millet.SharedKernel.Application;
 using Millet.SharedKernel.Application.Exceptions;
+using Millet.SharedKernel.Application.Integration;
 
 namespace Millet.CuentasPorPagar.Application.TarjetaCredito.Movimientos;
 
@@ -106,14 +108,16 @@ public sealed class RegistrarMovimientoTcConCfdiHandler
     private readonly ICurrentEmpresaContext _currentEmpresa;
     private readonly ICurrentUserContext _currentUser;
     private readonly IClock _clock;
+    private readonly IIntegrationEventPublisher _events;
 
     public RegistrarMovimientoTcConCfdiHandler(
         CuentasPorPagarDbContext db,
         ICurrentEmpresaContext currentEmpresa,
         ICurrentUserContext currentUser,
-        IClock clock)
+        IClock clock,
+        IIntegrationEventPublisher events)
     {
-        _db = db; _currentEmpresa = currentEmpresa; _currentUser = currentUser; _clock = clock;
+        _db = db; _currentEmpresa = currentEmpresa; _currentUser = currentUser; _clock = clock; _events = events;
     }
 
     public async Task<MovimientoTcResponse> Handle(
@@ -218,9 +222,19 @@ public sealed class RegistrarMovimientoTcConCfdiHandler
             clasificacionNoDeducible: clasificacion);
 
         _db.MovimientosTarjetaCredito.Add(mov);
+
+        // Antes de SaveChanges: el outbox lo persiste en la misma TX.
+        await _events.PublishAsync(new GastoRegistradoIntegrationEvent(
+            EmpresaId: empresaId, OcurridoEn: ahora, Origen: GastoRegistradoIntegrationEvent.OrigenTarjeta,
+            DocumentoId: mov.Id, LineaId: null, FacturaProveedorId: factura.Id,
+            Fecha: command.FechaMovimiento, ProveedorId: command.ProveedorId, ProveedorRfc: cfdi.RfcEmisor.Valor,
+            Uuid: uuidNorm, Deducible: clasificacion is null, ClasificacionNoDeducible: factura.ClasificacionNoDeducible,
+            Subtotal: factura.Subtotal, IvaTrasladado: factura.ImpuestosTrasladados,
+            IvaNoAcreditable: factura.IvaNoAcreditable, Total: factura.Total,
+            Moneda: command.MonedaOriginal, TipoCambio: command.TipoCambioCaptura,
+            ConceptoContable: command.ConceptoContable), cancellationToken);
         await _db.SaveChangesAsync(cancellationToken);
 
-        // PLATFORM-TODO(<GastoRegistradoC15>): publicar gasto.registrado.v1 aquí (S4, pendiente de Eliam).
         return MovimientoTcMapper.ToResponse(mov, factura.IvaNoAcreditable);
     }
 }
@@ -259,11 +273,14 @@ public sealed class RegistrarMovimientoTcSinCfdiHandler
 {
     private readonly CuentasPorPagarDbContext _db;
     private readonly ICurrentEmpresaContext _currentEmpresa;
+    private readonly IIntegrationEventPublisher _events;
+    private readonly IClock _clock;
 
     public RegistrarMovimientoTcSinCfdiHandler(
-        CuentasPorPagarDbContext db, ICurrentEmpresaContext currentEmpresa)
+        CuentasPorPagarDbContext db, ICurrentEmpresaContext currentEmpresa,
+        IIntegrationEventPublisher events, IClock clock)
     {
-        _db = db; _currentEmpresa = currentEmpresa;
+        _db = db; _currentEmpresa = currentEmpresa; _events = events; _clock = clock;
     }
 
     public async Task<MovimientoTcResponse> Handle(
@@ -297,10 +314,19 @@ public sealed class RegistrarMovimientoTcSinCfdiHandler
             clasificacionNoDeducible: clasificacion);
 
         _db.MovimientosTarjetaCredito.Add(mov);
+        await _events.PublishAsync(GastoSinCfdi(mov, _clock.UtcNow, GastoRegistradoIntegrationEvent.OrigenTarjeta), cancellationToken);
         await _db.SaveChangesAsync(cancellationToken);
-        // PLATFORM-TODO(<GastoRegistradoC15>): publicar gasto.registrado.v1 aquí (S4, pendiente de Eliam).
         return MovimientoTcMapper.ToResponse(mov);
     }
+
+    /// <summary>Gasto sin CFDI (siempre no deducible, sin desglose de IVA); también lo usa la captura retroactiva.</summary>
+    internal static GastoRegistradoIntegrationEvent GastoSinCfdi(MovimientoTarjetaCredito mov, DateTimeOffset ahora, string origen) =>
+        new(EmpresaId: mov.EmpresaId, OcurridoEn: ahora, Origen: origen,
+            DocumentoId: mov.Id, LineaId: null, FacturaProveedorId: null,
+            Fecha: mov.FechaMovimiento, ProveedorId: null, ProveedorRfc: null,
+            Uuid: null, Deducible: mov.ClasificacionNoDeducible is null, ClasificacionNoDeducible: mov.ClasificacionNoDeducible,
+            Subtotal: mov.MontoOriginal, IvaTrasladado: 0m, IvaNoAcreditable: 0m, Total: mov.MontoOriginal,
+            Moneda: mov.MonedaOriginal, TipoCambio: mov.TipoCambioCaptura, ConceptoContable: mov.ConceptoContable);
 }
 
 // --------------------------------------------------- Listar

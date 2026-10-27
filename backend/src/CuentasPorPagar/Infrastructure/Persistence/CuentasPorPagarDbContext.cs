@@ -109,10 +109,25 @@ public sealed class CuentasPorPagarDbContext : BaseDbContext
             f.AsignarAlertaRetenciones(Domain.Catalogos.ComparadorRetenciones.Alerta(
                 f.ConceptoRetencion, f.Subtotal - f.Descuentos, f.Retenciones, f.RetencionesDetalle, reglas));
         }
-        var resultado = await base.SaveChangesAsync(acceptAllChangesOnSuccess, cancellationToken);
+        int resultado;
+        try { resultado = await base.SaveChangesAsync(acceptAllChangesOnSuccess, cancellationToken); }
+        // El chequeo de arriba mejora el mensaje; estos índices únicos son la autoridad si dos capturas lo pasan a la vez (P8.6).
+        catch (DbUpdateException ex) when (ex.InnerException is Npgsql.PostgresException { SqlState: "23505", ConstraintName: IxFacturaUuidVivo })
+        {
+            throw new Millet.SharedKernel.Application.Exceptions.BusinessRuleException("CXP_UUID_DUPLICADO", "El UUID ya está consumido por una factura, una NC o un anticipo. No puede capturarse otra vez.");
+        }
+        catch (DbUpdateException ex) when (ex.InnerException is Npgsql.PostgresException { SqlState: "23505", ConstraintName: IxLineaViaticosUuidPendiente })
+        {
+            throw new Millet.SharedKernel.Application.Exceptions.BusinessRuleException("VIA_LINEA_FACTURA_DUPLICADA", "Un CFDI de la comprobación ya está comprobado en otra solicitud de viáticos o capturado como factura.");
+        }
         if (tx is not null) await tx.CommitAsync(cancellationToken);
         return resultado;
     }
+
+    /// <summary>Único sobre <c>upper(uuid_cfdi)</c> de facturas no canceladas (creado en la migración con SQL: EF no modela índices de expresión).</summary>
+    public const string IxFacturaUuidVivo = "ux_facturas_proveedor_uuid_vivo";
+    /// <summary>Único sobre el UUID de líneas de viáticos aún sin factura (comprobación capturada, sin liberar).</summary>
+    public const string IxLineaViaticosUuidPendiente = "ux_linea_via_uuid_pendiente";
 
     public override int SaveChanges(bool acceptAllChangesOnSuccess)
     {

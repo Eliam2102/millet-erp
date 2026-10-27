@@ -103,5 +103,12 @@ public sealed class LineaComprobacionViaticosConfiguration : IEntityTypeConfigur
         builder.HasIndex(e => e.FacturaProveedorId)
             .HasDatabaseName("ix_linea_via_factura")
             .HasFilter("factura_proveedor_id IS NOT NULL");
+
+        // P8.6: UUID pendiente (sin factura todavía) único: cierra la carrera entre dos capturas.
+        // Al liberar, la línea recibe factura y el índice de facturas toma el relevo.
+        builder.HasIndex(e => e.UuidCfdi)
+            .IsUnique()
+            .HasDatabaseName("ux_linea_via_uuid_pendiente")
+            .HasFilter("uuid_cfdi IS NOT NULL AND factura_proveedor_id IS NULL");
     }
 }
