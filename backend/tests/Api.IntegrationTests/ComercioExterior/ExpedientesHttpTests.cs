@@ -404,7 +404,10 @@ public sealed class ExpedientesHttpTests
             if (string.IsNullOrWhiteSpace(Environment.GetEnvironmentVariable("ConnectionStrings__Postgres")))
                 throw new InvalidOperationException("Se requiere PostgreSQL aislado.");
             var gate = Environment.GetEnvironmentVariable("ConnectionStrings__Postgres")!;
-            var nombre = "ce_integration_" + Guid.NewGuid().ToString("N");
+            // El nombre lleva la base del gate: la limpieza de cada corrida borra sólo sus clones,
+            // aunque otra corrida use el mismo PostgreSQL de pruebas al mismo tiempo.
+            var nombre = $"ce_integration_{new NpgsqlConnectionStringBuilder(gate).Database}_{Guid.NewGuid():N}";
+            nombre = nombre[..Math.Min(nombre.Length, 63)];
             var admin = new NpgsqlConnectionStringBuilder(gate)
             {
                 Database = "postgres",
