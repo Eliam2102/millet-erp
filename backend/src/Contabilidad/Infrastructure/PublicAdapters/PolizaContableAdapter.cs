@@ -9,7 +9,8 @@ using Millet.SharedKernel.Application.Exceptions;
 namespace Millet.Contabilidad.Infrastructure.PublicAdapters;
 
 /// <summary>Implementa <see cref="IPolizaContablePort"/> con las mismas piezas que las pólizas manuales.</summary>
-public sealed class PolizaContableAdapter(ContabilidadDbContext db, RegistroPolizas registro, IClock clock) : IPolizaContablePort
+public sealed class PolizaContableAdapter(ContabilidadDbContext db, RegistroPolizas registro, IClock clock,
+    IEnumerable<IPolizaAutomaticaObservador> observadores) : IPolizaContablePort
 {
     public const string UsuarioMotor = "motor-contable";
 
@@ -23,17 +24,26 @@ public sealed class PolizaContableAdapter(ContabilidadDbContext db, RegistroPoli
             await registro.EnTransaccionAsync(async t =>
             {
                 var clave = s.TipoClave.Trim().ToUpperInvariant();
-                var tipo = await db.TiposDocumento.AsNoTracking().FirstOrDefaultAsync(x => x.Clave == clave, t)
+                // Sin usuario (Bypass) el filtro de empresa no aplica: se acota a la empresa del evento.
+                var tipo = await db.TiposDocumento.AsNoTracking()
+                    .FirstOrDefaultAsync(x => x.Clave == clave && (s.EmpresaId == null || x.EmpresaId == s.EmpresaId), t)
                     ?? throw new BusinessRuleException("CONTAB_POLIZA_TIPO_NO_EXISTE", $"No existe el tipo de operación {clave}.");
                 var (anio, numero) = RegistroPolizas.Periodo(s.Fecha, null);
-                await registro.VerificarPeriodoAsync(anio, numero, OrigenPoliza.Automatica, t);
+                // C1.4-g: un listener corre sin usuario; la empresa viene del evento (mismo patrón que las recurrentes, K10.4).
+                await registro.VerificarPeriodoAsync(anio, numero, OrigenPoliza.Automatica, t, s.EmpresaId);
                 var partidas = await registro.ValidarPartidasAsync(s.Partidas, tipo.Id, s.Fecha, s.OrigenCuentas, t);
-                var folio = await registro.ReservarNumeroAsync(tipo.Id, anio, t);
+                var folio = await registro.ReservarNumeroAsync(tipo.Id, anio, t, s.EmpresaId);
                 poliza = Poliza.CrearAutomatica(Guid.CreateVersion7(), tipo, s.Fecha, anio, numero, s.Concepto, s.Documento,
                     s.LlaveIdempotencia, partidas.Partidas, folio, clock.UtcNow);
+                if (s.EmpresaId is { } empresaId)
+                {
+                    poliza.EmpresaId = empresaId;
+                    foreach (var x in poliza.Partidas) x.EmpresaId = empresaId;
+                }
                 db.Polizas.Add(poliza);
                 await db.SaveChangesAsync(t);
                 await registro.RegistrarUsosAsync(poliza, partidas.ReglasAplicadas, t);
+                await NotificarAsync(poliza, null, [.. s.Partidas.Select(x => x.Puente)], t);
             }, ct);
         }
         catch (DbUpdateException e) when (e.InnerException is Npgsql.PostgresException { SqlState: Npgsql.PostgresErrorCodes.UniqueViolation, ConstraintName: "ux_polizas_llave_idempotencia" })
@@ -63,10 +73,26 @@ public sealed class PolizaContableAdapter(ContabilidadDbContext db, RegistroPoli
                 }
                 var anulacion = await registro.AnularAsync(p, motivo, null, FechaContable.HoyLocal(clock.UtcNow), null, UsuarioMotor, clock.UtcNow, t);
                 resultado.Add(new(anulacion.Id, anulacion.Folio!, anulacion.Estado, false));
+                await NotificarAsync(anulacion, p.Id, [], t);
             }
             await db.SaveChangesAsync(t);
         }, ct);
         return resultado;
+    }
+
+    /// <summary>C1.4 ↔ K10.5: avisa a los observadores dentro de la transacción (las partidas conservan su orden: línea = índice + 1).</summary>
+    private async Task NotificarAsync(Poliza poliza, Guid? anuladaId, IReadOnlyList<ReferenciaPuente?> puentes, CancellationToken ct)
+    {
+        if (!observadores.Any()) return;
+        var partidas = poliza.Partidas.OrderBy(x => x.Linea)
+            .Select(x => new PartidaAutomaticaRegistrada(x.Linea, x.CuentaId, x.Cargo, x.Abono,
+                x.Linea - 1 < puentes.Count ? puentes[x.Linea - 1] : null))
+            .ToList();
+        var aviso = new PolizaAutomaticaRegistrada(poliza.Id, poliza.Folio!, poliza.EmpresaId, poliza.Fecha,
+            new DocumentoOrigenPoliza(poliza.OrigenModulo ?? string.Empty, poliza.OrigenTipo ?? string.Empty,
+                poliza.OrigenDocumentoId ?? Guid.Empty, poliza.OrigenFolio, poliza.OrigenUuid),
+            anuladaId, partidas);
+        foreach (var o in observadores) await o.PolizaRegistradaAsync(aviso, ct);
     }
 
     private async Task<PolizaRegistrada?> ExistenteAsync(string llave, CancellationToken ct) =>
