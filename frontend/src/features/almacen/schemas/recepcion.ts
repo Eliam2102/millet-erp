@@ -57,12 +57,42 @@ export const FilaRecepcionSchema = z
     // C7.2b: bin real destino (rack). Obligatorio en las filas incluidas.
     ubicacionId: z.string().regex(UUID_SHAPE_RE).nullish(),
     comentario: z.string().max(500, 'Máximo 500 caracteres').nullish(),
+    // F1-MP-01 (E1): medida de hoja fijada por la línea de OC (solo lectura). Con medida, `cantidad` y `cantidadDanada` van en hojas enteras.
+    medida: z
+      .object({
+        varianteId: z.string(),
+        anchoMm: z.number(),
+        altoMm: z.number(),
+        areaHojaM2: z.number(),
+      })
+      .nullish(),
+    // Línea de vidrio de la OC sin medida (OC previa a la migración): la fila no se puede incluir.
+    requiereMedida: z.boolean().nullish(),
     // ALM-04: parte de la cantidad que llegó dañada; va a material en revisión.
     cantidadDanada: z.number().nonnegative('La cantidad dañada no puede ser negativa'),
     motivoDano: z.string().max(500, 'Máximo 500 caracteres').nullish(),
+    // F1-MP-01 S4 (E3): lote del proveedor. Obligatorio con medida (artículo ligado a A+W; el servidor revalida con LOTE_REQUERIDO).
+    lote: z.string().max(50, 'Máximo 50 caracteres').nullish(),
   })
   .superRefine((v, ctx) => {
     if (!v.incluida) return;
+    if (v.medida && !v.lote?.trim()) {
+      ctx.addIssue({ code: 'custom', path: ['lote'], message: 'Captura el lote del proveedor.' });
+    }
+    if (v.medida) {
+      const hojasMax = Math.floor(v.pendiente / v.medida.areaHojaM2 + 1e-6);
+      const mensaje = !Number.isInteger(v.cantidad) || v.cantidad <= 0
+        ? 'Con medida, captura la cantidad en hojas enteras.'
+        : !Number.isInteger(v.cantidadDanada) || v.cantidadDanada > v.cantidad
+          ? 'Las hojas dañadas son enteras y no pueden exceder las recibidas.'
+          : v.cantidad > hojasMax
+            ? `Excede lo pendiente de la orden de compra (${hojasMax} hojas). Almacén recibe exacto.`
+            : null;
+      if (mensaje) {
+        ctx.addIssue({ code: 'custom', path: ['cantidad'], message: mensaje });
+        return;
+      }
+    }
     if (v.cantidad <= 0) {
       ctx.addIssue({
         code: 'custom',
@@ -99,7 +129,7 @@ export const FilaRecepcionSchema = z
         message: 'Elige la ubicación (rack) destino.',
       });
     }
-    if (!v.unidadCapturada?.trim() && v.cantidad > v.pendiente) {
+    if (!v.medida && !v.unidadCapturada?.trim() && v.cantidad > v.pendiente) {
       ctx.addIssue({
         code: 'custom',
         path: ['cantidad'],

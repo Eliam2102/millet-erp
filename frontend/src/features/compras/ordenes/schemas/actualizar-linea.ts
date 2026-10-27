@@ -22,6 +22,8 @@ export const ActualizarLineaSchema = z
       .max(999_999_999)
       .nullish(),
     unidadMedida: z.string().min(1).max(20).nullish(),
+    // F1-MP-01 (E1): null = conservar la medida actual. Una línea de vidrio sin medida exige enviarla junto con la cantidad.
+    productoAwVarianteId: z.string().nullish(),
     precioUnitario: z
       .number()
       .nonnegative('El precio no puede ser negativo.')

@@ -162,7 +162,7 @@ describe('<RecepcionDetallePage> — nombres resueltos', () => {
     ).toBeInTheDocument();
   });
 
-  it('cae a los ids crudos cuando el backend no resuelve nombres', async () => {
+  it('no pinta ids crudos cuando el backend no resuelve nombres (guion o rótulo del enlace)', async () => {
     mswServer.use(
       http.get('*/api/v1/almacen/recepciones/r-1', () =>
         HttpResponse.json({
@@ -183,9 +183,10 @@ describe('<RecepcionDetallePage> — nombres resueltos', () => {
 
     render(<RecepcionDetallePage />, { wrapper: createQueryWrapper() });
 
-    await waitFor(() => expect(screen.getByText(SUB_ID)).toBeInTheDocument());
-    expect(screen.getByText(OC_ID)).toBeInTheDocument();
-    expect(screen.getByText(ART_ID)).toBeInTheDocument();
+    await waitFor(() => expect(screen.getByText('Ver orden de compra')).toBeInTheDocument());
+    expect(screen.queryByText(SUB_ID)).not.toBeInTheDocument();
+    expect(screen.queryByText(OC_ID)).not.toBeInTheDocument();
+    expect(screen.queryByText(ART_ID)).not.toBeInTheDocument();
   });
 
   it('muestra UUID fiscal del CFDI y folio de factura; cae al id truncado si no resuelven', async () => {
@@ -210,8 +211,8 @@ describe('<RecepcionDetallePage> — nombres resueltos', () => {
       expect(screen.getByText('5FB0F1C2-3E2A-4F0F-9E2E-2C5C2B5C1A2B')).toBeInTheDocument(),
     );
     expect(screen.queryByText(CFDI_ID)).not.toBeInTheDocument();
-    // Factura sin resolver: id truncado, nunca el GUID completo.
-    expect(screen.getByText('019e0000…')).toBeInTheDocument();
+    // Factura sin resolver: guion, ni el GUID completo ni truncado.
+    expect(screen.queryByText('019e0000…')).not.toBeInTheDocument();
     expect(screen.queryByText(FACT_ID)).not.toBeInTheDocument();
   });
 });

@@ -273,7 +273,7 @@ public static class CatalogosEndpoints
                 a.Id, a.Clave, a.ClaveLegacy, a.Nombre, a.DescripcionLarga,
                 a.UnidadMedidaDefault, a.UnidadMedidaId, a.Naturaleza, a.Categoria,
                 a.CategoriaId,
-                a.PrecioReferenciaMonto, a.PrecioReferenciaMoneda, a.Estatus));
+                a.PrecioReferenciaMonto, a.PrecioReferenciaMoneda, a.Estatus, a.ProductoAwId));
         })
         .RequireAuthorization(PermissionPolicyProvider.Prefix + PermisosCanonicos.CompartidoCatalogosLeer)
         .WithName("ObtenerArticuloPorId")
@@ -286,6 +286,20 @@ public static class CatalogosEndpoints
         .ProducesProblem(StatusCodes.Status401Unauthorized)
         .ProducesProblem(StatusCodes.Status403Forbidden)
         .ProducesProblem(StatusCodes.Status404NotFound);
+
+        // F1-MP-01 (E1): medidas de hoja del artículo de vidrio crudo (variantes de su producto A+W) para capturarlas en la OC.
+        articulos.MapGet("/{id:guid}/medidas", async (
+            Guid id, Millet.Almacen.Domain.Ports.IVarianteVidrioReadPort variantes, CancellationToken ct) =>
+            Results.Ok(await variantes.ListarPorArticuloAsync(id, ct)))
+        .RequireAuthorization(PermissionPolicyProvider.Prefix + PermisosCanonicos.CompartidoCatalogosLeer)
+        .WithName("ListarMedidasArticulo")
+        .WithSummary("Medidas de hoja de un artículo de vidrio crudo")
+        .WithDescription(
+            "Variantes (ancho × alto, `areaHojaM2`) del producto A+W ligado al artículo. " +
+            "Lista vacía si el artículo no está ligado o su producto está inactivo.")
+        .Produces<IReadOnlyList<Millet.Almacen.Domain.Ports.VarianteVidrioLectura>>(StatusCodes.Status200OK)
+        .ProducesProblem(StatusCodes.Status401Unauthorized)
+        .ProducesProblem(StatusCodes.Status403Forbidden);
 
         // F9-PR1: reclasificar naturaleza en bulk (post-go-live cuando el
         // cliente decide ajustar la matriz A1 §3.bis.1).
@@ -476,7 +490,8 @@ public static class CatalogosEndpoints
                     DescripcionLarga: request.DescripcionLarga,
                     CategoriaId: request.CategoriaId,
                     PrecioReferenciaMonto: request.PrecioReferenciaMonto,
-                    PrecioReferenciaMoneda: request.PrecioReferenciaMoneda),
+                    PrecioReferenciaMoneda: request.PrecioReferenciaMoneda,
+                    ProductoAwId: request.ProductoAwId),
                 cancellationToken);
             return Results.Created($"/api/v1/catalogos/articulos/{response.Id}", response);
         })
@@ -515,7 +530,9 @@ public static class CatalogosEndpoints
                     PrecioReferenciaMoneda: body.PrecioReferenciaMoneda,
                     LimpiarDescripcionLarga: body.LimpiarDescripcionLarga ?? false,
                     LimpiarCategoria: body.LimpiarCategoria ?? false,
-                    LimpiarPrecioReferencia: body.LimpiarPrecioReferencia ?? false),
+                    LimpiarPrecioReferencia: body.LimpiarPrecioReferencia ?? false,
+                    ProductoAwId: body.ProductoAwId,
+                    LimpiarProductoAw: body.LimpiarProductoAw ?? false),
                 cancellationToken);
             return Results.NoContent();
         })
@@ -626,7 +643,8 @@ public static class CatalogosEndpoints
         string? DescripcionLarga,
         Guid? CategoriaId,
         decimal? PrecioReferenciaMonto,
-        string? PrecioReferenciaMoneda);
+        string? PrecioReferenciaMoneda,
+        Guid? ProductoAwId = null);
 
     /// <summary>Body del PATCH /articulos/{id} (B.5). Todos opcionales.</summary>
     public sealed record ActualizarArticuloRequest(
@@ -639,7 +657,9 @@ public static class CatalogosEndpoints
         string? PrecioReferenciaMoneda,
         bool? LimpiarDescripcionLarga,
         bool? LimpiarCategoria,
-        bool? LimpiarPrecioReferencia);
+        bool? LimpiarPrecioReferencia,
+        Guid? ProductoAwId = null,
+        bool? LimpiarProductoAw = null);
 }
 
 /// <summary>Wrapper de paginación offset-based para listados de catálogos.</summary>

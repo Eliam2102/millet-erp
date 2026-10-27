@@ -45,6 +45,19 @@ public class DecimalesUnidadGuardTests
     }
 
     [Fact]
+    public async Task CantidadDerivada_NoSeValidaContraLosDecimales()
+    {
+        var guard = Guard(out _, (KgArt, 2));
+
+        // 178.6080 m² salen de 20 hojas enteras: lo capturado no tiene decimales de más.
+        await guard.ValidarAsync([new CantidadAValidar(KgArt, 178.6080m, Derivada: true)], CancellationToken.None);
+
+        var ex = await Assert.ThrowsAsync<BusinessRuleException>(() =>
+            guard.ValidarAsync([new CantidadAValidar(KgArt, 178.6080m)], CancellationToken.None));
+        Assert.Equal(DecimalesUnidad.CodigoError, ex.Code);
+    }
+
+    [Fact]
     public async Task Pieza_ConDecimal_Lanza_ConCodigoYDecimalesEnMensaje()
     {
         var guard = Guard(out _, (PiezaArt, 0));

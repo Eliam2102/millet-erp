@@ -1,8 +1,9 @@
 namespace Millet.Almacen.Domain.Saldos;
 
 /// <summary>
-/// Saldo materializado por <c>(ubicacion_id, articulo_id)</c> (ADR-0047, PR2 —
-/// antes <c>(sub_almacen_id, articulo_id)</c>). Tabla
+/// Saldo materializado por <c>(ubicacion_id, articulo_id, producto_aw_variante_id, lote)</c>
+/// (ADR-0047, PR2; la variante de medida del vidrio crudo se suma en F1-MP-01 / E07 §5.2 y es NULL para
+/// los artículos sin medida). PK sustituto <see cref="Id"/> + índice único <c>NULLS NOT DISTINCT</c>. Tabla
 /// <c>almacen.saldos_inventario</c> — actualizada por el trigger
 /// <c>tg_movimientos_actualizar_saldo</c> en la misma transacción del INSERT
 /// del movimiento. La existencia se cuenta en Nivel 4 (ubicación).
@@ -34,9 +35,15 @@ namespace Millet.Almacen.Domain.Saldos;
 /// </summary>
 public sealed class SaldoInventario
 {
+    /// <summary>PK sustituto: la llave natural lleva una columna anulable (variante).</summary>
+    public Guid Id { get; private set; }
     public Guid UbicacionId { get; private set; }
     public Guid SubAlmacenId { get; private set; }
     public Guid ArticuloId { get; private set; }
+    /// <summary>Variante de medida (<c>compartido.producto_aw_variante</c>, sin FK por ADR-0030); NULL = artículo sin medida.</summary>
+    public Guid? ProductoAwVarianteId { get; private set; }
+    /// <summary>Lote del proveedor (E07 S7); NULL = sin lote / «lote de apertura». El costo promedio es por variante: todas sus filas de lote lo comparten.</summary>
+    public string? Lote { get; private set; }
     public decimal Cantidad { get; private set; }
     public decimal CantidadDisponible { get; private set; }
     public decimal CostoPromedioMxn { get; private set; }
@@ -56,8 +63,13 @@ public sealed class SaldoInventario
         Guid subAlmacenId,
         Guid articuloId,
         decimal cantidad,
-        decimal costoPromedioMxn)
+        decimal costoPromedioMxn,
+        Guid? productoAwVarianteId = null,
+        string? lote = null)
     {
+        Id = Guid.CreateVersion7();
+        Lote = Movimientos.LineaMovimiento.NormalizarLote(lote);
+        ProductoAwVarianteId = productoAwVarianteId;
         UbicacionId = ubicacionId;
         SubAlmacenId = subAlmacenId;
         ArticuloId = articuloId;

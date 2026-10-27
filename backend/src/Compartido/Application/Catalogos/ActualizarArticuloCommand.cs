@@ -4,9 +4,11 @@ using Microsoft.EntityFrameworkCore;
 using Millet.SharedKernel.Application.Exceptions;
 using Millet.Administracion.Domain;
 using Millet.Almacen.Domain;
+using Millet.Almacen.Domain.Ports.Externos;
 using Millet.Catalogos.Domain;
 using Millet.DatosMaestros.Domain;
 using Millet.SharedKernel.Domain;
+using Millet.Compartido.Application.Ports;
 using Millet.Compartido.Infrastructure.Persistence;
 
 namespace Millet.DatosMaestros.Application.Catalogos;
@@ -29,7 +31,10 @@ public sealed record ActualizarArticuloCommand(
     string? PrecioReferenciaMoneda,
     bool LimpiarDescripcionLarga,
     bool LimpiarCategoria,
-    bool LimpiarPrecioReferencia) : IRequest;
+    bool LimpiarPrecioReferencia,
+    // E07 D5: familia A+W del vidrio crudo. Null = no tocar; LimpiarProductoAw = desligar.
+    Guid? ProductoAwId = null,
+    bool LimpiarProductoAw = false) : IRequest;
 
 public sealed class ActualizarArticuloValidator : AbstractValidator<ActualizarArticuloCommand>
 {
@@ -45,14 +50,32 @@ public sealed class ActualizarArticuloValidator : AbstractValidator<ActualizarAr
             .When(c => c.PrecioReferenciaMonto.HasValue);
         RuleFor(c => c.PrecioReferenciaMoneda!).Length(3).Matches("^[A-Z]{3}$")
             .When(c => c.PrecioReferenciaMoneda is not null);
+        RuleFor(c => c.ProductoAwId!.Value).NotEqual(Guid.Empty).When(c => c.ProductoAwId.HasValue)
+            .WithName("Producto A+W").WithMessage("Elige un producto A+W válido.");
     }
 }
 
 public sealed class ActualizarArticuloHandler : IRequestHandler<ActualizarArticuloCommand>
 {
     private readonly CompartidoDbContext _db;
+    private readonly IAlmacenSaldoQueryPort _saldos;
+    private readonly IOcLineaAbiertaConMedidaReadPort _ocLineas;
 
-    public ActualizarArticuloHandler(CompartidoDbContext db) => _db = db;
+    public ActualizarArticuloHandler(CompartidoDbContext db, IAlmacenSaldoQueryPort saldos, IOcLineaAbiertaConMedidaReadPort ocLineas)
+    {
+        _db = db;
+        _saldos = saldos;
+        _ocLineas = ocLineas;
+    }
+
+    private async Task ValidarSinLineaOcAbiertaAsync(Guid articuloId, string accion, CancellationToken ct)
+    {
+        if (await _ocLineas.ArticuloTieneLineaAbiertaConMedidaAsync(articuloId, ct))
+        {
+            throw new BusinessRuleException("ARTICULO_PRODUCTO_AW_EN_USO",
+                $"El artículo tiene una línea de orden de compra abierta con medida; no se puede {accion} su producto A+W.");
+        }
+    }
 
     public async Task Handle(ActualizarArticuloCommand request, CancellationToken cancellationToken)
     {
@@ -112,6 +135,36 @@ public sealed class ActualizarArticuloHandler : IRequestHandler<ActualizarArticu
             articulo.LimpiarCategoria();
         }
 
+        // E07 D5 (SUPUESTO): vínculo manual 1:1 con la familia A+W. Con existencia ya no se
+        // puede ligar (quedaría saldo sin variante) ni desligar/cambiar (quedaría saldo huérfano).
+        if (request.ProductoAwId is { } productoAwId && productoAwId != articulo.ProductoAwId)
+        {
+            await ArticuloProductoAwGuard.ValidarProductoLigableAsync(_db, articulo.Id, articulo.UnidadMedidaDefault, productoAwId, cancellationToken);
+            if (await _saldos.ArticuloTieneExistenciaAsync(articulo.Id, cancellationToken))
+            {
+                throw articulo.ProductoAwId is null
+                    ? new BusinessRuleException("ARTICULO_CON_SALDO_SIN_VARIANTE",
+                        "El artículo tiene existencia sin medida; ajústala a cero antes de ligarlo a un producto A+W.")
+                    : new BusinessRuleException("ARTICULO_PRODUCTO_AW_EN_USO",
+                        "El artículo tiene existencia por medida; no se puede cambiar su producto A+W.");
+            }
+            if (articulo.ProductoAwId is not null)
+            {
+                await ValidarSinLineaOcAbiertaAsync(articulo.Id, "cambiar", cancellationToken);
+            }
+            articulo.AsignarProductoAw(productoAwId);
+        }
+        else if (request.ProductoAwId is null && request.LimpiarProductoAw && articulo.ProductoAwId is not null)
+        {
+            if (await _saldos.ArticuloTieneExistenciaAsync(articulo.Id, cancellationToken))
+            {
+                throw new BusinessRuleException("ARTICULO_PRODUCTO_AW_EN_USO",
+                    "El artículo tiene existencia por medida; no se puede quitar su producto A+W.");
+            }
+            await ValidarSinLineaOcAbiertaAsync(articulo.Id, "quitar", cancellationToken);
+            articulo.LimpiarProductoAw();
+        }
+
         articulo.ActualizarDatos(
             nombre: request.Nombre,
             descripcionLarga: request.DescripcionLarga,
@@ -122,5 +175,33 @@ public sealed class ActualizarArticuloHandler : IRequestHandler<ActualizarArticu
             limpiarPrecioReferencia: request.LimpiarPrecioReferencia);
 
         await _db.SaveChangesAsync(cancellationToken);
+    }
+}
+
+/// <summary>Reglas de alta del vínculo artículo ↔ producto A+W (crear y editar).</summary>
+internal static class ArticuloProductoAwGuard
+{
+    public static async Task ValidarProductoLigableAsync(
+        CompartidoDbContext db, Guid articuloId, string unidadMedida, Guid productoAwId, CancellationToken ct)
+    {
+        // El vidrio por medida existe en m²; en otra unidad solo fallaría hasta recibirlo.
+        if (!string.Equals(unidadMedida, "M2", StringComparison.OrdinalIgnoreCase))
+            throw new BusinessRuleException("ARTICULO_PRODUCTO_AW_UNIDAD",
+                "Para ligar un producto A+W, la unidad del artículo debe ser metro cuadrado (M2).");
+        var producto = await db.ProductosAw.AsNoTracking()
+            .FirstOrDefaultAsync(p => p.Id == productoAwId, ct)
+            ?? throw new BusinessRuleException("ARTICULO_PRODUCTO_AW_NO_ENCONTRADO",
+                "El producto A+W elegido no existe.");
+        if (producto.Estatus != EstatusCatalogo.Activo)
+            throw new BusinessRuleException("ARTICULO_PRODUCTO_AW_INACTIVO",
+                $"El producto A+W '{producto.ReferenciaExterna}' no está activo.");
+
+        var otro = await db.Articulos.AsNoTracking()
+            .Where(a => a.ProductoAwId == productoAwId && a.Id != articuloId)
+            .Select(a => a.Clave)
+            .FirstOrDefaultAsync(ct);
+        if (otro is not null)
+            throw new BusinessRuleException("ARTICULO_PRODUCTO_AW_YA_LIGADO",
+                $"El producto A+W '{producto.ReferenciaExterna}' ya está ligado al artículo '{otro}'.");
     }
 }

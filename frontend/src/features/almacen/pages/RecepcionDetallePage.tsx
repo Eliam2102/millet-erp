@@ -148,9 +148,8 @@ export function RecepcionDetallePage() {
                   ? query.data.subAlmacenClave
                     ? `${query.data.subAlmacenClave} · ${query.data.subAlmacenNombre}`
                     : query.data.subAlmacenNombre
-                  : query.data.subAlmacenId
+                  : '—'
               }
-              mono={!query.data.subAlmacenNombre}
             />
             {query.data.ordenCompraId ? (
               <div>
@@ -161,7 +160,7 @@ export function RecepcionDetallePage() {
                     params={{ id: query.data.ordenCompraId }}
                     className="font-mono text-sm text-brand hover:underline"
                   >
-                    {query.data.ordenCompraFolio ?? query.data.ordenCompraId}
+                    {query.data.ordenCompraFolio ?? 'Ver orden de compra'}
                   </Link>
                 </dd>
               </div>
@@ -173,19 +172,13 @@ export function RecepcionDetallePage() {
                 al id truncado (nunca el GUID interno completo). */}
             <Campo
               label="CFDI recibido (folio fiscal)"
-              valor={
-                query.data.cfdiUuidFiscal ??
-                (query.data.cfdiRecibidoId ? `${query.data.cfdiRecibidoId.slice(0, 8)}…` : '—')
-              }
+              valor={query.data.cfdiUuidFiscal ?? '—'}
               mono
             />
             <Campo
               label="Factura proveedor"
-              valor={
-                query.data.facturaFolio ??
-                (query.data.facturaId ? `${query.data.facturaId.slice(0, 8)}…` : '—')
-              }
-              mono={!query.data.facturaFolio}
+              valor={query.data.facturaFolio ?? '—'}
+              mono={!!query.data.facturaFolio}
             />
             {query.data.importacion && (
               <>
@@ -304,13 +297,21 @@ export function RecepcionDetallePage() {
                           )}
                         </TableCell>
                       ) : (
-                        <TableCell className="font-mono text-xs">{l.articuloId}</TableCell>
+                        <TableCell className="font-mono text-xs">{l.articuloClave ?? '—'}</TableCell>
                       )}
                       <TableCell className="text-right tabular-nums">
                         {formatCantidad(l.cantidad, decimalesUnidad.porCodigo(l.unidadMedida))}
                       </TableCell>
                       <TableCell>
                         {l.unidadMedida}
+                        {l.anchoMm != null && l.altoMm != null && (
+                          <span className="block text-xs tabular-nums text-ink-muted">
+                            Medida {l.anchoMm} × {l.altoMm} mm
+                          </span>
+                        )}
+                        {l.lote && (
+                          <span className="block text-xs text-ink-muted">Lote {l.lote}</span>
+                        )}
                         {l.unidadCapturada && (
                           <span className="block text-xs text-ink-muted">
                             Captura: {l.cantidadCapturada} {l.unidadCapturada}

@@ -633,6 +633,10 @@ builder.Services
 builder.Services.AddScoped<
     Millet.Compartido.Application.Ports.IExpedienteProveedorReadPort,
     Millet.Compartido.Infrastructure.PublicAdapters.ExpedienteProveedorReadAdapter>();
+// Guarda de desligado A+W: Datos Maestros pregunta a Compras si hay línea de OC abierta con medida.
+builder.Services.AddScoped<
+    Millet.Compartido.Application.Ports.IOcLineaAbiertaConMedidaReadPort,
+    Millet.Compras.Infrastructure.PublicAdapters.OcLineaAbiertaConMedidaReadAdapter>();
 builder.Services.AddSingleton<
     Millet.SharedKernel.Application.Adjuntos.IAdjuntoEnlaceTokenService,
     Millet.Compartido.Infrastructure.Adjuntos.AdjuntoEnlaceTokenService>();
@@ -832,6 +836,9 @@ builder.Services.AddScoped<
 builder.Services.AddScoped<
     Millet.Almacen.Domain.Ports.IArticuloReadPort,
     Millet.Compartido.Infrastructure.PublicAdapters.ArticuloReadAdapter>();
+builder.Services.AddScoped<
+    Millet.Almacen.Domain.Ports.IVarianteVidrioReadPort,
+    Millet.Compartido.Infrastructure.PublicAdapters.VarianteVidrioReadAdapter>();
 builder.Services.AddScoped<
     Millet.Almacen.Domain.Ports.IEmpleadoReadPort,
     Millet.Compartido.Infrastructure.PublicAdapters.EmpleadoReadAdapter>();

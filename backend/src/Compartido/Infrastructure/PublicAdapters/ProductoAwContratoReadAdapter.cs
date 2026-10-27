@@ -27,7 +27,7 @@ public sealed class ProductoAwContratoReadAdapter(CompartidoDbContext db) : IPro
             p.TasaIvaTraslado, p.TasaRetencionIva, p.TasaRetencionIsr,
             p.Estatus.ToString(), p.FechaBaja,
             p.Variantes.OrderBy(v => v.ClaveVariante)
-                .Select(v => new ProductoAwVarianteContratoV1(v.ClaveVariante, v.AltoMm, v.AnchoMm, v.EspesorMm, v.Composicion))
+                .Select(v => new ProductoAwVarianteContratoV1(v.ClaveVariante, v.AltoMm, v.AnchoMm, v.EspesorMm, v.Composicion, v.Id))
                 .ToList(),
             p.Version);
     }
