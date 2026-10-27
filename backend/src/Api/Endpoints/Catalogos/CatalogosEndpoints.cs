@@ -345,7 +345,17 @@ public static class CatalogosEndpoints
                     Telefono: request.Telefono,
                     Origen: request.Origen,
                     RegimenFiscalCodigo: request.RegimenFiscalCodigo,
-                    ConceptoRetencion: request.ConceptoRetencion),
+                    ConceptoRetencion: request.ConceptoRetencion,
+                    Calle: request.Calle,
+                    NumeroExterior: request.NumeroExterior,
+                    NumeroInterior: request.NumeroInterior,
+                    Colonia: request.Colonia,
+                    Ciudad: request.Ciudad,
+                    Municipio: request.Municipio,
+                    Estado: request.Estado,
+                    CodigoPostal: request.CodigoPostal,
+                    Pais: request.Pais,
+                    TaxId: request.TaxId),
                 cancellationToken);
             return Results.Created($"/api/v1/catalogos/proveedores/{response.Id}", response);
         })
@@ -393,7 +403,17 @@ public static class CatalogosEndpoints
                     LimpiarCondicionesPago: body.LimpiarCondicionesPago ?? false,
                     LimpiarMonedaPreferida: body.LimpiarMonedaPreferida ?? false,
                     LimpiarEmail: body.LimpiarEmail ?? false,
-                    LimpiarTelefono: body.LimpiarTelefono ?? false),
+                    LimpiarTelefono: body.LimpiarTelefono ?? false,
+                    Calle: body.Calle,
+                    NumeroExterior: body.NumeroExterior,
+                    NumeroInterior: body.NumeroInterior,
+                    Colonia: body.Colonia,
+                    Ciudad: body.Ciudad,
+                    Municipio: body.Municipio,
+                    Estado: body.Estado,
+                    CodigoPostal: body.CodigoPostal,
+                    Pais: body.Pais,
+                    TaxId: body.TaxId),
                 cancellationToken);
             return Results.NoContent();
         })
@@ -559,7 +579,17 @@ public static class CatalogosEndpoints
         string? Telefono,
         OrigenProveedor? Origen = null,
         string? RegimenFiscalCodigo = null,
-        string? ConceptoRetencion = null);
+        string? ConceptoRetencion = null,
+        string? Calle = null,
+        string? NumeroExterior = null,
+        string? NumeroInterior = null,
+        string? Colonia = null,
+        string? Ciudad = null,
+        string? Municipio = null,
+        string? Estado = null,
+        string? CodigoPostal = null,
+        string? Pais = null,
+        string? TaxId = null);
 
     /// <summary>Body del PATCH /proveedores/{id} (B.5). Todos opcionales; las cuentas bancarias van por /datos-maestros/proveedores/{id}/cuentas-bancarias.</summary>
     public sealed record ActualizarProveedorRequest(
@@ -575,7 +605,17 @@ public static class CatalogosEndpoints
         bool? LimpiarCondicionesPago,
         bool? LimpiarMonedaPreferida,
         bool? LimpiarEmail,
-        bool? LimpiarTelefono);
+        bool? LimpiarTelefono,
+        string? Calle = null,
+        string? NumeroExterior = null,
+        string? NumeroInterior = null,
+        string? Colonia = null,
+        string? Ciudad = null,
+        string? Municipio = null,
+        string? Estado = null,
+        string? CodigoPostal = null,
+        string? Pais = null,
+        string? TaxId = null);
 
     /// <summary>Body del POST /articulos (B.5).</summary>
     public sealed record CrearArticuloRequest(
