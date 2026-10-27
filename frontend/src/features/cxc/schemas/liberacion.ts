@@ -29,7 +29,7 @@ export const NuevaAutorizacionSchema = z.object({
     .max(254, 'Máximo 254 caracteres'),
   clienteOPedidoRef: z
     .string()
-    .min(1, 'Indica el cliente o folio de pedido')
+    .min(1, 'Indica el folio del pedido')
     .max(80, 'Máximo 80 caracteres'),
   vigenciaHoras: z
     .number()
@@ -39,3 +39,23 @@ export const NuevaAutorizacionSchema = z.object({
 });
 
 export type NuevaAutorizacionValues = z.infer<typeof NuevaAutorizacionSchema>;
+
+/**
+ * C7.3 — autorizar una decisión pendiente (cobertura 50–99 %). Espejo de
+ * <c>AutorizarLiberacionPendienteValidator</c>: motivo obligatorio (sin
+ * solo espacios), máximo 254.
+ */
+export const AutorizarPendienteSchema = z.object({
+  motivo: z
+    .string()
+    .trim()
+    .min(1, 'El motivo es obligatorio')
+    .max(254, 'Máximo 254 caracteres'),
+});
+
+export type AutorizarPendienteValues = z.infer<typeof AutorizarPendienteSchema>;
+
+/** C7.3 — rechazar una pendiente: mismo contrato que autorizar (motivo ≤ 254). */
+export const RechazarPendienteSchema = AutorizarPendienteSchema;
+
+export type RechazarPendienteValues = z.infer<typeof RechazarPendienteSchema>;
