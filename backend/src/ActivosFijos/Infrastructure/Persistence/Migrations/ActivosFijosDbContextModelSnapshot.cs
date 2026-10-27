@@ -1408,6 +1408,12 @@ namespace Millet.ActivosFijos.Infrastructure.Persistence.Migrations
                         .HasColumnType("uuid")
                         .HasColumnName("registrado_por");
 
+                    b.Property<string>("SolicitadoPor")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)")
+                        .HasColumnName("solicitado_por");
+
                     b.Property<string>("Tipo")
                         .IsRequired()
                         .HasColumnType("text")

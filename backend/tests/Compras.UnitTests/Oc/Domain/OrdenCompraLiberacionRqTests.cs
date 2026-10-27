@@ -27,7 +27,7 @@ public class OrdenCompraLiberacionRqTests
         compradorTitularId: Guid.CreateVersion7(),
         encargadoComprasId: Guid.CreateVersion7(),
         fechaDocumento: DateOnly.FromDateTime(DateTimeOffset.UtcNow.UtcDateTime),
-        sinRequisicionPrevia: false);
+        sinRequisicionPrevia: false, usoCfdiClave: "G03", metodoPago: "PPD", formaPagoClave: "99");
 
     private static Guid AgregarLineaRq(OrdenCompra oc, Guid rqId)
     {
@@ -87,7 +87,7 @@ public class OrdenCompraLiberacionRqTests
             encargadoComprasId: Guid.CreateVersion7(),
             fechaDocumento: DateOnly.FromDateTime(DateTimeOffset.UtcNow.UtcDateTime),
             sinRequisicionPrevia: true,
-            motivoSinRequisicion: "Manual");
+            motivoSinRequisicion: "Manual", usoCfdiClave: "G03", metodoPago: "PPD", formaPagoClave: "99");
 
         var lineaId = Guid.CreateVersion7();
         oc.AgregarLineaManual(

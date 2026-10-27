@@ -36,6 +36,12 @@ public static class DependencyInjection
         services.AddScoped<Domain.Ports.DatosMaestros.IClienteReadPort,
             Adapters.ClienteReadPortAdapter>();
 
+        // C7.4 (86e3jvv56): CxC lee los depósitos de cliente sin identificar por su
+        // puerto; Tesorería es dueña del movimiento bancario (mismo patrón que
+        // Facturación con IReppPendientesReadPort).
+        services.AddScoped<Millet.CuentasPorCobrar.Domain.Ports.Tesoreria.IDepositosPorIdentificarReadPort,
+            PublicAdapters.DepositosPorIdentificarReadAdapter>();
+
         // TES-PR8 (ADR-0024): XML de REPP recibidos a blob — mismo toggle
         // que el ICfdiBlobStorage de CxP: con connection string usa Azure
         // Blob real; sin ella cae al stub filesystem local (efímero).

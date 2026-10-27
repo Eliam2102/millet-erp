@@ -49,7 +49,7 @@ export function AutorizacionPicker({
         </div>
       )}
       renderTrigger={(a) => `${a.activoRef} · ${a.descripcion}`}
-      placeholder="Selecciona la autorización del Contador General…"
+      placeholder="Selecciona la autorización del Director de Administración y Finanzas…"
       searchPlaceholder="Buscar por activo o descripción…"
       emptyListText="No hay autorizaciones pendientes de usar."
       ariaLabel="Seleccionar autorización de venta de activo"

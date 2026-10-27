@@ -17,8 +17,12 @@ import {
   useFacturasAbiertas,
   useToleranciasNoFiscal,
 } from '@/features/cxc/api/useAplicaciones';
-import { MONEDAS_LINEA_CREDITO } from '@/features/cxc/api/types';
+import {
+  MONEDAS_LINEA_CREDITO,
+  type DepositoPorIdentificarItem,
+} from '@/features/cxc/api/types';
 import { formatoMonto } from '@/features/cxc/lib/glosario';
+import { sugerirPorAntiguedad } from '@/features/cxc/lib/sugerir-por-antiguedad';
 import {
   PropuestaAplicacionSchema,
   type PropuestaAplicacionValues,
@@ -38,11 +42,18 @@ import { cn } from '@/lib/utils';
 export interface NuevaPropuestaAplicacionProps {
   onClose: (opts?: { force?: boolean }) => void;
   onDirtyChange?: (dirty: boolean) => void;
+  /**
+   * C7.4 · CA7.9: depósito sin identificar que se identifica con esta
+   * propuesta (prellena monto, moneda, referencia y cliente si Tesorería lo
+   * conoce). El remittance sigue siendo obligatorio (R13).
+   */
+  deposito?: DepositoPorIdentificarItem | null;
 }
 
 export function NuevaPropuestaAplicacion({
   onClose,
   onDirtyChange,
+  deposito = null,
 }: NuevaPropuestaAplicacionProps) {
   const idempotencyKey = useFormIdempotencyKey();
   const crear = useCrearPropuestaAplicacion();
@@ -51,10 +62,12 @@ export function NuevaPropuestaAplicacion({
   const form = useForm<PropuestaAplicacionValues>({
     resolver: zodResolver(PropuestaAplicacionSchema),
     defaultValues: {
-      clienteId: '',
-      depositoRef: '',
-      montoDeposito: 0,
-      moneda: 'MXN',
+      clienteId: deposito?.clienteId ?? '',
+      depositoRef: deposito?.referencia ?? '',
+      montoDeposito: deposito?.disponible ?? 0,
+      moneda: (MONEDAS_LINEA_CREDITO as readonly string[]).includes(deposito?.moneda ?? '')
+        ? (deposito!.moneda as PropuestaAplicacionValues['moneda'])
+        : 'MXN',
       remittanceRef: '',
     },
   });
@@ -105,8 +118,16 @@ export function NuevaPropuestaAplicacion({
   const depositoExcedente = diferencia > 0 && seleccion.size > 0;
   const importesInvalidos = Array.from(seleccion.entries()).some(([uuid, imp]) => {
     const f = facturas.data?.find((x) => x.uuid === uuid);
-    return imp <= 0 || (f != null && imp > f.saldo);
+    // C7.4-a: una factura que no es PPD no admite parcialidades (el backend lo rechaza).
+    const tope = f?.disponible ?? f?.saldo;
+    return imp <= 0 || (f != null && tope != null && (imp > tope || (f.metodoPago !== 'PPD' && imp < tope)));
   });
+  const excedeDeposito = deposito != null && (montoDeposito || 0) > deposito.disponible;
+
+  // V61: «Sugerir» llena importes por antigüedad SIN enviar; una persona revisa y propone.
+  function sugerir() {
+    setSeleccion(sugerirPorAntiguedad(facturas.data ?? [], montoDeposito || 0));
+  }
 
   const sinRemittance = (remittanceRef ?? '').trim() === '';
   const puedeProponer =
@@ -115,6 +136,7 @@ export function NuevaPropuestaAplicacion({
     !importesInvalidos &&
     !excedeTolerancia &&
     !faltaTolerancia &&
+    !excedeDeposito &&
     (montoDeposito || 0) > 0;
 
   function onSubmit(values: PropuestaAplicacionValues) {
@@ -130,15 +152,24 @@ export function NuevaPropuestaAplicacion({
           facturas: Array.from(seleccion.entries()).map(([facturaUuid, importeAplicado]) => ({
             facturaUuid,
             importeAplicado,
-            numParcialidad: null,
           })),
+          movimientoBancarioId: deposito?.movimientoBancarioId ?? null,
         },
         idempotencyKey,
       },
       {
         onSuccess: (res) => {
+          const parcialidades = res.facturas
+            .filter((f) => f.numParcialidad != null)
+            .map(
+              (f) =>
+                `${f.folio ?? f.facturaUuid} parc. ${f.numParcialidad}${
+                  f.saldoInsoluto != null ? ` · saldo insoluto ${formatoMonto(f.saldoInsoluto, res.moneda)}` : ''
+                }`,
+            );
           toast.success(
             `Propuesta creada para el depósito ${res.depositoRef} (${res.facturas.length} factura${res.facturas.length === 1 ? '' : 's'}).`,
+            parcialidades.length > 0 ? { description: parcialidades.join(' · ') } : undefined,
           );
           onClose({ force: true });
         },
@@ -180,6 +211,17 @@ export function NuevaPropuestaAplicacion({
     >
       <SheetBody className="space-y-5">
         {/* ── Depósito ─────────────────────────────────────────────── */}
+        {deposito && (
+          <p
+            className="rounded-md border border-line bg-info-bg px-3 py-2 text-sm text-info-fg"
+            data-testid="deposito-identificado"
+          >
+            Identificando el depósito {deposito.referencia ?? 'sin referencia'} · {deposito.cuenta} ·{' '}
+            {deposito.fechaValor.slice(0, 10)} · disponible{' '}
+            {formatoMonto(deposito.disponible, deposito.moneda)}. No se aplica hasta que Tesorería
+            confirme.
+          </p>
+        )}
         <FormSeccion titulo="Depósito">
           <FormCampo span={12} className="space-y-1">
             <Label className="text-xs">
@@ -243,6 +285,11 @@ export function NuevaPropuestaAplicacion({
               min="0"
               {...form.register('montoDeposito', { valueAsNumber: true })}
             />
+            {excedeDeposito && deposito && (
+              <p className="text-xs text-danger-fg">
+                Excede lo disponible del depósito ({formatoMonto(deposito.disponible, deposito.moneda)}).
+              </p>
+            )}
             {form.formState.errors.montoDeposito && (
               <p className="text-xs text-danger-fg">
                 {form.formState.errors.montoDeposito.message}
@@ -258,7 +305,8 @@ export function NuevaPropuestaAplicacion({
               className="h-9 w-full rounded-md border border-line-control bg-transparent px-3 text-sm shadow-card-flat"
               {...form.register('moneda')}
             >
-              {MONEDAS_LINEA_CREDITO.map((m) => (
+              {/* C7.4: la moneda del depósito identificado no se cambia. */}
+              {(deposito ? [deposito.moneda] : MONEDAS_LINEA_CREDITO).map((m) => (
                 <option key={m} value={m}>
                   {m}
                 </option>
@@ -270,7 +318,19 @@ export function NuevaPropuestaAplicacion({
         {/* ── Facturas abiertas (matching) ─────────────────────────── */}
         {clienteId ? (
           <section className="space-y-2">
-            <h3 className="text-sm font-medium">Facturas abiertas del cliente ({moneda})</h3>
+            <div className="flex items-center justify-between gap-2">
+              <h3 className="text-sm font-medium">Facturas abiertas del cliente ({moneda})</h3>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={sugerir}
+                disabled={crear.isPending || !facturas.data?.length || !((montoDeposito || 0) > 0)}
+                title="Llena los importes de la factura más antigua a la más reciente; revisa y propón (V61)."
+              >
+                Sugerir
+              </Button>
+            </div>
             <MatchingAplicacionTable
               query={facturas}
               seleccion={seleccion}

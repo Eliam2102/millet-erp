@@ -21,12 +21,16 @@ import {
   TableCell,
 } from '@/components/ui/table';
 import { useMemo } from 'react';
+import { DepositosSinIdentificar } from '@/features/cxc/components/DepositosSinIdentificar';
 import { Link, useNavigate, useSearch } from '@tanstack/react-router';
 import { FileText, Plus } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 
 import { useClientesLookupCxc } from '@/features/cxc/api/useLineasCredito';
-import { usePropuestasAplicacion } from '@/features/cxc/api/useAplicaciones';
+import {
+  useDepositosPorIdentificar,
+  usePropuestasAplicacion,
+} from '@/features/cxc/api/useAplicaciones';
 import { ChipEstadoPropuesta } from '@/features/cxc/components/ChipEstadoPropuesta';
 import { useNuevaPropuesta } from '@/features/cxc/components/nueva-propuesta-context';
 import { EstadoPropuestaAplicacion } from '@/features/cxc/api/types';
@@ -45,6 +49,13 @@ const OPCIONES_ESTADO = [
 ] as const;
 
 /**
+ * C7.4 · CA7.9: valor centinela de la pestaña «Sin identificar» dentro de
+ * TabsEstado (numérico); no es un estado de propuesta. Se refleja en el
+ * search param <c>vista=sin-identificar</c> (sin ruta nueva).
+ */
+const TAB_SIN_IDENTIFICAR = 0;
+
+/**
  * <c>Bandeja de propuestas de aplicación</c> (CXC-FE-PR6, P1 §6.6).
  * Tabla con filtro por estado; "Ver" monta el master-detail; "Nueva
  * propuesta" abre el Sheet del matching (gate
@@ -56,6 +67,8 @@ export function BandejaAplicaciones() {
   const nuevaPropuesta = useNuevaPropuesta();
   const puedeProponer = useHasPermission(PermisosCanonicos.CuentasPorCobrarAplicacionPagoProponer);
 
+  const sinIdentificar = search.vista === 'sin-identificar';
+  const depositosSinIdentificar = useDepositosPorIdentificar({ enabled: sinIdentificar && puedeProponer });
   const query = usePropuestasAplicacion({
     estado: search.estado,
     clienteId: search.clienteId,
@@ -109,14 +122,22 @@ export function BandejaAplicaciones() {
       <ListadoModulo
         tabs={
           <TabsEstado
-            opciones={OPCIONES_ESTADO.map((e) => ({
-              valor: e,
-              label: ETIQUETA_ESTADO_PROPUESTA[e],
-            }))}
-            valor={search.estado}
+            opciones={[
+              ...OPCIONES_ESTADO.map((e) => ({
+                valor: e as number,
+                label: ETIQUETA_ESTADO_PROPUESTA[e],
+              })),
+              ...(puedeProponer ? [{ valor: TAB_SIN_IDENTIFICAR, label: 'Sin identificar' }] : []),
+            ]}
+            valor={sinIdentificar ? TAB_SIN_IDENTIFICAR : search.estado}
             conteos={undefined}
             onChange={(estado) =>
-              actualizarSearch({ estado: estado as EstadoPropuestaAplicacion | undefined })
+              estado === TAB_SIN_IDENTIFICAR
+                ? actualizarSearch({ vista: 'sin-identificar', estado: undefined })
+                : actualizarSearch({
+                    vista: undefined,
+                    estado: estado as EstadoPropuestaAplicacion | undefined,
+                  })
             }
           />
         }
@@ -133,6 +154,7 @@ export function BandejaAplicaciones() {
           />
         }
         pie={
+          sinIdentificar ? undefined : (
           <PaginacionTabla
             total={items.length}
             offset={pagina.offset}
@@ -140,9 +162,16 @@ export function BandejaAplicaciones() {
             tamanos={[]}
             onChange={pagina.cambiar}
           />
+          )
         }
       >
-        {query.isError ? (
+        {sinIdentificar ? (
+          <DepositosSinIdentificar
+            query={depositosSinIdentificar}
+            q={q}
+            onIdentificar={(deposito) => nuevaPropuesta.abrir(deposito)}
+          />
+        ) : query.isError ? (
           <ErrorState
             title="No se pudieron cargar las propuestas"
             problem={esApiError(query.error) ? query.error.problem : undefined}

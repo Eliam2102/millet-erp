@@ -53,4 +53,31 @@ public static class SaldoPorCobrar
                 p => p.ReciboPagoId,
                 r => r.Id,
                 (p, _) => p);
+
+    /// <summary>
+    /// Saldo por cobrar y parcialidad siguiente de facturas (C7.4): Total − NC timbradas
+    /// que acreditan − REPP vigentes, y número de REPP vigentes + 1. Es el mismo cálculo
+    /// de <c>FacturasCobrablesPpdQuery</c> y de <c>EmitirReppHandler</c>; CxC lo lee por
+    /// <c>IReppPendientesReadPort.ParcialidadesAsync</c>.
+    /// </summary>
+    public static async Task<IReadOnlyDictionary<Guid, (decimal Acreditado, decimal Pagado, decimal Saldo, int NumParcialidadSiguiente)>> ParcialidadesAsync(
+        FacturacionDbContext db, IReadOnlyCollection<(Guid Id, decimal Total)> facturas, CancellationToken cancellationToken)
+    {
+        if (facturas.Count == 0)
+            return new Dictionary<Guid, (decimal, decimal, decimal, int)>();
+        var ids = facturas.Select(f => f.Id).ToList();
+        var acreditados = await AcreditadoPorFacturaAsync(db, ids, cancellationToken);
+        var pagos = await PagosVigentes(db)
+            .Where(p => ids.Contains(p.FacturaVentaId))
+            .GroupBy(p => p.FacturaVentaId)
+            .Select(g => new { FacturaId = g.Key, Pagado = g.Sum(p => p.ImportePagado), Parcialidades = g.Count() })
+            .ToDictionaryAsync(x => x.FacturaId, cancellationToken);
+        return facturas.ToDictionary(f => f.Id, f =>
+        {
+            var acreditado = acreditados.GetValueOrDefault(f.Id);
+            pagos.TryGetValue(f.Id, out var pago);
+            var pagado = pago?.Pagado ?? 0m;
+            return (acreditado, pagado, f.Total - acreditado - pagado, (pago?.Parcialidades ?? 0) + 1);
+        });
+    }
 }

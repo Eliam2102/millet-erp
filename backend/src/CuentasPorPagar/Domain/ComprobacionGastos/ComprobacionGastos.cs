@@ -200,7 +200,8 @@ public sealed class ComprobacionGastos : BaseEntity, IPerteneceAEmpresa, IAudita
         decimal retenciones,
         decimal total,
         string moneda,
-        string? concepto)
+        string? concepto,
+        string? clasificacionNoDeducible = null)
     {
         AsegurarEditable("agregar línea");
 
@@ -223,7 +224,8 @@ public sealed class ComprobacionGastos : BaseEntity, IPerteneceAEmpresa, IAudita
             retenciones: retenciones,
             total: total,
             moneda: moneda,
-            concepto: concepto);
+            concepto: concepto,
+            clasificacionNoDeducible: clasificacionNoDeducible);
 
         _lineas.Add(linea);
         MontoTotal += total;

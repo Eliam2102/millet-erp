@@ -37,7 +37,9 @@ public sealed record LineaViaticosDetalleResponse(
     decimal Total,
     string Moneda,
     string Concepto,
-    bool EsTicketNoFiscal);
+    bool EsTicketNoFiscal,
+    string? ClasificacionNoDeducible = null,
+    decimal IvaNoAcreditable = 0m);
 
 public sealed record SolicitudViaticosDetalleResponse(
     Guid Id,
@@ -119,7 +121,9 @@ public sealed class ObtenerSolicitudViaticosHandler
                 l.Id, l.FacturaProveedorId, l.CfdiRecibidoId, l.UuidCfdi,
                 l.ProveedorId, l.FolioProveedor, l.FechaGasto,
                 l.Subtotal, l.ImpuestosTrasladados, l.Retenciones, l.Total,
-                l.Moneda, l.Concepto, l.EsTicketNoFiscal))
+                l.Moneda, l.Concepto, l.EsTicketNoFiscal,
+                l.ClasificacionNoDeducible,
+                l.ClasificacionNoDeducible is null ? 0m : l.ImpuestosTrasladados))
             .ToList();
 
         return new SolicitudViaticosDetalleResponse(

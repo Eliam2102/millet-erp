@@ -29,7 +29,7 @@ export function useAutorizacionesActivo(estado: number | undefined) {
 }
 
 /**
- * <c>useAutorizarVentaActivo()</c> — el Contador General autoriza la venta
+ * <c>useAutorizarVentaActivo()</c> — el Director de Administración y Finanzas autoriza la venta
  * de un activo (calcula valor neto en libros + utilidad/pérdida). El
  * <c>autorizacionId</c> resultante es obligatorio al emitir la factura de
  * venta de activo fijo. Idempotency-Key (ADR-0020).

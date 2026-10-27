@@ -165,7 +165,7 @@ public sealed class VentaDirectaSerieTests : IClassFixture<WebApplicationFactory
             using var bypass = scope.ServiceProvider.GetRequiredService<ICurrentEmpresaContext>().Bypass();
             var db = scope.ServiceProvider.GetRequiredService<FacturacionDbContext>();
             var a = AutorizacionVentaActivo.Crear(Empresa, $"FIX-ACT-{Guid.NewGuid():N}", "FIX activo ficticio",
-                250000m, 180000m, false, 100m, Guid.NewGuid(), DateTimeOffset.UtcNow); // AF-04: la venta debe timbrarse por el precio autorizado (1 × $100 del pedido)
+                250000m, 180000m, false, 100m, Guid.NewGuid(), DateTimeOffset.UtcNow, Millet.Facturacion.Domain.Activos.MotivoDisposicionActivo.Venta, "Área DEMO", "Soporte DEMO"); // AF-04: la venta debe timbrarse por el precio autorizado (1 × $100 del pedido)
             db.AutorizacionesVentaActivo.Add(a);
             await db.SaveChangesAsync();
             autorizacionId = a.Id;

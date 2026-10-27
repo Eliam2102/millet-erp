@@ -61,7 +61,8 @@ export interface Distribucion {
     importeMxn: number;
     diferenciaMxn: number;
     inventarioMxn: number;
-    costoVentasMxn: number;
+    gastoImportacionMxn: number;
+    tieneSalidas: boolean;
     costoUnitarioAntes: number;
     costoUnitarioDespues: number;
   }[];

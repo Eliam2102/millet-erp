@@ -8,6 +8,12 @@ import { z } from 'zod';
  * (string vacío ≡ sin valor; se normaliza a null en el submit).
  */
 export const EmpleadoSchema = z.object({
+  telefono: z
+    .string()
+    .max(20, 'Máximo 20 caracteres')
+    .regex(/^[0-9 ()+-]*$/, 'Usa dígitos, espacios, paréntesis, guiones o +')
+    .optional(),
+  extension: z.string().max(10, 'Máximo 10 caracteres').optional(),
   clave: z
     .string()
     .trim()

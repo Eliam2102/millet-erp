@@ -96,6 +96,10 @@ public sealed class AlmacenSaldoQueryAdapter : IAlmacenSaldoQueryPort
             ValorInventarioMxn: agregados.ValorInventarioMxn);
     }
 
+    public Task<bool> ArticuloTieneExistenciaAsync(Guid articuloId, CancellationToken cancellationToken) =>
+        _db.SaldosInventario.AsNoTracking()
+            .AnyAsync(s => s.ArticuloId == articuloId && s.Cantidad != 0, cancellationToken);
+
     public async Task<DisponibilidadArticuloAlmacen> ConsultarDisponibilidadPorAlmacenAsync(
         Guid almacenId,
         Guid articuloId,

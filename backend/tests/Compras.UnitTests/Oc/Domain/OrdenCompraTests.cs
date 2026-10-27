@@ -202,5 +202,5 @@ public class OrdenCompraTests
             observaciones: observaciones,
             motivoSinRequisicion: motivoSinRequisicion,
             fechaEntregaEsperada: fechaEntregaEsperada,
-            ocOrigenId: ocOrigenId);
+            ocOrigenId: ocOrigenId, usoCfdiClave: "G03", metodoPago: "PPD", formaPagoClave: "99");
 }

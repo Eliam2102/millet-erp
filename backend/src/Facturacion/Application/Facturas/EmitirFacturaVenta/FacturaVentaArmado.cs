@@ -85,7 +85,7 @@ public static class FacturaVentaArmado
                 tasaIvaTraslado: l.TasaIvaTraslado,
                 tasaRetencionIva: l.TasaRetencionIva,
                 tasaRetencionIsr: l.TasaRetencionIsr,
-                requierePedimento: l.RequierePedimento);
+                requierePedimento: l.RequierePedimento, referencia: l.Referencia, pesoKg: l.PesoKg, areaPie2: l.AreaPie2);
         }
 
         factura.RecalcularTotales();

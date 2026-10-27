@@ -6,7 +6,9 @@ import { createQueryWrapper } from '@/test/test-query-client';
 import { DetallePedido } from '@/features/facturacion/pages/DetallePedido';
 import { useAuthStore } from '@/lib/auth/auth-store';
 
+const navigateSpy = vi.hoisted(() => vi.fn());
 vi.mock('@tanstack/react-router', () => ({
+  useNavigate: () => navigateSpy,
   Link: ({ children, to }: { children: React.ReactNode; to: string }) => (
     <a href={to}>{children}</a>
   ),
@@ -18,9 +20,21 @@ vi.mock('@tanstack/react-router', () => ({
 // mockea para asertar el prefill sin arrastrar selectores/catálogos.
 const prefillSpy = vi.fn();
 vi.mock('@/features/facturacion/components/emitir-factura/EmitirFacturaForm', () => ({
-  EmitirFacturaForm: ({ prefill }: { prefill?: unknown }) => {
+  EmitirFacturaForm: ({
+    prefill,
+    onSuccess,
+  }: {
+    prefill?: unknown;
+    onSuccess: (res: { id: string; folio: string; uuid: string | null }) => void;
+  }) => {
     prefillSpy(prefill);
-    return <div data-testid="emitir-factura-form" />;
+    return (
+      <div data-testid="emitir-factura-form">
+        <button type="button" onClick={() => onSuccess({ id: 'f-9', folio: 'FV 9', uuid: 'u-9' })}>
+          Simular emisión
+        </button>
+      </div>
+    );
   },
 }));
 
@@ -169,6 +183,25 @@ describe('<DetallePedido> — smoke', () => {
     expect(screen.getByText('A-2')).toBeInTheDocument();
     // "Vigente" aparece como encabezado de columna y como chip de la fila.
     expect(screen.getAllByText('Vigente').length).toBeGreaterThanOrEqual(2);
+  });
+
+  it('86e3tfd6n: muestra los anticipos cobrados antes de que llegara el pedido', async () => {
+    setPermisos(['facturacion.facturas.leer']);
+    mswServer.use(
+      http.get('*/api/v1/facturacion/pedidos-facturables/p-1', () =>
+        HttpResponse.json({
+          ...pedido('Importado'),
+          anticiposLigados: [
+            { anticipoId: 'a-1', facturaAnticipoId: 'fa-1', folio: 'FANT-7', montoCobrado: 1160, saldo: 1160, estado: 'Abierto' },
+          ],
+        }),
+      ),
+      http.get('*/api/v1/facturacion/pedidos-facturables/p-1/comprobantes', () => HttpResponse.json([])),
+    );
+    render(<DetallePedido />, { wrapper: createQueryWrapper() });
+    expect(await screen.findByText(/Anticipos del pedido \(1\)/)).toBeInTheDocument();
+    expect(screen.getByText('FANT-7')).toBeInTheDocument();
+    expect(screen.getAllByText('1160.00')).toHaveLength(2); // cobrado y saldo
   });
 
   it('86e3tfdw2: pedido a crédito muestra badge «Crédito» y la condición de pago', async () => {
@@ -529,5 +562,62 @@ describe('<DetallePedido> — proforma (U1.8a)', () => {
     render(<DetallePedido />, { wrapper: createQueryWrapper() });
     await screen.findByText('Vidrio templado 6mm');
     expect(screen.queryByRole('button', { name: /Generar proforma/i })).not.toBeInTheDocument();
+  });
+
+  describe('86e3tfdwu: cobrar en caja tras emitir', () => {
+    function prepararEmision(estadoCaja: string) {
+      mswServer.use(
+        http.get('*/api/v1/facturacion/pedidos-facturables/p-1', () =>
+          HttpResponse.json(pedido('Importado')),
+        ),
+        http.get('*/api/v1/facturacion/pedidos-facturables/p-1/comprobantes', () =>
+          HttpResponse.json([]),
+        ),
+        http.get('*/api/v1/facturacion/cajas/sesion-actual', () =>
+          HttpResponse.json({
+            sesion: { id: 's-1', estado: estadoCaja, sucursalId: 'x', cajaNombre: 'Caja 1' },
+            diaAnteriorPendiente: false,
+          }),
+        ),
+        http.get('*/api/v1/facturacion/cobros/cobrables', () =>
+          HttpResponse.json([{ comprobanteId: 'f-9', total: 116 }]),
+        ),
+      );
+    }
+
+    async function emitir() {
+      render(<DetallePedido />, { wrapper: createQueryWrapper() });
+      fireEvent.click(await screen.findByRole('button', { name: /Facturar/i }));
+      fireEvent.click(await screen.findByRole('button', { name: 'Simular emisión' }));
+      await screen.findByText(/Historial de comprobantes/i);
+    }
+
+    it('con caja abierta muestra «Cobrar en caja» de la factura emitida y navega por router', async () => {
+      navigateSpy.mockClear();
+      setPermisos([
+        'facturacion.facturas.leer',
+        'facturacion.facturas.emitir',
+        'facturacion.caja.operar',
+      ]);
+      prepararEmision('Abierta');
+      await emitir();
+      const aviso = await screen.findByRole('status');
+      expect(within(aviso).getByText('FV 9')).toBeInTheDocument();
+      fireEvent.click(within(aviso).getByRole('button', { name: 'Cobrar en caja' }));
+      expect(navigateSpy).toHaveBeenCalledWith({ href: '/facturacion/caja?cobrar=f-9&folio=FV+9' });
+    });
+
+    it('sin caja abierta no ofrece el cobro', async () => {
+      setPermisos([
+        'facturacion.facturas.leer',
+        'facturacion.facturas.emitir',
+        'facturacion.caja.operar',
+      ]);
+      prepararEmision('EnArqueo');
+      await emitir();
+      await waitFor(() =>
+        expect(screen.queryByRole('button', { name: 'Cobrar en caja' })).not.toBeInTheDocument(),
+      );
+    });
   });
 });

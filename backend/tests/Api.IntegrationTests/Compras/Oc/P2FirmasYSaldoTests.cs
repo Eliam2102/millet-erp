@@ -362,7 +362,7 @@ public partial class OrdenesCompraEndpointsTests
         var articulos = sp.GetRequiredService<IArticuloReadPort>();
         var ex = await Assert.ThrowsAsync<BusinessRuleException>(async () => {
             if (flujo == "crear")
-                await new CrearOrdenCompraDesdeRequisicionHandler(db, puerto, sp.GetRequiredService<CompartidoDbContext>(), usuario, empresa, reloj, publisher, articulos,
+                await new CrearOrdenCompraDesdeRequisicionHandler(db, sp.GetRequiredService<Millet.Compras.Domain.Ports.Catalogos.ICatalogoSatReadPort>(), puerto, sp.GetRequiredService<CompartidoDbContext>(), usuario, empresa, reloj, publisher, articulos,
                     sp.GetRequiredService<ICurrentUserPermissions>(), sp.GetRequiredService<Millet.SharedKernel.Application.Blob.IBlobStoragePort>(),
                     sp.GetRequiredService<Millet.Compras.Domain.Ports.Blob.IAlmacenarBlobPort>())
                     .Handle(DesdeRqP2(rqId), default);

@@ -296,6 +296,33 @@ public sealed class ReppTests
     }
 
     [Fact]
+    public async Task Puerto_de_parcialidades_para_CxC_usa_los_mismos_datos_que_cobrables_PPD()
+    {
+        // C7.4 (ficha 26-oct): la «parcialidad siguiente» y el saldo que muestra CxC
+        // salen del mismo cálculo que FacturasCobrablesPpdQuery.NumParcialidadSiguiente.
+        var empresaId = Guid.NewGuid();
+        using var db = NewDb(empresaId);
+        var conSaldo = FacturaPpd(empresaId);                  // total 1000
+        var sinPagos = FacturaPpd(empresaId, valor: 700m);
+        db.FacturasVenta.AddRange(conSaldo, sinPagos);
+        db.NotasCredito.Add(NcAmortizacionTimbrada(empresaId, conSaldo.Id, 400m));
+        db.RecibosPago.Add(ReppPrevio(empresaId, conSaldo, 100m, 600m));
+        await db.SaveChangesAsync();
+
+        var cobrables = await new FacturasCobrablesPpdHandler(db).Handle(new FacturasCobrablesPpdQuery(), CancellationToken.None);
+        var puerto = await new Millet.Facturacion.Infrastructure.PublicAdapters.ReppPendientesReadAdapter(db)
+            .ParcialidadesAsync([conSaldo.Id, sinPagos.Id], CancellationToken.None);
+
+        foreach (var c in cobrables)
+        {
+            puerto[c.FacturaVentaId].NumParcialidadSiguiente.Should().Be(c.NumParcialidadSiguiente);
+            puerto[c.FacturaVentaId].Saldo.Should().Be(c.Saldo);
+        }
+        puerto[conSaldo.Id].NumParcialidadSiguiente.Should().Be(2);
+        puerto[sinPagos.Id].NumParcialidadSiguiente.Should().Be(1);
+    }
+
+    [Fact]
     public async Task Cobrables_PPD_ignora_pagos_de_REPP_cancelado()
     {
         var empresaId = Guid.NewGuid();

@@ -48,7 +48,10 @@ public sealed record PropuestaAplicacionPagoCreadaEvent(
     string Moneda,
     decimal AjusteNoFiscal,
     int NumeroFacturas,
-    IReadOnlyList<PropuestaAplicacionFacturaDetalle> Facturas, Guid? PropuestoPor = null, decimal SaldoAFavorPorIdentificar = 0)
+    IReadOnlyList<PropuestaAplicacionFacturaDetalle> Facturas, Guid? PropuestoPor = null, decimal SaldoAFavorPorIdentificar = 0,
+    // C7.4 (aditivo): depósito sin identificar que CxC identificó desde su bandeja;
+    // Tesorería lo preselecciona al confirmar. Null = propuesta sin depósito ligado.
+    Guid? MovimientoBancarioId = null)
     : IntegrationEvent("cuentas_por_cobrar.propuesta-aplicacion.creada.v1", EmpresaId, OcurridoEn);
 
 // ---- Decisión de liberación emitida (CXC-PR4) ----

@@ -26,7 +26,7 @@ public class OrdenCompraCancelarConRecepcionesTests
             usoPrincipalId: Guid.CreateVersion7(),
             compradorTitularId: Guid.CreateVersion7(),
             encargadoComprasId: Guid.CreateVersion7(),
-            fechaDocumento: DateOnly.FromDateTime(DateTimeOffset.UtcNow.UtcDateTime));
+            fechaDocumento: DateOnly.FromDateTime(DateTimeOffset.UtcNow.UtcDateTime), usoCfdiClave: "G03", metodoPago: "PPD", formaPagoClave: "99");
 
         oc.AgregarLineaDesdeRequisicion(
             lineaId: Guid.CreateVersion7(), articuloId: Guid.CreateVersion7(),
@@ -121,7 +121,7 @@ public class OrdenCompraCancelarConRecepcionesTests
             encargadoComprasId: Guid.CreateVersion7(),
             fechaDocumento: DateOnly.FromDateTime(DateTimeOffset.UtcNow.UtcDateTime),
             sinRequisicionPrevia: true,
-            motivoSinRequisicion: "Manual");
+            motivoSinRequisicion: "Manual", usoCfdiClave: "G03", metodoPago: "PPD", formaPagoClave: "99");
         oc.AgregarLineaManual(
             lineaId: Guid.CreateVersion7(), articuloId: Guid.CreateVersion7(),
             cantidad: 3m, unidadMedida: "PZA", precioUnitario: 100m,

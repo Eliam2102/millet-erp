@@ -29,14 +29,14 @@ public sealed class ProductosReadAdapter : IProductosReadPort
             {
                 x.Id, x.Descripcion, x.ClaveProdServSat, x.ClaveUnidadSat,
                 x.ObjetoImp, x.TasaIvaTraslado, x.TasaRetencionIva,
-                x.TasaRetencionIsr, x.Origen, x.Tipo, x.EstadoFiscal,
+                x.TasaRetencionIsr, x.Origen, x.Tipo, x.EstadoFiscal, x.PesoUnitarioKg,
             })
             .FirstOrDefaultAsync(cancellationToken);
 
         return p is null ? null : new ProductoFiscalLectura(
             p.Id, p.Descripcion, p.ClaveProdServSat, p.ClaveUnidadSat,
             p.ObjetoImp, p.TasaIvaTraslado, p.TasaRetencionIva,
-            p.TasaRetencionIsr, p.Origen.ToString(), p.Tipo, p.EstadoFiscal.ToString());
+            p.TasaRetencionIsr, p.Origen.ToString(), p.Tipo, p.EstadoFiscal.ToString(), p.PesoUnitarioKg);
     }
 
     public async Task<ProductoFiscalLectura?> ResolverPorReferenciaAsync(
@@ -48,14 +48,14 @@ public sealed class ProductosReadAdapter : IProductosReadPort
             {
                 x.Id, x.Descripcion, x.ClaveProdServSat, x.ClaveUnidadSat,
                 x.ObjetoImp, x.TasaIvaTraslado, x.TasaRetencionIva,
-                x.TasaRetencionIsr, x.Origen, x.Tipo, x.EstadoFiscal,
+                x.TasaRetencionIsr, x.Origen, x.Tipo, x.EstadoFiscal, x.PesoUnitarioKg,
             })
             .FirstOrDefaultAsync(cancellationToken);
 
         return p is null ? null : new ProductoFiscalLectura(
             p.Id, p.Descripcion, p.ClaveProdServSat, p.ClaveUnidadSat,
             p.ObjetoImp, p.TasaIvaTraslado, p.TasaRetencionIva,
-            p.TasaRetencionIsr, p.Origen.ToString(), p.Tipo, p.EstadoFiscal.ToString());
+            p.TasaRetencionIsr, p.Origen.ToString(), p.Tipo, p.EstadoFiscal.ToString(), p.PesoUnitarioKg);
     }
 
     public async Task<IReadOnlyList<ProductoAwBusquedaItem>> BuscarAsync(

@@ -61,7 +61,8 @@ public sealed class ArticuloReadAdapter : IArticuloReadPort
                 a.Nombre,
                 // GAP-9: los servicios no se reciben en Almacén — la
                 // naturaleza del artículo alimenta LineaOrdenCompra.EsServicio.
-                a.Naturaleza == Naturaleza.Servicio))
+                a.Naturaleza == Naturaleza.Servicio,
+                a.ProductoAwId != null))
             .ToDictionaryAsync(a => a.Id, cancellationToken);
     }
 }

@@ -54,6 +54,50 @@ public sealed class ListarCfdisParaRecepcionTests
         respuesta.Items.Should().ContainSingle().Which.Id.Should().Be(propio.Id);
     }
 
+    [Fact]
+    public async Task Con_OC_incluye_el_CFDI_de_una_factura_viva_de_esa_OC_que_quedo_sin_recepcion()
+    {
+        var options = new DbContextOptionsBuilder<CuentasPorPagarDbContext>()
+            .UseInMemoryDatabase($"cxp-recepcion-cfdis-liberado-{Guid.NewGuid():N}")
+            .Options;
+        using var db = new CuentasPorPagarDbContext(options, new BypassedEmpresaContext(), new P8.PeriodoAbiertoStub(), new P8.PeriodoAbiertoStub());
+        var empresa = Guid.NewGuid();
+        var oc = Guid.NewGuid();
+        var liberado = Ingresar(empresa, "PROV010101AAA", "A1B2C3D4-0011-4000-8000-000000000011", TipoCfdi.Ingreso);
+        var conRecepcion = Ingresar(empresa, "PROV010101AAA", "A1B2C3D4-0012-4000-8000-000000000012", TipoCfdi.Ingreso);
+        var otraOc = Ingresar(empresa, "PROV010101AAA", "A1B2C3D4-0013-4000-8000-000000000013", TipoCfdi.Ingreso);
+        var fLiberada = Factura(empresa, liberado.Id, oc);
+        var fConRecepcion = Factura(empresa, conRecepcion.Id, oc);
+        fConRecepcion.ElegirRecepcion(Guid.NewGuid());
+        var fOtraOc = Factura(empresa, otraOc.Id, Guid.NewGuid());
+        liberado.MarcarConvertidoEnPasivo(fLiberada.Id);
+        conRecepcion.MarcarConvertidoEnPasivo(fConRecepcion.Id);
+        otraOc.MarcarConvertidoEnPasivo(fOtraOc.Id);
+        db.CfdisRecibidos.AddRange(liberado, conRecepcion, otraOc);
+        db.FacturasProveedor.AddRange(fLiberada, fConRecepcion, fOtraOc);
+        await db.SaveChangesAsync();
+        var handler = new ListarCfdisParaRecepcionHandler(db);
+
+        var conOc = await handler.Handle(new ListarCfdisParaRecepcionQuery("PROV010101AAA", oc), CancellationToken.None);
+        var sinOc = await handler.Handle(new ListarCfdisParaRecepcionQuery("PROV010101AAA"), CancellationToken.None);
+
+        conOc.Items.Should().ContainSingle().Which.Id.Should().Be(liberado.Id);
+        sinOc.Items.Should().BeEmpty();
+    }
+
+    private static Domain.FacturaProveedor.FacturaProveedor Factura(Guid empresaId, Guid cfdiId, Guid ocId) =>
+        Domain.FacturaProveedor.FacturaProveedor.CapturarConOc(
+            empresaId: empresaId, cfdiRecibidoId: cfdiId, uuidCfdi: null,
+            proveedorId: Guid.NewGuid(), sucursalId: Guid.NewGuid(),
+            folioProveedor: "F1", serieProveedor: "A",
+            fechaDocumento: DateTimeOffset.UtcNow, fechaContabilizacion: DateTimeOffset.UtcNow,
+            fechaVencimiento: DateOnly.FromDateTime(DateTime.UtcNow.AddDays(30)),
+            moneda: "MXN", tipoCambio: null,
+            subtotal: 1000m, descuentos: 0m, impuestosTrasladados: 160m, retenciones: 0m, total: 1160m,
+            ordenCompraId: ocId, encargadoComprasSnapshot: null,
+            tolerancia: Domain.FacturaProveedor.Tolerancia.MontoAbsoluto(0.99m),
+            diferenciaContraOc: 0m, redondeoAplicado: 0m, ahora: DateTimeOffset.UtcNow);
+
     private static CfdiRecibido Ingresar(Guid empresaId, string rfcEmisor, string uuid, TipoCfdi tipo) =>
         CfdiRecibido.Ingresar(
             empresaId: empresaId,

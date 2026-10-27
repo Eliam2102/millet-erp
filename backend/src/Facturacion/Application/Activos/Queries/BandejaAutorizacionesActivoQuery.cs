@@ -22,7 +22,10 @@ public sealed record AutorizacionActivoItem(
     decimal UtilidadOPerdida,
     Guid AutorizadoPor,
     DateTimeOffset FechaAutorizacion,
-    string Estado);
+    string Estado,
+    MotivoDisposicionActivo Motivo,
+    string SolicitadoPor,
+    string Evidencia);
 
 public sealed class BandejaAutorizacionesActivoHandler
     : IRequestHandler<BandejaAutorizacionesActivoQuery, IReadOnlyList<AutorizacionActivoItem>>
@@ -43,7 +46,7 @@ public sealed class BandejaAutorizacionesActivoHandler
         return rows
             .Select(a => new AutorizacionActivoItem(
                 a.Id, a.ActivoRef, a.Descripcion, a.PrecioVenta, a.ValorNetoEnLibros, a.UtilidadOPerdida,
-                a.AutorizadoPor, a.FechaAutorizacion, a.Estado.ToString()))
+                a.AutorizadoPor, a.FechaAutorizacion, a.Estado.ToString(), a.Motivo, a.SolicitadoPor, a.Evidencia))
             .ToList();
     }
 }

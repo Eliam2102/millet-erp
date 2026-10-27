@@ -1,6 +1,7 @@
 using FluentValidation;
 using MediatR;
 using Microsoft.EntityFrameworkCore;
+using Millet.CuentasPorPagar.Application.Integration;
 using Millet.CuentasPorPagar.Domain.FacturaProveedor;
 using Millet.CuentasPorPagar.Domain.Ports.Administracion;
 using Millet.CuentasPorPagar.Domain.TarjetaCredito;
@@ -8,6 +9,7 @@ using Millet.CuentasPorPagar.Domain.TarjetaCredito.Events;
 using Millet.CuentasPorPagar.Infrastructure.Persistence;
 using Millet.SharedKernel.Application;
 using Millet.SharedKernel.Application.Exceptions;
+using Millet.SharedKernel.Application.Integration;
 
 namespace Millet.CuentasPorPagar.Application.TarjetaCredito.EstadosCuenta;
 
@@ -103,7 +105,9 @@ public sealed record CapturarMovimientoDesdeLineaCommand(
     int VersionEsperadaEc,
     Guid LineaBancoId,
     Guid UsuarioQueUsoId,
-    string ConceptoContable) : IRequest<EstadoCuentaTcResponse>;
+    string ConceptoContable,
+    // P8.6: obligatoria (sin CFDI el cargo es no deducible); se valida en el handler → 422 TC_MOV_CLASIFICACION_INVALIDA.
+    string? ClasificacionNoDeducible = null) : IRequest<EstadoCuentaTcResponse>;
 
 public sealed class CapturarMovimientoDesdeLineaValidator : AbstractValidator<CapturarMovimientoDesdeLineaCommand>
 {
@@ -121,11 +125,14 @@ public sealed class CapturarMovimientoDesdeLineaHandler
 {
     private readonly CuentasPorPagarDbContext _db;
     private readonly ICurrentEmpresaContext _currentEmpresa;
+    private readonly IIntegrationEventPublisher _events;
+    private readonly IClock _clock;
 
     public CapturarMovimientoDesdeLineaHandler(
-        CuentasPorPagarDbContext db, ICurrentEmpresaContext currentEmpresa)
+        CuentasPorPagarDbContext db, ICurrentEmpresaContext currentEmpresa,
+        IIntegrationEventPublisher events, IClock clock)
     {
-        _db = db; _currentEmpresa = currentEmpresa;
+        _db = db; _currentEmpresa = currentEmpresa; _events = events; _clock = clock;
     }
 
     public async Task<EstadoCuentaTcResponse> Handle(
@@ -159,9 +166,12 @@ public sealed class CapturarMovimientoDesdeLineaHandler
             ?? throw new EntityNotFoundException("TC_NO_ENCONTRADA",
                 $"No se encontró la tarjeta '{ec.TarjetaId}'.");
 
+        var clasificacion = await Catalogos.ClasificacionesNoDeducibles.ClasificacionNoDeducibleValidador.ResolverAsync(
+            _db, command.ClasificacionNoDeducible, obligatoria: true, "TC_MOV_CLASIFICACION_INVALIDA", cancellationToken);
+
         // Captura retroactiva con tipo CompraSinCfdi (el operador
-        // confirma el cargo aunque no haya factura). Después puede
-        // reclasificarse si encuentra el CFDI.
+        // confirma el cargo aunque no haya factura). No hay reclasificación
+        // posterior: si aparece el CFDI no se liga a este movimiento.
         var mov = MovimientoTarjetaCredito.CapturarCompraSinCfdi(
             empresaId: empresaId,
             tarjeta: tarjeta,
@@ -173,7 +183,8 @@ public sealed class CapturarMovimientoDesdeLineaHandler
             merchantRaw: linea.MerchantRaw,
             descripcionLibre: $"Captura retroactiva desde línea {linea.PosicionArchivo}",
             conceptoContable: command.ConceptoContable,
-            ticketBlobRef: null);
+            ticketBlobRef: null,
+            clasificacionNoDeducible: clasificacion);
         mov.MarcarCapturaRetroactiva();
         mov.MarcarConciliadoConEstadoCuenta(ec.Id, linea.Id, linea.FechaAplicacion);
         _db.MovimientosTarjetaCredito.Add(mov);
@@ -185,6 +196,8 @@ public sealed class CapturarMovimientoDesdeLineaHandler
             .Sum(l => l.MontoMxn);
         ec.ActualizarTotalConciliado(totalConciliado);
 
+        await _events.PublishAsync(Movimientos.RegistrarMovimientoTcSinCfdiHandler.GastoSinCfdi(
+            mov, _clock.UtcNow, GastoRegistradoIntegrationEvent.OrigenEstadoCuenta), cancellationToken);
         await _db.SaveChangesAsync(cancellationToken);
         return CrearEstadoCuentaTcHandler.ToResponse(ec);
     }

@@ -65,3 +65,17 @@ describe('AnticipoSchema', () => {
     );
   });
 });
+
+describe('AnticipoSchema · número de pedido de A+W (86e3tfd6n)', () => {
+  it('es opcional', () => {
+    expect(AnticipoSchema.safeParse({ ...valido, pedidoOrigenRef: null }).success).toBe(true);
+    expect(AnticipoSchema.safeParse({ ...valido, pedidoOrigenRef: '' }).success).toBe(true);
+  });
+
+  it('acepta solo dígitos', () => {
+    expect(AnticipoSchema.safeParse({ ...valido, pedidoOrigenRef: '10425068' }).success).toBe(true);
+    const r = AnticipoSchema.safeParse({ ...valido, pedidoOrigenRef: '10425068-005' });
+    expect(r.success).toBe(false);
+    expect(r.error?.issues[0]?.path).toEqual(['pedidoOrigenRef']);
+  });
+});

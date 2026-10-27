@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { CabeceraOrdenCompra } from '@/features/compras/ordenes/components/CabeceraOrdenCompra';
 import {
   EstadoOrdenCompra,
@@ -9,6 +9,7 @@ import { useAuthStore } from '@/lib/auth/auth-store';
 import { PermisosCanonicos } from '@/lib/auth/permission-codes';
 
 const mutate = vi.fn();
+vi.mock('@/modules/catalogos/api', () => ({ useUsosCfdi: () => ({ data: [] }), useFormasPago: () => ({ data: [] }) }));
 vi.mock('@tanstack/react-router', () => ({
   Link: ({ children }: { children: React.ReactNode }) => <a href="#">{children}</a>,
 }));
@@ -49,6 +50,7 @@ function makeOc(overrides: Partial<OrdenCompraDetalleResponse> = {}): OrdenCompr
     sucursalDestinoId: 's-1',
     condicionesPagoId: 'cp-1',
     usoPrincipalId: 'up-1',
+    usoCfdiClave: 'G03', metodoPago: 'PPD', formaPagoClave: '99',
     moneda: 'MXN',
     tipoCambio: null,
     compradorTitularId: 'u-1',
@@ -83,7 +85,7 @@ describe('CabeceraOrdenCompra — campos por capturar', () => {
     );
     expect(screen.getAllByText('Por capturar')).toHaveLength(2);
     expect(screen.getByRole('note')).toHaveTextContent(
-      'Falta proveedor y uso principal. Captúralos para poder enviar la OC a autorización.',
+      'Falta proveedor y uso interno de la compra. Captúralos para poder enviar la OC a autorización.',
     );
   });
 
@@ -115,6 +117,30 @@ describe('CabeceraOrdenCompra — campos por capturar', () => {
       />,
     );
     expect(screen.queryByRole('button', { name: 'Editar cabecera' })).toBeNull();
+  });
+
+  it.each([EstadoOrdenCompra.Borrador, EstadoOrdenCompra.Rechazada])(
+    'avisa datos fiscales faltantes en el estado editable %s', (estado) => {
+      render(<CabeceraOrdenCompra oc={makeOc({ estado, camposPorCapturar: ['usoCfdiClave', 'metodoPago', 'formaPagoClave'], usoCfdiClave: null, metodoPago: null, formaPagoClave: null })} resolverNombre={resolver} />);
+      expect(screen.getByRole('note')).toHaveTextContent('Falta uso de CFDI, método de pago y forma de pago.');
+    },
+  );
+
+  it.each([EstadoOrdenCompra.Autorizada, EstadoOrdenCompra.Cerrada])(
+    'no avisa datos fiscales faltantes en el estado %s aunque la respuesta los enumere', (estado) => {
+      render(<CabeceraOrdenCompra oc={makeOc({ estado, camposPorCapturar: ['usoCfdiClave', 'metodoPago', 'formaPagoClave'], usoCfdiClave: null, metodoPago: null, formaPagoClave: null })} resolverNombre={resolver} />);
+      expect(screen.queryByRole('note')).toBeNull();
+    },
+  );
+
+  it('moneda y tipo de cambio se consultan sin edición en el bloque de factura', () => {
+    render(<CabeceraOrdenCompra oc={makeOc({ moneda: 'USD', tipoCambio: 18.5 })} resolverNombre={resolver} />);
+    fireEvent.click(screen.getByRole('button', { name: 'Editar cabecera' }));
+    expect(screen.queryByRole('textbox', { name: 'Moneda' })).toBeNull();
+    expect(screen.queryByRole('spinbutton', { name: 'Tipo de cambio' })).toBeNull();
+    const bloques = screen.getAllByRole('region', { name: 'Datos para la factura del proveedor' });
+    expect(bloques.some(b => within(b).queryByText('USD @ 18.5') != null)).toBe(true);
+    expect(screen.getAllByText('No se imprime en la orden de compra')).toHaveLength(1);
   });
 
   it('guardar manda solo los campos elegidos con Idempotency-Key', async () => {

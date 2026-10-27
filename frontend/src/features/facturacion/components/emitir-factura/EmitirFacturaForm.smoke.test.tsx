@@ -845,7 +845,7 @@ describe('<EmitirFacturaForm> — venta directa (F6.1)', () => {
     });
     expect(comportamiento).toHaveValue('Venta de activo fijo');
     expect(comportamiento).toHaveAttribute('readonly');
-    expect(screen.getAllByText(/autorización del Contador General/i).length).toBeGreaterThan(0);
+    expect(screen.getAllByText(/autorización del Director de Administración y Finanzas/i).length).toBeGreaterThan(0);
     expect(screen.getByText(/\(obligatoria\)/i)).toBeInTheDocument();
     expect(screen.getByTestId('leyenda-serie-venta-directa')).toHaveTextContent(
       'Se timbrará con la serie de Venta directa de la sucursal',
@@ -1129,9 +1129,9 @@ describe('<EmitirFacturaForm> — observaciones con anticipos aplicados (86e3tfd
     fireEvent.click(screen.getAllByRole('button', { name: 'Elegir FANT-15' })[1]);
   }
 
-  function renderForm() {
+  function renderForm(datos = prefill) {
     setPermisos([PermisosCanonicos.FacturacionFacturasEmitir]);
-    render(<EmitirFacturaForm prefill={prefill} onSuccess={() => {}} onCancel={() => {}} />, {
+    render(<EmitirFacturaForm prefill={datos} onSuccess={() => {}} onCancel={() => {}} />, {
       wrapper: createQueryWrapper(),
     });
   }
@@ -1177,11 +1177,41 @@ describe('<EmitirFacturaForm> — observaciones con anticipos aplicados (86e3tfd
     expect(emitidas[0]).toEqual(expect.objectContaining({ observaciones: 'Nota del cajero' }));
   });
 
-  it('sin anticipos ni nota envía observaciones null', async () => {
+  it('suma la nota de anticipos antes del comentario del pedido', async () => {
+    const emitidas = mockEmision();
+    renderForm({ ...prefill, observaciones: 'Comentario DEMO' });
+    await elegirDosAnticipos();
+    expect(screen.getByLabelText('Observaciones')).toHaveValue(`${NOTA}\nComentario DEMO`);
+    fireEvent.click(screen.getByRole('button', { name: /Emitir y timbrar/i }));
+    await waitFor(() => expect(emitidas).toHaveLength(1));
+    expect(emitidas[0].observaciones).toBe(`${NOTA}\nComentario DEMO`);
+  });
+
+  it('respeta el borrado en datos para el cliente al cambiar anticipos', async () => {
+    const emitidas = mockEmision();
+    renderForm({ ...prefill, observaciones: 'Comentario DEMO', referenciaCliente: 'PEDIDO DEMO' });
+    await screen.findByRole('button', { name: /Emitir y timbrar/i });
+    fireEvent.change(screen.getByLabelText('Observaciones'), { target: { value: '' } });
+    fireEvent.change(screen.getByLabelText('Referencia del cliente'), { target: { value: '' } });
+    await elegirDosAnticipos();
+    expect(screen.getByLabelText('Observaciones')).toHaveValue('');
+    fireEvent.click(screen.getByRole('button', { name: /Emitir y timbrar/i }));
+    await waitFor(() => expect(emitidas).toHaveLength(1));
+    expect(emitidas[0]).toEqual(expect.objectContaining({ observaciones: '', referenciaCliente: '' }));
+  });
+
+  it('CONTADO es un ejemplo y mantiene vacío el valor de condiciones', async () => {
+    renderForm();
+    await screen.findByRole('button', { name: /Emitir y timbrar/i });
+    expect(screen.getByLabelText('Condiciones de pago')).toHaveValue('');
+    expect(screen.getByLabelText('Condiciones de pago')).toHaveAttribute('placeholder', 'CONTADO');
+  });
+
+  it('sin anticipos ni nota envía observaciones vacías', async () => {
     const emitidas = mockEmision();
     renderForm();
     fireEvent.click(await screen.findByRole('button', { name: /Emitir y timbrar/i }));
     await waitFor(() => expect(emitidas).toHaveLength(1));
-    expect(emitidas[0]).toEqual(expect.objectContaining({ observaciones: null }));
+    expect(emitidas[0]).toEqual(expect.objectContaining({ observaciones: '' }));
   });
 });

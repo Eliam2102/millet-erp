@@ -40,6 +40,9 @@ public sealed class LineaComprobacionGastos : BaseEntity, IPerteneceAEmpresa, IA
     /// <summary>Concepto contable libre — categoría del gasto (papelería, mensajería, etc.).</summary>
     public string? Concepto { get; private set; }
 
+    /// <summary>Clave de <c>ClasificacionNoDeducible</c> (P8.6). Obligatoria en tickets; null = deducible.</summary>
+    public string? ClasificacionNoDeducible { get; private set; }
+
     private LineaComprobacionGastos() { }
 
     internal LineaComprobacionGastos(
@@ -57,7 +60,8 @@ public sealed class LineaComprobacionGastos : BaseEntity, IPerteneceAEmpresa, IA
         decimal retenciones,
         decimal total,
         string moneda,
-        string? concepto) : base(id)
+        string? concepto,
+        string? clasificacionNoDeducible = null) : base(id)
     {
         if (facturaProveedorId == Guid.Empty)
             throw new BusinessRuleException("COMP_LINEA_FACTURA_VACIA",
@@ -83,5 +87,7 @@ public sealed class LineaComprobacionGastos : BaseEntity, IPerteneceAEmpresa, IA
         Total = total;
         Moneda = moneda.ToUpperInvariant();
         Concepto = concepto;
+        ClasificacionNoDeducible = string.IsNullOrWhiteSpace(clasificacionNoDeducible)
+            ? null : clasificacionNoDeducible.Trim().ToUpperInvariant();
     }
 }

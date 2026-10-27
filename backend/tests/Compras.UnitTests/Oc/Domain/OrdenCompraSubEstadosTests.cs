@@ -31,7 +31,7 @@ public class OrdenCompraSubEstadosTests
             encargadoComprasId: Guid.CreateVersion7(),
             fechaDocumento: DateOnly.FromDateTime(DateTimeOffset.UtcNow.UtcDateTime),
             sinRequisicionPrevia: true,
-            motivoSinRequisicion: "Test");
+            motivoSinRequisicion: "Test", usoCfdiClave: "G03", metodoPago: "PPD", formaPagoClave: "99");
 
         oc.AgregarLineaManual(
             lineaId: Guid.CreateVersion7(),
@@ -125,7 +125,7 @@ public class OrdenCompraSubEstadosTests
             encargadoComprasId: Guid.CreateVersion7(),
             fechaDocumento: DateOnly.FromDateTime(DateTimeOffset.UtcNow.UtcDateTime),
             sinRequisicionPrevia: true,
-            motivoSinRequisicion: "Test");
+            motivoSinRequisicion: "Test", usoCfdiClave: "G03", metodoPago: "PPD", formaPagoClave: "99");
         oc.AgregarLineaManual(
             lineaId: Guid.CreateVersion7(),
             articuloId: Guid.CreateVersion7(),
@@ -266,7 +266,7 @@ public class OrdenCompraSubEstadosTests
             encargadoComprasId: Guid.CreateVersion7(),
             fechaDocumento: DateOnly.FromDateTime(DateTimeOffset.UtcNow.UtcDateTime),
             sinRequisicionPrevia: true,
-            motivoSinRequisicion: "Test");
+            motivoSinRequisicion: "Test", usoCfdiClave: "G03", metodoPago: "PPD", formaPagoClave: "99");
 
         foreach (var (cantidad, esServicio) in lineasSpec)
         {
@@ -410,7 +410,7 @@ public class OrdenCompraSubEstadosTests
             encargadoComprasId: Guid.CreateVersion7(),
             fechaDocumento: DateOnly.FromDateTime(DateTimeOffset.UtcNow.UtcDateTime),
             sinRequisicionPrevia: true,
-            motivoSinRequisicion: "Test");
+            motivoSinRequisicion: "Test", usoCfdiClave: "G03", metodoPago: "PPD", formaPagoClave: "99");
 
         var ex = Assert.Throws<BusinessRuleException>(() =>
             oc.CerrarManual(DateTimeOffset.UtcNow));
@@ -435,7 +435,7 @@ public class OrdenCompraSubEstadosTests
             usoPrincipalId: Guid.CreateVersion7(),
             compradorTitularId: Guid.CreateVersion7(),
             encargadoComprasId: Guid.CreateVersion7(),
-            fechaDocumento: DateOnly.FromDateTime(DateTimeOffset.UtcNow.UtcDateTime));
+            fechaDocumento: DateOnly.FromDateTime(DateTimeOffset.UtcNow.UtcDateTime), usoCfdiClave: "G03", metodoPago: "PPD", formaPagoClave: "99");
 
         ocVacia.RecalcularSubEstados();
 
