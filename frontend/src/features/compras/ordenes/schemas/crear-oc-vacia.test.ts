@@ -111,3 +111,13 @@ describe('CrearOrdenCompraVaciaSchema', () => {
     expect(result.success).toBe(false);
   });
 });
+
+
+it('rechaza método de pago ajeno a PUE y PPD', () => {
+  expect(CrearOrdenCompraVaciaSchema.safeParse({ ...VALIDO, metodoPago: 'XXX' }).success).toBe(false);
+});
+
+it('permite guardar borrador sin datos fiscales y acepta los datos completos', () => {
+  expect(CrearOrdenCompraVaciaSchema.safeParse({ ...VALIDO, usoCfdiClave: null, metodoPago: null, formaPagoClave: null }).success).toBe(true);
+  expect(CrearOrdenCompraVaciaSchema.safeParse({ ...VALIDO, usoCfdiClave: 'G03', metodoPago: 'PPD', formaPagoClave: '99' }).success).toBe(true);
+});

@@ -132,6 +132,7 @@ public sealed class DuplicarOrdenCompraHandler
             fechaEntregaEsperada: origen.FechaEntregaEsperada,
             ocOrigenId: origen.Id);
 
+        nueva.ActualizarDatosFactura(origen.UsoCfdiClave, origen.MetodoPago, origen.FormaPagoClave);
         nueva.HeredarObra(origen.Obra);
 
         // Heredar info logística e importación si están en el origen.

@@ -33,6 +33,9 @@ type TipoDocumento = { id: string; clave: string };
 type OcRevision = Pick<
   OrdenCompraDetalleResponse,
   | 'camposPorCapturar'
+  | 'usoCfdiClave'
+  | 'metodoPago'
+  | 'formaPagoClave'
   | 'lineas'
   | 'adjuntos'
   | 'sinRequisicionPrevia'
@@ -45,7 +48,10 @@ type OcRevision = Pick<
 const NOMBRE_CAMPO_CABECERA = {
   proveedor: 'proveedor',
   condicionesPago: 'condiciones de pago',
-  usoPrincipal: 'uso principal',
+  usoPrincipal: 'uso interno de la compra',
+  usoCfdiClave: 'uso de CFDI',
+  metodoPago: 'método de pago',
+  formaPagoClave: 'forma de pago',
 } as const;
 
 /**
@@ -64,10 +70,13 @@ export function calcularRevisionPrevia(
 ): RevisionPreviaOc {
   const requisitos: RequisitoRevisionOc[] = [];
 
-  const campos = oc.camposPorCapturar ?? [];
+  const campos = [...(oc.camposPorCapturar ?? [])];
+  for (const campo of ['usoCfdiClave', 'metodoPago', 'formaPagoClave'] as const) {
+    if (!oc[campo]?.trim() && !campos.includes(campo)) campos.push(campo);
+  }
   requisitos.push({
     id: 'cabecera',
-    etiqueta: 'Proveedor, condiciones y uso principal',
+    etiqueta: 'Cabecera y datos para la factura del proveedor',
     ok: campos.length === 0,
     ...(campos.length > 0 && {
       detalle: `Falta: ${campos.map((c) => NOMBRE_CAMPO_CABECERA[c]).join(', ')}.`,

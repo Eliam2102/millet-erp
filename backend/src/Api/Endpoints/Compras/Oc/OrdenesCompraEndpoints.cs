@@ -272,6 +272,9 @@ public static class OrdenesCompraEndpoints
         // --- F6-PR1: descargar PDF de la OC ---
         group.MapGet("/{id:guid}/pdf", async (
             Guid id,
+            bool? vistaPrevia,
+            HttpResponse response,
+            IMediator mediator,
             ComprasDbContext db,
             Millet.Compras.Domain.Ports.Blob.IAlmacenarBlobPort blobPort,
             ICurrentUserContext scopeUser,
@@ -288,6 +291,21 @@ public static class OrdenesCompraEndpoints
                     $"La OC '{id}' aún no tiene PDF generado. Se genera al autorizar N2.");
 
             var stream = await blobPort.ObtenerStreamAsync(pdf.BlobUrl, cancellationToken);
+            try
+            {
+                if (vistaPrevia != true)
+                {
+                    var numero = await mediator.Send(
+                        new Millet.Compras.Application.Oc.RegistrarImpresion.RegistrarImpresionOcCommand(id, pdf.Id), cancellationToken);
+                    response.Headers["X-Oc-Impresion"] = numero.ToString(System.Globalization.CultureInfo.InvariantCulture);
+                }
+                response.Headers.CacheControl = "no-store";
+            }
+            catch
+            {
+                await stream.DisposeAsync();
+                throw;
+            }
             return Results.File(
                 fileStream: stream,
                 contentType: pdf.ContentType,
@@ -295,12 +313,11 @@ public static class OrdenesCompraEndpoints
         })
         .RequireAuthorization(PermissionPolicyProvider.Prefix + PermisosCanonicos.ComprasOrdenesLeer)
         .WithName("ObtenerOrdenCompraPdf")
-        .WithSummary("Descargar PDF de OC autorizada (F6-PR1)")
+        .WithSummary("Consultar o descargar PDF de orden de compra")
         .WithDescription(
-            "Devuelve el PDF generado al autorizar N2. En F6-PR1 el PDF " +
-            "es un placeholder de texto plano (LocalPdfOrdenCompraStub); " +
-            "F6-PR3 lo reemplaza por QuestPDF con layout institucional. " +
-            "404 si la OC no ha sido autorizada todavía.")
+            "Devuelve el PDF guardado. Cada descarga registra una impresión y devuelve " +
+            "X-Oc-Impresion: 1 es original; 2 y posteriores son copias. " +
+            "Con vistaPrevia=true no registra impresión. 404 si aún no existe PDF.")
         .Produces(StatusCodes.Status200OK)
         .ProducesProblem(StatusCodes.Status401Unauthorized)
         .ProducesProblem(StatusCodes.Status403Forbidden)
@@ -338,7 +355,10 @@ public static class OrdenesCompraEndpoints
                     LimpiarObservaciones: body.LimpiarObservaciones ?? false,
                     LimpiarFechaEntregaEsperada: body.LimpiarFechaEntregaEsperada ?? false,
                     LimpiarDescuentoGlobal: body.LimpiarDescuentoGlobal ?? false,
-                    LimpiarTipoCambio: body.LimpiarTipoCambio ?? false),
+                    LimpiarTipoCambio: body.LimpiarTipoCambio ?? false,
+                    UsoCfdiClave: body.UsoCfdiClave,
+                    MetodoPago: body.MetodoPago,
+                    FormaPagoClave: body.FormaPagoClave),
                 cancellationToken);
             return Results.NoContent();
         })
@@ -1889,7 +1909,10 @@ public static class OrdenesCompraEndpoints
         bool? LimpiarObservaciones,
         bool? LimpiarFechaEntregaEsperada,
         bool? LimpiarDescuentoGlobal,
-        bool? LimpiarTipoCambio);
+        bool? LimpiarTipoCambio,
+        string? UsoCfdiClave = null,
+        string? MetodoPago = null,
+        string? FormaPagoClave = null);
 
     /// <summary>Body del POST lineas (F2-PR2).</summary>
     public sealed record AgregarLineaManualOcRequest(

@@ -21,7 +21,7 @@ public class OrdenCompraBorradorMinimoTests
         usoPrincipalId: OrdenCompraTbdSentinels.UsoPrincipal,
         compradorTitularId: Guid.CreateVersion7(),
         encargadoComprasId: Guid.CreateVersion7(),
-        fechaDocumento: DateOnly.FromDateTime(DateTimeOffset.UtcNow.UtcDateTime));
+        fechaDocumento: DateOnly.FromDateTime(DateTimeOffset.UtcNow.UtcDateTime), usoCfdiClave: "G03", metodoPago: "PPD", formaPagoClave: "99");
 
     [Fact]
     public void Constructor_ConSentinelsTbd_OcEsBorradorMinimo()
@@ -111,7 +111,7 @@ public class OrdenCompraBorradorMinimoTests
             encargadoComprasId: Guid.CreateVersion7(),
             fechaDocumento: DateOnly.FromDateTime(DateTimeOffset.UtcNow.UtcDateTime),
             sinRequisicionPrevia: true,
-            motivoSinRequisicion: "manual");
+            motivoSinRequisicion: "manual", usoCfdiClave: "G03", metodoPago: "PPD", formaPagoClave: "99");
         oc.AgregarLineaManual(
             lineaId: Guid.CreateVersion7(),
             articuloId: Guid.CreateVersion7(),
