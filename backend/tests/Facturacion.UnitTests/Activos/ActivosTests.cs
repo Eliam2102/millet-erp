@@ -32,7 +32,7 @@ public sealed class ActivosTests
     [Fact]
     public void Crear_calcula_valor_neto_y_utilidad()
     {
-        var a = AutorizacionVentaActivo.Crear(Guid.NewGuid(), "AF-1", "Maquinaria", 100000m, 70000m, false, 50000m, Guid.NewGuid(), Ahora);
+        var a = AutorizacionVentaActivo.Crear(Guid.NewGuid(), "AF-1", "Maquinaria", 100000m, 70000m, false, 50000m, Guid.NewGuid(), Ahora, Millet.Facturacion.Domain.Activos.MotivoDisposicionActivo.Venta, "Área DEMO", "Soporte DEMO");
 
         a.Estado.Should().Be(EstadoAutorizacionActivo.Autorizada);
         a.ValorNetoEnLibros.Should().Be(30000m);
@@ -42,7 +42,7 @@ public sealed class ActivosTests
     [Fact]
     public void MarcarUsada_no_es_reutilizable()
     {
-        var a = AutorizacionVentaActivo.Crear(Guid.NewGuid(), "AF-1", "Maq", 100000m, 70000m, false, 50000m, Guid.NewGuid(), Ahora);
+        var a = AutorizacionVentaActivo.Crear(Guid.NewGuid(), "AF-1", "Maq", 100000m, 70000m, false, 50000m, Guid.NewGuid(), Ahora, Millet.Facturacion.Domain.Activos.MotivoDisposicionActivo.Venta, "Área DEMO", "Soporte DEMO");
         a.MarcarUsada(Guid.NewGuid());
 
         a.Estado.Should().Be(EstadoAutorizacionActivo.Usada);
@@ -62,7 +62,7 @@ public sealed class ActivosTests
         using var db = NewDb(empresaId);
         var activo = new ActivoFijoLectura("AF-1", "Torno CNC", 40000m, 60000m, false);
 
-        var resp = await AutorizarHandler(db, empresaId, activo).Handle(new AutorizarVentaActivoCommand("AF-1", 50000m), CancellationToken.None);
+        var resp = await AutorizarHandler(db, empresaId, activo).Handle(new AutorizarVentaActivoCommand("AF-1", 50000m, MotivoDisposicionActivo.Venta, "Transportes", "Factura"), CancellationToken.None);
 
         resp.ValorNetoEnLibros.Should().Be(40000m);
         resp.UtilidadOPerdida.Should().Be(10000m);
@@ -75,7 +75,7 @@ public sealed class ActivosTests
         var empresaId = Guid.NewGuid();
         using var db = NewDb(empresaId);
 
-        var act = () => AutorizarHandler(db, empresaId, activo: null).Handle(new AutorizarVentaActivoCommand("AF-X", 50000m), CancellationToken.None);
+        var act = () => AutorizarHandler(db, empresaId, activo: null).Handle(new AutorizarVentaActivoCommand("AF-X", 50000m, MotivoDisposicionActivo.Venta, "Transportes", "Factura"), CancellationToken.None);
 
         await act.Should().ThrowAsync<EntityNotFoundException>().Where(e => e.Code == "ACTIVO_NO_EXISTE");
     }
@@ -98,7 +98,7 @@ public sealed class ActivosTests
 
     private static async Task<Guid> SembrarAutorizacionAsync(FacturacionDbContext db, Guid empresaId)
     {
-        var a = AutorizacionVentaActivo.Crear(empresaId, "AF-1", "Torno CNC", 100000m, 60000m, false, 50000m, Guid.NewGuid(), Ahora);
+        var a = AutorizacionVentaActivo.Crear(empresaId, "AF-1", "Torno CNC", 100000m, 60000m, false, 50000m, Guid.NewGuid(), Ahora, Millet.Facturacion.Domain.Activos.MotivoDisposicionActivo.Venta, "Área DEMO", "Soporte DEMO");
         db.AutorizacionesVentaActivo.Add(a);
         await db.SaveChangesAsync();
         return a.Id;
@@ -142,12 +142,11 @@ public sealed class ActivosTests
         await act.Should().ThrowAsync<BusinessRuleException>().Where(e => e.Code == "AUTORIZACION_NO_DISPONIBLE");
     }
     [Theory]
-    [InlineData(31, 50000)]
     [InlineData(0, 60000)]
-    public async Task CA8_Emision_no_invoca_timbrado_con_autorizacion_vencida_o_precio_distinto(int dias, decimal precio)
+    public async Task CA8_Emision_no_invoca_timbrado_con_precio_distinto(int dias, decimal precio)
     {
         var empresaId = Guid.NewGuid(); using var db = NewDb(empresaId);
-        var a = AutorizacionVentaActivo.Crear(empresaId, "AF-1", "Torno", 100000, 60000, false, precio, Guid.NewGuid(), Ahora.AddDays(-dias));
+        var a = AutorizacionVentaActivo.Crear(empresaId, "AF-1", "Torno", 100000, 60000, false, precio, Guid.NewGuid(), Ahora.AddDays(-dias), Millet.Facturacion.Domain.Activos.MotivoDisposicionActivo.Venta, "Área DEMO", "Soporte DEMO");
         db.AutorizacionesVentaActivo.Add(a); await db.SaveChangesAsync();
         var act = () => EmitirHandler(db, empresaId).Handle(Command(a.Id), CancellationToken.None);
         await act.Should().ThrowAsync<BusinessRuleException>().Where(e => e.Code == "AF_NUEVA_AUTORIZACION_REQUERIDA");

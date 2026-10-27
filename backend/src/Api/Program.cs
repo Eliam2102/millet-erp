@@ -1743,7 +1743,7 @@ Millet.Api.Endpoints.Facturacion.ReppEndpoints.MapFacturacionReppEndpoints(app);
 // === Facturación — Carta Porte 3.1: emisión + siguiente tramo + catálogos (F8) ===
 Millet.Api.Endpoints.Facturacion.CartaPorteEndpoints.MapFacturacionCartaPorteEndpoints(app);
 
-// === Facturación — Activos fijos: autorización Contador General (F9) ===
+// === Facturación — Activos fijos: autorización Director de Administración y Finanzas (F9) ===
 Millet.Api.Endpoints.Facturacion.ActivosEndpoints.MapFacturacionActivosEndpoints(app);
 
 // === Facturación — Reportes: liquidación caja + anticipos + CFDIs por obra (F11) ===

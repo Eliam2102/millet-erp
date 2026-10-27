@@ -1,9 +1,12 @@
 import { Button } from '@/components/ui/button';
-import { PermisosCanonicos } from '@/lib/auth/permission-codes';
-import { useHasPermission } from '@/lib/auth/useHasPermission';
 import { useNavigate } from '@tanstack/react-router';
-import { useComprobantesCobrables, useSesionActual } from '../api/useCajaSesiones';
+import { useRutaCobroCaja } from '../lib/cobro-en-caja';
 
+/**
+ * Botón «Cobrar en caja» del comprobante: solo aparece con permiso de operar
+ * caja, sesión Abierta sin día anterior pendiente y comprobante cobrable con
+ * importe (condición compartida en <c>useRutaCobroCaja</c>).
+ */
 export function CobrarEnCajaLink({
   comprobanteId,
   folio,
@@ -11,15 +14,36 @@ export function CobrarEnCajaLink({
   comprobanteId: string;
   folio: string;
 }) {
-  const permiso = useHasPermission(PermisosCanonicos.FacturacionCajaOperar);
-  const sesion = useSesionActual();
-  const abierta =
-    permiso && sesion.data?.sesion?.estado === 'Abierta' && !sesion.data?.diaAnteriorPendiente;
-  const cobrables = useComprobantesCobrables(folio, abierta);
-  const comprobante = cobrables.data?.find((c) => c.comprobanteId === comprobanteId);
-  if (!abierta || !comprobante || comprobante.total <= 0) return null;
-  const search = new URLSearchParams({ cobrar: comprobanteId, folio });
-  return <BotonCobrarEnCaja href={`/facturacion/caja?${search.toString()}`} />;
+  const href = useRutaCobroCaja(comprobanteId, folio);
+  if (href == null) return null;
+  return <BotonCobrarEnCaja href={href} />;
+}
+
+/**
+ * Aviso tras emitir una factura sin salir de la pantalla (86e3tfdwu, detalle
+ * del pedido): ofrece cobrarla en caja. No se muestra si el botón no aplica.
+ */
+export function AvisoCobrarEnCaja({
+  comprobanteId,
+  folio,
+}: {
+  comprobanteId: string;
+  folio: string;
+}) {
+  const href = useRutaCobroCaja(comprobanteId, folio);
+  if (href == null) return null;
+  return (
+    <div
+      role="status"
+      className="flex flex-wrap items-center justify-between gap-3 rounded-md bg-success-bg px-3 py-2.5 text-sm text-success-fg"
+    >
+      <p>
+        Factura <span className="font-mono">{folio}</span> timbrada. Puedes cobrarla ahora en tu
+        caja.
+      </p>
+      <BotonCobrarEnCaja href={href} />
+    </div>
+  );
 }
 
 /**

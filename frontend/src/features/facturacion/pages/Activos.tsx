@@ -9,6 +9,8 @@ import {
 import { ListadoModulo } from '@/components/erp/data/ListadoModulo';
 import { PageHeader } from '@/components/erp/PageHeader';
 import { Button } from '@/components/ui/button';
+import { motivosDisposicion } from '@/features/activos-fijos/api/motivos-disposicion';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import {
@@ -39,7 +41,7 @@ import { usePaginacionLocal } from '../lib/use-paginacion-local';
 const FROM = '/_app/facturacion/activos/' as const;
 
 /**
- * <c>Autorizaciones de venta de activo fijo</c> (FE-F9). El Contador General
+ * <c>Autorizaciones de venta de activo fijo</c> (FE-F9). El Director de Administración y Finanzas
  * autoriza la venta (calcula valor neto + utilidad/pérdida); el
  * <c>autorizacionId</c> resultante es obligatorio al emitir la factura de
  * venta de activo (la emisión lo exige; el backend rechaza sin él).
@@ -67,8 +69,9 @@ export function Activos() {
         titulo={<>Autorizaciones de venta de activos</>}
         descripcion={
           <>
-            El Contador General autoriza la venta antes de timbrar. La emisión de venta de activo
-            fijo exige una autorización vigente.
+            El Director de Administración y Finanzas autoriza la venta antes de timbrar. La emisión
+            de venta de activo fijo exige una autorización al mismo precio neto MXN, sin
+            vencimiento.
           </>
         }
         acciones={
@@ -83,7 +86,16 @@ export function Activos() {
         }
       />
 
-      {formAbierto && puedeAutorizar && <AutorizarForm onDone={() => setFormAbierto(false)} />}
+      {puedeAutorizar && (
+        <Dialog open={formAbierto} onOpenChange={setFormAbierto}>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Autorizar venta de activo</DialogTitle>
+            </DialogHeader>
+            <AutorizarForm onDone={() => setFormAbierto(false)} />
+          </DialogContent>
+        </Dialog>
+      )}
 
       <ListadoModulo
         tabs={
@@ -166,6 +178,9 @@ export function Activos() {
                   <TableHead className="px-3 py-2 text-right tabular-nums">
                     Utilidad/Pérdida
                   </TableHead>
+                  <TableHead className="px-3 py-2 text-left">Motivo</TableHead>
+                  <TableHead className="px-3 py-2 text-left">Solicitado por</TableHead>
+                  <TableHead className="px-3 py-2 text-left">Soporte</TableHead>
                   <TableHead className="px-3 py-2 text-left">Estado</TableHead>
                   <TableHead className="px-3 py-2 text-left">ID autorización</TableHead>
                 </TableRow>
@@ -190,6 +205,13 @@ export function Activos() {
                       {a.utilidadOPerdida.toFixed(2)}
                     </TableCell>
                     <TableCell className="px-3 py-2">
+                      {motivosDisposicion.find((m) => m.valor === a.motivo)?.etiqueta}
+                    </TableCell>
+                    <TableCell className="px-3 py-2">{a.solicitadoPor}</TableCell>
+                    <TableCell className="px-3 py-2">
+                      {a.evidencia || 'Sin soporte (registro anterior)'}
+                    </TableCell>
+                    <TableCell className="px-3 py-2">
                       <EstadoFacturacionBadge entidad="activo" estado={a.estado} />
                     </TableCell>
                     <TableCell className="px-3 py-2 font-mono text-xs text-ink-muted">
@@ -209,17 +231,36 @@ export function Activos() {
 function AutorizarForm({ onDone }: { onDone: () => void }) {
   const [activoRef, setActivoRef] = useState('');
   const [precioVenta, setPrecioVenta] = useState('');
+  const [motivo, setMotivo] = useState('');
+  const [solicitadoPor, setSolicitadoPor] = useState('');
+  const [evidencia, setEvidencia] = useState('');
+  const completo =
+    activoRef.trim() !== '' &&
+    Number(precioVenta) > 0 &&
+    motivo !== '' &&
+    solicitadoPor.trim() !== '' &&
+    solicitadoPor.length <= 200 &&
+    evidencia.trim() !== '';
   const idempotencyKey = useFormIdempotencyKey();
   const autorizar = useAutorizarVentaActivo();
 
   function enviar() {
     const precio = Number(precioVenta);
-    if (activoRef.trim() === '' || !(precio > 0)) {
-      toast.error('Captura la referencia del activo y un precio de venta > 0.');
+    if (!completo) {
+      toast.error('Capture activo, precio, motivo, área solicitante y referencia del soporte.');
       return;
     }
     autorizar.mutate(
-      { command: { activoRef: activoRef.trim(), precioVenta: precio }, idempotencyKey },
+      {
+        command: {
+          activoRef: activoRef.trim(),
+          precioVenta: precio,
+          motivo: Number(motivo),
+          solicitadoPor: solicitadoPor.trim(),
+          evidencia: evidencia.trim(),
+        },
+        idempotencyKey,
+      },
       {
         onSuccess: (res) => {
           toast.success(
@@ -238,19 +279,65 @@ function AutorizarForm({ onDone }: { onDone: () => void }) {
 
   return (
     <div className="grid grid-cols-1 gap-2 rounded-md border border-dashed p-3 sm:grid-cols-4 border-line">
-      <div className="sm:col-span-4 text-sm font-medium">Autorizar venta de activo</div>
-      <div className="sm:col-span-2">
-        <Label className="text-xs">Referencia del activo *</Label>
+      <p className="sm:col-span-4 text-sm text-ink-muted">
+        Autoriza el Director de Administración y Finanzas, incluido el valor de venta. La
+        autorización no vence.
+      </p>
+      <label className="sm:col-span-4">
+        Motivo *
+        <select
+          className="block h-9 w-full rounded-md border border-line-control bg-surface-card px-3"
+          value={motivo}
+          onChange={(e) => setMotivo(e.target.value)}
+          required
+        >
+          <option value="">Seleccione motivo</option>
+          {motivosDisposicion.map((m) => (
+            <option key={m.valor} value={m.valor}>
+              {m.etiqueta}
+            </option>
+          ))}
+        </select>
+      </label>
+      <label className="sm:col-span-4">
+        Solicitado por (área usuaria) *
         <Input
+          required
+          maxLength={200}
+          value={solicitadoPor}
+          onChange={(e) => setSolicitadoPor(e.target.value)}
+        />
+      </label>
+      <label className="sm:col-span-4">
+        Referencia del soporte *
+        <Input
+          required
+          value={evidencia}
+          onChange={(e) => setEvidencia(e.target.value)}
+          placeholder="Factura de venta, reporte o dictamen de siniestro, otro"
+        />
+      </label>
+      <div className="sm:col-span-2">
+        <Label htmlFor="venta-activo-ref" className="text-xs">
+          Referencia del activo *
+        </Label>
+        <Input
+          id="venta-activo-ref"
           placeholder="AF-000123"
+          required
+          maxLength={60}
           value={activoRef}
           onChange={(e) => setActivoRef(e.target.value)}
         />
       </div>
       <div>
-        <Label className="text-xs">Precio de venta *</Label>
+        <Label htmlFor="venta-activo-precio" className="text-xs">
+          Precio de venta *
+        </Label>
         <Input
+          id="venta-activo-precio"
           type="number"
+          required
           step="0.01"
           min="0"
           value={precioVenta}
@@ -261,7 +348,12 @@ function AutorizarForm({ onDone }: { onDone: () => void }) {
         <Button variant="ghost" size="sm" onClick={onDone} disabled={autorizar.isPending}>
           Cancelar
         </Button>
-        <Button size="sm" onClick={enviar} disabled={autorizar.isPending}>
+        <Button
+          size="sm"
+          onClick={enviar}
+          disabled={autorizar.isPending || !completo}
+          title={!completo ? 'Complete los campos obligatorios' : undefined}
+        >
           {autorizar.isPending ? 'Autorizando…' : 'Autorizar'}
         </Button>
       </div>

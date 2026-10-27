@@ -100,11 +100,11 @@ public sealed partial class LibroHttpTests
         using var captura=await e.ClienteAsync(true,permisosCe:false,permisosAf:true);
         using var autorizador=await e.ClienteAsync(true,permisosCe:false,permisosAf:true);
         var activo=await captura.GetFromJsonAsync<JsonElement>($"{Base}/activos/{id}");var version=activo.GetProperty("version").GetInt32();
-        using var sinEvidencia=await Post(captura,$"activos/{id}/operaciones",new {tipo="Baja",fecha="2027-02-01",importe=0,motivo="Siniestro",evidencia=(string?)null},version);
+        using var sinEvidencia=await Post(captura,$"activos/{id}/operaciones",new {tipo="Baja",solicitadoPor="Área DEMO",fecha="2027-02-01",importe=0,motivo="Siniestro",evidencia=(string?)null},version);
         Assert.Equal(HttpStatusCode.UnprocessableEntity,sinEvidencia.StatusCode);
         using var revaluar=await Post(captura,$"activos/{id}/operaciones",new {tipo="Revalorizacion",fecha="2027-02-01",importe=100,motivo="FIX ajuste",evidencia=(string?)null},version);
         Assert.Equal(HttpStatusCode.UnprocessableEntity,revaluar.StatusCode);
-        using var registro=await Post(captura,$"activos/{id}/operaciones",new {tipo="Baja",fecha="2027-02-01",importe=0,motivo="Siniestro",evidencia="data:application/pdf;base64,JVBERi0xLjc="},version);
+        using var registro=await Post(captura,$"activos/{id}/operaciones",new {tipo="Baja",solicitadoPor="Área DEMO",fecha="2027-02-01",importe=0,motivo="Siniestro",evidencia="data:application/pdf;base64,JVBERi0xLjc="},version);
         registro.EnsureSuccessStatusCode();var op=await registro.Content.ReadFromJsonAsync<JsonElement>();var ruta=$"operaciones/{op.GetProperty("id").GetGuid()}/autorizar";var v=op.GetProperty("version").GetInt32();
         using var misma=await Post(captura,ruta,new{},v);Assert.Equal(HttpStatusCode.UnprocessableEntity,misma.StatusCode);
         using var otra=await Post(autorizador,ruta,new{},v);otra.EnsureSuccessStatusCode();
