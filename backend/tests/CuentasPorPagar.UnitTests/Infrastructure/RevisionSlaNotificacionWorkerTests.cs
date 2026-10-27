@@ -21,17 +21,19 @@ public sealed class RevisionSlaNotificacionWorkerTests : IDisposable
     private readonly string _dbName = Guid.NewGuid().ToString();
     private readonly RelojMutable _reloj = new();
     private readonly List<SlaRevisionNotificacion> _enviadas = [];
+    private readonly NotificacionesFake _fake;
     private readonly ServiceProvider _sp;
     private readonly RevisionSlaNotificacionWorker _worker;
 
     public RevisionSlaNotificacionWorkerTests()
     {
+        _fake = new NotificacionesFake(_enviadas);
         var options = new DbContextOptionsBuilder<CuentasPorPagarDbContext>().UseInMemoryDatabase(_dbName).Options;
         var services = new ServiceCollection();
         services.AddSingleton<ICurrentEmpresaContext, BypassedEmpresaContext>();
         services.AddSingleton<IClock>(_reloj);
         services.AddSingleton<IAuditOriginContext, Millet.SharedKernel.Infrastructure.AuditOriginContext>();
-        services.AddSingleton<INotificacionService>(new NotificacionesFake(_enviadas));
+        services.AddSingleton<INotificacionService>(_fake);
         services.AddSingleton<ICalendarioHabil, Calendario>();
         services.AddScoped(sp => new CuentasPorPagarDbContext(
             options, sp.GetRequiredService<ICurrentEmpresaContext>(), new PeriodoAbiertoStub(), sp.GetRequiredService<IClock>()));
@@ -92,6 +94,25 @@ public sealed class RevisionSlaNotificacionWorkerTests : IDisposable
 
         await TickEnAsync("2026-10-26T15:00:00Z");
         (await ContarAvisosAsync()).Should().Be(2);
+    }
+
+    [Fact]
+    public async Task Envio_fallido_no_cuenta_como_avisado_y_el_siguiente_tick_reintenta()
+    {
+        await SembrarAsync(Danos);
+
+        _fake.Falla = true;
+        await TickEnAsync("2026-10-23T15:00:00Z");
+        _enviadas.Should().BeEmpty();
+        (await ContarAvisosAsync()).Should().Be(0);
+
+        _fake.Falla = false;
+        await TickEnAsync("2026-10-23T15:00:00Z");
+        _enviadas.Should().ContainSingle();
+        (await ContarAvisosAsync()).Should().Be(1);
+
+        await TickEnAsync("2026-10-23T15:00:00Z");
+        _enviadas.Should().ContainSingle(); // con éxito no se duplica el mismo día
     }
 
     [Theory]
@@ -170,8 +191,11 @@ public sealed class RevisionSlaNotificacionWorkerTests : IDisposable
 
     private sealed class NotificacionesFake(List<SlaRevisionNotificacion> enviadas) : INotificacionService
     {
+        public bool Falla { get; set; }
+
         public Task NotificarSlaRevisionAsync(SlaRevisionNotificacion notificacion, CancellationToken cancellationToken)
         {
+            if (Falla) throw new InvalidOperationException("Graph caído");
             enviadas.Add(notificacion);
             return Task.CompletedTask;
         }

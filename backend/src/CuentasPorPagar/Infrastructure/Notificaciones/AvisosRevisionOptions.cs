@@ -26,7 +26,10 @@ public sealed class AvisosRevisionOptions
         (n.AvisaCompras ? ContadorGeneral.Concat(Compras) : ContadorGeneral)
             .Where(c => !string.IsNullOrWhiteSpace(c))
             .Select(c => c.Trim())
-            .Where(c => MailAddress.TryCreate(c, out var m) && m.Address == c)
+            .Where(EsCorreoValido)
             .Distinct(StringComparer.OrdinalIgnoreCase)
             .ToList();
+
+    public static bool EsCorreoValido(string? c) =>
+        !string.IsNullOrWhiteSpace(c) && MailAddress.TryCreate(c.Trim(), out var m) && m.Address == c.Trim();
 }

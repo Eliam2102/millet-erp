@@ -1093,12 +1093,9 @@ builder.Services.AddScoped<Millet.Identidad.Infrastructure.TransaccionColaborado
 // Camino B "Cuenta Microsoft nueva" (plan 15, F4): el sandbox de Development
 // captura el correo solo en loopback; fuera de él el worker sigue apagado por
 // defecto hasta configurar adaptadores reales.
+// Avisos SLA de CxP por Graph: independientes del alta de colaboradores.
+builder.Services.AddGraphAvisosRevisionCxp(builder.Configuration);
 var proveedorColaboradores = builder.Configuration["Entra:Proveedor"] ?? "Simulado";
-if ((builder.Configuration[$"{Millet.CuentasPorPagar.Infrastructure.Notificaciones.AvisosRevisionOptions.SectionName}:Proveedor"] ?? "NoOp")
-        .Equals("Graph", StringComparison.OrdinalIgnoreCase)
-    && !proveedorColaboradores.Equals("Graph", StringComparison.OrdinalIgnoreCase))
-    throw new InvalidOperationException(
-        "CuentasPorPagar:AvisosRevision:Proveedor=Graph requiere Entra:Proveedor=Graph (comparten el cliente y el buzón remitente).");
 if (proveedorColaboradores.Equals("Graph", StringComparison.OrdinalIgnoreCase))
     builder.Services.AddGraphColaboradores(builder.Configuration, builder.Environment.IsDevelopment());
 else if (proveedorColaboradores.Equals("Simulado", StringComparison.OrdinalIgnoreCase))

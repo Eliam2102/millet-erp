@@ -142,8 +142,9 @@ public sealed class RevisionSlaNotificacionWorker : BackgroundService
                     cancellationToken))
                 continue;
 
-            db.AvisosSlaRevision.Add(new AvisoSlaRevision(
-                f.EmpresaId, f.Id, f.DependenciaId, f.MotivoId, nivel, hoy, dias, sla, f.FechaEntrada, ahora));
+            var aviso = new AvisoSlaRevision(
+                f.EmpresaId, f.Id, f.DependenciaId, f.MotivoId, nivel, hoy, dias, sla, f.FechaEntrada, ahora);
+            db.AvisosSlaRevision.Add(aviso);
             try
             {
                 await db.SaveChangesAsync(cancellationToken);
@@ -175,6 +176,10 @@ public sealed class RevisionSlaNotificacionWorker : BackgroundService
                 _logger.LogWarning(ex,
                     "[RevisionSlaNotificacionWorker] Notificación falló para factura {Factura} nivel {Nivel}",
                     f.Id, nivel);
+                // Un envío fallido no cuenta como avisado: se retira la marca para reintentar en el siguiente tick.
+                // La marca va primero para que dos instancias no envíen el mismo aviso (índice único).
+                db.AvisosSlaRevision.Remove(aviso);
+                await db.SaveChangesAsync(CancellationToken.None);
             }
         }
 

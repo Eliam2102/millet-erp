@@ -57,10 +57,6 @@ public static class GraphColaboradorRegistration
             services.AddSingleton<ICorreoSalientePort, CorreoSandboxLocal>();
         else
             services.AddSingleton<ICorreoSalientePort, GraphCorreoColaboradores>();
-        // Avisos SLA de facturas en revisión (CxP): sustituye al NoOp registrado antes. Con correo sandbox sigue el NoOp (log).
-        var avisos = configuration.GetSection(AvisosRevisionOptions.SectionName).Get<AvisosRevisionOptions>() ?? new();
-        if (!correoSandbox && avisos.Proveedor.Equals("Graph", StringComparison.OrdinalIgnoreCase))
-            services.AddSingleton<INotificacionService, GraphAvisoRevisionCxp>();
         return services;
     }
 }
@@ -221,8 +217,6 @@ public sealed class GraphCorreoColaboradores : ICorreoSalientePort
 
     public async Task EnviarAccesoColaboradorAsync(CorreoAccesoColaborador correo, CancellationToken ct)
     {
-        if (string.IsNullOrWhiteSpace(_sender))
-            throw new BusinessRuleException("CORREO_ACCESO_NO_CONFIGURADO", "Falta el buzón remitente.");
         var nombre = System.Net.WebUtility.HtmlEncode(correo.NombreColaborador);
         var upn = System.Net.WebUtility.HtmlEncode(correo.Upn);
         var contrasena = System.Net.WebUtility.HtmlEncode(correo.ContrasenaTemporal);
@@ -270,6 +264,34 @@ public sealed class GraphCorreoColaboradores : ICorreoSalientePort
     }
 }
 
+/// <summary>
+/// Registro de los avisos SLA de CxP por Graph. Independiente del alta de colaboradores: solo exige
+/// Auth:EntraId (TenantId, ClientId, ClientSecret, SenderEmail) y al menos un Contador General válido.
+/// Usa su propio cliente de Graph (no el singleton de colaboradores).
+/// </summary>
+public static class GraphAvisosRevisionRegistration
+{
+    public static IServiceCollection AddGraphAvisosRevisionCxp(this IServiceCollection services, IConfiguration configuration)
+    {
+        var avisos = configuration.GetSection(AvisosRevisionOptions.SectionName).Get<AvisosRevisionOptions>() ?? new();
+        if (!avisos.Proveedor.Equals("Graph", StringComparison.OrdinalIgnoreCase)) return services;
+        var auth = configuration.GetSection("Auth:EntraId").Get<EntraIdOptions>() ?? new();
+        if (string.IsNullOrWhiteSpace(auth.TenantId) || string.IsNullOrWhiteSpace(auth.ClientId) ||
+            string.IsNullOrWhiteSpace(auth.ClientSecret) || string.IsNullOrWhiteSpace(auth.SenderEmail))
+            throw new InvalidOperationException(
+                $"{AvisosRevisionOptions.SectionName}:Proveedor=Graph requiere Auth:EntraId:TenantId, ClientId, ClientSecret y SenderEmail.");
+        if (avisos.ContadorGeneral.All(c => !AvisosRevisionOptions.EsCorreoValido(c)))
+            throw new InvalidOperationException(
+                $"{AvisosRevisionOptions.SectionName}:Proveedor=Graph requiere al menos un correo válido en {AvisosRevisionOptions.SectionName}:ContadorGeneral.");
+        services.AddSingleton<INotificacionService>(sp => new GraphAvisoRevisionCxp(
+            new GraphServiceClient(
+                new ClientSecretCredential(auth.TenantId, auth.ClientId, auth.ClientSecret),
+                ["https://graph.microsoft.com/.default"]),
+            auth.SenderEmail, avisos, sp.GetRequiredService<ILogger<GraphAvisoRevisionCxp>>()));
+        return services;
+    }
+}
+
 /// <summary>Correo del aviso SLA de factura en revisión al Contador General (y Compras según el motivo).</summary>
 public sealed class GraphAvisoRevisionCxp : INotificacionService
 {
@@ -279,19 +301,16 @@ public sealed class GraphAvisoRevisionCxp : INotificacionService
     private readonly ILogger<GraphAvisoRevisionCxp> _logger;
 
     public GraphAvisoRevisionCxp(
-        GraphServiceClient graph, IOptions<EntraIdOptions> entra,
-        IOptions<AvisosRevisionOptions> avisos, ILogger<GraphAvisoRevisionCxp> logger)
+        GraphServiceClient graph, string sender, AvisosRevisionOptions avisos, ILogger<GraphAvisoRevisionCxp> logger)
     {
         _graph = graph;
-        _sender = entra.Value.SenderEmail;
-        _avisos = avisos.Value;
+        _sender = sender;
+        _avisos = avisos;
         _logger = logger;
     }
 
     public async Task NotificarSlaRevisionAsync(SlaRevisionNotificacion notificacion, CancellationToken cancellationToken)
     {
-        if (string.IsNullOrWhiteSpace(_sender))
-            throw new BusinessRuleException("CORREO_ACCESO_NO_CONFIGURADO", "Falta el buzón remitente.");
         var para = _avisos.Destinatarios(notificacion);
         if (para.Count == 0)
         {
