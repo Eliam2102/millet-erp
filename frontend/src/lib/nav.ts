@@ -1115,6 +1115,20 @@ const activosFijos: NavModulo = {
           permission: PermisosCanonicos.ActivosFijosConciliacionVer,
         },
         {
+          to: '/activos-fijos/depreciacion-fiscal',
+          label: 'Depreciación fiscal',
+          description: 'Deducción e INPC sin póliza',
+          icon: FileText,
+          permission: PermisosCanonicos.ActivosFijosActivosVer,
+        },
+        {
+          to: '/activos-fijos/inpc',
+          label: 'INPC mensual',
+          description: 'Captura y carga de índices',
+          icon: FileText,
+          permission: PermisosCanonicos.ActivosFijosClasesAdministrar,
+        },
+        {
           label: 'Libro de activos',
           description: 'Libro de activos del libro de activos.',
           to: '/activos-fijos/libro',

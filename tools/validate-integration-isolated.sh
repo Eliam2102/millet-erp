@@ -101,7 +101,7 @@ cleanup() {
   fi
   if [[ "$shared_db" == true ]]; then
     local base_ce
-    for base_ce in $(docker exec "$pg_container" psql -U "$pg_user" -d postgres -At -c "SELECT datname FROM pg_database WHERE datname = 'ce_tpl_$pg_db' OR datname ~ '^ce_integration_'" 2>/dev/null); do
+    for base_ce in $(docker exec "$pg_container" psql -U "$pg_user" -d postgres -At -c "SELECT datname FROM pg_database WHERE datname = 'ce_tpl_$pg_db' OR starts_with(datname, 'ce_integration_${pg_db}_')" 2>/dev/null); do
       borrar_base_gate "$base_ce"
     done
     borrar_base_gate "$pg_db"
@@ -131,6 +131,9 @@ if [[ "$shared_db" == true ]]; then
   # Bases de corridas que murieron sin limpiar (p. ej. kill -9): su proceso ya no existe.
   for stale in $(docker exec "$pg_container" psql -U "$pg_user" -d postgres -At -c "SELECT datname FROM pg_database WHERE datname ~ '^millet_gate_[0-9]+$'"); do
     kill -0 "${stale#millet_gate_}" 2>/dev/null && continue
+    for clon in $(docker exec "$pg_container" psql -U "$pg_user" -d postgres -At -c "SELECT datname FROM pg_database WHERE starts_with(datname, 'ce_integration_${stale}_')" 2>/dev/null); do
+      borrar_base_gate "$clon"
+    done
     borrar_base_gate "ce_tpl_$stale"
     borrar_base_gate "$stale"
   done

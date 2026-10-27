@@ -9,13 +9,15 @@ public sealed record CustodiaActivo(Guid ResponsableId, Guid SucursalId, string 
 public sealed record CustodiaDescripcion(string? Responsable, string? Sucursal, string? CentroCosto, string? Equipo);
 public sealed record DatosActivo(string Descripcion, Guid ClaseId, string? Marca, string? Modelo, string? NumeroSerie,
     DateOnly FechaAdquisicion, DateOnly? InicioUso, decimal ValorMonedaOriginal, string Moneda, decimal TipoCambio,
-    CustodiaActivo Custodia, TipoImportacionActivo Importacion, string? Pedimento, bool Arrendado, string? DocumentoSoporte);
+    CustodiaActivo Custodia, TipoImportacionActivo Importacion, string? Pedimento, bool Arrendado, string? DocumentoSoporte, Guid? ActivoMejoradoId = null, int? VidaUtilMeses = null);
 
 public sealed partial class Activo : BaseEntity, IPerteneceAEmpresa, IAuditable
 {
     public Guid EmpresaId { get; set; }
     public string Numero { get; private set; } = "";
     public string Descripcion { get; private set; } = "";
+    public Guid? ActivoMejoradoId { get; private set; }
+    public int? VidaUtilMeses { get; private set; }
     public Guid ClaseId { get; private set; }
     public string? Marca { get; private set; }
     public string? Modelo { get; private set; }
@@ -70,10 +72,12 @@ public sealed partial class Activo : BaseEntity, IPerteneceAEmpresa, IAuditable
             || (OrdenCompraId == null && string.IsNullOrWhiteSpace(d.DocumentoSoporte))
             || d.ValorMonedaOriginal < 0 || d.TipoCambio <= 0 || d.Moneda.Length != 3 || (d.Moneda == "MXN" && d.TipoCambio != 1)
             || !Enum.IsDefined(d.Importacion) || (d.Importacion != TipoImportacionActivo.No && string.IsNullOrWhiteSpace(d.Pedimento))
+            || d.VidaUtilMeses is < 1 or > 600 || d.ActivoMejoradoId == Guid.Empty || d.ActivoMejoradoId == Id
             || d.FechaAdquisicion == default || d.InicioUso < d.FechaAdquisicion)
             throw new BusinessRuleException("AF_DATOS_INVALIDOS", "Revise descripción, clase, sucursal, fechas, valor, moneda, tipo de cambio y pedimento.");
         if (FacturaProveedorId != null && (ValorMonedaOriginal != d.ValorMonedaOriginal || Moneda != d.Moneda || TipoCambio != d.TipoCambio))
             throw new BusinessRuleException("AF_VALOR_FACTURA", "El valor conciliado se modifica desde la factura de proveedor.");
+        ActivoMejoradoId = d.ActivoMejoradoId; VidaUtilMeses = d.VidaUtilMeses;
         Descripcion = d.Descripcion.Trim(); ClaseId = d.ClaseId; Marca = d.Marca; Modelo = d.Modelo; NumeroSerie = d.NumeroSerie;
         FechaAdquisicion = d.FechaAdquisicion; InicioUso = d.InicioUso; ValorMonedaOriginal = d.ValorMonedaOriginal;
         Moneda = d.Moneda; TipoCambio = d.TipoCambio; ValorOriginal = decimal.Round(d.ValorMonedaOriginal * d.TipoCambio, 2); ValorActual = ValorOriginal;

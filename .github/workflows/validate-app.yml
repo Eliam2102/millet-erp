@@ -410,7 +410,7 @@ jobs:
   # Archivos de trabajo que no deben entrar al repositorio (resúmenes de
   # agentes, logs, TRX, salidas locales, restos de merge). Revisa sólo lo que
   # el PR agrega, modifica o renombra (salvo ejemplos en tools/testdata/).
-  # Regla: docs/qa/gate-integracion.md §4.
+  # Regla: docs/qa/gate-integracion.md §6.
   archivos-trabajo:
     name: Archivos de trabajo
     runs-on: ubuntu-latest
@@ -431,7 +431,7 @@ jobs:
           if [ -n "$encontrados" ]; then
             echo "El PR trae archivos de trabajo que no van en el repositorio:"
             echo "$encontrados" | sed 's/^/  - /'
-            echo "Quítalos (git rm --cached <archivo>) y vuelve a subir. Ver docs/qa/gate-integracion.md §4."
+            echo "Quítalos (git rm --cached <archivo>) y vuelve a subir. Ver docs/qa/gate-integracion.md §6."
             exit 1
           fi
           echo "Sin archivos de trabajo."
