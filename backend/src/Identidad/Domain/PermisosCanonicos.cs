@@ -577,6 +577,10 @@ public static class PermisosCanonicos
     public const string ContabilidadRecurrentesLeer                     = "contabilidad.recurrentes.leer";
     public const string ContabilidadRecurrentesAdministrar              = "contabilidad.recurrentes.administrar";
     public const string ContabilidadRecurrentesAutorizar                = "contabilidad.recurrentes.autorizar";
+    // C1.4: motor de pólizas desde eventos (roles de cuenta, plantillas y bandeja de rechazos).
+    public const string ContabilidadMotorLeer                           = "contabilidad.motor.leer";
+    public const string ContabilidadRolesCuentaAdministrar              = "contabilidad.roles-cuenta.administrar";
+    public const string ContabilidadRechazosGestionar                   = "contabilidad.rechazos.gestionar";
 
     public const string ActivosFijosDepreciacionCorrer = "activos_fijos.depreciacion.correr";
     public const string ActivosFijosDepreciacionAnular = "activos_fijos.depreciacion.anular";
@@ -956,6 +960,9 @@ public static class PermisosCanonicos
         (Guid.Parse("0000000d-0006-0000-0000-000000000001"), ContabilidadRecurrentesLeer,            "Consultar plantillas de pólizas recurrentes y su calendario de aplicaciones"),
         (Guid.Parse("0000000d-0006-0000-0000-000000000002"), ContabilidadRecurrentesAdministrar,     "Preparar, editar, suspender y reanudar plantillas recurrentes y generar sus pólizas pendientes"),
         (Guid.Parse("0000000d-0006-0000-0000-000000000003"), ContabilidadRecurrentesAutorizar,       "Activar plantillas recurrentes preparadas por otro usuario"),
+        (Guid.Parse("0000000d-0007-0000-0000-000000000001"), ContabilidadMotorLeer,                  "Consultar los roles de cuenta, las plantillas contables y la bandeja de rechazos del motor de pólizas"),
+        (Guid.Parse("0000000d-0007-0000-0000-000000000002"), ContabilidadRolesCuentaAdministrar,     "Dar de alta roles de cuenta y cambiar la cuenta de un rol (queda en bitácora; solo afecta pólizas nuevas)"),
+        (Guid.Parse("0000000d-0007-0000-0000-000000000003"), ContabilidadRechazosGestionar,          "Reprocesar o descartar (con motivo) los eventos rechazados por el motor de pólizas"),
 
         // CE-01a. Namespace 0000000e, agregado al final para integrar otros PR.
         (Guid.Parse("0000000e-0006-0000-0000-000000000001"), ComercioExteriorGastosRegistrar, "Registrar gastos"),
