@@ -324,7 +324,12 @@ public sealed class RegistrarRecepcionConFacturaHandler
             var cfdi = await _cxpDocumentos.ObtenerCfdiAsync(cfdiId, cancellationToken);
             if (cfdi is null)
                 throw new BusinessRuleException("RECEPCION_CFDI_NO_ENCONTRADO", "El CFDI seleccionado no existe en el repositorio de CxP; vuelve a elegirlo o captura el folio fiscal.");
-            if (cfdi.Estado != "PorProcesar" || cfdi.Tipo != "Ingreso")
+            // 86e3tabdp: el CFDI de una recepción cancelada ya es pasivo en CxP; sigue vinculable a la recepción correcta de la misma OC
+            // mientras su factura no tenga recepción y ninguna recepción vigente lo use.
+            var libreTrasCancelacion = cfdi.Estado == "ConvertidoEnPasivo" && cfdi.OcDeFacturaSinRecepcionId == request.OrdenCompraId
+                && !await _db.Movimientos.AnyAsync(m => m.Tipo == TipoMovimiento.EntradaCompra && m.CfdiRecibidoId == cfdiId
+                    && m.Estado == EstadoMovimiento.Registrado, cancellationToken);
+            if ((cfdi.Estado != "PorProcesar" && !libreTrasCancelacion) || cfdi.Tipo != "Ingreso")
                 throw new BusinessRuleException("RECEPCION_CFDI_NO_VINCULABLE", $"El CFDI está en estado {cfdi.Estado} y es de tipo {cfdi.Tipo}; solo se vinculan CFDI de ingreso por procesar.");
             var rfcProveedor = (await _proveedores.ObtenerAsync(oc!.ProveedorId, cancellationToken))?.Rfc?.Trim().ToUpperInvariant();
             if (string.IsNullOrEmpty(rfcProveedor) || !string.Equals(rfcProveedor, cfdi.RfcEmisor.Trim(), StringComparison.OrdinalIgnoreCase))

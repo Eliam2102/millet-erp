@@ -17,4 +17,15 @@ describe('P7 árbol recursivo', () => {
     render(<ArbolDocumentos raiz={rq} tipoActual={T.Requisicion} idActual={rq.id} />);
     for (const folio of ['RQ-DEMO', 'OC-DEMO', 'REC-DEMO', 'FACT-DEMO', 'PAGO-DEMO']) expect(screen.getByText(folio)).toBeInTheDocument();
   });
+
+  it('muestra la recepción cancelada junto a la vigente con la marca «Cancelada»', () => {
+    const vigente = { ...nodo(T.Recepcion, 'REC-OK'), estado: 'Registrado' };
+    const mala = { ...nodo(T.Recepcion, 'REC-MALA'), estado: 'Cancelado' };
+    const oc = nodo(T.OrdenCompra, 'OC-DEMO', [mala, vigente]);
+    render(<ArbolDocumentos raiz={oc} tipoActual={T.OrdenCompra} idActual={oc.id} />);
+    expect(screen.getByText('REC-MALA')).toBeInTheDocument();
+    expect(screen.getByText('REC-OK')).toBeInTheDocument();
+    expect(screen.getAllByText('Cancelada')).toHaveLength(1);
+    expect(screen.getByText('Registrado')).toBeInTheDocument();
+  });
 });

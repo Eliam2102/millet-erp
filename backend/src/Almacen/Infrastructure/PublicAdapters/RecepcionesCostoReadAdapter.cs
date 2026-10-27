@@ -57,7 +57,8 @@ public sealed class RecepcionesCostoReadAdapter(AlmacenDbContext db, ILogger<Rec
         HashSet<Guid> entradasTrasladadas = [];
         foreach (var h in historial)
         {
-            if (h.Tipo == TipoMovimiento.AjustePrecioFactura || entradasTrasladadas.Contains(h.Id)) continue;
+            // La recepción cancelada ya no entra al historial (solo Registrado): su CEN tampoco debe restar al remanente de las demás.
+            if (h.Tipo is TipoMovimiento.AjustePrecioFactura or TipoMovimiento.CancelacionEntradaCompra || entradasTrasladadas.Contains(h.Id)) continue;
             var ubicacion = h.UbicacionId!.Value;
             var existencia = existencias.GetValueOrDefault(ubicacion);
             var remanente = remanentes.GetValueOrDefault(ubicacion);
