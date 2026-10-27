@@ -26,7 +26,7 @@ public sealed partial class ActivosFijosDbContext(DbContextOptions<ActivosFijosD
         var fechaSemilla = new DateTimeOffset(2026, 1, 1, 0, 0, 0, TimeSpan.Zero);
         foreach (var clase in CatalogoClasesMillet.Clases)
             c.HasData(new { Id = Guid.Parse($"0000000f-0007-0000-0000-{int.Parse(clase.Clave):000000000000}"), EmpresaId = Guid.Parse("00000003-0000-0000-0000-000000000001"),
-                clase.Clave, clase.Nombre, TasaFiscalAnual = clase.Tasa, TasaContableAnual = clase.TasaContable, clase.Depreciable, clase.TasaConfirmada, RequiereRevision = false,
+                clase.Clave, clase.Nombre, TasaFiscalAnual = clase.Tasa, TasaContableAnual = clase.TasaContable, clase.Depreciable, TasaConfirmada = true, RequiereRevision = false,
                 Metodo = "LineaRecta", Activa = true, Version = 1, CreatedAt = fechaSemilla, UpdatedAt = fechaSemilla });
         var inpc = modelBuilder.Entity<InpcMensual>();
         inpc.ToTable("inpc_mensual", t => t.HasCheckConstraint("ck_inpc_valido", "anio BETWEEN 1 AND 9998 AND mes BETWEEN 1 AND 12 AND valor > 0"));

@@ -76,11 +76,11 @@ namespace Millet.ActivosFijos.Infrastructure.Persistence.Migrations
             migrationBuilder.Sql("""
                 UPDATE activos_fijos.clases AS c
                 SET tasa_contable_anual = v.contable, tasa_fiscal_anual = v.fiscal,
-                    tasa_confirmada = (c.clave <> '156'), depreciable = v.depreciable
+                    tasa_confirmada = true, depreciable = v.depreciable
                 FROM (VALUES
                     ('151', 0::numeric, 0::numeric, false), ('152', 5, 5, true),
                     ('153', 10, 10, true), ('154', 25, 25, true), ('155', 10, 10, true),
-                    ('156', 33, 30, true), ('157', 10, 10, true), ('159', NULL, NULL, false),
+                    ('156', 33, 33, true), ('157', 10, 10, true), ('159', NULL, NULL, false),
                     ('160', NULL, NULL, true), ('165', 10, 10, true), ('166', 10, 10, true),
                     ('169', 10, 10, true), ('170', NULL, NULL, true)
                 ) AS v(clave, contable, fiscal, depreciable)

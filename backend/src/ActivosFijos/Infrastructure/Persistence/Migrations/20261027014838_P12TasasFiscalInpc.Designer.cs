@@ -593,9 +593,9 @@ namespace Millet.ActivosFijos.Infrastructure.Persistence.Migrations
                             Metodo = "LineaRecta",
                             Nombre = "EQUIPO DE COMPUTO",
                             RequiereRevision = false,
-                            TasaConfirmada = false,
+                            TasaConfirmada = true,
                             TasaContableAnual = 33m,
-                            TasaFiscalAnual = 30m,
+                            TasaFiscalAnual = 33m,
                             UpdatedAt = new DateTimeOffset(new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
                             Version = 1
                         },

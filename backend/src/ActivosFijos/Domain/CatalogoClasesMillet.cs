@@ -3,8 +3,8 @@ namespace Millet.ActivosFijos.Domain;
 // Fuente: CATALOGO_MILLET.xlsx, Plan de cuentas (5). Los títulos .00 no reciben movimientos.
 public sealed record ClaseCatalogoMillet(string Clave, string Nombre, string Activo, string? Depreciacion, string? Gasto, decimal? Tasa, bool Depreciable)
 {
-    public decimal? TasaContable => Clave == "156" ? 33m : Tasa;
-    public bool TasaConfirmada => Clave != "156";
+    // Millet, 26-oct-2026: cómputo 33 % en contable y fiscal; contable = fiscal en todas las clases.
+    public decimal? TasaContable => Tasa;
 }
 public static class CatalogoClasesMillet
 {
@@ -15,7 +15,7 @@ public static class CatalogoClasesMillet
         new("153", "MAQUINARIA Y EQUIPO", "153.01.00.000.000", "171.02.00.000", "613.02.00.000.000", 10m, true),
         new("154", "AUTOMOVILES AUTOBUSES CAM DE CARGA MONTAC Y REMOLQUES", "154.01.00.000.000", "171.03.00.000", "613.03.00.000.000", 25m, true),
         new("155", "MOBILIARIO Y EQUIPO DE OFICINA", "155.01.00.000.000", "171.04.00.000", "613.04.00.000.000", 10m, true),
-        new("156", "EQUIPO DE COMPUTO", "156.01.00.000.000", "171.05.00.000", "613.05.00.000.000", 30m, true),
+        new("156", "EQUIPO DE COMPUTO", "156.01.00.000.000", "171.05.00.000", "613.05.00.000.000", 33m, true),
         new("157", "EQUIPO DE COMUNICACION", "157.01.00.000.000", "171.06.00.000", "613.06.00.000.000", 10m, true),
         new("159", "OBRAS EN PROCESO DE ACTIVOS FIJOS", "159.01.00.000.000", null, null, null, false),
         new("160", "OTROS ACTIVOS FIJOS", "160.01.00.000.000", "171.08.00.000", "613.08.00.000.000", null, true),

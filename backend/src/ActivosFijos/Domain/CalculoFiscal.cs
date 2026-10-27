@@ -14,7 +14,7 @@ public sealed record TasasActivo(decimal? Contable, decimal? Fiscal, string? Obs
             : new(null, null, "Indique el activo que mejora");
         return new(c.TasaContableAnual, c.TasaFiscalAnual, c.TasaFiscalAnual == null || c.TasaContableAnual == null
             ? "Tasa por confirmar: capture la tasa" : !c.TasaConfirmada
-                ? c.Clave == "156" ? "Tasa fiscal 30 % por confirmar con Millet" : "Tasa por confirmar con Millet" : null);
+                ? "Tasa por confirmar con Millet" : null);
     }
 }
 

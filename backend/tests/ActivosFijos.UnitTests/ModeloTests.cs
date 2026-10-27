@@ -31,7 +31,8 @@ public sealed class ModeloTests
         var semillas = modelo.FindEntityType(typeof(ClaseActivo))!.GetSeedData().ToArray();
         Assert.Equal(13, semillas.Length);
         Assert.Equal("151,152,153,154,155,156,157,159,160,165,166,169,170", string.Join(",", semillas.Select(x => (string)x["Clave"]!).Order()));
-        Assert.All(semillas, x => Assert.Equal((string)x["Clave"]! != "156", x["TasaConfirmada"]));
+        Assert.All(semillas, x => Assert.Equal(true, x["TasaConfirmada"]));
+        Assert.Equal(33m, semillas.Single(x => (string)x["Clave"]! == "156")["TasaFiscalAnual"]);
         Assert.Equal(10m, semillas.Single(x => (string)x["Clave"]! == "169")["TasaFiscalAnual"]);
         Assert.Equal("171.18.00.000", CatalogoClasesMillet.Clases.Single(x => x.Clave == "169").Depreciacion);
         Assert.Equal("613.17.00.000.000", CatalogoClasesMillet.Clases.Single(x => x.Clave == "170").Gasto);

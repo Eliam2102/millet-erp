@@ -55,10 +55,8 @@ export function ClasesPage() {
           </Button>
         }
       />
-      {/* eslint-disable-next-line ds/no-texto-interno -- FICHA_P7 exige marcar las sugerencias como Por confirmar con Millet. */}
       <p className="rounded-lg bg-warning-bg p-3 text-warning-fg">
-        La tasa contable genera póliza; la fiscal se usa sólo en el reporte. La tasa fiscal de
-        cómputo está por confirmar con Millet. Configure las cuentas pendientes antes de depreciar.
+        La tasa contable genera póliza; la fiscal se usa sólo en el reporte. Configure las cuentas pendientes antes de depreciar.
       </p>
       {query.error && (
         <p role="alert" className="text-danger-fg">

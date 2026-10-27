@@ -29,6 +29,6 @@ public sealed class InpcTests
         var sql = migracion.UpOperations.OfType<SqlOperation>().ToList();
         Assert.Contains("tasa_contable_anual = tasa_fiscal_anual", sql[0].Sql);
         Assert.Contains("c.tasa_confirmada = false", sql[1].Sql);
-        Assert.Contains("('156', 33, 30, true)", sql[1].Sql);
+        Assert.Contains("('156', 33, 33, true)", sql[1].Sql);
     }
 }
