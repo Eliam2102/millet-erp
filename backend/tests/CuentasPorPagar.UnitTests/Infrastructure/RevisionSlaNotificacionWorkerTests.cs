@@ -21,17 +21,19 @@ public sealed class RevisionSlaNotificacionWorkerTests : IDisposable
     private readonly string _dbName = Guid.NewGuid().ToString();
     private readonly RelojMutable _reloj = new();
     private readonly List<SlaRevisionNotificacion> _enviadas = [];
+    private readonly NotificacionesFake _fake;
     private readonly ServiceProvider _sp;
     private readonly RevisionSlaNotificacionWorker _worker;
 
     public RevisionSlaNotificacionWorkerTests()
     {
+        _fake = new NotificacionesFake(_enviadas);
         var options = new DbContextOptionsBuilder<CuentasPorPagarDbContext>().UseInMemoryDatabase(_dbName).Options;
         var services = new ServiceCollection();
         services.AddSingleton<ICurrentEmpresaContext, BypassedEmpresaContext>();
         services.AddSingleton<IClock>(_reloj);
         services.AddSingleton<IAuditOriginContext, Millet.SharedKernel.Infrastructure.AuditOriginContext>();
-        services.AddSingleton<INotificacionService>(new NotificacionesFake(_enviadas));
+        services.AddSingleton<INotificacionService>(_fake);
         services.AddSingleton<ICalendarioHabil, Calendario>();
         services.AddScoped(sp => new CuentasPorPagarDbContext(
             options, sp.GetRequiredService<ICurrentEmpresaContext>(), new PeriodoAbiertoStub(), sp.GetRequiredService<IClock>()));
@@ -95,6 +97,41 @@ public sealed class RevisionSlaNotificacionWorkerTests : IDisposable
     }
 
     [Fact]
+    public async Task Envio_fallido_no_cuenta_como_avisado_y_el_siguiente_tick_reintenta()
+    {
+        await SembrarAsync(Danos);
+
+        _fake.Falla = true;
+        await TickEnAsync("2026-10-23T15:00:00Z");
+        _enviadas.Should().BeEmpty();
+        (await ContarAvisosAsync()).Should().Be(0);
+
+        _fake.Falla = false;
+        await TickEnAsync("2026-10-23T15:00:00Z");
+        _enviadas.Should().ContainSingle();
+        (await ContarAvisosAsync()).Should().Be(1);
+
+        await TickEnAsync("2026-10-23T15:00:00Z");
+        _enviadas.Should().ContainSingle(); // con éxito no se duplica el mismo día
+    }
+
+    [Theory]
+    [InlineData("00000007-1001-0000-0000-000000000002", true, "Daños o defectos en mercancía")]
+    [InlineData("00000007-1001-0000-0000-00000000000b", false, "Disputa con proveedor")]
+    [InlineData("00000007-1001-0000-0000-000000000005", true, "No conformidad con servicio o producto")]
+    public async Task Aviso_incluye_a_Compras_si_el_motivo_lo_resuelve_Compras(string motivo, bool esperado, string nombre)
+    {
+        await SembrarAsync(Guid.Parse(motivo));
+
+        await TickEnAsync("2026-11-13T18:00:00Z"); // 20 hábiles: nivel alcanzado en SLA 5 y 15
+
+        var aviso = _enviadas.Should().ContainSingle().Subject;
+        aviso.AvisaCompras.Should().Be(esperado);
+        aviso.MotivoNombre.Should().Be(nombre);
+        aviso.Folio.Should().Be("AF-001");
+    }
+
+    [Fact]
     public async Task Indicacion_expresa_no_avisa_y_sigue_en_revision()
     {
         var facturaId = await SembrarAsync(IndicacionExpresa);
@@ -154,8 +191,11 @@ public sealed class RevisionSlaNotificacionWorkerTests : IDisposable
 
     private sealed class NotificacionesFake(List<SlaRevisionNotificacion> enviadas) : INotificacionService
     {
+        public bool Falla { get; set; }
+
         public Task NotificarSlaRevisionAsync(SlaRevisionNotificacion notificacion, CancellationToken cancellationToken)
         {
+            if (Falla) throw new InvalidOperationException("Graph caído");
             enviadas.Add(notificacion);
             return Task.CompletedTask;
         }

@@ -38,8 +38,8 @@ namespace Millet.CuentasPorPagar.Infrastructure.Workers;
 /// <c>cuentas_por_pagar.avisos_sla_revision</c> con índice único
 /// (factura, nivel, día). Correr el worker dos veces el mismo día no duplica
 /// el aviso. El aviso nunca cambia el estado de la factura ni libera el pago.
-/// El envío por correo sigue en <c>NoOpNotificacionService</c>
-/// (PLATFORM-TODO(&lt;NotificacionesGlobal&gt;)).
+/// El envío lo resuelve la implementación de <see cref="INotificacionService"/>
+/// registrada (log o correo Graph).
 /// </para>
 /// </summary>
 public sealed class RevisionSlaNotificacionWorker : BackgroundService
@@ -118,6 +118,10 @@ public sealed class RevisionSlaNotificacionWorker : BackgroundService
                 f.EmpresaId,
                 MotivoId = m.Id,
                 m.SlaDias,
+                MotivoNombre = m.Nombre,
+                AvisaCompras = m.DependenciaRevisoraDefaultCodigo == "COMPRAS" || m.AreaAvisadaCodigo == "COMPRAS",
+                f.SerieProveedor,
+                f.FolioProveedor,
                 FechaEntrada = f.FechaEntradaRevision!.Value,
                 DependenciaId = f.DependenciaRevisoraId!.Value,
             }).ToListAsync(cancellationToken);
@@ -138,8 +142,9 @@ public sealed class RevisionSlaNotificacionWorker : BackgroundService
                     cancellationToken))
                 continue;
 
-            db.AvisosSlaRevision.Add(new AvisoSlaRevision(
-                f.EmpresaId, f.Id, f.DependenciaId, f.MotivoId, nivel, hoy, dias, sla, f.FechaEntrada, ahora));
+            var aviso = new AvisoSlaRevision(
+                f.EmpresaId, f.Id, f.DependenciaId, f.MotivoId, nivel, hoy, dias, sla, f.FechaEntrada, ahora);
+            db.AvisosSlaRevision.Add(aviso);
             try
             {
                 await db.SaveChangesAsync(cancellationToken);
@@ -160,7 +165,10 @@ public sealed class RevisionSlaNotificacionWorker : BackgroundService
                     MotivoRevisionId: f.MotivoId,
                     DiasEnRevision: dias,
                     SlaDias: sla,
-                    Nivel: nivel), cancellationToken);
+                    Nivel: nivel,
+                    Folio: string.Concat(f.SerieProveedor, f.FolioProveedor) is { Length: > 0 } folio ? folio : null,
+                    MotivoNombre: f.MotivoNombre,
+                    AvisaCompras: f.AvisaCompras), cancellationToken);
                 enviadas++;
             }
             catch (Exception ex)
@@ -168,6 +176,10 @@ public sealed class RevisionSlaNotificacionWorker : BackgroundService
                 _logger.LogWarning(ex,
                     "[RevisionSlaNotificacionWorker] Notificación falló para factura {Factura} nivel {Nivel}",
                     f.Id, nivel);
+                // Un envío fallido no cuenta como avisado: se retira la marca para reintentar en el siguiente tick.
+                // La marca va primero para que dos instancias no envíen el mismo aviso (índice único).
+                db.AvisosSlaRevision.Remove(aviso);
+                await db.SaveChangesAsync(CancellationToken.None);
             }
         }
 
