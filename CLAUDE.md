@@ -456,5 +456,10 @@ estructura de ventanas.
   de hacer cambios, reporta qué hiciste y espera instrucción para commitear.
 - **Idioma:** documentación, comentarios de negocio y nombres de módulos
   en **español**. Código, comandos y nombres técnicos en inglés.
+- **Pruebas de integración y PR limpios:** sigue
+  [`docs/qa/gate-integracion.md`](docs/qa/gate-integracion.md). Pruebas
+  nuevas de API en `[Collection(ApiCompartida.Nombre)]`, todo
+  `WithWebHostBuilder` con `await using`, CE/AF con `Escenario.CrearAsync()`.
+  Nunca subas `RESUMEN_*.md`, logs, TRX ni carpetas `outputs/`.
 - **Convenciones de Git:** ramas con prefijo `feature/`, `fix/`, `chore/`,
   `docs/`. Nunca trabajar directo en `main`.

@@ -11,7 +11,8 @@ namespace Millet.Api.IntegrationTests.Compras;
 /// Tests integration de B.4 (PATCH cabecera) y B.2 (GET historico)
 /// agrupados — comparten el flow "crear RQ + mutar + verificar".
 /// </summary>
-public class PatchYHistoricoTests : IClassFixture<WebApplicationFactory<Program>>
+[Collection(ApiCompartida.Nombre)]
+public class PatchYHistoricoTests
 {
     private const string EndpointBase = "/api/v1/compras/requisiciones";
     private const string SuperAdminOid = "dev-superadmin";

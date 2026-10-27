@@ -15,7 +15,8 @@ namespace Millet.Api.IntegrationTests.Administracion;
 /// existente de parámetros: listado, PATCH, bitácora de auditoría y aislamiento respecto a la
 /// tolerancia factura contra OC. Cada prueba que edita restaura el valor original.
 /// </summary>
-public class ParametroToleranciaTarjetasTests : IClassFixture<WebApplicationFactory<Program>>
+[Collection(ApiCompartida.Nombre)]
+public class ParametroToleranciaTarjetasTests
 {
     private const string EndpointBase = "/api/v1/admin/parametros";
     private const string ClaveTarjetas = ToleranciaTarjetasParametro.Clave;

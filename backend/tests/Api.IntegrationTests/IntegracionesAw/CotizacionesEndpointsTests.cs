@@ -22,7 +22,8 @@ namespace Millet.Api.IntegrationTests.IntegracionesAw;
 /// helper de seed que ponga entidades en estado arbitrario via repo + bypass.
 /// </para>
 /// </summary>
-public class CotizacionesEndpointsTests : IClassFixture<WebApplicationFactory<Program>>
+[Collection(ApiCompartida.Nombre)]
+public class CotizacionesEndpointsTests
 {
     private const string EndpointBase = "/api/v1/integraciones/aw/cotizaciones";
     private const string SuperAdminOid = "dev-superadmin";

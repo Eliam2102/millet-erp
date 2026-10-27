@@ -20,7 +20,8 @@ using Millet.SharedKernel.Application;
 namespace Millet.Api.IntegrationTests.Facturacion;
 
 /// <summary>HTTP + handler + PostgreSQL desechable; solamente las fronteras externas son dobles.</summary>
-public sealed class EmisionResultadoEndpointsTests : IClassFixture<WebApplicationFactory<Program>>
+[Collection(ApiCompartida.Nombre)]
+public sealed class EmisionResultadoEndpointsTests
 {
     private readonly WebApplicationFactory<Program> _factory;
     public EmisionResultadoEndpointsTests(WebApplicationFactory<Program> factory) => _factory = factory;

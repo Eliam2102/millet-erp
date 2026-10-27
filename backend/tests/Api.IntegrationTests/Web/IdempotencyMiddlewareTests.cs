@@ -17,7 +17,8 @@ namespace Millet.Api.IntegrationTests.Web;
 /// con <c>[RequireIdempotencyKey]</c> e incrementa un contador estático
 /// — un replay correcto devuelve la misma respuesta cacheada (no incrementa).
 /// </summary>
-public class IdempotencyMiddlewareTests : IClassFixture<WebApplicationFactory<Program>>
+[Collection(ApiCompartida.Nombre)]
+public class IdempotencyMiddlewareTests
 {
     private const string SuperAdminOid = "dev-superadmin";
 

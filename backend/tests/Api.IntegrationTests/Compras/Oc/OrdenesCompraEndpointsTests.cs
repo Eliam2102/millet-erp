@@ -41,7 +41,8 @@ namespace Millet.Api.IntegrationTests.Compras.Oc;
 /// es constante para que las corridas reusen la misma fila de
 /// folio_secuencias_oc y los folios sean consecutivos.
 /// </summary>
-public partial class OrdenesCompraEndpointsTests : IClassFixture<WebApplicationFactory<Program>>
+[Collection(ApiCompartida.Nombre)]
+public partial class OrdenesCompraEndpointsTests
 {
     private const string EndpointBase = "/api/v1/compras/ordenes";
     private const string SuperAdminOid = "dev-superadmin";

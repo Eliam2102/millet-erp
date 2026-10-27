@@ -27,7 +27,8 @@ namespace Millet.Api.IntegrationTests.Administracion;
 ///         del puesto.</item>
 /// </list>
 /// </summary>
-public class SucursalPuestoVariosDepartamentosTests : IClassFixture<WebApplicationFactory<Program>>
+[Collection(ApiCompartida.Nombre)]
+public class SucursalPuestoVariosDepartamentosTests
 {
     private const string SuperAdminOid = "dev-superadmin";
     private const string EmpresasBase = "/api/v1/admin/empresas";

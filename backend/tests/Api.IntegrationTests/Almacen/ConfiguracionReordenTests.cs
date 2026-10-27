@@ -25,7 +25,8 @@ namespace Millet.Api.IntegrationTests.Almacen;
 /// <see cref="IArticuloReadPort"/> y <see cref="ISucursalReadPort"/> (cualquier
 /// GUID = activo) para no depender del seed de millet_dev.</para>
 /// </summary>
-public class ConfiguracionReordenTests : IClassFixture<WebApplicationFactory<Program>>
+[Collection(ApiCompartida.Nombre)]
+public class ConfiguracionReordenTests
 {
     private readonly WebApplicationFactory<Program> _base;
 

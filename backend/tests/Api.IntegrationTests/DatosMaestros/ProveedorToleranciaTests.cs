@@ -18,12 +18,13 @@ using Millet.SharedKernel.Infrastructure.Persistence;
 namespace Millet.Api.IntegrationTests.DatosMaestros;
 
 /// <summary>G1.13: HTTP, permisos, bitácora, adaptadores y fotos persistidas sobre PostgreSQL desechable.</summary>
-public sealed class ProveedorToleranciaTests(WebApplicationFactory<Program> factory) : IClassFixture<WebApplicationFactory<Program>>
+[Collection(ApiCompartida.Nombre)]
+public sealed class ProveedorToleranciaTests(WebApplicationFactory<Program> factory)
 {
     [Fact]
     public async Task G113c_Compras403_CxpEdita_Audita_YRechazaEsPorcentaje()
     {
-        var ambiente = new AdjuntosProveedorAmbiente(factory);
+        await using var ambiente = new AdjuntosProveedorAmbiente(factory);
         var proveedorId = await ambiente.SeedProveedorAsync();
         try
         {
@@ -79,14 +80,14 @@ public sealed class ProveedorToleranciaTests(WebApplicationFactory<Program> fact
         var oc = new OcDemo();
         // La prueba mide la tolerancia, no el candado de periodo (P8): el periodo se da por abierto
         // para no depender de que otra prueba haya abierto el mes en la base compartida.
-        var ambiente = new AdjuntosProveedorAmbiente(factory, services =>
+        await using var ambiente = new AdjuntosProveedorAmbiente(factory, services =>
         {
             services.AddSingleton<IComprasOcReadPort>(oc);
             services.AddScoped<Millet.CuentasPorPagar.Domain.Ports.Contabilidad.IPeriodoContablePort, PeriodoAbierto>();
         });
         var proveedorId = await ambiente.SeedProveedorAsync();
         oc.ProveedorId = proveedorId;
-        var admin = await ambiente.SuperAdminAsync();
+        using var admin = await ambiente.SuperAdminAsync();
         var parametroUrl = $"/api/v1/admin/parametros/{ToleranciaFacturaContraOcParametro.Clave}";
         var listado = await AdjuntosProveedorAmbiente.LeerAsync(await admin.GetAsync("/api/v1/admin/parametros?modulo=cxp"));
         var parametro = listado.GetProperty("items").EnumerateArray().Single(p => p.GetProperty("clave").GetString() == ToleranciaFacturaContraOcParametro.Clave);

@@ -44,6 +44,9 @@ public class AlmacenRecepcionesOcReadAdapterIntegrationTests : IClassFixture<Stu
             var recepcionLineaId = recepcion.Lineas.Single().Id;
             Movimiento(db, TipoMovimiento.EntradaCompra, empresa, otraOc, ubicId, articulo, 5m, Guid.NewGuid(), registrar: true, movs);
             Movimiento(db, TipoMovimiento.EntradaCompra, empresa, oc, ubicId, articulo, 7m, Guid.NewGuid(), registrar: false, movs);
+            // Las entradas se guardan antes de la salida: EF no garantiza el orden de los INSERT
+            // dentro de un SaveChanges y el trigger de saldos rechaza una salida sin existencia previa.
+            await db.SaveChangesAsync();
 
             var devolucionMov = Movimiento(db, TipoMovimiento.SalidaPorDevolucionAProveedor, empresa, oc, ubicId, articulo, 4m, null, registrar: true, movs);
             var dev = new DevolucionAProveedor(Guid.CreateVersion7(), empresa, Guid.NewGuid(), "Dañado", Guid.NewGuid(),

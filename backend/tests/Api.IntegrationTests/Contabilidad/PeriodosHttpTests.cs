@@ -30,7 +30,8 @@ namespace Millet.Api.IntegrationTests.Contabilidad;
 /// independencia del inventario y periodo 13. Cada prueba usa un año lejano propio (no el calendario oficial, que es por confirmar)
 /// y lo borra al terminar: nunca cierra el año en curso, del que dependen las pruebas de dimensiones.
 /// </summary>
-public class PeriodosHttpTests(WebApplicationFactory<Program> factory) : IClassFixture<WebApplicationFactory<Program>>
+[Collection(ApiCompartida.Nombre)]
+public class PeriodosHttpTests(WebApplicationFactory<Program> factory)
 {
     private const string Periodos = Base + "/periodos";
     private const string Motivo = "FIX cierre de prueba del periodo";

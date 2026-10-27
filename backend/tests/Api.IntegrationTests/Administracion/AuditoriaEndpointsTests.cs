@@ -15,7 +15,8 @@ namespace Millet.Api.IntegrationTests.Administracion;
 /// <c>GET /api/v1/admin/auditoria</c> (F-Admin-PR7.2). Cierra
 /// <c>PLATFORM-TODO(&lt;AuditUI&gt;)</c>.
 /// </summary>
-public class AuditoriaEndpointsTests : IClassFixture<WebApplicationFactory<Program>>
+[Collection(ApiCompartida.Nombre)]
+public class AuditoriaEndpointsTests
 {
     private const string SuperAdminOid = "dev-superadmin";
     private const string EndpointBase = "/api/v1/admin/auditoria";

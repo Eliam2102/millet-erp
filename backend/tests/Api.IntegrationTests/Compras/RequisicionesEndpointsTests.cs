@@ -33,7 +33,8 @@ namespace Millet.Api.IntegrationTests.Compras;
 /// folios sean consecutivos (con el seed adelantado a
 /// <c>siguiente=10001</c> por <c>ComprasTestSeedHostedService</c>).
 /// </summary>
-public class RequisicionesEndpointsTests : IClassFixture<WebApplicationFactory<Program>>
+[Collection(ApiCompartida.Nombre)]
+public class RequisicionesEndpointsTests
 {
     private const string EndpointBase = "/api/v1/compras/requisiciones";
     private const string SuperAdminOid = "dev-superadmin";

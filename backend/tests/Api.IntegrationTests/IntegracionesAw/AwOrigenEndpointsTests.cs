@@ -14,9 +14,20 @@ using Millet.SharedKernel.Infrastructure.Persistence;
 namespace Millet.Api.IntegrationTests.IntegracionesAw;
 
 [Collection("AwClientesSync")]
-public sealed class AwOrigenEndpointsTests(WebApplicationFactory<Program> factory)
-    : IClassFixture<WebApplicationFactory<Program>>, IAsyncLifetime
+public sealed class AwOrigenEndpointsTests(AwOrigenEndpointsTests.Servidor factory)
+    : IClassFixture<AwOrigenEndpointsTests.Servidor>, IAsyncLifetime
 {
+    public sealed class Servidor : WebApplicationFactory<Program>
+    {
+        public WebApplicationFactory<Program> Permitido { get; }
+        public WebApplicationFactory<Program> Apagado { get; }
+        public Servidor()
+        {
+            Permitido = Configurar(this, true);
+            Apagado = Configurar(this, false);
+        }
+    }
+
     private const string Url = "/api/v1/integraciones/aw/origen";
     private string _original = "Real";
     public async Task InitializeAsync()
@@ -36,7 +47,7 @@ public sealed class AwOrigenEndpointsTests(WebApplicationFactory<Program> factor
         p.ActualizarValor(_original);
         await db.SaveChangesAsync();
     }
-    private WebApplicationFactory<Program> Configurar(bool permitido, bool configurada = true) =>
+    private static WebApplicationFactory<Program> Configurar(WebApplicationFactory<Program> factory, bool permitido, bool configurada = true) =>
         factory.WithWebHostBuilder(builder => builder.ConfigureAppConfiguration((_, c) => c.AddInMemoryCollection(
             new Dictionary<string, string?> {
                 ["IntegracionesAw:OrigenDemo:Permitido"] = permitido.ToString(),
@@ -57,7 +68,7 @@ public sealed class AwOrigenEndpointsTests(WebApplicationFactory<Program> factor
     [Fact]
     public async Task Sin_permiso_no_puede_cambiar_pero_puede_leer_la_etiqueta()
     {
-        using var app = Configurar(true);
+        var app = factory.Permitido;
         using var client = await Cliente(app, admin: false);
         (await client.PutAsJsonAsync(Url, new { Origen = "Demo" })).StatusCode.Should().Be(HttpStatusCode.Forbidden);
         (await client.GetAsync(Url)).StatusCode.Should().Be(HttpStatusCode.OK);
@@ -67,7 +78,7 @@ public sealed class AwOrigenEndpointsTests(WebApplicationFactory<Program> factor
     [InlineData("Real")]
     public async Task Ambiente_apagado_rechaza_cualquier_cambio(string origen)
     {
-        using var app = Configurar(false);
+        var app = factory.Apagado;
         using var client = await Cliente(app);
         var response = await client.PutAsJsonAsync(Url, new { Origen = origen });
         response.StatusCode.Should().Be(HttpStatusCode.UnprocessableEntity);
@@ -76,7 +87,7 @@ public sealed class AwOrigenEndpointsTests(WebApplicationFactory<Program> factor
     [Fact]
     public async Task Demo_sin_cadena_es_error_claro_y_conserva_real()
     {
-        using var app = Configurar(true, false);
+        using var app = Configurar(factory, true, false);
         using var client = await Cliente(app);
         var response = await client.PutAsJsonAsync(Url, new { Origen = "Demo" });
         response.StatusCode.Should().Be(HttpStatusCode.UnprocessableEntity);
@@ -86,7 +97,7 @@ public sealed class AwOrigenEndpointsTests(WebApplicationFactory<Program> factor
     [Fact]
     public async Task Cambio_autorizado_queda_auditado_y_get_lo_refleja_y_etag_viejo_conflicta()
     {
-        using var app = Configurar(true);
+        var app = factory.Permitido;
         using var client = await Cliente(app);
         var initial = await client.GetAsync(Url);
         using var put = new HttpRequestMessage(HttpMethod.Put, Url) { Content = JsonContent.Create(new { Origen = "Demo" }) };

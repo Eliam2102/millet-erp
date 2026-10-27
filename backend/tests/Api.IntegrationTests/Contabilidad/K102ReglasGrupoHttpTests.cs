@@ -21,7 +21,8 @@ namespace Millet.Api.IntegrationTests.Contabilidad;
 /// sin reglas se acepta sin dimensiones, la póliza manual nombra juntas las dimensiones faltantes (CA10.4) y el puerto que
 /// usará el motor (C1.4) reporta el faltante (K10.2-a). Todo es de PRUEBA (FIX-*), no política de Contabilidad.
 /// </summary>
-public class K102ReglasGrupoHttpTests(WebApplicationFactory<Program> factory) : IClassFixture<WebApplicationFactory<Program>>
+[Collection(ApiCompartida.Nombre)]
+public class K102ReglasGrupoHttpTests(WebApplicationFactory<Program> factory)
 {
     private const string Polizas = Base + "/polizas";
 

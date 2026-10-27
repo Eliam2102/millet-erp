@@ -14,7 +14,8 @@ using Factura = Millet.CuentasPorPagar.Domain.FacturaProveedor.FacturaProveedor;
 namespace Millet.Api.IntegrationTests.CuentasPorPagar;
 
 /// <summary>86e3pdmee · Fiscal revisa la alerta de retenciones: permiso, motivo, bitácora y desbloqueo de «Autorizar».</summary>
-public sealed class RetencionesRevisionEndpointsTests(WebApplicationFactory<Program> factory) : IClassFixture<WebApplicationFactory<Program>>
+[Collection(ApiCompartida.Nombre)]
+public sealed class RetencionesRevisionEndpointsTests(WebApplicationFactory<Program> factory)
 {
     private const string Cxp = "/api/v1/cuentas-por-pagar/facturas";
 
@@ -45,13 +46,13 @@ public sealed class RetencionesRevisionEndpointsTests(WebApplicationFactory<Prog
     [Fact]
     public async Task Revisar_retenciones_exige_permiso_y_motivo_deja_bitacora_y_desbloquea_autorizar()
     {
-        var amb = new AdjuntosProveedorAmbiente(factory, s =>
+        await using var amb = new AdjuntosProveedorAmbiente(factory, s =>
         {
             s.RemoveAll<Millet.CuentasPorPagar.Domain.Ports.Contabilidad.IPeriodoContablePort>();
             s.AddSingleton<Millet.CuentasPorPagar.Domain.Ports.Contabilidad.IPeriodoContablePort, PeriodoAbierto>();
         });
         var (id, version) = await SembrarFacturaConAlertaAsync(amb);
-        var admin = await amb.SuperAdminAsync();
+        using var admin = await amb.SuperAdminAsync();
         var (fiscal, _) = await amb.ClienteConPermisosAsync(
             PermisosCanonicos.CuentasPorPagarRetencionesAdministrar, PermisosCanonicos.CuentasPorPagarFacturasGestionarTodasSucursales);
         var (sinPermiso, _) = await amb.ClienteConPermisosAsync(
