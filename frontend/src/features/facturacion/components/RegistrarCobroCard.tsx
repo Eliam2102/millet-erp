@@ -13,8 +13,10 @@ import {
 import type { CobroFormaPagoInput } from '@/features/facturacion/api/types';
 import { useRegistrarCobro, useSesionActual } from '@/features/facturacion/api/useCajaSesiones';
 import {
+  autorizacionVoucherInvalida,
   esFormaTarjeta,
-  faltaVoucherTarjeta,
+  MENSAJE_VOUCHER,
+  voucherIncompleto,
   formasPagoCaja,
   formasPagoVigentes,
 } from '@/features/facturacion/lib/formas-pago-caja';
@@ -86,7 +88,7 @@ export function RegistrarCobroCard(props: {
     disponibles,
   );
   const cuadra = Math.abs(suma - props.total) < 0.005;
-  const sinVoucher = faltaVoucherTarjeta(formas);
+  const sinVoucher = voucherIncompleto(formas);
 
   function actualizarForma(i: number, parcial: Partial<FormaLocal>) {
     setFormas((prev) => prev.map((f, j) => (j === i ? { ...f, ...parcial } : f)));
@@ -98,7 +100,7 @@ export function RegistrarCobroCard(props: {
       return;
     }
     if (sinVoucher) {
-      toast.error('Captura la referencia o autorización del voucher en cada pago con tarjeta.');
+      toast.error(MENSAJE_VOUCHER);
       return;
     }
     if (!cuadra) {
@@ -199,7 +201,7 @@ export function RegistrarCobroCard(props: {
           )}
           <FormCampo span={6} className="space-y-1">
             <Label htmlFor={`cobro-referencia-${i}`}>
-              {esFormaTarjeta(f.formaPago) ? 'Voucher (autorización)' : 'Referencia'}
+              {esFormaTarjeta(f.formaPago) ? 'Número de autorización del voucher' : 'Referencia'}
             </Label>
             <Input
               id={`cobro-referencia-${i}`}
@@ -209,8 +211,12 @@ export function RegistrarCobroCard(props: {
                   referencia: e.target.value === '' ? null : e.target.value,
                 })
               }
-              placeholder={esFormaTarjeta(f.formaPago) ? 'Obligatorio' : 'Opcional'}
-              aria-invalid={esFormaTarjeta(f.formaPago) && (f.referencia ?? '').trim() === ''}
+              placeholder={esFormaTarjeta(f.formaPago) ? 'Obligatorio · ej. 123456' : 'Opcional'}
+              maxLength={100}
+              aria-invalid={
+                esFormaTarjeta(f.formaPago) &&
+                ((f.referencia ?? '').trim() === '' || autorizacionVoucherInvalida([f]))
+              }
               aria-required={esFormaTarjeta(f.formaPago)}
             />
           </FormCampo>
@@ -273,7 +279,7 @@ export function RegistrarCobroCard(props: {
                   !vigentes
                     ? 'Selecciona formas de pago SAT activas.'
                     : sinVoucher
-                      ? 'Captura el voucher de cada pago con tarjeta.'
+                      ? MENSAJE_VOUCHER
                       : undefined
                 }
               >
