@@ -1,3 +1,4 @@
+using Microsoft.EntityFrameworkCore;
 using Millet.Almacen.Domain.Ports;
 using Millet.SharedKernel.Application.Exceptions;
 using Millet.SharedKernel.Application.UnidadesMedida;
@@ -26,6 +27,25 @@ internal static class RecepcionVariante
         return normalizado;
     }
 
+    /// <summary>
+    /// F1-MP-01 S4b: fila de saldo de la que sale una línea de salida. Con medida (artículo ligado a A+W) el lote es obligatorio
+    /// si el rack tiene existencia con lote (<c>LOTE_REQUERIDO</c>); la existencia sin lote («apertura») sale sin elegirlo.
+    /// Devuelve el lote normalizado y la fila (null si no hay).
+    /// </summary>
+    public static async Task<(Domain.Saldos.SaldoInventario? Saldo, string? Lote)> ResolverSaldoSalidaAsync(
+        Infrastructure.Persistence.AlmacenDbContext db, Guid ubicacionId, Guid articuloId, Guid? varianteId, string? lote, CancellationToken ct)
+    {
+        lote = Domain.Movimientos.LineaMovimiento.NormalizarLote(lote);
+        var saldos = db.SaldosInventario.AsNoTracking()
+            .Where(s => s.UbicacionId == ubicacionId && s.ArticuloId == articuloId && s.ProductoAwVarianteId == varianteId);
+        // Sin lote elegido solo se sale de la existencia de apertura (lote NULL); si el rack únicamente tiene lotes, hay que elegir uno.
+        if (varianteId is not null && lote is null
+            && await saldos.AnyAsync(s => s.Lote != null && s.Cantidad > 0, ct)
+            && !await saldos.AnyAsync(s => s.Lote == null && s.Cantidad > 0, ct))
+            throw new BusinessRuleException("LOTE_REQUERIDO", "Elige el lote de la hoja.");
+        return (await saldos.FirstOrDefaultAsync(s => s.Lote == lote, ct), lote);
+    }
+
     /// <summary>La cantidad en m² de una línea con medida debe ser un número entero de hojas (m² = hojas × m² por hoja).</summary>
     public static void ExigirHojasEnteras(decimal cantidadM2, decimal? areaHojaM2)
     {
@@ -34,11 +54,11 @@ internal static class RecepcionVariante
     }
 
     /// <summary>Salida de una medida sin hojas suficientes en el rack: nombra la medida en vez del mensaje genérico del bin.</summary>
-    public static void ExigirExistencia(VarianteVidrioLectura? medida, decimal disponibleM2, decimal solicitadoM2)
+    public static void ExigirExistencia(VarianteVidrioLectura? medida, decimal disponibleM2, decimal solicitadoM2, string? lote = null)
     {
         if (medida?.AreaHojaM2 is not { } area || disponibleM2 >= solicitadoM2) return;
         throw new BusinessRuleException("SALIDA_STOCK_INSUFICIENTE",
-            $"No hay hojas suficientes de {medida.AnchoMm:0.##} × {medida.AltoMm:0.##} mm en el rack: "
+            $"No hay hojas suficientes {(lote is null ? "" : $"del lote {lote} ")}de {medida.AnchoMm:0.##} × {medida.AltoMm:0.##} mm en el rack: "
             + $"hay {Math.Floor(disponibleM2 / area):0.##} y pides {solicitadoM2 / area:0.##}.");
     }
 

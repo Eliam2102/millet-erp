@@ -862,6 +862,11 @@ namespace Millet.Almacen.Infrastructure.Persistence.Migrations
                         .HasColumnType("character varying(500)")
                         .HasColumnName("justificacion");
 
+                    b.Property<string>("Lote")
+                        .HasMaxLength(50)
+                        .HasColumnType("character varying(50)")
+                        .HasColumnName("lote");
+
                     b.Property<Guid?>("ProductoAwVarianteId")
                         .HasColumnType("uuid")
                         .HasColumnName("producto_aw_variante_id");
@@ -900,11 +905,11 @@ namespace Millet.Almacen.Infrastructure.Persistence.Migrations
                     b.HasIndex("UbicacionId")
                         .HasDatabaseName("ix_lineas_conteo_ubicacion_id");
 
-                    b.HasIndex("ConteoId", "ArticuloId", "UbicacionId", "ProductoAwVarianteId")
+                    b.HasIndex("ConteoId", "ArticuloId", "UbicacionId", "ProductoAwVarianteId", "Lote")
                         .IsUnique()
                         .HasDatabaseName("ux_lineas_conteo");
 
-                    NpgsqlIndexBuilderExtensions.AreNullsDistinct(b.HasIndex("ConteoId", "ArticuloId", "UbicacionId", "ProductoAwVarianteId"), false);
+                    NpgsqlIndexBuilderExtensions.AreNullsDistinct(b.HasIndex("ConteoId", "ArticuloId", "UbicacionId", "ProductoAwVarianteId", "Lote"), false);
 
                     b.ToTable("lineas_conteo", "almacen");
                 });

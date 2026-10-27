@@ -60,7 +60,9 @@ public sealed record AlfakHistorialFila(
     string? ArticuloDescripcion,
     // F1-MP-01: una fila por medida de hoja (cantidades en m²); Medida = «2440 × 3660 mm · 20 hojas» al saldo final.
     Guid? ProductoAwVarianteId = null,
-    string? Medida = null);
+    string? Medida = null,
+    // S4b: una fila por lote del proveedor (null = sin lote / apertura).
+    string? Lote = null);
 
 public sealed class AlfakHistorialAlmacenHandler
     : IRequestHandler<AlfakHistorialAlmacenQuery, ReporteResponse<AlfakHistorialFila>>
@@ -103,6 +105,7 @@ public sealed class AlfakHistorialAlmacenHandler
                         SubAlmacenNombre = sa.Nombre,
                         l.ArticuloId,
                         l.ProductoAwVarianteId,
+                        l.Lote,
                         m.Tipo,
                         m.FechaMovimiento,
                         l.Cantidad,
@@ -110,7 +113,7 @@ public sealed class AlfakHistorialAlmacenHandler
 
         var rows = await query.ToListAsync(cancellationToken);
 
-        var grupos = rows.GroupBy(r => new { r.SubAlmacenId, r.ArticuloId, r.ProductoAwVarianteId });
+        var grupos = rows.GroupBy(r => new { r.SubAlmacenId, r.ArticuloId, r.ProductoAwVarianteId, r.Lote });
         var filas = new List<AlfakHistorialFila>();
 
         foreach (var g in grupos)
@@ -158,7 +161,8 @@ public sealed class AlfakHistorialAlmacenHandler
             var saldosActuales = await _db.SaldosInventario.AsNoTracking()
                 .Where(s => s.SubAlmacenId == g.Key.SubAlmacenId
                     && s.ArticuloId == g.Key.ArticuloId
-                    && s.ProductoAwVarianteId == g.Key.ProductoAwVarianteId)
+                    && s.ProductoAwVarianteId == g.Key.ProductoAwVarianteId
+                    && s.Lote == g.Key.Lote)
                 .Select(s => new { s.Cantidad, s.CostoPromedioMxn })
                 .ToListAsync(cancellationToken);
             var cantidadActual = saldosActuales.Sum(s => s.Cantidad);
@@ -181,7 +185,8 @@ public sealed class AlfakHistorialAlmacenHandler
                 SubAlmacenNombre: subAlmacenNombre,
                 ArticuloClave: null,
                 ArticuloDescripcion: null,
-                ProductoAwVarianteId: g.Key.ProductoAwVarianteId));
+                ProductoAwVarianteId: g.Key.ProductoAwVarianteId,
+                Lote: g.Key.Lote));
         }
         var medidas = _variantes is null ? new Dictionary<Guid, VarianteVidrioLectura>()
             : await _variantes.ObtenerPorIdsAsync(
@@ -239,6 +244,7 @@ public sealed class AlfakHistorialAlmacenHandler
         new("articuloClave", "Artículo", "texto"),
         new("articuloDescripcion", "Descripción", "texto"),
         new("medida", "Medida", "texto"),
+        new("lote", "Lote", "texto"),
         new("saldoInicial", "Saldo inicial", "numero", "right"),
         new("entradas", "Entradas", "numero", "right"),
         new("salidas", "Salidas", "numero", "right"),

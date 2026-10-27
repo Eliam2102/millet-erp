@@ -369,7 +369,8 @@ public sealed class AplicarConteoHandler : IRequestHandler<AplicarConteoCommand,
                 ubicacionId: linea.UbicacionId,
                 productoAwVarianteId: linea.ProductoAwVarianteId,
                 anchoMm: linea.ProductoAwVarianteId is Guid v ? medidas.GetValueOrDefault(v)?.AnchoMm : null,
-                altoMm: linea.ProductoAwVarianteId is Guid v2 ? medidas.GetValueOrDefault(v2)?.AltoMm : null);
+                altoMm: linea.ProductoAwVarianteId is Guid v2 ? medidas.GetValueOrDefault(v2)?.AltoMm : null,
+                lote: linea.Lote);
             movLinea.AsentarConteo(linea.CantidadTeorica, real);
             movimiento.AgregarLinea(movLinea);
 

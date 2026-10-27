@@ -14,7 +14,7 @@ namespace Millet.Api.IntegrationTests.Almacen;
 public sealed class AlmacenVarianteMedidaMigracionTests
 {
     private const string Anterior = "20261026163650_AlmacenCostoExpedientePorUbicacion";
-    private const string Migracion = "20261026225250_AlmacenVarianteMedida";
+    private const string Migracion = "20261026233414_AlmacenVarianteMedida";
 
     [Fact]
     public async Task Up_conserva_filas_cantidades_y_valor_y_Down_restaura_el_trigger()

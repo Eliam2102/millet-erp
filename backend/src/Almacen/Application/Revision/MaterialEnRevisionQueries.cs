@@ -30,7 +30,9 @@ public sealed record MaterialEnRevisionItem(
     bool PlazoNoCalculable,
     IReadOnlyList<DictamenRevisionItem> Dictamenes,
     // F1-MP-01: medida de la hoja en revisión (snapshot de la línea de recepción).
-    Guid? ProductoAwVarianteId = null, decimal? AnchoMm = null, decimal? AltoMm = null);
+    Guid? ProductoAwVarianteId = null, decimal? AnchoMm = null, decimal? AltoMm = null,
+    // S4b: lote del proveedor de la línea en revisión (null = sin lote).
+    string? Lote = null);
 
 public sealed record DictamenRevisionItem(
     Guid Id, ResultadoDictamen Resultado, decimal Cantidad, string Motivo, Guid DictaminadoPor,
@@ -161,7 +163,7 @@ public sealed class ListarMaterialEnRevisionHandler(
                 historial.Select(d => new DictamenRevisionItem(
                     d.Id, d.Resultado, d.Cantidad, d.Motivo, d.DictaminadoPor, d.DictaminadoAt,
                     d.DevolucionAProveedorId)).ToList(),
-                o.Linea.ProductoAwVarianteId, o.Linea.AnchoMm, o.Linea.AltoMm));
+                o.Linea.ProductoAwVarianteId, o.Linea.AnchoMm, o.Linea.AltoMm, o.Linea.Lote));
         }
         return items.OrderBy(i => i.FechaRecepcion).ThenBy(i => i.RecepcionFolio).ToList();
     }

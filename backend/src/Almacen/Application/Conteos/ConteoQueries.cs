@@ -74,7 +74,9 @@ public sealed record LineaConteoParaCapturarDto(
     // Unidad de medida del maestro de artículos (decimales y etiqueta de captura).
     string? UnidadMedida = null,
     // F1-MP-01: línea por medida de hoja. Con ella la captura es en hojas (la cantidad guardada va en m²; hojas = m² / área).
-    Guid? ProductoAwVarianteId = null, decimal? AnchoMm = null, decimal? AltoMm = null, decimal? AreaHojaM2 = null);
+    Guid? ProductoAwVarianteId = null, decimal? AnchoMm = null, decimal? AltoMm = null, decimal? AreaHojaM2 = null,
+    // S4b: lote de la fila de saldo contada (null = sin lote / apertura).
+    string? Lote = null);
 
 /// <summary>
 /// DTO del endpoint de comparación. SÍ incluye cantidad_teorica +
@@ -106,7 +108,8 @@ public sealed record LineaConteoComparacionDto(
     bool RecuentoRealizado = false,
     string? UnidadMedida = null,
     // F1-MP-01: línea por medida de hoja (cantidades en m²; hojas = m² / área).
-    Guid? ProductoAwVarianteId = null, decimal? AnchoMm = null, decimal? AltoMm = null, decimal? AreaHojaM2 = null);
+    Guid? ProductoAwVarianteId = null, decimal? AnchoMm = null, decimal? AltoMm = null, decimal? AreaHojaM2 = null,
+    string? Lote = null);
 
 public sealed record ListarConteosQuery(
     EstadoConteo? Estado,
@@ -283,7 +286,7 @@ public sealed class ListarLineasParaCapturarHandler
                 l.Id, l.ArticuloId, l.SubAlmacenId,
                 l.UbicacionId, u.Clave,
                 l.CantidadRealCapturada, l.RequiereRecuento,
-                null, null, s.Clave, null, l.ProductoAwVarianteId))
+                null, null, s.Clave, null, l.ProductoAwVarianteId, null, null, null, l.Lote))
             .ToListAsync(cancellationToken);
         var medidas = await EnriquecerYOrdenarConteoLineas.MedidasDeAsync(_variantes, lineas.Select(l => l.ProductoAwVarianteId), cancellationToken);
         lineas = lineas.Select(l => l.ProductoAwVarianteId is Guid v && medidas.TryGetValue(v, out var m)
@@ -403,7 +406,7 @@ public sealed class ListarLineasComparacionHandler
                 variacionAbs, variacionPct, variacionVal,
                 l.RequiereRecuento, l.AprobadoIndividualmente, l.Justificacion,
                 null, null, x.SubAlmacenClave,
-                vigente, recuentos.ContainsKey(l.Id), null, l.ProductoAwVarianteId);
+                vigente, recuentos.ContainsKey(l.Id), null, l.ProductoAwVarianteId, null, null, null, l.Lote);
         }).ToList();
         var medidas = await EnriquecerYOrdenarConteoLineas.MedidasDeAsync(_variantes, lineas.Select(l => l.ProductoAwVarianteId), cancellationToken);
         lineas = lineas.Select(l => l.ProductoAwVarianteId is Guid v && medidas.TryGetValue(v, out var m)

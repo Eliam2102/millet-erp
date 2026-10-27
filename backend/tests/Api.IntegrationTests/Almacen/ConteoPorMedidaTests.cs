@@ -112,4 +112,70 @@ public class ConteoPorMedidaTests(WebApplicationFactory<Program> factory) : ICla
             }
         });
     }
+
+    [Fact]
+    public async Task Conteo_con_dos_lotes_de_la_misma_medida_crea_dos_lineas_y_ajusta_el_lote_correcto()
+    {
+        await new CuarentenaRecepcionTests(factory).EjecutarConFixtureAsync(async (db, ctx) =>
+        {
+            // 10 hojas del lote L-1 y 10 del L-2, misma medida y mismo rack.
+            await Recibir(db, ctx, true, Linea(ctx, 10m, VarA, lote: "L-1"));
+            await Recibir(db, ctx, true, Linea(ctx, 10m, VarA, lote: "L-2"));
+
+            Guid? conteoId = null;
+            try
+            {
+                using var scope = factory.Services.CreateScope();
+                var articulos = new Articulos(true);
+                var variantes = new Variantes(ctx.ArticuloId);
+                var crear = await new CrearConteoHandler(db, new EmpresaFake(ctx.EmpresaId)).Handle(
+                    new CrearConteoCommand(TipoConteo.Rotativo, Fecha, ctx.UserId, ctx.SubDisponibleId, null), default);
+                conteoId = crear.ConteoId;
+                await new IniciarConteoHandler(db, scope.ServiceProvider.GetRequiredService<IConteoUmbralesProvider>(), articulos)
+                    .Handle(new IniciarConteoCommand(crear.ConteoId), default);
+
+                var lineas = await new ListarLineasParaCapturarHandler(db, articulos, variantes)
+                    .Handle(new ListarLineasParaCapturarQuery(crear.ConteoId), default);
+                lineas.Select(l => l.Lote).OrderBy(l => l).Should().Equal("L-1", "L-2");
+                var lineaUno = lineas.Single(l => l.Lote == "L-1");
+                var lineaDos = lineas.Single(l => l.Lote == "L-2");
+
+                // Se cuentan 9 hojas del L-1 y las 10 del L-2.
+                var capturar = new CapturarLineaConteoHandler(db, new UserFake(ctx.UserId), new DecimalesNulo(), variantes);
+                db.ChangeTracker.Clear();
+                await capturar.Handle(new CapturarLineaConteoCommand(crear.ConteoId, lineaUno.Id, 9m), default);
+                db.ChangeTracker.Clear();
+                await capturar.Handle(new CapturarLineaConteoCommand(crear.ConteoId, lineaDos.Id, 10m), default);
+                await new EnviarConteoAConciliacionHandler(db).Handle(new EnviarConteoAConciliacionCommand(crear.ConteoId), default);
+
+                var comparacion = await new ListarLineasComparacionHandler(db, articulos, variantes)
+                    .Handle(new ListarLineasComparacionQuery(crear.ConteoId), default);
+                comparacion.Single(l => l.Lote == "L-1").VariacionAbsoluta.Should().Be(-8.9304m);
+                comparacion.Single(l => l.Lote == "L-2").VariacionAbsoluta.Should().Be(0m);
+
+                db.ChangeTracker.Clear();
+                var conteo = await db.Set<ConteoInventario>().Include(c => c.Lineas).SingleAsync(c => c.Id == crear.ConteoId);
+                conteo.Aprobar(ctx.UserId);
+                await db.SaveChangesAsync();
+                await new AplicarConteoHandler(db, new CapturaEventos(), new UserFake(ctx.UserId), new EmpresaFake(ctx.EmpresaId),
+                        new PeriodoAbierto(), articulos, variantes)
+                    .Handle(new AplicarConteoCommand(crear.ConteoId), default);
+
+                db.ChangeTracker.Clear();
+                var filas = await db.SaldosInventario.AsNoTracking().Where(s => s.ArticuloId == ctx.ArticuloId && s.UbicacionId == ctx.RackId).ToListAsync();
+                filas.Single(f => f.Lote == "L-1").Cantidad.Should().Be(80.3736m);
+                filas.Single(f => f.Lote == "L-2").Cantidad.Should().Be(89.304m);
+                var ajuste = await db.LineasMovimiento.AsNoTracking().SingleAsync(l => l.ArticuloId == ctx.ArticuloId && l.CantidadRealContada != null);
+                (ajuste.Lote, ajuste.Cantidad).Should().Be(("L-1", 8.9304m));
+            }
+            finally
+            {
+                if (conteoId is Guid id)
+                {
+                    await db.Database.ExecuteSqlInterpolatedAsync($"DELETE FROM almacen.movimientos_inventario WHERE conteo_id = {id}");
+                    await db.Database.ExecuteSqlInterpolatedAsync($"DELETE FROM almacen.conteos_inventario WHERE id = {id}");
+                }
+            }
+        });
+    }
 }

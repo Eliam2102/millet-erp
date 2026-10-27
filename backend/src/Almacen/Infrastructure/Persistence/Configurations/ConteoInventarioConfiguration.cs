@@ -71,7 +71,8 @@ public sealed class LineaConteoConfiguration : IEntityTypeConfiguration<LineaCon
         // ubicación, variante) — espeja la llave natural de saldos (F1-MP-01), así que el
         // snapshot (una línea por fila de saldo) no puede violarlo. NULLS NOT DISTINCT: sin medida = una sola.
         builder.Property(x => x.ProductoAwVarianteId);
-        builder.HasIndex(x => new { x.ConteoId, x.ArticuloId, x.UbicacionId, x.ProductoAwVarianteId })
+        builder.Property(x => x.Lote).HasMaxLength(50);
+        builder.HasIndex(x => new { x.ConteoId, x.ArticuloId, x.UbicacionId, x.ProductoAwVarianteId, x.Lote })
             .IsUnique()
             .AreNullsDistinct(false)
             .HasDatabaseName("ux_lineas_conteo");

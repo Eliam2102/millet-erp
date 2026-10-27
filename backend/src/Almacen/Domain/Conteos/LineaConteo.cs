@@ -33,6 +33,8 @@ public sealed class LineaConteo : BaseEntity, IAuditable
     public Guid UbicacionId { get; private set; }
     /// <summary>Variante de medida de la fila de saldo contada; NULL = artículo sin medida.</summary>
     public Guid? ProductoAwVarianteId { get; private set; }
+    /// <summary>S4b: lote de la fila de saldo contada; NULL = sin lote («apertura»).</summary>
+    public string? Lote { get; private set; }
     public decimal CantidadTeorica { get; private set; }
     public decimal CostoPromedioSnapshot { get; private set; }
     public decimal? CantidadRealCapturada { get; private set; }
@@ -52,7 +54,8 @@ public sealed class LineaConteo : BaseEntity, IAuditable
         Guid ubicacionId,
         decimal cantidadTeorica,
         decimal costoPromedioSnapshot,
-        Guid? productoAwVarianteId = null) : base(id)
+        Guid? productoAwVarianteId = null,
+        string? lote = null) : base(id)
     {
         if (conteoId == Guid.Empty)
             throw new BusinessRuleException("LINEA_CONTEO_SIN_CONTEO",
@@ -78,6 +81,7 @@ public sealed class LineaConteo : BaseEntity, IAuditable
         SubAlmacenId = subAlmacenId;
         UbicacionId = ubicacionId;
         ProductoAwVarianteId = productoAwVarianteId;
+        Lote = Movimientos.LineaMovimiento.NormalizarLote(lote);
         CantidadTeorica = cantidadTeorica;
         CostoPromedioSnapshot = costoPromedioSnapshot;
     }

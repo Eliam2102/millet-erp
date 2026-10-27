@@ -137,7 +137,8 @@ public sealed class IniciarConteoHandler : IRequestHandler<IniciarConteoCommand>
                 ubicacionId: saldo.UbicacionId,
                 cantidadTeorica: saldo.Cantidad,
                 costoPromedioSnapshot: saldo.CostoPromedioMxn,
-                productoAwVarianteId: saldo.ProductoAwVarianteId));
+                productoAwVarianteId: saldo.ProductoAwVarianteId,
+                lote: saldo.Lote));
         }
 
         if (conteo.Lineas.Count == 0)

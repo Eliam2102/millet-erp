@@ -94,6 +94,14 @@ namespace Millet.Almacen.Infrastructure.Persistence.Migrations
                 type: "uuid",
                 nullable: true);
 
+            migrationBuilder.AddColumn<string>(
+                name: "lote",
+                schema: "almacen",
+                table: "lineas_conteo",
+                type: "character varying(50)",
+                maxLength: 50,
+                nullable: true);
+
             migrationBuilder.AddPrimaryKey(
                 name: "pk_saldos_inventario",
                 schema: "almacen",
@@ -131,7 +139,7 @@ namespace Millet.Almacen.Infrastructure.Persistence.Migrations
                 name: "ux_lineas_conteo",
                 schema: "almacen",
                 table: "lineas_conteo",
-                columns: new[] { "conteo_id", "articulo_id", "ubicacion_id", "producto_aw_variante_id" },
+                columns: new[] { "conteo_id", "articulo_id", "ubicacion_id", "producto_aw_variante_id", "lote" },
                 unique: true)
                 .Annotation("Npgsql:NullsDistinct", false);
 
@@ -150,7 +158,7 @@ DO $$
 BEGIN
     IF EXISTS (SELECT 1 FROM almacen.saldos_inventario WHERE producto_aw_variante_id IS NOT NULL OR lote IS NOT NULL)
        OR EXISTS (SELECT 1 FROM almacen.lineas_movimiento WHERE producto_aw_variante_id IS NOT NULL OR lote IS NOT NULL)
-       OR EXISTS (SELECT 1 FROM almacen.lineas_conteo WHERE producto_aw_variante_id IS NOT NULL) THEN
+       OR EXISTS (SELECT 1 FROM almacen.lineas_conteo WHERE producto_aw_variante_id IS NOT NULL OR lote IS NOT NULL) THEN
         RAISE EXCEPTION 'No se puede revertir AlmacenVarianteMedida: hay filas por variante de medida o por lote.';
     END IF;
 END $$;
@@ -220,6 +228,11 @@ END $$;
                 name: "producto_aw_variante_id",
                 schema: "almacen",
                 table: "lineas_movimiento");
+
+            migrationBuilder.DropColumn(
+                name: "lote",
+                schema: "almacen",
+                table: "lineas_conteo");
 
             migrationBuilder.DropColumn(
                 name: "producto_aw_variante_id",

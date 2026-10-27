@@ -231,14 +231,11 @@ public sealed class RegistrarSalidaPorValeHandler
                 ?? throw new BusinessRuleException(
                     "SALIDA_UBICACION_REQUERIDA",
                     "Cada línea del vale debe indicar la ubicación (bin) de donde sale.");
-            var saldo = await _db.SaldosInventario.AsNoTracking()
-                .FirstOrDefaultAsync(
-                    s => s.UbicacionId == ubicacionLinea && s.ArticuloId == input.ArticuloId
-                        && s.ProductoAwVarianteId == input.ProductoAwVarianteId && s.Lote == null, // S4a: sin lote; S4b elige lote
-                    cancellationToken);
+            var (saldo, lote) = await Recepciones.RecepcionVariante.ResolverSaldoSalidaAsync(
+                _db, ubicacionLinea, input.ArticuloId, input.ProductoAwVarianteId, input.Lote, cancellationToken);
             var costoSnapshot = saldo?.CostoPromedioMxn ?? 0m;
             var variante = variantes[posicion - 1];
-            Recepciones.RecepcionVariante.ExigirExistencia(variante, saldo?.Cantidad ?? 0m, conversiones[posicion - 1].CantidadBase);
+            Recepciones.RecepcionVariante.ExigirExistencia(variante, saldo?.Cantidad ?? 0m, conversiones[posicion - 1].CantidadBase, lote);
 
             var conversion = conversiones[posicion - 1];
             var lineaId = Guid.CreateVersion7();
@@ -255,7 +252,7 @@ public sealed class RegistrarSalidaPorValeHandler
                 ubicacionReferencia: input.UbicacionReferencia,
                 comentarioLinea: input.Comentario,
                 ubicacionId: ubicacionLinea,
-                productoAwVarianteId: variante?.VarianteId, anchoMm: variante?.AnchoMm, altoMm: variante?.AltoMm);
+                productoAwVarianteId: variante?.VarianteId, anchoMm: variante?.AnchoMm, altoMm: variante?.AltoMm, lote: lote);
             linea.AsentarCaptura(conversion.CantidadCapturada, conversion.UnidadCapturada);
             await _apartados.ConsumirAsync(sucursalId!.Value, null, null, input.ArticuloId,
                 conversion.CantidadBase, cancellationToken);

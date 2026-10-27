@@ -235,7 +235,8 @@ public sealed class AplicarDevolucionInternaHandler
                 ubicacionId: input.UbicacionId,
                 lineaSalidaOrigenId: lineaSalida.Id,
                 // F1-MP-01: la devolución regresa a la misma medida de la salida original.
-                productoAwVarianteId: lineaSalida.ProductoAwVarianteId, anchoMm: lineaSalida.AnchoMm, altoMm: lineaSalida.AltoMm);
+                productoAwVarianteId: lineaSalida.ProductoAwVarianteId, anchoMm: lineaSalida.AnchoMm, altoMm: lineaSalida.AltoMm,
+                lote: lineaSalida.Lote); // S4b: regresa al mismo lote del que salió
             movimiento.AgregarLinea(linea);
 
             var monto = Math.Round(input.CantidadADevolver * lineaSalida.CostoUnitarioMxn, 2);
@@ -311,7 +312,9 @@ public sealed record MatRevLineaInput(
     // BajaPorDano (salida) elige un bin con saldo del sub-almacén MAT-REV.
     Guid? UbicacionId = null,
     // F1-MP-01: medida de hoja; exigida si el artículo está ligado a A+W, rechazada si no.
-    Guid? ProductoAwVarianteId = null);
+    Guid? ProductoAwVarianteId = null,
+    // F1-MP-01 S4b: lote del material en MAT-REV; obligatorio con medida si el bin tiene existencia con lote.
+    string? Lote = null);
 
 public sealed record BajaPorDanoResponse(Guid MovimientoId, string Folio);
 
@@ -436,7 +439,7 @@ public sealed class BajaPorDanoHandler : IRequestHandler<BajaPorDanoCommand, Baj
         if (!esEntrada)
         {
             await ReservaDictamen.ValidarAsync(_db,
-                lineas.Select(l => (l.UbicacionId ?? ubicacionDefaultId ?? Guid.Empty, l.ArticuloId, l.ProductoAwVarianteId, (string?)null, l.Cantidad)).ToList(), // S4a: las salidas toman solo existencia sin lote (S4b elige lote).
+                lineas.Select(l => (l.UbicacionId ?? ubicacionDefaultId ?? Guid.Empty, l.ArticuloId, l.ProductoAwVarianteId, LineaMovimiento.NormalizarLote(l.Lote), l.Cantidad)).ToList(),
                 cancellationToken);
         }
 
@@ -455,9 +458,8 @@ public sealed class BajaPorDanoHandler : IRequestHandler<BajaPorDanoCommand, Baj
             }
 
             var ubicacionCosto = l.UbicacionId ?? ubicacionDefaultId;
-            var saldo = await _db.SaldosInventario.AsNoTracking()
-                .FirstOrDefaultAsync(s => s.UbicacionId == ubicacionCosto && s.ArticuloId == l.ArticuloId
-                    && s.ProductoAwVarianteId == l.ProductoAwVarianteId && s.Lote == null, cancellationToken);
+            var (saldo, lote) = await Recepciones.RecepcionVariante.ResolverSaldoSalidaAsync(
+                _db, ubicacionCosto ?? Guid.Empty, l.ArticuloId, l.ProductoAwVarianteId, l.Lote, cancellationToken);
             var costo = saldo?.CostoPromedioMxn ?? 0m;
             var linea = new LineaMovimiento(
                 id: Guid.CreateVersion7(),
@@ -468,7 +470,7 @@ public sealed class BajaPorDanoHandler : IRequestHandler<BajaPorDanoCommand, Baj
                 unidadMedida: UnidadBase(unidades, l.ArticuloId),
                 costoUnitarioMxn: costo,
                 ubicacionId: l.UbicacionId,
-                productoAwVarianteId: variante?.VarianteId, anchoMm: variante?.AnchoMm, altoMm: variante?.AltoMm);
+                productoAwVarianteId: variante?.VarianteId, anchoMm: variante?.AnchoMm, altoMm: variante?.AltoMm, lote: lote);
             movimiento.AgregarLinea(linea);
         }
 
@@ -614,7 +616,12 @@ public sealed class ReincorporacionTrasRevisionHandler
             var variante = await Recepciones.RecepcionVariante.ResolverAsync(
                 _articulos, _variantes, l.ArticuloId, l.ProductoAwVarianteId, cancellationToken, nuevoUso: false);
             if (variante is not null) Recepciones.RecepcionVariante.ExigirHojasEnteras(l.Cantidad, variante.AreaHojaM2);
-            var candidatos = saldosMatRev.Where(s => s.ArticuloId == l.ArticuloId && s.ProductoAwVarianteId == l.ProductoAwVarianteId && s.Lote == null)
+            var lote = LineaMovimiento.NormalizarLote(l.Lote);
+            if (variante is not null && lote is null
+                && saldosMatRev.Any(s => s.ArticuloId == l.ArticuloId && s.ProductoAwVarianteId == l.ProductoAwVarianteId && s.Lote != null)
+                && !saldosMatRev.Any(s => s.ArticuloId == l.ArticuloId && s.ProductoAwVarianteId == l.ProductoAwVarianteId && s.Lote == null))
+                throw new BusinessRuleException("LOTE_REQUERIDO", "Elige el lote de la hoja.");
+            var candidatos = saldosMatRev.Where(s => s.ArticuloId == l.ArticuloId && s.ProductoAwVarianteId == l.ProductoAwVarianteId && s.Lote == lote)
                 .Select(s => new
                 {
                     s.UbicacionId,
@@ -640,12 +647,12 @@ public sealed class ReincorporacionTrasRevisionHandler
                         $"(libre: {Math.Max(0m, mejor.Libre):0.####}). Dictamina primero la recepción (permiso dictaminar).");
                 origenBin = mejor.UbicacionId;
                 origenCosto = mejor.CostoPromedioMxn;
-                var k = (mejor.UbicacionId, l.ArticuloId, l.ProductoAwVarianteId, (string?)null);
+                var k = (mejor.UbicacionId, l.ArticuloId, l.ProductoAwVarianteId, lote);
                 consumidoEnEstaSolicitud[k] = consumidoEnEstaSolicitud.GetValueOrDefault(k) + l.Cantidad;
             }
             pares.Add(new ParLiberacionLinea(
                 new LineaRevisionMov(l.ArticuloId, BajaPorDanoHandler.UnidadBase(unidades, l.ArticuloId), l.Cantidad, origenCosto, origenBin,
-                    variante?.VarianteId, variante?.AnchoMm, variante?.AltoMm),
+                    variante?.VarianteId, variante?.AnchoMm, variante?.AltoMm, lote),
                 l.UbicacionId!.Value));
         }
 

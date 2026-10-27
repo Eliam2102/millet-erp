@@ -237,8 +237,10 @@ public sealed record SaldoUbicacionItem(
     decimal Cantidad,
     decimal CantidadDisponible,
     decimal CostoPromedioMxn,
-    // F1-MP-01: medida de la fila de saldo; una fila por (ubicación, medida).
-    Guid? ProductoAwVarianteId = null, decimal? AnchoMm = null, decimal? AltoMm = null, decimal? AreaHojaM2 = null);
+    // F1-MP-01: medida de la fila de saldo; una fila por (ubicación, medida, lote).
+    Guid? ProductoAwVarianteId = null, decimal? AnchoMm = null, decimal? AltoMm = null, decimal? AreaHojaM2 = null,
+    // S4b: lote de la fila (null = sin lote / apertura) para que la salida lo elija.
+    string? Lote = null);
 
 public sealed record SaldosPorUbicacionQuery(
     Guid ArticuloId,
@@ -291,7 +293,7 @@ public sealed class SaldosPorUbicacionHandler
             select new SaldoUbicacionItem(
                 u.Id, u.Clave, u.Nombre, sa.Clave, al.Clave, u.EsDefault,
                 s.Cantidad, sa.Tipo == TipoSubAlmacen.MaterialEnRevision ? 0m : s.CantidadDisponible, s.CostoPromedioMxn,
-                s.ProductoAwVarianteId, null, null, null))
+                s.ProductoAwVarianteId, null, null, null, s.Lote))
             .ToListAsync(cancellationToken);
         var medidas = _variantes is null
             ? new Dictionary<Guid, VarianteVidrioLectura>()

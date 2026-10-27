@@ -21,8 +21,8 @@ public class SalidaPorMedidaTests(WebApplicationFactory<Program> factory) : ICla
 {
     private static readonly DateOnly Fecha = new(2027, 4, 12);
 
-    private static RegistrarSalidaLineaInput Sale(Ctx ctx, decimal hojas, Guid? variante) =>
-        new(ctx.ArticuloId, null, hojas, null, null, null, null, ctx.RackId, "HOJA", variante);
+    private static RegistrarSalidaLineaInput Sale(Ctx ctx, decimal hojas, Guid? variante, string? lote = null) =>
+        new(ctx.ArticuloId, null, hojas, null, null, null, null, ctx.RackId, "HOJA", variante, lote);
 
     private static Task<Millet.Almacen.Application.Salidas.RegistrarSalidaResponse> Vale(AlmacenDbContext db, Ctx ctx, params RegistrarSalidaLineaInput[] lineas) =>
         new RegistrarSalidaPorValeHandler(db, new CapturaEventos(), new UserFake(ctx.UserId), new EmpresaFake(ctx.EmpresaId), new DecimalesNulo(),
@@ -97,16 +97,49 @@ public class SalidaPorMedidaTests(WebApplicationFactory<Program> factory) : ICla
     }
 
     [Fact]
-    public async Task Salida_sin_lote_no_consume_existencia_con_lote_hasta_que_S4b_elija_lote()
+    public async Task Salida_por_lote_toma_de_un_lote_deja_el_otro_y_rechaza_sin_lote_o_de_mas()
     {
         await new CuarentenaRecepcionTests(factory).EjecutarConFixtureAsync(async (db, ctx) =>
         {
-            await Recibir(db, ctx, true, Linea(ctx, 15m, VarB)); // llega con lote del proveedor
+            // 10 hojas del lote L-1 y 5 del L-2 (misma medida, mismo rack).
+            await Recibir(db, ctx, true, Linea(ctx, 10m, VarB, lote: "L-1"));
+            await Recibir(db, ctx, true, Linea(ctx, 5m, VarB, lote: "L-2"));
+            async Task<decimal> Hay(string lote) => await db.SaldosInventario.AsNoTracking()
+                .Where(s => s.UbicacionId == ctx.RackId && s.ArticuloId == ctx.ArticuloId && s.Lote == lote).Select(s => s.Cantidad).SingleAsync();
 
+            // Con medida y existencia con lote, el lote es obligatorio.
             var sinLote = () => Vale(db, ctx, Sale(ctx, 1m, VarB));
-            (await sinLote.Should().ThrowAsync<BusinessRuleException>()).Which.Message
-                .Should().Be("No hay hojas suficientes de 2140 × 3300 mm en el rack: hay 0 y pides 1.");
-            (await Fila(db, ctx.RackId, ctx.ArticuloId, VarB))!.Value.Cantidad.Should().Be(105.93m);
+            (await sinLote.Should().ThrowAsync<BusinessRuleException>()).Which.Should().Match<BusinessRuleException>(e =>
+                e.Code == "LOTE_REQUERIDO" && e.Message == "Elige el lote de la hoja.");
+
+            // El mensaje nombra el lote: en total hay 15 hojas, pero del L-1 solo 10.
+            var demasiadas = () => Vale(db, ctx, Sale(ctx, 12m, VarB, "L-1"));
+            (await demasiadas.Should().ThrowAsync<BusinessRuleException>()).Which.Message
+                .Should().Be("No hay hojas suficientes del lote L-1 de 2140 × 3300 mm en el rack: hay 10 y pides 12.");
+            var ajeno = () => Vale(db, ctx, Sale(ctx, 1m, VarB, "L-9"));
+            (await ajeno.Should().ThrowAsync<BusinessRuleException>()).Which.Message.Should().Contain("del lote L-9").And.Contain("hay 0 y pides 1");
+
+            // Salen 4 hojas del L-1; el L-2 queda intacto y la línea guarda el lote.
+            var vale = await Vale(db, ctx, Sale(ctx, 4m, VarB, " L-1 "));
+            (await Hay("L-1")).Should().Be(42.372m);   // 6 hojas
+            (await Hay("L-2")).Should().Be(35.31m);    // 5 hojas
+            var lineaVale = await db.LineasMovimiento.AsNoTracking().SingleAsync(l => l.MovimientoId == vale.SalidaId);
+            lineaVale.Lote.Should().Be("L-1");
+
+            // La devolución interna regresa al mismo lote del que salió (una hoja de 7.062 m²).
+            await new AplicarDevolucionInternaHandler(db, new CapturaEventos(), new UserFake(ctx.UserId), new EmpresaFake(ctx.EmpresaId),
+                    new DecimalesNulo(), ctx.Periodos)
+                .Handle(new AplicarDevolucionInternaCommand(vale.SalidaId, ctx.SubDisponibleId, Fecha, "Bueno", "Sobró", null,
+                    [new DevolucionInternaLineaInput(lineaVale.Id, 7.062m, ctx.RackId)]), default);
+            (await Hay("L-1")).Should().Be(49.434m);   // 7 hojas
+            (await Hay("L-2")).Should().Be(35.31m);
+
+            // Con existencia de apertura (sin lote) junto a un lote, salir sin elegir lote toma la de apertura.
+            await db.Database.ExecuteSqlInterpolatedAsync($"UPDATE almacen.saldos_inventario SET lote = NULL WHERE articulo_id = {ctx.ArticuloId} AND lote = 'L-2'");
+            db.ChangeTracker.Clear();
+            await Vale(db, ctx, Sale(ctx, 1m, VarB));
+            (await db.SaldosInventario.AsNoTracking().SingleAsync(s => s.ArticuloId == ctx.ArticuloId && s.Lote == null)).Cantidad.Should().Be(28.248m); // 4 hojas
+            (await Hay("L-1")).Should().Be(49.434m);
         });
     }
 
