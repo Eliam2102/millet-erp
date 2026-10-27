@@ -106,9 +106,35 @@ export const ResultadoLiberacion = {
   Liberado: 1,
   Retenido: 2,
   LiberadoConOverride: 3,
+  /**
+   * C7.3: la línea cubre entre 50 % y 99 % del pedido; espera la
+   * autorización de un gerente de CxC (permiso override).
+   */
+  PendienteAutorizacion: 4,
 } as const satisfies Record<string, number>;
 export type ResultadoLiberacion =
   (typeof ResultadoLiberacion)[keyof typeof ResultadoLiberacion];
+
+/**
+ * C7.3: comportamiento de una serie de folio. Mirror de backend
+ * <c>ComportamientoSerie</c>.
+ */
+export const ComportamientoSerie = {
+  /** Siempre libera sin evaluar crédito (5000/7000). */
+  SiempreLibera: 1,
+  /** Nunca libera por crédito: solo con autorización (3000/4000/8000). */
+  NuncaLibera: 2,
+  /** Evalúa crédito disponible (sin regla de serie). */
+  EvaluaCredito: 3,
+} as const satisfies Record<string, number>;
+export type ComportamientoSerie =
+  (typeof ComportamientoSerie)[keyof typeof ComportamientoSerie];
+
+/** Mirror de backend <c>ReglaLiberacionSerieResponse</c> (solo activas). */
+export interface ReglaLiberacionSerieResponse {
+  prefijo: string;
+  comportamiento: ComportamientoSerie;
+}
 
 /**
  * Regla que determinó el resultado (cascada serie → crédito → override).
@@ -118,6 +144,8 @@ export const ReglaAplicadaLiberacion = {
   Serie: 1,
   Credito: 2,
   Override: 3,
+  /** C7.3: cobertura parcial del crédito (50–99 %). */
+  Cobertura: 4,
 } as const satisfies Record<string, number>;
 export type ReglaAplicadaLiberacion =
   (typeof ReglaAplicadaLiberacion)[keyof typeof ReglaAplicadaLiberacion];
@@ -151,6 +179,34 @@ export interface DecisionLiberacionResponse {
   overrideId: string | null;
   decididoPor: string;
   decididoEn: string;
+  /**
+   * C7.3: crédito disponible ÷ monto (%, 2 decimales truncados, 0–100).
+   * null si la regla de crédito no se evaluó (serie o sin línea activa).
+   */
+  porcentajeCobertura?: number | null;
+  /** C7.3: pendiente que esta liberación resolvió. */
+  decisionOrigenId?: string | null;
+  /** C7.3: decisión que resolvió esta pendiente (null = sigue pendiente). */
+  resolucionId?: string | null;
+  /** C7.3: motivo del gerente de CxC que autorizó o rechazó la pendiente. */
+  motivo?: string | null;
+}
+
+/** Body de POST /liberaciones/{id}/autorizar (C7.3). */
+export interface AutorizarLiberacionPendienteBody {
+  motivo: string;
+}
+
+/** Body de POST /liberaciones/{id}/rechazar (C7.3). */
+export interface RechazarLiberacionPendienteBody {
+  motivo: string;
+}
+
+/** Usuario con permiso de decidir liberaciones (GET /autorizaciones/beneficiarios). */
+export interface BeneficiarioCreditoResponse {
+  id: string;
+  nombre: string;
+  email: string;
 }
 
 /** Payload del POST decidir (mirror de <c>DecidirLiberacionCommand</c>). */
