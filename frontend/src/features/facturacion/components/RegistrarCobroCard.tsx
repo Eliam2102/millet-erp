@@ -60,7 +60,8 @@ export function RegistrarCobroCard(props: {
   onRegistrado?: () => void;
 }) {
   const puedeOperar = useHasPermission(PermisosCanonicos.FacturacionCajaOperar);
-  const sesion = useSesionActual();
+  // Sin permiso de caja no se consulta la sesión (el endpoint respondería 403).
+  const sesion = useSesionActual({ enabled: puedeOperar });
   const registrar = useRegistrarCobro();
   const catalogo = useFormasPago();
   const disponibles = formasPagoCaja(catalogo.data ?? []);

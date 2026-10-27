@@ -174,34 +174,69 @@ describe('<MiCaja> — smoke', () => {
     expect(screen.queryByRole('button', { name: /Registrar movimiento/i })).toBeNull();
   });
 
-  it('sin permiso operar: oculta Iniciar arqueo, Liquidar ruta y Registrar movimiento', async () => {
-    useAuthStore.setState({ permisos: [] });
+  it('sin permiso operar: no consulta la sesión (403) ni muestra acciones de operación', async () => {
+    useAuthStore.setState({ permisos: ['facturacion.caja.supervisar'] });
+    const consultada = vi.fn();
     mswServer.use(
-      http.get(`${BASE}/sesion-actual`, () =>
-        HttpResponse.json({ sesion: sesionAbierta, diaAnteriorPendiente: false }),
-      ),
-    );
-    render(<MiCaja />, { wrapper: createQueryWrapper() });
-    await waitFor(() =>
-      expect(screen.getByText('Caja Mostrador Conkal')).toBeInTheDocument(),
-    );
-    expect(screen.queryByRole('button', { name: /Iniciar arqueo/i })).toBeNull();
-    expect(screen.queryByRole('button', { name: /Liquidar ruta/i })).toBeNull();
-    expect(screen.queryByRole('button', { name: /Registrar movimiento/i })).toBeNull();
-  });
-
-  it('sin permiso operar y sin sesión: oculta Abrir sesión', async () => {
-    useAuthStore.setState({ permisos: [] });
-    mswServer.use(
-      http.get(`${BASE}/sesion-actual`, () =>
-        HttpResponse.json({ sesion: null, diaAnteriorPendiente: false }),
-      ),
+      http.get(`${BASE}/sesion-actual`, () => {
+        consultada();
+        return HttpResponse.json({}, { status: 403 });
+      }),
+      http.get('*/api/v1/facturacion/cajas/autorizaciones-apertura', () => HttpResponse.json([])),
       http.get(BASE, () => HttpResponse.json([])),
     );
     render(<MiCaja />, { wrapper: createQueryWrapper() });
-    await waitFor(() =>
-      expect(screen.getByLabelText(/Fondo de apertura/i)).toBeInTheDocument(),
-    );
+    expect(await screen.findByText('Mi caja')).toBeInTheDocument();
+    await new Promise((r) => setTimeout(r, 50));
+    expect(consultada).not.toHaveBeenCalled();
+    expect(screen.queryByText(/No se pudo cargar tu sesión/i)).toBeNull();
     expect(screen.queryByRole('button', { name: /Abrir sesión/i })).toBeNull();
+    expect(screen.queryByRole('button', { name: /Iniciar arqueo/i })).toBeNull();
+    expect(screen.queryByRole('button', { name: /Registrar movimiento/i })).toBeNull();
+  });
+
+  describe('86e3tfdwu · enlace «Cobrar en caja» con la caja sin abrir', () => {
+    beforeEach(() => {
+      window.history.pushState({}, '', '/facturacion/caja?cobrar=cmp-1&folio=FV-77');
+    });
+    afterEach(() => {
+      window.history.pushState({}, '', '/');
+    });
+
+    it('caja en arqueo: avisa «La caja no está abierta» con el folio', async () => {
+      mswServer.use(
+        http.get(`${BASE}/sesion-actual`, () =>
+          HttpResponse.json({
+            sesion: { ...sesionAbierta, estado: 'EnArqueo', cortes: [] },
+            diaAnteriorPendiente: false,
+          }),
+        ),
+      );
+      render(<MiCaja />, { wrapper: createQueryWrapper() });
+      const aviso = (await screen.findByText(/La caja no está abierta/)).closest('[role="status"]');
+      expect(aviso).toHaveTextContent('FV-77');
+    });
+
+    it('día anterior pendiente: también avisa', async () => {
+      mswServer.use(
+        http.get(`${BASE}/sesion-actual`, () =>
+          HttpResponse.json({ sesion: sesionAbierta, diaAnteriorPendiente: true }),
+        ),
+      );
+      render(<MiCaja />, { wrapper: createQueryWrapper() });
+      expect(await screen.findByText(/La caja no está abierta/)).toBeInTheDocument();
+    });
+
+    it('caja abierta: no muestra el aviso', async () => {
+      mswServer.use(
+        http.get(`${BASE}/sesion-actual`, () =>
+          HttpResponse.json({ sesion: sesionAbierta, diaAnteriorPendiente: false }),
+        ),
+        http.get(`${BASE}/cobrables`, () => HttpResponse.json([])),
+      );
+      render(<MiCaja />, { wrapper: createQueryWrapper() });
+      expect(await screen.findByText('Caja Mostrador Conkal')).toBeInTheDocument();
+      expect(screen.queryByText(/La caja no está abierta/)).toBeNull();
+    });
   });
 });

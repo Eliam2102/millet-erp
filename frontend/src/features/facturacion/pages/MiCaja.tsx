@@ -100,8 +100,17 @@ function toastError(error: unknown, fallback: string) {
  * operación hasta su cierre extemporáneo.
  */
 export function MiCaja() {
-  const query = useSesionActual();
+  const puedeOperar = useHasPermission(PermisosCanonicos.FacturacionCajaOperar);
+  // Sin permiso de operar no se consulta la sesión (el endpoint respondería 403).
+  const query = useSesionActual({ enabled: puedeOperar });
   const puedeSupervisar = useHasPermission(PermisosCanonicos.FacturacionCajaSupervisar);
+  // 86e3tfdwu: enlace «Cobrar en caja» (?cobrar=…&folio=…) que llega con la caja sin abrir.
+  const [folioCobro] = useState(() => {
+    const search = new URLSearchParams(window.location.search);
+    return search.has('cobrar') ? (search.get('folio') ?? '') : null;
+  });
+  const cajaNoAbierta =
+    query.isSuccess && (query.data.sesion?.estado !== 'Abierta' || query.data.diaAnteriorPendiente);
 
   return (
     <div className="space-y-5">
@@ -110,7 +119,20 @@ export function MiCaja() {
         descripcion="Abre tu sesión, registra cobros y movimientos, y realiza el arqueo de caja."
       />
 
-      {query.isLoading ? (
+      {folioCobro != null && cajaNoAbierta && (
+        <div
+          role="status"
+          className="flex items-start gap-2 rounded-md border border-line bg-warning-note-bg p-3 text-sm text-warning-note-fg"
+        >
+          <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
+          <p>
+            La caja no está abierta: no se puede cobrar {folioCobro || 'el comprobante'} hasta que
+            haya una sesión abierta del día.
+          </p>
+        </div>
+      )}
+
+      {!puedeOperar ? null : query.isLoading ? (
         <TableSkeleton rows={4} columns={[{ width: 'w-full' }]} />
       ) : query.isError ? (
         <ErrorState
