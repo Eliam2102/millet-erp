@@ -59,8 +59,10 @@ Owner del proyecto: **Eduardo Paredes** — `eduardo.paredes@tiglass.net`.
    de requisiciones; órdenes de compra, recepciones.
 6. **Almacén** (`Millet.Almacen`) — inventario físico bajo responsabilidad
    del Jefe Almacén: insumos/refacciones + materiales directos de producción
-   no-vidrio (interlayer, silicones, sellantes, pinturas). **Solo el vidrio
-   crudo queda fuera** (continúa en A+W). Reemplaza al Portal Millet
+   no-vidrio (interlayer, silicones, sellantes, pinturas). **El vidrio crudo
+   también se compra y se recibe en el ERP** (Fase 1: toda la materia prima;
+   cuestionario 02, E07 §0, PR #215), con existencia por medida de hoja; en
+   el interín se avisa a A+W hasta que opere el Portal de Almacenes. Reemplaza al Portal Millet
    (`PortalSap`) completo: Requisiciones (ya implementado), Salidas de
    mercancía, Reportes. Cinco submódulos: Entradas (dos variantes — factura
    para insumos, packing list para materiales directos), Salidas (normal +

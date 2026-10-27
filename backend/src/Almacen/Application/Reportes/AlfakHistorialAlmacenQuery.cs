@@ -57,18 +57,25 @@ public sealed record AlfakHistorialFila(
     // frontend cae al id crudo. SubAlmacenNombre viene por JOIN; Articulo* por batch.
     string? SubAlmacenNombre,
     string? ArticuloClave,
-    string? ArticuloDescripcion);
+    string? ArticuloDescripcion,
+    // F1-MP-01: una fila por medida de hoja (cantidades en m²); Medida = «2440 × 3660 mm · 20 hojas» al saldo final.
+    Guid? ProductoAwVarianteId = null,
+    string? Medida = null,
+    // S4b: una fila por lote del proveedor (null = sin lote / apertura).
+    string? Lote = null);
 
 public sealed class AlfakHistorialAlmacenHandler
     : IRequestHandler<AlfakHistorialAlmacenQuery, ReporteResponse<AlfakHistorialFila>>
 {
     private readonly AlmacenDbContext _db;
     private readonly IArticuloReadPort _articulos;
+    private readonly IVarianteVidrioReadPort? _variantes; // opcional solo para pruebas unitarias sin medidas
 
-    public AlfakHistorialAlmacenHandler(AlmacenDbContext db, IArticuloReadPort articulos)
+    public AlfakHistorialAlmacenHandler(AlmacenDbContext db, IArticuloReadPort articulos, IVarianteVidrioReadPort? variantes = null)
     {
         _db = db;
         _articulos = articulos;
+        _variantes = variantes;
     }
 
     public async Task<ReporteResponse<AlfakHistorialFila>> Handle(
@@ -97,6 +104,8 @@ public sealed class AlfakHistorialAlmacenHandler
                         v.SubAlmacenId,
                         SubAlmacenNombre = sa.Nombre,
                         l.ArticuloId,
+                        l.ProductoAwVarianteId,
+                        l.Lote,
                         m.Tipo,
                         m.FechaMovimiento,
                         l.Cantidad,
@@ -104,7 +113,7 @@ public sealed class AlfakHistorialAlmacenHandler
 
         var rows = await query.ToListAsync(cancellationToken);
 
-        var grupos = rows.GroupBy(r => new { r.SubAlmacenId, r.ArticuloId });
+        var grupos = rows.GroupBy(r => new { r.SubAlmacenId, r.ArticuloId, r.ProductoAwVarianteId, r.Lote });
         var filas = new List<AlfakHistorialFila>();
 
         foreach (var g in grupos)
@@ -151,7 +160,9 @@ public sealed class AlfakHistorialAlmacenHandler
             // azar con N bins). Sin cambio con la ÚNICA única.
             var saldosActuales = await _db.SaldosInventario.AsNoTracking()
                 .Where(s => s.SubAlmacenId == g.Key.SubAlmacenId
-                    && s.ArticuloId == g.Key.ArticuloId)
+                    && s.ArticuloId == g.Key.ArticuloId
+                    && s.ProductoAwVarianteId == g.Key.ProductoAwVarianteId
+                    && s.Lote == g.Key.Lote)
                 .Select(s => new { s.Cantidad, s.CostoPromedioMxn })
                 .ToListAsync(cancellationToken);
             var cantidadActual = saldosActuales.Sum(s => s.Cantidad);
@@ -173,8 +184,14 @@ public sealed class AlfakHistorialAlmacenHandler
                 // Sub-almacén por JOIN; Articulo* nulos aquí, se enriquecen en batch.
                 SubAlmacenNombre: subAlmacenNombre,
                 ArticuloClave: null,
-                ArticuloDescripcion: null));
+                ArticuloDescripcion: null,
+                ProductoAwVarianteId: g.Key.ProductoAwVarianteId,
+                Lote: g.Key.Lote));
         }
+        var medidas = _variantes is null ? new Dictionary<Guid, VarianteVidrioLectura>()
+            : await _variantes.ObtenerPorIdsAsync(
+                filas.Where(f => f.ProductoAwVarianteId != null).Select(f => f.ProductoAwVarianteId!.Value).Distinct().ToArray(), cancellationToken);
+        filas = filas.Select(f => f with { Medida = MedidaReporte.Texto(f.ProductoAwVarianteId, f.SaldoFinal, medidas) }).ToList();
 
         // Enriquecimiento de artículo (clave/descripción) en batch sobre los
         // ArticuloId distintos (ADR-0042, anti-N+1); fallback a null cuando el
@@ -226,6 +243,8 @@ public sealed class AlfakHistorialAlmacenHandler
         new("subAlmacenNombre", "Sub-almacén", "texto"),
         new("articuloClave", "Artículo", "texto"),
         new("articuloDescripcion", "Descripción", "texto"),
+        new("medida", "Medida", "texto"),
+        new("lote", "Lote", "texto"),
         new("saldoInicial", "Saldo inicial", "numero", "right"),
         new("entradas", "Entradas", "numero", "right"),
         new("salidas", "Salidas", "numero", "right"),

@@ -57,6 +57,22 @@ public sealed partial class DemoSesionSeedHostedService
         if (!await db.Articulos.AnyAsync(a => a.Clave == "DEMO-ART-PIEZA", ct))
             db.Articulos.Add(new Articulo(Id("DEMO-ART-PIEZA"), "DEMO-ART-PIEZA", "Refacción para mantenimiento", "PZA",
                 precioReferenciaMonto: 100m, precioReferenciaMoneda: "MXN"));
+        // F1-MP-01 (E07): vidrio crudo por medida. DEMO-ART-PIEZA queda sin producto A+W (insumo).
+        // El vínculo se aplica en cuanto el producto ya fue sincronizado desde A+W (aw-origen-demo).
+        var vidrio = await db.Articulos.SingleOrDefaultAsync(a => a.Clave == "VID-CLARO-6", ct);
+        if (vidrio is null)
+        {
+            var m2 = await db.UnidadesMedida.SingleOrDefaultAsync(u => u.Codigo == "M2", ct);
+            vidrio = new Articulo(Id("VID-CLARO-6"), "VID-CLARO-6", "Vidrio float claro 6 mm", "M2", unidadMedidaId: m2?.Id);
+            db.Articulos.Add(vidrio);
+        }
+        if (vidrio.ProductoAwId is null)
+        {
+            var producto = await db.ProductosAw.AsNoTracking().FirstOrDefaultAsync(
+                p => p.Descripcion == "VIDRIO FLOAT CLARO 6MM" && p.Estatus == EstatusCatalogo.Activo, ct);
+            if (producto is not null && !await db.Articulos.AnyAsync(a => a.ProductoAwId == producto.Id, ct))
+                vidrio.AsignarProductoAw(producto.Id);
+        }
         var clienteIncompleto = await db.Clientes.SingleOrDefaultAsync(c => c.Clave == "DEMO-CLI-INCOMPLETO", ct);
         if (clienteIncompleto?.RazonSocial == "DEMO Cliente sin datos fiscales")
             clienteIncompleto.ActualizarDatos(razonSocial: "Cristales del Mayab (datos fiscales pendientes)");

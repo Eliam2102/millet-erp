@@ -591,6 +591,25 @@ export interface LineaOrdenCompraResponse {
    */
   // PLATFORM-TODO(<F1-COM-06>): supuesto Vilo, campo de comercio exterior.
   fraccionArancelaria: string | null;
+  /** F1-MP-01 (E1): medida de la hoja (vidrio crudo). Null/ausente si el artículo no maneja medidas
+   * o es una línea heredada de RQ aún sin medida. La cantidad sigue en m² (= hojas × <c>areaHojaM2</c>). */
+  productoAwVarianteId?: string | null;
+  anchoMm?: number | null;
+  altoMm?: number | null;
+  areaHojaM2?: number | null;
+  /** Artículo de vidrio crudo (A+W) con la línea aún sin medida: se exige antes de transmitir. */
+  requiereMedida?: boolean;
+}
+
+/** Medida de hoja de un artículo de vidrio crudo (<c>GET /api/v1/catalogos/articulos/{id}/medidas</c>). */
+export interface MedidaHojaArticulo {
+  varianteId: string;
+  claveVariante: string;
+  anchoMm: number | null;
+  altoMm: number | null;
+  espesorMm: number | null;
+  /** m² por hoja; null si A+W no informó ancho o alto (no elegible). */
+  areaHojaM2: number | null;
 }
 
 /**

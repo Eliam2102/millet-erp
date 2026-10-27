@@ -305,6 +305,8 @@ export interface ArticuloDetalle {
   precioReferenciaMonto: number | null;
   precioReferenciaMoneda: string | null;
   estatus: EstatusCatalogo;
+  /** Familia A+W del vidrio crudo (E07 D5, 1:1); null = insumo sin medidas. */
+  productoAwId?: string | null;
 }
 
 export interface CrearArticuloPayload {
@@ -333,6 +335,9 @@ export interface ActualizarArticuloPayload {
   limpiarDescripcionLarga?: boolean | null;
   limpiarCategoria?: boolean | null;
   limpiarPrecioReferencia?: boolean | null;
+  /** Si llega, liga el artículo a esa familia A+W (rechaza si ya está ligada a otro o hay existencia). */
+  productoAwId?: string | null;
+  limpiarProductoAw?: boolean | null;
 }
 
 export interface CrearArticuloResponse {
@@ -677,6 +682,8 @@ export interface ProductoAwComponente {
 
 /** Medidas en mm: null = A+W no las informó (NUNCA 0). */
 export interface ProductoAwVariante {
+  /** Id de la variante (E07 D3); lo viajan las líneas de movimiento y el saldo. */
+  id?: string;
   claveVariante: string;
   altoMm: number | null;
   anchoMm: number | null;

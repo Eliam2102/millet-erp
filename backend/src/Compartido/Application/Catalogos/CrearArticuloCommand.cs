@@ -25,7 +25,8 @@ public sealed record CrearArticuloCommand(
     string? DescripcionLarga,
     Guid? CategoriaId,
     decimal? PrecioReferenciaMonto,
-    string? PrecioReferenciaMoneda) : IRequest<CrearArticuloResponse>;
+    string? PrecioReferenciaMoneda,
+    Guid? ProductoAwId = null) : IRequest<CrearArticuloResponse>;
 
 public sealed record CrearArticuloResponse(Guid Id, string Clave);
 
@@ -42,6 +43,8 @@ public sealed class CrearArticuloValidator : AbstractValidator<CrearArticuloComm
             .When(c => c.PrecioReferenciaMonto.HasValue);
         RuleFor(c => c.PrecioReferenciaMoneda!).Length(3).Matches("^[A-Z]{3}$")
             .When(c => c.PrecioReferenciaMoneda is not null);
+        RuleFor(c => c.ProductoAwId!.Value).NotEqual(Guid.Empty).When(c => c.ProductoAwId.HasValue)
+            .WithName("Producto A+W").WithMessage("Elige un producto A+W válido.");
     }
 }
 
@@ -116,6 +119,12 @@ public sealed class CrearArticuloHandler
             precioReferenciaMoneda: request.PrecioReferenciaMoneda,
             unidadMedidaId: unidad.Id,
             categoriaId: categoria?.Id);
+
+        if (request.ProductoAwId is { } productoAwId)
+        {
+            await ArticuloProductoAwGuard.ValidarProductoLigableAsync(_db, articulo.Id, articulo.UnidadMedidaDefault, productoAwId, cancellationToken);
+            articulo.AsignarProductoAw(productoAwId);
+        }
 
         _db.Articulos.Add(articulo);
         await _db.SaveChangesAsync(cancellationToken);

@@ -320,7 +320,7 @@ public sealed class ReintentarTimbradoHandler
                 repp.EmpresaId, ahora, repp.Id, repp.Uuid!, repp.ImporteTotalPago,
                 repp.FacturasPagadas.Sum(f => f.GananciaPerdidaCambiaria),
                 repp.FacturasPagadas.Select(f => new ReppFacturaPagadaDetalle(
-                    f.FacturaVentaId, f.ImportePagado, f.NumParcialidad, f.MonedaFactura, f.SaldoInsoluto)).ToList(), pendiente?.MovimientoBancarioId), ct);
+                    f.FacturaVentaId, f.ImportePagado, f.NumParcialidad, f.MonedaFactura, f.SaldoInsoluto)).ToList(), pendiente?.MovimientoBancarioId, pendiente?.PropuestaId), ct);
         }
 
         pendiente?.RegistrarIntento(repp);

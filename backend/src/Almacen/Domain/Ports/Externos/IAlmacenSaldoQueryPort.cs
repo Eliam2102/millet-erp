@@ -38,6 +38,13 @@ public interface IAlmacenSaldoQueryPort
         CancellationToken cancellationToken);
 
     /// <summary>
+    /// ¿Tiene el artículo existencia (cantidad distinta de cero) en algún saldo? Lo usa Datos Maestros
+    /// para no ligar/desligar el producto A+W (E07 D5) de un artículo que ya tiene existencia sin variante
+    /// (o con ella).
+    /// </summary>
+    Task<bool> ArticuloTieneExistenciaAsync(Guid articuloId, CancellationToken cancellationToken);
+
+    /// <summary>
     /// Disponibilidad de un artículo agregada a nivel <b>almacén</b> — suma los
     /// saldos de todas las ubicaciones (Nivel 4) bajo los sub-almacenes de ese
     /// almacén. Es el rollup que Compras necesita: la RQ guarda

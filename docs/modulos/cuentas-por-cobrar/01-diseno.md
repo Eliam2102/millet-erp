@@ -338,6 +338,89 @@ ETag; errores RFC 7807.
   entre el saldo calculado y el persistido se muestra como observación
   «Saldo en sistema …», sin corregirla.
 
+### 11.3 Depósitos sin identificar y parcialidades (F1-CXC-03 · C7.4)
+
+- **Criterios.** CA7.9: un depósito que llega sin detalle queda «sin
+  identificar» y no se aplica hasta tener el detalle. CA7.8: un depósito de
+  $50,000 que el cliente detalla contra 3 facturas se propone en CxC, lo
+  confirma Tesorería y las facturas se saldan al timbrarse el REP; quien
+  propone no confirma. C7.4-a: un pago parcial de una PPD registra la
+  parcialidad y el saldo insoluto para el REP. Reglas R13 (sin remittance no se
+  propone; pagos parciales como parcialidad) y R12 (CxC propone, Tesorería
+  confirma).
+- **Flujo.** Tesorería registra el ingreso como «Cobro de cliente» (cliente
+  opcional; `BeneficiarioTipo=Cliente`). CxC lo ve en la pestaña «Sin
+  identificar» de `/cxc/aplicaciones` (`?vista=sin-identificar`, sin ruta
+  nueva) vía `GET /propuestas-aplicacion/depositos-por-identificar` (permiso
+  `aplicacion-pago.proponer`), y Tesorería en la pestaña «Sin identificar» de
+  su bandeja de depósitos vía `GET /api/v1/tesoreria/depositos/sin-identificar`
+  (permiso existente `tesoreria.movimientos.ver`; alcance por sucursal con
+  `tesoreria.documentos.leer-todas-sucursales`). Ambas bandejas muestran «Días
+  en espera» (fecha valor → hoy) y resaltan los de más de 5 días
+  (`DIAS_ESPERA_ALERTA`, supuesto de la ficha §7.4; no bloquea). «Identificar»
+  aparece solo a quien tiene `aplicacion-pago.proponer`. «Identificar» abre la nueva propuesta
+  prellenada; identificar = proponer con remittance (`POST
+  /propuestas-aplicacion` con `movimientoBancarioId`). Tesorería confirma con
+  otro usuario (`DEP_MISMO_USUARIO`), Facturación emite el REP y CxC salda la
+  cartera al consumir `recibo-pago.timbrado.v1`.
+- **Puerto.** `IDepositosPorIdentificarReadPort` (CxC, `Domain/Ports/Tesoreria`)
+  implementado por `DepositosPorIdentificarReadAdapter` en Tesorería (mismo
+  patrón que `IReppPendientesReadPort` en Facturación; Tesorería referencia a
+  CxC, nunca al revés). «Sin identificar» = ingreso, no contramovimiento ni
+  revertido, beneficiario Cliente, con disponible > 0, sin devolución
+  solicitada/autorizada/pagada y no ligado a caja o viáticos. La bandeja de CxC
+  descuenta las propuestas en estado Propuesta contra el mismo depósito; las
+  que Tesorería ya confirmó (el puerto las informa en `PropuestasConfirmadas`)
+  no se descuentan dos veces mientras llega el evento de confirmación.
+- **Validaciones al identificar.** `PAP_DEPOSITO_NO_DISPONIBLE` (ya aplicado,
+  devuelto o revertido), `PAP_DEPOSITO_MONEDA_DISTINTA`,
+  `PAP_DEPOSITO_EXCEDE_DISPONIBLE` (monto > disponible − propuestas
+  pendientes), `PAP_DEPOSITO_DE_OTRO_CLIENTE` (Tesorería ya lo registró a otro
+  cliente) y `PAP_SIN_REMITTANCE` (sigue obligatorio). Alcance por sucursal
+  del depósito (ADR-0051): el operativo solo ve/identifica depósitos de sus
+  sucursales; un depósito sin sucursal solo lo ve el corporativo.
+- **Sobrante.** Si la propuesta deja saldo a favor por identificar, Tesorería
+  aplica solo lo propuesto: el movimiento queda `AplicadoParcial` y el sobrante
+  vuelve a la bandeja «Sin identificar» para otra propuesta. Sin migración: lo
+  aplicado se deriva de las confirmaciones del movimiento. **E9 (C7.4-b):** si
+  el ingreso llegó sin cliente, el sobrante reaparece como «sin identificar»
+  del cliente de la última propuesta confirmada contra él; sin CFDI ni anticipo
+  (la conversión a anticipo queda fuera, pregunta a Millet).
+- **E8 · liga con el ingreso.** Si la propuesta trae `MovimientoBancarioId`,
+  Tesorería solo la confirma contra ese movimiento
+  (`DEP_MOVIMIENTO_DISTINTO_AL_LIGADO`); la pantalla fija el movimiento y no
+  ofrece alta rápida. Sin liga sigue la regla anterior.
+- **Parcialidades.** La «parcialidad siguiente» y el saldo de una factura PPD
+  salen de Facturación con el mismo cálculo que
+  `FacturasCobrablesPpdQuery.NumParcialidadSiguiente` (Total − NC − REP
+  vigentes; REP vigentes + 1), leído por `IReppPendientesReadPort.ParcialidadesAsync`
+  (`SaldoPorCobrar.ParcialidadesAsync` compartido). **Decisión:** las propuestas
+  abiertas de CxC (Propuesta, o Confirmada sin REP) suman a la parcialidad y
+  restan del disponible, porque cada una será un REP antes que la nueva. Si
+  Facturación no conoce la factura, CxC usa su cartera (pagos vigentes + 1). Se
+  muestra en las facturas abiertas (`numParcialidadSiguiente`, `disponible`),
+  en la respuesta y en el detalle («Parc. n · saldo insoluto»), y se guarda en
+  la columna existente `num_parcialidad`; el número que mande el cliente se
+  ignora. Facturación sigue asignando el número del REP al timbrar. Un pago
+  parcial a una factura que no es PPD se rechaza (`PAP_PARCIAL_NO_PPD`).
+- **REP ↔ propuesta.** Facturación guarda un `repp_pendiente` por propuesta
+  confirmada (migración `ReppPendientePorPropuesta`: índice único
+  `(movimiento_bancario_id, propuesta_id)`; sin propuesta sigue uno por
+  movimiento), así que un depósito identificado en partes genera un REP por
+  cada propuesta. `recibo-pago.timbrado.v1` agrega `PropuestaId` (aditivo) y
+  `ReciboPagoTimbradoHandler` marca exactamente esa propuesta; sin
+  `PropuestaId` (eventos anteriores) toma la **Confirmada** del movimiento que
+  aún no tiene REP (antes tomaba la primera, aunque estuviera rechazada).
+- **«Sugerir» (V61).** Las facturas abiertas se listan de la más antigua a la
+  más reciente (vencimiento, luego timbrado). «Sugerir» llena importes por
+  antigüedad sin exceder el disponible ni el monto, **sin enviar**; los importes
+  quedan editables y una persona propone. Ningún cobro se aplica sin selección
+  humana (V61, Millet, junta del 8-oct; sustituye a P7.4).
+- **Evento.** `propuesta-aplicacion.creada.v1` agrega `MovimientoBancarioId`
+  (opcional, aditivo); Tesorería lo usa para preseleccionar el movimiento.
+- **Fuera de alcance:** la importación automática de depósitos desde el banco
+  (`PLATFORM-TODO(<DepositoBancarioFeed>)`, T9.2/T9.4).
+
 ---
 
 ## 12. Frontend — patrones aplicables
@@ -355,7 +438,7 @@ patrones P1–P4 de `frontend/docs/patrones-compras.md`, reportes con
 | Vista A+W "liberado sin factura / en firme" (G1) | `<CreditoLiberadoSinFactura>` | Término = 0 + `dato_incompleto=true` en `CreditoDisponibleQuery` | A+W publica vista → adapter de lectura la consume y se quita la bandera |
 | Emisor de `PagoClienteConfirmadoEvent` (Ingresos/Tesorería) | `<PagoClienteConfirmado>` (ya existe en `ReppEndpoints.cs`) | `ConfirmarPropuestaAplicacionPagoCommand` manual | `TesoreriaEventListenerWorker` en CxC + listener en Facturación invoca `EmitirReppCommand` |
 | Contrato write-back de liberación en `MILLET_INTEGRACION` | `<CxcWriteBackLiberacion>` | Decisión persiste sin efecto en A+W | PR-9: worker consume `DecisionLiberacionEmitidaEvent` → tabla-puente |
-| Feed bancario de depósitos | `<DepositoBancarioFeed>` | Captura manual del depósito en la propuesta | Integración bancaria futura (fuera de alcance v1) |
+| Feed bancario de depósitos | `<DepositoBancarioFeed>` | Tesorería registra el ingreso a mano («Cobro de cliente», cliente opcional); CxC lo identifica desde «Sin identificar» (C7.4) | Importación de estados de cuenta / conciliación bancaria (T9.2/T9.4) alimenta el mismo `MovimientoBancario`; el puerto `IDepositosPorIdentificarReadPort` no cambia |
 | Motor de notificaciones para `AlertaCarteraGeneradaEvent` | `<Notificaciones>` | Alerta visible solo en bandeja `/cxc/alertas` | Cuando exista el motor transversal |
 | Correo saliente del estado de cuenta al cliente (C7.8) | `<EnvioEstadoCuentaCliente>` | `NoOpEstadoCuentaCorreoAdapter` (el envío queda *Registrado*; el PDF se descarga). En Development, `SandboxLocalEstadoCuentaCorreoAdapter` → Mailpit | Adaptador de `IEstadoCuentaCorreoPort` sobre el motor de correo transversal (Graph/SMTP corporativo, ADR-0026) |
 

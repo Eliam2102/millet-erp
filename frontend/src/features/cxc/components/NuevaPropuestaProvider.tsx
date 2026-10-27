@@ -11,6 +11,7 @@ import {
   NuevaPropuestaContext,
   type NuevaPropuestaApi,
 } from '@/features/cxc/components/nueva-propuesta-context';
+import type { DepositoPorIdentificarItem } from '@/features/cxc/api/types';
 
 /**
  * <c>&lt;NuevaPropuestaProvider/&gt;</c> + Sheet "Nueva propuesta de
@@ -19,6 +20,7 @@ import {
  */
 export function NuevaPropuestaProvider({ children }: { children: ReactNode }) {
   const [abierto, setAbierto] = useState(false);
+  const [deposito, setDeposito] = useState<DepositoPorIdentificarItem | null>(null);
   const isDirtyRef = useRef(false);
 
   const setDirty = useCallback((dirty: boolean) => {
@@ -40,8 +42,9 @@ export function NuevaPropuestaProvider({ children }: { children: ReactNode }) {
 
   const api = useMemo<NuevaPropuestaApi>(
     () => ({
-      abrir: () => {
+      abrir: (dep?: DepositoPorIdentificarItem) => {
         isDirtyRef.current = false;
+        setDeposito(dep ?? null);
         setAbierto(true);
       },
       cerrar: cerrarConConfirm,
@@ -65,7 +68,9 @@ export function NuevaPropuestaProvider({ children }: { children: ReactNode }) {
       >
         <SheetContent side="right" size="lg">
           <SheetHeader>
-            <SheetTitle>Nueva propuesta de aplicación</SheetTitle>
+            <SheetTitle>
+              {deposito ? 'Identificar depósito' : 'Nueva propuesta de aplicación'}
+            </SheetTitle>
             <SheetDescription>
               Matching depósito ↔ facturas desde el remittance del cliente. CxC propone; Ingresos
               confirma o rechaza.
@@ -74,7 +79,12 @@ export function NuevaPropuestaProvider({ children }: { children: ReactNode }) {
 
           <div className="flex min-h-0 flex-1 flex-col">
             {abierto && (
-              <NuevaPropuestaAplicacion onClose={cerrarConConfirm} onDirtyChange={setDirty} />
+              <NuevaPropuestaAplicacion
+                key={deposito?.movimientoBancarioId ?? 'nueva'}
+                deposito={deposito}
+                onClose={cerrarConConfirm}
+                onDirtyChange={setDirty}
+              />
             )}
           </div>
         </SheetContent>

@@ -12,6 +12,7 @@ import { EmptyState, ErrorState, TableSkeleton } from '@/components/erp';
 import { Inbox } from 'lucide-react';
 import type { FacturaAbiertaItem } from '@/features/cxc/api/types';
 import { formatoMonto } from '@/features/cxc/lib/glosario';
+import { ordenarPorAntiguedad } from '@/features/cxc/lib/sugerir-por-antiguedad';
 import { esApiError } from '@/lib/api';
 import { cn } from '@/lib/utils';
 
@@ -68,7 +69,8 @@ export function MatchingAplicacionTable({
       />
     );
   }
-  const items = query.data ?? [];
+  // V61: de la más antigua a la más reciente.
+  const items = ordenarPorAntiguedad(query.data ?? []);
   if (items.length === 0) {
     return (
       <EmptyState
@@ -95,6 +97,8 @@ export function MatchingAplicacionTable({
           {items.map((f) => {
             const marcada = seleccion.has(f.uuid);
             const importe = seleccion.get(f.uuid);
+            // Lo que aún puede aplicarse: saldo menos propuestas abiertas (C7.4).
+            const tope = f.disponible ?? f.saldo;
             return (
               <TableRow key={f.uuid} className={cn('align-middle', marcada && 'bg-brand/5')}>
                 <TableCell className="px-3 py-2">
@@ -102,7 +106,7 @@ export function MatchingAplicacionTable({
                     checked={marcada}
                     disabled={disabled}
                     aria-label={`Aplicar a ${f.folio}`}
-                    onCheckedChange={(v) => onCambiar(f.uuid, v === true ? f.saldo : null)}
+                    onCheckedChange={(v) => onCambiar(f.uuid, v === true ? tope : null)}
                   />
                 </TableCell>
                 <TableCell className="px-3 py-2">
@@ -114,13 +118,18 @@ export function MatchingAplicacionTable({
                 </TableCell>
                 <TableCell className="px-3 py-2 text-right font-mono tabular-nums">
                   {formatoMonto(f.saldo, f.moneda)}
+                  {tope !== f.saldo && (
+                    <p className="text-2xs text-ink-muted">
+                      Disponible {formatoMonto(tope, f.moneda)}
+                    </p>
+                  )}
                 </TableCell>
                 <TableCell className="px-3 py-2 text-right">
                   <Input
                     type="number"
                     step="0.01"
                     min="0"
-                    max={f.saldo}
+                    max={tope}
                     disabled={disabled || !marcada}
                     value={marcada && importe != null ? importe : ''}
                     aria-label={`Importe aplicado a ${f.folio}`}
@@ -130,9 +139,24 @@ export function MatchingAplicacionTable({
                       onCambiar(f.uuid, e.target.value === '' || Number.isNaN(n) ? 0 : n);
                     }}
                   />
-                  {marcada && importe != null && importe > f.saldo && (
+                  {marcada && importe != null && importe > tope && (
                     <p className="mt-0.5 text-right text-2xs text-danger-fg">
                       Excede el saldo de la factura.
+                    </p>
+                  )}
+                  {/* C7.4-a: en PPD se muestra (solo consulta) la parcialidad siguiente y el saldo
+                      insoluto después de este pago; Facturación asigna el número al timbrar. */}
+                  {marcada && importe != null && importe > 0 && importe <= tope && f.metodoPago === 'PPD' && (
+                    <p className="mt-0.5 text-right text-2xs text-ink-muted">
+                      {f.numParcialidadSiguiente != null
+                        ? `Parc. ${f.numParcialidadSiguiente}`
+                        : 'Parcialidad'}{' '}
+                      · saldo insoluto {formatoMonto(tope - importe, f.moneda)}
+                    </p>
+                  )}
+                  {marcada && importe != null && importe > 0 && importe < tope && f.metodoPago !== 'PPD' && (
+                    <p className="mt-0.5 text-right text-2xs text-danger-fg">
+                      {f.metodoPago}: no admite parcialidades; aplica el saldo completo.
                     </p>
                   )}
                 </TableCell>

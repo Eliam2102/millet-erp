@@ -49,6 +49,13 @@ public sealed class Articulo : BaseEntity, IAuditable
     /// </summary>
     public Guid? CategoriaId { get; private set; }
 
+    /// <summary>
+    /// Familia de A+W (<c>compartido.productos_aw</c>) a la que pertenece el vidrio crudo
+    /// (E07 D5, SUPUESTO por validar con Eliam: se liga a mano en Datos Maestros). 1:1 vía
+    /// índice único filtrado. Con valor, la existencia se lleva por variante de medida.
+    /// </summary>
+    public Guid? ProductoAwId { get; private set; }
+
     public decimal? PrecioReferenciaMonto { get; private set; }
     public string? PrecioReferenciaMoneda { get; private set; }
 
@@ -133,6 +140,16 @@ public sealed class Articulo : BaseEntity, IAuditable
         CategoriaId = categoriaId;
         Categoria = nombre;
     }
+
+    public void AsignarProductoAw(Guid productoAwId)
+    {
+        if (productoAwId == Guid.Empty)
+            throw new BusinessRuleException("ARTICULO_PRODUCTO_AW_INVALIDO",
+                "El producto A+W es inválido.");
+        ProductoAwId = productoAwId;
+    }
+
+    public void LimpiarProductoAw() => ProductoAwId = null;
 
     /// <summary>
     /// Deselecciona la categoría: FK y string legacy a <c>null</c> (cuando el

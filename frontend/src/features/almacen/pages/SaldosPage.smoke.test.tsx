@@ -68,7 +68,7 @@ describe('<SaldosPage> — smoke', () => {
     );
   });
 
-  it('columna muestra clave·nombre cuando vienen, y cae al id cuando son null', async () => {
+  it('columna muestra clave·nombre cuando vienen, y no pinta el id cuando son null', async () => {
     mswServer.use(
       http.get('*/api/v1/almacen/saldos', () =>
         HttpResponse.json({
@@ -109,8 +109,8 @@ describe('<SaldosPage> — smoke', () => {
     );
     expect(screen.getByText(/Tornillo M6/)).toBeInTheDocument();
     expect(screen.queryByText('a-1')).not.toBeInTheDocument();
-    // (b) fallback al id en la fila sin clave/nombre.
-    expect(screen.getByText('a-2')).toBeInTheDocument();
+    // (b) sin clave/nombre: guion, nunca el id.
+    expect(screen.queryByText('a-2')).not.toBeInTheDocument();
     // Totales del servidor (no la suma de la página): 40000 MXN, 150 PZA.
     await waitFor(() =>
       expect(screen.getByLabelText('Totales del conjunto filtrado')).toHaveTextContent(
@@ -145,6 +145,27 @@ describe('<SaldosPage> — smoke', () => {
     const totales = await screen.findByLabelText('Totales del conjunto filtrado');
     expect(totales).toHaveTextContent(/\$900\.00/);
     expect(totales).not.toHaveTextContent(/Cantidad total/);
+  });
+
+  it('columna Lote muestra el lote del proveedor y un guion cuando no hay', async () => {
+    const fila = { subAlmacenId: 'sa-1', cantidad: 1, cantidadDisponible: 1, costoPromedioMxn: 1, valorInventarioMxn: 1, articuloDescripcion: 'x' };
+    mswServer.use(
+      http.get('*/api/v1/almacen/saldos', () =>
+        HttpResponse.json({
+          items: [
+            { ...fila, articuloId: 'a-1', articuloClave: 'CON-LOTE', lote: 'L-2610-01' },
+            { ...fila, articuloId: 'a-2', articuloClave: 'SIN-LOTE', lote: null },
+          ],
+          offset: 0, limit: 500, total: 2,
+        }),
+      ),
+    );
+    render(<SaldosPage />, { wrapper: createQueryWrapper() });
+    expect(await screen.findByRole('columnheader', { name: 'Lote' })).toBeInTheDocument();
+    const filaConLote = (await screen.findByText('CON-LOTE')).closest('tr')!;
+    const filaSinLote = screen.getByText('SIN-LOTE').closest('tr')!;
+    expect(filaConLote).toHaveTextContent('L-2610-01');
+    expect(filaSinLote).not.toHaveTextContent('L-2610-01');
   });
 
   it('(c) el filtro de artículo es el ArticuloSelector, no el input de GUID', async () => {
@@ -192,7 +213,7 @@ describe('<SaldosPage> — smoke', () => {
     const { container } = render(<SaldosPage />, {
       wrapper: createQueryWrapper(),
     });
-    await waitFor(() => expect(screen.getByText('a-1')).toBeInTheDocument());
+    await waitFor(() => expect(screen.getAllByText('—').length).toBeGreaterThan(0));
     const results: AxeResults = await axe.run(container, {
       runOnly: {
         type: 'tag',

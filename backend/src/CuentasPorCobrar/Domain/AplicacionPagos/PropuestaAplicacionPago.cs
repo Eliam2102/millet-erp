@@ -62,7 +62,7 @@ public sealed class PropuestaAplicacionPago : BaseEntity, IPerteneceAEmpresa, IA
         string moneda,
         string remittanceRef,
         IReadOnlyList<(string FacturaUuid, Guid FacturaCarteraId, decimal ImporteAplicado, int? NumParcialidad)> lineas,
-        decimal toleranciaNoFiscal, Guid? propuestoPor = null)
+        decimal toleranciaNoFiscal, Guid? propuestoPor = null, Guid? movimientoBancarioId = null)
     {
         if (clienteId == Guid.Empty)
             throw new BusinessRuleException("PAP_CLIENTE_VACIO", "El cliente es obligatorio.");
@@ -100,6 +100,9 @@ public sealed class PropuestaAplicacionPago : BaseEntity, IPerteneceAEmpresa, IA
             AjusteNoFiscal = Math.Min(0, ajuste),
             SaldoAFavorPorIdentificar = Math.Max(0, ajuste),
             PropuestoPor = propuestoPor,
+            // C7.4: depósito sin identificar que CxC identificó (Tesorería lo
+            // preselecciona); al confirmar, Tesorería informa el movimiento real.
+            MovimientoBancarioId = movimientoBancarioId,
             Estado = EstadoPropuestaAplicacion.Propuesta,
         };
 
@@ -121,7 +124,7 @@ public sealed class PropuestaAplicacionPago : BaseEntity, IPerteneceAEmpresa, IA
             throw new BusinessRuleException("PAP_PROPONENTE_NO_IDENTIFICADO", "La propuesta no identifica quién la creó. Recházala y registra una nueva.");
         if (PropuestoPor == usuarioId)
             throw new BusinessRuleException("DEP_MISMO_USUARIO", "Quien propone el cobro no puede confirmarlo. Solicita la confirmación a otra persona de Tesorería.");
-        MovimientoBancarioId = movimientoBancarioId;
+        MovimientoBancarioId = movimientoBancarioId ?? MovimientoBancarioId;
         Estado = EstadoPropuestaAplicacion.Confirmada;
         ResueltaPor = usuarioId;
         ResueltaEn = ahora;

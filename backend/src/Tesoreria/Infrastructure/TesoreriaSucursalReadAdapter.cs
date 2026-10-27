@@ -24,7 +24,8 @@ public sealed class TesoreriaSucursalReadAdapter(TesoreriaDbContext db, ICxpSucu
         var propuestas = (await cxc.ListarAsync("propuesta_cxc", ct)).ToDictionary(x => x.Id, x => x.Sucursales);
         var sesiones = (await facturacion.ListarAsync("sesion_caja", ct)).ToDictionary(x => x.Id, x => x.Sucursales);
         var depositos = await db.DepositosConfirmacion.AsNoTracking()
-            .Select(x => new { x.Id, x.MovimientoId, x.PropuestaCxcId, x.CajaSesionId }).ToListAsync(ct);
+            // C7.4: en Pendiente MovimientoId es solo la sugerencia de CxC; no define alcance.
+            .Select(x => new { x.Id, MovimientoId = x.Estado == Millet.Tesoreria.Domain.Depositos.EstadoDepositoConfirmacion.Confirmada ? x.MovimientoId : null, x.PropuestaCxcId, x.CajaSesionId }).ToListAsync(ct);
         IReadOnlyList<Guid> SucursalesDeposito(Guid? propuestaId, Guid? cajaId) =>
             propuestaId is Guid p ? propuestas.GetValueOrDefault(p) ?? Array.Empty<Guid>() :
             cajaId is Guid c ? sesiones.GetValueOrDefault(c) ?? Array.Empty<Guid>() : Array.Empty<Guid>();

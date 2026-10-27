@@ -398,7 +398,7 @@ public sealed partial class DemoSesionSeedTests
                 // Es el mismo guard que aplica el handler real de recepción contra OC.
                 Assert.Equal(sub.Id, await UbicacionEntradaGuard.ValidarEntradaYDerivarSubAsync(
                     almacen, rack.Id, linea.ArticuloId, CancellationToken.None));
-                Assert.NotNull(await almacen.SaldosInventario.FindAsync(rack.Id, linea.ArticuloId));
+                Assert.True(await almacen.SaldosInventario.AnyAsync(s => s.UbicacionId == rack.Id && s.ArticuloId == linea.ArticuloId && s.ProductoAwVarianteId == null));
             }
         }
         Assert.Equal(2, await almacen.Ubicaciones.CountAsync(u => u.Clave == "R-01"));

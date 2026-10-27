@@ -85,7 +85,8 @@ public sealed class DictaminarMaterialEnRevisionHandler(
                 $"La cantidad a dictaminar ({request.Cantidad:0.####}) supera lo pendiente en revisión ({pendiente:0.####}).");
 
         await decimalesGuard.ValidarAsync(
-            [new CantidadAValidar(info.ArticuloId, request.Cantidad, info.UnidadMedida)], cancellationToken);
+            [Recepciones.RecepcionVariante.Cantidad(info.ArticuloId, request.Cantidad, info.UnidadMedida,
+                info.ProductoAwVarianteId, info.AnchoMm, info.AltoMm)], cancellationToken);
 
         var empresaId = currentEmpresa.Current ?? throw new BusinessRuleException(
             "MOV_SIN_EMPRESA", "El contexto de empresa es requerido.");
@@ -95,10 +96,11 @@ public sealed class DictaminarMaterialEnRevisionHandler(
             db, empresaId, request.FechaMovimiento, periodoContable, cancellationToken);
 
         var costo = await db.SaldosInventario.AsNoTracking()
-            .Where(s => s.UbicacionId == info.UbicacionRevisionId && s.ArticuloId == info.ArticuloId)
+            .Where(s => s.UbicacionId == info.UbicacionRevisionId && s.ArticuloId == info.ArticuloId && s.ProductoAwVarianteId == info.ProductoAwVarianteId && s.Lote == info.Lote)
             .Select(s => (decimal?)s.CostoPromedioMxn).FirstOrDefaultAsync(cancellationToken)
             ?? info.CostoUnitarioMxn;
-        var origen = new LineaRevisionMov(info.ArticuloId, info.UnidadMedida, request.Cantidad, costo, info.UbicacionRevisionId);
+        var origen = new LineaRevisionMov(info.ArticuloId, info.UnidadMedida, request.Cantidad, costo, info.UbicacionRevisionId,
+            info.ProductoAwVarianteId, info.AnchoMm, info.AltoMm, info.Lote);
 
         DictamenRevision dictamen;
         string? folio;

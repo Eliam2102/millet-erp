@@ -13,6 +13,9 @@ public sealed partial class DemoSesionSeedHostedService
     {
         var compras = sp.GetRequiredService<ComprasDbContext>();
         var db = sp.GetRequiredService<AlmacenDbContext>();
+        // F1-MP-01: el vidrio ligado a A+W no lleva fila de saldo sin medida.
+        var porMedida = await sp.GetRequiredService<Millet.Compartido.Infrastructure.Persistence.CompartidoDbContext>().Articulos
+            .AsNoTracking().Where(a => a.ProductoAwId != null).Select(a => a.Id).ToListAsync(ct);
         var ocMidId = Id("DEMO-OC-MID");
         var ocMtyId = Id("DEMO-OC-MTY");
         var rqMidId = Id("DEMO-RQ-MID");
@@ -65,7 +68,7 @@ public sealed partial class DemoSesionSeedHostedService
                         Id($"DEMO-ASIGNACION/{rack.Id}/{articuloId}"), rack.Id, articuloId));
                 else asignacion.CambiarEstatus(EstatusCatalogo.Activo);
                 // La asignación crea el saldo en cero; los reinicios preservan cualquier existencia.
-                if (!await db.SaldosInventario.AnyAsync(s => s.UbicacionId == rack.Id && s.ArticuloId == articuloId, ct))
+                if (!porMedida.Contains(articuloId) && !await db.SaldosInventario.AnyAsync(s => s.UbicacionId == rack.Id && s.ArticuloId == articuloId, ct))
                     db.SaldosInventario.Add(new SaldoInventario(rack.Id, sub.Id, articuloId, 0, 0));
             }
             await db.SaveChangesAsync(ct);

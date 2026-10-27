@@ -75,6 +75,7 @@ export const tesoreriaKeys = {
 
   // Depósitos por confirmar (TES-FE-PR4b)
   depositos: () => [...tesoreriaKeys.all, 'depositos'] as const,
+  depositosSinIdentificar: () => [...tesoreriaKeys.depositos(), 'sin-identificar'] as const,
   depositosList: (filtros: DepositosFiltros) =>
     [...tesoreriaKeys.depositos(), 'list', filtros] as const,
 
