@@ -137,6 +137,7 @@ public sealed class OcLineaMedidaTests(WebApplicationFactory<Program> factory) :
             lineaId = entidad.AgregarLineaDesdeRequisicion(Guid.NewGuid(), vidrio, 300m, "M2", 100m, rq.DepartamentoId, rq.Id, lr.Id, centroCostoId: CentroCosto).Id;
             rq.ComprometerEnOc(oc);
             var tipoId = (await db.TiposDocumentoOc.SingleAsync(t => t.Clave == "cotizacion")).Id;
+            entidad.ActualizarDatosFactura("G03", "PPD", "99");
             entidad.AdjuntarDocumento(Guid.NewGuid(), tipoId, "cotizacion.pdf", "cotizacion", "application/pdf", 10, DateTimeOffset.UtcNow, Guid.NewGuid());
             db.Requisiciones.Add(rq);
             await db.SaveChangesAsync();
