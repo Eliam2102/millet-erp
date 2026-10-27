@@ -29,12 +29,43 @@ public sealed class FinanzasTests
     }
     [Fact]
     public void CA3_centavos_suman_exactamente_y_empate_es_estable() => Assert.Equal(Tercios, ProrrateoGastos.Repartir(100, [1, 1, 1]));
-    [Fact]
-    public void CA4_gasto_tardio_separa_costo_de_ventas()
+    [Theory]
+    [InlineData(400, 0, 10000)]
+    [InlineData(1000, 10000, 0)]
+    [InlineData(0, 0, 10000)]
+    public void CA4_gasto_tardio_completo_a_gastos_de_importacion(decimal existencia, decimal inventario, decimal gasto)
     {
         var e = Nuevo(); var c = new ConceptoGasto(e.EmpresaId, "FLETE", "Flete"); Gasto(e, c, 10000);
-        var d = e.PrepararDistribucion([c], [Partidas()[0] with { Existencia = 400, ExistenciaTotal = 400 }], Guid.NewGuid(), DateTimeOffset.UtcNow);
-        Assert.Equal(4000, d.Partidas[0].InventarioMxn); Assert.Equal(6000, d.Partidas[0].CostoVentasMxn);
+        var d = e.PrepararDistribucion([c], [Partidas()[0] with { Existencia = existencia, ExistenciaTotal = existencia, CostoPromedioMxn = 100 }], Guid.NewGuid(), DateTimeOffset.UtcNow);
+        Assert.Equal(inventario, d.Partidas[0].InventarioMxn); Assert.Equal(gasto, d.Partidas[0].GastoImportacionMxn);
+        Assert.Equal(100 + (existencia > 0 ? inventario / existencia : 0), d.Partidas[0].CostoUnitarioDespues);
+        Assert.Equal(existencia < 1000, d.Partidas[0].TieneSalidas);
+    }
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void Partidas_json_historico_conserva_importes_y_publica_ambos_nombres(bool web)
+    {
+        var opciones = web ? System.Text.Json.JsonSerializerOptions.Web : System.Text.Json.JsonSerializerOptions.Default;
+        var anterior = web ? "costoVentasMxn" : "CostoVentasMxn";
+        var actual = web ? "gastoImportacionMxn" : "GastoImportacionMxn";
+        var historico = System.Text.Json.JsonSerializer.Deserialize<CostoPartidaDistribuido>(
+            "{\"" + anterior + "\":6000}", opciones)!;
+        Assert.Equal(6000, historico.GastoImportacionMxn);
+        var json = System.Text.Json.JsonSerializer.SerializeToElement(historico, opciones);
+        Assert.Equal(6000, json.GetProperty(anterior).GetDecimal());
+        Assert.Equal(6000, json.GetProperty(actual).GetDecimal());
+        Assert.Equal(historico, System.Text.Json.JsonSerializer.Deserialize<CostoPartidaDistribuido>(json, opciones));
+    }
+    [Fact]
+    public void Gasto_tardio_sin_diferencia_conserva_el_indicador_de_salidas()
+    {
+        var e = Nuevo(); var c = new ConceptoGasto(e.EmpresaId, "FLETE", "Flete"); Gasto(e, c, 10000);
+        var partidas = new[] { Partidas()[0] with { Existencia = 400, ExistenciaTotal = 400 } };
+        e.ConfirmarDistribucion(e.PrepararDistribucion([c], partidas, Guid.NewGuid(), DateTimeOffset.UtcNow));
+        var d = e.PrepararDistribucion([c], partidas, Guid.NewGuid(), DateTimeOffset.UtcNow);
+        Assert.True(d.Partidas[0].TieneSalidas);
+        Assert.Equal(0, d.Partidas[0].InventarioMxn); Assert.Equal(0, d.Partidas[0].GastoImportacionMxn);
     }
     [Fact]
     public void CA6_nueva_version_preserva_anterior_y_solo_publica_diferencia()
@@ -73,7 +104,7 @@ public sealed class FinanzasTests
         var clientes = Enumerable.Range(1, 3).Select(i => new BasePartidaCosto(Guid.NewGuid(), null, "Cliente " + i, 100, i * 100, 10, Guid.NewGuid())).ToArray();
         var d = e.PrepararDistribucion([c], clientes, Guid.NewGuid(), DateTimeOffset.UtcNow);
         Assert.Equal(new decimal[] { 5000, 10000, 15000 }, d.Partidas.Select(p => p.ImporteMxn));
-        Assert.All(d.Partidas, p => { Assert.Equal(0, p.InventarioMxn); Assert.Equal(0, p.CostoVentasMxn); Assert.NotNull(p.ClienteId); });
+        Assert.All(d.Partidas, p => { Assert.Equal(0, p.InventarioMxn); Assert.Equal(0, p.GastoImportacionMxn); Assert.NotNull(p.ClienteId); Assert.False(p.TieneSalidas); });
     }
     [Fact]
     public void Directo_exige_suma_exacta_y_no_admite_partidas_ajenas()

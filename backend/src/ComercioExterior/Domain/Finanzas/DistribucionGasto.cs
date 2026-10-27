@@ -10,7 +10,13 @@ public sealed record RenglonDistribucion(Guid GastoId, Guid ConceptoId, BaseDist
     Guid? ClienteId, decimal BaseUsada, decimal ImporteMxn);
 public sealed record CostoPartidaDistribuido(Guid PartidaId, string Descripcion, Guid? ClienteId, Guid? OcId,
     Guid? RecepcionId, Guid? ArticuloId, Guid? UbicacionId, decimal CantidadRecibida, decimal ImporteMxn,
-    decimal DiferenciaMxn, decimal InventarioMxn, decimal CostoVentasMxn, decimal CostoUnitarioAntes, decimal CostoUnitarioDespues);
+    decimal DiferenciaMxn, decimal InventarioMxn, decimal GastoImportacionMxn, decimal CostoUnitarioAntes, decimal CostoUnitarioDespues)
+{
+    public bool TieneSalidas { get; init; }
+    // Compatibilidad con las partidas guardadas en JSON antes de la regla de Millet.
+    [Obsolete("Usar GastoImportacionMxn; regla de Millet 26-oct-2026")]
+    public decimal CostoVentasMxn { get => GastoImportacionMxn; init => GastoImportacionMxn = value; }
+}
 
 public sealed class DistribucionGasto : BaseEntity, IPerteneceAEmpresa, IAuditable, IBelongsToAggregate
 {
