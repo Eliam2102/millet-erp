@@ -73,6 +73,10 @@ export const EmitirFacturaSchema = z.object({
       (v) => comportamientoValues.includes(v),
       'Selecciona un comportamiento fiscal',
     ),
+  ordenCompraCliente: z.string().max(60, 'Acorta la orden de compra a un máximo de 60 caracteres.').nullable().optional(),
+  referenciaCliente: z.string().max(60, 'Acorta la referencia a un máximo de 60 caracteres.').nullable().optional(),
+  condicionesPago: z.string().max(60, 'Acorta las condiciones de pago a un máximo de 60 caracteres.').nullable().optional(),
+  proforma: z.string().max(40, 'Acorta la proforma a un máximo de 40 caracteres.').nullable().optional(),
   obraNombre: z.string().max(254).nullable(),
   // 86e3tfdw2: observaciones del cajero (prellenadas con los anticipos
   // aplicados). Se imprimen en el PDF; no viajan al XML del CFDI.

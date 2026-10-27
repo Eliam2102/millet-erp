@@ -1,4 +1,5 @@
 using MediatR;
+using Microsoft.Extensions.Logging;
 using Millet.ComercioExterior.Application.PublicPorts;
 using Millet.Facturacion.Domain.Pedidos;
 using Microsoft.EntityFrameworkCore;
@@ -50,7 +51,7 @@ public sealed class EmitirFacturaVentaHandlerTests
         bool periodoAbierto = true,
         bool catalogosValidos = true,
         Millet.Integraciones.Fiscal.Domain.Ports.ICfdiTimbradoPort? fiscal = null, IEmbarqueExportacionReadPort? embarques = null, string receptorRfc = "XAXX010101000",
-        FakeSender? sender = null) =>
+        FakeSender? sender = null, IProductosReadPort? productos = null, IPlazoCreditoClienteReadPort? plazoCredito = null) =>
         new(
             db,
             sender ?? new FakeSender(new ReservarFolioResponse("FA-000001", 1, "")),
@@ -63,7 +64,128 @@ public sealed class EmitirFacturaVentaHandlerTests
             new FakeContabilidadAsientoPort(),
             new FakeEmpresaContext(empresaId),
             new FakeUserContext(Guid.NewGuid()),
-            new FakeClock(Ahora), ReceptorFiscalTestFactory.Crear(db, receptorRfc, "616", "76120"), embarques: embarques);
+            new FakeClock(Ahora), ReceptorFiscalTestFactory.Crear(db, receptorRfc, "616", "76120"), embarques: embarques, productos: productos, plazoCredito: plazoCredito);
+
+    private sealed class PlazosCredito(params (Guid ClienteId, string Moneda, int Dias)[] lineas) : IPlazoCreditoClienteReadPort
+    {
+        public int Consultas { get; private set; }
+        public Task<int?> ObtenerPlazoDiasAsync(Guid clienteId, string moneda, CancellationToken ct)
+        {
+            Consultas++;
+            return Task.FromResult(lineas.Where(l => l.ClienteId == clienteId && l.Moneda == moneda)
+                .Select(l => (int?)l.Dias).FirstOrDefault());
+        }
+    }
+
+    [Fact]
+    public async Task Condiciones_por_omision_usa_dias_de_credito_del_cliente_con_PPD()
+    {
+        var empresa = Guid.NewGuid();
+        using var db = NewDb(empresa);
+        var command = Command();
+        var pedido = CrearPedido(db, empresa, command.SucursalId, command.ComportamientoFiscal);
+        var credito = new PlazosCredito((pedido.ClienteId, "MXN", 45));
+        await Handler(db, empresa, plazoCredito: credito).Handle(command with {
+            PedidoFacturableId = pedido.Id, MetodoPago = "PPD", FormaPago = "99"
+        }, CancellationToken.None);
+        Assert.Equal("45 DIAS", (await db.FacturasVenta.SingleAsync()).CondicionesPago);
+        Assert.Equal(1, credito.Consultas);
+    }
+
+    [Fact]
+    public async Task Condiciones_del_pedido_ganan_a_los_dias_de_credito()
+    {
+        var empresa = Guid.NewGuid();
+        using var db = NewDb(empresa);
+        var command = Command();
+        var pedido = PedidoFacturable.ImportarDesdeAw(empresa, "DEMO-CREDITO", command.SucursalId,
+            Guid.NewGuid(), "Cliente ficticio DEMO", 1, command.ComportamientoFiscal, "MXN", null, null,
+            null, 1, "15", condicionPagoOrigen: "30 DIAS");
+        db.PedidosFacturables.Add(pedido);
+        await db.SaveChangesAsync();
+        var credito = new PlazosCredito((pedido.ClienteId, "MXN", 45));
+        await Handler(db, empresa, plazoCredito: credito).Handle(command with {
+            PedidoFacturableId = pedido.Id, MetodoPago = "PPD", FormaPago = "99"
+        }, CancellationToken.None);
+        Assert.Equal("30 DIAS", (await db.FacturasVenta.SingleAsync()).CondicionesPago);
+        Assert.Equal(0, credito.Consultas);
+    }
+
+    [Fact]
+    public async Task Condiciones_sin_linea_de_credito_quedan_vacias_con_PPD()
+    {
+        var empresa = Guid.NewGuid();
+        using var db = NewDb(empresa);
+        var credito = new PlazosCredito();
+        await Handler(db, empresa, plazoCredito: credito).Handle(Command() with {
+            ClienteId = Guid.NewGuid(), MetodoPago = "PPD", FormaPago = "99"
+        }, CancellationToken.None);
+        Assert.Null((await db.FacturasVenta.SingleAsync()).CondicionesPago);
+        Assert.Equal(1, credito.Consultas);
+    }
+
+    [Fact]
+    public async Task Condiciones_con_PUE_son_CONTADO_aunque_tenga_credito()
+    {
+        var empresa = Guid.NewGuid();
+        using var db = NewDb(empresa);
+        var cliente = Guid.NewGuid();
+        var credito = new PlazosCredito((cliente, "MXN", 45));
+        await Handler(db, empresa, plazoCredito: credito).Handle(Command() with {
+            ClienteId = cliente
+        }, CancellationToken.None);
+        Assert.Equal("CONTADO", (await db.FacturasVenta.SingleAsync()).CondicionesPago);
+        Assert.Equal(0, credito.Consultas);
+    }
+
+    [Fact]
+    public async Task Condiciones_usan_la_linea_de_la_moneda_de_la_factura()
+    {
+        var empresa = Guid.NewGuid();
+        using var db = NewDb(empresa);
+        var cliente = Guid.NewGuid();
+        var credito = new PlazosCredito((cliente, "MXN", 45), (cliente, "USD", 60));
+        await Handler(db, empresa, plazoCredito: credito).Handle(Command() with {
+            ClienteId = cliente, MetodoPago = "PPD", FormaPago = "99", Moneda = "USD", TipoCambio = 20m
+        }, CancellationToken.None);
+        Assert.Equal("60 DIAS", (await db.FacturasVenta.SingleAsync()).CondicionesPago);
+        Assert.Equal(1, credito.Consultas);
+    }
+
+    [Theory]
+    [InlineData(0)]
+    [InlineData(-1)]
+    public async Task Condiciones_con_plazo_no_positivo_quedan_vacias(int dias)
+    {
+        var empresa = Guid.NewGuid();
+        using var db = NewDb(empresa);
+        var cliente = Guid.NewGuid();
+        await Handler(db, empresa, plazoCredito: new PlazosCredito((cliente, "MXN", dias))).Handle(Command() with {
+            ClienteId = cliente, MetodoPago = "PPD", FormaPago = "99"
+        }, CancellationToken.None);
+        Assert.Null((await db.FacturasVenta.SingleAsync()).CondicionesPago);
+    }
+
+    [Theory]
+    [InlineData("")]
+    [InlineData("15 DIAS")]
+    public async Task Condiciones_capturadas_ganan_al_pedido_y_no_consultan_credito(string condiciones)
+    {
+        var empresa = Guid.NewGuid();
+        using var db = NewDb(empresa);
+        var command = Command();
+        var pedido = PedidoFacturable.ImportarDesdeAw(empresa, "DEMO-CAPTURA", command.SucursalId,
+            Guid.NewGuid(), "Cliente ficticio DEMO", 1, command.ComportamientoFiscal, "MXN", null, null,
+            null, 1, "15", condicionPagoOrigen: "30 DIAS");
+        db.PedidosFacturables.Add(pedido);
+        await db.SaveChangesAsync();
+        var credito = new PlazosCredito((pedido.ClienteId, "MXN", 45));
+        await Handler(db, empresa, plazoCredito: credito).Handle(command with {
+            PedidoFacturableId = pedido.Id, MetodoPago = "PPD", FormaPago = "99", CondicionesPago = condiciones
+        }, CancellationToken.None);
+        Assert.Equal(condiciones == "" ? null : condiciones, (await db.FacturasVenta.SingleAsync()).CondicionesPago);
+        Assert.Equal(0, credito.Consultas);
+    }
 
     private sealed class Embarques(EmbarqueExportacionLectura lectura) : IEmbarqueExportacionReadPort
     {
@@ -76,6 +198,167 @@ public sealed class EmitirFacturaVentaHandlerTests
         p.AgregarLinea(null, "Producto", "01010101", "H87", 2, 100, 0, false); p.RecalcularTotal();
         db.PedidosFacturables.Add(p); db.SaveChanges(); return p;
     }
+    [Fact]
+    public async Task Edicion_datos_cliente_exige_alcance_version_y_estado_editable()
+    {
+        var empresa = Guid.NewGuid(); using var db = NewDb(empresa);
+        var command = Command();
+        await Handler(db, empresa).Handle(command with { Lineas = [command.Lineas[0] with { RequierePedimento = true }] }, CancellationToken.None);
+        var f = await db.FacturasVenta.SingleAsync();
+        var editar = new Millet.Facturacion.Application.Facturas.EditarDatosCliente.EditarDatosClienteCommand(
+            f.Id, f.Version, "OC DEMO", "REF DEMO", "30 DIAS", "PRO DEMO", "Comentario ficticio");
+        var handler = new Millet.Facturacion.Application.Facturas.EditarDatosCliente.EditarDatosClienteHandler(db, new FakeAlcanceCajaEvaluator());
+        await Assert.ThrowsAsync<ConcurrencyException>(() => handler.Handle(editar with { VersionEsperada = f.Version + 1 }, CancellationToken.None));
+        var sinAlcance = new Millet.Facturacion.Application.Facturas.EditarDatosCliente.EditarDatosClienteHandler(db,
+            new FakeAlcanceCajaEvaluator(Millet.Facturacion.Application.Cajas.Alcance.AlcanceCajas.Ninguno()));
+        await Assert.ThrowsAsync<EntityNotFoundException>(() => sinAlcance.Handle(editar, CancellationToken.None));
+        await handler.Handle(editar, CancellationToken.None);
+        Assert.Equal("OC DEMO", f.OrdenCompraCliente);
+        f.AplicarPedimento("26  01  1234  6000001", null, null);
+        f.MarcarTimbradoEnProceso(); f.MarcarTimbrado("DEMO", null, null, null, Ahora, null, null);
+        await Assert.ThrowsAsync<BusinessRuleException>(() => handler.Handle(editar with { VersionEsperada = f.Version }, CancellationToken.None));
+    }
+
+    [Fact]
+    public async Task Registro_del_pac_guarda_certificado_y_cadena_y_mantenimiento_los_recupera()
+    {
+        var empresa = Guid.NewGuid(); using var db = NewDb(empresa);
+        await Handler(db, empresa, fiscal: new FiscalConXml()).Handle(Command(), CancellationToken.None);
+        var f = await db.FacturasVenta.SingleAsync();
+        Assert.Equal("00000000000000000001", f.NoCertificadoEmisor);
+        Assert.Equal(Millet.Facturacion.Domain.Comprobantes.CadenaOriginalTimbre.Desde(Timbrado.CadenaOriginalTimbreTests.Xml()), f.CadenaOriginalTimbre);
+        var mantenimiento = new Millet.Facturacion.Application.Timbrado.RecalcularDatosTimbreHandler(db, new ArchivoConXml());
+        await mantenimiento.Handle(new(f.Id), CancellationToken.None);
+        Assert.Equal("00000000000000000001", f.NoCertificadoEmisor);
+    }
+
+    private sealed class FiscalConXml : Millet.Integraciones.Fiscal.Domain.Ports.ICfdiTimbradoPort
+    {
+        private readonly FakeFiscalApiClient inner = new();
+        public async Task<Millet.Integraciones.Fiscal.Domain.Ports.TimbradoResultado> TimbrarAsync(
+            Millet.Integraciones.Fiscal.Domain.Ports.CfdiEmision emision, CancellationToken ct) =>
+            (await inner.TimbrarAsync(emision, ct)) with { XmlTimbrado = Timbrado.CadenaOriginalTimbreTests.Xml() };
+        public Task<Millet.Integraciones.Fiscal.Domain.Ports.CancelacionResultado> CancelarAsync(
+            Millet.Integraciones.Fiscal.Domain.Ports.CancelacionSolicitud solicitud, CancellationToken ct) => inner.CancelarAsync(solicitud, ct);
+        public Task<Millet.Integraciones.Fiscal.Domain.Ports.EstatusCfdiResultado> ConsultarEstatusAsync(
+            Millet.Integraciones.Fiscal.Domain.Ports.EstatusCfdiSolicitud solicitud, CancellationToken ct) => inner.ConsultarEstatusAsync(solicitud, ct);
+    }
+
+    private sealed class ArchivoConXml : Millet.Integraciones.Fiscal.Domain.Ports.ICfdiRepositorioPort
+    {
+        public Task<Guid> GuardarAsync(Millet.Integraciones.Fiscal.Domain.Ports.CfdiArchivoNuevo a, CancellationToken ct) => throw new NotSupportedException();
+        public Task<Millet.Integraciones.Fiscal.Domain.Ports.CfdiArchivoLeido?> ObtenerAsync(Guid id, CancellationToken ct) =>
+            Task.FromResult<Millet.Integraciones.Fiscal.Domain.Ports.CfdiArchivoLeido?>(new(id,
+                "11111111-1111-1111-1111-111111111111", Timbrado.CadenaOriginalTimbreTests.Xml(), null, null, Ahora));
+        public Task<Millet.Integraciones.Fiscal.Domain.Ports.CfdiArchivoLeido?> ObtenerPorUuidAsync(string uuid, CancellationToken ct) => throw new NotSupportedException();
+    }
+
+    [Theory]
+    [InlineData(true, null, null, "DEMO-1001", "Comentario ficticio DEMO")]
+    [InlineData(false, null, null, "DEMO-1001", "Comentario ficticio DEMO")]
+    [InlineData(true, "", "", null, "")]
+    [InlineData(true, "REF EDITADA", "NOTA EDITADA", "REF EDITADA", "NOTA EDITADA")]
+    public async Task Copia_datos_del_pedido_y_respeta_edicion_y_borrado(bool tienePeso,
+        string? referencia, string? observaciones, string? referenciaEsperada, string observacionesEsperadas)
+    {
+        var empresa = Guid.NewGuid();
+        using var db = NewDb(empresa);
+        var productoId = Guid.NewGuid();
+        var command = Command();
+        var pedido = PedidoFacturable.ImportarDesdeAw(empresa, "DEMO-1001", command.SucursalId,
+            Guid.NewGuid(), "Cliente ficticio DEMO", 1, command.ComportamientoFiscal, "MXN", null, null,
+            "Comentario ficticio DEMO", 1, "15");
+        pedido.AgregarLinea(productoId, "Producto", "01010101", "H87", 2, 100, 0, false)
+            .EstablecerDatosImpresion("ITEM.1 REF: 1001 - DEMO - CW-01", tienePeso ? 8.125m : null, 20.250m);
+        pedido.RecalcularTotal(); db.PedidosFacturables.Add(pedido); await db.SaveChangesAsync();
+        db.ChangeTracker.Clear();
+        var producto = new ProductoFiscalLectura(productoId, "Producto", "01010101", "H87", "02", .16m, null, null,
+            "Aw", EstadoFiscal: "Completo", PesoUnitarioKg: 3.250m);
+        await Handler(db, empresa, productos: new FakeProductosReadPort(producto)).Handle(command with {
+            PedidoFacturableId = pedido.Id, ReferenciaCliente = referencia, Observaciones = observaciones,
+            Lineas = [command.Lineas[0] with { ProductoId = productoId }]
+        }, CancellationToken.None);
+        var factura = await db.FacturasVenta.Include(f => f.Lineas).SingleAsync();
+        Assert.Equal(referenciaEsperada, factura.ReferenciaCliente);
+        Assert.Equal(observacionesEsperadas, factura.Observaciones);
+        Assert.Equal("CONTADO", factura.CondicionesPago);
+        var partida = Assert.Single(factura.Lineas);
+        Assert.Equal("ITEM.1 REF: 1001 - DEMO - CW-01", partida.Referencia);
+        Assert.Equal(tienePeso ? 8.125m : 6.500m, partida.PesoKg);
+        Assert.Equal(20.250m, factura.TotalPie2);
+        Assert.Equal(2, factura.TotalPiezas);
+    }
+
+    [Fact]
+    public async Task Timbrado_confirmado_sin_cadena_registra_advertencia_sin_revertirse()
+    {
+        var empresa = Guid.NewGuid();
+        var log = new CapturaLog();
+        using var loggerFactory = LoggerFactory.Create(b => b.AddProvider(log));
+        using var db = new FacturacionDbContext(new DbContextOptionsBuilder<FacturacionDbContext>()
+            .UseInMemoryDatabase(Guid.NewGuid().ToString()).UseLoggerFactory(loggerFactory).Options,
+            new FakeEmpresaContext(empresa));
+        var resultado = await Handler(db, empresa).Handle(Command(), CancellationToken.None);
+        Assert.Equal("Timbrado", resultado.Estado);
+        Assert.Contains(log.Advertencias, m => m.Contains("sin cadena original del timbre", StringComparison.Ordinal));
+    }
+
+    private sealed class CapturaLog : ILoggerProvider, ILogger
+    {
+        public List<string> Advertencias { get; } = [];
+        public ILogger CreateLogger(string categoryName) => this;
+        public bool IsEnabled(LogLevel logLevel) => true;
+        public IDisposable? BeginScope<TState>(TState state) where TState : notnull => null;
+        public void Dispose() { }
+        public void Log<TState>(LogLevel logLevel, EventId eventId, TState state, Exception? exception,
+            Func<TState, Exception?, string> formatter)
+        {
+            if (logLevel == LogLevel.Warning) Advertencias.Add(formatter(state, exception));
+        }
+    }
+
+    [Fact]
+    public async Task Facturacion_parcial_prorratea_medidas_y_conserva_referencia_y_condicion_del_pedido()
+    {
+        var empresa = Guid.NewGuid();
+        using var db = NewDb(empresa);
+        var command = Command();
+        var pedido = PedidoFacturable.ImportarDesdeAw(empresa, "DEMO-PARCIAL", command.SucursalId,
+            Guid.NewGuid(), "Cliente ficticio DEMO", 1, command.ComportamientoFiscal, "MXN", null, null,
+            null, 1, "15", metodoPagoOrigen: "PUE", condicionPagoOrigen: "45 DIAS");
+        pedido.AgregarLinea(null, "Producto DEMO", "01010101", "H87", 10, 100, 0, false)
+            .EstablecerDatosImpresion("REF DEMO", 25m, 50m);
+        pedido.RecalcularTotal();
+        db.PedidosFacturables.Add(pedido);
+        await db.SaveChangesAsync();
+        db.ChangeTracker.Clear();
+        await Handler(db, empresa).Handle(command with {
+            PedidoFacturableId = pedido.Id, Lineas = [command.Lineas[0] with { Cantidad = 4 }]
+        }, CancellationToken.None);
+        var factura = await db.FacturasVenta.Include(f => f.Lineas).SingleAsync();
+        var linea = Assert.Single(factura.Lineas);
+        Assert.Equal("REF DEMO", linea.Referencia);
+        Assert.Equal(10m, factura.TotalKg);
+        Assert.Equal(20m, factura.TotalPie2);
+        Assert.Equal(4m, factura.TotalPiezas);
+        Assert.Equal("45 DIAS", factura.CondicionesPago);
+    }
+
+    [Fact]
+    public async Task Sin_pedido_conserva_las_medidas_del_comando_en_el_armado_compartido()
+    {
+        var empresa = Guid.NewGuid();
+        using var db = NewDb(empresa);
+        var command = Command();
+        await Handler(db, empresa).Handle(command with {
+            Lineas = [command.Lineas[0] with { Referencia = "DEMO", PesoKg = 10m, AreaPie2 = 20m }]
+        }, CancellationToken.None);
+        var factura = await db.FacturasVenta.Include(f => f.Lineas).SingleAsync();
+        Assert.Equal("DEMO", Assert.Single(factura.Lineas).Referencia);
+        Assert.Equal(10m, factura.TotalKg);
+        Assert.Equal(20m, factura.TotalPie2);
+    }
+
     [Fact]
     public async Task Pedido_no_ligado_se_factura_igual_y_sin_copia_ce()
     {
