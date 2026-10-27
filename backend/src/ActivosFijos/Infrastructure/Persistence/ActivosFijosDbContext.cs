@@ -26,13 +26,18 @@ public sealed partial class ActivosFijosDbContext(DbContextOptions<ActivosFijosD
         var fechaSemilla = new DateTimeOffset(2026, 1, 1, 0, 0, 0, TimeSpan.Zero);
         foreach (var clase in CatalogoClasesMillet.Clases)
             c.HasData(new { Id = Guid.Parse($"0000000f-0007-0000-0000-{int.Parse(clase.Clave):000000000000}"), EmpresaId = Guid.Parse("00000003-0000-0000-0000-000000000001"),
-                clase.Clave, clase.Nombre, TasaFiscalAnual = clase.Tasa, clase.Depreciable, TasaConfirmada = false, RequiereRevision = false,
+                clase.Clave, clase.Nombre, TasaFiscalAnual = clase.Tasa, TasaContableAnual = clase.TasaContable, clase.Depreciable, TasaConfirmada = true, RequiereRevision = false,
                 Metodo = "LineaRecta", Activa = true, Version = 1, CreatedAt = fechaSemilla, UpdatedAt = fechaSemilla });
+        var inpc = modelBuilder.Entity<InpcMensual>();
+        inpc.ToTable("inpc_mensual", t => t.HasCheckConstraint("ck_inpc_valido", "anio BETWEEN 1 AND 9998 AND mes BETWEEN 1 AND 12 AND valor > 0"));
+        inpc.HasKey(x => x.Id); inpc.Property(x => x.Id).ValueGeneratedNever();
+        inpc.HasIndex(x => new { x.EmpresaId, x.Anio, x.Mes }).IsUnique();
         var a = modelBuilder.Entity<Activo>();
         a.ToTable("activos"); a.HasKey(x => x.Id); a.Property(x => x.Id).ValueGeneratedNever();
         a.HasIndex(x => new { x.EmpresaId, x.Numero }).IsUnique();
         a.HasIndex(x => new { x.EmpresaId, x.RecepcionId, x.LineaOcId, x.UnidadRecepcion }).IsUnique();
         a.HasIndex(x => new { x.EmpresaId, x.SucursalId, x.Estado });
+        a.HasOne<Activo>().WithMany().HasForeignKey(x => x.ActivoMejoradoId).OnDelete(DeleteBehavior.Restrict);
         a.HasOne<ClaseActivo>().WithMany().HasForeignKey(x => x.ClaseId).OnDelete(DeleteBehavior.Restrict);
         a.Property(x => x.Numero).HasMaxLength(60); a.Property(x => x.Descripcion).HasMaxLength(500); a.Property(x => x.MotivoBaja).HasMaxLength(500);
         a.Ignore(x => x.ValorEnLibros); a.Ignore(x => x.EnTraslado); a.Ignore(x => x.PuedeAceptarTraslado);
@@ -68,6 +73,9 @@ public sealed partial class ActivosFijosDbContext(DbContextOptions<ActivosFijosD
         ConfigurarConservacion(modelBuilder);
         foreach (var entity in modelBuilder.Model.GetEntityTypes())
             foreach (var p in entity.GetProperties().Where(x => (Nullable.GetUnderlyingType(x.ClrType) ?? x.ClrType) == typeof(decimal))) { p.SetPrecision(18); p.SetScale(p.Name == "TipoCambio" ? 6 : 2); }
+        c.Property(x => x.TasaContableAnual).HasPrecision(18, 4);
+        c.Property(x => x.TasaFiscalAnual).HasPrecision(18, 4);
+        inpc.Property(x => x.Valor).HasPrecision(18, 6);
         base.OnModelCreating(modelBuilder);
     }
 }

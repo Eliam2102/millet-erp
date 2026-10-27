@@ -60,6 +60,33 @@ public static class LibroEndpoints
             config.CuentaVentaPuenteId = datos.CuentaVentaPuenteId; config.CuentaRevalorizacionId = datos.CuentaRevalorizacionId;
             await db.SaveChangesAsync(ct); await tx.CommitAsync(ct); return Results.Ok(config);
         }).RequireAuthorization(P("clases.administrar")).WithMetadata(new RequireIdempotencyKeyAttribute());
+        g.MapGet("/activos-mejorables", async (string? q, Guid? seleccionado, ActivosFijosDbContext db, ActivoServicio acceso, CancellationToken ct) =>
+        {
+            var ids = await acceso.SucursalesAsync(null, ct);
+            var consulta = from a in db.Activos.AsNoTracking() join c in db.Clases on a.ClaseId equals c.Id
+                where a.Estado == EstadoActivo.Activo && c.Clave != "170" && (ids == null || ids.Contains(a.SucursalId))
+                && (q == null || a.Numero.Contains(q) || a.Descripcion.Contains(q) || a.Id == seleccionado)
+                orderby a.Id == seleccionado descending, a.Numero
+                select new { a.Id, a.Numero, a.Descripcion };
+            return Results.Ok(await consulta.Take(100).ToListAsync(ct));
+        }).RequireAuthorization(P("activos.gestionar"));
+        g.MapGet("/reportes/depreciacion-fiscal", async (int ejercicio, int mesCorte, FiscalServicio fiscal, CancellationToken ct) =>
+            Results.Ok(await fiscal.ReporteAsync(ejercicio, mesCorte, ct))).RequireAuthorization(P("activos.ver"));
+        g.MapGet("/inpc", async (FiscalServicio fiscal, CancellationToken ct) => Results.Ok(await fiscal.ListarInpcAsync(ct))).RequireAuthorization(P("clases.administrar"));
+        g.MapPost("/inpc", async (CapturaInpc datos, FiscalServicio fiscal, CancellationToken ct) =>
+        { await fiscal.GuardarInpcAsync([datos], ct); return Results.NoContent(); })
+            .RequireAuthorization(P("clases.administrar")).WithMetadata(new RequireIdempotencyKeyAttribute());
+        g.MapPost("/inpc/excel", async (HttpRequest req, FiscalServicio fiscal, CancellationToken ct) =>
+        {
+            if (req.ContentLength > ArchivoLibro.LimiteBytes + 1024 * 1024) throw new BadHttpRequestException("Máximo 10 MB.", 413);
+            if (!req.HasFormContentType) throw new BusinessRuleException("AF_INPC_ARCHIVO_INVALIDO", "Seleccione un Excel en el campo archivo.");
+            var form = await req.ReadFormAsync(new FormOptions { MultipartBodyLengthLimit = ArchivoLibro.LimiteBytes }, ct);
+            var archivo = form.Files.GetFile("archivo");
+            if (form.Files.Count != 1 || archivo == null || archivo.Length > ArchivoLibro.LimiteBytes || !archivo.FileName.EndsWith(".xlsx", StringComparison.OrdinalIgnoreCase))
+                throw new BusinessRuleException("AF_INPC_ARCHIVO_INVALIDO", "Seleccione un único archivo .xlsx de hasta 10 MB.");
+            using var stream = new MemoryStream(); await archivo.CopyToAsync(stream, ct);
+            await fiscal.GuardarInpcAsync(FiscalServicio.LeerExcel(stream.ToArray()), ct); return Results.NoContent();
+        }).RequireAuthorization(P("clases.administrar")).WithMetadata(new RequireIdempotencyKeyAttribute());
         return app;
     }
     private static async Task<ResultadoCarga> Cargar(HttpRequest req, CargaLibroServicio servicio, bool confirmar, CancellationToken ct)

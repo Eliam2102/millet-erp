@@ -44,6 +44,21 @@ public sealed class ActivoServicio(ActivosFijosDbContext db, ICurrentUserContext
     }
     public async Task<ClaseActivo> ClaseAsync(Guid id, CancellationToken ct) => await db.Clases.SingleOrDefaultAsync(x => x.Id == id && x.Activa, ct)
         ?? throw new BusinessRuleException("AF_CLASE_INACTIVA", "Seleccione una clase activa.");
+    public async Task ValidarTasasActivoAsync(DatosActivo datos, Guid? id, CancellationToken ct)
+    {
+        var clase = await ClaseAsync(datos.ClaseId, ct);
+        if ((datos.VidaUtilMeses != null && clase.Clave != "160") || datos.VidaUtilMeses is < 1 or > 600
+            || (datos.ActivoMejoradoId != null && clase.Clave != "170"))
+            throw new BusinessRuleException("AF_TASA_ACTIVO_INVALIDA", "Vida útil de 1 a 600 meses sólo para clase 160; activo mejorado sólo para clase 170.");
+        if (datos.ActivoMejoradoId is Guid mejorado)
+        {
+            var destino = await db.Activos.Join(db.Clases, a => a.ClaseId, c => c.Id, (a, c) => new { Activo = a, c.Clave })
+                .SingleOrDefaultAsync(x => x.Activo.Id == mejorado && x.Activo.Estado == EstadoActivo.Activo && x.Clave != "170", ct);
+            if (mejorado == id || destino == null)
+                throw new BusinessRuleException("AF_MEJORADO_INVALIDO", "Seleccione otro activo vigente de la misma empresa que no sea una mejora.");
+            await SucursalAsync(destino.Activo.SucursalId, false, ct);
+        }
+    }
     public async Task ValidarCuentasAsync(ClaseActivoDatos d, CancellationToken ct)
     {
         foreach (var id in new[] { d.CuentaActivoId, d.CuentaDepreciacionId, d.CuentaGastoId, d.CuentaPuenteId }.OfType<Guid>())
