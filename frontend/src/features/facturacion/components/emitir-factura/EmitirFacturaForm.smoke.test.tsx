@@ -845,7 +845,7 @@ describe('<EmitirFacturaForm> — venta directa (F6.1)', () => {
     });
     expect(comportamiento).toHaveValue('Venta de activo fijo');
     expect(comportamiento).toHaveAttribute('readonly');
-    expect(screen.getAllByText(/autorización del Contador General/i).length).toBeGreaterThan(0);
+    expect(screen.getAllByText(/autorización del Director de Administración y Finanzas/i).length).toBeGreaterThan(0);
     expect(screen.getByText(/\(obligatoria\)/i)).toBeInTheDocument();
     expect(screen.getByTestId('leyenda-serie-venta-directa')).toHaveTextContent(
       'Se timbrará con la serie de Venta directa de la sucursal',

@@ -769,8 +769,11 @@ export interface ActualizarOperadorPayload {
 
 // ─── Activos fijos (FE-F9) ────────────────────────────────────────────
 
-/** Command de autorización de venta de activo (Contador General). */
+/** Command de autorización de venta de activo (Director de Administración y Finanzas). */
 export interface AutorizarVentaActivoCommand {
+  motivo: number;
+  solicitadoPor: string;
+  evidencia: string;
   activoRef: string;
   precioVenta: number;
 }
@@ -785,6 +788,9 @@ export interface AutorizarVentaActivoResponse {
 
 /** Item de la bandeja de autorizaciones de venta de activo. */
 export interface AutorizacionActivoItem {
+  motivo: number;
+  solicitadoPor: string;
+  evidencia: string;
   id: string;
   activoRef: string;
   descripcion: string;
@@ -1056,7 +1062,7 @@ export interface EmitirFacturaVentaCommand {
   anticipos?: AnticipoAAmortizar[] | null;
   /** Complemento de Comercio Exterior (solo exportación con CCE). */
   cce?: EmitirFacturaVentaCce | null;
-  /** Autorización del Contador General (obligatoria para venta de activo fijo). */
+  /** Autorización del Director de Administración y Finanzas (obligatoria para venta de activo fijo). */
   autorizacionId?: string | null;
   /** Observaciones (86e3tfdw2, ≤1000): se imprimen en el PDF; NO van al XML del CFDI. */
   observaciones?: string | null;

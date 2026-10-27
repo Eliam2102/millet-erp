@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { render, screen, waitFor } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { http, HttpResponse } from 'msw';
 import { mswServer } from '@/test/mocks/server';
 import { createQueryWrapper } from '@/test/test-query-client';
@@ -52,28 +52,70 @@ describe('<Activos> — smoke', () => {
             autorizadoPor: 'u-1',
             fechaAutorizacion: '2026-05-30T10:00:00Z',
             estado: 'Autorizada',
+            motivo: 5,
+            solicitadoPor: 'Transportes',
+            evidencia: 'Factura DEMO',
           },
         ]),
       ),
     );
     render(<Activos />, { wrapper: createQueryWrapper() });
-    await waitFor(() =>
-      expect(screen.getByText('Montacargas')).toBeInTheDocument(),
+    await waitFor(() => expect(screen.getByText('Montacargas')).toBeInTheDocument());
+    expect(screen.getByRole('button', { name: /Autorizar venta/i })).toBeInTheDocument();
+  });
+
+  it('exige motivo, área y soporte y envía la autorización del Director de Administración y Finanzas', async () => {
+    let recibido: unknown;
+    mswServer.use(
+      http.get('*/api/v1/facturacion/activos/autorizaciones', () => HttpResponse.json([])),
+      http.post('*/api/v1/facturacion/activos/autorizar', async ({ request }) => {
+        recibido = await request.json();
+        return HttpResponse.json(
+          {
+            autorizacionId: 'a',
+            descripcion: 'Activo',
+            valorNetoEnLibros: 10,
+            utilidadOPerdida: 10,
+          },
+          { status: 201 },
+        );
+      }),
     );
-    expect(
-      screen.getByRole('button', { name: /Autorizar venta/i }),
-    ).toBeInTheDocument();
+    render(<Activos />, { wrapper: createQueryWrapper() });
+    fireEvent.click(screen.getByRole('button', { name: 'Autorizar venta' }));
+    expect(screen.getAllByText(/Director de Administración y Finanzas/).length).toBeGreaterThan(0);
+    const autorizar = screen.getByRole('button', { name: 'Autorizar', exact: true });
+    expect(autorizar).toBeDisabled();
+    fireEvent.change(screen.getByLabelText('Referencia del activo *'), {
+      target: { value: 'AF-1' },
+    });
+    fireEvent.change(screen.getByLabelText('Precio de venta *'), { target: { value: '20' } });
+    fireEvent.change(screen.getByLabelText('Motivo *'), { target: { value: '5' } });
+    fireEvent.change(screen.getByLabelText('Solicitado por (área usuaria) *'), {
+      target: { value: 'Transportes' },
+    });
+    expect(autorizar).toBeDisabled();
+    fireEvent.change(screen.getByLabelText('Referencia del soporte *'), {
+      target: { value: 'Factura DEMO' },
+    });
+    expect(autorizar).toBeEnabled();
+    fireEvent.click(autorizar);
+    await waitFor(() =>
+      expect(recibido).toEqual({
+        activoRef: 'AF-1',
+        precioVenta: 20,
+        motivo: 5,
+        solicitadoPor: 'Transportes',
+        evidencia: 'Factura DEMO',
+      }),
+    );
   });
 
   it('empty', async () => {
     mswServer.use(
-      http.get('*/api/v1/facturacion/activos/autorizaciones', () =>
-        HttpResponse.json([]),
-      ),
+      http.get('*/api/v1/facturacion/activos/autorizaciones', () => HttpResponse.json([])),
     );
     render(<Activos />, { wrapper: createQueryWrapper() });
-    await waitFor(() =>
-      expect(screen.getByText(/Sin autorizaciones/i)).toBeInTheDocument(),
-    );
+    await waitFor(() => expect(screen.getByText(/Sin autorizaciones/i)).toBeInTheDocument());
   });
 });
