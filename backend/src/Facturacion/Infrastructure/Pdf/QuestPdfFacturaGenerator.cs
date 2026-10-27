@@ -201,7 +201,8 @@ public sealed class QuestPdfFacturaGenerator : IGenerarPdfFacturaPort
     {
         if (f.DatosEmbarqueCe is not { } ce) return;
         col.Item().Text($"Expediente: {ce.FolioExpediente} · Incoterm: {ce.Incoterm}");
-        col.Item().Text($"Pedimento de exportación: {ce.NumeroPedimento} · {ce.ClavePedimento} · {ce.FechaPedimento:yyyy-MM-dd}");
+        col.Item().Text($"Pedimento de exportación: {ce.NumeroPedimento} · {ce.ClavePedimento} · {ce.FechaPedimento:yyyy-MM-dd}" +
+            (ce.Aduana is null ? "" : $" · Aduana {ce.Aduana} {ce.AduanaNombre}"));
         foreach (var c in ce.Contenedores)
             col.Item().Text($"Contenedor: {c.Numero} · BL o guía: {c.BlGuia} · Embarque: {c.FechaEmbarqueReal:yyyy-MM-dd}");
     }
