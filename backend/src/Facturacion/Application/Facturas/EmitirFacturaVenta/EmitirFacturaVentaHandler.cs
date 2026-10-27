@@ -183,11 +183,11 @@ public sealed class EmitirFacturaVentaHandler
         // 3.bis B2: si se emite desde un pedido, debe estar Importado (re-facturable).
         // F6.1: se carga ANTES de la autorización de activo — un pedido de venta
         // directa subtipo Activo fuerza el comportamiento VentaActivoFijo y, con
-        // él, la autorización del Contador General (CA6.12). Un pedido manual
+        // él, la autorización del Director de Administración y Finanzas (CA6.12). Un pedido manual
         // legacy (sin clase) se rechaza aquí.
         var pedido = await CargarYValidarPedidoAsync(command, copiaCe is not null, cancellationToken);
 
-        // 3.ter F9: venta de activo fijo exige autorización del Contador General
+        // 3.ter F9: venta de activo fijo exige autorización del Director de Administración y Finanzas
         // (no se timbra sin ella). Se valida antes de reservar folio.
         var autorizacion = await CargarYValidarAutorizacionAsync(command, cancellationToken);
 
@@ -362,7 +362,7 @@ public sealed class EmitirFacturaVentaHandler
     /// </summary>
     /// <summary>
     /// Si el comportamiento es <c>VentaActivoFijo</c>, exige y valida la
-    /// autorización del Contador General (existente y aún disponible). Para
+    /// autorización del Director de Administración y Finanzas (existente y aún disponible). Para
     /// cualquier otro comportamiento devuelve <c>null</c>.
     /// </summary>
     private async Task<AutorizacionVentaActivo?> CargarYValidarAutorizacionAsync(
@@ -374,7 +374,7 @@ public sealed class EmitirFacturaVentaHandler
         if (command.AutorizacionId is not Guid autorizacionId)
             throw new BusinessRuleException(
                 "AUTORIZACION_REQUERIDA",
-                "La venta de un activo fijo requiere la autorización del Contador General antes de timbrar.");
+                "La venta de un activo fijo requiere la autorización del Director de Administración y Finanzas antes de timbrar.");
 
         var autorizacion = await _db.AutorizacionesVentaActivo
             .FirstOrDefaultAsync(a => a.Id == autorizacionId, cancellationToken)
@@ -415,14 +415,14 @@ public sealed class EmitirFacturaVentaHandler
         pedido.AsegurarClasificadoParaFacturar();
 
         // F6.1 / CA6.12: la venta directa de un activo va siempre como
-        // VentaActivoFijo, para que la autorización del Contador General no
+        // VentaActivoFijo, para que la autorización del Director de Administración y Finanzas no
         // pueda saltarse cambiando el comportamiento en la emisión.
         if (pedido.EsVentaDirectaManual
             && pedido.SubtipoVentaDirecta == SubtipoVentaDirecta.Activo
             && command.ComportamientoFiscal != ComportamientoFiscal.VentaActivoFijo)
             throw new BusinessRuleException(
                 "FAC_PEDIDO_ACTIVO_COMPORTAMIENTO",
-                "El pedido es una venta directa de activo fijo: emítelo con el comportamiento «Venta de activo fijo» y la autorización del Contador General.");
+                "El pedido es una venta directa de activo fijo: emítelo con el comportamiento «Venta de activo fijo» y la autorización del Director de Administración y Finanzas.");
 
         return pedido;
     }

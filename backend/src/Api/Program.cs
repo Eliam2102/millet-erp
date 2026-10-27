@@ -1093,6 +1093,8 @@ builder.Services.AddScoped<Millet.Identidad.Infrastructure.TransaccionColaborado
 // Camino B "Cuenta Microsoft nueva" (plan 15, F4): el sandbox de Development
 // captura el correo solo en loopback; fuera de él el worker sigue apagado por
 // defecto hasta configurar adaptadores reales.
+// Avisos SLA de CxP por Graph: independientes del alta de colaboradores.
+builder.Services.AddGraphAvisosRevisionCxp(builder.Configuration);
 var proveedorColaboradores = builder.Configuration["Entra:Proveedor"] ?? "Simulado";
 if (proveedorColaboradores.Equals("Graph", StringComparison.OrdinalIgnoreCase))
     builder.Services.AddGraphColaboradores(builder.Configuration, builder.Environment.IsDevelopment());
@@ -1741,7 +1743,7 @@ Millet.Api.Endpoints.Facturacion.ReppEndpoints.MapFacturacionReppEndpoints(app);
 // === Facturación — Carta Porte 3.1: emisión + siguiente tramo + catálogos (F8) ===
 Millet.Api.Endpoints.Facturacion.CartaPorteEndpoints.MapFacturacionCartaPorteEndpoints(app);
 
-// === Facturación — Activos fijos: autorización Contador General (F9) ===
+// === Facturación — Activos fijos: autorización Director de Administración y Finanzas (F9) ===
 Millet.Api.Endpoints.Facturacion.ActivosEndpoints.MapFacturacionActivosEndpoints(app);
 
 // === Facturación — Reportes: liquidación caja + anticipos + CFDIs por obra (F11) ===

@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { render, screen, waitFor, within } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { http, HttpResponse } from 'msw';
 import { mswServer } from '@/test/mocks/server';
 import { createQueryWrapper } from '@/test/test-query-client';
@@ -174,34 +174,121 @@ describe('<MiCaja> — smoke', () => {
     expect(screen.queryByRole('button', { name: /Registrar movimiento/i })).toBeNull();
   });
 
-  it('sin permiso operar: oculta Iniciar arqueo, Liquidar ruta y Registrar movimiento', async () => {
-    useAuthStore.setState({ permisos: [] });
+  it('sin permiso operar: no consulta la sesión (403) ni muestra acciones de operación', async () => {
+    useAuthStore.setState({ permisos: ['facturacion.caja.supervisar'] });
+    const consultada = vi.fn();
+    mswServer.use(
+      http.get(`${BASE}/sesion-actual`, () => {
+        consultada();
+        return HttpResponse.json({}, { status: 403 });
+      }),
+      http.get('*/api/v1/facturacion/cajas/autorizaciones-apertura', () => HttpResponse.json([])),
+      http.get(BASE, () => HttpResponse.json([])),
+    );
+    render(<MiCaja />, { wrapper: createQueryWrapper() });
+    expect(await screen.findByText('Mi caja')).toBeInTheDocument();
+    await new Promise((r) => setTimeout(r, 50));
+    expect(consultada).not.toHaveBeenCalled();
+    expect(screen.queryByText(/No se pudo cargar tu sesión/i)).toBeNull();
+    expect(screen.queryByRole('button', { name: /Abrir sesión/i })).toBeNull();
+    expect(screen.queryByRole('button', { name: /Iniciar arqueo/i })).toBeNull();
+    expect(screen.queryByRole('button', { name: /Registrar movimiento/i })).toBeNull();
+  });
+
+  describe('86e3tfdwu · enlace «Cobrar en caja» con la caja sin abrir', () => {
+    beforeEach(() => {
+      window.history.pushState({}, '', '/facturacion/caja?cobrar=cmp-1&folio=FV-77');
+    });
+    afterEach(() => {
+      window.history.pushState({}, '', '/');
+    });
+
+    it('caja en arqueo: avisa «La caja no está abierta» con el folio', async () => {
+      mswServer.use(
+        http.get(`${BASE}/sesion-actual`, () =>
+          HttpResponse.json({
+            sesion: { ...sesionAbierta, estado: 'EnArqueo', cortes: [] },
+            diaAnteriorPendiente: false,
+          }),
+        ),
+      );
+      render(<MiCaja />, { wrapper: createQueryWrapper() });
+      const aviso = (await screen.findByText(/La caja no está abierta/)).closest('[role="status"]');
+      expect(aviso).toHaveTextContent('FV-77');
+    });
+
+    it('día anterior pendiente: también avisa', async () => {
+      mswServer.use(
+        http.get(`${BASE}/sesion-actual`, () =>
+          HttpResponse.json({ sesion: sesionAbierta, diaAnteriorPendiente: true }),
+        ),
+      );
+      render(<MiCaja />, { wrapper: createQueryWrapper() });
+      expect(await screen.findByText(/La caja no está abierta/)).toBeInTheDocument();
+    });
+
+    it('caja abierta: no muestra el aviso', async () => {
+      mswServer.use(
+        http.get(`${BASE}/sesion-actual`, () =>
+          HttpResponse.json({ sesion: sesionAbierta, diaAnteriorPendiente: false }),
+        ),
+        http.get(`${BASE}/cobrables`, () => HttpResponse.json([])),
+      );
+      render(<MiCaja />, { wrapper: createQueryWrapper() });
+      expect(await screen.findByText('Caja Mostrador Conkal')).toBeInTheDocument();
+      expect(screen.queryByText(/La caja no está abierta/)).toBeNull();
+    });
+  });
+});
+
+describe('86e3tfdvt · voucher en la liquidación de ruta', () => {
+  it('marca en rojo los 16 dígitos de la tarjeta igual que el cobro y bloquea la liquidación', async () => {
     mswServer.use(
       http.get(`${BASE}/sesion-actual`, () =>
         HttpResponse.json({ sesion: sesionAbierta, diaAnteriorPendiente: false }),
       ),
-    );
-    render(<MiCaja />, { wrapper: createQueryWrapper() });
-    await waitFor(() =>
-      expect(screen.getByText('Caja Mostrador Conkal')).toBeInTheDocument(),
-    );
-    expect(screen.queryByRole('button', { name: /Iniciar arqueo/i })).toBeNull();
-    expect(screen.queryByRole('button', { name: /Liquidar ruta/i })).toBeNull();
-    expect(screen.queryByRole('button', { name: /Registrar movimiento/i })).toBeNull();
-  });
-
-  it('sin permiso operar y sin sesión: oculta Abrir sesión', async () => {
-    useAuthStore.setState({ permisos: [] });
-    mswServer.use(
-      http.get(`${BASE}/sesion-actual`, () =>
-        HttpResponse.json({ sesion: null, diaAnteriorPendiente: false }),
+      http.get('*/api/v1/catalogos/formas-pago', () =>
+        HttpResponse.json([
+          { id: '01', claveSat: '01', descripcion: 'Efectivo', activa: true },
+          { id: '04', claveSat: '04', descripcion: 'Tarjeta de crédito', activa: true },
+        ]),
       ),
-      http.get(BASE, () => HttpResponse.json([])),
+      http.get('*/api/v1/facturacion/cobros/cobrables', () =>
+        HttpResponse.json([
+          {
+            comprobanteId: 'cmp-ruta',
+            folio: 'RUTA-1',
+            tipo: 'Factura',
+            receptorNombre: 'Cliente ficticio',
+            total: 100,
+            moneda: 'MXN',
+            fechaTimbrado: '2026-07-11T15:00:00Z',
+            montoAcreditado: 0,
+            montoRanura: 0,
+          },
+        ]),
+      ),
     );
     render(<MiCaja />, { wrapper: createQueryWrapper() });
-    await waitFor(() =>
-      expect(screen.getByLabelText(/Fondo de apertura/i)).toBeInTheDocument(),
-    );
-    expect(screen.queryByRole('button', { name: /Abrir sesión/i })).toBeNull();
+    fireEvent.click(await screen.findByRole('button', { name: /Liquidar ruta/i }));
+    fireEvent.click(await screen.findByRole('checkbox', { name: 'Incluir RUTA-1' }));
+    fireEvent.keyDown(screen.getByRole('combobox', { name: 'Forma de pago de RUTA-1' }), {
+      key: 'ArrowDown',
+    });
+    fireEvent.click(await screen.findByRole('option', { name: 'Tarjeta de crédito' }));
+
+    const voucher = await screen.findByLabelText('Número de autorización del voucher de RUTA-1');
+    const registrar = screen.getByRole('button', { name: 'Registrar liquidación' });
+    expect(voucher).toHaveAttribute('aria-invalid', 'true');
+    expect(registrar).toBeDisabled();
+
+    fireEvent.change(voucher, { target: { value: '4111111111111111' } });
+    expect(voucher).toHaveValue('4111111111111111');
+    expect(voucher).toHaveAttribute('aria-invalid', 'true');
+    expect(registrar).toBeDisabled();
+
+    fireEvent.change(voucher, { target: { value: '123456' } });
+    expect(voucher).toHaveAttribute('aria-invalid', 'false');
+    await waitFor(() => expect(registrar).toBeEnabled());
   });
 });

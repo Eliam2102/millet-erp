@@ -9,7 +9,7 @@ import { PermisosCanonicos } from '@/lib/auth/permission-codes';
 
 /**
  * Autorizaciones de venta de activo — <c>/facturacion/activos</c> (FE-F9).
- * Bandeja del Contador General.
+ * Bandeja del Director de Administración y Finanzas.
  */
 export const Route = createFileRoute('/_app/facturacion/activos/')({
   beforeLoad: () => {

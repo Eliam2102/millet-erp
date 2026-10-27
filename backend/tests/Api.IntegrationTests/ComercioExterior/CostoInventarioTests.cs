@@ -16,10 +16,11 @@ public sealed class CostoInventarioTests
 {
     [Theory]
     [InlineData(100, 0, 0, 1000, 0)]
+    [InlineData(100, 30, 0, 0, 1000)]
     [InlineData(60, 0, 400, 600, 0)]
-    [InlineData(60, 30, 400, 300, 300)]
-    public async Task P8_traslado_reparte_por_ubicacion_duplicado_y_diferencia(
-        int liberadas, int consumidas, decimal costoRevision, decimal costoRack, decimal costoVentas)
+    [InlineData(60, 30, 0, 0, 1000)]
+    public async Task P8_P10_traslado_conserva_existencia_y_salida_lleva_todo_a_gasto(
+        int liberadas, int consumidas, decimal costoRevision, decimal costoRack, decimal gastoImportacion)
     {
         await using var escenario = await ExpedientesHttpTests.Escenario.CrearAsync();
         using var scope = escenario.Scope(); var sp = scope.ServiceProvider;
@@ -54,6 +55,9 @@ public sealed class CostoInventarioTests
         var iniciales = await db.SaldosInventario.AsNoTracking().Where(s => s.UbicacionId == origen.Id || s.UbicacionId == rack.Id).ToDictionaryAsync(s => s.UbicacionId);
         var expediente = Guid.NewGuid();
         var partida = recibida.Lineas.Single().Id;
+        var lectura = (await sp.GetRequiredService<Millet.Almacen.Application.PublicPorts.IRecepcionesCostoReadPort>()
+            .ListarAsync(empresa, escenario.SucursalId, demo.OcId!.Value, CancellationToken.None)).Single(x => x.PartidaId == partida);
+        Assert.Equal(100 - consumidas, lectura.Remanente); // Incluye lo trasladado, aun con origen vacío.
         var payload = new CostoExpedientePayload(empresa, expediente, escenario.SucursalId, 1,
             [new(partida, demo.OcId!.Value, recibida.Id, articulo, origen.Id, 100, 1000, 1000)]);
         var mediator = sp.GetRequiredService<IMediator>();
@@ -63,7 +67,8 @@ public sealed class CostoInventarioTests
         Assert.Equal(2, ajustes.Count);
         Assert.Equal(costoRevision, ajustes.Single(a => a.UbicacionId == origen.Id).InventarioMxn);
         Assert.Equal(costoRack, ajustes.Single(a => a.UbicacionId == rack.Id).InventarioMxn);
-        Assert.Equal(costoVentas, ajustes.Sum(a => a.CostoVentasMxn));
+        Assert.Equal(gastoImportacion, ajustes.Sum(a => a.CostoVentasMxn));
+        Assert.Equal(gastoImportacion, ajustes.Single(a => a.UbicacionId == origen.Id).CostoVentasMxn);
         await mediator.Send(new AplicarCostoExpedienteCommand(payload with { NumeroVersion = 2,
             Partidas = [payload.Partidas[0] with { ImporteMxn = 1200, DiferenciaMxn = 200 }] }));
         db.ChangeTracker.Clear();
@@ -76,7 +81,7 @@ public sealed class CostoInventarioTests
         ajustes = await db.Set<AjusteCostoExpediente>().Where(a => a.ExpedienteId == expediente && a.NumeroVersion == 2).ToListAsync();
         Assert.Equal(1200, ajustes.Sum(a => a.AcumuladoMxn));
         Assert.Equal(200, ajustes.Sum(a => a.DiferenciaMxn));
-        Assert.Equal(costoVentas * .2m, ajustes.Sum(a => a.CostoVentasMxn));
+        Assert.Equal(gastoImportacion * .2m, ajustes.Sum(a => a.CostoVentasMxn));
         var eventos = await db.Set<IntegrationEventOutboxEntry>().Where(x => x.EventType == "almacen.expediente.costo-aplicado.v1").ToListAsync();
         Assert.Equal(2, eventos.Count);
         var aplicado = System.Text.Json.JsonSerializer.Deserialize<ExpedienteCostoAplicadoEvent>(eventos[0].Payload,
@@ -84,7 +89,7 @@ public sealed class CostoInventarioTests
         Assert.Single(aplicado.Partidas);
         Assert.Equal(2, aplicado.Partidas[0].Ubicaciones.Count);
         Assert.Equal(aplicado.Partidas[0].InventarioMxn, aplicado.Partidas[0].Ubicaciones.Sum(u => u.InventarioMxn));
-        Assert.Equal(aplicado.Partidas[0].DiferenciaMxn, aplicado.Partidas[0].InventarioMxn + aplicado.Partidas[0].CostoVentasMxn);
+        Assert.Equal(aplicado.Partidas[0].DiferenciaMxn, aplicado.Partidas[0].InventarioMxn + aplicado.Partidas[0].GastoImportacionMxn);
     }
 
     [Fact]
@@ -113,12 +118,16 @@ public sealed class CostoInventarioTests
         await mediator.Send(new AplicarCostoExpedienteCommand(payload));
         await mediator.Send(new AplicarCostoExpedienteCommand(payload));
         var ajuste = await almacen.Set<AjusteCostoExpediente>().SingleAsync(a => a.ExpedienteId == expediente);
-        Assert.Equal(4000, ajuste.InventarioMxn); Assert.Equal(6000, ajuste.CostoVentasMxn);
+        Assert.Equal(0, ajuste.InventarioMxn); Assert.Equal(10000, ajuste.CostoVentasMxn);
         var saldo = await almacen.SaldosInventario.AsNoTracking().SingleAsync(s => s.UbicacionId == ubicacion && s.ArticuloId == linea.ArticuloId);
-        Assert.Equal(inicial.Cantidad, saldo.Cantidad); Assert.Equal(inicial.ValorInventarioMxn + 4000, saldo.ValorInventarioMxn);
+        Assert.Equal(inicial.CostoPromedioMxn, saldo.CostoPromedioMxn);
+        Assert.Equal(inicial.Cantidad, saldo.Cantidad); Assert.Equal(inicial.ValorInventarioMxn, saldo.ValorInventarioMxn);
         await mediator.Send(new AplicarCostoExpedienteCommand(payload with { NumeroVersion = 2, Partidas = [payload.Partidas[0] with { ImporteMxn = 12000, DiferenciaMxn = 2000 }] }));
         saldo = await almacen.SaldosInventario.AsNoTracking().SingleAsync(s => s.UbicacionId == ubicacion && s.ArticuloId == linea.ArticuloId);
-        Assert.Equal(inicial.ValorInventarioMxn + 4800, saldo.ValorInventarioMxn);
+        Assert.Equal(inicial.ValorInventarioMxn, saldo.ValorInventarioMxn);
+        var ajusteDos = await almacen.Set<AjusteCostoExpediente>().SingleAsync(a => a.ExpedienteId == expediente && a.NumeroVersion == 2);
+        Assert.Equal(0, ajusteDos.InventarioMxn); Assert.Equal(2000, ajusteDos.CostoVentasMxn);
+        Assert.Equal(inicial.CostoPromedioMxn, saldo.CostoPromedioMxn);
         Assert.Equal(2, await almacen.Set<AjusteCostoExpediente>().CountAsync(a => a.ExpedienteId == expediente));
         Assert.Equal(2, await almacen.Set<IntegrationEventOutboxEntry>().CountAsync(x => x.EventType == "almacen.expediente.costo-aplicado.v1"));
     }

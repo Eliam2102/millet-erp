@@ -1,4 +1,4 @@
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { queryOptions, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { apiRequest } from '@/lib/api';
 import { facturacionKeys } from '@/features/facturacion/api/keys';
 import type {
@@ -265,7 +265,15 @@ export function useCancelarCobro() {
  * ([12-7]) y del cobro unitario.
  */
 export function useComprobantesCobrables(search: string | null, enabled = true) {
-  return useQuery<ComprobanteCobrableItem[]>({
+  return useQuery({ ...cobrablesQueryOptions(search), enabled });
+}
+
+/**
+ * Opciones compartidas de la consulta de cobrables: el aviso «Cobrar en caja»
+ * tras emitir (86e3tfdwu) la resuelve con <c>fetchQuery</c> fuera de render.
+ */
+export function cobrablesQueryOptions(search: string | null) {
+  return queryOptions<ComprobanteCobrableItem[]>({
     queryKey: facturacionKeys.cobrables(search),
     queryFn: async ({ signal }) => {
       const params = search != null && search !== '' ? `?search=${encodeURIComponent(search)}` : '';
@@ -275,7 +283,6 @@ export function useComprobantesCobrables(search: string | null, enabled = true) 
       );
       return data;
     },
-    enabled,
     staleTime: 0,
   });
 }
