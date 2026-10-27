@@ -228,6 +228,7 @@ done < "$contexts_file"
 # Fixture de pruebas: fila general de umbral que reproduce el comportamiento previo (RQ basta con N1 salvo naturaleza o monto; OC exige N2 por monto > 0). Las pruebas del modo por departamento siembran su propia fila.
 medir_fase fixture_sql docker exec "$pg_container" psql -U "$pg_user" -d "$pg_db" -v ON_ERROR_STOP=1 -c "INSERT INTO compras.umbrales_aprobacion_departamento (empresa_id, departamento_id, vigente_desde, vigente_hasta, umbral_menor_cuantia, umbral_monto, moneda, modo_nivel2, monto_minimo_disponibilidad) VALUES ('00000003-0000-0000-0000-000000000001', '00000000-0000-0000-0000-000000000000', '2020-01-01', NULL, NULL, 0, 'MXN', 2, 999999999999.99) ON CONFLICT DO NOTHING;" >/dev/null
 
+proyectos_fallidos=()
 for project in "${projects[@]}"; do
   proyecto="$(basename "$project" .csproj)"
   echo "Probando $(basename "$(dirname "$project")")"
@@ -235,7 +236,20 @@ for project in "${projects[@]}"; do
   if [[ -n "$tiempos_dir" ]]; then
     test_args+=(--logger "trx;LogFileName=$proyecto.trx" --results-directory "$tiempos_dir")
   fi
-  medir_fase "test:$proyecto" "$dotnet_bin" test "$project" "${test_args[@]}"
+  # Un proyecto en rojo no detiene a los demás: se ven todas las fallas en una corrida.
+  iniciar_fase "test:$proyecto"
+  if "$dotnet_bin" test "$project" "${test_args[@]}"; then
+    terminar_fase
+  else
+    codigo=$?
+    terminar_fase "$codigo"
+    proyectos_fallidos+=("$proyecto")
+  fi
 done
+
+if [[ "${#proyectos_fallidos[@]}" -gt 0 ]]; then
+  echo "Gate de integración RECHAZADO: fallaron ${proyectos_fallidos[*]} (ver detalle arriba)." >&2
+  exit 1
+fi
 
 echo "Gate de integración aprobado: todas las suites seleccionadas terminaron correctamente (ver conteos arriba)."
