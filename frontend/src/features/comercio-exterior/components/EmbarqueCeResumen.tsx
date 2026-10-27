@@ -34,6 +34,11 @@ export function EmbarqueCeResumen({
           <dd>{datos.incoterm ?? 'Pendiente'}</dd>
         </div>
       </dl>
+      {datos.aduana && (
+        <p>
+          Aduana: {datos.aduana} · {datos.aduanaNombre}
+        </p>
+      )}
       <Table>
         <TableHeader>
           <TableRow>

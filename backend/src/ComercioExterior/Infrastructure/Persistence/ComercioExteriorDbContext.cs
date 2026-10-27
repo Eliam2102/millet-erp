@@ -86,6 +86,7 @@ public sealed partial class ComercioExteriorDbContext(DbContextOptions<ComercioE
         d.HasIndex(x => new { x.ExpedienteId, x.TipoDocumentoId }).IsUnique().HasFilter("estado = 'Vigente'");
         d.HasOne<DocumentoExpediente>().WithMany().HasForeignKey(x => x.ReemplazaA).OnDelete(DeleteBehavior.Restrict);
         e.Property(x => x.NumeroPedimentoExportacion).HasMaxLength(100);
+        e.Property(x => x.AduanaPedimentoExportacion).HasMaxLength(10);
         e.Property(x => x.ClavePedimento).HasMaxLength(2);
         d.Property(x => x.NumeroPedimento).HasMaxLength(100);
         e.HasMany(x => x.Contenedores).WithOne().HasForeignKey(x => x.ExpedienteId).OnDelete(DeleteBehavior.Restrict);

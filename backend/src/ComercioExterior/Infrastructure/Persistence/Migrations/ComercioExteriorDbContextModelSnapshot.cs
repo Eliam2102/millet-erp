@@ -691,6 +691,11 @@ namespace Millet.ComercioExterior.Infrastructure.Persistence.Migrations
                         .HasColumnType("uuid")
                         .HasColumnName("id");
 
+                    b.Property<string>("AduanaPedimentoExportacion")
+                        .HasMaxLength(10)
+                        .HasColumnType("character varying(10)")
+                        .HasColumnName("aduana_pedimento_exportacion");
+
                     b.Property<string>("ClavePedimento")
                         .HasMaxLength(2)
                         .HasColumnType("character varying(2)")
