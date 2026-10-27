@@ -69,8 +69,21 @@ export function ConfirmarDepositoDialog({ deposito, onOpenChange }: ConfirmarDep
     estadoAplicacion: EstadoAplicacionMovimiento.NoAplicado,
     limit: 100,
   });
+  // C7.4: el sobrante de un depósito ya confirmado (AplicadoParcial) también se
+  // confirma, por lo disponible; solo aplica a propuestas de CxC.
+  const parciales = useMovimientos({
+    sentido: SentidoMovimiento.Ingreso,
+    estadoAplicacion: EstadoAplicacionMovimiento.AplicadoParcial,
+    limit: 100,
+  });
 
   const [movimientoId, setMovimientoId] = useState<string | null>(null);
+  // C7.4: preselecciona el movimiento que CxC identificó (derived state por depósito).
+  const [depositoPrevio, setDepositoPrevio] = useState<string | null>(null);
+  if ((deposito?.id ?? null) !== depositoPrevio) {
+    setDepositoPrevio(deposito?.id ?? null);
+    setMovimientoId(deposito?.movimientoSugeridoId ?? null);
+  }
   const [altaRapida, setAltaRapida] = useState(false);
   const puedeAltaRapida = useHasPermission(PermisosCanonicos.TesoreriaMovimientosRegistrar);
   const [conceptoId, setConceptoId] = useState<string | null>(null);
@@ -79,10 +92,16 @@ export function ConfirmarDepositoDialog({ deposito, onOpenChange }: ConfirmarDep
   const [referencia, setReferencia] = useState('');
 
   const esPropuesta = deposito?.propuestaCxcId != null;
+  // E8: si CxC ligó la propuesta a un ingreso, solo se confirma contra ese movimiento
+  // (el backend responde DEP_MOVIMIENTO_DISTINTO_AL_LIGADO en otro caso).
+  const ligado = esPropuesta ? (deposito?.movimientoSugeridoId ?? null) : null;
   const pending = confirmar.isPending;
 
   const items = useMemo(() => {
-    const todos = candidatos.data?.items ?? [];
+    const todos = [
+      ...(candidatos.data?.items ?? []),
+      ...(deposito?.propuestaCxcId != null ? (parciales.data?.items ?? []) : []),
+    ];
     // Moneda igual si el depósito la trae; propuestas además priorizan
     // el monto exacto (los demás siguen visibles — Caja admite aproximado).
     const filtrados =
@@ -92,7 +111,7 @@ export function ConfirmarDepositoDialog({ deposito, onOpenChange }: ConfirmarDep
       (a, b) =>
         Math.abs(a.monto - deposito.montoEsperado!) - Math.abs(b.monto - deposito.montoEsperado!),
     );
-  }, [candidatos.data, deposito]);
+  }, [candidatos.data, parciales.data, deposito]);
 
   function cerrar(next: boolean) {
     if (!next) {
@@ -214,7 +233,7 @@ export function ConfirmarDepositoDialog({ deposito, onOpenChange }: ConfirmarDep
                 <label className="text-xs text-ink-muted">
                   Movimiento de ingreso sin aplicar *
                 </label>
-                <Select value={movimientoId ?? ''} onValueChange={(v) => setMovimientoId(v)}>
+                <Select value={movimientoId ?? ''} onValueChange={(v) => setMovimientoId(v)} disabled={ligado != null}>
                   <SelectTrigger aria-label="Movimiento de ingreso">
                     <SelectValue
                       placeholder={
@@ -234,14 +253,25 @@ export function ConfirmarDepositoDialog({ deposito, onOpenChange }: ConfirmarDep
                         </span>{' '}
                         · {formatoMonto(m.monto, m.moneda)}
                         {m.referenciaBancaria ? ` · ${m.referenciaBancaria}` : ''}
-                        {deposito?.montoEsperado != null && m.monto === deposito.montoEsperado
-                          ? ' ✓'
+                        {m.estadoAplicacion === EstadoAplicacionMovimiento.AplicadoParcial
+                          ? ' · sobrante'
                           : ''}
+                        {m.id === deposito?.movimientoSugeridoId
+                          ? ' · identificado por CxC'
+                          : deposito?.montoEsperado != null && m.monto === deposito.montoEsperado
+                            ? ' ✓'
+                            : ''}
                       </SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
-                {puedeAltaRapida && (
+                {ligado != null && (
+                  <p className="text-xs text-ink-muted">
+                    La propuesta está ligada al ingreso que CxC identificó; se confirma contra ese
+                    movimiento. Si no corresponde, recházala para que CxC re-proponga.
+                  </p>
+                )}
+                {puedeAltaRapida && ligado == null && (
                   <button
                     type="button"
                     className="text-xs text-brand underline-offset-2 hover:underline"

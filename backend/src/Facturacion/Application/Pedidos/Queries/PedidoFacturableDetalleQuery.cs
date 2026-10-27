@@ -110,7 +110,7 @@ public sealed record PedidoFacturableLineaDetalle(
     string? ObjetoImp,
     decimal? TasaIvaTraslado,
     decimal? TasaRetencionIva,
-    decimal? TasaRetencionIsr);
+    decimal? TasaRetencionIsr, string? Referencia = null, decimal? PesoKg = null, decimal? AreaPie2 = null);
 
 public sealed class PedidoFacturableDetalleHandler
     : IRequestHandler<PedidoFacturableDetalleQuery, PedidoFacturableDetalleResponse>
@@ -198,7 +198,7 @@ public sealed class PedidoFacturableDetalleHandler
                     // FAC-DET-PR2: la tasa persistida en la línea (documento
                     // A+W o resuelta al capturar) manda sobre la del master.
                     l.TasaIva ?? master?.TasaIvaTraslado,
-                    master?.TasaRetencionIva, master?.TasaRetencionIsr);
+                    master?.TasaRetencionIva, master?.TasaRetencionIsr, l.Referencia, l.PesoKg, l.AreaPie2);
             })
             .ToList();
 
@@ -221,7 +221,9 @@ public sealed class PedidoFacturableDetalleHandler
 
     private async Task<IReadOnlyList<AnticipoLigadoPedido>> AnticiposLigadosAsync(PedidoFacturable pedido, CancellationToken ct)
     {
-        if (pedido.Origen != OrigenPedido.Aw || pedido.NumeroPedido is not { } numero) return [];
+        // Un pedido cancelado en A+W no liga anticipos: quedan libres para el cliente (86e3tfd6n).
+        if (pedido.Origen != OrigenPedido.Aw || pedido.Estado == EstadoPedidoFacturable.Cancelado
+            || pedido.NumeroPedido is not { } numero) return [];
         var anticipos = await _db.Anticipos.AsNoTracking()
             .Where(a => a.ClienteId == pedido.ClienteId && a.PedidoOrigenRef == numero)
             .Select(a => new { a.Id, a.FacturaAnticipoId, a.MontoCobrado, a.Saldo, a.Estado })

@@ -10,7 +10,8 @@ using Millet.SharedKernel.Infrastructure.Persistence;
 
 namespace Millet.Api.IntegrationTests.Administracion;
 
-public sealed class Adm03AccesosTests : IClassFixture<WebApplicationFactory<Program>>
+[Collection(ApiCompartida.Nombre)]
+public sealed class Adm03AccesosTests
 {
     private readonly WebApplicationFactory<Program> _factory;
     public Adm03AccesosTests(WebApplicationFactory<Program> factory) => _factory = factory;

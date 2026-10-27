@@ -116,6 +116,13 @@ export function EmpleadoDetalle() {
           <dd>{empleado.email ?? 'Sin registrar'}</dd>
         </div>
         <div>
+          <dt className="text-xs text-ink-muted">Teléfono y extensión</dt>
+          <dd>
+            {empleado.telefono || 'Sin registrar'}
+            {empleado.extension ? ` · Ext. ${empleado.extension}` : ''}
+          </dd>
+        </div>
+        <div>
           <dt className="text-xs text-ink-muted">Sucursal base</dt>
           <dd>
             {sucursalBase?.nombre ??

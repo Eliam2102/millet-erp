@@ -31,7 +31,8 @@ using Millet.Tesoreria.Infrastructure.Persistence;
 namespace Millet.Api.IntegrationTests.Tesoreria;
 
 // Solo PostgreSQL desechable vía tools/validate-integration-isolated.sh.
-public sealed class DevolucionesClienteTests(WebApplicationFactory<Program> factory) : IClassFixture<WebApplicationFactory<Program>>, IAsyncLifetime
+[Collection(ApiCompartida.Nombre)]
+public sealed class DevolucionesClienteTests(WebApplicationFactory<Program> factory) : IAsyncLifetime
 {
     private static readonly Guid Empresa = Guid.Parse("00000003-0000-0000-0000-000000000001");
     private readonly List<Guid> _cuentas = [];

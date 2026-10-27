@@ -30,7 +30,10 @@ public sealed record CrearOrdenCompraDesdeRequisicionCommand(
     DateOnly? FechaEntregaEsperada = null,
     string? Observaciones = null,
     Guid? CotizacionId = null,
-    string? MotivoEleccion = null) : IRequest<CrearOrdenCompraDesdeRequisicionResponse>;
+    string? MotivoEleccion = null,
+    string? UsoCfdiClave = null,
+    string? MetodoPago = null,
+    string? FormaPagoClave = null) : IRequest<CrearOrdenCompraDesdeRequisicionResponse>;
 
 public sealed record CrearOrdenCompraDesdeRequisicionResponse(
     Guid OrdenCompraId,

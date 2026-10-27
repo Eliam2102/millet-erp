@@ -42,7 +42,9 @@ public sealed record OcLineaLectura(
     decimal CantidadRecibida,
     decimal PrecioUnitarioMxn,
     Guid? CentroCostoId = null,
-    decimal CantidadFacturada = 0m, bool EsActivoFijo = false, Guid? ClaseActivoId = null, string? FraccionArancelaria = null);
+    decimal CantidadFacturada = 0m, bool EsActivoFijo = false, Guid? ClaseActivoId = null, string? FraccionArancelaria = null,
+    // F1-MP-01 (E1): medida de la hoja capturada en la OC; la recepción la toma de aquí (S3).
+    Guid? ProductoAwVarianteId = null, decimal? AnchoMm = null, decimal? AltoMm = null);
 
 public sealed record RecepcionesPendientesLectura(int Total, int Parciales);
 

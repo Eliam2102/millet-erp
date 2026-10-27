@@ -565,6 +565,48 @@ El grupo de endpoints verifica la sucursal del documento con `DocumentoSucursalS
 
 ---
 
+## Depósitos sin identificar y sobrante (F1-CXC-03 · C7.4)
+
+- **Alta.** El ingreso se registra con la opción «Cobro de cliente (cliente
+  opcional)» (`BeneficiarioTipo=Cliente`, `BeneficiarioRef` opcional). Sin
+  remittance, CxC lo ve como «sin identificar» y no se aplica (CA7.9).
+- **Puerto expuesto.** `DepositosPorIdentificarReadAdapter` implementa
+  `IDepositosPorIdentificarReadPort` de CxC (registro en
+  `AddTesoreriaModule`). Criterio: ingreso, no contramovimiento ni revertido,
+  beneficiario Cliente, no aplicado por completo, sin devolución
+  solicitada/autorizada/pagada y no ligado a caja o viáticos. Devuelve el
+  disponible (monto − confirmado).
+- **Preselección.** `propuesta-aplicacion.creada.v1` trae `MovimientoBancarioId`
+  (aditivo). La proyección lo guarda en `deposito_confirmacion.movimiento_id`
+  mientras está Pendiente (solo si el movimiento existe) y la respuesta lo
+  expone como `movimientoSugeridoId` (`movimientoId` solo se llena al
+  confirmar). El rechazo borra la sugerencia. Sin columna nueva.
+- **Sobrante (corrección).** Confirmar ya no aplica el monto completo del
+  movimiento: aplica lo propuesto (`MontoEsperado − SaldoAFavorPorIdentificar`).
+  El resto deja el movimiento `AplicadoParcial` y vuelve a la bandeja de CxC.
+  Una propuesta de CxC puede confirmarse contra un movimiento `AplicadoParcial`
+  y se coteja contra lo disponible (no contra el monto total); si CxC identificó
+  ese mismo movimiento, puede cubrir solo una parte. Caja y viáticos siguen
+  ligando el movimiento completo. `pago-cliente.confirmado.v1` lleva en `Monto`
+  el depósito propuesto (igual al del movimiento salvo identificación en
+  partes). `DEP_MISMO_USUARIO` sin cambios (R12).
+- **Bandeja para Tesorería.** Pestaña «Sin identificar» en Depósitos
+  (`GET /api/v1/tesoreria/depositos/sin-identificar`, permiso existente
+  `tesoreria.movimientos.ver`, alcance por sucursal ADR-0051). Reusa el criterio
+  del puerto y descuenta las propuestas de CxC ligadas que esperan confirmación
+  (proyección Pendiente con movimiento sugerido). Muestra «Días en espera».
+- **E8.** Una confirmación con movimiento sugerido solo se confirma contra ese
+  movimiento (`DEP_MOVIMIENTO_DISTINTO_AL_LIGADO`).
+- **E9.** El sobrante de un ingreso sin cliente queda «sin identificar» del
+  cliente de la última propuesta confirmada.
+- **REP por propuesta.** Facturación crea un `repp_pendiente` por propuesta
+  confirmada (migración `ReppPendientePorPropuesta`), de modo que el sobrante
+  identificado después tiene su propio REP. `recibo-pago.timbrado.v1` trae
+  `PropuestaId` (aditivo) y `MarcarReppTimbrado` marca exactamente esa
+  confirmación; sin él conserva la correlación por movimiento.
+- **PLATFORM-TODO(`<DepositoBancarioFeed>`):** la importación automática del
+  banco (T9.2/T9.4) sustituirá la captura manual; el puerto no cambia.
+
 ## Rev.
 
 | Versión | Fecha | Cambios |

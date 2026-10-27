@@ -16,6 +16,9 @@ public sealed class FacturaVentaLineaConfiguration : IEntityTypeConfiguration<Fa
         builder.ToTable("factura_venta_linea");
 
         builder.HasKey(e => e.Id);
+        builder.Property(e => e.Referencia).HasMaxLength(80);
+        builder.Property(e => e.PesoKg).HasPrecision(18, 3);
+        builder.Property(e => e.AreaPie2).HasPrecision(18, 3);
         builder.Property(e => e.Id).ValueGeneratedNever();
 
         builder.Property(e => e.FacturaVentaId).IsRequired();

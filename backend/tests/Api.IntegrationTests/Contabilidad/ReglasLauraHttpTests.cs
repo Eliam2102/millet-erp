@@ -15,7 +15,8 @@ namespace Millet.Api.IntegrationTests.Contabilidad;
 /// Ronda «reglas de Laura» (P19–P26) contra el API y Postgres reales: conversión dinámica del padre, prueba de movimiento
 /// por origen, rubros, importación del formato de Contabilidad y perfiles. Datos FIX-*.
 /// </summary>
-public class ReglasLauraHttpTests(WebApplicationFactory<Program> factory) : IClassFixture<WebApplicationFactory<Program>>
+[Collection(ApiCompartida.Nombre)]
+public class ReglasLauraHttpTests(WebApplicationFactory<Program> factory)
 {
     private static Guid Id(JsonElement e) => e.GetProperty("id").GetGuid();
 

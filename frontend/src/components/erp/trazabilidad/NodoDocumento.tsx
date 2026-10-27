@@ -67,6 +67,9 @@ export function NodoDocumento({ nodo, esActual = false }: NodoDocumentoProps) {
   const Icon = ICONO_POR_TIPO[nodo.tipoDocumento] ?? ClipboardList;
   const tipoLabel = tipoDocumentoLabel(nodo.tipoDocumento);
   const route = tipoDocumentoDetalleRoute(nodo.tipoDocumento, nodo.id);
+  // 86e3tabdp: la recepción cancelada se ve junto a la vigente, marcada «Cancelada» (el backend manda el estado «Cancelado»).
+  const recepcionCancelada =
+    nodo.tipoDocumento === TipoDocumentoTrazabilidad.Recepcion && nodo.estado === 'Cancelado';
 
   const contenido = (
     <>
@@ -83,8 +86,13 @@ export function NodoDocumento({ nodo, esActual = false }: NodoDocumentoProps) {
         {nodo.folio}
       </div>
       <div className="mt-0.5 flex flex-wrap items-baseline gap-1.5 text-xs">
-        <span className="rounded bg-muted px-1.5 py-0.5 text-muted-foreground">
-          {nodo.estado}
+        <span
+          className={cn(
+            'rounded px-1.5 py-0.5',
+            recepcionCancelada ? 'bg-danger-bg text-danger-fg' : 'bg-muted text-muted-foreground',
+          )}
+        >
+          {recepcionCancelada ? 'Cancelada' : nodo.estado}
         </span>
         {nodo.fecha ? (
           <span className="text-muted-foreground">

@@ -47,7 +47,8 @@ public sealed record DepositoConfirmacionResponse(
     Guid? ResueltaPor,
     DateTimeOffset? ResueltaEn,
     DateTimeOffset RecibidoEn,
-    int Version, Guid? PropuestoPor = null, decimal SaldoAFavorPorIdentificar = 0);
+    int Version, Guid? PropuestoPor = null, decimal SaldoAFavorPorIdentificar = 0,
+    Guid? MovimientoSugeridoId = null);
 
 internal static class DepositoMapper
 {
@@ -72,8 +73,9 @@ internal static class DepositoMapper
         DepositoConfirmacion d, string? clienteClave = null, string? clienteRazonSocial = null) =>
         new(d.Id, d.PropuestaCxcId, d.CajaSesionId, d.ClienteId, clienteClave, clienteRazonSocial,
             d.DepositoRef, d.MontoEsperado, d.Moneda, d.Estado, d.MotivoRechazo, d.ReppTimbrado,
-            d.MovimientoId, ParseFacturas(d.FacturasJson), d.ResueltaPor, d.ResueltaEn,
-            d.CreatedAt, d.Version, d.PropuestoPor, d.SaldoAFavorPorIdentificar);
+            // Pendiente: MovimientoId es solo la sugerencia de CxC (va en MovimientoSugeridoId).
+            d.Estado == EstadoDepositoConfirmacion.Pendiente ? null : d.MovimientoId, ParseFacturas(d.FacturasJson), d.ResueltaPor, d.ResueltaEn,
+            d.CreatedAt, d.Version, d.PropuestoPor, d.SaldoAFavorPorIdentificar, d.MovimientoSugeridoId);
 }
 
 // --------------------------------------------------- Confirmar
@@ -157,14 +159,20 @@ public sealed class ConfirmarDepositoHandler
             throw new BusinessRuleException("DEP_DEVOLUCION_EN_CURSO",
                 "El ingreso tiene una devolución a cliente solicitada o autorizada. Cancélala o recházala antes de confirmar el depósito.");
 
-        // RN-6 + cotejo monto/moneda validados en el dominio.
-        deposito.Confirmar(movimiento, usuarioId, _clock.UtcNow);
+        // C7.4: lo ya confirmado contra este movimiento (sobrante de una propuesta previa).
+        var aplicadoPrevio = command.Ingreso is not null ? 0m
+            : (await DepositoDisponible.AplicadoPorMovimientoAsync(_db, [movimiento], cancellationToken))
+                .GetValueOrDefault(movimiento.Id);
+
+        // RN-6 + cotejo monto/moneda contra lo disponible, validados en el dominio.
+        deposito.Confirmar(movimiento, usuarioId, _clock.UtcNow, DepositoDisponible.Disponible(movimiento, aplicadoPrevio));
 
         if (command.Ingreso is not null) _db.MovimientosBancarios.Add(movimiento);
 
-        // La confirmación ES el documento que aplica el ingreso (§4.2):
-        // el movimiento queda Aplicado y deja de ofrecerse para otra liga.
-        movimiento.ActualizarEstadoAplicacion(movimiento.Monto);
+        // La confirmación ES el documento que aplica el ingreso (§4.2). C7.4: aplica
+        // lo propuesto; el saldo a favor por identificar deja el movimiento
+        // AplicadoParcial y vuelve a la bandeja de depósitos sin identificar de CxC.
+        movimiento.ActualizarEstadoAplicacion(aplicadoPrevio + deposito.ImporteAplicadoDe(movimiento.Monto));
 
         // Solo las propuestas de CxC disparan el ciclo fiscal (REPP); la
         // expectativa de Caja se liga y ya — el mostrador timbró lo suyo.
@@ -178,7 +186,9 @@ public sealed class ConfirmarDepositoHandler
                 ClienteId: clienteId,
                 MovimientoBancarioId: movimiento.Id,
                 CuentaBancariaId: movimiento.CuentaBancariaId,
-                Monto: movimiento.Monto,
+                // C7.4: el monto del cobro confirmado (el depósito propuesto). Igual al del
+                // movimiento salvo que este se identifique en partes (sobrante).
+                Monto: deposito.MontoEsperado ?? movimiento.Monto,
                 Moneda: movimiento.Moneda,
                 FechaValor: movimiento.FechaValor,
                 Referencia: movimiento.ReferenciaBancaria,

@@ -131,7 +131,7 @@ public sealed class OcDevolucionEnAlmacenHandlerTests
             encargadoComprasId: Guid.CreateVersion7(),
             fechaDocumento: DateOnly.FromDateTime(DateTimeOffset.UtcNow.UtcDateTime),
             sinRequisicionPrevia: true,
-            motivoSinRequisicion: "Test");
+            motivoSinRequisicion: "Test", usoCfdiClave: "G03", metodoPago: "PPD", formaPagoClave: "99");
         foreach (var articuloId in articuloIds)
         {
             oc.AgregarLineaManual(Guid.CreateVersion7(), articuloId, 100, "PZA", 25, Guid.CreateVersion7());

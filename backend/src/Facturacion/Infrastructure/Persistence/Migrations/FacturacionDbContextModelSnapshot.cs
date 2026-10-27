@@ -1627,6 +1627,10 @@ namespace Millet.Facturacion.Infrastructure.Persistence.Migrations
                         .HasColumnType("uuid")
                         .HasColumnName("id");
 
+                    b.Property<string>("CadenaOriginalTimbre")
+                        .HasColumnType("text")
+                        .HasColumnName("cadena_original_timbre");
+
                     b.Property<Guid?>("CajaId")
                         .HasColumnType("uuid")
                         .HasColumnName("caja_id");
@@ -1731,6 +1735,11 @@ namespace Millet.Facturacion.Infrastructure.Persistence.Migrations
                         .HasMaxLength(3)
                         .HasColumnType("character varying(3)")
                         .HasColumnName("moneda");
+
+                    b.Property<string>("NoCertificadoEmisor")
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)")
+                        .HasColumnName("no_certificado_emisor");
 
                     b.Property<string>("NoCertificadoSat")
                         .HasMaxLength(20)
@@ -2077,6 +2086,11 @@ namespace Millet.Facturacion.Infrastructure.Persistence.Migrations
                         .HasColumnType("uuid")
                         .HasColumnName("id");
 
+                    b.Property<decimal?>("AreaPie2")
+                        .HasPrecision(18, 3)
+                        .HasColumnType("numeric(18,3)")
+                        .HasColumnName("area_pie2");
+
                     b.Property<decimal>("Cantidad")
                         .HasPrecision(18, 6)
                         .HasColumnType("numeric(18,6)")
@@ -2151,6 +2165,11 @@ namespace Millet.Facturacion.Infrastructure.Persistence.Migrations
                         .HasColumnType("character varying(21)")
                         .HasColumnName("pedimento");
 
+                    b.Property<decimal?>("PesoKg")
+                        .HasPrecision(18, 3)
+                        .HasColumnType("numeric(18,3)")
+                        .HasColumnName("peso_kg");
+
                     b.Property<int>("Posicion")
                         .HasColumnType("integer")
                         .HasColumnName("posicion");
@@ -2158,6 +2177,11 @@ namespace Millet.Facturacion.Infrastructure.Persistence.Migrations
                     b.Property<Guid?>("ProductoId")
                         .HasColumnType("uuid")
                         .HasColumnName("producto_id");
+
+                    b.Property<string>("Referencia")
+                        .HasMaxLength(80)
+                        .HasColumnType("character varying(80)")
+                        .HasColumnName("referencia");
 
                     b.Property<bool>("RequierePedimento")
                         .HasColumnType("boolean")
@@ -2648,6 +2672,11 @@ namespace Millet.Facturacion.Infrastructure.Persistence.Migrations
                         .HasColumnType("uuid")
                         .HasColumnName("id");
 
+                    b.Property<decimal?>("AreaPie2")
+                        .HasPrecision(18, 3)
+                        .HasColumnType("numeric(18,3)")
+                        .HasColumnName("area_pie2");
+
                     b.Property<string>("BomJson")
                         .HasColumnType("jsonb")
                         .HasColumnName("bom_json");
@@ -2693,6 +2722,11 @@ namespace Millet.Facturacion.Infrastructure.Persistence.Migrations
                         .HasColumnType("uuid")
                         .HasColumnName("pedido_facturable_id");
 
+                    b.Property<decimal?>("PesoKg")
+                        .HasPrecision(18, 3)
+                        .HasColumnType("numeric(18,3)")
+                        .HasColumnName("peso_kg");
+
                     b.Property<int>("Posicion")
                         .HasColumnType("integer")
                         .HasColumnName("posicion");
@@ -2711,6 +2745,11 @@ namespace Millet.Facturacion.Infrastructure.Persistence.Migrations
                     b.Property<Guid?>("ProductoId")
                         .HasColumnType("uuid")
                         .HasColumnName("producto_id");
+
+                    b.Property<string>("Referencia")
+                        .HasMaxLength(80)
+                        .HasColumnType("character varying(80)")
+                        .HasColumnName("referencia");
 
                     b.Property<bool>("RequierePedimento")
                         .HasColumnType("boolean")
@@ -3119,7 +3158,13 @@ namespace Millet.Facturacion.Infrastructure.Persistence.Migrations
 
                     b.HasIndex("MovimientoBancarioId")
                         .IsUnique()
-                        .HasDatabaseName("ix_repp_pendiente_movimiento_bancario_id");
+                        .HasDatabaseName("ux_repp_pendiente_movimiento_sin_propuesta")
+                        .HasFilter("propuesta_id IS NULL");
+
+                    b.HasIndex("MovimientoBancarioId", "PropuestaId")
+                        .IsUnique()
+                        .HasDatabaseName("ux_repp_pendiente_movimiento_propuesta")
+                        .HasFilter("propuesta_id IS NOT NULL");
 
                     b.HasIndex("EmpresaId", "Estado", "FechaLimite")
                         .HasDatabaseName("ix_repp_pendiente_empresa_id_estado_fecha_limite");
@@ -3477,6 +3522,11 @@ namespace Millet.Facturacion.Infrastructure.Persistence.Migrations
                         .HasColumnType("smallint")
                         .HasColumnName("comportamiento_fiscal");
 
+                    b.Property<string>("CondicionesPago")
+                        .HasMaxLength(60)
+                        .HasColumnType("character varying(60)")
+                        .HasColumnName("condiciones_pago");
+
                     b.Property<string>("DatosEmbarqueCe")
                         .HasColumnType("jsonb")
                         .HasColumnName("datos_embarque_ce");
@@ -3499,9 +3549,24 @@ namespace Millet.Facturacion.Infrastructure.Persistence.Migrations
                         .HasColumnType("character varying(1000)")
                         .HasColumnName("observaciones");
 
+                    b.Property<string>("OrdenCompraCliente")
+                        .HasMaxLength(60)
+                        .HasColumnType("character varying(60)")
+                        .HasColumnName("orden_compra_cliente");
+
                     b.Property<Guid?>("PedidoFacturableId")
                         .HasColumnType("uuid")
                         .HasColumnName("pedido_facturable_id");
+
+                    b.Property<string>("Proforma")
+                        .HasMaxLength(40)
+                        .HasColumnType("character varying(40)")
+                        .HasColumnName("proforma");
+
+                    b.Property<string>("ReferenciaCliente")
+                        .HasMaxLength(60)
+                        .HasColumnType("character varying(60)")
+                        .HasColumnName("referencia_cliente");
 
                     b.HasIndex("ObraId")
                         .HasDatabaseName("ix_factura_venta_obra")

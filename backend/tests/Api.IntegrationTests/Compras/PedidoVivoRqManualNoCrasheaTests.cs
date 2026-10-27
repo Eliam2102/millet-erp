@@ -23,7 +23,8 @@ namespace Millet.Api.IntegrationTests.Compras;
 /// origen sistema SÍ se cuenta (regresión del reorden). Datos sembrados por el
 /// test (raw SQL), no dependen del seed de millet_dev.</para>
 /// </summary>
-public class PedidoVivoRqManualNoCrasheaTests : IClassFixture<WebApplicationFactory<Program>>
+[Collection(ApiCompartida.Nombre)]
+public class PedidoVivoRqManualNoCrasheaTests
 {
     private readonly WebApplicationFactory<Program> _factory;
 

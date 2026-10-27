@@ -102,6 +102,24 @@ public sealed class AnticipoPedidoAwTests
     }
 
     [Fact]
+    public async Task Un_pedido_cancelado_en_AW_no_liga_el_anticipo_y_queda_libre()
+    {
+        var empresaId = Guid.NewGuid();
+        var clienteId = Guid.NewGuid();
+        using var db = NewDb(empresaId);
+        db.Anticipos.Add(AnticipoDe(empresaId, clienteId, NumeroAw));
+        var pedido = PedidoAw(empresaId, clienteId);
+        pedido.Cancelar();
+        db.PedidosFacturables.Add(pedido);
+        await db.SaveChangesAsync();
+
+        var anticipo = (await ControlAsync(db, clienteId)).Anticipos.Single();
+        anticipo.PedidoLigado.Should().BeNull();
+        anticipo.Saldo.Should().Be(1160m);
+        anticipo.Estado.Should().Be(nameof(EstadoAnticipo.Abierto));
+    }
+
+    [Fact]
     public async Task El_detalle_del_pedido_muestra_los_anticipos_ligados_del_mismo_cliente()
     {
         var empresaId = Guid.NewGuid();
@@ -121,5 +139,24 @@ public sealed class AnticipoPedidoAwTests
         var ligado = detalle.AnticiposLigados.Should().ContainSingle().Subject;
         ligado.Saldo.Should().Be(1160m);
         ligado.Estado.Should().Be(nameof(EstadoAnticipo.Abierto));
+    }
+
+    [Fact]
+    public async Task El_detalle_de_un_pedido_cancelado_no_muestra_anticipos_ligados()
+    {
+        var empresaId = Guid.NewGuid();
+        var clienteId = Guid.NewGuid();
+        using var db = NewDb(empresaId);
+        var pedido = PedidoAw(empresaId, clienteId);
+        pedido.Cancelar();
+        db.PedidosFacturables.Add(pedido);
+        db.Anticipos.Add(AnticipoDe(empresaId, clienteId, NumeroAw));
+        await db.SaveChangesAsync();
+
+        var detalle = await new PedidoFacturableDetalleHandler(
+                db, new FakeClientesReadPort(), new FakeProductosReadPort(), new FakeCanalesVentaReadPort(), new FakeAlcanceCajaEvaluator(), new FakeCurrentUserPermissions())
+            .Handle(new PedidoFacturableDetalleQuery(pedido.Id), CancellationToken.None);
+
+        detalle.AnticiposLigados.Should().BeEmpty();
     }
 }

@@ -55,7 +55,9 @@ public sealed record RegistrarRecepcionLineaInput(
     // tipo por compat de construcción; el validator lo exige.
     Guid? UbicacionId = null, string? UnidadCapturada = null,
     // ALM-04: parte de Cantidad que llegó dañada; va a material en revisión (MAT-REV), no a disponible.
-    decimal CantidadDanada = 0m, string? MotivoDano = null, string? FraccionArancelaria = null);
+    decimal CantidadDanada = 0m, string? MotivoDano = null, string? FraccionArancelaria = null,
+    // F1-MP-01 S4: lote del proveedor. Obligatorio si el artículo está ligado a A+W (LOTE_REQUERIDO), opcional si no.
+    string? Lote = null);
 
 public sealed record RegistrarRecepcionResponse(
     Guid RecepcionId,
@@ -97,6 +99,9 @@ public sealed class RegistrarRecepcionConFacturaValidator
                 .WithMessage("Indica el motivo del daño.");
             linea.RuleFor(l => l.MotivoDano!).MaximumLength(500)
                 .When(l => l.MotivoDano is not null);
+            linea.RuleFor(l => l.Lote)
+                .Must(x => Domain.Movimientos.LineaMovimiento.NormalizarLote(x) is not { Length: > Domain.Movimientos.LineaMovimiento.LoteMaxLength })
+                .WithMessage($"El lote no puede exceder {Domain.Movimientos.LineaMovimiento.LoteMaxLength} caracteres.");
         });
     }
 }
@@ -114,6 +119,9 @@ public sealed class RegistrarRecepcionConFacturaHandler
     private readonly IConversionUnidadPort _conversion;
     private readonly ICxpDocumentosReadPort _cxpDocumentos;
     private readonly IProveedorReadPort _proveedores;
+    // Opcionales solo para pruebas unitarias sin medidas; la API los inyecta siempre.
+    private readonly IArticuloReadPort? _articulos;
+    private readonly IVarianteVidrioReadPort? _variantes;
 
     public RegistrarRecepcionConFacturaHandler(
         AlmacenDbContext db,
@@ -123,8 +131,11 @@ public sealed class RegistrarRecepcionConFacturaHandler
         ICurrentEmpresaContext currentEmpresa,
         IDecimalesUnidadGuard decimalesGuard,
         IPeriodoContableReadPort periodoContable, IConversionUnidadPort conversion,
-        ICxpDocumentosReadPort cxpDocumentos, IProveedorReadPort proveedores)
+        ICxpDocumentosReadPort cxpDocumentos, IProveedorReadPort proveedores,
+        IArticuloReadPort? articulos = null, IVarianteVidrioReadPort? variantes = null)
     {
+        _articulos = articulos;
+        _variantes = variantes;
         _db = db;
         _ocPort = ocPort;
         _events = events;
@@ -157,9 +168,19 @@ public sealed class RegistrarRecepcionConFacturaHandler
             _db, empresaId, request.FechaMovimiento, _periodoContable, cancellationToken);
 
         var conversiones = new List<ConversionUnidad>();
+        // F1-MP-01: la medida se valida contra el producto A+W vigente del artículo en cada recepción.
+        var variantes = new List<VarianteVidrioLectura?>();
+        var lotes = new List<string?>();
         foreach (var input in request.Lineas)
-            conversiones.Add(await _conversion.ConvertirAsync(input.ArticuloId, input.Cantidad,
-                input.UnidadCapturada, oc!.Lineas.Single(l => l.LineaId == input.LineaOcId).UnidadMedida!, cancellationToken));
+        {
+            var lineaOc = oc!.Lineas.Single(l => l.LineaId == input.LineaOcId);
+            // E1: la medida la fija la línea de la OC; quien recibe no la elige.
+            var variante = await RecepcionVariante.ResolverAsync(_articulos, _variantes, input.ArticuloId, lineaOc.ProductoAwVarianteId, cancellationToken);
+            variantes.Add(variante);
+            lotes.Add(RecepcionVariante.ExigirLote(variante, input.Lote));
+            conversiones.Add(await RecepcionVariante.ConvertirAsync(_conversion, input.ArticuloId, input.Cantidad,
+                input.UnidadCapturada, lineaOc.UnidadMedida!, variante, cancellationToken));
+        }
         var equivalentes = request.Lineas.Select((l, i) => l with { Cantidad = conversiones[i].CantidadDocumento }).ToList();
         var validada = await RecepcionOcGuard.ValidarAsync(oc, equivalentes, recibidoPropio, cancellationToken);
         var lineasOc = validada.Lineas;
@@ -172,7 +193,7 @@ public sealed class RegistrarRecepcionConFacturaHandler
         // ADR-0046 Etapa 2: valida los decimales de cada línea contra la unidad
         // del artículo (FK NULL → no valida). Batch, un solo round-trip.
         await _decimalesGuard.ValidarAsync(
-            request.Lineas.Select((l, i) => new CantidadAValidar(l.ArticuloId, conversiones[i].CantidadBase)),
+            request.Lineas.Select((l, i) => new CantidadAValidar(l.ArticuloId, conversiones[i].CantidadBase, Derivada: variantes[i] is not null)),
             cancellationToken);
 
         var movimientoId = Guid.CreateVersion7();
@@ -237,8 +258,8 @@ public sealed class RegistrarRecepcionConFacturaHandler
             var conversion = conversiones[idx];
             var acumulado = validada.RecibidoPorLinea[lineaOcId] + equivalentes.Where(e => e.LineaOcId == lineaOcId).Sum(e => e.Cantidad);
             var convDanada = input.CantidadDanada > 0
-                ? await _conversion.ConvertirAsync(input.ArticuloId, input.CantidadDanada, input.UnidadCapturada,
-                    oc!.Lineas.Single(l => l.LineaId == input.LineaOcId).UnidadMedida!, cancellationToken)
+                ? await RecepcionVariante.ConvertirAsync(_conversion, input.ArticuloId, input.CantidadDanada, input.UnidadCapturada,
+                    oc!.Lineas.Single(l => l.LineaId == input.LineaOcId).UnidadMedida!, variantes[idx], cancellationToken)
                 : null;
             var baseBuena = conversion.CantidadBase - (convDanada?.CantidadBase ?? 0m);
 
@@ -257,7 +278,8 @@ public sealed class RegistrarRecepcionConFacturaHandler
                     ubicacionReferencia: input.UbicacionReferencia,
                     comentarioLinea: input.Comentario,
                     ubicacionId: input.UbicacionId,
-                    lineaOcId: lineaOcId);
+                    lineaOcId: lineaOcId,
+                    productoAwVarianteId: variantes[idx]?.VarianteId, anchoMm: variantes[idx]?.AnchoMm, altoMm: variantes[idx]?.AltoMm, lote: lotes[idx]);
                 if (convDanada is null) linea.AsentarCaptura(conversion.CantidadCapturada, conversion.UnidadCapturada);
                 else linea.AsentarCaptura(input.Cantidad - input.CantidadDanada, conversion.UnidadCapturada);
                 movimiento.AgregarLinea(linea);
@@ -300,7 +322,8 @@ public sealed class RegistrarRecepcionConFacturaHandler
                     centroCostoId: origen.CentroCostoId,
                     comentarioLinea: input.MotivoDano,
                     ubicacionId: rackRevision.Value.UbicacionRevisionId,
-                    lineaOcId: lineaOcId);
+                    lineaOcId: lineaOcId,
+                    productoAwVarianteId: variantes[idx]?.VarianteId, anchoMm: variantes[idx]?.AnchoMm, altoMm: variantes[idx]?.AltoMm, lote: lotes[idx]);
                 lineaRev.AsentarCaptura(input.CantidadDanada, conversion.UnidadCapturada);
                 movimientoRevision.AgregarLinea(lineaRev);
 
@@ -324,7 +347,12 @@ public sealed class RegistrarRecepcionConFacturaHandler
             var cfdi = await _cxpDocumentos.ObtenerCfdiAsync(cfdiId, cancellationToken);
             if (cfdi is null)
                 throw new BusinessRuleException("RECEPCION_CFDI_NO_ENCONTRADO", "El CFDI seleccionado no existe en el repositorio de CxP; vuelve a elegirlo o captura el folio fiscal.");
-            if (cfdi.Estado != "PorProcesar" || cfdi.Tipo != "Ingreso")
+            // 86e3tabdp: el CFDI de una recepción cancelada ya es pasivo en CxP; sigue vinculable a la recepción correcta de la misma OC
+            // mientras su factura no tenga recepción y ninguna recepción vigente lo use.
+            var libreTrasCancelacion = cfdi.Estado == "ConvertidoEnPasivo" && cfdi.OcDeFacturaSinRecepcionId == request.OrdenCompraId
+                && !await _db.Movimientos.AnyAsync(m => m.Tipo == TipoMovimiento.EntradaCompra && m.CfdiRecibidoId == cfdiId
+                    && m.Estado == EstadoMovimiento.Registrado, cancellationToken);
+            if ((cfdi.Estado != "PorProcesar" && !libreTrasCancelacion) || cfdi.Tipo != "Ingreso")
                 throw new BusinessRuleException("RECEPCION_CFDI_NO_VINCULABLE", $"El CFDI está en estado {cfdi.Estado} y es de tipo {cfdi.Tipo}; solo se vinculan CFDI de ingreso por procesar.");
             var rfcProveedor = (await _proveedores.ObtenerAsync(oc!.ProveedorId, cancellationToken))?.Rfc?.Trim().ToUpperInvariant();
             if (string.IsNullOrEmpty(rfcProveedor) || !string.Equals(rfcProveedor, cfdi.RfcEmisor.Trim(), StringComparison.OrdinalIgnoreCase))

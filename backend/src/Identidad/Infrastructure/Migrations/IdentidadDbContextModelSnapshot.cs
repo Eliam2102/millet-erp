@@ -3209,6 +3209,20 @@ namespace Millet.Identidad.Infrastructure.Migrations
                         },
                         new
                         {
+                            Id = new Guid("00000008-0010-0000-0000-000000000001"),
+                            Accion = "cancelar",
+                            Codigo = "almacen.recepciones.cancelar",
+                            CreatedAt = new DateTimeOffset(new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            CreatedBy = "seed",
+                            Descripcion = "Cancelar con motivo una recepción mal capturada (distinto de quien la registró)",
+                            Modulo = "almacen",
+                            Recurso = "recepciones",
+                            UpdatedAt = new DateTimeOffset(new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            UpdatedBy = "seed",
+                            Version = 1
+                        },
+                        new
+                        {
                             Id = new Guid("00000008-0006-0000-0000-000000000001"),
                             Accion = "leer",
                             Codigo = "almacen.inventarios.leer",
@@ -4659,6 +4673,48 @@ namespace Millet.Identidad.Infrastructure.Migrations
                             Descripcion = "Activar plantillas recurrentes preparadas por otro usuario",
                             Modulo = "contabilidad",
                             Recurso = "recurrentes",
+                            UpdatedAt = new DateTimeOffset(new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            UpdatedBy = "seed",
+                            Version = 1
+                        },
+                        new
+                        {
+                            Id = new Guid("0000000d-0007-0000-0000-000000000001"),
+                            Accion = "leer",
+                            Codigo = "contabilidad.motor.leer",
+                            CreatedAt = new DateTimeOffset(new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            CreatedBy = "seed",
+                            Descripcion = "Consultar los roles de cuenta, las plantillas contables y la bandeja de rechazos del motor de pólizas",
+                            Modulo = "contabilidad",
+                            Recurso = "motor",
+                            UpdatedAt = new DateTimeOffset(new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            UpdatedBy = "seed",
+                            Version = 1
+                        },
+                        new
+                        {
+                            Id = new Guid("0000000d-0007-0000-0000-000000000002"),
+                            Accion = "administrar",
+                            Codigo = "contabilidad.roles-cuenta.administrar",
+                            CreatedAt = new DateTimeOffset(new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            CreatedBy = "seed",
+                            Descripcion = "Dar de alta roles de cuenta y cambiar la cuenta de un rol (queda en bitácora; solo afecta pólizas nuevas)",
+                            Modulo = "contabilidad",
+                            Recurso = "roles-cuenta",
+                            UpdatedAt = new DateTimeOffset(new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            UpdatedBy = "seed",
+                            Version = 1
+                        },
+                        new
+                        {
+                            Id = new Guid("0000000d-0007-0000-0000-000000000003"),
+                            Accion = "gestionar",
+                            Codigo = "contabilidad.rechazos.gestionar",
+                            CreatedAt = new DateTimeOffset(new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            CreatedBy = "seed",
+                            Descripcion = "Reprocesar o descartar (con motivo) los eventos rechazados por el motor de pólizas",
+                            Modulo = "contabilidad",
+                            Recurso = "rechazos",
                             UpdatedAt = new DateTimeOffset(new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
                             UpdatedBy = "seed",
                             Version = 1

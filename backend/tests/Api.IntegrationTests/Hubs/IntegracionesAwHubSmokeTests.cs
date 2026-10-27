@@ -26,7 +26,8 @@ namespace Millet.Api.IntegrationTests.Hubs;
 /// queda como tarea para test futuro con un user sin asignaciones.
 /// </para>
 /// </summary>
-public class IntegracionesAwHubSmokeTests : IClassFixture<WebApplicationFactory<Program>>
+[Collection(ApiCompartida.Nombre)]
+public class IntegracionesAwHubSmokeTests
 {
     private const string HubPath = "/hubs/integraciones-aw";
     private const string SuperAdminOid = "dev-superadmin";

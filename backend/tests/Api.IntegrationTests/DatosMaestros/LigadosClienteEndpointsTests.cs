@@ -16,7 +16,8 @@ using Npgsql;
 namespace Millet.Api.IntegrationTests.DatosMaestros;
 
 /// <summary>Bandeja de ligados A+W: revisar, descartar, candidatos, referencia duplicada, sincronización posterior y permisos.</summary>
-public sealed class LigadosClienteEndpointsTests(WebApplicationFactory<Program> factory) : IClassFixture<WebApplicationFactory<Program>>
+[Collection(ApiCompartida.Nombre)]
+public sealed class LigadosClienteEndpointsTests(WebApplicationFactory<Program> factory)
 {
     private const string Clasificacion = "00000012-0001-0000-0000-000000000001";
     private const string Ligados = "/api/v1/datos-maestros/clientes/ligados-aw";

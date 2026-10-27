@@ -68,6 +68,17 @@ export function ProveedorDatosForm({ proveedor }: ProveedorDatosFormProps) {
         id: proveedor.id,
         payload: {
           razonSocial: values.razonSocial,
+          calle: values.calle,
+          numeroExterior: values.numeroExterior,
+          numeroInterior: values.numeroInterior,
+          colonia: values.colonia,
+          ciudad: values.ciudad,
+          municipio: values.municipio,
+          estado: values.estado,
+          codigoPostal: values.codigoPostal,
+          pais: values.pais,
+          taxId: extranjero ? values.taxId : undefined,
+
           rfc: values.rfc,
           tipoPersona: values.tipoPersona,
           nombreComercial: nombreComercialVacio ? null : values.nombreComercial,
@@ -280,6 +291,172 @@ export function ProveedorDatosForm({ proveedor }: ProveedorDatosFormProps) {
         </FormCampo>
 
         <FormCampo span={12}>
+          <h3 className="text-sm font-semibold">Domicilio</h3>
+        </FormCampo>
+        <FormCampo span={6}>
+          <label htmlFor="proveedor-calle" className="text-xs font-medium text-ink-strong">
+            Calle
+          </label>
+          <Input
+            id="proveedor-calle"
+            maxLength={254}
+            disabled={!canEditar}
+            {...form.register('calle')}
+          />
+          {form.formState.errors.calle?.message && (
+            <p role="alert" className="text-xs text-danger-fg">
+              {form.formState.errors.calle?.message}
+            </p>
+          )}
+        </FormCampo>
+        <FormCampo span={6}>
+          <label htmlFor="proveedor-numeroExterior" className="text-xs font-medium text-ink-strong">
+            Número exterior
+          </label>
+          <Input
+            id="proveedor-numeroExterior"
+            maxLength={20}
+            disabled={!canEditar}
+            {...form.register('numeroExterior')}
+          />
+          {form.formState.errors.numeroExterior?.message && (
+            <p role="alert" className="text-xs text-danger-fg">
+              {form.formState.errors.numeroExterior?.message}
+            </p>
+          )}
+        </FormCampo>
+        <FormCampo span={6}>
+          <label htmlFor="proveedor-numeroInterior" className="text-xs font-medium text-ink-strong">
+            Número interior
+          </label>
+          <Input
+            id="proveedor-numeroInterior"
+            maxLength={20}
+            disabled={!canEditar}
+            {...form.register('numeroInterior')}
+          />
+          {form.formState.errors.numeroInterior?.message && (
+            <p role="alert" className="text-xs text-danger-fg">
+              {form.formState.errors.numeroInterior?.message}
+            </p>
+          )}
+        </FormCampo>
+        <FormCampo span={6}>
+          <label htmlFor="proveedor-colonia" className="text-xs font-medium text-ink-strong">
+            Colonia
+          </label>
+          <Input
+            id="proveedor-colonia"
+            maxLength={254}
+            disabled={!canEditar}
+            {...form.register('colonia')}
+          />
+          {form.formState.errors.colonia?.message && (
+            <p role="alert" className="text-xs text-danger-fg">
+              {form.formState.errors.colonia?.message}
+            </p>
+          )}
+        </FormCampo>
+        <FormCampo span={6}>
+          <label htmlFor="proveedor-ciudad" className="text-xs font-medium text-ink-strong">
+            Ciudad
+          </label>
+          <Input
+            id="proveedor-ciudad"
+            maxLength={100}
+            disabled={!canEditar}
+            {...form.register('ciudad')}
+          />
+          {form.formState.errors.ciudad?.message && (
+            <p role="alert" className="text-xs text-danger-fg">
+              {form.formState.errors.ciudad?.message}
+            </p>
+          )}
+        </FormCampo>
+        <FormCampo span={6}>
+          <label htmlFor="proveedor-municipio" className="text-xs font-medium text-ink-strong">
+            Municipio
+          </label>
+          <Input
+            id="proveedor-municipio"
+            maxLength={100}
+            disabled={!canEditar}
+            {...form.register('municipio')}
+          />
+          {form.formState.errors.municipio?.message && (
+            <p role="alert" className="text-xs text-danger-fg">
+              {form.formState.errors.municipio?.message}
+            </p>
+          )}
+        </FormCampo>
+        <FormCampo span={6}>
+          <label htmlFor="proveedor-estado" className="text-xs font-medium text-ink-strong">
+            Estado
+          </label>
+          <Input
+            id="proveedor-estado"
+            maxLength={100}
+            disabled={!canEditar}
+            {...form.register('estado')}
+          />
+          {form.formState.errors.estado?.message && (
+            <p role="alert" className="text-xs text-danger-fg">
+              {form.formState.errors.estado?.message}
+            </p>
+          )}
+        </FormCampo>
+        <FormCampo span={6}>
+          <label htmlFor="proveedor-codigoPostal" className="text-xs font-medium text-ink-strong">
+            Código postal
+          </label>
+          <Input
+            id="proveedor-codigoPostal"
+            maxLength={20}
+            disabled={!canEditar}
+            {...form.register('codigoPostal')}
+          />
+          {form.formState.errors.codigoPostal?.message && (
+            <p role="alert" className="text-xs text-danger-fg">
+              {form.formState.errors.codigoPostal?.message}
+            </p>
+          )}
+        </FormCampo>
+        <FormCampo span={6}>
+          <label htmlFor="proveedor-pais" className="text-xs font-medium text-ink-strong">
+            País (ISO de tres letras)
+          </label>
+          <Input
+            id="proveedor-pais"
+            maxLength={3}
+            disabled={!canEditar}
+            {...form.register('pais')}
+          />
+          {form.formState.errors.pais?.message && (
+            <p role="alert" className="text-xs text-danger-fg">
+              {form.formState.errors.pais?.message}
+            </p>
+          )}
+        </FormCampo>
+        {extranjero && (
+          <FormCampo span={6}>
+            <label htmlFor="proveedor-taxId" className="text-xs font-medium text-ink-strong">
+              Tax ID (identificación fiscal extranjera)
+            </label>
+            <Input
+              id="proveedor-taxId"
+              maxLength={40}
+              disabled={!canEditar}
+              {...form.register('taxId')}
+            />
+            {form.formState.errors.taxId?.message && (
+              <p role="alert" className="text-xs text-danger-fg">
+                {form.formState.errors.taxId?.message}
+              </p>
+            )}
+            <p className="text-xs text-ink-muted">Opcional. Aparece en la orden de compra</p>
+          </FormCampo>
+        )}
+        <FormCampo span={12}>
           {canEditar && (
             <div className="md:col-span-2 flex flex-wrap items-center justify-end gap-2 border-t pt-3">
               <Button
@@ -334,6 +511,17 @@ function FormRow({ label, required, hint, error, children }: FormRowProps) {
 function buildDefaults(p: ProveedorDetalle): ActualizarProveedorValues {
   return {
     razonSocial: p.razonSocial,
+    calle: p.calle ?? '',
+    numeroExterior: p.numeroExterior ?? '',
+    numeroInterior: p.numeroInterior ?? '',
+    colonia: p.colonia ?? '',
+    ciudad: p.ciudad ?? '',
+    municipio: p.municipio ?? '',
+    estado: p.estado ?? '',
+    codigoPostal: p.codigoPostal ?? '',
+    pais: p.pais ?? (p.origen === OrigenProveedor.Nacional ? 'MEX' : ''),
+    taxId: p.taxId ?? '',
+
     rfc: p.rfc,
     origen: p.origen ?? null,
     tipoPersona: p.tipoPersona,

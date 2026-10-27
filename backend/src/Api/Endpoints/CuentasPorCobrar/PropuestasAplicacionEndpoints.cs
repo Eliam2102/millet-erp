@@ -54,6 +54,17 @@ public static class PropuestasAplicacionEndpoints
         .WithName("ListarPropuestasAplicacion")
         .Produces<PagedResponse<PropuestaAplicacionResponse>>(StatusCodes.Status200OK);
 
+        // C7.4 · CA7.9: depósitos de cliente sin identificar (Tesorería) para que CxC
+        // los identifique cuando llegue el remittance. Alcance por sucursal (ADR-0051)
+        // en el handler (ISucursalScopedQuery).
+        propuestas.MapGet("/depositos-por-identificar", async (
+            IMediator mediator,
+            CancellationToken cancellationToken) =>
+            Results.Ok(await mediator.Send(new DepositosPorIdentificarQuery(), cancellationToken)))
+        .RequireAuthorization(PermissionPolicyProvider.Prefix + PermisosCanonicos.CuentasPorCobrarAplicacionPagoProponer)
+        .WithName("ListarDepositosPorIdentificar")
+        .Produces<IReadOnlyList<DepositoPorIdentificarResponse>>(StatusCodes.Status200OK);
+
         propuestas.MapGet("/{id:guid}", async (
             Guid id,
             IMediator mediator,
@@ -71,6 +82,7 @@ public static class PropuestasAplicacionEndpoints
             [FromBody] CrearPropuestaAplicacionCommand command,
             CuentasPorCobrarDbContext scopeDb,
             DocumentoSucursalScope scope,
+            Millet.CuentasPorCobrar.Domain.Ports.Tesoreria.IDepositosPorIdentificarReadPort depositos,
             IMediator mediator,
             CancellationToken cancellationToken) =>
         {
@@ -81,6 +93,12 @@ public static class PropuestasAplicacionEndpoints
                 await scope.VerificarAsync("factura_cartera", facturaId ?? Guid.Empty,
                     PermisosCanonicos.CuentasPorCobrarCarteraGestionarTodasSucursales, cancellationToken);
             }
+            // C7.4 (ADR-0051): identificar un depósito exige alcance sobre su sucursal;
+            // el depósito sin sucursal solo lo identifica el corporativo.
+            if (command.MovimientoBancarioId is Guid movimientoId
+                && await depositos.ObtenerAsync(movimientoId, cancellationToken) is { } deposito)
+                await scope.VerificarSucursalAsync(deposito.SucursalId,
+                    PermisosCanonicos.CuentasPorCobrarCarteraGestionarTodasSucursales, cancellationToken);
             var response = await mediator.Send(command, cancellationToken);
             return Results.Created($"/api/v1/cuentas-por-cobrar/propuestas-aplicacion/{response.Id}", response);
         })

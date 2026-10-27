@@ -436,6 +436,11 @@ export interface DepositoConfirmacionResponse {
   resueltaEn: string | null;
   recibidoEn: string;
   version: number;
+  /** Usuario que hizo la propuesta en CxC (R12: no puede confirmarla). */
+  propuestoPor?: string | null;
+  /** C7.4: movimiento que CxC identificó desde «Sin identificar»; se preselecciona al confirmar. */
+  movimientoSugeridoId?: string | null;
+  saldoAFavorPorIdentificar?: number;
 }
 
 // ---------------------------------------------------------------- REPP recibido (TES-FE-PR6b)

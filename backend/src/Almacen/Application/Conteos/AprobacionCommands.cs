@@ -39,11 +39,13 @@ public sealed class AgregarRecuentoHandler : IRequestHandler<AgregarRecuentoComm
     private readonly AlmacenDbContext _db;
     private readonly ICurrentUserContext _currentUser;
     private readonly IDecimalesUnidadGuard _decimalesGuard;
+    private readonly Millet.Almacen.Domain.Ports.IVarianteVidrioReadPort? _variantes; // opcional solo para pruebas unitarias sin medidas
 
     public AgregarRecuentoHandler(
-        AlmacenDbContext db, ICurrentUserContext currentUser, IDecimalesUnidadGuard decimalesGuard)
+        AlmacenDbContext db, ICurrentUserContext currentUser, IDecimalesUnidadGuard decimalesGuard,
+        Millet.Almacen.Domain.Ports.IVarianteVidrioReadPort? variantes = null)
     {
-        _db = db; _currentUser = currentUser; _decimalesGuard = decimalesGuard;
+        _db = db; _currentUser = currentUser; _decimalesGuard = decimalesGuard; _variantes = variantes;
     }
 
     public async Task<AgregarRecuentoResponse> Handle(
@@ -67,15 +69,17 @@ public sealed class AgregarRecuentoHandler : IRequestHandler<AgregarRecuentoComm
 
         // ADR-0046 Etapa 2: valida los decimales de la cantidad recontada contra
         // la unidad del artículo de la línea (FK NULL → no valida).
+        // Con medida el recuento son hojas; se guarda en m² como la teórica.
+        var recontada = await ConteoHojas.AM2Async(_variantes, linea, request.CantidadRecontada, cancellationToken);
         await _decimalesGuard.ValidarAsync(
-            new[] { new CantidadAValidar(linea.ArticuloId, request.CantidadRecontada) },
+            new[] { new CantidadAValidar(linea.ArticuloId, recontada, Derivada: linea.ProductoAwVarianteId is not null) },
             cancellationToken);
 
         var recuento = new RecuentoConteo(
             id: Guid.CreateVersion7(),
             lineaConteoId: request.LineaConteoId,
             secuencia: siguiente,
-            cantidadRecontada: request.CantidadRecontada,
+            cantidadRecontada: recontada,
             capturadoPor: capturadoPor);
         _db.Set<RecuentoConteo>().Add(recuento);
         await _db.SaveChangesAsync(cancellationToken);
@@ -271,14 +275,20 @@ public sealed class AplicarConteoHandler : IRequestHandler<AplicarConteoCommand,
     private readonly ICurrentUserContext _currentUser;
     private readonly ICurrentEmpresaContext _currentEmpresa;
     private readonly Millet.Almacen.Domain.Ports.IPeriodoContableReadPort _periodoContable;
+    // Opcionales solo para pruebas unitarias sin medidas; la API los inyecta siempre.
+    private readonly Millet.Almacen.Domain.Ports.IArticuloReadPort? _articulos;
+    private readonly Millet.Almacen.Domain.Ports.IVarianteVidrioReadPort? _variantes;
 
     public AplicarConteoHandler(
         AlmacenDbContext db,
         IIntegrationEventPublisher events,
         ICurrentUserContext currentUser,
         ICurrentEmpresaContext currentEmpresa,
-        Millet.Almacen.Domain.Ports.IPeriodoContableReadPort periodoContable)
+        Millet.Almacen.Domain.Ports.IPeriodoContableReadPort periodoContable,
+        Millet.Almacen.Domain.Ports.IArticuloReadPort? articulos = null,
+        Millet.Almacen.Domain.Ports.IVarianteVidrioReadPort? variantes = null)
     {
+        _articulos = articulos; _variantes = variantes;
         _db = db; _events = events;
         _currentUser = currentUser; _currentEmpresa = currentEmpresa;
         _periodoContable = periodoContable;
@@ -316,6 +326,12 @@ public sealed class AplicarConteoHandler : IRequestHandler<AplicarConteoCommand,
         decimal montoNeto = 0m;
         var movimientosGenerados = 0;
         var recuentos = await CantidadVigenteConteo.UltimosRecuentosAsync(_db, request.ConteoId, cancellationToken);
+        // F1-MP-01: unidad real del artículo (M2 en vidrio por medida; antes todo era «PZA») y snapshot de la medida de cada línea.
+        var arts = _articulos is null ? new Dictionary<Guid, Millet.Almacen.Domain.Ports.ArticuloLectura>()
+            : await _articulos.ObtenerPorIdsAsync(conteo.Lineas.Select(l => l.ArticuloId).Distinct().ToArray(), cancellationToken);
+        var medidas = _variantes is null ? new Dictionary<Guid, Millet.Almacen.Domain.Ports.VarianteVidrioLectura>()
+            : await _variantes.ObtenerPorIdsAsync(
+                conteo.Lineas.Where(l => l.ProductoAwVarianteId != null).Select(l => l.ProductoAwVarianteId!.Value).Distinct().ToArray(), cancellationToken);
 
         foreach (var linea in conteo.Lineas)
         {
@@ -345,12 +361,16 @@ public sealed class AplicarConteoHandler : IRequestHandler<AplicarConteoCommand,
                 posicion: 1,
                 articuloId: linea.ArticuloId,
                 cantidad: cantidadAjuste,
-                unidadMedida: "PZA",
+                unidadMedida: linea.ProductoAwVarianteId is not null && arts.TryGetValue(linea.ArticuloId, out var artLinea) ? artLinea.UnidadMedida : "PZA",
                 costoUnitarioMxn: linea.CostoPromedioSnapshot,
                 // C7.2c: el ajuste golpea el rack contado. AjustePositivo a un
                 // rack real lo permite el trigger; AjusteNegativo descuenta ese
                 // bin (guard SALDO_* por bin).
-                ubicacionId: linea.UbicacionId);
+                ubicacionId: linea.UbicacionId,
+                productoAwVarianteId: linea.ProductoAwVarianteId,
+                anchoMm: linea.ProductoAwVarianteId is Guid v ? medidas.GetValueOrDefault(v)?.AnchoMm : null,
+                altoMm: linea.ProductoAwVarianteId is Guid v2 ? medidas.GetValueOrDefault(v2)?.AltoMm : null,
+                lote: linea.Lote);
             movLinea.AsentarConteo(linea.CantidadTeorica, real);
             movimiento.AgregarLinea(movLinea);
 

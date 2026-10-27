@@ -46,7 +46,10 @@ export const CrearOrdenCompraVaciaSchema = z
     sucursalDestinoId: idLike('Elige la sucursal destino de esta compra'),
     proveedorId: idLike('Selecciona un proveedor.'),
     condicionesPagoId: idLike('Selecciona condiciones de pago.'),
-    usoPrincipalId: idLike('Selecciona un uso principal.'),
+    usoPrincipalId: idLike('Selecciona el uso interno de la compra.'),
+    usoCfdiClave: z.string().max(4).nullish(),
+    metodoPago: z.union([z.enum(['PUE', 'PPD']), z.literal('')]).nullish(),
+    formaPagoClave: z.union([z.string().regex(/^[0-9]{2}$/, 'Selecciona una forma de pago del catálogo SAT.'), z.literal('')]).nullish(),
     fechaDocumento: z
       .string()
       .regex(FECHA_DATE_ONLY_RE, 'La fecha del documento es requerida (YYYY-MM-DD).'),
@@ -128,6 +131,9 @@ export const DEFAULT_CREAR_OC_VACIA: CrearOrdenCompraVaciaValues = {
   proveedorId: '',
   condicionesPagoId: '',
   usoPrincipalId: '',
+  usoCfdiClave: '',
+  metodoPago: '',
+  formaPagoClave: '',
   fechaDocumento: hoyLocalISO(),
   moneda: 'MXN',
   tipoCambio: null,

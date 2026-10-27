@@ -3,6 +3,7 @@ import { apiRequest } from '@/lib/api';
 import { cxcKeys } from '@/features/cxc/api/keys';
 import type {
   CrearPropuestaAplicacionCommand,
+  DepositoPorIdentificarItem,
   FacturaAbiertaItem,
   PagedResponse,
   PropuestaAplicacionResponse,
@@ -93,6 +94,24 @@ export function useToleranciasNoFiscal() {
     queryFn: async ({ signal }) => {
       const { data } = await apiRequest<Record<string, number>>(
         `${BASE}/tolerancias`,
+        { signal },
+      );
+      return data;
+    },
+  });
+}
+
+/**
+ * <c>useDepositosPorIdentificar()</c> — C7.4 · CA7.9: pestaña «Sin
+ * identificar» de la bandeja de aplicaciones.
+ */
+export function useDepositosPorIdentificar(opciones: { enabled?: boolean } = {}) {
+  return useQuery<DepositoPorIdentificarItem[]>({
+    queryKey: cxcKeys.depositosPorIdentificar(),
+    enabled: opciones.enabled ?? true,
+    queryFn: async ({ signal }) => {
+      const { data } = await apiRequest<DepositoPorIdentificarItem[]>(
+        `${BASE}/depositos-por-identificar`,
         { signal },
       );
       return data;

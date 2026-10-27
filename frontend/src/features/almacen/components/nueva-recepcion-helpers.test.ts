@@ -4,6 +4,7 @@ import {
   contarLineasEnOtraUbicacion,
   indicesParaAutoAsignar,
   detectarConflictoSubAlmacen,
+  hojasPendientes,
 } from './nueva-recepcion-helpers';
 import type { LineaOrdenCompraResponse } from '@/features/compras/ordenes/api/types';
 import type { FilaRecepcionValues } from '@/features/almacen/schemas/recepcion';
@@ -140,6 +141,23 @@ describe('construirFilas', () => {
       maximo: 20,
       cantidad: 20,
     });
+  });
+
+  it('con medida en la línea de OC (E1) la fila lleva la medida y propone las hojas pendientes', () => {
+    const medida = { varianteId: 'v-1', anchoMm: 2440, altoMm: 3660, areaHojaM2: 8.9304 };
+    const recibible: LineaRecibible = {
+      lineaOcId: 'l-v',
+      articuloId: '00000000-0000-0000-0000-000000000002',
+      unidadMedida: 'M2',
+      cantidadSolicitada: 178.608,
+      cantidadRecibida: 0,
+      pendiente: 178.608,
+      maximoRecibible: 178.608,
+      medida,
+    };
+    const filas = construirFilas([lineaOc({ id: 'l-v', cantidad: 178.608, unidadMedida: 'M2' })], [recibible]);
+    expect(filas[0]).toMatchObject({ medida, cantidad: 20, pendiente: 178.608 });
+    expect(hojasPendientes(105.93, 7.062)).toBe(15);
   });
 });
 

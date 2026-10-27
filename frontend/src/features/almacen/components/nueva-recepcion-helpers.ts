@@ -40,12 +40,16 @@ export function construirFilas(
         pendiente,
         maximo: r ? r.maximoRecibible : pendiente,
         incluida: false,
-        cantidad: pendiente,
+        // Con medida (E1) la cantidad se captura en hojas enteras: por defecto, las hojas pendientes.
+        cantidad: r?.medida ? hojasPendientes(pendiente, r.medida.areaHojaM2) : pendiente,
+        medida: r?.medida ?? null,
+        requiereMedida: r?.requiereMedida ?? false,
         ubicacionReferencia: null,
         ubicacionId: null,
         comentario: null,
         cantidadDanada: 0,
         motivoDano: null,
+        lote: null,
       };
     })
     .filter((f) => f.pendiente > 0);
@@ -109,3 +113,7 @@ export function contarLineasEnOtraUbicacion(
   return filas.filter((f) => f.incluida && !!f.ubicacionId && f.ubicacionId !== ubicacionHelperId)
     .length;
 }
+
+/** Hojas enteras que faltan por recibir de una línea con medida (el pendiente en m² son hojas enteras por construcción). */
+export const hojasPendientes = (pendienteM2: number, areaHojaM2: number) =>
+  Math.floor(pendienteM2 / areaHojaM2 + 1e-6);

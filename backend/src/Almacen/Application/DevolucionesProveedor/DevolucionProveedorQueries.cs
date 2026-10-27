@@ -77,7 +77,11 @@ public sealed record DevolucionProveedorLineaItem(
     // Enriquecimiento ADR-0042: clave + descripción del artículo vía
     // IArticuloReadPort en batch (mismo patrón que RecepcionLineaItem).
     string? ArticuloClave = null,
-    string? ArticuloDescripcion = null);
+    string? ArticuloDescripcion = null,
+    // F1-MP-01: la devolución hereda la medida de la línea de recepción origen (no se persiste en la línea).
+    Guid? ProductoAwVarianteId = null,
+    decimal? AnchoMm = null,
+    decimal? AltoMm = null);
 
 public sealed record DevolucionProveedorEvidenciaItem(
     Guid Id,
@@ -263,6 +267,12 @@ public sealed class ObtenerDevolucionProveedorPorIdHandler
             folios.TryGetValue(ocId, out ocFolio);
         }
 
+        var origenIds = d.Lineas.Where(l => l.LineaRecepcionOrigenId != null).Select(l => l.LineaRecepcionOrigenId!.Value).ToArray();
+        var medidas = await _db.Movimientos.AsNoTracking().SelectMany(m => m.Lineas)
+            .Where(l => origenIds.Contains(l.Id) && l.ProductoAwVarianteId != null)
+            .Select(l => new { l.Id, l.ProductoAwVarianteId, l.AnchoMm, l.AltoMm })
+            .ToDictionaryAsync(l => l.Id, cancellationToken);
+
         var subAlmacen = d.SubAlmacenOrigenId is Guid saId
             ? await _db.SubAlmacenes.AsNoTracking().Where(x => x.Id == saId)
                 .Select(x => new { x.Clave, x.Nombre }).FirstOrDefaultAsync(cancellationToken)
@@ -293,10 +303,11 @@ public sealed class ObtenerDevolucionProveedorPorIdHandler
                 .Select(l =>
                 {
                     articulos.TryGetValue(l.ArticuloId, out var art);
+                    var medida = l.LineaRecepcionOrigenId is Guid oid && medidas.TryGetValue(oid, out var m) ? m : null;
                     return new DevolucionProveedorLineaItem(
                         l.Id, l.Posicion, l.ArticuloId, l.Cantidad, l.UnidadMedida,
                         l.CostoUnitarioMxn, l.MontoTotalMxn, l.LineaRecepcionOrigenId,
-                        art?.Clave, art?.Descripcion);
+                        art?.Clave, art?.Descripcion, medida?.ProductoAwVarianteId, medida?.AnchoMm, medida?.AltoMm);
                 })
                 .ToList(),
             Evidencias: d.Evidencias

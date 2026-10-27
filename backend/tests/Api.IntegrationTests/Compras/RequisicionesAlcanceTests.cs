@@ -16,7 +16,8 @@ namespace Millet.Api.IntegrationTests.Compras;
 /// Alcance por sucursal (ADR-0051) al abrir una requisición (G1.11 / CA1.4): la sucursal se
 /// deriva de <c>Requisicion.SucursalId</c> en BD, no del cliente.
 /// </summary>
-public class RequisicionesAlcanceTests : IClassFixture<WebApplicationFactory<Program>>
+[Collection(ApiCompartida.Nombre)]
+public class RequisicionesAlcanceTests
 {
     private const string SuperAdminOid = "dev-superadmin";
     private const string EndpointBase = "/api/v1/compras/requisiciones";

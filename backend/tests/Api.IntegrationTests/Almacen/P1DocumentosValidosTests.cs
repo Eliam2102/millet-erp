@@ -17,7 +17,8 @@ using static Millet.Api.IntegrationTests.Contabilidad.ContabTestKit;
 
 namespace Millet.Api.IntegrationTests.Almacen;
 
-public sealed class P1DocumentosValidosTests(WebApplicationFactory<Program> factory) : IClassFixture<WebApplicationFactory<Program>>
+[Collection(ApiCompartida.Nombre)]
+public sealed class P1DocumentosValidosTests(WebApplicationFactory<Program> factory)
 {
     [Theory]
     [InlineData(false, null)] [InlineData(true, null)]

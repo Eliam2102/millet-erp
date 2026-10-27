@@ -19,7 +19,8 @@ namespace Millet.Api.IntegrationTests.Outbox;
 /// sección por módulo (<c>Compras:Outbox</c> / <c>IntegracionesAw:Outbox</c>).
 /// </para>
 /// </summary>
-public sealed class OutboxNamedOptionsWiringTests : IClassFixture<WebApplicationFactory<Program>>
+[Collection(ApiCompartida.Nombre)]
+public sealed class OutboxNamedOptionsWiringTests
 {
     private readonly WebApplicationFactory<Program> _factory;
 

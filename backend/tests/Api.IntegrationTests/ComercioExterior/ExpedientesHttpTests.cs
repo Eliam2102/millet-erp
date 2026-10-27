@@ -359,11 +359,15 @@ public sealed class ExpedientesHttpTests
 
     internal sealed class Escenario : IAsyncDisposable
     {
+        private static readonly SemaphoreSlim PlantillaMutex = new(1, 1);
+        private static Task<string>? _plantilla;
+        private bool _conservarBase;
         private readonly string? _authAnterior;
         private readonly string? _conexionAnterior;
         private readonly string _conexionAdmin;
         private readonly string _baseDatos;
         private readonly string _blobs = Path.Combine(Path.GetTempPath(), "ce-blobs-" + Guid.NewGuid().ToString("N"));
+        private readonly WebApplicationFactory<Program> _raiz = new();
         private readonly WebApplicationFactory<Program> _factory;
         public DateTimeOffset Ahora => _factory.Services.GetRequiredService<IClock>().UtcNow;
         public Guid Incoterm { get; private set; }
@@ -378,10 +382,8 @@ public sealed class ExpedientesHttpTests
             _conexionAnterior = Environment.GetEnvironmentVariable("ConnectionStrings__Postgres");
             _conexionAdmin = conexionAdmin;
             _baseDatos = baseDatos;
-            Environment.SetEnvironmentVariable("ConnectionStrings__Postgres", conexion);
             _authAnterior = Environment.GetEnvironmentVariable("Auth__Mode");
-            Environment.SetEnvironmentVariable("Auth__Mode", "EntraId");
-            _factory = new WebApplicationFactory<Program>().WithWebHostBuilder(b =>
+            _factory = _raiz.WithWebHostBuilder(b =>
             {
                 b.UseEnvironment("Development");
                 b.ConfigureAppConfiguration((_, c) => c.AddInMemoryCollection(new Dictionary<string, string?> { ["Auth:Mode"] = "EntraId", ["Seed:DemoSesion:Habilitado"] = "true", ["Entra:Proveedor"] = "Graph", ["ConnectionStrings:Postgres"] = conexion, ["Adjuntos:BlobStorage:ConnectionString"] = "", ["Compras:Oc:BlobStorage:ConnectionString"] = "", }));
@@ -393,6 +395,8 @@ public sealed class ExpedientesHttpTests
                     s.AddSingleton<Millet.Compras.Domain.Ports.Blob.IAlmacenarBlobPort>(new BlobsCe(_blobs));
                 });
             });
+            Environment.SetEnvironmentVariable("ConnectionStrings__Postgres", conexion);
+            Environment.SetEnvironmentVariable("Auth__Mode", "EntraId");
         }
 
         public static async Task<Escenario> CrearAsync(Action<IServiceCollection>? servicios = null)
@@ -411,47 +415,124 @@ public sealed class ExpedientesHttpTests
                 Database = nombre,
                 Pooling = false
             };
+            var plantilla = await ObtenerPlantillaAsync(gate, admin.ConnectionString);
             await using (var conn = new NpgsqlConnection(admin.ConnectionString))
             {
                 await conn.OpenAsync();
-                await using var cmd = new NpgsqlCommand($"CREATE DATABASE \"{nombre}\"", conn);
-                await cmd.ExecuteNonQueryAsync();
+                using var identificadores = new NpgsqlCommandBuilder();
+                for (var intento = 0; ; intento++)
+                {
+                    try
+                    {
+                        await using var cmd = new NpgsqlCommand($"CREATE DATABASE {identificadores.QuoteIdentifier(nombre)} TEMPLATE {identificadores.QuoteIdentifier(plantilla)}", conn);
+                        await cmd.ExecuteNonQueryAsync();
+                        break;
+                    }
+                    catch (PostgresException ex) when (ex.SqlState == PostgresErrorCodes.ObjectInUse && intento < 3)
+                    {
+                        await Task.Delay(500);
+                    }
+                }
             }
 
-            var e = new Escenario(dbConexion.ConnectionString, admin.ConnectionString, nombre, servicios);
+            Escenario? e = null;
             try
             {
-                using var migraciones = e._factory.Services.CreateScope();
-                foreach (var type in e._factory.Services.GetRequiredService<MigrationsHealthCheckOptions>().ContextTypes)
-                    await ((DbContext)migraciones.ServiceProvider.GetRequiredService(type)).Database.MigrateAsync();
-                var catalogos = ActivatorUtilities.CreateInstance<Millet.Compartido.Infrastructure.Seed.CatalogosTestSeedHostedService>(e._factory.Services);
-                await catalogos.StartAsync(CancellationToken.None);
-                var almacen = ActivatorUtilities.CreateInstance<Millet.Almacen.Infrastructure.Seed.AlmacenSeedHostedService>(e._factory.Services);
-                await almacen.StartAsync(CancellationToken.None);
+                e = new Escenario(dbConexion.ConnectionString, admin.ConnectionString, nombre, servicios);
                 await e.SemillaAsync();
+                using var scope = e._factory.Services.CreateScope();
+                using var bypass = scope.ServiceProvider.GetRequiredService<ICurrentEmpresaContext>().Bypass();
+                var db = scope.ServiceProvider.GetRequiredService<CompartidoDbContext>();
+                e.Sucursal = (await db.Sucursales.SingleAsync(x => x.EmpresaId == DemoSesionSeedHostedService.EmpresaId && x.Clave == "MID")).Id;
+                e.Incoterm = (await db.Incoterms.SingleAsync(x => x.Codigo == "EXW")).Id;
+                var compras = scope.ServiceProvider.GetRequiredService<ComprasDbContext>();
+                var origen = await compras.OrdenesCompra.SingleAsync(x => x.Id == DemoSesionSeedHostedService.Id("DEMO-CE-OC-IMPORTACION"));
+                // Otro origen DEMO independiente del expediente que la semilla ya abrió.
+                var id = Guid.NewGuid();
+                var oc = new Millet.Compras.Domain.Oc.OrdenCompra(id, origen.EmpresaId, Millet.Compras.Domain.Oc.Folio.Parse("OC-FIXC2026-" + Random.Shared.Next(100000, 999999)), 2026, origen.ProveedorId, origen.SucursalDestinoId, origen.CondicionesPagoId, origen.UsoPrincipalId, e.Responsable, e.Responsable, new DateOnly(2026, 10, 15), moneda: "USD", tipoCambio: 18, sinRequisicionPrevia: true, esImportacion: true, motivoSinRequisicion: "FIX-CE prueba aislada");
+                oc.ActualizarInformacionImportacion(origen.InformacionImportacion);
+                compras.OrdenesCompra.Add(oc);
+                await compras.SaveChangesAsync();
+                e.Oc = id;
+                await e.EstadoOcAsync(EstadoOrdenCompra.Autorizada);
+                return e;
             }
             catch
             {
-                await e.DisposeAsync();
+                if (e is not null) await e.DisposeAsync();
+                else await BorrarBaseAsync(admin.ConnectionString, nombre);
                 throw;
             }
+        }
 
-            using var scope = e._factory.Services.CreateScope();
-            using var bypass = scope.ServiceProvider.GetRequiredService<ICurrentEmpresaContext>().Bypass();
-            var db = scope.ServiceProvider.GetRequiredService<CompartidoDbContext>();
-            e.Sucursal = (await db.Sucursales.SingleAsync(x => x.EmpresaId == DemoSesionSeedHostedService.EmpresaId && x.Clave == "MID")).Id;
-            e.Incoterm = (await db.Incoterms.SingleAsync(x => x.Codigo == "EXW")).Id;
-            var compras = scope.ServiceProvider.GetRequiredService<ComprasDbContext>();
-            var origen = await compras.OrdenesCompra.SingleAsync(x => x.Id == DemoSesionSeedHostedService.Id("DEMO-CE-OC-IMPORTACION"));
-            // Otro origen DEMO independiente del expediente que la semilla ya abrió.
-            var id = Guid.NewGuid();
-            var oc = new Millet.Compras.Domain.Oc.OrdenCompra(id, origen.EmpresaId, Millet.Compras.Domain.Oc.Folio.Parse("OC-FIXC2026-" + Random.Shared.Next(100000, 999999)), 2026, origen.ProveedorId, origen.SucursalDestinoId, origen.CondicionesPagoId, origen.UsoPrincipalId, e.Responsable, e.Responsable, new DateOnly(2026, 10, 15), moneda: "USD", tipoCambio: 18, sinRequisicionPrevia: true, esImportacion: true, motivoSinRequisicion: "FIX-CE prueba aislada");
-            oc.ActualizarInformacionImportacion(origen.InformacionImportacion);
-            compras.OrdenesCompra.Add(oc);
-            await compras.SaveChangesAsync();
-            e.Oc = id;
-            await e.EstadoOcAsync(EstadoOrdenCompra.Autorizada);
-            return e;
+        private static async Task<string> ObtenerPlantillaAsync(string gate, string admin)
+        {
+            await PlantillaMutex.WaitAsync();
+            try
+            {
+                _plantilla ??= CrearPlantillaAsync(gate, admin);
+                return await _plantilla;
+            }
+            catch
+            {
+                _plantilla = null; // Una construcción fallida no impide reintentar en la siguiente prueba.
+                throw;
+            }
+            finally
+            {
+                PlantillaMutex.Release();
+            }
+        }
+
+        private static async Task<string> CrearPlantillaAsync(string gate, string admin)
+        {
+            var conexion = new NpgsqlConnectionStringBuilder(gate) { Pooling = false };
+            var nombre = "ce_tpl_" + conexion.Database;
+            nombre = nombre[..Math.Min(nombre.Length, 63)];
+            conexion.Database = nombre;
+            var creada = false;
+            try
+            {
+                await using (var conn = new NpgsqlConnection(admin))
+                {
+                    await conn.OpenAsync();
+                    using var identificadores = new NpgsqlCommandBuilder();
+                    await using var cmd = new NpgsqlCommand($"CREATE DATABASE {identificadores.QuoteIdentifier(nombre)}", conn);
+                    await cmd.ExecuteNonQueryAsync();
+                    creada = true;
+                }
+                await using var escenario = new Escenario(conexion.ConnectionString, admin, nombre, null);
+                using (var migraciones = escenario._factory.Services.CreateScope())
+                {
+                    foreach (var type in escenario._factory.Services.GetRequiredService<MigrationsHealthCheckOptions>().ContextTypes)
+                        await ((DbContext)migraciones.ServiceProvider.GetRequiredService(type)).Database.MigrateAsync();
+                }
+                var catalogos = ActivatorUtilities.CreateInstance<Millet.Compartido.Infrastructure.Seed.CatalogosTestSeedHostedService>(escenario._factory.Services);
+                await catalogos.StartAsync(CancellationToken.None);
+                var almacen = ActivatorUtilities.CreateInstance<Millet.Almacen.Infrastructure.Seed.AlmacenSeedHostedService>(escenario._factory.Services);
+                await almacen.StartAsync(CancellationToken.None);
+                escenario._conservarBase = true;
+                return nombre;
+            }
+            catch (Exception ex)
+            {
+                if (creada)
+                {
+                    try
+                    {
+                        await BorrarBaseAsync(admin, nombre);
+                    }
+                    catch (Exception limpieza)
+                    {
+                        throw new InvalidOperationException($"No se pudo crear la plantilla CE {nombre} ni limpiar la base fallida.", new AggregateException(ex, limpieza));
+                    }
+                }
+                throw new InvalidOperationException($"No se pudo crear la plantilla CE {nombre}.", ex);
+            }
+            finally
+            {
+                NpgsqlConnection.ClearAllPools();
+            }
         }
 
         public IServiceScope Scope() => _factory.Services.CreateScope();
@@ -588,15 +669,27 @@ public sealed class ExpedientesHttpTests
             return (await db.Expedientes.CountAsync(x => ids.Contains(x.Id)), await db.Documentos.CountAsync(x => x.ExpedienteId == ids[0]), await db.Documentos.CountAsync(x => x.ExpedienteId == ids[1] && x.NoAplica), await db.Hitos.CountAsync(x => ids.Contains(x.ExpedienteId)), await db.Hitos.CountAsync(x => x.ExpedienteId == ids[0] && x.Clave == "planeado" && x.FechaCompromiso == new DateOnly(2026, 10, 14)));
         }
 
+        private static async Task BorrarBaseAsync(string admin, string nombre)
+        {
+            await using var c = new NpgsqlConnection(admin);
+            await c.OpenAsync();
+            using var identificadores = new NpgsqlCommandBuilder();
+            await using var cmd = new NpgsqlCommand($"DROP DATABASE IF EXISTS {identificadores.QuoteIdentifier(nombre)} WITH (FORCE)", c);
+            await cmd.ExecuteNonQueryAsync();
+        }
+
         public async ValueTask DisposeAsync()
         {
             try
             {
-                await _factory.DisposeAsync();
-                await using var c = new NpgsqlConnection(_conexionAdmin);
-                await c.OpenAsync();
-                await using var cmd = new NpgsqlCommand($"DROP DATABASE IF EXISTS \"{_baseDatos}\" WITH (FORCE)", c);
-                await cmd.ExecuteNonQueryAsync();
+                try
+                {
+                    await _raiz.DisposeAsync();
+                }
+                finally
+                {
+                    if (!_conservarBase) await BorrarBaseAsync(_conexionAdmin, _baseDatos);
+                }
             }
             finally
             {

@@ -450,6 +450,9 @@ builder.Services.AddScoped<
     Millet.Compras.Infrastructure.PublicAdapters.AlmacenReadAdapter>();
 
 // === ADR-0042: enriquecer DTOs de requisiciones con nombres cross-módulo ===
+builder.Services.AddScoped<
+    Millet.Compras.Domain.Ports.Catalogos.ICatalogoSatReadPort,
+    Millet.Compras.Infrastructure.Catalogos.CatalogoSatReadAdapter>();
 // IUsuarioReadPort lee identidad.usuarios (nombre del requisitante);
 // IDepartamentoReadPort lee compartido.departamentos (clave + nombre).
 // Adapters en Compras.Infrastructure.PublicAdapters (mismo patrón que arriba).
@@ -630,6 +633,10 @@ builder.Services
 builder.Services.AddScoped<
     Millet.Compartido.Application.Ports.IExpedienteProveedorReadPort,
     Millet.Compartido.Infrastructure.PublicAdapters.ExpedienteProveedorReadAdapter>();
+// Guarda de desligado A+W: Datos Maestros pregunta a Compras si hay línea de OC abierta con medida.
+builder.Services.AddScoped<
+    Millet.Compartido.Application.Ports.IOcLineaAbiertaConMedidaReadPort,
+    Millet.Compras.Infrastructure.PublicAdapters.OcLineaAbiertaConMedidaReadAdapter>();
 builder.Services.AddSingleton<
     Millet.SharedKernel.Application.Adjuntos.IAdjuntoEnlaceTokenService,
     Millet.Compartido.Infrastructure.Adjuntos.AdjuntoEnlaceTokenService>();
@@ -829,6 +836,9 @@ builder.Services.AddScoped<
 builder.Services.AddScoped<
     Millet.Almacen.Domain.Ports.IArticuloReadPort,
     Millet.Compartido.Infrastructure.PublicAdapters.ArticuloReadAdapter>();
+builder.Services.AddScoped<
+    Millet.Almacen.Domain.Ports.IVarianteVidrioReadPort,
+    Millet.Compartido.Infrastructure.PublicAdapters.VarianteVidrioReadAdapter>();
 builder.Services.AddScoped<
     Millet.Almacen.Domain.Ports.IEmpleadoReadPort,
     Millet.Compartido.Infrastructure.PublicAdapters.EmpleadoReadAdapter>();
@@ -1215,7 +1225,7 @@ builder.Services.AddCors(options =>
                   // Sin esto el browser NO puede leer ETag cross-origin
                   // (Access-Control-Expose-Headers) y el If-Match de las
                   // mutaciones nunca se envía (ADR-0012).
-                  .WithExposedHeaders(Microsoft.Net.Http.Headers.HeaderNames.ETag);
+                  .WithExposedHeaders(Microsoft.Net.Http.Headers.HeaderNames.ETag, "X-Oc-Impresion");
         }
         // Si AllowedOrigins está vacío, la policy queda sin orígenes
         // permitidos — preflight siempre falla. Comportamiento secure-by-default.
@@ -1536,6 +1546,7 @@ Millet.Api.Endpoints.Contabilidad.ContabilidadDimensionesEndpoints.MapContabilid
 Millet.Api.Endpoints.Contabilidad.ContabilidadPeriodosEndpoints.MapContabilidadPeriodosEndpoints(app);
 Millet.Api.Endpoints.Contabilidad.ContabilidadPolizasEndpoints.MapContabilidadPolizasEndpoints(app);
 Millet.Api.Endpoints.Contabilidad.ContabilidadRecurrentesEndpoints.MapContabilidadRecurrentesEndpoints(app);
+Millet.Api.Endpoints.Contabilidad.ContabilidadMotorEndpoints.MapContabilidadMotorEndpoints(app, app.Environment);
 
 // === Almacén — CRUD asignación artículo→ubicación (OITW, ADR-0047 PR3) ===
 Millet.Api.Endpoints.Almacen.Asignaciones.AlmacenAsignacionesEndpoints.MapAlmacenAsignacionesEndpoints(app);

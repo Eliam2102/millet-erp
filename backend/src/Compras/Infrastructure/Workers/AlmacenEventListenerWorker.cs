@@ -207,6 +207,15 @@ public sealed class AlmacenEventListenerWorker : BackgroundService, ILocalIntegr
                     break;
                 }
 
+                // 86e3tabdp: una recepción mal capturada se cancela y lo recibido vuelve a pendiente en la OC.
+                case OcRecepcionCanceladaEnAlmacenHandler.EventType:
+                {
+                    var payload = JsonSerializer.Deserialize<OcRecepcionCanceladaAlmacenPayload>(body, JsonOpts)
+                        ?? throw new JsonException("Payload null.");
+                    await mediator.Send(new OcRecepcionCanceladaEnAlmacenCommand(eventId, payload), cancellationToken);
+                    break;
+                }
+
                 // Anulación de una recepción de activos fijos: baja CantidadRecibida de la línea al acumulado de Almacén.
                 case OcRecepcionActivoAnuladaEnAlmacenHandler.EventType:
                 {

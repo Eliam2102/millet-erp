@@ -313,6 +313,12 @@ export interface RecepcionLineaItem {
   motivoDano?: string | null;
   /** F1-COM-06: fracción arancelaria capturada en la recepción de importación. */
   fraccionArancelaria?: string | null;
+  /** F1-MP-01: medida de la hoja (vidrio crudo); null = artículo sin medida. */
+  productoAwVarianteId?: string | null;
+  anchoMm?: number | null;
+  altoMm?: number | null;
+  /** F1-MP-01 S4: lote del proveedor; null = sin lote. */
+  lote?: string | null;
 }
 
 /** F1-COM-06: documentos de importación de la recepción. */
@@ -351,6 +357,38 @@ export interface RecepcionDetalle {
   facturaFolio: string | null;
   /** null si la OC no es de importación. */
   importacion?: RecepcionImportacionDetalle | null;
+  /** Bitácora de cancelación (86e3tabdp); ausentes si la recepción no se canceló. */
+  registradoPorNombre?: string | null;
+  canceladaAt?: string | null;
+  canceladaPor?: string | null;
+  canceladaPorNombre?: string | null;
+  motivoCancelacion?: string | null;
+  foliosCancelacion?: string[] | null;
+  /** true = el usuario actual NO la registró (único caso en que puede cancelarla). */
+  registradaPorOtroUsuario?: boolean;
+}
+
+export type MotivoCancelacionRecepcion = 'ARTICULO' | 'CANTIDAD' | 'OC' | 'UBICACION' | 'OTRO';
+
+export const MOTIVOS_CANCELACION_RECEPCION: ReadonlyArray<{
+  codigo: MotivoCancelacionRecepcion;
+  etiqueta: string;
+}> = [
+  { codigo: 'ARTICULO', etiqueta: 'Artículo equivocado' },
+  { codigo: 'CANTIDAD', etiqueta: 'Cantidad equivocada' },
+  { codigo: 'OC', etiqueta: 'OC equivocada' },
+  { codigo: 'UBICACION', etiqueta: 'Ubicación equivocada' },
+  { codigo: 'OTRO', etiqueta: 'Otro' },
+];
+
+export interface CancelarRecepcionCommand {
+  motivoCodigo: MotivoCancelacionRecepcion;
+  motivoTexto: string;
+}
+
+export interface CancelarRecepcionResponse {
+  recepcionId: string;
+  foliosCancelacion: string[];
 }
 
 /**
@@ -366,6 +404,18 @@ export interface LineaRecibible {
   cantidadRecibida: number;
   pendiente: number;
   maximoRecibible: number;
+  /** F1-MP-01 (E1): medida de hoja que fijó la OC en la línea; al recibir no se elige. Ausente = línea sin medida. */
+  medida?: MedidaLineaOc | null;
+  /** Artículo de vidrio (A+W) con la línea de OC sin medida: no se puede recibir hasta corregirla en Compras. */
+  requiereMedida?: boolean;
+}
+
+/** Medida de hoja de una línea de OC. `areaHojaM2` = ancho × alto / 1e6 a 4 decimales. */
+export interface MedidaLineaOc {
+  varianteId: string;
+  anchoMm: number;
+  altoMm: number;
+  areaHojaM2: number;
 }
 
 /**
@@ -432,6 +482,8 @@ export interface RegistrarRecepcionLineaInput {
   /** ALM-04: parte de la cantidad dañada; entra a material en revisión. */
   cantidadDanada?: number;
   motivoDano?: string | null;
+  /** F1-MP-01 S4: lote del proveedor; obligatorio con artículo ligado a A+W (LOTE_REQUERIDO), opcional si no. */
+  lote?: string | null;
 }
 
 export interface RegistrarRecepcionResponse {
@@ -497,6 +549,9 @@ export interface SalidaLineaItem {
   /** Ruta de la ubicación (bin) de donde salió la línea, "ALM › SUB · BIN".
    * Null = línea sin bin (histórico) o no resuelto. */
   ubicacionCodigo: string | null;
+  /** F1-MP-01: medida de la hoja (vidrio por medida). */
+  anchoMm?: number | null;
+  altoMm?: number | null;
 }
 
 export interface SalidaDetalle {
@@ -570,6 +625,10 @@ export interface RegistrarSalidaLineaInput {
   // (NULL → ÚNICA); el FE siempre lo manda.
   ubicacionId: string | null;
   comentario: string | null;
+  /** F1-MP-01: medida de la hoja; con ella `cantidad` son hojas y `unidadCapturada` = HOJA. */
+  productoAwVarianteId?: string | null;
+  /** S4b: lote del que sale; obligatorio con medida si el rack tiene existencia con lote (LOTE_REQUERIDO). */
+  lote?: string | null;
 }
 
 export interface RegistrarSalidaResponse {
@@ -638,6 +697,10 @@ export interface MatRevLineaInput {
   cantidad: number;
   // C7.2b: bin real. Requerido en reincorporación (entrada); libre en baja.
   ubicacionId?: string | null;
+  /** F1-MP-01: medida de hoja; con ella `cantidad` va en m² (hojas × área). */
+  productoAwVarianteId?: string | null;
+  /** S4b: lote del material en MAT-REV; obligatorio con medida si solo hay lotes. */
+  lote?: string | null;
 }
 
 export interface BajaPorDanoResponse {
@@ -700,6 +763,10 @@ export interface DevolucionProveedorLineaItem {
   /** Etiqueta resuelta en backend (ADR-0042); null → id truncado. */
   articuloClave: string | null;
   articuloDescripcion: string | null;
+  /** F1-MP-01: medida heredada de la partida de recepción origen; null = artículo sin medida. */
+  productoAwVarianteId?: string | null;
+  anchoMm?: number | null;
+  altoMm?: number | null;
 }
 
 export interface DevolucionProveedorEvidenciaItem {
@@ -886,6 +953,13 @@ export interface LineaConteoParaCapturarDto {
   subAlmacenClave: string | null;
   /** Unidad de medida del maestro de artículos (decimales y etiqueta de captura). */
   unidadMedida: string | null;
+  /** F1-MP-01: línea por medida de hoja. La captura es en hojas; las cantidades guardadas van en m² (hojas = m² / área). */
+  productoAwVarianteId?: string | null;
+  anchoMm?: number | null;
+  altoMm?: number | null;
+  areaHojaM2?: number | null;
+  /** S4b: lote de la fila de saldo contada; null = sin lote («apertura»). */
+  lote?: string | null;
 }
 
 /**
@@ -918,6 +992,13 @@ export interface LineaConteoComparacionDto {
   articuloDescripcion: string | null;
   subAlmacenClave: string | null;
   unidadMedida: string | null;
+  /** F1-MP-01: línea por medida de hoja. La captura es en hojas; las cantidades guardadas van en m² (hojas = m² / área). */
+  productoAwVarianteId?: string | null;
+  anchoMm?: number | null;
+  altoMm?: number | null;
+  areaHojaM2?: number | null;
+  /** S4b: lote de la fila de saldo contada; null = sin lote («apertura»). */
+  lote?: string | null;
 }
 
 /** Líneas que tendría un conteo con el sub-almacén y la familia elegidos. */
@@ -982,6 +1063,13 @@ export interface SaldoListItem {
   // Resueltos en backend (ADR-0042). null = no resolvió → el front cae al id.
   articuloClave: string | null;
   articuloDescripcion: string | null;
+  /** F1-MP-01: una fila por medida de hoja (cantidad en m²); null = artículo sin medida. */
+  productoAwVarianteId?: string | null;
+  anchoMm?: number | null;
+  altoMm?: number | null;
+  areaHojaM2?: number | null;
+  /** F1-MP-01 S4: una fila por lote del proveedor; null = sin lote («lote de apertura»). */
+  lote?: string | null;
 }
 
 /** Mirror de <c>SaldosTotalesResponse</c>: totales de todo el conjunto filtrado.
@@ -1008,6 +1096,13 @@ export interface SaldoUbicacionItem {
   cantidad: number;
   cantidadDisponible: number;
   costoPromedioMxn: number;
+  /** F1-MP-01: medida de la fila (una fila por ubicación, medida y lote). */
+  productoAwVarianteId?: string | null;
+  anchoMm?: number | null;
+  altoMm?: number | null;
+  areaHojaM2?: number | null;
+  /** S4b: lote de la fila; null = sin lote («apertura»). */
+  lote?: string | null;
 }
 
 // ─── Consulta jerárquica (PR6, ADR-0047) ────────────────────────────────────
@@ -1043,6 +1138,9 @@ export interface NodoJerarquiaSaldo {
   valorInventarioMxn: number;
   esDefault: boolean;
   esHoja: boolean;
+  /** F1-MP-01: en modo ubicación el artículo se parte por medida; `medida` = «2440 × 3660 mm». */
+  productoAwVarianteId?: string | null;
+  medida?: string | null;
 }
 
 // ─── Cierre de mes (FE-F6-PR1) ──────────────────────────────────────────────
@@ -1157,6 +1255,12 @@ export interface MaterialEnRevisionItem {
   /** true = falta el calendario de días hábiles: no se pudo calcular `fechaLimite`. */
   plazoNoCalculable: boolean;
   dictamenes: DictamenRevisionItem[];
+  /** F1-MP-01: medida de la hoja en revisión. */
+  productoAwVarianteId?: string | null;
+  anchoMm?: number | null;
+  altoMm?: number | null;
+  /** S4b: lote del proveedor de la línea en revisión. */
+  lote?: string | null;
 }
 
 /** ALM-04 G1.3: resultado del dictamen (espejo de `ResultadoDictamen`). */

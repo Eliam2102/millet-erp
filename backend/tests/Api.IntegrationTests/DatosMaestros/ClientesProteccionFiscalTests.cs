@@ -11,7 +11,8 @@ using Millet.Identidad.Domain;
 namespace Millet.Api.IntegrationTests.DatosMaestros;
 
 /// <summary>ADM-06 Entrega D3: protección fiscal en PATCH de clientes Origen=Aw.</summary>
-public class ClientesProteccionFiscalTests : IClassFixture<WebApplicationFactory<Program>>
+[Collection(ApiCompartida.Nombre)]
+public class ClientesProteccionFiscalTests
 {
     private static readonly Guid EmpresaBootstrapId = Guid.Parse("00000003-0000-0000-0000-000000000001");
     private readonly WebApplicationFactory<Program> _factory;

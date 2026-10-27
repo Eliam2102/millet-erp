@@ -11,7 +11,8 @@ using Millet.Identidad.Domain;
 namespace Millet.Api.IntegrationTests.DatosMaestros;
 
 /// <summary>Catálogo de clasificaciones de cliente: duplicado, validación, concurrencia, permisos, idempotencia y seed DEMO.</summary>
-public sealed class ClasificacionesClienteEndpointsTests(WebApplicationFactory<Program> factory) : IClassFixture<WebApplicationFactory<Program>>
+[Collection(ApiCompartida.Nombre)]
+public sealed class ClasificacionesClienteEndpointsTests(WebApplicationFactory<Program> factory)
 {
     private const string Base = "/api/v1/datos-maestros/clasificaciones-cliente";
     private const string SeedConstructora = "00000012-0001-0000-0000-000000000001";
