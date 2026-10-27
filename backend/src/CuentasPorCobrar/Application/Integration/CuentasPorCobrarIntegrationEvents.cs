@@ -64,5 +64,11 @@ public sealed record DecisionLiberacionEmitidaEvent(
     string ReglaAplicada,
     decimal CreditoDisponibleSnapshot,
     Guid? OverrideId,
-    Guid DecididoPor)
+    Guid DecididoPor,
+    // C7.3 (aditivo, v1 compatible): cobertura del crédito y, si la
+    // decisión resuelve una pendiente de autorización, su id y el motivo
+    // del gerente de CxC que la autorizó o rechazó.
+    decimal? PorcentajeCobertura = null,
+    Guid? DecisionOrigenId = null,
+    string? Motivo = null)
     : IntegrationEvent("cuentas_por_cobrar.decision-liberacion.emitida.v1", EmpresaId, OcurridoEn);
