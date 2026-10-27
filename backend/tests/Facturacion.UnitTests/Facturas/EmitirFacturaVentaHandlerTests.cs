@@ -51,7 +51,7 @@ public sealed class EmitirFacturaVentaHandlerTests
         bool periodoAbierto = true,
         bool catalogosValidos = true,
         Millet.Integraciones.Fiscal.Domain.Ports.ICfdiTimbradoPort? fiscal = null, IEmbarqueExportacionReadPort? embarques = null, string receptorRfc = "XAXX010101000",
-        FakeSender? sender = null, IProductosReadPort? productos = null) =>
+        FakeSender? sender = null, IProductosReadPort? productos = null, IPlazoCreditoClienteReadPort? plazoCredito = null) =>
         new(
             db,
             sender ?? new FakeSender(new ReservarFolioResponse("FA-000001", 1, "")),
@@ -64,7 +64,128 @@ public sealed class EmitirFacturaVentaHandlerTests
             new FakeContabilidadAsientoPort(),
             new FakeEmpresaContext(empresaId),
             new FakeUserContext(Guid.NewGuid()),
-            new FakeClock(Ahora), ReceptorFiscalTestFactory.Crear(db, receptorRfc, "616", "76120"), embarques: embarques, productos: productos);
+            new FakeClock(Ahora), ReceptorFiscalTestFactory.Crear(db, receptorRfc, "616", "76120"), embarques: embarques, productos: productos, plazoCredito: plazoCredito);
+
+    private sealed class PlazosCredito(params (Guid ClienteId, string Moneda, int Dias)[] lineas) : IPlazoCreditoClienteReadPort
+    {
+        public int Consultas { get; private set; }
+        public Task<int?> ObtenerPlazoDiasAsync(Guid clienteId, string moneda, CancellationToken ct)
+        {
+            Consultas++;
+            return Task.FromResult(lineas.Where(l => l.ClienteId == clienteId && l.Moneda == moneda)
+                .Select(l => (int?)l.Dias).FirstOrDefault());
+        }
+    }
+
+    [Fact]
+    public async Task Condiciones_por_omision_usa_dias_de_credito_del_cliente_con_PPD()
+    {
+        var empresa = Guid.NewGuid();
+        using var db = NewDb(empresa);
+        var command = Command();
+        var pedido = CrearPedido(db, empresa, command.SucursalId, command.ComportamientoFiscal);
+        var credito = new PlazosCredito((pedido.ClienteId, "MXN", 45));
+        await Handler(db, empresa, plazoCredito: credito).Handle(command with {
+            PedidoFacturableId = pedido.Id, MetodoPago = "PPD", FormaPago = "99"
+        }, CancellationToken.None);
+        Assert.Equal("45 DIAS", (await db.FacturasVenta.SingleAsync()).CondicionesPago);
+        Assert.Equal(1, credito.Consultas);
+    }
+
+    [Fact]
+    public async Task Condiciones_del_pedido_ganan_a_los_dias_de_credito()
+    {
+        var empresa = Guid.NewGuid();
+        using var db = NewDb(empresa);
+        var command = Command();
+        var pedido = PedidoFacturable.ImportarDesdeAw(empresa, "DEMO-CREDITO", command.SucursalId,
+            Guid.NewGuid(), "Cliente ficticio DEMO", 1, command.ComportamientoFiscal, "MXN", null, null,
+            null, 1, "15", condicionPagoOrigen: "30 DIAS");
+        db.PedidosFacturables.Add(pedido);
+        await db.SaveChangesAsync();
+        var credito = new PlazosCredito((pedido.ClienteId, "MXN", 45));
+        await Handler(db, empresa, plazoCredito: credito).Handle(command with {
+            PedidoFacturableId = pedido.Id, MetodoPago = "PPD", FormaPago = "99"
+        }, CancellationToken.None);
+        Assert.Equal("30 DIAS", (await db.FacturasVenta.SingleAsync()).CondicionesPago);
+        Assert.Equal(0, credito.Consultas);
+    }
+
+    [Fact]
+    public async Task Condiciones_sin_linea_de_credito_quedan_vacias_con_PPD()
+    {
+        var empresa = Guid.NewGuid();
+        using var db = NewDb(empresa);
+        var credito = new PlazosCredito();
+        await Handler(db, empresa, plazoCredito: credito).Handle(Command() with {
+            ClienteId = Guid.NewGuid(), MetodoPago = "PPD", FormaPago = "99"
+        }, CancellationToken.None);
+        Assert.Null((await db.FacturasVenta.SingleAsync()).CondicionesPago);
+        Assert.Equal(1, credito.Consultas);
+    }
+
+    [Fact]
+    public async Task Condiciones_con_PUE_son_CONTADO_aunque_tenga_credito()
+    {
+        var empresa = Guid.NewGuid();
+        using var db = NewDb(empresa);
+        var cliente = Guid.NewGuid();
+        var credito = new PlazosCredito((cliente, "MXN", 45));
+        await Handler(db, empresa, plazoCredito: credito).Handle(Command() with {
+            ClienteId = cliente
+        }, CancellationToken.None);
+        Assert.Equal("CONTADO", (await db.FacturasVenta.SingleAsync()).CondicionesPago);
+        Assert.Equal(0, credito.Consultas);
+    }
+
+    [Fact]
+    public async Task Condiciones_usan_la_linea_de_la_moneda_de_la_factura()
+    {
+        var empresa = Guid.NewGuid();
+        using var db = NewDb(empresa);
+        var cliente = Guid.NewGuid();
+        var credito = new PlazosCredito((cliente, "MXN", 45), (cliente, "USD", 60));
+        await Handler(db, empresa, plazoCredito: credito).Handle(Command() with {
+            ClienteId = cliente, MetodoPago = "PPD", FormaPago = "99", Moneda = "USD", TipoCambio = 20m
+        }, CancellationToken.None);
+        Assert.Equal("60 DIAS", (await db.FacturasVenta.SingleAsync()).CondicionesPago);
+        Assert.Equal(1, credito.Consultas);
+    }
+
+    [Theory]
+    [InlineData(0)]
+    [InlineData(-1)]
+    public async Task Condiciones_con_plazo_no_positivo_quedan_vacias(int dias)
+    {
+        var empresa = Guid.NewGuid();
+        using var db = NewDb(empresa);
+        var cliente = Guid.NewGuid();
+        await Handler(db, empresa, plazoCredito: new PlazosCredito((cliente, "MXN", dias))).Handle(Command() with {
+            ClienteId = cliente, MetodoPago = "PPD", FormaPago = "99"
+        }, CancellationToken.None);
+        Assert.Null((await db.FacturasVenta.SingleAsync()).CondicionesPago);
+    }
+
+    [Theory]
+    [InlineData("")]
+    [InlineData("15 DIAS")]
+    public async Task Condiciones_capturadas_ganan_al_pedido_y_no_consultan_credito(string condiciones)
+    {
+        var empresa = Guid.NewGuid();
+        using var db = NewDb(empresa);
+        var command = Command();
+        var pedido = PedidoFacturable.ImportarDesdeAw(empresa, "DEMO-CAPTURA", command.SucursalId,
+            Guid.NewGuid(), "Cliente ficticio DEMO", 1, command.ComportamientoFiscal, "MXN", null, null,
+            null, 1, "15", condicionPagoOrigen: "30 DIAS");
+        db.PedidosFacturables.Add(pedido);
+        await db.SaveChangesAsync();
+        var credito = new PlazosCredito((pedido.ClienteId, "MXN", 45));
+        await Handler(db, empresa, plazoCredito: credito).Handle(command with {
+            PedidoFacturableId = pedido.Id, MetodoPago = "PPD", FormaPago = "99", CondicionesPago = condiciones
+        }, CancellationToken.None);
+        Assert.Equal(condiciones == "" ? null : condiciones, (await db.FacturasVenta.SingleAsync()).CondicionesPago);
+        Assert.Equal(0, credito.Consultas);
+    }
 
     private sealed class Embarques(EmbarqueExportacionLectura lectura) : IEmbarqueExportacionReadPort
     {

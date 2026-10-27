@@ -52,6 +52,7 @@ public sealed class EmitirFacturaVentaHandler
     private readonly ICurrentUserContext _user;
     private readonly IClock _clock;
     private readonly IProductosReadPort? _productos;
+    private readonly IPlazoCreditoClienteReadPort? _plazoCredito;
     private readonly IEmbarqueExportacionReadPort? _embarques;
     private readonly ILogger<EmitirFacturaVentaHandler>? _logger;
 
@@ -72,7 +73,8 @@ public sealed class EmitirFacturaVentaHandler
         // romper composiciones existentes (sin puerto, TipoProducto = null).
         IProductosReadPort? productos = null,
         IEmbarqueExportacionReadPort? embarques = null,
-        ILogger<EmitirFacturaVentaHandler>? logger = null)
+        ILogger<EmitirFacturaVentaHandler>? logger = null,
+        IPlazoCreditoClienteReadPort? plazoCredito = null)
     {
         _receptorFiscal = receptorFiscal;
         _db = db;
@@ -88,6 +90,7 @@ public sealed class EmitirFacturaVentaHandler
         _user = user;
         _clock = clock;
         _productos = productos;
+        _plazoCredito = plazoCredito;
         _embarques = embarques;
         _logger = logger;
     }
@@ -260,9 +263,19 @@ public sealed class EmitirFacturaVentaHandler
 
         // 86e3tfdw2: observaciones del cajero (solo PDF, nunca XML). Antes de
         // cualquier cambio de estado (retención por pedimento / timbrado).
+        var condicionesPago = command.CondicionesPago ?? pedido?.CondicionPagoOrigen;
+        if (condicionesPago is null && command.MetodoPago == "PPD"
+            && (command.ClienteId ?? pedido?.ClienteId) is Guid clienteCreditoId && _plazoCredito is not null)
+        {
+            // El bloqueo de crédito no cambia el plazo pactado con el cliente.
+            var plazo = await _plazoCredito.ObtenerPlazoDiasAsync(clienteCreditoId, command.Moneda, cancellationToken);
+            if (plazo > 0) condicionesPago = $"{plazo} DIAS";
+        }
+        if (condicionesPago is null && command.MetodoPago == "PUE") condicionesPago = "CONTADO";
+
         factura.EditarDatosCliente(command.OrdenCompraCliente,
             command.ReferenciaCliente ?? pedido?.NumeroPedido,
-            command.CondicionesPago ?? pedido?.CondicionPagoOrigen ?? (command.MetodoPago == "PUE" ? "CONTADO" : null),
+            condicionesPago,
             command.Proforma, command.Observaciones ?? pedido?.Comentarios);
 
         if (copiaCe is not null) factura.TomarEmbarqueCe(copiaCe);
