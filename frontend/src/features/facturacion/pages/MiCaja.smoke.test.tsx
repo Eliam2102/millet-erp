@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { render, screen, waitFor, within } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { http, HttpResponse } from 'msw';
 import { mswServer } from '@/test/mocks/server';
 import { createQueryWrapper } from '@/test/test-query-client';
@@ -203,5 +203,57 @@ describe('<MiCaja> — smoke', () => {
       expect(screen.getByLabelText(/Fondo de apertura/i)).toBeInTheDocument(),
     );
     expect(screen.queryByRole('button', { name: /Abrir sesión/i })).toBeNull();
+  });
+});
+
+describe('86e3tfdvt · voucher en la liquidación de ruta', () => {
+  it('marca en rojo los 16 dígitos de la tarjeta igual que el cobro y bloquea la liquidación', async () => {
+    mswServer.use(
+      http.get(`${BASE}/sesion-actual`, () =>
+        HttpResponse.json({ sesion: sesionAbierta, diaAnteriorPendiente: false }),
+      ),
+      http.get('*/api/v1/catalogos/formas-pago', () =>
+        HttpResponse.json([
+          { id: '01', claveSat: '01', descripcion: 'Efectivo', activa: true },
+          { id: '04', claveSat: '04', descripcion: 'Tarjeta de crédito', activa: true },
+        ]),
+      ),
+      http.get('*/api/v1/facturacion/cobros/cobrables', () =>
+        HttpResponse.json([
+          {
+            comprobanteId: 'cmp-ruta',
+            folio: 'RUTA-1',
+            tipo: 'Factura',
+            receptorNombre: 'Cliente ficticio',
+            total: 100,
+            moneda: 'MXN',
+            fechaTimbrado: '2026-07-11T15:00:00Z',
+            montoAcreditado: 0,
+            montoRanura: 0,
+          },
+        ]),
+      ),
+    );
+    render(<MiCaja />, { wrapper: createQueryWrapper() });
+    fireEvent.click(await screen.findByRole('button', { name: /Liquidar ruta/i }));
+    fireEvent.click(await screen.findByRole('checkbox', { name: 'Incluir RUTA-1' }));
+    fireEvent.keyDown(screen.getByRole('combobox', { name: 'Forma de pago de RUTA-1' }), {
+      key: 'ArrowDown',
+    });
+    fireEvent.click(await screen.findByRole('option', { name: 'Tarjeta de crédito' }));
+
+    const voucher = await screen.findByLabelText('Número de autorización del voucher de RUTA-1');
+    const registrar = screen.getByRole('button', { name: 'Registrar liquidación' });
+    expect(voucher).toHaveAttribute('aria-invalid', 'true');
+    expect(registrar).toBeDisabled();
+
+    fireEvent.change(voucher, { target: { value: '4111111111111111' } });
+    expect(voucher).toHaveValue('4111111111111111');
+    expect(voucher).toHaveAttribute('aria-invalid', 'true');
+    expect(registrar).toBeDisabled();
+
+    fireEvent.change(voucher, { target: { value: '123456' } });
+    expect(voucher).toHaveAttribute('aria-invalid', 'false');
+    await waitFor(() => expect(registrar).toBeEnabled());
   });
 });
