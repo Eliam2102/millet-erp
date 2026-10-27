@@ -13,7 +13,7 @@ using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 namespace Millet.Identidad.Infrastructure.Migrations
 {
     [DbContext(typeof(IdentidadDbContext))]
-    [Migration("20261023215055_PermisoRecepcionesCancelar")]
+    [Migration("20261027120000_PermisoRecepcionesCancelar")]
     partial class PermisoRecepcionesCancelar
     {
         /// <inheritdoc />
@@ -3777,7 +3777,7 @@ namespace Millet.Identidad.Infrastructure.Migrations
                             Codigo = "facturacion.activos.autorizar",
                             CreatedAt = new DateTimeOffset(new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
                             CreatedBy = "seed",
-                            Descripcion = "Autorizar la venta de activos fijos antes de timbrar (Contador General)",
+                            Descripcion = "Autorizar la venta de activos fijos antes de timbrar (Director de Administración y Finanzas)",
                             Modulo = "facturacion",
                             Recurso = "activos",
                             UpdatedAt = new DateTimeOffset(new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
