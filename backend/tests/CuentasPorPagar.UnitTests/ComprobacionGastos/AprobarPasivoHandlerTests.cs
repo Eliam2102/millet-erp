@@ -23,6 +23,7 @@ public sealed class AprobarPasivoHandlerTests : IDisposable
     private readonly Guid _usuario = Guid.NewGuid();
     private readonly Guid _empleado = Guid.NewGuid();
     private readonly RecordingPublisher _events = new();
+    private readonly RecordingPublisher _gastos = new();
     private readonly CuentasPorPagarDbContext _db;
     private bool _conEmpleado = true;
 
@@ -37,7 +38,7 @@ public sealed class AprobarPasivoHandlerTests : IDisposable
 
     private AprobarPasivoComprobacionHandler Handler() => new(
         _db, new ReposicionCajaChicaEmisor(_db, _events),
-        new Empleados(this), new Usuario(_usuario), new Reloj());
+        new Empleados(this), new Usuario(_usuario), new Reloj(), _gastos);
 
     private Domain.ComprobacionGastos.ComprobacionGastos Pendiente(
         decimal total, string moneda = "MXN",
@@ -87,6 +88,11 @@ public sealed class AprobarPasivoHandlerTests : IDisposable
             .Should().BeOfType<PasivoAutorizadoParaPagoIntegrationEvent>().Which;
         ev.OrigenTipo.Should().Be(PasivoAutorizadoParaPagoIntegrationEvent.OrigenReposicionCajaChica);
         ev.OrigenId.Should().Be(repos[0].Id);
+        var gasto = _gastos.Eventos.Should().ContainSingle().Which.Should().BeOfType<GastoRegistradoIntegrationEvent>().Which;
+        gasto.Origen.Should().Be("caja_chica");
+        gasto.DocumentoId.Should().Be(c.Id);
+        gasto.LineaId.Should().Be(c.Lineas.Single().Id);
+        (gasto.Deducible, gasto.ClasificacionNoDeducible, gasto.Total, gasto.IvaNoAcreditable).Should().Be((true, null, 150m, 0m));
     }
 
     [Fact]
@@ -125,6 +131,7 @@ public sealed class AprobarPasivoHandlerTests : IDisposable
         ex.Message.Should().Contain("excede tu límite de aprobación");
         (await _db.ReposicionesCajaChica.CountAsync()).Should().Be(0);
         _events.Eventos.Should().BeEmpty();
+        _gastos.Eventos.Should().BeEmpty();
         // El rechazo ocurre antes de persistir: la BD conserva el estado original.
         var guardado = await _db.ComprobacionesGastos.AsNoTracking().SingleAsync(x => x.Id == c.Id);
         guardado.Estado.Should().Be(EstadoComprobacionGastos.PendienteAprobarPasivo);

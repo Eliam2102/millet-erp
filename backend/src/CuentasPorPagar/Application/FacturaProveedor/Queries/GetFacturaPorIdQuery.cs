@@ -58,7 +58,9 @@ public sealed record FacturaDetalleResponse(
     string? RetencionesRevisionMotivo = null,
     RevisionVigenteResponse? RevisionVigente = null,
     Guid? RecepcionId = null,
-    string? RecepcionFolio = null);
+    string? RecepcionFolio = null,
+    string? ClasificacionNoDeducible = null,
+    decimal IvaNoAcreditable = 0m);
 
 /// <summary>Revisión por área en curso (C-06): motivo, área, fecha de envío y plazo en días hábiles.</summary>
 public sealed record RevisionVigenteResponse(
@@ -172,6 +174,8 @@ public sealed class GetFacturaPorIdHandler : IRequestHandler<GetFacturaPorIdQuer
             OrdenCompraFolio: orden?.Folio,
             RecepcionId: f.RecepcionId,
             RecepcionFolio: folioRecepcion,
+            ClasificacionNoDeducible: f.ClasificacionNoDeducible,
+            IvaNoAcreditable: f.IvaNoAcreditable,
             Estado: f.Estado,
             DiferenciaContraOc: f.DiferenciaContraOc,
             AnticipoAplicadoTotal: f.AnticipoAplicadoTotal,
