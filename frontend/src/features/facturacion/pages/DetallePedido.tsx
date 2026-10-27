@@ -18,6 +18,7 @@ import { useGenerarProforma, useUltimaProforma } from '@/features/facturacion/ap
 import type { ProformaPedidoResponse } from '@/features/facturacion/api/types';
 import { ClasePedidoBadge } from '@/features/facturacion/components/ClasePedidoBadge';
 import { BadgeCredito } from '@/features/facturacion/components/BadgeCredito';
+import { AvisoCobrarEnCaja } from '@/features/facturacion/components/CobrarEnCajaLink';
 import { EmitirFacturaForm } from '@/features/facturacion/components/emitir-factura/EmitirFacturaForm';
 import { EstadoFacturacionBadge } from '@/features/facturacion/components/EstadoFacturacionBadge';
 import { ProformaPedidoCard } from '@/features/facturacion/components/ProformaPedidoCard';
@@ -104,6 +105,7 @@ function Contenido({
   const queryClient = useQueryClient();
   const nuevoPedido = useNuevoPedido();
   const [modoEmision, setModoEmision] = useState(false);
+  const [emitida, setEmitida] = useState<{ id: string; folio: string } | null>(null);
   const puedeEmitir = useHasPermission(PermisosCanonicos.FacturacionFacturasEmitir);
   const puedeEditar = useHasPermission(PermisosCanonicos.FacturacionPedidosCapturar);
   const puedeLeerFacturas = useHasPermission(PermisosCanonicos.FacturacionFacturasLeer);
@@ -223,7 +225,8 @@ function Contenido({
                 }
               : undefined
           }
-          onSuccess={() => {
+          onSuccess={(res) => {
+            if (res.uuid) setEmitida({ id: res.id, folio: res.folio });
             void queryClient.invalidateQueries({
               queryKey: facturacionKeys.pedidos(),
             });
@@ -236,6 +239,7 @@ function Contenido({
 
   return (
     <div className="space-y-5">
+      {emitida && <AvisoCobrarEnCaja comprobanteId={emitida.id} folio={emitida.folio} />}
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div className="space-y-1">
           <div className="flex flex-wrap items-center gap-3">

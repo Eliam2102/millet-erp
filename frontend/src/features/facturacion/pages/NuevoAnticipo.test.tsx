@@ -5,6 +5,7 @@ import { mswServer } from '@/test/mocks/server';
 import { createQueryWrapper } from '@/test/test-query-client';
 import { useAuthStore } from '@/lib/auth/auth-store';
 import { PermisosCanonicos } from '@/lib/auth/permission-codes';
+import { toast } from 'sonner';
 import { NuevoAnticipo } from './NuevoAnticipo';
 
 vi.mock('sonner', () => ({ toast: { success: vi.fn(), error: vi.fn(), warning: vi.fn() } }));
@@ -53,8 +54,9 @@ vi.mock('@/features/facturacion/components/selectors/ClienteSelector', () => ({
   ),
 }));
 vi.mock('../components/vista-previa/VistaPreviaButton', () => ({ VistaPreviaButton: () => null }));
+const navigateSpy = vi.hoisted(() => vi.fn());
 vi.mock('@tanstack/react-router', () => ({
-  useNavigate: () => vi.fn(),
+  useNavigate: () => navigateSpy,
   Link: ({ children, to }: { children: React.ReactNode; to: string }) => <a href={to}>{children}</a>,
 }));
 
@@ -204,5 +206,94 @@ describe('NuevoAnticipo · captura por total (86e3tfd7j)', () => {
     await waitFor(() => expect(screen.getAllByText(/1,000\.00/).length).toBeGreaterThan(0));
     expect(screen.getAllByText(/160\.00/).length).toBeGreaterThan(0);
     expect(screen.getAllByText(/1,160\.00/).length).toBeGreaterThan(0);
+  });
+});
+
+describe('NuevoAnticipo · cobrar en caja tras timbrar (86e3tfdwu)', () => {
+  const FANT = '66666666-6666-4666-8666-666666666666';
+  let llamadasCobrables = 0;
+
+  function prepararEmision(
+    uuid: string | null,
+    cobrables: { comprobanteId: string; total: number }[] = [{ comprobanteId: FANT, total: 1160 }],
+  ) {
+    llamadasCobrables = 0;
+    const emitir = () =>
+      HttpResponse.json({
+        anticipoId: 'a-1',
+        facturaAnticipoId: FANT,
+        folio: 'FANT 7',
+        estado: uuid ? 'Timbrada' : 'PendienteTimbrado',
+        uuid,
+        total: 1160,
+        saldo: 1160,
+      });
+    mswServer.use(
+      http.post('*/api/v1/facturacion/anticipos', emitir),
+      http.post('*/api/v1/facturacion/anticipos/', emitir),
+      http.get('*/api/v1/facturacion/cobros/cobrables', () => {
+        llamadasCobrables += 1;
+        return HttpResponse.json(cobrables);
+      }),
+    );
+  }
+
+  async function emitir() {
+    const onClose = vi.fn();
+    const { container } = render(<NuevoAnticipo onClose={onClose} />, {
+      wrapper: createQueryWrapper(),
+    });
+    await screen.findByLabelText('Sucursal (stub)');
+    fireEvent.click(screen.getByRole('button', { name: 'Elegir cliente' }));
+    fireEvent.change(container.querySelector('input[name="total"]')!, {
+      target: { value: '1160' },
+    });
+    fireEvent.click(screen.getByRole('button', { name: 'Emitir y timbrar' }));
+    await waitFor(() => expect(toast.success).toHaveBeenCalled());
+    expect(onClose).toHaveBeenCalledWith({ force: true });
+    return vi.mocked(toast.success).mock.calls.at(-1)!;
+  }
+
+  beforeEach(() => {
+    vi.mocked(toast.success).mockClear();
+    navigateSpy.mockClear();
+  });
+
+  it('con caja abierta y anticipo cobrable ofrece «Cobrar en caja» y navega por router', async () => {
+    prepararEmision('uuid-1');
+    const [mensaje, opciones] = await emitir();
+    expect(mensaje).toMatch(/Anticipo FANT 7 timbrado/);
+    const accion = (opciones as { action: { label: string; onClick: () => void } }).action;
+    expect(accion.label).toBe('Cobrar en caja');
+    accion.onClick();
+    expect(navigateSpy).toHaveBeenCalledWith({
+      href: `/facturacion/caja?cobrar=${FANT}&folio=FANT+7`,
+    });
+  });
+
+  it.each([
+    ['caja en arqueo', () => (respuestaSesion = sesion('EnArqueo'))],
+    ['día anterior pendiente', () => (respuestaSesion = sesion('Abierta', true))],
+    ['sin permiso de caja', () => setPermisos([PermisosCanonicos.FacturacionAnticiposEmitir])],
+  ])('%s: solo avisa, sin «Cobrar en caja» ni consulta de cobrables', async (_caso, preparar) => {
+    preparar();
+    prepararEmision('uuid-1');
+    const llamada = await emitir();
+    expect(llamada).toHaveLength(1);
+    expect(llamadasCobrables).toBe(0);
+  });
+
+  it('timbrado pendiente: no ofrece el cobro', async () => {
+    prepararEmision(null);
+    const llamada = await emitir();
+    expect(llamada[0]).toMatch(/emitido \(PendienteTimbrado\)/);
+    expect(llamada).toHaveLength(1);
+  });
+
+  it('anticipo no cobrable (p. ej. PPD o USD, fuera de cobrables): no ofrece el cobro', async () => {
+    prepararEmision('uuid-1', []);
+    const llamada = await emitir();
+    expect(llamada).toHaveLength(1);
+    expect(llamadasCobrables).toBe(1);
   });
 });
