@@ -95,9 +95,9 @@ public sealed class CicloAnticipoDetalleTests
             new FakeCfdiRepositorioPort(), EmpresasFiscal(empresaId), new FakeIntegrationEventPublisher(),
             new FakeContabilidadAsientoPort(), new FakeEmpresaContext(empresaId), new FakeUserContext(Guid.NewGuid()), new FakeClock(Ahora), ReceptorFiscalTestFactory.Crear(db));
 
-    private static EmitirFacturaAnticipoCommand AnticipoCommand(decimal montoBase = 1000m) => new(
+    private static EmitirFacturaAnticipoCommand AnticipoCommand(decimal montoBase = 1000m, string? pedidoOrigenRef = "AW-7") => new(
         Guid.NewGuid(), Guid.NewGuid(), RfcCliente, "Cliente Maquila", "601", "97000", "G03", "MEX",
-        "BBB010101BBB", "601", "PUE", "03", "MXN", null, TipoAnticipo.ClientesMxp, montoBase, 0.16m, null, null, "AW-7", null, null);
+        "BBB010101BBB", "601", "PUE", "03", "MXN", null, TipoAnticipo.ClientesMxp, montoBase, 0.16m, null, null, pedidoOrigenRef, null, null);
 
     private static EmitirFacturaVentaCommand FacturaCommand(IReadOnlyList<AnticipoAAmortizar> anticipos) => new(
         SucursalId: Guid.NewGuid(),
@@ -283,5 +283,28 @@ public sealed class CicloAnticipoDetalleTests
             .Handle(new ComprobanteXmlQuery(factura.Id, FamiliaComprobante.FacturaAnticipo), CancellationToken.None);
 
         await act.Should().ThrowAsync<EntityNotFoundException>().Where(e => e.Code == "COMPROBANTE_NO_ENCONTRADO");
+    }
+
+    // ---- 86e3tfd6n regla 3: el pedido de A+W nunca llega, el anticipo sigue siendo del cliente ----
+
+    [Fact]
+    public async Task Anticipo_con_pedido_AW_que_nunca_llega_se_aplica_a_otra_factura_del_cliente()
+    {
+        var empresaId = Guid.NewGuid();
+        using var db = NewDb(empresaId);
+        var sender = new FakeSenderFoliosUnicos();
+        var fiscal = new FakeFiscalUuidsUnicos();
+        var anticipo = await EmitirAnticipoHandler(db, empresaId, sender, fiscal)
+            .Handle(AnticipoCommand(pedidoOrigenRef: "10425068"), CancellationToken.None);
+        (await db.PedidosFacturables.AnyAsync()).Should().BeFalse("el pedido de A+W nunca se importó");
+
+        var resp = await FacturaHandler(db, empresaId, sender, fiscal).Handle(
+            FacturaCommand([new AnticipoAAmortizar(anticipo.AnticipoId, 500m)]), CancellationToken.None);
+
+        resp.Estado.Should().Be("Timbrado");
+        resp.NotasCreditoAmortizacion.Should().ContainSingle();
+        var aplicado = await db.Anticipos.SingleAsync(a => a.Id == anticipo.AnticipoId);
+        aplicado.PedidoOrigenRef.Should().Be("10425068");
+        aplicado.Saldo.Should().Be(1160m - 500m);
     }
 }
