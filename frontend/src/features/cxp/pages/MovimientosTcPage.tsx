@@ -41,6 +41,7 @@ import { RegistrarMovimientoEspecialSheet } from '@/features/cxp/components/Regi
 import { DisputarMovimientoTcSheet } from '@/features/cxp/components/DisputarMovimientoTcSheet';
 import type { MovimientosTcSearch } from '@/features/cxp/lib/tc-search-schema';
 import { MoneyDisplay } from '@/components/erp/display/MoneyDisplay';
+import { NoDeducibleBadge } from '@/features/cxp/components/NoDeducibleBadge';
 
 const FROM = '/_app/cxp/tc/movimientos' as const;
 const SENTINEL_ALL = '__all__';
@@ -176,6 +177,12 @@ export function MovimientosTcPage() {
                     <td className="px-3 py-2">{m.merchantNormalizado}</td>
                     <td className="px-3 py-2 text-xs text-muted-foreground">
                       {m.conceptoContable}
+                      <div>
+                        <NoDeducibleBadge
+                          clasificacion={m.clasificacionNoDeducible}
+                          ivaNoAcreditable={m.ivaNoAcreditable}
+                        />
+                      </div>
                     </td>
                     <td className="py-2 pl-3 pr-4 text-right tabular-nums">
                       <MoneyDisplay amount={m.montoMxn} currency={'MXN'} strong />

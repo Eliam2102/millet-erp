@@ -51,6 +51,11 @@ export const MovimientoTcSinCfdiSchema = z.object({
   descripcionLibre: z.string().trim().max(500).nullable(),
   conceptoContable: z.string().trim().min(1).max(120),
   ticketBlobRef: z.string().trim().max(200).nullable(),
+  clasificacionNoDeducible: z
+    .string()
+    .trim()
+    .min(1, 'Selecciona la clasificación del gasto no deducible.')
+    .max(40),
 });
 
 export type MovimientoTcSinCfdiValues = z.infer<
@@ -79,6 +84,13 @@ export const MovimientoTcConCfdiSchema = z.object({
   retenciones: z.number().min(0),
   totalFactura: z.number().positive('Total > 0.'),
   fechaVencimiento: z.string().regex(DATE_ONLY_RE),
+  // null = deducible; con clave, el IVA del CFDI va a «IVA no acreditable». '' = marcado sin elegir.
+  clasificacionNoDeducible: z
+    .string()
+    .trim()
+    .max(40)
+    .nullable()
+    .refine((v) => v !== '', 'Selecciona la clasificación del gasto no deducible.'),
 });
 
 export type MovimientoTcConCfdiValues = z.infer<

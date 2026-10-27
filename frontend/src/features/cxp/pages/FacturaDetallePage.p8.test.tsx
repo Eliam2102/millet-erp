@@ -7,7 +7,7 @@ import { FacturaDetallePage } from './FacturaDetallePage';
 import { EstadoPasivo, MotivoCancelacion } from '@/features/cxp/api/types';
 import { createQueryWrapper } from '@/test/test-query-client';
 
-const escenario = vi.hoisted(() => ({ cancelada: false, capturada: false, revisadas: false }));
+const escenario = vi.hoisted(() => ({ cancelada: false, capturada: false, revisadas: false, noDeducible: false }));
 vi.mock('@tanstack/react-router', () => ({
   useParams: () => ({ id: 'factura-ficticia-p3' }),
   useSearch: () => ({}),
@@ -40,6 +40,8 @@ vi.mock('@/features/cxp/api/useFacturas', () => ({
       tipoCambio: null,
       ordenCompraId: 'oc',
       uuidCfdi: null,
+      clasificacionNoDeducible: escenario.noDeducible ? 'PROPINAS' : null,
+      ivaNoAcreditable: escenario.noDeducible ? 32 : 0,
       subtotal: 200,
       descuentos: 0,
       impuestosTrasladados: 32,
@@ -105,6 +107,18 @@ describe('P8: alerta fiscal y obra en detalle', () => {
     expect(screen.getByText(/Las retenciones del CFDI difieren del catálogo/)).toBeInTheDocument();
     expect(importe('Saldo pendiente')).toContain('198.67');
     expect(await screen.findByRole('region', { name: 'Adjuntos' })).toBeInTheDocument();
+  });
+
+  it('muestra la marca de no deducible con su IVA no acreditable solo si hay clasificación', () => {
+    escenario.noDeducible = true;
+    const { unmount } = render(<FacturaDetallePage />, { wrapper: createQueryWrapper() });
+    expect(screen.getByText(/No deducible · PROPINAS/)).toBeInTheDocument();
+    expect(screen.getByText(/IVA no acreditable/)).toBeInTheDocument();
+    unmount();
+
+    escenario.noDeducible = false;
+    render(<FacturaDetallePage />, { wrapper: createQueryWrapper() });
+    expect(screen.queryByText(/No deducible/)).not.toBeInTheDocument();
   });
 
   it('alerta sin revisar deshabilita Autorizar y ofrece marcarla como revisada', () => {

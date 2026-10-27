@@ -6,6 +6,7 @@ import { Plus, Trash2, Upload } from 'lucide-react';
 import { toast } from 'sonner';
 import {
   Sheet,
+  SheetBody,
   SheetContent,
   SheetDescription,
   SheetFooter,
@@ -35,6 +36,7 @@ import { fetchCfdiDetalle } from '@/features/cxp/api/useCfdis';
 import type { CfdiListItem } from '@/features/cxp/api/types';
 import { CfdiPorProcesarPicker } from '@/features/cxp/components/CfdiPorProcesarPicker';
 import { CargarCfdiSheet } from '@/features/cxp/components/CargarCfdiSheet';
+import { ClasificacionNoDeducibleCampo } from '@/features/cxp/components/ClasificacionNoDeducibleCampo';
 import { useProveedor } from '@/features/catalogos/api';
 import {
   EmpleadoSelector,
@@ -109,6 +111,7 @@ function defaultLinea() {
     total: 0,
     fechaVencimiento: hoy,
     concepto: null,
+    clasificacionNoDeducible: null,
   };
 }
 
@@ -227,7 +230,8 @@ function Form({
   }
 
   return (
-    <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4 px-4">
+    <form onSubmit={form.handleSubmit(onSubmit)} className="flex min-h-0 flex-1 flex-col">
+      <SheetBody className="space-y-4">
       <section className="grid grid-cols-1 gap-3 sm:grid-cols-2">
         <Campo
           label="Sucursal"
@@ -353,8 +357,9 @@ function Form({
           </p>
         )}
       </section>
+      </SheetBody>
 
-      <SheetFooter className="px-0">
+      <SheetFooter>
         <Button
           type="button"
           variant="ghost"
@@ -480,7 +485,7 @@ function LineaInline({
           <Field label="Fecha" required>
             <Input type="date" {...form.register(`cfdis.${index}.fechaCfdi` as const)} />
           </Field>
-          <Field label="Vence">
+          <Field label="Vence" required>
             <Input type="date" {...form.register(`cfdis.${index}.fechaVencimiento` as const)} />
           </Field>
           <Field label="Subtotal">
@@ -516,6 +521,21 @@ function LineaInline({
               {...form.register(`cfdis.${index}.concepto` as const)}
             />
           </Field>
+        </div>
+        <div className="col-span-full">
+          <Controller
+            control={form.control}
+            name={`cfdis.${index}.clasificacionNoDeducible` as const}
+            render={({ field }) => (
+              <ClasificacionNoDeducibleCampo
+                id={`noDeducible-${index}`}
+                value={field.value}
+                onChange={field.onChange}
+                obligatoria={!cfdiRecibidoId && !uuidCfdi}
+                error={lineaErrors?.clasificacionNoDeducible?.message}
+              />
+            )}
+          />
         </div>
         <div className="flex items-end">
           <Button
