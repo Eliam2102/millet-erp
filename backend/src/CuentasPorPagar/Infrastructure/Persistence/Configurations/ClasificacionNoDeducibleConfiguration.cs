@@ -12,10 +12,10 @@ public sealed class ClasificacionNoDeducibleConfiguration : IEntityTypeConfigura
         builder.Property(c => c.Clave).HasMaxLength(40); builder.Property(c => c.Descripcion).HasMaxLength(200);
         builder.HasIndex(c => c.Clave).IsUnique().HasFilter("deleted_at IS NULL");
         var fecha = new DateTimeOffset(2026, 10, 23, 0, 0, 0, TimeSpan.Zero);
-        // Catálogo provisional: el real está pendiente de Laura (P8.6).
+        // DEMO: catálogo real pendiente de Laura (P8.6).
         var filas = new[] {
-            ("COMIDAS", "Comidas"), ("VIATICOS_SIN_CFDI", "Viáticos sin CFDI"), ("PROPINAS", "Propinas"),
-            ("ESTACIONAMIENTO", "Estacionamiento"), ("MULTAS_RECARGOS", "Multas y recargos"), ("OTROS", "Otros")
+            ("COMIDAS", "DEMO · Comidas"), ("VIATICOS_SIN_CFDI", "DEMO · Viáticos sin CFDI"), ("PROPINAS", "DEMO · Propinas"),
+            ("ESTACIONAMIENTO", "DEMO · Estacionamiento"), ("MULTAS_RECARGOS", "DEMO · Multas y recargos"), ("OTROS", "DEMO · Otros")
         };
         for (var i = 0; i < filas.Length; i++)
             builder.HasData(new { Id = Guid.Parse($"00000007-000b-0000-0000-{i+1:000000000000}"),

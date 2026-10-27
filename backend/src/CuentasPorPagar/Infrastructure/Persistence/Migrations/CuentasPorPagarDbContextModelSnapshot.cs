@@ -458,7 +458,7 @@ namespace Millet.CuentasPorPagar.Infrastructure.Persistence.Migrations
                             Clave = "COMIDAS",
                             CreatedAt = new DateTimeOffset(new DateTime(2026, 10, 23, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
                             CreatedBy = "seed-P8.6",
-                            Descripcion = "Comidas",
+                            Descripcion = "DEMO · Comidas",
                             UpdatedAt = new DateTimeOffset(new DateTime(2026, 10, 23, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
                             UpdatedBy = "seed-P8.6",
                             Version = 1
@@ -470,7 +470,7 @@ namespace Millet.CuentasPorPagar.Infrastructure.Persistence.Migrations
                             Clave = "VIATICOS_SIN_CFDI",
                             CreatedAt = new DateTimeOffset(new DateTime(2026, 10, 23, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
                             CreatedBy = "seed-P8.6",
-                            Descripcion = "Viáticos sin CFDI",
+                            Descripcion = "DEMO · Viáticos sin CFDI",
                             UpdatedAt = new DateTimeOffset(new DateTime(2026, 10, 23, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
                             UpdatedBy = "seed-P8.6",
                             Version = 1
@@ -482,7 +482,7 @@ namespace Millet.CuentasPorPagar.Infrastructure.Persistence.Migrations
                             Clave = "PROPINAS",
                             CreatedAt = new DateTimeOffset(new DateTime(2026, 10, 23, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
                             CreatedBy = "seed-P8.6",
-                            Descripcion = "Propinas",
+                            Descripcion = "DEMO · Propinas",
                             UpdatedAt = new DateTimeOffset(new DateTime(2026, 10, 23, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
                             UpdatedBy = "seed-P8.6",
                             Version = 1
@@ -494,7 +494,7 @@ namespace Millet.CuentasPorPagar.Infrastructure.Persistence.Migrations
                             Clave = "ESTACIONAMIENTO",
                             CreatedAt = new DateTimeOffset(new DateTime(2026, 10, 23, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
                             CreatedBy = "seed-P8.6",
-                            Descripcion = "Estacionamiento",
+                            Descripcion = "DEMO · Estacionamiento",
                             UpdatedAt = new DateTimeOffset(new DateTime(2026, 10, 23, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
                             UpdatedBy = "seed-P8.6",
                             Version = 1
@@ -506,7 +506,7 @@ namespace Millet.CuentasPorPagar.Infrastructure.Persistence.Migrations
                             Clave = "MULTAS_RECARGOS",
                             CreatedAt = new DateTimeOffset(new DateTime(2026, 10, 23, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
                             CreatedBy = "seed-P8.6",
-                            Descripcion = "Multas y recargos",
+                            Descripcion = "DEMO · Multas y recargos",
                             UpdatedAt = new DateTimeOffset(new DateTime(2026, 10, 23, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
                             UpdatedBy = "seed-P8.6",
                             Version = 1
@@ -518,7 +518,7 @@ namespace Millet.CuentasPorPagar.Infrastructure.Persistence.Migrations
                             Clave = "OTROS",
                             CreatedAt = new DateTimeOffset(new DateTime(2026, 10, 23, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
                             CreatedBy = "seed-P8.6",
-                            Descripcion = "Otros",
+                            Descripcion = "DEMO · Otros",
                             UpdatedAt = new DateTimeOffset(new DateTime(2026, 10, 23, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
                             UpdatedBy = "seed-P8.6",
                             Version = 1
