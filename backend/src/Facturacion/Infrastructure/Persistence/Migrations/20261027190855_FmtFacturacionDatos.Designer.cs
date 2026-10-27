@@ -13,7 +13,7 @@ using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 namespace Millet.Facturacion.Infrastructure.Persistence.Migrations
 {
     [DbContext(typeof(FacturacionDbContext))]
-    [Migration("20261026195817_FmtFacturacionDatos")]
+    [Migration("20261027190855_FmtFacturacionDatos")]
     partial class FmtFacturacionDatos
     {
         /// <inheritdoc />
@@ -78,6 +78,11 @@ namespace Millet.Facturacion.Infrastructure.Persistence.Migrations
                         .HasColumnType("smallint")
                         .HasColumnName("estado");
 
+                    b.Property<string>("Evidencia")
+                        .IsRequired()
+                        .HasColumnType("text")
+                        .HasColumnName("evidencia");
+
                     b.Property<Guid?>("FacturaVentaId")
                         .HasColumnType("uuid")
                         .HasColumnName("factura_venta_id");
@@ -86,10 +91,20 @@ namespace Millet.Facturacion.Infrastructure.Persistence.Migrations
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("fecha_autorizacion");
 
+                    b.Property<short>("Motivo")
+                        .HasColumnType("smallint")
+                        .HasColumnName("motivo");
+
                     b.Property<decimal>("PrecioVenta")
                         .HasPrecision(18, 2)
                         .HasColumnType("numeric(18,2)")
                         .HasColumnName("precio_venta");
+
+                    b.Property<string>("SolicitadoPor")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)")
+                        .HasColumnName("solicitado_por");
 
                     b.Property<DateTimeOffset>("UpdatedAt")
                         .HasColumnType("timestamp with time zone")
@@ -3146,7 +3161,13 @@ namespace Millet.Facturacion.Infrastructure.Persistence.Migrations
 
                     b.HasIndex("MovimientoBancarioId")
                         .IsUnique()
-                        .HasDatabaseName("ix_repp_pendiente_movimiento_bancario_id");
+                        .HasDatabaseName("ux_repp_pendiente_movimiento_sin_propuesta")
+                        .HasFilter("propuesta_id IS NULL");
+
+                    b.HasIndex("MovimientoBancarioId", "PropuestaId")
+                        .IsUnique()
+                        .HasDatabaseName("ux_repp_pendiente_movimiento_propuesta")
+                        .HasFilter("propuesta_id IS NOT NULL");
 
                     b.HasIndex("EmpresaId", "Estado", "FechaLimite")
                         .HasDatabaseName("ix_repp_pendiente_empresa_id_estado_fecha_limite");
