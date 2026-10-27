@@ -358,3 +358,10 @@ public sealed class FakeFiscalUuidsSecuenciales(DateTimeOffset fecha) : ICfdiTim
     public Task<EstatusCfdiResultado> ConsultarEstatusAsync(EstatusCfdiSolicitud solicitud, CancellationToken cancellationToken) =>
         Task.FromResult(new EstatusCfdiResultado(true, "Vigente", true, null));
 }
+
+/// <summary>Cuentas bancarias de Millet en memoria (86e3tfdve); datos ficticios.</summary>
+public sealed class FakeCuentaBancariaMilletReadPort(params CuentaBancariaMillet[] cuentas) : ICuentaBancariaMilletReadPort
+{
+    public Task<CuentaBancariaMillet?> ObtenerAsync(Guid cuentaBancariaId, CancellationToken cancellationToken) =>
+        Task.FromResult(cuentas.FirstOrDefault(c => c.Id == cuentaBancariaId));
+}

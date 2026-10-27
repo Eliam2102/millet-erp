@@ -120,4 +120,35 @@ describe('Pendientes de REP', () => {
     fireEvent.click(screen.getByRole('button', { name: /Vencidos/ }));
     await waitFor(() => expect(filtros).toContain('vencidos'));
   });
+  it('86e3tfdve: muestra la beneficiaria prellenada y envía la ordenante al emitir', async () => {
+    const cuerpos: unknown[] = [];
+    const listo: ReppPendiente = {
+      ...pago,
+      revisado: true,
+      facturas: [{ facturaVentaId: '00000000-0000-0000-0000-0000000000f1', folio: 'F-1', importe: 100 }],
+      bloqueos: [],
+      cuentaBancariaEtiqueta: 'Banco ficticio · •••• 0010',
+      cuentaBeneficiariaSugerida: '•••• 0018',
+    };
+    mswServer.use(
+      http.get('*/api/v1/facturacion/repp/pendientes/:id', () => HttpResponse.json(listo)),
+      http.post('*/api/v1/facturacion/repp/pendientes/:id/emitir', async ({ request }) => {
+        cuerpos.push(await request.json());
+        return HttpResponse.json({ id: listo.id, emitido: true, reciboPagoId: 'r', codigo: null, mensaje: null });
+      }),
+    );
+    render(<PendientesRepp />, { wrapper: createQueryWrapper() });
+    await screen.findByText('Cliente ficticio');
+    fireEvent.click(screen.getByRole('button', { name: 'Revisar' }));
+    expect(await screen.findByText(/•••• 0018/)).toBeInTheDocument();
+    expect(screen.getByText(/Banco ficticio · •••• 0010/)).toBeInTheDocument();
+    fireEvent.change(screen.getByLabelText('Cuenta ordenante'), { target: { value: '000000000012' } });
+    expect(await screen.findByText(/se esperan 10, 16 o 18 dígitos/)).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Emitir REP' })).toBeDisabled();
+    fireEvent.change(screen.getByLabelText('Cuenta ordenante'), { target: { value: '0000000000000016' } });
+    await waitFor(() => expect(screen.getByRole('button', { name: 'Emitir REP' })).toBeEnabled());
+    fireEvent.click(screen.getByRole('button', { name: 'Emitir REP' }));
+    await waitFor(() => expect(cuerpos).toHaveLength(1));
+    expect(cuerpos[0]).toEqual({ cuentaOrdenante: '0000000000000016', cuentaBeneficiaria: null });
+  });
 });

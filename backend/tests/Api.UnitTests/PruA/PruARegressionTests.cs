@@ -344,8 +344,8 @@ public sealed class PruARegressionTests
         public Millet.Tesoreria.Domain.Ports.IPeriodoContablePort PeriodoTes => new Millet.Tesoreria.Infrastructure.Adapters.PeriodoContableAdapter(new PeriodoContableConsultaAdapter(Contab));
         public Millet.Facturacion.Domain.Ports.IPeriodoContablePort PeriodoFac => new Millet.Facturacion.Infrastructure.Adapters.PeriodoContableAdapter(new PeriodoContableConsultaAdapter(Contab));
         public IClientesReadPort Clientes => new FakeClientesReadPort(new(Cliente, "AAA010101AAA", "Cliente FIX", "601", "97000", "G03", "03", "PPD", "MXN", false));
-        public EmitirReppHandler EmisorRep => new(Fac, Mediator, PeriodoFac, Pac, new FakeCfdiRepositorioPort(), Eventos, this, this, this, ReceptorFiscalTestFactory.Crear(Fac));
-        public EmitirReppPendienteHandler EmitirPendiente => new(Fac, new(Fac, Clientes, new FakeCatalogosSatReadPort(), this), this, Mediator);
+        public EmitirReppHandler EmisorRep => new(Fac, Mediator, PeriodoFac, Pac, new FakeCfdiRepositorioPort(), Eventos, this, this, this, ReceptorFiscalTestFactory.Crear(Fac), new FakeCuentaBancariaMilletReadPort());
+        public EmitirReppPendienteHandler EmitirPendiente => new(Fac, new(Fac, Clientes, new FakeCatalogosSatReadPort(), this), this, Mediator, new FakeCuentaBancariaMilletReadPort());
         public Ambiente()
         {
             Eventos = new OutboxIntegrationEventPublisher(Buffer, NullLogger<OutboxIntegrationEventPublisher>.Instance);
