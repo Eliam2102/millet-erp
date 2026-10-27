@@ -149,35 +149,6 @@ public sealed class CxpDocumentosReadAdapter : ICxpDocumentosReadPort
             .ToList();
     }
 
-    public async Task<IReadOnlyList<FacturaLigadaRecepcionLectura>> ObtenerFacturasLigadasRecepcionAsync(
-        IReadOnlyCollection<Guid> recepcionIds,
-        IReadOnlyCollection<Guid> facturaIds,
-        CancellationToken cancellationToken)
-    {
-        var recepciones = recepcionIds.Distinct().ToArray();
-        var facturas = facturaIds.Distinct().ToArray();
-        if (recepciones.Length == 0 && facturas.Length == 0) return [];
-
-        // Lectura operativa: respeta el filtro de empresa (sin Bypass()).
-        // ImporteSaldado es calculado en el dominio: se proyectan sus sumandos y se suma en memoria.
-        var filas = await _db.FacturasProveedor
-            .AsNoTracking()
-            .Where(f => f.Estado != EstadoPasivo.Cancelada
-                && ((f.RecepcionId != null && recepciones.Contains(f.RecepcionId.Value)) || facturas.Contains(f.Id)))
-            .Select(f => new
-            {
-                f.Id, f.SerieProveedor, f.FolioProveedor, f.Estado,
-                f.ImportePagado, f.AnticipoAplicadoTotal, f.NcAplicadasTotal, f.CargosAplicadosTotal,
-            })
-            .ToListAsync(cancellationToken);
-
-        return filas
-            .Select(f => new FacturaLigadaRecepcionLectura(
-                f.Id, FormatearFolio(f.SerieProveedor, f.FolioProveedor), f.Estado.ToString(),
-                f.ImportePagado + f.AnticipoAplicadoTotal + f.NcAplicadasTotal + f.CargosAplicadosTotal))
-            .ToList();
-    }
-
     private static string? FormatearFolio(string? serie, string? folio)
     {
         if (string.IsNullOrWhiteSpace(folio) && string.IsNullOrWhiteSpace(serie))

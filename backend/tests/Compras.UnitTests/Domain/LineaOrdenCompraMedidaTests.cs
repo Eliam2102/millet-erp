@@ -154,6 +154,7 @@ public class LineaOrdenCompraMedidaTests
         var oc = NuevaOc();
         var vidrio = Guid.NewGuid();
         Linea(oc, 10 * Hoja, articulo: vidrio);
+        oc.ActualizarDatosFactura("G01", "PPD", "99");
 
         oc.EnviarAAutorizacion(DateTimeOffset.UtcNow, true, new HashSet<Guid> { vidrio });
 
