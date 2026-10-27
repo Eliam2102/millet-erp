@@ -44,6 +44,13 @@ import {
 import { EstadoFacturacionBadge } from '../components/EstadoFacturacionBadge';
 import { FacturaPpdPicker } from '../components/FacturaPpdPicker';
 import {
+  admiteBeneficiaria,
+  admiteOrdenante,
+  errorCuentaPago,
+  motivoSinCuenta,
+  normalizarCuenta,
+} from '../lib/cuentas-pago-sat';
+import {
   bloqueoRelacion,
   formatoImporte,
   mensajeFalloEmision,
@@ -361,7 +368,23 @@ function RevisionPago({
   const ocupado =
     acciones.revisar.isPending || acciones.emitirUno.isPending || acciones.descartar.isPending;
   const editable = puedeEscribir && pago.estado === 'Pendiente' && !pago.intentoReciboPagoId;
-  const bloqueo = bloqueoRelacion(pago.monto, formaPago, facturas);
+  // 86e3tfdve: cuentas del pago. No se guardan en el pendiente: la ordenante
+  // viaja al emitir este pago; la beneficiaria se prellena con la cuenta de
+  // Millet del depósito salvo que se capture otra.
+  const [ordenante, setOrdenante] = useState('');
+  const [beneficiaria, setBeneficiaria] = useState('');
+  const conOrdenante = admiteOrdenante(formaPago);
+  const conBeneficiaria = admiteBeneficiaria(formaPago);
+  const errorOrdenante = conOrdenante ? errorCuentaPago(formaPago, 'ordenante', ordenante) : null;
+  const errorBeneficiaria = conBeneficiaria
+    ? errorCuentaPago(formaPago, 'beneficiaria', beneficiaria)
+    : null;
+  const cuentas = {
+    cuentaOrdenante: conOrdenante ? normalizarCuenta(ordenante) : null,
+    cuentaBeneficiaria: conBeneficiaria ? normalizarCuenta(beneficiaria) : null,
+  };
+  const bloqueoCuentas = errorOrdenante ?? errorBeneficiaria;
+  const bloqueo = bloqueoRelacion(pago.monto, formaPago, facturas) ?? bloqueoCuentas;
   const bloqueoEmision =
     bloqueo ??
     (form.formState.isDirty ? 'Guarda la revisión antes de emitir.' : pago.bloqueos[0]) ??
@@ -372,7 +395,7 @@ function RevisionPago({
   async function guardar() {
     if (bloqueo) return;
     try {
-      await acciones.revisar.mutateAsync({ id: pago.id, formaPago, facturas });
+      await acciones.revisar.mutateAsync({ id: pago.id, formaPago, facturas, cuentas });
       toast.success('Revisión guardada.');
     } catch {
       toast.error('No se pudo guardar. Verifica cliente, facturas PPD, saldo y monto confirmado.');
@@ -383,6 +406,7 @@ function RevisionPago({
       const resultado = await acciones.emitirUno.mutateAsync({
         id: pago.id,
         idempotencyKey: crypto.randomUUID(),
+        cuentas,
       });
       const mensaje = mensajeFalloEmision([resultado]);
       if (mensaje) {
@@ -513,14 +537,91 @@ function RevisionPago({
             Total relacionado: {formatoImporte(totalRelacion(facturas))} {pago.moneda}
           </p>
         </fieldset>
+        <fieldset className="space-y-2">
+          <legend className="font-semibold">3. Cuentas del pago</legend>
+          <dl className="grid grid-cols-2 gap-3 rounded-lg bg-surface-subtle p-3">
+            <div>
+              <dt className="text-xs text-ink-muted">Cuenta de Millet del depósito</dt>
+              <dd className="font-mono text-xs">
+                {pago.cuentaBancariaEtiqueta ?? <span className="text-ink-muted">Sin cuenta</span>}
+              </dd>
+            </div>
+            <div>
+              <dt className="text-xs text-ink-muted">Cuenta beneficiaria al emitir</dt>
+              <dd className="font-mono text-xs">
+                {!conBeneficiaria ? (
+                  <span className="text-ink-muted">No aplica</span>
+                ) : normalizarCuenta(beneficiaria) ? (
+                  'Capturada abajo'
+                ) : (
+                  (pago.cuentaBeneficiariaSugerida ?? (
+                    <span className="text-ink-muted">Sin cuenta</span>
+                  ))
+                )}
+              </dd>
+            </div>
+          </dl>
+          {editable && (
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+              <div className="space-y-1">
+                <Label htmlFor="pendiente-cuenta-ordenante">
+                  Cuenta ordenante
+                </Label>
+                <Input
+                  id="pendiente-cuenta-ordenante"
+                  placeholder="Opcional"
+                  value={ordenante}
+                  maxLength={50}
+                  disabled={!conOrdenante || ocupado}
+                  aria-invalid={!!errorOrdenante}
+                  onChange={(e) => setOrdenante(e.target.value)}
+                />
+                <p className="text-xs text-ink-muted">
+                  {conOrdenante
+                    ? 'Cuenta del cliente desde la que pagó. Se envía al emitir este pago.'
+                    : motivoSinCuenta(formaPago, 'ordenante')}
+                </p>
+                {errorOrdenante && <p className="text-xs text-danger-fg">{errorOrdenante}</p>}
+              </div>
+              <div className="space-y-1">
+                <Label htmlFor="pendiente-cuenta-beneficiaria">
+                  Otra cuenta beneficiaria
+                </Label>
+                <Input
+                  id="pendiente-cuenta-beneficiaria"
+                  placeholder="Opcional"
+                  value={beneficiaria}
+                  maxLength={50}
+                  disabled={!conBeneficiaria || ocupado}
+                  aria-invalid={!!errorBeneficiaria}
+                  onChange={(e) => setBeneficiaria(e.target.value)}
+                />
+                <p className="text-xs text-ink-muted">
+                  {conBeneficiaria
+                    ? 'Déjala vacía para usar la cuenta de Millet del depósito.'
+                    : motivoSinCuenta(formaPago, 'beneficiaria')}
+                </p>
+                {errorBeneficiaria && (
+                  <p className="text-xs text-danger-fg">{errorBeneficiaria}</p>
+                )}
+              </div>
+            </div>
+          )}
+          {editable && (
+            <p className="text-xs text-ink-muted">
+              La emisión por lote usa solo la cuenta de Millet del depósito.
+            </p>
+          )}
+        </fieldset>
         {pago.ultimoErrorMensaje && (
           <p role="alert" className="rounded-md bg-danger-bg p-3 text-danger-fg">
             {pago.ultimoErrorMensaje}
           </p>
         )}
-        {pago.estado === 'Pendiente' && (bloqueoEmision || pago.bloqueos.length > 0) && (
+        {pago.estado === 'Pendiente' &&
+          ((bloqueoEmision && bloqueoEmision !== bloqueoCuentas) || pago.bloqueos.length > 0) && (
           <div role="note" className="rounded-md bg-warning-note-bg p-3 text-warning-note-fg">
-            {bloqueoEmision}
+            {bloqueoEmision !== bloqueoCuentas && bloqueoEmision}
             <ul>
               {pago.bloqueos
                 .filter((b) => b !== bloqueoEmision)

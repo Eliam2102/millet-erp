@@ -33,6 +33,15 @@ export interface ReppPendiente {
   motivoDescarte: string | null;
   facturas: RelacionRepp[];
   bloqueos: string[];
+  /** 86e3tfdve: cuenta de Millet del depósito («Banco · •••• 1234»). */
+  cuentaBancariaEtiqueta?: string | null;
+  /** 86e3tfdve: beneficiaria que se usará al emitir con la forma guardada (enmascarada). */
+  cuentaBeneficiariaSugerida?: string | null;
+}
+/** 86e3tfdve: cuentas del pago; no se guardan en el pendiente, viajan al emitir. */
+export interface CuentasPago {
+  cuentaOrdenante: string | null;
+  cuentaBeneficiaria: string | null;
 }
 export interface PendientesResponse {
   items: ReppPendiente[];
@@ -75,11 +84,14 @@ export function useAccionesReppPendiente() {
       id,
       formaPago,
       facturas,
+      cuentas,
     }: {
       id: string;
       formaPago: string;
       facturas: RelacionRepp[];
-    }) => apiRequest(`${BASE}/${id}`, { method: 'PUT', body: { formaPago, facturas } }),
+      cuentas?: CuentasPago;
+    }) =>
+      apiRequest(`${BASE}/${id}`, { method: 'PUT', body: { formaPago, facturas, ...cuentas } }),
     onSettled: refrescar,
   });
   const emitir = useMutation({
@@ -94,10 +106,19 @@ export function useAccionesReppPendiente() {
     onSettled: refrescar,
   });
   const emitirUno = useMutation({
-    mutationFn: async ({ id, idempotencyKey }: { id: string; idempotencyKey: string }) =>
+    mutationFn: async ({
+      id,
+      idempotencyKey,
+      cuentas,
+    }: {
+      id: string;
+      idempotencyKey: string;
+      cuentas?: CuentasPago;
+    }) =>
       (
         await apiRequest<EmisionPendiente>(`${BASE}/${id}/emitir`, {
           method: 'POST',
+          body: cuentas,
           idempotencyKey,
         })
       ).data,
