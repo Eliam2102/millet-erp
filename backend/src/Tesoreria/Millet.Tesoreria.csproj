@@ -14,6 +14,9 @@
     <ProjectReference Include="..\Identidad\Millet.Identidad.csproj" />
     <!-- F1-CON-02: hospeda el adaptador del puerto de cuentas bancarias de Contabilidad. -->
     <ProjectReference Include="..\Contabilidad\Millet.Contabilidad.csproj" />
+    <!-- C7.4 (86e3jvv56): hospeda el adaptador del puerto de depósitos sin identificar de CxC
+         (mismo patrón que Facturación → CxC con IReppPendientesReadPort). CxC no referencia Tesorería: sin ciclo. -->
+    <ProjectReference Include="..\CuentasPorCobrar\Millet.CuentasPorCobrar.csproj" />
   </ItemGroup>
 
   <ItemGroup>

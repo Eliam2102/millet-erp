@@ -91,6 +91,26 @@ public sealed class ReppPendienteTests
     }
 
     [Fact]
+    public async Task Deposito_identificado_en_dos_partes_genera_un_pendiente_por_propuesta()
+    {
+        // C7.4 · sobrante: 50,000 → propuesta A (45,000 + 5,000 a favor) y luego B (5,000) contra el mismo movimiento.
+        using var db = Db();
+        var movimiento = Guid.NewGuid();
+        var a = new PagoClienteConfirmadoPayload(Empresa, Ahora, Guid.NewGuid(), Cliente, movimiento, Guid.NewGuid(),
+            50_000m, "MXN", new(2026, 10, 26), "SPEI-50K", [new(Guid.NewGuid(), 45_000m)], SaldoAFavorPorIdentificar: 5_000m);
+        var b = a with { PropuestaId = Guid.NewGuid(), Monto = 5_000m, SaldoAFavorPorIdentificar = 0m, Facturas = [new(Guid.NewGuid(), 5_000m)] };
+        var handler = new EmitirReppDesdePagoConfirmadoHandler(db, new FakeClock(Ahora));
+
+        await handler.Handle(new(Guid.NewGuid(), a), default);
+        await handler.Handle(new(Guid.NewGuid(), b), default);
+        await handler.Handle(new(Guid.NewGuid(), b), default); // re-entrega con otro id de evento: no duplica
+
+        var pendientes = await db.ReppPendientes.AsNoTracking().OrderByDescending(p => p.Monto).ToListAsync();
+        pendientes.Select(p => (p.PropuestaId, p.Monto)).Should().Equal((a.PropuestaId, 45_000m), (b.PropuestaId, 5_000m));
+        pendientes.Should().OnlyContain(p => p.MovimientoBancarioId == movimiento);
+    }
+
+    [Fact]
     public void Relacion_no_admite_suma_distinta_duplicados_ni_negativos()
     {
         var p = Pendiente();

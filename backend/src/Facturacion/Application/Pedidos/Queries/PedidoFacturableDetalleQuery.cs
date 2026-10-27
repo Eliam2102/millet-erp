@@ -221,7 +221,9 @@ public sealed class PedidoFacturableDetalleHandler
 
     private async Task<IReadOnlyList<AnticipoLigadoPedido>> AnticiposLigadosAsync(PedidoFacturable pedido, CancellationToken ct)
     {
-        if (pedido.Origen != OrigenPedido.Aw || pedido.NumeroPedido is not { } numero) return [];
+        // Un pedido cancelado en A+W no liga anticipos: quedan libres para el cliente (86e3tfd6n).
+        if (pedido.Origen != OrigenPedido.Aw || pedido.Estado == EstadoPedidoFacturable.Cancelado
+            || pedido.NumeroPedido is not { } numero) return [];
         var anticipos = await _db.Anticipos.AsNoTracking()
             .Where(a => a.ClienteId == pedido.ClienteId && a.PedidoOrigenRef == numero)
             .Select(a => new { a.Id, a.FacturaAnticipoId, a.MontoCobrado, a.Saldo, a.Estado })

@@ -23,13 +23,20 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { EmptyState, ErrorState, TableSkeleton } from '@/components/erp';
-import { useDepositos, useRechazarDeposito } from '@/features/tesoreria/api/useTesoreria';
+import {
+  useDepositos,
+  useDepositosSinIdentificar,
+  useRechazarDeposito,
+} from '@/features/tesoreria/api/useTesoreria';
+import { DepositosSinIdentificar } from '@/features/cxc/components/DepositosSinIdentificar';
+import { useNuevaPropuesta } from '@/features/cxc/components/nueva-propuesta-context';
 import {
   EstadoDepositoConfirmacion,
   type DepositoConfirmacionResponse,
 } from '@/features/tesoreria/api/types';
 import { EstadoDepositoBadge, ReppTimbradoBadge } from '@/features/tesoreria/components/Badges';
 import { ConfirmarDepositoDialog } from '@/features/tesoreria/components/ConfirmarDepositoDialog';
+import { useAuthStore } from '@/lib/auth/auth-store';
 import { MotivoDialog } from '@/features/tesoreria/components/MotivoDialog';
 import { formatoMonto } from '@/features/tesoreria/lib/formato';
 import { formatDate } from '@/lib/datetime';
@@ -39,6 +46,12 @@ import { PermisosCanonicos } from '@/lib/auth/permission-codes';
 import { esApiError, codigoSoporte } from '@/lib/api';
 
 const FILTRO_TODOS = 'todos';
+const MENSAJE_PROPIA = 'No puedes confirmar una propuesta que tú hiciste';
+/**
+ * C7.4: valor centinela de la pestaña «Sin identificar» dentro de TabsEstado
+ * (numérico; no es un estado de confirmación). Sin ruta nueva.
+ */
+const TAB_SIN_IDENTIFICAR = 0;
 
 /**
  * <c>Depósitos pendientes</c> (TES-FE-PR4b, P2 / §3.3 TES-9): CxC
@@ -50,12 +63,21 @@ const FILTRO_TODOS = 'todos';
 export function BandejaDepositos() {
   const puedeConfirmar = useHasPermission(PermisosCanonicos.TesoreriaDepositosConfirmar);
   const puedeRechazar = useHasPermission(PermisosCanonicos.TesoreriaDepositosRechazar);
+  // C7.4: Tesorería ve los ingresos sin identificar con su permiso de lectura de
+  // movimientos; «Identificar» (proponer) es de CxC.
+  const puedeVerSinIdentificar = useHasPermission(PermisosCanonicos.TesoreriaMovimientosVer);
+  const puedeProponer = useHasPermission(PermisosCanonicos.CuentasPorCobrarAplicacionPagoProponer);
+  const nuevaPropuesta = useNuevaPropuesta();
+  // R12: quien propuso el cobro en CxC no lo confirma (el backend responde DEP_MISMO_USUARIO).
+  const usuarioId = useAuthStore((st) => st.user?.id ?? null);
 
   const [estado, setEstado] = useState<string>(String(EstadoDepositoConfirmacion.Pendiente));
   const [origen, setOrigen] = useState<string>(FILTRO_TODOS);
 
+  const vistaSinIdentificar = estado === String(TAB_SIN_IDENTIFICAR);
+  const sinIdentificar = useDepositosSinIdentificar({ enabled: vistaSinIdentificar && puedeVerSinIdentificar });
   const query = useDepositos({
-    estado: estado === FILTRO_TODOS ? undefined : Number(estado),
+    estado: estado === FILTRO_TODOS || vistaSinIdentificar ? undefined : Number(estado),
     soloPropuestas: origen === FILTRO_TODOS ? undefined : origen === 'propuestas',
     limit: 200,
   });
@@ -112,7 +134,10 @@ export function BandejaDepositos() {
       <ListadoModulo
         tabs={
           <TabsEstado
-            opciones={opcionesEstado('deposito')}
+            opciones={[
+              ...opcionesEstado('deposito'),
+              ...(puedeVerSinIdentificar ? [{ valor: TAB_SIN_IDENTIFICAR, label: 'Sin identificar' }] : []),
+            ]}
             valor={estado === FILTRO_TODOS ? undefined : Number(estado)}
             onChange={(v) => setEstado(v == null ? FILTRO_TODOS : String(v))}
             conteos={undefined}
@@ -139,16 +164,24 @@ export function BandejaDepositos() {
           />
         }
         pie={
-          <PaginacionTabla
-            total={items.length}
-            offset={paginacion.offset}
-            limit={10}
-            tamanos={[]}
-            onChange={paginacion.onChange}
-          />
+          vistaSinIdentificar ? undefined : (
+            <PaginacionTabla
+              total={items.length}
+              offset={paginacion.offset}
+              limit={10}
+              tamanos={[]}
+              onChange={paginacion.onChange}
+            />
+          )
         }
       >
-        {query.isError ? (
+        {vistaSinIdentificar ? (
+          <DepositosSinIdentificar
+            query={sinIdentificar}
+            q=""
+            onIdentificar={puedeProponer ? (d) => nuevaPropuesta.abrir(d) : undefined}
+          />
+        ) : query.isError ? (
           <ErrorState
             title="No se pudieron cargar los depósitos"
             problem={esApiError(query.error) ? query.error.problem : undefined}
@@ -244,11 +277,21 @@ export function BandejaDepositos() {
                               Rechazar
                             </Button>
                           )}
-                          {puedeConfirmar && (
-                            <Button size="sm" onClick={() => setConfirmando(d)}>
-                              Confirmar
-                            </Button>
-                          )}
+                          {puedeConfirmar &&
+                            (usuarioId != null && d.propuestoPor === usuarioId ? (
+                              <span title={MENSAJE_PROPIA} className="inline-flex">
+                                <Button size="sm" disabled aria-describedby={`propia-${d.id}`}>
+                                  Confirmar
+                                </Button>
+                                <span id={`propia-${d.id}`} className="sr-only">
+                                  {MENSAJE_PROPIA}
+                                </span>
+                              </span>
+                            ) : (
+                              <Button size="sm" onClick={() => setConfirmando(d)}>
+                                Confirmar
+                              </Button>
+                            ))}
                         </div>
                       )}
                     </TableCell>
