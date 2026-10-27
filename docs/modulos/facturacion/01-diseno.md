@@ -722,6 +722,7 @@ deploy falla con `/health/ready` 503.
 | `IFiscalApiClient` | Integraciones.Fiscal | Timbrar / cancelar / consultar estatus |
 | `ICsdProvider` | Integraciones.Fiscal | CSD del emisor por empresa (sello) |
 | `ICfdiRepositorioPort` | Integraciones.Fiscal | Guardar/leer el `cfdi_archivo` común (Decisión 01-B) |
+| `ICuentaBancariaMilletReadPort` | Tesorería | Cuenta bancaria de Millet (CLABE/número) para la cuenta beneficiaria del REP (§8.3) |
 
 ### 6.2 Puertos de escritura / write-back (Facturación expone o invoca)
 
@@ -803,11 +804,63 @@ Naming canónico `{Agregado}{Verbo}Event`, esquema/topic `facturacion-events`.
 | Evento | Publica | Efecto |
 |---|---|---|
 | `PeriodoContableCerradoEvent` | Contabilidad | Actualiza candado local de períodos |
-| `PagoClienteConfirmadoEvent` | Tesorería/Ingresos | Dispara `EmitirReppCommand` (automatización REPP) |
+| `PagoClienteConfirmadoEvent` | Tesorería/Ingresos | Crea un `ReppPendiente` (uno por propuesta confirmada, C7.4). **No timbra**: la emisión del REP es manual desde la bandeja «Pendientes de REP» (§8.3) |
 | `CancelacionSatResueltaEvent` | Integraciones.Fiscal | Resuelve `SolicitudCancelacion` (asíncrono) |
 
 > Idempotencia en consumidores correlacionando por `uuid`, `comprobante_id`,
 > `solicitud_cancelacion_id`, `pago_id`.
+
+### 8.3 Complemento de pago: emisión manual y cuentas del pago (86e3tfdve)
+
+**Decisión: el REP es manual.** Millet pidió en el Cuestionario 04 (31-ago)
+que el complemento «se haga manual… ligado con los bancos». Por eso el
+evento `PagoClienteConfirmadoEvent` solo crea un `ReppPendiente` con la cuenta
+de Millet donde entró el depósito (`CuentaBancariaId`), la referencia y la
+relación de facturas; Facturación revisa la forma de pago y la relación, y
+emite desde la bandeja (`POST /repp/pendientes/{id}/emitir` o
+`/repp/pendientes/emitir-lote`). El REP sin pago bancario previo se emite
+desde «Nuevo REPP» (`POST /repp`).
+
+**Cuentas del pago (`CtaOrdenante` / `CtaBeneficiario` del nodo `pago20:Pago`).**
+Solo las formas bancarizadas del catálogo `c_FormaPago` admiten cuentas, y
+cada una con su patrón. La tabla vive en un único lugar del backend,
+`Facturacion.Domain.Repp.CuentasPagoSat`, y el frontend la replica en
+`features/facturacion/lib/cuentas-pago-sat.ts`:
+
+| Forma | Ordenante (cuenta del cliente) | Beneficiaria (cuenta de Millet) |
+|---|---|---|
+| 02 Cheque nominativo | 11 o 18 dígitos | 10, 11, 15, 16 o 18 dígitos, o 10–50 alfanuméricos |
+| 03 Transferencia electrónica | 10, 16 o 18 dígitos | 10 o 18 dígitos |
+| 04 Tarjeta de crédito | 16 dígitos | 10, 11, 15, 16 o 18 dígitos, o 10–50 alfanuméricos |
+| 05 Monedero electrónico | 10, 11, 15, 16 o 18 dígitos, o 10–50 alfanuméricos | igual que la ordenante |
+| 06 Dinero electrónico | 10 dígitos | no admite |
+| 28 Tarjeta de débito | 16 dígitos | 10, 11, 15, 16 o 18 dígitos, o 10–50 alfanuméricos |
+| 29 Tarjeta de servicios | 15 o 16 dígitos | 10, 11, 15, 16 o 18 dígitos, o 10–50 alfanuméricos |
+| Cualquier otra (01, 08, 12–27, 30, 31, 99) | no admite | no admite |
+
+- Las cuentas son opcionales. Si se informan y no cumplen, la emisión falla
+  con `REPP_CUENTA_INVALIDA` (422) y un mensaje con la forma, la cuenta
+  enmascarada y el formato esperado. Se valida en `EmitirReppCommand`
+  (manual y desde pendiente) y al guardar la revisión del pendiente.
+- Se normalizan espacios y guiones de captura antes de validar.
+- **Beneficiaria desde el pendiente:** si la forma la admite, se prellena con la
+  cuenta de Millet del depósito (CLABE si cumple el patrón; si no, el número
+  de cuenta) leída por `ICuentaBancariaMilletReadPort` (adaptador en
+  `Millet.Api` sobre el puerto público `ConsultarCuentaBancariaQuery` de
+  Tesorería; Facturación no lee tablas de Tesorería). Se puede sobrescribir al
+  emitir uno. En «Nuevo REPP» la beneficiaria se elige del catálogo de cuentas
+  de Millet (`CuentaBancariaBeneficiariaId`, el backend resuelve el número) o
+  se captura a mano.
+- **Sin migración:** el pendiente no guarda las cuentas. La ordenante se captura
+  en la revisión y viaja en el body opcional de
+  `POST /repp/pendientes/{id}/emitir`; la emisión por lote usa solo la
+  beneficiaria prellenada. Las cuentas emitidas quedan en
+  `recibo_pago_factura.cuenta_ordenante/cuenta_beneficiaria`.
+- **Enmascarado (ADR-0006):** bandeja, detalle del REPP y revisión del
+  pendiente muestran «•••• 1234»; la cuenta completa solo viaja al CFDI.
+- **Fuera de alcance (decisión para Eliam):** `RfcEmisorCtaOrd`,
+  `NomBancoOrdExt` y `RfcEmisorCtaBen` (RFC del banco ordenante/beneficiario y
+  banco extranjero) no se capturan ni se envían.
 
 ---
 
@@ -871,7 +924,10 @@ Catálogos SAT: la sincronización del espejo (nocturna) vive en
 | GET | `/anticipos/control` · `/anticipos/control/{clienteId}` | Reportes |
 | POST | `/notas-credito/bonificacion` | Emitir NC bonificación |
 | POST | `/carta-porte` · `/carta-porte/{id}/siguiente-tramo` | Carta Porte |
-| POST | `/repp` | Complemento de pago |
+| POST | `/repp` | Complemento de pago manual (cuentas opcionales validadas contra `c_FormaPago`, §8.3) |
+| GET | `/repp/pendientes` · `/repp/pendientes/{id}` | Bandeja de pagos confirmados pendientes de REP (beneficiaria sugerida enmascarada) |
+| PUT | `/repp/pendientes/{id}` | Revisión: forma de pago, relación y cuentas opcionales (se validan, no se guardan) |
+| POST | `/repp/pendientes/{id}/emitir` · `/repp/pendientes/emitir-lote` | Emisión manual (`Idempotency-Key`; body opcional con cuentas en la individual) |
 | POST | `/comprobantes/{id}/cancelar` | Solicitar cancelación |
 | GET | `/comprobantes/{id}/cancelar` | Estatus de cancelación |
 | POST | `/activos/{facturaId}/autorizar` | Autorización Contador General |
@@ -996,3 +1052,4 @@ y la memoria de estructura de ventanas ERP.
 | 1.0 | 2026-05-29 | Diseño inicial sobre el levantamiento 1.0. Decisiones del owner: ingesta partida (A+W en Integraciones.Aw; Planta Pintura + Salidas en nuevo Integraciones.Origenes), MVP amplio con CCE + Carta Porte, repo de CFDI común desde ahora. Decisiones de diseño: timbrado asíncrono-tolerante (FSM), NC de amortización atómica, TPT para Comprobante. |
 | 1.1 | 2026-07-10 | Adenda de Cajas ([`12-cajas.md`](12-cajas.md)): alcance de datos por sucursal×canal (Capa A, resolución dinámica) + sesión de efectivo con arqueo (Capa B). `caja_id` de `comprobante` queda reservado a la Capa B; namespace `facturacion.caja.*` ampliado; nuevos endpoints `/cajas` y `/cobros`. |
 | 1.2 | 2026-07-12 | Adenda de Anticipos ciclo completo + trazabilidad ([`13-anticipos-ciclo-completo.md`](13-anticipos-ciclo-completo.md)): bandeja/detalle de facturas de anticipo, descargas XML/PDF genéricas (anticipo + NC) con alcance de cajas, trazabilidad transversal (tipos 5–10) y fix 13-J (`ANTICIPO_CFDI_NO_TIMBRADO` — la relación 07 es obligatoria). Absorbe el alcance diferido de la Fase 13. |
+| 1.3 | 2026-10-26 | 86e3tfdve: §8.2 corrige `PagoClienteConfirmadoEvent` (crea pendiente; REP manual desde la bandeja). Nueva §8.3: cuentas ordenante/beneficiaria validadas contra `c_FormaPago` (`REPP_CUENTA_INVALIDA`), beneficiaria prellenada desde la cuenta de Millet (`ICuentaBancariaMilletReadPort`) y enmascarado. RFC de bancos fuera de alcance. |
