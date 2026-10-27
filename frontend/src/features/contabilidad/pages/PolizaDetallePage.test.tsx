@@ -139,3 +139,47 @@ describe('<PolizaDetallePage>', () => {
     expect(await screen.findByRole('alert')).toHaveTextContent('La póliza no cuadra: cargos 1,234.00 y abonos 1,000.00.');
   });
 });
+
+describe('<PolizaDetallePage> · documento origen (C1.4)', () => {
+  const UUID = 'AAAAAAAA-1111-4222-8333-BBBBBBBBBBBB';
+  const conOrigen = () => poliza({
+    origen: 'Automatica',
+    documentoOrigen: { modulo: 'cuentas_por_pagar', tipo: 'factura_proveedor', id: 'f1', folio: null, uuid: UUID },
+  });
+
+  it('muestra la tarjeta con el UUID, enlaza a la factura de CxP y ofrece XML y PDF del CFDI', async () => {
+    servidor(conOrigen());
+    mswServer.use(http.get('*/api/v1/cuentas-por-pagar/facturas/f1', () =>
+      HttpResponse.json({ id: 'f1', cfdiRecibidoId: 'cfdi-1', uuidCfdi: UUID, folioProveedor: 'FIX-A123' })));
+    permisos(PermisosCanonicos.CuentasPorPagarFacturasLeer, PermisosCanonicos.CuentasPorPagarCfdisLeer);
+    render(<PolizaDetallePage id="p1" search={{}} onNavegar={vi.fn()} />, { wrapper: createQueryWrapper() });
+
+    const tarjeta = await screen.findByRole('region', { name: 'Documento origen' });
+    expect(within(tarjeta).getByText(UUID)).toHaveClass('font-mono');
+    expect(within(tarjeta).getByText(/Cuentas por Pagar · Factura de proveedor/)).toBeInTheDocument();
+    expect(within(tarjeta).getByRole('link', { name: 'Ver factura en CxP' })).toHaveAttribute('href', '/cxp/facturas/f1');
+    expect(await within(tarjeta).findByRole('button', { name: 'XML' })).toBeInTheDocument();
+    expect(within(tarjeta).getByRole('button', { name: 'PDF' })).toBeInTheDocument();
+    expect(within(tarjeta).getByText('FIX-A123')).toBeInTheDocument();
+  });
+
+  it('sin permiso de CxP muestra solo el UUID y remite a Cuentas por Pagar', async () => {
+    servidor(conOrigen());
+    permisos();
+    render(<PolizaDetallePage id="p1" search={{}} onNavegar={vi.fn()} />, { wrapper: createQueryWrapper() });
+
+    const tarjeta = await screen.findByRole('region', { name: 'Documento origen' });
+    expect(within(tarjeta).getByText(UUID)).toBeInTheDocument();
+    expect(within(tarjeta).getByText('El CFDI se consulta en Cuentas por Pagar.')).toBeInTheDocument();
+    expect(within(tarjeta).queryByRole('link', { name: 'Ver factura en CxP' })).not.toBeInTheDocument();
+    expect(within(tarjeta).queryByRole('button', { name: 'XML' })).not.toBeInTheDocument();
+  });
+
+  it('una póliza manual no muestra la tarjeta', async () => {
+    servidor(poliza());
+    permisos();
+    render(<PolizaDetallePage id="p1" search={{}} onNavegar={vi.fn()} />, { wrapper: createQueryWrapper() });
+    await screen.findByRole('region', { name: 'Partidas' });
+    expect(screen.queryByRole('region', { name: 'Documento origen' })).not.toBeInTheDocument();
+  });
+});
