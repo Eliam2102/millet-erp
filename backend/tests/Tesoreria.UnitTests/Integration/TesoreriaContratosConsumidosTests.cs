@@ -68,6 +68,19 @@ public sealed class TesoreriaContratosConsumidosTests
     }
 
     [Fact]
+    public void PropuestaCreada_v1_con_deposito_identificado_C74_llega_al_espejo()
+    {
+        // C7.4: extensión ADITIVA — el depósito sin identificar que CxC identificó.
+        var movimiento = Guid.NewGuid();
+        var evento = new PropuestaAplicacionPagoCreadaEvent(
+            EmpresaId, OcurridoEn, Guid.NewGuid(), Guid.NewGuid(), "SPEI-50K", 50_000m, "MXN", 0m, 1,
+            [new PropuestaAplicacionFacturaDetalle(Guid.NewGuid(), "VEN-1", 50_000m)],
+            Guid.NewGuid(), 0m, movimiento);
+
+        RoundTrip<PropuestaAplicacionCreadaPayload>(evento).MovimientoBancarioId.Should().Be(movimiento);
+    }
+
+    [Fact]
     public void PropuestaCreada_v1_sin_facturas_pre_extension_deserializa_null()
     {
         // Simula un evento publicado ANTES de la extensión aditiva.
