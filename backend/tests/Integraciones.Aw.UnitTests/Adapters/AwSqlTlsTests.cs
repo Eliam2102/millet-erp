@@ -60,7 +60,7 @@ public sealed class AwSqlTlsTests
         }
     }
 
-    [Fact]
+    [SoloLinuxFact]
     public void Certificado_vigente_es_Healthy_y_se_instala_una_sola_vez()
     {
         var (pem, cert) = Generar(DateTimeOffset.UtcNow.AddDays(-1), DateTimeOffset.UtcNow.AddYears(5));
@@ -70,7 +70,7 @@ public sealed class AwSqlTlsTests
         r.Evaluar(DateTimeOffset.UtcNow).Status.Should().Be(HealthStatus.Healthy);
     }
 
-    [Fact]
+    [SoloLinuxFact]
     public void Certificado_por_vencer_es_Degraded_y_vencido_es_Unhealthy()
     {
         var (pem, cert) = Generar(DateTimeOffset.UtcNow.AddDays(-10), DateTimeOffset.UtcNow.AddDays(30));
@@ -87,5 +87,18 @@ public sealed class AwSqlTlsTests
         var h = r.Evaluar(DateTimeOffset.UtcNow);
         h.Status.Should().Be(HealthStatus.Unhealthy);
         h.Description.Should().NotContain("basura-secreta");
+    }
+}
+
+/// <summary>
+/// Estas pruebas escriben en el almacén raíz del usuario. En macOS ese almacén es el llavero real
+/// y .NET no puede escribir en él («Access is denied»); App Service y CI corren en Linux.
+/// </summary>
+public sealed class SoloLinuxFactAttribute : FactAttribute
+{
+    public SoloLinuxFactAttribute()
+    {
+        if (!OperatingSystem.IsLinux())
+            Skip = "Solo Linux: en macOS el almacén raíz es el llavero real y no admite escritura (App Service corre en Linux).";
     }
 }
