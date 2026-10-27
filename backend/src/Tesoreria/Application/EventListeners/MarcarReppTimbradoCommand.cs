@@ -56,7 +56,10 @@ public sealed class MarcarReppTimbradoHandler : IRequestHandler<MarcarReppTimbra
             .OrderBy(x => x.FacturaVentaId)
             .ToList();
 
-        var matches = p.MovimientoBancarioId is Guid movimientoId
+        // C7.4: con PropuestaId se correlaciona exacto (un movimiento puede tener varios REP).
+        var matches = p.PropuestaId is Guid propuestaId
+            ? candidatas.Where(d => d.PropuestaCxcId == propuestaId).ToList()
+            : p.MovimientoBancarioId is Guid movimientoId
             ? candidatas.Where(d => d.MovimientoId == movimientoId).ToList()
             : candidatas.Where(d => DesgloseCoincide(d.FacturasJson, objetivo)).ToList();
 

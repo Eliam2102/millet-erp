@@ -1,3 +1,4 @@
+import { motivosDisposicion } from '../api/motivos-disposicion';
 import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -50,6 +51,7 @@ export function DepreciacionActivo({ activo }: { activo: Activo }) {
                   fecha: f.get('fecha'),
                   importe: Number(f.get('importe') ?? 0),
                   motivo: f.get('motivo'),
+                  solicitadoPor: f.get('solicitadoPor'),
                   evidencia,
                 },
               },
@@ -85,16 +87,33 @@ export function DepreciacionActivo({ activo }: { activo: Activo }) {
           )}
           <label>
             Motivo *
-            <Input
-              name="motivo"
-              required
-              placeholder={
-                tipo === 'Baja'
-                  ? 'Siniestro, robo, obsolescencia, donación u otro'
-                  : 'Explique la corrección'
-              }
-            />
+            {tipo === 'Baja' ? (
+              <select
+                name="motivo"
+                required
+                className="block h-9 w-full rounded-md border border-line-control bg-surface-card px-3"
+                defaultValue=""
+              >
+                <option value="">Seleccione motivo</option>
+                {motivosDisposicion.map((m) => (
+                  <option key={m.codigo} value={m.codigo}>
+                    {m.etiqueta}
+                  </option>
+                ))}
+              </select>
+            ) : (
+              <Input
+                name="motivo"
+                required
+                placeholder={tipo === 'Baja' ? 'Seleccione motivo' : 'Explique la corrección'}
+              />
+            )}
           </label>
+          {tipo === 'Baja' && (
+            <label>
+              Solicitado por (área usuaria) *<Input name="solicitadoPor" required maxLength={200} />
+            </label>
+          )}
           {tipo === 'Baja' && (
             <label>
               Evidencia PDF o imagen *
@@ -120,8 +139,9 @@ export function DepreciacionActivo({ activo }: { activo: Activo }) {
             </label>
           )}
           <p className="text-ink-muted md:col-span-2">
-            La solicitud debe autorizarla otra persona. La revalorización requiere habilitación en
-            la configuración del libro.
+            La baja la registra el Contador General y la autoriza el Director de Administración y
+            Finanzas, otra persona. La revalorización requiere habilitación en la configuración del
+            libro.
           </p>
           <Button
             type="submit"
@@ -168,6 +188,7 @@ export function DepreciacionActivo({ activo }: { activo: Activo }) {
           { clave: 'tipo', etiqueta: 'Tipo', tipo: 'texto' },
           { clave: 'fecha', etiqueta: 'Fecha', tipo: 'fecha' },
           { clave: 'motivo', etiqueta: 'Motivo', tipo: 'texto' },
+          { clave: 'solicitadoPor', etiqueta: 'Solicitado por', tipo: 'texto' },
           { clave: 'importe', etiqueta: 'Importe', tipo: 'moneda' },
         ]}
         accionFila={(o) => (

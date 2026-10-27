@@ -74,7 +74,7 @@ public sealed class DepreciacionTests
     [Theory] [InlineData(false)] [InlineData(true)]
     public void CA9_Baja_requiere_evidencia_y_otro_autorizador(bool mismo)
     {
-        var actor = Guid.NewGuid(); var op = new OperacionLibro { Tipo = "Baja", Motivo = "Siniestro", RegistradoPor = actor, Evidencia = mismo ? "adjunto" : null };
+        var actor = Guid.NewGuid(); var op = new OperacionLibro { Tipo = "Baja", Motivo = "Siniestro", SolicitadoPor = "Área DEMO", RegistradoPor = actor, Evidencia = mismo ? "adjunto" : null };
         Assert.Throws<BusinessRuleException>(() => op.Validar(mismo ? actor : Guid.NewGuid(), false));
         op.Evidencia = "adjunto"; op.Validar(Guid.NewGuid(), false);
         var (a, _) = Montacargas(); a.DarDeBaja(new(2026,6,1)); Assert.Equal(EstadoActivo.DadoDeBaja, a.Estado); a.Reintegrar(); Assert.Equal(EstadoActivo.Activo, a.Estado);

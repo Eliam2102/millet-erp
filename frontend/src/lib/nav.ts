@@ -871,7 +871,7 @@ const moduloFacturacion: NavModulo = {
         {
           label: 'Autorización de activos',
           description:
-            'El Contador General autoriza la venta de activos fijos (valor neto + utilidad/pérdida) antes de timbrar.',
+            'El Director de Administración y Finanzas autoriza la venta de activos fijos (valor neto + utilidad/pérdida) antes de timbrar.',
           to: '/facturacion/activos',
           icon: Building2,
           permission: PermisosCanonicos.FacturacionActivosAutorizar,

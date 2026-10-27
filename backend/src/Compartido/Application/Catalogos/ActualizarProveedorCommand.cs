@@ -38,13 +38,34 @@ public sealed record ActualizarProveedorCommand(
     bool LimpiarCondicionesPago = false,
     bool LimpiarMonedaPreferida = false,
     bool LimpiarEmail = false,
-    bool LimpiarTelefono = false) : IRequest;
+    bool LimpiarTelefono = false,
+    string? Calle = null,
+    string? NumeroExterior = null,
+    string? NumeroInterior = null,
+    string? Colonia = null,
+    string? Ciudad = null,
+    string? Municipio = null,
+    string? Estado = null,
+    string? CodigoPostal = null,
+    string? Pais = null,
+    string? TaxId = null) : IRequest;
 
 public sealed class ActualizarProveedorValidator : AbstractValidator<ActualizarProveedorCommand>
 {
     public ActualizarProveedorValidator()
     {
         RuleFor(c => c.ProveedorId).NotEqual(Guid.Empty);
+        RuleFor(c => c.Calle).MaximumLength(254);
+        RuleFor(c => c.NumeroExterior).MaximumLength(20);
+        RuleFor(c => c.NumeroInterior).MaximumLength(20);
+        RuleFor(c => c.Colonia).MaximumLength(254);
+        RuleFor(c => c.Ciudad).MaximumLength(100);
+        RuleFor(c => c.Municipio).MaximumLength(100);
+        RuleFor(c => c.Estado).MaximumLength(100);
+        RuleFor(c => c.CodigoPostal).MaximumLength(20);
+        RuleFor(c => c.Pais).MaximumLength(3);
+        RuleFor(c => c.TaxId).MaximumLength(40).WithErrorCode("PROVEEDOR_TAXID_INVALIDO").WithMessage("El Tax ID admite hasta 40 caracteres; corrígelo antes de guardar.");
+        RuleFor(c => c.Pais).Matches(@"^([A-Za-z]{3})?$").WithMessage("Escribe el país con tres letras, por ejemplo MEX.");
         RuleFor(c => c.RazonSocial!).NotEmpty().MaximumLength(254)
             .When(c => c.RazonSocial is not null);
         RuleFor(c => c.NombreComercial!).MaximumLength(254)
@@ -140,6 +161,7 @@ public sealed class ActualizarProveedorHandler : IRequestHandler<ActualizarProve
             limpiarEmail: request.LimpiarEmail,
             limpiarTelefono: request.LimpiarTelefono);
 
+        proveedor.ActualizarDomicilioFiscal(request.Calle, request.NumeroExterior, request.NumeroInterior, request.Colonia, request.Ciudad, request.Municipio, request.Estado, request.CodigoPostal, request.Pais, request.TaxId);
         await _db.SaveChangesAsync(cancellationToken);
     }
 }

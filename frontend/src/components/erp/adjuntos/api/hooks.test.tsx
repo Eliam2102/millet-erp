@@ -1,6 +1,7 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { act, renderHook, waitFor } from '@testing-library/react';
 import { http, HttpResponse } from 'msw';
+import { leerFormData } from '@/test/leer-form-data';
 import { mswServer } from '@/test/mocks/server';
 import { createQueryWrapper } from '@/test/test-query-client';
 import { ApiError } from '@/lib/api';
@@ -74,7 +75,7 @@ describe('capa de datos de adjuntos', () => {
     mswServer.use(
       http.post(`*${BASE}/adjuntos`, async ({ request }) => {
         key = request.headers.get('Idempotency-Key');
-        const fd = await request.formData();
+        const fd = await leerFormData(request);
         campos = {
           tipoDocumentoId: String(fd.get('tipoDocumentoId')),
           vigenteHasta: String(fd.get('vigenteHasta')),

@@ -351,6 +351,38 @@ export interface RecepcionDetalle {
   facturaFolio: string | null;
   /** null si la OC no es de importación. */
   importacion?: RecepcionImportacionDetalle | null;
+  /** Bitácora de cancelación (86e3tabdp); ausentes si la recepción no se canceló. */
+  registradoPorNombre?: string | null;
+  canceladaAt?: string | null;
+  canceladaPor?: string | null;
+  canceladaPorNombre?: string | null;
+  motivoCancelacion?: string | null;
+  foliosCancelacion?: string[] | null;
+  /** true = el usuario actual NO la registró (único caso en que puede cancelarla). */
+  registradaPorOtroUsuario?: boolean;
+}
+
+export type MotivoCancelacionRecepcion = 'ARTICULO' | 'CANTIDAD' | 'OC' | 'UBICACION' | 'OTRO';
+
+export const MOTIVOS_CANCELACION_RECEPCION: ReadonlyArray<{
+  codigo: MotivoCancelacionRecepcion;
+  etiqueta: string;
+}> = [
+  { codigo: 'ARTICULO', etiqueta: 'Artículo equivocado' },
+  { codigo: 'CANTIDAD', etiqueta: 'Cantidad equivocada' },
+  { codigo: 'OC', etiqueta: 'OC equivocada' },
+  { codigo: 'UBICACION', etiqueta: 'Ubicación equivocada' },
+  { codigo: 'OTRO', etiqueta: 'Otro' },
+];
+
+export interface CancelarRecepcionCommand {
+  motivoCodigo: MotivoCancelacionRecepcion;
+  motivoTexto: string;
+}
+
+export interface CancelarRecepcionResponse {
+  recepcionId: string;
+  foliosCancelacion: string[];
 }
 
 /**

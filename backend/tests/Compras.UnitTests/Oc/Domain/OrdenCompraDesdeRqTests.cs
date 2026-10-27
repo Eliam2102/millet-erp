@@ -22,7 +22,7 @@ public class OrdenCompraDesdeRqTests
         compradorTitularId: Guid.CreateVersion7(),
         encargadoComprasId: Guid.CreateVersion7(),
         fechaDocumento: DateOnly.FromDateTime(DateTimeOffset.UtcNow.UtcDateTime),
-        sinRequisicionPrevia: false);
+        sinRequisicionPrevia: false, usoCfdiClave: "G03", metodoPago: "PPD", formaPagoClave: "99");
 
     [Fact]
     public void AgregarLineaDesdeRequisicion_OcBorradorSinRqPreviaFalse_OK()
@@ -62,7 +62,7 @@ public class OrdenCompraDesdeRqTests
             encargadoComprasId: Guid.CreateVersion7(),
             fechaDocumento: DateOnly.FromDateTime(DateTimeOffset.UtcNow.UtcDateTime),
             sinRequisicionPrevia: true,
-            motivoSinRequisicion: "Test");
+            motivoSinRequisicion: "Test", usoCfdiClave: "G03", metodoPago: "PPD", formaPagoClave: "99");
 
         var ex = Assert.Throws<BusinessRuleException>(() => oc.AgregarLineaDesdeRequisicion(
             lineaId: Guid.CreateVersion7(),

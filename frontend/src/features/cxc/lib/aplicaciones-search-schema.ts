@@ -15,6 +15,8 @@ export const AplicacionesSearchSchema = z.object({
     ])
     .optional(),
   clienteId: z.string().optional(),
+  /** C7.4: pestaña «Sin identificar» (depósitos sin remittance), sin ruta nueva. */
+  vista: z.literal('sin-identificar').optional(),
   q: z.string().optional(),
   offset: z.number().int().min(0).optional(),
   limit: z.number().int().min(1).max(500).optional(),

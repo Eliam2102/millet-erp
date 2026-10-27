@@ -157,6 +157,7 @@ const CODIGOS_BACKEND_ESPERADOS = new Set<string>([
   'almacen.devoluciones-proveedor.iniciar',
   'almacen.devoluciones-proveedor.autorizar',
   'almacen.cuarentena.dictaminar',
+  'almacen.recepciones.cancelar',
   'almacen.devoluciones-proveedor.registrar',
   'almacen.inventarios.leer',
   'almacen.inventarios.crear',

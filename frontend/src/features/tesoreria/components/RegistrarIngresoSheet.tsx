@@ -14,7 +14,17 @@ import {
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { SucursalSelector } from '@/components/erp/selectors/SucursalSelector';
+import { Checkbox } from '@/components/ui/checkbox';
+import { ClienteTesoreriaSelector } from './ClienteTesoreriaSelector';
+import { BeneficiarioTipo } from '../api/types';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
+import { useSucursalesPermitidas } from '@/features/compras/ordenes/api/useSucursalesPermitidas';
 import { CuentaBancariaSelector } from './CuentaBancariaSelector';
 import { ConceptoSelector } from './ConceptoSelector';
 import { useRegistrarMovimientoIngreso } from '../api/useTesoreria';
@@ -49,10 +59,16 @@ function IngresoForm({ cerrar }: { cerrar: () => void }) {
   const [sucursal, setSucursal] = useState<string | null>(
     useAuthStore.getState().currentSucursalId,
   );
+  // Sucursales de la sesión (mismos ids que la sucursal activa y que valida el
+  // backend); el catálogo general usa otros ids y mostraba el GUID.
+  const sucursales = useSucursalesPermitidas();
   const [concepto, setConcepto] = useState<string | null>(null);
   const [monto, setMonto] = useState('');
   const [fecha, setFecha] = useState(hoyLocalISO);
   const [referencia, setReferencia] = useState('');
+  // C7.4 · CA7.9: depósito de cliente; sin cliente queda «sin identificar» para CxC.
+  const [cobroCliente, setCobroCliente] = useState(false);
+  const [cliente, setCliente] = useState<string | null>(null);
   const registrar = useRegistrarMovimientoIngreso();
   const key = useBodyScopedIdempotencyKey();
   const resultado = IngresoSchema.safeParse({
@@ -62,6 +78,8 @@ function IngresoForm({ cerrar }: { cerrar: () => void }) {
     fechaValor: fecha,
     conceptoId: concepto ?? undefined,
     referenciaBancaria: referencia || undefined,
+    beneficiarioTipo: cobroCliente ? BeneficiarioTipo.Cliente : undefined,
+    beneficiarioRef: cobroCliente && cliente ? cliente : undefined,
   });
   function guardar() {
     if (!resultado.success) return;
@@ -88,7 +106,20 @@ function IngresoForm({ cerrar }: { cerrar: () => void }) {
           <FormCampo span={6}>
             <div className="space-y-1">
               <Label>Sucursal *</Label>
-              <SucursalSelector value={sucursal} onChange={setSucursal} />
+              <Select value={sucursal ?? ''} onValueChange={(v) => setSucursal(v || null)}>
+                <SelectTrigger aria-label="Sucursal del ingreso">
+                  <SelectValue
+                    placeholder={sucursales.isLoading ? 'Cargando sucursales…' : 'Selecciona sucursal'}
+                  />
+                </SelectTrigger>
+                <SelectContent>
+                  {(sucursales.data ?? []).map((s) => (
+                    <SelectItem key={s.id} value={s.id}>
+                      {s.clave} · {s.nombre}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
           </FormCampo>
           <FormCampo span={6}>
@@ -133,6 +164,34 @@ function IngresoForm({ cerrar }: { cerrar: () => void }) {
                 value={referencia}
                 onChange={(e) => setReferencia(e.target.value)}
               />
+            </div>
+          </FormCampo>
+          <FormCampo span={12}>
+            <div className="space-y-2 rounded-md border border-line px-3 py-2">
+              <div className="flex items-center gap-2">
+                <Checkbox
+                  id="ingreso-cobro-cliente"
+                  checked={cobroCliente}
+                  onCheckedChange={(v) => {
+                    setCobroCliente(v === true);
+                    if (v !== true) setCliente(null);
+                  }}
+                />
+                <Label htmlFor="ingreso-cobro-cliente">Cobro de cliente (cliente opcional)</Label>
+              </div>
+              {cobroCliente && (
+                <>
+                  <ClienteTesoreriaSelector
+                    id="ingreso-cliente"
+                    value={cliente}
+                    onChange={(c) => setCliente(c?.id ?? null)}
+                  />
+                  <p className="text-2xs text-ink-muted">
+                    Sin el detalle del cliente (remittance) el depósito queda «sin identificar» en
+                    Cuentas por Cobrar y no se aplica hasta identificarlo.
+                  </p>
+                </>
+              )}
             </div>
           </FormCampo>
         </FormSeccion>

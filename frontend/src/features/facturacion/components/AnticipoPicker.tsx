@@ -1,6 +1,7 @@
 import { CatalogoEagerCombobox } from '@/components/erp/selectors/CatalogoEagerCombobox';
 import type { AnticipoEstadoCuenta } from '@/features/facturacion/api/types';
 import { useEstadoCuentaAnticipos } from '@/features/facturacion/api/useAnticipos';
+import { etiquetaPedidoAnticipo } from '@/features/facturacion/lib/anticipo-pedido';
 import { useMemo } from 'react';
 
 /**
@@ -67,7 +68,7 @@ export function AnticipoPicker({
           </div>
           <p className="text-sm tabular-nums">
             Saldo {a.saldo.toFixed(2)}
-            {a.pedidoOrigenRef ? ` · pedido ${a.pedidoOrigenRef}` : ''}
+            {etiquetaPedidoAnticipo(a)}
           </p>
         </div>
       )}

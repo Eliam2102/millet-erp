@@ -101,6 +101,7 @@ public sealed class LineaComprobacionGastosConfiguration : IEntityTypeConfigurat
         builder.Property(e => e.Moneda).HasMaxLength(3).IsRequired();
 
         builder.Property(e => e.Concepto).HasMaxLength(400);
+        builder.Property(e => e.ClasificacionNoDeducible).HasMaxLength(40);
 
         builder.HasIndex(e => e.FacturaProveedorId)
             .HasDatabaseName("ux_linea_comp_factura")

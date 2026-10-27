@@ -24,6 +24,9 @@ public sealed class AutorizacionVentaActivoConfiguration : IEntityTypeConfigurat
         builder.Property(e => e.DepreciacionAcumulada).HasPrecision(18, 2).IsRequired();
         builder.Property(e => e.EsImportacion).IsRequired();
         builder.Property(e => e.PrecioVenta).HasPrecision(18, 2).IsRequired();
+        builder.Property(e => e.Motivo).HasConversion<short>().IsRequired();
+        builder.Property(e => e.SolicitadoPor).HasMaxLength(200).IsRequired();
+        builder.Property(e => e.Evidencia).IsRequired();
         builder.Property(e => e.AutorizadoPor).IsRequired();
         builder.Property(e => e.FechaAutorizacion).IsRequired();
         builder.Property(e => e.Estado).HasConversion<short>().IsRequired();

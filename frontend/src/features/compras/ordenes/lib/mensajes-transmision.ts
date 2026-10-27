@@ -20,7 +20,7 @@ const MENSAJES_TRANSMISION: Readonly<Record<string, string>> = {
   OC_MOTIVO_SIN_RQ_REQUERIDO:
     'Esta orden no tiene requisición previa. Captura el motivo en la pestaña Información antes de enviarla a autorización.',
   OC_TRANSMITIR_BORRADOR_MINIMO:
-    'Faltan datos de la cabecera: proveedor, condiciones de pago o uso principal. Complétalos en la pestaña Información antes de enviar la orden.',
+    'Faltan datos de la cabecera: proveedor, condiciones de pago o uso interno de la compra. Complétalos en la pestaña Información antes de enviar la orden.',
   // El servidor nombra las partidas sin precio; el texto de aquí es solo fallback.
   OC_PRECIO_REQUERIDO:
     'Captura el precio de las partidas sin precio antes de enviar a autorización.',

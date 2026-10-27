@@ -1,12 +1,15 @@
 using FluentValidation;
 using MediatR;
 using Microsoft.EntityFrameworkCore;
+using Millet.CuentasPorPagar.Application.Catalogos.ClasificacionesNoDeducibles;
 using Millet.CuentasPorPagar.Application.Common;
+using Millet.CuentasPorPagar.Application.Integration;
 using Millet.CuentasPorPagar.Domain.FacturaProveedor;
 using Millet.CuentasPorPagar.Domain.TarjetaCredito;
 using Millet.CuentasPorPagar.Infrastructure.Persistence;
 using Millet.SharedKernel.Application;
 using Millet.SharedKernel.Application.Exceptions;
+using Millet.SharedKernel.Application.Integration;
 
 namespace Millet.CuentasPorPagar.Application.TarjetaCredito.Movimientos;
 
@@ -30,15 +33,19 @@ public sealed record MovimientoTcResponse(
     string MerchantNormalizado,
     Guid? FacturaProveedorId,
     string ConceptoContable,
-    int Version);
+    int Version,
+    string? ClasificacionNoDeducible = null,
+    decimal IvaNoAcreditable = 0m);
 
 internal static class MovimientoTcMapper
 {
-    public static MovimientoTcResponse ToResponse(MovimientoTarjetaCredito m) =>
+    /// <param name="ivaNoAcreditable">IVA de la factura ligada si el cargo es no deducible; sin CFDI no hay desglose y queda en 0.</param>
+    public static MovimientoTcResponse ToResponse(MovimientoTarjetaCredito m, decimal ivaNoAcreditable = 0m) =>
         new(m.Id, m.TarjetaId, m.UsuarioQueUsoId, m.FechaMovimiento,
             m.Tipo, m.Estado, m.MontoOriginal, m.MonedaOriginal,
             m.TipoCambioCaptura, m.MontoMxn, m.MerchantNormalizado,
-            m.FacturaProveedorId, m.ConceptoContable, m.Version);
+            m.FacturaProveedorId, m.ConceptoContable, m.Version,
+            m.ClasificacionNoDeducible, ivaNoAcreditable);
 }
 
 // --------------------------------------------------- Flujo A: con CFDI
@@ -65,7 +72,9 @@ public sealed record RegistrarMovimientoTcConCfdiCommand(
     decimal ImpuestosTrasladados,
     decimal Retenciones,
     decimal TotalFactura,
-    DateOnly FechaVencimiento) : IRequest<MovimientoTcResponse>;
+    DateOnly FechaVencimiento,
+    // P8.6: si viene, el CFDI es no deducible y su IVA va a «IVA no acreditable».
+    string? ClasificacionNoDeducible = null) : IRequest<MovimientoTcResponse>;
 
 public sealed class RegistrarMovimientoTcConCfdiValidator : AbstractValidator<RegistrarMovimientoTcConCfdiCommand>
 {
@@ -99,14 +108,16 @@ public sealed class RegistrarMovimientoTcConCfdiHandler
     private readonly ICurrentEmpresaContext _currentEmpresa;
     private readonly ICurrentUserContext _currentUser;
     private readonly IClock _clock;
+    private readonly IIntegrationEventPublisher _events;
 
     public RegistrarMovimientoTcConCfdiHandler(
         CuentasPorPagarDbContext db,
         ICurrentEmpresaContext currentEmpresa,
         ICurrentUserContext currentUser,
-        IClock clock)
+        IClock clock,
+        IIntegrationEventPublisher events)
     {
-        _db = db; _currentEmpresa = currentEmpresa; _currentUser = currentUser; _clock = clock;
+        _db = db; _currentEmpresa = currentEmpresa; _currentUser = currentUser; _clock = clock; _events = events;
     }
 
     public async Task<MovimientoTcResponse> Handle(
@@ -151,6 +162,12 @@ public sealed class RegistrarMovimientoTcConCfdiHandler
         if (yaCapturado)
             throw new BusinessRuleException("TC_MOV_FACTURA_DUPLICADA",
                 $"El CFDI {uuidNorm} ya está capturado como factura.");
+        if ((await Viaticos.UuidViaticosPendienteValidador.BuscarAsync(_db, new[] { uuidNorm }, Guid.Empty, cancellationToken)).Count > 0)
+            throw new BusinessRuleException("TC_MOV_FACTURA_DUPLICADA",
+                $"El CFDI {uuidNorm} ya está comprobado en una solicitud de viáticos.");
+
+        var clasificacion = await ClasificacionNoDeducibleValidador.ResolverAsync(
+            _db, command.ClasificacionNoDeducible, obligatoria: false, "TC_MOV_CLASIFICACION_INVALIDA", cancellationToken);
 
         var ahora = _clock.UtcNow;
 
@@ -179,6 +196,7 @@ public sealed class RegistrarMovimientoTcConCfdiHandler
         // su MetodoPago se copia antes de la transición.
         cfdi.MarcarConvertidoEnPasivo(factura.Id);
         factura.AsignarMetodoPago(cfdi.MetodoPago);
+        if (clasificacion is not null) factura.MarcarNoDeducible(clasificacion); // antes de Autorizar: luego es inmutable
 
         // La deuda con el proveedor se considera saldada: la TC ya pagó.
         // La autorización + el ImportePagado se manejan vía la transición.
@@ -200,12 +218,24 @@ public sealed class RegistrarMovimientoTcConCfdiHandler
             cfdiRecibidoId: command.CfdiRecibidoId,
             facturaProveedorId: factura.Id,
             proveedorId: command.ProveedorId,
-            conceptoContable: command.ConceptoContable);
+            conceptoContable: command.ConceptoContable,
+            clasificacionNoDeducible: clasificacion);
 
         _db.MovimientosTarjetaCredito.Add(mov);
+
+        // Antes de SaveChanges: el outbox lo persiste en la misma TX.
+        await _events.PublishAsync(new GastoRegistradoIntegrationEvent(
+            EmpresaId: empresaId, OcurridoEn: ahora, Origen: GastoRegistradoIntegrationEvent.OrigenTarjeta,
+            DocumentoId: mov.Id, LineaId: null, FacturaProveedorId: factura.Id,
+            Fecha: command.FechaMovimiento, ProveedorId: command.ProveedorId, ProveedorRfc: cfdi.RfcEmisor.Valor,
+            Uuid: uuidNorm, Deducible: clasificacion is null, ClasificacionNoDeducible: factura.ClasificacionNoDeducible,
+            Subtotal: factura.Subtotal, IvaTrasladado: factura.ImpuestosTrasladados,
+            IvaNoAcreditable: factura.IvaNoAcreditable, Total: factura.Total,
+            Moneda: command.MonedaOriginal, TipoCambio: command.TipoCambioCaptura,
+            ConceptoContable: command.ConceptoContable), cancellationToken);
         await _db.SaveChangesAsync(cancellationToken);
 
-        return MovimientoTcMapper.ToResponse(mov);
+        return MovimientoTcMapper.ToResponse(mov, factura.IvaNoAcreditable);
     }
 }
 
@@ -221,7 +251,9 @@ public sealed record RegistrarMovimientoTcSinCfdiCommand(
     string MerchantRaw,
     string? DescripcionLibre,
     string ConceptoContable,
-    string? TicketBlobRef) : IRequest<MovimientoTcResponse>;
+    string? TicketBlobRef,
+    // P8.6: obligatoria (sin CFDI el cargo es no deducible); se valida en el handler → 422 TC_MOV_CLASIFICACION_INVALIDA.
+    string? ClasificacionNoDeducible = null) : IRequest<MovimientoTcResponse>;
 
 public sealed class RegistrarMovimientoTcSinCfdiValidator : AbstractValidator<RegistrarMovimientoTcSinCfdiCommand>
 {
@@ -241,11 +273,14 @@ public sealed class RegistrarMovimientoTcSinCfdiHandler
 {
     private readonly CuentasPorPagarDbContext _db;
     private readonly ICurrentEmpresaContext _currentEmpresa;
+    private readonly IIntegrationEventPublisher _events;
+    private readonly IClock _clock;
 
     public RegistrarMovimientoTcSinCfdiHandler(
-        CuentasPorPagarDbContext db, ICurrentEmpresaContext currentEmpresa)
+        CuentasPorPagarDbContext db, ICurrentEmpresaContext currentEmpresa,
+        IIntegrationEventPublisher events, IClock clock)
     {
-        _db = db; _currentEmpresa = currentEmpresa;
+        _db = db; _currentEmpresa = currentEmpresa; _events = events; _clock = clock;
     }
 
     public async Task<MovimientoTcResponse> Handle(
@@ -261,6 +296,9 @@ public sealed class RegistrarMovimientoTcSinCfdiHandler
             ?? throw new EntityNotFoundException("TC_NO_ENCONTRADA",
                 $"No se encontró la tarjeta '{command.TarjetaId}'.");
 
+        var clasificacion = await ClasificacionNoDeducibleValidador.ResolverAsync(
+            _db, command.ClasificacionNoDeducible, obligatoria: true, "TC_MOV_CLASIFICACION_INVALIDA", cancellationToken);
+
         var mov = MovimientoTarjetaCredito.CapturarCompraSinCfdi(
             empresaId: empresaId,
             tarjeta: tarjeta,
@@ -272,12 +310,23 @@ public sealed class RegistrarMovimientoTcSinCfdiHandler
             merchantRaw: command.MerchantRaw,
             descripcionLibre: command.DescripcionLibre,
             conceptoContable: command.ConceptoContable,
-            ticketBlobRef: command.TicketBlobRef);
+            ticketBlobRef: command.TicketBlobRef,
+            clasificacionNoDeducible: clasificacion);
 
         _db.MovimientosTarjetaCredito.Add(mov);
+        await _events.PublishAsync(GastoSinCfdi(mov, _clock.UtcNow, GastoRegistradoIntegrationEvent.OrigenTarjeta), cancellationToken);
         await _db.SaveChangesAsync(cancellationToken);
         return MovimientoTcMapper.ToResponse(mov);
     }
+
+    /// <summary>Gasto sin CFDI (siempre no deducible, sin desglose de IVA); también lo usa la captura retroactiva.</summary>
+    internal static GastoRegistradoIntegrationEvent GastoSinCfdi(MovimientoTarjetaCredito mov, DateTimeOffset ahora, string origen) =>
+        new(EmpresaId: mov.EmpresaId, OcurridoEn: ahora, Origen: origen,
+            DocumentoId: mov.Id, LineaId: null, FacturaProveedorId: null,
+            Fecha: mov.FechaMovimiento, ProveedorId: null, ProveedorRfc: null,
+            Uuid: null, Deducible: mov.ClasificacionNoDeducible is null, ClasificacionNoDeducible: mov.ClasificacionNoDeducible,
+            Subtotal: mov.MontoOriginal, IvaTrasladado: 0m, IvaNoAcreditable: 0m, Total: mov.MontoOriginal,
+            Moneda: mov.MonedaOriginal, TipoCambio: mov.TipoCambioCaptura, ConceptoContable: mov.ConceptoContable);
 }
 
 // --------------------------------------------------- Listar
@@ -324,8 +373,14 @@ public sealed class ListarMovimientosTcHandler
             .Skip(offset).Take(limit)
             .ToListAsync(cancellationToken);
 
+        var facturaIds = items.Where(m => m.ClasificacionNoDeducible != null && m.FacturaProveedorId != null)
+            .Select(m => m.FacturaProveedorId!.Value).ToList();
+        var iva = facturaIds.Count == 0 ? new Dictionary<Guid, decimal>() : await _db.FacturasProveedor.AsNoTracking()
+            .Where(f => facturaIds.Contains(f.Id)).ToDictionaryAsync(f => f.Id, f => f.ImpuestosTrasladados, cancellationToken);
+
         return new PagedResponse<MovimientoTcResponse>(
-            items.Select(MovimientoTcMapper.ToResponse).ToList(),
+            items.Select(m => MovimientoTcMapper.ToResponse(m,
+                m.FacturaProveedorId is Guid fid && iva.TryGetValue(fid, out var v) ? v : 0m)).ToList(),
             offset, limit, total);
     }
 }

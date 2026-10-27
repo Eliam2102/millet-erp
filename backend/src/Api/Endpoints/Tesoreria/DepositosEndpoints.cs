@@ -54,6 +54,14 @@ public static class DepositosEndpoints
         .WithName("ListarDepositosConfirmacion")
         .Produces<PagedResponse<DepositoConfirmacionResponse>>(StatusCodes.Status200OK);
 
+        // C7.4 (CA7.9): «Sin identificar» visible para Tesorería con su permiso de lectura de
+        // movimientos (ya existente). Alcance por sucursal en el handler (ADR-0051).
+        depositos.MapGet("/sin-identificar", async (IMediator mediator, CancellationToken cancellationToken) =>
+            Results.Ok(await mediator.Send(new DepositosSinIdentificarQuery(), cancellationToken)))
+        .RequireAuthorization(PermissionPolicyProvider.Prefix + PermisosCanonicos.TesoreriaMovimientosVer)
+        .WithName("ListarDepositosSinIdentificarTesoreria")
+        .Produces<IReadOnlyList<DepositoSinIdentificarResponse>>(StatusCodes.Status200OK);
+
         depositos.MapPost("/{id:guid}/confirmar", async (
             Guid id,
             [FromHeader(Name = "X-Expected-Version")] int? expectedVersion,

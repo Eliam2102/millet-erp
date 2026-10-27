@@ -11,6 +11,7 @@ import { ArrowLeft, CheckCircle2, Paperclip, Send, Unlock, XCircle } from 'lucid
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
+import { NoDeducibleBadge } from '@/features/cxp/components/NoDeducibleBadge';
 import { etiquetaAviso } from '@/features/cxp/lib/sla-revision';
 import { ErrorState, DetalleSkeleton, AvisoEnLinea } from '@/components/erp';
 import {
@@ -319,6 +320,18 @@ export function FacturaDetallePage() {
             </div>
             <Campo label="Recepción" valor={query.data.recepcionFolio?.trim() || '—'} mono />
             <Campo label="UUID CFDI" valor={query.data.uuidCfdi ?? '—'} mono />
+            {query.data.clasificacionNoDeducible && (
+              <div>
+                <dt className="text-xs text-muted-foreground">Deducibilidad</dt>
+                <dd>
+                  <NoDeducibleBadge
+                    clasificacion={query.data.clasificacionNoDeducible}
+                    ivaNoAcreditable={query.data.ivaNoAcreditable}
+                    moneda={query.data.moneda}
+                  />
+                </dd>
+              </div>
+            )}
             <Campo label="Moneda" valor={query.data.moneda} />
             <Campo
               label="Tipo de cambio"
@@ -541,7 +554,7 @@ function Campo({ label, valor, mono }: CampoProps) {
   return (
     <div>
       <dt className="text-xs text-muted-foreground">{label}</dt>
-      <dd className={cn('text-sm', mono && 'break-all font-mono text-xs')}>{valor}</dd>
+      <dd className={cn('text-sm [overflow-wrap:anywhere]', mono && 'break-all font-mono text-xs')}>{valor}</dd>
     </div>
   );
 }

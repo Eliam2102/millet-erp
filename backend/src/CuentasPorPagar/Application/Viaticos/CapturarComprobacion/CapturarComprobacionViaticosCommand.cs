@@ -1,6 +1,7 @@
 using FluentValidation;
 using MediatR;
 using Microsoft.EntityFrameworkCore;
+using Millet.CuentasPorPagar.Application.Catalogos.ClasificacionesNoDeducibles;
 using Millet.CuentasPorPagar.Domain.Cfdi;
 using Millet.CuentasPorPagar.Domain.Viaticos;
 using Millet.CuentasPorPagar.Infrastructure.Persistence;
@@ -31,7 +32,9 @@ public sealed record CapturarLineaViaticosInput(
     decimal Total,
     string Moneda,
     string Concepto,
-    bool EsTicketNoFiscal);
+    bool EsTicketNoFiscal,
+    // P8.6: obligatoria en ticket no fiscal; en línea con CFDI marca el gasto como no deducible.
+    string? ClasificacionNoDeducible = null);
 
 public sealed record CapturarComprobacionViaticosResponse(
     Guid Id,
@@ -139,7 +142,43 @@ public sealed class CapturarComprobacionViaticosHandler
             }
         }
 
-        var dominioLineas = command.Lineas.Select(l => new LineaComprobacionViaticosInput(
+        // CA8.15: avisar al capturar (no solo al liberar) si el UUID ya es una factura viva
+        // (las Canceladas no cuentan, P7-H1). Liberar conserva su propio chequeo.
+        var uuids = command.Lineas
+            .Select(l => l.UuidCfdi ?? (l.CfdiRecibidoId is Guid id ? cfdisPorId[id].UuidCfdi.Valor : null))
+            .Where(u => !string.IsNullOrWhiteSpace(u))
+            .Select(u => u!.Trim().ToUpperInvariant())
+            .ToList();
+        if (uuids.Distinct(StringComparer.Ordinal).Count() != uuids.Count)
+            throw new BusinessRuleException(
+                "VIA_LINEA_FACTURA_DUPLICADA",
+                "La comprobación tiene CFDIs con UUID duplicado.");
+        if (uuids.Count > 0)
+        {
+            var yaCapturados = await _db.FacturasProveedor.AsNoTracking()
+                .Where(f => f.UuidCfdi != null && uuids.Contains(f.UuidCfdi)
+                    && f.Estado != Domain.FacturaProveedor.EstadoPasivo.Cancelada)
+                .Select(f => f.UuidCfdi!)
+                .ToListAsync(cancellationToken);
+            if (yaCapturados.Count > 0)
+                throw new BusinessRuleException(
+                    "VIA_LINEA_FACTURA_DUPLICADA",
+                    $"Los CFDIs {string.Join(", ", yaCapturados)} ya están capturados como facturas.");
+
+            // Su factura se genera hasta liberar: otro viático pendiente con el mismo UUID colisionaría ahí.
+            var enOtroViatico = await UuidViaticosPendienteValidador.BuscarAsync(_db, uuids, s.Id, cancellationToken);
+            if (enOtroViatico.Count > 0)
+                throw new BusinessRuleException(
+                    "VIA_LINEA_FACTURA_DUPLICADA",
+                    $"Los CFDIs {string.Join(", ", enOtroViatico)} ya están comprobados en otra solicitud de viáticos.");
+        }
+
+        var clasificaciones = new List<string?>(command.Lineas.Count);
+        foreach (var linea in command.Lineas)
+            clasificaciones.Add(await ClasificacionNoDeducibleValidador.ResolverAsync(
+                _db, linea.ClasificacionNoDeducible, linea.EsTicketNoFiscal, "VIA_LINEA_CLASIFICACION_REQUERIDA", cancellationToken));
+
+        var dominioLineas = command.Lineas.Select((l, i) => new LineaComprobacionViaticosInput(
             CfdiRecibidoId: l.CfdiRecibidoId,
             UuidCfdi: l.UuidCfdi
                 ?? (l.CfdiRecibidoId is Guid id ? cfdisPorId[id].UuidCfdi.Valor : null),
@@ -152,7 +191,8 @@ public sealed class CapturarComprobacionViaticosHandler
             Total: l.Total,
             Moneda: l.Moneda,
             Concepto: l.Concepto,
-            EsTicketNoFiscal: l.EsTicketNoFiscal));
+            EsTicketNoFiscal: l.EsTicketNoFiscal,
+            ClasificacionNoDeducible: clasificaciones[i])).ToList();
 
         s.CapturarComprobacion(dominioLineas, _clock.UtcNow);
         await _db.SaveChangesAsync(cancellationToken);

@@ -46,6 +46,7 @@ public sealed partial class DemoSesionSeedHostedService
                 CapturistaComprasDemoId, CapturistaComprasDemoId, new DateOnly(2026, 1, 1), sinRequisicionPrevia: true, observaciones: "OC mixta DEMO: inventario y activo fijo", motivoSinRequisicion: "Demostración AF");
             oc.AgregarLineaManual(Id("DEMO-AF-SILICON"), articulo.Id, 10, "PZA", 100, departamento.Id, descripcionExtendida: "10 cajas de silicón DEMO");
             oc.AgregarLineaManual(Id("DEMO-AF-MONTACARGAS"), articulo.Id, 1, "PZA", 500000, departamento.Id, descripcionExtendida: "Montacargas DEMO", esActivoFijo: true, claseActivoId: clases["154"].Id);
+            oc.ActualizarDatosFactura("G03", "PPD", "99");
             oc.RecalcularImpuestos(); oc.EnviarAAutorizacion(Fecha);
             oc.Autorizar(Id("DEMO-AF-N1"), NivelAutorizacion.Nivel1, JefeComprasDemoId, Fecha, "Autorización DEMO");
             oc.Autorizar(Id("DEMO-AF-N2"), NivelAutorizacion.Nivel2, DireccionDemoId, Fecha, "Autorización DEMO");

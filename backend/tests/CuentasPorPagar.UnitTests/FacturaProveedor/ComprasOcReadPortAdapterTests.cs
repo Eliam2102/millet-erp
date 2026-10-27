@@ -83,6 +83,7 @@ public sealed class ComprasOcReadPortAdapterTests
         // Atajo a Autorizada: enviar + N1 + N2 (las invariantes de
         // adjuntos viven en Application, no en el agregado).
         var ahora = DateTimeOffset.UtcNow;
+        oc.ActualizarDatosFactura("G03", "PPD", "99");
         oc.EnviarAAutorizacion(ahora);
         oc.Autorizar(Guid.CreateVersion7(), NivelAutorizacion.Nivel1, Guid.CreateVersion7(), ahora);
         oc.Autorizar(Guid.CreateVersion7(), NivelAutorizacion.Nivel2, Guid.CreateVersion7(), ahora);

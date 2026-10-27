@@ -83,6 +83,8 @@ export const cxcKeys = {
   facturasAbiertas: (clienteId: string, moneda: string | null) =>
     [...cxcKeys.cartera(), 'facturas-abiertas', { clienteId, moneda }] as const,
   tolerancias: () => [...cxcKeys.propuestas(), 'tolerancias'] as const,
+  // C7.4: depósitos de cliente sin identificar (Tesorería → CxC por puerto).
+  depositosPorIdentificar: () => [...cxcKeys.propuestas(), 'depositos-por-identificar'] as const,
 
   // Alertas de cartera (CXC-FE-PR7)
   alertas: () => [...cxcKeys.all, 'alertas'] as const,

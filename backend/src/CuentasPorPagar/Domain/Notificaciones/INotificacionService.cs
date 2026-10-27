@@ -15,9 +15,9 @@ namespace Millet.CuentasPorPagar.Domain.Notificaciones;
 public interface INotificacionService
 {
     /// <summary>
-    /// Envía una notificación de SLA cumplido. La implementación real
-    /// resuelve el destinatario por dependencia + nivel (gerente o
-    /// director) y selecciona el canal (email del módulo Notificaciones).
+    /// Envía una notificación de SLA cumplido. La implementación resuelve los
+    /// destinatarios (Contador General siempre; Compras si
+    /// <see cref="SlaRevisionNotificacion.AvisaCompras"/>) y el canal.
     /// </summary>
     Task NotificarSlaRevisionAsync(SlaRevisionNotificacion notificacion, CancellationToken cancellationToken);
 }
@@ -29,16 +29,19 @@ public sealed record SlaRevisionNotificacion(
     Guid MotivoRevisionId,
     int DiasEnRevision,
     int SlaDias,
-    NivelEscalamientoSla Nivel);
+    NivelEscalamientoSla Nivel,
+    string? Folio,
+    string MotivoNombre,
+    bool AvisaCompras);
 
 public enum NivelEscalamientoSla
 {
-    /// <summary>Día hábil 3 (o 8 para SLA 15): aviso al gerente del área revisora.</summary>
+    /// <summary>Día hábil 3 (o 8 para SLA 15): primer aviso.</summary>
     AvisoGerente   = 1,
 
-    /// <summary>Día hábil 5 (o 12 para SLA 15): SLA vencido + alerta visible en bandeja.</summary>
+    /// <summary>Día hábil 5 (o 12 para SLA 15): SLA vencido; alerta visible en bandeja.</summary>
     SlaVencido     = 2,
 
-    /// <summary>Día 10 hábil (20 para SLA 15): escalamiento a Dirección de Finanzas.</summary>
+    /// <summary>Día 10 hábil (20 para SLA 15): último escalamiento (Dirección de Finanzas pendiente de destinatario, PLATFORM-TODO(&lt;NotificacionesGlobal&gt;)).</summary>
     EscalamientoDirector = 3,
 }

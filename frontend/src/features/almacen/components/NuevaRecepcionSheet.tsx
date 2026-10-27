@@ -97,6 +97,8 @@ import { Field } from '@/features/almacen/components/internal/Field';
 export interface NuevaRecepcionSheetProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
+  /** Siembra la OC al abrir (p. ej. al capturar la recepción correcta tras cancelar una). */
+  ordenCompraIdInicial?: string;
 }
 
 type Variante = 'A' | 'B';
@@ -108,7 +110,11 @@ interface PackingListAdjunto {
   contentType: string;
 }
 
-export function NuevaRecepcionSheet({ open, onOpenChange }: NuevaRecepcionSheetProps) {
+export function NuevaRecepcionSheet({
+  open,
+  onOpenChange,
+  ordenCompraIdInicial,
+}: NuevaRecepcionSheetProps) {
   // Los gestos de cerrar (Esc, clic fuera, X y Cancelar) piden confirmación si
   // hay cambios (useConfirmarDescarte). El registro exitoso cierra con force.
   const { setDirty, solicitarCierre, dialogo } = useConfirmarDescarte(() => onOpenChange(false));
@@ -127,6 +133,7 @@ export function NuevaRecepcionSheet({ open, onOpenChange }: NuevaRecepcionSheetP
 
         {open && (
           <NuevaRecepcionFormBody
+            ordenCompraIdInicial={ordenCompraIdInicial}
             onSuccess={cerrarTrasRegistro}
             onCancel={() => solicitarCierre()}
             onDirtyChange={setDirty}
@@ -162,10 +169,12 @@ const TITULOS_CALLOUT: Record<string, string> = {
 };
 
 function NuevaRecepcionFormBody({
+  ordenCompraIdInicial,
   onSuccess,
   onCancel,
   onDirtyChange,
 }: {
+  ordenCompraIdInicial?: string;
   onSuccess: () => void;
   onCancel: () => void;
   onDirtyChange: (dirty: boolean) => void;
@@ -192,7 +201,7 @@ function NuevaRecepcionFormBody({
 
   const form = useForm<RecepcionFormValues>({
     resolver,
-    defaultValues: defaultValuesParaVariante('A', hoyIso),
+    defaultValues: defaultValuesParaVariante('A', hoyIso, ordenCompraIdInicial),
   });
 
   // El packing list adjunto vive fuera de RHF: cuenta como cambio sin guardar.
@@ -222,7 +231,7 @@ function NuevaRecepcionFormBody({
     setVariante(siguiente);
     setPackingListAdjunto(null);
     setCapturaUuidManual(false);
-    form.reset(defaultValuesParaVariante(siguiente, hoyIso));
+    form.reset(defaultValuesParaVariante(siguiente, hoyIso, ordenCompraIdInicial));
   }
 
   // ── Helper de cabecera nivel 4 (bin por defecto) ─────────────────────────
@@ -1232,9 +1241,13 @@ type RecepcionFormValues = {
   filas: FilaRecepcionValues[];
 };
 
-function defaultValuesParaVariante(variante: Variante, hoyIso: string): RecepcionFormValues {
+function defaultValuesParaVariante(
+  variante: Variante,
+  hoyIso: string,
+  ordenCompraId = '',
+): RecepcionFormValues {
   const base: RecepcionFormValues = {
-    ordenCompraId: '',
+    ordenCompraId,
     fechaMovimiento: hoyIso,
     observaciones: null,
     ubicacionHelperId: null,

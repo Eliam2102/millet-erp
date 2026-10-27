@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
+  autorizacionVoucherInvalida,
   esFormaTarjeta,
   faltaVoucherTarjeta,
   formasPagoCaja,
@@ -32,9 +33,10 @@ describe('CA1.10 · formas de pago de Caja', () => {
 });
 
 describe('FIX-12 · voucher obligatorio en cobros con tarjeta', () => {
-  it('reconoce tarjeta de crédito (04) y de débito (28)', () => {
+  it('reconoce tarjeta de crédito (04), débito (28) y servicios (29)', () => {
     expect(esFormaTarjeta('04')).toBe(true);
     expect(esFormaTarjeta('28')).toBe(true);
+    expect(esFormaTarjeta('29')).toBe(true);
     expect(esFormaTarjeta('01')).toBe(false);
     expect(esFormaTarjeta('03')).toBe(false);
   });
@@ -43,5 +45,21 @@ describe('FIX-12 · voucher obligatorio en cobros con tarjeta', () => {
     expect(faltaVoucherTarjeta([{ formaPago: '04', referencia: null }])).toBe(true);
     expect(faltaVoucherTarjeta([{ formaPago: '28', referencia: '   ' }])).toBe(true);
     expect(faltaVoucherTarjeta([{ formaPago: '04', referencia: 'AUT-77' }])).toBe(false);
+  });
+});
+
+describe('86e3tfdvt · número de autorización del voucher', () => {
+  it.each(['4111111111111111', '4111 1111 1111 1111', '4111-1111-1111-1111', '12', 'AB$123'])(
+    'rechaza %s (no es una autorización; nunca el número de tarjeta)',
+    (v) => {
+      expect(autorizacionVoucherInvalida([{ formaPago: '04', referencia: v }])).toBe(true);
+    },
+  );
+  it.each(['123456', 'AUT-77', ' A1B2C3 '])('acepta %s', (v) => {
+    expect(autorizacionVoucherInvalida([{ formaPago: '28', referencia: v }])).toBe(false);
+  });
+  it('no valida formato fuera de tarjeta ni cuando aún está vacío', () => {
+    expect(autorizacionVoucherInvalida([{ formaPago: '03', referencia: '4111111111111111' }])).toBe(false);
+    expect(autorizacionVoucherInvalida([{ formaPago: '04', referencia: '' }])).toBe(false);
   });
 });
