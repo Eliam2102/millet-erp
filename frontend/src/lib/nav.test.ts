@@ -358,3 +358,14 @@ describe('contextoNavegacion del shell', () => {
     );
   });
 });
+
+describe('Contabilidad · Motor contable (C1.4)', () => {
+  it('la sección Pólizas ofrece el motor, gateado por contabilidad.motor.leer', () => {
+    const contab = navSidebarItems.find((i) => i.kind === 'modulo' && i.moduloId === 'contabilidad');
+    if (contab?.kind !== 'modulo') throw new Error('contabilidad no es módulo');
+    const polizas = contab.secciones.find((s) => s.label === 'Pólizas');
+    const motor = polizas?.cards.find((c) => c.to === '/contabilidad/motor');
+    expect(motor?.label).toBe('Motor contable');
+    expect(motor?.permission).toBe(PermisosCanonicos.ContabilidadMotorLeer);
+  });
+});

@@ -2,6 +2,7 @@ using System.Net;
 using System.Net.Http.Json;
 using System.Text.Json;
 using Microsoft.AspNetCore.Mvc.Testing;
+using Microsoft.AspNetCore.TestHost;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Millet.Contabilidad.Application.Polizas;
@@ -465,6 +466,110 @@ public class PolizasHttpTests(WebApplicationFactory<Program> factory)
             Assert.Equal($"Anulación de {e.Clave}-000001", detalle.GetProperty("concepto").GetString());
             Assert.Equal("Automatica", detalle.GetProperty("origen").GetString());
             Assert.Equal(-116m, detalle.GetProperty("totalCargos").GetDecimal());
+        }
+        finally { await LimpiarAsync(e); }
+    }
+
+    // ── C1.4: defectos del puerto que pidió Eliam ───────────────────────────
+
+    [Fact]
+    public async Task C14g_el_motor_sin_usuario_toma_folio_y_periodo_de_la_empresa_del_evento()
+    {
+        // Defecto 1: un listener corre sin usuario (Bypass); antes ReservarNumeroAsync lanzaba MissingEmpresaContextException.
+        Escenario? e = null;
+        try
+        {
+            e = await CrearEscenarioAsync();
+            using var scope = factory.Services.CreateScope();
+            using var bypass = scope.ServiceProvider.GetRequiredService<Millet.SharedKernel.Application.ICurrentEmpresaContext>().Bypass();
+            var puerto = scope.ServiceProvider.GetRequiredService<IPolizaContablePort>();
+
+            var p = await puerto.RegistrarAutomaticaAsync(Automatica(e, Hoy(), Guid.NewGuid()) with { EmpresaId = EmpresaBootstrapId }, default);
+
+            Assert.Equal($"{e.Clave}-000001", p.Folio);
+            Assert.Equal(EstadoPoliza.Autorizada, p.Estado);
+            var db = scope.ServiceProvider.GetRequiredService<ContabilidadDbContext>();
+            var guardada = await db.Polizas.AsNoTracking().Include(x => x.Partidas).SingleAsync(x => x.Id == p.Id);
+            Assert.Equal(EmpresaBootstrapId, guardada.EmpresaId);
+            Assert.All(guardada.Partidas, x => Assert.Equal(EmpresaBootstrapId, x.EmpresaId));
+        }
+        finally { await LimpiarAsync(e); }
+    }
+
+    [Fact]
+    public async Task C14_lo_que_agrega_el_observador_al_registrar_queda_guardado_con_la_poliza()
+    {
+        // Hallazgo de K10.5 en #235: el observador se avisaba después del último SaveChanges y su entidad no se persistía.
+        Escenario? e = null;
+        var codigo = $"FIX_OBS_{Sufijo()}";
+        try
+        {
+            e = await CrearEscenarioAsync();
+            using var conObservador = factory.WithWebHostBuilder(b => b.ConfigureTestServices(s =>
+                s.AddScoped<IPolizaAutomaticaObservador>(sp => new ObservadorQueAgregaRol(sp.GetRequiredService<ContabilidadDbContext>(), codigo))));
+            using var scope = conObservador.Services.CreateScope();
+            using var bypass = scope.ServiceProvider.GetRequiredService<Millet.SharedKernel.Application.ICurrentEmpresaContext>().Bypass();
+            var puerto = scope.ServiceProvider.GetRequiredService<IPolizaContablePort>();
+
+            var p = await puerto.RegistrarAutomaticaAsync(Automatica(e, Hoy(), Guid.NewGuid()) with { EmpresaId = EmpresaBootstrapId }, default);
+
+            using var lectura = factory.Services.CreateScope();
+            var db = lectura.ServiceProvider.GetRequiredService<ContabilidadDbContext>();
+            Assert.True(await db.Polizas.IgnoreQueryFilters().AnyAsync(x => x.Id == p.Id));
+            Assert.True(await db.RolesCuenta.IgnoreQueryFilters().AnyAsync(r => r.Codigo == codigo), "El rol que agregó el observador no quedó guardado.");
+        }
+        finally
+        {
+            using (var scope = factory.Services.CreateScope())
+                await scope.ServiceProvider.GetRequiredService<ContabilidadDbContext>().RolesCuenta.IgnoreQueryFilters()
+                    .Where(r => r.Codigo == codigo).ExecuteDeleteAsync();
+            await LimpiarAsync(e);
+        }
+    }
+
+    /// <summary>Observador de prueba: escribe en el mismo contexto, como hará el auxiliar de la cuenta puente (K10.5).</summary>
+    private sealed class ObservadorQueAgregaRol(ContabilidadDbContext db, string codigo) : IPolizaAutomaticaObservador
+    {
+        public Task PolizaRegistradaAsync(PolizaAutomaticaRegistrada poliza, CancellationToken ct)
+        {
+            var rol = RolCuenta.Crear(Guid.CreateVersion7(), codigo, "FIX rol del observador", null, null, null, poliza.Fecha);
+            rol.EmpresaId = poliza.EmpresaId;
+            db.RolesCuenta.Add(rol);
+            return Task.CompletedTask;
+        }
+    }
+
+    [Fact]
+    public async Task C14_una_automatica_valida_cada_partida_con_su_origen_clientes_y_proveedores_en_la_misma_poliza()
+    {
+        // Defecto 2: antes toda la póliza automática se validaba con un solo origen (AuxiliarCxP) y la cuenta de clientes fallaba.
+        Escenario? e = null;
+        try
+        {
+            e = await CrearEscenarioAsync();
+            var raiz = Id(await CrearCuenta(e.Admin, Codigo(e.Suf, "1"), "FIX control"));
+            var clientes = Id(await CrearCuenta(e.Admin, Codigo(e.Suf, "1.1"), "FIX clientes", raiz, control: "Clientes"));
+            var proveedores = Id(await CrearCuenta(e.Admin, Codigo(e.Suf, "1.2"), "FIX proveedores", raiz, naturaleza: "Acreedora", control: "Proveedores"));
+            var (proveedor, cliente) = await MotorTerceros.SembrarAsync(factory);
+            using var enEmpresa = factory.ConEmpresa(EmpresaBootstrapId);
+            using var scope = enEmpresa.Services.CreateScope();
+            var puerto = scope.ServiceProvider.GetRequiredService<IPolizaContablePort>();
+            SolicitudPolizaAutomatica Cruce(OrigenMovimiento origenClientes) => new(
+                e.Clave, Hoy(), $"FIX cruce {e.Suf}",
+                new DocumentoOrigenPoliza("cuentas_por_cobrar", "aplicacion", Guid.NewGuid(), null, null),
+                $"fix.cruce:{Guid.NewGuid()}",
+                [
+                    new PartidaRequest(clientes, null, 500m, 0m, e.Sucursal, ClienteId: cliente, Origen: origenClientes),
+                    new PartidaRequest(proveedores, null, 0m, 500m, e.Sucursal, ProveedorId: proveedor, Origen: OrigenMovimiento.AuxiliarCxP),
+                ]);
+
+            var p = await puerto.RegistrarAutomaticaAsync(Cruce(OrigenMovimiento.AuxiliarCxC), default);
+            Assert.Equal(EstadoPoliza.Autorizada, p.Estado);
+
+            // La cuenta de clientes declarada como origen de proveedores se rechaza (R4: solo desde su módulo).
+            var ex = await Assert.ThrowsAsync<Millet.SharedKernel.Application.Exceptions.ValidationException>(
+                () => puerto.RegistrarAutomaticaAsync(Cruce(OrigenMovimiento.AuxiliarCxP), default));
+            Assert.Contains(ex.Errors, x => x.Field.StartsWith("partidas[0]", StringComparison.Ordinal));
         }
         finally { await LimpiarAsync(e); }
     }
