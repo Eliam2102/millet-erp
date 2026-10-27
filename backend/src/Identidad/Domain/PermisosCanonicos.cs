@@ -994,7 +994,7 @@ public static class PermisosCanonicos
         (Guid.Parse("0000000f-0001-0000-0000-000000000002"), ActivosFijosActivosVer, "Activos fijos: activos.ver"),
         (Guid.Parse("0000000f-0001-0000-0000-000000000003"), ActivosFijosActivosGestionar, "Activos fijos: activos.gestionar"),
         (Guid.Parse("0000000f-0001-0000-0000-000000000004"), ActivosFijosCapitalizar, "Activos fijos: capitalizar"),
-        (Guid.Parse("0000000f-0001-0000-0000-000000000005"), ActivosFijosTrasladosGestionar, "Activos fijos: traslados.gestionar"),
+        (Guid.Parse("0000000f-0001-0000-0000-000000000005"), ActivosFijosTrasladosGestionar, "Registrar el traslado de un activo a otra ubicación (Contador General)"),
         (Guid.Parse("0000000f-0001-0000-0000-000000000006"), ActivosFijosLeerTodasSucursales, "Activos fijos: activos.leer-todas-sucursales"),
         (Guid.Parse("0000000f-0001-0000-0000-000000000007"), ActivosFijosGestionarTodasSucursales, "Activos fijos: activos.gestionar-todas-sucursales"),
     };

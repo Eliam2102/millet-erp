@@ -5174,7 +5174,7 @@ namespace Millet.Identidad.Infrastructure.Migrations
                             Codigo = "activos_fijos.traslados.gestionar",
                             CreatedAt = new DateTimeOffset(new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
                             CreatedBy = "seed",
-                            Descripcion = "Activos fijos: traslados.gestionar",
+                            Descripcion = "Registrar el traslado de un activo a otra ubicación (Contador General)",
                             Modulo = "activos_fijos",
                             Recurso = "traslados",
                             UpdatedAt = new DateTimeOffset(new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
