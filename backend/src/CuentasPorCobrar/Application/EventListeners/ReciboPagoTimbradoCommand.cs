@@ -57,8 +57,17 @@ public sealed class ReciboPagoTimbradoHandler : IRequestHandler<ReciboPagoTimbra
         var p = request.Payload;
         if (p.MovimientoBancarioId is Guid movimientoId)
         {
-            var propuesta = await _db.PropuestasAplicacionPago.FirstOrDefaultAsync(
-                x => x.EmpresaId == p.EmpresaId && x.MovimientoBancarioId == movimientoId, cancellationToken)
+            // C7.4: con depósitos identificados por CxC varias propuestas pueden llevar el
+            // mismo movimiento (una rechazada y su re-propuesta, o el sobrante). El REP
+            // solo corresponde a la CONFIRMADA; primero la que aún no tiene REP.
+            // Con PropuestaId (C7.4) se correlaciona exacto: el mismo movimiento puede
+            // tener varios REP, uno por propuesta.
+            var propuesta = await _db.PropuestasAplicacionPago
+                .Where(x => x.EmpresaId == p.EmpresaId && x.MovimientoBancarioId == movimientoId
+                    && (p.PropuestaId == null || x.Id == p.PropuestaId)
+                    && x.Estado == Domain.AplicacionPagos.EstadoPropuestaAplicacion.Confirmada)
+                .OrderBy(x => x.ReppTimbrado).ThenBy(x => x.ResueltaEn)
+                .FirstOrDefaultAsync(cancellationToken)
                 ?? throw new EntityNotFoundException("PAP_CONFIRMACION_PENDIENTE", "La confirmación de Tesorería todavía no se ha recibido; se reintentará el REP.");
             propuesta.MarcarReppTimbrado();
         }

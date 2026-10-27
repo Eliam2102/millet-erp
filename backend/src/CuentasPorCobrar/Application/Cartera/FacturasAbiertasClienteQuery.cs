@@ -23,7 +23,13 @@ public sealed record FacturaAbiertaDto(
     decimal MontoNc,
     decimal Saldo,
     DateTimeOffset FechaTimbrado,
-    DateTimeOffset FechaVencimiento);
+    DateTimeOffset FechaVencimiento,
+    // C7.4: «parcialidad siguiente» (PPD; null en PUE) y lo disponible para aplicar
+    // (saldo − propuestas abiertas). En PPD el saldo y la parcialidad salen de
+    // Facturación (mismo cálculo que FacturasCobrablesPpdQuery); las propuestas
+    // abiertas de CxC (sin REP aún) suman a la parcialidad y restan del disponible.
+    int? NumParcialidadSiguiente = null,
+    decimal? Disponible = null);
 
 public sealed record FacturasAbiertasClienteQuery(
     Guid ClienteId,
@@ -39,7 +45,10 @@ public sealed class FacturasAbiertasClienteHandler
     : IRequestHandler<FacturasAbiertasClienteQuery, IReadOnlyList<FacturaAbiertaDto>>
 {
     private readonly CuentasPorCobrarDbContext _db;
-    public FacturasAbiertasClienteHandler(CuentasPorCobrarDbContext db) { _db = db; }
+    private readonly Millet.CuentasPorCobrar.Domain.Ports.Facturacion.IReppPendientesReadPort? _facturacion;
+    public FacturasAbiertasClienteHandler(CuentasPorCobrarDbContext db,
+        Millet.CuentasPorCobrar.Domain.Ports.Facturacion.IReppPendientesReadPort? facturacion = null)
+    { _db = db; _facturacion = facturacion; }
 
     public async Task<IReadOnlyList<FacturaAbiertaDto>> Handle(
         FacturasAbiertasClienteQuery query, CancellationToken cancellationToken)
@@ -52,13 +61,20 @@ public sealed class FacturasAbiertasClienteHandler
         if (!string.IsNullOrWhiteSpace(query.Moneda))
             q = q.Where(f => f.Moneda == query.Moneda);
 
-        return await q
-            .OrderBy(f => f.FechaVencimiento)
-            .Select(f => new FacturaAbiertaDto(
-                f.Id, f.Uuid, f.Folio, f.Moneda, f.MetodoPago,
-                f.Total, f.MontoPagado, f.MontoNc,
-                f.Total - f.MontoPagado - f.MontoNc,
-                f.FechaTimbrado, f.FechaVencimiento))
+        // V61: de la más antigua a la más reciente (vencimiento, luego timbrado); el ERP solo sugiere.
+        var facturas = await q
+            .OrderBy(f => f.FechaVencimiento).ThenBy(f => f.FechaTimbrado)
             .ToListAsync(cancellationToken);
+        var parcialidades = await AplicacionPagos.ParcialidadesCxc.CalcularAsync(_db, _facturacion, facturas, cancellationToken);
+        return facturas
+            .Select(f =>
+            {
+                var p = parcialidades[f.Id];
+                return new FacturaAbiertaDto(
+                    f.Id, f.Uuid, f.Folio, f.Moneda, f.MetodoPago,
+                    f.Total, f.MontoPagado, f.MontoNc, p.Saldo,
+                    f.FechaTimbrado, f.FechaVencimiento, p.NumParcialidadSiguiente, p.Disponible);
+            })
+            .ToList();
     }
 }
