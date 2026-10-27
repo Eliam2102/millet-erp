@@ -90,6 +90,7 @@ public sealed class OperacionLibro : BaseEntity, IPerteneceAEmpresa, IAuditable
     public DateOnly Fecha { get; set; }
     public decimal Importe { get; set; }
     public string Motivo { get; set; } = "";
+    public string SolicitadoPor { get; set; } = "";
     public string? Evidencia { get; set; }
     public Guid RegistradoPor { get; set; }
     public Guid? AutorizadoPor { get; set; }
@@ -97,10 +98,23 @@ public sealed class OperacionLibro : BaseEntity, IPerteneceAEmpresa, IAuditable
     public Guid? FacturaId { get; set; }
     public bool Anulada { get; set; }
     public OperacionLibro() : base(Guid.CreateVersion7()) { }
+    // El catálogo se exige al capturar; las bajas históricas conservan su motivo original.
+    public void ValidarSolicitudBaja()
+    {
+        if (string.IsNullOrWhiteSpace(SolicitadoPor) || SolicitadoPor.Length > 200)
+            throw new BusinessRuleException("AF_SOLICITANTE_REQUERIDO", "Capture el área solicitante (máximo 200 caracteres).");
+        if (!Enum.TryParse<Millet.Facturacion.Domain.Activos.MotivoDisposicionActivo>(Motivo, out var motivo)
+            || !Enum.IsDefined(motivo) || Motivo != motivo.ToString())
+            throw new BusinessRuleException("AF_MOTIVO_REQUERIDO", "Seleccione siniestro, obsolescencia, premio o rifa, donación o venta.");
+    }
     public void Validar(Guid autorizador, bool revalorizacion)
     {
+        if (Tipo == "Baja" && (string.IsNullOrWhiteSpace(SolicitadoPor) || SolicitadoPor.Length > 200))
+            throw new BusinessRuleException("AF_SOLICITANTE_REQUERIDO", "Capture el área solicitante (máximo 200 caracteres).");
         if (autorizador == RegistradoPor || autorizador == Guid.Empty)
-            throw new BusinessRuleException("AF_AUTORIZADOR_DISTINTO", "Debe autorizar otra persona.");
+            throw new BusinessRuleException("AF_AUTORIZADOR_DISTINTO", Tipo == "Baja"
+                ? "Debe autorizar el Director de Administración y Finanzas, distinto del Contador General que registra."
+                : "Debe autorizar otra persona.");
         if (string.IsNullOrWhiteSpace(Motivo) || (Tipo == "Baja" && string.IsNullOrWhiteSpace(Evidencia)))
             throw new BusinessRuleException("AF_EVIDENCIA_REQUERIDA", "Capture motivo y adjunto para la baja.");
         if (Tipo == "Revalorizacion" && !revalorizacion)

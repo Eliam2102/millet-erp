@@ -1,4 +1,5 @@
 using MediatR;
+using Millet.Compras.Domain.Ports.Catalogos;
 using Millet.Compras.Application.Oc;
 using Millet.Compras.Application.Proveedores;
 using Microsoft.EntityFrameworkCore;
@@ -41,6 +42,7 @@ public sealed class EnviarAAutorizacionOcHandler : IRequestHandler<EnviarAAutori
 {
     private static readonly string[] ClavesNecesarias = ["cotizacion", "ficha_tecnica", "correo_autorizacion"];
 
+    private readonly ICatalogoSatReadPort _catalogos;
     private readonly ComprasDbContext _db;
     private readonly CompartidoDbContext _compartido;
     private readonly IClock _clock;
@@ -48,13 +50,14 @@ public sealed class EnviarAAutorizacionOcHandler : IRequestHandler<EnviarAAutori
     private readonly EvaluadorNivelOc _evaluadorNivel;
 
     public EnviarAAutorizacionOcHandler(
-        ComprasDbContext db,
+        ComprasDbContext db, ICatalogoSatReadPort catalogos,
         CompartidoDbContext compartido,
         IClock clock,
         IPublisher publisher,
         EvaluadorNivelOc evaluadorNivel)
     {
         _db = db;
+        _catalogos = catalogos;
         _compartido = compartido;
         _clock = clock;
         _publisher = publisher;
@@ -70,6 +73,9 @@ public sealed class EnviarAAutorizacionOcHandler : IRequestHandler<EnviarAAutori
             ?? throw new EntityNotFoundException(
                 "ORDEN_COMPRA_NO_ENCONTRADA",
                 $"No se encontró orden de compra con id '{command.OrdenCompraId}'.");
+
+        oc.ValidarDatosFacturaParaEnviar();
+        await DatosFacturaOcGuard.ValidarAsync(_catalogos, oc.UsoCfdiClave, oc.FormaPagoClave, cancellationToken);
 
         // Resolver IDs del catálogo de tipos de documento por clave.
         var tipos = await _db.TiposDocumentoOc

@@ -1,6 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { http, HttpResponse } from 'msw';
+import { leerFormData } from '@/test/leer-form-data';
 import { mswServer } from '@/test/mocks/server';
 import { createQueryWrapper } from '@/test/test-query-client';
 import { ProveedorExpedienteSection } from '@/modules/datos-maestros/components/ProveedorExpedienteSection';
@@ -154,7 +155,7 @@ describe('<ProveedorExpedienteSection>', () => {
     let tipoEnviado: string | null = null;
     mswServer.use(
       http.post(`${BASE}/adjuntos`, async ({ request }) => {
-        tipoEnviado = String((await request.formData()).get('tipoDocumentoId'));
+        tipoEnviado = String((await leerFormData(request)).get('tipoDocumentoId'));
         return HttpResponse.json(csf, { status: 201 });
       }),
     );

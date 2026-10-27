@@ -77,7 +77,7 @@ public class ComprasOcReadAdapterTests
             encargadoComprasId: Guid.CreateVersion7(),
             fechaDocumento: DateOnly.FromDateTime(DateTimeOffset.UtcNow.UtcDateTime),
             sinRequisicionPrevia: true,
-            motivoSinRequisicion: "Test");
+            motivoSinRequisicion: "Test", usoCfdiClave: "G03", metodoPago: "PPD", formaPagoClave: "99");
 
         // Cancelar desde Borrador (no terminal, SinRecepcion por default).
         oc.Cancelar(

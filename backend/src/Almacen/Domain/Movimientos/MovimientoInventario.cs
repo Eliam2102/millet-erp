@@ -199,6 +199,10 @@ public sealed class MovimientoInventario : BaseEntity, IPerteneceAEmpresa, IAudi
             throw new BusinessRuleException("MOV_CANCEL_MOTIVO_LARGO", "El motivo no puede exceder 500 caracteres.");
         Estado = EstadoMovimiento.Cancelado;
         Motivo = motivo;
+        // El CFDI y la factura quedan libres para la recepción correcta (el diálogo de cancelación lo promete).
+        FacturaId = null;
+        CfdiRecibidoId = null;
+        CfdiUuidFiscal = null;
     }
 
     /// <summary>El contramovimiento CEN apunta a la entrada que revierte.</summary>

@@ -885,7 +885,7 @@ public static class PermisosCanonicos
         (Guid.Parse("00000009-0006-0000-0000-000000000001"), FacturacionReppEmitir,                  "Emitir complementos de pago (REPP / Pago 2.0)"),
         (Guid.Parse("00000009-0007-0000-0000-000000000001"), FacturacionCancelacionesSolicitar,      "Solicitar la cancelación SAT 4.0 de un comprobante"),
         (Guid.Parse("00000009-0007-0000-0000-000000000002"), FacturacionCancelacionesConsultar,      "Consultar el estatus de las solicitudes de cancelación"),
-        (Guid.Parse("00000009-0008-0000-0000-000000000001"), FacturacionActivosAutorizar,            "Autorizar la venta de activos fijos antes de timbrar (Contador General)"),
+        (Guid.Parse("00000009-0008-0000-0000-000000000001"), FacturacionActivosAutorizar,            "Autorizar la venta de activos fijos antes de timbrar (Director de Administración y Finanzas)"),
         (Guid.Parse("00000009-0009-0000-0000-000000000001"), FacturacionCajaLiquidar,                "Cerrar sesiones de caja (arqueo y liquidación)"),
         (Guid.Parse("00000009-0009-0000-0000-000000000002"), FacturacionCajaAdministrar,             "Administrar cajas: CRUD, alcances (sucursales/canales/usuarios) y alcances administrativos"),
         (Guid.Parse("00000009-0009-0000-0000-000000000003"), FacturacionCajaOperar,                  "Abrir sesión de caja propia, registrar cobros y movimientos, iniciar arqueo"),

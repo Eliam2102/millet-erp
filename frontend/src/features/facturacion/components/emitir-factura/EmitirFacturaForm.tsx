@@ -206,7 +206,7 @@ function FormInner({
     });
   }
 
-  // Autorización del Contador General — obligatoria en venta de activo
+  // Autorización del Director de Administración y Finanzas — obligatoria en venta de activo
   // fijo; se elige con <AutorizacionPicker/> (FAC-UX-PR4).
   const [autorizacionId, setAutorizacionId] = useState('');
 
@@ -310,7 +310,7 @@ function FormInner({
   async function onSubmit(values: EmitirFacturaValues) {
     if (ceBloqueado || manualSinClase) return;
     if (esActivo && autorizacionId.trim() === '') {
-      toast.error('La venta de activo fijo requiere el ID de autorización del Contador General.');
+      toast.error('La venta de activo fijo requiere el ID de autorización del Director de Administración y Finanzas.');
       return;
     }
     const command = construirComando(values);

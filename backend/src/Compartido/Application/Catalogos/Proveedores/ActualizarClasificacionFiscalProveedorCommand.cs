@@ -30,7 +30,7 @@ public sealed class ActualizarClasificacionFiscalProveedorHandler(
         var regimen = string.IsNullOrWhiteSpace(request.RegimenFiscalCodigo) ? null : request.RegimenFiscalCodigo.Trim();
         await ClasificacionFiscalProveedor.ValidarRegimenAsync(db, proveedor.TipoPersona, request.Origen, regimen, cancellationToken);
 
-        var antes = new { proveedor.Origen, proveedor.RegimenFiscalCodigo, proveedor.ConceptoRetencion };
+        var antes = new { proveedor.Origen, proveedor.RegimenFiscalCodigo, proveedor.ConceptoRetencion, proveedor.TaxId };
         proveedor.ActualizarClasificacionFiscal(request.Origen, regimen, request.ConceptoRetencion);
         await db.SaveChangesAsync(cancellationToken);
         await audit.RegistrarAsync(
@@ -41,7 +41,7 @@ public sealed class ActualizarClasificacionFiscalProveedorHandler(
             entidadEtiqueta: $"{proveedor.Clave} · {proveedor.RazonSocial}",
             resumen: "Origen, régimen fiscal y retención del proveedor actualizados.",
             usuarioId: usuario.UserId, empresaId: empresa.Current,
-            cambios: JsonSerializer.Serialize(new { antes, despues = new { proveedor.Origen, proveedor.RegimenFiscalCodigo, proveedor.ConceptoRetencion } }),
+            cambios: JsonSerializer.Serialize(new { antes, despues = new { proveedor.Origen, proveedor.RegimenFiscalCodigo, proveedor.ConceptoRetencion, proveedor.TaxId } }),
             cancellationToken: cancellationToken);
     }
 }

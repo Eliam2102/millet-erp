@@ -1613,6 +1613,11 @@ namespace Millet.Compras.Infrastructure.Migrations
                         .HasColumnType("smallint")
                         .HasColumnName("folio_anio");
 
+                    b.Property<string>("FormaPagoClave")
+                        .HasMaxLength(2)
+                        .HasColumnType("character varying(2)")
+                        .HasColumnName("forma_pago_clave");
+
                     b.Property<decimal>("GastosAdicionales")
                         .ValueGeneratedOnAdd()
                         .HasColumnType("numeric(15,2)")
@@ -1701,6 +1706,11 @@ namespace Millet.Compras.Infrastructure.Migrations
                         .HasMaxLength(200)
                         .HasColumnType("character varying(200)")
                         .HasColumnName("info_logistica_transportista_texto");
+
+                    b.Property<string>("MetodoPago")
+                        .HasMaxLength(3)
+                        .HasColumnType("character varying(3)")
+                        .HasColumnName("metodo_pago");
 
                     b.Property<string>("Moneda")
                         .IsRequired()
@@ -1808,6 +1818,11 @@ namespace Millet.Compras.Infrastructure.Migrations
                     b.Property<string>("UpdatedBy")
                         .HasColumnType("text")
                         .HasColumnName("updated_by");
+
+                    b.Property<string>("UsoCfdiClave")
+                        .HasMaxLength(4)
+                        .HasColumnType("character varying(4)")
+                        .HasColumnName("uso_cfdi_clave");
 
                     b.Property<Guid>("UsoPrincipalId")
                         .HasColumnType("uuid")
@@ -1924,6 +1939,13 @@ namespace Millet.Compras.Infrastructure.Migrations
                         .HasColumnType("character varying(120)")
                         .HasColumnName("generado_por");
 
+                    b.Property<int>("Impresiones")
+                        .IsConcurrencyToken()
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer")
+                        .HasDefaultValue(0)
+                        .HasColumnName("impresiones");
+
                     b.Property<Guid>("OrdenCompraId")
                         .HasColumnType("uuid")
                         .HasColumnName("orden_compra_id");
@@ -1931,6 +1953,14 @@ namespace Millet.Compras.Infrastructure.Migrations
                     b.Property<long>("TamañoBytes")
                         .HasColumnType("bigint")
                         .HasColumnName("tamano_bytes");
+
+                    b.Property<DateTimeOffset?>("UltimaImpresionEn")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("ultima_impresion_en");
+
+                    b.Property<Guid?>("UltimaImpresionPor")
+                        .HasColumnType("uuid")
+                        .HasColumnName("ultima_impresion_por");
 
                     b.Property<DateTimeOffset>("UpdatedAt")
                         .HasColumnType("timestamp with time zone")

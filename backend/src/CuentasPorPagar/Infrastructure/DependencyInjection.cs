@@ -96,6 +96,7 @@ public static class DependencyInjection
         // F4-PR2: evidencias polimórficas + worker SLA + INotificacionService stub.
         services.AddSingleton<IEvidenciaBlobStorage, LocalFilesystemEvidenciaBlobStorage>();
         services.AddSingleton<INotificacionService, NoOpNotificacionService>();
+        services.AddOptions<AvisosRevisionOptions>().Bind(configuration.GetSection(AvisosRevisionOptions.SectionName));
         services
             .AddOptions<RevisionSlaNotificacionOptions>()
             .Bind(configuration.GetSection(RevisionSlaNotificacionOptions.SectionName));

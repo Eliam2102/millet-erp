@@ -123,7 +123,7 @@ public sealed class Anticipo : BaseEntity, IPerteneceAEmpresa, IFiscalmenteRelev
         return new Anticipo(
             id ?? Guid.CreateVersion7(),
             empresaId, clienteId, receptorRfc, tipoAnticipo, moneda, montoCobrado,
-            facturaAnticipoId, pedidoOrigenRef, obraId, obraNombre);
+            facturaAnticipoId, string.IsNullOrWhiteSpace(pedidoOrigenRef) ? null : pedidoOrigenRef.Trim(), obraId, obraNombre);
     }
 
     /// <summary>

@@ -65,6 +65,8 @@ export interface PuestoListItem {
  * fetch extra.
  */
 export interface EmpleadoListItem {
+  telefono?: string | null;
+  extension?: string | null;
   id: string;
   empresaId: string;
   clave: string;

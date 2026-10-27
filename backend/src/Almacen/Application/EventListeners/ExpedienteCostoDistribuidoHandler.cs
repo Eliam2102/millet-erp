@@ -17,8 +17,11 @@ public sealed record CostoPartidaPayload(Guid PartidaId, Guid OcId, Guid Recepci
     decimal CantidadRecibida, decimal ImporteMxn, decimal DiferenciaMxn);
 public sealed record AplicarCostoExpedienteCommand(CostoExpedientePayload Payload) : IRequest;
 public sealed record CostoPartidaAplicado(Guid PartidaId, Guid OcId, Guid RecepcionId, Guid ArticuloId, Guid UbicacionId,
-    decimal DiferenciaMxn, decimal InventarioMxn, decimal CostoVentasMxn)
+    decimal DiferenciaMxn, decimal InventarioMxn, decimal GastoImportacionMxn)
 {
+    // Compatibilidad con eventos ya persistidos en outbox.
+    [Obsolete("Usar GastoImportacionMxn; regla de Millet 26-oct-2026")]
+    public decimal CostoVentasMxn { get => GastoImportacionMxn; init => GastoImportacionMxn = value; }
     public IReadOnlyList<CostoUbicacionAplicado> Ubicaciones { get; init; } = [];
 }
 public sealed record CostoUbicacionAplicado(Guid UbicacionId, decimal CantidadRemanente, decimal InventarioMxn);
@@ -77,6 +80,15 @@ public sealed class ExpedienteCostoDistribuidoHandler(AlmacenDbContext db, IInte
                 select new { linea.ProductoAwVarianteId, linea.Lote }).FirstOrDefaultAsync(cancellationToken);
             if (partida is null) throw new BusinessRuleException("CE_RECEPCION_INVALIDA", "La partida no corresponde a una recepción de la empresa y sucursal.");
             var remanentes = await RecepcionesCostoReadAdapter.RemanentesAsync(db, p.EmpresaId, l.PartidaId, l.ArticuloId, logger, cancellationToken);
+            // Millet, 26-oct-2026, Opción A: un traslado conserva existencia; con salidas, todo va a gasto.
+            // Mismo criterio que la vista previa de CE: remanente acotado por el saldo de cada ubicación.
+            decimal enExistencia = 0;
+            foreach (var (ubicacion, remanente) in remanentes)
+            {
+                var saldoUbicacion = await db.SaldosInventario.SingleOrDefaultAsync(s => s.UbicacionId == ubicacion && s.ArticuloId == l.ArticuloId, cancellationToken);
+                enExistencia += Math.Min(saldoUbicacion?.Cantidad ?? 0, remanente);
+            }
+            var tieneSalidas = enExistencia < l.CantidadRecibida;
             var ubicaciones = remanentes.Keys.Concat(anteriores.Select(x => x.UbicacionId)).Append(l.UbicacionId).Distinct().Order().ToList();
             List<CostoUbicacionAplicado> detalle = [];
             decimal diferenciaRestante = l.DiferenciaMxn, cantidadRestante = l.CantidadRecibida;
@@ -85,7 +97,7 @@ public sealed class ExpedienteCostoDistribuidoHandler(AlmacenDbContext db, IInte
                 var saldo = await db.SaldosInventario.SingleAsync(s => s.UbicacionId == ubicacion && s.ArticuloId == l.ArticuloId && s.ProductoAwVarianteId == partida.ProductoAwVarianteId && s.Lote == partida.Lote, cancellationToken);
                 var cantidad = Math.Min(saldo.Cantidad, remanentes.GetValueOrDefault(ubicacion));
                 // Reparto sobre el resto para conservar los centavos incluso si todo sigue en existencia.
-                var inventario = cantidadRestante > 0
+                var inventario = !tieneSalidas && cantidadRestante > 0
                     ? SaldoInventario.SepararCosto(diferenciaRestante, cantidadRestante, cantidad).Inventario : 0;
                 cantidadRestante -= cantidad;
                 diferenciaRestante -= inventario;
@@ -94,7 +106,7 @@ public sealed class ExpedienteCostoDistribuidoHandler(AlmacenDbContext db, IInte
             }
             foreach (var d in detalle)
             {
-                // El consumo se asienta una sola vez en el origen; el valor físico sigue cada destino.
+                // El gasto de importación se asienta una sola vez en el origen; el valor físico sigue cada destino.
                 var diferencia = d.InventarioMxn + (d.UbicacionId == l.UbicacionId ? diferenciaRestante : 0);
                 var acumulado = (anteriores.SingleOrDefault(x => x.UbicacionId == d.UbicacionId)?.AcumuladoMxn ?? 0) + diferencia;
                 db.Set<AjusteCostoExpediente>().Add(new(p.EmpresaId, p.ExpedienteId, p.NumeroVersion, l.PartidaId, d.UbicacionId, l.ArticuloId,

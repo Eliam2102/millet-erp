@@ -72,6 +72,9 @@ public sealed class OrdenCompraConfiguration : IEntityTypeConfiguration<OrdenCom
         });
 
         builder.Property(x => x.Obra).HasMaxLength(120);
+        builder.Property(o => o.UsoCfdiClave).HasMaxLength(4);
+        builder.Property(o => o.MetodoPago).HasMaxLength(3);
+        builder.Property(o => o.FormaPagoClave).HasMaxLength(2);
         builder.HasKey(o => o.Id);
 
         builder.Property(o => o.EmpresaId).IsRequired();

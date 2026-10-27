@@ -10,7 +10,7 @@ public enum SubtipoVentaDirecta : short
 {
     /// <summary>
     /// Venta de un activo fijo: va siempre con comportamiento fiscal
-    /// <c>VentaActivoFijo</c> y exige la autorización del Contador General
+    /// <c>VentaActivoFijo</c> y exige la autorización del Director de Administración y Finanzas
     /// antes de timbrar (CA6.12).
     /// </summary>
     Activo = 1,

@@ -106,7 +106,7 @@ public static class RecepcionesEndpoints
             var oc = await ocPort.ObtenerAsync(ordenCompraId, ct)
                 ?? throw new EntityNotFoundException("RECEPCION_OC_NO_ENCONTRADA", "La orden de compra no existe; selecciona una orden autorizada.");
             var rfc = (await proveedores.ObtenerAsync(oc.ProveedorId, ct))?.Rfc;
-            var response = await mediator.Send(new ListarCfdisParaRecepcionQuery(rfc), ct);
+            var response = await mediator.Send(new ListarCfdisParaRecepcionQuery(rfc, ordenCompraId), ct);
             return Results.Ok(response);
         })
         .RequireAuthorization(PermissionPolicyProvider.Prefix + PermisosCanonicos.AlmacenEntradasRegistrar)

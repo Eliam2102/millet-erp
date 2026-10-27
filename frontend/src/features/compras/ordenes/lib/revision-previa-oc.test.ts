@@ -12,6 +12,7 @@ const tipos = [
 
 const base = {
   camposPorCapturar: [],
+  usoCfdiClave: 'G03', metodoPago: 'PPD', formaPagoClave: '99',
   lineas: [{ posicion: 1, precioUnitario: 10 }],
   adjuntos: [{ tipoDocumentoId: 't-cot' }],
   sinRequisicionPrevia: false,
@@ -36,7 +37,7 @@ describe('calcularRevisionPrevia', () => {
     const r = calcularRevisionPrevia(oc({ camposPorCapturar: ['proveedor', 'usoPrincipal'] }), tipos);
     expect(req(r, 'cabecera')).toMatchObject({
       ok: false,
-      detalle: 'Falta: proveedor, uso principal.',
+      detalle: 'Falta: proveedor, uso interno de la compra.',
       destino: { tab: 'informacion' },
     });
   });
@@ -111,5 +112,19 @@ describe('calcularRevisionPrevia · medida de hoja', () => {
       detalle: 'Falta la medida de la línea 1.',
       destino: { tab: 'lineas', etiqueta: 'Ir a línea 1' },
     });
+  });
+});
+
+describe('datos para la factura del proveedor', () => {
+  it.each([
+    ['usoCfdiClave', 'uso de CFDI'],
+    ['metodoPago', 'método de pago'],
+    ['formaPagoClave', 'forma de pago'],
+  ] as const)('bloquea el envío sin %s y explica qué capturar', (campo, etiqueta) => {
+    const revision = calcularRevisionPrevia(oc({ [campo]: null }), tipos);
+    const cabecera = revision.requisitos.find(r => r.id === 'cabecera');
+    expect(cabecera?.ok).toBe(false);
+    expect(cabecera?.detalle).toContain(etiqueta);
+    expect(cabecera?.destino?.tab).toBe('informacion');
   });
 });

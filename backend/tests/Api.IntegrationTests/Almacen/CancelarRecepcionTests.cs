@@ -38,9 +38,10 @@ public class CancelarRecepcionTests(WebApplicationFactory<Program> factory) : IC
     }
 
     // Misma construcción que CuarentenaRecepcionTests.HandlerRecepcion, con precio de OC configurable para probar el costo promedio.
-    private static RegistrarRecepcionConFacturaHandler HandlerRecepcionConPrecio(AlmacenDbContext db, CapturaEventos eventos, Ctx ctx, decimal precio) =>
+    private static RegistrarRecepcionConFacturaHandler HandlerRecepcionConPrecio(AlmacenDbContext db, CapturaEventos eventos, Ctx ctx, decimal precio,
+        CxpLigadas? cxp = null) =>
         new(db, new OcPrecio(ctx, precio), eventos, new UserFake(ctx.UserId), new EmpresaFake(ctx.EmpresaId),
-            new DecimalesNulo(), ctx.Periodos, new ConversionIdentidad(), new CxpLigadas(), new ProveedorRfc());
+            new DecimalesNulo(), ctx.Periodos, new ConversionIdentidad(), cxp ?? new CxpLigadas(), new ProveedorRfc());
 
     private static CancelarRecepcionHandler HandlerCancelar(AlmacenDbContext db, CapturaEventos eventos, Ctx ctx, Guid usuario, CxpLigadas? cxp = null) =>
         new(db, new OcPrecio(ctx, 100m), eventos, new UserFake(usuario), new EmpresaFake(ctx.EmpresaId), ctx.Periodos,
@@ -85,6 +86,34 @@ public class CancelarRecepcionTests(WebApplicationFactory<Program> factory) : IC
             var otraVez = () => HandlerCancelar(db, new CapturaEventos(), ctx, OtroUsuario).Handle(new CancelarRecepcionCommand(mala, "ARTICULO", "x"), default);
             (await otraVez.Should().ThrowAsync<BusinessRuleException>()).Which.Code.Should().Be("RECEPCION_YA_CANCELADA");
             (await LeerSaldoAsync(db, ctx.RackId, ctx.ArticuloId)).Should().Be(4m);
+        });
+    }
+
+    [Fact]
+    public async Task Cancelar_libera_el_CFDI_y_la_recepcion_correcta_se_captura_con_el_mismo_CFDI_aunque_ya_sea_factura()
+    {
+        await new CuarentenaRecepcionTests(factory).EjecutarConFixtureAsync(async (db, ctx) =>
+        {
+            var cfdiId = Guid.NewGuid();
+            var cxp = new CxpLigadas { Cfdi = new CfdiRecibidoLectura(cfdiId, "AAA010101AAA", "PorProcesar", "Ingreso") };
+            RegistrarRecepcionConFacturaCommand Captura(decimal cantidad) => new(ctx.OcId, Fecha, cfdiId, null, null,
+                [new RegistrarRecepcionLineaInput(ctx.ArticuloId, ctx.LineaOcId, cantidad, null, null, ctx.RackId)]);
+            var mala = (await HandlerRecepcionConPrecio(db, new CapturaEventos(), ctx, 100m, cxp).Handle(Captura(5m), default)).RecepcionId;
+
+            // CxP ya convirtió ese CFDI en una factura Autorizada de la misma OC; al cancelar, la factura queda sin recepción.
+            cxp.Cfdi = new CfdiRecibidoLectura(cfdiId, "AAA010101AAA", "ConvertidoEnPasivo", "Ingreso", ctx.OcId);
+            await HandlerCancelar(db, new CapturaEventos(), ctx, OtroUsuario, cxp).Handle(new CancelarRecepcionCommand(mala, "CANTIDAD", "Eran 8"), default);
+
+            db.ChangeTracker.Clear();
+            var cancelada = await db.Movimientos.AsNoTracking().SingleAsync(m => m.Id == mala);
+            (cancelada.Estado, cancelada.CfdiRecibidoId).Should().Be((EstadoMovimiento.Cancelado, (Guid?)null));
+
+            var eventos = new CapturaEventos();
+            var correcta = (await HandlerRecepcionConPrecio(db, eventos, ctx, 100m, cxp).Handle(Captura(8m), default)).RecepcionId;
+            (await LeerSaldoAsync(db, ctx.RackId, ctx.ArticuloId)).Should().Be(8m);
+            // El evento de la correcta lleva el CFDI: CxP lo usa para ligarla a la factura que ya existe.
+            eventos.Unico<OcRecepcionRegistradaIntegrationEvent>().CfdiRecibidoId.Should().Be(cfdiId);
+            correcta.Should().NotBe(mala);
         });
     }
 
@@ -156,7 +185,8 @@ public class CancelarRecepcionTests(WebApplicationFactory<Program> factory) : IC
     private sealed class CxpLigadas : ICxpDocumentosReadPort
     {
         public List<FacturaLigadaRecepcionLectura> Facturas { get; init; } = [];
-        public Task<CfdiRecibidoLectura?> ObtenerCfdiAsync(Guid id, CancellationToken ct) => Task.FromResult<CfdiRecibidoLectura?>(null);
+        public CfdiRecibidoLectura? Cfdi { get; set; }
+        public Task<CfdiRecibidoLectura?> ObtenerCfdiAsync(Guid id, CancellationToken ct) => Task.FromResult(Cfdi);
         public Task<IReadOnlyDictionary<Guid, string>> ObtenerFoliosFacturaAsync(IReadOnlyCollection<Guid> ids, CancellationToken ct) => Vacio();
         public Task<IReadOnlyDictionary<Guid, string>> ObtenerUuidsFiscalesCfdiAsync(IReadOnlyCollection<Guid> ids, CancellationToken ct) => Vacio();
         public Task<IReadOnlyDictionary<Guid, string>> ObtenerFoliosNotaCreditoAsync(IReadOnlyCollection<Guid> ids, CancellationToken ct) => Vacio();

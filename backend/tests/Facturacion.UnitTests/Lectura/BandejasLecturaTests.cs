@@ -106,7 +106,7 @@ public sealed class BandejasLecturaTests
     {
         var empresaId = Guid.NewGuid();
         using var db = NewDb(empresaId);
-        db.AutorizacionesVentaActivo.Add(AutorizacionVentaActivo.Crear(empresaId, "AF-1", "Torno", 100000m, 60000m, false, 50000m, Guid.NewGuid(), Ahora));
+        db.AutorizacionesVentaActivo.Add(AutorizacionVentaActivo.Crear(empresaId, "AF-1", "Torno", 100000m, 60000m, false, 50000m, Guid.NewGuid(), Ahora, Millet.Facturacion.Domain.Activos.MotivoDisposicionActivo.Venta, "Área DEMO", "Soporte DEMO"));
         await db.SaveChangesAsync();
 
         var items = await new BandejaAutorizacionesActivoHandler(db).Handle(new BandejaAutorizacionesActivoQuery(null), CancellationToken.None);

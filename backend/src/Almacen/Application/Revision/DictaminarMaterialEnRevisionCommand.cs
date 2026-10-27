@@ -65,6 +65,11 @@ public sealed class DictaminarMaterialEnRevisionHandler(
         await using var transaccion = await DevolucionesProveedor.DevolucionOrigenLock.AbrirAsync(
             db, info.MovimientoRevisionId, cancellationToken);
 
+        // 86e3tabdp: cancelar la recepción toma este mismo candado; si la cancelaron mientras esperábamos, ya no hay material que dictaminar.
+        if (!await db.Movimientos.AsNoTracking().AnyAsync(m => m.Id == info.MovimientoRevisionId && m.Estado == EstadoMovimiento.Registrado, cancellationToken))
+            throw new BusinessRuleException("DICTAMEN_RECEPCION_CANCELADA",
+                "La recepción de este material fue cancelada: ya no se puede dictaminar.");
+
         var dictaminado = await db.DictamenesRevision.AsNoTracking()
             .Where(d => d.LineaRevisionId == info.LineaRevisionId
                 && (d.Resultado == ResultadoDictamen.Liberar || d.Resultado == ResultadoDictamen.Baja))

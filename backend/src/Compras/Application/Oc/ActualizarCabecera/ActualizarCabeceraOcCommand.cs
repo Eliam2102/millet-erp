@@ -29,4 +29,7 @@ public sealed record ActualizarCabeceraOcCommand(
     bool LimpiarObservaciones = false,
     bool LimpiarFechaEntregaEsperada = false,
     bool LimpiarDescuentoGlobal = false,
-    bool LimpiarTipoCambio = false) : IRequest;
+    bool LimpiarTipoCambio = false,
+    string? UsoCfdiClave = null,
+    string? MetodoPago = null,
+    string? FormaPagoClave = null) : IRequest;

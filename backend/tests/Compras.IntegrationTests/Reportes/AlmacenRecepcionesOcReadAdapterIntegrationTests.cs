@@ -3,6 +3,7 @@ using Microsoft.Extensions.DependencyInjection;
 using Millet.Almacen.Domain.DevolucionesProveedor;
 using Millet.Almacen.Domain.Movimientos;
 using Millet.Almacen.Infrastructure.Persistence;
+using Millet.Compras.Domain.Trazabilidad;
 using Millet.Compras.Infrastructure.PublicAdapters;
 using Millet.SharedKernel.Application;
 
@@ -78,6 +79,53 @@ public class AlmacenRecepcionesOcReadAdapterIntegrationTests : IClassFixture<Stu
         {
             var ids = movs.ToArray();
             await db.Database.ExecuteSqlInterpolatedAsync($"DELETE FROM almacen.devoluciones_proveedor WHERE orden_compra_origen_id = {oc}");
+            await db.Database.ExecuteSqlInterpolatedAsync($"DELETE FROM almacen.movimientos_inventario WHERE id = ANY({ids})");
+            await db.Database.ExecuteSqlInterpolatedAsync($"DELETE FROM almacen.saldos_inventario WHERE ubicacion_id = {ubicId}");
+            await db.Database.ExecuteSqlInterpolatedAsync($"DELETE FROM almacen.ubicaciones WHERE id = {ubicId}");
+            await db.Database.ExecuteSqlInterpolatedAsync($"DELETE FROM almacen.sub_almacenes WHERE id = {subId}");
+            await db.Database.ExecuteSqlInterpolatedAsync($"DELETE FROM almacen.almacenes WHERE id = {almacenId}");
+        }
+    }
+
+    /// <summary>
+    /// 86e3tabdp criterio 2: la trazabilidad de la OC lista la recepción cancelada junto a la vigente (estado «Cancelado», que la
+    /// pantalla marca «Cancelada»), y el adaptador de recibidos no cuenta la cancelada.
+    /// </summary>
+    [Fact]
+    public async Task La_OC_lista_la_recepcion_cancelada_junto_a_la_vigente_y_los_recibidos_no_la_cuentan()
+    {
+        await using var scope = _factory.Services.CreateAsyncScope();
+        var db = scope.ServiceProvider.GetRequiredService<AlmacenDbContext>();
+        var empresaCtx = scope.ServiceProvider.GetRequiredService<ICurrentEmpresaContext>();
+        using var bypass = empresaCtx.Bypass();
+
+        var (empresa, articulo, oc, lineaOc) = (Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid());
+        var (almacenId, subId, ubicId) = (Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid());
+        var clave = $"R{Guid.NewGuid():N}".Substring(0, 10);
+        var movs = new List<Guid>();
+
+        try
+        {
+            await SembrarBinAsync(db, almacenId, subId, ubicId, clave);
+            var mala = Movimiento(db, TipoMovimiento.EntradaCompra, empresa, oc, ubicId, articulo, 10m, lineaOc, registrar: true, movs);
+            var correcta = Movimiento(db, TipoMovimiento.EntradaCompra, empresa, oc, ubicId, articulo, 8m, lineaOc, registrar: true, movs);
+            mala.CancelarRecepcion("ARTICULO: Era otro artículo");
+            await db.SaveChangesAsync();
+
+            var nodos = await new AlmacenRecepcionesTrazabilidadProvider(db, empresaCtx, null!)
+                .ObtenerDescendentesAsync(TipoDocumentoTrazabilidad.OrdenCompra, oc, CancellationToken.None);
+            nodos.Select(n => (n.Id, n.Estado)).Should().BeEquivalentTo(
+                [(mala.Id, "Cancelado"), (correcta.Id, "Registrado")]);
+
+            var filas = await new AlmacenRecepcionesOcReadAdapter(db,
+                scope.ServiceProvider.GetRequiredService<Millet.Compras.Infrastructure.ComprasDbContext>(),
+                scope.ServiceProvider.GetRequiredService<Millet.SharedKernel.Application.UnidadesMedida.IConversionUnidadPort>(), empresaCtx)
+                .ListarPorOcAsync([oc], CancellationToken.None);
+            filas.Should().ContainSingle().Which.MovimientoId.Should().Be(correcta.Id);
+        }
+        finally
+        {
+            var ids = movs.ToArray();
             await db.Database.ExecuteSqlInterpolatedAsync($"DELETE FROM almacen.movimientos_inventario WHERE id = ANY({ids})");
             await db.Database.ExecuteSqlInterpolatedAsync($"DELETE FROM almacen.saldos_inventario WHERE ubicacion_id = {ubicId}");
             await db.Database.ExecuteSqlInterpolatedAsync($"DELETE FROM almacen.ubicaciones WHERE id = {ubicId}");

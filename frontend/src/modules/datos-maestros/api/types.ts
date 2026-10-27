@@ -83,6 +83,16 @@ export interface ListarProveedoresResponse {
 }
 
 export interface ProveedorDetalle {
+  calle?: string | null;
+  numeroExterior?: string | null;
+  numeroInterior?: string | null;
+  colonia?: string | null;
+  ciudad?: string | null;
+  municipio?: string | null;
+  estado?: string | null;
+  codigoPostal?: string | null;
+  pais?: string | null;
+  taxId?: string | null;
   id: string;
   clave: string;
   claveLegacy: string | null;
@@ -117,6 +127,16 @@ export interface ClasificacionFiscalProveedorPayload {
 }
 
 export interface CrearProveedorPayload {
+  calle?: string | null;
+  numeroExterior?: string | null;
+  numeroInterior?: string | null;
+  colonia?: string | null;
+  ciudad?: string | null;
+  municipio?: string | null;
+  estado?: string | null;
+  codigoPostal?: string | null;
+  pais?: string | null;
+  taxId?: string | null;
   clave: string;
   razonSocial: string;
   /** Opcional solo si el origen es Extranjero: el backend guarda el RFC genérico XEXX010101000. */
@@ -134,6 +154,16 @@ export interface CrearProveedorPayload {
 }
 
 export interface ActualizarProveedorPayload {
+  calle?: string | null;
+  numeroExterior?: string | null;
+  numeroInterior?: string | null;
+  colonia?: string | null;
+  ciudad?: string | null;
+  municipio?: string | null;
+  estado?: string | null;
+  codigoPostal?: string | null;
+  pais?: string | null;
+  taxId?: string | null;
   razonSocial?: string | null;
   nombreComercial?: string | null;
   rfc?: string | null;

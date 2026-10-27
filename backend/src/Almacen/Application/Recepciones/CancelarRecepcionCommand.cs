@@ -83,8 +83,10 @@ public sealed class CancelarRecepcionHandler(
         if (previa.Principal.OcId is null)
             throw new BusinessRuleException("RECEPCION_SIN_OC", "Solo se puede cancelar una recepción contra orden de compra.");
 
-        // 3. Serializa por OC (mismo lock que registrar y devolver) y relee ya con el candado.
+        // 3. Serializa por OC (mismo lock que registrar) y por cada movimiento de la recepción (el que toman la devolución a proveedor
+        //    y el dictamen MAT-REV), y relee ya con los candados. Orden fijo (OC, luego ids ordenados): los demás toman uno solo.
         await using var transaccion = await DevolucionOrigenLock.AbrirAsync(db, previa.Principal.OcId, ct);
+        foreach (var movimientoId in previa.Ids.Order()) await DevolucionOrigenLock.AbrirAsync(db, movimientoId, ct);
         var (principal, hijo, ids) = await CargarAsync(request.RecepcionId, rastrear: true, ct);
         if (principal.Estado == EstadoMovimiento.Cancelado) throw YaCancelada();
         if (principal.Estado != EstadoMovimiento.Registrado)
@@ -176,6 +178,12 @@ public sealed class CancelarRecepcionHandler(
         return (principal, hijo, movs.Select(m => m.Id).ToList());
     }
 
+    private static readonly TipoMovimiento[] TiposSalidaReal =
+    [
+        TipoMovimiento.SalidaConsumo, TipoMovimiento.SalidaPorVale, TipoMovimiento.SalidaPorDevolucionAProveedor,
+        TipoMovimiento.AjusteNegativo, TipoMovimiento.BajaPorDano, TipoMovimiento.SalidaPorLiberacionRevision,
+    ];
+
     private static BusinessRuleException YaCancelada() =>
         new("RECEPCION_YA_CANCELADA", "Esta recepción ya está cancelada.");
 
@@ -194,15 +202,13 @@ public sealed class CancelarRecepcionHandler(
             var saldo = await db.SaldosInventario.AsNoTracking()
                 .Where(s => s.UbicacionId == ubicacion && s.ArticuloId == articulo && s.ProductoAwVarianteId == variante && s.Lote == lote)
                 .Select(s => s.Cantidad).FirstOrDefaultAsync(ct);
-            // Entradas y la propia cancelación de otras recepciones no son salidas de esta mercancía.
-            // AjustePrecioFactura cuenta a propósito: el costo ya se ajustó contra la factura y no se revierte aquí.
+            // Solo bloquean las salidas reales (consumo, vale, devolución a proveedor, ajuste negativo, baja, traspaso). Un ajuste de
+            // precio por factura o de costo no mueve existencia, y las entradas o la cancelación de otra recepción tampoco.
             var salidaPosterior = await (from m in db.Movimientos.AsNoTracking()
                                          join l in db.LineasMovimiento.AsNoTracking() on m.Id equals l.MovimientoId
                                          where m.Estado == EstadoMovimiento.Registrado && m.RegistradoAt > registradoAt
                                             && l.UbicacionId == ubicacion && l.ArticuloId == articulo && l.ProductoAwVarianteId == variante && l.Lote == lote
-                                            && m.Tipo != TipoMovimiento.EntradaCompra && m.Tipo != TipoMovimiento.DevolucionSalida
-                                            && m.Tipo != TipoMovimiento.AjustePositivo && m.Tipo != TipoMovimiento.ReincorporacionTrasRevision
-                                            && m.Tipo != TipoMovimiento.CancelacionEntradaCompra
+                                            && TiposSalidaReal.Contains(m.Tipo)
                                          select l.Id).AnyAsync(ct);
             if (saldo < cantidad || salidaPosterior)
                 throw new BusinessRuleException("RECEPCION_CON_SALIDAS",
@@ -244,6 +250,7 @@ public sealed class CancelarRecepcionHandler(
         string codigo, string texto, IReadOnlyList<string> folios, CancellationToken ct)
     {
         var oc = await ocPort.ObtenerAsync(principal.OcId!.Value, ct);
+        var recibido = await RecibidoPorLineaOc.CalcularAsync(db, conversion, oc, ct); // ya sin esta recepción (Cancelado)
         var lineas = new List<LineaRecepcionCanceladaPayload>();
         foreach (var l in movimientos.SelectMany(m => m.Lineas).OrderBy(l => l.Posicion))
         {
@@ -251,7 +258,8 @@ public sealed class CancelarRecepcionHandler(
             var cantidadDocumento = lineaOc is null ? l.Cantidad : Math.Round(
                 l.Cantidad / await RecibidoPorLineaOc.FactorDocumentoABaseAsync(conversion, l.ArticuloId, lineaOc.UnidadMedida, ct), 4);
             lineas.Add(new LineaRecepcionCanceladaPayload(l.Id, l.LineaOcId, l.ArticuloId, lineaOc?.UnidadMedida ?? l.UnidadMedida,
-                l.Cantidad, cantidadDocumento, l.CostoUnitarioMxn, l.MontoTotalMxn, l.UbicacionId!.Value));
+                l.Cantidad, cantidadDocumento, l.CostoUnitarioMxn, l.MontoTotalMxn, l.UbicacionId!.Value,
+                lineaOc is null ? null : recibido.GetValueOrDefault(lineaOc.LineaId)));
         }
         var sub = await db.Ubicaciones.AsNoTracking().Where(u => u.Id == lineas[0].UbicacionId).Select(u => u.SubAlmacenId).FirstAsync(ct);
         var (almacenId, sucursalId) = await Catalogo.AlmacenSucursalResolver.ResolverAsync(db, sub, ct);

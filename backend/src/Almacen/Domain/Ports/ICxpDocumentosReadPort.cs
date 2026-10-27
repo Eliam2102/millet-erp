@@ -61,5 +61,8 @@ public interface ICxpDocumentosReadPort
 /// <summary>Factura de CxP ligada a una recepción. <c>Estado</c> = <c>ToString()</c> del enum de CxP; <c>ImporteSaldado</c> = pagos + anticipo + NC + cargos aplicados.</summary>
 public sealed record FacturaLigadaRecepcionLectura(Guid FacturaId, string? Folio, string Estado, decimal ImporteSaldado);
 
-/// <summary>Proyección mínima de un <c>CfdiRecibido</c> de CxP para validación en Almacén. <c>Estado</c> y <c>Tipo</c> = <c>ToString()</c> de los enums de CxP.</summary>
-public sealed record CfdiRecibidoLectura(Guid Id, string RfcEmisor, string Estado, string Tipo);
+/// <summary>
+/// Proyección mínima de un <c>CfdiRecibido</c> de CxP para validación en Almacén. <c>Estado</c> y <c>Tipo</c> = <c>ToString()</c> de los enums de CxP.
+/// <c>OcDeFacturaSinRecepcionId</c> = OC de la factura vigente generada con este CFDI cuando no tiene recepción ligada (la dejó libre una cancelación); null si no aplica.
+/// </summary>
+public sealed record CfdiRecibidoLectura(Guid Id, string RfcEmisor, string Estado, string Tipo, Guid? OcDeFacturaSinRecepcionId = null);
