@@ -130,7 +130,7 @@ public sealed class EmitirFacturaVentaHandler
                 if (string.IsNullOrWhiteSpace(embarque.Incoterm))
                     throw new BusinessRuleException("CE_INCOTERM_REQUERIDO", "Seleccione un Incoterm vigente en el expediente.");
                 copiaCe = new(embarque.FolioExpediente!, embarque.NumeroPedimento!, embarque.ClavePedimento!, embarque.FechaPedimento!.Value,
-                    embarque.Incoterm, Array.AsReadOnly(embarque.Contenedores!.Select(c => new ContenedorFacturaCe(c.Numero, c.BlGuia, c.FechaEmbarqueReal)).ToArray()));
+                    embarque.Incoterm, Array.AsReadOnly(embarque.Contenedores!.Select(c => new ContenedorFacturaCe(c.Numero, c.BlGuia, c.FechaEmbarqueReal)).ToArray()), embarque.Aduana, embarque.AduanaNombre);
                 if (embarque.ClavePedimento == "RT")
                 {
                     command = command with { Cce = null };

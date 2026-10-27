@@ -125,6 +125,23 @@ public sealed class CceTests
         fv.ComplementoCce.Should().NotBeNull();
     }
 
+    [Fact]
+    public void Copia_embarque_json_anterior_deserializa_sin_aduana()
+    {
+        const string json = """{"FolioExpediente":"CE-DEMO","NumeroPedimento":"DEMO-PED","ClavePedimento":"A1","FechaPedimento":"2026-10-12","Incoterm":"DDP","Contenedores":[]}""";
+        var datos = System.Text.Json.JsonSerializer.Deserialize<DatosEmbarqueCe>(json)!;
+        Assert.Null(datos.Aduana); Assert.Null(datos.AduanaNombre);
+    }
+
+    [Fact]
+    public void Tomar_embarque_conserva_aduana_en_copia_inmutable()
+    {
+        var f = FacturaExportacionBorrador();
+        f.TomarEmbarqueCe(new("CE-DEMO", "DEMO-PED", "A1", new(2026, 10, 12), "DDP", [], "16", "Manzanillo"));
+        Assert.Equal("16", f.DatosEmbarqueCe!.Aduana);
+        Assert.Equal("Manzanillo", f.DatosEmbarqueCe.AduanaNombre);
+    }
+
     // ---- Handler ----
 
     private static EmitirFacturaVentaHandler Handler(FacturacionDbContext db, Guid empresaId) =>
