@@ -64,13 +64,13 @@ public sealed partial class DemoSesionSeedHostedService
             db.PedidosFacturables.Add(pedido);
         }
 
-        // CA6.12: autorización del Contador General insertada directo (DEMO) para
+        // CA6.12: autorización del Director de Administración y Finanzas insertada directo (DEMO) para
         // emitir DEMO-PED-VD-ACTIVO sin depender de Activos Fijos, que sigue en
         // NoOpActivosFijosReadPort (PLATFORM-TODO vigente).
         const string activoRef = "DEMO-ACT-CAMIONETA";
         if (!await db.AutorizacionesVentaActivo.AnyAsync(a => a.EmpresaId == EmpresaId && a.ActivoRef == activoRef, ct))
             db.AutorizacionesVentaActivo.Add(AutorizacionVentaActivo.Crear(EmpresaId, activoRef,
-                "DEMO Camioneta de reparto usada (activo ficticio)", 250000m, 180000m, false, 85000m, ActorId, Fecha));
+                "DEMO Camioneta de reparto usada (activo ficticio)", 250000m, 180000m, false, 85000m, ActorId, Fecha, Millet.Facturacion.Domain.Activos.MotivoDisposicionActivo.Venta, "Área DEMO", "Soporte DEMO"));
         await db.SaveChangesAsync(ct);
     }
 }

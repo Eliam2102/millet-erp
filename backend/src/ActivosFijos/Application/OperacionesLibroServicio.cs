@@ -6,7 +6,7 @@ using Millet.Contabilidad.Application.Polizas;
 using Millet.SharedKernel.Application.Exceptions;
 
 namespace Millet.ActivosFijos.Application;
-public sealed record SolicitudOperacion(string Tipo, DateOnly Fecha, decimal Importe, string Motivo, string? Evidencia);
+public sealed record SolicitudOperacion(string Tipo, DateOnly Fecha, decimal Importe, string Motivo, string? Evidencia, string? SolicitadoPor = null);
 public sealed class OperacionesLibroServicio(ActivosFijosDbContext db, ActivoServicio acceso, LibroServicio libro,
     ITransaccionPolizaActivo transaccion, IPolizaContablePort polizas)
 {
@@ -25,7 +25,8 @@ public sealed class OperacionesLibroServicio(ActivosFijosDbContext db, ActivoSer
         if (datos.Tipo == "Revalorizacion" && config?.RevalorizacionHabilitada != true)
             throw new BusinessRuleException("AF_REVALORIZACION_APAGADA", "La revalorización está deshabilitada.");
         var op = new OperacionLibro { EmpresaId = a.EmpresaId, ActivoId = a.Id, Tipo = datos.Tipo, Fecha = datos.Fecha,
-            Importe = datos.Importe, Motivo = datos.Motivo, Evidencia = datos.Evidencia, RegistradoPor = acceso.Actor };
+            Importe = datos.Importe, Motivo = datos.Motivo, Evidencia = datos.Evidencia, SolicitadoPor = datos.SolicitadoPor?.Trim() ?? "", RegistradoPor = acceso.Actor };
+        if (op.Tipo == "Baja") op.ValidarSolicitudBaja();
         db.Add(op); await db.SaveChangesAsync(ct); return op;
     }
     public async Task<OperacionLibro> AutorizarAsync(Guid id, int version, CancellationToken ct)

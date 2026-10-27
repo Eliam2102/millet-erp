@@ -55,7 +55,7 @@ describe('useAutorizarVentaActivo', () => {
       wrapper: createQueryWrapper(),
     });
     result.current.mutate({
-      command: { activoRef: 'AF-1', precioVenta: 50000 },
+      command: { activoRef: 'AF-1', precioVenta: 50000, motivo: 5, solicitadoPor: 'Área DEMO', evidencia: 'Factura DEMO' },
       idempotencyKey: 'idem-au1',
     });
     await waitFor(() => expect(result.current.isSuccess).toBe(true));
