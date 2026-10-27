@@ -42,5 +42,10 @@ public sealed class EmitirFacturaAnticipoValidator : AbstractValidator<EmitirFac
             .WithMessage("Captura el monto base o el total con IVA, no ambos.");
         RuleFor(c => c.TasaIvaTraslado).GreaterThanOrEqualTo(0).When(c => c.TasaIvaTraslado.HasValue);
         RuleFor(c => c.CanalVentaId).GreaterThan((short)0).When(c => c.CanalVentaId.HasValue);
+        // 86e3tfd6n: número de pedido de A+W (opcional) cuando se cobra antes de que el pedido llegue al ERP.
+        RuleFor(c => c.PedidoOrigenRef!)
+            .Must(n => n.Trim().Length <= 50 && n.Trim().All(char.IsAsciiDigit))
+            .When(c => !string.IsNullOrWhiteSpace(c.PedidoOrigenRef))
+            .WithMessage("El número de pedido de A+W lleva solo dígitos (p. ej. 10425068), sin la posición del lote.");
     }
 }
