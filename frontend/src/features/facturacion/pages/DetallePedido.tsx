@@ -201,6 +201,9 @@ function Contenido({
               ComportamientoFiscal[p.comportamientoFiscal as keyof typeof ComportamientoFiscal],
             moneda: p.moneda,
             obraNombre: p.obraNombre,
+            referenciaCliente: p.numeroPedido,
+            observaciones: p.comentarios,
+            condicionesPago: p.condicionPagoOrigen,
             lineas: p.lineas.map((l) => ({
               productoId: l.productoId,
               claveProdServSat: l.claveProdServSat ?? '',

@@ -1,4 +1,6 @@
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.Extensions.Logging;
 using Millet.Facturacion.Domain.Comprobantes;
 using Millet.Facturacion.Infrastructure.Persistence;
 using Millet.Integraciones.Fiscal.Domain.Ports;
@@ -85,6 +87,14 @@ public static class TimbradoEjecutor
                     rfcProveedorCertificacion: timbre.RfcProveedorCertificacion,
                     cfdiArchivoId: cfdiArchivoId,
                     folioPac: timbre.FolioPac);
+                // La metadata informativa no debe revertir un timbrado ya confirmado por el PAC.
+                // Un archivo ajeno se conserva para diagnóstico, pero no se copian sus datos.
+                var uuidXml = CadenaOriginalTimbre.UuidDesde(timbre.XmlTimbrado);
+                if (uuidXml is null || string.Equals(uuidXml, timbre.Uuid, StringComparison.OrdinalIgnoreCase))
+                    comprobante.RecalcularDatosTimbre(timbre.XmlTimbrado);
+                if (comprobante.CadenaOriginalTimbre is null)
+                    db.GetService<ILoggerFactory>().CreateLogger("Millet.Facturacion.Timbrado")
+                        .LogWarning("El comprobante {ComprobanteId} quedó timbrado sin cadena original del timbre.", comprobante.Id);
                 break;
 
             case TimbradoEstado.EnProceso:

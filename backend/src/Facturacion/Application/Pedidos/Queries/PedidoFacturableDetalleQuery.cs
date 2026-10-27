@@ -110,7 +110,7 @@ public sealed record PedidoFacturableLineaDetalle(
     string? ObjetoImp,
     decimal? TasaIvaTraslado,
     decimal? TasaRetencionIva,
-    decimal? TasaRetencionIsr);
+    decimal? TasaRetencionIsr, string? Referencia = null, decimal? PesoKg = null, decimal? AreaPie2 = null);
 
 public sealed class PedidoFacturableDetalleHandler
     : IRequestHandler<PedidoFacturableDetalleQuery, PedidoFacturableDetalleResponse>
@@ -198,7 +198,7 @@ public sealed class PedidoFacturableDetalleHandler
                     // FAC-DET-PR2: la tasa persistida en la línea (documento
                     // A+W o resuelta al capturar) manda sobre la del master.
                     l.TasaIva ?? master?.TasaIvaTraslado,
-                    master?.TasaRetencionIva, master?.TasaRetencionIsr);
+                    master?.TasaRetencionIva, master?.TasaRetencionIsr, l.Referencia, l.PesoKg, l.AreaPie2);
             })
             .ToList();
 
