@@ -98,10 +98,10 @@ public sealed partial class Expediente
             throw new BusinessRuleException("CE_DISTRIBUCION_OBSOLETA", "Vuelva a consultar la vista previa.");
         _distribuciones.Add(distribucion); MarcarCambioFinanciero();
     }
-    public AnticipoAgente RegistrarAnticipo(Guid id, Guid agente, string pedimento, ImpuestosPedimento impuestos, DateOnly fecha, string? referencia)
+    public AnticipoAgente RegistrarAnticipo(Guid id, Guid agente, string pedimento, ImpuestosPedimento impuestos, DateOnly fecha, string? referencia, bool cuentaPeca = false)
     {
         ExigirAbierto();
-        var anticipo = new AnticipoAgente(id, EmpresaId, Id, agente, pedimento, impuestos, fecha, referencia);
+        var anticipo = new AnticipoAgente(id, EmpresaId, Id, agente, pedimento, impuestos, fecha, referencia, cuentaPeca);
         _anticipos.Add(anticipo); MarcarCambioFinanciero(); return anticipo;
     }
 }

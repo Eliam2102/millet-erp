@@ -260,6 +260,7 @@ if (!string.IsNullOrWhiteSpace(outboxConnString))
     // F9-PR1 CxP: listener Service Bus para eventos de Tesorería
     // (pagos, reversas, REPP, cancelaciones).
     builder.Services.AddHostedService<Millet.CuentasPorPagar.Infrastructure.Workers.TesoreriaEventListenerWorker>();
+    builder.Services.AddHostedService<Millet.CuentasPorPagar.Infrastructure.Workers.ComercioExteriorEventListenerWorker>();
 
     // Triada: listener Service Bus para eventos de Compras
     // (OC autorizada, OC cancelada). Cierra inbound Compras → CxP
