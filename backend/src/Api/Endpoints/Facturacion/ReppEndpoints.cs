@@ -116,12 +116,15 @@ public static class ReppEndpoints
             .RequireAuthorization(leer).WithName("ConsultarReppPendiente");
         pendientes.MapPut("/{id:guid}", async (Guid id, RevisarReppPendienteBody body, IMediator mediator, CancellationToken ct) =>
         {
-            await mediator.Send(new RevisarReppPendienteCommand(id, body.FormaPago, body.Facturas), ct);
+            await mediator.Send(new RevisarReppPendienteCommand(id, body.FormaPago, body.Facturas,
+                body.CuentaOrdenante, body.CuentaBeneficiaria), ct);
             return Results.NoContent();
         }).RequireAuthorization(emitir).WithName("RevisarReppPendiente");
-        pendientes.MapPost("/{id:guid}/emitir", async (Guid id, IMediator mediator, CancellationToken ct) =>
+        // 86e3tfdve: body opcional con las cuentas del pago; sin body, la beneficiaria
+        // se prellena con la cuenta de Millet donde entró el depósito.
+        pendientes.MapPost("/{id:guid}/emitir", async (Guid id, [FromBody] EmitirReppPendienteBody? body, IMediator mediator, CancellationToken ct) =>
         {
-            var result = await mediator.Send(new EmitirReppPendienteCommand(id), ct);
+            var result = await mediator.Send(new EmitirReppPendienteCommand(id, body?.CuentaOrdenante, body?.CuentaBeneficiaria), ct);
             return result.Emitido ? Results.Ok(result) : Results.Problem(
                 title: "No se pudo emitir el REP", detail: result.Mensaje,
                 statusCode: StatusCodes.Status422UnprocessableEntity,
@@ -139,5 +142,7 @@ public static class ReppEndpoints
     }
 }
 
-public sealed record RevisarReppPendienteBody(string FormaPago, IReadOnlyList<RelacionRepp> Facturas);
+public sealed record RevisarReppPendienteBody(string FormaPago, IReadOnlyList<RelacionRepp> Facturas,
+    string? CuentaOrdenante = null, string? CuentaBeneficiaria = null);
+public sealed record EmitirReppPendienteBody(string? CuentaOrdenante = null, string? CuentaBeneficiaria = null);
 public sealed record DescartarReppPendienteBody(string Motivo);

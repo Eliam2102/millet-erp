@@ -11,9 +11,14 @@ using Millet.SharedKernel.Application.Exceptions;
 
 namespace Millet.Facturacion.Application.Repp.Pendientes;
 
-public sealed record RevisarReppPendienteCommand(Guid Id, string FormaPago, IReadOnlyList<RelacionRepp> Facturas) : IRequest;
+// 86e3tfdve: las cuentas de la revisión se validan contra c_FormaPago pero no se
+// persisten (sin migración): la ordenante viaja al emitir uno; la beneficiaria se
+// prellena con la cuenta de Millet donde entró el depósito.
+public sealed record RevisarReppPendienteCommand(Guid Id, string FormaPago, IReadOnlyList<RelacionRepp> Facturas,
+    string? CuentaOrdenante = null, string? CuentaBeneficiaria = null) : IRequest;
 public sealed record DescartarReppPendienteCommand(Guid Id, string Motivo) : IRequest;
-public sealed record EmitirReppPendienteCommand(Guid Id) : IRequest<EmitirReppPendienteResultado>;
+public sealed record EmitirReppPendienteCommand(Guid Id, string? CuentaOrdenante = null, string? CuentaBeneficiaria = null)
+    : IRequest<EmitirReppPendienteResultado>;
 public sealed record EmitirReppPendientesLoteCommand(IReadOnlyList<Guid> Ids) : IRequest<IReadOnlyList<EmitirReppPendienteResultado>>;
 public sealed record EmitirReppPendienteResultado(Guid Id, bool Emitido, Guid? ReciboPagoId, string? Codigo, string? Mensaje);
 
@@ -23,6 +28,8 @@ public sealed class RevisarReppPendienteValidator : AbstractValidator<RevisarRep
     {
         RuleFor(c => c.Id).NotEmpty();
         RuleFor(c => c.FormaPago).NotEmpty().MaximumLength(5);
+        RuleFor(c => c.CuentaOrdenante).MaximumLength(50);
+        RuleFor(c => c.CuentaBeneficiaria).MaximumLength(50);
         RuleFor(c => c.Facturas).NotEmpty();
         RuleForEach(c => c.Facturas).ChildRules(f =>
         {
@@ -59,6 +66,7 @@ public sealed class RevisarReppPendienteHandler(FacturacionDbContext db, ReppPen
         await using var tx = db.Database.IsRelational() ? await db.Database.BeginTransactionAsync(cancellationToken) : null;
         var p = await servicio.ObtenerAsync(c.Id, true, cancellationToken);
         await servicio.ValidarAsync(p, c.FormaPago, c.Facturas, cancellationToken);
+        CuentasPagoSat.Validar(c.FormaPago, c.CuentaOrdenante, c.CuentaBeneficiaria);
         p.Revisar(c.FormaPago, c.Facturas);
         await db.SaveChangesAsync(cancellationToken);
         if (tx is not null) await tx.CommitAsync(cancellationToken);
@@ -79,8 +87,11 @@ public sealed class DescartarReppPendienteHandler(FacturacionDbContext db, ReppP
 }
 
 public sealed class EmitirReppPendienteHandler(FacturacionDbContext db, ReppPendienteServicio servicio,
-    IReppBancarioReadPort bancario, ISender sender, ILogger<EmitirReppPendienteHandler>? logger = null) : IRequestHandler<EmitirReppPendienteCommand, EmitirReppPendienteResultado>
+    IReppBancarioReadPort bancario, ISender sender, ICuentaBancariaMilletReadPort cuentasMillet,
+    ILogger<EmitirReppPendienteHandler>? logger = null) : IRequestHandler<EmitirReppPendienteCommand, EmitirReppPendienteResultado>
 {
+    private readonly ICuentaBancariaMilletReadPort _cuentasMillet = cuentasMillet;
+
     public async Task<EmitirReppPendienteResultado> Handle(EmitirReppPendienteCommand c, CancellationToken cancellationToken)
     {
         await using var tx = db.Database.IsRelational() ? await db.Database.BeginTransactionAsync(cancellationToken) : null;
@@ -96,10 +107,14 @@ public sealed class EmitirReppPendienteHandler(FacturacionDbContext db, ReppPend
             await servicio.ValidarAsync(p, p.FormaPago, relacion, cancellationToken);
             var tc = await servicio.TipoCambioAsync(p, cancellationToken);
             var sucursal = await bancario.SucursalEmisoraAsync(cancellationToken);
+            // 86e3tfdve: beneficiaria = la capturada o, si no, la cuenta de Millet donde
+            // entró el depósito (CLABE/número según la forma). La valida EmitirReppHandler.
+            var beneficiaria = CuentasPagoSat.Normalizar(c.CuentaBeneficiaria)
+                ?? await ReppPendienteCuentas.BeneficiariaSugeridaAsync(p, _cuentasMillet, cancellationToken);
             // Propiedad interna: el endpoint manual no puede asociar un pendiente desde el body.
             await sender.Send(new EmitirReppCommand(sucursal,
                 new DateTimeOffset(p.FechaValor.ToDateTime(TimeOnly.MinValue), TimeSpan.FromHours(-6)).ToUniversalTime(),
-                p.Moneda, tc, p.FormaPago, null, null, p.Referencia,
+                p.Moneda, tc, p.FormaPago, c.CuentaOrdenante, beneficiaria, p.Referencia,
                 relacion.Select(f => new ReppFacturaPago(f.FacturaVentaId, f.Importe)).ToArray())
                 { Pendiente = p }, cancellationToken);
             // Recibo, outbox y estado del pendiente fueron guardados por EmitirReppHandler.
@@ -132,6 +147,17 @@ public sealed class EmitirReppPendienteHandler(FacturacionDbContext db, ReppPend
         if (tx is not null) await tx.CommitAsync(cancellationToken);
         return new(p.Id, p.Estado == EstadoReppPendiente.Emitido,
             p.ReciboPagoId ?? p.IntentoReciboPagoId, p.UltimoErrorCodigo, p.UltimoErrorMensaje);
+    }
+}
+
+public static class ReppPendienteCuentas
+{
+    /// <summary>Beneficiaria sugerida para el pendiente (sin enmascarar); null si la forma no la admite.</summary>
+    public static async Task<string?> BeneficiariaSugeridaAsync(ReppPendiente p, ICuentaBancariaMilletReadPort cuentas, CancellationToken ct)
+    {
+        if (!CuentasPagoSat.AdmiteBeneficiaria(p.FormaPago)) return null;
+        var cuenta = await cuentas.ObtenerAsync(p.CuentaBancariaId, ct);
+        return cuenta is null ? null : CuentasPagoSat.SugerirBeneficiaria(p.FormaPago, cuenta.Clabe, cuenta.NumeroCuenta);
     }
 }
 
