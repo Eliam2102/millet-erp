@@ -20,7 +20,8 @@ namespace Millet.Api.IntegrationTests.Administracion;
 /// empresas con <c>Activa = true</c> al resolver la selección, sin necesitar
 /// limpiar la preferencia explícitamente.
 /// </summary>
-public class LoginEmpresaInactivaTests : IClassFixture<WebApplicationFactory<Program>>
+[Collection(ApiCompartida.Nombre)]
+public class LoginEmpresaInactivaTests
 {
     private const string SuperAdminOid = "dev-superadmin";
     private const string EmpresasEndpointBase = "/api/v1/admin/empresas";

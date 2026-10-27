@@ -11,7 +11,8 @@ namespace Millet.Api.IntegrationTests.Identidad;
 /// (F-Admin-PR3.2). Verifica que sin <c>?agrupado=true</c> retorna lista
 /// plana y con <c>?agrupado=true</c> también incluye agrupación por módulo.
 /// </summary>
-public class PermisosEndpointsTests : IClassFixture<WebApplicationFactory<Program>>
+[Collection(ApiCompartida.Nombre)]
+public class PermisosEndpointsTests
 {
     private const string SuperAdminOid = "dev-superadmin";
     private const string Endpoint = "/api/v1/identidad/permisos";

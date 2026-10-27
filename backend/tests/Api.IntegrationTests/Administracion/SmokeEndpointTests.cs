@@ -20,7 +20,8 @@ namespace Millet.Api.IntegrationTests.Administracion;
 /// </list>
 /// </para>
 /// </summary>
-public class SmokeEndpointTests : IClassFixture<WebApplicationFactory<Program>>
+[Collection(ApiCompartida.Nombre)]
+public class SmokeEndpointTests
 {
     private const string SuperAdminOid = "dev-superadmin";
     private const string SinPermisosOid = "dev-admin-pr12-sin-permisos";

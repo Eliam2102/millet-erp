@@ -13,7 +13,8 @@ namespace Millet.Api.IntegrationTests.Catalogos;
 /// (F-Admin-PR5.1). Cubre POST + PATCH + registro de tipo de cambio
 /// + duplicado (409).
 /// </summary>
-public class MonedasEndpointsTests : IClassFixture<WebApplicationFactory<Program>>
+[Collection(ApiCompartida.Nombre)]
+public class MonedasEndpointsTests
 {
     private const string SuperAdminOid = "dev-superadmin";
     private readonly WebApplicationFactory<Program> _factory;

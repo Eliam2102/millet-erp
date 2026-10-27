@@ -25,7 +25,8 @@ namespace Millet.Api.IntegrationTests.Tesoreria;
 
 // Solo PostgreSQL desechable vía tools/validate-integration-isolated.sh.
 // Cuentas y documentos ficticios por prueba; conceptos tomados del seed compartido.
-public sealed class P5TesoreriaCobranzaTests(WebApplicationFactory<Program> factory) : IClassFixture<WebApplicationFactory<Program>>, IAsyncLifetime
+[Collection(ApiCompartida.Nombre)]
+public sealed class P5TesoreriaCobranzaTests(WebApplicationFactory<Program> factory) : IAsyncLifetime
 {
     private readonly List<Guid> _cuentas = [];
     private readonly List<Guid> _propuestas = [];

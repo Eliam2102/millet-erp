@@ -18,7 +18,8 @@ namespace Millet.Api.IntegrationTests.Contabilidad;
 /// sin huecos ni duplicados (K10.9-a/b/c) y anulación en negativo (CA10.5, K10.3-a/b, periodo cerrado, motor por documento). Datos
 /// FIX con tipos de prueba propios: el consecutivo de cada prueba arranca en 1. Las pruebas que cierran periodos usan un año lejano.
 /// </summary>
-public class PolizasHttpTests(WebApplicationFactory<Program> factory) : IClassFixture<WebApplicationFactory<Program>>
+[Collection(ApiCompartida.Nombre)]
+public class PolizasHttpTests(WebApplicationFactory<Program> factory)
 {
     private const string Polizas = Base + "/polizas";
     private const string Motivo = "FIX importe capturado con error";

@@ -17,7 +17,8 @@ namespace Millet.Api.IntegrationTests.Almacen;
 /// es EXACTAMENTE el que el adapter viejo calculaba leyendo saldos directo. Tras
 /// PR4 (sin reservas) la disponibilidad = existencia física.</para>
 /// </summary>
-public class SaldoQueryPortAlmacenRollupTests : IClassFixture<WebApplicationFactory<Program>>
+[Collection(ApiCompartida.Nombre)]
+public class SaldoQueryPortAlmacenRollupTests
 {
     private readonly WebApplicationFactory<Program> _factory;
 

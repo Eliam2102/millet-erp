@@ -22,7 +22,8 @@ namespace Millet.Api.IntegrationTests.Administracion;
 /// MID/MTY/QRO × COMPRAS/ALMACEN/...) conviven sin interferir.
 /// </para>
 /// </summary>
-public class SucursalDepartamentosEndpointsTests : IClassFixture<WebApplicationFactory<Program>>
+[Collection(ApiCompartida.Nombre)]
+public class SucursalDepartamentosEndpointsTests
 {
     private const string SuperAdminOid = "dev-superadmin";
     private const string SinPermisosOid = "test-no-perms-sxd";

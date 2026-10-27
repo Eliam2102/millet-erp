@@ -22,7 +22,8 @@ namespace Millet.Api.IntegrationTests.Identidad;
 /// superadmin.
 /// </para>
 /// </summary>
-public class UsuariosEndpointsTests : IClassFixture<WebApplicationFactory<Program>>
+[Collection(ApiCompartida.Nombre)]
+public class UsuariosEndpointsTests
 {
     private const string SuperAdminOid = "dev-superadmin";
     private const string SinPermisosOid = "test-no-perms";

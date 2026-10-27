@@ -21,13 +21,20 @@ namespace Millet.Api.IntegrationTests;
 
 // PostgreSQL desechable configurado por TestAssemblyInit; PAC y reserva simulados.
 // No crea ni modifica catálogos compartidos.
-public sealed class ReppPendientesTests : IClassFixture<WebApplicationFactory<Program>>
+[Collection(ApiCompartida.Nombre)]
+public sealed class ReppPendientesTests : IClassFixture<ReppPendientesTests.Servidor>
 {
     private static readonly Guid Empresa = Guid.Parse("00000003-0000-0000-0000-000000000001");
     private static readonly Guid Cliente = Guid.Parse("40000000-0000-0000-0000-000000000011");
     private const string Base = "/api/v1/facturacion/repp/pendientes";
     private readonly WebApplicationFactory<Program> _factory;
-    public ReppPendientesTests(WebApplicationFactory<Program> factory) => _factory = factory.WithWebHostBuilder(builder =>
+    public ReppPendientesTests(Servidor fixture) => _factory = fixture.Factory;
+
+    public sealed class Servidor : IDisposable
+    {
+        private readonly WebApplicationFactory<Program> _raiz = new();
+        public WebApplicationFactory<Program> Factory { get; }
+        public Servidor() => Factory = _raiz.WithWebHostBuilder(builder =>
         builder.ConfigureServices(services =>
         {
             services.RemoveAll<ICfdiTimbradoPort>(); services.AddSingleton<ICfdiTimbradoPort, Pac>();
@@ -38,6 +45,8 @@ public sealed class ReppPendientesTests : IClassFixture<WebApplicationFactory<Pr
             services.RemoveAll<IRequestHandler<ReservarFolioCommand, ReservarFolioResponse>>();
             services.AddSingleton<IRequestHandler<ReservarFolioCommand, ReservarFolioResponse>, Folio>();
         }));
+        public void Dispose() => _raiz.Dispose();
+    }
 
     [Fact]
     public async Task Evento_crea_pendiente_sin_recibo_y_emision_es_idempotente_con_outbox()

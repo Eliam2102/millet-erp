@@ -11,8 +11,8 @@ namespace Millet.Api.IntegrationTests.Facturacion;
 /// Cajas por sucursal (86e3t97uy): la caja nueva pide sucursal; sin ella el
 /// endpoint responde error de validación en lugar de crearla visible para todas.
 /// </summary>
+[Collection(ApiCompartida.Nombre)]
 public sealed class CajasSucursalEndpointsTests(WebApplicationFactory<Program> factory)
-    : IClassFixture<WebApplicationFactory<Program>>
 {
     [Fact]
     public async Task Crear_caja_sin_sucursal_devuelve_error_de_validacion()

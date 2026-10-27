@@ -24,7 +24,8 @@ namespace Millet.Api.IntegrationTests.Almacen;
 /// conexión del <see cref="AlmacenDbContext"/>, ejercita el trigger insertando
 /// movimientos+líneas, y limpia todo al final. No toca el seed de millet_dev.</para>
 /// </summary>
-public class TriggerSaldosNivel4Tests : IClassFixture<WebApplicationFactory<Program>>
+[Collection(ApiCompartida.Nombre)]
+public class TriggerSaldosNivel4Tests
 {
     private readonly WebApplicationFactory<Program> _factory;
 

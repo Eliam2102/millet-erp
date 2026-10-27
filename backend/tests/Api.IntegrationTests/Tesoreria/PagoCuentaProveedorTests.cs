@@ -23,14 +23,18 @@ namespace Millet.Api.IntegrationTests.Tesoreria;
 /// 86e3pdmee · pago a la cuenta bancaria elegida del proveedor: moneda, congelado del destino al pagar,
 /// permisos de lectura (enmascarado/completo) y acciones de administración de cuentas.
 /// </summary>
-public sealed class PagoCuentaProveedorTests(WebApplicationFactory<Program> factory) : IClassFixture<WebApplicationFactory<Program>>
+[Collection(ApiCompartida.Nombre)]
+public sealed class PagoCuentaProveedorTests(WebApplicationFactory<Program> factory)
 {
     private const string ClabeMxn = "012180000000001234";
     private const string ClabeUsd = "072180000000004569";
     private static readonly Guid Empresa = AdjuntosProveedorAmbiente.EmpresaInicialId;
 
     private sealed record Escenario(
-        AdjuntosProveedorAmbiente Amb, Guid ProveedorId, Guid CuentaMxnId, Guid CuentaUsdId, Guid EgresoMxnId, Guid EgresoUsdId, HttpClient Admin);
+        AdjuntosProveedorAmbiente Amb, Guid ProveedorId, Guid CuentaMxnId, Guid CuentaUsdId, Guid EgresoMxnId, Guid EgresoUsdId, HttpClient Admin) : IAsyncDisposable
+    {
+        public ValueTask DisposeAsync() => Amb.DisposeAsync();
+    }
 
     private static string Cuentas(Guid proveedorId) => $"{AdjuntosProveedorAmbiente.Base}/{proveedorId}/cuentas-bancarias";
 
@@ -43,28 +47,36 @@ public sealed class PagoCuentaProveedorTests(WebApplicationFactory<Program> fact
             s.RemoveAll<Millet.CuentasPorPagar.Domain.Ports.Contabilidad.IPeriodoContablePort>();
             s.AddSingleton<Millet.CuentasPorPagar.Domain.Ports.Contabilidad.IPeriodoContablePort, PeriodoAbierto>();
         });
-        var provId = await amb.SeedProveedorAsync(TipoPersonaProveedor.Moral, EstatusCatalogo.Activo);
-        Guid mxn, usd, egresoMxn, egresoUsd;
-        using (var scope = amb.Factory.Services.CreateScope())
+        try
         {
-            using var bypass = scope.ServiceProvider.GetRequiredService<ICurrentEmpresaContext>().Bypass();
-            var ahora = DateTimeOffset.UtcNow;
-            var cm = CuentaBancariaProveedor.Heredada(provId, "BBVA", ClabeMxn, "Proveedor SA", ahora);
-            var cu = CuentaBancariaProveedor.Capturar(provId, "Banorte", ClabeUsd, null, null, "USD", "Proveedor SA", Guid.NewGuid(), "Capturista", ahora);
-            cu.Validar(Guid.NewGuid(), "Validador", Guid.NewGuid(), true, null, ahora);
-            var compartido = scope.ServiceProvider.GetRequiredService<CompartidoDbContext>();
-            compartido.CuentasBancariasProveedor.AddRange(cm, cu);
-            await compartido.SaveChangesAsync();
-            mxn = cm.Id; usd = cu.Id;
-            var tes = scope.ServiceProvider.GetRequiredService<TesoreriaDbContext>();
-            var n = Guid.NewGuid().ToString("N");
-            var em = new CuentaBancaria(Empresa, "Egreso MXN", n[..12], null, "MXN");
-            var eu = new CuentaBancaria(Empresa, "Egreso USD", n[12..24], null, "USD");
-            tes.AddRange(em, eu);
-            await tes.SaveChangesAsync();
-            egresoMxn = em.Id; egresoUsd = eu.Id;
+            var provId = await amb.SeedProveedorAsync(TipoPersonaProveedor.Moral, EstatusCatalogo.Activo);
+            Guid mxn, usd, egresoMxn, egresoUsd;
+            using (var scope = amb.Factory.Services.CreateScope())
+            {
+                using var bypass = scope.ServiceProvider.GetRequiredService<ICurrentEmpresaContext>().Bypass();
+                var ahora = DateTimeOffset.UtcNow;
+                var cm = CuentaBancariaProveedor.Heredada(provId, "BBVA", ClabeMxn, "Proveedor SA", ahora);
+                var cu = CuentaBancariaProveedor.Capturar(provId, "Banorte", ClabeUsd, null, null, "USD", "Proveedor SA", Guid.NewGuid(), "Capturista", ahora);
+                cu.Validar(Guid.NewGuid(), "Validador", Guid.NewGuid(), true, null, ahora);
+                var compartido = scope.ServiceProvider.GetRequiredService<CompartidoDbContext>();
+                compartido.CuentasBancariasProveedor.AddRange(cm, cu);
+                await compartido.SaveChangesAsync();
+                mxn = cm.Id; usd = cu.Id;
+                var tes = scope.ServiceProvider.GetRequiredService<TesoreriaDbContext>();
+                var n = Guid.NewGuid().ToString("N");
+                var em = new CuentaBancaria(Empresa, "Egreso MXN", n[..12], null, "MXN");
+                var eu = new CuentaBancaria(Empresa, "Egreso USD", n[12..24], null, "USD");
+                tes.AddRange(em, eu);
+                await tes.SaveChangesAsync();
+                egresoMxn = em.Id; egresoUsd = eu.Id;
+            }
+            return new(amb, provId, mxn, usd, egresoMxn, egresoUsd, await amb.SuperAdminAsync());
         }
-        return new(amb, provId, mxn, usd, egresoMxn, egresoUsd, await amb.SuperAdminAsync());
+        catch
+        {
+            await amb.DisposeAsync();
+            throw;
+        }
     }
 
     private static async Task<Guid> SembrarPasivoAsync(Escenario e, string moneda)
@@ -122,7 +134,7 @@ public sealed class PagoCuentaProveedorTests(WebApplicationFactory<Program> fact
     [Fact]
     public async Task Pago_desde_egreso_USD_exige_cuenta_USD_del_proveedor_y_guarda_el_destino()
     {
-        var e = await SembrarAsync();
+        await using var e = await SembrarAsync();
         var facturaUsd = await SembrarPasivoAsync(e, "USD");
 
         var otraMoneda = await PagarAsync(e.Admin, e.EgresoUsdId, facturaUsd, e.CuentaMxnId);
@@ -141,7 +153,7 @@ public sealed class PagoCuentaProveedorTests(WebApplicationFactory<Program> fact
     [Fact]
     public async Task Inhabilitar_la_cuenta_no_cambia_pagos_hechos_y_bloquea_pagos_nuevos()
     {
-        var e = await SembrarAsync();
+        await using var e = await SembrarAsync();
         var f1 = await SembrarPasivoAsync(e, "MXN");
         var f2 = await SembrarPasivoAsync(e, "MXN");
 
@@ -162,7 +174,7 @@ public sealed class PagoCuentaProveedorTests(WebApplicationFactory<Program> fact
     [Fact]
     public async Task Cuentas_para_pago_enmascaradas_completas_con_permiso_y_403_sin_pagos_aplicar()
     {
-        var e = await SembrarAsync();
+        await using var e = await SembrarAsync();
         var url = $"/api/v1/tesoreria/proveedores/{e.ProveedorId}/cuentas";
         var (enmascarado, _) = await e.Amb.ClienteConPermisosAsync(PermisosCanonicos.TesoreriaPagosAplicar);
         var (completo, _) = await e.Amb.ClienteConPermisosAsync(PermisosCanonicos.TesoreriaPagosAplicar, PermisosCanonicos.TesoreriaMovimientosVerCuentaCompleta);
@@ -181,7 +193,7 @@ public sealed class PagoCuentaProveedorTests(WebApplicationFactory<Program> fact
     [Fact]
     public async Task Listado_de_datos_maestros_con_cuentas_administrar_devuelve_el_numero_completo()
     {
-        var e = await SembrarAsync();
+        await using var e = await SembrarAsync();
         var (admin, _) = await e.Amb.ClienteConPermisosAsync(
             PermisosCanonicos.DatosMaestrosProveedoresBancariosVer, PermisosCanonicos.DatosMaestrosProveedoresCuentasAdministrar);
         var (ver, _) = await e.Amb.ClienteConPermisosAsync(PermisosCanonicos.DatosMaestrosProveedoresBancariosVer);
@@ -195,7 +207,7 @@ public sealed class PagoCuentaProveedorTests(WebApplicationFactory<Program> fact
     [Fact]
     public async Task Rechazar_inhabilitar_y_reactivar_por_API_con_su_estado_y_403_sin_cuentas_administrar()
     {
-        var e = await SembrarAsync();
+        await using var e = await SembrarAsync();
         var (sinPermiso, _) = await e.Amb.ClienteConPermisosAsync(
             PermisosCanonicos.DatosMaestrosProveedoresBancariosVer, PermisosCanonicos.DatosMaestrosProveedoresBancariosEditar);
         var capturada = await AdjuntosProveedorAmbiente.LeerAsync(await e.Admin.PostAsJsonAsync(Cuentas(e.ProveedorId),

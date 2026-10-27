@@ -7,8 +7,8 @@ using Millet.Identidad.Domain;
 
 namespace Millet.Api.IntegrationTests.Administracion;
 
+[Collection(ApiCompartida.Nombre)]
 public sealed class OrganizacionAdminAuthMetadataTests
-    : IClassFixture<WebApplicationFactory<Program>>
 {
     private readonly WebApplicationFactory<Program> _factory;
 
