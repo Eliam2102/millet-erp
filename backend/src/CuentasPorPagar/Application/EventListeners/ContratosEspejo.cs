@@ -83,8 +83,11 @@ public sealed record OcRecepcionCanceladaPayload(
     Guid OrdenCompraId,
     IReadOnlyList<LineaRecepcionCanceladaPayload> Lineas);
 
-/// <summary><c>CantidadDocumento</c> viene en unidad de la línea de OC.</summary>
-public sealed record LineaRecepcionCanceladaPayload(Guid? LineaOcId, decimal CantidadDocumento);
+/// <summary>
+/// <c>CantidadDocumento</c> viene en unidad de la línea de OC. <c>RecibidoAcumuladoDocumento</c> es lo recibido vigente de la
+/// línea de OC ya sin esta recepción, calculado por Almacén; null en eventos que no lo traen.
+/// </summary>
+public sealed record LineaRecepcionCanceladaPayload(Guid? LineaOcId, decimal CantidadDocumento, decimal? RecibidoAcumuladoDocumento = null);
 
 /// <summary>
 /// Espejo de <c>almacen.recepcion_activo.anulada.v1</c> (una por línea de OC). CxP marca la línea

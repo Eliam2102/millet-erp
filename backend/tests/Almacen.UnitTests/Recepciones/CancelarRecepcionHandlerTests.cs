@@ -1,6 +1,8 @@
 using Microsoft.EntityFrameworkCore;
+using Millet.Almacen.Application.DevolucionesProveedor;
 using Millet.Almacen.Application.Integration;
 using Millet.Almacen.Application.Recepciones;
+using Millet.Almacen.Application.Revision;
 using Millet.Almacen.Domain.Catalogo;
 using Millet.Almacen.Domain.DevolucionesProveedor;
 using Millet.Almacen.Domain.Movimientos;
@@ -161,6 +163,52 @@ public class CancelarRecepcionHandlerTests
     }
 
     [Fact]
+    public async Task Cancelar_libera_el_CFDI_y_la_factura_y_el_evento_lleva_lo_recibido_vigente()
+    {
+        await using var m = await NuevoMundoAsync();
+        await m.RegistrarAsync(); // principal de 10 con CFDI vinculado
+        await m.SembrarSaldoPostSalidaAsync(BinId, 20m, 10m);
+        var antes = await m.Db.Movimientos.SingleAsync(x => x.Id == m.RecepcionId);
+        antes.CfdiRecibidoId.Should().NotBeNull();
+        typeof(MovimientoInventario).GetProperty(nameof(MovimientoInventario.FacturaId))!.SetValue(antes, Guid.NewGuid());
+        typeof(MovimientoInventario).GetProperty(nameof(MovimientoInventario.CfdiUuidFiscal))!.SetValue(antes, "AD662D33-6934-459C-A128-BDF0393E0062");
+        await m.Db.SaveChangesAsync();
+        m.Db.ChangeTracker.Clear();
+
+        await m.CancelarAsync();
+
+        var cancelada = await m.Db.Movimientos.AsNoTracking().SingleAsync(x => x.Id == m.RecepcionId);
+        cancelada.Estado.Should().Be(EstadoMovimiento.Cancelado);
+        cancelada.CfdiRecibidoId.Should().BeNull();
+        cancelada.CfdiUuidFiscal.Should().BeNull();
+        cancelada.FacturaId.Should().BeNull();
+        // Lo recibido vigente de la línea de OC ya sin la recepción cancelada (ninguna otra): CxP lo usa sin depender de Compras.
+        m.Eventos.Unico<OcRecepcionCanceladaIntegrationEvent>().Lineas.Should().OnlyContain(l => l.RecibidoAcumuladoDocumento == 0m);
+    }
+
+    [Fact]
+    public async Task Sobre_una_recepcion_cancelada_la_devolucion_a_proveedor_y_el_dictamen_se_rechazan()
+    {
+        await using var m = await NuevoMundoAsync();
+        await m.RegistrarAsync(danada: 2m);
+        await m.SembrarSaldoPostSalidaAsync(BinId, 20m, 10m);
+        await m.SembrarSaldoPostSalidaAsync(RevBinId, 5m, 10m);
+        var lineaPrincipal = (await m.Db.Movimientos.Include(x => x.Lineas).SingleAsync(x => x.Id == m.RecepcionId)).Lineas.Single();
+        var lineaRevision = (await m.Db.Movimientos.Include(x => x.Lineas).SingleAsync(x => x.RecepcionOrigenId == m.RecepcionId)).Lineas.Single();
+        await m.CancelarAsync();
+
+        var devolver = () => new IniciarDevolucionAProveedorHandler(m.Db, new FakeUser(UsuarioB), new FakeEmpresa(), new FakeDecimales(), new FakeOc())
+            .Handle(new IniciarDevolucionAProveedorCommand(Guid.NewGuid(), "Mala", m.RecepcionId, null, null, null,
+                [new DevolucionProveedorLineaInput(ArticuloId, 1m, "PZA", 10m, lineaPrincipal.Id)]), default);
+        (await devolver.Should().ThrowAsync<BusinessRuleException>()).Which.Code.Should().Be("DEVOLUCION_RECEPCION_INVALIDA");
+
+        var dictaminar = () => new DictaminarMaterialEnRevisionHandler(m.Db, new FakeUser(UsuarioB), new FakeEmpresa(), new FakeDecimales(),
+                new PeriodoContableStub(true), null!, new FakeOc())
+            .Handle(new DictaminarMaterialEnRevisionCommand(lineaRevision.Id, ResultadoDictamen.Baja, 1m, "Rotas", new DateOnly(2026, 10, 23), null), default);
+        await dictaminar.Should().ThrowAsync<EntityNotFoundException>();
+    }
+
+    [Fact]
     public async Task Mismo_usuario_que_registro_no_puede_cancelar()
     {
         await using var m = await NuevoMundoAsync();
@@ -270,6 +318,31 @@ public class CancelarRecepcionHandlerTests
         m.Db.Movimientos.Add(salida);
         await m.Db.SaveChangesAsync();
         await Rechaza(m.CancelarAsync(), "RECEPCION_CON_SALIDAS");
+    }
+
+    [Theory]
+    [InlineData(TipoMovimiento.SalidaConsumo, true)]
+    [InlineData(TipoMovimiento.SalidaPorVale, true)]
+    [InlineData(TipoMovimiento.SalidaPorDevolucionAProveedor, true)]
+    [InlineData(TipoMovimiento.AjusteNegativo, true)]
+    [InlineData(TipoMovimiento.BajaPorDano, true)]
+    [InlineData(TipoMovimiento.SalidaPorLiberacionRevision, true)]
+    [InlineData(TipoMovimiento.AjustePrecioFactura, false)]
+    [InlineData(TipoMovimiento.AjustePositivo, false)]
+    [InlineData(TipoMovimiento.DevolucionSalida, false)]
+    public async Task Solo_las_salidas_reales_posteriores_bloquean_un_ajuste_de_precio_no(TipoMovimiento tipo, bool bloquea)
+    {
+        await using var m = await NuevoMundoAsync();
+        await m.RegistrarAsync();
+        await m.SembrarSaldoPostSalidaAsync(BinId, 20m, 10m);
+        var otro = new MovimientoInventario(Guid.NewGuid(), tipo, EmpresaId, new DateOnly(2026, 10, 20));
+        otro.AgregarLinea(new LineaMovimiento(Guid.NewGuid(), otro.Id, 1, ArticuloId, 1m, "PZA", 10m, ubicacionId: BinId));
+        otro.Registrar(FolioMovimiento.Construir(tipo, 2026, 1), UsuarioA);
+        m.Db.Movimientos.Add(otro);
+        await m.Db.SaveChangesAsync();
+
+        if (bloquea) await Rechaza(m.CancelarAsync(), "RECEPCION_CON_SALIDAS");
+        else (await m.CancelarAsync()).FoliosCancelacion.Should().HaveCount(1);
     }
 
     [Fact]

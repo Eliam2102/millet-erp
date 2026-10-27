@@ -123,6 +123,15 @@ public sealed class FacturaProveedor : BaseEntity, IPerteneceAEmpresa, IFiscalme
         if (RecepcionId == recepcionId) RecepcionId = null;
     }
 
+    /// <summary>
+    /// 86e3tabdp: la recepción correcta de la misma OC y CFDI toma el lugar de la cancelada. Solo si la factura quedó sin recepción;
+    /// sin <c>AsegurarMutable</c> por el mismo motivo que <see cref="DesligarRecepcion"/> (hecho de Almacén, la factura puede estar Autorizada).
+    /// </summary>
+    public void LigarRecepcionCorrecta(Guid recepcionId)
+    {
+        if (RecepcionId is null && recepcionId != Guid.Empty) RecepcionId = recepcionId;
+    }
+
     /// <summary>Encargado de compras snapshot desde la OC al momento de captura.</summary>
     public Guid? EncargadoComprasSnapshot { get; private set; }
 

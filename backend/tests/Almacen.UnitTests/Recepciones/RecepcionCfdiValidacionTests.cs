@@ -164,6 +164,36 @@ public class RecepcionCfdiValidacionTests
         resp.RecepcionId.Should().NotBeEmpty();
     }
 
+    // 86e3tabdp: el CFDI de una recepción cancelada ya es una factura (ConvertidoEnPasivo) y debe poder ligarse a la recepción correcta.
+
+    [Fact]
+    public async Task Cfdi_convertido_en_pasivo_cuya_factura_de_la_misma_OC_quedo_sin_recepcion_se_vincula()
+    {
+        await using var db = await NuevaDbConRackAsync();
+        var cmd = Comando(Guid.NewGuid());
+        var cfdi = new CfdiFake(new CfdiRecibidoLectura(Guid.NewGuid(), "AAA010101AAA", "ConvertidoEnPasivo", "Ingreso", cmd.OrdenCompraId));
+
+        var resp = await NuevoHandler(db, cfdi, new ProveedorRfcFake()).Handle(cmd, CancellationToken.None);
+
+        resp.RecepcionId.Should().NotBeEmpty();
+    }
+
+    [Theory]
+    [InlineData(false)] // la factura del CFDI es de otra OC (o ya tiene recepción: CxP no manda OC)
+    [InlineData(true)]  // otra recepción vigente ya usa el CFDI
+    public async Task Cfdi_convertido_en_pasivo_no_se_vincula_si_no_quedo_libre(bool recepcionVigenteLoUsa)
+    {
+        await using var db = await NuevaDbConRackAsync();
+        var cmd = Comando(Guid.NewGuid());
+        var ajeno = new CfdiRecibidoLectura(Guid.NewGuid(), "AAA010101AAA", "ConvertidoEnPasivo", "Ingreso",
+            recepcionVigenteLoUsa ? cmd.OrdenCompraId : Guid.NewGuid());
+        if (recepcionVigenteLoUsa)
+            await NuevoHandler(db, CfdiFake.Valido(), new ProveedorRfcFake()).Handle(cmd with { OrdenCompraId = Guid.NewGuid() }, CancellationToken.None);
+
+        var act = () => NuevoHandler(db, new CfdiFake(ajeno), new ProveedorRfcFake()).Handle(cmd, CancellationToken.None);
+        (await act.Should().ThrowAsync<BusinessRuleException>()).Which.Code.Should().Be("RECEPCION_CFDI_NO_VINCULABLE");
+    }
+
     // ─── Fakes (copia de RegistrarRecepcionMultiSubAlmacenTests) ─────────────
 
     private sealed class FakeEmpresa(Guid current) : ICurrentEmpresaContext

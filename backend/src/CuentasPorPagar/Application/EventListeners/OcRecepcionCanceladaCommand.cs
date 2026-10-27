@@ -61,14 +61,15 @@ public sealed class OcRecepcionCanceladaHandler : IRequestHandler<OcRecepcionCan
             procesadoEn: ahora,
             detalle: $"Recepcion={p.RecepcionId} OC={p.OrdenCompraId} FacturasDesligadas={ligadas.Count}"));
 
-        // Elegibilidad sin la recepción cancelada: Compras puede tardar en descontarla, así que se resta aquí.
-        var cancelado = p.Lineas.Where(l => l.LineaOcId != null).GroupBy(l => l.LineaOcId!.Value)
-            .ToDictionary(g => g.Key, g => g.Sum(l => l.CantidadDocumento));
+        // Elegibilidad sin la recepción cancelada: lo recibido vigente viene de Almacén (no se resta nada a lo de Compras, que puede
+        // haber procesado ya la cancelación o no).
+        var vigente = p.Lineas.Where(l => l.LineaOcId != null && l.RecibidoAcumuladoDocumento != null)
+            .GroupBy(l => l.LineaOcId!.Value).ToDictionary(g => g.Key, g => g.First().RecibidoAcumuladoDocumento!.Value);
         var autorizadas = await _db.FacturasProveedor.Where(f => f.OrdenCompraId == p.OrdenCompraId &&
             f.Estado == Domain.FacturaProveedor.EstadoPasivo.Autorizada).ToListAsync(cancellationToken);
         foreach (var f in autorizadas)
             await _pasivos.PublicarAsync(new Domain.FacturaProveedor.Events.FacturaProveedorAutorizadaDomainEvent(
-                f.EmpresaId, f.Id, f.OrdenCompraId, ahora), cancellationToken, recibidoCancelado: cancelado);
+                f.EmpresaId, f.Id, f.OrdenCompraId, ahora), cancellationToken, recibidoVigente: vigente);
 
         await _db.SaveChangesAsync(cancellationToken);
 

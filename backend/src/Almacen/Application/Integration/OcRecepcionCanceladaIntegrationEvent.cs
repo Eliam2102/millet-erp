@@ -30,6 +30,8 @@ public sealed record OcRecepcionCanceladaIntegrationEvent(
 /// <summary>
 /// Línea revertida. <c>Cantidad</c> va en unidad base del inventario; <c>CantidadDocumento</c> en unidad de la línea
 /// de OC (la que Compras descuenta de lo recibido). Sin <c>LineaOcId</c> (recepciones históricas) no hay descuento por línea.
+/// <c>RecibidoAcumuladoDocumento</c> es lo recibido vigente de la línea de OC (unidad de la OC, ya sin esta recepción y sin devoluciones)
+/// calculado por Almacén: CxP lo usa tal cual para no depender de si Compras ya descontó la cancelación.
 /// </summary>
 public sealed record LineaRecepcionCanceladaPayload(
     Guid LineaRecepcionId,
@@ -40,4 +42,5 @@ public sealed record LineaRecepcionCanceladaPayload(
     decimal CantidadDocumento,
     decimal CostoUnitarioMxn,
     decimal MontoTotalMxn,
-    Guid UbicacionId);
+    Guid UbicacionId,
+    decimal? RecibidoAcumuladoDocumento = null);

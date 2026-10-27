@@ -113,9 +113,11 @@ public sealed class CxpDocumentosReadAdapter : ICxpDocumentosReadPort
             .Select(c => new { c.Id, c.RfcEmisor, c.Estado, c.Tipo })
             .FirstOrDefaultAsync(cancellationToken);
 
-        return fila is null
-            ? null
-            : new CfdiRecibidoLectura(fila.Id, fila.RfcEmisor.Valor, fila.Estado.ToString(), fila.Tipo.ToString());
+        if (fila is null) return null;
+        var ocLibre = await _db.FacturasProveedor.AsNoTracking()
+            .Where(f => f.CfdiRecibidoId == cfdiRecibidoId && f.Estado != EstadoPasivo.Cancelada && f.RecepcionId == null)
+            .Select(f => f.OrdenCompraId).FirstOrDefaultAsync(cancellationToken);
+        return new CfdiRecibidoLectura(fila.Id, fila.RfcEmisor.Valor, fila.Estado.ToString(), fila.Tipo.ToString(), ocLibre);
     }
 
     public async Task<IReadOnlyList<FacturaLigadaRecepcionLectura>> ObtenerFacturasLigadasRecepcionAsync(
