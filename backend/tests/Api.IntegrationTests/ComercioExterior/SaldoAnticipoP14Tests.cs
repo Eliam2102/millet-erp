@@ -64,7 +64,9 @@ public sealed class SaldoAnticipoP14Tests
         var servicios = scope.ServiceProvider;
         using var empresaBypass = servicios.GetRequiredService<ICurrentEmpresaContext>().Bypass();
         var ce = servicios.GetRequiredService<ComercioExteriorDbContext>();
-        var evento = Assert.Single(await ce.OutboxEntries.Where(e => e.EventType == AnticipoAgenteSaldoTransferidoHandler.EventType && e.Payload.Contains(anticipoId.ToString())).ToListAsync());
+        // Payload es jsonb: se filtra en memoria (LIKE no aplica a jsonb).
+        var evento = Assert.Single(await ce.OutboxEntries.Where(e => e.EventType == AnticipoAgenteSaldoTransferidoHandler.EventType).ToListAsync(),
+            e => e.Payload.Contains(anticipoId.ToString()));
         var payload = JsonSerializer.Deserialize<SaldoAnticipoAgentePayload>(evento.Payload, JsonOptions)!;
         Assert.Equal(DemoSesionSeedHostedService.EmpresaId, payload.EmpresaId);
         Assert.Equal(7500, payload.ImporteMxn);
