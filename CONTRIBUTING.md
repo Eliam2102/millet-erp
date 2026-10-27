@@ -117,9 +117,10 @@ Corre el equivalente local del CI para no romper a otros:
 
 - VS Code: `Tasks: Run Task` → `validate all (CI mirror)`
 - Manual: `dotnet build`, `dotnet test`, `npm run build`, `npm run lint`
-- **Pruebas de integración:** tu módulo con `--filter` mientras programas y,
-  si tocaste algo compartido, el gate completo
-  (`./tools/validate-integration-isolated.sh --shared-db`).
+- **Pruebas de integración:** enciende una vez la base de pruebas
+  (`docker compose -f docker-compose.test.yml up -d`) y corre tu módulo con
+  `--filter` mientras programas. La suite completa la corre el CI en cada PR.
+- **Corte del sprint:** viernes 12:00, PR arriba y en verde.
 
 Esto reproduce el workflow [validate-app.yml](.github/workflows/validate-app.yml).
 El CI rechaza el PR si fallan las pruebas de integración (check «Integration
