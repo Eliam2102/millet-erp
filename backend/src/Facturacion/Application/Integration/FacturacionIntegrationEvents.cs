@@ -143,7 +143,10 @@ public sealed record ReciboPagoTimbradoIntegrationEvent(
     decimal ImporteTotalPago,
     decimal GananciaPerdidaCambiaria,
     IReadOnlyList<ReppFacturaPagadaDetalle> FacturasPagadas,
-    Guid? MovimientoBancarioId = null)
+    Guid? MovimientoBancarioId = null,
+    // C7.4 (aditivo): propuesta de CxC del pendiente de REP; un movimiento puede
+    // tener varias (depósito identificado en partes) y CxC/Tesorería correlacionan por ella.
+    Guid? PropuestaId = null)
     : IntegrationEvent("facturacion.recibo-pago.timbrado.v1", EmpresaId, OcurridoEn);
 
 // ---- Comprobante cancelado (reversa fiscal/financiera) ----

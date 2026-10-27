@@ -3104,7 +3104,13 @@ namespace Millet.Facturacion.Infrastructure.Persistence.Migrations
 
                     b.HasIndex("MovimientoBancarioId")
                         .IsUnique()
-                        .HasDatabaseName("ix_repp_pendiente_movimiento_bancario_id");
+                        .HasDatabaseName("ux_repp_pendiente_movimiento_sin_propuesta")
+                        .HasFilter("propuesta_id IS NULL");
+
+                    b.HasIndex("MovimientoBancarioId", "PropuestaId")
+                        .IsUnique()
+                        .HasDatabaseName("ux_repp_pendiente_movimiento_propuesta")
+                        .HasFilter("propuesta_id IS NOT NULL");
 
                     b.HasIndex("EmpresaId", "Estado", "FechaLimite")
                         .HasDatabaseName("ix_repp_pendiente_empresa_id_estado_fecha_limite");
