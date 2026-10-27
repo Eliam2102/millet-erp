@@ -459,9 +459,14 @@ comprobantes de TPV»), R18 y CA6.10; minuta del 12-oct-2026 (M19).
   de CFDI por sucursal y día son F6.7.
 - **Nombre del cajero:** puerto `IUsuariosReadPort` (adapter en `Millet.Api`
   sobre `identidad.usuarios`); también se muestra en *Liquidación de caja*.
-- **Reglas de cobro agregadas:** las formas 04 y 28 (tarjeta) exigen la
-  referencia del voucher (`COBRO_TARJETA_SIN_REFERENCIA`), en el cobro
-  unitario y en la liquidación de ruta; un complemento de pago solo se cobra
+- **Reglas de cobro agregadas:** las formas 04, 28 y 29 (tarjeta de crédito,
+  débito y servicios) exigen el número de autorización del voucher
+  (`COBRO_TARJETA_SIN_REFERENCIA`), en el cobro unitario y en la liquidación
+  de ruta. Desde 86e3tfdvt el dato lleva de 4 a 12 letras, dígitos o guiones
+  (`COBRO_TARJETA_AUTORIZACION_INVALIDA`): el tope impide capturar el número
+  completo de la tarjeta, que nunca se guarda (mismo criterio que CxP y
+  ADR-0006). Es un supuesto mientras Millet confirma qué dato del voucher se
+  captura (ClickUp 86e3tfdvt). Un complemento de pago solo se cobra
   en caja si la moneda del pago es MXN (`COBRO_MONEDA_INVALIDA`; el CFDI de
   pago lleva `Moneda = XXX`).
 - **Frontend:** `/facturacion/caja/corte/$sesionId` (cuelga de «Mi caja»):
@@ -526,3 +531,4 @@ el cierre del día cuadra la sucursal completa.
 | 0.7 | 2026-10-13 | §14 Corte de caja por cajero (FIX-12): endpoint, fuente única en movimientos, voucher obligatorio en tarjeta y REPP solo en pesos |
 | 0.8 | 2026-10-14 | §14: facturado y notas de crédito del punto de venta y resumen de la entrega (M19: facturado, NC, cobranzas, apartados, TPV), como propuesta a validar; relación con F6.7 |
 | 0.9 | 2026-10-21 | §15 Cierre del día por sucursal (F6.7): monitor de estatus de CFDI con verificación SAT y conciliación facturado contra ingresado por sucursal y cajero |
+| 1.0 | 2026-10-26 | §14 (86e3tfdvt): voucher de tarjeta = número de autorización de 4 a 12 caracteres, también en forma 29; nunca el número de la tarjeta |
