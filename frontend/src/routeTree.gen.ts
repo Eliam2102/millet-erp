@@ -19,6 +19,8 @@ import { Route as AppActivosFijosConfiguracionLibroRouteImport } from './routes/
 import { Route as AppActivosFijosConteosRouteImport } from './routes/_app/activos-fijos/conteos';
 import { Route as AppActivosFijosDepreciacionRouteImport } from './routes/_app/activos-fijos/depreciacion';
 import { Route as AppActivosFijosLibroRouteImport } from './routes/_app/activos-fijos/libro';
+import { Route as AppActivosFijosDepreciacionFiscalRouteImport } from './routes/_app/activos-fijos/depreciacion-fiscal';
+import { Route as AppActivosFijosInpcRouteImport } from './routes/_app/activos-fijos/inpc';
 import { Route as AppActivosFijosPorCapitalizarRouteImport } from './routes/_app/activos-fijos/por-capitalizar';
 import { Route as AppActivosFijosPorVencerRouteImport } from './routes/_app/activos-fijos/por-vencer';
 import { Route as AppAdminIndexRouteImport } from './routes/_app/admin/index';
@@ -259,6 +261,16 @@ const AppActivosFijosDepreciacionRoute =
 const AppActivosFijosLibroRoute = AppActivosFijosLibroRouteImport.update({
   id: '/activos-fijos/libro',
   path: '/activos-fijos/libro',
+  getParentRoute: () => AppRoute,
+} as any);
+const AppActivosFijosDepreciacionFiscalRoute = AppActivosFijosDepreciacionFiscalRouteImport.update({
+  id: '/activos-fijos/depreciacion-fiscal',
+  path: '/activos-fijos/depreciacion-fiscal',
+  getParentRoute: () => AppRoute,
+} as any);
+const AppActivosFijosInpcRoute = AppActivosFijosInpcRouteImport.update({
+  id: '/activos-fijos/inpc',
+  path: '/activos-fijos/inpc',
   getParentRoute: () => AppRoute,
 } as any);
 const AppActivosFijosPorCapitalizarRoute =
@@ -1315,6 +1327,8 @@ export interface FileRoutesByFullPath {
   '/activos-fijos/conteos': typeof AppActivosFijosConteosRoute;
   '/activos-fijos/depreciacion': typeof AppActivosFijosDepreciacionRoute;
   '/activos-fijos/libro': typeof AppActivosFijosLibroRoute;
+  '/activos-fijos/depreciacion-fiscal': typeof AppActivosFijosDepreciacionFiscalRoute;
+  '/activos-fijos/inpc': typeof AppActivosFijosInpcRoute;
   '/activos-fijos/por-capitalizar': typeof AppActivosFijosPorCapitalizarRoute;
   '/activos-fijos/por-vencer': typeof AppActivosFijosPorVencerRoute;
   '/admin/mi-empresa': typeof AppAdminMiEmpresaRoute;
@@ -1514,6 +1528,8 @@ export interface FileRoutesByTo {
   '/activos-fijos/conteos': typeof AppActivosFijosConteosRoute;
   '/activos-fijos/depreciacion': typeof AppActivosFijosDepreciacionRoute;
   '/activos-fijos/libro': typeof AppActivosFijosLibroRoute;
+  '/activos-fijos/depreciacion-fiscal': typeof AppActivosFijosDepreciacionFiscalRoute;
+  '/activos-fijos/inpc': typeof AppActivosFijosInpcRoute;
   '/activos-fijos/por-capitalizar': typeof AppActivosFijosPorCapitalizarRoute;
   '/activos-fijos/por-vencer': typeof AppActivosFijosPorVencerRoute;
   '/admin/mi-empresa': typeof AppAdminMiEmpresaRoute;
@@ -1715,6 +1731,8 @@ export interface FileRoutesById {
   '/_app/activos-fijos/conteos': typeof AppActivosFijosConteosRoute;
   '/_app/activos-fijos/depreciacion': typeof AppActivosFijosDepreciacionRoute;
   '/_app/activos-fijos/libro': typeof AppActivosFijosLibroRoute;
+  '/_app/activos-fijos/depreciacion-fiscal': typeof AppActivosFijosDepreciacionFiscalRoute;
+  '/_app/activos-fijos/inpc': typeof AppActivosFijosInpcRoute;
   '/_app/activos-fijos/por-capitalizar': typeof AppActivosFijosPorCapitalizarRoute;
   '/_app/activos-fijos/por-vencer': typeof AppActivosFijosPorVencerRoute;
   '/_app/admin/mi-empresa': typeof AppAdminMiEmpresaRoute;
@@ -1916,6 +1934,8 @@ export interface FileRouteTypes {
     | '/activos-fijos/conteos'
     | '/activos-fijos/depreciacion'
     | '/activos-fijos/libro'
+    | '/activos-fijos/depreciacion-fiscal'
+    | '/activos-fijos/inpc'
     | '/activos-fijos/por-capitalizar'
     | '/activos-fijos/por-vencer'
     | '/admin/mi-empresa'
@@ -2115,6 +2135,8 @@ export interface FileRouteTypes {
     | '/activos-fijos/conteos'
     | '/activos-fijos/depreciacion'
     | '/activos-fijos/libro'
+    | '/activos-fijos/depreciacion-fiscal'
+    | '/activos-fijos/inpc'
     | '/activos-fijos/por-capitalizar'
     | '/activos-fijos/por-vencer'
     | '/admin/mi-empresa'
@@ -2315,6 +2337,8 @@ export interface FileRouteTypes {
     | '/_app/activos-fijos/conteos'
     | '/_app/activos-fijos/depreciacion'
     | '/_app/activos-fijos/libro'
+    | '/_app/activos-fijos/depreciacion-fiscal'
+    | '/_app/activos-fijos/inpc'
     | '/_app/activos-fijos/por-capitalizar'
     | '/_app/activos-fijos/por-vencer'
     | '/_app/admin/mi-empresa'
@@ -2580,6 +2604,20 @@ declare module '@tanstack/react-router' {
       path: '/activos-fijos/libro';
       fullPath: '/activos-fijos/libro';
       preLoaderRoute: typeof AppActivosFijosLibroRouteImport;
+      parentRoute: typeof AppRoute;
+    };
+    '/_app/activos-fijos/depreciacion-fiscal': {
+      id: '/_app/activos-fijos/depreciacion-fiscal';
+      path: '/activos-fijos/depreciacion-fiscal';
+      fullPath: '/activos-fijos/depreciacion-fiscal';
+      preLoaderRoute: typeof AppActivosFijosDepreciacionFiscalRouteImport;
+      parentRoute: typeof AppRoute;
+    };
+    '/_app/activos-fijos/inpc': {
+      id: '/_app/activos-fijos/inpc';
+      path: '/activos-fijos/inpc';
+      fullPath: '/activos-fijos/inpc';
+      preLoaderRoute: typeof AppActivosFijosInpcRouteImport;
       parentRoute: typeof AppRoute;
     };
     '/_app/activos-fijos/por-capitalizar': {
@@ -3927,6 +3965,8 @@ interface AppRouteChildren {
   AppActivosFijosConteosRoute: typeof AppActivosFijosConteosRoute;
   AppActivosFijosDepreciacionRoute: typeof AppActivosFijosDepreciacionRoute;
   AppActivosFijosLibroRoute: typeof AppActivosFijosLibroRoute;
+  AppActivosFijosDepreciacionFiscalRoute: typeof AppActivosFijosDepreciacionFiscalRoute;
+  AppActivosFijosInpcRoute: typeof AppActivosFijosInpcRoute;
   AppActivosFijosPorCapitalizarRoute: typeof AppActivosFijosPorCapitalizarRoute;
   AppActivosFijosPorVencerRoute: typeof AppActivosFijosPorVencerRoute;
   AppAdminMiEmpresaRoute: typeof AppAdminMiEmpresaRoute;
@@ -4125,6 +4165,8 @@ const AppRouteChildren: AppRouteChildren = {
   AppActivosFijosConteosRoute: AppActivosFijosConteosRoute,
   AppActivosFijosDepreciacionRoute: AppActivosFijosDepreciacionRoute,
   AppActivosFijosLibroRoute: AppActivosFijosLibroRoute,
+  AppActivosFijosDepreciacionFiscalRoute: AppActivosFijosDepreciacionFiscalRoute,
+  AppActivosFijosInpcRoute: AppActivosFijosInpcRoute,
   AppActivosFijosPorCapitalizarRoute: AppActivosFijosPorCapitalizarRoute,
   AppActivosFijosPorVencerRoute: AppActivosFijosPorVencerRoute,
   AppAdminMiEmpresaRoute: AppAdminMiEmpresaRoute,

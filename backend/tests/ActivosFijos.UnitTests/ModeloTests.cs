@@ -10,7 +10,7 @@ public sealed class ModeloTests
     public void Modelo_aisla_empresa_controla_version_y_rechaza_traslados_simultaneos()
     {
         using var db=new ActivosFijosDbContext(new DbContextOptionsBuilder<ActivosFijosDbContext>().UseNpgsql("Host=invalid;Database=af_test").UseSnakeCaseNamingConvention().Options,new Empresa());
-        foreach(var type in new[]{typeof(Activo),typeof(ClaseActivo),typeof(TrasladoActivo),typeof(MovimientoValorActivo),typeof(CorridaDepreciacion),typeof(OperacionLibro),typeof(ConfiguracionLibro),typeof(CargaLibro),typeof(DocumentoActivo),typeof(MantenimientoActivo),typeof(ConteoActivo),typeof(PartidaConteoActivo),typeof(AvisoActivo)})
+        foreach(var type in new[]{typeof(Activo),typeof(ClaseActivo),typeof(TrasladoActivo),typeof(MovimientoValorActivo),typeof(CorridaDepreciacion),typeof(OperacionLibro),typeof(ConfiguracionLibro),typeof(CargaLibro),typeof(DocumentoActivo),typeof(MantenimientoActivo),typeof(ConteoActivo),typeof(PartidaConteoActivo),typeof(AvisoActivo),typeof(InpcMensual)})
         { var entity=db.Model.FindEntityType(type)!;Assert.NotEmpty(entity.GetDeclaredQueryFilters());Assert.True(entity.FindProperty("Version")!.IsConcurrencyToken);Assert.Equal("activos_fijos",entity.GetSchema()); }
         Assert.Contains(db.Model.FindEntityType(typeof(AvisoActivo))!.GetIndexes(),x=>x.IsUnique && x.Properties.Any(p=>p.Name=="FuenteId") && x.Properties.Any(p=>p.Name=="Tipo"));
         Assert.Contains(db.Model.FindEntityType(typeof(TrasladoActivo))!.GetIndexes(),x=>x.IsUnique && x.GetFilter()=="aceptado_en IS NULL");
@@ -31,8 +31,8 @@ public sealed class ModeloTests
         var semillas = modelo.FindEntityType(typeof(ClaseActivo))!.GetSeedData().ToArray();
         Assert.Equal(13, semillas.Length);
         Assert.Equal("151,152,153,154,155,156,157,159,160,165,166,169,170", string.Join(",", semillas.Select(x => (string)x["Clave"]!).Order()));
-        Assert.All(semillas, x => Assert.Equal(false, x["TasaConfirmada"]));
-        Assert.Null(semillas.Single(x => (string)x["Clave"]! == "169")["TasaFiscalAnual"]);
+        Assert.All(semillas, x => Assert.Equal((string)x["Clave"]! != "156", x["TasaConfirmada"]));
+        Assert.Equal(10m, semillas.Single(x => (string)x["Clave"]! == "169")["TasaFiscalAnual"]);
         Assert.Equal("171.18.00.000", CatalogoClasesMillet.Clases.Single(x => x.Clave == "169").Depreciacion);
         Assert.Equal("613.17.00.000.000", CatalogoClasesMillet.Clases.Single(x => x.Clave == "170").Gasto);
         Assert.Null(CatalogoClasesMillet.Clases.Single(x => x.Clave == "165").Gasto);
