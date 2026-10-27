@@ -9,8 +9,10 @@ namespace Millet.CuentasPorPagar.Application.Cfdi.ListarCfdis;
 /// <summary>
 /// CFDI por procesar del RFC de un proveedor, para vincularlos a una recepción por OC.
 /// El RFC lo resuelve el endpoint de Almacén a partir de la OC, después de verificar el alcance.
+/// Con <c>OrdenCompraId</c> también incluye los CFDI ya convertidos en una factura vigente de esa OC
+/// que quedó sin recepción (la liberó una cancelación), para capturar la recepción correcta.
 /// </summary>
-public sealed record ListarCfdisParaRecepcionQuery(string? RfcProveedor) : IRequest<CfdisParaRecepcionResponse>;
+public sealed record ListarCfdisParaRecepcionQuery(string? RfcProveedor, Guid? OrdenCompraId = null) : IRequest<CfdisParaRecepcionResponse>;
 
 /// <summary>Respuesta del selector de CFDI. <c>Aviso</c> explica por qué no hay ítems; null cuando el RFC es válido.</summary>
 public sealed record CfdisParaRecepcionResponse(string? RfcEmisor, string? Aviso, IReadOnlyList<CfdiListItemResponse> Items);
@@ -40,7 +42,11 @@ public sealed class ListarCfdisParaRecepcionHandler(CuentasPorPagarDbContext db)
         }
 
         var items = await db.CfdisRecibidos.AsNoTracking()
-            .Where(c => c.Estado == EstadoCfdiRecibido.PorProcesar && c.Tipo == TipoCfdi.Ingreso && c.RfcEmisor == rfc)
+            .Where(c => c.Tipo == TipoCfdi.Ingreso && c.RfcEmisor == rfc
+                && (c.Estado == EstadoCfdiRecibido.PorProcesar
+                    || (query.OrdenCompraId != null && c.Estado == EstadoCfdiRecibido.ConvertidoEnPasivo
+                        && db.FacturasProveedor.Any(f => f.CfdiRecibidoId == c.Id && f.OrdenCompraId == query.OrdenCompraId
+                            && f.RecepcionId == null && f.Estado != Domain.FacturaProveedor.EstadoPasivo.Cancelada))))
             .OrderByDescending(c => c.FechaRecepcion)
             .Take(200)
             .Select(c => new CfdiListItemResponse(

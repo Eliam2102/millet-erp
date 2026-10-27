@@ -240,6 +240,13 @@ public sealed class NoOpCxpDocumentosReadPort : ICxpDocumentosReadPort
         _logger.LogDebug("[NoOpCxpDocumentosReadPort] cfdi({Id}) → null", cfdiRecibidoId);
         return Task.FromResult<CfdiRecibidoLectura?>(null);
     }
+
+    public Task<IReadOnlyList<FacturaLigadaRecepcionLectura>> ObtenerFacturasLigadasRecepcionAsync(
+        IReadOnlyCollection<Guid> recepcionIds, IReadOnlyCollection<Guid> facturaIds, CancellationToken cancellationToken)
+    {
+        _logger.LogDebug("[NoOpCxpDocumentosReadPort] facturasLigadas({Count}) → vacío", recepcionIds.Count);
+        return Task.FromResult<IReadOnlyList<FacturaLigadaRecepcionLectura>>([]);
+    }
 }
 
 /// <summary>

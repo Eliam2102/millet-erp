@@ -13,7 +13,7 @@ public sealed class P2FirmasYSaldoTests
             Millet.Compras.Domain.Oc.Folio.Parse("OC-MID2026-000987"), 2026,
             Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid(),
             Guid.NewGuid(), Guid.NewGuid(), new DateOnly(2026, 10, 9),
-            sinRequisicionPrevia: !heredada, motivoSinRequisicion: heredada ? null : "Prueba P2");
+            sinRequisicionPrevia: !heredada, motivoSinRequisicion: heredada ? null : "Prueba P2", usoCfdiClave: "G03", metodoPago: "PPD", formaPagoClave: "99");
         if (heredada)
             oc.AgregarLineaDesdeRequisicion(Guid.NewGuid(), Guid.NewGuid(), 10, "PZA", 100,
                 Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid());

@@ -35,6 +35,7 @@ export interface Operacion {
   fecha: string;
   importe: number;
   motivo: string;
+  solicitadoPor: string;
   evidencia: string | null;
   version: number;
   polizaId: string | null;

@@ -14,8 +14,9 @@ vi.mock('@/features/almacen/api/useRecepciones', () => ({
   useCfdisParaRecepcion: () => ({ data: undefined }),
   useLineasRecibibles: () => ({ data: undefined }),
 }));
+const useOrdenCompraMock = vi.hoisted(() => vi.fn<(id: string | null) => { data: undefined }>(() => ({ data: undefined })));
 vi.mock('@/features/compras/ordenes/api/useOrdenCompra', () => ({
-  useOrdenCompra: () => ({ data: undefined }),
+  useOrdenCompra: useOrdenCompraMock,
 }));
 
 afterEach(() => {
@@ -76,5 +77,15 @@ describe('<NuevaRecepcionSheet> — confirmación de descarte', () => {
     fireEvent.click(screen.getByRole('button', { name: /Variante B/ }));
 
     expect(screen.getByText('¿Cambiar el tipo de recepción?')).toBeTruthy();
+  });
+});
+
+describe('<NuevaRecepcionSheet> — OC inicial', () => {
+  it('siembra la OC recibida en ordenCompraIdInicial', () => {
+    useOrdenCompraMock.mockClear();
+    render(<NuevaRecepcionSheet open onOpenChange={vi.fn()} ordenCompraIdInicial="oc-123" />, {
+      wrapper: createQueryWrapper(),
+    });
+    expect(useOrdenCompraMock).toHaveBeenCalledWith('oc-123');
   });
 });

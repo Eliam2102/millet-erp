@@ -39,3 +39,8 @@ describe('mensajeErrorTransmision', () => {
     expect(mensajeErrorTransmision(new Error('red caída'))).toBe('red caída');
   });
 });
+
+it('conserva los nombres de los datos fiscales que faltan al enviar', () => {
+  const detail = 'Captura uso de CFDI, método de pago en los datos para la factura del proveedor antes de enviar a autorización.';
+  expect(mensajeErrorTransmision(problema('OC_DATOS_FACTURA_INCOMPLETOS', detail))).toBe(detail);
+});

@@ -41,8 +41,9 @@ internal static class MovimientosRevision
         var anio = fecha.Year;
         var prefijo = tipo.PrefijoFolio();
         _ = await FolioMovimientoLock.AbrirAsync(db, prefijo, anio, ct); // la transacción ya la abrió el llamador
-        var secuencia = await db.FolioSecuenciasMovimiento
-            .FirstOrDefaultAsync(s => s.Prefijo == prefijo && s.Anio == anio, ct);
+        // Local primero: dos movimientos del mismo prefijo en un solo guardado (p. ej. dos CEN) no deben crear dos secuencias nuevas.
+        var secuencia = db.FolioSecuenciasMovimiento.Local.FirstOrDefault(s => s.Prefijo == prefijo && s.Anio == anio)
+            ?? await db.FolioSecuenciasMovimiento.FirstOrDefaultAsync(s => s.Prefijo == prefijo && s.Anio == anio, ct);
         if (secuencia is null)
         {
             secuencia = new FolioSecuenciaMovimiento(Guid.CreateVersion7(), prefijo, anio, 0);

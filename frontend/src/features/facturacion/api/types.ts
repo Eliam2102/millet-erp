@@ -359,6 +359,25 @@ export interface AnticipoEstadoCuenta {
   /** Estado de timbrado del CFDI del anticipo (13-J). */
   estadoCfdi: string;
   vinculaciones: AnticipoVinculacionDetalle[];
+  /** 86e3tfd6n: pedido de A+W ya importado con ese número y del mismo cliente (null = pendiente o sin pedido). */
+  pedidoLigado?: PedidoLigadoAnticipo | null;
+}
+
+/** Pedido de A+W al que quedó ligado un anticipo cobrado antes de que el pedido llegara (86e3tfd6n). */
+export interface PedidoLigadoAnticipo {
+  pedidoFacturableId: string;
+  numeroPedido: string;
+  estado: string;
+}
+
+/** Anticipo cobrado con el número de este pedido de A+W (detalle del pedido, 86e3tfd6n). */
+export interface AnticipoLigadoPedido {
+  anticipoId: string;
+  facturaAnticipoId: string;
+  folio: string;
+  montoCobrado: number;
+  saldo: number;
+  estado: string;
 }
 
 /** Estado de cuenta de anticipos por cliente (GET /anticipos/control/{clienteId}). */
@@ -750,8 +769,11 @@ export interface ActualizarOperadorPayload {
 
 // ─── Activos fijos (FE-F9) ────────────────────────────────────────────
 
-/** Command de autorización de venta de activo (Contador General). */
+/** Command de autorización de venta de activo (Director de Administración y Finanzas). */
 export interface AutorizarVentaActivoCommand {
+  motivo: number;
+  solicitadoPor: string;
+  evidencia: string;
   activoRef: string;
   precioVenta: number;
 }
@@ -766,6 +788,9 @@ export interface AutorizarVentaActivoResponse {
 
 /** Item de la bandeja de autorizaciones de venta de activo. */
 export interface AutorizacionActivoItem {
+  motivo: number;
+  solicitadoPor: string;
+  evidencia: string;
   id: string;
   activoRef: string;
   descripcion: string;
@@ -848,6 +873,8 @@ export interface PedidoFacturableDetalleResponse
   metodoPagoOrigen?: string | null;
   /** 86e3tfdw2: condición de pago del pedido en A+W (CONTADO, CRÉDITO 30 DÍAS…). */
   condicionPagoOrigen?: string | null;
+  /** 86e3tfd6n: anticipos cobrados con el número de este pedido de A+W (mismo cliente). */
+  anticiposLigados?: AnticipoLigadoPedido[];
   embarqueCe?: import('@/features/comercio-exterior/api/types').EmbarqueCe | null;
   id: string;
   numeroPedido: string | null;
@@ -1043,7 +1070,7 @@ export interface EmitirFacturaVentaCommand {
   anticipos?: AnticipoAAmortizar[] | null;
   /** Complemento de Comercio Exterior (solo exportación con CCE). */
   cce?: EmitirFacturaVentaCce | null;
-  /** Autorización del Contador General (obligatoria para venta de activo fijo). */
+  /** Autorización del Director de Administración y Finanzas (obligatoria para venta de activo fijo). */
   autorizacionId?: string | null;
   /** Observaciones (86e3tfdw2, ≤1000): se imprimen en el PDF; NO van al XML del CFDI. */
   observaciones?: string | null;

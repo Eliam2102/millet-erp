@@ -378,7 +378,7 @@ export function NuevoPedidoManual({ onClose, onDirtyChange, pedido }: NuevoPedid
               required
               error={form.formState.errors.comportamientoFiscal?.message}
               hint={
-                esActivo ? 'Requiere autorización del Contador General antes de timbrar.' : undefined
+                esActivo ? 'Requiere autorización del Director de Administración y Finanzas antes de timbrar.' : undefined
               }
             >
               {esActivo ? (

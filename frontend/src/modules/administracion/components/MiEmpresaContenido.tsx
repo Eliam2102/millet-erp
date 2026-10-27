@@ -1,3 +1,4 @@
+import { EmpresaLogoSection } from './EmpresaLogoSection';
 import { PaginacionTabla } from '@/components/erp';
 import { ESTADOS_CSD } from '../lib/estados-ui';
 import {
@@ -79,6 +80,7 @@ export function MiEmpresaContenido({ detalle }: { detalle: EmpresaDetalleRespons
           </p>
         )}
         <EmpresaDatosForm key={empresa.id} empresa={empresa} />
+        <EmpresaLogoSection empresaId={empresa.id} />
       </section>
 
       <section

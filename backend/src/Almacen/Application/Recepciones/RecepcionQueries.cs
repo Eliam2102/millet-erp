@@ -54,7 +54,18 @@ public sealed record RecepcionDetalle(
     string? CfdiUuidFiscal = null,
     string? FacturaFolio = null,
     // F1-COM-06: documentos de la recepción de importación; null si la OC no es de importación.
-    RecepcionImportacionDetalle? Importacion = null);
+    RecepcionImportacionDetalle? Importacion = null,
+    // 86e3tabdp: bitácora. Nombres vía IUsuarioReadPort (null si no resuelve). Los datos de cancelación solo vienen en recepciones
+    // Canceladas; MotivoCancelacion = "CODIGO: texto"; FoliosCancelacion = movimientos CEN que revirtieron el inventario.
+    string? RegistradoPorNombre = null,
+    DateTimeOffset? CanceladaAt = null,
+    Guid? CanceladaPor = null,
+    string? CanceladaPorNombre = null,
+    string? MotivoCancelacion = null,
+    IReadOnlyList<string>? FoliosCancelacion = null,
+    // true = el usuario actual NO registró la recepción, así que la separación de funciones no le impide cancelarla
+    // (el permiso y el estado Registrado los valida el endpoint / la pantalla).
+    bool RegistradaPorOtroUsuario = false);
 
 public sealed record RecepcionImportacionDetalle(
     string NumeroPedimento, string NumeroBl, string NumeroContenedor, string Aduana, string? AduanaNombre,
@@ -232,13 +243,19 @@ public sealed class ObtenerRecepcionPorIdHandler
     private readonly IComprasOcReadPort _ordenesCompra;
     private readonly ICxpDocumentosReadPort _documentosCxp;
     private readonly ICentroCostoReadPort _centros;
+    private readonly IUsuarioReadPort? _usuarios;
+    private readonly ICurrentUserContext? _currentUser;
 
+    // usuarios y currentUser son opcionales para las construcciones de prueba previas a 86e3tabdp; DI los resuelve siempre.
     public ObtenerRecepcionPorIdHandler(
         AlmacenDbContext db,
         IArticuloReadPort articulos,
         IComprasOcReadPort ordenesCompra,
-        ICxpDocumentosReadPort documentosCxp, ICentroCostoReadPort centros)
+        ICxpDocumentosReadPort documentosCxp, ICentroCostoReadPort centros,
+        IUsuarioReadPort? usuarios = null, ICurrentUserContext? currentUser = null)
     {
+        _usuarios = usuarios;
+        _currentUser = currentUser;
         _db = db;
         _articulos = articulos;
         _ordenesCompra = ordenesCompra;
@@ -258,7 +275,8 @@ public sealed class ObtenerRecepcionPorIdHandler
         // ALM-04: las líneas del movimiento de revisión (hermano) se muestran dentro de la recepción principal.
         var hermanos = await _db.Movimientos.AsNoTracking()
             .Include(m => m.Lineas)
-            .Where(m => m.RecepcionOrigenId == mov.Id && m.Tipo == TipoMovimiento.EntradaCompra && m.Estado == EstadoMovimiento.Registrado)
+            .Where(m => m.RecepcionOrigenId == mov.Id && m.Tipo == TipoMovimiento.EntradaCompra
+                && (m.Estado == EstadoMovimiento.Registrado || m.Estado == EstadoMovimiento.Cancelado))
             .ToListAsync(cancellationToken);
         var lineas = mov.Lineas.OrderBy(l => l.Posicion)
             .Concat(hermanos.SelectMany(h => h.Lineas.OrderBy(l => l.Posicion)))
@@ -343,6 +361,22 @@ public sealed class ObtenerRecepcionPorIdHandler
             foliosFactura.TryGetValue(facturaId, out facturaFolio);
         }
 
+        // 86e3tabdp: quién cancelo y por qué viene de los movimientos CEN que revirtieron la recepción (y su MAT-REV).
+        var idsRecepcion = hermanos.Select(h => h.Id).Append(mov.Id).ToList();
+        var cancelaciones = mov.Estado == EstadoMovimiento.Cancelado
+            ? await _db.Movimientos.AsNoTracking()
+                .Where(m => m.Tipo == TipoMovimiento.CancelacionEntradaCompra && m.RecepcionOrigenId != null
+                    && idsRecepcion.Contains(m.RecepcionOrigenId.Value))
+                .OrderBy(m => m.Folio)
+                .Select(m => new { m.Folio, m.RegistradoPor, m.RegistradoAt, m.Motivo })
+                .ToListAsync(cancellationToken)
+            : [];
+        var cancelacion = cancelaciones.FirstOrDefault();
+        var nombres = _usuarios is null
+            ? new Dictionary<Guid, string>()
+            : await _usuarios.ObtenerNombresAsync(
+                new[] { mov.RegistradoPor, cancelacion?.RegistradoPor }.OfType<Guid>().Distinct().ToArray(), cancellationToken);
+
         var imp = await _db.RecepcionesImportacion.AsNoTracking().Include(i => i.Partidas)
             .FirstOrDefaultAsync(i => i.RecepcionId == mov.Id, cancellationToken);
         var fracciones = imp?.Partidas.ToDictionary(p => p.LineaOcId, p => p.FraccionArancelaria) ?? [];
@@ -385,6 +419,13 @@ public sealed class ObtenerRecepcionPorIdHandler
             FacturaFolio: facturaFolio,
             Importacion: imp is null ? null : new RecepcionImportacionDetalle(imp.NumeroPedimento, imp.NumeroBl,
                 imp.NumeroContenedor, imp.Aduana, CatalogosImportacionDemo.Aduanas.GetValueOrDefault(imp.Aduana),
-                imp.ClavePedimento, CatalogosImportacionDemo.ClavesPedimento.GetValueOrDefault(imp.ClavePedimento)));
+                imp.ClavePedimento, CatalogosImportacionDemo.ClavesPedimento.GetValueOrDefault(imp.ClavePedimento)),
+            RegistradoPorNombre: mov.RegistradoPor is Guid reg ? nombres.GetValueOrDefault(reg) : null,
+            CanceladaAt: cancelacion?.RegistradoAt,
+            CanceladaPor: cancelacion?.RegistradoPor,
+            CanceladaPorNombre: cancelacion?.RegistradoPor is Guid can ? nombres.GetValueOrDefault(can) : null,
+            MotivoCancelacion: cancelacion?.Motivo,
+            FoliosCancelacion: cancelacion is null ? null : cancelaciones.Select(c => c.Folio!).ToList(),
+            RegistradaPorOtroUsuario: _currentUser?.UserId is Guid yo && mov.RegistradoPor != yo);
     }
 }

@@ -3209,6 +3209,20 @@ namespace Millet.Identidad.Infrastructure.Migrations
                         },
                         new
                         {
+                            Id = new Guid("00000008-0010-0000-0000-000000000001"),
+                            Accion = "cancelar",
+                            Codigo = "almacen.recepciones.cancelar",
+                            CreatedAt = new DateTimeOffset(new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            CreatedBy = "seed",
+                            Descripcion = "Cancelar con motivo una recepción mal capturada (distinto de quien la registró)",
+                            Modulo = "almacen",
+                            Recurso = "recepciones",
+                            UpdatedAt = new DateTimeOffset(new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            UpdatedBy = "seed",
+                            Version = 1
+                        },
+                        new
+                        {
                             Id = new Guid("00000008-0006-0000-0000-000000000001"),
                             Accion = "leer",
                             Codigo = "almacen.inventarios.leer",
@@ -3760,7 +3774,7 @@ namespace Millet.Identidad.Infrastructure.Migrations
                             Codigo = "facturacion.activos.autorizar",
                             CreatedAt = new DateTimeOffset(new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
                             CreatedBy = "seed",
-                            Descripcion = "Autorizar la venta de activos fijos antes de timbrar (Contador General)",
+                            Descripcion = "Autorizar la venta de activos fijos antes de timbrar (Director de Administración y Finanzas)",
                             Modulo = "facturacion",
                             Recurso = "activos",
                             UpdatedAt = new DateTimeOffset(new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),

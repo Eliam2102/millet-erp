@@ -108,7 +108,7 @@ describe('<NuevoPedidoManual> — clase de pedido (F6.1)', () => {
     expect(comportamiento).toHaveValue('Venta de activo fijo');
     expect(comportamiento).toHaveAttribute('readonly');
     expect(
-      screen.getByText(/Requiere autorización del Contador General antes de timbrar/i),
+      screen.getByText(/Requiere autorización del Director de Administración y Finanzas antes de timbrar/i),
     ).toBeInTheDocument();
 
     // Al cambiar a otro subtipo se libera el comportamiento.

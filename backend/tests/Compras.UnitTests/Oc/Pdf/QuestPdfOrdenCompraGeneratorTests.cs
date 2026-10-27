@@ -25,7 +25,7 @@ public class QuestPdfOrdenCompraGeneratorTests
             encargadoComprasId: Guid.CreateVersion7(),
             fechaDocumento: DateOnly.FromDateTime(DateTimeOffset.UtcNow.UtcDateTime),
             sinRequisicionPrevia: true,
-            motivoSinRequisicion: "Test PDF");
+            motivoSinRequisicion: "Test PDF", usoCfdiClave: "G03", metodoPago: "PPD", formaPagoClave: "99");
         oc.AgregarLineaManual(
             lineaId: Guid.CreateVersion7(),
             articuloId: Guid.CreateVersion7(),

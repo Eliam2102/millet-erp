@@ -86,7 +86,8 @@ public sealed class AlfakHistorialAlmacenHandler
                     join m in _db.Movimientos.AsNoTracking() on l.MovimientoId equals m.Id
                     join v in _db.MovimientosSubAlmacen.AsNoTracking() on m.Id equals v.MovimientoId
                     join sa in _db.SubAlmacenes.AsNoTracking() on v.SubAlmacenId equals sa.Id
-                    where m.Estado == EstadoMovimiento.Registrado
+                    // Una recepción cancelada (con folio) sigue en el kardex: su entrada y su CEN se netean.
+                    where (m.Estado == EstadoMovimiento.Registrado || (m.Estado == EstadoMovimiento.Cancelado && m.Folio != null))
                        && (request.SubAlmacenId == null || v.SubAlmacenId == request.SubAlmacenId)
                        && (request.ArticuloId == null || l.ArticuloId == request.ArticuloId)
                        && (request.SucursalesPermitidas == null
@@ -129,7 +130,8 @@ public sealed class AlfakHistorialAlmacenHandler
                         || mov.Tipo == TipoMovimiento.SalidaPorVale
                         || mov.Tipo == TipoMovimiento.SalidaPorDevolucionAProveedor
                         || mov.Tipo == TipoMovimiento.BajaPorDano
-                        || mov.Tipo == TipoMovimiento.SalidaPorLiberacionRevision)
+                        || mov.Tipo == TipoMovimiento.SalidaPorLiberacionRevision
+                        || mov.Tipo == TipoMovimiento.CancelacionEntradaCompra)
                     {
                         salidas += mov.Cantidad;
                     }

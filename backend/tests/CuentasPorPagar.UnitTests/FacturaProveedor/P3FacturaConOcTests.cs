@@ -103,6 +103,26 @@ public sealed class P3FacturaConOcTests
     }
 
     [Fact]
+    public async Task UUID_comprobado_en_un_viatico_sin_liberar_rechaza_con_FACTURA_DUPLICADA()
+    {
+        await using var a = new Ambiente();
+        var uuid = "7A1B2C3D-0000-4000-8000-00000000BBBB";
+        var s = Millet.CuentasPorPagar.Domain.Viaticos.SolicitudViaticos.Solicitar(a.Current!.Value, Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid(), "FIX",
+            Millet.CuentasPorPagar.Domain.Catalogos.TipoDestinoViatico.Nacional, new DateOnly(2026, 10, 20), new DateOnly(2026, 10, 21), "MXN", 1000m, 6000m, 10, null, DateTimeOffset.UtcNow);
+        s.AutorizarPorJefe(s.JefeDirectoId, DateTimeOffset.UtcNow);
+        s.MarcarAnticipoPagado(DateTimeOffset.UtcNow);
+        a.Db.Add(s); await a.Db.SaveChangesAsync();
+        await new Millet.CuentasPorPagar.Application.Viaticos.CapturarComprobacion.CapturarComprobacionViaticosHandler(a.Db, a).Handle(
+            new(s.Id, s.Version, [new(null, uuid, Guid.NewGuid(), "F-1", DateTimeOffset.UtcNow, 100m, 16m, 0m, 116m, "MXN", "Hospedaje", false)]), default);
+
+        var captura = () => a.Handler.Handle(a.Command(4, 20) with { UuidCfdi = uuid.ToLowerInvariant() }, default);
+
+        var error = (await captura.Should().ThrowAsync<BusinessRuleException>()).Which;
+        error.Code.Should().Be("FACTURA_DUPLICADA");
+        error.Message.Should().Contain("viáticos");
+    }
+
+    [Fact]
     public async Task Detalle_de_factura_en_revision_trae_motivo_area_y_plazo()
     {
         await using var a = new Ambiente();

@@ -80,6 +80,29 @@ public sealed class Empresa : BaseEntity, IAuditable
 
     public bool Activa { get; private set; } = true;
 
+    public string? LogoBlobRef { get; private set; }
+    public string? LogoContentType { get; private set; }
+    public DateTimeOffset? LogoActualizadoEn { get; private set; }
+    public Guid? LogoActualizadoPor { get; private set; }
+
+    public void AsignarLogo(string blobRef, string contentType, Guid usuario, DateTimeOffset ahora)
+    {
+        if (string.IsNullOrWhiteSpace(blobRef) || blobRef.Length > 512 || contentType is not ("image/png" or "image/jpeg"))
+            throw new BusinessRuleException("EMPRESA_LOGO_FORMATO", "Selecciona una imagen PNG o JPG válida.");
+        LogoBlobRef = blobRef;
+        LogoContentType = contentType;
+        LogoActualizadoEn = ahora;
+        LogoActualizadoPor = usuario;
+    }
+
+    public void QuitarLogo(Guid usuario, DateTimeOffset ahora)
+    {
+        LogoBlobRef = null;
+        LogoContentType = null;
+        LogoActualizadoEn = ahora;
+        LogoActualizadoPor = usuario;
+    }
+
     private Empresa() { } // EF Core
 
     public Empresa(

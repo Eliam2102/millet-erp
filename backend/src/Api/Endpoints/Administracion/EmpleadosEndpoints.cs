@@ -114,7 +114,7 @@ public static class EmpleadosEndpoints
                     payload.CodigoNomina,
                     payload.LimpiarCodigoNomina,
                     payload.EmailContacto,
-                    payload.LimpiarEmailContacto)), ct);
+                    payload.LimpiarEmailContacto, payload.Telefono, payload.Extension)), ct);
             return Results.Ok(response);
         })
         .WithMetadata(new RequireIdempotencyKeyAttribute())
@@ -191,7 +191,7 @@ public static class EmpleadosEndpoints
         string? CodigoNomina = null,
         bool LimpiarCodigoNomina = false,
         string? EmailContacto = null,
-        bool LimpiarEmailContacto = false);
+        bool LimpiarEmailContacto = false, string? Telefono = null, string? Extension = null);
 
     public sealed record SiguienteClaveEmpleadoResponse(string SiguienteClave);
 }

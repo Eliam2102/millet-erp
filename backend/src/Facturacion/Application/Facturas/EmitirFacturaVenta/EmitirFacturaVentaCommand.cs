@@ -41,7 +41,7 @@ public sealed record EmitirFacturaVentaCommand(
     // Complemento de Comercio Exterior (F7-PR1). Solo válido si el comportamiento
     // fiscal es ExportacionConCce; se adjunta antes de timbrar.
     EmitirFacturaVentaCce? Cce = null,
-    // Autorización del Contador General (F9). Obligatoria si el comportamiento es
+    // Autorización del Director de Administración y Finanzas (F9). Obligatoria si el comportamiento es
     // VentaActivoFijo; sin ella no se timbra.
     Guid? AutorizacionId = null,
     // Pedido facturable de origen (B2, FE-F1). Si viene, el pedido debe estar

@@ -2,6 +2,7 @@ using MediatR;
 using Millet.ComercioExterior.Application.PublicPorts;
 using Microsoft.EntityFrameworkCore;
 using Millet.Facturacion.Application.Cajas.Alcance;
+using Millet.Facturacion.Domain.Pedidos;
 using Millet.Facturacion.Domain.Ports;
 using Millet.Facturacion.Infrastructure.Persistence;
 using Millet.SharedKernel.Application;
@@ -72,7 +73,13 @@ public sealed record PedidoFacturableDetalleResponse(
     // 86e3tfdw2: pedido a crédito (condición de pago del origen ≠ CONTADO).
     bool EsCredito = false,
     string? MetodoPagoOrigen = null,
-    string? CondicionPagoOrigen = null);
+    string? CondicionPagoOrigen = null,
+    // 86e3tfd6n: anticipos cobrados con el número de este pedido de A+W y del mismo cliente.
+    IReadOnlyList<AnticipoLigadoPedido>? AnticiposLigados = null);
+
+/// <summary>Anticipo cobrado antes de que el pedido llegara al ERP y ligado a él por número de pedido de A+W.</summary>
+public sealed record AnticipoLigadoPedido(
+    Guid AnticipoId, Guid FacturaAnticipoId, string Folio, decimal MontoCobrado, decimal Saldo, string Estado);
 
 /// <summary>
 /// Datos fiscales vivos del cliente en el master (<c>compartido.clientes</c>).
@@ -208,6 +215,23 @@ public sealed class PedidoFacturableDetalleHandler
             pedido.Total, pedido.Ranura, pedido.Version, clienteFiscal, lineas, _embarques is null ? null : await _embarques.ObtenerAsync(pedido.Id, cancellationToken),
             pedido.ClaseManual?.ToString(), pedido.SubtipoVentaDirecta?.ToString(), pedido.EsEmergencia,
             pedido.MotivoEmergencia, pedido.ReferenciaPedidoAw,
-            pedido.EsCredito, pedido.MetodoPagoOrigen, pedido.CondicionPagoOrigen);
+            pedido.EsCredito, pedido.MetodoPagoOrigen, pedido.CondicionPagoOrigen,
+            await AnticiposLigadosAsync(pedido, cancellationToken));
+    }
+
+    private async Task<IReadOnlyList<AnticipoLigadoPedido>> AnticiposLigadosAsync(PedidoFacturable pedido, CancellationToken ct)
+    {
+        // Un pedido cancelado en A+W no liga anticipos: quedan libres para el cliente (86e3tfd6n).
+        if (pedido.Origen != OrigenPedido.Aw || pedido.Estado == EstadoPedidoFacturable.Cancelado
+            || pedido.NumeroPedido is not { } numero) return [];
+        var anticipos = await _db.Anticipos.AsNoTracking()
+            .Where(a => a.ClienteId == pedido.ClienteId && a.PedidoOrigenRef == numero)
+            .Select(a => new { a.Id, a.FacturaAnticipoId, a.MontoCobrado, a.Saldo, a.Estado })
+            .ToListAsync(ct);
+        var ids = anticipos.Select(a => a.FacturaAnticipoId).ToList();
+        var folios = await _db.FacturasAnticipo.AsNoTracking()
+            .Where(f => ids.Contains(f.Id)).ToDictionaryAsync(f => f.Id, f => f.Folio, ct);
+        return [.. anticipos.Select(a => new AnticipoLigadoPedido(
+            a.Id, a.FacturaAnticipoId, folios.GetValueOrDefault(a.FacturaAnticipoId) ?? "", a.MontoCobrado, a.Saldo, a.Estado.ToString()))];
     }
 }

@@ -510,7 +510,7 @@ public sealed class PedidoFacturable : BaseEntity, IPerteneceAEmpresa, IFiscalme
     /// <list type="bullet">
     ///   <item>Venta directa exige subtipo; Emergencia exige motivo y no lleva subtipo.</item>
     ///   <item>Subtipo Activo ⇔ comportamiento fiscal <c>VentaActivoFijo</c>
-    ///   (en ambos sentidos), para que la autorización del Contador General
+    ///   (en ambos sentidos), para que la autorización del Director de Administración y Finanzas
     ///   se exija siempre al timbrar (CA6.12).</item>
     /// </list>
     /// </summary>

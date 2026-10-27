@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { render, screen, waitFor } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { http, HttpResponse } from 'msw';
 import { mswServer } from '@/test/mocks/server';
 import { createQueryWrapper } from '@/test/test-query-client';
@@ -213,5 +213,73 @@ describe('<RecepcionDetallePage> — nombres resueltos', () => {
     // Factura sin resolver: id truncado, nunca el GUID completo.
     expect(screen.getByText('019e0000…')).toBeInTheDocument();
     expect(screen.queryByText(FACT_ID)).not.toBeInTheDocument();
+  });
+});
+
+describe('<RecepcionDetallePage> — cancelar recepción', () => {
+  const PERMISO = 'almacen.recepciones.cancelar';
+  const conPermiso = () =>
+    useAuthStore.setState({ permisos: ['almacen.entradas.leer', PERMISO] });
+  const servir = (extra: object) =>
+    mswServer.use(
+      http.get('*/api/v1/almacen/recepciones/r-1', () =>
+        HttpResponse.json({ ...detalleConNombres, registradaPorOtroUsuario: true, ...extra }),
+      ),
+    );
+  const boton = () => screen.queryByRole('button', { name: 'Cancelar recepción' });
+
+  it('muestra el botón con permiso, Registrado y registrada por otro usuario', async () => {
+    conPermiso();
+    servir({});
+    render(<RecepcionDetallePage />, { wrapper: createQueryWrapper() });
+    await waitFor(() => expect(boton()).toBeInTheDocument());
+  });
+
+  it('lo oculta sin permiso', async () => {
+    servir({});
+    render(<RecepcionDetallePage />, { wrapper: createQueryWrapper() });
+    await screen.findByText('Tornillo M6');
+    expect(boton()).not.toBeInTheDocument();
+  });
+
+  it('lo oculta si ya está Cancelado y muestra la bitácora', async () => {
+    conPermiso();
+    servir({
+      estado: EstadoMovimiento.Cancelado,
+      registradoPorNombre: 'Ana A',
+      canceladaAt: '2026-06-02T10:00:00Z',
+      canceladaPorNombre: 'Beto B',
+      motivoCancelacion: 'Artículo mal capturado',
+      foliosCancelacion: ['M-CEN2026-000009'],
+    });
+    render(<RecepcionDetallePage />, { wrapper: createQueryWrapper() });
+    await screen.findByText('Bitácora');
+    expect(screen.getByText('Beto B')).toBeInTheDocument();
+    expect(screen.getByText('Artículo mal capturado')).toBeInTheDocument();
+    expect(screen.getByText('M-CEN2026-000009')).toBeInTheDocument();
+    expect(boton()).not.toBeInTheDocument();
+  });
+
+  it('lo oculta si la registró el mismo usuario', async () => {
+    conPermiso();
+    servir({ registradaPorOtroUsuario: false });
+    render(<RecepcionDetallePage />, { wrapper: createQueryWrapper() });
+    await screen.findByText('Tornillo M6');
+    expect(boton()).not.toBeInTheDocument();
+  });
+
+  it('el diálogo exige motivo y texto antes de confirmar', async () => {
+    conPermiso();
+    servir({});
+    render(<RecepcionDetallePage />, { wrapper: createQueryWrapper() });
+    fireEvent.click(await screen.findByRole('button', { name: 'Cancelar recepción' }));
+    const dialogo = await screen.findByRole('dialog');
+    const confirmar = dialogo.querySelector('[data-action="confirmar-cancelacion"]');
+    expect(confirmar).toBeDisabled();
+    fireEvent.change(screen.getByLabelText(/Explica qué se capturó mal/), {
+      target: { value: 'Se capturó otro artículo' },
+    });
+    // Falta el código de motivo: sigue deshabilitado.
+    expect(confirmar).toBeDisabled();
   });
 });

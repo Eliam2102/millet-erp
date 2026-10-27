@@ -272,7 +272,7 @@ public sealed class FacturaVenta : Comprobante
     }
 
     /// <summary>
-    /// Vincula la autorización del Contador General (venta de activo fijo, §7.8,
+    /// Vincula la autorización del Director de Administración y Finanzas (venta de activo fijo, §7.8,
     /// F9). Solo en comportamiento <see cref="ComportamientoFiscal.VentaActivoFijo"/>
     /// y en Borrador (antes de timbrar).
     /// </summary>
@@ -281,7 +281,7 @@ public sealed class FacturaVenta : Comprobante
         if (ComportamientoFiscal != ComportamientoFiscal.VentaActivoFijo)
             throw new BusinessRuleException(
                 "AUTORIZACION_COMPORTAMIENTO_INVALIDO",
-                "Solo una factura de Venta de activo fijo admite autorización del Contador General.");
+                "Solo una factura de Venta de activo fijo admite autorización del Director de Administración y Finanzas.");
         if (Estado != EstadoTimbrado.Borrador)
             throw new BusinessRuleException("FACTURA_INMUTABLE", $"No se puede vincular autorización a una factura en estado {Estado}.");
 
