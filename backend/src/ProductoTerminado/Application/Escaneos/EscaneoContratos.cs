@@ -18,3 +18,12 @@ public sealed record ReintentarPospuestosCommand(Guid EmpresaId, int PospuestoHo
 
 /// <summary>Marca de agua de la ingesta: máximo <c>RegistradoAt</c> del origen dado (null si no hay filas).</summary>
 public sealed record ObtenerMarcaAguaEscaneosQuery(Guid EmpresaId, string Origen) : IRequest<DateTime?>;
+
+/// <summary>Reintenta manualmente un escaneo abierto de la bandeja (Pospuesto o Excepcion); Reposicion no aplica. Pasa siempre por <c>EscaneoProcesador</c>.</summary>
+public sealed record ReintentarEscaneoCommand(Guid EscaneoId, int Version) : IRequest<EscaneoDto>;
+
+/// <summary>Descarta un escaneo abierto con motivo obligatorio; nunca crea pieza.</summary>
+public sealed record DescartarEscaneoCommand(Guid EscaneoId, int Version, string Motivo) : IRequest<EscaneoDto>;
+
+/// <summary>Marca como revisada una reposición (etiqueta ya presente); nunca crea pieza.</summary>
+public sealed record MarcarReposicionRevisadaCommand(Guid EscaneoId, int Version) : IRequest<EscaneoDto>;
