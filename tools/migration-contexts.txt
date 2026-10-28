@@ -15,3 +15,4 @@ CentrosCostoDbContext|src/CentrosCosto/Millet.CentrosCosto.csproj
 ContabilidadDbContext|src/Contabilidad/Millet.Contabilidad.csproj
 ComercioExteriorDbContext|src/ComercioExterior/Millet.ComercioExterior.csproj
 ActivosFijosDbContext|src/ActivosFijos/Millet.ActivosFijos.csproj
+ProductoTerminadoDbContext|src/ProductoTerminado/Millet.ProductoTerminado.csproj
