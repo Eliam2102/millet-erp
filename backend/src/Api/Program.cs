@@ -3,6 +3,7 @@ using Millet.ActivosFijos.Infrastructure.Persistence;
 using Millet.ComercioExterior.Application;
 using Millet.ComercioExterior.Infrastructure;
 using Millet.ComercioExterior.Infrastructure.Persistence;
+using Millet.ProductoTerminado.Infrastructure;
 using Azure.Monitor.OpenTelemetry.AspNetCore;
 using HealthChecks.NpgSql;
 using Microsoft.AspNetCore.DataProtection;
@@ -736,7 +737,8 @@ builder.Services.AddMilletApplication(
     CentrosCostoAssemblyMarker.Assembly,
     typeof(CrearExpedienteCommand).Assembly,
     typeof(Millet.ActivosFijos.Application.CrearActivoCommand).Assembly,
-    ContabilidadAssemblyMarker.Assembly);
+    ContabilidadAssemblyMarker.Assembly,
+    Millet.ProductoTerminado.Application.AssemblyMarker.Assembly);
 
 // === Módulo Integraciones.Aw ===
 // PR B foundation: IntegracionesAwOptions + repositorio + DbContext.
@@ -954,6 +956,7 @@ builder.Services.AddScoped<Millet.Facturacion.Domain.Ports.IUsuariosReadPort, Mi
 builder.Services.AddCentrosCostoModule();
 builder.Services.AddComprasReadPorts();
 builder.Services.AddComercioExteriorModule();
+builder.Services.AddProductoTerminadoModule();
 builder.Services.AddScoped<Millet.CuentasPorPagar.Application.PublicPorts.IFacturaGastoReadPort, Millet.CuentasPorPagar.Infrastructure.PublicAdapters.FacturaGastoReadAdapter>();
 builder.Services.AddOptions<Millet.ComercioExterior.Infrastructure.Workers.AvisosHitosWorkerOptions>()
     .Bind(builder.Configuration.GetSection(Millet.ComercioExterior.Infrastructure.Workers.AvisosHitosWorkerOptions.SectionName))
@@ -969,6 +972,11 @@ builder.Services.AddOptions<OutboxPublisherOptions>(nameof(ComercioExteriorDbCon
     .Configure(o => o.ServiceBusTopicName = "comercio-exterior-events")
     .Bind(builder.Configuration.GetSection("ComercioExterior:Outbox"));
 builder.Services.AddHostedService<OutboxPublisherWorker<ComercioExteriorDbContext>>();
+
+builder.Services.AddOptions<OutboxPublisherOptions>(nameof(Millet.ProductoTerminado.Infrastructure.Persistence.ProductoTerminadoDbContext))
+    .Configure(o => o.ServiceBusTopicName = "producto-terminado-events")
+    .Bind(builder.Configuration.GetSection("ProductoTerminado:Outbox"));
+builder.Services.AddHostedService<OutboxPublisherWorker<Millet.ProductoTerminado.Infrastructure.Persistence.ProductoTerminadoDbContext>>();
 
 // === Módulo Contabilidad (F1-CON-01): catálogo contable ===
 // Esquema `contabilidad`, ContabilidadDbContext abajo. Config de formato en Contabilidad:Catalogo (ValidateOnStart).
@@ -1406,6 +1414,12 @@ builder.Services.AddDbContext<ComercioExteriorDbContext>((sp, opts) =>
     opts.AddInterceptors(sp.GetRequiredService<OutboxSaveChangesInterceptor>());
 });
 
+builder.Services.AddDbContext<Millet.ProductoTerminado.Infrastructure.Persistence.ProductoTerminadoDbContext>((sp, opts) =>
+{
+    ConfigureMilletDbContext(opts, sp);
+    opts.AddInterceptors(sp.GetRequiredService<OutboxSaveChangesInterceptor>());
+});
+
 builder.Services.AddActivosFijosModule();
 builder.Services.AddDbContext<ActivosFijosDbContext>((sp, opts) => ConfigureMilletDbContext(opts, sp));
 
@@ -1441,6 +1455,7 @@ builder.Services.AddSingleton(new MigrationsHealthCheckOptions
         typeof(ContabilidadDbContext),
         typeof(ComercioExteriorDbContext),
         typeof(ActivosFijosDbContext),
+        typeof(Millet.ProductoTerminado.Infrastructure.Persistence.ProductoTerminadoDbContext),
     },
 });
 
