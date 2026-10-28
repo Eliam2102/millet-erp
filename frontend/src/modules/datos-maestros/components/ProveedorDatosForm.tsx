@@ -62,6 +62,7 @@ export function ProveedorDatosForm({ proveedor }: ProveedorDatosFormProps) {
     const emailVacio = values.email == null || values.email.length === 0;
     const telefonoVacio = values.telefono == null || values.telefono.length === 0;
     const condicionesVacio = values.condicionesPagoDias == null;
+    const claveAwVacia = values.claveAw == null;
 
     actualizar.mutate(
       {
@@ -89,6 +90,8 @@ export function ProveedorDatosForm({ proveedor }: ProveedorDatosFormProps) {
           limpiarEmail: emailVacio,
           limpiarTelefono: telefonoVacio,
           limpiarCondicionesPago: condicionesVacio,
+          claveAw: claveAwVacia ? null : values.claveAw,
+          limpiarClaveAw: claveAwVacia,
         },
         // Key fresca por submit: este form es multi-submit (queda montado tras
         // guardar), así que una key estable daría 422 al 2º guardado con un body
@@ -102,6 +105,13 @@ export function ProveedorDatosForm({ proveedor }: ProveedorDatosFormProps) {
         },
         onError: (error) => {
           if (esApiError(error)) {
+            if (error.code === 'PROVEEDOR_CLAVE_AW_DUPLICADA') {
+              form.setError('claveAw', {
+                type: error.code,
+                message: error.problem.detail ?? 'Ya existe un proveedor con esa clave de A+W.',
+              });
+              return;
+            }
             if (error.code === 'PROVEEDOR_RFC_DUPLICADO') {
               form.setError('rfc', {
                 type: error.code,
@@ -157,6 +167,34 @@ export function ProveedorDatosForm({ proveedor }: ProveedorDatosFormProps) {
               disabled={!canEditar}
               className="font-mono"
               {...form.register('rfc')}
+            />
+          </FormRow>
+        </FormCampo>
+
+        <FormCampo span={6}>
+          <FormRow
+            label="Clave de A+W"
+            hint="Clave del proveedor en A+W. La usa la aplicación de Almacenes."
+            error={form.formState.errors.claveAw?.message}
+          >
+            <Controller
+              name="claveAw"
+              control={form.control}
+              render={({ field }) => (
+                <Input
+                  type="number"
+                  min={1}
+                  step={1}
+                  inputMode="numeric"
+                  aria-label="Clave de A+W"
+                  className="font-mono"
+                  disabled={!canEditar}
+                  value={field.value ?? ''}
+                  onChange={(e) =>
+                    field.onChange(e.target.value === '' ? null : Number(e.target.value))
+                  }
+                />
+              )}
             />
           </FormRow>
         </FormCampo>
@@ -529,5 +567,6 @@ function buildDefaults(p: ProveedorDetalle): ActualizarProveedorValues {
     email: p.email ?? null,
     telefono: p.telefono ?? null,
     condicionesPagoDias: p.condicionesPagoDias ?? null,
+    claveAw: p.claveAw ?? null,
   };
 }

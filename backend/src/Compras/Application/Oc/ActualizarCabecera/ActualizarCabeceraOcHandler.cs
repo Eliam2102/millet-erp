@@ -70,6 +70,16 @@ public sealed class ActualizarCabeceraOcHandler : IRequestHandler<ActualizarCabe
             }
         }
 
+        if (command.ProveedorId is Guid pFijo)
+        {
+            var rqsApp = await _db.Requisiciones
+                .Where(r => r.Origen == Millet.Compras.Domain.OrigenRequisicion.AlmacenesApp
+                    && _db.OrdenesCompra.Where(o => o.Id == oc.Id).SelectMany(o => o.Lineas)
+                        .Any(l => l.RequisicionId == r.Id))
+                .ToListAsync(cancellationToken);
+            foreach (var rq in rqsApp) rq.ExigirProveedorFijo(pFijo);
+        }
+
         oc.ActualizarCabecera(
             proveedorId: command.ProveedorId,
             condicionesPagoId: command.CondicionesPagoId,

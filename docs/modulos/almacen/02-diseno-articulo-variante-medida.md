@@ -3,6 +3,11 @@
 > **Ticket:** ClickUp 86e3tuyn2 (E07). **Habilita:** F1-MP-01 (86e3jvufe, A4.1), F1-MP-05 (86e3jvujm), F1-COM-09 (86e3jvu83, C3.2).
 > **Estado:** propuesta para validar con Eliam. Lo no confirmado por Millet o por código va marcado **SUPUESTO**.
 > **Parte de:** borrador de Eliam (22-oct). Se conservan sus decisiones (§1) y se cierran los huecos con referencias al código.
+> **Corrección 28-oct (acuerdo de Almacenes con TI, ClickUp 86e3wyrg4):** el inventario de materia prima (vidrio y herrajes) lo lleva la aplicación de Almacenes de Millet; sus mensajes avisan lo que ya pasó. Por eso:
+> - **Existencia de MP en el ERP = `articuloAw` + medida (variante) + almacén general** (EXPORTACIÓN, OBRAS, GENERAL), en **m²**; las hojas se derivan de la medida. El ERP no lleva existencia por lote, rack ni hoja: lote, pedimento y etiqueta quedan como detalle del movimiento, solo para consulta.
+> - **§6 y la fila 6 de §9 no aplican:** la aplicación de Almacenes escribe la entrada en A+W. El ERP no escribe la recepción en A+W ni crea la tabla puente `erp_recepcion_vidrio`.
+> - **S7 (§11) queda sustituido:** el lote sale de la llave del saldo.
+> - Lo que en §5 y §7 habla de rack, ubicación o lote en el saldo de MP se lee con esta corrección. Fuente: acuerdo de Almacenes del 28-oct (reglas 1 a 4) y decisión 1 de Geovany del mismo día.
 
 ## 0. Contexto y cambio de alcance
 
@@ -101,6 +106,8 @@ A ~7 m² por hoja son ~650–850 hojas/día, es decir decenas de movimientos, no
 
 ## 6. Recepción y envío a A+W (C3.2)
 
+> **No aplica (28-oct): la aplicación de Almacenes escribe la entrada en A+W.** El ERP recibe el aviso `ENTRADA_ALMACEN` y registra la recepción contra la OC; no escribe nada en A+W. Lo de abajo se conserva solo como historial.
+
 - **Dirección:** el ERP **no escribe en tablas internas de A+W**. Igual que el flujo 3 (`docs/integration/09-aw-otr-exportacion.md`, «Frontera y dependencias»), el ERP escribe en una **tabla puente nueva, definida por el ERP**, en `MILLET_INTEGRACION`: `dbo.erp_recepcion_vidrio` (propuesta; scripts SQL para Jorge siguiendo `docs/operacion/aw-integracion-scripts/07_create_otr_tables.sql` y `08_grant_otr.sql`). A+W (Jorge) la lee y da de alta el inventario de hojas; escribe el acuse en columnas `aw_*` (patrón `erp_otr_estado`).
 - **Payload por línea recibida** (columnas, **SUPUESTO** hasta que Jorge valide qué necesita A+W):
 
@@ -128,7 +135,7 @@ A ~7 m² por hoja son ~650–850 hojas/día, es decir decenas de movimientos, no
 | OC | Hereda variante de la línea de RQ (o se captura si no hay RQ previa); precio por m² (§4). Una OC no mezcla variantes en una línea. | `LineaOrdenCompra.ProductoAwVarianteId` + snapshots. |
 | Recepción (A o B) | Elige línea de OC (la variante viene de ella; **no se puede cambiar**), captura hojas (`HOJA`), lote, rack. | `LineaMovimiento` con `ProductoAwVarianteId`, `Lote`, `CantidadCapturada=hojas`, `Cantidad=m²`. |
 | Saldo | Trigger por llave de 3 columnas (§5). | `saldos_inventario`. |
-| A+W | Fila en tabla puente (§6), gated por I13.4. | `MILLET_INTEGRACION`. |
+| A+W | ~~Fila en tabla puente (§6), gated por I13.4.~~ No aplica (28-oct): la aplicación de Almacenes escribe la entrada en A+W. | — |
 
 Reglas de consistencia (de «consistencia en casos de uso derivados»): editar RQ/OC, cancelar OC, devolución a proveedor (8.B), salida por RQ, conteo y ajuste deben conservar/validar la variante; la devolución 8.B hereda la variante de la línea de recepción original.
 
@@ -153,7 +160,7 @@ Datos: artículo `VID-CLARO-6` (`ProductoAwId` → «6MM CLARO»), variante `330
 1. **Pedir:** RQ con 50 hojas, variante `3300x2140`. m² por hoja = 3300 × 2140 / 1 000 000 = **7.0620 m²**; total pedido = 50 × 7.0620 = **353.1000 m²**. La OC hereda variante; importe de línea = 353.1 × 180.00 = **63,558.00 MXN** (equivale a 1,271.16 MXN por hoja).
 2. **Recibir:** Almacén recibe las 50 hojas en rack R-07, lote `L-2610-01`. `CantidadCapturada = 50`, `UnidadCapturada = HOJA`, `Cantidad = 353.1000` (M2), `CostoUnitarioMxn = 180.0000`, variante informada. Recibir 30 hojas hoy y 20 mañana: 211.8600 m² y 141.2400 m² (parciales exactos, sin tolerancia en piezas).
 3. **Saldo** (trigger, llave `(R-07, VID-CLARO-6, 3300x2140)`): cantidad = 100.0000 + 353.1000 = **453.1000 m²** (≈ 64.16 hojas equivalentes; la existencia se lee en m² y se divide entre `m2_por_hoja` solo para mostrar). Costo promedio = (100 × 170 + 353.1 × 180) / 453.1 = 80,558.00 / 453.1 = **177.7929 MXN/m²**. Valor = 453.1 × 177.7929 ≈ 80,558.00 MXN. Otra medida del mismo artículo, p. ej. `2440x1830`, es otra fila con su propio costo.
-4. **A+W:** se inserta en `erp_recepcion_vidrio`: `recepcion_id`, `producto_ref`, `clave_variante = 3300x2140`, `hojas = 50`, `m2 = 353.1`, `lote = L-2610-01`, `rack = R-07`, pedimento/BL/aduana/fracción si la compra es de importación. Con I13.4 sin firmar queda `Pendiente`; el saldo del ERP no depende de ello.
+4. **A+W** (no aplica desde el 28-oct: la entrada en A+W la escribe la aplicación de Almacenes). Antes decía: se inserta en `erp_recepcion_vidrio`: `recepcion_id`, `producto_ref`, `clave_variante = 3300x2140`, `hojas = 50`, `m2 = 353.1`, `lote = L-2610-01`, `rack = R-07`, pedimento/BL/aduana/fracción si la compra es de importación. Con I13.4 sin firmar queda `Pendiente`; el saldo del ERP no depende de ello.
 5. **Faltante:** si piden `1100x2100` y no existe en `BA_LAGMA`, la línea de RQ no avanza hasta que TI la cree en A+W y la sincronización la traiga.
 
 ## 9. Migraciones, orden y tareas que dependen
@@ -165,7 +172,7 @@ Datos: artículo `VID-CLARO-6` (`ProductoAwId` → «6MM CLARO»), variante `330
 | 3 | Compras | `lineas_requisicion` y `lineas_orden_compra`: `producto_aw_variante_id uuid NULL`, `ancho_mm`, `alto_mm` (snapshots, `numeric(12,3)`). Validación vía puerto D3. | F1-COM-09 (C3.2) |
 | 4 | Almacén | `lineas_movimiento`: `producto_aw_variante_id`, `ancho_mm`, `alto_mm`, `lote`; `saldos_inventario`: columna, PK sustituto, único `NULLS NOT DISTINCT`, índices; **reemplazo del trigger** (§5.3) en la misma migración. | F1-MP-01 (A4.1) |
 | 5 | Eventos/Outbox | Campo de variante en `OcRecepcionRegistradaEvent` y contratos de `OcDevolucionRegistradaEvent` (aditivo, `.v2` si el bus lo exige, ADR-0009). | F1-COM-09 |
-| 6 | `MILLET_INTEGRACION` | Tabla puente `erp_recepcion_vidrio` + permisos (scripts para Jorge). Apagada hasta I13.4. | F1-MP-05 (86e3jvujm, envío a A+W) |
+| 6 | ~~`MILLET_INTEGRACION`~~ | **No aplica (28-oct): la aplicación de Almacenes escribe la entrada en A+W.** ~~Tabla puente `erp_recepcion_vidrio` + permisos (scripts para Jorge). Apagada hasta I13.4.~~ | — |
 
 Compras y Almacén pueden construirse en paralelo después del paso 1; el paso 4 va **en una sola migración** (columnas, índices y trigger) para que no exista un estado intermedio con saldo sin variante.
 
@@ -173,7 +180,7 @@ Compras y Almacén pueden construirse en paralelo después del paso 1; el paso 4
 
 | Pieza | Ticket | NoOp en uso | Cómo se wirea |
 |---|---|---|---|
-| Tabla puente `erp_recepcion_vidrio` y worker de salida | F1-MP-05 / I13.4 | Escritor `NoOp` + `SalidaHabilitada=false` | `PLATFORM-TODO(<AwRecepcionVidrioPuente>)`; se activa con I13.4 firmado y scripts ejecutados por Jorge. |
+| ~~Tabla puente `erp_recepcion_vidrio` y worker de salida~~ (no aplica, 28-oct: la aplicación de Almacenes escribe la entrada en A+W) | F1-MP-05 / I13.4 | Escritor `NoOp` + `SalidaHabilitada=false` | `PLATFORM-TODO(<AwRecepcionVidrioPuente>)`; se activa con I13.4 firmado y scripts ejecutados por Jorge. |
 | Sincronización real de productos/variantes (Hybrid Connection) | O1A-AW-INT / A3-A4 | Origen simulado (`AwProductosOrigenSimulado`) | `PLATFORM-TODO(<AwProductosHybridConnection>)` ya existente (doc 06 §11). Sin él, las variantes del ERP son de fixtures. |
 | Puerto `IVarianteVidrioReadPort` | F1-MP-01 | — | Se construye real (solo lectura sobre `CompartidoDbContext`). |
 | Aduanales por expediente en la recepción | F1-COM-09 / CE | Campos nulos | Puerto de lectura hacia Comercio Exterior; **SUPUESTO** de que el pedimento ya está capturado al recibir. |
