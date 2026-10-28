@@ -1545,6 +1545,7 @@ public sealed class CompartidoDbContext : BaseDbContext
         producto.Property(x => x.FraccionArancelaria).HasMaxLength(10);
         producto.Property(x => x.UnidadAduana).HasMaxLength(3);
         producto.Property(x => x.PesoUnitarioKg).HasPrecision(18, 6);
+        producto.Property(x => x.EsServicioRecubrimiento).HasDefaultValue(false);
         producto.Property(x => x.CodigoModelo).HasMaxLength(50);
         producto.Property(x => x.Wgr).HasMaxLength(10);
         producto.Property(x => x.WgrDescripcion).HasMaxLength(100);

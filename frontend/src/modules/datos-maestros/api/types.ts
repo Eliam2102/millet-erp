@@ -627,6 +627,8 @@ export interface ProductoAwItem {
   tipo?: string | null;
   /** Piezas del árbol de composición (0 = sin composición). */
   numComponentes?: number;
+  /** PIN-2: marca explícita «Servicio de recubrimiento» (dato del ERP; A+W no la sobrescribe). */
+  esServicioRecubrimiento?: boolean;
 }
 
 export interface ListarProductosAwResponse {
@@ -662,6 +664,8 @@ export interface ProductoAwDetalle {
   datosFiscalesCompletos: boolean;
   estatus: EstatusCatalogo;
   fechaBaja?: string | null;
+  /** PIN-2: marca «Servicio de recubrimiento». */
+  esServicioRecubrimiento?: boolean;
   variantes?: ProductoAwVariante[];
   /** Clasificación de A+W (dueño A+W; null = sin dato). Familia de negocio = tipo → grupo; wgr = grupo de mercancía (`KA_WGR`). */
   codigoModelo?: string | null;
@@ -755,6 +759,7 @@ export interface CrearProductoAwPayload {
   fraccionArancelaria?: string | null;
   unidadAduana?: string | null;
   pesoUnitarioKg?: number | null;
+  esServicioRecubrimiento?: boolean;
 }
 
 export interface ActualizarProductoAwPayload {
@@ -772,6 +777,8 @@ export interface ActualizarProductoAwPayload {
   fraccionArancelaria?: string | null;
   unidadAduana?: string | null;
   pesoUnitarioKg?: number | null;
+  /** null/ausente = sin cambio. */
+  esServicioRecubrimiento?: boolean | null;
   limpiarCategoria?: boolean | null;
   limpiarTasaIvaTraslado?: boolean | null;
   limpiarTasaRetencionIva?: boolean | null;

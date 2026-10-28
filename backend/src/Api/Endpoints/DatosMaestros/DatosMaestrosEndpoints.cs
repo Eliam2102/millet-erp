@@ -610,6 +610,7 @@ public static class DatosMaestrosEndpoints
             [FromQuery] string? tipo,
             [FromQuery] string? grupo,
             [FromQuery] string? wgr,
+            [FromQuery] bool? esServicioRecubrimiento,
             [FromQuery] int? offset,
             [FromQuery] int? limit,
             IMediator mediator,
@@ -626,7 +627,8 @@ public static class DatosMaestrosEndpoints
                     Limit: limit ?? 50,
                     Tipo: tipo,
                     Grupo: grupo,
-                    Wgr: wgr),
+                    Wgr: wgr,
+                    EsServicioRecubrimiento: esServicioRecubrimiento),
                 ct);
             return Results.Ok(response);
         })
@@ -660,7 +662,7 @@ public static class DatosMaestrosEndpoints
                 p.Componentes.OrderBy(c => c.Orden)
                     .Select(c => new ProductoAwComponenteDato(c.Orden, c.Nivel, c.PadreOrden, c.ComponenteRef, c.Descripcion, c.Tipo, c.EspesorMm))
                     .ToList(),
-                p.Version, p.OrigenFiscal, p.EstadoFiscal, p.ReglaFiscalId, p.ConfirmadoPor, p.ConfirmadoEn));
+                p.Version, p.OrigenFiscal, p.EstadoFiscal, p.ReglaFiscalId, p.ConfirmadoPor, p.ConfirmadoEn, p.EsServicioRecubrimiento));
         })
         .RequireAuthorization(PermissionPolicyProvider.Prefix + PermisosCanonicos.DatosMaestrosProductosAwGestionar)
         .WithName("ObtenerProductoAw")
@@ -690,7 +692,8 @@ public static class DatosMaestrosEndpoints
                     TasaRetencionIsr: request.TasaRetencionIsr,
                     FraccionArancelaria: request.FraccionArancelaria,
                     UnidadAduana: request.UnidadAduana,
-                    PesoUnitarioKg: request.PesoUnitarioKg),
+                    PesoUnitarioKg: request.PesoUnitarioKg,
+                    EsServicioRecubrimiento: request.EsServicioRecubrimiento ?? false),
                 ct);
             return Results.Created($"/api/v1/datos-maestros/productos-aw/{response.Id}", response);
         })
@@ -748,7 +751,8 @@ public static class DatosMaestrosEndpoints
                     LimpiarFraccionArancelaria: body.LimpiarFraccionArancelaria ?? false,
                     LimpiarUnidadAduana: body.LimpiarUnidadAduana ?? false,
                     LimpiarPesoUnitarioKg: body.LimpiarPesoUnitarioKg ?? false,
-                    VersionEsperada: version),
+                    VersionEsperada: version,
+                    EsServicioRecubrimiento: body.EsServicioRecubrimiento),
                 ct);
             return Results.NoContent();
         })
@@ -896,7 +900,8 @@ public static class DatosMaestrosEndpoints
         string? Wgr,
         string? WgrDescripcion,
         IReadOnlyList<ProductoAwComponenteDato> Componentes,
-        int Version, OrigenFiscalProducto OrigenFiscal, EstadoFiscalProducto EstadoFiscal, Guid? ReglaFiscalId, Guid? ConfirmadoPor, DateTimeOffset? ConfirmadoEn);
+        int Version, OrigenFiscalProducto OrigenFiscal, EstadoFiscalProducto EstadoFiscal, Guid? ReglaFiscalId, Guid? ConfirmadoPor, DateTimeOffset? ConfirmadoEn,
+        bool EsServicioRecubrimiento = false);
 
     public sealed record CrearProductoAwRequest(
         string ReferenciaExterna,
@@ -912,7 +917,8 @@ public static class DatosMaestrosEndpoints
         decimal? TasaRetencionIsr,
         string? FraccionArancelaria = null,
         string? UnidadAduana = null,
-        decimal? PesoUnitarioKg = null);
+        decimal? PesoUnitarioKg = null,
+        bool? EsServicioRecubrimiento = null);
 
     public sealed record ActualizarProductoAwRequest(
         string? Descripcion,
@@ -934,7 +940,8 @@ public static class DatosMaestrosEndpoints
         decimal? PesoUnitarioKg = null,
         bool? LimpiarFraccionArancelaria = null,
         bool? LimpiarUnidadAduana = null,
-        bool? LimpiarPesoUnitarioKg = null);
+        bool? LimpiarPesoUnitarioKg = null,
+        bool? EsServicioRecubrimiento = null);
 
     public sealed record ProveedorDetalle(
         Guid Id,

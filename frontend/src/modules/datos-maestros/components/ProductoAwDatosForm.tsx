@@ -5,6 +5,7 @@ import { Controller, useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
+import { Checkbox } from '@/components/ui/checkbox';
 import { Input } from '@/components/ui/input';
 import { applyServerErrors, esApiError, codigoSoporte } from '@/lib/api';
 import { ClaveSatSelector } from '@/components/erp/selectors/ClaveSatSelector';
@@ -96,6 +97,7 @@ export function ProductoAwDatosForm({ producto }: ProductoAwDatosFormProps) {
           limpiarFraccionArancelaria: fraccionVacia,
           limpiarUnidadAduana: unidadAduanaVacia,
           limpiarPesoUnitarioKg: pesoVacio,
+          esServicioRecubrimiento: values.esServicioRecubrimiento,
         },
         // Key fresca por submit: este form es multi-submit (queda montado tras
         // guardar), así que una key estable daría 422 al 2º guardado con un body
@@ -214,6 +216,28 @@ export function ProductoAwDatosForm({ producto }: ProductoAwDatosFormProps) {
               )}
             />
           </FormRow>
+        </FormCampo>
+
+        <FormCampo span={12}>
+          <Controller
+            name="esServicioRecubrimiento"
+            control={form.control}
+            render={({ field }) => (
+              <div className="space-y-1.5">
+                <label className="flex items-center gap-2 text-sm font-medium">
+                  <Checkbox
+                    checked={field.value}
+                    onCheckedChange={(c) => field.onChange(c === true)}
+                    disabled={!canEditar}
+                  />
+                  Servicio de recubrimiento
+                </label>
+                <p className="text-xs text-ink-muted">
+                  Pinturas lo ve en su lista de servicios. Es dato del ERP: la sincronización con A+W no lo cambia.
+                </p>
+              </div>
+            )}
+          />
         </FormCampo>
 
         <FormCampo span={6}>
@@ -511,5 +535,6 @@ function buildDefaults(p: ProductoAwDetalle): ActualizarProductoAwValues {
     fraccionArancelaria: p.fraccionArancelaria ?? null,
     unidadAduana: p.unidadAduana ?? null,
     pesoUnitarioKg: p.pesoUnitarioKg ?? null,
+    esServicioRecubrimiento: p.esServicioRecubrimiento ?? false,
   };
 }
