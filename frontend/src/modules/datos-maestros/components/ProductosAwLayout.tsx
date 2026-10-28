@@ -1,7 +1,7 @@
 import { BarraFiltros, TabsEstado } from '@/components/erp';
 import { PageHeader } from '@/components/erp/PageHeader';
 import { useMemo, useState, type ReactNode } from 'react';
-import { Boxes, Plus, RefreshCw, TriangleAlert } from 'lucide-react';
+import { Boxes, PaintBucket, Plus, RefreshCw, TriangleAlert } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import {
@@ -48,6 +48,7 @@ export function ProductosAwLayout({ idActivo, detalle }: ProductosAwLayoutProps)
   const [estatus, setEstatus] = useState<string>('');
   const [tipo, setTipo] = useState<string>('');
   const [soloFiscalesIncompletos, setSoloFiscalesIncompletos] = useState(false);
+  const [soloServicios, setSoloServicios] = useState(false);
 
   const referenciaDeb = useDebouncedValue(referenciaInput, 300);
   const descripcionDeb = useDebouncedValue(descripcionInput, 300);
@@ -60,9 +61,10 @@ export function ProductosAwLayout({ idActivo, detalle }: ProductosAwLayoutProps)
       estatus: estatus !== '' ? (Number(estatus) as EstatusCatalogo) : undefined,
       fiscalesIncompletos: soloFiscalesIncompletos ? true : undefined,
       tipo: tipo !== '' ? tipo : undefined,
+      esServicioRecubrimiento: soloServicios ? true : undefined,
       limit: 200,
     }),
-    [referenciaDeb, descripcionDeb, origen, estatus, tipo, soloFiscalesIncompletos],
+    [referenciaDeb, descripcionDeb, origen, estatus, tipo, soloFiscalesIncompletos, soloServicios],
   );
 
   const productosQuery = useProductosAw(filtros);
@@ -115,6 +117,8 @@ export function ProductosAwLayout({ idActivo, detalle }: ProductosAwLayoutProps)
               onTipo={setTipo}
               soloFiscalesIncompletos={soloFiscalesIncompletos}
               onSoloFiscalesIncompletos={setSoloFiscalesIncompletos}
+              soloServicios={soloServicios}
+              onSoloServicios={setSoloServicios}
             />
           }
         />
@@ -173,6 +177,8 @@ interface FiltrosBloqueProps {
   onTipo: (v: string) => void;
   soloFiscalesIncompletos: boolean;
   onSoloFiscalesIncompletos: (v: boolean) => void;
+  soloServicios: boolean;
+  onSoloServicios: (v: boolean) => void;
 }
 
 function FiltrosBloque({
@@ -188,6 +194,8 @@ function FiltrosBloque({
   onTipo,
   soloFiscalesIncompletos,
   onSoloFiscalesIncompletos,
+  soloServicios,
+  onSoloServicios,
 }: FiltrosBloqueProps) {
   return (
     <div className="space-y-2 rounded-md border bg-surface-muted/20 p-2">
@@ -262,6 +270,20 @@ function FiltrosBloque({
       >
         <TriangleAlert className="mr-1.5 h-3.5 w-3.5" />
         Fiscales incompletos
+      </Button>
+      <Button
+        type="button"
+        variant="outline"
+        size="sm"
+        aria-pressed={soloServicios}
+        onClick={() => onSoloServicios(!soloServicios)}
+        className={cn(
+          'h-8 w-full justify-start text-xs font-normal',
+          soloServicios && 'border-brand bg-brand/10 text-brand hover:bg-brand/10 hover:text-brand',
+        )}
+      >
+        <PaintBucket className="mr-1.5 h-3.5 w-3.5" />
+        Servicios de recubrimiento
       </Button>
     </div>
   );
