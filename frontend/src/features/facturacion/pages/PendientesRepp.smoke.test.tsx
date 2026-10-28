@@ -151,4 +151,59 @@ describe('Pendientes de REP', () => {
     await waitFor(() => expect(cuerpos).toHaveLength(1));
     expect(cuerpos[0]).toEqual({ cuentaOrdenante: '0000000000000016', cuentaBeneficiaria: null });
   });
+
+  it('86e3tfdve opción A: muestra la ordenante del depósito enmascarada y permite quitarla al guardar', async () => {
+    const cuerpos: unknown[] = [];
+    const conOrdenante: ReppPendiente = {
+      ...pago,
+      revisado: true,
+      facturas: [{ facturaVentaId: '00000000-0000-0000-0000-0000000000f1', folio: 'F-1', importe: 100 }],
+      bloqueos: [],
+      cuentaOrdenante: '•••• 0016',
+    };
+    mswServer.use(
+      http.get('*/api/v1/facturacion/repp/pendientes/:id', () => HttpResponse.json(conOrdenante)),
+      http.put('*/api/v1/facturacion/repp/pendientes/:id', async ({ request }) => {
+        cuerpos.push(await request.json());
+        return new HttpResponse(null, { status: 204 });
+      }),
+    );
+    render(<PendientesRepp />, { wrapper: createQueryWrapper() });
+    await screen.findByText('Cliente ficticio');
+    fireEvent.click(screen.getByRole('button', { name: 'Revisar' }));
+    expect(await screen.findByText('•••• 0016')).toBeInTheDocument();
+    expect(screen.getByLabelText('Corregir cuenta ordenante')).toHaveValue('');
+    expect(screen.getByText(/usar la que registró Tesorería/)).toBeInTheDocument();
+
+    fireEvent.click(screen.getByLabelText('Quitar la cuenta ordenante del pago'));
+    expect(screen.getByText('Se quitará al guardar')).toBeInTheDocument();
+    expect(screen.getByLabelText('Corregir cuenta ordenante')).toBeDisabled();
+    expect(screen.getByRole('button', { name: 'Emitir REP' })).toBeDisabled();
+    fireEvent.click(screen.getByRole('button', { name: 'Guardar revisión' }));
+    await waitFor(() => expect(cuerpos).toHaveLength(1));
+    expect(cuerpos[0]).toMatchObject({ cuentaOrdenante: null, limpiarCuentaOrdenante: true });
+  });
+
+  it('86e3tfdve opción A: el resultado del lote muestra el aviso de REP sin ordenante', async () => {
+    mswServer.use(
+      http.post('*/api/v1/facturacion/repp/pendientes/emitir-lote', () =>
+        HttpResponse.json([
+          {
+            id: pago.id,
+            emitido: true,
+            reciboPagoId: 'r',
+            codigo: null,
+            mensaje: null,
+            aviso: 'Se emitió sin cuenta ordenante: •••• 0011 no aplica a la forma de pago 03.',
+          },
+        ]),
+      ),
+    );
+    render(<PendientesRepp />, { wrapper: createQueryWrapper() });
+    await screen.findByText('Cliente ficticio');
+    fireEvent.click(screen.getByRole('checkbox', { name: /Seleccionar/ }));
+    fireEvent.click(screen.getByRole('button', { name: /Emitir seleccionados/ }));
+    expect(await screen.findByText(/Se emitió sin cuenta ordenante: •••• 0011/)).toBeInTheDocument();
+    expect(screen.getByText('REP emitido')).toBeInTheDocument();
+  });
 });

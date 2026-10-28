@@ -228,12 +228,12 @@ public sealed class ReppPendienteTests
         new(Guid.NewGuid(), "Banco ficticio", "0000000010", ClabeMillet, "MXN", true);
 
     private static async Task<(FacturacionDbContext Db, ReppPendiente P, FakeFiscalApiClient Fiscal, EmitirReppPendienteHandler Handler)>
-        EscenarioCuentas(string forma = "03")
+        EscenarioCuentas(string forma = "03", string? ordenanteDelIngreso = null)
     {
         var db = Db();
         var f = Factura();
         var p = new ReppPendiente(Empresa, Cliente, Guid.NewGuid(), CuentaMillet.Id, null, 100m, "MXN",
-            new(2026, 10, 28), "Prueba ficticia", [new(f.Id, 100m)]);
+            new(2026, 10, 28), "Prueba ficticia", [new(f.Id, 100m)], ordenanteDelIngreso);
         if (forma != "03") p.Revisar(forma, [new(f.Id, 100m)]);
         db.FacturasVenta.Add(f); db.ReppPendientes.Add(p); await db.SaveChangesAsync();
         var fiscal = new FakeFiscalApiClient();
@@ -309,6 +309,129 @@ public sealed class ReppPendienteTests
         dto.CuentaBeneficiariaSugerida.Should().Be("•••• 0018");
         dto.Should().NotBeNull();
         dto.ToString().Should().NotContain(ClabeMillet);
+    }
+
+    // ---- 86e3tfdve opción A: ordenante capturada en el ingreso de Tesorería (cuentas ficticias) ----
+    private const string OrdenanteIngreso = "0000000000000016";
+
+    [Fact]
+    public async Task Evento_guarda_en_el_pendiente_la_ordenante_del_movimiento_leida_por_puerto()
+    {
+        using var db = Db();
+        var movimiento = Guid.NewGuid();
+        var payload = new PagoClienteConfirmadoPayload(Empresa, Ahora, Guid.NewGuid(), Cliente, movimiento, Guid.NewGuid(),
+            100m, "MXN", new(2026, 10, 28), "Prueba", [new(Guid.NewGuid(), 100m)]);
+        var puerto = new Ordenantes(movimiento, "0000-0000-0000-0016");
+        await new EmitirReppDesdePagoConfirmadoHandler(db, new FakeClock(Ahora), puerto).Handle(new(Guid.NewGuid(), payload), default);
+        (await db.ReppPendientes.SingleAsync()).CuentaOrdenante.Should().Be(OrdenanteIngreso);
+        puerto.Consultas.Should().Equal(movimiento);
+    }
+
+    [Fact]
+    public async Task Evento_sin_ordenante_en_el_ingreso_deja_el_pendiente_sin_ella()
+    {
+        using var db = Db();
+        var payload = new PagoClienteConfirmadoPayload(Empresa, Ahora, Guid.NewGuid(), Cliente, Guid.NewGuid(), Guid.NewGuid(),
+            100m, "MXN", new(2026, 10, 28), "Prueba", [new(Guid.NewGuid(), 100m)]);
+        await new EmitirReppDesdePagoConfirmadoHandler(db, new FakeClock(Ahora), new Ordenantes(Guid.NewGuid(), "0000000000000016"))
+            .Handle(new(Guid.NewGuid(), payload), default);
+        (await db.ReppPendientes.SingleAsync()).CuentaOrdenante.Should().BeNull();
+    }
+
+    [Fact]
+    public async Task Rep_uno_por_uno_usa_la_ordenante_del_ingreso_sin_capturarla()
+    {
+        var (db, p, fiscal, handler) = await EscenarioCuentas(ordenanteDelIngreso: OrdenanteIngreso);
+        using var _ = db;
+        (await handler.Handle(new(p.Id), default)).Emitido.Should().BeTrue();
+        fiscal.UltimaEmision!.ComplementoPago!.CuentaOrdenante.Should().Be(OrdenanteIngreso);
+    }
+
+    [Fact]
+    public async Task Revision_corrige_la_ordenante_la_guarda_y_puede_quitarla()
+    {
+        var (db, p, _, _) = await EscenarioCuentas(ordenanteDelIngreso: OrdenanteIngreso);
+        using var _ = db;
+        var relacion = p.Facturas.Select(f => new RelacionRepp(f.FacturaVentaId, f.Importe)).ToArray();
+        var revisar = new RevisarReppPendienteHandler(db, Servicio(db));
+
+        await revisar.Handle(new RevisarReppPendienteCommand(p.Id, "03", relacion), default);
+        p.CuentaOrdenante.Should().Be(OrdenanteIngreso, "sin captura se conserva la del ingreso");
+        await revisar.Handle(new RevisarReppPendienteCommand(p.Id, "03", relacion, "000000000000000099"), default);
+        p.CuentaOrdenante.Should().Be("000000000000000099");
+        await revisar.Handle(new RevisarReppPendienteCommand(p.Id, "03", relacion, LimpiarCuentaOrdenante: true), default);
+        p.CuentaOrdenante.Should().BeNull();
+    }
+
+    [Fact]
+    public async Task Revision_valida_la_ordenante_del_ingreso_con_la_forma_real()
+    {
+        // 11 dígitos: cumple el patrón general del ingreso, pero no el de 03 (10, 16 o 18) ni el de 04 (16).
+        var (db, p, _, _) = await EscenarioCuentas(ordenanteDelIngreso: "00000000011");
+        using var _ = db;
+        var relacion = p.Facturas.Select(f => new RelacionRepp(f.FacturaVentaId, f.Importe)).ToArray();
+        var revisar = new RevisarReppPendienteHandler(db, Servicio(db));
+        var act = () => revisar.Handle(new RevisarReppPendienteCommand(p.Id, "04", relacion), default);
+        (await act.Should().ThrowAsync<BusinessRuleException>()).Which.Code.Should().Be("REPP_CUENTA_INVALIDA");
+        // Con una forma que no admite ordenante (efectivo) se conserva sin usarla.
+        await revisar.Handle(new RevisarReppPendienteCommand(p.Id, "01", relacion), default);
+        p.CuentaOrdenante.Should().Be("00000000011");
+        p.OrdenanteParaFormaPago().Should().BeNull();
+    }
+
+    [Fact]
+    public async Task Rep_uno_por_uno_con_ordenante_que_no_cumple_la_forma_falla_sin_timbrar()
+    {
+        var (db, p, fiscal, handler) = await EscenarioCuentas(ordenanteDelIngreso: "00000000011");
+        using var _ = db;
+        var r = await handler.Handle(new(p.Id), default);
+        r.Emitido.Should().BeFalse();
+        r.Codigo.Should().Be("REPP_CUENTA_INVALIDA");
+        fiscal.UltimaEmision.Should().BeNull();
+    }
+
+    [Fact]
+    public async Task Lote_usa_la_ordenante_del_ingreso()
+    {
+        var (db, p, fiscal, handler) = await EscenarioCuentas(ordenanteDelIngreso: OrdenanteIngreso);
+        using var _ = db;
+        var r = await handler.Handle(new EmitirReppPendienteCommand(p.Id) { EnLote = true }, default);
+        r.Emitido.Should().BeTrue();
+        r.Aviso.Should().BeNull();
+        fiscal.UltimaEmision!.ComplementoPago!.CuentaOrdenante.Should().Be(OrdenanteIngreso);
+    }
+
+    [Fact]
+    public async Task Lote_con_ordenante_que_no_cumple_la_forma_timbra_sin_ella_y_avisa()
+    {
+        var (db, p, fiscal, handler) = await EscenarioCuentas(ordenanteDelIngreso: "00000000011");
+        using var _ = db;
+        var r = await handler.Handle(new EmitirReppPendienteCommand(p.Id) { EnLote = true }, default);
+        r.Emitido.Should().BeTrue();
+        r.Aviso.Should().Contain("sin cuenta ordenante").And.Contain("•••• 0011").And.NotContain("00000000011");
+        fiscal.UltimaEmision!.ComplementoPago!.CuentaOrdenante.Should().BeNull();
+        fiscal.UltimaEmision.ComplementoPago.CuentaBeneficiaria.Should().Be(ClabeMillet);
+    }
+
+    [Fact]
+    public async Task Consulta_del_pendiente_muestra_la_ordenante_enmascarada()
+    {
+        var (db, p, _, _) = await EscenarioCuentas(ordenanteDelIngreso: OrdenanteIngreso);
+        using var _ = db;
+        var dto = await new ReppPendienteQueryHandler(db, Servicio(db), new FakeClientesReadPort(), new Banco(null),
+            new FakeClock(Ahora), new FakeCuentaBancariaMilletReadPort(CuentaMillet)).Handle(new ReppPendienteQuery(p.Id), default);
+        dto.CuentaOrdenante.Should().Be("•••• 0016");
+        dto.ToString().Should().NotContain(OrdenanteIngreso);
+    }
+
+    private sealed class Ordenantes(Guid movimiento, string cuenta) : ICuentaOrdenanteMovimientoReadPort
+    {
+        public List<Guid> Consultas { get; } = [];
+        public Task<string?> ObtenerAsync(Guid movimientoBancarioId, CancellationToken cancellationToken)
+        {
+            Consultas.Add(movimientoBancarioId);
+            return Task.FromResult(movimientoBancarioId == movimiento ? cuenta : null);
+        }
     }
 
     private sealed class Banco(decimal? tc) : IReppBancarioReadPort
