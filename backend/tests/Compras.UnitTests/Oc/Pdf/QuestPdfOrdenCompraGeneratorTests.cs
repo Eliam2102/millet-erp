@@ -50,6 +50,7 @@ public class QuestPdfOrdenCompraGeneratorTests
                 new("CYP12083", "CINTA", "CINTA GRIS", 5m, "PZA", 25m, tasa, 125m),
             ],
             Subtotal = neto,
+            OtrosCargos = gastos,
             BaseGravable = neto + gastos,
             Impuesto = iva,
             Total = neto + gastos + iva,
@@ -116,6 +117,8 @@ public class QuestPdfOrdenCompraGeneratorTests
         Assert.Contains(Sin("290.00"), t);
         Assert.DoesNotContain(Sin("Tax ID"), t);
         Assert.DoesNotContain(Sin("INCOTERM"), t);
+        Assert.DoesNotContain(Sin("Otros cargos"), t);
+        Assert.DoesNotContain(Sin("Redondeo"), t);
     }
 
     [Fact]
@@ -137,6 +140,7 @@ public class QuestPdfOrdenCompraGeneratorTests
         var t = Generar("oc-con-gastos", Modelo(gastos: 50m), "ORIGINAL")[0];
 
         AfirmarComun(t, "ORIGINAL");
+        Assert.Contains(Sin("Otros cargos"), t); // sin el renglón la suma impresa no cuadraría
         Assert.Contains(Sin("300.00"), t); // total antes del impuesto: incluye los gastos
         Assert.Contains(Sin("340.00"), t);
     }

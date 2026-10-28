@@ -293,16 +293,24 @@ public static class OrdenesCompraEndpoints
                     $"La OC '{id}' aún no tiene PDF generado. Se genera al autorizar N2.");
 
             // El PDF se dibuja al momento con los datos vigentes; el blob guardado es solo la foto de la autorización.
-            string? marca = null;
-            if (vistaPrevia != true)
-            {
-                var numero = await mediator.Send(
-                    new Millet.Compras.Application.Oc.RegistrarImpresion.RegistrarImpresionOcCommand(id, pdf.Id), cancellationToken);
-                response.Headers["X-Oc-Impresion"] = numero.ToString(System.Globalization.CultureInfo.InvariantCulture);
-                marca = Millet.Compras.Application.Oc.Pdf.ImpresionOrdenCompraService.Marca(numero, FechaContable.HoyLocal(clock.UtcNow));
-            }
             response.Headers.CacheControl = "no-store";
-            var generado = await impresion.RenderizarAsync(id, marca, cancellationToken);
+            if (vistaPrevia == true)
+            {
+                var previa = await impresion.RenderizarAsync(id, null, cancellationToken);
+                return Results.File(previa.Contenido, previa.ContentType, previa.NombreSugerido);
+            }
+
+            // Se dibuja antes de contar: si el dibujo falla, la impresión no se gasta y el ORIGINAL sigue disponible.
+            var hoy = FechaContable.HoyLocal(clock.UtcNow);
+            var previsto = pdf.Impresiones + 1;
+            var generado = await impresion.RenderizarAsync(
+                id, Millet.Compras.Application.Oc.Pdf.ImpresionOrdenCompraService.Marca(previsto, hoy), cancellationToken);
+            var numero = await mediator.Send(
+                new Millet.Compras.Application.Oc.RegistrarImpresion.RegistrarImpresionOcCommand(id, pdf.Id), cancellationToken);
+            response.Headers["X-Oc-Impresion"] = numero.ToString(System.Globalization.CultureInfo.InvariantCulture);
+            if (numero != previsto) // otra descarga se adelantó: se redibuja con el número que quedó registrado
+                generado = await impresion.RenderizarAsync(
+                    id, Millet.Compras.Application.Oc.Pdf.ImpresionOrdenCompraService.Marca(numero, hoy), cancellationToken);
             return Results.File(generado.Contenido, generado.ContentType, generado.NombreSugerido);
         })
         .RequireAuthorization(PermissionPolicyProvider.Prefix + PermisosCanonicos.ComprasOrdenesLeer)

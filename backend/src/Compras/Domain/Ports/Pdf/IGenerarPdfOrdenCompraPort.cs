@@ -49,9 +49,12 @@ public sealed record OrdenCompraImpresion
     public ImmutableArray<RenglonImpresion> Renglones { get; init; } = [];
     public decimal Subtotal { get; init; }
     public decimal Descuento { get; init; }
+    /// <summary>Gastos adicionales de la OC: Millet no los usa, solo se imprimen si existen para que la suma cuadre.</summary>
+    public decimal OtrosCargos { get; init; }
     public decimal BaseGravable { get; init; }
     public decimal Impuesto { get; init; }
     public decimal Retenciones { get; init; }
+    public decimal Redondeo { get; init; }
     public decimal Total { get; init; }
     public string? Motivo { get; init; }
     public FirmaImpresion Elaboro { get; init; } = FirmaImpresion.Vacia;

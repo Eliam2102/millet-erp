@@ -51,8 +51,8 @@ public class ImpresionOrdenCompraService(
             .Where(r => rqIds.Contains(r.Id) && r.Descripcion != null).Select(r => r.Descripcion!).Distinct()
             .ToListAsync(cancellationToken);
         if (motivos.Count == 0 && !string.IsNullOrWhiteSpace(oc.MotivoSinRequisicion)) motivos.Add(oc.MotivoSinRequisicion);
+        // R7: solo el motivo de la requisición; las observaciones de la OC son internas y no van al proveedor.
         var motivo = string.Join("\n", motivos).Trim();
-        if (!string.IsNullOrWhiteSpace(oc.Observaciones)) motivo = (motivo + "\n" + oc.Observaciones).Trim();
 
         var datosArticulos = await articulos.ObtenerPorIdsAsync(
             oc.Lineas.Select(l => l.ArticuloId).Distinct().ToArray(), cancellationToken);
@@ -140,9 +140,11 @@ public class ImpresionOrdenCompraService(
             Renglones = renglones,
             Subtotal = totales.SubtotalAntesDescuento,
             Descuento = totales.DescuentoGlobalAplicado,
+            OtrosCargos = oc.GastosAdicionales,
             BaseGravable = totales.BaseGravable,
             Impuesto = totales.IvaTotal,
             Retenciones = totales.RetencionIsrTotal,
+            Redondeo = oc.Redondeo,
             Total = totales.TotalAPagar,
             Motivo = motivo,
             Elaboro = new(empleado?.Nombre ?? nombres.GetValueOrDefault(oc.CompradorTitularId), oc.FechaDocumento),

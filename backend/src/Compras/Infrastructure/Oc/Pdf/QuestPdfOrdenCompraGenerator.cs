@@ -188,10 +188,14 @@ public sealed class QuestPdfOrdenCompraGenerator : IGenerarPdfOrdenCompraPort
         var renglones = new List<RenglonTotal> { new("Subtotal del pedido", oc.Subtotal, oc.Moneda) };
         if (oc.Descuento > 0m)
             renglones.Add(new("Descuento", -oc.Descuento, oc.Moneda));
+        if (oc.OtrosCargos != 0m)
+            renglones.Add(new("Otros cargos", oc.OtrosCargos, oc.Moneda));
         renglones.Add(new("Total antes del impuesto", oc.BaseGravable, oc.Moneda));
         renglones.Add(new("Importe total del impuesto", oc.Impuesto, oc.Moneda));
         if (oc.Retenciones > 0m)
             renglones.Add(new("Retenciones", -oc.Retenciones, oc.Moneda));
+        if (oc.Redondeo != 0m)
+            renglones.Add(new("Redondeo", oc.Redondeo, oc.Moneda));
         renglones.Add(new("Importe total", oc.Total, oc.Moneda, Resaltado: true));
 
         // La condición de pago va en «Características de factura» (PPT de Millet, apartado 14).
