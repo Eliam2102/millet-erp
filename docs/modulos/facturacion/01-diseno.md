@@ -851,14 +851,27 @@ cada una con su patrón. La tabla vive en un único lugar del backend,
   emitir uno. En «Nuevo REPP» la beneficiaria se elige del catálogo de cuentas
   de Millet (`CuentaBancariaBeneficiariaId`, el backend resuelve el número) o
   se captura a mano.
-- **Sin migración:** el pendiente no guarda las cuentas. La ordenante se captura
-  en la revisión y viaja en el body opcional de
-  `POST /repp/pendientes/{id}/emitir`; la emisión por lote usa solo la
-  beneficiaria prellenada. Las cuentas emitidas quedan en
-  `recibo_pago_factura.cuenta_ordenante/cuenta_beneficiaria`.
+- **Ordenante desde el depósito (opción A, 28-oct):** Tesorería captura la
+  cuenta ordenante una sola vez, opcional, en «Registrar ingreso»
+  (`movimiento_bancario.cuenta_ordenante`), validada solo con el patrón general
+  del SAT (`SharedKernel.Domain.Bancos.CuentaPagoSat`): la forma de pago aún no
+  se conoce. **No viaja en `tesoreria.pago-cliente.confirmado.v1`**
+  (cuidados-infra §4 de Tesorería: el payload no lleva datos bancarios del
+  cliente): al crear el pendiente, el listener la lee por
+  `ICuentaOrdenanteMovimientoReadPort` (adaptador en `Millet.Api` sobre el
+  puerto público `ConsultarCuentaOrdenanteMovimientoQuery`) y la guarda en
+  `repp_pendiente.cuenta_ordenante`.
+- **Validación en dos tiempos:** al revisar, la ordenante se valida con la forma
+  real (la capturada reemplaza a la guardada; `limpiarCuentaOrdenante` la
+  quita; con una forma que no la admite se conserva sin usarse). Al emitir uno,
+  se usa la capturada o la guardada y una que no cumple falla con
+  `REPP_CUENTA_INVALIDA`. **En lote**, una guardada que no cumple la forma se
+  omite: el REP sale sin ordenante y el resultado trae `aviso`, sin fallar el
+  timbrado. La beneficiaria no se guarda (se calcula al emitir). Las cuentas
+  emitidas quedan en `recibo_pago_factura.cuenta_ordenante/cuenta_beneficiaria`.
 - **Enmascarado (ADR-0006):** bandeja, detalle del REPP y revisión del
   pendiente muestran «•••• 1234»; la cuenta completa solo viaja al CFDI.
-- **Fuera de alcance (decisión para Eliam):** `RfcEmisorCtaOrd`,
+- **Fuera de alcance:** `RfcEmisorCtaOrd`,
   `NomBancoOrdExt` y `RfcEmisorCtaBen` (RFC del banco ordenante/beneficiario y
   banco extranjero) no se capturan ni se envían.
 
@@ -1053,3 +1066,4 @@ y la memoria de estructura de ventanas ERP.
 | 1.1 | 2026-07-10 | Adenda de Cajas ([`12-cajas.md`](12-cajas.md)): alcance de datos por sucursal×canal (Capa A, resolución dinámica) + sesión de efectivo con arqueo (Capa B). `caja_id` de `comprobante` queda reservado a la Capa B; namespace `facturacion.caja.*` ampliado; nuevos endpoints `/cajas` y `/cobros`. |
 | 1.2 | 2026-07-12 | Adenda de Anticipos ciclo completo + trazabilidad ([`13-anticipos-ciclo-completo.md`](13-anticipos-ciclo-completo.md)): bandeja/detalle de facturas de anticipo, descargas XML/PDF genéricas (anticipo + NC) con alcance de cajas, trazabilidad transversal (tipos 5–10) y fix 13-J (`ANTICIPO_CFDI_NO_TIMBRADO` — la relación 07 es obligatoria). Absorbe el alcance diferido de la Fase 13. |
 | 1.3 | 2026-10-26 | 86e3tfdve: §8.2 corrige `PagoClienteConfirmadoEvent` (crea pendiente; REP manual desde la bandeja). Nueva §8.3: cuentas ordenante/beneficiaria validadas contra `c_FormaPago` (`REPP_CUENTA_INVALIDA`), beneficiaria prellenada desde la cuenta de Millet (`ICuentaBancariaMilletReadPort`) y enmascarado. RFC de bancos fuera de alcance. |
+| 1.4 | 2026-10-28 | 86e3tfdve opción A: la ordenante se captura en el ingreso de Tesorería, se lee por puerto (`ICuentaOrdenanteMovimientoReadPort`, sin tocar el evento) y se guarda en `repp_pendiente.cuenta_ordenante`; validación en dos tiempos y lote sin ordenante con aviso. |
