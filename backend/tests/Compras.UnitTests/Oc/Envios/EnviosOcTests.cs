@@ -293,7 +293,7 @@ public sealed class EnviosOcTests
     }
     private sealed class Impresion : ImpresionOrdenCompraService
     {
-        public Impresion() : base(null!, null!, null!, null!, null!, null!, null!, null!, null!) { }
+        public Impresion() : base(null!, null!, null!, null!, null!, null!, null!, null!) { }
         public string? MarcaUsada { get; private set; }
         public override Task<PdfOrdenCompraGenerado> RenderizarAsync(Guid ordenCompraId, string? marca, CancellationToken ct)
         {

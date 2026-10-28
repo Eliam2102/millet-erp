@@ -25,7 +25,7 @@ namespace Millet.Compras.Application.Oc.Pdf;
 /// (un proveedor sin domicilio no impide el PDF).
 /// </summary>
 public class ImpresionOrdenCompraService(
-    ComprasDbContext db, CompartidoDbContext compartido, ICurrentEmpresaContext empresaContext,
+    ComprasDbContext db, CompartidoDbContext compartido,
     IBlobStoragePort blobs, IArticuloReadPort articulos, IUsuarioReadPort usuarios,
     ICatalogoSatReadPort catalogoSat, IGenerarPdfOrdenCompraPort generador,
     ILogger<ImpresionOrdenCompraService> logger)
@@ -85,7 +85,7 @@ public class ImpresionOrdenCompraService(
         FirmaImpresion Firma(AutorizacionOC? a) => a is null ? FirmaImpresion.Vacia
             : new(nombres.GetValueOrDefault(a.UsuarioId), FechaContable.HoyLocal(a.FechaHora));
 
-        using var bypass = empresaContext.Bypass();
+        // Sin Bypass: solo Sucursal filtra por empresa y la destino es de la empresa de la OC (contexto vigente).
         var empresa = await compartido.Empresas.AsNoTracking().FirstOrDefaultAsync(e => e.Id == oc.EmpresaId, cancellationToken);
         var prov = await compartido.Proveedores.AsNoTracking().FirstOrDefaultAsync(p => p.Id == oc.ProveedorId, cancellationToken);
         var sucursal = await compartido.Sucursales.AsNoTracking().FirstOrDefaultAsync(s => s.Id == oc.SucursalDestinoId, cancellationToken);
