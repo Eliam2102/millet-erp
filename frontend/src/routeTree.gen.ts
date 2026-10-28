@@ -57,6 +57,7 @@ import { Route as AppCxpRevisionRouteImport } from './routes/_app/cxp/revision';
 import { Route as AppFacturacionIndexRouteImport } from './routes/_app/facturacion/index';
 import { Route as AppFacturacionAyudaRouteImport } from './routes/_app/facturacion/ayuda';
 import { Route as AppFacturacionCajaRouteImport } from './routes/_app/facturacion/caja';
+import { Route as AppProductoTerminadoExcepcionesRouteImport } from './routes/_app/producto-terminado/excepciones';
 import { Route as AppProductoTerminadoPiezasRouteImport } from './routes/_app/producto-terminado/piezas';
 import { Route as AppSistemaDisenoIndexRouteImport } from './routes/_app/sistema-diseno/index';
 import { Route as AppTesoreriaIndexRouteImport } from './routes/_app/tesoreria/index';
@@ -466,6 +467,12 @@ const AppFacturacionCajaRoute = AppFacturacionCajaRouteImport.update({
   path: '/facturacion/caja',
   getParentRoute: () => AppRoute,
 } as any);
+const AppProductoTerminadoExcepcionesRoute =
+  AppProductoTerminadoExcepcionesRouteImport.update({
+    id: '/producto-terminado/excepciones',
+    path: '/producto-terminado/excepciones',
+    getParentRoute: () => AppRoute,
+  } as any);
 const AppProductoTerminadoPiezasRoute =
   AppProductoTerminadoPiezasRouteImport.update({
     id: '/producto-terminado/piezas',
@@ -1372,6 +1379,7 @@ export interface FileRoutesByFullPath {
   '/cxp/revision': typeof AppCxpRevisionRoute;
   '/facturacion/ayuda': typeof AppFacturacionAyudaRoute;
   '/facturacion/caja': typeof AppFacturacionCajaRoute;
+  '/producto-terminado/excepciones': typeof AppProductoTerminadoExcepcionesRoute;
   '/producto-terminado/piezas': typeof AppProductoTerminadoPiezasRoute;
   '/admin/': typeof AppAdminIndexRoute;
   '/almacen/': typeof AppAlmacenIndexRoute;
@@ -1575,6 +1583,7 @@ export interface FileRoutesByTo {
   '/cxp/revision': typeof AppCxpRevisionRoute;
   '/facturacion/ayuda': typeof AppFacturacionAyudaRoute;
   '/facturacion/caja': typeof AppFacturacionCajaRoute;
+  '/producto-terminado/excepciones': typeof AppProductoTerminadoExcepcionesRoute;
   '/producto-terminado/piezas': typeof AppProductoTerminadoPiezasRoute;
   '/admin': typeof AppAdminIndexRoute;
   '/almacen': typeof AppAlmacenIndexRoute;
@@ -1780,6 +1789,7 @@ export interface FileRoutesById {
   '/_app/cxp/revision': typeof AppCxpRevisionRoute;
   '/_app/facturacion/ayuda': typeof AppFacturacionAyudaRoute;
   '/_app/facturacion/caja': typeof AppFacturacionCajaRoute;
+  '/_app/producto-terminado/excepciones': typeof AppProductoTerminadoExcepcionesRoute;
   '/_app/producto-terminado/piezas': typeof AppProductoTerminadoPiezasRoute;
   '/_app/admin/': typeof AppAdminIndexRoute;
   '/_app/almacen/': typeof AppAlmacenIndexRoute;
@@ -1985,6 +1995,7 @@ export interface FileRouteTypes {
     | '/cxp/revision'
     | '/facturacion/ayuda'
     | '/facturacion/caja'
+    | '/producto-terminado/excepciones'
     | '/producto-terminado/piezas'
     | '/admin/'
     | '/almacen/'
@@ -2188,6 +2199,7 @@ export interface FileRouteTypes {
     | '/cxp/revision'
     | '/facturacion/ayuda'
     | '/facturacion/caja'
+    | '/producto-terminado/excepciones'
     | '/producto-terminado/piezas'
     | '/admin'
     | '/almacen'
@@ -2392,6 +2404,7 @@ export interface FileRouteTypes {
     | '/_app/cxp/revision'
     | '/_app/facturacion/ayuda'
     | '/_app/facturacion/caja'
+    | '/_app/producto-terminado/excepciones'
     | '/_app/producto-terminado/piezas'
     | '/_app/admin/'
     | '/_app/almacen/'
@@ -2896,6 +2909,13 @@ declare module '@tanstack/react-router' {
       path: '/facturacion/caja';
       fullPath: '/facturacion/caja';
       preLoaderRoute: typeof AppFacturacionCajaRouteImport;
+      parentRoute: typeof AppRoute;
+    };
+    '/_app/producto-terminado/excepciones': {
+      id: '/_app/producto-terminado/excepciones';
+      path: '/producto-terminado/excepciones';
+      fullPath: '/producto-terminado/excepciones';
+      preLoaderRoute: typeof AppProductoTerminadoExcepcionesRouteImport;
       parentRoute: typeof AppRoute;
     };
     '/_app/producto-terminado/piezas': {
@@ -4036,6 +4056,7 @@ interface AppRouteChildren {
   AppCxpRevisionRoute: typeof AppCxpRevisionRoute;
   AppFacturacionAyudaRoute: typeof AppFacturacionAyudaRoute;
   AppFacturacionCajaRoute: typeof AppFacturacionCajaRoute;
+  AppProductoTerminadoExcepcionesRoute: typeof AppProductoTerminadoExcepcionesRoute;
   AppProductoTerminadoPiezasRoute: typeof AppProductoTerminadoPiezasRoute;
   AppAdminIndexRoute: typeof AppAdminIndexRoute;
   AppAlmacenIndexRoute: typeof AppAlmacenIndexRoute;
@@ -4239,6 +4260,7 @@ const AppRouteChildren: AppRouteChildren = {
   AppCxpRevisionRoute: AppCxpRevisionRoute,
   AppFacturacionAyudaRoute: AppFacturacionAyudaRoute,
   AppFacturacionCajaRoute: AppFacturacionCajaRoute,
+  AppProductoTerminadoExcepcionesRoute: AppProductoTerminadoExcepcionesRoute,
   AppProductoTerminadoPiezasRoute: AppProductoTerminadoPiezasRoute,
   AppAdminIndexRoute: AppAdminIndexRoute,
   AppAlmacenIndexRoute: AppAlmacenIndexRoute,

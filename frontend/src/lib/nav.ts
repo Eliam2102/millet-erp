@@ -1100,6 +1100,13 @@ const productoTerminado: NavModulo = {
           icon: Boxes,
           permission: PermisosCanonicos.ProductoTerminadoPiezasVer,
         },
+        {
+          label: 'Excepciones de entrada',
+          description: 'Escaneos que no se pudieron dar de alta: reintentar, descartar o marcar revisados.',
+          to: '/producto-terminado/excepciones',
+          icon: Boxes,
+          permission: PermisosCanonicos.ProductoTerminadoExcepcionesGestionar,
+        },
       ],
     },
   ],

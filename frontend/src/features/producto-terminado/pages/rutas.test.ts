@@ -5,6 +5,9 @@ import { PermisosCanonicos as P } from '@/lib/auth/permission-codes';
 
 vi.mock('@/features/producto-terminado/pages/PiezasPage', () => ({ PiezasPage: () => null }));
 
+vi.mock('@/features/producto-terminado/pages/ExcepcionesPage', () => ({ ExcepcionesPage: () => null }));
+
+import { Route as excepciones } from '@/routes/_app/producto-terminado/excepciones';
 import { Route as piezas } from '@/routes/_app/producto-terminado/piezas';
 
 const permisosAnteriores = useAuthStore.getState().permisos;
@@ -24,5 +27,22 @@ describe('guarda de Piezas', () => {
   it('permite entrar con piezas.ver', () => {
     useAuthStore.setState({ permisos: [P.ProductoTerminadoPiezasVer] });
     expect(piezas.options.beforeLoad as () => void).not.toThrow();
+  });
+});
+
+describe('guarda de Excepciones', () => {
+  it('redirige a inicio sin excepciones.gestionar', () => {
+    useAuthStore.setState({ permisos: [P.ProductoTerminadoPiezasVer] });
+    const guard = excepciones.options.beforeLoad as () => void;
+    try {
+      guard();
+      expect.fail('Debe redirigir a inicio');
+    } catch (redirect) {
+      expect(redirect).toMatchObject({ options: { to: '/' } });
+    }
+  });
+  it('permite entrar con excepciones.gestionar', () => {
+    useAuthStore.setState({ permisos: [P.ProductoTerminadoExcepcionesGestionar] });
+    expect(excepciones.options.beforeLoad as () => void).not.toThrow();
   });
 });
