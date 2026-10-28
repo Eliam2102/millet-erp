@@ -10,9 +10,6 @@ namespace Millet.ProductoTerminado.Application.Escaneos;
 public sealed class RegistrarEscaneoPiezaHandler(ProductoTerminadoDbContext db, EscaneoProcesador procesador, IClock clock)
     : IRequestHandler<RegistrarEscaneoPiezaCommand, EscaneoResultadoDto>
 {
-    // Máximo de reintentos por pedido inexistente; el worker de reintento usa el valor configurado.
-    private const int MaxIntentosInicial = 5;
-
     public async Task<EscaneoResultadoDto> Handle(RegistrarEscaneoPiezaCommand c, CancellationToken cancellationToken)
     {
         var etiqueta = c.Etiqueta.Trim();
@@ -22,7 +19,7 @@ public sealed class RegistrarEscaneoPiezaHandler(ProductoTerminadoDbContext db, 
         var e = EscaneoPt.Registrar(c.EmpresaId, c.Origen, etiqueta, c.NumeroPedido, c.Posicion, c.UPos, c.NumeroPieza, c.Estacion, c.Area,
             c.RegistradoAt, HoraAw.AUtc(c.RegistradoAt), c.ClaveSucursalAw, null, clock.UtcNow);
         db.Escaneos.Add(e);
-        await procesador.ProcesarAsync(e, MaxIntentosInicial, cancellationToken);
+        await procesador.ProcesarAsync(e, c.MaxIntentos, cancellationToken);
         try
         {
             await db.SaveChangesAsync(cancellationToken);
