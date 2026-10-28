@@ -210,7 +210,7 @@ Fuentes: `ACUERDO-almacenes-28oct` (reglas 2, 4 y 7), contrato de mensajes v6 de
       "piezas": 12, "m2": 241.9 }]
    ```
 
-   - La suma de `piezas` de los grupos debe ser igual a `lineas[].piezas`; si no, el acuse es `ERROR`.
+   - Propuesta por confirmar con Jorge (el v6 no lo dice): la suma de `piezas` de los grupos debe ser igual a `lineas[].piezas`; si no, el acuse es `ERROR`.
    - `lineas_movimiento.lote` queda en NULL en estas líneas: ni el trigger ni la llave del saldo ven el lote.
    - Solo consulta. Índice GIN únicamente cuando alguien pida una consulta «por lote».
    - Por qué columna y no la tabla/columna `lote` existente: `lote` guarda un solo valor y alimenta la llave del saldo (migración `20261026233414_AlmacenVarianteMedida`); los grupos son varios por línea. Mismo patrón que `PedidoFacturableLineaConfiguration.cs:40`.
