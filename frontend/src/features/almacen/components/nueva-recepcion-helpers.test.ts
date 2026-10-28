@@ -226,7 +226,7 @@ describe('contarLineasEnOtraUbicacion (aviso de divergencia)', () => {
   });
 });
 
-describe('destinoPorFila (rack = vidrio, general = lo demás)', () => {
+describe('destinoPorFila (A+W nunca; lo demás rack asignado o general)', () => {
   const RACK = 'rack-1';
   const GEN = 'gen-1';
   const GEN_OTRO = 'gen-2';
@@ -240,21 +240,28 @@ describe('destinoPorFila (rack = vidrio, general = lo demás)', () => {
     medida: { varianteId: 'v', anchoMm: 1, altoMm: 1, areaHojaM2: 1 },
   } as Partial<FilaRecepcionValues>);
   const silicon = fila({ articuloId: 'sil' });
-  const asignadas = new Map([['vid', new Set([RACK])]]);
+  const asignadas = new Map([
+    ['vid', new Set([RACK])],
+    ['sil', new Set([RACK])],
+  ]);
 
-  it('OC mixta con rack: vidrio al rack, silicón al general del mismo sub', () => {
-    expect(destinoPorFila([vidrio, silicon], RACK, ubic, asignadas)).toEqual([RACK, GEN]);
+  it('OC mixta con rack: A+W sin destino, consumible al rack asignado', () => {
+    expect(destinoPorFila([vidrio, silicon], RACK, ubic, asignadas)).toEqual([null, RACK]);
   });
 
-  it('vidrio sin ese rack asignado: sin destino', () => {
-    expect(destinoPorFila([vidrio], RACK, ubic, new Map())).toEqual([null]);
+  it('consumible sin ese rack asignado: general del sub del rack', () => {
+    expect(destinoPorFila([silicon], RACK, ubic, new Map())).toEqual([GEN]);
   });
 
-  it('OC solo no-vidrio con general elegido: todas al general', () => {
+  it('rack en sub Material en revisión: sin general para las no asignadas', () => {
+    expect(destinoPorFila([silicon], RACK, ubic, new Map(), new Set(['sub-1']))).toEqual([null]);
+  });
+
+  it('solo consumibles con general elegido: todas al general', () => {
     expect(destinoPorFila([silicon, silicon], GEN_OTRO, ubic, asignadas)).toEqual([GEN_OTRO, GEN_OTRO]);
   });
 
-  it('general elegido: el vidrio no recibe destino', () => {
+  it('general elegido: A+W no recibe destino', () => {
     expect(destinoPorFila([vidrio, silicon], GEN, ubic, asignadas)).toEqual([null, GEN]);
   });
 
@@ -262,11 +269,11 @@ describe('destinoPorFila (rack = vidrio, general = lo demás)', () => {
     expect(destinoPorFila([vidrio, silicon], null, ubic, asignadas)).toEqual([null, null]);
   });
 
-  it('contadores: no-vidrio en el general no es divergencia; en otro lugar sí', () => {
+  it('contadores: solo cuentan partidas que no son de A+W', () => {
     const d = destinoPorFila([vidrio, silicon, silicon], RACK, ubic, asignadas);
     const filas = [
-      { ...vidrio, incluida: true, ubicacionId: RACK },
-      { ...silicon, incluida: true, ubicacionId: GEN },
+      { ...vidrio, incluida: true, ubicacionId: BIN_B },
+      { ...silicon, incluida: true, ubicacionId: RACK },
       { ...silicon, incluida: true, ubicacionId: BIN_B },
     ];
     expect(contarLineasEnOtraUbicacion(filas, d)).toBe(1);

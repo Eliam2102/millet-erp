@@ -6,6 +6,7 @@ import { hojasDe } from '@/features/almacen/lib/medida-hoja';
 import { useAsignacionesList } from '@/features/almacen/api/useAsignaciones';
 import { useUbicaciones } from '@/features/almacen/api/useUbicaciones';
 import { useSaldosPorUbicacion } from '@/features/almacen/api/useSaldosCierreReportes';
+import { useSubAlmacenesEnRevision } from '@/features/almacen/api/useAlmacenes';
 import { EstatusCatalogo } from '@/features/almacen/api/types';
 
 /**
@@ -54,7 +55,7 @@ export interface UbicacionBinSelectorProps {
   accionSinUbicaciones?: ReactNode;
   /** F1-MP-01: en modo saldo, solo los bins con existencia de esa medida de hoja. */
   varianteId?: string | null;
-  /** En modo asignación, lista también el almacén general (esDefault activo) además de los racks asignados: para lo que no es vidrio. */
+  /** En modo asignación, lista también el almacén general (esDefault activo, salvo el de sub-almacenes en revisión) además de los racks asignados: para lo que no es de A+W. */
   incluirGeneral?: boolean;
 }
 
@@ -113,6 +114,9 @@ export function UbicacionBinSelector({
           : {},
   );
 
+  // El almacén general de un sub-almacén Material en revisión no admite entradas (el backend lo rechaza).
+  const subsEnRevision = useSubAlmacenesEnRevision(modo === 'asignacion' && incluirGeneral);
+
   // ── Modo saldo (salidas) ────────────────────────────────────────────────
   const saldosQuery = useSaldosPorUbicacion(
     modo === 'saldo' ? articuloId : null,
@@ -143,9 +147,14 @@ export function UbicacionBinSelector({
     const asignadas = (asignacionesQuery.data?.items ?? [])
       .map((a) => ubicPorId.get(a.ubicacionId))
       .filter((u): u is NonNullable<typeof u> => u != null);
-    const generales = incluirGeneral
+    // Sin la lista de sub-almacenes cargada no se ofrece ningún general.
+    const generales = incluirGeneral && subsEnRevision.listo
       ? [...ubicPorId.values()].filter(
-          (u) => u.esDefault && u.estatus === EstatusCatalogo.Activo && !asignadas.includes(u),
+          (u) =>
+            u.esDefault &&
+            u.estatus === EstatusCatalogo.Activo &&
+            !asignadas.includes(u) &&
+            !subsEnRevision.ids.has(u.subAlmacenId),
         )
       : [];
     return [...asignadas, ...generales]
@@ -157,7 +166,7 @@ export function UbicacionBinSelector({
         almacenClave: u.almacenClave,
         subAlmacenClave: u.subAlmacenClave,
       }));
-  }, [habilitado, modo, incluirGeneral, saldosQuery.data, asignacionesQuery.data, ubicacionesQuery.data]);
+  }, [habilitado, modo, incluirGeneral, subsEnRevision, saldosQuery.data, asignacionesQuery.data, ubicacionesQuery.data]);
 
   const loading =
     modo === 'saldo'

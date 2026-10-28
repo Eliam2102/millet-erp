@@ -22,6 +22,7 @@ import {
   SheetHeader,
   SheetTitle,
 } from '@/components/ui/sheet';
+import { useSubAlmacenesEnRevision } from '@/features/almacen/api/useAlmacenes';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import {
@@ -252,7 +253,7 @@ function NuevaRecepcionFormBody({
     // Solo se rellenan las líneas cuyo artículo tiene asignado ese rack; el
     // resto se avisa sobre la lista de líneas y se elige a mano.
     const filas = form.getValues('filas') ?? [];
-    const destinos = destinoPorFila(filas, ubicacionId, ubicInfo, asignadas.porArticulo);
+    const destinos = destinoPorFila(filas, ubicacionId, ubicInfo, asignadas.porArticulo, subsEnRevision.ids);
     for (const index of indicesParaAutoAsignar(filas, destinos)) {
       form.setValue(`filas.${index}.ubicacionId`, destinos[index], {
         shouldDirty: true,
@@ -261,6 +262,7 @@ function NuevaRecepcionFormBody({
     }
   }
 
+  const subsEnRevision = useSubAlmacenesEnRevision();
   const lookup = useDecimalesUnidad();
   const ubicacionesQuery = useUbicaciones({ limit: 500 });
   const ubicInfo = useMemo(
@@ -281,17 +283,18 @@ function NuevaRecepcionFormBody({
     [filasWatch],
   );
   const asignadas = useUbicacionesAsignadasPorArticulo(articuloIds);
-  // Opciones del helper: racks asignados a los artículos de vidrio de la OC + almacenes generales.
+  // Opciones del helper: racks asignados a los artículos de la OC que no son de A+W + almacenes generales (sin Material en revisión).
   const opcionesHelper = useMemo(() => {
-    if (!asignadas.listo) return undefined;
+    if (!asignadas.listo || !subsEnRevision.listo) return undefined;
     const union = new Set<string>();
     for (const f of filasWatch ?? [])
-      if (f.medida) asignadas.porArticulo.get(f.articuloId)?.forEach((id) => union.add(id));
+      if (!f.medida) asignadas.porArticulo.get(f.articuloId)?.forEach((id) => union.add(id));
     ubicInfo.forEach((u, id) => {
-      if (u.esDefault && u.estatus === EstatusCatalogo.Activo) union.add(id);
+      if (u.esDefault && u.estatus === EstatusCatalogo.Activo && !subsEnRevision.ids.has(u.subAlmacenId))
+        union.add(id);
     });
     return union;
-  }, [asignadas.listo, asignadas.porArticulo, filasWatch, ubicInfo]);
+  }, [asignadas.listo, asignadas.porArticulo, filasWatch, ubicInfo, subsEnRevision]);
   const queryClient = useQueryClient();
   const puedeLeerCfdis = useHasPermission(PermisosCanonicos.CuentasPorPagarCfdisLeer);
   const puedeCargarCfdi = useHasPermission(PermisosCanonicos.CuentasPorPagarCfdisCargarManual);
@@ -520,7 +523,7 @@ function NuevaRecepcionFormBody({
             <FormCampo span={6}>
               <Field
                 label="Ubicación por defecto (opcional)"
-                hint="El rack se aplica al vidrio; lo demás entra al almacén general del mismo sub-almacén."
+                hint="Aplica a los consumibles y refacciones; los artículos de A+W eligen su rack en cada partida."
                 error={form.formState.errors.ubicacionHelperId?.message}
               >
                 <Controller
@@ -812,6 +815,7 @@ function LineasDesdeOc({
     control: form.control,
     name: 'ubicacionHelperId',
   });
+  const subsEnRevision = useSubAlmacenesEnRevision();
 
   if (!ocId) {
     return (
@@ -853,13 +857,13 @@ function LineasDesdeOc({
   // PR4: divergencias vs el helper de cabecera (solo líneas incluidas que ya
   // traían otra ubicación — las vacías las auto-asignó el helper).
   const ubicInfo = new Map((ubicacionesQuery.data?.items ?? []).map((u) => [u.id, u]));
-  const destinos = destinoPorFila(filas, ubicacionHelperId, ubicInfo, asignadas);
+  const destinos = destinoPorFila(filas, ubicacionHelperId, ubicInfo, asignadas, subsEnRevision.ids);
   const lineasEnOtraUbicacion = contarLineasEnOtraUbicacion(filas, destinos);
-  // Vidrio sin rack al que el helper (un rack) no pudo asignar (artículo sin ese rack).
+  // Partida que no es de A+W a la que el helper (un rack) no pudo dar destino (su sub-almacén no admite general).
   const sinRackDelHelper =
     ubicacionHelperId && !ubicInfo.get(ubicacionHelperId)?.esDefault
       ? filas.filter(
-          (f, i) => f.incluida && !!f.medida && !f.ubicacionId && destinos[i] == null,
+          (f, i) => f.incluida && !f.medida && !f.ubicacionId && destinos[i] == null,
         ).length
       : 0;
   // Un movimiento = un sub-almacén (RECEPCION_MULTI_SUBALMACEN), avisado por línea.

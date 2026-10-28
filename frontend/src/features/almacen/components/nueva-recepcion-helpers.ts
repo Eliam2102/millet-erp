@@ -63,16 +63,19 @@ export interface UbicacionDestino {
 
 /**
  * Destino que el helper de cabecera propone para cada fila (null = ninguno).
- * Vidrio (<c>fila.medida</c>) solo admite rack asignado a su artículo; lo demás
- * entra al almacén general (esDefault) del sub-almacén. Helper = rack: vidrio
- * recibe el rack (si está asignado), no-vidrio el general de ese sub. Helper =
- * almacén general: solo no-vidrio. Los activos fijos no llevan ubicación.
+ * Los artículos de A+W (<c>fila.medida</c>) nunca reciben destino: eligen su
+ * rack en cada partida. Los demás: el rack elegido si está asignado a su
+ * artículo; si no, el almacén general (esDefault) del sub-almacén de ese rack,
+ * salvo que sea Material en revisión (<paramref name="subsSinGeneral"/>).
+ * Helper = almacén general: solo las que no son de A+W. Los activos fijos no
+ * llevan ubicación.
  */
 export function destinoPorFila(
   filas: readonly FilaRecepcionValues[],
   helperId: string | null | undefined,
   ubicaciones: ReadonlyMap<string, UbicacionDestino>,
   asignadas: ReadonlyMap<string, ReadonlySet<string>>,
+  subsSinGeneral: ReadonlySet<string> = new Set(),
 ): (string | null)[] {
   const helper = helperId ? ubicaciones.get(helperId) : undefined;
   if (!helperId || !helper) return filas.map(() => null);
@@ -81,10 +84,10 @@ export function destinoPorFila(
   else
     for (const [id, u] of ubicaciones)
       if (u.esDefault && u.subAlmacenId === helper.subAlmacenId) general = id;
+  if (general && subsSinGeneral.has(helper.subAlmacenId)) general = null;
   return filas.map((f) => {
-    if (f.esActivoFijo) return null;
-    if (!f.medida) return general;
-    return !helper.esDefault && asignadas.get(f.articuloId)?.has(helperId) ? helperId : null;
+    if (f.esActivoFijo || f.medida) return null;
+    return !helper.esDefault && asignadas.get(f.articuloId)?.has(helperId) ? helperId : general;
   });
 }
 
