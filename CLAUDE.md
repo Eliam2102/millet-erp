@@ -131,7 +131,8 @@ los tres levantamientos como conjunto:
 |---|---|---|---|
 | `ComprasEventListenerWorker` (en CxP) | `compras-events` | `cuentas-por-pagar-subscription` | ✅ #285 — inbound Compras → CxP |
 | `AlmacenEventListenerWorker` (en CxP) | `almacen-events` | `cuentas-por-pagar-almacen-sub` | ✅ F6-PR3 — recepciones + devoluciones |
-| `OutboxPublisherWorker<ComercioExteriorDbContext>` | `comercio-exterior-events` | Sin consumidor de negocio | CE-01a — apertura y cancelación |
+| `OutboxPublisherWorker<ComercioExteriorDbContext>` | `comercio-exterior-events` | CxP: `cuentas-por-pagar-ce-sub` | CE-01a — apertura y cancelación; P14 — saldo del agente |
+| `ComercioExteriorEventListenerWorker` (en CxP) | `comercio-exterior-events` | `cuentas-por-pagar-ce-sub` | P14 — saldo del agente a anticipo amortizable |
 | `TesoreriaEventListenerWorker` (en CxP) | `tesoreria-events` | `cuentas-por-pagar-tesoreria-sub` | ✅ F9-PR1 — pagos + REPP |
 | `CxpEventListenerWorker` (en Almacén) | `cuentas-por-pagar-events` | `almacen-subscription` | ✅ F3-PR1 — variante B + diferencia precio |
 | `CxpEventListenerWorker` (en Compras) | `cuentas-por-pagar-events` | `compras-subscription` | ✅ #288 — sub-estado Facturación de OC; #613/#614 — sub-estado Pago vía `factura.pago-aplicado.v1` (acumulado por OC calculado por CxP) + cierre/reapertura automática de la OC |

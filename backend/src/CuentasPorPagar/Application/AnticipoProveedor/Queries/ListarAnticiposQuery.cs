@@ -22,7 +22,7 @@ public sealed record ListarAnticiposQuery(
 
 public sealed record AnticipoListItemResponse(
     Guid Id,
-    string UuidCfdi,
+    string? UuidCfdi,
     Guid ProveedorId,
     string Serie,
     string? FolioProveedor,
@@ -35,7 +35,7 @@ public sealed record AnticipoListItemResponse(
     EstadoAnticipo Estado,
     int Version,
     // Etiqueta resuelta server-side vía read port (ADR-0042).
-    string? ProveedorNombre = null);
+    string? ProveedorNombre = null, OrigenAnticipo Origen = OrigenAnticipo.Cfdi);
 
 public sealed class ListarAnticiposHandler
     : IRequestHandler<ListarAnticiposQuery, PagedResponse<AnticipoListItemResponse>>
@@ -84,7 +84,7 @@ public sealed class ListarAnticiposHandler
                 a.Version,
                 // Null explícito: expression trees no aceptan args opcionales
                 // omitidos (CS0854). Se puebla abajo vía read port.
-                null))
+                null, a.Origen))
             .ToListAsync(cancellationToken);
 
         // Etiqueta del proveedor en batch sobre los ids distintos de la

@@ -89,7 +89,7 @@ public sealed class CuentasPorPagarDbContext : BaseDbContext
                 await FacturasProveedor.IgnoreQueryFilters().AnyAsync(f => nuevosUuid.Contains(f.UuidCfdi!.ToUpper()) &&
                     !(f.Estado == EstadoPasivo.Cancelada && f.MotivoDeCancelacion == MotivoCancelacion.RechazadaPorTolerancia && f.CfdiRecibidoId != null && cfdisRetomados.Contains(f.CfdiRecibidoId.Value)), cancellationToken) ||
                 await NotasCreditoProveedor.IgnoreQueryFilters().AnyAsync(n => nuevosUuid.Contains(n.UuidCfdi.ToUpper()), cancellationToken) ||
-                await AnticiposProveedor.IgnoreQueryFilters().AnyAsync(a => nuevosUuid.Contains(a.UuidCfdi.ToUpper()), cancellationToken))
+                await AnticiposProveedor.IgnoreQueryFilters().AnyAsync(a => a.UuidCfdi != null && nuevosUuid.Contains(a.UuidCfdi.ToUpper()), cancellationToken))
                 throw new Millet.SharedKernel.Application.Exceptions.BusinessRuleException("CXP_UUID_DUPLICADO", "El UUID ya está consumido por una factura, una NC o un anticipo. No puede capturarse otra vez.");
         }
 #pragma warning restore CA1311, CA1304

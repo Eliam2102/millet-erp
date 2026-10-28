@@ -1692,6 +1692,16 @@ namespace Millet.ActivosFijos.Infrastructure.Persistence.Migrations
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("registrado_en");
 
+                    b.Property<DateOnly>("FechaEfectiva")
+                        .HasColumnType("date")
+                        .HasColumnName("fecha_efectiva");
+
+                    b.Property<string>("Motivo")
+                        .IsRequired()
+                        .HasMaxLength(300)
+                        .HasColumnType("character varying(300)")
+                        .HasColumnName("motivo");
+
                     b.Property<Guid>("RegistradoPor")
                         .HasColumnType("uuid")
                         .HasColumnName("registrado_por");

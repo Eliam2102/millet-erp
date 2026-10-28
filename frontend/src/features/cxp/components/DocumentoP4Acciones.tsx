@@ -14,7 +14,7 @@ import { useNotasCredito } from '@/features/cxp/api/useNotasYAnticipos';
 import { useFacturas } from '@/features/cxp/api/useFacturas';
 import { EstadoNotaCredito, EstadoPasivo } from '@/features/cxp/api/types';
 import { tesoreriaKeys } from '@/features/tesoreria/api/keys';
-export interface DocumentoP4 { id: string; version: number; proveedorId: string; moneda: string; estado: number; facturaOrigenId?: string | null; uuidCfdi?: string; uuidRelacionCfdi?: string; saldoAmortizable?: number; tipoRelacionCfdi?: number; monto?: number }
+export interface DocumentoP4 { id: string; version: number; proveedorId: string; moneda: string; estado: number; facturaOrigenId?: string | null; uuidCfdi?: string | null; uuidRelacionCfdi?: string; saldoAmortizable?: number; tipoRelacionCfdi?: number; monto?: number }
 type Tipo = 'anticipos' | 'notas-credito' | 'notas-cargo';
 type Accion = 'cancelar' | 'formalizar' | 'aplicar' | 'vincular-factura' | 'amortizar-nc';
 export function DocumentoP4Acciones({ tipo, documento }: { tipo: Tipo; documento: DocumentoP4 }) {
@@ -27,7 +27,7 @@ export function DocumentoP4Acciones({ tipo, documento }: { tipo: Tipo; documento
     {tipo === 'notas-cargo' && puedeAplicarCargo && documento.estado === 2 && <Button size="sm" variant="secondary" onClick={() => setAccion('aplicar')}>Aplicar cargo</Button>}
     {tipo === 'notas-cargo' && puedeAplicarCargo && documento.estado === 3 && <Button size="sm" variant="secondary" onClick={() => setAccion('formalizar')}>Ligar NC fiscal</Button>}
     {tipo === 'notas-credito' && puedeCapturar && documento.estado === 1 && documento.tipoRelacionCfdi !== 7 && <Button size="sm" variant="secondary" onClick={() => setAccion('vincular-factura')}>Vincular factura</Button>}
-    {tipo === 'anticipos' && puedeCapturar && (documento.estado === 1 || documento.estado === 2) && <Button size="sm" variant="secondary" onClick={() => setAccion('amortizar-nc')}>Amortizar con NC tipo 07</Button>}
+    {tipo === 'anticipos' && documento.uuidCfdi && puedeCapturar && (documento.estado === 1 || documento.estado === 2) && <Button size="sm" variant="secondary" onClick={() => setAccion('amortizar-nc')}>Amortizar con NC tipo 07</Button>}
     <Sheet open={accion !== null} onOpenChange={(open) => { if (!open) setAccion(null); }}><SheetContent size="legacy">
       <SheetHeader><SheetTitle>{accion === 'cancelar' ? 'Cancelar documento' : accion === 'formalizar' ? 'Ligar NC fiscal' : accion === 'aplicar' ? 'Aplicar cargo' : accion === 'amortizar-nc' ? 'Amortizar con NC tipo 07' : 'Vincular factura'}</SheetTitle>
       <SheetDescription>Verifica el documento del proveedor antes de registrar la operación.</SheetDescription></SheetHeader>

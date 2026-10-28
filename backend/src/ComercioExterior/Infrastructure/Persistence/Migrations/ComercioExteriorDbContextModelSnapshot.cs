@@ -53,6 +53,10 @@ namespace Millet.ComercioExterior.Infrastructure.Persistence.Migrations
                         .HasColumnType("text")
                         .HasColumnName("created_by");
 
+                    b.Property<bool>("CuentaPeca")
+                        .HasColumnType("boolean")
+                        .HasColumnName("cuenta_peca");
+
                     b.Property<DateTimeOffset?>("DeletedAt")
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("deleted_at");
@@ -72,6 +76,11 @@ namespace Millet.ComercioExterior.Infrastructure.Persistence.Migrations
                     b.Property<DateOnly?>("FechaComprobacion")
                         .HasColumnType("date")
                         .HasColumnName("fecha_comprobacion");
+
+                    b.Property<decimal>("GastosAplicadosMxn")
+                        .HasPrecision(20, 2)
+                        .HasColumnType("numeric(20,2)")
+                        .HasColumnName("gastos_aplicados_mxn");
 
                     b.Property<decimal>("Igi")
                         .HasPrecision(20, 2)
@@ -855,6 +864,10 @@ namespace Millet.ComercioExterior.Infrastructure.Persistence.Migrations
                         .HasColumnType("uuid")
                         .HasColumnName("id");
 
+                    b.Property<Guid?>("AnticipoAgenteId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("anticipo_agente_id");
+
                     b.Property<string>("Concepto")
                         .IsRequired()
                         .HasColumnType("text")
@@ -992,6 +1005,9 @@ namespace Millet.ComercioExterior.Infrastructure.Persistence.Migrations
 
                     b.HasKey("Id")
                         .HasName("pk_gastos_expediente");
+
+                    b.HasIndex("AnticipoAgenteId")
+                        .HasDatabaseName("ix_gastos_expediente_anticipo_agente_id");
 
                     b.HasIndex("ConceptoId")
                         .HasDatabaseName("ix_gastos_expediente_concepto_id");
@@ -2312,6 +2328,12 @@ namespace Millet.ComercioExterior.Infrastructure.Persistence.Migrations
 
             modelBuilder.Entity("Millet.ComercioExterior.Domain.GastoExpediente", b =>
                 {
+                    b.HasOne("Millet.ComercioExterior.Domain.AnticipoAgente", null)
+                        .WithMany()
+                        .HasForeignKey("AnticipoAgenteId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .HasConstraintName("fk_gastos_expediente_anticipos_agente_anticipo_agente_id");
+
                     b.HasOne("Millet.ComercioExterior.Domain.ConceptoGasto", null)
                         .WithMany()
                         .HasForeignKey("ConceptoId")

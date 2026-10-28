@@ -67,7 +67,8 @@ public sealed class DepreciacionTests
     [Fact] public void CA6_Custodia_al_cierre_no_destino_actual()
     {
         var (a, c) = Montacargas(); var original = a.Custodia(); var cancun = new CustodiaActivo(Guid.NewGuid(), Guid.NewGuid(), "Cancún", Guid.NewGuid(), null);
-        var traslado = Guid.NewGuid(); a.Trasladar(traslado, cancun, original.ResponsableId, new(2026,3,20,12,0,0,TimeSpan.Zero)); a.AceptarTraslado(traslado, cancun.ResponsableId, new(2026,3,20,13,0,0,TimeSpan.Zero));
+        a.Trasladar(Guid.NewGuid(), cancun, "Reubicación", new(2026, 3, 15), original.ResponsableId, new(2026,4,20,12,0,0,TimeSpan.Zero));
+        Assert.Equal(original.CentroCostoId, CalculoDepreciacion.Calcular(a, c, new(2026,2,1)).CentroCostoId);
         Assert.Equal(original.SucursalId, CalculoDepreciacion.Calcular(a, c, new(2026,2,1)).SucursalId);
         var marzo = CalculoDepreciacion.Calcular(a, c, new(2026,3,1)); Assert.Equal(cancun.SucursalId, marzo.SucursalId); Assert.Equal(cancun.CentroCostoId, marzo.CentroCostoId);
     }

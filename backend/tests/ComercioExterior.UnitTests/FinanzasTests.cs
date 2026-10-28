@@ -9,6 +9,53 @@ public sealed class FinanzasTests
     private static BasePartidaCosto[] Partidas() => [new(Guid.Parse("00000000-0000-0000-0000-000000000001"), null, "A", 200000, 2000, 1000, Existencia: 1000, ExistenciaTotal: 1000), new(Guid.Parse("00000000-0000-0000-0000-000000000002"), null, "B", 300000, 6000, 1000, Existencia: 1000, ExistenciaTotal: 1000)];
     private static void Gasto(Expediente e, ConceptoGasto concepto, decimal importe, Guid? id = null, IReadOnlyDictionary<Guid, decimal>? directos = null) =>
         e.GuardarGasto(id ?? Guid.NewGuid(), new(concepto.Id, Guid.NewGuid(), "FAC-1", "MXN", importe, new(2026, 10, 1), ImportesDirectos: directos), concepto, 1, "MXN");
+    [Theory]
+    [InlineData(false, false, null)]
+    [InlineData(true, false, "CE_ANTICIPO_PECA_SOLO_IMPUESTOS")]
+    [InlineData(false, true, "CE_GASTO_AGENTE_INVALIDO")]
+    public void P14_impuestos_y_gastos_del_agente(bool peca, bool otroProveedor, string? error)
+    {
+        var e = Nuevo(); var agente = Guid.NewGuid();
+        var concepto = new ConceptoGasto(e.EmpresaId, "HON", "Honorarios");
+        e.GuardarGasto(Guid.NewGuid(), new(concepto.Id, otroProveedor ? Guid.NewGuid() : agente, "HON-1", "MXN", 7500, new(2026, 10, 1)), concepto, 1, "MXN");
+        var a = e.RegistrarAnticipo(Guid.NewGuid(), agente, "PED", new(150000, 0, 0), new(2026, 10, 1), null, peca);
+        a.Comprobar(new(142500, 0, 0), Guid.NewGuid(), Guid.NewGuid(), new(2026, 10, 2));
+        if (error != null)
+        {
+            Assert.Equal(error, Assert.Throws<BusinessRuleException>(() => a.AplicarGastos(e.Gastos)).Code);
+            Assert.Null(e.Gastos.Single().AnticipoAgenteId);
+            return;
+        }
+        a.AplicarGastos(e.Gastos);
+        Assert.Equal(150000, a.Aplicado); Assert.Equal(0, a.Saldo);
+        var b = e.RegistrarAnticipo(Guid.NewGuid(), agente, "PED-2", new(150000, 0, 0), new(2026, 10, 1), null);
+        b.Comprobar(new(142500, 0, 0), Guid.NewGuid(), Guid.NewGuid(), new(2026, 10, 2));
+        Assert.Equal("CE_GASTO_YA_APLICADO", Assert.Throws<BusinessRuleException>(() => b.AplicarGastos(e.Gastos)).Code);
+        Assert.Equal(142500, b.Aplicado);
+        Assert.Equal("CE_GASTO_YA_APLICADO", Assert.Throws<BusinessRuleException>(() => e.GuardarGasto(e.Gastos.Single().Id,
+            new(concepto.Id, agente, "EDIT", "MXN", 1, new(2026, 10, 1)), concepto, 1, "MXN")).Code);
+    }
+    [Fact]
+    public void P14_saldo_en_cuenta_del_agente_libera_cierre()
+    {
+        var e = Nuevo();
+        var a = e.RegistrarAnticipo(Guid.NewGuid(), Guid.NewGuid(), "PED", new(150000, 0, 0), new(2026, 10, 1), null);
+        a.Comprobar(new(142500, 0, 0), Guid.NewGuid(), Guid.NewGuid(), new(2026, 10, 2));
+        a.Resolver("saldo-al-agente", 7500, new(2026, 10, 3), "Cuenta agente", Guid.NewGuid(), Guid.NewGuid());
+        Assert.Equal(0, a.Saldo);
+        Assert.DoesNotContain("Saldo a favor abierto con el agente", e.MotivosFinancieros());
+    }
+    [Theory]
+    [InlineData(160000, 7500, true)]
+    [InlineData(142500, 7501, true)]
+    [InlineData(142500, 7500, false)]
+    public void P14_rechaza_traslado_invalido(decimal aplicado, decimal importe, bool evidencia)
+    {
+        var e = Nuevo();
+        var a = e.RegistrarAnticipo(Guid.NewGuid(), Guid.NewGuid(), "PED", new(150000, 0, 0), new(2026, 10, 1), null);
+        a.Comprobar(new(aplicado, 0, 0), Guid.NewGuid(), Guid.NewGuid(), new(2026, 10, 2));
+        Assert.Throws<BusinessRuleException>(() => a.Resolver("saldo-al-agente", importe, new(2026, 10, 3), "Cuenta", evidencia ? Guid.NewGuid() : Guid.Empty, Guid.NewGuid()));
+    }
     [Fact]
     public void CA1_valor_distribuye_veinte_y_treinta_mil()
     {

@@ -881,3 +881,28 @@ resource comercioExteriorAlmacenFilter 'Microsoft.ServiceBus/namespaces/topics/s
     }
   }
 }
+
+// P14: saldo por aplicar en la cuenta del agente aduanal.
+resource comercioExteriorCxpSubscription 'Microsoft.ServiceBus/namespaces/topics/subscriptions@2024-01-01' = {
+  parent: comercioExteriorEventsTopic
+  name: 'cuentas-por-pagar-ce-sub'
+  properties: {
+    deadLetteringOnMessageExpiration: true
+    deadLetteringOnFilterEvaluationExceptions: true
+    maxDeliveryCount: 5
+    defaultMessageTimeToLive: 'P1D'
+    lockDuration: 'PT1M'
+    enableBatchedOperations: true
+  }
+}
+resource comercioExteriorCxpFilter 'Microsoft.ServiceBus/namespaces/topics/subscriptions/rules@2024-01-01' = {
+  parent: comercioExteriorCxpSubscription
+  name: 'EventTypeFilter'
+  properties: {
+    filterType: 'SqlFilter'
+    sqlFilter: {
+      sqlExpression: 'user.EventType = \'comercio_exterior.anticipo-agente.saldo-transferido.v1\''
+      compatibilityLevel: 20
+    }
+  }
+}
