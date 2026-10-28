@@ -20,9 +20,9 @@ public sealed class DocumentoMuestraTests
         Encoding.ASCII.GetString(pdf, 0, 4).Should().Be("%PDF");
         // Cada imagen representa una página realmente compuesta por QuestPDF.
         var paginas = documento.GenerateImages(new ImageGenerationSettings { RasterDpi = 72 }).ToArray();
-        // 60 renglones fuerzan salto de página; cuántas exactamente depende de la
-        // fuente disponible (Calibri en Mac, otra más ancha en el CI de Linux).
-        paginas.Length.Should().BeGreaterThanOrEqualTo(2);
+        // Con Carlito incrustado la paginación es la misma en la Mac, en el CI y en Azure (Linux):
+        // 60 renglones y los bloques del documento ocupan exactamente tres páginas.
+        paginas.Length.Should().Be(3);
         paginas.Should().OnlyContain(x => x.Length > 1000);
         var salida = Path.GetFullPath(Path.Combine(Path.GetDirectoryName(Assembly.GetExecutingAssembly().Location)!, "../../../Salidas"));
         Directory.CreateDirectory(salida);
