@@ -8,7 +8,8 @@ public static class HoraAw
     public static DateTimeOffset AUtc(DateTime horaAw)
     {
         var local = DateTime.SpecifyKind(horaAw, DateTimeKind.Unspecified);
-        return new DateTimeOffset(local, Zona.GetUtcOffset(local));
+        // Npgsql solo acepta offset 0 en timestamptz.
+        return new DateTimeOffset(local, Zona.GetUtcOffset(local)).ToUniversalTime();
     }
 
     private static TimeZoneInfo Resolver()
