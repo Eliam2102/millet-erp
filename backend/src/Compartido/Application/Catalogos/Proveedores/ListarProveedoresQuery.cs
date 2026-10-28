@@ -34,7 +34,8 @@ public sealed record ProveedorItem(
     Guid? MonedaPreferidaId,
     EstatusCatalogo Estatus,
     DateTimeOffset? ValidadoEn = null,
-    string? MotivoRechazo = null);
+    string? MotivoRechazo = null,
+    int? ClaveAw = null);
 
 public sealed record ListarProveedoresResponse(
     IReadOnlyList<ProveedorItem> Items,
@@ -102,7 +103,7 @@ public sealed class ListarProveedoresHandler
             .Select(p => new ProveedorItem(
                 p.Id, p.Clave, p.RazonSocial, p.NombreComercial, p.Rfc,
                 p.TipoPersona, p.CondicionesPagoDias, p.MonedaPreferidaId, p.Estatus,
-                p.ValidadoEn, p.MotivoRechazo))
+                p.ValidadoEn, p.MotivoRechazo, p.ClaveAw))
             .ToListAsync(cancellationToken);
 
         return new ListarProveedoresResponse(items, offset, limit, total);

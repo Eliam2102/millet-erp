@@ -1290,6 +1290,59 @@ namespace Millet.Almacen.Infrastructure.Persistence.Migrations
                     b.ToTable("eventos_procesados", "almacen");
                 });
 
+            modelBuilder.Entity("Millet.Almacen.Domain.Idempotencia.MensajeApp", b =>
+                {
+                    b.Property<string>("MensajeId")
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)")
+                        .HasColumnName("mensaje_id");
+
+                    b.Property<Guid?>("DocumentoId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("documento_id");
+
+                    b.Property<string>("Error")
+                        .HasMaxLength(1000)
+                        .HasColumnType("character varying(1000)")
+                        .HasColumnName("error");
+
+                    b.Property<string>("Estado")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)")
+                        .HasColumnName("estado");
+
+                    b.Property<string>("Folio")
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)")
+                        .HasColumnName("folio");
+
+                    b.Property<string>("Payload")
+                        .IsRequired()
+                        .HasColumnType("jsonb")
+                        .HasColumnName("payload");
+
+                    b.Property<DateTimeOffset>("RecibidoAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("recibido_at");
+
+                    b.Property<string>("Referencia")
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)")
+                        .HasColumnName("referencia");
+
+                    b.Property<string>("Tipo")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)")
+                        .HasColumnName("tipo");
+
+                    b.HasKey("MensajeId")
+                        .HasName("pk_mensajes_app");
+
+                    b.ToTable("mensajes_app", "almacen");
+                });
+
             modelBuilder.Entity("Millet.Almacen.Domain.Movimientos.FolioSecuenciaMovimiento", b =>
                 {
                     b.Property<Guid>("Id")
