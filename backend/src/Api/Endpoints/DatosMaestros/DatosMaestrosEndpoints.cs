@@ -105,7 +105,7 @@ public static class DatosMaestrosEndpoints
                 p.Rfc, p.TipoPersona, p.CondicionesPagoDias, p.MonedaPreferidaId,
                 p.Email, p.Telefono, p.Estatus,
                 p.ValidadoPorId, p.ValidadoEn, p.MotivoRechazo, p.ToleranciaFacturaContraOcMxn,
-                p.Origen, p.RegimenFiscalCodigo, p.ConceptoRetencion, p.ValidadoConMatrizVersion, p.Calle, p.NumeroExterior, p.NumeroInterior, p.Colonia, p.Ciudad, p.Municipio, p.Estado, p.CodigoPostal, p.Pais, p.TaxId));
+                p.Origen, p.RegimenFiscalCodigo, p.ConceptoRetencion, p.ValidadoConMatrizVersion, p.Calle, p.NumeroExterior, p.NumeroInterior, p.Colonia, p.Ciudad, p.Municipio, p.Estado, p.CodigoPostal, p.Pais, p.TaxId, p.ClaveAw));
         })
         .RequireAuthorization(PermissionPolicyProvider.Prefix + PermisosCanonicos.DatosMaestrosProveedoresGestionar)
         .WithName("ObtenerProveedorDatosMaestros")
@@ -966,7 +966,8 @@ public static class DatosMaestrosEndpoints
         string? Estado = null,
         string? CodigoPostal = null,
         string? Pais = null,
-        string? TaxId = null);
+        string? TaxId = null,
+        int? ClaveAw = null);
 
     public sealed record ActualizarClasificacionFiscalRequest(
         OrigenProveedor? Origen, string? RegimenFiscalCodigo, string? ConceptoRetencion);

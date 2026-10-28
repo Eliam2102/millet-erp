@@ -5828,6 +5828,10 @@ namespace Millet.Compartido.Infrastructure.Migrations.Compartido
                         .HasColumnType("character varying(20)")
                         .HasColumnName("clave");
 
+                    b.Property<int?>("ClaveAw")
+                        .HasColumnType("integer")
+                        .HasColumnName("clave_aw");
+
                     b.Property<string>("ClaveLegacy")
                         .HasMaxLength(20)
                         .HasColumnType("character varying(20)")
@@ -5984,6 +5988,11 @@ namespace Millet.Compartido.Infrastructure.Migrations.Compartido
                         .IsUnique()
                         .HasDatabaseName("ix_proveedores_clave");
 
+                    b.HasIndex("ClaveAw")
+                        .IsUnique()
+                        .HasDatabaseName("ux_proveedores_clave_aw")
+                        .HasFilter("clave_aw IS NOT NULL");
+
                     b.HasIndex("Estatus")
                         .HasDatabaseName("ix_proveedores_estatus");
 
@@ -5994,6 +6003,8 @@ namespace Millet.Compartido.Infrastructure.Migrations.Compartido
 
                     b.ToTable("proveedores", "compartido", t =>
                         {
+                            t.HasCheckConstraint("ck_proveedores_clave_aw_positiva", "clave_aw IS NULL OR clave_aw > 0");
+
                             t.HasCheckConstraint("ck_proveedores_condiciones_pago", "condiciones_pago_dias IS NULL OR condiciones_pago_dias BETWEEN 0 AND 365");
 
                             t.HasCheckConstraint("ck_proveedores_estatus", "estatus BETWEEN 0 AND 2");
