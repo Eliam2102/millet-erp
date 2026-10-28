@@ -249,6 +249,38 @@ public class RecepcionPorMedidaTests(WebApplicationFactory<Program> factory) : I
         });
     }
 
+    [Fact]
+    public async Task Devolucion_a_proveedor_de_la_recepcion_de_un_lote_rebaja_solo_ese_lote()
+    {
+        // F1-MP-05 A4.2-e: dos lotes de la misma medida en el mismo rack; la devolución sale del lote de SU recepción.
+        await new CuarentenaRecepcionTests(factory).EjecutarConFixtureAsync(async (db, ctx) =>
+        {
+            var guard = new DecimalesUnidadGuard(new DecimalesM2());
+            var proveedor = Guid.NewGuid();
+            var oc = new OcProveedor(new OcM2(ctx), proveedor);
+            await Recibir(db, ctx, true, Linea(ctx, 10m, VarA, lote: "DEMO-L-2610-01"));
+            var r2 = await Recibir(db, ctx, true, Linea(ctx, 5m, VarA, lote: "DEMO-L-2610-02"));
+            var origen = await db.LineasMovimiento.AsNoTracking().SingleAsync(l => l.MovimientoId == r2.RecepcionId);
+            async Task<decimal> Hay(string lote) => await db.SaldosInventario.AsNoTracking()
+                .Where(s => s.UbicacionId == ctx.RackId && s.ArticuloId == ctx.ArticuloId && s.Lote == lote).Select(s => s.Cantidad).SingleAsync();
+
+            var dev = await new IniciarDevolucionAProveedorHandler(db, new UserFake(ctx.UserId), new EmpresaFake(ctx.EmpresaId), guard, oc).Handle(
+                new IniciarDevolucionAProveedorCommand(proveedor, "Hojas rayadas", r2.RecepcionId, null, null, null,
+                    [new DevolucionProveedorLineaInput(ctx.ArticuloId, 17.8608m, "M2", 0m, origen.Id)]), default);
+            var lineaDev = await db.Set<Millet.Almacen.Domain.DevolucionesProveedor.LineaDevolucionProveedor>().AsNoTracking().SingleAsync(l => l.DevolucionId == dev.DevolucionId);
+            await new AdjuntarEvidenciaDevolucionAProveedorHandler(db).Handle(
+                new AdjuntarEvidenciaDevolucionAProveedorCommand(dev.DevolucionId, "FOTO", "hojas.jpg", "blob://hojas.jpg", null), default);
+            await new SolicitarAutorizacionDevolucionAProveedorHandler(db).Handle(new SolicitarAutorizacionDevolucionAProveedorCommand(dev.DevolucionId), default);
+            await new AutorizarDevolucionAProveedorHandler(db, new UserFake(ctx.UserId)).Handle(new AutorizarDevolucionAProveedorCommand(dev.DevolucionId), default);
+            await new RegistrarSalidaDevolucionAProveedorHandler(db, new CapturaEventos(), new UserFake(ctx.UserId), new EmpresaFake(ctx.EmpresaId),
+                oc, ctx.Periodos, new ConversionM2()).Handle(
+                new RegistrarSalidaDevolucionAProveedorCommand(dev.DevolucionId, ctx.SubDisponibleId, Fecha, [new DevolucionProveedorSalidaLineaBin(lineaDev.Id, ctx.RackId)]), default);
+
+            (await Hay("DEMO-L-2610-02")).Should().Be(44.652m - 17.8608m);   // 5 → 3 hojas
+            (await Hay("DEMO-L-2610-01")).Should().Be(89.304m);              // intacto: 10 hojas
+        });
+    }
+
     sealed class OcProveedor(IComprasOcReadPort inner, Guid proveedorId) : IComprasOcReadPort
     {
         public async Task<OcLectura?> ObtenerAsync(Guid ocId, CancellationToken ct) => (await inner.ObtenerAsync(ocId, ct)) is { } o ? o with { ProveedorId = proveedorId } : null;
