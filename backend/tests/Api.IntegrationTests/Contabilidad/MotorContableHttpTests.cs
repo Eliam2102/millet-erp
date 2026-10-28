@@ -23,7 +23,7 @@ public sealed class MotorContableHttpTests(WebApplicationFactory<Program> factor
     private const string Motor = "/api/v1/contabilidad/motor";
     private static readonly JsonSerializerOptions Web = new(JsonSerializerDefaults.Web);
     private const string Tipo = NormalizadorEventos.FacturaProveedorRegistrada;
-    private static readonly string[] RolesFactura = ["MERCANCIA_RECIBIDA_POR_FACTURAR", "IVA_ACREDITABLE_PENDIENTE", "PROVEEDORES", "RETENCIONES_POR_PAGAR"];
+    private static readonly string[] RolesFactura = ["MERCANCIA_RECIBIDA_POR_FACTURAR", "IVA_ACREDITABLE_PENDIENTE", "PROVEEDORES", "RETENCIONES_POR_PAGAR", "GASTO"];
 
     private sealed record Cuentas(string Suf, HttpClient Admin, Guid Sucursal, Guid Puente, Guid Iva, Guid Proveedores, Guid ProveedoresB, Guid Proveedor);
 
@@ -48,7 +48,7 @@ public sealed class MotorContableHttpTests(WebApplicationFactory<Program> factor
     }
 
     /// <summary>Mapea los roles de la plantilla #2 y devuelve el mapeo previo para restaurarlo.</summary>
-    private async Task<Dictionary<string, Guid?>> MapearAsync(Cuentas c, Guid? iva = null, bool sinIva = false)
+    private async Task<Dictionary<string, Guid?>> MapearAsync(Cuentas c, Guid? iva = null, bool sinIva = false, Guid? gasto = null)
     {
         using var scope = factory.Services.CreateScope();
         var db = scope.ServiceProvider.GetRequiredService<ContabilidadDbContext>();
@@ -57,6 +57,7 @@ public sealed class MotorContableHttpTests(WebApplicationFactory<Program> factor
         await Set("MERCANCIA_RECIBIDA_POR_FACTURAR", c.Puente);
         await Set("IVA_ACREDITABLE_PENDIENTE", sinIva ? null : iva ?? c.Iva);
         await Set("PROVEEDORES", c.Proveedores);
+        if (gasto is not null) await Set("GASTO", gasto);
         return previo;
 
         async Task Set(string codigo, Guid? cuenta) => await db.Database.ExecuteSqlRawAsync(
@@ -138,6 +139,37 @@ public sealed class MotorContableHttpTests(WebApplicationFactory<Program> factor
             Assert.Equal("cuentas_por_pagar", doc.GetProperty("modulo").GetString());
             Assert.Equal(factura, doc.GetProperty("id").GetGuid());
             Assert.False(string.IsNullOrEmpty(doc.GetProperty("uuid").GetString()));
+        }
+        finally { await RestaurarAsync(previo, c); }
+    }
+
+    [Fact]
+    public async Task E6_la_linea_de_servicio_de_la_factura_de_CxP_va_a_gasto_y_solo_la_mercancia_al_puente()
+    {
+        Cuentas? c = null; Dictionary<string, Guid?>? previo = null;
+        try
+        {
+            c = await PrepararAsync();
+            var gastos = Id(await CrearCuenta(c.Admin, Codigo(c.Suf, "5"), "FIX gastos"));
+            var gasto = Id(await CrearCuenta(c.Admin, Codigo(c.Suf, "5.1"), "FIX gasto por servicio", gastos));
+            previo = await MapearAsync(c, gasto: gasto);
+            var factura = Guid.NewGuid();
+            // El evento real que publica CxP (86e3vrh7u), serializado como sale al outbox.
+            var evento = new Millet.CuentasPorPagar.Application.Integration.FacturaProveedorRegistradaIntegrationEvent(
+                EmpresaBootstrapId, new DateTimeOffset(Hoy().ToDateTime(new TimeOnly(12, 0)), TimeSpan.FromHours(-6)), factura, Guid.NewGuid(), 1160m,
+                [new(Guid.NewGuid(), Guid.NewGuid(), 1m, 600m), new(Guid.NewGuid(), Guid.NewGuid(), 1m, 400m, EsServicio: true)], [],
+                ProveedorId: c.Proveedor, Uuid: Guid.NewGuid().ToString().ToUpperInvariant(), Subtotal: 1000m, Iva: 160m, RetencionesTotal: 0m,
+                Moneda: "MXN", TipoCambio: 1m, SucursalId: c.Sucursal);
+            var payload = JsonSerializer.SerializeToElement(evento);
+
+            var r = await Ok(await Procesar(c.Admin, Tipo, Guid.NewGuid(), payload));
+            Assert.True(r.GetProperty("generada").GetBoolean(), r.ToString());
+
+            var p = await Json(await c.Admin.GetAsync($"/api/v1/contabilidad/polizas/{PolizaId(r)}"));
+            var partidas = p.GetProperty("partidas").EnumerateArray().ToList();
+            Assert.Equal(600m, Assert.Single(partidas, x => x.GetProperty("cuentaId").GetGuid() == c.Puente).GetProperty("cargo").GetDecimal());
+            Assert.Equal(400m, Assert.Single(partidas, x => x.GetProperty("cuentaId").GetGuid() == gasto).GetProperty("cargo").GetDecimal());
+            Assert.Equal(1160m, Assert.Single(partidas, x => x.GetProperty("cuentaId").GetGuid() == c.Proveedores).GetProperty("abono").GetDecimal());
         }
         finally { await RestaurarAsync(previo, c); }
     }

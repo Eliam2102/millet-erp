@@ -21,6 +21,7 @@ using Millet.SharedKernel.Application;
 
 namespace Millet.Api.IntegrationTests.ComercioExterior;
 /// <summary>EntraId + JWT emitido por IJwtTokenService; PAC aislado, nunca autenticación simulada.</summary>
+[Collection(ApiCompartida.Nombre)]
 public sealed class ContenedoresHttpTests
 {
     private static readonly string[] ClientesDemo = ["DEMO"];
@@ -38,9 +39,37 @@ public sealed class ContenedoresHttpTests
         s.RemoveAll<ICatalogosSatReadPort>(); s.AddSingleton<ICatalogosSatReadPort>(new FakeCatalogosSatReadPort());
     });
     [Fact]
+    public async Task Pedimento_historico_sin_aduana_bloquea_emision_hasta_recapturar()
+    {
+        await using var e = await Escenario(); using var c = await e.ClienteAsync(true, facturacion: true);
+        using (var scope = e.Scope())
+        using (scope.ServiceProvider.GetRequiredService<ICurrentEmpresaContext>().Bypass())
+        {
+            var db = scope.ServiceProvider.GetRequiredService<ComercioExteriorDbContext>();
+            var expediente = await db.Expedientes.SingleAsync(x => x.Id == ExpId);
+            db.Entry(expediente).Property(x => x.AduanaPedimentoExportacion).CurrentValue = null;
+            await db.SaveChangesAsync();
+        }
+        var r = await Detalle(c); var d = await Body(r);
+        var pid = d.GetProperty("pedidos").EnumerateArray().Single(p => p.GetProperty("numeroPedido").GetString() == "DEMO-PED-EXP-P1").GetProperty("id").GetGuid();
+        var bloqueo = await Emitir(e, c, pid);
+        Assert.Equal(HttpStatusCode.UnprocessableEntity, bloqueo.StatusCode);
+        Assert.Equal("CE_PEDIMENTO_SIN_ADUANA", (await Body(bloqueo)).GetProperty("code").GetString());
+        var registro = await Enviar(c, HttpMethod.Put, $"{Base}/{ExpId}/pedimento-exportacion",
+            new { numero = "DEMO-PEDIMENTO-A1", clave = "A1", fecha = "2026-10-12", aduana = "16" }, r.Headers.ETag!.Tag);
+        registro.EnsureSuccessStatusCode();
+        (await Emitir(e, c, pid)).EnsureSuccessStatusCode();
+    }
+
+    [Fact]
     public async Task Parcialidades_tres_clientes_copia_inmutable_reenvio_y_periodo()
     {
         await using var e = await Escenario(); using var c = await e.ClienteAsync(true, facturacion: true);
+        var inicial = await Detalle(c);
+        var registro = await Enviar(c, HttpMethod.Put, $"{Base}/{ExpId}/pedimento-exportacion",
+            new { numero = "DEMO-PEDIMENTO-A1", clave = "A1", fecha = "2026-10-12", aduana = "16" }, inicial.Headers.ETag!.Tag);
+        registro.EnsureSuccessStatusCode();
+        Assert.Equal("16", (await Body(registro)).GetProperty("pedimento").GetProperty("aduana").GetString());
         var d = await Detalle(c); var datos = await Body(d); Assert.Equal(2, datos.GetProperty("contenedores").GetArrayLength());
         var pedidos = datos.GetProperty("pedidos").EnumerateArray().ToArray();
         var p1 = pedidos.Single(p => p.GetProperty("numeroPedido").GetString() == "DEMO-PED-EXP-P1").GetProperty("id").GetGuid();
@@ -53,7 +82,13 @@ public sealed class ContenedoresHttpTests
             var pid = p.GetProperty("id").GetGuid();
             var comando = await Comando(e, pid); var key = Guid.NewGuid().ToString();
             var r = await Enviar(c, HttpMethod.Post, "/api/v1/facturacion/facturas/", comando, key: key); r.EnsureSuccessStatusCode();
-            var f = await Body(r); antes[pid] = f.GetProperty("id").GetGuid().ToString();
+            var f = await Body(r);
+            var detalleFactura = await c.GetAsync($"/api/v1/facturacion/facturas/{f.GetProperty("id").GetGuid()}");
+            detalleFactura.EnsureSuccessStatusCode();
+            var copia = (await Body(detalleFactura)).GetProperty("datosEmbarqueCe");
+            Assert.Equal("16", copia.GetProperty("aduana").GetString());
+            Assert.Equal("Manzanillo", copia.GetProperty("aduanaNombre").GetString());
+            antes[pid] = f.GetProperty("id").GetGuid().ToString();
             var repetida = await Enviar(c, HttpMethod.Post, "/api/v1/facturacion/facturas/", comando, key: key); repetida.EnsureSuccessStatusCode();
             Assert.Equal(f.GetProperty("id").GetGuid(), (await Body(repetida)).GetProperty("id").GetGuid());
         }
@@ -64,17 +99,17 @@ public sealed class ContenedoresHttpTests
             var db = scope.ServiceProvider.GetRequiredService<FacturacionDbContext>();
             var ids = antes.Keys.ToArray(); var fs = await db.FacturasVenta.Include(f => f.ComplementoCce).Where(f => f.PedidoFacturableId != null && ids.Contains(f.PedidoFacturableId.Value)).ToListAsync();
             Assert.Equal(3, fs.Count);
-            Assert.All(fs, f => { Assert.Equal("DEMO-PEDIMENTO-A1", f.DatosEmbarqueCe!.NumeroPedimento); Assert.Equal("DEMO-BL-A1-1", f.DatosEmbarqueCe.Contenedores.Single().BlGuia); Assert.Equal("A1", f.ComplementoCce!.ClaveDePedimento); Assert.Equal("DDP", f.ComplementoCce.Incoterm); });
+            Assert.All(fs, f => { Assert.Equal("16", f.DatosEmbarqueCe!.Aduana); Assert.Equal("Manzanillo", f.DatosEmbarqueCe.AduanaNombre); Assert.Equal("DEMO-PEDIMENTO-A1", f.DatosEmbarqueCe.NumeroPedimento); Assert.Equal("DEMO-BL-A1-1", f.DatosEmbarqueCe.Contenedores.Single().BlGuia); Assert.Equal("A1", f.ComplementoCce!.ClaveDePedimento); Assert.Equal("DDP", f.ComplementoCce.Incoterm); });
         }
         d = await Detalle(c); datos = await Body(d);
         var contenedor = datos.GetProperty("contenedores").EnumerateArray().Single(x => x.GetProperty("numero").GetString() == "DEMO-CONT-A1-1").GetProperty("id").GetGuid();
         var quitar = await Enviar(c, HttpMethod.Post, $"{Base}/{ExpId}/contenedores/{contenedor}/cancelar", new { motivo = "DEMO booking cancelado" }, d.Headers.ETag!.Tag);
         Assert.Equal(HttpStatusCode.Conflict, quitar.StatusCode); Assert.Equal("CE_CONTENEDOR_CON_FACTURA", (await Body(quitar)).GetProperty("code").GetString());
-        var ped = await Enviar(c, HttpMethod.Put, $"{Base}/{ExpId}/pedimento-exportacion", new { numero = "DEMO-RECTIFICADO", clave = "RT", fecha = "2026-10-12" }, d.Headers.ETag!.Tag); ped.EnsureSuccessStatusCode();
+        var ped = await Enviar(c, HttpMethod.Put, $"{Base}/{ExpId}/pedimento-exportacion", new { numero = "DEMO-RECTIFICADO", clave = "RT", fecha = "2026-10-12", aduana = "43" }, d.Headers.ETag!.Tag); ped.EnsureSuccessStatusCode();
         using (var scope = e.Scope())
         using (scope.ServiceProvider.GetRequiredService<ICurrentEmpresaContext>().Bypass())
         {
-            Assert.All(await scope.ServiceProvider.GetRequiredService<FacturacionDbContext>().FacturasVenta.Where(f => f.PedidoFacturableId == p1).ToListAsync(), f => Assert.Equal("DEMO-PEDIMENTO-A1", f.DatosEmbarqueCe!.NumeroPedimento));
+            Assert.All(await scope.ServiceProvider.GetRequiredService<FacturacionDbContext>().FacturasVenta.Where(f => f.PedidoFacturableId == p1).ToListAsync(), f => { Assert.Equal("DEMO-PEDIMENTO-A1", f.DatosEmbarqueCe!.NumeroPedimento); Assert.Equal("16", f.DatosEmbarqueCe.Aduana); });
             Assert.True((await scope.ServiceProvider.GetRequiredService<ComercioExteriorDbContext>().Expedientes.SingleAsync(x => x.Id == ExpId)).RevisionPendiente);
         }
         var relacion = await c.GetAsync($"/api/v1/comercio-exterior/relacion-iva?anio=2026&mes=10&sucursalId={e.SucursalId}"); relacion.EnsureSuccessStatusCode();

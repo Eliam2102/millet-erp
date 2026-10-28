@@ -43,4 +43,6 @@ public sealed record LineaOcDto(
     decimal CantidadRecibida,
     // G1.6 (P3): CeCo de la línea de OC; viaja en factura.registrada.v1.
     Guid? CentroCostoId = null,
-    decimal? BaseNetaUnitaria = null);
+    decimal? BaseNetaUnitaria = null,
+    // 86e3vrh7u: snapshot EsServicio de la línea de OC; viaja en factura.registrada.v1 (K10.5).
+    bool EsServicio = false);

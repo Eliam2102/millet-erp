@@ -39,12 +39,12 @@ public static class ActivosEndpoints
             .RequireAuthorization(Policy(PermisosCanonicos.ActivosFijosActivosVer));
         g.MapPost("/activos", async (CrearActivoCommand datos, IMediator m, HttpResponse response, CancellationToken ct) => Respuesta(await m.Send(datos, ct), response))
             .RequireAuthorization(Policy(PermisosCanonicos.ActivosFijosActivosGestionar)).WithMetadata(new RequireIdempotencyKeyAttribute());
-        foreach (var accion in new[] { "editar", "capitalizar", "mejora", "nota-credito", "trasladar", "aceptar" })
+        foreach (var accion in new[] { "editar", "capitalizar", "mejora", "nota-credito", "trasladar" })
         {
             var permiso = accion is "capitalizar" or "mejora" or "nota-credito" ? PermisosCanonicos.ActivosFijosCapitalizar
-                : accion is "trasladar" or "aceptar" ? PermisosCanonicos.ActivosFijosTrasladosGestionar : PermisosCanonicos.ActivosFijosActivosGestionar;
+                : accion is "trasladar" ? PermisosCanonicos.ActivosFijosTrasladosGestionar : PermisosCanonicos.ActivosFijosActivosGestionar;
             g.MapPost("/activos/{id:guid}/" + accion, async (Guid id, MutacionActivo datos, HttpRequest request, HttpResponse response, IMediator m, CancellationToken ct) =>
-                Version(request) is int v ? Respuesta(await m.Send(new MutarActivoCommand(id, v, accion, datos.Datos, datos.Destino, datos.TrasladoId, datos.Ajuste), ct), response) : FaltaVersion())
+                Version(request) is int v ? Respuesta(await m.Send(new MutarActivoCommand(id, v, accion, datos.Datos, datos.Destino, datos.Ajuste, datos.Motivo, datos.FechaEfectiva), ct), response) : FaltaVersion())
                 .RequireAuthorization(Policy(permiso)).WithMetadata(new RequireIdempotencyKeyAttribute());
         }
         app.MapLibroActivos();
@@ -55,6 +55,6 @@ public static class ActivosEndpoints
     private static int? Version(HttpRequest request) => int.TryParse(request.Headers.IfMatch.ToString().Trim('"'), NumberStyles.None, CultureInfo.InvariantCulture, out var v) && v > 0 ? v : null;
     private static IResult FaltaVersion() => Results.Problem(statusCode: 428, title: "Envíe If-Match con el ETag vigente.");
     private static IResult Respuesta(Activo a, HttpResponse response) { response.Headers.ETag = $"\"{a.Version}\""; return Results.Ok(a); }
-    public sealed record MutacionActivo(DatosActivo? Datos = null, CustodiaActivo? Destino = null, Guid? TrasladoId = null, AjusteActivoDatos? Ajuste = null);
+    public sealed record MutacionActivo(DatosActivo? Datos = null, CustodiaActivo? Destino = null, AjusteActivoDatos? Ajuste = null, string? Motivo = null, DateOnly? FechaEfectiva = null);
     public sealed record FiltroActivos(Guid? ClaseId, Guid? SucursalId, EstadoActivo? Estado, Guid? ResponsableId, Guid? EquipoId, int? Offset, int? Limit);
 }

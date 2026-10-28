@@ -48,7 +48,9 @@ public sealed record LineaFacturada(
     Guid? LineaOcId,
     decimal Cantidad,
     decimal Importe,
-    Guid? CentroCostoId = null, decimal? ValorCapitalizable = null);
+    Guid? CentroCostoId = null, decimal? ValorCapitalizable = null,
+    // 86e3vrh7u: la línea es de servicio (no pasa por Almacén; no va a la cuenta puente). JSON antiguo sin el campo = false.
+    bool EsServicio = false);
 
 public sealed record LineaOcAcumulada(
     Guid LineaOcId,

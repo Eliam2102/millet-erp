@@ -6,6 +6,8 @@ export interface Custodia {
   equipoId: string | null;
 }
 export interface DatosActivo {
+  activoMejoradoId?: string | null;
+  vidaUtilMeses?: number | null;
   descripcion: string;
   claseId: string;
   marca: string | null;
@@ -39,7 +41,6 @@ export interface Activo extends Omit<DatosActivo, 'custodia'>, Custodia {
   valorEnLibros: number;
   depreciacionAcumulada: number;
   enTraslado: boolean;
-  puedeAceptarTraslado?: boolean;
   ordenCompraId: string | null;
   recepcionId: string | null;
   facturaProveedorId: string | null;
@@ -59,6 +60,10 @@ export interface Activo extends Omit<DatosActivo, 'custodia'>, Custodia {
     origen: Custodia;
     destino: Custodia;
     registradoEn: string;
+    registradoPor: string;
+    registradoPorNombre?: string | null;
+    motivo: string;
+    fechaEfectiva: string;
     aceptadoEn: string | null;
   }[];
 }
@@ -68,6 +73,7 @@ export interface Clase {
   clave: string;
   nombre: string;
   tasaFiscalAnual: number | null;
+  tasaContableAnual?: number | null;
   depreciable: boolean;
   tasaConfirmada: boolean;
   requiereRevision: boolean;

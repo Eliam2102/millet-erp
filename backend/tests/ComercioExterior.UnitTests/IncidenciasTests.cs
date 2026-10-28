@@ -25,12 +25,13 @@ public sealed class IncidenciasTests
         var e = Crear(tipo); var a = Guid.NewGuid(); var b = Guid.NewGuid();
         var requisito = new RequisitoDocumento(Guid.NewGuid(), tipo == TipoExpediente.Importacion ? "IMP_PEDIMENTO" : "EXP_PEDIMENTO", "Pedimento", true, false);
         e.RegistrarDocumento(Guid.NewGuid(), requisito, a, null, Actor, "DEMO-ORIGINAL");
-        if (tipo == TipoExpediente.Exportacion) e.RegistrarPedimentoExportacion("DEMO-ORIGINAL", "A1", Hoy, Hoy);
+        if (tipo == TipoExpediente.Exportacion) e.RegistrarPedimentoExportacion("DEMO-ORIGINAL", "A1", Hoy, Hoy, "16");
         var id = Abrir(e, TipoIncidencia.RectificacionPedimento, [b]);
         e.CambiarIncidencia(id, EstadoIncidencia.EnAtencion, null, null, [], null, Actor, Ahora, [a, b]);
         e.CambiarIncidencia(id, EstadoIncidencia.Resuelta, "Se rectificó la clasificación", "IVA corregido", [], null, Actor, Ahora, [a, b], requisito, b, "DEMO-NUEVO");
         e.Documentos.Should().HaveCount(2); e.Documentos.Single(d => d.Estado == EstadoDocumento.Reemplazada).NumeroPedimento.Should().Be("DEMO-ORIGINAL");
         e.Documentos.Single(d => d.Estado == EstadoDocumento.Vigente).NumeroPedimento.Should().Be("DEMO-NUEVO");
+        if (tipo == TipoExpediente.Exportacion) Assert.Equal("16", e.AduanaPedimentoExportacion);
         e.PedimentoVigente("DEMO-ORIGINAL").Should().Be("DEMO-NUEVO");
         e.Incidencias.Single().PedimentoAnterior.Should().Be("DEMO-ORIGINAL");
         e.Incidencias.Single().Historial.Select(h => h.Estado).Should().Equal(EstadoIncidencia.Abierta, EstadoIncidencia.EnAtencion, EstadoIncidencia.Resuelta);

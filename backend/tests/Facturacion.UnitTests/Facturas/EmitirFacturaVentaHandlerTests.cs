@@ -368,7 +368,7 @@ public sealed class EmitirFacturaVentaHandlerTests
         Assert.Equal(EstadoPedidoFacturable.Facturado, p.Estado);
     }
     [Theory]
-    [InlineData("FAC_PEDIDO_NO_EMBARCADO")][InlineData("CE_PARTIDA_REQUIERE_REVISION")]
+    [InlineData("FAC_PEDIDO_NO_EMBARCADO")][InlineData("CE_PARTIDA_REQUIERE_REVISION")][InlineData("CE_PEDIMENTO_SIN_ADUANA")]
     public async Task Pedido_ligado_incompleto_rechaza_antes_de_folio_y_pac(string codigo)
     {
         var empresa = Guid.NewGuid(); using var db = NewDb(empresa);
@@ -391,11 +391,12 @@ public sealed class EmitirFacturaVentaHandlerTests
     {
         var empresa = Guid.NewGuid(); using var db = NewDb(empresa); var command = Command(); var p = CrearPedido(db, empresa, command.SucursalId, command.ComportamientoFiscal);
         var lectura = new EmbarqueExportacionLectura(true, Guid.NewGuid(), command.SucursalId, true, FolioExpediente: "CE-EXP-DEMO",
-            NumeroPedimento: "DEMO-RT", ClavePedimento: "RT", FechaPedimento: new(2026, 5, 29), Incoterm: "DDP", Contenedores: [new(Guid.NewGuid(), "DEMO-C", "DEMO-BL", new(2026, 5, 30))]);
+            NumeroPedimento: "DEMO-RT", ClavePedimento: "RT", FechaPedimento: new(2026, 5, 29), Incoterm: "DDP", Contenedores: [new(Guid.NewGuid(), "DEMO-C", "DEMO-BL", new(2026, 5, 30))], Aduana: "16", AduanaNombre: "Manzanillo");
         var cce = new EmitirFacturaVentaCce("2", "FOB", 20, "DEMO-TAX", "USA", [], "A1");
         await Handler(db, empresa, embarques: new Embarques(lectura)).Handle(command with { PedidoFacturableId = p.Id, Cce = cce }, CancellationToken.None);
         var f = await db.FacturasVenta.Include(f => f.Lineas).SingleAsync();
-        Assert.Equal("RT", f.DatosEmbarqueCe!.ClavePedimento); Assert.Equal("DEMO-BL", f.DatosEmbarqueCe.Contenedores.Single().BlGuia);
+        Assert.Equal("16", f.DatosEmbarqueCe!.Aduana); Assert.Equal("Manzanillo", f.DatosEmbarqueCe.AduanaNombre);
+        Assert.Equal("RT", f.DatosEmbarqueCe.ClavePedimento); Assert.Equal("DEMO-BL", f.DatosEmbarqueCe.Contenedores.Single().BlGuia);
         Assert.Equal(command.ComportamientoFiscal, f.ComportamientoFiscal);
         Assert.Null(f.ComplementoCce); Assert.All(f.Lineas, l => Assert.Null(l.Pedimento));
         Assert.Equal("FAC_EMBARQUE_INMUTABLE", Assert.Throws<BusinessRuleException>(() => f.TomarEmbarqueCe(f.DatosEmbarqueCe)).Code);
@@ -406,7 +407,7 @@ public sealed class EmitirFacturaVentaHandlerTests
     {
         var empresa = Guid.NewGuid(); using var db = NewDb(empresa); var command = Command(); var p = CrearPedido(db, empresa, command.SucursalId, command.ComportamientoFiscal);
         var lectura = new EmbarqueExportacionLectura(true, Guid.NewGuid(), command.SucursalId, true, FolioExpediente: "CE-EXP-DEMO",
-            NumeroPedimento: "DEMO-RT", ClavePedimento: "RT", FechaPedimento: new(2026, 5, 29), Incoterm: "DDP", Contenedores: [new(Guid.NewGuid(), "DEMO-C", "DEMO-BL", new(2026, 5, 30))]);
+            NumeroPedimento: "DEMO-RT", ClavePedimento: "RT", FechaPedimento: new(2026, 5, 29), Incoterm: "DDP", Contenedores: [new(Guid.NewGuid(), "DEMO-C", "DEMO-BL", new(2026, 5, 30))], Aduana: "16", AduanaNombre: "Manzanillo");
         command = command with { PedidoFacturableId = p.Id };
         var handler = Handler(db, empresa, embarques: new Embarques(lectura));
         await handler.Handle(command, CancellationToken.None);
@@ -422,7 +423,7 @@ public sealed class EmitirFacturaVentaHandlerTests
     {
         var empresa = Guid.NewGuid(); using var db = NewDb(empresa); var command = Command(); var p = CrearPedido(db, empresa, command.SucursalId);
         var lectura = new EmbarqueExportacionLectura(true, Guid.NewGuid(), command.SucursalId, true, FolioExpediente: "CE-EXP-DEMO",
-            NumeroPedimento: "DEMO-A1", ClavePedimento: "A1", FechaPedimento: new(2026, 5, 29), Incoterm: "DDP", Contenedores: [new(Guid.NewGuid(), "DEMO-C", "DEMO-BL", new(2026, 5, 30))]);
+            NumeroPedimento: "DEMO-A1", ClavePedimento: "A1", FechaPedimento: new(2026, 5, 29), Incoterm: "DDP", Contenedores: [new(Guid.NewGuid(), "DEMO-C", "DEMO-BL", new(2026, 5, 30))], Aduana: "16", AduanaNombre: "Manzanillo");
         var cce = new EmitirFacturaVentaCce("2", "FOB", 20, "DEMO-TAX", "USA", [new("70071999", "06", 2, 100, 200, true)], "RT", ReceptorDomicilioEstado: "DEMO", ReceptorDomicilioCodigoPostal: "00000");
         await Handler(db, empresa, embarques: new Embarques(lectura), receptorRfc: "XEXX010101000").Handle(command with {
             PedidoFacturableId = p.Id, Cce = cce, ReceptorRfc = "XEXX010101000", ReceptorPais = "USA" }, CancellationToken.None);

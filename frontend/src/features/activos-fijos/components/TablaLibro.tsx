@@ -4,6 +4,7 @@ import { Button } from '@/components/ui/button';
 export type ColumnaLibro = {
   clave: string;
   etiqueta: string;
+  decimales?: number;
   tipo: 'texto' | 'numero' | 'moneda' | 'fecha';
 };
 export function TablaLibro<T>({
