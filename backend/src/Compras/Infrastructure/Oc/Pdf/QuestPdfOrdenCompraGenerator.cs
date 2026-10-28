@@ -1,6 +1,8 @@
+using System.Globalization;
 using Microsoft.Extensions.Logging;
-using Millet.Compras.Domain.Oc;
 using Millet.Compras.Domain.Ports.Pdf;
+using Millet.Documentos;
+using Millet.Documentos.Componentes;
 using QuestPDF.Fluent;
 using QuestPDF.Helpers;
 using QuestPDF.Infrastructure;
@@ -8,36 +10,20 @@ using QuestPDF.Infrastructure;
 namespace Millet.Compras.Infrastructure.Oc.Pdf;
 
 /// <summary>
-/// Implementación real (F6-PR3) de <see cref="IGenerarPdfOrdenCompraPort"/>
-/// usando QuestPDF. Produce un PDF institucional con:
-/// <list type="bullet">
-///   <item>Cabecera con folio, fecha, moneda y placeholders de datos
-///         fiscales Millet (PLATFORM-TODO razón social/RFC reales).</item>
-///   <item>Bloque proveedor (placeholder; F7+ lo enriquecerá con datos de
-///         catálogo).</item>
-///   <item>Tabla de líneas agrupadas por artículo (§3.bis.4 cosmético —
-///         oculta departamento solicitante / requisición al proveedor).</item>
-///   <item>Bloque de totales con subtotal, descuento, gastos, IVA y total
-///         a pagar.</item>
-/// </list>
-///
-/// <para>
-/// Reemplaza <see cref="LocalPdfOrdenCompraStub"/>. La selección entre
-/// real y stub vive en <c>Program.cs</c> (DI).
-/// </para>
+/// Implementación de <see cref="IGenerarPdfOrdenCompraPort"/> con QuestPDF en el formato de
+/// orden de compra de Millet (FMT-2): encabezado con la empresa a la izquierda y la caja del
+/// documento a la derecha, bloques proveedor/contacto/entrega/factura, tabla de renglones,
+/// totales, motivo, firmas y la nota fija. Solo dibuja: el modelo ya viene resuelto.
+/// Reutiliza el kit de <c>Millet.Documentos</c>; la licencia la fija el host (<c>PdfLicencia</c>).
 /// </summary>
 public sealed class QuestPdfOrdenCompraGenerator : IGenerarPdfOrdenCompraPort
 {
     public const string GeneradorId = "QuestPdfOrdenCompraGenerator";
+    public const string NotaFija = "Nota: \"Las facturas deberán indicar el número de orden de compra\"";
+
+    private static readonly CultureInfo Mx = CultureInfo.GetCultureInfo("es-MX");
 
     private readonly ILogger<QuestPdfOrdenCompraGenerator> _logger;
-
-    static QuestPdfOrdenCompraGenerator()
-    {
-        // QuestPDF Community license: válido para uso comercial bajo $1M USD
-        // anuales. Tiglass/Millet cumple esta condición para MVP.
-        QuestPDF.Settings.License = LicenseType.Community;
-    }
 
     public QuestPdfOrdenCompraGenerator(ILogger<QuestPdfOrdenCompraGenerator> logger)
     {
@@ -45,156 +31,188 @@ public sealed class QuestPdfOrdenCompraGenerator : IGenerarPdfOrdenCompraPort
     }
 
     public Task<PdfOrdenCompraGenerado> GenerarAsync(
-        Millet.Compras.Domain.Oc.OrdenCompra oc, CancellationToken cancellationToken)
+        OrdenCompraImpresion modelo, string? marca, CancellationToken cancellationToken)
     {
-        var totales = oc.CalcularTotales();
-        var lineasAgrupadas = oc.Lineas
-            .GroupBy(l => (l.ArticuloId, l.ProductoAwVarianteId)) // F1-MP-01: cada medida de hoja es su propio renglón
-            .Select(g => new LineaPdf(
-                ArticuloId: g.Key.ArticuloId,
-                Medida: g.First().AnchoMm is { } a && g.First().AltoMm is { } h ? $" {a:0.##} × {h:0.##} mm" : "",
-                Cantidad: g.Sum(l => l.Cantidad),
-                UnidadMedida: g.First().UnidadMedida,
-                PrecioUnitario: g.First().PrecioUnitario,
-                Subtotal: g.Sum(l => l.SubtotalLinea)))
-            .ToList();
-
+        var oc = modelo;
         var bytes = Document.Create(container =>
         {
             container.Page(page =>
             {
-                page.Size(PageSizes.Letter);
-                page.Margin(40);
-                page.DefaultTextStyle(x => x.FontSize(10).FontFamily(Fonts.Calibri));
-
-                page.Header().Column(col =>
+                PdfEstilos.ConfigurarPagina(page);
+                // Carlito liga "ti"/"tt": sin esto el texto del PDF no se puede buscar ni copiar ("Can dad").
+                page.Header().DefaultTextStyle(SinLigaduras).Element(c => Encabezado(c, oc, marca));
+                page.Content().DefaultTextStyle(SinLigaduras).PaddingVertical(8).Column(col =>
                 {
-                    col.Item().Text("MILLET — ORDEN DE COMPRA")
-                        .FontSize(16).Bold();
-                    col.Item().PaddingTop(2).Text("Vidrio de valor agregado — México")
-                        .FontSize(9).FontColor(Colors.Grey.Darken1);
-                    col.Item().PaddingTop(8).LineHorizontal(1).LineColor(Colors.Grey.Lighten1);
-                });
-
-                page.Content().PaddingVertical(10).Column(col =>
-                {
-                    col.Spacing(12);
-
-                    col.Item().Row(row =>
+                    col.Spacing(8);
+                    col.Item().Element(c => Bloques(c, oc));
+                    col.Item().Element(c => Renglones(c, oc));
+                    col.Item().ShowEntire().Element(c => Totales(c, oc));
+                    if (!string.IsNullOrWhiteSpace(oc.Motivo))
+                        col.Item().Text(oc.Motivo);
+                    col.Item().ShowEntire().PaddingTop(20).Row(fila =>
                     {
-                        row.RelativeItem().Column(c =>
-                        {
-                            c.Item().Text("Folio").Bold();
-                            c.Item().Text(oc.Folio.Valor);
-                            c.Item().Text($"Año: {oc.FolioAnio}").FontSize(9);
-                        });
-                        row.RelativeItem().Column(c =>
-                        {
-                            c.Item().Text("Fecha documento").Bold();
-                            c.Item().Text(oc.FechaDocumento.ToString("yyyy-MM-dd"));
-                        });
-                        row.RelativeItem().Column(c =>
-                        {
-                            c.Item().Text("Moneda").Bold();
-                            c.Item().Text(oc.Moneda);
-                            if (oc.TipoCambio is decimal tc)
-                            {
-                                c.Item().Text($"Tipo cambio: {tc:F4}").FontSize(9);
-                            }
-                        });
+                        fila.Spacing(12);
+                        Firma(fila.RelativeItem(), "Elaboró:", oc.Elaboro);
+                        Firma(fila.RelativeItem(), "Revisó:", oc.Reviso);
+                        Firma(fila.RelativeItem(), "Autorizó:", oc.Autorizo);
                     });
-
-                    col.Item().PaddingTop(4).Text("Proveedor").Bold();
-                    col.Item().Text($"ID: {oc.ProveedorId}").FontSize(9);
-                    // PLATFORM-TODO(<CatalogoProveedoresLookup>): cuando el
-                    // PDF impl tenga acceso al catálogo, renderizar razón
-                    // social / RFC / dirección reales.
-
-                    col.Item().PaddingTop(8).Text("Detalle").Bold();
-                    col.Item().Table(table =>
-                    {
-                        table.ColumnsDefinition(columns =>
-                        {
-                            columns.RelativeColumn(4);
-                            columns.RelativeColumn(2);
-                            columns.RelativeColumn(2);
-                            columns.RelativeColumn(2);
-                        });
-
-                        table.Header(header =>
-                        {
-                            header.Cell().Background(Colors.Grey.Lighten3).Padding(4).Text("Artículo").Bold();
-                            header.Cell().Background(Colors.Grey.Lighten3).Padding(4).Text("Cant.").Bold();
-                            header.Cell().Background(Colors.Grey.Lighten3).Padding(4).Text("P.U.").Bold();
-                            header.Cell().Background(Colors.Grey.Lighten3).Padding(4).Text("Subtotal").Bold();
-                        });
-
-                        foreach (var l in lineasAgrupadas)
-                        {
-                            table.Cell().Padding(4).Text(l.ArticuloId + l.Medida);
-                            table.Cell().Padding(4).Text($"{l.Cantidad} {l.UnidadMedida}");
-                            table.Cell().Padding(4).Text($"{l.PrecioUnitario:F2}");
-                            table.Cell().Padding(4).Text($"{l.Subtotal:F2}");
-                        }
-                    });
-
-                    col.Item().PaddingTop(8).AlignRight().Column(c =>
-                    {
-                        c.Spacing(2);
-                        c.Item().Text($"Subtotal: {totales.SubtotalAntesDescuento:F2} {oc.Moneda}");
-                        if (totales.DescuentoGlobalAplicado > 0m)
-                        {
-                            c.Item().Text($"Descuento global: -{totales.DescuentoGlobalAplicado:F2}");
-                        }
-                        if (totales.GastosAdicionales > 0m)
-                        {
-                            c.Item().Text($"Gastos adicionales: {totales.GastosAdicionales:F2}");
-                        }
-                        c.Item().Text($"IVA: {totales.IvaTotal:F2}");
-                        if (totales.RetencionIsrTotal > 0m)
-                        {
-                            c.Item().Text($"Retención ISR: -{totales.RetencionIsrTotal:F2}");
-                        }
-                        if (totales.Redondeo != 0m)
-                        {
-                            c.Item().Text($"Redondeo: {totales.Redondeo:F2}");
-                        }
-                        c.Item().PaddingTop(4).Text($"TOTAL: {totales.TotalAPagar:F2} {oc.Moneda}")
-                            .FontSize(12).Bold();
-                    });
-
-                    if (!string.IsNullOrWhiteSpace(oc.Observaciones))
-                    {
-                        col.Item().PaddingTop(12).Text("Observaciones").Bold();
-                        col.Item().Text(oc.Observaciones);
-                    }
-                });
-
-                page.Footer().AlignCenter().Text(text =>
-                {
-                    text.Span("Página ").FontSize(9);
-                    text.CurrentPageNumber().FontSize(9);
-                    text.Span(" de ").FontSize(9);
-                    text.TotalPages().FontSize(9);
+                    col.Item().PaddingTop(10).Text(NotaFija);
                 });
             });
         }).GeneratePdf();
 
         _logger.LogInformation(
-            "PDF generado (QuestPDF). OcId={OcId} Folio={Folio} Tamaño={Bytes}",
-            oc.Id, oc.Folio.Valor, bytes.Length);
+            "PDF generado (QuestPDF). Folio={Folio} Tamaño={Bytes}", oc.Folio, bytes.Length);
 
         return Task.FromResult(new PdfOrdenCompraGenerado(
             Contenido: bytes,
             ContentType: "application/pdf",
-            NombreSugerido: $"{oc.Folio.Valor}.pdf"));
+            NombreSugerido: $"{oc.Folio}.pdf"));
     }
 
-    private sealed record LineaPdf(
-        Guid ArticuloId,
-        string Medida,
-        decimal Cantidad,
-        string UnidadMedida,
-        decimal PrecioUnitario,
-        decimal Subtotal);
+    private static TextStyle SinLigaduras(TextStyle estilo) => estilo.DisableFontFeature(FontFeatures.StandardLigatures);
+
+    private static void Encabezado(IContainer container, OrdenCompraImpresion oc, string? marca)
+    {
+        container.Row(fila =>
+        {
+            fila.Spacing(12);
+            // Empresa a la izquierda (el EncabezadoEmpresa del kit la pone a la derecha).
+            fila.RelativeItem().Column(izq =>
+            {
+                var logo = oc.Empresa.Logo;
+                if (logo is { Length: > 0 })
+                    izq.Item().MaxHeight(PdfEstilos.LogoAnchoCm, Unit.Centimetre)
+                        .MaxWidth(PdfEstilos.LogoAnchoCm, Unit.Centimetre).Image(logo).FitArea();
+                else
+                    izq.Item().Text(string.IsNullOrWhiteSpace(oc.Empresa.NombreComercial)
+                        ? oc.Empresa.RazonSocial : oc.Empresa.NombreComercial).FontSize(PdfEstilos.Titulo).Bold();
+                izq.Item().Text(oc.Empresa.RazonSocial).Bold();
+                foreach (var linea in oc.Empresa.DomicilioLineas.Where(x => !string.IsNullOrWhiteSpace(x)))
+                    izq.Item().Text(linea);
+            });
+            fila.ConstantItem(11, Unit.Centimetre).Column(der =>
+            {
+                if (!string.IsNullOrWhiteSpace(marca))
+                    der.Item().AlignRight().Border(1).BorderColor(PdfEstilos.RojoMillet)
+                        .Padding(4).Text(marca).Bold().FontColor(PdfEstilos.RojoMillet);
+                der.Item().Background(PdfEstilos.GrisBarra).Padding(4).AlignRight()
+                    .Text("ORDEN DE COMPRA").FontSize(PdfEstilos.Titulo).Bold().FontColor(PdfEstilos.Blanco);
+                der.Item().Border(0.5f).BorderColor(PdfEstilos.GrisBarra).Padding(4).Table(t =>
+                {
+                    t.ColumnsDefinition(c => { c.RelativeColumn(); c.RelativeColumn(); c.RelativeColumn(); });
+                    Dato(t, "Su referencia", oc.Referencia);
+                    Dato(t, "Fecha de documento", Fecha(oc.FechaDocumento));
+                    Dato(t, "Fecha de entrega", oc.FechaEntrega is { } e ? Fecha(e) : null);
+                    Dato(t, "Número de documento", oc.Folio);
+                    t.Cell().Column(c =>
+                    {
+                        c.Item().Text("Página").Bold().FontSize(PdfEstilos.Detalle);
+                        c.Item().Text(x => { x.CurrentPageNumber(); x.Span("/"); x.TotalPages(); });
+                    });
+                });
+            });
+        });
+    }
+
+    private static void Dato(TableDescriptor tabla, string etiqueta, string? valor) =>
+        tabla.Cell().PaddingBottom(3).Column(c =>
+        {
+            c.Item().Text(etiqueta).Bold().FontSize(PdfEstilos.Detalle);
+            c.Item().Text(valor ?? "");
+        });
+
+    private static void Bloques(IContainer container, OrdenCompraImpresion oc)
+    {
+        container.Row(fila =>
+        {
+            fila.Spacing(12);
+            fila.RelativeItem().Column(izq =>
+            {
+                izq.Spacing(6);
+                izq.Item().Column(prov =>
+                {
+                    prov.Item().Text(oc.Proveedor.RazonSocial).Bold();
+                    foreach (var linea in oc.Proveedor.DomicilioLineas.Where(x => !string.IsNullOrWhiteSpace(x)))
+                        prov.Item().Text(linea);
+                    if (!string.IsNullOrWhiteSpace(oc.Proveedor.TaxId))
+                        prov.Item().Text($"Tax ID: {oc.Proveedor.TaxId}");
+                    if (!string.IsNullOrWhiteSpace(oc.Incoterm))
+                        prov.Item().Text($"INCOTERM: {oc.Incoterm}");
+                });
+                izq.Item().Component(new BloqueEtiquetado("Características de factura",
+                [
+                    new("Uso de CFDI:", oc.UsoCfdi),
+                    new("Método de pago:", oc.MetodoPago),
+                    new("Forma de pago:", oc.FormaPago),
+                ]));
+            });
+            fila.RelativeItem().Column(der =>
+            {
+                der.Spacing(6);
+                der.Item().Component(new BloqueEtiquetado("Proveedor",
+                [
+                    new("Número de proveedor", oc.Proveedor.Clave),
+                    new("RFC", oc.Proveedor.Rfc),
+                ]));
+                der.Item().Component(new BloqueEtiquetado("Su contacto",
+                [
+                    new("", oc.Contacto?.Nombre),
+                    new("Teléfono:", oc.Contacto?.Telefono),
+                    new("Email:", oc.Contacto?.Email),
+                ]));
+                der.Item().Component(new BloqueEtiquetado("Dirección de entrega",
+                    new CampoEtiquetado[] { new("", oc.EntregaNombre) }
+                        .Concat(oc.EntregaLineas.Select(l => new CampoEtiquetado("", l)))));
+            });
+        });
+    }
+
+    private static void Renglones(IContainer container, OrdenCompraImpresion oc) =>
+        container.Component(new TablaRenglones<RenglonImpresion>(oc.Renglones,
+        [
+            new("Clave", r => r.Clave, 1.3f),
+            new("Descripción", r => r.Descripcion, 3f),
+            new("Comentario", r => r.Comentario, 2.6f),
+            new("Cantidad", r => r.Cantidad.ToString("0.####", Mx), 1f, AlineacionColumna.Derecha),
+            new("U. medida", r => r.UnidadMedida, 1f, AlineacionColumna.Centro),
+            new("Precio", r => r.PrecioUnitario.ToString("N4", Mx), 1.3f, AlineacionColumna.Derecha),
+            new("Impuesto %", r => r.ImpuestoPorcentaje.ToString("0.00##", Mx), 1.2f, AlineacionColumna.Derecha),
+            new("Total", r => r.Total.ToString("N2", Mx), 1.4f, AlineacionColumna.Derecha),
+        ]));
+
+    private static void Totales(IContainer container, OrdenCompraImpresion oc)
+    {
+        var renglones = new List<RenglonTotal> { new("Subtotal del pedido", oc.Subtotal, oc.Moneda) };
+        if (oc.Descuento > 0m)
+            renglones.Add(new("Descuento", -oc.Descuento, oc.Moneda));
+        renglones.Add(new("Total antes del impuesto", oc.BaseGravable, oc.Moneda));
+        renglones.Add(new("Importe total del impuesto", oc.Impuesto, oc.Moneda));
+        if (oc.Retenciones > 0m)
+            renglones.Add(new("Retenciones", -oc.Retenciones, oc.Moneda));
+        renglones.Add(new("Importe total", oc.Total, oc.Moneda, Resaltado: true));
+
+        container.Row(fila =>
+        {
+            fila.Spacing(12);
+            fila.RelativeItem().Text(t =>
+            {
+                if (string.IsNullOrWhiteSpace(oc.CondicionPago)) return;
+                t.Span("Condición de pago: ").Bold();
+                t.Span(oc.CondicionPago);
+            });
+            fila.RelativeItem().Component(new BloqueTotales(new Millet.Documentos.Totales(renglones)));
+        });
+    }
+
+    private static void Firma(IContainer container, string etiqueta, FirmaImpresion firma) =>
+        container.Column(c =>
+        {
+            c.Item().Text(etiqueta).Bold();
+            c.Item().PaddingTop(18).BorderTop(0.5f).BorderColor(PdfEstilos.GrisBarra).PaddingTop(2)
+                .Text(firma.Nombre ?? "");
+            c.Item().Text(firma.Fecha is { } f ? Fecha(f) : "").FontSize(PdfEstilos.Detalle);
+        });
+
+    private static string Fecha(DateOnly fecha) => fecha.ToString("dd-MM-yyyy", CultureInfo.InvariantCulture);
 }
