@@ -187,6 +187,37 @@ public class PtEntradaDemoTests(WebApplicationFactory<Program> factory, ITestOut
     // ---------- casos ----------
 
     [Fact]
+    public async Task M25_Con_el_candado_de_la_empresa_tomado_por_otra_sesion_el_ciclo_sale_sin_leer_y_al_liberarlo_procesa()
+    {
+        await using var ctx = await PrepararAsync();
+        var n = Numero();
+        await _d.FacturacionAsync(n, ctx.A, 5);
+        await Escaneo(n, Etq(n, 1), 1, Ahora());
+        await using var f = Host();
+
+        await using (var otra = new NpgsqlConnection(CadenaErp()))
+        {
+            await otra.OpenAsync();
+            await using (var toma = new NpgsqlCommand("SELECT pg_try_advisory_lock(hashtextextended(@k, 0))", otra))
+            {
+                toma.Parameters.AddWithValue("k", $"millet:pt:piezas:worker:{PtDatos.Empresa}");
+                Assert.True((bool)(await toma.ExecuteScalarAsync())!);
+            }
+            Assert.Equal(0, await Ciclo(f));
+            Assert.Equal(0, await Escaneos(n));
+            Assert.Equal(0, await Piezas(n));
+            // La conexión vuelve al pool con la sesión viva: se libera el candado de forma explícita.
+            await using var libera = new NpgsqlCommand("SELECT pg_advisory_unlock(hashtextextended(@k, 0))", otra);
+            libera.Parameters.AddWithValue("k", $"millet:pt:piezas:worker:{PtDatos.Empresa}");
+            Assert.True((bool)(await libera.ExecuteScalarAsync())!);
+        }
+
+        Assert.Equal(1, await Ciclo(f));
+        Assert.Equal(1, await Piezas(n));
+        Assert.Equal(1, await Escaneos(n));
+    }
+
+    [Fact]
     public async Task M01_CA5_9_Mismo_escaneo_leido_dos_veces_da_una_pieza_un_movimiento_y_un_evento()
     {
         await using var ctx = await PrepararAsync();

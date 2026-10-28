@@ -99,6 +99,30 @@ public class PtHttpTests
     }
 
     [Fact]
+    public async Task M35_Dos_reintentos_concurrentes_con_la_misma_llave_crean_una_sola_pieza()
+    {
+        var (a, _) = await _d.SucursalesAsync();
+        using var corp = await _d.ClienteAsync(Corporativo);
+        var esc = await _d.EscaneoAsync("Excepcion", a);
+        await _d.FacturacionAsync(esc.Pedido, a, 3);
+        var key = Guid.NewGuid().ToString();
+
+        var respuestas = await Task.WhenAll(Post(corp, esc.Id, "reintentar", esc.Version, key: key), Post(corp, esc.Id, "reintentar", esc.Version, key: key));
+
+        // Middleware (ADR-0020): la segunda llamada es el replay (200 + Idempotent-Replayed) o, si la primera sigue en curso, 409 con Retry-After.
+        Assert.All(respuestas, r => Assert.True(r.StatusCode is HttpStatusCode.OK or HttpStatusCode.Conflict, $"Estado inesperado {r.StatusCode}"));
+        var ok = respuestas.Where(r => r.StatusCode == HttpStatusCode.OK).ToArray();
+        Assert.NotEmpty(ok);
+        Assert.Equal("Alta", (await Json(ok[0])).GetProperty("resultado").GetString());
+        if (ok.Length == 2) Assert.Equal((await Json(ok[0])).ToString(), (await Json(ok[1])).ToString());
+        foreach (var r in respuestas.Where(r => r.StatusCode == HttpStatusCode.Conflict))
+            Assert.True(r.Headers.Contains("Retry-After"), "El 409 por llave en curso debe llevar Retry-After.");
+
+        var etiqueta = (await _d.LeerEscaneoAsync(esc.Id)).Etiqueta;
+        Assert.Equal(1, await _d.PiezasPorEtiquetaAsync(etiqueta));
+    }
+
+    [Fact]
     public async Task M30_Reintento_sin_corregir_la_causa_conserva_resultado_y_suma_intento()
     {
         var (a, _) = await _d.SucursalesAsync();
