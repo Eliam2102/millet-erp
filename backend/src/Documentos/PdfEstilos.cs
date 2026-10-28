@@ -21,9 +21,10 @@ public static class PdfEstilos
 
     public static void ConfigurarPagina(PageDescriptor pagina)
     {
+        PdfFuentes.Registrar();
         pagina.Size(PageSizes.Letter);
         pagina.Margin(MargenCm, Unit.Centimetre);
-        pagina.DefaultTextStyle(x => x.FontFamily("Calibri", "Arial").FontSize(Texto));
+        pagina.DefaultTextStyle(x => x.FontFamily(PdfFuentes.Familia).FontSize(Texto));
     }
 
     internal static IContainer Barra(IContainer container) => container
