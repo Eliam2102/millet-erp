@@ -450,6 +450,8 @@ export function useRegistrarMovimientoIngreso() {
         conceptoId?: string;
         beneficiarioTipo?: BeneficiarioTipo;
         beneficiarioRef?: string;
+        /** 86e3tfdve: CtaOrdenante del REP; solo patrón general del SAT. */
+        cuentaOrdenante?: string;
       };
       idempotencyKey: string;
     }) => {

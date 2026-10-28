@@ -166,6 +166,7 @@ export function PendientesRepp() {
                 {r.emitido
                   ? 'REP emitido'
                   : (r.mensaje ?? 'No se pudo emitir. Consulta el pago antes de reintentar.')}
+                {r.aviso && <span className="block text-xs text-warning-fg">{r.aviso}</span>}
               </li>
             ))}
           </ul>
@@ -368,10 +369,12 @@ function RevisionPago({
   const ocupado =
     acciones.revisar.isPending || acciones.emitirUno.isPending || acciones.descartar.isPending;
   const editable = puedeEscribir && pago.estado === 'Pendiente' && !pago.intentoReciboPagoId;
-  // 86e3tfdve: cuentas del pago. No se guardan en el pendiente: la ordenante
-  // viaja al emitir este pago; la beneficiaria se prellena con la cuenta de
-  // Millet del depósito salvo que se capture otra.
+  // 86e3tfdve: cuentas del pago. La ordenante (opción A) viene del ingreso de
+  // Tesorería; la capturada aquí la reemplaza al guardar y se puede quitar. La
+  // beneficiaria se prellena con la cuenta de Millet del depósito salvo que se
+  // capture otra.
   const [ordenante, setOrdenante] = useState('');
+  const [quitarOrdenante, setQuitarOrdenante] = useState(false);
   const [beneficiaria, setBeneficiaria] = useState('');
   const conOrdenante = admiteOrdenante(formaPago);
   const conBeneficiaria = admiteBeneficiaria(formaPago);
@@ -380,14 +383,17 @@ function RevisionPago({
     ? errorCuentaPago(formaPago, 'beneficiaria', beneficiaria)
     : null;
   const cuentas = {
-    cuentaOrdenante: conOrdenante ? normalizarCuenta(ordenante) : null,
+    cuentaOrdenante: conOrdenante && !quitarOrdenante ? normalizarCuenta(ordenante) : null,
     cuentaBeneficiaria: conBeneficiaria ? normalizarCuenta(beneficiaria) : null,
+    limpiarCuentaOrdenante: quitarOrdenante,
   };
   const bloqueoCuentas = errorOrdenante ?? errorBeneficiaria;
   const bloqueo = bloqueoRelacion(pago.monto, formaPago, facturas) ?? bloqueoCuentas;
   const bloqueoEmision =
     bloqueo ??
-    (form.formState.isDirty ? 'Guarda la revisión antes de emitir.' : pago.bloqueos[0]) ??
+    (form.formState.isDirty || quitarOrdenante
+      ? 'Guarda la revisión antes de emitir.'
+      : pago.bloqueos[0]) ??
     null;
   function cambiar(filas: RelacionRepp[]) {
     form.setValue('facturas', filas, { shouldDirty: true });
@@ -396,6 +402,8 @@ function RevisionPago({
     if (bloqueo) return;
     try {
       await acciones.revisar.mutateAsync({ id: pago.id, formaPago, facturas, cuentas });
+      setOrdenante('');
+      setQuitarOrdenante(false);
       toast.success('Revisión guardada.');
     } catch {
       toast.error('No se pudo guardar. Verifica cliente, facturas PPD, saldo y monto confirmado.');
@@ -406,7 +414,11 @@ function RevisionPago({
       const resultado = await acciones.emitirUno.mutateAsync({
         id: pago.id,
         idempotencyKey: crypto.randomUUID(),
-        cuentas,
+        // Quitar la ordenante se resuelve al guardar la revisión, no al emitir.
+        cuentas: {
+          cuentaOrdenante: cuentas.cuentaOrdenante,
+          cuentaBeneficiaria: cuentas.cuentaBeneficiaria,
+        },
       });
       const mensaje = mensajeFalloEmision([resultado]);
       if (mensaje) {
@@ -547,6 +559,16 @@ function RevisionPago({
               </dd>
             </div>
             <div>
+              <dt className="text-xs text-ink-muted">Cuenta ordenante del cliente</dt>
+              <dd className="font-mono text-xs">
+                {quitarOrdenante ? (
+                  <span className="text-ink-muted">Se quitará al guardar</span>
+                ) : (
+                  (pago.cuentaOrdenante ?? <span className="text-ink-muted">Sin cuenta</span>)
+                )}
+              </dd>
+            </div>
+            <div>
               <dt className="text-xs text-ink-muted">Cuenta beneficiaria al emitir</dt>
               <dd className="font-mono text-xs">
                 {!conBeneficiaria ? (
@@ -565,23 +587,39 @@ function RevisionPago({
             <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
               <div className="space-y-1">
                 <Label htmlFor="pendiente-cuenta-ordenante">
-                  Cuenta ordenante
+                  {pago.cuentaOrdenante ? 'Corregir cuenta ordenante' : 'Cuenta ordenante'}
                 </Label>
                 <Input
                   id="pendiente-cuenta-ordenante"
                   placeholder="Opcional"
                   value={ordenante}
                   maxLength={50}
-                  disabled={!conOrdenante || ocupado}
+                  disabled={!conOrdenante || quitarOrdenante || ocupado}
                   aria-invalid={!!errorOrdenante}
                   onChange={(e) => setOrdenante(e.target.value)}
                 />
                 <p className="text-xs text-ink-muted">
-                  {conOrdenante
-                    ? 'Cuenta del cliente desde la que pagó. Se envía al emitir este pago.'
-                    : motivoSinCuenta(formaPago, 'ordenante')}
+                  {!conOrdenante
+                    ? motivoSinCuenta(formaPago, 'ordenante')
+                    : pago.cuentaOrdenante
+                      ? 'Déjala vacía para usar la que registró Tesorería con el depósito.'
+                      : 'Cuenta del cliente desde la que pagó. Se guarda con la revisión.'}
                 </p>
                 {errorOrdenante && <p className="text-xs text-danger-fg">{errorOrdenante}</p>}
+                {pago.cuentaOrdenante && (
+                  <label className="flex items-center gap-2 text-xs">
+                    <input
+                      type="checkbox"
+                      checked={quitarOrdenante}
+                      disabled={ocupado}
+                      onChange={(e) => {
+                        setQuitarOrdenante(e.target.checked);
+                        if (e.target.checked) setOrdenante('');
+                      }}
+                    />
+                    Quitar la cuenta ordenante del pago
+                  </label>
+                )}
               </div>
               <div className="space-y-1">
                 <Label htmlFor="pendiente-cuenta-beneficiaria">
@@ -609,7 +647,8 @@ function RevisionPago({
           )}
           {editable && (
             <p className="text-xs text-ink-muted">
-              La emisión por lote usa solo la cuenta de Millet del depósito.
+              La emisión por lote usa la cuenta de Millet del depósito y la ordenante guardada; si
+              esta no cumple la forma de pago, el REP sale sin ella y el resultado lo avisa.
             </p>
           )}
         </fieldset>

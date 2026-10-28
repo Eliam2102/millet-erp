@@ -37,11 +37,17 @@ export interface ReppPendiente {
   cuentaBancariaEtiqueta?: string | null;
   /** 86e3tfdve: beneficiaria que se usará al emitir con la forma guardada (enmascarada). */
   cuentaBeneficiariaSugerida?: string | null;
+  /** 86e3tfdve (opción A): ordenante guardada, la del ingreso o la corregida al revisar (enmascarada). */
+  cuentaOrdenante?: string | null;
 }
-/** 86e3tfdve: cuentas del pago; no se guardan en el pendiente, viajan al emitir. */
+/**
+ * 86e3tfdve: cuentas del pago. La ordenante capturada reemplaza a la guardada
+ * (vacía = conservarla; `limpiarCuentaOrdenante` la quita); la beneficiaria no se guarda.
+ */
 export interface CuentasPago {
   cuentaOrdenante: string | null;
   cuentaBeneficiaria: string | null;
+  limpiarCuentaOrdenante?: boolean;
 }
 export interface PendientesResponse {
   items: ReppPendiente[];
@@ -54,6 +60,8 @@ export interface EmisionPendiente {
   reciboPagoId: string | null;
   codigo: string | null;
   mensaje: string | null;
+  /** 86e3tfdve: en lote, el REP salió sin la ordenante guardada porque no cumple la forma de pago. */
+  aviso?: string | null;
 }
 const BASE = '/api/v1/facturacion/repp/pendientes';
 const KEY = ['facturacion', 'repp-pendientes'] as const;
