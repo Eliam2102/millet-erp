@@ -15,6 +15,9 @@ public sealed class PermissionRequirement : IAuthorizationRequirement
 {
     public string Code { get; }
 
+    /// <summary>Códigos aceptados: <c>a|b</c> pasa con cualquiera de los dos (catálogos que comparten varias pantallas).</summary>
+    public IReadOnlyList<string> Codes { get; }
+
     public PermissionRequirement(string code)
     {
         if (string.IsNullOrWhiteSpace(code))
@@ -23,5 +26,6 @@ public sealed class PermissionRequirement : IAuthorizationRequirement
         }
 
         Code = code;
+        Codes = code.Split('|', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
     }
 }
