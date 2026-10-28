@@ -95,7 +95,7 @@ public sealed class NoDeduciblesEndpointsTests : IClassFixture<NoDeduciblesEndpo
     };
 
     [Fact]
-    public async Task Catalogo_clasificaciones_lista_DEMO_a_cualquier_sesion_y_401_sin_sesion()
+    public async Task Catalogo_clasificaciones_lista_DEMO_con_permiso_de_la_pantalla_403_sin_el_y_401_sin_sesion()
     {
         var amb = factory.SinPeriodo;
         // Quien solo comprueba viáticos (sin permiso de tarjeta) también necesita el catálogo para sus tickets.
@@ -106,6 +106,10 @@ public sealed class NoDeduciblesEndpointsTests : IClassFixture<NoDeduciblesEndpo
         var filas = (await Json(ok)).EnumerateArray().ToList();
         Assert.Contains(filas, f => f.GetProperty("clave").GetString() == "COMIDAS" && f.GetProperty("descripcion").GetString() == "DEMO · Comidas");
         Assert.True(filas.Count >= 6);
+
+        // Una sesión sin permiso de ninguna pantalla que lo usa ya no lo ve (ADM-03b, barrido de compra a pago).
+        var (sinPermiso, _) = await amb.ClienteConPermisosAsync(PermisosCanonicos.ComprasRequisicionesLeer);
+        Assert.Equal(HttpStatusCode.Forbidden, (await sinPermiso.GetAsync(Cxp + "/catalogos/clasificaciones-no-deducibles")).StatusCode);
 
         Assert.Equal(HttpStatusCode.Unauthorized, (await factory.CreateClient().GetAsync(Cxp + "/catalogos/clasificaciones-no-deducibles")).StatusCode);
     }

@@ -52,13 +52,15 @@ public sealed partial class P6SucursalEndpointsTests
         Assert.Equal(HttpStatusCode.OK, lectura.StatusCode);
     }
     [Fact]
-    public async Task Catalogo_de_no_deducibles_pide_cualquiera_de_los_permisos_de_lectura_que_lo_usan()
+    public async Task Catalogo_de_no_deducibles_pide_cualquiera_de_los_permisos_de_las_pantallas_que_lo_usan()
     {
         await using var datos = await PrepararAsync();
         string[] lecturas =
         [
-            PermisosCanonicos.CuentasPorPagarFacturasLeer, PermisosCanonicos.CuentasPorPagarTcLeer,
-            PermisosCanonicos.CuentasPorPagarComprobacionesLeer, PermisosCanonicos.CuentasPorPagarViaticosLeer,
+            PermisosCanonicos.CuentasPorPagarFacturasLeer,
+            PermisosCanonicos.CuentasPorPagarTcLeer, PermisosCanonicos.CuentasPorPagarTcRegistrarMovimiento,
+            PermisosCanonicos.CuentasPorPagarComprobacionesLeer, PermisosCanonicos.CuentasPorPagarComprobacionesCapturar,
+            PermisosCanonicos.CuentasPorPagarViaticosLeer, PermisosCanonicos.CuentasPorPagarViaticosCapturarComprobacion,
         ];
         const string ruta = "/api/v1/cuentas-por-pagar/catalogos/clasificaciones-no-deducibles";
 
@@ -73,11 +75,11 @@ public sealed partial class P6SucursalEndpointsTests
             await scope.ServiceProvider.GetRequiredService<IPermissionCache>().InvalidateAllForUserAsync(datos.UsuarioId);
         }
 
-        // Con solo viáticos (quien captura una comprobación de viaje) basta.
-        await DejarSoloAsync(PermisosCanonicos.CuentasPorPagarViaticosLeer);
+        // Con solo capturar la comprobación de viáticos (sin leer facturas ni tarjeta) basta.
+        await DejarSoloAsync(PermisosCanonicos.CuentasPorPagarViaticosCapturarComprobacion);
         Assert.Equal(HttpStatusCode.OK, (await datos.Operativo.GetAsync(ruta)).StatusCode);
 
-        // Sin ninguno de los cuatro, 403.
+        // Sin ninguno de ellos, 403.
         await DejarSoloAsync(null);
         Assert.Equal(HttpStatusCode.Forbidden, (await datos.Operativo.GetAsync(ruta)).StatusCode);
     }
