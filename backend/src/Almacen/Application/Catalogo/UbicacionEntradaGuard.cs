@@ -1,4 +1,5 @@
 using Microsoft.EntityFrameworkCore;
+using Millet.Almacen.Domain.Catalogo;
 using Millet.Almacen.Infrastructure.Persistence;
 using Millet.Catalogos.Domain;
 using Millet.SharedKernel.Application.Exceptions;
@@ -71,6 +72,13 @@ public static class UbicacionEntradaGuard
                 throw new BusinessRuleException(
                     "ENTRADA_A_UBICACION_UNICA",
                     "El vidrio entra a un rack; el almacén general es para lo que no es vidrio.");
+            // MAT-REV no tiene almacén general de entrada: lo dañado entra a sus racks y sale por dictamen.
+            var tipoSub = await db.SubAlmacenes.AsNoTracking()
+                .Where(s => s.Id == ubicacion.SubAlmacenId).Select(s => s.Tipo).FirstAsync(ct);
+            if (tipoSub == TipoSubAlmacen.MaterialEnRevision)
+                throw new BusinessRuleException(
+                    "ENTRADA_A_UBICACION_UNICA",
+                    "El sub-almacén de material en revisión no recibe en su almacén general; elige otro sub-almacén.");
             return ubicacion.SubAlmacenId; // no-vidrio al almacén general: sin asignación
         }
 

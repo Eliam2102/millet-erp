@@ -70,7 +70,7 @@ import { EstatusCatalogo } from '@/features/almacen/api/types';
 import {
   construirFilas,
   contarLineasEnOtraUbicacion,
-destinoPorFila,
+  destinoPorFila,
   detectarConflictoSubAlmacen,
   indicesParaAutoAsignar,
 } from '@/features/almacen/components/nueva-recepcion-helpers';

@@ -177,6 +177,25 @@ public class UbicacionEntradaGuardTests
     }
 
 
+    [Fact]
+    public async Task Guard_no_vidrio_a_la_unica_de_mat_rev_es_rechazado()
+    {
+        var db = NuevaDb();
+        await using var _ = db;
+        var almacenId = Guid.NewGuid();
+        var subId = Guid.NewGuid();
+        var unicaId = Guid.NewGuid();
+        db.Almacenes.Add(new Millet.Almacen.Domain.Catalogo.Almacen(almacenId, "ALM", "Almacén test", Guid.NewGuid()));
+        db.SubAlmacenes.Add(new SubAlmacen(subId, almacenId, "MAT-REV", "Revisión", TipoSubAlmacen.MaterialEnRevision));
+        db.Ubicaciones.Add(new Ubicacion(unicaId, subId, "ÚNICA", "Única", esDefault: true));
+        db.SaveChanges();
+
+        var act = () => UbicacionEntradaGuard.ValidarEntradaYDerivarSubAsync(
+            db, unicaId, Guid.NewGuid(), CancellationToken.None, esVidrio: false);
+        (await act.Should().ThrowAsync<BusinessRuleException>())
+            .Which.Code.Should().Be("ENTRADA_A_UBICACION_UNICA");
+    }
+
     // ─── ASIGNACION_A_UNICA (handler de asignar) ─────────────────────────────
 
     [Fact]
