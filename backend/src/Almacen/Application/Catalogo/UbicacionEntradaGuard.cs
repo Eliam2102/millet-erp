@@ -47,7 +47,7 @@ public static class UbicacionEntradaGuard
         Guid articuloId,
         CancellationToken ct,
         Guid? subEsperado = null,
-        bool esVidrio = true)
+        bool ligadoAw = true)
     {
         var ubicacion = await db.Ubicaciones.AsNoTracking()
             .Where(u => u.Id == ubicacionId)
@@ -68,10 +68,10 @@ public static class UbicacionEntradaGuard
 
         if (ubicacion.EsDefault)
         {
-            if (esVidrio)
+            if (ligadoAw)
                 throw new BusinessRuleException(
                     "ENTRADA_A_UBICACION_UNICA",
-                    "El vidrio entra a un rack; el almacén general es para lo que no es vidrio.");
+                    "Los artículos de A+W entran a un rack; el almacén general es para consumibles y refacciones.");
             // MAT-REV no tiene almacén general de entrada: lo dañado entra a sus racks y sale por dictamen.
             var tipoSub = await db.SubAlmacenes.AsNoTracking()
                 .Where(s => s.Id == ubicacion.SubAlmacenId).Select(s => s.Tipo).FirstAsync(ct);
@@ -79,7 +79,7 @@ public static class UbicacionEntradaGuard
                 throw new BusinessRuleException(
                     "ENTRADA_A_UBICACION_UNICA",
                     "El sub-almacén de material en revisión no recibe en su almacén general; elige otro sub-almacén.");
-            return ubicacion.SubAlmacenId; // no-vidrio al almacén general: sin asignación
+            return ubicacion.SubAlmacenId; // artículo sin A+W al almacén general: sin asignación
         }
 
         var tieneAsignacion = await db.AsignacionesArticuloUbicacion.AsNoTracking()
@@ -107,6 +107,6 @@ public static class UbicacionEntradaGuard
         Guid subAlmacenId,
         Guid articuloId,
         CancellationToken ct,
-        bool esVidrio = true)
-        => ValidarEntradaYDerivarSubAsync(db, ubicacionId, articuloId, ct, subEsperado: subAlmacenId, esVidrio: esVidrio);
+        bool ligadoAw = true)
+        => ValidarEntradaYDerivarSubAsync(db, ubicacionId, articuloId, ct, subEsperado: subAlmacenId, ligadoAw: ligadoAw);
 }

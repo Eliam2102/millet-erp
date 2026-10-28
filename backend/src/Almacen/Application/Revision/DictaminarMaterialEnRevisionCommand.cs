@@ -111,7 +111,7 @@ public sealed class DictaminarMaterialEnRevisionHandler(
                 var destinoId = request.UbicacionDestinoId!.Value;
                 var subDestinoId = await UbicacionEntradaGuard.ValidarEntradaYDerivarSubAsync(
                     db, destinoId, info.ArticuloId, cancellationToken,
-                    esVidrio: info.ProductoAwVarianteId is not null);
+                    ligadoAw: info.ProductoAwVarianteId is not null);
                 var subDestino = await db.SubAlmacenes.AsNoTracking()
                     .FirstAsync(s => s.Id == subDestinoId, cancellationToken);
                 if (subDestino.Tipo == TipoSubAlmacen.MaterialEnRevision)

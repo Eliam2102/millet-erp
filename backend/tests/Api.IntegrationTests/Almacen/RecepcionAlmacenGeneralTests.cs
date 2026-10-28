@@ -101,13 +101,13 @@ public class RecepcionAlmacenGeneralTests(WebApplicationFactory<Program> factory
     }
 
     [Fact]
-    public async Task No_vidrio_a_la_unica_de_otro_sub_en_la_misma_recepcion_es_multi_subalmacen()
+    public async Task Sin_aw_a_la_unica_de_mat_rev_se_rechaza()
     {
         await EjecutarAsync(async (db, ctx, _, otro, lineasOc) =>
         {
-            // ÚNICA del MAT-REV (otro sub-almacén) + vidrio al rack del sub disponible.
-            var multi = () => Recibir(db, ctx, ctx.ArticuloId, lineasOc, Linea(ctx, 20m, VarA), NoVidrio(otro, ctx.UnicaRevisionId));
-            (await multi.Should().ThrowAsync<BusinessRuleException>()).Which.Code.Should().Be("RECEPCION_MULTI_SUBALMACEN");
+            // MAT-REV no tiene almacén general de entrada: lo dañado entra a sus racks y sale por dictamen.
+            var aMatRev = () => Recibir(db, ctx, ctx.ArticuloId, lineasOc, NoVidrio(otro, ctx.UnicaRevisionId));
+            (await aMatRev.Should().ThrowAsync<BusinessRuleException>()).Which.Code.Should().Be("ENTRADA_A_UBICACION_UNICA");
         });
     }
 

@@ -249,7 +249,7 @@ public sealed class RegistrarRecepcionConFacturaHandler
             if (input.UbicacionId is null || input.UbicacionId == Guid.Empty)
                 throw new BusinessRuleException("RECEPCION_UBICACION_REQUERIDA", "La línea de inventario requiere ubicación (rack o almacén general).");
             var subLinea = await UbicacionEntradaGuard.ValidarEntradaYDerivarSubAsync(
-                _db, input.UbicacionId!.Value, input.ArticuloId, cancellationToken, esVidrio: variantes[idx] is not null);
+                _db, input.UbicacionId!.Value, input.ArticuloId, cancellationToken, ligadoAw: variantes[idx] is not null);
             subsDerivados.Add(subLinea);
 
             var origen = lineasOc[input.LineaOcId!.Value];

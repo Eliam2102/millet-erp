@@ -94,11 +94,11 @@ BEGIN
             USING ERRCODE = '23514';
     END IF;
 
-    -- El vidrio (línea con variante de medida) entra a un rack; lo que no es vidrio
-    -- puede entrar a la ÚNICA (almacén general).
+    -- Artículo de A+W (línea con variante de medida) entra a un rack; lo que no es
+    -- de A+W (consumibles, refacciones) puede entrar a la ÚNICA (almacén general).
     IF v_es_entrada AND v_ubi_es_default AND NEW.producto_aw_variante_id IS NOT NULL THEN
         RAISE EXCEPTION
-            'ENTRADA_A_UBICACION_UNICA: ubicacion=% es la default (ÚNICA) de sub_almacen=% — el vidrio entra a un rack; el almacén general es para lo que no es vidrio.',
+            'ENTRADA_A_UBICACION_UNICA: ubicacion=% es la default (ÚNICA) de sub_almacen=% — los artículos de A+W entran a un rack; el almacén general es para consumibles y refacciones.',
             NEW.ubicacion_id, v_sub_almacen_id
             USING ERRCODE = '23514';
     END IF;

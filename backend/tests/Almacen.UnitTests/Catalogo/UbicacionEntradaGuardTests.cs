@@ -148,7 +148,7 @@ public class UbicacionEntradaGuardTests
         await using var _ = db;
 
         var sub = await UbicacionEntradaGuard.ValidarEntradaYDerivarSubAsync(
-            db, unicaId, articuloId, CancellationToken.None, esVidrio: false);
+            db, unicaId, articuloId, CancellationToken.None, ligadoAw: false);
         sub.Should().Be(subId);
     }
 
@@ -159,7 +159,7 @@ public class UbicacionEntradaGuardTests
         await using var _ = db;
 
         var act = () => UbicacionEntradaGuard.ValidarUbicacionEntradaAsync(
-            db, unicaId, subId, articuloId, CancellationToken.None, esVidrio: true);
+            db, unicaId, subId, articuloId, CancellationToken.None, ligadoAw: true);
         (await act.Should().ThrowAsync<BusinessRuleException>())
             .Which.Code.Should().Be("ENTRADA_A_UBICACION_UNICA");
     }
@@ -171,7 +171,7 @@ public class UbicacionEntradaGuardTests
         await using var _ = db;
 
         var act = () => UbicacionEntradaGuard.ValidarUbicacionEntradaAsync(
-            db, rackId, subId, articuloId, CancellationToken.None, esVidrio: false);
+            db, rackId, subId, articuloId, CancellationToken.None, ligadoAw: false);
         (await act.Should().ThrowAsync<BusinessRuleException>())
             .Which.Code.Should().Be("ENTRADA_SIN_ASIGNACION");
     }
@@ -191,7 +191,7 @@ public class UbicacionEntradaGuardTests
         db.SaveChanges();
 
         var act = () => UbicacionEntradaGuard.ValidarEntradaYDerivarSubAsync(
-            db, unicaId, Guid.NewGuid(), CancellationToken.None, esVidrio: false);
+            db, unicaId, Guid.NewGuid(), CancellationToken.None, ligadoAw: false);
         (await act.Should().ThrowAsync<BusinessRuleException>())
             .Which.Code.Should().Be("ENTRADA_A_UBICACION_UNICA");
     }
