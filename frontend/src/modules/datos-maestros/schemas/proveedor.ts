@@ -14,6 +14,13 @@ import { OrigenProveedor, TipoPersonaProveedor } from '@/modules/datos-maestros/
 
 const RFC_RE = /^[A-Z&Ñ0-9]{12,13}$/;
 
+/** Clave de A+W: entero positivo opcional (mirror del validator backend). */
+const claveAwSchema = z
+  .number('Escribe un número entero')
+  .int('Debe ser un número entero')
+  .positive('Debe ser mayor que 0')
+  .nullable();
+
 const tipoPersonaSchema = z.nativeEnum(TipoPersonaProveedor);
 
 /**
@@ -53,6 +60,7 @@ export const CrearProveedorSchema = z
     codigoPostal: z.string().max(20, 'Máximo 20 caracteres').optional(),
     pais: z.string().regex(/^$|^[A-Za-z]{3}$/, 'Escribe el código ISO de tres letras, por ejemplo MEX').optional(),
     taxId: z.string().max(40, 'Máximo 40 caracteres').optional(),
+    claveAw: claveAwSchema,
 
     clave: z.string().trim().min(1, 'Clave requerida').max(20, 'Máximo 20 caracteres'),
     razonSocial: z
@@ -110,6 +118,7 @@ export const ActualizarProveedorSchema = z
     codigoPostal: z.string().max(20, 'Máximo 20 caracteres').optional(),
     pais: z.string().regex(/^$|^[A-Za-z]{3}$/, 'Escribe el código ISO de tres letras, por ejemplo MEX').optional(),
     taxId: z.string().max(40, 'Máximo 40 caracteres').optional(),
+    claveAw: claveAwSchema,
 
     razonSocial: z
       .string()
