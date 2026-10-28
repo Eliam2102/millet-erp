@@ -48,7 +48,10 @@ public sealed record PropuestaAplicacionPagoCreadaEvent(
     string Moneda,
     decimal AjusteNoFiscal,
     int NumeroFacturas,
-    IReadOnlyList<PropuestaAplicacionFacturaDetalle> Facturas, Guid? PropuestoPor = null, decimal SaldoAFavorPorIdentificar = 0)
+    IReadOnlyList<PropuestaAplicacionFacturaDetalle> Facturas, Guid? PropuestoPor = null, decimal SaldoAFavorPorIdentificar = 0,
+    // C7.4 (aditivo): depósito sin identificar que CxC identificó desde su bandeja;
+    // Tesorería lo preselecciona al confirmar. Null = propuesta sin depósito ligado.
+    Guid? MovimientoBancarioId = null)
     : IntegrationEvent("cuentas_por_cobrar.propuesta-aplicacion.creada.v1", EmpresaId, OcurridoEn);
 
 // ---- Decisión de liberación emitida (CXC-PR4) ----
@@ -64,5 +67,11 @@ public sealed record DecisionLiberacionEmitidaEvent(
     string ReglaAplicada,
     decimal CreditoDisponibleSnapshot,
     Guid? OverrideId,
-    Guid DecididoPor)
+    Guid DecididoPor,
+    // C7.3 (aditivo, v1 compatible): cobertura del crédito y, si la
+    // decisión resuelve una pendiente de autorización, su id y el motivo
+    // del gerente de CxC que la autorizó o rechazó.
+    decimal? PorcentajeCobertura = null,
+    Guid? DecisionOrigenId = null,
+    string? Motivo = null)
     : IntegrationEvent("cuentas_por_cobrar.decision-liberacion.emitida.v1", EmpresaId, OcurridoEn);

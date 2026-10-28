@@ -23,7 +23,8 @@ namespace Millet.Api.IntegrationTests.Facturacion;
 /// el período y el emisor fiscal son dobles. Las reglas de la serie (unicidad,
 /// concurrencia, fallback global) se prueban en <c>SeriesEndpointsTests</c>.
 /// </summary>
-public sealed class SerieEnEmisionTests : IClassFixture<WebApplicationFactory<Program>>
+[Collection(ApiCompartida.Nombre)]
+public sealed class SerieEnEmisionTests
 {
     private static readonly Guid EmpresaBootstrapId = Guid.Parse("00000003-0000-0000-0000-000000000001");
     private readonly WebApplicationFactory<Program> _factory;

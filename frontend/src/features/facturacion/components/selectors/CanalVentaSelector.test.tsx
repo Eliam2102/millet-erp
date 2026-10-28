@@ -6,7 +6,7 @@ import { createQueryWrapper } from '@/test/test-query-client';
 import { CanalVentaSelector } from './CanalVentaSelector';
 
 const CANALES = [
-  { id: 1, nombre: 'Tienda Cancún' },
+  { id: 1, nombre: 'Sucursal Cancún' },
   { id: 8, nombre: 'Exportación' },
 ];
 
@@ -26,7 +26,7 @@ describe('<CanalVentaSelector> (FAC-ING-PR3)', () => {
     });
 
     expect(
-      await screen.findByRole('option', { name: 'Tienda Cancún' }),
+      await screen.findByRole('option', { name: 'Sucursal Cancún' }),
     ).toBeInTheDocument();
     expect(
       screen.getByRole('option', { name: 'Exportación' }),

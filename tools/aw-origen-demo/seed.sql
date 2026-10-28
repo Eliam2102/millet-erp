@@ -61,6 +61,10 @@ SELECT i, 'VIDRIO FLOAT ' || c.color || ' ' || c.esp || 'MM', 'm²', 'FLOAT ' ||
   jsonb_build_array(
     jsonb_build_object('claveVariante', '2440x3660', 'altoMm', 3660, 'anchoMm', 2440, 'espesorMm', c.esp, 'composicion', NULL),
     jsonb_build_object('claveVariante', '1830x2440', 'altoMm', 2440, 'anchoMm', 1830, 'espesorMm', c.esp, 'composicion', NULL))
+  -- F1-MP-01 (E07): VIDRIO FLOAT CLARO 6MM (i = 2) también se compra en hojas de 2140x3300.
+  || CASE WHEN i = 2 THEN jsonb_build_array(
+    jsonb_build_object('claveVariante', '2140x3300', 'altoMm', 3300, 'anchoMm', 2140, 'espesorMm', c.esp, 'composicion', NULL))
+  ELSE '[]'::jsonb END
 FROM generate_series(1, 12) AS i
 CROSS JOIN LATERAL (SELECT (ARRAY['CLARO','BRONCE','GRIS'])[(i - 1) / 4 + 1] AS color, (ARRAY[3,6,8,10])[(i - 1) % 4 + 1] AS esp) AS c;
 

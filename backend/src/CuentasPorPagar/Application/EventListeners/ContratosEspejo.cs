@@ -72,6 +72,24 @@ public sealed record LineaRecepcionPayload(
     Guid? SubAlmacenId = null);
 
 /// <summary>
+/// Espejo de <c>almacen.recepcion_oc.cancelada.v1</c> (86e3tabdp). CxP borra la proyección de la recepción, desliga las
+/// facturas que la habían elegido y republica el pasivo de las autorizadas de la OC. No genera nota de cargo.
+/// </summary>
+public sealed record OcRecepcionCanceladaPayload(
+    Guid EmpresaId,
+    DateTimeOffset OcurridoEn,
+    Guid RecepcionId,
+    string FolioRecepcion,
+    Guid OrdenCompraId,
+    IReadOnlyList<LineaRecepcionCanceladaPayload> Lineas);
+
+/// <summary>
+/// <c>CantidadDocumento</c> viene en unidad de la línea de OC. <c>RecibidoAcumuladoDocumento</c> es lo recibido vigente de la
+/// línea de OC ya sin esta recepción, calculado por Almacén; null en eventos que no lo traen.
+/// </summary>
+public sealed record LineaRecepcionCanceladaPayload(Guid? LineaOcId, decimal CantidadDocumento, decimal? RecibidoAcumuladoDocumento = null);
+
+/// <summary>
 /// Espejo de <c>almacen.recepcion_activo.anulada.v1</c> (una por línea de OC). CxP marca la línea
 /// como anulada en la recepción local para que no cuente en conciliación ni en pendientes por facturar.
 /// </summary>

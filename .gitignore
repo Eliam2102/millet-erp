@@ -88,3 +88,16 @@ MailHog.exe
 
 # Almacenamiento local de CFDI de CxP (appsettings: RootPath ./blob-cxp)
 backend/src/Api/blob-cxp/
+
+# Muestras generadas por las pruebas del kit PDF.
+backend/tests/Documentos.UnitTests/Salidas/
+
+# Archivos de trabajo de agentes y corridas locales (docs/qa/gate-integracion.md)
+RESUMEN_*.md
+RESUMEN-*.md
+NOTAS_*.md
+outputs/
+nohup.out
+*.orig
+*.rej
+.claude/scheduled_tasks.lock

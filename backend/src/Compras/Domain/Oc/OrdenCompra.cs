@@ -52,6 +52,33 @@ public sealed class OrdenCompra : BaseEntity, IPerteneceAEmpresa, IAuditable, IF
     public Guid SucursalDestinoId { get; private set; }
     public Guid CondicionesPagoId { get; private set; }
     public Guid UsoPrincipalId { get; private set; }
+    public string? UsoCfdiClave { get; private set; }
+    public string? MetodoPago { get; private set; }
+    public string? FormaPagoClave { get; private set; }
+
+    public void ActualizarDatosFactura(string? usoCfdiClave, string? metodoPago, string? formaPagoClave)
+    {
+        if (!EstadosEditables.Contains(Estado))
+            throw new BusinessRuleException("OC_EDITAR_CABECERA_SOLO_EDITABLE",
+                "Los datos para la factura solo pueden editarse en borrador o rechazada.");
+        if (metodoPago is not null && metodoPago is not ("PUE" or "PPD" or ""))
+            throw new BusinessRuleException("OC_METODO_PAGO_INVALIDO", "Selecciona PUE o PPD como método de pago.");
+        // PATCH: null conserva; cadena vacía limpia el dato opcional del borrador.
+        if (usoCfdiClave is not null) UsoCfdiClave = string.IsNullOrWhiteSpace(usoCfdiClave) ? null : usoCfdiClave;
+        if (metodoPago is not null) MetodoPago = metodoPago.Length == 0 ? null : metodoPago;
+        if (formaPagoClave is not null) FormaPagoClave = string.IsNullOrWhiteSpace(formaPagoClave) ? null : formaPagoClave;
+    }
+
+    public void ValidarDatosFacturaParaEnviar()
+    {
+        var faltantes = new List<string>();
+        if (string.IsNullOrWhiteSpace(UsoCfdiClave)) faltantes.Add("uso de CFDI");
+        if (string.IsNullOrWhiteSpace(MetodoPago)) faltantes.Add("método de pago");
+        if (string.IsNullOrWhiteSpace(FormaPagoClave)) faltantes.Add("forma de pago");
+        if (faltantes.Count > 0)
+            throw new BusinessRuleException("OC_DATOS_FACTURA_INCOMPLETOS",
+                $"Captura {string.Join(", ", faltantes)} en los datos para la factura del proveedor antes de enviar a autorización.");
+    }
 
     /// <summary>Moneda ISO 4217 (3 caracteres). Default <see cref="MonedaDefault"/>.</summary>
     public string Moneda { get; private set; } = MonedaDefault;
@@ -312,7 +339,10 @@ public sealed class OrdenCompra : BaseEntity, IPerteneceAEmpresa, IAuditable, IF
         string? observaciones = null,
         string? motivoSinRequisicion = null,
         DateOnly? fechaEntregaEsperada = null,
-        Guid? ocOrigenId = null) : base(id)
+        Guid? ocOrigenId = null,
+        string? usoCfdiClave = null,
+        string? metodoPago = null,
+        string? formaPagoClave = null) : base(id)
     {
         EnsureNotEmpty(empresaId, nameof(empresaId));
         EnsureNotEmpty(proveedorId, nameof(proveedorId));
@@ -405,6 +435,7 @@ public sealed class OrdenCompra : BaseEntity, IPerteneceAEmpresa, IAuditable, IF
         SubEstadoRecepcion = SubEstadoRecepcion.SinRecepcion;
         SubEstadoFacturacion = SubEstadoFacturacion.SinFactura;
         SubEstadoPago = SubEstadoPago.SinPago;
+        ActualizarDatosFactura(usoCfdiClave, metodoPago, formaPagoClave);
     }
 
     // --- F2-PR1/F2-PR2: gestión de cabecera y líneas ---
@@ -685,7 +716,8 @@ public sealed class OrdenCompra : BaseEntity, IPerteneceAEmpresa, IAuditable, IF
         bool esServicio = false,
         Guid? centroCostoId = null,
         string? fraccionArancelaria = null,
-        bool esActivoFijo = false, Guid? claseActivoId = null)
+        bool esActivoFijo = false, Guid? claseActivoId = null,
+        Guid? productoAwVarianteId = null, decimal? anchoMm = null, decimal? altoMm = null)
     {
         if (!EstadosEditables.Contains(Estado))
         {
@@ -724,7 +756,8 @@ public sealed class OrdenCompra : BaseEntity, IPerteneceAEmpresa, IAuditable, IF
             fechaEntregaLinea: fechaEntregaLinea,
             textoAdicional: textoAdicional,
             esServicio: esServicio,
-            fraccionArancelaria: fraccionArancelaria);
+            fraccionArancelaria: fraccionArancelaria,
+            productoAwVarianteId: productoAwVarianteId, anchoMm: anchoMm, altoMm: altoMm);
 
         linea.ClasificarActivo(esActivoFijo, claseActivoId);
         _lineas.Add(linea);
@@ -767,7 +800,8 @@ public sealed class OrdenCompra : BaseEntity, IPerteneceAEmpresa, IAuditable, IF
         bool esServicio = false,
         Guid? centroCostoId = null,
         string? fraccionArancelaria = null,
-        bool esActivoFijo = false, Guid? claseActivoId = null)
+        bool esActivoFijo = false, Guid? claseActivoId = null,
+        Guid? productoAwVarianteId = null, decimal? anchoMm = null, decimal? altoMm = null)
     {
         if (!EstadosEditables.Contains(Estado))
         {
@@ -813,7 +847,8 @@ public sealed class OrdenCompra : BaseEntity, IPerteneceAEmpresa, IAuditable, IF
             fechaEntregaLinea: fechaEntregaLinea,
             textoAdicional: textoAdicional,
             esServicio: esServicio,
-            fraccionArancelaria: fraccionArancelaria);
+            fraccionArancelaria: fraccionArancelaria,
+            productoAwVarianteId: productoAwVarianteId, anchoMm: anchoMm, altoMm: altoMm);
 
         linea.ClasificarActivo(esActivoFijo, claseActivoId);
         _lineas.Add(linea);
@@ -844,7 +879,8 @@ public sealed class OrdenCompra : BaseEntity, IPerteneceAEmpresa, IAuditable, IF
         string? fraccionArancelaria = null,
         bool limpiarFraccionArancelaria = false,
         bool? esActivoFijo = null,
-        Guid? claseActivoId = null)
+        Guid? claseActivoId = null,
+        Guid? productoAwVarianteId = null, decimal? anchoMm = null, decimal? altoMm = null)
     {
         if (!EstadosEditables.Contains(Estado))
         {
@@ -861,7 +897,8 @@ public sealed class OrdenCompra : BaseEntity, IPerteneceAEmpresa, IAuditable, IF
             departamentoSolicitanteId, descripcionExtendida,
             fechaEntregaLinea, limpiarDescripcionExtendida,
             limpiarFechaEntregaLinea, esServicio, centroCostoId,
-            fraccionArancelaria, limpiarFraccionArancelaria, esActivoFijo, claseActivoId);
+            fraccionArancelaria, limpiarFraccionArancelaria, esActivoFijo, claseActivoId,
+            productoAwVarianteId, anchoMm, altoMm);
     }
 
     /// <summary>
@@ -1024,7 +1061,8 @@ public sealed class OrdenCompra : BaseEntity, IPerteneceAEmpresa, IAuditable, IF
     /// </summary>
     public Events.OrdenCompraEnviadaAAutorizacionEvent EnviarAAutorizacion(
         DateTimeOffset ocurridoEn,
-        bool requiereNivel2 = true)
+        bool requiereNivel2 = true,
+        IReadOnlySet<Guid>? articulosVidrio = null)
     {
         if (Estado != EstadoOrdenCompra.Borrador && Estado != EstadoOrdenCompra.Rechazada)
         {
@@ -1052,12 +1090,29 @@ public sealed class OrdenCompra : BaseEntity, IPerteneceAEmpresa, IAuditable, IF
                 $"Captura el precio de las líneas {string.Join(", ", sinPrecio)} antes de enviar a autorización.");
         }
 
+        // F1-MP-01 (E1): las líneas nacidas de una RQ no traen medida; la captura el comprador antes de enviar.
+        var sinMedida = _lineas
+            .Where(l => l.ProductoAwVarianteId is null && articulosVidrio?.Contains(l.ArticuloId) == true)
+            .OrderBy(l => l.Posicion)
+            .Select(l => l.Posicion.ToString(System.Globalization.CultureInfo.InvariantCulture))
+            .ToList();
+        if (sinMedida.Count > 0)
+        {
+            throw new BusinessRuleException(
+                "VARIANTE_VIDRIO_REQUERIDA",
+                sinMedida.Count == 1
+                    ? $"Elige la medida de la hoja de la línea {sinMedida[0]} antes de enviar a autorización."
+                    : $"Elige la medida de la hoja de las líneas {string.Join(", ", sinMedida.Take(sinMedida.Count - 1))} y {sinMedida[^1]} antes de enviar a autorización.");
+        }
+
         if (EsBorradorMinimo)
         {
             throw new BusinessRuleException(
                 "OC_TRANSMITIR_BORRADOR_MINIMO",
                 "La OC todavía tiene campos TBD en la cabecera (proveedor / condiciones / uso / almacén). Completar antes de transmitir.");
         }
+
+        ValidarDatosFacturaParaEnviar();
 
         if (Estado == EstadoOrdenCompra.Rechazada)
             CicloAutorizacion++;

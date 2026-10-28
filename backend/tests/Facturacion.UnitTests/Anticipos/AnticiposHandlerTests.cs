@@ -44,7 +44,7 @@ public sealed class AnticiposHandlerTests
         TasaIvaTraslado: 0.16m,
         Descripcion: null,
         PedidoFacturableId: null,
-        PedidoOrigenRef: "AW-42",
+        PedidoOrigenRef: "10425042",
         ObraId: null,
         ObraNombre: "Obra Norte");
 
@@ -105,7 +105,7 @@ public sealed class AnticiposHandlerTests
         anticipo.Estado.Should().Be(EstadoAnticipo.Abierto);
         anticipo.MontoCobrado.Should().Be(1160m);
         anticipo.FacturaAnticipoId.Should().Be(resp.FacturaAnticipoId);
-        anticipo.PedidoOrigenRef.Should().Be("AW-42");
+        anticipo.PedidoOrigenRef.Should().Be("10425042");
 
         var factura = await db.FacturasAnticipo.SingleAsync();
         factura.AnticipoId.Should().Be(anticipo.Id);

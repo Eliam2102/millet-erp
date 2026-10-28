@@ -208,9 +208,20 @@ namespace Millet.CuentasPorPagar.Infrastructure.Persistence.Migrations
                         .HasColumnType("uuid")
                         .HasColumnName("orden_compra_id");
 
+                    b.Property<short>("Origen")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("smallint")
+                        .HasDefaultValue((short)1)
+                        .HasColumnName("origen");
+
                     b.Property<Guid>("ProveedorId")
                         .HasColumnType("uuid")
                         .HasColumnName("proveedor_id");
+
+                    b.Property<string>("ReferenciaOrigen")
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)")
+                        .HasColumnName("referencia_origen");
 
                     b.Property<string>("Serie")
                         .IsRequired()
@@ -232,7 +243,6 @@ namespace Millet.CuentasPorPagar.Infrastructure.Persistence.Migrations
                         .HasColumnName("updated_by");
 
                     b.Property<string>("UuidCfdi")
-                        .IsRequired()
                         .HasMaxLength(36)
                         .HasColumnType("character varying(36)")
                         .HasColumnName("uuid_cfdi");
@@ -253,6 +263,11 @@ namespace Millet.CuentasPorPagar.Infrastructure.Persistence.Migrations
                         .IsUnique()
                         .HasDatabaseName("ux_anticipos_proveedor_uuid");
 
+                    b.HasIndex("EmpresaId", "ReferenciaOrigen")
+                        .IsUnique()
+                        .HasDatabaseName("ix_anticipos_proveedor_empresa_id_referencia_origen")
+                        .HasFilter("referencia_origen IS NOT NULL");
+
                     b.HasIndex("ProveedorId", "Estado")
                         .HasDatabaseName("ix_anticipos_proveedor_estado");
 
@@ -261,6 +276,8 @@ namespace Millet.CuentasPorPagar.Infrastructure.Persistence.Migrations
                             t.HasCheckConstraint("ck_anticipo_monto_amortizado_valido", "monto_amortizado >= 0 AND monto_amortizado <= monto_entregado");
 
                             t.HasCheckConstraint("ck_anticipo_monto_entregado_positivo", "monto_entregado > 0");
+
+                            t.HasCheckConstraint("ck_anticipo_origen", "(origen = 1 AND uuid_cfdi IS NOT NULL AND referencia_origen IS NULL) OR (origen = 2 AND uuid_cfdi IS NULL AND cfdi_recibido_id IS NULL AND referencia_origen IS NOT NULL)");
                         });
                 });
 
@@ -390,6 +407,138 @@ namespace Millet.CuentasPorPagar.Infrastructure.Persistence.Migrations
                     b.ToTable("aprobadores_limites", "cuentas_por_pagar", t =>
                         {
                             t.HasCheckConstraint("ck_aprobador_monto_positivo", "monto_max > 0");
+                        });
+                });
+
+            modelBuilder.Entity("Millet.CuentasPorPagar.Domain.Catalogos.ClasificacionNoDeducible", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<bool>("Activa")
+                        .HasColumnType("boolean")
+                        .HasColumnName("activa");
+
+                    b.Property<string>("Clave")
+                        .IsRequired()
+                        .HasMaxLength(40)
+                        .HasColumnType("character varying(40)")
+                        .HasColumnName("clave");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at");
+
+                    b.Property<string>("CreatedBy")
+                        .HasColumnType("text")
+                        .HasColumnName("created_by");
+
+                    b.Property<DateTimeOffset?>("DeletedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("deleted_at");
+
+                    b.Property<string>("Descripcion")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)")
+                        .HasColumnName("descripcion");
+
+                    b.Property<DateTimeOffset>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("updated_at");
+
+                    b.Property<string>("UpdatedBy")
+                        .HasColumnType("text")
+                        .HasColumnName("updated_by");
+
+                    b.Property<int>("Version")
+                        .IsConcurrencyToken()
+                        .HasColumnType("integer")
+                        .HasColumnName("version");
+
+                    b.HasKey("Id")
+                        .HasName("pk_clasificaciones_no_deducibles");
+
+                    b.HasIndex("Clave")
+                        .IsUnique()
+                        .HasDatabaseName("ix_clasificaciones_no_deducibles_clave")
+                        .HasFilter("deleted_at IS NULL");
+
+                    b.ToTable("clasificaciones_no_deducibles", "cuentas_por_pagar");
+
+                    b.HasData(
+                        new
+                        {
+                            Id = new Guid("00000007-000b-0000-0000-000000000001"),
+                            Activa = true,
+                            Clave = "COMIDAS",
+                            CreatedAt = new DateTimeOffset(new DateTime(2026, 10, 23, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            CreatedBy = "seed-P8.6",
+                            Descripcion = "DEMO · Comidas",
+                            UpdatedAt = new DateTimeOffset(new DateTime(2026, 10, 23, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            UpdatedBy = "seed-P8.6",
+                            Version = 1
+                        },
+                        new
+                        {
+                            Id = new Guid("00000007-000b-0000-0000-000000000002"),
+                            Activa = true,
+                            Clave = "VIATICOS_SIN_CFDI",
+                            CreatedAt = new DateTimeOffset(new DateTime(2026, 10, 23, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            CreatedBy = "seed-P8.6",
+                            Descripcion = "DEMO · Viáticos sin CFDI",
+                            UpdatedAt = new DateTimeOffset(new DateTime(2026, 10, 23, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            UpdatedBy = "seed-P8.6",
+                            Version = 1
+                        },
+                        new
+                        {
+                            Id = new Guid("00000007-000b-0000-0000-000000000003"),
+                            Activa = true,
+                            Clave = "PROPINAS",
+                            CreatedAt = new DateTimeOffset(new DateTime(2026, 10, 23, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            CreatedBy = "seed-P8.6",
+                            Descripcion = "DEMO · Propinas",
+                            UpdatedAt = new DateTimeOffset(new DateTime(2026, 10, 23, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            UpdatedBy = "seed-P8.6",
+                            Version = 1
+                        },
+                        new
+                        {
+                            Id = new Guid("00000007-000b-0000-0000-000000000004"),
+                            Activa = true,
+                            Clave = "ESTACIONAMIENTO",
+                            CreatedAt = new DateTimeOffset(new DateTime(2026, 10, 23, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            CreatedBy = "seed-P8.6",
+                            Descripcion = "DEMO · Estacionamiento",
+                            UpdatedAt = new DateTimeOffset(new DateTime(2026, 10, 23, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            UpdatedBy = "seed-P8.6",
+                            Version = 1
+                        },
+                        new
+                        {
+                            Id = new Guid("00000007-000b-0000-0000-000000000005"),
+                            Activa = true,
+                            Clave = "MULTAS_RECARGOS",
+                            CreatedAt = new DateTimeOffset(new DateTime(2026, 10, 23, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            CreatedBy = "seed-P8.6",
+                            Descripcion = "DEMO · Multas y recargos",
+                            UpdatedAt = new DateTimeOffset(new DateTime(2026, 10, 23, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            UpdatedBy = "seed-P8.6",
+                            Version = 1
+                        },
+                        new
+                        {
+                            Id = new Guid("00000007-000b-0000-0000-000000000006"),
+                            Activa = true,
+                            Clave = "OTROS",
+                            CreatedAt = new DateTimeOffset(new DateTime(2026, 10, 23, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            CreatedBy = "seed-P8.6",
+                            Descripcion = "DEMO · Otros",
+                            UpdatedAt = new DateTimeOffset(new DateTime(2026, 10, 23, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            UpdatedBy = "seed-P8.6",
+                            Version = 1
                         });
                 });
 
@@ -986,6 +1135,11 @@ namespace Millet.CuentasPorPagar.Infrastructure.Persistence.Migrations
                         .HasColumnType("uuid")
                         .HasColumnName("cfdi_recibido_id");
 
+                    b.Property<string>("ClasificacionNoDeducible")
+                        .HasMaxLength(40)
+                        .HasColumnType("character varying(40)")
+                        .HasColumnName("clasificacion_no_deducible");
+
                     b.Property<Guid>("ComprobacionGastosId")
                         .HasColumnType("uuid")
                         .HasColumnName("comprobacion_gastos_id");
@@ -1522,6 +1676,11 @@ namespace Millet.CuentasPorPagar.Infrastructure.Persistence.Migrations
                     b.Property<Guid?>("CfdiRecibidoId")
                         .HasColumnType("uuid")
                         .HasColumnName("cfdi_recibido_id");
+
+                    b.Property<string>("ClasificacionNoDeducible")
+                        .HasMaxLength(40)
+                        .HasColumnType("character varying(40)")
+                        .HasColumnName("clasificacion_no_deducible");
 
                     b.Property<string>("ConceptoRetencion")
                         .HasMaxLength(80)
@@ -2870,6 +3029,11 @@ namespace Millet.CuentasPorPagar.Infrastructure.Persistence.Migrations
                         .HasColumnType("uuid")
                         .HasColumnName("cfdi_recibido_id");
 
+                    b.Property<string>("ClasificacionNoDeducible")
+                        .HasMaxLength(40)
+                        .HasColumnType("character varying(40)")
+                        .HasColumnName("clasificacion_no_deducible");
+
                     b.Property<string>("ConceptoContable")
                         .IsRequired()
                         .HasMaxLength(120)
@@ -3328,6 +3492,11 @@ namespace Millet.CuentasPorPagar.Infrastructure.Persistence.Migrations
                         .HasColumnType("uuid")
                         .HasColumnName("cfdi_recibido_id");
 
+                    b.Property<string>("ClasificacionNoDeducible")
+                        .HasMaxLength(40)
+                        .HasColumnType("character varying(40)")
+                        .HasColumnName("clasificacion_no_deducible");
+
                     b.Property<string>("Concepto")
                         .IsRequired()
                         .HasMaxLength(400)
@@ -3428,6 +3597,11 @@ namespace Millet.CuentasPorPagar.Infrastructure.Persistence.Migrations
 
                     b.HasIndex("SolicitudViaticosId")
                         .HasDatabaseName("ix_lineas_comprobacion_viaticos_solicitud_viaticos_id");
+
+                    b.HasIndex("UuidCfdi")
+                        .IsUnique()
+                        .HasDatabaseName("ux_linea_via_uuid_pendiente")
+                        .HasFilter("uuid_cfdi IS NOT NULL AND factura_proveedor_id IS NULL");
 
                     b.ToTable("lineas_comprobacion_viaticos", "cuentas_por_pagar", t =>
                         {

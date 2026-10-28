@@ -17,7 +17,8 @@ namespace Millet.Api.IntegrationTests.CentrosCosto;
 /// "vivo = estatus != Inactivo" (ADR-0049). Una Dim3 se pone en EnRevision
 /// por SQL para blindar el predicado (cuenta como viva en ambos).
 /// </summary>
-public class JerarquiaTests : IClassFixture<WebApplicationFactory<Program>>
+[Collection(ApiCompartida.Nombre)]
+public class JerarquiaTests
 {
     private readonly WebApplicationFactory<Program> _factory;
 

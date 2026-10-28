@@ -4,7 +4,7 @@ import { FormGrid, FormCampo } from '@/components/erp/forms/FormGrid';
 import { SheetBody } from '@/components/ui/sheet';
 import { hoyLocalISO } from '@/lib/datetime';
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { Controller, useFieldArray, useForm, useWatch, type Resolver } from 'react-hook-form';
+import { Controller, useFieldArray, useForm, useWatch, type Resolver, type UseFormSetValue } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useQueries } from '@tanstack/react-query';
 import { Link, useNavigate } from '@tanstack/react-router';
@@ -68,6 +68,8 @@ import {
 } from '@/features/almacen/components/nueva-salida-ubicacion-helpers';
 import { saldosPorUbicacionQueryOptions } from '@/features/almacen/api/useSaldosCierreReportes';
 import { UbicacionBinSelector } from '@/components/erp/selectors/UbicacionBinSelector';
+import { MedidaSalidaSelect } from '@/features/almacen/components/MedidaSalidaSelect';
+import { LoteSalidaSelect } from '@/features/almacen/components/LoteSalidaSelect';
 import { useRequisicion } from '@/features/compras/api/useRequisicion';
 import { cn } from '@/lib/utils';
 import { AvisoEnLinea } from '@/components/erp/feedback/AvisoEnLinea';
@@ -243,6 +245,8 @@ function NuevaSalidaFormBody({
           lineaRqId: f.lineaRqId,
           cantidad: f.cantidad,
           unidadCapturada: f.unidadCapturada?.trim() || null,
+          productoAwVarianteId: f.productoAwVarianteId ?? null,
+          lote: f.lote ?? null,
           centroCostoId: f.centroCostoId ?? null,
           proyectoId: f.proyectoId ?? null,
           ubicacionReferencia: f.ubicacionReferencia ?? null,
@@ -316,6 +320,8 @@ function NuevaSalidaFormBody({
             lineaRqId: null,
             cantidad: l.cantidad,
             unidadCapturada: l.unidadCapturada?.trim() || null,
+            productoAwVarianteId: l.productoAwVarianteId ?? null,
+            lote: l.lote ?? null,
             centroCostoId: l.centroCostoId ?? null,
             proyectoId: l.proyectoId ?? null,
             ubicacionReferencia: l.ubicacionReferencia ?? null,
@@ -756,6 +762,7 @@ function FilasDesdeRq({ form }: { form: ReturnType<typeof useForm<SalidaFormValu
             fila={fila}
             ubicacionHelperId={ubicacionHelperId ?? null}
             control={form.control}
+            setValue={form.setValue}
             errors={
               Array.isArray(form.formState.errors.filas)
                 ? (form.formState.errors.filas[index] as FilaErrors | undefined)
@@ -782,10 +789,12 @@ function FilaLineaRq({
   fila,
   ubicacionHelperId,
   control,
+  setValue,
   errors,
 }: {
   index: number;
   fila: FilaSalidaValues;
+  setValue: UseFormSetValue<SalidaFormValues>;
   /** PR5: bin de cabecera vigente, para marcar las filas que coinciden. */
   ubicacionHelperId: string | null;
   control: ReturnType<typeof useForm<SalidaFormValues>>['control'];
@@ -795,6 +804,8 @@ function FilaLineaRq({
     control,
     name: `filas.${index}.incluida` as const,
   });
+  const varianteId = useWatch({ control, name: `filas.${index}.productoAwVarianteId` as const });
+  const ubicacionSalidaId = useWatch({ control, name: `filas.${index}.ubicacionId` as const });
   const lookupFila = useDecimalesUnidad();
   const decResuelto = decimalesDeFila(lookupFila, {
     unidadMedida: fila.unidadMedida,
@@ -855,6 +866,27 @@ function FilaLineaRq({
 
           {incluida && (
             <FormGrid>
+              <FormCampo span={12}>
+                <Controller
+                  name={`filas.${index}.productoAwVarianteId` as const}
+                  control={control}
+                  render={({ field }) => (
+                    <MedidaSalidaSelect
+                      articuloId={fila.articuloId}
+                      value={field.value}
+                      ariaLabel={`Medida de la hoja, partida ${fila.posicion}`}
+                      onChange={(id) => {
+                        field.onChange(id);
+                        // Por medida la cantidad son hojas y el rack depende de la medida.
+                        setValue(`filas.${index}.unidadCapturada`, id ? 'HOJA' : null);
+                        setValue(`filas.${index}.ubicacionId`, null);
+                        setValue(`filas.${index}.lote`, null);
+                      }}
+                    />
+                  )}
+                />
+              </FormCampo>
+              {!varianteId && (
               <FormCampo span={6}>
                 <Field label="Unidad capturada (opcional)">
                   <Controller
@@ -875,8 +907,9 @@ function FilaLineaRq({
                   </p>
                 </Field>
               </FormCampo>
+              )}
               <FormCampo span={6}>
-                <Field label="Cantidad a entregar" required error={errors?.cantidad?.message}>
+                <Field label={varianteId ? 'Hojas a entregar' : 'Cantidad a entregar'} required error={errors?.cantidad?.message}>
                   <Controller
                     name={`filas.${index}.cantidad` as const}
                     control={control}
@@ -946,18 +979,42 @@ function FilaLineaRq({
                       <UbicacionBinSelector
                         modo="saldo"
                         articuloId={fila.articuloId}
+                        varianteId={varianteId}
                         // Salida-por-línea C2: sin sub de cabecera; el bin se elige
                         // entre TODOS los subs con existencia (el sub se deriva).
                         subAlmacenId={null}
                         requiereSubAlmacen={false}
                         value={field.value ?? null}
-                        onChange={(id) => field.onChange(id)}
+                        onChange={(id) => {
+                          field.onChange(id);
+                          setValue(`filas.${index}.lote`, null);
+                        }}
                         disabled={!incluida}
                       />
                     )}
                   />
                 </Field>
               </FormCampo>
+
+              {varianteId && (
+                <FormCampo span={12}>
+                  <Controller
+                    name={`filas.${index}.lote` as const}
+                    control={control}
+                    render={({ field }) => (
+                      <LoteSalidaSelect
+                        articuloId={fila.articuloId}
+                        ubicacionId={ubicacionSalidaId}
+                        varianteId={varianteId}
+                        value={field.value}
+                        ariaLabel={`Lote, partida ${fila.posicion}`}
+                        onChange={(lote) => field.onChange(lote)}
+                        disabled={!incluida || !ubicacionSalidaId}
+                      />
+                    )}
+                  />
+                </FormCampo>
+              )}
 
               <FormCampo span={12}>
                 <div className="md:col-span-2">
@@ -1121,6 +1178,7 @@ function LineasCapturaLibre({
             key={field.id}
             index={index}
             control={form.control}
+            setValue={form.setValue}
             errors={
               Array.isArray(form.formState.errors.lineas)
                 ? (form.formState.errors.lineas[index] as LineaLibreErrors | undefined)
@@ -1153,12 +1211,14 @@ interface LineaLibreErrors {
 function LineaLibreForm({
   index,
   control,
+  setValue,
   errors,
   onRemove,
   onArticuloSelect,
 }: {
   index: number;
   control: ReturnType<typeof useForm<SalidaFormValues>>['control'];
+  setValue: UseFormSetValue<SalidaFormValues>;
   errors: LineaLibreErrors | undefined;
   onRemove: () => void;
   onArticuloSelect: (articulo: ArticuloListItem) => void;
@@ -1173,6 +1233,8 @@ function LineaLibreForm({
     name: `lineas.${index}.articuloId` as const,
   });
   const decimalesLinea = lookupLinea.porId(umId) ?? DECIMALES_FALLBACK;
+  const varianteId = useWatch({ control, name: `lineas.${index}.productoAwVarianteId` as const });
+  const ubicacionSalidaId = useWatch({ control, name: `lineas.${index}.ubicacionId` as const });
   return (
     <div className="rounded-md border border-dashed border-brand/40 bg-brand/5 p-3 space-y-2">
       <div className="flex items-start justify-between gap-2">
@@ -1205,6 +1267,28 @@ function LineaLibreForm({
           </Field>
         </FormCampo>
 
+        <FormCampo span={12}>
+          <Controller
+            name={`lineas.${index}.productoAwVarianteId` as const}
+            control={control}
+            render={({ field }) => (
+              <MedidaSalidaSelect
+                articuloId={articuloId}
+                value={field.value}
+                ariaLabel={`Medida de la hoja, partida ${index + 1}`}
+                onChange={(id) => {
+                  field.onChange(id);
+                  // Por medida la cantidad son hojas y el rack depende de la medida.
+                  setValue(`lineas.${index}.unidadCapturada`, id ? 'HOJA' : null);
+                  setValue(`lineas.${index}.ubicacionId`, '');
+                  setValue(`lineas.${index}.lote`, null);
+                }}
+              />
+            )}
+          />
+        </FormCampo>
+
+        {!varianteId && (
         <FormCampo span={6}>
           <Field label="Unidad capturada (opcional)">
             <Controller
@@ -1221,8 +1305,9 @@ function LineaLibreForm({
             />
           </Field>
         </FormCampo>
+        )}
         <FormCampo span={6}>
-          <Field label="Cantidad" required error={errors?.cantidad?.message}>
+          <Field label={varianteId ? 'Hojas' : 'Cantidad'} required error={errors?.cantidad?.message}>
             <Controller
               name={`lineas.${index}.cantidad` as const}
               control={control}
@@ -1283,17 +1368,41 @@ function LineaLibreForm({
                 <UbicacionBinSelector
                   modo="saldo"
                   articuloId={articuloId}
+                  varianteId={varianteId}
                   // Salida-por-línea (vale): sin sub de cabecera; bin entre TODOS
                   // los subs con existencia (el sub se deriva).
                   subAlmacenId={null}
                   requiereSubAlmacen={false}
                   value={field.value ?? null}
-                  onChange={(id) => field.onChange(id ?? '')}
+                  onChange={(id) => {
+                    field.onChange(id ?? '');
+                    setValue(`lineas.${index}.lote`, null);
+                  }}
                 />
               )}
             />
           </Field>
         </FormCampo>
+
+        {varianteId && (
+          <FormCampo span={12}>
+            <Controller
+              name={`lineas.${index}.lote` as const}
+              control={control}
+              render={({ field }) => (
+                <LoteSalidaSelect
+                  articuloId={articuloId}
+                  ubicacionId={ubicacionSalidaId || null}
+                  varianteId={varianteId}
+                  value={field.value}
+                  ariaLabel={`Lote, partida ${index + 1}`}
+                  onChange={(lote) => field.onChange(lote)}
+                  disabled={!ubicacionSalidaId}
+                />
+              )}
+            />
+          </FormCampo>
+        )}
 
         <FormCampo span={12}>
           <div className="md:col-span-2">
@@ -1403,6 +1512,8 @@ type SalidaFormValues = {
     articuloId: string;
     unidadMedidaId?: string | null;
     unidadCapturada?: string | null;
+    productoAwVarianteId?: string | null;
+    lote?: string | null;
     lineaRqId?: string | null;
     cantidad: number;
     centroCostoId?: string | null;

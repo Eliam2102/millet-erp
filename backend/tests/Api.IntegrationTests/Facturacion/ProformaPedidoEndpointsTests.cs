@@ -24,7 +24,8 @@ namespace Millet.Api.IntegrationTests.Facturacion;
 /// comparar reporta diferencias contra el payload de emisión y el permiso de
 /// lectura no alcanza para generar.
 /// </summary>
-public sealed class ProformaPedidoEndpointsTests : IClassFixture<WebApplicationFactory<Program>>
+[Collection(ApiCompartida.Nombre)]
+public sealed class ProformaPedidoEndpointsTests : IAsyncLifetime
 {
     private const string SuperAdminOid = "dev-superadmin";
     private const string Pedidos = "/api/v1/facturacion/pedidos-facturables";
@@ -39,10 +40,13 @@ public sealed class ProformaPedidoEndpointsTests : IClassFixture<WebApplicationF
             services.RemoveAll<IClientesReadPort>(); services.AddSingleton<IClientesReadPort, Clientes>();
         }));
 
+    public Task InitializeAsync() => Task.CompletedTask;
+    public async Task DisposeAsync() => await _factory.DisposeAsync();
+
     [Fact]
     public async Task Generar_proforma_201_y_ultima_200_con_folio_PF_versionado()
     {
-        var client = await SuperAdminAsync();
+        using var client = await SuperAdminAsync();
         var (pedidoId, numero) = await CrearPedidoAsync();
 
         var sinProforma = await client.GetAsync($"{Pedidos}/{pedidoId}/proformas/ultima");
@@ -72,7 +76,7 @@ public sealed class ProformaPedidoEndpointsTests : IClassFixture<WebApplicationF
     [Fact]
     public async Task Comparar_con_payload_modificado_devuelve_diferencias_y_sin_cambios_ninguna()
     {
-        var client = await SuperAdminAsync();
+        using var client = await SuperAdminAsync();
         var (pedidoId, _) = await CrearPedidoAsync();
         var generada = await client.PostAsync($"{Pedidos}/{pedidoId}/proformas", null);
         Assert.Equal(HttpStatusCode.Created, generada.StatusCode);

@@ -17,7 +17,17 @@ export const CajaChicaLineaSchema = z.object({
   retenciones: z.number().min(0),
   total: z.number().positive('Total > 0.'),
   fechaVencimiento: z.string().regex(DATE_ONLY_RE, 'Formato YYYY-MM-DD.'),
-  concepto: z.string().trim().max(500).nullable(),
+  concepto: z.string().trim().max(400).nullable(),
+  // null = deducible; '' = marcado sin elegir. Un ticket (sin CFDI ni UUID) la exige.
+  clasificacionNoDeducible: z.string().trim().max(40).nullable(),
+}).superRefine((l, ctx) => {
+  const esTicket = !l.cfdiRecibidoId && !l.uuidCfdi;
+  if (l.clasificacionNoDeducible === '' || (esTicket && !l.clasificacionNoDeducible))
+    ctx.addIssue({
+      code: 'custom',
+      path: ['clasificacionNoDeducible'],
+      message: 'Selecciona la clasificación del gasto no deducible.',
+    });
 });
 
 export const CrearComprobacionCajaChicaSchema = z.object({

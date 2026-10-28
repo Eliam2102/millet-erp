@@ -1,6 +1,7 @@
 import { useState, type FormEvent, type ReactNode } from 'react';
 import { useMutation } from '@tanstack/react-query';
 import { Button } from '@/components/ui/button';
+import { Checkbox } from '@/components/ui/checkbox';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
@@ -14,6 +15,7 @@ import {
 } from '@/components/ui/table';
 import { FormSeccion } from '@/components/erp/forms/FormSeccion';
 import { FormCampo } from '@/components/erp/forms/FormGrid';
+import { AvisoEnLinea } from '@/components/erp/feedback/AvisoEnLinea';
 import { ErrorState } from '@/components/erp';
 import { useHasPermission } from '@/lib/auth/useHasPermission';
 import { PermisosCanonicos as P } from '@/lib/auth/permission-codes';
@@ -444,7 +446,13 @@ export function DistribucionTabla({
   nombres?: Record<string, string>;
 }) {
   return (
-    <div className="overflow-x-auto">
+    <div className="space-y-3 overflow-x-auto">
+      {d.partidas.some((p) => p.tieneSalidas) && (
+        <AvisoEnLinea tono="advertencia">
+          Parte de la mercancía ya salió: el gasto de esas partidas va completo a gastos de
+          importación y no cambia su costo
+        </AvisoEnLinea>
+      )}
       <Table>
         <TableHeader>
           <TableRow>
@@ -454,7 +462,7 @@ export function DistribucionTabla({
               'Total MXN',
               'Ajuste MXN',
               'Inventario',
-              'Ventas o consumo',
+              'A gastos de importación',
               'Costo unitario antes',
               'Costo unitario después',
             ].map((h) => (
@@ -486,7 +494,7 @@ export function DistribucionTabla({
                 p.importeMxn,
                 p.diferenciaMxn,
                 p.inventarioMxn,
-                p.costoVentasMxn,
+                p.gastoImportacionMxn,
                 p.costoUnitarioAntes,
                 p.costoUnitarioDespues,
               ].map((v, i) => (
@@ -939,9 +947,7 @@ function Anticipos({ data, finanzas: f }: { data: ExpedienteDetalle; finanzas: F
                 </TableCell>
               ))}
               <TableCell>
-                <Badge variant={a.estado === 'Comprobado' ? 'success' : 'warning'}>
-                  {a.estado}
-                </Badge>
+                <Badge variant={a.saldo === 0 ? 'success' : 'warning'}>{a.estado}</Badge>
               </TableCell>
               <TableCell>
                 {gestionar && (a.aplicado === null || a.saldo !== 0) && (
@@ -959,6 +965,7 @@ function Anticipos({ data, finanzas: f }: { data: ExpedienteDetalle; finanzas: F
           key={seleccion.id}
           data={data}
           a={seleccion}
+          gastos={f.gastos}
           onClose={() => setSeleccion(null)}
         />
       )}
@@ -969,11 +976,13 @@ function Anticipos({ data, finanzas: f }: { data: ExpedienteDetalle; finanzas: F
               <summary>Resoluciones del pedimento {a.pedimento}</summary>
               {a.resoluciones.map((r, i) => (
                 <p key={i} className="py-2 tabular-nums">
-                  {r.tipo === 'compensar'
-                    ? 'Compensación a otro anticipo'
-                    : r.tipo === 'devolucion'
-                      ? 'Devolución recibida'
-                      : 'Pago complementario'}{' '}
+                  {r.tipo === 'saldo-al-agente'
+                    ? 'Saldo trasladado a la cuenta del agente'
+                    : r.tipo === 'compensar'
+                      ? 'Compensación a otro anticipo'
+                      : r.tipo === 'devolucion'
+                        ? 'Devolución recibida'
+                        : 'Pago complementario'}{' '}
                   · {dinero(Math.abs(r.importe))} · {r.referencia}
                 </p>
               ))}
@@ -1024,13 +1033,14 @@ function NuevoAnticipo({ id, onClose }: { id: string; onClose: () => void }) {
               },
               fecha: d.get('fecha'),
               referenciaPago: d.get('referencia') || null,
+              cuentaPeca: d.get('cuentaPeca') === 'on',
             },
           })
           .then(onClose)
           .catch(() => {});
       }}
     >
-      <FormSeccion titulo="Anticipo para impuestos del pedimento">
+      <FormSeccion titulo="Anticipo al agente aduanal">
         <FormCampo span={6}>
           <Label>Agente aduanal *</Label>
           <ReferenciaSelector tipo="proveedores" value={agente} onChange={setAgente} />
@@ -1038,6 +1048,11 @@ function NuevoAnticipo({ id, onClose }: { id: string; onClose: () => void }) {
         <Campo label="Pedimento *" id="ant-ped">
           <Input id="ant-ped" name="pedimento" required maxLength={100} />
         </Campo>
+        <FormCampo span={6}>
+          <label className="flex items-center gap-2">
+            <Checkbox name="cuentaPeca" /> Cuenta PECA (sólo impuestos)
+          </label>
+        </FormCampo>
         <Impuestos />
         <Campo label="Fecha *" id="ant-fecha">
           <Input id="ant-fecha" name="fecha" type="date" required />
@@ -1071,13 +1086,15 @@ function NuevoAnticipo({ id, onClose }: { id: string; onClose: () => void }) {
     </form>
   );
 }
-function ResolverAnticipo({
+export function ResolverAnticipo({
   data,
   a,
+  gastos = [],
   onClose,
 }: {
   data: ExpedienteDetalle;
   a: Anticipo;
+  gastos?: Gasto[];
   onClose: () => void;
 }) {
   const accion = useMutarFinanzas(data.expediente.id);
@@ -1098,6 +1115,7 @@ function ResolverAnticipo({
               igi: Number(d.get('igi')),
               prv: Number(d.get('prv')),
             },
+            gastoIds: a.cuentaPeca ? [] : d.getAll('gastoIds'),
             pedimentoPagadoId: d.get('pedimentoPagadoId'),
             comprobantePagoId: d.get('evidencia'),
             fecha: d.get('fecha'),
@@ -1139,6 +1157,21 @@ function ResolverAnticipo({
           <>
             <Impuestos />
             {selectorEvidencia('pedimentoPagadoId', 'Pedimento pagado *')}
+            {!a.cuentaPeca && (
+              <FormCampo span={12}>
+                <fieldset className="space-y-2">
+                  <legend>Gastos del agente a comprobar</legend>
+                  {gastos
+                    .filter((g) => g.proveedorId === a.agenteId && !g.anticipoAgenteId)
+                    .map((g) => (
+                      <label key={g.id} className="flex items-center gap-2">
+                        <Checkbox name="gastoIds" value={g.id} />
+                        {g.concepto} · {g.factura} · {dinero(g.importeMxn)}
+                      </label>
+                    ))}
+                </fieldset>
+              </FormCampo>
+            )}
           </>
         ) : (
           <>
@@ -1152,6 +1185,7 @@ function ResolverAnticipo({
                 {(a.saldo ?? 0) > 0 ? (
                   <>
                     <option value="devolucion">Devolución recibida</option>
+                    <option value="saldo-al-agente">Dejar saldo en la cuenta del agente</option>
                     <option value="compensar">Compensar en otro anticipo</option>
                   </>
                 ) : (

@@ -25,4 +25,19 @@ public sealed class ReppPendientesReadAdapter(FacturacionDbContext db) : IReppPe
                 .Select(p => p.ReciboPagoId!.Value).ToArray(),
             detalle);
     }
+
+    /// <summary>C7.4: saldo y parcialidad siguiente de facturas PPD timbradas (mismo cálculo que FacturasCobrablesPpdQuery).</summary>
+    public async Task<IReadOnlyDictionary<Guid, ParcialidadPpd>> ParcialidadesAsync(
+        IReadOnlyCollection<Guid> facturaVentaIds, CancellationToken cancellationToken)
+    {
+        if (facturaVentaIds.Count == 0) return new Dictionary<Guid, ParcialidadPpd>();
+        var ids = facturaVentaIds.Distinct().ToList();
+        var facturas = await db.FacturasVenta.AsNoTracking()
+            .Where(f => ids.Contains(f.Id) && f.Estado == Millet.Facturacion.Domain.Comprobantes.EstadoTimbrado.Timbrado && f.MetodoPago == "PPD")
+            .Select(f => new { f.Id, f.Total })
+            .ToListAsync(cancellationToken);
+        var saldos = await Millet.Facturacion.Application.Facturas.SaldoPorCobrar.ParcialidadesAsync(
+            db, facturas.Select(f => (f.Id, f.Total)).ToList(), cancellationToken);
+        return saldos.ToDictionary(x => x.Key, x => new ParcialidadPpd(x.Key, x.Value.Saldo, x.Value.NumParcialidadSiguiente));
+    }
 }

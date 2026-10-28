@@ -44,6 +44,8 @@ import {
 import { Naturaleza } from '@/features/compras/api/types';
 import { useAgregarLineaManual } from '@/features/compras/ordenes/api/useAgregarLineaManual';
 import { useActualizarLinea } from '@/features/compras/ordenes/api/useActualizarLinea';
+import { useMedidasArticulo } from '@/features/compras/ordenes/api/useMedidasArticulo';
+import { areaHojaDe, etiquetaMedidaMm, hojasDe } from '@/features/almacen/lib/medida-hoja';
 import type { ActualizarLineaValues } from '@/features/compras/ordenes/schemas/actualizar-linea';
 import { LineaDesdeRqBadge } from '@/features/compras/ordenes/components/LineaDesdeRqBadge';
 import { CentroCostoPicker } from '@/features/centros-costo/components/CentroCostoPicker';
@@ -96,6 +98,7 @@ function buildValuesFromLinea(linea: LineaOrdenCompraResponse): AgregarLineaManu
     articuloId: linea.articuloId,
     cantidad: linea.cantidad,
     unidadMedida: linea.unidadMedida,
+    productoAwVarianteId: linea.productoAwVarianteId ?? null,
     precioUnitario: linea.precioUnitario,
     departamentoSolicitanteId: linea.departamentoSolicitanteId,
     descuentoTipo: linea.descuentoTipo ?? null,
@@ -122,6 +125,20 @@ const CODIGOS_ERROR_FRACCION = [
   'LINEA_OC_FRACCION_INVALIDA',
   'LINEA_OC_FRACCION_SOLO_COMERCIO_EXTERIOR',
 ];
+
+/** Errores del API de la medida de hoja → campo del form (hojas pinta el error de `cantidad`). */
+const CODIGOS_ERROR_MEDIDA: Record<string, { campo: string }> = {
+  VARIANTE_VIDRIO_REQUERIDA: { campo: 'productoAwVarianteId' },
+  VARIANTE_NO_APLICA: { campo: 'productoAwVarianteId' },
+  VARIANTE_NO_PERTENECE_AL_ARTICULO: { campo: 'productoAwVarianteId' },
+  VARIANTE_SIN_MEDIDA: { campo: 'productoAwVarianteId' },
+  HOJAS_ENTERAS: { campo: 'cantidad' },
+  LINEA_OC_MEDIDA_INCOMPLETA: { campo: 'productoAwVarianteId' },
+  LINEA_OC_VIDRIO_UNIDAD: { campo: 'cantidad' },
+};
+
+const m2DeHojas = (hojas: number | null, area: number | null) =>
+  hojas != null && area != null ? Math.round(hojas * area * 10000) / 10000 : 0;
 
 /**
  * Fracción arancelaria en el PATCH de línea: con valor → se fija; vacía con
@@ -155,12 +172,24 @@ export function LineaInlineFormOc({ oc, linea, onCancel, onSaved }: LineaInlineF
   const [unidadMedidaIdSel, setUnidadMedidaIdSel] = useState<string | null>(null);
   const lookupDecimales = useDecimalesUnidad();
   const decimalesRef = useRef(DECIMALES_FALLBACK);
+  // F1-MP-01 (E1): artículo ligado a A+W ⇒ medida + hojas enteras; los m² se derivan.
+  const [hojas, setHojas] = useState<number | null>(
+    linea?.productoAwVarianteId ? hojasDe(linea.cantidad, linea.areaHojaM2) : null,
+  );
   // Fase E PR3.1: el Centro de costo es requerido en la línea MANUAL. En la
   // heredada de RQ el campo es read-only (viene 1:1 de la RQ) y el submit
   // manda null = "no tocar", así que exigirlo dejaría sin salida a las
   // heredadas legadas con CC null.
+  const esVidrioRef = useRef(false);
   const resolver = useMemo(
-    () => zodResolver(crearAgregarLineaManualSchema(() => decimalesRef.current, !lineaDesdeRq)),
+    () =>
+      zodResolver(
+        crearAgregarLineaManualSchema(
+          () => decimalesRef.current,
+          !lineaDesdeRq,
+          () => esVidrioRef.current,
+        ),
+      ),
     [lineaDesdeRq],
   );
 
@@ -197,6 +226,52 @@ export function LineaInlineFormOc({ oc, linea, onCancel, onSaved }: LineaInlineF
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  const articuloIdActual = form.watch('articuloId');
+  const varianteIdActual = form.watch('productoAwVarianteId');
+  const medidasQ = useMedidasArticulo(articuloIdActual);
+  const medidas = medidasQ.data ?? [];
+  // Solo las medidas del artículo ACTUAL deciden si es vidrio (al cambiar de artículo la línea vieja ya no cuenta).
+  const esVidrio = medidas.length > 0;
+  esVidrioRef.current = esVidrio;
+  const medidaSel = medidas.find((m) => m.varianteId === varianteIdActual);
+  const areaHoja =
+    medidaSel?.areaHojaM2 ??
+    areaHojaDe(medidaSel?.anchoMm, medidaSel?.altoMm) ??
+    (varianteIdActual && varianteIdActual === linea?.productoAwVarianteId
+      ? (linea.areaHojaM2 ?? null)
+      : null);
+  const cantidadVidrio = useWatch({ control: form.control, name: 'cantidad' });
+  const conMedidaYHojas = !!varianteIdActual && hojas != null && hojas > 0;
+
+  // Con medida la unidad es M2 (el dominio lo exige).
+  useEffect(() => {
+    if (esVidrio && form.getValues('unidadMedida') !== 'M2') {
+      form.setValue('unidadMedida', 'M2', { shouldValidate: true });
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [esVidrio, articuloIdActual]);
+
+  function cambiarHojas(n: number | null, area: number | null) {
+    setHojas(n);
+    form.clearErrors('cantidad');
+    form.setValue('cantidad', m2DeHojas(n, area), { shouldDirty: true });
+  }
+
+  /** Valida en cliente lo que el servidor también rechaza, con el mismo texto. */
+  function medidaValida() {
+    if (!esVidrio) return true;
+    let ok = true;
+    if (!varianteIdActual) {
+      form.setError('productoAwVarianteId', { message: 'Elige la medida de la hoja.' });
+      ok = false;
+    }
+    if (hojas == null || !Number.isInteger(hojas) || hojas < 1) {
+      form.setError('cantidad', { message: 'Captura un número entero de hojas.' });
+      ok = false;
+    }
+    return ok;
+  }
+
   const isPending = agregar.isPending || actualizar.isPending;
   // Fracción arancelaria: solo al EDITAR una línea de OC de comercio exterior.
   // PLATFORM-TODO(<F1-COM-06>): supuesto Vilo.
@@ -229,7 +304,12 @@ export function LineaInlineFormOc({ oc, linea, onCancel, onSaved }: LineaInlineF
       return;
     }
     if (esApiError(err)) {
-      if (applyServerErrors(form as unknown as Parameters<typeof applyServerErrors>[0], err)) {
+      if (
+        applyServerErrors(form as unknown as Parameters<typeof applyServerErrors>[0], err, {
+          shouldFocus: true,
+          codigos: CODIGOS_ERROR_MEDIDA,
+        })
+      ) {
         return;
       }
       if (CODIGOS_ERROR_FRACCION.includes(err.code ?? '')) {
@@ -261,8 +341,10 @@ export function LineaInlineFormOc({ oc, linea, onCancel, onSaved }: LineaInlineF
           lineaId: linea.id,
           command: {
             articuloId: lineaDesdeRq ? null : values.articuloId,
-            cantidad: lineaDesdeRq ? null : values.cantidad,
+            // Vidrio: medida y cantidad viajan juntas (también en líneas de RQ, cuya cantidad se ajusta a hojas enteras).
+            cantidad: lineaDesdeRq && !esVidrio ? null : values.cantidad,
             unidadMedida: values.unidadMedida,
+            ...(esVidrio ? { productoAwVarianteId: values.productoAwVarianteId } : {}),
             precioUnitario: values.precioUnitario,
             departamentoSolicitanteId: values.departamentoSolicitanteId,
             descripcionExtendida: values.descripcionExtendida,
@@ -293,7 +375,11 @@ export function LineaInlineFormOc({ oc, linea, onCancel, onSaved }: LineaInlineF
       return;
     }
     agregar.mutate(
-      { ordenCompraId: oc.id, command: values, idempotencyKey },
+      {
+        ordenCompraId: oc.id,
+        command: { ...values, productoAwVarianteId: esVidrio ? values.productoAwVarianteId : null },
+        idempotencyKey,
+      },
       {
         onSuccess: (resp) => {
           toast.success(`Partida ${resp.posicion} agregada.`);
@@ -301,6 +387,7 @@ export function LineaInlineFormOc({ oc, linea, onCancel, onSaved }: LineaInlineF
           // agregar otra (mismo UX que RQ).
           form.reset(DEFAULT_AGREGAR_LINEA_MANUAL);
           setUnidadMedidaIdSel(null);
+          setHojas(null);
           form.setFocus('articuloId');
           onSaved?.();
         },
@@ -311,16 +398,22 @@ export function LineaInlineFormOc({ oc, linea, onCancel, onSaved }: LineaInlineF
 
   return (
     <form
-      onSubmit={form.handleSubmit(onSubmit, (errs) => {
-        // Si el error cae en un campo del bloque colapsado, ábrelo para que sea visible.
-        if (
-          errs.descuentoTipo ||
-          errs.descuentoValor ||
-          errs.descripcionExtendida ||
-          errs.textoAdicional
-        )
-          setDetallesAbiertos(true);
-      })}
+      onSubmit={(e) => {
+        if (!medidaValida()) {
+          e.preventDefault();
+          return;
+        }
+        return form.handleSubmit(onSubmit, (errs) => {
+          // Si el error cae en un campo del bloque colapsado, ábrelo para que sea visible.
+          if (
+            errs.descuentoTipo ||
+            errs.descuentoValor ||
+            errs.descripcionExtendida ||
+            errs.textoAdicional
+          )
+            setDetallesAbiertos(true);
+        })(e);
+      }}
       noValidate
       onKeyDown={(e) => {
         if (e.key === 'Escape' && !isPending) {
@@ -365,7 +458,15 @@ export function LineaInlineFormOc({ oc, linea, onCancel, onSaved }: LineaInlineF
                   <ArticuloSelector
                     triggerProps={c}
                     value={field.value || null}
-                    onChange={(id) => field.onChange(id ?? '')}
+                    onChange={(id) => {
+                      // Otro artículo: la medida anterior ya no aplica.
+                      if ((id ?? '') !== field.value) {
+                        form.setValue('productoAwVarianteId', null);
+                        form.setValue('cantidad', DEFAULT_AGREGAR_LINEA_MANUAL.cantidad);
+                        setHojas(null);
+                      }
+                      field.onChange(id ?? '');
+                    }}
                     onSelect={(articulo) => {
                       form.setValue('unidadMedida', articulo.unidadMedidaDefault || 'PZA', {
                         shouldValidate: true,
@@ -393,29 +494,105 @@ export function LineaInlineFormOc({ oc, linea, onCancel, onSaved }: LineaInlineF
           </Field>
         </FormCampo>
 
-        <FormCampo span={12}>
-          <Field
-            label="Cantidad"
-            required
-            error={form.formState.errors.cantidad?.message}
-            className="@3xl:col-span-2"
-          >
-            {(c) => (
-              <Controller
-                name="cantidad"
-                control={form.control}
-                render={({ field }) => (
-                  <DecimalField
-                    inputProps={c}
-                    value={field.value ?? null}
-                    onChange={(v) => field.onChange(v ?? 0)}
-                    min={0.001}
-                    step={stepParaDecimales(decimalesUnidad)}
-                    disabled={lineaDesdeRq}
+        {esVidrio && (
+          <>
+            <FormCampo span={12}>
+              <Field
+                label="Medida"
+                required
+                error={form.formState.errors.productoAwVarianteId?.message}
+                className="@3xl:col-span-3"
+              >
+                {(c) => (
+                  <Select
+                    value={varianteIdActual ?? ''}
+                    onValueChange={(id) => {
+                      form.clearErrors('productoAwVarianteId');
+                      form.setValue('productoAwVarianteId', id, { shouldDirty: true });
+                      const m = medidas.find((x) => x.varianteId === id);
+                      cambiarHojas(hojas, m?.areaHojaM2 ?? areaHojaDe(m?.anchoMm, m?.altoMm));
+                    }}
+                  >
+                    <SelectTrigger data-field="medida-hoja" {...c}>
+                      <SelectValue
+                        placeholder={medidasQ.isLoading ? 'Cargando medidas…' : 'Elige la medida'}
+                      />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {medidas.map((m) => (
+                        <SelectItem
+                          key={m.varianteId}
+                          value={m.varianteId}
+                          disabled={m.areaHojaM2 == null}
+                        >
+                          {etiquetaMedidaMm(m.anchoMm, m.altoMm) ?? m.claveVariante}
+                          {m.areaHojaM2 == null ? ' (sin medida en A+W)' : ''}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                )}
+              </Field>
+            </FormCampo>
+            <FormCampo span={12}>
+              <Field
+                label="Hojas"
+                required
+                error={form.formState.errors.cantidad?.message}
+                className="@3xl:col-span-1"
+              >
+                {(c) => (
+                  <Input
+                    {...c}
+                    type="number"
+                    inputMode="numeric"
+                    min={1}
+                    step={1}
+                    data-field="hojas"
+                    value={hojas ?? ''}
+                    onChange={(e) =>
+                      cambiarHojas(e.target.value === '' ? null : Number(e.target.value), areaHoja)
+                    }
                   />
                 )}
-              />
-            )}
+              </Field>
+            </FormCampo>
+          </>
+        )}
+
+        <FormCampo span={12}>
+          <Field
+            label={esVidrio ? 'Cantidad (m²)' : 'Cantidad'}
+            required
+            error={esVidrio ? undefined : form.formState.errors.cantidad?.message}
+            className="@3xl:col-span-2"
+          >
+            {(c) =>
+              esVidrio ? (
+                <output
+                  id={c.id}
+                  data-field="cantidad-m2"
+                  className="block rounded-md border bg-surface-muted/50 px-3 py-1.5 text-sm tabular-nums"
+                >
+                  {conMedidaYHojas ? (cantidadVidrio ?? 0).toFixed(4) : '—'}
+                </output>
+              ) : (
+                <Controller
+                  name="cantidad"
+                  control={form.control}
+                  render={({ field }) => (
+                    <DecimalField
+                      inputProps={c}
+                      value={field.value ?? null}
+                      onChange={(v) => field.onChange(v ?? 0)}
+                      min={0.001}
+                      step={stepParaDecimales(decimalesUnidad)}
+                      disabled={lineaDesdeRq}
+                    />
+                  )}
+                />
+              )
+            }
           </Field>
         </FormCampo>
 
@@ -474,10 +651,21 @@ export function LineaInlineFormOc({ oc, linea, onCancel, onSaved }: LineaInlineF
 
         <FormCampo span={12}>
           <Field label="Subtotal" className="@3xl:col-span-2">
-            {(c) => <SubtotalPreview id={c.id} control={form.control} moneda={oc.moneda} />}
+            {(c) => <SubtotalPreview
+                id={c.id}
+                control={form.control}
+                moneda={oc.moneda}
+                oculto={esVidrio && !conMedidaYHojas}
+              />}
           </Field>
         </FormCampo>
       </FormGrid>
+
+      {medidasQ.isError && (
+        <AvisoEnLinea tono="advertencia">
+          No se pudieron cargar las medidas del artículo.
+        </AvisoEnLinea>
+      )}
 
       {apartaDeCotizacion && (
         <AvisoEnLinea tono="advertencia">
@@ -761,8 +949,10 @@ function SubtotalPreview({
   control,
   moneda,
   id,
+  oculto,
 }: {
   id: string;
+  oculto: boolean;
   control: Control<AgregarLineaManualValues>;
   moneda: string;
 }) {
@@ -776,7 +966,7 @@ function SubtotalPreview({
       id={id}
       className="block rounded-md border bg-surface-muted/30 px-3 py-1.5 text-sm tabular-nums"
     >
-      <MoneyDisplay amount={subtotal} currency={moneda} />
+      {oculto ? '—' : <MoneyDisplay amount={subtotal} currency={moneda} />}
     </output>
   );
 }

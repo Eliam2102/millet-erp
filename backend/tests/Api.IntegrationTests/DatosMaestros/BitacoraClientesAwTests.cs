@@ -14,7 +14,8 @@ using Millet.Identidad.Domain;
 namespace Millet.Api.IntegrationTests.DatosMaestros;
 
 /// <summary>ADM-06: bitácora de cambios por campo de clientes A+W, matriz campo → dueño y su lectura por API.</summary>
-public sealed class BitacoraClientesAwTests(WebApplicationFactory<Program> factory) : IClassFixture<WebApplicationFactory<Program>>
+[Collection(ApiCompartida.Nombre)]
+public sealed class BitacoraClientesAwTests(WebApplicationFactory<Program> factory)
 {
     private static string NuevaRef() => "T" + Guid.NewGuid().ToString("N")[..8];
 

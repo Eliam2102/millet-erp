@@ -16,17 +16,31 @@ namespace Millet.Api.IntegrationTests.DatosMaestros.Adjuntos;
 /// G1.2-a (403 sin permiso), G1.2-b (vigencia por fecha), G1.2-c (baja con motivo y bitácora) y CA2.2
 /// (expediente completo).
 /// </summary>
-public class ProveedorAdjuntosCriteriosTests : IClassFixture<WebApplicationFactory<Program>>
+[Collection(ApiCompartida.Nombre)]
+public class ProveedorAdjuntosCriteriosTests : IClassFixture<ProveedorAdjuntosCriteriosTests.Servidor>
 {
     private readonly WebApplicationFactory<Program> _base;
 
-    public ProveedorAdjuntosCriteriosTests(WebApplicationFactory<Program> factory) => _base = factory;
+    private readonly AdjuntosProveedorAmbiente _ambiente;
+    public ProveedorAdjuntosCriteriosTests(Servidor fixture)
+    {
+        _base = fixture;
+        _ambiente = fixture.Ambiente;
+        _ambiente.Blob.Reiniciar();
+        _ambiente.Reloj.UtcNow = DateTimeOffset.UtcNow;
+    }
+
+    public sealed class Servidor : WebApplicationFactory<Program>
+    {
+        public AdjuntosProveedorAmbiente Ambiente { get; }
+        public Servidor() => Ambiente = new AdjuntosProveedorAmbiente(this);
+    }
 
     [Fact]
     public async Task G12a_Sin_Permiso_Ver_Responde_403_En_Listar_Contenido_Enlace_Y_Expediente()
     {
-        var amb = new AdjuntosProveedorAmbiente(_base);
-        var admin = await amb.SuperAdminAsync();
+        var amb = _ambiente;
+        using var admin = await amb.SuperAdminAsync();
         var prov = await amb.SeedProveedorAsync();
         var adjuntoId = await SubirOkAsync(admin, prov, TipoContrato);
 
@@ -44,8 +58,8 @@ public class ProveedorAdjuntosCriteriosTests : IClassFixture<WebApplicationFacto
     [Fact]
     public async Task G12a_Permisos_Se_Evaluan_Por_Operacion()
     {
-        var amb = new AdjuntosProveedorAmbiente(_base);
-        var admin = await amb.SuperAdminAsync();
+        var amb = _ambiente;
+        using var admin = await amb.SuperAdminAsync();
         var prov = await amb.SeedProveedorAsync();
         var adjuntoId = await SubirOkAsync(admin, prov, TipoContrato);
 
@@ -67,8 +81,8 @@ public class ProveedorAdjuntosCriteriosTests : IClassFixture<WebApplicationFacto
     [Fact]
     public async Task G12b_Constancia_Vigente_Al_31Oct_Aparece_Vencida_El_1Nov()
     {
-        var amb = new AdjuntosProveedorAmbiente(_base);
-        var admin = await amb.SuperAdminAsync(); // login con el reloj real, antes de moverlo
+        var amb = _ambiente;
+        using var admin = await amb.SuperAdminAsync(); // login con el reloj real, antes de moverlo
         var prov = await amb.SeedProveedorAsync();
 
         // 31-oct 12:00 hora de México (UTC-6, sin horario de verano).
@@ -95,8 +109,8 @@ public class ProveedorAdjuntosCriteriosTests : IClassFixture<WebApplicationFacto
     [Fact]
     public async Task G12b_Vigencia_Pasada_Al_Subir_Responde_422()
     {
-        var amb = new AdjuntosProveedorAmbiente(_base);
-        var admin = await amb.SuperAdminAsync();
+        var amb = _ambiente;
+        using var admin = await amb.SuperAdminAsync();
         var prov = await amb.SeedProveedorAsync();
         amb.Reloj.UtcNow = new DateTimeOffset(2026, 11, 1, 18, 0, 0, TimeSpan.Zero);
 
@@ -111,8 +125,8 @@ public class ProveedorAdjuntosCriteriosTests : IClassFixture<WebApplicationFacto
     [Fact]
     public async Task G12b_Sin_Vigencia_Explicita_Se_Calcula_Con_Los_Meses_Del_Tipo()
     {
-        var amb = new AdjuntosProveedorAmbiente(_base);
-        var admin = await amb.SuperAdminAsync();
+        var amb = _ambiente;
+        using var admin = await amb.SuperAdminAsync();
         var prov = await amb.SeedProveedorAsync();
         amb.Reloj.UtcNow = new DateTimeOffset(2026, 10, 15, 18, 0, 0, TimeSpan.Zero);
 
@@ -131,9 +145,9 @@ public class ProveedorAdjuntosCriteriosTests : IClassFixture<WebApplicationFacto
         var raiz = Path.Combine(Path.GetTempPath(), $"millet-adj-test-{Guid.NewGuid():N}");
         try
         {
-            var amb = new AdjuntosProveedorAmbiente(_base, s => s.Configure<Millet.Compartido.Infrastructure.Blob.AdjuntosBlobStorageOptions>(
+            await using var amb = new AdjuntosProveedorAmbiente(_base, s => s.Configure<Millet.Compartido.Infrastructure.Blob.AdjuntosBlobStorageOptions>(
                 o => o.RootPath = raiz), blobReal: true);
-            var admin = await amb.SuperAdminAsync();
+            using var admin = await amb.SuperAdminAsync();
             var prov = await amb.SeedProveedorAsync();
             var adjuntoId = await SubirOkAsync(admin, prov, TipoContrato);
             Assert.Single(Directory.GetFiles(raiz, "*", SearchOption.AllDirectories));
@@ -183,8 +197,8 @@ public class ProveedorAdjuntosCriteriosTests : IClassFixture<WebApplicationFacto
     [Fact]
     public async Task G12c_Baja_Sin_Motivo_Responde_400_Repetida_422_Y_El_Blob_Se_Conserva()
     {
-        var amb = new AdjuntosProveedorAmbiente(_base);
-        var admin = await amb.SuperAdminAsync();
+        var amb = _ambiente;
+        using var admin = await amb.SuperAdminAsync();
         var prov = await amb.SeedProveedorAsync();
         var adjuntoId = await SubirOkAsync(admin, prov, TipoContrato);
 
@@ -209,8 +223,8 @@ public class ProveedorAdjuntosCriteriosTests : IClassFixture<WebApplicationFacto
     [Fact]
     public async Task Ca22_Cinco_Documentos_En_Persona_Moral_Dejan_El_Expediente_Completo()
     {
-        var amb = new AdjuntosProveedorAmbiente(_base);
-        var admin = await amb.SuperAdminAsync();
+        var amb = _ambiente;
+        using var admin = await amb.SuperAdminAsync();
         var prov = await amb.SeedProveedorAsync(TipoPersonaProveedor.Moral);
 
         var vacio = await LeerAsync(await admin.GetAsync($"{Base}/{prov}/expediente"));
@@ -231,8 +245,8 @@ public class ProveedorAdjuntosCriteriosTests : IClassFixture<WebApplicationFacto
     [Fact]
     public async Task Ca22_Sin_Acta_Constitutiva_La_Persona_Moral_No_Esta_Completa()
     {
-        var amb = new AdjuntosProveedorAmbiente(_base);
-        var admin = await amb.SuperAdminAsync();
+        var amb = _ambiente;
+        using var admin = await amb.SuperAdminAsync();
         var prov = await amb.SeedProveedorAsync(TipoPersonaProveedor.Moral);
 
         foreach (var tipo in new[] { TipoConstancia, TipoContrato, TipoIdentificacion, TipoDomicilio })
@@ -248,8 +262,8 @@ public class ProveedorAdjuntosCriteriosTests : IClassFixture<WebApplicationFacto
     [Fact]
     public async Task Ca22_Persona_Fisica_Se_Completa_Sin_Acta_Constitutiva()
     {
-        var amb = new AdjuntosProveedorAmbiente(_base);
-        var admin = await amb.SuperAdminAsync();
+        var amb = _ambiente;
+        using var admin = await amb.SuperAdminAsync();
         var prov = await amb.SeedProveedorAsync(TipoPersonaProveedor.Fisica);
 
         foreach (var tipo in new[] { TipoConstancia, TipoContrato, TipoIdentificacion, TipoDomicilio })
@@ -265,8 +279,8 @@ public class ProveedorAdjuntosCriteriosTests : IClassFixture<WebApplicationFacto
     [Fact]
     public async Task Catalogo_De_Tipos_De_Proveedor_Trae_Los_Cinco_Tipos_Y_Rechaza_Entidad_Desconocida()
     {
-        var amb = new AdjuntosProveedorAmbiente(_base);
-        var admin = await amb.SuperAdminAsync();
+        var amb = _ambiente;
+        using var admin = await amb.SuperAdminAsync();
 
         var tipos = await LeerAsync(await admin.GetAsync("/api/v1/adjuntos/tipos?entidad=proveedor"));
         Assert.True(tipos.GetArrayLength() >= 5);
@@ -278,8 +292,8 @@ public class ProveedorAdjuntosCriteriosTests : IClassFixture<WebApplicationFacto
     [Fact]
     public async Task Descarga_Por_Enlace_Temporal_Entrega_El_Archivo_Sin_Autenticacion()
     {
-        var amb = new AdjuntosProveedorAmbiente(_base);
-        var admin = await amb.SuperAdminAsync();
+        var amb = _ambiente;
+        using var admin = await amb.SuperAdminAsync();
         var prov = await amb.SeedProveedorAsync();
         var adjuntoId = await SubirOkAsync(admin, prov, TipoContrato);
 
@@ -300,8 +314,8 @@ public class ProveedorAdjuntosCriteriosTests : IClassFixture<WebApplicationFacto
     [Fact]
     public async Task Respuestas_No_Exponen_La_Ubicacion_Del_Blob()
     {
-        var amb = new AdjuntosProveedorAmbiente(_base);
-        var admin = await amb.SuperAdminAsync();
+        var amb = _ambiente;
+        using var admin = await amb.SuperAdminAsync();
         var prov = await amb.SeedProveedorAsync();
         var adjuntoId = await SubirOkAsync(admin, prov, TipoContrato);
 

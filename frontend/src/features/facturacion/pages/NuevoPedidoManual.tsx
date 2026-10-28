@@ -72,7 +72,7 @@ const VALORES_INICIALES: PedidoManualValues = {
   sucursalId: '',
   clienteId: '',
   clienteNombre: '',
-  // Canal id 1 (seed histórico "Tienda Cancún"); si ya no existe en el
+  // Canal id 1 (seed "Sucursal Cancún"); si ya no existe en el
   // catálogo, <CanalVentaSelector/> lo normaliza al primer canal activo.
   canalVenta: 1,
   comportamientoFiscal: ComportamientoFiscal.MostradorInmediato,
@@ -378,7 +378,7 @@ export function NuevoPedidoManual({ onClose, onDirtyChange, pedido }: NuevoPedid
               required
               error={form.formState.errors.comportamientoFiscal?.message}
               hint={
-                esActivo ? 'Requiere autorización del Contador General antes de timbrar.' : undefined
+                esActivo ? 'Requiere autorización del Director de Administración y Finanzas antes de timbrar.' : undefined
               }
             >
               {esActivo ? (

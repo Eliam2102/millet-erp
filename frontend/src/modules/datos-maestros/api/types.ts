@@ -83,6 +83,16 @@ export interface ListarProveedoresResponse {
 }
 
 export interface ProveedorDetalle {
+  calle?: string | null;
+  numeroExterior?: string | null;
+  numeroInterior?: string | null;
+  colonia?: string | null;
+  ciudad?: string | null;
+  municipio?: string | null;
+  estado?: string | null;
+  codigoPostal?: string | null;
+  pais?: string | null;
+  taxId?: string | null;
   id: string;
   clave: string;
   claveLegacy: string | null;
@@ -117,6 +127,16 @@ export interface ClasificacionFiscalProveedorPayload {
 }
 
 export interface CrearProveedorPayload {
+  calle?: string | null;
+  numeroExterior?: string | null;
+  numeroInterior?: string | null;
+  colonia?: string | null;
+  ciudad?: string | null;
+  municipio?: string | null;
+  estado?: string | null;
+  codigoPostal?: string | null;
+  pais?: string | null;
+  taxId?: string | null;
   clave: string;
   razonSocial: string;
   /** Opcional solo si el origen es Extranjero: el backend guarda el RFC genérico XEXX010101000. */
@@ -134,6 +154,16 @@ export interface CrearProveedorPayload {
 }
 
 export interface ActualizarProveedorPayload {
+  calle?: string | null;
+  numeroExterior?: string | null;
+  numeroInterior?: string | null;
+  colonia?: string | null;
+  ciudad?: string | null;
+  municipio?: string | null;
+  estado?: string | null;
+  codigoPostal?: string | null;
+  pais?: string | null;
+  taxId?: string | null;
   razonSocial?: string | null;
   nombreComercial?: string | null;
   rfc?: string | null;
@@ -275,6 +305,8 @@ export interface ArticuloDetalle {
   precioReferenciaMonto: number | null;
   precioReferenciaMoneda: string | null;
   estatus: EstatusCatalogo;
+  /** Familia A+W del vidrio crudo (E07 D5, 1:1); null = insumo sin medidas. */
+  productoAwId?: string | null;
 }
 
 export interface CrearArticuloPayload {
@@ -303,6 +335,9 @@ export interface ActualizarArticuloPayload {
   limpiarDescripcionLarga?: boolean | null;
   limpiarCategoria?: boolean | null;
   limpiarPrecioReferencia?: boolean | null;
+  /** Si llega, liga el artículo a esa familia A+W (rechaza si ya está ligada a otro o hay existencia). */
+  productoAwId?: string | null;
+  limpiarProductoAw?: boolean | null;
 }
 
 export interface CrearArticuloResponse {
@@ -647,6 +682,8 @@ export interface ProductoAwComponente {
 
 /** Medidas en mm: null = A+W no las informó (NUNCA 0). */
 export interface ProductoAwVariante {
+  /** Id de la variante (E07 D3); lo viajan las líneas de movimiento y el saldo. */
+  id?: string;
   claveVariante: string;
   altoMm: number | null;
   anchoMm: number | null;

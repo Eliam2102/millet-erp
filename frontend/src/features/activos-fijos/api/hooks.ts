@@ -46,16 +46,18 @@ export function useGuardarActivo() {
       body,
       version,
       method = 'POST',
+      archivoHuella,
     }: {
       ruta: string;
       body: unknown;
       version?: number;
       method?: string;
+      archivoHuella?: string;
     }) =>
       apiRequest<Activo>(`${AF_BASE}/${ruta}`, {
         method,
         body,
-        idempotencyKey: keyFor({ ruta, body, version }),
+        idempotencyKey: keyFor({ ruta, body, version, archivoHuella }),
         ifMatch: version ? `"${version}"` : undefined,
       }),
     onSuccess: () => qc.invalidateQueries({ queryKey: afKeys.all }),

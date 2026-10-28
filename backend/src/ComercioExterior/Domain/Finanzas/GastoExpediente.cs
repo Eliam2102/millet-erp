@@ -47,6 +47,8 @@ public sealed class GastoExpediente : BaseEntity, IPerteneceAEmpresa, IAuditable
     public Guid EmpresaId { get; set; }
     public Guid ExpedienteId { get; private set; }
     public Guid AggregateRootId => ExpedienteId;
+    public Guid? AnticipoAgenteId { get; private set; }
+    internal void AplicarA(Guid anticipo) => AnticipoAgenteId = anticipo;
     public Guid ConceptoId { get; private set; }
     public string Concepto { get; private set; } = "";
     public bool ExcluidoDelCosto { get; private set; }
@@ -75,6 +77,8 @@ public sealed class GastoExpediente : BaseEntity, IPerteneceAEmpresa, IAuditable
     internal GastoExpediente(Guid id, Guid empresa, Guid expediente) : base(id) { EmpresaId = empresa; ExpedienteId = expediente; }
     internal void Editar(DatosGasto d, ConceptoGasto concepto, decimal tc, string fuente, OrdenServicioCopia? orden = null)
     {
+        if (AnticipoAgenteId != null)
+            throw new BusinessRuleException("CE_GASTO_YA_APLICADO", "No se puede editar un gasto aplicado a un anticipo.");
         if (concepto.RequiereOrdenServicio && orden is null)
             throw new BusinessRuleException("CE_ORDEN_SERVICIO_REQUERIDA", "Seleccione una orden de servicio para este concepto.");
         if (orden is not null && (orden.Id == Guid.Empty || orden.Total <= 0 || orden.Asignado <= 0 || orden.Asignado > orden.Total ||

@@ -302,6 +302,8 @@ export interface FacturaDetalle {
   ordenCompraFolio?: string | null;
   recepcionId?: string | null;
   recepcionFolio?: string | null;
+  clasificacionNoDeducible?: string | null;
+  ivaNoAcreditable?: number;
   estado: EstadoPasivo;
   diferenciaContraOc: number;
   anticipoAplicadoTotal: number;
@@ -661,7 +663,8 @@ export const EstadoAnticipoLabels: Record<EstadoAnticipo, string> = {
 
 export interface AnticipoListItem {
   id: string;
-  uuidCfdi: string;
+  origen?: 1 | 2;
+  uuidCfdi: string | null;
   proveedorId: string;
   serie: string;
   folioProveedor: string | null;
@@ -880,6 +883,8 @@ export interface LineaComprobacionDetalle {
   total: number;
   moneda: string;
   concepto: string | null;
+  clasificacionNoDeducible?: string | null;
+  ivaNoAcreditable?: number;
 }
 
 /**
@@ -932,6 +937,8 @@ export interface CrearComprobacionCajaChicaLinea {
   total: number;
   fechaVencimiento: string;
   concepto: string | null;
+  /** Obligatoria en ticket (sin CFDI); en línea con CFDI marca el gasto como no deducible. */
+  clasificacionNoDeducible?: string | null;
 }
 
 /** GI-PR4 (doc 12 Q1): destino de la reposición de caja chica. */
@@ -1102,6 +1109,8 @@ export interface LineaViaticosDetalle {
   moneda: string;
   concepto: string;
   esTicketNoFiscal: boolean;
+  clasificacionNoDeducible?: string | null;
+  ivaNoAcreditable?: number;
 }
 
 /**
@@ -1181,6 +1190,8 @@ export interface CapturarLineaViaticosInput {
   moneda: string;
   concepto: string;
   esTicketNoFiscal: boolean;
+  /** Obligatoria en ticket no fiscal; en línea con CFDI marca el gasto como no deducible. */
+  clasificacionNoDeducible?: string | null;
 }
 
 export interface CapturarComprobacionViaticosCommand {
@@ -1308,6 +1319,14 @@ export interface MovimientoTc {
   facturaProveedorId: string | null;
   conceptoContable: string;
   version: number;
+  clasificacionNoDeducible: string | null;
+  ivaNoAcreditable: number;
+}
+
+/** Fila del catálogo de clasificaciones de gasto no deducible (P8.6). */
+export interface ClasificacionNoDeducible {
+  clave: string;
+  descripcion: string;
 }
 
 export interface CrearTarjetaCommand {
@@ -1365,6 +1384,8 @@ export interface RegistrarMovimientoTcConCfdiCommand {
   retenciones: number;
   totalFactura: number;
   fechaVencimiento: string;
+  /** Opcional: si viene, el CFDI es no deducible y su IVA va a «IVA no acreditable». */
+  clasificacionNoDeducible?: string | null;
 }
 
 export interface RegistrarMovimientoTcSinCfdiCommand {
@@ -1378,6 +1399,7 @@ export interface RegistrarMovimientoTcSinCfdiCommand {
   descripcionLibre: string | null;
   conceptoContable: string;
   ticketBlobRef: string | null;
+  clasificacionNoDeducible: string;
 }
 
 // ─── Estados de Cuenta TC + Cierre (FE-F6-PR2) ────────────────────────
@@ -1456,6 +1478,7 @@ export interface ConfirmarMatchLineaBancoCommand {
 export interface CapturarMovimientoDesdeLineaCommand {
   usuarioQueUsoId: string;
   conceptoContable: string;
+  clasificacionNoDeducible: string;
 }
 
 // ─── Refunds + Movimientos Especiales + Disputas (FE-F6-PR2) ──────────

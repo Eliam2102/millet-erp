@@ -17,7 +17,8 @@ namespace Millet.Api.IntegrationTests.Compras;
 /// <c>RECH-DUP</c> tiene <c>permite_texto_libre = false</c>;
 /// <c>RECH-OTRO</c> tiene <c>permite_texto_libre = true</c>.
 /// </summary>
-public class RechazarEliminarEndpointsTests : IClassFixture<WebApplicationFactory<Program>>
+[Collection(ApiCompartida.Nombre)]
+public class RechazarEliminarEndpointsTests
 {
     private const string SuperAdminOid = "dev-superadmin";
     private const string SinPermisosOid = "test-no-perms";

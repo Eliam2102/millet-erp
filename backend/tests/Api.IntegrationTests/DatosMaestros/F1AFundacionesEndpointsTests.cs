@@ -12,7 +12,8 @@ using Millet.DatosMaestros.Application.ProductosAw;
 using Millet.DatosMaestros.Domain;
 namespace Millet.Api.IntegrationTests.DatosMaestros;
 
-public sealed class F1AFundacionesEndpointsTests(WebApplicationFactory<Program> factory) : IClassFixture<WebApplicationFactory<Program>>
+[Collection(ApiCompartida.Nombre)]
+public sealed class F1AFundacionesEndpointsTests(WebApplicationFactory<Program> factory)
 {
     private const string Clasificacion = "00000012-0001-0000-0000-000000000001";
     private async Task<HttpClient> ClienteAsync()

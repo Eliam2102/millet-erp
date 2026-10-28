@@ -182,6 +182,15 @@ public sealed class AlmacenEventListenerWorker : BackgroundService, ILocalIntegr
                     break;
                 }
 
+                // 86e3tabdp: recepción mal capturada cancelada en Almacén.
+                case OcRecepcionCanceladaHandler.EventType:
+                {
+                    var payload = JsonSerializer.Deserialize<OcRecepcionCanceladaPayload>(body, JsonOpts)
+                        ?? throw new JsonException("Payload null.");
+                    await mediator.Send(new OcRecepcionCanceladaCommand(eventId, payload), cancellationToken);
+                    break;
+                }
+
                 default:
                 {
                     _logger.Log(

@@ -18,8 +18,40 @@ public sealed class ContenedoresTests
     {
         var id = Guid.NewGuid(); e.GuardarContenedor(id, new(completo ? "DEMO-C" : null, "S", "B", completo ? "DEMO-BL" : null, "R", Hoy, 10, 1)); return id;
     }
-    private static void Pedimento(Expediente e, string clave = "A1") => e.RegistrarPedimentoExportacion("DEMO-PEDIMENTO", clave, Hoy, Hoy);
+    private static void Pedimento(Expediente e, string clave = "A1") => e.RegistrarPedimentoExportacion("DEMO-PEDIMENTO", clave, Hoy, Hoy, "16");
     private static void Codigo(string code, Action action) => Assert.Equal(code, Assert.Throws<BusinessRuleException>(action).Code);
+
+    [Theory]
+    [InlineData(null)][InlineData("")][InlineData("99")]
+    public void Pedimento_exige_aduana_del_catalogo(string? aduana)
+    {
+        var e = Nuevo();
+        var ex = Assert.Throws<BusinessRuleException>(() => e.RegistrarPedimentoExportacion("DEMO", "A1", Hoy, Hoy, aduana));
+        Assert.Equal("CE_ADUANA_INVALIDA", ex.Code);
+        Assert.Equal("Seleccione una aduana del catálogo", ex.Message);
+        Assert.Null(e.NumeroPedimentoExportacion);
+    }
+
+    [Fact]
+    public void Pedimento_guarda_aduana_y_libera_facturacion()
+    {
+        var e = Nuevo(); var c = Contenedor(e); var p = Pedido(e);
+        Pedimento(e); e.AsignarPartida(c, p, 1, 100, Actor); e.RegistrarEmbarque(c, Hoy, Hoy);
+        Assert.Equal("16", e.AduanaPedimentoExportacion);
+        Assert.Null(e.BloqueoFacturacion(p).Codigo);
+    }
+
+    [Fact]
+    public void Pedimento_viejo_embarca_pero_exige_aduana_para_facturar()
+    {
+        var e = Nuevo(); var c = Contenedor(e); var p = Pedido(e);
+        Pedimento(e); e.AsignarPartida(c, p, 1, 100, Actor);
+        typeof(Expediente).GetProperty(nameof(Expediente.AduanaPedimentoExportacion))!.SetValue(e, null);
+        Assert.True(e.PedimentoExportacionVigente());
+        e.RegistrarEmbarque(c, Hoy, Hoy);
+        Assert.Equal("CE_PEDIMENTO_SIN_ADUANA", e.BloqueoFacturacion(p).Codigo);
+        Pedimento(e); Assert.Null(e.BloqueoFacturacion(p).Codigo);
+    }
 
     [Fact]
     public void Cancelar_expediente_libera_partidas_y_vinculos_con_historial_y_rechaza_facturas()
@@ -108,12 +140,12 @@ public sealed class ContenedoresTests
     {
         var e = Nuevo(); var tipo = new RequisitoDocumento(Guid.NewGuid(), "EXP_PEDIMENTO", "Pedimento", true, false);
         var doc = Guid.NewGuid(); var adjunto = Guid.NewGuid(); e.RegistrarDocumento(doc, tipo, adjunto, null, Actor, "DEMO-ORIGINAL");
-        e.RegistrarPedimentoExportacion("", "A1", Hoy, Hoy, doc); Assert.Equal("DEMO-ORIGINAL", e.NumeroPedimentoExportacion);
+        e.RegistrarPedimentoExportacion("", "A1", Hoy, Hoy, "16", doc); Assert.Equal("DEMO-ORIGINAL", e.NumeroPedimentoExportacion);
         Assert.True(e.PedimentoExportacionVigente([adjunto])); Assert.False(e.PedimentoExportacionVigente([]));
         var nuevo = Guid.NewGuid(); e.RegistrarDocumento(nuevo, tipo, Guid.NewGuid(), "DEMO rectificación", Actor, "DEMO-RECTIFICADO");
-        Assert.Equal("DEMO-RECTIFICADO", e.NumeroPedimentoExportacion); Assert.Equal(nuevo, e.DocumentoPedimentoExportacionId); Assert.True(e.RevisionPendiente);
-        Codigo("CE_PEDIMENTO_NO_VIGENTE", () => e.RegistrarPedimentoExportacion("N", "A1", Hoy, Hoy, doc));
-        Codigo("CE_PEDIMENTO_INVALIDO", () => e.RegistrarPedimentoExportacion("N", "ZZ", Hoy, Hoy));
+        Assert.Equal("DEMO-RECTIFICADO", e.NumeroPedimentoExportacion); Assert.Equal(nuevo, e.DocumentoPedimentoExportacionId); Assert.True(e.RevisionPendiente); Assert.Equal("16", e.AduanaPedimentoExportacion);
+        Codigo("CE_PEDIMENTO_NO_VIGENTE", () => e.RegistrarPedimentoExportacion("N", "A1", Hoy, Hoy, "16", doc));
+        Codigo("CE_PEDIMENTO_INVALIDO", () => e.RegistrarPedimentoExportacion("N", "ZZ", Hoy, Hoy, "16"));
     }
     [Fact]
     public void K9_cancelar_no_cancela_pedido_y_no_se_quita_con_factura()

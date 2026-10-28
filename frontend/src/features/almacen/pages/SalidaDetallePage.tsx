@@ -117,25 +117,11 @@ export function SalidaDetallePage() {
                   ? query.data.subAlmacenClave
                     ? `${query.data.subAlmacenClave} · ${query.data.subAlmacenNombre}`
                     : query.data.subAlmacenNombre
-                  : query.data.subAlmacenId
-              }
-              mono={!query.data.subAlmacenNombre}
-            />
-            <Campo
-              label="Requisición"
-              valor={query.data.rqFolio ?? query.data.rqId ?? '—'}
-              mono={query.data.rqFolio == null && query.data.rqId != null}
-            />
-            <Campo
-              label="Persona destinataria"
-              valor={
-                query.data.personaDestinatariaNombre ?? query.data.personaDestinatariaId ?? '—'
-              }
-              mono={
-                query.data.personaDestinatariaNombre == null &&
-                query.data.personaDestinatariaId != null
+                  : '—'
               }
             />
+            <Campo label="Requisición" valor={query.data.rqFolio ?? '—'} mono={query.data.rqFolio != null} />
+            <Campo label="Persona destinataria" valor={query.data.personaDestinatariaNombre ?? '—'} />
             {query.data.esPorVale && query.data.valeBlobRef && (
               <Campo label="Vale escaneado" valor={query.data.valeBlobRef} mono />
             )}
@@ -148,8 +134,8 @@ export function SalidaDetallePage() {
             {query.data.esPorVale && query.data.rqRegularizadoraId && (
               <Campo
                 label="RQ regularizadora"
-                valor={query.data.rqRegularizadoraFolio ?? query.data.rqRegularizadoraId}
-                mono={query.data.rqRegularizadoraFolio == null}
+                valor={query.data.rqRegularizadoraFolio ?? '—'}
+                mono={query.data.rqRegularizadoraFolio != null}
               />
             )}
             {query.data.observaciones && (
@@ -195,7 +181,7 @@ export function SalidaDetallePage() {
                         </TableCell>
                       ) : (
                         <TableCell className="px-3 py-2 font-mono text-xs">
-                          {l.articuloId}
+                          {l.articuloClave ?? '—'}
                           {l.comentarioLinea && (
                             <div className="font-sans text-xs text-ink-muted">
                               {l.comentarioLinea}
@@ -222,6 +208,11 @@ export function SalidaDetallePage() {
                       </TableCell>
                       <TableCell className="px-3 py-2">
                         {l.unidadMedida}
+                        {l.anchoMm != null && l.altoMm != null && (
+                          <span className="block text-xs tabular-nums text-ink-muted">
+                            Medida {l.anchoMm} × {l.altoMm} mm
+                          </span>
+                        )}
                         {l.unidadCapturada && (
                           <span className="block text-xs text-ink-muted">
                             Captura: {l.cantidadCapturada} {l.unidadCapturada}

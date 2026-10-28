@@ -16,13 +16,33 @@ import {
 } from '@/components/ui/sheet';
 import { ClienteSelectorCxc } from '@/features/cxc/components/ClienteSelectorCxc';
 import { useCreditoDisponible } from '@/features/cxc/api/useLineasCredito';
-import { useAutorizacionesCredito, useDecidirLiberacion } from '@/features/cxc/api/useLiberaciones';
 import {
+  useAutorizacionesCredito,
+  useDecidirLiberacion,
+  useReglasLiberacionSerie,
+} from '@/features/cxc/api/useLiberaciones';
+import {
+  ComportamientoSerie,
   EstadoAutorizacionCredito,
+  EstadoLineaCredito,
   MONEDAS_LINEA_CREDITO,
   ResultadoLiberacion,
 } from '@/features/cxc/api/types';
-import { ETIQUETA_RESULTADO_LIBERACION, formatoMonto } from '@/features/cxc/lib/glosario';
+import {
+  ETIQUETA_RESULTADO_LIBERACION,
+  formatoCobertura,
+  formatoMonto,
+} from '@/features/cxc/lib/glosario';
+import {
+  UMBRAL_COBERTURA_AUTORIZACION,
+  autorizacionesConsumibles,
+  calcularCobertura,
+  comportamientoSeriePedido,
+  mensajeErrorAutorizar,
+  mostrarSelectorOverride,
+  textoCoberturaPreview,
+  textoSinLineaActiva,
+} from '@/features/cxc/lib/autorizar-pendiente';
 import {
   DecidirLiberacionSchema,
   type DecidirLiberacionValues,
@@ -85,16 +105,24 @@ function FormDecidir({ onClose }: { onClose: () => void }) {
     },
   });
 
-  const [clienteId, moneda, montoPedido, overrideId] = useWatch({
+  const [pedidoRef, clienteId, moneda, montoPedido, overrideId] = useWatch({
     control: form.control,
-    name: ['clienteId', 'moneda', 'montoPedido', 'overrideId'],
+    name: ['pedidoRef', 'clienteId', 'moneda', 'montoPedido', 'overrideId'],
   });
 
   // Snapshot indicativo del crédito de la línea (cliente, moneda).
   const credito = useCreditoDisponible(clienteId || null);
-  const lineaMoneda = credito.data?.lineas.find((l) => l.moneda === moneda);
+  // C7.3 supuesto (e): solo la línea Activa cuenta; bloqueada = sin línea.
+  const lineaMoneda = credito.data?.lineas.find(
+    (l) => l.moneda === moneda && l.estado === EstadoLineaCredito.Activa,
+  );
+  const lineaBloqueada =
+    lineaMoneda == null && (credito.data?.lineas.some((l) => l.moneda === moneda) ?? false);
   const disponible = lineaMoneda?.disponible ?? null;
   const alcanza = disponible != null && montoPedido > 0 && disponible >= montoPedido;
+  // C7.3: cobertura indicativa (el backend decide con la serie y el dato vivo).
+  const cobertura = lineaMoneda ? calcularCobertura(disponible, montoPedido) : null;
+  const pendiente = !alcanza && cobertura != null && cobertura >= UMBRAL_COBERTURA_AUTORIZACION;
 
   // Overrides vigentes del usuario actual (solo el beneficiario consume).
   const autorizaciones = useAutorizacionesCredito(
@@ -104,21 +132,32 @@ function FormDecidir({ onClose }: { onClose: () => void }) {
     },
     { enabled: usuarioId != null },
   );
-  const vigentes = autorizaciones.data?.items ?? [];
+  const vigentes = autorizacionesConsumibles(autorizaciones.data?.items ?? []);
+  // C7.2: la serie que exige autorización conserva el override siempre.
+  const reglasSerie = useReglasLiberacionSerie();
+  const comportamiento = comportamientoSeriePedido(pedidoRef ?? '', reglasSerie.data ?? []);
+  const serieExigeAutorizacion = comportamiento === ComportamientoSerie.NuncaLibera;
+  const ofreceOverride = mostrarSelectorOverride(alcanza, cobertura, comportamiento);
 
-  // Si el crédito alcanza, el override no aplica — se limpia solo.
+  // Si el override deja de ofrecerse (crédito alcanza o cubre < 50 %), se limpia solo.
   useEffect(() => {
-    if (alcanza && overrideId != null) {
+    if (!ofreceOverride && overrideId != null) {
       form.setValue('overrideId', null, { shouldDirty: false });
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [alcanza]);
+  }, [ofreceOverride]);
 
-  const etiquetaBoton = alcanza
-    ? 'Liberar pedido'
-    : overrideId
+  const etiquetaBoton = serieExigeAutorizacion
+    ? overrideId
       ? 'Liberar con override'
-      : 'Registrar retención';
+      : 'Registrar retención'
+    : alcanza
+      ? 'Liberar pedido'
+      : overrideId
+        ? 'Liberar con override'
+        : pendiente
+          ? 'Enviar a autorización'
+          : 'Registrar retención';
 
   function onSubmit(values: DecidirLiberacionValues) {
     decidir.mutate(
@@ -135,9 +174,14 @@ function FormDecidir({ onClose }: { onClose: () => void }) {
       {
         onSuccess: (res) => {
           const etiqueta = ETIQUETA_RESULTADO_LIBERACION[res.resultado];
+          const cob = formatoCobertura(res.porcentajeCobertura);
           if (res.resultado === ResultadoLiberacion.Retenido) {
             toast.warning(`Pedido ${res.pedidoRef}: ${etiqueta}.`, {
-              description: `Crédito disponible al decidir: ${formatoMonto(res.creditoDisponibleSnapshot, res.moneda)}.`,
+              description: `Crédito disponible al decidir: ${formatoMonto(res.creditoDisponibleSnapshot, res.moneda)}${cob ? ` (${cob})` : ''}.`,
+            });
+          } else if (res.resultado === ResultadoLiberacion.PendienteAutorizacion) {
+            toast.info(`Pedido ${res.pedidoRef}: ${etiqueta}.`, {
+              description: `${cob ?? 'Cobertura parcial'}. Un gerente de CxC debe autorizarlo desde la bandeja.`,
             });
           } else {
             toast.success(`Pedido ${res.pedidoRef}: ${etiqueta}.`);
@@ -151,7 +195,12 @@ function FormDecidir({ onClose }: { onClose: () => void }) {
             ) {
               return;
             }
-            toast.error(error.problem.title, {
+            const { titulo } = mensajeErrorAutorizar(error);
+            const conocido =
+              error.problem.code === 'CXC_COBERTURA_INSUFICIENTE' ||
+              error.problem.code === 'CXC_SIN_LINEA_ACTIVA' ||
+              error.problem.code === 'AC_REFERENCIA_DISTINTA';
+            toast.error(conocido ? titulo : error.problem.title, {
               description: error.problem.detail ?? codigoSoporte(error),
             });
             return;
@@ -255,8 +304,12 @@ function FormDecidir({ onClose }: { onClose: () => void }) {
               <p className="text-ink-muted">Evaluando crédito…</p>
             ) : lineaMoneda == null ? (
               <p>
-                {clienteLabel ?? 'El cliente'} no tiene línea de crédito en {moneda} — sin override,
-                la decisión quedará retenida.
+                {textoSinLineaActiva(
+                  clienteLabel ?? 'El cliente',
+                  moneda,
+                  lineaBloqueada,
+                  serieExigeAutorizacion,
+                )}
               </p>
             ) : (
               <div className="space-y-1">
@@ -271,13 +324,13 @@ function FormDecidir({ onClose }: { onClose: () => void }) {
                     </span>
                   )}
                 </p>
+                {montoPedido > 0 && cobertura != null && (
+                  <p className="font-medium">{formatoCobertura(cobertura)}</p>
+                )}
                 {montoPedido > 0 && (
                   <p className="text-xs text-ink-muted">
-                    {alcanza
-                      ? 'El crédito alcanza para el monto del pedido.'
-                      : 'El crédito NO alcanza: se requiere override vigente o quedará retenido.'}{' '}
-                    Las reglas por serie (p. ej. 5000/7000 siempre liberan) las evalúa el sistema al
-                    registrar.
+                    {textoCoberturaPreview(alcanza, pendiente, serieExigeAutorizacion)} Las reglas
+                    por serie (p. ej. 5000/7000 siempre liberan) las evalúa el sistema al registrar.
                   </p>
                 )}
               </div>
@@ -285,12 +338,18 @@ function FormDecidir({ onClose }: { onClose: () => void }) {
           </section>
         )}
 
-        {/* ── Override consumible (solo si el crédito no alcanza) ────── */}
-        {clienteId && montoPedido > 0 && !alcanza && (
+        {/* ── Override consumible (serie que exige autorización, o crédito 50–99 %) ── */}
+        {clienteId && montoPedido > 0 && ofreceOverride && (
           <section className="space-y-1">
             <Label htmlFor="overrideId" className="text-xs">
               Autorización vigente (override)
             </Label>
+            {serieExigeAutorizacion && (
+              <p className="text-xs text-ink-muted">
+                La serie de este pedido solo se libera con autorización; sin override quedará
+                retenido.
+              </p>
+            )}
             {vigentes.length === 0 ? (
               <p className="rounded-md border border-dashed px-3 py-2 text-xs text-ink-muted">
                 No tienes autorizaciones vigentes a tu nombre. Pide a tu gerente que cree una desde

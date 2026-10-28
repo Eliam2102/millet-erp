@@ -14,7 +14,8 @@ namespace Millet.Api.IntegrationTests.Contabilidad;
 /// <c>ICuentaContableReadPort</c> inyectado desde el contenedor real (§7, §12): activa/afectable aceptada;
 /// título, inactiva, inexistente, de otra empresa, pendiente de validación y control manual rechazadas.
 /// </summary>
-public class PuertoLecturaTests(WebApplicationFactory<Program> factory) : IClassFixture<WebApplicationFactory<Program>>
+[Collection(ApiCompartida.Nombre)]
+public class PuertoLecturaTests(WebApplicationFactory<Program> factory)
 {
     private static CrearCuentaCommand Nueva(string codigo, TipoCuenta? tipo = TipoCuenta.Afectable, NaturalezaCuenta? nat = NaturalezaCuenta.Deudora,
         CuentaControl control = CuentaControl.Ninguna, Guid? padre = null) => new(codigo, "FIX cuenta", padre, nat, tipo, control, null, null);

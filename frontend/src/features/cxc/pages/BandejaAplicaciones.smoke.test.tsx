@@ -144,7 +144,7 @@ describe('<DetalleAplicacion> — smoke', () => {
     // Folio en vez del UUID fiscal (feedback 2026-07-14).
     expect(screen.getByText(/F-100/)).toBeInTheDocument();
     expect(screen.queryByText(/uuid-0001/)).not.toBeInTheDocument();
-    expect(screen.getByText(/parc\. 2/)).toBeInTheDocument();
+    expect(screen.getByText(/parc\. 2/i)).toBeInTheDocument();
     expect(screen.getAllByText(/ajuste no fiscal/i).length).toBeGreaterThan(0);
     expect(screen.queryByRole('button', { name: /Confirmar/i })).not.toBeInTheDocument();
     expect(screen.queryByRole('button', { name: /Rechazar/i })).not.toBeInTheDocument();

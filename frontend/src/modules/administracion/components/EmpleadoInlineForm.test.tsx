@@ -509,6 +509,17 @@ describe('<EmpleadoInlineForm> — rol sugerido por el puesto (B4)', () => {
     expect(screen.getByDisplayValue('rodrigo')).toBeInTheDocument();
     expect(screen.getByDisplayValue('millet.mx')).toBeInTheDocument();
     expect(screen.getByText('rodrigo@millet.mx')).toBeInTheDocument();
+    const telefono = screen.getByLabelText('Teléfono');
+    const extension = screen.getByLabelText('Extensión');
+    expect(screen.getByPlaceholderText('juana.perez').compareDocumentPosition(telefono) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    fireEvent.change(telefono, { target: { value: 'abc' } });
+    fireEvent.change(extension, { target: { value: '12345678901' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Guardar cambios' }));
+    expect(await screen.findByText('Usa dígitos, espacios, paréntesis, guiones o +')).toHaveClass('text-danger-fg');
+    expect(await screen.findByText('Máximo 10 caracteres')).toHaveClass('text-danger-fg');
+    expect(telefono).toHaveAttribute('aria-invalid', 'true');
+    expect(extension).toHaveAttribute('aria-invalid', 'true');
+
   });
 
   it('en modo editar muestra feedback cuando se cambia el correo corporativo', async () => {

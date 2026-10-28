@@ -20,8 +20,8 @@ namespace Millet.Api.IntegrationTests.Facturacion;
 /// cajero desde identidad.usuarios, sucursal desde compartido.sucursales) +
 /// PostgreSQL desechable. Todos los datos son ficticios.
 /// </summary>
+[Collection(ApiCompartida.Nombre)]
 public sealed class CorteCajaEndpointsTests(WebApplicationFactory<Program> factory)
-    : IClassFixture<WebApplicationFactory<Program>>
 {
     private static readonly Guid Empresa = Guid.Parse("00000003-0000-0000-0000-000000000001");
     private static readonly DatosFiscalesReceptor Receptor = new("AAA010101AAA", "Cliente ficticio FIX-12", "601", "97000", "G03", "MEX", false);

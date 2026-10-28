@@ -106,9 +106,35 @@ export const ResultadoLiberacion = {
   Liberado: 1,
   Retenido: 2,
   LiberadoConOverride: 3,
+  /**
+   * C7.3: la línea cubre entre 50 % y 99 % del pedido; espera la
+   * autorización de un gerente de CxC (permiso override).
+   */
+  PendienteAutorizacion: 4,
 } as const satisfies Record<string, number>;
 export type ResultadoLiberacion =
   (typeof ResultadoLiberacion)[keyof typeof ResultadoLiberacion];
+
+/**
+ * C7.3: comportamiento de una serie de folio. Mirror de backend
+ * <c>ComportamientoSerie</c>.
+ */
+export const ComportamientoSerie = {
+  /** Siempre libera sin evaluar crédito (5000/7000). */
+  SiempreLibera: 1,
+  /** Nunca libera por crédito: solo con autorización (3000/4000/8000). */
+  NuncaLibera: 2,
+  /** Evalúa crédito disponible (sin regla de serie). */
+  EvaluaCredito: 3,
+} as const satisfies Record<string, number>;
+export type ComportamientoSerie =
+  (typeof ComportamientoSerie)[keyof typeof ComportamientoSerie];
+
+/** Mirror de backend <c>ReglaLiberacionSerieResponse</c> (solo activas). */
+export interface ReglaLiberacionSerieResponse {
+  prefijo: string;
+  comportamiento: ComportamientoSerie;
+}
 
 /**
  * Regla que determinó el resultado (cascada serie → crédito → override).
@@ -118,6 +144,8 @@ export const ReglaAplicadaLiberacion = {
   Serie: 1,
   Credito: 2,
   Override: 3,
+  /** C7.3: cobertura parcial del crédito (50–99 %). */
+  Cobertura: 4,
 } as const satisfies Record<string, number>;
 export type ReglaAplicadaLiberacion =
   (typeof ReglaAplicadaLiberacion)[keyof typeof ReglaAplicadaLiberacion];
@@ -151,6 +179,34 @@ export interface DecisionLiberacionResponse {
   overrideId: string | null;
   decididoPor: string;
   decididoEn: string;
+  /**
+   * C7.3: crédito disponible ÷ monto (%, 2 decimales truncados, 0–100).
+   * null si la regla de crédito no se evaluó (serie o sin línea activa).
+   */
+  porcentajeCobertura?: number | null;
+  /** C7.3: pendiente que esta liberación resolvió. */
+  decisionOrigenId?: string | null;
+  /** C7.3: decisión que resolvió esta pendiente (null = sigue pendiente). */
+  resolucionId?: string | null;
+  /** C7.3: motivo del gerente de CxC que autorizó o rechazó la pendiente. */
+  motivo?: string | null;
+}
+
+/** Body de POST /liberaciones/{id}/autorizar (C7.3). */
+export interface AutorizarLiberacionPendienteBody {
+  motivo: string;
+}
+
+/** Body de POST /liberaciones/{id}/rechazar (C7.3). */
+export interface RechazarLiberacionPendienteBody {
+  motivo: string;
+}
+
+/** Usuario con permiso de decidir liberaciones (GET /autorizaciones/beneficiarios). */
+export interface BeneficiarioCreditoResponse {
+  id: string;
+  nombre: string;
+  email: string;
 }
 
 /** Payload del POST decidir (mirror de <c>DecidirLiberacionCommand</c>). */
@@ -380,7 +436,10 @@ export interface PropuestaFacturaResponse {
   /** Folio de la factura en cartera — la UI lo muestra en vez del UUID. */
   folio: string | null;
   importeAplicado: number;
+  /** C7.4-a: número de parcialidad calculado por CxC (null en PUE). */
   numParcialidad: number | null;
+  /** C7.4-a: saldo insoluto proyectado después de esta propuesta (solo propuestas abiertas). */
+  saldoInsoluto?: number | null;
 }
 
 /** Mirror de backend <c>PropuestaAplicacionResponse</c>. */
@@ -401,13 +460,16 @@ export interface PropuestaAplicacionResponse {
   resueltaEn: string | null;
   facturas: PropuestaFacturaResponse[];
   version: number;
+  /** C7.4: depósito bancario identificado (o confirmado por Tesorería). */
+  movimientoBancarioId?: string | null;
 }
 
 /** Línea del payload de creación (mirror de <c>PropuestaFacturaLinea</c>). */
 export interface PropuestaFacturaLinea {
   facturaUuid: string;
   importeAplicado: number;
-  numParcialidad: number | null;
+  /** Ignorado por el backend desde C7.4: CxC calcula la parcialidad. */
+  numParcialidad?: number | null;
 }
 
 /** Payload del POST (mirror de <c>CrearPropuestaAplicacionCommand</c>). */
@@ -418,6 +480,26 @@ export interface CrearPropuestaAplicacionCommand {
   moneda: string;
   remittanceRef: string;
   facturas: PropuestaFacturaLinea[];
+  /** C7.4: depósito sin identificar que se identifica con esta propuesta. */
+  movimientoBancarioId?: string | null;
+}
+
+/**
+ * C7.4 · CA7.9: depósito de cliente sin identificar. Mirror de backend
+ * <c>DepositoPorIdentificarResponse</c>; <c>disponible</c> ya descuenta las
+ * propuestas pendientes de CxC y lo confirmado por Tesorería (sobrante).
+ */
+export interface DepositoPorIdentificarItem {
+  movimientoBancarioId: string;
+  cuenta: string;
+  fechaValor: string;
+  referencia: string | null;
+  monto: number;
+  disponible: number;
+  moneda: string;
+  sucursalId: string | null;
+  clienteId: string | null;
+  clienteNombre: string | null;
 }
 
 /**
@@ -436,6 +518,10 @@ export interface FacturaAbiertaItem {
   saldo: number;
   fechaTimbrado: string;
   fechaVencimiento: string;
+  /** C7.4: parcialidad siguiente según Facturación + propuestas abiertas (null en PUE). */
+  numParcialidadSiguiente?: number | null;
+  /** C7.4: saldo menos propuestas abiertas (lo que aún puede aplicarse). */
+  disponible?: number | null;
 }
 
 // ─── Alertas de cartera (Domain.Alertas, CXC-PR8) ─────────────────────

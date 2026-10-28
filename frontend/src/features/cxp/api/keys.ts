@@ -102,6 +102,8 @@ export const cxpKeys = {
     [...cxpKeys.tarjetas(), 'list', filtros] as const,
   tarjetaById: (id: string) => [...cxpKeys.tarjetas(), 'byId', id] as const,
 
+  clasificacionesNoDeducibles: () => [...cxpKeys.all, 'clasificaciones-no-deducibles'] as const,
+
   movimientosTc: () => [...cxpKeys.all, 'movimientos-tc'] as const,
   movimientosTcList: (filtros: ListarMovimientosTcFiltros) =>
     [...cxpKeys.movimientosTc(), 'list', filtros] as const,

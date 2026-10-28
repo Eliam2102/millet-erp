@@ -99,6 +99,20 @@ public abstract class Comprobante : BaseEntity, IPerteneceAEmpresa, IFiscalmente
     public string? Uuid { get; private set; }
     public string? SelloCfdi { get; private set; }
     public string? SelloSat { get; private set; }
+    public string? NoCertificadoEmisor { get; private set; }
+    public string? CadenaOriginalTimbre { get; private set; }
+
+    public void RecalcularDatosTimbre(string? xmlTimbrado)
+    {
+        if (Uuid is null)
+            throw new BusinessRuleException("COMPROBANTE_SIN_TIMBRE", "El comprobante debe tener timbre antes de recuperar sus datos de certificación.");
+        var uuidXml = global::Millet.Facturacion.Domain.Comprobantes.CadenaOriginalTimbre.UuidDesde(xmlTimbrado);
+        if (uuidXml is not null && !string.Equals(uuidXml, Uuid, StringComparison.OrdinalIgnoreCase))
+            throw new BusinessRuleException("XML_TIMBRE_DISTINTO", "El XML corresponde a otro comprobante; recupera el archivo del UUID correcto.");
+        NoCertificadoEmisor = global::Millet.Facturacion.Domain.Comprobantes.CadenaOriginalTimbre.CertificadoEmisorDesde(xmlTimbrado) ?? NoCertificadoEmisor;
+        CadenaOriginalTimbre = global::Millet.Facturacion.Domain.Comprobantes.CadenaOriginalTimbre.Desde(xmlTimbrado) ?? CadenaOriginalTimbre;
+    }
+
     public string? NoCertificadoSat { get; private set; }
     public DateTimeOffset? FechaTimbrado { get; private set; }
     public string? RfcProveedorCertificacion { get; private set; }

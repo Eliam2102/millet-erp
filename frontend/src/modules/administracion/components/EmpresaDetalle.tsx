@@ -1,3 +1,4 @@
+import { EmpresaLogoSection } from './EmpresaLogoSection';
 import { DialogBody } from '@/components/ui/dialog';
 import { ConfirmacionContent as AlertDialogContent } from '@/modules/administracion/components/ConfirmacionContent';
 import { PageHeader } from '@/components/erp/PageHeader';
@@ -182,6 +183,7 @@ function EmpresaDetalleContenido({
 
       <div className="px-4 pt-4 pb-6">
         <EmpresaDatosForm key={empresa.id} empresa={empresa} />
+        <EmpresaLogoSection empresaId={empresa.id} />
       </div>
 
       <AlertDialog open={confirmDesactivar} onOpenChange={setConfirmDesactivar}>

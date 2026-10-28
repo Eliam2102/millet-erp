@@ -1,9 +1,12 @@
 using Microsoft.EntityFrameworkCore;
+using MediatR;
+using Millet.Compras.Application.Oc.RegistrarImpresion;
 using Microsoft.Extensions.Logging;
 using Millet.Compras.Application.Oc.Envios;
 using Millet.Compras.Domain;
 using Millet.Compras.Domain.Oc;
-using Millet.Compras.Domain.Ports.Blob;
+using Millet.Compras.Application.Oc.Pdf;
+using Millet.Compras.Domain.Ports.Pdf;
 using Millet.Compras.Domain.Ports.DatosMaestros;
 using Millet.Compras.Infrastructure;
 using Millet.SharedKernel.Application;
@@ -28,8 +31,10 @@ public sealed class EnviosOcTests
         Assert.Equal(f.Reloj.UtcNow, envio.Fecha);
         Assert.Equal(f.Pdf.Id, envio.PdfId);
         Assert.Equal(new byte[] { 37, 80, 68, 70 }, f.Correo.Ultimo!.Pdf);
+        Assert.Equal("ORIGINAL", f.Impresion.MarcaUsada);
         Assert.Equal(estados, (f.Oc.Estado, f.Oc.SubEstadoRecepcion, f.Oc.SubEstadoFacturacion, f.Oc.SubEstadoPago));
         Assert.Single(await f.Db.EnviosOc.ToListAsync());
+        Assert.Equal(new RegistrarImpresionOcCommand(f.Oc.Id, f.Pdf.Id), Assert.Single(f.Sender.Impresiones));
     }
 
     [Fact]
@@ -65,6 +70,7 @@ public sealed class EnviosOcTests
         var segundo = await f.Enviar();
         Assert.NotEqual(primero.Id, segundo.Id);
         Assert.Equal(2, await f.Db.EnviosOc.CountAsync());
+        Assert.Equal(2, f.Sender.Impresiones.Count);
         Assert.Equal(1, await f.Db.OrdenesCompra.CountAsync());
     }
 
@@ -75,6 +81,7 @@ public sealed class EnviosOcTests
         var envio = await f.Enviar(modo: "manual");
         Assert.Equal("manual", envio.Modo);
         Assert.Equal("registrado", envio.Resultado);
+        Assert.Empty(f.Sender.Impresiones);
         Assert.Equal(f.Usuario.UserId, envio.UsuarioId);
         Assert.Equal(f.Reloj.UtcNow, envio.Fecha);
         Assert.Null(f.Correo.Ultimo);
@@ -99,10 +106,33 @@ public sealed class EnviosOcTests
         f.Correo.Falla = true;
         var envio = await f.Enviar();
         Assert.Equal("fallido", envio.Resultado);
+        Assert.Empty(f.Sender.Impresiones);
         Assert.Single(f.Db.EnviosOc);
         var aviso = Assert.Single(f.Logger.Mensajes);
         Assert.Contains(f.Oc.Id.ToString(), aviso);
         Assert.DoesNotContain("example.test", aviso);
+    }
+
+    [Theory]
+    [InlineData(false, "aceptado")]
+    [InlineData(true, "simulado")]
+    public async Task FalloImpresion_ConservaEnvioGuardado_YRegistraAdvertencia(bool simulado, string resultado)
+    {
+        using var f = new Fixture();
+        f.Correo.EsSimulado = simulado;
+        f.Sender.Falla = true;
+
+        var envio = await f.Enviar();
+
+        Assert.Equal(resultado, envio.Resultado);
+        f.Db.ChangeTracker.Clear();
+        Assert.Equal(resultado, (await f.Db.EnviosOc.SingleAsync()).Resultado);
+        Assert.NotNull(f.Correo.Ultimo);
+        Assert.Single(f.Sender.Impresiones);
+        var advertencia = Assert.Single(f.Logger.Entradas);
+        Assert.Equal(LogLevel.Warning, advertencia.Nivel);
+        Assert.IsType<InvalidOperationException>(advertencia.Error);
+        Assert.Contains(envio.Id.ToString(), advertencia.Mensaje);
     }
 
     [Fact]
@@ -175,7 +205,9 @@ public sealed class EnviosOcTests
         public Reloj Reloj { get; } = new();
         public Proveedores Proveedores { get; } = new();
         public Correo Correo { get; } = new();
+        public Impresion Impresion { get; } = new();
         public LoggerCaptura Logger { get; } = new();
+        public Sender Sender { get; } = new();
         public Fixture(int firmas = 2, bool requiereNivel2 = true)
         {
             var empresa = new Empresa();
@@ -184,6 +216,7 @@ public sealed class EnviosOcTests
                 Millet.Compras.Domain.Oc.Folio.Parse("OC-MID2026-000001"), 2026,
                 Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid(),
                 new DateOnly(2026, 10, 22), sinRequisicionPrevia: true, motivoSinRequisicion: "DEMO ficticio");
+            Oc.ActualizarDatosFactura("G03", "PPD", "99");
             Oc.AgregarLineaManual(Guid.NewGuid(), Guid.NewGuid(), 1, "PZA", 100, Guid.NewGuid());
             if (firmas > 0)
             {
@@ -197,9 +230,24 @@ public sealed class EnviosOcTests
             Db.SaveChanges();
         }
         public Task<EnvioOc> Enviar(string? email = null, string modo = "correo") =>
-            new RegistrarEnvioOcHandler(Db, Usuario, Reloj, Proveedores, new Blob(), Correo, Logger)
+            new RegistrarEnvioOcHandler(Db, Usuario, Reloj, Proveedores, Impresion, Correo, Sender, Logger)
                 .Handle(new RegistrarEnvioOcCommand(Oc.Id, email, modo), default);
         public void Dispose() => Db.Dispose();
+    }
+    private sealed class Sender : ISender
+    {
+        public bool Falla { get; set; }
+        public List<RegistrarImpresionOcCommand> Impresiones { get; } = [];
+        public Task<TResponse> Send<TResponse>(IRequest<TResponse> request, CancellationToken cancellationToken = default)
+        {
+            Impresiones.Add(Assert.IsType<RegistrarImpresionOcCommand>(request));
+            if (Falla) throw new InvalidOperationException("Fallo de impresión DEMO");
+            return Task.FromResult((TResponse)(object)Impresiones.Count);
+        }
+        public Task Send<TRequest>(TRequest request, CancellationToken cancellationToken = default) where TRequest : IRequest => throw new NotSupportedException();
+        public Task<object?> Send(object request, CancellationToken cancellationToken = default) => throw new NotSupportedException();
+        public IAsyncEnumerable<TResponse> CreateStream<TResponse>(IStreamRequest<TResponse> request, CancellationToken cancellationToken = default) => throw new NotSupportedException();
+        public IAsyncEnumerable<object?> CreateStream(object request, CancellationToken cancellationToken = default) => throw new NotSupportedException();
     }
     private sealed class Empresa : ICurrentEmpresaContext
     {
@@ -221,7 +269,7 @@ public sealed class EnviosOcTests
     }
     private sealed class Correo : ICorreoDocumentoService
     {
-        public bool EsSimulado => true;
+        public bool EsSimulado { get; set; } = true;
         public bool Falla { get; set; }
         public CorreoDocumento? Ultimo { get; private set; }
         public Task EnviarAsync(CorreoDocumento correo, CancellationToken ct)
@@ -234,15 +282,23 @@ public sealed class EnviosOcTests
     private sealed class LoggerCaptura : ILogger<RegistrarEnvioOcHandler>
     {
         public List<string> Mensajes { get; } = [];
+        public List<(LogLevel Nivel, Exception? Error, string Mensaje)> Entradas { get; } = [];
         public IDisposable? BeginScope<TState>(TState state) where TState : notnull => null;
         public bool IsEnabled(LogLevel logLevel) => true;
         public void Log<TState>(LogLevel logLevel, EventId eventId, TState state, Exception? exception, Func<TState, Exception?, string> formatter)
-        { if (logLevel == LogLevel.Warning) Mensajes.Add(formatter(state, exception)); }
+        {
+            Entradas.Add((logLevel, exception, formatter(state, exception)));
+            if (logLevel == LogLevel.Warning) Mensajes.Add(formatter(state, exception));
+        }
     }
-    private sealed class Blob : IAlmacenarBlobPort
+    private sealed class Impresion : ImpresionOrdenCompraService
     {
-        public Task<Stream> ObtenerStreamAsync(string url, CancellationToken ct) => Task.FromResult<Stream>(new MemoryStream([37, 80, 68, 70]));
-        public Task<string> SubirAsync(Guid id, Stream contenido, string tipo, string nombre, CancellationToken ct) => throw new NotSupportedException();
-        public Task EliminarAsync(string url, CancellationToken ct) => throw new NotSupportedException();
+        public Impresion() : base(null!, null!, null!, null!, null!, null!, null!, null!) { }
+        public string? MarcaUsada { get; private set; }
+        public override Task<PdfOrdenCompraGenerado> RenderizarAsync(Guid ordenCompraId, string? marca, CancellationToken ct)
+        {
+            MarcaUsada = marca;
+            return Task.FromResult(new PdfOrdenCompraGenerado([37, 80, 68, 70], "application/pdf", "OC-MID2026-000001.pdf"));
+        }
     }
 }

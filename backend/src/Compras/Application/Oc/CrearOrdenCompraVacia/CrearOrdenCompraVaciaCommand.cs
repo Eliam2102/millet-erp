@@ -44,4 +44,7 @@ public sealed record CrearOrdenCompraVaciaCommand(
     string? MotivoSinRequisicion = null,
     DateOnly? FechaEntregaEsperada = null,
     Guid? EncargadoComprasId = null,
-    Guid? OcOrigenId = null) : IRequest<CrearOrdenCompraVaciaResponse>;
+    Guid? OcOrigenId = null,
+    string? UsoCfdiClave = null,
+    string? MetodoPago = null,
+    string? FormaPagoClave = null) : IRequest<CrearOrdenCompraVaciaResponse>;

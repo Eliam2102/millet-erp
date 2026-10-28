@@ -25,6 +25,24 @@ public sealed class AnticipoProveedorAggregateTests
             ahora: DateTimeOffset.UtcNow);
 
     [Fact]
+    public void P14_saldo_CE_sin_CFDI_se_amortiza()
+    {
+        var a = Domain.AnticipoProveedor.AnticipoProveedor.DesdeSaldoComercioExterior(Guid.NewGuid(), Guid.NewGuid(),
+            7500, new(2026, 10, 3), "CE-TEST", $"{Guid.NewGuid()}:0", DateTimeOffset.UtcNow);
+        a.UuidCfdi.Should().BeNull(); a.CfdiRecibidoId.Should().BeNull();
+        a.Origen.Should().Be(OrigenAnticipo.SaldoComercioExterior);
+        a.Moneda.Should().Be("MXN"); a.TipoCambio.Should().BeNull(); a.Serie.Should().Be("CE");
+        a.SaldoAmortizable.Should().Be(7500);
+        a.Amortizar(5000, DateTimeOffset.UtcNow);
+        a.SaldoAmortizable.Should().Be(2500);
+    }
+    [Fact]
+    public void P14_Capturar_sigue_exigiendo_UUID()
+    {
+        var act = () => Capturar(uuid: "");
+        act.Should().Throw<BusinessRuleException>().Where(e => e.Code == "ANTICIPO_UUID_VACIO");
+    }
+    [Fact]
     public void Capturar_nace_Abierto_con_saldo_amortizable_completo()
     {
         var a = Capturar(monto: 1000m);

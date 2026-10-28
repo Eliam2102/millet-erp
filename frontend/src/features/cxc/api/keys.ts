@@ -34,6 +34,12 @@ export const cxcKeys = {
   lineaCreditoById: (id: string) =>
     [...cxcKeys.lineasCredito(), 'byId', id] as const,
 
+  // Reglas de liberación por serie (C7.3)
+  reglasSerie: () => [...cxcKeys.all, 'reglas-serie'] as const,
+
+  // Usuarios con permiso de decidir liberaciones (beneficiarios / evaluadores)
+  beneficiariosCredito: () => [...cxcKeys.all, 'beneficiarios-credito'] as const,
+
   // Crédito disponible por cliente (CXC-FE-PR2)
   creditoDisponible: (clienteId: string) =>
     [...cxcKeys.all, 'credito-disponible', clienteId] as const,
@@ -83,6 +89,8 @@ export const cxcKeys = {
   facturasAbiertas: (clienteId: string, moneda: string | null) =>
     [...cxcKeys.cartera(), 'facturas-abiertas', { clienteId, moneda }] as const,
   tolerancias: () => [...cxcKeys.propuestas(), 'tolerancias'] as const,
+  // C7.4: depósitos de cliente sin identificar (Tesorería → CxC por puerto).
+  depositosPorIdentificar: () => [...cxcKeys.propuestas(), 'depositos-por-identificar'] as const,
 
   // Alertas de cartera (CXC-FE-PR7)
   alertas: () => [...cxcKeys.all, 'alertas'] as const,

@@ -157,6 +157,7 @@ const CODIGOS_BACKEND_ESPERADOS = new Set<string>([
   'almacen.devoluciones-proveedor.iniciar',
   'almacen.devoluciones-proveedor.autorizar',
   'almacen.cuarentena.dictaminar',
+  'almacen.recepciones.cancelar',
   'almacen.devoluciones-proveedor.registrar',
   'almacen.inventarios.leer',
   'almacen.inventarios.crear',
@@ -327,6 +328,9 @@ const CODIGOS_BACKEND_ESPERADOS = new Set<string>([
   'contabilidad.recurrentes.leer',
   'contabilidad.recurrentes.administrar',
   'contabilidad.recurrentes.autorizar',
+  'contabilidad.motor.leer',
+  'contabilidad.roles-cuenta.administrar',
+  'contabilidad.rechazos.gestionar',
   // Administración — Puestos/Empleados. El #629 (ADM-FE-PR1) los agregó a
   // PermisosCanonicos pero olvidó este set → el test quedó rojo en main
   // (CI no corre vitest de FE, así que nadie lo vio). Verificados contra

@@ -100,7 +100,7 @@ La descripción del producto es **dato de A+W** (matriz `MatrizCampoDuenoAw`, ve
 | `claveProdServSat`, `claveUnidadSat`, `objetoImp` | Nulos si el operador no los completó. |
 | `tasaIvaTraslado`, `tasaRetencionIva`, `tasaRetencionIsr` | Nulo != 0. |
 | `estatus`, `fechaBaja` | `Activo` / `Inactivo`; `fechaBaja` solo en baja. |
-| `variantes[]` | `claveVariante`, `altoMm`, `anchoMm`, `espesorMm`, `composicion` (nulo = no informado), ordenadas por clave. |
+| `variantes[]` | `id` (aditivo, E07 D3), `claveVariante`, `altoMm`, `anchoMm`, `espesorMm`, `composicion` (nulo = no informado), ordenadas por clave. |
 | `version` | Concurrencia optimista; también viaja como `ETag`. |
 
 ```json

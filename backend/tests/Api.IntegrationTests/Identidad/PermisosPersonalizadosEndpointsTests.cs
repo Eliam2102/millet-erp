@@ -12,7 +12,8 @@ namespace Millet.Api.IntegrationTests.Identidad;
 /// inmediato (sin esperar el TTL de la caché); reglas de seguridad y borrado
 /// por cambio de rol.
 /// </summary>
-public class PermisosPersonalizadosEndpointsTests : IClassFixture<WebApplicationFactory<Program>>
+[Collection(ApiCompartida.Nombre)]
+public class PermisosPersonalizadosEndpointsTests
 {
     private const string SuperAdminOid = "dev-superadmin";
     private const string UsuariosEndpoint = "/api/v1/identidad/usuarios";

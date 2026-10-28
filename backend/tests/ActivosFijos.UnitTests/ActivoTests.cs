@@ -30,16 +30,43 @@ public sealed class ActivoTests
         Assert.Equal("SAP-123",a.Numero); Assert.Equal(TipoImportacionActivo.Definitivo,a.Importacion); Assert.Equal("DEMO-PEDIMENTO",a.Pedimento);
     }
     [Fact]
-    public void Traslado_conserva_origen_hasta_aceptacion_y_cambia_sucursal_y_equipo()
+    public void Traslado_directo_aplica_custodia_sin_aceptacion()
     {
-        var a=Capitalizado(); var origen=a.Custodia(); var destino=new CustodiaActivo(Guid.NewGuid(),Guid.NewGuid(),"Cancún",Guid.NewGuid(),Guid.NewGuid()); var traslado=Guid.NewGuid();
-        a.Trasladar(traslado,destino,Guid.NewGuid(),DateTimeOffset.UtcNow);
-        Assert.Equal(origen,a.Custodia()); Assert.True(a.EnTraslado);
-        Assert.Throws<BusinessRuleException>(() => a.Trasladar(Guid.NewGuid(),destino,Guid.NewGuid(),DateTimeOffset.UtcNow));
-        Assert.Throws<ForbiddenException>(() => a.AceptarTraslado(traslado,Guid.NewGuid(),DateTimeOffset.UtcNow));
-        a.AceptarTraslado(traslado,destino.ResponsableId,DateTimeOffset.UtcNow);
-        Assert.Equal(destino,a.Custodia()); Assert.Equal(origen,a.Traslados.Single().Origen); Assert.False(a.EnTraslado);
-        a.AceptarTraslado(traslado,destino.ResponsableId,DateTimeOffset.UtcNow); Assert.Single(a.Traslados);
+        var a = Capitalizado();
+        var destino = a.Custodia() with { Ubicacion = "Cancún" };
+        a.Trasladar(Guid.NewGuid(), destino, "Reubicación", new(2026, 2, 15), Guid.NewGuid(), new(2026, 3, 1, 12, 0, 0, TimeSpan.Zero));
+        Assert.Equal(destino, a.Custodia());
+        Assert.False(a.EnTraslado);
+        Assert.Equal("Reubicación", a.Traslados.Single().Motivo);
+        Assert.Equal(new DateOnly(2026, 2, 15), a.Traslados.Single().FechaEfectiva);
+        var segundo = destino with { Ubicacion = "Mérida" };
+        a.Trasladar(Guid.NewGuid(), segundo, "Regreso", new(2026, 2, 16), Guid.NewGuid(), new(2026, 3, 1, 12, 0, 0, TimeSpan.Zero));
+        Assert.Equal(segundo, a.Custodia());
+        Assert.Equal(destino, a.Traslados.Last().Origen);
+        Assert.Equal(2, a.Traslados.Count);
+        Assert.Equal(a.Traslados.Last().RegistradoEn, a.Traslados.Last().AceptadoEn);
+    }
+    [Theory]
+    [InlineData("motivo")] [InlineData("largo")] [InlineData("capitalizar")] [InlineData("baja")]
+    [InlineData("igual")] [InlineData("futura")] [InlineData("inicio")] [InlineData("ultimo")]
+    [InlineData("responsable")] [InlineData("sucursal")] [InlineData("centro")] [InlineData("ubicacion")]
+    public void Traslado_invalido_no_modifica_custodia(string caso)
+    {
+        var a = caso == "capitalizar" ? Nuevo() : Capitalizado();
+        if (caso == "baja") a.DarDeBaja(new(2026, 2, 1));
+        var ahora = new DateTimeOffset(2026, 3, 1, 12, 0, 0, TimeSpan.Zero);
+        if (caso == "ultimo") a.Trasladar(Guid.NewGuid(), a.Custodia() with { Ubicacion = "Intermedia" }, "Primero", new(2026, 2, 20), Guid.NewGuid(), ahora);
+        var origen = a.Custodia();
+        var destino = origen with { Ubicacion = "Destino" };
+        destino = caso switch {
+            "igual" => origen, "responsable" => destino with { ResponsableId = Guid.Empty },
+            "sucursal" => destino with { SucursalId = Guid.Empty }, "centro" => destino with { CentroCostoId = Guid.Empty },
+            "ubicacion" => destino with { Ubicacion = " " }, _ => destino };
+        var motivo = caso == "motivo" ? " " : caso == "largo" ? new string('x', 301) : "Reubicación";
+        var fecha = caso == "futura" ? new DateOnly(2026, 3, 2) : caso == "inicio" ? new(2026, 1, 14) : new(2026, 2, 15);
+        var error = Assert.Throws<BusinessRuleException>(() => a.Trasladar(Guid.NewGuid(), destino, motivo, fecha, Guid.NewGuid(), ahora));
+        Assert.Contains("AF_TRASLADO_INVALIDO", error.Code);
+        Assert.Equal(origen, a.Custodia());
     }
     [Fact]
     public void Nota_credito_20000_deja_480000_e_historial_idempotente()

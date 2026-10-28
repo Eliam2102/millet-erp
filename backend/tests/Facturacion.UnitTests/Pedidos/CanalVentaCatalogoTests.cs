@@ -90,13 +90,13 @@ public sealed class CanalVentaCatalogoTests
             nombres: new Dictionary<short, string>
             {
                 [9] = "Planta Pintura",
-                [1] = "Tienda Cancún",
+                [1] = "Sucursal Cancún",
             }));
 
         var items = await handler.Handle(new CanalesVentaLookupQuery(), CancellationToken.None);
 
         items.Should().HaveCount(2);
-        items[0].Should().Be(new CanalVentaLookupItem(1, "Tienda Cancún"));
+        items[0].Should().Be(new CanalVentaLookupItem(1, "Sucursal Cancún"));
         items[1].Should().Be(new CanalVentaLookupItem(CanalesVentaConocidos.PlantaPintura, "Planta Pintura"));
     }
 }

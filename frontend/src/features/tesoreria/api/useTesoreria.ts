@@ -1,5 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { apiRequest } from '@/lib/api';
+import type { DepositoPorIdentificarItem } from '@/features/cxc/api/types';
 import {
   tesoreriaKeys,
   type DepositosFiltros,
@@ -348,6 +349,24 @@ export function useDepositos(filtros: DepositosFiltros = {}) {
       const qs = params.toString();
       const { data } = await apiRequest<PagedResponse<DepositoConfirmacionResponse>>(
         qs ? `${BASE}/depositos?${qs}` : `${BASE}/depositos`,
+        { signal },
+      );
+      return data;
+    },
+  });
+}
+
+/**
+ * <c>useDepositosSinIdentificar()</c> — C7.4 · CA7.9: ingresos de cliente sin
+ * identificar vistos por Tesorería (mismo contrato que la bandeja de CxC).
+ */
+export function useDepositosSinIdentificar(opciones: { enabled?: boolean } = {}) {
+  return useQuery<DepositoPorIdentificarItem[]>({
+    queryKey: tesoreriaKeys.depositosSinIdentificar(),
+    enabled: opciones.enabled ?? true,
+    queryFn: async ({ signal }) => {
+      const { data } = await apiRequest<DepositoPorIdentificarItem[]>(
+        `${BASE}/depositos/sin-identificar`,
         { signal },
       );
       return data;

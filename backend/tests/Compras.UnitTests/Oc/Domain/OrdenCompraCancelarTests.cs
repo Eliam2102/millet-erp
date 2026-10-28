@@ -20,7 +20,7 @@ public class OrdenCompraCancelarTests
         usoPrincipalId: Guid.CreateVersion7(),
         compradorTitularId: Guid.CreateVersion7(),
         encargadoComprasId: Guid.CreateVersion7(),
-        fechaDocumento: DateOnly.FromDateTime(DateTimeOffset.UtcNow.UtcDateTime));
+        fechaDocumento: DateOnly.FromDateTime(DateTimeOffset.UtcNow.UtcDateTime), usoCfdiClave: "G03", metodoPago: "PPD", formaPagoClave: "99");
 
     [Fact]
     public void Cancelar_DesdeBorrador_TransicionaA_Cancelada_Y_EmiteEvento()

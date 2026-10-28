@@ -57,6 +57,22 @@ public sealed partial class DemoSesionSeedHostedService
         if (!await db.Articulos.AnyAsync(a => a.Clave == "DEMO-ART-PIEZA", ct))
             db.Articulos.Add(new Articulo(Id("DEMO-ART-PIEZA"), "DEMO-ART-PIEZA", "Refacción para mantenimiento", "PZA",
                 precioReferenciaMonto: 100m, precioReferenciaMoneda: "MXN"));
+        // F1-MP-01 (E07): vidrio crudo por medida. DEMO-ART-PIEZA queda sin producto A+W (insumo).
+        // El vínculo se aplica en cuanto el producto ya fue sincronizado desde A+W (aw-origen-demo).
+        var vidrio = await db.Articulos.SingleOrDefaultAsync(a => a.Clave == "VID-CLARO-6", ct);
+        if (vidrio is null)
+        {
+            var m2 = await db.UnidadesMedida.SingleOrDefaultAsync(u => u.Codigo == "M2", ct);
+            vidrio = new Articulo(Id("VID-CLARO-6"), "VID-CLARO-6", "Vidrio float claro 6 mm", "M2", unidadMedidaId: m2?.Id);
+            db.Articulos.Add(vidrio);
+        }
+        if (vidrio.ProductoAwId is null)
+        {
+            var producto = await db.ProductosAw.AsNoTracking().FirstOrDefaultAsync(
+                p => p.Descripcion == "VIDRIO FLOAT CLARO 6MM" && p.Estatus == EstatusCatalogo.Activo, ct);
+            if (producto is not null && !await db.Articulos.AnyAsync(a => a.ProductoAwId == producto.Id, ct))
+                vidrio.AsignarProductoAw(producto.Id);
+        }
         var clienteIncompleto = await db.Clientes.SingleOrDefaultAsync(c => c.Clave == "DEMO-CLI-INCOMPLETO", ct);
         if (clienteIncompleto?.RazonSocial == "DEMO Cliente sin datos fiscales")
             clienteIncompleto.ActualizarDatos(razonSocial: "Cristales del Mayab (datos fiscales pendientes)");
@@ -82,9 +98,10 @@ public sealed partial class DemoSesionSeedHostedService
         await db.SaveChangesAsync(ct);
         await SembrarSedesMilletAsync(db, ct);
         await SembrarSeriesVentaDirectaAsync(db, ct);
-        // Solo etiquetas históricas; conservar ID y ClaveAw para pedidos existentes.
-        foreach (var canal in await db.CanalesVenta.Where(c => c.Nombre.StartsWith("Tienda ")).ToListAsync(ct))
-            canal.ActualizarDatos(nombre: canal.Nombre.Replace("Tienda ", "Mostrador "));
+        // Solo etiquetas históricas («Tienda …» y el «Mostrador …» de demos anteriores) pasan a
+        // «Sucursal …», como pidió Millet; conservar ID y ClaveAw para pedidos existentes.
+        foreach (var canal in await db.CanalesVenta.Where(c => c.Nombre.StartsWith("Tienda ") || c.Nombre.StartsWith("Mostrador ")).ToListAsync(ct))
+            canal.ActualizarDatos(nombre: "Sucursal " + canal.Nombre[(canal.Nombre.IndexOf(' ') + 1)..]);
         await db.SaveChangesAsync(ct);
         // Completa sólo las asignaciones DEMO faltantes, sin reemplazar puestos operados.
         var sucursalesDemo = await db.Sucursales.Where(s => s.EmpresaId == EmpresaId && ClavesSedesDemo.Contains(s.Clave)).Select(s => s.Id).ToArrayAsync(ct);

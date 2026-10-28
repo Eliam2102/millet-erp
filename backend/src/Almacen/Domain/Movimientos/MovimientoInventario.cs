@@ -72,6 +72,13 @@ public sealed class MovimientoInventario : BaseEntity, IPerteneceAEmpresa, IAudi
     public Guid? RqId { get; private set; }
     public string? ValeBlobRef { get; private set; }
     public Guid? SalidaOrigenId { get; private set; }
+
+    public void VincularSalidaLiberacion(Guid salidaId)
+    {
+        if (Tipo != TipoMovimiento.ReincorporacionTrasRevision || salidaId == Guid.Empty)
+            throw new BusinessRuleException("LIBERACION_PAR_INVALIDO", "La reincorporación requiere una salida válida.");
+        SalidaOrigenId = salidaId;
+    }
     public Guid? RecepcionOrigenId { get; private set; }
     public Guid? ConteoId { get; private set; }
     public Guid? ProveedorId { get; private set; }
@@ -174,6 +181,38 @@ public sealed class MovimientoInventario : BaseEntity, IPerteneceAEmpresa, IAudi
                 "Cancelar movimiento requiere motivo.");
         Estado = EstadoMovimiento.Cancelado;
         Motivo = motivo;
+    }
+
+    /// <summary>
+    /// Cancelación de una recepción mal capturada: solo una <see cref="TipoMovimiento.EntradaCompra"/>
+    /// firme pasa a Cancelado (su efecto en saldo lo revierte el contramovimiento CEN). Distinto de
+    /// <see cref="Cancelar"/>, que aplica a Borrador/Validado.
+    /// </summary>
+    public void CancelarRecepcion(string motivo)
+    {
+        if (Tipo != TipoMovimiento.EntradaCompra || Estado != EstadoMovimiento.Registrado)
+            throw new BusinessRuleException("MOV_NO_CANCELABLE_RECEPCION",
+                "Solo se puede cancelar una entrada por compra registrada.");
+        if (string.IsNullOrWhiteSpace(motivo))
+            throw new BusinessRuleException("MOV_CANCEL_SIN_MOTIVO", "Cancelar movimiento requiere motivo.");
+        if (motivo.Length > 500)
+            throw new BusinessRuleException("MOV_CANCEL_MOTIVO_LARGO", "El motivo no puede exceder 500 caracteres.");
+        Estado = EstadoMovimiento.Cancelado;
+        Motivo = motivo;
+        // El CFDI y la factura quedan libres para la recepción correcta (el diálogo de cancelación lo promete).
+        FacturaId = null;
+        CfdiRecibidoId = null;
+        CfdiUuidFiscal = null;
+    }
+
+    /// <summary>El contramovimiento CEN apunta a la entrada que revierte.</summary>
+    internal void VincularCancelacion(Guid entradaOrigenId)
+    {
+        if (Tipo != TipoMovimiento.CancelacionEntradaCompra)
+            throw new BusinessRuleException("MOV_NO_CANCELACION", "Solo una cancelación de entrada puede vincularse a la entrada que revierte.");
+        if (entradaOrigenId == Guid.Empty)
+            throw new BusinessRuleException("MOV_CANCELACION_ORIGEN_INVALIDO", "La entrada a revertir es requerida.");
+        RecepcionOrigenId = entradaOrigenId;
     }
 
     // ─── Setters internos para vinculaciones (los usan los flujos

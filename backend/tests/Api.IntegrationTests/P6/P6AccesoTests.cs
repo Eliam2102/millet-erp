@@ -15,7 +15,8 @@ using Millet.SharedKernel.Application;
 
 namespace Millet.Api.IntegrationTests.P6;
 
-public sealed class P6AccesoTests(WebApplicationFactory<Program> factory) : IClassFixture<WebApplicationFactory<Program>>
+[Collection(ApiCompartida.Nombre)]
+public sealed class P6AccesoTests(WebApplicationFactory<Program> factory)
 {
     private static readonly Guid Empresa = Guid.Parse("00000003-0000-0000-0000-000000000001");
 

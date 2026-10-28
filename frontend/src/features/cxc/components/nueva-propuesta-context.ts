@@ -1,4 +1,5 @@
 import { createContext, useContext } from 'react';
+import type { DepositoPorIdentificarItem } from '@/features/cxc/api/types';
 
 /**
  * Context del Sheet "Nueva propuesta de aplicación" (CXC-FE-PR6).
@@ -6,7 +7,8 @@ import { createContext, useContext } from 'react';
  * Quick Create. Mismo patrón que <c>registrar-gestion-context.ts</c>.
  */
 export interface NuevaPropuestaApi {
-  abrir: () => void;
+  /** C7.4: con <c>deposito</c> abre la propuesta prellenada para identificarlo. */
+  abrir: (deposito?: DepositoPorIdentificarItem) => void;
   cerrar: (opts?: { force?: boolean }) => void;
   setDirty: (dirty: boolean) => void;
 }

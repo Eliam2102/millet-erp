@@ -24,7 +24,7 @@ public class OrdenCompraLineasTests
             encargadoComprasId: Guid.CreateVersion7(),
             fechaDocumento: DateOnly.FromDateTime(DateTimeOffset.UtcNow.UtcDateTime),
             sinRequisicionPrevia: sinRequisicionPrevia,
-            motivoSinRequisicion: sinRequisicionPrevia ? "Test" : null);
+            motivoSinRequisicion: sinRequisicionPrevia ? "Test" : null, usoCfdiClave: "G03", metodoPago: "PPD", formaPagoClave: "99");
 
     private static LineaOrdenCompra AgregarLinea(OrdenCompra oc, decimal cantidad = 1m, decimal precio = 100m) =>
         oc.AgregarLineaManual(

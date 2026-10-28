@@ -1,4 +1,5 @@
 using MediatR;
+using Millet.Compras.Domain.Ports.Catalogos;
 using Millet.Compras.Application.Proveedores;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
@@ -50,6 +51,7 @@ namespace Millet.Compras.Application.Oc.CrearOrdenCompraVacia;
 public sealed class CrearOrdenCompraVaciaHandler
     : IRequestHandler<CrearOrdenCompraVaciaCommand, CrearOrdenCompraVaciaResponse>
 {
+    private readonly ICatalogoSatReadPort _catalogos;
     private readonly ComprasDbContext _db;
     private readonly CompartidoDbContext _compartido;
     private readonly ICurrentUserContext _currentUser;
@@ -58,7 +60,7 @@ public sealed class CrearOrdenCompraVaciaHandler
     private readonly ILogger<CrearOrdenCompraVaciaHandler> _logger;
 
     public CrearOrdenCompraVaciaHandler(
-        ComprasDbContext db,
+        ComprasDbContext db, ICatalogoSatReadPort catalogos,
         CompartidoDbContext compartido,
         ICurrentUserContext currentUser,
         ICurrentEmpresaContext currentEmpresa,
@@ -66,6 +68,7 @@ public sealed class CrearOrdenCompraVaciaHandler
         ILogger<CrearOrdenCompraVaciaHandler> logger)
     {
         _db = db;
+        _catalogos = catalogos;
         _compartido = compartido;
         _currentUser = currentUser;
         _currentEmpresa = currentEmpresa;
@@ -88,6 +91,8 @@ public sealed class CrearOrdenCompraVaciaHandler
                 "EMPRESA_NO_SELECCIONADA",
                 "El usuario no tiene una empresa seleccionada en el JWT actual.");
         }
+
+        await DatosFacturaOcGuard.ValidarAsync(_catalogos, command.UsoCfdiClave, command.FormaPagoClave, cancellationToken);
 
         var encargadoId = command.EncargadoComprasId ?? userId;
 
@@ -146,6 +151,7 @@ public sealed class CrearOrdenCompraVaciaHandler
             ocOrigenId: command.OcOrigenId);
 
         _db.OrdenesCompra.Add(oc);
+        oc.ActualizarDatosFactura(command.UsoCfdiClave, command.MetodoPago, command.FormaPagoClave);
         await _db.SaveChangesAsync(cancellationToken);
 
         return new CrearOrdenCompraVaciaResponse(

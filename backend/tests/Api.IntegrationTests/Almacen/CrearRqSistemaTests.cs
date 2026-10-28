@@ -23,7 +23,8 @@ namespace Millet.Api.IntegrationTests.Almacen;
 /// seed de millet_dev; siembra un almacén real (lo valida IAlmacenReadPort). El folio
 /// y la escritura de la RQ son reales.</para>
 /// </summary>
-public class CrearRqSistemaTests : IClassFixture<WebApplicationFactory<Program>>
+[Collection(ApiCompartida.Nombre)]
+public class CrearRqSistemaTests
 {
     private readonly WebApplicationFactory<Program> _base;
 

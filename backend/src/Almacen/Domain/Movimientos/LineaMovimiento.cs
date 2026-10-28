@@ -74,6 +74,26 @@ public sealed class LineaMovimiento : BaseEntity, IAuditable
     /// </summary>
     public Guid? UbicacionId { get; private set; }
 
+    /// <summary>
+    /// F1-MP-01 (E07 D3): variante de medida del vidrio crudo y snapshot de su ancho/alto (mm), para que un
+    /// cambio posterior en A+W no reescriba el histórico. Los tres van juntos o los tres son NULL
+    /// (CHECK <c>ck_lineas_variante_medida</c>).
+    /// </summary>
+    public Guid? ProductoAwVarianteId { get; private set; }
+    public decimal? AnchoMm { get; private set; }
+    public decimal? AltoMm { get; private set; }
+
+    /// <summary>
+    /// F1-MP-01 S4 (E07 S7): lote del proveedor, parte de la llave del saldo. NULL = sin lote («lote de apertura» en lo
+    /// heredado). Obligatorio solo para artículos ligados a A+W (regla de recepción, no del dominio).
+    /// </summary>
+    public string? Lote { get; private set; }
+
+    public const int LoteMaxLength = 50;
+
+    /// <summary>Recorta espacios y convierte vacío en NULL.</summary>
+    public static string? NormalizarLote(string? lote) => string.IsNullOrWhiteSpace(lote) ? null : lote.Trim();
+
     internal LineaMovimiento() { }
 
     public LineaMovimiento(
@@ -93,7 +113,11 @@ public sealed class LineaMovimiento : BaseEntity, IAuditable
         Guid? lineaRqId = null,
         Guid? ubicacionId = null,
         Guid? lineaOcId = null,
-        Guid? lineaSalidaOrigenId = null) : base(id)
+        Guid? lineaSalidaOrigenId = null,
+        Guid? productoAwVarianteId = null,
+        decimal? anchoMm = null,
+        decimal? altoMm = null,
+        string? lote = null) : base(id)
     {
         if (movimientoId == Guid.Empty)
             throw new BusinessRuleException("LINEA_MOV_SIN_PADRE",
@@ -110,6 +134,17 @@ public sealed class LineaMovimiento : BaseEntity, IAuditable
         if (string.IsNullOrWhiteSpace(unidadMedida) || unidadMedida.Length > 20)
             throw new BusinessRuleException("LINEA_MOV_UM_INVALIDA",
                 "La unidad de medida es requerida y no puede exceder 20 caracteres.");
+
+        if ((productoAwVarianteId is null) != (anchoMm is null) || (anchoMm is null) != (altoMm is null))
+            throw new BusinessRuleException("LINEA_MOV_VARIANTE_INCOMPLETA",
+                "La variante de medida y su ancho y alto van juntos.");
+        if (anchoMm <= 0 || altoMm <= 0)
+            throw new BusinessRuleException("LINEA_MOV_MEDIDA_INVALIDA",
+                "El ancho y el alto de la variante deben ser mayores a 0.");
+
+        lote = NormalizarLote(lote);
+        if (lote is { Length: > LoteMaxLength })
+            throw new BusinessRuleException("LINEA_MOV_LOTE_LARGO", $"El lote no puede exceder {LoteMaxLength} caracteres.");
 
         MovimientoId = movimientoId;
         Posicion = posicion;
@@ -128,6 +163,10 @@ public sealed class LineaMovimiento : BaseEntity, IAuditable
         UbicacionId = ubicacionId;
         LineaOcId = lineaOcId;
         LineaSalidaOrigenId = lineaSalidaOrigenId;
+        ProductoAwVarianteId = productoAwVarianteId;
+        AnchoMm = anchoMm;
+        AltoMm = altoMm;
+        Lote = lote;
     }
 
     /// <summary>

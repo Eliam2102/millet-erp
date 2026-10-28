@@ -84,7 +84,7 @@ public sealed class EntregaLocalEventosTests(WebApplicationFactory<Program> fact
         var ocResp = await a.PostAsJsonAsync("/api/v1/compras/ordenes/desde-requisicion", new
         {
             RequisicionId = rqId, SucursalCodigo = "MID", FolioAnio = (short)hoy.Year, ProveedorId = Proveedor,
-            CondicionesPagoId = Guid.NewGuid(), UsoPrincipalId = Guid.NewGuid(), FechaDocumento = hoy,
+            CondicionesPagoId = Guid.NewGuid(), UsoPrincipalId = Guid.NewGuid(), UsoCfdiClave = "G03", MetodoPago = "PPD", FormaPagoClave = "99", FechaDocumento = hoy,
         });
         await Ok(ocResp, "A crea OC desde RQ");
         var ocId = JsonDocument.Parse(await ocResp.Content.ReadAsStringAsync()).RootElement.GetProperty("ordenCompraId").GetGuid();

@@ -135,8 +135,16 @@ public sealed class RegistrarCobroMostradorHandler
 /// </summary>
 internal static class CobroMostradorRegistrador
 {
-    /// <summary>c_FormaPago de tarjeta: 04 crédito, 28 débito.</summary>
-    private static readonly HashSet<string> FormasPagoTarjeta = ["04", "28"];
+    /// <summary>c_FormaPago de tarjeta: 04 crédito, 28 débito, 29 servicios (86e3tfdvt).</summary>
+    private static readonly HashSet<string> FormasPagoTarjeta = ["04", "28", "29"];
+
+    /// <summary>
+    /// 86e3tfdvt: el voucher se identifica por su número de autorización (4 a 12
+    /// letras, dígitos o guiones). El tope impide capturar un número de tarjeta
+    /// completo (13–19 dígitos): nunca se guarda (mismo criterio que CxP y ADR-0006).
+    /// </summary>
+    private static readonly System.Text.RegularExpressions.Regex AutorizacionVoucher =
+        new("^[A-Za-z0-9-]{4,12}$", System.Text.RegularExpressions.RegexOptions.CultureInvariant);
 
     public static async Task<CobroMostrador> RegistrarAsync(
         FacturacionDbContext db,
@@ -172,7 +180,13 @@ internal static class CobroMostradorRegistrador
         if (tarjetaSinReferencia is not null)
             throw new BusinessRuleException(
                 "COBRO_TARJETA_SIN_REFERENCIA",
-                $"El cobro con tarjeta (forma {tarjetaSinReferencia.FormaPago}) requiere la referencia o número de autorización del voucher.");
+                $"El cobro con tarjeta (forma {tarjetaSinReferencia.FormaPago}) requiere el número de autorización del voucher.");
+        var autorizacionInvalida = formasPago.FirstOrDefault(
+            f => FormasPagoTarjeta.Contains(f.FormaPago) && !AutorizacionVoucher.IsMatch(f.Referencia!.Trim()));
+        if (autorizacionInvalida is not null)
+            throw new BusinessRuleException(
+                "COBRO_TARJETA_AUTORIZACION_INVALIDA",
+                "El número de autorización del voucher lleva de 4 a 12 letras o dígitos. No captures el número de la tarjeta.");
 
         var cobroVigente = await db.CobrosMostrador.AsNoTracking()
             .AnyAsync(c => c.ComprobanteId == comprobante.Id && c.Estado == EstadoCobroMostrador.Registrado,
