@@ -145,6 +145,8 @@ public sealed class QuestPdfOrdenCompraGenerator : IGenerarPdfOrdenCompraPort
                     new("Uso de CFDI:", oc.UsoCfdi),
                     new("Método de pago:", oc.MetodoPago),
                     new("Forma de pago:", oc.FormaPago),
+                    new("Condiciones de pago:", oc.CondicionPago),
+                    new("Moneda:", oc.Moneda),
                 ]));
             });
             fila.RelativeItem().Column(der =>
@@ -192,15 +194,11 @@ public sealed class QuestPdfOrdenCompraGenerator : IGenerarPdfOrdenCompraPort
             renglones.Add(new("Retenciones", -oc.Retenciones, oc.Moneda));
         renglones.Add(new("Importe total", oc.Total, oc.Moneda, Resaltado: true));
 
+        // La condición de pago va en «Características de factura» (PPT de Millet, apartado 14).
         container.Row(fila =>
         {
             fila.Spacing(12);
-            fila.RelativeItem().Text(t =>
-            {
-                if (string.IsNullOrWhiteSpace(oc.CondicionPago)) return;
-                t.Span("Condición de pago: ").Bold();
-                t.Span(oc.CondicionPago);
-            });
+            fila.RelativeItem();
             fila.RelativeItem().Component(new BloqueTotales(new Millet.Documentos.Totales(renglones)));
         });
     }

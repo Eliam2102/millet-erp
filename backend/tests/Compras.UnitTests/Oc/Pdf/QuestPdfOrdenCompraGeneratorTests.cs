@@ -23,6 +23,7 @@ public class QuestPdfOrdenCompraGeneratorTests
     {
         var neto = 250m;
         var iva = extranjero ? 0m : 40m;
+        var tasa = extranjero ? 0m : 16m;
         return new OrdenCompraImpresion
         {
             Folio = "OC-MID2026-000300",
@@ -45,8 +46,8 @@ public class QuestPdfOrdenCompraGeneratorTests
             Incoterm = extranjero ? "FOB · Libre a bordo" : null,
             Renglones =
             [
-                new("CYP12082", "LONA", "LONA 3X3 AZUL", 1m, "METRO", 125m, 16m, 125m),
-                new("CYP12083", "CINTA", "CINTA GRIS", 5m, "PZA", 25m, 16m, 125m),
+                new("CYP12082", "LONA", "LONA 3X3 AZUL", 1m, "METRO", 125m, tasa, 125m),
+                new("CYP12083", "CINTA", "CINTA GRIS", 5m, "PZA", 25m, tasa, 125m),
             ],
             Subtotal = neto,
             BaseGravable = neto + gastos,
@@ -91,6 +92,7 @@ public class QuestPdfOrdenCompraGeneratorTests
         Assert.Contains(Sin("Su contacto"), t);
         Assert.Contains(Sin("Dirección de entrega"), t);
         Assert.Contains(Sin("Características de factura"), t);
+        Assert.Contains(Sin("Condiciones de pago: 15 DIAS"), t);
         Assert.Contains(Sin("Subtotal del pedido"), t);
         Assert.Contains(Sin("Total antes del impuesto"), t);
         Assert.Contains(Sin("Importe total del impuesto"), t);
@@ -126,6 +128,7 @@ public class QuestPdfOrdenCompraGeneratorTests
         Assert.Contains(Sin("Tax ID: TX-998877"), t);
         Assert.Contains(Sin("INCOTERM: FOB"), t);
         Assert.Contains(Sin("250.00 USD"), t);
+        Assert.Contains(Sin("Moneda: USD"), t);
     }
 
     [Fact]
