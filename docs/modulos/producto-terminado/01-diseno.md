@@ -1,7 +1,7 @@
 # 01 · Diseño E08 — Producto Terminado por pieza y sucursal
 
 > **Ticket:** ClickUp 86e3vrh7t (E08). **Habilita:** F1-PT-01 (86e3jvuk2, PT5.1), F1-PT-02 (86e3jvuka, PT5.2), F1-PT-04 (86e3jvukj, PT5.9), PT5.5 (86e3ke339), U1.5 (86e3jvv6z).
-> **Estado:** **aprobado por Eliam el 27-oct-2026 con ajustes** (Rev. 2, ya aplicados). Lo que no confirma Millet o el código va marcado **SUPUESTO**.
+> **Estado:** **aprobado por Eliam el 27-oct-2026 con ajustes** (Rev. 2, ya aplicados). **Rev. 3 (27-oct, autorizada por Geovany; pendiente de revisión de Eliam):** aplica las respuestas de Jorge del 27-oct («Producto terminado: entrada de piezas escaneadas en A+W» y punto 19 de la contestación de TI). Donde Rev. 2 choca con Jorge, manda Jorge. Lo que no confirma Millet o el código va marcado **SUPUESTO**.
 > **Parte de:** nuestro borrador del 24-oct, ajustado a la ficha PT-01 del 26-oct y al plano 1.7.1 «09 · Producto terminado, salida y entrega» (cuando chocan, manda el plano).
 > **Verificado contra:** `develop` 3c834939.
 
@@ -15,12 +15,12 @@
 
 | # | Decisión | Fuente |
 |---|---|---|
-| E1 | La pieza entra a PT en **69** (entrada física). El **70** es la liberación financiera. «69 no significa 70». | V11 cerrada 10-oct; plano 1.7.1 §6 y Regla 2 |
+| E1 | **(Rev. 3)** El **69 es estatus del pedido, no de la pieza**: A+W lo pone cuando todas las piezas del pedido tienen su registro en las estaciones de PT. **El ERP no infiere ni marca el 69**; con los escaneos solo lleva el avance por posición (esperadas, terminadas, faltantes). El **70** sigue siendo la liberación financiera: «69 no significa 70». | Jorge 27-oct (corrige V11 y plano 1.7.1 §6 en lo de la pieza) |
 | E2 | El PT se controla **por pieza y sucursal**, no como stock de catálogo. No usa la variante de medida de MP-01 (E07 D4 limita las variantes al vidrio crudo). | Registro 16, 10-oct; Jorge 7-oct |
 | E3 | Identidad de la pieza = **pedido + posición + número de pieza**. No se crea existencia anónima. | Plano 1.7.1 §6 y §8 |
 | E4 | El pedido queda cubierto por sus anticipos timbrados ligados, los cobros de sus facturas y los anticipos previos ligados con #208. Las notas de crédito reducen el total. Uziel expone el saldo por pedido en un puerto de Facturación. Mientras tanto usamos un adaptador provisional marcado (en Demo, uno con saldo de prueba). La ruta REPARTO (crédito 24 h) libera sin verificar pago ni completitud. | Decisión E4; Eliam 27-oct |
 | E6 | La liberación a 70 es **por dinero, no por completitud**: un pedido parcial puede pasar a 70. Si está completo se revisa en la carga (PT5.4); sacar un pedido incompleto pide autorización ahí. | Eliam 27-oct; plano 1.7.1 «Actualizar completitud» → «Verificar saldo»; ficha PT5.2 (8 de 10 pasa a 70 al cobrar) |
-| E5 | Lectura de A+W por lotes, sin CDC hasta los servidores nuevos. El formato real del aviso solo bloquea encender el canal real (A+W-QA-7). | Jorge 7-oct; P-005; P-006 |
+| E5 | Lectura de A+W por lotes, sin CDC hasta los servidores nuevos. **(Rev. 3)** No hay aviso: se consulta el registro que A+W ya escribe (§5). El canal real necesita conexión a la instancia AWPRODUCTION (A+W-QA-7). | Jorge 7-oct y 27-oct; P-005; P-006 |
 
 ## 2. Módulo, esquema y fronteras
 
@@ -57,21 +57,21 @@
 |---|---|---|
 | `pedidos_pt` (raíz) | PK `id`; único `(empresa_id, numero_pedido)`; índice `(empresa_id, sucursal_venta_id)` | `pedido_facturable_id`, `numero_pedido`, `sucursal_venta_id` (de `PedidoFacturable.SucursalId`), `sucursal_entrega_id` (**SUPUESTO** S3), `condicion_pago_origen` (copia), `version_origen`, `xmin` como ETag. En PT-02 se agregan `liberacion` (`Retenido`/`Liberado`), `motivo_liberacion` y `liberado_at`. |
 | `pedido_pt_posiciones` (hija) | PK `id`; único `(pedido_pt_id, posicion)` | `producto_id`, `descripcion`, `piezas_esperadas` (entero, de `Cantidad`; 0 para fletes y servicios, S2). Se refresca cuando cambia `version_origen`. |
-| `piezas` (hija) | PK `id`; **único `(pedido_pt_id, posicion, numero_pieza)`**; índices `(empresa_id, sucursal_id, estado)` y `(pedido_pt_id, estado)` | `sucursal_id` (sede física actual), `estado`, `escaneada_at` (hora de A+W), `estatus_aw` (69), `escaneo_id` del alta. |
+| `piezas` (hija) | PK `id`; **único `(pedido_pt_id, posicion, numero_pieza)`**; único `(empresa_id, etiqueta)`; índices `(empresa_id, sucursal_id, estado)` y `(pedido_pt_id, estado)` | `etiqueta` (`etikettnr`), `sucursal_id` (sede física actual), `estado`, `escaneada_at` (hora de A+W), `escaneo_id` del alta. **(Rev. 3)** Sin `estatus_aw`: el 69 no es de la pieza. |
 | `movimientos_pieza` | PK `id`; único `(pieza_id, tipo, referencia)` | Kardex por pieza: `tipo` (PT-01 solo `Alta`), `sucursal_origen_id`, `sucursal_destino_id`, `estado_anterior`, `estado_nuevo`, `referencia` (escaneo, albarán, traspaso), `ocurrido_at`, `usuario`. Ningún paso se aplica dos veces. |
-| `escaneos` (bitácora y bandeja) | PK `id`; **único `(empresa_id, origen, origen_evento_id)`**; parcial `WHERE resultado IN ('Pospuesto','Excepcion')` | Copia de la fila del puente: pedido, posición, número de pieza, clave de sucursal A+W, `escaneado_at`, `usuario_aw`, `estatus_aw`, `resultado`, `motivo`, `intentos`, `pieza_id`, `resuelto_por`, `resuelto_at`. |
+| `escaneos` (bitácora y bandeja) | PK `id`; **único `(empresa_id, origen, etiqueta, registrado_at)`** (Rev. 3); parcial `WHERE resultado IN ('Pospuesto','Excepcion','Reposicion')` | Copia del renglón de A+W (§5): `etiqueta`, pedido, posición (`ae_intpos`), `u_pos`, número de pieza, estación (`esnr_ist`), área (`text1`), `registrado_at` (`bearb_zeit`), clave de sucursal resuelta, `resultado`, `motivo`, `intentos`, `pieza_id`, `resuelto_por`, `resuelto_at`. |
 | `outbox` | patrón existente | Eventos de §6. |
 
 - **D5. No guardamos piezas «esperadas» como filas.** Las esperadas salen de `pedido_pt_posiciones` y las faltantes son los números 1..N que no tienen fila en `piezas`. Así evitamos unas 900 mil filas al año que solo dicen «todavía no». Alternativa descartada: crear una pieza `Esperada` por unidad (borrador del 24-oct).
-- **D6. Idempotencia en dos niveles.** (1) Por evento de origen: el mismo `evento_id` reutiliza su resultado (CA5.9). (2) Por pieza: otro evento para una pieza que ya está en PT queda como `Duplicado`, sin movimiento. Plano 7.1 p2: «un evento repetido reutiliza resultado».
+- **D6. Idempotencia en dos niveles (Rev. 3).** (1) Por renglón de origen: el mismo `(etiqueta, registrado_at)` reutiliza su resultado (CA5.9); así, leer dos veces el mismo renglón no cuenta doble. (2) Por pieza: **un renglón nuevo de una etiqueta que ya está en PT no se descarta**. Jorge: si una pieza se rompe después de entrar a PT y se vuelve a producir, la misma etiqueta vuelve a quedar terminada, y descartarla perdería la reposición. Queda como `Reposicion` en la bandeja, visible y sin crear una segunda pieza ni subir el avance por encima de las esperadas. La baja por rotura y su dictamen son de PT5.8. Plano 7.1 p2: «un evento repetido reutiliza resultado».
 - Volumen: unas 900 mil piezas al año. Sin particionar; lo revisamos con datos reales.
 
 ## 4. Estados de la pieza y del pedido
 
 ```mermaid
 stateDiagram-v2
-  [*] --> EnPT: escaneo A+W 69 (PT-01)
-  EnPT --> EnPT: escaneo repetido sin efecto
+  [*] --> EnPT: registro en estación PT de A+W (PT-01)
+  EnPT --> EnPT: mismo renglón sin efecto; renglón nuevo = Reposicion a bandeja
   EnPT --> EnTransito: salida a traspaso (PT-04)
   EnTransito --> EnPT: recepción en destino (PT-04)
   EnPT --> Cargada: carga física (PT5.4)
@@ -98,61 +98,56 @@ PT-01 solo construye `EnPT`. Los demás estados son el contrato para las tareas 
 
 ## 5. Entrada desde A+W
 
-**Tabla puente propuesta por el ERP** `MILLET_INTEGRACION.dbo.aw_pieza_escaneo` (nombre de la ficha). Script para Jorge, **sin ejecutar**: `docs/operacion/aw-integracion-scripts/10_create_pieza_escaneo.sql` y `11_grant_pieza_escaneo.sql` (nuevos, molde `07_create_otr_tables.sql` y `08_grant_otr.sql`). La misma tabla va en `tools/aw-origen-demo/schema.sql`, y los eventos DEMO en `tools/aw-origen-demo/piezas.sql` (nuevo).
+**(Rev. 3) No hay tabla puente ni aviso.** Jorge (27-oct, E08-1 y punto 19): A+W Production no admite disparadores ni personalizaciones que escriban hacia afuera, y no hace falta, porque el escaneo ya existe como renglón en **`alcimdb.dbo.awbar_bearbeit`**, instancia **`192.168.1.8\AWPRODUCTION`**. Se retiran los scripts 10 y 11 del Rev. 2 (`aw_pieza_escaneo`); nunca se enviaron a ejecutar.
 
-| Columna | Regla |
+**Qué renglón es «pieza terminada»:** `awbar_bearbeit.fertig = 1` y `awbar_bearbeit.esnr_ist` dentro de la lista de estaciones de PT (hoy 2821–2840, 3201–3315 y 3501–3509). **La lista va en configuración** (`IntegracionesAw:PiezasPt:EstacionesPt`), no fija en código: si TI da de alta estaciones, se cambia sin desplegar (lo pide Jorge).
+
+| Dato | Origen (consulta de referencia de Jorge, anexo del 27-oct) |
 |---|---|
-| `evento_id` varchar(100) PK | Id del evento de A+W. Si A+W no tiene uno, TI lo arma como `pedido|posición|pieza|tipo_evento` (S5). **Llave de idempotencia.** |
-| `tipo_evento` | `ALTA_PT` (una pieza) o `ALTA_PT_PEDIDO` (taller de sucursal, **SUPUESTO** S8). Otros tipos se agregan en PT5.8 o PT-04 |
-| `numero_pedido`, `numero_posicion`, `numero_pieza` | identidad de la pieza; `numero_pieza` ≥ 1. En `ALTA_PT_PEDIDO`, `numero_pieza` va nulo y `numero_posicion` es opcional (nulo = todas las posiciones) |
-| `cantidad_piezas` | solo `ALTA_PT_PEDIDO`: cuántas piezas da de alta el aviso; nulo = todas las faltantes |
-| `codigo_barras` | opcional, para cotejo físico |
-| `sucursal_clave_aw` | sede donde se escaneó |
-| `estatus_aw` | 69 |
-| `escaneado_at`, `usuario_aw`, `creada_at` | hora y usuario del escaneo |
-| `erp_resultado`, `erp_motivo`, `erp_procesada_at` | acuse del ERP (molde `aw_otr_envio`) |
+| etiqueta | `awbar_bearbeit.etikettnr` (identifica al vidrio; puede reaparecer en una reposición, D6) |
+| pedido | `awbar_bearbeit.auftnr` |
+| posición | `pool_pos.ae_intpos` (posición como se ve en A+W Business); amarre por `auftnr + pos + u_pos` |
+| número de pieza | `awbar_bearbeit.teile_nr` |
+| registrado_at | `awbar_bearbeit.bearb_zeit` |
+| área | `pool_bearbeit.text1` |
+| piezas esperadas | `pool_pos.menge` (E08-3: la cantidad de la posición es el número de piezas) |
+| sucursal | **no está en `alcimdb`**: sale de MILMAIN `OR_AVBEREICH` del pedido (E08-4), resuelta con `ISucursalPorClaveAwResolver` |
 
-Índice de pendientes `WHERE erp_resultado IS NULL OR erp_resultado = 'Error'`, igual que `ix_aw_otr_pendiente`.
+Lo que **no** viene: el estatus 69 (es del pedido) y el usuario.
 
 **Flujo (lote, no CDC):**
 
 ```mermaid
 flowchart LR
-  AW[(aw_pieza_escaneo<br/>Demo PG o Real SQL)] -->|lote cada 30 s, 200 filas| W[PiezasPtEntradaWorker<br/>Integraciones.Aw]
-  W -->|candado por empresa| R{¿sucursal_clave_aw<br/>resuelve?}
+  AW[(awbar_bearbeit<br/>Demo PG o Real AWPRODUCTION)] -->|lote cada 30 s por bearb_zeit| W[PiezasPtEntradaWorker<br/>Integraciones.Aw]
+  W -->|candado por empresa| R{¿sucursal del pedido<br/>OR_AVBEREICH resuelve?}
   R -->|no| EX[Excepcion PT_SUCURSAL_SIN_CLAVE_AW]
   R -->|sí| C[RegistrarEscaneoPieza<br/>ProductoTerminado]
-  C --> K{¿evento ya registrado?}
+  C --> K{¿mismo etiqueta + bearb_zeit?}
   K -->|sí| RES[devuelve resultado previo]
   K -->|no| P{¿pedido en Facturación?}
   P -->|no| POS[Pospuesto PT_PEDIDO_INEXISTENTE<br/>reintento; a 24 h Excepcion]
   P -->|sí| V{¿posición y número válidos?}
   V -->|no| EX2[Excepcion PT_POSICION_INEXISTENTE<br/>o PT_PIEZA_EXCEDE_POSICION]
-  V -->|sí| D{¿pieza ya en PT?}
-  D -->|sí| DUP[Duplicado, sin efecto]
+  V -->|sí| D{¿etiqueta ya en PT?}
+  D -->|sí| REP[Reposicion a bandeja,<br/>sin segunda pieza]
   D -->|no| OK[Pieza EnPT + Alta + outbox<br/>misma transacción]
-  OK --> ACK[acuse erp_resultado]
-  POS --> ACK
-  EX --> ACK
-  EX2 --> ACK
-  DUP --> ACK
 ```
 
-- **Canal:** `PiezasPtOrigenSelector` en `backend/src/Integraciones.Aw/Infrastructure/PiezasPt/` (nuevo), copia de `OtrOrigenSelector` (`backend/src/Integraciones.Aw/Infrastructure/Exportacion/DependencyInjection.cs:37`): claves `Demo`/`Real` según `AwOrigenSesion`.
-- **Configuración:** sección `IntegracionesAw:PiezasPt` (`EntradaHabilitada=false`, `EmpresaId`, `IntervalSeconds=30`, `BatchSize=200`, `MaxIntentos=5`, `PospuestoHoras=24`, `ContratoI134Firmado=false`). Real solo se registra con contrato firmado y cadena `AwIntegracionDb`. Demo nunca en Production.
-- **Quién reintenta:** la fila del puente se acusa con el resultado del primer intento. Los `Pospuesto` se reintentan desde `producto_terminado.escaneos`, no volviendo a leer SQL Server, para no cargar SER-DATA.
-- **Bandeja:** una persona con permiso puede `Reintentar` o `Descartar` con motivo (molde `DescartarReppPendienteCommand(Id, Motivo)` en `backend/src/Facturacion/Application/Repp/Pendientes/ReppPendienteCommands.cs:15`). Ninguna acción crea pieza fuera del comando.
-- **Identidad incompleta:** un evento `ALTA_PT` sin `numero_pieza` o de un pedido `Cancelado` va a `Excepcion`. No creamos existencia anónima (plano §6).
-- **Alta por pedido (taller de sucursal, SUPUESTO S8).** El taller marca 69 por pedido (vidrio al corte, hojas de call center), no por pieza. Un aviso `ALTA_PT_PEDIDO` da de alta las N piezas del pedido, o de la posición si viene:
-  - Asigna los números faltantes más bajos de cada posición (1..`piezas_esperadas` sin fila en `piezas`), en orden de posición.
-  - Cada pieza queda con identidad completa (pedido + posición + número), su `Alta` y su `pieza.ingresada.v1`. No hay existencia anónima.
-  - Si `cantidad_piezas` supera las faltantes, da de alta las faltantes y el resto queda como `Excepcion PT_PIEZA_EXCEDE_POSICION`.
-  - La idempotencia sigue por `evento_id`: repetir el aviso devuelve el resultado previo.
-  - Cómo llega ese aviso desde A+W se le pregunta a Jorge (Q4). Mientras contesta se construye con este formato.
+- **Lectura incremental:** marca de agua por `bearb_zeit` con una ventana de traslape (**SUPUESTO** S7: 10 min) para no perder renglones que A+W escriba con hora atrasada; el traslape no duplica gracias a D6.
+- **Canal:** `PiezasPtOrigenSelector` en `backend/src/Integraciones.Aw/Infrastructure/PiezasPt/` (nuevo), copia de `OtrOrigenSelector` (`backend/src/Integraciones.Aw/Infrastructure/Exportacion/DependencyInjection.cs:37`): claves `Demo`/`Real` según `AwOrigenSesion`. Demo: tablas `awbar_bearbeit`, `pool_bearbeit` y `pool_pos` mínimas en `tools/aw-origen-demo/schema.sql` y datos en `tools/aw-origen-demo/piezas.sql` (nuevo), con los mismos nombres de columna que la consulta de Jorge.
+- **Real:** cadena propia `AwProduccionDb` (otra instancia, no `AwIntegracionDb`) y usuario de solo lectura sobre esas tablas. **Pendiente de Jorge y Eliam** (A+W-QA-7): la conexión híbrida actual llega a AWBUSINESS y no ve `alcimdb`. El adaptador Real se deja escrito y probado contra el sandbox, pero solo se registra con `ContratoI134Firmado` y la cadena configurada.
+- **Configuración:** sección `IntegracionesAw:PiezasPt` (`EntradaHabilitada=false`, `EmpresaId`, `IntervalSeconds=30`, `BatchSize=200`, `MaxIntentos=5`, `PospuestoHoras=24`, `TraslapeMinutos=10`, `EstacionesPt`, `ContratoI134Firmado=false`). Demo nunca en Production.
+- **Quién reintenta:** los `Pospuesto` se reintentan desde `producto_terminado.escaneos`, no volviendo a leer SQL Server, para no cargar AWPRODUCTION. A A+W no se le escribe ningún acuse.
+- **Bandeja:** una persona con permiso puede `Reintentar` o `Descartar` con motivo (molde `DescartarReppPendienteCommand(Id, Motivo)` en `backend/src/Facturacion/Application/Repp/Pendientes/ReppPendienteCommands.cs:15`). Las `Reposicion` solo se marcan como revisadas hasta que PT5.8 dé la baja por rotura. Ninguna acción crea pieza fuera del comando.
+- **Identidad incompleta:** un renglón sin `teile_nr` o de un pedido `Cancelado` va a `Excepcion`. No creamos existencia anónima (plano §6).
+- **Taller de sucursal (Rev. 3, P-057 respondida):** en las sucursales no se escanea por pieza; el pedido completo sube a 69 cuando está listo para surtir. **PT-01 no construye `ALTA_PT_PEDIDO`** (se retira S8). Esos pedidos se ven por su estatus de A+W, que es asunto de PT-02.
 - **Fuera de orden:** se conserva y nunca retrocede una pieza ya avanzada (plano §12).
-- **Capacidad:** 200 filas cada 30 s son 24,000 por hora, muy por encima del pico de 2,500 al día.
+- **Capacidad:** 200 renglones cada 30 s son 24,000 por hora, muy por encima del pico de 2,500 al día.
 
 ## 6. 69 → 70: contrato y eventos
+
+> **Rev. 3 · por revisar con Eliam antes de PT-02:** Jorge aclara que el 69 lo pone A+W cuando el pedido está completo. `Retenido` aquí es el estado interno del ERP y **no** debe presentarse como el 69 de A+W. Falta decidir si PT-02 retiene con la primera pieza (como dice abajo) o cuando A+W reporta el 69 del pedido. PT-01 no depende de esto.
 
 **Regla (PT-02).** El pedido entra a `Retenido` (69) con su primera pieza en PT. Pasa a `Liberado` (70) **por dinero, sin exigir pedido completo** (E6), cuando se cumple una de estas condiciones. PT registra la liberación directo, con su motivo (Q3):
 
@@ -217,7 +212,7 @@ Plano 1.7.1 §11: «sin acuse no afirmar liberado en A+W». El estado `Liberado`
 | 3 | Agregar `ProductoTerminadoDbContext` al bucle de migraciones con su `case`. `ComercioExteriorDbContext` y `ActivosFijosDbContext`, que hoy faltan en el bucle aunque el health check los revisa, van en un PR aparte a develop, no dentro de PT. | `.github/workflows/deploy-app-dev.yml:212` |
 | 4 | Permisos y asignación al rol | `PermisosCanonicos.cs` y semilla de roles |
 | 5 | Puerto de pedido y su adaptador en Facturación | §2 D2 |
-| 6 | Puente: scripts SQL sin ejecutar, tabla y `piezas.sql` en el origen demo, guía de prueba | §5; `docs/operacion/aw-canal-demo-pruebas.md` |
+| 6 | (Rev. 3) Tablas mínimas `awbar_bearbeit`, `pool_bearbeit` y `pool_pos` y `piezas.sql` en el origen demo; guía de prueba. Sin scripts para TI. | §5; `docs/operacion/aw-canal-demo-pruebas.md` |
 | 7 | Worker, selector y opciones `IntegracionesAw:PiezasPt` | `backend/src/Integraciones.Aw/Infrastructure/PiezasPt/` (nuevo) |
 | 8 | Bandeja (API y pantalla mínima: piezas por pedido y sucursal, excepciones) | `backend/src/Api/Endpoints/ProductoTerminado/`, `frontend/src/features/producto-terminado/` (nuevos) |
 | 9 (PT-02) | Columnas de liberación, `ISaldoPedidoReadPort` con adaptador provisional (Real) y de saldo de prueba (Demo, tabla `saldos_demo`), consumo del evento de CxC, handler de CxC que pide la decisión al retener, barrido de retenidos | §6 |
@@ -226,7 +221,7 @@ Plano 1.7.1 §11: «sin acuse no afirmar liberado en A+W». El estado `Liberado`
 
 | Pieza | Ticket | NoOp en uso | Cómo se conecta |
 |---|---|---|---|
-| Canal real del puente | A+W-QA-7 / I13.4 | `ContratoI134Firmado=false`; solo Demo | Jorge ejecuta los scripts 10 y 11 y se firma el contrato |
+| Canal real (AWPRODUCTION) | A+W-QA-7 / I13.4 | `ContratoI134Firmado=false`; solo Demo | Conexión a `192.168.1.8\AWPRODUCTION` (puerto fijo y conexión híbrida propia), usuario de solo lectura sobre `alcimdb` y cadena `AwProduccionDb` |
 | Saldo por pedido | Facturación (Uziel) | Real: `SaldoPedidoProvisionalAdapter` «no cubierto». Demo: `SaldoPedidoDemoAdapter` con saldo de prueba | `PLATFORM-TODO(<SaldoPorPedidoFacturacion>)` |
 | Evento de cambio de saldo | Facturación (Uziel) | barrido de retenidos cada 15 min | se cambia el barrido por la suscripción |
 | Topic `producto-terminado-events` | infra | entrega local C1.8 | `infra/modules/servicebus.bicep` |
@@ -237,11 +232,11 @@ Plano 1.7.1 §11: «sin acuse no afirmar liberado en A+W». El estado `Liberado`
 **Unitarias** (`backend/tests/ProductoTerminado.UnitTests/`, nuevo):
 
 - Alta única por `(pedido, posición, pieza)`.
-- Mismo evento dos veces devuelve el resultado previo.
-- Evento distinto para la misma pieza da `Duplicado`.
+- Mismo renglón (`etiqueta`, `registrado_at`) dos veces devuelve el resultado previo.
+- Renglón nuevo de una etiqueta ya en PT da `Reposicion`: sin segunda pieza y sin pasar de las esperadas.
 - `numero_pieza` mayor que `piezas_esperadas` da excepción.
 - Indicadores de §4 con datos parciales.
-- Alta por pedido (`ALTA_PT_PEDIDO`): asigna los números faltantes más bajos; un aviso repetido no duplica; un exceso va a excepción.
+- Solo cuentan renglones con `fertig = 1` y estación dentro de `EstacionesPt` configurada.
 - Regla 69→70 (PT-02):
   - un parcial con saldo ≤ 0 libera (`SaldoCubierto`);
   - REPARTO libera incompleto y sin pago;
@@ -263,18 +258,19 @@ Plano 1.7.1 §11: «sin acuse no afirmar liberado en A+W». El estado `Liberado`
 | CA5.14 (parcial) | 2,500 eventos con 10 % repetidos → 2,250 piezas, cero pérdidas; se reporta el tiempo |
 | Plano caso 1 | 8 de 10 → 8 en PT, backorder 2, reenvío sin efecto |
 | PT5.2 (PT-02, Demo) | 8 de 10 en PT, pedido `Retenido`; saldo de prueba en 0 → `Liberado` con motivo `SaldoCubierto` y evento `pedido.estado-cambiado.v1` |
-| Taller (PT-01, S8) | aviso `ALTA_PT_PEDIDO` de un pedido de 3 piezas → 3 piezas 1..3 en PT, sin excepción |
+| Reposición (Rev. 3) | pieza 3 en PT; llega otro renglón de su etiqueta con hora nueva → `Reposicion` en bandeja, sigue 1 pieza y el avance no cambia |
+| Estaciones (Rev. 3) | renglón con `esnr_ist` fuera de la lista configurada o `fertig = 0` → se ignora |
 
 ## 11. Supuestos a validar
 
 1. **S1** `Cantidad` de la línea de A+W es el número de piezas (`PP_MENGE`). Una cantidad no entera hace que la posición no genere piezas y se reporte.
 2. **S2** Fletes y servicios no generan pieza (P-057). Se identifican por clave de unidad SAT de servicio (`E48`) en la línea.
-3. **S3** La pieza entra a la sucursal donde se escaneó. La sucursal de entrega es la del pedido hasta que Jorge indique el campo real. Una diferencia entre las dos se resuelve con traspaso (PT-04).
-4. **S4** Columnas de `aw_pieza_escaneo` según §5, hasta tener el formato real (P-006).
-5. **S5** Si A+W no da un id de evento, TI lo arma con pedido, posición, pieza y tipo.
+3. **S3 (Rev. 3)** La sucursal sale de MILMAIN `OR_AVBEREICH` del pedido (Jorge, E08-4); `alcimdb` no la trae. Una diferencia con la sede física se resuelve con traspaso (PT-04).
+4. **S4 (Rev. 3, respondida)** Columnas de `awbar_bearbeit`, `pool_bearbeit` y `pool_pos` según la consulta de referencia de Jorge (§5).
+5. **S5 (Rev. 3)** Llave de idempotencia = (`etikettnr`, `bearb_zeit`). Falta saber cómo se ve en `awbar_bearbeit` una pieza que se rompe después de terminada (se borra el renglón, cambia `fertig` o hay otro registro): P-PT3 a Jorge.
 6. **S6** `Pospuesto` reintenta durante 24 h y luego pasa a `Excepcion`.
-7. **S7** Frecuencia de lectura: 30 s con lotes de 200 (mismo ritmo que pedidos, P-005). Va en la lista de A+W-QA-8.
-8. **S8** El taller de sucursal que marca 69 por pedido y no por pieza (P-057) manda un aviso `ALTA_PT_PEDIDO` al mismo puente, con pedido, posición opcional y cantidad. El ERP le asigna los números de pieza (§5). Se construye así mientras Jorge confirma cómo llega (Q4).
+7. **S7** Frecuencia de lectura: 30 s con lotes de 200 y traslape de 10 min en la marca de agua (mismo ritmo que pedidos, P-005). Va en la lista de A+W-QA-8.
+8. **S8 (Rev. 3, retirada)** Las sucursales no escanean por pieza; el pedido completo sube a 69 (Jorge, P-057). PT-01 no construye alta por pedido.
 9. **S9** En Real, el adaptador provisional de saldo nunca libera. En Demo, el saldo de prueba arranca en el total del pedido y solo cambia por el endpoint de Demo.
 10. **S10** `PedidoRef` del evento de CxC es el número de pedido de A+W.
 11. **S11** Medidas y m² de la pieza no entran en PT-01; se leen por puerto cuando las necesiten PT5.5 y PT5.12.
@@ -297,8 +293,10 @@ Pendientes para Jorge (no frenan PT-01):
 
 | # | Pregunta | ¿Bloquea? |
 |---|---|---|
-| Q1 | ¿Qué campo de A+W dice la sede que entrega cuando es distinta de la sede de venta (venta intersucursal)? Mientras tanto, S3. | PT-04 |
-| Q4 | El taller de sucursal marca 69 por pedido (vidrio al corte, hojas de call center): ¿cómo llega ese aviso desde A+W? ¿Trae pedido y posición? ¿Trae cuántas piezas o da todo el pedido por terminado? Mientras tanto, S8. | Canal real del taller |
+| Q1 | ¿Qué campo de A+W dice la sede que entrega cuando es distinta de la sede de venta (venta intersucursal)? **Respondida (Rev. 3): MILMAIN `OR_AVBEREICH`.** | — |
+| Q4 | El taller de sucursal marca 69 por pedido: ¿cómo llega? **Respondida (Rev. 3): no hay escaneo por pieza; todo el pedido sube a 69.** | — |
+| P-PT3 | ¿Cómo se ve en `awbar_bearbeit` una pieza rota después de terminada? | Baja por rotura (PT5.8) |
+| P-PT4 | Puerto fijo de AWPRODUCTION y usuario de solo lectura sobre `alcimdb`. | Canal real |
 
 ---
 Rev. 1 · 26-oct-2026 · Primera versión sobre el borrador del 24-oct, la ficha PT-01 del 26-oct y el plano 1.7.1.
@@ -309,3 +307,10 @@ Rev. 2 · 27-oct-2026 · Aprobado por Eliam con ajustes:
 - alta por pedido del taller (S8, Q4);
 - nombre del evento confirmado;
 - migraciones de CE y AF en un PR aparte.
+
+Rev. 3 · 27-oct-2026 · Respuestas de Jorge del 27-oct (autorizado por Geovany, pendiente de revisión de Eliam):
+- el 69 es del pedido y lo pone A+W; el ERP solo lleva el avance (E1);
+- sin tabla puente: se lee `alcimdb.awbar_bearbeit` en AWPRODUCTION, con lista de estaciones configurable (§5);
+- idempotencia por (`etikettnr`, `bearb_zeit`) y `Reposicion` en lugar de descartar (D6);
+- sucursal desde `OR_AVBEREICH`; sin alta por pedido del taller (S3, S8, Q1, Q4);
+- nota abierta sobre cuándo retiene PT-02 (§6).
