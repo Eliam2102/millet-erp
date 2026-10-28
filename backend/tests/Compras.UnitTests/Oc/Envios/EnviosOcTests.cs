@@ -5,7 +5,8 @@ using Microsoft.Extensions.Logging;
 using Millet.Compras.Application.Oc.Envios;
 using Millet.Compras.Domain;
 using Millet.Compras.Domain.Oc;
-using Millet.Compras.Domain.Ports.Blob;
+using Millet.Compras.Application.Oc.Pdf;
+using Millet.Compras.Domain.Ports.Pdf;
 using Millet.Compras.Domain.Ports.DatosMaestros;
 using Millet.Compras.Infrastructure;
 using Millet.SharedKernel.Application;
@@ -30,6 +31,7 @@ public sealed class EnviosOcTests
         Assert.Equal(f.Reloj.UtcNow, envio.Fecha);
         Assert.Equal(f.Pdf.Id, envio.PdfId);
         Assert.Equal(new byte[] { 37, 80, 68, 70 }, f.Correo.Ultimo!.Pdf);
+        Assert.Equal("ORIGINAL", f.Impresion.MarcaUsada);
         Assert.Equal(estados, (f.Oc.Estado, f.Oc.SubEstadoRecepcion, f.Oc.SubEstadoFacturacion, f.Oc.SubEstadoPago));
         Assert.Single(await f.Db.EnviosOc.ToListAsync());
         Assert.Equal(new RegistrarImpresionOcCommand(f.Oc.Id, f.Pdf.Id), Assert.Single(f.Sender.Impresiones));
@@ -203,6 +205,7 @@ public sealed class EnviosOcTests
         public Reloj Reloj { get; } = new();
         public Proveedores Proveedores { get; } = new();
         public Correo Correo { get; } = new();
+        public Impresion Impresion { get; } = new();
         public LoggerCaptura Logger { get; } = new();
         public Sender Sender { get; } = new();
         public Fixture(int firmas = 2, bool requiereNivel2 = true)
@@ -227,7 +230,7 @@ public sealed class EnviosOcTests
             Db.SaveChanges();
         }
         public Task<EnvioOc> Enviar(string? email = null, string modo = "correo") =>
-            new RegistrarEnvioOcHandler(Db, Usuario, Reloj, Proveedores, new Blob(), Correo, Sender, Logger)
+            new RegistrarEnvioOcHandler(Db, Usuario, Reloj, Proveedores, Impresion, Correo, Sender, Logger)
                 .Handle(new RegistrarEnvioOcCommand(Oc.Id, email, modo), default);
         public void Dispose() => Db.Dispose();
     }
@@ -288,10 +291,14 @@ public sealed class EnviosOcTests
             if (logLevel == LogLevel.Warning) Mensajes.Add(formatter(state, exception));
         }
     }
-    private sealed class Blob : IAlmacenarBlobPort
+    private sealed class Impresion : ImpresionOrdenCompraService
     {
-        public Task<Stream> ObtenerStreamAsync(string url, CancellationToken ct) => Task.FromResult<Stream>(new MemoryStream([37, 80, 68, 70]));
-        public Task<string> SubirAsync(Guid id, Stream contenido, string tipo, string nombre, CancellationToken ct) => throw new NotSupportedException();
-        public Task EliminarAsync(string url, CancellationToken ct) => throw new NotSupportedException();
+        public Impresion() : base(null!, null!, null!, null!, null!, null!, null!, null!, null!) { }
+        public string? MarcaUsada { get; private set; }
+        public override Task<PdfOrdenCompraGenerado> RenderizarAsync(Guid ordenCompraId, string? marca, CancellationToken ct)
+        {
+            MarcaUsada = marca;
+            return Task.FromResult(new PdfOrdenCompraGenerado([37, 80, 68, 70], "application/pdf", "OC-MID2026-000001.pdf"));
+        }
     }
 }
