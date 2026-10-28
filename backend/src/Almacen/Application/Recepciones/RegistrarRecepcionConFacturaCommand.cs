@@ -247,9 +247,9 @@ public sealed class RegistrarRecepcionConFacturaHandler
             // C7.2b: bin real obligatorio + asignación activa + no ÚNICA. Sin
             // sub de cabecera: el guard DERIVA el sub del bin y lo retorna.
             if (input.UbicacionId is null || input.UbicacionId == Guid.Empty)
-                throw new BusinessRuleException("RECEPCION_UBICACION_REQUERIDA", "La línea de inventario requiere ubicación (rack).");
+                throw new BusinessRuleException("RECEPCION_UBICACION_REQUERIDA", "La línea de inventario requiere ubicación (rack o almacén general).");
             var subLinea = await UbicacionEntradaGuard.ValidarEntradaYDerivarSubAsync(
-                _db, input.UbicacionId!.Value, input.ArticuloId, cancellationToken);
+                _db, input.UbicacionId!.Value, input.ArticuloId, cancellationToken, esVidrio: variantes[idx] is not null);
             subsDerivados.Add(subLinea);
 
             var origen = lineasOc[input.LineaOcId!.Value];

@@ -16,7 +16,8 @@ namespace Millet.Almacen.Application.Catalogo;
 ///   <item>Pertenece al sub-almacén del movimiento —solo si se pasa uno
 ///   (dev-interna)— (<c>UBICACION_NO_PERTENECE_AL_SUBALMACEN</c>). Recepción no
 ///   lo pasa: deriva el sub del bin y valida el invariante entre líneas.</item>
-///   <item>No es la ÚNICA/default — las entradas exigen ubicación real
+///   <item>Si es la ÚNICA/default ("almacén general") solo admite lo que no es
+///   vidrio y entonces no exige asignación; el vidrio exige rack
 ///   (<c>ENTRADA_A_UBICACION_UNICA</c>).</item>
 ///   <item>El artículo está asignado y activo a esa ubicación
 ///   (<c>ENTRADA_SIN_ASIGNACION</c>), molde de
@@ -44,7 +45,8 @@ public static class UbicacionEntradaGuard
         Guid ubicacionId,
         Guid articuloId,
         CancellationToken ct,
-        Guid? subEsperado = null)
+        Guid? subEsperado = null,
+        bool esVidrio = true)
     {
         var ubicacion = await db.Ubicaciones.AsNoTracking()
             .Where(u => u.Id == ubicacionId)
@@ -64,9 +66,13 @@ public static class UbicacionEntradaGuard
                 "La ubicación elegida no pertenece al sub-almacén del movimiento.");
 
         if (ubicacion.EsDefault)
-            throw new BusinessRuleException(
-                "ENTRADA_A_UBICACION_UNICA",
-                "Las entradas exigen una ubicación real; la ÚNICA solo se drena por salidas.");
+        {
+            if (esVidrio)
+                throw new BusinessRuleException(
+                    "ENTRADA_A_UBICACION_UNICA",
+                    "El vidrio entra a un rack; el almacén general es para lo que no es vidrio.");
+            return ubicacion.SubAlmacenId; // no-vidrio al almacén general: sin asignación
+        }
 
         var tieneAsignacion = await db.AsignacionesArticuloUbicacion.AsNoTracking()
             .AnyAsync(
@@ -92,6 +98,7 @@ public static class UbicacionEntradaGuard
         Guid ubicacionId,
         Guid subAlmacenId,
         Guid articuloId,
-        CancellationToken ct)
-        => ValidarEntradaYDerivarSubAsync(db, ubicacionId, articuloId, ct, subEsperado: subAlmacenId);
+        CancellationToken ct,
+        bool esVidrio = true)
+        => ValidarEntradaYDerivarSubAsync(db, ubicacionId, articuloId, ct, subEsperado: subAlmacenId, esVidrio: esVidrio);
 }

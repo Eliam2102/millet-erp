@@ -141,6 +141,42 @@ public class UbicacionEntradaGuardTests
             .Which.Code.Should().Be("ENTRADA_A_UBICACION_UNICA");
     }
 
+    [Fact]
+    public async Task Guard_no_vidrio_a_la_unica_pasa_sin_asignacion_y_deriva_el_sub()
+    {
+        var (db, subId, _, unicaId, articuloId) = DbConRack();
+        await using var _ = db;
+
+        var sub = await UbicacionEntradaGuard.ValidarEntradaYDerivarSubAsync(
+            db, unicaId, articuloId, CancellationToken.None, esVidrio: false);
+        sub.Should().Be(subId);
+    }
+
+    [Fact]
+    public async Task Guard_vidrio_a_la_unica_es_rechazado()
+    {
+        var (db, subId, _, unicaId, articuloId) = DbConRack();
+        await using var _ = db;
+
+        var act = () => UbicacionEntradaGuard.ValidarUbicacionEntradaAsync(
+            db, unicaId, subId, articuloId, CancellationToken.None, esVidrio: true);
+        (await act.Should().ThrowAsync<BusinessRuleException>())
+            .Which.Code.Should().Be("ENTRADA_A_UBICACION_UNICA");
+    }
+
+    [Fact]
+    public async Task Guard_no_vidrio_a_rack_real_sin_asignacion_sigue_rechazado()
+    {
+        var (db, subId, rackId, _, articuloId) = DbConRack();
+        await using var _ = db;
+
+        var act = () => UbicacionEntradaGuard.ValidarUbicacionEntradaAsync(
+            db, rackId, subId, articuloId, CancellationToken.None, esVidrio: false);
+        (await act.Should().ThrowAsync<BusinessRuleException>())
+            .Which.Code.Should().Be("ENTRADA_SIN_ASIGNACION");
+    }
+
+
     // ─── ASIGNACION_A_UNICA (handler de asignar) ─────────────────────────────
 
     [Fact]
