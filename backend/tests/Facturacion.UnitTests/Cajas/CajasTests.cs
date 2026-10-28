@@ -227,10 +227,10 @@ public sealed class CajasTests
         await sinPermiso.Should().ThrowAsync<ForbiddenException>();
 
         var detalle = await new CajaDetalleHandler(db, new FakeCanalesVentaReadPort(
-                nombres: new Dictionary<short, string> { [1] = "Tienda Cancún", [4] = "CC MID" }))
+                nombres: new Dictionary<short, string> { [1] = "Sucursal Cancún", [4] = "CC MID" }))
             .Handle(new CajaDetalleQuery(creada.Id), CancellationToken.None);
 
-        detalle.Canales.Select(c => c.Nombre).Should().BeEquivalentTo(["Tienda Cancún", "CC MID"]);
+        detalle.Canales.Select(c => c.Nombre).Should().BeEquivalentTo(["Sucursal Cancún", "CC MID"]);
         detalle.Version.Should().Be(
             (await db.Cajas.AsNoTracking().SingleAsync(c => c.Id == creada.Id)).Version);
 

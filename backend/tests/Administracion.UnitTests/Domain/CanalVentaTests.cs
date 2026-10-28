@@ -13,7 +13,7 @@ public class CanalVentaTests
 {
     private static CanalVenta Crear(
         short id = 1,
-        string nombre = "Tienda Cancún",
+        string nombre = "Sucursal Cancún",
         EstatusCatalogo estatus = EstatusCatalogo.Activo) =>
         new(id: id, nombre: nombre, estatus: estatus);
 
@@ -57,7 +57,7 @@ public class CanalVentaTests
     [Fact]
     public void Constructor_Should_Trim_ClaveAw()
     {
-        var canal = new CanalVenta(1, "Tienda Cancún", claveAw: " Ventas Cancun ");
+        var canal = new CanalVenta(1, "Sucursal Cancún", claveAw: " Ventas Cancun ");
         canal.ClaveAw.Should().Be("Ventas Cancun");
     }
 
@@ -66,7 +66,7 @@ public class CanalVentaTests
     [InlineData("  ")]
     public void Constructor_Should_Reject_ClaveAw_Whitespace(string claveAw)
     {
-        var act = () => new CanalVenta(1, "Tienda Cancún", claveAw: claveAw);
+        var act = () => new CanalVenta(1, "Sucursal Cancún", claveAw: claveAw);
         act.Should().Throw<BusinessRuleException>()
             .Where(e => e.Code == "CANAL_VENTA_CLAVE_AW_INVALIDA");
     }
@@ -74,7 +74,7 @@ public class CanalVentaTests
     [Fact]
     public void Constructor_Should_Reject_ClaveAw_TooLong()
     {
-        var act = () => new CanalVenta(1, "Tienda Cancún", claveAw: new string('x', 41));
+        var act = () => new CanalVenta(1, "Sucursal Cancún", claveAw: new string('x', 41));
         act.Should().Throw<BusinessRuleException>()
             .Where(e => e.Code == "CANAL_VENTA_CLAVE_AW_INVALIDA");
     }

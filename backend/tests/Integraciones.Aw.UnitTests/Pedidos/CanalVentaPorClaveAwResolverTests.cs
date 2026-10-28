@@ -37,7 +37,7 @@ public class CanalVentaPorClaveAwResolverTests
     public async Task Resuelve_CaseInsensitive_ConTrim(string clave)
     {
         using var db = NewDb();
-        await SembrarAsync(db, new CanalVenta(1, "Tienda Cancún", claveAw: "Ventas Cancun"));
+        await SembrarAsync(db, new CanalVenta(1, "Sucursal Cancún", claveAw: "Ventas Cancun"));
 
         var resultado = await new CanalVentaPorClaveAwResolver(db)
             .ResolverAsync(clave, CancellationToken.None);
@@ -62,7 +62,7 @@ public class CanalVentaPorClaveAwResolverTests
     public async Task ClaveDesconocida_DevuelveNull()
     {
         using var db = NewDb();
-        await SembrarAsync(db, new CanalVenta(1, "Tienda Cancún", claveAw: "Ventas Cancun"));
+        await SembrarAsync(db, new CanalVenta(1, "Sucursal Cancún", claveAw: "Ventas Cancun"));
 
         var resultado = await new CanalVentaPorClaveAwResolver(db)
             .ResolverAsync("GRUPPE Inexistente", CancellationToken.None);
