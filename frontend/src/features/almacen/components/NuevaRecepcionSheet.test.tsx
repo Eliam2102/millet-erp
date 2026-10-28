@@ -19,6 +19,24 @@ vi.mock('@/features/compras/ordenes/api/useOrdenCompra', () => ({
   useOrdenCompra: useOrdenCompraMock,
 }));
 
+// Stubs: eligen OC / ubicación por defecto con un clic y exponen el valor de la cabecera.
+vi.mock('@/features/almacen/components/OrdenCompraRecepcionSelector', () => ({
+  OrdenCompraRecepcionSelector: ({ onChange }: { onChange: (id: string | null) => void }) => (
+    <>
+      <button type="button" onClick={() => onChange('oc-1')}>OC uno</button>
+      <button type="button" onClick={() => onChange('oc-2')}>OC dos</button>
+    </>
+  ),
+}));
+vi.mock('@/components/erp/selectors/UbicacionSelector', () => ({
+  UbicacionSelector: ({ value, onChange }: { value: string | null; onChange: (id: string | null) => void }) => (
+    <>
+      <button type="button" onClick={() => onChange('3f1c2a40-0000-4000-8000-000000000001')}>Elegir ubicación por defecto</button>
+      <output aria-label="ubicación por defecto">{value ?? ''}</output>
+    </>
+  ),
+}));
+
 afterEach(() => {
   vi.restoreAllMocks();
 });
@@ -87,5 +105,18 @@ describe('<NuevaRecepcionSheet> — OC inicial', () => {
       wrapper: createQueryWrapper(),
     });
     expect(useOrdenCompraMock).toHaveBeenCalledWith('oc-123');
+  });
+});
+
+describe('<NuevaRecepcionSheet> — cambio de OC', () => {
+  it('reinicia la ubicación por defecto (sin GUID colgado)', () => {
+    renderSheet();
+    fireEvent.click(screen.getByRole('button', { name: 'OC uno' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Elegir ubicación por defecto' }));
+    expect(screen.getByLabelText('ubicación por defecto').textContent).toMatch(/^3f1c2a40/);
+
+    fireEvent.click(screen.getByRole('button', { name: 'OC dos' }));
+
+    expect(screen.getByLabelText('ubicación por defecto').textContent).toBe('');
   });
 });

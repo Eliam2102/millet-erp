@@ -54,6 +54,8 @@ export interface UbicacionBinSelectorProps {
   accionSinUbicaciones?: ReactNode;
   /** F1-MP-01: en modo saldo, solo los bins con existencia de esa medida de hoja. */
   varianteId?: string | null;
+  /** En modo asignación, lista también el almacén general (esDefault activo) además de los racks asignados: para lo que no es vidrio. */
+  incluirGeneral?: boolean;
 }
 
 interface BinOption {
@@ -83,6 +85,7 @@ export function UbicacionBinSelector({
   requiereSubAlmacen = true,
   accionSinUbicaciones,
   varianteId,
+  incluirGeneral = false,
 }: UbicacionBinSelectorProps) {
   // El prop modula ambos modos: salida-con-RQ y recepción pasan false (sin sub
   // de cabecera, el bin deriva el sub); vale y devolución omiten el prop (true).
@@ -137,9 +140,15 @@ export function UbicacionBinSelector({
     // ubicaciones cargadas (del sub, o todas si requiereSubAlmacen=false) para
     // la etiqueta + ruta.
     const ubicPorId = new Map((ubicacionesQuery.data?.items ?? []).map((u) => [u.id, u]));
-    return (asignacionesQuery.data?.items ?? [])
+    const asignadas = (asignacionesQuery.data?.items ?? [])
       .map((a) => ubicPorId.get(a.ubicacionId))
-      .filter((u): u is NonNullable<typeof u> => u != null)
+      .filter((u): u is NonNullable<typeof u> => u != null);
+    const generales = incluirGeneral
+      ? [...ubicPorId.values()].filter(
+          (u) => u.esDefault && u.estatus === EstatusCatalogo.Activo && !asignadas.includes(u),
+        )
+      : [];
+    return [...asignadas, ...generales]
       .map((u) => ({
         id: u.id,
         clave: u.clave,
@@ -148,7 +157,7 @@ export function UbicacionBinSelector({
         almacenClave: u.almacenClave,
         subAlmacenClave: u.subAlmacenClave,
       }));
-  }, [habilitado, modo, saldosQuery.data, asignacionesQuery.data, ubicacionesQuery.data]);
+  }, [habilitado, modo, incluirGeneral, saldosQuery.data, asignacionesQuery.data, ubicacionesQuery.data]);
 
   const loading =
     modo === 'saldo'
@@ -192,6 +201,7 @@ export function UbicacionBinSelector({
             almacenClave: u.almacenClave,
             subAlmacenClave: u.subAlmacenClave,
             clave: u.clave,
+            esDefault: u.esDefault,
           })} ${u.nombre}`
         }
         renderTrigger={(u) =>
@@ -199,6 +209,7 @@ export function UbicacionBinSelector({
             almacenClave: u.almacenClave,
             subAlmacenClave: u.subAlmacenClave,
             clave: u.clave,
+            esDefault: u.esDefault,
           })
         }
         renderItem={(u) => (
@@ -207,6 +218,7 @@ export function UbicacionBinSelector({
               almacenClave: u.almacenClave,
               subAlmacenClave: u.subAlmacenClave,
               clave: u.clave,
+              esDefault: u.esDefault,
             }}
             nombre={u.nombre}
             adornos={

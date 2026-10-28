@@ -66,9 +66,11 @@ import { AsignarUbicacionEnLinea } from '@/features/almacen/components/AsignarUb
 import { UbicacionSelector } from '@/components/erp/selectors/UbicacionSelector';
 import { useUbicacionesAsignadasPorArticulo } from '@/features/almacen/api/useAsignaciones';
 import { useUbicaciones } from '@/features/almacen/api/useUbicaciones';
+import { EstatusCatalogo } from '@/features/almacen/api/types';
 import {
   construirFilas,
   contarLineasEnOtraUbicacion,
+destinoPorFila,
   detectarConflictoSubAlmacen,
   indicesParaAutoAsignar,
 } from '@/features/almacen/components/nueva-recepcion-helpers';
@@ -249,12 +251,10 @@ function NuevaRecepcionFormBody({
     if (!ubicacionId) return;
     // Solo se rellenan las líneas cuyo artículo tiene asignado ese rack; el
     // resto se avisa sobre la lista de líneas y se elige a mano.
-    const indices = indicesParaAutoAsignar(
-      form.getValues('filas') ?? [],
-      (f) => asignadas.porArticulo.get(f.articuloId)?.has(ubicacionId) ?? false,
-    );
-    for (const index of indices) {
-      form.setValue(`filas.${index}.ubicacionId`, ubicacionId, {
+    const filas = form.getValues('filas') ?? [];
+    const destinos = destinoPorFila(filas, ubicacionId, ubicInfo, asignadas.porArticulo);
+    for (const index of indicesParaAutoAsignar(filas, destinos)) {
+      form.setValue(`filas.${index}.ubicacionId`, destinos[index], {
         shouldDirty: true,
         shouldValidate: true,
       });
@@ -263,6 +263,10 @@ function NuevaRecepcionFormBody({
 
   const lookup = useDecimalesUnidad();
   const ubicacionesQuery = useUbicaciones({ limit: 500 });
+  const ubicInfo = useMemo(
+    () => new Map((ubicacionesQuery.data?.items ?? []).map((u) => [u.id, u])),
+    [ubicacionesQuery.data],
+  );
 
   // Vínculo fiscal (variante A): el picker de CFDIs se acota al RFC del
   // proveedor de la OC. La query de OC se dedupe con la de LineasDesdeOc
@@ -277,13 +281,17 @@ function NuevaRecepcionFormBody({
     [filasWatch],
   );
   const asignadas = useUbicacionesAsignadasPorArticulo(articuloIds);
-  // Racks que el helper puede ofrecer: asignados a algún artículo de la OC.
-  const racksDeLaOc = useMemo(() => {
+  // Opciones del helper: racks asignados a los artículos de vidrio de la OC + almacenes generales.
+  const opcionesHelper = useMemo(() => {
     if (!asignadas.listo) return undefined;
     const union = new Set<string>();
-    asignadas.porArticulo.forEach((set) => set.forEach((id) => union.add(id)));
+    for (const f of filasWatch ?? [])
+      if (f.medida) asignadas.porArticulo.get(f.articuloId)?.forEach((id) => union.add(id));
+    ubicInfo.forEach((u, id) => {
+      if (u.esDefault && u.estatus === EstatusCatalogo.Activo) union.add(id);
+    });
     return union;
-  }, [asignadas.listo, asignadas.porArticulo]);
+  }, [asignadas.listo, asignadas.porArticulo, filasWatch, ubicInfo]);
   const queryClient = useQueryClient();
   const puedeLeerCfdis = useHasPermission(PermisosCanonicos.CuentasPorPagarCfdisLeer);
   const puedeCargarCfdi = useHasPermission(PermisosCanonicos.CuentasPorPagarCfdisCargarManual);
@@ -299,6 +307,8 @@ function NuevaRecepcionFormBody({
   useEffect(() => {
     if (ocPrevia.current === (ordenCompraId ?? '')) return;
     ocPrevia.current = ordenCompraId ?? '';
+    // La ubicación por defecto es de la OC anterior (si no, la cabecera mostraría un GUID).
+    form.setValue('ubicacionHelperId', null);
     if (variante === 'A') {
       form.setValue('cfdiRecibidoId', null);
     }
@@ -510,7 +520,7 @@ function NuevaRecepcionFormBody({
             <FormCampo span={6}>
               <Field
                 label="Ubicación por defecto (opcional)"
-                hint="Asigna el rack elegido a las partidas sin ubicación. Puedes cambiar el rack de cada partida."
+                hint="El rack se aplica al vidrio; lo demás entra al almacén general del mismo sub-almacén."
                 error={form.formState.errors.ubicacionHelperId?.message}
               >
                 <Controller
@@ -518,7 +528,7 @@ function NuevaRecepcionFormBody({
                   control={form.control}
                   render={({ field }) => (
                     <UbicacionSelector
-                      soloIds={racksDeLaOc}
+                      soloIds={opcionesHelper}
                       value={field.value || null}
                       onChange={(id) => aplicarUbicacionHelper(id)}
                       placeholder="Sin ubicación por defecto"
@@ -842,17 +852,16 @@ function LineasDesdeOc({
 
   // PR4: divergencias vs el helper de cabecera (solo líneas incluidas que ya
   // traían otra ubicación — las vacías las auto-asignó el helper).
-  const lineasEnOtraUbicacion = contarLineasEnOtraUbicacion(filas, ubicacionHelperId);
-  // Líneas sin rack a las que el helper no pudo asignar (artículo sin ese rack).
-  const sinRackDelHelper = ubicacionHelperId
-    ? filas.filter(
-        (f) =>
-          f.incluida &&
-          !f.esActivoFijo &&
-          !f.ubicacionId &&
-          !asignadas.get(f.articuloId)?.has(ubicacionHelperId),
-      ).length
-    : 0;
+  const ubicInfo = new Map((ubicacionesQuery.data?.items ?? []).map((u) => [u.id, u]));
+  const destinos = destinoPorFila(filas, ubicacionHelperId, ubicInfo, asignadas);
+  const lineasEnOtraUbicacion = contarLineasEnOtraUbicacion(filas, destinos);
+  // Vidrio sin rack al que el helper (un rack) no pudo asignar (artículo sin ese rack).
+  const sinRackDelHelper =
+    ubicacionHelperId && !ubicInfo.get(ubicacionHelperId)?.esDefault
+      ? filas.filter(
+          (f, i) => f.incluida && !!f.medida && !f.ubicacionId && destinos[i] == null,
+        ).length
+      : 0;
   // Un movimiento = un sub-almacén (RECEPCION_MULTI_SUBALMACEN), avisado por línea.
   const subPorUbicacion = new Map(
     (ubicacionesQuery.data?.items ?? []).map((u) => [
@@ -917,7 +926,7 @@ function LineasDesdeOc({
               <TableHead>Artículo</TableHead>
               <TableHead className="text-right">Pendiente</TableHead>
               <TableHead className="w-40">Cantidad a recibir</TableHead>
-              <TableHead className="min-w-56">Ubicación (rack)</TableHead>
+              <TableHead className="min-w-56">Ubicación</TableHead>
               <TableHead>
                 <span className="sr-only">Detalles</span>
               </TableHead>
@@ -930,7 +939,7 @@ function LineasDesdeOc({
                 index={index}
                 fila={fila}
                 control={form.control}
-                coincideConHelper={!!ubicacionHelperId && fila.ubicacionId === ubicacionHelperId}
+                coincideConHelper={destinos[index] != null && fila.ubicacionId === destinos[index]}
                 conflictoSub={
                   conflictos.has(index) && subBaseClave
                     ? `Este rack es de otro sub-almacén; la recepción va a ${subBaseClave}.`
@@ -1135,11 +1144,14 @@ function FilaLineaOc({
                   value={field.value ?? null}
                   onChange={(id) => field.onChange(id)}
                   disabled={!incluida}
+                  incluirGeneral={!fila.medida}
                   accionSinUbicaciones={
-                    <AsignarUbicacionEnLinea
-                      articuloId={fila.articuloId}
-                      onAsignada={(ubicacionId) => field.onChange(ubicacionId)}
-                    />
+                    fila.medida ? (
+                      <AsignarUbicacionEnLinea
+                        articuloId={fila.articuloId}
+                        onAsignada={(ubicacionId) => field.onChange(ubicacionId)}
+                      />
+                    ) : undefined
                   }
                 />
               )}

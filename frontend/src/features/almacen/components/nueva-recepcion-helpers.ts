@@ -55,11 +55,45 @@ export function construirFilas(
     .filter((f) => f.pendiente > 0);
 }
 
+/** Datos de ubicación que necesita <c>destinoPorFila</c> (subconjunto de <c>UbicacionListItem</c>). */
+export interface UbicacionDestino {
+  subAlmacenId: string;
+  esDefault: boolean;
+}
+
+/**
+ * Destino que el helper de cabecera propone para cada fila (null = ninguno).
+ * Vidrio (<c>fila.medida</c>) solo admite rack asignado a su artículo; lo demás
+ * entra al almacén general (esDefault) del sub-almacén. Helper = rack: vidrio
+ * recibe el rack (si está asignado), no-vidrio el general de ese sub. Helper =
+ * almacén general: solo no-vidrio. Los activos fijos no llevan ubicación.
+ */
+export function destinoPorFila(
+  filas: readonly FilaRecepcionValues[],
+  helperId: string | null | undefined,
+  ubicaciones: ReadonlyMap<string, UbicacionDestino>,
+  asignadas: ReadonlyMap<string, ReadonlySet<string>>,
+): (string | null)[] {
+  const helper = helperId ? ubicaciones.get(helperId) : undefined;
+  if (!helperId || !helper) return filas.map(() => null);
+  let general: string | null = null;
+  if (helper.esDefault) general = helperId;
+  else
+    for (const [id, u] of ubicaciones)
+      if (u.esDefault && u.subAlmacenId === helper.subAlmacenId) general = id;
+  return filas.map((f) => {
+    if (f.esActivoFijo) return null;
+    if (!f.medida) return general;
+    return !helper.esDefault && asignadas.get(f.articuloId)?.has(helperId) ? helperId : null;
+  });
+}
+
 /**
  * Almacén-por-línea PR4 — helper de cabecera nivel 4.
  *
  * Índices de las filas a las que el helper DEBE auto-asignar el bin: las que
- * aún no tienen ubicación. Las que ya traen una (igual o distinta) se respetan
+ * aún no tienen ubicación y tienen destino propuesto (<c>destinos</c>, ver
+ * <c>destinoPorFila</c>). Las que ya traen una (igual o distinta) se respetan
  * — el almacenista mandó, el helper solo rellena huecos.
  *
  * <para>Devuelve índices (no filas nuevas) para que el caller haga
@@ -68,11 +102,12 @@ export function construirFilas(
  */
 export function indicesParaAutoAsignar(
   filas: readonly FilaRecepcionValues[],
-  /** Si se pasa, solo se rellenan las filas que lo cumplen (artículo asignado al rack). */
-  puedeAsignar?: (fila: FilaRecepcionValues) => boolean,
+  /** Destino propuesto por fila (<c>destinoPorFila</c>); sin él, toda fila vacía se rellena. */
+  destinos?: readonly (string | null)[],
 ): number[] {
   return filas.reduce<number[]>((acc, fila, index) => {
-    if (!fila.esActivoFijo && !fila.ubicacionId && (puedeAsignar?.(fila) ?? true)) acc.push(index);
+    if (!fila.esActivoFijo && !fila.ubicacionId && (destinos ? destinos[index] != null : true))
+      acc.push(index);
     return acc;
   }, []);
 }
@@ -100,17 +135,15 @@ export function detectarConflictoSubAlmacen(
 }
 
 /**
- * Cuántas filas INCLUIDAS van a una ubicación distinta del helper de cabecera.
- * Alimenta el aviso informativo "N líneas van a otra ubicación". Las filas sin
- * ubicación no cuentan (el helper ya las habrá rellenado) y sin helper el
- * conteo es 0 (no hay contra qué divergir).
+ * Cuántas filas INCLUIDAS van a una ubicación distinta de su destino esperado
+ * (<c>destinoPorFila</c>). Alimenta el aviso informativo "N líneas van a otra
+ * ubicación". Sin ubicación o sin destino esperado no cuentan.
  */
 export function contarLineasEnOtraUbicacion(
   filas: readonly FilaRecepcionValues[],
-  ubicacionHelperId: string | null | undefined,
+  destinos: readonly (string | null)[],
 ): number {
-  if (!ubicacionHelperId) return 0;
-  return filas.filter((f) => f.incluida && !!f.ubicacionId && f.ubicacionId !== ubicacionHelperId)
+  return filas.filter((f, i) => f.incluida && !!f.ubicacionId && destinos[i] != null && f.ubicacionId !== destinos[i])
     .length;
 }
 
