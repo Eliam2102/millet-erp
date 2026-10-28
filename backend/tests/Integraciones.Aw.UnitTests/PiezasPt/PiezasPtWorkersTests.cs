@@ -1,3 +1,4 @@
+using Microsoft.Extensions.Configuration;
 using MediatR;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging.Abstractions;
@@ -21,6 +22,37 @@ public sealed class PiezasPtWorkersTests
         var o = Options.Create(new PiezasPtOptions { EntradaHabilitada = habilitada, EmpresaId = conEmpresa ? Guid.NewGuid() : null });
         using var worker = new PiezasPtEntradaWorker(new Prohibido(), o, NullLogger<PiezasPtEntradaWorker>.Instance);
         Assert.Equal(0, await worker.CorrerUnaVezAsync(CancellationToken.None));
+    }
+
+    [Theory]
+    [InlineData(false, false)]
+    [InlineData(true, true)]
+    public async Task M26_apagado_o_sin_empresa_devuelve_0_y_no_llama_al_lector(bool habilitada, bool sinEmpresa)
+    {
+        var h = Armar(["2821"], [Fila(1, 2821, true)]);
+        var o = habilitada
+            ? new PiezasPtOptions { EntradaHabilitada = true, EmpresaId = sinEmpresa ? Guid.Empty : Empresa, EstacionesPt = ["2821"] }
+            : new PiezasPtOptions();
+        using var worker = new PiezasPtEntradaWorker(h.Sp.GetRequiredService<IServiceScopeFactory>(), Options.Create(o),
+            NullLogger<PiezasPtEntradaWorker>.Instance);
+        Assert.Equal(0, await worker.CorrerUnaVezAsync(CancellationToken.None));
+        Assert.Empty(h.Reader.Llamadas);
+        Assert.Empty(h.Comandos);
+    }
+
+    [Fact]
+    public void M26_appsettings_del_api_trae_la_entrada_apagada_y_sin_contrato_firmado()
+    {
+        var dir = AppContext.BaseDirectory;
+        while (dir is not null && !File.Exists(Path.Combine(dir, "backend", "src", "Api", "appsettings.json")))
+            dir = Path.GetDirectoryName(dir);
+        Assert.NotNull(dir);
+        var cfg = new Microsoft.Extensions.Configuration.ConfigurationBuilder()
+            .AddJsonFile(Path.Combine(dir!, "backend", "src", "Api", "appsettings.json"), optional: false).Build();
+        var o = cfg.GetSection("IntegracionesAw:PiezasPt").Get<PiezasPtOptions>();
+        Assert.NotNull(o);
+        Assert.False(o!.EntradaHabilitada);
+        Assert.False(o.ContratoI134Firmado);
     }
 
     [Fact]
