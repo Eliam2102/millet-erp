@@ -212,3 +212,38 @@ CREATE TABLE IF NOT EXISTS dbo.erp_otr_estado (
     aw_motivo varchar(500),
     UNIQUE (otr_envio_id,tipo,version_erp,intento)
 );
+
+-- Flujo PT-01 · escaneos de pieza terminada (alcimdb, A+W Production). El ERP solo LEE estas tablas.
+CREATE TABLE IF NOT EXISTS dbo.awbar_bearbeit (
+    etikettnr varchar(100) NOT NULL,
+    bearb_zeit timestamp NOT NULL,
+    auftnr varchar(50) NOT NULL,
+    pos int NOT NULL,
+    u_pos int NOT NULL DEFAULT 0,
+    teile_nr varchar(50),
+    fertig smallint NOT NULL,
+    esnr_ist int NOT NULL,
+    PRIMARY KEY (etikettnr, bearb_zeit)
+);
+CREATE TABLE IF NOT EXISTS dbo.pool_pos (
+    auftnr varchar(50) NOT NULL,
+    pos int NOT NULL,
+    u_pos int NOT NULL DEFAULT 0,
+    ae_intpos int NOT NULL,
+    menge numeric(18,6) NOT NULL,
+    PRIMARY KEY (auftnr, pos, u_pos)
+);
+CREATE TABLE IF NOT EXISTS dbo.pool_bearbeit (
+    auftnr varchar(50) NOT NULL,
+    pos int NOT NULL,
+    u_pos int NOT NULL DEFAULT 0,
+    esnr int NOT NULL,
+    text1 varchar(200),
+    PRIMARY KEY (auftnr, pos, u_pos, esnr)
+);
+-- Representa OR_AVBEREICH de MILMAIN (clave de sucursal por pedido); solo existe en la demo.
+CREATE TABLE IF NOT EXISTS dbo.or_avbereich (
+    auftnr varchar(50) PRIMARY KEY,
+    avbereich varchar(50) NOT NULL
+);
+CREATE INDEX IF NOT EXISTS ix_awbar_bearbeit_zeit ON dbo.awbar_bearbeit (bearb_zeit, etikettnr);

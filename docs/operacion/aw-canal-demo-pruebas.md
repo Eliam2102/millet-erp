@@ -89,6 +89,25 @@ nuevo costaría ~$15–25 al mes y no hace falta.
 Por API (mismo permiso): `PUT /api/v1/integraciones/aw/origen` con `{"origen":"Demo"|"Real"}`, cabeceras
 `If-Match: "<versión>"` e `Idempotency-Key`.
 
+## Entrada de pieza terminada a Producto Terminado (PT-01)
+
+El origen Demo incluye las tablas de escaneos de pieza terminada (`dbo.awbar_bearbeit`, `dbo.pool_pos`,
+`dbo.pool_bearbeit` y, solo en la demo, `dbo.or_avbereich` como sustituto de `OR_AVBEREICH` de MILMAIN). El ERP
+solo las lee; nunca escribe en ellas.
+
+1. Cargar los escaneos de muestra: `tools/aw-origen-demo/aw-origen-demo.sh piezas` (también corre al final de `up`;
+   repetirlo es inocuo). Incluye el pedido 900101 (CIRCUITO) con piezas, una reposición, una pieza que excede la
+   cantidad, un escaneo sin terminar y uno en estación fuera de lista; el 900199 (no está en Facturación) y el
+   900102 (CANCUN).
+2. Habilitar la entrada con variables de entorno:
+   `IntegracionesAw__PiezasPt__EntradaHabilitada=true`, `IntegracionesAw__PiezasPt__EmpresaId=<guid>` e
+   `IntegracionesAw__OrigenDemo__Permitido=true`.
+3. La lista de estaciones de pieza terminada es configuración, no código: clave
+   `IntegracionesAw:PiezasPt:EstacionesPt` (rangos `"2821-2840"` o números `"2900"`). Con la lista vacía no se
+   admite ningún escaneo; para que la estación 2900 de la muestra entre, agréguela a la lista.
+4. El origen Real requiere `ContratoI134Firmado` y `ConnectionStrings:AwProduccionDb` (A+W-QA-7, no disponible
+   todavía). Mientras tanto solo funciona el origen Demo.
+
 ## Riesgos
 
 - **Los datos maestros de demo se quedan al volver a Real.** Clientes y productos sincronizados desde Demo se

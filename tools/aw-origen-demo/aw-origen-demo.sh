@@ -1,12 +1,13 @@
 #!/bin/bash
 # BD de prueba del origen de demo de A+W (tablas aw_origen.*) en el PostgreSQL de desarrollo.
 # Con PGHOST definido (más PGPORT/PGUSER/PGPASSWORD/PGSSLMODE, por omisión require) usa un PostgreSQL remoto en vez del contenedor.
-# Uso: aw-origen-demo.sh {up|reseed|importar|pedidos|otr|env|psql}
-#  up       crea la BD si no existe y aplica schema.sql + seed.sql + pedidos.sql (idempotente)
+# Uso: aw-origen-demo.sh {up|reseed|importar|pedidos|otr|piezas|env|psql}
+#  up       crea la BD si no existe y aplica schema.sql + seed.sql + pedidos.sql + otr.sql + piezas.sql (idempotente)
 #  reseed   re-aplica seed.sql (deshace los cambios hechos a mano a las tablas)
 #  importar reemplaza clientes y productos por los de una BD de A+W en SQL Server (por defecto AW_DEMO del
 #           sandbox tools/aw-sandbox) y re-siembra los pedidos; después la demo ya no necesita el sandbox
 #  pedidos  re-siembra la cola de pedidos para Facturación (solo contra una BD del ERP nueva)
+#  piezas   carga los escaneos de pieza terminada de muestra (flujo PT-01, idempotente)
 #  env      imprime las variables de entorno que apuntan la API a este origen (eval "$(... env)")
 #  psql     abre psql sobre la BD
 # Cambiar un dato a mano para ver la sincronización (queda en "Datos de origen A+W"; la razón social local no se pisa):
@@ -31,7 +32,8 @@ case "${1:-}" in
     pg -d "$DB" < pedidos.sql
     pg -d "$DB" -v sucursal_clave_aw="${OTR_SUCURSAL_CLAVE_AW:-MID}" \
       -v cliente_numero_aw="${OTR_CLIENTE_NUMERO_AW:-DEMO-CLI-EXP-1}" < otr.sql
-    echo "origen demo listo: BD $DB en $C (62 clientes, 47 productos, 3 pedidos, 2 envíos OTR/3 versiones)" ;;
+    pg -d "$DB" < piezas.sql
+    echo "origen demo listo: BD $DB en $C (62 clientes, 47 productos, 3 pedidos, 2 envíos OTR/3 versiones, 8 escaneos de pieza PT)" ;;
   reseed) pg -d "$DB" < seed.sql ;;
   importar)
     AWDB="${AW_DB:-AW_DEMO}"
@@ -44,6 +46,7 @@ case "${1:-}" in
   otr)
     pg -d "$DB" -v sucursal_clave_aw="${OTR_SUCURSAL_CLAVE_AW:-MID}" \
       -v cliente_numero_aw="${OTR_CLIENTE_NUMERO_AW:-DEMO-CLI-EXP-1}" < otr.sql ;;
+  piezas) pg -d "$DB" < piezas.sql ;;
   env)
     cat <<ENV
 export ConnectionStrings__AwOrigenPgDb='Host=${PGHOST:-localhost};Port=$PORT;Database=$DB;Username=$U;Password=$P'
@@ -51,5 +54,5 @@ export IntegracionesAw__OrigenDemo__Permitido=true
 ENV
     ;;
   psql) shift; [ -n "${PGHOST:-}" ] && exec psql -h "$PGHOST" -p "$PORT" -U "$U" -d "$DB" "$@"; docker exec -i $([ -t 0 ] && echo -t) "$C" psql -U "$U" -d "$DB" "$@" ;;
-  *) sed -n 2,13p "$0"; exit 2 ;;
+  *) sed -n 2,14p "$0"; exit 2 ;;
 esac
