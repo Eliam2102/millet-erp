@@ -1,5 +1,6 @@
 -- DEMO sintético · Pinturas: catálogos publicados por el ERP y pedidos del portal (dialecto Postgres del script
 -- docs/operacion/aw-integracion-scripts/16_create_pinturas.sql). Idempotente: repetir la carga es inocuo.
+-- Sin roles ni GRANT en el demo; permisos reales (portal UPDATE de columnas de orden + reset de erp_resultado/erp_error para reenviar con el mismo folio) en el script 16.
 -- psql -f pinturas.sql
 BEGIN;
 CREATE TABLE IF NOT EXISTS dbo.pinturas_cliente (

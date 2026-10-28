@@ -12,6 +12,9 @@
 --     · Cliente: solo lo que el ERP tiene hoy (sin contacto ni celular).
 --   Pedido que INSERTA Pinturas y el ERP LEE y confirma:
 --     pinturas_pedido (una fila por orden transmitida, línea única; folio_orden único = idempotencia)
+--     · Reenvío tras error: el portal corrige la orden y la reenvía con el MISMO folio = UPDATE de la fila con los datos
+--       corregidos y erp_resultado/erp_error en NULL (vuelve a la cola). El ERP ignora un folio que ya generó un
+--       PedidoFacturable (erp_resultado = 1), así que una orden creada no se puede duplicar.
 --     · Acuse del ERP: erp_resultado (1 creado, 2 error), erp_pedido_id (PedidoFacturable.Id),
 --       erp_error, erp_procesado_at. Pendientes = erp_resultado IS NULL.
 -- Logins: millet_erp_integracion (ya existe, 04_create_login.sql) y millet_pinturas_portal (nuevo).
@@ -78,6 +81,7 @@ CREATE TABLE dbo.pinturas_pedido (
     erp_error nvarchar(500) NULL,
     erp_procesado_at datetime2(3) NULL
 );
+-- Longitudes (folio_orden y claves nvarchar(50)): a confirmar con TI contra Pinturas_NEW.
 -- Cola de pendientes del ERP.
 IF NOT EXISTS (SELECT 1 FROM sys.indexes WHERE object_id = OBJECT_ID(N'dbo.pinturas_pedido') AND name = N'ix_pinturas_pedido_pendiente')
 CREATE INDEX ix_pinturas_pedido_pendiente ON dbo.pinturas_pedido (creado_at, id) WHERE erp_resultado IS NULL;
@@ -107,27 +111,30 @@ IF DATABASE_PRINCIPAL_ID('millet_erp_integracion') IS NULL
 IF DATABASE_PRINCIPAL_ID('millet_pinturas_portal') IS NULL
     CREATE USER millet_pinturas_portal FOR LOGIN millet_pinturas_portal;
 
--- ERP: publica (altas, cambios, bajas lógicas y limpieza) los 4 catálogos.
-GRANT SELECT, INSERT, UPDATE, DELETE ON dbo.pinturas_cliente  TO millet_erp_integracion;
-GRANT SELECT, INSERT, UPDATE, DELETE ON dbo.pinturas_servicio TO millet_erp_integracion;
-GRANT SELECT, INSERT, UPDATE, DELETE ON dbo.pinturas_obra     TO millet_erp_integracion;
-GRANT SELECT, INSERT, UPDATE, DELETE ON dbo.pinturas_empleado TO millet_erp_integracion;
+-- ERP: publica (altas, cambios y bajas lógicas; sin DELETE) los 4 catálogos.
+GRANT SELECT, INSERT, UPDATE ON dbo.pinturas_cliente  TO millet_erp_integracion;
+GRANT SELECT, INSERT, UPDATE ON dbo.pinturas_servicio TO millet_erp_integracion;
+GRANT SELECT, INSERT, UPDATE ON dbo.pinturas_obra     TO millet_erp_integracion;
+GRANT SELECT, INSERT, UPDATE ON dbo.pinturas_empleado TO millet_erp_integracion;
 -- ERP: lee pedidos y solo escribe el acuse.
 GRANT SELECT ON dbo.pinturas_pedido TO millet_erp_integracion;
 GRANT UPDATE (erp_resultado, erp_pedido_id, erp_error, erp_procesado_at) ON dbo.pinturas_pedido TO millet_erp_integracion;
 
--- Portal: solo lee los catálogos; inserta pedidos y lee el acuse. Nunca modifica ni borra pedidos.
+-- Portal: solo lee los catálogos; inserta pedidos, lee el acuse y, para reenviar un pedido con error, corrige
+-- los datos de la orden y deja en NULL erp_resultado y erp_error. erp_pedido_id y erp_procesado_at son solo del ERP.
 GRANT SELECT ON dbo.pinturas_cliente  TO millet_pinturas_portal;
 GRANT SELECT ON dbo.pinturas_servicio TO millet_pinturas_portal;
 GRANT SELECT ON dbo.pinturas_obra     TO millet_pinturas_portal;
 GRANT SELECT ON dbo.pinturas_empleado TO millet_pinturas_portal;
 GRANT SELECT, INSERT ON dbo.pinturas_pedido TO millet_pinturas_portal;
-DENY UPDATE, DELETE ON dbo.pinturas_pedido TO millet_pinturas_portal;
+GRANT UPDATE (cliente_clave, cliente_nombre, obra_clave, obra_nombre, comentarios, servicio_clave, m2, precio_m2, iva_porcentaje,
+             erp_resultado, erp_error) ON dbo.pinturas_pedido TO millet_pinturas_portal;
+DENY DELETE ON dbo.pinturas_pedido TO millet_pinturas_portal;
 COMMIT;
 GO
 
--- Verificación (esperado: 5 tablas; 4 filas de permisos del ERP sobre catálogos y 1 SELECT + UPDATE de 4 columnas en pedido;
--- portal: SELECT en 5, INSERT en pedido, DENY UPDATE y DELETE en pedido; índice filtrado con filtro erp_resultado IS NULL).
+-- Verificación (esperado: 5 tablas; SELECT, INSERT, UPDATE del ERP en catálogos y SELECT + UPDATE de 4 columnas en pedido;
+-- portal: SELECT en 5, INSERT y UPDATE de 11 columnas en pedido, DENY DELETE en pedido; índice filtrado con filtro erp_resultado IS NULL).
 SELECT name FROM sys.tables WHERE name LIKE N'pinturas[_]%' ORDER BY name;
 SELECT pr.name AS principal, OBJECT_NAME(p.major_id) AS objeto, p.permission_name, p.state_desc,
        COL_NAME(p.major_id, p.minor_id) AS columna
