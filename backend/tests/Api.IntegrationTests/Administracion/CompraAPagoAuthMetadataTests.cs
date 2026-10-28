@@ -11,8 +11,8 @@ namespace Millet.Api.IntegrationTests.Administracion;
 /// Cuentas por pagar y Tesorería): ninguna es anónima y todas exigen una política de permiso.
 /// Si una ruta nueva se registra sin <c>RequireAuthorization(permiso)</c>, esta prueba la delata.
 /// </summary>
+[Collection(ApiCompartida.Nombre)]
 public sealed class CompraAPagoAuthMetadataTests
-    : IClassFixture<WebApplicationFactory<Program>>
 {
     private static readonly string[] Prefijos =
     [
